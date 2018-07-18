@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3877048
 Availability:Public
 Title: 리눅스용 크로스 컴파일
 Crumbs:%ROOT%
@@ -16,9 +16,6 @@ related:Programming/Basics/ConfigurationFiles
 topic-image:GettingStarted_Topic.png
 prereq:Platforms/Linux/BeginnerLinuxDeveloper/SettingUpAnUnrealWorkflow
 
-[COMMENT:none]
-- %Globals:BinarySourceSelectVar% -
-[/COMMENT]
 
 [TOC(start:2 end:3)]
 
@@ -73,7 +70,7 @@ Visual Studio for Linux 에서 엔진을 빌드하기도 해야 합니다. 다�
 		클릭하면 원본 이미지를 확인합니다.
 	[/REGION]
 
-1.	`[ROOT]/Linux_CrossCompileToolChain/v8_clang-3.9.0-centos7` 폴더를 열어 압축을 푼 파일을 확인합니다.
+1.	`[ROOT]/Linux_CrossCompileToolChain/v11_clang-5.0.0-centos7` 폴더를 열어 압축을 푼 파일을 확인합니다.
 
 	[REGION:lightbox]
 		[![](LinuxXC_Step4.png)(w:600)](LinuxXC_Step4.png)
@@ -110,7 +107,7 @@ Visual Studio for Linux 에서 엔진을 빌드하기도 해야 합니다. 다�
 		클릭하면 원본 이미지를 확인합니다.
 	[/REGION]
 
-1.	이 시점에서, 새로운 **OutputEnvVars** 텍스트 파일이 `v8_clang-3.9.0-centos7` 폴더 안에 있을 것입니다.
+1.	이 시점에서, 새로운 **OutputEnvVars** 텍스트 파일이 `v11_clang-5.0.0-centos7` 폴더 안에 있을 것입니다.
 
 	[REGION:lightbox]
 		[![](LinuxXC_Step6.png)(w:600)](LinuxXC_Step6.png)
@@ -270,5 +267,5 @@ Visual Studio for Linux 에서 엔진을 빌드하기도 해야 합니다. 다�
 	클릭하면 원본 이미지를 확인합니다.
 [/REGION]
 
- 이제 윈도우 (호스트) 컴퓨터에서 다양한 리눅스 플랫폼용으로 프로젝트를 [컴파일](Programming/Development/CompilingProjects), [빌드](Programming/Development/BuildConfigurations), [패키징](Engine/Basics/Projects/Packaging) 할 준비가 되셨습니다.
+ 이제 윈도우 (호스트) 컴퓨터에서 다양한 리눅스 플랫폼용으로 프로젝트를 [컴파일](Programming/Development/CompilingProjects), [빌드](Programming/Development/BuildConfigurations), [패키징](Engine/Basics/Projects/Packaging) 할 준비가 되셨습니다. 
  

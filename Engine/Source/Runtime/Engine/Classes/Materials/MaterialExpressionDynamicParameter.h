@@ -32,6 +32,10 @@ class UMaterialExpressionDynamicParameter : public UMaterialExpression
 	UPROPERTY(EditAnywhere, Category = MaterialExpressionDynamicParameter)
 	FLinearColor DefaultValue;
 
+	/** The index of the dynamic parameter for use in tools that allow > 1 */
+	UPROPERTY(EditAnywhere, Category = MaterialExpressionDynamicParameter, meta = (UIMin = 0, ClampMin = 0, UIMax = 3, ClampMax = 3))
+	uint32 ParameterIndex;
+
 	//~ Begin UObject Interface
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
@@ -45,11 +49,11 @@ class UMaterialExpressionDynamicParameter : public UMaterialExpression
 #if WITH_EDITOR
 	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex) override;
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
-#endif
 	virtual TArray<FExpressionOutput>& GetOutputs() override;
+	virtual bool MatchesSearchQuery(const TCHAR* SearchQuery) override;
 	virtual int32 GetWidth() const override;
 	virtual int32 GetLabelPadding() override { return 8; }
-	virtual bool MatchesSearchQuery( const TCHAR* SearchQuery ) override;
+#endif
 	//~ End UMaterialExpression Interface
 
 	/**

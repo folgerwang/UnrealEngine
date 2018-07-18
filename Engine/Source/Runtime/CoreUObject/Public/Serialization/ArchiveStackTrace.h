@@ -4,8 +4,12 @@
 
 #include "CoreMinimal.h"
 #include "Serialization/LargeMemoryWriter.h"
+#include "Serialization/LargeMemoryReader.h"
 
 class FUObjectThreadContext;
+class FLinkerLoad;
+struct FObjectImport;
+struct FObjectExport;
 
 /** Structure that holds stats from comparing two packages */
 struct COREUOBJECT_API FArchiveDiffStats
@@ -106,29 +110,23 @@ class COREUOBJECT_API FArchiveStackTrace : public FLargeMemoryWriter
 		/** Full callstack */
 		ANSICHAR* Callstack;
 		/** Full name of the currently serialized object */
-		FString SerializedObject;
+		FString SerializedObjectName;
+		/** The currently serialized property */
+		UProperty* SerializedProp;
 		/** Name of the currently serialized property */
-		FString SerializedProperty;
+		FString SerializedPropertyName;
 
-		FCallstackData()
-			: Callstack(nullptr)
-		{}
-		FCallstackData(ANSICHAR* InCallstack, const TCHAR* InSerializedObject, const TCHAR* InSerializedProperty)
-			: Callstack(InCallstack)
-		{
-			if (InSerializedObject)
-			{
-				SerializedObject = InSerializedObject;
-			}
-			if (InSerializedProperty)
-			{
-				SerializedProperty = InSerializedProperty;
-			}
-		}
+		FCallstackData();
+		FCallstackData(ANSICHAR* InCallstack, UObject* InSerializedObject, UProperty* InSerializedProperty);
 
 		/** Converts the callstack and associated data to human readable string */
-		FString ToString(const TCHAR* CallstackCutoffText, int32 Indent) const;
+		FString ToString(const TCHAR* CallstackCutoffText) const;
 	};
+
+	/** The asset being serialized */
+	UObject* Asset;
+	/** The class of asset being serialized */
+	FName AssetClass;
 
 	/** List of offsets and their respective callstacks */
 	TArray<FCallstactAtOffset> CallstackAtOffsetMap;
@@ -150,8 +148,13 @@ class COREUOBJECT_API FArchiveStackTrace : public FLargeMemoryWriter
 	/** Cached thread context */
 	FUObjectThreadContext& ThreadContext;
 
+#if WITH_EDITOR
+	/** Current debug name stack */
+	TArray<FName> DebugDataStack;
+#endif
+
 	/** Adds a unique callstack to UniqueCallstacks map */
-	ANSICHAR* AddUniqueCallstack(const ANSICHAR* InCallstack, UObject* InSerializedObject, UProperty* InSerializedProperty, uint32& OutCallstackCRC);
+	ANSICHAR* AddUniqueCallstack(UObject* InSerializedObject, UProperty* InSerializedProperty, uint32& OutCallstackCRC);
 
 	/** Finds a callstack associated with data at the specified offset */
 	int32 GetCallstackAtOffset(int64 InOffset, int32 MinOffsetIndex);
@@ -180,6 +183,8 @@ class COREUOBJECT_API FArchiveStackTrace : public FLargeMemoryWriter
 		return false;
 	}
 
+public:
+
 	struct FPackageData
 	{
 		uint8* Data;
@@ -195,27 +200,95 @@ class COREUOBJECT_API FArchiveStackTrace : public FLargeMemoryWriter
 		{}
 	};
 
-	/** Helper function to load package contents into memory. Supports EDL packages. */
-	static bool LoadPackageIntoMemory(const TCHAR* InFilename, FPackageData& OutPackageData);
+private:
 
-	void CompareWithInternal(const FPackageData& SourcePackage, const FPackageData& DestPackage, const TCHAR* AssetFilename, const TCHAR* CallstackCutoffText, const int32 MaxDiffsToLog, int32& InOutDiffsLogged, FArchiveDiffStats& OutStats);
+	void CompareWithInternal(const FPackageData& SourcePackage, const FPackageData& DestPackage, const TCHAR* AssetFilename, const TCHAR* CallstackCutoffText, const int64 MaxDiffsToLog, int32& InOutDiffsLogged, TMap<FName, FArchiveDiffStats>& OutStats);
 	bool GenerateDiffMapInternal(const FPackageData& SourcePackage, const FPackageData& DestPackage, int32 MaxDiffsToFind, FArchiveDiffMap& OutDiffMap);
+	void DumpPackageHeaderDiffs(const FPackageData& SourcePackage, const FPackageData& DestPackage, const FString& AssetFilename, const int32 MaxDiffsToLog);
+	static FLinkerLoad* CreateLinkerForPackage(const FString& InPackageName, const FString& InFilename, const FPackageData& PackageData);
 
 public:
 
-	FArchiveStackTrace(const TCHAR* InFilename, bool bInCollectCallstacks = true, const FArchiveDiffMap* InDiffMap = nullptr);
+	FArchiveStackTrace(UObject* InAsset, const TCHAR* InFilename, bool bInCollectCallstacks = true, const FArchiveDiffMap* InDiffMap = nullptr);
 	virtual ~FArchiveStackTrace();
 
 	//~ Begin FArchive Interface
 	virtual void Serialize(void* Data, int64 Num) override;
+#if WITH_EDITOR
+	virtual void PushDebugDataString(const FName& DebugData) override
+	{
+		DebugDataStack.Add(DebugData);
+	}
+	virtual void PopDebugDataString() override
+	{
+		DebugDataStack.Pop();
+	}
+#endif
 	//~ End FArchive Interface		
 
 	/** Compares the contents of this archive with the package on disk. Dumps all differences to log. */
-	void CompareWith(const TCHAR* InFilename, const int64 TotalHeaderSize, const TCHAR* CallstackCutoffText, const int32 MaxDiffsToLog, FArchiveDiffStats& OutStats);
+	void CompareWith(const TCHAR* InFilename, const int64 TotalHeaderSize, const TCHAR* CallstackCutoffText, const int32 MaxDiffsToLog, TMap<FName, FArchiveDiffStats>& OutStats);
 
 	/** Generates a map of all differences between the package on disk and this file. */
-	bool GenerateDiffMap(const TCHAR* InFilename, int64 TotalHeaderSize, int32 MaxDiffsToFind, FArchiveDiffMap& OutDiffMap);
+	bool GenerateDiffMap(const TCHAR* InFilename, int64 TotalHeaderSize, int32 MaxDiffsToFind, FArchiveDiffMap& OutDiffMap);	
 
 	/** Compares the specified file on disk with the provided buffer */
 	static bool IsIdentical(const TCHAR* InFilename, int64 BufferSize, const uint8* BufferData);
+
+	/** Helper function to load package contents into memory. Supports EDL packages. */
+	static bool LoadPackageIntoMemory(const TCHAR* InFilename, FPackageData& OutPackageData);
+};
+
+class COREUOBJECT_API FArchiveStackTraceReader : public FLargeMemoryReader
+{
+public:
+	struct FSerializeData
+	{
+		FSerializeData()
+			: Offset(0)
+			, Size(0)
+			, Count(0)
+			, Object(nullptr)
+			, Property(nullptr)
+		{}
+		FSerializeData(int64 InOffset, int64 InSize, UObject* InObject, UProperty* InProperty)
+			: Offset(InOffset)
+			, Size(InSize)
+			, Count(1)
+			, Object(InObject)
+			, Property(InProperty)
+		{}
+		int64 Offset;
+		int64 Size;
+		int64 Count;
+		UObject* Object;
+		UProperty* Property;
+		bool IsIdentical(const FSerializeData& Other) const
+		{
+			return Object == Other.Object && Property == Other.Property &&
+				(Offset == Other.Offset || (Offset + Size) == Other.Offset); // This is to merge contiguous blocks
+		}
+		bool operator==(const FSerializeData& Other) const
+		{
+			return IsIdentical(Other);
+		}
+		bool operator!=(const FSerializeData& Other) const
+		{
+			return !IsIdentical(Other);
+		}
+	};
+private:
+	TArray<FSerializeData> SerializeTrace;
+	/** Cached thread context */
+	FUObjectThreadContext& ThreadContext;
+public:
+
+	FArchiveStackTraceReader(const TCHAR* InFilename, const uint8* InData, const int64 Num);
+
+	virtual void Serialize(void* OutData, int64 Num) override;
+	const TArray<FSerializeData>& GetSerializeTrace() const
+	{
+		return SerializeTrace;
+	}
+	static FArchiveStackTraceReader* CreateFromFile(const TCHAR* InFilename);
 };

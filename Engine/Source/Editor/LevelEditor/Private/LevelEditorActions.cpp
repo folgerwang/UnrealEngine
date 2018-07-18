@@ -18,6 +18,7 @@
 #include "Materials/Material.h"
 #include "Editor/EditorPerProjectUserSettings.h"
 #include "ISourceControlModule.h"
+#include "SourceControlHelpers.h"
 #include "Editor/UnrealEdEngine.h"
 #include "Settings/EditorExperimentalSettings.h"
 #include "Factories/BlueprintFactory.h"
@@ -51,7 +52,7 @@
 #include "DlgDeltaTransform.h"
 #include "Editor/NewLevelDialog/Public/NewLevelDialogModule.h"
 #include "MRUFavoritesList.h"
-#include "Private/SSocketChooser.h"
+#include "Editor/SceneOutliner/Private/SSocketChooser.h"
 #include "SnappingUtils.h"
 #include "LevelEditorViewport.h"
 #include "Layers/ILayers.h"
@@ -396,7 +397,7 @@ void FLevelEditorActionCallbacks::SaveCurrentAs()
 	
 	UClass* CurrentStreamingLevelClass = ULevelStreamingKismet::StaticClass();
 
-	for (ULevelStreaming* StreamingLevel : World->StreamingLevels)
+	for (ULevelStreaming* StreamingLevel : World->GetStreamingLevels())
 	{
 		if (StreamingLevel->GetLoadedLevel() == CurrentLevel)
 		{
@@ -548,6 +549,8 @@ void FLevelEditorActionCallbacks::SetMaterialQualityLevel( EMaterialQualityLevel
 	static IConsoleVariable* MaterialQualityLevelVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.MaterialQualityLevel"));
 	MaterialQualityLevelVar->Set(NewQualityLevel, ECVF_SetByScalability);
 
+	GUnrealEd->OnSceneMaterialsModified();
+
 	GUnrealEd->RedrawAllViewports();
 }
 
@@ -606,6 +609,7 @@ void FLevelEditorActionCallbacks::SetFeatureLevelPreview(ERHIFeatureLevel::Type 
 		}
 	}
 
+	GUnrealEd->OnSceneMaterialsModified();
 	GUnrealEd->RedrawAllViewports();
 }
 
@@ -1220,7 +1224,7 @@ void FLevelEditorActionCallbacks::GoHere_Clicked( const FVector* Point )
 {
 	if( GCurrentLevelEditingViewportClient )
 	{
-		FVector ZoomToPoint;
+		FVector ZoomToPoint = FVector::ZeroVector;
 		if( !Point )
 		{
 			FSceneViewFamilyContext ViewFamily(FSceneViewFamily::ConstructionValues(
@@ -2216,7 +2220,7 @@ void FLevelEditorActionCallbacks::CheckOutProjectSettingsConfig( )
 	FString ConfigFilePath = FPaths::ConvertRelativePathToFull(FString::Printf(TEXT("%sDefaultEngine.ini"), *FPaths::SourceConfigDir()));
 	if(ISourceControlModule::Get().IsEnabled())
 	{
-		SourceControlHelpers::CheckOutFile(ConfigFilePath);
+		USourceControlHelpers::CheckOutOrAddFile(ConfigFilePath);
 	}
 	else
 	{

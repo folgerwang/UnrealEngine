@@ -11,6 +11,8 @@
 #include "Linux/LinuxApplication.h"
 #include "Misc/FeedbackContextMarkup.h"
 #include "HAL/ThreadHeartBeat.h"
+#include "Misc/FileHelper.h"
+#include "Internationalization/Regex.h"
 
 //#include "LinuxNativeFeedbackContext.h"
 #include "ISlateFileDialogModule.h"
@@ -211,17 +213,171 @@ bool FDesktopPlatformLinux::IsSourceDistribution(const FString &RootDir)
 	return FDesktopPlatformBase::IsSourceDistribution(RootDir);
 }
 
+static bool RunXDGUtil(FString XDGUtilCommand, FString* StdOut = nullptr)
+{
+	// Run through bash incase xdg-utils is overriden via path.
+	FString CommandLine = TEXT("/bin/bash");
+
+	int32 ReturnCode;
+	if (FPlatformProcess::ExecProcess(*CommandLine, *XDGUtilCommand, &ReturnCode, StdOut, nullptr) && ReturnCode == 0)
+	{
+		return true;
+	}
+
+	return false;
+}
+
+static bool CompareAndCheckDesktopFile(const TCHAR* DesktopFileName, const TCHAR* MimeType)
+{
+	FString Association(DesktopFileName);
+	if (MimeType != nullptr)
+	{
+		Association = FString();
+		RunXDGUtil(*FString::Printf(TEXT("xdg-mime query default %s"), MimeType), &Association);
+		if (!Association.Contains(TEXT(".desktop")))
+		{
+			return false;
+		}
+		Association = Association.Replace(TEXT(".desktop"), TEXT(""));
+		Association = Association.Replace(TEXT("\n"), TEXT(""));
+	}
+
+	// There currently appears to be no way to locate the desktop file with xdg-utils so access the file via the expected location.
+	TCHAR DataDir[PLATFORM_MAX_FILEPATH_LENGTH];
+	FPlatformMisc::GetEnvironmentVariable(TEXT("XDG_DATA_HOME"), DataDir, PLATFORM_MAX_FILEPATH_LENGTH);
+	if (FCString::Strlen(DataDir) == 0)
+	{	
+		FPlatformMisc::GetEnvironmentVariable(TEXT("HOME"), DataDir, PLATFORM_MAX_FILEPATH_LENGTH);
+
+		FCString::Strcat(DataDir, TEXT("/.local/share"));
+	}
+
+	// Get the contents of the desktop file.
+	FString InstalledDesktopFileContents;
+	FFileHelper::LoadFileToString(InstalledDesktopFileContents, *FString::Printf(TEXT("%s/applications/%s.desktop"), DataDir, *Association));
+
+	// Make sure the installed and default desktop file was created by unreal engine.
+	if (!InstalledDesktopFileContents.Contains(TEXT("Comment=Created by Unreal Engine")))
+	{
+		return false;
+	}
+
+	// Get the version of the installed desktop file.
+	float InstalledVersion = 0.0;
+	FRegexPattern Pattern(TEXT("Version=(.*)\\n"));
+	FRegexMatcher Matcher(Pattern, InstalledDesktopFileContents);
+	const TCHAR* Contents = *InstalledDesktopFileContents;
+	if (Matcher.FindNext())
+	{
+		InstalledVersion = FCString::Atof(*Matcher.GetCaptureGroup(1));
+	}
+	else
+	{
+		return false;
+	}
+
+	// Get the version of the template desktop file for this engine source.
+	FString TemplateDesktopFileContents;
+	float TemplateVersion = 0.0;
+	FFileHelper::LoadFileToString(TemplateDesktopFileContents, *FString::Printf(TEXT("%sPrograms/UnrealVersionSelector/Private/Linux/Resources/%s.desktop"), *FPaths::EngineSourceDir(), DesktopFileName));
+	Matcher = FRegexMatcher(Pattern, TemplateDesktopFileContents);
+	if (Matcher.FindNext())
+	{
+		TemplateVersion = FCString::Atof(*Matcher.GetCaptureGroup(1));
+	}
+
+	// If our template version is greater than the installed version then it needs to be updated to point to this engine's version.
+	if (TemplateVersion > InstalledVersion)
+	{
+		return false;
+	}
+
+	// If the template version was lower or the same check if the installed version points to a valid binary.	
+	FString DesktopFileExecPath;
+	Pattern = FRegexPattern(TEXT("Exec=(.*) %f\\n"));
+	Matcher = FRegexMatcher(Pattern, TemplateDesktopFileContents);
+	if (Matcher.FindNext())
+	{
+		DesktopFileExecPath = Matcher.GetCaptureGroup(1);
+	}
+
+	if (DesktopFileExecPath.Compare("bash") != 0 && !FPaths::FileExists(*DesktopFileExecPath))
+	{
+		return false;
+	}
+
+	return true;
+}
+
 bool FDesktopPlatformLinux::VerifyFileAssociations()
 {
-	STUBBED("FDesktopPlatformLinux::VerifyFileAssociationsg");
-	return true; // for now we are associated
+	if (!CompareAndCheckDesktopFile(TEXT("com.epicgames.UnrealVersionSelector"), TEXT("application/uproject")))
+	{
+		return false;
+	}
+
+	if (!CompareAndCheckDesktopFile(TEXT("com.epicgames.UnrealEngine"), nullptr))
+	{
+		return false;
+	}
+
+	return true;
 }
 
 bool FDesktopPlatformLinux::UpdateFileAssociations()
 {
-	//unimplemented();
-	STUBBED("FDesktopPlatformLinux::UpdateFileAssociations");
-	return false;
+	// It would be more robust to follow the XDG spec and alter the mime and desktop databases directly.
+	// However calling though to xdg-utils provides a simpler implementation and allows a user or distro to override the scripts.
+	if (VerifyFileAssociations())
+	{
+		// If UVS was already installed and the same version or greater then it should not be updated.
+		return true;
+	}
+
+	// Install the icons, one for uprojects and one for the main Unreal Engine launcher.
+	if (!RunXDGUtil(FString::Printf(TEXT("xdg-icon-resource install --novendor --mode user --context mimetypes --size 256 %sPrograms/UnrealVersionSelector/Private/Linux/Resources/Icon.png uproject"), *FPaths::EngineSourceDir())))
+	{
+		return false;
+	}
+	
+	if (!RunXDGUtil(FString::Printf(TEXT("xdg-icon-resource install --novendor --mode user --context apps --size 256 %sRuntime/Launch/Resources/Linux/UE4.png ubinary"), *FPaths::EngineSourceDir())))
+	{
+		return false;
+	}
+
+	FString AbsoluteEngineDir = IFileManager::Get().ConvertToAbsolutePathForExternalAppForWrite(*FPaths::EngineDir());
+
+	// Add the desktop file for the Unreal Version Selector mime-type from the template.
+	FString DesktopTemplate;
+	FFileHelper::LoadFileToString(DesktopTemplate, *FString::Printf(TEXT("%sPrograms/UnrealVersionSelector/Private/Linux/Resources/com.epicgames.UnrealVersionSelector.desktop"), *FPaths::EngineSourceDir()));        
+	DesktopTemplate = DesktopTemplate.Replace(TEXT("*ENGINEDIR*"), *AbsoluteEngineDir);
+	FFileHelper::SaveStringToFile(DesktopTemplate, TEXT("/tmp/com.epicgames.UnrealVersionSelector.desktop"));
+	if (!RunXDGUtil(TEXT("xdg-desktop-menu install --novendor --mode user /tmp/com.epicgames.UnrealVersionSelector.desktop")))
+	{
+		return false;
+	}
+
+	// Add the desktop file for the Unreal Engine icon from the template.
+	DesktopTemplate = FString();
+	FFileHelper::LoadFileToString(DesktopTemplate, *FString::Printf(TEXT("%sPrograms/UnrealVersionSelector/Private/Linux/Resources/com.epicgames.UnrealEngine.desktop"), *FPaths::EngineSourceDir()));      
+	DesktopTemplate = DesktopTemplate.Replace(TEXT("*ENGINEDIR*"), *AbsoluteEngineDir);
+	FFileHelper::SaveStringToFile(DesktopTemplate, TEXT("/tmp/com.epicgames.UnrealEngine.desktop"));
+	if (!RunXDGUtil(TEXT("xdg-desktop-menu install --novendor --mode user /tmp/com.epicgames.UnrealEngine.desktop")))
+	{
+		return false;
+	}
+
+	// Create the mime types and set the default applications.
+	if (!RunXDGUtil(FString::Printf(TEXT("xdg-mime install --novendor --mode user %sPrograms/UnrealVersionSelector/Private/Linux/Resources/uproject.xml"), *FPaths::EngineSourceDir())))
+	{
+		return false;
+	}
+	if (!RunXDGUtil(TEXT("xdg-mime default com.epicgames.UnrealVersionSelector.desktop application/uproject")))
+	{
+		return false;
+	}
+
+	return true;
 }
 
 bool FDesktopPlatformLinux::OpenProject(const FString &ProjectFileName)

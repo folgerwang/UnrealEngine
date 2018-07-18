@@ -3,14 +3,16 @@
 #pragma once
 
 #include "NiagaraNode.h"
-#include "SlateTypes.h"
+#include "Styling/SlateTypes.h"
+#include "NiagaraActions.h"
 #include "EdGraph/EdGraph.h"
-
+#include "EdGraph/EdGraphSchema.h"
 #include "NiagaraNodeWithDynamicPins.generated.h"
 
 class UEdGraphPin;
 class SNiagaraGraphPinAdd;
 
+DECLARE_DELEGATE_OneParam(FOnAddParameter, const FNiagaraVariable&);
 
 /** A base node for niagara nodes with pins which can be dynamically added and removed by the user. */
 UCLASS()
@@ -35,8 +37,11 @@ public:
 	/** Determine whether or not a Niagara type is supported for an Add Pin possibility.*/
 	virtual bool AllowNiagaraTypeForAddPin(const FNiagaraTypeDefinition& InType);
 
-	/** Used in tandem with SNiagaraGraphPinAdd to generate the menu for selecting the pin to add.*/
-	virtual TSharedRef<SWidget> GenerateAddPinMenu(const FString& InWorkingPinName, SNiagaraGraphPinAdd* InPin);
+	/** Used in to gather the actions for selecting the pin to add. */
+	virtual void CollectAddPinActions(FGraphActionListBuilderBase& OutActions, bool& bOutCreateRemainingActions, UEdGraphPin* Pin);
+
+	/** Request a new pin. */
+	void AddParameter(FNiagaraVariable Parameter, UEdGraphPin* AddPin);
 
 protected:
 	virtual bool AllowDynamicPins() const { return true; }
@@ -59,9 +64,6 @@ protected:
 	/** Called to determine if a pin can be moved by the user.*/
 	virtual bool CanMovePin(const UEdGraphPin* Pin) const;
 
-	/** Used GenerateAddPinMenu to build a list of supported types.*/
-	virtual void BuildTypeMenu(FMenuBuilder& InMenuBuilder, const FString& InWorkingName, SNiagaraGraphPinAdd* InPin);
-
 	/** Removes a pin from this node with a transaction. */
 	virtual void RemoveDynamicPin(UEdGraphPin* Pin);
 
@@ -75,6 +77,10 @@ private:
 	/** Called when a pin's name text is committed. */
 	void PinNameTextCommitted(const FText& Text, ETextCommit::Type CommitType, UEdGraphPin* Pin);
 
+	void RemoveDynamicPinFromMenu(UEdGraphPin* Pin);
+
+	void MoveDynamicPinFromMenu(UEdGraphPin* Pin, int32 DirectionToMove);
+	
 public:
 	/** The sub category for add pins. */
 	static const FName AddPinSubCategory;

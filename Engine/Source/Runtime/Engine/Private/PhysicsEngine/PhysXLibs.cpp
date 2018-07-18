@@ -9,12 +9,16 @@
 #include "HAL/FileManager.h"
 #include "HAL/PlatformProcess.h"
 #include "EngineLogs.h"
+#include "HAL/PlatformFilemanager.h"
+#include "GenericPlatform/GenericPlatformFile.h"
 
 #if WITH_PHYSX 
 
 // PhysX library imports
 namespace PhysDLLHelper
 {
+	const static int32 NumModuleLoadRetries = 5;
+	const static float ModuleReloadDelay = 0.5f;
 
 #if PLATFORM_WINDOWS || PLATFORM_MAC
 	void* PxFoundationHandle = nullptr;
@@ -85,9 +89,52 @@ namespace PhysDLLHelper
 void* LoadPhysicsLibrary(const FString& Path)
 {
 	void* Handle = FPlatformProcess::GetDllHandle(*Path);
-	if (Handle == nullptr)
+	if(!Handle)
 	{
-		UE_LOG(LogPhysics, Fatal, TEXT("Failed to load module '%s'."), *Path);
+		// Spin a few times and reattempt the load in-case the file is temporarily locked
+		for(int32 RetryCount = 0; RetryCount < NumModuleLoadRetries; ++RetryCount)
+		{
+			FPlatformProcess::Sleep(ModuleReloadDelay);
+
+			Handle = FPlatformProcess::GetDllHandle(*Path);
+
+			if(Handle)
+			{
+				break;
+			}
+		}
+
+		if(!Handle)
+		{
+			IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
+
+			bool bExists = PlatformFile.FileExists(*Path);
+			int64 ModuleFileSize = PlatformFile.FileSize(*Path);
+
+			bool bCouldRead = false;
+
+			TUniquePtr<IFileHandle> ModuleFileHandle(PlatformFile.OpenRead(*Path));
+			if(ModuleFileHandle.IsValid())
+			{
+				bCouldRead = true;
+			}
+
+			UE_LOG(LogPhysics, Warning, TEXT("Failed to load module '%s'"), *Path);
+			UE_LOG(LogPhysics, Warning, TEXT("\tExists: %s"), bExists ? TEXT("true") : TEXT("false"));
+			UE_LOG(LogPhysics, Warning, TEXT("\tFileSize: %d"), ModuleFileSize);
+			UE_LOG(LogPhysics, Warning, TEXT("\tAble to read: %s"), bCouldRead ? TEXT("true") : TEXT("false"));
+
+			if(!bExists)
+			{
+				// No library
+				UE_LOG(LogPhysics, Warning, TEXT("\tLibrary does not exist."));
+			}
+			else if(!bCouldRead)
+			{
+				// No read access to library
+				UE_LOG(LogPhysics, Warning, TEXT("\tLibrary exists, but read access could not be gained. It is possible the user does not have read permission for this file."));
+			}
+		}
 	}
 	return Handle;
 }
@@ -108,13 +155,15 @@ ENGINE_API void* LoadAPEXModule(const FString& Path)
 /**
  *	Load the required modules for PhysX
  */
-ENGINE_API void LoadPhysXModules(bool bLoadCookingModule)
+ENGINE_API bool LoadPhysXModules(bool bLoadCookingModule)
 {
+	bool bHasToolsExtensions = false;
 #if PLATFORM_WINDOWS
 	PxFoundationHandle = LoadPhysicsLibrary(RootSharedPath + "PxFoundation" + PhysXSuffix);
 	PhysX3CommonHandle = LoadPhysicsLibrary(RootPhysXPath + "PhysX3Common" + PhysXSuffix);
 	const FString nvToolsExtPath = RootPhysXPath + "nvToolsExt" + ArchBits + "_1.dll";
-	if (IFileManager::Get().FileExists(*nvToolsExtPath))
+	bHasToolsExtensions = IFileManager::Get().FileExists(*nvToolsExtPath);
+	if (bHasToolsExtensions)
 	{
 		nvToolsExtHandle = LoadPhysicsLibrary(nvToolsExtPath);
 	}
@@ -167,6 +216,32 @@ ENGINE_API void LoadPhysXModules(bool bLoadCookingModule)
 		#endif //WITH_APEX_CLOTHING
 	#endif	//WITH_APEX
 #endif	//PLATFORM_WINDOWS
+
+	bool bSucceeded = true;
+
+#if PLATFORM_WINDOWS || PLATFORM_MAC
+	// Required modules (core PhysX)
+	bSucceeded = bSucceeded && PxFoundationHandle;
+	bSucceeded = bSucceeded && PhysX3CommonHandle;
+	bSucceeded = bSucceeded && PxPvdSDKHandle;
+	bSucceeded = bSucceeded && PhysX3Handle;
+	// Tools extension if present
+	bSucceeded = bSucceeded && (!bHasToolsExtensions || nvToolsExtHandle);
+	// Cooking module if present
+	bSucceeded = bSucceeded && (!bLoadCookingModule || PhysX3CookingHandle);
+	// Apex if present
+#if WITH_APEX
+	bSucceeded = bSucceeded && APEXFrameworkHandle;
+#if WITH_APEX_LEGACY
+	bSucceeded = bSucceeded && APEX_LegacyHandle;
+#endif //WITH_APEX_LEGACY
+#if WITH_APEX_CLOTHING
+	bSucceeded = bSucceeded && APEX_ClothingHandle;
+#endif // WITH_APEX_CLOTHING
+#endif // WITH_APEX
+#endif // PLATFORM_WINDOWS || PLATFORM_MAC
+
+	return bSucceeded;
 }
 
 /** 

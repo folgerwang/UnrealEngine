@@ -8,13 +8,13 @@
 
 #include "MovieSceneSequence.h"
 
-int32 FMovieSceneEvaluationField::GetSegmentFromTime(float Time) const
+int32 FMovieSceneEvaluationField::GetSegmentFromTime(FFrameNumber Time) const
 {
 	// Linear search
 	// @todo: accelerated search based on the last evaluated index?
 	for (int32 Index = 0; Index < Ranges.Num(); ++Index)
 	{
-		if (Ranges[Index].Contains(Time))
+		if (Ranges[Index].Value.Contains(Time))
 		{
 			return Index;
 		}
@@ -23,12 +23,12 @@ int32 FMovieSceneEvaluationField::GetSegmentFromTime(float Time) const
 	return INDEX_NONE;
 }
 
-TRange<int32> FMovieSceneEvaluationField::OverlapRange(TRange<float> Range) const
+TRange<int32> FMovieSceneEvaluationField::OverlapRange(TRange<FFrameNumber> Range) const
 {
 	int32 StartIndex = 0, Num = 0;
 	for (int32 Index = 0; Index < Ranges.Num(); ++Index)
 	{
-		if (Ranges[Index].Overlaps(Range))
+		if (Ranges[Index].Value.Overlaps(Range))
 		{
 			if (Num == 0)
 			{
@@ -45,7 +45,7 @@ TRange<int32> FMovieSceneEvaluationField::OverlapRange(TRange<float> Range) cons
 	return Num != 0 ? TRange<int32>(StartIndex, StartIndex + Num) : TRange<int32>::Empty();
 }
 
-void FMovieSceneEvaluationField::Invalidate(TRange<float> Range)
+void FMovieSceneEvaluationField::Invalidate(TRange<FFrameNumber> Range)
 {
 	TRange<int32> OverlappingRange = OverlapRange(Range);
 	if (!OverlappingRange.IsEmpty())
@@ -54,21 +54,33 @@ void FMovieSceneEvaluationField::Invalidate(TRange<float> Range)
 		Groups.RemoveAt(OverlappingRange.GetLowerBoundValue(), OverlappingRange.Size<int32>(), false);
 		MetaData.RemoveAt(OverlappingRange.GetLowerBoundValue(), OverlappingRange.Size<int32>(), false);
 
+#if WITH_EDITORONLY_DATA
 		Signature = FGuid::NewGuid();
+#endif
 	}
 }
 
-int32 FMovieSceneEvaluationField::Insert(float InsertTime, TRange<float> InRange, FMovieSceneEvaluationGroup&& InGroup, FMovieSceneEvaluationMetaData&& InMetaData)
+int32 FMovieSceneEvaluationField::Insert(FFrameNumber InsertTime, TRange<FFrameNumber> InRange, FMovieSceneEvaluationGroup&& InGroup, FMovieSceneEvaluationMetaData&& InMetaData)
 {
-	const int32 InsertIndex = Algo::UpperBoundBy(Ranges, TRangeBound<float>(InsertTime), &TRange<float>::GetLowerBound, MovieSceneHelpers::SortLowerBounds);
+	const int32 InsertIndex = Algo::UpperBoundBy(Ranges, TRangeBound<FFrameNumber>(InsertTime), &FMovieSceneFrameRange::GetLowerBound, MovieSceneHelpers::SortLowerBounds);
 
 	// Intersect the supplied range with the allowable space between adjacent existing ranges
-	TRange<float> InsertSpace(
-		Ranges.IsValidIndex(InsertIndex-1) ? TRangeBound<float>::FlipInclusion(Ranges[InsertIndex-1].GetUpperBound()) : TRangeBound<float>::Open(),
-		Ranges.IsValidIndex(InsertIndex  ) ? TRangeBound<float>::FlipInclusion(Ranges[InsertIndex  ].GetLowerBound()) : TRangeBound<float>::Open()
+	TRange<FFrameNumber> InsertSpace(
+		Ranges.IsValidIndex(InsertIndex-1) ? TRangeBound<FFrameNumber>::FlipInclusion(Ranges[InsertIndex-1].GetUpperBound()) : TRangeBound<FFrameNumber>::Open(),
+		Ranges.IsValidIndex(InsertIndex  ) ? TRangeBound<FFrameNumber>::FlipInclusion(Ranges[InsertIndex  ].GetLowerBound()) : TRangeBound<FFrameNumber>::Open()
 		);
 
-	InRange = TRange<float>::Intersection(InRange, InsertSpace);
+	InRange = TRange<FFrameNumber>::Intersection(InRange, InsertSpace);
+
+	// @todo: Remove this code and enforce the check below outright when we have proper time representation
+	if (Ranges.IsValidIndex(InsertIndex  ) && Ranges[InsertIndex  ].Value.Overlaps(InRange))
+	{
+		InRange = TRange<FFrameNumber>(InRange.GetLowerBound(), TRangeBound<FFrameNumber>::FlipInclusion(Ranges[InsertIndex].Value.GetLowerBound()));
+	}
+	if (Ranges.IsValidIndex(InsertIndex-1) && Ranges[InsertIndex-1].Value.Overlaps(InRange))
+	{
+		InRange = TRange<FFrameNumber>(TRangeBound<FFrameNumber>::FlipInclusion(Ranges[InsertIndex-1].Value.GetUpperBound()), InRange.GetUpperBound());
+	}
 
 	if (!ensure(!InRange.IsEmpty()))
 	{
@@ -76,8 +88,8 @@ int32 FMovieSceneEvaluationField::Insert(float InsertTime, TRange<float> InRange
 	}
 
 	const bool bOverlapping = 
-		(Ranges.IsValidIndex(InsertIndex  ) && Ranges[InsertIndex  ].Overlaps(InRange)) ||
-		(Ranges.IsValidIndex(InsertIndex-1) && Ranges[InsertIndex-1].Overlaps(InRange));
+		(Ranges.IsValidIndex(InsertIndex  ) && Ranges[InsertIndex  ].Value.Overlaps(InRange)) ||
+		(Ranges.IsValidIndex(InsertIndex-1) && Ranges[InsertIndex-1].Value.Overlaps(InRange));
 
 	if (!ensureAlwaysMsgf(!bOverlapping, TEXT("Attempting to insert an overlapping range into the evaluation field.")))
 	{
@@ -88,20 +100,24 @@ int32 FMovieSceneEvaluationField::Insert(float InsertTime, TRange<float> InRange
 	MetaData.Insert(MoveTemp(InMetaData), InsertIndex);
 	Groups.Insert(MoveTemp(InGroup), InsertIndex);
 
+#if WITH_EDITORONLY_DATA
 	Signature = FGuid::NewGuid();
+#endif
 
 	return InsertIndex;
 }
 
-void FMovieSceneEvaluationField::Add(TRange<float> InRange, FMovieSceneEvaluationGroup&& InGroup, FMovieSceneEvaluationMetaData&& InMetaData)
+void FMovieSceneEvaluationField::Add(TRange<FFrameNumber> InRange, FMovieSceneEvaluationGroup&& InGroup, FMovieSceneEvaluationMetaData&& InMetaData)
 {
-	if (ensureAlwaysMsgf(!Ranges.Num() || !Ranges.Last().Overlaps(InRange), TEXT("Attempting to add overlapping ranges to sequence evaluation field.")))
+	if (ensureAlwaysMsgf(!Ranges.Num() || !Ranges.Last().Value.Overlaps(InRange), TEXT("Attempting to add overlapping ranges to sequence evaluation field.")))
 	{
 		Ranges.Add(InRange);
 		MetaData.Add(MoveTemp(InMetaData));
 		Groups.Add(MoveTemp(InGroup));
 
+#if WITH_EDITORONLY_DATA
 		Signature = FGuid::NewGuid();
+#endif
 	}
 }
 
@@ -234,11 +250,11 @@ void FMovieSceneEvaluationMetaData::DiffEntities(const FMovieSceneEvaluationMeta
 	}
 }
 
-bool FMovieSceneEvaluationMetaData::IsDirty(UMovieSceneSequence& RootSequence, const FMovieSceneSequenceHierarchy& RootHierarchy, IMovieSceneSequenceTemplateStore& TemplateStore, TRange<float>* OutSubRangeToInvalidate) const
+bool FMovieSceneEvaluationMetaData::IsDirty(const FMovieSceneSequenceHierarchy& RootHierarchy, IMovieSceneSequenceTemplateStore& TemplateStore, TRange<FFrameNumber>* OutSubRangeToInvalidate, TSet<UMovieSceneSequence*>* OutDirtySequences) const
 {
 	bool bDirty = false;
 
-	for (const TTuple<FMovieSceneSequenceID, FGuid>& Pair : SubSequenceSignatures)
+	for (const TTuple<FMovieSceneSequenceID, uint32>& Pair : SubTemplateSerialNumbers)
 	{
 		// Sequence IDs at this point are relative to the root override template
 		const FMovieSceneSubSequenceData* SubData = RootHierarchy.FindSubData(Pair.Key);
@@ -247,8 +263,14 @@ bool FMovieSceneEvaluationMetaData::IsDirty(UMovieSceneSequence& RootSequence, c
 		bool bThisSequenceIsDirty = true;
 		if (SubSequence)
 		{
-			FGuid SequenceSignature = SubSequence->GetSignature();
-			bThisSequenceIsDirty = SequenceSignature != Pair.Value || TemplateStore.AccessTemplate(*SubSequence).SequenceSignature != SequenceSignature;
+			FMovieSceneEvaluationTemplate& Template = TemplateStore.AccessTemplate(*SubSequence);
+
+			bThisSequenceIsDirty = Template.TemplateSerialNumber.GetValue() != Pair.Value || Template.SequenceSignature != SubSequence->GetSignature();
+
+			if (bThisSequenceIsDirty && OutDirtySequences)
+			{
+				OutDirtySequences->Add(SubSequence);
+			}
 		}
 
 		if (bThisSequenceIsDirty)
@@ -257,8 +279,8 @@ bool FMovieSceneEvaluationMetaData::IsDirty(UMovieSceneSequence& RootSequence, c
 
 			if (OutSubRangeToInvalidate)
 			{
-				TRange<float> DirtyRange = SubData ? TRange<float>::Hull(TRange<float>::Hull(SubData->PreRollRange, SubData->PlayRange), SubData->PostRollRange) * SubData->RootToSequenceTransform.Inverse() : TRange<float>::All();
-				*OutSubRangeToInvalidate = TRange<float>::Hull(*OutSubRangeToInvalidate, DirtyRange);
+				TRange<FFrameNumber> DirtyRange = SubData ? TRange<FFrameNumber>::Hull(TRange<FFrameNumber>::Hull(SubData->PreRollRange.Value, SubData->PlayRange.Value), SubData->PostRollRange.Value) * SubData->RootToSequenceTransform.Inverse() : TRange<FFrameNumber>::All();
+				*OutSubRangeToInvalidate = TRange<FFrameNumber>::Hull(*OutSubRangeToInvalidate, DirtyRange);
 			}
 		}
 	}

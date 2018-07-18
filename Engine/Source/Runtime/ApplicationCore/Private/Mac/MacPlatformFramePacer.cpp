@@ -1,11 +1,12 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "MacPlatformFramePacer.h"
+#include "Mac/MacPlatformFramePacer.h"
 #include "Containers/Array.h"
-#include "ThreadingBase.h"
+#include "HAL/ThreadingBase.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Misc/Parse.h"
 
+#include "HAL/PlatformTime.h"
 
 
 
@@ -16,7 +17,7 @@
 struct FMacFramePacer
 {
 	void Run(CGDirectDisplayID Display);
-	void Signal(CGDirectDisplayID Display);
+	void Signal(CGDirectDisplayID Display, double OutputSeconds, double OutputDuration);
 	void Stop(CGDirectDisplayID Display);
 	void Stop();
 	
@@ -48,17 +49,19 @@ CVReturn FMacFramePacer::DisplayLinkCallback(CVDisplayLinkRef DisplayLink, const
 {
 	check(DisplayLink);
 	FMacFramePacer* Pacer = (FMacFramePacer*)DisplayLinkContext;
-	Pacer->Signal(CVDisplayLinkGetCurrentCGDisplay(DisplayLink));
+	double OutputSeconds = OutputTime && (OutputTime->flags & kCVTimeStampHostTimeValid) ? FPlatformTime::ToSeconds64(OutputTime->hostTime) : FPlatformTime::ToSeconds64(mach_absolute_time());
+	double OutputDuration = CVDisplayLinkGetActualOutputVideoRefreshPeriod(DisplayLink);
+	Pacer->Signal(CVDisplayLinkGetCurrentCGDisplay(DisplayLink), OutputSeconds, OutputDuration);
 	return kCVReturnSuccess;
 }
 
-void FMacFramePacer::Signal(CGDirectDisplayID Display)
+void FMacFramePacer::Signal(CGDirectDisplayID Display, double OutputSeconds, double OutputDuration)
 {
 	FScopeLock Lock(&Mutex);
 	
 	for (FMacFramePacerHandler Block in ListeningHandlers)
 	{
-		Block(Display);
+		Block(Display, OutputSeconds, OutputDuration);
 	}
 	
 	TArray<FEvent*> const& Events = SpecificEvents.FindRef(Display);

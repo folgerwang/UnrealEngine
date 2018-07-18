@@ -244,3 +244,33 @@ FORCEINLINE void VectorQuaternionInverseRotateVectorPtr(void* RESTRICT Result, c
 {
 	*((VectorRegister *)Result) = VectorQuaternionInverseRotateVector(*((const VectorRegister *)Quat), *((const VectorRegister *)VectorW0));
 }
+
+/**
+ * Counts the number of trailing zeros in the bit representation of the value,
+ * counting from least-significant bit to most.
+ *
+ * @param Value the value to determine the number of leading zeros for
+ * @return the number of zeros before the first "on" bit
+ */
+#if ((PLATFORM_WINDOWS && !PLATFORM_COMPILER_CLANG) || PLATFORM_XBOXONE)
+#pragma intrinsic( _BitScanForward )
+FORCEINLINE uint32 appCountTrailingZeros(uint32 Value)
+{
+	if (Value == 0)
+	{
+		return 32;
+	}
+	unsigned long BitIndex;	// 0-based, where the LSB is 0 and MSB is 31
+	_BitScanForward(&BitIndex, Value);	// Scans from LSB to MSB
+	return BitIndex;
+}
+#else // ((PLATFORM_WINDOWS && !PLATFORM_COMPILER_CLANG) || PLATFORM_XBOXONE)
+FORCEINLINE uint32 appCountTrailingZeros(uint32 Value)
+{
+	if (Value == 0)
+	{
+		return 32;
+	}
+	return __builtin_ffs(Value) - 1;
+}
+#endif // PLATFORM_WINDOWS

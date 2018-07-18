@@ -17,11 +17,10 @@ namespace UnrealBuildTool.Rules
                 "Messaging",
                 "LiveLinkInterface",
                 "LiveLinkMessageBusFramework",
-				"HeadMountedDisplay"
+				"HeadMountedDisplay",
+				"TimeManagement"
             }
             );
-
-            PrivateIncludePaths.Add("/LiveLink/Private");
         }
     }
 }

@@ -3,18 +3,19 @@
 #pragma once
 
 #include "EditorUndoClient.h"
-#include "SCompoundWidget.h"
-#include "DeclarativeSyntaxSupport.h"
-#include "STableRow.h"
-#include "STableViewBase.h"
-#include "STreeView.h"
-#include "NiagaraSystemViewModel.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "Widgets/Views/STableRow.h"
+#include "Widgets/Views/STableViewBase.h"
+#include "Widgets/Views/STreeView.h"
+#include "Widgets/Input/SComboBox.h"
+#include "ViewModels/NiagaraSystemViewModel.h"
 #include "TickableEditorObject.h"
-#include "WeakObjectPtrTemplates.h"
+#include "UObject/WeakObjectPtrTemplates.h"
 #include "NiagaraDataSet.h"
-#include "SharedPointer.h"
-#include "Map.h"
-#include "SCheckBox.h"
+#include "Templates/SharedPointer.h"
+#include "Containers/Map.h"
+#include "Widgets/Input/SCheckBox.h"
 #include "NiagaraParameterStore.h"
 
 class SNiagaraSpreadsheetView : public SCompoundWidget, public FTickableEditorObject
@@ -48,6 +49,11 @@ protected:
 	enum EUITab : uint8
 	{
 		UIPerParticleUpdate = 0,
+		UIPerParticleSpawn,
+		UIPerParticleEvent0,
+		UIPerParticleEvent1,
+		UIPerParticleEvent2,
+		UIPerParticleEvent3,
 		UISystemUpdate,
 		UIMax
 	};
@@ -55,6 +61,12 @@ protected:
 	void OnTabChanged(ECheckBoxState State,	EUITab Tab);
 	ECheckBoxState GetTabCheckedState(EUITab Tab) const;
 	EVisibility GetViewVisibility(EUITab Tab) const;
+	EVisibility GetTabVisibility(EUITab Tab) const;
+
+	TSharedRef<SWidget> OnGetTargetMenuContent() const;
+	FText OnGetTargetButtonText() const;
+	void SetTarget(UNiagaraComponent* InComponent);
+	void GetNameAndTooltip(const UNiagaraComponent*, FText& OutText, FText& OutTooltip) const;
 
 	void GenerateLayoutInfo(FNiagaraTypeLayoutInfo& Layout, const UScriptStruct* Struct, const UEnum* Enum, FName BaseName, TArray<FName>& PropertyNames, TArray<FieldInfo>& FieldInfo);
 
@@ -62,7 +74,7 @@ protected:
 
 	struct CapturedUIData
 	{
-		CapturedUIData() : LastReadWriteId(-1), DataSet(nullptr), TargetUsage(ENiagaraScriptUsage::ParticleUpdateScript), bAwaitingFrame(false), LastCaptureTime(-FLT_MAX), bInputColumnsAreAttributes(true), bOutputColumnsAreAttributes(true)
+		CapturedUIData() : TargetUsage(ENiagaraScriptUsage::ParticleUpdateScript), bInputColumnsAreAttributes(true), bOutputColumnsAreAttributes(true)
 		{ }
 
 		TSharedPtr<SHeaderRow> OutputHeaderRow;
@@ -70,19 +82,21 @@ protected:
 		TSharedPtr < STreeView<TSharedPtr<int32> > > OutputsListView;
 		TSharedPtr < STreeView<TSharedPtr<int32> > > InputsListView;
 		TSharedPtr < SCheckBox > CheckBox;
+
+		TSharedPtr<SComboButton> OutputFilterButton;
+		TArray<FName> FilteredOutputFields;
+
 		TArray< TSharedPtr<int32> > SupportedInputIndices;
 		TArray< TSharedPtr<int32> > SupportedOutputIndices;
-		int32 LastReadWriteId;
-		FNiagaraDataSet* DataSet;
 		FNiagaraParameterStore InputParams;
+		FNiagaraDataSet DataSet;
+		TSharedPtr<struct FNiagaraScriptDebuggerInfo, ESPMode::ThreadSafe> CaptureData;
 		TSharedPtr<TArray<FName> > SupportedInputFields;
 		TSharedPtr<TArray<FName> > SupportedOutputFields;
 		TSharedPtr<TMap<FName, FieldInfo> > InputFieldInfoMap;
 		TSharedPtr<TMap<FName, FieldInfo> > OutputFieldInfoMap;
 		ENiagaraScriptUsage TargetUsage;
-		bool bAwaitingFrame;
-		float LastCaptureTime;
-		float TargetCaptureTime;
+		FGuid TargetUsageId;
 		FGuid LastCaptureHandleId;
 		TWeakObjectPtr<UNiagaraEmitter> DataSource;
 		TSharedPtr<SScrollBar> OutputHorizontalScrollBar;
@@ -97,7 +111,11 @@ protected:
 
 	TArray<CapturedUIData> CaptureData;
 
+	FGuid TargetRequestId;
+	TArray<TSharedPtr<struct FNiagaraScriptDebuggerInfo, ESPMode::ThreadSafe>> TargetCaptureData;
+
 	TSharedPtr<FNiagaraSystemViewModel> SystemViewModel;
+	TWeakObjectPtr<UNiagaraComponent> TargetComponent;
 
 	UEnum* ScriptEnum;
 
@@ -141,6 +159,25 @@ protected:
 	 * @param OutChildren Generated children
 	 */
 	void OnGetChildrenForList(TSharedPtr<int32> InItem, TArray<TSharedPtr<int32>>& OutChildren, EUITab Tab, bool bInputList);
+
+	/** Creates the attribute filter dropdown menu. */
+	TSharedRef<SWidget> GetOutputFilterMenu(EUITab Tab);
+
+	/** Toggles all attributes. */
+	void ToggleAllOutputAttributes(EUITab Tab);
+
+	/** Toggles the column visibility of the given attribute. */
+	void ToggleFilterOutputAttribute(EUITab Tab, FName Item);
+
+	/** True if any attribute is in the filtered list. */
+	bool AnyOutputAttributeEnabled(EUITab Tab);
+
+	/** True if the given attribute is in the filtered list. */
+	bool IsOutputAttributeEnabled(EUITab Tab, FName Item);
+
+private:
+	/** If this is the first time setting the columns, so we can enable them all in the filter by default. */
+	bool bInitialColumns;
 };
 
 

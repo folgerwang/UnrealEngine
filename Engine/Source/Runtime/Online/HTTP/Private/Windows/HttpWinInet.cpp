@@ -4,8 +4,8 @@
 #include "Misc/ScopeLock.h"
 #include "Misc/App.h"
 #include "HAL/PlatformTime.h"
-#include "EngineVersion.h"
-#include "NetworkVersion.h"
+#include "Misc/EngineVersion.h"
+#include "Misc/NetworkVersion.h"
 #include "HttpManager.h"
 #include "Http.h"
 
@@ -176,7 +176,7 @@ void CALLBACK InternetStatusCallbackWinInet(
 		if (Response != NULL)
 		{
 			// if we receive a response, we sent the request (and it's no longer safe to retry)
-			FPlatformAtomics::InterlockedExchange(&Response->bRequestSent, 1);
+			Response->bRequestSent = true;
 		}
 		break;
 	case INTERNET_STATUS_RESPONSE_RECEIVED:
@@ -197,17 +197,12 @@ void CALLBACK InternetStatusCallbackWinInet(
 				DEBUG_LOG_HTTP(bDebugLog, Log, TEXT("InternetStatusCallbackWinInet request=%p AsyncResult.dwError: %08X. "), 
 					dwContext, AsyncResult->dwError, *InternetTranslateError(AsyncResult->dwError));
 
-				if (Response != NULL)
-				{
-					// Done processing response due to error
-					FPlatformAtomics::InterlockedExchange(&Response->bIsReady, 1);
-				}
 				Response = NULL;
 			}
 		}
 		
 		if (Request != NULL && Request->GetStatus() == EHttpRequestStatus::Processing &&
-			Response != NULL && !Response->bIsReady)
+			Response != NULL && !Response->bIsAsyncProcessingFinished)
 		{
 			Response->ProcessResponse();
 		}
@@ -224,7 +219,7 @@ void CALLBACK InternetStatusCallbackWinInet(
 		if (Response != NULL)
 		{
 			// mark that we have started sending the request (at this point it's no longer safe to retry)
-			FPlatformAtomics::InterlockedExchange(&Response->bRequestSent, 1);
+			Response->bRequestSent = true;
 		}
 		break;
 	case INTERNET_STATUS_STATE_CHANGE:
@@ -370,49 +365,62 @@ FHttpRequestWinInet::~FHttpRequestWinInet()
 	CleanupRequest();
 }
 
-FString FHttpRequestWinInet::GetURL()
+FString FHttpRequestWinInet::GetURL() const
 {
 	return RequestURL.GetURL();
 }
 
-FString FHttpRequestWinInet::GetURLParameter(const FString& ParameterName)
+FString FHttpRequestWinInet::GetURLParameter(const FString& ParameterName) const
 {
 	const FString* Result = RequestURL.GetParameter(ParameterName);
 	return Result != NULL ? *Result : FString();
 }
 
-FString FHttpRequestWinInet::GetHeader(const FString& HeaderName)
+FString FHttpRequestWinInet::GetHeader(const FString& HeaderName) const
 {
-	FString* Header = RequestHeaders.Find(HeaderName);
+	const FString* Header = RequestHeaders.Find(HeaderName);
 	return Header != NULL ? *Header : TEXT("");
 }
 
-TArray<FString> FHttpRequestWinInet::GetAllHeaders()
+FString FHttpRequestWinInet::CombineHeaderKeyValue(const FString& HeaderKey, const FString& HeaderValue)
+{
+	FString Combined;
+	const TCHAR Separator[] = TEXT(": ");
+	constexpr const int32 SeparatorLength = ARRAY_COUNT(Separator) - 1;
+	Combined.Reserve(HeaderKey.Len() + SeparatorLength + HeaderValue.Len());
+	Combined.Append(HeaderKey);
+	Combined.AppendChars(Separator, SeparatorLength);
+	Combined.Append(HeaderValue);
+	return Combined;
+}
+
+TArray<FString> FHttpRequestWinInet::GetAllHeaders() const
 {
 	TArray<FString> Result;
-	for (TMap<FString, FString>::TConstIterator It(RequestHeaders); It; ++It)
+	Result.Reserve(RequestHeaders.Num());
+	for (const TPair<FString, FString>& It : RequestHeaders)
 	{
-		Result.Add(It.Key() + TEXT(": ") + It.Value());
+		Result.Emplace(CombineHeaderKeyValue(It.Key, It.Value));
 	}
 	return Result;
 }
 
-FString FHttpRequestWinInet::GetContentType()
+FString FHttpRequestWinInet::GetContentType() const
 {
 	return GetHeader(TEXT("Content-Type"));
 }
 
-int32 FHttpRequestWinInet::GetContentLength()
+int32 FHttpRequestWinInet::GetContentLength() const
 {
 	return RequestPayload.Num();
 }
 
-const TArray<BYTE>& FHttpRequestWinInet::GetContent()
+const TArray<BYTE>& FHttpRequestWinInet::GetContent() const
 {
 	return RequestPayload;
 }
 
-FString FHttpRequestWinInet::GetVerb()
+FString FHttpRequestWinInet::GetVerb() const
 {
 	return RequestVerb;
 }
@@ -647,6 +655,7 @@ bool FHttpRequestWinInet::StartRequest()
 
 void FHttpRequestWinInet::FinishedRequest()
 {
+	check(IsInGameThread());
 	// Clean up session/request handles that may have been created
 	CleanupRequest();
 	TSharedRef<IHttpRequest> Request = SharedThis(this);
@@ -654,6 +663,14 @@ void FHttpRequestWinInet::FinishedRequest()
 	FHttpModule::Get().GetHttpManager().RemoveRequest(Request);
 
 	ElapsedTime = (float)(FPlatformTime::Seconds() - StartRequestTime);
+
+	// Broadcast out any headers we haven't already
+	BroadcastNewlyReceivedHeaders();
+	if (Response.IsValid())
+	{
+		Response->bIsReady = true;
+	}
+
 	if (Response.IsValid() &&
 		Response->bResponseSucceeded)
 	{
@@ -695,7 +712,7 @@ void FHttpRequestWinInet::FinishedRequest()
 		// Mark last request attempt as completed successfully
 		CompletionStatus = EHttpRequestStatus::Succeeded;
 		// Call delegate with valid request/response objects
-		OnProcessRequestComplete().ExecuteIfBound(Request,Response,true);
+		OnProcessRequestComplete().ExecuteIfBound(Request, Response, true);
 	}
 	else
 	{
@@ -705,9 +722,9 @@ void FHttpRequestWinInet::FinishedRequest()
 		// Mark last request attempt as completed but failed
 		CompletionStatus = (Response.IsValid() && Response->bRequestSent) ? EHttpRequestStatus::Failed : EHttpRequestStatus::Failed_ConnectionError;
 		// No response since connection failed
-		Response = NULL;
+		Response.Reset();
 		// Call delegate with failure
-		OnProcessRequestComplete().ExecuteIfBound(Request,NULL,false);
+		OnProcessRequestComplete().ExecuteIfBound(Request, nullptr, false);
 	}
 }
 
@@ -741,17 +758,7 @@ FString FHttpRequestWinInet::GenerateHeaderBuffer(uint32 ContentLength)
 
 void FHttpRequestWinInet::ResetRequestTimeout()
 {
-	FPlatformAtomics::InterlockedExchange(&ElapsedTimeSinceLastServerResponse, 0);
-}
-
-FHttpRequestCompleteDelegate& FHttpRequestWinInet::OnProcessRequestComplete()
-{
-	return RequestCompleteDelegate;
-}
-
-FHttpRequestProgressDelegate& FHttpRequestWinInet::OnRequestProgress()
-{
-	return RequestProgressDelegate;
+	ElapsedTimeSinceLastServerResponse.Set(0);
 }
 
 void FHttpRequestWinInet::CancelRequest()
@@ -764,7 +771,7 @@ void FHttpRequestWinInet::CancelRequest()
 	FinishedRequest();
 }
 
-EHttpRequestStatus::Type FHttpRequestWinInet::GetStatus()
+EHttpRequestStatus::Type FHttpRequestWinInet::GetStatus() const
 {
 	return CompletionStatus;
 }
@@ -774,21 +781,52 @@ const FHttpResponsePtr FHttpRequestWinInet::GetResponse() const
 	return Response;
 }
 
+void FHttpRequestWinInet::BroadcastNewlyReceivedHeaders()
+{
+	check(IsInGameThread());
+	if (Response.IsValid())
+	{
+		// Process the headers received on the HTTP thread and merge them into our master list and then broadcast the new headers
+		TPair<FString, FString> NewHeader;
+		while (Response->NewlyReceivedHeaders.Dequeue(NewHeader))
+		{
+			const FString& HeaderKey = NewHeader.Key;
+			const FString& HeaderValue = NewHeader.Value;
+
+			FString NewValue;
+			FString* PreviousValue = Response->ResponseHeaders.Find(HeaderKey);
+			if (PreviousValue != nullptr && !PreviousValue->IsEmpty())
+			{
+				constexpr const int32 SeparatorLength = 2; // Length of ", "
+				NewValue = MoveTemp(*PreviousValue);
+				NewValue.Reserve(NewValue.Len() + SeparatorLength + HeaderValue.Len());
+				NewValue += TEXT(", ");
+			}
+			NewValue += HeaderValue;
+			Response->ResponseHeaders.Add(HeaderKey, MoveTemp(NewValue));
+
+			OnHeaderReceived().ExecuteIfBound(SharedThis(this), NewHeader.Key, NewHeader.Value);
+		}
+	}
+}
+
 void FHttpRequestWinInet::Tick(float DeltaSeconds)
 {
 	// keep track of elapsed milliseconds
 	const int32 ElapsedMillisecondsThisFrame = DeltaSeconds * 1000;
-	FPlatformAtomics::InterlockedAdd(&ElapsedTimeSinceLastServerResponse, ElapsedMillisecondsThisFrame);
+	ElapsedTimeSinceLastServerResponse.Add(ElapsedMillisecondsThisFrame);
 
 	// Update response progress
 	if(Response.IsValid())
 	{
-		int32 ResponseBytes = Response->ProgressBytesRead.GetValue();
+		const int32 ResponseBytes = Response->ProgressBytesRead.GetValue();
 		if(ResponseBytes > ProgressBytesSent)
 		{
 			ProgressBytesSent = ResponseBytes;
 			OnRequestProgress().ExecuteIfBound(SharedThis(this), RequestPayload.Num(), ResponseBytes);
 		}
+
+		BroadcastNewlyReceivedHeaders();
 	}
 
 	// Convert to seconds for comparison to the timeout value
@@ -807,7 +845,7 @@ void FHttpRequestWinInet::Tick(float DeltaSeconds)
 	}
 	
 	// Timeout if no server response for HttpTimeout
-	const float SecondsSinceLastResponse = ElapsedTimeSinceLastServerResponse / 1000.f;
+	const float SecondsSinceLastResponse = ElapsedTimeSinceLastServerResponse.GetValue() / 1000.f;
 	if (HttpTimeout > 0 && 
 		SecondsSinceLastResponse >= HttpTimeout)
 	{
@@ -820,14 +858,14 @@ void FHttpRequestWinInet::Tick(float DeltaSeconds)
 	// No longer waiting for a response and done processing it
 	else if (CompletionStatus == EHttpRequestStatus::Processing &&
 		Response.IsValid() &&
-		Response->bIsReady &&
+		Response->bIsAsyncProcessingFinished &&
 		TotalElapsed >= FHttpModule::Get().GetHttpDelayTime())
 	{
 		FinishedRequest();
 	}
 }
 
-float FHttpRequestWinInet::GetElapsedTime()
+float FHttpRequestWinInet::GetElapsedTime() const
 {
 	return ElapsedTime;
 }
@@ -841,9 +879,10 @@ FHttpResponseWinInet::FHttpResponseWinInet(FHttpRequestWinInet& InRequest)
 ,	TotalBytesRead(0)
 ,	ResponseCode(EHttpResponseCodes::Unknown)
 ,	ContentLength(0)
-,	bIsReady(0)
-,	bResponseSucceeded(0)
-,	bRequestSent(0)
+,	bIsAsyncProcessingFinished(false)
+,	bIsReady(false)
+,	bResponseSucceeded(false)
+,	bRequestSent(false)
 ,	MaxReadBufferSize(FHttpModule::Get().GetMaxReadBufferSize())
 {
 
@@ -854,20 +893,20 @@ FHttpResponseWinInet::~FHttpResponseWinInet()
 
 }
 
-FString FHttpResponseWinInet::GetURL()
+FString FHttpResponseWinInet::GetURL() const
 {
 	return RequestURL.GetURL();
 }
 
-FString FHttpResponseWinInet::GetURLParameter(const FString& ParameterName)
+FString FHttpResponseWinInet::GetURLParameter(const FString& ParameterName) const
 {
 	const FString* Result = RequestURL.GetParameter(ParameterName);
 	return Result != NULL ? *Result : FString();
 }
 
-FString FHttpResponseWinInet::GetHeader(const FString& HeaderName)
+FString FHttpResponseWinInet::GetHeader(const FString& HeaderName) const
 {
-	FString Result(TEXT(""));
+	FString Result;
 	if (!bIsReady)
 	{
 		UE_LOG(LogHttp, Warning, TEXT("Can't get cached header [%s]. Response still processing. %p"),
@@ -875,16 +914,16 @@ FString FHttpResponseWinInet::GetHeader(const FString& HeaderName)
 	}
 	else
 	{
-		FString* Header = ResponseHeaders.Find(HeaderName);
+		const FString* Header = ResponseHeaders.Find(HeaderName);
 		if (Header != NULL)
 		{
-			return *Header;
+			Result = *Header;
 		}
 	}
 	return Result;
 }
 
-TArray<FString> FHttpResponseWinInet::GetAllHeaders()	
+TArray<FString> FHttpResponseWinInet::GetAllHeaders() const
 {
 	TArray<FString> Result;
 	if (!bIsReady)
@@ -893,25 +932,26 @@ TArray<FString> FHttpResponseWinInet::GetAllHeaders()
 	}
 	else
 	{
-		for (TMap<FString, FString>::TConstIterator It(ResponseHeaders); It; ++It)
+		Result.Reserve(ResponseHeaders.Num());
+		for (const TPair<FString, FString>& It : ResponseHeaders)
 		{
-			Result.Add(It.Key() + TEXT(": ") + It.Value());
+			Result.Emplace(FHttpRequestWinInet::CombineHeaderKeyValue(It.Key, It.Value));
 		}
 	}
 	return Result;
 }
 
-FString FHttpResponseWinInet::GetContentType()
+FString FHttpResponseWinInet::GetContentType() const
 {
 	return GetHeader(TEXT("Content-Type"));
 }
 
-int32 FHttpResponseWinInet::GetContentLength()
+int32 FHttpResponseWinInet::GetContentLength() const
 {
 	return ContentLength;
 }
 
-const TArray<BYTE>& FHttpResponseWinInet::GetContent()
+const TArray<BYTE>& FHttpResponseWinInet::GetContent() const
 {
 	if (!bIsReady)
 	{
@@ -920,12 +960,12 @@ const TArray<BYTE>& FHttpResponseWinInet::GetContent()
 	return ResponsePayload;
 }
 
-int32 FHttpResponseWinInet::GetResponseCode()
+int32 FHttpResponseWinInet::GetResponseCode() const
 {
 	return ResponseCode;
 }
 
-FString FHttpResponseWinInet::GetContentAsString()
+FString FHttpResponseWinInet::GetContentAsString() const
 {
 	TArray<uint8> ZeroTerminatedPayload(GetContent());
 	ZeroTerminatedPayload.Add(0);
@@ -1036,12 +1076,13 @@ void FHttpResponseWinInet::ProcessResponse()
 	// Cache content length now that response is done
 	ContentLength = QueryContentLength();
 	// Mark as valid processed response
-	FPlatformAtomics::InterlockedExchange(&bResponseSucceeded, 1);
-	// Done processing
-	FPlatformAtomics::InterlockedExchange(&bIsReady, 1);
+	bResponseSucceeded = true;
 	// Update progress bytes
-	ProgressBytesRead.Set( TotalBytesRead );
+	ProgressBytesRead.Set(TotalBytesRead);
+	// Done processing
+	bIsAsyncProcessingFinished = true;
 }
+
 void FHttpResponseWinInet::ProcessResponseHeaders()
 {
 	::DWORD HeaderSize = 0;
@@ -1077,22 +1118,14 @@ void FHttpResponseWinInet::ProcessResponseHeaders()
 				DelimiterPtr = EndPtr;
 			}
 			FString HeaderLine(DelimiterPtr-HeaderPtr, HeaderPtr);
-			FString HeaderKey,HeaderValue;
+			FString HeaderKey, HeaderValue;
 			if (HeaderLine.Split(TEXT(":"), &HeaderKey, &HeaderValue, ESearchCase::CaseSensitive))
 			{
 				HeaderKey.TrimStartAndEndInline();
 				HeaderValue.TrimStartAndEndInline();
 				if (!HeaderKey.IsEmpty() && !HeaderValue.IsEmpty())
 				{
-					FString* PreviousValue = ResponseHeaders.Find(HeaderKey);
-					FString NewValue;
-					if (PreviousValue != nullptr && !PreviousValue->IsEmpty())
-					{
-						NewValue = (*PreviousValue) + TEXT(", ");
-					}
-					HeaderValue.TrimStartInline();
-					NewValue += HeaderValue;
-					ResponseHeaders.Add(HeaderKey, NewValue);
+					NewlyReceivedHeaders.Enqueue(TPair<FString, FString>(MoveTemp(HeaderKey), MoveTemp(HeaderValue)));
 				}
 			}
 			HeaderPtr = DelimiterPtr + 2;

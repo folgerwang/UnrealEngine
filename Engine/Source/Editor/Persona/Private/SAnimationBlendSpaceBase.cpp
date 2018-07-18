@@ -80,7 +80,7 @@ void SBlendSpaceEditorBase::Construct(const FArguments& InArgs, const TSharedRef
 	OnPropertyChangedHandleDelegateHandle = FCoreUObjectDelegates::OnObjectPropertyChanged.Add(OnPropertyChangedHandle);
 }
 
-void SBlendSpaceEditorBase::OnSampleMoved(const int32 SampleIndex, const FVector& NewValue, bool bIsInteractive)
+void SBlendSpaceEditorBase::OnSampleMoved(const int32 SampleIndex, const FVector& NewValue, bool bIsInteractive, bool bSnap)
 {
 	bool bMoveSuccesful = true;
 	if (BlendSpace->IsValidBlendSampleIndex(SampleIndex) && BlendSpace->GetBlendSample(SampleIndex).SampleValue != NewValue && !BlendSpace->IsTooCloseToExistingSamplePoint(NewValue, SampleIndex))
@@ -88,7 +88,7 @@ void SBlendSpaceEditorBase::OnSampleMoved(const int32 SampleIndex, const FVector
 		FScopedTransaction ScopedTransaction(LOCTEXT("MoveSample", "Moving Blend Grid Sample"));
 		BlendSpace->Modify();
 
-		bMoveSuccesful = BlendSpace->EditSampleValue(SampleIndex, NewValue);
+		bMoveSuccesful = BlendSpace->EditSampleValue(SampleIndex, NewValue, bSnap);
 		if (bMoveSuccesful)
 		{
 			BlendSpace->ValidateSampleData();

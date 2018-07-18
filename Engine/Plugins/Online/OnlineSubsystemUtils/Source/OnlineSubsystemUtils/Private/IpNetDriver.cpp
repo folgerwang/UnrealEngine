@@ -35,7 +35,6 @@ Notes:
 -----------------------------------------------------------------------------*/
 
 DECLARE_CYCLE_STAT(TEXT("IpNetDriver Add new connection"), Stat_IpNetDriverAddNewConnection, STATGROUP_Net);
-DECLARE_CYCLE_STAT(TEXT("IpNetDriver ProcessRemoteFunction"), STAT_NetProcessRemoteFunc, STATGROUP_Net);
 DECLARE_CYCLE_STAT(TEXT("IpNetDriver Socket RecvFrom"), STAT_IpNetDriver_RecvFromSocket, STATGROUP_Net);
 
 UIpNetDriver::FOnNetworkProcessingCausingSlowFrame UIpNetDriver::OnNetworkProcessingCausingSlowFrame;
@@ -248,6 +247,9 @@ void UIpNetDriver::TickDispatch( float DeltaTime )
 
 		int32 BytesRead = 0;
 
+		// Reset the address on every pass. Otherwise if there's an error receiving, the address may be from a previous packet.
+		FromAddr->SetAnyAddress();
+
 		// Get data, if any.
 		bool bOk = false;
 		{
@@ -255,12 +257,15 @@ void UIpNetDriver::TickDispatch( float DeltaTime )
 			bOk = Socket->RecvFrom(Data, sizeof(Data), BytesRead, *FromAddr);
 		}
 
+		UIpConnection* Connection = nullptr;
+		UIpConnection* const MyServerConnection = GetServerConnection();
+
 		if (bOk)
 		{
-			// Immediately stop processing, for empty packets (usually a DDoS)
+			// Immediately stop processing (continuing to next receive), for empty packets (usually a DDoS)
 			if (BytesRead == 0)
 			{
-				break;
+				continue;
 			}
 
 			FPacketAudit::NotifyLowLevelReceive(DataRef, BytesRead);
@@ -268,22 +273,31 @@ void UIpNetDriver::TickDispatch( float DeltaTime )
 		else
 		{
 			ESocketErrors Error = SocketSubsystem->GetLastErrorCode();
-			if(Error == SE_EWOULDBLOCK ||
-			   Error == SE_NO_ERROR)
+
+			if(Error == SE_EWOULDBLOCK || Error == SE_NO_ERROR)
 			{
 				// No data or no error?
 				break;
 			}
 			else
 			{
-				// MalformedPacket: Client tried sending a packet that exceeded the maximum packet limit
+				// MalformedPacket: Client tried receiving a packet that exceeded the maximum packet limit
 				// enforced by the server
 				if (Error == SE_EMSGSIZE)
 				{
-					UIpConnection* Connection = nullptr;
-					if (GetServerConnection() && (*GetServerConnection()->RemoteAddr == *FromAddr))
+					if (MyServerConnection)
 					{
-						Connection = GetServerConnection();
+						if (*MyServerConnection->RemoteAddr == *FromAddr)
+						{
+							Connection = MyServerConnection;
+						}
+						else
+						{
+							UE_LOG(LogNet, Log, TEXT("Received packet with bytes > max MTU from an incoming IP address that doesn't match expected server address: Actual: %s Expected: %s"),
+								*FromAddr->ToString(true),
+								MyServerConnection->RemoteAddr.IsValid() ? *MyServerConnection->RemoteAddr->ToString(true) : TEXT("Invalid"));
+							continue;
+						}
 					}
 
 					if (Connection != nullptr)
@@ -294,17 +308,20 @@ void UIpNetDriver::TickDispatch( float DeltaTime )
 
 				if( Error != SE_ECONNRESET && Error != SE_UDP_ERR_PORT_UNREACH )
 				{
-					UE_LOG(LogNet, Warning, TEXT("UDP recvfrom error: %i (%s) from %s"),
-						(int32)Error,
+					FString ErrorString = FString::Printf(TEXT("UIpNetDriver::TickDispatch: Socket->RecvFrom: %i (%s) from %s"),
+						static_cast<int32>(Error),
 						SocketSubsystem->GetSocketError(Error),
 						*FromAddr->ToString(true));
-					break;
+
+					GEngine->BroadcastNetworkFailure(GetWorld(), this, ENetworkFailure::ConnectionLost, ErrorString);
+					Shutdown();
+
+					// Unexpected packet errors should continue to the next iteration, rather than block all further receives this tick
+					continue;
 				}
 			}
 		}
 		// Figure out which socket the received data came from.
-		UIpConnection* Connection = nullptr;
-		UIpConnection* MyServerConnection = GetServerConnection();
 		if (MyServerConnection)
 		{
 			if ((*MyServerConnection->RemoteAddr == *FromAddr))
@@ -321,7 +338,7 @@ void UIpNetDriver::TickDispatch( float DeltaTime )
 		for( int32 i=0; i<ClientConnections.Num() && !Connection; i++ )
 		{
 			UIpConnection* TestConnection = (UIpConnection*)ClientConnections[i]; 
-            check(TestConnection);
+			check(TestConnection);
 			if(*TestConnection->RemoteAddr == *FromAddr)
 			{
 				Connection = TestConnection;
@@ -442,7 +459,7 @@ void UIpNetDriver::TickDispatch( float DeltaTime )
 						}
 #endif
 
-						Connection->InitRemoteConnection( this, Socket,  FURL(), *FromAddr, USOCK_Open);
+						Connection->InitRemoteConnection( this, Socket, World ? World->URL : FURL(), *FromAddr, USOCK_Open);
 
 						if (Connection->Handler.IsValid())
 						{
@@ -532,82 +549,7 @@ void UIpNetDriver::LowLevelSend(FString Address, void* Data, int32 CountBits)
 	}
 }
 
-void UIpNetDriver::ProcessRemoteFunction(class AActor* Actor, UFunction* Function, void* Parameters, FOutParmRec* OutParms, FFrame* Stack, class UObject* SubObject )
-{
-#if !UE_BUILD_SHIPPING
-	SCOPE_CYCLE_COUNTER(STAT_NetProcessRemoteFunc);
-	SCOPE_CYCLE_UOBJECT(Function, Function);
 
-	bool bBlockSendRPC = false;
-
-	SendRPCDel.ExecuteIfBound(Actor, Function, Parameters, OutParms, Stack, SubObject, bBlockSendRPC);
-
-	if (!bBlockSendRPC)
-#endif
-	{
-		bool bIsServer = IsServer();
-
-		UNetConnection* Connection = NULL;
-		if (bIsServer)
-		{
-			if ((Function->FunctionFlags & FUNC_NetMulticast))
-			{
-				// Multicast functions go to every client
-				TArray<UNetConnection*> UniqueRealConnections;
-				for (int32 i=0; i<ClientConnections.Num(); ++i)
-				{
-					Connection = ClientConnections[i];
-					if (Connection && Connection->ViewTarget)
-					{
-						// Do relevancy check if unreliable.
-						// Reliables will always go out. This is odd behavior. On one hand we wish to guarantee "reliables always get there". On the other
-						// hand, replicating a reliable to something on the other side of the map that is non relevant seems weird. 
-						//
-						// Multicast reliables should probably never be used in gameplay code for actors that have relevancy checks. If they are, the 
-						// rpc will go through and the channel will be closed soon after due to relevancy failing.
-
-						bool IsRelevant = true;
-						if ((Function->FunctionFlags & FUNC_NetReliable) == 0)
-						{
-							FNetViewer Viewer(Connection, 0.f);
-							IsRelevant = Actor->IsNetRelevantFor(Viewer.InViewer, Viewer.ViewTarget, Viewer.ViewLocation);
-						}
-					
-						if (IsRelevant)
-						{
-							if (Connection->GetUChildConnection() != NULL)
-							{
-								Connection = ((UChildConnection*)Connection)->Parent;
-							}
-						
-							InternalProcessRemoteFunction( Actor, SubObject, Connection, Function, Parameters, OutParms, Stack, bIsServer );
-						}
-					}
-				}			
-
-				// Replicate any RPCs to the replay net driver so that they can get saved in network replays
-				UNetDriver* NetDriver = GEngine->FindNamedNetDriver(GetWorld(), NAME_DemoNetDriver);
-				if (NetDriver)
-				{
-					NetDriver->ProcessRemoteFunction(Actor, Function, Parameters, OutParms, Stack, SubObject);
-				}
-				// Return here so we don't call InternalProcessRemoteFunction again at the bottom of this function
-				return;
-			}
-		}
-
-		// Send function data to remote.
-		Connection = Actor->GetNetConnection();
-		if (Connection)
-		{
-			InternalProcessRemoteFunction( Actor, SubObject, Connection, Function, Parameters, OutParms, Stack, bIsServer );
-		}
-		else
-		{
-			UE_LOG(LogNet, Warning, TEXT("UIpNetDriver::ProcessRemoteFunction: No owning connection for actor %s. Function %s will not be processed."), *Actor->GetName(), *Function->GetName());
-		}
-	}
-}
 
 FString UIpNetDriver::LowLevelGetNetworkNumber()
 {
@@ -664,4 +606,3 @@ UIpConnection* UIpNetDriver::GetServerConnection()
 {
 	return (UIpConnection*)ServerConnection;
 }
-

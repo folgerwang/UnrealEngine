@@ -9,6 +9,9 @@
 #include "Engine/GameEngine.h"
 #include "GameFramework/PlayerController.h"
 #include "Engine/NetDriver.h"
+#include "Engine/NetConnection.h"
+#include "SocketSubsystem.h"
+#include "IPAddress.h"
 #include "OnlineSubsystemImpl.h"
 #include "OnlineSubsystemBPCallHelper.h"
 
@@ -42,7 +45,7 @@ UAudioComponent* CreateVoiceAudioComponent(uint32 SampleRate, int32 NumChannels)
 		if (FAudioDevice* AudioDevice = GEngine->GetMainAudioDevice())
 		{
 			USoundWaveProcedural* SoundStreaming = NewObject<USoundWaveProcedural>();
-			SoundStreaming->SampleRate = SampleRate;
+			SoundStreaming->SetSampleRate(SampleRate);
 			SoundStreaming->NumChannels = NumChannels;
 			SoundStreaming->Duration = INDEFINITELY_LOOPING_DURATION;
 			SoundStreaming->SoundGroup = SOUNDGROUP_Voice;
@@ -157,7 +160,7 @@ void ApplyVoiceSettings(UVoipListenerSynthComponent* InSynthComponent, const FVo
 UWorld* GetWorldForOnline(FName InstanceName)
 {
 	UWorld* World = NULL;
-#ifdef WITH_EDITOR
+#if WITH_EDITOR
 	if (InstanceName != FOnlineSubsystemImpl::DefaultInstanceName && InstanceName != NAME_None)
 	{
 		FWorldContext& WorldContext = GEngine->GetWorldContextFromHandleChecked(InstanceName);
@@ -225,23 +228,44 @@ int32 GetClientPeerIp(FName InstanceName, const FUniqueNetId& UserId)
 	return PeerIp;
 }
 
-bool HandleSessionCommands(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar)
+#if WITH_ENGINE
+uint64 GetBaseVoiceChatTeamId(UWorld* World)
 {
-	bool bWasHandled = true;
+	uint64 VoiceChatIdBase = 0;
 
-	IOnlineSessionPtr SessionInt = Online::GetSessionInterface(InWorld);
-	if (SessionInt.IsValid())
+	UNetDriver* NetDriver = World ? GEngine->FindNamedNetDriver(World, NAME_GameNetDriver) : nullptr;
+	if (NetDriver)
 	{
-		if (FParse::Command(&Cmd, TEXT("DUMP")))
+		FString AddressStr = NetDriver->LowLevelGetNetworkNumber();
+		if (!AddressStr.IsEmpty())
 		{
-			SessionInt->DumpSessionState();
+			TSharedRef<FInternetAddr> LocalAddr = ISocketSubsystem::Get()->CreateInternetAddr();
+
+			bool bIsValid = false;
+			LocalAddr->SetIp(*AddressStr, bIsValid);
+			if (bIsValid)
+			{
+				uint32 OutAddr = 0;
+				LocalAddr->GetIp(OutAddr);
+				const uint32 ProcId = FPlatformProcess::GetCurrentProcessId();
+				// <32bit IP Addr> | <EmptySpace> | <24bit ProcessId>
+				VoiceChatIdBase = ((static_cast<uint64>(OutAddr) << 32) & 0xFFFFFFFF00000000);
+				VoiceChatIdBase |= (ProcId & 0x0000000000FFFFFF);
+			}
 		}
 	}
 
-	return bWasHandled;
+	return VoiceChatIdBase;
 }
 
-bool HandleVoiceCommands(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar)
+uint64 GetVoiceChatTeamId(uint64 VoiceChatIdBase, uint8 TeamIndex)
+{
+	// <32bit IP Addr> | <8bit team index> | <24bit ProcessId>
+	return VoiceChatIdBase | static_cast<uint64>(((TeamIndex << 24) & 0xFF000000));
+}
+#endif
+
+bool HandleVoiceCommands(IOnlineSubsystem* InOnlineSub, UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar)
 {
 	bool bWasHandled = true;
 
@@ -258,69 +282,69 @@ bool HandleVoiceCommands(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar)
 		bool bRequiresPushToTalk = false;
 		if (!GConfig->GetBool(TEXT("/Script/Engine.GameSession"), TEXT("bRequiresPushToTalk"), bRequiresPushToTalk, GGameIni))
 		{
-			UE_LOG(LogVoice, Warning, TEXT("Missing bRequiresPushToTalk key in [/Script/Engine.GameSession] of DefaultGame.ini"));
+			UE_LOG_ONLINE_VOICE(Warning, TEXT("Missing bRequiresPushToTalk key in [/Script/Engine.GameSession] of DefaultGame.ini"));
 		}
 
 		int32 MaxLocalTalkers = 0;
 		if (!GConfig->GetInt(TEXT("OnlineSubsystem"), TEXT("MaxLocalTalkers"), MaxLocalTalkers, GEngineIni))
 		{
-			UE_LOG(LogVoice, Warning, TEXT("Missing MaxLocalTalkers key in OnlineSubsystem of DefaultEngine.ini"));
+			UE_LOG_ONLINE_VOICE(Warning, TEXT("Missing MaxLocalTalkers key in OnlineSubsystem of DefaultEngine.ini"));
 		}
 
 		int32 MaxRemoteTalkers = 0;
 		if (!GConfig->GetInt(TEXT("OnlineSubsystem"), TEXT("MaxRemoteTalkers"), MaxRemoteTalkers, GEngineIni))
 		{
-			UE_LOG(LogVoice, Warning, TEXT("Missing MaxRemoteTalkers key in OnlineSubsystem of DefaultEngine.ini"));
+			UE_LOG_ONLINE_VOICE(Warning, TEXT("Missing MaxRemoteTalkers key in OnlineSubsystem of DefaultEngine.ini"));
 		}
 		
 		float VoiceNotificationDelta = 0.0f;
 		if (!GConfig->GetFloat(TEXT("OnlineSubsystem"), TEXT("VoiceNotificationDelta"), VoiceNotificationDelta, GEngineIni))
 		{
-			UE_LOG(LogVoice, Warning, TEXT("Missing VoiceNotificationDelta key in OnlineSubsystem of DefaultEngine.ini"));
+			UE_LOG_ONLINE_VOICE(Warning, TEXT("Missing VoiceNotificationDelta key in OnlineSubsystem of DefaultEngine.ini"));
 		}
 
 		bool bHasVoiceInterfaceEnabled = false;
 		if (!GConfig->GetBool(TEXT("OnlineSubsystem"), TEXT("bHasVoiceEnabled"), bHasVoiceInterfaceEnabled, GEngineIni))
 		{
-			UE_LOG(LogVoice, Log, TEXT("Voice interface disabled by config [OnlineSubsystem].bHasVoiceEnabled"));
+			UE_LOG_ONLINE_VOICE(Log, TEXT("Voice interface disabled by config [OnlineSubsystem].bHasVoiceEnabled"));
 		}
 
 		bool bDuckingOptOut = false;
 		if (!GConfig->GetBool(TEXT("OnlineSubsystem"), TEXT("bDuckingOptOut"), bDuckingOptOut, GEngineIni))
 		{
-			UE_LOG(LogVoice, Log, TEXT("Voice ducking not set by config [OnlineSubsystem].bDuckingOptOut"));
+			UE_LOG_ONLINE_VOICE(Log, TEXT("Voice ducking not set by config [OnlineSubsystem].bDuckingOptOut"));
 		}
 
 		FString VoiceDump;
 
 		bool bVoiceInterface = false;
-		IOnlineVoicePtr VoiceInt = Online::GetVoiceInterface(InWorld);
+		IOnlineVoicePtr VoiceInt = InOnlineSub->GetVoiceInterface();
 		if (VoiceInt.IsValid())
 		{
 			bVoiceInterface = true;
 			VoiceDump = VoiceInt->GetVoiceDebugState();
 		}
 
-		UE_LOG(LogVoice, Display, TEXT("Voice Module Available: %s"), bVoiceModule ? TEXT("true") : TEXT("false"));
-		UE_LOG(LogVoice, Display, TEXT("Voice Module Enabled: %s"), bVoiceModuleEnabled ? TEXT("true") : TEXT("false"));
-		UE_LOG(LogVoice, Display, TEXT("Voice Interface Available: %s"), bVoiceInterface ? TEXT("true") : TEXT("false"));
-		UE_LOG(LogVoice, Display, TEXT("Voice Interface Enabled: %s"), bHasVoiceInterfaceEnabled ? TEXT("true") : TEXT("false"));
-		UE_LOG(LogVoice, Display, TEXT("Ducking Opt Out Enabled: %s"), bDuckingOptOut ? TEXT("true") : TEXT("false"));
-		UE_LOG(LogVoice, Display, TEXT("Max Local Talkers: %d"), MaxLocalTalkers);
-		UE_LOG(LogVoice, Display, TEXT("Max Remote Talkers: %d"), MaxRemoteTalkers);
-		UE_LOG(LogVoice, Display, TEXT("Notification Delta: %0.2f"), VoiceNotificationDelta);
-		UE_LOG(LogVoice, Display, TEXT("Voice Requires Push To Talk: %s"), bRequiresPushToTalk ? TEXT("true") : TEXT("false"));
+		UE_LOG_ONLINE_VOICE(Display, TEXT("Voice Module Available: %s"), bVoiceModule ? TEXT("true") : TEXT("false"));
+		UE_LOG_ONLINE_VOICE(Display, TEXT("Voice Module Enabled: %s"), bVoiceModuleEnabled ? TEXT("true") : TEXT("false"));
+		UE_LOG_ONLINE_VOICE(Display, TEXT("Voice Interface Available: %s"), bVoiceInterface ? TEXT("true") : TEXT("false"));
+		UE_LOG_ONLINE_VOICE(Display, TEXT("Voice Interface Enabled: %s"), bHasVoiceInterfaceEnabled ? TEXT("true") : TEXT("false"));
+		UE_LOG_ONLINE_VOICE(Display, TEXT("Ducking Opt Out Enabled: %s"), bDuckingOptOut ? TEXT("true") : TEXT("false"));
+		UE_LOG_ONLINE_VOICE(Display, TEXT("Max Local Talkers: %d"), MaxLocalTalkers);
+		UE_LOG_ONLINE_VOICE(Display, TEXT("Max Remote Talkers: %d"), MaxRemoteTalkers);
+		UE_LOG_ONLINE_VOICE(Display, TEXT("Notification Delta: %0.2f"), VoiceNotificationDelta);
+		UE_LOG_ONLINE_VOICE(Display, TEXT("Voice Requires Push To Talk: %s"), bRequiresPushToTalk ? TEXT("true") : TEXT("false"));
 
 		TArray<FString> OutArray;
 		VoiceDump.ParseIntoArray(OutArray, TEXT("\n"), false);
 		for (const FString& Str : OutArray)
 		{
-			UE_LOG(LogVoice, Display, TEXT("%s"), *Str);
+			UE_LOG_ONLINE_VOICE(Display, TEXT("%s"), *Str);
 		}
 	}
 	else
 	{
-		IOnlineVoicePtr VoiceInt = Online::GetVoiceInterface(InWorld);
+		IOnlineVoicePtr VoiceInt = InOnlineSub->GetVoiceInterface();
 		if (VoiceInt.IsValid())
 		{
 		}
@@ -466,7 +490,7 @@ static bool OnlineExec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar )
 					else if (FParse::Command(&Cmd, TEXT("LEADERBOARDS")))
 					{
 						// This class deletes itself once done
-						(new FTestLeaderboardInterface(SubName))->Test(InWorld);
+						(new FTestLeaderboardInterface(SubName))->Test(InWorld, FParse::Token(Cmd, false));
 						bWasHandled = true;
 					}
 					else if (FParse::Command(&Cmd, TEXT("PRESENCE")))
@@ -578,13 +602,9 @@ static bool OnlineExec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar )
 					}
 #endif //WITH_DEV_AUTOMATION_TESTS
 				}
-				else if (FParse::Command(&Cmd, TEXT("SESSION")))
-				{
-					bWasHandled = HandleSessionCommands(InWorld, Cmd, Ar);
-				}
 				else if (FParse::Command(&Cmd, TEXT("VOICE")))
 				{
-					bWasHandled = HandleVoiceCommands(InWorld, Cmd, Ar);
+					bWasHandled = HandleVoiceCommands(OnlineSub, InWorld, Cmd, Ar);
 				}
 			}
 		}

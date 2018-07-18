@@ -327,6 +327,11 @@ public:
 	UPROPERTY(EditAnywhere, Category = Performance)
 	EParticleSignificanceLevel MaxSignificanceLevel;
 
+	/** Max number of components of this system to keep resident in the world PSC pool. */
+	UPROPERTY(EditAnywhere, Category = Performance)
+	uint32 MaxPoolSize;
+	//TODO: Allow pool size overriding per world and possibly implement some preallocation too.
+
 	/** Local space position that UVs generated with the ParticleMacroUV material node will be centered on. */
 	UPROPERTY(EditAnywhere, Category=MacroUV)
 	FVector MacroUVPosition;
@@ -364,11 +369,15 @@ public:
 #endif // WITH_EDITOR
 	virtual void PreSave(const class ITargetPlatform* TargetPlatform) override;
 	virtual void PostLoad() override;
+	virtual bool IsPostLoadThreadSafe() const override;
 	virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const override;
 	bool UsesCPUCollision() const;
 	virtual bool CanBeClusterRoot() const override;
+	virtual void Serialize(FArchive& Ar);
+
 	//~ End UObject Interface.
 
+	bool CanBePooled()const;
 
 	// @todo document
 	void UpdateColorModuleClampAlpha(class UParticleModuleColorBase* ColorModule);

@@ -51,15 +51,16 @@
 #include "UObject/TextProperty.h"
 #include "UObject/MetaData.h"
 #include "HAL/LowLevelMemTracker.h"
-#include "CoreDelegates.h"
+#include "Misc/CoreDelegates.h"
 
 DEFINE_LOG_CATEGORY(LogUObjectGlobals);
 
 #if USE_MALLOC_PROFILER
-#include "MallocProfiler.h"
+#include "ProfilingDebugging/MallocProfiler.h"
 #endif
 
-bool						GIsSavingPackage = false;
+bool GIsSavingPackage = false;
+bool GAllowUnversionedContentInEditor = false;
 
 /** Object annotation used by the engine to keep track of which objects are selected */
 FUObjectAnnotationSparseBool GSelectedObjectAnnotation;
@@ -110,6 +111,7 @@ FCoreUObjectDelegates::FOnPreObjectPropertyChanged FCoreUObjectDelegates::OnPreO
 FCoreUObjectDelegates::FOnObjectPropertyChanged FCoreUObjectDelegates::OnObjectPropertyChanged;
 TSet<UObject*> FCoreUObjectDelegates::ObjectsModifiedThisFrame;
 FCoreUObjectDelegates::FOnObjectModified FCoreUObjectDelegates::OnObjectModified;
+FCoreUObjectDelegates::FOnObjectTransacted FCoreUObjectDelegates::OnObjectTransacted;
 FCoreUObjectDelegates::FOnAssetLoaded FCoreUObjectDelegates::OnAssetLoaded;
 FCoreUObjectDelegates::FOnObjectSaved FCoreUObjectDelegates::OnObjectSaved;
 #endif // WITH_EDITOR
@@ -141,6 +143,7 @@ FCoreUObjectDelegates::FOnRedirectorFollowed FCoreUObjectDelegates::RedirectorFo
 PRAGMA_ENABLE_DEPRECATION_WARNINGS
 FSimpleMulticastDelegate FCoreUObjectDelegates::PostDemoPlay;
 FCoreUObjectDelegates::FOnLoadObjectsOnTop FCoreUObjectDelegates::ShouldLoadOnTop;
+FCoreUObjectDelegates::FShouldCookPackageForPlatform FCoreUObjectDelegates::ShouldCookPackageForPlatform;
 
 FCoreUObjectDelegates::FPackageCreatedForLoad FCoreUObjectDelegates::PackageCreatedForLoad;
 FCoreUObjectDelegates::FGetPrimaryAssetIdForObject FCoreUObjectDelegates::GetPrimaryAssetIdForObject;
@@ -227,6 +230,36 @@ namespace
 
 		return MatchingObject;
 	}
+}
+
+/** Object annotation used to keep track of the number suffixes  */
+struct FPerClassNumberSuffixAnnotation
+{
+	// The annotation container uses this to trim annotations that return to
+	// the default state - this never happens for this annotation type.
+	FORCEINLINE bool IsDefault()
+	{
+		return false;
+	}
+
+	TMap<UClass*, int32> Suffixes;
+};
+
+/**
+ * Updates the suffix to be given to the next newly-created unnamed object.
+ *
+ * Updating is done via a callback because a lock needs to be maintained while this happens.
+ */
+int32 UpdateSuffixForNextNewObject(UObject* Parent, UClass* Class, TFunctionRef<void(int32&)> IndexMutator)
+{
+	static FCriticalSection PerClassNumberSuffixAnnotationMutex;
+	static FUObjectAnnotationDense<FPerClassNumberSuffixAnnotation, true> PerClassNumberSuffixAnnotation;
+
+	FPerClassNumberSuffixAnnotation& Annotation = PerClassNumberSuffixAnnotation.GetAnnotationRef(Parent);
+	FScopeLock Lock(&PerClassNumberSuffixAnnotationMutex);
+	int32& Result = Annotation.Suffixes.FindOrAdd(Class);
+	IndexMutator(Result);
+	return Result;
 }
 
 /**
@@ -322,7 +355,10 @@ UObject* StaticFindObject( UClass* ObjectClass, UObject* InObjectPackage, const 
 	}
 	else
 	{
-		ObjectName = FName(OrigInName, FNAME_Add);
+		FString InName = OrigInName;
+		ConstructorHelpers::StripObjectClass(InName);
+
+		ObjectName = FName(*InName, FNAME_Add);
 	}
 
 	return StaticFindObjectFast(ObjectClass, ObjectPackage, ObjectName, ExactClass, bAnyPackage);
@@ -337,7 +373,7 @@ UObject* StaticFindObjectChecked( UClass* ObjectClass, UObject* ObjectParent, co
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	if( !Result )
 	{
-		UE_LOG(LogUObjectGlobals, Fatal, TEXT("%s"), *FString::Printf( TEXT("Failed to find object '%s %s.%s'"), *ObjectClass->GetName(), ObjectParent==ANY_PACKAGE ? TEXT("Any") : ObjectParent ? *ObjectParent->GetName() : TEXT("None"), InName));
+		UE_LOG(LogUObjectGlobals, Fatal, TEXT("Failed to find object '%s %s.%s'"), *ObjectClass->GetName(), ObjectParent==ANY_PACKAGE ? TEXT("Any") : ObjectParent ? *ObjectParent->GetName() : TEXT("None"), InName);
 	}
 #endif
 	return Result;
@@ -876,7 +912,7 @@ UObject* StaticLoadObjectInternal(UClass* ObjectClass, UObject* InOuter, const T
 	const bool bContainsObjectName = !!FCString::Strstr(InName, TEXT("."));
 
 	// break up the name into packages, returning the innermost name and its outer
-	ResolveName(InOuter, StrName, true, true, LoadFlags & (LOAD_EditorOnly | LOAD_Quiet | LOAD_NoWarn));
+	ResolveName(InOuter, StrName, true, true, LoadFlags & (LOAD_EditorOnly | LOAD_Quiet | LOAD_NoWarn | LOAD_DeferDependencyLoads));
 	if (InOuter)
 	{
 		// If we have a full UObject name then attempt to find the object in memory first,
@@ -993,7 +1029,7 @@ UClass* StaticLoadClass( UClass* BaseClass, UObject* InOuter, const TCHAR* InNam
 }
 
 #if WITH_EDITOR
-#include "StackTracker.h"
+#include "Containers/StackTracker.h"
 class FDiffFileArchive : public FArchiveProxy
 {
 private:
@@ -1107,7 +1143,7 @@ public:
 * @param	ImportLinker	Linker that requests this package through one of its imports
 * @return	Loaded package if successful, NULL otherwise
 */
-UPackage* LoadPackageInternal(UPackage* InOuter, const TCHAR* InLongPackageNameOrFilename, uint32 LoadFlags, FLinkerLoad* ImportLinker)
+UPackage* LoadPackageInternal(UPackage* InOuter, const TCHAR* InLongPackageNameOrFilename, uint32 LoadFlags, FLinkerLoad* ImportLinker, FArchive* InReaderOverride)
 {
 	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("LoadPackageInternal"), STAT_LoadPackageInternal, STATGROUP_ObjectVerbose);
 
@@ -1237,7 +1273,7 @@ UPackage* LoadPackageInternal(UPackage* InOuter, const TCHAR* InLongPackageNameO
 		}
 #endif
 
-		Linker = GetPackageLinker(InOuter, *FileToLoad, LoadFlags, nullptr, nullptr);
+		Linker = GetPackageLinker(InOuter, *FileToLoad, LoadFlags, nullptr, nullptr, InReaderOverride);
 		
 		if (!Linker)
 		{
@@ -1383,15 +1419,14 @@ UPackage* LoadPackageInternal(UPackage* InOuter, const TCHAR* InLongPackageNameO
 				{
 					// Sanity check to make sure that Linker is the linker that loaded our Result package or the linker has already been detached
 					check(!Result || Result->LinkerLoad == Linker || Result->LinkerLoad == nullptr);
-					if (Result && Linker->Loader)
+					if (Result && Linker->HasLoader())
 					{
 						ResetLoaders(Result);
 					}
 					// Reset loaders could have already deleted Linker so guard against deleting stale pointers
 					if (Result && Result->LinkerLoad)
 					{
-						delete Linker->Loader;
-						Linker->Loader = nullptr;
+						Linker->DestroyLoader();
 					}
 					// And make sure no one can use it after it's been deleted
 					Linker = nullptr;
@@ -1418,7 +1453,7 @@ UPackage* LoadPackageInternal(UPackage* InOuter, const TCHAR* InLongPackageNameO
 	return Result;
 }
 
-UPackage* LoadPackage(UPackage* InOuter, const TCHAR* InLongPackageName, uint32 LoadFlags)
+UPackage* LoadPackage(UPackage* InOuter, const TCHAR* InLongPackageName, uint32 LoadFlags, FArchive* InReaderOverride)
 {
 	COOK_STAT(LoadPackageStats::NumPackagesLoaded++);
 	COOK_STAT(FScopedDurationTimer LoadTimer(LoadPackageStats::LoadPackageTimeSec));
@@ -1433,7 +1468,7 @@ UPackage* LoadPackage(UPackage* InOuter, const TCHAR* InLongPackageName, uint32 
 	// since we are faking the object name, this is basically a duplicate of LLM_SCOPED_TAG_WITH_OBJECT_IN_SET
 	FString FakePackageName = FString(TEXT("Package ")) + InLongPackageName;
 	LLM_SCOPED_TAG_WITH_STAT_NAME_IN_SET(FLowLevelMemTracker::Get().IsTagSetActive(ELLMTagSet::Assets) ? FDynamicStats::CreateMemoryStatId<FStatGroup_STATGROUP_LLMAssets>(FName(*FakePackageName)).GetName() : NAME_None, ELLMTagSet::Assets, ELLMTracker::Default);
-	return LoadPackageInternal(InOuter, InLongPackageName, LoadFlags, /*ImportLinker =*/ nullptr);
+	return LoadPackageInternal(InOuter, InLongPackageName, LoadFlags, /*ImportLinker =*/ nullptr, InReaderOverride);
 }
 
 /**
@@ -1590,16 +1625,23 @@ void EndLoad()
 			{
 				// set this so that we can perform certain operations in which are only safe once all objects have been de-serialized.
 				TGuardValue<bool> GuardIsRoutingPostLoad(FUObjectThreadContext::Get().IsRoutingPostLoad, true);
-
+				FLinkerLoad* VisitedLinkerLoad = nullptr;
 				// Postload objects.
 				for (int32 i = 0; i < ObjLoaded.Num(); i++)
 				{
-
 					UObject* Obj = ObjLoaded[i];
 					check(Obj);
 #if WITH_EDITOR
 					SlowTask.EnterProgressFrame(1, FText::Format(NSLOCTEXT("Core", "FinalizingUObject", "Finalizing load of {0}"), FText::FromString(Obj->GetName())));
 #endif
+					
+					FLinkerLoad* LinkerLoad = Obj->GetLinker();
+					if (LinkerLoad && LinkerLoad != VisitedLinkerLoad)
+					{
+						LinkerLoad->FinishExternalReadDependencies(0.0);
+						VisitedLinkerLoad = LinkerLoad;
+					}
+					
 					Obj->ConditionalPostLoad();
 				}
 			}
@@ -1700,11 +1742,11 @@ void EndLoad()
 		{
 			if (Linker)
 			{				
-				if (Linker->Loader && Linker->LinkerRoot)
+				if (Linker->HasLoader() && Linker->LinkerRoot)
 				{
 					ResetLoaders(Linker->LinkerRoot);
 				}
-				check(Linker->Loader == nullptr);				
+				check(!Linker->HasLoader());				
 			}
 		}
 
@@ -1796,11 +1838,9 @@ FName MakeUniqueObjectName( UObject* Parent, UClass* Class, FName InBaseName/*=N
 				else
 				{
 					int32 NameNumber = 0;
-					if (Parent && (Parent != ANY_PACKAGE) )
+					if (Parent && (Parent != ANY_PACKAGE))
 					{
-						UPackage* ParentPackage = Parent->GetOutermost();
-						int32& ClassUnique = ParentPackage->GetClassUniqueNameIndexMap().FindOrAdd(Class->GetFName());
-						NameNumber = ++ClassUnique;
+						NameNumber = UpdateSuffixForNextNewObject(Parent, Class, [](int32& Index) { ++Index; });
 					}
 					else
 					{
@@ -2003,7 +2043,7 @@ UObject* StaticDuplicateObjectEx( FObjectDuplicationParameters& Parameters )
 														);
 	}
 
-	TArray<uint8> ObjectData;
+	FLargeMemoryData ObjectData;
 
 	FUObjectAnnotationSparse<FDuplicatedObject,false>  DuplicatedObjectAnnotation;
 
@@ -2137,7 +2177,6 @@ UObject* StaticDuplicateObjectEx( FObjectDuplicationParameters& Parameters )
 	return DupRootObject;
 }
 
-
 /**
  * Save a copy of this object into the transaction buffer if we are currently recording into
  * one (undo/redo). If bMarkDirty is true, will also mark the package as needing to be saved.
@@ -2176,6 +2215,26 @@ bool SaveToTransactionBuffer(UObject* Object, bool bMarkDirty)
 }
 
 /**
+ * Causes the transaction system to emit a snapshot event for the given object if the following conditions are met:
+ *  a) The object is currently transacting.
+ *  b) The object has changed since it started transacting.
+ *
+ * @param	Object		object to snapshot.
+ */
+void SnapshotTransactionBuffer(UObject* Object)
+{
+	// Neither PIE world objects nor script packages should end up in the transaction buffer. Additionally, in order
+	// to save a copy of the object, we must have a transactor and the object must be transactional.
+	const bool IsTransactional = Object->HasAnyFlags(RF_Transactional);
+	const bool IsNotPIEOrContainsScriptObject = (Object->GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor | PKG_ContainsScript) == false);
+
+	if (GUndo && IsTransactional && IsNotPIEOrContainsScriptObject)
+	{
+		GUndo->SnapshotObject(Object);
+	}
+}
+
+/**
  * Check for StaticAllocateObject error; only for use with the editor, make or other commandlets.
  * 
  * @param	Class		the class of the object to create
@@ -2201,7 +2260,7 @@ bool StaticAllocateObjectErrorTests( UClass* InClass, UObject* InOuter, FName In
 			const FString ErrorMsg = FString::Printf(TEXT("Class which was marked abstract was trying to be loaded.  It will be nulled out on save. %s %s"), *InName.ToString(), *InClass->GetName());
 			// if we are trying instantiate an abstract class in the editor we'll warn the user that it will be nulled out on save
 			UE_LOG(LogUObjectGlobals, Warning, TEXT("%s"), *ErrorMsg);
-			ensureMsgf(false, *ErrorMsg);
+			ensureMsgf(false, TEXT("%s"), *ErrorMsg);
 		}
 		else
 		{
@@ -2363,20 +2422,21 @@ UObject* StaticAllocateObject
 		{
 #if !UE_BUILD_SHIPPING
 			// Handle nested DSOs
-			bool bIsOwnedByCDO = false;
+			bool bIsOwnedByCDOOrArchetype = false;
 			UObject* Iter = InOuter;
 			while (Iter)
 			{
-				if (Iter->HasAnyFlags(RF_ClassDefaultObject))
+				if (Iter->HasAnyFlags(RF_ClassDefaultObject|RF_ArchetypeObject))
 				{
-					bIsOwnedByCDO = true;
+					bIsOwnedByCDOOrArchetype = true;
 					break;
 				}
 				Iter = Iter->GetOuter();
 			}
+
 			// Should only get in here if we're NOT creating a subobject of a CDO.  CDO subobjects may still need to be serialized off of disk after being created by the constructor
 			// if really necessary there was code to allow replacement of object just needing postload, but lets not go there unless we have to
-			checkf(!Obj->HasAnyFlags(RF_NeedLoad|RF_NeedPostLoad|RF_ClassDefaultObject) || bIsOwnedByCDO,
+			checkf(!Obj->HasAnyFlags(RF_NeedLoad|RF_NeedPostLoad|RF_ClassDefaultObject) || bIsOwnedByCDOOrArchetype,
 				TEXT("Attempting to replace an object that hasn't been fully loaded: %s (Outer=%s, Flags=0x%08x)"),
 				*Obj->GetFullName(),
 				InOuter ? *InOuter->GetFullName() : TEXT("NULL"),
@@ -2398,16 +2458,23 @@ UObject* StaticAllocateObject
 				// Begin the asynchronous object cleanup.
 				Obj->ConditionalBeginDestroy();
 
+				bool bPrinted = false;
+				double StallStart = 0.0;
 				// Wait for the object's asynchronous cleanup to finish.
 				while (!Obj->IsReadyForFinishDestroy()) 
 				{
 					// If we're not in the editor, and aren't doing something specifically destructive like reconstructing blueprints, this is fatal
-					if (!GIsEditor && FApp::IsGame() && !GIsReconstructingBlueprintInstances)
+					if (!bPrinted && !GIsEditor && FApp::IsGame() && !GIsReconstructingBlueprintInstances)
 					{
-						// Switching to warning, investigate why level duplication triggers this
-						UE_LOG(LogUObjectGlobals, Warning, TEXT("Gamethread hitch waiting for resource cleanup on a UObject (%s) overwrite. Fix the higher level code so that this does not happen."), *OldName );
+						StallStart = FPlatformTime::Seconds();
+						bPrinted = true;
 					}
 					FPlatformProcess::Sleep(0);
+				}
+				if (bPrinted)
+				{
+					float ThisTime = FPlatformTime::Seconds() - StallStart;
+					UE_LOG(LogUObjectGlobals, Warning, TEXT("Gamethread hitch waiting for resource cleanup on a UObject (%s) overwrite took %6.2fms. Fix the higher level code so that this does not happen."), *OldName, ThisTime * 1000.0f);
 				}
 				// Finish destroying the object.
 				Obj->ConditionalFinishDestroy();
@@ -2609,94 +2676,16 @@ FObjectInitializer::~FObjectInitializer()
 #if USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
 	bool bIsPostConstructInitDeferred = false;
 	if (!FBlueprintSupport::IsDeferredCDOInitializationDisabled())
-	{		
-		UClass* BlueprintClass = nullptr;
-		// since "InheritableComponentTemplate"s are not default sub-objects, 
-		// they won't be fixed up by the owner's FObjectInitializer (CDO 
-		// FObjectInitializers will init default sub-object properties, copying  
-		// from the super's DSOs) - this means that we need to separately defer 
-		// init'ing these sub-objects when their archetype hasn't been loaded 
-		// yet (it is possible that the archetype isn't even correct, as the 
-		// super's sub-object hasn't even been created yet; in this case the 
-		// component's CDO is used, which is probably wrong)
-		if (Obj->HasAnyFlags(RF_InheritableComponentTemplate))
+	{
+		if (FObjectInitializer* DeferredCopy = FDeferredObjInitializationHelper::DeferObjectInitializerIfNeeded(*this))
 		{
-			BlueprintClass = Cast<UClass>(Obj->GetOuter());
-#if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
-			check(BlueprintClass != nullptr);
-#endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
-		}
-		else if (bIsCDO && !Class->IsNative())
-		{
-			BlueprintClass = Class;
-#if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
-			check(Class->HasAnyClassFlags(CLASS_CompiledFromBlueprint));
-#endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
-		}
+			DeferredCopy->bIsDeferredInitializer = true;
+			// make sure this wasn't mistakenly pushed into ObjectInitializers
+			// (the copy constructor should have been what was invoked, 
+			// which doesn't push to ObjectInitializers)
+			check(FUObjectThreadContext::Get().TopInitializer() != DeferredCopy);
 
-		if (BlueprintClass != nullptr)
-		{
-#if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
-			check(!BlueprintClass->IsNative());
-#endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
-
-			UClass* SuperClass = BlueprintClass->GetSuperClass();
-			if (SuperClass && !SuperClass->IsNative())
-			{
-				UObject* SuperBpCDO = nullptr;
-				// if this is a CDO (then we know/assume the archetype is the 
-				// CDO from the super class), use the ObjectArchetype for the 
-				// SuperBpCDO (because the SuperClass may have a REINST CDO 
-				// cached currently)
-				if (bIsCDO)
-				{
-					SuperBpCDO = ObjectArchetype;
-					SuperClass = ObjectArchetype->GetClass();
-
-#if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
-					check(ObjectArchetype->HasAnyFlags(RF_ClassDefaultObject));
-#endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
-				}
-				else
-				{
-					SuperBpCDO = SuperClass->GetDefaultObject(/*bCreateIfNeeded =*/false);
-				}
-
-				FLinkerLoad* SuperClassLinker = SuperClass->GetLinker();
-				const bool bSuperLoadPending = FDeferredObjInitializerTracker::IsCdoDeferred(SuperClass) ||
-					(SuperBpCDO && (SuperBpCDO->HasAnyFlags(RF_NeedLoad) || (SuperBpCDO->HasAnyFlags(RF_WasLoaded) && !SuperBpCDO->HasAnyFlags(RF_LoadCompleted))));
-
-				FLinkerLoad* ObjLinker = BlueprintClass->GetLinker();
-				const bool bIsBpClassSerializing    = ObjLinker && (ObjLinker->LoadFlags & LOAD_DeferDependencyLoads);
-				const bool bIsResolvingDeferredObjs = BlueprintClass->HasAnyFlags(RF_LoadCompleted) &&
-					ObjLinker && ObjLinker->IsBlueprintFinalizationPending();
-
-				if (bSuperLoadPending && (bIsBpClassSerializing || bIsResolvingDeferredObjs))
-				{
-#if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
-					// make sure we haven't already deferred this once, if we have
-					// then something is destroying this one prematurely 
-					check(bIsDeferredInitializer == false);
-
-					for (const FSubobjectsToInit::FSubobjectInit& SubObjInfo : ComponentInits.SubobjectInits)
-					{
-						check(!SubObjInfo.Subobject->HasAnyFlags(RF_NeedLoad));
-					}
-#endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
-					
-					// makes a copy of this and saves it off, to be ran later
-					if (FObjectInitializer* DeferredCopy = FDeferredObjInitializerTracker::Add(*this))
-					{
-						bIsPostConstructInitDeferred = true;
-						DeferredCopy->bIsDeferredInitializer = true;
-
-						// make sure this wasn't mistakenly pushed into ObjectInitializers
-						// (the copy constructor should have been what was invoked, 
-						// which doesn't push to ObjectInitializers)
-						check(FUObjectThreadContext::Get().TopInitializer() != DeferredCopy);
-					}
-				}
-			}
+			bIsPostConstructInitDeferred = true;
 		}
 	}
 
@@ -3294,7 +3283,7 @@ public:
 		: FReferenceCollectorArchive(InSerializingObject, InCollector)
 	{
 		ArIsObjectReferenceCollector = true;
-		ArIsPersistent = InCollector.IsIgnoringTransient();
+		this->SetIsPersistent(InCollector.IsIgnoringTransient());
 		ArIgnoreArchetypeRef = InCollector.IsIgnoringArchetypeRef();
 	}
 
@@ -3377,11 +3366,11 @@ protected:
 		};
 
 		if (!ensureMsgf(bIsValidObjectReference
-			, TEXT("Invalid object referenced by the PersistentFrame: 0x%016llx (BP: %s, Instance: %s, Property: %s, Address: 0x%016llx) - If you have a reliable repro for this, please contact the development team with it.")
+			, TEXT("Invalid object referenced by the PersistentFrame: 0x%016llx (Blueprint object: %s, ReferencingProperty: %s, Instance: %s, Address: 0x%016llx) - If you have a reliable repro for this, please contact the development team with it.")
 			, (int64)(PTRINT)Object
 			, *GetBlueprintObjectNameLambda(GetSerializingObject())
-			, GetSerializedDataContainer() ? *GetSerializedDataContainer()->GetFullName() : TEXT("NULL")
 			, GetSerializedProperty() ? *GetSerializedProperty()->GetFullName() : TEXT("NULL")
+			, GetSerializedDataContainer() ? *GetSerializedDataContainer()->GetFullName() : TEXT("NULL")
 			, (int64)(PTRINT)&Object))
 		{
 			// clear the property value (it's garbage)... the ubergraph-frame
@@ -3483,8 +3472,8 @@ public:
 	void PerformReachabilityAnalysis( EObjectFlags KeepFlags, EInternalObjectFlags InternalKeepFlags, EObjectFlags SearchFlags = RF_NoFlags, FReferencerInformationList* FoundReferences = NULL)
 	{
 		// Reset object count.
-		extern int32 GObjectCountDuringLastMarkPhase;
-		GObjectCountDuringLastMarkPhase = 0;
+		extern FThreadSafeCounter GObjectCountDuringLastMarkPhase;
+		GObjectCountDuringLastMarkPhase.Reset();
 		ReferenceSearchFlags = SearchFlags;
 		FoundReferencesList = FoundReferences;
 
@@ -3493,7 +3482,7 @@ public:
 		{
 			UObject* Object	= *It;
 			checkSlow(Object->IsValidLowLevel());
-			GObjectCountDuringLastMarkPhase++;
+			GObjectCountDuringLastMarkPhase.Increment();
 
 			// Special case handling for objects that are part of the root set.
 			if( Object->IsRooted() )
@@ -4518,7 +4507,7 @@ namespace UE4CodeGen_Private
 		{
 			check((NewClass->ClassFlags & CLASS_TokenStreamAssembled) != CLASS_TokenStreamAssembled);
 			NewClass->ReferenceTokenStream.Empty();
-#if !(UE_BUILD_TEST || UE_BUILD_SHIPPING)
+#if ENABLE_GC_OBJECT_CHECKS
 			NewClass->DebugTokenMap.Empty();
 #endif
 		}

@@ -302,15 +302,16 @@ public:
 
 	////////////////
 	// FMaterialRenderProxy interface.
-	virtual const FMaterial* GetMaterial(ERHIFeatureLevel::Type FeatureLevel) const override
+	virtual void GetMaterialWithFallback(ERHIFeatureLevel::Type FeatureLevel, const FMaterialRenderProxy*& OutMaterialRenderProxy, const FMaterial*& OutMaterial) const override
 	{
 		if(GetRenderingThreadShaderMap())
 		{
-			return this;
+			OutMaterialRenderProxy = this;
+			OutMaterial = this;
 		}
 		else
 		{
-			return UMaterial::GetDefaultMaterial(MD_Surface)->GetRenderProxy(false)->GetMaterial(FeatureLevel);
+			UMaterial::GetDefaultMaterial(MD_Surface)->GetRenderProxy(false)->GetMaterialWithFallback(FeatureLevel, OutMaterialRenderProxy, OutMaterial);
 		}
 	}
 

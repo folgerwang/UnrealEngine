@@ -18,61 +18,6 @@
 
 
 /**
- * Android cooking platform which cooks only ETC1a based textures.
- */
-class FAndroid_ETC1aTargetPlatform
-	: public FAndroidTargetPlatform<FAndroid_ETC1aPlatformProperties>
-{
-public:
-
-	// Begin FAndroidTargetPlatform overrides
-
-	virtual FText DisplayName() const override
-	{
-		return LOCTEXT("Android_ETC1a", "Android (ETC1a)");
-	}
-
-	virtual FString GetAndroidVariantName()
-	{
-		return TEXT("ETC1a");
-	}
-
-	virtual FString PlatformName() const override
-	{
-		return FString(FAndroid_ETC1aPlatformProperties::PlatformName());
-	}
-
-	virtual bool SupportsTextureFormat(FName Format) const override
-	{
-		if (Format == AndroidTexFormat::NameAutoETC1a)
-		{
-			return true;
-		}
-
-		return false;
-	}
-
-	// End FAndroidTargetPlatform overrides
-
-	virtual bool SupportedByExtensionsString(const FString& ExtensionsString, const int GLESVersion) const override
-	{
-		return GLESVersion >= 0x30000;
-	}
-
-	virtual FText GetVariantDisplayName() const override
-	{
-		return LOCTEXT("Android_ETC1a_ShortName", "ETC1a");
-	}
-
-	virtual float GetVariantPriority() const override
-	{
-		float Priority;
-		return GConfig->GetFloat(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), TEXT("TextureFormatPriority_ETC1a"), Priority, GEngineIni) ? Priority : 1.0f;
-	}
-};
-
-
-/**
  * Holds the target platform singleton.
  */
 static ITargetPlatform* AndroidTargetSingleton = NULL;

@@ -278,17 +278,27 @@ public:
 	//~ End FRunnable Interface
 };
 
+/**
+
+*/
+struct FOutputDeviceFile::FCategoryInclusionInternal
+{
+	TSet<FName> IncludedCategories;
+};
+
 /** 
  * Constructor, initializing member variables.
  *
  * @param InFilename		Filename to use, can be NULL
  * @param bInDisableBackup	If true, existing files will not be backed up
  */
-FOutputDeviceFile::FOutputDeviceFile( const TCHAR* InFilename, bool bInDisableBackup  )
+FOutputDeviceFile::FOutputDeviceFile( const TCHAR* InFilename, bool bInDisableBackup, bool bInAppendIfExists)
 : AsyncWriter(nullptr)
 , WriterArchive(nullptr)
+, AppendIfExists(bInAppendIfExists)
 , Opened(false)
 , Dead(false)
+, CategoryInclusionInternal(nullptr)
 , bDisableBackup(bInDisableBackup)
 {
 	if( InFilename )
@@ -389,7 +399,7 @@ void FOutputDeviceFile::WriteByteOrderMarkToArchive(EByteOrderMark ByteOrderMark
 
 bool FOutputDeviceFile::CreateWriter(uint32 MaxAttempts)
 {
-	uint32 WriteFlags = FILEWRITE_AllowRead | (Opened ? FILEWRITE_Append : 0);
+	uint32 WriteFlags = FILEWRITE_AllowRead | ((Opened || AppendIfExists) ? FILEWRITE_Append : 0);
 
 	// Open log file.
 	FArchive* Ar = IFileManager::Get().CreateFileWriter(Filename, WriteFlags);
@@ -410,6 +420,7 @@ bool FOutputDeviceFile::CreateWriter(uint32 MaxAttempts)
 			{
 				CreateBackupCopy(*FinalFilename);
 			}
+			FCString::Strcpy(Filename, ARRAY_COUNT(Filename), *FinalFilename);
 			Ar = IFileManager::Get().CreateFileWriter(*FinalFilename, WriteFlags);
 		} while (!Ar && FileIndex < MaxAttempts);
 	}
@@ -433,6 +444,11 @@ bool FOutputDeviceFile::CreateWriter(uint32 MaxAttempts)
 void FOutputDeviceFile::Serialize( const TCHAR* Data, ELogVerbosity::Type Verbosity, const class FName& Category, const double Time )
 {
 #if ALLOW_LOG_FILE && !NO_LOGGING
+	if (CategoryInclusionInternal && !CategoryInclusionInternal->IncludedCategories.Contains(Category))
+	{
+		return;
+	}
+
 	static bool Entry = false;
 	if( !GIsCriticalError || Entry )
 	{
@@ -504,4 +520,14 @@ void FOutputDeviceFile::Serialize( const TCHAR* Data, ELogVerbosity::Type Verbos
 void FOutputDeviceFile::WriteRaw( const TCHAR* C )
 {
 	AsyncWriter->Serialize((uint8*)const_cast<TCHAR*>(C), FCString::Strlen(C)*sizeof(TCHAR));
+}
+
+void FOutputDeviceFile::IncludeCategory(const FName& InCategoryName)
+{
+	if (!CategoryInclusionInternal.IsValid())
+	{
+		CategoryInclusionInternal = MakeUnique<FCategoryInclusionInternal>();
+	}
+
+	CategoryInclusionInternal->IncludedCategories.Add(InCategoryName);
 }

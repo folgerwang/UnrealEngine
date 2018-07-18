@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3810467
 Availability: Public
 Title:피벗 페인터 콘텐츠 예제
 Crumbs:%ROOT%, Resources, Resources/ContentExamples
@@ -30,7 +30,7 @@ topic-image:pivotPainter_compact.png
 | ------- | ------------ |
 | **1.1. Scale the elements** | 요소 스케일 조절 - 시간에 따라 오브젝트의 스케일을 조절합니다. |
 | **1.2. Scale using camera distance** | 카메라 거리를 사용한 스케일 조절 - 플레이어와의 거리에 따라 오브젝트의 스케일을 조절합니다. |
-| **1.3. Create unique animation phase ** | 고유 애니메이션 페이즈 생성 - 다수의 오브젝트에 대해 고유 애니메이션 페이즈를 만드는 법입니다. |
+| **1.3. Create unique animation phase** | 고유 애니메이션 페이즈 생성 - 다수의 오브젝트에 대해 고유 애니메이션 페이즈를 만드는 법입니다. |
 | **1.4. Animate with random stored value** | 저장된 임의의 값으로 애니메이트 - 저장된 임의의 값을 사용하여 다수의 오브젝트에 대한 고유 애니메이션 페이즈를 생성합니다. |
 | **1.5. Rotate the sub-objects** | 서브오브젝트 회전 - 시간에 따라 오브젝트를 회전시킵니다. |
 | **1.6. Update the meshes normals** | 메시의 노멀 업데이트 - 시간에 따라 오브젝트와 그 노멀도 회전시킵니다. |

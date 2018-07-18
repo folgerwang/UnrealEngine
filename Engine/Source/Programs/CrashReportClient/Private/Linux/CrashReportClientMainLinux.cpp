@@ -8,10 +8,10 @@
 #include "Misc/OutputDeviceError.h"
 #include "Misc/FeedbackContext.h"
 #include "CrashReportClientApp.h"
-#include "Linux/LinuxPlatformCrashContext.h"
+#include "Unix/UnixPlatformCrashContext.h"
 #include <locale.h>
 
-extern int32 ReportCrash(const FLinuxCrashContext& Context);	// FIXME: handle expose it someplace else?
+extern int32 ReportCrash(const FUnixCrashContext& Context);	// FIXME: handle expose it someplace else?
 
 /**
  * Because crash reporters can crash, too
@@ -20,10 +20,10 @@ void CrashReporterCrashHandler(const FGenericCrashContext& GenericContext)
 {
 	// at this point we should already be using malloc crash handler (see PlatformCrashHandler)
 
-	const FLinuxCrashContext& Context = static_cast< const FLinuxCrashContext& >( GenericContext );
+	const FUnixCrashContext& Context = static_cast< const FUnixCrashContext& >( GenericContext );
 
 	printf("CrashHandler: Signal=%d\n", Context.Signal);
-	const_cast< FLinuxCrashContext& >(Context).CaptureStackTrace();
+	const_cast< FUnixCrashContext& >(Context).CaptureStackTrace();
 	if (GLog)
 	{
 		GLog->Flush();

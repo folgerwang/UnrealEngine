@@ -1,9 +1,13 @@
-﻿INTSourceChangelist:2693572
+﻿INTSourceChangelist:3750353
 Availability:Public
 Title:ビューモード
 Crumbs:%ROOT%, Engine, Engine/UI/LevelEditor/Modes/MeshPaintMode/VertexColor
 Description:Mesh Paint モードで利用可能な様々なビューモードについて説明します。
 Version:4.9
+parent:Engine/UI/LevelEditor/Modes/MeshPaintMode/VertexColor
+type:reference
+order:3
+topic-image:Engine/UI/LevelEditor/Modes/MeshPaintMode/VertexColor/ViewModes_Demo_Cropped.png
 
 [EXCERPT:Intro]
 Mesh Paint モードには様々なビューモードがあり、ビューポートでメッシュにどのように頂点カラーを適用されているかを視覚化します。頂点カラーのみの表示や、各チャンネルを選択して表示できます (赤、緑、青、アルファ)。

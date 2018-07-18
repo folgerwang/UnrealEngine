@@ -5,13 +5,13 @@
 #include "ResonanceAudioEditorModule.h"
 
 #include "AssetToolsModule.h"
-#include "IPluginManager.h"
+#include "Interfaces/IPluginManager.h"
 #include "ISettingsModule.h"
 #include "ResonanceAudioReverbPluginPresetFactory.h"
 #include "ResonanceAudioSettings.h"
 #include "ResonanceAudioSpatializationSourceSettingsFactory.h"
-#include "SlateStyle.h"
-#include "SlateStyleRegistry.h"
+#include "Styling/SlateStyle.h"
+#include "Styling/SlateStyleRegistry.h"
 
 IMPLEMENT_MODULE(ResonanceAudio::FResonanceAudioEditorModule, ResonanceAudioEditor)
 

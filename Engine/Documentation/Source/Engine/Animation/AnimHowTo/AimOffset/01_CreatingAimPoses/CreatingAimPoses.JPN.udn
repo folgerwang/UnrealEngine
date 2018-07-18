@@ -3,8 +3,8 @@ Availability:Public
 Title:1 - 照準ポーズを作成する
 Crumbs: %ROOT%, Engine, Engine/Animation, Engine/Animation/AnimHowTo
 Description:デフォルトのプレイ可能なキャラクターを更新し、Aim Offset に必要な全ポーズを作成します。 
-version:4.14
-skilllevel:Advanced
+version: 4.14
+skilllevel: Advanced
 parent:Engine/Animation/AnimHowTo/AimOffset
 type:how-to
 type:multi-step
@@ -83,8 +83,8 @@ tags:Aim Offset
 	![](AimOffset15.png)
 
 1.	**Aim_Space_Hip** アセットを毎回 **複製** し、以下の表に基づき残りの各ポーズを作成します。
+	
 	| Anim Name | Start At Keyframe | Remove Frames 1 | Remove Frames 2 |
-
 	| ------- | ------ | ------ | ------ |
 	| **Aim_Left_Center** | 30 | 0 - 30 | 1 - 57 |
 	| **Aim_Left_Up** | 40 | 0 - 40 | 1 - 48 |

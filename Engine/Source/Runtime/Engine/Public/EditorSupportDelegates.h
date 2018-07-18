@@ -39,9 +39,6 @@ struct ENGINE_API FEditorSupportDelegates
 	static FOnForcePropertyWindowRebuild ForcePropertyWindowRebuild;
 	/** Sent when events happen that affect how the editors UI looks (mode changes, grid size changes, etc) */
 	static FSimpleMulticastDelegate UpdateUI;
-	/** Called for a material after the user has change a texture's compression settings.
-		Needed to notify the material editors that the need to reattach their preview objects */
-	static FOnMaterialTextureSettingsChanged MaterialTextureSettingsChanged;
 	/** Refresh property windows w/o creating/destroying controls */
 	static FSimpleMulticastDelegate RefreshPropertyWindows;
 	/** Sent before the given windows message is handled in the given viewport */

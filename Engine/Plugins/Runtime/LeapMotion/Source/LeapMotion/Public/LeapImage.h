@@ -123,7 +123,7 @@ public:
 	* Given a ray projected from the camera in the specified direction, warp() corrects 
 	* for camera distortion and returns the corresponding pixel coordinates in the image.
 	* The ray direction is specified in relationship to the camera. The first vector element
-	* corresponds to the “horizontal” view angle; the second corresponds to the “vertical” 
+	* corresponds to the "horizontal" view angle; the second corresponds to the "vertical"
 	* view angle.
 	*
 	* @param	XY	A Vector containing the ray direction.

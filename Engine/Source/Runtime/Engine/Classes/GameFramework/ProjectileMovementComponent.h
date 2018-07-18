@@ -202,7 +202,7 @@ class ENGINE_API UProjectileMovementComponent : public UMovementComponent
 
 	/**
 	 * Max time delta for each discrete simulation step.
-	 * Lowering this value can address issues with fast-moving objects or complex collision scenarios, at the cost of performance.
+	 * Lowering this value can address precision issues with fast-moving objects or complex collision scenarios, at the cost of performance.
 	 *
 	 * WARNING: if (MaxSimulationTimeStep * MaxSimulationIterations) is too low for the min framerate, the last simulation step may exceed MaxSimulationTimeStep to complete the simulation.
 	 * @see MaxSimulationIterations, bForceSubStepping
@@ -212,13 +212,19 @@ class ENGINE_API UProjectileMovementComponent : public UMovementComponent
 
 	/**
 	 * Max number of iterations used for each discrete simulation step.
-	 * Increasing this value can address issues with fast-moving objects or complex collision scenarios, at the cost of performance.
+	 * Increasing this value can address precision issues with fast-moving objects or complex collision scenarios, at the cost of performance.
 	 *
 	 * WARNING: if (MaxSimulationTimeStep * MaxSimulationIterations) is too low for the min framerate, the last simulation step may exceed MaxSimulationTimeStep to complete the simulation.
 	 * @see MaxSimulationTimeStep, bForceSubStepping
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin="1", ClampMax="25", UIMin="1", UIMax="25"), Category=ProjectileSimulation)
 	int32 MaxSimulationIterations;
+
+	/**
+	 * On the first few bounces (up to this amount), allow extra iterations over MaxSimulationIterations if necessary.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin="0", ClampMax="4", UIMin="0", UIMax="4"), Category=ProjectileSimulation)
+	int32 BounceAdditionalIterations;
 
 protected:
 

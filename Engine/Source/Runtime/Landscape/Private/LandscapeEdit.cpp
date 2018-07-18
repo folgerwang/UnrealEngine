@@ -38,6 +38,7 @@ LandscapeEdit.cpp: Landscape editing
 #include "Logging/MessageLog.h"
 #include "Misc/MapErrors.h"
 #include "LandscapeSplinesComponent.h"
+#include "Serialization/MemoryWriter.h"
 #if WITH_EDITOR
 #include "RawMesh.h"
 #include "EngineUtils.h"
@@ -46,8 +47,12 @@ LandscapeEdit.cpp: Landscape editing
 #include "LandscapeEditorModule.h"
 #include "LandscapeFileFormatInterface.h"
 #include "ComponentRecreateRenderStateContext.h"
+#include "Interfaces/ITargetPlatform.h"
+#include "Engine/TextureRenderTarget2D.h"
+#include "ScopedTransaction.h"
 #endif
-#include "Containers/Algo/Count.h"
+#include "Algo/Count.h"
+#include "Serialization/MemoryWriter.h"
 
 DEFINE_LOG_CATEGORY(LogLandscape);
 
@@ -121,6 +126,7 @@ ULandscapeMaterialInstanceConstant* ALandscapeProxy::GetLayerThumbnailMIC(UMater
 
 	ULandscapeMaterialInstanceConstant* MaterialInstance = NewObject<ULandscapeMaterialInstanceConstant>(GetTransientPackage());
 	MaterialInstance->bIsLayerThumbnail = true;
+	MaterialInstance->bMobile = false;
 	MaterialInstance->SetParentEditorOnly(LandscapeMaterial);
 
 	FStaticParameterSet StaticParameters;
@@ -151,7 +157,7 @@ ULandscapeMaterialInstanceConstant* ALandscapeProxy::GetLayerThumbnailMIC(UMater
 	return MaterialInstance;
 }
 
-UMaterialInstanceConstant* ULandscapeComponent::GetCombinationMaterial(bool bMobile /*= false*/)
+UMaterialInstanceConstant* ULandscapeComponent::GetCombinationMaterial(const TArray<FWeightmapLayerAllocationInfo>& Allocations, bool bMobile /*= false*/) const
 {
 	check(GIsEditor);
 
@@ -185,8 +191,7 @@ UMaterialInstanceConstant* ULandscapeComponent::GetCombinationMaterial(bool bMob
 	if (ensure(MaterialToUse != nullptr))
 	{
 		ALandscapeProxy* Proxy = GetLandscapeProxy();
-		FString LayerKey = GetLayerAllocationKey(MaterialToUse, bMobile);
-		//UE_LOG(LogLandscape, Log, TEXT("Looking for key %s"), *LayerKey);
+		FString LayerKey = GetLayerAllocationKey(Allocations, MaterialToUse, bMobile);
 
 		// Find or set a matching MIC in the Landscape's map.
 		UMaterialInstanceConstant* CombinationMaterialInstance = Proxy->MaterialInstanceConstantMap.FindRef(*LayerKey);
@@ -194,7 +199,9 @@ UMaterialInstanceConstant* ULandscapeComponent::GetCombinationMaterial(bool bMob
 		{
 			FlushRenderingCommands();
 
-			CombinationMaterialInstance = NewObject<ULandscapeMaterialInstanceConstant>(GetOutermost());
+			ULandscapeMaterialInstanceConstant* LandscapeCombinationMaterialInstance = NewObject<ULandscapeMaterialInstanceConstant>(GetOutermost());
+			LandscapeCombinationMaterialInstance->bMobile = bMobile;
+			CombinationMaterialInstance = LandscapeCombinationMaterialInstance;
 			UE_LOG(LogLandscape, Log, TEXT("Looking for key %s, making new combination %s"), *LayerKey, *CombinationMaterialInstance->GetName());
 			Proxy->MaterialInstanceConstantMap.Add(*LayerKey, CombinationMaterialInstance);
 			CombinationMaterialInstance->SetParentEditorOnly(MaterialToUse);
@@ -206,12 +213,12 @@ UMaterialInstanceConstant* ULandscapeComponent::GetCombinationMaterial(bool bMob
 			}
 
 			FStaticParameterSet StaticParameters;
-			for (const FWeightmapLayerAllocationInfo& Allocation : WeightmapLayerAllocations)
+			for (const FWeightmapLayerAllocationInfo& Allocation : Allocations)
 			{
 				if (Allocation.LayerInfo)
 				{
 					const FName LayerParameter = (Allocation.LayerInfo == ALandscapeProxy::VisibilityLayer) ? UMaterialExpressionLandscapeVisibilityMask::ParameterName : Allocation.LayerInfo->LayerName;
-					StaticParameters.TerrainLayerWeightParameters.Add(FStaticTerrainLayerWeightParameter(LayerParameter, Allocation.WeightmapTextureIndex, true, FGuid()));
+					StaticParameters.TerrainLayerWeightParameters.Add(FStaticTerrainLayerWeightParameter(LayerParameter, Allocation.WeightmapTextureIndex, true, FGuid(), !Allocation.LayerInfo->bNoWeightBlend));
 				}
 			}
 			CombinationMaterialInstance->UpdateStaticPermutation(StaticParameters);
@@ -229,7 +236,7 @@ void ULandscapeComponent::UpdateMaterialInstances_Internal(FMaterialUpdateContex
 	check(GIsEditor);
 
 	// Find or set a matching MIC in the Landscape's map.
-	UMaterialInstanceConstant* CombinationMaterialInstance = GetCombinationMaterial(false);
+	UMaterialInstanceConstant* CombinationMaterialInstance = GetCombinationMaterial(WeightmapLayerAllocations, false);
 
 	if (CombinationMaterialInstance != nullptr)
 	{
@@ -302,6 +309,12 @@ void ULandscapeComponent::UpdateMaterialInstances_Internal(FMaterialUpdateContex
 	{
 		MaterialInstances.Empty(1);
 		MaterialInstances.Add(nullptr);
+	}
+
+	// Update mobile combination material
+	{
+		GenerateMobileWeightmapLayerAllocations();
+		MobileCombinationMaterialInstance = GetCombinationMaterial(MobileWeightmapLayerAllocations, true);
 	}
 }
 
@@ -399,7 +412,7 @@ void ULandscapeComponent::PreFeatureLevelChange(ERHIFeatureLevel::Type PendingFe
 	if (PendingFeatureLevel <= ERHIFeatureLevel::ES3_1)
 	{
 		// See if we need to cook platform data for ES2 preview in editor
-		CheckGenerateLandscapePlatformData(false);
+		CheckGenerateLandscapePlatformData(false, nullptr);
 	}
 }
 
@@ -535,7 +548,7 @@ void ULandscapeComponent::FixupWeightmaps()
 				UMaterialInstanceConstant* CombinationMaterialInstance = Cast<UMaterialInstanceConstant>(GetMaterialInstance(0, false)->Parent);
 				if (CombinationMaterialInstance)
 				{
-					Proxy->MaterialInstanceConstantMap.Add(*GetLayerAllocationKey(CombinationMaterialInstance->Parent), CombinationMaterialInstance);
+					Proxy->MaterialInstanceConstantMap.Add(*GetLayerAllocationKey(WeightmapLayerAllocations, CombinationMaterialInstance->Parent), CombinationMaterialInstance);
 				}
 			}
 		}
@@ -696,7 +709,7 @@ void ULandscapeComponent::UpdateCollisionHeightData(const FColor* const Heightma
 		CollisionComp->CollisionScale = (float)(ComponentSizeQuads) / (float)(CollisionComp->CollisionSizeQuads);
 		CollisionComp->SimpleCollisionSizeQuads = bUsingSimpleCollision ? SimpleCollisionSubsectionSizeQuads * NumSubsections : 0;
 		CollisionComp->CachedLocalBox = CachedLocalBox;
-		CollisionComp->bGenerateOverlapEvents = Proxy->bGenerateOverlapEvents;
+		CollisionComp->SetGenerateOverlapEvents(Proxy->bGenerateOverlapEvents);
 		CreatedNew = true;
 
 		// Reallocate raw collision data
@@ -3699,10 +3712,11 @@ void ALandscapeProxy::PostEditChangeProperty(FPropertyChangedEvent& PropertyChan
 	else if(PropertyName == FName(TEXT("bCastStaticShadow")) ||
 		PropertyName == FName(TEXT("bCastShadowAsTwoSided")) ||
 		PropertyName == FName(TEXT("bCastFarShadow")) ||
+		PropertyName == FName(TEXT("bAffectDistanceFieldLighting")) ||
 		PropertyName == FName(TEXT("bRenderCustomDepth")) ||
 		PropertyName == FName(TEXT("CustomDepthStencilValue")) ||
-		PropertyName == FName(TEXT("LightingChannels"))
-		)
+		PropertyName == FName(TEXT("LightingChannels")) ||
+		PropertyName == FName(TEXT("LDMaxDrawDistance")))
 	{
 		// Replicate shared properties to all components.
 		for (int32 ComponentIndex = 0; ComponentIndex < LandscapeComponents.Num(); ComponentIndex++)
@@ -3714,7 +3728,12 @@ void ALandscapeProxy::PostEditChangeProperty(FPropertyChangedEvent& PropertyChan
 			}
 		}
 	}
-
+	else if (GIsEditor && PropertyName == GET_MEMBER_NAME_CHECKED(ALandscapeProxy, OccluderGeometryLOD))
+	{
+		CheckGenerateLandscapePlatformData(false, nullptr);
+		MarkComponentsRenderStateDirty();
+	}
+	
 	// Remove null layer infos
 	EditorLayerSettings.RemoveAll([](const FLandscapeEditorLayerSettings& Entry) { return Entry.LayerInfoObj == nullptr; });
 
@@ -3772,20 +3791,25 @@ void ALandscapeStreamingProxy::PostEditChangeProperty(FPropertyChangedEvent& Pro
 	else if (PropertyName == FName(TEXT("LandscapeMaterial")) || PropertyName == FName(TEXT("LandscapeHoleMaterial")))
 	{
 		{
-			FMaterialUpdateContext MaterialUpdateContext;
-			GetLandscapeInfo()->UpdateLayerInfoMap(/*this*/);
+			ULandscapeInfo* Info = GetLandscapeInfo();
 
-			// Clear the parents out of combination material instances
-			for (const auto& MICPair : MaterialInstanceConstantMap)
+			if (Info != nullptr)
 			{
-				UMaterialInstanceConstant* MaterialInstance = MICPair.Value;
-				MaterialInstance->BasePropertyOverrides.bOverride_BlendMode = false;
-				MaterialInstance->SetParentEditorOnly(nullptr);
-				MaterialUpdateContext.AddMaterialInstance(MaterialInstance);
-			}
+				FMaterialUpdateContext MaterialUpdateContext;
+				Info->UpdateLayerInfoMap(/*this*/);
 
-			// Remove our references to any material instances
-			MaterialInstanceConstantMap.Empty();
+				// Clear the parents out of combination material instances
+				for (const auto& MICPair : MaterialInstanceConstantMap)
+				{
+					UMaterialInstanceConstant* MaterialInstance = MICPair.Value;
+					MaterialInstance->BasePropertyOverrides.bOverride_BlendMode = false;
+					MaterialInstance->SetParentEditorOnly(nullptr);
+					MaterialUpdateContext.AddMaterialInstance(MaterialInstance);
+				}
+
+				// Remove our references to any material instances
+				MaterialInstanceConstantMap.Empty();
+			}
 		}
 
 		UpdateAllComponentMaterialInstances();
@@ -3871,7 +3895,7 @@ void ALandscape::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEv
 	}
 	else if (PropertyName == FName(TEXT("LOD0DistributionSetting")))
 	{
-		LOD0DistributionSetting = FMath::Clamp<float>(LOD0DistributionSetting, 1.0f, 5.0f);
+		LOD0DistributionSetting = FMath::Clamp<float>(LOD0DistributionSetting, 1.0f, 10.0f);
 		bPropagateToProxies = true;
 	}
 	else if (PropertyName == FName(TEXT("CollisionMipLevel")))
@@ -3885,6 +3909,10 @@ void ALandscape::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEv
 		bPropagateToProxies = true;
 	}
 	else if (PropertyName == GET_MEMBER_NAME_CHECKED(ALandscapeProxy, bBakeMaterialPositionOffsetIntoCollision))
+	{
+		bPropagateToProxies = true;
+	}
+	else if (PropertyName == GET_MEMBER_NAME_CHECKED(ALandscapeProxy, OccluderGeometryLOD))
 	{
 		bPropagateToProxies = true;
 	}
@@ -4792,7 +4820,7 @@ void ULandscapeComponent::ImportCustomProperties(const TCHAR* SourceText, FFeedb
 
 		if (i != NumVertices)
 		{
-			Warn->Logf(*NSLOCTEXT("Core", "SyntaxError", "Syntax Error").ToString());
+			Warn->Log(*NSLOCTEXT("Core", "SyntaxError", "Syntax Error").ToString());
 		}
 
 		int32 ComponentSizeVerts = NumSubsections * (SubsectionSizeQuads + 1);
@@ -4858,7 +4886,7 @@ void ULandscapeComponent::ImportCustomProperties(const TCHAR* SourceText, FFeedb
 
 				if (i != NumVertices)
 				{
-					Warn->Logf(*NSLOCTEXT("Core", "SyntaxError", "Syntax Error").ToString());
+					Warn->Log(*NSLOCTEXT("Core", "SyntaxError", "Syntax Error").ToString());
 				}
 				LayerIdx++;
 			}
@@ -4895,147 +4923,194 @@ bool ALandscapeStreamingProxy::IsValidLandscapeActor(ALandscape* Landscape)
 	return false;
 }
 
-struct FMobileLayerAllocation
+/* Returns the list of layer names relevant to mobile platforms. Walks the material tree following feature level switch nodes. */
+static void GetAllMobileRelevantLayerNames(TSet<FName>& OutLayerNames, UMaterial* InMaterial)
 {
-	FWeightmapLayerAllocationInfo Allocation;
+	TArray<FMaterialParameterInfo> ParameterInfos;
+	TArray<FGuid> ParameterIds;
 
-	FMobileLayerAllocation(const FWeightmapLayerAllocationInfo& InAllocation)
-		: Allocation(InAllocation)
+	TArray<UMaterialExpression*> ES2MobileExpressions;
+	InMaterial->GetAllReferencedExpressions(ES2MobileExpressions, nullptr, ERHIFeatureLevel::ES2);
+	TArray<UMaterialExpression*> ES31Expressions;
+	InMaterial->GetAllReferencedExpressions(ES31Expressions, nullptr, ERHIFeatureLevel::ES3_1);
+
+	TArray<UMaterialExpression*> MobileExpressions = MoveTemp(ES2MobileExpressions);
+	for (UMaterialExpression* Expression : ES31Expressions)
 	{
+		MobileExpressions.AddUnique(Expression);
 	}
 
-	friend bool operator<(const FMobileLayerAllocation& Lhs, const FMobileLayerAllocation& Rhs)
+	for (UMaterialExpression* Expression : MobileExpressions)
 	{
-		ULandscapeLayerInfoObject* LhsLayerInfo = Lhs.Allocation.LayerInfo;
-		ULandscapeLayerInfoObject* RhsLayerInfo = Rhs.Allocation.LayerInfo;
+		UMaterialExpressionLandscapeLayerWeight* LayerWeightExpression = Cast<UMaterialExpressionLandscapeLayerWeight>(Expression);
+		UMaterialExpressionLandscapeLayerSwitch* LayerSwitchExpression = Cast<UMaterialExpressionLandscapeLayerSwitch>(Expression);
+		UMaterialExpressionLandscapeLayerSample* LayerSampleExpression = Cast<UMaterialExpressionLandscapeLayerSample>(Expression);
+		UMaterialExpressionLandscapeLayerBlend*	LayerBlendExpression = Cast<UMaterialExpressionLandscapeLayerBlend>(Expression);
+		UMaterialExpressionLandscapeVisibilityMask* VisibilityMaskExpression = Cast<UMaterialExpressionLandscapeVisibilityMask>(Expression);
+
+		FMaterialParameterInfo BaseParameterInfo;
+		BaseParameterInfo.Association = EMaterialParameterAssociation::GlobalParameter;
+		BaseParameterInfo.Index = INDEX_NONE;
+
+		if(LayerWeightExpression != nullptr)
+		{
+			LayerWeightExpression->GetAllParameterInfo(ParameterInfos, ParameterIds, BaseParameterInfo);
+		}
+		if (LayerSwitchExpression != nullptr)
+		{
+			LayerSwitchExpression->GetAllParameterInfo(ParameterInfos, ParameterIds, BaseParameterInfo);
+		}
+		if (LayerSampleExpression != nullptr)
+		{
+			LayerSampleExpression->GetAllParameterInfo(ParameterInfos, ParameterIds, BaseParameterInfo);
+		}
+		if (LayerBlendExpression != nullptr)
+		{
+			LayerBlendExpression->GetAllParameterInfo(ParameterInfos, ParameterIds, BaseParameterInfo);
+		}
+		if (VisibilityMaskExpression != nullptr)
+		{
+			VisibilityMaskExpression->GetAllParameterInfo(ParameterInfos, ParameterIds, BaseParameterInfo);
+		}
+	}
+
+	for (FMaterialParameterInfo& Info : ParameterInfos)
+	{
+		OutLayerNames.Add(Info.Name);
+	}
+}
+
+void ULandscapeComponent::GenerateMobileWeightmapLayerAllocations()
+{
+	TSet<FName> LayerNames;
+	GetAllMobileRelevantLayerNames(LayerNames, GetLandscapeMaterial()->GetMaterial());
+	MobileWeightmapLayerAllocations = WeightmapLayerAllocations.FilterByPredicate([&](const FWeightmapLayerAllocationInfo& Allocation) -> bool 
+		{
+			return Allocation.LayerInfo && LayerNames.Contains(Allocation.LayerInfo == ALandscapeProxy::VisibilityLayer ? UMaterialExpressionLandscapeVisibilityMask::ParameterName : Allocation.GetLayerName());
+		}
+	);
+	MobileWeightmapLayerAllocations.StableSort(([&](const FWeightmapLayerAllocationInfo& A, const FWeightmapLayerAllocationInfo& B) -> bool
+	{
+		ULandscapeLayerInfoObject* LhsLayerInfo = A.LayerInfo;
+		ULandscapeLayerInfoObject* RhsLayerInfo = B.LayerInfo;
 
 		if (!LhsLayerInfo && !RhsLayerInfo) return false; // equally broken :P
 		if (!LhsLayerInfo && RhsLayerInfo) return false; // broken layers sort to the end
 		if (!RhsLayerInfo && LhsLayerInfo) return true;
 
-		if (LhsLayerInfo == ALandscapeProxy::VisibilityLayer && RhsLayerInfo != ALandscapeProxy::VisibilityLayer) return true; // visibility layer to the front
+		// Sort visibility layer to the front
+		if (LhsLayerInfo == ALandscapeProxy::VisibilityLayer && RhsLayerInfo != ALandscapeProxy::VisibilityLayer) return true;
 		if (RhsLayerInfo == ALandscapeProxy::VisibilityLayer && LhsLayerInfo != ALandscapeProxy::VisibilityLayer) return false;
 
-		if (LhsLayerInfo->bNoWeightBlend && !RhsLayerInfo->bNoWeightBlend) return false; // non-blended layers sort to the end
-		if (RhsLayerInfo->bNoWeightBlend && !LhsLayerInfo->bNoWeightBlend) return true;
-
-		// TODO: If we want to support cleanly decaying a pc landscape for mobile
-		// we should probably add other sort criteria, e.g. coverage
-		// or e.g. add an "importance" to layerinfos and sort on that
+		// Sort non-weight blended layers to the front so if we have exactly 3 layers, the 3rd is definitely weight-based.
+		if (LhsLayerInfo->bNoWeightBlend && !RhsLayerInfo->bNoWeightBlend) return true;
+		if (RhsLayerInfo->bNoWeightBlend && !LhsLayerInfo->bNoWeightBlend) return false;
 
 		return false; // equal, preserve order
-	}
-};
+	}));
+}
 
 void ULandscapeComponent::GeneratePlatformPixelData()
 {
-	check(!IsTemplate())
+	check(!IsTemplate());
 
-	TArray<FMobileLayerAllocation> MobileLayerAllocations;
-	MobileLayerAllocations.Reserve(WeightmapLayerAllocations.Num());
-	for (const auto& Allocation : WeightmapLayerAllocations)
-	{
-		MobileLayerAllocations.Emplace(Allocation);
-	}
-	MobileLayerAllocations.StableSort();
-
-	// in the current mobile shader only 3 layers are supported (the 3rd only as a blended layer)
-	// so make sure we have a blended layer for layer 3 if possible
-	if (MobileLayerAllocations.Num() >= 3 &&
-		MobileLayerAllocations[2].Allocation.LayerInfo && MobileLayerAllocations[2].Allocation.LayerInfo->bNoWeightBlend)
-	{
-		int32 BlendedLayerToMove = INDEX_NONE;
-
-		// First try to swap layer 3 with an earlier blended layer
-		// this will allow both to work
-		for (int32 i = 1; i >= 0; --i)
-		{
-			if (MobileLayerAllocations[i].Allocation.LayerInfo && !MobileLayerAllocations[i].Allocation.LayerInfo->bNoWeightBlend)
-			{
-				BlendedLayerToMove = i;
-				break;
-			}
-		}
-
-		// otherwise swap layer 3 with the first weight-blended layer found
-		// as non-blended layers aren't supported for layer 3 it wasn't going to work anyway, might as well swap it out for one that will work
-		if (BlendedLayerToMove == INDEX_NONE)
-		{
-			// I wish I could specify a start index here, but it doesn't affect the result
-			BlendedLayerToMove = MobileLayerAllocations.IndexOfByPredicate([](const FMobileLayerAllocation& MobileAllocation){ return MobileAllocation.Allocation.LayerInfo && !MobileAllocation.Allocation.LayerInfo->bNoWeightBlend; });
-		}
-
-		if (BlendedLayerToMove != INDEX_NONE)
-		{
-			// Preserve order of all but the blended layer we're moving into slot 3
-			FMobileLayerAllocation TempAllocation = MoveTemp(MobileLayerAllocations[BlendedLayerToMove]);
-			MobileLayerAllocations.RemoveAt(BlendedLayerToMove, 1, false);
-			MobileLayerAllocations.Insert(MoveTemp(TempAllocation), 2);
-		}
-	}
+	GenerateMobileWeightmapLayerAllocations();
 
 	int32 WeightmapSize = (SubsectionSizeQuads + 1) * NumSubsections;
-	UTexture2D* NewWeightNormalmapTexture = GetLandscapeProxy()->CreateLandscapeTexture(WeightmapSize, WeightmapSize, TEXTUREGROUP_Terrain_Weightmap, TSF_BGRA8);
-	CreateEmptyTextureMips(NewWeightNormalmapTexture);
+
+	MobileWeightmapTextures.Empty();
+
+	UTexture2D* MobileWeightNormalmapTexture = GetLandscapeProxy()->CreateLandscapeTexture(WeightmapSize, WeightmapSize, TEXTUREGROUP_Terrain_Weightmap, TSF_BGRA8);
+	CreateEmptyTextureMips(MobileWeightNormalmapTexture);
 
 	{
 		FLandscapeTextureDataInterface LandscapeData;
 
-		if (WeightmapTextures.Num() > 0)
+		// copy normals into B/A channels
+		LandscapeData.CopyTextureFromHeightmap(MobileWeightNormalmapTexture, 2, this, 2);
+		LandscapeData.CopyTextureFromHeightmap(MobileWeightNormalmapTexture, 3, this, 3);
+
+		UTexture2D* CurrentWeightmapTexture = MobileWeightNormalmapTexture;
+		MobileWeightmapTextures.Add(CurrentWeightmapTexture);
+		int32 CurrentChannel = 0;
+		int32 RemainingChannels = 2;
+
+		MobileBlendableLayerMask = 0;
+
+		bool bAtLeastOneWeightBasedBlend = MobileWeightmapLayerAllocations.FindByPredicate([&](const FWeightmapLayerAllocationInfo& Allocation) -> bool { return !Allocation.LayerInfo->bNoWeightBlend; }) != nullptr;
+
+		for (auto& Allocation : MobileWeightmapLayerAllocations)
 		{
-			int32 CurrentIdx = 0;
-			for (const auto& MobileAllocation : MobileLayerAllocations)
+			if (Allocation.LayerInfo)
 			{
-				// Only for valid Layers
-				if (MobileAllocation.Allocation.LayerInfo)
+				// If we can pack into 2 channels with the 3rd implied, track the mask for the weight blendable layers
+				if (bAtLeastOneWeightBasedBlend && MobileWeightmapLayerAllocations.Num() <= 3)
 				{
-					LandscapeData.CopyTextureFromWeightmap(NewWeightNormalmapTexture, CurrentIdx, this, MobileAllocation.Allocation.LayerInfo);
-					CurrentIdx++;
-					if (CurrentIdx >= 2) // Only support 2 layers in texture
+					MobileBlendableLayerMask |= (!Allocation.LayerInfo->bNoWeightBlend ? (1 << CurrentChannel) : 0);
+
+					// we don't need to create a new texture for the 3rd layer
+					if (RemainingChannels == 0)
 					{
+						Allocation.WeightmapTextureIndex = 0;
+						Allocation.WeightmapTextureChannel = 2; // not a valid texture channel, but used for the mask.
 						break;
 					}
 				}
+
+				if (RemainingChannels == 0)
+				{
+
+					// create a new weightmap texture if we've run out of channels
+					CurrentChannel = 0;
+					RemainingChannels = 4;
+					CurrentWeightmapTexture = GetLandscapeProxy()->CreateLandscapeTexture(WeightmapSize, WeightmapSize, TEXTUREGROUP_Terrain_Weightmap, TSF_BGRA8);
+					CreateEmptyTextureMips(CurrentWeightmapTexture);
+					MobileWeightmapTextures.Add(CurrentWeightmapTexture);
+				}
+
+				LandscapeData.CopyTextureFromWeightmap(CurrentWeightmapTexture, CurrentChannel, this, Allocation.LayerInfo);
+				// update Allocation
+				Allocation.WeightmapTextureIndex = MobileWeightmapTextures.Num() - 1;
+				Allocation.WeightmapTextureChannel = CurrentChannel;
+				CurrentChannel++;
+				RemainingChannels--;
 			}
 		}
-
-		// copy normals into B/A channels.
-		LandscapeData.CopyTextureFromHeightmap(NewWeightNormalmapTexture, 2, this, 2);
-		LandscapeData.CopyTextureFromHeightmap(NewWeightNormalmapTexture, 3, this, 3);
 	}
 
-	NewWeightNormalmapTexture->PostEditChange();
+	for (int TextureIdx = 0; TextureIdx < MobileWeightmapTextures.Num(); TextureIdx++)
+	{
+		MobileWeightmapTextures[TextureIdx]->PostEditChange();
+	}
 
-	MobileWeightNormalmapTexture = NewWeightNormalmapTexture;
-
-	FLinearColor Masks[5];
+	FLinearColor Masks[4];
 	Masks[0] = FLinearColor(1, 0, 0, 0);
 	Masks[1] = FLinearColor(0, 1, 0, 0);
 	Masks[2] = FLinearColor(0, 0, 1, 0);
 	Masks[3] = FLinearColor(0, 0, 0, 1);
-	Masks[4] = FLinearColor(0, 0, 0, 0); // mask out layers 4+ altogether
+
 
 	if (!GIsEditor)
 	{
-		// This path is used by game mode running with uncooked data, eg Mobile Preview.
+		// This path is used by game mode running with uncooked data, eg standalone executable Mobile Preview.
 		// Game mode cannot create MICs, so we use a MaterialInstanceDynamic here.
-		UMaterialInstanceDynamic* NewMobileMaterialInstance = UMaterialInstanceDynamic::Create(MaterialInstances[0], GetOutermost());
-
-		MobileBlendableLayerMask = 0;
+		UMaterialInstanceDynamic* NewMobileMaterialInstance = UMaterialInstanceDynamic::Create(MobileCombinationMaterialInstance, GetOutermost());
 
 		// Set the layer mask
-		int32 CurrentIdx = 0;
-		for (const auto& MobileAllocation : MobileLayerAllocations)
+		for (const auto& Allocation : MobileWeightmapLayerAllocations)
 		{
-			const FWeightmapLayerAllocationInfo& Allocation = MobileAllocation.Allocation;
 			if (Allocation.LayerInfo)
 			{
 				FName LayerName = Allocation.LayerInfo == ALandscapeProxy::VisibilityLayer ? UMaterialExpressionLandscapeVisibilityMask::ParameterName : Allocation.LayerInfo->LayerName;
-				NewMobileMaterialInstance->SetVectorParameterValue(FName(*FString::Printf(TEXT("LayerMask_%s"), *LayerName.ToString())), Masks[FMath::Min(4, CurrentIdx)]);
-				MobileBlendableLayerMask |= (!Allocation.LayerInfo->bNoWeightBlend ? (1 << CurrentIdx) : 0);
-				CurrentIdx++;
+				NewMobileMaterialInstance->SetVectorParameterValue(FName(*FString::Printf(TEXT("LayerMask_%s"), *LayerName.ToString())), Masks[Allocation.WeightmapTextureChannel]);
 			}
 		}
+
+		for (int TextureIdx = 0; TextureIdx < MobileWeightmapTextures.Num(); TextureIdx++)
+		{
+			NewMobileMaterialInstance->SetTextureParameterValue(FName(*FString::Printf(TEXT("Weightmap%d"), TextureIdx)), MobileWeightmapTextures[TextureIdx]);
+		}
+		
 		MobileMaterialInterface = NewMobileMaterialInstance;
 	}
 	else
@@ -5043,25 +5118,24 @@ void ULandscapeComponent::GeneratePlatformPixelData()
 		// When cooking, we need to make a persistent MIC. In the editor we also do so in
 		// case we start a Cook in Editor operation, which will reuse the MIC we create now.
 
-		UMaterialInstanceConstant* CombinationMaterialInstance = GetCombinationMaterial(true);
+		MobileCombinationMaterialInstance = GetCombinationMaterial(MobileWeightmapLayerAllocations, true);
 		UMaterialInstanceConstant* NewMobileMaterialInstance = NewObject<ULandscapeMaterialInstanceConstant>(GetOutermost());
 
-		NewMobileMaterialInstance->SetParentEditorOnly(CombinationMaterialInstance);
-
-		MobileBlendableLayerMask = 0;
+		NewMobileMaterialInstance->SetParentEditorOnly(MobileCombinationMaterialInstance);
 
 		// Set the layer mask
-		int32 CurrentIdx = 0;
-		for (const auto& MobileAllocation : MobileLayerAllocations)
+		for (const auto& Allocation : MobileWeightmapLayerAllocations)
 		{
-			const FWeightmapLayerAllocationInfo& Allocation = MobileAllocation.Allocation;
 			if (Allocation.LayerInfo)
 			{
 				FName LayerName = Allocation.LayerInfo == ALandscapeProxy::VisibilityLayer ? UMaterialExpressionLandscapeVisibilityMask::ParameterName : Allocation.LayerInfo->LayerName;
-				NewMobileMaterialInstance->SetVectorParameterValueEditorOnly(FName(*FString::Printf(TEXT("LayerMask_%s"), *LayerName.ToString())), Masks[FMath::Min(4, CurrentIdx)]);
-				MobileBlendableLayerMask |= (!Allocation.LayerInfo->bNoWeightBlend ? (1 << CurrentIdx) : 0);
-				CurrentIdx++;
+				NewMobileMaterialInstance->SetVectorParameterValueEditorOnly(FName(*FString::Printf(TEXT("LayerMask_%s"), *LayerName.ToString())), Masks[Allocation.WeightmapTextureChannel]);
 			}
+		}
+
+		for (int TextureIdx = 0; TextureIdx < MobileWeightmapTextures.Num(); TextureIdx++)
+		{
+			NewMobileMaterialInstance->SetTextureParameterValueEditorOnly(FName(*FString::Printf(TEXT("Weightmap%d"), TextureIdx)), MobileWeightmapTextures[TextureIdx]);
 		}
 
 		NewMobileMaterialInstance->PostEditChange();
@@ -5073,7 +5147,7 @@ void ULandscapeComponent::GeneratePlatformPixelData()
 //
 // Generates vertex buffer data from the component's heightmap texture, for use on platforms without vertex texture fetch
 //
-void ULandscapeComponent::GeneratePlatformVertexData()
+void ULandscapeComponent::GeneratePlatformVertexData(const ITargetPlatform* TargetPlatform)
 {
 	if (IsTemplate())
 	{
@@ -5083,17 +5157,14 @@ void ULandscapeComponent::GeneratePlatformVertexData()
 	check(HeightmapTexture->Source.GetFormat() == TSF_BGRA8);
 
 	TArray<uint8> NewPlatformData;
-	int32 NewPlatformDataSize = 0;
+	FMemoryWriter PlatformAr(NewPlatformData);
 
 	int32 SubsectionSizeVerts = SubsectionSizeQuads + 1;
 	int32 MaxLOD = FMath::CeilLogTwo(SubsectionSizeVerts) - 1;
 
 	float HeightmapSubsectionOffsetU = (float)(SubsectionSizeVerts) / (float)HeightmapTexture->Source.GetSizeX();
 	float HeightmapSubsectionOffsetV = (float)(SubsectionSizeVerts) / (float)HeightmapTexture->Source.GetSizeY();
-
-	NewPlatformDataSize += sizeof(FLandscapeMobileVertex) * FMath::Square(SubsectionSizeVerts * NumSubsections);
-	NewPlatformData.AddZeroed(NewPlatformDataSize);
-
+	
 	// Get the required mip data
 	TArray<TArray<uint8>> HeightmapMipRawData;
 	TArray<FColor*> HeightmapMipData;
@@ -5167,8 +5238,12 @@ void ULandscapeComponent::GeneratePlatformVertexData()
 	}
 	check(VertexOrder.Num() == FMath::Square(SubsectionSizeVerts) * FMath::Square(NumSubsections));
 
+	int32 NumMobileVerices = FMath::Square(SubsectionSizeVerts * NumSubsections);
+	TArray<FLandscapeMobileVertex> MobileVertices;
+	MobileVertices.AddZeroed(NumMobileVerices);
+	FLandscapeMobileVertex* DstVert = MobileVertices.GetData();
+
 	// Fill in the vertices in the specified order
-	FLandscapeMobileVertex* DstVert = (FLandscapeMobileVertex*)NewPlatformData.GetData();
 	for (int32 Idx = 0; Idx < VertexOrder.Num(); Idx++)
 	{
 		int32 X = VertexOrder[Idx].X;
@@ -5229,6 +5304,51 @@ void ULandscapeComponent::GeneratePlatformVertexData()
 		DstVert++;
 	}
 
+	PlatformAr << NumMobileVerices;
+	PlatformAr.Serialize(MobileVertices.GetData(), NumMobileVerices*sizeof(FLandscapeMobileVertex));
+	
+	// Generate occlusion mesh
+	TArray<FVector> OccluderVertices;
+	const int32 OcclusionMeshMip = FMath::Clamp<int32>(GetLandscapeProxy()->OccluderGeometryLOD, -1, MaxLOD);
+
+	if (OcclusionMeshMip >= 0 && (!TargetPlatform || TargetPlatform->SupportsFeature(ETargetPlatformFeatures::SoftwareOcclusion)))
+	{
+		int32 LodSubsectionSizeQuads = (SubsectionSizeVerts >> OcclusionMeshMip) - 1;
+		float MipRatio = (float)SubsectionSizeQuads / (float)LodSubsectionSizeQuads;
+		
+		for (int32 SubY = 0; SubY < NumSubsections; SubY++)
+		{
+			for (int32 SubX = 0; SubX < NumSubsections; SubX++)
+			{
+				float HeightmapScaleBiasZ = HeightmapScaleBias.Z + HeightmapSubsectionOffsetU * (float)SubX;
+				float HeightmapScaleBiasW = HeightmapScaleBias.W + HeightmapSubsectionOffsetV * (float)SubY;
+				int32 BaseMipOfsX = FMath::RoundToInt(HeightmapScaleBiasZ * (float)HeightmapTexture->Source.GetSizeX());
+				int32 BaseMipOfsY = FMath::RoundToInt(HeightmapScaleBiasW * (float)HeightmapTexture->Source.GetSizeY());
+
+				for (int32 y = 0; y <= LodSubsectionSizeQuads; y++)
+				{
+					for (int32 x = 0; x <= LodSubsectionSizeQuads; x++)
+					{
+						int32 MipSizeX = HeightmapTexture->Source.GetSizeX() >> OcclusionMeshMip;
+
+						int32 CurrentMipOfsX = BaseMipOfsX >> OcclusionMeshMip;
+						int32 CurrentMipOfsY = BaseMipOfsY >> OcclusionMeshMip;
+												
+						FColor* CurrentMipSrcRow = HeightmapMipData[OcclusionMeshMip] + (CurrentMipOfsY + y) * MipSizeX + CurrentMipOfsX;
+						uint16 Height = CurrentMipSrcRow[x].R << 8 | CurrentMipSrcRow[x].G;
+
+						FVector VtxPos = FVector(x*MipRatio, y*MipRatio, ((float)Height - 32768.f) * LANDSCAPE_ZSCALE);
+						OccluderVertices.Add(VtxPos);
+					}
+				}
+			}
+		}
+	}
+
+	int32 NumOccluderVerices = OccluderVertices.Num();
+	PlatformAr << NumOccluderVerices;
+	PlatformAr.Serialize(OccluderVertices.GetData(), NumOccluderVerices*sizeof(FVector));
+	
 	// Copy to PlatformData as Compressed
 	PlatformData.InitializeFromUncompressedData(NewPlatformData);
 }
@@ -5260,6 +5380,188 @@ void ALandscapeProxy::RemoveOverlappingComponent(ULandscapeComponent* Component)
 	}
 	LandscapeComponents.Remove(Component);
 	Component->DestroyComponent();
+}
+
+TArray<FLinearColor> ALandscapeProxy::SampleRTData(UTextureRenderTarget2D* InRenderTarget, FLinearColor InRect)
+{
+
+	if (!InRenderTarget)
+	{
+		FMessageLog("Blueprint").Warning(LOCTEXT("SampleRTData_InvalidRenderTarget", "SampleRTData: Render Target must be non-null."));
+		return { FLinearColor(0,0,0,0) };
+	}
+	else if (!InRenderTarget->Resource)
+	{
+		FMessageLog("Blueprint").Warning(LOCTEXT("SampleRTData_ReleasedRenderTarget", "SampleRTData: Render Target has been released."));
+		return { FLinearColor(0,0,0,0) };
+	}
+	else
+	{
+		ETextureRenderTargetFormat format = (InRenderTarget->RenderTargetFormat);
+
+		if ((format == (RTF_RGBA16f)) || (format == (RTF_RGBA32f)) || (format == (RTF_RGBA8)))
+		{
+
+			FTextureRenderTargetResource* RTResource = InRenderTarget->GameThread_GetRenderTargetResource();
+
+			InRect.R = FMath::Clamp(int(InRect.R), 0, InRenderTarget->SizeX - 1);
+			InRect.G = FMath::Clamp(int(InRect.G), 0, InRenderTarget->SizeY - 1);
+			InRect.B = FMath::Clamp(int(InRect.B), int(InRect.R + 1), InRenderTarget->SizeX);
+			InRect.A = FMath::Clamp(int(InRect.A), int(InRect.G + 1), InRenderTarget->SizeY);
+			FIntRect Rect = FIntRect(InRect.R, InRect.G, InRect.B, InRect.A);
+
+			FReadSurfaceDataFlags ReadPixelFlags(RCM_MinMax);
+
+			TArray<FColor> OutLDR;
+			TArray<FLinearColor> OutHDR;
+
+			TArray<FLinearColor> OutVals;
+
+			bool ishdr = ((format == (RTF_R16f)) || (format == (RTF_RG16f)) || (format == (RTF_RGBA16f)) || (format == (RTF_R32f)) || (format == (RTF_RG32f)) || (format == (RTF_RGBA32f)));
+
+			if (!ishdr)
+			{
+				RTResource->ReadPixels(OutLDR, ReadPixelFlags, Rect);
+				for (auto i : OutLDR)
+				{
+					OutVals.Add(FLinearColor(float(i.R), float(i.G), float(i.B), float(i.A)) / 255.0f);
+				}
+			}
+			else
+			{
+				RTResource->ReadLinearColorPixels(OutHDR, ReadPixelFlags, Rect);
+				return OutHDR;
+			}
+
+			return OutVals;
+		}
+	}
+	FMessageLog("Blueprint").Warning(LOCTEXT("SampleRTData_InvalidTexture", "SampleRTData: Currently only 4 channel formats are supported: RTF_RGBA8, RTF_RGBA16f, and RTF_RGBA32f."));
+
+	return { FLinearColor(0,0,0,0) };
+}
+
+bool ALandscapeProxy::LandscapeImportHeightmapFromRenderTarget(UTextureRenderTarget2D* InRenderTarget)
+{
+	ALandscape* Landscape = GetLandscapeActor();
+	if (Landscape != nullptr)
+	{
+		ULandscapeInfo* LandscapeInfo = Landscape->GetLandscapeInfo();
+
+		int32 MinX, MinY, MaxX, MaxY;
+		if (LandscapeInfo && LandscapeInfo->GetLandscapeExtent(MinX, MinY, MaxX, MaxY))
+		{
+			const uint32 LandscapeWidth = (uint32)(1 + MaxX - MinX);
+			const uint32 LandscapeHeight = (uint32)(1 + MaxY - MinY);
+			FLinearColor SampleRect = FLinearColor(0, 0, LandscapeWidth, LandscapeHeight);
+
+			const uint32 RTWidth = InRenderTarget->SizeX;
+			const uint32 RTHeight = InRenderTarget->SizeY;
+			ETextureRenderTargetFormat format = (InRenderTarget->RenderTargetFormat);
+			bool ishdr = ((format == (RTF_R16f)) || (format == (RTF_RG16f)) || (format == (RTF_RGBA16f)) || (format == (RTF_R32f)) || (format == (RTF_RG32f)) || (format == (RTF_RGBA32f)));
+			if (!ishdr)
+			{
+				FMessageLog("Blueprint").Error(LOCTEXT("LandscapeImportRenderTarget_InvalidRenderTarget", "LandscapeImportHeightmapFromRenderTarget: Render target must be at least as large as landscape on each axis."));
+				return 0;
+			}
+
+			if (RTWidth >= LandscapeWidth && RTHeight >= LandscapeHeight)
+			{
+				TArray<FLinearColor> RTData;
+				RTData = SampleRTData(InRenderTarget, SampleRect);
+
+				TArray<uint16> HeightData;
+
+				for (auto i : RTData)
+				{
+					HeightData.Add((uint16)i.R);
+				}
+
+				FScopedTransaction Transaction(LOCTEXT("Undo_ImportHeightmap", "Importing Landscape Heightmap"));
+
+				FHeightmapAccessor<false> HeightmapAccessor(LandscapeInfo);
+				HeightmapAccessor.SetData(MinX, MinY, MaxX, MaxY, HeightData.GetData());
+				return 1;
+			}
+			else
+			{
+				FMessageLog("Blueprint").Error(LOCTEXT("LandscapeImportRenderTarget_InvalidRenderTarget", "LandscapeImportHeightmapFromRenderTarget: Render target must be at least as large as landscape on each axis."));
+				return 0;
+			}
+		}
+		else
+		{
+			return 0;
+		}
+	}
+	FMessageLog("Blueprint").Error(LOCTEXT("LandscapeImportRenderTarget_NullLandscape.", "LandscapeImportHeightmapFromRenderTarget: Landscape must be non-null."));
+	return 0;
+}
+
+bool ALandscapeProxy::LandscapeImportWeightmapFromRenderTarget(UTextureRenderTarget2D* InRenderTarget, FName InLayerName)
+{
+	ALandscape* Landscape = GetLandscapeActor();
+	if (Landscape != nullptr)
+	{
+		ULandscapeInfo* LandscapeInfo = Landscape->GetLandscapeInfo();
+
+		int32 MinX, MinY, MaxX, MaxY;
+		if (LandscapeInfo && LandscapeInfo->GetLandscapeExtent(MinX, MinY, MaxX, MaxY))
+		{
+			const uint32 LandscapeWidth = (uint32)(1 + MaxX - MinX);
+			const uint32 LandscapeHeight = (uint32)(1 + MaxY - MinY);
+			FLinearColor SampleRect = FLinearColor(0, 0, LandscapeWidth, LandscapeHeight);
+
+			const uint32 RTWidth = InRenderTarget->SizeX;
+			const uint32 RTHeight = InRenderTarget->SizeY;
+			ETextureRenderTargetFormat format = (InRenderTarget->RenderTargetFormat);
+
+			if (RTWidth >= LandscapeWidth && RTHeight >= LandscapeHeight)
+			{
+				TArray<FLinearColor> RTData;
+				RTData = SampleRTData(InRenderTarget, SampleRect);
+
+				TArray<uint8> LayerData;
+
+				for (auto i : RTData)
+				{
+					LayerData.Add((uint8)(FMath::Clamp((float)i.R, 0.0f, 1.0f) * 255));
+				}
+
+				FLandscapeInfoLayerSettings CurWeightmapInfo;
+
+				int32 Index = LandscapeInfo->GetLayerInfoIndex(InLayerName, LandscapeInfo->GetLandscapeProxy());
+
+				if (ensure(Index != INDEX_NONE))
+				{
+					CurWeightmapInfo = LandscapeInfo->Layers[Index];
+				}
+
+				if (CurWeightmapInfo.LayerInfoObj == nullptr)
+				{
+					FMessageLog("Blueprint").Error(LOCTEXT("LandscapeImportRenderTarget_InvalidLayerInfoObject", "LandscapeImportWeightmapFromRenderTarget: Layers must first have Layer Info Objects assigned before importing."));
+					return 0;
+				}
+
+				FScopedTransaction Transaction(LOCTEXT("Undo_ImportWeightmap", "Importing Landscape Layer"));
+
+				FAlphamapAccessor<false, false> AlphamapAccessor(LandscapeInfo, CurWeightmapInfo.LayerInfoObj);
+				AlphamapAccessor.SetData(MinX, MinY, MaxX, MaxY, LayerData.GetData(), ELandscapeLayerPaintingRestriction::None);
+				return 1;
+			}
+			else
+			{
+				FMessageLog("Blueprint").Error(LOCTEXT("LandscapeImportRenderTarget_InvalidRenderTarget", "LandscapeImportWeightmapFromRenderTarget: Render target must be at least as large as landscape on each axis."));
+				return 0;
+			}
+		}
+		else
+		{
+			return 0;
+		}
+	}
+	FMessageLog("Blueprint").Error(LOCTEXT("LandscapeImportRenderTarget_NullLandscape.", "LandscapeImportWeightmapFromRenderTarget: Landscape must be non-null."));
+	return 0;
 }
 
 #endif //WITH_EDITOR

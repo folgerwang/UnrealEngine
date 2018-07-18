@@ -6,6 +6,7 @@
 #include "UObject/ObjectMacros.h"
 #include "FunctionalTest.h"
 #include "AutomationScreenshotOptions.h"
+#include "Misc/AutomationTest.h"
 
 #include "ScreenshotFunctionalTestBase.generated.h"
 
@@ -54,12 +55,15 @@ protected:
 	void OnScreenShotCaptured(int32 InSizeX, int32 InSizeY, const TArray<FColor>& InImageData);
 
 	// Do some logging and trigger OnScreenshotTakenAndCompared
-	void OnComparisonComplete(bool bWasNew, bool bWasSimilar, double MaxLocalDifference, double GlobalDifference, FString ErrorMessage);
+	void OnComparisonComplete(const FAutomationScreenshotCompareResults& CompareResults);
 
 	// Restore viewport size and original environment settings
 	void RestoreViewSettings();
 
 protected:
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Screenshot", meta = (MultiLine = "true"))
+	FString Notes;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Screenshot")
 	class UCameraComponent* ScreenshotCamera;

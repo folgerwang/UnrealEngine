@@ -17,109 +17,277 @@
 
 namespace ns
 {
-	template<typename T, bool bAutoReleased>
-    Object<T, bAutoReleased>::Object() :
+	template<typename T, CallingConvention C>
+    Object<T, C>::Object(ns::Ownership const retain) :
         m_ptr(nullptr),
+#if MTLPP_CONFIG_IMP_CACHE
 		m_table(nullptr),
-		RefCount(0)
+#endif
+		Mode(retain)
     {
-		m_table = ue4::CreateIMPTable((T)nullptr);
     }
 
-	template<typename T, bool bAutoReleased>
-    Object<T, bAutoReleased>::Object(const T handle, bool const retain, ITable* table) :
+	template<typename T, CallingConvention C>
+    Object<T, C>::Object(const T handle, ns::Ownership const retain, ITable* table) :
 	m_ptr(handle),
+#if MTLPP_CONFIG_IMP_CACHE
 	m_table(table),
-	RefCount(0)
+#endif
+	Mode(retain)
     {
 		if (m_ptr)
 		{
-			if (!m_table)
+#if MTLPP_CONFIG_IMP_CACHE
+			if (C == CallingConvention::C && !m_table)
 			{
 				m_table = ue4::CreateIMPTable(handle);
 			}
-			if (!bAutoReleased)
+#endif
+			if (Mode == ns::Ownership::Retain)
 			{
-				if (retain)
+#if MTLPP_CONFIG_IMP_CACHE
+				if (C == CallingConvention::C || m_table)
 				{
 					assert(m_table);
 					m_table->Retain(m_ptr);
+				}
+				else
+#endif
+				{
+					CFRetain(m_ptr);
 				}
 			}
 		}
     }
 
-	template<typename T, bool bAutoReleased>
-    Object<T, bAutoReleased>::Object(const Object& rhs) :
+	template<typename T, CallingConvention C>
+    Object<T, C>::Object(const Object& rhs) :
 	m_ptr(rhs.m_ptr),
+#if MTLPP_CONFIG_IMP_CACHE
 	m_table(rhs.m_table),
-	RefCount(0)
+#endif
+	Mode(ns::Ownership::Retain)
     {
-		if (!bAutoReleased && m_ptr)
+		if (m_ptr)
 		{
-			assert(m_table);
-			m_table->Retain(m_ptr);
+#if MTLPP_CONFIG_IMP_CACHE
+			if (C == CallingConvention::C || m_table)
+			{
+				if (!m_table)
+				{
+					m_table = ue4::CreateIMPTable(m_ptr);
+				}
+				assert(m_table);
+				m_table->Retain(m_ptr);
+			}
+			else
+#endif
+			{
+				CFRetain(m_ptr);
+			}
 		}
     }
 
 #if MTLPP_CONFIG_RVALUE_REFERENCES
-	template<typename T, bool bAutoReleased>
-    Object<T, bAutoReleased>::Object(Object&& rhs) :
+	template<typename T, CallingConvention C>
+    Object<T, C>::Object(Object&& rhs) :
 	m_ptr(rhs.m_ptr),
+#if MTLPP_CONFIG_IMP_CACHE
 	m_table(rhs.m_table),
-	RefCount(0)
+#endif
+	Mode(ns::Ownership::Retain)
     {
-        rhs.m_ptr = nullptr;
-		rhs.m_table = nullptr;
+		if (m_ptr)
+		{
+#if	MTLPP_CONFIG_IMP_CACHE
+			if (C == CallingConvention::C || m_table)
+			{
+				if (!m_table)
+				{
+					m_table = ue4::CreateIMPTable(m_ptr);
+				}
+				assert(m_table);
+				if (rhs.Mode == ns::Ownership::AutoRelease)
+				{
+					m_table->Retain(m_ptr);
+				}
+			}
+			else
+#endif
+			if (rhs.Mode == ns::Ownership::AutoRelease)
+			{
+				CFRetain(rhs.m_ptr);
+			}
+
+			if (Mode != ns::Ownership::AutoRelease || rhs.Mode == ns::Ownership::AutoRelease)
+			{
+				rhs.m_ptr = nullptr;
+#if MTLPP_CONFIG_IMP_CACHE
+				rhs.m_table = nullptr;
+#endif
+			}
+		}
     }
 #endif
 
-	template<typename T, bool bAutoReleased>
-    Object<T, bAutoReleased>::~Object()
+	template<typename T, CallingConvention C>
+    Object<T, C>::~Object()
     {
-		if (!bAutoReleased && m_ptr)
+		if (Mode != ns::Ownership::AutoRelease && m_ptr)
 		{
-			assert(m_table);
-			m_table->Release(m_ptr);
+#if MTLPP_CONFIG_IMP_CACHE
+			if (C == CallingConvention::C || m_table)
+			{
+				assert(m_table);
+				m_table->Release(m_ptr);
+			}
+			else
+#endif
+			{
+				CFRelease(m_ptr);
+			}
 		}
     }
 
-	template<typename T, bool bAutoReleased>
-    Object<T, bAutoReleased>& Object<T, bAutoReleased>::operator=(const Object& rhs)
+	template<typename T, CallingConvention C>
+    Object<T, C>& Object<T, C>::operator=(const Object& rhs)
     {
+#if MTLPP_CONFIG_IMP_CACHE
         if (rhs.m_ptr == m_ptr && rhs.m_table == m_table)
+#else
+        if (rhs.m_ptr == m_ptr)
+#endif
             return *this;
-        if (!bAutoReleased && rhs.m_ptr)
+		
+		if (Mode != ns::Ownership::AutoRelease && rhs.m_ptr)
 		{
-			assert(rhs.m_table);
-			rhs.m_table->Retain(rhs.m_ptr);
+#if MTLPP_CONFIG_IMP_CACHE
+			if (rhs.m_table)
+			{
+				rhs.m_table->Retain(rhs.m_ptr);
+			}
+			else
+#endif
+			{
+				CFRetain(rhs.m_ptr);
+			}
 		}
-        if (!bAutoReleased && m_ptr)
+        if (Mode != ns::Ownership::AutoRelease && m_ptr)
 		{
-			assert(m_table);
-			m_table->Release(m_ptr);
+#if MTLPP_CONFIG_IMP_CACHE
+			if (C == CallingConvention::C || m_table)
+			{
+				assert(m_table);
+				m_table->Release(m_ptr);
+			}
+			else
+#endif
+			{
+				CFRelease(m_ptr);
+			}
 		}
         m_ptr = rhs.m_ptr;
+#if MTLPP_CONFIG_IMP_CACHE
 		m_table = rhs.m_table;
+		if (C == CallingConvention::C && m_ptr && !m_table)
+		{
+			m_table = ue4::CreateIMPTable(m_ptr);
+		}
+#endif
         return *this;
     }
 
 #if MTLPP_CONFIG_RVALUE_REFERENCES
-	template<typename T, bool bAutoReleased>
-    Object<T, bAutoReleased>& Object<T, bAutoReleased>::operator=(Object&& rhs)
+	template<typename T, CallingConvention C>
+    Object<T, C>& Object<T, C>::operator=(Object&& rhs)
     {
+#if MTLPP_CONFIG_IMP_CACHE
         if (rhs.m_ptr == m_ptr && rhs.m_table == m_table)
+#else
+		if (rhs.m_ptr == m_ptr)
+#endif
             return *this;
-        if (!bAutoReleased && m_ptr)
+		
+		if (rhs.Mode == ns::Ownership::AutoRelease && Mode != ns::Ownership::AutoRelease && rhs.m_ptr)
 		{
-			assert(m_table);
-			m_table->Release(m_ptr);
+#if MTLPP_CONFIG_IMP_CACHE
+			if (rhs.m_table)
+			{
+				rhs.m_table->Retain(rhs.m_ptr);
+			}
+			else
+#endif
+			{
+				CFRetain(rhs.m_ptr);
+			}
+		}
+		
+        if (Mode != ns::Ownership::AutoRelease && m_ptr)
+		{
+#if MTLPP_CONFIG_IMP_CACHE
+			if (C == CallingConvention::C || m_table)
+			{
+				assert(m_table);
+				m_table->Release(m_ptr);
+			}
+			else
+#endif
+			{
+				CFRelease(m_ptr);
+			}
 		}
         m_ptr = rhs.m_ptr;
-        rhs.m_ptr = nullptr;
+#if MTLPP_CONFIG_IMP_CACHE
 		m_table = rhs.m_table;
-		rhs.m_table = nullptr;
+		if (C == CallingConvention::C && m_ptr && !m_table)
+		{
+			m_table = ue4::CreateIMPTable(m_ptr);
+		}
+#endif
+		if (Mode != ns::Ownership::AutoRelease || rhs.Mode == ns::Ownership::AutoRelease)
+		{
+			rhs.m_ptr = nullptr;
+#if MTLPP_CONFIG_IMP_CACHE
+			rhs.m_table = nullptr;
+#endif
+		}
         return *this;
     }
 #endif
+	
+	template<typename T>
+	AutoReleased<T>::AutoReleased(typename T::Type handle, typename T::ITable* Table) : T(ns::Ownership::AutoRelease)
+	{
+		T::m_ptr = handle;
+#if MTLPP_CONFIG_IMP_CACHE
+		if (T::Convention == CallingConvention::C || Table)
+		{
+			T::m_table = handle && !Table ? ue4::CreateIMPTable(handle) : Table;
+		}
+		else
+		{
+			T::m_table = nullptr;
+		}
+#endif
+	}
+	
+	template<typename T>
+	AutoReleased<T>& AutoReleased<T>::operator=(typename T::Type handle)
+	{
+		if (T::m_ptr != handle)
+		{
+			T::m_ptr = handle;
+#if MTLPP_CONFIG_IMP_CACHE
+			if (T::Convention == CallingConvention::C)
+			{
+				T::m_table = handle ? ue4::CreateIMPTable(handle) : nullptr;
+			}
+			else
+			{
+				T::m_table = nullptr;
+			}
+#endif
+		}
+		return *this;
+	}
 }

@@ -13,7 +13,6 @@
 #include "MovieSceneTrackEditor.h"
 
 struct FAssetData;
-class FFloatCurveKeyArea;
 class FMenuBuilder;
 class FSequencerSectionPainter;
 class UMovieSceneSkeletalAnimationSection;
@@ -54,6 +53,8 @@ public:
 	virtual bool SupportsType( TSubclassOf<UMovieSceneTrack> Type ) const override;
 	virtual void BuildTrackContextMenu( FMenuBuilder& MenuBuilder, UMovieSceneTrack* Track ) override;
 	virtual TSharedPtr<SWidget> BuildOutlinerEditWidget(const FGuid& ObjectBinding, UMovieSceneTrack* Track, const FBuildEditWidgetParams& Params) override;
+	virtual bool OnAllowDrop(const FDragDropEvent& DragDropEvent, UMovieSceneTrack* Track, int32 RowIndex, const FGuid& TargetObjectGuid) override;
+	virtual FReply OnDrop(const FDragDropEvent& DragDropEvent, UMovieSceneTrack* Track, int32 RowIndex, const FGuid& TargetObjectGuid) override;
 
 private:
 
@@ -67,11 +68,11 @@ private:
 	/** Animation asset selected */
 	void OnAnimationAssetSelected(const FAssetData& AssetData, FGuid ObjectBinding, UMovieSceneTrack* Track);
 
-	/** Delegate for AnimatablePropertyChanged in AddKey */
-	FKeyPropertyResult AddKeyInternal(float KeyTime, UObject* Object, class UAnimSequenceBase* AnimSequence, UMovieSceneTrack* Track);
+	/** Animation asset enter pressed */
+	void OnAnimationAssetEnterPressed(const TArray<FAssetData>& AssetData, FGuid ObjectBinding, UMovieSceneTrack* Track);
 
-	/** Gets a skeleton from an object guid in the movie scene */
-	class USkeleton* AcquireSkeletonFromObjectGuid(const FGuid& Guid);
+	/** Delegate for AnimatablePropertyChanged in AddKey */
+	FKeyPropertyResult AddKeyInternal(FFrameNumber KeyTime, UObject* Object, class UAnimSequenceBase* AnimSequence, UMovieSceneTrack* Track, int32 RowIndex);
 };
 
 
@@ -83,7 +84,7 @@ class FSkeletalAnimationSection
 public:
 
 	/** Constructor. */
-	FSkeletalAnimationSection( UMovieSceneSection& InSection );
+	FSkeletalAnimationSection( UMovieSceneSection& InSection, TWeakPtr<ISequencer> InSequencer);
 
 	/** Virtual destructor. */
 	virtual ~FSkeletalAnimationSection() { }
@@ -95,24 +96,29 @@ public:
 	virtual UMovieSceneSection* GetSectionObject() override;
 	virtual FText GetSectionTitle() const override;
 	virtual float GetSectionHeight() const override;
-	virtual void GenerateSectionLayout( class ISectionLayoutBuilder& LayoutBuilder ) const override;
 	virtual int32 OnPaintSection( FSequencerSectionPainter& Painter ) const override;
 	virtual void BeginResizeSection() override;
-	virtual void ResizeSection(ESequencerSectionResizeMode ResizeMode, float ResizeTime) override;
+	virtual void ResizeSection(ESequencerSectionResizeMode ResizeMode, FFrameNumber ResizeTime) override;
 	virtual void BeginSlipSection() override;
-	virtual void SlipSection(float SlipTime) override;
+	virtual void SlipSection(double SlipTime) override;
+	virtual void BuildSectionContextMenu(FMenuBuilder& MenuBuilder, const FGuid& InObjectBinding) override;
+
+private:
+
+	bool CreatePoseAsset(const TArray<UObject*> NewAssets, FGuid InObjectBinding);
+	void HandleCreatePoseAsset(FGuid InObjectBinding);
 
 private:
 
 	/** The section we are visualizing */
 	UMovieSceneSkeletalAnimationSection& Section;
 
-	/** Weight key areas. */
-	mutable TSharedPtr<FFloatCurveKeyArea> WeightArea;
+	/** Used to draw animation frame, need selection state and local time*/
+	TWeakPtr<ISequencer> Sequencer;
 
 	/** Cached start offset value valid only during resize */
 	float InitialStartOffsetDuringResize;
 	
 	/** Cached start time valid only during resize */
-	float InitialStartTimeDuringResize;
+	FFrameNumber InitialStartTimeDuringResize;
 };

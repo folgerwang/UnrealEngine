@@ -36,9 +36,26 @@ public:
 		return FTextureRHIRef();
 	}
 
-public:
+	UTexture* GetTextureObject() const { return TextureObject; }
+
+
+#if SLATE_CHECK_UOBJECT_RENDER_RESOURCES
+	virtual void CheckForStaleResources() const override;
+#endif
+
+protected:
+#if SLATE_CHECK_UOBJECT_RENDER_RESOURCES
+	void UpdateDebugName();
+#endif
+
 	/** Texture UObject.  Note: lifetime is managed externally */
 	UTexture* TextureObject;
+
+#if SLATE_CHECK_UOBJECT_RENDER_RESOURCES
+	// Used to guard against crashes when the material object is deleted.  This is expensive so we do not do it in shipping
+	TWeakObjectPtr<UTexture> ObjectWeakPtr;
+	FName DebugName;
+#endif
 };
 
 
@@ -54,8 +71,8 @@ public:
 	/**
 	 * Updates the rendering resource with a potentially new texture
 	 */
-	void UpdateRenderResource(FTexture* InFTexture);
-
+	void UpdateTexture(UTexture* InTexture);
+	void ResetTexture();
 public:
 	/** Slate rendering proxy */
 	FSlateShaderResourceProxy* Proxy;

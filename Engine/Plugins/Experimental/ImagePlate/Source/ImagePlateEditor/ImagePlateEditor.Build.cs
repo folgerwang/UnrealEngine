@@ -22,13 +22,8 @@ namespace UnrealBuildTool.Rules
 					"Sequencer",
 					"Slate",
 					"SlateCore",
+                    "TimeManagement",
 					"UnrealEd",
-				}
-			);
-
-			PrivateIncludePaths.AddRange(
-				new string[] {
-					"Runtime/ImagePlateEditor/Private",
 				}
 			);
 		}

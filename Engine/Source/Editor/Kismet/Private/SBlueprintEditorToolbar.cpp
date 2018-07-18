@@ -13,6 +13,7 @@
 #include "BlueprintEditor.h"
 #include "Widgets/Layout/SSpacer.h"
 #include "ISourceControlModule.h"
+#include "SourceControlHelpers.h"
 #include "BlueprintEditorCommands.h"
 #include "Kismet2/DebuggerCommands.h"
 #include "Engine/LevelScriptBlueprint.h"

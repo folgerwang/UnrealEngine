@@ -3,7 +3,7 @@
 #pragma once
 
 #include "IDetailCustomization.h"
-#include "ArrayView.h"
+#include "Containers/ArrayView.h"
 
 class IPropertyHandle;
 class UBoneProxy;

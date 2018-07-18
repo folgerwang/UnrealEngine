@@ -236,6 +236,8 @@ FText UAnimGraphNode_AnimDynamics::GetControllerDescription() const
 
 void UAnimGraphNode_AnimDynamics::CustomizeDetails(IDetailLayoutBuilder& DetailBuilder)
 {
+	Super::CustomizeDetails(DetailBuilder);
+
 	TSharedRef<IPropertyHandle> PreviewFlagHandle = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UAnimGraphNode_AnimDynamics, bPreviewLive));
 
 	IDetailCategoryBuilder& PreviewCategory = DetailBuilder.EditCategory(TEXT("Preview"));
@@ -254,7 +256,7 @@ void UAnimGraphNode_AnimDynamics::CustomizeDetails(IDetailLayoutBuilder& DetailB
 
 void UAnimGraphNode_AnimDynamics::ValidateAnimNodeDuringCompilation(USkeleton* ForSkeleton, FCompilerResultsLog& MessageLog)
 {
-	
+	Super::ValidateAnimNodeDuringCompilation(ForSkeleton, MessageLog);
 }
 
 FText UAnimGraphNode_AnimDynamics::GetNodeTitle(ENodeTitleType::Type TitleType) const
@@ -351,7 +353,7 @@ void UAnimGraphNode_AnimDynamics::ResetSim()
 	FAnimNode_AnimDynamics* PreviewNode = GetPreviewDynamicsNode();
 	if(PreviewNode)
 	{
-		PreviewNode->RequestInitialise();
+		PreviewNode->RequestInitialise(ETeleportType::ResetPhysics);
 	}
 }
 

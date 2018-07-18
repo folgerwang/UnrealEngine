@@ -9,7 +9,7 @@
 #include "CoreMinimal.h"
 #include "Misc/Guid.h"
 #include "Math/SHMath.h"
-#include "ResourceArray.h"
+#include "Containers/ResourceArray.h"
 #include "PixelFormat.h"
 #include "Math/PackedVector.h"
 #include "RHI.h"

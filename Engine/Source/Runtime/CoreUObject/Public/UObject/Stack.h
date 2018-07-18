@@ -191,6 +191,10 @@ public:
 	 * This will return a string of the form "ScopeName.FunctionName" associated with this stack frame:
 	 */
 	COREUOBJECT_API FString GetStackDescription() const;
+
+#if DO_BLUEPRINT_GUARD
+	static void InitPrintScriptCallstack();
+#endif
 };
 
 

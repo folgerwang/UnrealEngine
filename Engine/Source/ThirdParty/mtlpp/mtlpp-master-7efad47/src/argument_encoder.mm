@@ -1,6 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include <Metal/MTLArgumentEncoder.h>
+#include <Metal/MTLSampler.h>
 #include "argument_encoder.hpp"
 #include "device.hpp"
 #include "buffer.hpp"
@@ -11,23 +12,31 @@ MTLPP_BEGIN
 
 namespace mtlpp
 {
-	Device     ArgumentEncoder::GetDevice() const
+	ns::AutoReleased<Device>     ArgumentEncoder::GetDevice() const
 	{
 		Validate();
 #if MTLPP_IS_AVAILABLE(10_13, 11_0)
-		return m_table->Device(m_ptr);
+#if MTLPP_CONFIG_IMP_CACHE
+		return ns::AutoReleased<Device>(m_table->Device(m_ptr));
 #else
-		return Device();
+		return ns::AutoReleased<Device>([(id<MTLArgumentEncoder>) m_ptr device]);
+#endif
+#else
+		return ns::AutoReleased<Device>();
 #endif
 	}
 	
-	ns::String ArgumentEncoder::GetLabel() const
+	ns::AutoReleased<ns::String> ArgumentEncoder::GetLabel() const
 	{
 		Validate();
 #if MTLPP_IS_AVAILABLE(10_13, 11_0)
-		return m_table->Label(m_ptr);
+#if MTLPP_CONFIG_IMP_CACHE
+		return ns::AutoReleased<ns::String>(m_table->Label(m_ptr));
 #else
-		return ns::String();
+		return ns::AutoReleased<ns::String>([(id<MTLArgumentEncoder>) m_ptr label]);
+#endif
+#else
+		return ns::AutoReleased<ns::String>();
 #endif
 	}
 	
@@ -35,7 +44,11 @@ namespace mtlpp
 	{
 		Validate();
 #if MTLPP_IS_AVAILABLE(10_13, 11_0)
+#if MTLPP_CONFIG_IMP_CACHE
 		return m_table->EncodedLength(m_ptr);
+#else
+		return [(id<MTLArgumentEncoder>) m_ptr encodedLength];
+#endif
 #else
 		return 0;
 #endif
@@ -45,7 +58,11 @@ namespace mtlpp
 	{
 		Validate();
 #if MTLPP_IS_AVAILABLE(10_13, 11_0)
+#if MTLPP_CONFIG_IMP_CACHE
 		return m_table->Alignment(m_ptr);
+#else
+		return [(id<MTLArgumentEncoder>) m_ptr alignment];
+#endif
 #else
 		return 0;
 #endif
@@ -55,7 +72,11 @@ namespace mtlpp
 	{
 		Validate();
 #if MTLPP_IS_AVAILABLE(10_13, 11_0)
+#if MTLPP_CONFIG_IMP_CACHE
 		return m_table->ConstantDataAtIndex(m_ptr, index);
+#else
+		return [(id<MTLArgumentEncoder>) m_ptr constantDataAtIndex:index];
+#endif
 #else
 		return nullptr;
 #endif
@@ -65,7 +86,11 @@ namespace mtlpp
 	{
 		Validate();
 #if MTLPP_IS_AVAILABLE(10_13, 11_0)
+#if MTLPP_CONFIG_IMP_CACHE
 		m_table->SetLabel(m_ptr, label.GetPtr());
+#else
+		[(id<MTLArgumentEncoder>) m_ptr setLabel:(NSString*)label.GetPtr()];
+#endif
 #endif
 	}
 	
@@ -73,7 +98,11 @@ namespace mtlpp
 	{
 		Validate();
 #if MTLPP_IS_AVAILABLE(10_13, 11_0)
-		m_table->Setargumentbufferoffset(m_ptr, (id<MTLBuffer>)buffer.GetPtr(), offset);
+#if MTLPP_CONFIG_IMP_CACHE
+		m_table->Setargumentbufferoffset(m_ptr, (id<MTLBuffer>)buffer.GetPtr(), offset + buffer.GetOffset());
+#else
+		[(id<MTLArgumentEncoder>) m_ptr setArgumentBuffer:(id<MTLBuffer>)buffer.GetPtr() offset:offset + buffer.GetOffset()];
+#endif
 #endif
 	}
 	
@@ -81,7 +110,11 @@ namespace mtlpp
 	{
 		Validate();
 #if MTLPP_IS_AVAILABLE(10_13, 11_0)
-		m_table->Setargumentbufferstartoffsetarrayelement(m_ptr, (id<MTLBuffer>)buffer.GetPtr(), offset, index);
+#if MTLPP_CONFIG_IMP_CACHE
+		m_table->Setargumentbufferstartoffsetarrayelement(m_ptr, (id<MTLBuffer>)buffer.GetPtr(), offset + buffer.GetOffset(), index);
+#else
+		[(id<MTLArgumentEncoder>) m_ptr setArgumentBuffer:(id<MTLBuffer>)buffer.GetPtr() startOffset:offset + buffer.GetOffset() arrayElement:index];
+#endif
 #endif
 	}
 	
@@ -89,7 +122,11 @@ namespace mtlpp
 	{
 		Validate();
 #if MTLPP_IS_AVAILABLE(10_13, 11_0)
-		m_table->Setbufferoffsetatindex(m_ptr, (id<MTLBuffer>)buffer.GetPtr(), offset, index);
+#if MTLPP_CONFIG_IMP_CACHE
+		m_table->Setbufferoffsetatindex(m_ptr, (id<MTLBuffer>)buffer.GetPtr(), offset + buffer.GetOffset(), index);
+#else
+		[(id<MTLArgumentEncoder>) m_ptr setBuffer:(id<MTLBuffer>)buffer.GetPtr() offset:offset + buffer.GetOffset() atIndex:index];
+#endif
 #endif
 	}
 	
@@ -98,10 +135,18 @@ namespace mtlpp
 		Validate();
 #if MTLPP_IS_AVAILABLE(10_13, 11_0)
 		id<MTLBuffer>* array = (id<MTLBuffer>*)alloca(range.Length * sizeof(id<MTLBuffer>));
+		NSUInteger* theOffsets = (NSUInteger*)alloca(range.Length * sizeof(NSUInteger));
 		for (NSUInteger i = 0; i < range.Length; i++)
+		{
 			array[i] = (id<MTLBuffer>)buffers[i].GetPtr();
+			theOffsets[i] = offsets[i] + buffers[i].GetOffset();
+		}
 		
-		m_table->Setbuffersoffsetswithrange(m_ptr, array, (NSUInteger*)offsets, NSMakeRange(range.Location, range.Length));
+#if MTLPP_CONFIG_IMP_CACHE
+		m_table->Setbuffersoffsetswithrange(m_ptr, array, (NSUInteger*)theOffsets, NSMakeRange(range.Location, range.Length));
+#else
+		[(id<MTLArgumentEncoder>) m_ptr setBuffers:array offsets:(const NSUInteger*)theOffsets withRange:NSMakeRange(range.Location, range.Length)];
+#endif
 #endif
 	}
 	
@@ -109,7 +154,11 @@ namespace mtlpp
 	{
 		Validate();
 #if MTLPP_IS_AVAILABLE(10_13, 11_0)
+#if MTLPP_CONFIG_IMP_CACHE
 		m_table->Settextureatindex(m_ptr, (id<MTLTexture>)texture.GetPtr(), index);
+#else
+		[(id<MTLArgumentEncoder>) m_ptr setTexture:(id<MTLTexture>)texture.GetPtr() atIndex:index];
+#endif
 #endif
 	}
 	
@@ -121,7 +170,11 @@ namespace mtlpp
 		for (NSUInteger i = 0; i < range.Length; i++)
 			array[i] = (id<MTLTexture>)textures[i].GetPtr();
 
+#if MTLPP_CONFIG_IMP_CACHE
 		m_table->Settextureswithrange(m_ptr, array, NSMakeRange(range.Location, range.Length));
+#else
+		[(id<MTLArgumentEncoder>) m_ptr setTextures:array withRange:NSMakeRange(range.Location, range.Length)];
+#endif
 #endif
 	}
 	
@@ -129,7 +182,11 @@ namespace mtlpp
 	{
 		Validate();
 #if MTLPP_IS_AVAILABLE(10_13, 11_0)
+#if MTLPP_CONFIG_IMP_CACHE
 		m_table->Setsamplerstateatindex(m_ptr, (id<MTLSamplerState>)sampler.GetPtr(), index);
+#else
+		[(id<MTLArgumentEncoder>) m_ptr setSamplerState:(id<MTLSamplerState>)sampler.GetPtr() atIndex:index];
+#endif
 #endif
 	}
 	
@@ -141,7 +198,11 @@ namespace mtlpp
 		for (NSUInteger i = 0; i < range.Length; i++)
 			array[i] = (id<MTLSamplerState>)samplers[i].GetPtr();
 
+#if MTLPP_CONFIG_IMP_CACHE
 		m_table->Setsamplerstateswithrange(m_ptr, array, NSMakeRange(range.Location, range.Length));
+#else
+		[(id<MTLArgumentEncoder>) m_ptr setSamplerStates:array withRange:NSMakeRange(range.Location, range.Length)];
+#endif
 #endif
 	}
 	
@@ -149,7 +210,11 @@ namespace mtlpp
 	{
 		Validate();
 #if MTLPP_IS_AVAILABLE_MAC(10_13)
-		return m_table->NewArgumentEncoderForBufferAtIndex(m_ptr, index);
+#if MTLPP_CONFIG_IMP_CACHE
+		return ArgumentEncoder(m_table->NewArgumentEncoderForBufferAtIndex(m_ptr, index), m_table->TableCache);
+#else
+		return [(id<MTLArgumentEncoder>) m_ptr newArgumentEncoderForBufferAtIndex:index];
+#endif
 #else
 		return ArgumentEncoder();
 #endif

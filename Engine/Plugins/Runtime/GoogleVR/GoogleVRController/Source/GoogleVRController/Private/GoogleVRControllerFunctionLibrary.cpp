@@ -1,6 +1,6 @@
 // Copyright 2017 Google Inc.
 
-#include "Classes/GoogleVRControllerFunctionLibrary.h"
+#include "GoogleVRControllerFunctionLibrary.h"
 #include "GoogleVRController.h"
 #include "GoogleVRControllerPrivate.h"
 #include "InputCoreTypes.h"

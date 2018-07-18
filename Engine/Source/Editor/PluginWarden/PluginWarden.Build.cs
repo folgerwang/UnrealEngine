@@ -14,6 +14,7 @@ public class PluginWarden : ModuleRules
 
 		PrivateDependencyModuleNames.AddRange(
 			new string[] {
+				"Analytics",
 				"Core",
 				"CoreUObject",
 				"Engine",

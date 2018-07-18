@@ -2,14 +2,13 @@
 	LightGridCommon.usf
 =============================================================================*/
 
-STRONG_TYPE Buffer<uint> NumCulledLightsGrid;
-STRONG_TYPE Buffer<uint> CulledLightDataGrid;
-STRONG_TYPE Buffer<float4> ForwardLocalLightBuffer;
-
-// ISR copies
-STRONG_TYPE Buffer<uint> InstancedNumCulledLightsGrid;
-STRONG_TYPE Buffer<uint> InstancedCulledLightDataGrid;
-STRONG_TYPE Buffer<float4> InstancedForwardLocalLightBuffer;
+#if INSTANCED_STEREO
+	#if MATERIALBLENDING_ANY_TRANSLUCENT
+		#define ForwardLightDataISR TranslucentBasePass.Shared.ForwardISR
+	#else
+		#define ForwardLightDataISR OpaqueBasePass.Shared.ForwardISR
+	#endif
+#endif
 
 struct LightGridData
 {
@@ -22,19 +21,25 @@ LightGridData GetLightGridData(uint EyeIndex)
 {
 	LightGridData Result;
 
+#if INSTANCED_STEREO
 	BRANCH
 	if (EyeIndex == 0)
 	{
-		Result.LightGridPixelSizeShift = ForwardGlobalLightData.LightGridPixelSizeShift;
-		Result.LightGridZParams = ForwardGlobalLightData.LightGridZParams;
-		Result.CulledGridSize = ForwardGlobalLightData.CulledGridSize;
+#endif
+
+		Result.LightGridPixelSizeShift = ForwardLightData.LightGridPixelSizeShift;
+		Result.LightGridZParams = ForwardLightData.LightGridZParams;
+		Result.CulledGridSize = ForwardLightData.CulledGridSize;
+
+#if INSTANCED_STEREO
 	}
 	else
 	{
-		Result.LightGridPixelSizeShift = InstancedForwardGlobalLightData.LightGridPixelSizeShift;
-		Result.LightGridZParams = InstancedForwardGlobalLightData.LightGridZParams;
-		Result.CulledGridSize = InstancedForwardGlobalLightData.CulledGridSize;
+		Result.LightGridPixelSizeShift = ForwardLightDataISR.LightGridPixelSizeShift;
+		Result.LightGridZParams = ForwardLightDataISR.LightGridZParams;
+		Result.CulledGridSize = ForwardLightDataISR.CulledGridSize;
 	}
+#endif
 
 	return Result;
 }
@@ -62,6 +67,15 @@ uint ComputeLightGridCellIndex(uint2 PixelPos, float SceneDepth)
 #define LOCAL_LIGHT_DATA_STRIDE 0
 #endif
 
+uint GetNumLocalLights(uint EyeIndex)
+{
+#if INSTANCED_STEREO
+	return (EyeIndex == 0) ? ForwardLightData.NumLocalLights : ForwardLightDataISR.NumLocalLights;
+#else
+	return ForwardLightData.NumLocalLights;
+#endif
+}
+
 struct FCulledLightsGridData
 {
 	uint NumLocalLights;
@@ -72,17 +86,63 @@ FCulledLightsGridData GetCulledLightsGrid(uint GridIndex, uint EyeIndex)
 {
 	FCulledLightsGridData Result;
 
+#if INSTANCED_STEREO
 	BRANCH
 	if (EyeIndex == 0)
 	{
-		Result.NumLocalLights = min(NumCulledLightsGrid[GridIndex * NUM_CULLED_LIGHTS_GRID_STRIDE + 0], ForwardGlobalLightData.NumLocalLights);
-		Result.DataStartIndex = NumCulledLightsGrid[GridIndex * NUM_CULLED_LIGHTS_GRID_STRIDE + 1];
+#endif
+
+		Result.NumLocalLights = min(ForwardLightData.NumCulledLightsGrid[GridIndex * NUM_CULLED_LIGHTS_GRID_STRIDE + 0], ForwardLightData.NumLocalLights);
+		Result.DataStartIndex = ForwardLightData.NumCulledLightsGrid[GridIndex * NUM_CULLED_LIGHTS_GRID_STRIDE + 1];
+
+#if INSTANCED_STEREO
 	}
 	else
 	{
-		Result.NumLocalLights = min(InstancedNumCulledLightsGrid[GridIndex * NUM_CULLED_LIGHTS_GRID_STRIDE + 0], InstancedForwardGlobalLightData.NumLocalLights);
-		Result.DataStartIndex = InstancedNumCulledLightsGrid[GridIndex * NUM_CULLED_LIGHTS_GRID_STRIDE + 1];
+		Result.NumLocalLights = min(ForwardLightDataISR.NumCulledLightsGrid[GridIndex * NUM_CULLED_LIGHTS_GRID_STRIDE + 0], ForwardLightDataISR.NumLocalLights);
+		Result.DataStartIndex = ForwardLightDataISR.NumCulledLightsGrid[GridIndex * NUM_CULLED_LIGHTS_GRID_STRIDE + 1];
 	}
+#endif
+
+	return Result;
+}
+
+struct FDirectionalLightData
+{
+	uint HasDirectionalLight;
+	uint DirectionalLightShadowMapChannelMask;
+	float2 DirectionalLightDistanceFadeMAD;
+	float3 DirectionalLightColor;
+	float3 DirectionalLightDirection;
+};
+
+FDirectionalLightData GetDirectionalLightData(uint EyeIndex)
+{
+	FDirectionalLightData Result;
+
+#if INSTANCED_STEREO
+	BRANCH
+	if (EyeIndex == 0)
+	{
+#endif
+	
+		Result.HasDirectionalLight = ForwardLightData.HasDirectionalLight;
+		Result.DirectionalLightShadowMapChannelMask = ForwardLightData.DirectionalLightShadowMapChannelMask;
+		Result.DirectionalLightDistanceFadeMAD = ForwardLightData.DirectionalLightDistanceFadeMAD;
+		Result.DirectionalLightColor = ForwardLightData.DirectionalLightColor;
+		Result.DirectionalLightDirection = ForwardLightData.DirectionalLightDirection;
+
+#if INSTANCED_STEREO
+	}
+	else
+	{
+		Result.HasDirectionalLight = ForwardLightDataISR.HasDirectionalLight;
+		Result.DirectionalLightShadowMapChannelMask = ForwardLightDataISR.DirectionalLightShadowMapChannelMask;
+		Result.DirectionalLightDistanceFadeMAD = ForwardLightDataISR.DirectionalLightDistanceFadeMAD;
+		Result.DirectionalLightColor = ForwardLightDataISR.DirectionalLightColor;
+		Result.DirectionalLightDirection = ForwardLightDataISR.DirectionalLightDirection;
+	}
+#endif
 
 	return Result;
 }
@@ -100,26 +160,33 @@ FLocalLightData GetLocalLightData(uint GridIndex, uint EyeIndex)
 {
 	FLocalLightData Result;
 
+#if INSTANCED_STEREO
+	BRANCH
 	if (EyeIndex == 0)
 	{
-		uint LocalLightIndex = CulledLightDataGrid[GridIndex];
+#endif
+
+		uint LocalLightIndex = ForwardLightData.CulledLightDataGrid[GridIndex];
 		uint LocalLightBaseIndex = LocalLightIndex * LOCAL_LIGHT_DATA_STRIDE;
-		Result.LightPositionAndInvRadius = ForwardLocalLightBuffer[LocalLightBaseIndex + 0];
-		Result.LightColorAndFalloffExponent = ForwardLocalLightBuffer[LocalLightBaseIndex + 1];
-		Result.LightDirectionAndShadowMask = ForwardLocalLightBuffer[LocalLightBaseIndex + 2];
-        Result.SpotAnglesAndSourceRadiusPacked = ForwardLocalLightBuffer[LocalLightBaseIndex + 3];
-        Result.LightTangentAndSoftSourceRadius = ForwardLocalLightBuffer[LocalLightBaseIndex + 4];
-    }
+		Result.LightPositionAndInvRadius = ForwardLightData.ForwardLocalLightBuffer[LocalLightBaseIndex + 0];
+		Result.LightColorAndFalloffExponent = ForwardLightData.ForwardLocalLightBuffer[LocalLightBaseIndex + 1];
+		Result.LightDirectionAndShadowMask = ForwardLightData.ForwardLocalLightBuffer[LocalLightBaseIndex + 2];
+		Result.SpotAnglesAndSourceRadiusPacked = ForwardLightData.ForwardLocalLightBuffer[LocalLightBaseIndex + 3];
+		Result.LightTangentAndSoftSourceRadius = ForwardLightData.ForwardLocalLightBuffer[LocalLightBaseIndex + 4];
+
+#if INSTANCED_STEREO
+	}
 	else
 	{
-		uint LocalLightIndex = InstancedCulledLightDataGrid[GridIndex];
+		uint LocalLightIndex = ForwardLightDataISR.CulledLightDataGrid[GridIndex];
 		uint LocalLightBaseIndex = LocalLightIndex * LOCAL_LIGHT_DATA_STRIDE;
-		Result.LightPositionAndInvRadius = InstancedForwardLocalLightBuffer[LocalLightBaseIndex + 0];
-		Result.LightColorAndFalloffExponent = InstancedForwardLocalLightBuffer[LocalLightBaseIndex + 1];
-		Result.LightDirectionAndShadowMask = InstancedForwardLocalLightBuffer[LocalLightBaseIndex + 2];
-        Result.SpotAnglesAndSourceRadiusPacked = InstancedForwardLocalLightBuffer[LocalLightBaseIndex + 3];
-        Result.LightTangentAndSoftSourceRadius = InstancedForwardLocalLightBuffer[LocalLightBaseIndex + 4];
-    }
+		Result.LightPositionAndInvRadius = ForwardLightDataISR.ForwardLocalLightBuffer[LocalLightBaseIndex + 0];
+		Result.LightColorAndFalloffExponent = ForwardLightDataISR.ForwardLocalLightBuffer[LocalLightBaseIndex + 1];
+		Result.LightDirectionAndShadowMask = ForwardLightDataISR.ForwardLocalLightBuffer[LocalLightBaseIndex + 2];
+		Result.SpotAnglesAndSourceRadiusPacked = ForwardLightDataISR.ForwardLocalLightBuffer[LocalLightBaseIndex + 3];
+		Result.LightTangentAndSoftSourceRadius = ForwardLightDataISR.ForwardLocalLightBuffer[LocalLightBaseIndex + 4];
+	}
+#endif
 
 	return Result;
 }

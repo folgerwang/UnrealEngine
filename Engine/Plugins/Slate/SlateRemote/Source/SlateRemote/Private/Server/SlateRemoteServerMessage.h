@@ -2,6 +2,8 @@
 
 #pragma once
 
+#if WITH_SLATE_REMOTE_SERVER
+
 #include "CoreMinimal.h"
 
 // magic number that must match UDKRemote
@@ -67,3 +69,5 @@ struct FSlateRemoteServerMessage
 	/** X/Y or Pitch/Yaw data or CoreMotion data */
 	float Data[12];
 };
+
+#endif // WITH_SLATE_REMOTE_SERVER

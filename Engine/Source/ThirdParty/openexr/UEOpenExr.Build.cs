@@ -7,31 +7,30 @@ public class UEOpenExr : ModuleRules
     public UEOpenExr(ReadOnlyTargetRules Target) : base(Target)
     {
         Type = ModuleType.External;
-        if (Target.Platform == UnrealTargetPlatform.Win64 || Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Mac || Target.Platform == UnrealTargetPlatform.Linux)
+		if (Target.Platform == UnrealTargetPlatform.Win64 || Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Mac || Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
         {
             bool bDebug = (Target.Configuration == UnrealTargetConfiguration.Debug && Target.bDebugBuildsActuallyUseDebugCRT);
             string LibDir = Target.UEThirdPartySourceDirectory + "openexr/Deploy/lib/";
-            string Platform;
-            switch (Target.Platform)
+			string Platform = "";
+			if (Target.Platform == UnrealTargetPlatform.Win64)
             {
-                case UnrealTargetPlatform.Win64:
                     Platform = "x64";
                     LibDir += "VS" + Target.WindowsPlatform.GetVisualStudioCompilerVersionName() + "/";
-                    break;
-                case UnrealTargetPlatform.Win32:
+			}
+			else if (Target.Platform == UnrealTargetPlatform.Win32)
+			{
                     Platform = "Win32";
                     LibDir += "VS" + Target.WindowsPlatform.GetVisualStudioCompilerVersionName() + "/";
-                    break;
-                case UnrealTargetPlatform.Mac:
+			}
+			else if (Target.Platform == UnrealTargetPlatform.Mac)
+			{
                     Platform = "Mac";
                     bDebug = false;
-                    break;
-                case UnrealTargetPlatform.Linux:
+			}
+			else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
+			{
                     Platform = "Linux";
                     bDebug = false;
-                    break;
-                default:
-                    return;
             }
             LibDir = LibDir + "/" + Platform;
             LibDir = LibDir + "/Static" + (bDebug ? "Debug" : "Release");
@@ -61,7 +60,7 @@ public class UEOpenExr : ModuleRules
 					}
 				);
 			}
-			else if (Target.Platform == UnrealTargetPlatform.Linux)
+			else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix) && Target.Architecture.StartsWith("x86_64"))
 			{
 				string LibArchDir = LibDir + "/" + Target.Architecture;
 				PublicAdditionalLibraries.AddRange(

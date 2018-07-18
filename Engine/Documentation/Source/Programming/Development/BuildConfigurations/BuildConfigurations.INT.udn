@@ -26,9 +26,9 @@ When compiling a UE4 solution, you are compiling our engine's source code togeth
 |             | Debug    | DebugGame | Development | Shipping | Test     |
 | ----------- | -----    | --------- | ----------- | -------- | ----     |
 | **[empty]** | &#x2713; | &#x2713;  | &#x2713;    | &#x2713; | &#x2713; |
-| **Editor ** | &#x2713; | &#x2713;  | &#x2713;    |          |          |
-| **Client ** | &#x2713; | &#x2713;  | &#x2713;    | &#x2713; | &#x2713; |
-| **Server ** | &#x2713; | &#x2713;  | &#x2713;    | &#x2713; | &#x2713; |
+| **Editor** | &#x2713; | &#x2713;  | &#x2713;    |          |          |
+| **Client** | &#x2713; | &#x2713;  | &#x2713;    | &#x2713; | &#x2713; |
+| **Server** | &#x2713; | &#x2713;  | &#x2713;    | &#x2713; | &#x2713; |
 													   
 ### Build Configuration for UE4 Project
 
@@ -50,9 +50,9 @@ When compiling a UE4 project, you are only compiling your project's source code.
 	    |             | Debug | DebugGame | Development | Shipping | Test |
         | ----------- | ----- | --------- | ----------- | -------- | ---- |
         | **[empty]** |       | &#x2713;  | &#x2713;    | &#x2713; |      |
-        | **Editor ** |       | &#x2713;  | &#x2713;    |          |      |
-        | **Client ** |       |           |             |          |      |
-        | **Server ** |       |           |             |          |      |
+        | **Editor** |       | &#x2713;  | &#x2713;    |          |      |
+        | **Client** |       |           |             |          |      |
+        | **Server** |       |           |             |          |      |
 	[/PARAM]
 [/OBJECT]
 [OBJECT:ToggleButtonContent]
@@ -68,9 +68,9 @@ When compiling a UE4 project, you are only compiling your project's source code.
 	    |             | Debug | DebugGame | Development | Shipping | Test |
         | ----------- | ----- | --------- | ----------- | -------- | ---- |
         | **[empty]** |       | &#x2713;  | &#x2713;    | &#x2713; |      |
-        | **Editor ** |       | &#x2713;  | &#x2713;    |          |      |
-        | **Client ** |       |           |             |          |      |
-        | **Server ** |       |           |             |          |      |
+        | **Editor** |       | &#x2713;  | &#x2713;    |          |      |
+        | **Client** |       |           |             |          |      |
+        | **Server** |       |           |             |          |      |
 	[/PARAM]
 [/OBJECT]
 [OBJECT:ToggleButtonContent]

@@ -207,16 +207,19 @@ UObject* UCSVImportFactory::FactoryCreateText(UClass* InClass, UObject* InParent
 			UClass* DataTableClass = UDataTable::StaticClass();
 
 			// If there is an existing table, need to call this to free data memory before recreating object
+			bool bStripFromClientBuilds = false;
 			if(ExistingTable != NULL)
 			{
 				DataTableClass = ExistingTable->GetClass();
 				ExistingTable->EmptyTable();
+				bStripFromClientBuilds = ExistingTable->bStripFromClientBuilds;
 			}
 
 			// Create/reset table
 			UDataTable* NewTable = NewObject<UDataTable>(InParent, DataTableClass, InName, Flags);
 			NewTable->RowStruct = ImportRowStruct;
 			NewTable->AssetImportData->Update(CurrentFilename);
+			NewTable->bStripFromClientBuilds = bStripFromClientBuilds;
 			// Go ahead and create table from string
 			Problems = DoImportDataTable(NewTable, String);
 

@@ -10,7 +10,7 @@ FDelegateHandle FOnlineNotificationHandler::AddSystemNotificationBinding_Handle(
 {
 	if (!NewBinding.NotificationDelegate.IsBound())
 	{
-		UE_LOG(LogOnline, Error, TEXT("Adding empty notification binding for type %s"), *NotificationType);
+		UE_LOG_ONLINE(Error, TEXT("Adding empty notification binding for type %s"), *NotificationType);
 		return FDelegateHandle();
 	}
 
@@ -48,7 +48,7 @@ FDelegateHandle FOnlineNotificationHandler::AddPlayerNotificationBinding_Handle(
 {
 	if (!NewBinding.NotificationDelegate.IsBound())
 	{
-		UE_LOG(LogOnline, Error, TEXT("Adding empty notification binding for type %s"), *NotificationType);
+		UE_LOG_ONLINE(Error, TEXT("Adding empty notification binding for type %s"), *NotificationType);
 		return FDelegateHandle();
 	}
 

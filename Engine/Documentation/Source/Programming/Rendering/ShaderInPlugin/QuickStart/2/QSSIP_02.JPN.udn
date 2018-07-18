@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:3544589
-Availability:Docs
+﻿INTSourceChangelist:3810557
+Availability:Public 
 Crumbs: %ROOT%
-Title:プラグインに新規グローバル シェーダーを作成する
-Description:Desc 2
+Title:プラグインに新規グローバル シェーダーを作成する - ブループリントの設定
+Description:プラグイン コードでシェーダーをテストするためにブループリントを設定する
 Type:quick start
 Type:multi-step
 SkillLevel:Intermediate
@@ -10,34 +10,25 @@ Version:4.17
 Parent:Programming/Rendering/ShaderInPlugin/QuickStart
 Order:2
 Tags:Rendering
+Tags:Programming
 Checkpoint:shaderqs
 
 [NAV]
 
+プラグインの動作が検証されたので、このステップではブループリントを使ってグローバル シェーダーを呼び出す方法を説明します。
+
 1. 機能の仕方を確認するために **コンテンツ ブラウザ** を右クリックして、親クラスとして名前のついた **アクタ** のある新規 **Blueprint クラス** を作成します。 
 
-    [REGION:lightbox]
-    [![](HT_ShadersInPlugins_11.png)(w:587)](HT_ShadersInPlugins_11.png)
-    [/REGION]
-
-    [REGION:caption]
-    クリックしてフルサイズで表示
-    [/REGION]
+    ![](HT_ShadersInPlugins_11.png)(w:600)
 
 1. 次に、**「RT_00」** という名前の **レンダー ターゲット** および **MAT_RT** という名前のマテリアルを新規作成します。
 
-    [REGION:lightbox]
-    [![](HT_ShadersInPlugins_12.png)(w:587)](HT_ShadersInPlugins_12.png)
-    [/REGION]
-
-    [REGION:caption]
-    クリックしてフルサイズで表示
-    [/REGION]
+    ![](HT_ShadersInPlugins_12.png)(w:600)
 
 1. MAT_RT マテリアルを開いて、RT_00 レンダー ターゲットをマテリアル グラフに追加し、 Main Material ノードの Base Color 入力に接続し、**[Apply]** と **[Save]** ボタンを押します。
 
     [REGION:lightbox]
-    [![](HT_ShadersInPlugins_13.png)(w:564)](HT_ShadersInPlugins_13.png)
+    [![](HT_ShadersInPlugins_13.png)(w:600)](HT_ShadersInPlugins_13.png)
     [/REGION]
 
     [REGION:caption]
@@ -61,13 +52,7 @@ Checkpoint:shaderqs
     |Make FooCameraModel | N/A |
     |Clear Render Target 2D | N/A |
 
-    [REGION:lightbox]
-    [![](HT_ShadersInPlugins_14.png)(w:504)](HT_ShadersInPlugins_14.png)
-    [/REGION]
-
-    [REGION:caption]
-    クリックしてフルサイズで表示
-    [/REGION]
+    ![](HT_ShadersInPlugins_14.png)(w:600)
 
 1. Draw UVDisplacement to Render Target が提供されたレンダー ターゲットをラップするか簡単に実演するには、Draw UVDisplacement to Render Target ノードの **K1** 入力と **K2** 入力に入力した値をボタンの押下で増加 / 減少できるようにブループリントを設定する必要があります。以下の画像に合わせてイベントグラフのノードを設定すれば完成です。 
     
@@ -80,20 +65,20 @@ Checkpoint:shaderqs
     レンダー ターゲットを必ず **Output Render Target** に入力してください。何も表示されなくなります。
     [/region]
 
-1. 必要なブループリント ロジックの設定をしたら、必ずブループリントをコンパイルおよび保存して、コンテンツ ブラウザからレベルにブループリントをドラッグします。完了したら、ブループリントを選択し、**[Input]** の **[Auto Receive Input]** を **[Disabled]** から **[Player 0]** へ変更します。
+1. 必要なブループリント ロジックを設定したら、必ずブループリントを **コンパイル** および **保存** して、**コンテンツ ブラウザ** から **レベル** にブループリントをドラッグします。完了したら、ブループリントを選択し、**[Input]** の **[Auto Receive Input]** を **[Disabled]** から **[Player 0]** へ変更します。
 
     [REGION:lightbox]
-    [![](HT_ShadersInPlugins_16.png)(w:645)](HT_ShadersInPlugins_16.png)
+    [![](HT_ShadersInPlugins_16.png)(w:600)](HT_ShadersInPlugins_16.png)
     [/REGION]
 
     [REGION:caption]
     クリックしてフルサイズで表示
     [/REGION]
 
-1. 次にフロアを選択して **CTRL + W** を押して複製し **X** 軸で **-90 度** 回転させます。マテリアル **MAT_RT** をそこにドラッグすれば Draw UVDisplacement to Render Target の効果を確認することができます。
+1. 次にフロアを選択し **CTRL + W** を押して複製し **X** 軸で **-90 度** 回転させます。マテリアル **MAT_RT** をそこにドラッグすれば Draw UVDisplacement to Render Target の効果を確認することができます。
 
     [REGION:lightbox]
-    [![](HT_ShadersInPlugins_17.png)(w:645)](HT_ShadersInPlugins_17.png)
+    [![](HT_ShadersInPlugins_17.png)(w:600)](HT_ShadersInPlugins_17.png)
     [/REGION]
 
     [REGION:caption]
@@ -120,9 +105,13 @@ Checkpoint:shaderqs
 		[/PARAMLITERAL]
 	[/OBJECT]
 
+## 最終結果
+
+レンダー ターゲット内のコンテンツをブループリントから変形して、面白い形状に自由に作成できるようになりました。次は、新しいプラグインを作成、または既存のプラグインを編集してどんな種類の画像とエフェクトを作成することができるのか見てみましょう。
+
 [NAV]
 
-	[COMMENT:none]
+[COMMENT:none]
 
 [EXCERPT:DrawDIS]	
 [OBJECT:Snippet]
@@ -134,7 +123,7 @@ Checkpoint:shaderqs
 	[/PARAMLITERAL]
 	[PARAM:image]
 		[REGION:lightbox]
-		[![](HT_ShadersInPlugins_15.png)(w:704)](HT_ShadersInPlugins_15.png)
+		[![](HT_ShadersInPlugins_15.png)(w:750)](HT_ShadersInPlugins_15.png)
 		[/REGION]
 	[/PARAM]
 	[PARAM:snippet]

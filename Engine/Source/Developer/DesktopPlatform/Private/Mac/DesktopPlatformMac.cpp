@@ -1,10 +1,10 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Mac/DesktopPlatformMac.h"
-#include "MacApplication.h"
-#include "FeedbackContextMarkup.h"
+#include "Mac/MacApplication.h"
+#include "Misc/FeedbackContextMarkup.h"
 #include "MacNativeFeedbackContext.h"
-#include "CocoaThread.h"
+#include "Mac/CocoaThread.h"
 #include "Misc/Paths.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Misc/Guid.h"

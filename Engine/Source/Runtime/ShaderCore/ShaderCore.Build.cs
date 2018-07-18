@@ -10,7 +10,7 @@ public class ShaderCore : ModuleRules
 
         PublicDependencyModuleNames.AddRange(new string[] { "RHI", "RenderCore" });
 
-		PrivateDependencyModuleNames.AddRange(new string[] { "Core" });
+		PrivateDependencyModuleNames.AddRange(new string[] { "Core", "Projects" });
 
 		PrivateIncludePathModuleNames.AddRange(new string[] { "DerivedDataCache", "TargetPlatform" });
 	}

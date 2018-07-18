@@ -40,33 +40,9 @@ extern SHADERCOMPILERCOMMON_API void BuildResourceTableTokenStream(
 // Finds the number of used uniform buffers in a resource map
 extern SHADERCOMPILERCOMMON_API int16 GetNumUniformBuffersUsed(const FShaderCompilerResourceTable& InSRT);
 
-
-// This function goes through the shader source and converts
-//		static struct
-//		{
-//		TYPE Member;
-//		[...]
-//		} UniformBuffer = { [...] };
-//		
-//		TYPE Function([...])
-//		{
-//			[...]UniformBuffer.Member[...]
-//		}
-//
-//into
-//
-//		/*atic struct
-//		{
-//		TYPE Member;
-//		[...]
-//		} UniformBuffer = { [...] */
-//		
-//		TYPE Function([...])
-//		{
-//		[...]UniformBuffer_Member[...]
-//		}
-//
-extern SHADERCOMPILERCOMMON_API bool RemoveUniformBuffersFromSource(FString& SourceCode, const bool bWasParsed = false);
+// The cross compiler doesn't yet support struct initializers needed to construct static structs for uniform buffers
+// Replace all uniform buffer struct member references (View.WorldToClip) with a flattened name that removes the struct dependency (View_WorldToClip)
+extern SHADERCOMPILERCOMMON_API void RemoveUniformBuffersFromSource(const FShaderCompilerEnvironment& Environment, FString& PreprocessedShaderSource);
 extern SHADERCOMPILERCOMMON_API bool RemoveUnusedOutputs(FString& InOutSourceCode, const TArray<FString>& InUsedOutputs, const TArray<FString>& InExceptions, FString& InOutEntryPoint, TArray<FString>& OutErrors);
 
 extern SHADERCOMPILERCOMMON_API bool RemoveUnusedInputs(FString& InOutSourceCode, const TArray<FString>& InUsedInputs, FString& InOutEntryPoint, TArray<FString>& OutErrors);
@@ -81,19 +57,12 @@ extern SHADERCOMPILERCOMMON_API void StripInstancedStereo(FString& ShaderSource)
 
 extern SHADERCOMPILERCOMMON_API FString CreateShaderCompilerWorkerDirectCommandLine(const FShaderCompilerInput& Input);
 
+// calls 'Mali Offline Compiler' to compile the glsl source code and extract the generated instruction count
+extern SHADERCOMPILERCOMMON_API void CompileOfflineMali(const FShaderCompilerInput &Input, FShaderCompilerOutput& ShaderOutput, const ANSICHAR* ShaderSource, const int32 SourceSize, bool bVulkanSpirV);
 
 // Cross compiler support/common functionality
 namespace CrossCompiler
 {
-	extern SHADERCOMPILERCOMMON_API FString CreateBatchFileContents(
-		const FString& ShaderFile,
-		const FString& OutputFile,
-		uint32 Frequency,
-		const FString& EntryPoint,
-		const FString& VersionSwitch,
-		uint32 CCFlags,
-		const FString& ExtraArguments = TEXT(""));
-
 	extern SHADERCOMPILERCOMMON_API FString CreateResourceTableFromEnvironment(const FShaderCompilerEnvironment& Environment);
 	extern SHADERCOMPILERCOMMON_API void CreateEnvironmentFromResourceTable(const FString& String, FShaderCompilerEnvironment& OutEnvironment);
 

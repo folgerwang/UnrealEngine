@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "AnimNode_SkeletalControlBase.h"
+#include "BoneControllers/AnimNode_SkeletalControlBase.h"
 #include "Components/SplineComponent.h"
 #include "AlphaBlend.h"
 #include "AnimNode_SplineIK.generated.h"

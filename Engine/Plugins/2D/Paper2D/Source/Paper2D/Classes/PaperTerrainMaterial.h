@@ -60,6 +60,7 @@ struct FPaperTerrainMaterialRule
 		, MaximumAngle(360.0f)
 		, bEnableCollision(true)
 		, CollisionOffset(0.0f)
+		, DrawOrder(0)
 	{
 	}
 };

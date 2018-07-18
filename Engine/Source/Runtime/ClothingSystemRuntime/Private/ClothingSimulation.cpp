@@ -6,8 +6,13 @@
 #include "Components/SkeletalMeshComponent.h"
 #include "ClothingSimulationInterface.h"
 #include "ClothingSystemRuntimeModule.h"
-#include "ClothingAsset.h"
+#include "Assets/ClothingAsset.h"
 
+static TAutoConsoleVariable<float> GClothMaxDeltaTimeTeleportMultiplier(
+	TEXT("p.Cloth.MaxDeltaTimeTeleportMultiplier"),
+	1.5f,
+	TEXT("A multiplier of the MaxPhysicsDelta time at which we will automatically just teleport cloth to its new location\n")
+	TEXT(" default: 1.5"));
 
 DECLARE_CYCLE_STAT(TEXT("Skin Physics Mesh"), STAT_ClothSkinPhysMesh, STATGROUP_Physics);
 
@@ -159,7 +164,7 @@ void FClothingSimulationBase::FillContext(USkeletalMeshComponent* InComponent, f
 			    {
 				    const int32 MasterIndex = InComponent->MasterBoneMap[BoneIndex];
     
-				    if(MasterIndex != INDEX_NONE)
+				    if(MasterIndex != INDEX_NONE && MasterIndex < MasterComponent->GetComponentSpaceTransforms().Num())
 				    {
 					    BaseContext->BoneTransforms[BoneIndex] = MasterComponent->GetComponentSpaceTransforms()[MasterIndex];
 					    bFoundMaster = true;
@@ -195,7 +200,14 @@ void FClothingSimulationBase::FillContext(USkeletalMeshComponent* InComponent, f
 
 	BaseContext->DeltaSeconds = FMath::Min(InDeltaTime, MaxPhysicsDelta);
 
-	BaseContext->TeleportMode = InComponent->ClothTeleportMode;
+	if(InDeltaTime > (MaxPhysicsDelta * GClothMaxDeltaTimeTeleportMultiplier.GetValueOnGameThread()))
+	{
+		BaseContext->TeleportMode = EClothingTeleportMode::Teleport;
+	}
+	else
+	{
+		BaseContext->TeleportMode = InComponent->ClothTeleportMode;
+	}	
 
 	BaseContext->MaxDistanceScale = InComponent->GetClothMaxDistanceScale();
 
@@ -207,4 +219,24 @@ void FClothingSimulationBase::FillContext(USkeletalMeshComponent* InComponent, f
 	}
 
 	BaseContext->WorldGravity = FVector(0.0f, 0.0f, GravityStrength);
+
+	// Checking the component here to track rare issue leading to invalid contexts
+	if(InComponent->IsPendingKill())
+	{
+		AActor* CompOwner = InComponent->GetOwner();
+		ensureMsgf(false, TEXT("Attempting to fill a clothing simulation context for a PendingKill skeletal mesh component (Comp: %s, Actor: %s). Pending kill skeletal mesh components should be unregistered before marked pending kill."), *InComponent->GetName(), CompOwner ? *CompOwner->GetName() : TEXT("None"));
+
+		// Make sure we clear this out to skip any attempted simulations
+		BaseContext->BoneTransforms.Reset();
+	}
+
+	if(BaseContext->BoneTransforms.Num() == 0)
+	{
+		AActor* CompOwner = InComponent->GetOwner();
+		USkinnedMeshComponent* Master = InComponent->MasterPoseComponent.Get();
+		ensureMsgf(false, TEXT("Attempting to fill a clothing simulation context for a skeletal mesh component that has zero bones (Comp: %s, Master: %s, Actor: %s)."), *InComponent->GetName(), Master ? *Master->GetName() : TEXT("None"), CompOwner ? *CompOwner->GetName() : TEXT("None"));
+
+		// Make sure we clear this out to skip any attempted simulations
+		BaseContext->BoneTransforms.Reset();
+	}
 }

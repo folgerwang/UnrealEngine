@@ -96,8 +96,11 @@ struct FBlendSample
 	float RateScale;
 
 #if WITH_EDITORONLY_DATA
+	UPROPERTY(EditAnywhere, Category=BlendSample)
+	uint8 bSnapToGrid : 1;
+
 	UPROPERTY(transient)
-	bool bIsValid;
+	uint8 bIsValid : 1;
 #endif // WITH_EDITORONLY_DATA
 
 	FBlendSample()
@@ -105,16 +108,18 @@ struct FBlendSample
 		, SampleValue(0.f)
 		, RateScale(1.0f)
 #if WITH_EDITORONLY_DATA
-		, bIsValid(false)		
+		, bSnapToGrid(true)
+		, bIsValid(false)
 #endif // WITH_EDITORONLY_DATA
 	{		
 	}
 	
-	FBlendSample(class UAnimSequence* InAnim, FVector InValue, bool bInIsValid) 
+	FBlendSample(class UAnimSequence* InAnim, FVector InValue, bool bInIsSnapped, bool bInIsValid) 
 		: Animation(InAnim)
 		, SampleValue(InValue)
 		, RateScale(1.0f)
 #if WITH_EDITORONLY_DATA
+		, bSnapToGrid(bInIsSnapped)
 		, bIsValid(bInIsValid)
 #endif // WITH_EDITORONLY_DATA
 	{		
@@ -292,7 +297,7 @@ class UBlendSpaceBase : public UAnimationAsset, public IInterpolationIndexProvid
 	ENGINE_API bool	AddSample(UAnimSequence* AnimationSequence, const FVector& SampleValue);
 
 	/** edit samples */
-	ENGINE_API bool	EditSampleValue(const int32 BlendSampleIndex, const FVector& NewValue);
+	ENGINE_API bool	EditSampleValue(const int32 BlendSampleIndex, const FVector& NewValue, bool bSnap = true);
 
 	/** update animation on grid sample */
 	ENGINE_API bool	UpdateSampleAnimation(UAnimSequence* AnimationSequence, const FVector& SampleValue);

@@ -40,6 +40,7 @@
 #include "BasePassRendering.h"
 #include "MobileBasePassRendering.h"
 #include "VolumeRendering.h"
+#include "SceneSoftwareOcclusion.h"
 
 /** Factor by which to grow occlusion tests **/
 #define OCCLUSION_SLOP (1.0f)
@@ -71,13 +72,15 @@ public:
 	FPrimitiveComponentId PrimitiveId;
 
 	/** The occlusion query which contains the primitive's pending occlusion results. */
-	TArray<FRenderQueryRHIRef, TInlineAllocator<FOcclusionQueryHelpers::MaxBufferedOcclusionFrames> > PendingOcclusionQuery;
+	FRenderQueryRHIRef PendingOcclusionQuery[FOcclusionQueryHelpers::MaxBufferedOcclusionFrames];
+	uint32 PendingOcclusionQueryFrames[FOcclusionQueryHelpers::MaxBufferedOcclusionFrames]; 
 
+	uint32 LastTestFrameNumber;
+	uint32 LastConsideredFrameNumber;
 	uint32 HZBTestIndex;
-	uint32 HZBTestFrameNumber;
 
 	/** The last time the primitive was visible. */
-	float LastVisibleTime;
+	float LastProvenVisibleTime;
 
 	/** The last time the primitive was in the view frustum. */
 	float LastConsideredTime;
@@ -88,70 +91,121 @@ public:
 	 */
 	float LastPixelsPercentage;
 
-	/** whether or not this primitive was grouped the last time it was queried */
-	bool bGroupedQuery;
-
-	/** 
-	 * For things that have subqueries (folaige), this is the non-zero
-	 */
+	/**
+	* For things that have subqueries (folaige), this is the non-zero
+	*/
 	int32 CustomIndex;
+
+	/** When things first become eligible for occlusion, then might be sweeping into the frustum, we are going to leave them at visible for a few frames, then start real queries.  */
+	uint8 BecameEligibleForQueryCooldown : 6;
+
+	uint8 WasOccludedLastFrame : 1;
+	uint8 OcclusionStateWasDefiniteLastFrame : 1;
+
+	/** whether or not this primitive was grouped the last time it was queried */
+	bool bGroupedQuery[FOcclusionQueryHelpers::MaxBufferedOcclusionFrames];
 
 	/** Initialization constructor. */
 	FORCEINLINE FPrimitiveOcclusionHistory(FPrimitiveComponentId InPrimitiveId, int32 SubQuery)
 		: PrimitiveId(InPrimitiveId)
+		, LastTestFrameNumber(~0u)
+		, LastConsideredFrameNumber(~0u)
 		, HZBTestIndex(0)
-		, HZBTestFrameNumber(~0u)
-		, LastVisibleTime(0.0f)
+		, LastProvenVisibleTime(0.0f)
 		, LastConsideredTime(0.0f)
 		, LastPixelsPercentage(0.0f)
-		, bGroupedQuery(false)
 		, CustomIndex(SubQuery)
+		, BecameEligibleForQueryCooldown(0)
+		, WasOccludedLastFrame(false)
+		, OcclusionStateWasDefiniteLastFrame(false)
 	{
-		PendingOcclusionQuery.Empty(FOcclusionQueryHelpers::MaxBufferedOcclusionFrames);
-		PendingOcclusionQuery.AddZeroed(FOcclusionQueryHelpers::MaxBufferedOcclusionFrames);
+		for (int32 Index = 0; Index < FOcclusionQueryHelpers::MaxBufferedOcclusionFrames; Index++)
+		{
+			PendingOcclusionQueryFrames[Index] = 0;
+			bGroupedQuery[Index] = false;
+		}
 	}
 
 	FORCEINLINE FPrimitiveOcclusionHistory()
-		: HZBTestIndex(0)
-		, HZBTestFrameNumber(~0u)
-		, LastVisibleTime(0.0f)
+		: LastTestFrameNumber(~0u)
+		, LastConsideredFrameNumber(~0u)
+		, HZBTestIndex(0)
+		, LastProvenVisibleTime(0.0f)
 		, LastConsideredTime(0.0f)
 		, LastPixelsPercentage(0.0f)
-		, bGroupedQuery(false)
 		, CustomIndex(0)
+		, BecameEligibleForQueryCooldown(0)
+		, WasOccludedLastFrame(false)
+		, OcclusionStateWasDefiniteLastFrame(false)
 	{
-		PendingOcclusionQuery.Empty(FOcclusionQueryHelpers::MaxBufferedOcclusionFrames);
-		PendingOcclusionQuery.AddZeroed(FOcclusionQueryHelpers::MaxBufferedOcclusionFrames);
-	}
-
-
-	/** Destructor. Note that the query should have been released already. */
-	~FPrimitiveOcclusionHistory()
-	{
-//		check( !IsValidRef(PendingOcclusionQuery) );
+		for (int32 Index = 0; Index < FOcclusionQueryHelpers::MaxBufferedOcclusionFrames; Index++)
+		{
+			PendingOcclusionQueryFrames[Index] = 0;
+			bGroupedQuery[Index] = false;
+		}
 	}
 
 	template<class TOcclusionQueryPool> // here we use a template just to allow this to be inlined without sorting out the header order
-	FORCEINLINE void ReleaseQueries(FRHICommandListImmediate& RHICmdList, TOcclusionQueryPool& Pool, int32 NumBufferedFrames)
+	FORCEINLINE void ReleaseStaleQueries(TOcclusionQueryPool& Pool, uint32 FrameNumber, int32 NumBufferedFrames)
 	{
-		for (int32 QueryIndex = 0; QueryIndex < NumBufferedFrames; QueryIndex++)
+		for (uint32 DeltaFrame = NumBufferedFrames; DeltaFrame > 0; DeltaFrame--)
+		{
+			if (FrameNumber >= (DeltaFrame - 1))
+			{
+				uint32 TestFrame = FrameNumber - (DeltaFrame - 1);
+				const uint32 QueryIndex = FOcclusionQueryHelpers::GetQueryLookupIndex(TestFrame, NumBufferedFrames);
+				if (PendingOcclusionQuery[QueryIndex].GetReference() && PendingOcclusionQueryFrames[QueryIndex] != TestFrame)
+				{
+					Pool.ReleaseQuery(PendingOcclusionQuery[QueryIndex]);
+				}
+			}
+		}
+	}
+	template<class TOcclusionQueryPool> // here we use a template just to allow this to be inlined without sorting out the header order
+	FORCEINLINE void ReleaseQuery(TOcclusionQueryPool& Pool, uint32 FrameNumber, int32 NumBufferedFrames)
+	{
+		const uint32 QueryIndex = FOcclusionQueryHelpers::GetQueryLookupIndex(FrameNumber, NumBufferedFrames);
+		if (PendingOcclusionQuery[QueryIndex].GetReference())
 		{
 			Pool.ReleaseQuery(PendingOcclusionQuery[QueryIndex]);
 		}
 	}
 
-	FORCEINLINE FRenderQueryRHIRef& GetPastQuery(uint32 FrameNumber, int32 NumBufferedFrames)
+	FORCEINLINE FRenderQueryRHIParamRef GetPastQuery(uint32 FrameNumber, int32 NumBufferedFrames, bool& bOutGrouped)
 	{
 		// Get the oldest occlusion query
 		const uint32 QueryIndex = FOcclusionQueryHelpers::GetQueryLookupIndex(FrameNumber, NumBufferedFrames);
-		return PendingOcclusionQuery[QueryIndex];
+		bOutGrouped = false;
+		if (PendingOcclusionQuery[QueryIndex].GetReference() && PendingOcclusionQueryFrames[QueryIndex] == FrameNumber - uint32(NumBufferedFrames))
+		{
+			bOutGrouped = bGroupedQuery[QueryIndex];
+			return PendingOcclusionQuery[QueryIndex].GetReference();
+		}
+		return nullptr;
 	}
 
-	FORCEINLINE void SetCurrentQuery(uint32 FrameNumber, FRenderQueryRHIParamRef NewQuery, int32 NumBufferedFrames)
+	FORCEINLINE void SetCurrentQuery(uint32 FrameNumber, FRenderQueryRHIParamRef NewQuery, int32 NumBufferedFrames, bool bGrouped)
 	{
 		// Get the current occlusion query
 		const uint32 QueryIndex = FOcclusionQueryHelpers::GetQueryIssueIndex(FrameNumber, NumBufferedFrames);
 		PendingOcclusionQuery[QueryIndex] = NewQuery;
+		PendingOcclusionQueryFrames[QueryIndex] = FrameNumber;
+		bGroupedQuery[QueryIndex] = bGrouped;
+	}
+
+	FORCEINLINE uint32 LastQuerySubmitFrame() const
+	{
+		uint32 Result = 0;
+
+		for (int32 Index = 0; Index < FOcclusionQueryHelpers::MaxBufferedOcclusionFrames; Index++)
+		{
+			if (!bGroupedQuery[Index])
+			{
+				Result = FMath::Max(Result, PendingOcclusionQueryFrames[Index]);
+			}
+		}
+
+		return Result;
 	}
 };
 
@@ -196,31 +250,46 @@ struct FPrimitiveOcclusionHistoryKeyFuncs : BaseKeyFuncs<FPrimitiveOcclusionHist
 
 class FIndividualOcclusionHistory
 {
-	TArray<FRenderQueryRHIRef, TInlineAllocator<FOcclusionQueryHelpers::MaxBufferedOcclusionFrames> > PendingOcclusionQuery;
+	FRenderQueryRHIRef PendingOcclusionQuery[FOcclusionQueryHelpers::MaxBufferedOcclusionFrames];
+	uint32 PendingOcclusionQueryFrames[FOcclusionQueryHelpers::MaxBufferedOcclusionFrames]; // not intialized...this is ok
 
 public:
 
-	FORCEINLINE FIndividualOcclusionHistory()
-	{
-		PendingOcclusionQuery.Empty(FOcclusionQueryHelpers::MaxBufferedOcclusionFrames);
-		PendingOcclusionQuery.AddZeroed(FOcclusionQueryHelpers::MaxBufferedOcclusionFrames);
-	}
-
-
 	template<class TOcclusionQueryPool> // here we use a template just to allow this to be inlined without sorting out the header order
-	FORCEINLINE void ReleaseQueries(FRHICommandListImmediate& RHICmdList, TOcclusionQueryPool& Pool, int32 NumBufferedFrames)
+	FORCEINLINE void ReleaseStaleQueries(TOcclusionQueryPool& Pool, uint32 FrameNumber, int32 NumBufferedFrames)
 	{
-		for (int32 QueryIndex = 0; QueryIndex < NumBufferedFrames; QueryIndex++)
+		for (uint32 DeltaFrame = NumBufferedFrames; DeltaFrame > 0; DeltaFrame--)
+		{
+			if (FrameNumber >= (DeltaFrame - 1))
+			{
+				uint32 TestFrame = FrameNumber - (DeltaFrame - 1);
+				const uint32 QueryIndex = FOcclusionQueryHelpers::GetQueryLookupIndex(TestFrame, NumBufferedFrames);
+				if (PendingOcclusionQuery[QueryIndex].GetReference() && PendingOcclusionQueryFrames[QueryIndex] != TestFrame)
+				{
+					Pool.ReleaseQuery(PendingOcclusionQuery[QueryIndex]);
+				}
+			}
+		}
+	}
+	template<class TOcclusionQueryPool> // here we use a template just to allow this to be inlined without sorting out the header order
+	FORCEINLINE void ReleaseQuery(TOcclusionQueryPool& Pool, uint32 FrameNumber, int32 NumBufferedFrames)
+	{
+		const uint32 QueryIndex = FOcclusionQueryHelpers::GetQueryLookupIndex(FrameNumber, NumBufferedFrames);
+		if (PendingOcclusionQuery[QueryIndex].GetReference())
 		{
 			Pool.ReleaseQuery(PendingOcclusionQuery[QueryIndex]);
 		}
 	}
 
-	FORCEINLINE FRenderQueryRHIRef& GetPastQuery(uint32 FrameNumber, int32 NumBufferedFrames)
+	FORCEINLINE FRenderQueryRHIParamRef GetPastQuery(uint32 FrameNumber, int32 NumBufferedFrames)
 	{
 		// Get the oldest occlusion query
 		const uint32 QueryIndex = FOcclusionQueryHelpers::GetQueryLookupIndex(FrameNumber, NumBufferedFrames);
-		return PendingOcclusionQuery[QueryIndex];
+		if (PendingOcclusionQuery[QueryIndex].GetReference() && PendingOcclusionQueryFrames[QueryIndex] == FrameNumber - uint32(NumBufferedFrames))
+		{
+			return PendingOcclusionQuery[QueryIndex].GetReference();
+		}
+		return nullptr;
 	}
 
 	FORCEINLINE void SetCurrentQuery(uint32 FrameNumber, FRenderQueryRHIParamRef NewQuery, int32 NumBufferedFrames)
@@ -228,6 +297,7 @@ public:
 		// Get the current occlusion query
 		const uint32 QueryIndex = FOcclusionQueryHelpers::GetQueryIssueIndex(FrameNumber, NumBufferedFrames);
 		PendingOcclusionQuery[QueryIndex] = NewQuery;
+		PendingOcclusionQueryFrames[QueryIndex] = FrameNumber;
 	}
 };
 
@@ -273,10 +343,10 @@ public:
 
 	/** Frame number when last updated */
 	uint32 FrameNumber;
-	
+
 	/** Time when fade will be finished. */
 	float EndTime;
-	
+
 	/** Currently visible? */
 	bool bIsVisible;
 
@@ -321,7 +391,7 @@ public:
 	float CachedMaxOcclusionDistance;
 	float CachedGlobalDistanceFieldViewDistance;
 	uint32 CacheMostlyStaticSeparately;
-	
+
 	FGlobalDistanceFieldCacheTypeState Cache[GDF_Num];
 };
 
@@ -416,30 +486,45 @@ class FHLODVisibilityState
 public:
 	FHLODVisibilityState()
 		: TemporalLODSyncTime(0.0f)
+		, FOVDistanceScaleSq(1.0f)
 		, UpdateCount(0)
 	{}
 
 	bool IsNodeFading(const int32 PrimIndex) const
 	{
-		checkSlow(PrimitiveFadingLODMap.IsValidIndex(PrimIndex));
+		checkSlow(IsValidPrimitiveIndex(PrimIndex));
 		return PrimitiveFadingLODMap[PrimIndex];
 	}
 
 	bool IsNodeFadingOut(const int32 PrimIndex) const
 	{
-		checkSlow(PrimitiveFadingOutLODMap.IsValidIndex(PrimIndex));
+		checkSlow(IsValidPrimitiveIndex(PrimIndex));
 		return PrimitiveFadingOutLODMap[PrimIndex];
 	}
 
-	bool IsNodeHidden(const int32 PrimIndex) const
+	bool IsNodeForcedVisible(const int32 PrimIndex) const
 	{
-		return HiddenChildPrimitiveMap.IsValidIndex(PrimIndex) && HiddenChildPrimitiveMap[PrimIndex];
+		checkSlow(IsValidPrimitiveIndex(PrimIndex));
+		return  ForcedVisiblePrimitiveMap[PrimIndex];
+	}
+
+	bool IsNodeForcedHidden(const int32 PrimIndex) const
+	{
+		checkSlow(IsValidPrimitiveIndex(PrimIndex));
+		return ForcedHiddenPrimitiveMap[PrimIndex];
+	}
+
+	bool IsValidPrimitiveIndex(const int32 PrimIndex) const
+	{
+		return ForcedHiddenPrimitiveMap.IsValidIndex(PrimIndex);
 	}
 
 	TBitArray<>	PrimitiveFadingLODMap;
 	TBitArray<>	PrimitiveFadingOutLODMap;
-	TBitArray<>	HiddenChildPrimitiveMap;
+	TBitArray<>	ForcedVisiblePrimitiveMap;
+	TBitArray<>	ForcedHiddenPrimitiveMap;
 	float		TemporalLODSyncTime;
+	float		FOVDistanceScaleSq;
 	uint16		UpdateCount;
 };
 
@@ -571,9 +656,13 @@ public:
 	FHLODVisibilityState HLODVisibilityState;
 	TMap<FPrimitiveComponentId, FHLODSceneNodeVisibilityState> HLODSceneNodeVisibilityStates;
 
+	// Software occlusion data
+	TUniquePtr<FSceneSoftwareOcclusion> SceneSoftwareOcclusion;
+
 	void UpdatePreExposure(FViewInfo& View);
 
 private:
+	void ConditionallyAllocateSceneSoftwareOcclusion(ERHIFeatureLevel::Type InFeatureLevel);
 
 	/** The current frame PreExposure */
 	float PreExposure;
@@ -593,13 +682,18 @@ private:
 		/** Return current Render Target */
 		TRefCountPtr<IPooledRenderTarget>& GetCurrentRT(FRHICommandList& RHICmdList)
 		{
-			return GetRTRef(RHICmdList, CurrentBuffer);
+			return GetRTRef(&RHICmdList, CurrentBuffer);
+		}
+
+		TRefCountPtr<IPooledRenderTarget>& GetCurrentRT()
+		{
+			return GetRTRef(nullptr, CurrentBuffer);
 		}
 
 		/** Return old Render Target*/
 		TRefCountPtr<IPooledRenderTarget>& GetLastRT(FRHICommandList& RHICmdList)
 		{
-			return GetRTRef(RHICmdList, 1 - CurrentBuffer);
+			return GetRTRef(&RHICmdList, 1 - CurrentBuffer);
 		}
 
 		/** Reverse the current/last order of the targets */
@@ -611,7 +705,7 @@ private:
 	private:
 
 		/** Return one of two two render targets */
-		TRefCountPtr<IPooledRenderTarget>&  GetRTRef(FRHICommandList& RHICmdList, const int BufferNumber);
+		TRefCountPtr<IPooledRenderTarget>&  GetRTRef(FRHICommandList* RHICmdList, const int BufferNumber);
 
 	private:
 
@@ -646,7 +740,7 @@ private:
 
 	// counts up by one each frame, warped in 0..7 range, ResetViewState() puts it back to 0
 	uint32 FrameIndexMod8;
-	
+
 	// counts up by one each frame, warped in 0..3 range, ResetViewState() puts it back to 0
 	int32 DistanceFieldTemporalSampleIndex;
 
@@ -682,7 +776,6 @@ public:
 
 	FIntRect DistanceFieldAOHistoryViewRect;
 	TRefCountPtr<IPooledRenderTarget> DistanceFieldAOHistoryRT;
-	TRefCountPtr<IPooledRenderTarget> DistanceFieldAOConfidenceHistoryRT;
 	TRefCountPtr<IPooledRenderTarget> DistanceFieldIrradianceHistoryRT;
 	// Mobile temporal AA surfaces.
 	TRefCountPtr<IPooledRenderTarget> MobileAaBloomSunVignette0;
@@ -726,7 +819,7 @@ public:
 	FTextureRHIRef SelectionOutlineCacheKey;
 	TRefCountPtr<FRHIShaderResourceView> SelectionOutlineCacheValue;
 
-	FForwardLightingViewResources ForwardLightingResources;
+	TUniquePtr<FForwardLightingViewResources> ForwardLightingResources;
 
 	FForwardLightingCullingResources ForwardLightingCullingResources;
 
@@ -809,7 +902,7 @@ public:
 		}
 
 		TemporalAASampleCount = FMath::Min(SampleCount, (uint32)255);
-		
+
 		if (!Family.bWorldIsPaused)
 		{
 			TemporalAASampleIndex++;
@@ -900,7 +993,7 @@ public:
 	 *							visible and unoccluded since this time will be discarded.
 	 * @param MinQueryTime - The pending occlusion queries older than this will be discarded.
 	 */
-	void TrimOcclusionHistory(FRHICommandListImmediate& RHICmdList, float CurrentTime, float MinHistoryTime, float MinQueryTime, int32 FrameNumber);
+	void TrimOcclusionHistory(float CurrentTime, float MinHistoryTime, float MinQueryTime, int32 FrameNumber);
 
 	/**
 	 * Checks whether a shadow is occluded this frame.
@@ -923,6 +1016,10 @@ public:
 	IPooledRenderTarget* GetCurrentEyeAdaptationRT(FRHICommandList& RHICmdList)
 	{
 		return EyeAdaptationRTManager.GetCurrentRT(RHICmdList).GetReference();
+	}
+	IPooledRenderTarget* GetCurrentEyeAdaptationRT()
+	{
+		return EyeAdaptationRTManager.GetCurrentRT().GetReference();
 	}
 	IPooledRenderTarget* GetLastEyeAdaptationRT(FRHICommandList& RHICmdList)
 	{
@@ -959,7 +1056,7 @@ public:
 	{
 		bValidTonemappingLUT = bValid;
 	}
-	
+
 
 	// Returns a reference to the render target used for the LUT.  Allocated on the first request.
 	FSceneRenderTargetItem& GetTonemappingLUTRenderTarget(FRHICommandList& RHICmdList, const int32 LUTSize, const bool bUseVolumeLUT, const bool bNeedUAV)
@@ -986,7 +1083,7 @@ public:
 			}
 
 			Desc.DebugName = TEXT("CombineLUTs");
-			
+
 			GRenderTargetPool.FindFreeElement(RHICmdList, Desc, CombinedLUTRenderTarget, Desc.DebugName);
 		}
 
@@ -996,7 +1093,7 @@ public:
 
 	const FTextureRHIRef* GetTonemappingLUTTexture() const {
 		const FTextureRHIRef* ShaderResourceTexture = NULL;
-	
+
 		if (CombinedLUTRenderTarget.IsValid()) {
 			ShaderResourceTexture = &CombinedLUTRenderTarget->GetRenderTargetItem().ShaderResourceTexture;
 		}
@@ -1030,8 +1127,6 @@ public:
 		LightShaftOcclusionHistory.SafeRelease();
 		LightShaftBloomHistoryRTs.Empty();
 		DistanceFieldAOHistoryRT.SafeRelease();
-		DistanceFieldAOConfidenceHistoryRT.SafeRelease();
-		DistanceFieldAOConfidenceHistoryRT.SafeRelease();
 		DistanceFieldIrradianceHistoryRT.SafeRelease();
 		MobileAaBloomSunVignette0.SafeRelease();
 		MobileAaBloomSunVignette1.SafeRelease();
@@ -1072,7 +1167,7 @@ public:
 
 	// FSceneViewStateInterface
 	RENDERER_API virtual void Destroy() override;
-	
+
 	virtual FSceneViewState* GetConcreteViewState() override
 	{
 		return this;
@@ -1082,7 +1177,7 @@ public:
 	{
 
 		Collector.AddReferencedObjects(MIDPool);
-	
+
 		if (BloomFFTKernel.Physical)
 		{
 			Collector.AddReferencedObject(BloomFFTKernel.Physical);
@@ -1098,13 +1193,14 @@ public:
 		{
 			SetupLightPropagationVolume(View, ViewFamily);
 		}
+		ConditionallyAllocateSceneSoftwareOcclusion(View.GetFeatureLevel());
 	}
 
 	// needed for GetReusableMID()
 	virtual void OnStartPostProcessing(FSceneView& CurrentView) override
 	{
 		check(IsInGameThread());
-		
+
 		// Needs to be done once for all viewstates.  If multiple FSceneViews are sharing the same ViewState, this will cause problems.
 		// Sharing should be illegal right now though.
 		MIDUsedCount = 0;
@@ -1213,12 +1309,6 @@ public:
 		return OcclusionFrameCounter;
 	}
 
-	// FDeferredCleanupInterface
-	virtual void FinishCleanup() override
-	{
-		delete this;
-	}
-
 	virtual SIZE_T GetSizeBytes() const override;
 
 	virtual void SetSequencerState(const bool bIsPaused) override
@@ -1298,7 +1388,7 @@ public:
 class FReflectionEnvironmentSceneData
 {
 public:
-	
+
 	/** 
 	 * Set to true for one frame whenever RegisteredReflectionCaptures or the transforms of any registered reflection proxy has changed,
 	 * Which allows one frame to update cached proxy associations.
@@ -1716,7 +1806,7 @@ private:
 		TArray<FFloat16Color>& Texture0Data,
 		TArray<FFloat16Color>& Texture1Data,
 		TArray<FFloat16Color>& Texture2Data		
-		);
+	);
 
 	/** Helper that calculates an effective world position min and size given a bounds. */
 	void CalculateBlockPositionAndSize(const FBoxSphereBounds& Bounds, int32 TexelSize, FVector& OutMin, FVector& OutSize) const;
@@ -1799,8 +1889,6 @@ class FLODSceneTree
 public:
 	FLODSceneTree(FScene* InScene)
 		: Scene(InScene)
-		, LastHLODDistanceScale(-1.0f)
-		, LastHLODDistanceOverride(0.0f)
 	{
 	}
 
@@ -1820,36 +1908,30 @@ public:
 
 		void AddChild(FPrimitiveSceneInfo* NewChild)
 		{
-			if(NewChild && !ChildrenSceneInfos.Contains(NewChild))
+			if (NewChild)
 			{
-				ChildrenSceneInfos.Add(NewChild);
+				ChildrenSceneInfos.AddUnique(NewChild);
 			}
 		}
 
 		void RemoveChild(FPrimitiveSceneInfo* ChildToDelete)
 		{
-			if(ChildToDelete && ChildrenSceneInfos.Contains(ChildToDelete))
+			if (ChildToDelete)
 			{
 				ChildrenSceneInfos.Remove(ChildToDelete);
 			}
 		}
 	};
 
-	void AddChildNode(FPrimitiveComponentId NodeId, FPrimitiveSceneInfo* ChildSceneInfo);
-	void RemoveChildNode(FPrimitiveComponentId NodeId, FPrimitiveSceneInfo* ChildSceneInfo);
+	void AddChildNode(FPrimitiveComponentId ParentId, FPrimitiveSceneInfo* ChildSceneInfo);
+	void RemoveChildNode(FPrimitiveComponentId ParentId, FPrimitiveSceneInfo* ChildSceneInfo);
 
 	void UpdateNodeSceneInfo(FPrimitiveComponentId NodeId, FPrimitiveSceneInfo* SceneInfo);
-	void UpdateAndApplyVisibilityStates(FViewInfo& View);
+	void UpdateVisibilityStates(FViewInfo& View);
 
 	bool IsActive() const { return (SceneNodes.Num() > 0); }
 
 private:
-
-	void ResetHLODDistanceScaleApplication()
-	{
-		LastHLODDistanceScale = -1.0f;
-		LastHLODDistanceOverride = 0.0f;
-	}
 
 	/** Scene this Tree belong to */
 	FScene* Scene;
@@ -1857,15 +1939,9 @@ private:
 	/** The LOD groups in the scene.  The map key is the current primitive who has children. */
 	TMap<FPrimitiveComponentId, FLODSceneNode> SceneNodes;
 
-	/** Transition distance scaling */
-	float LastHLODDistanceScale;
-
-	/** The last setting we saw for global distance override */
-	float LastHLODDistanceOverride;
-
 	/** Recursive state updates */
-	void ApplyNodeFadingToChildren(FSceneViewState* ViewState, FLODSceneNode& Node, FSceneBitArray& VisibilityFlags, const bool bIsFading, const bool bIsFadingOut);
-	void UpdateNodeChildrenVisibility(FSceneViewState* ViewState, FLODSceneNode& Node, FSceneBitArray& VisibilityFlags, bool bIsVisible = false, bool bRecursive = true);
+	void ApplyNodeFadingToChildren(FSceneViewState* ViewState, FLODSceneNode& Node, FHLODSceneNodeVisibilityState& NodeVisibility, const bool bIsFading, const bool bIsFadingOut);
+	void HideNodeChildren(FSceneViewState* ViewState, FLODSceneNode& Node);
 };
 
 typedef TMap<FMaterial*, FMaterialShaderMap*> FMaterialsToUpdateMap;
@@ -1886,25 +1962,25 @@ public:
 };
 
 #if WITH_EDITOR
-	class FPixelInspectorData
-	{
-	public:
-		FPixelInspectorData();
+class FPixelInspectorData
+{
+public:
+	FPixelInspectorData();
 
-		void InitializeBuffers(FRenderTarget* BufferFinalColor, FRenderTarget* BufferSceneColor, FRenderTarget* BufferDepth, FRenderTarget* BufferHDR, FRenderTarget* BufferA, FRenderTarget* BufferBCDE, int32 bufferIndex);
+	void InitializeBuffers(FRenderTarget* BufferFinalColor, FRenderTarget* BufferSceneColor, FRenderTarget* BufferDepth, FRenderTarget* BufferHDR, FRenderTarget* BufferA, FRenderTarget* BufferBCDE, int32 bufferIndex);
 
-		bool AddPixelInspectorRequest(FPixelInspectorRequest *PixelInspectorRequest);
+	bool AddPixelInspectorRequest(FPixelInspectorRequest *PixelInspectorRequest);
 
-		//Hold the buffer array
-		TMap<FVector2D, FPixelInspectorRequest *> Requests;
+	//Hold the buffer array
+	TMap<FVector2D, FPixelInspectorRequest *> Requests;
 
-		FRenderTarget* RenderTargetBufferDepth[2];
-		FRenderTarget* RenderTargetBufferFinalColor[2];
-		FRenderTarget* RenderTargetBufferHDR[2];
-		FRenderTarget* RenderTargetBufferSceneColor[2];
-		FRenderTarget* RenderTargetBufferA[2];
-		FRenderTarget* RenderTargetBufferBCDE[2];
-	};
+	FRenderTarget* RenderTargetBufferDepth[2];
+	FRenderTarget* RenderTargetBufferFinalColor[2];
+	FRenderTarget* RenderTargetBufferHDR[2];
+	FRenderTarget* RenderTargetBufferSceneColor[2];
+	FRenderTarget* RenderTargetBufferA[2];
+	FRenderTarget* RenderTargetBufferBCDE[2];
+};
 #endif //WITH_EDITOR
 
 /** 
@@ -1957,16 +2033,16 @@ public:
 	TStaticMeshDrawList<TBasePassDrawingPolicy<LightMapPolicyType> >& GetBasePassDrawList(EBasePassDrawListType DrawType);
 
 	/** Mobile base pass draw lists */
-	TStaticMeshDrawList<TMobileBasePassDrawingPolicy<FUniformLightMapPolicy, 0> > MobileBasePassUniformLightMapPolicyDrawList[EBasePass_MAX];
-	TStaticMeshDrawList<TMobileBasePassDrawingPolicy<FUniformLightMapPolicy, 0> > MobileBasePassUniformLightMapPolicyDrawListWithCSM[EBasePass_MAX];
+	TStaticMeshDrawList<TMobileBasePassDrawingPolicy<FUniformLightMapPolicy> > MobileBasePassUniformLightMapPolicyDrawList[EBasePass_MAX];
+	TStaticMeshDrawList<TMobileBasePassDrawingPolicy<FUniformLightMapPolicy> > MobileBasePassUniformLightMapPolicyDrawListWithCSM[EBasePass_MAX];
 
 
 	/** Maps a light-map type to the appropriate base pass draw list. */
 	template<typename LightMapPolicyType>
-	TStaticMeshDrawList<TMobileBasePassDrawingPolicy<LightMapPolicyType,0> >& GetMobileBasePassDrawList(EBasePassDrawListType DrawType);
+	TStaticMeshDrawList<TMobileBasePassDrawingPolicy<LightMapPolicyType> >& GetMobileBasePassDrawList(EBasePassDrawListType DrawType);
 
 	template<typename LightMapPolicyType>
-	TStaticMeshDrawList<TMobileBasePassDrawingPolicy<LightMapPolicyType, 0> >& GetMobileBasePassCSMDrawList(EBasePassDrawListType DrawType);
+	TStaticMeshDrawList<TMobileBasePassDrawingPolicy<LightMapPolicyType> >& GetMobileBasePassCSMDrawList(EBasePassDrawListType DrawType);
 
 #if WITH_EDITOR
 	/** Draw list to use for selected static meshes in the editor only */
@@ -2069,7 +2145,7 @@ public:
 
 	/** Distance field object scene data. */
 	FDistanceFieldSceneData DistanceFieldSceneData;
-	
+
 	/** Map from light id to the cached shadowmap data for that light. */
 	TMap<int32, FCachedShadowMapData> CachedShadowMaps;
 
@@ -2208,7 +2284,6 @@ public:
 	virtual void GetWindParameters_GameThread(const FVector& Position, FVector& OutDirection, float& OutSpeed, float& OutMinGustAmt, float& OutMaxGustAmt) const override;
 	virtual void GetDirectionalWindParameters(FVector& OutDirection, float& OutSpeed, float& OutMinGustAmt, float& OutMaxGustAmt) const override;
 	virtual void AddSpeedTreeWind(FVertexFactory* VertexFactory, const UStaticMesh* StaticMesh) override;
-	virtual void RemoveSpeedTreeWind(FVertexFactory* VertexFactory, const UStaticMesh* StaticMesh) override;
 	virtual void RemoveSpeedTreeWind_RenderThread(FVertexFactory* VertexFactory, const UStaticMesh* StaticMesh) override;
 	virtual void UpdateSpeedTreeWind(double CurrentTime) override;
 	virtual FUniformBufferRHIParamRef GetSpeedTreeUniformBuffer(const FVertexFactory* VertexFactory) override;
@@ -2249,12 +2324,12 @@ public:
 	const class FPlanarReflectionSceneProxy* FindClosestPlanarReflection(const FBoxSphereBounds& Bounds) const;
 
 	void FindClosestReflectionCaptures(FVector Position, const FReflectionCaptureProxy* (&SortedByDistanceOUT)[FPrimitiveSceneInfo::MaxCachedReflectionCaptureProxies]) const;
-	
+
 	/** 
 	 * Gets the scene's cubemap array and index into that array for the given reflection proxy. 
 	 * If the proxy was not found in the scene's reflection state, the outputs are not written to.
 	 */
-	void GetCaptureParameters(const FReflectionCaptureProxy* ReflectionProxy, FTextureRHIParamRef& ReflectionCubemapArray, int32& ArrayIndex, float& AverageBrightness) const;
+	void GetCaptureParameters(const FReflectionCaptureProxy* ReflectionProxy, int32& ArrayIndex, float& AverageBrightness) const;
 
 	int64 GetCachedWholeSceneShadowMapsSize() const;
 
@@ -2329,26 +2404,25 @@ public:
 
 	bool ShouldRenderSkylightInBasePass(EBlendMode BlendMode) const
 	{
-		return ShouldRenderSkylightInBasePass_Internal(BlendMode) && (ReadOnlyCVARCache.bEnableStationarySkylight || IsSimpleForwardShadingEnabled(GetShaderPlatform()));
-	}
+		bool bRenderSkyLight = SkyLight && !SkyLight->bHasStaticLighting;
 
-	bool ShouldRenderSkylightInBasePass_Internal(EBlendMode BlendMode) const
-	{
 		if (IsTranslucentBlendMode(BlendMode))
 		{
-			//both stationary and movable skylights are applied during actual translucency render
-			return SkyLight && !SkyLight->bHasStaticLighting;
+			// Both stationary and movable skylights are applied in base pass for translucent materials
+			bRenderSkyLight = bRenderSkyLight
+				&& (ReadOnlyCVARCache.bEnableStationarySkylight || !SkyLight->bWantsStaticShadowing);
 		}
 		else
 		{
-			const bool bRenderSkylight = SkyLight
-				&& !SkyLight->bHasStaticLighting
-				// The deferred shading renderer does movable skylight diffuse in a later deferred pass, not in the base pass
-				// bWantsStaticShadowing means 'stationary skylight'
-				&& (SkyLight->bWantsStaticShadowing || IsAnyForwardShadingEnabled(GetShaderPlatform()));
-
-			return bRenderSkylight;
+			// For opaque materials, stationary skylight is applied in base pass but movable skylight
+			// is applied in a separate render pass (bWantssStaticShadowing means stationary skylight)
+			bRenderSkyLight = bRenderSkyLight
+				&& ((ReadOnlyCVARCache.bEnableStationarySkylight && SkyLight->bWantsStaticShadowing)
+					|| (!SkyLight->bWantsStaticShadowing
+						&& (IsAnyForwardShadingEnabled(GetShaderPlatform()) || IsMobilePlatform(GetShaderPlatform()))));
 		}
+
+		return bRenderSkyLight;
 	}
 
 	virtual TArray<FPrimitiveComponentId> GetScenePrimitiveComponentIds() const override

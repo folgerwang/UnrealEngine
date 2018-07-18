@@ -12,7 +12,7 @@
 #include "UnrealEngine.h"
 #include "Engine/MapBuildDataRegistry.h"
 #include "Interfaces/ITargetPlatform.h"
-#include "MobileObjectVersion.h"
+#include "UObject/MobileObjectVersion.h"
 
 DECLARE_MEMORY_STAT(TEXT("Volumetric Lightmap"),STAT_VolumetricLightmapBuildData,STATGROUP_MapBuildData);
 

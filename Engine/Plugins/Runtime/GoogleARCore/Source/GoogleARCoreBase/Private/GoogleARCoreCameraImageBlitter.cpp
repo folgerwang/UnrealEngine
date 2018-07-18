@@ -7,7 +7,7 @@
 #include "GoogleARCorePassthroughCameraRenderer.h"
 
 #if PLATFORM_ANDROID
-#include "AndroidApplication.h"
+#include "Android/AndroidApplication.h"
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 #endif
@@ -62,6 +62,8 @@ void FGoogleARCoreDeviceCameraBlitter::LateInit(FIntPoint ImageSize)
 			check(CameraCopy);
 			CameraCopy->AddToRoot();
 			FTextureResource *resource = CameraCopy->CreateResource();
+			CameraCopy->Filter = TextureFilter::TF_Nearest;
+			CameraCopy->SRGB = false;
 			CameraCopy->UpdateResource();
 			CameraCopies.Add(CameraCopy);
 

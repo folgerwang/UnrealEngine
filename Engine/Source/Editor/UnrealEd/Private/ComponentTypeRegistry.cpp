@@ -460,7 +460,9 @@ FComponentTypeRegistry::FComponentTypeRegistry()
 	: Data(nullptr)
 {
 	Data = new FComponentTypeRegistryData();
-	Data->ForceRefreshComponentList();
+
+	// This will load the assets on next tick. It's not safe to do right now because we could be deep in a stack
+	Data->Invalidate();
 
 	IHotReloadInterface& HotReloadSupport = FModuleManager::LoadModuleChecked<IHotReloadInterface>("HotReload");
 	HotReloadSupport.OnHotReload().AddRaw(this, &FComponentTypeRegistry::OnProjectHotReloaded);

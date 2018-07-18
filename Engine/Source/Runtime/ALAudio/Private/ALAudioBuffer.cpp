@@ -110,14 +110,14 @@ void FALSoundBuffer::CreateNativeBuffer(FALAudioDevice* AudioDevice, USoundWave*
 	{
 		SCOPE_CYCLE_COUNTER( STAT_AudioResourceCreationTime );
 
-		check(Wave->bIsPrecacheDone);
+		check(Wave->GetPrecacheState() == ESoundWavePrecacheState::Done);
 
 		// Create new buffer.
 		Buffer = new FALSoundBuffer(AudioDevice);
 
 		Buffer->InternalFormat = AudioDevice->GetInternalFormat(Wave->NumChannels);
 		Buffer->NumChannels = Wave->NumChannels;
-		Buffer->SampleRate = Wave->SampleRate;
+		Buffer->SampleRate = Wave->GetSampleRateForCurrentPlatform();
 
 		FAudioDeviceManager* AudioDeviceManager = GEngine->GetAudioDeviceManager();
 		check(AudioDeviceManager != nullptr);

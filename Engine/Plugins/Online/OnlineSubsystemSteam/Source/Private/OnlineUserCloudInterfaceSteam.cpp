@@ -7,7 +7,7 @@
 FString FOnlineAsyncTaskSteamEnumerateUserFiles::ToString() const
 {
 	return FString::Printf(TEXT("FOnlineAsyncTaskSteamEnumerateUserFiles bWasSuccessful:%d UserId:%s"),
-									bWasSuccessful, *UserId.ToDebugString());
+									WasSuccessful(), *UserId.ToDebugString());
 }
 
 void FOnlineAsyncTaskSteamEnumerateUserFiles::Tick()
@@ -64,7 +64,7 @@ void FOnlineAsyncTaskSteamEnumerateUserFiles::TriggerDelegates()
 FString FOnlineAsyncTaskSteamReadUserFile::ToString() const
 {
 	return FString::Printf(TEXT("FOnlineAsyncTaskSteamReadUserFile bWasSuccessful:%d UserId:%s FileName:%s"),
-									bWasSuccessful, *UserId.ToDebugString(), *FileName);
+									WasSuccessful(), *UserId.ToDebugString(), *FileName);
 }
 
 void FOnlineAsyncTaskSteamReadUserFile::Tick()
@@ -212,7 +212,7 @@ bool FOnlineAsyncTaskSteamWriteUserFile::WriteUserFile(const FUniqueNetId& InUse
 FString FOnlineAsyncTaskSteamWriteUserFile::ToString() const
 {
 	return FString::Printf(TEXT("FOnlineAsyncTaskSteamWriteUserFile bWasSuccessful:%d UserId:%s FileName:%s"),
-									bWasSuccessful, *UserId.ToDebugString(), *FileName);
+									WasSuccessful(), *UserId.ToDebugString(), *FileName);
 }
 
 void FOnlineAsyncTaskSteamWriteUserFile::Tick()
@@ -404,7 +404,7 @@ void FOnlineUserCloudSteam::DumpCloudFileState(const FUniqueNetId& UserId, const
 FString FOnlineAsyncTaskSteamDeleteUserFile::ToString() const
 {
 	return FString::Printf(TEXT("FOnlineAsyncTaskSteamDeleteUserFile bWasSuccessful:%d UserId:%s FileName:%s"),
-								bWasSuccessful, *UserId.ToDebugString(), *FileName);
+								WasSuccessful(), *UserId.ToDebugString(), *FileName);
 }
 
 void FOnlineAsyncTaskSteamDeleteUserFile::Tick()

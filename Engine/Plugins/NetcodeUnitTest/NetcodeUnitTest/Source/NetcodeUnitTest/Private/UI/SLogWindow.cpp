@@ -19,7 +19,9 @@ void SLogWindow::Construct(const FArguments& InArgs, FString InTitle, float Wind
 			]);
 
 	// Due to ClientSize not accounting for the full size of the window (it's usually a bit oversized), fix that up now
-	Resize(FVector2D(WindowWidth, WindowHeight));
+	FVector2D OversizeSize = GetWindowSizeFromClientSize(FVector2D(WindowWidth, WindowHeight));
+
+	Resize(FVector2D(WindowWidth - (OversizeSize.X - WindowWidth), WindowHeight - (OversizeSize.Y - WindowHeight)));
 
 	SetOnWindowClosed(FOnWindowClosed::CreateSP(this, &SLogWindow::NotifyWindowClosed));
 	SetOnWindowMoved(FOnWindowMoved::CreateSP(this, &SLogWindow::NotifyWindowMoved));

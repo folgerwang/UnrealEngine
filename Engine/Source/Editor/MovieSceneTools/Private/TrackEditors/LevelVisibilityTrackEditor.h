@@ -13,6 +13,7 @@
 #include "MovieSceneTrackEditor.h"
 
 class FMenuBuilder;
+class UMovieSceneLevelVisibilitySection;
 enum class ELevelVisibility : uint8;
 
 /**
@@ -54,7 +55,7 @@ public:
 
 private:
 	/** Adds a new section which spans the length of the owning movie scene with the specified visibility. */
-	void AddNewSection(UMovieScene* MovieScene, UMovieSceneTrack* LevelVisibilityTrack, ELevelVisibility Visibility );
+	UMovieSceneLevelVisibilitySection* AddNewSection(UMovieScene* MovieScene, UMovieSceneTrack* LevelVisibilityTrack, ELevelVisibility Visibility );
 
 	/** Handles when the add track menu item is activated. */
 	void OnAddTrack();

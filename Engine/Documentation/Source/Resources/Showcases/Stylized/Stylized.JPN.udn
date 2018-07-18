@@ -12,59 +12,17 @@ Related:Engine/Landscape
 Related:Engine/Landscape/Editing/Splines
 Related:Engine/Landscape/Materials
 Version:4.9
-
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources/Showcases/Stylized:title%](Stylized_Topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/rendering_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/Showcases/Stylized:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/Showcases/Stylized:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/Showcases/Stylized]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Resources/Showcases/Stylized:title%](Stylized_Topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/rendering_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/Showcases/Stylized:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/Showcases/Stylized:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/Showcases/Stylized]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
+topic-image:Stylized_Topic.png
 
 
 [REGION:fullwidth]
 ![](StylizedHeader.png)
 [/REGION]
 
-このショーケースはゲームに定型化した、または非現実化タイプの背景を作成します。レベルに手描きのような効果を出すために、ポストプロセスエフェクト、ランドスケープツール、そして丁寧にデザインされたマテリアルをフル活用します。このような背景の作成方法には、さまざまな手法があることに留意してください。ここで紹介する例は、可能性の 1 つにすぎません。
+このショーケースはゲームに定型化した、または非現実化タイプの背景を作成します。レベルに手描きのような効果を出すために、ポストプロセス エフェクト、ランドスケープ ツール、そして丁寧にデザインされたマテリアルをフル活用します。このような背景の作成方法には、さまざまな手法があることに留意してください。ここで紹介する例は、可能性の 1 つにすぎません。
 
 この背景には、エンジン機能の技術的な適用およびテクスチャへの芸術的な方法など、多くのさまざまなエレメントが生命を吹き込んでいます。このページでは、設定に関する技術的な部分を中心に説明します。ポストプロセス、ランドスケープ オブジェクト、いくつかの特別なマテリアルに注目していきます。ただし、このシーンの中でアーティストが使ったアプローチ方法からいろいろな情報を収集できるので、各オブジェクトのマテリアルやテクスチャ設定の調査も是非お勧めします。
 
-[REGION:topics third]
 [OBJECT:TopicCompact]
 	[PARAM:image]
 		![%Resources/Showcases/Stylized/PostProcessing:title%](PostProcess.png)
@@ -98,14 +56,13 @@ Version:4.9
 		[RELATIVE:Resources/Showcases/Stylized/Materials]
 	[/PARAM]
 [/OBJECT]
-[/REGION]
 
 
 [COMMENT:none]
 
 [EXCERPT:InstanceNote]
 [REGION:note]
-このシーンのために作成したほとんどのマテリアルは、実際に [マテリアル インスタンス定数](Engine/Rendering/Materials/MaterialInstances) を用いて適用されています。マテリアルの再コンパイルを待たずに迅速なプロパティの調整や微調整が可能となります。
+このシーンのために作成したほとんどのマテリアルは、実際に [マテリアル インスタンス定数](Engine/Rendering/Materials/MaterialInstances) を用いて適用されています。マテリアルの再コンパイルを待たずにプロパティの調整や微調整を迅速に行うことができます。
 [/REGION]
 [/EXCERPT:InstanceNote]
 

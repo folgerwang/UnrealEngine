@@ -14,7 +14,7 @@ MTLPP_BEGIN
 
 namespace mtlpp
 {
-    enum class PixelFormat
+	enum class PixelFormat : NSUInteger
     {
         Invalid                                            = 0,
 

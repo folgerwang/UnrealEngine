@@ -13,7 +13,7 @@
 #include "ReimportScriptFactory.h"
 #include "HAL/FileManager.h"
 #include "ScriptBlueprintGeneratedClass.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 UScriptFactory::UScriptFactory(const FObjectInitializer& ObjectInitializer)
 	: Super( ObjectInitializer )

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3807090
 Availability:Public
 Title: 플레이너 리플렉션
 Crumbs: %ROOT%, Engine, Engine/Rendering/LightingAndShadows
@@ -17,10 +17,10 @@ UE4 에는 스크린 스페이스 리플렉션(Screen Space Reflection, SSR) 보
 
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
-	![스크린 스페이스 리플렉션](Engine\Rendering\LightingAndShadows\ReflectionEnvironment\SSR_Relections_00.png)(w:800 h:500)
+	![스크린 스페이스 리플렉션](Engine\Rendering\LightingAndShadows\ReflectionEnvironment\SSR_Relections_00.png)(w:800)
 	[/PARAM]
 	[PARAM:after]
-	![플레이너 리플렉션](Engine\Rendering\LightingAndShadows\ReflectionEnvironment\PR_00.png)(w:800 h:500)
+	![플레이너 리플렉션](Engine\Rendering\LightingAndShadows\ReflectionEnvironment\PR_00.png)(w:800)
 	[/PARAM]
 [/OBJECT]
 
@@ -34,7 +34,7 @@ UE4 에는 스크린 스페이스 리플렉션(Screen Space Reflection, SSR) 보
 1. 메인 툴바에서 **편집 > 프로젝트 세팅** 으로 가서 **Rendering (렌더링) > Optimization (최적화)** 부분으로 이동합니다.
 	
 	[REGION:lightbox]
-	[![](Engine\Rendering\LightingAndShadows\ReflectionEnvironment\PR_Project_Settings_00.png)(w:502 h:322)](Engine\Rendering\LightingAndShadows\ReflectionEnvironment\PR_Project_Settings_00.png)
+	[![](Engine\Rendering\LightingAndShadows\ReflectionEnvironment\PR_Project_Settings_00.png)(w:502)](Engine\Rendering\LightingAndShadows\ReflectionEnvironment\PR_Project_Settings_00.png)
 	[/REGION]
 
 1. **Support global clip plane for Planar Reflections** (플레이너 리플렉션에 글로벌 클리핑 면 지원) 옆의 박스를 체크하고, UE4 에디터를 재시작합니다.
@@ -48,7 +48,7 @@ UE4 에는 스크린 스페이스 리플렉션(Screen Space Reflection, SSR) 보
 1. UE4 에디터가 재시작되면, **모드** 패널의 **비주얼 이펙트** 부분에서 **Planar Reflection Actor** (플레이너 리플렉션 액터)를 레벨에 끌어 놓습니다.
 
 	[REGION:lightbox]
-	[![](Adding_Planar_Reflection_Actor.png)(w:380 h:286)](Adding_Planar_Reflection_Actor.png)
+	[![](Adding_Planar_Reflection_Actor.png)(w:380)](Adding_Planar_Reflection_Actor.png)
 	[/REGION]
 
 1. 레벨에 플레이너 리플렉션 액터를 놓았으면, **G** 키를 눌러 액터를 숨기거나 표시할 수 있습니다. **이동**, **회전**, **스케일** 툴을 사용하여 플레이너 리플렉션 액터의 위치와 크기를 레벨에 더욱 잘 맞게 배치할 수도 있습니다.
@@ -74,7 +74,7 @@ UE4 에는 스크린 스페이스 리플렉션(Screen Space Reflection, SSR) 보
 플레이너 리플렉션 액터에는 리플렉션의 모양을 크게 바꿀 수 있는 프로퍼티가 여러가지 있습니다. 다음 표는 그 프로퍼티의 종류와 플레이너 리플렉션 모양을 어떻게 변화시키는지에 대한 개괄적인 설명입니다.
 
 [REGION:lightbox]
-[![](Engine\Rendering\LightingAndShadows\ReflectionEnvironment\PR_Props_Breakdown_00.png)(w:238 h:232)](Engine\Rendering\LightingAndShadows\ReflectionEnvironment\PR_Props_Breakdown_00.png)
+[![](Engine\Rendering\LightingAndShadows\ReflectionEnvironment\PR_Props_Breakdown_00.png)(w:238)](Engine\Rendering\LightingAndShadows\ReflectionEnvironment\PR_Props_Breakdown_00.png)
 [/REGION]
 
 |세팅 이름| 설명 |
@@ -114,10 +114,10 @@ Kite (소년과 연) 데모 랜드스케이프 터레인의 크기와 다양한 
 
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
-	![플레이너 리플렉션 꺼짐](SSR_Reflections_00.png)(w:853 h:466)
+	![플레이너 리플렉션 꺼짐](SSR_Reflections_00.png)(w:853)
 	[/PARAM]
 	[PARAM:after]
-	![플레이너 리플렉션 켜짐](PR_Reflections_00.png)(w:853 h:466)
+	![플레이너 리플렉션 켜짐](PR_Reflections_00.png)(w:853)
 	[/PARAM]
 [/OBJECT]
 
@@ -135,10 +135,10 @@ Infinity Blade Elven Ruins 맵의 크기와 레이아웃에는 플레이너 리�
 
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
-	![플레이너 리플렉션 꺼짐](SSR_Reflections_01.png)(w:853 h:466)
+	![플레이너 리플렉션 꺼짐](SSR_Reflections_01.png)(w:853)
 	[/PARAM]
 	[PARAM:after]
-	![플레이너 리플렉션 켜짐](PR_Reflections_01.png)(w:853 h:466)
+	![플레이너 리플렉션 켜짐](PR_Reflections_01.png)(w:853)
 	[/PARAM]
 [/OBJECT]
 
@@ -154,7 +154,7 @@ Infinity Blade Elven Ruins 맵의 크기와 레이아웃에는 플레이너 리�
   
 [EXCERPT:KitePlanarReflection]
 [REGION:imagetable lightbox caption]
-|[![](GPU_Profile_PR_Off_00.png)(w:400 h:200)](GPU_Profile_PR_Off_00.png)|[![](GPU_Profile_PR_On_00.png)(w:400 h:200)](GPU_Profile_PR_On_00.png) | 
+|[![](GPU_Profile_PR_Off_00.png)(w:400)](GPU_Profile_PR_Off_00.png)|[![](GPU_Profile_PR_On_00.png)(w:400)](GPU_Profile_PR_On_00.png) | 
 | ------ | ------ |
 | 플레이너 리플렉션 꺼짐 | 플레이너 리플렉션 켜짐 |
 |클릭하면 원래 크기로 봅니다. |클릭하면 원래 크기로 봅니다.|
@@ -167,7 +167,7 @@ Infinity Blade Elven Ruins 맵의 크기와 레이아웃에는 플레이너 리�
   
 [EXCERPT:ElvenRuinsReflection]
 [REGION:imagetable lightbox caption]
-|[![](GPU_Profile_PR_Off_01.png)(w:400 h:200)](GPU_Profile_PR_Off_01.png)|[![](GPU_Profile_PR_On_01.png)(w:400 h:200)](GPU_Profile_PR_On_01.png) | 
+|[![](GPU_Profile_PR_Off_01.png)(w:400)](GPU_Profile_PR_Off_01.png)|[![](GPU_Profile_PR_On_01.png)(w:400)](GPU_Profile_PR_On_01.png) | 
 | ------ | ------ |
 | 플레이너 리플렉션 꺼짐 | 플레이너 리플렉션 켜짐 |
 |클릭하면 원래 크기로 봅니다. |클릭하면 원래 크기로 봅니다.|

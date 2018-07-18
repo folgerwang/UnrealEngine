@@ -46,7 +46,7 @@ void F3DTransformTrackToken::Apply(USceneComponent& SceneComponent, float DeltaT
 	USceneComponent* RootComponent = Actor ? Actor->GetRootComponent() : nullptr;
 	bool bIsSimulatingPhysics = RootComponent ? RootComponent->IsSimulatingPhysics() : false;
 
-	SceneComponent.SetRelativeLocationAndRotation(Translation, Rotation, false, nullptr, bIsSimulatingPhysics ? ETeleportType::TeleportPhysics : ETeleportType::None);
+	SceneComponent.SetRelativeLocationAndRotation(Translation, Rotation, false, nullptr, bIsSimulatingPhysics ? ETeleportType::ResetPhysics : ETeleportType::None);
 	SceneComponent.SetRelativeScale3D(Scale);
 
 	// Force the location and rotation values to avoid Rot->Quat->Rot conversions

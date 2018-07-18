@@ -41,11 +41,15 @@ namespace UnrealBuildTool.Rules
 			PublicDependencyModuleNames.AddRange(
 				new string[] {
 					"MediaAssets",
+					"TimeManagement",
 				});
+
+			bool bLinuxEnabled = Target.Platform == UnrealTargetPlatform.Linux && Target.Architecture.StartsWith("x86_64");
 
 			if ((Target.Platform == UnrealTargetPlatform.Mac) ||
 				(Target.Platform == UnrealTargetPlatform.Win32) ||
-				(Target.Platform == UnrealTargetPlatform.Win64))
+				(Target.Platform == UnrealTargetPlatform.Win64) ||
+				bLinuxEnabled)
 			{
 				PrivateDependencyModuleNames.Add("OpenExrWrapper");
 			}

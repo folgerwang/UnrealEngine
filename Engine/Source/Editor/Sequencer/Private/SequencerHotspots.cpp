@@ -10,7 +10,10 @@
 #include "Tools/SequencerEditTool_Movement.h"
 #include "Tools/SequencerEditTool_Selection.h"
 #include "SequencerTrackNode.h"
-#include "SBox.h"
+#include "Widgets/Layout/SBox.h"
+#include "Channels/MovieSceneChannel.h"
+#include "Channels/MovieSceneChannelProxy.h"
+#include "MovieSceneTimeHelpers.h"
 
 #define LOCTEXT_NAMESPACE "SequencerHotspots"
 
@@ -29,28 +32,37 @@ void FKeyHotspot::UpdateOnHover(SSequencerTrackArea& InTrackArea, ISequencer& In
 	InTrackArea.AttemptToActivateTool(FSequencerEditTool_Movement::Identifier);
 }
 
-TOptional<float> FKeyHotspot::GetTime() const
+TOptional<FFrameNumber> FKeyHotspot::GetTime() const
 {
-	return Key.KeyArea->GetKeyTime(Key.KeyHandle.GetValue());
+	FFrameNumber Time = 0;
+
+	if (Keys.Num())
+	{
+		TArrayView<const FSequencerSelectedKey> FirstKey(&Keys[0], 1);
+		TArrayView<FFrameNumber> FirstKeyTime(&Time, 1);
+		GetKeyTimes(FirstKey, FirstKeyTime);
+	}
+
+	return Time;
 }
 
-bool FKeyHotspot::PopulateContextMenu(FMenuBuilder& MenuBuilder, ISequencer& InSequencer, float MouseDownTime)
+bool FKeyHotspot::PopulateContextMenu(FMenuBuilder& MenuBuilder, ISequencer& InSequencer, FFrameTime MouseDownTime)
 {
 	FSequencer& Sequencer = static_cast<FSequencer&>(InSequencer);
 	FKeyContextMenu::BuildMenu(MenuBuilder, Sequencer);
 	return true;
 }
 
-TOptional<float> FSectionHotspot::GetTime() const
+TOptional<FFrameNumber> FSectionHotspot::GetTime() const
 {
 	UMovieSceneSection* ThisSection = Section.GetSectionObject();
-	return ThisSection ? ThisSection->GetStartTime() : TOptional<float>();
+	return ThisSection && ThisSection->HasStartFrame() ? ThisSection->GetInclusiveStartFrame() : TOptional<FFrameNumber>();
 }
 
-TOptional<float> FSectionHotspot::GetOffsetTime() const
+TOptional<FFrameTime> FSectionHotspot::GetOffsetTime() const
 {
 	UMovieSceneSection* ThisSection = Section.GetSectionObject();
-	return ThisSection ? ThisSection->GetOffsetTime() : TOptional<float>();
+	return ThisSection ? ThisSection->GetOffsetTime() : TOptional<FFrameTime>();
 }
 
 void FSectionHotspot::UpdateOnHover(SSequencerTrackArea& InTrackArea, ISequencer& InSequencer) const
@@ -64,11 +76,21 @@ void FSectionHotspot::UpdateOnHover(SSequencerTrackArea& InTrackArea, ISequencer
 	}
 	else
 	{
-		// Activate selection mode if the section has keys or is infinite, otherwise just move it
-		TSet<FKeyHandle> KeyHandles;
-		ThisSection->GetKeyHandles(KeyHandles, ThisSection->GetRange());
+		// Activate selection mode if the section has keys
+		for (const FMovieSceneChannelEntry& Entry : ThisSection->GetChannelProxy().GetAllEntries())
+		{
+			for (const FMovieSceneChannel* Channel : Entry.GetChannels())
+			{
+				if (Channel->GetNumKeys() != 0)
+				{
+					InTrackArea.AttemptToActivateTool(FSequencerEditTool_Selection::Identifier);
+					return;
+				}
+			}
+		}
 
-		if (KeyHandles.Num() || ThisSection->IsInfinite())
+		// Activate selection mode if the section is infinite, otherwise just move it
+		if (ThisSection->GetRange() == TRange<FFrameNumber>::All())
 		{
 			InTrackArea.AttemptToActivateTool(FSequencerEditTool_Selection::Identifier);
 		}
@@ -79,7 +101,7 @@ void FSectionHotspot::UpdateOnHover(SSequencerTrackArea& InTrackArea, ISequencer
 	}
 }
 
-bool FSectionHotspot::PopulateContextMenu(FMenuBuilder& MenuBuilder, ISequencer& InSequencer, float MouseDownTime)
+bool FSectionHotspot::PopulateContextMenu(FMenuBuilder& MenuBuilder, ISequencer& InSequencer, FFrameTime MouseDownTime)
 {
 	FSequencer& Sequencer = static_cast<FSequencer&>(InSequencer);
 
@@ -102,14 +124,14 @@ bool FSectionHotspot::PopulateContextMenu(FMenuBuilder& MenuBuilder, ISequencer&
 	return true;
 }
 
-TOptional<float> FSectionResizeHotspot::GetTime() const
+TOptional<FFrameNumber> FSectionResizeHotspot::GetTime() const
 {
 	UMovieSceneSection* ThisSection = Section.GetSectionObject();
 	if (!ThisSection)
 	{
-		return TOptional<float>();
+		return TOptional<FFrameNumber>();
 	}
-	return HandleType == Left ? ThisSection->GetStartTime() : ThisSection->GetEndTime();
+	return HandleType == Left ? ThisSection->GetInclusiveStartFrame() : ThisSection->GetExclusiveEndFrame();
 }
 
 void FSectionResizeHotspot::UpdateOnHover(SSequencerTrackArea& InTrackArea, ISequencer& InSequencer) const
@@ -135,21 +157,21 @@ TSharedPtr<ISequencerEditToolDragOperation> FSectionResizeHotspot::InitiateDrag(
 	return MakeShareable( new FResizeSection(static_cast<FSequencer&>(Sequencer), SectionHandles, HandleType == Right, bIsSlipping) );
 }
 
-TOptional<float> FSectionEasingHandleHotspot::GetTime() const
+TOptional<FFrameNumber> FSectionEasingHandleHotspot::GetTime() const
 {
 	UMovieSceneSection* ThisSection = Section.GetSectionObject();
 	if (ThisSection)
 	{
 		if (HandleType == ESequencerEasingType::In && !ThisSection->GetEaseInRange().IsEmpty())
 		{
-			return ThisSection->GetEaseInRange().GetUpperBoundValue();
+			return MovieScene::DiscreteExclusiveUpper(ThisSection->GetEaseInRange());
 		}
 		else if (HandleType == ESequencerEasingType::Out && !ThisSection->GetEaseOutRange().IsEmpty())
 		{
-			return ThisSection->GetEaseOutRange().GetLowerBoundValue();
+			return MovieScene::DiscreteInclusiveLower(ThisSection->GetEaseOutRange());
 		}
 	}
-	return TOptional<float>();
+	return TOptional<FFrameNumber>();
 }
 
 void FSectionEasingHandleHotspot::UpdateOnHover(SSequencerTrackArea& InTrackArea, ISequencer& InSequencer) const
@@ -157,7 +179,7 @@ void FSectionEasingHandleHotspot::UpdateOnHover(SSequencerTrackArea& InTrackArea
 	InTrackArea.AttemptToActivateTool(FSequencerEditTool_Movement::Identifier);
 }
 
-bool FSectionEasingHandleHotspot::PopulateContextMenu(FMenuBuilder& MenuBuilder, ISequencer& Sequencer, float MouseDownTime)
+bool FSectionEasingHandleHotspot::PopulateContextMenu(FMenuBuilder& MenuBuilder, ISequencer& Sequencer, FFrameTime MouseDownTime)
 {
 	FEasingContextMenu::BuildMenu(MenuBuilder, { FEasingAreaHandle{Section, HandleType} }, static_cast<FSequencer&>(Sequencer), MouseDownTime);
 	return true;
@@ -168,7 +190,7 @@ TSharedPtr<ISequencerEditToolDragOperation> FSectionEasingHandleHotspot::Initiat
 	return MakeShareable( new FManipulateSectionEasing(static_cast<FSequencer&>(Sequencer), Section, HandleType == ESequencerEasingType::In) );
 }
 
-bool FSectionEasingAreaHotspot::PopulateContextMenu(FMenuBuilder& MenuBuilder, ISequencer& Sequencer, float MouseDownTime)
+bool FSectionEasingAreaHotspot::PopulateContextMenu(FMenuBuilder& MenuBuilder, ISequencer& Sequencer, FFrameTime MouseDownTime)
 {
 	FEasingContextMenu::BuildMenu(MenuBuilder, Easings, static_cast<FSequencer&>(Sequencer), MouseDownTime);
 

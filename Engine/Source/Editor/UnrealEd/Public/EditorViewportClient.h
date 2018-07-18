@@ -1256,7 +1256,7 @@ protected:
 	virtual bool GetActiveSafeFrame(float& OutAspectRatio) const { return false; }
 
 	/** Helper function to calculate the safe frame rectangle on the current viewport */
-	bool CalculateEditorConstrainedViewRect(FSlateRect& OutSafeFrameRect, FViewport* InViewport);
+	bool CalculateEditorConstrainedViewRect(FSlateRect& OutSafeFrameRect, FViewport* InViewport, const float DPIScale);
 
 	virtual void NudgeSelectedObjects(const struct FInputEventState& InputState) {}
 

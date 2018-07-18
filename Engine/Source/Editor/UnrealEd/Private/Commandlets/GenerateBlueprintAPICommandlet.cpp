@@ -59,6 +59,14 @@ GenerateBlueprintAPI commandlet params: \n\
                         unset then it will go through EVERY blueprint parent   \n\
                         class available.                                       \n\
 \n\
+    -category=<CategoryPath1, CategoryPath2, ...>                              \n\
+                        Used to specify the blueprint's category path, if      \n\
+                        left unset then it will go through EVERY category      \n\
+                        available. A category path can contain a single        \n\
+                        category, or multiple category names concanated by     \n\
+                        \'|\'. Multiple category paths can be supplied by using\n\
+                        \',\' as separators.                                   \n\
+\n\
     -multifile          Used to keep file size down, will split each blueprint \n\
                         into its own file (meaning only one file will be       \n\
                         created when used with -class).                        \n\
@@ -75,7 +83,7 @@ GenerateBlueprintAPI commandlet params: \n\
                         (as it has been time sync in the past). This is not    \n\
                         ideal for diffs though (since times can easily vary).  \n\
 \n\
-    -experimental       Uses an new way of constructing Blueprint action menus \n\
+    -experimental       Uses a new way of constructing Blueprint action menus \n\
                         (that will replace the current system).                \n\
 \n\
     -name=<Filename>    Overrides the default filename. Leave off the extention\n\
@@ -121,6 +129,7 @@ GenerateBlueprintAPI commandlet params: \n\
 		UClass*    PaletteFilter;
 		FString    SaveDir;
 		FString    Filename;
+		TArray<FString> CategoryFilter;
 	};
 
 	/** Static instance of the command switches (so we don't have to pass one along the call stack) */
@@ -223,6 +232,11 @@ GenerateBlueprintAPI commandlet params: \n\
 	static void DumpActionList(uint32 Indent, FGraphActionListBuilderBase& ActionList, FArchive* FileOutWriter);
 
 	/**
+	* Get the category information from a given action.
+	*/
+	static FString GetActionCategory(FGraphActionListBuilderBase::ActionGroup const& Action);
+
+	/**
 	 * Generic function that dumps information on a single action (like it's 
 	 * name, category, an associated node if it has one, etc.).
 	 */
@@ -292,6 +306,34 @@ GenerateBlueprintAPIUtils::CommandletOptions::CommandletOptions(TArray<FString> 
 				{
 					UE_LOG(LogBlueprintAPIGenerate, Error, TEXT("Unrecognized palette filter '%s', defaulting to unfiltered"), *ClassName);
 					NewDumpFlags &= ~(GenerateBlueprintAPIUtils::BPDUMP_FilteredPalette);
+				}
+			}
+		}
+		else if (Switch.StartsWith("category=", ESearchCase::IgnoreCase))
+		{
+			FString ClassSwitch, Filters;
+			Switch.Split(TEXT("="), &ClassSwitch, &Filters, ESearchCase::IgnoreCase);
+
+			// Remove surounding " or ' if exist.
+			Filters = Filters.Replace(TEXT("\""), TEXT(""), ESearchCase::IgnoreCase);
+			Filters = Filters.Replace(TEXT("\'"), TEXT(""), ESearchCase::IgnoreCase);
+			Filters.TrimStartAndEndInline();
+
+			// Parse multiple category paths.
+			while (Filters.Len() > 0)
+			{
+				FString FilterName, OtherFilters;
+				if (Filters.Split(TEXT(","), &FilterName, &OtherFilters, ESearchCase::IgnoreCase))
+				{
+					FilterName.TrimStartAndEndInline();
+					CategoryFilter.Add(FilterName);
+					Filters = OtherFilters;
+				}
+				else
+				{
+					Filters.TrimStartAndEndInline();
+					CategoryFilter.Add(Filters);
+					break;
 				}
 			}
 		}
@@ -726,6 +768,9 @@ static void GenerateBlueprintAPIUtils::DumpPalette(uint32 Indent, UBlueprint* Bl
 static void GenerateBlueprintAPIUtils::DumpActionList(uint32 Indent, FGraphActionListBuilderBase& ActionList, FArchive* FileOutWriter)
 {
 	TArray< FGraphActionListBuilderBase::ActionGroup const* > SortedActions;
+	const TArray<FString>& CategoryFilter = GenerateBlueprintAPIUtils::CommandOptions.CategoryFilter;
+	bool HasCategoryFilter = CategoryFilter.Num() > 0;
+
 	for (int32 ActionIndex = 0; ActionIndex < ActionList.GetNumActions(); ++ActionIndex)
 	{
 		FGraphActionListBuilderBase::ActionGroup& Action = ActionList.GetAction(ActionIndex);
@@ -734,7 +779,22 @@ static void GenerateBlueprintAPIUtils::DumpActionList(uint32 Indent, FGraphActio
 			continue;
 		}
 
-		SortedActions.Add(&Action);
+		if (!HasCategoryFilter)
+		{
+			SortedActions.Add(&Action);
+		}
+		else
+		{
+			const FString& ActionCategory = GenerateBlueprintAPIUtils::GetActionCategory(Action);
+			for (const FString& filter : CategoryFilter)
+			{
+				if (ActionCategory.Contains(filter, ESearchCase::CaseSensitive, ESearchDir::FromStart))
+				{
+					SortedActions.Add(&Action);
+					break;
+				}
+			}
+		}
 	}
 
 	FString const ActionListIndent = BuildIndentString(Indent);
@@ -778,16 +838,15 @@ static void GenerateBlueprintAPIUtils::DumpActionList(uint32 Indent, FGraphActio
 	EndActionListEntry += "\n" + ActionListIndent + "}";
 	FileOutWriter->Serialize(TCHAR_TO_ANSI(*EndActionListEntry), EndActionListEntry.Len());
 }
-
 //------------------------------------------------------------------------------
-static void GenerateBlueprintAPIUtils::DumpActionMenuItem(uint32 Indent, FGraphActionListBuilderBase::ActionGroup const& Action, FGraphActionListBuilderBase& ActionList, FArchive* FileOutWriter)
+static FString GenerateBlueprintAPIUtils::GetActionCategory(FGraphActionListBuilderBase::ActionGroup const& Action)
 {
 	check(Action.Actions.Num() > 0);
 
 	// Get action category info
 	const TArray<FString>& MenuHierarchy = Action.GetCategoryChain();
 
-	FString ActionCategory = TEXT("");
+	FString ActionCategory;
 
 	bool bHasCategory = (MenuHierarchy.Num() > 0);
 	if (bHasCategory)
@@ -797,7 +856,12 @@ static void GenerateBlueprintAPIUtils::DumpActionMenuItem(uint32 Indent, FGraphA
 			ActionCategory += SubCategory + TEXT("|");
 		}
 	}
-
+	return ActionCategory;
+}
+//------------------------------------------------------------------------------
+static void GenerateBlueprintAPIUtils::DumpActionMenuItem(uint32 Indent, FGraphActionListBuilderBase::ActionGroup const& Action, FGraphActionListBuilderBase& ActionList, FArchive* FileOutWriter)
+{
+	const FString& ActionCategory = GenerateBlueprintAPIUtils::GetActionCategory(Action);
 	TArray<FString> Categories;
 	ActionCategory.ParseIntoArray(Categories, TEXT("|"), true);
 
@@ -840,30 +904,30 @@ static void GenerateBlueprintAPIUtils::DumpActionMenuItem(uint32 Indent, FGraphA
 
 		if (Node->ShouldDrawCompact())
 		{
-			ActionEntry += IndentedNewline + "\"CompactTitle\" : \"" + MakeJsonString(Node->GetCompactNodeTitle().ToString()) + "\"";
+			ActionEntry += "," + IndentedNewline + "\"CompactTitle\" : \"" + MakeJsonString(Node->GetCompactNodeTitle().ToString()) + "\"";
 		}
 
 		if (Node->IsNodePure())
 		{
-			ActionEntry += IndentedNewline + "\"NodeType\"     : \"pure\"";
+			ActionEntry += "," + IndentedNewline + "\"NodeType\"     : \"pure\"";
 		}
 		else if (Node->IsA<UK2Node_Event>())
 		{
-			ActionEntry += IndentedNewline + "\"NodeType\"     : \"event\"";
+			ActionEntry += "," + IndentedNewline + "\"NodeType\"     : \"event\"";
 		}
 		else if (Node->IsA<UK2Node_Switch>())
 		{
-			ActionEntry += IndentedNewline + "\"NodeType\"     : \"switch\"";
+			ActionEntry += "," + IndentedNewline + "\"NodeType\"     : \"switch\"";
 		}
 		else
 		{
-			ActionEntry += IndentedNewline + "\"NodeType\"     : \"function\"";
+			ActionEntry += "," + IndentedNewline + "\"NodeType\"     : \"function\"";
 		}
 
 		if (Node->IsA<UK2Node_CommutativeAssociativeBinaryOperator>()
 			|| (Node->IsA<UK2Node_Switch>() && !Node->IsA<UK2Node_SwitchEnum>()))
 		{
-			ActionEntry += IndentedNewline + "\"ShowAddPin\"   : \"true\"";
+			ActionEntry += "," + IndentedNewline + "\"ShowAddPin\"   : \"true\"";
 		}
 
 		if (Node->Pins.Num() > 0)
@@ -898,7 +962,7 @@ static void GenerateBlueprintAPIUtils::DumpActionMenuItem(uint32 Indent, FGraphA
 					{
 						ActionEntry += PinDetailsIndentedNewline + "\"Name\"                 : \"" + MakeJsonString(DisplayName) + "\",";
 					}
-					ActionEntry += PinDetailsIndentedNewline + "\"Direction\"            : \"" + (Pin->Direction == EGPD_Input ? "input" : "output") + "\"";
+					ActionEntry += PinDetailsIndentedNewline + "\"Direction\"            : \"" + (Pin->Direction == EGPD_Input ? "input" : "output") + "\",";
 
 					ActionEntry += PinDetailsIndentedNewline + "\"TypeText\"             : \"" + UEdGraphSchema_K2::TypeToText(Pin->PinType).ToString() + "\"";
 

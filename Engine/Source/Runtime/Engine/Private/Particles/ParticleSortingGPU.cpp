@@ -26,12 +26,12 @@
  * Uniform buffer parameters for generating particle sort keys.
  */
 BEGIN_UNIFORM_BUFFER_STRUCT( FParticleKeyGenParameters, )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( FVector4, ViewOrigin )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( uint32, ChunksPerGroup )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( uint32, ExtraChunkCount )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( uint32, OutputOffset )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( uint32, EmitterKey )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( uint32, KeyCount )
+	UNIFORM_MEMBER( FVector4, ViewOrigin )
+	UNIFORM_MEMBER( uint32, ChunksPerGroup )
+	UNIFORM_MEMBER( uint32, ExtraChunkCount )
+	UNIFORM_MEMBER( uint32, OutputOffset )
+	UNIFORM_MEMBER( uint32, EmitterKey )
+	UNIFORM_MEMBER( uint32, KeyCount )
 END_UNIFORM_BUFFER_STRUCT( FParticleKeyGenParameters )
 
 IMPLEMENT_UNIFORM_BUFFER_STRUCT(FParticleKeyGenParameters,TEXT("ParticleKeyGen"));

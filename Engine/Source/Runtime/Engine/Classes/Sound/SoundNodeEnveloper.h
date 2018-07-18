@@ -88,7 +88,7 @@ public:
 
 	//~ Begin USoundNode Interface. 
 	virtual void ParseNodes( FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanceHash, FActiveSound& ActiveSound, const FSoundParseParameters& ParseParams, TArray<FWaveInstance*>& WaveInstances ) override;
-	virtual float GetDuration( void ) override;
+	virtual float GetDuration() override;
 	//~ End USoundNode Interface. 
 
 };

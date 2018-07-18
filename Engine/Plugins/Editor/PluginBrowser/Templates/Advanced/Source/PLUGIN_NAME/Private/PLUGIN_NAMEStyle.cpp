@@ -3,8 +3,8 @@
 #include "PLUGIN_NAMEStyle.h"
 #include "Styling/SlateStyleRegistry.h"
 #include "Framework/Application/SlateApplication.h"
-#include "SlateGameResources.h"
-#include "IPluginManager.h"
+#include "Slate/SlateGameResources.h"
+#include "Interfaces/IPluginManager.h"
 
 TSharedPtr< FSlateStyleSet > FPLUGIN_NAMEStyle::StyleInstance = NULL;
 

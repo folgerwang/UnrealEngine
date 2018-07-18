@@ -2,11 +2,11 @@
 
 #pragma once
 
-#include "NiagaraStackItemGroup.h"
+#include "ViewModels/Stack/NiagaraStackItemGroup.h"
+#include "NiagaraEmitter.h"
 #include "NiagaraStackEventHandlerGroup.generated.h"
 
 class FNiagaraEmitterViewModel;
-class UNiagaraStackAddEventScriptItem;
 
 UCLASS()
 /** Container for one or more NiagaraStackEventScriptItemGroups, allowing multiple event handlers per script.*/
@@ -18,26 +18,14 @@ public:
 	DECLARE_DELEGATE(FOnItemAdded);
 
 public:
-
-	virtual FText GetDisplayName() const override;
-	void SetDisplayName(FText InDisplayName);
-	
-	virtual bool GetShouldShowInStack() const override;
+	void Initialize(FRequiredEntryData InRequiredEntryData);
 
 	void SetOnItemAdded(FOnItemAdded InOnItemAdded);
-	
-protected:
-	virtual void RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren) override;
-
-	void ChildModifiedGroupItems();
 
 private:
-	FText DisplayName;
+	void ItemAddedFromUtilties(FNiagaraEventScriptProperties AddedEventHandler);
 
-	bool bForceRebuild;
-	
-	UPROPERTY()
-	UNiagaraStackAddEventScriptItem* AddScriptItem;
-	
+private:
+	TSharedPtr<INiagaraStackItemGroupAddUtilities> AddUtilities;
 	FOnItemAdded ItemAddedDelegate;
 };

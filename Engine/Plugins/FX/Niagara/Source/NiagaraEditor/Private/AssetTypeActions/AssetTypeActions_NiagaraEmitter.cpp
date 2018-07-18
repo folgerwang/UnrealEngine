@@ -6,15 +6,25 @@
 #include "NiagaraSystemToolkit.h"
 #include "NiagaraEditorStyle.h"
 #include "NiagaraSystemFactoryNew.h"
-#include "NiagaraSystemViewModel.h"
+#include "ViewModels/NiagaraSystemViewModel.h"
 #include "NiagaraSystemScriptViewModel.h"
 #include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "EditorStyleSet.h"
-#include "AssetEditorToolkit.h"
+#include "Toolkits/AssetEditorToolkit.h"
 #include "IContentBrowserSingleton.h"
 #include "ContentBrowserModule.h"
+#include "NiagaraEditorUtilities.h"
+#include "Modules/ModuleManager.h"
 
 #define LOCTEXT_NAMESPACE "AssetTypeActions"
+
+FAssetTypeActions_NiagaraEmitter::FAssetTypeActions_NiagaraEmitter()
+{
+}
+
+FAssetTypeActions_NiagaraEmitter::~FAssetTypeActions_NiagaraEmitter()
+{
+}
 
 FColor FAssetTypeActions_NiagaraEmitter::GetTypeColor() const
 {
@@ -53,6 +63,21 @@ void FAssetTypeActions_NiagaraEmitter::GetActions(const TArray<UObject*>& InObje
 			FExecuteAction::CreateSP(this, &FAssetTypeActions_NiagaraEmitter::ExecuteNewNiagaraSystem, NiagaraEmitters)
 		)
 	);
+
+	bool bInObjectsAreCompilable = true;
+	for (UObject* InObject : InObjects)
+	{
+		if (FNiagaraEditorUtilities::IsCompilableAssetClass(InObject->GetClass()) == false)
+		{
+			bInObjectsAreCompilable = false;
+		}
+	}
+
+	MenuBuilder.AddMenuEntry(
+		LOCTEXT("MarkDependentCompilableAssetsDirtyLabel", "Mark dependent compilable assets dirty"),
+		LOCTEXT("MarkDependentCompilableAssetsDirtyToolTip", "Finds all niagara assets which depend on this asset either directly or indirectly,\n and marks them dirty so they can be saved with the latest version."),
+		FSlateIcon(),
+		FUIAction(FExecuteAction::CreateStatic(&FNiagaraEditorUtilities::MarkDependentCompilableAssetsDirty, InObjects)));
 }
 
 void FAssetTypeActions_NiagaraEmitter::ExecuteNewNiagaraSystem(TArray<TWeakObjectPtr<UNiagaraEmitter>> Objects)
@@ -61,7 +86,6 @@ void FAssetTypeActions_NiagaraEmitter::ExecuteNewNiagaraSystem(TArray<TWeakObjec
 
 	FNiagaraSystemViewModelOptions SystemOptions;
 	SystemOptions.bCanModifyEmittersFromTimeline = true;
-	SystemOptions.bUseSystemExecStateForTimelineReset = true;
 	SystemOptions.EditMode = ENiagaraSystemViewModelEditMode::SystemAsset;
 
 	TArray<UObject*> ObjectsToSync;

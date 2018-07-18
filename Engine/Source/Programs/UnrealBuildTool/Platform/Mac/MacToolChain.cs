@@ -10,6 +10,7 @@ using System.Text;
 using System.Linq;
 using Ionic.Zip;
 using Tools.DotNETCommon;
+using System.Globalization;
 
 namespace UnrealBuildTool
 {
@@ -31,7 +32,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Which version of the Mac OS X to allow at run time
 		/// </summary>
-		public string MacOSVersion = "10.11";
+		public string MacOSVersion = "10.12";
 
 		/// <summary>
 		/// Minimum version of Mac OS X to actually run on, running on earlier versions will display the system minimum version error dialog and exit.
@@ -60,7 +61,14 @@ namespace UnrealBuildTool
 			SelectSDK(BaseSDKDir, "MacOSX", ref MacOSSDKVersion, bVerbose);
 
 			// convert to float for easy comparison
-			MacOSSDKVersionFloat = float.Parse(MacOSSDKVersion, System.Globalization.CultureInfo.InvariantCulture);
+			if(String.IsNullOrWhiteSpace(MacOSSDKVersion))
+			{
+				throw new BuildException("Unable to find installed MacOS SDK on remote agent.");
+			}
+			else if(!float.TryParse(MacOSSDKVersion, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture.NumberFormat, out MacOSSDKVersionFloat))
+			{
+				throw new BuildException("Unable to parse installed MacOS version (\"{0}\")", MacOSSDKVersion);
+			}
 		}
 	}
 
@@ -158,6 +166,11 @@ namespace UnrealBuildTool
 
 			Result += " -fexceptions";
 			Result += " -fasm-blocks";
+
+			if (!Utils.IsRunningOnMono)
+			{
+				Result += " -fdiagnostics-format=msvc";
+			}
 
 			if(CompileEnvironment.bHideSymbolsByDefault)
 			{
@@ -384,6 +397,12 @@ namespace UnrealBuildTool
 				Result += " -dynamiclib";
 			}
 
+			if (LinkEnvironment.Configuration == CppConfiguration.Debug)
+			{
+				// Apple's Clang is not supposed to run the de-duplication pass when linking in debug configs. Xcode adds this flag automatically, we need it as well, otherwise linking would take very long
+				Result += " -Wl,-no_deduplicate";
+			}
+
 			// Needed to make sure install_name_tool will be able to update paths in Mach-O headers
 			Result += " -headerpad_max_install_names";
 
@@ -399,10 +418,10 @@ namespace UnrealBuildTool
 			return Result;
 		}
 
-		public override CPPOutput CompileCPPFiles(CppCompileEnvironment CompileEnvironment, List<FileItem> SourceFiles, string ModuleName, ActionGraph ActionGraph)
+		public override CPPOutput CompileCPPFiles(CppCompileEnvironment CompileEnvironment, List<FileItem> InputFiles, DirectoryReference OutputDir, string ModuleName, ActionGraph ActionGraph)
 		{
-			var Arguments = new StringBuilder();
-			var PCHArguments = new StringBuilder();
+			StringBuilder Arguments = new StringBuilder();
+			StringBuilder PCHArguments = new StringBuilder();
 
 			Arguments.Append(GetCompileArguments_Global(CompileEnvironment));
 
@@ -410,39 +429,39 @@ namespace UnrealBuildTool
 			{
 				// Add the precompiled header file's path to the include path so GCC can find it.
 				// This needs to be before the other include paths to ensure GCC uses it instead of the source header file.
-				var PrecompiledFileExtension = UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.Mac).GetBinaryExtension(UEBuildBinaryType.PrecompiledHeader);
+				string PrecompiledFileExtension = UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.Mac).GetBinaryExtension(UEBuildBinaryType.PrecompiledHeader);
 				PCHArguments.Append(" -include \"");
 				PCHArguments.Append(CompileEnvironment.PrecompiledHeaderFile.AbsolutePath.Replace(PrecompiledFileExtension, ""));
 				PCHArguments.Append("\"");
 			}
 
-			foreach(FileReference ForceIncludeFile in CompileEnvironment.ForceIncludeFiles)
+			foreach(FileItem ForceIncludeFile in CompileEnvironment.ForceIncludeFiles)
 			{
-				PCHArguments.Append(String.Format(" -include \"{0}\"", ForceIncludeFile.FullName));
+				PCHArguments.Append(String.Format(" -include \"{0}\"", ForceIncludeFile.Location));
 			}
 
 			// Add include paths to the argument list.
-			HashSet<string> AllIncludes = new HashSet<string>(CompileEnvironment.IncludePaths.UserIncludePaths);
+			HashSet<DirectoryReference> AllIncludes = new HashSet<DirectoryReference>(CompileEnvironment.IncludePaths.UserIncludePaths);
 			AllIncludes.UnionWith(CompileEnvironment.IncludePaths.SystemIncludePaths);
-			foreach (string IncludePath in AllIncludes)
+			foreach (DirectoryReference IncludePath in AllIncludes)
 			{
 				Arguments.Append(" -I\"");
 
 				if (BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac)
 				{
-					Arguments.Append(ConvertPath(Path.GetFullPath(IncludePath)));
+					Arguments.Append(ConvertPath(IncludePath.FullName));
 
 					// sync any third party headers we may need
-					if (IncludePath.Contains("ThirdParty"))
+					if (IncludePath.FullName.Contains("ThirdParty"))
 					{
-						string[] FileList = Directory.GetFiles(IncludePath, "*.h", SearchOption.AllDirectories);
+						string[] FileList = Directory.GetFiles(IncludePath.FullName, "*.h", SearchOption.AllDirectories);
 						foreach (string File in FileList)
 						{
 							FileItem ExternalDependency = FileItem.GetItemByPath(File);
 							LocalToRemoteFileItem(ExternalDependency, true);
 						}
 
-						FileList = Directory.GetFiles(IncludePath, "*.cpp", SearchOption.AllDirectories);
+						FileList = Directory.GetFiles(IncludePath.FullName, "*.cpp", SearchOption.AllDirectories);
 						foreach (string File in FileList)
 						{
 							FileItem ExternalDependency = FileItem.GetItemByPath(File);
@@ -468,9 +487,11 @@ namespace UnrealBuildTool
 
 			CPPOutput Result = new CPPOutput();
 			// Create a compile action for each source file.
-			foreach (FileItem SourceFile in SourceFiles)
+			foreach (FileItem SourceFile in InputFiles)
 			{
 				Action CompileAction = ActionGraph.Add(ActionType.Compile);
+				CompileAction.PrerequisiteItems.AddRange(CompileEnvironment.ForceIncludeFiles);
+
 				string FileArguments = "";
 				string Extension = Path.GetExtension(SourceFile.AbsolutePath).ToUpperInvariant();
 
@@ -484,12 +505,6 @@ namespace UnrealBuildTool
 				{
 					// Compile the file as C code.
 					FileArguments += GetCompileArguments_C();
-				}
-				else if (Extension == ".CC")
-				{
-					// Compile the file as C++ code.
-					FileArguments += GetCompileArguments_CPP();
-					FileArguments += GetRTTIFlag(CompileEnvironment);
 				}
 				else if (Extension == ".MM")
 				{
@@ -518,11 +533,11 @@ namespace UnrealBuildTool
 				string OutputFilePath = null;
 				if (CompileEnvironment.PrecompiledHeaderAction == PrecompiledHeaderAction.Create)
 				{
-					var PrecompiledHeaderExtension = UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.Mac).GetBinaryExtension(UEBuildBinaryType.PrecompiledHeader);
+					string PrecompiledHeaderExtension = UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.Mac).GetBinaryExtension(UEBuildBinaryType.PrecompiledHeader);
 					// Add the precompiled header file to the produced item list.
 					FileItem PrecompiledHeaderFile = FileItem.GetItemByFileReference(
 						FileReference.Combine(
-							CompileEnvironment.OutputDirectory,
+							OutputDir,
 							Path.GetFileName(SourceFile.AbsolutePath) + PrecompiledHeaderExtension
 							)
 						);
@@ -541,11 +556,11 @@ namespace UnrealBuildTool
 						CompileAction.bIsUsingPCH = true;
 						CompileAction.PrerequisiteItems.Add(CompileEnvironment.PrecompiledHeaderFile);
 					}
-					var ObjectFileExtension = UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.Mac).GetBinaryExtension(UEBuildBinaryType.Object);
+					string ObjectFileExtension = UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.Mac).GetBinaryExtension(UEBuildBinaryType.Object);
 					// Add the object file to the produced item list.
 					FileItem ObjectFile = FileItem.GetItemByFileReference(
 						FileReference.Combine(
-							CompileEnvironment.OutputDirectory,
+							OutputDir,
 							Path.GetFileName(SourceFile.AbsolutePath) + ObjectFileExtension
 							)
 						);
@@ -586,7 +601,6 @@ namespace UnrealBuildTool
 				// We're already distributing the command by execution on Mac.
 				CompileAction.bCanExecuteRemotely = false;
 				CompileAction.bShouldOutputStatusDescription = true;
-				CompileAction.OutputEventHandler = new DataReceivedEventHandler(RemoteOutputReceivedEventHandler);
 			}
 			return Result;
 		}
@@ -626,19 +640,6 @@ namespace UnrealBuildTool
 		private int LoadBuiltFromChangelistValue()
 		{
 			return LoadEngineCL();
-		}
-
-		private int LoadIsLicenseeVersionValue()
-		{
-			BuildVersion Version;
-			if (BuildVersion.TryRead(BuildVersion.GetDefaultFileName(), out Version))
-			{
-				return Version.IsLicenseeVersion;
-			}
-			else
-			{
-				return 0;
-			}
 		}
 
 		private string LoadEngineAPIVersion()
@@ -787,7 +788,7 @@ namespace UnrealBuildTool
 
 			List<string> RPaths = new List<string>();
 
-			if (!bIsBuildingLibrary || LinkEnvironment.bIncludeDependentLibrariesInLibrary)
+			if (!bIsBuildingLibrary)
 			{
 				// Add the additional libraries to the argument list.
 				foreach (string AdditionalLibrary in LinkEnvironment.AdditionalLibraries)
@@ -899,7 +900,7 @@ namespace UnrealBuildTool
 
 			if (!bIsBuildingLibrary)
 			{
-				foreach (var Framework in AllFrameworks)
+				foreach (KeyValuePair<string, bool> Framework in AllFrameworks)
 				{
 					LinkCommand += AddFrameworkToLinkCommand(Framework.Key, Framework.Value ? "-weak_framework" : "-framework");
 					AddLibraryPathToRPaths(Framework.Key, AbsolutePath, ref RPaths, ref LinkCommand, bIsBuildingAppBundle);
@@ -1009,7 +1010,6 @@ namespace UnrealBuildTool
 			LinkAction.bCanExecuteRemotely = false;
 
 			LinkAction.StatusDescription = Path.GetFileName(OutputFile.AbsolutePath);
-			LinkAction.OutputEventHandler = new DataReceivedEventHandler(RemoteOutputReceivedEventHandler);
 
 			LinkAction.ProducedItems.Add(RemoteOutputFile);
 
@@ -1211,11 +1211,11 @@ namespace UnrealBuildTool
 					AppendMacLine(FinalizeAppBundleScript, FormatCopyCommand(InfoPlistFile, TempInfoPlist));
 
 					// Fix contents of Info.plist
-					AppendMacLine(FinalizeAppBundleScript, "sed -i \"\" \"s/\\${0}/{1}/g\" \"{2}\"", "{EXECUTABLE_NAME}", ExeName, TempInfoPlist);
-					AppendMacLine(FinalizeAppBundleScript, "sed -i \"\" \"s/\\${0}/{1}/g\" \"{2}\"", "{APP_NAME}", bBuildingEditor ? ("com.epicgames." + GameName) : (BundleIdentifier.Replace("[PROJECT_NAME]", GameName).Replace("_", "")), TempInfoPlist);
-					AppendMacLine(FinalizeAppBundleScript, "sed -i \"\" \"s/\\${0}/{1}/g\" \"{2}\"", "{MACOSX_DEPLOYMENT_TARGET}", Settings.MinMacOSVersion, TempInfoPlist);
-					AppendMacLine(FinalizeAppBundleScript, "sed -i \"\" \"s/\\${0}/{1}/g\" \"{2}\"", "{ICON_NAME}", GameName, TempInfoPlist);
-					AppendMacLine(FinalizeAppBundleScript, "sed -i \"\" \"s/\\${0}/{1}/g\" \"{2}\"", "{BUNDLE_VERSION}", BundleVersion, TempInfoPlist);
+					AppendMacLine(FinalizeAppBundleScript, "sed -i \"\" -e \"s/\\${0}/{1}/g\" \"{2}\"", "{EXECUTABLE_NAME}", ExeName, TempInfoPlist);
+					AppendMacLine(FinalizeAppBundleScript, "sed -i \"\" -e \"s/\\${0}/{1}/g\" \"{2}\"", "{APP_NAME}", bBuildingEditor ? ("com.epicgames." + GameName) : (BundleIdentifier.Replace("[PROJECT_NAME]", GameName).Replace("_", "")), TempInfoPlist);
+					AppendMacLine(FinalizeAppBundleScript, "sed -i \"\" -e \"s/\\${0}/{1}/g\" \"{2}\"", "{MACOSX_DEPLOYMENT_TARGET}", Settings.MinMacOSVersion, TempInfoPlist);
+					AppendMacLine(FinalizeAppBundleScript, "sed -i \"\" -e \"s/\\${0}/{1}/g\" \"{2}\"", "{ICON_NAME}", GameName, TempInfoPlist);
+					AppendMacLine(FinalizeAppBundleScript, "sed -i \"\" -e \"s/\\${0}/{1}/g\" \"{2}\"", "{BUNDLE_VERSION}", BundleVersion, TempInfoPlist);
 
 					// Copy it into place
 					AppendMacLine(FinalizeAppBundleScript, FormatCopyCommand(TempInfoPlist, String.Format("{0}.app/Contents/Info.plist", ExeName)));
@@ -1354,7 +1354,10 @@ namespace UnrealBuildTool
 				Settings.ToolchainDir,
 				InputFile.AbsolutePath,
 				DestFile.AbsolutePath);
-			GenDebugAction.PrerequisiteItems.Add(FixDylibOutputFile);
+			if (LinkEnvironment.bIsCrossReferenced)
+			{
+				GenDebugAction.PrerequisiteItems.Add(FixDylibOutputFile);
+			}
 			GenDebugAction.PrerequisiteItems.Add(LocalToRemoteFileItem(InputFile, false));
 			GenDebugAction.ProducedItems.Add(DestFile);
 			GenDebugAction.CommandDescription = "";
@@ -1456,7 +1459,7 @@ namespace UnrealBuildTool
 
 			foreach (UEBuildBinary Binary in Binaries)
 			{
-				BundleDependencies.Add(FileItem.GetItemByFileReference(Binary.Config.OutputFilePath));
+				BundleDependencies.Add(FileItem.GetItemByFileReference(Binary.OutputFilePath));
 			}
 		}
 
@@ -1467,23 +1470,23 @@ namespace UnrealBuildTool
 			string BundleContentsPath = Target.OutputPath.FullName + ".app/Contents/";
 			foreach (UEBuildBinary Binary in Binaries)
 			{
-				string BinaryFileName = Path.GetFileName(Binary.Config.OutputFilePath.FullName);
+				string BinaryFileName = Path.GetFileName(Binary.OutputFilePath.FullName);
 				if (BinaryFileName.EndsWith(".dylib"))
 				{
 					// Only dylibs from the same folder as the executable should be moved to the bundle. UE4Editor-*Game* dylibs and plugins will be loaded
 					// from their Binaries/Mac folders.
-					string DylibDir = Path.GetDirectoryName(Path.GetFullPath(Binary.Config.OutputFilePath.FullName));
+					string DylibDir = Path.GetDirectoryName(Path.GetFullPath(Binary.OutputFilePath.FullName));
 					string ExeDir = Path.GetDirectoryName(Path.GetFullPath(Target.OutputPath.FullName));
 					if (DylibDir.StartsWith(ExeDir))
 					{
 						// get the subdir, which is the DylibDir - ExeDir
 						string SubDir = DylibDir.Replace(ExeDir, "");
-						Binary.Config.OutputFilePaths[0] = new FileReference(BundleContentsPath + "MacOS" + SubDir + "/" + BinaryFileName);
+						Binary.OutputFilePaths[0] = new FileReference(BundleContentsPath + "MacOS" + SubDir + "/" + BinaryFileName);
 					}
 				}
-				else if (!BinaryFileName.EndsWith(".a") && !Binary.Config.OutputFilePath.FullName.Contains(".app/Contents/MacOS/")) // Binaries can contain duplicates
+				else if (!BinaryFileName.EndsWith(".a") && !Binary.OutputFilePath.FullName.Contains(".app/Contents/MacOS/")) // Binaries can contain duplicates
 				{
-					Binary.Config.OutputFilePaths[0] += ".app/Contents/MacOS/" + BinaryFileName;
+					Binary.OutputFilePaths[0] += ".app/Contents/MacOS/" + BinaryFileName;
 				}
 			}
 		}
@@ -1500,17 +1503,18 @@ namespace UnrealBuildTool
 
 				foreach (KeyValuePair<FileReference, BuildProductType> BuildProductPair in BuildProductsArray)
 				{
-					string DebugExtension = "";
+					string[] DebugExtensions = new string[] {};
 					switch (BuildProductPair.Value)
 					{
 						case BuildProductType.Executable:
-							DebugExtension = UEBuildPlatform.GetBuildPlatform(Target.Platform).GetDebugInfoExtension(Target, UEBuildBinaryType.Executable);
+							DebugExtensions = UEBuildPlatform.GetBuildPlatform(Target.Platform).GetDebugInfoExtensions(Target, UEBuildBinaryType.Executable);
 							break;
 						case BuildProductType.DynamicLibrary:
-							DebugExtension = UEBuildPlatform.GetBuildPlatform(Target.Platform).GetDebugInfoExtension(Target, UEBuildBinaryType.DynamicLinkLibrary);
+							DebugExtensions = UEBuildPlatform.GetBuildPlatform(Target.Platform).GetDebugInfoExtensions(Target, UEBuildBinaryType.DynamicLinkLibrary);
 							break;
 					}
-					if (DebugExtension == ".dSYM")
+					string DSYMExtension = Array.Find(DebugExtensions, element => element == ".dSYM");
+					if (!string.IsNullOrEmpty(DSYMExtension))
 					{
 						string BinaryPath = BuildProductPair.Key.FullName;
 						if(BinaryPath.Contains(".app"))
@@ -1520,7 +1524,7 @@ namespace UnrealBuildTool
 								BinaryPath = Path.GetDirectoryName(BinaryPath);
 							}
 							BinaryPath = Path.Combine(BinaryPath, BuildProductPair.Key.GetFileName());
-							BinaryPath = Path.ChangeExtension(BinaryPath, DebugExtension);
+							BinaryPath = Path.ChangeExtension(BinaryPath, DSYMExtension);
 							FileReference Ref = new FileReference(BinaryPath);
 							BuildProducts[Ref] = BuildProductType.SymbolFile;
 						}
@@ -1541,13 +1545,13 @@ namespace UnrealBuildTool
 				return;
 			}
 
-			if (BundleContentsDirectory == null && Binary.Config.Type == UEBuildBinaryType.Executable)
+			if (BundleContentsDirectory == null && Binary.Type == UEBuildBinaryType.Executable)
 			{
-				BundleContentsDirectory = Binary.Config.OutputFilePath.Directory.ParentDirectory;
+				BundleContentsDirectory = Binary.OutputFilePath.Directory.ParentDirectory;
 			}
 
 			// We need to know what third party dylibs would be copied to the bundle
-			if (Binary.Config.Type != UEBuildBinaryType.StaticLibrary)
+			if (Binary.Type != UEBuildBinaryType.StaticLibrary)
 			{
 			    foreach (string AdditionalLibrary in Libraries)
 				{
@@ -1581,7 +1585,7 @@ namespace UnrealBuildTool
 				}
 			}
 
-			if (Binary.Config.Type == UEBuildBinaryType.Executable)
+			if (Binary.Type == UEBuildBinaryType.Executable)
 			{
 				// And we also need all the resources
 				BuildProducts.Add(FileReference.Combine(BundleContentsDirectory, "Info.plist"), BuildProductType.RequiredResource);
@@ -1611,12 +1615,12 @@ namespace UnrealBuildTool
 			if (BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac)
 			{
 				List<string> BuiltBinaries = new List<string>();
-				foreach (UEBuildBinary Binary in InTarget.AppBinaries)
+				foreach (UEBuildBinary Binary in InTarget.Binaries)
 				{
 					BuiltBinaries.Add(Path.GetFullPath(Binary.ToString()));
 
-					string DebugExtension = UEBuildPlatform.GetBuildPlatform(InTarget.Platform).GetDebugInfoExtension(InTarget.Rules, Binary.Config.Type);
-					if (DebugExtension == ".dSYM")
+					string[] DebugExtensions = UEBuildPlatform.GetBuildPlatform(InTarget.Platform).GetDebugInfoExtensions(InTarget.Rules, Binary.Type);
+					if (Array.Exists(DebugExtensions, element => element == ".dSYM"))
 					{
 						Dictionary<FileReference, BuildProductType> BuildProducts = AllBuildProducts[Binary];
 						foreach (KeyValuePair<FileReference, BuildProductType> BuildProductPair in BuildProducts)
@@ -1776,7 +1780,7 @@ namespace UnrealBuildTool
 
 		public override ICollection<FileItem> PostBuild(FileItem Executable, LinkEnvironment BinaryLinkEnvironment, ActionGraph ActionGraph)
 		{
-			var OutputFiles = base.PostBuild(Executable, BinaryLinkEnvironment, ActionGraph);
+			ICollection<FileItem> OutputFiles = base.PostBuild(Executable, BinaryLinkEnvironment, ActionGraph);
 
 			if (BinaryLinkEnvironment.bIsBuildingLibrary)
 			{

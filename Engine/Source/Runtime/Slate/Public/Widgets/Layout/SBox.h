@@ -25,8 +25,8 @@ class SLATE_API SBox : public SPanel
 		class FBoxSlot : public TSupportsOneChildMixin<FBoxSlot>, public TSupportsContentAlignmentMixin<FBoxSlot>, public TSupportsContentPaddingMixin<FBoxSlot>
 		{
 			public:
-				FBoxSlot()
-				: TSupportsOneChildMixin<FBoxSlot>()
+				FBoxSlot(SWidget* InOwner)
+				: TSupportsOneChildMixin<FBoxSlot>(InOwner)
 				, TSupportsContentAlignmentMixin<FBoxSlot>(HAlign_Fill, VAlign_Fill)
 				{
 				}
@@ -125,7 +125,10 @@ class SLATE_API SBox : public SPanel
 
 protected:
 	// Begin SWidget overrides.
+	virtual void ChildLayoutChanged(EInvalidateWidget InvalidateReason) override;
 	virtual FVector2D ComputeDesiredSize(float) const override;
+	float ComputeDesiredWidth() const;
+	float ComputeDesiredHeight() const;
 	// End SWidget overrides.
 
 protected:

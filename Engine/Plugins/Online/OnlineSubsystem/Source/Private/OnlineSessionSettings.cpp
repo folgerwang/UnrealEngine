@@ -2,28 +2,29 @@
 
 #include "OnlineSessionSettings.h"
 #include "OnlineSubsystem.h"
+#include "Interfaces/OnlineSessionInterface.h"
 #include "Logging/LogScopedVerbosityOverride.h"
 
 void DumpNamedSession(const FNamedOnlineSession* NamedSession)
 {
 	if (NamedSession != NULL)
 	{
-		LOG_SCOPE_VERBOSITY_OVERRIDE(LogOnline, ELogVerbosity::VeryVerbose);
-		UE_LOG(LogOnline, Verbose, TEXT("dumping NamedSession: "));
-		UE_LOG(LogOnline, Verbose, TEXT("	SessionName: %s"), *NamedSession->SessionName.ToString());	
-		UE_LOG(LogOnline, Verbose, TEXT("	HostingPlayerNum: %d"), NamedSession->HostingPlayerNum);
-		UE_LOG(LogOnline, Verbose, TEXT("	SessionState: %s"), EOnlineSessionState::ToString(NamedSession->SessionState));
-		UE_LOG(LogOnline, Verbose, TEXT("	RegisteredPlayers: "));
+		LOG_SCOPE_VERBOSITY_OVERRIDE(LogOnlineSession, ELogVerbosity::VeryVerbose);
+		UE_LOG_ONLINE_SESSION(Verbose, TEXT("dumping NamedSession: "));
+		UE_LOG_ONLINE_SESSION(Verbose, TEXT("	SessionName: %s"), *NamedSession->SessionName.ToString());	
+		UE_LOG_ONLINE_SESSION(Verbose, TEXT("	HostingPlayerNum: %d"), NamedSession->HostingPlayerNum);
+		UE_LOG_ONLINE_SESSION(Verbose, TEXT("	SessionState: %s"), EOnlineSessionState::ToString(NamedSession->SessionState));
+		UE_LOG_ONLINE_SESSION(Verbose, TEXT("	RegisteredPlayers: "));
 		if (NamedSession->RegisteredPlayers.Num())
 		{
 			for (int32 UserIdx=0; UserIdx < NamedSession->RegisteredPlayers.Num(); UserIdx++)
 			{
-				UE_LOG(LogOnline, Verbose, TEXT("	    %d: %s"), UserIdx, *NamedSession->RegisteredPlayers[UserIdx]->ToDebugString());
+				UE_LOG_ONLINE_SESSION(Verbose, TEXT("	    %d: %s"), UserIdx, *NamedSession->RegisteredPlayers[UserIdx]->ToDebugString());
 			}
 		}
 		else
 		{
-			UE_LOG(LogOnline, Verbose, TEXT("	    0 registered players"));
+			UE_LOG_ONLINE_SESSION(Verbose, TEXT("	    0 registered players"));
 		}
 
 		DumpSession(NamedSession);
@@ -34,12 +35,12 @@ void DumpSession(const FOnlineSession* Session)
 {
 	if (Session != NULL)
 	{
-		UE_LOG(LogOnline, Verbose, TEXT("dumping Session: "));
-		UE_LOG(LogOnline, Verbose, TEXT("	OwningPlayerName: %s"), *Session->OwningUserName);	
-		UE_LOG(LogOnline, Verbose, TEXT("	OwningPlayerId: %s"), Session->OwningUserId.IsValid() ? *Session->OwningUserId->ToDebugString() : TEXT("") );
-		UE_LOG(LogOnline, Verbose, TEXT("	NumOpenPrivateConnections: %d"), Session->NumOpenPrivateConnections);	
-		UE_LOG(LogOnline, Verbose, TEXT("	NumOpenPublicConnections: %d"), Session->NumOpenPublicConnections);	
-		UE_LOG(LogOnline, Verbose, TEXT("	SessionInfo: %s"), Session->SessionInfo.IsValid() ? *Session->SessionInfo->ToDebugString() : TEXT("NULL"));
+		UE_LOG_ONLINE_SESSION(Verbose, TEXT("dumping Session: "));
+		UE_LOG_ONLINE_SESSION(Verbose, TEXT("	OwningPlayerName: %s"), *Session->OwningUserName);	
+		UE_LOG_ONLINE_SESSION(Verbose, TEXT("	OwningPlayerId: %s"), Session->OwningUserId.IsValid() ? *Session->OwningUserId->ToDebugString() : TEXT("") );
+		UE_LOG_ONLINE_SESSION(Verbose, TEXT("	NumOpenPrivateConnections: %d"), Session->NumOpenPrivateConnections);	
+		UE_LOG_ONLINE_SESSION(Verbose, TEXT("	NumOpenPublicConnections: %d"), Session->NumOpenPublicConnections);	
+		UE_LOG_ONLINE_SESSION(Verbose, TEXT("	SessionInfo: %s"), Session->SessionInfo.IsValid() ? *Session->SessionInfo->ToDebugString() : TEXT("NULL"));
 		DumpSessionSettings(&Session->SessionSettings);
 	}
 }
@@ -48,25 +49,25 @@ void DumpSessionSettings(const FOnlineSessionSettings* SessionSettings)
 {
 	if (SessionSettings != NULL)
 	{
-		UE_LOG(LogOnline, Verbose, TEXT("dumping SessionSettings: "));
-		UE_LOG(LogOnline, Verbose, TEXT("\tNumPublicConnections: %d"), SessionSettings->NumPublicConnections);
-		UE_LOG(LogOnline, Verbose, TEXT("\tNumPrivateConnections: %d"), SessionSettings->NumPrivateConnections);
-		UE_LOG(LogOnline, Verbose, TEXT("\tbIsLanMatch: %s"), SessionSettings->bIsLANMatch ? TEXT("true") : TEXT("false"));
-		UE_LOG(LogOnline, Verbose, TEXT("\tbIsDedicated: %s"), SessionSettings->bIsDedicated ? TEXT("true") : TEXT("false"));
-		UE_LOG(LogOnline, Verbose, TEXT("\tbUsesStats: %s"), SessionSettings->bUsesStats ? TEXT("true") : TEXT("false"));
-		UE_LOG(LogOnline, Verbose, TEXT("\tbShouldAdvertise: %s"), SessionSettings->bShouldAdvertise ? TEXT("true") : TEXT("false"));
-		UE_LOG(LogOnline, Verbose, TEXT("\tbAllowJoinInProgress: %s"), SessionSettings->bAllowJoinInProgress ? TEXT("true") : TEXT("false"));
-		UE_LOG(LogOnline, Verbose, TEXT("\tbAllowInvites: %s"), SessionSettings->bAllowInvites ? TEXT("true") : TEXT("false"));
-		UE_LOG(LogOnline, Verbose, TEXT("\tbUsesPresence: %s"), SessionSettings->bUsesPresence ? TEXT("true") : TEXT("false"));
-		UE_LOG(LogOnline, Verbose, TEXT("\tbAllowJoinViaPresence: %s"), SessionSettings->bAllowJoinViaPresence ? TEXT("true") : TEXT("false"));
-		UE_LOG(LogOnline, Verbose, TEXT("\tbAllowJoinViaPresenceFriendsOnly: %s"), SessionSettings->bAllowJoinViaPresenceFriendsOnly ? TEXT("true") : TEXT("false"));
-		UE_LOG(LogOnline, Verbose, TEXT("\tBuildUniqueId: 0x%08x"), SessionSettings->BuildUniqueId);
-		UE_LOG(LogOnline, Verbose, TEXT("\tSettings:"));
+		UE_LOG_ONLINE_SESSION(Verbose, TEXT("dumping SessionSettings: "));
+		UE_LOG_ONLINE_SESSION(Verbose, TEXT("\tNumPublicConnections: %d"), SessionSettings->NumPublicConnections);
+		UE_LOG_ONLINE_SESSION(Verbose, TEXT("\tNumPrivateConnections: %d"), SessionSettings->NumPrivateConnections);
+		UE_LOG_ONLINE_SESSION(Verbose, TEXT("\tbIsLanMatch: %s"), SessionSettings->bIsLANMatch ? TEXT("true") : TEXT("false"));
+		UE_LOG_ONLINE_SESSION(Verbose, TEXT("\tbIsDedicated: %s"), SessionSettings->bIsDedicated ? TEXT("true") : TEXT("false"));
+		UE_LOG_ONLINE_SESSION(Verbose, TEXT("\tbUsesStats: %s"), SessionSettings->bUsesStats ? TEXT("true") : TEXT("false"));
+		UE_LOG_ONLINE_SESSION(Verbose, TEXT("\tbShouldAdvertise: %s"), SessionSettings->bShouldAdvertise ? TEXT("true") : TEXT("false"));
+		UE_LOG_ONLINE_SESSION(Verbose, TEXT("\tbAllowJoinInProgress: %s"), SessionSettings->bAllowJoinInProgress ? TEXT("true") : TEXT("false"));
+		UE_LOG_ONLINE_SESSION(Verbose, TEXT("\tbAllowInvites: %s"), SessionSettings->bAllowInvites ? TEXT("true") : TEXT("false"));
+		UE_LOG_ONLINE_SESSION(Verbose, TEXT("\tbUsesPresence: %s"), SessionSettings->bUsesPresence ? TEXT("true") : TEXT("false"));
+		UE_LOG_ONLINE_SESSION(Verbose, TEXT("\tbAllowJoinViaPresence: %s"), SessionSettings->bAllowJoinViaPresence ? TEXT("true") : TEXT("false"));
+		UE_LOG_ONLINE_SESSION(Verbose, TEXT("\tbAllowJoinViaPresenceFriendsOnly: %s"), SessionSettings->bAllowJoinViaPresenceFriendsOnly ? TEXT("true") : TEXT("false"));
+		UE_LOG_ONLINE_SESSION(Verbose, TEXT("\tBuildUniqueId: 0x%08x"), SessionSettings->BuildUniqueId);
+		UE_LOG_ONLINE_SESSION(Verbose, TEXT("\tSettings:"));
 		for (FSessionSettings::TConstIterator It(SessionSettings->Settings); It; ++It)
 		{
 			FName Key = It.Key();
 			const FOnlineSessionSetting& Setting = It.Value();
-			UE_LOG(LogOnline, Verbose, TEXT("\t\t%s=%s"), *Key.ToString(), *Setting.ToString());
+			UE_LOG_ONLINE_SESSION(Verbose, TEXT("\t\t%s=%s"), *Key.ToString(), *Setting.ToString());
 		}
 	}
 }
@@ -173,7 +174,7 @@ EOnlineDataAdvertisementType::Type FOnlineSessionSettings::GetAdvertisementType(
 		return Setting->AdvertisementType;
 	}
 
-	UE_LOG(LogOnline, Warning, TEXT("Unable to find key for advertisement type request: %s"), *Key.ToString());
+	UE_LOG_ONLINE_SESSION(Warning, TEXT("Unable to find key for advertisement type request: %s"), *Key.ToString());
 	return EOnlineDataAdvertisementType::DontAdvertise;
 }
 
@@ -185,7 +186,7 @@ int32 FOnlineSessionSettings::GetID(FName Key) const
 		return Setting->ID;
 	}
 
-	UE_LOG(LogOnline, Warning, TEXT("Unable to find key for ID request: %s"), *Key.ToString());
+	UE_LOG_ONLINE_SESSION(Warning, TEXT("Unable to find key for ID request: %s"), *Key.ToString());
 	return INVALID_SESSION_SETTING_ID;
 }
 
@@ -280,7 +281,7 @@ EOnlineComparisonOp::Type FOnlineSearchSettings::GetComparisonOp(FName Key) cons
 		return SearchParam->ComparisonOp;
 	}
 
-	UE_LOG(LogOnline, Warning, TEXT("Unable to find key for comparison op request: %s"), *Key.ToString());
+	UE_LOG_ONLINE_SESSION(Warning, TEXT("Unable to find key for comparison op request: %s"), *Key.ToString());
 	return EOnlineComparisonOp::Equals;
 }
 

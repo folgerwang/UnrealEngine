@@ -24,7 +24,7 @@ public:
 	virtual ~FMovieSceneSpawnSectionRecorder() {}
 
 	virtual void CreateSection(UObject* InObjectToRecord, class UMovieScene* MovieScene, const FGuid& Guid, float Time) override;
-	virtual void FinalizeSection() override;
+	virtual void FinalizeSection(float CurrentTime) override;
 	virtual void Record(float CurrentTime) override;
 	virtual void InvalidateObjectToRecord() override
 	{

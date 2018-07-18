@@ -24,7 +24,7 @@
 #include "ClassViewerFilter.h"
 #include "IContentBrowserSingleton.h"
 #include "ContentBrowserModule.h"
-#include "Private/SClassViewer.h"
+#include "Editor/ClassViewer/Private/SClassViewer.h"
 #include "DesktopPlatformModule.h"
 #include "IDocumentation.h"
 #include "EditorClassUtils.h"
@@ -617,6 +617,7 @@ void SNewClassDialog::Construct( const FArguments& InArgs )
 												SAssignNew( ClassNameEditBox, SEditableTextBox)
 												.Text( this, &SNewClassDialog::OnGetClassNameText )
 												.OnTextChanged( this, &SNewClassDialog::OnClassNameTextChanged )
+												.OnTextCommitted( this, &SNewClassDialog::OnClassNameTextCommitted )
 											]
 
 											+SHorizontalBox::Slot()
@@ -827,9 +828,33 @@ void SNewClassDialog::Construct( const FArguments& InArgs )
 	{
 		ParentClassListView->SetSelection(ParentClassItemsSource[0], ESelectInfo::Direct);
 	}
+
+	TSharedPtr<SWindow> ParentWindow = InArgs._ParentWindow;
+	if (ParentWindow.IsValid())
+	{
+		ParentWindow.Get()->SetWidgetToFocusOnActivate(ParentClassListView);
+	}
+
 }
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
+FReply SNewClassDialog::OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent)
+{
+	if (InKeyEvent.GetKey() == EKeys::Escape)
+	{
+		// Pressing Escape returns as if the user clicked Cancel
+		CancelClicked();
+		return FReply::Handled();
+	}
+	else if (InKeyEvent.GetKey() == EKeys::Enter)
+	{
+		// Pressing Enter move to the next page like a double-click or the Next button
+		OnParentClassItemDoubleClicked(TSharedPtr<FParentClassItem>());
+		return FReply::Handled();
+	}
+
+	return FReply::Unhandled();
+}
 
 void SNewClassDialog::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
@@ -1088,6 +1113,17 @@ void SNewClassDialog::OnClassNameTextChanged(const FText& NewText)
 {
 	NewClassName = NewText.ToString();
 	UpdateInputValidity();
+}
+
+void SNewClassDialog::OnClassNameTextCommitted(const FText& NewText, ETextCommit::Type CommitType)
+{
+	if (CommitType == ETextCommit::OnEnter)
+	{
+		if (CanFinish())
+		{
+			FinishClicked();
+		}
+	}
 }
 
 FText SNewClassDialog::OnGetClassPathText() const

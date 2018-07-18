@@ -27,8 +27,8 @@ HTTP Streamer の REST API には、ゲーム サーバーからリプレイ サ
 [/COMMENT]
 
 	<Server URL>replay/<Session Name Override>?app=<Replay Version AppString>&version=<Replay Network Version>&cl=<Replay CL>&friendlyName=<Platform Friendly Name>
-	#### Details
 
+#### Details
 
 [REGION:simpletable]
 | アイテム | 値 |
@@ -67,8 +67,8 @@ HTTP Streamer の REST API には、ゲーム サーバーからリプレイ サ
 [/COMMENT]
 
 	<Server URL>replay/<Session Name>/file/replay.header?numChunks=<Stream Chunk Index>&time=<Total Demo Time In MS>
-	#### Details
-
+	
+#### Details
 
 [REGION:simpletable]
 | アイテム | 値 |
@@ -177,8 +177,8 @@ HTTP Streamer の REST API には、ゲーム サーバーからリプレイ サ
 [/COMMENT]
 
 	<Server URL>replay/<Session Name>/stopUploading?numChunks=<Total Num Chunks>&time=<Total Time In MS>&absSize=<Total Bytes Uploaded>
-	#### Details
-
+	
+#### Details
 
 [REGION:simpletable]
 | アイテム | 値 |
@@ -210,8 +210,8 @@ HTTP Streamer の REST API には、ゲーム サーバーからリプレイ サ
 [/COMMENT]
 
 	<Server URL>replay/<Session Name>/startDownloading?user=<User Name>
-			#### Details
-
+			
+#### Details
 
 [REGION:simpletable]
 | アイテム | 値 |
@@ -248,8 +248,8 @@ HTTP Streamer の REST API には、ゲーム サーバーからリプレイ サ
 [/COMMENT]
 
 	<Server URL>replay/<Session Name>/file/replay.header
-				#### Details
-
+				
+#### Details
 
 [REGION:simpletable]
 | アイテム | 値 |
@@ -276,10 +276,10 @@ HTTP Streamer の REST API には、ゲーム サーバーからリプレイ サ
 [COMMENT:none]
  From EnumerateCheckpoints(): 
 [/COMMENT]
+	
 	<Server URL>replay/<Session Name>/event?group=checkpoint
-
-				#### Details
-
+				
+#### Details
 
 [REGION:simpletable]
 | アイテム | 値 |
@@ -323,8 +323,8 @@ HTTP Streamer の REST API には、ゲーム サーバーからリプレイ サ
 [/COMMENT]
 
 	<Server URL>replay/<Session Name>/file/stream.<Stream Chunk Index>
-					#### Details
-
+					
+#### Details
 
 [REGION:simpletable]
 | アイテム | 値 |
@@ -363,17 +363,17 @@ HTTP Streamer の REST API には、ゲーム サーバーからリプレイ サ
 
 ### Enumerate Events for Replay
 
-DemoNetDriver から直接呼び出すことができまるため、ゲーム プロジェクトがいつでもこれを行うことができます。このリクエストでは、リプレイ サーバーに対して特定のリプレイ (**Session Name** で特定) に関するすべてのイベントのリストを送信することを求め、特定のイベント グループによってフィルタリングされます。空のグループ名および "group" の引数の欠如をサポートすることをお勧めします。 
+DemoNetDriver から直接呼び出すことができるため、ゲーム プロジェクトがいつでもこれを行うことができます。このリクエストでは、リプレイ サーバーに対して特定のリプレイ (**Session Name** で特定) に関するすべてのイベントのリストを送信することを求め、特定のイベント グループによってフィルタリングされます。空のグループ名および "group" の引数の欠如をサポートすることをお勧めします。 
 
 #### Syntax
 
 [COMMENT:none]
  From EnumerateEvents(): 
 [/COMMENT]
+	
 	<Server URL>replay/<Session Name>/event?group=<Group Name>"
-
-						#### Details
-
+						
+#### Details
 
 [REGION:simpletable]
 | アイテム | 値 |
@@ -404,12 +404,12 @@ DemoNetDriver から直接呼び出すことができまるため、ゲーム �
 [COMMENT:none]
  From RefreshViewer(): 
 [/COMMENT]
+	
 	<Server URL>replay/<Session Name>/viewer/<Viewer Name>
-
 ~~~
 	<Server URL>replay/<Session Name>/viewer/<Viewer Name>?final=<Final Heartbeat>
-							#### Details
-
+							
+#### Details
 
 [REGION:simpletable]
 | アイテム | 値 |
@@ -438,8 +438,8 @@ DemoNetDriver から直接呼び出すことができまるため、ゲーム �
 [/COMMENT]
 
 	<Server URL>replay?app=<Replay Version AppString>&cl=<Replay CL>&version=<Replay Network Version>&meta=<Meta Tag>&user=<User Name>&recent=<In Recent Viewer>"
-								#### Details
-
+								
+#### Details
 
 [REGION:simpletable]
 | アイテム | 値 |
@@ -489,8 +489,8 @@ JSON-形式の文字列のコンテンツでの応答が求められます。
 [/COMMENT]
 
 	<ServerURL>event?group=<Event Group>
-								#### Details
-
+								
+#### Details
 
 [REGION:simpletable]
 | アイテム | 値 |
@@ -533,10 +533,10 @@ JSON-形式の文字列のコンテンツでの応答が求められます。
 [COMMENT:none]
  From RequestEventData(): 
 [/COMMENT]
+	
 	<Server URL>event/<Event Name>
-
-								#### Details
-
+								
+#### Details
 
 [REGION:simpletable]
 | アイテム | 値 |

@@ -162,6 +162,8 @@
 	[[Window contentView] addSubview:CancelButton];
 
 	[Window setTitle:@"Choose UE4 Editor..."];
+	[Window setRestorable:NO];
+	[Window disableSnapshotRestoration];
 
 	[Window center];
 	[NSApp activateIgnoringOtherApps:YES];

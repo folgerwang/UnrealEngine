@@ -28,7 +28,7 @@ public class MCPP : ModuleRules
 		{
 			PublicAdditionalLibraries.Add(LibPath + "Mac/libmcpp.a");
 		}
-		else if (Target.Platform == UnrealTargetPlatform.Linux)
+		else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
 		{
 			LibPath += "Linux/" + Target.Architecture;
 			PublicAdditionalLibraries.Add(LibPath + "/libmcpp.a");

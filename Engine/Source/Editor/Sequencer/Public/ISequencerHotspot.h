@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Input/CursorReply.h"
+#include "Misc/FrameTime.h"
 
 class FMenuBuilder;
 class ISequencer;
@@ -30,10 +31,10 @@ struct ISequencerHotspot
 	virtual ~ISequencerHotspot() { }
 	virtual ESequencerHotspot GetType() const = 0;
 	virtual void UpdateOnHover(SSequencerTrackArea& InTrackArea, ISequencer& InSequencer) const = 0;
-	virtual TOptional<float> GetTime() const { return TOptional<float>(); }
-	virtual TOptional<float> GetOffsetTime() const { return TOptional<float>(); }
+	virtual TOptional<FFrameNumber> GetTime() const { return TOptional<FFrameNumber>(); }
+	virtual TOptional<FFrameTime> GetOffsetTime() const { return TOptional<FFrameTime>(); }
 	virtual TSharedPtr<ISequencerEditToolDragOperation> InitiateDrag(ISequencer&) { return nullptr; }
-	virtual bool PopulateContextMenu(FMenuBuilder& MenuBuilder, ISequencer& Sequencer, float MouseDownTime){ return false; }
+	virtual bool PopulateContextMenu(FMenuBuilder& MenuBuilder, ISequencer& Sequencer, FFrameTime MouseDownTime){ return false; }
 	virtual FCursorReply GetCursor() const { return FCursorReply::Unhandled(); }
 
 public:

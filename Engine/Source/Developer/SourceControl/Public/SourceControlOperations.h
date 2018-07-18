@@ -3,25 +3,25 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "ISourceControlOperation.h"
+#include "SourceControlOperationBase.h"
 
 #define LOCTEXT_NAMESPACE "SourceControl"
 
 /**
  * Operation used to connect (or test a connection) to source control
  */
-class FConnect : public ISourceControlOperation
+class FConnect : public FSourceControlOperationBase
 {
 public:
 	// ISourceControlOperation interface
-	virtual FName GetName() const override 
-	{ 
-		return "Connect"; 
+	virtual FName GetName() const override
+	{
+		return "Connect";
 	}
 
 	virtual FText GetInProgressString() const override
-	{ 
-		return LOCTEXT("SourceControl_Connecting", "Connecting to source control..."); 
+	{
+		return LOCTEXT("SourceControl_Connecting", "Connecting to source control...");
 	}
 
 	const FString& GetPassword() const
@@ -55,7 +55,7 @@ protected:
 /**
  * Operation used to check files into source control
  */
-class FCheckIn : public ISourceControlOperation
+class FCheckIn : public FSourceControlOperationBase
 {
 public:
 	// ISourceControlOperation interface
@@ -65,8 +65,8 @@ public:
 	}
 
 	virtual FText GetInProgressString() const override
-	{ 
-		return LOCTEXT("SourceControl_CheckIn", "Checking file(s) into Source Control..."); 
+	{
+		return LOCTEXT("SourceControl_CheckIn", "Checking file(s) into Source Control...");
 	}
 
 	void SetDescription( const FText& InDescription )
@@ -100,7 +100,7 @@ protected:
 /**
  * Operation used to check files out of source control
  */
-class FCheckOut : public ISourceControlOperation
+class FCheckOut : public FSourceControlOperationBase
 {
 public:
 	// ISourceControlOperation interface
@@ -110,15 +110,15 @@ public:
 	}
 
 	virtual FText GetInProgressString() const override
-	{ 
-		return LOCTEXT("SourceControl_CheckOut", "Checking file(s) out of Source Control..."); 
+	{
+		return LOCTEXT("SourceControl_CheckOut", "Checking file(s) out of Source Control...");
 	}
 };
 
 /**
  * Operation used to mark files for add in source control
  */
-class FMarkForAdd : public ISourceControlOperation
+class FMarkForAdd : public FSourceControlOperationBase
 {
 public:
 	// ISourceControlOperation interface
@@ -128,15 +128,15 @@ public:
 	}
 
 	virtual FText GetInProgressString() const override
-	{ 
-		return LOCTEXT("SourceControl_Add", "Adding file(s) to Source Control..."); 
+	{
+		return LOCTEXT("SourceControl_Add", "Adding file(s) to Source Control...");
 	}
 };
 
 /**
  * Operation used to mark files for delete in source control
  */
-class FDelete : public ISourceControlOperation
+class FDelete : public FSourceControlOperationBase
 {
 public:
 	// ISourceControlOperation interface
@@ -146,15 +146,15 @@ public:
 	}
 
 	virtual FText GetInProgressString() const override
-	{ 
-		return LOCTEXT("SourceControl_Delete", "Deleting file(s) from Source Control..."); 
+	{
+		return LOCTEXT("SourceControl_Delete", "Deleting file(s) from Source Control...");
 	}
 };
 
 /**
  * Operation used to revert changes made back to the state they are in source control
  */
-class FRevert : public ISourceControlOperation
+class FRevert : public FSourceControlOperationBase
 {
 public:
 	// ISourceControlOperation interface
@@ -164,15 +164,15 @@ public:
 	}
 
 	virtual FText GetInProgressString() const override
-	{ 
-		return LOCTEXT("SourceControl_Revert", "Reverting file(s) in Source Control..."); 
-	}	
+	{
+		return LOCTEXT("SourceControl_Revert", "Reverting file(s) in Source Control...");
+	}
 };
 
 /**
  * Operation used to sync files to the state they are in source control
  */
-class FSync : public ISourceControlOperation
+class FSync : public FSourceControlOperationBase
 {
 public:
 	// ISourceControlOperation interface
@@ -182,9 +182,9 @@ public:
 	}
 
 	virtual FText GetInProgressString() const override
-	{ 
-		return LOCTEXT("SourceControl_Sync", "Syncing file(s) from source control..."); 
-	}	
+	{
+		return LOCTEXT("SourceControl_Sync", "Syncing file(s) from source control...");
+	}
 
 	void SetRevision( int32 InRevisionNumber )
 	{
@@ -199,7 +199,7 @@ protected:
 /**
  * Operation used to update the source control status of files
  */
-class FUpdateStatus : public ISourceControlOperation
+class FUpdateStatus : public FSourceControlOperationBase
 {
 public:
 	FUpdateStatus()
@@ -216,9 +216,9 @@ public:
 	}
 
 	virtual FText GetInProgressString() const override
-	{ 
-		return LOCTEXT("SourceControl_Update", "Updating file(s) source control status..."); 
-	}	
+	{
+		return LOCTEXT("SourceControl_Update", "Updating file(s) source control status...");
+	}
 
 	void SetUpdateHistory( bool bInUpdateHistory )
 	{
@@ -277,7 +277,7 @@ protected:
 /**
  * Operation used to copy a file or directory from one location to another
  */
-class FCopy : public ISourceControlOperation
+class FCopy : public FSourceControlOperationBase
 {
 public:
 	// ISourceControlOperation interface
@@ -287,9 +287,9 @@ public:
 	}
 
 	virtual FText GetInProgressString() const override
-	{ 
-		return LOCTEXT("SourceControl_Copy", "Copying file(s) in Source Control..."); 
-	}	
+	{
+		return LOCTEXT("SourceControl_Copy", "Copying file(s) in Source Control...");
+	}
 
 	void SetDestination(const FString& InDestination)
 	{
@@ -309,7 +309,7 @@ protected:
 /**
  * Operation used to resolve a file that is in a conflicted state.
  */
-class FResolve : public ISourceControlOperation
+class FResolve : public FSourceControlOperationBase
 {
 public:
 	// ISourceControlOperation interface

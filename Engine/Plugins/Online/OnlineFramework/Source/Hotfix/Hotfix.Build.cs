@@ -13,6 +13,7 @@ public class Hotfix : ModuleRules
 				"Core",
 				"CoreUObject",
 				"Engine",
+                "HTTP",
 				"OnlineSubsystem",
 				"OnlineSubsystemUtils",
 			}

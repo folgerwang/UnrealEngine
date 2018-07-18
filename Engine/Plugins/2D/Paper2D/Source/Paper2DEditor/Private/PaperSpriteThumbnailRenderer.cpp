@@ -27,7 +27,7 @@ void UPaperSpriteThumbnailRenderer::DrawGrid(int32 X, int32 Y, uint32 Width, uin
 	static UTexture2D* GridTexture = nullptr;
 	if (GridTexture == nullptr)
 	{
-		GridTexture = LoadObject<UTexture2D>(nullptr, TEXT("/Engine/EngineMaterials/DefaultWhiteGrid.DefaultWhiteGrid"), nullptr, LOAD_None, nullptr);
+		GridTexture = LoadObject<UTexture2D>(nullptr, TEXT("/Engine/EngineMaterials/DefaultDiffuse_TC_Masks.DefaultDiffuse_TC_Masks"), nullptr, LOAD_None, nullptr);
 	}
 
 	const bool bAlphaBlend = false;

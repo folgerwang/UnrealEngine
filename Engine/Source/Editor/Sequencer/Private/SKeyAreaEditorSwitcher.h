@@ -2,8 +2,8 @@
 
 #pragma once
 
-#include "SCompoundWidget.h"
-#include "DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
 
 class FSequencerSectionKeyAreaNode;
 class SOverlay;

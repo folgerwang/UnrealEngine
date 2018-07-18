@@ -8,7 +8,7 @@
 #include "Templates/ScopedPointer.h"
 #include "UnrealLightmass.h"
 #include "Misc/Paths.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 namespace Lightmass
 {

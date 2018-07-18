@@ -13,6 +13,9 @@
 #include "Logging/TokenizedMessage.h"
 #include "Logging/MessageLog.h"
 #include "Misc/UObjectToken.h"
+#include "Engine/HLODProxy.h"
+#include "HierarchicalLOD.h"
+#include "Algo/Transform.h"
 
 FHierarchicalLODProxyProcessor::FHierarchicalLODProxyProcessor()
 {
@@ -32,22 +35,23 @@ FHierarchicalLODProxyProcessor::~FHierarchicalLODProxyProcessor()
 
 bool FHierarchicalLODProxyProcessor::Tick(float DeltaTime)
 {
+    QUICK_SCOPE_CYCLE_COUNTER(STAT_FHierarchicalLODProxyProcessor_Tick);
+
 	FScopeLock Lock(&StateLock);
 
 	while (ToProcessJobs.Num())
 	{
 		FProcessData* Data = ToProcessJobs.Pop();
 		UStaticMesh* MainMesh = nullptr;		
-		for (UObject* AssetObject : Data->AssetObjects)
+		for (TStrongObjectPtr<UObject>& AssetObject : Data->AssetObjects)
 		{
 			// Check if this is the generated proxy (static-)mesh
-			UStaticMesh* StaticMesh = Cast<UStaticMesh>(AssetObject);
+			UStaticMesh* StaticMesh = Cast<UStaticMesh>(AssetObject.Get());
 			if (StaticMesh)
 			{
 				check(StaticMesh != nullptr);
 				MainMesh = StaticMesh;
 			}
-			AssetObject->RemoveFromRoot();
 		}
 		check(MainMesh != nullptr);
 
@@ -57,10 +61,13 @@ bool FHierarchicalLODProxyProcessor::Tick(float DeltaTime)
 		MainMesh->PostEditChange();
 
 		// Set new static mesh, location and sub-objects (UObjects)
+		bool bDirtyPackage = false;
+		UStaticMesh* PreviousStaticMesh = Data->LODActor->GetStaticMeshComponent()->GetStaticMesh();
+		bDirtyPackage |= (PreviousStaticMesh != MainMesh);
 		Data->LODActor->SetStaticMesh(MainMesh);
+		bDirtyPackage |= (Data->LODActor->GetActorLocation() != FVector::ZeroVector);
 		Data->LODActor->SetActorLocation(FVector::ZeroVector);
-		Data->LODActor->SubObjects = Data->AssetObjects;
-
+		
 		// Check resulting mesh and give a warning if it exceeds the vertex / triangle cap for certain platforms
 		FProjectStatus ProjectStatus;
 		if (IProjectManager::Get().QueryStatusForCurrentProject(ProjectStatus) && (ProjectStatus.IsTargetPlatformSupported(TEXT("Android")) || ProjectStatus.IsTargetPlatformSupported(TEXT("IOS"))))
@@ -83,18 +90,47 @@ bool FHierarchicalLODProxyProcessor::Tick(float DeltaTime)
 
 		FHierarchicalLODUtilitiesModule& Module = FModuleManager::LoadModuleChecked<FHierarchicalLODUtilitiesModule>("HierarchicalLODUtilities");
 		IHierarchicalLODUtilities* Utilities = Module.GetUtilities();
-		Data->LODActor->LODDrawDistance = Utilities->CalculateDrawDistanceFromScreenSize(Bounds.SphereRadius, Data->LODSetup.TransitionScreenSize, ProjectionMatrix);
+		
+		float DrawDistance;
+		if (Data->LODSetup.bUseOverrideDrawDistance)
+		{
+			DrawDistance = Data->LODSetup.OverrideDrawDistance;
+		}
+		else
+		{
+			DrawDistance = Utilities->CalculateDrawDistanceFromScreenSize(Bounds.SphereRadius, Data->LODSetup.TransitionScreenSize, ProjectionMatrix);
+		}
+		
+		bDirtyPackage |= (Data->LODActor->GetDrawDistance() != DrawDistance);
+		Data->LODActor->SetDrawDistance(DrawDistance);
+
+		Data->LODActor->DetermineShadowingFlags();
 		Data->LODActor->UpdateSubActorLODParents();
 
-		// Freshly build so mark not dirty
-		Data->LODActor->SetIsDirty(false);
+		// Link proxy to actor
+		UHLODProxy* PreviousProxy = Data->LODActor->GetProxy();
+		Data->Proxy->AddMesh(Data->LODActor, MainMesh, UHLODProxy::GenerateKeyForActor(Data->LODActor));
+		bDirtyPackage |= (Data->LODActor->GetProxy() != PreviousProxy);
+
+		if(bDirtyPackage)
+		{
+			Data->LODActor->MarkPackageDirty();
+		}
+
+		// Clean out standalone meshes from the proxy package as we are about to GC, and mesh merging creates assets that are 
+		// supposed to be standalone
+		Utilities->CleanStandaloneAssetsInPackage(Data->Proxy->GetOutermost());
+
+		// Collect garbage to clean up old unreferenced data in the HLOD package
+		CollectGarbage(GARBAGE_COLLECTION_KEEPFLAGS);
+
 		delete Data;
 	}
 
 	return true;
 }
 
-FGuid FHierarchicalLODProxyProcessor::AddProxyJob(ALODActor* InLODActor, const FHierarchicalSimplification& LODSetup)
+FGuid FHierarchicalLODProxyProcessor::AddProxyJob(ALODActor* InLODActor, UHLODProxy* InProxy, const FHierarchicalSimplification& LODSetup)
 {
 	FScopeLock Lock(&StateLock);
 	check(InLODActor);
@@ -103,6 +139,7 @@ FGuid FHierarchicalLODProxyProcessor::AddProxyJob(ALODActor* InLODActor, const F
 	// Set up processing data
 	FProcessData* Data = new FProcessData();
 	Data->LODActor = InLODActor;
+	Data->Proxy = InProxy;
 	Data->LODSetup = LODSetup;	
 
 	JobActorMap.Add(JobGuid, Data);
@@ -123,7 +160,7 @@ void FHierarchicalLODProxyProcessor::ProcessProxy(const FGuid InGuid, TArray<UOb
 		JobActorMap.Remove(InGuid);
 		if (Data && Data->LODActor && InAssetsToSync.Num())
 		{
-			Data->AssetObjects = InAssetsToSync;
+			Algo::Transform(InAssetsToSync, Data->AssetObjects, [](UObject* InItem){ return TStrongObjectPtr<UObject>(InItem); });
 			ToProcessJobs.Push(Data);
 		}
 	}

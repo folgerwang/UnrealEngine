@@ -3,8 +3,8 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "StatsData.h"
-#include "StatsFile.h"
+#include "Stats/StatsData.h"
+#include "Stats/StatsFile.h"
 
 
 class FStatsConvertCommand

@@ -434,6 +434,20 @@ public:
 	static void RequireSpecifierValue(const FPropertySpecifier& Specifier, bool bRequireExactlyOne = false);
 	static FString RequireExactlyOneSpecifierValue(const FPropertySpecifier& Specifier);
 
+	/**
+	* Find a field in the specified context.  Starts with the specified scope, then iterates
+	* through the Outer chain until the field is found.
+	* 
+	* @param	InScope				scope to start searching for the field in 
+	* @param	InIdentifier		name of the field we're searching for
+	* @param	bIncludeParents		whether to allow searching in the scope of a parent struct
+	* @param	FieldClass			class of the field to search for.  used to e.g. search for functions only
+	* @param	Thing				hint text that will be used in the error message if an error is encountered
+	*
+	* @return	a pointer to a UField with a name matching InIdentifier, or NULL if it wasn't found
+	*/
+	static UField* FindField( UStruct* InScope, const TCHAR* InIdentifier, bool bIncludeParents=true, UClass* FieldClass=UField::StaticClass(), const TCHAR* Thing=nullptr );
+
 protected:
 
 	/**
@@ -543,19 +557,6 @@ protected:
 
 	UStruct* GetSuperScope( UStruct* CurrentScope, const FName& SearchName );
 
-	/**
-	 * Find a field in the specified context.  Starts with the specified scope, then iterates
-	 * through the Outer chain until the field is found.
-	 * 
-	 * @param	InScope				scope to start searching for the field in 
-	 * @param	InIdentifier		name of the field we're searching for
-	 * @param	bIncludeParents		whether to allow searching in the scope of a parent struct
-	 * @param	FieldClass			class of the field to search for.  used to e.g. search for functions only
-	 * @param	Thing				hint text that will be used in the error message if an error is encountered
-	 *
-	 * @return	a pointer to a UField with a name matching InIdentifier, or NULL if it wasn't found
-	 */
-	UField* FindField( UStruct* InScope, const TCHAR* InIdentifier, bool bIncludeParents=true, UClass* FieldClass=UField::StaticClass(), const TCHAR* Thing=NULL );
 	void SkipStatements( int32 SubCount, const TCHAR* ErrorTag );
 
 	/**
@@ -574,7 +575,7 @@ protected:
 		FClasses&                       AllClasses,
 		FScope*							Scope,
 		FPropertyBase&                  VarProperty,
-		uint64                          Disallow,
+		EPropertyFlags                  Disallow,
 		FToken*                         OuterPropertyType,
 		EPropertyDeclarationStyle::Type PropertyDeclarationStyle,
 		EVariableCategory::Type         VariableCategory,

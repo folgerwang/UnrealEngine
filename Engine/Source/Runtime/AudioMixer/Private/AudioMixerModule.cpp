@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AudioMixerModule.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "AudioMixerLog.h"
 
 DEFINE_LOG_CATEGORY(LogAudioMixer);

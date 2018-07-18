@@ -2,9 +2,11 @@
 
 #pragma once
 
+#if USE_ANDROID_JNI
+
 #include "CoreMinimal.h"
 #include "AndroidJSScripting.h"
-#include "JsonStructSerializerBackend.h"
+#include "Backends/JsonStructSerializerBackend.h"
 
 class UObject;
 
@@ -38,3 +40,5 @@ private:
 	TArray<uint8> ReturnBuffer;
 	FMemoryWriter Writer;
 };
+
+#endif // USE_ANDROID_JNI

@@ -46,7 +46,7 @@ public:
 		VisualizeMeshDistanceFields.Bind(Initializer.ParameterMap, TEXT("VisualizeMeshDistanceFields"));
 		NumGroups.Bind(Initializer.ParameterMap, TEXT("NumGroups"));
 		ObjectParameters.Bind(Initializer.ParameterMap);
-		DeferredParameters.Bind(Initializer.ParameterMap);
+		SceneTextureParameters.Bind(Initializer);
 		AOParameters.Bind(Initializer.ParameterMap);
 		GlobalDistanceFieldParameters.Bind(Initializer.ParameterMap);
 	}
@@ -68,7 +68,7 @@ public:
 
 		ObjectParameters.Set(RHICmdList, ShaderRHI, GAOCulledObjectBuffers.Buffers);
 		AOParameters.Set(RHICmdList, ShaderRHI, Parameters);
-		DeferredParameters.Set(RHICmdList, ShaderRHI, View, MD_PostProcess);
+		SceneTextureParameters.Set(RHICmdList, ShaderRHI, View.FeatureLevel, ESceneTextureSetupMode::All);
 
 		if (bUseGlobalDistanceField)
 		{
@@ -91,7 +91,7 @@ public:
 		Ar << VisualizeMeshDistanceFields;
 		Ar << NumGroups;
 		Ar << ObjectParameters;
-		Ar << DeferredParameters;
+		Ar << SceneTextureParameters;
 		Ar << AOParameters;
 		Ar << GlobalDistanceFieldParameters;
 		return bShaderHasOutdatedParameters;
@@ -102,7 +102,7 @@ private:
 	FRWShaderParameter VisualizeMeshDistanceFields;
 	FShaderParameter NumGroups;
 	FDistanceFieldCulledObjectBufferParameters ObjectParameters;
-	FDeferredPixelShaderParameters DeferredParameters;
+	FSceneTextureShaderParameters SceneTextureParameters;
 	FAOParameters AOParameters;
 	FGlobalDistanceFieldParameters GlobalDistanceFieldParameters;
 };
@@ -132,7 +132,7 @@ public:
 	FVisualizeDistanceFieldUpsamplePS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
 		: FGlobalShader(Initializer)
 	{
-		DeferredParameters.Bind(Initializer.ParameterMap);
+		SceneTextureParameters.Bind(Initializer);
 		VisualizeDistanceFieldTexture.Bind(Initializer.ParameterMap,TEXT("VisualizeDistanceFieldTexture"));
 		VisualizeDistanceFieldSampler.Bind(Initializer.ParameterMap,TEXT("VisualizeDistanceFieldSampler"));
 	}
@@ -142,7 +142,7 @@ public:
 		const FPixelShaderRHIParamRef ShaderRHI = GetPixelShader();
 
 		FGlobalShader::SetParameters<FViewUniformShaderParameters>(RHICmdList, ShaderRHI, View.ViewUniformBuffer);
-		DeferredParameters.Set(RHICmdList, ShaderRHI, View, MD_PostProcess);
+		SceneTextureParameters.Set(RHICmdList, ShaderRHI, View.FeatureLevel, ESceneTextureSetupMode::All);
 
 		SetTextureParameter(RHICmdList, ShaderRHI, VisualizeDistanceFieldTexture, VisualizeDistanceFieldSampler, TStaticSamplerState<SF_Bilinear>::GetRHI(), VisualizeDistanceField->GetRenderTargetItem().ShaderResourceTexture);
 	}
@@ -150,7 +150,7 @@ public:
 	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
-		Ar << DeferredParameters;
+		Ar << SceneTextureParameters;
 		Ar << VisualizeDistanceFieldTexture;
 		Ar << VisualizeDistanceFieldSampler;
 		return bShaderHasOutdatedParameters;
@@ -158,7 +158,7 @@ public:
 
 private:
 
-	FDeferredPixelShaderParameters DeferredParameters;
+	FSceneTextureShaderParameters SceneTextureParameters;
 	FShaderResourceParameter VisualizeDistanceFieldTexture;
 	FShaderResourceParameter VisualizeDistanceFieldSampler;
 };
@@ -171,9 +171,7 @@ void FDeferredShadingSceneRenderer::RenderMeshDistanceFieldVisualization(FRHICom
 	//@todo - support multiple views
 	const FViewInfo& View = Views[0];
 
-	extern int32 GDistanceFieldAO;
-
-	if (GDistanceFieldAO 
+	if (UseDistanceFieldAO()
 		&& FeatureLevel >= ERHIFeatureLevel::SM5
 		&& DoesPlatformSupportDistanceFieldAO(View.GetShaderPlatform())
 		&& Views.Num() == 1)

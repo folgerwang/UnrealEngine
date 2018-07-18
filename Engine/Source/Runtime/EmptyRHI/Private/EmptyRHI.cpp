@@ -31,7 +31,6 @@ FEmptyDynamicRHI::FEmptyDynamicRHI()
 //	GRHIAdapterName = 
 //	GRHIVendorId = 
 // 	GSupportsRenderTargetFormat_PF_G8 = false;
-// 	GSupportsQuads = true;
 // 	GRHISupportsTextureStreaming = true;
 // 	GMaxShadowDepthBufferSizeX = 4096;
 // 	GMaxShadowDepthBufferSizeY = 4096;

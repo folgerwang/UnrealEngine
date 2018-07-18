@@ -53,7 +53,8 @@ void DrawDebugPoint(const UWorld* InWorld, FVector const& Position, float Size, 
 		ULineBatchComponent* const LineBatcher = GetDebugLineBatcher( InWorld, bPersistentLines, LifeTime, (DepthPriority == SDPG_Foreground) );
 		if(LineBatcher != NULL)
 		{
-			LineBatcher->DrawPoint(Position, Color.ReinterpretAsLinear(), Size, DepthPriority, LifeTime);
+			const float PointLifeTime = (LifeTime > 0.f ? LifeTime : LineBatcher->DefaultLifeTime);
+			LineBatcher->DrawPoint(Position, Color.ReinterpretAsLinear(), Size, DepthPriority, PointLifeTime);
 		}
 	}
 }
@@ -309,9 +310,10 @@ void DrawDebugCoordinateSystem(const UWorld* InWorld, FVector const& AxisLoc, FR
 		ULineBatchComponent* const LineBatcher = GetDebugLineBatcher( InWorld, bPersistentLines, LifeTime, (DepthPriority == SDPG_Foreground) );
 		if(LineBatcher != NULL)
 		{
-			LineBatcher->DrawLine(AxisLoc, AxisLoc + X*Scale, FColor::Red, DepthPriority, Thickness, LifeTime );
-			LineBatcher->DrawLine(AxisLoc, AxisLoc + Y*Scale, FColor::Green, DepthPriority, Thickness, LifeTime );
-			LineBatcher->DrawLine(AxisLoc, AxisLoc + Z*Scale, FColor::Blue, DepthPriority, Thickness, LifeTime );
+			const float LineLifeTime = (LifeTime > 0.f ? LifeTime : LineBatcher->DefaultLifeTime);
+			LineBatcher->DrawLine(AxisLoc, AxisLoc + X*Scale, FColor::Red, DepthPriority, Thickness, LineLifeTime );
+			LineBatcher->DrawLine(AxisLoc, AxisLoc + Y*Scale, FColor::Green, DepthPriority, Thickness, LineLifeTime );
+			LineBatcher->DrawLine(AxisLoc, AxisLoc + Z*Scale, FColor::Blue, DepthPriority, Thickness, LineLifeTime );
 		}
 	}
 }
@@ -330,9 +332,10 @@ ENGINE_API void DrawDebugCrosshairs(const UWorld* InWorld, FVector const& AxisLo
 		ULineBatchComponent* const LineBatcher = GetDebugLineBatcher(InWorld, bPersistentLines, LifeTime, (DepthPriority == SDPG_Foreground));
 		if (LineBatcher != NULL)
 		{
-			LineBatcher->DrawLine(AxisLoc - X*Scale, AxisLoc + X*Scale, Color, DepthPriority);
-			LineBatcher->DrawLine(AxisLoc - Y*Scale, AxisLoc + Y*Scale, Color, DepthPriority);
-			LineBatcher->DrawLine(AxisLoc - Z*Scale, AxisLoc + Z*Scale, Color, DepthPriority);
+			const float LineLifeTime = (LifeTime > 0.f) ? LifeTime : LineBatcher->DefaultLifeTime;
+			LineBatcher->DrawLine(AxisLoc - X*Scale, AxisLoc + X*Scale, Color, DepthPriority, 0.f, LineLifeTime);
+			LineBatcher->DrawLine(AxisLoc - Y*Scale, AxisLoc + Y*Scale, Color, DepthPriority, 0.f, LineLifeTime);
+			LineBatcher->DrawLine(AxisLoc - Z*Scale, AxisLoc + Z*Scale, Color, DepthPriority, 0.f, LineLifeTime);
 		}
 	}
 }
@@ -715,7 +718,7 @@ void DrawDebugCone(const UWorld* InWorld, FVector const& Origin, FVector const& 
 	}
 }
 
-void DrawDebugString(const UWorld* InWorld, FVector const& TextLocation, const FString& Text, class AActor* TestBaseActor, FColor const& TextColor, float Duration, bool bDrawShadow)
+void DrawDebugString(const UWorld* InWorld, FVector const& TextLocation, const FString& Text, class AActor* TestBaseActor, FColor const& TextColor, float Duration, bool bDrawShadow, float FontScale)
 {
 	// no debug line drawing on dedicated server
 	if (GEngine->GetNetMode(InWorld) != NM_DedicatedServer)
@@ -727,9 +730,9 @@ void DrawDebugString(const UWorld* InWorld, FVector const& TextLocation, const F
 		for( FConstPlayerControllerIterator Iterator = InWorld->GetPlayerControllerIterator(); Iterator; ++Iterator )
 		{
 			APlayerController* PlayerController = Iterator->Get();
-			if (PlayerController->MyHUD && PlayerController->Player)
+			if (PlayerController && PlayerController->MyHUD && PlayerController->Player)
 			{
-				PlayerController->MyHUD->AddDebugText(Text, BaseAct, Duration, TextLocation, TextLocation, TextColor, true, (TestBaseActor==NULL), false, nullptr, 1.0f, bDrawShadow);
+				PlayerController->MyHUD->AddDebugText(Text, BaseAct, Duration, TextLocation, TextLocation, TextColor, true, (TestBaseActor==NULL), false, nullptr, FontScale, bDrawShadow);
 			}
 		}
 	}
@@ -742,7 +745,7 @@ void FlushDebugStrings( const UWorld* InWorld )
 	{
 		// if it's a player
 		APlayerController* PlayerController = Iterator->Get();
-		if (PlayerController->MyHUD)
+		if (PlayerController && PlayerController->MyHUD)
 		{
 			PlayerController->MyHUD->RemoveAllDebugStrings();
 		}
@@ -866,7 +869,7 @@ void DrawDebugCamera(const UWorld* InWorld, FVector const& Location, FRotator co
 	// no debug line drawing on dedicated server
 	if (GEngine->GetNetMode(InWorld) != NM_DedicatedServer)
 	{
-		DrawDebugCoordinateSystem(InWorld, Location, Rotation, BaseScale*Scale, bPersistentLines, DepthPriority);
+		DrawDebugCoordinateSystem(InWorld, Location, Rotation, BaseScale*Scale, bPersistentLines, LifeTime, DepthPriority);
 		FVector Extents = BaseProportions * BaseScale * Scale;
 		DrawDebugBox(InWorld, Location, Extents, Rotation.Quaternion(), Color, bPersistentLines, LifeTime, DepthPriority);		// lifetime
 
@@ -948,7 +951,7 @@ void DrawDebugFloatHistory(UWorld const & WorldRef, FDebugFloatHistory const & F
 void DrawDebugFloatHistory(UWorld const & WorldRef, FDebugFloatHistory const & FloatHistory, FVector const & DrawLocation, FVector2D const & DrawSize, FColor const & DrawColor, bool const & bPersistent, float const & LifeTime, uint8 const & DepthPriority)
 {
 	APlayerController * PlayerController = WorldRef.GetGameInstance() != nullptr ? WorldRef.GetGameInstance()->GetFirstLocalPlayerController() : nullptr;
-	FRotator const DrawRotation = (PlayerController && PlayerController->PlayerCameraManager) ? PlayerController->PlayerCameraManager->CameraCache.POV.Rotation : FRotator(0, 0, 0);
+	FRotator const DrawRotation = (PlayerController && PlayerController->PlayerCameraManager) ? PlayerController->PlayerCameraManager->GetCameraCachePOV().Rotation : FRotator(0, 0, 0);
 
 	FTransform const DrawTransform(DrawRotation, DrawLocation);
 	DrawDebugFloatHistory(WorldRef, FloatHistory, DrawTransform, DrawSize, DrawColor, bPersistent, LifeTime, DepthPriority);

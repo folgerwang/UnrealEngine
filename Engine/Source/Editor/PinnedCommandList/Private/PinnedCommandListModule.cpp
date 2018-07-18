@@ -2,7 +2,7 @@
 
 #include "IPinnedCommandListModule.h"
 #include "SPinnedCommandList.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 
 class FPinnedCommandListModule : public IPinnedCommandListModule
 {

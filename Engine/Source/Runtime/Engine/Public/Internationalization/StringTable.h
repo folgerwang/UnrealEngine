@@ -2,7 +2,7 @@
 #pragma once
 
 #include "CoreTypes.h"
-#include "StringTableCoreFwd.h"
+#include "Internationalization/StringTableCoreFwd.h"
 #include "UObject/ObjectMacros.h"
 #include "UObject/Object.h"
 #include "StringTable.generated.h"

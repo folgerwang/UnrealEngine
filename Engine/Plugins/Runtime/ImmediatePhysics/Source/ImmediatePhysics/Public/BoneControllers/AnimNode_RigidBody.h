@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "AnimNode_SkeletalControlBase.h"
+#include "BoneControllers/AnimNode_SkeletalControlBase.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "AnimNode_RigidBody.generated.h"
 
@@ -23,8 +23,8 @@ enum class ESimulationSpace
 	ComponentSpace,
 	/** Simulate in world space. Moving the skeletal mesh will generate velocity changes */
 	WorldSpace,
-	/** Simulate in root bone space. Moving the entire skeletal mesh and individually modifying the root bone will have no affect on velocities */
-	RootBoneSpace
+	/** Simulate in another bone space. Moving the entire skeletal mesh and individually modifying the base bone will have no affect on velocities */
+	BaseBoneSpace,
 };
 
 /**
@@ -51,6 +51,9 @@ struct IMMEDIATEPHYSICS_API FAnimNode_RigidBody : public FAnimNode_SkeletalContr
 	virtual void UpdateInternal(const FAnimationUpdateContext& Context) override;
 	virtual bool HasPreUpdate() const override { return true; }
 	virtual bool IsValidToEvaluate(const USkeleton* Skeleton, const FBoneContainer& RequiredBones) override { return true; }
+	virtual bool NeedsDynamicReset() const override;
+	virtual void ResetDynamics(ETeleportType InTeleportType) override;
+	virtual int32 GetLODThreshold() const override;
 	// End of FAnimNode_SkeletalControlBase interface
 
 	/** Physics asset to use. If empty use the skeletal mesh's default physics asset */
@@ -65,6 +68,18 @@ struct IMMEDIATEPHYSICS_API FAnimNode_RigidBody : public FAnimNode_SkeletalContr
 	UPROPERTY(EditAnywhere, Category = Settings, meta = (PinShownByDefault))
 	FVector ExternalForce;
 
+	/** When using non-world-space sim, this controls how much of the components world-space acceleration is passed on to the local-space simulation. */
+	UPROPERTY(EditAnywhere, Category = Settings)
+	FVector ComponentLinearAccScale;
+
+	/** When using non-world-space sim, this applies a 'drag' to the bodies in the local space simulation, based on the components world-space velocity. */
+	UPROPERTY(EditAnywhere, Category = Settings)
+	FVector ComponentLinearVelScale;
+
+	/** When using non-world-space sim, this is an overall clamp on acceleration derived from ComponentLinearAccScale and ComponentLinearVelScale, to ensure it is not too large. */
+	UPROPERTY(EditAnywhere, Category = Settings)
+	FVector	ComponentAppliedLinearAccClamp;
+
 	/** The channel we use to find static geometry to collide with */
 	UPROPERTY(EditAnywhere, Category = Settings, meta = (editcondition = "bEnableWorldGeometry"))
 	TEnumAsByte<ECollisionChannel> OverlapChannel;
@@ -75,7 +90,11 @@ struct IMMEDIATEPHYSICS_API FAnimNode_RigidBody : public FAnimNode_SkeletalContr
 	/** What space to simulate the bodies in. This affects how velocities are generated */
 	UPROPERTY(EditAnywhere, Category = Settings)
 	ESimulationSpace SimulationSpace;
-	
+
+	/** Matters if SimulationSpace is BaseBone */
+	UPROPERTY(EditAnywhere, Category = Settings)
+	FBoneReference BaseBoneRef;
+
 	UPROPERTY(EditAnywhere, Category = Settings, meta = (InlineEditConditionToggle))
 	bool bOverrideWorldGravity;
 
@@ -103,7 +122,6 @@ struct IMMEDIATEPHYSICS_API FAnimNode_RigidBody : public FAnimNode_SkeletalContr
 	bool bFreezeIncomingPoseOnStart;
 
 	void PostSerialize(const FArchive& Ar);
-
 private:
 
 	UPROPERTY()
@@ -117,7 +135,7 @@ private:
 	void UpdateWorldGeometry(const UWorld& World, const USkeletalMeshComponent& SKC);
 	void UpdateWorldForces(const FTransform& ComponentToWorld, const FTransform& RootBoneTM);
 
-	void InitializeNewBodyTransformsDuringSimulation(FComponentSpacePoseContext& Output, const FTransform& ComponentTransform, const FTransform& RootBoneTM);
+	void InitializeNewBodyTransformsDuringSimulation(FComponentSpacePoseContext& Output, const FTransform& ComponentTransform, const FTransform& BaseBoneTM);
 
 private:
 
@@ -149,8 +167,6 @@ private:
 		bool bBodyTransformInitialized;
 		FTransform TransferedBoneVelocity;
 	};
-	
-	FBoneReference RootBoneRef;
 
 	TArray<FOutputBoneData> OutputBoneData;
 	TArray<ImmediatePhysics::FActorHandle*> Bodies;
@@ -166,12 +182,17 @@ private:
 	float AccumulatedDeltaTime;
 	float TotalMass;
 
+	FTransform PreviousCompWorldSpaceTM;
+
 	FSphere Bounds;
 	FSphere CachedBounds;
 
 	FCollisionQueryParams QueryParams;
 
 	FPhysScene* PhysScene;
+
+	// Evaluation counter, to detect when we haven't be evaluated in a while.
+	FGraphTraversalCounter EvalCounter;
 
 	// Typically, World should never be accessed off the Game Thread.
 	// However, since we're just doing overlaps this should be OK.
@@ -182,7 +203,11 @@ private:
 	FCSPose<FCompactHeapPose> CapturedFrozenPose;
 	FBlendedHeapCurve CapturedFrozenCurves;
 
-	bool bResetSimulated;
+	FTransform CurrentTransform;
+	FTransform PreviousTransform;
+	FVector PreviousComponentLinearVelocity;
+
+	ETeleportType ResetSimulatedTeleportType;
 	bool bSimulationStarted;
 	bool bCheckForBodyTransformInit;
 };

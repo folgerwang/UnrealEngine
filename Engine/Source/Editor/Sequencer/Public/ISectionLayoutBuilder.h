@@ -4,6 +4,8 @@
 
 #include "CoreMinimal.h"
 
+class IKeyArea;
+
 /**
  * Builds an inner layout for a section
  */
@@ -24,7 +26,7 @@ public:
 	 * Sets the section as a key area itself
 	 * @param KeyArea		Interface for accessing and drawing keys
 	 */
-	virtual void SetSectionAsKeyArea( TSharedRef<class IKeyArea> KeyArea ) = 0;
+	virtual void SetSectionAsKeyArea( TSharedRef<IKeyArea> KeyArea ) = 0;
 
 	/**
 	 * Adds a key area onto the layout.  If a category is pushed, the key area will appear as a child of the current category
@@ -33,7 +35,7 @@ public:
 	 * @param DisplayLabel	The localized display label for the key area
 	 * @param KeyArea		Interface for accessing and drawing keys
 	 */
-	virtual void AddKeyArea( FName KeyAreaName, const FText& DisplayLabel, TSharedRef<class IKeyArea> KeyArea ) = 0;
+	virtual void AddKeyArea( FName KeyAreaName, const FText& DisplayLabel, TSharedRef<IKeyArea> KeyArea ) = 0;
 
 	/**
 	 * Pops a category off the stack

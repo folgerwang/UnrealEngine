@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "NiagaraStackEntry.h"
+#include "ViewModels/Stack/NiagaraStackEntry.h"
 #include "NiagaraStackRoot.generated.h"
 
 class FNiagaraEmitterViewModel;
@@ -21,13 +21,14 @@ class NIAGARAEDITOR_API UNiagaraStackRoot : public UNiagaraStackEntry
 
 public:
 	UNiagaraStackRoot();
+	
+	void Initialize(FRequiredEntryData InRequiredEntryData);
 
-	void Initialize(TSharedRef<FNiagaraSystemViewModel> InSystemViewModel, TSharedRef<FNiagaraEmitterViewModel> InEmitterViewModel);
-
+	virtual bool GetCanExpand() const override;
 	virtual bool GetShouldShowInStack() const override;
 
 protected:
-	virtual void RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren) override;
+	virtual void RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren, TArray<FStackIssue>& NewIssues) override;
 
 private:
 	void EmitterEventArraysChanged();

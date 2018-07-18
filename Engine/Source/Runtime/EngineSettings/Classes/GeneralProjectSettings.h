@@ -59,11 +59,11 @@ class ENGINESETTINGS_API UGeneralProjectSettings
 	UPROPERTY(config, EditAnywhere, Category=Publisher)
 	FString SupportContact;
 
-	/** The project's title as displayed on the window title bar (can include the tokens {GameName}, {PlatformArchitecture}, or {RHIName}, which will be replaced with the specified text) */
+	/** The project's title as displayed on the window title bar (can include the tokens {GameName}, {PlatformArchitecture}, {BuildConfiguration} or {RHIName}, which will be replaced with the specified text) */
 	UPROPERTY(config, EditAnywhere, Category=Displayed)
 	FText ProjectDisplayedTitle;
 
-	/** Additional data to be displayed on the window title bar in non-shipping configurations (can include the tokens {GameName}, {PlatformArchitecture}, or {RHIName}, which will be replaced with the specified text) */
+	/** Additional data to be displayed on the window title bar in non-shipping configurations (can include the tokens {GameName}, {PlatformArchitecture}, {BuildConfiguration} or {RHIName}, which will be replaced with the specified text) */
 	UPROPERTY(config, EditAnywhere, Category=Displayed)
 	FText ProjectDebugTitleInfo;
 
@@ -83,9 +83,9 @@ class ENGINESETTINGS_API UGeneralProjectSettings
 	UPROPERTY()
 	bool bStartInAR_DEPRECATED;
 
-	/** Will this app support Augmented Reality (AR) in some capacity? */
-	UPROPERTY(config, EditAnywhere, Category = Settings)
-	bool bSupportAR;
+    /** No longer used; AR support is determined by included plugins */
+	UPROPERTY()
+	bool bSupportAR_DEPRECATED;
 	
 	UPROPERTY(config, EditAnywhere, Category = Settings)
 	bool bAllowWindowResize;

@@ -6,7 +6,7 @@
 
 #if PLATFORM_IOS
 	#include "IOS/IOSPlatformTextField.h"
-#elif PLATFORM_ANDROID
+#elif PLATFORM_ANDROID && USE_ANDROID_JNI
 	#include "Android/AndroidPlatformTextField.h"
 #elif PLATFORM_PS4
 	#include "PS4/PS4PlatformTextField.h"

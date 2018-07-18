@@ -4,6 +4,7 @@
 
 #include "Containers/UnrealString.h"
 #include "Internationalization/Text.h"
+#include "Math/Interval.h"
 #include "Misc/Paths.h"
 #include "Misc/Timespan.h"
 
@@ -200,6 +201,17 @@ public:
 	virtual void SetGuid(const FGuid& Guid)
 	{
 		// override in child classes if supported
+	}
+
+	/**
+	 * Set the player's native volume if supported.
+	 *
+	 * @param Volume The volume to set.
+	 * @return true on success, false otherwise.
+	 */
+	virtual bool SetNativeVolume(float Volume)
+	{
+		return false;
 	}
 
 	/**

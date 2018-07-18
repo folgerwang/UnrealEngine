@@ -63,7 +63,7 @@ public:
 	int32 AudioSampleRate;
 
 	/** The amount of audio to compute each callback block. Lower values decrease latency but may increase CPU cost. */
-	UPROPERTY(config, EditAnywhere, Category = "Audio", meta = (ClampMin = "512", ClampMax = "4096", DisplayName = "Callback Buffer Size"))
+	UPROPERTY(config, EditAnywhere, Category = "Audio", meta = (ClampMin = "64", ClampMax = "4096", DisplayName = "Callback Buffer Size"))
 	int32 AudioCallbackBufferFrameSize;
 
 	/** The number of buffers to keep enqueued. More buffers increases latency, but can compensate for variable compute availability in audio callbacks on some platforms. */

@@ -9,15 +9,17 @@ DEFINE_LOG_CATEGORY_STATIC(LogCoreSettings, Log, All);
 
 int32 GUseBackgroundLevelStreaming = 1;
 float GAsyncLoadingTimeLimit = 5.0f;
-int32 GAsyncLoadingUseFullTimeLimit = 1;
-float GPriorityAsyncLoadingExtraTime = 20.0f;
+int32 GAsyncLoadingUseFullTimeLimit = 0;
+float GPriorityAsyncLoadingExtraTime = 15.0f;
 float GLevelStreamingActorsUpdateTimeLimit = 5.0f;
+float GPriorityLevelStreamingActorsUpdateExtraTime = 5.0f;
 float GLevelStreamingUnregisterComponentsTimeLimit = 1.0f;
 int32 GLevelStreamingComponentsRegistrationGranularity = 10;
 int32 GLevelStreamingComponentsUnregistrationGranularity = 5;
 int32 GLevelStreamingForceGCAfterLevelStreamedOut = 1;
 int32 GLevelStreamingContinuouslyIncrementalGCWhileLevelsPendingPurge = 1;
 int32 GLevelStreamingAllowLevelRequestsWhileAsyncLoadingInMatch = 1;
+int32 GLevelStreamingMaxLevelRequestsAtOnceWhileInMatch = 0;
 
 static FAutoConsoleVariableRef CVarUseBackgroundLevelStreaming(
 	TEXT("s.UseBackgroundLevelStreaming"),
@@ -53,6 +55,13 @@ static FAutoConsoleVariableRef CVarLevelStreamingActorsUpdateTimeLimit(
 	TEXT("Maximum allowed time to spend for actor registration steps during level streaming (ms per frame)."),
 	ECVF_Default
 	);
+
+static FAutoConsoleVariableRef CVarPriorityLevelStreamingActorsUpdateExtraTime(
+	TEXT("s.PriorityLevelStreamingActorsUpdateExtraTime"),
+	GPriorityLevelStreamingActorsUpdateExtraTime,
+	TEXT("Additional time to spend on actor registration steps during a high priority load."),
+	ECVF_Default
+);
 
 static FAutoConsoleVariableRef CVarLevelStreamingUnregisterComponentsTimeLimit(
 	TEXT("s.UnregisterComponentsTimeLimit"),
@@ -96,6 +105,13 @@ static FAutoConsoleVariableRef CVarAllowLevelRequestsWhileAsyncLoadingInMatch(
 	ECVF_Default
 );
 
+static FAutoConsoleVariableRef CVarMaxLevelRequestsAtOnceWhileInMatch(
+	TEXT( "s.MaxLevelRequestsAtOnceWhileInMatch" ),
+	GLevelStreamingMaxLevelRequestsAtOnceWhileInMatch,
+	TEXT( "When we're already loading this many levels and actively in match, don't allow any more requests until one of those completes.  Set to zero to disable." ),
+	ECVF_Default
+);
+
 UStreamingSettings::UStreamingSettings()
 	: Super()
 {
@@ -109,8 +125,9 @@ UStreamingSettings::UStreamingSettings()
 	UseBackgroundLevelStreaming = true;
 	AsyncLoadingTimeLimit = 5.0f;
 	AsyncLoadingUseFullTimeLimit = true;
-	PriorityAsyncLoadingExtraTime = 20.0f;
+	PriorityAsyncLoadingExtraTime = 15.0f;
 	LevelStreamingActorsUpdateTimeLimit = 5.0f;
+	PriorityLevelStreamingActorsUpdateExtraTime = 5.0f;
 	LevelStreamingComponentsRegistrationGranularity = 10;
 	LevelStreamingUnregisterComponentsTimeLimit = 1.0f;
 	LevelStreamingComponentsUnregistrationGranularity = 5;
@@ -151,13 +168,15 @@ UGarbageCollectionSettings::UGarbageCollectionSettings()
 	TimeBetweenPurgingPendingKillObjects = 60.0f;
 	FlushStreamingOnGC = false;
 	AllowParallelGC = true;
+	IncrementalBeginDestroyEnabled = true;
 	NumRetriesBeforeForcingGC = 0;
 	MaxObjectsNotConsideredByGC = 0;
 	SizeOfPermanentObjectPool = 0;
 	MaxObjectsInEditor = 12 * 1024 * 1024;
-	MaxObjectsInGame = 2 * 1024 * 1024;
-	CreateGCClusters = true;
+	MaxObjectsInGame = 2 * 1024 * 1024;	
+	CreateGCClusters = true;	
 	MergeGCClusters = false;
+	MinGCClusterSize = 5;
 	ActorClusteringEnabled = true;
 	BlueprintClusteringEnabled = false;
 	UseDisregardForGCOnDedicatedServers = false;

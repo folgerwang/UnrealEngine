@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Evaluation/MovieSceneAnimTypeID.h"
-#include "InlineValue.h"
+#include "Misc/InlineValue.h"
 
 template<typename T> struct TMovieSceneInterrogationIterator;
 struct FMovieSceneBlendingAccumulator;

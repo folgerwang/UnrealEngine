@@ -10,7 +10,7 @@
 #if PLATFORM_ANDROID
 #include "Android/AndroidJNI.h"
 #include "Android/AndroidEGL.h"
-#include "AndroidApplication.h"
+#include "Android/AndroidApplication.h"
 #include "OculusHMDTypes.h"
 #endif
 
@@ -113,7 +113,8 @@ void FSplash::RenderFrame_RenderThread(FRHICommandListImmediate& RHICmdList, dou
 		FScopeLock ScopeLock(&RenderThreadLock);
 		XSettings = Settings->Clone();
 		XFrame = Frame->Clone();
-		XFrame->FrameNumber = OculusHMD->NextFrameNumber++;
+		XFrame->FrameNumber = OculusHMD->NextFrameNumber;
+		XFrame->ShowFlags.Rendering = true;
 
 		if(!bIsBlack)
 		{
@@ -135,9 +136,26 @@ void FSplash::RenderFrame_RenderThread(FRHICommandListImmediate& RHICmdList, dou
 		}
 	}
 
+	ovrpResult Result;
+
 //	UE_LOG(LogHMD, Log, TEXT("Splash ovrp_WaitToBeginFrame %u"), XFrame->FrameNumber);
-	ovrp_WaitToBeginFrame(XFrame->FrameNumber);
-	ovrp_Update3(ovrpStep_Render, XFrame->FrameNumber, 0.0);
+	if (OVRP_FAILURE(Result = ovrp_WaitToBeginFrame(XFrame->FrameNumber)))
+	{
+		UE_LOG(LogHMD, Error, TEXT("Splash ovrp_WaitToBeginFrame %u failed (%d)"), XFrame->FrameNumber, Result);
+		XFrame->ShowFlags.Rendering = false;
+	}
+	else
+	{
+		OculusHMD->NextFrameNumber++;
+	}
+
+	if (XFrame->ShowFlags.Rendering)
+	{
+		if (OVRP_FAILURE(Result = ovrp_Update3(ovrpStep_Render, XFrame->FrameNumber, 0.0)))
+		{
+			UE_LOG(LogHMD, Error, TEXT("Splash ovrp_Update3 %u failed (%d)"), XFrame->FrameNumber, Result);
+		}
+	}
 
 	{
 		int32 LayerIndex = 0;
@@ -184,25 +202,43 @@ void FSplash::RenderFrame_RenderThread(FRHICommandListImmediate& RHICmdList, dou
 
 	ExecuteOnRHIThread_DoNotWait([this, XSettings, XFrame, XLayers]()
 	{
-//		UE_LOG(LogHMD, Log, TEXT("Splash ovrp_BeginFrame4 %u"), XFrame->FrameNumber);
-		ovrp_BeginFrame4(XFrame->FrameNumber, CustomPresent->GetOvrpCommandQueue());
+		ovrpResult ResultT;
+
+		if (XFrame->ShowFlags.Rendering)
+		{
+//			UE_LOG(LogHMD, Log, TEXT("Splash ovrp_BeginFrame4 %u"), XFrame->FrameNumber);
+			if (OVRP_FAILURE(ResultT = ovrp_BeginFrame4(XFrame->FrameNumber, CustomPresent->GetOvrpCommandQueue())))
+			{
+				UE_LOG(LogHMD, Error, TEXT("Splash ovrp_BeginFrame4 %u failed (%d)"), XFrame->FrameNumber, ResultT);
+				XFrame->ShowFlags.Rendering = false;
+			}
+		}
 
 		Layers_RHIThread = XLayers;
 		Layers_RHIThread.Sort(FLayerPtr_ComparePriority());
-		TArray<const ovrpLayerSubmit*> LayerSubmitPtr;
-		LayerSubmitPtr.SetNum(Layers_RHIThread.Num());
 
-		for (int32 LayerIndex = 0; LayerIndex < Layers_RHIThread.Num(); LayerIndex++)
+		if (XFrame->ShowFlags.Rendering)
 		{
-			LayerSubmitPtr[LayerIndex] = Layers_RHIThread[LayerIndex]->UpdateLayer_RHIThread(XSettings.Get(), XFrame.Get());
-		}
+			TArray<const ovrpLayerSubmit*> LayerSubmitPtr;
+			LayerSubmitPtr.SetNum(Layers_RHIThread.Num());
 
-//		UE_LOG(LogHMD, Log, TEXT("Splash ovrp_EndFrame4 %u"), XFrame->FrameNumber);
-		ovrp_EndFrame4(XFrame->FrameNumber, LayerSubmitPtr.GetData(), LayerSubmitPtr.Num(), CustomPresent->GetOvrpCommandQueue());
+			for (int32 LayerIndex = 0; LayerIndex < Layers_RHIThread.Num(); LayerIndex++)
+			{
+				LayerSubmitPtr[LayerIndex] = Layers_RHIThread[LayerIndex]->UpdateLayer_RHIThread(XSettings.Get(), XFrame.Get(), LayerIndex);
+			}
 
-		for (int32 LayerIndex = 0; LayerIndex < Layers_RHIThread.Num(); LayerIndex++)
-		{
-			Layers_RHIThread[LayerIndex]->IncrementSwapChainIndex_RHIThread(CustomPresent);
+//			UE_LOG(LogHMD, Log, TEXT("Splash ovrp_EndFrame4 %u"), XFrame->FrameNumber);
+			if (OVRP_FAILURE(ResultT = ovrp_EndFrame4(XFrame->FrameNumber, LayerSubmitPtr.GetData(), LayerSubmitPtr.Num(), CustomPresent->GetOvrpCommandQueue())))
+			{
+				UE_LOG(LogHMD, Error, TEXT("Splash ovrp_EndFrame4 %u failed (%d)"), XFrame->FrameNumber, ResultT);
+			}
+			else
+			{
+				for (int32 LayerIndex = 0; LayerIndex < Layers_RHIThread.Num(); LayerIndex++)
+				{
+					Layers_RHIThread[LayerIndex]->IncrementSwapChainIndex_RHIThread(CustomPresent);
+				}
+			}
 		}
 	});
 
@@ -241,6 +277,23 @@ void FSplash::Startup()
 
 		bInitialized = true;
 	}
+}
+
+
+void FSplash::ReleaseResources_RHIThread()
+{
+	for (int32 LayerIndex = 0; LayerIndex < Layers_RenderThread.Num(); LayerIndex++)
+	{
+		Layers_RenderThread[LayerIndex]->ReleaseResources_RHIThread();
+	}
+
+	for (int32 LayerIndex = 0; LayerIndex < Layers_RHIThread.Num(); LayerIndex++)
+	{
+		Layers_RHIThread[LayerIndex]->ReleaseResources_RHIThread();
+	}
+
+	Layers_RenderThread.Reset();
+	Layers_RHIThread.Reset();
 }
 
 

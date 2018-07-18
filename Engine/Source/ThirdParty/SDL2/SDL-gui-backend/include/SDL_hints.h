@@ -264,6 +264,16 @@ extern "C" {
  */
 #define SDL_HINT_MOUSE_RELATIVE_MODE_WARP    "SDL_MOUSE_RELATIVE_MODE_WARP"
 
+/* EG BEGIN */
+#ifdef SDL_WITH_EPIC_EXTENSIONS
+/**
+  *  \brief A variable that allows you to show the cursor during active relative mouse mode.
+  */ 
+#define SDL_HINT_MOUSE_RELATIVE_MODE_SHOW_CURSOR "SDL_MOUSE_RELATIVE_MODE_SHOW_CURSOR"
+
+#endif /* SDL_WITH_EPIC_EXTENSIONS */
+/* EG END */
+
 /**
  *  \brief Allow mouse click events when clicking to focus an SDL window
  *

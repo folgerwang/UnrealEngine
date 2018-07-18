@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Sections/MovieSceneFadeSection.h"
-#include "SequencerObjectVersion.h"
+#include "UObject/SequencerObjectVersion.h"
 
 
 /* UMovieSceneFadeSection structors
@@ -12,7 +12,11 @@ UMovieSceneFadeSection::UMovieSceneFadeSection()
 	, FadeColor(FLinearColor::Black)
 	, bFadeAudio(false)
 {
-	SetIsInfinite(true);
+#if WITH_EDITORONLY_DATA
+	bIsInfinite_DEPRECATED = true;
+#endif
+
+	SetRange(TRange<FFrameNumber>::All());
 
 	EvalOptions.EnableAndSetCompletionMode
 		(GetLinkerCustomVersion(FSequencerObjectVersion::GUID) < FSequencerObjectVersion::WhenFinishedDefaultsToProjectDefault ? 

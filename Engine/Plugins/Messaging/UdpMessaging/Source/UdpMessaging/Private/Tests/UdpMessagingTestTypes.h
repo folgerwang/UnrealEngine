@@ -33,12 +33,12 @@ class FUdpMockMessageContext
 {
 public:
 
-	FUdpMockMessageContext(FUdpMockMessage* InMessage)
+	FUdpMockMessageContext(FUdpMockMessage* InMessage, const FDateTime& InTimeSent)
 		: Expiration(FDateTime::MaxValue())
 		, Message(InMessage)
 		, Scope(EMessageScope::Network)
 		, SenderThread(ENamedThreads::AnyThread)
-		, TimeSent(FDateTime(2015, 9, 17, 10, 59, 23, 666))
+		, TimeSent(InTimeSent)
 		, TypeInfo(FUdpMockMessage::StaticStruct())
 	{
 		FMessageAddress::Parse(TEXT("11111111-22222222-33333333-44444444"), Sender);
@@ -59,7 +59,7 @@ public:
 
 public:
 
-	// IMessageContext interface
+	//~ IMessageContext interface
 
 	virtual const TMap<FName, FString>& GetAnnotations() const override { return Annotations; }
 	virtual TSharedPtr<IMessageAttachment, ESPMode::ThreadSafe> GetAttachment() const override { return Attachment; }

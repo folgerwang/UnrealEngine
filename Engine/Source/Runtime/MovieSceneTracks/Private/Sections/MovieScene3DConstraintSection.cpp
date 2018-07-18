@@ -24,18 +24,6 @@ FGuid UMovieScene3DConstraintSection::GetConstraintId() const
 }
 
 
-TOptional<float> UMovieScene3DConstraintSection::GetKeyTime(FKeyHandle KeyHandle) const
-{
-	return TOptional<float>();
-}
-
-
-void UMovieScene3DConstraintSection::SetKeyTime(FKeyHandle KeyHandle, float Time)
-{
-	// do nothing
-}
-
-
 void UMovieScene3DConstraintSection::OnBindingsUpdated(const TMap<FGuid, FGuid>& OldGuidToNewGuidMap)
 {
 	if (OldGuidToNewGuidMap.Contains(ConstraintBindingID.GetGuid()))

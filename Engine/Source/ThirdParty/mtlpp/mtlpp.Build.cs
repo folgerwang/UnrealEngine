@@ -9,44 +9,41 @@ public class MTLPP : ModuleRules
 
 		string MTLPPPath = Target.UEThirdPartySourceDirectory + "mtlpp/mtlpp-master-7efad47/";
 
-		if (Target.Platform == UnrealTargetPlatform.Mac)
+		if (Target.Platform == UnrealTargetPlatform.Mac || Target.Platform == UnrealTargetPlatform.IOS || Target.Platform == UnrealTargetPlatform.TVOS)
 		{
-			PublicSystemIncludePaths.Add(MTLPPPath + "src");
+			string PlatformName = "";
+			if (Target.Platform == UnrealTargetPlatform.Mac)
+			{
+				PlatformName = "Mac";
+			}
+			else if (Target.Platform == UnrealTargetPlatform.IOS)
+			{
+				PlatformName = "IOS";
+			}
+			else if (Target.Platform == UnrealTargetPlatform.TVOS)
+			{
+				PlatformName = "TVOS";
+			}
+		
+			PublicIncludePaths.Add(MTLPPPath + "src");
 			PublicSystemIncludePaths.Add(MTLPPPath + "interpose");
+			
+			// A full debug build without any optimisation
 			if (Target.Configuration == UnrealTargetConfiguration.Debug && Target.bDebugBuildsActuallyUseDebugCRT)
 			{
-				PublicAdditionalLibraries.Add(MTLPPPath + "lib/Mac/libmtlppd.a");
+				PublicAdditionalLibraries.Add(MTLPPPath + "lib/" + PlatformName + "/libmtlppd.a");
 			}
+			// A development build that uses mtlpp compiled for release but with validation code enabled 
+			else if (Target.Configuration == UnrealTargetConfiguration.Development || Target.Configuration == UnrealTargetConfiguration.DebugGame)
+			{
+				PublicAdditionalLibraries.Add(MTLPPPath + "lib/" + PlatformName + "/libmtlpp.a");
+			}
+			// A shipping configuration that disables all validation and is aggressively optimised.
 			else
 			{
-				PublicAdditionalLibraries.Add(MTLPPPath + "lib/Mac/libmtlpp.a");
+				PublicDefinitions.Add("MTLPP_CONFIG_VALIDATE=0"); // Disables the mtlpp validation used for reporting resource misuse which is compiled out for test/shipping
+				PublicAdditionalLibraries.Add(MTLPPPath + "lib/" + PlatformName + "/libmtlpps.a");
 			}
 		}
-        else if (Target.Platform == UnrealTargetPlatform.IOS)
-        {
-            PublicSystemIncludePaths.Add(MTLPPPath + "src");
-			PublicSystemIncludePaths.Add(MTLPPPath + "interpose");
-            if (Target.Configuration == UnrealTargetConfiguration.Debug && Target.bDebugBuildsActuallyUseDebugCRT)
-            {
-                PublicAdditionalLibraries.Add(MTLPPPath + "lib/IOS/libmtlppd.a");
-            }
-            else
-            {
-                PublicAdditionalLibraries.Add(MTLPPPath + "lib/IOS/libmtlpp.a");
-            }
-        }
-        else if (Target.Platform == UnrealTargetPlatform.TVOS)
-        {
-            PublicSystemIncludePaths.Add(MTLPPPath + "src");
-			PublicSystemIncludePaths.Add(MTLPPPath + "interpose");
-            if (Target.Configuration == UnrealTargetConfiguration.Debug && Target.bDebugBuildsActuallyUseDebugCRT)
-            {
-                PublicAdditionalLibraries.Add(MTLPPPath + "lib/TVOS/libmtlppd.a");
-            }
-            else
-            {
-                PublicAdditionalLibraries.Add(MTLPPPath + "lib/TVOS/libmtlpp.a");
-            }
-        }
     }
 }

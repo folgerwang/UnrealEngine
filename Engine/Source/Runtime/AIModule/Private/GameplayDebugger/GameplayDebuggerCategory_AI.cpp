@@ -8,11 +8,11 @@
 #include "ShowFlags.h"
 #include "PrimitiveViewRelevance.h"
 #include "Components/PrimitiveComponent.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "NavigationSystem.h"
 #include "GameFramework/PlayerController.h"
 #include "Engine/Engine.h"
 #include "EngineGlobals.h"
-#include "AI/Navigation/RecastNavMesh.h"
+#include "NavMesh/RecastNavMesh.h"
 #include "Engine/Canvas.h"
 #include "AIController.h"
 #include "BehaviorTree/BehaviorTreeComponent.h"
@@ -178,7 +178,7 @@ void FGameplayDebuggerCategory_AI::CollectData(APlayerController* OwnerPC, AActo
 
 		DataPack.MontageInfo = MyChar ? GetNameSafe(MyChar->GetCurrentMontage()) : FString();
 
-		UNavigationSystem* NavSys = UNavigationSystem::GetCurrent(MyPawn->GetWorld());
+		UNavigationSystemV1* NavSys = FNavigationSystem::GetCurrent<UNavigationSystemV1>(MyPawn->GetWorld());
 		const ANavigationData* NavData = MyController && NavSys ? NavSys->GetNavDataForProps(MyController->GetNavAgentPropertiesRef()) : nullptr;
 		DataPack.NavDataInfo = NavData ? NavData->GetConfig().Name.ToString() : FString();
 

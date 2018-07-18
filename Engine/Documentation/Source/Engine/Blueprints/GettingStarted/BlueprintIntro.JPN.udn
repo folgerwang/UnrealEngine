@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3482294
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:ブループリント入門
 Crumbs: %ROOT%, Engine, Engine/Blueprints
@@ -7,46 +7,7 @@ version:4.9
 parent:Engine/Blueprints
 order:1
 tags:Blueprints
-
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Blueprints/GettingStarted:title%](Engine/Blueprints/intro_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/blueprint_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Blueprints/GettingStarted:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Blueprints/GettingStarted:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Blueprints/GettingStarted]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Blueprints/GettingStarted:title%](Engine/Blueprints/intro_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/blueprint_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Blueprints/GettingStarted:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Blueprints/GettingStarted:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Blueprints/GettingStarted]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:Engine/Blueprints/intro_topic.png
 
 
 [TOC (start:2)]
@@ -75,8 +36,6 @@ UE4 を使う場合、ブループリントを使って定義したオブジェ�
 
 この 2 種類の他にも、[ブループリントの種類](Engine/Blueprints/UserGuide/Types) には [ブループリント マクロ](Engine/Blueprints/UserGuide/Types/MacroLibrary) や [ブループリント インターフェース](Engine/Blueprints/UserGuide/Types/Interface) があります。
 
-	[/PARAM]
-[/OBJECT]
 ## [Level ブループリント](Engine/Blueprints/UserGuide/Types/LevelBlueprint)
 
 [REGION:lightbox]
@@ -90,6 +49,7 @@ Level ブループリントはアンリアル エンジン 3 における Kismet
 [REGION:lightbox]
 [![](Engine/Blueprints/GettingStarted/Blueprint_Main.png)(w:640)](Engine/Blueprints/UserGuide/Types/ClassBlueprint)
 [/REGION]
+
 
 Blueprint クラスはドア、スイッチ、収集アイテム、破壊される景色などのインタラクティブなセットの作成に理想的です。上の画像では、ボタンとドアのセットがそれぞれ別のブループリントで、各ブループリントにはプレイヤー オーバーラップ イベントに反応し、アニメートさせ、サウンド エフェクトを再生し、マテリアルを変更するために必要なスクリプトが含まれています (例えば、ボタンは押されると光ります)。
 

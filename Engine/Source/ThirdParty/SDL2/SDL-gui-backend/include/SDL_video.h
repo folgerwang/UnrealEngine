@@ -938,6 +938,18 @@ extern DECLSPEC int SDLCALL SDL_SetWindowInputFocus(SDL_Window * window);
  */
 extern DECLSPEC int SDLCALL SDL_SetKeyboardGrab(SDL_Window * window, SDL_bool enable);
 
+/**
+ *  \brief Confines the cursor in the specified rect area.
+ * 
+ *  \param window The window that will be associated with the barrier. If NULL ALL 
+ *   barriers of all window will be destroyed.
+ *  \param rect A rectangle area in screen space coordinates. If NULL the barrier for
+ *   the specified window will be destroyed.
+ *
+ *  \return SDL_TRUE on success, or SDL_FALSE otherwise.
+ */
+extern DECLSPEC SDL_bool SDLCALL SDL_ConfineCursor(SDL_Window * window, const SDL_Rect * rect);
+
 /** Vulkan related stuff. */
 typedef void *SDL_VkSurface;
 typedef void *SDL_VkInstance;

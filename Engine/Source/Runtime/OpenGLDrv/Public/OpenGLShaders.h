@@ -9,8 +9,6 @@
 #include "CoreMinimal.h"
 #include "OpenGLDrv.h"
 
-typedef TArray<ANSICHAR> FAnsiCharArray;
-
 enum EOpenGLShaderTargetPlatform
 {
 	OGLSTP_Unknown,

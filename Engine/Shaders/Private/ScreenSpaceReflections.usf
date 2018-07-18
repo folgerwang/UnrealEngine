@@ -23,6 +23,11 @@ float4 SSRParams;
 
 float PrevSceneColorPreExposureCorrection;
 
+float4 HZBUvFactorAndInvFactor;
+
+// Equivalent of View.ScreenPositionScaleBias, but for SSR.
+float4 PrevScreenPositionScaleBias;
+
 uint MortonCode( uint x )
 {
 	//x = (x ^ (x <<  8)) & 0x00ff00ff;
@@ -140,7 +145,7 @@ void ScreenSpaceReflectionsPS(in noperspective float4 UVAndScreenPos : TEXCOORD0
 		const float2 E = float2(PseudoRandom(PixelPos + float2(FrameRandom, 0)), PseudoRandom(PixelPos + float2(0, FrameRandom)));
 		const float StepOffset = PseudoRandom(PixelPos + FrameRandom);
 
-		const float4 HNAndPDF = ImportanceSampleBlinn( E, Roughness );
+		const float4 HNAndPDF = ImportanceSampleBlinn( E, Pow4(Roughness) );
 		const float3 H = TangentToWorld( HNAndPDF.xyz, N );
 		const float3 R = 2 * dot( V, H ) * H - V;
 
@@ -156,13 +161,15 @@ void ScreenSpaceReflectionsPS(in noperspective float4 UVAndScreenPos : TEXCOORD0
 			PostprocessInput1, PostprocessInput1Sampler, PostprocessInput1Size.xy,
 			PositionTranslatedWorld, R, Roughness, ConeAngleWorld, SceneDepth,
 			NumSteps, StepOffset,
+			HZBUvFactorAndInvFactor,
+			PrevScreenPositionScaleBias,
 			HitUVzTime, HCBLevel
 		);
 
 		// if there was a hit
 		BRANCH if( HitUVzTime.w < 1 )
 		{
-			OutColor = SampleHCBLevel( PostprocessInput2, PostprocessInput2Sampler, HitUVzTime.xyz, HCBLevel );
+			OutColor = SampleHCBLevel( PostprocessInput2, PostprocessInput2Sampler, HitUVzTime.xyz, HCBLevel, HZBUvFactorAndInvFactor );
 		}
 	}
 #else //SSR_QUALITY != SSR_CONE_QUALITY
@@ -204,7 +211,7 @@ void ScreenSpaceReflectionsPS(in noperspective float4 UVAndScreenPos : TEXCOORD0
 				StepOffset -= 0.5;
 			
 				float2 E = Hammersley( i, NumRays, Random );
-				float3 H = TangentToWorld( ImportanceSampleBlinn( E, Roughness ).xyz, N );
+				float3 H = TangentToWorld( ImportanceSampleBlinn( E, Pow4(Roughness) ).xyz, N );
 				float3 R = 2 * dot( V, H ) * H - V;
 
 				float4 HitUVzTime;
@@ -214,6 +221,8 @@ void ScreenSpaceReflectionsPS(in noperspective float4 UVAndScreenPos : TEXCOORD0
 					PostprocessInput1, PostprocessInput1Sampler, PostprocessInput1Size.xy,
 					PositionTranslatedWorld, R, Roughness, 0.001, SceneDepth,
 					NumSteps, StepOffset,
+					HZBUvFactorAndInvFactor,
+					PrevScreenPositionScaleBias,
 					HitUVzTime, HCBLevel
 				);
 
@@ -222,9 +231,9 @@ void ScreenSpaceReflectionsPS(in noperspective float4 UVAndScreenPos : TEXCOORD0
 				{
 					float2 SampleUV;
 					float Vignette;
-					ReprojectHit( PostprocessInput3, PostprocessInput3Sampler, HitUVzTime.xyz, SampleUV, Vignette );
+					ReprojectHit(PrevScreenPositionScaleBias, PostprocessInput3, PostprocessInput3Sampler, HitUVzTime.xyz, SampleUV, Vignette);
 
-					float4 SampleColor = SampleScreenColor( PostprocessInput0, PostprocessInput0Sampler, SampleUV ) * Vignette;
+					float4 SampleColor = SampleScreenColor(PostprocessInput0, PostprocessInput0Sampler, SampleUV) * Vignette;
 				
 					SampleColor.rgb /= 1 + Luminance(SampleColor.rgb);
 					OutColor += SampleColor;
@@ -248,6 +257,8 @@ void ScreenSpaceReflectionsPS(in noperspective float4 UVAndScreenPos : TEXCOORD0
 				PostprocessInput1, PostprocessInput1Sampler, PostprocessInput1Size.xy,
 				PositionTranslatedWorld, R, Roughness, 0.001, SceneDepth,
 				16, StepOffset,
+				HZBUvFactorAndInvFactor,
+				PrevScreenPositionScaleBias,
 				HitUVzTime, HCBLevel
 			);
 
@@ -256,9 +267,9 @@ void ScreenSpaceReflectionsPS(in noperspective float4 UVAndScreenPos : TEXCOORD0
 			{
 				float2 SampleUV;
 				float Vignette;
-				ReprojectHit( PostprocessInput3, PostprocessInput3Sampler, HitUVzTime.xyz, SampleUV, Vignette );
+				ReprojectHit(PrevScreenPositionScaleBias, PostprocessInput3, PostprocessInput3Sampler, HitUVzTime.xyz, SampleUV, Vignette);
 
-				OutColor = SampleScreenColor( PostprocessInput0, PostprocessInput0Sampler, SampleUV ) * Vignette;
+				OutColor = SampleScreenColor(PostprocessInput0, PostprocessInput0Sampler, SampleUV) * Vignette;
 			}
 		}
 	}
@@ -276,6 +287,8 @@ void ScreenSpaceReflectionsPS(in noperspective float4 UVAndScreenPos : TEXCOORD0
 			PostprocessInput1, PostprocessInput1Sampler, PostprocessInput1Size.xy,
 			PositionTranslatedWorld, R, Roughness, 0.001, SceneDepth,
 			NumSteps, StepOffset,
+			HZBUvFactorAndInvFactor,
+			PrevScreenPositionScaleBias,
 			HitUVzTime, HCBLevel
 		);
 
@@ -284,9 +297,9 @@ void ScreenSpaceReflectionsPS(in noperspective float4 UVAndScreenPos : TEXCOORD0
 		{
 			float2 SampleUV;
 			float Vignette;
-			ReprojectHit( PostprocessInput3, PostprocessInput3Sampler, HitUVzTime.xyz, SampleUV, Vignette );
+			ReprojectHit(PrevScreenPositionScaleBias, PostprocessInput3, PostprocessInput3Sampler, HitUVzTime.xyz, SampleUV, Vignette);
 
-			OutColor = SampleScreenColor( PostprocessInput0, PostprocessInput0Sampler, SampleUV ) * Vignette;
+			OutColor = SampleScreenColor(PostprocessInput0, PostprocessInput0Sampler, SampleUV) * Vignette;
 		}
 	}
 #endif //SSR_QUALITY  != SSR_CONE_QUALITY

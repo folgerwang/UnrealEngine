@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "ObjectEditorUtils.h"
-#include "Package.h"
+#include "UObject/Package.h"
 #include "UObject/PropertyPortFlags.h"
 
 #if WITH_EDITOR
@@ -142,7 +142,7 @@ namespace FObjectEditorUtils
 			TargetMapHelper.EmptyValues();
 
 			int32 Num = SourceMapHelper.Num();
-			for ( int32 Index = 0; Index < Num; Index++ )
+			for ( int32 Index = 0; Num; Index++ )
 			{
 				if ( SourceMapHelper.IsValidIndex(Index) )
 				{
@@ -157,6 +157,8 @@ namespace FObjectEditorUtils
 					CopySinglePropertyRecursive(SourceObject, SrcPairPtr, SrcMapProperty->ValueProp, PairPtr, InDestinationObject, DestMapProperty->ValueProp);
 
 					TargetMapHelper.Rehash();
+
+					--Num;
 				}
 			}
 

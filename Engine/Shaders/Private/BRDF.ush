@@ -7,6 +7,142 @@
 #ifndef __BRDF_COMMON__
 #define __BRDF_COMMON__
 
+struct BxDFContext
+{
+	float NoV;
+	float NoL;
+	float VoL;
+	float NoH;
+	float VoH;
+#if 1	// Shit code until we get member functions
+};
+
+void Init( inout BxDFContext Context, half3 N, half3 V, half3 L )
+{
+	Context.NoL = dot(N, L);
+	Context.NoV = dot(N, V);
+	Context.VoL = dot(V, L);
+	float InvLenH = rsqrt( 2 + 2 * Context.VoL );
+	Context.NoH = saturate( ( Context.NoL + Context.NoV ) * InvLenH );
+	Context.VoH = saturate( InvLenH + InvLenH * Context.VoL );
+	//NoL = saturate( NoL );
+	//NoV = saturate( abs( NoV ) + 1e-5 );
+}
+
+// [ de Carpentier 2017, "Decima Engine: Advances in Lighting and AA" ]
+void SphereMaxNoH( inout BxDFContext Context, float SinAlpha, bool bNewtonIteration )
+{
+	if( SinAlpha > 0 )
+	{
+		float CosAlpha = sqrt( 1 - Pow2( SinAlpha ) );
+	
+		float RoL = 2 * Context.NoL * Context.NoV - Context.VoL;
+		if( RoL >= CosAlpha )
+		{
+			Context.NoH = 1;
+			Context.VoH = abs( Context.NoV );
+		}
+		else
+		{
+			float rInvLengthT = SinAlpha * rsqrt( 1 - RoL*RoL );
+			float NoTr = rInvLengthT * ( Context.NoV - RoL * Context.NoL );
+			float VoTr = rInvLengthT * ( 2 * Context.NoV*Context.NoV - 1 - RoL * Context.VoL );
+
+			if( bNewtonIteration )
+			{
+				// dot( cross(N,L), V )
+				float NxLoV = sqrt( saturate( 1 - Pow2(Context.NoL) - Pow2(Context.NoV) - Pow2(Context.VoL) + 2 * Context.NoL * Context.NoV * Context.VoL ) );
+
+				float NoBr = rInvLengthT * NxLoV;
+				float VoBr = rInvLengthT * NxLoV * 2 * Context.NoV;
+				float NoLVTr = Context.NoL * CosAlpha + Context.NoV + NoTr;
+				float VoLVTr = Context.VoL * CosAlpha + 1   + VoTr;
+
+				float p = NoBr   * VoLVTr;
+				float q = NoLVTr * VoLVTr;
+				float s = VoBr   * NoLVTr;
+
+				float xNum = q * ( -0.5 * p + 0.25 * VoBr * NoLVTr );
+				float xDenom = p*p + s * (s - 2*p) + NoLVTr * ( (Context.NoL * CosAlpha + Context.NoV) * Pow2(VoLVTr) + q * (-0.5 * (VoLVTr + Context.VoL * CosAlpha) - 0.5) );
+				float TwoX1 = 2 * xNum / ( Pow2(xDenom) + Pow2(xNum) );
+				float SinTheta = TwoX1 * xDenom;
+				float CosTheta = 1.0 - TwoX1 * xNum;
+				NoTr = CosTheta * NoTr + SinTheta * NoBr;
+				VoTr = CosTheta * VoTr + SinTheta * VoBr;
+			}
+
+			Context.NoL = Context.NoL * CosAlpha + NoTr;
+			Context.VoL = Context.VoL * CosAlpha + VoTr;
+			float InvLenH = rsqrt( 2 + 2 * Context.VoL );
+			Context.NoH = saturate( ( Context.NoL + Context.NoV ) * InvLenH );
+			Context.VoH = saturate( InvLenH + InvLenH * Context.VoL );
+		}
+	}
+}
+#else
+
+	void Init( half3 N, half3 V, half3 L )
+	{
+		NoL = dot(N, L);
+		NoV = dot(N, V);
+		VoL = dot(V, L);
+		float InvLenH = rsqrt( 2 + 2 * VoL );
+		NoH = saturate( ( NoL + NoV ) * InvLenH );
+		VoH = saturate( InvLenH + InvLenH * VoL );
+		//NoL = saturate( NoL );
+		//NoV = saturate( abs( NoV ) + 1e-5 );
+	}
+
+	// [ de Carpentier 2017, "Decima Engine: Advances in Lighting and AA" ]
+	void SphereMaxNoH( float SinAlpha, bool bNewtonIteration )
+	{
+		float CosAlpha = sqrt( 1 - Pow2( SinAlpha ) );
+	
+		float RoL = 2 * NoL * NoV - VoL;
+		if( RoL >= CosAlpha )
+		{
+			NoH = 1;
+			VoH = abs( NoV );
+		}
+		else
+		{
+			float rInvLengthT = SinAlpha * rsqrt( 1 - RoL*RoL );
+			float NoTr = rInvLengthT * ( NoV - RoL * NoL );
+			float VoTr = rInvLengthT * ( 2 * NoV*NoV - 1 - RoL * VoL );
+
+			if( bNewtonIteration && SinAlpha != 0 )
+			{
+				// dot( cross(N,L), V )
+				float NxLoV = sqrt( saturate( 1 - Pow2(NoL) - Pow2(NoV) - Pow2(VoL) + 2 * NoL * NoV * VoL ) );
+
+				float NoBr = rInvLengthT * NxLoV;
+				float VoBr = rInvLengthT * NxLoV * 2 * NoV;
+				float NoLVTr = NoL * CosAlpha + NoV + NoTr;
+				float VoLVTr = VoL * CosAlpha + 1   + VoTr;
+
+				float p = NoBr   * VoLVTr;
+				float q = NoLVTr * VoLVTr;
+				float s = VoBr   * NoLVTr;
+
+				float xNum = q * ( -0.5 * p + 0.25 * VoBr * NoLVTr );
+				float xDenom = p*p + s * (s - 2*p) + NoLVTr * ( (NoL * CosAlpha + NoV) * Pow2(VoLVTr) + q * (-0.5 * (VoLVTr + VoL * CosAlpha) - 0.5) );
+				float TwoX1 = 2 * xNum / ( Pow2(xDenom) + Pow2(xNum) );
+				float SinTheta = TwoX1 * xDenom;
+				float CosTheta = 1.0 - TwoX1 * xNum;
+				NoTr = CosTheta * NoTr + SinTheta * NoBr;
+				VoTr = CosTheta * VoTr + SinTheta * VoBr;
+			}
+
+			NoL = NoL * CosAlpha + NoTr;
+			VoL = VoL * CosAlpha + VoTr;
+			float InvLenH = rsqrt( 2 + 2 * VoL );
+			NoH = saturate( ( NoL + NoV ) * InvLenH );
+			VoH = saturate( InvLenH + InvLenH * VoL );
+		}
+	}
+};
+#endif
+
 // Physically based shading model
 // parameterized with the below options
 
@@ -70,39 +206,31 @@ float3 Diffuse_Gotanda( float3 DiffuseColor, float Roughness, float NoV, float N
 }
 
 // [Blinn 1977, "Models of light reflection for computer synthesized pictures"]
-float D_Blinn( float Roughness, float NoH )
+float D_Blinn( float a2, float NoH )
 {
-	float a = Roughness * Roughness;
-	float a2 = a * a;
 	float n = 2 / a2 - 2;
 	return (n+2) / (2*PI) * PhongShadingPow( NoH, n );		// 1 mad, 1 exp, 1 mul, 1 log
 }
 
 // [Beckmann 1963, "The scattering of electromagnetic waves from rough surfaces"]
-float D_Beckmann( float Roughness, float NoH )
+float D_Beckmann( float a2, float NoH )
 {
-	float a = Roughness * Roughness;
-	float a2 = a * a;
 	float NoH2 = NoH * NoH;
 	return exp( (NoH2 - 1) / (a2 * NoH2) ) / ( PI * a2 * NoH2 * NoH2 );
 }
 
 // GGX / Trowbridge-Reitz
 // [Walter et al. 2007, "Microfacet models for refraction through rough surfaces"]
-float D_GGX( float Roughness, float NoH )
+float D_GGX( float a2, float NoH )
 {
-	float a = Roughness * Roughness;
-	float a2 = a * a;
 	float d = ( NoH * a2 - NoH ) * NoH + 1;	// 2 mad
 	return a2 / ( PI*d*d );					// 4 mul, 1 rcp
 }
 
 // Anisotropic GGX
 // [Burley 2012, "Physically-Based Shading at Disney"]
-float D_GGXaniso( float RoughnessX, float RoughnessY, float NoH, float3 H, float3 X, float3 Y )
+float D_GGXaniso( float ax, float ay, float NoH, float3 H, float3 X, float3 Y )
 {
-	float ax = RoughnessX * RoughnessX;
-	float ay = RoughnessY * RoughnessY;
 	float XoH = dot( X, H );
 	float YoH = dot( Y, H );
 	float d = XoH*XoH / (ax*ax) + YoH*YoH / (ay*ay) + NoH*NoH;
@@ -129,9 +257,9 @@ float Vis_Kelemen( float VoH )
 
 // Tuned to match behavior of Vis_Smith
 // [Schlick 1994, "An Inexpensive BRDF Model for Physically-Based Rendering"]
-float Vis_Schlick( float Roughness, float NoV, float NoL )
+float Vis_Schlick( float a2, float NoV, float NoL )
 {
-	float k = Square( Roughness ) * 0.5;
+	float k = sqrt(a2) * 0.5;
 	float Vis_SchlickV = NoV * (1 - k) + k;
 	float Vis_SchlickL = NoL * (1 - k) + k;
 	return 0.25 / ( Vis_SchlickV * Vis_SchlickL );
@@ -139,11 +267,8 @@ float Vis_Schlick( float Roughness, float NoV, float NoL )
 
 // Smith term for GGX
 // [Smith 1967, "Geometrical shadowing of a random rough surface"]
-float Vis_Smith( float Roughness, float NoV, float NoL )
+float Vis_Smith( float a2, float NoV, float NoL )
 {
-	float a = Square( Roughness );
-	float a2 = a*a;
-
 	float Vis_SmithV = NoV + sqrt( NoV * (NoV - NoV * a2) + a2 );
 	float Vis_SmithL = NoL + sqrt( NoL * (NoL - NoL * a2) + a2 );
 	return rcp( Vis_SmithV * Vis_SmithL );
@@ -151,12 +276,11 @@ float Vis_Smith( float Roughness, float NoV, float NoL )
 
 // Appoximation of joint Smith term for GGX
 // [Heitz 2014, "Understanding the Masking-Shadowing Function in Microfacet-Based BRDFs"]
-float Vis_SmithJointApprox( float Roughness, float NoV, float NoL )
+float Vis_SmithJointApprox( float a2, float NoV, float NoL )
 {
-	float a = Square( Roughness );
+	float a = sqrt(a2);
 	float Vis_SmithV = NoL * ( NoV * ( 1 - a ) + a );
 	float Vis_SmithL = NoV * ( NoL * ( 1 - a ) + a );
-	// Note: will generate NaNs with Roughness = 0.  MinRoughness is used to prevent this
 	return 0.5 * rcp( Vis_SmithV + Vis_SmithL );
 }
 
@@ -230,32 +354,26 @@ half EnvBRDFApproxNonmetal( half Roughness, half NoV )
 }
 
 
-float D_InvBlinn( float Roughness, float NoH )
+float D_InvBlinn( float a2, float NoH )
 {
-	float m = Roughness * Roughness;
-	float m2 = m * m;
 	float A = 4;
 	float Cos2h = NoH * NoH;
 	float Sin2h = 1 - Cos2h;
 	//return rcp( PI * (1 + A*m2) ) * ( 1 + A * ClampedPow( Sin2h, 1 / m2 - 1 ) );
-	return rcp( PI * (1 + A*m2) ) * ( 1 + A * exp( -Cos2h / m2 ) );
+	return rcp( PI * (1 + A*a2) ) * ( 1 + A * exp( -Cos2h / a2 ) );
 }
 
-float D_InvBeckmann( float Roughness, float NoH )
+float D_InvBeckmann( float a2, float NoH )
 {
-	float m = Roughness * Roughness;
-	float m2 = m * m;
 	float A = 4;
 	float Cos2h = NoH * NoH;
 	float Sin2h = 1 - Cos2h;
 	float Sin4h = Sin2h * Sin2h;
-	return rcp( PI * (1 + A*m2) * Sin4h ) * ( Sin4h + A * exp( -Cos2h / (m2 * Sin2h) ) );
+	return rcp( PI * (1 + A*a2) * Sin4h ) * ( Sin4h + A * exp( -Cos2h / (a2 * Sin2h) ) );
 }
 
-float D_InvGGX( float Roughness, float NoH )
+float D_InvGGX( float a2, float NoH )
 {
-	float a = Roughness * Roughness;
-	float a2 = a * a;
 	float A = 4;
 	float d = ( NoH - a2 * NoH ) * NoH + a2;
 	return rcp( PI * (1 + A*a2) ) * ( 1 + 4 * a2*a2 / ( d*d ) );

@@ -13,18 +13,19 @@
 #include "HTML5TargetSettings.generated.h"
 
 
-USTRUCT()
-struct FHTML5LevelTransitions
+/**
+* Enumerates available Canvas Scaling Modes
+*/
+UENUM()
+namespace ECanvasScalingMode
 {
-	GENERATED_USTRUCT_BODY()
-
-	UPROPERTY(EditAnywhere, Category = HTML5_LevelTransitions, Meta = (DisplayName = "From Map"))
-	FFilePath MapFrom;
-
-	UPROPERTY(EditAnywhere, Category = HTML5_LevelTransitions, Meta = (DisplayName = "To Map"))
-	FFilePath MapTo;
-};
-
+	enum Type
+	{
+		Stretch = 1,
+		Aspect,
+		Fixed,
+	};
+}
 
 /**
  * Implements the settings for the HTML5 target platform.
@@ -38,13 +39,6 @@ public:
 	GENERATED_UCLASS_BODY()
 
 	// ------------------------------------------------------------
-
-	/**
-	 * Target WebGL1 builds
-	 * NOTE: WebGL1 target will be going away soon...
-	 */
-	UPROPERTY(GlobalConfig, EditAnywhere, Category=Emscripten, Meta = (DisplayName = "WebGL1 Build (else build WebGL2)"))
-	bool TargetWebGL1;
 
 	/**
 	 * Use IndexedDB storage
@@ -85,6 +79,18 @@ public:
 	// ------------------------------------------------------------
 
 	/**
+	 * Canvas scaling mode
+	 * How the canvas size changes when the browser window is resized by dragging from the corner.
+	 * STRETCH : dynamic dimensions (both canvas size and app resolution scales)
+	 * ASPECT  : use the aspect ratio that the canvas will be constrained to (canvas will scale while app stays locked)
+	 * FIXED   : fixed resolution that the app will render to (canvas and app dimensions will be locked)
+	 */
+	UPROPERTY(GlobalConfig, EditAnywhere, Category=Canvas)
+	TEnumAsByte<ECanvasScalingMode::Type> CanvasScalingMode;
+
+	// ------------------------------------------------------------
+
+	/**
 	 * Compress Files
 	 * NOTE 1: it is also recommended to NOT enable PAK file packaging - this is currently redundant
 	 * NOTE 2: future emscripten version will allow separate (asset) files in a new FileSystem feature - which will make use of this (as well as PAK file) option again
@@ -99,12 +105,6 @@ public:
 	 */
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = Launch, Meta = (DisplayName = "Port to use when deploying game from the editor", ClampMin="49152", ClampMax="65535"))
 	int32 DeployServerPort;
-
-	/**
-	 * Generate Delta Pak files for these level transitions.
-	 */
-	UPROPERTY(GlobalConfig, EditAnywhere, Category = Launch, Meta = (DisplayName = "Level transitions for delta paks [experimental,depends on download maps]"))
-	TArray<FHTML5LevelTransitions> LevelTransitions;
 
 	// ------------------------------------------------------------
 

@@ -81,9 +81,9 @@ To enable the Virtual Keyboard in your project, you will need to do the followin
 
     * **Event Begin Play**
     * **Create Widget**
-    * **Add to Viewport ** 
+    * **Add to Viewport** 
 
-1. Connect the **Event Begin Play** node to the **Create Widget ** node and then connect the **Create Widget** node to the **Add Viewport** node. When completed your **Level Blueprint** should look like the following image.
+1. Connect the **Event Begin Play** node to the **Create Widget** node and then connect the **Create Widget** node to the **Add Viewport** node. When completed your **Level Blueprint** should look like the following image.
 
     [REGION:lightbox]
     [![](AVK_07.png)(w:546)](AVK_07.png)

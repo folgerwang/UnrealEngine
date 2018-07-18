@@ -34,24 +34,35 @@ struct FUniqueNetIdRepl : public FUniqueNetIdWrapper
 	{
 	}
 
-  	FUniqueNetIdRepl(const FUniqueNetIdWrapper& InWrapper)
-  		: FUniqueNetIdWrapper(InWrapper)
-  	{
-  	}
+	FUniqueNetIdRepl(const FUniqueNetIdWrapper& InWrapper)
+		: FUniqueNetIdWrapper(InWrapper)
+	{
+	}
 
- 	FUniqueNetIdRepl(const TSharedRef<const FUniqueNetId>& InUniqueNetId)
+	FUniqueNetIdRepl(const FUniqueNetId& InUniqueNetId)
+		: FUniqueNetIdWrapper(InUniqueNetId)
+	{
+	}
+
+	FUniqueNetIdRepl(const TSharedRef<const FUniqueNetId>& InUniqueNetId)
 		: FUniqueNetIdWrapper(InUniqueNetId)
 	{
 	}
  
- 	FUniqueNetIdRepl(const TSharedPtr<const FUniqueNetId>& InUniqueNetId)
+	FUniqueNetIdRepl(const TSharedPtr<const FUniqueNetId>& InUniqueNetId)
 		: FUniqueNetIdWrapper(InUniqueNetId)
- 	{
- 	}
+	{
+	}
 
 	virtual ~FUniqueNetIdRepl() {}
 
-    /** Export contents of this struct as a string */
+	virtual void SetUniqueNetId(const TSharedPtr<const FUniqueNetId>& InUniqueNetId) override
+	{
+		ReplicationBytes.Empty();
+		FUniqueNetIdWrapper::SetUniqueNetId(InUniqueNetId);
+	}
+
+	/** Export contents of this struct as a string */
 	bool ExportTextItem(FString& ValueStr, FUniqueNetIdRepl const& DefaultValue, UObject* Parent, int32 PortFlags, UObject* ExportRootScope) const;
 
 	/** Import string contexts and try to map them into a unique id */
@@ -67,13 +78,13 @@ struct FUniqueNetIdRepl : public FUniqueNetIdWrapper
 	bool Serialize(FArchive& Ar);
 	
 	/** Convert this unique id to a json value */
-	TSharedRef<FJsonValue> ToJson() const;
+	ENGINE_API TSharedRef<FJsonValue> ToJson() const;
 	/** Create a unique id from a json string */
-	void FromJson(const FString& InValue);
+	ENGINE_API void FromJson(const FString& InValue);
 
 	/**
-	* For FUniqueNetIdRepl objects, we use the same hashing function as any other wrapper.
-	*/
+	 * For FUniqueNetIdRepl objects, we use the same hashing function as any other wrapper.
+	 */
 	friend inline uint32 GetTypeHash(FUniqueNetIdRepl const& Value)
 	{
 		if (Value.IsValid())
@@ -89,11 +100,14 @@ struct FUniqueNetIdRepl : public FUniqueNetIdWrapper
 
 protected:
 
-	/** Helper to create an FUniqueNetId from a string */
-	void UniqueIdFromString(const FString& Contents);
+	/** Helper to create an FUniqueNetId from a string and its type */
+	void UniqueIdFromString(FName Type, const FString& Contents);
+	/** Helper to make network serializable representation */
+	void MakeReplicationData();
+	/** Network serialized data cache */
+	UPROPERTY(Transient)
+	TArray<uint8> ReplicationBytes;
 };
-
-//static ENGINE_API uint32 GetTypeHash(FUniqueNetIdRepl const& Value);
 
 /** Specify type trait support for various low level UPROPERTY overrides */
 template<>
@@ -101,12 +115,14 @@ struct TStructOpsTypeTraits<FUniqueNetIdRepl> : public TStructOpsTypeTraitsBase2
 {
 	enum 
 	{
-        // Can be copied via assignment operator
+		// Can be copied via assignment operator
 		WithCopy = true,
-        // Requires custom serialization
+		// Requires custom serialization
 		WithSerializer = true,
 		// Requires custom net serialization
 		WithNetSerializer = true,
+		// Can share serialization state across connections
+		WithNetSharedSerialization = true,
 		// Requires custom Identical operator for rep notifies in PostReceivedBunch()
 		WithIdenticalViaEquality = true,
 		// Export contents of this struct as a string (displayall, obj dump, etc)

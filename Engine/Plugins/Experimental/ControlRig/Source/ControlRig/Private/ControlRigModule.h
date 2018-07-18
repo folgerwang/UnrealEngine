@@ -3,10 +3,10 @@
 #pragma once
 
 #include "Delegates/IDelegateInstance.h"
-#include "ModuleInterface.h"
+#include "IControlRigModule.h"
 #include "Materials/Material.h"
 
-class FControlRigModule : public IModuleInterface
+class FControlRigModule : public IControlRigModule
 {
 public:
 	/** IModuleInterface implementation */
@@ -17,7 +17,7 @@ public:
 #if WITH_EDITOR
 	UMaterial* ManipulatorMaterial;
 #endif
-
+	
 private:
 	FDelegateHandle OnCreateMovieSceneObjectSpawnerHandle;
 };

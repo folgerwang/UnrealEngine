@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "IHeadMountedDisplayModule.h"
 
 #define GOOGLEVRHMD_SUPPORTED_ANDROID_PLATFORMS (PLATFORM_ANDROID)

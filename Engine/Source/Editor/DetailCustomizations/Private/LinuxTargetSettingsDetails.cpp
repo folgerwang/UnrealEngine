@@ -127,7 +127,7 @@ static FString GetSplashFilename(EImageScope::Type Scope, bool bIsEditorSplash)
 /* Helper function used to generate filenames for icons */
 static FString GetIconFilename(EImageScope::Type Scope)
 {
-	const FString& PlatformName = FModuleManager::GetModuleChecked<ITargetPlatformModule>("LinuxTargetPlatform").GetTargetPlatform()->PlatformName();
+	const FString& PlatformName = FModuleManager::GetModuleChecked<ITargetPlatformModule>("LinuxTargetPlatform").GetTargetPlatforms()[0]->PlatformName();
 
 	if (Scope == EImageScope::Engine)
 	{
@@ -414,7 +414,7 @@ void FLinuxTargetShaderFormatsPropertyDetails::CreateTargetShaderFormatsProperty
 	DetailBuilder->HideProperty(TargetShaderFormatsPropertyHandle);
 
 	// List of supported RHI's and selected targets
-	ITargetPlatform* LinuxTargetPlatform = FModuleManager::GetModuleChecked<ITargetPlatformModule>("LinuxTargetPlatform").GetTargetPlatform();
+	ITargetPlatform* LinuxTargetPlatform = FModuleManager::GetModuleChecked<ITargetPlatformModule>("LinuxTargetPlatform").GetTargetPlatforms()[0];
 	TArray<FName> ShaderFormats;
 	LinuxTargetPlatform->GetAllPossibleShaderFormats(ShaderFormats);
 

@@ -66,7 +66,7 @@ private:
 class FD3D12Heap : public FD3D12RefCount, public FD3D12DeviceChild, public FD3D12MultiNodeGPUObject
 {
 public:
-	FD3D12Heap(FD3D12Device* Parent, GPUNodeMask VisibleNodes);
+	FD3D12Heap(FD3D12Device* Parent, FRHIGPUMask VisibleNodes);
 	~FD3D12Heap();
 
 	inline ID3D12Heap* GetHeap() { return Heap.GetReference(); }
@@ -100,6 +100,10 @@ private:
 	D3D12_RESOURCE_STATES DefaultResourceState;
 	D3D12_RESOURCE_STATES ReadableState;
 	D3D12_RESOURCE_STATES WritableState;
+#ifdef PLATFORM_SUPPORTS_RESOURCE_COMPRESSION
+	D3D12_RESOURCE_STATES CompressedState;
+#endif
+
 	bool bRequiresResourceStateTracking;
 	bool bDepthStencil;
 	bool bDeferDelete;
@@ -115,7 +119,7 @@ private:
 
 public:
 	explicit FD3D12Resource(FD3D12Device* ParentDevice,
-		GPUNodeMask VisibleNodes,
+		FRHIGPUMask VisibleNodes,
 		ID3D12Resource* InResource,
 		D3D12_RESOURCE_STATES InitialState,
 		D3D12_RESOURCE_DESC const& InDesc,
@@ -162,6 +166,10 @@ public:
 	D3D12_RESOURCE_STATES GetDefaultResourceState() const { check(!bRequiresResourceStateTracking); return DefaultResourceState; }
 	D3D12_RESOURCE_STATES GetWritableState() const { return WritableState; }
 	D3D12_RESOURCE_STATES GetReadableState() const { return ReadableState; }
+#ifdef PLATFORM_SUPPORTS_RESOURCE_COMPRESSION
+	D3D12_RESOURCE_STATES GetCompressedState() const { return CompressedState; }
+	void SetCompressedState(D3D12_RESOURCE_STATES State) { CompressedState = State; }
+#endif
 	bool RequiresResourceStateTracking() const { return bRequiresResourceStateTracking; }
 
 	void SetName(const TCHAR* Name)
@@ -274,6 +282,10 @@ private:
 
 		bDepthStencil = Type.bDSV;
 
+#ifdef PLATFORM_SUPPORTS_RESOURCE_COMPRESSION
+		SetCompressedState(D3D12_RESOURCE_STATE_COMMON);
+#endif
+
 		if (Type.bWritable)
 		{
 			// Determine the resource's write/read states.
@@ -376,12 +388,9 @@ public:
 		eSubAllocation,
 		eFastAllocation,
 		eAliased, // Oculus is the only API that uses this
+		eNodeReference,
 		eHeapAliased, 
 	};
-
-	// Resource locations shouldn't be copied or moved. Use TransferOwnership to move resource locations.
-	FD3D12ResourceLocation(FD3D12ResourceLocation&&) = delete;
-	FD3D12ResourceLocation(FD3D12ResourceLocation const&) = delete;
 
 	FD3D12ResourceLocation(FD3D12Device* Parent);
 	~FD3D12ResourceLocation();
@@ -461,6 +470,7 @@ public:
 	// resource. We should avoid this as much as possible as it requires expensive reference counting and
 	// it complicates the resource ownership model.
 	static void Alias(FD3D12ResourceLocation& Destination, FD3D12ResourceLocation& Source);
+	static void ReferenceNode(FD3D12Device* NodeDevice, FD3D12ResourceLocation& Destination, FD3D12ResourceLocation& Source);
 
 	void SetTransient(bool bInTransient)
 	{
@@ -650,7 +660,8 @@ public:
 
 	virtual ~FD3D12IndexBuffer();
 
-	void Rename(FD3D12ResourceLocation& NewResource);
+	void Rename(FD3D12ResourceLocation& NewLocation);
+	void RenameLDAChain(FD3D12ResourceLocation& NewLocation);
 
 	// IRefCountedObject interface.
 	virtual uint32 AddRef() const
@@ -681,7 +692,8 @@ public:
 	{
 	}
 
-	void Rename(FD3D12ResourceLocation& NewResource);
+	void Rename(FD3D12ResourceLocation& NewLocation);
+	void RenameLDAChain(FD3D12ResourceLocation& NewLocation);
 
 	virtual ~FD3D12StructuredBuffer();
 
@@ -722,7 +734,8 @@ public:
 
 	virtual ~FD3D12VertexBuffer();
 
-	void Rename(FD3D12ResourceLocation& NewResource);
+	void Rename(FD3D12ResourceLocation& NewLocation);
+	void RenameLDAChain(FD3D12ResourceLocation& NewLocation);
 
 	void SetDynamicSRV(FD3D12ShaderResourceView* InSRV)
 	{
@@ -888,4 +901,9 @@ template<>
 struct TD3D12ResourceTraits<FRHIGraphicsPipelineState>
 {
 	typedef FD3D12GraphicsPipelineState TConcreteType;
+};
+template<>
+struct TD3D12ResourceTraits<FRHIComputePipelineState>
+{
+	typedef FD3D12ComputePipelineState TConcreteType;
 };

@@ -365,7 +365,6 @@ public:
 	virtual void OnRep_ReplicatedBasedMovement();
 
 	/** Set whether this actor's movement replicates to network clients. */
-	UFUNCTION(BlueprintCallable, Category=Replication)
 	virtual void SetReplicateMovement(bool bInReplicateMovement) override;
 
 protected:
@@ -427,6 +426,10 @@ public:
 	UPROPERTY(BlueprintReadOnly, replicatedUsing=OnRep_IsCrouched, Category=Character)
 	uint32 bIsCrouched:1;
 
+	/** Set to indicate that this Character is currently under the force of a jump (if JumpMaxHoldTime is non-zero). IsJumpProvidingForce() handles this as well. */
+	UPROPERTY(Transient, Replicated)
+	uint32 bProxyIsJumpForceApplied : 1;
+
 	/** Handle Crouching replicated from server */
 	UFUNCTION()
 	virtual void OnRep_IsCrouched();
@@ -473,6 +476,16 @@ public:
 	UPROPERTY(Transient, BlueprintReadOnly, VisibleInstanceOnly, Category=Character)
 	float JumpKeyHoldTime;
 
+	/**
+	 * Amount of jump force time remaining, if JumpMaxHoldTime > 0.
+	 */
+	UPROPERTY(Transient, BlueprintReadOnly, VisibleInstanceOnly, Category=Character)
+	float JumpForceTimeRemaining;
+
+	/** Track last time a jump force started for a proxy. */
+	UPROPERTY(Transient, BlueprintReadOnly, VisibleInstanceOnly, Category=Character)
+	float ProxyJumpForceStartedTime;
+
 	/** 
 	 * The max time the jump key can be held.
 	 * Note that if StopJumping() is not called before the max jump hold time is reached,
@@ -500,6 +513,9 @@ public:
     UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category=Character)
     int32 JumpCurrentCount;
 
+	/** Incremented every time there is an Actor overlap event (start or stop) on this actor. */
+	uint32 NumActorOverlapEventsCounter;
+
 	//~ Begin AActor Interface.
 	virtual void BeginPlay() override;
 	virtual void ClearCrossLevelReferences() override;
@@ -510,6 +526,8 @@ public:
 	virtual void GetSimpleCollisionCylinder(float& CollisionRadius, float& CollisionHalfHeight) const override;
 	virtual UActorComponent* FindComponentByClass(const TSubclassOf<UActorComponent> ComponentClass) const override;
 	virtual void TornOff() override;
+	virtual void NotifyActorBeginOverlap(AActor* OtherActor);
+	virtual void NotifyActorEndOverlap(AActor* OtherActor);
 	//~ End AActor Interface
 
 	template<class T>
@@ -790,8 +808,8 @@ public:
 	/** Trigger jump if jump button has been pressed. */
 	virtual void CheckJumpInput(float DeltaTime);
 
-	/** Reset jump input state after having checked input. */
-	virtual void ClearJumpInput();
+	/** Update jump input state after having checked input. */
+	virtual void ClearJumpInput(float DeltaTime);
 
 	/**
 	 * Get the maximum jump time for the character.

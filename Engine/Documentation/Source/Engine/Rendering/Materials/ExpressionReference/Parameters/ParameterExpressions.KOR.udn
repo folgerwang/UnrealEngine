@@ -13,7 +13,7 @@ tags:Materials
 
 ## Collection Parameters
 
-Collection Parameter (콜렉션 파라미터)는 Parameter Collection (파라미터 콜렉션) 애셋을 레퍼런싱하는 데 사용되는 표현식입니다. 이들은 머티리얼, 블루프린트 등 여러가지 다양한 애셋에서 쉽게 재사용할 수 있는 파라미터 그룹입니다. _파라미터 콜렉션_ 관련 상세 정보는 [파라미터 콜렉션 문서.](Engine/Rendering/Materials\ParameterCollections) 를 참고해 주시기 바랍니다.
+Collection Parameter (컬렉션 파라미터)는 Parameter Collection (파라미터 컬렉션) 애셋을 레퍼런싱하는 데 사용되는 표현식입니다. 이들은 머티리얼, 블루프린트 등 여러가지 다양한 애셋에서 쉽게 재사용할 수 있는 파라미터 그룹입니다. _파라미터 컬렉션_ 관련 상세 정보는 [파라미터 컬렉션 문서.](Engine/Rendering/Materials\ParameterCollections) 를 참고해 주시기 바랍니다.
 
 
 

@@ -1,8 +1,10 @@
-﻿INTSourceChangelist:2591123
+﻿INTSourceChangelist:3782314
 Title:サイトマップ
 Availability:Public
 Crumbs:%ROOT%
-Description:アンリアル エンジン ドキュメント内のすべてのページのインデックス
+Description:アンリアル エンジン ドキュメント全体ページ用インデックス
+parent:%ROOT%
+order:1000
 Template:DefaultSiteMap.html
 
 [OBJECT:Expander]
@@ -14,29 +16,41 @@ Template:DefaultSiteMap.html
 	[/PARAMLITERAL]
 	[PARAM:heading]
 		[REGION:darktitlelarge]
-			Filter Content
+			コンテンツを探す
 		[/REGION]
 	[/PARAM]
 	[PARAM:content]
 		[REGION:wrapper transparent]
 			[REGION:normaltitle]
-				By Skill Level:
+				スキルレベルで選択:
 			[/REGION]
 			[tagfilters(type:"skill_level" filter:"used")]
 		[/REGION]
 		[REGION:wrapper transparent]
 			[REGION:normaltitle]
-				By Engine Version:
+				エンジン バージョンで選択:
 			[/REGION]
-			[tagfilters(type:"engine_version" filter:"used")]
+			[tagfilters(type:"engine_version")]
 		[/REGION]
 		[REGION:wrapper transparent]
 			[REGION:normaltitle]
-				By Category:
+				カテゴリで選択:
 			[/REGION]
 			[tagfilters(type:"tag" filter:"used")]
+		[/REGION]
+		[REGION:wrapper transparent]
+			[REGION:normaltitle]
+				ドキュメント タイプで選択:
+			[/REGION]
+			[tagfilters(type:"type" filter:"used")]
 		[/REGION]
 	[/PARAM]
 [/OBJECT]
 
 [DIR(output:"listbutton" parent:"%ROOT%" org:"hierarchy" id:"sitemap" itemclass:"link")]
+
+[COMMENT:none]
+
+[DIR(output:"listbutton" type:"playlist" org:"hierarchy" id:"videomap" itemclass:"link")]
+
+[/COMMENT]

@@ -9,7 +9,6 @@ public class EditorTests : ModuleRules
 
 		PublicIncludePaths.AddRange(
 			new string[] {
-				"EditorTests/Public"
 				// ... add public include paths required here ...
 			}
 		);
@@ -43,7 +42,8 @@ public class EditorTests : ModuleRules
 				"ShaderCore",
                 "RenderCore",
 				"Engine",
-				"Slate",
+                "NavigationSystem",
+                "Slate",
 				"SlateCore",
 				"AssetTools",
 				"MainFrame",
@@ -63,7 +63,11 @@ public class EditorTests : ModuleRules
 				"AudioEditor",
 				"AnimGraphRuntime",
 				"MeshMergeUtilities",
-				"MaterialBaking"
+				"MaterialBaking",
+                "MeshDescription",
+                "MeshDescriptionOperations",
+                "MeshBuilder",
+                "RawMesh",
 			}
 		);
 

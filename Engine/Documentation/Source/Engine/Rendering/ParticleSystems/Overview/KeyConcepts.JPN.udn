@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3429247
+﻿INTSourceChangelist:3801260
 Availability:Public
 Title:キー パーティクルのコンセプト
 Crumbs: %ROOT%, Engine, Engine/Rendering/ParticleSystems
@@ -30,19 +30,9 @@ topic-image:Engine/Rendering/ParticleSystems/particles_topic.png
 
 ### デフォルトのモジュール
 
-[OBJECT:topiclistnotitlealt]
-	[PARAM:icon]
-		![DefaultEmitter.png](DefaultEmitter.png)(convert:false)
-	[/PARAM]
-	[PARAM:description]
-	[INCLUDE:#Modules]
-	[/PARAM]
-[/OBJECT]
+![DefaultEmitter.png](DefaultEmitter.png)(convert:false)
 
-
-[REGION:raw]
-![](Engine\Rendering\LightingAndShadows\LightTypes\Point\spacer.png)
-[/REGION]
+[INCLUDE:#Modules]
 
 
 [COMMENT:none]

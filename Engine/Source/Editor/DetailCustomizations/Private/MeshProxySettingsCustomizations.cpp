@@ -48,15 +48,18 @@ void FMeshProxySettingsCustomizations::CustomizeChildren(TSharedRef<IPropertyHan
 	IMeshReductionManagerModule& ModuleManager = FModuleManager::Get().LoadModuleChecked<IMeshReductionManagerModule>("MeshReductionInterface");
 	IMeshMerging* MergeModule = ModuleManager.GetMeshMergingInterface();
 
-	IDetailGroup& MaterialSettingsGroup = ChildBuilder.AddGroup(NAME_None, FText::FromString("Material Settings"));
+	IDetailGroup& MeshSettingsGroup = ChildBuilder.AddGroup(NAME_None, FText::FromString("Proxy Settings"));
 
 
 
 	TSharedPtr< IPropertyHandle > HardAngleThresholdPropertyHandle        = PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FMeshProxySettings, HardAngleThreshold));
+	TSharedPtr< IPropertyHandle > NormalCalcMethodPropertyHandle          = PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FMeshProxySettings, NormalCalculationMethod));
+	TSharedPtr< IPropertyHandle > MaxRayCastDistdPropertyHandle           = PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FMeshProxySettings, MaxRayCastDist));
 	TSharedPtr< IPropertyHandle > RecalculateNormalsPropertyHandle        = PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FMeshProxySettings, bRecalculateNormals));
 	TSharedPtr< IPropertyHandle > UseLandscapeCullingPropertyHandle       = PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FMeshProxySettings, bUseLandscapeCulling));
 	TSharedPtr< IPropertyHandle > LandscapeCullingPrecisionPropertyHandle = PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FMeshProxySettings, LandscapeCullingPrecision));
 	TSharedPtr< IPropertyHandle > MergeDistanceHandle                     = PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FMeshProxySettings, MergeDistance));
+	TSharedPtr< IPropertyHandle > UnresolvedGeometryColorHandle           = PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FMeshProxySettings, UnresolvedGeometryColor));
 	TSharedPtr< IPropertyHandle > VoxelSizeHandle                         = PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FMeshProxySettings, VoxelSize));
 	
 
@@ -66,37 +69,55 @@ void FMeshProxySettingsCustomizations::CustomizeChildren(TSharedRef<IPropertyHan
 		// Handle special property cases (done inside the loop to maintain order according to the struct
 		if (Iter.Value() == HardAngleThresholdPropertyHandle)
 		{
-			IDetailPropertyRow& MeshProxySettingsRow = MaterialSettingsGroup.AddPropertyRow(Iter.Value().ToSharedRef());
+			IDetailPropertyRow& MeshProxySettingsRow = MeshSettingsGroup.AddPropertyRow(Iter.Value().ToSharedRef());
+			MeshProxySettingsRow.ToolTip(FText::FromString(FString("Angle at which a hard edge is introduced between faces.  Note: Increases vertex count and may introduce additional UV seams.  It is only recommended if not using normals maps")));
 			MeshProxySettingsRow.Visibility(TAttribute<EVisibility>(this, &FMeshProxySettingsCustomizations::IsHardAngleThresholdVisible));
+		}
+		else if (Iter.Value() == NormalCalcMethodPropertyHandle)
+		{
+			IDetailPropertyRow& MeshProxySettingsRow = MeshSettingsGroup.AddPropertyRow(Iter.Value().ToSharedRef());
+			MeshProxySettingsRow.Visibility(TAttribute<EVisibility>(this, &FMeshProxySettingsCustomizations::IsNormalCalcMethodVisible));
+		}
+		else if (Iter.Value() == MaxRayCastDistdPropertyHandle)
+		{
+			IDetailPropertyRow& MeshProxySettingsRow = MeshSettingsGroup.AddPropertyRow(Iter.Value().ToSharedRef());
+			MeshProxySettingsRow.Visibility(TAttribute<EVisibility>(this, &FMeshProxySettingsCustomizations::IsSearchDistanceVisible));
 		}
 		else if (Iter.Value() == RecalculateNormalsPropertyHandle)
 		{
-			IDetailPropertyRow& MeshProxySettingsRow = MaterialSettingsGroup.AddPropertyRow(Iter.Value().ToSharedRef());
+			IDetailPropertyRow& MeshProxySettingsRow = MeshSettingsGroup.AddPropertyRow(Iter.Value().ToSharedRef());
 			MeshProxySettingsRow.Visibility(TAttribute<EVisibility>(this, &FMeshProxySettingsCustomizations::IsRecalculateNormalsVisible));
 		}
 		else if (Iter.Value() == UseLandscapeCullingPropertyHandle)
 		{
-			IDetailPropertyRow& MeshProxySettingsRow = MaterialSettingsGroup.AddPropertyRow(Iter.Value().ToSharedRef());
+			IDetailPropertyRow& MeshProxySettingsRow = MeshSettingsGroup.AddPropertyRow(Iter.Value().ToSharedRef());
+			MeshProxySettingsRow.DisplayName(FText::FromString(FString("Enable Volume Culling")));
+			MeshProxySettingsRow.ToolTip(FText::FromString(FString("Allow culling volumes to exclude geometry.")));
 			MeshProxySettingsRow.Visibility(TAttribute<EVisibility>(this, &FMeshProxySettingsCustomizations::IsUseLandscapeCullingVisible));
 		}
 		else if (Iter.Value() == LandscapeCullingPrecisionPropertyHandle)
 		{
-			IDetailPropertyRow& MeshProxySettingsRow = MaterialSettingsGroup.AddPropertyRow(Iter.Value().ToSharedRef());
+			IDetailPropertyRow& MeshProxySettingsRow = MeshSettingsGroup.AddPropertyRow(Iter.Value().ToSharedRef());
 			MeshProxySettingsRow.Visibility(TAttribute<EVisibility>(this, &FMeshProxySettingsCustomizations::IsUseLandscapeCullingPrecisionVisible));
 		}
 		else if (Iter.Value() == MergeDistanceHandle)
 		{
-			IDetailPropertyRow& MeshProxySettingsRow = MaterialSettingsGroup.AddPropertyRow(Iter.Value().ToSharedRef());
+			IDetailPropertyRow& MeshProxySettingsRow = MeshSettingsGroup.AddPropertyRow(Iter.Value().ToSharedRef());
 			MeshProxySettingsRow.Visibility(TAttribute<EVisibility>(this, &FMeshProxySettingsCustomizations::IsMergeDistanceVisible));
+		}
+		else if (Iter.Value() == UnresolvedGeometryColorHandle)
+		{
+			IDetailPropertyRow& MeshProxySettingsRow = MeshSettingsGroup.AddPropertyRow(Iter.Value().ToSharedRef());
+			MeshProxySettingsRow.Visibility(TAttribute<EVisibility>(this, &FMeshProxySettingsCustomizations::IsUnresolvedGeometryColorVisible));
 		}
 		else if (Iter.Value() == VoxelSizeHandle)
 		{
-			IDetailPropertyRow& MeshProxySettingsRow = MaterialSettingsGroup.AddPropertyRow(Iter.Value().ToSharedRef());
+			IDetailPropertyRow& MeshProxySettingsRow = MeshSettingsGroup.AddPropertyRow(Iter.Value().ToSharedRef());
 			MeshProxySettingsRow.Visibility(TAttribute<EVisibility>(this, &FMeshProxySettingsCustomizations::IsVoxelSizeVisible));
 		}
 		else
 		{
-			IDetailPropertyRow& SettingsRow = MaterialSettingsGroup.AddPropertyRow(Iter.Value().ToSharedRef());
+			IDetailPropertyRow& SettingsRow = MeshSettingsGroup.AddPropertyRow(Iter.Value().ToSharedRef());
 		}
 	}
 }
@@ -114,9 +135,30 @@ EVisibility FMeshProxySettingsCustomizations::IsThirdPartySpecificVisible() cons
 	return EVisibility::Visible;
 }
 
+EVisibility FMeshProxySettingsCustomizations::IsProxyLODSpecificVisible() const
+{
+	// Static assignment.  The tool can only change during editor restart.
+	static bool bUseNativeTool = UseNativeProxyLODTool();
+
+	if (bUseNativeTool)
+	{
+		return EVisibility::Visible;
+	}
+
+	return EVisibility::Hidden;
+}
+
 EVisibility FMeshProxySettingsCustomizations::IsHardAngleThresholdVisible() const
 {
-	return IsThirdPartySpecificVisible();
+	// Only proxyLOD actually uses this setting.  Historically, it has been exposed for
+	// simplygon, but it was not actually connected!
+	return IsProxyLODSpecificVisible();
+}
+
+EVisibility FMeshProxySettingsCustomizations::IsNormalCalcMethodVisible() const
+{
+	// Only ProxyLOD
+	return IsProxyLODSpecificVisible();
 }
 
 EVisibility FMeshProxySettingsCustomizations::IsRecalculateNormalsVisible() const
@@ -126,7 +168,7 @@ EVisibility FMeshProxySettingsCustomizations::IsRecalculateNormalsVisible() cons
 
 EVisibility FMeshProxySettingsCustomizations::IsUseLandscapeCullingVisible() const
 {
-	return IsThirdPartySpecificVisible();
+	return EVisibility::Visible;
 }
 
 EVisibility FMeshProxySettingsCustomizations::IsUseLandscapeCullingPrecisionVisible() const
@@ -136,19 +178,19 @@ EVisibility FMeshProxySettingsCustomizations::IsUseLandscapeCullingPrecisionVisi
 
 EVisibility FMeshProxySettingsCustomizations::IsMergeDistanceVisible() const
 {
-	return IsThirdPartySpecificVisible();
+	return EVisibility::Visible;
 }
-
+EVisibility FMeshProxySettingsCustomizations::IsUnresolvedGeometryColorVisible() const
+{   // visible for proxylod but not third party tool (e.g. simplygon)
+	return IsProxyLODSpecificVisible();
+}
+EVisibility FMeshProxySettingsCustomizations::IsSearchDistanceVisible() const
+{
+	return IsProxyLODSpecificVisible();
+}
 EVisibility FMeshProxySettingsCustomizations::IsVoxelSizeVisible() const
 {
-	if (EVisibility::Visible == IsThirdPartySpecificVisible())
-	{
-		return EVisibility::Hidden;
-	}
-	else
-	{
-		return EVisibility::Visible;
-	}
+	return IsProxyLODSpecificVisible();
 }
 
 

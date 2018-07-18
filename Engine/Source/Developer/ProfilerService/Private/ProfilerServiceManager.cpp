@@ -205,6 +205,8 @@ void FProfilerServiceManager::SetPreviewState( const FMessageAddress& ClientAddr
 
 bool FProfilerServiceManager::HandlePing( float DeltaTime )
 {
+    QUICK_SCOPE_CYCLE_COUNTER(STAT_FProfilerServiceManager_HandlePing);
+
 #if STATS
 	// check the active flags and reset if true, remove the client if false
 	TArray<FMessageAddress> Clients;

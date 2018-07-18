@@ -128,7 +128,7 @@ IOnlineTurnBasedPtr FOnlineSubsystemTwitch::GetTurnBasedInterface() const
 
 bool FOnlineSubsystemTwitch::Init()
 {
-	UE_LOG_ONLINE(Verbose, TEXT("FOnlineSubsystemTwitch::Init() Name: %s"), *InstanceName.ToString());
+	UE_LOG_ONLINE(VeryVerbose, TEXT("FOnlineSubsystemTwitch::Init() Name: %s"), *InstanceName.ToString());
 
 	TwitchIdentity = MakeShared<FOnlineIdentityTwitch, ESPMode::ThreadSafe>(this);
 	TwitchExternalUIInterface = MakeShared<FOnlineExternalUITwitch, ESPMode::ThreadSafe>(this);
@@ -138,12 +138,12 @@ bool FOnlineSubsystemTwitch::Init()
 
 void FOnlineSubsystemTwitch::PreUnload()
 {
-	UE_LOG_ONLINE(Verbose, TEXT("FOnlineSubsystemTwitch::Preunload() Name: %s"), *InstanceName.ToString());
+	UE_LOG_ONLINE(VeryVerbose, TEXT("FOnlineSubsystemTwitch::Preunload() Name: %s"), *InstanceName.ToString());
 }
 
 bool FOnlineSubsystemTwitch::Shutdown()
 {
-	UE_LOG_ONLINE(Verbose, TEXT("FOnlineSubsystemTwitch::Shutdown() Name: %s"), *InstanceName.ToString());
+	UE_LOG_ONLINE(VeryVerbose, TEXT("FOnlineSubsystemTwitch::Shutdown() Name: %s"), *InstanceName.ToString());
 
 	FOnlineSubsystemImpl::Shutdown();
 

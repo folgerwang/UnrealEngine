@@ -138,29 +138,16 @@ struct FStreamingManagerTexture : public ITextureStreamingManager
 
 	/* Notifies manager that level primitives were shifted */
 	virtual void NotifyLevelOffset(ULevel* Level, const FVector& Offset) override;
-	
-	/** Called when an actor is spawned. */
-	virtual void NotifyActorSpawned( AActor* Actor ) override;
-
 	/** Called when a spawned actor is destroyed. */
 	virtual void NotifyActorDestroyed( AActor* Actor ) override;
-
-	/**
-	 * Called when a primitive is attached to an actor or another component.
-	 * Replaces previous info, if the primitive was already attached.
-	 *
-	 * @param InPrimitive	Newly attached dynamic/spawned primitive
-	 */
-	virtual void NotifyPrimitiveAttached( const UPrimitiveComponent* Primitive, EDynamicPrimitiveType DynamicType ) override;
 
 	/** Called when a primitive is detached from an actor or another component. */
 	virtual void NotifyPrimitiveDetached( const UPrimitiveComponent* Primitive ) override;
 
-	/**
-	 * Called when a primitive has had its textured changed.
-	 * Only affects primitives that were already attached.
-	 * Replaces previous info.
-	 */
+	/** Called when a primitive streaming data needs to be updated. */
+	virtual void NotifyPrimitiveUpdated( const UPrimitiveComponent* Primitive ) override;
+
+	/**  Called when a primitive streaming data needs to be updated in the last stage of the frame. */
 	virtual void NotifyPrimitiveUpdated_Concurrent( const UPrimitiveComponent* Primitive ) override;
 
 	/** Returns the corresponding FStreamingTexture for a UTexture2D. */
@@ -211,17 +198,40 @@ protected:
 		void BoostTextures( AActor* Actor, float BoostFactor ) override;
 
 		/**
+		 * Updates the state of a texture with information about it's optional bulkdata
+		 */
+		void SetOptionalBulkData( UTexture* Texture, bool bHasOptionalBulkData );
+
+		/**
 		 * Stream textures in/out, based on the priorities calculated by the async work.
 		 *
 		 * @param bProcessEverything	Whether we're processing all textures in one go
 		 */
 		void StreamTextures( bool bProcessEverything );
 
+		/**
+		 * If new files have loaded this function will return true once
+		 * bNewFilesLoaded is set on the game thread and reset on the async thread
+		 * no need for synchronization as if we are a frame behind then that's ok 
+		 */
+		FORCEINLINE bool GetAndResetNewFilesHaveLoaded()
+		{
+			bool bResult = bNewFilesLoaded;
+			if ( bResult )
+			{
+				bNewFilesLoaded = false;
+			}
+			return bResult;
+		}
+
 		/** All streaming UTexture2D objects. */
 		TArray<FStreamingTexture> StreamingTextures;
 
 		/** All the textures referenced in StreamingTextures. Used to handled deleted textures.  */
 		TSet<const UTexture2D*> ReferencedTextures;
+
+		/** All the currently installed optional bulkdata files */
+		TSet<FString> OptionalBulkDataFiles;
 
 		/** Index of the StreamingTexture that will be updated next by UpdateStreamingTextures(). */
 		int32 CurrentUpdateStreamingTextureIndex;
@@ -257,6 +267,11 @@ protected:
 	 */
 	void	SyncStates(bool bCompleteFullUpdateCycle);
 
+	// Called on game thread when no new elements are added to the StreamingTextures array and
+	// the elements in the array are not removed or reordered. This runs in parrallel with the
+	// async update task so the streaming meta data in each FStreamingTexture can change
+	void ProcessPendingMipCopyRequests();
+
 	/** Next sync, dump texture group stats. */
 	bool	bTriggerDumpTextureGroupStats;
 
@@ -283,6 +298,25 @@ protected:
 	/** The list of indices with null texture in StreamingTextures. */
 	TArray<int32>	RemovedTextureIndices;
 
+	// Represent a pending request to stream in/out mips to/from GPU for a 2D texture
+	struct FPendingMipCopyRequest
+	{
+		const UTexture2D* Texture;
+		// Used to find the corresponding FStreamingTexture in the StreamingTextures array
+		int32 CachedIdx;
+
+		FPendingMipCopyRequest() = default;
+
+		FPendingMipCopyRequest(const UTexture2D* InTexture, int32 InCachedIdx)
+			: Texture(InTexture)
+			, CachedIdx(InCachedIdx)
+		{}
+	};
+	TArray<FPendingMipCopyRequest> PendingMipCopyRequests;
+
+	// The index of the next FPendingMipCopyRequest to process so the requests can be amortized accross multiple frames
+	int32 CurrentPendingMipCopyRequestIdx;
+
 	/** Level data */
 	TIndirectArray<FLevelTextureManager> LevelTextureManagers;
 
@@ -300,9 +334,6 @@ protected:
 	/** Amount of memory to leave free in the texture pool. */
 	int64					MemoryMargin;
 
-	/** Minimum number of bytes to evict when we need to stream out textures because of a failed allocation. */
-	int64					MinEvictSize;
-
 	/** The actual memory pool size available to stream textures, excludes non-streaming texture, temp memory (for streaming mips), memory margin (allocator overhead). */
 	int64					EffectiveStreamingPoolSize;
 
@@ -314,6 +345,8 @@ protected:
 	/** Whether texture streaming is paused or not. When paused, it won't stream any textures in or out. */
 	bool bPauseTextureStreaming;
 
+	bool bNewFilesLoaded;
+
 	/** Last time all data were fully updated. Instances are considered visible if they were rendered between that last time and the current time. */
 	float LastWorldUpdateTime;
 
@@ -321,6 +354,9 @@ protected:
 	FTextureStreamingStats GatheredStats;
 
 	TArray<int32> InflightTextures;
+
+	TMap<FString, bool> CachedFileExistsChecks;
+	void OnPakFileMounted(const TCHAR* PakFilename);
 
 #if STATS_FAST
 	uint64 MaxStreamingTexturesSize;

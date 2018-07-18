@@ -38,7 +38,7 @@ struct FViewportConstructionArgs
 	/** Whether the viewport should default to realtime */
 	bool bRealtime;
 	/** A config key for loading/saving settings for the viewport */
-	FString ConfigKey;
+	FName ConfigKey;
 	/** Widget enabled attribute */
 	TAttribute<bool> IsEnabled;
 };
@@ -76,6 +76,9 @@ public:
 
 	/** Get the type of this viewport as a name */
 	virtual FName GetType() const = 0;
+
+	/** Take a high res screen shot of viewport entity */
+	virtual void TakeHighResScreenShot() const = 0;
 };
 
 /**
@@ -277,6 +280,9 @@ protected:
 
 	/** The optional parent level editor for this layout */
 	TWeakPtr< ILevelEditor > ParentLevelEditor;
+
+	/** Method for taking high res screen shots of viewports */
+	void TakeHighResScreenShot();
 
 	/** The current maximized viewport if any */
 	FName MaximizedViewport;

@@ -8,11 +8,11 @@
 #include "Sections/ParameterSection.h"
 #include "SequencerUtilities.h"
 #include "Algo/Sort.h"
-#include "SlateIconFinder.h"
+#include "Styling/SlateIconFinder.h"
 #include "ContentBrowserModule.h"
 #include "IContentBrowserSingleton.h"
-#include "SBox.h"
-#include "SlateApplication.h"
+#include "Widgets/Layout/SBox.h"
+#include "Framework/Application/SlateApplication.h"
 
 #define LOCTEXT_NAMESPACE "MaterialParameterCollectionTrackEditor"
 
@@ -32,14 +32,15 @@ TSharedRef<ISequencerSection> FMaterialParameterCollectionTrackEditor::MakeSecti
 	UMovieSceneParameterSection* ParameterSection = Cast<UMovieSceneParameterSection>(&SectionObject);
 	checkf(ParameterSection != nullptr, TEXT("Unsupported section type."));
 
-	return MakeShareable(new FParameterSection(*ParameterSection, FText::FromName(ParameterSection->GetFName())));
+	return MakeShareable(new FParameterSection(*ParameterSection));
 }
 
-TSharedRef<SWidget> CreateAssetPicker(FOnAssetSelected OnAssetSelected)
+TSharedRef<SWidget> CreateAssetPicker(FOnAssetSelected OnAssetSelected, FOnAssetEnterPressed OnAssetEnterPressed)
 {
 	FAssetPickerConfig AssetPickerConfig;
 	{
 		AssetPickerConfig.OnAssetSelected = OnAssetSelected;
+		AssetPickerConfig.OnAssetEnterPressed = OnAssetEnterPressed;
 		AssetPickerConfig.bAllowNullSelection = false;
 		AssetPickerConfig.InitialAssetViewType = EAssetViewType::List;
 		AssetPickerConfig.Filter.bRecursiveClasses = true;
@@ -72,9 +73,17 @@ void FMaterialParameterCollectionTrackEditor::BuildTrackContextMenu(FMenuBuilder
 		}
 	};
 
-	auto SubMenuCallback = [this, AssignAsset](FMenuBuilder& SubMenuBuilder)
+	auto AssignAssetEnterPressed = [AssignAsset](const TArray<FAssetData>& InAssetData)
 	{
-		SubMenuBuilder.AddWidget(CreateAssetPicker(FOnAssetSelected::CreateLambda(AssignAsset)), FText::GetEmpty(), true);
+		if (InAssetData.Num() > 0)
+		{
+			AssignAsset(InAssetData[0].GetAsset());
+		}
+	};
+
+	auto SubMenuCallback = [this, AssignAsset, AssignAssetEnterPressed](FMenuBuilder& SubMenuBuilder)
+	{
+		SubMenuBuilder.AddWidget(CreateAssetPicker(FOnAssetSelected::CreateLambda(AssignAsset), FOnAssetEnterPressed::CreateLambda(AssignAssetEnterPressed)), FText::GetEmpty(), true);
 	};
 
 	MenuBuilder.AddSubMenu(
@@ -89,7 +98,7 @@ void FMaterialParameterCollectionTrackEditor::BuildAddTrackMenu(FMenuBuilder& Me
 {
 	auto SubMenuCallback = [this](FMenuBuilder& SubMenuBuilder)
 	{
-		SubMenuBuilder.AddWidget(CreateAssetPicker(FOnAssetSelected::CreateRaw(this, &FMaterialParameterCollectionTrackEditor::AddTrackToSequence)), FText::GetEmpty(), true);
+		SubMenuBuilder.AddWidget(CreateAssetPicker(FOnAssetSelected::CreateRaw(this, &FMaterialParameterCollectionTrackEditor::AddTrackToSequence), FOnAssetEnterPressed::CreateRaw(this, &FMaterialParameterCollectionTrackEditor::AddTrackToSequenceEnterPressed)), FText::GetEmpty(), true);
 	};
 
 	MenuBuilder.AddSubMenu(
@@ -137,7 +146,19 @@ void FMaterialParameterCollectionTrackEditor::AddTrackToSequence(const FAssetDat
 	Track->MPC = MPC;
 	Track->SetDisplayName(FText::FromString(MPC->GetName()));
 
+	if (GetSequencer().IsValid())
+	{
+		GetSequencer()->OnAddTrack(Track);
+	}
 	GetSequencer()->NotifyMovieSceneDataChanged(EMovieSceneDataChangeType::MovieSceneStructureItemAdded);
+}
+
+void FMaterialParameterCollectionTrackEditor::AddTrackToSequenceEnterPressed(const TArray<FAssetData>& InAssetData)
+{
+	if (InAssetData.Num() > 0)
+	{
+		AddTrackToSequence(InAssetData[0].GetAsset());
+	}
 }
 
 bool FMaterialParameterCollectionTrackEditor::SupportsType(TSubclassOf<UMovieSceneTrack> Type) const
@@ -216,7 +237,7 @@ void FMaterialParameterCollectionTrackEditor::AddScalarParameter(UMovieSceneMate
 		return;
 	}
 
-	float KeyTime = GetTimeForKey();
+	FFrameNumber KeyTime = GetTimeForKey();
 
 	const FScopedTransaction Transaction(LOCTEXT("AddScalarParameter", "Add scalar parameter"));
 	Track->Modify();
@@ -232,7 +253,7 @@ void FMaterialParameterCollectionTrackEditor::AddVectorParameter(UMovieSceneMate
 		return;
 	}
 
-	float KeyTime = GetTimeForKey();
+	FFrameNumber KeyTime = GetTimeForKey();
 
 	const FScopedTransaction Transaction(LOCTEXT("AddVectorParameter", "Add vector parameter"));
 	Track->Modify();

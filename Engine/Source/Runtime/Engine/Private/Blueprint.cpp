@@ -15,11 +15,10 @@
 #include "EdGraph/EdGraph.h"
 #include "Engine/Breakpoint.h"
 #include "Components/TimelineComponent.h"
+#include "Modules/ModuleManager.h"
 
 #if WITH_EDITOR
-#include "Blueprint/BlueprintSupport.h"
 #include "BlueprintCompilationManager.h"
-#include "Blueprint/BlueprintSupport.h"
 #include "Editor/UnrealEd/Classes/Settings/ProjectPackagingSettings.h"
 #include "Engine/SimpleConstructionScript.h"
 #include "Engine/SCS_Node.h"
@@ -27,6 +26,7 @@
 #include "Kismet2/KismetEditorUtilities.h"
 #include "Kismet2/CompilerResultsLog.h"
 #include "Kismet2/StructureEditorUtils.h"
+#include "WatchPointViewer.h"
 #include "FindInBlueprintManager.h"
 #include "CookerSettings.h"
 #include "Editor.h"
@@ -35,7 +35,7 @@
 #include "Engine/TimelineTemplate.h"
 #include "Curves/CurveBase.h"
 #include "Interfaces/ITargetPlatform.h"
-#include "MetaData.h"
+#include "UObject/MetaData.h"
 #endif
 #include "Engine/InheritableComponentHandler.h"
 
@@ -332,30 +332,11 @@ void UBlueprintCore::Serialize(FArchive& Ar)
 		}
 	}
 
-	if( Ar.ArIsLoading && !BlueprintGuid.IsValid() )
+	if( Ar.IsLoading() && !BlueprintGuid.IsValid() )
 	{
 		GenerateDeterministicGuid();
 	}
 }
-
-#if WITH_EDITORONLY_DATA
-void UBlueprintCore::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
-{
-	Super::GetAssetRegistryTags(OutTags);
-
-	FString GeneratedClassVal;
-	if ( GeneratedClass != NULL )
-	{
-		GeneratedClassVal = FString::Printf(TEXT("%s'%s'"), *GeneratedClass->GetClass()->GetName(), *GeneratedClass->GetPathName());
-	}
-	else
-	{
-		GeneratedClassVal = TEXT("None");
-	}
-
-	OutTags.Add( FAssetRegistryTag("GeneratedClass", GeneratedClassVal, FAssetRegistryTag::TT_Hidden) );
-}
-#endif
 
 void UBlueprintCore::GenerateDeterministicGuid()
 {
@@ -920,12 +901,20 @@ void UBlueprint::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
 
 	Super::GetAssetRegistryTags(OutTags);
 
-	FString ParentClassPackageName;
+	// Output native parent class and generated class as if they were AssetRegistrySearchable
+	FString GeneratedClassVal;
+	if (GeneratedClass)
+	{
+		GeneratedClassVal = FString::Printf(TEXT("%s'%s'"), *GeneratedClass->GetClass()->GetName(), *GeneratedClass->GetPathName());
+	}
+	else
+	{
+		GeneratedClassVal = TEXT("None");
+	}
+
 	FString NativeParentClassName;
 	if ( ParentClass )
 	{
-		ParentClassPackageName = ParentClass->GetOutermost()->GetName();
-
 		// Walk up until we find a native class (ie 'while they are BP classes')
 		UClass* NativeParentClass = ParentClass;
 		while (Cast<UBlueprintGeneratedClass>(NativeParentClass) != nullptr) // can't use IsA on UClass
@@ -936,22 +925,23 @@ void UBlueprint::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
 	}
 	else
 	{
-		ParentClassPackageName = TEXT("None");
 		NativeParentClassName = TEXT("None");
 	}
 
-	//NumReplicatedProperties
+	OutTags.Add(FAssetRegistryTag(FBlueprintTags::GeneratedClassPath, GeneratedClassVal, FAssetRegistryTag::TT_Hidden));
+	OutTags.Add(FAssetRegistryTag(FBlueprintTags::NativeParentClassPath, NativeParentClassName, FAssetRegistryTag::TT_Alphabetical));
+
+	// BlueprintGeneratedClass is not automatically traversed so we have to manually add NumReplicatedProperties
 	int32 NumReplicatedProperties = 0;
 	UBlueprintGeneratedClass* BlueprintClass = Cast<UBlueprintGeneratedClass>(SkeletonGeneratedClass);
 	if (BlueprintClass)
 	{
 		NumReplicatedProperties = BlueprintClass->NumReplicatedProperties;
 	}
+	OutTags.Add(FAssetRegistryTag(FBlueprintTags::NumReplicatedProperties, FString::FromInt(NumReplicatedProperties), FAssetRegistryTag::TT_Numerical));
 
-	OutTags.Add(FAssetRegistryTag("NumReplicatedProperties", FString::FromInt(NumReplicatedProperties), FAssetRegistryTag::TT_Numerical));
-	OutTags.Add(FAssetRegistryTag("ParentClassPackage", ParentClassPackageName, FAssetRegistryTag::TT_Hidden));
-	OutTags.Add(FAssetRegistryTag("NativeParentClass", NativeParentClassName, FAssetRegistryTag::TT_Alphabetical));
-	OutTags.Add(FAssetRegistryTag(GET_MEMBER_NAME_CHECKED(UBlueprint, BlueprintDescription), BlueprintDescription, FAssetRegistryTag::TT_Hidden));
+	// This is explicit so it can be added as hidden
+	OutTags.Add(FAssetRegistryTag(FBlueprintTags::BlueprintDescription, BlueprintDescription, FAssetRegistryTag::TT_Hidden));
 
 	uint32 ClassFlagsTagged = 0;
 	if (BlueprintClass)
@@ -962,16 +952,16 @@ void UBlueprint::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
 	{
 		ClassFlagsTagged = GetClass()->GetClassFlags();
 	}
-	OutTags.Add( FAssetRegistryTag("ClassFlags", FString::FromInt(ClassFlagsTagged), FAssetRegistryTag::TT_Hidden) );
+	OutTags.Add( FAssetRegistryTag(FBlueprintTags::ClassFlags, FString::FromInt(ClassFlagsTagged), FAssetRegistryTag::TT_Hidden) );
 
-	OutTags.Add( FAssetRegistryTag( "IsDataOnly",
+	OutTags.Add( FAssetRegistryTag(FBlueprintTags::IsDataOnly,
 			FBlueprintEditorUtils::IsDataOnlyBlueprint(this) ? TEXT("True") : TEXT("False"),
 			FAssetRegistryTag::TT_Alphabetical ) );
 
 	// Only add the FiB tags in the editor, this now gets run for standalone uncooked games
 	if ( ParentClass && GIsEditor)
 	{
-		OutTags.Add( FAssetRegistryTag("FiBData", FFindInBlueprintSearchManager::Get().QuerySingleBlueprint((UBlueprint*)this, false), FAssetRegistryTag::TT_Hidden) );
+		OutTags.Add( FAssetRegistryTag(FBlueprintTags::FindInBlueprintsData, FFindInBlueprintSearchManager::Get().QuerySingleBlueprint((UBlueprint*)this, false), FAssetRegistryTag::TT_Hidden) );
 	}
 
 	// Only show for strict blueprints (not animation or widget blueprints)
@@ -993,7 +983,7 @@ void UBlueprint::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
 				}
 			}
 		}
-		OutTags.Add(FAssetRegistryTag("NativeComponents", FString::FromInt(NumNativeComponents), UObject::FAssetRegistryTag::TT_Numerical));
+		OutTags.Add(FAssetRegistryTag(FBlueprintTags::NumNativeComponents, FString::FromInt(NumNativeComponents), UObject::FAssetRegistryTag::TT_Numerical));
 
 		// Determine how many components are added via a SimpleConstructionScript (both newly introduced and inherited from parent BPs)
 		int32 NumAddedComponents = 0;
@@ -1005,7 +995,7 @@ void UBlueprint::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
 				NumAddedComponents += AssociatedBP->SimpleConstructionScript->GetAllNodesConst().Num();
 			}
 		}
-		OutTags.Add(FAssetRegistryTag("BlueprintComponents", FString::FromInt(NumAddedComponents), UObject::FAssetRegistryTag::TT_Numerical));
+		OutTags.Add(FAssetRegistryTag(FBlueprintTags::NumBlueprintComponents, FString::FromInt(NumAddedComponents), UObject::FAssetRegistryTag::TT_Numerical));
 	}
 }
 
@@ -1390,6 +1380,14 @@ void UBlueprint::ClearAllCachedCookedPlatformData()
 	}
 }
 
+void UBlueprint::BeginDestroy()
+{
+	Super::BeginDestroy();
+
+	FBlueprintEditorUtils::RemoveAllLocalBookmarks(this);
+	WatchViewer::ClearWatchListFromBlueprint(this);
+}
+
 #endif // WITH_EDITOR
 
 UBlueprint* UBlueprint::GetBlueprintFromClass(const UClass* InClass)
@@ -1423,6 +1421,7 @@ bool UBlueprint::GetBlueprintHierarchyFromClass(const UClass* InClass, TArray<UB
 		}
 		else
 		{
+			check(CurrentClass);
 			CurrentClass = CurrentClass->GetSuperClass();
 		}
 	}
@@ -1809,7 +1808,7 @@ UEdGraph* UBlueprint::GetLastEditedUberGraph() const
 {
 	for ( int32 LastEditedIndex = LastEditedDocuments.Num() - 1; LastEditedIndex >= 0; LastEditedIndex-- )
 	{
-		if ( UObject* Obj = LastEditedDocuments[LastEditedIndex].EditedObject )
+		if ( UObject* Obj = LastEditedDocuments[LastEditedIndex].EditedObjectPath.ResolveObject() )
 		{
 			if ( UEdGraph* Graph = Cast<UEdGraph>(Obj) )
 			{

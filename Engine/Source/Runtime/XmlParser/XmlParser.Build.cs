@@ -6,7 +6,6 @@ public class XmlParser : ModuleRules
 {
 	public XmlParser( ReadOnlyTargetRules Target ) : base(Target)
 	{
-		PublicIncludePaths.AddRange(new string[] { "Editor/XmlParser/Public" });
 		PrivateDependencyModuleNames.AddRange(
 			new string[] 
 			{ 

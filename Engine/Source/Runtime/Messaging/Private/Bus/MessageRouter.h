@@ -3,12 +3,14 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "IMessageContext.h"
 #include "Containers/Queue.h"
+#include "HAL/Runnable.h"
+#include "Misc/SingleThreadRunnable.h"
+#include "Templates/Atomic.h"
+
+#include "IMessageContext.h"
 #include "IMessageTracer.h"
 #include "Bus/MessageTracer.h"
-#include "HAL/Runnable.h"
-#include "Templates/Atomic.h"
 
 class IMessageInterceptor;
 class IMessageReceiver;
@@ -19,6 +21,7 @@ class IMessageSubscription;
  */
 class FMessageRouter
 	: public FRunnable
+	, private FSingleThreadRunnable
 {
 	DECLARE_DELEGATE(CommandDelegate)
 
@@ -121,6 +124,7 @@ public:
 
 	//~ FRunnable interface
 
+	virtual FSingleThreadRunnable* GetSingleThreadInterface() override;
 	virtual bool Init() override;
 	virtual uint32 Run() override;
 	virtual void Stop() override;
@@ -173,8 +177,25 @@ protected:
 	 */
 	void DispatchMessage(const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Message);
 
-	/** Processes all delayed messages. */
+	/**
+	 * Process all queued commands.
+	 *
+	 * @see ProcessDelayedMessages
+	 */
+	void ProcessCommands();
+
+	/**
+	 * Processes all delayed messages.
+	 *
+	 * @see ProcessCommands
+	 */
 	void ProcessDelayedMessages();
+
+protected:
+
+	//~ FSingleThreadRunnable interface
+
+	virtual void Tick() override;
 
 private:
 
@@ -265,4 +286,7 @@ private:
 
 	/** Holds an event signaling that work is available. */
 	FEvent* WorkEvent;
+
+	/** Whether or not to allow delayed messaging */
+	bool bAllowDelayedMessaging;
 };

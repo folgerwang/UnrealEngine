@@ -4,6 +4,7 @@
 #include "HAL/FileManager.h"
 #include "Misc/CommandLine.h"
 #include "Templates/Casts.h"
+#include "Misc/FrameRate.h"
 
 bool FVideoCaptureProtocol::Initialize(const FCaptureProtocolInitSettings& InSettings, const ICaptureProtocolHost& Host)
 {
@@ -22,7 +23,7 @@ void FVideoCaptureProtocol::ConditionallyCreateWriter(const ICaptureProtocolHost
 {
 #if PLATFORM_MAC
 	static const TCHAR* Extension = TEXT(".mov");
-#elif PLATFORM_LINUX
+#elif PLATFORM_UNIX
 	static const TCHAR* Extension = TEXT(".unsupp");
 	UE_LOG(LogInit, Warning, TEXT("Writing movies is not currently supported on Linux"));
 	return;
@@ -43,7 +44,8 @@ void FVideoCaptureProtocol::ConditionallyCreateWriter(const ICaptureProtocolHost
 
 	FAVIWriterOptions Options;
 	Options.OutputFilename = MoveTemp(VideoFilename);
-	Options.CaptureFPS = Host.GetCaptureFrequency();
+	Options.CaptureFramerateNumerator = Host.GetCaptureFrameRate().Numerator;
+	Options.CaptureFramerateDenominator = Host.GetCaptureFrameRate().Denominator;
 	Options.CodecName = CaptureSettings->VideoCodec;
 	Options.bSynchronizeFrames = Host.GetCaptureStrategy().ShouldSynchronizeFrames();
 	Options.Width = InitSettings->DesiredSize.X;

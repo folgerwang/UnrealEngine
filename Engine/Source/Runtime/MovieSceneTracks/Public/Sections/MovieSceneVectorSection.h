@@ -7,33 +7,12 @@
 #include "Curves/KeyHandle.h"
 #include "Curves/RichCurve.h"
 #include "MovieSceneSection.h"
-#include "Sections/IKeyframeSection.h"
 #include "MovieSceneKeyStruct.h"
+#include "Channels/MovieSceneFloatChannel.h"
 #include "MovieSceneVectorSection.generated.h"
 
 class FStructOnScope;
 struct FPropertyChangedEvent;
-
-enum class EKeyVectorChannel
-{
-	X,
-	Y,
-	Z,
-	W
-};
-
-
-struct MOVIESCENETRACKS_API FVectorKey
-{
-	FVectorKey(EKeyVectorChannel InChannel, float InValue)
-	{
-		Channel = InChannel;
-		Value = InValue;
-	}
-	EKeyVectorChannel Channel;
-	float Value;
-};
-
 
 /**
 * Base Proxy structure for vector section key data.
@@ -44,24 +23,18 @@ struct FMovieSceneVectorKeyStructBase
 {
 	GENERATED_BODY();
 
-	FRichCurveKey* Keys[4];
-	FRichCurve* Curves[4];
-
 	/** The key's time. */
 	UPROPERTY(EditAnywhere, Category=Key)
-	float Time;
+	FFrameNumber Time;
+
+	FMovieSceneKeyStructHelper KeyStructInterop;
 
 	virtual void PropagateChanges(const FPropertyChangedEvent& ChangeEvent) override;
 
-	/** Gets the number of channels used by this vector key struct. */
-	virtual int32 GetChannelsUsed() const PURE_VIRTUAL(FMovieSceneVectorKeyStructBase::GetChannelsUsed, return 0;);
-
-	/** Gets the value of a channel by index, 0-3 = x-z */
-	virtual float GetPropertyChannelByIndex(int32 Index) const PURE_VIRTUAL(FMovieSceneVectorKeyStructBase::GetPropertyChannelByIndex, return 0;);
-	
-	/** Sets the value of a channel by index, 0-3 = x-z */
-	virtual void SetPropertyChannelByIndex(int32 Index, float Value) PURE_VIRTUAL(FMovieSceneVectorKeyStructBase::SetPropertyChannelByIndex,);
+	/** Gets a ptr value of a channel by index, 0-3 = x-w */
+	virtual float* GetPropertyChannelByIndex(int32 Index) PURE_VIRTUAL(FMovieSceneVectorKeyStructBase::GetPropertyChannelByIndex, return nullptr; );
 };
+template<> struct TStructOpsTypeTraits<FMovieSceneVectorKeyStructBase> : public TStructOpsTypeTraitsBase2<FMovieSceneVectorKeyStructBase> { enum { WithCopy = false }; };
 
 
 /**
@@ -73,17 +46,14 @@ struct FMovieSceneVector2DKeyStruct
 {
 	GENERATED_BODY()
 
-		/** They key's vector value. */
-		UPROPERTY(EditAnywhere, Category=Key)
-		FVector2D Vector;
+	/** They key's vector value. */
+	UPROPERTY(EditAnywhere, Category=Key)
+	FVector2D Vector;
 
 	//~ FMovieSceneVectorKeyStructBase interface
-
-	virtual int32 GetChannelsUsed() const override { return 2; }
-	virtual float GetPropertyChannelByIndex(int32 Index) const override { return Vector[Index]; }
-	virtual void SetPropertyChannelByIndex(int32 Index, float Value) override { Vector[Index] = Value; }
+	virtual float* GetPropertyChannelByIndex(int32 Index) override { return &Vector[Index]; }
 };
-
+template<> struct TStructOpsTypeTraits<FMovieSceneVector2DKeyStruct> : public TStructOpsTypeTraitsBase2<FMovieSceneVector2DKeyStruct> { enum { WithCopy = false }; };
 
 /**
 * Proxy structure for vector section key data.
@@ -94,17 +64,14 @@ struct FMovieSceneVectorKeyStruct
 {
 	GENERATED_BODY()
 
-		/** They key's vector value. */
-		UPROPERTY(EditAnywhere, Category = Key)
-		FVector Vector;
+	/** They key's vector value. */
+	UPROPERTY(EditAnywhere, Category = Key)
+	FVector Vector;
 
 	//~ FMovieSceneVectorKeyStructBase interface
-
-	virtual int32 GetChannelsUsed() const override { return 3; }
-	virtual float GetPropertyChannelByIndex(int32 Index) const override { return Vector[Index]; }
-	virtual void SetPropertyChannelByIndex(int32 Index, float Value) override { Vector[Index] = Value; }
+	virtual float* GetPropertyChannelByIndex(int32 Index) override { return &Vector[Index]; }
 };
-
+template<> struct TStructOpsTypeTraits<FMovieSceneVectorKeyStruct> : public TStructOpsTypeTraitsBase2<FMovieSceneVectorKeyStruct> { enum { WithCopy = false }; };
 
 /**
 * Proxy structure for vector4 section key data.
@@ -115,16 +82,14 @@ struct FMovieSceneVector4KeyStruct
 {
 	GENERATED_BODY()
 
-		/** They key's vector value. */
-		UPROPERTY(EditAnywhere, Category = Key)
-		FVector4 Vector;
+	/** They key's vector value. */
+	UPROPERTY(EditAnywhere, Category = Key)
+	FVector4 Vector;
 
 	//~ FMovieSceneVectorKeyStructBase interface
-
-	virtual int32 GetChannelsUsed() const override { return 4; }
-	virtual float GetPropertyChannelByIndex(int32 Index) const override { return Vector[Index]; }
-	virtual void SetPropertyChannelByIndex(int32 Index, float Value) override { Vector[Index] = Value; }
+	virtual float* GetPropertyChannelByIndex(int32 Index) override { return &Vector[Index]; }
 };
+template<> struct TStructOpsTypeTraits<FMovieSceneVector4KeyStruct> : public TStructOpsTypeTraitsBase2<FMovieSceneVector4KeyStruct> { enum { WithCopy = false }; };
 
 
 /**
@@ -133,52 +98,44 @@ struct FMovieSceneVector4KeyStruct
 UCLASS(MinimalAPI)
 class UMovieSceneVectorSection
 	: public UMovieSceneSection
-	, public IKeyframeSection<FVectorKey>
 {
 	GENERATED_UCLASS_BODY()
 
 public:
-
-	/** Gets one of four curves in this section */
-	FRichCurve& GetCurve(int32 Index) { check(Index >= 0 && Index < 4); return Curves[Index]; }
-	const FRichCurve& GetCurve(int32 Index) const { check(Index >= 0 && Index < 4); return Curves[Index]; }
 
 	/** Sets how many channels are to be used */
 	void SetChannelsUsed(int32 InChannelsUsed) 
 	{
 		checkf(InChannelsUsed >= 2 && InChannelsUsed <= 4, TEXT("Only 2-4 channels are supported."));
 		ChannelsUsed = InChannelsUsed;
+		RecreateChannelProxy();
 	}
-	
-	/** Gets the number of channels in use */
-	int32 GetChannelsUsed() const {return ChannelsUsed;}
 
-public:
+	/** Gets the number of channels in use */
+	int32 GetChannelsUsed() const { return ChannelsUsed; }
+
+	/**
+	 * Public access to this section's internal data function
+	 */
+	const FMovieSceneFloatChannel& GetChannel(int32 Index) const
+	{
+		check(Index >= 0 && Index < GetChannelsUsed());
+		return Curves[Index];
+	}
+
+protected:
 
 	//~ UMovieSceneSection interface
+	virtual void Serialize(FArchive& Ar) override;
+	virtual TSharedPtr<FStructOnScope> GetKeyStruct(TArrayView<const FKeyHandle> KeyHandles) override;
 
-	virtual void MoveSection(float DeltaPosition, TSet<FKeyHandle>& KeyHandles) override;
-	virtual void DilateSection(float DilationFactor, float Origin, TSet<FKeyHandle>& KeyHandles) override;
-	virtual void GetKeyHandles(TSet<FKeyHandle>& OutKeyHandles, TRange<float> TimeRange) const override;
-	virtual TSharedPtr<FStructOnScope> GetKeyStruct(const TArray<FKeyHandle>& KeyHandles) override;
-	virtual TOptional<float> GetKeyTime( FKeyHandle KeyHandle ) const override;
-	virtual void SetKeyTime( FKeyHandle KeyHandle, float Time ) override;
-
-public:
-
-	//~ IKeyframeSection interface.
-
-	virtual void AddKey(float Time, const FVectorKey& Key, EMovieSceneKeyInterpolation KeyInterpolation) override;
-	virtual bool NewKeyIsNewData(float Time, const FVectorKey& Key) const override;
-	virtual bool HasKeys(const FVectorKey& Key) const override;
-	virtual void SetDefault(const FVectorKey& Key) override;
-	virtual void ClearDefaults() override;
+	MOVIESCENETRACKS_API void RecreateChannelProxy();
 
 private:
 
-	/** Vector t */
+	/** Float functions for the X,Y,Z,W components of the vector */
 	UPROPERTY()
-	FRichCurve Curves[4];
+	FMovieSceneFloatChannel Curves[4];
 
 	/** How many curves are actually used */
 	UPROPERTY()

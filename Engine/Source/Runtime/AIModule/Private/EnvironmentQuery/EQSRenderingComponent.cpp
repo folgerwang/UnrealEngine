@@ -315,8 +315,37 @@ void UEQSRenderingComponent::StoreDebugData(const EQSDebug::FQueryData& DebugDat
 
 FBoxSphereBounds UEQSRenderingComponent::CalcBounds(const FTransform& LocalToWorld) const
 {
-	static FBox BoundingBox(FVector(-HALF_WORLD_MAX), FVector(HALF_WORLD_MAX));
-	return FBoxSphereBounds(BoundingBox);
+#if USE_EQS_DEBUGGER 
+	TArray<FDebugRenderSceneProxy::FSphere> Spheres;
+	Spheres.Append(DebugDataSolidSpheres);
+	const IEQSQueryResultSourceInterface* QueryDataSource = Cast<const IEQSQueryResultSourceInterface>(GetOwner());
+	if (QueryDataSource == nullptr)
+	{
+		QueryDataSource = Cast<const IEQSQueryResultSourceInterface>(this);
+	}
+
+	if (QueryDataSource != nullptr)
+	{
+		TArray<EQSDebug::FDebugHelper> DebugItems;
+
+		TArray<FDebugRenderSceneProxy::FText3d> Texts;
+		FEQSSceneProxy::CollectEQSData(this, QueryDataSource, Spheres, Texts, DebugItems);	
+	}
+
+	if (Spheres.Num())
+	{
+		FBoxSphereBounds DebugBounds(FSphere(Spheres[0].Location, Spheres[0].Radius));
+		for (int32 Index = 1; Index < Spheres.Num(); ++Index)
+		{
+			DebugBounds = DebugBounds + FSphere(Spheres[Index].Location, Spheres[Index].Radius);
+		}
+
+		return DebugBounds;
+	}
+#endif
+
+	static FSphere BoundingSphere(FVector::ZeroVector, 0.f);
+	return FBoxSphereBounds(BoundingSphere).TransformBy(LocalToWorld);
 }
 
 void UEQSRenderingComponent::CreateRenderState_Concurrent()

@@ -125,7 +125,11 @@ void FExclusiveLoadPackageTimeTracker::InternalDumpReport(const TArray<FString>&
 		const FString Filename = CreateProfileFilename(TEXT(""), TEXT(".loadreport"), true);
 		FilenameFull = PathName + Filename;
 
+#if ALLOW_DEBUG_FILES
 		FileAr = IFileManager::Get().CreateDebugFileWriter(*FilenameFull);
+#else
+		FileAr = IFileManager::Get().CreateFileWriter(*FilenameFull);
+#endif
 		FileArWrapper = new FOutputDeviceArchiveWrapper(FileAr);
 		ReportAr = FileArWrapper;
 

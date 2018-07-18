@@ -5,7 +5,7 @@
 #include "Engine/EngineTypes.h"
 #include "Engine/World.h"
 #include "Misc/PackageName.h"
-#include "MovieSceneEvaluation.h"
+#include "Evaluation/MovieSceneEvaluation.h"
 #include "IMovieScenePlayer.h"
 
 
@@ -14,12 +14,12 @@ bool GetLevelVisibility(const ULevelStreaming& Level)
 #if WITH_EDITOR
 	if (GIsEditor && !Level.GetWorld()->IsPlayInEditor())
 	{
-		return Level.bShouldBeVisibleInEditor;
+		return Level.GetShouldBeVisibleInEditor();
 	}
 	else
 #endif
 	{
-		return Level.bShouldBeVisible;
+		return Level.ShouldBeVisible();
 	}
 }
 
@@ -28,7 +28,7 @@ void SetLevelVisibility(ULevelStreaming& Level, bool bVisible, EFlushLevelStream
 #if WITH_EDITOR
 	if (GIsEditor && !Level.GetWorld()->IsPlayInEditor())
 	{
-		Level.bShouldBeVisibleInEditor = bVisible;
+		Level.SetShouldBeVisibleInEditor(bVisible);
 		Level.GetWorld()->FlushLevelStreaming();
 
 		// Iterate over the level's actors
@@ -60,7 +60,7 @@ void SetLevelVisibility(ULevelStreaming& Level, bool bVisible, EFlushLevelStream
 	else
 #endif
 	{
-		Level.bShouldBeVisible = bVisible;
+		Level.SetShouldBeVisible(bVisible);
 
 		if (FlushStreamingType && (*FlushStreamingType == EFlushLevelStreamingType::None))
 		{
@@ -69,7 +69,7 @@ void SetLevelVisibility(ULevelStreaming& Level, bool bVisible, EFlushLevelStream
 
 		if (bVisible && !Level.IsLevelLoaded())
 		{
-			Level.bShouldBeLoaded = true;
+			Level.SetShouldBeLoaded(true);
 			if (FlushStreamingType)
 			{
 				*FlushStreamingType = EFlushLevelStreamingType::Full;
@@ -104,7 +104,7 @@ ULevelStreaming* GetStreamingLevel(FString SafeLevelName, UWorld& World)
 		SafeLevelName = TEXT("/") + SafeLevelName;
 	}
 
-	for (ULevelStreaming* LevelStreaming : World.StreamingLevels)
+	for (ULevelStreaming* LevelStreaming : World.GetStreamingLevels())
 	{
 		if (LevelStreaming && LevelStreaming->GetWorldAssetPackageName().EndsWith(SafeLevelName, ESearchCase::IgnoreCase))
 		{

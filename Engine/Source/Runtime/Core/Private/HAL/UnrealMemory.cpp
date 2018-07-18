@@ -20,7 +20,7 @@
 #include "ProfilingDebugging/MallocProfiler.h"
 #include "HAL/MallocThreadSafeProxy.h"
 #include "HAL/MallocVerify.h"
-#include "HAL/MallocLeakDetection.h"
+#include "HAL/MallocLeakDetectionProxy.h"
 #include "HAL/PlatformMallocCrash.h"
 #include "HAL/MallocPoisonProxy.h"
 
@@ -243,6 +243,13 @@ void FMemory::EnablePurgatoryTests()
 
 void FMemory::EnablePoisonTests()
 {
+#if PLATFORM_HTML5 // remove this guard for other platforms that can use this check...
+	if ( ! FPlatformProcess::SupportsMultithreading() )
+	{
+		UE_LOG(LogConsoleResponse, Display, TEXT("SKIPPING Poison proxy - platform does not support multithreads"));
+		return;
+	}
+#endif
 	if (PLATFORM_USES_FIXED_GMalloc_CLASS)
 	{
 		UE_LOG(LogMemory, Error, TEXT("Poison proxy cannot be turned on because we are using PLATFORM_USES_FIXED_GMalloc_CLASS"));
@@ -279,7 +286,7 @@ static void FMallocBinnedOverrunTest()
 		[Pointer, ArraySize]()
 	{
 		//FPlatformProcess::Sleep(.01f);
-		Pointer[ArraySize / 2] = 0xcc;
+		Pointer[ArraySize / 2] = 0xcc; //-V774
 	},
 		TStatId()
 		);
@@ -312,9 +319,21 @@ FConsoleCommandDelegate::CreateStatic(&FMemory::EnablePoisonTests)
 /** Helper function called on first allocation to create and initialize GMalloc */
 int FMemory_GCreateMalloc_ThreadUnsafe()
 {
+#if !PLATFORM_MAC
+	FPlatformMemoryStats Stats = FPlatformMemory::GetStats();
+	uint64 ProgramSize = Stats.UsedPhysical;
+#endif
+
 	GMalloc = FPlatformMemory::BaseAllocator();
 	// Setup malloc crash as soon as possible.
 	FPlatformMallocCrash::Get( GMalloc );
+
+#if PLATFORM_HTML5 // remove this guard for other platforms that can use this check...
+	if ( ! FPlatformProcess::SupportsMultithreading() )
+	{
+		return 0;
+	}
+#endif
 
 #if PLATFORM_USES_FIXED_GMalloc_CLASS
 #if USE_MALLOC_PROFILER || MALLOC_VERIFY || MALLOC_LEAKDETECTION || UE_USE_MALLOC_FILL_BYTES
@@ -357,6 +376,15 @@ int FMemory_GCreateMalloc_ThreadUnsafe()
 #endif
 
 #endif
+
+// On Mac it's too early to log here in some cases. For example GMalloc may be created during initialization of a third party dylib on load, before CoreFoundation is initialized
+#if !PLATFORM_DESKTOP
+	// by this point, we assume we can log
+	double SizeInMb = ProgramSize / (1024.0 * 1024.0);
+	FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Used memory before allocating anything was %.2fMB\n"), SizeInMb);
+	UE_LOG(LogMemory, Display, TEXT("Used memory before allocating anything was %.2fMB"), SizeInMb);
+#endif
+	
 	return 0;
 }
 

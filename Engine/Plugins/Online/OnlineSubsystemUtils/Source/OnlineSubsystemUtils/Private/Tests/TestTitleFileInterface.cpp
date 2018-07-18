@@ -16,7 +16,7 @@ void FTestTitleFileInterface::Test(UWorld* InWorld)
 	}
 	else
 	{
-		UE_LOG(LogOnline, Warning, TEXT("Failed to get title file interface for %s"), *SubsystemName);
+		UE_LOG_ONLINE_TITLEFILE(Warning, TEXT("Failed to get title file interface for %s"), *SubsystemName);
 	}
 }
 
@@ -30,7 +30,7 @@ FTestTitleFileInterface::FTestTitleFileInterface(const FString& InSubsystemName)
 
 void FTestTitleFileInterface::FinishTest()
 {
-	UE_LOG(LogOnline, Log, TEXT("Test finished"));
+	UE_LOG_ONLINE_TITLEFILE(Log, TEXT("Test finished"));
 
 	if (OnlineTitleFile.IsValid())
 	{
@@ -44,7 +44,7 @@ void FTestTitleFileInterface::OnEnumerateFilesComplete(bool bSuccess, const FStr
 {
 	TArray<FCloudFileHeader> Files;
 	OnlineTitleFile->GetFileList(Files);
-	UE_LOG(LogOnline, Log, TEXT("Found %i files"), Files.Num());
+	UE_LOG_ONLINE_TITLEFILE(Log, TEXT("Found %i files"), Files.Num());
 
 	NumPendingFileReads = Files.Num();
 	if (NumPendingFileReads > 0)
@@ -67,15 +67,15 @@ void FTestTitleFileInterface::OnReadFileComplete(bool bSuccess, const FString& F
 {
 	if (bSuccess)
 	{
-		UE_LOG(LogOnline, Log, TEXT("File read. file=[%s]"), *Filename);
+		UE_LOG_ONLINE_TITLEFILE(Log, TEXT("File read. file=[%s]"), *Filename);
 		TArray<uint8> FileContents;
 		OnlineTitleFile->GetFileContents(Filename, FileContents);
-		UE_LOG(LogOnline, Log, TEXT("File length=%d. file=[%s]"), FileContents.Num(), *Filename);
+		UE_LOG_ONLINE_TITLEFILE(Log, TEXT("File length=%d. file=[%s]"), FileContents.Num(), *Filename);
 		OnlineTitleFile->ClearFile(Filename);
 	}
 	else
 	{
-		UE_LOG(LogOnline, Log, TEXT("File not read. file=[%s]"), *Filename);
+		UE_LOG_ONLINE_TITLEFILE(Log, TEXT("File not read. file=[%s]"), *Filename);
 	}
 	
 	NumPendingFileReads--;

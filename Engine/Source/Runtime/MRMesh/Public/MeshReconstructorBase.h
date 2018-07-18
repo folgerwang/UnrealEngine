@@ -40,7 +40,7 @@ public:
 	virtual bool IsReconstructionPaused() const;
 
 	UFUNCTION()
-	virtual FMRMeshConfiguration ConnectMRMesh(UMRMeshComponent* Mesh);
+	virtual void ConnectMRMesh(UMRMeshComponent* Mesh);
 
 	UFUNCTION()
 	virtual void DisconnectMRMesh();

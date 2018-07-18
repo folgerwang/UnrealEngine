@@ -53,7 +53,6 @@
 			<Compile Target="UnrealHeaderTool" Platform="Win64" Configuration="Development" Tag="#ToolBinaries"/>
 			<Compile Target="ShaderCompileWorker" Platform="Win64" Configuration="Development" Tag="#ToolBinaries"/>
 			<Compile Target="UnrealLightmass" Platform="Win64" Configuration="Development" Tag="#ToolBinaries"/>
-			<Compile Target="UnrealFrontend" Configuration="Development" Platform="Win64" Tag="#ToolBinaries"/>
 			<Compile Target="UnrealPak" Configuration="Development" Platform="Win64" Tag="#ToolBinaries"/>
 		</Node>
 		
@@ -75,12 +74,16 @@
 		</ForEach>
 		
 		<!-- Copy all the files to the output directory -->
-		<Node Name="Copy To Staging Directory" Requires="#ToolBinaries;#EditorBinaries;$(GameBinaries)" Produces="#OutputFiles">
+		<Node Name="Tag Output Files" Requires="#ToolBinaries;#EditorBinaries;$(GameBinaries)" Produces="#OutputFiles">
 			<Tag Files="#ToolBinaries;#EditorBinaries;$(GameBinaries)" Except=".../Intermediate/..." With="#OutputFiles"/>
+		</Node>
+
+		<!-- Copy all the files to the output directory -->
+		<Node Name="Copy To Staging Directory" Requires="#OutputFiles">
 			<Delete Files="$(OutputDir)/..."/>
 			<Copy Files="#OutputFiles" From="$(RootDir)" To="$(OutputDir)"/>
 		</Node>
-		
+
 		<!-- Submit the build products to Perforce. -->
 		<Node Name="Submit To Perforce" Requires="#OutputFiles">
 			<Submit Description="[CL $(CodeChange)] Updated binaries" Files="#OutputFiles" FileType="binary+FS32"/>

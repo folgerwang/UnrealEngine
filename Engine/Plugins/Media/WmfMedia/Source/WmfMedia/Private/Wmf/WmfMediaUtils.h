@@ -9,7 +9,7 @@
 #include "Containers/UnrealString.h"
 #include "Templates/SharedPointer.h"
 
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 
 
 namespace WmfMedia
@@ -228,6 +228,6 @@ namespace WmfMedia
 }
 
 
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 #endif //WMFMEDIA_SUPPORTED_PLATFORM

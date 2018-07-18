@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3809606
 Availability:Public
 Title:애니메이션 에디터
 Crumbs: %ROOT%, Engine, Engine/Animation
@@ -126,7 +126,7 @@ mac
 
 
 
-[COMMENT]
+[COMMENT:none]
 
 [EXCERPT:SkeletonOverview]
 **스켈레톤 모드** 는 캐릭터나 스켈레탈 메시의 본 또는 조인트 계층구조 관련 부분에 대한 시각화 및 제어가 가능합니다. 용도는 다음과 같습니다:
@@ -163,10 +163,6 @@ mac
 * 애니메이션 블루프린트의 이벤트 그래프 안에서 애니메이션 몽타주 재생
 * 애님 그래프를 통한 여러가지 포즈와 애니메이션 결과의 블렌딩
 [/EXCERPT:GraphOverview]
-
-[/COMMENT]
-
-[COMMENT]
 
 [EXCERPT:SkeletonUI]
 [REGION:simpletable]

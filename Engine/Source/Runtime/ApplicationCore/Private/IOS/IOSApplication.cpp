@@ -1,12 +1,12 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "IOSApplication.h"
-#include "IOSInputInterface.h"
+#include "IOS/IOSApplication.h"
+#include "IOS/IOSInputInterface.h"
 #include "IOSWindow.h"
 #include "Misc/CoreDelegates.h"
-#include "IOSAppDelegate.h"
+#include "IOS/IOSAppDelegate.h"
 #include "IInputDeviceModule.h"
-#include "IInputInterface.h"
+#include "GenericPlatform/IInputInterface.h"
 #include "IInputDevice.h"
 #include "Misc/ScopeLock.h"
 #include "HAL/IConsoleManager.h"
@@ -90,6 +90,7 @@ void FIOSApplication::PollGameDeviceState( const float TimeDelta )
 
 		GenericApplication::GetMessageHandler()->OnSizeChanged(Windows[0],WindowWidth,WindowHeight, false);
 		GenericApplication::GetMessageHandler()->OnResizingWindow(Windows[0]);
+		CacheDisplayMetrics();
 		FDisplayMetrics DisplayMetrics;
 		FDisplayMetrics::GetDisplayMetrics(DisplayMetrics);
 		BroadcastDisplayMetricsChanged(DisplayMetrics);
@@ -102,6 +103,16 @@ FPlatformRect FIOSApplication::GetWorkArea( const FPlatformRect& CurrentWindow )
 {
 	return FIOSWindow::GetScreenRect();
 }
+
+static TAutoConsoleVariable<float> CVarSafeZone_Landscape_Left(TEXT("SafeZone.Landscape.Left"), -1.0f, TEXT("Safe Zone - Landscape - Left"));
+static TAutoConsoleVariable<float> CVarSafeZone_Landscape_Top(TEXT("SafeZone.Landscape.Top"), -1.0f, TEXT("Safe Zone - Landscape - Top"));
+static TAutoConsoleVariable<float> CVarSafeZone_Landscape_Right(TEXT("SafeZone.Landscape.Right"), -1.0f, TEXT("Safe Zone - Landscape - Right"));
+static TAutoConsoleVariable<float> CVarSafeZone_Landscape_Bottom(TEXT("SafeZone.Landscape.Bottom"), -1.0f, TEXT("Safe Zone - Landscape - Bottom"));
+
+#if !PLATFORM_TVOS
+UIDeviceOrientation CachedOrientation = UIDeviceOrientationPortrait;
+UIEdgeInsets CachedInsets;
+#endif
 
 void FDisplayMetrics::GetDisplayMetrics(FDisplayMetrics& OutDisplayMetrics)
 {
@@ -116,19 +127,60 @@ void FDisplayMetrics::GetDisplayMetrics(FDisplayMetrics& OutDisplayMetrics)
 #if !PLATFORM_TVOS
 	if (@available(iOS 11, *))
 	{
-		static IConsoleVariable* CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.MobileContentScaleFactor"));
-		float RequestedContentScaleFactor = CVar->GetFloat();
+		const float RequestedContentScaleFactor = [[IOSAppDelegate GetDelegate].IOSView contentScaleFactor];
 
-		UIEdgeInsets insets = [[[[UIApplication sharedApplication] delegate] window] safeAreaInsets];
-		// FVector4(X,Y,Z,W) being used like FMargin(left, top, right, bottom)
-		OutDisplayMetrics.TitleSafePaddingSize =
-		OutDisplayMetrics.ActionSafePaddingSize = FVector4(insets.left, insets.top, insets.right, insets.bottom) * RequestedContentScaleFactor;
+		//we need to set these according to the orientation
+		TAutoConsoleVariable<float>* CVar_Left = nullptr;
+		TAutoConsoleVariable<float>* CVar_Top = &CVarSafeZone_Landscape_Top;
+		TAutoConsoleVariable<float>* CVar_Right = nullptr;
+		TAutoConsoleVariable<float>* CVar_Bottom = &CVarSafeZone_Landscape_Bottom;
+
+		//making an assumption that the "normal" landscape mode is Landscape right
+		if (CachedOrientation == UIDeviceOrientationLandscapeLeft)
+		{
+			CVar_Left = &CVarSafeZone_Landscape_Left;
+			CVar_Right = &CVarSafeZone_Landscape_Right;
+		}
+		else if (CachedOrientation == UIDeviceOrientationLandscapeRight)
+		{
+			CVar_Left = &CVarSafeZone_Landscape_Right;
+			CVar_Right = &CVarSafeZone_Landscape_Left;
+		}
+
+		// of the CVars are set, use their values. If not, use what comes from iOS
+		const float Inset_Left = (!CVar_Left || CVar_Left->AsVariable()->GetFloat() < 0.0f) ? CachedInsets.left : CVar_Left->AsVariable()->GetFloat();
+		const float Inset_Top = (!CVar_Top || CVar_Top->AsVariable()->GetFloat() < 0.0f) ? CachedInsets.top : CVar_Top->AsVariable()->GetFloat();
+		const float Inset_Right = (!CVar_Right || CVar_Right->AsVariable()->GetFloat() < 0.0f) ? CachedInsets.right : CVar_Right->AsVariable()->GetFloat();
+		const float Inset_Bottom = (!CVar_Bottom || CVar_Bottom->AsVariable()->GetFloat() < 0.0f) ? CachedInsets.bottom : CVar_Bottom->AsVariable()->GetFloat();
+
+		//setup the asymmetrical padding
+		OutDisplayMetrics.TitleSafePaddingSize.X = Inset_Left;
+		OutDisplayMetrics.TitleSafePaddingSize.Y = Inset_Top;
+		OutDisplayMetrics.TitleSafePaddingSize.Z = Inset_Right;
+		OutDisplayMetrics.TitleSafePaddingSize.W = Inset_Bottom;
+
+		//scale the thing
+		OutDisplayMetrics.TitleSafePaddingSize *= RequestedContentScaleFactor;
+
+		OutDisplayMetrics.ActionSafePaddingSize = OutDisplayMetrics.TitleSafePaddingSize;
 	}
 	else
 #endif
 	{
 		OutDisplayMetrics.ApplyDefaultSafeZones();
 	}
+}
+
+void FIOSApplication::CacheDisplayMetrics()
+	{
+
+#if !PLATFORM_TVOS
+	if (@available(iOS 11, *))
+	{
+		CachedInsets = [[[[UIApplication sharedApplication] delegate] window] safeAreaInsets];
+		CachedOrientation = [[UIDevice currentDevice] orientation];
+	}
+#endif
 }
 
 TSharedRef< FGenericWindow > FIOSApplication::MakeWindow()

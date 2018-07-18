@@ -118,7 +118,7 @@ namespace UnrealBuildTool
 			}
 			catch (Exception Ex)
 			{
-				Console.Error.WriteLine("Failed to read FlatCPPIncludeDependencyCache: {0}", Ex.Message);
+				Log.TraceError("Failed to read FlatCPPIncludeDependencyCache: {0}", Ex.Message);
 				FileReference.Delete(BackingFile);
 				Cache = null;
 				return false;
@@ -147,7 +147,7 @@ namespace UnrealBuildTool
 				}
 				catch (Exception Ex)
 				{
-					Console.Error.WriteLine("Failed to write FlatCPPIncludeDependencyCache: {0}", Ex.Message);
+					Log.TraceError("Failed to write FlatCPPIncludeDependencyCache: {0}", Ex.Message);
 				}
 
 				if (UnrealBuildTool.bPrintPerformanceInfo)

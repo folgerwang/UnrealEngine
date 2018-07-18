@@ -28,7 +28,7 @@
 #include "Framework/Application/MenuStack.h"
 #include "Framework/SlateDelegates.h"
 
-#include "GestureDetector.h"
+#include "Framework/Application/GestureDetector.h"
 
 class FNavigationConfig;
 class IInputInterface;
@@ -127,8 +127,6 @@ public:
 
 	FGestureDetector GestureDetector;
 
-	TSharedPtr<FNavigationConfig> NavigationConfig;
-
 private:
 	FORCEINLINE bool HasValidFocusPath() const
 	{
@@ -182,6 +180,23 @@ private:
 	int32 FocusVersion;
 
 	friend class FSlateApplication;
+};
+
+/**
+ * Interface for a Slate Input Mapping.
+ */
+class SLATE_API ISlateInputManager
+{
+public:
+	virtual int32 GetUserIndexForKeyboard() const = 0;
+	virtual int32 GetUserIndexForController(int32 ControllerId) const = 0;
+};
+
+class SLATE_API FSlateDefaultInputMapping : public ISlateInputManager
+{
+public:
+	virtual int32 GetUserIndexForKeyboard() const override { return 0; }
+	virtual int32 GetUserIndexForController(int32 ControllerId) const override { return ControllerId; }
 };
 
 /**
@@ -284,7 +299,7 @@ public:
 	 */
 	static FSlateApplication& Get()
 	{
-		check( IsInGameThread() || IsInSlateThread() );
+		check( IsInGameThread() || IsInSlateThread() || IsInAsyncLoadingThread() );
 		return *CurrentApplication;
 	}
 
@@ -683,7 +698,7 @@ public:
 	 * @param  OutWidgetPath  The generated widget path
 	 * @param  VisibilityFilter	Widgets must have this type of visibility to be included the path
 	 */
-	bool GeneratePathToWidgetUnchecked( TSharedRef< const SWidget > InWidget, FWidgetPath& OutWidgetPath, EVisibility VisibilityFilter = EVisibility::Visible ) const;
+	bool GeneratePathToWidgetUnchecked( TSharedRef<const SWidget> InWidget, FWidgetPath& OutWidgetPath, EVisibility VisibilityFilter = EVisibility::Visible ) const;
 	
 	/**
 	 * @todo slate: Remove this method or make it private.
@@ -694,7 +709,7 @@ public:
 	 * @param  OutWidgetPath  The generated widget path
 	 * @param  VisibilityFilter	Widgets must have this type of visibility to be included the path
 	 */
-	void GeneratePathToWidgetChecked( TSharedRef< const SWidget > InWidget, FWidgetPath& OutWidgetPath, EVisibility VisibilityFilter = EVisibility::Visible ) const;
+	void GeneratePathToWidgetChecked( TSharedRef<const SWidget> InWidget, FWidgetPath& OutWidgetPath, EVisibility VisibilityFilter = EVisibility::Visible ) const;
 	
 	/**
 	 * Finds the window that the provided widget resides in
@@ -702,7 +717,7 @@ public:
 	 * @param InWidget		The widget to find the window for
 	 * @return The window where the widget resides, or null if the widget wasn't found.  Remember, a widget might not be found simply because its parent decided not to report the widget in ArrangeChildren.
 	 */
-	TSharedPtr<SWindow> FindWidgetWindow( TSharedRef< const SWidget > InWidget ) const;
+	TSharedPtr<SWindow> FindWidgetWindow( TSharedRef<const SWidget> InWidget ) const;
 
 	/**
 	 * Finds the window that the provided widget resides in
@@ -711,7 +726,7 @@ public:
 	 * @param OutWidgetPath Full widget path generated 
 	 * @return The window where the widget resides, or null if the widget wasn't found.  Remember, a widget might not be found simply because its parent decided not to report the widget in ArrangeChildren.
 	 */
-	TSharedPtr<SWindow> FindWidgetWindow( TSharedRef< const SWidget > InWidget, FWidgetPath& OutWidgetPath) const;
+	TSharedPtr<SWindow> FindWidgetWindow( TSharedRef<const SWidget> InWidget, FWidgetPath& OutWidgetPath) const;
 
 	/**
 	 * @return True if the application is currently routing high precision mouse movement events (OS specific)
@@ -969,7 +984,6 @@ protected:
 	 */
 	FSlateUser* GetOrCreateUser(int32 UserIndex);
 
-	friend class FAnalogCursor;
 	friend class FEventRouter;
 
 	virtual bool DoesWidgetHaveMouseCaptureByUser(const TSharedPtr<const SWidget> Widget, int32 UserIndex, TOptional<int32> PointerIndex) const override;
@@ -1161,13 +1175,22 @@ public:
 
 public:
 
-	TFunction<TSharedRef<FNavigationConfig>()> GetNavigationConfigFactory() const { return NavigationConfigFactory; }
+	TSharedRef<FNavigationConfig> GetNavigationConfig() const { return NavigationConfig; }
+
+	/**
+	 * Sets the navigation config.  If you need to control navigation config dynamically, you
+	 * should subclass FNavigationConfig to be dynamically adjustable to your needs.
+	 */
+	void SetNavigationConfig(TSharedRef<FNavigationConfig> InNavigationConfig);
 
 	/**
 	 * Sets the navigation config factory.  If you need to control navigation config dynamically, you
 	 * should subclass FNavigationConfig to be dynamically adjustable to your needs.
-	 */
-	void SetNavigationConfigFactory( TFunction<TSharedRef<FNavigationConfig>()> InNavigationConfigFactory );
+	*/
+	DEPRECATED(4.20, "Returning to a simpler method of registering navigation configs.\nSetNavigationConfig, is what you should use now.  Note: You'll need to store per user state information yourself if you have any, like we do for repeats with the analog stick in FNavigationConfig::UserNavigationState,\nrather than Slate creating a new Navigation Config per user.")
+	void SetNavigationConfigFactory(TFunction<TSharedRef<FNavigationConfig>()> InNavigationConfigFactory) { }
+
+public:
 
 	/** Called when the slate application is being shut down. */
 	void OnShutdown();
@@ -1276,10 +1299,6 @@ public:
 	/** Set the size of the deadzone for dragging in screen pixels */
 	void SetDragTriggerDistance( float ScreenPixels );
 	
-	/** [Deprecated] Adds or removes input pre-processor. */
-	DEPRECATED(4.17, "SetInputPreProcessor(...) is deprecated. Use RegisterInputPreProcessor(...) and/or UnregisterInputPreProcessor(...) / UnregisterAllInputPreProcessors(...) instead.")
-	void SetInputPreProcessor(bool bEnable, TSharedPtr<class IInputProcessor> InputProcessor = nullptr);
-
 	/** 
 	 * Adds input pre-processor if unique. 
 	 * @param InputProcessor	The input pre-processor to add.
@@ -1293,11 +1312,6 @@ public:
 	 * @param InputProcessor	The input pre-processor to Remove.
 	 */
 	void UnregisterInputPreProcessor(TSharedPtr<class IInputProcessor> InputProcessor);
-
-	/** 
-	 * Removes all input pre-processor from list of input pre-processors.
-	 */
-	void UnregisterAllInputPreProcessors();
 
 	/** Sets the hit detection radius of the cursor */
 	void SetCursorRadius(float NewRadius);
@@ -1417,8 +1431,8 @@ public:
 	virtual bool OnControllerButtonPressed( FGamepadKeyNames::Type KeyName, int32 ControllerId, bool IsRepeat ) override;
 	virtual bool OnControllerButtonReleased( FGamepadKeyNames::Type KeyName, int32 ControllerId, bool IsRepeat ) override;
 	virtual bool OnTouchGesture( EGestureEvent GestureType, const FVector2D& Delta, float WheelDelta, bool bIsDirectionInvertedFromDevice ) override;
-	virtual bool OnTouchStarted( const TSharedPtr< FGenericWindow >& PlatformWindow, const FVector2D& Location, int32 TouchIndex, int32 ControllerId ) override;
-	virtual bool OnTouchMoved( const FVector2D& Location, int32 TouchIndex, int32 ControllerId ) override;
+	virtual bool OnTouchStarted( const TSharedPtr< FGenericWindow >& PlatformWindow, const FVector2D& Location, float Force, int32 TouchIndex, int32 ControllerId ) override;
+	virtual bool OnTouchMoved( const FVector2D& Location, float Force, int32 TouchIndex, int32 ControllerId ) override;
 	virtual bool OnTouchEnded( const FVector2D& Location, int32 TouchIndex, int32 ControllerId ) override;
 	virtual void ShouldSimulateGesture(EGestureEvent Gesture, bool bEnable) override;
 	virtual bool OnMotionDetected(const FVector& Tilt, const FVector& RotationRate, const FVector& Gravity, const FVector& Acceleration, int32 ControllerId) override;
@@ -1504,6 +1518,11 @@ public:
 	 */
 	int32 GetUserIndexForController(int32 ControllerId) const;
 
+	/** 
+	 * @return int user index that this controller is mapped to. -1 if the controller isn't mapped
+	 */
+	void SetInputManager(TSharedRef<ISlateInputManager> InputManager);
+
 	/**
 	 * Register for a notification when the window action occurs.
 	 *
@@ -1512,7 +1531,6 @@ public:
 	 * @return Handle to the registered delegate.
 	 */
 	FDelegateHandle RegisterOnWindowActionNotification(const FOnWindowAction& Notification);
-
 
 	/** Event type for when Slate is ticking during a modal dialog loop */
 	DECLARE_EVENT_OneParam(FSlateApplication, FOnModalLoopTickEvent, float);
@@ -1553,18 +1571,20 @@ public:
 	* Given an optional widget, try and get the most suitable parent window to use with dialogs (such as file and directory pickers).
 	* This will first try and get the window that owns the widget (if provided), before falling back to using the MainFrame window.
 	*/
-	TSharedPtr<SWindow> FindBestParentWindowForDialogs(const TSharedPtr<SWidget>& InWidget);
+	TSharedPtr<SWindow> FindBestParentWindowForDialogs(const TSharedPtr<SWidget>& InWidget, const ESlateParentWindowSearchMethod InParentWindowSearchMethod = ESlateParentWindowSearchMethod::ActiveWindow);
 
 	/**
 	* Given an optional widget, try and get the most suitable parent window handle to use with dialogs (such as file and directory pickers).
 	* This will first try and get the window that owns the widget (if provided), before falling back to using the MainFrame window.
 	*/
-	const void* FindBestParentWindowHandleForDialogs(const TSharedPtr<SWidget>& InWidget);
+	const void* FindBestParentWindowHandleForDialogs(const TSharedPtr<SWidget>& InWidget, const ESlateParentWindowSearchMethod InParentWindowSearchMethod = ESlateParentWindowSearchMethod::ActiveWindow);
 
 public:
 #if WITH_EDITORONLY_DATA
 	FDragDropCheckingOverride OnDragDropCheckOverride;
 #endif
+
+	const TSet<FKey> GetPressedMouseButtons() const;
 
 private:
 
@@ -2102,7 +2122,7 @@ private:
 	TArray< TSharedPtr<FCacheElementPools> > ReleasedCachedElementLists;
 
 	/** This factory function creates a navigation config for each slate user. */
-	TFunction<TSharedRef<FNavigationConfig>()> NavigationConfigFactory;
+	TSharedRef<FNavigationConfig> NavigationConfig;
 
 	/** The simulated gestures Slate Application will be in charge of. */
 	TBitArray<FDefaultBitArrayAllocator> SimulateGestures;
@@ -2169,6 +2189,9 @@ private:
 
 	/** A list of input pre-processors, gets an opportunity to parse input before anything else. */
 	InputPreProcessorsHelper InputPreProcessors;
+
+	/** Allows applications finer control over how we map controllers to users. */
+	TSharedRef<ISlateInputManager> InputManager;
 
 #if WITH_EDITOR
 	/**

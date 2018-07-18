@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2690302
+﻿INTSourceChangelist:3242329
 Availability:Public
 Title:マテリアル関数の編集
 Crumbs: %ROOT%, Engine, Engine/Rendering/Materials
 Description:マテリアル関数の編集および変更方法を見てましょう。
 Version:4.9
+tags:Materials
 
 
 このドキュメントは、マテリアル関数の概念に関して実用的な知識を持ち合わせているユーザーを対象としています。詳細は、[マテリアル関数の概要](Engine/Rendering/Materials/Functions/Overview) をご覧ください。

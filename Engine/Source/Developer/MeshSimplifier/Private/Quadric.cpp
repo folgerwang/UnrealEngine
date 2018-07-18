@@ -4,7 +4,7 @@
 
 DEFINE_LOG_CATEGORY(LogQuadric);
 
-bool CalcGradient( double grad[4], const FVector& p0, const FVector& p1, const FVector& p2, const FVector& n, float a0, float a1, float a2 )
+bool CalcGradient( double grad[4], const double(&p0)[3], const double(&p1)[3], const double(&p2)[3], const double(&n)[3], float a0, float a1, float a2 )
 {
 	// solve for gd
 	// [ p0, 1 ][ g0 ] = [ a0 ]
@@ -74,7 +74,7 @@ bool CalcGradient( double grad[4], const FVector& p0, const FVector& p1, const F
 
 	return true;
 }
-bool CalcGradientMatrix( double* __restrict GradMatrix, const FVector& p0, const FVector& p1, const FVector& p2, const FVector& n )
+bool CalcGradientMatrix( double* __restrict GradMatrix, const double(&p0)[3], const double(&p1)[3], const double(&p2)[3], const double(&n)[3])
 {
 	// solve for gd
 	// [ p0, 1 ][ g0 ] = [ a0 ]

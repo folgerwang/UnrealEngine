@@ -35,7 +35,8 @@ namespace FAppEntry
 	void Shutdown();
     void Suspend();
     void Resume();
-	
+	bool IsStartupMoviePlaying();
+
 	extern bool	gAppLaunchedWithLocalNotification;
 	extern FString	gLaunchLocalNotificationActivationEvent;
 	extern int32	gLaunchLocalNotificationFireDate;
@@ -124,12 +125,16 @@ UITextFieldDelegate>
 
 /** TRUE if the device is playing background music and we want to allow that */
 @property (assign) bool bUsingBackgroundMusic;
+@property (assign) bool bLastOtherAudioPlaying;
 
 - (void)InitializeAudioSession;
-- (void)ToggleAudioSession:(bool)bActive;
+- (void)ToggleAudioSession:(bool)bActive force:(bool)bForce;
 - (bool)IsBackgroundAudioPlaying;
+- (void)EnableVoiceChat:(bool)bEnable;
+- (bool)IsVoiceChatEnabled;
 
 @property (atomic) bool bAudioActive;
+@property (atomic) bool bVoiceChatEnabled;
 
 @property (atomic) bool bIsSuspended;
 @property (atomic) bool bHasSuspended;

@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "NiagaraStackEntry.h"
+#include "ViewModels/Stack/NiagaraStackEntry.h"
 #include "NiagaraStackModuleItemOutputCollection.generated.h"
 
 class UNiagaraNodeFunctionCall;
@@ -15,20 +15,17 @@ class NIAGARAEDITOR_API UNiagaraStackModuleItemOutputCollection : public UNiagar
 public:
 	UNiagaraStackModuleItemOutputCollection();
 
-	void Initialize(TSharedRef<FNiagaraSystemViewModel> InSystemViewModel, TSharedRef<FNiagaraEmitterViewModel> InEmitterViewModel, UNiagaraNodeFunctionCall& InFunctionCallNode);
-
+	void Initialize(FRequiredEntryData InRequiredEntryData, UNiagaraNodeFunctionCall& InFunctionCallNode);
+	
 	//~ UNiagaraStackEntry interface
 	virtual FText GetDisplayName() const override;
-	virtual FName GetTextStyleName() const override;
-	virtual bool GetCanExpand() const override;
 	virtual bool IsExpandedByDefault() const override;
-
-	void SetDisplayName(FText InDisplayName);
+	virtual bool GetIsEnabled() const override;
+	virtual EStackRowStyle GetStackRowStyle() const override;
 
 protected:
-	virtual void RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren) override;
+	virtual void RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren, TArray<FStackIssue>& NewIssues) override;
 
 private:
 	UNiagaraNodeFunctionCall* FunctionCallNode;
-	FText DisplayName;
 };

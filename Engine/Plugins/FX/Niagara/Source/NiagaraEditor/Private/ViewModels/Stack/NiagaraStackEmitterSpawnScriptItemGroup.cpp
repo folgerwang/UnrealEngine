@@ -1,23 +1,32 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "NiagaraStackEmitterSpawnScriptItemGroup.h"
-#include "NiagaraStackObject.h"
-#include "NiagaraStackSpacer.h"
-#include "NiagaraStackItemExpander.h"
+#include "ViewModels/Stack/NiagaraStackEmitterSpawnScriptItemGroup.h"
+#include "ViewModels/Stack/NiagaraStackObject.h"
+#include "ViewModels/Stack/NiagaraStackSpacer.h"
 #include "ViewModels/NiagaraSystemViewModel.h"
 #include "ViewModels/NiagaraEmitterViewModel.h"
 #include "NiagaraEmitter.h"
 #include "NiagaraStackEditorData.h"
 #include "ViewModels/Stack/NiagaraStackGraphUtilities.h"
 #include "NiagaraScriptMergeManager.h"
+#include "NiagaraEmitterDetailsCustomization.h"
 
 #define LOCTEXT_NAMESPACE "UNiagaraStackScriptItemGroup"
 
-void UNiagaraStackEmitterPropertiesItem::Initialize(TSharedRef<FNiagaraSystemViewModel> InSystemViewModel, TSharedRef<FNiagaraEmitterViewModel> InEmitterViewModel, UNiagaraStackEditorData& InStackEditorData)
+void UNiagaraStackEmitterPropertiesItem::Initialize(FRequiredEntryData InRequiredEntryData)
 {
-	Super::Initialize(InSystemViewModel, InEmitterViewModel, InStackEditorData);
+	Super::Initialize(InRequiredEntryData, TEXT("EmitterProperties"));
 	Emitter = GetEmitterViewModel()->GetEmitter();
 	Emitter->OnPropertiesChanged().AddUObject(this, &UNiagaraStackEmitterPropertiesItem::EmitterPropertiesChanged);
+}
+
+void UNiagaraStackEmitterPropertiesItem::FinalizeInternal()
+{
+	if (Emitter.IsValid())
+	{
+		Emitter->OnPropertiesChanged().RemoveAll(this);
+	}
+	Super::FinalizeInternal();
 }
 
 FText UNiagaraStackEmitterPropertiesItem::GetDisplayName() const
@@ -53,42 +62,19 @@ void UNiagaraStackEmitterPropertiesItem::ResetToBase()
 	}
 }
 
-void UNiagaraStackEmitterPropertiesItem::BeginDestroy()
-{
-	if (Emitter.IsValid())
-	{
-		Emitter->OnPropertiesChanged().RemoveAll(this);
-	}
-	Super::BeginDestroy();
-}
-
-void UNiagaraStackEmitterPropertiesItem::RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren)
+void UNiagaraStackEmitterPropertiesItem::RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren, TArray<FStackIssue>& NewIssues)
 {
 	if (EmitterObject == nullptr)
 	{
 		EmitterObject = NewObject<UNiagaraStackObject>(this);
-		EmitterObject->Initialize(GetSystemViewModel(), GetEmitterViewModel(), Emitter.Get());
+		FRequiredEntryData RequiredEntryData(GetSystemViewModel(), GetEmitterViewModel(), FExecutionCategoryNames::Emitter, NAME_None, GetStackEditorData());
+		EmitterObject->Initialize(RequiredEntryData, Emitter.Get(), GetStackEditorDataKey());
+		EmitterObject->RegisterInstancedCustomPropertyLayout(UNiagaraEmitter::StaticClass(), FOnGetDetailCustomizationInstance::CreateStatic(&FNiagaraEmitterDetails::MakeInstance));
 	}
 
-	if (EmitterExpander == nullptr)
-	{
-		EmitterExpander = NewObject<UNiagaraStackItemExpander>(this);
-		EmitterExpander->Initialize(GetSystemViewModel(), GetEmitterViewModel(), GetStackEditorData(), TEXT("Emitter"), false);
-		EmitterExpander->SetOnExpnadedChanged(UNiagaraStackItemExpander::FOnExpandedChanged::CreateUObject(this, &UNiagaraStackEmitterPropertiesItem::EmitterExpandedChanged));
-	}
-
-	if (GetStackEditorData().GetStackEntryIsExpanded(TEXT("Emitter"), false))
-	{
-		NewChildren.Add(EmitterObject);
-	}
-
-	NewChildren.Add(EmitterExpander);
+	NewChildren.Add(EmitterObject);
 	bCanResetToBase.Reset();
-}
-
-void UNiagaraStackEmitterPropertiesItem::EmitterExpandedChanged()
-{
-	RefreshChildren();
+	Super::RefreshChildrenInternal(CurrentChildren, NewChildren, NewIssues);
 }
 
 void UNiagaraStackEmitterPropertiesItem::EmitterPropertiesChanged()
@@ -101,24 +87,29 @@ UNiagaraStackEmitterSpawnScriptItemGroup::UNiagaraStackEmitterSpawnScriptItemGro
 {
 }
 
-void UNiagaraStackEmitterSpawnScriptItemGroup::RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren)
+void UNiagaraStackEmitterSpawnScriptItemGroup::RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren, TArray<FStackIssue>& NewIssues)
 {
-	if (PropertiesItem == nullptr)
-	{
-		PropertiesItem = NewObject<UNiagaraStackEmitterPropertiesItem>(this);
-		PropertiesItem->Initialize(GetSystemViewModel(), GetEmitterViewModel(), GetStackEditorData());
-	}
+	FName PropertiesSpacerKey = "PropertiesSpacer";
+	UNiagaraStackSpacer* PropertiesSpacer = FindCurrentChildOfTypeByPredicate<UNiagaraStackSpacer>(CurrentChildren,
+		[=](UNiagaraStackSpacer* CurrentPropertiesSpacer) { return CurrentPropertiesSpacer->GetSpacerKey() == PropertiesSpacerKey; });
 
 	if (PropertiesSpacer == nullptr)
 	{
 		PropertiesSpacer = NewObject<UNiagaraStackSpacer>(this);
-		PropertiesSpacer->Initialize(GetSystemViewModel(), GetEmitterViewModel(), "EmitterProperties");
+		PropertiesSpacer->Initialize(CreateDefaultChildRequiredData(), PropertiesSpacerKey);
+	}
+
+	NewChildren.Add(PropertiesSpacer);
+
+	if (PropertiesItem == nullptr)
+	{
+		PropertiesItem = NewObject<UNiagaraStackEmitterPropertiesItem>(this);
+		PropertiesItem->Initialize(CreateDefaultChildRequiredData());
 	}
 
 	NewChildren.Add(PropertiesItem);
-	NewChildren.Add(PropertiesSpacer);
 
-	Super::RefreshChildrenInternal(CurrentChildren, NewChildren);
+	Super::RefreshChildrenInternal(CurrentChildren, NewChildren, NewIssues);
 }
 
 #undef LOCTEXT_NAMESPACE

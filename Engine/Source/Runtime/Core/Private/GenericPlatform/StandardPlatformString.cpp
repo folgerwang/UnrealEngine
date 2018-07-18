@@ -2,7 +2,8 @@
 
 #include "GenericPlatform/StandardPlatformString.h"
 
-#if !PLATFORM_USE_SYSTEM_VSWPRINTF
+// only IOS and Mac were using this file before, but that has all moved over to the FullReplacementPlatformString
+#if !PLATFORM_USE_SYSTEM_VSWPRINTF && !PLATFORM_TCHAR_IS_CHAR16
 
 #include "GenericPlatform/StandardPlatformString.h"
 #include "HAL/UnrealMemory.h"

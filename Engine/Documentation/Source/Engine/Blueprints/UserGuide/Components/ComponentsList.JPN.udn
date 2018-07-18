@@ -1,5 +1,4 @@
-﻿INTSourceChangelist:3244370
-Availability:Public
+﻿Availability:Public
 Title:Component （コンポーネント） ウィンドウ
 Crumbs: %ROOT%, Engine, Engine/Blueprints, Engine/Blueprints/UserGuide
 Description:Components ウィンドウを使って、コンポーネントをブループリントで操作する 
@@ -11,44 +10,8 @@ version:4.9
 Parent:Engine/Blueprints/Anatomy
 Tags:Components
 tags:Blueprints
+topic-image:Engine/Blueprints/UserGuide/Components/componentslist_topic.png
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Blueprints/UserGuide/Components:title%](Engine/Blueprints/UserGuide/Components/componentslist_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Blueprints/UserGuide/Components:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Blueprints/UserGuide/Components:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Blueprints/UserGuide/Components]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Blueprints/UserGuide/Components:title%](Engine/Blueprints/UserGuide/Components/componentslist_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Blueprints/UserGuide/Components:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Blueprints/UserGuide/Components:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Blueprints/UserGuide/Components]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
 [TOC (start:2 end:2)]
 
@@ -94,7 +57,7 @@ MovementComponents を利用した動作の制御を実現します。コンポ�
 ![](drag_asset_components_list.png)
 
 [REGION:note]
-この手法が適用されるアセットには、StaticMeshes、SoundCues、SkeletalMeshes、ParticleSystems があります。 
+この手法が適用されるアセットは、StaticMeshes、SoundCues、SkeletalMeshes、ParticleSystems があります。 
 [/REGION]
 
 ## コンポーネントの削除
@@ -218,7 +181,7 @@ MovementComponents を利用した動作の制御を実現します。コンポ�
 	[/REGION]
 
 
-## Component Events と Componenet 関数
+## Component Events と関数
 
 別の方法で、イベントまたは関数ベースのコンポーネントをブループリントの **イベント グラフ** にすぐに追加することができます。このような方法で作成されたイベントまたは関数は、特定の関数に固有なので、関連したコンポーネントを確認するテストは必要ありません。
 

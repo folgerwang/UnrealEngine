@@ -79,7 +79,6 @@ bool FSimpleElementPS::Serialize(FArchive& Ar)
 	Ar << InTextureSampler;
 	Ar << TextureComponentReplicate;
 	Ar << TextureComponentReplicateAlpha;
-	Ar << SceneDepthTextureNonMS;
 	Ar << EditorCompositeDepthTestParameter;
 	Ar << ScreenToPixel;
 	return bShaderHasOutdatedParameters;

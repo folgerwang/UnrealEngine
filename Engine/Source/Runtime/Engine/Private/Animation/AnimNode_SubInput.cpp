@@ -1,6 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Animation/AnimNode_SubInput.h"
+#include "Animation/AnimInstanceProxy.h"
 
 void FAnimNode_SubInput::Initialize_AnyThread(const FAnimationInitializeContext& Context)
 {

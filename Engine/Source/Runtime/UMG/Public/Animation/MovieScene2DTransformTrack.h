@@ -20,14 +20,8 @@ class UMovieScene2DTransformTrack : public UMovieScenePropertyTrack
 public:
 
 	UMovieScene2DTransformTrack(const FObjectInitializer& ObjectInitializer);
-	
-	// UMovieSceneTrack interface
 
+	//~ UMovieSceneTrack interface
 	virtual UMovieSceneSection* CreateNewSection() override;
 	virtual FMovieSceneEvalTemplatePtr CreateTemplateForSection(const UMovieSceneSection& InSection) const override;
-	
-public:
-
-	DEPRECATED(4.15, "Please evaluate using FMovieScene2DTransformTemplate.")
-	bool Eval( float Position, float LastPostion, FWidgetTransform& InOutTransform ) const;
 };

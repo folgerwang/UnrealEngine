@@ -17,8 +17,8 @@
 
 #include "AudioDevice.h"
 #include "AudioMixerModule.h"
-#include "Classes/Components/AudioComponent.h"
-#include "Classes/Sound/AudioSettings.h"
+#include "Components/AudioComponent.h"
+#include "Sound/AudioSettings.h"
 
 DEFINE_LOG_CATEGORY_STATIC(AudioMixerCommandlet, Log, All);
 

@@ -26,6 +26,7 @@ public:
 
 	/** Constructor */
 	STooltipPresenter()
+		: ChildSlot(this)
 	{
 		bCanSupportFocus = false;
 	}
@@ -35,15 +36,11 @@ public:
 	void SetContent(const TSharedRef<SWidget>& InWidget);
 
 private:
-
-	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
-
 	virtual void OnArrangeChildren(const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren) const override;
 
 	virtual FVector2D ComputeDesiredSize(float) const override;
 
 	virtual FChildren* GetChildren() override;
 
-	FVector2D LocalCursorPosition;
 	TWeakChild<SWidget> ChildSlot;
 };

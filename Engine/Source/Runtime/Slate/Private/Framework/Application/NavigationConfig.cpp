@@ -32,6 +32,20 @@ FNavigationConfig::~FNavigationConfig()
 {
 }
 
+void FNavigationConfig::OnRegister()
+{
+	UserNavigationState.Reset();
+}
+
+void FNavigationConfig::OnUnregister()
+{
+}
+
+void FNavigationConfig::OnUserRemoved(int32 UserIndex)
+{
+	UserNavigationState.Remove(UserIndex);
+}
+
 EUINavigation FNavigationConfig::GetNavigationDirectionFromKey(const FKeyEvent& InKeyEvent) const
 {
 	if (const EUINavigation* Rule = KeyEventRules.Find(InKeyEvent.GetKey()))
@@ -63,13 +77,14 @@ EUINavigation FNavigationConfig::GetNavigationDirectionFromAnalog(const FAnalogI
 		EUINavigation DesiredNavigation = GetNavigationDirectionFromAnalogInternal(InAnalogEvent);
 		if (DesiredNavigation != EUINavigation::Invalid)
 		{
-			FAnalogNavigationState& State = AnalogNavigationState.FindOrAdd(DesiredNavigation);
+			FUserNavigationState& UserState = UserNavigationState.FindOrAdd(InAnalogEvent.GetUserIndex());
+			FAnalogNavigationState& AnalogState = UserState.AnalogNavigationState.FindOrAdd(DesiredNavigation);
 
-			const float RepeatRate = GetRepeatRateForPressure( FMath::Abs(InAnalogEvent.GetAnalogValue()), FMath::Max(State.Repeats - 1, 0));
-			if (FApp::GetCurrentTime() - State.LastNavigationTime > RepeatRate)
+			const float RepeatRate = GetRepeatRateForPressure( FMath::Abs(InAnalogEvent.GetAnalogValue()), FMath::Max(AnalogState.Repeats - 1, 0));
+			if (FApp::GetCurrentTime() - AnalogState.LastNavigationTime > RepeatRate)
 			{
-				State.LastNavigationTime = FApp::GetCurrentTime();
-				State.Repeats++;
+				AnalogState.LastNavigationTime = FApp::GetCurrentTime();
+				AnalogState.Repeats++;
 				return DesiredNavigation;
 			}
 		}
@@ -82,6 +97,8 @@ EUINavigation FNavigationConfig::GetNavigationDirectionFromAnalogInternal(const 
 {
 	if (bAnalogNavigation)
 	{
+		FUserNavigationState& UserState = UserNavigationState.FindOrAdd(InAnalogEvent.GetUserIndex());
+
 		if (InAnalogEvent.GetKey() == AnalogHorizontalKey)
 		{
 			if (InAnalogEvent.GetAnalogValue() < -AnalogNavigationHorizontalThreshold)
@@ -94,8 +111,8 @@ EUINavigation FNavigationConfig::GetNavigationDirectionFromAnalogInternal(const 
 			}
 			else
 			{
-				AnalogNavigationState.Add(EUINavigation::Left, FAnalogNavigationState());
-				AnalogNavigationState.Add(EUINavigation::Right, FAnalogNavigationState());
+				UserState.AnalogNavigationState.Add(EUINavigation::Left, FAnalogNavigationState());
+				UserState.AnalogNavigationState.Add(EUINavigation::Right, FAnalogNavigationState());
 			}
 		}
 		else if (InAnalogEvent.GetKey() == AnalogVerticalKey)
@@ -110,8 +127,8 @@ EUINavigation FNavigationConfig::GetNavigationDirectionFromAnalogInternal(const 
 			}
 			else
 			{
-				AnalogNavigationState.Add(EUINavigation::Up, FAnalogNavigationState());
-				AnalogNavigationState.Add(EUINavigation::Down, FAnalogNavigationState());
+				UserState.AnalogNavigationState.Add(EUINavigation::Up, FAnalogNavigationState());
+				UserState.AnalogNavigationState.Add(EUINavigation::Down, FAnalogNavigationState());
 			}
 		}
 	}
@@ -121,8 +138,8 @@ EUINavigation FNavigationConfig::GetNavigationDirectionFromAnalogInternal(const 
 
 float FNavigationConfig::GetRepeatRateForPressure(float InPressure, int32 InRepeats) const
 {
-	float RepeatRate = (InRepeats == 0) ? 0.5f : 0.25f;
-	if (InPressure > 0.90f && RepeatRate > 0)
+	const float RepeatRate = (InRepeats == 0) ? 0.5f : 0.25f;
+	if (InPressure > 0.90f)
 	{
 		return RepeatRate * 0.5f;
 	}

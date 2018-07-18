@@ -79,8 +79,8 @@ MONOLITHIC_HEADER_BOILERPLATE()
 #include "Components/WidgetSwitcherSlot.h"
 #include "Components/WidgetSwitcher.h"
 
-#include "BackgroundBlurSlot.h"
-#include "BackgroundBlur.h"
+#include "Components/BackgroundBlurSlot.h"
+#include "Components/BackgroundBlur.h"
 
 #include "Components/BorderSlot.h"
 #include "Components/Border.h"
@@ -124,9 +124,9 @@ MONOLITHIC_HEADER_BOILERPLATE()
 #include "Components/Throbber.h"
 #include "Components/CircularThrobber.h"
 
-#include "Components/TableViewBase.h"
 #include "Components/ListView.h"
 #include "Components/TileView.h"
+#include "Components/TreeView.h"
 
 #include "Components/Viewport.h"
 

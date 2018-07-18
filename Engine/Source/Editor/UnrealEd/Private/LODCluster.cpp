@@ -6,7 +6,7 @@
 #include "Components/StaticMeshComponent.h"
 #include "GameFramework/Volume.h"
 #include "Components/InstancedStaticMeshComponent.h"
-
+#include "Engine/HLODProxy.h"
 
 #if WITH_EDITOR
 #include "Engine/LODActor.h"
@@ -14,7 +14,6 @@
 #include "IHierarchicalLODUtilities.h"
 #include "HierarchicalLODUtilitiesModule.h"
 #endif // WITH_EDITOR
-
 
 
 #define LOCTEXT_NAMESPACE "LODCluster"
@@ -187,6 +186,11 @@ FLODCluster& FLODCluster::operator=(const FLODCluster& Other)
 	return *this;
 }
 
+bool FLODCluster::operator==(const FLODCluster& Other) const
+{
+	return Actors == Other.Actors;
+}
+
 void FLODCluster::MergeClusters(const FLODCluster& Other)
 {
 	// please note that when merge, we merge two boxes from each cluster, not exactly all actors' bound
@@ -266,10 +270,10 @@ ALODActor* FLODCluster::BuildActor(ULevel* InLevel, const int32 LODIdx, const bo
 	if (InLevel && InLevel->GetWorld())
 	{
 		// create asset using Actors
-		const FHierarchicalSimplification& LODSetup = InLevel->GetWorld()->GetWorldSettings()->GetHierarchicalLODSetup()[LODIdx];
+		const FHierarchicalSimplification& LODSetup = InLevel->GetWorldSettings()->GetHierarchicalLODSetup()[LODIdx];
 
 		// Retrieve draw distance for current and next LOD level
-		const int32 LODCount = InLevel->GetWorld()->GetWorldSettings()->GetNumHierarchicalLODLevels();
+		const int32 LODCount = InLevel->GetWorldSettings()->GetNumHierarchicalLODLevels();
 
 		// Where generated assets will be stored
 		FHierarchicalLODUtilitiesModule& Module = FModuleManager::LoadModuleChecked<FHierarchicalLODUtilitiesModule>("HierarchicalLODUtilities");
@@ -289,9 +293,6 @@ ALODActor* FLODCluster::BuildActor(ULevel* InLevel, const int32 LODIdx, const bo
 				Actor->GetComponents<UStaticMeshComponent>(Components);
 			}
 
-			// TODO: support instanced static meshes
-			Components.RemoveAll([](UStaticMeshComponent* Val){ return Val->IsA(UInstancedStaticMeshComponent::StaticClass()); });
-
 			AllComponents.Append(Components);
 		}
 
@@ -304,7 +305,8 @@ ALODActor* FLODCluster::BuildActor(ULevel* InLevel, const int32 LODIdx, const bo
 			FTransform Transform;
 			NewActor = LevelWorld->SpawnActor<ALODActor>(ALODActor::StaticClass(), Transform);
 			NewActor->LODLevel = LODIdx + 1;
-			NewActor->LODDrawDistance = 0.0f;
+			NewActor->CachedNumHLODLevels = InLevel->GetWorldSettings()->GetNumHierarchicalLODLevels();
+			NewActor->SetDrawDistance(0.0f);
 
 			// now set as parent
 			for (auto& Actor : Actors)
@@ -312,12 +314,10 @@ ALODActor* FLODCluster::BuildActor(ULevel* InLevel, const int32 LODIdx, const bo
 				NewActor->AddSubActor(Actor);
 			}
 
-			// Mark dirty according to whether or not this is a preview build
-			NewActor->SetIsDirty(!bCreateMeshes);
-
 			if (bCreateMeshes)
 			{
-				UPackage* AssetsOuter = Utilities->CreateOrRetrieveLevelHLODPackage(InLevel);
+				UHLODProxy* Proxy = Utilities->CreateOrRetrieveLevelHLODProxy(InLevel, LODIdx);
+				UPackage* AssetsOuter = Proxy->GetOutermost();
 				checkf(AssetsOuter != nullptr, TEXT("Failed to created outer for generated HLOD assets"));
 				Utilities->BuildStaticMeshForLODActor(NewActor, AssetsOuter, LODSetup);
 			}

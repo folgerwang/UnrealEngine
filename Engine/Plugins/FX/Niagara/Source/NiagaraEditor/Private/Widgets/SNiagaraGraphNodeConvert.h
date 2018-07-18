@@ -2,13 +2,13 @@
 
 #pragma once
 
-#include "SGraphNode.h"
+#include "SNiagaraGraphNode.h"
 
 class FNiagaraConvertNodeViewModel;
 class FNiagaraConvertPinViewModel;
 
 /** A graph node widget representing a niagara convert node. */
-class SNiagaraGraphNodeConvert : public SGraphNode
+class SNiagaraGraphNodeConvert : public SNiagaraGraphNode
 {
 public:
 	SLATE_BEGIN_ARGS(SNiagaraGraphNodeConvert) {}

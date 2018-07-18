@@ -12,7 +12,7 @@
 #include "IMediaView.h"
 #include "Misc/Timespan.h"
 
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 
 class FWmfMediaSession;
 class FWmfMediaTracks;
@@ -89,6 +89,6 @@ private:
 };
 
 
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 #endif //WMFMEDIA_SUPPORTED_PLATFORM

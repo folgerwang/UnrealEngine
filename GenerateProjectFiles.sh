@@ -21,9 +21,10 @@ fi
 if [ "$(uname)" = "Darwin" ]; then
 	cd Engine/Build/BatchFiles/Mac
 	sh ./GenerateLLDBInit.sh
-	sh ./GenerateProjectFiles.sh $@
+	sh ./GenerateProjectFiles.sh "$@"
 else
     # assume (GNU/)Linux
 	cd Engine/Build/BatchFiles/Linux
-	bash ./GenerateProjectFiles.sh $@
+	bash ./GenerateGDBInit.sh
+	bash ./GenerateProjectFiles.sh "$@"
 fi

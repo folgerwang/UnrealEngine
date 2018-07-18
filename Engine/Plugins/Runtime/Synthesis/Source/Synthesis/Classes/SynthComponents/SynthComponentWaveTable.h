@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "Components/SynthComponent.h"
 #include "DSP/SampleBufferReader.h"
-#include "DSP/SampleBuffer.h"
+#include "Sound/SampleBuffer.h"
 #include "Sound/SoundWave.h"
 #include "SynthComponentWaveTable.generated.h"
 
@@ -38,7 +38,7 @@ class SYNTHESIS_API USynthSamplePlayer : public USynthComponent
 	virtual bool Init(int32& SampleRate) override;
 
 	// Called to generate more audio
-	virtual void OnGenerateAudio(float* OutAudio, int32 NumSamples) override;
+	virtual int32 OnGenerateAudio(float* OutAudio, int32 NumSamples) override;
 
 	//~ Begin ActorComponent Interface.
 	virtual void OnRegister() override;
@@ -65,7 +65,7 @@ public:
 	void SetPitch(float InPitch, float TimeSec);
 
 	UFUNCTION(BlueprintCallable, Category = "Synth|Components|Audio")
-	void SeekToTime(float TimeSec, ESamplePlayerSeekType SeekType);
+	void SeekToTime(float TimeSec, ESamplePlayerSeekType SeekType, bool bWrap = true);
 
 	UFUNCTION(BlueprintCallable, Category = "Synth|Components|Audio")
 	void SetScrubMode(bool bScrubMode);
@@ -87,7 +87,7 @@ public:
 
 protected:
 	Audio::FSampleBufferReader SampleBufferReader;
-	Audio::FSampleBuffer SampleBuffer;
+	Audio::TSampleBuffer<int16> SampleBuffer;
 	Audio::FSoundWavePCMLoader SoundWaveLoader;
 
 	float SampleDurationSec;

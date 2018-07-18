@@ -391,7 +391,15 @@ namespace IncludeTool
 				{
 					continue;
 				}
-				if(Reader.Current.Text == "PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS" || Reader.Current.Text == "PRAGMA_ENABLE_SHADOW_VARIABLE_WARNINGS")
+                if(Reader.Current.Text == "OPENCV_INCLUDES_START" || Reader.Current.Text == "OPENCV_INCLUDES_END")
+                {
+                    continue;
+                }
+                if(Reader.Current.Text == "PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS" || Reader.Current.Text == "PRAGMA_ENABLE_SHADOW_VARIABLE_WARNINGS")
+				{
+					continue;
+				}
+                if(Reader.Current.Text == "PRAGMA_DISABLE_DEPRECATION_WARNINGS" || Reader.Current.Text == "PRAGMA_ENABLE_DEPRECATION_WARNINGS")
 				{
 					continue;
 				}

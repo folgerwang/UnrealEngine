@@ -16,8 +16,8 @@ class ITargetPlatform;
 #if ENABLE_HTTP_FOR_NFS
 
 #if PLATFORM_WINDOWS
-	#include "WindowsHWrapper.h"
-	#include "AllowWindowsPlatformTypes.h"
+	#include "Windows/WindowsHWrapper.h"
+	#include "Windows/AllowWindowsPlatformTypes.h"
 #endif
 
 /*
@@ -32,7 +32,7 @@ class ITargetPlatform;
 #undef UI
 
 #if PLATFORM_WINDOWS
-	#include "HideWindowsPlatformTypes.h"
+	#include "Windows/HideWindowsPlatformTypes.h"
 #endif
 
 
@@ -78,6 +78,9 @@ private:
 
 	// cached copy of the active target platforms (if any)
 	const TArray<ITargetPlatform*> ActiveTargetPlatforms;
+
+	/** OpenSSL context */
+	SSL_CTX* SslContext;
 
 	// libwebsocket context. All access to the library happens via this context.
 	struct lws_context *Context;

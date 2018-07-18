@@ -18,5 +18,10 @@ public class RealtimeProfiler : ModuleRules
 				"Engine"
 			}
 		);
+
+		if (Target.Configuration != UnrealTargetConfiguration.Shipping)
+		{
+			PrecompileForTargets = PrecompileTargetsType.Any;
+		}
 	}
 }

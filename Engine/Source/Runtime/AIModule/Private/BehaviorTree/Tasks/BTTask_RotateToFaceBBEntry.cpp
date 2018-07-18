@@ -39,7 +39,9 @@ namespace
 {
 	FORCEINLINE_DEBUGGABLE float CalculateAngleDifferenceDot(const FVector& VectorA, const FVector& VectorB)
 	{
-		return VectorA.CosineAngle2D(VectorB);
+		return (VectorA.IsNearlyZero() || VectorB.IsNearlyZero())
+            ? 1.f
+            : VectorA.CosineAngle2D(VectorB);
 	}
 }
 
@@ -70,7 +72,7 @@ EBTNodeResult::Type UBTTask_RotateToFaceBBEntry::ExecuteTask(UBehaviorTreeCompon
 		if (ActorValue != NULL)
 		{
 			const float AngleDifference = CalculateAngleDifferenceDot(Pawn->GetActorForwardVector()
-				, (ActorValue->GetActorLocation() - PawnLocation).GetSafeNormal2D());
+				, (ActorValue->GetActorLocation() - PawnLocation));
 			
 			if (AngleDifference >= PrecisionDot)
 			{
@@ -92,7 +94,7 @@ EBTNodeResult::Type UBTTask_RotateToFaceBBEntry::ExecuteTask(UBehaviorTreeCompon
 		if (FAISystem::IsValidLocation(KeyValue))
 		{
 			const float AngleDifference = CalculateAngleDifferenceDot(Pawn->GetActorForwardVector()
-				, (KeyValue - PawnLocation).GetSafeNormal2D());
+				, (KeyValue - PawnLocation));
 
 			if (AngleDifference >= PrecisionDot)
 			{
@@ -201,7 +203,7 @@ void UBTTask_RotateToFaceBBEntry::DescribeRuntimeValues(const UBehaviorTreeCompo
 
 		if (FocalPoint != FAISystem::InvalidLocation)
 		{
-			const float CurrentAngleRadians = CalculateAngleDifferenceDot(PawnDirection, (FocalPoint - AIController->GetPawn()->GetActorLocation()).GetSafeNormal2D());
+			const float CurrentAngleRadians = CalculateAngleDifferenceDot(PawnDirection, (FocalPoint - AIController->GetPawn()->GetActorLocation()));
 			Values.Add(FString::Printf(TEXT("Current angle: %.2f"), FMath::RadiansToDegrees(FMath::Acos(CurrentAngleRadians))));
 		}
 		else

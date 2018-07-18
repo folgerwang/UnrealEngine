@@ -50,4 +50,5 @@ private:
 
 	/** Callback for executing the "Add Fade Track" menu entry. */
 	void HandleAddFadeTrackMenuEntryExecute();
+	bool HandleAddFadeTrackMenuEntryCanExecute() const;
 };

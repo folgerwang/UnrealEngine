@@ -18,7 +18,7 @@
 #include "Serialization/JsonInternationalizationManifestSerializer.h"
 #include "Serialization/JsonInternationalizationArchiveSerializer.h"
 #include "Internationalization/TextPackageNamespaceUtil.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 #include "LocalizedAssetUtil.h"
 #include "LocalizationSourceControlUtil.h"
 
@@ -78,7 +78,7 @@ public:
 		: PackageTextKeyMap(&InOutPackageTextKeyMap)
 		, PackageNamespace(TextNamespaceUtil::EnsurePackageNamespace(InPackage))
 	{
-		ArIsSaving = true;
+		this->SetIsSaving(true);
 
 		TArray<UObject*> AllObjectsInPackage;
 		GetObjectsWithOuter(InPackage, AllObjectsInPackage, true, RF_Transient, EInternalObjectFlags::PendingKill);

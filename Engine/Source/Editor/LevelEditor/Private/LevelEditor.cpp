@@ -79,7 +79,7 @@ public:
 		FFormatNamedArguments Args;
 
 		Args.Add(TEXT("ProjectNameWatermarkPrefix"), FText::FromString(ProjectNameWatermarkPrefix));
-		Args.Add(TEXT("Branch"), FEngineBuildSettings::IsPerforceBuild() ? FText::FromString(FApp::GetBranchName()) : FText::GetEmpty());
+		Args.Add(TEXT("Branch"), FEngineBuildSettings::IsPerforceBuild() ? FText::FromString(FEngineVersion::Current().GetBranch()) : FText::GetEmpty());
 		Args.Add(TEXT("GameName"), FText::FromString(FString(FApp::GetProjectName())));
 		Args.Add(TEXT("EngineVersion"), (GetDefault<UEditorPerProjectUserSettings>()->bDisplayEngineVersionInBadge) ? FText::FromString("(" + EngineVersionString + ")") : FText());
 
@@ -105,7 +105,7 @@ public:
 			TooltipVersionStr += TEXT(" Unreal Studio");
 		}
 		TooltipArgs.Add(TEXT("Version"), FText::FromString(TooltipVersionStr));
-		TooltipArgs.Add(TEXT("Branch"), FText::FromString(FApp::GetBranchName()));
+		TooltipArgs.Add(TEXT("Branch"), FText::FromString(FEngineVersion::Current().GetBranch()));
 		TooltipArgs.Add(TEXT("BuildConfiguration"), EBuildConfigurations::ToText(BuildConfig));
 		TooltipArgs.Add(TEXT("BuildDate"), FText::FromString(FApp::GetBuildDate()));
 		RightContentTooltip = FText::Format(NSLOCTEXT("UnrealEditor", "TitleBarRightContentTooltip", "Version: {Version}\nBranch: {Branch}\nBuild Configuration: {BuildConfiguration}\nBuild Date: {BuildDate}"), TooltipArgs);

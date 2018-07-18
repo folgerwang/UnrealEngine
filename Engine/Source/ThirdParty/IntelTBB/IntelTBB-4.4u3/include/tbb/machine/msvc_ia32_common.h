@@ -252,9 +252,9 @@ extern "C" __declspec(dllimport) int __stdcall SwitchToThread( void );
 // Sleep declaration must have consistent static analysis annotations with Windows headers.
 // Inconsistent annotations result in C28301 warning.
 #ifdef _In_
-extern "C" __declspec(dllimport) void __stdcall Sleep(_In_ unsigned long);
+extern "C" __declspec(dllimport) void __stdcall Sleep(_In_ unsigned long );
 #else
-extern "C" __declspec(dllimport) void __stdcall Sleep(unsigned long);
+extern "C" __declspec(dllimport) void __stdcall Sleep(unsigned long );
 #endif
 // Epic divergence END
 #define __TBB_Sleep(v) Sleep( v )

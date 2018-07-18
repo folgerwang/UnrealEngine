@@ -41,11 +41,11 @@
 
 
 #if PLATFORM_WINDOWS
-	#include "WindowsHWrapper.h"
+	#include "Windows/WindowsHWrapper.h"
 // For WAVEFORMATEXTENSIBLE
-	#include "AllowWindowsPlatformTypes.h"
+	#include "Windows/AllowWindowsPlatformTypes.h"
 #include <mmreg.h>
-	#include "HideWindowsPlatformTypes.h"
+	#include "Windows/HideWindowsPlatformTypes.h"
 #endif
 
 
@@ -363,7 +363,7 @@ bool FReimportManager::Reimport( UObject* Obj, bool bAskForNewFileIfMissing, boo
 	return bSuccess;
 }
 
-void FReimportManager::ValidateAllSourceFileAndReimport(TArray<UObject*> &ToImportObjects)
+void FReimportManager::ValidateAllSourceFileAndReimport(TArray<UObject*> &ToImportObjects, bool bShowNotification)
 {
 	//Copy the array to prevent iteration assert if a reimport factory change the selection
 	TArray<UObject*> CopyOfSelectedAssets;
@@ -456,7 +456,7 @@ void FReimportManager::ValidateAllSourceFileAndReimport(TArray<UObject*> &ToImpo
 		//If user ignore those asset just not add them to CopyOfSelectedAssets
 	}
 
-	FReimportManager::Instance()->ReimportMultiple(CopyOfSelectedAssets, /*bAskForNewFileIfMissing=*/false);
+	FReimportManager::Instance()->ReimportMultiple(CopyOfSelectedAssets, /*bAskForNewFileIfMissing=*/false, bShowNotification);
 }
 
 void FReimportManager::AddReferencedObjects( FReferenceCollector& Collector )
@@ -726,17 +726,20 @@ namespace EditorUtilities
 
 			// Find the counterpart level
 			UWorld* PlayWorld = GEditor->PlayWorld;
-			for( auto LevelIt( PlayWorld->GetLevelIterator() ); LevelIt; ++LevelIt )
+			if (PlayWorld != nullptr)
 			{
-				auto* Level = *LevelIt;
-				if( Level->GetFName() == EditorWorldActor->GetLevel()->GetFName() )
+				for (auto LevelIt(PlayWorld->GetLevelIterator()); LevelIt; ++LevelIt)
 				{
-					// Find our counterpart actor
-					const bool bExactClass = false;	// Don't match class exactly, because we support all classes derived from Actor as well!
-					AActor* SimWorldActor = FindObject<AActor>( Level, *EditorWorldActor->GetFName().ToString(), bExactClass );
-					if( SimWorldActor && GEditor->ObjectsThatExistInEditorWorld.Get( SimWorldActor ) )
+					auto* Level = *LevelIt;
+					if (Level->GetFName() == EditorWorldActor->GetLevel()->GetFName())
 					{
-						return SimWorldActor;
+						// Find our counterpart actor
+						const bool bExactClass = false;	// Don't match class exactly, because we support all classes derived from Actor as well!
+						AActor* SimWorldActor = FindObject<AActor>(Level, *EditorWorldActor->GetFName().ToString(), bExactClass);
+						if (SimWorldActor && GEditor->ObjectsThatExistInEditorWorld.Get(SimWorldActor))
+						{
+							return SimWorldActor;
+						}
 					}
 				}
 			}

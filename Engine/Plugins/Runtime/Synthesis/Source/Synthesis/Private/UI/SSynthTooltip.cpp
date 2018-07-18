@@ -2,7 +2,7 @@
 
 #include "UI/SSynthTooltip.h"
 #include "Widgets/SToolTip.h"
-#include "SlateApplication.h"
+#include "Framework/Application/SlateApplication.h"
 
 SSynthTooltip::~SSynthTooltip()
 {

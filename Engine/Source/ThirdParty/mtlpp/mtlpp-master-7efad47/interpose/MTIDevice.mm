@@ -1,6 +1,9 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #import <Metal/MTLDevice.h>
+#import <Metal/MTLDepthStencil.h>
+#import <Metal/MTLRenderPipeline.h>
+#import <Metal/MTLSampler.h>
 #include "MTIDevice.hpp"
 #include "MTIBuffer.hpp"
 #include "MTITexture.hpp"

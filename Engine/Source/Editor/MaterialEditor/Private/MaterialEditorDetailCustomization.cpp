@@ -14,12 +14,12 @@
 #include "MaterialLayersFunctionsCustomization.h"
 #include "PropertyEditorModule.h"
 #include "MaterialEditor/MaterialEditorPreviewParameters.h"
-#include "SButton.h"
+#include "Widgets/Input/SButton.h"
 #include "MaterialEditor/MaterialEditorInstanceConstant.h"
 #include "IDetailGroup.h"
 #include "MaterialEditor/DEditorParameterValue.h"
 #include "AssetToolsModule.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "Factories/MaterialInstanceConstantFactoryNew.h"
 #include "Materials/MaterialInstanceConstant.h"
 #include "MaterialEditor/DEditorScalarParameterValue.h"
@@ -31,6 +31,8 @@
 #include "MaterialPropertyHelpers.h"
 #include "MaterialEditor/DEditorMaterialLayersParameterValue.h"
 #include "PropertyCustomizationHelpers.h"
+#include "Curves/CurveLinearColor.h"
+#include "IPropertyUtilities.h"
 
 #define LOCTEXT_NAMESPACE "MaterialEditor"
 
@@ -65,7 +67,7 @@ void FMaterialEditorParameterDetails::OnValueCommitted(float NewValue, ETextComm
 
 void FMaterialEditorParameterDetails::CustomizeDetails(IDetailLayoutBuilder& DetailLayout)
 {
-	TSharedRef<IPropertyUtilities> PropertyUtils = DetailLayout.GetPropertyUtilities();
+	PropertyUtilities = DetailLayout.GetPropertyUtilities();
 	// Create a new category for a custom layout for the MIC parameters at the very top
 	FName GroupsCategoryName = TEXT("ParameterGroups");
 	IDetailCategoryBuilder& GroupsCategory = DetailLayout.EditCategory(GroupsCategoryName, LOCTEXT("MICParamGroupsTitle", "Parameter Groups"));
@@ -187,6 +189,10 @@ void FMaterialEditorParameterDetails::CreateSingleGroupWidget(FEditorParameterGr
 		if (VectorParam && VectorParam->bIsUsedAsChannelMask)
 		{
 			CreateVectorChannelMaskParameterValueWidget(Parameter, ParameterProperty, DetailGroup);
+		}
+		if (ScalarParam && ScalarParam->AtlasData.bIsUsedAsAtlasPosition)
+		{
+			CreateScalarAtlasPositionParameterValueWidget(Parameter, ParameterProperty, DetailGroup);
 		}
 		else if (ScalarParam || SwitchParam || TextureParam || VectorParam || FontParam)
 		{
@@ -360,19 +366,67 @@ void FMaterialEditorParameterDetails::CreateVectorChannelMaskParameterValueWidge
 	}
 }
 
+void FMaterialEditorParameterDetails::CreateScalarAtlasPositionParameterValueWidget(class UDEditorParameterValue* Parameter, TSharedPtr<IPropertyHandle> ParameterProperty, IDetailGroup& DetailGroup)
+{
+	TSharedPtr<IPropertyHandle> ParameterValueProperty = ParameterProperty->GetChildHandle("ParameterValue");
+
+	if (ParameterValueProperty->IsValidHandle())
+	{
+		TAttribute<bool> IsParamEnabled = TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateStatic(&FMaterialPropertyHelpers::IsOverriddenExpression, Parameter));
+
+		IDetailPropertyRow& PropertyRow = DetailGroup.AddPropertyRow(ParameterValueProperty.ToSharedRef());
+	
+		const FText ParameterName = FText::FromName(Parameter->ParameterInfo.Name);
+		UDEditorScalarParameterValue* AtlasParameter = Cast<UDEditorScalarParameterValue>(Parameter);
+
+		FDetailWidgetRow& CustomWidget = PropertyRow.CustomWidget();
+		CustomWidget
+			.FilterString(ParameterName)
+			.NameContent()
+			[
+				SNew(STextBlock)
+				.Text(ParameterName)
+				.ToolTipText(FMaterialPropertyHelpers::GetParameterExpressionDescription(Parameter, MaterialEditorInstance))
+				.Font(FEditorStyle::GetFontStyle(TEXT("PropertyWindow.NormalFont")))
+			]
+			.ValueContent()
+			.HAlign(HAlign_Fill)
+			.MaxDesiredWidth(400.0f)
+			[
+				SNew(SObjectPropertyEntryBox)
+				.ObjectPath(this, &FMaterialEditorParameterDetails::GetCurvePath, AtlasParameter)
+				.AllowedClass(UCurveLinearColor::StaticClass())
+				.NewAssetFactories(TArray<UFactory*>())
+				.DisplayThumbnail(true)
+				.ThumbnailPool(PropertyUtilities.Pin()->GetThumbnailPool())
+				.OnShouldSetAsset(FOnShouldSetAsset::CreateStatic(&FMaterialPropertyHelpers::OnShouldSetCurveAsset, AtlasParameter->AtlasData.Atlas))
+				.OnObjectChanged(FOnSetObject::CreateStatic(&FMaterialPropertyHelpers::SetPositionFromCurveAsset, AtlasParameter->AtlasData.Atlas, AtlasParameter, ParameterProperty, (UObject*)MaterialEditorInstance))
+				.DisplayCompactSize(true)
+			];
+	}
+}
+
+FString FMaterialEditorParameterDetails::GetCurvePath(UDEditorScalarParameterValue* Parameter) const
+{
+	FString Path = Parameter->AtlasData.Curve->GetPathName();
+	return Path;
+}
+
 FText FMaterialEditorParameterDetails::GetParameterExpressionDescription(UDEditorParameterValue* Parameter) const
 {
-	UMaterial* BaseMaterial = MaterialEditorInstance->OriginalMaterial->GetMaterial();
-	if (BaseMaterial)
+	if (MaterialEditorInstance && MaterialEditorInstance->OriginalMaterial)
 	{
-		UMaterialExpression* MaterialExpression = BaseMaterial->FindExpressionByGUID<UMaterialExpression>(Parameter->ExpressionId);
-
-		if (MaterialExpression)
+		UMaterial* BaseMaterial = MaterialEditorInstance->OriginalMaterial->GetMaterial();
+		if (BaseMaterial)
 		{
-			return FText::FromString(MaterialExpression->Desc);
+			UMaterialExpression* MaterialExpression = BaseMaterial->FindExpressionByGUID<UMaterialExpression>(Parameter->ExpressionId);
+
+			if (MaterialExpression)
+			{
+				return FText::FromString(MaterialExpression->Desc);
+			}
 		}
 	}
-
 	return FText::GetEmpty();
 }
 

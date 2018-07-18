@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -162,6 +162,11 @@ public class DeploymentContext //: ProjectParams
 	public DirectoryReference StageDirectory;
 
 	/// <summary>
+	/// Directory to put all of the debug files in: d:\stagedir\WindowsNoEditor
+	/// </summary>
+	public DirectoryReference DebugStageDirectory;
+
+	/// <summary>
 	/// Directory name for staged projects
 	/// </summary>
 	public StagedDirectoryReference RelativeProjectRootForStage;
@@ -187,6 +192,11 @@ public class DeploymentContext //: ProjectParams
 	public DirectoryReference RuntimeProjectRootDir;
 
 	/// <summary>
+	/// The directory containing the metadata from the cooker
+	/// </summary>
+	public DirectoryReference MetadataDir;
+
+	/// <summary>
 	/// List of executables we are going to stage
 	/// </summary>
 	public List<string> StageExecutables;
@@ -207,6 +217,11 @@ public class DeploymentContext //: ProjectParams
 	public FilesToStage FilesToStage = new FilesToStage();
 
 	/// <summary>
+	/// Map of staged crash reporter file to source location 
+	/// </summary>
+	public Dictionary<StagedFileReference, FileReference> CrashReporterUFSFiles = new Dictionary<StagedFileReference, FileReference>();
+
+	/// <summary>
 	/// List of files to be archived
 	/// </summary>
 	public Dictionary<string, string> ArchivedFiles = new Dictionary<string, string>();
@@ -220,6 +235,23 @@ public class DeploymentContext //: ProjectParams
 	/// List of directories to remap during the stage
 	/// </summary>
 	public List<Tuple<StagedDirectoryReference, StagedDirectoryReference>> RemapDirectories = new List<Tuple<StagedDirectoryReference, StagedDirectoryReference>>();
+
+	/// <summary>
+	/// List of directories to allow staging, even if they contain restricted folder names 
+	/// </summary>
+	public List<StagedDirectoryReference> WhitelistDirectories = new List<StagedDirectoryReference>();
+
+	/// <summary>
+	/// Set of config files which are whitelisted to be staged. By default, we warn for config files which are not well known to prevent internal data (eg. editor/server settings)
+	/// leaking in packaged builds. This list is read from the +WhitelistConfigFiles=... array in the [Staging] section of *Game.ini files.
+	/// </summary>
+	public HashSet<StagedFileReference> WhitelistConfigFiles = new HashSet<StagedFileReference>();
+
+	/// <summary>
+	/// Set of config files which are blacklisted from staging. By default, we warn for config files which are not well known to prevent internal data (eg. editor/server settings)
+	/// leaking in packaged builds. This list is read from the +BlacklistConfigFiles=... array in the [Staging] section of *Game.ini files.
+	/// </summary>
+	public HashSet<StagedFileReference> BlacklistConfigFiles = new HashSet<StagedFileReference>();
 
 	/// <summary>
 	///  Directory to archive all of the files in: d:\archivedir\WindowsNoEditor
@@ -296,7 +328,8 @@ public class DeploymentContext //: ProjectParams
 		bool InArchive,
 		bool InProgram,
 		bool IsClientInsteadOfNoEditor,
-        bool InForceChunkManifests
+        bool InForceChunkManifests,
+		bool InSeparateDebugStageDirectory
 		)
 	{
 		bStageCrashReporter = InStageCrashReporter;
@@ -308,7 +341,7 @@ public class DeploymentContext //: ProjectParams
 		StageTargetConfigurations = new List<UnrealTargetConfiguration>(InTargetConfigurations);
 		StageTargets = new List<StageTarget>(InStageTargets);
 		StageExecutables = InStageExecutables;
-        IsCodeBasedProject = ProjectUtils.IsCodeBasedUProjectFile(RawProjectPath);
+        IsCodeBasedProject = ProjectUtils.IsCodeBasedUProjectFile(RawProjectPath, StageTargetConfigurations);
 		ShortProjectName = ProjectUtils.GetShortProjectName(RawProjectPath);
 		Stage = InStage;
 		Archive = InArchive;
@@ -344,6 +377,7 @@ public class DeploymentContext //: ProjectParams
 		if (BaseStageDirectory != null)
 		{
 			StageDirectory = DirectoryReference.Combine(BaseStageDirectory, FinalCookPlatform);
+			DebugStageDirectory = InSeparateDebugStageDirectory? DirectoryReference.Combine(BaseStageDirectory, FinalCookPlatform + "Debug") : StageDirectory;
 		}
 
 		if(BaseArchiveDirectory != null)
@@ -382,10 +416,12 @@ public class DeploymentContext //: ProjectParams
 		ProjectBinariesFolder = DirectoryReference.Combine(ProjectUtils.GetClientProjectBinariesRootPath(RawProjectPath, TargetType.Game, IsCodeBasedProject), PlatformDir);
 
 		// Build a list of restricted folder names. This will comprise all other restricted platforms, plus standard restricted folder names such as NoRedist, NotForLicensees, etc...
-		RestrictedFolderNames.UnionWith(Enum.GetNames(typeof(UnrealTargetPlatform)).Select(x => new FileSystemName(x)));
-		RestrictedFolderNames.UnionWith(PlatformExports.RestrictedFolderNames);
-		RestrictedFolderNames.ExceptWith(StageTargetPlatform.GetStagePlatforms().Select(x => new FileSystemName(x.ToString())));
-		RestrictedFolderNames.Remove(new FileSystemName(UnrealTargetPlatform.Unknown.ToString()));
+		RestrictedFolderNames.UnionWith(PlatformExports.GetPlatformFolderNames());
+		foreach(UnrealTargetPlatform StagePlatform in StageTargetPlatform.GetStagePlatforms())
+		{
+			RestrictedFolderNames.ExceptWith(PlatformExports.GetIncludedFolderNames(StagePlatform));
+		}
+		RestrictedFolderNames.UnionWith(FileFilter.RestrictedFolderNames);
 		RestrictedFolderNames.Remove(new FileSystemName(StageTargetPlatform.IniPlatformType.ToString()));
 
 		// Read the game config files
@@ -419,6 +455,20 @@ public class DeploymentContext //: ProjectParams
 			}
 		}
 
+		// Read the list of directories to whitelist from restricted folder warnings
+		List<string> WhitelistDirectoriesList;
+		if (GameConfig.GetArray("Staging", "WhitelistDirectories", out WhitelistDirectoriesList))
+		{
+			foreach(string WhitelistDirectory in WhitelistDirectoriesList)
+			{
+				WhitelistDirectories.Add(new StagedDirectoryReference(WhitelistDirectory));
+			}
+		}
+
+		// Read the list of files which are whitelisted to be staged
+		ReadConfigFileList(GameConfig, "Staging", "WhitelistConfigFiles", WhitelistConfigFiles);
+		ReadConfigFileList(GameConfig, "Staging", "BlacklistConfigFiles", BlacklistConfigFiles);
+
         // If we were configured to use manifests across the whole project, then this platform should use manifests.
         // Otherwise, read whether we are generating chunks from the ProjectPackagingSettings ini.
         if (InForceChunkManifests)
@@ -436,6 +486,25 @@ public class DeploymentContext //: ProjectParams
             }
         }
     }
+
+	/// <summary>
+	/// Read a list of whitelisted or blacklisted config files names from a config file
+	/// </summary>
+	/// <param name="Config">The config hierarchy to read from</param>
+	/// <param name="SectionName">The section name</param>
+	/// <param name="KeyName">The key name to read from</param>
+	/// <param name="ConfigFiles">Receives a list of config file paths</param>
+	private static void ReadConfigFileList(ConfigHierarchy Config, string SectionName, string KeyName, HashSet<StagedFileReference> ConfigFiles)
+	{
+		List<string> ConfigFileNames;
+		if(Config.GetArray(SectionName, KeyName, out ConfigFileNames))
+		{
+			foreach(string ConfigFileName in ConfigFileNames)
+			{
+				ConfigFiles.Add(new StagedFileReference(ConfigFileName));
+			}
+		}
+	}
 
 	/// <summary>
 	/// Finds files to stage under a given base directory.
@@ -490,11 +559,11 @@ public class DeploymentContext //: ProjectParams
 	}
 
 	/// <summary>
-	/// Stage a single file to its default location
+	/// Gets the default location to stage an input file
 	/// </summary>
-	/// <param name="FileType">The type of file being staged</param>
-	/// <param name="InputFile">Path to the file</param>
-	public void StageFile(StagedFileType FileType, FileReference InputFile)
+	/// <param name="InputFile">Location of the file in the file system</param>
+	/// <returns>Staged file location</returns>
+	public StagedFileReference GetStagedFileLocation(FileReference InputFile)
 	{
 		StagedFileReference OutputFile;
 		if(InputFile.IsUnderDirectory(ProjectRoot))
@@ -523,6 +592,17 @@ public class DeploymentContext //: ProjectParams
         {
 			throw new AutomationException("Can't deploy {0} because it doesn't start with {1} or {2}", InputFile, ProjectRoot, LocalRoot);
 		}
+		return OutputFile;
+	}
+
+	/// <summary>
+	/// Stage a single file to its default location
+	/// </summary>
+	/// <param name="FileType">The type of file being staged</param>
+	/// <param name="InputFile">Path to the file</param>
+	public void StageFile(StagedFileType FileType, FileReference InputFile)
+	{
+		StagedFileReference OutputFile = GetStagedFileLocation(InputFile);
 		StageFile(FileType, InputFile, OutputFile);
 	}
 
@@ -616,6 +696,52 @@ public class DeploymentContext //: ProjectParams
 		{
 			StagedFileReference OutputFile = StagedFileReference.Combine(OutputDir, InputFile.MakeRelativeTo(InputDir));
 			StageFile(FileType, InputFile, OutputFile);
+		}
+	}
+
+	/// <summary>
+	/// Stages a file for use by crash reporter.
+	/// </summary>
+	/// <param name="FileType">The type of the staged file</param>
+	/// <param name="InputFile">Location of the input file</param>
+	/// <param name="StagedFile">Location of the file in the staging directory</param>
+	public void StageCrashReporterFile(StagedFileType FileType, FileReference InputFile, StagedFileReference StagedFile)
+	{
+		if(FileType == StagedFileType.UFS)
+		{
+			CrashReporterUFSFiles[StagedFile] = InputFile;
+		}
+		else
+		{
+			StageFile(FileType, InputFile, StagedFile);
+		}
+	}
+
+	/// <summary>
+	/// Stage multiple files for use by crash reporter
+	/// </summary>
+	/// <param name="FileType">The type of the staged file</param>
+	/// <param name="InputDir">Location of the input directory</param>
+	/// <param name="Option">Whether to stage all subdirectories or just the top-level directory</param>
+	public void StageCrashReporterFiles(StagedFileType FileType, DirectoryReference InputDir, StageFilesSearch Option)
+	{
+		StageCrashReporterFiles(FileType, InputDir, Option, new StagedDirectoryReference(InputDir.MakeRelativeTo(LocalRoot)));
+	}
+
+	/// <summary>
+	/// Stage multiple files for use by crash reporter
+	/// </summary>
+	/// <param name="FileType">The type of the staged file</param>
+	/// <param name="InputDir">Location of the input directory</param>
+	/// <param name="Option">Whether to stage all subdirectories or just the top-level directory</param>
+	/// <param name="OutputDir">Location of the output directory within the staging folder</param>
+	public void StageCrashReporterFiles(StagedFileType FileType, DirectoryReference InputDir, StageFilesSearch Option, StagedDirectoryReference OutputDir)
+	{
+		List<FileReference> InputFiles = FindFilesToStage(InputDir, Option);
+		foreach(FileReference InputFile in InputFiles)
+		{
+			StagedFileReference StagedFile = StagedFileReference.Combine(OutputDir, InputFile.MakeRelativeTo(InputDir));
+			StageCrashReporterFile(FileType, InputFile, StagedFile);
 		}
 	}
 
@@ -774,36 +900,37 @@ public class DeploymentContext //: ProjectParams
 		return FilesAdded;
 	}
 
+	public String GetSanitizedDeviceName(String DeviceName)
+	{
+		return DeviceName.Replace(":", "").Replace("/", "").Replace("\\", "").Replace("-", "").Replace(".exe", "");
+	}
+
 	public String GetUFSDeploymentDeltaPath(string DeviceName)
 	{
-		//replace the port name in the case of deploy while adb is using wifi
-		string SanitizedDeviceName = DeviceName.Replace(":", "_");
+		string SanitizedDeviceName = GetSanitizedDeviceName(DeviceName);
 
-		return Path.Combine(StageDirectory.FullName, UFSDeployDeltaFileName + SanitizedDeviceName);
+		return Path.Combine(EngineRoot.FullName, "Intermediate", "UAT", UFSDeployDeltaFileName + SanitizedDeviceName);
 	}
 
 	public String GetNonUFSDeploymentDeltaPath(string DeviceName)
 	{
-		//replace the port name in the case of deploy while adb is using wifi
-		string SanitizedDeviceName = DeviceName.Replace(":", "_");
+		string SanitizedDeviceName = GetSanitizedDeviceName(DeviceName);
 
-		return Path.Combine(StageDirectory.FullName, NonUFSDeployDeltaFileName + SanitizedDeviceName);
+		return Path.Combine(EngineRoot.FullName, "Intermediate", "UAT", NonUFSDeployDeltaFileName + SanitizedDeviceName);
 	}
 
 	public String GetUFSDeploymentObsoletePath(string DeviceName)
 	{
-		//replace the port name in the case of deploy while adb is using wifi
-		string SanitizedDeviceName = DeviceName.Replace(":", "_");
+		string SanitizedDeviceName = GetSanitizedDeviceName(DeviceName);
 
-		return Path.Combine(StageDirectory.FullName, UFSDeployObsoleteFileName + SanitizedDeviceName);
+		return Path.Combine(EngineRoot.FullName, "Intermediate", "UAT", UFSDeployObsoleteFileName + SanitizedDeviceName);
 	}
 
 	public String GetNonUFSDeploymentObsoletePath(string DeviceName)
 	{
-		//replace the port name in the case of deploy while adb is using wifi
-		string SanitizedDeviceName = DeviceName.Replace(":", "_");
+		string SanitizedDeviceName = GetSanitizedDeviceName(DeviceName);
 
-		return Path.Combine(StageDirectory.FullName, NonUFSDeployObsoleteFileName + SanitizedDeviceName);
+		return Path.Combine(EngineRoot.FullName, "Intermediate", "UAT", NonUFSDeployObsoleteFileName + SanitizedDeviceName);
 	}
 
 	public string UFSDeployedManifestFileName

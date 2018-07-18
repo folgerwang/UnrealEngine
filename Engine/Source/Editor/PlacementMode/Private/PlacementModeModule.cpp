@@ -23,9 +23,10 @@
 #include "ActorFactories/ActorFactoryExponentialHeightFog.h"
 #include "ActorFactories/ActorFactoryPlayerStart.h"
 #include "ActorFactories/ActorFactoryPointLight.h"
+#include "ActorFactories/ActorFactorySpotLight.h"
+#include "ActorFactories/ActorFactoryRectLight.h"
 #include "ActorFactories/ActorFactorySkyLight.h"
 #include "ActorFactories/ActorFactorySphereReflectionCapture.h"
-#include "ActorFactories/ActorFactorySpotLight.h"
 #include "ActorFactories/ActorFactoryBasicShape.h"
 #include "ActorFactories/ActorFactoryTriggerBox.h"
 #include "ActorFactories/ActorFactoryTriggerSphere.h"
@@ -153,6 +154,7 @@ void FPlacementModeModule::StartupModule()
 		Category->Items.Add(CreateID(), MakeShareable(new FPlaceableItem(*UActorFactoryDirectionalLight::StaticClass(), SortOrder += 10)));
 		Category->Items.Add(CreateID(), MakeShareable(new FPlaceableItem(*UActorFactoryPointLight::StaticClass(), SortOrder += 10)));
 		Category->Items.Add(CreateID(), MakeShareable(new FPlaceableItem(*UActorFactorySpotLight::StaticClass(), SortOrder += 10)));
+		Category->Items.Add(CreateID(), MakeShareable(new FPlaceableItem(*UActorFactoryRectLight::StaticClass(), SortOrder += 10)));
 		Category->Items.Add(CreateID(), MakeShareable(new FPlaceableItem(*UActorFactorySkyLight::StaticClass(), SortOrder += 10)));
 	}
 

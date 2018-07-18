@@ -12,6 +12,8 @@ IMPLEMENT_MODULE(SteamAudio::FSteamAudioModule, SteamAudio)
 namespace SteamAudio
 {
 	void* FSteamAudioModule::PhononDllHandle = nullptr;
+	void* FSteamAudioModule::TANDllHandle = nullptr;
+	void* FSteamAudioModule::TANUtilsDllHandle = nullptr;
 
 	static bool bModuleStartedUp = false;
 
@@ -48,12 +50,15 @@ namespace SteamAudio
 			FString PathToDll = FPaths::EngineDir() / TEXT("Binaries/ThirdParty/Phonon/Win32/");
 #else
 			FString PathToDll = FPaths::EngineDir() / TEXT("Binaries/ThirdParty/Phonon/Win64/");
+			FSteamAudioModule::TANDllHandle = LoadDll(PathToDll + TEXT("tanrt64.dll"));
+			FSteamAudioModule::TANUtilsDllHandle = LoadDll(PathToDll + TEXT("GPUUtilities.dll"));
 #endif
 
 			FString DLLToLoad = PathToDll + TEXT("phonon.dll");
 			FSteamAudioModule::PhononDllHandle = LoadDll(DLLToLoad);
 		}
 #endif
+		iplCreateContext(UnrealLog, nullptr, nullptr, &GlobalContext);
 	}
 
 	void FSteamAudioModule::ShutdownModule()
@@ -64,11 +69,26 @@ namespace SteamAudio
 
 		bModuleStartedUp = false;
 
+		iplDestroyContext(&GlobalContext);
+		iplCleanup();
+
 #if PLATFORM_WINDOWS
 		if (FSteamAudioModule::PhononDllHandle)
 		{
 			FPlatformProcess::FreeDllHandle(FSteamAudioModule::PhononDllHandle);
 			FSteamAudioModule::PhononDllHandle = nullptr;
+		}
+
+		if (FSteamAudioModule::TANDllHandle)
+		{
+			FPlatformProcess::FreeDllHandle(FSteamAudioModule::TANDllHandle);
+			FSteamAudioModule::TANDllHandle = nullptr;
+		}
+
+		if (FSteamAudioModule::TANUtilsDllHandle)
+		{
+			FPlatformProcess::FreeDllHandle(FSteamAudioModule::TANUtilsDllHandle);
+			FSteamAudioModule::TANUtilsDllHandle = nullptr;
 		}
 #endif
 	}

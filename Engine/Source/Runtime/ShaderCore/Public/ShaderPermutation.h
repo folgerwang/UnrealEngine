@@ -30,6 +30,12 @@ struct FShaderPermutationBool
 		return E ? 1 : 0;
 	}
 
+	/** Pass down a boolean to FShaderCompilerEnvironment::SetDefine(). */
+	static bool ToDefineValue(Type E)
+	{
+		return E;
+	}
+
 	/** Converts dimension's value id to dimension boolean value (exact reciprocal of ToDimensionValueId). */
 	static Type FromDimensionValueId(int32 PermutationId)
 	{
@@ -40,11 +46,11 @@ struct FShaderPermutationBool
 
 
 /** Defines at compile time a permutation dimension made of int32 from 0 to N -1. */
-template <int32 TDimensionSize>
+template <typename TType, int32 TDimensionSize, int32 TFirstValue=0>
 struct TShaderPermutationInt
 {
 	/** Setup the dimension's type in permutation domain as integer. */
-	using Type = int32;
+	using Type = TType;
 
 	/** Setup the dimension's number of permutation. */
 	static constexpr int32 PermutationCount = TDimensionSize;
@@ -53,20 +59,31 @@ struct TShaderPermutationInt
 	 * define can conventily be set up in SHADER_PERMUTATION_INT.
 	 */
 	static constexpr bool IsMultiDimensional = false;
+	
+	/** Min and max values. */
+	static constexpr Type MinValue = static_cast<Type>(TFirstValue);
+	static constexpr Type MaxValue = static_cast<Type>(TFirstValue + TDimensionSize - 1);
 
 
 	/** Converts dimension's integer value to dimension's value id. */
 	static int32 ToDimensionValueId(Type E)
 	{
-		checkf(E < PermutationCount && E >= 0, TEXT("Unknown shader permutation dimension value %i."), E);
-		return Type(E);
+		int32 PermutationId = static_cast<int32>(E) - TFirstValue;
+		checkf(PermutationId < PermutationCount && PermutationId >= 0, TEXT("Unknown shader permutation dimension value id %i."), PermutationId);
+		return PermutationId;
+	}
+
+	/** Pass down a int32 to FShaderCompilerEnvironment::SetDefine() even for contiguous enum classes. */
+	static int32 ToDefineValue(Type E)
+	{
+		return ToDimensionValueId(E) + TFirstValue;
 	}
 
 	/** Converts dimension's value id to dimension's integer value (exact reciprocal of ToDimensionValueId). */
 	static Type FromDimensionValueId(int32 PermutationId)
 	{
-		checkf(PermutationId < PermutationCount && PermutationId >= 0, TEXT("Invalid shader permutation dimension id %i."), PermutationId);
-		return Type(PermutationId);
+		checkf(PermutationId < PermutationCount && PermutationId >= 0, TEXT("Invalid shader permutation dimension value id %i."), PermutationId);
+		return static_cast<Type>(PermutationId + TFirstValue);
 	}
 };
 
@@ -125,6 +142,12 @@ struct TShaderPermutationSparseInt<TUniqueValue, Ts...>
 			return PermutationCount - 1;
 		}
 		return TShaderPermutationSparseInt<Ts...>::ToDimensionValueId(E);
+	}
+
+	/** Pass down a int32 to FShaderCompilerEnvironment::SetDefine(). */
+	static int32 ToDefineValue(Type E)
+	{
+		return int32(E);
 	}
 
 	/** Converts dimension's value id to dimension's integer value (exact reciprocal of ToDimensionValueId). */
@@ -192,7 +215,7 @@ struct TShaderPermutationDomain
 
 	/** Set dimension's value, but in this case emit compile time error if could not find the dimension to set. */
 	template<class DimensionToSet>
-	void Set(const typename DimensionToSet::Type& Value)
+	void Set(typename DimensionToSet::Type)
 	{
 		// On clang, we can't do static_assert(false), because is evaluated even when method is not used. So
 		// we test sizeof(DimensionToSet::Type) == 0 to make the static assert depend on the DimensionToSet
@@ -253,7 +276,7 @@ public:
 	template<typename TPermutationVector, typename TDimension>
 	static void ModifyCompilationEnvironment(const TPermutationVector& PermutationVector, FShaderCompilerEnvironment& OutEnvironment)
 	{
-		OutEnvironment.SetDefine(TDimension::DefineName, PermutationVector.DimensionValue);
+		OutEnvironment.SetDefine(TDimension::DefineName, TDimension::ToDefineValue(PermutationVector.DimensionValue));
 		return PermutationVector.Tail.ModifyCompilationEnvironment(OutEnvironment);
 	}
 
@@ -332,7 +355,7 @@ struct TShaderPermutationDomain<TDimension, Ts...>
 
 	/** Set dimension's value. */
 	template<class DimensionToSet>
-	void Set(const typename DimensionToSet::Type& Value)
+	void Set(typename DimensionToSet::Type Value)
 	{
 		return TShaderPermutationDomainSpetialization<TIsSame<TDimension, DimensionToSet>::Value>::template SetDimension<Type, DimensionToSet>(*this, Value);
 	}
@@ -378,6 +401,11 @@ struct TShaderPermutationDomain<TDimension, Ts...>
 		return DimensionValue == Other.DimensionValue && Tail == Other.Tail;
 	}
 
+	/** Test if not equal. */
+	bool operator!=(const Type& Other) const
+	{
+		return !(*this == Other);
+	}
 
 private:
 	template<bool BooleanSpetialization>
@@ -415,11 +443,34 @@ using FShaderPermutationNone = TShaderPermutationDomain<>;
  * class FMyShaderDim : SHADER_PERMUTATION_INT("MY_SHADER_DEFINE_NAME", N);
  */
 #define SHADER_PERMUTATION_INT(InDefineName, Count) \
-	DECLARE_SHADER_PERMUTATION_IMPL(InDefineName, TShaderPermutationInt, Count)
+	DECLARE_SHADER_PERMUTATION_IMPL(InDefineName, TShaderPermutationInt, int32, Count)
 	
+/** Implements an integer shader permutation dimensions with N permutation values from [[X; X+N[[. Meant to be used like so:
+ *
+ * class FMyShaderDim : SHADER_PERMUTATION_RANGE_INT("MY_SHADER_DEFINE_NAME", X, N);
+ */
+#define SHADER_PERMUTATION_RANGE_INT(InDefineName, Start, Count) \
+	DECLARE_SHADER_PERMUTATION_IMPL(InDefineName, TShaderPermutationInt, int32, Count, Start)
+
 /** Implements an integer shader permutation dimensions with non contiguous permutation values. Meant to be used like so:
  *
  * class FMyShaderDim : SHADER_PERMUTATION_SPARSE_INT("MY_SHADER_DEFINE_NAME", 1, 2, 4, 8);
  */
 #define SHADER_PERMUTATION_SPARSE_INT(InDefineName,...) \
 	DECLARE_SHADER_PERMUTATION_IMPL(InDefineName, TShaderPermutationSparseInt, __VA_ARGS__)
+	
+/** Implements an shader permutation dimensions with an enum class assumed to have contiguous integer values. Meant to be used like so:
+ *
+ * enum class EMyEnum
+ * {
+ *		Hello,
+ *		World,
+ *		// [...]
+ *		MAX
+ * };
+ *
+ * class FMyShaderDim : SHADER_PERMUTATION_ENUM_CLASS("MY_SHADER_DEFINE_NAME", EMyEnum);
+ */
+#define SHADER_PERMUTATION_ENUM_CLASS(InDefineName, EnumName) \
+	DECLARE_SHADER_PERMUTATION_IMPL(InDefineName, TShaderPermutationInt, EnumName, static_cast<int32>(EnumName::MAX))
+	

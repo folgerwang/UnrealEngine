@@ -191,7 +191,7 @@ bool GetFROTATOR
 		return true;
 	}
 
-	return (N > 0);
+	return true;
 }
 
 

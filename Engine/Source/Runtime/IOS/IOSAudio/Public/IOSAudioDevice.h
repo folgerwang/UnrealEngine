@@ -10,6 +10,8 @@
 #include "AudioEffect.h"
 #include "AudioDevice.h"
 #include "Sound/SoundWave.h"
+#include "DSP/ParamInterpolator.h"
+#include "DSP/Filter.h"
 
 /*------------------------------------------------------------------------------------
 	Audio Framework system headers
@@ -147,6 +149,14 @@ public:
 	/** Calculates the audio unit element of the input channel relative to the base bus number */
 	AudioUnitElement GetAudioUnitElement(int32 Channel);
 
+    TArray<Audio::FBiquadFilter> LowpassFilterBank;
+    TArray<Audio::FParam> LPFParamBank;
+    
+    int32 SampleRate;
+    
+    // Cached version of Source->LPFFrequency.
+    float SourceLPFFrequency;
+    
 protected:
 	bool AttachToAUGraph();
 	bool DetachFromAUGraph();
@@ -156,7 +166,6 @@ protected:
 	/** Cached sound buffer associated with currently bound wave instance. */
 	/** Do not shadow the declaration of Buffer in the parent class since that member gets used by the streaming engine */
 	FIOSAudioSoundBuffer* IOSBuffer;
-	int32                 SampleRate;
 	uint32                BusNumber;
 	
 	int32	CallbackLock;

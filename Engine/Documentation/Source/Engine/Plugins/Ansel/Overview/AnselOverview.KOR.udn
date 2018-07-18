@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3579346
+﻿INTSourceChangelist:3808342
 Availability:Public
 TItle:NVIDIA Ansel 플러그인 개요
 Description:게임에 특화된 이미지 캡처 및 공유를 위한 NVIDIA Ansel 인게임 포토그라피 툴의 언리얼 엔진 4 통합에 대한 개요입니다.
@@ -115,6 +115,3 @@ Ansel 에서 제공하는 캡처 유형은 다음과 같습니다:
 
 기본 Ansel 플러그인 환경설정은 전형적인 프로젝트의 경우 별다른 설정 없이도 괜찮은 경험을 제공할 수 있도록 되어 있으나 최적의 플레이어 경험을 위해서는 게임의 요구에 맞게 별도의 환경설정 및 게임 로직에 통합시킬 필요도 있을 수 있습니다. 여러가지 옵션 및 로직 후크 관련 정보는 [](Engine/Plugins/Ansel/Reference/ConsoleVariables), [](Engine/Plugins/Ansel/Reference/BlueprintAPI) 문서를 참고하세요.
 
-## Ansel Photography 포함 게임 퍼블리싱
-
-개발사의 경우 귀사의 타이틀에 대해 모든 플레이어가 보편적으로 Ansel 을 사용할 수 있도록 하려는 경우 [NVIDIA Ansel 팀 이메일](mailto:ansel@nvidia.com) 로 연락해 주시기 바랍니다.

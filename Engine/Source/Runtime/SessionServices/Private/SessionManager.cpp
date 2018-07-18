@@ -233,6 +233,8 @@ void FSessionManager::RefreshSessions()
 
 void FSessionManager::SendPing()
 {
+    QUICK_SCOPE_CYCLE_COUNTER(STAT_FSessionmanager_SendPing);
+
 	if (MessageEndpoint.IsValid())
 	{
 		MessageEndpoint->Publish(new FEngineServicePing(), EMessageScope::Network);
@@ -320,6 +322,8 @@ void FSessionManager::HandleSessionPongMessage(const FSessionServicePong& Messag
 
 bool FSessionManager::HandleTicker(float DeltaTime)
 {
+    QUICK_SCOPE_CYCLE_COUNTER(STAT_FSessionmanager_HandleTicker);
+
 	FDateTime Now = FDateTime::UtcNow();
 
 	// @todo gmp: don't expire sessions for now

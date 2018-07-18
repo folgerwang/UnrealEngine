@@ -85,10 +85,10 @@ enum class ECastType
 template <typename Type>
 struct TCastFlags
 {
-	static const uint64 Value = CASTCLASS_None;
+	static const EClassCastFlags Value = CASTCLASS_None;
 };
 
-template <typename From, typename To, bool bFromInterface = TIsIInterface<From>::Value, bool bToInterface = TIsIInterface<To>::Value, uint64 CastClass = TCastFlags<To>::Value>
+template <typename From, typename To, bool bFromInterface = TIsIInterface<From>::Value, bool bToInterface = TIsIInterface<To>::Value, EClassCastFlags CastClass = TCastFlags<To>::Value>
 struct TGetCastType
 {
 #if UCLASS_FAST_ISA_IMPL == UCLASS_ISA_INDEXTREE || UCLASS_FAST_ISA_IMPL == UCLASS_ISA_CLASSARRAY
@@ -98,10 +98,10 @@ struct TGetCastType
 #endif
 };
 
-template <typename From, typename To                  > struct TGetCastType<From, To, false, false, CASTCLASS_None> { static const ECastType Value = ECastType::UObjectToUObject;     };
-template <typename From, typename To                  > struct TGetCastType<From, To, false, true , CASTCLASS_None> { static const ECastType Value = ECastType::UObjectToInterface;   };
-template <typename From, typename To, uint64 CastClass> struct TGetCastType<From, To, true,  false, CastClass     > { static const ECastType Value = ECastType::InterfaceToUObject;   };
-template <typename From, typename To, uint64 CastClass> struct TGetCastType<From, To, true,  true , CastClass     > { static const ECastType Value = ECastType::InterfaceToInterface; };
+template <typename From, typename To                           > struct TGetCastType<From, To, false, false, CASTCLASS_None> { static const ECastType Value = ECastType::UObjectToUObject;     };
+template <typename From, typename To                           > struct TGetCastType<From, To, false, true , CASTCLASS_None> { static const ECastType Value = ECastType::UObjectToInterface;   };
+template <typename From, typename To, EClassCastFlags CastClass> struct TGetCastType<From, To, true,  false, CastClass     > { static const ECastType Value = ECastType::InterfaceToUObject;   };
+template <typename From, typename To, EClassCastFlags CastClass> struct TGetCastType<From, To, true,  true , CastClass     > { static const ECastType Value = ECastType::InterfaceToInterface; };
 
 template <typename To, typename From>
 To* Cast(From* Src);
@@ -284,12 +284,12 @@ template< class T, class U > FORCEINLINE const T* CastChecked( const U      * Sr
 	template <> \
 	struct TCastFlags<ClassName> \
 	{ \
-		static const uint64 Value = CASTCLASS_##ClassName; \
+		static const EClassCastFlags Value = CASTCLASS_##ClassName; \
 	}; \
 	template <> \
 	struct TCastFlags<const ClassName> \
 	{ \
-		static const uint64 Value = CASTCLASS_##ClassName; \
+		static const EClassCastFlags Value = CASTCLASS_##ClassName; \
 	};
 
 #define DECLARE_CAST_BY_FLAG(ClassName) \

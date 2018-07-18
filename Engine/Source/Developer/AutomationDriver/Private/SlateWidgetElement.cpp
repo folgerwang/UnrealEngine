@@ -6,16 +6,16 @@
 
 #include "SlateWidgetLocatorByUniqueTag.h"
 #include "DriverUniqueTagMetaData.h"
-#include "DriverIdMetaData.h"
+#include "Framework/MetaData/DriverIdMetaData.h"
 
-#include "SRichTextBlock.h"
-#include "SMultiLineEditableTextBox.h"
-#include "SMultiLineEditableText.h"
-#include "STextBlock.h"
-#include "SEditableText.h"
-#include "SEditableTextBox.h"
-#include "SCheckBox.h"
-#include "NameTypes.h"
+#include "Widgets/Text/SRichTextBlock.h"
+#include "Widgets/Input/SMultiLineEditableTextBox.h"
+#include "Widgets/Text/SMultiLineEditableText.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SEditableText.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "UObject/NameTypes.h"
 
 class FSlateWidgetElement
 	: public IApplicationElement

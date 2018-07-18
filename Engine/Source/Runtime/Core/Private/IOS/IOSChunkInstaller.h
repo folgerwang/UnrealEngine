@@ -3,7 +3,7 @@
 #pragma once
 
 #include <Foundation/NSBundle.h>
-#include "GenericPlatformChunkInstall.h"
+#include "GenericPlatform/GenericPlatformChunkInstall.h"
 #include "Containers/Map.h"
 
 struct FIOSChunkStatus

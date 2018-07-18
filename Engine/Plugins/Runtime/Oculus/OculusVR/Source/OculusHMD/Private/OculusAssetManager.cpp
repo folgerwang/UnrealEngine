@@ -7,6 +7,66 @@
 #include "UObject/SoftObjectPath.h"
 #include "Engine/SkeletalMesh.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "OculusAssetDirectory.h"
+#include "UObject/GCObject.h"
+
+/* FOculusAssetDirectory
+ *****************************************************************************/
+
+FSoftObjectPath FOculusAssetDirectory::AssetListing[] =
+{
+	FString(TEXT("/OculusVR/Meshes/RiftHMD.RiftHMD")),
+	FString(TEXT("/OculusVR/Meshes/GearVRController.GearVRController")),
+	FString(TEXT("/OculusVR/Meshes/LeftTouchController.LeftTouchController")),
+	FString(TEXT("/OculusVR/Meshes/RightTouchController.RightTouchController")),
+
+	FString(TEXT("/OculusVR/Materials/PokeAHoleMaterial.PokeAHoleMaterial"))
+};
+
+#if WITH_EDITORONLY_DATA
+class FOculusAssetRepo : public FGCObject, public TArray<UObject*>
+{
+public:
+	// made an on-demand singleton rather than a static global, to avoid issues with FGCObject initialization
+	static FOculusAssetRepo& Get()
+	{
+		static FOculusAssetRepo AssetRepository;
+		return AssetRepository;
+	}
+
+	UObject* LoadAndAdd(const FSoftObjectPath& AssetPath)
+	{
+		UObject* AssetObj = AssetPath.TryLoad();
+		if (AssetObj != nullptr)
+		{
+			AddUnique(AssetObj);
+		}
+		return AssetObj;
+	}
+
+public:
+	//~ FGCObject interface
+	virtual void AddReferencedObjects(FReferenceCollector& Collector) override
+	{
+		Collector.AddReferencedObjects(*this);
+	}
+};
+
+void FOculusAssetDirectory::LoadForCook()
+{
+	FOculusAssetRepo& AssetRepro = FOculusAssetRepo::Get();
+	for (int32 AssetIndex = 0; AssetIndex < ARRAY_COUNT(FOculusAssetDirectory::AssetListing); ++AssetIndex)
+	{
+		AssetRepro.LoadAndAdd(FOculusAssetDirectory::AssetListing[AssetIndex]);
+	}
+}
+
+void FOculusAssetDirectory::ReleaseAll()
+{
+	FOculusAssetRepo::Get().Empty();
+}
+#endif // WITH_EDITORONLY_DATA
+
 
 /* OculusAssetManager_Impl
  *****************************************************************************/
@@ -22,13 +82,13 @@ namespace OculusAssetManager_Impl
 
 	static FRenderableDevice RenderableDevices[] =
 	{
-		{ ovrpNode_Head,      FString(TEXT("/Engine/VREditor/Devices/Generic/GenericHMD.GenericHMD")) },
+		{ ovrpNode_Head,      FOculusAssetDirectory::AssetListing[0] },
 #if PLATFORM_ANDROID
-		{ ovrpNode_HandLeft,  FString(TEXT("/OculusVR/Meshes/GearVRController.GearVRController")) },
-		{ ovrpNode_HandRight, FString(TEXT("/OculusVR/Meshes/GearVRController.GearVRController")) },
+		{ ovrpNode_HandLeft,  FOculusAssetDirectory::AssetListing[1] },
+		{ ovrpNode_HandRight, FOculusAssetDirectory::AssetListing[1] },
 #else 
-		{ ovrpNode_HandLeft,  FString(TEXT("/OculusVR/Meshes/LeftTouchController.LeftTouchController")) },
-		{ ovrpNode_HandRight, FString(TEXT("/OculusVR/Meshes/RightTouchController.RightTouchController")) },
+		{ ovrpNode_HandLeft,  FOculusAssetDirectory::AssetListing[2] },
+		{ ovrpNode_HandRight, FOculusAssetDirectory::AssetListing[3] },
 #endif
 	};
 
@@ -137,7 +197,7 @@ int32 FOculusAssetManager::GetDeviceId(EControllerHand ControllerHand)
 #endif
 }
 
-UPrimitiveComponent* FOculusAssetManager::CreateRenderComponent(const int32 DeviceId, AActor* Owner, EObjectFlags Flags)
+UPrimitiveComponent* FOculusAssetManager::CreateRenderComponent(const int32 DeviceId, AActor* Owner, EObjectFlags Flags, const bool /*bForceSynchronous*/, const FXRComponentLoadComplete& OnLoadComplete)
 {
 	UPrimitiveComponent* NewRenderComponent = nullptr;
 	if (UObject* DeviceMesh = OculusAssetManager_Impl::FindDeviceMesh(DeviceId))
@@ -161,5 +221,7 @@ UPrimitiveComponent* FOculusAssetManager::CreateRenderComponent(const int32 Devi
 		NewRenderComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	}
 
+	OnLoadComplete.ExecuteIfBound(NewRenderComponent);
 	return NewRenderComponent;
 }
+

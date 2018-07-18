@@ -186,7 +186,7 @@ bool FOnlineSubsystemNull::Init()
 
 bool FOnlineSubsystemNull::Shutdown()
 {
-	UE_LOG_ONLINE(Display, TEXT("FOnlineSubsystemNull::Shutdown()"));
+	UE_LOG_ONLINE(VeryVerbose, TEXT("FOnlineSubsystemNull::Shutdown()"));
 
 	FOnlineSubsystemImpl::Shutdown();
 

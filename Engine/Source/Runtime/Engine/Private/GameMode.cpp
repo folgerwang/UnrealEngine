@@ -218,7 +218,7 @@ void AGameMode::HandleMatchHasStarted()
 	for( FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator )
 	{
 		APlayerController* PlayerController = Iterator->Get();
-		if ((PlayerController->GetPawn() == nullptr) && PlayerCanRestart(PlayerController))
+		if (PlayerController && (PlayerController->GetPawn() == nullptr) && PlayerCanRestart(PlayerController))
 		{
 			RestartPlayer(PlayerController);
 		}
@@ -241,7 +241,7 @@ void AGameMode::HandleMatchHasStarted()
 		for( FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator )
 		{
 			APlayerController* PlayerController = Iterator->Get();
-			if( PlayerController->CheatManager != nullptr )
+			if (PlayerController &&  PlayerController->CheatManager != nullptr)
 			{
 				PlayerController->CheatManager->BugItGoString( BugLocString, BugRotString );
 			}
@@ -410,22 +410,15 @@ void AGameMode::HandleSeamlessTravelPlayer(AController*& C)
 	UE_LOG(LogGameMode, Log, TEXT(">> GameMode::HandleSeamlessTravelPlayer: %s "), *C->GetName());
 
 	APlayerController* PC = Cast<APlayerController>(C);
-	if (PC != nullptr && PC->GetClass() != PlayerControllerClass)
+
+	UClass* PCClassToSpawn = GetPlayerControllerClassToSpawnForSeamlessTravel(PC);
+
+	if (PC && PC->GetClass() != PCClassToSpawn)
 	{
 		if (PC->Player != nullptr)
 		{
-			// we need to spawn a new PlayerController to replace the old one
-			APlayerController* NewPC = nullptr;
-			if (PC->PlayerState && PC->PlayerState->bOnlySpectator && ReplaySpectatorPlayerControllerClass != nullptr)
-			{
-				NewPC = SpawnReplayPlayerController(PC->IsLocalPlayerController() ? ROLE_SimulatedProxy : ROLE_AutonomousProxy, PC->GetFocalLocation(), PC->GetControlRotation());
-			}
-			else
-			{
-				// We need to spawn a new PlayerController to replace the old one
-				NewPC = SpawnPlayerController(PC->IsLocalPlayerController() ? ROLE_SimulatedProxy : ROLE_AutonomousProxy, PC->GetFocalLocation(), PC->GetControlRotation());
-			}
-
+			// We need to spawn a new PlayerController to replace the old one
+			APlayerController* const NewPC = SpawnPlayerControllerCommon(PC->IsLocalPlayerController() ? ROLE_SimulatedProxy : ROLE_AutonomousProxy, PC->GetFocalLocation(), PC->GetControlRotation(), PCClassToSpawn);
 			if (NewPC == nullptr)
 			{
 				UE_LOG(LogGameMode, Warning, TEXT("Failed to spawn new PlayerController for %s (old class %s)"), *PC->GetHumanReadableName(), *PC->GetClass()->GetName());
@@ -604,7 +597,10 @@ void AGameMode::Broadcast( AActor* Sender, const FString& Msg, FName Type )
 
 	for( FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator )
 	{
-		(*Iterator)->ClientTeamMessage( SenderPlayerState, Msg, Type );
+		if (APlayerController* PC = Iterator->Get())
+		{
+			PC->ClientTeamMessage(SenderPlayerState, Msg, Type);
+		}
 	}
 }
 
@@ -613,7 +609,10 @@ void AGameMode::BroadcastLocalized( AActor* Sender, TSubclassOf<ULocalMessage> M
 {
 	for( FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator )
 	{
-		(*Iterator)->ClientReceiveLocalizedMessage( Message, Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject );
+		if (APlayerController* PC = Iterator->Get())
+		{
+			PC->ClientReceiveLocalizedMessage(Message, Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
+		}
 	}
 }
 

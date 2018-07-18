@@ -30,10 +30,10 @@ public:
 private:
 
 	/** Delegate to get binary path from settings */
-	FText GetBinaryPathText() const;
+	FString GetBinaryPathString() const;
 
 	/** Delegate to commit repository text to settings */
-	void OnBinaryPathTextCommited(const FText& InText, ETextCommit::Type InCommitType) const;
+	void OnBinaryPathPicked(const FString & PickedPath) const;
 
 	/** Delegate to get repository root, user name and email from provider */
 	FText GetPathToRepositoryRoot() const;
@@ -57,6 +57,10 @@ private:
 	void OnInitialCommitMessageCommited(const FText& InText, ETextCommit::Type InCommitType);
 	FText GetInitialCommitMessage() const;
 	FText InitialCommitMessage;
+
+	void OnRemoteUrlCommited(const FText& InText, ETextCommit::Type InCommitType);
+	FText GetRemoteUrl() const;
+	FText RemoteUrl;
 
 	/** Launch initial asynchronous add and commit operations */
 	void LaunchMarkForAddOperation(const TArray<FString>& InFiles);

@@ -102,7 +102,7 @@ void AScreenshotFunctionalTestBase::PrepareForScreenshot()
 
 	if (bApplyScreenshotSettings)
 	{
-		ScreenshotEnvSetup->Setup(ScreenshotOptions);
+		ScreenshotEnvSetup->Setup(GetWorld(), ScreenshotOptions);
 		FlushRenderingCommands();
 		bNeedsViewSettingsRestore = true;
 
@@ -140,6 +140,9 @@ void AScreenshotFunctionalTestBase::OnScreenShotCaptured(int32 InSizeX, int32 In
 	Data.MaximumLocalError = ScreenshotOptions.MaximumLocalError;
 	Data.MaximumGlobalError = ScreenshotOptions.MaximumGlobalError;
 
+	// Add the notes
+	Data.Notes = Notes;
+
 	if (GIsAutomationTesting)
 	{
 		FAutomationTestFramework::Get().OnScreenshotCompared.AddUObject(this, &AScreenshotFunctionalTestBase::OnComparisonComplete);
@@ -163,31 +166,13 @@ void AScreenshotFunctionalTestBase::RequestScreenshot()
 	GameViewportClient->OnScreenshotCaptured().AddUObject(this, &AScreenshotFunctionalTestBase::OnScreenShotCaptured);
 }
 
-void AScreenshotFunctionalTestBase::OnComparisonComplete(bool bWasNew, bool bWasSimilar, double MaxLocalDifference, double GlobalDifference, FString ErrorMessage)
+void AScreenshotFunctionalTestBase::OnComparisonComplete(const FAutomationScreenshotCompareResults& CompareResults)
 {
 	FAutomationTestFramework::Get().OnScreenshotCompared.RemoveAll(this);
 
-	if (bWasNew)
+	if (FAutomationTestBase* CurrentTest = FAutomationTestFramework::Get().GetCurrentTest())
 	{
-		UE_LOG(LogScreenshotFunctionalTest, Warning, TEXT("New Screenshot '%s' was discovered!  Please add a ground truth version of it."), *GetName());
-	}
-	else
-	{
-		if (bWasSimilar)
-		{
-			UE_LOG(LogScreenshotFunctionalTest, Display, TEXT("Screenshot '%s' was similar!  Global Difference = %f, Max Local Difference = %f"), *GetName(), GlobalDifference, MaxLocalDifference);
-		}
-		else
-		{
-			if (ErrorMessage.IsEmpty())
-			{
-				UE_LOG(LogScreenshotFunctionalTest, Error, TEXT("Screenshot '%s' test failed, Screnshots were different!  Global Difference = %f, Max Local Difference = %f"), *GetName(), GlobalDifference, MaxLocalDifference);
-			}
-			else
-			{
-				UE_LOG(LogScreenshotFunctionalTest, Error, TEXT("Screenshot '%s' test failed;  Error = %s"), *GetName(), *ErrorMessage);
-			}
-		}
+		CurrentTest->AddEvent(CompareResults.ToAutomationEvent(GetName()));
 	}
 
 	FAutomationTestFramework::Get().NotifyScreenshotTakenAndCompared();

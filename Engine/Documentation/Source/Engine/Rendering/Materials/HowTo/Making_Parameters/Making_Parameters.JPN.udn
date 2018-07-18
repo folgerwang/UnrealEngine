@@ -1,6 +1,6 @@
-﻿INTSourceChangelist:2747818
+﻿INTSourceChangelist:3810467
 Availability:Public
-Title:マテリアル エディタ - マテリアル パラメータの作成方法
+Title:マテリアル パラメータの作成方法
 Crumbs: %ROOT%, Engine, Engine/Rendering/Materials, Engine/Rendering/Materials/HowTo
 Description:マテリアル パラメータをセットアップし使用するための操作手順
 Related:Engine/Rendering/Materials/ExpressionReference/Parameters
@@ -9,6 +9,7 @@ Related:Engine/Rendering/Materials/ParameterCollections
 Related:Engine/Matinee/HowTo/MHT_6
 Version:4.9
 SkillLevel:Intermediate
+tags:Materials
 
 [TOC(start:2)]
 
@@ -92,8 +93,8 @@ fyVkiBqwyWw
 
 1. まず、以下のタイプの Material Parameter Expression ノードを以下の数だけマテリアル グラフに追加します。
 
-	* **  Vector Parameter ** x 1
-	* ** Scalar Node** x 2
+	* **Vector Parameter** x 1
+	* **Scalar Node** x 2
 
 	[OBJECT:EmbeddedVideo]
 	[PARAMLITERAL:width]
@@ -114,8 +115,8 @@ fyVkiBqwyWw
 1. 次に、すべての Parameter ノードに名前をデフォルト値がついていることを確認します。この例では、以下の名前とデフォルト値を使用します。
 
 	* ** Base_Color** R:1.0 G:0.0 B:0.0
-	* ** Metallic** 0.0
-	* ** Roughness** 0.5
+	* **Metallic** 0.0
+	* **Roughness** 0.5
 
 	[OBJECT:EmbeddedVideo]
 	[PARAMLITERAL:width]

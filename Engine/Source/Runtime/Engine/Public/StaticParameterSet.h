@@ -3,8 +3,9 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "NameTypes.h"
+#include "UObject/NameTypes.h"
 #include "Misc/Guid.h"
+#include "UObject/FortniteMainBranchObjectVersion.h"
 #include "UObject/RenderingObjectVersion.h"
 #include "UObject/ReleaseObjectVersion.h"
 #include "Materials/MaterialLayersFunctions.h"
@@ -143,21 +144,27 @@ struct FStaticTerrainLayerWeightParameter
 	UPROPERTY()
 	int32 WeightmapIndex;
 
+	UPROPERTY()
+	bool bWeightBasedBlend;
+
 	FStaticTerrainLayerWeightParameter() :
 		bOverride(false),
 		ExpressionGUID(0, 0, 0, 0),
-		WeightmapIndex(INDEX_NONE)
+		WeightmapIndex(INDEX_NONE),
+		bWeightBasedBlend(true)
 	{ }
 
-	FStaticTerrainLayerWeightParameter(const FMaterialParameterInfo& InInfo, int32 InWeightmapIndex, bool InOverride, FGuid InGuid) :
+	FStaticTerrainLayerWeightParameter(const FMaterialParameterInfo& InInfo, int32 InWeightmapIndex, bool InOverride, FGuid InGuid, bool InWeightBasedBlend) :
 		ParameterInfo(InInfo),
 		bOverride(InOverride),
 		ExpressionGUID(InGuid),
-		WeightmapIndex(InWeightmapIndex)
+		WeightmapIndex(InWeightmapIndex),
+		bWeightBasedBlend(InWeightBasedBlend)
 	{ }
 
 	friend FArchive& operator<<(FArchive& Ar, FStaticTerrainLayerWeightParameter& P)
 	{
+		Ar.UsingCustomVersion(FRenderingObjectVersion::GUID);
 		if (Ar.CustomVer(FRenderingObjectVersion::GUID) < FRenderingObjectVersion::MaterialAttributeLayerParameters)
 		{
 			Ar << P.ParameterInfo.Name;
@@ -165,6 +172,11 @@ struct FStaticTerrainLayerWeightParameter
 		else
 		{
 			Ar << P.ParameterInfo;
+		}
+		Ar.UsingCustomVersion(FFortniteMainBranchObjectVersion::GUID);
+		if (Ar.CustomVer(FFortniteMainBranchObjectVersion::GUID) >= FFortniteMainBranchObjectVersion::StaticParameterTerrainLayerWeightBlendType)
+		{
+			Ar << P.bWeightBasedBlend;
 		}
 		Ar << P.WeightmapIndex<< P.bOverride << P.ExpressionGUID;
 		return Ar;

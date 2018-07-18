@@ -14,14 +14,13 @@ class UUserDefinedEnum;
 class UUserDefinedStruct;
 struct Rect;
 
-extern const FName BlueprintEditorAppName;
-
 class IBlueprintEditor;
 class FBlueprintEditor;
 class UUserDefinedEnum;
 class UUserDefinedStruct;
 class IDetailCustomization;
 class FKismetCompilerContext;
+struct FBlueprintDebugger;
 
 /** Delegate used to customize variable display */
 DECLARE_DELEGATE_RetVal_OneParam(TSharedPtr<IDetailCustomization>, FOnGetVariableCustomizationInstance, TSharedPtr<IBlueprintEditor> /*BlueprintEditor*/);
@@ -233,4 +232,7 @@ private:
 
 	/** Reference to keep our custom configuration panel alive */
 	TSharedPtr<SWidget> ConfigurationPanel;
+
+	/** Blueprint debugger state - refactor into SBlueprintDebugger if needed */
+	TUniquePtr<FBlueprintDebugger> BlueprintDebugger;
 };

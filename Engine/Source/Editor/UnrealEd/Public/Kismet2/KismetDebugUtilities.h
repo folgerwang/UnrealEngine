@@ -25,6 +25,17 @@ struct FKismetTraceSample
 };
 
 //////////////////////////////////////////////////////////////////////////
+// FDebugInfo
+
+struct FDebugInfo
+{
+	FText DisplayName;
+	FText Value;
+	FText Type;
+	TArray<FDebugInfo> Children;
+};
+
+//////////////////////////////////////////////////////////////////////////
 // FObjectsBeingDebuggedIterator
 
 // Helper class to iterate over all objects that should be visible in the debugger
@@ -105,6 +116,9 @@ private:
 class UNREALED_API FKismetDebugUtilities
 {
 public:
+	// Delegate for when pins are added or removed from the watchlist
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnWatchedPinsListChanged, class UBlueprint*);
+
 	static void OnScriptException(const UObject* ActiveObject, const FFrame& StackFrame, const FBlueprintExceptionInfo& Info);
 
 	/** Returns the current instruction; if a PIE/SIE session is started but paused; otherwise NULL */
@@ -195,6 +209,9 @@ public:
 	/** Deletes all breakpoints in this blueprint */
 	static void ClearBreakpoints(UBlueprint* Blueprint);
 
+	// Notifies listeners when a watched pin is added or removed
+	static FOnWatchedPinsListChanged WatchedPinsListChangedEvent;
+
 	static bool CanWatchPin(const UBlueprint* Blueprint, const UEdGraphPin* Pin);
 	static bool IsPinBeingWatched(const UBlueprint* Blueprint, const UEdGraphPin* Pin);
 	static void TogglePinWatch(UBlueprint* Blueprint, const UEdGraphPin* Pin);
@@ -219,12 +236,22 @@ public:
 	// Gets the watched tooltip for a specified site
 	static EWatchTextResult GetWatchText(FString& OutWatchText, UBlueprint* Blueprint, UObject* ActiveObject, const UEdGraphPin* WatchPin);
 
+	// Gets the debug info for a specified site
+	static EWatchTextResult GetDebugInfo(FDebugInfo& OutDebugInfo, UBlueprint* Blueprint, UObject* ActiveObject, const UEdGraphPin* WatchPin);
+
 	//@TODO: Pretty lame way to handle this messaging, ideally the entire Info object gets pushed into the editor when intraframe debugging is triggered!
 	// This doesn't work properly if there is more than one blueprint editor open at once either (one will consume it, the others will be left in the cold)
 	static FText GetAndClearLastExceptionMessage();
 protected:
 	static void CheckBreakConditions(UEdGraphNode* NodeStoppedAt, bool bHitBreakpoint, int32 BreakpointOffset, bool& InOutBreakExecution);
 	static void AttemptToBreakExecution(UBlueprint* BlueprintObj, const UObject* ActiveObject, const FFrame& StackFrame, const FBlueprintExceptionInfo& Info, UEdGraphNode* NodeStoppedAt, int32 DebugOpcodeOffset);
+
+	static void GetDebugInfo_InContainer(int32 Index, FDebugInfo& DebugInfo, UProperty* Property, const void* Data);
+	static void GetDebugInfoInternal(FDebugInfo& DebugInfo, UProperty* Property, const void* PropertyValue);
+
+	// helper function for converting between blueprint and debuggable data
+	// output params are only valid if the return result is EWatchTextResult::EWTR_Valid
+	static EWatchTextResult FindDebuggingData(UBlueprint* Blueprint, UObject* ActiveObject, const UEdGraphPin* WatchPin, UProperty*& OutProperty, void*& OutData, void*& OutDelta, UObject*& OutParent);
 
 private:
 	FKismetDebugUtilities() {}

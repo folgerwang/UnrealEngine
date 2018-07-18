@@ -25,7 +25,7 @@ void FPaperSpriteTangents::SetTangentsFromPaperAxes()
 	PackedNormalX = PaperAxisX;
 	PackedNormalZ = -PaperAxisZ;
 	// store determinant of basis in w component of normal vector
-	PackedNormalZ.Vector.W = (GetBasisDeterminantSign(PaperAxisX, PaperAxisY, PaperAxisZ) < 0.0f) ? 0 : 255;
+	PackedNormalZ.Vector.W = GetBasisDeterminantSignByte(PaperAxisX, PaperAxisY, PaperAxisZ);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -65,9 +65,9 @@ public:
 	}
 
 	// FMaterialRenderProxy interface.
-	virtual const FMaterial* GetMaterial(ERHIFeatureLevel::Type InFeatureLevel) const override
+	virtual void GetMaterialWithFallback(ERHIFeatureLevel::Type InFeatureLevel, const FMaterialRenderProxy*& OutMaterialRenderProxy, const FMaterial*& OutMaterial) const override
 	{
-		return Parent->GetMaterial(InFeatureLevel);
+		Parent->GetMaterialWithFallback(InFeatureLevel, OutMaterialRenderProxy, OutMaterial);
 	}
 
 	virtual bool GetVectorValue(const FMaterialParameterInfo& ParameterInfo, FLinearColor* OutValue, const FMaterialRenderContext& Context) const override
@@ -138,7 +138,7 @@ FPaperRenderSceneProxy::FPaperRenderSceneProxy(const UPrimitiveComponent* InComp
 	, bCastShadow(InComponent->CastShadow)
 	, CollisionResponse(InComponent->GetCollisionResponseToChannels())
 {
-	WireframeColor = FLinearColor::White;
+	SetWireframeColor(FLinearColor::White);
 
 	bDrawTwoSided = CVarDrawSpritesAsTwoSided.GetValueOnGameThread() != 0;
 }
@@ -170,12 +170,12 @@ void FPaperRenderSceneProxy::DebugDrawBodySetup(const FSceneView* View, int32 Vi
 			// Make a material for drawing solid collision stuff
 			auto SolidMaterialInstance = new FColoredMaterialRenderProxy(
 				GEngine->ShadedLevelColorationUnlitMaterial->GetRenderProxy(IsSelected(), IsHovered()),
-				WireframeColor
+				GetWireframeColor()
 				);
 
 			Collector.RegisterOneFrameMaterialProxy(SolidMaterialInstance);
 
-			BodySetup->AggGeom.GetAggGeom(GeomTransform, WireframeColor.ToFColor(true), SolidMaterialInstance, false, true, UseEditorDepthTest(), ViewIndex, Collector);
+			BodySetup->AggGeom.GetAggGeom(GeomTransform, GetWireframeColor().ToFColor(true), SolidMaterialInstance, false, true, UseEditorDepthTest(), ViewIndex, Collector);
 		}
 		else
 		{
@@ -288,7 +288,7 @@ void FPaperRenderSceneProxy::GetNewBatchMeshes(const FSceneView* View, int32 Vie
 				// Implementing our own wireframe coloring as the automatic one (controlled by Mesh.bCanApplyViewModeOverrides) only supports per-FPrimitiveSceneProxy WireframeColor
 				if (bIsWireframeView)
 				{
-					const FLinearColor EffectiveWireframeColor = (Batch.Material->GetBlendMode() != BLEND_Opaque) ? WireframeColor : FLinearColor::Green;
+					const FLinearColor EffectiveWireframeColor = (Batch.Material->GetBlendMode() != BLEND_Opaque) ? GetWireframeColor() : FLinearColor::Green;
 
 					auto WireframeMaterialInstance = new FColoredMaterialRenderProxy(
 						GEngine->WireframeMaterial->GetRenderProxy(IsSelected(), IsHovered()),
@@ -353,7 +353,7 @@ void FPaperRenderSceneProxy::GetBatchMesh(const FSceneView* View, class UMateria
 				const FVector Pos((PaperAxisX * SourceVert.X) + (PaperAxisY * SourceVert.Y) + EffectiveOrigin);
 				const FVector2D UV(SourceVert.Z, SourceVert.W);
 
-				new (VertexArray.Vertices) FDynamicMeshVertex(Pos, FPaperSpriteTangents::PackedNormalX, FPaperSpriteTangents::PackedNormalZ, UV, SpriteColor);
+				new (VertexArray.Vertices) FDynamicMeshVertex(Pos, FPaperSpriteTangents::PackedNormalX.ToFVector(), FPaperSpriteTangents::PackedNormalZ.ToFVector(), UV, SpriteColor);
 			}
 
 			FDynamicMeshBuilder DynamicMeshBuilder(View->GetFeatureLevel());
@@ -368,7 +368,7 @@ void FPaperRenderSceneProxy::GetBatchMesh(const FSceneView* View, class UMateria
 			// Implementing our own wireframe coloring as the automatic one (controlled by Mesh.bCanApplyViewModeOverrides) only supports per-FPrimitiveSceneProxy WireframeColor
 			if (bIsWireframeView)
 			{
-				const FLinearColor EffectiveWireframeColor = (BatchMaterial->GetBlendMode() != BLEND_Opaque) ? WireframeColor : FLinearColor::Green;
+				const FLinearColor EffectiveWireframeColor = (BatchMaterial->GetBlendMode() != BLEND_Opaque) ? GetWireframeColor() : FLinearColor::Green;
 
 				auto WireframeMaterialInstance = new FColoredMaterialRenderProxy(
 					GEngine->WireframeMaterial->GetRenderProxy(IsSelected(), IsHovered()),

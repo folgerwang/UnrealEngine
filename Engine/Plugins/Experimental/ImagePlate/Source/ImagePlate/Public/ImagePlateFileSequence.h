@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
 #include "GameFramework/Actor.h"
-#include "Future.h"
+#include "Async/Future.h"
 #include "ImagePlateFileSequence.generated.h"
 
 class UTexture;
@@ -88,6 +88,7 @@ struct IMAGEPLATE_API FImagePlateAsyncCache
 	static FImagePlateAsyncCache MakeCache(const FString& InSequencePath, const FString& InWildcard, float Framerate);
 
 	/** Request a frame of data from the cache, whilst also caching leading and trailing frames if necessary */
+	// @todo: sequencer-timecode: frame accuracy
 	TSharedFuture<FImagePlateSourceFrame> RequestFrame(float Time, int32 LeadingPrecacheFrames, int32 TrailingPrecacheFrames);
 
 	/** Get the length of the sequence in frames */

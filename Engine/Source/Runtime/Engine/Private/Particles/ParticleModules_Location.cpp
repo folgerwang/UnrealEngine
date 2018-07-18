@@ -1600,20 +1600,8 @@ void UParticleModuleLocationBoneSocket::Spawn(FParticleEmitterInstance* Owner, i
 		return;
 	}
 
-	if (!InstancePayload->SourceComponent.IsValid())
-	{
-		// Setup the source skeletal mesh component...
-		USkeletalMeshComponent* SkeletalMeshComponent = GetSkeletalMeshComponentSource(Owner);
-		if (SkeletalMeshComponent != NULL)
-		{
-			InstancePayload->SourceComponent = SkeletalMeshComponent;
-			RegeneratePreSelectedIndices(InstancePayload, SkeletalMeshComponent);
-		}
-		else
-		{
-			return;
-		}
-	}
+	// Setup the source skeletal mesh component...
+	GetSkeletalMeshComponentSource(Owner, InstancePayload);
 
 	// Early out if source component is still invalid 
 	if (!InstancePayload->SourceComponent.IsValid())
@@ -1990,44 +1978,60 @@ int32 UParticleModuleLocationBoneSocket::GetMaxSourceIndex(FModuleLocationBoneSo
 	return 0;
 }
 
-USkeletalMeshComponent* UParticleModuleLocationBoneSocket::GetSkeletalMeshComponentSource(FParticleEmitterInstance* Owner)
+void UParticleModuleLocationBoneSocket::GetSkeletalMeshComponentSource(FParticleEmitterInstance* Owner, FModuleLocationBoneSocketInstancePayload* InstancePayload)
 {
 	if (Owner == NULL)
 	{
-		return NULL;
+		InstancePayload->SourceComponent = nullptr;
+		return;
 	}
 
 	UParticleSystemComponent* PSysComp = Owner->Component;
 	if (PSysComp == NULL)
 	{
-		return NULL;
+		InstancePayload->SourceComponent = nullptr;
+		return;
 	}
 
-	AActor* Actor;
-	if (PSysComp->GetActorParameter(SkelMeshActorParamName, Actor) == true)
+	USkeletalMeshComponent* NewSkelComp = nullptr;
+
+	AActor* Actor = nullptr;
+	PSysComp->GetActorParameter(SkelMeshActorParamName, Actor);
+	bool bActorChanged = Actor != InstancePayload->CachedActor.Get();
+	if (!InstancePayload->SourceComponent.IsValid() || bActorChanged)
 	{
-		ASkeletalMeshActor* SkelMeshActor = Cast<ASkeletalMeshActor>(Actor);
-		if (SkelMeshActor != NULL)
+		InstancePayload->SourceComponent = nullptr;
+		InstancePayload->CachedActor = Actor;
+
+		if (Actor)
 		{
-			return SkelMeshActor->GetSkeletalMeshComponent();
-		}
-		else if (Actor)
-		{
-			USkeletalMeshComponent* SkeletalMeshComponent = Actor->FindComponentByClass<USkeletalMeshComponent>();
-			if (SkeletalMeshComponent)
+			ASkeletalMeshActor* SkelMeshActor = Cast<ASkeletalMeshActor>(Actor);
+			if (SkelMeshActor != NULL)
 			{
-				return SkeletalMeshComponent;
+				NewSkelComp = SkelMeshActor->GetSkeletalMeshComponent();
 			}
-			//@todo. Warn about this...
+			else if (Actor)
+			{
+				USkeletalMeshComponent* SkeletalMeshComponent = Actor->FindComponentByClass<USkeletalMeshComponent>();
+				if (SkeletalMeshComponent)
+				{
+					NewSkelComp = SkeletalMeshComponent;
+				}
+				//@todo. Warn about this...
+			}
+		}
+
+		if (USkeletalMeshComponent* SkelMesh = Cast<USkeletalMeshComponent>(PSysComp->GetAttachParent()))
+		{
+			NewSkelComp = SkelMesh;
+		}
+
+		if (NewSkelComp)
+		{
+			InstancePayload->SourceComponent = NewSkelComp;
+			RegeneratePreSelectedIndices(InstancePayload, NewSkelComp);
 		}
 	}
-
-	if (USkeletalMeshComponent* SkelMesh = Cast<USkeletalMeshComponent>(PSysComp->GetAttachParent()))
-	{
-		return SkelMesh;
-	}
-
-	return NULL;
 }
 
 bool UParticleModuleLocationBoneSocket::GetSocketInfoForSourceIndex(FModuleLocationBoneSocketInstancePayload* InstancePayload, USkeletalMeshComponent* SourceComponent, int32 SourceIndex, USkeletalMeshSocket*& OutSocket, FVector& OutOffset)const
@@ -2266,20 +2270,8 @@ void UParticleModuleLocationSkelVertSurface::Spawn(FParticleEmitterInstance* Own
 	{
 		return;
 	}
-
-	if (!InstancePayload->SourceComponent.IsValid())
-	{
-		// Setup the source skeletal mesh component...
-		USkeletalMeshComponent* SkeletalMeshComponent = GetSkeletalMeshComponentSource(Owner);
-		if (SkeletalMeshComponent != NULL)
-		{
-			InstancePayload->SourceComponent = SkeletalMeshComponent;
-		}
-		else
-		{
-			return;
-		}
-	}
+	
+	GetSkeletalMeshComponentSource(Owner, InstancePayload);
 
 	// Early out if source component is still invalid 
 	if (!InstancePayload->SourceComponent.IsValid())
@@ -2486,9 +2478,11 @@ void UParticleModuleLocationSkelVertSurface::Update(FParticleEmitterInstance* Ow
 	
 	FModuleLocationVertSurfaceInstancePayload* InstancePayload = 
 		(FModuleLocationVertSurfaceInstancePayload*)(Owner->GetModuleInstanceData(this));
+
+	GetSkeletalMeshComponentSource(Owner, InstancePayload);
+
 	if (!InstancePayload->SourceComponent.IsValid())
 	{
-		//@todo. Should we setup the source skeletal mesh component here too??
 		return;
 	}
 
@@ -2598,8 +2592,6 @@ uint32 UParticleModuleLocationSkelVertSurface::PrepPerInstanceBlock(FParticleEmi
 		Payload->InitArrayProxies(ValidAssociatedBones.Num());
 	}
 
-	UpdateBoneIndicesList(Owner);
-
 	return Super::PrepPerInstanceBlock(Owner, InstData);
 }
 
@@ -2611,57 +2603,19 @@ void UParticleModuleLocationSkelVertSurface::UpdateBoneIndicesList(FParticleEmit
 
 	AActor* ActorInst = NULL;
 
-	if (Owner->Component->GetActorParameter(SkelMeshActorParamName, ActorInst) && (ActorInst != NULL))
+	if (USkeletalMeshComponent* SkelMeshComp = InstancePayload->SourceComponent.Get())
 	{
-		ASkeletalMeshActor* SkeletalMeshActor = Cast<ASkeletalMeshActor>(ActorInst);
-
-		if ( SkeletalMeshActor != NULL )
+		int32 InsertionIndex = 0;
+		for (int32 FindBoneIdx = 0; FindBoneIdx < ValidAssociatedBones.Num(); FindBoneIdx++)
 		{
-			if (SkeletalMeshActor->GetSkeletalMeshComponent() && (SkeletalMeshActor->GetSkeletalMeshComponent()->SkeletalMesh != NULL))
+			const int32 BoneIdx = SkelMeshComp->SkeletalMesh->RefSkeleton.FindBoneIndex(ValidAssociatedBones[FindBoneIdx]);
+			if (BoneIdx != INDEX_NONE && ValidAssociatedBones.Num() > InsertionIndex)
 			{
-				int32 InsertionIndex = 0;
-				for (int32 FindBoneIdx = 0; FindBoneIdx < ValidAssociatedBones.Num(); FindBoneIdx++)
-				{
-					const int32 BoneIdx = SkeletalMeshActor->GetSkeletalMeshComponent()->SkeletalMesh->RefSkeleton.FindBoneIndex(ValidAssociatedBones[FindBoneIdx]);
-					if (BoneIdx != INDEX_NONE && ValidAssociatedBones.Num() > InsertionIndex)
-					{
-						InstancePayload->ValidAssociatedBoneIndices[InsertionIndex++] = BoneIdx;
-					}
-				}
-				// Cache the number of bone indices on the payload
-				InstancePayload->NumValidAssociatedBoneIndices = InsertionIndex;
+				InstancePayload->ValidAssociatedBoneIndices[InsertionIndex++] = BoneIdx;
 			}
 		}
-		// If we have an arbitrary actor, search for skeletal mesh components
-		else 
-		{
-			if(ActorInst != NULL)
-			{
-				TInlineComponentArray<USkeletalMeshComponent*> Components;
-				ActorInst->GetComponents(Components);
-
-				int32 InsertionIndex = 0;
-				// look over all of the components looking for a SkelMeshComp and then if we find one we look at it to see if the bones match
-				for( int32 CompIdx = 0; CompIdx < Components.Num(); ++CompIdx )
-				{
-					USkeletalMeshComponent* SkelComp = Components[ CompIdx ];
-
-					if( ( SkelComp->SkeletalMesh != NULL ) && SkelComp->IsRegistered() )
-					{
-						for (int32 FindBoneIdx = 0; FindBoneIdx < ValidAssociatedBones.Num(); FindBoneIdx++)
-						{
-							const int32 BoneIdx = SkelComp->SkeletalMesh->RefSkeleton.FindBoneIndex(ValidAssociatedBones[FindBoneIdx]);
-							if (BoneIdx != INDEX_NONE && ValidAssociatedBones.Num() > InsertionIndex)
-							{
-								InstancePayload->ValidAssociatedBoneIndices[InsertionIndex++] = BoneIdx;
-							}
-						}
-					}
-				}
-                // Cache the number of bone indices on the payload
-				InstancePayload->NumValidAssociatedBoneIndices = InsertionIndex;
-			}
-		}
+		// Cache the number of bone indices on the payload
+		InstancePayload->NumValidAssociatedBoneIndices = InsertionIndex;
 	}
 }
 
@@ -2775,44 +2729,51 @@ bool UParticleModuleLocationSkelVertSurface::IsValidForLODLevel(UParticleLODLeve
 
 #endif
 
-USkeletalMeshComponent* UParticleModuleLocationSkelVertSurface::GetSkeletalMeshComponentSource(FParticleEmitterInstance* Owner)
+void UParticleModuleLocationSkelVertSurface::GetSkeletalMeshComponentSource(FParticleEmitterInstance* Owner, FModuleLocationVertSurfaceInstancePayload* InstancePayload)
 {
 	if (Owner == NULL)
 	{
-		return NULL;
+		return;
 	}
 
 	UParticleSystemComponent* PSysComp = Owner->Component;
 	if (PSysComp == NULL)
 	{
-		return NULL;
+		return;
 	}
 
-	AActor* Actor;
-	if (PSysComp->GetActorParameter(SkelMeshActorParamName, Actor) == true)
+	USkeletalMeshComponent* NewSkelMeshComp = nullptr;
+	AActor* Actor = nullptr;
+	PSysComp->GetActorParameter(SkelMeshActorParamName, Actor);
+	bool bChangedActor = InstancePayload->CachedActor.Get() != Actor;
+	if (!InstancePayload->SourceComponent.IsValid() || bChangedActor)
 	{
+		InstancePayload->SourceComponent = nullptr;
+		InstancePayload->CachedActor = Actor;
 		if(Actor == NULL)
 		{
-			return NULL;
+			return;
 		}
 		
 		ASkeletalMeshActor* SkelMeshActor = Cast<ASkeletalMeshActor>(Actor);
 		if (SkelMeshActor != NULL)
 		{
-			return SkelMeshActor->GetSkeletalMeshComponent();
+			NewSkelMeshComp = SkelMeshActor->GetSkeletalMeshComponent();
 		}
 		else
 		{
 			USkeletalMeshComponent* SkeletalMeshComponent = Actor->FindComponentByClass<USkeletalMeshComponent>();
 			if (SkeletalMeshComponent)
 			{
-				return SkeletalMeshComponent;
+				NewSkelMeshComp = SkeletalMeshComponent;
 			}
 			//@todo. Warn about this...
 		}
-	}
 
-	return NULL;
+		InstancePayload->SourceComponent = NewSkelMeshComp;
+
+		UpdateBoneIndicesList(Owner);
+	}
 }
 
 

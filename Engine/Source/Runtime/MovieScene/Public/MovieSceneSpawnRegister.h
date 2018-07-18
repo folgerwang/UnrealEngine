@@ -136,7 +136,7 @@ public:
 	 * @param	Sequencer		The sequencer this spawnable was just created by
 	 * @param	Settings		The settings for this sequencer
 	 */
-	virtual void SetupDefaultsForSpawnable(UObject* SpawnedObject, const FGuid& Guid, const FTransformData& TransformData, TSharedRef<ISequencer> Sequencer, USequencerSettings* Settings) {}
+	virtual void SetupDefaultsForSpawnable(UObject* SpawnedObject, const FGuid& Guid, const TOptional<FTransformData>& TransformData, TSharedRef<ISequencer> Sequencer, USequencerSettings* Settings) {}
 
 	/**
 	 * Called to handle cleanup of objects when we convert a possessable to a spawnable object
@@ -145,7 +145,7 @@ public:
 	 * @param	Player		The current player
 	 * @param	OutTransformData	Transform data that can be used to recreate objects in the same location
 	 */
-	virtual void HandleConvertPossessableToSpawnable(UObject* OldObject, IMovieScenePlayer& Player, FTransformData& OutTransformData) {}
+	virtual void HandleConvertPossessableToSpawnable(UObject* OldObject, IMovieScenePlayer& Player, TOptional<FTransformData>& OutTransformData) {}
 
 
 	/**

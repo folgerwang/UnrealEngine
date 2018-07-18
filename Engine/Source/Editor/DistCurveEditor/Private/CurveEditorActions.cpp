@@ -4,7 +4,7 @@
 
 #define LOCTEXT_NAMESPACE "CurveEditorCommands"
 
-void FCurveEditorCommands::RegisterCommands()
+void FDistCurveEditorCommands::RegisterCommands()
 {
 	UI_COMMAND(RemoveCurve, "Remove Curve", "Remove Curve", EUserInterfaceActionType::Button, FInputChord());
 	UI_COMMAND(RemoveAllCurves, "Remove All Curves", "Remove All Curves", EUserInterfaceActionType::Button, FInputChord());

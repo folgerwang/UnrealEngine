@@ -35,7 +35,8 @@ void FSlomoTrackEditor::BuildAddTrackMenu(FMenuBuilder& MenuBuilder)
 		LOCTEXT("AddPlayRateTrackTooltip", "Adds a new track that controls the playback rate of the sequence."),
 		FSlateIcon(FEditorStyle::GetStyleSetName(), "Sequencer.Tracks.Slomo"),
 		FUIAction(
-			FExecuteAction::CreateRaw(this, &FSlomoTrackEditor::HandleAddSlomoTrackMenuEntryExecute)
+			FExecuteAction::CreateRaw(this, &FSlomoTrackEditor::HandleAddSlomoTrackMenuEntryExecute),
+			FCanExecuteAction::CreateRaw(this, &FSlomoTrackEditor::HandleAddSlomoTrackMenuEntryCanExecute)
 		)
 	);
 }
@@ -87,8 +88,19 @@ void FSlomoTrackEditor::HandleAddSlomoTrackMenuEntryExecute()
 
 	SlomoTrack->AddSection(*NewSection);
 
+	if (GetSequencer().IsValid())
+	{
+		GetSequencer()->OnAddTrack(SlomoTrack);
+	}
+
 	GetSequencer()->NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::MovieSceneStructureItemAdded );
 }
 
+bool FSlomoTrackEditor::HandleAddSlomoTrackMenuEntryCanExecute() const
+{
+	UMovieScene* FocusedMovieScene = GetFocusedMovieScene();
+
+	return ((FocusedMovieScene != nullptr) && (FocusedMovieScene->FindMasterTrack<UMovieSceneSlomoTrack>() == nullptr));
+}
 
 #undef LOCTEXT_NAMESPACE

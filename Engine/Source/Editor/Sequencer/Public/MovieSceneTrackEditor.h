@@ -51,17 +51,17 @@ struct FKeyPropertyResult
 };
 
 /** Delegate for adding keys for a property
- * float - The time at which to add the key.
+ * FFrameNumber - The time at which to add the key.
  * return - KeyPropertyResult - 
  */
-DECLARE_DELEGATE_RetVal_OneParam(FKeyPropertyResult, FOnKeyProperty, float)
+DECLARE_DELEGATE_RetVal_OneParam(FKeyPropertyResult, FOnKeyProperty, FFrameNumber)
 
 
 /** Delegate for whether a property can be keyed
- * float - The time at which to add the key.
+ * FFrameNumber - The time at which to add the key.
  * return - True if the property can be keyed, otherwise false.
  */
-DECLARE_DELEGATE_RetVal_OneParam(bool, FCanKeyProperty, float)
+DECLARE_DELEGATE_RetVal_OneParam(bool, FCanKeyProperty, FFrameNumber)
 
 
 /**
@@ -90,7 +90,7 @@ public:
 	/**
 	 * @return The current local time at which we should add a key
 	 */
-	float GetTimeForKey();
+	FFrameNumber GetTimeForKey();
 
 	void UpdatePlaybackRange();
 
@@ -156,6 +156,8 @@ public:
 
 	virtual UMovieSceneTrack* AddTrack(UMovieScene* FocusedMovieScene, const FGuid& ObjectHandle, TSubclassOf<class UMovieSceneTrack> TrackClass, FName UniqueTypeName) override;
 
+	virtual TSharedRef<ISequencerSection> MakeSectionInterface(UMovieSceneSection& SectionObject, UMovieSceneTrack& Track, FGuid ObjectBinding) override;
+
 	virtual void BindCommands(TSharedRef<FUICommandList> SequencerCommandBindings) override;
 	virtual void BuildAddTrackMenu(FMenuBuilder& MenuBuilder) override;
 	virtual void BuildObjectBindingEditButtons(TSharedPtr<SHorizontalBox> EditBox, const FGuid& ObjectBinding, const UClass* ObjectClass) override;
@@ -163,8 +165,8 @@ public:
 	virtual TSharedPtr<SWidget> BuildOutlinerEditWidget(const FGuid& ObjectBinding, UMovieSceneTrack* Track, const FBuildEditWidgetParams& Params) override;
 	virtual void BuildTrackContextMenu( FMenuBuilder& MenuBuilder, UMovieSceneTrack* Track ) override;
 	virtual bool HandleAssetAdded(UObject* Asset, const FGuid& TargetObjectGuid) override;
-	virtual bool OnAllowDrop(const FDragDropEvent& DragDropEvent, UMovieSceneTrack* Track) override;
-	virtual FReply OnDrop(const FDragDropEvent& DragDropEvent, UMovieSceneTrack* Track) override;
+	virtual bool OnAllowDrop(const FDragDropEvent& DragDropEvent, UMovieSceneTrack* Track, int32 RowIndex, const FGuid& TargetObjectGuid) override;
+	virtual FReply OnDrop(const FDragDropEvent& DragDropEvent, UMovieSceneTrack* Track, int32 RowIndex, const FGuid& TargetObjectGuid) override;
 
 	virtual void OnInitialize() override;
 	virtual void OnRelease() override;

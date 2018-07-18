@@ -9,7 +9,6 @@
 class FMenuBuilder;
 class UMediaPlayer;
 
-
 /**
  * Implements an action for UMediaPlayer assets.
  */

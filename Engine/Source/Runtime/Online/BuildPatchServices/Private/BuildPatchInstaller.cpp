@@ -1136,14 +1136,14 @@ namespace BuildPatchServices
 		const bool bCheckFileChanges = !bDiscoveredByVerification;
 		if (bCheckFileChanges)
 		{
-			const FFileManifestData* OldFileManifest = CurrentBuildManifest.IsValid() ? CurrentBuildManifest->GetFileManifest(Filename) : nullptr;
-			const FFileManifestData* NewFileManifest = NewBuildManifest->GetFileManifest(Filename);
+			const FFileManifest* OldFileManifest = CurrentBuildManifest.IsValid() ? CurrentBuildManifest->GetFileManifest(Filename) : nullptr;
+			const FFileManifest* NewFileManifest = NewBuildManifest->GetFileManifest(Filename);
 			const int64 InstalledFilesize = IFileManager::Get().FileSize(*InstalledFilename);
 			const int64 OriginalFileSize = OldFileManifest ? OldFileManifest->GetFileSize() : INDEX_NONE;
 			const int64 NewFileSize = NewFileManifest ? NewFileManifest->GetFileSize() : INDEX_NONE;
-			const FSHAHashData HashZero;
-			const FSHAHashData& HashOld = OldFileManifest ? OldFileManifest->FileHash : HashZero;
-			const FSHAHashData& HashNew = NewFileManifest ? NewFileManifest->FileHash : HashZero;
+			const FSHAHash HashZero;
+			const FSHAHash& HashOld = OldFileManifest ? OldFileManifest->FileHash : HashZero;
+			const FSHAHash& HashNew = NewFileManifest ? NewFileManifest->FileHash : HashZero;
 			const bool bFileSizeDiffers = OriginalFileSize != InstalledFilesize && NewFileSize != InstalledFilesize;
 			bUserEditedFile = bFileSizeDiffers || FBuildPatchUtils::VerifyFile(FileSystem.Get(), InstalledFilename, HashOld, HashNew) == 0;
 		}

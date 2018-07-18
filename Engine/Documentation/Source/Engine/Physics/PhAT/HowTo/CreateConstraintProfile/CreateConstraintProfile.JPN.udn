@@ -1,5 +1,4 @@
-﻿INTSourceChangelist:3710404
-Availability:Public
+﻿Availability:Public
 Title:物理コンストレイント プロファイルの作成方法
 Crumbs: %ROOT%, Engine
 Description:物理アセット ツールによる物理コンストレイント プロファイルのスケルタルメッシュ コンポーネントへの作成方法の説明です。
@@ -59,7 +58,7 @@ topic-image:Engine/Physics/physics_topic.png
 
 ## 結果
 
-**物理アセット** には **物理コンストレイント* のプロパティを変更するためにブループリントまたは C++ から呼び出されるプロファイルがあります。
+**物理アセット** には **物理コンストレイント** のプロパティを変更するためにブループリントまたは C++ から呼び出されるプロファイルがあります。
 
 ## 追加の資料
 

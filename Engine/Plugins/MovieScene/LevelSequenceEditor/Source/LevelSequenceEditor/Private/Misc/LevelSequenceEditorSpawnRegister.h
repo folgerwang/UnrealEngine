@@ -40,8 +40,8 @@ public:
 	virtual void SaveDefaultSpawnableState(FMovieSceneSpawnable& Spawnable, FMovieSceneSequenceIDRef TemplateID, IMovieScenePlayer& Player) override;
 #if WITH_EDITOR
 	virtual TValueOrError<FNewSpawnable, FText> CreateNewSpawnableType(UObject& SourceObject, UMovieScene& OwnerMovieScene, UActorFactory* ActorFactory = nullptr) override;
-	virtual void SetupDefaultsForSpawnable(UObject* SpawnedObject, const FGuid& Guid, const FTransformData& TransformData, TSharedRef<ISequencer> Sequencer, USequencerSettings* Settings) override;
-	virtual void HandleConvertPossessableToSpawnable(UObject* OldObject, IMovieScenePlayer& Player, FTransformData& OutTransformData) override;
+	virtual void SetupDefaultsForSpawnable(UObject* SpawnedObject, const FGuid& Guid, const TOptional<FTransformData>& TransformData, TSharedRef<ISequencer> Sequencer, USequencerSettings* Settings) override;
+	virtual void HandleConvertPossessableToSpawnable(UObject* OldObject, IMovieScenePlayer& Player, TOptional<FTransformData>& OutTransformData) override;
 	virtual bool CanConvertSpawnableToPossessable(FMovieSceneSpawnable& Spawnable) const override;
 #endif
 
@@ -50,31 +50,48 @@ private:
 	/** Called when the editor selection has changed. */
 	void HandleActorSelectionChanged(const TArray<UObject*>& NewSelection, bool bForceRefresh);
 
-	/** Called before sequencer attempts to save the movie scene(s) it's editing */
-	void OnPreSaveMovieScene(ISequencer& InSequencer);
-
-	/** Called when a new movie scene sequence instance has been activated */
-	void OnSequenceInstanceActivated(FMovieSceneSequenceIDRef ActiveInstance);
-
 	/** Saves the default state for the specified spawnable, if an instance for it currently exists */
 	void SaveDefaultSpawnableState(const FGuid& BindingId, FMovieSceneSequenceIDRef TemplateID);
+	void SaveDefaultSpawnableStateImpl(FMovieSceneSpawnable& Spawnable, UMovieSceneSequence* Sequence, UObject* SpawnedObject, IMovieScenePlayer& Player);
 
-	/** Check whether the specified objects are editable on the details panel. Called from the level editor */
-	bool AreObjectsEditable(const TArray<TWeakObjectPtr<UObject>>& InObjects) const;
-	
 	/** Called from the editor when a blueprint object replacement has occurred */
 	void OnObjectsReplaced(const TMap<UObject*, UObject*>& OldToNewInstanceMap);
+
+	/** Called whenever an object is modified in the editor */
+	void OnObjectModified(UObject* ModifiedObject);
+
+	/** Called before an object is saved in the editor */
+	void OnPreObjectSaved(UObject* Object);
+
+private:
+
+	struct FTrackedObjectState
+	{
+		FTrackedObjectState(FMovieSceneSequenceIDRef InTemplateID, const FGuid& InObjectBindingID) : TemplateID(InTemplateID), ObjectBindingID(InObjectBindingID), bHasBeenModified(false) {}
+
+		/** The sequence ID that spawned this object */
+		FMovieSceneSequenceID TemplateID;
+
+		/** The object binding ID of the object in the template */
+		FGuid ObjectBindingID;
+
+		/** true if this object has been modified since it was spawned and is different from the current object template */
+		bool bHasBeenModified;
+	};
 
 private:
 
 	/** Handles for delegates that we've bound to. */
-	FDelegateHandle OnActorSelectionChangedHandle, OnAreObjectsEditableHandle;
+	FDelegateHandle OnActorSelectionChangedHandle;
 
 	/** Set of spawn register keys for objects that should be selected if they are spawned. */
 	TSet<FMovieSceneSpawnRegisterKey> SelectedSpawnedObjects;
 
-	/** Set of currently spawned objects */
-	TMap<FMovieSceneSequenceID, TSet<FObjectKey>> SpawnedObjects;
+	/** Map from a sequenceID to an array of objects that have been modified */
+	TMap<FObjectKey, FTrackedObjectState> ModifiedObjects;
+
+	/** Set of UMovieSceneSequences that this register has spawned objects for that are modified */
+	TSet<FObjectKey> SequencesWithModifiedObjects;
 
 	/** True if we should clear the above selection cache when the editor selection has been changed. */
 	bool bShouldClearSelectionCache;
@@ -82,6 +99,9 @@ private:
 	/** Weak pointer to the active sequencer. */
 	TWeakPtr<ISequencer> WeakSequencer;
 
-	/** Identifier for the current active level sequence */
-	FMovieSceneSequenceID ActiveSequence;
+	/** Handle to a delegate that is bound to FCoreUObjectDelegates::OnObjectModified to harvest changes to spawned objects. */
+	FDelegateHandle OnObjectModifiedHandle;
+
+	/** Handle to a delegate that is bound to FCoreUObjectDelegates::OnObjectSaved to harvest changes to spawned objects. */
+	FDelegateHandle OnObjectSavedHandle;
 };

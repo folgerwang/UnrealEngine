@@ -18,6 +18,7 @@ enum EPhysAssetFitGeomType
 	EFG_Box					UMETA(DisplayName="Box"),
 	EFG_Sphyl				UMETA(DisplayName="Capsule"),
 	EFG_Sphere				UMETA(DisplayName="Sphere"),
+	EFG_TaperedCapsule		UMETA(DisplayName="Tapered Capsule (Cloth Only)"),
 	EFG_SingleConvexHull	UMETA(DisplayName="Single Convex Hull"),
 	EFG_MultiConvexHull		UMETA(DisplayName="Multi Convex Hull")
 };

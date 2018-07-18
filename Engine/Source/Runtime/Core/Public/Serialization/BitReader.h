@@ -5,7 +5,7 @@
 #include "CoreTypes.h"
 #include "Misc/AssertionMacros.h"
 #include "HAL/UnrealMemory.h"
-#include "Serialization/Archive.h"
+#include "Serialization/BitArchive.h"
 #include "Containers/Array.h"
 
 CORE_API void appBitsCpy( uint8* Dest, int32 DestBit, uint8* Src, int32 SrcBit, int32 BitCount );
@@ -17,7 +17,7 @@ CORE_API void appBitsCpy( uint8* Dest, int32 DestBit, uint8* Src, int32 SrcBit, 
 //
 // Reads bitstreams.
 //
-struct CORE_API FBitReader : public FArchive
+struct CORE_API FBitReader : public FBitArchive
 {
 	friend struct FBitReaderMark;
 
@@ -54,6 +54,8 @@ public:
 			Pos += LengthBits;
 		}
 	}
+
+	virtual void SerializeBitsWithOffset( void* Dest, int32 DestBit, int64 LengthBits ) override;
 
 	// OutValue < ValueMax
 	FORCEINLINE_DEBUGGABLE void SerializeInt(uint32& OutValue, uint32 ValueMax)
@@ -126,7 +128,12 @@ public:
 		return Buffer.GetData();
 	}
 
-	FORCEINLINE_DEBUGGABLE const TArray<uint8>& GetBuffer()
+	FORCEINLINE_DEBUGGABLE const uint8* GetData() const
+	{
+		return Buffer.GetData();
+	}
+
+	FORCEINLINE_DEBUGGABLE const TArray<uint8>& GetBuffer() const
 	{
 		return Buffer;
 	}
@@ -137,11 +144,11 @@ public:
 		return &Buffer[Pos >> 3];
 	}
 
-	FORCEINLINE_DEBUGGABLE uint32 GetBytesLeft()
+	FORCEINLINE_DEBUGGABLE uint32 GetBytesLeft() const
 	{
 		return ((Num - Pos) + 7) >> 3;
 	}
-	FORCEINLINE_DEBUGGABLE uint32 GetBitsLeft()
+	FORCEINLINE_DEBUGGABLE uint32 GetBitsLeft() const
 	{
 		return (Num - Pos);
 	}
@@ -149,15 +156,15 @@ public:
 	{
 		return ArIsError || Pos>=Num;
 	}
-	FORCEINLINE_DEBUGGABLE int64 GetNumBytes()
+	FORCEINLINE_DEBUGGABLE int64 GetNumBytes() const
 	{
 		return (Num+7)>>3;
 	}
-	FORCEINLINE_DEBUGGABLE int64 GetNumBits()
+	FORCEINLINE_DEBUGGABLE int64 GetNumBits() const
 	{
 		return Num;
 	}
-	FORCEINLINE_DEBUGGABLE int64 GetPosBits()
+	FORCEINLINE_DEBUGGABLE int64 GetPosBits() const
 	{
 		return Pos;
 	}

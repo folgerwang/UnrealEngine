@@ -98,6 +98,28 @@ void UImage::SetBrush(const FSlateBrush& InBrush)
 	}
 }
 
+void UImage::SetBrushSize(FVector2D DesiredSize)
+{
+	Brush.ImageSize = DesiredSize;
+	
+	if (MyImage.IsValid())
+	{
+		MyImage->SetImage(&Brush);
+		MyImage->Invalidate(EInvalidateWidget::LayoutAndVolatility);
+	}
+}
+
+void UImage::SetBrushTintColor(FSlateColor TintColor)
+{
+	Brush.TintColor = TintColor;
+
+	if (MyImage.IsValid())
+	{
+		MyImage->SetImage(&Brush);
+		MyImage->Invalidate(EInvalidateWidget::PaintAndVolatility);
+	}
+}
+
 void UImage::SetBrushFromAsset(USlateBrushAsset* Asset)
 {
 	Brush = Asset ? Asset->Brush : FSlateBrush();
@@ -132,6 +154,30 @@ void UImage::SetBrushFromTexture(UTexture2D* Texture, bool bMatchSize)
 	}
 
 	if ( MyImage.IsValid() )
+	{
+		MyImage->SetImage(&Brush);
+		MyImage->Invalidate(EInvalidateWidget::LayoutAndVolatility);
+	}
+}
+
+void UImage::SetBrushFromAtlasInterface(TScriptInterface<ISlateTextureAtlasInterface> AtlasRegion, bool bMatchSize)
+{
+	Brush.SetResourceObject(AtlasRegion.GetObject());
+
+	if (bMatchSize)
+	{
+		if (AtlasRegion)
+		{
+			FSlateAtlasData AtlasData = AtlasRegion->GetSlateAtlasData();
+			Brush.ImageSize = AtlasData.GetSourceDimensions();
+		}
+		else
+		{
+			Brush.ImageSize = FVector2D(0, 0);
+		}
+	}
+
+	if (MyImage.IsValid())
 	{
 		MyImage->SetImage(&Brush);
 		MyImage->Invalidate(EInvalidateWidget::LayoutAndVolatility);
@@ -187,6 +233,7 @@ UMaterialInstanceDynamic* UImage::GetDynamicMaterial()
 			if ( MyImage.IsValid() )
 			{
 				MyImage->SetImage(&Brush);
+				MyImage->Invalidate(EInvalidateWidget::LayoutAndVolatility);
 			}
 		}
 		

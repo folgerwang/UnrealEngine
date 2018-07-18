@@ -14,6 +14,11 @@ private:
 protected:
 	bool Compare(const FUniqueNetId& Other) const override
 	{
+		if (Other.GetType() != GetType())
+		{
+			return false;
+		}
+
 		if (Other.GetSize() != sizeof(ovrID))
 		{
 			return false;
@@ -50,6 +55,11 @@ public:
 		{
 			ID = static_cast<const FUniqueNetIdOculus&>(Src).ID;
 		}
+	}
+
+	virtual FName GetType() const override
+	{
+		return OCULUS_SUBSYSTEM;
 	}
 
 	// IOnlinePlatformData

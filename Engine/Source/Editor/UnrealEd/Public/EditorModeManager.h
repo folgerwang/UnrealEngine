@@ -180,7 +180,7 @@ public:
 	bool BoxSelect( FBox& InBox, bool InSelect );
 
 	/** Notifies all active modes of frustum selection attempts */
-	bool FrustumSelect( const FConvexVolume& InFrustum, bool InSelect );
+	bool FrustumSelect( const FConvexVolume& InFrustum, FEditorViewportClient* InViewportClient, bool InSelect );
 
 	/** true if any active mode uses a transform widget */
 	bool UsesTransformWidget() const;

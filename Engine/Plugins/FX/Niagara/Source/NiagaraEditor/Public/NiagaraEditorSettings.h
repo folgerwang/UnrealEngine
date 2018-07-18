@@ -44,21 +44,37 @@ public:
 	UPROPERTY(config, EditAnywhere, Category = Niagara)
 	TArray<FNiagaraSpawnShortcut> GraphCreationShortcuts;
 
-	/** Whether or not auto-compile is enabled in the editors. */
-	UPROPERTY(config, EditAnywhere, Category = Niagara)
-	bool bAutoCompile;
+	/** Gets whether or not auto-compile is enabled in the editors. */
+	bool GetAutoCompile() const;
+
+	/** Sets whether or not auto-compile is enabled in the editors. */
+	void SetAutoCompile(bool bInAutoCompile);
+
+	/** Gets whether or not simulations should start playing automatically when the emitter or system editor is opened, or when the data is changed in the editor. */
+	bool GetAutoPlay() const;
+
+	/** Sets whether or not simulations should start playing automatically when the emitter or system editor is opened, or when the data is changed in the editor. */
+	void SetAutoPlay(bool bInAutoPlay);
+
+	/** Gets whether or not the simulation should reset when a value on the emitter or system is changed. */
+	bool GetResetSimulationOnChange() const;
+
+	/** Sets whether or not the simulation should reset when a value on the emitter or system is changed. */
+	void SetResetSimulationOnChange(bool bInResetSimulationOnChange);
+
+	/** Gets whether or not to rerun the simulation to the current time when making modifications while paused. */
+	bool GetResimulateOnChangeWhilePaused() const;
+
+	/** Sets whether or not to rerun the simulation to the current time when making modifications while paused. */
+	void SetResimulateOnChangeWhilePaused(bool bInResimulateOnChangeWhilePaused);
 	
 	// Begin UDeveloperSettings Interface
 	virtual FName GetCategoryName() const override;
-#if WITH_EDITOR
 	virtual FText GetSectionText() const override;
-#endif
 	// END UDeveloperSettings Interface
 
-#if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 
-public:
 	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnNiagaraEditorSettingsChanged, const FString&, const UNiagaraEditorSettings*);
 
 	/** Gets a multicast delegate which is called whenever one of the parameters in this settings object changes. */
@@ -66,5 +82,21 @@ public:
 
 protected:
 	static FOnNiagaraEditorSettingsChanged SettingsChangedDelegate;
-#endif
+
+private:
+	/** Whether or not auto-compile is enabled in the editors. */
+	UPROPERTY(config, EditAnywhere, Category = Niagara)
+	bool bAutoCompile;
+
+	/** Whether or not simulations should start playing automatically when the emitter or system editor is opened, or when the data is changed in the editor. */
+	UPROPERTY(config, EditAnywhere, Category = SimulationOptions)
+	bool bAutoPlay;
+
+	/** Whether or not the simulation should reset when a value on the emitter or system is changed. */
+	UPROPERTY(config, EditAnywhere, Category = SimulationOptions)
+	bool bResetSimulationOnChange;
+
+	/** Whether or not to rerun the simulation to the current time when making modifications while paused. */
+	UPROPERTY(config, EditAnywhere, Category = SimulationOptions)
+	bool bResimulateOnChangeWhilePaused;
 };

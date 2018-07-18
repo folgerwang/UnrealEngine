@@ -7,6 +7,18 @@
 #include "OnlineDelegateMacros.h"
 #include "OnlineStats.h"
 
+ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlineLeaderboard, Display, All);
+
+#define UE_LOG_ONLINE_LEADERBOARD(Verbosity, Format, ...) \
+{ \
+	UE_LOG(LogOnlineLeaderboard, Verbosity, TEXT("%s%s"), ONLINE_LOG_PREFIX, *FString::Printf(Format, ##__VA_ARGS__)); \
+}
+
+#define UE_CLOG_ONLINE_LEADERBOARD(Conditional, Verbosity, Format, ...) \
+{ \
+	UE_CLOG(Conditional, LogOnlineLeaderboard, Verbosity, TEXT("%s%s"), ONLINE_LOG_PREFIX, *FString::Printf(Format, ##__VA_ARGS__)); \
+}
+
 /**
  * Delegate called when the last leaderboard read is complete
  *
@@ -101,11 +113,10 @@ public:
 
 	/**
 	 * Writes out the stats contained within the stats write object to the online
-	 * subsystem's cache of stats data. Note the new data replaces the old. It does
-	 * not write the data to the permanent storage until a FlushOnlineStats() call
-	 * or a session ends. Stats cannot be written without a session or the write
-	 * request is ignored. No more than 5 stats views can be written to at a time
-	 * or the write request is ignored.
+	 * subsystem's cache of stats data. Note the new data replaces the old. 
+	 * Stats cannot be written without a session or the write request is ignored.
+	 * No more than 5 stats views can be written to at a time or the write request
+	 * is ignored.
 	 *
 	 * @param SessionName the name of the session to write stats for
 	 * @param Player the player to write stats for

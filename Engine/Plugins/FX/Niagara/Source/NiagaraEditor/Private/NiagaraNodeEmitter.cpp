@@ -16,8 +16,8 @@
 #include "NiagaraNodeParameterMapBase.h"
 #include "NiagaraNodeOutput.h"
 #include "NiagaraHlslTranslator.h"
-#include "MultiBoxBuilder.h"
-#include "Stats.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Stats/Stats.h"
 #include "NiagaraEditorModule.h"
 
 #define LOCTEXT_NAMESPACE "NiagaraNodeEmitter"
@@ -29,6 +29,8 @@ void UNiagaraNodeEmitter::PostInitProperties()
 {
 	Super::PostInitProperties();
 	PinPendingRename = nullptr;
+	CachedGraph = nullptr;
+	CachedScriptSource = nullptr;
 }
 
 UNiagaraSystem* UNiagaraNodeEmitter::GetOwnerSystem() const
@@ -144,7 +146,8 @@ FLinearColor UNiagaraNodeEmitter::GetNodeTitleColor() const
 
 void UNiagaraNodeEmitter::NodeConnectionListChanged()
 {
-	GetGraph()->NotifyGraphChanged();
+	MarkNodeRequiresSynchronization(__FUNCTION__, true);
+	//GetGraph()->NotifyGraphChanged();
 }
 
 FString UNiagaraNodeEmitter::GetEmitterUniqueName() const
@@ -159,7 +162,8 @@ FString UNiagaraNodeEmitter::GetEmitterUniqueName() const
 			}
 		}
 	}
-	return FString();
+
+	return CachedUniqueName.ToString();
 }
 
 UNiagaraScriptSource* UNiagaraNodeEmitter::GetScriptSource() const
@@ -184,7 +188,7 @@ UNiagaraScriptSource* UNiagaraNodeEmitter::GetScriptSource() const
 		return Source;
 	}
 
-	return nullptr;
+	return Cast<UNiagaraScriptSource>(CachedScriptSource);
 }
 
 UNiagaraGraph* UNiagaraNodeEmitter::GetCalledGraph() const
@@ -211,6 +215,11 @@ UNiagaraGraph* UNiagaraNodeEmitter::GetCalledGraph() const
 			return Source->NodeGraph;
 		}
 	}
+
+	if (CachedGraph != nullptr)
+	{
+		return CachedGraph;
+	}
 	return nullptr;
 }
 
@@ -219,6 +228,14 @@ bool UNiagaraNodeEmitter::RefreshFromExternalChanges()
 	DisplayName = GetNameFromEmitter();
 	return true;
 }
+
+void UNiagaraNodeEmitter::SetCachedVariablesForCompilation(const FName& InUniqueName, UNiagaraGraph* InGraph, UNiagaraScriptSourceBase* InSource)
+{
+	CachedUniqueName = InUniqueName;
+	CachedGraph = InGraph;
+	CachedScriptSource = InSource;
+}
+
 
 FText UNiagaraNodeEmitter::GetNameFromEmitter()
 {
@@ -231,6 +248,10 @@ FText UNiagaraNodeEmitter::GetNameFromEmitter()
 				return FText::FromName(EmitterHandle.GetName());
 			}
 		}
+	}
+	else if (CachedUniqueName.IsValid())
+	{
+		return FText::FromName(CachedUniqueName);
 	}
 	return FText();
 }
@@ -256,7 +277,7 @@ void UNiagaraNodeEmitter::BuildParameterMapHistory(FNiagaraParameterMapHistoryBu
 	{
 		if (bRecursive)
 		{
-			ParamMapIdx = OutHistory.TraceParameterMapOutputPin(GetInputPin(0)->LinkedTo[0]);
+			ParamMapIdx = OutHistory.TraceParameterMapOutputPin(UNiagaraNode::TraceOutputPin(GetInputPin(0)->LinkedTo[0]));
 		}
 		else
 		{
@@ -277,7 +298,8 @@ void UNiagaraNodeEmitter::BuildParameterMapHistory(FNiagaraParameterMapHistoryBu
 		Usages.Add(ENiagaraScriptUsage::ParticleSpawnScriptInterpolated);
 		Usages.Add(ENiagaraScriptUsage::ParticleUpdateScript);
 		Usages.Add(ENiagaraScriptUsage::ParticleEventScript);
-		
+	
+		uint32 NodeIdx = OutHistory.BeginNodeVisitation(ParamMapIdx, this);
 		for (ENiagaraScriptUsage OutputNodeUsage : Usages)
 		{
 			TArray<UNiagaraNodeOutput*> OutputNodes;
@@ -286,21 +308,26 @@ void UNiagaraNodeEmitter::BuildParameterMapHistory(FNiagaraParameterMapHistoryBu
 
 			// Build up a new parameter map history with all the child graph nodes..
 			FNiagaraParameterMapHistoryBuilder ChildBuilder;
-
+			ChildBuilder.RegisterEncounterableVariables(OutHistory.GetEncounterableVariables());
 			ChildBuilder.EnableScriptWhitelist(true, GetUsage());
-			ChildBuilder.EnterEmitter(EmitterUniqueName, this);
+			FString LocalEmitterName = TEXT("Emitter");
+			ChildBuilder.EnterEmitter(LocalEmitterName, this);
 			for (UNiagaraNodeOutput* OutputNode : OutputNodes)
 			{
 				ChildBuilder.BuildParameterMaps(OutputNode, true);
 			}
-			ChildBuilder.ExitEmitter(EmitterUniqueName, this);
+			ChildBuilder.ExitEmitter(LocalEmitterName, this);
 			 
+			TMap<FString, FString> RenameMap;
+			RenameMap.Add(LocalEmitterName, EmitterUniqueName);
 			for (FNiagaraParameterMapHistory& History : ChildBuilder.Histories)
 			{
 				OutHistory.Histories[ParamMapIdx].MapPinHistory.Append(History.MapPinHistory);
 				for (int32 SrcVarIdx = 0; SrcVarIdx < History.Variables.Num(); SrcVarIdx++)
 				{
 					FNiagaraVariable& Var = History.Variables[SrcVarIdx];
+					Var = FNiagaraParameterMapHistory::ResolveAliases(Var, RenameMap, TEXT("."));
+
 					int32 ExistingIdx = OutHistory.Histories[ParamMapIdx].FindVariable(Var.GetName(), Var.GetType());
 					if (ExistingIdx == INDEX_NONE)
 					{
@@ -323,6 +350,7 @@ void UNiagaraNodeEmitter::BuildParameterMapHistory(FNiagaraParameterMapHistoryBu
 			}
 		}
 
+		OutHistory.EndNodeVisitation(ParamMapIdx, NodeIdx);
 		OutHistory.ExitEmitter(EmitterUniqueName, this);
 	}
 
@@ -394,59 +422,17 @@ void UNiagaraNodeEmitter::Compile(FHlslNiagaraTranslator *Translator, TArray<int
 	}
 }
 
-TSharedRef<SWidget> UNiagaraNodeEmitter::GenerateAddPinMenu(const FString& InWorkingPinName, SNiagaraGraphPinAdd* InPin)
+void UNiagaraNodeEmitter::GatherExternalDependencyIDs(ENiagaraScriptUsage InMasterUsage, const FGuid& InMasterUsageId, TArray<FGuid>& InReferencedIDs, TArray<UObject*>& InReferencedObjs) const
 {
-	FMenuBuilder MenuBuilder(true, nullptr);
-	
-	UNiagaraGraph* Graph = GetCalledGraph();
-	const UEdGraphSchema_Niagara* Schema = GetDefault<UEdGraphSchema_Niagara>();
+	UNiagaraGraph* CalledGraph = GetCalledGraph();
 
-	TArray<UEdGraphPin*> InputPins;
-	GetInputPins(InputPins);
-
-	FString EmitterNamespace = FNiagaraParameterMapHistory::MakeSafeNamespaceString(GetNameFromEmitter().ToString());
-
-	FNiagaraParameterMapHistoryBuilder HistoryBuilder;
-	BuildParameterMapHistory(HistoryBuilder, false);
-
-	if (HistoryBuilder.Histories.Num() == 0)
+	if (CalledGraph)
 	{
-		return SNullWidget::NullWidget;
+		ENiagaraScriptUsage TargetUsage = InMasterUsage == ENiagaraScriptUsage::SystemSpawnScript ? ENiagaraScriptUsage::EmitterSpawnScript : ENiagaraScriptUsage::EmitterUpdateScript;
+		InReferencedIDs.Add(CalledGraph->GetCompileID(TargetUsage, FGuid(0,0,0,0)));
+		InReferencedObjs.Add(CalledGraph);
+		CalledGraph->GatherExternalDependencyIDs(TargetUsage, FGuid(0, 0, 0, 0), InReferencedIDs, InReferencedObjs);
 	}
-
-	TArray<FNiagaraVariable> ExistingVariables;
-	for (UEdGraphPin* InputPin : InputPins)
-	{
-		ExistingVariables.Add(Schema->PinToNiagaraVariable(InputPin));
-	}
-
-	TArray<FNiagaraVariable> Variables;
-	for (const FNiagaraVariable& Var : HistoryBuilder.Histories[0].Variables)
-	{
-		if (ExistingVariables.ContainsByPredicate([Var](const FNiagaraVariable& A) { return A.GetName().ToString().Equals(Var.GetName().ToString()); }))
-		{
-			continue;
-		}
-
-		if (FNiagaraParameterMapHistory::IsInNamespace(Var, TEXT("EmitterUniforms")) || FNiagaraParameterMapHistory::IsInNamespace(Var, EmitterNamespace))
-		{
-			Variables.AddUnique(Var);
-		}
-	}
-
-	Variables.Sort([](const FNiagaraVariable& A, const FNiagaraVariable& B) { return (A.GetName() < B.GetName()); });
-
-	for (FNiagaraVariable& NamespacedVar : Variables)
-	{
-		FString NamespacedName = NamespacedVar.GetName().ToString();
-		MenuBuilder.AddMenuEntry(
-			FText::FromString(NamespacedName),
-			FText::Format(LOCTEXT("AddButtonTypeEntryToolTipFormatSystem", "Add a reference to {0}"), FText::FromName(NamespacedVar.GetName())),
-			FSlateIcon(),
-			FUIAction(FExecuteAction::CreateSP(InPin, &SNiagaraGraphPinAdd::OnAddType, NamespacedVar)));
-	}
-	
-	return MenuBuilder.MakeWidget();
 }
 
 #undef LOCTEXT_NAMESPACE // NiagaraNodeEmitter

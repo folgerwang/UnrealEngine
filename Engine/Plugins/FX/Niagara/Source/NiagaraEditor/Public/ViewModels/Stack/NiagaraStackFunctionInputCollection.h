@@ -2,29 +2,18 @@
 
 #pragma once
 
-#include "NiagaraStackEntry.h"
+#include "ViewModels/Stack/NiagaraStackItem.h"
+#include "NiagaraTypes.h"
 #include "NiagaraStackFunctionInputCollection.generated.h"
 
 class UNiagaraNodeFunctionCall;
 class UNiagaraStackFunctionInput;
-class UNiagaraStackEditorData;
+class UEdGraphPin;
 
 UCLASS()
-class NIAGARAEDITOR_API UNiagaraStackFunctionInputCollection : public UNiagaraStackEntry
+class NIAGARAEDITOR_API UNiagaraStackFunctionInputCollection : public UNiagaraStackItemContent
 {
 	GENERATED_BODY()
-
-public:
-	DECLARE_MULTICAST_DELEGATE(FOnInputPinnedChanged);
-
-public:
-	struct FDisplayOptions
-	{
-		FText DisplayName;
-		bool bShouldShowInStack;
-		int32 ChildItemIndentLevel;
-		UNiagaraStackEntry::FOnFilterChild ChildFilter;
-	};
 
 public:
 	UNiagaraStackFunctionInputCollection();
@@ -34,48 +23,38 @@ public:
 	UNiagaraNodeFunctionCall* GetInputFunctionCallNode() const;
 
 	void Initialize(
-		TSharedRef<FNiagaraSystemViewModel> InSystemViewModel,
-		TSharedRef<FNiagaraEmitterViewModel> InEmitterViewModel,
-		UNiagaraStackEditorData& InStackEditorData,
+		FRequiredEntryData InRequiredEntryData,
 		UNiagaraNodeFunctionCall& InModuleNode,
 		UNiagaraNodeFunctionCall& InInputFunctionCallNode,
-		FDisplayOptions InDisplayOptions);
+		FString InOwnerStackItemEditorDataKey);
 
 	//~ UNiagaraStackEntry interface
 	virtual FText GetDisplayName() const override;
-	virtual FName GetTextStyleName() const override;
-	virtual bool GetCanExpand() const override;
 	virtual bool GetShouldShowInStack() const override;
-	virtual int32 GetErrorCount() const override;
-	virtual bool GetErrorFixable(int32 ErrorIdx) const override;
-	virtual bool TryFixError(int32 ErrorIdx) override;
-	virtual FText GetErrorText(int32 ErrorIdx) const override;
-	virtual FText GetErrorSummaryText(int32 ErrorIdx) const override;
+	virtual bool GetIsEnabled() const;
 
-	FOnInputPinnedChanged& OnInputPinnedChanged();
+	void SetShouldShowInStack(bool bInShouldShowInStack);
 
 protected:
-	virtual void RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren) override;
+	virtual void FinalizeInternal() override;
+
+	virtual void RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren, TArray<FStackIssue>& NewIssues) override;
+	
+private:
+	void RefreshIssues(TArray<FName> DuplicateInputNames, TArray<FName> ValidAliasedInputNames, TArray<const UEdGraphPin*> PinsWithInvalidTypes, TArray<FStackIssue>& NewIssues);
+
+	void OnFunctionInputsChanged();
 
 private:
-	void ChildPinnedChanged();
-
-private:
-	DECLARE_DELEGATE(FFixError);
-	struct FError
+	struct FInputData
 	{
-		FText ErrorText;
-		FText ErrorSummaryText;
-		FFixError Fix;
+		const UEdGraphPin* Pin;
+		FNiagaraTypeDefinition Type;
+		int32 SortKey;
+		FText Category;
 	};
 
-	TArray<FError> Errors;
-
-	UNiagaraStackEditorData* StackEditorData;
 	UNiagaraNodeFunctionCall* ModuleNode;
 	UNiagaraNodeFunctionCall* InputFunctionCallNode;
-
-	FDisplayOptions DisplayOptions;
-
-	FOnInputPinnedChanged InputPinnedChangedDelegate;
+	bool bShouldShowInStack;
 };

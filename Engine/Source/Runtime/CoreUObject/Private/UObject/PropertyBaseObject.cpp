@@ -442,7 +442,7 @@ UObject* UObjectPropertyBase::FindImportedObject( const UProperty* Property, UOb
 			if (Result == nullptr)
 #endif // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
 			{
-				uint32 LoadFlags = LOAD_NoWarn | LOAD_FindIfFail;
+				const uint32 LoadFlags = LOAD_NoWarn | LOAD_FindIfFail;		
 
 				UE_LOG(LogProperty, Verbose, TEXT("FindImportedObject is attempting to import [%s] (class = %s) with StaticLoadObject"), Text, *GetFullNameSafe(ObjectClass));
 				Result = StaticLoadObject(ObjectClass, nullptr, Text, nullptr, LoadFlags, nullptr);

@@ -11,6 +11,7 @@
 #include "Interfaces/IPv4/IPv4Endpoint.h"
 #include "Misc/DateTime.h"
 #include "Misc/Guid.h"
+#include "Misc/SingleThreadRunnable.h"
 #include "Misc/Timespan.h"
 #include "Templates/SharedPointer.h"
 
@@ -34,6 +35,7 @@ class IMessageAttachment;
  */
 class FUdpMessageProcessor
 	: public FRunnable
+	, private FSingleThreadRunnable
 {
 	/** Structure for known remote endpoints. */
 	struct FNodeInfo
@@ -203,6 +205,7 @@ public:
 
 	//~ FRunnable interface
 
+	virtual FSingleThreadRunnable* GetSingleThreadInterface() override;
 	virtual bool Init() override;
 	virtual uint32 Run() override;
 	virtual void Stop() override;
@@ -314,6 +317,9 @@ protected:
 	 */
 	void RemoveKnownNode(const FGuid& NodeId);
 
+	/** Update the message processor. */
+	void Update();
+
 	/** Updates all known remote nodes. */
 	void UpdateKnownNodes();
 
@@ -326,6 +332,12 @@ protected:
 
 	/** Updates all static remote nodes. */
 	void UpdateStaticNodes();
+
+protected:
+
+	//~ FSingleThreadRunnable interface
+
+	virtual void Tick() override;
 
 private:
 

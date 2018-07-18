@@ -20,12 +20,17 @@
 #include "Misc/MapErrors.h"
 #include "Particles/ParticleEventManager.h"
 #include "PhysicsEngine/PhysicsSettings.h"
-#include "ReleaseObjectVersion.h"
+#include "UObject/ReleaseObjectVersion.h"
 #include "SceneManagement.h"
+#include "AI/AISystemBase.h"
+#include "AI/NavigationSystemConfig.h"
+#include "AI/NavigationSystemBase.h"
 
 #if WITH_EDITOR
 #include "Editor.h"
 #include "HierarchicalLOD.h"
+#include "IMeshMergeUtilities.h"
+#include "MeshMergeModule.h"
 #endif 
 
 #define LOCTEXT_NAMESPACE "ErrorChecking"
@@ -50,6 +55,7 @@ AWorldSettings::AWorldSettings(const FObjectInitializer& ObjectInitializer)
 
 	bEnableWorldBoundsChecks = true;
 	bEnableNavigationSystem = true;
+	NavigationSystemConfig = nullptr;
 	bEnableAISystem = true;
 	bEnableWorldComposition = false;
 	bEnableWorldOriginRebasing = false;
@@ -90,6 +96,41 @@ AWorldSettings::AWorldSettings(const FObjectInitializer& ObjectInitializer)
 #if WITH_EDITORONLY_DATA
 	bActorLabelEditable = false;
 #endif // WITH_EDITORONLY_DATA
+
+	bReplayRewindable = true;
+}
+
+void AWorldSettings::PostInitProperties()
+{
+	Super::PostInitProperties();
+	if (HasAnyFlags(RF_NeedLoad|RF_WasLoaded|RF_ClassDefaultObject) == false)
+	{
+		TSubclassOf<UNavigationSystemConfig> NavSystemConfigClass = UNavigationSystemConfig::GetDefaultConfigClass();
+		if (*NavSystemConfigClass)
+		{
+			NavigationSystemConfig = NewObject<UNavigationSystemConfig>(this, NavSystemConfigClass);
+		}
+	}
+
+	if (MinGlobalTimeDilation < 0)
+	{
+		MinGlobalTimeDilation = 0;
+	}
+
+	if (MaxGlobalTimeDilation < 0)
+	{
+		MaxGlobalTimeDilation = 0;
+	}
+
+	if (MinUndilatedFrameTime < 0)
+	{
+		MinUndilatedFrameTime = 0;
+	}
+
+	if (MaxUndilatedFrameTime < 0)
+	{
+		MaxUndilatedFrameTime = 0;
+	}
 }
 
 void AWorldSettings::PreInitializeComponents()
@@ -322,6 +363,27 @@ int32 AWorldSettings::GetNumHierarchicalLODLevels() const
 
 	return  HierarchicalLODSetup.Num();
 }
+
+UMaterialInterface* AWorldSettings::GetHierarchicalLODBaseMaterial() const
+{
+	UMaterialInterface* Material = GetDefault<UHierarchicalLODSettings>()->BaseMaterial.LoadSynchronous();
+
+	if (!OverrideBaseMaterial.IsNull())
+	{
+		Material = OverrideBaseMaterial.LoadSynchronous();
+	}
+
+	if (HLODSetupAsset.LoadSynchronous())
+	{
+		if (!HLODSetupAsset->GetDefaultObject<UHierarchicalLODSetup>()->OverrideBaseMaterial.IsNull())
+		{
+			Material = HLODSetupAsset->GetDefaultObject<UHierarchicalLODSetup>()->OverrideBaseMaterial.LoadSynchronous();
+		}
+	}
+
+	return Material;
+}
+
 #endif // WITH_EDITOR
 
 void AWorldSettings::RemoveUserDataOfClass(TSubclassOf<UAssetUserData> InUserDataClass)
@@ -348,8 +410,26 @@ void AWorldSettings::PostLoad()
 		Entry.MergeSetting.LODSelectionType = EMeshLODSelectionType::CalculateLOD;
 	}
 
-	SetIsTemporarilyHiddenInEditor(true);
 #endif// WITH_EDITOR
+
+	if (bEnableNavigationSystem && NavigationSystemConfig == nullptr)
+	{
+		ULevel* Level = GetLevel();
+		if (Level && Level->IsPersistentLevel())
+		{
+			TSubclassOf<UNavigationSystemConfig> NavSystemConfigClass = UNavigationSystemConfig::GetDefaultConfigClass();
+			if (*NavSystemConfigClass)
+			{
+				NavigationSystemConfig = NewObject<UNavigationSystemConfig>(this, NavSystemConfigClass);
+			}
+			bEnableNavigationSystem = false;
+		}
+	}
+}
+
+bool AWorldSettings::IsNavigationSystemEnabled() const
+{
+	return NavigationSystemConfig && NavigationSystemConfig->NavigationSystemClass.IsValid();
 }
 
 
@@ -452,12 +532,12 @@ void AWorldSettings::PostEditChangeProperty(FPropertyChangedEvent& PropertyChang
 	UProperty* PropertyThatChanged = PropertyChangedEvent.Property;
 	if (PropertyThatChanged)
 	{
-		if (PropertyThatChanged->GetFName()==GET_MEMBER_NAME_CHECKED(AWorldSettings,bForceNoPrecomputedLighting) && bForceNoPrecomputedLighting)
+		const FName PropertyName = PropertyThatChanged->GetFName();
+		if (PropertyName == GET_MEMBER_NAME_CHECKED(AWorldSettings,bForceNoPrecomputedLighting) && bForceNoPrecomputedLighting)
 		{
 			FMessageDialog::Open( EAppMsgType::Ok, LOCTEXT("bForceNoPrecomputedLightingIsEnabled", "bForceNoPrecomputedLighting is now enabled, build lighting once to propagate the change (will remove existing precomputed lighting data)."));
 		}
-
-		else if (PropertyThatChanged->GetFName()==GET_MEMBER_NAME_CHECKED(AWorldSettings,bEnableWorldComposition))
+		else if (PropertyName == GET_MEMBER_NAME_CHECKED(AWorldSettings,bEnableWorldComposition))
 		{
 			if (UWorldComposition::EnableWorldCompositionEvent.IsBound())
 			{
@@ -466,6 +546,18 @@ void AWorldSettings::PostEditChangeProperty(FPropertyChangedEvent& PropertyChang
 			else
 			{
 				bEnableWorldComposition = false;
+			}
+		}
+		else if (PropertyName == GET_MEMBER_NAME_CHECKED(AWorldSettings, NavigationSystemConfig))
+		{
+			UWorld* World = GetWorld();
+			if (World)
+			{
+				World->SetNavigationSystem(nullptr);
+				if (NavigationSystemConfig)
+				{
+					FNavigationSystem::AddNavigationSystemToWorld(*World, FNavigationSystemRunMode::EditorMode);
+				}
 			}
 		}
 	}
@@ -501,6 +593,17 @@ void AWorldSettings::PostEditChangeProperty(FPropertyChangedEvent& PropertyChang
 			GEditor->BroadcastHLODLevelsArrayChanged();
 			NumHLODLevels = HierarchicalLODSetup.Num();			
 		}
+		else if (PropertyThatChanged->GetFName() == GET_MEMBER_NAME_CHECKED(AWorldSettings, OverrideBaseMaterial))
+		{
+			if (!OverrideBaseMaterial.IsNull())
+			{
+				const IMeshMergeUtilities& Module = FModuleManager::Get().LoadModuleChecked<IMeshMergeModule>("MeshMergeUtilities").GetUtilities();
+				if (!Module.IsValidBaseMaterial(OverrideBaseMaterial.LoadSynchronous(), true))
+				{
+					OverrideBaseMaterial = LoadObject<UMaterialInterface>(NULL, TEXT("/Engine/EngineMaterials/BaseFlattenMaterial.BaseFlattenMaterial"), NULL, LOAD_None, NULL);
+				}
+			}
+		}
 	}
 
 	if (PropertyThatChanged != nullptr && GetWorld() != nullptr && GetWorld()->Scene)
@@ -511,6 +614,28 @@ void AWorldSettings::PostEditChangeProperty(FPropertyChangedEvent& PropertyChang
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 }
 
+
+void UHierarchicalLODSetup::PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent)
+{
+	if (PropertyChangedEvent.GetPropertyName() == GET_MEMBER_NAME_CHECKED(UHierarchicalLODSetup, OverrideBaseMaterial))
+	{
+		if (!OverrideBaseMaterial.IsNull())
+		{
+			const IMeshMergeUtilities& Module = FModuleManager::Get().LoadModuleChecked<IMeshMergeModule>("MeshMergeUtilities").GetUtilities();
+			if (!Module.IsValidBaseMaterial(OverrideBaseMaterial.LoadSynchronous(), true))
+			{
+				OverrideBaseMaterial = LoadObject<UMaterialInterface>(NULL, TEXT("/Engine/EngineMaterials/BaseFlattenMaterial.BaseFlattenMaterial"), NULL, LOAD_None, NULL);
+			}
+		}
+	}
+}
+
 #endif // WITH_EDITOR
 
+FSoftClassPath AWorldSettings::GetAISystemClassName() const
+{
+	return bEnableAISystem ? UAISystemBase::GetAISystemClassName() : FSoftClassPath();
+}
+
 #undef LOCTEXT_NAMESPACE
+

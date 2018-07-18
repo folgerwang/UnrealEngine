@@ -36,7 +36,7 @@
 #include "Misc/FeedbackContext.h"
 #include "ILevelViewport.h"
 #include "SLandscapeEditor.h"
-#include "SlateApplication.h"
+#include "Framework/Application/SlateApplication.h"
 
 // VR Editor
 #include "VREditorMode.h"
@@ -47,6 +47,7 @@
 #include "ComponentReregisterContext.h"
 #include "EngineUtils.h"
 #include "IVREditorModule.h"
+#include "Misc/ScopedSlowTask.h"
 
 #define LOCTEXT_NAMESPACE "Landscape"
 
@@ -159,6 +160,7 @@ namespace LandscapeTool
 	UMaterialInstance* CreateMaterialInstance(UMaterialInterface* BaseMaterial)
 	{
 		ULandscapeMaterialInstanceConstant* MaterialInstance = NewObject<ULandscapeMaterialInstanceConstant>(GetTransientPackage());
+		MaterialInstance->bEditorToolUsage = true;
 		MaterialInstance->SetParentEditorOnly(BaseMaterial);
 		MaterialInstance->PostEditChange();
 		return MaterialInstance;
@@ -190,6 +192,7 @@ FEdModeLandscape::FEdModeLandscape()
 	GMaskRegionMaterial      = LandscapeTool::CreateMaterialInstance(LoadObject<UMaterialInstanceConstant>(nullptr, TEXT("/Engine/EditorLandscapeResources/MaskBrushMaterial_MaskedRegion.MaskBrushMaterial_MaskedRegion")));
 	GLandscapeBlackTexture   = LoadObject<UTexture2D>(nullptr, TEXT("/Engine/EngineResources/Black.Black"));
 	GLandscapeLayerUsageMaterial = LandscapeTool::CreateMaterialInstance(LoadObject<UMaterial>(nullptr, TEXT("/Engine/EditorLandscapeResources/LandscapeLayerUsageMaterial.LandscapeLayerUsageMaterial")));
+
 
 	// Initialize modes
 	InitializeToolModes();
@@ -3302,6 +3305,10 @@ void FEdModeLandscape::DeleteLandscapeComponents(ULandscapeInfo* LandscapeInfo, 
 
 ALandscape* FEdModeLandscape::ChangeComponentSetting(int32 NumComponentsX, int32 NumComponentsY, int32 NumSubsections, int32 SubsectionSizeQuads, bool bResample)
 {
+	FScopedSlowTask Progress(3, LOCTEXT("LandscapeChangeComponentSetting", "Changing Landscape Component Settings..."));
+	Progress.MakeDialog();
+	int32 CurrentTaskProgress = 0;
+
 	check(NumComponentsX > 0);
 	check(NumComponentsY > 0);
 	check(NumSubsections > 0);
@@ -3415,6 +3422,8 @@ ALandscape* FEdModeLandscape::ChangeComponentSetting(int32 NumComponentsX, int32
 				NewMaxY = NewVertsY - 1;
 			}
 
+			Progress.EnterProgressFrame(CurrentTaskProgress++);
+
 			const FVector Location = OldLandscapeProxy->GetActorLocation() + LandscapeOffset;
 			FActorSpawnParameters SpawnParams;
 			SpawnParams.OverrideLevel = OldLandscapeProxy->GetLevel();
@@ -3436,6 +3445,7 @@ ALandscape* FEdModeLandscape::ChangeComponentSetting(int32 NumComponentsX, int32
 			Landscape->TessellationComponentScreenSizeFalloff = OldLandscapeProxy->TessellationComponentScreenSizeFalloff;
 			Landscape->LODDistributionSetting = OldLandscapeProxy->LODDistributionSetting;
 			Landscape->LOD0DistributionSetting = OldLandscapeProxy->LOD0DistributionSetting;
+			Landscape->OccluderGeometryLOD = OldLandscapeProxy->OccluderGeometryLOD;
 			Landscape->ExportLOD = OldLandscapeProxy->ExportLOD;
 			Landscape->StaticLightingLOD = OldLandscapeProxy->StaticLightingLOD;
 			Landscape->NegativeZBoundsExtension = OldLandscapeProxy->NegativeZBoundsExtension;
@@ -3480,6 +3490,8 @@ ALandscape* FEdModeLandscape::ChangeComponentSetting(int32 NumComponentsX, int32
 				// TODO: Foliage on spline meshes
 			}
 
+			Progress.EnterProgressFrame(CurrentTaskProgress++);
+
 			if (bResample)
 			{
 				// Remap foliage to the resampled components
@@ -3500,6 +3512,8 @@ ALandscape* FEdModeLandscape::ChangeComponentSetting(int32 NumComponentsX, int32
 					}
 				}
 
+				Progress.EnterProgressFrame(CurrentTaskProgress++);
+
 				// delete any components that were deleted in the original
 				TSet<ULandscapeComponent*> ComponentsToDelete;
 				for (const TPair<FIntPoint, ULandscapeComponent*>& Entry : NewLandscapeInfo->XYtoComponentMap)
@@ -3516,10 +3530,51 @@ ALandscape* FEdModeLandscape::ChangeComponentSetting(int32 NumComponentsX, int32
 			}
 			else
 			{
-				// TODO: remap foliage when not resampling (i.e. when there isn't a 1:1 mapping between old and new component)
+				ULandscapeInfo* NewLandscapeInfo = Landscape->GetLandscapeInfo();
+
+				// Move instances
+				for (const TPair<FIntPoint, ULandscapeComponent*>& OldEntry : LandscapeInfo->XYtoComponentMap)
+				{
+					ULandscapeHeightfieldCollisionComponent* OldCollisionComponent = OldEntry.Value->CollisionComponent.Get();
+
+					if (OldCollisionComponent)
+					{
+						UWorld* World = OldCollisionComponent->GetWorld();
+
+						for (const TPair<FIntPoint, ULandscapeComponent*>& NewEntry : NewLandscapeInfo->XYtoComponentMap)
+						{
+							ULandscapeHeightfieldCollisionComponent* NewCollisionComponent = NewEntry.Value->CollisionComponent.Get();
+
+							if (NewCollisionComponent && FBoxSphereBounds::BoxesIntersect(NewCollisionComponent->Bounds, OldCollisionComponent->Bounds))
+							{
+								FBox Box = NewCollisionComponent->Bounds.GetBox();
+								Box.Min.Z = -WORLD_MAX;
+								Box.Max.Z = WORLD_MAX;
+
+								AInstancedFoliageActor::MoveInstancesToNewComponent(World, OldCollisionComponent, Box, NewCollisionComponent);
+							}
+						}
+					}
+				}
+
+				// Snap them to the bounds
+				for (const TPair<FIntPoint, ULandscapeComponent*>& NewEntry : NewLandscapeInfo->XYtoComponentMap)
+				{
+					ULandscapeHeightfieldCollisionComponent* NewCollisionComponent = NewEntry.Value->CollisionComponent.Get();
+
+					if (NewCollisionComponent)
+					{
+						FBox Box = NewCollisionComponent->Bounds.GetBox();
+						Box.Min.Z = -WORLD_MAX;
+						Box.Max.Z = WORLD_MAX;
+
+						NewCollisionComponent->SnapFoliageInstances(Box);
+					}
+				}
+
+				Progress.EnterProgressFrame(CurrentTaskProgress++);
 
 				// delete any components that are in areas that were entirely deleted in the original
-				ULandscapeInfo* NewLandscapeInfo = Landscape->GetLandscapeInfo();	
 				TSet<ULandscapeComponent*> ComponentsToDelete;
 				for (const TPair<FIntPoint, ULandscapeComponent*>& Entry : NewLandscapeInfo->XYtoComponentMap)
 				{

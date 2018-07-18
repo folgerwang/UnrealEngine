@@ -292,7 +292,7 @@ void FAnimNode_StateMachine::ConditionallyCacheBonesForState(int32 StateIndex, F
 {
 	// Only call CacheBones when needed.
 	check(StateCacheBoneCounters.IsValidIndex(StateIndex));
-	if (!StateCacheBoneCounters[StateIndex].IsSynchronizedWith(Context.AnimInstanceProxy->GetCachedBonesCounter()))
+	if (!StateCacheBoneCounters[StateIndex].IsSynchronized_Counter(Context.AnimInstanceProxy->GetCachedBonesCounter()))
 	{
 		// keep track of states that have had CacheBones called on.
 		StateCacheBoneCounters[StateIndex].SynchronizeWith(Context.AnimInstanceProxy->GetCachedBonesCounter());
@@ -339,7 +339,7 @@ void FAnimNode_StateMachine::Update_AnyThread(const FAnimationUpdateContext& Con
 	Context.AnimInstanceProxy->RecordMachineWeight(StateMachineIndexInClass, Context.GetFinalBlendWeight());
 
 	// If we just became relevant and haven't been initialized yet, then reinitialize state machine.
-	if (!bFirstUpdate && bReinitializeOnBecomingRelevant &&(UpdateCounter.Get() != INDEX_NONE) && !UpdateCounter.WasSynchronizedInTheLastFrame(Context.AnimInstanceProxy->GetUpdateCounter()) && (CVarAnimStateMachineRelevancyReset.GetValueOnAnyThread() == 1))
+	if (!bFirstUpdate && bReinitializeOnBecomingRelevant && UpdateCounter.HasEverBeenUpdated() && !UpdateCounter.WasSynchronizedCounter(Context.AnimInstanceProxy->GetUpdateCounter()) && (CVarAnimStateMachineRelevancyReset.GetValueOnAnyThread() == 1))
 	{
 		FAnimationInitializeContext InitializationContext(Context.AnimInstanceProxy);
 		Initialize_AnyThread(InitializationContext);
@@ -376,6 +376,13 @@ void FAnimNode_StateMachine::Update_AnyThread(const FAnimationUpdateContext& Con
 	FScopeCycleCounter MachineNameCycleCounter(Machine->GetStatID());
 #endif // STATS
 
+	// On the first update, call the initial state's Start Notify.
+	if (bFirstUpdate)
+	{
+		//Handle enter notify for "first" (after initial transitions) state
+		Context.AnimInstanceProxy->AddAnimNotifyFromGeneratedClass(GetStateInfo().StartNotify);
+	}
+
 	bool bFoundValidTransition = false;
 	int32 TransitionCountThisFrame = 0;
 	int32 TransitionIndex = INDEX_NONE;
@@ -410,11 +417,8 @@ void FAnimNode_StateMachine::Update_AnyThread(const FAnimationUpdateContext& Con
 			const int32 NextState = PotentialTransition.TargetState;
 
 			// Fire off Notifies for state transition
-			if (!bFirstUpdate || !bSkipFirstUpdateTransition)
-			{
-				Context.AnimInstanceProxy->AddAnimNotifyFromGeneratedClass(GetStateInfo(PreviousState).EndNotify);
-				Context.AnimInstanceProxy->AddAnimNotifyFromGeneratedClass(GetStateInfo(NextState).StartNotify);
-			}
+			Context.AnimInstanceProxy->AddAnimNotifyFromGeneratedClass(GetStateInfo(PreviousState).EndNotify);
+			Context.AnimInstanceProxy->AddAnimNotifyFromGeneratedClass(GetStateInfo(NextState).StartNotify);
 			
 			// Get the current weight of the next state, which may be non-zero
 			const float ExistingWeightOfNextState = GetStateWeight(NextState);
@@ -458,8 +462,6 @@ void FAnimNode_StateMachine::Update_AnyThread(const FAnimationUpdateContext& Con
 	{
 		if (bSkipFirstUpdateTransition)
 		{
-			//Handle enter notify for "first" (after initial transitions) state
-			Context.AnimInstanceProxy->AddAnimNotifyFromGeneratedClass(GetStateInfo().StartNotify);
 			// in the first update, we don't like to transition from entry state
 			// so we throw out any transition data at the first update
 			ActiveTransitionArray.Reset();
@@ -996,7 +998,7 @@ const FPoseContext& FAnimNode_StateMachine::EvaluateState(int32 StateIndex, cons
 	FPoseContext* CachePosePtr = StateCachedPoses[StateIndex];
 	if (CachePosePtr == nullptr)
 	{
-		CachePosePtr = new FPoseContext(Context.AnimInstanceProxy);
+		CachePosePtr = new FPoseContext(Context);
 		check(CachePosePtr);
 		StateCachedPoses[StateIndex] = CachePosePtr;
 

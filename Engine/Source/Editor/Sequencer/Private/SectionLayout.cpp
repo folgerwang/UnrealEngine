@@ -1,13 +1,23 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SectionLayout.h"
-#include "GroupedKeyArea.h"
 
-FSectionLayoutElement FSectionLayoutElement::FromGroup(const TSharedRef<FSequencerDisplayNode>& InNode, const TSharedRef<FGroupedKeyArea>& InKeyAreaGroup, float InOffset)
+FSectionLayoutElement FSectionLayoutElement::FromGroup(const TSharedRef<FSequencerDisplayNode>& InNode, UMovieSceneSection* InSection, float InOffset)
 {
+	TArray< TSharedRef<FSequencerSectionKeyAreaNode> > ChildKeyAreaNodes;
+	InNode->GetChildKeyAreaNodesRecursively(ChildKeyAreaNodes);
+
 	FSectionLayoutElement Tmp;
 	Tmp.Type = Group;
-	Tmp.KeyArea = InKeyAreaGroup;
+
+	for (TSharedRef<FSequencerSectionKeyAreaNode> KeyAreaNode : ChildKeyAreaNodes)
+	{
+		TSharedPtr<IKeyArea> KeyArea = KeyAreaNode->GetKeyArea(InSection);
+		if (KeyArea.IsValid())
+		{
+			Tmp.KeyAreas.Add(KeyArea.ToSharedRef());
+		}
+	}
 	Tmp.LocalOffset = InOffset;
 	Tmp.Height = InNode->GetNodeHeight();
 	Tmp.DisplayNode = InNode;
@@ -18,7 +28,11 @@ FSectionLayoutElement FSectionLayoutElement::FromKeyAreaNode(const TSharedRef<FS
 {
 	FSectionLayoutElement Tmp;
 	Tmp.Type = Single;
-	Tmp.KeyArea = InKeyAreaNode->GetKeyArea(InSection);
+	TSharedPtr<IKeyArea> KeyArea = InKeyAreaNode->GetKeyArea(InSection);
+	if (KeyArea.IsValid())
+	{
+		Tmp.KeyAreas.Add(KeyArea.ToSharedRef());
+	}
 	Tmp.LocalOffset = InOffset;
 	Tmp.DisplayNode = InKeyAreaNode;
 	Tmp.Height = InKeyAreaNode->GetNodeHeight();
@@ -29,7 +43,11 @@ FSectionLayoutElement FSectionLayoutElement::FromTrack(const TSharedRef<FSequenc
 {
 	FSectionLayoutElement Tmp;
 	Tmp.Type = Single;
-	Tmp.KeyArea = InTrackNode->GetTopLevelKeyNode()->GetKeyArea(InSection);
+	TSharedPtr<IKeyArea> KeyArea = InTrackNode->GetTopLevelKeyNode()->GetKeyArea(InSection);
+	if (KeyArea.IsValid())
+	{
+		Tmp.KeyAreas.Add(KeyArea.ToSharedRef());
+	}
 	Tmp.LocalOffset = InOffset;
 	Tmp.DisplayNode = InTrackNode;
 	Tmp.Height = InTrackNode->GetNodeHeight();
@@ -61,9 +79,9 @@ float FSectionLayoutElement::GetHeight() const
 	return Height;
 }
 
-TSharedPtr<IKeyArea> FSectionLayoutElement::GetKeyArea() const
+TArrayView<const TSharedRef<IKeyArea>> FSectionLayoutElement::GetKeyAreas() const
 {
-	return KeyArea;
+	return KeyAreas;
 }
 
 TSharedPtr<FSequencerDisplayNode> FSectionLayoutElement::GetDisplayNode() const
@@ -97,7 +115,7 @@ FSectionLayout::FSectionLayout(FSequencerTrackNode& TrackNode, int32 InSectionIn
 		{
 			Elements.Add(FSectionLayoutElement::FromGroup(
 				Node.AsShared(),
-				Node.GetKeyGrouping(Section),
+				Section,
 				Offset
 			));
 		}

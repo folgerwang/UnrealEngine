@@ -155,6 +155,9 @@ public:
 	/** @return	The definition describing properties of the window */
 	virtual const FGenericWindowDefinition& GetDefinition() const;
 
+	/** @return	Returns true if the window definition is valid */
+	virtual bool IsDefinitionValid() const;
+
 	/** @return	Gives the native window a chance to adjust our stored window size before we cache it off */
 	virtual void AdjustCachedSize( FVector2D& Size ) const;
 

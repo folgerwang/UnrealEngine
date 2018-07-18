@@ -16,6 +16,9 @@ FAnimNode_PoseDriver::FAnimNode_PoseDriver()
 	DriveOutput = EPoseDriverOutput::DrivePoses;
 
 	RBFParams.DistanceMethod = ERBFDistanceMethod::SwingAngle;
+
+	TwistAxis_DEPRECATED = BA_X;
+	bOnlyDriveSelectedBones = false;
 }
 
 void FAnimNode_PoseDriver::Initialize_AnyThread(const FAnimationInitializeContext& Context)

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3692913
+﻿INTSourceChangelist:3750348
 Availability:Public
 Crumbs: %ROOT%
 Title:2 - メディア テクスチャとマテリアルの設定
@@ -6,7 +6,8 @@ Description:このステップでは、映像の再生に使用するメディ�
 SkillLevel:Beginner
 Version:4.18
 checkpoint: mediaframeworkqs
-parent:Engine\MediaFramework\QuickStart
+parent:Engine/MediaFramework/QuickStart
+type:quick start
 type:multi-step
 order:2
 tags:Media Framework
@@ -24,7 +25,8 @@ tags:Materials
 
 	![](TVMaterial_01.png)
 
-	 **Texture Object Parameter** を使って入力するので、**[Texture]** 入力フィールドは空の状態にしておきます。こうしておくと、どの **Media Texture** をブループリントを使ってサンプリングするのかオーバーライドすることができるようになります。**[Sampler Type]** 入力フィールドで Media Textures を **[External]** に設定します。映像の再生とデコードが最適化されて効率が上がり、新しい External Texture API が使用されます。
+	 **Texture Object Parameter** を使って入力するので、**[Texture]** 入力フィールドは空の状態にしておきます。こうしておくと、どの **Media Texture** をブループリントを使ってサンプリングするのかオーバーライドすることができるようになります。 
+	**[Sampler Type]** 入力フィールドで Media Textures を **[External]** に設定します。映像の再生とデコードが最適化されて効率が良くなります。 
 
 1.	グラフ内を右クリックして **Param Tex Object** ノードを追加し**Texture Sample** ノードの **Tex** ピンに接続します。
 
@@ -57,16 +59,18 @@ tags:Materials
 
 ## 最終結果
 
-
 TV Material が設定されて映像をプレイする準備が整いました。**SM_TV** スタティックメッシュを開くと、画面が白くなっています。 
 
 ![](TVMaterial_07.png)(w:740)
 
-心配する必要はありません。**Media Player** アセットを開いて映像をプレイすると **SM_TV** スタティックメッシュが再度開いてテレビで映像がプレイされます。 
+1 度 **Media Player** アセットを開いて映像をプレイすれば、**SM_TV** スタティックメッシュを再度開いた時にテレビで映像がプレイされます。 
 
 ![](TVMaterial_08.png)(w:740)
 
-テレビがエディタ内でコンテンツをプレイしている間、レベル内でこのスタティックメッシュをリリースしゲームをプレイすると、コンテンツはランタイム時にテレビでプレイされません。コンテンツにランタイム時に開いて再生を開始するよう指示する手段が必要ですが、これについては操作ガイドの後半で説明します。その前にまず、レベル デザイナーにエディタ内でテレビに表示されるコンテンツを指定する手段、およびプレイヤーがボタンを押してテレビのオンオフができるようにブループリントを設定する必要があります。
+テレビがエディタ内でコンテンツをプレイしている間、レベル内でこのスタティックメッシュをリリースしゲームをプレイすると、コンテンツはランタイム時にテレビでプレイされません。 
+次のステップでは、コンテンツにランタイム時に開いて再生を開始するよう指示します。 
+その前にまず、プレイヤーがボタンを押してテレビのオンオフができるようにブループリントを設定する必要があります。 
+その前にまず、レベル デザイナーにエディタ内でテレビに表示されるコンテンツも指定できるようにします。
 
 [NAV]
 

@@ -37,7 +37,7 @@ TSharedRef< class IPropertyTableCell > FPropertyTablePropertyNameColumn::GetCell
 }
 
 
-void FPropertyTablePropertyNameColumn::Sort( TArray< TSharedRef< class IPropertyTableRow > >& Rows, const EColumnSortMode::Type SortMode )
+void FPropertyTablePropertyNameColumn::Sort( TArray<TSharedRef<class IPropertyTableRow>>& Rows, const EColumnSortMode::Type PrimarySortMode, const TSharedPtr<IPropertyTableColumn>& SecondarySortColumn, const EColumnSortMode::Type SecondarySortMode )
 {
 	struct FCompareRowByPropertyNameAscending
 	{
@@ -71,12 +71,12 @@ void FPropertyTablePropertyNameColumn::Sort( TArray< TSharedRef< class IProperty
 		const FCompareRowByPropertyNameAscending Comparer;
 	};
 
-	if ( SortMode == EColumnSortMode::None )
+	if (PrimarySortMode == EColumnSortMode::None )
 	{
 		return;
 	}
 
-	if ( SortMode == EColumnSortMode::Ascending )
+	if (PrimarySortMode == EColumnSortMode::Ascending )
 	{
 		Rows.Sort( FCompareRowByPropertyNameAscending( SharedThis( this ) ) );
 	}
@@ -86,6 +86,12 @@ void FPropertyTablePropertyNameColumn::Sort( TArray< TSharedRef< class IProperty
 	}
 }
 
+
+TSharedPtr<struct FCompareRowByColumnBase> FPropertyTablePropertyNameColumn::GetPropertySorter(UProperty* Property, EColumnSortMode::Type SortMode)
+{
+	// Does not sort properties
+	return nullptr;
+}
 
 FString FPropertyTablePropertyNameColumn::GetPropertyNameAsString( const TSharedRef< IPropertyTableRow >& Row )
 {

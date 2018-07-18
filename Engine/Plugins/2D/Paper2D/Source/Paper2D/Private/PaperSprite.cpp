@@ -343,6 +343,9 @@ void UPaperSprite::ExtractSourceRegionFromTexturePoint(const FVector2D& SourcePo
 		{
 			if (Dimension.X > 0 && Dimension.Y > 0)
 			{
+				// Mark the package as dirty
+				Modify();
+
 				SourceUV = FVector2D(Origin.X, Origin.Y);
 				SourceDimension = FVector2D(Dimension.X, Dimension.Y);
 				PostEditChange();

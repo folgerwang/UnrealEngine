@@ -13,6 +13,7 @@ public class NiagaraShader : ModuleRules
 				"RenderCore",
                 "ShaderCore",
                 "CoreUObject",
+                "NiagaraCore"
             }
         );
 
@@ -20,8 +21,10 @@ public class NiagaraShader : ModuleRules
         PublicDependencyModuleNames.AddRange(
             new string[] {
                 "Core",
+                "ShaderCore",
                 "VectorVM",
                 "RHI",
+                "NiagaraCore"
             }
         );
 
@@ -38,13 +41,11 @@ public class NiagaraShader : ModuleRules
             });
         }
 
-        PublicIncludePaths.AddRange(
+        PublicIncludePathModuleNames.AddRange(
             new string[] {
-                "DerivedDataCache",
-                "Niagara",
             });
 
-        PrivateIncludePaths.AddRange(
+        PrivateIncludePathModuleNames.AddRange(
             new string[] {
                 "Niagara",
             });

@@ -4,7 +4,7 @@
 #include "Animation/WidgetMaterialTrackUtilities.h"
 #include "Animation/MovieSceneWidgetMaterialTrack.h"
 #include "Components/Widget.h"
-#include "MovieSceneEvaluation.h"
+#include "Evaluation/MovieSceneEvaluation.h"
 
 // Container to ensure unique IDs per property path
 TMovieSceneAnimTypeIDContainer<TArray<FName>> BrushPropertyIDs;
@@ -39,7 +39,7 @@ struct FWidgetMaterialAccessor : FDefaultMaterialAccessor
 		if (UWidget* Widget = Cast<UWidget>(&Object))
 		{
 			FWidgetMaterialHandle Handle = WidgetMaterialTrackUtilities::GetMaterialHandle(Widget, BrushPropertyNamePath);
-			Handle.SetMaterial(&Material);
+			Handle.SetMaterial(&Material, Widget);
 		}
 	}
 

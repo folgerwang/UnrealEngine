@@ -25,10 +25,14 @@ public:
 		_Visibility = EVisibility::SelfHitTestInvisible;
 		_CacheRelativeTransforms = false;
 	}
-		SLATE_DEFAULT_SLOT( FArguments, Content )
-		SLATE_ARGUMENT( bool, CacheRelativeTransforms )
+		SLATE_DEFAULT_SLOT(FArguments, Content)
+		SLATE_ARGUMENT(bool, CacheRelativeTransforms)
+#if !UE_BUILD_SHIPPING
+		SLATE_ARGUMENT(FString, DebugName)
+#endif
 	SLATE_END_ARGS()
 
+	SInvalidationPanel();
 	void Construct( const FArguments& InArgs );
 	~SInvalidationPanel();
 
@@ -38,11 +42,11 @@ public:
 	FORCEINLINE bool GetCanCache() const { return bCanCache; }
 #endif
 
+	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
+
 	void SetCanCache(bool InCanCache);
 
 	FORCEINLINE void InvalidateCache() { bNeedsCaching = true; }
-
-	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
 
 	// ILayoutCache overrides
 	virtual void InvalidateWidget(SWidget* InvalidateWidget) override;
@@ -84,7 +88,6 @@ private:
 	FORCEINLINE bool IsCachingNeeded() const { return bNeedsCaching; }
 #endif
 	
-
 	bool IsCachingNeeded(FSlateWindowElementList& OutDrawElements, const FGeometry& AllottedGeometry, const FSlateRect& MyCullingRect, int32 LayerId) const;
 
 private:
@@ -92,6 +95,12 @@ private:
 
 	FSimpleSlot EmptyChildSlot;
 	FVector2D CachedDesiredSize;
+
+#if SLATE_VERBOSE_NAMED_EVENTS
+	FString DebugName;
+	FString DebugTickName;
+	FString DebugPaintName;
+#endif
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	mutable TMap<TWeakPtr<SWidget>, double> InvalidatorWidgets;
@@ -101,7 +110,7 @@ private:
 	mutable TSharedPtr< FSlateWindowElementList > CachedWindowElements;
 	mutable TSharedPtr<FSlateRenderDataHandle, ESPMode::ThreadSafe> CachedRenderData;
 
-	mutable TSet<UObject*> CachedResources;
+	mutable TArray<UObject*> CachedResources;
 	
 	mutable FVector2D CachedAbsolutePosition;
 
@@ -113,10 +122,11 @@ private:
 	mutable int32 LastClippingIndex;
 	mutable int32 LastClippingStateOffset;
 	mutable TOptional<FSlateClippingState> LastClippingState;
-	mutable int32 LastLayerId;
+	mutable int32 MaximumLayerIdCachedAt;
 
 	mutable int32 CachedMaxChildLayer;
 	mutable bool bNeedsCaching;
+	mutable bool bNeedsCachePrepass;
 	mutable bool bIsInvalidating;
 	bool bCanCache;
 

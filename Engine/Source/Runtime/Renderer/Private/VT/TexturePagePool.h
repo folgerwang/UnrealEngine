@@ -4,8 +4,8 @@
 
 #include "CoreMinimal.h"
 #include "VirtualTextureShared.h"
-#include "BinaryHeap.h"
-#include "HashTable.h"
+#include "Containers/BinaryHeap.h"
+#include "Containers/HashTable.h"
 
 // 16m x 16m virtual pages
 // 256 x 256 physical pages

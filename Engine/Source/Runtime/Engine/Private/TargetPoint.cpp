@@ -57,6 +57,10 @@ ATargetPoint::ATargetPoint(const FObjectInitializer& ObjectInitializer)
 			ArrowComponent->SpriteInfo.DisplayName = ConstructorStatics.NAME_TargetPoint;
 			ArrowComponent->SetupAttachment(SpriteComponent);
 			ArrowComponent->bIsScreenSizeScaled = true;
+
+			// Counteract the scaled down parent so that the arrow is large enough to see.
+			if (SpriteComponent)
+				ArrowComponent->SetRelativeScale3D((FVector::OneVector / SpriteComponent->RelativeScale3D));
 		}
 	}
 #endif // WITH_EDITORONLY_DATA

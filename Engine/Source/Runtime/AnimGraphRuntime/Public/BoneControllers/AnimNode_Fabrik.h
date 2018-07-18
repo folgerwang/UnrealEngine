@@ -17,43 +17,6 @@ class USkeletalMeshComponent;
 *	Controller which implements the FABRIK IK approximation algorithm -  see http://www.academia.edu/9165835/FABRIK_A_fast_iterative_solver_for_the_Inverse_Kinematics_problem for details
 */
 
-/** Transient structure for FABRIK node evaluation */
-struct FABRIKChainLink
-{
-public:
-	/** Position of bone in component space. */
-	FVector Position;
-
-	/** Distance to its parent link. */
-	float Length;
-
-	/** Bone Index in SkeletalMesh */
-	FCompactPoseBoneIndex BoneIndex;
-
-	/** Transform Index that this control will output */
-	int32 TransformIndex;
-
-	/** Child bones which are overlapping this bone. 
-	 * They have a zero length distance, so they will inherit this bone's transformation. */
-	TArray<int32> ChildZeroLengthTransformIndices;
-
-	FABRIKChainLink()
-		: Position(FVector::ZeroVector)
-		, Length(0.f)
-		, BoneIndex(INDEX_NONE)
-		, TransformIndex(INDEX_NONE)
-	{
-	}
-
-	FABRIKChainLink(const FVector& InPosition, const float& InLength, const FCompactPoseBoneIndex& InBoneIndex, const int32& InTransformIndex)
-		: Position(InPosition)
-		, Length(InLength)
-		, BoneIndex(InBoneIndex)
-		, TransformIndex(InTransformIndex)
-	{
-	}
-};
-
 USTRUCT(BlueprintInternalUseOnly)
 struct ANIMGRAPHRUNTIME_API FAnimNode_Fabrik : public FAnimNode_SkeletalControlBase
 {

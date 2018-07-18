@@ -24,6 +24,23 @@ public:
 	/** Create a widget for the supplied pin */
 	static TSharedPtr<SGraphPin> CreatePinWidget(UEdGraphPin* InPin);
 
+	/** Create a K2 schema default widget for the supplied pin */
+	static TSharedPtr<SGraphPin> CreateK2PinWidget(UEdGraphPin* InPin);
+
     /** Create a pin connection factory for the supplied schema */
     static FConnectionDrawingPolicy* CreateConnectionPolicy(const UEdGraphSchema* Schema, int32 InBackLayerID, int32 InFrontLayerID, float ZoomFactor, const FSlateRect& InClippingRect, FSlateWindowElementList& InDrawElements, UEdGraph* InGraphObj);
+};
+
+
+class GRAPHEDITOR_API FGraphNodeFactory
+{
+public:
+	/** Create a widget for the supplied node */
+	virtual TSharedPtr<SGraphNode> CreateNodeWidget(UEdGraphNode* InNode);
+
+	/** Create a widget for the supplied pin */
+	virtual TSharedPtr<SGraphPin> CreatePinWidget(UEdGraphPin* InPin);
+
+	/** Create a pin connection factory for the supplied schema */
+	virtual FConnectionDrawingPolicy* CreateConnectionPolicy(const UEdGraphSchema* Schema, int32 InBackLayerID, int32 InFrontLayerID, float ZoomFactor, const FSlateRect& InClippingRect, FSlateWindowElementList& InDrawElements, UEdGraph* InGraphObj);
 };

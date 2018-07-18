@@ -186,7 +186,7 @@ enum EClassFlags
 	/** Successfully parsed. */
 	CLASS_Parsed              = 0x00000010u,
 	/** */
-	//CLASS_                  = 0x00000020u,
+	CLASS_MatchedSerializers  = 0x00000020u,
 	/** All the properties on the class are shown in the advanced section (which is hidden by default) unless SimpleDisplay is specified on the property */
 	CLASS_AdvancedDisplay	  = 0x00000040u,
 	/** Class is a native class - native interfaces will have CLASS_Native set, but not RF_MarkAsNative */
@@ -198,8 +198,8 @@ enum EClassFlags
 	/** Handle object configuration on a per-object basis, rather than per-class. */
 	CLASS_PerObjectConfig     = 0x00000400u,
 	
-	/** */
-	//CLASS_ = 0x00000800u,
+	/** Whether SetUpRuntimeReplicationData still needs to be called for this class */
+	CLASS_ReplicationDataIsSetUp = 0x00000800u,
 	
 	/** Class can be constructed from editinline New button. */
 	CLASS_EditInlineNew		  = 0x00001000u,
@@ -292,7 +292,8 @@ ENUM_CLASS_FLAGS(EClassFlags);
 	CLASS_AdvancedDisplay | \
 	CLASS_Const | \
 	CLASS_MinimalAPI | \
-	CLASS_RequiredAPI))
+	CLASS_RequiredAPI | \
+	CLASS_MatchedSerializers))
 
 #define CLASS_AllFlags ((EClassFlags)0xFFFFFFFFu)
 
@@ -300,125 +301,132 @@ ENUM_CLASS_FLAGS(EClassFlags);
 /**
  * Flags used for quickly casting classes of certain types; all class cast flags are inherited
  */
-typedef uint64 EClassCastFlags;
+enum EClassCastFlags : uint64
+{
+	CASTCLASS_None = 0x0000000000000000,
 
-#define CASTCLASS_None							DECLARE_UINT64(0x0000000000000000)
-#define CASTCLASS_UField						DECLARE_UINT64(0x0000000000000001)
-#define CASTCLASS_UInt8Property					DECLARE_UINT64(0x0000000000000002)
-#define CASTCLASS_UEnum							DECLARE_UINT64(0x0000000000000004)
-#define CASTCLASS_UStruct						DECLARE_UINT64(0x0000000000000008)
-#define CASTCLASS_UScriptStruct					DECLARE_UINT64(0x0000000000000010)
-#define CASTCLASS_UClass						DECLARE_UINT64(0x0000000000000020)
-#define CASTCLASS_UByteProperty					DECLARE_UINT64(0x0000000000000040)
-#define CASTCLASS_UIntProperty					DECLARE_UINT64(0x0000000000000080)
-#define CASTCLASS_UFloatProperty				DECLARE_UINT64(0x0000000000000100)
-#define CASTCLASS_UUInt64Property				DECLARE_UINT64(0x0000000000000200)
-#define CASTCLASS_UClassProperty				DECLARE_UINT64(0x0000000000000400)
-#define CASTCLASS_UUInt32Property				DECLARE_UINT64(0x0000000000000800)
-#define CASTCLASS_UInterfaceProperty			DECLARE_UINT64(0x0000000000001000)
-#define CASTCLASS_UNameProperty					DECLARE_UINT64(0x0000000000002000)
-#define CASTCLASS_UStrProperty					DECLARE_UINT64(0x0000000000004000)
-#define CASTCLASS_UProperty						DECLARE_UINT64(0x0000000000008000)
-#define CASTCLASS_UObjectProperty				DECLARE_UINT64(0x0000000000010000)
-#define CASTCLASS_UBoolProperty					DECLARE_UINT64(0x0000000000020000)
-#define CASTCLASS_UUInt16Property				DECLARE_UINT64(0x0000000000040000)
-#define CASTCLASS_UFunction						DECLARE_UINT64(0x0000000000080000)
-#define CASTCLASS_UStructProperty				DECLARE_UINT64(0x0000000000100000)
-#define CASTCLASS_UArrayProperty				DECLARE_UINT64(0x0000000000200000)
-#define CASTCLASS_UInt64Property				DECLARE_UINT64(0x0000000000400000)
-#define CASTCLASS_UDelegateProperty				DECLARE_UINT64(0x0000000000800000)
-#define CASTCLASS_UNumericProperty				DECLARE_UINT64(0x0000000001000000)
-#define CASTCLASS_UMulticastDelegateProperty	DECLARE_UINT64(0x0000000002000000)
-#define CASTCLASS_UObjectPropertyBase			DECLARE_UINT64(0x0000000004000000)
-#define CASTCLASS_UWeakObjectProperty			DECLARE_UINT64(0x0000000008000000)
-#define CASTCLASS_ULazyObjectProperty			DECLARE_UINT64(0x0000000010000000)
-#define CASTCLASS_USoftObjectProperty			DECLARE_UINT64(0x0000000020000000)
-#define CASTCLASS_UTextProperty					DECLARE_UINT64(0x0000000040000000)
-#define CASTCLASS_UInt16Property				DECLARE_UINT64(0x0000000080000000)
-#define CASTCLASS_UDoubleProperty				DECLARE_UINT64(0x0000000100000000)
-#define CASTCLASS_USoftClassProperty			DECLARE_UINT64(0x0000000200000000)
-#define CASTCLASS_UPackage						DECLARE_UINT64(0x0000000400000000)
-#define CASTCLASS_ULevel						DECLARE_UINT64(0x0000000800000000)
-#define CASTCLASS_AActor						DECLARE_UINT64(0x0000001000000000)
-#define CASTCLASS_APlayerController				DECLARE_UINT64(0x0000002000000000)
-#define CASTCLASS_APawn							DECLARE_UINT64(0x0000004000000000)
-#define CASTCLASS_USceneComponent				DECLARE_UINT64(0x0000008000000000)
-#define CASTCLASS_UPrimitiveComponent			DECLARE_UINT64(0x0000010000000000)
-#define CASTCLASS_USkinnedMeshComponent			DECLARE_UINT64(0x0000020000000000)
-#define CASTCLASS_USkeletalMeshComponent		DECLARE_UINT64(0x0000040000000000)
-#define CASTCLASS_UBlueprint					DECLARE_UINT64(0x0000080000000000)
-#define CASTCLASS_UDelegateFunction				DECLARE_UINT64(0x0000100000000000)
-#define CASTCLASS_UStaticMeshComponent			DECLARE_UINT64(0x0000200000000000)
-#define CASTCLASS_UMapProperty					DECLARE_UINT64(0x0000400000000000)
-#define CASTCLASS_USetProperty					DECLARE_UINT64(0x0000800000000000)
-#define CASTCLASS_UEnumProperty					DECLARE_UINT64(0x0001000000000000)
+	CASTCLASS_UField						= 0x0000000000000001,
+	CASTCLASS_UInt8Property					= 0x0000000000000002,
+	CASTCLASS_UEnum							= 0x0000000000000004,
+	CASTCLASS_UStruct						= 0x0000000000000008,
+	CASTCLASS_UScriptStruct					= 0x0000000000000010,
+	CASTCLASS_UClass						= 0x0000000000000020,
+	CASTCLASS_UByteProperty					= 0x0000000000000040,
+	CASTCLASS_UIntProperty					= 0x0000000000000080,
+	CASTCLASS_UFloatProperty				= 0x0000000000000100,
+	CASTCLASS_UUInt64Property				= 0x0000000000000200,
+	CASTCLASS_UClassProperty				= 0x0000000000000400,
+	CASTCLASS_UUInt32Property				= 0x0000000000000800,
+	CASTCLASS_UInterfaceProperty			= 0x0000000000001000,
+	CASTCLASS_UNameProperty					= 0x0000000000002000,
+	CASTCLASS_UStrProperty					= 0x0000000000004000,
+	CASTCLASS_UProperty						= 0x0000000000008000,
+	CASTCLASS_UObjectProperty				= 0x0000000000010000,
+	CASTCLASS_UBoolProperty					= 0x0000000000020000,
+	CASTCLASS_UUInt16Property				= 0x0000000000040000,
+	CASTCLASS_UFunction						= 0x0000000000080000,
+	CASTCLASS_UStructProperty				= 0x0000000000100000,
+	CASTCLASS_UArrayProperty				= 0x0000000000200000,
+	CASTCLASS_UInt64Property				= 0x0000000000400000,
+	CASTCLASS_UDelegateProperty				= 0x0000000000800000,
+	CASTCLASS_UNumericProperty				= 0x0000000001000000,
+	CASTCLASS_UMulticastDelegateProperty	= 0x0000000002000000,
+	CASTCLASS_UObjectPropertyBase			= 0x0000000004000000,
+	CASTCLASS_UWeakObjectProperty			= 0x0000000008000000,
+	CASTCLASS_ULazyObjectProperty			= 0x0000000010000000,
+	CASTCLASS_USoftObjectProperty			= 0x0000000020000000,
+	CASTCLASS_UTextProperty					= 0x0000000040000000,
+	CASTCLASS_UInt16Property				= 0x0000000080000000,
+	CASTCLASS_UDoubleProperty				= 0x0000000100000000,
+	CASTCLASS_USoftClassProperty			= 0x0000000200000000,
+	CASTCLASS_UPackage						= 0x0000000400000000,
+	CASTCLASS_ULevel						= 0x0000000800000000,
+	CASTCLASS_AActor						= 0x0000001000000000,
+	CASTCLASS_APlayerController				= 0x0000002000000000,
+	CASTCLASS_APawn							= 0x0000004000000000,
+	CASTCLASS_USceneComponent				= 0x0000008000000000,
+	CASTCLASS_UPrimitiveComponent			= 0x0000010000000000,
+	CASTCLASS_USkinnedMeshComponent			= 0x0000020000000000,
+	CASTCLASS_USkeletalMeshComponent		= 0x0000040000000000,
+	CASTCLASS_UBlueprint					= 0x0000080000000000,
+	CASTCLASS_UDelegateFunction				= 0x0000100000000000,
+	CASTCLASS_UStaticMeshComponent			= 0x0000200000000000,
+	CASTCLASS_UMapProperty					= 0x0000400000000000,
+	CASTCLASS_USetProperty					= 0x0000800000000000,
+	CASTCLASS_UEnumProperty					= 0x0001000000000000,
+};
 
-#define CASTCLASS_AllFlags						DECLARE_UINT64(0xFFFFFFFFFFFFFFFF)
+#define CASTCLASS_AllFlags ((EClassCastFlags)0xFFFFFFFFFFFFFFFF)
+
+ENUM_CLASS_FLAGS(EClassCastFlags)
+
 
 //
 // Flags associated with each property in a class, overriding the
 // property's default behavior.
 // NOTE: When adding one here, please update ParsePropertyFlags
 //
+enum EPropertyFlags : uint64
+{
+	CPF_None = 0,
 
-// For compilers that don't support 64 bit enums.
-#define CPF_Edit							DECLARE_UINT64(0x0000000000000001)		// Property is user-settable in the editor.
-#define CPF_ConstParm						DECLARE_UINT64(0x0000000000000002)		// This is a constant function parameter
-#define CPF_BlueprintVisible				DECLARE_UINT64(0x0000000000000004)		// This property can be read by blueprint code
-#define CPF_ExportObject					DECLARE_UINT64(0x0000000000000008)		// Object can be exported with actor.
-#define CPF_BlueprintReadOnly				DECLARE_UINT64(0x0000000000000010)		// This property cannot be modified by blueprint code
-#define CPF_Net								DECLARE_UINT64(0x0000000000000020)		// Property is relevant to network replication.
-#define CPF_EditFixedSize					DECLARE_UINT64(0x0000000000000040)		// Indicates that elements of an array can be modified, but its size cannot be changed.
-#define CPF_Parm							DECLARE_UINT64(0x0000000000000080)		// Function/When call parameter.
-#define CPF_OutParm							DECLARE_UINT64(0x0000000000000100)		// Value is copied out after function call.
-#define CPF_ZeroConstructor					DECLARE_UINT64(0x0000000000000200)		// memset is fine for construction
-#define CPF_ReturnParm						DECLARE_UINT64(0x0000000000000400)		// Return value.
-#define CPF_DisableEditOnTemplate			DECLARE_UINT64(0x0000000000000800)		// Disable editing of this property on an archetype/sub-blueprint
-//#define CPF_      						DECLARE_UINT64(0x0000000000001000)		// 
-#define CPF_Transient   					DECLARE_UINT64(0x0000000000002000)		// Property is transient: shouldn't be saved or loaded, except for Blueprint CDOs.
-#define CPF_Config      					DECLARE_UINT64(0x0000000000004000)		// Property should be loaded/saved as permanent profile.
-//#define CPF_								DECLARE_UINT64(0x0000000000008000)		// 
-#define CPF_DisableEditOnInstance			DECLARE_UINT64(0x0000000000010000)		// Disable editing on an instance of this class
-#define CPF_EditConst   					DECLARE_UINT64(0x0000000000020000)		// Property is uneditable in the editor.
-#define CPF_GlobalConfig					DECLARE_UINT64(0x0000000000040000)		// Load config from base class, not subclass.
-#define CPF_InstancedReference				DECLARE_UINT64(0x0000000000080000)		// Property is a component references.
-//#define CPF_								DECLARE_UINT64(0x0000000000100000)
-#define CPF_DuplicateTransient				DECLARE_UINT64(0x0000000000200000)		// Property should always be reset to the default value during any type of duplication (copy/paste, binary duplication, etc.)
-#define CPF_SubobjectReference				DECLARE_UINT64(0x0000000000400000)		// Property contains subobject references (TSubobjectPtr)
-//#define CPF_    							DECLARE_UINT64(0x0000000000800000)		// 
-#define CPF_SaveGame						DECLARE_UINT64(0x0000000001000000)		// Property should be serialized for save games
-#define CPF_NoClear							DECLARE_UINT64(0x0000000002000000)		// Hide clear (and browse) button.
-//#define CPF_  							DECLARE_UINT64(0x0000000004000000)		//
-#define CPF_ReferenceParm					DECLARE_UINT64(0x0000000008000000)		// Value is passed by reference; CPF_OutParam and CPF_Param should also be set.
-#define CPF_BlueprintAssignable				DECLARE_UINT64(0x0000000010000000)		// MC Delegates only.  Property should be exposed for assigning in blueprint code
-#define CPF_Deprecated  					DECLARE_UINT64(0x0000000020000000)		// Property is deprecated.  Read it from an archive, but don't save it.
-#define CPF_IsPlainOldData					DECLARE_UINT64(0x0000000040000000)		// If this is set, then the property can be memcopied instead of CopyCompleteValue / CopySingleValue
-#define CPF_RepSkip							DECLARE_UINT64(0x0000000080000000)		// Not replicated. For non replicated properties in replicated structs 
-#define CPF_RepNotify						DECLARE_UINT64(0x0000000100000000)		// Notify actors when a property is replicated
-#define CPF_Interp							DECLARE_UINT64(0x0000000200000000)		// interpolatable property for use with matinee
-#define CPF_NonTransactional				DECLARE_UINT64(0x0000000400000000)		// Property isn't transacted
-#define CPF_EditorOnly						DECLARE_UINT64(0x0000000800000000)		// Property should only be loaded in the editor
-#define CPF_NoDestructor					DECLARE_UINT64(0x0000001000000000)		// No destructor
-//#define CPF_								DECLARE_UINT64(0x0000002000000000)		//
-#define CPF_AutoWeak						DECLARE_UINT64(0x0000004000000000)		// Only used for weak pointers, means the export type is autoweak
-#define CPF_ContainsInstancedReference		DECLARE_UINT64(0x0000008000000000)		// Property contains component references.
-#define CPF_AssetRegistrySearchable			DECLARE_UINT64(0x0000010000000000)		// asset instances will add properties with this flag to the asset registry automatically
-#define CPF_SimpleDisplay					DECLARE_UINT64(0x0000020000000000)		// The property is visible by default in the editor details view
-#define CPF_AdvancedDisplay					DECLARE_UINT64(0x0000040000000000)		// The property is advanced and not visible by default in the editor details view
-#define CPF_Protected						DECLARE_UINT64(0x0000080000000000)		// property is protected from the perspective of script
-#define CPF_BlueprintCallable				DECLARE_UINT64(0x0000100000000000)		// MC Delegates only.  Property should be exposed for calling in blueprint code
-#define CPF_BlueprintAuthorityOnly			DECLARE_UINT64(0x0000200000000000)		// MC Delegates only.  This delegate accepts (only in blueprint) only events with BlueprintAuthorityOnly.
-#define CPF_TextExportTransient				DECLARE_UINT64(0x0000400000000000)		// Property shouldn't be exported to text format (e.g. copy/paste)
-#define CPF_NonPIEDuplicateTransient		DECLARE_UINT64(0x0000800000000000)		// Property should only be copied in PIE
-#define CPF_ExposeOnSpawn					DECLARE_UINT64(0x0001000000000000)		// Property is exposed on spawn
-#define CPF_PersistentInstance				DECLARE_UINT64(0x0002000000000000)		// A object referenced by the property is duplicated like a component. (Each actor should have an own instance.)
-#define CPF_UObjectWrapper					DECLARE_UINT64(0x0004000000000000)		// Property was parsed as a wrapper class like TSubclassOf<T>, FScriptInterface etc., rather than a USomething*
-#define CPF_HasGetValueTypeHash				DECLARE_UINT64(0x0008000000000000)		// This property can generate a meaningful hash value.
-#define CPF_NativeAccessSpecifierPublic		DECLARE_UINT64(0x0010000000000000)		// Public native access specifier
-#define CPF_NativeAccessSpecifierProtected	DECLARE_UINT64(0x0020000000000000)		// Protected native access specifier
-#define CPF_NativeAccessSpecifierPrivate	DECLARE_UINT64(0x0040000000000000)		// Private native access specifier
-#define CPF_SkipSerialization				DECLARE_UINT64(0x0080000000000000)		// Property shouldn't be serialized, can still be exported to text
-
+	CPF_Edit							= 0x0000000000000001,	// Property is user-settable in the editor.
+	CPF_ConstParm						= 0x0000000000000002,	// This is a constant function parameter
+	CPF_BlueprintVisible				= 0x0000000000000004,	// This property can be read by blueprint code
+	CPF_ExportObject					= 0x0000000000000008,	// Object can be exported with actor.
+	CPF_BlueprintReadOnly				= 0x0000000000000010,	// This property cannot be modified by blueprint code
+	CPF_Net								= 0x0000000000000020,	// Property is relevant to network replication.
+	CPF_EditFixedSize					= 0x0000000000000040,	// Indicates that elements of an array can be modified, but its size cannot be changed.
+	CPF_Parm							= 0x0000000000000080,	// Function/When call parameter.
+	CPF_OutParm							= 0x0000000000000100,	// Value is copied out after function call.
+	CPF_ZeroConstructor					= 0x0000000000000200,	// memset is fine for construction
+	CPF_ReturnParm						= 0x0000000000000400,	// Return value.
+	CPF_DisableEditOnTemplate			= 0x0000000000000800,	// Disable editing of this property on an archetype/sub-blueprint
+	//CPF_      						= 0x0000000000001000,	// 
+	CPF_Transient   					= 0x0000000000002000,	// Property is transient: shouldn't be saved or loaded, except for Blueprint CDOs.
+	CPF_Config      					= 0x0000000000004000,	// Property should be loaded/saved as permanent profile.
+	//CPF_								= 0x0000000000008000,	// 
+	CPF_DisableEditOnInstance			= 0x0000000000010000,	// Disable editing on an instance of this class
+	CPF_EditConst   					= 0x0000000000020000,	// Property is uneditable in the editor.
+	CPF_GlobalConfig					= 0x0000000000040000,	// Load config from base class, not subclass.
+	CPF_InstancedReference				= 0x0000000000080000,	// Property is a component references.
+	//CPF_								= 0x0000000000100000,
+	CPF_DuplicateTransient				= 0x0000000000200000,	// Property should always be reset to the default value during any type of duplication (copy/paste, binary duplication, etc.)
+	CPF_SubobjectReference				= 0x0000000000400000,	// Property contains subobject references (TSubobjectPtr)
+	//CPF_    							= 0x0000000000800000,	// 
+	CPF_SaveGame						= 0x0000000001000000,	// Property should be serialized for save games
+	CPF_NoClear							= 0x0000000002000000,	// Hide clear (and browse) button.
+	//CPF_  							= 0x0000000004000000,	//
+	CPF_ReferenceParm					= 0x0000000008000000,	// Value is passed by reference; CPF_OutParam and CPF_Param should also be set.
+	CPF_BlueprintAssignable				= 0x0000000010000000,	// MC Delegates only.  Property should be exposed for assigning in blueprint code
+	CPF_Deprecated  					= 0x0000000020000000,	// Property is deprecated.  Read it from an archive, but don't save it.
+	CPF_IsPlainOldData					= 0x0000000040000000,	// If this is set, then the property can be memcopied instead of CopyCompleteValue / CopySingleValue
+	CPF_RepSkip							= 0x0000000080000000,	// Not replicated. For non replicated properties in replicated structs 
+	CPF_RepNotify						= 0x0000000100000000,	// Notify actors when a property is replicated
+	CPF_Interp							= 0x0000000200000000,	// interpolatable property for use with matinee
+	CPF_NonTransactional				= 0x0000000400000000,	// Property isn't transacted
+	CPF_EditorOnly						= 0x0000000800000000,	// Property should only be loaded in the editor
+	CPF_NoDestructor					= 0x0000001000000000,	// No destructor
+	//CPF_								= 0x0000002000000000,	//
+	CPF_AutoWeak						= 0x0000004000000000,	// Only used for weak pointers, means the export type is autoweak
+	CPF_ContainsInstancedReference		= 0x0000008000000000,	// Property contains component references.
+	CPF_AssetRegistrySearchable			= 0x0000010000000000,	// asset instances will add properties with this flag to the asset registry automatically
+	CPF_SimpleDisplay					= 0x0000020000000000,	// The property is visible by default in the editor details view
+	CPF_AdvancedDisplay					= 0x0000040000000000,	// The property is advanced and not visible by default in the editor details view
+	CPF_Protected						= 0x0000080000000000,	// property is protected from the perspective of script
+	CPF_BlueprintCallable				= 0x0000100000000000,	// MC Delegates only.  Property should be exposed for calling in blueprint code
+	CPF_BlueprintAuthorityOnly			= 0x0000200000000000,	// MC Delegates only.  This delegate accepts (only in blueprint) only events with BlueprintAuthorityOnly.
+	CPF_TextExportTransient				= 0x0000400000000000,	// Property shouldn't be exported to text format (e.g. copy/paste)
+	CPF_NonPIEDuplicateTransient		= 0x0000800000000000,	// Property should only be copied in PIE
+	CPF_ExposeOnSpawn					= 0x0001000000000000,	// Property is exposed on spawn
+	CPF_PersistentInstance				= 0x0002000000000000,	// A object referenced by the property is duplicated like a component. (Each actor should have an own instance.)
+	CPF_UObjectWrapper					= 0x0004000000000000,	// Property was parsed as a wrapper class like TSubclassOf<T>, FScriptInterface etc., rather than a USomething*
+	CPF_HasGetValueTypeHash				= 0x0008000000000000,	// This property can generate a meaningful hash value.
+	CPF_NativeAccessSpecifierPublic		= 0x0010000000000000,	// Public native access specifier
+	CPF_NativeAccessSpecifierProtected	= 0x0020000000000000,	// Protected native access specifier
+	CPF_NativeAccessSpecifierPrivate	= 0x0040000000000000,	// Private native access specifier
+	CPF_SkipSerialization				= 0x0080000000000000,	// Property shouldn't be serialized, can still be exported to text
+};
 
 /** @name Combinations flags */
 //@{
@@ -439,7 +447,9 @@ typedef uint64 EClassCastFlags;
 /** all the properties that should never be loaded or saved */
 #define CPF_ComputedFlags			(CPF_IsPlainOldData | CPF_NoDestructor | CPF_ZeroConstructor | CPF_HasGetValueTypeHash)
 
-#define CPF_AllFlags				DECLARE_UINT64(0xFFFFFFFFFFFFFFFF)
+#define CPF_AllFlags				((EPropertyFlags)0xFFFFFFFFFFFFFFFF)
+
+ENUM_CLASS_FLAGS(EPropertyFlags)
 
 //@}
 
@@ -1003,13 +1013,13 @@ namespace UM
 		/// [ClassMetadata] For BehaviorTree nodes indicates that the class is deprecated and will display a warning when compiled.
 		DeprecatedNode,
 
-		/// [ClassMetadata] [FunctionMetadata] Used in conjunction with DeprecatedNode or DeprecatedFunction to customize the warning message displayed to the user.
+		/// [ClassMetadata] [PropertyMetadata] [FunctionMetadata] Used in conjunction with DeprecatedNode, DeprecatedProperty, or DeprecatedFunction to customize the warning message displayed to the user.
 		DeprecationMessage,
 
 		/// [ClassMetadata] [PropertyMetadata] [FunctionMetadata] The name to display for this class, property, or function instead of auto-generating it from the name.
 		DisplayName,
 
-		/// [ClassMetadata] [PropertyMetadata] [FunctionMetadata] The name to use for this class, property, or function when exporting it to a scripting language.
+		/// [ClassMetadata] [PropertyMetadata] [FunctionMetadata] The name to use for this class, property, or function when exporting it to a scripting language. May include deprecated names as additional semi-colon separated entries.
 		ScriptName,
 
 		/// [ClassMetadata] Specifies that this class is an acceptable base class for creating blueprints.
@@ -1090,10 +1100,16 @@ namespace UM
 		/// [PropertyMetadata] Used by FDirectoryPath properties. Indicates that the path will be picked using the Slate-style directory picker inside the game Content dir.
 		ContentDir,
 
+		/// [PropertyMetadata] This property is deprecated, any blueprint references to it cause a compilation warning.
+		DeprecatedProperty,
+
+		/// [ClassMetadata] [PropertyMetadata] [FunctionMetadata] Used in conjunction with DeprecatedNode, DeprecatedProperty, or DeprecatedFunction to customize the warning message displayed to the user.
+		// DeprecationMessage, (Commented out so as to avoid duplicate name with version in the Class section, but still show in the property section)
+
 		/// [ClassMetadata] [PropertyMetadata] [FunctionMetadata] The name to display for this class, property, or function instead of auto-generating it from the name.
 		// DisplayName, (Commented out so as to avoid duplicate name with version in the Class section, but still show in the property section)
 
-		/// [ClassMetadata] [PropertyMetadata] [FunctionMetadata] The name to use for this class, property, or function when exporting it to a scripting language.
+		/// [ClassMetadata] [PropertyMetadata] [FunctionMetadata] The name to use for this class, property, or function when exporting it to a scripting language. May include deprecated names as additional semi-colon separated entries.
 		//ScriptName, (Commented out so as to avoid duplicate name with version in the Class section, but still show in the property section)
 
 		/// [PropertyMetadata] [FunctionMetadata] Flag set on a property or function to prevent it being exported to a scripting language.
@@ -1271,11 +1287,39 @@ namespace UM
 		/// [ClassMetadata] [PropertyMetadata] [FunctionMetadata] The name to display for this class, property, or function instead of auto-generating it from the name.
 		// DisplayName, (Commented out so as to avoid duplicate name with version in the Class section, but still show in the function section)
 
-		/// [ClassMetadata] [PropertyMetadata] [FunctionMetadata] The name to use for this class, property, or function when exporting it to a scripting language.
+		/// [ClassMetadata] [PropertyMetadata] [FunctionMetadata] The name to use for this class, property, or function when exporting it to a scripting language. May include deprecated names as additional semi-colon separated entries.
 		//ScriptName, (Commented out so as to avoid duplicate name with version in the Class section, but still show in the function section)
 
 		/// [PropertyMetadata] [FunctionMetadata] Flag set on a property or function to prevent it being exported to a scripting language.
 		//ScriptNoExport, (Commented out so as to avoid duplicate name with version in the Property section, but still show in the function section)
+
+		/// [FunctionMetadata] Flags a static function taking a struct or or object as its first argument so that it "hoists" the function to be a method of the struct or class when exporting it to a scripting language.
+		/// The value is optional, and may specify a name override for the method. May include deprecated names as additional semi-colon separated entries.
+		ScriptMethod,
+
+		/// [FunctionMetadata] Used with ScriptMethod to denote that the return value of the function should overwrite the value of the instance that made the call (structs only, equivalent to using UPARAM(self) on the struct argument).
+		ScriptMethodSelfReturn,
+
+		/// [FunctionMetadata] Flags a static function taking a struct as its first argument so that it "hoists" the function to be an operator of the struct when exporting it to a scripting language.
+		/// The value describes the kind of operator using C++ operator syntax (see below), and may contain multiple semi-colon separated values.
+		/// The signature of the function depends on the operator type, and additional parameters may be passed as long as they're defaulted and the basic signature requirements are met.
+		/// - For the bool conversion operator (bool) the signature must be:
+		///		bool FuncName(const FMyStruct&); // FMyStruct may be passed by value rather than const-ref
+		/// - For comparion operators (==, !=, <, <=, >, >=) the signature must be:
+		///		bool FuncName(const FMyStruct, OtherType); // OtherType can be any type, FMyStruct may be passed by value rather than const-ref
+		///	- For mathematical operators (+, -, *, /, %, &, |, ^, >>, <<) the signature must be:
+		///		ReturnType FuncName(const FMyStruct&, OtherType); // ReturnType and OtherType can be any type, FMyStruct may be passed by value rather than const-ref
+		///	- For mathematical assignment operators (+=, -=, *=, /=, %=, &=, |=, ^=, >>=, <<=) the signature must be:
+		///		FMyStruct FuncName(const FMyStruct&, OtherType); // OtherType can be any type, FMyStruct may be passed by value rather than const-ref
+		ScriptOperator,
+
+		/// [FunctionMetadata] Flags a static function returning a value so that it "hoists" the function to be a constant of its host type when exporting it to a scripting language.
+		/// The constant will be hosted on the class that owns the function, but ScriptConstantHost can be used to host it on a different type (struct or class).
+		/// The value is optional, and may specify a name override for the constant. May include deprecated names as additional semi-colon separated entries.
+		ScriptConstant,
+
+		/// [FunctionMetadata] Used with ScriptConstant to override the host type for a constant. Should be the name of a struct or class with no prefix, eg) Vector2D or Actor
+		ScriptConstantHost,
 
 		/// [FunctionMetadata] For BlueprintCallable functions indicates that the parameter pin should be hidden from the user's view.
 		HidePin,
@@ -1326,17 +1370,20 @@ namespace UM
 
 #if !USE_COMPILED_IN_NATIVES
 #define COMPILED_IN_FLAGS(TStaticFlags) (TStaticFlags& ~(CLASS_Intrinsic))
-#define COMPILED_IN_INTRINSIC 0
 #else
 #define COMPILED_IN_FLAGS(TStaticFlags) (TStaticFlags | CLASS_Intrinsic)
-#define COMPILED_IN_INTRINSIC 1
 #endif
 
 #define DECLARE_SERIALIZER( TClass ) \
 	friend FArchive &operator<<( FArchive& Ar, TClass*& Res ) \
 	{ \
 		return Ar << (UObject*&)Res; \
-	} 
+	}
+
+#define IMPLEMENT_FARCHIVE_SERIALIZER( TClass ) void TClass::Serialize(FArchive& Ar) { TClass::Serialize(FStructuredArchiveFromArchive(Ar).GetSlot().EnterRecord()); }
+#define IMPLEMENT_FSTRUCTUREDARCHIVE_SERIALIZER( TClass ) void TClass::Serialize(FStructuredArchive::FRecord Record) { FArchiveUObjectFromStructuredArchive Ar(Record.EnterField(FIELD_NAME_TEXT("BaseClassAutoGen"))); TClass::Serialize(Ar); }
+#define DECLARE_FARCHIVE_SERIALIZER( TClass, API ) virtual API void Serialize(FArchive& Ar) override;
+#define DECLARE_FSTRUCTUREDARCHIVE_SERIALIZER( TClass, API ) virtual API void Serialize(FStructuredArchive::FRecord Record) override;
 
 /*-----------------------------------------------------------------------------
 Class declaration macros.
@@ -1384,7 +1431,7 @@ public: \
 	static_assert(false, "You have to define " #TClass "::" #TClass "() or " #TClass "::" #TClass "(const FObjectInitializer&). This is required by UObject system to work correctly.");
 
 #define DEFINE_DEFAULT_CONSTRUCTOR_CALL(TClass) \
-	static void __DefaultConstructor(const FObjectInitializer& X) { new((EInternal*)X.GetObj())TClass(); }
+	static void __DefaultConstructor(const FObjectInitializer& X) { new((EInternal*)X.GetObj())TClass; }
 
 #define DEFINE_DEFAULT_OBJECT_INITIALIZER_CONSTRUCTOR_CALL(TClass) \
 	static void __DefaultConstructor(const FObjectInitializer& X) { new((EInternal*)X.GetObj())TClass(X); }
@@ -1415,7 +1462,6 @@ public: \
 
 #define DECLARE_CLASS_INTRINSIC_NO_CTOR(TClass,TSuperClass,TStaticFlags,TPackage) \
 	DECLARE_CLASS(TClass, TSuperClass, TStaticFlags | CLASS_Intrinsic, CASTCLASS_None, TPackage, NO_API) \
-	enum { IsIntrinsic = 1 }; \
 	static void StaticRegisterNatives##TClass() {} \
 	DECLARE_SERIALIZER(TClass) \
 	DEFINE_DEFAULT_OBJECT_INITIALIZER_CONSTRUCTOR_CALL(TClass) \
@@ -1429,7 +1475,6 @@ public: \
 	RELAY_CONSTRUCTOR(TClass, TSuperClass) \
 	/** DO NOT USE. This constructor is for internal usage only for hot-reload purposes. */ \
 	TClass(FVTableHelper& Helper) : Super(Helper) {}; \
-	enum {IsIntrinsic=1}; \
 	static void StaticRegisterNatives##TClass() {} \
 	DECLARE_SERIALIZER(TClass) \
 	DEFINE_DEFAULT_OBJECT_INITIALIZER_CONSTRUCTOR_CALL(TClass) \
@@ -1440,7 +1485,6 @@ public: \
 
 #define DECLARE_CASTED_CLASS_INTRINSIC_WITH_API_NO_CTOR( TClass, TSuperClass, TStaticFlags, TPackage, TStaticCastFlags, TRequiredAPI ) \
 	DECLARE_CLASS(TClass, TSuperClass, TStaticFlags | CLASS_Intrinsic, TStaticCastFlags, TPackage, TRequiredAPI) \
-	enum { IsIntrinsic = 1 }; \
 	static void StaticRegisterNatives##TClass() {} \
 	DECLARE_SERIALIZER(TClass) \
 	DEFINE_DEFAULT_OBJECT_INITIALIZER_CONSTRUCTOR_CALL(TClass) \
@@ -1454,7 +1498,6 @@ public: \
 	RELAY_CONSTRUCTOR(TClass, TSuperClass) \
 	/** DO NOT USE. This constructor is for internal usage only for hot-reload purposes. */ \
 	TClass(FVTableHelper& Helper) : Super(Helper) {}; \
-	enum {IsIntrinsic=1}; \
 	static void StaticRegisterNatives##TClass() {} \
 	DECLARE_SERIALIZER(TClass) \
 	DEFINE_DEFAULT_OBJECT_INITIALIZER_CONSTRUCTOR_CALL(TClass) \
@@ -1465,7 +1508,6 @@ public: \
 
 #define DECLARE_CASTED_CLASS_INTRINSIC_NO_CTOR_NO_VTABLE_CTOR( TClass, TSuperClass, TStaticFlags, TPackage, TStaticCastFlags, TRequiredAPI ) \
 	DECLARE_CLASS(TClass,TSuperClass,TStaticFlags|CLASS_Intrinsic,TStaticCastFlags,TPackage, TRequiredAPI ) \
-	enum {IsIntrinsic=1}; \
 	static void StaticRegisterNatives##TClass() {} \
 	DECLARE_SERIALIZER(TClass) \
 	DEFINE_DEFAULT_OBJECT_INITIALIZER_CONSTRUCTOR_CALL(TClass) \
@@ -1484,10 +1526,16 @@ public: \
 	DECLARE_CASTED_CLASS_INTRINSIC_WITH_API( TClass, TSuperClass, TStaticFlags, TPackage, TStaticCastFlags, NO_API) \
 
 // Declare that objects of class being defined reside within objects of the specified class.
-#define DECLARE_WITHIN( TWithinClass ) \
+#define DECLARE_WITHIN_INTERNAL( TWithinClass, bCanUseOnCDO ) \
 	/** The required type of this object's outer ({{ typedef-type }}) */ \
 	typedef class TWithinClass WithinClass;  \
-	TWithinClass* GetOuter##TWithinClass() const { return (TWithinClass*)GetOuter(); }
+	TWithinClass* GetOuter##TWithinClass() const { return (ensure(bCanUseOnCDO || !HasAnyFlags(RF_ClassDefaultObject)) ? (TWithinClass*)GetOuter() : nullptr); }
+
+#define DECLARE_WITHIN( TWithinClass ) \
+	DECLARE_WITHIN_INTERNAL( TWithinClass, false )
+
+#define DECLARE_WITHIN_UPACKAGE() \
+	DECLARE_WITHIN_INTERNAL( UPackage, true )
 
 // Register a class at startup time.
 #define IMPLEMENT_CLASS(TClass, TClassCrc) \
@@ -1521,18 +1569,26 @@ public: \
 #define IMPLEMENT_INTRINSIC_CLASS(TClass, TRequiredAPI, TSuperClass, TSuperRequiredAPI, TPackage, InitCode) \
 	IMPLEMENT_CLASS(TClass, 0) \
 	TRequiredAPI UClass* Z_Construct_UClass_##TClass(); \
+	struct Z_Construct_UClass_##TClass##_Statics \
+	{ \
+		static UClass* Construct() \
+		{ \
+			extern TSuperRequiredAPI UClass* Z_Construct_UClass_##TSuperClass(); \
+			UClass* SuperClass = Z_Construct_UClass_##TSuperClass(); \
+			UClass* Class = TClass::StaticClass(); \
+			UObjectForceRegistration(Class); \
+			check(Class->GetSuperClass() == SuperClass); \
+			InitCode \
+			Class->StaticLink(); \
+			return Class; \
+		} \
+	}; \
 	UClass* Z_Construct_UClass_##TClass() \
 	{ \
 		static UClass* Class = NULL; \
 		if (!Class) \
 		{ \
-			extern TSuperRequiredAPI UClass* Z_Construct_UClass_##TSuperClass(); \
-			UClass* SuperClass = Z_Construct_UClass_##TSuperClass(); \
-			Class = TClass::StaticClass(); \
-			UObjectForceRegistration(Class); \
-			check(Class->GetSuperClass() == SuperClass); \
-			InitCode \
-			Class->StaticLink(); \
+			Class = Z_Construct_UClass_##TClass##_Statics::Construct();\
 		} \
 		check(Class->GetClass()); \
 		return Class; \

@@ -2,20 +2,20 @@
 
 #include "ControlRigTrajectoryCache.h"
 #include "ISequencer.h"
-#include "HierarchicalRig.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Materials/Material.h"
 #include "DynamicMeshBuilder.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
+#include "ControlRig.h"
 #include "ControlRigEditorModule.h"
 
-static void EvaluateRig(UHierarchicalRig* HierarchicalRig)
+static void EvaluateRig(UControlRig* ControlRig)
 {
-	if (HierarchicalRig)
+	if (ControlRig)
 	{
-		HierarchicalRig->PreEvaluate();
-		HierarchicalRig->Evaluate();
-		HierarchicalRig->PostEvaluate();
+		ControlRig->PreEvaluate_GameThread();
+		ControlRig->Evaluate_AnyThread();
+		ControlRig->PostEvaluate_GameThread();
 	}
 }
 
@@ -24,15 +24,15 @@ FControlRigTrajectoryFrame::FControlRigTrajectoryFrame(float InTime)
 {
 }
 
-void FControlRigTrajectoryFrame::CalculateFrame(UHierarchicalRig* HierarchicalRig)
+void FControlRigTrajectoryFrame::CalculateFrame(UControlRig* ControlRig)
 {
 	Segments.Reset();
 
 	// First evaluate rig
-	EvaluateRig(HierarchicalRig);
-
+	EvaluateRig(ControlRig);
+/*
 	// then build the segments for each node
-	const FAnimationHierarchy& Hierarchy = HierarchicalRig->GetHierarchy();
+	const FAnimationHierarchy& Hierarchy = ControlRig->GetHierarchy();
 	const int32 NodeCount = Hierarchy.GetNum();
 	for (int32 NodeIndex = 0; NodeIndex < NodeCount; ++NodeIndex)
 	{
@@ -42,7 +42,7 @@ void FControlRigTrajectoryFrame::CalculateFrame(UHierarchicalRig* HierarchicalRi
 
 		// first look for the 'driven' node
 		FName NodeName = Hierarchy.GetNodeName(NodeIndex);
-		FName DrivenName = HierarchicalRig->FindNodeDrivenByNode(NodeName);
+		FName DrivenName = ControlRig->FindNodeDrivenByNode(NodeName);
 		if (DrivenName != NAME_None)
 		{
 			int32 DrivenNodeIndex = Hierarchy.GetNodeIndex(DrivenName);
@@ -89,6 +89,7 @@ void FControlRigTrajectoryFrame::CalculateFrame(UHierarchicalRig* HierarchicalRi
 
 		Segments.Add({ Location, Tangent });
 	}
+*/
 }
 
 FControlRigTrajectoryCache::FControlRigTrajectoryCache()
@@ -100,7 +101,7 @@ FControlRigTrajectoryCache::FControlRigTrajectoryCache()
 	CurrentDisplayTime = 0.0f;
 }
 
-void FControlRigTrajectoryCache::Update(TSharedRef<ISequencer> Sequencer, const FGuid& InObjectBinding, const TRange<float>& NewRange, float FrameSnap, float DeltaTime, double InCurrentTime)
+void FControlRigTrajectoryCache::Update(TSharedRef<ISequencer> Sequencer, const FGuid& InObjectBinding, const TRange<double>& NewRange, float FrameSnap, float DeltaTime, double InCurrentTime)
 {
 	if (!SequencerPtr.IsValid() || Sequencer != SequencerPtr.Pin().ToSharedRef() ||
 		PreviousCache.FrameSnap != CurrentCache.FrameSnap ||
@@ -220,11 +221,11 @@ void FControlRigTrajectoryCache::ComputeQueuedFrames()
 		TArrayView<TWeakObjectPtr<>> BoundObjects = Sequencer->FindObjectsInCurrentSequence(ObjectBinding);
 		if (BoundObjects.Num() > 0)
 		{
-			if (UHierarchicalRig* HierarchicalRig = Cast<UHierarchicalRig>(BoundObjects[0].Get()))
+			if (UControlRig* ControlRig = Cast<UControlRig>(BoundObjects[0].Get()))
 			{
 				Sequencer->EnterSilentMode();
 				EMovieScenePlayerStatus::Type SavedPlaybackStatus = Sequencer->GetPlaybackStatus();
-				float PlaybackTime = Sequencer->GetLocalTime();
+				FQualifiedFrameTime PlaybackTime = Sequencer->GetLocalTime();
 
 				// Generate each frame
 				int32 FramesCalculatedThisTime = 0;
@@ -234,21 +235,21 @@ void FControlRigTrajectoryCache::ComputeQueuedFrames()
 					TSharedPtr<FControlRigTrajectoryFrame> Frame = QueuedTrajectoryFrames.Pop();
 
 					Sequencer->SetPlaybackStatus(EMovieScenePlayerStatus::Jumping);
-					Sequencer->SetLocalTimeDirectly(Frame->GetTime());
+					Sequencer->SetLocalTimeDirectly(Frame->GetTime() * PlaybackTime.Rate);
 
 					Sequencer->ForceEvaluate();
 
-					Frame->CalculateFrame(HierarchicalRig);
+					Frame->CalculateFrame(ControlRig);
 					FramesCalculatedThisTime++;
 				}
 
 				// Reset back to time before we generated
 				Sequencer->SetPlaybackStatus(EMovieScenePlayerStatus::Jumping);
-				Sequencer->SetLocalTimeDirectly(PlaybackTime);
+				Sequencer->SetLocalTimeDirectly(PlaybackTime.Time);
 
 				// force evaluate at time frame (pushes state to properties)
 				Sequencer->ForceEvaluate();
-				EvaluateRig(HierarchicalRig);
+				EvaluateRig(ControlRig);
 
 				Sequencer->SetPlaybackStatus(SavedPlaybackStatus);
 				Sequencer->ExitSilentMode();

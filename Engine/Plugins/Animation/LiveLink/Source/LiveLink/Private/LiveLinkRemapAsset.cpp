@@ -78,18 +78,15 @@ void ULiveLinkRemapAsset::BuildPoseForSubject(float DeltaTime, const FLiveLinkSu
 	{
 		FName BoneName = TransformedBoneNames[i];
 
-		if (InFrame.Transforms.IsValidIndex(i))
-		{
-			FTransform BoneTransform = InFrame.Transforms[i];
+		FTransform BoneTransform = InFrame.Transforms[i];
 
-			int32 MeshIndex = OutPose.GetBoneContainer().GetPoseBoneIndexForBoneName(BoneName);
-			if (MeshIndex != INDEX_NONE)
+		int32 MeshIndex = OutPose.GetBoneContainer().GetPoseBoneIndexForBoneName(BoneName);
+		if (MeshIndex != INDEX_NONE)
+		{
+			FCompactPoseBoneIndex CPIndex = OutPose.GetBoneContainer().MakeCompactPoseIndex(FMeshPoseBoneIndex(MeshIndex));
+			if (CPIndex != INDEX_NONE)
 			{
-				FCompactPoseBoneIndex CPIndex = OutPose.GetBoneContainer().MakeCompactPoseIndex(FMeshPoseBoneIndex(MeshIndex));
-				if (CPIndex != INDEX_NONE)
-				{
-					OutPose[CPIndex] = BoneTransform;
-				}
+				OutPose[CPIndex] = BoneTransform;
 			}
 		}
 	}

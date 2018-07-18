@@ -9,6 +9,7 @@
 #include "TimerManager.h"
 #include "Engine/LocalPlayer.h"
 #include "OnlineSubsystem.h"
+#include "Misc/CoreDelegates.h"
 
 #include "OnlineHotfixManager.h"
 
@@ -52,6 +53,7 @@ UUpdateManager::UUpdateManager()
 	, UpdateCheckCompleteDelay(0.5f)
 	, HotfixAvailabilityCheckCompleteDelay(0.1f)
 	, UpdateCheckAvailabilityCompleteDelay(0.1f)
+	, AppSuspendedUpdateCheckTimeSeconds(600)
 	, bPlatformEnvironmentDetected(false)
 	, bInitialUpdateFinished(false)
 	, bCheckHotfixAvailabilityOnly(false)
@@ -74,7 +76,14 @@ UUpdateManager::UUpdateManager()
 	{
 		UpdateStateEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EUpdateState"));
 		UpdateCompletionEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EUpdateCompletionStatus"));
+
+		RegisterDelegates();
 	}
+}
+
+UUpdateManager::~UUpdateManager()
+{
+	UnregisterDelegates();
 }
 
 void UUpdateManager::SetPending()
@@ -229,8 +238,18 @@ void UUpdateManager::StartPatchCheck()
 
 	SetUpdateState(EUpdateState::CheckingForPatch);
 
+	if (PLATFORM_ANDROID)
+	{
+		UE_LOG(LogHotfixManager, Warning, TEXT("Android skipping patch check for now"));
+		PatchCheckComplete(EPatchCheckResult::NoPatchRequired);
+		return;
+	}	
+
+	EPatchCheckResult PatchResult = EPatchCheckResult::PatchCheckFailure;
+
 	IOnlineSubsystem* PlatformOnlineSub = IOnlineSubsystem::GetByPlatform();
-	if (PlatformOnlineSub)
+	bool platformIOS = PLATFORM_IOS; // trick static analysis into not complaining
+	if (PlatformOnlineSub && !platformIOS)
 	{
 		IOnlineIdentityPtr PlatformOnlineIdentity = PlatformOnlineSub->GetIdentityInterface();
 		if (PlatformOnlineIdentity.IsValid())
@@ -251,6 +270,7 @@ void UUpdateManager::StartPatchCheck()
 			else
 			{
 				UE_LOG(LogHotfixManager, Warning, TEXT("No valid platform user id when starting patch check!"));
+				PatchResult = EPatchCheckResult::NoLoggedInUser;
 			}
 		}
 	}
@@ -287,6 +307,7 @@ void UUpdateManager::StartPatchCheck()
 					else
 					{
 						UE_LOG(LogHotfixManager, Warning, TEXT("No valid user id when starting patch check!"));
+						PatchResult = EPatchCheckResult::NoLoggedInUser;
 					}
 				}
 				else
@@ -300,7 +321,7 @@ void UUpdateManager::StartPatchCheck()
 	if (!bStarted)
 	{
 		// Any failure to call GetUserPrivilege will result in completing the flow via this path
-		PatchCheckComplete(EPatchCheckResult::PatchCheckFailure);
+		PatchCheckComplete(PatchResult);
 	}
 }
 
@@ -354,7 +375,12 @@ void UUpdateManager::OnCheckForPatchComplete(const FUniqueNetId& UniqueId, EUser
 			}
 			else if (PrivilegeResult & (uint32)IOnlineIdentity::EPrivilegeResults::GenericFailure)
 			{
-				Result = EPatchCheckResult::PatchCheckFailure;
+#if (PLATFORM_XBOXONE || PLATFORM_PS4 || PLATFORM_SWITCH)
+				// Skip console backend failures
+				Result = EPatchCheckResult::NoPatchRequired;
+#else
+				Result = EPatchCheckResult::PatchCheckFailure;	
+#endif
 			}
 		}
 	}
@@ -458,8 +484,18 @@ void UUpdateManager::PlatformEnvironmentCheck_OnLoginConsoleComplete(int32 Local
 		}
 		else
 		{
-			UE_LOG(LogHotfixManager, Warning, TEXT("Failed to detect online environment for the platform"));
-			CheckComplete(EUpdateCompletionStatus::UpdateFailure_NotLoggedIn);
+			if (Error.Contains(TEXT("com.epicgames.identity.notloggedin"), ESearchCase::IgnoreCase))
+			{
+				UE_LOG(LogHotfixManager, Warning, TEXT("Failed to detect online environment for the platform, no user signed in"));
+				CheckComplete(EUpdateCompletionStatus::UpdateFailure_NotLoggedIn);
+			}
+			else
+			{
+				// just a platform env error, assume production and keep going
+				UE_LOG(LogHotfixManager, Warning, TEXT("Failed to detect online environment for the platform"));
+				bPlatformEnvironmentDetected = true;
+				StartHotfixCheck();
+			}
 		}
 	}
 }
@@ -676,6 +712,33 @@ bool UUpdateManager::IsHotfixingEnabled() const
 bool UUpdateManager::IsBlockingForInitialLoadEnabled() const
 {
 	return FLoadingScreenConfig::ShouldBlockOnInitialLoad();
+}
+
+void UUpdateManager::RegisterDelegates()
+{
+	FCoreDelegates::ApplicationWillDeactivateDelegate.AddUObject(this, &ThisClass::OnApplicationWillDeactivate);
+	FCoreDelegates::ApplicationHasReactivatedDelegate.AddUObject(this, &ThisClass::OnApplicationHasReactivated);
+}
+
+void UUpdateManager::UnregisterDelegates()
+{
+	FCoreDelegates::ApplicationWillDeactivateDelegate.RemoveAll(this);
+	FCoreDelegates::ApplicationHasReactivatedDelegate.RemoveAll(this);
+}
+
+void UUpdateManager::OnApplicationWillDeactivate()
+{
+	DeactivatedTime = FDateTime::UtcNow();
+}
+
+void UUpdateManager::OnApplicationHasReactivated()
+{
+	FDateTime Now = FDateTime::UtcNow();
+
+	if ((Now - DeactivatedTime).GetTotalSeconds() > AppSuspendedUpdateCheckTimeSeconds)
+	{
+		StartCheck();
+	}
 }
 
 FTimerHandle UUpdateManager::DelayResponse(DelayCb&& Delegate, float Delay)

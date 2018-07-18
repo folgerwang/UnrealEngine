@@ -1,132 +1,431 @@
-﻿INTSourceChangelist:2688263
-Availability:Public
-Title:カラーグレーディング
-Crumbs: %ROOT%, Engine, Engine/Rendering/PostProcessEffects
-Description:シーンカラーを調整するためのトーンマッピングと色補正エフェクト
-Version:4.9
+﻿Availability:Public
+Crumbs: %ROOT%
+Title:カラー グレーディング Filmic トーンマッパ
+Description:Description:シーンカラーを調整するためのトーンマッピングと色補正エフェクト
+Type:Overview
+SkillLevel:Beginner
+Version:4.16
+Parent:Engine/Rendering/PostProcessEffects
+related:Engine/Rendering/PostProcessEffects/UsingLUTs
+Order:4
+Tags:Post Process
+Topic-image:ColorGrading_Overview.png
+Social-image:ColorGrading_Overview.png
 
-アンリアル エンジンでは、 **カラー グレーディング** という用語は トーンマッピング 機能 (HDR から LDR への変換) とそれに続く カラー修正 (LDR カラーからスクリーン カラーへの変換) を意味します。
+[TOC(start:2 end:3)]
 
-## トーン マッピング
+![](ColorGrading_Overview.png)
+[REGION:caption] カラー グレーディング ツールを使うと、さまざまなシーンカラーを使ってシーンを表しているこのサンプルのように、シーンの外観と色調を変更することができます。[/REGION]
+
+アンリアル エンジンでは、 **カラー グレーディング** という用語はトーンマッピング機能 (HDR から LDR への変換) とそれに続く [High Dynamic Range (HDR) display output](Engine/Rendering/HDRDisplayOutput) および
+画像のさらなるカラー修正 (LDR カラーからスクリーン カラーへの変換) を意味します。
+
+## トーン マッピング (Tone Mapping)
 
 [EXCERPT:ToneMapping_Desc]
-**Tone Mapping (トーン マッピング)** 機能の目的は、広範囲の HDR (ハイダイナミック レンジ) カラーを局所的な LDR (ローダイナミック レンジ) にマップすることによって、モニターでカラー表示を可能にすることです。これはポストプロセス処理中の通常のレンダリング後に実行されます。グローバル トーンマッパとは、 3 つの入力値 (RGB) と 3 つの出力値 (RGB) を伴う機能です。ローカル トーンマッパでは、ピクセルの周辺も考慮されますが、より集中的な計算が行われます (つまり速度が遅くなります)。優れたトーンマッパ機能は、カラーが高輝度な場合でも、ピクセルのカラー情報を保持しようとします。
+**Tone Mapping (トーン マッピング)** 機能の目的は、広範囲の HDR (ハイダイナミック レンジ) カラーを局所的な LDR (ローダイナミック レンジ) にマップすることによって、モニターでカラー表示を可能にすることです。これはポストプロセス処理中の
+通常のレンダリング後に実行されます。トーン マッピングのプロセスはフィルムのライトに対する反応をシミュレートする方法だと考えてください。 
 [/EXCERPT:ToneMapping_Desc]
 
-以下のグラフは、0 から 5 の範囲の各チャンネルが、0 から 1 のチャンネルにマップされる様子を示したものです。
+### Academy Color Encoding System (ACES) Filmic Tone Mapper
 
-![Tone Mapping Graphs](newtone.jpg)
+[REGION:note]
+アンリアル エンジン 4.15 では、Filmic Tone Mapperはデフォルトのトーンマッパとして有効になっています。この変更により、以前開発してコンテンツは見え方が異なる場合があります。古いトーンマッパを使うには、 
+以下のコンソール コマンドを入力してくださいあ。
 
-以下の関数を使用しました。
+	r.TonemapperFilm 0
 
-	GammaColor = LinearColor / (LinearColor + 0.187) * 1.035;
+古いトーンマッパに最も近い Tone Mapper プロパティ値は以下を入力すれば使用可能です。
+* **Slope:** 0.98
+* **Toe:** 0.3
+* **Shoulder:** 0.22
+* **Black Clip:** 0
+* **White Clip:** 0.025
+[/REGION]
 
-暗い色よりも明るい色が、輝度の上昇がかなりゆっくりであることに注目してください。黒は黒のままです。ほとんど直線状になっている箇所がカーブにありますが、それでもトーンマッピングされないカーブよりは幾分傾斜がきつくなっています。これにより、コントラストがいくぶん強調されます。トーンマッパの使用時は異なる外観となるのは正常ですが、良い結果を得るにはソース画像がより広いダイナミックな範囲でなくてはいけません。結果、フィルムの見た目が一層リアルになるのです。 
+UE4 で使用している Filmic トーンマッパは、 
+[Academy Color Encoding System (ACES)](http://www.oscars.org/science-technology/sci-tech-projects/aces) がテレビと映画のために定めた業界標準に一致します。様々なフォーマットやディスプレイに渡る色の一貫性の維持が可能である上に、 
+媒体が変わっても調整する必要ないようにしてくれるソースマテリアルの未来の保証の役割をすることもあります。このトーンマッパは、UE4 で以前使用していたグロバール トーンマッパ関数をほぼそのまま使いますが、フィルムの反応がある点が異なります。
+S カーブが映画フィルムにさらによく合って、全体的な外観がよくなるという意味です。 
 
-提示されたトーンマッパの公式には、すでに微調整可能な定数が 2 つ設定されています。数的処理を増やすほど詳細な微調整が可能ですが、品質、柔軟性、そしてパフォーマンスを検討する必要があるため、適切な関数を発見するのは容易ではありません。そこで 1 つの単純な公式を使用し、その結果の LDR をシンプルなカラー ルックアップ (色対応表) で修正することにしました。すでに HDR カラーを限られた範囲ですでにマッピングしたので、暗色の多様な表現だけでなく明色の修正も可能なままです。この方法は理解しやすく、ローカル制御と安定したパフォーマンスを保つことで柔軟性を提供します。 
+違いをすぐに感じることができる部分は、ブルーム (Bloom) と露出レベル (Exposure Level) です。
 
-| プロパティ | 説明 |
-| -------- | ----------- |
-| **Scene Color Tint** | HDR シーンカラーに適用されるフィルター カラー (乗算) です。 [INCLUDE:#SceneColorTint] |
-| **Tonemapper Toe Factor** | トーンマッパに含まれる暗色の微調整を可能にします。値は [0.0, 1.0] の範囲です。 [INCLUDE:#TonemapperToeFactor] |
+#### 物理的に正確なエミッシブとブルーム
 
-[COMMENT:none]
+エミッシブ値がすでに物理的に正確で、現実世界の色の光の動作と同様に、エミッシブ パワーが増加すると色も明るくなります。色にトーンマッピングが適用されると、
+最終的な色が明るすぎてフィルム / センサーを飽和し始めると、白くなります。
 
-[EXCERPT:SceneColorTint]
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
-	![Scene Color Tint - (1.0, 1.0, 1.0)](scene_tint_full_small.png)(w:600)
+	![Filmic Tone Mapper | Emissive](Bloom_FilmicToneMapper.png)(w:700)
 	[/PARAM]
 	[PARAM:after]
-	![Scene Color Tint - (0.25, 0.25, 0.25)](scene_tint_quarter_small.png)(w:600)
+	![Old Tone Mapper | Emissive](Bloom_OldToneMapper.png)(w:700)
 	[/PARAM]
 [/OBJECT]
-[/EXCERPT:SceneColorTint]
 
-[EXCERPT:TonemapperToeFactor]
+
+
+この例では、「以前」のトーンマッパと新しい Filmic トーンマッパを比較しています。彩度が高すぎるとマテリアル領域の詳細が失われるだけだった「以前」のトーンマッパとは異なり、
+エミッシブ パワーがひどく高ければ、色が白くなり始めます。Filmic トーンマッパを使うと、このシーンのブルームの物理的な精度が維持されるだけでなく、 
+彩度がひどく高くなることもないので、反射されたメインカラー値が保持されます。
+
+#### 露出レベル
+
+露出レベルが物理的に正確だと、ディテールを失うことなく形状が維持されます。
+
+![](Exposure_Default.png)(w:500)
+
+この例では、さまざまな色はもちろん、ラフネスとメタリックの値も異なるマテリアルがあります。[Exposure Bias] も「0」に設定されています。 
+
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
-	![Toe Factor - 0](toe_factor_0_small.png)(w:600)
+	![Filmic Tone Mapper | Exposure Bias: 3](Exposure_FilmicToneMapper.png)(w:700)
 	[/PARAM]
 	[PARAM:after]
-	![Toe Factor - 1](toe_factor_1_small.png)(w:600)
+	![Old Tone Mapper | Exposure Bias: 3](Exposure_OldToneMapper.png)(w:700)
 	[/PARAM]
 [/OBJECT]
-[/EXCERPT:TonemapperToeFactor]
 
-[/COMMENT]
+この比較では[Exposure Bias] を 3 にしたので、「以前」のトーンマッパの実装に比べてFilmic トーンマッパの反応が非常によく現われて見えます。また、3 という値の意味は、上記の従来例に示されている 0 というデフォルト値よりも処理された画像が 8 倍明るいという意味です。
 
-## 色補正
+露出レベルの値が高くなるほど、Filmic / 「以前」のトーンマッパの違いが明確になります。Filmic Tone Mapperの球はさらに明るくなったにも関わらず、カラーとシェーディング図形が維持されて見えます。「以前」のトーンマッパを使用する球は、カラーがシェーディングとブレンドされ始めています。その球体は単色で非常に明るくなりますが、それが示していることは露出値が高いということだけではありません。Filmic Tone Mapperは、この部分を考慮し、露出値を上げると、実際のカメラと同様の効果を出します。
 
-[EXCERPT:LookupTexture]
-色補正は色対応表 (LUT) を使用して実装されます。3D の色対応表により色変換がさらに洗練されたものになるため (デサチュレーションなど)、1D の色対応表を 3 つ使用する代わりに、 3D の色対応表を 1 つを利用することにしました。以下の画像は、 16x16x16 のカラーニュートラルな LUT (色対応表) が 256x16 のテクスチャにアンラップされたものです (テクスチャ ブラウザでは現在このように見えます)。
+### トーンマッパの設定
+
+Post Process Volume の **[Tone Mapper]** セクションには、ACES 規格フィルムに合ったプロパティがあります。このトーンマッパ コントロールを調整すると、映画の他のタイプを模倣することができます。 
+
+[REGION:note]
+このプロパティは、特定の外観のためにプロジェクト単位でのみ使用し、動的に、またはショット単位では変更しません。美的調整を加えるには  
+[カラー グレーディング](#色補正プロパティ) プロパティを使います。
+[/REGION]
+
+![](ToneMapperProperties.png)(w:500)
 
 [REGION:raw]
-![Neutral LUT](RGBTable16x1.png)
+| プロパティ | 説明 |
+| -------- | ----------- |
+| [REGION:tablesection] トーンマッパ [/REGION] ||
+| **Slope** | 傾斜 - トーンマッパに使用されるSカーブの傾きを調整します。値が大きいほど傾斜が激しく (暗く) なって低いドルヘ (明るく) なります。値の範囲は [0.0, 1.0]. [0.0, 1.0] です。 [INCLUDE:#slopetable]  |
+| **Toe** | つま先 - トーンマッパの暗い色を調整します。値の範囲は [0.0, 1.0]. [0.0, 1.0] です。 [INCLUDE:#toetable] |
+| **Shoulder** | 肩 - トーンマッパの明るい値を調整します。値の範囲は [0.0, 1.0].  です。 [INCLUDE:#shouldertable] |
+| **Black Clip** | 黒クリップ - 黒の値が切ら始めクロスオーバー部分を設定します。一般的にこの値は調節しては **いけません**。値の範囲は [0.0, 1.0].  です。 [INCLUDE:#blackcliptable] |
+| **White Clip** | 白クリップ - 白の値が切ら始めクロスオーバー部分を設定します。ほとんどの微妙な変化に表示されます。値の範囲は [0.0, 1.0].  です。 [INCLUDE:#whitecliptable] |
 [/REGION]
 
 [REGION:note]
-このページに表示されている RGBTable16x1.png 画像を使用しても構いませんが、モニターに表示されている画像は必ずしも実際の画像とは限りません。コピーや貼り付けはしないでください。 
-
-* [LUT テクスチャのサンプル](RGBTable16x1.png) - 右クリックして **[Save As (名前を付けて保存)]** を選択します。
-
+上記のようなリアルタイムのグラフで、他のトーンマッパの値をテストするには、設定済みデフォルトの [UE4トーンマッパ サンプル](https://www.desmos.com/calculator/h8rbdpawxj) を使用することができます
 [/REGION]
 
-修正したテクスチャは以下のような見た目となります。
+
+[COMMENT:none]
+- Tone Mapper Properties Excerpts ---
+
+
+[EXCERPT:slopetable]
+| [INCLUDE:#slopegraph] | [INCLUDE:#slopeimage] |
+| --- | --- |
+||
+[/EXCERPT:slopetable]
+
+[EXCERPT:toetable]
+| [INCLUDE:#toegraph] | [INCLUDE:#toeimage] |
+| --- | --- |
+||
+[/EXCERPT:toetable]
+
+[EXCERPT:shouldertable]
+| [INCLUDE:#shouldergraph] | [INCLUDE:#shoulderimage] |
+| --- | --- |
+||
+[/EXCERPT:shouldertable]
+
+[EXCERPT:blackcliptable]
+| [INCLUDE:#blackclipgraph] | [INCLUDE:#blackclipimage] |
+| --- | --- |
+||
+[/EXCERPT:blackcliptable]
+
+[EXCERPT:whitecliptable]
+| [INCLUDE:#whiteclipgraph] | [INCLUDE:#whiteclipimage] |
+| --- | --- |
+||
+[/EXCERPT:whitecliptable]
+
+---------------------------------
+
+[EXCERPT:slopegraph]
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![Slope: 0.88 (Default)](DefaultSettings_FilmicToneMapper.png)(w:450)
+	[/PARAM]
+	[PARAM:after]
+	![Slope: 0.6](Slope_0_6.png)(w:450)
+	[/PARAM]
+[/OBJECT]
+[/EXCERPT:slopegraph]
+
+[EXCERPT:slopeimage]
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![Slope: 0.88 (Default)](DefaultToneMapper.png)(w:450)
+	[/PARAM]
+	[PARAM:after]
+	![Slope: 0.6](SlopeToneMap.png)(w:450)
+	[/PARAM]
+[/OBJECT]
+[/EXCERPT:slopeimage]
+
+------------------------------
+
+[EXCERPT:toegraph]
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![Toe: 0.55 (Default)](DefaultSettings_FilmicToneMapper.png)(w:450)
+	[/PARAM]
+	[PARAM:after]
+	![Toe: 0.8](Toe_0_8.png)(w:450)
+	[/PARAM]
+[/OBJECT]
+[/EXCERPT:toegraph]
+
+[EXCERPT:toeimage]
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![Toe: 0.55 (Default)](DefaultToneMapper.png)(w:450)
+	[/PARAM]
+	[PARAM:after]
+	![Toe: 0.8](ToeToneMap.png)(w:450)
+	[/PARAM]
+[/OBJECT]
+[/EXCERPT:toeimage]
+
+-----------------------------
+
+[EXCERPT:shouldergraph]
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![Shoulder: 0.26 (Default)](DefaultSettings_FilmicToneMapper.png)(w:450)
+	[/PARAM]
+	[PARAM:after]
+	![Shoulder: 1](Shoulder_1.png)(w:450)
+	[/PARAM]
+[/OBJECT]
+[/EXCERPT:shouldergraph]
+
+[EXCERPT:shoulderimage]
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![Shoulder: 0.26 (Default)](DefaultToneMapper.png)(w:450)
+	[/PARAM]
+	[PARAM:after]
+	![Shoulder: 1](ShoulderToneMap.png)(w:450)
+	[/PARAM]
+[/OBJECT]
+[/EXCERPT:shoulderimage]
+
+-----------------------------
+
+[EXCERPT:blackclipgraph]
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![Black Clip: 0 (Default)](DefaultSettings_FilmicToneMapper.png)(w:450)
+	[/PARAM]
+	[PARAM:after]
+	![Black Clip: 0.1](BlackClip_0_1.png)(w:450)
+	[/PARAM]
+[/OBJECT]
+[/EXCERPT:blackclipgraph]
+
+[EXCERPT:blackclipimage]
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![Black Clip: 0 (Default)](DefaultToneMapper.png)(w:450)
+	[/PARAM]
+	[PARAM:after]
+	![Black Clip: 0.1](BlackClipToneMap.png)(w:450)
+	[/PARAM]
+[/OBJECT]
+[/EXCERPT:blackclipimage]
+
+-----------------------------
+
+[EXCERPT:whiteclipgraph]
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![White Clip: 0.04 (Default)](DefaultSettings_FilmicToneMapper.png)(w:450)
+	[/PARAM]
+	[PARAM:after]
+	![White Clip: 0.2](WhiteClip_0_2.png)(w:450)
+	[/PARAM]
+[/OBJECT]
+[/EXCERPT:whiteclipgraph]
+
+[EXCERPT:whiteclipimage]
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![White Clip: 0.04 (Default)](DefaultToneMapper.png)(w:450)
+	[/PARAM]
+	[PARAM:after]
+	![White Clip: 0.2](WhiteClipToneMap.png)(w:450)
+	[/PARAM]
+[/OBJECT]
+[/EXCERPT:whiteclipimage]
+
+--- End Tone Mapper Properties Excerpts -
+[/COMMENT]
+
+
+## 色補正
+
+Color correction (色補正) またはカラーグレーディングは、シーンのライト全体の色を変更または強化するために使用されます。HDR ディスプレイの出現によって、
+どのディスプレイタイプでも色が正しく表示されるようにするために、処理前、元の色を維持することが最も重要になりました。  
+
+過去には、色補正は、[ルックアップテーブル (LUT)](Engine/Rendering/PostProcessEffects/UsingLUTs) を介して実装して、 
+sRGB 色空間からモニタに出力される最終的な色と LDR で行われました。この方法だと HDR ディスプレイの操作時に問題が発生します。
+LUT は調整の対象となる現在サポートディスプレイ時点でのスナップ ショットにすぎないため、HDR ディスプレイで同じエフェクトに使用することができないからです。これらの問題を解決するために、[色補正プロパティ](#色補正プロパティ) は、 
+しばしば Scene Referred Linear Space というところで動作して、トーンマッパ適用前にすべての色をキャプチャします。すなわち、ひとつの HDR ディスプレイのみが色調整作業をしてくれれば HDR / LDR に関係なく、 
+どのようなタイプの出力ディスプレイでも同じように見せることを意味しています。
+
+[REGION:note]
+コンテンツで使用するために HDR パイプラインとその動作の詳細を知るためには[High Dynamic Range Display Output](Engine/Rendering/HDRDisplayOutput) を参照してください。
+[/REGION]
+
+### 色補正プロパティ
+
+Post Process Volume の **[Color Grading]** セクションでは、シーンの美的な部分を制御することができるプロパティを見つけることができます。 
+
+#### 設定
+
+[REGION:imagetable]
+| ![](RGBColorWheel.png)(w:500) | ![](HSVColorWheel.png)(w:500) |
+| --- | --- |
+|RGB|HSV|
+[/REGION]
+
+各セクションの下に、カラーホイールを使用して、カラー値を選択して、ドラッグアンドドロップすることができます。次のモードの中から選択することもできます。
+
+* RGB - Red (赤)、Green (緑)、Blue (青) の値を調整します。
+* HSV - Hue (色)、Saturation (彩度)、Value (明度) の値を調整します。
+
+[REGION:tip]
+スライダーの値のより洗練された制御は、**Shift** キーのドラッグで可能です。
+[/REGION]
+
+![](ColorGradingProperties.png)(w:500)
 
 [REGION:raw]
-![Sepia Tone LUT](LUT_Sepia.png)
-[/REGION]
-
-LUT を使用するには、使用するポストプロセスボリュームで LUT テクスチャを割り当てる必要があります。 
-
 | プロパティ | 説明 |
 | -------- | ----------- |
-| **Color Grading Intensity** | 色補正のエフェクトを制御するスケーリング係数です。 |
+| [REGION:tablesection] White Balance [/REGION] | このセクションのプロパティは、白が本当の白に見えるようにシーンのカラーを調整するために使用されます。シーンの他のカラーが、シーンに与えられたライティングに正しくライティングされるようにします。 |
+| **Temp** | 温度 - シーンのライトの温度に関連するホワイトバランスを調整します。ライトの温度と、これに一致するとライトが白く見えます。シーンのライトよりも高い値が使用されると、「暖かい」または黄色が、逆に低い値が使用されると、「冷たい」、青の色が出てくるでしょう。 |
+| **Tint** | 色合い - シアンとマゼンタの範囲を調整してシーンのホワイトバランス温度色合いを調整します。理想的には、ホワイトバランス **Temp** プロパティを調整して、正確な値を求めた場合にこの設定を使用します。いくつかのライトの温度で色がより黄色または青に見えることがあります。このオプションを使用して、結果色がより自然に見えるようにバランスをとることができます。  |
+| [REGION:tablesection] Global [/REGION] | このセクションのプロパティは、シーン全体に使用できる色補正グローバルセットです |
+| **Saturation** | 表現される色 (色) の世紀 (純度) を調整します。彩度の値が高ければより (赤、緑、青) 原色に近いように表示され、彩度が低いと灰色が混じって濁りや色落ちしたように見えるようになります。 |
+| **Contrast** | シーンの明るい部分と暗い色の値の色調範囲を調整します。世紀を下げるハイライトが消えて、画像が明るくなり、色落ちしたように見えるが、大きくすると、ハイライトがタイトになって画像が全体的に暗くなります。 |
+| **Gamma** | 画像の中間トーン輝度を調整して、より正確な色を再現しています。この値を下げ上げすると、画像が色落ちしたり、非常に暗く見えるようになります。 |
+| **Gain** | イメージの白 (ハイライト) 輝度を調整して、より正確な色を再現しています。この値を下げ上げすると、画像が色落ちしたり、非常に暗く見えるようになります。 |
+| **Offset** |  画像の黒（影）輝度を調整して、より正確な色を再現しています。この値を下げるか上げると画像の影が色落ちや、あまりにも暗く見えるようになります。この値を下げ上げすると、シャドウが色落ちしたり、非常に暗く見えるようになります。 |
+| **Scene Color Tint** | HDRシーンカラーに適用されたフィルタ色の倍数です。 |
+| **Color Grading LUT Intensity** |  色補正エフェクトを制御するスケール引数です。 |
 | **Color Grading LUT** | 色補正の色対応表として使用する LUT テクスチャです。[INCLUDE:Engine/Rendering/PostProcessEffects/ColorGrading#ColorGradingLUT]  |
+| [REGION:tablesection] Shadows [/REGION] | このセクションのプロパティは、シーンの影の色補正値を調整するために使用されます。 |
+| **Saturation** | 表現される色 (色) の世紀 (純度) を調整します。彩度の値が高ければより (赤、緑、青) 原色に近いように表示され、彩度が低いと灰色が混じって濁りや色落ちしたように見えるようになります。 |
+| **Contrast** | シーンの明るい部分と暗い色の値の色調範囲を調整します。強度を下げるとハイライトが消えて画像が明るくなり、色落ちしたように見えます。一方強度を上げると、ハイライトが強くなって画像が全体的に暗くなります。 |
+| **Gamma** | 画像の輝度を調整して、より正確な色を再現しています。この値を下げ上げすると、画像が色落ちしたり、非常に暗く見えるようになります。 |
+| **Gain** | イメージの白 (ハイライト) 輝度を調整して、より正確な色を再現しています。この値を下げ上げすると、画像が色落ちしたり、非常に暗く見えるようになります。 |
+| **Offset** |  画像の黒（影）輝度を調整して、より正確な色を再現しています。この値を下げるか上げると画像の影が色落ちや、あまりにも暗く見えるようになります。この値を下げ上げすると、シャドウが色落ちしたり、非常に暗く見えるようになります。 |
+| **Shadows Max** | **Shadows** セクションで調整された色補正プロパティに影響を与えるプロパティの乗数です。 |
+| [REGION:tablesection] Mid-tones [/REGION] | このセクションのプロパティは、シーンの中間トーンの色補正値を調整するために使用されます。  |
+| **Saturation** | 表現される色 (色) の世紀 (純度) を調整します。彩度の値が高ければより (赤、緑、青) 原色に近いように表示され、彩度が低いと灰色が混じって濁りや色落ちしたように見えるようになります。 |
+| **Contrast** | シーンの明るい部分と暗い色の値の色調範囲を調整します。強度を下げるとハイライトが消えて画像が明るくなり、色落ちしたように見えます。一方強度を上げると、ハイライトが強くなって画像が全体的に暗くなります。 |
+| **Gamma** | 画像の輝度を調整して、より正確な色を再現しています。この値を下げ上げすると、画像が色落ちしたり、非常に暗く見えるようになります。 |
+| **Gain** | イメージの白 (ハイライト) 輝度を調整して、より正確な色を再現しています。この値を下げ上げすると、画像が色落ちしたり、非常に暗く見えるようになります。 |
+| **Offset** |  画像の黒（影）輝度を調整して、より正確な色を再現しています。この値を下げるか上げると画像の影が色落ちや、あまりにも暗く見えるようになります。この値を下げ上げすると、シャドウが色落ちしたり、非常に暗く見えるようになります。 |
+| [REGION:tablesection] Highlights [/REGION] | このセクションのプロパティは、シーンのハイライトの色補正値を調整するために使用されます。  |
+| **Saturation** | 表現される色 (色) の世紀 (純度) を調整します。彩度の値が高ければより (赤、緑、青) 原色に近いように表示され、彩度が低いと灰色が混じって濁りや色落ちしたように見えるようになります。 |
+| **Contrast** | シーンの明るい部分と暗い色の値の色調範囲を調整します。強度を下げるとハイライトが消えて画像が明るくなり、色落ちしたように見えます。一方強度を上げると、ハイライトが強くなって画像が全体的に暗くなります。 |
+| **Gamma** | 画像の輝度を調整して、より正確な色を再現しています。この値を下げ上げすると、画像が色落ちしたり、非常に暗く見えるようになります。 |
+| **Gain** | イメージの白 (ハイライト) 輝度を調整して、より正確な色を再現しています。この値を下げ上げすると、画像が色落ちしたり、非常に暗く見えるようになります。 |
+| **Offset** |  画像の黒（影）輝度を調整して、より正確な色を再現しています。この値を下げるか上げると画像の影が色落ちや、あまりにも暗く見えるようになります。この値を下げ上げすると、シャドウが色落ちしたり、非常に暗く見えるようになります。 |
+| **HighLights Min** | **Highlights** セクションで調整された色補正プロパティに影響を与えるプロパティの乗数です。  |
+[/REGION]
+
+
+### 良い色補正を行うためのワークフロー
+
+Post Process Volumeのカラーグレーディングツールの操作をしたときに備えておくと良い習慣がいくつかあります。 
+
+* **Tone Mapper** は、プロジェクト単位外観を出すために設定する必要があります。理想的には、このプロパティは非常に絶対にショット単位または動的に調整できません。 
+[カラー グレーディング](#色補正プロパティ) プロパティを使用してください。
+
+* **Global** 色補正プロパティの使用から開始して、最初の操作を終えたら、他のプロパティを使用して下さい。大半のカラーグレーディングの変更は 
+これらのプロパティで可能です。
+
+* シーンの露出を調整に **Gain** プロパティを使用するのはよくありません。このプロパティは他の色の微調整をするために使用します。その代わりに **[Lens]** >**Auto-Exposure** セクションの  
+**[Exposure Bias]** を使用します。
+
+* 陰のある領域、あるいは暗い領域を少し明るくするには、**Offset** を少しだけ使用してください。少しぼかす、またはブルームがさらに強く見えるように作成する場合は、値を高く設定します。 
+逆にシーンがあまりにもぼんやりしたり、ブルームが強すぎる場合は値を下げれば、シーンから色が引かれます。
+
+* [ルックアップ テーブル (LUT)](Engine/Rendering/PostProcessEffects/UsingLUTs) を使用してシーンに色を塗ると、トーンマッピングの後に処理が起るので、 
+その代りに Color Grading プロパティを使用して、目的の外観を作成すれば (LDR であれ HDR であれ) 出力するすべてのディスプレイに一貫して表示されます。しかし、LUT にトーンを設定して、外観を素早くに確認した後、 
+色補正を使用して似たような外観を出すようにするのがグッドプラクティスです。
+
+
+## トレーニング ストリーム
+
+[OBJECT:EmbeddedVideo]
+	[PARAMLITERAL:videoid]
+	A-wectYNfRQ
+	[/PARAMLITERAL]
+	[PARAMLITERAL:width]
+	50
+	[/PARAMLITERAL]
+	[PARAMLITERAL:height]
+	56.25
+	[/PARAMLITERAL]
+	[PARAMLITERAL:units]
+	%
+	[/PARAMLITERAL]
+	[PARAMLITERAL:type]
+	simple
+	[/PARAMLITERAL]
+[/OBJECT]
+
+
+
+
 
 [COMMENT:none]
 
 [EXCERPT:ColorGradingLUT]
 [REGION:imagetable]
-| ![Natural Scene](lut_none.png)(w:265) | ![Greenish Scene](lut_green.png)(w:265) | ![Reddish Scene](lut_red.png)(w:265) |
+| [INCLUDE:#colorgradingnone] | [INCLUDE:#colorgradinggreen] | [INCLUDE:#colorgradingred] |
 | ------ | ------ | ------ |
 | ![Neutral LUT](RGBTable16x1.png) | ![Greenish LUT](LUT_Greenish.png) | ![Reddish LUT](LUT_Reddish.png) |
 [/REGION:imagetable]
 [/EXCERPT:ColorGradingLUT]
 
+[EXCERPT:colorgradingnone]
+[REGION:lightbox]
+[![Natural Scene](lut_none.png)(w:300)](lut_none.png)
+[/REGION]
+[REGION:caption] 画像をクリックしてフルサイズで表示 [/REGION]
+[/EXCERPT:colorgradingnone]
+
+[EXCERPT:colorgradinggreen]
+[REGION:lightbox]
+[![Greenish Scene](lut_green.png)(w:300)](lut_green.png)
+[/REGION]
+[REGION:caption] 画像をクリックしてフルサイズで表示 [/REGION]
+[/EXCERPT:colorgradinggreen]
+
+[EXCERPT:colorgradingred]
+[REGION:lightbox]
+[![Reddish Scene](lut_red.png)(w:300)](lut_red.png)
+[/REGION]
+[REGION:caption] 画像をクリックしてフルサイズで表示 [/REGION]
+[/EXCERPT:colorgradingred]
+
 [/COMMENT]
-
-### LUT テクスチャの作成
-
-以下の手順に従います。
-
-1. 調整したいシーンを見本としてスクリーンショットで作成し、それらをまとめて 1 つの Photoshop ドキュメンに置きます。
-1. neutral (ニュートラル) 256x16 LUT を Photoshop へ読み込みます。
-
-	[REGION:note]
-	このページに表示されている RGBTable16x1.png 画像を使用しても構いませんが、モニターに表示されている画像は必ずしも実際の画像とは限りません。コピーや貼り付けはしないでください。 
-
-	* [LUT テクスチャのサンプル](RGBTable16x1.png) - 右クリックして **[Save As (名前を付けて保存)]** を選択します。
-
-	[/REGION]
-
-1. スクリーンショットと一緒に LUT を Photoshop ドキュメントへ挿入します (LUT ドキュメントで [All] を選択して、コピー、スクリーンショットに切り替え、そして貼り付けします)。
-1. カラー操作を適用します (調整レイヤを追加するのが最善策です。追加しないと、先にあらゆるものをフラット補正する必要があるため、後から 256x16 を切り取る作業がますます大変になってしまいます)。
-1. 256x16 の LUT を選択します (レイヤーパネルで LUT レイヤーを選択、メニューから [Select/Load Selection] を選択して [OK] を選びます)。
-1. LUT のコンテンツを [Copy Merged] します (メニューの[Edit/Copy Merged])。
-1. 256x16 のテクスチャを貼り付けして、エンジンが読み取れる非圧縮フォーマットで保存します (メニュー：[File/New]、メニュー：[Edit/Paste]、 メニュー:[File/Save As])。
-1. エディタでテクスチャをインポートして、ColorLookupTable Texture Group を指定します。 
-
-
-さまざまな色補正が可能です。いくつか例を紹介します。
-
-* 輝度
-* サチュレーション (彩度をあげる)
-* 簡素なコントラスト (クランプをともなった線形)
-* 高品質コントラスト (中央部に急勾配な線形部分をともなった曲線など)
-* 画像の暗い部分、ミッドトーン部、明るい部分を選んで変更 (曲線など)
-* 特定の色を選んで変更 (輝度が別のチャンネルにある色空間で最もよく表現される色。LAB など)
-* 異なるカラー空間でも調整可能（例、LAB は輝度と独立した色を保つため非常に便利です） 
-
-[/EXCERPT:LookupTexture]

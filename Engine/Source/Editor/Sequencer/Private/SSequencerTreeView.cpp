@@ -54,12 +54,14 @@ void SSequencerTreeViewRow::Construct(const FArguments& InArgs, const TSharedRef
 {
 	Node = InNode;
 	OnGenerateWidgetForColumn = InArgs._OnGenerateWidgetForColumn;
+	bool bIsSelectable = InNode->IsSelectable();
 
 	SMultiColumnTableRow::Construct(
 		SMultiColumnTableRow::FArguments()
 			.OnDragDetected(this, &SSequencerTreeViewRow::OnDragDetected)
 			.OnCanAcceptDrop(this, &SSequencerTreeViewRow::OnCanAcceptDrop)
-			.OnAcceptDrop(this, &SSequencerTreeViewRow::OnAcceptDrop),
+			.OnAcceptDrop(this, &SSequencerTreeViewRow::OnAcceptDrop)
+			.ShowSelection(bIsSelectable),
 		OwnerTableView);
 }
 
@@ -89,6 +91,12 @@ FReply SSequencerTreeViewRow::OnDragDetected( const FGeometry& InGeometry, const
 				{
 					DraggableNodes.Add(SelectedNode);
 				}
+			}
+
+			// If there were no nodes selected, don't start a drag drop operation.
+			if (DraggableNodes.Num() == 0)
+			{
+				return FReply::Unhandled();
 			}
 
 			FText DefaultText = FText::Format( NSLOCTEXT( "SequencerTreeViewRow", "DefaultDragDropFormat", "Move {0} item(s)" ), FText::AsNumber( DraggableNodes.Num() ) );
@@ -173,6 +181,7 @@ void SSequencerTreeView::Construct(const FArguments& InArgs, const TSharedRef<FS
 		.OnExpansionChanged(this, &SSequencerTreeView::OnExpansionChanged)
 		.AllowOverscroll(EAllowOverscroll::No)
 		.OnContextMenuOpening( this, &SSequencerTreeView::OnContextMenuOpening )
+		.OnSetExpansionRecursive(this, &SSequencerTreeView::SetItemExpansionRecursive)
 	);
 }
 
@@ -467,7 +476,10 @@ void SSequencerTreeView::SynchronizeTreeSelectionWithSequencerSelection()
 			FSequencer& Sequencer = SequencerNodeTree->GetSequencer();
 			for ( auto& Node : Sequencer.GetSelection().GetSelectedOutlinerNodes() )
 			{
-				Private_SetItemSelection( Node, true, false );
+				if (Node->IsSelectable())
+				{
+					Private_SetItemSelection( Node, true, false );
+				}
 			}
 
 			Private_SignalSelectionChanged( ESelectInfo::Direct );
@@ -569,9 +581,10 @@ bool SSequencerTreeView::SynchronizeSequencerSelectionWithTreeSelection()
 TSharedPtr<SWidget> SSequencerTreeView::OnContextMenuOpening()
 {
 	const TSet<TSharedRef<FSequencerDisplayNode>> SelectedNodes = SequencerNodeTree->GetSequencer().GetSelection().GetSelectedOutlinerNodes();
-	if ( SelectedNodes.Num() > 0 )
+	auto SelectedNodesArray = SelectedNodes.Array();
+	if (SelectedNodes.Num() > 0 && SelectedNodesArray[0]->IsSelectable())
 	{
-		return SelectedNodes.Array()[0]->OnSummonContextMenu();
+		return SelectedNodesArray[0]->OnSummonContextMenu();
 	}
 
 	// Otherwise, add a general menu for options
@@ -716,6 +729,11 @@ void SSequencerTreeView::OnExpansionChanged(FDisplayNodeRef InItem, bool bIsExpa
 	}
 }
 
+void SSequencerTreeView::SetItemExpansionRecursive(FDisplayNodeRef InItem, bool bIsExpanded)
+{
+	ExpandCollapseNode(InItem, bIsExpanded, ETreeRecursion::Recursive);
+}
+
 void SSequencerTreeView::OnGetChildren(FDisplayNodeRef InParent, TArray<FDisplayNodeRef>& OutChildren) const
 {
 	for (const auto& Node : InParent->GetChildNodes())
@@ -742,7 +760,7 @@ TSharedRef<ITableRow> SSequencerTreeView::OnGenerateRow(FDisplayNodeRef InDispla
 		if (!TrackLane.IsValid())
 		{
 			// Add a track slot for the row
-			TAttribute<TRange<float>> ViewRange = FAnimatedRange::WrapAttribute( TAttribute<FAnimatedRange>::Create(TAttribute<FAnimatedRange>::FGetter::CreateSP(&SequencerNodeTree->GetSequencer(), &FSequencer::GetViewRange)) );
+			TAttribute<TRange<double>> ViewRange = FAnimatedRange::WrapAttribute( TAttribute<FAnimatedRange>::Create(TAttribute<FAnimatedRange>::FGetter::CreateSP(&SequencerNodeTree->GetSequencer(), &FSequencer::GetViewRange)) );
 
 			TrackLane = SNew(SSequencerTrackLane, SectionAuthority.ToSharedRef(), SharedThis(this))
 			.IsEnabled(!InDisplayNode->GetSequencer().IsReadOnly())

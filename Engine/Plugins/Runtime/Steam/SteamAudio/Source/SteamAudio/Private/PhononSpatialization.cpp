@@ -5,6 +5,7 @@
 #include "PhononSpatialization.h"
 #include "PhononSpatializationSourceSettings.h"
 #include "PhononCommon.h"
+#include "SteamAudioSettings.h"
 
 namespace SteamAudio
 {
@@ -44,6 +45,7 @@ namespace SteamAudio
 
 	void FPhononSpatialization::Initialize(const FAudioPluginInitializationParams InitializationParams)
 	{
+		// The binaural renderer always uses Phonon convolution irrespective of whether TAN is available.
 		RenderingSettings.convolutionType = IPL_CONVOLUTIONTYPE_PHONON;
 		RenderingSettings.frameSize = InitializationParams.BufferLength;
 		RenderingSettings.samplingRate = InitializationParams.SampleRate;

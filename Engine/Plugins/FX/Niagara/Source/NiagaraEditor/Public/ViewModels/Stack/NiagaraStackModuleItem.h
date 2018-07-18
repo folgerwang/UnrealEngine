@@ -2,15 +2,15 @@
 
 #pragma once
 
-#include "NiagaraStackItem.h"
+#include "ViewModels/Stack/NiagaraStackItem.h"
+#include "NiagaraTypes.h"
 #include "NiagaraStackModuleItem.generated.h"
 
 class UNiagaraNodeFunctionCall;
-class UNiagaraNode;
 class UNiagaraStackFunctionInputCollection;
 class UNiagaraStackModuleItemOutputCollection;
-class UNiagaraStackItemExpander;
-class UNiagaraStackEditorData;
+class INiagaraStackItemGroupAddUtilities;
+struct FAssetData;
 
 UCLASS()
 class NIAGARAEDITOR_API UNiagaraStackModuleItem : public UNiagaraStackItem
@@ -21,62 +21,62 @@ public:
 	UNiagaraStackModuleItem();
 
 	const UNiagaraNodeFunctionCall& GetModuleNode() const;
-	void Initialize(TSharedRef<FNiagaraSystemViewModel> InSystemViewModel, TSharedRef<FNiagaraEmitterViewModel> InEmitterViewModel, UNiagaraStackEditorData& InStackEditorData, UNiagaraNodeFunctionCall& InFunctionCallNode);
+
+	UNiagaraNodeFunctionCall& GetModuleNode();
+
+	void Initialize(FRequiredEntryData InRequiredEntryData, INiagaraStackItemGroupAddUtilities* GroupAddUtilities, UNiagaraNodeFunctionCall& InFunctionCallNode);
 
 	virtual FText GetDisplayName() const override;
 	virtual FText GetTooltipText() const override;
+
+	INiagaraStackItemGroupAddUtilities* GetGroupAddUtilities();
 
 	bool CanMoveAndDelete() const;
 	bool CanRefresh() const;
 	void Refresh();
 
-	bool GetIsEnabled() const;
+	virtual bool GetIsEnabled() const override;
 	void SetIsEnabled(bool bInIsEnabled);
 
-	void MoveUp();
-	void MoveDown();
 	void Delete();
 
+	int32 GetModuleIndex();
+	
+	UObject* GetExternalAsset() const override;
+
+	virtual bool CanDrag() const override;
+
+	/** Gets the output node of this module. */
+	class UNiagaraNodeOutput* GetOutputNode() const;
+
+	void NotifyModuleMoved();
+
+	bool CanAddInput(FNiagaraVariable InputParameter) const;
+
+	void AddInput(FNiagaraVariable InputParameter);
+
 protected:
-	virtual void RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren) override;
+	virtual void RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren, TArray<FStackIssue>& NewIssues) override;
+
+private:
+	bool FilterOutputCollection(const UNiagaraStackEntry& Child) const;
+	void RefreshIssues(TArray<FStackIssue>& NewIssues);
 
 private:
 	void RefreshIsEnabled();
-	void InputPinnedChanged();
-	void ModuleExpandedChanged();
 
 private:
-	virtual int32 GetErrorCount() const override;
-	virtual bool GetErrorFixable(int32 ErrorIdx) const override;
-	virtual bool TryFixError(int32 ErrorIdx) override;
-	virtual FText GetErrorText(int32 ErrorIdx) const override;
-	virtual FText GetErrorSummaryText(int32 ErrorIdx) const override;
-
-private:
+	UNiagaraNodeOutput* OutputNode;
 	UNiagaraNodeFunctionCall* FunctionCallNode;
-	FString ModuleEditorDataKey;
 	bool bCanMoveAndDelete;
 	bool bIsEnabled;
-
-	DECLARE_DELEGATE_RetVal(bool, FFixError);
-	struct FError
-	{
-		FText ErrorText;
-		FText ErrorSummaryText;
-		FFixError Fix;
-	};
-
-	TArray<FError> Errors;
+	bool bCanRefresh;
 
 	UPROPERTY()
-	UNiagaraStackFunctionInputCollection* PinnedInputCollection;
-
-	UPROPERTY()
-	UNiagaraStackFunctionInputCollection* UnpinnedInputCollection;
+	UNiagaraStackFunctionInputCollection* InputCollection;
 
 	UPROPERTY()
 	UNiagaraStackModuleItemOutputCollection* OutputCollection;
 
-	UPROPERTY()
-	UNiagaraStackItemExpander* ModuleExpander;
+	INiagaraStackItemGroupAddUtilities* GroupAddUtilities;
 };

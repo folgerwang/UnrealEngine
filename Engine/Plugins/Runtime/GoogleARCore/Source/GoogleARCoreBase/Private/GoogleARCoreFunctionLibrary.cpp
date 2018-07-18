@@ -22,7 +22,7 @@ namespace
 
 		return nullptr;
 	}
-	
+
 	EGoogleARCoreInstallRequestResult ToAPKInstallStatus(EGoogleARCoreAPIStatus RequestStatus)
 	{
 		EGoogleARCoreInstallRequestResult OutRequestResult = EGoogleARCoreInstallRequestResult::FatalError;
@@ -41,7 +41,7 @@ namespace
 				OutRequestResult = EGoogleARCoreInstallRequestResult::UserDeclinedInstallation;
 				break;
 			default:
-				ensureMsgf(false, TEXT("Unexpected ARCore API Status: %d"), RequestStatus);
+				ensureMsgf(false, TEXT("Unexpected ARCore API Status: %d"), (int)RequestStatus);
 				break;
 		}
 		return OutRequestResult;
@@ -60,7 +60,7 @@ public:
 	int32 OutputLink;
 	FWeakObjectPtr CallbackTarget;
 	EGoogleARCoreAvailability& OutAvailability;
-	
+
 	FARCoreCheckAvailabilityAction(const FLatentActionInfo& InLatentInfo, EGoogleARCoreAvailability& InAvailability)
 	: FPendingLatentAction()
 	, ExecutionFunction(InLatentInfo.ExecutionFunction)
@@ -68,11 +68,11 @@ public:
 	, CallbackTarget(InLatentInfo.CallbackTarget)
 	, OutAvailability(InAvailability)
 	{}
-	
+
 	virtual void UpdateOperation(FLatentResponse& Response) override
 	{
 		EGoogleARCoreAvailability ARCoreAvailability = FGoogleARCoreDevice::GetInstance()->CheckARCoreAPKAvailability();
-		if (ARCoreAvailability != EGoogleARCoreAvailability::UnkownChecking)
+		if (ARCoreAvailability != EGoogleARCoreAvailability::UnknownChecking)
 		{
 			OutAvailability = ARCoreAvailability;
 			Response.FinishAndTriggerIf(true, ExecutionFunction, OutputLink, CallbackTarget);
@@ -116,7 +116,7 @@ public:
 	FWeakObjectPtr CallbackTarget;
 	EGoogleARCoreInstallRequestResult& OutRequestResult;
 	bool bInstallRequested;
-	
+
 	FARCoreAPKInstallAction(const FLatentActionInfo& InLatentInfo, EGoogleARCoreInstallRequestResult& InRequestResult)
 	: FPendingLatentAction()
 	, ExecutionFunction(InLatentInfo.ExecutionFunction)
@@ -125,7 +125,7 @@ public:
 	, OutRequestResult(InRequestResult)
 	, bInstallRequested(false)
 	{}
-	
+
 	virtual void UpdateOperation(FLatentResponse& Response) override
 	{
 		UE_LOG(LogTemp, Log, TEXT("IntallARCore UpdateOperation..."));
@@ -173,7 +173,7 @@ EGoogleARCoreInstallStatus UGoogleARCoreSessionFunctionLibrary::RequestInstallAR
 {
 	EGoogleARCoreInstallStatus InstallStatus = EGoogleARCoreInstallStatus::Installed;
 	EGoogleARCoreAPIStatus RequestStatus = FGoogleARCoreDevice::GetInstance()->RequestInstall(true, InstallStatus);
-	
+
 	return InstallStatus;
 }
 
@@ -181,7 +181,7 @@ EGoogleARCoreInstallRequestResult UGoogleARCoreSessionFunctionLibrary::GetARCore
 {
 	EGoogleARCoreInstallStatus InstallStatus = EGoogleARCoreInstallStatus::Installed;
 	EGoogleARCoreAPIStatus RequestStatus = FGoogleARCoreDevice::GetInstance()->RequestInstall(false, InstallStatus);
-	
+
 	return ToAPKInstallStatus(RequestStatus);
 }
 
@@ -271,8 +271,8 @@ void UGoogleARCoreSessionFunctionLibrary::GetAllTrackablePoints(TArray<UARTracke
 	FGoogleARCoreDevice::GetInstance()->GetAllTrackables<UARTrackedPoint>(OutTrackablePointList);
 }
 
-template< class T > 
-void UGoogleARCoreSessionFunctionLibrary::GetAllTrackable(TArray<T*>& OutTrackableList) 
+template< class T >
+void UGoogleARCoreSessionFunctionLibrary::GetAllTrackable(TArray<T*>& OutTrackableList)
 {
 	FGoogleARCoreDevice::GetInstance()->GetAllTrackables<T>(OutTrackableList);
 }
@@ -352,3 +352,9 @@ void UGoogleARCoreFrameFunctionLibrary::GetUpdatedTrackable(TArray<T*>& OutTrack
 template void UGoogleARCoreFrameFunctionLibrary::GetUpdatedTrackable<UARTrackedGeometry>(TArray<UARTrackedGeometry*>& OutTrackableList);
 template void UGoogleARCoreFrameFunctionLibrary::GetUpdatedTrackable<UARPlaneGeometry>(TArray<UARPlaneGeometry*>& OutTrackableList);
 template void UGoogleARCoreFrameFunctionLibrary::GetUpdatedTrackable<UARTrackedPoint>(TArray<UARTrackedPoint*>& OutTrackableList);
+
+
+EGoogleARCoreFunctionStatus UGoogleARCoreFrameFunctionLibrary::AcquireCameraImage(UGoogleARCoreCameraImage *&OutLatestCameraImage)
+{
+	return FGoogleARCoreDevice::GetInstance()->AcquireCameraImage(OutLatestCameraImage);
+}

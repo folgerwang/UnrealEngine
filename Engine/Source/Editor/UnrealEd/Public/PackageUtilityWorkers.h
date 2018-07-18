@@ -52,7 +52,7 @@ struct FPkgInfoReporter
 	 *
 	 * @param	InLinker	if specified, changes this reporter's Linker before generating the report.
 	 */
-	virtual void GeneratePackageReport( class FLinkerLoad* InLinker=NULL )=0;
+	virtual void GeneratePackageReport( class FLinkerLoad* InLinker = nullptr, FOutputDevice& Out = *GWarn)=0;
 
 	/**
 	 * Changes the target linker for this reporter.  Useful when generating reports for multiple packages.
@@ -98,5 +98,5 @@ struct FPkgInfoReporter_Log : public FPkgInfoReporter
 	 *
 	 * @param	InLinker	if specified, changes this reporter's Linker before generating the report.
 	 */
-	virtual void GeneratePackageReport( class FLinkerLoad* InLinker=NULL );
+	virtual void GeneratePackageReport( class FLinkerLoad* InLinker = nullptr, FOutputDevice& Out = *GWarn);
 };

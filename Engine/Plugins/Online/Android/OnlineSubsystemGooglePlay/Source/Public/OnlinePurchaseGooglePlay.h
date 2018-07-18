@@ -2,8 +2,9 @@
 
 #pragma once
 
-#include "OnlinePurchaseInterface.h"
+#include "Interfaces/OnlinePurchaseInterface.h"
 #include "Serialization/JsonSerializerMacros.h"
+#include "OnlineIdentityInterfaceGooglePlay.h"
 
 enum class EGooglePlayBillingResponseCode : uint8;
 
@@ -108,7 +109,7 @@ public:
 	/** Checkout info for the pending order */
 	const FPurchaseCheckoutRequest CheckoutRequest;
 	/** User for the pending order */
-	const FUniqueNetIdString UserId;
+	const FUniqueNetIdGooglePlay UserId;
 	/** Delegate to call on completion */
 	const FOnPurchaseCheckoutComplete CheckoutCompleteDelegate;
 	/** Tracks the current state of the order */

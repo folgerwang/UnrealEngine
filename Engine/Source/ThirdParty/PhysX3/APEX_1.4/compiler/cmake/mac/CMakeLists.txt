@@ -13,7 +13,7 @@ IF (NOT ${TARGET_BUILD_PLATFORM} IN_LIST PLATFORM_LIST)
 ENDIF()
 
 # TODO: Get real flags
-SET(CMAKE_CXX_FLAGS "-fdiagnostics-show-option -Wall -Wextra -Werror -fno-rtti -fno-exceptions -ffast-math -fno-strict-aliasing -ffunction-sections -fdata-sections -Wno-unknown-pragmas -Wno-dynamic-class-memaccess -Wno-reorder -Wno-logical-not-parentheses -Wno-unused-parameter -Wno-unused-variable -Wno-unused-const-variable -Werror -Wno-unused-function -Wno-unknown-pragmas -Wno-overloaded-virtual  -Wno-non-virtual-dtor -Wno-invalid-noreturn -Wno-return-type-c-linkage -Wno-reserved-id-macro -Wno-c++98-compat-pedantic -Wno-unused-local-typedef -Wno-old-style-cast -Wno-newline-eof -Wno-unused-private-field -Wno-undefined-reinterpret-cast -Wno-invalid-offsetof -Wno-local-type-template-args -gdwarf-2")
+SET(CMAKE_CXX_FLAGS "-fdiagnostics-show-option -Wall -Wextra -Werror -fno-rtti -fno-exceptions -ffast-math -fno-strict-aliasing -ffunction-sections -fdata-sections -Wno-unknown-pragmas -Wno-dynamic-class-memaccess -Wno-reorder -Wno-logical-not-parentheses -Wno-unused-parameter -Wno-unused-variable -Wno-unused-const-variable -Werror -Wno-unused-function -Wno-unknown-pragmas -Wno-overloaded-virtual  -Wno-non-virtual-dtor -Wno-invalid-noreturn -Wno-return-type-c-linkage -Wno-reserved-id-macro -Wno-c++98-compat-pedantic -Wno-unused-local-typedef -Wno-old-style-cast -Wno-newline-eof -Wno-unused-private-field -Wno-undefined-reinterpret-cast -Wno-invalid-offsetof -Wno-local-type-template-args -Wno-zero-as-null-pointer-constant -Wno-shadow-field -Wno-unused-template -gdwarf-2")
 
 SET(CMAKE_SHARED_LINKER_FLAGS "")
 

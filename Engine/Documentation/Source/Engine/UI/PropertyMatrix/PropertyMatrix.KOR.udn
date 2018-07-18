@@ -48,9 +48,9 @@ topic-image:Engine/UI/PropertyMatrix_topic.png
 
 | 기능 | 장점 |
 | ------- | -------- |
-| Bulk Object Editing | 대량 오브젝트 편집 - [INCLUDE:#BulkEditing] |
-| Bulk Fine-Grain Object Comparison  | 대량 오브젝트 미세 비교 - [INCLUDE:#BulkComparison] |
-| Deep Property and Array Support  | 프로퍼티와 배열 깊이 지원 - [INCLUDE:#PropertySupport] |
+| Bulk Object Editing | [INCLUDE:#BulkEditing] |
+| Bulk Fine-Grain Object Comparison  | [INCLUDE:#BulkComparison] |
+| Deep Property and Array Support  | [INCLUDE:#PropertySupport] |
 
 [COMMENT:none]
 

@@ -13,7 +13,7 @@
 #include "PhysicsEngine/PhysicsConstraintTemplate.h"
 #include "UObject/ReleaseObjectVersion.h"
 #include "Logging/MessageLog.h"
-#include "UObjectIterator.h"
+#include "UObject/UObjectIterator.h"
 
 #if WITH_EDITOR
 #include "Misc/MessageDialog.h"
@@ -333,8 +333,25 @@ FBox UPhysicsAsset::CalcAABB(const USkinnedMeshComponent* MeshComp, const FTrans
 				if(BoneIndex != INDEX_NONE)
 				{
 					const FTransform WorldBoneTransform = MeshComp->GetBoneTransform(BoneIndex, LocalToWorld);
-					const FBox BodySetupBounds = bs->AggGeom.CalcAABB(WorldBoneTransform);
-					
+					FBox BodySetupBounds = bs->AggGeom.CalcAABB(WorldBoneTransform);
+
+					// When the transform contains a negative scale CalcAABB could return a invalid FBox that has Min and Max reversed
+					// @TODO: Maybe CalcAABB should handle that inside and never return a reversed FBox
+					if (BodySetupBounds.Min.X > BodySetupBounds.Max.X)
+					{
+						Swap<float>(BodySetupBounds.Min.X, BodySetupBounds.Max.X);
+					}
+
+					if (BodySetupBounds.Min.Y > BodySetupBounds.Max.Y)
+					{
+						Swap<float>(BodySetupBounds.Min.Y, BodySetupBounds.Max.Y);
+					}
+
+					if (BodySetupBounds.Min.Z > BodySetupBounds.Max.Z)
+					{
+						Swap<float>(BodySetupBounds.Min.Z, BodySetupBounds.Max.Z);
+					}
+
 					Box += BodySetupBounds;
 				}
 			}
@@ -781,8 +798,11 @@ void UPhysicsAsset::RefreshPhysicsAssetChange() const
 	OnRefreshPhysicsAssetChange.Broadcast(this);
 }
 
+#endif
+
 USkeletalMesh* UPhysicsAsset::GetPreviewMesh() const
 {
+#if WITH_EDITORONLY_DATA
 	USkeletalMesh* PreviewMesh = PreviewSkeletalMesh.Get();
 	if(!PreviewMesh)
 	{
@@ -796,10 +816,14 @@ USkeletalMesh* UPhysicsAsset::GetPreviewMesh() const
 	}
 
 	return PreviewMesh;
+#else
+	return nullptr;
+#endif
 }
 
-void UPhysicsAsset::SetPreviewMesh(USkeletalMesh* PreviewMesh)
+void UPhysicsAsset::SetPreviewMesh(USkeletalMesh* PreviewMesh, bool bMarkAsDirty/*=true*/)
 {
+#if WITH_EDITORONLY_DATA
 	if(PreviewMesh)
 	{
 		// See if any bones are missing from the skeletal mesh we are trying to use
@@ -817,11 +841,13 @@ void UPhysicsAsset::SetPreviewMesh(USkeletalMesh* PreviewMesh)
 		}
 	}
 
-	Modify();
+	if(bMarkAsDirty)
+	{
+		Modify();
+	}
 	PreviewSkeletalMesh = PreviewMesh;
-}
-
 #endif
+}
 
 void UPhysicsAsset::GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize)
 {

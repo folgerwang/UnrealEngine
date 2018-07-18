@@ -19,11 +19,11 @@ UFE 는 다음과 같은 특징이 있습니다:
 
 | 특징 | 설명 |
 | ---- | ---- |
-| **Launcher** | 런처 - [INCLUDE:#Launcher] |
-| **Sessions** | 세션 - [INCLUDE:#Sessions] |
-| **Automation** | 자동화 - [INCLUDE:#Automation] |
-| **Profiling** | 프로파일링 - [INCLUDE:#Profiling] |
-| **Device Management** | 디바이스 관리 - [INCLUDE:#DeviceManagement] |
+| **Launcher** | [INCLUDE:#Launcher] |
+| **Sessions** | [INCLUDE:#Sessions] |
+| **Automation** | [INCLUDE:#Automation] |
+| **Profiling** | [INCLUDE:#Profiling] |
+| **Device Management** | [INCLUDE:#DeviceManagement] |
 
 [COMMENT:none]
 

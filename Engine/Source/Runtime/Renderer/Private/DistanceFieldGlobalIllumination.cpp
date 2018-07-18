@@ -6,7 +6,7 @@
 
 #include "DistanceFieldGlobalIllumination.h"
 #include "DistanceFieldLightingShared.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 #include "ClearQuad.h"
 
 int32 GDistanceFieldGI = 0;
@@ -993,13 +993,11 @@ public:
 	FComputeIrradianceScreenGridCS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
 		: FGlobalShader(Initializer)
 	{
-		DeferredParameters.Bind(Initializer.ParameterMap);
+		SceneTextureParameters.Bind(Initializer);
 		ObjectParameters.Bind(Initializer.ParameterMap);
 		AOParameters.Bind(Initializer.ParameterMap);
 		ScreenGridParameters.Bind(Initializer.ParameterMap);
 		SurfelParameters.Bind(Initializer.ParameterMap);
-		TileHeadDataUnpacked.Bind(Initializer.ParameterMap, TEXT("TileHeadDataUnpacked"));
-		TileArrayData.Bind(Initializer.ParameterMap, TEXT("TileArrayData"));
 		TileConeDepthRanges.Bind(Initializer.ParameterMap, TEXT("TileConeDepthRanges"));
 		TileListGroupSize.Bind(Initializer.ParameterMap, TEXT("TileListGroupSize"));
 		VPLGatherRadius.Bind(Initializer.ParameterMap, TEXT("VPLGatherRadius"));
@@ -1019,7 +1017,7 @@ public:
 	{
 		FComputeShaderRHIParamRef ShaderRHI = GetComputeShader();
 		FGlobalShader::SetParameters<FViewUniformShaderParameters>(RHICmdList, ShaderRHI, View.ViewUniformBuffer);
-		DeferredParameters.Set(RHICmdList, ShaderRHI, View, MD_PostProcess);
+		SceneTextureParameters.Set(RHICmdList, ShaderRHI, View.FeatureLevel, ESceneTextureSetupMode::All);
 
 		extern TGlobalResource<FDistanceFieldObjectBufferResource> GAOCulledObjectBuffers;
 		ObjectParameters.Set(RHICmdList, ShaderRHI, GAOCulledObjectBuffers.Buffers);
@@ -1055,13 +1053,11 @@ public:
 	virtual bool Serialize(FArchive& Ar) override
 	{		
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
-		Ar << DeferredParameters;
+		Ar << SceneTextureParameters;
 		Ar << ObjectParameters;
 		Ar << AOParameters;
 		Ar << ScreenGridParameters;
 		Ar << SurfelParameters;
-		Ar << TileHeadDataUnpacked;
-		Ar << TileArrayData;
 		Ar << TileConeDepthRanges;
 		Ar << TileListGroupSize;
 		Ar << VPLGatherRadius;
@@ -1072,13 +1068,11 @@ public:
 
 private:
 
-	FDeferredPixelShaderParameters DeferredParameters;
+	FSceneTextureShaderParameters SceneTextureParameters;
 	FDistanceFieldCulledObjectBufferParameters ObjectParameters;
 	FAOParameters AOParameters;
 	FScreenGridParameters ScreenGridParameters;
 	FSurfelBufferParameters SurfelParameters;
-	FShaderResourceParameter TileHeadDataUnpacked;
-	FShaderResourceParameter TileArrayData;
 	FShaderResourceParameter TileConeDepthRanges;
 	FShaderParameter TileListGroupSize;
 	FShaderParameter VPLGatherRadius;

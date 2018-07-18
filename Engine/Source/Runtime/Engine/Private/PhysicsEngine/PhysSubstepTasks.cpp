@@ -7,6 +7,26 @@
 #include "PhysXPublic.h"
 #endif
 
+struct FSubstepCallbackGuard
+{
+#if !UE_BUILD_SHIPPING
+	FSubstepCallbackGuard(FPhysSubstepTask& InSubstepTask) : SubstepTask(InSubstepTask)
+	{
+		++SubstepTask.SubstepCallbackGuard;
+	}
+
+	~FSubstepCallbackGuard()
+	{
+		--SubstepTask.SubstepCallbackGuard;
+	}
+
+	FPhysSubstepTask& SubstepTask;
+#else
+	FSubstepCallbackGuard(FPhysSubstepTask&)
+	{
+	}
+#endif
+};
 
 #if WITH_PHYSX
 FPhysSubstepTask::FPhysSubstepTask(PxApexScene * GivenScene, FPhysScene* InPhysScene, uint32 InSceneType) :
@@ -18,6 +38,7 @@ FPhysSubstepTask::FPhysSubstepTask(PxApexScene * GivenScene, FPhysScene* InPhysS
 	StepScale(0.f),
 	TotalSubTime(0.f),
 	CurrentSubStep(0),
+	SubstepCallbackGuard(0),
 	PhysScene(InPhysScene),
 	SceneType(InSceneType),
 	PAScene(GivenScene)
@@ -42,10 +63,10 @@ void FPhysSubstepTask::SetKinematicTarget_AssumesLocked(FBodyInstance* Body, con
 #if WITH_PHYSX
 	TM.DiagnosticCheck_IsValid();
 
-	//We only interpolate kinematic actors
-	if (!Body->IsNonKinematic())
+	//We only interpolate kinematic actors that need it
+	if (!Body->IsNonKinematic() && Body->ShouldInterpolateWhenSubStepping())
 	{
-		FKinematicTarget KinmaticTarget(Body, TM);
+		FKinematicTarget_AssumesLocked KinmaticTarget(Body, TM);
 		FPhysTarget & TargetState = PhysTargetBuffers[External].FindOrAdd(Body);
 		TargetState.bKinematicTarget = true;
 		TargetState.KinematicTarget = KinmaticTarget;
@@ -83,13 +104,19 @@ void FPhysSubstepTask::AddCustomPhysics_AssumesLocked(FBodyInstance* Body, const
 #endif
 }
 
+#if !UE_BUILD_SHIPPING
+#define SUBSTEPPING_WARNING() ensureMsgf(SubstepCallbackGuard == 0, TEXT("Applying a sub-stepped force from a substep callback. This usually indicates an error. Make sure you're only using physx data, and that you are adding non-substepped forces"));
+#else
+#define SUBSTEPPING_WARNING()
+#endif
+
 void FPhysSubstepTask::AddForce_AssumesLocked(FBodyInstance* Body, const FVector& Force, bool bAccelChange)
 {
 #if WITH_PHYSX
 	//We should only apply forces on non kinematic actors
 	if (Body->IsNonKinematic())
 	{
-
+		SUBSTEPPING_WARNING()
 		FForceTarget ForceTarget;
 		ForceTarget.bPosition = false;
 		ForceTarget.Force = Force;
@@ -106,6 +133,7 @@ void FPhysSubstepTask::AddForceAtPosition_AssumesLocked(FBodyInstance* Body, con
 #if WITH_PHYSX
 	if (Body->IsNonKinematic())
 	{
+		SUBSTEPPING_WARNING()
 		FForceTarget ForceTarget;
 		ForceTarget.bPosition = true;
 		ForceTarget.Force = Force;
@@ -123,6 +151,7 @@ void FPhysSubstepTask::AddTorque_AssumesLocked(FBodyInstance* Body, const FVecto
 	//We should only apply torque on non kinematic actors
 	if (Body->IsNonKinematic())
 	{
+		SUBSTEPPING_WARNING()
 		FTorqueTarget TorqueTarget;
 		TorqueTarget.Torque = Torque;
 		TorqueTarget.bAccelChange = bAccelChange;
@@ -139,6 +168,7 @@ void FPhysSubstepTask::AddRadialForceToBody_AssumesLocked(FBodyInstance* Body, c
 	//We should only apply torque on non kinematic actors
 	if (Body->IsNonKinematic())
 	{
+		SUBSTEPPING_WARNING()
 		FRadialForceTarget RadialForceTarget;
 		RadialForceTarget.Origin = Origin;
 		RadialForceTarget.Radius = Radius;
@@ -156,6 +186,7 @@ void FPhysSubstepTask::AddRadialForceToBody_AssumesLocked(FBodyInstance* Body, c
 void FPhysSubstepTask::ApplyCustomPhysics(const FPhysTarget& PhysTarget, FBodyInstance* BodyInstance, float DeltaTime)
 {
 #if WITH_PHYSX
+	FSubstepCallbackGuard Guard(*this);
 	for (int32 i = 0; i < PhysTarget.CustomPhysics.Num(); ++i)
 	{
 		const FCustomTarget& CustomTarget = PhysTarget.CustomPhysics[i];
@@ -392,6 +423,7 @@ void FPhysSubstepTask::SubstepSimulationStart()
 	// Call scene step delegate
 	if (PhysScene != nullptr)
 	{
+		FSubstepCallbackGuard Guard(*this);
 		PhysScene->OnPhysSceneStep.Broadcast(PhysScene, SceneType, DeltaTime);
 	}
 
@@ -420,13 +452,23 @@ void FPhysSubstepTask::SubstepSimulationEnd(ENamedThreads::Type CurrentThread, c
 			SCOPE_CYCLE_COUNTER(STAT_TotalPhysicsTime);
 			SCOPE_CYCLE_COUNTER(STAT_SubstepSimulationEnd);
 
+			{
 #if WITH_APEX
-			PAScene->fetchResults(true, &OutErrorCode);
+				SCOPED_APEX_SCENE_WRITE_LOCK(PAScene);
+				PxScene* PScene = PAScene->getPhysXScene();
 #else
-			PAScene->lockWrite();
-			PAScene->fetchResults(true, &OutErrorCode);
-			PAScene->unlockWrite();
+				PxScene* PScene = PAScene;
+				SCOPED_SCENE_WRITE_LOCK(PScene);
 #endif
+
+				// Dont rebuild scene queries here as this is an intermediate step
+				PScene->setSceneQueryUpdateMode(PxSceneQueryUpdateMode::eBUILD_DISABLED_COMMIT_DISABLED);
+
+				PAScene->fetchResults(true, &OutErrorCode);
+
+				// re-enable query updates (the next fetchResults will rebuild the SQ tree)
+				PScene->setSceneQueryUpdateMode(PxSceneQueryUpdateMode::eBUILD_ENABLED_COMMIT_ENABLED);
+			}
 		}
 
 		if (OutErrorCode != 0)

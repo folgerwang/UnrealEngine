@@ -160,6 +160,11 @@ class UDestructibleFractureSettings
 {
 	GENERATED_UCLASS_BODY()
 
+	/**  Destructor. Defined to avoid compilation errors on clang where the UHT generated CPP file 
+	 * 	ends up instantiating destructors for member variables without full type information
+	 */
+	virtual ~UDestructibleFractureSettings();
+
 	/** DO NOT USE. This constructor is for internal usage only for hot-reload purposes. */
 	UDestructibleFractureSettings(FVTableHelper& Helper);
 
@@ -205,7 +210,7 @@ class UDestructibleFractureSettings
 	//~ Begin UObject Interface.
 	virtual void PostInitProperties() override;
 	virtual void BeginDestroy() override;
-	virtual void Serialize( FArchive& Ar ) override;
+	virtual void Serialize(FArchive& Ar) override;
 	//~ End  UObject Interface
 
 	//~ Begin UDestructibleFractureSettings Interface

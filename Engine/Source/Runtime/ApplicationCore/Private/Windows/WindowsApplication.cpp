@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Windows/WindowsApplication.h"
 #include "Containers/StringConv.h"
@@ -16,11 +16,11 @@
 #include "IInputDevice.h"
 #include "IHapticDevice.h"
 #include "HAL/ThreadHeartBeat.h"
-#include "UniquePtr.h"
-#include "WindowsPlatformApplicationMisc.h"
+#include "Templates/UniquePtr.h"
+#include "Windows/WindowsPlatformApplicationMisc.h"
 
 #if WITH_EDITOR
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "Developer/SourceCodeAccess/Public/ISourceCodeAccessModule.h"
 #endif
 
@@ -82,6 +82,7 @@ FWindowsApplication::FWindowsApplication( const HINSTANCE HInstance, const HICON
 	, bUsingHighPrecisionMouseInput( false )
 	, bIsMouseAttached( false )
 	, bForceActivateByMouse( false )
+	, bForceNoGamepads( false )
 	, XInput( XInputInterface::Create( MessageHandler ) )
 	, bHasLoadedInputPlugins( false )
 	, bAllowedToDeferMessageProcessing(true)
@@ -98,11 +99,6 @@ FWindowsApplication::FWindowsApplication( const HINSTANCE HInstance, const HICON
 	// This is a hack.  A more permanent solution is to make our slow tasks not block the editor for so long
 	// that message pumping doesn't occur (which causes these messages).
 	::DisableProcessWindowsGhosting();
-
-	if (GIsEditor)
-	{
-		FWindowsPlatformApplicationMisc::SetHighDPIMode();
-	}
 
 	// Register the Win32 class for Slate windows and assign the application instance and icon
 	const bool bClassRegistered = RegisterClass( InstanceHandle, IconHandle );
@@ -173,6 +169,11 @@ FWindowsApplication::FWindowsApplication( const HINSTANCE HInstance, const HICON
 	AllowAccessibilityShortcutKeys(false);
 
 	QueryConnectedMice();
+
+	if (FParse::Param(FCommandLine::Get(), TEXT("NoGamepad")))
+	{
+		bForceNoGamepads = true;
+	}
 }
 
 void FWindowsApplication::AllowAccessibilityShortcutKeys(const bool bAllowKeys)
@@ -308,6 +309,11 @@ void FWindowsApplication::SetMessageHandler( const TSharedRef< FGenericApplicati
 
 bool FWindowsApplication::IsGamepadAttached() const
 {
+	if (bForceNoGamepads)
+	{
+		return false;
+	}
+
 	if (XInput->IsGamepadAttached())
 	{
 		return true;
@@ -1284,7 +1290,11 @@ int32 FWindowsApplication::ProcessMessage( HWND hwnd, uint32 msg, WPARAM wParam,
 					break;
 				case SC_CLOSE:
 					{
-						DeferMessage(CurrentNativeEventWindowPtr, hwnd, WM_CLOSE, 0, 0);
+						// do not allow Alt-f4 during slow tasks.  This causes entry into the shutdown sequence at abonrmal times which causes crashes.
+						if (!GIsSlowTask)
+						{
+							DeferMessage(CurrentNativeEventWindowPtr, hwnd, WM_CLOSE, 0, 0);
+						}
 						return 1;
 					}
 					break;
@@ -1815,7 +1825,7 @@ int32 FWindowsApplication::ProcessDeferredMessage( const FDeferredWindowsMessage
 									
 									TouchIDs[TouchIndex] = TOptional<int32>(Input.dwID);
 									UE_LOG(LogWindowsDesktop, Verbose, TEXT("OnTouchStarted at (%f, %f), finger %d (system touch id %d)"), Location.X, Location.Y, TouchIndex, Input.dwID);
-									MessageHandler->OnTouchStarted(CurrentNativeEventWindowPtr, Location, TouchIndex, 0);
+									MessageHandler->OnTouchStarted(CurrentNativeEventWindowPtr, Location, 1.0f, TouchIndex, 0);
 								}
 								else
 								{
@@ -1828,7 +1838,7 @@ int32 FWindowsApplication::ProcessDeferredMessage( const FDeferredWindowsMessage
 								if ( TouchIndex >= 0 )
 								{
 									UE_LOG(LogWindowsDesktop, Verbose, TEXT("OnTouchMoved at (%f, %f), finger %d (system touch id %d)"), Location.X, Location.Y, TouchIndex, Input.dwID);
-									MessageHandler->OnTouchMoved(Location, TouchIndex, 0);
+									MessageHandler->OnTouchMoved(Location, 1.0f, TouchIndex, 0);
 								}
 							}
 							else if ( Input.dwFlags & TOUCHEVENTF_UP )
@@ -2219,6 +2229,11 @@ void FWindowsApplication::ProcessDeferredEvents( const float TimeDelta )
 
 void FWindowsApplication::PollGameDeviceState( const float TimeDelta )
 {
+	if (bForceNoGamepads)
+	{
+		return;
+	}
+
 	// initialize any externally-implemented input devices (we delay load initialize the array so any plugins have had time to load)
 	if (!bHasLoadedInputPlugins)
 	{

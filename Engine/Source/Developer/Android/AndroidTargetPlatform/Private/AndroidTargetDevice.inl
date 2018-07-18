@@ -75,6 +75,10 @@ inline bool FAndroidTargetDevice::PowerOff( bool Force )
 	return true;
 }
 
+inline FString FAndroidTargetDevice::GetAllDevicesName() const
+{
+	return FString::Printf(TEXT("All_%s_On_%s"), *(GetTargetPlatform().IniPlatformName()), FPlatformProcess::ComputerName());
+}
 
 inline bool FAndroidTargetDevice::Run( const FString& ExecutablePath, const FString& Params, uint32* OutProcessId )
 {
@@ -82,6 +86,12 @@ inline bool FAndroidTargetDevice::Run( const FString& ExecutablePath, const FStr
 	return false;
 }
 
+// cancel the running application
+inline bool FAndroidTargetDevice::TerminateLaunchedProcess(const FString& ProcessIdentifier)
+{
+	FString AdbCommand = FString::Printf(TEXT("shell am force-stop '%s' -s %s"), *ProcessIdentifier, *SerialNumber);
+	return ExecuteAdbCommand(AdbCommand, nullptr, nullptr);
+}
 
 inline bool FAndroidTargetDevice::SupportsFeature( ETargetDeviceFeatures Feature ) const
 {

@@ -18,7 +18,7 @@
 #include "NiagaraEditorSettings.h"
 #include "IAssetTypeActions.h"
 #include "AssetToolsModule.h"
-#include "NiagaraStackGraphUtilities.h"
+#include "ViewModels/Stack/NiagaraStackGraphUtilities.h"
 #include "AssetTypeActions/AssetTypeActions_NiagaraScript.h"
 
 #define LOCTEXT_NAMESPACE "NiagaraScriptFactory"
@@ -211,9 +211,8 @@ void UNiagaraScriptFactoryNew::InitializeScript(UNiagaraScript* NewScript)
 			// Set pointer in script to source
 			NewScript->SetSource(Source);
 
-			FString OutGraphLevelErrorMessages;
-			bool bForce = true;
-			NewScript->Compile(OutGraphLevelErrorMessages, bForce);
+
+			NewScript->RequestCompile();
 		}
 	}
 }

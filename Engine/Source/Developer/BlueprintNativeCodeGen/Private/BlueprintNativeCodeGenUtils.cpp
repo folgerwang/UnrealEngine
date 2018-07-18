@@ -17,7 +17,7 @@
 #include "Misc/ScopeExit.h"
 #include "FindInBlueprintManager.h"
 #include "Kismet2/BlueprintEditorUtils.h"
-#include "TextPackageNamespaceUtil.h"
+#include "Internationalization/TextPackageNamespaceUtil.h"
 #include "PlatformInfo.h"
 #include "Interfaces/IPluginManager.h"
 
@@ -50,9 +50,10 @@ namespace BlueprintNativeCodeGenUtilsImpl
 	 * the module to function).
 	 * 
 	 * @param  TargetPaths    Defines the file path/name for the target files.
+	 * @param  bExcludeMonolithicEngineHeaders	Whether or not to exclude monolithic engine headers.
 	 * @return True if the files were successfully generated, otherwise false.
 	 */
-	static bool GenerateModuleSourceFiles(const FBlueprintNativeCodeGenPaths& TargetPaths);
+	static bool GenerateModuleSourceFiles(const FBlueprintNativeCodeGenPaths& TargetPaths, bool bExcludeMonolithicEngineHeaders);
 
 	/**
 	 * Creates and fills out a new .Build.cs file for the plugin's runtime module.
@@ -184,12 +185,15 @@ static bool BlueprintNativeCodeGenUtilsImpl::GeneratePluginDescFile(const FBluep
 }
 
 //------------------------------------------------------------------------------
-static bool BlueprintNativeCodeGenUtilsImpl::GenerateModuleSourceFiles(const FBlueprintNativeCodeGenPaths& TargetPaths)
+static bool BlueprintNativeCodeGenUtilsImpl::GenerateModuleSourceFiles(const FBlueprintNativeCodeGenPaths& TargetPaths, bool bExcludeMonolithicEngineHeaders)
 {
 	FText FailureReason;
 
 	TArray<FString> PchIncludes;
-	PchIncludes.Add(EngineHeaderFile);
+	if (!bExcludeMonolithicEngineHeaders)
+	{
+		PchIncludes.Add(EngineHeaderFile);
+	}
 	PchIncludes.Add(TEXT("GeneratedCodeHelpers.h"));
 	PchIncludes.Add(NativizedDependenciesFileName() + TEXT(".h"));
 
@@ -259,8 +263,11 @@ static bool BlueprintNativeCodeGenUtilsImpl::GenerateModuleBuildFile(const FBlue
 	TArray<FString> PublicDependencies;
 	// for IModuleInterface
 	PublicDependencies.Add(CoreModuleName);
-	// for Engine.h
-	PublicDependencies.Add(EngineModuleName);
+	if (!Manifest.GetCompilerNativizationOptions().bExcludeMonolithicHeaders)
+	{
+		// for Engine.h
+		PublicDependencies.Add(EngineModuleName);
+	}
 
 	if (GameProjectUtils::ProjectHasCodeFiles()) 
 	{
@@ -374,7 +381,7 @@ bool FBlueprintNativeCodeGenUtils::FinalizePlugin(const FBlueprintNativeCodeGenM
 	bool bSuccess = true;
 	FBlueprintNativeCodeGenPaths TargetPaths = Manifest.GetTargetPaths();
 	bSuccess = bSuccess && BlueprintNativeCodeGenUtilsImpl::GenerateModuleBuildFile(Manifest);
-	bSuccess = bSuccess && BlueprintNativeCodeGenUtilsImpl::GenerateModuleSourceFiles(TargetPaths);
+	bSuccess = bSuccess && BlueprintNativeCodeGenUtilsImpl::GenerateModuleSourceFiles(TargetPaths, Manifest.GetCompilerNativizationOptions().bExcludeMonolithicHeaders);
 	bSuccess = bSuccess && BlueprintNativeCodeGenUtilsImpl::GenerateNativizedDependenciesSourceFiles(TargetPaths);
 	bSuccess = bSuccess && BlueprintNativeCodeGenUtilsImpl::GeneratePluginDescFile(TargetPaths);
 	return bSuccess;

@@ -5,12 +5,12 @@
 #include "CoreMinimal.h"
 #include "DSP/Dsp.h"
 #include "DSP/Osc.h"
-#include "DSP/SampleBuffer.h"
 #include "DSP/SampleBufferReader.h"
 #include "DSP/Envelope.h"
 #include "DSP/Amp.h"
 #include "DSP/DynamicsProcesser.h"
 #include "AudioDevice.h"
+#include "Sound/SampleBuffer.h"
 
 namespace Audio
 {
@@ -176,7 +176,7 @@ namespace Audio
 		void Init(const int32 InSampleRate, const int32 InNumInitialGrains);
 		
 		// Loads a sound wave to use for granular synth mode
-		void LoadSampleBuffer(const FSampleBuffer& InSampleBuffer);
+		void LoadSampleBuffer(const TSampleBuffer<int16>& InSampleBuffer);
 
 		// Plays a granular synthesis "Note"
 		void NoteOn(const uint32 InMidiNote, const float InVelocity, const float InDurationSec = INDEX_NONE);
@@ -339,7 +339,7 @@ namespace Audio
 		FDynamicsProcessor DynamicsProcessor;
 
 		// The buffer which holds the sample to be granulated
-		FSampleBuffer SampleBuffer;
+		TSampleBuffer<int16> SampleBuffer;
 
 		// The current playhead frame
 		float CurrentPlayHeadFrame;

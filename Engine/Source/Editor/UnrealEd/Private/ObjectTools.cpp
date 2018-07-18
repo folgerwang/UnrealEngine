@@ -23,7 +23,7 @@
 #include "Widgets/DeclarativeSyntaxSupport.h"
 #include "Styling/SlateTypes.h"
 #include "Widgets/SWindow.h"
-#include "SEditableTextBox.h"
+#include "Widgets/Input/SEditableTextBox.h"
 #include "RHI.h"
 #include "Materials/MaterialInterface.h"
 #include "RenderingThread.h"
@@ -87,7 +87,7 @@
 #include "Layers/ILayers.h"
 #include "Engine/SCS_Node.h"
 #include "ShaderCompiler.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 #include "Engine/MapBuildDataRegistry.h"
 #include "HAL/PlatformApplicationMisc.h"
 
@@ -480,6 +480,19 @@ namespace ObjectTools
 				}
 			}
 
+			// Handle map built data
+			const int32 OriginalNumToDelete = ObjectsToDelete.Num();
+			ObjectTools::AddExtraObjectsToDelete(ObjectsToDelete);
+			for (int32 i = OriginalNumToDelete; i < ObjectsToDelete.Num(); ++i)
+			{
+				UPackage* Pkg = ObjectsToDelete[i]->GetOutermost();
+				if ( Pkg && !Pkg->IsRooted() )
+				{
+					DeletedObjectPackages.AddUnique(Pkg);
+					Pkg->AddToRoot();
+				}
+			}
+
 			const int32 NumObjectsDeleted = ObjectTools::DeleteObjects(ObjectsToDelete, bPromptToOverwrite);
 
 			// Remove all packages that we added to the root set above.
@@ -543,6 +556,13 @@ namespace ObjectTools
 
 			// Notify the asset registry
 			FAssetRegistryModule::AssetCreated(DupObject);
+
+			// Notify the asset registry of world's duplicated MapBuildData
+			UWorld* DupWorld = Cast<UWorld>(DupObject);
+			if (DupWorld && DupWorld->PersistentLevel && DupWorld->PersistentLevel->MapBuildData)
+			{
+				FAssetRegistryModule::AssetCreated(DupWorld->PersistentLevel->MapBuildData);
+			}
 
 			ReturnObject = DupObject;
 		}
@@ -641,7 +661,7 @@ namespace ObjectTools
 				FText Message = FText::Format( MessageFormatting, Arguments );
 
 				// Prompt the user to see if they'd like to remove the root set flag from the assets and attempt to replace them
-				EAppReturnType::Type UserRepsonse = OpenMsgDlgInt( EAppMsgType::YesNo, Message, NSLOCTEXT("ObjectTools", "ConsolidateAssetsRootSetDlg_Title", "Failed to Consolidate Assets") );
+				EAppReturnType::Type UserRepsonse = OpenMsgDlgInt( EAppMsgType::YesNo, EAppReturnType::No, Message, NSLOCTEXT("ObjectTools", "ConsolidateAssetsRootSetDlg_Title", "Failed to Consolidate Assets") );
 
 				// The user elected to not remove the root set flag, so cancel the replacement
 				if ( UserRepsonse == EAppReturnType::No )
@@ -736,7 +756,10 @@ namespace ObjectTools
 		ReplacementMap.GenerateKeyArray( OutInfo.ReplaceableObjects );
 
 		// Find all the properties (and their corresponding objects) that refer to any of the objects to be replaced
-		TMap< UObject*, TArray<UProperty*> > ReferencingPropertiesMap;
+		using PropertyArrayType = TArray<UProperty*, TInlineAllocator<1>>;
+		TArray<UObject*> ReferencingPropertiesMapKeys;
+		TArray<PropertyArrayType> ReferencingPropertiesMapValues;
+
 		for ( FObjectIterator ObjIter; ObjIter; ++ObjIter )
 		{
 			UObject* CurObject = *ObjIter;
@@ -754,12 +777,15 @@ namespace ObjectTools
 				TMultiMap<UObject*, UProperty*> CurReferencingPropertiesMMap;
 				if ( FindRefsArchive.GetReferenceCounts( CurNumReferencesMap, CurReferencingPropertiesMMap ) > 0  )
 				{
-					TArray<UProperty*> CurReferencedProperties;
+					PropertyArrayType CurReferencedProperties;
 					CurReferencingPropertiesMMap.GenerateValueArray( CurReferencedProperties );
-					ReferencingPropertiesMap.Add( CurObject, CurReferencedProperties );
+
+					ReferencingPropertiesMapKeys.Add(CurObject);
+					ReferencingPropertiesMapValues.Add(CurReferencedProperties);
+
 					if ( CurReferencedProperties.Num() > 0)
 					{
-						for ( TArray<UProperty*>::TConstIterator RefPropIter( CurReferencedProperties ); RefPropIter; ++RefPropIter )
+						for ( PropertyArrayType::TConstIterator RefPropIter( CurReferencedProperties ); RefPropIter; ++RefPropIter )
 						{
 							CurObject->PreEditChange( *RefPropIter );
 						}
@@ -771,15 +797,40 @@ namespace ObjectTools
 				}
 			}
 		}
-		
+
+		{
+			TBitArray<> TouchedThisItteration(false, ReferencingPropertiesMapKeys.Num());
+			for (int CurrentIndex = 0; CurrentIndex < ReferencingPropertiesMapKeys.Num(); CurrentIndex++)
+			{
+				TouchedThisItteration.Init(false, ReferencingPropertiesMapKeys.Num());
+				FFindReferencersArchive FindDependentArchive(ReferencingPropertiesMapKeys[CurrentIndex], ReferencingPropertiesMapKeys);
+				for (int DependentIndex = CurrentIndex + 1; DependentIndex < ReferencingPropertiesMapKeys.Num(); DependentIndex++)
+				{
+					if (!TouchedThisItteration[DependentIndex] && FindDependentArchive.GetReferenceCount(ReferencingPropertiesMapKeys[DependentIndex]) > 0)
+					{
+						UObject* Key = ReferencingPropertiesMapKeys[CurrentIndex];
+						PropertyArrayType Value = ReferencingPropertiesMapValues[CurrentIndex];
+						ReferencingPropertiesMapKeys[CurrentIndex] = ReferencingPropertiesMapKeys[DependentIndex];
+						ReferencingPropertiesMapValues[CurrentIndex] = ReferencingPropertiesMapValues[DependentIndex];
+						ReferencingPropertiesMapKeys[DependentIndex] = Key;
+						ReferencingPropertiesMapValues[DependentIndex] = Value;
+
+						FindDependentArchive.ResetPotentialReferencer(ReferencingPropertiesMapKeys[CurrentIndex]);
+						TouchedThisItteration[DependentIndex] = true;
+						DependentIndex = CurrentIndex;
+					}
+				}
+			}
+		}
+
 		// Iterate over the map of referencing objects/changed properties, forcefully replacing the references and
 		int32 NumObjsReplaced = 0;
-		for ( TMap< UObject*, TArray<UProperty*> >::TConstIterator MapIter( ReferencingPropertiesMap ); MapIter; ++MapIter )
+		for (int32 Index = 0; Index < ReferencingPropertiesMapKeys.Num(); Index++)
 		{
 			++NumObjsReplaced;
-			GWarn->StatusUpdate( NumObjsReplaced, ReferencingPropertiesMap.Num(), NSLOCTEXT("UnrealEd", "ConsolidateAssetsUpdate_ReplacingReferences", "Replacing Asset References...") );
+			GWarn->StatusUpdate( NumObjsReplaced, ReferencingPropertiesMapKeys.Num(), NSLOCTEXT("UnrealEd", "ConsolidateAssetsUpdate_ReplacingReferences", "Replacing Asset References...") );
 
-			UObject* CurReplaceObj = MapIter.Key();
+			UObject* CurReplaceObj = ReferencingPropertiesMapKeys[Index];
 
 			FArchiveReplaceObjectRef<UObject> ReplaceAr( CurReplaceObj, ReplacementMap, false, true, false );
 		}
@@ -787,17 +838,17 @@ namespace ObjectTools
 		// Now alter the referencing objects the change has completed via PostEditChange, 
 		// this is done in a separate loop to prevent reading of data that we want to overwrite
 		int32 NumObjsPostEdited = 0;
-		for ( TMap< UObject*, TArray<UProperty*> >::TConstIterator MapIter( ReferencingPropertiesMap ); MapIter; ++MapIter )
+		for (int32 Index = 0; Index < ReferencingPropertiesMapKeys.Num(); Index++)
 		{
 			++NumObjsPostEdited;
-			GWarn->StatusUpdate( NumObjsPostEdited, ReferencingPropertiesMap.Num(), NSLOCTEXT("UnrealEd", "ConsolidateAssetsUpdate_PostEditing", "Performing Post Update Edits...") );
+			GWarn->StatusUpdate( NumObjsPostEdited, ReferencingPropertiesMapKeys.Num(), NSLOCTEXT("UnrealEd", "ConsolidateAssetsUpdate_PostEditing", "Performing Post Update Edits...") );
 
-			UObject* CurReplaceObj = MapIter.Key();
-			const TArray<UProperty*>& RefPropArray = MapIter.Value();
+			UObject* CurReplaceObj = ReferencingPropertiesMapKeys[Index];
+			const PropertyArrayType& RefPropArray = ReferencingPropertiesMapValues[Index];
 
 			if (RefPropArray.Num() > 0)
 			{
-				for ( TArray<UProperty*>::TConstIterator RefPropIter( RefPropArray ); RefPropIter; ++RefPropIter )
+				for ( PropertyArrayType::TConstIterator RefPropIter( RefPropArray ); RefPropIter; ++RefPropIter )
 				{
 					FPropertyChangedEvent PropertyEvent(*RefPropIter, EPropertyChangeType::Redirected);
 					CurReplaceObj->PostEditChangeProperty( PropertyEvent );
@@ -882,12 +933,13 @@ namespace ObjectTools
 				// Note reloading the world via ReloadEditorWorldForReferenceReplacementIfNecessary will cause a garbage collect and potentially cause entries in the ObjectsToConsolidate list to become invalid
 				// We refresh the list here after reloading the editor world
 				TArray< TWeakObjectPtr<UObject> > ObjectsToConsolidateWeakList;
+				ObjectsToConsolidateWeakList.Reserve(ObjectsToConsolidate.Num());
 				for(UObject* Object : ObjectsToConsolidate)
 				{
 					ObjectsToConsolidateWeakList.Add(Object);
 				}
 
-				ObjectsToConsolidate.Empty();
+				ObjectsToConsolidate.Reset();
 
 				// If the current editor world is in this list, transition to a new map and reload the world to finish the delete
 				ReloadEditorWorldForReferenceReplacementIfNecessary(ObjectsToConsolidateWeakList);
@@ -904,11 +956,93 @@ namespace ObjectTools
 			FForceReplaceInfo ReplaceInfo;
 			FForceReplaceInfo GeneratedClassReplaceInfo;
 
+			bool bNeedsGarbageCollection = false;
+
 			// Scope the reregister context below to complete after object deletion and before garbage collection
 			{
 				// Replacing references inside already loaded objects could cause rendering issues, so globally detach all components from their scenes for now
 				FGlobalComponentRecreateRenderStateContext ReregisterContext;
-				
+
+				// First, make sure that the class we're consolidating to has its hierarchy fixed so
+				// that we don't create a cycle (e.g. directly or indirectly parent it to itself):
+				UClass* ClassToConsolidateTo = nullptr;
+				if (ObjectToConsolidateTo)
+				{
+					if (UBlueprint* BlueprintObject = Cast<UBlueprint>(ObjectToConsolidateTo))
+					{
+						ClassToConsolidateTo = BlueprintObject->GeneratedClass;
+
+						if (!ClassToConsolidateTo)
+						{
+							ClassToConsolidateTo = UObject::StaticClass();
+						}
+
+						// Don't parent a blueprint to itself, instead fall back to the part of the 
+						// hierarchy that is not being consolidated. Worst case, fall back to 
+						// UObject::StaticClass():
+						UClass* NewParent = BlueprintObject->ParentClass;
+						UClass* ParentIter = NewParent;
+						while (ParentIter)
+						{
+							if (ObjectsToConsolidate.Contains(ParentIter->ClassGeneratedBy))
+							{
+								NewParent = ParentIter->GetSuperClass();
+							}
+							ParentIter = ParentIter->GetSuperClass();
+						}
+
+						if (!NewParent || ObjectsToConsolidate.Contains(NewParent->ClassGeneratedBy))
+						{
+							NewParent = UObject::StaticClass();
+						}
+
+						BlueprintObject->ParentClass = NewParent;
+
+						// Recompile the child blueprint to fix up the generated class
+						FKismetEditorUtilities::CompileBlueprint(BlueprintObject, EBlueprintCompileOptions::SkipGarbageCollection);
+					}
+				}
+
+				// Then reparent any direct children to the class we're consolidating to:
+				for (UObject* Object : ObjectsToConsolidate)
+				{
+					if (UBlueprint* BlueprintObject = Cast<UBlueprint>(Object))
+					{
+						if (BlueprintObject->ParentClass != nullptr && BlueprintObject->GeneratedClass)
+						{
+							TArray<UClass*> ChildClasses;
+							GetDerivedClasses(BlueprintObject->GeneratedClass, ChildClasses, false);
+							for(UClass* ChildClass : ChildClasses)
+							{
+								UBlueprint* ChildBlueprint = Cast<UBlueprint>(ChildClass->ClassGeneratedBy);
+								if (ChildBlueprint != nullptr && !ChildClass->HasAnyClassFlags(CLASS_NewerVersionExists))
+								{
+									// Do not reparent and recompile a Blueprint that is going to be deleted.
+									if (ObjectsToConsolidate.Find(ChildBlueprint) == INDEX_NONE)
+									{
+										ChildBlueprint->Modify();
+
+										UClass* NewParent = ClassToConsolidateTo;
+
+										if (!NewParent)
+										{
+											NewParent = UObject::StaticClass();
+										}
+
+										ChildBlueprint->ParentClass = NewParent;
+
+										// Recompile the child blueprint to fix up the generated class
+										FKismetEditorUtilities::CompileBlueprint(ChildBlueprint, EBlueprintCompileOptions::SkipGarbageCollection);
+
+										// Defer garbage collection until after we're done processing the list of objects
+										bNeedsGarbageCollection = true;
+									}
+								}
+							}
+						}
+					}
+				}
+
 				ForceReplaceReferences(ObjectToConsolidateTo, ObjectsToConsolidate, ReplaceInfo);
 
 				if (UBlueprint* ObjectToConsolidateTo_BP = Cast<UBlueprint>(ObjectToConsolidateTo))
@@ -916,6 +1050,7 @@ namespace ObjectTools
 					// Replace all UClass/TSubClassOf properties of generated class.
 					TArray<UObject*> ObjectsToConsolidate_BP;
 					TArray<UClass*> OldGeneratedClasses;
+					TMap<UClass*, UClass*> OldChildClassToOldParentClass;
 					ObjectsToConsolidate_BP.Reserve(ObjectsToConsolidate.Num());
 					OldGeneratedClasses.Reserve(ObjectsToConsolidate.Num());
 					for (UObject* ObjectToConsolidate : ObjectsToConsolidate)
@@ -923,6 +1058,13 @@ namespace ObjectTools
 						UClass* OldGeneratedClass = Cast<UBlueprint>(ObjectToConsolidate)->GeneratedClass;
 						ObjectsToConsolidate_BP.Add(OldGeneratedClass);
 						OldGeneratedClasses.Add(OldGeneratedClass);
+
+						TArray<UClass*> OldChildClasses;
+						GetDerivedClasses(OldGeneratedClass, OldChildClasses, false);
+						for (UClass* OldChildClass : OldChildClasses)
+						{
+							OldChildClassToOldParentClass.Add(OldChildClass, OldGeneratedClass);
+						}
 					}
 
 					ForceReplaceReferences(ObjectToConsolidateTo_BP->GeneratedClass, ObjectsToConsolidate_BP, GeneratedClassReplaceInfo);
@@ -931,6 +1073,12 @@ namespace ObjectTools
 					for (int32 Index = 0, MaxIndex = ObjectsToConsolidate.Num(); Index < MaxIndex; ++Index)
 					{
 						Cast<UBlueprint>(ObjectsToConsolidate[Index])->GeneratedClass = OldGeneratedClasses[Index];
+					}
+
+					// repair superstruct references:
+					for (const TPair<UClass*,UClass*>& OldChild : OldChildClassToOldParentClass)
+					{
+						OldChild.Key->SetSuperStruct(OldChild.Value);
 					}
 
 					ReplaceInfo.AppendUnique(GeneratedClassReplaceInfo);
@@ -958,8 +1106,12 @@ namespace ObjectTools
 					}
 				}
 
-				// Clean up the actors we replaced
-				CollectGarbage( GARBAGE_COLLECTION_KEEPFLAGS );
+				bNeedsGarbageCollection = true;
+			}
+
+			if (bNeedsGarbageCollection)
+			{
+				CollectGarbage(GARBAGE_COLLECTION_KEEPFLAGS);
 			}
 
 			FEditorDelegates::OnAssetsPreDelete.Broadcast(ReplaceInfo.ReplaceableObjects);
@@ -1775,7 +1927,25 @@ namespace ObjectTools
 		return NumPackagesToDelete + NumObjectsToDelete;
 	}
 
-	int32 DeleteObjects( const TArray< UObject* >& ObjectsToDelete, bool bShowConfirmation )
+	void AddExtraObjectsToDelete(TArray< UObject* >& ObjectsToDelete)
+	{
+		const int32 OriginalNum = ObjectsToDelete.Num();
+		for (int32 i=0; i < OriginalNum; ++i)
+		{
+			UObject* ObjectToDelete = ObjectsToDelete[i];
+
+			// Delete MapBuildData with maps
+			if (UWorld* World = Cast<UWorld>(ObjectToDelete))
+			{
+				if (World->PersistentLevel && World->PersistentLevel->MapBuildData)
+				{
+					ObjectsToDelete.AddUnique(World->PersistentLevel->MapBuildData);
+				}
+			}
+		}
+	}
+
+	int32 DeleteObjects( const TArray< UObject* >& InObjectsToDelete, bool bShowConfirmation )
 	{
 		// Allows deleting of sounds after they have been previewed
 		GEditor->ClearPreviewComponents();
@@ -1798,6 +1968,9 @@ namespace ObjectTools
 		}
 
 		const FScopedBusyCursor BusyCursor;
+
+		TArray<UObject*> ObjectsToDelete = InObjectsToDelete;
+		AddExtraObjectsToDelete(ObjectsToDelete);
 
 		// Make sure packages being saved are fully loaded.
 		if( !HandleFullyLoadingPackages( ObjectsToDelete, NSLOCTEXT("UnrealEd", "Delete", "Delete") ) )
@@ -1912,11 +2085,13 @@ namespace ObjectTools
 		return true;
 	}
 
-	int32 DeleteObjectsUnchecked(const TArray< UObject* >& ObjectsToDelete)
+	int32 DeleteObjectsUnchecked(const TArray< UObject* >& InObjectsToDelete)
 	{
 		GWarn->BeginSlowTask( NSLOCTEXT( "UnrealEd", "Deleting", "Deleting" ), true );
 
 		TArray<UObject*> ObjectsDeletedSuccessfully;
+		TArray<UObject*> ObjectsToDelete = InObjectsToDelete;
+		AddExtraObjectsToDelete(ObjectsToDelete);
 
 		bool bSawSuccessfulDelete = false;
 		bool bMakeWritable = false;
@@ -2041,8 +2216,11 @@ namespace ObjectTools
 	{
 		int32 NumDeletedObjects = 0;
 
+		TArray<UObject*> ShownObjectsToDelete = InObjectsToDelete;
+		AddExtraObjectsToDelete(ShownObjectsToDelete);
+
 		// Confirm that the delete was intentional
-		if ( ShowConfirmation && !ShowDeleteConfirmationDialog(InObjectsToDelete) )
+		if ( ShowConfirmation && !ShowDeleteConfirmationDialog(ShownObjectsToDelete) )
 		{
 			return 0;
 		}
@@ -2074,7 +2252,7 @@ namespace ObjectTools
 		// Clear audio components to allow previewed sounds to be consolidated
 		GEditor->ClearPreviewComponents();
 
-		for ( TArray<UObject*>::TConstIterator ObjectItr(InObjectsToDelete); ObjectItr; ++ObjectItr )
+		for ( TArray<UObject*>::TConstIterator ObjectItr(ShownObjectsToDelete); ObjectItr; ++ObjectItr )
 		{
 			UObject* CurrentObject = *ObjectItr;
 
@@ -3146,6 +3324,9 @@ namespace ObjectTools
 
 		uint32 IdxFilter = 1; // the type list will start by an all supported files wildcard value
 
+		// Keep track of added extensions to prevent duplicates
+		TArray<FString> AddedExtensions;
+
 		// Iterate over each unique map key, retrieving all of each key's associated values in order to populate the strings
 		for ( TArray<FString>::TConstIterator DescIter( DescriptionKeys ); DescIter; ++DescIter )
 		{
@@ -3166,13 +3347,14 @@ namespace ObjectTools
 					const FString& CurLine = FString::Printf( TEXT("%s (*.%s)|*.%s"), *CurDescription, *CurExtension, *CurExtension );
 
 					// The same extension could be used for multiple types (like with t3d), so ensure any given extension is only added to the string once
-					if ( !out_Extensions.Contains( CurExtension) )
+					if ( !AddedExtensions.Contains(CurExtension))
 					{
 						if ( out_Extensions.Len() > 0 )
 						{
 							out_Extensions += TEXT(";");
 						}
 						out_Extensions += FString::Printf(TEXT("*.%s"), *CurExtension);
+                       				AddedExtensions.Add(CurExtension);
 					}
 
 					// Each description-extension pair can only appear once in the map, so no need to check the string for duplicates
@@ -3319,15 +3501,11 @@ namespace ObjectTools
 				Levels.Add( World->PersistentLevel );
 			}
 			// Add all other levels if they are visible
-			for( int32 LevelIndex = 0; LevelIndex < World->StreamingLevels.Num(); ++LevelIndex )
+			for (ULevelStreaming* StreamingLevel  : World->GetStreamingLevels())
 			{
-				ULevelStreaming* StreamingLevel = World->StreamingLevels[ LevelIndex ];
-
-				if( StreamingLevel != NULL && FLevelUtils::IsLevelVisible( StreamingLevel ) )
+				if (StreamingLevel && FLevelUtils::IsStreamingLevelVisibleInEditor( StreamingLevel ) )
 				{
-					ULevel* Level = StreamingLevel->GetLoadedLevel();
-					
-					if ( Level != NULL )
+					if (ULevel* Level = StreamingLevel->GetLoadedLevel())
 					{
 						LevelPackages.Add( Level->GetOutermost() );
 						Levels.Add( Level );
@@ -3341,15 +3519,11 @@ namespace ObjectTools
 			Levels.Add( World->PersistentLevel );
 			
 			// Add all other levels
-			for( int32 LevelIndex = 0; LevelIndex < World->StreamingLevels.Num(); ++LevelIndex )
+			for (ULevelStreaming* StreamingLevel : World->GetStreamingLevels())
 			{
-				ULevelStreaming* StreamingLevel = World->StreamingLevels[ LevelIndex ];
-
-				if( StreamingLevel != NULL )
+				if (StreamingLevel)
 				{
-					ULevel* Level = StreamingLevel->GetLoadedLevel();
-					
-					if ( Level != NULL )
+					if (ULevel* Level = StreamingLevel->GetLoadedLevel())
 					{
 						LevelPackages.Add( Level->GetOutermost() );
 						Levels.Add( Level );
@@ -3690,7 +3864,6 @@ namespace ThumbnailTools
 					RHICmdList.CopyToResolveTarget(
 						RenderTargetResource->GetRenderTargetTexture(),		// Source texture
 						RenderTargetResource->TextureRHI,					// Dest texture
-						false,												// Do we need the source image content again?
 						FResolveParams() );									// Resolve parameters
 				});
 
@@ -3807,16 +3980,15 @@ namespace ThumbnailTools
 		CacheThumbnail( ObjectFullName, &EmptyThumbnail, DestPackage );
 	}
 
-
-
-	bool QueryPackageFileNameForObject( const FString& InFullName, FString& OutPackageFileName )
+	/** Returns the long path name of the package from InFullName */
+	FString GetPackageNameForObject( const FString& InFullName )
 	{
 		// First strip off the class name
 		int32 FirstSpaceIndex = InFullName.Find( TEXT( " " ) );
 		if( FirstSpaceIndex == INDEX_NONE || FirstSpaceIndex <= 0 )
 		{
 			// Malformed full name
-			return false;
+			return FString();
 		}
 
 		// Determine the package file path/name for the specified object
@@ -3827,15 +3999,21 @@ namespace ThumbnailTools
 		if( FirstDotIndex == INDEX_NONE || FirstDotIndex <= 0 )
 		{
 			// Malformed object path
-			return false;
+			return FString();
 		}
 
-		FString PackageName = ObjectPathName.Left( FirstDotIndex );
+		return ObjectPathName.Left( FirstDotIndex );
+	}
+
+	/** Returns the package file name on disk from InFullName */
+	bool QueryPackageFileNameForObject( const FString& InFullName, FString& OutPackageFileName )
+	{
+		FString PackageName = GetPackageNameForObject( InFullName );
 
 		// Ask the package file cache for the full path to this package
-		if( !FPackageName::DoesPackageExist( PackageName, NULL, &OutPackageFileName ) )
+		if( PackageName.IsEmpty() || !FPackageName::DoesPackageExist( PackageName, NULL, &OutPackageFileName ) )
 		{
-			// Couldn't find the package in our cache
+			// Couldn't find the package
 			return false;
 		}
 
@@ -3891,14 +4069,15 @@ namespace ThumbnailTools
 	const FObjectThumbnail* FindCachedThumbnail( const FString& InFullName )
 	{
 		// Determine the package file path/name for the specified object
-		FString PackageFilePathName;
-		if( !QueryPackageFileNameForObject( InFullName, PackageFilePathName ) )
+		FString PackageName = GetPackageNameForObject( InFullName );
+
+		if ( PackageName.IsEmpty() )
 		{
-			// Couldn't find the package in our cache
-			return NULL;
+			// Couldn't find the package
+			return nullptr;
 		}
 
-		return FindCachedThumbnailInPackage( PackageFilePathName, FName( *InFullName ) );
+		return FindCachedThumbnailInPackage( PackageName, FName( *InFullName ) );
 	}
 
 

@@ -29,7 +29,7 @@
 #include "HModel.h"
 #include "Components/ModelComponent.h"
 #include "Engine/Brush.h"
-#include "RenderingObjectVersion.h"
+#include "UObject/RenderingObjectVersion.h"
 #include "Components/ModelComponent.h"
 
 namespace
@@ -64,20 +64,33 @@ FModelVertexBuffer::FModelVertexBuffer(UModel* InModel)
 */
 FArchive& operator<<(FArchive& Ar,FModelVertexBuffer& B)
 {
+	Ar.UsingCustomVersion(FRenderingObjectVersion::GUID);
+
 	if (Ar.IsLoading() && Ar.CustomVer(FRenderingObjectVersion::GUID) < FRenderingObjectVersion::ModelVertexBufferSerialization)
 	{
-		TResourceArray<FModelVertex, VERTEXBUFFER_ALIGNMENT> DepricatedVertices;
+		TResourceArray<FDepecatedModelVertex, VERTEXBUFFER_ALIGNMENT> DepricatedVertices;
 		DepricatedVertices.BulkSerialize(Ar);
 		B.Vertices.Reset(DepricatedVertices.Num());
-		for (const FModelVertex& ModelVertex : DepricatedVertices)
+		for (const FDepecatedModelVertex& ModelVertex : DepricatedVertices)
+		{
+			B.Vertices.Add(ModelVertex);
+		}
+	}
+	else if (Ar.IsLoading() && Ar.CustomVer(FRenderingObjectVersion::GUID) < FRenderingObjectVersion::IncreaseNormalPrecision)
+	{
+		TArray<FDepecatedModelVertex> DepricatedVertices;
+		DepricatedVertices.BulkSerialize(Ar);
+		B.Vertices.Reset(DepricatedVertices.Num());
+		for (const FDepecatedModelVertex& ModelVertex : DepricatedVertices)
 		{
 			B.Vertices.Add(ModelVertex);
 		}
 	}
 	else
 	{
-		B.Vertices.BulkSerialize(Ar);
+		Ar << B.Vertices;
 	}
+
 	return Ar;
 }
 
@@ -241,14 +254,14 @@ public:
 			ULevelStreaming* LevelStreaming = FLevelUtils::FindStreamingLevel( Level );
 			if ( LevelStreaming )
 			{
-				LevelColor = LevelStreaming->LevelColor;
+				SetLevelColor(LevelStreaming->LevelColor);
 			}
 		}
 
 		// Get a color for property coloration.
 		FColor NewPropertyColor;
 		GEngine->GetPropertyColorationColor( (UObject*)InComponent, NewPropertyColor );
-		PropertyColor = NewPropertyColor;
+		SetPropertyColor(NewPropertyColor);
 	}
 
 	~FModelSceneProxy()

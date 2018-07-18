@@ -32,5 +32,5 @@ class UKismetMaterialLibrary : public UBlueprintFunctionLibrary
 
 	/** Creates a Dynamic Material Instance which you can modify during gameplay. */
 	UFUNCTION(BlueprintCallable, Category="Rendering|Material", meta=(WorldContext="WorldContextObject", MaterialParameterCollectionFunction = "true"))
-	static ENGINE_API class UMaterialInstanceDynamic* CreateDynamicMaterialInstance(UObject* WorldContextObject, class UMaterialInterface* Parent);
+	static ENGINE_API class UMaterialInstanceDynamic* CreateDynamicMaterialInstance(UObject* WorldContextObject, class UMaterialInterface* Parent, FName OptionalName = NAME_None);
 };

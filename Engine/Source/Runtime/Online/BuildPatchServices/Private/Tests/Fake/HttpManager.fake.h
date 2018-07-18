@@ -24,10 +24,10 @@ namespace BuildPatchServices
 		: public FMockHttpResponse
 	{
 	public:
-		virtual int32 GetResponseCode() override;
-		virtual const TArray<uint8>& GetContent() override;
-		virtual FString GetContentAsString() override;
-		virtual int32 GetContentLength() override;
+		virtual int32 GetResponseCode() const override;
+		virtual const TArray<uint8>& GetContent() const override;
+		virtual FString GetContentAsString() const override;
+		virtual int32 GetContentLength() const override;
 
 	public:
 		TArray<uint8> Data;
@@ -56,24 +56,24 @@ namespace BuildPatchServices
 		return FakeHttpModule->OnProcessRequest(this);
 	}
 
-	int32 FFakeHttpResponse::GetResponseCode()
+	int32 FFakeHttpResponse::GetResponseCode() const
 	{
 		return static_cast<int32>(Code);
 	}
 
-	const TArray<uint8>& FFakeHttpResponse::GetContent()
+	const TArray<uint8>& FFakeHttpResponse::GetContent() const
 	{
 		return Data;
 	}
 
-	FString FFakeHttpResponse::GetContentAsString()
+	FString FFakeHttpResponse::GetContentAsString() const
 	{
 		TArray<uint8> ZeroTerminatedPayload(GetContent());
 		ZeroTerminatedPayload.Add(0);
 		return UTF8_TO_TCHAR(ZeroTerminatedPayload.GetData());
 	}
 
-	int32 FFakeHttpResponse::GetContentLength()
+	int32 FFakeHttpResponse::GetContentLength() const
 	{
 		return Data.Num();
 	}

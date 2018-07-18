@@ -48,7 +48,7 @@ struct FMessageRpcProgress
 	FString StatusText;
 
 	/** Default constructor. */
-	FMessageRpcProgress() { }
+	FMessageRpcProgress() : Completion(0.0f) { }
 
 	/** Creates and initializes a new instance. */
 	FMessageRpcProgress(const FGuid& InCallId, float InCompletion, const FText& InStatusText)

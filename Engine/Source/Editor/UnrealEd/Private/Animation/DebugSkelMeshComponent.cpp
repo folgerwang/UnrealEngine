@@ -295,6 +295,12 @@ void UDebugSkelMeshComponent::InitAnim(bool bForceReinit)
 	}
 }
 
+void UDebugSkelMeshComponent::K2_SetAnimInstanceClass(class UClass* NewClass)
+{
+	// Override this to do nothing and warn the user
+	UE_LOG(LogAnimation, Warning, TEXT("Attempting to destroy an animation preview actor, skipping."));
+}
+
 void UDebugSkelMeshComponent::EnablePreview(bool bEnable, UAnimationAsset* PreviewAsset)
 {
 	if (PreviewInstance)
@@ -766,8 +772,11 @@ void UDebugSkelMeshComponent::TickComponent(float DeltaTime, enum ELevelTick Tic
 		SetRelativeRotation(Rotation);
 	}
 
-        // Brute force approach to ensure that when materials are changed the names are cached parameter names are updated 
+    // Brute force approach to ensure that when materials are changed the names are cached parameter names are updated 
 	bCachedMaterialParameterIndicesAreDirty = true;
+	
+	// Force retargeting data to be re-cached to take into account skeleton edits.
+	bRequiredBonesUpToDate = false;
 
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
@@ -844,11 +853,27 @@ void UDebugSkelMeshComponent::RebuildCachedClothBounds()
 	CachedClothBounds = FBoxSphereBounds(ClothBBox);
 }
 
+void UDebugSkelMeshComponent::ShowReferencePose(bool bRefPose)
+{
+	if (bRefPose)
+	{
+		EnablePreview(true, nullptr);
+	}
+}
+
+bool UDebugSkelMeshComponent::IsReferencePoseShown() const
+{
+	return (IsPreviewOn() && PreviewInstance->GetCurrentAsset() == nullptr);
+}
+
+/***************************************************
+ * FDebugSkelMeshSceneProxy 
+ ***************************************************/
 FDebugSkelMeshSceneProxy::FDebugSkelMeshSceneProxy(const UDebugSkelMeshComponent* InComponent, FSkeletalMeshRenderData* InSkelMeshRenderData, const FColor& InWireframeOverlayColor /*= FColor::White*/) :
 	FSkeletalMeshSceneProxy(InComponent, InSkelMeshRenderData)
 {
 	DynamicData = nullptr;
-	WireframeColor = FLinearColor(InWireframeOverlayColor);
+	SetWireframeColor(FLinearColor(InWireframeOverlayColor));
 
 	if(GEngine->ClothPaintMaterial)
 	{
@@ -1012,3 +1037,4 @@ FDebugSkelMeshDynamicData::FDebugSkelMeshDynamicData(UDebugSkelMeshComponent* In
 		}
 	}
 }
+

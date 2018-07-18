@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "GenericWindow.h"
+#include "GenericPlatform/GenericWindow.h"
 
 /**
  * Custom window class used for input handling

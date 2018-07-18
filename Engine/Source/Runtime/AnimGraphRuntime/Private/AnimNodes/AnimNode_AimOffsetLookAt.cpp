@@ -50,7 +50,7 @@ void FAnimNode_AimOffsetLookAt::UpdateAssetPlayer(const FAnimationUpdateContext&
 {
 	EvaluateGraphExposedInputs.Execute(Context);
 
-	bIsLODEnabled = IsLODEnabled(Context.AnimInstanceProxy, LODThreshold);
+	bIsLODEnabled = IsLODEnabled(Context.AnimInstanceProxy);
 
 	// We don't support ticking and advancing time, because Inputs are determined during Evaluate.
 	// it may be possible to advance time there (is it a problem with notifies?)
@@ -178,6 +178,7 @@ void FAnimNode_AimOffsetLookAt::GatherDebugData(FNodeDebugData& DebugData)
 
 FAnimNode_AimOffsetLookAt::FAnimNode_AimOffsetLookAt()
 	: LODThreshold(INDEX_NONE)
+	, bIsLODEnabled(false)
 	, SocketAxis(1.0f, 0.0f, 0.0f)
 	, Alpha(1.f)
 {

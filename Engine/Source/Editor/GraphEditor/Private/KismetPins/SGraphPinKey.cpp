@@ -12,11 +12,19 @@ void SGraphPinKey::Construct(const FArguments& InArgs, UEdGraphPin* InGraphPinOb
 
 	SelectedKey = FKey(*InGraphPinObj->GetDefaultAsString());
 
-	if (!SelectedKey.IsValid() && InGraphPinObj->Direction == EEdGraphPinDirection::EGPD_Input)
+	if (InGraphPinObj->Direction == EEdGraphPinDirection::EGPD_Input)
 	{
-		// Ensure first valid key is always set by default
-		SelectedKey = KeyList[0];
-		InGraphPinObj->GetSchema()->TrySetDefaultValue(*InGraphPinObj, SelectedKey.ToString());
+		// None is a valid key
+		if (SelectedKey.GetFName() == NAME_None)
+		{
+			SelectedKey = EKeys::Invalid;
+		}
+		else if (!SelectedKey.IsValid())
+		{
+			// Ensure first valid key is always set by default
+			SelectedKey = KeyList[0];
+			InGraphPinObj->GetSchema()->TrySetDefaultValue(*InGraphPinObj, SelectedKey.ToString());
+		}
 	}
 
 	SGraphPin::Construct(SGraphPin::FArguments(), InGraphPinObj);

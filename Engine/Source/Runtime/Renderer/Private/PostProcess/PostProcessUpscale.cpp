@@ -164,7 +164,7 @@ class FPostProcessUpscalePS : public FGlobalShader
 
 public:
 	FPostProcessPassParameters PostprocessParameter;
-	FDeferredPixelShaderParameters DeferredParameters;
+	FSceneTextureShaderParameters SceneTextureParameters;
 	FShaderParameter UpscaleSoftness;
 	FShaderParameter SceneColorBilinearUVMinMax;
 
@@ -173,7 +173,7 @@ public:
 		: FGlobalShader(Initializer)
 	{
 		PostprocessParameter.Bind(Initializer.ParameterMap);
-		DeferredParameters.Bind(Initializer.ParameterMap);
+		SceneTextureParameters.Bind(Initializer);
 		UpscaleSoftness.Bind(Initializer.ParameterMap,TEXT("UpscaleSoftness"));
 		SceneColorBilinearUVMinMax.Bind(Initializer.ParameterMap, TEXT("SceneColorBilinearUVMinMax"));
 	}
@@ -190,7 +190,7 @@ public:
 		FilterTable[1] = TStaticSamplerState<SF_Point,AM_Clamp,AM_Clamp,AM_Clamp>::GetRHI();
 			
 		PostprocessParameter.SetPS(RHICmdList, ShaderRHI, Context, 0, eFC_0000, FilterTable);
-		DeferredParameters.Set(RHICmdList, ShaderRHI, Context.View, MD_PostProcess);
+		SceneTextureParameters.Set(RHICmdList, ShaderRHI, Context.View.FeatureLevel, ESceneTextureSetupMode::All);
 
 		{
 			float UpscaleSoftnessValue = FMath::Clamp(CVarUpscaleSoftness.GetValueOnRenderThread(), 0.0f, 1.0f);
@@ -213,7 +213,7 @@ public:
 	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
-		Ar << PostprocessParameter << DeferredParameters << UpscaleSoftness << SceneColorBilinearUVMinMax;
+		Ar << PostprocessParameter << SceneTextureParameters << UpscaleSoftness << SceneColorBilinearUVMinMax;
 		return bShaderHasOutdatedParameters;
 	}
 
@@ -397,16 +397,25 @@ void FRCPassPostProcessUpscale::Process(FRenderingCompositePassContext& Context)
 
 	FIntPoint SrcSize = InputDesc->Extent;
 
-	// Set the view family's render target/viewport.
-	SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef());
-
+	bool bMobilePlatform = IsMobilePlatform(GShaderPlatformForFeatureLevel[Context.GetFeatureLevel()]);
+	if (bMobilePlatform)
+	{
+		// clear on mobile to avoid restore
+		SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef(), ESimpleRenderTargetMode::EClearColorAndDepth);
+	}
+	else
+	{
+		// Set the view family's render target/viewport.
+		SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef());
+	}
+	
 	bool bTessellatedQuad = PaniniConfig.D >= 0.01f;
 
 	// with distortion (bTessellatedQuad) we need to clear the background
 	FIntRect ExcludeRect = bTessellatedQuad ? FIntRect() : DestRect;
 
 	Context.SetViewportAndCallRHI(DestRect);
-	if (Context.GetLoadActionForRenderTarget(DestRenderTarget) == ERenderTargetLoadAction::EClear)
+	if (Context.GetLoadActionForRenderTarget(DestRenderTarget) == ERenderTargetLoadAction::EClear && !bMobilePlatform)
 	{
 		DrawClearQuad(Context.RHICmdList, true, FLinearColor::Black, false, 0, false, 0, PassOutputs[0].RenderTargetDesc.Extent, ExcludeRect);
 	}
@@ -460,7 +469,7 @@ void FRCPassPostProcessUpscale::Process(FRenderingCompositePassContext& Context)
 		VertexShader,
 		bTessellatedQuad ? EDRF_UseTesselatedIndexBuffer: EDRF_UseTriangleOptimization);
 
-	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, false, FResolveParams());
+	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 
 	// Update scene color view rectangle for secondary upscale.
 	Context.SceneColorViewRect = DestRect;

@@ -7,6 +7,7 @@
 // FAnimNode_SaveCachedPose
 
 FAnimNode_SaveCachedPose::FAnimNode_SaveCachedPose()
+	: GlobalWeight(0.0f)
 {
 }
 
@@ -14,8 +15,8 @@ void FAnimNode_SaveCachedPose::Initialize_AnyThread(const FAnimationInitializeCo
 {
 	// StateMachines cause reinitialization on state changes.
 	// we only want to let them through if we're not relevant as to not create a pop.
-	if (!InitializationCounter.IsSynchronizedWith(Context.AnimInstanceProxy->GetInitializationCounter())
-		|| ((UpdateCounter.Get() != INDEX_NONE) && !UpdateCounter.WasSynchronizedInTheLastFrame(Context.AnimInstanceProxy->GetUpdateCounter())))
+	if (!InitializationCounter.IsSynchronized_Counter(Context.AnimInstanceProxy->GetInitializationCounter())
+		|| (UpdateCounter.HasEverBeenUpdated() && !UpdateCounter.WasSynchronizedCounter(Context.AnimInstanceProxy->GetUpdateCounter())))
 	{
 		InitializationCounter.SynchronizeWith(Context.AnimInstanceProxy->GetInitializationCounter());
 
@@ -28,7 +29,7 @@ void FAnimNode_SaveCachedPose::Initialize_AnyThread(const FAnimationInitializeCo
 
 void FAnimNode_SaveCachedPose::CacheBones_AnyThread(const FAnimationCacheBonesContext& Context)
 {
-	if (!CachedBonesCounter.IsSynchronizedWith(Context.AnimInstanceProxy->GetCachedBonesCounter()))
+	if (!CachedBonesCounter.IsSynchronized_Counter(Context.AnimInstanceProxy->GetCachedBonesCounter()))
 	{
 		CachedBonesCounter.SynchronizeWith(Context.AnimInstanceProxy->GetCachedBonesCounter());
 
@@ -45,7 +46,7 @@ void FAnimNode_SaveCachedPose::Update_AnyThread(const FAnimationUpdateContext& C
 
 void FAnimNode_SaveCachedPose::Evaluate_AnyThread(FPoseContext& Output)
 {
-	if (!EvaluationCounter.IsSynchronizedWith(Output.AnimInstanceProxy->GetEvaluationCounter()))
+	if (!EvaluationCounter.IsSynchronized_Counter(Output.AnimInstanceProxy->GetEvaluationCounter()))
 	{
 		EvaluationCounter.SynchronizeWith(Output.AnimInstanceProxy->GetEvaluationCounter());
 

@@ -34,10 +34,10 @@ namespace UnrealBuildTool
 		public bool bPrintDebugInfo = false;
 
 		/// <summary>
-		/// Allows logging to a file
+		/// Specifies the file to use for logging
 		/// </summary>
 		[XmlConfigFile]
-		public string LogFilename;
+		public string LogFileName = "../Programs/UnrealBuildTool/Log.txt";
 
 		/// <summary>
 		/// Prints performance diagnostics about include dependencies and other bits
@@ -74,12 +74,6 @@ namespace UnrealBuildTool
 		/// </summary>
 		[XmlConfigFile]
 		public bool bShouldDeleteAllOutdatedProducedItems = false;
-
-		/// <summary>
-		/// What level of logging we wish to show
-		/// </summary>
-		[XmlConfigFile]
-		public string LogLevel = "Log";
 
 		/// <summary>
 		/// Whether we should export a JSON file containing detailed target information.
@@ -139,6 +133,12 @@ namespace UnrealBuildTool
 		/// </summary>
 		[XmlConfigFile]
 		public bool bAllowDistcc = false;
+
+		/// <summary>
+		/// Whether to allow using parallel executor on Windows.
+		/// </summary>
+		[XmlConfigFile]
+		public bool bAllowParallelExecutor = true;
 
 		/// <summary>
 		/// If specified, we will only build this particular source file, ignore all other outputs.  Useful for testing non-Unity builds.
@@ -201,7 +201,14 @@ namespace UnrealBuildTool
 		/// If true, the Debug version of UnrealHeaderTool will be build and run instead of the Development version.
 		/// </summary>
 		[XmlConfigFile(Category = "UEBuildConfiguration")]
-		public static bool bForceDebugUnrealHeaderTool = false;
+		public bool bForceDebugUnrealHeaderTool = false;
+
+		/// <summary>
+		/// Compiler arguments to be forwarded to UnrealHeaderTool
+		/// </summary>
+		[CommandLine("-2015", Value = "-2015")]
+		[CommandLine("-2017", Value = "-2017")]
+		public string CompilerArgumentForUnrealHeaderTool = null;
 
 		/// <summary>
 		/// When true, the targets won't execute their link actions if there was nothing to compile

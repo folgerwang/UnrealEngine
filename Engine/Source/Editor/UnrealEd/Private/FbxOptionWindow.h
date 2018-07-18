@@ -32,7 +32,6 @@ public:
 		SLATE_ARGUMENT( bool, IsObjFormat )
 		SLATE_ARGUMENT( float, MaxWindowHeight)
 		SLATE_ARGUMENT(float, MaxWindowWidth)
-		SLATE_EVENT(FOnPreviewFbxImport, OnPreviewFbxImport)
 	SLATE_END_ARGS()
 
 public:
@@ -95,7 +94,6 @@ public:
 private:
 
 	bool CanImport() const;
-	FReply OnPreviewClick() const;
 	FReply OnResetToDefaultClick() const;
 	FText GetImportTypeDisplayText() const;
 
@@ -107,6 +105,4 @@ private:
 	bool			bShouldImport;
 	bool			bShouldImportAll;
 	bool			bIsObjFormat;
-
-	FOnPreviewFbxImport OnPreviewFbxImport;
 };

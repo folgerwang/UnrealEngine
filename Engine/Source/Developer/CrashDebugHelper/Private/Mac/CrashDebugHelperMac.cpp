@@ -1,8 +1,8 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "CrashDebugHelperMac.h"
-#include "EngineVersion.h"
-#include "ApplePlatformSymbolication.h"
+#include "Misc/EngineVersion.h"
+#include "Apple/ApplePlatformSymbolication.h"
 #include "CrashReporter.h"
 #include "CrashDebugHelperPrivate.h"
 #include "Misc/FileHelper.h"

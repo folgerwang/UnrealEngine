@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2726951
+﻿INTSourceChangelist:3151855
 Availability:Public
 Title:シェーダー開発
 Crumbs:%ROOT%, Programming, Programming/Rendering
 Description:シェーダーを記述するプログラマ向けのグラフィックス情報
 Version:4.9
+tags:Rendering
 
 ## クイック スタート
 
@@ -27,7 +28,7 @@ Version:4.9
 |関数| 説明|
 |--|--|
 |FVertexFactoryInput| 頂点シェーダーへの入力として頂点ファクトリが何を必要とするかを定義します。これらは、C++ 側の FVertexFactory の頂点の宣言と一致しなければなりません。例えば、LocalVertexFactory の FVertexFactoryInput には、float4 Position、POSITION があります。これは、FStaticMeshLODResources::SetupVertexFactory にある位置ストリームの宣言に対応します。|
-|FVertexFactoryIntermediates|複数の頂点ファクトリ関数で使用されるキャッシュされた中間データを格納するために使用します。一般的な例は、TangentToLocal マトリックスであり、パックされない頂点入力から計算されなくてはなりません。  |
+|FVertexFactoryIntermediates|複数の頂点ファクトリ関数で使用されるキャッシュされた中間データを格納するために使用します。一般的な例は、TangentToLocal マトリックスであり、パックされない頂点入力から計算されなくてはなりません。 |
 |FVertexFactoryInterpolantsVSToPS|頂点シェーダーからピクセル シェーダーに渡される頂点ファクトリ データ。 |
 |VertexFactoryGetWorldPosition|ワールド空間頂点位置を得るために頂点シェーダーから呼び出されます。スタティック メッシュでは、これは単に LocalToWorld マトリックスを使用して頂点バッファからのローカル空間の位置をワールド空間に変換します。GPU スキン メッシュでは、この位置は最初にスキニングされ、次にワールド空間に変換されます。|
 |VertexFactoryGetInterpolantsVSToPS| FVertexFactoryInput を FVertexFactoryInterpolants に変換します。これは、ピクセル シェーダーに渡される前にグラフィックス ハードウェアによって補間されます。|
@@ -104,7 +105,7 @@ UE4 から直接シェーダー コンパイラの DLL にステップインし�
 
 r.ShaderDevelopmentMode が有効な状態では、シェーダー コンパイル エラーでリトライする機会があります。これは、コンパイルが失敗すると致命的なエラーになるグローバル シェーダーの場合に特に重要です。
 
-デバッグでは、デバッガーがアタッチされた状態でブレークポイントになり、 Visual Studio の出力ウィンドウでコンパイル エラーになります。次にエラー ログをダブルクリックして問題のある行に直接移動します。
+デバッグでは、デバッガーがアタッチされた状態でブレークポイントになり、 Visual Studio の出力ウィンドウでコンパイル エラーになります。次にエラー ログを **ダブルクリック** して問題のある行に直接移動します。
 
 ![](CompilerErrorDebug.png)
 

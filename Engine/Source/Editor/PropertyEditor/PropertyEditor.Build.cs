@@ -26,7 +26,6 @@ public class PropertyEditor : ModuleRules
 				"Editor/PropertyEditor/Private/Presentation",
 				"Editor/PropertyEditor/Private/Presentation/PropertyTable",
 				"Editor/PropertyEditor/Private/Presentation/PropertyEditor",
-				"Editor/PropertyEditor/Private/Presentation/PropertyDetails",
 				"Editor/PropertyEditor/Private/UserInterface",
 				"Editor/PropertyEditor/Private/UserInterface/PropertyTable",
 				"Editor/PropertyEditor/Private/UserInterface/PropertyEditor",

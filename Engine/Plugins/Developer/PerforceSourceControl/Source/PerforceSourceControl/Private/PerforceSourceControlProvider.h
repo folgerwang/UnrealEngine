@@ -30,6 +30,9 @@ public:
 	virtual bool IsEnabled() const override;
 	virtual bool IsAvailable() const override;
 	virtual const FName& GetName(void) const override;
+	virtual bool QueryStateBranchConfig(const FString& ConfigSrc, const FString& ConfigDest) override;
+	virtual void RegisterStateBranches(const TArray<FString>& BranchNames, const FString& ContentRootIn) override;
+	virtual int32 GetStateBranchIndex(const FString& BranchName) const override;
 	virtual ECommandResult::Type GetState( const TArray<FString>& InFiles, TArray< TSharedRef<ISourceControlState, ESPMode::ThreadSafe> >& OutState, EStateCacheUsage::Type InStateCacheUsage ) override;
 	virtual TArray<FSourceControlStateRef> GetCachedStateByPredicate(TFunctionRef<bool(const FSourceControlStateRef&)> Predicate) const override;
 	virtual FDelegateHandle RegisterSourceControlStateChanged_Handle( const FSourceControlStateChanged::FDelegate& SourceControlStateChanged ) override;
@@ -135,4 +138,11 @@ private:
 
 	/** For notifying when the source control states in the cache have changed */
 	FSourceControlStateChanged OnSourceControlStateChanged;
+
+	/** Array of branch names for status queries */
+	TArray<FString> StatusBranchNames;
+
+	/** Content root for branch status query mapping */
+	FString ContentRoot;
+
 };

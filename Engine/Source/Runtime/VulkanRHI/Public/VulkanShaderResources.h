@@ -9,51 +9,6 @@
 #include "BoundShaderStateCache.h"
 #include "CrossCompilerCommon.h"
 
-#if 0
-class FVulkanShaderVarying
-{
-public:
-	FVulkanShaderVarying():
-		Location(0),
-		Components(0)
-	{
-	}
-
-	uint16 Location;
-	TArray<ANSICHAR> Varying;
-	uint16 Components; // Scalars/Integers
-
-	friend bool operator==(const FVulkanShaderVarying& A, const FVulkanShaderVarying& B)
-	{
-		if (&A != &B)
-		{
-			return (A.Location == B.Location)
-				&& (A.Varying.Num() == B.Varying.Num())
-				&& (FMemory::Memcmp(A.Varying.GetData(), B.Varying.GetData(), A.Varying.Num() * sizeof(ANSICHAR)) == 0)
-				&& (A.Components == B.Components);
-		}
-		return true;
-	}
-
-	friend uint32 GetTypeHash(const FVulkanShaderVarying& Var)
-	{
-		uint32 Hash = GetTypeHash(Var.Location);
-		Hash ^= FCrc::MemCrc32(Var.Varying.GetData(), Var.Varying.Num() * sizeof(ANSICHAR));
-		return Hash;
-	}
-};
-
-inline FArchive& operator<<(FArchive& Ar, FVulkanShaderVarying& Var)
-{
-	check(!Ar.IsSaving() || Var.Components > 0);
-
-	Ar << Var.Varying;
-	Ar << Var.Location;
-	Ar << Var.Components;
-	return Ar;
-}
-#endif
-
 class FVulkanShaderSerializedBindings : public CrossCompiler::FShaderBindings
 {
 public:
@@ -145,16 +100,14 @@ struct FVulkanCodeHeader
 
 	uint64 UniformBuffersWithDescriptorMask;
 
-	// Number of uniform buffers (not including PackedGlobalUBs)
-	uint32 NEWNumNonGlobalUBs;
+	// Number of uniform buffers (not including PackedGlobalUBs) UNUSED
+	uint32 UNUSED_NumNonGlobalUBs;
 
 	// (Separated to improve cache) if this is non-zero, then we can assume all UBs are emulated
 	TArray<uint32> NEWPackedGlobalUBSizes;
 
 	// Number of copies per emulated buffer source index (to skip searching among UniformBuffersCopyInfo). Upper uint16 is the index, Lower uint16 is the count
 	TArray<uint32> NEWEmulatedUBCopyRanges;
-
-	FBaseShaderResourceTable ShaderResourceTable;
 };
 
 inline FArchive& operator<<(FArchive& Ar, FVulkanCodeHeader& Header)
@@ -183,7 +136,7 @@ inline FArchive& operator<<(FArchive& Ar, FVulkanCodeHeader& Header)
 			}
 		}
 	}
-	Ar << Header.NEWNumNonGlobalUBs;
+	Ar << Header.UNUSED_NumNonGlobalUBs;
 	Ar << Header.NEWPackedGlobalUBSizes;
 	Ar << Header.NEWEmulatedUBCopyRanges;
 	{
@@ -234,3 +187,24 @@ static inline VkDescriptorType BindingToDescriptorType(EVulkanBindingType::EType
 
 	return VK_DESCRIPTOR_TYPE_MAX_ENUM;
 }
+
+static inline EVulkanBindingType::EType DescriptorTypeToBinding(VkDescriptorType Type, bool bUsePacked = false)
+{
+	switch (Type)
+	{
+	case VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER:			return bUsePacked ? EVulkanBindingType::PackedUniformBuffer : EVulkanBindingType::UniformBuffer;
+	case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:	return EVulkanBindingType::CombinedImageSampler;
+	case VK_DESCRIPTOR_TYPE_SAMPLER:				return EVulkanBindingType::Sampler;
+	case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:			return EVulkanBindingType::Image;
+	case VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER:	return EVulkanBindingType::UniformTexelBuffer;
+	case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:			return EVulkanBindingType::StorageImage;
+	case VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER:	return EVulkanBindingType::StorageTexelBuffer;
+	case VK_DESCRIPTOR_TYPE_STORAGE_BUFFER:			return EVulkanBindingType::StorageBuffer;
+	default:
+		check(0);
+		break;
+	}
+
+	return EVulkanBindingType::Count;
+}
+

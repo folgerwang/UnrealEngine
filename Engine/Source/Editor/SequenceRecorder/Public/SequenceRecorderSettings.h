@@ -14,6 +14,7 @@
 #include "SequenceRecorderSettings.generated.h"
 
 class ALevelSequenceActor;
+class ULevelSequence;
 
 /** Enum denoting if (and how) to record audio */
 UENUM()
@@ -54,7 +55,7 @@ struct FSettingsForActorClass
 	TSubclassOf<AActor> Class;
 
 	/** Whether to record to 'possessable' (i.e. level-owned) or 'spawnable' (i.e. sequence-owned) actors. */
-	UPROPERTY(Config, EditAnywhere, AdvancedDisplay, Category = "Sequence Recording")
+	UPROPERTY(Config, EditAnywhere, Category = "Sequence Recording")
 	bool bRecordToPossessable;
 };
 
@@ -82,35 +83,35 @@ public:
 	UPROPERTY(Config, EditAnywhere, Category = "Sequence Recording", meta = (ClampMin="0.0", UIMin = "0.0", ClampMax="9.0", UIMax = "9.0"))
 	float RecordingDelay;
 
-	/** The base name of the sequence to record to. This name will also be used to auto-generate any assets created by this recording. */
-	UPROPERTY(Config, EditAnywhere, Category = "Sequence Recording")
-	FString SequenceName;
-
-	/** Base path for this recording. Sub-assets will be created in subdirectories as specified */
-	UPROPERTY(Config, EditAnywhere, Category = "Sequence Recording", meta=(ContentDir))
-	FDirectoryPath SequenceRecordingBasePath;
-
 	/** The name of the subdirectory animations will be placed in. Leave this empty to place into the same directory as the sequence base path */
-	UPROPERTY(Config, EditAnywhere, AdvancedDisplay, Category = "Sequence Recording")
+	UPROPERTY(Config, EditAnywhere, Category = "Sequence Recording")
 	FString AnimationSubDirectory;
 
-	/** The name of the subdirectory audio will be placed in. Leave this empty to place into the same directory as the sequence base path */
-	UPROPERTY(Config, EditAnywhere, AdvancedDisplay, Category = "Sequence Recording")
-	FString AudioSubDirectory;
-
 	/** Whether to record audio alongside animation or not */
-	UPROPERTY(Config, EditAnywhere, Category = "Sequence Recording")
+	UPROPERTY(Config, EditAnywhere, Category = "Audio Recording")
 	EAudioRecordingMode RecordAudio;
 
 	/** Gain in decibels to apply to recorded audio */
-	UPROPERTY(Config, EditAnywhere, Category = "Sequence Recording", meta = (ClampMin="0.0", UIMin = "0.0"))
+	UPROPERTY(Config, EditAnywhere, Category = "Audio Recording", meta = (ClampMin="0.0", UIMin = "0.0"))
 	float AudioGain;
 
 	/** Whether or not to split mic channels into separate audio tracks. If not true, a max of 2 input channels is supported. */
-	UPROPERTY(Config, EditAnywhere, Category = "Sequence Recording")
+	UPROPERTY(Config, EditAnywhere, Category = "Audio Recording")
 	bool bSplitAudioChannelsIntoSeparateTracks;
 
-	/** Whether to record nearby spawned actors. */
+	/** Replace existing recorded audio with any newly recorded audio */
+	UPROPERTY(Config, EditAnywhere, Category = "Audio Recording")
+	bool bReplaceRecordedAudio;
+
+	/** Name of the recorded audio track name */
+	UPROPERTY(Config, EditAnywhere, Category = "Audio Recording")
+	FText AudioTrackName;
+
+	/** The name of the subdirectory audio will be placed in. Leave this empty to place into the same directory as the sequence base path */
+	UPROPERTY(Config, EditAnywhere, Category = "Audio Recording")
+	FString AudioSubDirectory;
+
+	/** Whether to record nearby spawned actors. If an actor matches a class in the ActorFilter, this state will by bypassed. */
 	UPROPERTY(Config, EditAnywhere, Category = "Sequence Recording")
 	bool bRecordNearbySpawnedActors;
 
@@ -126,6 +127,10 @@ public:
 	UPROPERTY(Config, EditAnywhere, Category = "Sequence Recording")
 	bool bReduceKeys;
 
+	/** Whether to auto-save asset when recording is completed. Defaults to false */
+	UPROPERTY(Config, EditAnywhere, Category = "Sequence Recording")
+	bool bAutoSaveAsset;
+
 	/** Filter to check spawned actors against to see if they should be recorded */
 	UPROPERTY(Config, EditAnywhere, Category = "Sequence Recording")
 	FSequenceRecorderActorFilter ActorFilter;
@@ -134,7 +139,7 @@ public:
 	UPROPERTY(Transient, EditAnywhere, Category = "Sequence Recording")
 	TArray<TLazyObjectPtr<class ALevelSequenceActor>> LevelSequenceActorsToTrigger;
 
-	/** Default settings applied to animation recording */
+	/** Default animation settings which are used to initialize all new actor recording's animation settings */
 	UPROPERTY(Config, EditAnywhere, Category = "Sequence Recording")
 	FAnimationRecordingSettings DefaultAnimationSettings;
 

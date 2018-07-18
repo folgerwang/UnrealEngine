@@ -77,9 +77,29 @@ FD3D12StructuredBuffer::~FD3D12StructuredBuffer()
 	UpdateBufferStats(&ResourceLocation, false, D3D12_BUFFER_TYPE_STRUCTURED);
 }
 
-void FD3D12StructuredBuffer::Rename(FD3D12ResourceLocation& NewResource)
+void FD3D12StructuredBuffer::Rename(FD3D12ResourceLocation& NewLocation)
 {
-	FD3D12ResourceLocation::TransferOwnership(ResourceLocation, NewResource);
+	FD3D12ResourceLocation::TransferOwnership(ResourceLocation, NewLocation);
+}
+
+void FD3D12StructuredBuffer::RenameLDAChain(FD3D12ResourceLocation& NewLocation)
+{
+	// Dynamic buffers use cross-node resources.
+	ensure(GetUsage() & BUF_AnyDynamic);
+	Rename(NewLocation);
+
+	if (GNumExplicitGPUsForRendering > 1)
+	{
+		// This currently crashes at exit time because NewLocation isn't tracked in the right allocator.
+		ensure(IsHeadLink());
+		ensure(GetParentDevice() == NewLocation.GetParentDevice());
+
+		// Update all of the resources in the LDA chain to reference this cross-node resource
+		for (FD3D12StructuredBuffer* NextBuffer = GetNextObject(); NextBuffer; NextBuffer = NextBuffer->GetNextObject())
+		{
+			FD3D12ResourceLocation::ReferenceNode(NextBuffer->GetParentDevice(), NextBuffer->ResourceLocation, ResourceLocation);
+		}
+	}
 }
 
 void* FD3D12DynamicRHI::RHILockStructuredBuffer(FStructuredBufferRHIParamRef StructuredBufferRHI, uint32 Offset, uint32 Size, EResourceLockMode LockMode)

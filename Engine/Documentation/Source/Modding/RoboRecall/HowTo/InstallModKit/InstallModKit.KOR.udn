@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3339965
+﻿INTSourceChangelist:3807090
 Availability: Public
 Title:로보 리콜 모드 키트 설치
 Crumbs:%ROOT%
@@ -17,7 +17,7 @@ social-image:install.png
 
 1. **설치** 를 클릭하면 에픽 게임즈 런처에서 로보 리콜 모드 키트 다운로드가 시작됩니다.
 
-	![](install.png)(w:934 h:433 convert:false)
+	![](install.png)(w:934 convert:false)
 
 	[REGION:tip]
 	로보 리콜 에디터는 꽤 크기가 크므로 (20 GB 이상) 시간이 조금 걸릴 수 있습니다. 기다리면서 다른 로보 리콜 문서나 언리얼 엔진 4 시작하기 안내 문서를 살펴보시기 바랍니다:

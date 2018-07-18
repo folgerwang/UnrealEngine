@@ -22,5 +22,6 @@ public:
 
 private:
 	/** Handler for when Create Slate Brush is selected */
-	void ExecuteCreateSlateBrush(TArray<TWeakObjectPtr<UTexture>> Objects);
+	void ExecuteCreateSlateBrush(TArray<TWeakObjectPtr<UTexture2D>> Objects);
+	void ExecuteCreateVolumeTexture(TArray<TWeakObjectPtr<UTexture2D>> Objects);
 };

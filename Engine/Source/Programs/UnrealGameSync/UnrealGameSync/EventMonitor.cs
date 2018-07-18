@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Concurrent;
@@ -11,6 +11,7 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Web.Script.Serialization;
 
 namespace UnrealGameSync
 {
@@ -36,20 +37,20 @@ namespace UnrealGameSync
 
 	class EventData
 	{
-		public long Id;
-		public int Change;
-		public string UserName;
-		public EventType Type;
-		public string Project;
+		public long Id { get; set; }
+		public int Change { get; set; }
+		public string UserName { get; set; }
+		public EventType Type { get; set; }
+		public string Project { get; set; }
 	}
 
 	class CommentData
 	{
-		public long Id;
-		public int ChangeNumber;
-		public string UserName;
-		public string Text;
-		public string Project;
+		public long Id { get; set; }
+		public int ChangeNumber { get; set; }
+		public string UserName { get; set; }
+		public string Text { get; set; }
+		public string Project { get; set; }
 	}
 
 	enum BuildDataResult
@@ -58,16 +59,17 @@ namespace UnrealGameSync
 		Failure,
 		Warning,
 		Success,
+		Skipped,
 	}
 
 	class BuildData
 	{
-		public long Id;
-		public int ChangeNumber;
-		public string BuildType;
-		public BuildDataResult Result;
-		public string Url;
-		public string Project;
+		public long Id { get; set; }
+		public int ChangeNumber { get; set; }
+		public string BuildType { get; set; }
+		public BuildDataResult Result { get; set; }
+		public string Url { get; set; }
+		public string Project { get; set; }
 
 		public bool IsSuccess
 		{
@@ -102,7 +104,7 @@ namespace UnrealGameSync
 
 	class EventMonitor : IDisposable
 	{
-		string SqlConnectionString;
+		string ApiUrl;
 		string Project;
 		string CurrentUserName;
 		Thread WorkerThread;
@@ -125,20 +127,20 @@ namespace UnrealGameSync
 
 		public event Action OnUpdatesReady;
 
-		public EventMonitor(string InSqlConnectionString, string InProject, string InCurrentUserName, string InLogFileName)
+		public EventMonitor(string InApiUrl, string InProject, string InCurrentUserName, string InLogFileName)
 		{
-			SqlConnectionString = InSqlConnectionString;
+			ApiUrl = InApiUrl;
 			Project = InProject;
 			CurrentUserName = InCurrentUserName;
 
 			LogWriter = new BoundedLogWriter(InLogFileName);
-			if(SqlConnectionString == null)
+			if(ApiUrl == null)
 			{
-				LastStatusMessage = "Database functionality disabled due to empty SqlConnectionString.";
+				LastStatusMessage = "Database functionality disabled due to empty ApiUrl.";
 			}
 			else
 			{
-				LogWriter.WriteLine("Using connection string: {0}", SqlConnectionString);
+				LogWriter.WriteLine("Using connection string: {0}", ApiUrl);
 			}
 		}
 
@@ -188,6 +190,9 @@ namespace UnrealGameSync
 					ApplyFilteredUpdate(SyncEvent);
 				}
 			}
+
+			// Clear the list of active investigations, since this depends on the changes we're showing
+			ActiveInvestigations = null;
 		}
 
 		protected EventSummary FindOrAddSummary(int ChangeNumber)
@@ -415,7 +420,7 @@ namespace UnrealGameSync
 			while(!bDisposing)
 			{
 				// If there's no connection string, just empty out the queue
-				if(SqlConnectionString != null)
+				if(ApiUrl != null)
 				{
 					// Post all the reviews to the database. We don't send them out of order, so keep the review outside the queue until the next update if it fails
 					while(Event != null || OutgoingEvents.TryDequeue(out Event))
@@ -452,19 +457,7 @@ namespace UnrealGameSync
 			{
 				Stopwatch Timer = Stopwatch.StartNew();
 				LogWriter.WriteLine("Posting event... ({0}, {1}, {2})", Event.Change, Event.UserName, Event.Type);
-				using(SqlConnection Connection = new SqlConnection(SqlConnectionString))
-				{
-					Connection.Open();
-					using (SqlCommand Command = new SqlCommand("INSERT INTO dbo.UserVotes (Changelist, UserName, Verdict, Project) VALUES (@Changelist, @UserName, @Verdict, @Project)", Connection))
-					{
-						Command.Parameters.AddWithValue("@Changelist", Event.Change);
-						Command.Parameters.AddWithValue("@UserName", Event.UserName.ToString());
-						Command.Parameters.AddWithValue("@Verdict", Event.Type.ToString());
-						Command.Parameters.AddWithValue("@Project", Event.Project);
-						Command.ExecuteNonQuery();
-					}
-				}
-				LogWriter.WriteLine("Done in {0}ms.", Timer.ElapsedMilliseconds);
+				RESTApi.POST(ApiUrl, "event", new JavaScriptSerializer().Serialize(Event));
 				return true;
 			}
 			catch(Exception Ex)
@@ -480,18 +473,7 @@ namespace UnrealGameSync
 			{
 				Stopwatch Timer = Stopwatch.StartNew();
 				LogWriter.WriteLine("Posting comment... ({0}, {1}, {2}, {3})", Comment.ChangeNumber, Comment.UserName, Comment.Text, Comment.Project);
-				using(SqlConnection Connection = new SqlConnection(SqlConnectionString))
-				{
-					Connection.Open();
-					using (SqlCommand Command = new SqlCommand("INSERT INTO dbo.Comments (ChangeNumber, UserName, Text, Project) VALUES (@ChangeNumber, @UserName, @Text, @Project)", Connection))
-					{
-						Command.Parameters.AddWithValue("@ChangeNumber", Comment.ChangeNumber);
-						Command.Parameters.AddWithValue("@UserName", Comment.UserName);
-						Command.Parameters.AddWithValue("@Text", Comment.Text);
-						Command.Parameters.AddWithValue("@Project", Comment.Project);
-						Command.ExecuteNonQuery();
-					}
-				}
+				RESTApi.POST(ApiUrl, "comment", new JavaScriptSerializer().Serialize(Comment));
 				LogWriter.WriteLine("Done in {0}ms.", Timer.ElapsedMilliseconds);
 				return true;
 			}
@@ -509,99 +491,44 @@ namespace UnrealGameSync
 				Stopwatch Timer = Stopwatch.StartNew();
 				LogWriter.WriteLine();
 				LogWriter.WriteLine("Polling for reviews at {0}...", DateTime.Now.ToString());
+				//////////////
+				/// LastIds 
+				//////////////
+				long[] LastIds= RESTApi.GET<long[]>(ApiUrl, "cis", "GET");
+				LastEventId = LastIds[0];
+				LastCommentId = LastIds[1];
+				LastBuildId = LastIds[2];
 
-				if(LastEventId == 0)
+				//////////////
+				/// Reviews 
+				//////////////
+				List<EventData> Events = RESTApi.GET<List<EventData>>(ApiUrl, "event", string.Format("project={0}", Project), string.Format("lasteventid={0}", LastEventId));
+				foreach(EventData Review in Events)
 				{
-					using(SqlConnection Connection = new SqlConnection(SqlConnectionString))
-					{
-						Connection.Open();
-						using (SqlCommand Command = new SqlCommand("SELECT MAX(ID) FROM dbo.UserVotes", Connection))
-						{
-							using (SqlDataReader Reader = Command.ExecuteReader())
-							{
-								while (Reader.Read())
-								{
-									LastEventId = Reader.GetInt64(0);
-									LastEventId = Math.Max(LastEventId - 5000, 0);
-									break;
-								}
-							}
-						}
-					}
+					IncomingEvents.Enqueue(Review);
+					LastEventId = Math.Max(LastEventId, Review.Id);
 				}
 
-				using(SqlConnection Connection = new SqlConnection(SqlConnectionString))
+				//////////////
+				/// Comments 
+				//////////////
+				List<CommentData> Comments = RESTApi.GET<List<CommentData>>(ApiUrl, "comment", string.Format("project={0}", Project), string.Format("lastcommentid={0}", LastCommentId));
+				foreach (CommentData Comment in Comments)
 				{
-					Connection.Open();
-					using (SqlCommand Command = new SqlCommand("SELECT Id, Changelist, UserName, Verdict, Project FROM dbo.UserVotes WHERE Id > @param1 ORDER BY Id", Connection))
-					{
-						Command.Parameters.AddWithValue("@param1", LastEventId);
-						using (SqlDataReader Reader = Command.ExecuteReader())
-						{
-							while (Reader.Read())
-							{
-								EventData Review = new EventData();
-								Review.Id = Reader.GetInt64(0);
-								Review.Change = Reader.GetInt32(1);
-								Review.UserName = Reader.GetString(2);
-								Review.Project = Reader.IsDBNull(4)? null : Reader.GetString(4);
-								if(Enum.TryParse(Reader.GetString(3), out Review.Type))
-								{
-									if(Review.Project == null || String.Compare(Review.Project, Project, true) == 0)
-									{
-										IncomingEvents.Enqueue(Review);
-									}
-									LastEventId = Math.Max(LastEventId, Review.Id);
-								}
-							}
-						}
-					}
-					using(SqlCommand Command = new SqlCommand("SELECT Id, ChangeNumber, UserName, Text, Project FROM dbo.Comments WHERE Id > @param1 ORDER BY Id", Connection))
-					{
-						Command.Parameters.AddWithValue("@param1", LastCommentId);
-						using (SqlDataReader Reader = Command.ExecuteReader())
-						{
-							while (Reader.Read())
-							{
-								CommentData Comment = new CommentData();
-								Comment.Id = Reader.GetInt32(0);
-								Comment.ChangeNumber = Reader.GetInt32(1);
-								Comment.UserName = Reader.GetString(2);
-								Comment.Text = Reader.GetString(3);
-								Comment.Project = Reader.GetString(4);
-								if(Comment.Project == null || String.Compare(Comment.Project, Project, true) == 0)
-								{
-									IncomingComments.Enqueue(Comment);
-								}
-								LastCommentId = Math.Max(LastCommentId, Comment.Id);
-							}
-						}
-					}
-					using(SqlCommand Command = new SqlCommand("SELECT Id, ChangeNumber, BuildType, Result, Url, Project FROM dbo.CIS WHERE Id > @param1 ORDER BY Id", Connection))
-					{
-						Command.Parameters.AddWithValue("@param1", LastBuildId);
-						using (SqlDataReader Reader = Command.ExecuteReader())
-						{
-							while (Reader.Read())
-							{
-								BuildData Build = new BuildData();
-								Build.Id = Reader.GetInt32(0);
-								Build.ChangeNumber = Reader.GetInt32(1);
-								Build.BuildType = Reader.GetString(2).TrimEnd();
-								if(Enum.TryParse(Reader.GetString(3).TrimEnd(), true, out Build.Result))
-								{
-									Build.Url = Reader.GetString(4);
-									Build.Project = Reader.IsDBNull(5)? null : Reader.GetString(5);
-									if(Build.Project == null || String.Compare(Build.Project, Project, true) == 0 || MatchesWildcard(Build.Project, Project))
-									{
-										IncomingBuilds.Enqueue(Build);
-									}
-								}
-								LastBuildId = Math.Max(LastBuildId, Build.Id);
-							}
-						}
-					}
+					IncomingComments.Enqueue(Comment);
+					LastCommentId = Math.Max(LastCommentId, Comment.Id);
 				}
+
+				//////////////
+				/// CIS 
+				//////////////
+				List<BuildData> Builds = RESTApi.GET<List<BuildData>>(ApiUrl, "cis", string.Format("project={0}", Project), string.Format("lastbuildid={0}", LastBuildId));
+				foreach (BuildData Build in Builds)
+				{
+					IncomingBuilds.Enqueue(Build);
+					LastBuildId = Math.Max(LastBuildId, Build.Id);
+				}
+
 				LastStatusMessage = String.Format("Last update took {0}ms", Timer.ElapsedMilliseconds);
 				LogWriter.WriteLine("Done in {0}ms.", Timer.ElapsedMilliseconds);
 				return true;
@@ -621,7 +548,7 @@ namespace UnrealGameSync
 
 		public void PostEvent(int ChangeNumber, EventType Type)
 		{
-			if(SqlConnectionString != null)
+			if(ApiUrl != null)
 			{
 				EventData Event = new EventData();
 				Event.Change = ChangeNumber;
@@ -638,7 +565,7 @@ namespace UnrealGameSync
 
 		public void PostComment(int ChangeNumber, string Text)
 		{
-			if(SqlConnectionString != null)
+			if(ApiUrl != null)
 			{
 				CommentData Comment = new CommentData();
 				Comment.Id = long.MaxValue;

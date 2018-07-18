@@ -16,12 +16,16 @@ public:
 	/** Default constructor. */
 	FORCEINLINE FProcHandle()
 		: TProcHandle()
+		, Activity(nil)
 	{}
 
 	/** Initialization constructor. */
 	FORCEINLINE explicit FProcHandle( HandleType Other )
 		: TProcHandle( Other )
+		, Activity(nil)
 	{}
+
+	id<NSObject> Activity;
 };
 
 /**
@@ -96,7 +100,6 @@ struct CORE_API FMacPlatformProcess : public FGenericPlatformProcess
 	static void* GetDllHandle( const TCHAR* Filename );
 	static void FreeDllHandle( void* DllHandle );
 	static void* GetDllExport( void* DllHandle, const TCHAR* ProcName );
-	static int32 GetDllApiVersion( const TCHAR* Filename );
 	static void CleanFileCache();
 	static uint32 GetCurrentProcessId();
 	static const TCHAR* BaseDir();

@@ -3,21 +3,21 @@
 #include "HTTPChunkInstaller.h"
 #include "HTTPChunkInstallerLog.h"
 #include "ChunkInstall.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 #include "LocalTitleFile.h"
-#include "SecureHash.h"
-#include "IHttpRequest.h"
-#include "IHttpResponse.h"
+#include "Misc/SecureHash.h"
+#include "Interfaces/IHttpRequest.h"
+#include "Interfaces/IHttpResponse.h"
 #include "HttpModule.h"
-#include "JsonObject.h"
-#include "JsonReader.h"
-#include "JsonSerializer.h"
-#include "ThreadSafeCounter64.h"
-#include "ConfigCacheIni.h"
-#include "FileHelper.h"
-#include "RunnableThread.h"
-#include "CommandLine.h"
-#include "ModuleManager.h"
+#include "Dom/JsonObject.h"
+#include "Serialization/JsonReader.h"
+#include "Serialization/JsonSerializer.h"
+#include "HAL/ThreadSafeCounter64.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/FileHelper.h"
+#include "HAL/RunnableThread.h"
+#include "Misc/CommandLine.h"
+#include "Modules/ModuleManager.h"
 
 #define LOCTEXT_NAMESPACE "HTTPChunkInstaller"
 
@@ -678,13 +678,13 @@ private:
 		{
 			if (HttpResponse.IsValid())
 			{
-				ErrorStr = FText::Format(LOCTEXT("HttpResponse", "HTTP {0} response from {1}"),
+				ErrorStr = FText::Format(LOCTEXT("HttpResponseFromUrl", "HTTP {0} response from {1}"),
 					FText::AsNumber(HttpResponse->GetResponseCode()),
 					FText::FromString(HttpResponse->GetURL())).ToString();
 			}
 			else
 			{
-				ErrorStr = FText::Format(LOCTEXT("HttpResponse", "Connection to {0} failed"), FText::FromString(HttpRequest->GetURL())).ToString();
+				ErrorStr = FText::Format(LOCTEXT("HttpResponse_Failed", "Connection to {0} failed"), FText::FromString(HttpRequest->GetURL())).ToString();
 			}
 		}
 
@@ -742,13 +742,13 @@ private:
 		{
 			if (HttpResponse.IsValid())
 			{
-				ErrorStr = FText::Format(LOCTEXT("HttpResponse", "HTTP {0} response from {1}"),
+				ErrorStr = FText::Format(LOCTEXT("HttpResponseFromUrl", "HTTP {0} response from {1}"),
 					FText::AsNumber(HttpResponse->GetResponseCode()),
 					FText::FromString(HttpResponse->GetURL())).ToString();
 			}
 			else
 			{
-				ErrorStr = FText::Format(LOCTEXT("HttpResponse", "Connection to {0} failed"), FText::FromString(HttpRequest->GetURL())).ToString();
+				ErrorStr = FText::Format(LOCTEXT("HttpResponse_Failed", "Connection to {0} failed"), FText::FromString(HttpRequest->GetURL())).ToString();
 			}
 		}
 
@@ -986,6 +986,8 @@ FHTTPChunkInstall::~FHTTPChunkInstall()
 
 bool FHTTPChunkInstall::Tick(float DeltaSeconds)
 {
+    QUICK_SCOPE_CYCLE_COUNTER(STAT_FHTTPChunkInstall_Tick);
+
 	if (!bSystemInitialised)
 	{
 		InitialiseSystem();
@@ -1733,5 +1735,7 @@ public:
 		return ChunkInstaller.Get();
 	}
 };
+
+#undef LOCTEXT_NAMESPACE
 
 IMPLEMENT_MODULE(FHTTPChunkInstallerModule, HTTPChunkInstaller);

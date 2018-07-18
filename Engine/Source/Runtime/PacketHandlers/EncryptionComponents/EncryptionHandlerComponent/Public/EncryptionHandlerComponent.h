@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "PacketHandler.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 
 /** Encryption Handler Component Module Interface */
 class FEncryptionHandlerComponentModuleInterface : public FPacketHandlerComponentModuleInterface

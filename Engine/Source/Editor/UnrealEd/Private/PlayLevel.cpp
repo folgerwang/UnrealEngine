@@ -29,7 +29,7 @@
 #include "Widgets/SViewport.h"
 #include "Framework/Docking/TabManager.h"
 #include "EditorStyleSet.h"
-#include "EditorStyleSettings.h"
+#include "Classes/EditorStyleSettings.h"
 #include "Engine/EngineTypes.h"
 #include "Async/TaskGraphInterfaces.h"
 #include "GameFramework/Actor.h"
@@ -38,7 +38,7 @@
 #include "Engine/GameInstance.h"
 #include "Engine/World.h"
 #include "Settings/LevelEditorPlaySettings.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "AI/NavigationSystemBase.h"
 #include "Editor/EditorEngine.h"
 #include "Editor/UnrealEdEngine.h"
 #include "Settings/ProjectPackagingSettings.h"
@@ -370,10 +370,7 @@ void UEditorEngine::EndPlayMap()
 	}
 
 	// Lose the EditorWorld pointer (this is only maintained while PIEing)
-	if (EditorWorld->GetNavigationSystem())
-	{
-		EditorWorld->GetNavigationSystem()->OnPIEEnd();
-	}
+	FNavigationSystem::OnPIEEnd(*EditorWorld);
 
 	FGameDelegates::Get().GetEndPlayMapDelegate().Broadcast();
 
@@ -405,7 +402,7 @@ void UEditorEngine::EndPlayMap()
 	}
 
 	EditorWorld->bAllowAudioPlayback = true;
-	EditorWorld = NULL;
+	EditorWorld = nullptr;
 
 	// mark everything contained in the PIE worlds to be deleted
 	for (UWorld* World : WorldsBeingCleanedUp)
@@ -429,10 +426,10 @@ void UEditorEngine::EndPlayMap()
 			}
 		}
 
-		for (ULevelStreaming* LevelStreaming : World->StreamingLevels)
+		for (ULevelStreaming* LevelStreaming : World->GetStreamingLevels())
 		{
 			// If an unloaded levelstreaming still has a loaded level we need to mark its objects to be deleted as well
-			if ((!LevelStreaming->bShouldBeLoaded || !LevelStreaming->bShouldBeVisible) && LevelStreaming->GetLoadedLevel())
+			if (LevelStreaming->GetLoadedLevel() && (!LevelStreaming->ShouldBeLoaded() || !LevelStreaming->ShouldBeVisible()))
 			{
 				CastChecked<UWorld>(LevelStreaming->GetLoadedLevel()->GetOuter())->MarkObjectsPendingKill();
 			}
@@ -676,13 +673,13 @@ void UEditorEngine::TeardownPlaySession(FWorldContext& PieWorldContext)
 
 	// Clean up all streaming levels
 	PlayWorld->bIsLevelStreamingFrozen = false;
-	PlayWorld->bShouldForceUnloadStreamingLevels = true;
+	PlayWorld->SetShouldForceUnloadStreamingLevels(true);
 	PlayWorld->FlushLevelStreaming();
 
 	// cleanup refs to any duplicated streaming levels
-	for ( int32 LevelIndex=0; LevelIndex<PlayWorld->StreamingLevels.Num(); LevelIndex++ )
+	for ( int32 LevelIndex=0; LevelIndex<PlayWorld->GetStreamingLevels().Num(); LevelIndex++ )
 	{
-		ULevelStreaming* StreamingLevel = PlayWorld->StreamingLevels[LevelIndex];
+		ULevelStreaming* StreamingLevel = PlayWorld->GetStreamingLevels()[LevelIndex];
 		if( StreamingLevel != NULL )
 		{
 			const ULevel* PlayWorldLevel = StreamingLevel->GetLoadedLevel();
@@ -692,9 +689,9 @@ void UEditorEngine::TeardownPlaySession(FWorldContext& PieWorldContext)
 				if( World != NULL )
 				{
 					// Attempt to move blueprint debugging references back to the editor world
-					if( EditorWorld != NULL && EditorWorld->StreamingLevels.IsValidIndex(LevelIndex) )
+					if( EditorWorld != NULL && EditorWorld->GetStreamingLevels().IsValidIndex(LevelIndex) )
 					{
-						const ULevel* EditorWorldLevel = EditorWorld->StreamingLevels[LevelIndex]->GetLoadedLevel();
+						const ULevel* EditorWorldLevel = EditorWorld->GetStreamingLevels()[LevelIndex]->GetLoadedLevel();
 						if ( EditorWorldLevel != NULL )
 						{
 							UWorld* SublevelEditorWorld  = Cast<UWorld>(EditorWorldLevel->GetOuter());
@@ -1048,8 +1045,8 @@ void GetWindowSizeForInstanceType(FIntPoint &WindowSize, const ULevelEditorPlayS
 	const EPlayNetMode PlayNetMode = [&PlayInSettings]{ EPlayNetMode NetMode(PIE_Standalone); return (PlayInSettings->GetPlayNetMode(NetMode) ? NetMode : PIE_Standalone); }();
 	if (PlayNetMode == PIE_Standalone)
 	{
-		WindowSize.X = PlayInSettings->StandaloneWindowWidth;
-		WindowSize.Y = PlayInSettings->StandaloneWindowHeight;
+		WindowSize.X = PlayInSettings->NewWindowWidth;
+		WindowSize.Y = PlayInSettings->NewWindowHeight;
 	}
 	else
 	{
@@ -1063,8 +1060,8 @@ void SetWindowSizeForInstanceType(const FIntPoint &WindowSize, ULevelEditorPlayS
 	const EPlayNetMode PlayNetMode = [&PlayInSettings]{ EPlayNetMode NetMode(PIE_Standalone); return (PlayInSettings->GetPlayNetMode(NetMode) ? NetMode : PIE_Standalone); }();
 	if (PlayNetMode == PIE_Standalone)
 	{
-		PlayInSettings->StandaloneWindowWidth = WindowSize.X;
-		PlayInSettings->StandaloneWindowHeight = WindowSize.Y;
+		PlayInSettings->NewWindowWidth = WindowSize.X;
+		PlayInSettings->NewWindowHeight = WindowSize.Y;
 	}
 	else
 	{
@@ -1424,7 +1421,7 @@ void UEditorEngine::PlayStandaloneLocalPc(FString MapNameOverride, FIntPoint* Wi
 	
 	// Check if centered
 	FString Params;
-	if (PlayInSettings->CenterStandaloneWindow)
+	if (PlayInSettings->CenterNewWindow)
 	{
 		Params = FString::Printf(TEXT("%s %s -game -PIEVIACONSOLE -ResX=%d -ResY=%d %s%s %s"),
 			*GameNameOrProjectFile,
@@ -1443,8 +1440,8 @@ void UEditorEngine::PlayStandaloneLocalPc(FString MapNameOverride, FIntPoint* Wi
 		Params = FString::Printf(TEXT("%s %s -game -PIEVIACONSOLE -WinX=%d -WinY=%d -ResX=%d -ResY=%d %s%s %s"),
 			*GameNameOrProjectFile,
 			*BuildPlayWorldURL(*SavedMapNames[0], false, URLParms),
-			PlayInSettings->StandaloneWindowPosition.X,
-			PlayInSettings->StandaloneWindowPosition.Y,
+			PlayInSettings->NewWindowPosition.X,
+			PlayInSettings->NewWindowPosition.Y,
 			WinSize.X,
 			WinSize.Y,
 			*FCommandLine::GetSubprocessCommandline(),
@@ -1464,6 +1461,13 @@ void UEditorEngine::PlayStandaloneLocalPc(FString MapNameOverride, FIntPoint* Wi
 	{
 		UE_LOG(LogPlayLevel, Error, TEXT("Failed to run a copy of the game on this PC."));
 	}
+
+	FMargin SafeZoneRatio = PlayInSettings->PIESafeZoneOverride;
+	SafeZoneRatio.Left /= (PlayInSettings->NewWindowPosition.X / 2.0f);
+	SafeZoneRatio.Right /= (PlayInSettings->NewWindowPosition.X / 2.0f);
+	SafeZoneRatio.Bottom /= (PlayInSettings->NewWindowPosition.Y / 2.0f);
+	SafeZoneRatio.Top /= (PlayInSettings->NewWindowPosition.Y / 2.0f);
+	FSlateApplication::Get().OnDebugSafeZoneChanged.Broadcast(SafeZoneRatio);
 
 	FEditorDelegates::BeginStandaloneLocalPlay.Broadcast(ProcessID);
 }
@@ -1848,36 +1852,59 @@ void UEditorEngine::PlayUsingLauncher()
 		ITargetDeviceServicesModule& TargetDeviceServicesModule = FModuleManager::LoadModuleChecked<ITargetDeviceServicesModule>("TargetDeviceServices");
 
 		//if the device is not authorized to be launched to, we need to pop an error instead of trying to launch
-		ITargetPlatform* LaunchPlatform = GetTargetPlatformManagerRef().FindTargetPlatform(PlayUsingLauncherDeviceId.Left(PlayUsingLauncherDeviceId.Find(TEXT("@"))));
-		if (LaunchPlatform != nullptr)
-		{
-			ITargetDevicePtr PlayDevice = LaunchPlatform->GetDefaultDevice();
-			if (PlayDevice.IsValid() && !PlayDevice->IsAuthorized())
-			{
-				CancelRequestPlaySession();
-
-				FText LaunchingText = LOCTEXT("LauncherTaskInProgressNotificationNotAuthorized", "Cannot launch to this device until this computer is authorized from the device");
-				FNotificationInfo Info(LaunchingText);
-				Info.ExpireDuration = 5.0f;
-				TSharedPtr<SNotificationItem> Notification = FSlateNotificationManager::Get().AddNotification(Info);
-				if (Notification.IsValid())
-				{
-					Notification->SetCompletionState(SNotificationItem::CS_Fail);
-					Notification->ExpireAndFadeout();
-				}
-				return;
-			}
-		}
+		FString LaunchPlatformName = PlayUsingLauncherDeviceId.Left(PlayUsingLauncherDeviceId.Find(TEXT("@")));
+		FString LaunchPlatformNameFromID = PlayUsingLauncherDeviceId.Right(PlayUsingLauncherDeviceId.Find(TEXT("@")));
+		ITargetPlatform* LaunchPlatform = GetTargetPlatformManagerRef().FindTargetPlatform(LaunchPlatformName);
 
 		// create a temporary device group and launcher profile
 		ILauncherDeviceGroupRef DeviceGroup = LauncherServicesModule.CreateDeviceGroup(FGuid::NewGuid(), TEXT("PlayOnDevices"));
-		DeviceGroup->AddDevice(PlayUsingLauncherDeviceId);
+		if (LaunchPlatform != nullptr)
+		{
+			if (LaunchPlatformNameFromID.Equals(LaunchPlatformName))
+			{
+				// create a temporary list of devices for the target platform
+				TArray<ITargetDevicePtr> TargetDevices;
+				LaunchPlatform->GetAllDevices(TargetDevices);
 
-		UE_LOG(LogPlayLevel, Log, TEXT("Launcher Device ID: %s"), *PlayUsingLauncherDeviceId);
-
+				for (const ITargetDevicePtr& PlayDevice : TargetDevices)
+				{
+					// compose the device id
+					FString PlayDeviceId = LaunchPlatformName + TEXT("@") + PlayDevice.Get()->GetId().GetDeviceName();
+					if (PlayDevice.IsValid() && !PlayDevice->IsAuthorized())
+					{
+						CancelPlayUsingLauncher();
+					}
+					else
+					{
+						DeviceGroup->AddDevice(PlayDeviceId);
+						UE_LOG(LogPlayLevel, Log, TEXT("Launcher Device ID: %s"), *PlayDeviceId);
+					}
+				}
+			}
+			else
+			{
+				ITargetDevicePtr PlayDevice = LaunchPlatform->GetDefaultDevice();
+				if (PlayDevice.IsValid() && !PlayDevice->IsAuthorized())
+				{
+					CancelPlayUsingLauncher();
+				}
+				else
+				{
+					
+					DeviceGroup->AddDevice(PlayUsingLauncherDeviceId);
+					UE_LOG(LogPlayLevel, Log, TEXT("Launcher Device ID: %s"), *PlayUsingLauncherDeviceId);
+				}
+			}
+			
+			if (DeviceGroup.Get().GetNumDevices() == 0)
+			{
+				return;
+			}
+		}
+		
 		// does the project have any code?
 		FGameProjectGenerationModule& GameProjectModule = FModuleManager::LoadModuleChecked<FGameProjectGenerationModule>(TEXT("GameProjectGeneration"));
-		bPlayUsingLauncherHasCode = GameProjectModule.Get().ProjectRequiresBuild(FName(*PlayUsingLauncherDeviceId.Left(PlayUsingLauncherDeviceId.Find(TEXT("@")))));
+		bPlayUsingLauncherHasCode = GameProjectModule.Get().ProjectRequiresBuild(FName(*LaunchPlatformName));
 
 		const ULevelEditorPlaySettings* PlayInSettings = GetDefault<ULevelEditorPlaySettings>();
 		// Setup launch profile, keep the setting here to a minimum.
@@ -1931,7 +1958,7 @@ void UEditorEngine::PlayUsingLauncher()
 
 		// select the quickest cook mode based on which in editor cook mode is enabled
 		bool bIncrimentalCooking = true;
-		LauncherProfile->AddCookedPlatform(PlayUsingLauncherDeviceId.Left(PlayUsingLauncherDeviceId.Find(TEXT("@"))));
+		LauncherProfile->AddCookedPlatform(LaunchPlatformName);
 		ELauncherProfileCookModes::Type CurrentLauncherCookMode = ELauncherProfileCookModes::ByTheBook;
 		bool bCanCookByTheBookInEditor = true;
 		bool bCanCookOnTheFlyInEditor = true;
@@ -1965,7 +1992,7 @@ void UEditorEngine::PlayUsingLauncher()
 		const FString DummyIOSDeviceName(FString::Printf(TEXT("All_iOS_On_%s"), FPlatformProcess::ComputerName()));
 		const FString DummyTVOSDeviceName(FString::Printf(TEXT("All_tvOS_On_%s"), FPlatformProcess::ComputerName()));
 
-		if ((PlayUsingLauncherDeviceId.Left(PlayUsingLauncherDeviceId.Find(TEXT("@"))) != TEXT("IOS") && PlayUsingLauncherDeviceId.Left(PlayUsingLauncherDeviceId.Find(TEXT("@"))) != TEXT("TVOS")) ||
+		if ((LaunchPlatformName != TEXT("IOS") && LaunchPlatformName != TEXT("TVOS")) ||
 			(!PlayUsingLauncherDeviceName.Contains(DummyIOSDeviceName) && !PlayUsingLauncherDeviceName.Contains(DummyTVOSDeviceName)))
 		{
 			LauncherProfile->SetLaunchMode(ELauncherProfileLaunchModes::DefaultRole);
@@ -2178,7 +2205,7 @@ bool UEditorEngine::SpawnPlayFromHereStart( UWorld* World, AActor*& PlayerStart,
 	return true;
 }
 
-void UEditorEngine::PlayInEditor( UWorld* InWorld, bool bInSimulateInEditor )
+void UEditorEngine::PlayInEditor( UWorld* InWorld, bool bInSimulateInEditor, FPlayInEditorOverrides Overrides )
 {
 	// Broadcast PreBeginPIE before checks that might block PIE below (BeginPIE is broadcast below after the checks)
 	FEditorDelegates::PreBeginPIE.Broadcast(bInSimulateInEditor);
@@ -2255,10 +2282,7 @@ void UEditorEngine::PlayInEditor( UWorld* InWorld, bool bInSimulateInEditor )
 	FEditorDelegates::BeginPIE.Broadcast(bInSimulateInEditor);
 
 	// let navigation know PIE starts so it can avoid any blueprint creation/deletion/instantiation affect editor map's navmesh changes
-	if (InWorld->GetNavigationSystem())
-	{
-		InWorld->GetNavigationSystem()->OnPIEStart();
-	}
+	FNavigationSystem::OnPIEStart(*InWorld);
 
 	ULevelEditorPlaySettings* PlayInSettings = GetMutableDefault<ULevelEditorPlaySettings>();
 	check(PlayInSettings);
@@ -2282,11 +2306,7 @@ void UEditorEngine::PlayInEditor( UWorld* InWorld, bool bInSimulateInEditor )
 		if ( !bContinuePIE )
 		{
 			FEditorDelegates::EndPIE.Broadcast(bInSimulateInEditor);
-			if (InWorld->GetNavigationSystem())
-			{
-				InWorld->GetNavigationSystem()->OnPIEEnd();
-			}
-
+			FNavigationSystem::OnPIEEnd(*InWorld);
 			return;
 		}
 		else
@@ -2347,9 +2367,12 @@ void UEditorEngine::PlayInEditor( UWorld* InWorld, bool bInSimulateInEditor )
 	bool CanRunUnderOneProcess = [&PlayInSettings]{ bool RunUnderOneProcess(false); return (PlayInSettings->GetRunUnderOneProcess(RunUnderOneProcess) && RunUnderOneProcess); }();
 	if (CanRunUnderOneProcess)
 	{
-		const bool CanPlayNetDedicated = [&PlayInSettings]{ bool PlayNetDedicated(false); return (PlayInSettings->GetPlayNetDedicated(PlayNetDedicated) && PlayNetDedicated); }();
-		const int32 PlayNumberOfClients = [&PlayInSettings]{ int32 NumberOfClients(0); return (PlayInSettings->GetPlayNumberOfClients(NumberOfClients) ? NumberOfClients : 0); }();
+		bool CanPlayNetDedicated = [&PlayInSettings]{ bool PlayNetDedicated(false); return (PlayInSettings->GetPlayNetDedicated(PlayNetDedicated) && PlayNetDedicated); }();
+		CanPlayNetDedicated = Overrides.bDedicatedServer.Get(CanPlayNetDedicated);
+		int32 PlayNumberOfClients = [&PlayInSettings]{ int32 NumberOfClients(0); return (PlayInSettings->GetPlayNumberOfClients(NumberOfClients) ? NumberOfClients : 0); }();
+		PlayNumberOfClients = Overrides.NumberOfClients.Get(PlayNumberOfClients);
 		const bool WillAutoConnectToServer = [&PlayInSettings]{ bool AutoConnectToServer(false); return (PlayInSettings->GetAutoConnectToServer(AutoConnectToServer) && AutoConnectToServer); }();
+
 		if (!CanPlayNetDedicated && (PlayNumberOfClients == 1 || !WillAutoConnectToServer))
 		{
 			// Since we don't expose PlayNetMode as an option when doing RunUnderOnProcess,
@@ -2405,7 +2428,7 @@ void UEditorEngine::PlayInEditor( UWorld* InWorld, bool bInSimulateInEditor )
 	{
 		// Only spawning 1 PIE instance under this process, only set the PIEInstance value if we're not connecting to another local instance of the game, otherwise it will run the wrong streaming levels
 		PIEInstance = ( !CanRunUnderOneProcess && PlayNetMode == EPlayNetMode::PIE_Client ) ? INDEX_NONE : 0;
-		UGameInstance* const GameInstance = CreatePIEGameInstance(PIEInstance, bInSimulateInEditor, bAnyBlueprintErrors, bStartInSpectatorMode, false, PIEStartTime);
+		UGameInstance* const GameInstance = CreatePIEGameInstance(PIEInstance, bInSimulateInEditor, bAnyBlueprintErrors, bStartInSpectatorMode, false, bUseVRPreviewForPlayWorld, PIEStartTime);
 
 		if (!PlayInSettings->EnableGameSound)
 		{
@@ -2473,6 +2496,13 @@ void UEditorEngine::PlayInEditor( UWorld* InWorld, bool bInSimulateInEditor )
 		FSlateApplication::Get().SetAllUserFocusToGameViewport();
 	}
 
+	FMargin SafeZoneRatio = PlayInSettings->PIESafeZoneOverride;
+	SafeZoneRatio.Left /= (PlayInSettings->NewWindowWidth / 2.0f);
+	SafeZoneRatio.Right /= (PlayInSettings->NewWindowWidth / 2.0f);
+	SafeZoneRatio.Bottom /= (PlayInSettings->NewWindowHeight / 2.0f);
+	SafeZoneRatio.Top /= (PlayInSettings->NewWindowHeight / 2.0f);
+	FSlateApplication::Get().OnDebugSafeZoneChanged.Broadcast(SafeZoneRatio);
+
 	FEditorDelegates::PostPIEStarted.Broadcast( bInSimulateInEditor );
 }
 
@@ -2497,7 +2527,6 @@ void UEditorEngine::SpawnIntraProcessPIEWorlds(bool bAnyBlueprintErrors, bool bS
 	int32 NextY = 0;
 	SettingsIndex = 1;
 	int32 ClientNum = 0;
-
 	PIEInstance = 1;
 	const bool WillAutoConnectToServer = [&PlayInSettings]{ bool AutoConnectToServer(false); return (PlayInSettings->GetAutoConnectToServer(AutoConnectToServer) && AutoConnectToServer); }();
 	const bool CanPlayNetDedicated = [&PlayInSettings]{ bool PlayNetDedicated(false); return (PlayInSettings->GetPlayNetDedicated(PlayNetDedicated) && PlayNetDedicated); }();
@@ -2512,8 +2541,8 @@ void UEditorEngine::SpawnIntraProcessPIEWorlds(bool bAnyBlueprintErrors, bool bS
 			ClientNum++;
 			GetMultipleInstancePositions(SettingsIndex++, NextX, NextY);
 		}
-
-		UGameInstance* const ServerGameInstance = CreatePIEGameInstance(PIEInstance, bInSimulateInEditor, bAnyBlueprintErrors, bStartInSpectatorMode, CanPlayNetDedicated, PIEStartTime);
+        
+		UGameInstance* const ServerGameInstance = CreatePIEGameInstance(PIEInstance, bInSimulateInEditor, bAnyBlueprintErrors, bStartInSpectatorMode, CanPlayNetDedicated, (ClientNum == 0 && bUseVRPreviewForPlayWorld), PIEStartTime);
 		if (ServerGameInstance)
 		{
 			ServerPrefix = ServerGameInstance->GetWorldContext()->PIEPrefix;
@@ -2549,7 +2578,7 @@ void UEditorEngine::SpawnIntraProcessPIEWorlds(bool bAnyBlueprintErrors, bool bS
 			GetMultipleInstancePositions(SettingsIndex++, NextX, NextY);
 		}
 
-		UGameInstance* const ClientGameInstance = CreatePIEGameInstance(PIEInstance, bInSimulateInEditor, bAnyBlueprintErrors, bStartInSpectatorMode, false, PIEStartTime);
+		UGameInstance* const ClientGameInstance = CreatePIEGameInstance(PIEInstance, bInSimulateInEditor, bAnyBlueprintErrors, bStartInSpectatorMode, false, (ClientNum == 0 && bUseVRPreviewForPlayWorld), PIEStartTime);
 		if (!ClientGameInstance)
 		{
 			// Failed, abort
@@ -2576,7 +2605,7 @@ bool UEditorEngine::CreatePIEWorldFromLogin(FWorldContext& PieWorldContext, EPla
 	
 	const bool CanPlayNetDedicated = [&PlayInSettings]{ bool PlayNetDedicated(false); return (PlayInSettings->GetPlayNetDedicated(PlayNetDedicated) && PlayNetDedicated); }();
 	const bool ActAsClient = PlayNetMode == EPlayNetMode::PIE_Client || PlayNetMode == EPlayNetMode::PIE_Standalone;
-	UGameInstance* const GameInstance = CreatePIEGameInstance(PieWorldContext.PIEInstance, false, DataStruct.bAnyBlueprintErrors, DataStruct.bStartInSpectatorMode, ActAsClient ? false : CanPlayNetDedicated, DataStruct.PIEStartTime);
+	UGameInstance* const GameInstance = CreatePIEGameInstance(PieWorldContext.PIEInstance, false, DataStruct.bAnyBlueprintErrors, DataStruct.bStartInSpectatorMode, ActAsClient ? false : CanPlayNetDedicated, false, DataStruct.PIEStartTime);
 	
 	// Restore window settings
 	GetMultipleInstancePositions(0, DataStruct.NextX, DataStruct.NextY);	// restore cached settings
@@ -2848,7 +2877,7 @@ void UEditorEngine::RequestLateJoin()
 	{
 		GetMultipleInstancePositions(SettingsIndex++, NextX, NextY);
 
-		UGameInstance* const ClientGameInstance = CreatePIEGameInstance(PIEInstance, false, false, bStartLateJoinersInSpectatorMode, false, PIEStartTime);
+		UGameInstance* const ClientGameInstance = CreatePIEGameInstance(PIEInstance, false, false, bStartLateJoinersInSpectatorMode, false, false, PIEStartTime);
 		if (!ClientGameInstance)
 		{
 			// Failed, abort
@@ -2861,13 +2890,11 @@ void UEditorEngine::RequestLateJoin()
 	GetMultipleInstancePositions(0, NextX, NextY);
 }
 
-UGameInstance* UEditorEngine::CreatePIEGameInstance(int32 InPIEInstance, bool bInSimulateInEditor, bool bAnyBlueprintErrors, bool bStartInSpectatorMode, bool bRunAsDedicated, float PIEStartTime)
+UGameInstance* UEditorEngine::CreatePIEGameInstance(int32 InPIEInstance, bool bInSimulateInEditor, bool bAnyBlueprintErrors, bool bStartInSpectatorMode, bool bRunAsDedicated, bool bPlayStereoscopic, float PIEStartTime)
 {
 	const FString WorldPackageName = EditorWorld->GetOutermost()->GetName();
 	
-	const bool bUseVRPreview = bUseVRPreviewForPlayWorld && (InPIEInstance >= 0 && InPIEInstance <= 1);
-
-	// Start a new PIE log page
+		// Start a new PIE log page
 	{
 		FFormatNamedArguments Arguments;
 		Arguments.Add(TEXT("Package"), FText::FromString(FPackageName::GetLongPackageAssetName(WorldPackageName)));
@@ -2908,10 +2935,7 @@ UGameInstance* UEditorEngine::CreatePIEGameInstance(int32 InPIEInstance, bool bI
 
 		FEditorDelegates::EndPIE.Broadcast(bInSimulateInEditor);
 
-		if (EditorWorld->GetNavigationSystem())
-		{
-			EditorWorld->GetNavigationSystem()->OnPIEEnd();
-		}
+		FNavigationSystem::OnPIEEnd(*EditorWorld);
 
 		return nullptr;
 	}
@@ -3083,7 +3107,7 @@ UGameInstance* UEditorEngine::CreatePIEGameInstance(int32 InPIEInstance, bool bI
 				bool bUseOSWndBorder = false;
 				bool bRenderDirectlyToWindow = false;
 				bool bEnableStereoRendering = false;
-				if (bUseVRPreview)	// @todo vreditor: Is not having an OS window border a problem?  We could spawn a dedicated VR window if so.  What about true fullscreen in VR?
+				if (bPlayStereoscopic)	// @todo vreditor: Is not having an OS window border a problem?  We could spawn a dedicated VR window if so.  What about true fullscreen in VR?
 				{
 					// modify window and viewport properties for VR.
 					bUseOSWndBorder = true;
@@ -3164,7 +3188,7 @@ UGameInstance* UEditorEngine::CreatePIEGameInstance(int32 InPIEInstance, bool bI
 
 				ViewportClient->SetViewportOverlayWidget( PieWindow, ViewportOverlayWidgetRef );
 				ViewportClient->SetGameLayerManager(GameLayerManagerRef);
-				bool bShouldMinimizeRootWindow = bUseVRPreview && GEngine->XRSystem.IsValid() && GetDefault<ULevelEditorPlaySettings>()->ShouldMinimizeEditorOnVRPIE;
+				bool bShouldMinimizeRootWindow = bPlayStereoscopic && GEngine->XRSystem.IsValid() && GetDefault<ULevelEditorPlaySettings>()->ShouldMinimizeEditorOnVRPIE;
 				// Set up a notification when the window is closed so we can clean up PIE
 				{
 					struct FLocal
@@ -3201,7 +3225,7 @@ UGameInstance* UEditorEngine::CreatePIEGameInstance(int32 InPIEInstance, bool bI
 							{
 								// restore previously minimized root window.
 								TSharedPtr<SWindow> RootWindow = FGlobalTabmanager::Get()->GetRootWindow();
-								if (RootWindow.IsValid())
+								if (RootWindow.IsValid() && RootWindow->IsWindowMinimized())
 								{
 									RootWindow->Restore();
 								}
@@ -3217,7 +3241,7 @@ UGameInstance* UEditorEngine::CreatePIEGameInstance(int32 InPIEInstance, bool bI
 				// Create a new viewport that the viewport widget will use to render the game
 				SlatePlayInEditorSession.SlatePlayInEditorWindowViewport = MakeShareable( new FSceneViewport( ViewportClient, PieViewportWidget ) );
 
-				const bool bShouldGameGetMouseControl = GetDefault<ULevelEditorPlaySettings>()->GameGetsMouseControl || (bUseVRPreview && GEngine->XRSystem.IsValid());
+				const bool bShouldGameGetMouseControl = GetDefault<ULevelEditorPlaySettings>()->GameGetsMouseControl || (bPlayStereoscopic && GEngine->XRSystem.IsValid());
 				SlatePlayInEditorSession.SlatePlayInEditorWindowViewport->SetPlayInEditorGetsMouseControl(bShouldGameGetMouseControl);
 				PieViewportWidget->SetViewportInterface( SlatePlayInEditorSession.SlatePlayInEditorWindowViewport.ToSharedRef() );
 				
@@ -3237,7 +3261,7 @@ UGameInstance* UEditorEngine::CreatePIEGameInstance(int32 InPIEInstance, bool bI
 				// Change the system resolution to match our window, to make sure game and slate window are kept syncronised
 				FSystemResolution::RequestResolutionChange(NewWindowWidth, NewWindowHeight, EWindowMode::Windowed);
 
-				if (bUseVRPreview)
+				if (bPlayStereoscopic)
 				{
 					GEngine->StereoRenderingDevice->EnableStereo(true);
 
@@ -3616,7 +3640,7 @@ UWorld* UEditorEngine::CreatePIEWorldByDuplication(FWorldContext &WorldContext, 
 
 		// Prepare string asset references for fixup
 		FSoftObjectPath::AddPIEPackageName(FName(*PlayWorldMapName));
-		for (ULevelStreaming* StreamingLevel : InWorld->StreamingLevels)
+		for (ULevelStreaming* StreamingLevel : InWorld->GetStreamingLevels())
 		{
 			if ( StreamingLevel )
 			{
@@ -3841,4 +3865,23 @@ void UEditorEngine::AutomationPlayUsingLauncher(const FString& InLauncherDeviceI
 	PlayUsingLauncher();
 }
 
+/** 
+* Cancel Play using Launcher on error 
+* 
+* if the physical device is not authorized to be launched to, we need to pop an error instead of trying to launch
+*/
+void UEditorEngine::CancelPlayUsingLauncher()
+{
+	CancelRequestPlaySession();
+
+	FText LaunchingText = LOCTEXT("LauncherTaskInProgressNotificationNotAuthorized", "Cannot launch to this device until this computer is authorized from the device");
+	FNotificationInfo Info(LaunchingText);
+	Info.ExpireDuration = 5.0f;
+	TSharedPtr<SNotificationItem> Notification = FSlateNotificationManager::Get().AddNotification(Info);
+	if (Notification.IsValid())
+	{
+		Notification->SetCompletionState(SNotificationItem::CS_Fail);
+		Notification->ExpireAndFadeout();
+	}
+}
 #undef LOCTEXT_NAMESPACE

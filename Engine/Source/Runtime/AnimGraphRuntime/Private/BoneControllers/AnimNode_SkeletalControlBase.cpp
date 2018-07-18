@@ -53,10 +53,14 @@ void FAnimNode_SkeletalControlBase::Initialize_AnyThread(const FAnimationInitial
 	FAnimNode_Base::Initialize_AnyThread(Context);
 
 	ComponentPose.Initialize(Context);
+
+	AlphaBoolBlend.Reinitialize();
+	AlphaScaleBiasClamp.Reinitialize();
 }
 
 void FAnimNode_SkeletalControlBase::CacheBones_AnyThread(const FAnimationCacheBonesContext& Context) 
 {
+	FAnimNode_Base::CacheBones_AnyThread(Context);
 	InitializeBoneReferences(Context.AnimInstanceProxy->GetRequiredBones());
 	ComponentPose.CacheBones(Context);
 }
@@ -75,12 +79,30 @@ void FAnimNode_SkeletalControlBase::Update_AnyThread(const FAnimationUpdateConte
 	UpdateComponentPose_AnyThread(Context);
 
 	ActualAlpha = 0.f;
-	if (IsLODEnabled(Context.AnimInstanceProxy, LODThreshold))
+	if (IsLODEnabled(Context.AnimInstanceProxy))
 	{
 		EvaluateGraphExposedInputs.Execute(Context);
 
 		// Apply the skeletal control if it's valid
-		ActualAlpha = AlphaScaleBias.ApplyTo(Alpha);
+		switch (AlphaInputType)
+		{
+		case EAnimAlphaInputType::Float : 
+			ActualAlpha = AlphaScaleBias.ApplyTo(AlphaScaleBiasClamp.ApplyTo(Alpha, Context.GetDeltaTime()));
+			break;
+		case EAnimAlphaInputType::Bool :
+			ActualAlpha = AlphaBoolBlend.ApplyTo(bAlphaBoolEnabled, Context.GetDeltaTime());
+			break;
+		case EAnimAlphaInputType::Curve :
+			if (UAnimInstance* AnimInstance = Cast<UAnimInstance>(Context.AnimInstanceProxy->GetAnimInstanceObject()))
+			{
+				ActualAlpha = AlphaScaleBiasClamp.ApplyTo(AnimInstance->GetCurveValue(AlphaCurveName), Context.GetDeltaTime());
+			}
+			break;
+		};
+
+		// Make sure Alpha is clamped between 0 and 1.
+		ActualAlpha = FMath::Clamp<float>(ActualAlpha, 0.f, 1.f);
+
 		if (FAnimWeight::IsRelevant(ActualAlpha) && IsValidToEvaluate(Context.AnimInstanceProxy->GetSkeleton(), Context.AnimInstanceProxy->GetRequiredBones()))
 		{
 			UpdateInternal(Context);

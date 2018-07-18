@@ -286,6 +286,12 @@ protected:
 
 	/** Called after any hotfixes are applied to apply last-second changes to certain asset types from .ini file data */
 	void PatchAssetsFromIniFiles();
+	
+	/** Used in PatchAssetsFromIniFiles to hotfix only a row in a table. */
+	void HotfixRowUpdate(UObject* Asset, const FString& AssetPath, const FString& RowName, const FString& ColumnName, const FString& NewValue, TArray<FString>& ProblemStrings);
+	
+	/** Used in PatchAssetsFromIniFiles to hotfix an entire table. */
+	void HotfixTableUpdate(UObject* Asset, const FString& AssetPath, const FString& JsonData, TArray<FString>& ProblemStrings);
 
 public:
 	UOnlineHotfixManager();

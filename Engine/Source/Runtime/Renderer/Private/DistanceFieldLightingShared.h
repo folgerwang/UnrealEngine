@@ -13,7 +13,7 @@
 #include "RenderUtils.h"
 #include "RHIStaticStates.h"
 #include "DistanceFieldAtlas.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 #include "SceneRendering.h"
 
 class FLightSceneProxy;
@@ -30,13 +30,13 @@ DECLARE_LOG_CATEGORY_EXTERN(LogDistanceField, Warning, All);
 /** Tile sized used for most AO compute shaders. */
 extern int32 GDistanceFieldAOTileSizeX;
 extern int32 GDistanceFieldAOTileSizeY;
-extern int32 GMaxDistanceFieldObjectsPerCullTile;
+extern int32 GAverageObjectsPerShadowCullTile;
 
 extern int32 GDistanceFieldGI;
 
 inline bool DoesPlatformSupportDistanceFieldGI(EShaderPlatform Platform)
 {
-	return Platform == SP_PCD3D_SM5|| Platform == SP_VULKAN_SM5;
+	return Platform == SP_PCD3D_SM5;
 }
 
 inline bool SupportsDistanceFieldGI(ERHIFeatureLevel::Type FeatureLevel, EShaderPlatform ShaderPlatform)
@@ -47,6 +47,8 @@ inline bool SupportsDistanceFieldGI(ERHIFeatureLevel::Type FeatureLevel, EShader
 }
 
 extern bool IsDistanceFieldGIAllowed(const FViewInfo& View);
+extern bool UseDistanceFieldAO();
+extern bool UseAOObjectDistanceField();
 
 class FDistanceFieldObjectBuffers
 {
@@ -65,16 +67,7 @@ public:
 		MaxObjects = 0;
 	}
 
-	void Initialize()
-	{
-		if (MaxObjects > 0)
-		{
-			const uint32 BufferFlags = BUF_ShaderResource;
-
-			Bounds.Initialize(sizeof(float), 4 * MaxObjects, PF_R32_FLOAT, 0, TEXT("FDistanceFieldObjectBuffers::Bounds"));
-			Data.Initialize(sizeof(float), 4 * MaxObjects * ObjectDataStride, PF_R32_FLOAT, 0, TEXT("FDistanceFieldObjectBuffers::Data"));
-		}
-	}
+	void Initialize();
 
 	void Release()
 	{
@@ -154,8 +147,8 @@ class FDistanceFieldObjectBufferParameters
 public:
 	void Bind(const FShaderParameterMap& ParameterMap)
 	{
-		ObjectBounds.Bind(ParameterMap, TEXT("ObjectBounds"));
-		ObjectData.Bind(ParameterMap, TEXT("ObjectData"));
+		SceneObjectBounds.Bind(ParameterMap, TEXT("SceneObjectBounds"));
+		SceneObjectData.Bind(ParameterMap, TEXT("SceneObjectData"));
 		NumSceneObjects.Bind(ParameterMap, TEXT("NumSceneObjects"));
 		DistanceFieldTexture.Bind(ParameterMap, TEXT("DistanceFieldTexture"));
 		DistanceFieldSampler.Bind(ParameterMap, TEXT("DistanceFieldSampler"));
@@ -173,8 +166,8 @@ public:
 			RHICmdList.TransitionResources(EResourceTransitionAccess::ERWBarrier, EResourceTransitionPipeline::EComputeToCompute, OutUAVs, ARRAY_COUNT(OutUAVs));
 		}
 
-		ObjectBounds.SetBuffer(RHICmdList, ShaderRHI, ObjectBuffers.Bounds);
-		ObjectData.SetBuffer(RHICmdList, ShaderRHI, ObjectBuffers.Data);
+		SceneObjectBounds.SetBuffer(RHICmdList, ShaderRHI, ObjectBuffers.Bounds);
+		SceneObjectData.SetBuffer(RHICmdList, ShaderRHI, ObjectBuffers.Data);
 		SetShaderValue(RHICmdList, ShaderRHI, NumSceneObjects, NumObjectsValue);
 
 		SetTextureParameter(
@@ -196,8 +189,8 @@ public:
 	template<typename TParamRef>
 	void UnsetParameters(FRHICommandList& RHICmdList, const TParamRef& ShaderRHI, const FDistanceFieldObjectBuffers& ObjectBuffers, bool bBarrier = false)
 	{
-		ObjectBounds.UnsetUAV(RHICmdList, ShaderRHI);
-		ObjectData.UnsetUAV(RHICmdList, ShaderRHI);
+		SceneObjectBounds.UnsetUAV(RHICmdList, ShaderRHI);
+		SceneObjectData.UnsetUAV(RHICmdList, ShaderRHI);
 
 		if (bBarrier)
 		{
@@ -210,18 +203,18 @@ public:
 
 	friend FArchive& operator<<(FArchive& Ar, FDistanceFieldObjectBufferParameters& P)
 	{
-		Ar << P.ObjectBounds << P.ObjectData << P.NumSceneObjects << P.DistanceFieldTexture << P.DistanceFieldSampler << P.DistanceFieldAtlasTexelSize;
+		Ar << P.SceneObjectBounds << P.SceneObjectData << P.NumSceneObjects << P.DistanceFieldTexture << P.DistanceFieldSampler << P.DistanceFieldAtlasTexelSize;
 		return Ar;
 	}
 
 	bool AnyBound() const
 	{
-		return ObjectBounds.IsBound() || ObjectData.IsBound() || NumSceneObjects.IsBound() || DistanceFieldTexture.IsBound() || DistanceFieldSampler.IsBound() || DistanceFieldAtlasTexelSize.IsBound();
+		return SceneObjectBounds.IsBound() || SceneObjectData.IsBound() || NumSceneObjects.IsBound() || DistanceFieldTexture.IsBound() || DistanceFieldSampler.IsBound() || DistanceFieldAtlasTexelSize.IsBound();
 	}
 
 private:
-	FRWShaderParameter ObjectBounds;
-	FRWShaderParameter ObjectData;
+	FRWShaderParameter SceneObjectBounds;
+	FRWShaderParameter SceneObjectData;
 	FShaderParameter NumSceneObjects;
 	FShaderResourceParameter DistanceFieldTexture;
 	FShaderResourceParameter DistanceFieldSampler;
@@ -515,26 +508,32 @@ public:
 
 	void Initialize()
 	{
-		TileHeadDataUnpacked.Initialize(sizeof(uint32), TileDimensions.X * TileDimensions.Y * 2, PF_R32_UINT, BUF_Static);
+		TileNumCulledObjects.Initialize(sizeof(uint32), TileDimensions.X * TileDimensions.Y, PF_R32_UINT, BUF_Static);
+		NextStartOffset.Initialize(sizeof(uint32), 1, PF_R32_UINT, BUF_Static);
+		TileStartOffsets.Initialize(sizeof(uint32), TileDimensions.X * TileDimensions.Y, PF_R32_UINT, BUF_Static);
 
 		//@todo - handle max exceeded
-		TileArrayData.Initialize(b16BitIndices ? sizeof(uint16) : sizeof(uint32), GMaxDistanceFieldObjectsPerCullTile * TileDimensions.X * TileDimensions.Y * LightTileDataStride, b16BitIndices ? PF_R16_UINT : PF_R32_UINT, BUF_Static);
+		TileArrayData.Initialize(b16BitIndices ? sizeof(uint16) : sizeof(uint32), GAverageObjectsPerShadowCullTile * TileDimensions.X * TileDimensions.Y * LightTileDataStride, b16BitIndices ? PF_R16_UINT : PF_R32_UINT, BUF_Static);
 	}
 
 	void Release()
 	{
-		TileHeadDataUnpacked.Release();
+		TileNumCulledObjects.Release();
+		NextStartOffset.Release();
+		TileStartOffsets.Release();
 		TileArrayData.Release();
 	}
 
 	size_t GetSizeBytes() const
 	{
-		return TileHeadDataUnpacked.NumBytes + TileArrayData.NumBytes;
+		return TileNumCulledObjects.NumBytes + NextStartOffset.NumBytes + TileStartOffsets.NumBytes + TileArrayData.NumBytes;
 	}
 
 	FIntPoint TileDimensions;
 
-	FRWBuffer TileHeadDataUnpacked;
+	FRWBuffer TileNumCulledObjects;
+	FRWBuffer NextStartOffset;
+	FRWBuffer TileStartOffsets;
 	FRWBuffer TileArrayData;
 	bool b16BitIndices;
 };
@@ -546,42 +545,58 @@ public:
 	static void ModifyCompilationEnvironment(EShaderPlatform Platform, FShaderCompilerEnvironment& OutEnvironment)
 	{
 		OutEnvironment.SetDefine(TEXT("SHADOW_TILE_ARRAY_DATA_STRIDE"), LightTileDataStride);
-		OutEnvironment.SetDefine(TEXT("MAX_OBJECTS_PER_TILE"), GMaxDistanceFieldObjectsPerCullTile);
 	}
 
 	void Bind(const FShaderParameterMap& ParameterMap)
 	{
-		ShadowTileHeadDataUnpacked.Bind(ParameterMap, TEXT("ShadowTileHeadDataUnpacked"));
+		ShadowTileNumCulledObjects.Bind(ParameterMap, TEXT("ShadowTileNumCulledObjects"));
+		ShadowTileStartOffsets.Bind(ParameterMap, TEXT("ShadowTileStartOffsets"));
+		NextStartOffset.Bind(ParameterMap, TEXT("NextStartOffset"));
 		ShadowTileArrayData.Bind(ParameterMap, TEXT("ShadowTileArrayData"));
 		ShadowTileListGroupSize.Bind(ParameterMap, TEXT("ShadowTileListGroupSize"));
-		ShadowMaxObjectsPerTile.Bind(ParameterMap, TEXT("ShadowMaxObjectsPerTile"));
+		ShadowAverageObjectsPerTile.Bind(ParameterMap, TEXT("ShadowAverageObjectsPerTile"));
 	}
 
 	bool IsBound() const
 	{
-		return ShadowTileHeadDataUnpacked.IsBound() || ShadowTileArrayData.IsBound() || ShadowTileListGroupSize.IsBound() || ShadowMaxObjectsPerTile.IsBound();
+		return ShadowTileNumCulledObjects.IsBound() || ShadowTileStartOffsets.IsBound() || NextStartOffset.IsBound() || ShadowTileArrayData.IsBound() || ShadowTileListGroupSize.IsBound() || ShadowAverageObjectsPerTile.IsBound();
 	}
 
 	template<typename TParamRef, typename TRHICommandList>
 	void Set(TRHICommandList& RHICmdList, const TParamRef& ShaderRHI, const FLightTileIntersectionResources& LightTileIntersectionResources)
 	{
-		ShadowTileHeadDataUnpacked.SetBuffer(RHICmdList, ShaderRHI, LightTileIntersectionResources.TileHeadDataUnpacked);
+		ShadowTileNumCulledObjects.SetBuffer(RHICmdList, ShaderRHI, LightTileIntersectionResources.TileNumCulledObjects);
+		ShadowTileStartOffsets.SetBuffer(RHICmdList, ShaderRHI, LightTileIntersectionResources.TileStartOffsets);
+
+		NextStartOffset.SetBuffer(RHICmdList, ShaderRHI, LightTileIntersectionResources.NextStartOffset);
 
 		// Bind sorted array data if we are after the sort pass
 		ShadowTileArrayData.SetBuffer(RHICmdList, ShaderRHI, LightTileIntersectionResources.TileArrayData);
 
 		SetShaderValue(RHICmdList, ShaderRHI, ShadowTileListGroupSize, LightTileIntersectionResources.TileDimensions);
-		SetShaderValue(RHICmdList, ShaderRHI, ShadowMaxObjectsPerTile, GMaxDistanceFieldObjectsPerCullTile);
+		SetShaderValue(RHICmdList, ShaderRHI, ShadowAverageObjectsPerTile, GAverageObjectsPerShadowCullTile);
 	}
 
 	void GetUAVs(FLightTileIntersectionResources& TileIntersectionResources, TArray<FUnorderedAccessViewRHIParamRef>& UAVs)
 	{
-		int32 MaxIndex = FMath::Max(ShadowTileHeadDataUnpacked.GetUAVIndex(), ShadowTileArrayData.GetUAVIndex());
+		int32 MaxIndex = FMath::Max(
+			FMath::Max(ShadowTileNumCulledObjects.GetUAVIndex(), ShadowTileStartOffsets.GetUAVIndex()), 
+			FMath::Max(NextStartOffset.GetUAVIndex(), ShadowTileArrayData.GetUAVIndex()));
 		UAVs.AddZeroed(MaxIndex + 1);
 
-		if (ShadowTileHeadDataUnpacked.IsUAVBound())
+		if (ShadowTileNumCulledObjects.IsUAVBound())
 		{
-			UAVs[ShadowTileHeadDataUnpacked.GetUAVIndex()] = TileIntersectionResources.TileHeadDataUnpacked.UAV;
+			UAVs[ShadowTileNumCulledObjects.GetUAVIndex()] = TileIntersectionResources.TileNumCulledObjects.UAV;
+		}
+
+		if (ShadowTileStartOffsets.IsUAVBound())
+		{
+			UAVs[ShadowTileStartOffsets.GetUAVIndex()] = TileIntersectionResources.TileStartOffsets.UAV;
+		}
+
+		if (NextStartOffset.IsUAVBound())
+		{
+			UAVs[NextStartOffset.GetUAVIndex()] = TileIntersectionResources.NextStartOffset.UAV;
 		}
 
 		if (ShadowTileArrayData.IsUAVBound())
@@ -595,24 +610,30 @@ public:
 	template<typename TParamRef>
 	void UnsetParameters(FRHICommandList& RHICmdList, const TParamRef& ShaderRHI)
 	{
-		ShadowTileHeadDataUnpacked.UnsetUAV(RHICmdList, ShaderRHI);
+		ShadowTileNumCulledObjects.UnsetUAV(RHICmdList, ShaderRHI);
+		ShadowTileStartOffsets.UnsetUAV(RHICmdList, ShaderRHI);
+		NextStartOffset.UnsetUAV(RHICmdList, ShaderRHI);
 		ShadowTileArrayData.UnsetUAV(RHICmdList, ShaderRHI);
 	}
 
 	friend FArchive& operator<<(FArchive& Ar, FLightTileIntersectionParameters& P)
 	{
-		Ar << P.ShadowTileHeadDataUnpacked;
+		Ar << P.ShadowTileNumCulledObjects;
+		Ar << P.ShadowTileStartOffsets;
+		Ar << P.NextStartOffset;
 		Ar << P.ShadowTileArrayData;
 		Ar << P.ShadowTileListGroupSize;
-		Ar << P.ShadowMaxObjectsPerTile;
+		Ar << P.ShadowAverageObjectsPerTile;
 		return Ar;
 	}
 
 private:
-	FRWShaderParameter ShadowTileHeadDataUnpacked;
+	FRWShaderParameter ShadowTileNumCulledObjects;
+	FRWShaderParameter ShadowTileStartOffsets;
+	FRWShaderParameter NextStartOffset;
 	FRWShaderParameter ShadowTileArrayData;
 	FShaderParameter ShadowTileListGroupSize;
-	FShaderParameter ShadowMaxObjectsPerTile;
+	FShaderParameter ShadowAverageObjectsPerTile;
 };
 
 extern void CullDistanceFieldObjectsForLight(

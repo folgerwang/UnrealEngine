@@ -7,6 +7,7 @@
 #include "BoneContainer.h"
 #include "BonePose.h"
 #include "BoneControllers/AnimNode_SkeletalControlBase.h"
+#include "Animation/AnimTypes.h"
 #include "AnimNode_BoneDrivenController.generated.h"
 
 class UCurveFloat;
@@ -14,26 +15,6 @@ class USkeletalMeshComponent;
 
 // Evaluation of the bone transforms relies on the size and ordering of this
 // enum, if this needs to change make sure EvaluateSkeletalControl_AnyThread is updated.
-
-// The transform component (attribute) to read from
-UENUM()
-namespace EComponentType
-{
-	enum Type
-	{
-		None = 0,
-		TranslationX,
-		TranslationY,
-		TranslationZ,
-		RotationX,
-		RotationY,
-		RotationZ,
-		Scale UMETA(DisplayName="Scale (largest component)"),
-		ScaleX,
-		ScaleY,
-		ScaleZ
-	};
-}
 
 // The type of modification to make to the destination component(s)
 UENUM()

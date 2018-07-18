@@ -20,15 +20,15 @@
 #include "BatchedElements.h"
 #include "MeshBatch.h"
 #include "SceneManagement.h"
+#include "ScenePrivateBase.h"
 #include "PrimitiveSceneInfo.h"
 #include "GlobalShader.h"
-#include "ShadowRendering.h"
 #include "PrimitiveViewRelevance.h"
 #include "DistortionRendering.h"
 #include "CustomDepthRendering.h"
 #include "HeightfieldLighting.h"
 #include "GlobalDistanceFieldParameters.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 class FScene;
 class FSceneViewState;
@@ -40,6 +40,9 @@ template<typename ShaderMetaType> class TShaderMap;
 // Forward declarations.
 class FPostprocessContext;
 struct FILCUpdatePrimTaskData;
+
+DECLARE_STATS_GROUP(TEXT("Command List Markers"), STATGROUP_CommandListMarkers, STATCAT_Advanced);
+
 
 /** Mobile only. Information used to determine whether static meshes will be rendered with CSM shaders or not. */
 class FMobileCSMVisibilityInfo
@@ -447,22 +450,26 @@ public:
 	enum { OccludedPrimitiveQueryBatchSize = 16 };
 
 	/** Initialization constructor. */
-	FOcclusionQueryBatcher(class FSceneViewState* ViewState,uint32 InMaxBatchedPrimitives);
+	FOcclusionQueryBatcher(class FSceneViewState* ViewState, uint32 InMaxBatchedPrimitives);
 
 	/** Destructor. */
 	~FOcclusionQueryBatcher();
-	
+
 	/** @returns True if the batcher has any outstanding batches, otherwise false. */
 	bool HasBatches(void) const { return (NumBatchedPrimitives > 0); }
 
 	/** Renders the current batch and resets the batch state. */
-	void Flush(FRHICommandListImmediate& RHICmdList);
+	void Flush(FRHICommandList& RHICmdList);
 
 	/**
 	 * Batches a primitive's occlusion query for rendering.
 	 * @param Bounds - The primitive's bounds.
 	 */
-	FRenderQueryRHIParamRef BatchPrimitive(const FVector& BoundsOrigin,const FVector& BoundsBoxExtent);
+	FRenderQueryRHIParamRef BatchPrimitive(const FVector& BoundsOrigin, const FVector& BoundsBoxExtent);
+	inline int32 GetNumBatchOcclusionQueries() const
+	{
+		return BatchOcclusionQueries.Num();
+	}
 
 private:
 
@@ -540,6 +547,7 @@ public:
 	const FSceneRenderer* SceneRenderer;
 	FDrawingPolicyRenderState DrawRenderState;
 	FRHICommandListImmediate& ParentCmdList;
+	const FRHIGPUMask GPUMask; // Copy of the Parent GPUMask at creation (since it could change).
 	FSceneRenderTargets* Snapshot;
 	TStatId	ExecuteStat;
 	int32 Width;
@@ -563,7 +571,15 @@ protected:
 	bool bParallelExecute;
 	bool bCreateSceneContext;
 public:
-	FParallelCommandListSet(TStatId InExecuteStat, const FViewInfo& InView, const FSceneRenderer* InSceneRenderer, FRHICommandListImmediate& InParentCmdList, bool bInParallelExecute, bool bInCreateSceneContext);
+	FParallelCommandListSet(
+		TStatId InExecuteStat, 
+		const FViewInfo& InView, 
+		const FSceneRenderer* InSceneRenderer, 
+		FRHICommandListImmediate& InParentCmdList, 
+		bool bInParallelExecute, 
+		bool bInCreateSceneContext, 
+		const FDrawingPolicyRenderState& InDrawRenderState);
+
 	virtual ~FParallelCommandListSet();
 	int32 NumParallelCommandLists() const
 	{
@@ -643,53 +659,52 @@ public:
 const int32 GMaxForwardShadowCascades = 4;
 
 #define FORWARD_GLOBAL_LIGHT_DATA_UNIFORM_BUFFER_MEMBER_TABLE \
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(uint32,NumLocalLights) \
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(uint32, NumReflectionCaptures) \
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(uint32, HasDirectionalLight) \
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(uint32, NumGridCells) \
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FIntVector, CulledGridSize) \
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(uint32, MaxCulledLightsPerCell) \
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(uint32, LightGridPixelSizeShift) \
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector, LightGridZParams) \
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector, DirectionalLightDirection) \
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector, DirectionalLightColor) \
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(float, DirectionalLightVolumetricScatteringIntensity) \
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(uint32, DirectionalLightShadowMapChannelMask) \
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector2D, DirectionalLightDistanceFadeMAD) \
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(uint32, NumDirectionalLightCascades) \
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4, CascadeEndDepths) \
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_ARRAY(FMatrix, DirectionalLightWorldToShadowMatrix, [GMaxForwardShadowCascades]) \
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_ARRAY(FVector4, DirectionalLightShadowmapMinMax, [GMaxForwardShadowCascades]) \
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4, DirectionalLightShadowmapAtlasBufferSize) \
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(float, DirectionalLightDepthBias) \
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(uint32, DirectionalLightUseStaticShadowing) \
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4, DirectionalLightStaticShadowBufferSize) \
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FMatrix, DirectionalLightWorldToStaticShadow) \
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_TEXTURE(Texture2D, DirectionalLightShadowmapAtlas) \
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_SAMPLER(SamplerState, ShadowmapSampler) \
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_TEXTURE(Texture2D, DirectionalLightStaticShadowmap) \
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_SAMPLER(SamplerState, StaticShadowmapSampler)
+	UNIFORM_MEMBER(uint32,NumLocalLights) \
+	UNIFORM_MEMBER(uint32, NumReflectionCaptures) \
+	UNIFORM_MEMBER(uint32, HasDirectionalLight) \
+	UNIFORM_MEMBER(uint32, NumGridCells) \
+	UNIFORM_MEMBER(FIntVector, CulledGridSize) \
+	UNIFORM_MEMBER(uint32, MaxCulledLightsPerCell) \
+	UNIFORM_MEMBER(uint32, LightGridPixelSizeShift) \
+	UNIFORM_MEMBER(FVector, LightGridZParams) \
+	UNIFORM_MEMBER(FVector, DirectionalLightDirection) \
+	UNIFORM_MEMBER(FVector, DirectionalLightColor) \
+	UNIFORM_MEMBER(float, DirectionalLightVolumetricScatteringIntensity) \
+	UNIFORM_MEMBER(uint32, DirectionalLightShadowMapChannelMask) \
+	UNIFORM_MEMBER(FVector2D, DirectionalLightDistanceFadeMAD) \
+	UNIFORM_MEMBER(uint32, NumDirectionalLightCascades) \
+	UNIFORM_MEMBER(FVector4, CascadeEndDepths) \
+	UNIFORM_MEMBER_ARRAY(FMatrix, DirectionalLightWorldToShadowMatrix, [GMaxForwardShadowCascades]) \
+	UNIFORM_MEMBER_ARRAY(FVector4, DirectionalLightShadowmapMinMax, [GMaxForwardShadowCascades]) \
+	UNIFORM_MEMBER(FVector4, DirectionalLightShadowmapAtlasBufferSize) \
+	UNIFORM_MEMBER(float, DirectionalLightDepthBias) \
+	UNIFORM_MEMBER(uint32, DirectionalLightUseStaticShadowing) \
+	UNIFORM_MEMBER(FVector4, DirectionalLightStaticShadowBufferSize) \
+	UNIFORM_MEMBER(FMatrix, DirectionalLightWorldToStaticShadow) \
+	UNIFORM_MEMBER_TEXTURE(Texture2D, DirectionalLightShadowmapAtlas) \
+	UNIFORM_MEMBER_SAMPLER(SamplerState, ShadowmapSampler) \
+	UNIFORM_MEMBER_TEXTURE(Texture2D, DirectionalLightStaticShadowmap) \
+	UNIFORM_MEMBER_SAMPLER(SamplerState, StaticShadowmapSampler) \
+	UNIFORM_MEMBER_SRV(StrongTypedBuffer<float4>, ForwardLocalLightBuffer) \
+	UNIFORM_MEMBER_SRV(StrongTypedBuffer<uint>, NumCulledLightsGrid) \
+	UNIFORM_MEMBER_SRV(StrongTypedBuffer<uint>, CulledLightDataGrid) 
 
-BEGIN_UNIFORM_BUFFER_STRUCT_WITH_CONSTRUCTOR(FForwardGlobalLightData,)
+BEGIN_UNIFORM_BUFFER_STRUCT_WITH_CONSTRUCTOR(FForwardLightData,)
 	FORWARD_GLOBAL_LIGHT_DATA_UNIFORM_BUFFER_MEMBER_TABLE
-END_UNIFORM_BUFFER_STRUCT(FForwardGlobalLightData)
-
-// Copy for instanced stereo
-BEGIN_UNIFORM_BUFFER_STRUCT_WITH_CONSTRUCTOR(FInstancedForwardGlobalLightData, )
-	FORWARD_GLOBAL_LIGHT_DATA_UNIFORM_BUFFER_MEMBER_TABLE
-END_UNIFORM_BUFFER_STRUCT(FInstancedForwardGlobalLightData)
+END_UNIFORM_BUFFER_STRUCT(FForwardLightData)
 
 class FForwardLightingViewResources
 {
 public:
-	TUniformBufferRef<FForwardGlobalLightData> ForwardGlobalLightData;
+	FForwardLightData ForwardLightData;
+	TUniformBufferRef<FForwardLightData> ForwardLightDataUniformBuffer;
 	FDynamicReadBuffer ForwardLocalLightBuffer;
 	FRWBuffer NumCulledLightsGrid;
 	FRWBuffer CulledLightDataGrid;
 
 	void Release()
 	{
-		ForwardGlobalLightData.SafeRelease();
+		ForwardLightDataUniformBuffer.SafeRelease();
 		ForwardLocalLightBuffer.Release();
 		NumCulledLightsGrid.Release();
 		CulledLightDataGrid.Release();
@@ -714,15 +729,15 @@ public:
 };
 
 BEGIN_UNIFORM_BUFFER_STRUCT_WITH_CONSTRUCTOR(FVolumetricFogGlobalData,) 
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FIntVector, GridSizeInt)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector, GridSize)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(uint32, GridPixelSizeShift)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector, GridZParams)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector2D, SVPosToVolumeUV)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FIntPoint, FogGridToPixelXY)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(float, MaxDistance)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector, HeightFogInscatteringColor)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector, HeightFogDirectionalLightInscatteringColor)
+	UNIFORM_MEMBER(FIntVector, GridSizeInt)
+	UNIFORM_MEMBER(FVector, GridSize)
+	UNIFORM_MEMBER(uint32, GridPixelSizeShift)
+	UNIFORM_MEMBER(FVector, GridZParams)
+	UNIFORM_MEMBER(FVector2D, SVPosToVolumeUV)
+	UNIFORM_MEMBER(FIntPoint, FogGridToPixelXY)
+	UNIFORM_MEMBER(float, MaxDistance)
+	UNIFORM_MEMBER(FVector, HeightFogInscatteringColor)
+	UNIFORM_MEMBER(FVector, HeightFogDirectionalLightInscatteringColor)
 END_UNIFORM_BUFFER_STRUCT(FVolumetricFogGlobalData)
 
 class FVolumetricFogViewResources
@@ -775,30 +790,28 @@ private:
 	TArray<FPrimitiveSceneProxy*, SceneRenderingAllocator> Prims;
 };
 
-/** 
- * Number of reflection captures to allocate uniform buffer space for. 
- * This is currently limited by the array texture max size of 2048 for d3d11 (each cubemap is 6 slices).
- * Must touch the reflection shaders to propagate changes.
- */
 static const int32 GMaxNumReflectionCaptures = 341;
 
 /** Per-reflection capture data needed by the shader. */
 BEGIN_UNIFORM_BUFFER_STRUCT(FReflectionCaptureShaderData,)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_ARRAY(FVector4,PositionAndRadius,[GMaxNumReflectionCaptures])
+	UNIFORM_MEMBER_ARRAY(FVector4,PositionAndRadius,[GMaxNumReflectionCaptures])
 	// R is brightness, G is array index, B is shape
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_ARRAY(FVector4,CaptureProperties,[GMaxNumReflectionCaptures])
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_ARRAY(FVector4,CaptureOffsetAndAverageBrightness,[GMaxNumReflectionCaptures])
+	UNIFORM_MEMBER_ARRAY(FVector4,CaptureProperties,[GMaxNumReflectionCaptures])
+	UNIFORM_MEMBER_ARRAY(FVector4,CaptureOffsetAndAverageBrightness,[GMaxNumReflectionCaptures])
 	// Stores the box transform for a box shape, other data is packed for other shapes
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_ARRAY(FMatrix,BoxTransform,[GMaxNumReflectionCaptures])
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_ARRAY(FVector4,BoxScales,[GMaxNumReflectionCaptures])
+	UNIFORM_MEMBER_ARRAY(FMatrix,BoxTransform,[GMaxNumReflectionCaptures])
+	UNIFORM_MEMBER_ARRAY(FVector4,BoxScales,[GMaxNumReflectionCaptures])
 END_UNIFORM_BUFFER_STRUCT(FReflectionCaptureShaderData)
 
 // Structure in charge of storing all information about TAA's history.
 struct FTemporalAAHistory
 {
+	// Number of render target in the history.
+	static constexpr uint32 kRenderTargetCount = 2;
+
 	// Render targets holding's pixel history.
 	//  scene color's RGBA are in RT[0].
-	TRefCountPtr<IPooledRenderTarget> RT[2];
+	TRefCountPtr<IPooledRenderTarget> RT[kRenderTargetCount];
 
 	// Reference size of RT. Might be different than RT's actual size to handle down res.
 	FIntPoint ReferenceBufferSize;
@@ -812,8 +825,10 @@ struct FTemporalAAHistory
 
 	void SafeRelease()
 	{
-		RT[0].SafeRelease();
-		RT[1].SafeRelease();
+		for (uint32 i = 0; i < kRenderTargetCount; i++)
+		{
+			RT[i].SafeRelease();
+		}
 	}
 
 	bool IsValid() const
@@ -831,6 +846,11 @@ struct FPreviousViewInfo
 	// Temporal AA result of last frame
 	FTemporalAAHistory TemporalAAHistory;
 
+	// Temporal AA history for diaphragm DOF.
+	FTemporalAAHistory DOFPreGatherHistory;
+	FTemporalAAHistory DOFPostGatherForegroundHistory;
+	FTemporalAAHistory DOFPostGatherBackgroundHistory;
+
 	// Scene color input for SSR, that can be different from TemporalAAHistory.RT[0] if there is a SSR
 	// input post process material.
 	TRefCountPtr<IPooledRenderTarget> CustomSSRInput;
@@ -839,6 +859,9 @@ struct FPreviousViewInfo
 	void SafeRelease()
 	{
 		TemporalAAHistory.SafeRelease();
+		DOFPreGatherHistory.SafeRelease();
+		DOFPostGatherForegroundHistory.SafeRelease();
+		DOFPostGatherBackgroundHistory.SafeRelease();
 		CustomSSRInput.SafeRelease();
 	}
 };
@@ -1028,6 +1051,9 @@ public:
 	// Previous frame view info to use for this view.
 	FPreviousViewInfo PrevViewInfo;
 
+	/** The GPU nodes on which to render this view. */
+	FRHIGPUMask GPUMask;
+
 	/** An intermediate number of visible static meshes.  Doesn't account for occlusion until after FinishOcclusionQueries is called. */
 	int32 NumVisibleStaticMeshElements;
 
@@ -1052,7 +1078,7 @@ public:
 	TUniformBufferRef<FReflectionCaptureShaderData> ReflectionCaptureUniformBuffer;
 
 	/** Used when there is no view state, buffers reallocate every frame. */
-	FForwardLightingViewResources ForwardLightingResourcesStorage;
+	TUniquePtr<FForwardLightingViewResources> ForwardLightingResourcesStorage;
 
 	FVolumetricFogViewResources VolumetricFogResources;
 
@@ -1150,11 +1176,17 @@ public:
 	/** Gets the eye adaptation render target for this view. Same as GetEyeAdaptationRT */
 	IPooledRenderTarget* GetEyeAdaptation(FRHICommandList& RHICmdList) const;
 
+	IPooledRenderTarget* GetEyeAdaptation() const
+	{
+		return GetEyeAdaptationRT();
+	}
+
 	/** Gets one of two eye adaptation render target for this view.
 	* NB: will return null in the case that the internal view state pointer
 	* (for the left eye in the stereo case) is null.
 	*/
 	IPooledRenderTarget* GetEyeAdaptationRT(FRHICommandList& RHICmdList) const;
+	IPooledRenderTarget* GetEyeAdaptationRT() const;
 	IPooledRenderTarget* GetLastEyeAdaptationRT(FRHICommandList& RHICmdList) const;
 
 	/**Swap the order of the two eye adaptation targets in the double buffer system */
@@ -1252,30 +1284,6 @@ private:
 	void SetupSkyIrradianceEnvironmentMapConstants(FVector4* OutSkyIrradianceEnvironmentMap) const;
 };
 
-
-/**
- * Used to hold combined stats for a shadow. In the case of projected shadows the shadows
- * for the preshadow and subject are combined in this stat and so are primitives with a shadow parent.
- */
-struct FCombinedShadowStats
-{
-	/** Array of shadow subjects. The first one is the shadow parent in the case of multiple entries.	*/
-	FProjectedShadowInfo::PrimitiveArrayType	SubjectPrimitives;
-	/** Array of preshadow primitives in the case of projected shadows.									*/
-	FProjectedShadowInfo::PrimitiveArrayType	PreShadowPrimitives;
-	/** Shadow resolution in the case of projected shadows												*/
-	int32									ShadowResolution;
-	/** Shadow pass number in the case of projected shadows												*/
-	int32									ShadowPassNumber;
-
-	/**
-	 * Default constructor. 
-	 */
-	FCombinedShadowStats()
-	:	ShadowResolution(INDEX_NONE)
-	,	ShadowPassNumber(INDEX_NONE)
-	{}
-};
 
 /**
  * Masks indicating for which views a primitive needs to have a certain operation on.
@@ -1463,7 +1471,19 @@ public:
 	void PrepareViewRectsForRendering();
 
 	bool DoOcclusionQueries(ERHIFeatureLevel::Type InFeatureLevel) const;
+	/** Issues occlusion queries. */
+	void BeginOcclusionTests(FRHICommandListImmediate& RHICmdList, bool bRenderQueries);
 
+	// fences to make sure the rhi thread has digested the occlusion query renders before we attempt to read them back async
+	static FGraphEventRef OcclusionSubmittedFence[FOcclusionQueryHelpers::MaxBufferedOcclusionFrames];
+	/** Fences occlusion queries. */
+	void FenceOcclusionTests(FRHICommandListImmediate& RHICmdList);
+	/** Waits for the occlusion fence. */
+	void WaitOcclusionTests(FRHICommandListImmediate& RHICmdList);
+
+	/** bound shader state for occlusion test prims */
+	static FGlobalBoundShaderState OcclusionTestBoundShaderState;
+	
 	/**
 	* Whether or not to composite editor objects onto the scene as a post processing step
 	*
@@ -1670,6 +1690,8 @@ public:
 
 	bool RenderInverseOpacity(FRHICommandListImmediate& RHICmdList, const FViewInfo& View);
 
+	void RenderMobileBasePassDynamicData(FRHICommandList& RHICmdList, const FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState, EBlendMode BlendMode, bool bWireFrame, int32 FirstElement = 0, int32 AfterLastElement = MAX_int32);
+
 protected:
 	/** Finds the visible dynamic shadows for each view. */
 	void InitDynamicShadows(FRHICommandListImmediate& RHICmdList);
@@ -1682,6 +1704,9 @@ protected:
 	/** Renders the opaque base pass for mobile. */
 	void RenderMobileBasePass(FRHICommandListImmediate& RHICmdList, const TArrayView<const FViewInfo*> PassViews);
 
+	void RenderMobileEditorPrimitives(FRHICommandList& RHICmdList, const FViewInfo& View, const FDrawingPolicyRenderState& DrawRenderState);
+	void RenderMobileBasePassViewParallel(const FViewInfo& View, FRHICommandListImmediate& ParentCmdList, TArray<FViewInfo>& Views, const FDrawingPolicyRenderState& DrawRenderState);
+
 	/** Render modulated shadow projections in to the scene, loops over any unrendered shadows until all are processed.*/
 	void RenderModulatedShadowProjections(FRHICommandListImmediate& RHICmdList);
 
@@ -1690,6 +1715,12 @@ protected:
 
 	/** Resolves scene depth in case hardware does not support reading depth in the shader */
 	void ConditionalResolveSceneDepth(FRHICommandListImmediate& RHICmdList, const FViewInfo& View);
+
+	/** Issues occlusion queries */
+	void RenderOcclusion(FRHICommandListImmediate& RHICmdList);
+	
+	/** Computes how many queries will be issued this frame */
+	int32 ComputeNumOcclusionQueriesToBatch() const;
 
 	/** Renders decals. */
 	void RenderDecals(FRHICommandListImmediate& RHICmdList);
@@ -1776,61 +1807,66 @@ struct FFastVramConfig
 	void OnCVarUpdated();
 	void OnSceneRenderTargetsAllocated();
 
-	ETextureCreateFlags GBufferA;
-	ETextureCreateFlags GBufferB;
-	ETextureCreateFlags GBufferC;
-	ETextureCreateFlags GBufferD;
-	ETextureCreateFlags GBufferE;
-	ETextureCreateFlags GBufferVelocity;
-	ETextureCreateFlags HZB;
-	ETextureCreateFlags SceneDepth;
-	ETextureCreateFlags SceneColor;
-	ETextureCreateFlags LPV;
-	ETextureCreateFlags BokehDOF;
-	ETextureCreateFlags CircleDOF;
-	ETextureCreateFlags CombineLUTs;
-	ETextureCreateFlags Downsample;
-	ETextureCreateFlags EyeAdaptation;
-	ETextureCreateFlags Histogram;
-	ETextureCreateFlags HistogramReduce;
-	ETextureCreateFlags VelocityFlat;
-	ETextureCreateFlags VelocityMax;
-	ETextureCreateFlags MotionBlur;
-	ETextureCreateFlags Tonemap;
-	ETextureCreateFlags Upscale;
-	ETextureCreateFlags DistanceFieldNormal;
-	ETextureCreateFlags DistanceFieldAOHistory;
-	ETextureCreateFlags DistanceFieldAOBentNormal;
-	ETextureCreateFlags DistanceFieldAODownsampledBentNormal;
-	ETextureCreateFlags DistanceFieldShadows;
-	ETextureCreateFlags DistanceFieldIrradiance;
-	ETextureCreateFlags DistanceFieldAOConfidence;
-	ETextureCreateFlags Distortion;
-	ETextureCreateFlags ScreenSpaceShadowMask;
-	ETextureCreateFlags VolumetricFog;
-	ETextureCreateFlags SeparateTranslucency;
-	ETextureCreateFlags LightAccumulation;
-	ETextureCreateFlags LightAttenuation;
-	ETextureCreateFlags ScreenSpaceAO;
-	ETextureCreateFlags DBufferA;
-	ETextureCreateFlags DBufferB;
-	ETextureCreateFlags DBufferC;
-	ETextureCreateFlags DBufferMask;
+	uint32 GBufferA;
+	uint32 GBufferB;
+	uint32 GBufferC;
+	uint32 GBufferD;
+	uint32 GBufferE;
+	uint32 GBufferVelocity;
+	uint32 HZB;
+	uint32 SceneDepth;
+	uint32 SceneColor;
+	uint32 LPV;
+	uint32 BokehDOF;
+	uint32 CircleDOF;
+	uint32 CombineLUTs;
+	uint32 Downsample;
+	uint32 EyeAdaptation;
+	uint32 Histogram;
+	uint32 HistogramReduce;
+	uint32 VelocityFlat;
+	uint32 VelocityMax;
+	uint32 MotionBlur;
+	uint32 Tonemap;
+	uint32 Upscale;
+	uint32 DistanceFieldNormal;
+	uint32 DistanceFieldAOHistory;
+	uint32 DistanceFieldAOBentNormal;
+	uint32 DistanceFieldAODownsampledBentNormal;
+	uint32 DistanceFieldShadows;
+	uint32 DistanceFieldIrradiance;
+	uint32 DistanceFieldAOConfidence;
+	uint32 Distortion;
+	uint32 ScreenSpaceShadowMask;
+	uint32 VolumetricFog;
+	uint32 SeparateTranslucency;
+	uint32 LightAccumulation;
+	uint32 LightAttenuation;
+	uint32 ScreenSpaceAO;
+	uint32 SSR;
+	uint32 DBufferA;
+	uint32 DBufferB;
+	uint32 DBufferC;
+	uint32 DBufferMask;
+	uint32 DOFSetup;
+	uint32 DOFReduce;
+	uint32 DOFPostfilter;
 
-	ETextureCreateFlags CustomDepth;
-	ETextureCreateFlags ShadowPointLight;
-	ETextureCreateFlags ShadowPerObject;
-	ETextureCreateFlags ShadowCSM;
+	uint32 CustomDepth;
+	uint32 ShadowPointLight;
+	uint32 ShadowPerObject;
+	uint32 ShadowCSM;
 
-	EBufferUsageFlags DistanceFieldCulledObjectBuffers;
-	EBufferUsageFlags DistanceFieldTileIntersectionResources;
-	EBufferUsageFlags DistanceFieldAOScreenGridResources;
-	EBufferUsageFlags ForwardLightingCullingResources;
+	// Buffers
+	uint32 DistanceFieldCulledObjectBuffers;
+	uint32 DistanceFieldTileIntersectionResources;
+	uint32 DistanceFieldAOScreenGridResources;
+	uint32 ForwardLightingCullingResources;
 	bool bDirty;
 
 private:
-	bool UpdateTextureFlagFromCVar(TAutoConsoleVariable<int32>& CVar, ETextureCreateFlags& InOutValue);
-	bool UpdateBufferFlagFromCVar(TAutoConsoleVariable<int32>& CVar, EBufferUsageFlags& InOutValue);
+	bool UpdateTextureFlagFromCVar(TAutoConsoleVariable<int32>& CVar, uint32& InOutValue);
+	bool UpdateBufferFlagFromCVar(TAutoConsoleVariable<int32>& CVar, uint32& InOutValue);
 };
 
 extern FFastVramConfig GFastVRamConfig;

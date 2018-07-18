@@ -7,8 +7,8 @@
 #include "Widgets/DeclarativeSyntaxSupport.h"
 #include "Widgets/Images/SImage.h"
 #include "Widgets/Layout/SGridPanel.h"
-#include "STextBlock.h"
-#include "SButton.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SButton.h"
 
 #include "Engine/GameViewportClient.h"
 
@@ -23,10 +23,10 @@
 #include "Editor.h"
 #include "ScopedTransaction.h"
 #include "IDetailGroup.h"
-#include "SInlineEditableTextBlock.h"
-#include "SlateDelegates.h"
-#include "Attribute.h"
-#include "SlateTypes.h"
+#include "Widgets/Text/SInlineEditableTextBlock.h"
+#include "Framework/SlateDelegates.h"
+#include "Misc/Attribute.h"
+#include "Styling/SlateTypes.h"
 #include "MaterialPropertyHelpers.h"
 
 

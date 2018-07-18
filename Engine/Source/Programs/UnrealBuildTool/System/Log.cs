@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -89,14 +89,17 @@ namespace UnrealBuildTool
 		/// In general user code should not concern itself checking for this.
 		/// </summary>
 		private static bool bIsInitialized = false;
+
 		/// <summary>
 		/// When true, verbose logging is enabled.
 		/// </summary>
 		private static LogEventType LogLevel = LogEventType.VeryVerbose;
+
 		/// <summary>
 		/// When true, warnings and errors will have a WARNING: or ERROR: prexifx, respectively.
 		/// </summary>
 		private static bool bLogSeverity = false;
+		
 		/// <summary>
 		/// When true, warnings and errors will have a prefix suitable for display by MSBuild (avoiding error messages showing as (EXEC : Error : ")
 		/// </summary>
@@ -105,14 +108,17 @@ namespace UnrealBuildTool
 		/// When true, logs will have the calling mehod prepended to the output as MethodName:
 		/// </summary>
 		private static bool bLogSources = false;
+		
 		/// <summary>
 		/// When true, console output will have the calling mehod prepended to the output as MethodName:
 		/// </summary>
 		private static bool bLogSourcesToConsole = false;
+		
 		/// <summary>
 		/// When true, will detect warnings and errors and set the console output color to yellow and red.
 		/// </summary>
 		private static bool bColorConsoleOutput = false;
+		
 		/// <summary>
 		/// When configured, this tracks time since initialization to prepend a timestamp to each log.
 		/// </summary>
@@ -154,6 +160,15 @@ namespace UnrealBuildTool
 		public static bool IsInitialized()
 		{
 			return bIsInitialized;
+		}
+
+		/// <summary>
+		/// Allows code to check if the log system is using console output color.
+		/// </summary>
+		/// <returns></returns>
+		public static bool ColorConsoleOutput()
+		{
+			return bColorConsoleOutput;
 		}
 
 		/// <summary>
@@ -334,30 +349,22 @@ namespace UnrealBuildTool
 			if (Verbosity <= LogLevel)
 			{
 				// Do console color highlighting here.
-				ConsoleColor DefaultColor = ConsoleColor.Gray;
-				bool bIsWarning = false;
-				bool bIsError = false;
-				// don't try to touch the console unless we are told to color the output.
+				bool bResetConsoleColor = false;
 				if (bColorConsoleOutput)
 				{
-					DefaultColor = Console.ForegroundColor;
-					bIsWarning = Verbosity == LogEventType.Warning;
-					bIsError = Verbosity <= LogEventType.Error;
-					// @todo mono - mono doesn't seem to initialize the ForegroundColor properly, so we can't restore it properly.
-					// Avoid touching the console color unless we really need to.
-					if (bIsWarning || bIsError)
+					if(Verbosity == LogEventType.Warning)
 					{
-						Console.ForegroundColor = bIsWarning ? ConsoleColor.Yellow : ConsoleColor.Red;
+						Console.ForegroundColor = ConsoleColor.Yellow;
+						bResetConsoleColor = true;
+					}
+					if(Verbosity <= LogEventType.Error)
+					{
+						Console.ForegroundColor = ConsoleColor.Red;
+						bResetConsoleColor = true;
 					}
 				}
 				try
 				{
-					// @todo mono: mono has some kind of bug where calling mono recursively by spawning
-					// a new process causes Trace.WriteLine to stop functioning (it returns, but does nothing for some reason).
-					// work around this by simulating Trace.WriteLine on mono.
-					// We use UAT to spawn UBT instances recursively a lot, so this bug can effectively
-					// make all build output disappear outside of the top level UAT process.
-					//					#if MONO
 					lock (((System.Collections.ICollection)Trace.Listeners).SyncRoot)
 					{
 						foreach (TraceListener l in Trace.Listeners)
@@ -374,17 +381,13 @@ namespace UnrealBuildTool
 							l.Flush();
 						}
 					}
-					//					#else
-					// Call Trace directly here. Trace ensures that our logging is threadsafe using the GlobalLock.
-					//                    	Trace.WriteLine(FormatMessage(StackFramesToSkip + 1, CustomSource, Verbosity, Format, Args));
-					//					#endif
 				}
 				finally
 				{
 					// make sure we always put the console color back.
-					if (bColorConsoleOutput && (bIsWarning || bIsError))
+					if(bResetConsoleColor)
 					{
-						Console.ForegroundColor = DefaultColor;
+						Console.ResetColor();
 					}
 				}
 			}
@@ -527,7 +530,7 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// Similar to Trace.WriteLin
+		/// Similar to Trace.WriteLine
 		/// </summary>
 		/// <param name="Verbosity"></param>
 		/// <param name="Format"></param>
@@ -536,6 +539,19 @@ namespace UnrealBuildTool
 		public static void WriteLineOnce(LogEventType Verbosity, string Format, params object[] Args)
 		{
 			WriteLinePrivate(1, true, Verbosity, LogFormatOptions.None, Format, Args);
+		}
+
+		/// <summary>
+		/// Similar to Trace.WriteLine
+		/// </summary>
+		/// <param name="Verbosity"></param>
+		/// <param name="Options"></param>
+		/// <param name="Format"></param>
+		/// <param name="Args"></param>
+		[MethodImplAttribute(MethodImplOptions.NoInlining)]
+		public static void WriteLineOnce(LogEventType Verbosity, LogFormatOptions Options, string Format, params object[] Args)
+		{
+			WriteLinePrivate(1, true, Verbosity, Options, Format, Args);
 		}
 
 		/// <summary>

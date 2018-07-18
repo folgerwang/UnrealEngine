@@ -70,5 +70,6 @@ void FMediaSamples::FlushSamples()
 	AudioSampleQueue.RequestFlush();
 	MetadataSampleQueue.RequestFlush();
 	CaptionSampleQueue.RequestFlush();
+	SubtitleSampleQueue.RequestFlush();
 	VideoSampleQueue.RequestFlush();
 }

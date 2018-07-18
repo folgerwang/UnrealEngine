@@ -5,6 +5,7 @@
 =============================================================================*/
 
 #include "Common.ush"
+#include "SceneTexturesCommon.ush"
 
 float2 InvTexSize;
 

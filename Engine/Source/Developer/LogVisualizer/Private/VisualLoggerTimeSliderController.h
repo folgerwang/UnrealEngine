@@ -8,17 +8,48 @@
 #include "Input/Reply.h"
 #include "Widgets/SWidget.h"
 #include "Widgets/Layout/SScrollBar.h"
-#include "ITimeSlider.h"
 
 class FSlateWindowElementList;
 
-struct FVisualLoggerTimeSliderArgs : FTimeSliderArgs
+struct FVisualLoggerTimeSliderArgs
 {
+	DECLARE_DELEGATE_OneParam( FOnRangeChanged, TRange<float> )
+	DECLARE_DELEGATE_TwoParams( FOnScrubPositionChanged, float, bool )
+
 	FVisualLoggerTimeSliderArgs()
-		: CursorSize(0.05f)
-	{
-		ViewRange = TRange<float>(0.0f, 5.0f);
-	}
+		: ScrubPosition(0)
+		, ViewRange( TRange<float>(0.0f, 5.0f) )
+		, ClampRange( TRange<float>(-FLT_MAX/2.f, FLT_MAX/2.f) )
+		, AllowZoom(true)
+		, CursorSize(0.05f)
+	{}
+
+	/** The scrub position */
+	TAttribute<float> ScrubPosition;
+
+	/** Called when the scrub position changes */
+	FOnScrubPositionChanged OnScrubPositionChanged;
+
+	/** Called right before the scrubber begins to move */
+	FSimpleDelegate OnBeginScrubberMovement;
+
+	/** Called right after the scrubber handle is released by the user */
+	FSimpleDelegate OnEndScrubberMovement;
+
+	/** View time range */
+	TAttribute< TRange<float> > ViewRange;
+
+	/** Clamp time range */
+	TAttribute< TRange<float> > ClampRange;
+
+	/** Called when the view range changes */
+	FOnRangeChanged OnViewRangeChanged;
+
+	/** Attribute defining the time snap interval */
+	TAttribute<float> TimeSnapInterval;
+
+	/** If we are allowed to zoom */
+	bool AllowZoom;
 
 	/** Cursor range for data like histogram graphs, etc. */
 	TAttribute< float > CursorSize;
@@ -28,7 +59,7 @@ struct FVisualLoggerTimeSliderArgs : FTimeSliderArgs
  * A time slider controller for sequencer
  * Draws and manages time data for a Sequencer
  */
-class FVisualLoggerTimeSliderController : public ITimeSliderController
+class FVisualLoggerTimeSliderController
 {
 public:
 	FVisualLoggerTimeSliderController(const FVisualLoggerTimeSliderArgs& InArgs);
@@ -45,13 +76,12 @@ public:
 	float DetermineOptimalSpacing(float InPixelsPerInput, uint32 MinTick, float MinTickSpacing) const;
 	void SetTimesliderArgs(const FVisualLoggerTimeSliderArgs& InArgs);
 
-	/** ITimeSliderController Interface */
-	virtual int32 OnPaintTimeSlider( bool bMirrorLabels, const FGeometry& AllottedGeometry, const FSlateRect& MyCullingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const override;
-	virtual FReply OnMouseButtonDown( SWidget& WidgetOwner, const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
-	virtual FReply OnMouseButtonUp( SWidget& WidgetOwner, const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
-	virtual FReply OnMouseMove( SWidget& WidgetOwner, const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
-	virtual FReply OnMouseWheel( SWidget& WidgetOwner, const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
-	virtual FCursorReply OnCursorQuery( TSharedRef<const SWidget> WidgetOwner, const FGeometry& MyGeometry, const FPointerEvent& CursorEvent) const override { return FCursorReply::Unhandled(); }
+	int32 OnPaintTimeSlider( bool bMirrorLabels, const FGeometry& AllottedGeometry, const FSlateRect& MyCullingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const;
+	FReply OnMouseButtonDown( SWidget& WidgetOwner, const FGeometry& MyGeometry, const FPointerEvent& MouseEvent );
+	FReply OnMouseButtonUp( SWidget& WidgetOwner, const FGeometry& MyGeometry, const FPointerEvent& MouseEvent );
+	FReply OnMouseMove( SWidget& WidgetOwner, const FGeometry& MyGeometry, const FPointerEvent& MouseEvent );
+	FReply OnMouseWheel( SWidget& WidgetOwner, const FGeometry& MyGeometry, const FPointerEvent& MouseEvent );
+	FCursorReply OnCursorQuery( TSharedRef<const SWidget> WidgetOwner, const FGeometry& MyGeometry, const FPointerEvent& CursorEvent) const { return FCursorReply::Unhandled(); }
 
 	/**
 	 * Draws major tick lines in the section view                                                              

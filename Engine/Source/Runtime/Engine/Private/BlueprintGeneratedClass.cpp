@@ -30,7 +30,7 @@
 DEFINE_STAT(STAT_PersistentUberGraphFrameMemory);
 
 int32 GBlueprintClusteringEnabled = 0;
-static FAutoConsoleVariableRef CVarUseBackgroundLevelStreaming(
+static FAutoConsoleVariableRef CVarBlueprintClusteringEnabled(
 	TEXT("gc.BlueprintClusteringEnabled"),
 	GBlueprintClusteringEnabled,
 	TEXT("Whether to allow Blueprint classes to create GC clusters."),
@@ -1166,7 +1166,7 @@ void UBlueprintGeneratedClass::CheckAndApplyComponentTemplateOverrides(AActor* A
 										{
 											ArCustomPropertyList = InPropertyList;
 											ArUseCustomPropertyList = true;
-											ArWantBinaryPropertySerialization = true;
+											this->SetWantBinaryPropertySerialization(true);
 
 											// Set this flag to emulate things that would happen in the SDO case when this flag is set (e.g. - not setting 'bHasBeenCreated').
 											ArPortFlags |= PPF_Duplicate;
@@ -1252,18 +1252,6 @@ void UBlueprintGeneratedClass::CreatePersistentUberGraphFrame(UObject* Obj, bool
 					*GetPathNameSafe(UberGraphFunction), *GetPathNameSafe(Obj));
 			}
 			PointerToUberGraphFrame->RawPointer = FrameMemory;
-#if WITH_EDITOR
-			// Log out the frame address/size for CDOs (to assist with debugging UE-51952)
-			if (Obj->HasAnyFlags(RF_ClassDefaultObject))
-			{
-				// Note: intentionally using the LogUObjectGlobals channel here
-				UE_LOG(LogUObjectGlobals, Log, TEXT("Created PersistentFrame Addr=0x%016llx, Size=%d, %s %s"),
-					(int64)(PTRINT)FrameMemory,
-					UberGraphFunction->GetStructureSize(),
-					*Obj->GetName(),
-					*UberGraphFunction->GetFullName());
-			}
-#endif
 		}
 	}
 
@@ -1292,16 +1280,6 @@ void UBlueprintGeneratedClass::DestroyPersistentUberGraphFrame(UObject* Obj, boo
 			}
 			FMemory::Free(FrameMemory);
 			DEC_MEMORY_STAT_BY(STAT_PersistentUberGraphFrameMemory, UberGraphFunction->GetStructureSize());
-#if WITH_EDITOR
-			// Log out the frame address for CDOs (to assist with debugging UE-51952)
-			if (Obj->HasAnyFlags(RF_ClassDefaultObject))
-			{
-				// Note: intentionally using the LogUObjectGlobals channel here
-				UE_LOG(LogUObjectGlobals, Log, TEXT("Destroyed PersistentFrame Addr=0x%016llx, Size=%d"),
-					(int64)(PTRINT)FrameMemory,
-					UberGraphFunction->GetStructureSize());
-			}
-#endif
 		}
 		else
 		{
@@ -1642,7 +1620,7 @@ void FBlueprintCookedComponentInstancingData::LoadCachedPropertyDataForSerializa
 		{
 			ArCustomPropertyList = InPropertyList;
 			ArUseCustomPropertyList = true;
-			ArWantBinaryPropertySerialization = true;
+			this->SetWantBinaryPropertySerialization(true);
 
 			// Set this flag to emulate things that would normally happen in the SDO case when this flag is set. This is needed to ensure consistency with serialization during instancing.
 			ArPortFlags |= PPF_Duplicate;

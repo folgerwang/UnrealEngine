@@ -66,6 +66,7 @@ public:
 		, _Margin()
 		, _ErrorReporting()
 		, _ModiferKeyForNewLine(EModifierKey::None)
+		, _VirtualKeyboardOptions(FVirtualKeyboardOptions())
 		, _VirtualKeyboardTrigger(EVirtualKeyboardTrigger::OnFocusByPointer)
 		, _VirtualKeyboardDismissAction(EVirtualKeyboardDismissAction::TextChangeOnDismiss)
 		, _TextShapingMethod()
@@ -211,6 +212,9 @@ public:
 
 		/** The optional modifier key necessary to create a newline when typing into the editor. */
 		SLATE_ARGUMENT( EModifierKey::Type, ModiferKeyForNewLine)
+
+		/** Additional options used by the virtual keyboard summoned by this widget */
+		SLATE_ARGUMENT( FVirtualKeyboardOptions, VirtualKeyboardOptions  )
 
 		/** The type of event that will trigger the display of the virtual keyboard */
 		SLATE_ATTRIBUTE( EVirtualKeyboardTrigger, VirtualKeyboardTrigger )

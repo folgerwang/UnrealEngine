@@ -22,6 +22,8 @@ public class OpenVDB : ModuleRules
         PublicDefinitions.Add("OPENVDB_OPENEXR_STATICLIB");
         PublicDefinitions.Add("OPENVDB_2_ABI_COMPATIBLE");
 
+		PublicIncludePaths.Add(ModuleDirectory);
+
         // For testing during developement 
         bool bDebugPaths = true;
 

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3810467
 Availability:Public
 Title: 미디어 프레임워크 안내서
 Crumbs:%ROOT%, Engine
@@ -16,30 +16,15 @@ Related: Engine\MediaFramework\TechReference
 아래 표에서 각 링크를 클릭하면 상세 정보와 그 내용을 확인할 수 있습니다.
 
 ## 초급
-[REGION:wrapper transparent]
-[](FANCY:Engine\MediaFramework\HowTo\FileMediaSource "%Engine\MediaFramework\HowTo\FileMediaSource:description%")
-[](FANCY:Engine\MediaFramework\HowTo\StreamMediaSource "%Engine\MediaFramework\HowTo\StreamMediaSource:description%")
-[/REGION]
+
+[DIR(output:"fancy" type:"how-to" skill:"Beginner" parent:"Engine/MediaFramework/HowTo" org:"hierarchy")]
 
 
 ## 중급
-[REGION:wrapper transparent]
-[](FANCY:Engine\MediaFramework\HowTo\MediaPlaylists "%Engine\MediaFramework\HowTo\MediaPlaylists:description%")
-[](FANCY:Engine\MediaFramework\HowTo\PlatformMedia "%Engine\MediaFramework\HowTo\PlatformMedia:description%")
-[](FANCY:Engine\MediaFramework\HowTo\ControllingPlayback "%Engine\MediaFramework\HowTo\ControllingPlayback:description%")
-[/REGION]
+
+[DIR(output:"fancy" type:"how-to" skill:"Intermediate" parent:"Engine/MediaFramework/HowTo" org:"hierarchy")]
 
 ## 고급
-[REGION:wrapper transparent]
-[](FANCY:Engine\MediaFramework\HowTo\UsingWebCams "%Engine\MediaFramework\HowTo\UsingWebCams:description%")
-[/REGION]
 
-
-[COMMENT:none]
- To Do
-## Advanced
-[REGION:wrapper transparent]
-[/REGION]
-
-[/COMMENT]
+[DIR(output:"fancy" type:"how-to" skill:"Advanced" parent:"Engine/MediaFramework/HowTo" org:"hierarchy")]
 

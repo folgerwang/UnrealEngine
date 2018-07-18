@@ -15,5 +15,5 @@ void UpdateSceneCaptureContentMobile_RenderThread(
 	FSceneRenderer* SceneRenderer,
 	FRenderTarget* RenderTarget,
 	FTexture* RenderTargetTexture,
-	const FName OwnerName,
+	const FString& OwnerName,
 	const FResolveParams& ResolveParams);

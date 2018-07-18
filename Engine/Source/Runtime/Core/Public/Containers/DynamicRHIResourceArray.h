@@ -72,8 +72,8 @@ public:
 	* Non-clients can't discard the data because they may need to serialize it.
 	*/
 	virtual void Discard()
-	{		
-		if(!bNeedsCPUAccess && !GIsEditor && !IsRunningCommandlet())
+	{
+		if(!bNeedsCPUAccess && FPlatformProperties::RequiresCookedData() && !IsRunningCommandlet())
 		{
 			this->Empty();
 		}

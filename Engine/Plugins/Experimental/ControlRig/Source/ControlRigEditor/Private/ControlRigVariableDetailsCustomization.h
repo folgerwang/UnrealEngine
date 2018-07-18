@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "IDetailCustomization.h"
-#include "SlateTypes.h"
+#include "Styling/SlateTypes.h"
 
 class IDetailLayoutBuilder;
 class IBlueprintEditor;
@@ -25,15 +25,15 @@ public:
 	virtual void CustomizeDetails(IDetailLayoutBuilder& DetailLayout) override;
 
 private:
-	bool IsAnimationFlagEnabled(UProperty* PropertyBeingCustomized) const;
+	bool IsAnimationFlagEnabled(TWeakObjectPtr<UProperty> PropertyBeingCustomized) const;
 
-	ECheckBoxState IsAnimationOutputChecked(UProperty* PropertyBeingCustomized) const;
+	ECheckBoxState IsAnimationOutputChecked(TWeakObjectPtr<UProperty> PropertyBeingCustomized) const;
 
-	void HandleAnimationOutputCheckStateChanged(ECheckBoxState CheckBoxState, UProperty* PropertyBeingCustomized);
+	void HandleAnimationOutputCheckStateChanged(ECheckBoxState CheckBoxState, TWeakObjectPtr<UProperty> PropertyBeingCustomized);
 
-	ECheckBoxState IsAnimationInputChecked(UProperty* PropertyBeingCustomized) const;
+	ECheckBoxState IsAnimationInputChecked(TWeakObjectPtr<UProperty> PropertyBeingCustomized) const;
 
-	void HandleAnimationInputCheckStateChanged(ECheckBoxState CheckBoxState, UProperty* PropertyBeingCustomized);
+	void HandleAnimationInputCheckStateChanged(ECheckBoxState CheckBoxState, TWeakObjectPtr<UProperty> PropertyBeingCustomized);
 
 private:
 	/** The Blueprint editor we are embedded in */

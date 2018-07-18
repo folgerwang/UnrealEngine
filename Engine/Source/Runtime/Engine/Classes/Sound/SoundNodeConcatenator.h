@@ -33,7 +33,8 @@ class USoundNodeConcatenator : public USoundNode
 public:	
 	//~ Begin USoundNode Interface. 
 	virtual bool NotifyWaveInstanceFinished( struct FWaveInstance* WaveInstance ) override;
-	virtual float GetDuration( void ) override;
+	virtual float GetDuration() override;
+	virtual bool HasConcatenatorNode() const override { return true; }
 	virtual int32 GetNumSounds(const UPTRINT NodeWaveInstanceHash, FActiveSound& ActiveSound) const;
 	virtual void ParseNodes( FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanceHash, FActiveSound& ActiveSound, const FSoundParseParameters& ParseParams, TArray<FWaveInstance*>& WaveInstances ) override;
 	virtual int32 GetMaxChildNodes() const override 

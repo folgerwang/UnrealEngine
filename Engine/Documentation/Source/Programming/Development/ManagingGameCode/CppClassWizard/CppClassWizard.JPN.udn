@@ -1,9 +1,9 @@
-﻿INTSourceChangelist:3426963
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:C++ クラス ウィザード
 Crumbs: %ROOT%, Programming, Programming\Development
 Description:UE4 の C++ クラス ウィザードの概要
-Version:4.16
+Version: 4.16
 Parent:Programming/Development/ManagingGameCode
 Order:
 type:overview
@@ -36,8 +36,8 @@ type:overview
 	追加したいクラスを選択して **Next >** ボタンをクリックします。
 
 1. 新しいクラスの **名前** の入力を求められます。名前を入力して **[Create Class]** ボタンをクリックします。ヘッダファイル (.h) とソースファイル (.cpp) が作成されました。
-	[REGION:lightbox]
 
+	[REGION:lightbox]
 		[![](NameNewActor.png)(w:600)](NameNewActor.png)
 	[/REGION]
 	[REGION:note]
@@ -57,7 +57,7 @@ type:overview
 		[PARAM:content]
 		Visual Studio で直接コードが開いて編集が可能となります。
 
-		![](CodeEditing.png)
+	![](CodeEditing.png)
 
 		[/PARAM]
 	[/OBJECT]
@@ -80,7 +80,6 @@ type:overview
 
 [PUBLISH:Licensee]
 編集終了時のクラスのコンパイルに関する説明は、[](Programming\Development\BuildingUnrealEngine) を参照してください。
-
 [/PUBLISH:Licensee]
 [PUBLISH:Rocket]
 編集終了時のクラスのコンパイルに関する説明は、 [プロジェクトのコンパイルのドキュメント](Programming\Development\CompilingProjects) を参照してください。
@@ -92,8 +91,6 @@ type:overview
 
 * [](Programming\Development\VisualStudioSetup)
 * [](Programming\Development\CodingStandard)
-[PUBLISH:Licensee]
 * [](Programming\Development\BuildingUnrealEngine)
-[/PUBLISH:Licensee]
 * [](Programming\Development\CompilingProjects)
 

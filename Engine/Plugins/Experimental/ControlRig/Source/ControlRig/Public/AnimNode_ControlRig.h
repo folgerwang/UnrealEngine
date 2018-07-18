@@ -2,38 +2,53 @@
 
 #pragma once
 
-#include "AnimNode_SkeletalControlBase.h"
+#include "AnimNode_ControlRigBase.h"
 #include "AnimNode_ControlRig.generated.h"
 
 class UControlRig;
+class UNodeMappingContainer;
 
 /**
  * Animation node that allows animation ControlRig output to be used in an animation graph
  */
 USTRUCT()
-struct CONTROLRIG_API FAnimNode_ControlRig : public FAnimNode_Base
+struct CONTROLRIG_API FAnimNode_ControlRig : public FAnimNode_ControlRigBase
 {
 	GENERATED_BODY()
 
 	FAnimNode_ControlRig();
 
-	void SetControlRig(UControlRig* InControlRig);
-	UControlRig* GetControlRig() const;
+	UControlRig* GetControlRig() const { return ControlRig; }
 
 	// FAnimNode_Base interface
 	virtual void OnInitializeAnimInstance(const FAnimInstanceProxy* InProxy, const UAnimInstance* InAnimInstance) override;
+	virtual void Initialize_AnyThread(const FAnimationInitializeContext& Context) override;
 	virtual void GatherDebugData(FNodeDebugData& DebugData) override;
 	virtual void Update_AnyThread(const FAnimationUpdateContext& Context) override;
-	virtual void Evaluate_AnyThread(FPoseContext& Output) override;
 	virtual void CacheBones_AnyThread(const FAnimationCacheBonesContext& Context) override;
+	virtual void Evaluate_AnyThread(FPoseContext & Output) override;
 
 private:
+
+	UPROPERTY(EditAnywhere, Category = Links)
+	FPoseLink Source;
+
 	/** Cached ControlRig */
-	TWeakObjectPtr<UControlRig> CachedControlRig;
-	TArray<FName> NodeNames;
+	UPROPERTY(EditAnywhere, Category = ControlRig)
+	TSubclassOf<UControlRig> ControlRigClass;
+
+	UPROPERTY(transient)
+	UControlRig* ControlRig;
 
 public:
-	/** Should we apply this rig pose additively? */
-	UPROPERTY()
-	bool bAdditive;
+	void PostSerialize(const FArchive& Ar);
+};
+
+template<>
+struct TStructOpsTypeTraits<FAnimNode_ControlRig> : public TStructOpsTypeTraitsBase2<FAnimNode_ControlRig>
+{
+	enum
+	{
+		WithPostSerialize = true,
+	};
 };

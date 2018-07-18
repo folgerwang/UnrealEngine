@@ -8,7 +8,6 @@ namespace UnrealBuildTool.Rules
 		{
 			PrivateIncludePaths.AddRange(
 				new string[] {
-					"Experimental/PlatformCrypto/Private",
 				}
 				);
 
@@ -32,6 +31,22 @@ namespace UnrealBuildTool.Rules
 					new string[]
 					{
 						"PlatformCryptoBCrypt"
+					}
+					);
+			}
+			else if (Target.Platform == UnrealTargetPlatform.Switch)
+			{
+				PublicDependencyModuleNames.AddRange(
+					new string[]
+					{
+						"PlatformCryptoSwitch",
+					}
+					);
+
+				PublicIncludePathModuleNames.AddRange(
+					new string[]
+					{
+						"PlatformCryptoSwitch"
 					}
 					);
 			}

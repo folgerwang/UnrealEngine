@@ -67,7 +67,7 @@ extern time_t GAppInvokeTime;
 	self.window.rootViewController = aController;
 	[aController release];
 	
-    mainViewController.view.frame = [UIScreen mainScreen].applicationFrame;
+//    mainViewController.view.frame = [UIScreen mainScreen].applicationFrame;
 	[window addSubview:[mainViewController view]];
     [window makeKeyAndVisible];
 

@@ -53,8 +53,8 @@ bool FMovieSceneBlendingTest::RunTest(const FString& Parameters)
 {
 	const FMovieSceneBlendingActuatorID ID = FInt32Actuator::GetID();
 	const FMovieSceneEvaluationScope Scope(FMovieSceneEvaluationKey(), EMovieSceneCompletionMode::KeepState);
-	const FMovieSceneContext Context(FMovieSceneEvaluationRange(0.f));
-	
+	const FMovieSceneContext Context(FMovieSceneEvaluationRange(0, FFrameRate()));
+
 	FNullPlayer Player;
 	FPersistentEvaluationData PersistentDataProxy(Player);
 
@@ -143,7 +143,7 @@ bool FMovieSceneBlendingStressTest::RunTest(const FString& Parameters)
 
 	const FMovieSceneBlendingActuatorID ID = FInt32Actuator::GetID();
 	const FMovieSceneEvaluationScope Scope(FMovieSceneEvaluationKey(), EMovieSceneCompletionMode::KeepState);
-	const FMovieSceneContext Context(FMovieSceneEvaluationRange(0.f));
+	const FMovieSceneContext Context(FMovieSceneEvaluationRange(0, FFrameRate()));
 	
 	FNullPlayer Player;
 	FPersistentEvaluationData PersistentDataProxy(Player);

@@ -7,7 +7,7 @@
 #include "GPUProfiler.h"
 
 #if METAL_STATISTICS
-#include "MetalStatistics.h"
+#include "NotForLicensees/MetalStatistics.h"
 #endif
 
 // Stats
@@ -15,47 +15,8 @@ DECLARE_CYCLE_STAT_EXTERN(TEXT("MakeDrawable time"),STAT_MetalMakeDrawableTime,S
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Draw call time"),STAT_MetalDrawCallTime,STATGROUP_MetalRHI, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("PrepareDraw time"),STAT_MetalPrepareDrawTime,STATGROUP_MetalRHI, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("PipelineState time"),STAT_MetalPipelineStateTime,STATGROUP_MetalRHI, );
-DECLARE_CYCLE_STAT_EXTERN(TEXT("BoundShaderState time"),STAT_MetalBoundShaderStateTime,STATGROUP_MetalRHI, );
-DECLARE_CYCLE_STAT_EXTERN(TEXT("VertexDeclaration time"),STAT_MetalVertexDeclarationTime,STATGROUP_MetalRHI, );
-DECLARE_CYCLE_STAT_EXTERN(TEXT("Uniform buffer pool cleanup time"), STAT_MetalUniformBufferCleanupTime, STATGROUP_MetalRHI, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Buffer Page-Off time"), STAT_MetalBufferPageOffTime, STATGROUP_MetalRHI, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Texture Page-Off time"), STAT_MetalTexturePageOffTime, STATGROUP_MetalRHI, );
-DECLARE_MEMORY_STAT_EXTERN(TEXT("Uniform buffer pool memory"), STAT_MetalTotalUniformBufferMemory, STATGROUP_MetalRHI, );
-DECLARE_MEMORY_STAT_EXTERN(TEXT("Free Uniform pool memory"), STAT_MetalFreeUniformBufferMemory, STATGROUP_MetalRHI, );
-DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Uniform buffer pool num free"), STAT_MetalNumFreeUniformBuffers, STATGROUP_MetalRHI, );
-DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Buffer Count"), STAT_MetalBufferCount, STATGROUP_MetalRHI, );
-DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Texture Count"), STAT_MetalTextureCount, STATGROUP_MetalRHI, );
-DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Uncommitted Command Buffer Count"), STAT_MetalCommandBufferCount, STATGROUP_MetalRHI, );
-DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Sampler State Count"), STAT_MetalSamplerStateCount, STATGROUP_MetalRHI, );
-DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Depth Stencil State Count"), STAT_MetalDepthStencilStateCount, STATGROUP_MetalRHI, );
-DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Render Pipeline State Count"), STAT_MetalRenderPipelineStateCount, STATGROUP_MetalRHI, );
-DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Compute Pipeline State Count"), STAT_MetalComputePipelineStateCount, STATGROUP_MetalRHI, );
-DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Render Pipeline Color Desc Count"), STAT_MetalRenderPipelineColorAttachmentDescriptor, STATGROUP_MetalRHI, );
-DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Render Pass Desc Count"), STAT_MetalRenderPassDescriptorCount, STATGROUP_MetalRHI, );
-DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Render Pass Color Desc Count"), STAT_MetalRenderPassColorAttachmentDescriptorCount, STATGROUP_MetalRHI, );
-DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Render Pass Depth Desc Count"), STAT_MetalRenderPassDepthAttachmentDescriptorCount, STATGROUP_MetalRHI, );
-DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Render Pass Stencil Desc Count"), STAT_MetalRenderPassStencilAttachmentDescriptorCount, STATGROUP_MetalRHI, );
-DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Vertex Desc Count"), STAT_MetalVertexDescriptorCount, STATGROUP_MetalRHI, );
-DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Function Count"), STAT_MetalFunctionCount, STATGROUP_MetalRHI, );
-DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Free Pooled Buffer Count"), STAT_MetalFreePooledBufferCount, STATGROUP_MetalRHI, );
-DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Total Pooled Buffer Count"), STAT_MetalPooledBufferCount, STATGROUP_MetalRHI, );
-DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Metal Buffers Allocated Per-Frame"), STAT_MetalBufferNativeAlloctations, STATGROUP_MetalRHI, );
-DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Metal Buffers Freed Per-Frame"), STAT_MetalBufferNativeFreed, STATGROUP_MetalRHI, );
-DECLARE_MEMORY_STAT_EXTERN(TEXT("Total Pooled Buffer Memory"), STAT_MetalPooledBufferMem, STATGROUP_MetalRHI, );
-DECLARE_MEMORY_STAT_EXTERN(TEXT("Used Pooled Buffer Memory"), STAT_MetalUsedPooledBufferMem, STATGROUP_MetalRHI, );
-DECLARE_MEMORY_STAT_EXTERN(TEXT("Free Pooled Buffer Memory"), STAT_MetalFreePooledBufferMem, STATGROUP_MetalRHI, );
-DECLARE_MEMORY_STAT_EXTERN(TEXT("Wasted Pooled Buffer Memory"), STAT_MetalWastedPooledBufferMem, STATGROUP_MetalRHI, );
-DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Buffers Allocated Per-Frame"), STAT_MetalBufferAlloctations, STATGROUP_MetalRHI, );
-DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Buffers Freed Per-Frame"), STAT_MetalBufferFreed, STATGROUP_MetalRHI, );
-DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Buffer Memory Allocated Per-Frame"), STAT_MetalBufferMemAlloc, STATGROUP_MetalRHI, );
-DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Buffer Memory Freed Per-Frame"), STAT_MetalBufferMemFreed, STATGROUP_MetalRHI, );
-DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Metal Buffer Memory Allocated Per-Frame"), STAT_MetalBufferNativeMemAlloc, STATGROUP_MetalRHI, );
-DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Metal Buffer Memory Freed Per-Frame"), STAT_MetalBufferNativeMemFreed, STATGROUP_MetalRHI, );
-
-DECLARE_CYCLE_STAT_EXTERN(TEXT("PrepareVertexDesc time"),STAT_MetalPrepareVertexDescTime,STATGROUP_MetalRHI, );
-DECLARE_CYCLE_STAT_EXTERN(TEXT("BoundShaderPrepareDraw time"),STAT_MetalBoundShaderPrepareDrawTime,STATGROUP_MetalRHI, );
-DECLARE_CYCLE_STAT_EXTERN(TEXT("BoundShaderLock time"),STAT_MetalBoundShaderLockTime,STATGROUP_MetalRHI, );
-DECLARE_CYCLE_STAT_EXTERN(TEXT("PipelineLock time"),STAT_MetalPipelineLockTime,STATGROUP_MetalRHI, );
 
 DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Uniform Memory Allocated Per-Frame"), STAT_MetalUniformMemAlloc, STATGROUP_MetalRHI, );
 DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Uniform Memory Freed Per-Frame"), STAT_MetalUniformMemFreed, STATGROUP_MetalRHI, );
@@ -63,11 +24,14 @@ DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Vertex Memory Allocated Per-Frame"), STA
 DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Vertex Memory Freed Per-Frame"), STAT_MetalVertexMemFreed, STATGROUP_MetalRHI, );
 DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Index Memory Allocated Per-Frame"), STAT_MetalIndexMemAlloc, STATGROUP_MetalRHI, );
 DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Index Memory Freed Per-Frame"), STAT_MetalIndexMemFreed, STATGROUP_MetalRHI, );
-DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Private Texture Count"), STAT_MetalPrivateTextureCount, STATGROUP_MetalRHI, );
-DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Managed Texture Count"), STAT_MetalManagedTextureCount, STATGROUP_MetalRHI, );
-DECLARE_MEMORY_STAT_EXTERN(TEXT("Private Texture Memory"), STAT_MetalPrivateTextureMem, STATGROUP_MetalRHI, );
-DECLARE_MEMORY_STAT_EXTERN(TEXT("Managed Texture Memory"), STAT_MetalManagedTextureMem, STATGROUP_MetalRHI, );
 DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Texture Memory Updated Per-Frame"), STAT_MetalTextureMemUpdate, STATGROUP_MetalRHI, );
+DECLARE_MEMORY_STAT_EXTERN(TEXT("Buffer Memory"), STAT_MetalBufferMemory, STATGROUP_MetalRHI, );
+DECLARE_MEMORY_STAT_EXTERN(TEXT("Texture Memory"), STAT_MetalTextureMemory, STATGROUP_MetalRHI, );
+DECLARE_MEMORY_STAT_EXTERN(TEXT("Unused Buffer Memory"), STAT_MetalBufferUnusedMemory, STATGROUP_MetalRHI, );
+DECLARE_MEMORY_STAT_EXTERN(TEXT("Unused Texture Memory"), STAT_MetalTextureUnusedMemory, STATGROUP_MetalRHI, );
+
+DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Buffer Count"), STAT_MetalBufferCount, STATGROUP_MetalRHI, );
+DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Texture Count"), STAT_MetalTextureCount, STATGROUP_MetalRHI, );
 
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Texture Page-On time"), STAT_MetalTexturePageOnTime, STATGROUP_MetalRHI, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("GPU Work time"), STAT_MetalGPUWorkTime, STATGROUP_MetalRHI, );
@@ -83,24 +47,6 @@ extern int64 volatile GMetalPresentTime;
 DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Number Command Buffers Created Per-Frame"), STAT_MetalCommandBufferCreatedPerFrame, STATGROUP_MetalRHI, );
 DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Number Command Buffers Committed Per-Frame"), STAT_MetalCommandBufferCommittedPerFrame, STATGROUP_MetalRHI, );
 
-#if METAL_STATISTICS
-#define RHI_PROFILE_DRAW_CALL_STATS(StartPoint, EndPoint, NumPrims, NumVerts) FMetalDrawProfiler GPUWork(Profiler, (uint32)StartPoint, (uint32)EndPoint, NumPrims, NumVerts)
-#else
-#define RHI_PROFILE_DRAW_CALL_STATS(StartPoint, EndPoint, NumPrims, NumVerts) FMetalDrawProfiler GPUWork(Profiler, (uint32)0, (uint32)0, NumPrims, NumVerts)
-#endif
-
-class FMetalDrawProfiler
-{
-public:
-	FMetalDrawProfiler(struct FMetalGPUProfiler* InProfiler, uint32 StartPoint, uint32 EndPoint, uint32 NumPrimitives = 0, uint32 NumVertices = 0);
-	~FMetalDrawProfiler();
-	
-private:
-	struct FMetalGPUProfiler* Profiler;
-	uint32 StartPoint;
-	uint32 EndPoint;
-};
-
 /** A single perf event node, which tracks information about a appBeginDrawEvent/appEndDrawEvent range. */
 class FMetalEventNode : public FGPUProfilerEventNode
 {
@@ -108,9 +54,9 @@ public:
 	
 	FMetalEventNode(FMetalContext* InContext, const TCHAR* InName, FGPUProfilerEventNode* InParent, bool bIsRoot, bool bInFullProfiling)
 	: FGPUProfilerEventNode(InName, InParent)
-	, Context(InContext)
 	, StartTime(0)
 	, EndTime(0)
+	, Context(InContext)
 	, bRoot(bIsRoot)
     , bFullProfiling(bInFullProfiling)
 	{
@@ -128,28 +74,18 @@ public:
 	
 	virtual void StopTiming() override;
 	
-	MTLCommandBufferHandler Start(void);
-	MTLCommandBufferHandler Stop(void);
+	mtlpp::CommandBufferHandler Start(void);
+	mtlpp::CommandBufferHandler Stop(void);
 
 	bool Wait() const { return bRoot && bFullProfiling; }
 	bool IsRoot() const { return bRoot; }
 	
 	uint64 GetCycles() { return EndTime - StartTime; }
 	
-#if METAL_STATISTICS
-	void StartDraw(bool bActiveStats, uint32 StartPoint, uint32 EndPoint, uint32 NumPrimitives, uint32 NumVertices);
-	void StopDraw(void);
-	
-	void GetStats(FMetalPipelineStats& OutStats);
-#endif
-	
-private:
-	FMetalContext* Context;
-#if METAL_STATISTICS
-	TArray<IMetalDrawStats*> DrawStats;
-#endif
 	uint64 StartTime;
 	uint64 EndTime;
+private:
+	FMetalContext* Context;
 	bool bRoot;
     bool bFullProfiling;
 };
@@ -200,6 +136,11 @@ public:
 		StaticInitialize(nullptr, PlatformStaticInitialize);
 	}
 	
+	void SetCalibrationTimestamp(uint64 GPU, uint64 CPU)
+	{
+		GCalibrationTimestamp.GPUMicroseconds = GPU;
+		GCalibrationTimestamp.CPUMicroseconds = CPU;
+	}
 	
 private:
 	
@@ -218,6 +159,159 @@ private:
 	}
 };
 
+struct IMetalStatsScope
+{
+	FString Name;
+	TArray<IMetalStatsScope*> Children;
+	
+	uint64 CPUStartTime;
+	uint64 CPUEndTime;
+	
+	uint64 GPUStartTime;
+	uint64 GPUEndTime;
+	
+	uint64 CPUThreadIndex;
+	uint64 GPUThreadIndex;
+	
+	virtual ~IMetalStatsScope();
+	
+	virtual void Start(mtlpp::CommandBuffer const& Buffer) = 0;
+	virtual void End(mtlpp::CommandBuffer const& Buffer) = 0;
+#if METAL_STATISTICS
+	virtual void GetStats(FMetalPipelineStats& PipelineStats) = 0;
+#endif
+	
+	FString GetJSONRepresentation(uint32 PID);
+};
+
+struct FMetalCPUStats : public IMetalStatsScope
+{
+	FMetalCPUStats(FString const& Name);
+	virtual ~FMetalCPUStats();
+	
+	void Start(void);
+	void End(void);
+	
+	virtual void Start(mtlpp::CommandBuffer const& Buffer) final override;
+	virtual void End(mtlpp::CommandBuffer const& Buffer) final override;
+#if METAL_STATISTICS
+	virtual void GetStats(FMetalPipelineStats& PipelineStats) final override;
+#endif
+};
+
+struct FMetalDisplayStats : public IMetalStatsScope
+{
+	FMetalDisplayStats(uint32 DisplayID, double OutputSeconds, double Duration);
+	virtual ~FMetalDisplayStats();
+	
+	virtual void Start(mtlpp::CommandBuffer const& Buffer) final override;
+	virtual void End(mtlpp::CommandBuffer const& Buffer) final override;
+#if METAL_STATISTICS
+	virtual void GetStats(FMetalPipelineStats& PipelineStats) final override;
+#endif
+};
+
+#if METAL_STATISTICS
+struct FMetalEventStats : public IMetalStatsScope
+{
+	FMetalEventStats(const TCHAR* Name, FColor Color);
+	virtual ~FMetalEventStats();
+	
+	virtual void Start(mtlpp::CommandBuffer const& Buffer) final override;
+	virtual void End(mtlpp::CommandBuffer const& Buffer) final override;
+	virtual void GetStats(FMetalPipelineStats& PipelineStats) final override;
+	
+	id<IMetalStatisticsSamples> StartSample;
+	id<IMetalStatisticsSamples> EndSample;
+	
+	TMap<FString, float> DriverStats;
+};
+
+struct FMetalOperationStats : public IMetalStatsScope
+{
+	FMetalOperationStats(char const* DrawCall, uint64 GPUThreadIndex, uint32 StartPoint, uint32 EndPoint, uint32 RHIPrimitives, uint32 RHIVertices, uint32 RHIInstances);
+	FMetalOperationStats(char const* DrawCall, uint64 GPUThreadIndex, uint32 StartPoint, uint32 EndPoint);
+	virtual ~FMetalOperationStats();
+	
+	virtual void Start(mtlpp::CommandBuffer const& Buffer) final override;
+	virtual void End(mtlpp::CommandBuffer const& Buffer) final override;
+	virtual void GetStats(FMetalPipelineStats& PipelineStats) final override;
+	
+	id<IMetalCommandBufferStats> CmdBufferStats;
+	uint32 StartPoint;
+	uint32 EndPoint;
+	IMetalDrawStats* DrawStats;
+	uint32 RHIPrimitives;
+	uint32 RHIVertices;
+	uint32 RHIInstances;
+};
+
+struct FMetalShaderPipelineStats : public IMetalStatsScope
+{
+	FMetalShaderPipelineStats(FMetalShaderPipeline* PipelineStat, uint64 GPUThreadIndex);
+	virtual ~FMetalShaderPipelineStats();
+	
+	virtual void Start(mtlpp::CommandBuffer const& Buffer) final override;
+	virtual void End(mtlpp::CommandBuffer const& Buffer) final override;
+	virtual void GetStats(FMetalPipelineStats& PipelineStats) final override;
+	
+	id<IMetalCommandBufferStats> CmdBufferStats;
+	id<IMetalStatisticsSamples> StartSample;
+	FMetalShaderPipeline* Pipeline;
+};
+
+struct FMetalEncoderStats : public IMetalStatsScope
+{
+	FMetalEncoderStats(mtlpp::RenderCommandEncoder const& Encoder, uint64 GPUThreadIndex);
+	FMetalEncoderStats(mtlpp::BlitCommandEncoder const& Encoder, uint64 GPUThreadIndex);
+	FMetalEncoderStats(mtlpp::ComputeCommandEncoder const& Encoder, uint64 GPUThreadIndex);
+	virtual ~FMetalEncoderStats();
+	
+	virtual void Start(mtlpp::CommandBuffer const& Buffer) final override;
+	virtual void End(mtlpp::CommandBuffer const& Buffer) final override;
+	virtual void GetStats(FMetalPipelineStats& PipelineStats) final override;
+	
+	void EncodeDraw(char const* DrawCall, uint32 RHIPrimitives, uint32 RHIVertices, uint32 RHIInstances);
+	void EncodeBlit(char const* DrawCall);
+	void EncodeDispatch(char const* DrawCall);
+	void EncodePipeline(FMetalShaderPipeline* PipelineStat);
+	
+	id<IMetalCommandBufferStats> CmdBufferStats;
+	ns::AutoReleased<mtlpp::CommandBuffer> CmdBuffer;
+	uint32 StartPoint;
+	uint32 EndPoint;
+	id<IMetalStatisticsSamples> StartSample;
+	id<IMetalStatisticsSamples> EndSample;
+};
+#endif
+
+struct FMetalCommandBufferStats : public IMetalStatsScope
+{
+	FMetalCommandBufferStats(mtlpp::CommandBuffer const& Buffer, uint64 GPUThreadIndex);
+	virtual ~FMetalCommandBufferStats();
+	
+	virtual void Start(mtlpp::CommandBuffer const& Buffer) final override;
+	virtual void End(mtlpp::CommandBuffer const& Buffer) final override;
+#if METAL_STATISTICS
+	virtual void GetStats(FMetalPipelineStats& PipelineStats) final override;
+#endif
+
+	ns::AutoReleased<mtlpp::CommandBuffer> CmdBuffer;
+
+#if METAL_STATISTICS
+	void BeginEncoder(mtlpp::RenderCommandEncoder const& Encoder);
+	void BeginEncoder(mtlpp::BlitCommandEncoder const& Encoder);
+	void BeginEncoder(mtlpp::ComputeCommandEncoder const& Encoder);
+	
+	void EndEncoder(mtlpp::RenderCommandEncoder const& Encoder);
+	void EndEncoder(mtlpp::BlitCommandEncoder const& Encoder);
+	void EndEncoder(mtlpp::ComputeCommandEncoder const& Encoder);
+
+	id<IMetalCommandBufferStats> CmdBufferStats;
+	FMetalEncoderStats* ActiveEncoderStats;
+#endif
+};
+
 /**
  * Encapsulates GPU profiling logic and data.
  * There's only one global instance of this struct so it should only contain global data, nothing specific to a frame.
@@ -230,8 +324,7 @@ struct FMetalGPUProfiler : public FGPUProfiler
 	FMetalGPUProfiler(FMetalContext* InContext)
 	:	FGPUProfiler()
 	,	Context(InContext)
-    ,   NumNestedFrames(0)
-    ,	bActiveStats(false)
+	,   NumNestedFrames(0)
 	{
 		FMemory::Memzero((void*)&FrameStartGPU[0], sizeof(FrameStartGPU));
 		FMemory::Memzero((void*)&FrameEndGPU[0], sizeof(FrameEndGPU));
@@ -252,15 +345,12 @@ struct FMetalGPUProfiler : public FGPUProfiler
 	void BeginFrame();
 	void EndFrame();
 	
-	void StartGPUWork(uint32 StartPoint, uint32 EndPoint, uint32 NumPrimitives = 0, uint32 NumVertices = 0);
-	void FinishGPUWork(void);
-	
 	static void IncrementFrameIndex();
-	static void RecordFrame(id<MTLCommandBuffer> Buffer);
-	static void RecordPresent(id<MTLCommandBuffer> Buffer);
-	static void RecordCommandBuffer(id<MTLCommandBuffer> Buffer);
+	static void RecordFrame(mtlpp::CommandBuffer& Buffer);
+	static void RecordPresent(mtlpp::CommandBuffer& Buffer);
+	static void RecordCommandBuffer(mtlpp::CommandBuffer& Buffer);
 	
-	#define MAX_FRAME_HISTORY 3
+#define MAX_FRAME_HISTORY 3
 	static volatile int32 FrameTimeGPUIndex;
 	static volatile int64 FrameStartGPU[MAX_FRAME_HISTORY];
 	static volatile int64 FrameEndGPU[MAX_FRAME_HISTORY];
@@ -270,7 +360,115 @@ struct FMetalGPUProfiler : public FGPUProfiler
 	
 	FMetalGPUTiming TimingSupport;
 	FMetalContext* Context;
-    int32 NumNestedFrames;
-    bool bActiveStats;
+	int32 NumNestedFrames;
 };
 
+class FMetalProfiler : public FMetalGPUProfiler
+{
+	static FMetalProfiler* Self;
+public:
+	FMetalProfiler(FMetalContext* InContext);
+	~FMetalProfiler();
+	
+	static FMetalProfiler* CreateProfiler(FMetalContext* InContext);
+	static FMetalProfiler* GetProfiler();
+#if METAL_STATISTICS
+	static IMetalStatistics* GetStatistics();
+#endif
+	static void DestroyProfiler();
+	
+	void BeginCapture(int InNumFramesToCapture = -1);
+	void EndCapture();
+	bool TracingEnabled() const;
+	
+	void BeginFrame();
+	void EndFrame();
+	
+	void AddDisplayVBlank(uint32 DisplayID, double OutputSeconds, double OutputDuration);
+	
+	void EncodeDraw(FMetalCommandBufferStats* CmdBufStats, char const* DrawCall, uint32 RHIPrimitives, uint32 RHIVertices, uint32 RHIInstances);
+	void EncodeBlit(FMetalCommandBufferStats* CmdBufStats, char const* DrawCall);
+	void EncodeDispatch(FMetalCommandBufferStats* CmdBufStats, char const* DrawCall);
+	
+#if METAL_STATISTICS
+	void EncodePipeline(FMetalCommandBufferStats* CmdBufStats, FMetalShaderPipeline* PipelineStat);
+	
+	void BeginEncoder(FMetalCommandBufferStats* CmdBufStats, mtlpp::RenderCommandEncoder const& Encoder);
+	void BeginEncoder(FMetalCommandBufferStats* CmdBufStats, mtlpp::BlitCommandEncoder const& Encoder);
+	void BeginEncoder(FMetalCommandBufferStats* CmdBufStats, mtlpp::ComputeCommandEncoder const& Encoder);
+	
+	void EndEncoder(FMetalCommandBufferStats* CmdBufStats, mtlpp::RenderCommandEncoder const& Encoder);
+	void EndEncoder(FMetalCommandBufferStats* CmdBufStats, mtlpp::BlitCommandEncoder const& Encoder);
+	void EndEncoder(FMetalCommandBufferStats* CmdBufStats, mtlpp::ComputeCommandEncoder const& Encoder);
+	
+	enum EMTLCounterType
+	{
+		EMTLCounterTypeStartEnd,
+		EMTLCounterTypeLast,
+		EMTLCounterTypeDifference
+	};
+	
+	void AddCounter(NSString* Counter, EMTLCounterType Type);
+	void RemoveCounter(NSString* Counter);
+	TMap<FString, EMTLCounterType> const& GetCounterTypes() const { return CounterTypes; }
+	
+	void DumpPipeline(FMetalShaderPipeline* PipelineStat);
+#endif
+	
+	FMetalCPUStats* AddCPUStat(FString const& Name);
+	FMetalCommandBufferStats* AllocateCommandBuffer(mtlpp::CommandBuffer const& Buffer, uint64 GPUThreadIndex);
+	void AddCommandBuffer(FMetalCommandBufferStats* CommandBuffer);
+	virtual void PushEvent(const TCHAR* Name, FColor Color) final override;
+	virtual void PopEvent() final override;
+	
+	void SaveTrace();
+	
+private:
+	FCriticalSection Mutex;
+#if METAL_STATISTICS
+	NSMutableArray* NewCounters;
+	TMap<FString, EMTLCounterType> CounterTypes;
+	IMetalStatistics* StatisticsAPI;
+	TArray<FMetalEventStats*> FrameEvents;
+	TArray<FMetalEventStats*> ActiveEvents;
+	TSet<FMetalShaderPipeline*> Pipelines;
+#endif
+	
+	TArray<FMetalCommandBufferStats*> TracedBuffers;
+	TArray<FMetalDisplayStats*> DisplayStats;
+	TArray<FMetalCPUStats*> CPUStats;
+	
+	int32 NumFramesToCapture;
+	int32 CaptureFrameNumber;
+	
+	bool bRequestStartCapture;
+	bool bRequestStopCapture;
+	bool bEnabled;
+};
+
+struct FScopedMetalCPUStats
+{
+	FScopedMetalCPUStats(FString const& Name)
+	: Stats(nullptr)
+	{
+		FMetalProfiler* Profiler = FMetalProfiler::GetProfiler();
+		if (Profiler)
+		{
+			Stats = Profiler->AddCPUStat(Name);
+			if (Stats)
+			{
+				Stats->Start();
+			}
+		}
+	}
+	
+	~FScopedMetalCPUStats()
+	{
+		if (Stats)
+		{
+			Stats->End();
+		}
+	}
+	
+	FMetalCPUStats* Stats;
+};

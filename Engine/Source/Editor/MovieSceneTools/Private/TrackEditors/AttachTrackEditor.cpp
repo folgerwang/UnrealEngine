@@ -10,6 +10,7 @@
 #include "ActorEditorUtils.h"
 #include "MovieSceneObjectBindingIDPicker.h"
 #include "MovieSceneToolHelpers.h"
+#include "Evaluation/MovieSceneEvaluationTemplateInstance.h"
 
 
 #define LOCTEXT_NAMESPACE "F3DAttachTrackEditor"
@@ -41,7 +42,15 @@ public:
 			TSharedPtr<ISequencer> Sequencer = AttachTrackEditor->GetSequencer();
 			if (Sequencer.IsValid())
 			{
-				TArrayView<TWeakObjectPtr<UObject>> RuntimeObjects = Sequencer->FindBoundObjects(AttachSection->GetConstraintBindingID().GetGuid(), AttachSection->GetConstraintBindingID().GetSequenceID());
+				FMovieSceneSequenceID SequenceID = Sequencer->GetFocusedTemplateID();
+				if (AttachSection->GetConstraintBindingID().GetSequenceID().IsValid())
+				{
+					// Ensure that this ID is resolvable from the root, based on the current local sequence ID
+					FMovieSceneObjectBindingID RootBindingID = AttachSection->GetConstraintBindingID().ResolveLocalToRoot(SequenceID, Sequencer->GetEvaluationTemplate().GetHierarchy());
+					SequenceID = RootBindingID.GetSequenceID();
+				}
+
+				TArrayView<TWeakObjectPtr<UObject>> RuntimeObjects = Sequencer->FindBoundObjects(AttachSection->GetConstraintBindingID().GetGuid(), SequenceID);
 				if (RuntimeObjects.Num() == 1 && RuntimeObjects[0].IsValid())
 				{
 					if (AActor* Actor = Cast<AActor>(RuntimeObjects[0].Get()))
@@ -61,8 +70,6 @@ public:
 
 		return FText::GetEmpty(); 
 	}
-
-	virtual void GenerateSectionLayout( class ISectionLayoutBuilder& LayoutBuilder ) const override {}
 
 	virtual int32 OnPaintSection( FSequencerSectionPainter& InPainter ) const override 
 	{
@@ -120,8 +127,13 @@ TSharedRef<ISequencerSection> F3DAttachTrackEditor::MakeSectionInterface( UMovie
 
 void F3DAttachTrackEditor::BuildObjectBindingTrackMenu(FMenuBuilder& MenuBuilder, const FGuid& ObjectBinding, const UClass* ObjectClass)
 {
-	if (ObjectClass->IsChildOf(AActor::StaticClass()))
+	if (ObjectClass != nullptr && ObjectClass->IsChildOf(AActor::StaticClass()))
 	{
+		if (MovieSceneToolHelpers::HasHiddenMobility(ObjectClass))
+		{
+			return;
+		}
+
 		UMovieSceneSection* DummySection = nullptr;
 
 		MenuBuilder.AddSubMenu(
@@ -186,7 +198,7 @@ void F3DAttachTrackEditor::ActorSocketPicked(const FName SocketName, USceneCompo
 		else if (ActorPickerID.ActorPicked.IsValid())
 		{
 			FGuid ParentActorId = FindOrCreateHandleToObject(ActorPickerID.ActorPicked.Get()).Handle;
-			ConstraintBindingID = FMovieSceneObjectBindingID(ParentActorId, MovieSceneSequenceID::Root);
+			ConstraintBindingID = FMovieSceneObjectBindingID(ParentActorId, MovieSceneSequenceID::Root, EMovieSceneObjectBindingSpace::Local);
 		}
 
 		if (ConstraintBindingID.IsValid())
@@ -209,7 +221,7 @@ void F3DAttachTrackEditor::ActorSocketPicked(const FName SocketName, USceneCompo
 	}
 }
 
-FKeyPropertyResult F3DAttachTrackEditor::AddKeyInternal( float KeyTime, const TArray<TWeakObjectPtr<UObject>> Objects, const FName SocketName, const FName ComponentName, FActorPickerID ActorPickerID)
+FKeyPropertyResult F3DAttachTrackEditor::AddKeyInternal( FFrameNumber KeyTime, const TArray<TWeakObjectPtr<UObject>> Objects, const FName SocketName, const FName ComponentName, FActorPickerID ActorPickerID)
 {
 	FKeyPropertyResult KeyPropertyResult;
 
@@ -224,7 +236,7 @@ FKeyPropertyResult F3DAttachTrackEditor::AddKeyInternal( float KeyTime, const TA
 		FFindOrCreateHandleResult HandleResult = FindOrCreateHandleToObject(ActorPickerID.ActorPicked.Get());
 		FGuid ParentActorId = HandleResult.Handle;
 		KeyPropertyResult.bHandleCreated |= HandleResult.bWasCreated;
-		ConstraintBindingID = FMovieSceneObjectBindingID(ParentActorId, MovieSceneSequenceID::Root);
+		ConstraintBindingID = FMovieSceneObjectBindingID(ParentActorId, MovieSceneSequenceID::Root, EMovieSceneObjectBindingSpace::Local);
 	}
 
 	if (!ConstraintBindingID.IsValid())
@@ -248,12 +260,11 @@ FKeyPropertyResult F3DAttachTrackEditor::AddKeyInternal( float KeyTime, const TA
 			if (ensure(Track))
 			{
 				// Clamp to next attach section's start time or the end of the current sequencer view range
-				float AttachEndTime = GetSequencer()->GetViewRange().GetUpperBoundValue();
+				FFrameNumber AttachEndTime = (GetSequencer()->GetViewRange().GetUpperBoundValue() * Track->GetTypedOuter<UMovieScene>()->GetTickResolution()).FrameNumber;
 
-				for (int32 AttachSectionIndex = 0; AttachSectionIndex < Track->GetAllSections().Num(); ++AttachSectionIndex)
+				for (UMovieSceneSection* Section : Track->GetAllSections())
 				{
-					float StartTime = Track->GetAllSections()[AttachSectionIndex]->GetStartTime();
-					float EndTime = Track->GetAllSections()[AttachSectionIndex]->GetEndTime();
+					FFrameNumber StartTime = Section->HasStartFrame() ? Section->GetInclusiveStartFrame() : 0;
 					if (KeyTime < StartTime)
 					{
 						if (AttachEndTime > StartTime)
@@ -263,7 +274,8 @@ FKeyPropertyResult F3DAttachTrackEditor::AddKeyInternal( float KeyTime, const TA
 					}
 				}
 
-				Cast<UMovieScene3DAttachTrack>(Track)->AddConstraint( KeyTime, AttachEndTime, SocketName, ComponentName, ConstraintBindingID);
+				int32 Duration = FMath::Max(0, (AttachEndTime - KeyTime).Value);
+				Cast<UMovieScene3DAttachTrack>(Track)->AddConstraint( KeyTime, Duration, SocketName, ComponentName, ConstraintBindingID);
 				KeyPropertyResult.bTrackModified = true;
 			}
 		}

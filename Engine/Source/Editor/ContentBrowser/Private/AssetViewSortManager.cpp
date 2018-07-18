@@ -234,8 +234,8 @@ protected:
 		}
 
 		float FloatValue1 = 0.0f, FloatValue2 = 0.0f;
-		Lex::FromString(FloatValue1, *Value1);
-		Lex::FromString(FloatValue2, *Value2);
+		LexFromString(FloatValue1, *Value1);
+		LexFromString(FloatValue2, *Value2);
 
 		if (FloatValue1 < FloatValue2)
 		{

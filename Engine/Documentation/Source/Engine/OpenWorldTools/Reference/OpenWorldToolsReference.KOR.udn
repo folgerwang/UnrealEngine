@@ -75,7 +75,7 @@ Version: 4.12
 |**Cast Static Shadow** | 정적인 그림자 드리우기 - 폴리지가 그림자를 드리우는 라이트에서 정적인 그림자를 드리울지 여부입니다. 이 옵션은 CastShadow 가 true 일 때만 사용됩니다. |
 |**Light Map Resolution** | 라이트 맵 해상도 - 스태틱 메시에 정의된 라이트맵 해상도를 덮어씁니다. |
 |**Collision Presets** |콜리전 프리셋 - 미리 설정된 콜리전 세팅을 선택합니다. 프로젝트 세팅에서 이 데이터를 설정할 수 있습니다. |
-|**Custom Navigable Geometry** | 커스텀 내비게이션 가능 지오메트리 - [INCLUDE:#NavMesh] |
+|**Custom Navigable Geometry** | [INCLUDE:#NavMesh] |
 |**Cast Shadow as Two Sided** | 양면으로 그림자 드리우기 - 이 폴리지가 양면 머티리얼인 것처럼 동적인 그림자를 드리우도록 할지 입니다. |
 |**Receives Decals** | 데칼 받기 - 폴리지가 데칼을 받을지 입니다. |
 |**Use as Occluder** | 오클루더로 사용 - 켜면 폴리지는 다른 프리미티브를 가릴 수 있는 프리 패스 렌더링을 하며, DBuffer 데칼을 제대로 받을 수도 있게 됩니다. 이 세팅을 켜면 퍼포먼스에 악영향을 끼칠 수 있습니다. |

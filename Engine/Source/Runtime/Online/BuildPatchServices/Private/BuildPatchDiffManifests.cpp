@@ -3,6 +3,7 @@
 #include "BuildPatchDiffManifests.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Guid.h"
+#include "Misc/OutputDeviceRedirector.h"
 #include "Policies/PrettyJsonPrintPolicy.h"
 #include "Policies/CondensedJsonPrintPolicy.h"
 #include "Serialization/JsonWriter.h"

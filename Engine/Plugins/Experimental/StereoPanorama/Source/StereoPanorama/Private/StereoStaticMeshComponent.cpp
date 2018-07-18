@@ -60,10 +60,12 @@ public:
 
 FPrimitiveSceneProxy* UStereoStaticMeshComponent::CreateSceneProxy()
 {
+	const auto FeatureLevel = GetScene()->GetFeatureLevel();
+
     if ((GetStaticMesh() == nullptr) ||
 		(GetStaticMesh()->RenderData == nullptr) ||
 		(GetStaticMesh()->RenderData->LODResources.Num() == 0) ||
-		(GetStaticMesh()->RenderData->LODResources[0].VertexBuffers.PositionVertexBuffer.GetNumVertices() == 0))
+		(GetStaticMesh()->RenderData->LODResources[GetStaticMesh()->MinLOD.GetValueForFeatureLevel(FeatureLevel)].VertexBuffers.PositionVertexBuffer.GetNumVertices() == 0))
     {
         return nullptr;
     }

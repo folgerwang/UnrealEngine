@@ -5,7 +5,7 @@
 #include "DetailCategoryBuilder.h"
 #include "IDetailPropertyRow.h"
 #include "DetailWidgetRow.h"
-#include "SInlineEditableTextBlock.h"
+#include "Widgets/Text/SInlineEditableTextBlock.h"
 #include "NiagaraParameterCollectionViewModel.h"
 #include "NiagaraScriptInputCollectionViewModel.h"
 #include "NiagaraScriptOutputCollectionViewModel.h"
@@ -13,20 +13,20 @@
 #include "NiagaraParameterViewModel.h"
 #include "NiagaraEditorStyle.h"
 #include "IDetailChildrenBuilder.h"
-#include "MultiBoxBuilder.h"
-#include "SComboButton.h"
-#include "SImage.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SComboButton.h"
+#include "Widgets/Images/SImage.h"
 #include "NiagaraEditorModule.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "INiagaraEditorTypeUtilities.h"
-#include "SBox.h"
+#include "Widgets/Layout/SBox.h"
 #include "NiagaraScript.h"
 
 class FNiagaraParameterCollectionCustomNodeBuilder : public IDetailCustomNodeBuilder
 {
 public:
-	FNiagaraParameterCollectionCustomNodeBuilder(TSharedRef<INiagaraParameterCollectionViewModel> InViewModel, bool bAllowMetaData = true)
-		: ViewModel(InViewModel)
+	FNiagaraParameterCollectionCustomNodeBuilder(TSharedRef<INiagaraParameterCollectionViewModel> InViewModel, bool bInAllowMetaData = true)
+		: ViewModel(InViewModel), bAllowMetaData(bInAllowMetaData)
 	{
 		ViewModel->OnCollectionChanged().AddRaw(this, &FNiagaraParameterCollectionCustomNodeBuilder::OnCollectionViewModelChanged);
 	}

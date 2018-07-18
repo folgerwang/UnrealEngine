@@ -101,6 +101,11 @@ namespace UnrealBuildTool
 		public readonly string[] AndroidGPUArchitectures;
 
 		/// <summary>
+		/// Which GPU architectures to deploy for on Lumin
+		/// </summary>
+		public readonly string[] LuminGPUArchitectures;
+
+		/// <summary>
 		/// Construct the deployment info from a target
 		/// </summary>
 		/// <param name="Target">The target being built</param>
@@ -120,6 +125,7 @@ namespace UnrealBuildTool
 			this.bCreateStubIPA = Target.Rules.bCreateStubIPA;
 			this.AndroidArchitectures = Target.Rules.AndroidPlatform.Architectures.ToArray();
 			this.AndroidGPUArchitectures = Target.Rules.AndroidPlatform.GPUArchitectures.ToArray();
+			this.LuminGPUArchitectures = Target.Rules.LuminPlatform.GPUArchitectures.ToArray();
 		}
 
 		/// <summary>
@@ -144,6 +150,7 @@ namespace UnrealBuildTool
 				bCreateStubIPA = Reader.ReadBoolean();
 				AndroidArchitectures = Reader.ReadArray(x => x.ReadString());
 				AndroidGPUArchitectures = Reader.ReadArray(x => x.ReadString());
+				LuminGPUArchitectures = Reader.ReadArray(x => x.ReadString());
 			}
 		}
 
@@ -170,6 +177,7 @@ namespace UnrealBuildTool
 				Writer.Write(bCreateStubIPA);
 				Writer.Write(AndroidArchitectures, (w, e) => w.Write(e));
 				Writer.Write(AndroidGPUArchitectures, (w, e) => w.Write(e));
+				Writer.Write(LuminGPUArchitectures, (w, e) => w.Write(e));
 			}
 		}
 	}

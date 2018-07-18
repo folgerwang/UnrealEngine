@@ -4,7 +4,7 @@
 #include "DestructibleComponent.h"
 #include "PhysXPublic.h"
 #include "ApexDestructionModule.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "AI/NavigationSystemBase.h"
 
 #if WITH_APEX
 
@@ -67,7 +67,7 @@ void FApexDestructionSyncActors::FinalizeSync(int32 SceneType)
 				DestructibleComponent->SyncComponentToRBPhysics();
 			}
 
-			UNavigationSystem::UpdateComponentInNavOctree(*DestructibleComponent);
+			FNavigationSystem::UpdateComponentData(*DestructibleComponent);
 		}
 	}
 

@@ -13,7 +13,7 @@
 
 void ULinearTimecodeComponent::ProcessAudio(TSharedPtr<FMediaAudioSampleQueue, ESPMode::ThreadSafe> InSampleQueue)
 {
-	DropTimecode.NewFrame = 0;
+	DropTimecode.bNewFrame = 0;
 	TSharedPtr<IMediaAudioSample, ESPMode::ThreadSafe> AudioSample;
 
 	while (SampleQueue->Dequeue(AudioSample))
@@ -26,7 +26,7 @@ void ULinearTimecodeComponent::ProcessAudio(TSharedPtr<FMediaAudioSampleQueue, E
 		{
 			if (TimecodeDecoder->Sample(Sample, DropTimecode))
 			{
-				DropTimecode.NewFrame = 1;
+				DropTimecode.bNewFrame = true;
 				OnTimecodeChange.Broadcast(DropTimecode);
 			}
 		}
@@ -41,10 +41,6 @@ ULinearTimecodeComponent::ULinearTimecodeComponent(const FObjectInitializer& Obj
 	, TimecodeDecoder(MakeShared<class FLinearTimecodeDecoder, ESPMode::ThreadSafe>())
 {
 	PrimaryComponentTick.bCanEverTick = true;
-}
-
-ULinearTimecodeComponent::~ULinearTimecodeComponent()
-{
 }
 
 /* UMediaSoundComponent interface
@@ -110,9 +106,9 @@ void ULinearTimecodeComponent::Deactivate()
 
 void ULinearTimecodeComponent::GetDropTimeCodeFrameNumber(const FDropTimecode& Timecode, int32& FrameNumber)
 {
-	int32 NumMinutes = Timecode.Hours * 60 + Timecode.Minutes;
-	int32 NumFrames = (Timecode.Hours * 3600 + Timecode.Minutes * 60 + Timecode.Seconds) * Timecode.FrameRate + Timecode.Frame;
-	NumFrames -= (Timecode.Drop) ? 2 * (NumMinutes - (NumMinutes / 10)) : 0;
+	int32 NumMinutes = Timecode.Timecode.Hours * 60 + Timecode.Timecode.Minutes;
+	int32 NumFrames = (Timecode.Timecode.Hours * 3600 + Timecode.Timecode.Minutes * 60 + Timecode.Timecode.Seconds) * Timecode.FrameRate + Timecode.Timecode.Frames;
+	NumFrames -= (Timecode.Timecode.bDropFrameFormat) ? 2 * (NumMinutes - (NumMinutes / 10)) : 0;
 	FrameNumber = NumFrames;
 }
 
@@ -133,9 +129,9 @@ void ULinearTimecodeComponent::SetDropTimecodeFrameNumber(const FDropTimecode& T
 	OutTimecode = Timecode;
 	int32 FrameNum = InFrame;
 
-	if (Timecode.Drop)
+	if (Timecode.Timecode.bDropFrameFormat)
 	{
-		double FrameRate = FrameRateToFrameDelta(Timecode.FrameRate, Timecode.Drop);
+		double FrameRate = FrameRateToFrameDelta(Timecode.FrameRate, Timecode.Timecode.bDropFrameFormat);
 		int32 TenMinutes = static_cast<int32>(60 * FrameRate * 10);
 		int32 OneMinute = static_cast<int32>(60 * FrameRate);
 
@@ -146,26 +142,19 @@ void ULinearTimecodeComponent::SetDropTimecodeFrameNumber(const FDropTimecode& T
 		FrameNum += 18 * LotsOfTenMinutes + 2 * ((RemainderOfTenMinute - 2) / OneMinute);
 	}
 
-	OutTimecode.Frame = FrameNum % Timecode.FrameRate;
+	OutTimecode.Timecode.Frames = FrameNum % Timecode.FrameRate;
 	FrameNum /= Timecode.FrameRate;
-	OutTimecode.Seconds = FrameNum % 60;
+	OutTimecode.Timecode.Seconds = FrameNum % 60;
 	FrameNum /= 60;
-	OutTimecode.Minutes = FrameNum % 60;
+	OutTimecode.Timecode.Minutes = FrameNum % 60;
 	FrameNum /= 60;
-	OutTimecode.Hours = FrameNum % 24;
+	OutTimecode.Timecode.Hours = FrameNum % 24;
 }
 
 //// Added to BluePrintLibrary to allow type conversion
 
-UDropTimecodeToStringConversion::UDropTimecodeToStringConversion(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer)
-{
-}
-
 FString UDropTimecodeToStringConversion::Conv_DropTimecodeToString(const FDropTimecode& InTimecode)
 {
-	FString OutString(FString::Printf(TEXT("%02d:%02d:%02d%c%02d"), InTimecode.Hours, InTimecode.Minutes, InTimecode.Seconds,
-		InTimecode.Drop ? ';' : ':', InTimecode.Frame));
-	return OutString;
+	return InTimecode.Timecode.ToString(false);
 }
 

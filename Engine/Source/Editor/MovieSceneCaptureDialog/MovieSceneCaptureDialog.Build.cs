@@ -23,6 +23,7 @@ public class MovieSceneCaptureDialog : ModuleRules
 				"JsonUtilities",
 				"MovieScene",
 				"MovieSceneCapture",
+				"MovieSceneTools",
 				"PropertyEditor",
 				"SessionServices",
 				"Slate",

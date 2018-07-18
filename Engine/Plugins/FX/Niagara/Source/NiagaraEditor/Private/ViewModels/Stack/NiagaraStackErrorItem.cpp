@@ -1,70 +1,184 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "NiagaraStackErrorItem.h"
+#include "ViewModels/Stack/NiagaraStackErrorItem.h"
+#include "NiagaraStackEditorData.h"
+#include "ScopedTransaction.h"
 
-UNiagaraStackErrorItem::UNiagaraStackErrorItem() : ErrorSource(nullptr), ErrorIdx(INDEX_NONE)
+#define LOCTEXT_NAMESPACE "NiagaraStackErrorItem"
+//UNiagaraStackErrorItem
+
+void UNiagaraStackErrorItem::Initialize(FRequiredEntryData InRequiredEntryData, FStackIssue InStackIssue, FString InStackEditorDataKey)
 {
+	FString ErrorStackEditorDataKey = FString::Printf(TEXT("%s-Error-%s"), *InStackEditorDataKey, *InStackIssue.GetUniqueIdentifier());
+	Super::Initialize(InRequiredEntryData, ErrorStackEditorDataKey);
+	StackIssue = InStackIssue;
+	EntryStackEditorDataKey = InStackEditorDataKey;
 }
 
-void UNiagaraStackErrorItem::Initialize(TSharedRef<FNiagaraSystemViewModel> InSystemViewModel, TSharedRef<FNiagaraEmitterViewModel> InEmitterViewModel, UNiagaraStackEntry* InErrorSource, int32 InErrorIndex)
+void UNiagaraStackErrorItem::SetStackIssue(const FStackIssue& InStackIssue)
 {
-	checkf(ErrorSource == nullptr, TEXT("Can only initialize once."));
-	Super::Initialize(InSystemViewModel, InEmitterViewModel);
-	ErrorSource = InErrorSource;
-	ErrorIdx = InErrorIndex;
+	StackIssue = InStackIssue;
 }
 
-int32 UNiagaraStackErrorItem::GetItemIndentLevel() const
+FText UNiagaraStackErrorItem::GetDisplayName() const
 {
-	return ItemIndentLevel;
+	return StackIssue.GetShortDescription();
 }
 
-void UNiagaraStackErrorItem::SetItemIndentLevel(int32 InItemIndentLevel)
+UNiagaraStackEntry::EStackRowStyle UNiagaraStackErrorItem::GetStackRowStyle() const
 {
-	ItemIndentLevel = InItemIndentLevel;
+	return EStackRowStyle::StackIssue;
 }
 
-FText UNiagaraStackErrorItem::ErrorText() const
+UNiagaraStackErrorItem::FOnIssueNotify& UNiagaraStackErrorItem::OnIssueModified()
 {
-	FText SummaryText = ErrorSource->GetErrorSummaryText(ErrorIdx);
-	if (SummaryText.IsEmpty())
+	return IssueModifiedDelegate;
+}
+
+void UNiagaraStackErrorItem::RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren, TArray<FStackIssue>& NewIssues)
+{
+	for (UNiagaraStackEntry* Child : CurrentChildren)
 	{
-		return ErrorSource->GetErrorText(ErrorIdx);
+		UNiagaraStackErrorItemFix* FixChild = Cast<UNiagaraStackErrorItemFix>(Child);
+		if (FixChild != nullptr)
+		{
+			FixChild->OnIssueFixed().RemoveAll(this);
+		}
 	}
-	else
+	// long description
+	UNiagaraStackErrorItemLongDescription* ErrorEntryLongDescription = FindCurrentChildOfTypeByPredicate<UNiagaraStackErrorItemLongDescription>(CurrentChildren,
+		[&](UNiagaraStackErrorItemLongDescription* CurrentChild) { return true; });
+	if (ErrorEntryLongDescription == nullptr)
 	{
-		return SummaryText;
+		ErrorEntryLongDescription = NewObject<UNiagaraStackErrorItemLongDescription>(this);
+		ErrorEntryLongDescription->Initialize(CreateDefaultChildRequiredData(), StackIssue, GetStackEditorDataKey());
+	}
+	NewChildren.Add(ErrorEntryLongDescription);
+
+	// fixes
+	for (int i = 0; i < StackIssue.GetFixes().Num(); i++)
+	{
+		UNiagaraStackEntry::FStackIssueFix CurrentFix = StackIssue.GetFixes()[i];
+		UNiagaraStackErrorItemFix* ErrorEntryFix = FindCurrentChildOfTypeByPredicate<UNiagaraStackErrorItemFix>(CurrentChildren,
+			[&](UNiagaraStackErrorItemFix* CurrentChild) { return CurrentChild->GetStackIssueFix().GetUniqueIdentifier() == CurrentFix.GetUniqueIdentifier(); });
+		if (ErrorEntryFix == nullptr)
+		{
+			ErrorEntryFix = NewObject<UNiagaraStackErrorItemFix>(this);
+			ErrorEntryFix->Initialize(CreateDefaultChildRequiredData(), StackIssue, CurrentFix, EntryStackEditorDataKey);
+		}
+		else
+		{
+			ErrorEntryFix->SetFixDelegate(CurrentFix.GetFixDelegate());
+		}
+		ErrorEntryFix->OnIssueFixed().AddUObject(this, &UNiagaraStackErrorItem::IssueFixed);
+		NewChildren.Add(ErrorEntryFix);
+	}
+	// dismiss button
+	if (StackIssue.GetCanBeDismissed())
+	{
+		UNiagaraStackErrorItemDismiss* ErrorEntryDismiss = FindCurrentChildOfTypeByPredicate<UNiagaraStackErrorItemDismiss>(CurrentChildren,
+			[&](UNiagaraStackErrorItemDismiss* CurrentChild) { return true; });
+		if (ErrorEntryDismiss == nullptr)
+		{
+			ErrorEntryDismiss = NewObject<UNiagaraStackErrorItemDismiss>(this);
+			ErrorEntryDismiss->Initialize(CreateDefaultChildRequiredData(), StackIssue, EntryStackEditorDataKey);
+		}
+		ErrorEntryDismiss->OnIssueFixed().AddUObject(this, &UNiagaraStackErrorItem::IssueFixed);
+		NewChildren.Add(ErrorEntryDismiss);
 	}
 }
 
-FText UNiagaraStackErrorItem::ErrorTextTooltip() const
+void UNiagaraStackErrorItem::IssueFixed()
 {
-	return ErrorSource->GetErrorText(ErrorIdx);
+	OnIssueModified().Broadcast();
 }
 
-FReply UNiagaraStackErrorItem::OnTryFixError()
+//UNiagaraStackErrorItemLongDescription
+void UNiagaraStackErrorItemLongDescription::Initialize(FRequiredEntryData InRequiredEntryData, UNiagaraStackEntry::FStackIssue InStackIssue, FString InStackEditorDataKey)
 {
-	if (ErrorSource->TryFixError(ErrorIdx))
-	{
-		return FReply::Handled();
-	}
+	FString ErrorStackEditorDataKey = FString::Printf(TEXT("Long-%s"), *InStackEditorDataKey);
+	Super::Initialize(InRequiredEntryData, ErrorStackEditorDataKey);
+	StackIssue = InStackIssue;
+}
+
+FText UNiagaraStackErrorItemLongDescription::GetDisplayName() const
+{
+	return StackIssue.GetLongDescription();
+}
+
+UNiagaraStackEntry::EStackRowStyle UNiagaraStackErrorItemLongDescription::GetStackRowStyle() const
+{
+	return EStackRowStyle::StackIssue;
+}
+
+//UNiagaraStackErrorItemFix
+
+void UNiagaraStackErrorItemFix::Initialize(FRequiredEntryData InRequiredEntryData, FStackIssue InStackIssue, FStackIssueFix InIssueFix, FString InStackEditorDataKey)
+{
+	FString ErrorStackEditorDataKey = FString::Printf(TEXT("Fix-%s"), *InStackEditorDataKey);
+	Super::Initialize(InRequiredEntryData, ErrorStackEditorDataKey);
+	StackIssue = InStackIssue;
+	IssueFix = InIssueFix;
+}
+
+FText UNiagaraStackErrorItemFix::FixDescription() const
+{
+	return IssueFix.GetDescription();
+}
+
+FReply UNiagaraStackErrorItemFix::OnTryFixError()
+{
+	IssueFix.GetFixDelegate().ExecuteIfBound();
+	OnIssueFixed().Broadcast();
 	return FReply::Handled();
 }
 
-EVisibility UNiagaraStackErrorItem::CanFixVisibility() const
+UNiagaraStackEntry::EStackRowStyle UNiagaraStackErrorItemFix::GetStackRowStyle() const
 {
-	if (ErrorSource->GetErrorFixable(ErrorIdx))
-	{
-		return EVisibility::Visible;
-	}
-	else
-	{
-		return EVisibility::Hidden;
-	}
+	return EStackRowStyle::StackIssue;
 }
 
-
-FName UNiagaraStackErrorItem::GetItemBackgroundName() const 
+FText UNiagaraStackErrorItemFix::GetFixButtonText() const
 {
-	return "NiagaraEditor.Stack.Item.ErrorBackgroundColor";
+	return LOCTEXT("FixIssue", "Fix issue");
 }
+
+UNiagaraStackErrorItem::FOnIssueNotify& UNiagaraStackErrorItemFix::OnIssueFixed()
+{
+	return IssueFixedDelegate;
+}
+
+void UNiagaraStackErrorItemFix::SetFixDelegate(const FStackIssueFixDelegate& InFixDelegate)
+{
+	IssueFix.SetFixDelegate(InFixDelegate);
+}
+
+//UNiagaraStackErrorItemDismiss
+
+void UNiagaraStackErrorItemDismiss::Initialize(FRequiredEntryData InRequiredEntryData, UNiagaraStackEntry::FStackIssue InStackIssue, FString InStackEditorDataKey)
+{
+	FString ErrorStackEditorDataKey = FString::Printf(TEXT("Dismiss-%s"), *InStackEditorDataKey);
+	UNiagaraStackEntry::Initialize(InRequiredEntryData, ErrorStackEditorDataKey);
+	StackIssue = InStackIssue;
+	IssueFix = FStackIssueFix(
+		LOCTEXT("DismissError", "Dismiss the issue without fixing (I know what I'm doing)."),
+		FStackIssueFixDelegate::CreateUObject(this, &UNiagaraStackErrorItemDismiss::DismissIssue));
+}
+
+void UNiagaraStackErrorItemDismiss::DismissIssue()
+{
+	GetStackEditorData().Modify();
+	GetStackEditorData().DismissStackIssue(StackIssue.GetUniqueIdentifier());
+}
+
+UNiagaraStackEntry::EStackRowStyle UNiagaraStackErrorItemDismiss::GetStackRowStyle() const
+{
+	return EStackRowStyle::StackIssue;
+}
+
+FText UNiagaraStackErrorItemDismiss::GetFixButtonText() const
+{
+	return LOCTEXT("DismissIssue", "Dismiss issue");
+}
+
+#undef LOCTEXT_NAMESPACE

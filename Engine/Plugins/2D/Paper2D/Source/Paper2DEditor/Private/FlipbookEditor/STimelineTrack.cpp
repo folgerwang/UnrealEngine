@@ -38,7 +38,7 @@ TSharedRef<SWidget> SFlipbookKeyframeWidget::GenerateContextMenu()
 		FNumberFormattingOptions NoCommas;
 		NoCommas.UseGrouping = false;
 		
-		const FText KeyframeSectionTitle = FText::Format(LOCTEXT("KeyframeActionsSectionHeader", "Keyframe #{0} Actions"), FText::AsNumber(FrameIndex, &NoCommas));
+		const FText KeyframeSectionTitle = FText::Format(LOCTEXT("KeyframeXActionsSectionHeader", "Keyframe #{0} Actions"), FText::AsNumber(FrameIndex, &NoCommas));
 		MenuBuilder.BeginSection("KeyframeActions", KeyframeSectionTitle);
 
 		// 		MenuBuilder.AddMenuEntry(FGenericCommands::Get().Cut);
@@ -54,9 +54,6 @@ TSharedRef<SWidget> SFlipbookKeyframeWidget::GenerateContextMenu()
 
 		MenuBuilder.EndSection();
 	}
-
-	CommandList->MapAction(Commands.ShowInContentBrowser, FExecuteAction::CreateSP(this, &SFlipbookKeyframeWidget::ShowInContentBrowser));
-	CommandList->MapAction(Commands.EditSpriteFrame, FExecuteAction::CreateSP(this, &SFlipbookKeyframeWidget::EditKeyFrame));
 
 	{
 		TAttribute<FText> CurrentAssetTitle = TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(this, &SFlipbookKeyframeWidget::GetKeyframeAssetName));
@@ -78,8 +75,13 @@ TSharedRef<SWidget> SFlipbookKeyframeWidget::GenerateContextMenu()
 void SFlipbookKeyframeWidget::Construct(const FArguments& InArgs, int32 InFrameIndex, TSharedPtr<FUICommandList> InCommandList)
 {
 	FrameIndex = InFrameIndex;
+
+	const FFlipbookEditorCommands& Commands = FFlipbookEditorCommands::Get();
 	CommandList = MakeShareable(new FUICommandList);
 	CommandList->Append(InCommandList.ToSharedRef());
+	CommandList->MapAction(Commands.ShowInContentBrowser, FExecuteAction::CreateSP(this, &SFlipbookKeyframeWidget::ShowInContentBrowser));
+	CommandList->MapAction(Commands.EditSpriteFrame, FExecuteAction::CreateSP(this, &SFlipbookKeyframeWidget::EditKeyFrame));
+
 	SlateUnitsPerFrame = InArgs._SlateUnitsPerFrame;
 	FlipbookBeingEdited = InArgs._FlipbookBeingEdited;
 	OnSelectionChanged = InArgs._OnSelectionChanged;

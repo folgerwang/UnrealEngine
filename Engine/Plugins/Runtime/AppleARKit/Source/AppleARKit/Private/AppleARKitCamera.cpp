@@ -3,15 +3,15 @@
 // AppleARKit
 #include "AppleARKitCamera.h"
 #include "AppleARKitModule.h"
-#include "AppleARKitTransform.h"
+#include "AppleARKitConversion.h"
 	
 // UE4
 #include "CoreGlobals.h"
 #include "Engine/EngineTypes.h"
 #include "Kismet/GameplayStatics.h"
-#include "RenderingCommon.h"
+#include "Rendering/RenderingCommon.h"
 
-#if ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
+#if SUPPORTS_ARKIT_1_0
 
 FAppleARKitCamera::FAppleARKitCamera( ARCamera* InARCamera )
 {
@@ -45,13 +45,13 @@ FAppleARKitCamera::FAppleARKitCamera( ARCamera* InARCamera )
 	
 	
     // Copy / convert camera transform
-    Transform = FAppleARKitTransform::ToFTransform( InARCamera.transform );
+    Transform = FAppleARKitConversion::ToFTransform( InARCamera.transform );
     Translation = Transform.GetTranslation();
 	Orientation = Transform.GetRotation();
 	
 }
 
-#endif // #ARKIT_SUPPORT
+#endif
 
 float FAppleARKitCamera::GetAspectRatio() const
 {

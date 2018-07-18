@@ -86,7 +86,11 @@ EMaterialValueType UTextureRenderTargetCube::GetMaterialType() const
 #if WITH_EDITOR
 void UTextureRenderTargetCube::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
-	const int32 MaxSize=2048;
+	// Allow for high resolution captures when ODS is enabled
+	static const auto CVarODSCapture = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("vr.ODSCapture"));
+	const bool bIsODSCapture = CVarODSCapture && (CVarODSCapture->GetValueOnGameThread() != 0);
+	const int32 MaxSize = (bIsODSCapture) ? 4096 : 2048;
+
 	EPixelFormat Format = GetFormat();
 	SizeX = FMath::Clamp<int32>(SizeX - (SizeX % GPixelFormats[Format].BlockSizeX),1,MaxSize);
 
@@ -313,7 +317,7 @@ void FTextureRenderTargetCubeResource::UpdateDeferredResource(FRHICommandListImm
 		// copy surface to the texture for use
 		FResolveParams ResolveParams;
 		ResolveParams.CubeFace = (ECubeFace)FaceIdx;
-		RHICmdList.CopyToResolveTarget(RenderTargetTextureRHI, TextureCubeRHI, true, ResolveParams);
+		RHICmdList.CopyToResolveTarget(RenderTargetTextureRHI, TextureCubeRHI, ResolveParams);
 	}
 }
 

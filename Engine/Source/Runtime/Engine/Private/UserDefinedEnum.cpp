@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Engine/UserDefinedEnum.h"
-#include "EditorObjectVersion.h"
+#include "UObject/EditorObjectVersion.h"
 #if WITH_EDITOR
 #include "Kismet2/EnumEditorUtils.h"
 #include "UObject/MetaData.h"

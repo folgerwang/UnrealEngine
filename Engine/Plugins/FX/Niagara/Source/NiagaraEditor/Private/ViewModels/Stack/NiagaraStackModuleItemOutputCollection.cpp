@@ -1,11 +1,11 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "NiagaraStackModuleItemOutputCollection.h"
-#include "NiagaraStackModuleItemOutput.h"
+#include "ViewModels/Stack/NiagaraStackModuleItemOutputCollection.h"
+#include "ViewModels/Stack/NiagaraStackModuleItemOutput.h"
 #include "NiagaraNodeFunctionCall.h"
 #include "NiagaraNodeParameterMapSet.h"
 #include "NiagaraEmitterEditorData.h"
-#include "NiagaraStackGraphUtilities.h"
+#include "ViewModels/Stack/NiagaraStackGraphUtilities.h"
 
 #include "EdGraph/EdGraphPin.h"
 
@@ -14,31 +14,17 @@ UNiagaraStackModuleItemOutputCollection::UNiagaraStackModuleItemOutputCollection
 {
 }
 
-void UNiagaraStackModuleItemOutputCollection::Initialize(TSharedRef<FNiagaraSystemViewModel> InSystemViewModel, TSharedRef<FNiagaraEmitterViewModel> InEmitterViewModel, UNiagaraNodeFunctionCall& InFunctionCallNode)
+void UNiagaraStackModuleItemOutputCollection::Initialize(FRequiredEntryData InRequiredEntryData, UNiagaraNodeFunctionCall& InFunctionCallNode)
 {
 	checkf(FunctionCallNode == nullptr, TEXT("Can not set the node more than once."));
-	Super::Initialize(InSystemViewModel, InEmitterViewModel);
+	FString OutputCollectionStackEditorDataKey = FString::Printf(TEXT("%s-Outputs"), *InFunctionCallNode.NodeGuid.ToString(EGuidFormats::DigitsWithHyphens));
+	Super::Initialize(InRequiredEntryData, OutputCollectionStackEditorDataKey);
 	FunctionCallNode = &InFunctionCallNode;
 }
 
 FText UNiagaraStackModuleItemOutputCollection::GetDisplayName() const
 {
-	return DisplayName;
-}
-
-FName UNiagaraStackModuleItemOutputCollection::GetTextStyleName() const
-{
-	return "NiagaraEditor.Stack.ParameterCollectionText";
-}
-
-void UNiagaraStackModuleItemOutputCollection::SetDisplayName(FText InDisplayName)
-{
-	DisplayName = InDisplayName;
-}
-
-bool UNiagaraStackModuleItemOutputCollection::GetCanExpand() const
-{
-	return true;
+	return NSLOCTEXT("StackModuleItemOutputCollection", "OutputsLabel", "Outputs");
 }
 
 bool UNiagaraStackModuleItemOutputCollection::IsExpandedByDefault() const
@@ -46,7 +32,17 @@ bool UNiagaraStackModuleItemOutputCollection::IsExpandedByDefault() const
 	return false;
 }
 
-void UNiagaraStackModuleItemOutputCollection::RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren)
+bool UNiagaraStackModuleItemOutputCollection::GetIsEnabled() const
+{
+	return FunctionCallNode->GetDesiredEnabledState() == ENodeEnabledState::Enabled;
+}
+
+UNiagaraStackEntry::EStackRowStyle UNiagaraStackModuleItemOutputCollection::GetStackRowStyle() const
+{
+	return EStackRowStyle::ItemContent;
+}
+
+void UNiagaraStackModuleItemOutputCollection::RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren, TArray<FStackIssue>& NewIssues)
 {
 	UEdGraphPin* OutputParameterMapPin = FNiagaraStackGraphUtilities::GetParameterMapOutputPin(*FunctionCallNode);
 	if (ensureMsgf(OutputParameterMapPin != nullptr, TEXT("Invalid Stack Graph - Function call node has no output pin.")))
@@ -66,20 +62,13 @@ void UNiagaraStackModuleItemOutputCollection::RefreshChildrenInternal(const TArr
 				{
 					if (Cast<UNiagaraNodeParameterMapSet>(WritePin->GetOwningNode()) != nullptr)
 					{
-						UNiagaraStackModuleItemOutput* Output = nullptr;
-						for (UNiagaraStackEntry* CurrentChild : CurrentChildren)
-						{
-							UNiagaraStackModuleItemOutput* ChildOutput = CastChecked<UNiagaraStackModuleItemOutput>(CurrentChild);
-						if (ChildOutput->GetOutputParameterHandle().GetParameterHandleString() == Variable.GetName())
-							{
-								Output = ChildOutput;
-								break;
-							}
-						}
+						UNiagaraStackModuleItemOutput* Output = FindCurrentChildOfTypeByPredicate<UNiagaraStackModuleItemOutput>(CurrentChildren,
+							[&](UNiagaraStackModuleItemOutput* CurrentOutput) { return CurrentOutput->GetOutputParameterHandle().GetParameterHandleString() == Variable.GetName(); });
+
 						if (Output == nullptr)
 						{
 							Output = NewObject<UNiagaraStackModuleItemOutput>(this);
-							Output->Initialize(GetSystemViewModel(), GetEmitterViewModel(), *FunctionCallNode, Variable.GetName(), Variable.GetType());
+							Output->Initialize(CreateDefaultChildRequiredData(), *FunctionCallNode, Variable.GetName(), Variable.GetType());
 						}
 
 						NewChildren.Add(Output);

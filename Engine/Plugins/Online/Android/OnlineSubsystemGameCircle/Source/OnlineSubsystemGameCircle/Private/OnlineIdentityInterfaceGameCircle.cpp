@@ -72,7 +72,7 @@ TSharedPtr<const FUniqueNetId> FOnlineIdentityGameCircle::CreateUniquePlayerId(u
 		if (StrLen > 0)
 		{
 			FString StrId((TCHAR*)Bytes);
-			return MakeShareable(new FUniqueNetIdString(StrId));
+			return MakeShareable(new FUniqueNetIdGameCircle(StrId));
 		}
 	}
 	return NULL;
@@ -81,7 +81,7 @@ TSharedPtr<const FUniqueNetId> FOnlineIdentityGameCircle::CreateUniquePlayerId(u
 
 TSharedPtr<const FUniqueNetId> FOnlineIdentityGameCircle::CreateUniquePlayerId(const FString& Str)
 {
-	return MakeShareable(new FUniqueNetIdString(Str));
+	return MakeShareable(new FUniqueNetIdGameCircle(Str));
 }
 
 
@@ -153,7 +153,7 @@ void FOnlineIdentityGameCircle::OnGetLocalPlayerPlayerCallback(AmazonGames::Erro
 			LocalPlayerInfo.AvatarURL = InPlayerInfo->avatarUrl;
 
 			FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Received player info for local player with playerId \"%s\""), *LocalPlayerInfo.PlayerId);
-			UniqueNetId = MakeShareable(new FUniqueNetIdString(LocalPlayerInfo.PlayerId));
+			UniqueNetId = MakeShareable(new FUniqueNetIdGameCircle(LocalPlayerInfo.PlayerId));
 
 			AmazonGames::PlayerClientInterface::setSignedInStateChangedListener(&SignedInStateChangeListener);
 			bIsLoggedIn = AmazonGames::PlayerClientInterface::isSignedIn();

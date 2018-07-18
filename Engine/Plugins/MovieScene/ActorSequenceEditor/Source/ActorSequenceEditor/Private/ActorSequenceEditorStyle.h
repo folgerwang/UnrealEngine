@@ -2,8 +2,8 @@
 
 #pragma once
 
-#include "SlateStyle.h"
-#include "SlateStyleRegistry.h"
+#include "Styling/SlateStyle.h"
+#include "Styling/SlateStyleRegistry.h"
 
 
 class FActorSequenceEditorStyle

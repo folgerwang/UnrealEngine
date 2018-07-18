@@ -3,8 +3,9 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "MovieSceneBlendType.h"
-#include "BlendableTokenStack.h"
+#include "Evaluation/Blending/MovieSceneBlendType.h"
+#include "Evaluation/Blending/BlendableTokenStack.h"
+#include "EulerTransform.h"
 
 /**~
  * Generic multi-channel blending support for sequencer.
@@ -302,6 +303,10 @@ namespace MovieScene
 		FVector Scale = In.GetScale3D();
 		Out = { Translation.X, Translation.Y, Translation.Z, Rotation.X, Rotation.Y, Rotation.Z, Scale.X, Scale.Y, Scale.Z };
 	}
+	inline void MultiChannelFromData(const FEulerTransform& In, 	TMultiChannelValue<float, 9>& Out)
+	{
+		Out = { In.Location.X, In.Location.Y, In.Location.Z, In.Rotation.Roll, In.Rotation.Pitch, In.Rotation.Yaw, In.Scale.X, In.Scale.Y, In.Scale.Z };
+	}
 
 	inline void ResolveChannelsToData(const TMultiChannelValue<double, 1>& In, 	int32& Out)			{ Out = In[0]; }
 	inline void ResolveChannelsToData(const TMultiChannelValue<float, 1>& In, 	float& Out)			{ Out = In[0]; }
@@ -316,6 +321,14 @@ namespace MovieScene
 			FVector(In[6], In[7], In[8])
 			);
 	}
+	inline void ResolveChannelsToData(const TMultiChannelValue<float, 9>& In, 	FEulerTransform& Out)
+	{
+		Out = FEulerTransform(
+			FVector(In[0], In[1], In[2]),
+			FRotator::MakeFromEuler(FVector(In[3], In[4], In[5])),
+			FVector(In[6], In[7], In[8])
+			);
+	}
 }
 
 /** Define runtime type identifiers for the built-in C++ data types */
@@ -325,6 +338,7 @@ template<> MOVIESCENE_API FMovieSceneAnimTypeID GetBlendingDataType<FVector2D>()
 template<> MOVIESCENE_API FMovieSceneAnimTypeID GetBlendingDataType<FVector>();
 template<> MOVIESCENE_API FMovieSceneAnimTypeID GetBlendingDataType<FVector4>();
 template<> MOVIESCENE_API FMovieSceneAnimTypeID GetBlendingDataType<FTransform>();
+template<> MOVIESCENE_API FMovieSceneAnimTypeID GetBlendingDataType<FEulerTransform>();
 
 /** Define working data types for blending calculations */
 template<> struct TBlendableTokenTraits<int32> 			{ typedef MovieScene::TMaskedBlendable<double,1> 	WorkingDataType; };
@@ -333,5 +347,6 @@ template<> struct TBlendableTokenTraits<FVector2D> 		{ typedef MovieScene::TMask
 template<> struct TBlendableTokenTraits<FVector> 		{ typedef MovieScene::TMaskedBlendable<float, 3> 	WorkingDataType; };
 template<> struct TBlendableTokenTraits<FVector4> 		{ typedef MovieScene::TMaskedBlendable<float, 4> 	WorkingDataType; };
 template<> struct TBlendableTokenTraits<FTransform> 	{ typedef MovieScene::TMaskedBlendable<float, 9> 	WorkingDataType; };
+template<> struct TBlendableTokenTraits<FEulerTransform>{ typedef MovieScene::TMaskedBlendable<float, 9> 	WorkingDataType; };
 
 

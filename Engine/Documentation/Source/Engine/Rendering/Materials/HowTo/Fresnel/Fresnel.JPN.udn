@@ -1,13 +1,14 @@
-﻿INTSourceChangelist:2747812
+﻿INTSourceChangelist:3810467
 Availability:Public
 Title:マテリアル - マテリアルでフレネルを使用する方法
 Crumbs: %ROOT%, Engine, Engine/Rendering/Materials
-Description:Fresnel Material ノードを使用するための操作ガイド 
+Description:Fresnel Material ノードを使用するための操作ガイド  
 Related:Engine/Rendering/Materials/Functions/Reference/VectorOps
 Related:Engine/Rendering/Materials/Editor/Interface
 Related:Engine/Rendering/Materials/ExpressionReference/Utility
 Version:4.9
 SkillLevel:Advanced
+tags:Materials
 
 
 [TOC(start:2 end:3)]
@@ -22,9 +23,9 @@ SkillLevel:Advanced
 こうすることでアーティストはエフェクトのルック＆フィールに対する制御を強め、それを使用してライティングなしのオブジェクトにライティングを追加することさえ可能であり、パフォーマンスを抑えます。 
 
 
-## Fresnel（フレネル） 
+## Fresnel 
 
-フレネルとは、ライトを見るアングルに応じて、ライト反射の強度がどのように変わるかを表すために使う言葉です。 
+**フレネル** とは、ライトを見るアングルに応じて、ライト反射の強度がどのように変わるかを表すために使う言葉です。 
 例えば、真下にプールを見ながらプール上に立っていると、水の中での反射はほとんど見えません。 
 頭を動かしてプールの中の水が目線と平行になればなるほど、水中での反射が多くなることがわかります。 
 
@@ -52,11 +53,11 @@ UE4 では、Fresnel マテリアル式ノードは表面法線の dot product (
 
 ![](FN_Fresnel_Node.png)
 
-| プロパティ | 説明 |
+| プロパティ | 説明|
 |--------- | ---------- |
 | **ExponentIn** | フレネル エフェクトのフォール オフを制御します。 |
 | **BaseReflectFrctionIn** | サーフェスをまっすぐ見た時のスペキュラ反射の割合を指定します。値 1 に設定するとフレネルを事実上無効にします。 |
-| **Normal** | フレネル エフェクトがどのようにレンダリングされるかに影響を及ぼす法線を入力できます。このプロパティは法線マップまたは Vector 3 入力のいずれかを入れて設定できます。|
+| **法線** | フレネル エフェクトがどのようにレンダリングされるかに影響を及ぼす法線を入力できます。このプロパティは法線マップまたは Vector 3 入力のいずれかを入れて設定できます。|
 
 フレネルのマテリアル式の値を調整するための 2 つのオプションがあります。
 * マテリアル グラフでフレネル マテリアル式を選択し、**[Details (詳細)]** パネルで入力値を選択します。
@@ -77,7 +78,7 @@ UE4 では、Fresnel マテリアル式ノードは表面法線の dot product (
 
 ![](FN_Fresnel_Node_VO.png)
 
-| プロパティ | 説明 |
+| プロパティ | 説明|
 |--------- | ---------- |
 | **Normal Vector (V3)** |  ここでは、法線を入力し、フレネル エフェクトがどのようにレンダリングされるかに影響を及ぼすことができます。このプロパティは法線マップまたは Vector 3 入力のいずれかを入れて設定できます。|
 | **Camera Vector(V3)** |これはカメラと表面法線との間の Dot Product (内積) を決定するために使用するカメラに影響を及ぼすことができます。 |
@@ -126,7 +127,7 @@ UE4 では、Fresnel マテリアル式ノードは表面法線の dot product (
 	| **Fresnel_Color**|1.0, 0.0, 0.0|
 	| **Fresnel_Exp**|0.8|
 
-	完了すると、マテリアルグラフは以下のようになります。 
+	完了すると、マテリアル グラフは以下のようになります。 
 
 	![](FN_Completed_Materail.png)
 
@@ -136,7 +137,7 @@ UE4 では、Fresnel マテリアル式ノードは表面法線の dot product (
 
 1. マテリアルをコンパイル、保存して閉じたら、そのマテリアルを **コンテンツ ブラウザ** で探し、マウスでその上を **右クリック** します。 
 	ポップアップするメニューから **[Create Material Instance (マテリアル インスタンスを作成)]** オプションを選択します。これを行うと、新規マテリアル インスタンスが作成されます。 
-	完了すると、**[コンテンツ ブラウザ]** は以下のようになります。 	
+	上記を完了すると、**コンテンツ ブラウザ** は以下のようになるはずです。 	
 	![](FN_Create_New_Material_Instance.png)
 
 1. 新規作成したマテリアル インスタンスを開くには、 **コンテンツブラウザ** でその上を **マウスの左ボタン** で **ダブルクリック** します。 

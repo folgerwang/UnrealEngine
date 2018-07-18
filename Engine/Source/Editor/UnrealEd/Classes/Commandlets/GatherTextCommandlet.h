@@ -24,8 +24,10 @@ public:
 	virtual int32 Main(const FString& Params) override;
 	//~ End UCommandlet Interface
 
+	int32 ProcessGatherConfig(const FString& GatherTextConfigPath, const TSharedPtr<FLocalizationSCC>& CommandletSourceControlInfo, const TArray<FString>& Tokens, const TArray<FString>& Switches, const TMap<FString, FString>& ParamVals);
+
 	// Helpler function to generate a changelist description
-	FText GetChangelistDescription( const FString& InConfigPath );
+	FText GetChangelistDescription(const TArray<FString>& GatherTextConfigPaths);
 
 	static const FString UsageText;
 

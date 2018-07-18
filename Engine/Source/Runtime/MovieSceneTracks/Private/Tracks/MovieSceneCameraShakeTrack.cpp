@@ -8,20 +8,24 @@
 #include "Evaluation/MovieSceneEvaluationTemplate.h"
 #include "Compilation/MovieSceneSegmentCompiler.h"
 #include "Compilation/MovieSceneCompilerRules.h"
+#include "MovieScene.h"
 
 #define LOCTEXT_NAMESPACE "MovieSceneCameraShakeTrack"
 
-void UMovieSceneCameraShakeTrack::AddNewCameraShake(float KeyTime, TSubclassOf<UCameraShake> ShakeClass)
+UMovieSceneSection* UMovieSceneCameraShakeTrack::AddNewCameraShake(FFrameNumber KeyTime, TSubclassOf<UCameraShake> ShakeClass)
 {
 	UMovieSceneCameraShakeSection* const NewSection = Cast<UMovieSceneCameraShakeSection>(CreateNewSection());
 	if (NewSection)
 	{
 		// #fixme get length
-		NewSection->InitialPlacement(CameraShakeSections, KeyTime, KeyTime + 5.f /*AnimSequence->SequenceLength*/, SupportsMultipleRows());
+		FFrameTime Duration = 5.0 * GetTypedOuter<UMovieScene>()->GetTickResolution();
+		NewSection->InitialPlacement(CameraShakeSections, KeyTime, Duration.FrameNumber.Value, SupportsMultipleRows());
 		NewSection->ShakeData.ShakeClass = ShakeClass;
 		
 		AddSection(*NewSection);
 	}
+
+	return NewSection;
 }
 
 FMovieSceneTrackSegmentBlenderPtr UMovieSceneCameraShakeTrack::GetTrackSegmentBlender() const
@@ -51,7 +55,7 @@ const TArray<UMovieSceneSection*>& UMovieSceneCameraShakeTrack::GetAllSections()
 
 UMovieSceneSection* UMovieSceneCameraShakeTrack::CreateNewSection()
 {
-	return NewObject<UMovieSceneCameraShakeSection>(this);
+	return NewObject<UMovieSceneCameraShakeSection>(this, NAME_None, RF_Transactional);
 }
 
 
@@ -82,19 +86,6 @@ void UMovieSceneCameraShakeTrack::RemoveSection(UMovieSceneSection& Section)
 bool UMovieSceneCameraShakeTrack::IsEmpty() const
 {
 	return CameraShakeSections.Num() == 0;
-}
-
-
-TRange<float> UMovieSceneCameraShakeTrack::GetSectionBoundaries() const
-{
-	TArray<TRange<float>> Bounds;
-
-	for (auto Section : CameraShakeSections)
-	{
-		Bounds.Add(Section->GetRange());
-	}
-
-	return TRange<float>::Hull(Bounds);
 }
 
 

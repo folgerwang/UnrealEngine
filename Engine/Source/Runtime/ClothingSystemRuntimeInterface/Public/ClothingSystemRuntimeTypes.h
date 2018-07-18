@@ -2,8 +2,8 @@
 
 #pragma once
 
-#include "Array.h"
-#include "ObjectMacros.h"
+#include "Containers/Array.h"
+#include "UObject/ObjectMacros.h"
 #include "ClothingSystemRuntimeTypes.generated.h"
 
 // Data produced by a clothing simulation
@@ -23,6 +23,9 @@ struct FClothSimulData
 
 	// Transform applied per position/normal element when loaded
 	FTransform Transform;
+
+	// Transform relative to the component to update clothing root transform when not ticking clothing but rendering a component
+	FTransform ComponentRelativeTransform;
 };
 
 enum class EClothingTeleportMode : uint8
@@ -89,7 +92,7 @@ struct FClothCollisionPrim_Convex
 };
 
 USTRUCT()
-struct FClothCollisionData
+struct CLOTHINGSYSTEMRUNTIMEINTERFACE_API FClothCollisionData
 {
 	GENERATED_BODY()
 

@@ -5,7 +5,7 @@
 #include "Tracks/MovieScenePropertyTrack.h"
 #include "GameFramework/Actor.h"
 #include "Engine/World.h"
-#include "MovieSceneEvaluation.h"
+#include "Evaluation/MovieSceneEvaluation.h"
 #include "Components/SceneComponent.h"
 
 
@@ -130,11 +130,11 @@ void FMovieSceneVisibilitySectionTemplate::Evaluate(const FMovieSceneEvaluationO
 {
 	MOVIESCENE_DETAILED_SCOPE_CYCLE_COUNTER(MovieSceneEval_VisibilityTrack_Evaluate);
 
-	if (BoolCurve.HasAnyData())
+	bool VisibilityValue = false;
+	if (BoolCurve.Evaluate(Context.GetTime(), VisibilityValue))
 	{
 		// Invert this evaluation since the property is "bHiddenInGame" and we want the visualization to be the inverse of that. Green means visible.
-		bool bIsHidden = !BoolCurve.Evaluate(Context.GetTime());
-		ExecutionTokens.Add(FTemporarilyHiddenInGameExecutionToken(bIsHidden));
+		ExecutionTokens.Add(FTemporarilyHiddenInGameExecutionToken(!VisibilityValue));
 	}
 }
 

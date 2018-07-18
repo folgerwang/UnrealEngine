@@ -1,13 +1,13 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "ClothingMeshUtils.h"
+#include "Utils/ClothingMeshUtils.h"
 
-#include "UnrealMathUtility.h"
-#include "LogMacros.h"
+#include "Math/UnrealMathUtility.h"
+#include "Logging/LogMacros.h"
 
 #if WITH_EDITOR
-#include "NotificationManager.h"
-#include "SNotificationList.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
 #endif
 
 DEFINE_LOG_CATEGORY(LogClothingMeshUtils)

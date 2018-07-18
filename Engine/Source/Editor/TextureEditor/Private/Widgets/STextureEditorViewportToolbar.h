@@ -19,7 +19,10 @@ class STextureEditorViewportToolbar
 {
 public:
 
-	SLATE_BEGIN_ARGS(STextureEditorViewportToolbar) { }
+	SLATE_BEGIN_ARGS(STextureEditorViewportToolbar)
+		: _IsVolumeTexture(false)
+	{}
+		SLATE_ARGUMENT(bool, IsVolumeTexture)
 	SLATE_END_ARGS()
 
 public:
@@ -50,4 +53,6 @@ private:
 
 	// Holds the anchor for the view options menu.
 	TSharedPtr<SMenuAnchor> ViewOptionsMenuAnchor;
+
+	bool bIsVolumeTexture;
 };

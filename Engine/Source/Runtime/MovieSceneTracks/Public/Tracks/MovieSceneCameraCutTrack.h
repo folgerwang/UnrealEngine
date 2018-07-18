@@ -23,17 +23,14 @@ class UMovieSceneCameraCutTrack
 	
 public:
 
-	DEPRECATED(4.18, "Camera guid no longer supported, Use CameraBindingID.")
-	MOVIESCENETRACKS_API void AddNewCameraCut(FGuid CameraHandle, float Time);
-
 	/** 
 	 * Adds a new CameraCut at the specified time.
 	 *	
 	 * @param CameraBindingID Handle to the camera that the CameraCut switches to when active.
-	 * @param TimeRange The range within this track's movie scene where the CameraCut is initially placed.
+	 * @param Time The within this track's movie scene where the CameraCut is initially placed.
 	 * @return The newly created camera cut section
 	 */
-	MOVIESCENETRACKS_API UMovieSceneCameraCutSection* AddNewCameraCut(const FMovieSceneObjectBindingID& CameraBindingID, float Time);
+	MOVIESCENETRACKS_API UMovieSceneCameraCutSection* AddNewCameraCut(const FMovieSceneObjectBindingID& CameraBindingID, FFrameNumber Time);
 
 public:
 
@@ -43,6 +40,7 @@ public:
 	virtual UMovieSceneSection* CreateNewSection() override;
 	virtual const TArray<UMovieSceneSection*>& GetAllSections() const override;
 	virtual void RemoveSection(UMovieSceneSection& Section) override;
+	virtual void RemoveAllAnimationData() override;
 
 #if WITH_EDITORONLY_DATA
 	virtual FText GetDefaultDisplayName() const override;
@@ -54,7 +52,7 @@ public:
 
 protected:
 
-	float FindEndTimeForCameraCut(float StartTime);
+	FFrameNumber FindEndTimeForCameraCut(FFrameNumber StartTime);
 
 private:
 

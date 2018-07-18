@@ -10,6 +10,7 @@
 #include "IXRSystemAssets.h"
 #include "Components/PrimitiveComponent.h"
 #include "Features/IModularFeatures.h"
+#include "XRMotionControllerBase.h" // for GetHandEnumForSourceName()
 
 DEFINE_LOG_CATEGORY_STATIC(LogUHeadMountedDisplay, Log, All);
 
@@ -384,50 +385,19 @@ void UHeadMountedDisplayFunctionLibrary::GetDeviceWorldPose(UObject* WorldContex
 	Orientation = WorldOrientation.Rotator();
 }
 
-UPrimitiveComponent* UHeadMountedDisplayFunctionLibrary::AddDeviceVisualizationComponent(AActor* Target, const FXRDeviceId& XRDeviceId, bool bManualAttachment, const FTransform& RelativeTransform)
+bool UHeadMountedDisplayFunctionLibrary::IsDeviceTracking(const FXRDeviceId& XRDeviceId)
 {
-	if (!IsValid(Target))
-	{
-		UE_LOG(LogHMD, Warning, TEXT("The target actor is invalid. Therefore you're unable to add a device render component to it."));
-		return nullptr;
-	}
-	UPrimitiveComponent* DeviceProxy = nullptr;
+	bool bIsTracked = false;
 
-	TArray<IXRSystemAssets*> XRAssetSystems = IModularFeatures::Get().GetModularFeatureImplementations<IXRSystemAssets>(IXRSystemAssets::GetModularFeatureName());
-	for (IXRSystemAssets* AssetSys : XRAssetSystems)
+	// @TODO: It seems certain IXRTrackingSystem's aren't registering themselves with the modular feature framework. Ideally we'd be loop over them instead of picking just one.
+	IXRTrackingSystem* TrackingSys = GEngine->XRSystem.Get();
+	if (TrackingSys)
 	{
-		if (!XRDeviceId.IsOwnedBy(AssetSys))
+		if (XRDeviceId.IsOwnedBy(TrackingSys))
 		{
-			continue;
+			bIsTracked = TrackingSys->IsTracking(XRDeviceId.DeviceId);
 		}
-
-		DeviceProxy = AssetSys->CreateRenderComponent(XRDeviceId.DeviceId, Target, RF_StrongRefOnFrame);
-		if (DeviceProxy == nullptr)
-		{
-			UE_LOG(LogHMD, Warning, TEXT("The specified XR device does not have an associated render model."));
-		}
-		break;
 	}
 
-	if (DeviceProxy)
-	{
-		if (!bManualAttachment)
-		{
-			USceneComponent* RootComponent = Target->GetRootComponent();
-			if (RootComponent == nullptr)
-			{
-				Target->SetRootComponent(DeviceProxy);
-			}
-			else
-			{
-				DeviceProxy->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepRelativeTransform);
-			}
-		}
-		DeviceProxy->SetRelativeTransform(RelativeTransform);
-	}
-	else
-	{
-		UE_LOG(LogHMD, Warning, TEXT("Failed to find an active XR system with a model for the requested component."));
-	}
-	return DeviceProxy;
+	return bIsTracked;
 }

@@ -74,7 +74,7 @@ mtlpp::RenderPassDescriptor Window::GetRenderPassDescriptor() const
 
 void Window::Run()
 {
-    NSApplication * application = [NSApplication sharedApplication];
+    [NSApplication sharedApplication];
     [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
 
     NSMenu* menubar = [NSMenu new];

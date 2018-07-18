@@ -19,18 +19,18 @@
 #include "CoreMinimal.h"
 #include "OSVRPrivate.h"
 #include "IOSVR.h"
+#include "XRRenderBridge.h"
 #include <osvr/RenderKit/RenderManagerC.h>
 
 DECLARE_LOG_CATEGORY_EXTERN(FOSVRCustomPresentLog, Log, All);
 
 template<class TGraphicsDevice>
-class FOSVRCustomPresent : public FRHICustomPresent
+class FOSVRCustomPresent : public FXRRenderBridge
 {
 public:
     FTexture2DRHIRef mRenderTexture;
   
-    FOSVRCustomPresent(OSVR_ClientContext clientContext) :
-        FRHICustomPresent(nullptr)
+    FOSVRCustomPresent(OSVR_ClientContext clientContext) 
     {
         // If we are passed in a client context to use, we don't own it, so
         // we won't shut it down when we're done with it. Otherwise we will.
@@ -97,7 +97,6 @@ public:
     }
 
     virtual void GetProjectionMatrix(OSVR_RenderInfoCount eye, float &left, float &right, float &bottom, float &top, float nearClip, float farClip) = 0;
-    virtual bool UpdateViewport(const FViewport& InViewport, class FRHIViewport* InViewportRHI) = 0;
 
     // RenderManager normalizes displays a bit. We create the render target assuming horizontal side-by-side.
     // RenderManager then rotates that render texture if needed for vertical side-by-side displays.

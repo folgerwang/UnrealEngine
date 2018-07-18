@@ -34,23 +34,6 @@ public:
 			}
 		}
 	}
-
-	// Begin FStringSetNameValidator
-	virtual EValidatorResult IsValid(const FString& Name, bool bOriginal) override
-	{
-		EValidatorResult Result = FStringSetNameValidator::IsValid(Name, bOriginal);
-
-		if (Result == EValidatorResult::Ok)
-		{
-			if (Name.Len() > 100)
-			{
-				Result = EValidatorResult::TooLong;
-			}
-		}
-
-		return Result;
-	}
-	// End FStringSetNameValidator
 };
 
 /////////////////////////////////////////////////////

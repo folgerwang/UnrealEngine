@@ -15,7 +15,7 @@
 #include "HAL/RunnableThread.h"
 #include "HAL/Runnable.h"
 #include "Templates/Atomic.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 class FShaderCompileJob;
 class FShaderPipelineCompileJob;
@@ -333,6 +333,9 @@ public:
 	virtual int32 CompilingLoop() override;
 
 	static bool IsSupported();
+
+private:
+	void DispatchShaderCompileJobsBatch(TArray<FShaderCommonCompileJob*>& JobsToSerialize);
 };
 
 #endif // PLATFORM_WINDOWS
@@ -528,6 +531,8 @@ public:
 	{
 		NumExternalJobs = NumJobs;
 	}
+
+	ENGINE_API bool GetDumpShaderDebugInfo() const;
 
 	const FString& GetAbsoluteShaderDebugInfoDirectory() const
 	{

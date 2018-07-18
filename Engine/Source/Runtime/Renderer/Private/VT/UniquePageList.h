@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "VirtualTextureShared.h"
-#include "HashTable.h"
+#include "Containers/HashTable.h"
 
 // 4k x 4k virtual pages
 // 16 IDs

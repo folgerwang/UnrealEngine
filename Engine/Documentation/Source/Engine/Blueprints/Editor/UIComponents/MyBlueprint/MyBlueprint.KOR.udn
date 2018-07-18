@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3244370
+﻿INTSourceChangelist:3810557
 Availability:Public
 Title: 내 블루프린트
 Crumbs:%ROOT%, Engine/Blueprints, Engine/Blueprints/Editor, Engine/Blueprints/Editor/UIBreakdowns/LevelBPUI
@@ -19,6 +19,23 @@ tags:Blueprints
 
 ## 생성 버튼
 
+[INCLUDE:#MyBlueprintPanel]
+
+## 내 블루프린트 섹션
+
+**내 블루프린트** 탭은 다음의 여섯 섹션으로 나뉩니다: "**신규 추가**", 그래프, 함수, 매크로, 변수, 이벤트 디스패처.
+
+![My Blueprint Pane](MyBlueprintPane.png)
+
+아래 다섯 섹션은 블루프린트의 요소들을 각 그룹별로 체계 정리해 줍니다. 물론 상단의 섹션을 통해 새 그룹, 변수 등의 생성이나 전체 **내 블루프린트** 패널 검색에 대한 바로가기가 가능합니다.
+
+## 내 블루프린트에서의 검색
+
+**내 블루프린트** 탭에는 블루프린트에 속하는 그래프를 검색하는 데 사용되는 글상자가 있습니다. 맥락 메뉴에서 노드를 추가할 때와 같은 방식으로 작동하나, **내 블루프린트** 안에 있는 항목에 대해서만 검색이 제한됩니다. 검색 대상은 이름, 코멘트, 기타 데이터를 대상으로 가능합니다. 즉 **SetActorHidden** 이란 노드가 있다는 것을 아는 경우, 글상자에 그렇게 입력하면 그래프의 모든 **SetActorHidden** 노드가 탐색기에 표시됩니다.
+
+[/EXCERPT:Main]
+
+[COMMENT:none]
 [EXCERPT:MyBlueprintPanel]
 **내 블루프린트** 탭에는 새 변수, 함수, 매크로, 이벤트 그래프, 이벤트 디스패처 생성을 위한 (각 제목 끝의 ![](plus_Button.png) ) 단축 버튼이 있습니다.
 
@@ -39,23 +56,4 @@ tags:Blueprints
 ![](addNew.png)
 
 [/EXCERPT:MyBlueprintPanel]
-
-
-## 내 블루프린트 부분
-
-**내 블루프린트** 탭은 다음의 여섯 섹션으로 나뉩니다: "**신규 추가**", 그래프, 함수, 매크로, 변수, 이벤트 디스패처.
-
-![My Blueprint Pane](MyBlueprintPane.png)
-
-아래 다섯 섹션은 블루프린트의 요소들을 각 그룹별로 체계 정리해 줍니다. 물론 상단의 섹션을 통해 새 그룹, 변수 등의 생성이나 전체 **내 블루프린트** 패널 검색에 대한 바로가기가 가능합니다.
-
-## 내 블루프린트에서의 검색
-
-**내 블루프린트** 탭에는 블루프린트에 속하는 그래프를 검색하는 데 사용되는 글상자가 있습니다. 맥락 메뉴에서 노드를 추가할 때와 같은 방식으로 작동하나, **내 블루프린트** 안에 있는 항목에 대해서만 검색이 제한됩니다. 검색 대상은 이름, 코멘트, 기타 데이터를 대상으로 가능합니다. 즉 **SetActorHidden** 이란 노드가 있다는 것을 아는 경우, 글상자에 그렇게 입력하면 그래프의 모든 **SetActorHidden** 노드가 탐색기에 표시됩니다.
-
-
-
-
-
-[/EXCERPT:Main]
-
+[/COMMENT]

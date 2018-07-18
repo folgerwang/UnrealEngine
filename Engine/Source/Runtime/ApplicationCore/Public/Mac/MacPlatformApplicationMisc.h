@@ -4,7 +4,8 @@
 
 #include "GenericPlatform/GenericPlatformApplicationMisc.h"
 
-typedef void (*UpdateCachedMacMenuStateProc)(void);
+typedef void (*MacApplicationExternalCb)(void);
+typedef void (*MacApplicationExternalCbOneBool)(bool);
 
 struct APPLICATIONCORE_API FMacPlatformApplicationMisc : public FGenericPlatformApplicationMisc
 {
@@ -21,6 +22,7 @@ struct APPLICATIONCORE_API FMacPlatformApplicationMisc : public FGenericPlatform
 	static bool ControlScreensaver(EScreenSaverAction Action);
 	static void ActivateApplication();
     static void UpdateApplicationMenu();
+    static void LanguageChanged();
 	static void UpdateWindowMenu();
     static void UpdateCocoaButtons();
 	static struct FLinearColor GetScreenPixelColor(const FVector2D& InScreenPos, float InGamma = 1.0f);
@@ -33,9 +35,15 @@ struct APPLICATIONCORE_API FMacPlatformApplicationMisc : public FGenericPlatform
 	
 	// MAC ONLY
 
-	static UpdateCachedMacMenuStateProc UpdateCachedMacMenuState;
+	static MacApplicationExternalCb UpdateCachedMacMenuStateCb;
+	static MacApplicationExternalCb PostInitMacMenuStartupCb;
+	static MacApplicationExternalCbOneBool UpdateApplicationMenuCb;
+	static MacApplicationExternalCbOneBool UpdateWindowMenuCb;
+	static MacApplicationExternalCb LanguageChangedCb;
 
 	static bool bChachedMacMenuStateNeedsUpdate;
+	
+	static bool bLanguageChanged;
     
     static bool bMacApplicationModalMode;
 

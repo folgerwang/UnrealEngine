@@ -289,6 +289,77 @@ FBoolConfigValueHelper::FBoolConfigValueHelper(const TCHAR* Section, const TCHAR
 }
 
 /*----------------------------------------------------------------------------
+FScriptExceptionHandler
+----------------------------------------------------------------------------*/
+FScriptExceptionHandlerFunc FScriptExceptionHandler::DefaultExceptionHandler = &FScriptExceptionHandler::LoggingExceptionHandler;
+
+FScriptExceptionHandler& FScriptExceptionHandler::Get()
+{
+	return TThreadSingleton<FScriptExceptionHandler>::Get();
+}
+
+void FScriptExceptionHandler::PushExceptionHandler(const FScriptExceptionHandlerFunc& InFunc)
+{
+	ExceptionHandlerStack.Push(InFunc);
+}
+
+void FScriptExceptionHandler::PopExceptionHandler()
+{
+	check(ExceptionHandlerStack.Num() > 0);
+	ExceptionHandlerStack.Pop(/*bAllowShrinking*/false);
+}
+
+void FScriptExceptionHandler::HandleException(ELogVerbosity::Type Verbosity, const TCHAR* ExceptionMessage, const TCHAR* StackMessage)
+{
+	if (ExceptionHandlerStack.Num() > 0)
+	{
+		ExceptionHandlerStack.Top()(Verbosity, ExceptionMessage, StackMessage);
+	}
+	else
+	{
+		DefaultExceptionHandler(Verbosity, ExceptionMessage, StackMessage);
+	}
+}
+
+void FScriptExceptionHandler::AssertionExceptionHandler(ELogVerbosity::Type Verbosity, const TCHAR* ExceptionMessage, const TCHAR* StackMessage)
+{
+	// Ensure for errors and warnings, for everything else just log
+	if (Verbosity <= ELogVerbosity::Error)
+	{
+		ensureAlwaysMsgf(false, TEXT("Script Msg: %s\n%s"), ExceptionMessage, StackMessage);
+	}
+	else
+	{
+		LoggingExceptionHandler(Verbosity, ExceptionMessage, StackMessage);
+	}
+}
+
+void FScriptExceptionHandler::LoggingExceptionHandler(ELogVerbosity::Type Verbosity, const TCHAR* ExceptionMessage, const TCHAR* StackMessage)
+{
+#if !NO_LOGGING
+	// Call directly so we can pass verbosity through
+	FMsg::Logf_Internal(__FILE__, __LINE__, LogScript.GetCategoryName(), Verbosity, TEXT("Script Msg: %s"), ExceptionMessage);
+	if (*StackMessage)
+	{
+		FMsg::Logf_Internal(__FILE__, __LINE__, LogScript.GetCategoryName(), Verbosity, TEXT("%s"), StackMessage);
+	}
+#endif
+}
+
+/*----------------------------------------------------------------------------
+FScopedScriptExceptionHandler
+----------------------------------------------------------------------------*/
+FScopedScriptExceptionHandler::FScopedScriptExceptionHandler(const FScriptExceptionHandlerFunc& InFunc)
+{
+	FScriptExceptionHandler::Get().PushExceptionHandler(InFunc);
+}
+
+FScopedScriptExceptionHandler::~FScopedScriptExceptionHandler()
+{
+	FScriptExceptionHandler::Get().PopExceptionHandler();
+}
+
+/*----------------------------------------------------------------------------
 FBlueprintExceptionTracker
 ----------------------------------------------------------------------------*/
 #if DO_BLUEPRINT_GUARD

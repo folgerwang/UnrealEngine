@@ -3,6 +3,47 @@
 #include "SoundSimple.h"
 #include "ActiveSound.h"
 
+void USoundSimple::CacheValues()
+{
+	MaxDistance = 0.0f;
+	for (int32 i = 0; i < Variations.Num(); ++i)
+	{
+		float SoundWaveMaxAudibleDistance = Variations[i].SoundWave->GetMaxDistance();
+		if (SoundWaveMaxAudibleDistance > MaxDistance)
+		{
+			MaxDistance = SoundWaveMaxAudibleDistance;
+		}
+	}
+
+	Duration = 0.0f;
+	for (int32 i = 0; i < Variations.Num(); ++i)
+	{
+		float SoundWaveMaxDuration = Variations[i].SoundWave->GetDuration();
+		if (SoundWaveMaxDuration > Duration)
+		{
+			Duration = SoundWaveMaxDuration;
+		}
+	}
+}
+
+void USoundSimple::PostLoad()
+{
+	Super::PostLoad();
+
+	CacheValues();
+}
+
+void USoundSimple::Serialize(FArchive& Ar)
+{
+	// Always force the duration to be updated when we are saving or cooking
+	if (Ar.IsSaving() || Ar.IsCooking())
+	{
+		CacheValues();
+	}
+
+	Super::Serialize(Ar);
+}
+
 bool USoundSimple::IsPlayable() const
 {
 	return true;
@@ -60,30 +101,12 @@ void USoundSimple::ChooseSoundWave()
 	SoundWave->Pitch = Pitch;
 }
 
-float USoundSimple::GetMaxAudibleDistance()
+float USoundSimple::GetMaxDistance() const
 {
-	float MaxDistance = 0.0f;
-	for (int32 i = 0; i < Variations.Num(); ++i)
-	{
-		float SoundWaveMaxAudibleDistance = Variations[i].SoundWave->GetMaxAudibleDistance();
-		if (SoundWaveMaxAudibleDistance > MaxDistance)
-		{
-			MaxDistance = SoundWaveMaxAudibleDistance;
-		}
-	}
 	return MaxDistance;
 }
 
 float USoundSimple::GetDuration()
 {
-	float MaxDuration = 0.0f;
-	for (int32 i = 0; i < Variations.Num(); ++i)
-	{
-		float SoundWaveMaxDuration = Variations[i].SoundWave->GetDuration();
-		if (SoundWaveMaxDuration > MaxDuration)
-		{
-			MaxDuration = SoundWaveMaxDuration;
-		}
-	}
-	return MaxDuration;	
+	return Duration;
 }

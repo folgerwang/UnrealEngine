@@ -8,8 +8,8 @@
 #include "Animation/AnimSequenceBase.h"
 
 #if WITH_EDITOR
-#include "MessageLog.h"
-#include "UObjectToken.h"
+#include "Logging/MessageLog.h"
+#include "Misc/UObjectToken.h"
 #endif
 
 /////////////////////////////////////////////////////

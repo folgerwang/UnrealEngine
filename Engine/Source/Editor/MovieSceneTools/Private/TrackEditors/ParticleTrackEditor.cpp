@@ -16,7 +16,6 @@
 #include "CommonMovieSceneTools.h"
 #include "Particles/ParticleLODLevel.h"
 #include "Particles/ParticleModuleRequired.h"
-#include "EnumKeyArea.h"
 #include "Matinee/InterpTrackToggle.h"
 #include "MatineeImportTools.h"
 
@@ -35,11 +34,6 @@ FParticleSection::FParticleSection( UMovieSceneSection& InSection, TSharedRef<IS
 	: Section( InSection )
 	, OwningSequencerPtr( InOwningSequencer )
 {
-	ParticleKeyEnum = FindObject<UEnum>( ANY_PACKAGE, TEXT( "EParticleKey" ) );
-	checkf( ParticleKeyEnum != nullptr, TEXT( "FParticleSection could not find the EParticleKey UEnum by name." ) )
-
-	LeftKeyBrush = FEditorStyle::GetBrush( "Sequencer.KeyLeft" );
-	RightKeyBrush = FEditorStyle::GetBrush( "Sequencer.KeyRight" );
 }
 
 
@@ -56,12 +50,6 @@ UMovieSceneSection* FParticleSection::GetSectionObject()
 float FParticleSection::GetSectionHeight() const
 {
 	return (float)AnimatableParticleEditorConstants::ParticleTrackHeight;
-}
-
-void FParticleSection::GenerateSectionLayout( class ISectionLayoutBuilder& LayoutBuilder ) const
-{
-	UMovieSceneParticleSection* ParticleSection = Cast<UMovieSceneParticleSection>( &Section );
-	LayoutBuilder.SetSectionAsKeyArea( MakeShareable( new FEnumKeyArea( ParticleSection->GetParticleCurve(), ParticleSection, ParticleKeyEnum ) ) );
 }
 
 int32 FParticleSection::OnPaintSection( FSequencerSectionPainter& InPainter ) const
@@ -81,7 +69,7 @@ int32 FParticleSection::OnPaintSection( FSequencerSectionPainter& InPainter ) co
 
 	// @todo Sequencer - These values should be cached and then refreshed only when the particle system changes.
 	bool bIsLooping = false;
-	float LastEmitterEndTime = 0;
+	double LastEmitterEndTime = 0;
 	UMovieSceneParticleSection* ParticleSection = Cast<UMovieSceneParticleSection>( &Section );
 	if ( ParticleSection != nullptr )
 	{
@@ -116,7 +104,7 @@ int32 FParticleSection::OnPaintSection( FSequencerSectionPainter& InPainter ) co
 						{
 							UParticleModuleRequired* RequiredModule = Emitter->GetLODLevel( 0 )->RequiredModule;
 							bIsLooping |= RequiredModule->EmitterLoops == 0;
-							LastEmitterEndTime = FMath::Max( LastEmitterEndTime, RequiredModule->EmitterDelay + RequiredModule->EmitterDuration );
+							LastEmitterEndTime = FMath::Max( LastEmitterEndTime, double(RequiredModule->EmitterDelay) + RequiredModule->EmitterDuration );
 						}
 					}
 				}
@@ -125,53 +113,64 @@ int32 FParticleSection::OnPaintSection( FSequencerSectionPainter& InPainter ) co
 	}
 
 	// @todo Sequencer - This should only draw the visible ranges.
-	TArray<TRange<float>> DrawRanges;
-	TOptional<float> CurrentRangeStart;
-	for ( auto KeyIterator = ParticleSection->GetParticleCurve().GetKeyIterator(); KeyIterator; ++KeyIterator )
+	TArray<TRange<float>>   DrawRanges;
+	TOptional<double> CurrentRangeStart;
+
+	if (ParticleSection != nullptr)
 	{
-		FIntegralKey Key = *KeyIterator;
-		if ( (EParticleKey::Type)Key.Value == EParticleKey::Activate )
+		TMovieSceneChannelData<const uint8> ChannelData = ParticleSection->ParticleKeys.GetData();
+
+		TArrayView<const FFrameNumber> Times  = ChannelData.GetTimes();
+		TArrayView<const uint8>        Values = ChannelData.GetValues();
+
+		for (int32 Index = 0; Index < Times.Num(); ++Index)
 		{
-			if ( CurrentRangeStart.IsSet() == false )
+			const double       Time  = Times[Index] / TimeToPixelConverter.GetTickResolution();
+			const EParticleKey Value = (EParticleKey)Values[Index];
+
+			if ( Value == EParticleKey::Activate )
 			{
-				CurrentRangeStart = Key.Time;
-			}
-			else
-			{
-				if ( bIsLooping == false )
+				if ( CurrentRangeStart.IsSet() == false )
 				{
-					if ( Key.Time > CurrentRangeStart.GetValue() + LastEmitterEndTime )
-					{
-						DrawRanges.Add( TRange<float>( CurrentRangeStart.GetValue(), CurrentRangeStart.GetValue() + LastEmitterEndTime ) );
-					}
-					else
-					{
-						DrawRanges.Add( TRange<float>( CurrentRangeStart.GetValue(), Key.Time ) );
-					}
-					CurrentRangeStart = Key.Time;
-				}
-			}
-		}
-		if ( (EParticleKey::Type)Key.Value == EParticleKey::Deactivate )
-		{
-			if ( CurrentRangeStart.IsSet() )
-			{
-				if (bIsLooping)
-				{
-					DrawRanges.Add( TRange<float>( CurrentRangeStart.GetValue(), Key.Time ) );
+					CurrentRangeStart = Time;
 				}
 				else
 				{
-					if ( Key.Time > CurrentRangeStart.GetValue() + LastEmitterEndTime )
+					if ( bIsLooping == false )
 					{
-						DrawRanges.Add( TRange<float>( CurrentRangeStart.GetValue(), CurrentRangeStart.GetValue() + LastEmitterEndTime ) );
+						if ( Time > CurrentRangeStart.GetValue() + LastEmitterEndTime )
+						{
+							DrawRanges.Add( TRange<float>( CurrentRangeStart.GetValue(), CurrentRangeStart.GetValue() + LastEmitterEndTime ) );
+						}
+						else
+						{
+							DrawRanges.Add( TRange<float>( CurrentRangeStart.GetValue(), Time ) );
+						}
+						CurrentRangeStart = Time;
+					}
+				}
+			}
+			if ( Value == EParticleKey::Deactivate )
+			{
+				if ( CurrentRangeStart.IsSet() )
+				{
+					if (bIsLooping)
+					{
+						DrawRanges.Add( TRange<float>( CurrentRangeStart.GetValue(), Time ) );
 					}
 					else
 					{
-						DrawRanges.Add( TRange<float>( CurrentRangeStart.GetValue(), Key.Time ) );
+						if ( Time > CurrentRangeStart.GetValue() + LastEmitterEndTime )
+						{
+							DrawRanges.Add( TRange<float>( CurrentRangeStart.GetValue(), CurrentRangeStart.GetValue() + LastEmitterEndTime ) );
+						}
+						else
+						{
+							DrawRanges.Add( TRange<float>( CurrentRangeStart.GetValue(), Time ) );
+						}
 					}
+					CurrentRangeStart.Reset();
 				}
-				CurrentRangeStart.Reset();
 			}
 		}
 	}
@@ -189,8 +188,8 @@ int32 FParticleSection::OnPaintSection( FSequencerSectionPainter& InPainter ) co
 
 	for ( const TRange<float>& DrawRange : DrawRanges )
 	{
-		float XOffset = TimeToPixelConverter.TimeToPixel(DrawRange.GetLowerBoundValue());
-		float XSize = TimeToPixelConverter.TimeToPixel(DrawRange.GetUpperBoundValue()) - XOffset;
+		float XOffset = TimeToPixelConverter.SecondsToPixel(DrawRange.GetLowerBoundValue());
+		float XSize   = TimeToPixelConverter.SecondsToPixel(DrawRange.GetUpperBoundValue()) - XOffset;
 		FSlateDrawElement::MakeBox(
 			InPainter.DrawElements,
 			InPainter.LayerId,
@@ -209,43 +208,6 @@ int32 FParticleSection::OnPaintSection( FSequencerSectionPainter& InPainter ) co
 	}
 
 	return InPainter.LayerId+1;
-}
-
-
-const FSlateBrush* FParticleSection::GetKeyBrush( FKeyHandle KeyHandle ) const
-{
-	UMovieSceneParticleSection* ParticleSection = Cast<UMovieSceneParticleSection>( &Section );
-	if ( ParticleSection != nullptr )
-	{
-		FIntegralKey ParticleKey = ParticleSection->GetParticleCurve().GetKey(KeyHandle);
-		if ( (EParticleKey::Type)ParticleKey.Value == EParticleKey::Activate )
-		{
-			return LeftKeyBrush;
-		}
-		else if ( (EParticleKey::Type)ParticleKey.Value == EParticleKey::Deactivate )
-		{
-			return RightKeyBrush;
-		}
-	}
-	return nullptr;
-}
-
-FVector2D FParticleSection::GetKeyBrushOrigin( FKeyHandle KeyHandle ) const
-{
-	UMovieSceneParticleSection* ParticleSection = Cast<UMovieSceneParticleSection>( &Section );
-	if ( ParticleSection != nullptr )
-	{
-		FIntegralKey ParticleKey = ParticleSection->GetParticleCurve().GetKey(KeyHandle);
-		if ( (EParticleKey::Type)ParticleKey.Value == EParticleKey::Activate )
-		{
-			return FVector2D(-1.0f, 1.0f);
-		}
-		else if ( (EParticleKey::Type)ParticleKey.Value == EParticleKey::Deactivate )
-		{
-			return FVector2D(1.0f, 1.0f);
-		}
-	}
-	return FVector2D(0.0f, 0.0f);
 }
 
 
@@ -303,7 +265,7 @@ void FParticleTrackEditor::AddParticleKey( const FGuid ObjectGuid )
 }
 
 
-FKeyPropertyResult FParticleTrackEditor::AddKeyInternal( float KeyTime, UObject* Object )
+FKeyPropertyResult FParticleTrackEditor::AddKeyInternal( FFrameNumber KeyTime, UObject* Object )
 {
 	FKeyPropertyResult KeyPropertyResult;
 

@@ -21,7 +21,7 @@
 
 #include "Engine/StaticMesh.h"
 #include "AdvancedPreviewSceneCommands.h"
-#include "UICommandList.h"
+#include "Framework/Commands/UICommandList.h"
 #include "Framework/Application/SlateApplication.h"
 
 FAdvancedPreviewScene::FAdvancedPreviewScene(ConstructionValues CVS, float InFloorOffset)
@@ -231,6 +231,7 @@ void FAdvancedPreviewScene::SetProfileIndex(const int32 InProfileIndex)
 void FAdvancedPreviewScene::Tick(float DeltaTime)
 {
 	checkf(DefaultSettings && DefaultSettings->Profiles.IsValidIndex(CurrentProfileIndex), TEXT("Invalid default settings pointer or current profile index"));
+	UpdateCaptureContents();
 
 	FPreviewSceneProfile& Profile = DefaultSettings->Profiles[CurrentProfileIndex];
 	if (Profile.bRotateLightingRig)
@@ -335,7 +336,7 @@ const bool FAdvancedPreviewScene::HandleInputKey(FViewport* InViewport, int32 Co
 	if (Event == IE_Pressed)
 	{
 		FModifierKeysState KeyState = FSlateApplication::Get().GetModifierKeys();
-		if (UICommandList->ProcessCommandBindings(Key, KeyState, (Event == IE_Repeat)))
+		if (UICommandList->ProcessCommandBindings(Key, KeyState, (Event == IE_Repeat))) //-V547
 		{
 			return true;
 		}

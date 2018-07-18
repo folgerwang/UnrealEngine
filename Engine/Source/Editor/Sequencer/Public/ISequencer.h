@@ -12,15 +12,19 @@
 #include "IMovieScenePlayer.h"
 #include "KeyPropertyParams.h"
 #include "MovieSceneBinding.h"
+#include "Misc/QualifiedFrameTime.h"
 #include "Widgets/Input/NumericTypeInterface.h"
 #include "Editor/SequencerWidgets/Public/ITimeSlider.h"
+
+struct FFrameTime;
+struct FQualifiedFrameTime;
 
 class UMovieSceneTrack;
 class AActor;
 class FSequencerSelection;
 class FSequencerSelectionPreview;
 class FUICommandList;
-class ISequencerKeyCollection;
+class FSequencerKeyCollection;
 class UMovieSceneSequence;
 class UMovieSceneSubSection;
 class IDetailsView;
@@ -60,6 +64,22 @@ enum class EAllowEditsMode : uint8
 
 	/** Allow edits to go to level only */
 	AllowLevelEditsOnly
+};
+
+/**
+* Defines set key gruops mode.
+*/
+UENUM()
+enum class EKeyGroupMode : uint8
+{
+	/** Key just changed channel */
+	KeyChanged,
+
+	/** Key just one, the parent translation, rotation or scale, when one changes */
+	KeyGroup,
+
+	/** Key All (translation, rotation, scale) when one changes */
+	KeyAll
 };
 
 
@@ -163,6 +183,9 @@ public:
 	virtual FMovieSceneSequenceIDRef GetRootTemplateID() const = 0;
 	virtual FMovieSceneSequenceIDRef GetFocusedTemplateID() const = 0;
 
+	/** @return If the currently focused sequence is active in the sequence hierarchy. */
+	virtual bool GetFocusedSequenceIsActive() const = 0;
+
 	TArrayView<TWeakObjectPtr<>> FindObjectsInCurrentSequence(const FGuid& InObjectBinding)
 	{
 		return FindBoundObjects(InObjectBinding, GetFocusedTemplateID());
@@ -177,7 +200,15 @@ public:
 	 * @param Section The sub-movie scene section containing the sequence instance to get.
 	 */
 	virtual void FocusSequenceInstance(UMovieSceneSubSection& Section) = 0;
-	
+
+	/**
+	 * Suppresses automatic evaluation the specified sequence and signature are the only difference that would prompt a re-evaluation
+	 * 
+	 * @param Sequence        The sequence that the signature relates to
+	 * @param InSignature     The signature to suppress
+	 */
+	virtual void SuppressAutoEvaluation(UMovieSceneSequence* Sequence, const FGuid& InSignature) = 0;
+
 	/**
 	 * Create a new binding for the specified object
 	 */
@@ -201,6 +232,12 @@ public:
 	virtual TArray<FGuid> AddActors(const TArray<TWeakObjectPtr<AActor> >& InActors) = 0;
 
 	/**
+	 * Calling this function will add the specified track to the currently selected folder
+	 * if there is one, and will set the newly created track as the current selection.
+	 */
+	virtual void OnAddTrack(const TWeakObjectPtr<UMovieSceneTrack>& InTrack) = 0;
+
+	/**
 	 * Adds a movie scene as a section inside the current movie scene
 	 * 
 	 * @param Sequence The sequence to add.
@@ -219,11 +256,15 @@ public:
 	/** Sets where edits are allowed */
 	virtual void SetAllowEditsMode(EAllowEditsMode AllowEditsMode) = 0;
 
-	/** @return Returns whether key all is enabled in this sequencer */
-	virtual bool GetKeyAllEnabled() const = 0;
+	/** @returns Returns what channels will get keyed when one channel changes */
+	virtual EKeyGroupMode GetKeyGroupMode() const = 0;
 
-	/** Sets whether key all is enabled in this sequencer. */
-	virtual void SetKeyAllEnabled(bool bKeyAllEnabled) = 0;
+	/** Sets which channels are keyed when a channel is keyed 
+	* @param Mode Specifies which channels to key, all (EKeyGroupMode::KeyAll), 
+	* just changed (EKeyGroup::KeyChanged), 
+	* just the group,e.g. Rotation X,Y and Z if any of those are changed (EKeyGroup::KeyGroup)
+	*/
+	virtual void SetKeyGroupMode(EKeyGroupMode Mode) = 0;
 
 	/** @return Returns whether or not to key only interp properties in this sequencer */
 	virtual bool GetKeyInterpPropertiesOnly() const = 0;
@@ -246,16 +287,13 @@ public:
 	/** Gets whether or not property track defaults will be automatically set when adding tracks. */
 	virtual bool GetAutoSetTrackDefaults() const = 0;
 
-	/** @return Returns whether sequencer is currently recording live data from simulated actors */
-	virtual bool IsRecordingLive() const = 0;
-
 	/** @return Returns whether sequencer will respond to changes and possibly create a key or track */
-	virtual bool IsAllowedToChange() const { return IsRecordingLive() || GetAllowEditsMode() != EAllowEditsMode::AllowLevelEditsOnly || GetAutoChangeMode() != EAutoChangeMode::None; }
+	virtual bool IsAllowedToChange() const { return GetAllowEditsMode() != EAllowEditsMode::AllowLevelEditsOnly || GetAutoChangeMode() != EAutoChangeMode::None; }
 
 	/**
 	 * Gets the current time of the time slider relative to the currently focused movie scene
 	 */
-	virtual float GetLocalTime() const = 0;
+	virtual FQualifiedFrameTime GetLocalTime() const = 0;
 
 	/**
 	 * Gets the global time.
@@ -263,7 +301,7 @@ public:
 	 * @return Global time in seconds.
 	 * @see SetGlobalTime
 	 */
-	virtual float GetGlobalTime() const = 0;
+	virtual FQualifiedFrameTime GetGlobalTime() const = 0;
 
 	/**
 	 * Sets the cursor position relative to the currently focused sequence
@@ -271,13 +309,13 @@ public:
 	 * @param Time The local time to set.
 	 * @param SnapTimeMode The type of time snapping allowed.
 	 */
-	virtual void SetLocalTime(float Time, ESnapTimeMode SnapTimeMode = ESnapTimeMode::STM_None) = 0;
+	virtual void SetLocalTime(FFrameTime Time, ESnapTimeMode SnapTimeMode = ESnapTimeMode::STM_None) = 0;
 
 	/** Set the current local time directly, with no other snapping, scrolling or manipulation */
-	virtual void SetLocalTimeDirectly(float NewTime) = 0;
+	virtual void SetLocalTimeDirectly(FFrameTime NewTime) = 0;
 
 	/** Set the global time directly, without performing any auto-scroll, snapping or other adjustments to the supplied time  */
-	virtual void SetGlobalTime(float Time) = 0;
+	virtual void SetGlobalTime(FFrameTime Time) = 0;
 
 	/** Forcefully reevaluate the sequence */
 	virtual void ForceEvaluate() = 0;
@@ -293,7 +331,7 @@ public:
 	 * @param NewViewRange The new view range. Must be a finite range
 	 * @param Interpolation How to interpolate to the new view range
 	 */
-	virtual void SetViewRange(TRange<float> NewViewRange, EViewRangeInterpolation Interpolation = EViewRangeInterpolation::Animated) = 0;
+	virtual void SetViewRange(TRange<double> NewViewRange, EViewRangeInterpolation Interpolation = EViewRangeInterpolation::Animated) = 0;
 
 	/**
 	 * Sets whether perspective viewport hijacking is enabled.
@@ -384,9 +422,6 @@ public:
 
 	virtual void KeyProperty(FKeyPropertyParams KeyPropertyParams) = 0;
 
-	DEPRECATED( 4.13, "NotifyMovieSceneDataChanged() is deprecated, use the version that takes EMovieSceneDataChangeType" )
-	void NotifyMovieSceneDataChanged() { NotifyMovieSceneDataChangedInternal(); };
-
 	/** Refresh the sequencer tree view */
 	virtual void RefreshTree() = 0;
 
@@ -402,7 +437,7 @@ public:
 	virtual float GetPlaybackSpeed() const = 0;
 
 	/** Get all the keys for the current sequencer selection */
-	virtual void GetKeysFromSelection(TUniquePtr<ISequencerKeyCollection>& KeyCollection, float DuplicateThresoldTime) = 0;
+	virtual void GetKeysFromSelection(TUniquePtr<FSequencerKeyCollection>& KeyCollection, float DuplicateThresoldTime) = 0;
 
 	virtual FSequencerSelection& GetSelection() = 0;
 	virtual FSequencerSelectionPreview& GetSelectionPreview() = 0;
@@ -427,6 +462,10 @@ public:
 
 	/** Empties the current selection. */
 	virtual void EmptySelection() = 0;
+
+	/** Throb key or section selection */
+	virtual void ThrobKeySelection() = 0;
+	virtual void ThrobSectionSelection() = 0;
 
 	/** Gets a multicast delegate which is executed whenever the global time changes. */
 	virtual FOnGlobalTimeChanged& OnGlobalTimeChanged() = 0;
@@ -462,10 +501,7 @@ public:
 	virtual FOnSelectionChangedSections& GetSelectionChangedSections() = 0;
 
 	/** @return a numeric type interface that will parse and display numbers as frames and times correctly */
-	virtual TSharedRef<INumericTypeInterface<float>> GetNumericTypeInterface() = 0;
-
-	/** @return a numeric type interface that will parse and display numbers as frames and times correctly (including zero-pad, if applicable) */
-	virtual TSharedRef<INumericTypeInterface<float>> GetZeroPadNumericTypeInterface() = 0;
+	virtual TSharedRef<INumericTypeInterface<double>> GetNumericTypeInterface() const = 0;
 
 	/** @return the command bindings for this sequencer */
 	virtual TSharedPtr<FUICommandList> GetCommandBindings(ESequencerCommandBindings Type = ESequencerCommandBindings::Sequencer) const = 0;
@@ -505,6 +541,28 @@ public:
 	 * @return the widget
 	 */
 	virtual TSharedPtr<class ITimeSlider> GetTopTimeSliderWidget() const = 0;
+
+public:
+
+	/**
+	 * Get the tick resolution of the currently root sequence
+	 */
+	SEQUENCER_API FFrameRate GetRootTickResolution() const;
+
+	/**
+	 * Get the display rate of the currently root sequence
+	 */
+	SEQUENCER_API FFrameRate GetRootDisplayRate() const;
+
+	/**
+	 * Get the tick resolution of the currently focused sequence
+	 */
+	SEQUENCER_API FFrameRate GetFocusedTickResolution() const;
+
+	/**
+	 * Get the display rate of the currently focused sequence
+	 */
+	SEQUENCER_API FFrameRate GetFocusedDisplayRate() const;
 
 protected:
 	FOnInitializeDetailsPanel InitializeDetailsPanelEvent;

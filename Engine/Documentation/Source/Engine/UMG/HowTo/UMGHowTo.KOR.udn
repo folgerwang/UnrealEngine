@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3343699
+﻿INTSourceChangelist:3810467
 Availability: Public
 Title: UMG UI 디자이너 비법
 Crumbs: %ROOT%, Engine, Engine\UMG
@@ -12,23 +12,16 @@ tags:UMG UI Designer
 자세한 정보는 아래 표를 참고하여 링크를 클릭하면 그 내용을 확인할 수 있습니다.
 
 ## 초급
-[REGION:wrapper transparent]
-[](FANCY:Engine\UMG\HowTo\CreatingWidgets "%Engine\UMG\HowTo\CreatingWidgets:description%")
-[/REGION]
+
+[DIR(output:"fancy" parent:"Engine/UMG/HowTo" org:"hierarchy" skill_Level:"Beginner")]
 
 ## 중급
-[REGION:wrapper transparent]
-[](FANCY:Engine\UMG\HowTo\WidgetTemplates "%Engine\UMG\HowTo\WidgetTemplates:description%")
-[](FANCY:Engine\UMG\HowTo\Create3DWidgets "%Engine\UMG\HowTo\Create3DWidgets:description%")
-[](FANCY:Engine\UMG\HowTo\DragAndDrop "%Engine\UMG\HowTo\DragAndDrop:description%")
-[](FANCY:Engine\UMG\HowTo\ScalingUI "%Engine\UMG\HowTo\ScalingUI:description%")
-[/REGION]
+
+[DIR(output:"fancy" parent:"Engine/UMG/HowTo" org:"hierarchy" skill_Level:"Intermediate")]
 
 ## 고급
-[REGION:wrapper transparent]
-[](FANCY:Engine\UMG\HowTo\EventBasedUI "%Engine\UMG\HowTo\EventBasedUI:description%")
-[](FANCY:Engine\UMG\HowTo\VirtualKeyboards "%Engine\UMG\HowTo\VirtualKeyboards:description%")
-[/REGION]
+
+[DIR(output:"fancy" parent:"Engine/UMG/HowTo" org:"hierarchy" skill_Level:"Advanced")]
 
 
 

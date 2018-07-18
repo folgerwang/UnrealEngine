@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2750813
+﻿INTSourceChangelist:3243860
 Availability:Public
 Title:SubUV モジュール
 Crumbs: %ROOT%, Engine, Engine/Rendering/ParticleSystems, Engine/Rendering/ParticleSystems/Reference
@@ -28,7 +28,7 @@ SubUV モジュールは、InterpolationMethod が PSUVIM_None 以外に設定�
 
 ## SubUV Movie モジュール
 
-SubUV Movie モジュールは、指定されたフレームレートの順序でテクスチャのサブイメージを繰り返し表示します。フリップブックテクスチャの動作と類似しています。以下のメンバーが含まれます
+SubUV Movie モジュールは、指定されたフレームレートの順序でテクスチャのサブイメージを繰り返し表示します。フリップブックテクスチャの動作と類似しています。以下のプロパティが含まれます。
 
 | プロパティ | 説明 |
 | ---- | ---- |

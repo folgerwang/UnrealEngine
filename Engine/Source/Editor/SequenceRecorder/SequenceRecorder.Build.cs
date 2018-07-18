@@ -21,8 +21,9 @@ namespace UnrealBuildTool.Rules
 			PublicDependencyModuleNames.AddRange(
 				new string[]
 				{
+					"TimeManagement"
 				}
-				);
+			);
 
 			PrivateDependencyModuleNames.AddRange(
 				new string[]

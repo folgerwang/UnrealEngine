@@ -96,6 +96,10 @@ public:
 /** Reference Skeleton **/
 struct FReferenceSkeleton
 {
+	FReferenceSkeleton(bool bInOnlyOneRootAllowed = true)
+		:bOnlyOneRootAllowed(bInOnlyOneRootAllowed)
+	{}
+
 private:
 	//RAW BONES: Bones that exist in the original asset
 	/** Reference bone related info to be serialized **/
@@ -116,6 +120,14 @@ private:
 	// cached data to allow virtual bones to be built into poses
 	TArray<FBoneIndexType>  RequiredVirtualBones;
 	TArray<FVirtualBoneRefData> UsedVirtualBoneData;
+
+	/** Whether this skeleton is limited to one root or not 
+	 *	Multi root is not supported in general Skeleton/SkeletalMesh
+	 *	But there are other components that can use this and support multi root - i.e. ControlRig
+	 *	This sturct is used in draw code, the long term plan may be detach this from draw code
+	 *	and use interface struct
+	 */
+	bool bOnlyOneRootAllowed;
 
 	/** Removes the specified bone, so long as it has no children. Returns whether we removed the bone or not */
 	bool RemoveIndividualBone(int32 BoneIndex, TArray<int32>& OutBonesRemoved)
@@ -156,8 +168,9 @@ private:
 		const int32 ParentIndex = BoneInfo[BoneIndex].ParentIndex;
 
 		// Parent must be valid. Either INDEX_NONE for Root, or before children for non root bones.
-		checkSlow(((BoneIndex == 0) && (ParentIndex == INDEX_NONE))
-			|| ((BoneIndex > 0) && BoneInfo.IsValidIndex(ParentIndex) && (ParentIndex < BoneIndex)));
+		checkSlow(!bOnlyOneRootAllowed || 
+			(((BoneIndex == 0) && (ParentIndex == INDEX_NONE))
+			|| ((BoneIndex > 0) && BoneInfo.IsValidIndex(ParentIndex) && (ParentIndex < BoneIndex))));
 
 		return ParentIndex;
 	}
@@ -185,8 +198,9 @@ private:
 		RawRefBonePose[BoneIndex].NormalizeRotation();
 
 		// Parent must be valid. Either INDEX_NONE for Root, or before children for non root bones.
-		check(((BoneIndex == 0) && (BoneInfo.ParentIndex == INDEX_NONE)) 
-			|| ((BoneIndex > 0) && RawRefBoneInfo.IsValidIndex(BoneInfo.ParentIndex) && (BoneInfo.ParentIndex < BoneIndex)));
+		check(!bOnlyOneRootAllowed || 
+			(((BoneIndex == 0) && (BoneInfo.ParentIndex == INDEX_NONE))
+			|| ((BoneIndex > 0) && RawRefBoneInfo.IsValidIndex(BoneInfo.ParentIndex) && (BoneInfo.ParentIndex < BoneIndex))));
 	}
 
 	// Help us translate a virtual bone source into a raw bone source (for evaluating virtual bone transform)
@@ -388,6 +402,8 @@ public:
 
 	SIZE_T GetDataSize() const;
 
+	// very slow search function for all children
+	int32 GetDirectChildBones(int32 ParentBoneIndex, TArray<int32> & Children) const;
 	friend FArchive & operator<<(FArchive & Ar, FReferenceSkeleton & F);
 	friend FReferenceSkeletonModifier;
 };

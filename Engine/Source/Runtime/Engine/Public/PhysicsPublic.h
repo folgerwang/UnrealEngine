@@ -73,6 +73,8 @@ namespace nvidia
 #endif // WITH_APEX
 
 struct FConstraintInstance;
+struct FContactModifyCallback;
+struct FPhysXMbpBroadphaseCallback;
 class UPhysicsAsset;
 
 
@@ -185,6 +187,8 @@ namespace PhysCommand
 		ReleasePScene,
 		DeleteCPUDispatcher,
 		DeleteSimEventCallback,
+		DeleteContactModifyCallback,
+		DeleteMbpBroadphaseCallback,
 		Max
 	};
 }
@@ -207,7 +211,9 @@ public:
 
 #if WITH_PHYSX
 	void ENGINE_API DeferredRelease(physx::PxScene * PScene);
-	void ENGINE_API DeferredDeleteSimEventCallback(physx::PxSimulationEventCallback * SimEventCallback);
+	void ENGINE_API DeferredDeleteSimEventCallback(physx::PxSimulationEventCallback* SimEventCallback);
+	void ENGINE_API DeferredDeleteContactModifyCallback(FContactModifyCallback* ContactModifyCallback);
+	void ENGINE_API DeferredDeleteMbpBroadphaseCallback(FPhysXMbpBroadphaseCallback* MbpCallback);
 	void ENGINE_API DeferredDeleteCPUDispathcer(physx::PxCpuDispatcher * CPUDispatcher);
 #endif
 	
@@ -223,9 +229,11 @@ private:
 			apex::DestructibleActor * DestructibleActor;
 #endif
 #if WITH_PHYSX
-			physx::PxScene * PScene;
-			physx::PxCpuDispatcher * CPUDispatcher;
-			physx::PxSimulationEventCallback * SimEventCallback;
+			physx::PxScene* PScene;
+			physx::PxCpuDispatcher* CPUDispatcher;
+			physx::PxSimulationEventCallback* SimEventCallback;
+			FContactModifyCallback* ContactModifyCallback;
+			FPhysXMbpBroadphaseCallback* MbpCallback;
 #endif
 		} Pointer;
 
@@ -275,7 +283,25 @@ public:
 	virtual physx::PxSimulationEventCallback* Create(class FPhysScene* PhysScene, int32 SceneType) = 0;
 	virtual void Destroy(physx::PxSimulationEventCallback* Callback) = 0;
 };
+
+/** Interface for the creation of contact modify callbacks. */
+class IContactModifyCallbackFactory
+{
+public:
+	virtual FContactModifyCallback* Create(class FPhysScene* PhysScene, int32 SceneType) = 0;
+	virtual void Destroy(FContactModifyCallback* Callback) = 0;
+};
 #endif // WITH PHYSX
+
+class FPhysicsReplication;
+
+/** Interface for the creation of customized physics replication.*/
+class IPhysicsReplicationFactory
+{
+public:
+	virtual FPhysicsReplication* Create(FPhysScene* OwningPhysScene) = 0;
+	virtual void Destroy(FPhysicsReplication* PhysicsReplication) = 0;
+};
 
 
 /** Container object for a physics engine 'scene'. */
@@ -308,17 +334,24 @@ public:
 	DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnPhysSceneStep, FPhysScene*, uint32 /*SceneType*/, float /*DeltaSeconds*/);
 	FOnPhysSceneStep OnPhysSceneStep;
 
+	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnPhysScenePostTick, FPhysScene*, uint32 /*SceneType*/);
+	FOnPhysScenePostTick OnPhysScenePostTick;
+
 
 
 private:
 	/** World that owns this physics scene */
 	UWorld*							OwningWorld;
 
+	/** Replication manager that updates physics bodies towards replicated physics state */
+	FPhysicsReplication*			PhysicsReplication;
+
 public:
 	//Owning world is made private so that any code which depends on setting an owning world can update
 	void SetOwningWorld(UWorld* InOwningWorld);
 	UWorld* GetOwningWorld(){ return OwningWorld; }
 	const UWorld* GetOwningWorld() const { return OwningWorld; }
+	FPhysicsReplication* GetPhysicsReplication() { return PhysicsReplication; }
 
 	/** These indices are used to get the actual PxScene or ApexScene from the GPhysXSceneMap. */
 	int16								PhysXSceneIndex[PST_MAX];
@@ -445,6 +478,8 @@ private:
 	class PxCpuDispatcher*			CPUDispatcher[PST_MAX];
 	/** Simulation event callback object */
 	physx::PxSimulationEventCallback*			SimEventCallback[PST_MAX];
+	FContactModifyCallback*			ContactModifyCallback[PST_MAX];
+	FPhysXMbpBroadphaseCallback* MbpBroadphaseCallbacks[PST_MAX];
 
 	struct FPendingCollisionData
 	{
@@ -470,17 +505,24 @@ public:
 	If not set it defaults to using FPhysXSimEventCallback. */
 	ENGINE_API static TSharedPtr<ISimEventCallbackFactory> SimEventCallbackFactory;
 
+	/** Static factory used to override the simulation contact modify callback from other modules.*/
+	ENGINE_API static TSharedPtr<IContactModifyCallbackFactory> ContactModifyCallbackFactory;
+
 
 	/** Utility for looking up the PxScene of the given EPhysicsSceneType associated with this FPhysScene.  SceneType must be in the range [0,PST_MAX). */
 	ENGINE_API physx::PxScene*					GetPhysXScene(uint32 SceneType) const;
 
 #endif	// WITH_PHYSX
 
+	/** Static factory used to override the physics replication manager from other modules. This is useful for custom game logic.
+	If not set it defaults to using FPhysicsReplication. */
+	ENGINE_API static TSharedPtr<IPhysicsReplicationFactory> PhysicsReplicationFactory;
+
 #if WITH_APEX
 	/** Utility for looking up the ApexScene of the given EPhysicsSceneType associated with this FPhysScene.  SceneType must be in the range [0,PST_MAX). */
 	ENGINE_API nvidia::apex::Scene*				GetApexScene(uint32 SceneType) const;
 #endif
-	ENGINE_API FPhysScene();
+	ENGINE_API FPhysScene(const AWorldSettings* Settings = nullptr);
 	ENGINE_API ~FPhysScene();
 
 	/** Start simulation on the physics scene of the given type */
@@ -585,7 +627,7 @@ public:
 	
 private:
 	/** Initialize a scene of the given type.  Must only be called once for each scene type. */
-	void InitPhysScene(uint32 SceneType);
+	void InitPhysScene(uint32 SceneType, const AWorldSettings* Settings = nullptr);
 
 	/** Terminate a scene of the given type.  Must only be called once for each scene type. */
 	void TermPhysScene(uint32 SceneType);
@@ -658,7 +700,7 @@ private:
 **/
 FORCEINLINE bool PhysSingleThreadedMode()
 {
-	if (IsRunningDedicatedServer() || FPlatformMisc::NumberOfCores() < 3 || !FPlatformProcess::SupportsMultithreading())
+	if (IsRunningDedicatedServer() || !FApp::ShouldUseThreadingForPerformance() || FPlatformMisc::NumberOfCores() < 3 || !FPlatformProcess::SupportsMultithreading() || FParse::Param(FCommandLine::Get(), TEXT("SingleThreadedPhysics")))
 	{
 		return true;
 	}
@@ -752,7 +794,7 @@ namespace PhysDLLHelper
 /**
  *	Load the required modules for PhysX
  */
-ENGINE_API void LoadPhysXModules(bool bLoadCooking);
+ENGINE_API bool LoadPhysXModules(bool bLoadCooking);
 
 
 #if WITH_APEX
@@ -766,7 +808,7 @@ ENGINE_API void LoadPhysXModules(bool bLoadCooking);
 void UnloadPhysXModules();
 }
 
-ENGINE_API void	InitGamePhys();
+ENGINE_API bool	InitGamePhys();
 ENGINE_API void	TermGamePhys();
 
 bool	ExecPhysCommands(const TCHAR* Cmd, FOutputDevice* Ar, UWorld* InWorld);

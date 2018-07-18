@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "MovieSceneFwd.h"
 #include "MovieSceneExecutionToken.h"
-#include "ObjectKey.h"
+#include "UObject/ObjectKey.h"
 #include "IMovieScenePlayer.h"
 
 struct IMovieSceneBlendingActuator;

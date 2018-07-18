@@ -4,7 +4,7 @@
 	ApplePlatformSymbolication.cpp: Apple platform implementation of symbolication
 =============================================================================*/
 
-#include "ApplePlatformSymbolication.h"
+#include "Apple/ApplePlatformSymbolication.h"
 #include "HAL/FileManager.h"
 #include "HAL/PlatformProcess.h"
 #include "Misc/AssertionMacros.h"
@@ -444,6 +444,10 @@ bool FApplePlatformSymbolication::SymbolInfoForStrippedSymbol(FApplePlatformSymb
 bool FApplePlatformSymbolication::SymbolInfoForAddress(uint64 ProgramCounter, FProgramCounterSymbolInfo& out_SymbolInfo)
 {
 	bool bOK = false;
+
+	// Store the PC into the info structure
+	out_SymbolInfo.ProgramCounter = ProgramCounter;
+	
 	if (GAllowApplePlatformSymbolication)
 	{
 		CSSymbolicatorRef Symbolicator = CSSymbolicatorCreateWithPid(FPlatformProcess::GetCurrentProcessId());

@@ -98,7 +98,7 @@ FIntPoint FRgbaInputFile::GetDataWindow() const
 }
 
 
-double FRgbaInputFile::GetFramesPerSecond(double DefaultValue) const
+FFrameRate FRgbaInputFile::GetFrameRate(const FFrameRate& DefaultValue) const
 {
 	auto Attribute = ((Imf::RgbaInputFile*)InputFile)->header().findTypedAttribute<Imf::RationalAttribute>("framesPerSecond");
 
@@ -107,7 +107,9 @@ double FRgbaInputFile::GetFramesPerSecond(double DefaultValue) const
 		return DefaultValue;
 	}
 
-	return Attribute->value();
+	const Imf::Rational& Value = Attribute->value();
+
+	return FFrameRate(Value.n, Value.d);
 }
 
 

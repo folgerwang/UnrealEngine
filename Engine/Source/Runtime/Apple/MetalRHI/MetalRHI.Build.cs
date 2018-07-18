@@ -17,33 +17,24 @@ public class MetalRHI : ModuleRules
 				"UtilityShaders"
 			}
 			);
+
+		AddEngineThirdPartyPrivateStaticDependencies(Target,
+			"MTLPP"
+		);
 			
 		PublicWeakFrameworks.Add("Metal");
 
 		if (Target.Platform == UnrealTargetPlatform.Mac)
 		{
 			PublicFrameworks.Add("QuartzCore");
+		}
 
-			string UseMetalStats = System.Environment.GetEnvironmentVariable("ENABLE_METAL_STATISTICS");
-			var StatsModule = System.IO.Path.Combine("Runtime", "NotForLicensees", "Mac", "MetalStatistics", "MetalStatistics.Build.cs");
-			bool bMetalStats = (UseMetalStats == "1") && System.IO.File.Exists(StatsModule);
-
-			if ( bMetalStats )
-			{
-				PublicDefinitions.Add("METAL_STATISTICS=1");
-
-				PrivateIncludePathModuleNames.AddRange(
-					new string[] {
-						"MetalStatistics",
-					}
-				);
-
-				DynamicallyLoadedModuleNames.AddRange(
-					new string[] {
-						"MetalStatistics",
-					}
-				);
-			}
+		var StatsModule = "../Plugins/NotForLicensees/MetalStatistics/MetalStatistics.uplugin";
+		bool bMetalStats = System.IO.File.Exists(StatsModule);
+		if ( bMetalStats && Target.Configuration != UnrealTargetConfiguration.Shipping )
+		{
+			PublicDefinitions.Add("METAL_STATISTICS=1");
+			WhitelistRestrictedFolders.Add("Public/NotForLicensees");
 		}
 	}
 }

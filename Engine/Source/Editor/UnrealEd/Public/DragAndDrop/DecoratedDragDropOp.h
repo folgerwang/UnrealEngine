@@ -24,9 +24,14 @@ public:
 	/** Icon to be displayed */
 	const FSlateBrush*					CurrentIconBrush;
 
+	/** The color of the icon to be displayed. */
+	FSlateColor							CurrentIconColorAndOpacity;
+
 	FDecoratedDragDropOp()
 		: CurrentIconBrush(nullptr)
+		, CurrentIconColorAndOpacity(FLinearColor::White)
 		, DefaultHoverIcon(nullptr)
+		, DefaultHoverIconColorAndOpacity(FLinearColor::White)
 	{ }
 
 	/** Overridden to provide public access */
@@ -40,6 +45,7 @@ public:
 	{
 		CurrentHoverText = DefaultHoverText;
 		CurrentIconBrush = DefaultHoverIcon;
+		CurrentIconColorAndOpacity = DefaultHoverIconColorAndOpacity;
 	}
 
 	/** The widget decorator to use */
@@ -59,6 +65,7 @@ public:
 				[
 					SNew( SImage )
 					.Image( this, &FDecoratedDragDropOp::GetIcon )
+					.ColorAndOpacity( this, &FDecoratedDragDropOp::GetIconColorAndOpacity)
 				]
 
 				+ SHorizontalBox::Slot()
@@ -81,6 +88,11 @@ public:
 		return CurrentIconBrush;
 	}
 
+	FSlateColor GetIconColorAndOpacity() const
+	{
+		return CurrentIconColorAndOpacity;
+	}
+
 	/** Set the text and icon for this tooltip */
 	void SetToolTip(const FText& Text, const FSlateBrush* Icon)
 	{
@@ -93,6 +105,13 @@ public:
 	{
 		DefaultHoverText = CurrentHoverText;
 		DefaultHoverIcon = CurrentIconBrush;
+		DefaultHoverIconColorAndOpacity = CurrentIconColorAndOpacity;
+	}
+
+	/** Gets the default hover text for this drag drop op. */
+	FText GetDefaultHoverText() const
+	{
+		return DefaultHoverText;
 	}
 
 protected:
@@ -102,6 +121,9 @@ protected:
 
 	/** Default icon to be displayed */
 	const FSlateBrush*					DefaultHoverIcon;
+
+	/** Default color and opacity for the default icon to be displayed. */
+	FSlateColor							DefaultHoverIconColorAndOpacity;
 };
 
 

@@ -175,6 +175,13 @@ public:
 	FRuntimeFloatCurve UIScaleCurve;
 
 	/**
+	 * If true, game window on desktop platforms will be created with high-DPI awareness enabled.
+	 * Recommended to be enabled only if the game's UI allows users to modify 3D resolution scaling.
+	 */
+	UPROPERTY(config, EditAnywhere, Category="DPI Scaling", meta=( DisplayName="Allow High DPI in Game Mode" ))
+	bool bAllowHighDPIInGameMode;
+
+	/**
 	 * If false, widget references will be stripped during cook for server builds and not loaded at runtime.
 	 */
 	UPROPERTY(config, EditAnywhere, Category = "Widgets")
@@ -189,7 +196,13 @@ public:
 	/** Gets the current scale of the UI based on the size of a viewport */
 	float GetDPIScaleBasedOnSize(FIntPoint Size) const;
 
+#if WITH_EDITOR
+	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
+#endif
+
 private:
+	float CalculateScale(FIntPoint Size, bool& bError) const;
+
 	UPROPERTY(Transient)
 	TArray<UObject*> CursorClasses;
 
@@ -198,4 +211,7 @@ private:
 
 	UPROPERTY(Transient)
 	mutable UDPICustomScalingRule* CustomScalingRule;
+
+	mutable TOptional<FIntPoint> LastViewportSize;
+	mutable float CalculatedScale;
 };

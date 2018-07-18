@@ -8,6 +8,7 @@
 #include "IHeadMountedDisplayModule.h"
 #include "IMediaOptions.h"
 #include "MediaHelpers.h"
+#include "MediaSampleQueueDepths.h"
 #include "Misc/ScopeLock.h"
 #include "UObject/Class.h"
 
@@ -23,7 +24,7 @@
 #include "WmfMediaTextureSample.h"
 #include "WmfMediaUtils.h"
 
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 
 #define LOCTEXT_NAMESPACE "FWmfMediaTracks"
 
@@ -265,11 +266,21 @@ void FWmfMediaTracks::ReInitialize()
 	if (MediaSource != NULL)
 	{
 		TComPtr<IMFMediaSource> lMediaSource = WmfMedia::ResolveMediaSource(nullptr, SourceUrl, false);
+
 		int32 lTrack = GetSelectedTrack(EMediaTrackType::Video);
 		int32 lFormat = GetTrackFormat(EMediaTrackType::Video, lTrack);
+		int32 aTrack = GetSelectedTrack(EMediaTrackType::Audio);
+		int32 aFormat = GetTrackFormat(EMediaTrackType::Audio, aTrack);
+		int32 cTrack = GetSelectedTrack(EMediaTrackType::Caption);
+		int32 cFormat = GetTrackFormat(EMediaTrackType::Caption, cTrack);
+
 		Initialize(lMediaSource, SourceUrl);
 		SetTrackFormat(EMediaTrackType::Video, lTrack, lFormat);
 		SelectTrack(EMediaTrackType::Video, lTrack);
+		SetTrackFormat(EMediaTrackType::Audio, aTrack, aFormat);
+		SelectTrack(EMediaTrackType::Audio, aTrack);
+		SetTrackFormat(EMediaTrackType::Caption, cTrack, cFormat);
+		SelectTrack(EMediaTrackType::Caption, cTrack);
 	}
 }
 
@@ -1052,6 +1063,8 @@ bool FWmfMediaTracks::AddTrackToTopology(const FTrack& Track, IMFTopology& Topol
 		return false;
 	}
 
+	UE_LOG(LogWmfMedia, Verbose, TEXT("Tracks %p: Added stream %i to topology"), this, Track.StreamIndex);
+
 	return true;
 }
 
@@ -1679,6 +1692,11 @@ void FWmfMediaTracks::HandleMediaSamplerAudioSample(const uint8* Buffer, uint32 
 		return; // no format selected
 	}
 
+	if (AudioSampleQueue.Num() >= FMediaPlayerQueueDepths::MaxAudioSinkDepth)
+	{
+		return;
+	}
+
 	// duration provided by WMF is sometimes incorrect when seeking
 	FTimespan Duration = (Size * ETimespan::TicksPerSecond) / (Format->Audio.NumChannels * Format->Audio.SampleRate * sizeof(int16));
 
@@ -1706,6 +1724,11 @@ void FWmfMediaTracks::HandleMediaSamplerCaptionSample(const uint8* Buffer, uint3
 		return; // invalid track index
 	}
 
+	if (CaptionSampleQueue.Num() >= FMediaPlayerQueueDepths::MaxCaptionSinkDepth)
+	{
+		return;
+	}
+
 	// create & add sample to queue
 	const FTrack& Track = CaptionTracks[SelectedCaptionTrack];
 	const auto CaptionSample = MakeShared<FWmfMediaOverlaySample, ESPMode::ThreadSafe>();
@@ -1729,6 +1752,11 @@ void FWmfMediaTracks::HandleMediaSamplerMetadataSample(const uint8* Buffer, uint
 	if (!MetadataTracks.IsValidIndex(SelectedMetadataTrack))
 	{
 		return; // invalid track index
+	}
+
+	if (MetadataSampleQueue.Num() >= FMediaPlayerQueueDepths::MaxMetadataSinkDepth)
+	{
+		return;
 	}
 
 	// create & add sample to queue
@@ -1769,6 +1797,11 @@ void FWmfMediaTracks::HandleMediaSamplerVideoSample(const uint8* Buffer, uint32 
 		return; // invalid buffer size (can happen during format switch)
 	}
 
+	if (VideoSampleQueue.Num() >= FMediaPlayerQueueDepths::MaxVideoSinkDepth)
+	{
+		return;
+	}
+
 	// WMF doesn't report durations for some formats
 	if (Duration.IsZero())
 	{
@@ -1800,7 +1833,7 @@ void FWmfMediaTracks::HandleMediaSamplerVideoSample(const uint8* Buffer, uint32 
 }
 
 
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 #undef LOCTEXT_NAMESPACE
 

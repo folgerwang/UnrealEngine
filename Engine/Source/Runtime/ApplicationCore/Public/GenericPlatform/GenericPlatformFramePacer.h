@@ -33,4 +33,9 @@ struct APPLICATIONCORE_API FGenericPlatformRHIFramePacer
      * Teardown the Frame Pacer.
      */
     static void Destroy() {}
+	
+	/**
+	 * The pace we are running at (30 = 30fps, 0 = unpaced)
+	 */
+	static uint32 GetFramePace() { return 0; };
 };

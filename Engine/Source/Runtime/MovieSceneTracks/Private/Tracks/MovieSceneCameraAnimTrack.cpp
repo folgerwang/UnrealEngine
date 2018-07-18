@@ -9,20 +9,24 @@
 #include "Evaluation/MovieSceneEvaluationTrack.h"
 #include "Evaluation/MovieSceneEvaluationTemplate.h"
 #include "Compilation/MovieSceneCompilerRules.h"
+#include "MovieScene.h"
 
 #define LOCTEXT_NAMESPACE "MovieSceneCameraAnimTrack"
 
 
-void UMovieSceneCameraAnimTrack::AddNewCameraAnim(float KeyTime, UCameraAnim* CameraAnim)
+UMovieSceneSection* UMovieSceneCameraAnimTrack::AddNewCameraAnim(FFrameNumber KeyTime, UCameraAnim* CameraAnim)
 {
 	UMovieSceneCameraAnimSection* const NewSection = Cast<UMovieSceneCameraAnimSection>(CreateNewSection());
 	if (NewSection)
 	{
-		NewSection->InitialPlacement(CameraAnimSections, KeyTime, KeyTime + CameraAnim->AnimLength, SupportsMultipleRows());
+		FFrameTime AnimDurationFrames = CameraAnim->AnimLength * GetTypedOuter<UMovieScene>()->GetTickResolution();
+		NewSection->InitialPlacement(CameraAnimSections, KeyTime, AnimDurationFrames.FrameNumber.Value, SupportsMultipleRows());
 		NewSection->AnimData.CameraAnim = CameraAnim;
 
 		AddSection(*NewSection);
 	}
+
+	return NewSection;
 }
 
 /* UMovieSceneTrack interface
@@ -43,7 +47,7 @@ const TArray<UMovieSceneSection*>& UMovieSceneCameraAnimTrack::GetAllSections() 
 
 UMovieSceneSection* UMovieSceneCameraAnimTrack::CreateNewSection()
 {
-	return NewObject<UMovieSceneCameraAnimSection>(this);
+	return NewObject<UMovieSceneCameraAnimSection>(this, NAME_None, RF_Transactional);
 }
 
 
@@ -77,19 +81,6 @@ bool UMovieSceneCameraAnimTrack::IsEmpty() const
 }
 
 
-TRange<float> UMovieSceneCameraAnimTrack::GetSectionBoundaries() const
-{
-	TArray<TRange<float>> Bounds;
-
-	for (auto Section : CameraAnimSections)
-	{
-		Bounds.Add(Section->GetRange());
-	}
-
-	return TRange<float>::Hull(Bounds);
-}
-
-
 
 
 #if WITH_EDITORONLY_DATA
@@ -99,14 +90,14 @@ FText UMovieSceneCameraAnimTrack::GetDisplayName() const
 }
 #endif
 
-void UMovieSceneCameraAnimTrack::GetCameraAnimSectionsAtTime(float Time, TArray<UMovieSceneCameraAnimSection*>& OutSections)
+void UMovieSceneCameraAnimTrack::GetCameraAnimSectionsAtTime(FFrameNumber Time, TArray<UMovieSceneCameraAnimSection*>& OutSections)
 {
 	OutSections.Empty();
 
 	for (auto Section : CameraAnimSections)
 	{
 		UMovieSceneCameraAnimSection* const CASection = dynamic_cast<UMovieSceneCameraAnimSection*>(Section);
-		if (CASection && CASection->IsTimeWithinSection(Time))
+		if (CASection && CASection->GetRange().Contains(Time))
 		{
 			OutSections.Add(CASection);
 		}

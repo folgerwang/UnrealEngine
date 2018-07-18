@@ -27,11 +27,22 @@ public:
 	virtual void OnRenameNode(const FString& NewName) override;
 	virtual FLinearColor GetNodeTitleColor() const override;
 
-	FText GetHlslText() const;
-	void OnCustomHlslTextCommitted(const FText& InText, ETextCommit::Type InType);
+	FText NIAGARAEDITOR_API GetHlslText() const;
+	void NIAGARAEDITOR_API OnCustomHlslTextCommitted(const FText& InText, ETextCommit::Type InType);
+
+	bool GetTokens(TArray<FString>& OutTokens) const;
+
+	virtual void BuildParameterMapHistory(FNiagaraParameterMapHistoryBuilder& OutHistory, bool bRecursive = true) override;
+
+	// Replace items in the tokens array if they start with the src string or optionally src string and a namespace delimiter
+	static void ReplaceExactMatchTokens(TArray<FString>& Tokens, const FString& SrcString, const FString& ReplaceString, bool bAllowNamespaceSeparation);
+	static FNiagaraVariable StripVariableToBaseType(const FNiagaraVariable& InVar);
 
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
+
+	void InitAsCustomHlslDynamicInput(const FNiagaraTypeDefinition& OutputType);
+
 #endif
 protected:
 	virtual bool AllowDynamicPins() const override { return true; }

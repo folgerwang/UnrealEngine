@@ -3,7 +3,6 @@
 #pragma once
 
 #include "PyWrapperBase.h"
-#include "PyGenUtil.h"
 #include "UObject/Object.h"
 #include "UObject/Class.h"
 #include "PyWrapperObject.generated.h"
@@ -14,7 +13,7 @@
 extern PyTypeObject PyWrapperObjectType;
 
 /** Initialize the PyWrapperObject types and add them to the given Python module */
-void InitializePyWrapperObject(PyObject* PyModule);
+void InitializePyWrapperObject(PyGenUtil::FNativePythonModule& ModuleInfo);
 
 /** Type for all UE4 exposed object instances */
 struct FPyWrapperObject : public FPyWrapperBase
@@ -38,49 +37,40 @@ struct FPyWrapperObject : public FPyWrapperBase
 	static bool ValidateInternalState(FPyWrapperObject* InSelf);
 
 	/** Cast the given Python object to this wrapped type (returns a new reference) */
-	static FPyWrapperObject* CastPyObject(PyObject* InPyObject);
+	static FPyWrapperObject* CastPyObject(PyObject* InPyObject, FPyConversionResult* OutCastResult = nullptr);
 
 	/** Cast the given Python object to this wrapped type, or attempt to convert the type into a new wrapped instance (returns a new reference) */
-	static FPyWrapperObject* CastPyObject(PyObject* InPyObject, PyTypeObject* InType);
+	static FPyWrapperObject* CastPyObject(PyObject* InPyObject, PyTypeObject* InType, FPyConversionResult* OutCastResult = nullptr);
 
-	/** Get a named property value from this instance (called via generated code) */
-	static PyObject* GetPropertyValue(FPyWrapperObject* InSelf, const FName InPropName, const char* InPythonAttrName);
+	/** Get a property value from this instance (called via generated code) */
+	static PyObject* GetPropertyValue(FPyWrapperObject* InSelf, const PyGenUtil::FGeneratedWrappedProperty& InPropDef, const char* InPythonAttrName);
 
-	/** Set a named property value on this instance (called via generated code) */
-	static int SetPropertyValue(FPyWrapperObject* InSelf, PyObject* InValue, const FName InPropName, const char* InPythonAttrName, const bool InNotifyChange = false, const uint64 InReadOnlyFlags = CPF_EditConst | CPF_BlueprintReadOnly);
+	/** Set a property value on this instance (called via generated code) */
+	static int SetPropertyValue(FPyWrapperObject* InSelf, PyObject* InValue, const PyGenUtil::FGeneratedWrappedProperty& InPropDef, const char* InPythonAttrName, const bool InNotifyChange = false, const uint64 InReadOnlyFlags = CPF_EditConst | CPF_BlueprintReadOnly);
 
 	/** Call a named getter function on this class using the given instance (called via generated code) */
-	static PyObject* CallGetterFunction(UClass* InClass, FPyWrapperObject* InSelf, const FName InFuncName);
+	static PyObject* CallGetterFunction(FPyWrapperObject* InSelf, const PyGenUtil::FGeneratedWrappedFunction& InFuncDef);
 
 	/** Call a named setter function on this class using the given instance (called via generated code) */
-	static int CallSetterFunction(UClass* InClass, FPyWrapperObject* InSelf, PyObject* InValue, const FName InFuncName);
+	static int CallSetterFunction(FPyWrapperObject* InSelf, PyObject* InValue, const PyGenUtil::FGeneratedWrappedFunction& InFuncDef);
 
-	/** Call a named function on this class (called via generated code) */
-	static PyObject* CallFunction(UClass* InClass, PyTypeObject* InType, const FName InFuncName);
+	/** Call a function on this class (called via generated code) */
+	static PyObject* CallFunction(PyTypeObject* InType, const PyGenUtil::FGeneratedWrappedFunction& InFuncDef, const char* InPythonFuncName);
 
-	/** Call a named function on this class (called via generated code) */
-	static PyObject* CallFunction(UClass* InClass, PyTypeObject* InType, PyObject* InArgs, PyObject* InKwds, const FName InFuncName, const char* InPythonFuncName, const TArray<PyGenUtil::FGeneratedWrappedMethodParameter>& InParamDef);
+	/** Call a function on this class (called via generated code) */
+	static PyObject* CallFunction(PyTypeObject* InType, PyObject* InArgs, PyObject* InKwds, const PyGenUtil::FGeneratedWrappedFunction& InFuncDef, const char* InPythonFuncName);
 
-	/** Call a named function on this class using the given instance (called via generated code) */
-	static PyObject* CallFunction(UClass* InClass, FPyWrapperObject* InSelf, const FName InFuncName);
+	/** Call a function on this class using the given instance (called via generated code) */
+	static PyObject* CallFunction(FPyWrapperObject* InSelf, const PyGenUtil::FGeneratedWrappedFunction& InFuncDef, const char* InPythonFuncName);
 
-	/** Call a named function on this class using the given instance (called via generated code) */
-	static PyObject* CallFunction(UClass* InClass, FPyWrapperObject* InSelf, PyObject* InArgs, PyObject* InKwds, const FName InFuncName, const char* InPythonFuncName, const TArray<PyGenUtil::FGeneratedWrappedMethodParameter>& InParamDef);
+	/** Call a function on this class using the given instance (called via generated code) */
+	static PyObject* CallFunction(FPyWrapperObject* InSelf, PyObject* InArgs, PyObject* InKwds, const PyGenUtil::FGeneratedWrappedFunction& InFuncDef, const char* InPythonFuncName);
 
-	/** Call a named function on this instance (CallFunction internal use only) */
-	static PyObject* CallFunction_Impl(UClass* InClass, UObject* InObj, const FName InFuncName, const TCHAR* InErrorCtxt);
+	/** Call a function on this instance (CallFunction internal use only) */
+	static PyObject* CallFunction_Impl(UObject* InObj, const PyGenUtil::FGeneratedWrappedFunction& InFuncDef, const char* InPythonFuncName, const TCHAR* InErrorCtxt);
 
-	/** Call a named function on this instance (CallFunction internal use only) */
-	static PyObject* CallFunction_Impl(UClass* InClass, UObject* InObj, PyObject* InArgs, PyObject* InKwds, const FName InFuncName, const char* InPythonFuncName, const TArray<PyGenUtil::FGeneratedWrappedMethodParameter>& InParamDef, const TCHAR* InErrorCtxt);
-
-	/** Common handler code for applying default values to function arguments (CallFunction internal use only) */
-	static void CallFunction_ApplyDefaults(UFunction* InFunc, void* InBaseParamsAddr, const TArray<PyGenUtil::FGeneratedWrappedMethodParameter>& InParamDef);
-
-	/** Common handler code for invoking a function call (CallFunction internal use only) */
-	static void CallFunction_InvokeImpl(UObject* InObj, UFunction* InFunc, void* InBaseParamsAddr, const TCHAR* InErrorCtxt);
-
-	/** Common handler code for processing return values from a function call (CallFunction internal use only) */
-	static PyObject* CallFunction_ReturnImpl(UObject* InObj, UFunction* InFunc, const void* InBaseParamsAddr, const TCHAR* InErrorCtxt);
+	/** Call a function on this instance (CallFunction internal use only) */
+	static PyObject* CallFunction_Impl(UObject* InObj, PyObject* InArgs, PyObject* InKwds, const PyGenUtil::FGeneratedWrappedFunction& InFuncDef, const char* InPythonFuncName, const TCHAR* InErrorCtxt);
 
 	/** Implementation of the "call" logic for a Python class method with no arguments (internal Python bindings use only) */
 	static PyObject* CallClassMethodNoArgs_Impl(PyTypeObject* InType, void* InClosure);
@@ -94,6 +84,15 @@ struct FPyWrapperObject : public FPyWrapperBase
 	/** Implementation of the "call" logic for a Python method with arguments (internal Python bindings use only) */
 	static PyObject* CallMethodWithArgs_Impl(FPyWrapperObject* InSelf, PyObject* InArgs, PyObject* InKwds, void* InClosure);
 
+	/** Call a dynamic function on this instance (CallFunction internal use only) */
+	static PyObject* CallDynamicFunction_Impl(FPyWrapperObject* InSelf, PyObject* InArgs, PyObject* InKwds, const PyGenUtil::FGeneratedWrappedFunction& InFuncDef, const PyGenUtil::FGeneratedWrappedMethodParameter& InSelfParam, const char* InPythonFuncName);
+
+	/** Implementation of the "call" logic for a dynamic Python method with no arguments (internal Python bindings use only) */
+	static PyObject* CallDynamicMethodNoArgs_Impl(FPyWrapperObject* InSelf, void* InClosure);
+
+	/** Implementation of the "call" logic for a dynamic Python method with arguments (internal Python bindings use only) */
+	static PyObject* CallDynamicMethodWithArgs_Impl(FPyWrapperObject* InSelf, PyObject* InArgs, PyObject* InKwds, void* InClosure);
+
 	/** Implementation of the "getter" logic for a Python descriptor reading from an object property (internal Python bindings use only) */
 	static PyObject* Getter_Impl(FPyWrapperObject* InSelf, void* InClosure);
 
@@ -104,9 +103,12 @@ struct FPyWrapperObject : public FPyWrapperBase
 /** Meta-data for all UE4 exposed object types */
 struct FPyWrapperObjectMetaData : public FPyWrapperBaseMetaData
 {
-	PY_OVERRIDE_GETSET_METADATA(FPyWrapperObjectMetaData)
+	PY_METADATA_METHODS(FPyWrapperObjectMetaData, FGuid(0x89FC2465, 0xA83F4F31, 0xBBCC1E86, 0xE9D76551))
 
-	FPyWrapperObjectMetaData();
+	FPyWrapperObjectMetaData()
+		: Class(nullptr)
+	{
+	}
 
 	/** Get the UClass from the given type */
 	static UClass* GetClass(PyTypeObject* PyType);
@@ -114,11 +116,17 @@ struct FPyWrapperObjectMetaData : public FPyWrapperBaseMetaData
 	/** Get the UClass from the type of the given instance */
 	static UClass* GetClass(FPyWrapperObject* Instance);
 
-	/** Resolve the original property name of a Python method from the given type */
+	/** Resolve the original property name of a Python property from the given type */
 	static FName ResolvePropertyName(PyTypeObject* PyType, const FName InPythonPropertyName);
 
-	/** Resolve the original property name of a Python method of the given instance */
+	/** Resolve the original property name of a Python property of the given instance */
 	static FName ResolvePropertyName(FPyWrapperObject* Instance, const FName InPythonPropertyName);
+
+	/** Check to see if the given Python property is deprecated, and optionally return its deprecation message */
+	static bool IsPropertyDeprecated(PyTypeObject* PyType, const FName InPythonPropertyName, FString* OutDeprecationMessage = nullptr);
+
+	/** Check to see if the given Python property is deprecated, and optionally return its deprecation message */
+	static bool IsPropertyDeprecated(FPyWrapperObject* Instance, const FName InPythonPropertyName, FString* OutDeprecationMessage = nullptr);
 
 	/** Resolve the original function name of a Python method from the given type */
 	static FName ResolveFunctionName(PyTypeObject* PyType, const FName InPythonMethodName);
@@ -126,14 +134,44 @@ struct FPyWrapperObjectMetaData : public FPyWrapperBaseMetaData
 	/** Resolve the original function name of a Python method of the given instance */
 	static FName ResolveFunctionName(FPyWrapperObject* Instance, const FName InPythonMethodName);
 
+	/** Check to see if the given Python method is deprecated, and optionally return its deprecation message */
+	static bool IsFunctionDeprecated(PyTypeObject* PyType, const FName InPythonMethodName, FString* OutDeprecationMessage = nullptr);
+
+	/** Check to see if the given Python method is deprecated, and optionally return its deprecation message */
+	static bool IsFunctionDeprecated(FPyWrapperObject* Instance, const FName InPythonMethodName, FString* OutDeprecationMessage = nullptr);
+
+	/** Check to see if the class is deprecated, and optionally return its deprecation message */
+	static bool IsClassDeprecated(PyTypeObject* PyType, FString* OutDeprecationMessage = nullptr);
+
+	/** Check to see if the class is deprecated, and optionally return its deprecation message */
+	static bool IsClassDeprecated(FPyWrapperObject* Instance, FString* OutDeprecationMessage = nullptr);
+
+	/** Add object references from the given Python object to the given collector */
+	virtual void AddReferencedObjects(FPyWrapperBase* Instance, FReferenceCollector& Collector) override;
+
+	/** Get the reflection meta data type object associated with this wrapper type if there is one or nullptr if not. */
+	virtual const UField* GetMetaType() const override
+	{
+		return Class;
+	}
+
 	/** Unreal class */
 	UClass* Class;
 
 	/** Map of properties that were exposed to Python mapped to their original name */
 	TMap<FName, FName> PythonProperties;
 
+	/** Map of properties that were exposed to Python mapped to their deprecation message (if deprecated) */
+	TMap<FName, FString> PythonDeprecatedProperties;
+
 	/** Map of methods that were exposed to Python mapped to their original name */
 	TMap<FName, FName> PythonMethods;
+
+	/** Map of methods that were exposed to Python mapped to their deprecation message (if deprecated) */
+	TMap<FName, FString> PythonDeprecatedMethods;
+
+	/** Set if this class is deprecated and using it should emit a deprecation warning */
+	TOptional<FString> DeprecationMessage;
 };
 
 typedef TPyPtr<FPyWrapperObject> FPyWrapperObjectPtr;

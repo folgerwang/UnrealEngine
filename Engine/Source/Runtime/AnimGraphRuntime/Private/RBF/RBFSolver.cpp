@@ -1,6 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "RBFSolver.h"
+#include "RBF/RBFSolver.h"
 #include "EngineLogs.h"
 
 FQuat FRBFEntry::AsQuat(int32 Index) const

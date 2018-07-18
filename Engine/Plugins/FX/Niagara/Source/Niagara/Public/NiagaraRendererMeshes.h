@@ -14,14 +14,9 @@ class FNiagaraDataSet;
 
 struct FNiagaraDynamicDataMesh : public FNiagaraDynamicDataBase
 {
+	//Direct ptr to the dataset. ONLY FOR USE BE GPU EMITTERS.
+	//TODO: Even this needs to go soon.
 	const FNiagaraDataSet *DataSet;
-	int32 PositionDataOffset;
-	int32 VelocityDataOffset;
-	int32 ColorDataOffset;
-	int32 TransformDataOffset;
-	int32 ScaleDataOffset;
-	int32 SizeDataOffset;
-	int32 MaterialParamDataOffset;
 };
 
 
@@ -78,6 +73,9 @@ public:
 
 	UClass *GetPropertiesClass() override { return UNiagaraMeshRendererProperties::StaticClass(); }
 	void SetRendererProperties(UNiagaraRendererProperties *Props) override { Properties = Cast<UNiagaraMeshRendererProperties>(Props); }
+	virtual UNiagaraRendererProperties* GetRendererProperties()  const override {
+		return Properties;
+	}
 #if WITH_EDITORONLY_DATA
 	virtual const TArray<FNiagaraVariable>& GetRequiredAttributes() override;
 	virtual const TArray<FNiagaraVariable>& GetOptionalAttributes() override;
@@ -88,4 +86,17 @@ private:
 	UNiagaraMeshRendererProperties *Properties;
 	mutable TUniformBuffer<FPrimitiveUniformShaderParameters> WorldSpacePrimitiveUniformBuffer;
 	class FNiagaraMeshVertexFactory* VertexFactory;
+
+	int32 PositionOffset;
+	int32 VelocityOffset;
+	int32 ColorOffset;
+	int32 ScaleOffset;
+	int32 SizeOffset;
+	int32 MaterialParamOffset;
+	int32 MaterialParamOffset1;
+	int32 MaterialParamOffset2;
+	int32 MaterialParamOffset3;
+	int32 TransformOffset;
+	int32 CustomSortingOffset;
+	int32 LastSyncedId;
 };

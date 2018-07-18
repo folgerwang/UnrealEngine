@@ -40,11 +40,11 @@ public:
 	 * Send a chat to a user via xmpp service
 	 *
 	 * @param RecipientId user to send chat to (must be online)
-	 * @param Chat message data to send
+	 * @param Message chat message to send
 	 *
 	 * @return true if successfully sent
 	 */
-	virtual bool SendChat(const FString& RecipientId, const class FXmppChatMessage& Chat) = 0;
+	virtual bool SendChat(const FXmppUserJid& RecipientId, const FString& Message) = 0;
 
 	/**
 	 * Delegate callback for when a new chat message is received

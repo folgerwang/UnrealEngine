@@ -194,6 +194,7 @@ public:
 		this->acp = new constprop_hash_table(mem_ctx);
         this->kills = hash_table_ctor(1024, constprop_hash_table_pointer_hash, hash_table_pointer_compare);
 		this->killed_all = false;
+		this->conservative_propagation = true;
 	}
 	~ir_constant_propagation_visitor()
 	{
@@ -226,6 +227,8 @@ public:
 	bool progress;
 
 	bool killed_all;
+
+	bool conservative_propagation;
 
 	void *mem_ctx;
 };
@@ -409,11 +412,17 @@ ir_constant_propagation_visitor::visit_enter(ir_call *ir)
 		else
 		{
 			has_out_params = true;
+			ir_variable* param_var = param->as_variable();
+			if (param_var && !conservative_propagation)
+			{
+				//todo: can probably be less aggressive here by tracking what components the function actually writes to.
+				kill(param_var, ~0);
+			}
 		}
 		sig_param_iter.next();
 	}
 
-	if (!ir->callee->is_builtin || has_out_params)
+	if (!ir->callee->is_builtin || (has_out_params && conservative_propagation))
 	{
 		/* Since we're unlinked, we don't (necssarily) know the side effects of
 		* this call.  So kill all copies.
@@ -590,9 +599,10 @@ ir_constant_propagation_visitor::add_constant(ir_assignment *ir)
 /**
 * Does a constant propagation pass on the code present in the instruction stream.
 */
-bool do_constant_propagation(exec_list *instructions)
+bool do_constant_propagation(exec_list *instructions, bool conservative_propagation)
 {
 	ir_constant_propagation_visitor v;
+	v.conservative_propagation = conservative_propagation;
 
 	visit_list_elements(&v, instructions);
 

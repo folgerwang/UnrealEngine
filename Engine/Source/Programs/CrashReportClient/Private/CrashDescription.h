@@ -78,22 +78,19 @@ struct FAnalyticsEventAttribute;
 	"bAllowToBeContacted"
  */
 
-namespace Lex
+inline void LexFromString( ECrashDescVersions& OutValue, const TCHAR* Buffer )
 {
-	inline void FromString( ECrashDescVersions& OutValue, const TCHAR* Buffer )
-	{
-		OutValue = (ECrashDescVersions)FCString::Atoi( Buffer );
-	}
+	OutValue = (ECrashDescVersions)FCString::Atoi( Buffer );
+}
 
-	inline void FromString( ECrashDumpMode& OutValue, const TCHAR* Buffer )
-	{
-		OutValue = (ECrashDumpMode)FCString::Atoi( Buffer );
-	}
+inline void LexFromString( ECrashDumpMode& OutValue, const TCHAR* Buffer )
+{
+	OutValue = (ECrashDumpMode)FCString::Atoi( Buffer );
+}
 
-	inline void FromString( FEngineVersion& OutValue, const TCHAR* Buffer )
-	{
-		FEngineVersion::Parse( Buffer, OutValue );
-	}
+inline void LexFromString( FEngineVersion& OutValue, const TCHAR* Buffer )
+{
+	FEngineVersion::Parse( Buffer, OutValue );
 }
 
 /** Simple crash property. Only for string values. */
@@ -212,23 +209,6 @@ struct FPrimaryCrashProperties
 	 * ENGINE_VERSION_STRING
 	 */
 	FEngineVersion EngineVersion;
-
-	/**
-	 * Built from changelist.
-	 * @ChangeListVersion	varchar(64)
-	 * 
-	 * BUILT_FROM_CHANGELIST
-	 */
-	//EngineVersion.GetChangelist()
-	//uint32 BuiltFromCL;
-
-	/**
-	 * The name of the branch this game was built out of.
-	 * @Branch varchar(32)
-	 * 
-	 * BRANCH_NAME
-	 */
-	//EngineVersion.GetBranch();
 
 	/**
 	 * The command line of the application that crashed.
@@ -455,7 +435,7 @@ protected:
 			const FXmlNode* CategoryNode = MainNode->FindChildNode( SecondCategory );
 			if (CategoryNode)
 			{
-				Lex::FromString( out_ReadValue, *FGenericCrashContext::UnescapeXMLString( CategoryNode->GetContent() ) );
+				LexFromString( out_ReadValue, *FGenericCrashContext::UnescapeXMLString( CategoryNode->GetContent() ) );
 			}
 		}
 	}

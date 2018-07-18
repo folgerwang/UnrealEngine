@@ -1,18 +1,18 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "IPluginManager.h"
+#include "Interfaces/IPluginManager.h"
 
 #include "Editor.h"
 
-#include "ModuleManager.h"
-#include "CoreDelegates.h"
+#include "Modules/ModuleManager.h"
+#include "Misc/CoreDelegates.h"
 #include "Widgets/Docking/SDockTab.h"
 #include "WorkspaceMenuStructure.h"
 #include "WorkspaceMenuStructureModule.h"
 #include "EditorStyleSet.h"
-#include "SlateStyle.h"
-#include "SlateTypes.h"
-#include "SlateStyleRegistry.h"
+#include "Styling/SlateStyle.h"
+#include "Styling/SlateTypes.h"
+#include "Styling/SlateStyleRegistry.h"
 #include "Framework/Application/SlateApplication.h"
 
 #include "Features/IModularFeatures.h"

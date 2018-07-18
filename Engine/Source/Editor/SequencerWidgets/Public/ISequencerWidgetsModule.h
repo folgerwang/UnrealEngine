@@ -10,6 +10,7 @@
 #include "ITimeSlider.h"
 #include "Widgets/Input/NumericTypeInterface.h"
 #include "Modules/ModuleInterface.h"
+#include "Misc/QualifiedFrameTime.h"
 
 /** Enum denoting which time ranges to display on a time range */
 enum class EShowRange
@@ -28,13 +29,11 @@ struct FTimeRangeArgs
 		EShowRange InShowRanges,
 		TSharedRef<ITimeSliderController> InController,
 		TAttribute<EVisibility> InVisibilityDelegate,
-		TAttribute<bool> InShowFrameNumbersDelegate,
-		TSharedRef<INumericTypeInterface<float>> InNumericTypeInterface
+		TSharedRef<INumericTypeInterface<double>> InNumericTypeInterface
 		)
 		: ShowRanges(InShowRanges)
 		, Controller(InController)
 		, VisibilityDelegate(InVisibilityDelegate)
-		, ShowFrameNumbersDelegate(InShowFrameNumbersDelegate)
 		, NumericTypeInterface(InNumericTypeInterface)
 	{
 	}
@@ -45,10 +44,8 @@ struct FTimeRangeArgs
 	TSharedRef<ITimeSliderController> Controller;
 	/** Visibility delegate */
 	TAttribute<EVisibility> VisibilityDelegate;
-	/** Whether to show frame numbers */
-	TAttribute<bool> ShowFrameNumbersDelegate;
 	/** Numeric type interface to use for frame<->time conversion */
-	TSharedRef<INumericTypeInterface<float>> NumericTypeInterface;
+	TSharedRef<INumericTypeInterface<double>> NumericTypeInterface;
 };
 
 /**
@@ -61,6 +58,6 @@ public:
 
 	virtual TSharedRef<ITimeSlider> CreateTimeSlider( const TSharedRef<ITimeSliderController>& InController, bool bMirrorLabels  ) = 0;
 	virtual TSharedRef<ITimeSlider> CreateTimeSlider( const TSharedRef<ITimeSliderController>& InController, const TAttribute<EVisibility>& VisibilityDelegate, bool bMirrorLabels  ) = 0;
-	virtual TSharedRef<SWidget> CreateTimeRangeSlider( const TSharedRef<class ITimeSliderController>& InController, const TAttribute<float>& InTimeSnapIntervalDelegate ) = 0;
+	virtual TSharedRef<SWidget> CreateTimeRangeSlider( const TSharedRef<class ITimeSliderController>& InController ) = 0;
 	virtual TSharedRef<ITimeSlider> CreateTimeRange( const FTimeRangeArgs& InArgs, const TSharedRef<SWidget>& Content ) = 0;
 };

@@ -12,6 +12,7 @@
 #include "NiagaraVertexFactory.h"
 #include "NiagaraDataSet.h"
 #include "SceneView.h"
+#include "NiagaraGlobalReadBuffer.h"
 
 class FMaterial;
 
@@ -19,34 +20,38 @@ class FMaterial;
  * Uniform buffer for particle sprite vertex factories.
  */
 BEGIN_UNIFORM_BUFFER_STRUCT( FNiagaraSpriteUniformParameters, NIAGARAVERTEXFACTORIES_API)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EX( FMatrix, LocalToWorld, EShaderPrecisionModifier::Half)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EX( FMatrix, LocalToWorldInverseTransposed, EShaderPrecisionModifier::Half)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EX( FVector, CustomFacingVectorMask, EShaderPrecisionModifier::Half)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EX( FVector4, TangentSelector, EShaderPrecisionModifier::Half )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EX( FVector4, NormalsSphereCenter, EShaderPrecisionModifier::Half )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EX( FVector4, NormalsCylinderUnitDirection, EShaderPrecisionModifier::Half )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EX( FVector4, SubImageSize, EShaderPrecisionModifier::Half )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EX( FVector, CameraFacingBlend, EShaderPrecisionModifier::Half )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EX( float, RemoveHMDRoll, EShaderPrecisionModifier::Half )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( FVector4, MacroUVParameters )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EX( float, RotationScale, EShaderPrecisionModifier::Half )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EX( float, RotationBias, EShaderPrecisionModifier::Half )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EX( float, NormalsType, EShaderPrecisionModifier::Half )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EX( float, InvDeltaSeconds, EShaderPrecisionModifier::Half )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EX( FVector2D, PivotOffset, EShaderPrecisionModifier::Half )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(int, PositionDataOffset)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(int, VelocityDataOffset)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(int, RotationDataOffset)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(int, SizeDataOffset)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(int, SubimageDataOffset)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(int, ColorDataOffset)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(int, MaterialParamDataOffset)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(int, FacingOffset)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(int, AlignmentOffset)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(int, SubImageBlendMode)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(int, CameraOffsetOffset)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(int, UVScaleOffset)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(int, ParticleRandomOffset)
+	UNIFORM_MEMBER_EX( FMatrix, LocalToWorld, EShaderPrecisionModifier::Half)
+	UNIFORM_MEMBER_EX( FMatrix, LocalToWorldInverseTransposed, EShaderPrecisionModifier::Half)
+	UNIFORM_MEMBER_EX( FVector, CustomFacingVectorMask, EShaderPrecisionModifier::Half)
+	UNIFORM_MEMBER_EX( FVector4, TangentSelector, EShaderPrecisionModifier::Half )
+	UNIFORM_MEMBER_EX( FVector4, NormalsSphereCenter, EShaderPrecisionModifier::Half )
+	UNIFORM_MEMBER_EX( FVector4, NormalsCylinderUnitDirection, EShaderPrecisionModifier::Half )
+	UNIFORM_MEMBER_EX( FVector4, SubImageSize, EShaderPrecisionModifier::Half )
+	UNIFORM_MEMBER_EX( FVector, CameraFacingBlend, EShaderPrecisionModifier::Half )
+	UNIFORM_MEMBER_EX( float, RemoveHMDRoll, EShaderPrecisionModifier::Half )
+	UNIFORM_MEMBER( FVector4, MacroUVParameters )
+	UNIFORM_MEMBER_EX( float, RotationScale, EShaderPrecisionModifier::Half )
+	UNIFORM_MEMBER_EX( float, RotationBias, EShaderPrecisionModifier::Half )
+	UNIFORM_MEMBER_EX( float, NormalsType, EShaderPrecisionModifier::Half )
+	UNIFORM_MEMBER_EX( float, DeltaSeconds, EShaderPrecisionModifier::Half )
+	UNIFORM_MEMBER_EX( FVector2D, PivotOffset, EShaderPrecisionModifier::Half )
+	UNIFORM_MEMBER(int, PositionDataOffset)
+	UNIFORM_MEMBER(int, VelocityDataOffset)
+	UNIFORM_MEMBER(int, RotationDataOffset)
+	UNIFORM_MEMBER(int, SizeDataOffset)
+	UNIFORM_MEMBER(int, SubimageDataOffset)
+	UNIFORM_MEMBER(int, ColorDataOffset)
+	UNIFORM_MEMBER(int, MaterialParamDataOffset)
+	UNIFORM_MEMBER(int, MaterialParam1DataOffset)
+	UNIFORM_MEMBER(int, MaterialParam2DataOffset)
+	UNIFORM_MEMBER(int, MaterialParam3DataOffset)
+	UNIFORM_MEMBER(int, FacingOffset)
+	UNIFORM_MEMBER(int, AlignmentOffset)
+	UNIFORM_MEMBER(int, SubImageBlendMode)
+	UNIFORM_MEMBER(int, CameraOffsetOffset)
+	UNIFORM_MEMBER(int, UVScaleOffset)
+	UNIFORM_MEMBER(int, ParticleRandomOffset)
+	UNIFORM_MEMBER(FVector4, DefaultPos)
 	END_UNIFORM_BUFFER_STRUCT(FNiagaraSpriteUniformParameters)
 
 typedef TUniformBufferRef<FNiagaraSpriteUniformParameters> FNiagaraSpriteUniformBufferRef;
@@ -67,7 +72,10 @@ public:
 		NumCutoutVerticesPerFrame(0),
 		CutoutGeometrySRV(nullptr),
 		AlignmentMode(0),
-		FacingMode(0)
+		FacingMode(0),
+		FloatDataOffset(0),
+		FloatDataStride(0),
+		SortedIndicesOffset(0)
 	{}
 
 	FNiagaraSpriteVertexFactory()
@@ -76,7 +84,10 @@ public:
 		NumCutoutVerticesPerFrame(0),
 		CutoutGeometrySRV(nullptr),
 		AlignmentMode(0),
-		FacingMode(0)
+		FacingMode(0),
+		FloatDataOffset(0),
+		FloatDataStride(0),
+		SortedIndicesOffset(0)
 	{}
 
 	// FRenderResource interface.
@@ -93,12 +104,7 @@ public:
 	 * Can be overridden by FVertexFactory subclasses to modify their compile environment just before compilation occurs.
 	 */
 	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment);
-
-	/**
-	 * Set the source vertex buffer that contains particle instance data.
-	 */
-	void SetInstanceBuffer(const FVertexBuffer* InInstanceBuffer, uint32 StreamOffset, uint32 Stride, bool bInstanced);
-
+	
 	void SetTexCoordBuffer(const FVertexBuffer* InTexCoordBuffer);
 
 	inline void SetNumVertsInInstanceBuffer(int32 InNumVertsInInstanceBuffer)
@@ -131,26 +137,42 @@ public:
 	inline int32 GetNumCutoutVerticesPerFrame() const { return NumCutoutVerticesPerFrame; }
 	inline FShaderResourceViewRHIParamRef GetCutoutGeometrySRV() const { return CutoutGeometrySRV; }
 
-	void SetParticleData(const FNiagaraDataSet *InDataSet)
+	void SetParticleData(const FShaderResourceViewRHIRef& InParticleDataFloatSRV, uint32 InFloatDataOffset, uint32 InFloatDataStride)
 	{
-		DataSet = InDataSet;
+		ParticleDataFloatSRV = InParticleDataFloatSRV;
+		FloatDataOffset = InFloatDataOffset;
+		FloatDataStride = InFloatDataStride;
 	}
 
-	inline FShaderResourceViewRHIParamRef GetFloatDataSRV() const 
-	{ 
-		check(!IsInGameThread());
-		return DataSet->GetRenderDataFloatSRV();
-	}
-	inline FShaderResourceViewRHIParamRef GetIntDataSRV() const 
-	{ 
-		check(!IsInGameThread());
-		return DataSet->GetRenderDataInt32SRV();
+	void SetSortedIndices(const FShaderResourceViewRHIRef& InSortedIndicesSRV, uint32 InSortedIndicesOffset)
+	{
+		SortedIndicesSRV = InSortedIndicesSRV;
+		SortedIndicesOffset = InSortedIndicesOffset;
 	}
 
-	uint32 GetComponentBufferSize() 
-	{ 
-		check(!IsInGameThread());
-		return DataSet->CurrDataRender().GetFloatStride() / sizeof(float);
+	FORCEINLINE FShaderResourceViewRHIRef GetParticleDataFloatSRV()
+	{
+		return ParticleDataFloatSRV;
+	}
+
+	FORCEINLINE int32 GetFloatDataOffset()
+	{
+		return FloatDataOffset;
+	}
+
+	FORCEINLINE int32 GetFloatDataStride()
+	{
+		return FloatDataStride;
+	}
+
+	FORCEINLINE FShaderResourceViewRHIRef GetSortedIndicesSRV()
+	{
+		return SortedIndicesSRV;
+	}
+
+	FORCEINLINE int32 GetSortedIndicesOffset()
+	{
+		return SortedIndicesOffset;
 	}
 
 	void SetFacingMode(uint32 InMode)
@@ -173,7 +195,6 @@ public:
 		return AlignmentMode;
 	}
 
-
 	/**
 	 * Construct shader parameters for this type of vertex factory.
 	 */
@@ -192,7 +213,14 @@ private:
 
 	int32 NumCutoutVerticesPerFrame;
 	FShaderResourceViewRHIParamRef CutoutGeometrySRV;
-	const FNiagaraDataSet *DataSet;
 	uint32 AlignmentMode;
 	uint32 FacingMode;
+	
+	
+	FShaderResourceViewRHIRef ParticleDataFloatSRV;
+	uint32 FloatDataOffset;
+	uint32 FloatDataStride;
+
+	FShaderResourceViewRHIRef SortedIndicesSRV;
+	uint32 SortedIndicesOffset;
 };

@@ -1,13 +1,12 @@
-﻿INTSourceChangelist:3360829
-Availability:Public
-Title:VR エディタの調節
+﻿Availability:Public
+Title:VR モードの制御
 Description:VR モードでワールドを作成するための様々な調節スキームとインタラクションを学習します。
 Crumbs:
 parent:Engine/Editor/VR
 type: overview
-order:
+order:1
 tags:VR
-version:4.15
+version:4.17
 skilllevel: intermediate
 topic-image:vreditor_controls.png
 prereq:Engine/Editor/VR/ActivateVRMode
@@ -33,25 +32,36 @@ prereq:Engine/Editor/VR/ActivateVRMode
 
 | 色 | 外観 | 意味 |
 | ----- | ---------- | ------- |
-| オレンジ |![](standardmode.png)(w:192) | 標準のインタラクション モードです。コントローラのデフォルト ステートです。 |
-| 緑 |![](selectionmode.png)(w:192) | 選択モードです。現在選択中のアクタがあることを表します。 |
-| 黄色 |![](movementmode.png)(w:192) | 移動モードです。ワールドをナビゲートする時に使われてます。 |
+| 赤 |![](standardmode.png)(w:192) | 標準のインタラクション モードです。コントローラのデフォルト ステートです。 |
+| オレンジ |![](selectionmode.png)(w:192) | 選択モードです。現在選択中のアクタがあることを表します。 |
+| 緑 |![](movementmode.png)(w:192) | 移動モードです。ワールドをナビゲートする時に使用します。 |
+| 青 |![](UImode.png)(w:192) | UI インタラクション モードです。UI を移動させるために使用します。 |
 
 ##VR の UI
 
-VR Editor モードは、VR を終了せずにエディタでの作業が可能な UI になっています。コントローラーを使ってエディタ ウィンドウを表示させると、 
-メニューシステムから各種設定へアクセスしたり、エディタ ウィンドウで VR のデスクトップ エディタのフル機能を使用することができます。以下のセクションで、これらのシステムを呼び出し、インタラクトする方法を説明します。
+VR Mode モードは、VR を終了せずにエディタでの作業が可能な UI になっています。コントローラーを使ってメニュー システムを表示させると、さまざまな設定およびエディタ ウィンドウにアクセスすることができます。以下のセクションで、これらのシステムを呼び出し、インタラクトする方法を説明します。
 
+## Interactor Hand
+
+**[Editor Preferences]** > **[General]** > **[VR Mode]** からプライマリ レーザーをアタッチする手を変更することができます。**[General]** セクションで **[Interactor Hand]** を **[Left]** あるいは **[Right]** のいずれかにします。
+
+[REGION:lightbox]
+[![](InteractionHand.png)(w:472)](InteractionHand.png)
+[/REGION]
+
+[REGION:caption]
+クリックしてフルサイズで表示
+[/REGION]
 
 ### メニューの操作
 
-VR Editing モードで使用できる **[Radial (ラジアル)]** メニューと **[Quick Select (クイック選択)]** メニューの操作方法は以下をご確認ください。 
+VR Editing モードで使用できる **[Radial (ラジアル)]** メニューと **[Radial Menu]** メニューの操作方法は以下をご確認ください。 
 
 [REGION:raw]
 | 操作 | 説明 |
 | ------- | ----------- |
 | ![Modifier Button](radial_menu.png)(convert:false) | 親指で軽くトラックパッドを叩いて **[Radial Menu (ラジアル メニュー)]** を開きます。トラックパッド上で親指を移動させると、オプションが強調表示されます。トラックパッドを下まで押すと、強調表示されたオプションが選択されます。 |
-| ![Aim One Controller at the Other Controller](quick_select_menu.png)(convert:false) | 片方のコントローラの照準をもう片方のコントローラに向けて、**[Quick Select (クイック選択)]** メニューにアクセスします。 |
+| ![Pressing the Menu Button](Menu_Button.png)(convert:false) | もう片方のコントローラーの [Menu] ボタン コントローラーを押して **[Radial Menu]** メニューにアクセスします。 |
 [/REGION]
 
 ### ウィンドウの操作
@@ -60,14 +70,13 @@ VR Editing モードで使用できる **[Radial (ラジアル)]** メニュー�
 
 [REGION:raw]
 | 操作 | 説明 |
-| ------- | ----------- |
-| ![Tap Track Pad](show_hide_windows.png)(convert:false) | トラックパッドをタップして、開いているウィンドウを表示 / 非表示にします。 |
-| ![Aim Controller at Window Grip + Squeeze Trigger + Track Pad Towards or Away](scale_window.png)(convert:false) | コントローラの照準をウィンドウのグリップに合わせてトリガーを引くと、ウィンドウが選択されます。トラックパッド上で親指を上下に動かすと、ウィンドウがスケーリングされます。 |
+| ------- | ----------- |	
+| ![Aim Controller at Window Grip  Squeeze Trigger  Track Pad Towards or Away](scale_window.png)(convert:false) | コントローラの照準をウィンドウのグリップに合わせてトリガーを引くと、ウィンドウが選択されます。トラックパッド上で親指を上下に動かすと、ウィンドウがスケーリングされます。 |
 [/REGION]
 
 ## VR での編集
 
-VR Editor モードで編集する場合、ワールドを横切り、シーンのアクタを直観的に操作することができます。アクタを移動、スケーリング、回転させてインタラクトする方法、 
+VR Mode モードで編集する場合、ワールドを横切り、シーンのアクタを直観的に操作することができます。アクタを移動、スケーリング、回転させてインタラクトする方法、 
 および VR の中でワールドを効果的にナビゲートする方法は以下のセクションを参照してください。 
 
 
@@ -85,11 +94,11 @@ VR 環境をナビゲートするには、以下の表を参照してくださ�
 [REGION:raw]
 | 操作 | 説明 |
 | ------- | ----------- |
-| ![Press Side Buttons + Move Controller](move_world.png)(convert:false) | サイド ボタンを押したまま、ワールドを手でつかんで押したり引いたりするようにコントローラを動かします。 |
-| ![Press Side Buttons + Aim Controller + Squeeze Trigger](teleport_world.png)(convert:false) | サイド ボタンを押して、コントローラの照準を合わせてトリガーを引くと、現在位置からコントローラが狙いを定めた位置へテレポートします。 |
-| ![Press Side Buttons + Move Controllers Around Each Other](rotate_world.png)(convert:false) | 両方のコントローラのサイド ボタンを押して互いに動かすと、まるでワールドを手でつかんで回転させているかのように、自分の周りのワールドが回転します。 |
-| ![Press Side Buttons + Move Controllers Towards or Away From Each Other](scale_world.png)(convert:false) | 両方のコントローラのサイド ボタンを押して、互いに遠ざけたり近づけたりして動すと、ワールドがスケーリングします。|
-| ![Press Side Buttons + Tap the Tack Pad](Reset_World_Scale.png)(convert:false) | サイド ボタンを押してワールドをつかみます。トラックパッドをタップすると編集中にワールドのスケールがデフォルトのプレイヤーのサイズにすぐにリセットされます。 |
+| ![Press Side Buttons  Move Controller](move_world.png)(convert:false) | サイド ボタンを押したまま、ワールドを手でつかんで押したり引いたりするようにコントローラを動かします。 |
+| ![Press Side Buttons  Aim Controller  Squeeze Trigger](teleport_world.png)(convert:false) | サイド ボタンを押して、コントローラの照準を合わせてトリガーを引くと、現在位置からコントローラが狙いを定めた位置へテレポートします。 |
+| ![Press Side Buttons  Move Controllers Around Each Other](rotate_world.png)(convert:false) | 両方のコントローラのサイド ボタンを押して互いに動かすと、まるでワールドを手でつかんで回転させているかのように、自分の周りのワールドが回転します。 |
+| ![Press Side Buttons  Move Controllers Towards or Away From Each Other](scale_world.png)(convert:false) | 両方のコントローラのサイド ボタンを押して、互いに遠ざけたり近づけたりして動すと、ワールドがスケーリングします。|
+| ![Press Side Buttons  Tap the Tack Pad](Reset_World_Scale.png)(convert:false) | サイド ボタンを押してワールドをつかみます。トラックパッドをタップすると編集中にワールドのスケールがデフォルトのプレイヤーのサイズにすぐにリセットされます。 |
 
 [/REGION]
 
@@ -100,8 +109,8 @@ VR 環境をナビゲートするには、以下の表を参照してくださ�
 [REGION:raw]
 | 操作 | 説明 |
 | ------- | ----------- |
-| ![Aim Controller at Actor + Squeeze Trigger](select_actor.png)(convert:false) | ワールドのアクタにコントローラの照準を合わせてトリガーを引くと、アクタが選択されます。 |
-| [REGION:lightbox][![Aim Controller at Actor + Squeeze Trigger Halfway + Aim Controller at another Actor + Squeeze Trigger](select_actor_multiple.png)(h:108 convert:false)](select_actor_multiple.png)[/REGION] | ワールドのアクタに片方のコントローラの照準を合わせて、トリガーを半分だけ引いてアクタを選択すると、複数選択モードになります。トリガーは半分だけ引いたまま片方のコントローラの照準を別のアクタに合わせ、そこでトリガーを引くと、その選択が追加 / 解除されます。 |
+| ![Aim Controller at Actor  Squeeze Trigger](select_actor.png)(convert:false) |  ワールドのアクタにコントローラの照準を合わせてトリガーを引くと、アクタが選択されます。 |
+| [REGION:lightbox][![multi_select_actors.png](multi_select_actors.png)(h:108 convert:false)](multi_select_actors.png)[/REGION] |複数のアクタを選択するには、Interactor Hand モーション コントローラーの [Menu] ボタンを押しながら、選択するアクタにモーション コントローラーの照準を合わせます。[Menu] ボタンを押したまま、モーション コントローラーのトリガーを引いて、アクタの選択または選択解除を行います。|
 [/REGION]
 
 ### トランスフォームの操作方法
@@ -111,15 +120,15 @@ VR におけるアクタの移動、回転、スケール、スライドなど�
 [REGION:raw]
 | 操作 | 説明 |
 | ------- | ----------- |
-| ![Aim Controller at Actor + Squeeze Trigger + Move Controller](move_actor.png)(convert:false) | ワールドのアクタにコントローラの照準を合わせてトリガーを引くと、アクタが選択されます。コントローラを動かすと、照準位置にアクタが移動します。 |
-| ![Aim Controllers at Actor + Squeeze Triggers + Move Controller Around Each Other](rotate_actor.png)(convert:false) | ワールドのアクタに両方のコントローラの照準を合わせてトリガーを引くと、アクタが選択されます。両方のコントローラを互いに動かすと、まるでアクタを手でつかんで回転させているかのように、アクタが回転します。 |
-| ![Aim Controllers at Actor + Squeeze Triggers + Move Controllers Towards or Away From Each Other](scale_actor.png)(convert:false) | ワールドのアクタに両方のコントローラの照準を合わせてトリガーを引くと、アクタが選択されます。両方のコントローラを互いに遠ざけたり近づけたりすると、まるでアクタを手でつかんで伸ばしているかのように、アクタがスケーリングします。 |
-| ![Aim Controller at Actor + Squeeze Trigger + Track Pad Towards or Away](slide_actor.png)(convert:false) |ワールドのアクタにコントローラの照準を合わせてトリガーを引くと、アクタが選択されます。トラックパッド上で親指を上下に動かすと、選択されたアクタが近づいたり遠ざかったりします。 |
+| ![Aim Controller at Actor  Squeeze Trigger  Move Controller](move_actor.png)(convert:false) | ワールドのアクタにコントローラの照準を合わせてトリガーを引くと、アクタが選択されます。コントローラを動かすと、照準位置にアクタが移動します。 |
+| ![Aim Controllers at Actor  Squeeze Triggers  Move Controller Around Each Other](rotate_actor.png)(convert:false) | ワールドのアクタに両方のコントローラの照準を合わせてトリガーを引くと、アクタが選択されます。両方のコントローラを互いに動かすと、まるでアクタを手でつかんで回転させているかのように、アクタが回転します。 |
+| ![Aim Controllers at Actor  Squeeze Triggers  Move Controllers Towards or Away From Each Other](scale_actor.png)(convert:false) | ワールドのアクタに両方のコントローラの照準を合わせてトリガーを引くと、アクタが選択されます。両方のコントローラを互いに遠ざけたり近づけたりすると、まるでアクタを手でつかんで伸ばしているかのように、アクタがスケーリングします。 |
+| ![Aim Controller at Actor  Squeeze Trigger  Track Pad Towards or Away](slide_actor.png)(convert:false) |ワールドのアクタにコントローラの照準を合わせてトリガーを引くと、アクタが選択されます。トラックパッド上で親指を上下に動かすと、選択されたアクタが近づいたり遠ざかったりします。 |
 [/REGION]
 
 ##VR でのペイント
 
-VR Editor モードでのペイントのオプションは、Landscape モードでのペイント、Foliage ツールやの使用、メッシュ ペイントなど、デスクトップ エディタと似ています。ツールとオプションを使って、各種モードでペイントする方法は、
+VR Mode モードでのペイントのオプションは、Landscape モードでのペイント、Foliage ツールやの使用、メッシュ ペイントなど、デスクトップ エディタと似ています。ツールとオプションを使って、各種モードでペイントする方法は、
 以下のセクションを参照してください。 
 
 
@@ -130,8 +139,8 @@ VR Editor モードでのペイントのオプションは、Landscape モード
 [REGION:raw]
 | 操作 | 説明 |
 | ------- | ----------- |
-| ![Aim Controller at Actor + Squeeze Trigger + Move Controller](MeshPaint_2_NoModifier.png)(convert:false) | ワールドのアクタにコントローラーの照準を合わせてトリガーを引くと、アクタが選択されます。コントローラを動すと、メッシュと平行にブラシが移動します。 |
-| ![Modifier + Aim Controller at Actor + Squeeze Trigger + Move Controller](ModifierMeshPaint.png)(convert:false) | ペイントする代わりに消去するには、Modifier ボタンを押します。ワールドのアクタにコントローラーの照準を合わせてトリガーを引くと、消去が開始されます。コントローラーを動かすと、メッシュと平行に消しゴムが移動します。 |
+| ![Aim Controller at Actor  Squeeze Trigger  Move Controller](MeshPaint_2_NoModifier.png)(convert:false) | ワールドのアクタにコントローラーの照準を合わせてトリガーを引くと、アクタが選択されます。コントローラを動すと、メッシュと平行にブラシが移動します。 |
+| ![Modifier  Aim Controller at Actor  Squeeze Trigger  Move Controller](ModifierMeshPaint.png)(convert:false) | ペイントする代わりに消去するには、Modifier ボタンを押します。ワールドのアクタにコントローラーの照準を合わせてトリガーを引くと、消去が開始されます。コントローラーを動かすと、メッシュと平行に消しゴムが移動します。 |
 [/REGION]
 
 ### フォリッジ ペイントの操作方法
@@ -141,8 +150,8 @@ VR Editor モードでのペイントのオプションは、Landscape モード
 [REGION:raw]
 | 操作 | 説明 |
 | ------- | ----------- |
-| ![Aim Controller at Actor + Squeeze Trigger + Move Controller](MeshPaint_2_NoModifier.png)(convert:false) | **[Modes]** パネルでフォリッジ タイプを選択します。ワールドのアクタにコントローラーの照準を合わせてトリガーを引くと、フォリッジのペイントが開始されます。コントローラーを動すと、ワールドの周りをブラシが移動します。 |
-| ![Modifier + Aim Controller at Actor + Squeeze Trigger + Move Controller](ModifierMeshPaint.png)(convert:false) | フォリッジを消去するには、Modifier ボタンを押します。ワールドのアクタにコントローラーの照準を合わせてトリガーを引くと、消去が開始されます。コントローラーを動すと、ワールドの周りが消去されます。 |
+| ![Aim Controller at Actor  Squeeze Trigger  Move Controller](MeshPaint_2_NoModifier.png)(convert:false) | **[Modes]** パネルでフォリッジ タイプを選択します。ワールドのアクタにコントローラーの照準を合わせてトリガーを引くと、フォリッジのペイントが開始されます。コントローラーを動すと、ワールドの周りをブラシが移動します。 |
+| ![Modifier  Aim Controller at Actor  Squeeze Trigger  Move Controller](ModifierMeshPaint.png)(convert:false) | フォリッジを消去するには、Modifier ボタンを押します。ワールドのアクタにコントローラーの照準を合わせてトリガーを引くと、消去が開始されます。コントローラーを動すと、ワールドの周りが消去されます。 |
 [/REGION]
 
 ### ランドスケープ ペイントの操作方法
@@ -152,6 +161,6 @@ VR Editor モードでのペイントのオプションは、Landscape モード
 [REGION:raw]
 | 操作 | 説明 |
 | ------- | ----------- |
-| ![Aim Controller at Actor + Squeeze Trigger + Move Controller](MeshPaint_2_NoModifier.png)(convert:false) | **[Sculpt]** パネルでランドスケープ ブラシを選択します。ワールドの位置にコントローラの照準を合わせてトリガーを引くと、ランドスケープが上昇します。コントローラーを動すと、ワールドの周りをブラシが移動します。 |
-| ![Modifier + Aim Controller at Actor + Squeeze Trigger + Move Controller](ModifierMeshPaint.png)(convert:false) | ランドスケープを降下させるには、[Modifier] ボタンを押して **[Sculpt]** パネルでブラシが選択されているかを確認してください。ワールドの位置にコントローラの照準を合わせて [Modifier] ボタンを押すと、トリガーを引いている時にランドスケープが上昇します。コントローラを動すと、ワールドの様々な場所が降下します。 |
+| ![Aim Controller at Actor  Squeeze Trigger  Move Controller](MeshPaint_2_NoModifier.png)(convert:false) | **[Sculpt]** パネルでランドスケープ ブラシを選択します。ワールドの位置にコントローラの照準を合わせてトリガーを引くと、ランドスケープが上昇します。コントローラーを動すと、ワールドの周りをブラシが移動します。 |
+| ![Modifier  Aim Controller at Actor  Squeeze Trigger  Move Controller](ModifierMeshPaint.png)(convert:false) | ランドスケープを降下させるには、[Modifier] ボタンを押して **[Sculpt]** パネルでブラシが選択されているかを確認してください。ワールドの位置にコントローラの照準を合わせて [Modifier] ボタンを押すと、トリガーを引いている時にランドスケープが上昇します。コントローラを動すと、ワールドの様々な場所が降下します。 |
 [/REGION]

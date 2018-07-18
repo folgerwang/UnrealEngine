@@ -1,25 +1,27 @@
-﻿INTSourceChangelist:3565221
+﻿INTSourceChangelist:3782314
 Title:2.プロジェクトの作成
 Crumbs:%ROOT%, Platforms, Platforms/iOS, Platforms/iOS/QuickStart
 Description:アンリアル エンジンのゲーム プロジェクトを作成する
 Availability:Public
-Version:4.9
+Version:4.18
 SkillLevel:Intermediate
-
+Checkpoint:iOSQS
+order:2
+parent:Platforms/iOS/QuickStart
 
 [VAR:Steps]
 [OBJECT:Navigation]
-	[PARAM:previous]
-		[前のステップ](Platforms/iOS/QuickStart/1 "%Platforms/iOS/QuickStart/1:title%")
-	[/PARAM]
-	[PARAM:current]
-	[/PARAM]
-	[PARAM:home]
-		[クイック スタートのホーム](Platforms/iOS/QuickStart)
-	[/PARAM]
-	[PARAM:next]
-		[次のステップ](Platforms/iOS/QuickStart/3 "%Platforms/iOS/QuickStart/3:title%")
-	[/PARAM]
+    [PARAM:previous]
+        [前のステップ](Platforms/iOS/QuickStart/1 "%Platforms/iOS/QuickStart/1:title%")
+    [/PARAM]
+    [PARAM:current]
+    [/PARAM]
+    [PARAM:home]
+        [クイック スタートのホーム](Platforms/iOS/QuickStart)
+    [/PARAM]
+    [PARAM:next]
+        [次のステップ](Platforms/iOS/QuickStart/3 "%Platforms/iOS/QuickStart/3:title%")
+    [/PARAM]
 [/OBJECT]
 [/VAR]
 
@@ -30,40 +32,53 @@ SkillLevel:Intermediate
 [/REGION]
 
 %Globals:OSSelect%
+## ステップ
+次のセクションでは、新規アンリアル エンジン (UE4) プロジェクト(Engine/Basics/Projects) を iOS デバイス上で起動およびインストールするための設定方法を説明します。
 
-ゲーム開発を開始する最初のステップは、[プロジェクト](Engine/Basics/Projects) を作成することです。 
-これにより、最終的に iOS デバイスを起動またはインストールします。
+1. まず最初に、**[Unreal Project Browser]** から **[New Project]** タブを開きます。
 
-1. **[New Project (新規プロジェクト)]** から、ゲームの新規プロジェクトを作成します。
+    ![](iOSQS_New_Project.png)(w:750)
 
-	![](create_project.png)(w:750)
+1. 次に、**[Blueprint]** ベースの **[Third Person]** をテンプレートとして選択し、オブジェクト設定を以下のようにします。そして **[Create Project]** ボタンを押してプロジェクトを作成し、UE4 エディタをロードします。
+
+    * **Mobile/Tablet**
+    * **Scalable 3D or 2D**
+    * **No Starter Content** 
+
+    ![](create_project.png)(w:750)
+
+## 最終結果
+
+完了すると、UE4 エディタが起動し、新規作成したプロジェクトが以下のようにロードされます。
+
+![](iOSQS_Loaded_Project.png)
 
 [OBJECT:ToggleButtonContent]
-	[PARAMLITERAL:category]
-	OS
-	[/PARAMLITERAL]
-	[PARAMLITERAL:id]
-	windows
-	[/PARAMLITERAL]
-	[PARAMLITERAL:active]
-	active_button_content
-	[/PARAMLITERAL]
-	[PARAM:content]
-	[INCLUDE:#windows]
-	[/PARAM]
+    [PARAMLITERAL:category]
+    OS
+    [/PARAMLITERAL]
+    [PARAMLITERAL:id]
+    windows
+    [/PARAMLITERAL]
+    [PARAMLITERAL:active]
+    active_button_content
+    [/PARAMLITERAL]
+    [PARAM:content]
+    [INCLUDE:#windows]
+    [/PARAM]
 [/OBJECT]
 [OBJECT:ToggleButtonContent]
-	[PARAMLITERAL:category]
-	OS
-	[/PARAMLITERAL]
-	[PARAMLITERAL:id]
-	mac
-	[/PARAMLITERAL]
-	[PARAMLITERAL:active]
-	[/PARAMLITERAL]
-	[PARAM:content]
-	[INCLUDE:#macos]
-	[/PARAM]
+    [PARAMLITERAL:category]
+    OS
+    [/PARAMLITERAL]
+    [PARAMLITERAL:id]
+    mac
+    [/PARAMLITERAL]
+    [PARAMLITERAL:active]
+    [/PARAMLITERAL]
+    [PARAM:content]
+    [INCLUDE:#macos]
+    [/PARAM]
 [/OBJECT]
 
 [COMMENT:none]
@@ -71,8 +86,7 @@ SkillLevel:Intermediate
 [EXCERPT:windows]
 
 [REGION:warning]
-このガイドで説明する PC のみのワークフローでは、純粋なブループリント プロジェクトを必要とします。プロジェクトでコードを使用する場合、 
-コードをコンパイルするために Mac も必要になります。PC で iOS 向けのコードベース プロジェクトを開発するためには、 
+このガイドで説明する PC のみのワークフローでは、純粋なブループリントのみを使うプロジェクトを必要とします。プロジェクトのコードを使いたい場合は、コードをコンパイルするために Mac も必要になります。PC で iOS 向けのコードベース プロジェクトを開発するためには、 
 [](Platforms/iOS/Windows) ページで概説しているワークフローに従ってください。
 [/REGION]
 [/EXCERPT:windows]

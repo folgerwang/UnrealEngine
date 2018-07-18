@@ -19,7 +19,7 @@
 #include "CoreMinimal.h"
 #include "InputCoreTypes.h"
 #include "OSVRInputPrivate.h"
-#include "IForceFeedbackSystem.h"
+#include "GenericPlatform/IForceFeedbackSystem.h"
 #include "IInputDevice.h"
 #include "XRMotionControllerBase.h"
 #include "IOSVR.h"

@@ -7,6 +7,7 @@
 #include "Misc/ConfigCacheIni.h"
 #include "Interfaces/OnlineAchievementsInterface.h"
 #include "OnlineSubsystemNullPackage.h"
+#include "OnlineSubsystemNullTypes.h"
 
 /**
  *	IOnlineAchievements - Interface class for acheivements
@@ -89,7 +90,7 @@ private:
 	FOnlineAchievementsNull() {};
 
 	/** Mapping of players to their achievements */
-	TMap<FUniqueNetIdString, TArray<FOnlineAchievement>> PlayerAchievements;
+	TMap<FUniqueNetIdNull, TArray<FOnlineAchievement>> PlayerAchievements;
 
 	/** Cached achievement descriptions for an Id */
 	TMap<FString, FOnlineAchievementDesc> AchievementDescriptions;

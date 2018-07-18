@@ -34,8 +34,8 @@ public:
 	virtual IDetailPropertyRow& Visibility( TAttribute<EVisibility> Visibility ) override;
 	virtual IDetailPropertyRow& OverrideResetToDefault(const FResetToDefaultOverride& ResetToDefault) override;
 	virtual FDetailWidgetRow& CustomWidget( bool bShowChildren = false ) override;
-	virtual void GetDefaultWidgets( TSharedPtr<SWidget>& OutNameWidget, TSharedPtr<SWidget>& OutValueWidget ) override;
-	virtual void GetDefaultWidgets( TSharedPtr<SWidget>& OutNameWidget, TSharedPtr<SWidget>& OutValueWidget, FDetailWidgetRow& Row ) override;
+	virtual void GetDefaultWidgets( TSharedPtr<SWidget>& OutNameWidget, TSharedPtr<SWidget>& OutValueWidget, bool bAddWidgetDecoration = false) override;
+	virtual void GetDefaultWidgets( TSharedPtr<SWidget>& OutNameWidget, TSharedPtr<SWidget>& OutValueWidget, FDetailWidgetRow& Row, bool bAddWidgetDecoration = false) override;
 
 	/** IPropertyTypeCustomizationUtils interface */
 	virtual TSharedPtr<class FAssetThumbnailPool> GetThumbnailPool() const override;
@@ -74,6 +74,11 @@ public:
 	 * @return The property node for this row
 	 */
 	TSharedPtr<FPropertyNode> GetPropertyNode() { return PropertyNode; }
+
+	/**
+	 * @return The external root node for this row if it has one.
+	 */
+	TSharedPtr<FComplexPropertyNode> GetExternalRootNode() const { return ExternalRootNode; }
 
 	/**
 	 * @return The property node for this row
@@ -175,7 +180,8 @@ private:
 	/** The category this row resides in */
 	TWeakPtr<FDetailCategoryImpl> ParentCategory;
 	/** Root of the property node if this node comes from an external tree */
-	TSharedPtr<FPropertyNode> ExternalRootNode;
+	TSharedPtr<FComplexPropertyNode> ExternalRootNode;
+
 	TSharedPtr<struct FDetailLayoutData> ExternalObjectLayout;
 	/** The custom expansion ID name used to save and restore expansion state on this node */
 	FName CustomExpansionIdName;

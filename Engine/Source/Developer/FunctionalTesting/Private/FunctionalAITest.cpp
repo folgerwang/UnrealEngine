@@ -5,11 +5,11 @@
 #include "Engine/World.h"
 #include "FunctionalTestingModule.h"
 #include "FunctionalTestingManager.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "NavigationSystem.h"
 #include "AIController.h"
 #include "Blueprint/AIBlueprintHelperLibrary.h"
-#include "AI/Navigation/RecastNavMesh.h"
-#include "AI/NavigationOctree.h"
+#include "NavMesh/RecastNavMesh.h"
+#include "NavigationOctree.h"
 
 AFunctionalAITest::AFunctionalAITest( const FObjectInitializer& ObjectInitializer )
 	: Super(ObjectInitializer)
@@ -99,10 +99,10 @@ void AFunctionalAITest::OnTimeout()
 	// - log pending navmesh rebuilds / dirty areas
 	// - check if area modifiers from navoctree were applied
 
-	UNavigationSystem* NavSys = bDebugNavMeshOnTimeout ? UNavigationSystem::GetCurrent(GetWorld()) : nullptr;
+	UNavigationSystemV1* NavSys = bDebugNavMeshOnTimeout ? FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld()) : nullptr;
 	if (NavSys)
 	{
-		const ARecastNavMesh* Navmesh = NavSys ? Cast<ARecastNavMesh>(NavSys->GetMainNavData()) : nullptr;
+		const ARecastNavMesh* Navmesh = NavSys ? Cast<ARecastNavMesh>(NavSys->GetDefaultNavDataInstance()) : nullptr;
 
 		UE_LOG(LogFunctionalTest, Log, TEXT("Test timed out, log details for: %s"), *GetNameSafe(Navmesh));
 		UE_LOG(LogFunctionalTest, Log, TEXT("> dirty areas? %s"), NavSys->HasDirtyAreasQueued() ? TEXT("YES") : TEXT("no"));
@@ -345,7 +345,7 @@ FVector AFunctionalAITest::GetRandomizedLocation(const FVector& Location) const
 
 bool AFunctionalAITest::IsNavMeshReady() const
 {
-	UNavigationSystem* NavSys = UNavigationSystem::GetCurrent(GetWorld());
+	UNavigationSystemV1* NavSys = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
 	if (NavSys && NavSys->NavDataSet.Num() > 0 && !NavSys->IsNavigationBuildInProgress())
 	{
 		return true;

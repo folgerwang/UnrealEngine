@@ -345,12 +345,12 @@ UObject* USpriterImporterFactory::FactoryCreateText(UClass* InClass, UObject* In
 			ImportedModel->LODModels.Empty();
 			FSkeletalMeshLODModel& LODModel = *new (ImportedModel->LODModels) FSkeletalMeshLODModel();
 
-			SkeletalMesh->LODInfo.Empty();
-			SkeletalMesh->LODInfo.AddZeroed();
-			SkeletalMesh->LODInfo[0].LODHysteresis = 0.02f;
+			SkeletalMesh->ResetLODInfo()
+			SkeletalMesh->AddLODInfo();
+			SkeletalMesh->GetLODInfo(0)->LODHysteresis = 0.02f;
 			FSkeletalMeshOptimizationSettings Settings;
 			// set default reduction settings values
-			SkeletalMesh->LODInfo[0].ReductionSettings = Settings;
+			SkeletalMesh->GetLODInfo(0)->ReductionSettings = Settings;
 
 			// Create initial bounding box based on expanded version of reference pose for meshes without physics assets. Can be overridden by artist.
 // 			FBox BoundingBox(SkelMeshImportDataPtr->Points.GetData(), SkelMeshImportDataPtr->Points.Num());

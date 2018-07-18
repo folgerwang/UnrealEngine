@@ -4,7 +4,7 @@
 #include "Layout/ArrangedChildren.h"
 
 SDPIScaler::SDPIScaler()
-: ChildSlot()
+: ChildSlot(this)
 {
 	bCanTick = false;
 	bCanSupportFocus = false;

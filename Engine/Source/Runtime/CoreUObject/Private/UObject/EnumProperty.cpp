@@ -3,7 +3,7 @@
 #include "UObject/EnumProperty.h"
 #include "UObject/PropertyPortFlags.h"
 #include "UObject/UObjectThreadContext.h"
-#include "PropertyTag.h"
+#include "UObject/PropertyTag.h"
 #include "Templates/ChooseClass.h"
 #include "Templates/IsSigned.h"
 #include "Algo/Find.h"
@@ -25,7 +25,7 @@ namespace UE4EnumProperty_Private
 				LogClass,
 				Warning,
 				TEXT("Failed to find valid enum value '%s' for enum type '%s' when converting property '%s' during property loading - setting to '%s'"),
-				*Lex::ToString(OldValue),
+				*LexToString(OldValue),
 				*Enum->GetName(),
 				*EnumProp->GetName(),
 				*Enum->GetNameByValue(Enum->GetMaxEnumValue()).ToString()
@@ -52,7 +52,7 @@ UEnumProperty::UEnumProperty(const FObjectInitializer& ObjectInitializer, UEnum*
 	UnderlyingProp = nullptr;
 }
 
-UEnumProperty::UEnumProperty(const FObjectInitializer& ObjectInitializer, ECppProperty, int32 InOffset, uint64 InFlags, UEnum* InEnum)
+UEnumProperty::UEnumProperty(const FObjectInitializer& ObjectInitializer, ECppProperty, int32 InOffset, EPropertyFlags InFlags, UEnum* InEnum)
 	: UProperty(ObjectInitializer, EC_CppProperty, InOffset, InFlags | CPF_HasGetValueTypeHash)
 	, Enum(InEnum)
 {
@@ -264,7 +264,7 @@ const TCHAR* UEnumProperty::ImportText_Internal(const TCHAR* InBuffer, void* Dat
 			if (EnumIndex == INDEX_NONE && (Temp.IsNumeric() && !Algo::Find(Temp, TEXT('.'))))
 			{
 				int64 EnumValue = INDEX_NONE;
-				Lex::FromString(EnumValue, *Temp);
+				LexFromString(EnumValue, *Temp);
 				EnumIndex = Enum->GetIndexByValue(EnumValue);
 			}
 			if (EnumIndex != INDEX_NONE)
@@ -335,15 +335,12 @@ bool UEnumProperty::SameType(const UProperty* Other) const
 	return Super::SameType(Other) && static_cast<const UEnumProperty*>(Other)->Enum == Enum;
 }
 
-bool UEnumProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct, bool& bOutAdvanceProperty)
+EConvertFromTypeResult UEnumProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct)
 {
 	if ((Enum == nullptr) || (UnderlyingProp == nullptr))
 	{
-		bOutAdvanceProperty = false;
-		return false;
+		return EConvertFromTypeResult::UseSerializeItem;
 	}
-
-	bOutAdvanceProperty = true;
 
 	if (Tag.Type == NAME_ByteProperty)
 	{
@@ -407,10 +404,10 @@ bool UEnumProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8
 	}
 	else
 	{
-		bOutAdvanceProperty = false;
+		return EConvertFromTypeResult::UseSerializeItem;
 	}
 
-	return bOutAdvanceProperty;
+	return EConvertFromTypeResult::Converted;
 }
 
 uint32 UEnumProperty::GetValueTypeHashInternal(const void* Src) const

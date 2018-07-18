@@ -9,7 +9,6 @@
 
 #include <stdint.h>
 #include <assert.h>
-#include <functional>
 
 #ifndef __has_feature
 #   define __has_feature(x) 0
@@ -17,6 +16,10 @@
 
 #ifndef MTLPP_CONFIG_RVALUE_REFERENCES
 #   define MTLPP_CONFIG_RVALUE_REFERENCES __has_feature(cxx_rvalue_references)
+#endif
+
+#ifndef MTLPP_CONFIG_IMP_CACHE
+#   define MTLPP_CONFIG_IMP_CACHE 1
 #endif
 
 #ifndef MTLPP_CONFIG_VALIDATE
@@ -155,6 +158,23 @@
 #define MTLPP_CHECK_AVAILABLE_AX(vers) false
 #endif
 
+#if MTLPP_CONFIG_VALIDATE
+#define MTLPP_VALIDATED virtual
+#define MTLPP_VALIDATE(Type, Resource, bEnable, ...) mtlpp::Validator<Type>(Resource, bEnable)->__VA_ARGS__
+#define MTLPP_VALIDATE_ONLY(Type, Resource, bEnable, ...) if (bEnable) (*mtlpp::Validator<Type>(Resource, bEnable)).__VA_ARGS__
+#else
+#define MTLPP_VALIDATED
+#define MTLPP_VALIDATE(Type, Resource, bEnable, ...) Resource.__VA_ARGS__
+#define MTLPP_VALIDATE_ONLY(Type, Resource, bEnable, ...)
+#endif
+
+#if __has_extension(blocks) && (!__cplusplus || __OBJC__)
+#define MTLPP_CLOSURE(Name, Return, ...) typedef Return (^Name)(__VA_ARGS__)
+#else
+#include <functional>
+#define MTLPP_CLOSURE(Name, Return, ...) typedef std::function<Return (__VA_ARGS__)> Name
+#endif
+
 #if __clang__
 #define MTLPP_BEGIN \
 	_Pragma ("clang diagnostic push")	\
@@ -173,5 +193,11 @@
 #define MTLPP_EXTERN extern "C"
 #else
 #define MTLPP_EXTERN extern
+#endif
+
+#if MTLPP_CONFIG_VALIDATE
+#define MTLPP_VALIDATION(Code) Code
+#else
+#define MTLPP_VALIDATION(Code)
 #endif
 

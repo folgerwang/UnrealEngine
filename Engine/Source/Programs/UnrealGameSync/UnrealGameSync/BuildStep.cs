@@ -31,6 +31,7 @@ namespace UnrealGameSync
 		public string Platform;
 		public string Configuration;
 		public string FileName;
+		public string WorkingDir;
 		public string Arguments;
 		public bool bUseLogWindow;
 		public bool bNormalSync;
@@ -82,6 +83,7 @@ namespace UnrealGameSync
 			Platform = Object.GetValue("Platform");
 			Configuration = Object.GetValue("Configuration");
 			FileName = Object.GetValue("FileName");
+			WorkingDir = Object.GetValue("WorkingDir");
 			Arguments = Object.GetValue("Arguments");
 
 			if(!Boolean.TryParse(Object.GetValue("bUseLogWindow", ""), out bUseLogWindow))
@@ -140,6 +142,7 @@ namespace UnrealGameSync
 					break;
 				case BuildStepType.Other:
 					Result["FileName"] = FileName;
+					Result["WorkingDir"] = WorkingDir;
 					Result["Arguments"] = Arguments;
 					Result["bUseLogWindow"] = bUseLogWindow.ToString();
 					break;

@@ -7,8 +7,8 @@
 #include "Styling/SlateColor.h"
 #include "Widgets/SWidget.h"
 #include "SequencerNodeTree.h"
+#include "Misc/FrameRate.h"
 
-class FGroupedKeyArea;
 class FMenuBuilder;
 class FSequencer;
 class FSequencerDisplayNodeDragDropOp;
@@ -182,6 +182,31 @@ public:
 	}
 
 	/**
+	 * @return What is the sorting order of this node relative to it's siblings in the node tree
+	 */
+	virtual int32 GetSortingOrder() const
+	{
+		return 0;
+	}
+
+	/**
+	 * Sets the node's sorting order relative to it's siblings in the node tree. Does not take effect until node tree is refreshed.
+	 * @param InSortingOrder The resulting sorting order the object should have relative to it's siblings in the Sequencer tree view.
+	 */
+	virtual void SetSortingOrder(const int32 InSortingOrder)
+	{
+
+	}
+
+	/**
+	 * Calls Modify on the underlying data structure before calling SetSortingOrder.
+	 */
+	virtual void ModifyAndSetSortingOrder(const int32 InSortingOrder)
+	{
+
+	}
+
+	/**
 	 * Generates a container widget for tree display in the animation outliner portion of the track area
 	 * 
 	 * @return Generated outliner container widget
@@ -201,7 +226,7 @@ public:
 	 * @param ViewRange	The range of time in the sequencer that we are displaying
 	 * @return Generated outliner widget
 	 */
-	virtual TSharedRef<SWidget> GenerateWidgetForSectionArea( const TAttribute<TRange<float>>& ViewRange );
+	virtual TSharedRef<SWidget> GenerateWidgetForSectionArea( const TAttribute<TRange<double>>& ViewRange );
 
 	/**
 	 * Gets an icon that represents this sequencer display node
@@ -236,6 +261,8 @@ public:
 	 * Could return this node itself, or a parent node
 	 */
 	TSharedPtr<FSequencerDisplayNode> GetSectionAreaAuthority() const;
+
+	FFrameRate GetTickResolution() const;
 
 	/**
 	 * @return the path to this node starting with the outermost parent
@@ -390,12 +417,6 @@ public:
 		return VirtualBottom;
 	}
 
-	/** Get the key grouping for the specified section index, ensuring it is fully up to date */
-	TSharedRef<FGroupedKeyArea> GetKeyGrouping(UMovieSceneSection* InSection);
-
-	/** Get key groupings array */
-	const TArray<TSharedRef<FGroupedKeyArea>>& GetKeyGroupings() const { return KeyGroupings; }
-
 	DECLARE_EVENT(FSequencerDisplayNode, FRequestRenameEvent);
 	FRequestRenameEvent& OnRenameRequested() { return RenameRequestedEvent; }
 
@@ -414,18 +435,13 @@ public:
 	 */
 	virtual void Drop( const TArray<TSharedRef<FSequencerDisplayNode>>& DraggedNodes, EItemDropZone DropZone ) { }
 
-public:
-
-	/** Temporarily disable dynamic regeneration of key groupings. This prevents overlapping key groups from being amalgamated during drags. Key times will continue to update correctly. */
-	static void DisableKeyGoupingRegeneration();
-
-	/** Re-enable dynamic regeneration of key groupings */
-	static void EnableKeyGoupingRegeneration();
-
 protected:
 
 	/** Adds a child to this node, and sets it's parent to this node. */
 	void AddChildAndSetParent( TSharedRef<FSequencerDisplayNode> InChild );
+public:
+	/** Clears the parent of this node. */
+	void ClearParent() { ParentNode = nullptr; }
 
 private:
 
@@ -459,9 +475,6 @@ protected:
 
 	/** Whether or not the node is expanded */
 	bool bExpanded;
-
-	/** Transient grouped keys for this node */
-	TArray<TSharedRef<FGroupedKeyArea>> KeyGroupings;
 
 	/** Event that is triggered when rename is requested */
 	FRequestRenameEvent RenameRequestedEvent;

@@ -232,6 +232,9 @@ xmpp_ctx_t *xmpp_conn_get_context(xmpp_conn_t * const conn);
 void xmpp_conn_disable_tls(xmpp_conn_t * const conn);
 int xmpp_conn_is_secured(xmpp_conn_t * const conn);
 void xmpp_conn_set_keepalive(xmpp_conn_t * const conn, int timeout, int interval);
+int xmpp_conn_is_connecting(xmpp_conn_t * const conn);
+int xmpp_conn_is_connected(xmpp_conn_t * const conn);
+int xmpp_conn_is_disconnected(xmpp_conn_t * const conn);
 
 int xmpp_connect_client(xmpp_conn_t * const conn, 
 			  const char * const altdomain,
@@ -263,6 +266,25 @@ void xmpp_send_raw_string(xmpp_conn_t * const conn,
 void xmpp_send_raw(xmpp_conn_t * const conn, 
 		   const char * const data, const size_t len);
 
+/* externally managed, event driven socket */
+typedef void(*xmpp_extsock_connect_handler)(void * const userdata);
+typedef void(*xmpp_extsock_close_handler)(void * const userdata);
+typedef void(*xmpp_extsock_send_handler)(const char * const data, const size_t len, void * const userdata);
+
+typedef struct {
+	xmpp_extsock_connect_handler connect_handler;
+	xmpp_extsock_close_handler close_handler;
+	xmpp_extsock_send_handler send_handler;
+	int is_websocket;
+	void* userdata;
+} xmpp_conn_extsock_t;
+
+void xmpp_conn_set_extsock_handlers(xmpp_conn_t * const conn, const xmpp_conn_extsock_t * const handlers);
+int xmpp_extsock_connect_client(xmpp_conn_t * const conn, xmpp_conn_handler callbask, void * const userdata);
+void xmpp_extsock_connected(xmpp_conn_t * const conn);
+void xmpp_extsock_connection_error(xmpp_conn_t * const conn, const char * const reason);
+void xmpp_extsock_receive(xmpp_conn_t * const conn, const char * const data, const size_t len);
+void xmpp_extsock_parser_reset(xmpp_conn_t * const conn); /* call at websocket message boundaries */
 
 /* handlers */
 
@@ -317,6 +339,9 @@ xmpp_stanza_t *xmpp_stanza_copy(const xmpp_stanza_t * const stanza);
 
 /* free a stanza object and it's contents */
 int xmpp_stanza_release(xmpp_stanza_t * const stanza);
+
+/* get context from stanza object */
+xmpp_ctx_t *xmpp_stanza_get_context(const xmpp_stanza_t * const stanza);
 
 int xmpp_stanza_is_text(xmpp_stanza_t * const stanza);
 int xmpp_stanza_is_tag(xmpp_stanza_t * const stanza);

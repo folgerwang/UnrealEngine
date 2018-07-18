@@ -3,7 +3,7 @@
 #include "VisualStudioSourceCodeAccessor.h"
 #include "VisualStudioSourceCodeAccessModule.h"
 #include "ISourceCodeAccessModule.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "IDesktopPlatform.h"
 #include "DesktopPlatformModule.h"
 #include "Misc/FileHelper.h"
@@ -14,15 +14,16 @@
 #include "HAL/PlatformTime.h"
 #include "ProjectDescriptor.h"
 #include "Interfaces/IProjectManager.h"
+#include "Misc/FileHelper.h"
 //#include "GameProjectGenerationModule.h"
 
 #if WITH_EDITOR
 #include "Developer/HotReload/Public/IHotReload.h"
 #endif
 
-#include "WindowsHWrapper.h"
-#include "AllowWindowsPlatformTypes.h"
-#include "AllowWindowsPlatformAtomics.h"
+#include "Windows/WindowsHWrapper.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformAtomics.h"
 #include <unknwn.h>
 #include "Windows/COMPointer.h"
 #if VSACCESSOR_HAS_DTE
@@ -34,15 +35,19 @@
 	#pragma warning(disable: 6244)
 
 	// import EnvDTE
-	#import "libid:80cc9f66-e7d8-4ddd-85b6-d9e6cd0e93e2" version("8.0") lcid("0") raw_interfaces_only named_guids
+	#if VSACCESSOR_HAS_DTE_OLB
+		#import "NotForLicensees/dte80a.olb" version("8.0") lcid("0") raw_interfaces_only named_guids
+	#else
+		#import "libid:80cc9f66-e7d8-4ddd-85b6-d9e6cd0e93e2" version("8.0") lcid("0") raw_interfaces_only named_guids
+	#endif
 
 	#pragma warning(pop)
 #endif
 	#include <tlhelp32.h>
 	#include <wbemidl.h>
 	#pragma comment(lib, "wbemuuid.lib")
-#include "HideWindowsPlatformAtomics.h"
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformAtomics.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogVSAccessor, Log, All);
 
@@ -126,7 +131,7 @@ int32 GetVisualStudioVersionForSolution(const FString& InSolutionFile)
 			}
 
 			int32 Version = 0;
-			Lex::FromString(Version, *VersionString);
+			LexFromString(Version, *VersionString);
 			return Version;
 		}
 	}
@@ -1284,7 +1289,12 @@ FString FVisualStudioSourceCodeAccessor::GetSolutionPath() const
 
 			if (!FUProjectDictionary(FPaths::RootDir()).IsForeignProject(CachedSolutionPath))
 			{
-				CachedSolutionPath = FPaths::Combine(FPaths::RootDir(), TEXT("UE4.sln"));
+				FString MasterProjectName;
+				if (!FFileHelper::LoadFileToString(MasterProjectName, *(FPaths::EngineIntermediateDir() / TEXT("ProjectFiles/MasterProjectName.txt"))))
+				{
+					MasterProjectName = "UE4";
+				}
+				CachedSolutionPath = FPaths::Combine(FPaths::RootDir(), MasterProjectName + TEXT(".sln"));
 			}
 			else
 			{

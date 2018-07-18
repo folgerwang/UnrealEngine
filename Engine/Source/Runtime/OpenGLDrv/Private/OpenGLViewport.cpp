@@ -110,11 +110,6 @@ void FOpenGLDynamicRHI::RHIBeginDrawingViewport(FViewportRHIParamRef ViewportRHI
 		PlatformRenderingContextSetup(PlatformDevice);
 	}
 
-	if(!GPUProfilingData.FrameTiming.IsInitialized())
-	{
-		GPUProfilingData.FrameTiming.InitResource();
-	}
-	
 	// Set the render target and viewport.
 	if( RenderTarget )
 	{
@@ -135,6 +130,8 @@ void FOpenGLDynamicRHI::RHIEndDrawingViewport(FViewportRHIParamRef ViewportRHI,b
 	FOpenGLViewport* Viewport = ResourceCast(ViewportRHI);
 
 	SCOPE_CYCLE_COUNTER(STAT_OpenGLPresentTime);
+	uint32 IdleStart = FPlatformTime::Cycles();
+
 
 	check(DrawingViewport.GetReference() == Viewport);
 
@@ -155,7 +152,7 @@ void FOpenGLDynamicRHI::RHIEndDrawingViewport(FViewportRHIParamRef ViewportRHI,b
 	DrawingViewport = NULL;
 
 	// Don't wait on the GPU when using SLI, let the driver determine how many frames behind the GPU should be allowed to get
-	if (GNumActiveGPUsForRendering == 1)
+	if (GNumAlternateFrameRenderingGroups == 1)
 	{
 		if (bNeedFinishFrame)
 		{
@@ -190,6 +187,17 @@ void FOpenGLDynamicRHI::RHIEndDrawingViewport(FViewportRHIParamRef ViewportRHI,b
 		PlatformSharedContextSetup(PlatformDevice);
 		bRevertToSharedContextAfterDrawingViewport = false;
 	}
+	uint32 ThisCycles = FPlatformTime::Cycles() - IdleStart;
+	if (IsInRHIThread())
+	{
+		GWorkingRHIThreadStallTime += ThisCycles;
+	}
+	else if (IsInActualRenderingThread())
+	{
+		GRenderThreadIdle[ERenderThreadIdleTypes::WaitingForGPUPresent] += ThisCycles;
+		GRenderThreadNumIdle[ERenderThreadIdleTypes::WaitingForGPUPresent]++;
+	}
+
 }
 
 
@@ -215,8 +223,9 @@ FOpenGLViewport::FOpenGLViewport(FOpenGLDynamicRHI* InOpenGLRHI,void* InWindowHa
 	, FrameSyncEvent(InOpenGLRHI)
 {
 	check(OpenGLRHI);
-    //@to-do spurious check for HTML5, will need to go away. 
-#if !PLATFORM_HTML5
+	//@to-do spurious check for HTML5, will need to go away. 
+	// @todo lumin: Add a "PLATFORM_HAS_NO_NATIVE_WINDOW" or something
+#if !PLATFORM_HTML5 && !PLATFORM_LUMIN
 	check(InWindowHandle);
 #endif 
 	check(IsInGameThread());
@@ -232,7 +241,7 @@ FOpenGLViewport::FOpenGLViewport(FOpenGLDynamicRHI* InOpenGLRHI,void* InWindowHa
 
 FOpenGLViewport::~FOpenGLViewport()
 {
-	check(IsInRenderingThread());
+	check(IsInRenderingThread() || IsInRHIThread());
 
 	if (bIsFullscreen)
 	{
@@ -245,7 +254,7 @@ FOpenGLViewport::~FOpenGLViewport()
 	BackBuffer.SafeRelease();
 	check(!IsValidRef(BackBuffer));
 
-	PlatformDestroyOpenGLContext(OpenGLRHI->PlatformDevice,OpenGLContext);
+	RunOnGLRenderContextThread([&]() {	PlatformDestroyOpenGLContext(OpenGLRHI->PlatformDevice, OpenGLContext); }, true);
 	OpenGLContext = NULL;
 	OpenGLRHI->Viewports.Remove(this);
 }

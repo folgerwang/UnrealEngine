@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
 #include "NiagaraTypes.h"
+#include "UObject/SoftObjectPath.h"
 #include "NiagaraCommon.generated.h"
 
 class UNiagaraSystem;
@@ -13,9 +14,15 @@ class UNiagaraDataInterface;
 class UNiagaraEmitter;
 class FNiagaraSystemInstance;
 class UNiagaraParameterCollection;
+struct FNiagaraParameterStore;
+
+//#define NIAGARA_NAN_CHECKING 1
+#define NIAGARA_NAN_CHECKING 0
 
 const uint32 NIAGARA_COMPUTE_THREADGROUP_SIZE = 64;
-const uint32 NIAGARA_MAX_COMPUTE_THREADGROUPS = 16384;
+const uint32 NIAGARA_MAX_COMPUTE_THREADGROUPS = 65536;
+
+const FString INTERPOLATED_PARAMETER_PREFIX = TEXT("PREV_");
 
 enum ENiagaraBaseTypes
 {
@@ -30,9 +37,19 @@ enum class ENiagaraSimTarget : uint8
 {
 	CPUSim,
 	GPUComputeSim,
-	DynamicLoadBalancedSim
+	DynamicLoadBalancedSim UMETA(Hidden)
 };
 
+
+/** Defines modes for updating the component's age. */
+UENUM()
+enum class ENiagaraAgeUpdateMode : uint8
+{
+	/** Update the age using the delta time supplied to the tick function. */
+	TickDeltaTime,
+	/** Update the age by seeking to the DesiredAge. To prevent major perf loss, we clamp to MaxClampTime*/
+	DesiredAge
+};
 
 
 UENUM()
@@ -50,7 +67,9 @@ enum class ENiagaraInputNodeUsage : uint8
 	Undefined = 0,
 	Parameter,
 	Attribute,
-	SystemConstant
+	SystemConstant,
+	TranslatorConstant,
+	RapidIterationParameter
 };
 
 /**
@@ -163,12 +182,12 @@ struct FNiagaraScriptDataUsageInfo
 	GENERATED_BODY()
 
 		FNiagaraScriptDataUsageInfo()
-		: bReadsAttriubteData(false)
+		: bReadsAttributeData(false)
 	{}
 
 	/** If true, this script reads attribute data. */
 	UPROPERTY()
-		bool bReadsAttriubteData;
+		bool bReadsAttributeData;
 };
 
 
@@ -257,7 +276,7 @@ public:
 
 	}
 
-	UPROPERTY(Instanced)
+	UPROPERTY()
 	class UNiagaraDataInterface* DataInterface;
 	
 	UPROPERTY()
@@ -270,10 +289,59 @@ public:
 	UPROPERTY()
 	FNiagaraTypeDefinition Type;
 
-	TArray<FNiagaraFunctionSignature> RegisteredFunctions;
+	UPROPERTY()
+	FName RegisteredParameterMapRead;
+
+	UPROPERTY()
+	FName RegisteredParameterMapWrite;
 
 	//TODO: Allow data interfaces to own datasets
 	void CopyTo(FNiagaraScriptDataInterfaceInfo* Destination, UObject* Outer) const;
+};
+
+USTRUCT()
+struct NIAGARA_API FNiagaraScriptDataInterfaceCompileInfo
+{
+	GENERATED_USTRUCT_BODY()
+public:
+	FNiagaraScriptDataInterfaceCompileInfo()
+		: Name(NAME_None)
+		, UserPtrIdx(INDEX_NONE)
+		, bIsPlaceholder(false)
+	{
+
+	}
+
+	UPROPERTY()
+	FName Name;
+
+	/** Index of the user pointer for this data interface. */
+	UPROPERTY()
+	int32 UserPtrIdx;
+
+	UPROPERTY()
+	FNiagaraTypeDefinition Type;
+
+	UPROPERTY()
+	TArray<FNiagaraFunctionSignature> RegisteredFunctions;
+
+	UPROPERTY()
+	FName RegisteredParameterMapRead;
+
+	UPROPERTY()
+	FName RegisteredParameterMapWrite;
+
+	UPROPERTY()
+	bool bIsPlaceholder;
+
+	/** Would this data interface work on the target execution type? Only call this on the game thread.*/
+	bool CanExecuteOnTarget(ENiagaraSimTarget SimTarget) const;
+
+	/** Would this data interface force a system script to be solo? Only call this on the game thread.*/
+	bool IsSystemSolo() const;
+
+	/** Note that this is the CDO for this type of data interface, as we often cannot guarantee that the same instance of the data interface we compiled with is the one the user ultimately executes.  Only call this on the game thread.*/
+	UNiagaraDataInterface* GetDefaultDataInterface() const;
 };
 
 USTRUCT()
@@ -317,25 +385,29 @@ struct FVMExternalFunctionBindingInfo
 struct NIAGARA_API FNiagaraSystemUpdateContext
 {
 	FNiagaraSystemUpdateContext(const UNiagaraSystem* System, bool bReInit) { Add(System, bReInit); }
+#if WITH_EDITORONLY_DATA
 	FNiagaraSystemUpdateContext(const UNiagaraEmitter* Emitter, bool bReInit) { Add(Emitter, bReInit); }
 	FNiagaraSystemUpdateContext(const UNiagaraScript* Script, bool bReInit) { Add(Script, bReInit); }
 	//FNiagaraSystemUpdateContext(UNiagaraDataInterface* Interface, bool bReinit) : Add(Interface, bReinit) {}
 	FNiagaraSystemUpdateContext(const UNiagaraParameterCollection* Collection, bool bReInit) { Add(Collection, bReInit); }
+#endif
 	FNiagaraSystemUpdateContext() { }
 
 	~FNiagaraSystemUpdateContext();
 
 	void Add(const UNiagaraSystem* System, bool bReInit);
+#if WITH_EDITORONLY_DATA
 	void Add(const UNiagaraEmitter* Emitter, bool bReInit);
 	void Add(const UNiagaraScript* Script, bool bReInit);
 	//void Add(UNiagaraDataInterface* Interface, bool bReinit);
 	void Add(const UNiagaraParameterCollection* Collection, bool bReInit);
+#endif
 
 	/** Adds all currently active systems.*/
 	void AddAll(bool bReInit);
+
 private:
 	void AddInternal(class UNiagaraComponent* Comp, bool bReInit);
-
 	FNiagaraSystemUpdateContext(FNiagaraSystemUpdateContext& Other) { }
 
 	TArray<UNiagaraComponent*> ComponentsToReset;
@@ -345,6 +417,8 @@ private:
 
 	//TODO: When we allow component less systems we'll also want to find and reset those.
 };
+
+
 
 
 
@@ -366,6 +440,8 @@ enum class ENiagaraScriptUsage : uint8
 	ParticleUpdateScript UMETA(Hidden),
 	/** The script is called to update particles in response to an event. */
 	ParticleEventScript UMETA(Hidden),
+	/** The script is called to update particles on the GPU. */
+	ParticleGPUComputeScript UMETA(Hidden),
 	/** The script is called once when the emitter spawns. */
 	EmitterSpawnScript UMETA(Hidden),
 	/** The script is called every frame to tick the emitter. */
@@ -374,6 +450,15 @@ enum class ENiagaraScriptUsage : uint8
 	SystemSpawnScript UMETA(Hidden),
 	/** The script is called every frame to tick the system. */
 	SystemUpdateScript UMETA(Hidden),
+};
+
+UENUM()
+enum class ENiagaraScriptGroup : uint8
+{
+	Particle = 0,
+	Emitter,
+	System,
+	Max
 };
 
 
@@ -395,9 +480,53 @@ struct FNiagaraVariableInfo
 	UNiagaraDataInterface* DataInterface;
 };
 
+USTRUCT()
+struct FNiagaraVariableAttributeBinding
+{
+	GENERATED_USTRUCT_BODY();
+
+	FNiagaraVariableAttributeBinding() {}
+	FNiagaraVariableAttributeBinding(const FNiagaraVariable& InVar, const FNiagaraVariable& InAttrVar) : BoundVariable(InVar), DataSetVariable(InAttrVar), DefaultValueIfNonExistent(InAttrVar)
+	{
+		check(InVar.GetType() == InAttrVar.GetType());
+	}
+	FNiagaraVariableAttributeBinding(const FNiagaraVariable& InVar, const FNiagaraVariable& InAttrVar, const FNiagaraVariable& InNonExistentValue) : BoundVariable(InVar), DataSetVariable(InAttrVar), DefaultValueIfNonExistent(InNonExistentValue)
+	{
+		check(InVar.GetType() == InAttrVar.GetType() && InNonExistentValue.GetType() == InAttrVar.GetType());
+	}
+
+
+	UPROPERTY()
+	FNiagaraVariable BoundVariable;
+
+	UPROPERTY()
+	FNiagaraVariable DataSetVariable;
+
+	UPROPERTY()
+	FNiagaraVariable DefaultValueIfNonExistent;
+};
+
+
 namespace FNiagaraUtilities
 {
 	/** Builds a unique name from a candidate name and a set of existing names.  The candidate name will be made unique
 	if necessary by adding a 3 digit index to the end. */
 	FName NIAGARA_API GetUniqueName(FName CandidateName, const TSet<FName>& ExistingNames);
+
+	FNiagaraVariable NIAGARA_API ConvertVariableToRapidIterationConstantName(FNiagaraVariable InVar, const TCHAR* InEmitterName, ENiagaraScriptUsage InUsage);
+
+	void CollectScriptDataInterfaceParameters(const UObject& Owner, const TArray<UNiagaraScript*>& Scripts, FNiagaraParameterStore& OutDataInterfaceParameters);
+
+#if WITH_EDITORONLY_DATA
+	/**
+	 * Prepares rapid iteration parameter stores for simulation by removing old parameters no longer used by functions, by initializing new parameters
+	 * added to functions, and by copying parameters across parameter stores for interscript dependencies.
+	 * @param Scripts The scripts who's rapid iteration parameter stores will be processed.
+	 * @param ScriptDependencyMap A map of script dependencies where the key is the source script and the value is the script which depends on the source.  All scripts in this
+	 * map must be contained in the Scripts array, both keys and values.
+	 * @param ScriptToEmitterNameMap An array of scripts to the name of the emitter than owns them.  If this is a system script the name can be empty.  All scripts in the
+	 * scripts array must have an entry in this map.
+	 */
+	void NIAGARA_API PrepareRapidIterationParameters(const TArray<UNiagaraScript*>& Scripts, const TMap<UNiagaraScript*, UNiagaraScript*>& ScriptDependencyMap, const TMap<UNiagaraScript*, FString>& ScriptToEmitterNameMap);
+#endif
 };

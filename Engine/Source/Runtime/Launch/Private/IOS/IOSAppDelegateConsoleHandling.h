@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "IOSAppDelegate.h"
+#include "IOS/IOSAppDelegate.h"
 
 @interface IOSAppDelegate (ConsoleHandling)
 
@@ -11,12 +11,14 @@
  * Shows the console input dialog
  */
 - (void)ShowConsole;
+#endif
 
 /**
  * Shows an alert with up to 3 buttons. A delegate callback will later set AlertResponse property
  */
 - (void)ShowAlert:(NSMutableArray*)StringArray;
 
+#if !UE_BUILD_SHIPPING && !PLATFORM_TVOS
 /**
  * Handles processing of an input console command
  */

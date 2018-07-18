@@ -30,7 +30,7 @@ public:
 	 * Creates the map from objects to their direct inners.
 	 * @param	ObjsToIgnore	An array of objects that should NOT be put in the list
 	 */
-	FExportObjectInnerContext(TArray<UObject*>& ObjsToIgnore);
+	FExportObjectInnerContext(const TArray<UObject*>& ObjsToIgnore);
 
 	/**Empty Constructor for derived export contexts */
 	FExportObjectInnerContext(const bool bIgnoredValue) {};

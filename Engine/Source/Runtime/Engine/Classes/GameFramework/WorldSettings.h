@@ -11,10 +11,12 @@
 #include "GameFramework/DamageType.h"
 #include "GameFramework/Info.h"
 #include "Sound/AudioVolume.h"
+#include "UObject/ConstructorHelpers.h"
 #include "WorldSettings.generated.h"
 
 class UAssetUserData;
 class UNetConnection;
+class UNavigationSystemConfig;
 
 UENUM()
 enum EVisibilityAggressiveness
@@ -274,6 +276,15 @@ struct ENGINE_API FHierarchicalSimplification
 	UPROPERTY(Category = FHierarchicalSimplification, EditAnywhere, meta = (UIMin = "0.00001", ClampMin = "0.000001", UIMax = "1.0", ClampMax = "1.0"))
 	float TransitionScreenSize;
 
+	UPROPERTY(Category = FHierarchicalSimplification, EditAnywhere, AdvancedDisplay, meta = (UIMin = "1.0", ClampMin = "1.0", UIMax = "50000.0", editcondition="bUseOverrideDrawDistance"))
+	float OverrideDrawDistance;
+
+	UPROPERTY(Category = FHierarchicalSimplification, EditAnywhere, AdvancedDisplay, meta = (InlineEditConditionToggle))
+	bool bUseOverrideDrawDistance;
+
+	UPROPERTY(Category = FHierarchicalSimplification, EditAnywhere, AdvancedDisplay)
+	uint8 bAllowSpecificExclusion : 1;
+
 	/** If this is true, it will simplify mesh but it is slower.
 	* If false, it will just merge actors but not simplify using the lower LOD if exists.
 	* For example if you build LOD 1, it will use LOD 1 of the mesh to merge actors if exists.
@@ -291,32 +302,41 @@ struct ENGINE_API FHierarchicalSimplification
 	FMeshMergingSettings MergeSetting;
 
 	/** Desired Bounding Radius for clustering - this is not guaranteed but used to calculate filling factor for auto clustering */
-	UPROPERTY(EditAnywhere, Category=FHierarchicalSimplification, AdvancedDisplay, meta=(UIMin=10.f, ClampMin=10.f))
+	UPROPERTY(EditAnywhere, Category=FHierarchicalSimplification, AdvancedDisplay, meta=(UIMin=10.f, ClampMin=10.f, editcondition = "!bReusePreviousLevelClusters"))
 	float DesiredBoundRadius;
 
 	/** Desired Filling Percentage for clustering - this is not guaranteed but used to calculate filling factor  for auto clustering */
-	UPROPERTY(EditAnywhere, Category=FHierarchicalSimplification, AdvancedDisplay, meta=(ClampMin = "0", ClampMax = "100", UIMin = "0", UIMax = "100"))
+	UPROPERTY(EditAnywhere, Category=FHierarchicalSimplification, AdvancedDisplay, meta=(ClampMin = "0", ClampMax = "100", UIMin = "0", UIMax = "100", editcondition = "!bReusePreviousLevelClusters"))
 	float DesiredFillingPercentage;
 
 	/** Min number of actors to build LODActor */
-	UPROPERTY(EditAnywhere, Category=FHierarchicalSimplification, AdvancedDisplay, meta=(ClampMin = "1", UIMin = "1"))
+	UPROPERTY(EditAnywhere, Category=FHierarchicalSimplification, AdvancedDisplay, meta=(ClampMin = "1", UIMin = "1", editcondition = "!bReusePreviousLevelClusters"))
 	int32 MinNumberOfActorsToBuild;	
 
 	/** Min number of actors to build LODActor */
-	UPROPERTY(EditAnywhere, Category = FHierarchicalSimplification, AdvancedDisplay)
+	UPROPERTY(EditAnywhere, Category = FHierarchicalSimplification, AdvancedDisplay, meta = (editcondition = "!bReusePreviousLevelClusters"))
 	bool bOnlyGenerateClustersForVolumes;
+
+	/** Will reuse the clusters generated for the previous (lower) HLOD level */
+	UPROPERTY(EditAnywhere, Category = FHierarchicalSimplification, AdvancedDisplay)
+	bool bReusePreviousLevelClusters;
 
 	FHierarchicalSimplification()
 		: TransitionScreenSize(0.315f)
+		, OverrideDrawDistance(10000)
+		, bUseOverrideDrawDistance(false)
+		, bAllowSpecificExclusion(false)
 		, bSimplifyMesh(false)
 		, DesiredBoundRadius(2000)
 		, DesiredFillingPercentage(50)
 		, MinNumberOfActorsToBuild(2)
 		, bOnlyGenerateClustersForVolumes(false)
+		, bReusePreviousLevelClusters(false)
 	{
 		MergeSetting.bMergeMaterials = true;
 		MergeSetting.bGenerateLightMapUV = true;
 		ProxySetting.MaterialSettings.MaterialMergeType = EMaterialMergeType::MaterialMergeType_Simplygon;
+		ProxySetting.bCreateCollision = false;
 	}
 
 private:
@@ -342,11 +362,50 @@ public:
 	UHierarchicalLODSetup()
 	{
 		HierarchicalLODSetup.AddDefaulted();
+		OverrideBaseMaterial = nullptr;
 	}
 
 	/** Hierarchical LOD Setup */
 	UPROPERTY(EditAnywhere, Category = HLODSystem)
 	TArray<struct FHierarchicalSimplification> HierarchicalLODSetup;
+
+	UPROPERTY(EditAnywhere, Category = HLODSystem)
+	TSoftObjectPtr<UMaterialInterface> OverrideBaseMaterial;
+
+#if WITH_EDITOR
+	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
+#endif // WITH_EDITOR
+};
+
+/** Settings pertaining to which PhysX broadphase to use, and settings for MBP if that is the chosen broadphase type */
+USTRUCT()
+struct FBroadphaseSettings
+{
+	GENERATED_BODY();
+
+	FBroadphaseSettings()
+		: bUseMBPOnClient(false)
+		, bUseMBPOnServer(false)
+		, MBPBounds(EForceInit::ForceInitToZero)
+		, MBPNumSubdivs(2)
+	{
+
+	}
+
+	/** Whether to use MBP (Multi Broadphase Pruning */
+	UPROPERTY(EditAnywhere, Category = Broadphase)
+	bool bUseMBPOnClient;
+
+	UPROPERTY(EditAnywhere, Category = Broadphase)
+	bool bUseMBPOnServer;
+
+	/** Total bounds for MBP, must cover the game world or collisions are disabled for out of bounds actors */
+	UPROPERTY(EditAnywhere, Category = Broadphase, meta = (EditCondition = bUseMBP))
+	FBox MBPBounds;
+
+	/** Number of times to subdivide the MBP bounds, final number of regions is MBPNumSubdivs^2 */
+	UPROPERTY(EditAnywhere, Category = Broadphase, meta = (EditCondition = bUseMBP, ClampMin=1, ClampMax=16))
+	uint32 MBPNumSubdivs;
 };
 
 /**
@@ -365,12 +424,17 @@ class ENGINE_API AWorldSettings : public AInfo, public IInterface_AssetUserData
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=World, AdvancedDisplay)
 	uint32 bEnableWorldBoundsChecks:1;
 
-	/** if set to false navigation system will not get created (and all navigation functionality won't be accessible)*/
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, config, Category=World, AdvancedDisplay)
+protected:
+	/** if set to false navigation system will not get created (and all 
+	 *	navigation functionality won't be accessible).
+	 *	This flag is now deprecated. Use NavigationSystemConfig property to 
+	 *	determine navigation system's properties or existence */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, config, Category=World, AdvancedDisplay, meta=(DisplayName = "DEPRECATED_bEnableNavigationSystem"))
 	uint32 bEnableNavigationSystem:1;
 
+public:
 	/** if set to false AI system will not get created. Use it to disable all AI-related activity on a map */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, config, Category = World, AdvancedDisplay)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, config, Category=AI, AdvancedDisplay)
 	uint32 bEnableAISystem:1;
 
 	/** 
@@ -398,6 +462,11 @@ class ENGINE_API AWorldSettings : public AInfo, public IInterface_AssetUserData
 	/** If set to true we will use GlobalGravityZ instead of project setting DefaultGravityZ */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta=(DisplayName = "Override World Gravity"), Category = Physics)
 	uint32 bGlobalGravitySet:1;
+
+	/** Holds parameters for NavigationSystem's creation. Set to Null will result
+	 *	in NavigationSystem instance not being created for this world */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=World, AdvancedDisplay, Instanced, NoClear, meta=(NoResetToDefault))
+	UNavigationSystemConfig* NavigationSystemConfig;
 
 	// any actor falling below this level gets destroyed
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=World, meta=(editcondition = "bEnableWorldBoundsChecks"))
@@ -536,9 +605,13 @@ class ENGINE_API AWorldSettings : public AInfo, public IInterface_AssetUserData
 	UPROPERTY(EditAnywhere, config, Category=LODSystem)
 	uint32 bEnableHierarchicalLODSystem:1;
 
-	/** If sets overrides the level settings and global project settings */
+	/** If set overrides the level settings and global project settings */
 	UPROPERTY(EditAnywhere, config, Category = LODSystem)
 	TSoftClassPtr<class UHierarchicalLODSetup> HLODSetupAsset;
+
+	/** If set overrides the project-wide base material used for Proxy Materials*/
+	UPROPERTY(EditAnywhere, config, Category = LODSystem)
+	TSoftObjectPtr<class UMaterialInterface> OverrideBaseMaterial;	
 
 protected:
 	/** Hierarchical LOD Setup */
@@ -590,19 +663,19 @@ public:
 	float DemoPlayTimeDilation;
 
 	/** Lowest acceptable global time dilation. */
-	UPROPERTY(config, EditAnywhere, Category = Tick, AdvancedDisplay)
+	UPROPERTY(config, EditAnywhere, Category = Tick, AdvancedDisplay, meta = (UIMin = "0", ClampMin = "0"))
 	float MinGlobalTimeDilation;
 	
 	/** Highest acceptable global time dilation. */
-	UPROPERTY(config, EditAnywhere, Category = Tick, AdvancedDisplay)
+	UPROPERTY(config, EditAnywhere, Category = Tick, AdvancedDisplay, meta = (UIMin = "0", ClampMin = "0"))
 	float MaxGlobalTimeDilation;
 
 	/** Smallest possible frametime, not considering dilation. Equiv to 1/FastestFPS. */
-	UPROPERTY(config, EditAnywhere, Category = Tick, AdvancedDisplay)
+	UPROPERTY(config, EditAnywhere, Category = Tick, AdvancedDisplay, meta = (UIMin = "0", ClampMin = "0"))
 	float MinUndilatedFrameTime;
 
 	/** Largest possible frametime, not considering dilation. Equiv to 1/SlowestFPS. */
-	UPROPERTY(config, EditAnywhere, Category = Tick, AdvancedDisplay)
+	UPROPERTY(config, EditAnywhere, Category = Tick, AdvancedDisplay, meta = (UIMin = "0", ClampMin = "0"))
 	float MaxUndilatedFrameTime;
 
 	// If paused, FName of person pausing the game.
@@ -622,6 +695,12 @@ public:
 	 */
 	UPROPERTY()
 	TArray<struct FNetViewer> ReplicationViewers;
+
+	UPROPERTY(config, EditAnywhere, Category = Broadphase)
+	bool bOverrideDefaultBroadphaseSettings;
+
+	UPROPERTY(config, EditAnywhere, Category = Broadphase)
+	FBroadphaseSettings BroadphaseSettings;
 
 	// ************************************
 
@@ -648,7 +727,9 @@ public:
 	//~ Begin AActor Interface.
 #if WITH_EDITOR
 	virtual void CheckForErrors() override;
+	virtual bool IsSelectable() const override { return false; }
 #endif // WITH_EDITOR
+	virtual void PostInitProperties() override;
 	virtual void PreInitializeComponents() override;
 	virtual void PostInitializeComponents() override;
 	virtual void PostRegisterAllComponents() override;
@@ -675,6 +756,13 @@ public:
 	/** Sets the global time dilation value (subject to clamping). Returns the final value that was set. */
 	virtual float SetTimeDilation(float NewTimeDilation);
 
+	/** @return configuration for NavigationSystem's creation. Null means 
+	 *	no navigation system will be created*/
+	UNavigationSystemConfig* const GetNavigationSystemConfig() const { return NavigationSystemConfig; }
+
+	/** @return whether given world is configured to host any NavigationSystem */
+	bool IsNavigationSystemEnabled() const;
+
 	/**
 	 * Called from GameStateBase, calls BeginPlay on all actors
 	 */
@@ -695,6 +783,7 @@ public:
 	const TArray<struct FHierarchicalSimplification>& GetHierarchicalLODSetup() const;
 	TArray<struct FHierarchicalSimplification>& GetHierarchicalLODSetup();
 	int32 GetNumHierarchicalLODLevels() const;
+	UMaterialInterface* GetHierarchicalLODBaseMaterial() const;
 #endif // WITH EDITOR
 
 private:
@@ -703,5 +792,8 @@ private:
 	HIDE_ACTOR_TRANSFORM_FUNCTIONS();
 
 	virtual void Serialize( FArchive& Ar ) override;
+
+public:
+	virtual FSoftClassPath GetAISystemClassName() const;
 };
 

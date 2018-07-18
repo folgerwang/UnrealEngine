@@ -10,6 +10,7 @@
 #include "ISimpleHMDPlugin.h"
 #include "SceneRendering.h"
 #include "PostProcess/PostProcessHMD.h"
+#include "GameFramework/WorldSettings.h"
 
 //---------------------------------------------------
 // SimpleHMD Plugin Implementation

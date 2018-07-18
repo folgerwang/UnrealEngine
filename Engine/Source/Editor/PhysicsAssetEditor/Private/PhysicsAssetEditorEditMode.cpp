@@ -18,8 +18,8 @@
 #include "DrawDebugHelpers.h"
 #include "SEditorViewport.h"
 #include "IPersonaToolkit.h"
-#include "MultiBoxBuilder.h"
-#include "SlateApplication.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Framework/Application/SlateApplication.h"
 
 #define LOCTEXT_NAMESPACE "PhysicsAssetEditorEditMode"
 
@@ -74,6 +74,10 @@ bool FPhysicsAssetEditorEditMode::GetCameraTarget(FSphere& OutTarget) const
 		else if (SelectedObject.PrimitiveType == EAggCollisionShape::Convex)
 		{
 			Bounds += AggGeom.ConvexElems[SelectedObject.PrimitiveIndex].CalcAABB(BoneTM, BoneTM.GetScale3D());
+		}
+		else if (SelectedObject.PrimitiveType == EAggCollisionShape::TaperedCapsule)
+		{
+			Bounds += AggGeom.TaperedCapsuleElems[SelectedObject.PrimitiveIndex].CalcAABB(BoneTM, Scale);
 		}
 
 		bHandled = true;
@@ -283,6 +287,26 @@ bool FPhysicsAssetEditorEditMode::InputAxis(FEditorViewportClient* InViewportCli
 
 bool FPhysicsAssetEditorEditMode::InputDelta(FEditorViewportClient* InViewportClient, FViewport* InViewport, FVector& InDrag, FRotator& InRot, FVector& InScale)
 {
+	auto GetLocalRotation = [this](FEditorViewportClient* InLocalViewportClient, const FRotator& InRotation, const FTransform& InWidgetTM)
+	{
+		FRotator Rotation = InRotation;
+
+		if(InLocalViewportClient->GetWidgetCoordSystemSpace() == COORD_Local)
+		{
+			// When using local coords, we should rotate in EACH objects local space, not the space of the first selected.
+			// We receive deltas in the local coord space, so we need to transform back
+			FMatrix CoordSpace;
+			GetCustomInputCoordinateSystem(CoordSpace, nullptr);
+			FMatrix WidgetDeltaRotation = CoordSpace * FRotationMatrix(Rotation) * CoordSpace.Inverse();
+
+			// Now transform into this object's local space
+			FMatrix ObjectMatrix = InWidgetTM.ToMatrixNoScale().RemoveTranslation();
+			Rotation = (ObjectMatrix.Inverse() * WidgetDeltaRotation * ObjectMatrix).Rotator();
+		}
+
+		return Rotation;
+	};
+
 	bool bHandled = false;
 	const EAxisList::Type CurrentAxis = InViewportClient->GetCurrentWidgetAxis();
 	if (!SharedData->bRunningSimulation && SharedData->bManipulating && CurrentAxis != EAxisList::None)
@@ -312,9 +336,11 @@ bool FPhysicsAssetEditorEditMode::InputDelta(FEditorViewportClient* InViewportCl
 					}
 					else if (InViewportClient->GetWidgetMode() == FWidget::WM_Rotate)
 					{
+						FRotator RotatorToUse = GetLocalRotation(InViewportClient, InRot, SelectedObject.WidgetTM);
+
 						FVector Axis;
 						float Angle;
-						InRot.Quaternion().ToAxisAndAngle(Axis, Angle);
+						RotatorToUse.Quaternion().ToAxisAndAngle(Axis, Angle);
 
 						Axis = SelectedObject.WidgetTM.InverseTransformVectorNoScale(Axis);
 
@@ -342,6 +368,11 @@ bool FPhysicsAssetEditorEditMode::InputDelta(FEditorViewportClient* InViewportCl
 					else if (SelectedObject.PrimitiveType == EAggCollisionShape::Sphyl)
 					{
 						AggGeom->SphylElems[SelectedObject.PrimitiveIndex].SetTransform(SelectedObject.ManipulateTM * AggGeom->SphylElems[SelectedObject.PrimitiveIndex].GetTransform());
+						SelectedObject.ManipulateTM.SetIdentity();
+					}
+					else if (SelectedObject.PrimitiveType == EAggCollisionShape::TaperedCapsule)
+					{
+						AggGeom->TaperedCapsuleElems[SelectedObject.PrimitiveIndex].SetTransform(SelectedObject.ManipulateTM * AggGeom->TaperedCapsuleElems[SelectedObject.PrimitiveIndex].GetTransform());
 						SelectedObject.ManipulateTM.SetIdentity();
 					}
 				}
@@ -375,9 +406,11 @@ bool FPhysicsAssetEditorEditMode::InputDelta(FEditorViewportClient* InViewportCl
 				}
 				else if (InViewportClient->GetWidgetMode() == FWidget::WM_Rotate)
 				{
+					FRotator RotatorToUse = GetLocalRotation(InViewportClient, InRot, SelectedObject.WidgetTM);
+
 					FVector Axis;
 					float Angle;
-					InRot.Quaternion().ToAxisAndAngle(Axis, Angle);
+					RotatorToUse.Quaternion().ToAxisAndAngle(Axis, Angle);
 
 					Axis = SelectedObject.WidgetTM.InverseTransformVectorNoScale(Axis);
 
@@ -933,6 +966,11 @@ void FPhysicsAssetEditorEditMode::ModifyPrimitiveSize(int32 BodyIndex, EAggColli
 		}
 
 		AggGeom->ConvexElems[PrimIndex].ScaleElem(ModifiedSize, MinPrimSize);
+	}
+	else if (PrimType == EAggCollisionShape::TaperedCapsule)
+	{
+		check(AggGeom->TaperedCapsuleElems.IsValidIndex(PrimIndex));
+		AggGeom->TaperedCapsuleElems[PrimIndex].ScaleElem(DeltaSize, MinPrimSize);
 	}
 }
 

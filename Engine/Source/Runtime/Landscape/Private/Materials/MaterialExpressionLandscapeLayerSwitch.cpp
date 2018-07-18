@@ -31,10 +31,11 @@ UMaterialExpressionLandscapeLayerSwitch::UMaterialExpressionLandscapeLayerSwitch
 
 #if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Landscape);
+
+	bCollapsed = false;
 #endif
 
 	PreviewUsed = true;
-	bCollapsed = false;
 }
 
 #if WITH_EDITOR

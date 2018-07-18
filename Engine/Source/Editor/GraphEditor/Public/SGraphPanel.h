@@ -173,8 +173,14 @@ public:
 	/** Straighten any connections attached to the specified pin, optionally limiting to the specified pin to align */
 	void StraightenConnections(UEdGraphPin* SourcePin, UEdGraphPin* PinToAlign = nullptr);
 
+	/** Refresh the visual state of a single node */
+	void RefreshNode(UEdGraphNode& Node);
+
 	/** When the graph panel needs to be dynamically refreshing for animations, this function is registered to tick and invalidate the UI. */
 	EActiveTimerReturnType InvalidatePerTick(double InCurrentTime, float InDeltaTime);
+
+	/** Sets the current widget factory. */
+	void SetNodeFactory(const TSharedRef<class FGraphNodeFactory>& NewNodeFactory);
 
 protected:
 
@@ -311,4 +317,7 @@ private:
 
 	/** Amount of time left to invalidate the UI per tick */
 	float TimeLeftToInvalidatePerTick;
+
+	/** The current node factory to create nodes, pins and connections. Uses the static FNodeFactory if not set. */
+	TSharedPtr<class FGraphNodeFactory> NodeFactory;
 };

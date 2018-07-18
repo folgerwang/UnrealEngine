@@ -1,8 +1,8 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 #include "ColorGradingVectorCustomization.h"
 #include "IPropertyUtilities.h"
-#include "SNumericEntryBox.h"
-#include "SColorGradingPicker.h"
+#include "Widgets/Input/SNumericEntryBox.h"
+#include "Widgets/Colors/SColorGradingPicker.h"
 #include "IDetailChildrenBuilder.h"
 #include "DetailLayoutBuilder.h"
 #include "DetailWidgetRow.h"
@@ -10,10 +10,10 @@
 #include "Widgets/Layout/SBox.h"
 #include "Vector4StructCustomization.h"
 #include "IDetailGroup.h"
-#include "SComplexGradient.h"
-#include "ConfigCacheIni.h"
+#include "Widgets/Colors/SComplexGradient.h"
+#include "Misc/ConfigCacheIni.h"
 #include "IDetailPropertyRow.h"
-#include "SCheckBox.h"
+#include "Widgets/Input/SCheckBox.h"
 #include "Editor.h"
 #include "ScopedTransaction.h"
 
@@ -253,7 +253,7 @@ TOptional<float> FColorGradingVectorCustomizationBase::OnSliderGetValue(int32 Co
 		}
 		else
 		{
-			Value = ColorIndex < 3 ? CurrentHSVColor.Component(ColorIndex) : ValueVector.W;
+			Value = (ColorIndex < 3) ? CurrentHSVColor.Component(ColorIndex) : ValueVector.W;
 		}
 
 		return Value;
@@ -383,6 +383,24 @@ TArray<FLinearColor> FColorGradingVectorCustomizationBase::GetGradientColor(int3
 	}
 
 	return GradientColors;
+}
+
+void FColorGradingVectorCustomizationBase::PostUndo(bool bSuccess)
+{
+	if (ColorGradingPropertyHandle.IsValid())
+	{
+		FVector4 CurrentValueVector;
+		if (ColorGradingPropertyHandle.Pin()->GetValue(CurrentValueVector) == FPropertyAccess::Success)
+		{
+			CurrentHSVColor = FLinearColor(CurrentValueVector.X, CurrentValueVector.Y, CurrentValueVector.Z).LinearRGBToHSV();
+			OnCurrentHSVColorChanged.Broadcast(CurrentHSVColor, true);
+		}
+	}
+}
+
+void FColorGradingVectorCustomizationBase::PostRedo(bool bSuccess)
+{
+	PostUndo(bSuccess);
 }
 
 void FColorGradingVectorCustomizationBase::OnDynamicSliderMaxValueChanged(float NewMaxSliderValue, TWeakPtr<SWidget> InValueChangedSourceWidget, bool IsOriginator, bool UpdateOnlyIfHigher)
@@ -713,6 +731,9 @@ FColorGradingCustomBuilder::~FColorGradingCustomBuilder()
 	}
 
 	OnCurrentHSVColorChanged.RemoveAll(this);
+
+	// Deregister for Undo callbacks
+	GEditor->UnregisterForUndo(this);
 }
 
 void FColorGradingCustomBuilder::OnDetailGroupReset()
@@ -805,6 +826,8 @@ void FColorGradingCustomBuilder::GenerateHeaderRowContent(FDetailWidgetRow& Node
 				.AllowSpin(ColorGradingPropertyHandle.Pin()->GetNumOuterObjects() == 1)
 				.OnBeginSliderMovement(this, &FColorGradingCustomBuilder::OnBeginMainValueSliderMovement)
 				.OnEndSliderMovement(this, &FColorGradingCustomBuilder::OnEndMainValueSliderMovement)
+				.OnBeginMouseCapture(this, &FColorGradingCustomBuilder::OnBeginMouseCapture)
+				.OnEndMouseCapture(this, &FColorGradingCustomBuilder::OnEndMouseCapture)
 			]
 		];
 
@@ -991,6 +1014,8 @@ void FColorGradingCustomBuilder::GenerateHeaderRowContent(FDetailWidgetRow& Node
 	GConfig->GetBool(TEXT("ColorGrading"), *FString::Printf(TEXT("%s_%s_IsRGB"), *ParentGroupName, *ColorGradingPropertyHandle.Pin()->GetPropertyDisplayName().ToString()), RGBMode, GEditorPerProjectIni);
 	OnChangeColorModeClicked(ECheckBoxState::Checked, RGBMode ? ColorModeType::RGB : ColorModeType::HSV);
 
+	// Register to update when an undo/redo operation has been called to update our list of actors
+	GEditor->RegisterForUndo(this);
 }
 
 FText FColorGradingCustomBuilder::OnChangeColorModeText(ColorModeType ModeType) const
@@ -1093,27 +1118,10 @@ ECheckBoxState FColorGradingCustomBuilder::OnGetChangeColorMode(ColorModeType Mo
 
 void FColorGradingCustomBuilder::OnColorGradingPickerChanged(FVector4& NewValue, bool ShouldCommitValueChanges)
 {
-	
 	FScopedTransaction Transaction(LOCTEXT("ColorGradingMainValue", "Color Grading Main Value"),ShouldCommitValueChanges);
 	if (ColorGradingPropertyHandle.IsValid())
 	{
-		if (ShouldCommitValueChanges && !bIsUsingSlider)
-		{
-			FVector4 ExistingValue;
-			ColorGradingPropertyHandle.Pin()->GetValue(ExistingValue);
-			if (ExistingValue != NewValue)
-			{
-				ColorGradingPropertyHandle.Pin()->SetValue(NewValue, ShouldCommitValueChanges ? EPropertyValueSetFlags::DefaultFlags : EPropertyValueSetFlags::InteractiveChange);
-			}
-			else
-			{
-				Transaction.Cancel();
-			}
-		}
-		else
-		{
-			ColorGradingPropertyHandle.Pin()->SetValue(NewValue, ShouldCommitValueChanges ? EPropertyValueSetFlags::DefaultFlags : EPropertyValueSetFlags::InteractiveChange);
-		}
+		ColorGradingPropertyHandle.Pin()->SetValue(NewValue, (ShouldCommitValueChanges || !bIsUsingSlider) ? EPropertyValueSetFlags::DefaultFlags : (EPropertyValueSetFlags::InteractiveChange | EPropertyValueSetFlags::NotTransactable));
 	}
 
 	FLinearColor NewHSVColor(NewValue.X, NewValue.Y, NewValue.Z);
@@ -1139,6 +1147,18 @@ void FColorGradingCustomBuilder::OnBeginMainValueSliderMovement()
 }
 
 void FColorGradingCustomBuilder::OnEndMainValueSliderMovement()
+{
+	bIsUsingSlider = false;
+	GEditor->EndTransaction();
+}
+
+void FColorGradingCustomBuilder::OnBeginMouseCapture()
+{
+	bIsUsingSlider = true;
+	GEditor->BeginTransaction(LOCTEXT("ColorGradingMainValue", "Color Grading Main Value"));
+}
+
+void FColorGradingCustomBuilder::OnEndMouseCapture()
 {
 	bIsUsingSlider = false;
 	GEditor->EndTransaction();

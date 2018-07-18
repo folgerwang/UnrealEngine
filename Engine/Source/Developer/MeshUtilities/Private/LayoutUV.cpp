@@ -23,7 +23,7 @@ FLayoutUV::FLayoutUV( FRawMesh* InMesh, uint32 InSrcChannel, uint32 InDstChannel
 	, NextMeshChartId( 0 )
 {}
 
-int32 FLayoutUV::FindCharts( const TMultiMap<int32,int32>& OverlappingCorners )
+int32 FLayoutUV::FindCharts( const FOverlappingCorners& OverlappingCorners )
 {
 	double Begin = FPlatformTime::Seconds();
 
@@ -43,10 +43,10 @@ int32 FLayoutUV::FindCharts( const TMultiMap<int32,int32>& OverlappingCorners )
 	FDisjointSet DisjointSet( NumTris );
 	for( uint32 i = 0; i < NumIndexes; i++ )
 	{
-		for( auto It = OverlappingCorners.CreateConstKeyIterator(i); It; ++It )
+		const TArray<int32>& Overlapping = OverlappingCorners.FindIfOverlapping(i);
+		for (int32 It : Overlapping)
 		{
-			uint32 j = It.Value();
-
+			uint32 j = It;
 			if( j > i )
 			{
 				const uint32 TriI = i/3;
@@ -486,6 +486,11 @@ int32 FLayoutUV::FindCharts( const TMultiMap<int32,int32>& OverlappingCorners )
 
 					ChartA.Join[ Side ^ 1 ] = ChartB.Join[ Side ^ 1 ];
 					ChartA.MaxUV[ Axis ] += ChartB.MaxUV[ Axis ] - ChartB.MinUV[ Axis ];
+					if( LayoutVersion >= ELightmapUVVersion::ChartJoiningLFix )
+					{
+						// Fixing joined chart MaxUV value to properly inflate non-joined axis extent
+						ChartA.MaxUV[ Axis ^ 1 ] = FMath::Max( ChartA.MaxUV[ Axis ^ 1 ], ChartA.MinUV[ Axis ^ 1 ] + ( ChartB.MaxUV[ Axis ^ 1 ] - ChartB.MinUV[ Axis ^ 1 ] ) );
+					}
 					ChartA.WorldScale += ChartB.WorldScale;
 					ChartA.UVArea += ChartB.UVArea;
 

@@ -2,14 +2,11 @@
 
 #pragma once
 
-#include "CoreMinimal.h"
-#include "Misc/Attribute.h"
 #include "Widgets/DeclarativeSyntaxSupport.h"
 #include "Widgets/SCompoundWidget.h"
+#include "SequencerKeyEditor.h"
+#include "Channels/MovieSceneBoolChannel.h"
 
-class ISequencer;
-class UMovieSceneSection;
-struct FIntegralCurve;
 enum class ECheckBoxState : uint8;
 
 /**
@@ -19,31 +16,14 @@ class SBoolCurveKeyEditor : public SCompoundWidget
 {
 public:
 	SLATE_BEGIN_ARGS(SBoolCurveKeyEditor) {}
-
-		/** The sequencer which is controlling this key editor. */
-		SLATE_ARGUMENT(ISequencer*, Sequencer)
-
-		/** The section that owns the data edited by this key editor. */
-		SLATE_ARGUMENT(UMovieSceneSection*, OwningSection)
-
-		/** The curve being edited by this curve editor. */
-		SLATE_ARGUMENT(FIntegralCurve*, Curve)
-
-		/** Allows the value displayed and edited by this key editor to be supplied from an external source.  This
-			is useful for curves on property tracks who's property value can change without changing the animation. */
-		SLATE_ATTRIBUTE(TOptional<bool>, ExternalValue)
-
 	SLATE_END_ARGS();
 
-	void Construct(const FArguments& InArgs);
+	void Construct(const FArguments& InArgs, const TSequencerKeyEditor<FMovieSceneBoolChannel, bool>& InKeyEditor);
 
 private:
 
 	ECheckBoxState IsChecked() const;
 	void OnCheckStateChanged(ECheckBoxState);
 
-	ISequencer* Sequencer;
-	UMovieSceneSection* OwningSection;
-	FIntegralCurve* Curve;
-	TAttribute<TOptional<bool>> ExternalValue;
+	TSequencerKeyEditor<FMovieSceneBoolChannel, bool> KeyEditor;
 };

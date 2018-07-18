@@ -144,9 +144,13 @@ void SHierarchyView::OnMouseLeave(const FPointerEvent& MouseEvent)
 	BlueprintEditor.Pin()->ClearHoveredWidget();
 }
 
-FReply SHierarchyView::OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent)
+void SHierarchyView::WidgetHierarchy_OnMouseClick(TSharedPtr<FHierarchyModel> InItem)
 {
 	BlueprintEditor.Pin()->PasteDropLocation = FVector2D(0, 0);
+}
+
+FReply SHierarchyView::OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent)
+{
 
 	if ( BlueprintEditor.Pin()->DesignerCommandList->ProcessCommandBindings(InKeyEvent) )
 	{
@@ -267,6 +271,8 @@ void SHierarchyView::WidgetHierarchy_OnSelectionChanged(TSharedPtr<FHierarchyMod
 			RootWidgets[0]->RefreshSelection();
 		}
 
+		BlueprintEditor.Pin()->PasteDropLocation = FVector2D(0, 0);
+
 		bIsUpdatingSelection = false;
 	}
 }
@@ -311,7 +317,8 @@ void SHierarchyView::RebuildTreeView()
 		.OnExpansionChanged(this, &SHierarchyView::WidgetHierarchy_OnExpansionChanged)
 		.OnContextMenuOpening(this, &SHierarchyView::WidgetHierarchy_OnContextMenuOpening)
 		.OnSetExpansionRecursive(this, &SHierarchyView::SetItemExpansionRecursive)
-		.TreeItemsSource(&TreeRootWidgets);
+		.TreeItemsSource(&TreeRootWidgets)
+		.OnMouseButtonClick(this, &SHierarchyView::WidgetHierarchy_OnMouseClick);
 
 	FilterHandler->SetTreeView(WidgetTreeView.Get());
 

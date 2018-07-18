@@ -201,7 +201,7 @@ void SFlipbookTimeline::OnAssetsDropped(const class FAssetDragDropOp& DragDropOp
 	UPaperFlipbook* ThisFlipbook = FlipbookBeingEdited.Get();
 	if (NewFrames.Num() && (ThisFlipbook != nullptr))
 	{
-		const FScopedTransaction Transaction(LOCTEXT("DroppedAssetOntoTimeline", "Insert assets as frames"));
+		const FScopedTransaction Transaction(LOCTEXT("DroppedAssetOntoTimelineTransaction", "Insert assets as frames"));
 		ThisFlipbook->Modify();
 
 		FScopedFlipbookMutator EditLock(ThisFlipbook);

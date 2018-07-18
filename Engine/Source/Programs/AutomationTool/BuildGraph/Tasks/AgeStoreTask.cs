@@ -131,10 +131,10 @@ namespace Win.Automation
             
             // Scan the store directory and delete old symbol files
             DirectoryReference SymbolServerDirectory = ResolveDirectory(Parameters.StoreDir);
-            LockFile.TakeLock(SymbolServerDirectory, TimeSpan.FromMinutes(15), () =>
-            {
-                RecurseDirectory(ExpireTimeUtc, new DirectoryInfo(SymbolServerDirectory.FullName), DirectoryStructure, 0, Filter);
-            });
+			LockFile.OptionallyTakeLock(TargetPlatform.SymbolServerRequiresLock, SymbolServerDirectory, TimeSpan.FromMinutes(15), () =>
+			{
+				RecurseDirectory(ExpireTimeUtc, new DirectoryInfo(SymbolServerDirectory.FullName), DirectoryStructure, 0, Filter);
+			});
         }
 
         /// <summary>

@@ -6,7 +6,7 @@
 #include "Misc/EnumClassFlags.h"
 #include "Internationalization/InternationalizationManifest.h"
 #include "Internationalization/InternationalizationArchive.h"
-#include "LocKeyFuncs.h"
+#include "Internationalization/LocKeyFuncs.h"
 
 class FLocMetadataObject;
 
@@ -64,7 +64,7 @@ private:
 	struct FConflict
 	{
 	public:
-		FConflict(FString InNamespace, FString InKey, TSharedPtr<FLocMetadataObject> InKeyMetadataObj)
+		FConflict(FLocKey InNamespace, FLocKey InKey, TSharedPtr<FLocMetadataObject> InKeyMetadataObj)
 			: Namespace(MoveTemp(InNamespace))
 			, Key(MoveTemp(InKey))
 			, KeyMetadataObj(MoveTemp(InKeyMetadataObj))
@@ -76,14 +76,14 @@ private:
 			EntriesBySourceLocation.AddUnique(SourceLocation, Source);
 		}
 
-		const FString Namespace;
-		const FString Key;
+		const FLocKey Namespace;
+		const FLocKey Key;
 		TSharedPtr<FLocMetadataObject> KeyMetadataObj;
 
 		TMultiMap<FString, FLocItem> EntriesBySourceLocation;
 	};
 
-	typedef TMultiMap<FString, TSharedRef<FConflict>, FDefaultSetAllocator, FLocKeyMultiMapFuncs<TSharedRef<FConflict>>> FConflictMap;
+	typedef TMultiMap<FLocKey, TSharedRef<FConflict>> FConflictMap;
 
 public:
 	FLocTextConflicts() {}
@@ -97,7 +97,7 @@ public:
 	 * @param InSource				The source info for the conflict.
 	 * @param InSourceLocation		The source location of the conflict.
 	 */
-	void AddConflict(const FString& InNamespace, const FString& InKey, const TSharedPtr<FLocMetadataObject>& InKeyMetadata, const FLocItem& InSource, const FString& InSourceLocation);
+	void AddConflict(const FLocKey& InNamespace, const FLocKey& InKey, const TSharedPtr<FLocMetadataObject>& InKeyMetadata, const FLocItem& InSource, const FString& InSourceLocation);
 
 	/**
 	 * Convert the conflicts to a string format that can be easily saved as a report summary.
@@ -117,7 +117,7 @@ private:
 	 *
 	 * @return The entry, or null if there is no current entry for the given key.
 	 */
-	TSharedPtr<FConflict> FindEntryByKey(const FString& InNamespace, const FString& InKey, const TSharedPtr<FLocMetadataObject> InKeyMetadata) const;
+	TSharedPtr<FConflict> FindEntryByKey(const FLocKey& InNamespace, const FLocKey& InKey, const TSharedPtr<FLocMetadataObject> InKeyMetadata) const;
 
 private:
 	FConflictMap EntriesByKey;
@@ -264,7 +264,7 @@ public:
 	/**
 	 * @return Get an array of culture codes for all the cultures (native and foreign).
 	 */
-	TArray<FString> GetAllCultures() const;
+	TArray<FString> GetAllCultures(const bool bSingleCultureMode = false) const;
 
 	/**
 	 * Check to see whether we've loaded the manifest.
@@ -542,7 +542,7 @@ public:
 	 *
 	 * @return The entry, or null if it couldn't be found.
 	 */
-	TSharedPtr<FManifestEntry> FindDependencyEntry(const FString& InNamespace, const FString& InKey, const FString* InSourceText = nullptr, FString* OutDependencyFilePath = nullptr) const;
+	TSharedPtr<FManifestEntry> FindDependencyEntry(const FLocKey& InNamespace, const FLocKey& InKey, const FString* InSourceText = nullptr, FString* OutDependencyFilePath = nullptr) const;
 
 	/**
 	 * Find an existing dependency entry using its namespace and context.
@@ -553,7 +553,7 @@ public:
 	 *
 	 * @return The entry, or null if it couldn't be found.
 	 */
-	TSharedPtr<FManifestEntry> FindDependencyEntry(const FString& InNamespace, const FManifestContext& InContext, FString* OutDependencyFilePath = nullptr) const;
+	TSharedPtr<FManifestEntry> FindDependencyEntry(const FLocKey& InNamespace, const FManifestContext& InContext, FString* OutDependencyFilePath = nullptr) const;
 
 	/**
 	 * Add a new source text entry to the manifest.
@@ -565,7 +565,7 @@ public:
 	 *
 	 * @return Returns true if it was added successfully (or if a matching entry already exists), false if a duplicate entry was found with different text (an identity conflict).
 	 */
-	bool AddSourceText(const FString& InNamespace, const FLocItem& InSource, const FManifestContext& InContext, const FString* InDescription = nullptr);
+	bool AddSourceText(const FLocKey& InNamespace, const FLocItem& InSource, const FManifestContext& InContext, const FString* InDescription = nullptr);
 
 	/**
 	 * Update an existing source text entry in the manifest.
@@ -584,7 +584,7 @@ public:
 	 *
 	 * @return The entry, or null if it couldn't be found.
 	 */
-	TSharedPtr<FManifestEntry> FindSourceText(const FString& InNamespace, const FString& InKey, const FString* InSourceText = nullptr) const;
+	TSharedPtr<FManifestEntry> FindSourceText(const FLocKey& InNamespace, const FLocKey& InKey, const FString* InSourceText = nullptr) const;
 
 	/**
 	 * Find an existing source text entry using its namespace and context.
@@ -594,7 +594,7 @@ public:
 	 *
 	 * @return The entry, or null if it couldn't be found.
 	 */
-	TSharedPtr<FManifestEntry> FindSourceText(const FString& InNamespace, const FManifestContext& InContext) const;
+	TSharedPtr<FManifestEntry> FindSourceText(const FLocKey& InNamespace, const FManifestContext& InContext) const;
 
 	/**
 	 * Enumerate all the source texts in the manifest, optionally skipping those entries from a dependent manifest.
@@ -618,7 +618,7 @@ public:
 	 *
 	 * @return Returns true if it was added successfully, false otherwise.
 	 */
-	bool AddTranslation(const FString& InCulture, const FString& InNamespace, const FString& InKey, const TSharedPtr<FLocMetadataObject>& InKeyMetadataObj, const FLocItem& InSource, const FLocItem& InTranslation, const bool InOptional);
+	bool AddTranslation(const FString& InCulture, const FLocKey& InNamespace, const FLocKey& InKey, const TSharedPtr<FLocMetadataObject>& InKeyMetadataObj, const FLocItem& InSource, const FLocItem& InTranslation, const bool InOptional);
 
 	/**
 	 * Add a new translation to the given archive.
@@ -642,7 +642,7 @@ public:
 	 *
 	 * @return Returns true if it was updated successfully, false otherwise.
 	 */
-	bool UpdateTranslation(const FString& InCulture, const FString& InNamespace, const FString& InKey, const TSharedPtr<FLocMetadataObject>& InKeyMetadataObj, const FLocItem& InSource, const FLocItem& InTranslation);
+	bool UpdateTranslation(const FString& InCulture, const FLocKey& InNamespace, const FLocKey& InKey, const TSharedPtr<FLocMetadataObject>& InKeyMetadataObj, const FLocItem& InSource, const FLocItem& InTranslation);
 
 	/**
 	 * Update an existing translation in the given archive.
@@ -667,7 +667,7 @@ public:
 	 *
 	 * @return Returns true if it was imported successfully, false otherwise.
 	 */
-	bool ImportTranslation(const FString& InCulture, const FString& InNamespace, const FString& InKey, const TSharedPtr<FLocMetadataObject> InKeyMetadataObj, const FLocItem& InSource, const FLocItem& InTranslation, const bool InOptional);
+	bool ImportTranslation(const FString& InCulture, const FLocKey& InNamespace, const FLocKey& InKey, const TSharedPtr<FLocMetadataObject> InKeyMetadataObj, const FLocItem& InSource, const FLocItem& InTranslation, const bool InOptional);
 
 	/**
 	 * Find an existing translation entry from its source text.
@@ -679,7 +679,7 @@ public:
 	 *
 	 * @return The entry, or null if it couldn't be found.
 	 */
-	TSharedPtr<FArchiveEntry> FindTranslation(const FString& InCulture, const FString& InNamespace, const FString& InKey, const TSharedPtr<FLocMetadataObject> InKeyMetadataObj) const;
+	TSharedPtr<FArchiveEntry> FindTranslation(const FString& InCulture, const FLocKey& InNamespace, const FLocKey& InKey, const TSharedPtr<FLocMetadataObject> InKeyMetadataObj) const;
 
 	/**
 	 * Enumerate all the translations for the given culture.
@@ -704,7 +704,7 @@ public:
 	 * @param OutSource				The source to export.
 	 * @param OutTranslation		The translation to export.
 	 */
-	void GetExportText(const FString& InCulture, const FString& InNamespace, const FString& InKey, const TSharedPtr<FLocMetadataObject> InKeyMetadataObj, const ELocTextExportSourceMethod InSourceMethod, const FLocItem& InSource, FLocItem& OutSource, FLocItem& OutTranslation) const;
+	void GetExportText(const FString& InCulture, const FLocKey& InNamespace, const FLocKey& InKey, const TSharedPtr<FLocMetadataObject> InKeyMetadataObj, const ELocTextExportSourceMethod InSourceMethod, const FLocItem& InSource, FLocItem& OutSource, FLocItem& OutTranslation) const;
 
 	/**
 	 * Given some source text, work out which text is our current "best" translation (eg, when compiling to LocRes).
@@ -718,7 +718,7 @@ public:
 	 * @param OutTranslation		The translation to use.
 	 * @param bSkipSourceCheck		True to skip the source check and just return any matching translation.
 	 */
-	void GetRuntimeText(const FString& InCulture, const FString& InNamespace, const FString& InKey, const TSharedPtr<FLocMetadataObject> InKeyMetadataObj, const ELocTextExportSourceMethod InSourceMethod, const FLocItem& InSource, FLocItem& OutTranslation, const bool bSkipSourceCheck) const;
+	void GetRuntimeText(const FString& InCulture, const FLocKey& InNamespace, const FLocKey& InKey, const TSharedPtr<FLocMetadataObject> InKeyMetadataObj, const ELocTextExportSourceMethod InSourceMethod, const FLocItem& InSource, FLocItem& OutTranslation, const bool bSkipSourceCheck) const;
 
 	/**
 	 * Add a new conflict entry.
@@ -729,7 +729,7 @@ public:
 	 * @param InSource				The source info for the conflict.
 	 * @param InSourceLocation		The source location of the conflict.
 	 */
-	void AddConflict(const FString& InNamespace, const FString& InKey, const TSharedPtr<FLocMetadataObject>& InKeyMetadata, const FLocItem& InSource, const FString& InSourceLocation);
+	void AddConflict(const FLocKey& InNamespace, const FLocKey& InKey, const TSharedPtr<FLocMetadataObject>& InKeyMetadata, const FLocItem& InSource, const FString& InSourceLocation);
 
 	/**
 	 * Get a conflict report that can be easily saved as a report summary.
@@ -784,7 +784,7 @@ public:
 	 *
 	 * @return True if keys were found, false otherwise.
 	 */
-	bool FindKeysForLegacyTranslation(const FString& InCulture, const FString& InNamespace, const FString& InSource, const TSharedPtr<FLocMetadataObject> InKeyMetadataObj, TArray<FString>& OutKeys) const;
+	bool FindKeysForLegacyTranslation(const FString& InCulture, const FLocKey& InNamespace, const FString& InSource, const TSharedPtr<FLocMetadataObject> InKeyMetadataObj, TArray<FLocKey>& OutKeys) const;
 
 	/**
 	 * Given a manifest and (optional) native archive, try and find all the keys that the source string should use by checking the manifest.
@@ -799,7 +799,7 @@ public:
 	 *
 	 * @return True if keys were found, false otherwise.
 	 */
-	static bool FindKeysForLegacyTranslation(const TSharedRef<const FInternationalizationManifest>& InManifest, const TSharedPtr<const FInternationalizationArchive>& InNativeArchive, const FString& InNamespace, const FString& InSource, const TSharedPtr<FLocMetadataObject> InKeyMetadataObj, TArray<FString>& OutKeys);
+	static bool FindKeysForLegacyTranslation(const TSharedRef<const FInternationalizationManifest>& InManifest, const TSharedPtr<const FInternationalizationArchive>& InNativeArchive, const FLocKey& InNamespace, const FString& InSource, const TSharedPtr<FLocMetadataObject> InKeyMetadataObj, TArray<FLocKey>& OutKeys);
 
 	/** Publicly movable */
 	FLocTextHelper(FLocTextHelper&&) = default;
@@ -864,7 +864,7 @@ private:
 	 *
 	 * @return The entry, or null if it couldn't be found.
 	 */
-	TSharedPtr<FArchiveEntry> FindTranslationImpl(const FString& InCulture, const FString& InNamespace, const FString& InKey, const TSharedPtr<FLocMetadataObject> InKeyMetadataObj) const;
+	TSharedPtr<FArchiveEntry> FindTranslationImpl(const FString& InCulture, const FLocKey& InNamespace, const FLocKey& InKey, const TSharedPtr<FLocMetadataObject> InKeyMetadataObj) const;
 
 	/** The name of the target we're working with */
 	FString TargetName;

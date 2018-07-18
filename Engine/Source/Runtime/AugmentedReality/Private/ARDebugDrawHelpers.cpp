@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "ARDebugDrawHelpers.h"
 
@@ -7,6 +7,8 @@
 #include "EngineGlobals.h"
 #include "Engine/Engine.h"
 #include "GameFramework/HUD.h"
+#include "GameFramework/WorldSettings.h"
+#include "GameFramework/PlayerController.h"
 
 namespace ARDebugHelpers
 {
@@ -23,7 +25,7 @@ namespace ARDebugHelpers
 			for( FConstPlayerControllerIterator Iterator = InWorld->GetPlayerControllerIterator(); Iterator; ++Iterator )
 			{
 				APlayerController* PlayerController = Iterator->Get();
-				if (PlayerController->MyHUD && PlayerController->Player)
+				if (PlayerController && PlayerController->MyHUD && PlayerController->Player)
 				{
 					PlayerController->MyHUD->AddDebugText(Text, BaseAct, Duration, TextLocation, TextLocation, TextColor, true, true, false, nullptr, Scale, bDrawShadow);
 					bDrawnSuccessfully = true;

@@ -3,6 +3,7 @@
 #include "Sound/SoundBase.h"
 #include "Sound/SoundSubmix.h"
 #include "Sound/AudioSettings.h"
+#include "EngineDefines.h"
 
 USoundClass* USoundBase::DefaultSoundClassObject = nullptr;
 USoundConcurrency* USoundBase::DefaultSoundConcurrencyObject = nullptr;
@@ -12,7 +13,9 @@ USoundBase::USoundBase(const FObjectInitializer& ObjectInitializer)
 	, bIgnoreFocus_DEPRECATED(false)
 	, Priority(1.0f)
 {
+#if WITH_EDITORONLY_DATA
 	MaxConcurrentPlayCount_DEPRECATED = 16;
+#endif
 }
 
 void USoundBase::PostInitProperties()
@@ -38,7 +41,6 @@ void USoundBase::PostInitProperties()
 		}
 	}
 	SoundConcurrencySettings = USoundBase::DefaultSoundConcurrencyObject;
-
 }
 
 bool USoundBase::IsPlayable() const
@@ -65,14 +67,29 @@ const FSoundAttenuationSettings* USoundBase::GetAttenuationSettingsToApply() con
 	return nullptr;
 }
 
-float USoundBase::GetMaxAudibleDistance()
+float USoundBase::GetMaxDistance() const
 {
-	return 0.f;
+	return (AttenuationSettings ? AttenuationSettings->Attenuation.GetMaxDimension() : WORLD_MAX);
 }
 
 float USoundBase::GetDuration()
 {
 	return Duration;
+}
+
+bool USoundBase::HasDelayNode() const
+{
+	return bHasDelayNode;
+}
+
+bool USoundBase::HasConcatenatorNode() const
+{
+	return bHasConcatenatorNode;
+}
+
+bool USoundBase::IsVirtualizeWhenSilent() const
+{
+	return bHasVirtualizeWhenSilent;
 }
 
 float USoundBase::GetVolumeMultiplier()
@@ -153,6 +170,7 @@ void USoundBase::PostLoad()
 {
 	Super::PostLoad();
 
+#if WITH_EDITORONLY_DATA
 	const int32 LinkerUE4Version = GetLinkerUE4Version();
 
 	if (LinkerUE4Version < VER_UE4_SOUND_CONCURRENCY_PACKAGE)
@@ -163,5 +181,6 @@ void USoundBase::PostLoad()
 		ConcurrencyOverrides.ResolutionRule = MaxConcurrentResolutionRule_DEPRECATED;
 		ConcurrencyOverrides.VolumeScale = 1.0f;
 	}
+#endif
 }
 

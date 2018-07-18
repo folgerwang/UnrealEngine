@@ -152,6 +152,8 @@ void UAnimGraphNode_ObserveBone::CustomizePinData(UEdGraphPin* Pin, FName Source
 
 void UAnimGraphNode_ObserveBone::CustomizeDetails(IDetailLayoutBuilder& DetailBuilder)
 {
+	Super::CustomizeDetails(DetailBuilder);
+
 	TSharedRef<IPropertyHandle> NodeHandle = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UAnimGraphNode_ObserveBone, Node), GetClass());
 	DetailBuilder.HideProperty(NodeHandle->GetChildHandle(GET_MEMBER_NAME_CHECKED(FAnimNode_SkeletalControlBase, Alpha)));
 	DetailBuilder.HideProperty(NodeHandle->GetChildHandle(GET_MEMBER_NAME_CHECKED(FAnimNode_SkeletalControlBase, AlphaScaleBias)));

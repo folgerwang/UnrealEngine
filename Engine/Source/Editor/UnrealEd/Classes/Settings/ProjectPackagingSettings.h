@@ -145,6 +145,10 @@ public:
 	UPROPERTY(config, EditAnywhere, AdvancedDisplay, Category = Blueprints)
 	bool bIncludeNativizedAssetsInProjectGeneration;
 
+	/** Whether or not to exclude monolithic engine headers (e.g. Engine.h) in the generated code when nativizing Blueprint assets. This may improve C++ compiler performance if your game code does not depend on monolithic engine headers to build. */
+	UPROPERTY(config, EditAnywhere, AdvancedDisplay, Category = Blueprints)
+	bool bExcludeMonolithicEngineHeadersInNativizedCode;
+
 	/** If enabled, all content will be put into a single .pak file instead of many individual files (default = enabled). */
 	UPROPERTY(config, EditAnywhere, Category=Packaging)
 	bool UsePakFile;
@@ -270,6 +274,12 @@ public:
 	bool bSkipEditorContent;
 
 	/**
+	 * Don't include movies when staging/packaging
+	 */
+	UPROPERTY(config, EditAnywhere, Category = Packaging, AdvancedDisplay, meta = (DisplayName = "Exclude movie files when staging"))
+	bool bSkipMovies;
+
+	/**
 	 * List of maps to include when no other map list is specified on commandline
 	 */
 	UPROPERTY(config, EditAnywhere, Category = Packaging, AdvancedDisplay, meta = (DisplayName = "List of maps to include in a packaged build", RelativeToGameContentDir, LongPackageName))
@@ -277,19 +287,17 @@ public:
 
 	/**
 	 * Directories containing .uasset files that should always be cooked regardless of whether they're referenced by anything in your project
-	 * Note: These paths are relative to your project Content directory
+	 * These paths are stored relative to the project root so they can start with /game, /engine, or /pluginname
 	 */
-	UPROPERTY(config, EditAnywhere, Category=Packaging, AdvancedDisplay, meta=(DisplayName="Additional Asset Directories to Cook", RelativeToGameContentDir))
+	UPROPERTY(config, EditAnywhere, Category=Packaging, AdvancedDisplay, meta=(DisplayName="Additional Asset Directories to Cook", LongPackageName))
 	TArray<FDirectoryPath> DirectoriesToAlwaysCook;
-	
 
 	/**
-	* Directories containing .uasset files that should always be cooked regardless of whether they're referenced by anything in your project
-	* Note: These paths are relative to your project Content directory
-	*/
-	UPROPERTY(config, EditAnywhere, Category = Packaging, AdvancedDisplay, meta = (DisplayName = "Directories to never cook", RelativeToGameContentDir))
+	 * Directories containing .uasset files that should never be cooked even if they are referenced by your project
+	 * These paths are stored relative to the project root so they can start with /game, /engine, or /pluginname
+	 */
+	UPROPERTY(config, EditAnywhere, Category = Packaging, AdvancedDisplay, meta = (DisplayName = "Directories to never cook", LongPackageName))
 	TArray<FDirectoryPath> DirectoriesToNeverCook;
-
 
 	/**
 	 * Directories containing files that should always be added to the .pak file (if using a .pak file; otherwise they're copied as individual files)
@@ -353,4 +361,7 @@ public:
 private:
 	/** Returns the index of the specified Blueprint in the exclusive nativization list (otherwise INDEX_NONE) */
 	int32 FindBlueprintInNativizationList(const UBlueprint* InBlueprint) const;
+
+	/** Fix up cooking paths after they've been edited or laoded */
+	void FixCookingPaths();
 };

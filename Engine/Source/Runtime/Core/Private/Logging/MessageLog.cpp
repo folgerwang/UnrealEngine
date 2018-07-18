@@ -131,18 +131,18 @@ TSharedRef<FTokenizedMessage> FMessageLog::Error( const FText& InMessage )
 TSharedRef<FTokenizedMessage> FMessageLog::PerformanceWarning( const FText& InMessage )
 {
 	TSharedRef<FTokenizedMessage> Message = FTokenizedMessage::Create(EMessageSeverity::PerformanceWarning, InMessage);
-#if !PLATFORM_LINUX // @todo: these are too spammy for now on Linux
+#if !PLATFORM_UNIX  // @todo: these are too spammy for now on Linux
 	Messages.Add(Message);
-#endif // !PLATFORM_LINUX
+#endif // !PLATFORM_UNIX
 	return Message;
 }
 
 TSharedRef<FTokenizedMessage> FMessageLog::Warning( const FText& InMessage )
 {
 	TSharedRef<FTokenizedMessage> Message = FTokenizedMessage::Create(EMessageSeverity::Warning, InMessage);
-#if !PLATFORM_LINUX // @todo: these are too spammy for now on Linux
+#if !PLATFORM_UNIX // @todo: these are too spammy for now on Linux
 	Messages.Add(Message); // TODO These are too spammy for now
-#endif // !PLATFORM_LINUX
+#endif // !PLATFORM_UNIX
 	return Message;
 }
 

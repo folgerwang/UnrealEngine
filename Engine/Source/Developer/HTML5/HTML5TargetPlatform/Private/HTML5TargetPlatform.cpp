@@ -8,6 +8,10 @@
 #include "HAL/PlatformFilemanager.h"
 #include "HAL/FileManager.h"
 #include "Misc/ScopeLock.h"
+#if WITH_ENGINE
+#include "AudioCompressionSettings.h"
+#endif
+
 #if PLATFORM_WINDOWS
 #include "Windows/WindowsPlatformMisc.h"
 #endif
@@ -299,6 +303,11 @@ void FHTML5TargetPlatform::GetAllWaveFormats(TArray<FName>& OutFormats) const
 {
 	static FName NAME_OGG(TEXT("OGG"));
 	OutFormats.Add(NAME_OGG);
+}
+
+FPlatformAudioCookOverrides* FHTML5TargetPlatform::GetAudioCompressionSettings() const
+{
+	return nullptr;
 }
 
 #endif // WITH_ENGINE

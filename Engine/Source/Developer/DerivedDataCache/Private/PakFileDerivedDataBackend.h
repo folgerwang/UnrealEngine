@@ -13,7 +13,7 @@
 #include "Misc/FileHelper.h"
 #include "Serialization/MemoryReader.h"
 #include "Serialization/MemoryWriter.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 class Error;
 

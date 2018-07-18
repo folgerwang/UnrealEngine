@@ -12,7 +12,7 @@
 extern PyTypeObject PyWrapperMapType;
 
 /** Initialize the PyWrapperMap types and add them to the given Python module */
-void InitializePyWrapperMap(PyObject* PyModule);
+void InitializePyWrapperMap(PyGenUtil::FNativePythonModule& ModuleInfo);
 
 /** Type for all UE4 exposed map instances */
 struct FPyWrapperMap : public FPyWrapperBase
@@ -45,10 +45,10 @@ struct FPyWrapperMap : public FPyWrapperBase
 	static bool ValidateInternalState(FPyWrapperMap* InSelf);
 
 	/** Cast the given Python object to this wrapped type (returns a new reference) */
-	static FPyWrapperMap* CastPyObject(PyObject* InPyObject);
+	static FPyWrapperMap* CastPyObject(PyObject* InPyObject, FPyConversionResult* OutCastResult = nullptr);
 
 	/** Cast the given Python object to this wrapped type, or attempt to convert the type into a new wrapped instance (returns a new reference) */
-	static FPyWrapperMap* CastPyObject(PyObject* InPyObject, PyTypeObject* InType, const PyUtil::FPropertyDef& InKeyDef, const PyUtil::FPropertyDef& InValueDef);
+	static FPyWrapperMap* CastPyObject(PyObject* InPyObject, PyTypeObject* InType, const PyUtil::FPropertyDef& InKeyDef, const PyUtil::FPropertyDef& InValueDef, FPyConversionResult* OutCastResult = nullptr);
 
 	/** Get the length of this container (equivalent to 'len(x)' in Python) */
 	static Py_ssize_t Len(FPyWrapperMap* InSelf);
@@ -96,9 +96,14 @@ struct FPyWrapperMap : public FPyWrapperBase
 /** Meta-data for all UE4 exposed map types */
 struct FPyWrapperMapMetaData : public FPyWrapperBaseMetaData
 {
-	PY_OVERRIDE_GETSET_METADATA(FPyWrapperMapMetaData)
+	PY_METADATA_METHODS(FPyWrapperMapMetaData, FGuid(0xA6AAB38C, 0x5C174F81, 0xB80FA903, 0xBF50C8A2))
 
-	FPyWrapperMapMetaData();
+	FPyWrapperMapMetaData()
+	{
+	}
+
+	/** Add object references from the given Python object to the given collector */
+	virtual void AddReferencedObjects(FPyWrapperBase* Instance, FReferenceCollector& Collector) override;
 };
 
 typedef TPyPtr<FPyWrapperMap> FPyWrapperMapPtr;

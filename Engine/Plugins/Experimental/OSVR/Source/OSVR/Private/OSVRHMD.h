@@ -106,10 +106,6 @@ public:
     virtual void DrawDistortionMesh_RenderThread(struct FRenderingCompositePassContext& Context, const FIntPoint& TextureSize) override;
 
     /** IStereoRendering interface */
-	virtual FRHICustomPresent* GetCustomPresent() override
-	{
-		return mCustomPresent;
-	}
 	virtual bool IsStereoEnabled() const override;
     virtual bool EnableStereo(bool bStereo = true) override;
     virtual void AdjustViewRect(EStereoscopicPass StereoPass, int32& X, int32& Y, uint32& SizeX, uint32& SizeY) const override;
@@ -120,7 +116,7 @@ public:
 
 	/** FXRRenderTargetManager interface */
     virtual void CalculateRenderTargetSize(const FViewport& Viewport, uint32& InOutSizeX, uint32& InOutSizeY) override;
-    virtual void UpdateViewportRHIBridge(bool bUseSeparateRenderTarget, const class FViewport& Viewport, FRHIViewport* const ViewportRHI) override;
+	virtual FXRRenderBridge* GetActiveRenderBridge_GameThread(bool bUseSeparateRenderTarget) override;
     virtual bool AllocateRenderTargetTexture(uint32 index, uint32 sizeX, uint32 sizeY, uint8 format, uint32 numMips, uint32 flags, uint32 targetableTextureFlags, FTexture2DRHIRef& outTargetableTexture, FTexture2DRHIRef& outShaderResourceTexture, uint32 numSamples = 1) override;
 
     virtual bool ShouldUseSeparateRenderTarget() const override

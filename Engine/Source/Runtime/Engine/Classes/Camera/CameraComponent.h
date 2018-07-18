@@ -53,26 +53,26 @@ class ENGINE_API UCameraComponent : public USceneComponent
 	void SetAspectRatio(float InAspectRatio) { AspectRatio = InAspectRatio; }
 
 	// If bConstrainAspectRatio is true, black bars will be added if the destination view has a different aspect ratio than this camera requested.
-	UPROPERTY(Interp, EditAnywhere, BlueprintReadWrite, Category = CameraSettings)
+	UPROPERTY(Interp, EditAnywhere, BlueprintReadWrite, Category = CameraOptions)
 	uint32 bConstrainAspectRatio : 1;
 	UFUNCTION(BlueprintCallable, Category = Camera)
 	void SetConstraintAspectRatio(bool bInConstrainAspectRatio) { bConstrainAspectRatio = bInConstrainAspectRatio; }
 
 	// If true, account for the field of view angle when computing which level of detail to use for meshes.
-	UPROPERTY(Interp, EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category = CameraSettings)
+	UPROPERTY(Interp, EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category = CameraOptions)
 	uint32 bUseFieldOfViewForLOD : 1;
 	UFUNCTION(BlueprintCallable, Category = Camera)
 	void SetUseFieldOfViewForLOD(bool bInUseFieldOfViewForLOD) { bUseFieldOfViewForLOD = bInUseFieldOfViewForLOD; }
 
 	/** True if the camera's orientation and position should be locked to the HMD */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = CameraSettings)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = CameraOptions)
 	uint32 bLockToHmd : 1;
 
 	/**
 	 * If this camera component is placed on a pawn, should it use the view/control rotation of the pawn where possible?
 	 * @see APawn::GetViewRotation()
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = CameraSettings)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = CameraOptions)
 	uint32 bUsePawnControlRotation : 1;
 
 protected:

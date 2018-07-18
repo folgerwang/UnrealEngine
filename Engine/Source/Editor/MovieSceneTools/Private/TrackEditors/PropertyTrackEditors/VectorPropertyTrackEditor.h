@@ -16,7 +16,7 @@
  * A property track editor for vectors.
  */
 class FVectorPropertyTrackEditor
-	: public FPropertyTrackEditor<UMovieSceneVectorTrack, UMovieSceneVectorSection, FVectorKey>
+	: public FPropertyTrackEditor<UMovieSceneVectorTrack>
 {
 public:
 
@@ -26,7 +26,7 @@ public:
 	 * @param InSequencer The sequencer instance to be used by this tool.
 	 */
 	FVectorPropertyTrackEditor(TSharedRef<ISequencer> InSequencer)
-		: FPropertyTrackEditor<UMovieSceneVectorTrack, UMovieSceneVectorSection, FVectorKey>(InSequencer, GetAnimatedPropertyTypes())
+		: FPropertyTrackEditor(InSequencer, GetAnimatedPropertyTypes())
 	{
 	}
 
@@ -50,10 +50,6 @@ public:
 	 */
 	static TSharedRef<ISequencerTrackEditor> CreateTrackEditor(TSharedRef<ISequencer> OwningSequencer);
 
-	//~ ISequencerTrackEditor interface
-
-	virtual TSharedRef<ISequencerSection> MakeSectionInterface(UMovieSceneSection& SectionObject, UMovieSceneTrack& Track, FGuid ObjectBinding) override;
-
 protected:
 
 	//~ FMovieSceneTrackEditor interface
@@ -62,7 +58,7 @@ protected:
 
 	//~ FPropertyTrackEditor interface
 
-	virtual void GenerateKeysFromPropertyChanged(const FPropertyChangedParams& PropertyChangedParams, TArray<FVectorKey>& NewGeneratedKeys, TArray<FVectorKey>& DefaultGeneratedKeys) override;
+	virtual void GenerateKeysFromPropertyChanged(const FPropertyChangedParams& PropertyChangedParams, FGeneratedTrackKeys& OutGeneratedKeys) override;
 	virtual void InitializeNewTrack(UMovieSceneVectorTrack* NewTrack, FPropertyChangedParams PropertyChangedParams) override;
 
 private:

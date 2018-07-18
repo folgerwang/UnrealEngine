@@ -67,7 +67,7 @@ void FTextureCacheDerivedDataWorker::FTextureSourceData::Init(UTexture& InTextur
 		NumMips = 1;
 	}
 
-	if (!InBuildSettings.bCubemap)
+	if (!InBuildSettings.bCubemap && !InBuildSettings.bVolume)
 	{
 		NumSlices = 1;
 	}
@@ -157,6 +157,8 @@ void FTextureCacheDerivedDataWorker::BuildTexture()
 				FTexture2DMipMap* NewMip = new(DerivedData->Mips) FTexture2DMipMap();
 				NewMip->SizeX = CompressedImage.SizeX;
 				NewMip->SizeY = CompressedImage.SizeY;
+				NewMip->SizeZ = CompressedImage.SizeZ;
+				check(NewMip->SizeZ == 1 || BuildSettings.bVolume); // Only volume can have SizeZ != 1
 				NewMip->BulkData.Lock(LOCK_READ_WRITE);
 				check(CompressedImage.RawData.GetTypeSize() == 1);
 				void* NewMipData = NewMip->BulkData.Realloc(CompressedImage.RawData.Num());
@@ -167,6 +169,7 @@ void FTextureCacheDerivedDataWorker::BuildTexture()
 				{
 					DerivedData->SizeX = CompressedImage.SizeX;
 					DerivedData->SizeY = CompressedImage.SizeY;
+					DerivedData->NumSlices = BuildSettings.bCubemap ? 6 : (BuildSettings.bVolume ? CompressedImage.SizeZ : 1);
 					DerivedData->PixelFormat = (EPixelFormat)CompressedImage.PixelFormat;
 				}
 				else
@@ -174,7 +177,6 @@ void FTextureCacheDerivedDataWorker::BuildTexture()
 					check(CompressedImage.PixelFormat == DerivedData->PixelFormat);
 				}
 			}
-			DerivedData->NumSlices = BuildSettings.bCubemap ? 6 : 1;
 
 			// Store it in the cache.
 			// @todo: This will remove the streaming bulk data, which we immediately reload below!
@@ -186,7 +188,7 @@ void FTextureCacheDerivedDataWorker::BuildTexture()
 		if (DerivedData->Mips.Num())
 		{
 			bool bInlineMips = (CacheFlags & ETextureCacheFlags::InlineMips) != 0;
-			bSucceeded = !bInlineMips || DerivedData->TryInlineMipData();
+			bSucceeded = !bInlineMips || DerivedData->TryInlineMipData(BuildSettings.LODBiasWithCinematicMips);
 		}
 		else
 		{
@@ -283,7 +285,7 @@ void FTextureCacheDerivedDataWorker::DoWork()
 		}
 		else if (bInlineMips)
 		{
-			bSucceeded = DerivedData->TryInlineMipData();
+			bSucceeded = DerivedData->TryInlineMipData(BuildSettings.LODBiasWithCinematicMips);
 		}
 		else
 		{

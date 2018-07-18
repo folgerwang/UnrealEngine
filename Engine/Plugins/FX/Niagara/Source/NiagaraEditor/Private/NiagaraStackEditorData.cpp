@@ -2,17 +2,6 @@
 
 #include "NiagaraStackEditorData.h"
 
-bool UNiagaraStackEditorData::GetModuleInputIsPinned(const FString& ModuleInputKey) const
-{
-	const bool* bIsPinnedPtr = ModuleInputKeyToPinnedMap.Find(ModuleInputKey);
-	return bIsPinnedPtr != nullptr && *bIsPinnedPtr;
-}
-
-void UNiagaraStackEditorData::SetModuleInputIsPinned(const FString& ModuleInputKey, bool bIsPinned)
-{
-	ModuleInputKeyToPinnedMap.FindOrAdd(ModuleInputKey) = bIsPinned;
-}
-
 bool UNiagaraStackEditorData::GetModuleInputIsRenamePending(const FString& ModuleInputKey) const
 {
 	const bool* bIsRenamePendingPtr = ModuleInputKeyToRenamePendingMap.Find(ModuleInputKey);
@@ -32,5 +21,67 @@ bool UNiagaraStackEditorData::GetStackEntryIsExpanded(const FString& StackEntryK
 
 void UNiagaraStackEditorData::SetStackEntryIsExpanded(const FString& StackEntryKey, bool bIsExpanded)
 {
-	StackEntryKeyToExpandedMap.FindOrAdd(StackEntryKey) = bIsExpanded;
+	if (ensureMsgf(StackEntryKey.IsEmpty() == false, TEXT("Can not set the expanded state with an empty key")))
+	{
+		StackEntryKeyToExpandedMap.FindOrAdd(StackEntryKey) = bIsExpanded;
+	}
+}
+
+bool UNiagaraStackEditorData::GetStackItemShowAdvanced(const FString& StackEntryKey, bool bShowAdvancedDefault) const
+{
+	const bool* bShowAdvancedPtr = StackItemKeyToShowAdvancedMap.Find(StackEntryKey);
+	return bShowAdvancedPtr != nullptr ? *bShowAdvancedPtr : bShowAdvancedDefault;
+}
+
+void UNiagaraStackEditorData::SetStackItemShowAdvanced(const FString& StackEntryKey, bool bShowAdvanced)
+{
+	if (ensureMsgf(StackEntryKey.IsEmpty() == false, TEXT("Can not set the show advanced state with an empty key")))
+	{
+		StackItemKeyToShowAdvancedMap.FindOrAdd(StackEntryKey) = bShowAdvanced;
+	}
+}
+
+bool UNiagaraStackEditorData::GetShowAllAdvanced() const
+{
+	return bShowAllAdvanced;
+}
+
+void UNiagaraStackEditorData::SetShowAllAdvanced(bool bInShowAllAdvanced)
+{
+	bShowAllAdvanced = bInShowAllAdvanced;
+}
+
+bool UNiagaraStackEditorData::GetShowOutputs() const
+{
+	return bShowOutputs;
+}
+
+void UNiagaraStackEditorData::SetShowOutputs(bool bInShowOutputs)
+{
+	bShowOutputs = bInShowOutputs;
+}
+
+double UNiagaraStackEditorData::GetLastScrollPosition() const
+{
+	return LastScrollPosition;
+}
+
+void UNiagaraStackEditorData::SetLastScrollPosition(double InLastScrollPosition)
+{
+	LastScrollPosition = InLastScrollPosition;
+}
+
+void UNiagaraStackEditorData::DismissStackIssue(FString IssueId)
+{
+	DismissedStackIssueIds.AddUnique(IssueId);
+}
+
+void UNiagaraStackEditorData::UndismissAllIssues()
+{
+	DismissedStackIssueIds.Empty();
+}
+
+const TArray<FString>& UNiagaraStackEditorData::GetDismissedStackIssueIds()
+{
+	return DismissedStackIssueIds;
 }

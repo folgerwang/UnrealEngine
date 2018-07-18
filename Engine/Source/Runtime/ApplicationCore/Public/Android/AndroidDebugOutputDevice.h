@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "OutputDevice.h"
+#include "Misc/OutputDevice.h"
 
 /**
  * Generic Output device that writes to Windows Event Log

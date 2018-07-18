@@ -190,6 +190,9 @@ private:
 	/** Handler for when "Property Matrix..." is selected */
 	void ExecutePropertyMatrix();
 
+	/** Handler for when "Show MetaData" is selected */
+	void ExecuteShowAssetMetaData();
+
 	/** Handler for when "Edit Asset" is selected */
 	void ExecuteEditAsset();
 
@@ -228,6 +231,9 @@ private:
 
 	/** Handler for resetting the localization ID of the current selection */
 	void ExecuteResetLocalizationId();
+
+	/** Handler for showing the cached list of localized texts stored in the package header */
+	void ExecuteShowLocalizationCache(const FString InPackageFilename);
 
 	/** Handler for Export */
 	void ExecuteExport();
@@ -301,6 +307,9 @@ private:
 	/** Handler to check to see if a property matrix command is allowed */
 	bool CanExecutePropertyMatrix(FText& OutErrorMessage) const;
 	bool CanExecutePropertyMatrix() const;
+
+	/** Handler to check to see if a "Show MetaData" command is allowed */
+	bool CanExecuteShowAssetMetaData() const;
 
 	/** Handler to check to see if a "Remove from collection" command is allowed */
 	bool CanExecuteRemoveFromCollection() const;

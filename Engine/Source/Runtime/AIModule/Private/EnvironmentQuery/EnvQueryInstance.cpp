@@ -14,6 +14,7 @@
 #include "EnvironmentQuery/Contexts/EnvQueryContext_Item.h"
 #include "EnvironmentQuery/Generators/EnvQueryGenerator_Composite.h"
 #include "AISystem.h"
+#include "AITypes.h"
 
 #if UE_BUILD_SHIPPING
 #define eqs_ensure ensure
@@ -121,11 +122,16 @@ bool FEnvQueryInstance::PrepareContext(UClass* ContextClass, FEnvQueryContextDat
 		if (CachedData == NULL)
 		{
 			UEnvQueryManager* QueryManager = UEnvQueryManager::GetCurrent(World);
-			UEnvQueryContext* ContextOb = QueryManager->PrepareLocalContext(ContextClass);
+			const UEnvQueryContext* ContextOb = QueryManager->PrepareLocalContext(ContextClass);
 
+			check(ContextOb);
 			ContextOb->ProvideContext(*this, ContextData);
 
-			DEC_MEMORY_STAT_BY(STAT_AI_EQS_InstanceMemory, GetContextAllocatedSize());
+#if STATS
+			// this contraption has been added to nail down a location of a rare bug
+			const uint32 AllocatedSize = GetContextAllocatedSize();
+			DEC_MEMORY_STAT_BY(STAT_AI_EQS_InstanceMemory, AllocatedSize);
+#endif // STATS
 
 			ContextCache.Add(ContextClass, ContextData);
 
@@ -198,8 +204,12 @@ bool FEnvQueryInstance::PrepareContext(UClass* Context, TArray<FVector>& Data)
 		Data.SetNumUninitialized(ContextData.NumValues);
 		for (int32 ValueIndex = 0; ValueIndex < ContextData.NumValues; ValueIndex++)
 		{
-			Data[ValueIndex] = DefTypeOb->GetItemLocation(ContextRawData);
-			ContextRawData += DefTypeValueSize;
+			const FVector ItemLocation = DefTypeOb->GetItemLocation(ContextRawData);
+			if (FAISystem::IsValidLocation(ItemLocation))
+			{
+				Data[ValueIndex] = ItemLocation;
+				ContextRawData += DefTypeValueSize;
+			}
 		}
 	}
 
@@ -225,8 +235,12 @@ bool FEnvQueryInstance::PrepareContext(UClass* Context, TArray<FRotator>& Data)
 		Data.SetNumUninitialized(ContextData.NumValues);
 		for (int32 ValueIndex = 0; ValueIndex < ContextData.NumValues; ValueIndex++)
 		{
-			Data[ValueIndex] = DefTypeOb->GetItemRotation(ContextRawData);
-			ContextRawData += DefTypeValueSize;
+			const FRotator ItemRotation = DefTypeOb->GetItemRotation(ContextRawData);
+			if (FAISystem::IsValidRotation(ItemRotation))
+			{
+				Data[ValueIndex] = ItemRotation;
+				ContextRawData += DefTypeValueSize;
+			}
 		}
 	}
 

@@ -1,6 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "StructuredArchive.h"
+#include "Serialization/StructuredArchive.h"
 #include "Containers/Set.h"
 #include "Containers/UnrealString.h"
 
@@ -9,11 +9,16 @@
 //////////// FStructuredArchive::FContainer ////////////
 
 #if DO_GUARD_SLOW
+
+#define CHECK_UNIQUE_FIELD_NAMES 0
+
 struct FStructuredArchive::FContainer
 {
 	int Index;
 	int Count;
+#if CHECK_UNIQUE_FIELD_NAMES
 	TSet<FString> KeyNames;
+#endif
 
 	FContainer(int InCount)
 		: Index(0)
@@ -23,10 +28,45 @@ struct FStructuredArchive::FContainer
 };
 #endif
 
+FStructuredArchiveChildReader::FStructuredArchiveChildReader(FStructuredArchive::FSlot InSlot)
+	: OwnedFormatter(nullptr)
+	, Archive(nullptr)
+{
+	FStructuredArchiveFormatter* Formatter = &InSlot.Ar.Formatter;
+	if (InSlot.GetUnderlyingArchive().IsTextFormat())
+	{
+		Formatter = OwnedFormatter = InSlot.Ar.Formatter.CreateSubtreeReader();
+	}
+
+	Archive = new FStructuredArchive(*Formatter);
+	Root.Emplace(Archive->Open());
+}
+
+FStructuredArchiveChildReader::~FStructuredArchiveChildReader()
+{
+	Root.Reset();
+	Archive->Close();
+	delete Archive;
+	Archive = nullptr;
+
+	// If this is a text archive, we'll have created a subtree reader that our contained archive is using as 
+	// its formatter. We need to clean it up now.
+	if (OwnedFormatter)
+	{
+		delete OwnedFormatter;
+		OwnedFormatter = nullptr;
+	}
+}
+
 //////////// FStructuredArchive ////////////
 
 FStructuredArchive::FStructuredArchive(FArchiveFormatterType& InFormatter)
 	: Formatter(InFormatter)
+#if DO_GUARD_SLOW
+	, bRequiresStructuralMetadata(true)
+#else
+	, bRequiresStructuralMetadata(InFormatter.RequiresStructuralMetadata())
+#endif
 	, NextElementId(RootElementId + 1)
 	, CurrentSlotElementId(INDEX_NONE)
 {
@@ -84,26 +124,29 @@ void FStructuredArchive::EnterSlot(int32 ElementId, EElementType ElementType)
 
 void FStructuredArchive::LeaveSlot()
 {
-	switch (CurrentScope.Top().Type)
+	if (bRequiresStructuralMetadata)
 	{
-	case EElementType::Record:
-		Formatter.LeaveField();
-		break;
-	case EElementType::Array:
-		Formatter.LeaveArrayElement();
+		switch (CurrentScope.Top().Type)
+		{
+		case EElementType::Record:
+			Formatter.LeaveField();
+			break;
+		case EElementType::Array:
+			Formatter.LeaveArrayElement();
 #if DO_GUARD_SLOW
-		CurrentContainer.Top()->Index++;
+			CurrentContainer.Top()->Index++;
 #endif
-		break;
-	case EElementType::Stream:
-		Formatter.LeaveStreamElement();
-		break;
-	case EElementType::Map:
-		Formatter.LeaveMapElement();
+			break;
+		case EElementType::Stream:
+			Formatter.LeaveStreamElement();
+			break;
+		case EElementType::Map:
+			Formatter.LeaveMapElement();
 #if DO_GUARD_SLOW
-		CurrentContainer.Top()->Index++;
+			CurrentContainer.Top()->Index++;
 #endif
-		break;
+			break;
+		}
 	}
 }
 
@@ -111,49 +154,57 @@ void FStructuredArchive::SetScope(int32 Depth, int32 ElementId)
 {
 	// Make sure the scope is valid
 	checkf(Depth < CurrentScope.Num() && CurrentScope[Depth].Id == ElementId, TEXT("Invalid scope for writing to archive"));
-	checkf(CurrentSlotElementId == INDEX_NONE, TEXT("Cannot change scope until having written a value to the current slot"));
+	checkf(CurrentSlotElementId == INDEX_NONE || GetUnderlyingArchive().IsLoading(), TEXT("Cannot change scope until having written a value to the current slot"));
 
 	// Roll back to the correct scope
-	for(int32 CurrentDepth = CurrentScope.Num() - 1; CurrentDepth > Depth; CurrentDepth--)
+	if (bRequiresStructuralMetadata)
 	{
-		// Leave the current element
-		const FElement& Element = CurrentScope[CurrentDepth];
-		switch (Element.Type)
+		for (int32 CurrentDepth = CurrentScope.Num() - 1; CurrentDepth > Depth; CurrentDepth--)
 		{
-		case EElementType::Record:
-			Formatter.LeaveRecord();
+			// Leave the current element
+			const FElement& Element = CurrentScope[CurrentDepth];
+			switch (Element.Type)
+			{
+			case EElementType::Record:
+				Formatter.LeaveRecord();
 #if DO_GUARD_SLOW
-			delete CurrentContainer.Pop(false);
+				delete CurrentContainer.Pop(false);
 #endif
-			break;
-		case EElementType::Array:
+				break;
+			case EElementType::Array:
 #if DO_GUARD_SLOW
-			checkf(CurrentContainer.Top()->Index == CurrentContainer.Top()->Count, TEXT("Incorrect number of elements serialized in array"));
+				checkf(GetUnderlyingArchive().IsLoading() || CurrentContainer.Top()->Index == CurrentContainer.Top()->Count, TEXT("Incorrect number of elements serialized in array"));
 #endif
-			Formatter.LeaveArray();
+				Formatter.LeaveArray();
 #if DO_GUARD_SLOW
-			delete CurrentContainer.Pop(false);
+				delete CurrentContainer.Pop(false);
 #endif
-			break;
-		case EElementType::Stream:
-			Formatter.LeaveStream();
-			break;
-		case EElementType::Map:
+				break;
+			case EElementType::Stream:
+				Formatter.LeaveStream();
+				break;
+			case EElementType::Map:
 #if DO_GUARD_SLOW
-			checkf(CurrentContainer.Top()->Index == CurrentContainer.Top()->Count, TEXT("Incorrect number of elements serialized in map"));
+				checkf(CurrentContainer.Top()->Index == CurrentContainer.Top()->Count, TEXT("Incorrect number of elements serialized in map"));
 #endif
-			Formatter.LeaveMap();
+				Formatter.LeaveMap();
 #if DO_GUARD_SLOW
-			delete CurrentContainer.Pop(false);
+				delete CurrentContainer.Pop(false);
 #endif
-			break;
+				break;
+			}
+
+			// Remove the element from the stack
+			CurrentScope.RemoveAt(CurrentDepth, 1, false);
+
+			// Leave the slot containing it
+			LeaveSlot();
 		}
-
-		// Remove the element from the stack
-		CurrentScope.RemoveAt(CurrentDepth, 1, false);
-
-		// Leave the slot containing it
-		LeaveSlot();
+	}
+	else
+	{
+		// Remove all the top elements from the stack
+		CurrentScope.RemoveAt(Depth + 1, CurrentScope.Num() - (Depth + 1));
 	}
 }
 
@@ -339,9 +390,14 @@ FStructuredArchive::FSlot FStructuredArchive::FRecord::EnterField(FArchiveFieldN
 	Ar.CurrentSlotElementId = Ar.NextElementId++;
 
 #if DO_GUARD_SLOW
-	FContainer& Container = *Ar.CurrentContainer.Top();
-	checkf(!Container.KeyNames.Contains(Name.Name), TEXT("Multiple keys called '%s' serialized into record"), Name.Name);
-	Container.KeyNames.Add(Name.Name);
+#if CHECK_UNIQUE_FIELD_NAMES
+	if (!Ar.GetUnderlyingArchive().IsLoading())
+	{
+		FContainer& Container = *Ar.CurrentContainer.Top();
+		checkf(!Container.KeyNames.Contains(Name.Name), TEXT("Multiple keys called '%s' serialized into record"), Name.Name);
+		Container.KeyNames.Add(Name.Name);
+	}
+#endif
 #endif
 
 	Ar.Formatter.EnterField(Name);
@@ -374,9 +430,14 @@ TOptional<FStructuredArchive::FSlot> FStructuredArchive::FRecord::TryEnterField(
 	Ar.SetScope(Depth, ElementId);
 
 #if DO_GUARD_SLOW
-	FContainer& Container = *Ar.CurrentContainer.Top();
-	checkf(!Container.KeyNames.Contains(Name.Name), TEXT("Multiple keys called '%s' serialized into record"), Name.Name);
-	Container.KeyNames.Add(Name.Name);
+#if CHECK_UNIQUE_FIELD_NAMES
+	if (!GetUnderlyingArchive().IsLoading())
+	{
+		FContainer& Container = *Ar.CurrentContainer.Top();
+		checkf(!Container.KeyNames.Contains(Name.Name), TEXT("Multiple keys called '%s' serialized into record"), Name.Name);
+		Container.KeyNames.Add(Name.Name);
+	}
+#endif
 #endif
 
 	if (Ar.Formatter.TryEnterField(Name, bEnterWhenWriting))
@@ -433,6 +494,7 @@ FStructuredArchive::FSlot FStructuredArchive::FMap::EnterElement(FString& Name)
 	Ar.CurrentSlotElementId = Ar.NextElementId++;
 
 #if DO_GUARD_SLOW
+#if CHECK_UNIQUE_FIELD_NAMES
 	if(Ar.GetUnderlyingArchive().IsSaving())
 	{
 		FContainer& Container = *Ar.CurrentContainer.Top();
@@ -440,16 +502,19 @@ FStructuredArchive::FSlot FStructuredArchive::FMap::EnterElement(FString& Name)
 		Container.KeyNames.Add(Name);
 	}
 #endif
+#endif
 
 	Ar.Formatter.EnterMapElement(Name);
 
 #if DO_GUARD_SLOW
+#if CHECK_UNIQUE_FIELD_NAMES
 	if(Ar.GetUnderlyingArchive().IsLoading())
 	{
 		FContainer& Container = *Ar.CurrentContainer.Top();
 		checkf(!Container.KeyNames.Contains(Name), TEXT("Multiple keys called '%s' serialized into record"), *Name);
 		Container.KeyNames.Add(Name);
 	}
+#endif
 #endif
 
 	return FSlot(Ar, Depth, Ar.CurrentSlotElementId);

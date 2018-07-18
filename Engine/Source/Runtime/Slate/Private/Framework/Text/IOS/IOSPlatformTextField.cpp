@@ -1,17 +1,22 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Framework/Text/IOS/IOSPlatformTextField.h"
-#include "IOSAppDelegate.h"
-#include "IOSView.h"
+#include "IOS/IOSAppDelegate.h"
+#include "IOS/IOSView.h"
 #include "Widgets/Input/IVirtualKeyboardEntry.h"
 #include "IOS/IOSAsyncTask.h"
 
 namespace
 {
-	void GetKeyboardConfig(EKeyboardType TargetKeyboardType, FKeyboardConfig& KeyboardConfig)
+	void GetKeyboardConfig(TSharedPtr<IVirtualKeyboardEntry> TextEntryWidget, FKeyboardConfig& KeyboardConfig)
 	{
+		bool bUseAutocorrect = IPlatformTextField::ShouldUseVirtualKeyboardAutocorrect(TextEntryWidget);
+
 		KeyboardConfig.KeyboardType = UIKeyboardTypeDefault;
 		KeyboardConfig.bSecureTextEntry = NO;
+		KeyboardConfig.AutocorrectionType = bUseAutocorrect ? UITextAutocorrectionTypeYes : UITextAutocorrectionTypeNo;
+
+		EKeyboardType TargetKeyboardType = TextEntryWidget.IsValid() ? TextEntryWidget->GetVirtualKeyboardType() : Keyboard_Default;
 		
 		switch (TargetKeyboardType)
 		{
@@ -46,8 +51,13 @@ FIOSPlatformTextField::~FIOSPlatformTextField()
 {
 	if(TextField != nullptr)
 	{
-		[TextField release];
-		TextField = nullptr;
+		dispatch_async(dispatch_get_main_queue(), ^{
+#if !PLATFORM_TVOS
+            [TextField hide];
+#endif
+			[TextField release];
+			TextField = nullptr;
+		});
 	}
 }
 
@@ -60,10 +70,8 @@ void FIOSPlatformTextField::ShowVirtualKeyboard(bool bShow, int32 UserIndex, TSh
 	{
 		if (bShow)
 		{
-			EKeyboardType TargetKeyboardType = (TextEntryWidget.IsValid()) ? TextEntryWidget->GetVirtualKeyboardType() : Keyboard_Default;
-			
 			FKeyboardConfig KeyboardConfig;
-			GetKeyboardConfig(TargetKeyboardType, KeyboardConfig);
+			GetKeyboardConfig(TextEntryWidget, KeyboardConfig);
 			
 			[View ActivateKeyboard:false keyboardConfig:KeyboardConfig];
 		}
@@ -74,13 +82,13 @@ void FIOSPlatformTextField::ShowVirtualKeyboard(bool bShow, int32 UserIndex, TSh
 	}
 	else
 	{
-		if(TextField == nullptr)
-		{
-			TextField = [SlateTextField alloc];
-		}
-		
 		if(bShow)
 		{
+			if (TextField == nullptr)
+			{
+				TextField = [[SlateTextField alloc] init];
+			}
+
 			// these functions must be run on the main thread
 			dispatch_async(dispatch_get_main_queue(),^ {
 				[TextField show: TextEntryWidget];
@@ -88,7 +96,15 @@ void FIOSPlatformTextField::ShowVirtualKeyboard(bool bShow, int32 UserIndex, TSh
 		}
         else
         {
-            [TextField hide];
+			if (TextField != nullptr && [TextField hasTextWidget])
+			{
+				dispatch_async(dispatch_get_main_queue(), ^{
+                    if (TextField != nullptr)
+                    {
+                        [TextField hide];
+                    }
+				});
+			}
         }
 	}
 #endif
@@ -122,6 +138,11 @@ void FIOSPlatformTextField::ShowVirtualKeyboard(bool bShow, int32 UserIndex, TSh
     }
     
     TextWidget = nullptr;
+}
+
+-(bool)hasTextWidget
+{
+    return TextWidget.IsValid();
 }
 
 -(void)show:(TSharedPtr<IVirtualKeyboardEntry>)InTextWidget
@@ -186,9 +207,8 @@ void FIOSPlatformTextField::ShowVirtualKeyboard(bool bShow, int32 UserIndex, TSh
 							AlertTextField.text = [NSString stringWithFString : TextWidget->GetText().ToString()];
 							AlertTextField.placeholder = [NSString stringWithFString : TextWidget->GetHintText().ToString()];
 		 
-							EKeyboardType TargetKeyboardType = (TextWidget.IsValid()) ? TextWidget->GetVirtualKeyboardType() : Keyboard_Default;
 							FKeyboardConfig KeyboardConfig;
-							GetKeyboardConfig(TargetKeyboardType, KeyboardConfig);
+							GetKeyboardConfig(TextWidget, KeyboardConfig);
 
 							AlertTextField.keyboardType = KeyboardConfig.KeyboardType;
 							AlertTextField.autocorrectionType = KeyboardConfig.AutocorrectionType;

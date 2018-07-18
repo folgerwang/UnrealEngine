@@ -25,7 +25,6 @@ public class GameCircleRuntimeSettings : ModuleRules
 			    {
 					"Settings",
 					"TargetPlatform",
-                    "Android_MultiTargetPlatform"
 			    }
             );
         }

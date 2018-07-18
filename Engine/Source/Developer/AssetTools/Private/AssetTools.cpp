@@ -7,14 +7,15 @@
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 #include "Misc/ScopedSlowTask.h"
+#include "UObject/GCObjectScopeGuard.h"
 #include "UObject/UObjectHash.h"
 #include "UObject/UObjectIterator.h"
 #include "Engine/Blueprint.h"
 #include "Exporters/Exporter.h"
 #include "Editor/EditorEngine.h"
-#include "ISourceControlOperation.h"
 #include "SourceControlOperations.h"
 #include "ISourceControlModule.h"
+#include "SourceControlHelpers.h"
 #include "Editor/UnrealEdEngine.h"
 #include "Settings/EditorLoadingSavingSettings.h"
 #include "ThumbnailRendering/ThumbnailManager.h"
@@ -50,6 +51,7 @@
 #include "AssetTypeActions/AssetTypeActions_CurveTable.h"
 #include "AssetTypeActions/AssetTypeActions_CurveVector.h"
 #include "AssetTypeActions/AssetTypeActions_CurveLinearColor.h"
+#include "AssetTypeActions/AssetTypeActions_CurveLinearColorAtlas.h"
 #include "AssetTypeActions/AssetTypeActions_DataAsset.h"
 #include "AssetTypeActions/AssetTypeActions_DataTable.h"
 #include "AssetTypeActions/AssetTypeActions_Enum.h"
@@ -58,6 +60,7 @@
 #include "AssetTypeActions/AssetTypeActions_Font.h"
 #include "AssetTypeActions/AssetTypeActions_FontFace.h"
 #include "AssetTypeActions/AssetTypeActions_ForceFeedbackEffect.h"
+#include "AssetTypeActions/AssetTypeActions_HLODProxy.h"
 #include "AssetTypeActions/AssetTypeActions_SubsurfaceProfile.h"
 #include "AssetTypeActions/AssetTypeActions_InstancedFoliageSettings.h"
 #include "AssetTypeActions/AssetTypeActions_InterpData.h"
@@ -83,6 +86,7 @@
 #include "AssetTypeActions/AssetTypeActions_StaticMesh.h"
 #include "AssetTypeActions/AssetTypeActions_Texture2D.h"
 #include "AssetTypeActions/AssetTypeActions_TextureCube.h"
+#include "AssetTypeActions/AssetTypeActions_VolumeTexture.h"
 #include "AssetTypeActions/AssetTypeActions_TextureRenderTargetCube.h"
 #include "AssetTypeActions/AssetTypeActions_TextureLightProfile.h"
 #include "AssetTypeActions/AssetTypeActions_TouchInterface.h"
@@ -107,9 +111,11 @@
 #include "Framework/Application/SlateApplication.h"
 #include "Widgets/Notifications/SNotificationList.h"
 #include "AutomatedAssetImportData.h"
-#include "DlgPickPath.h"
-#include "FeedbackContext.h"
+#include "AssetImportTask.h"
+#include "Dialogs/DlgPickPath.h"
+#include "Misc/FeedbackContext.h"
 #include "BusyCursor.h"
+#include "AssetExportTask.h"
 
 #define LOCTEXT_NAMESPACE "AssetTools"
 
@@ -163,6 +169,7 @@ UAssetToolsImpl::UAssetToolsImpl(const FObjectInitializer& ObjectInitializer)
 	RegisterAssetTypeActions(MakeShareable(new FAssetTypeActions_CurveTable));
 	RegisterAssetTypeActions(MakeShareable(new FAssetTypeActions_CurveVector));
 	RegisterAssetTypeActions(MakeShareable(new FAssetTypeActions_CurveLinearColor));
+	RegisterAssetTypeActions(MakeShareable(new FAssetTypeActions_CurveLinearColorAtlas));
 	RegisterAssetTypeActions(MakeShareable(new FAssetTypeActions_DataAsset));
 	RegisterAssetTypeActions(MakeShareable(new FAssetTypeActions_DataTable));
 	RegisterAssetTypeActions(MakeShareable(new FAssetTypeActions_Enum));
@@ -172,6 +179,7 @@ UAssetToolsImpl::UAssetToolsImpl(const FObjectInitializer& ObjectInitializer)
 	RegisterAssetTypeActions(MakeShareable(new FAssetTypeActions_Font));
 	RegisterAssetTypeActions(MakeShareable(new FAssetTypeActions_FontFace));
 	RegisterAssetTypeActions(MakeShareable(new FAssetTypeActions_ForceFeedbackEffect));
+	RegisterAssetTypeActions(MakeShareable(new FAssetTypeActions_HLODProxy));
 	RegisterAssetTypeActions(MakeShareable(new FAssetTypeActions_SubsurfaceProfile));
 	RegisterAssetTypeActions(MakeShareable(new FAssetTypeActions_InstancedFoliageSettings));
 	RegisterAssetTypeActions(MakeShareable(new FAssetTypeActions_InterpData));
@@ -203,6 +211,7 @@ UAssetToolsImpl::UAssetToolsImpl(const FObjectInitializer& ObjectInitializer)
 	RegisterAssetTypeActions(MakeShareable(new FAssetTypeActions_Texture));
 	RegisterAssetTypeActions(MakeShareable(new FAssetTypeActions_Texture2D));
 	RegisterAssetTypeActions(MakeShareable(new FAssetTypeActions_TextureCube));
+	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_VolumeTexture) );
 	RegisterAssetTypeActions(MakeShareable(new FAssetTypeActions_TextureRenderTarget));
 	RegisterAssetTypeActions(MakeShareable(new FAssetTypeActions_TextureRenderTarget2D));
 	RegisterAssetTypeActions(MakeShareable(new FAssetTypeActions_TextureRenderTargetCube));
@@ -713,6 +722,50 @@ TArray<UObject*> UAssetToolsImpl::ImportAssetsAutomated(const UAutomatedAssetImp
 	Params.ImportData = ImportData;
 
 	return ImportAssetsInternal(ImportData->Filenames, ImportData->DestinationPath, nullptr, Params);
+}
+
+void UAssetToolsImpl::ImportAssetTasks(const TArray<UAssetImportTask*>& ImportTasks) const
+{
+	FScopedSlowTask SlowTask(ImportTasks.Num(), LOCTEXT("ImportSlowTask", "Importing"));
+	SlowTask.MakeDialog();
+
+	FAssetImportParams Params;
+	Params.bSyncToBrowser = false;
+
+	TArray<FString> Filenames;
+	Filenames.Add(TEXT(""));
+	TArray<UPackage*> PackagesToSave;
+	for (UAssetImportTask* ImportTask : ImportTasks)
+	{
+		if (!ImportTask)
+		{
+			UE_LOG(LogAssetTools, Warning, TEXT("ImportAssetTasks() supplied an empty task"));
+			continue;
+		}
+
+		SlowTask.EnterProgressFrame(1, FText::Format(LOCTEXT("Import_ImportingFile", "Importing \"{0}\"..."), FText::FromString(FPaths::GetBaseFilename(ImportTask->Filename))));
+
+		Params.AssetImportTask = ImportTask;
+		Params.bForceOverrideExisting = ImportTask->bReplaceExisting;
+		Params.bAutomated = ImportTask->bAutomated;
+		Filenames[0] = ImportTask->Filename;
+		TArray<UObject*> ImportedObjects = ImportAssetsInternal(Filenames, ImportTask->DestinationPath, nullptr, Params);
+
+		PackagesToSave.Reset(1); 
+		for (UObject* Object : ImportedObjects)
+		{
+			ImportTask->ImportedObjectPaths.Add(Object->GetPathName());
+			if (ImportTask->bSave)
+			{
+				PackagesToSave.AddUnique(Object->GetOutermost());
+			}
+		}
+
+		if (ImportTask->bSave)
+		{
+			UEditorLoadingAndSavingUtils::SavePackages(PackagesToSave, true);
+		}
+	}
 }
 
 void UAssetToolsImpl::ExportAssets(const TArray<FString>& AssetsToExport, const FString& ExportPath) const
@@ -1327,6 +1380,11 @@ TArray<UObject*> UAssetToolsImpl::ImportAssetsInternal(const TArray<FString>& Fi
 	bool bReplaceAll = false;
 	bool bDontOverwriteAny = false;
 	bool bDontReplaceAny = false;
+	if (Params.AssetImportTask && Params.AssetImportTask->bAutomated)
+	{
+		bOverwriteAll = bReplaceAll = Params.AssetImportTask->bReplaceExisting;
+		bDontOverwriteAny = bDontReplaceAny = !Params.AssetImportTask->bReplaceExisting;
+	}
 
 	TArray<UFactory*> UsedFactories;
 
@@ -1407,8 +1465,18 @@ TArray<UObject*> UAssetToolsImpl::ImportAssetsInternal(const TArray<FString>& Fi
 			bool bImportWasCancelled = false;
 			FDateTime ImportStartTime = FDateTime::UtcNow();
 
-			FString Name = ObjectTools::SanitizeObjectName(FPaths::GetBaseFilename(Filename));
-			FString PackageName = FPaths::Combine(*DestinationPath, *Name);
+			FString Name;
+			if (Params.AssetImportTask && !Params.AssetImportTask->DestinationName.IsEmpty())
+			{
+				Name = Params.AssetImportTask->DestinationName;
+			}
+			else
+			{
+				Name = FPaths::GetBaseFilename(Filename);
+			}
+			Name = ObjectTools::SanitizeObjectName(Name);
+
+			FString PackageName = ObjectTools::SanitizeInvalidChars(FPaths::Combine(*DestinationPath, *Name), INVALID_LONGPACKAGE_CHARACTERS);
 
 			// We can not create assets that share the name of a map file in the same location
 			if(FEditorFileUtils::IsMapPackageAsset(PackageName))
@@ -1569,11 +1637,13 @@ TArray<UObject*> UAssetToolsImpl::ImportAssetsInternal(const TArray<FString>& Fi
 			}
 
 			Factory->SetAutomatedAssetImportData(Params.ImportData);
+			Factory->SetAssetImportTask(Params.AssetImportTask);
 
 			ImportAssetType = Factory->ResolveSupportedClass();
 			UObject* Result = Factory->ImportObject(ImportAssetType, Pkg, FName(*Name), RF_Public | RF_Standalone | RF_Transactional, Filename, nullptr, bImportWasCancelled);
 
 			Factory->SetAutomatedAssetImportData(nullptr);
+			Factory->SetAssetImportTask(nullptr);
 
 			// Do not report any error if the operation was canceled.
 			if(!bImportWasCancelled)
@@ -1910,19 +1980,23 @@ void UAssetToolsImpl::ExportAssetsInternal(const TArray<UObject*>& ObjectsToExpo
 					ExporterToUse->SetBatchMode(ObjectsToExport.Num() > 1 && !bPromptIndividualFilenames);
 					ExporterToUse->SetCancelBatch(false);
 					ExporterToUse->SetShowExportOption(true);
+					ExporterToUse->AddToRoot();
 					UsedExporters.Add(ExporterToUse);
 				}
 
-				UExporter::FExportToFileParams Params;
-				Params.Object = ObjectToExport;
-				Params.Exporter = ExporterToUse;
-				Params.Filename = *SaveFileName;
-				Params.InSelectedOnly = false;
-				Params.NoReplaceIdentical = false;
-				Params.Prompt = false;
-				Params.bUseFileArchive = ObjectToExport->IsA(UPackage::StaticClass());
-				Params.WriteEmptyFiles = false;
-				UExporter::ExportToFileEx(Params);
+				UAssetExportTask* ExportTask = NewObject<UAssetExportTask>();
+				FGCObjectScopeGuard ExportTaskGuard(ExportTask);
+				ExportTask->Object = ObjectToExport;
+				ExportTask->Exporter = ExporterToUse;
+				ExportTask->Filename = SaveFileName;
+				ExportTask->bSelected = false;
+				ExportTask->bReplaceIdentical = true;
+				ExportTask->bPrompt = false;
+				ExportTask->bUseFileArchive = ObjectToExport->IsA(UPackage::StaticClass());
+				ExportTask->bWriteEmptyFiles = false;
+
+				UExporter::RunAssetExportTask(ExportTask);
+
 				if (ExporterToUse->GetBatchMode() && ExporterToUse->GetCancelBatch())
 				{
 					//Exit the export file loop when there is a cancel all
@@ -1938,6 +2012,7 @@ void UAssetToolsImpl::ExportAssetsInternal(const TArray<UObject*>& ObjectsToExpo
 		UsedExporter->SetBatchMode(false);
 		UsedExporter->SetCancelBatch(false);
 		UsedExporter->SetShowExportOption(true);
+		UsedExporter->RemoveFromRoot();
 	}
 	UsedExporters.Empty();
 

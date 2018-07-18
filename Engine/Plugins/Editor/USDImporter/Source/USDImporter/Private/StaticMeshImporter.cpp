@@ -7,8 +7,8 @@
 #include "MeshUtilities.h"
 #include "Engine/StaticMesh.h"
 #include "Materials/Material.h"
-#include "PackageName.h"
-#include "Package.h"
+#include "Misc/PackageName.h"
+#include "UObject/Package.h"
 #include "USDAssetImportData.h"
 #include "Factories/Factory.h"
 
@@ -300,9 +300,10 @@ UStaticMesh* FUSDStaticMeshImporter::ImportStaticMesh(FUsdImportContext& ImportC
 			if (!NewMesh->SourceModels.IsValidIndex(LODIndex))
 			{
 				// Add one LOD 
-				NewMesh->SourceModels.AddDefaulted();
+				NewMesh->AddSourceModel();
 			}
 
+			
 			FStaticMeshSourceModel& SrcModel = NewMesh->SourceModels[LODIndex];
 
 			RawTriangles.CompactMaterialIndices();

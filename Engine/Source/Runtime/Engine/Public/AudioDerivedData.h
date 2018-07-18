@@ -7,17 +7,20 @@
 
 class IAudioFormat;
 class USoundWave;
+struct FPlatformAudioCookOverrides;
 
 class FDerivedAudioDataCompressor : public FDerivedDataPluginInterface
 {
 private:
 	USoundWave*			SoundNode;
-	FName				Format;
+	FName				BaseFormat;
+	FName				HashedFormat;
 	const IAudioFormat*	Compressor;
+	const FPlatformAudioCookOverrides* CompressionOverrides;
 
 public:
 
-	FDerivedAudioDataCompressor(USoundWave* InSoundNode, FName InFormat);
+	FDerivedAudioDataCompressor(USoundWave* InSoundNode, FName InBaseFormat, FName InHashedFormat, const FPlatformAudioCookOverrides* InCompressionOverrides);
 
 	virtual const TCHAR* GetPluginName() const override
 	{

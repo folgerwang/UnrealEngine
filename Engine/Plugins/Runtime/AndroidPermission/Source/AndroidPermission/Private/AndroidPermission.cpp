@@ -4,8 +4,7 @@
 #include "AndroidPermissionFunctionLibrary.h"
 #include "AndroidPermissionCallbackProxy.h"
 #if PLATFORM_ANDROID
-#include "Android/AndroidJNI.h"
-#include "AndroidApplication.h"
+#include "Android/AndroidApplication.h"
 #endif
 
 #define LOCTEXT_NAMESPACE "FAndroidPermissionModule"

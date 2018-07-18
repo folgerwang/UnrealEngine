@@ -1,7 +1,9 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "AndroidJavaMediaPlayer.h"
-#include "AndroidApplication.h"
+#include "Android/AndroidJavaMediaPlayer.h"
+#include "Android/AndroidApplication.h"
+
+#if USE_ANDROID_JNI
 
 #if UE_BUILD_SHIPPING
 // always clear any exceptions in SHipping
@@ -43,6 +45,9 @@ FJavaAndroidMediaPlayer::FJavaAndroidMediaPlayer(bool swizzlePixels, bool vulkan
 	, GetVideoWidthMethod(GetClassMethod("getVideoWidth", "()I"))
 	, SetVideoEnabledMethod(GetClassMethod("setVideoEnabled", "(Z)V"))
 	, SetAudioEnabledMethod(GetClassMethod("setAudioEnabled", "(Z)V"))
+#if PLATFORM_LUMIN
+	, SetAudioVolumeMethod(GetClassMethod("setAudioVolume", "(F)V"))
+#endif
 	, GetVideoLastFrameDataMethod(GetClassMethod("getVideoLastFrameData", "()Ljava/nio/Buffer;"))
 	, StartMethod(GetClassMethod("start", "()V"))
 	, PauseMethod(GetClassMethod("pause", "()V"))
@@ -243,6 +248,13 @@ void FJavaAndroidMediaPlayer::SetAudioEnabled(bool enabled /*= true*/)
 	CallMethod<void>(SetAudioEnabledMethod, enabled);
 }
 
+void FJavaAndroidMediaPlayer::SetAudioVolume(float Volume)
+{
+#if PLATFORM_LUMIN
+	CallMethod<void>(SetAudioVolumeMethod, Volume);
+#endif
+}
+
 bool FJavaAndroidMediaPlayer::GetVideoLastFrameData(void* & outPixels, int64 & outCount)
 {
 	// This can return an exception in some cases
@@ -421,6 +433,8 @@ bool FJavaAndroidMediaPlayer::GetAudioTracks(TArray<FAudioTrack>& AudioTracks)
 
 			AudioTrack.Channels = (int32)JEnv->GetIntField(Track, AudioTrackInfo_Channels);
 			AudioTrack.SampleRate = (int32)JEnv->GetIntField(Track, AudioTrackInfo_SampleRate);
+
+			JEnv->DeleteLocalRef(Track);
 		}
 		JEnv->DeleteGlobalRef(TrackArray);
 
@@ -469,6 +483,8 @@ bool FJavaAndroidMediaPlayer::GetCaptionTracks(TArray<FCaptionTrack>& CaptionTra
 			CaptionTrack.Language = FString(nativeLanguage);
 			JEnv->ReleaseStringUTFChars(jsLanguage, nativeLanguage);
 			JEnv->DeleteLocalRef(jsLanguage);
+
+			JEnv->DeleteLocalRef(Track);
 		}
 		JEnv->DeleteGlobalRef(TrackArray);
 
@@ -521,6 +537,8 @@ bool FJavaAndroidMediaPlayer::GetVideoTracks(TArray<FVideoTrack>& VideoTracks)
 			VideoTrack.BitRate = (int32)JEnv->GetIntField(Track, VideoTrackInfo_BitRate);
 			VideoTrack.Dimensions = FIntPoint((int32)JEnv->GetIntField(Track, VideoTrackInfo_Width), (int32)JEnv->GetIntField(Track, VideoTrackInfo_Height));
 			VideoTrack.FrameRate = JEnv->GetFloatField(Track, VideoTrackInfo_FrameRate);
+
+			JEnv->DeleteLocalRef(Track);
 		}
 		JEnv->DeleteGlobalRef(TrackArray);
 
@@ -528,3 +546,5 @@ bool FJavaAndroidMediaPlayer::GetVideoTracks(TArray<FVideoTrack>& VideoTracks)
 	}
 	return false;
 }
+
+#endif

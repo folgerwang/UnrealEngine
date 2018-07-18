@@ -158,53 +158,64 @@ bool FSocketBSD::Send(const uint8* Data, int32 Count, int32& BytesSent)
 
 bool FSocketBSD::RecvFrom(uint8* Data, int32 BufferSize, int32& BytesRead, FInternetAddr& Source, ESocketReceiveFlags::Type Flags)
 {
+	bool bSuccess = false;
+	const bool bStreamSocket = (SocketType == SOCKTYPE_Streaming);
+	const int TranslatedFlags = TranslateFlags(Flags);
 	SOCKLEN Size = sizeof(sockaddr_in);
 	sockaddr& Addr = *(FInternetAddrBSD&)Source;
-
-	const int TranslatedFlags = TranslateFlags(Flags);
 
 	// Read into the buffer and set the source address
 	BytesRead = recvfrom(Socket, (char*)Data, BufferSize, TranslatedFlags, &Addr, &Size);
 //	NETWORK_PROFILER(FSocket::RecvFrom(Data,BufferSize,BytesRead,Source));
 
-	if (BytesRead < 0 && SocketSubsystem->TranslateErrorCode(BytesRead) == SE_EWOULDBLOCK)
+	if (BytesRead >= 0)
 	{
-		// EWOULDBLOCK is not an error condition
+		// For Streaming sockets, 0 indicates a graceful failure
+		bSuccess = !bStreamSocket || (BytesRead > 0);
+	}
+	else
+	{
+		// For Streaming sockets, don't treat SE_EWOULDBLOCK as an error
+		bSuccess = bStreamSocket && (SocketSubsystem->TranslateErrorCode(BytesRead) == SE_EWOULDBLOCK);
 		BytesRead = 0;
 	}
-	else if (BytesRead <= 0) // 0 means gracefully closed
+
+	if (bSuccess)
 	{
-		BytesRead = 0;
-		return false;
+		LastActivityTime = FDateTime::UtcNow();
 	}
 
-	LastActivityTime = FDateTime::UtcNow();
-
-	return true;
+	return bSuccess;
 }
 
 
 bool FSocketBSD::Recv(uint8* Data, int32 BufferSize, int32& BytesRead, ESocketReceiveFlags::Type Flags)
 {
+	bool bSuccess = false;
+	const bool bStreamSocket = (SocketType == SOCKTYPE_Streaming);
 	const int TranslatedFlags = TranslateFlags(Flags);
 	BytesRead = recv(Socket, (char*)Data, BufferSize, TranslatedFlags);
 
 //	NETWORK_PROFILER(FSocket::Recv(Data,BufferSize,BytesRead));
 
-	if (BytesRead < 0 && SocketSubsystem->TranslateErrorCode(BytesRead) == SE_EWOULDBLOCK)
+	if (BytesRead >= 0)
 	{
-		// EWOULDBLOCK is not an error condition
+		// For Streaming sockets, 0 indicates a graceful failure
+		bSuccess = !bStreamSocket || (BytesRead > 0);
+	}
+	else
+	{
+		// For Streaming sockets, don't treat SE_EWOULDBLOCK as an error
+		bSuccess = bStreamSocket && (SocketSubsystem->TranslateErrorCode(BytesRead) == SE_EWOULDBLOCK);
 		BytesRead = 0;
 	}
-	else if (BytesRead <= 0) // 0 means gracefully closed
+
+	if (bSuccess)
 	{
-		BytesRead = 0;
-		return false;
+		LastActivityTime = FDateTime::UtcNow();
 	}
 
-	LastActivityTime = FDateTime::UtcNow();
-
-	return true;
+	return bSuccess;
 }
 
 
@@ -422,9 +433,11 @@ int32 FSocketBSD::GetPortNo(void)
 	{
 		check(SocketSubsystem);
 		UE_LOG(LogSockets, Error, TEXT("Failed to read address for socket (%s)"), SocketSubsystem->GetSocketError());
+		
+		return 0;
 	}
 
-	// Read the port number
+	// Convert big endian port to native endian port.
 	return ntohs(Addr.sin_port);
 }
 

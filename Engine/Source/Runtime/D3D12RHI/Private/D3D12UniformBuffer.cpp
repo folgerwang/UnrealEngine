@@ -14,7 +14,7 @@ FUniformBufferRHIRef FD3D12DynamicRHI::RHICreateUniformBuffer(const void* Conten
 	//Note: This is not overly efficient in the mGPU case (we create two+ upload locations) but the CPU savings of having no extra indirection to the resource are worth
 	//      it in single node.
 	// Create the uniform buffer
-	FD3D12UniformBuffer* UniformBufferOut = GetAdapter().CreateLinkedObject<FD3D12UniformBuffer>([&](FD3D12Device* Device) -> FD3D12UniformBuffer*
+	FD3D12UniformBuffer* UniformBufferOut = GetAdapter().CreateLinkedObject<FD3D12UniformBuffer>(FRHIGPUMask::All(), [&](FD3D12Device* Device) -> FD3D12UniformBuffer*
 	{
 		// If NumBytesActualData == 0, this uniform buffer contains no constants, only a resource table.
 		FD3D12UniformBuffer* NewUniformBuffer = new FD3D12UniformBuffer(Device, Layout);
@@ -37,7 +37,7 @@ FUniformBufferRHIRef FD3D12DynamicRHI::RHICreateUniformBuffer(const void* Conten
 			if (Usage == EUniformBufferUsage::UniformBuffer_MultiFrame)
 			{
 				// Uniform buffers that live for multiple frames must use the more expensive and persistent allocation path
-				FD3D12DynamicHeapAllocator& Allocator = GetAdapter().GetUploadHeapAllocator();
+				FD3D12DynamicHeapAllocator& Allocator = GetAdapter().GetUploadHeapAllocator(Device->GetGPUIndex());
 				MappedData = Allocator.AllocUploadResource(NumBytes, DEFAULT_CONTEXT_UPLOAD_POOL_ALIGNMENT, NewUniformBuffer->ResourceLocation);
 			}
 			else
@@ -70,7 +70,6 @@ FUniformBufferRHIRef FD3D12DynamicRHI::RHICreateUniformBuffer(const void* Conten
 	if (Layout.Resources.Num())
 	{
 		const int32 NumResources = Layout.Resources.Num();
-		FRHIResource** InResources = (FRHIResource**)((uint8*)Contents + Layout.ResourceOffset);
 
 		FD3D12UniformBuffer* CurrentBuffer = UniformBufferOut;
 
@@ -80,8 +79,15 @@ FUniformBufferRHIRef FD3D12DynamicRHI::RHICreateUniformBuffer(const void* Conten
 			CurrentBuffer->ResourceTable.AddZeroed(NumResources);
 			for (int32 i = 0; i < NumResources; ++i)
 			{
-				check(InResources[i]);
-				CurrentBuffer->ResourceTable[i] = InResources[i];
+				FRHIResource* Resource = *(FRHIResource**)((uint8*)Contents + Layout.ResourceOffsets[i]);
+
+				// Allow null SRV's in uniform buffers for feature levels that don't support SRV's in shaders
+				if (!(GMaxRHIFeatureLevel <= ERHIFeatureLevel::ES3_1 && Layout.Resources[i] == UBMT_SRV))
+				{
+					check(Resource);
+				}
+
+				CurrentBuffer->ResourceTable[i] = Resource;
 			}
 
 			CurrentBuffer = CurrentBuffer->GetNextObject();

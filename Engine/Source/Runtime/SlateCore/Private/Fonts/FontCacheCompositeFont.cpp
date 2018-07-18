@@ -353,7 +353,7 @@ TSharedPtr<FFreeTypeFace> FCompositeFontCache::GetFontFace(const FFontData& InFo
 			FFontFaceDataConstPtr FontFaceData = InFontData.GetFontFaceData();
 			if (FontFaceData.IsValid() && FontFaceData->HasData())
 			{
-				FaceAndMemory = MakeShared<FFreeTypeFace>(FTLibrary, FontFaceData.ToSharedRef(), InFontData.GetLayoutMethod());
+				FaceAndMemory = MakeShared<FFreeTypeFace>(FTLibrary, FontFaceData.ToSharedRef(), InFontData.GetSubFaceIndex(), InFontData.GetLayoutMethod());
 			}
 		}
 
@@ -372,13 +372,13 @@ TSharedPtr<FFreeTypeFace> FCompositeFontCache::GetFontFace(const FFontData& InFo
 						const int32 FontDataSizeKB = (FontFaceData.Num() + 1023) / 1024;
 						LoadLogMessage = FString::Printf(TEXT("Took %f seconds to synchronously load lazily loaded font '%s' (%dK)"), float(FPlatformTime::Seconds() - FontDataLoadStartTime), *InFontData.GetFontFilename(), FontDataSizeKB);
 
-						FaceAndMemory = MakeShared<FFreeTypeFace>(FTLibrary, FFontFaceData::MakeFontFaceData(MoveTemp(FontFaceData)), InFontData.GetLayoutMethod());
+						FaceAndMemory = MakeShared<FFreeTypeFace>(FTLibrary, FFontFaceData::MakeFontFaceData(MoveTemp(FontFaceData)), InFontData.GetSubFaceIndex(), InFontData.GetLayoutMethod());
 					}
 				}
 				break;
 			case EFontLoadingPolicy::Stream:
 				{
-					FaceAndMemory = MakeShared<FFreeTypeFace>(FTLibrary, InFontData.GetFontFilename(), InFontData.GetLayoutMethod());
+					FaceAndMemory = MakeShared<FFreeTypeFace>(FTLibrary, InFontData.GetFontFilename(), InFontData.GetSubFaceIndex(), InFontData.GetLayoutMethod());
 				}
 				break;
 			default:
@@ -393,21 +393,13 @@ TSharedPtr<FFreeTypeFace> FCompositeFontCache::GetFontFace(const FFontData& InFo
 
 			if (!LoadLogMessage.IsEmpty())
 			{
-				const bool bLogLoadAsWarning = GIsRunning && !GIsEditor;
-				if (bLogLoadAsWarning)
-				{
-					UE_LOG(LogSlate, Log, TEXT("%s"), *LoadLogMessage);
-				}
-				else
-				{
-					UE_LOG(LogSlate, Log, TEXT("%s"), *LoadLogMessage);
-				}
+				UE_LOG(LogSlate, Log, TEXT("%s"), *LoadLogMessage);
 			}
 		}
 		else
 		{
 			FaceAndMemory.Reset();
-			UE_LOG(LogSlate, Warning, TEXT("GetFontFace failed to load or process '%s'"), *InFontData.GetFontFilename());
+			UE_LOG(LogSlate, Warning, TEXT("GetFontFace failed to load or process '%s' with face index %d"), *InFontData.GetFontFilename(), InFontData.GetSubFaceIndex());
 		}
 	}
 	return FaceAndMemory;

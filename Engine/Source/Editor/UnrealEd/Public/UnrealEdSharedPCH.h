@@ -74,7 +74,7 @@
 #include "Containers/SparseArray.h"
 #include "Containers/ScriptArray.h"
 #include "Containers/BitArray.h"
-#include "Containers/Algo/Reverse.h"
+#include "Algo/Reverse.h"
 #include "Math/IntPoint.h"
 #include "Logging/LogMacros.h"
 #include "Logging/LogCategory.h"
@@ -471,7 +471,7 @@
 #include "Engine/Level.h"
 #include "GameFramework/Actor.h"
 #include "EngineDefines.h"
-#include "AI/Navigation/NavFilters/NavigationQueryFilter.h"
+#include "NavFilters/NavigationQueryFilter.h"
 #include "AI/Navigation/NavigationTypes.h"
 #include "Engine/LatentActionManager.h"
 #include "Engine/Blueprint.h"
@@ -594,14 +594,6 @@
 
 // From EditorStyle:
 #include "EditorStyleSet.h"
-
-// From SourceControl:
-#include "ISourceControlState.h"
-#include "ISourceControlRevision.h"
-#include "SourceControlHelpers.h"
-#include "ISourceControlProvider.h"
-#include "ISourceControlOperation.h"
-#include "SourceControlOperations.h"
 
 // From BlueprintGraph:
 #include "BlueprintNodeSignature.h"

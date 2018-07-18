@@ -70,6 +70,10 @@ public:
 	virtual void SetZoom( double ZoomValue ) override;
 	virtual void ZoomIn( ) override;
 	virtual void ZoomOut( ) override;
+	virtual float GetVolumeOpacity( ) const override;
+	virtual void SetVolumeOpacity( float ZoomValue ) override;
+	virtual const FRotator& GetVolumeOrientation( ) const override;
+	virtual void SetVolumeOrientation( const FRotator& InOrientation ) override;
 
 public:
 
@@ -117,6 +121,7 @@ protected:
 	 */
 	void ExtendToolBar( );
 
+	void FillToolbar(FToolBarBuilder& ToolbarBuilder, const TSharedRef< FUICommandList > ToolkitCommands, TSharedRef<SWidget> LODControl);
 	/**
 	 * Gets the highest mip map level that this texture supports.
 	 *
@@ -151,6 +156,12 @@ private:
 
 	// Callback for getting the checked state of the Checkered Background action.
 	bool HandleCheckeredBackgroundActionIsChecked( ETextureEditorBackgrounds Background );
+
+	// Callback for toggling the volume display action.
+	void HandleVolumeViewModeActionExecute( ETextureEditorVolumeViewMode InViewMode );
+
+	// Callback for getting the checked state of the volume display action.
+	bool HandleVolumeViewModeActionIsChecked( ETextureEditorVolumeViewMode InViewMode );
 
 	// Callback for toggling the Compress Now action.
 	void HandleCompressNowActionExecute( );
@@ -290,6 +301,12 @@ private:
 
 	/** The texture's zoom factor. */
 	double Zoom;
+
+	// For volume texture, defines an opacity to see through the volume when tracing.
+	float VolumeOpacity;
+
+	// For volume texture, the orientation when tracing.
+	FRotator VolumeOrientation;
 
 private:
 

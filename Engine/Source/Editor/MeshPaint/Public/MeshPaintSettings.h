@@ -43,7 +43,7 @@ public:
 	void SetBrushRadius(float InRadius);
 protected:
 	/** Radius of the Brush used for Painting */
-	UPROPERTY(EditAnywhere, Category = Brush, meta = (DisplayName = "Radius"))
+	UPROPERTY(EditAnywhere, Category = Brush, meta = (DisplayName = "Radius", UIMin = "0.01", UIMax = "2048.0", ClampMin = "0.01", ClampMax = "250000.0"))
 	float BrushRadius;
 
 public:

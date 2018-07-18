@@ -22,26 +22,23 @@ static void AccumulateConstraintTransform(const FTransform& TargetTransform, con
 	{
 		if (Operator.bTranslation)
 		{
-			FVector4 Translation = TargetTransform.GetTranslation();
+			FVector Translation = TargetTransform.GetTranslation();
 			Operator.TranslationAxes.FilterVector(Translation);
-			BlendHelper.AddTranslation(FVector(Translation.X, Translation.Y, Translation.Z), Weight);
+			BlendHelper.AddTranslation(Translation, Weight);
 		}
 
 		if (Operator.bRotation)
 		{
 			FQuat DeltaRotation = TargetTransform.GetRotation();
-			FVector4 DeltaRotationVector(DeltaRotation.X, DeltaRotation.Y, DeltaRotation.Z, DeltaRotation.W);
-			Operator.RotationAxes.FilterVector(DeltaRotationVector);
-			DeltaRotation = FQuat(DeltaRotationVector.X, DeltaRotationVector.Y, DeltaRotationVector.Z, DeltaRotationVector.W);
-			DeltaRotation.Normalize();
+			Operator.RotationAxes.FilterQuat(DeltaRotation);
 			BlendHelper.AddRotation(DeltaRotation, Weight);
 		}
 
 		if (Operator.bScale)
 		{
-			FVector4 Scale = TargetTransform.GetScale3D();
+			FVector Scale = TargetTransform.GetScale3D();
 			Operator.ScaleAxes.FilterVector(Scale);
-			BlendHelper.AddScale(FVector(Scale.X, Scale.Y, Scale.Z), Weight);
+			BlendHelper.AddScale(Scale, Weight);
 		}
 	}
 }
@@ -101,7 +98,7 @@ FTransform SolveConstraints(const FTransform& CurrentTransform, const FTransform
 
 FQuat SolveAim(const FTransform& CurrentTransform, const FVector& TargetPosition, const FVector& AimVector, bool bUseUpVector /*= false*/, const FVector& UpVector /*= FVector::UpVector*/, float AimClampInDegree /*= 0.f*/)
 {
-	if (!ensureAlways(AimVector.IsNormalized()) || !ensureAlways(!bUseUpVector || UpVector.IsNormalized()))
+	if (!ensure(AimVector.IsNormalized()) || !ensure(!bUseUpVector || UpVector.IsNormalized()))
 	{
 		return FQuat::Identity;
 	}

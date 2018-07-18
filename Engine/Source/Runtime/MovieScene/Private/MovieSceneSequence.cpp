@@ -4,10 +4,11 @@
 #include "Evaluation/MovieSceneEvaluationCustomVersion.h"
 #include "Evaluation/MovieSceneSequenceTemplateStore.h"
 #include "MovieScene.h"
-#include "EditorObjectVersion.h"
+#include "UObject/EditorObjectVersion.h"
 #include "Tracks/MovieSceneSubTrack.h"
 #include "Sections/MovieSceneSubSection.h"
 #include "Compilation/MovieSceneCompiler.h"
+#include "Interfaces/ITargetPlatform.h"
 
 UMovieSceneSequence::UMovieSceneSequence(const FObjectInitializer& Init)
 	: Super(Init)
@@ -38,23 +39,30 @@ void UMovieSceneSequence::PostLoad()
 	Super::PostLoad();
 }
 
+void UMovieSceneSequence::PreSave(const ITargetPlatform* TargetPlatform)
+{
+#if WITH_EDITOR
+	if (!HasAnyFlags(RF_ClassDefaultObject|RF_ArchetypeObject))
+	{
+		if (TargetPlatform && TargetPlatform->RequiresCookedData())
+		{
+			FMovieSceneSequencePrecompiledTemplateStore Store;
+			FMovieSceneCompiler::Compile(*this, Store);
+		}
+		else
+		{
+			// Don't save template data unless we're cooking
+			PrecompiledEvaluationTemplate = FMovieSceneEvaluationTemplate();
+		}
+	}
+#endif
+	Super::PreSave(TargetPlatform);
+}
+
 void UMovieSceneSequence::Serialize(FArchive& Ar)
 {
 	Ar.UsingCustomVersion(FMovieSceneEvaluationCustomVersion::GUID);
 	Ar.UsingCustomVersion(FEditorObjectVersion::GUID);
-
-#if WITH_EDITORONLY_DATA
-	if (Ar.IsCooking() && !HasAnyFlags(RF_ClassDefaultObject))
-	{
-		FMovieSceneSequencePrecompiledTemplateStore Store;
-		FMovieSceneCompiler::Compile(*this, Store);
-	}
-	else if (Ar.IsSaving())
-	{
-		// Don't save template data unless we're cooking
-		PrecompiledEvaluationTemplate = FMovieSceneEvaluationTemplate();
-	}
-#endif
 	
 	Super::Serialize(Ar);
 }

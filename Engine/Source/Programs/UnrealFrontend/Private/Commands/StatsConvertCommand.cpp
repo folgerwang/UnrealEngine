@@ -4,7 +4,7 @@
 #include "Misc/CommandLine.h"
 #include "HAL/FileManager.h"
 #include "Templates/ScopedPointer.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 /** Helper class used to extract stats data into CSV file. */
 class FCSVStatsProfiler : public FStatsReadFile
@@ -89,18 +89,18 @@ void FCSVStatsProfiler::ReadStatsFrame( const TArray<FStatMessage>& CondensedMes
 				FString StatValue;
 				if (StatMessage.NameAndInfo.GetFlag( EStatMetaFlags::IsPackedCCAndDuration ))
 				{
-					StatValue = Lex::ToString(MillisecondsPerCycle * FromPackedCallCountDuration_Duration( StatMessage.GetValue_int64() ));
+					StatValue = LexToString(MillisecondsPerCycle * FromPackedCallCountDuration_Duration( StatMessage.GetValue_int64() ));
 				}
 				else if (StatMessage.NameAndInfo.GetFlag( EStatMetaFlags::IsCycle ))
 				{
-					StatValue = Lex::ToString(MillisecondsPerCycle * StatMessage.GetValue_int64());
+					StatValue = LexToString(MillisecondsPerCycle * StatMessage.GetValue_int64());
 				}
 				else
 				{
 					switch (StatMessage.NameAndInfo.GetField<EStatDataType>())
 					{
-					case EStatDataType::ST_double: StatValue = Lex::ToString(StatMessage.GetValue_double()); break;
-					case EStatDataType::ST_int64: StatValue = Lex::ToString(StatMessage.GetValue_int64()); break;
+					case EStatDataType::ST_double: StatValue = LexToString(StatMessage.GetValue_double()); break;
+					case EStatDataType::ST_int64: StatValue = LexToString(StatMessage.GetValue_int64()); break;
 					case EStatDataType::ST_FName: StatValue = StatMessage.GetValue_FName().ToString(); break;
 					default: StatValue = TEXT("<unknown type>");
 					}

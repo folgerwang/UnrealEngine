@@ -12,6 +12,7 @@ class FPrimitiveDrawInterface;
 class FSceneView;
 class FViewport;
 struct FViewportClick;
+struct FSelectedSocketInfo;
 
 class FSkeletonSelectionEditMode : public IPersonaEditMode
 {
@@ -40,6 +41,9 @@ public:
 	virtual bool CanCycleWidgetMode() const override;
 
 private:
+	/** Duplicates and selects a socket when we alt-drag */
+	FSelectedSocketInfo DuplicateAndSelectSocket(const FSelectedSocketInfo& SocketInfoToDuplicate);
+
 	/** Check whether the currently selected bone is in the required bones list */
 	bool IsSelectedBoneRequired() const;
 

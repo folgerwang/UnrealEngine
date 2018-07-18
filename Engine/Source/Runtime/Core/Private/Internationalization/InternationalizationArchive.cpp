@@ -5,7 +5,7 @@
 
 DEFINE_LOG_CATEGORY_STATIC(LogGatherArchiveObject, Log, All);
 
-FArchiveEntry::FArchiveEntry(const FString& InNamespace, const FString& InKey, const FLocItem& InSource, const FLocItem& InTranslation, TSharedPtr<FLocMetadataObject> InKeyMetadataObj, bool IsOptional)
+FArchiveEntry::FArchiveEntry(const FLocKey& InNamespace, const FLocKey& InKey, const FLocItem& InSource, const FLocItem& InTranslation, TSharedPtr<FLocMetadataObject> InKeyMetadataObj, bool IsOptional)
 	: Namespace(InNamespace)
 	, Key(InKey)
 	, Source(InSource)
@@ -18,7 +18,7 @@ FArchiveEntry::FArchiveEntry(const FString& InNamespace, const FString& InKey, c
 	}
 }
 
-bool FInternationalizationArchive::AddEntry(const FString& Namespace, const FString& Key, const FLocItem& Source, const FLocItem& Translation, const TSharedPtr<FLocMetadataObject> KeyMetadataObj, const bool bOptional)
+bool FInternationalizationArchive::AddEntry(const FLocKey& Namespace, const FLocKey& Key, const FLocItem& Source, const FLocItem& Translation, const TSharedPtr<FLocMetadataObject> KeyMetadataObj, const bool bOptional)
 {
 	if (Key.IsEmpty())
 	{
@@ -59,7 +59,7 @@ void FInternationalizationArchive::UpdateEntry(const TSharedRef<FArchiveEntry>& 
 	EntriesByKey.Add(NewEntry->Key, NewEntry);
 }
 
-bool FInternationalizationArchive::SetTranslation(const FString& Namespace, const FString& Key, const FLocItem& Source, const FLocItem& Translation, const TSharedPtr<FLocMetadataObject> KeyMetadataObj)
+bool FInternationalizationArchive::SetTranslation(const FLocKey& Namespace, const FLocKey& Key, const FLocItem& Source, const FLocItem& Translation, const TSharedPtr<FLocMetadataObject> KeyMetadataObj)
 {
 	TSharedPtr<FArchiveEntry> Entry = FindEntryByKey(Namespace, Key, KeyMetadataObj);
 	if (Entry.IsValid())
@@ -79,14 +79,14 @@ bool FInternationalizationArchive::SetTranslation(const FString& Namespace, cons
 	return false;
 }
 
-TSharedPtr<FArchiveEntry> FInternationalizationArchive::FindEntryByKey(const FString& Namespace, const FString& Key, const TSharedPtr<FLocMetadataObject> KeyMetadataObj) const
+TSharedPtr<FArchiveEntry> FInternationalizationArchive::FindEntryByKey(const FLocKey& Namespace, const FLocKey& Key, const TSharedPtr<FLocMetadataObject> KeyMetadataObj) const
 {
-	TArray<TSharedRef<FArchiveEntry>> MatchingEntries;
+	TArray<TSharedRef<FArchiveEntry>, TInlineAllocator<4>> MatchingEntries;
 	EntriesByKey.MultiFind(Key, MatchingEntries);
 
 	for (const TSharedRef<FArchiveEntry>& Entry : MatchingEntries)
 	{
-		if (Entry->Namespace.Equals(Namespace, ESearchCase::CaseSensitive))
+		if (Entry->Namespace == Namespace)
 		{
 			if (!Entry->KeyMetadataObj.IsValid() && !KeyMetadataObj.IsValid())
 			{

@@ -19,7 +19,7 @@ This category contains the core properties of the Physics Material: Friction, Re
 
 [REGION:raw]
 | Property | Description |
-| -------- | --- | :---------- |
+| -------- | :---------- |
 | **Friction** | This is the friction value of the surface, which controls how easily things can slide on this surface. |
 | **Friction Combine Mode** | [INCLUDE:#FcombineMode]  |
 | **Override Friction Combine Mode** | By default, the Friction Combine Mode is set to **Average**, by enabling this property you can change how Frictions are combined between touching Physical Materials.|
@@ -37,7 +37,7 @@ This category contains a property to change how scale affects the mass of the Ac
 
 [REGION:raw]
 | Property | Description |
-| -------- | --- | :---------- |
+| -------- | :---------- |
 | **Raise Mass To Power** | Used to adjust the way that mass increases as objects get larger. This is applied to the mass as calculated based on a "solid" object. In actuality, larger objects do not tend to be solid, and become more like "shells" (e.g. a car is not a solid piece of metal). Values are clamped to 1 or less. |
 [/REGION]
 
@@ -61,7 +61,7 @@ Gameplay related properties for the Physical Material.
 
 [REGION:raw]
 | Property | Description |
-| -------- | --- | :---------- |
+| -------- | :---------- |
 | **Surface Type** | [INCLUDE:#one]|
 [/REGION]
 

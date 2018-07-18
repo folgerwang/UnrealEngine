@@ -37,7 +37,6 @@ namespace UnrealBuildTool.Rules
 					"UdpMessaging/Private",
 					"UdpMessaging/Private/Shared",
 					"UdpMessaging/Private/Transport",
-					"UdpMessaging/Private/Transport/Tests",
 					"UdpMessaging/Private/Tunnel",
 				});
 

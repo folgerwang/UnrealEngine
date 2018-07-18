@@ -40,7 +40,7 @@ class FColorVertexBuffer;
 class UFbxExportOption;
 struct FAnimControlTrackKey;
 struct FExpressionInput;
-struct FRichCurve;
+struct FMovieSceneFloatChannel;
 
 namespace UnFbx
 {
@@ -59,13 +59,7 @@ public:
 	~FFbxExporter();
 	
 	//~ FGCObject
-	virtual void AddReferencedObjects(FReferenceCollector& Collector) override
-	{
-		if (ExportOptions != nullptr)
-		{
-			Collector.AddReferencedObject(ExportOptions);
-		}
-	}
+	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
 
 
 	/**
@@ -77,6 +71,11 @@ public:
 	* The function is saving the dialog state in a user ini file and reload it from there. It is not changing the CDO.
 	*/
 	void FillExportOptions(bool BatchMode, bool bShowOptionDialog, const FString& FullPath, bool& OutOperationCanceled, bool& bOutExportAll);
+
+	/**
+	* Custom set of export options instead of UI dialog. For automation.
+	*/
+	void SetExportOptionsOverride(UFbxExportOption* OverrideOptions);
 
 	/**
 	 * Creates and readies an empty document for export.
@@ -244,7 +243,8 @@ private:
 	/** Whether or not to export vertices unwelded */
 	static bool bStaticMeshExportUnWeldedVerts;
 
-	UFbxExportOption *ExportOptions;
+	UFbxExportOption *ExportOptionsUI;
+	UFbxExportOption *ExportOptionsOverride;
 
 	/** Adapter interface which allows ExportAnimTrack to act on both sequencer and matinee data. */
 	class IAnimTrackAdapter
@@ -414,7 +414,7 @@ private:
 	/**
 	 * Exports a level sequence 3D transform track into the FBX animation stack.
 	 */
-	void ExportLevelSequence3DTransformTrack( FbxNode& FbxActor, UMovieScene3DTransformTrack& TransformTrack, AActor* Actor, const TRange<float>& InPlaybackRange );
+	void ExportLevelSequence3DTransformTrack( FbxNode& FbxActor, UMovieScene3DTransformTrack& TransformTrack, AActor* Actor, const TRange<FFrameNumber>& InPlaybackRange );
 
 	/** 
 	 * Exports a level sequence float track into the FBX animation stack. 
@@ -430,8 +430,8 @@ private:
 		Fov
 	};
 
-	/** Exports an unreal rich curve to an fbx animation curve. */
-	void ExportRichCurveToFbxCurve(FbxAnimCurve& InFbxCurve, FRichCurve& InRichCurve, ERichCurveValueMode ValueMode = ERichCurveValueMode::Default, bool bNegative = false);
+	/** Exports a movie scene channel to an fbx animation curve. */
+	void ExportChannelToFbxCurve(FbxAnimCurve& InFbxCurve, const FMovieSceneFloatChannel& InChannel, FFrameRate TickResolution, ERichCurveValueMode ValueMode = ERichCurveValueMode::Default, bool bNegative = false);
 
 	/**
 	 * Finds the given actor in the already-exported list of structures
@@ -465,6 +465,9 @@ private:
 	 * @param Label Property label.
 	 */
 	void CreateAnimatableUserProperty(FbxNode* Node, float Value, const char* Name, const char* Label);
+
+	/** Returns currently active FBX export options. Automation or UI diaog based options. */
+	UFbxExportOption* GetExportOptions();
 };
 
 

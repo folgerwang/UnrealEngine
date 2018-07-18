@@ -7,7 +7,6 @@ namespace UnrealBuildTool.Rules
 		public ComposureEditor(ReadOnlyTargetRules Target) : base(Target)
 		{
 			PrivateIncludePaths.AddRange(new string[] {
-				"ComposureEditorEditor/Private",
 			});
 
 			PublicDependencyModuleNames.AddRange(new string[] {
@@ -25,6 +24,7 @@ namespace UnrealBuildTool.Rules
 				"Sequencer",
 				"Slate",
 				"SlateCore",
+				"TimeManagement",
 				"DesktopWidgets",
 				"EditorStyle",
 				"UnrealEd"

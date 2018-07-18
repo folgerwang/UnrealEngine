@@ -5,7 +5,7 @@
 #include "Async/TaskGraphInterfaces.h"
 
 FOnlineGetAchievementsCallback::FOnlineGetAchievementsCallback(FOnlineSubsystemGameCircle *const InSubsystem, 
-															   const FUniqueNetIdString& InUserID, 
+															   const FUniqueNetIdGameCircle& InUserID,
 															   const FOnQueryAchievementsCompleteDelegate& InDelegate)
 	: GameCircleSubsystem(InSubsystem)
 	, UserID(InUserID)

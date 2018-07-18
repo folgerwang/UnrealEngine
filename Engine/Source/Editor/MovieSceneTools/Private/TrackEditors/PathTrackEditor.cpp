@@ -10,7 +10,8 @@
 #include "ISectionLayoutBuilder.h"
 #include "ActorEditorUtils.h"
 #include "Components/SplineComponent.h"
-#include "FloatCurveKeyArea.h"
+#include "MovieSceneToolHelpers.h"
+#include "Evaluation/MovieSceneEvaluationTemplateInstance.h"
 
 
 #define LOCTEXT_NAMESPACE "FPathTrackEditor"
@@ -41,7 +42,15 @@ public:
 			TSharedPtr<ISequencer> Sequencer = PathTrackEditor->GetSequencer();
 			if (Sequencer.IsValid())
 			{
-				TArrayView<TWeakObjectPtr<UObject>> RuntimeObjects = Sequencer->FindBoundObjects(PathSection->GetConstraintBindingID().GetGuid(), PathSection->GetConstraintBindingID().GetSequenceID());
+				FMovieSceneSequenceID SequenceID = Sequencer->GetFocusedTemplateID();
+				if (PathSection->GetConstraintBindingID().GetSequenceID().IsValid())
+				{
+					// Ensure that this ID is resolvable from the root, based on the current local sequence ID
+					FMovieSceneObjectBindingID RootBindingID = PathSection->GetConstraintBindingID().ResolveLocalToRoot(SequenceID, Sequencer->GetEvaluationTemplate().GetHierarchy());
+					SequenceID = RootBindingID.GetSequenceID();
+				}
+
+				TArrayView<TWeakObjectPtr<UObject>> RuntimeObjects = Sequencer->FindBoundObjects(PathSection->GetConstraintBindingID().GetGuid(), SequenceID);
 				if (RuntimeObjects.Num() == 1 && RuntimeObjects[0].IsValid())
 				{
 					if (AActor* Actor = Cast<AActor>(RuntimeObjects[0].Get()))
@@ -53,13 +62,6 @@ public:
 		}
 
 		return FText::GetEmpty(); 
-	}
-
-	virtual void GenerateSectionLayout( class ISectionLayoutBuilder& LayoutBuilder ) const override
-	{
-		UMovieScene3DPathSection* PathSection = Cast<UMovieScene3DPathSection>( &Section );
-
-		LayoutBuilder.AddKeyArea("Timing", LOCTEXT("TimingArea", "Timing"), MakeShareable( new FFloatCurveKeyArea ( &PathSection->GetTimingCurve( ), PathSection ) ) );
 	}
 
 	virtual int32 OnPaintSection( FSequencerSectionPainter& InPainter ) const override 
@@ -113,8 +115,13 @@ TSharedRef<ISequencerSection> F3DPathTrackEditor::MakeSectionInterface( UMovieSc
 
 void F3DPathTrackEditor::BuildObjectBindingTrackMenu(FMenuBuilder& MenuBuilder, const FGuid& ObjectBinding, const UClass* ObjectClass)
 {
-	if (ObjectClass->IsChildOf(AActor::StaticClass()))
+	if (ObjectClass && ObjectClass->IsChildOf(AActor::StaticClass()))
 	{
+		if (MovieSceneToolHelpers::HasHiddenMobility(ObjectClass))
+		{
+			return;
+		}
+
 		UMovieSceneSection* DummySection = nullptr;
 
 		MenuBuilder.AddSubMenu(
@@ -135,7 +142,15 @@ bool F3DPathTrackEditor::IsActorPickable(const AActor* const ParentActor, FGuid 
 	UMovieScene3DPathSection* PathSection = Cast<UMovieScene3DPathSection>(InSection);
 	if (PathSection != nullptr)
 	{
-		TArrayView<TWeakObjectPtr<UObject>> RuntimeObjects = GetSequencer()->FindBoundObjects(PathSection->GetConstraintBindingID().GetGuid(), PathSection->GetConstraintBindingID().GetSequenceID());
+		FMovieSceneSequenceID SequenceID = GetSequencer()->GetFocusedTemplateID();
+		if (PathSection->GetConstraintBindingID().GetSequenceID().IsValid())
+		{
+			// Ensure that this ID is resolvable from the root, based on the current local sequence ID
+			FMovieSceneObjectBindingID RootBindingID = PathSection->GetConstraintBindingID().ResolveLocalToRoot(SequenceID, GetSequencer()->GetEvaluationTemplate().GetHierarchy());
+			SequenceID = RootBindingID.GetSequenceID();
+		}
+
+		TArrayView<TWeakObjectPtr<UObject>> RuntimeObjects = GetSequencer()->FindBoundObjects(PathSection->GetConstraintBindingID().GetGuid(), SequenceID);
 		
 		if (RuntimeObjects.Contains(ParentActor))
 		{
@@ -176,7 +191,7 @@ void F3DPathTrackEditor::ActorSocketPicked(const FName SocketName, USceneCompone
 		else if (ActorPickerID.ActorPicked.IsValid())
 		{
 			FGuid ParentActorId = FindOrCreateHandleToObject(ActorPickerID.ActorPicked.Get()).Handle;
-			ConstraintBindingID = FMovieSceneObjectBindingID(ParentActorId, MovieSceneSequenceID::Root);
+			ConstraintBindingID = FMovieSceneObjectBindingID(ParentActorId, MovieSceneSequenceID::Root, EMovieSceneObjectBindingSpace::Local);
 		}
 
 		if (ConstraintBindingID.IsValid())
@@ -195,7 +210,7 @@ void F3DPathTrackEditor::ActorSocketPicked(const FName SocketName, USceneCompone
 	}
 }
 
-FKeyPropertyResult F3DPathTrackEditor::AddKeyInternal( float KeyTime, const TArray<TWeakObjectPtr<UObject>> Objects, FActorPickerID ActorPickerID)
+FKeyPropertyResult F3DPathTrackEditor::AddKeyInternal( FFrameNumber KeyTime, const TArray<TWeakObjectPtr<UObject>> Objects, FActorPickerID ActorPickerID)
 {
 	FKeyPropertyResult KeyPropertyResult;
 
@@ -210,7 +225,7 @@ FKeyPropertyResult F3DPathTrackEditor::AddKeyInternal( float KeyTime, const TArr
 		FFindOrCreateHandleResult HandleResult = FindOrCreateHandleToObject(ActorPickerID.ActorPicked.Get());
 		FGuid ParentActorId = HandleResult.Handle;
 		KeyPropertyResult.bHandleCreated |= HandleResult.bWasCreated;
-		ConstraintBindingID = FMovieSceneObjectBindingID(ParentActorId, MovieSceneSequenceID::Root);
+		ConstraintBindingID = FMovieSceneObjectBindingID(ParentActorId, MovieSceneSequenceID::Root, EMovieSceneObjectBindingSpace::Local);
 	}
 
 	if (!ConstraintBindingID.IsValid())
@@ -234,12 +249,11 @@ FKeyPropertyResult F3DPathTrackEditor::AddKeyInternal( float KeyTime, const TArr
 			if (ensure(Track))
 			{
 				// Clamp to next path section's start time or the end of the current sequencer view range
-				float PathEndTime = GetSequencer()->GetViewRange().GetUpperBoundValue();
+				FFrameNumber PathEndTime = ( GetSequencer()->GetViewRange().GetUpperBoundValue() * Track->GetTypedOuter<UMovieScene>()->GetTickResolution() ).FrameNumber;
 	
-				for (int32 PathSectionIndex = 0; PathSectionIndex < Track->GetAllSections().Num(); ++PathSectionIndex)
+				for (UMovieSceneSection* Section : Track->GetAllSections())
 				{
-					float StartTime = Track->GetAllSections()[PathSectionIndex]->GetStartTime();
-					float EndTime = Track->GetAllSections()[PathSectionIndex]->GetEndTime();
+					FFrameNumber StartTime = Section->HasStartFrame() ? Section->GetInclusiveStartFrame() : TNumericLimits<int32>::Lowest();
 					if (KeyTime < StartTime)
 					{
 						if (PathEndTime > StartTime)
@@ -249,7 +263,8 @@ FKeyPropertyResult F3DPathTrackEditor::AddKeyInternal( float KeyTime, const TArr
 					}
 				}
 
-				Cast<UMovieScene3DPathTrack>(Track)->AddConstraint( KeyTime, PathEndTime, NAME_None, NAME_None, ConstraintBindingID );
+				int32 Duration = FMath::Max(0, (PathEndTime - KeyTime).Value);
+				Cast<UMovieScene3DPathTrack>(Track)->AddConstraint( KeyTime, Duration, NAME_None, NAME_None, ConstraintBindingID );
 				KeyPropertyResult.bTrackModified = true;
 			}
 		}

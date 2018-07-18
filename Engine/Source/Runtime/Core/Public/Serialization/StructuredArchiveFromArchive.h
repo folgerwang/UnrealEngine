@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "StructuredArchive.h"
+#include "Serialization/StructuredArchive.h"
 
 class CORE_API FStructuredArchiveFromArchive
 {

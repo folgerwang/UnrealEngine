@@ -3,8 +3,8 @@
 
 #include "CoreTypes.h"
 #include "Containers/UnrealString.h"
-#include "Map.h"
-#include "NameTypes.h"
+#include "Containers/Map.h"
+#include "UObject/NameTypes.h"
 
 /*
 	A helper object for counting instances of struct or classes for debugging

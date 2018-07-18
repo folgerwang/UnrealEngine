@@ -8,6 +8,7 @@
 #include "Widgets/DeclarativeSyntaxSupport.h"
 #include "Widgets/SCompoundWidget.h"
 #include "ISourceControlProvider.h"
+#include "SourceControlOperations.h"
 
 class SVerticalBox;
 class UBlueprint;

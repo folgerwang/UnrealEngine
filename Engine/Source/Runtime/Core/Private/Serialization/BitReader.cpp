@@ -121,7 +121,8 @@ FBitReader::FBitReader(uint8* Src, int64 CountBits)
 {
 	Buffer.AddUninitialized((CountBits + 7) >> 3);
 
-	ArIsPersistent = ArIsLoading = 1;
+	this->SetIsLoading(true);
+	this->SetIsPersistent(true);
 
 	// This class is exclusively used by the netcode
 	ArIsNetArchive = true;
@@ -144,8 +145,8 @@ void FBitReader::SetData( FBitReader& Src, int64 CountBits )
 	ArIsError	= 0;
 
 	// Setup network version
-	ArEngineNetVer	= Src.ArEngineNetVer;
-	ArGameNetVer	= Src.ArGameNetVer;
+	this->SetEngineNetVer(Src.EngineNetVer());
+	this->SetGameNetVer(Src.GameNetVer());
 
 	Buffer.Empty();
 	Buffer.AddUninitialized( (CountBits+7)>>3 );
@@ -188,6 +189,24 @@ void FBitReader::SetOverflowed(int32 LengthBits)
 			LengthBits, (Num - Pos), Num);
 
 	ArIsError = 1;
+}
+
+void FBitReader::SerializeBitsWithOffset( void* Dest, int32 DestBit, int64 LengthBits )
+{
+	if ( IsError() || Pos+LengthBits > Num)
+	{
+		if (!IsError())
+		{
+			SetOverflowed(LengthBits);
+		}
+		return;
+	}
+
+	if (LengthBits != 0)
+	{
+		appBitsCpy((uint8*)Dest, DestBit, Buffer.GetData(), Pos, LengthBits);
+		Pos += LengthBits;
+	}
 }
 
 /*-----------------------------------------------------------------------------

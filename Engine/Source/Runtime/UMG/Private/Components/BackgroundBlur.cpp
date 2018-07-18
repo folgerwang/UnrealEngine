@@ -1,15 +1,15 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "BackgroundBlur.h"
+#include "Components/BackgroundBlur.h"
 #include "HAL/IConsoleManager.h"
 #include "Widgets/SCompoundWidget.h"
 #include "Widgets/DeclarativeSyntaxSupport.h"
 #include "Rendering/RenderingCommon.h"
 #include "Rendering/DrawElements.h"
 #include "Brushes/SlateNoResource.h"
-#include "SBackgroundBlur.h"
-#include "BackgroundBlurSlot.h"
-#include "EditorObjectVersion.h"
+#include "Widgets/Layout/SBackgroundBlur.h"
+#include "Components/BackgroundBlurSlot.h"
+#include "UObject/EditorObjectVersion.h"
 #include "ObjectEditorUtils.h"
 
 #define LOCTEXT_NAMESPACE "UMG"

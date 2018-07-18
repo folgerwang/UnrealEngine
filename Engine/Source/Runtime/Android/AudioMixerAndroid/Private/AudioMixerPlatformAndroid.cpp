@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AudioMixerPlatformAndroid.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "AudioMixer.h"
 #include "AudioMixerDevice.h"
 #include "CoreGlobals.h"
@@ -41,7 +41,9 @@ DEFINE_LOG_CATEGORY(LogAudioMixerAndroid);
 		AUDIO_PLATFORM_ERROR(ErrorString);					\
 	}
 
+#if USE_ANDROID_JNI
 extern int32 AndroidThunkCpp_GetMetaDataInt(const FString& Key);
+#endif
 
 namespace Audio
 {	
@@ -161,6 +163,7 @@ namespace Audio
 
 	bool FMixerPlatformAndroid::GetOutputDeviceInfo(const uint32 InDeviceIndex, FAudioPlatformDeviceInfo& OutInfo)
 	{
+#if USE_ANDROID_JNI
 		OutInfo.Name = TEXT("Android Audio Device");
 		OutInfo.DeviceId = 0;
 		OutInfo.bIsSystemDefault = true;
@@ -171,6 +174,10 @@ namespace Audio
 		OutInfo.OutputChannelArray[0] = EAudioMixerChannel::FrontLeft;
 		OutInfo.OutputChannelArray[1] = EAudioMixerChannel::FrontRight;
 		return true;
+#else
+		// @todo Lumin: implement this function
+		return false;
+#endif
 	}
 
 	bool FMixerPlatformAndroid::GetDefaultOutputDeviceIndex(uint32& OutDefaultDeviceIndex) const
@@ -313,6 +320,7 @@ namespace Audio
  	{
 		FAudioPlatformSettings PlatformSettings = FAudioPlatformSettings::GetPlatformSettings(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"));
 
+#if USE_ANDROID_JNI
 		// Override with platform-specific frames per buffer size
 		int32 MinFramesPerBuffer = AndroidThunkCpp_GetMetaDataInt(TEXT("audiomanager.framesPerBuffer"));
 
@@ -323,7 +331,9 @@ namespace Audio
 		}
 
 		PlatformSettings.CallbackBufferFrameSize = BufferSizeToUse;
-
+#else
+		// @todo Lumin: implement this?
+#endif
 		return PlatformSettings;
 	}
 

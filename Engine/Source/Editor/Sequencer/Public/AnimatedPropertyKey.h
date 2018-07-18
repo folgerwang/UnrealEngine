@@ -3,8 +3,8 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "UnrealType.h"
-#include "SubclassOf.h"
+#include "UObject/UnrealType.h"
+#include "Templates/SubclassOf.h"
 
 struct FAnimatedPropertyKey
 {

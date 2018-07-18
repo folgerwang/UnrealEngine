@@ -40,7 +40,13 @@ void UPendingNetGame::InitNetDriver()
 		{
 			NetDriver = GEngine->FindNamedNetDriver(this, NAME_PendingNetDriver);
 		}
-		check(NetDriver);
+
+		if (NetDriver == nullptr)
+		{
+			UE_LOG(LogNet, Warning, TEXT("Error initializing the pending net driver.  Check the configuration of NetDriverDefinitions and make sure module/plugin dependencies are correct."));
+			ConnectionError = NSLOCTEXT("Engine", "NetworkDriverInit", "Error creating network driver.").ToString();
+			return;
+		}
 
 		if( NetDriver->InitConnect( this, URL, ConnectionError ) )
 		{
@@ -144,7 +150,7 @@ void UPendingNetGame::LoadMapCompleted(UEngine* Engine, FWorldContext& Context, 
 		// Show connecting message, cause precaching to occur.
 		Engine->TransitionType = TT_Connecting;
 
-		Engine->RedrawViewports();
+		Engine->RedrawViewports(false);
 
 		// Send join.
 		Context.PendingNetGame->SendJoin();
@@ -368,7 +374,7 @@ void UPendingNetGame::FinalizeEncryptedConnection(const FEncryptionKeyResponse& 
 			else
 			{
 				// This error will be resolved in TickWorldTravel()
-				FString ResponseStr(Lex::ToString(Response.Response));
+				FString ResponseStr(LexToString(Response.Response));
 				UE_LOG(LogNet, Warning, TEXT("UPendingNetGame::FinalizeEncryptedConnection: encryption failure [%s] %s"), *ResponseStr, *Response.ErrorMsg);
 				ConnectionError = TEXT("Encryption ack failure");
 				Connection->Close();
@@ -412,7 +418,7 @@ void UPendingNetGame::SetEncryptionKey(const FEncryptionKeyResponse& Response)
 				else
 				{
 					// This error will be resolved in TickWorldTravel()
-					FString ResponseStr(Lex::ToString(Response.Response));
+					FString ResponseStr(LexToString(Response.Response));
 					UE_LOG(LogNet, Warning, TEXT("UPendingNetGame::SetEncryptionKey: encryption failure [%s] %s"), *ResponseStr, *Response.ErrorMsg);
 					ConnectionError = TEXT("Encryption failure");
 					Connection->Close();

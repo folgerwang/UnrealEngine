@@ -54,7 +54,7 @@ public:
 private:
 
 	/** Delegate for AnimatablePropertyChanged in AddKey */
-	FKeyPropertyResult AddKeyInternal(float KeyTime, const TArray<TWeakObjectPtr<UObject>> Objects, TSubclassOf<UCameraShake> ShakeClass);
+	FKeyPropertyResult AddKeyInternal(FFrameNumber KeyTime, const TArray<TWeakObjectPtr<UObject>> Objects, TSubclassOf<UCameraShake> ShakeClass);
 
 	/** Animation sub menu */
 	TSharedRef<SWidget> BuildCameraShakeSubMenu(FGuid ObjectBinding);
@@ -62,6 +62,9 @@ private:
 
 	/** Animation asset selected */
 	void OnCameraShakeAssetSelected(const FAssetData& AssetData, FGuid ObjectBinding);
+
+	/** Animation asset enter pressed */
+	void OnCameraShakeAssetEnterPressed(const TArray<FAssetData>& AssetData, FGuid ObjectBinding);
 
 	class UCameraComponent* AcquireCameraComponentFromObjectGuid(const FGuid& Guid);
 };

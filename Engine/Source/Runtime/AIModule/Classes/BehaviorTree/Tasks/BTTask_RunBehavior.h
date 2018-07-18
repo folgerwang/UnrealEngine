@@ -42,6 +42,9 @@ protected:
 	/** behavior to run */
 	UPROPERTY(Category = Node, EditAnywhere)
 	UBehaviorTree* BehaviorAsset;
+
+	/** called when subtree is removed from active stack */
+	virtual void OnSubtreeDeactivated(UBehaviorTreeComponent& OwnerComp, EBTNodeResult::Type NodeResult);
 };
 
 //////////////////////////////////////////////////////////////////////////

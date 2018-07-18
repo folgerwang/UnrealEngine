@@ -19,6 +19,7 @@ import com.android.vending.billing.util.Base64;
 import com.android.vending.billing.IInAppBillingService;
 import com.android.vending.billing.util.Purchase;
 import java.util.ArrayList;
+import java.util.List;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -50,6 +51,9 @@ public class GooglePlayStoreHelper implements StoreHelper
 	public static final String RESPONSE_INAPP_SIGNATURE_LIST = "INAPP_DATA_SIGNATURE_LIST";
 	public static final String INAPP_CONTINUATION_TOKEN = "INAPP_CONTINUATION_TOKEN";
 
+    // Max number of offers to query at once (see getSkuDetails in IInAppbillingServer.aidl)
+	public static final int QueryPurchaseMaxCount = 20;
+
 	// Item types
 	public static final String ITEM_TYPE_INAPP = "inapp";
 
@@ -73,6 +77,22 @@ public class GooglePlayStoreHelper implements StoreHelper
 
 	private final int UndefinedFailureResponse = -1;
 
+	private class GooglePlayProductDescription
+	{
+		// Product offer id 
+		public String id;
+		// Product friendly name
+		public String title;
+		// Product description
+		public String description;
+		// Currency friendly string 
+		public String price;
+		// Raw price in currency units
+		public Float priceRaw;
+		// Local currency code
+		public String currencyCode;
+	}
+
 	public interface PurchaseLaunchCallback
 	{
 		void launchForResult(PendingIntent pendingIntent, int requestCode);
@@ -88,13 +108,13 @@ public class GooglePlayStoreHelper implements StoreHelper
 
 		gameActivity = InGameActivity;
 		productKey = InProductKey;
-		
+
 		Intent serviceIntent = new Intent("com.android.vending.billing.InAppBillingService.BIND");
 		serviceIntent.setPackage("com.android.vending");
 		gameActivity.bindService(serviceIntent, mServiceConn, Context.BIND_AUTO_CREATE);
 	}
 
-	
+
 	///////////////////////////////////////////////////////
 	// The StoreHelper interfaces implementation for Google Play Store.
 
@@ -113,87 +133,129 @@ public class GooglePlayStoreHelper implements StoreHelper
 	public boolean QueryInAppPurchases(String[] InProductIDs)
 	{
 		Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::QueryInAppPurchases");
-		ArrayList<String> skuList = new ArrayList<String> ();
-		
-		for (String productId : InProductIDs)
+
+		if (InProductIDs.length > 0)
 		{
-			Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::QueryInAppPurchases - Querying " + productId);
-			skuList.add(productId);
-		}
+			ArrayList<String> skuList = new ArrayList<String>(InProductIDs.length);
 
-		Bundle querySkus = new Bundle();
-		querySkus.putStringArrayList(GET_SKU_DETAILS_ITEM_LIST, skuList);
-
-		try
-		{
-			Bundle skuDetails = mService.getSkuDetails(3, gameActivity.getPackageName(), ITEM_TYPE_INAPP, querySkus);
-
-			int response = skuDetails.getInt(RESPONSE_CODE);
-			Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::QueryInAppPurchases - Response " + response + " Bundle:" + skuDetails.toString());
-			if (response == BILLING_RESPONSE_RESULT_OK)
+			for (String productId : InProductIDs)
 			{
-				ArrayList<String> productIds = new ArrayList<String>();
-				ArrayList<String> titles = new ArrayList<String>();
-				ArrayList<String> descriptions = new ArrayList<String>();
-				ArrayList<String> prices = new ArrayList<String>();
-				ArrayList<Float> pricesRaw = new ArrayList<Float>();
-				ArrayList<String> currencyCodes = new ArrayList<String>();
+				Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::QueryInAppPurchases - Querying " + productId);
+				skuList.add(productId);
+			}
 
-				ArrayList<String> responseList = skuDetails.getStringArrayList(RESPONSE_GET_SKU_DETAILS_LIST);
-				for (String thisResponse : responseList)
+			ArrayList<String> productIds = new ArrayList<String>();
+			ArrayList<String> titles = new ArrayList<String>();
+			ArrayList<String> descriptions = new ArrayList<String>();
+			ArrayList<String> prices = new ArrayList<String>();
+			ArrayList<Float> pricesRaw = new ArrayList<Float>();
+			ArrayList<String> currencyCodes = new ArrayList<String>();
+
+			while (skuList.size() > 0)
+			{
+				Log.debug("[GooglePlayStoreHelper] - NumSkus: " + skuList.size());
+				int numSkus = Math.min(QueryPurchaseMaxCount, skuList.size());
+				Log.debug("[GooglePlayStoreHelper] - Grabbing from 0 to " + numSkus);
+				List<String> skuSubList = skuList.subList(0, numSkus);
+				ArrayList<String> realSubList = new ArrayList<String>(skuSubList);
+				ArrayList<GooglePlayProductDescription> productDescriptions = new ArrayList<GooglePlayProductDescription>();
+
+				int response = QueryInAppPurchasesInternal(realSubList, productDescriptions);
+				if (response == BILLING_RESPONSE_RESULT_OK)
 				{
-					JSONObject object = new JSONObject(thisResponse);
-				
-					String productId = object.getString("productId");
-					productIds.add(productId);
-					Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::QueryInAppPurchases - Parsing details for: " + productId);
-				
-					String title = object.getString("title");
-					titles.add(title);
-					Log.debug("[GooglePlayStoreHelper] - title: " + title);
+					for (GooglePlayProductDescription product : productDescriptions)
+					{
+						productIds.add(product.id);
+						Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::QueryInAppPurchases - Parsing details for: " + product.id);
 
-					String description = object.getString("description");
-					descriptions.add(description);
-					Log.debug("[GooglePlayStoreHelper] - description: " + description);
+						titles.add(product.title);
+						Log.debug("[GooglePlayStoreHelper] - title: " + product.title);
 
-					String price = object.getString("price");
-					prices.add(price);
-					Log.debug("[GooglePlayStoreHelper] - price: " + price);
+						descriptions.add(product.description);
+						Log.debug("[GooglePlayStoreHelper] - description: " + product.description);
 
-					double priceRaw = object.getDouble("price_amount_micros") / 1000000.0;
-					pricesRaw.add((float)priceRaw);
-					Log.debug("[GooglePlayStoreHelper] - price_amount_micros: " + priceRaw);
+						prices.add(product.price);
+						Log.debug("[GooglePlayStoreHelper] - price: " + product.price);
 
-					String currencyCode = object.getString("price_currency_code");
-					currencyCodes.add(currencyCode);
-					Log.debug("[GooglePlayStoreHelper] - price_currency_code: " + currencyCode);
+						pricesRaw.add(product.priceRaw);
+						Log.debug("[GooglePlayStoreHelper] - price_amount_micros: " + product.priceRaw);
+
+						currencyCodes.add(product.currencyCode);
+						Log.debug("[GooglePlayStoreHelper] - price_currency_code: " + product.currencyCode);
+					}
+				}
+				else
+				{
+					Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::QueryInAppPurchases - Failed with: " + response);
+					// If anything fails right now, stop immediately, not sure how to reconcile partial success/failure
+					nativeQueryComplete(response, null, null, null, null, null, null);
+					return false;
 				}
 
-				float[] pricesRawPrimitive = new float[pricesRaw.size()];
-				for (int i = 0; i < pricesRaw.size(); i++)
-				{
-					pricesRawPrimitive[i] = pricesRaw.get(i);
-				}
+				skuSubList.clear();
+			}
 
-				Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::QueryInAppPurchases " + productIds.size() + " items - Success!");
-				nativeQueryComplete(response, productIds.toArray(new String[productIds.size()]), titles.toArray(new String[titles.size()]), descriptions.toArray(new String[descriptions.size()]), prices.toArray(new String[prices.size()]), pricesRawPrimitive, currencyCodes.toArray(new String[currencyCodes.size()]));
-				Log.debug("[GooglePlayStoreHelper] - nativeQueryComplete done!");
-			}
-			else
+			float[] pricesRawPrimitive = new float[pricesRaw.size()];
+			for (int i = 0; i < pricesRaw.size(); i++)
 			{
-				Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::QueryInAppPurchases - Failed!");
-				nativeQueryComplete(response, null, null, null, null, null, null);
+				pricesRawPrimitive[i] = pricesRaw.get(i);
 			}
+
+			Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::QueryInAppPurchases " + productIds.size() + " items - Success!");
+			nativeQueryComplete(BILLING_RESPONSE_RESULT_OK, productIds.toArray(new String[productIds.size()]), titles.toArray(new String[titles.size()]), descriptions.toArray(new String[descriptions.size()]), prices.toArray(new String[prices.size()]), pricesRawPrimitive, currencyCodes.toArray(new String[currencyCodes.size()]));
+			Log.debug("[GooglePlayStoreHelper] - nativeQueryComplete done!");
 		}
-		catch(Exception e)
+		else
 		{
-			Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::QueryInAppPurchases - Failed! " + e.getMessage());
+			// nothing to query
+			Log.debug("[GooglePlayStoreHelper] - no products given to query");
 			nativeQueryComplete(UndefinedFailureResponse, null, null, null, null, null, null);
 		}
 
 		return true;
 	}
-	
+
+	public int QueryInAppPurchasesInternal(ArrayList<String> skuList, ArrayList<GooglePlayProductDescription> outProducts)
+	{
+		Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::QueryInAppPurchasesInternal");
+
+		Bundle querySkus = new Bundle();
+		querySkus.putStringArrayList(GET_SKU_DETAILS_ITEM_LIST, skuList);
+
+		int response = UndefinedFailureResponse;
+		try
+		{
+			Bundle skuDetails = mService.getSkuDetails(3, gameActivity.getPackageName(), ITEM_TYPE_INAPP, querySkus);
+
+			response = skuDetails.getInt(RESPONSE_CODE);
+			Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::QueryInAppPurchases - Response " + response + " Bundle:" + skuDetails.toString());
+			if (response == BILLING_RESPONSE_RESULT_OK)
+			{
+				ArrayList<String> responseList = skuDetails.getStringArrayList(RESPONSE_GET_SKU_DETAILS_LIST);
+				for (String thisResponse : responseList)
+				{
+					JSONObject object = new JSONObject(thisResponse);
+
+					GooglePlayProductDescription newDescription = new GooglePlayProductDescription();
+					newDescription.id = object.getString("productId");
+					newDescription.title = object.getString("title");
+					newDescription.description = object.getString("description");
+					newDescription.price = object.getString("price");
+					double priceRaw = object.getDouble("price_amount_micros") / 1000000.0;
+					newDescription.priceRaw = (float)priceRaw;
+					newDescription.currencyCode = object.getString("price_currency_code");
+					outProducts.add(newDescription);
+				}
+			}
+		}
+		catch(Exception e)
+		{
+			Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::QueryInAppPurchasesInternal - Failed! " + e.getMessage());
+		}
+
+		return response;
+	}
+
 	/**
 	 * Start the purchase flow for a particular sku
 	 */
@@ -215,7 +277,7 @@ public class GooglePlayStoreHelper implements StoreHelper
 				{
 					Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::BeginPurchase - v7 VR purchase" + ProductID);
 					buyIntentBundle = mService.getBuyIntentExtraParams(7, gameActivity.getPackageName(), ProductID, ITEM_TYPE_INAPP, devPayload, bundle);
-				} 
+				}
 				else
 				{
 					Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::BeginPurchase - v3 IAB purchase:" + ProductID);
@@ -275,8 +337,8 @@ public class GooglePlayStoreHelper implements StoreHelper
 		ArrayList<String> ownedSkus = new ArrayList<String>();
 		ArrayList<String> purchaseDataList = new ArrayList<String>();
 		ArrayList<String> signatureList = new ArrayList<String>();
-		
-		// On first pass the continuation token should be null. 
+
+		// On first pass the continuation token should be null.
 		// This will allow us to gather large sets of purchased items recursively
 		int responseCode = GatherOwnedPurchaseData(ownedSkus, purchaseDataList, signatureList, null);
 		if (responseCode == BILLING_RESPONSE_RESULT_OK)
@@ -315,7 +377,7 @@ public class GooglePlayStoreHelper implements StoreHelper
 
 								boolean bTryToConsume = false;
 								int consumeResponse = 0;
-							
+
 								// This is assuming that all purchases should be consumed. Consuming a purchase that is meant to be a one-time purchase makes it so the
 								// user is able to buy it again. Also, it makes it so the purchase will not be able to be restored again in the future.
 
@@ -385,8 +447,8 @@ public class GooglePlayStoreHelper implements StoreHelper
 		ArrayList<String> ownedSkus = new ArrayList<String>();
 		ArrayList<String> purchaseDataList = new ArrayList<String>();
 		ArrayList<String> signatureList = new ArrayList<String>();
-		
-		// On first pass the continuation token should be null. 
+
+		// On first pass the continuation token should be null.
 		// This will allow us to gather large sets of purchased items recursively
 		int responseCode = GatherOwnedPurchaseData(ownedSkus, purchaseDataList, signatureList, null);
 		if (responseCode == BILLING_RESPONSE_RESULT_OK)
@@ -408,7 +470,7 @@ public class GooglePlayStoreHelper implements StoreHelper
 
 					String receipt = Base64.encode(purchase.getOriginalJson().getBytes());
 					receipts.add(receipt);
-				}			
+				}
 				catch (JSONException e)
 				{
 					Log.debug("[GooglePlayStoreHelper] - GooglePlayStoreHelper::QueryExistingPurchases - Failed to parse receipt! " + e.getMessage());
@@ -482,13 +544,13 @@ public class GooglePlayStoreHelper implements StoreHelper
 			mService = IInAppBillingService.Stub.asInterface(service);
 			bIsIapSetup = true;
 
-			try 
+			try
 			{
                 Log.debug("Checking for in-app billing 3 support.");
 
                 // check for in-app billing v3 support
                 int response = mService.isBillingSupported(3, gameActivity.getPackageName(), ITEM_TYPE_INAPP);
-                if (response != BILLING_RESPONSE_RESULT_OK) 
+                if (response != BILLING_RESPONSE_RESULT_OK)
 				{
 					Log.debug("In-app billing version 3 NOT supported for " + gameActivity.getPackageName() + " error " + response);
                 }
@@ -505,10 +567,10 @@ public class GooglePlayStoreHelper implements StoreHelper
 		}
 	};
 
-	
+
 	///////////////////////////////////////////////////////
 	// Game Activity/Context driven methods we need to listen for.
-	
+
 	/**
 	 * On Destory we should unbind our IInAppBillingService service
 	 */
@@ -521,7 +583,7 @@ public class GooglePlayStoreHelper implements StoreHelper
 			gameActivity.unbindService(mServiceConn);
 		}
 	}
-	
+
 	/**
 	 * Route taken by the Purchase workflow. We listen for our purchaseIntentIdentifier request code and
 	 * handle the response accordingly
@@ -532,7 +594,7 @@ public class GooglePlayStoreHelper implements StoreHelper
 
 		if (requestCode == purchaseIntentIdentifier)
 		{
-		    if (data == null) 
+		    if (data == null)
 			{
 				Log.debug("Null data in purchase activity result.");
 				nativePurchaseComplete(UndefinedFailureResponse, "", "", "", "");
@@ -612,10 +674,10 @@ public class GooglePlayStoreHelper implements StoreHelper
 		return false;
 	}
 
-	
+
 	///////////////////////////////////////////////////////
 	// Internal helper functions that deal assist with various IAB related events
-	
+
 	/**
 	 * Create a UE4 specific unique string that will be used to verify purchases are legit.
 	 */
@@ -623,7 +685,7 @@ public class GooglePlayStoreHelper implements StoreHelper
 	{
 		return "ue4." + ProductId;
 	}
-	
+
 	/**
 	 * Check the returned payload matches one for the product we are buying.
 	 */
@@ -635,7 +697,7 @@ public class GooglePlayStoreHelper implements StoreHelper
 
 		return ExistingPayload.equals(GeneratedPayload);
 	}
-	
+
 	/**
 	 * Get a text tranlation of the Response Codes returned by google play.
 	 */
@@ -666,7 +728,7 @@ public class GooglePlayStoreHelper implements StoreHelper
 				return "Unknown Server Response Code";
 		}
 	}
-	
+
 	/**
 	 * Recursive functionality to gather all of the purchases owned by a user.
 	 * if the user owns a lot of products then we need to getPurchases again with a continuationToken

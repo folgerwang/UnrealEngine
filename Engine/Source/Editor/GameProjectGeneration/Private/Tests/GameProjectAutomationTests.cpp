@@ -13,7 +13,7 @@
 #include "LevelEditorViewport.h"
 #include "FileHelpers.h"
 #include "ProjectDescriptor.h"
-#include "Private/IContentSource.h"
+#include "Editor/AddContentDialog/Private/IContentSource.h"
 #include "GameProjectUtils.h"
 #include "Editor/GameProjectGeneration/Private/SNewProjectWizard.h"
 
@@ -184,7 +184,7 @@ namespace GameProjectAutomationUtils
 						OutCreatedProjects++;
 						
 						// Now remove the files we just created (if required)
-						if(bRemoveCreatedProjects == true)						
+						if(bRemoveCreatedProjects == true) //-V547
 						{
 							FString RootFolder = FPaths::GetPath(DesiredProjectFilename);
 							GameProjectUtils::DeleteCreatedFiles(RootFolder, CreatedFiles);

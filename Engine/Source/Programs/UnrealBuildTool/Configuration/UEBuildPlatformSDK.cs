@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -7,6 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Tools.DotNETCommon;
 
 namespace UnrealBuildTool
 {
@@ -145,9 +146,28 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Returns path to platform SDKs
+		/// </summary>
+		/// <returns>Valid SDK string</returns>
+		public static bool TryGetHostPlatformAutoSDKDir(out DirectoryReference OutPlatformDir)
+		{
+			string SDKRoot = Environment.GetEnvironmentVariable(SDKRootEnvVar);
+			if (String.IsNullOrEmpty(SDKRoot))
+			{
+				OutPlatformDir = null;
+				return false;
+			}
+			else
+			{
+				OutPlatformDir = DirectoryReference.Combine(new DirectoryReference(SDKRoot), "Host" + BuildHostPlatform.Current.Platform);
+				return true;
+			}
+		}
+
+		/// <summary>
 		/// Because most ManualSDK determination depends on reading env vars, if this process is spawned by a process that ALREADY set up
 		/// AutoSDKs then all the SDK env vars will exist, and we will spuriously detect a Manual SDK. (children inherit the environment of the parent process).
-		/// Therefore we write out an env var to set in the command file (OutputEnvVars.txt) such that child processes can determine if their manual SDK detection
+		/// Therefore we write out an env variable to set in the command file (OutputEnvVars.txt) such that child processes can determine if their manual SDK detection
 		/// is bogus.  Make it platform specific so that platforms can be in different states.
 		/// </summary>
 		protected string GetPlatformAutoSDKSetupEnvVar()
@@ -306,12 +326,28 @@ namespace UnrealBuildTool
 		/// <param name="Hook">Hook type</param>
 		protected virtual string GetHookExecutableName(SDKHookType Hook)
 		{
-			if (Hook == SDKHookType.Uninstall)
+			if(BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64)
 			{
-				return "unsetup.bat";
+				if (Hook == SDKHookType.Uninstall)
+				{
+					return "unsetup.bat";
+				}
+				else
+				{
+					return "setup.bat";
+				}
 			}
-
-			return "setup.bat";
+			else
+			{
+				if (Hook == SDKHookType.Uninstall)
+				{
+					return "unsetup.sh";
+				}
+				else
+				{
+					return "setup.sh";
+				}
+			}
 		}
 
 		/// <summary>
@@ -438,7 +474,7 @@ namespace UnrealBuildTool
 							{
 								bNeedsToWriteAutoSetupEnvVar = false;
 							}
-							// convenience for setup.bat writers.  Trim any accidental whitespace from var names/values.
+							// convenience for setup.bat writers.  Trim any accidental whitespace from variable names/values.
 							EnvVarNames.Add(Parts[0].Trim());
 							EnvVarValues.Add(Parts[1].Trim());
 						}
@@ -517,7 +553,7 @@ namespace UnrealBuildTool
 
 					Reader.Close();
 
-					// write out env var command so any process using this commandfile will mark itself as having had autosdks set up.
+					// write out environment variable command so any process using this commandfile will mark itself as having had autosdks set up.
 					// avoids child processes spuriously detecting manualsdks.
 					if (bNeedsToWriteAutoSetupEnvVar)
 					{
@@ -525,7 +561,7 @@ namespace UnrealBuildTool
 						{
 							Writer.WriteLine("{0}=1", PlatformSetupEnvVar);
 						}
-						// set the var in the local environment in case this process spawns any others.
+						// set the variable in the local environment in case this process spawns any others.
 						Environment.SetEnvironmentVariable(PlatformSetupEnvVar, "1");
 					}
 
@@ -572,7 +608,7 @@ namespace UnrealBuildTool
 		/// Currently installed AutoSDK is written out to a text file in a known location.
 		/// This function just compares the file's contents with the current requirements.
 		/// </summary>
-		protected SDKStatus HasRequiredAutoSDKInstalled()
+		public SDKStatus HasRequiredAutoSDKInstalled()
 		{
 			if (PlatformSupportsAutoSDKs() && HasAutoSDKSystemEnabled())
 			{
@@ -625,7 +661,7 @@ namespace UnrealBuildTool
 			return bParentProcessSetupAutoSDK;
 		}
 
-		protected SDKStatus HasRequiredManualSDK()
+		public SDKStatus HasRequiredManualSDK()
 		{
 			if (HasSetupAutoSDK())
 			{

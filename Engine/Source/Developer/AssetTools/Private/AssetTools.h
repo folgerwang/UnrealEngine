@@ -14,6 +14,7 @@ class FMenuBuilder;
 class IClassTypeActions;
 class UAutomatedAssetImportData;
 class UFactory;
+class UAssetImportTask;
 
 /** Parameters for importing specific set of files */
 struct FAssetImportParams
@@ -21,6 +22,7 @@ struct FAssetImportParams
 	FAssetImportParams()
 		: SpecifiedFactory(nullptr)
 		, ImportData(nullptr)
+		, AssetImportTask(nullptr)
 		, bSyncToBrowser(true)
 		, bForceOverrideExisting(false)
 		, bAutomated(false)
@@ -30,6 +32,8 @@ struct FAssetImportParams
 	UFactory* SpecifiedFactory;
 	/** Data used to determine rules for importing assets through the automated command line interface */
 	const UAutomatedAssetImportData* ImportData;
+	/** Script exposed rules and state for importing assets */
+	const UAssetImportTask* AssetImportTask;
 	/** Whether or not to sync the content browser to the assets after import */
 	bool bSyncToBrowser : 1;
 	/** Whether or not we are forcing existing assets to be overriden without asking */
@@ -78,6 +82,7 @@ public:
 	virtual TArray<UObject*> ImportAssetsWithDialog(const FString& DestinationPath) override;
 	virtual TArray<UObject*> ImportAssets(const TArray<FString>& Files, const FString& DestinationPath, UFactory* ChosenFactory, bool bSyncToBrowser = true, TArray<TPair<FString, FString>>* FilesAndDestinations = nullptr) const override;
 	virtual TArray<UObject*> ImportAssetsAutomated(const UAutomatedAssetImportData* ImportData) const override;
+	virtual void ImportAssetTasks(const TArray<UAssetImportTask*>& ImportTasks) const override;
 	virtual void ExportAssets(const TArray<FString>& AssetsToExport, const FString& ExportPath) const override;
 	virtual void ExportAssets(const TArray<UObject*>& AssetsToExport, const FString& ExportPath) const override;
 	virtual void ExportAssetsWithDialog(const TArray<UObject*>& AssetsToExport, bool bPromptForIndividualFilenames) const override;

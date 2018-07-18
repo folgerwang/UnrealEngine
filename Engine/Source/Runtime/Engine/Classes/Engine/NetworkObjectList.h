@@ -122,7 +122,7 @@ public:
 	 *
 	 * If info cannot be found or created, nullptr will be returned.
 	 */
-	TSharedPtr<FNetworkObjectInfo>* FindOrAdd(AActor* const Actor, const FName NetDriverName);
+	TSharedPtr<FNetworkObjectInfo>* FindOrAdd(AActor* const Actor, const FName NetDriverName, bool* OutWasAdded=nullptr);
 
 	/**
 	 * Attempts to find the Actor's FNetworkObjectInfo.

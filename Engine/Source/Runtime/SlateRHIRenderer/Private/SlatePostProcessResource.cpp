@@ -85,9 +85,3 @@ void FSlatePostProcessResource::ReleaseDynamicRHI()
 	RenderTargets.Empty();
 }
 
-void FSlatePostProcessResource::FinishCleanup()
-{
-	delete this;
-}
-
-

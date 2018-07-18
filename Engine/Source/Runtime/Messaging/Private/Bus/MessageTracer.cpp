@@ -1,8 +1,8 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Bus/MessageTracer.h"
-#include "HAL/PlatformProcess.h"
 #include "Containers/Ticker.h"
+#include "HAL/PlatformProcess.h"
 #include "IMessageInterceptor.h"
 #include "IMessageReceiver.h"
 #include "IMessageTracerBreakpoint.h"
@@ -446,6 +446,8 @@ void FMessageTracer::Stop()
 
 bool FMessageTracer::Tick(float DeltaTime)
 {
+    QUICK_SCOPE_CYCLE_COUNTER(STAT_FMessageTracer_Tick);
+
 	if (ResetPending)
 	{
 		ResetMessages();
@@ -490,16 +492,19 @@ void FMessageTracer::ResetMessages()
 
 bool FMessageTracer::ShouldBreak(const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context) const
 {
-	if (Breaking)
+	if (FPlatformProcess::SupportsMultithreading())
 	{
-		return true;
-	}
-
-	for (const auto& Breakpoint : Breakpoints)
-	{
-		if (Breakpoint->IsEnabled() && Breakpoint->ShouldBreak(Context))
+		if (Breaking)
 		{
 			return true;
+		}
+
+		for (const auto& Breakpoint : Breakpoints)
+		{
+			if (Breakpoint->IsEnabled() && Breakpoint->ShouldBreak(Context))
+			{
+				return true;
+			}
 		}
 	}
 

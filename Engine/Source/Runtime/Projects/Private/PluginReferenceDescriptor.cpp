@@ -61,6 +61,29 @@ bool FPluginReferenceDescriptor::IsEnabledForTarget(const FString& Target) const
     return true;
 }
 
+bool FPluginReferenceDescriptor::IsEnabledForTargetConfiguration(const FString& TargetConfiguration) const
+{
+	// If it's not enabled at all, return false
+	if (!bEnabled)
+	{
+		return false;
+	}
+
+	// If there is a list of whitelisted target configurations, and this isn't one of them, return false
+	if (WhitelistTargetConfigurations.Num() > 0 && !WhitelistTargetConfigurations.Contains(TargetConfiguration))
+	{
+		return false;
+	}
+
+	// If this target configuration is blacklisted, also return false
+	if (BlacklistTargetConfigurations.Contains(TargetConfiguration))
+	{
+		return false;
+	}
+
+	return true;
+}
+
 bool FPluginReferenceDescriptor::IsSupportedTargetPlatform(const FString& Platform) const
 {
 	return SupportedTargetPlatforms.Num() == 0 || SupportedTargetPlatforms.Contains(Platform);
@@ -92,6 +115,10 @@ bool FPluginReferenceDescriptor::Read( const FJsonObject& Object, FText& OutFail
 	// Get the platform lists
 	Object.TryGetStringArrayField(TEXT("WhitelistPlatforms"), WhitelistPlatforms);
 	Object.TryGetStringArrayField(TEXT("BlacklistPlatforms"), BlacklistPlatforms);
+
+	// Get the target configuration lists
+	Object.TryGetStringArrayField(TEXT("WhitelistTargetConfigurations"), WhitelistTargetConfigurations);
+	Object.TryGetStringArrayField(TEXT("BlacklistTargetConfigurations"), BlacklistTargetConfigurations);
 
 	// Get the target lists
 	Object.TryGetStringArrayField(TEXT("WhitelistTargets"), WhitelistTargets);
@@ -172,6 +199,30 @@ void FPluginReferenceDescriptor::Write( TJsonWriter<>& Writer ) const
 		for (int Idx = 0; Idx < BlacklistPlatforms.Num(); Idx++)
 		{
 			Writer.WriteValue(BlacklistPlatforms[Idx]);
+		}
+
+		Writer.WriteArrayEnd();
+	}
+
+	if (WhitelistTargetConfigurations.Num() > 0)
+	{
+		Writer.WriteArrayStart(TEXT("WhitelistTargetConfigurations"));
+
+		for (int Idx = 0; Idx < WhitelistTargetConfigurations.Num(); Idx++)
+		{
+			Writer.WriteValue(WhitelistTargetConfigurations[Idx]);
+		}
+
+		Writer.WriteArrayEnd();
+	}
+
+	if (BlacklistTargetConfigurations.Num() > 0)
+	{
+		Writer.WriteArrayStart(TEXT("BlacklistTargetConfigurations"));
+
+		for (int Idx = 0; Idx < BlacklistTargetConfigurations.Num(); Idx++)
+		{
+			Writer.WriteValue(BlacklistTargetConfigurations[Idx]);
 		}
 
 		Writer.WriteArrayEnd();

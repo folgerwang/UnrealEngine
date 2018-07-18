@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2730073
+﻿INTSourceChangelist:3782314
 Availability:Public
 title:シェーディング
 Crumbs: %ROOT%, Engine, Engine/Rendering/Materials,  Engine/Rendering/Materials/Functions
 Description:不明瞭なシェーディング ネットワークなど、特殊なシェーディングタイプを処理する関数
 Version:4.9
+tags:Materials
 
 [TOC (start:2 end:3)]
 

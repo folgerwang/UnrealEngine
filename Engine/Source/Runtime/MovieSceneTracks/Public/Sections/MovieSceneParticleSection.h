@@ -6,24 +6,47 @@
 #include "UObject/ObjectMacros.h"
 #include "Curves/KeyHandle.h"
 #include "MovieSceneSection.h"
-#include "Curves/IntegralCurve.h"
+#include "Channels/MovieSceneByteChannel.h"
 #include "MovieSceneParticleSection.generated.h"
-
 
 /**
  * Defines the types of particle keys.
  */
 UENUM()
-namespace EParticleKey
+enum class EParticleKey : uint8
 {
-	enum Type
-	{
-		Activate = 0,
-		Deactivate = 1,
-		Trigger = 2,
-	};
-}
+	Activate   = 0,
+	Deactivate = 1,
+	Trigger    = 2,
+};
 
+USTRUCT()
+struct FMovieSceneParticleChannel : public FMovieSceneByteChannel
+{
+	GENERATED_BODY()
+
+	MOVIESCENETRACKS_API FMovieSceneParticleChannel();
+};
+
+template<>
+struct TStructOpsTypeTraits<FMovieSceneParticleChannel> : public TStructOpsTypeTraitsBase2<FMovieSceneParticleChannel>
+{
+	enum { WithSerializeFromMismatchedTag = true };
+};
+
+
+template<>
+struct TMovieSceneChannelTraits<FMovieSceneParticleChannel> : TMovieSceneChannelTraitsBase<FMovieSceneParticleChannel>
+{
+	enum { SupportsDefaults = false };
+
+#if WITH_EDITOR
+
+	/** Byte channels can have external values (ie, they can get their values from external objects for UI purposes) */
+	typedef TMovieSceneExternalValue<uint8> ExtendedEditorDataType;
+
+#endif
+};
 
 /**
  * Particle section, for particle toggling and triggering.
@@ -34,25 +57,37 @@ class UMovieSceneParticleSection
 {
 	GENERATED_UCLASS_BODY()
 
-	MOVIESCENETRACKS_API void AddKey(float Time, EParticleKey::Type KeyType);
-
-	FIntegralCurve& GetParticleCurve() { return ParticleKeys; }
-	const FIntegralCurve& GetParticleCurve() const { return ParticleKeys; }
-
 public:
-
-	//~ UMovieSceneSection interface
-
-	virtual void MoveSection(float DeltaPosition, TSet<FKeyHandle>& KeyHandles) override;
-	virtual void DilateSection(float DilationFactor, float Origin, TSet<FKeyHandle>& KeyHandles) override;
-	virtual void GetKeyHandles(TSet<FKeyHandle>& OutKeyHandles, TRange<float> TimeRange) const override;
-	virtual TOptional<float> GetKeyTime(FKeyHandle KeyHandle) const override;
-	virtual void SetKeyTime(FKeyHandle KeyHandle, float Time) override;
-	virtual FMovieSceneEvalTemplatePtr GenerateTemplate() const override;
-	
-private:
 
 	/** Curve containing the particle keys. */
 	UPROPERTY()
-	FIntegralCurve ParticleKeys;
+	FMovieSceneParticleChannel ParticleKeys;
+
+protected:
+
+	//~ UMovieSceneSection interface
+	virtual FMovieSceneEvalTemplatePtr GenerateTemplate() const override;
 };
+
+
+inline void AssignValue(FMovieSceneParticleChannel* InChannel, FKeyHandle InKeyHandle, EParticleKey InValue)
+{
+	TMovieSceneChannelData<uint8> ChannelData = InChannel->GetData();
+	int32 ValueIndex = ChannelData.GetIndex(InKeyHandle);
+
+	if (ValueIndex != INDEX_NONE)
+	{
+		ChannelData.GetValues()[ValueIndex] = (uint8)InValue;
+	}
+}
+
+inline bool EvaluateChannel(const FMovieSceneParticleChannel* InChannel, FFrameTime InTime, EParticleKey& OutValue)
+{
+	uint8 RawValue = 0;
+	if (InChannel->Evaluate(InTime, RawValue))
+	{
+		OutValue = (EParticleKey)RawValue;
+		return true;
+	}
+	return false;
+}

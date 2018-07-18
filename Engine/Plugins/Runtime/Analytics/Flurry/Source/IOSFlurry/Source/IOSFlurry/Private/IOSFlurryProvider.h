@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "IAnalyticsProvider.h"
+#include "Interfaces/IAnalyticsProvider.h"
 
 class FAnalyticsProviderFlurry :
 	public IAnalyticsProvider

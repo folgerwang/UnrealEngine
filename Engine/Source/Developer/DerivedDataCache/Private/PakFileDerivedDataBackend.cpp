@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "PakFileDerivedDataBackend.h"
-#include "Compression.h"
+#include "Misc/Compression.h"
 #include "DerivedDataCacheUsageStats.h"
 
 FPakFileDerivedDataBackend::FPakFileDerivedDataBackend(const TCHAR* InFilename, bool bInWriting)

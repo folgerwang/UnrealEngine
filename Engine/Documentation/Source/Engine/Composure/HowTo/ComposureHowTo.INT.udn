@@ -14,8 +14,6 @@ ADD Overview Text
 The Overview text should describe the system, features, or concepts being covered in the How-Tos.
 [/REGION]
 
-[](FANCY:Engine\Composure\HowTo\FakeAo "%Engine\Composure\HowTo\FakeAo:description%")
-
 ADD Beginner Topic List
 [REGION:note]
 The Beginner Topic List should link to all beginner How-To guides using fancy links.

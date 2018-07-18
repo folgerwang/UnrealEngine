@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "RawMesh.h"
-#include "Serialization/MemoryWriter.h"
+#include "Serialization/BufferWriter.h"
 #include "UObject/Object.h"
 #include "Misc/SecureHash.h"
 #include "Modules/ModuleManager.h"
@@ -228,14 +228,37 @@ void FRawMeshBulkData::Serialize(FArchive& Ar, UObject* Owner)
 	Ar << bGuidIsHash;
 }
 
+int64 GetRawMeshSerializedDataSize(const FRawMesh& InMesh)
+{
+	int64 NumBytes = 0;
+	NumBytes += sizeof(int32);
+	NumBytes += sizeof(int32);
+	NumBytes += sizeof(int32) + InMesh.FaceMaterialIndices.Num() * InMesh.FaceMaterialIndices.GetTypeSize();
+	NumBytes += sizeof(int32) + InMesh.FaceSmoothingMasks.Num() * InMesh.FaceSmoothingMasks.GetTypeSize();
+	NumBytes += sizeof(int32) + InMesh.VertexPositions.Num() * InMesh.VertexPositions.GetTypeSize();
+	NumBytes += sizeof(int32) + InMesh.WedgeIndices.Num() * InMesh.WedgeIndices.GetTypeSize();
+	NumBytes += sizeof(int32) + InMesh.WedgeTangentX.Num() * InMesh.WedgeTangentX.GetTypeSize();
+	NumBytes += sizeof(int32) + InMesh.WedgeTangentY.Num() * InMesh.WedgeTangentY.GetTypeSize();
+	NumBytes += sizeof(int32) + InMesh.WedgeTangentZ.Num() * InMesh.WedgeTangentZ.GetTypeSize();
+	for (int32 i = 0; i < MAX_MESH_TEXTURE_COORDS; ++i)
+	{
+		NumBytes += sizeof(int32) + InMesh.WedgeTexCoords[i].Num() * InMesh.WedgeTexCoords[i].GetTypeSize();
+	}
+	NumBytes += sizeof(int32) + InMesh.WedgeColors.Num() * InMesh.WedgeColors.GetTypeSize();
+	NumBytes += sizeof(int32) + InMesh.MaterialIndexToImportIndex.Num() * InMesh.MaterialIndexToImportIndex.GetTypeSize();
+	return NumBytes;
+}
+
 void FRawMeshBulkData::SaveRawMesh(FRawMesh& InMesh)
 {
-	TArray<uint8> TempBytes;
-	FMemoryWriter Ar(TempBytes, /*bIsPersistent=*/ true);
-	Ar << InMesh;
+	uint32 NumBytes = (uint32)GetRawMeshSerializedDataSize(InMesh);
 	BulkData.Lock(LOCK_READ_WRITE);
-	uint8* Dest = (uint8*)BulkData.Realloc(TempBytes.Num());
-	FMemory::Memcpy(Dest, TempBytes.GetData(), TempBytes.Num());
+	uint8* Dest = (uint8*)BulkData.Realloc(NumBytes);
+	FBufferWriter Ar(Dest, NumBytes);
+	Ar.SetIsPersistent(true);
+	Ar << InMesh;
+	check(Ar.AtEnd());
+	check(Dest == Ar.GetWriterData());
 	BulkData.Unlock();
 	FPlatformMisc::CreateGuid(Guid);
 }
@@ -283,6 +306,18 @@ void FRawMeshBulkData::UseHashAsGuid(UObject* Owner)
 	Sha.GetHash((uint8*)Hash);
 	Guid = FGuid(Hash[0] ^ Hash[4], Hash[1], Hash[2], Hash[3]);
 	bGuidIsHash = true;
+}
+
+const FByteBulkData& FRawMeshBulkData::GetBulkData() const
+{
+	return BulkData;
+}
+
+void FRawMeshBulkData::Empty()
+{
+	BulkData.RemoveBulkData();
+	Guid.Invalidate();
+	bGuidIsHash = false;
 }
 
 #endif // #if WITH_EDITORONLY_DATA

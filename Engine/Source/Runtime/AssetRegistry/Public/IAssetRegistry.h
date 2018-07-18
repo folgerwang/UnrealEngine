@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "AssetData.h"
 #include "Misc/AssetRegistryInterface.h"
-#include "Interface.h"
+#include "UObject/Interface.h"
 #include "ARFilter.h"
 #include "IAssetRegistry.generated.h"
 
@@ -104,10 +104,18 @@ public:
 	virtual bool GetAssetsByClass(FName ClassName, TArray<FAssetData>& OutAssetData, bool bSearchSubClasses = false) const = 0;
 
 	/**
+	 * Gets asset data for all assets with the supplied tags, regardless of their value
+	 *
+	 * @param AssetTags the tags associated with the assets requested
+	 * @param OutAssetData the list of assets with any of the given tags
+	 */
+	virtual bool GetAssetsByTags(const TArray<FName>& AssetTags, TArray<FAssetData>& OutAssetData) const = 0;
+
+	/**
 	 * Gets asset data for all assets with the supplied tags and values
 	 *
 	 * @param AssetTagsAndValues the tags and values associated with the assets requested
-	 * @param OutAssetData the list of assets in this path
+	 * @param OutAssetData the list of assets with any of the given tags and values
 	 */
 	virtual bool GetAssetsByTagValues(const TMultiMap<FName, FString>& AssetTagsAndValues, TArray<FAssetData>& OutAssetData) const = 0;
 
@@ -239,18 +247,23 @@ public:
 	virtual bool RemovePath(const FString& PathToRemove) = 0;
 
 	/** Scan the supplied paths recursively right now and populate the asset registry. If bForceRescan is true, the paths will be scanned again, even if they were previously scanned */
+	UFUNCTION(BlueprintCallable, Category = "AssetRegistry")
 	virtual void ScanPathsSynchronous(const TArray<FString>& InPaths, bool bForceRescan = false) = 0;
 
 	/** Scan the specified individual files right now and populate the asset registry. If bForceRescan is true, the paths will be scanned again, even if they were previously scanned */
+	UFUNCTION(BlueprintCallable, Category = "AssetRegistry")
 	virtual void ScanFilesSynchronous(const TArray<FString>& InFilePaths, bool bForceRescan = false) = 0;
 
 	/** Look for all assets on disk (can be async or synchronous) */
+	UFUNCTION(BlueprintCallable, Category = "AssetRegistry")
 	virtual void SearchAllAssets(bool bSynchronousSearch) = 0;
 
 	/** If assets are currently being asynchronously scanned in the specified path, this will cause them to be scanned before other assets. */
+	UFUNCTION(BlueprintCallable, Category = "AssetRegistry")
 	virtual void PrioritizeSearchPath(const FString& PathToPrioritize) = 0;
 
 	/** Forces a rescan of specific filenames, call this when you need to refresh from disk */
+	UFUNCTION(BlueprintCallable, Category = "AssetRegistry")
 	virtual void ScanModifiedAssetFiles(const TArray<FString>& InFilePaths) = 0;
 
 	/** Event for when paths are added to the registry */
@@ -334,6 +347,7 @@ public:
 
 	/** Serialize the registry to/from a file, skipping editor only data */
 	virtual void Serialize(FArchive& Ar) = 0;
+	virtual void Serialize(FStructuredArchive::FRecord Record) = 0;
 
 	/** Returns memory size of entire registry, optionally logging sizes */
 	virtual uint32 GetAllocatedSize(bool bLogDetailed = false) const = 0;

@@ -39,7 +39,7 @@ public:
 	void AddUniqueChild(TSharedPtr<FClassViewerNode> NewChild);
 
 	/** 
-	 * Retrieves the class name this node is associated with. 
+	 * Retrieves the class name this node is associated with. This is not the literal UClass name as it is missing the _C for blueprints
 	 * @param	bUseDisplayName	Whether to use the display name or class name
 	 */
 	TSharedPtr<FString> GetClassName(bool bUseDisplayName = false) const
@@ -56,13 +56,17 @@ public:
 	/** Checks if the class is placeable. */
 	bool IsClassPlaceable() const;
 
+	/** Checks if this is a blueprint */
+	bool IsBlueprintClass() const;
+
+	/** Rather this class is not allowed for the specific context */
 	bool IsRestricted() const;
 
 private:
-	/** The class name for this tree node. */
+	/** The nontranslated internal name for this class. This is not necessarily the UClass's name, as that may have _C for blueprints */
 	TSharedPtr<FString> ClassName;
 
-	/** The class display name for this tree node. */
+	/** The translated display name for this class */
 	TSharedPtr<FString> ClassDisplayName;
 
 	/** List of children. */
@@ -75,17 +79,14 @@ public:
 	/** The blueprint this node is associated with. */
 	TWeakObjectPtr<UBlueprint> Blueprint;
 
-	/** Used to load up the package if it is unloaded, retrieved from meta data for the package. */
-	FString GeneratedClassPackage;
+	/** Full object path to the class including _C, set for both blueprint and native */
+	FName ClassPath;
 
-	/** Used to examine the classname, retrieved from meta data for the package. */
-	FName GeneratedClassname;
+	/** Full object path to the parent class, may be blueprint or native */
+	FName ParentClassPath;
 
-	/** Used to find the parent of this class, retrieved from meta data for the package. */
-	FName ParentClassname;
-
-	/** Used to load up the class if it is unloaded. */
-	FString AssetName;
+	/** Full path to the Blueprint that this class is loaded from, none for native classes*/
+	FName BlueprintAssetPath;
 
 	/** true if the class passed the filter. */
 	bool bPassesFilter;

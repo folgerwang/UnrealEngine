@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "NiagaraMetaDataViewModel.h"
 #include "NiagaraEditorUtilities.h"
@@ -8,8 +8,8 @@
 #include "NiagaraScriptSource.h"
 #include "ScopedTransaction.h"
 #include "Editor.h"
-#include "Array.h"
-#include "StructOnScope.h"
+#include "Containers/Array.h"
+#include "UObject/StructOnScope.h"
 
 #define LOCTEXT_NAMESPACE "NiagaraMetaDataViewModel"
 
@@ -17,6 +17,7 @@ FNiagaraMetaDataViewModel::FNiagaraMetaDataViewModel(FNiagaraVariable& InGraphVa
 	: GraphVariable(InGraphVariable)
 	, CurrentGraph(&InGraph)
 {
+	GraphMetaData = nullptr;
 	RefreshMetaDataValue();
 }
 
@@ -37,6 +38,15 @@ void FNiagaraMetaDataViewModel::AssociateNode(UEdGraphNode* InNode)
 	AssociatedNodes.AddUnique(TWeakObjectPtr<UObject>(InNode));
 }
 
+int32 FNiagaraMetaDataViewModel::GetEditorSortPriority()
+{
+	if (GraphMetaData != nullptr)
+	{
+		return GraphMetaData->EditorSortPriority;
+	}
+	return 0;
+}
+
 void FNiagaraMetaDataViewModel::NotifyMetaDataChanged()
 {
 	FScopedTransaction ScopedTransaction(LOCTEXT("EditVariableMetadata", "Edit variable metadata"));
@@ -55,9 +65,6 @@ void FNiagaraMetaDataViewModel::NotifyMetaDataChanged()
 	}
 	
 	OnMetadataChangedDelegate.Broadcast();
-	
-	// Trigger save prompt on close; it's sufficiently cheap
-	CurrentGraph->NotifyGraphNeedsRecompile();
 }
 
 FNiagaraVariableMetaData*  FNiagaraMetaDataViewModel::GetGraphMetaData()

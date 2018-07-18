@@ -247,10 +247,10 @@ private:
 			return LOCTEXT("DispatchTypeDirect", "Direct");
 
 		case EMessageTracerDispatchTypes::Pending:
-			return LOCTEXT("DispatchTypeDirect", "Pending");
+			return LOCTEXT("DispatchTypePending", "Pending");
 
 		case EMessageTracerDispatchTypes::TaskGraph:
-			return LOCTEXT("DispatchTypeDirect", "TaskGraph");
+			return LOCTEXT("DispatchTypeTaskGraph", "TaskGraph");
 
 		default:
 			return FText::GetEmpty();

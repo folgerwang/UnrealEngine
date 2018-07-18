@@ -3,7 +3,7 @@
 #include "EditorModeManager.h"
 #include "Engine/Selection.h"
 #include "Misc/MessageDialog.h"
-#include "EditorStyleSettings.h"
+#include "Classes/EditorStyleSettings.h"
 #include "Editor/EditorPerProjectUserSettings.h"
 #include "Misc/ConfigCacheIni.h"
 #include "GameFramework/WorldSettings.h"
@@ -608,13 +608,13 @@ bool FEditorModeTools::BoxSelect( FBox& InBox, bool InSelect )
 }
 
 /** Notifies all active modes of frustum selection attempts */
-bool FEditorModeTools::FrustumSelect( const FConvexVolume& InFrustum, bool InSelect )
+bool FEditorModeTools::FrustumSelect( const FConvexVolume& InFrustum, FEditorViewportClient* InViewportClient, bool InSelect )
 {
 	bool bHandled = false;
 	for( int32 ModeIndex = 0; ModeIndex < Modes.Num(); ++ModeIndex )
 	{
 		const TSharedPtr<FEdMode>& Mode = Modes[ ModeIndex ];
-		bHandled |= Mode->FrustumSelect( InFrustum, InSelect );
+		bHandled |= Mode->FrustumSelect( InFrustum, InViewportClient, InSelect );
 	}
 	return bHandled;
 }
@@ -1037,15 +1037,11 @@ void FEditorModeTools::SetBookmark( uint32 InIndex, FEditorViewportClient* InVie
 
 			// Keep a record of which levels were hidden so that we can restore these with the bookmark
 			CurBookMark->HiddenLevels.Empty();
-			for ( int32 LevelIndex = 0 ; LevelIndex < World->StreamingLevels.Num() ; ++LevelIndex )
+			for ( ULevelStreaming* StreamingLevel: World->GetStreamingLevels())
 			{
-				ULevelStreaming* StreamingLevel = World->StreamingLevels[LevelIndex];
-				if ( StreamingLevel )
+				if ( StreamingLevel && !StreamingLevel->GetShouldBeVisibleInEditor())
 				{
-					if( !StreamingLevel->bShouldBeVisibleInEditor )
-					{
-						CurBookMark->HiddenLevels.Add( StreamingLevel->GetFullName() );
-					}
+					CurBookMark->HiddenLevels.Add( StreamingLevel->GetFullName() );
 				}
 			}
 		}

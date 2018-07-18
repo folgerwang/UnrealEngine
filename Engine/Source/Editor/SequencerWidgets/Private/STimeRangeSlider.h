@@ -16,8 +16,6 @@ class STimeRangeSlider : public SCompoundWidget
 {
 public:
 	SLATE_BEGIN_ARGS(STimeRangeSlider){}
-		/* The time snap interval for the timeline */
-		SLATE_ARGUMENT( TAttribute<float>, TimeSnapInterval )
 		SLATE_DEFAULT_SLOT(FArguments, Content)
 	SLATE_END_ARGS()
 
@@ -57,12 +55,10 @@ private:
 	FVector2D MouseDownPosition;
 
 	/* The in/out view range on mouse down */
-	TRange<float> MouseDownViewRange;
+	TRange<double> MouseDownViewRange;
 
 	/* The in/out view range viewed before expansion */
-	TRange<float> LastViewRange;
-
-	TAttribute<float> TimeSnapInterval;
+	TRange<double> LastViewRange;
 
 	TSharedPtr<ITimeSliderController> TimeSliderController;
 };

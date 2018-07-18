@@ -26,6 +26,8 @@ namespace FLandscapeCustomVersion
 		SplineForeignDataLazyObjectPtrFix,
 		// Migration of deprecated property from old landscape rendering to new landscape Rendering 
 		MigrateOldPropertiesToNewRenderingProperties,
+		// Migration of old EnabledCollision for spline elements to the full body instance exposed
+		AddingBodyInstanceToSplinesElements,
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,
 		LatestVersion = VersionPlusOne - 1

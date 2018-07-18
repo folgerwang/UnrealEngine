@@ -1,11 +1,12 @@
-﻿INTSourceChangelist:2968923
+﻿INTSourceChangelist:3810557
 Availability:Public
 Title:ブループリントのデバッグ作業
 Crumbs:%ROOT%, Engine/Blueprints, Engine/Blueprints/Workflow
 Description:ブレークポイントを使って一時停止を実行して、変数のグラフと値を調査する
-Version:4.9
+version:4.9
 Parent:Engine/Blueprints/Workflow
 order:5
+tags:Blueprints
 
 [EXCERPT:Overview]
 ブループリントのデバッグは、 Play In Editor と Simulate In Editor モードで実行中のゲームを一時停止できる便利な機能です。ブレークポイントを利用してブループリントまたはレベルスクリプトの全てのグラフをステップスルーします。
@@ -29,7 +30,7 @@ order:5
 
 ![](blueprint_debugger.png)
 
-##ブレークポイント
+## ブレークポイント
 
 ブレークポイント は、エディタでのゲーム実行時に、ゲームの実行をあるポイントで一時停止することができます。ブループリントまたは Level ブループリントにグラフのブレークポイントは、すべて **[Debug]** タブに表示されます。このリストではブレークポイント名にハイパーリンクが付いているので、クリックすると **[Graph]** タブ内でブレークポイントに関連づいているノードに直接行くことができます。
 
@@ -39,7 +40,7 @@ order:5
 
 ブレークポイントは、ノード上を右クリックして **[Disable breakpoint (ブレークポイントを無効にする)]** を選ぶか、 **[Debug]** タブのブレークポイントの隣のアイコンをクリックしてオフに切り替える方法でも無効にできます。**[Debug]** タブでブレークポイントを右クリックして **[Disable breakpoint]** を選択しても無効にできます。
 
-![Blueprint Debugging - Breakpoint Disable Option](k2_breakpoint_toggleoff.png)
+![Blueprint Debugging - Breakpoint Disable Option](k2_Breakpoint_toggleoff.png)
 
 これにより、ノードが実行された時に、ブレークポイントはそのままにしながらゲームが停止されます。無効にされたブレークポイントは、アウトラインとして表示されます。
 
@@ -62,12 +63,9 @@ order:5
 
 ## Debug タブとブループリント デバッガー
 
-
 [EXCERPT:DebugTab]
 
-[EXCERPT:DebugPanel]
-**[Debug]** タブはデザイナーが重要とみなした情報を、ブレークポイントとウォッチ値、および実行されたブループリントに属するすべてのノードのスタックのトレース (追跡) という形で表示します。このウィンドウには、ブレークポイント使用時のゲームの実行をコントロールするための制御が表示されます。
-[/EXCERPT:DebugPanel]
+[INCLUDE:#DebugPanel]
 
 ###ウォッチ値
 
@@ -90,3 +88,9 @@ order:5
 このリストは、デバッグ中にグラフをステップスルーすると更新されます。
 
 [/EXCERPT:DebugTab]
+
+[COMMENT:none]
+[EXCERPT:DebugPanel]
+**[Debug]** タブはデザイナーが重要とみなした情報を、ブレークポイントとウォッチ値、および実行されたブループリントに属するすべてのノードのスタックのトレース (追跡) という形で表示します。このウィンドウには、ブレークポイント使用時のゲームの実行をコントロールするための制御が表示されます。
+[/EXCERPT:DebugPanel]
+[/COMMENT]

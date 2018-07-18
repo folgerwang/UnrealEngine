@@ -59,11 +59,6 @@ FORCEINLINE_DEBUGGABLE FScopedRHIThreadStaller::~FScopedRHIThreadStaller()
 	}
 }
 
-FORCEINLINE_DEBUGGABLE void FRHIRenderPassCommandList::ApplyCachedRenderTargets(FGraphicsPipelineStateInitializer& GraphicsPSOInit)
-{
-	return GetParent().ApplyCachedRenderTargets(GraphicsPSOInit);
-}
-
 namespace PipelineStateCache
 {
 	/* Evicts unused state entries based on r.pso.evictiontime time. Called in RHICommandList::BeginFrame */
@@ -112,6 +107,7 @@ FORCEINLINE_DEBUGGABLE void FRHICommandListImmediate::ImmediateFlush(EImmediateF
 		}
 		break;
 	case EImmediateFlushType::FlushRHIThreadFlushResources:
+	case EImmediateFlushType::FlushRHIThreadFlushResourcesFlushDeferredDeletes:
 		{
 			if (HasCommands())
 			{
@@ -121,7 +117,7 @@ FORCEINLINE_DEBUGGABLE void FRHICommandListImmediate::ImmediateFlush(EImmediateF
 			WaitForRHIThreadTasks();
 			WaitForTasks(true); // these are already done, but this resets the outstanding array
 			PipelineStateCache::FlushResources();
-			FRHIResource::FlushPendingDeletes();
+			FRHIResource::FlushPendingDeletes(FlushType == EImmediateFlushType::FlushRHIThreadFlushResourcesFlushDeferredDeletes);
 		}
 		break;
 	default:

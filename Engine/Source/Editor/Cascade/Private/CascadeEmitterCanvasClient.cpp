@@ -1123,7 +1123,7 @@ void FCascadeEmitterCanvasClient::DrawHeaderBlock(int32 Index, int32 XPos, UPart
 				}
 
 				if (MaterialInterface)
-				{
+				{	
 					// Get the rendering info for this object
 					FThumbnailRenderingInfo* RenderInfo =
 						GUnrealEd->GetThumbnailManager()->GetRenderingInfo(MaterialInterface);
@@ -1139,7 +1139,7 @@ void FCascadeEmitterCanvasClient::DrawHeaderBlock(int32 Index, int32 XPos, UPart
 						FIntPoint ThumbnailSize(ScaledSize, ScaledSize);
 
 						const bool bNeedsResize = !Thumbnail.Texture || Thumbnail.Texture->GetSurfaceWidth() != ScaledSize || Thumbnail.Texture->GetSurfaceHeight() != ScaledSize;
-
+						
 						if (bNeedsResize)
 						{
 							if (!Thumbnail.Texture)
@@ -1149,7 +1149,7 @@ void FCascadeEmitterCanvasClient::DrawHeaderBlock(int32 Index, int32 XPos, UPart
 							}
 
 							Thumbnail.Texture->InitCustomFormat(ScaledSize, ScaledSize, EPixelFormat::PF_B8G8R8A8, true);
-
+							
 						}
 
 						// Always redraw for now to match legacy behavior.  Could cache for more efficiency. 
@@ -1162,7 +1162,7 @@ void FCascadeEmitterCanvasClient::DrawHeaderBlock(int32 Index, int32 XPos, UPart
 							FCanvas ThumbnailCanvas(Thumbnail.Texture->GameThread_GetRenderTargetResource(), nullptr, GetWorld(), GetWorld()->FeatureLevel, FCanvas::CDM_DeferDrawing, ShouldDPIScaleSceneCanvas() ? GetDPIScale() : 1.0f);
 							RenderInfo->Renderer->Draw(MaterialInterface, 0, 0, ScaledSize, ScaledSize, Thumbnail.Texture->GameThread_GetRenderTargetResource(), &ThumbnailCanvas);
 						}
-
+					
 						Canvas->DrawTile(ThumbPos.X - Origin2D.X, ThumbPos.Y - Origin2D.Y, ThumbSize, ThumbSize, 0.f, 0.f, 1.f, 1.f, FLinearColor::White, Thumbnail.Texture->GameThread_GetRenderTargetResource(), false);
 					}
 				}

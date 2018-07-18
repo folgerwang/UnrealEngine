@@ -44,6 +44,11 @@ namespace UnrealBuildTool
 		/// Switch source files
 		/// </summary>
 		Switch,
+
+		/// <summary>
+		/// Quail source files
+		/// </summary>
+		Quail,
 	}
 
 	/// <summary>

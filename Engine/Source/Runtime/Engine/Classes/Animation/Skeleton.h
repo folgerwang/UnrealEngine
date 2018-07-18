@@ -16,7 +16,7 @@
 #include "Animation/SmartName.h"
 #include "Engine/AssetUserData.h"
 #include "Interfaces/Interface_AssetUserData.h"
-
+#include "Interfaces/Interface_PreviewMeshProvider.h"
 #include "Skeleton.generated.h"
 
 class UAnimSequence;
@@ -63,8 +63,13 @@ namespace EBoneTranslationRetargetingMode
 		AnimationScaled,
 		/** Use Translation from animation, but also play the difference from retargeting pose as an additive. */
 		AnimationRelative,
+		/** Apply delta orientation and scale from ref pose */
+		OrientAndScale,
 	};
 }
+
+/** Max error allowed when considering bone translations for 'Orient And Scale' retargeting. */
+#define BONE_TRANS_RT_ORIENT_AND_SCALE_PRECISION (0.001f) 
 
 /** Each Bone node in BoneTree */
 USTRUCT()
@@ -267,7 +272,7 @@ public:
  *		- Mirror table
  */
 UCLASS(hidecategories=Object, MinimalAPI)
-class USkeleton : public UObject, public IInterface_AssetUserData
+class USkeleton : public UObject, public IInterface_AssetUserData, public IInterface_PreviewMeshProvider
 {
 	friend class UAnimationBlueprintLibrary;
 
@@ -360,7 +365,7 @@ public:
 
 	// return version of AnimCurveUidVersion
 	uint16 GetAnimCurveUidVersion() const { return AnimCurveUidVersion;  }
-	const TArray<AnimCurveUID>& GetDefaultCurveUIDList() const { return DefaultCurveUIDList; }
+	const TArray<uint16>& GetDefaultCurveUIDList() const { return DefaultCurveUIDList; }
 protected:
 	// Container for smart name mappings
 	UPROPERTY()
@@ -369,7 +374,7 @@ protected:
 	// this is default curve uid list used like ref pose, as default value
 	// don't use this unless you want all curves from the skeleton
 	// FBoneContainer contains only list that is used by current LOD
-	TArray<AnimCurveUID> DefaultCurveUIDList;
+	TArray<uint16> DefaultCurveUIDList;
 
 private:
 	/** Increase the AnimCurveUidVersion so that instances can get the latest information */
@@ -529,6 +534,11 @@ public:
 	/** Runtime built mapping table between SkeletalMeshes, and LinkupCache array indices. */
 	TMap<TWeakObjectPtr<USkeletalMesh>, int32> SkelMesh2LinkupCache;
 
+	/** IInterface_PreviewMeshProvider interface */
+	virtual USkeletalMesh* GetPreviewMesh(bool bFindIfNotSet = false) override;
+	virtual USkeletalMesh* GetPreviewMesh() const override;
+	virtual void SetPreviewMesh(USkeletalMesh* PreviewMesh, bool bMarkAsDirty=true);
+
 #if WITH_EDITORONLY_DATA
 
 	// @todo document
@@ -537,16 +547,10 @@ public:
 	// @todo document
 	ENGINE_API void AddNewAnimationNotify(FName NewAnimNotifyName);
 
-	/** Returns the skeletons preview mesh, loading it if necessary */
-	ENGINE_API USkeletalMesh* GetPreviewMesh(bool bFindIfNotSet=false);
-	ENGINE_API USkeletalMesh* GetPreviewMesh() const;
 	ENGINE_API USkeletalMesh* GetAssetPreviewMesh(UObject* InAsset);
 
 	/** Find the first compatible mesh for this skeleton */
 	ENGINE_API USkeletalMesh* FindCompatibleMesh() const;
-
-	/** Returns the skeletons preview mesh, loading it if necessary */
-	ENGINE_API void SetPreviewMesh(USkeletalMesh* PreviewMesh, bool bMarkAsDirty=true);
 
 	/** Load any additional meshes we may have */
 	ENGINE_API void LoadAdditionalPreviewSkeletalMeshes();
@@ -725,6 +729,7 @@ public:
 
 	ENGINE_API void SetBoneTranslationRetargetingMode(const int32 BoneIndex, EBoneTranslationRetargetingMode::Type NewRetargetingMode, bool bChildrenToo=false);
 
+	virtual bool IsPostLoadThreadSafe() const override;
 	ENGINE_API virtual void PostLoad() override;
 	ENGINE_API virtual void PostDuplicate(bool bDuplicateForPIE) override;
 	ENGINE_API virtual void PostInitProperties() override;

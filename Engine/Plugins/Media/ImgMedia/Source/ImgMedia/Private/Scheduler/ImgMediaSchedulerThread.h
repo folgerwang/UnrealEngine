@@ -48,7 +48,7 @@ public:
 	virtual FSingleThreadRunnable* GetSingleThreadInterface() override;
 	virtual uint32 Run() override;
 
-public:
+protected:
 
 	//~ FSingleThreadRunnable interface
 

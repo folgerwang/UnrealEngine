@@ -22,7 +22,7 @@ void FTestExternalUIInterface::Test()
 	// Are we testing at least one of our external UI?
 	if (bTestLoginUI == false && bTestFriendsUI == false && bTestInviteUI == false && bTestAchievementsUI == false && bTestWebURL == false && bTestProfileUI == false)
 	{
-		UE_LOG(LogOnline, Error, TEXT("ExternalUI test -- No UIs selected to test"));
+		UE_LOG_ONLINE_EXTERNALUI(Error, TEXT("ExternalUI test -- No UIs selected to test"));
 		FinishTest();
 	}
 	else
@@ -33,7 +33,7 @@ void FTestExternalUIInterface::Test()
 
 void FTestExternalUIInterface::FinishTest()
 {
-	UE_LOG(LogOnline, Log, TEXT("FTestExternalUIInterface::FinishTest -- completed testing"));
+	UE_LOG_ONLINE_EXTERNALUI(Log, TEXT("FTestExternalUIInterface::FinishTest -- completed testing"));
 	ExternalUI->ClearOnExternalUIChangeDelegate_Handle(ExternalUIChangeDelegateHandle);
 	delete this;
 }
@@ -85,12 +85,12 @@ bool FTestExternalUIInterface::TestLoginUI()
 {
 	if (bTestLoginUI == false)
 	{
-		UE_LOG(LogOnline, Log, TEXT("TestLoginUI (skipping)"));
+		UE_LOG_ONLINE_EXTERNALUI(Log, TEXT("TestLoginUI (skipping)"));
 		return false;
 	}
 
 	bool bShowingUI = ExternalUI->ShowLoginUI(0, true, false, FOnLoginUIClosedDelegate::CreateRaw(this, &FTestExternalUIInterface::OnLoginUIClosed));
-	UE_LOG(LogOnline, Log, TEXT("TestLoginUI bShowingUI: %d"), bShowingUI);
+	UE_LOG_ONLINE_EXTERNALUI(Log, TEXT("TestLoginUI bShowingUI: %d"), bShowingUI);
 	return bShowingUI;
 }
 
@@ -98,12 +98,12 @@ bool FTestExternalUIInterface::TestFriendsUI()
 {
 	if (bTestFriendsUI == false)
 	{
-		UE_LOG(LogOnline, Log, TEXT("TestFriendsUI (skipping)"));
+		UE_LOG_ONLINE_EXTERNALUI(Log, TEXT("TestFriendsUI (skipping)"));
 		return false;
 	}
 
 	bool bShowingUI = ExternalUI->ShowFriendsUI(0);
-	UE_LOG(LogOnline, Log, TEXT("TestFriendsUI bShowingUI: %d"), bShowingUI);
+	UE_LOG_ONLINE_EXTERNALUI(Log, TEXT("TestFriendsUI bShowingUI: %d"), bShowingUI);
 	return bShowingUI;
 }
 
@@ -111,12 +111,12 @@ bool FTestExternalUIInterface::TestInviteUI()
 {
 	if (bTestInviteUI == false)
 	{
-		UE_LOG(LogOnline, Log, TEXT("TestInviteUI (skipping)"));
+		UE_LOG_ONLINE_EXTERNALUI(Log, TEXT("TestInviteUI (skipping)"));
 		return false;
 	}
 
 	bool bShowingUI = ExternalUI->ShowInviteUI(0);
-	UE_LOG(LogOnline, Log, TEXT("TestInviteUI bShowingUI: %d"), bShowingUI);
+	UE_LOG_ONLINE_EXTERNALUI(Log, TEXT("TestInviteUI bShowingUI: %d"), bShowingUI);
 	return bShowingUI;
 }
 
@@ -125,12 +125,12 @@ bool FTestExternalUIInterface::TestAchievementsUI()
 {
 	if (bTestAchievementsUI == false)
 	{
-		UE_LOG(LogOnline, Log, TEXT("TestAchievementsUI (skipping)"));
+		UE_LOG_ONLINE_EXTERNALUI(Log, TEXT("TestAchievementsUI (skipping)"));
 		return false;
 	}
 
 	bool bShowingUI = ExternalUI->ShowAchievementsUI(0);
-	UE_LOG(LogOnline, Log, TEXT("TestAchievementsUI bShowingUI: %d"), bShowingUI);
+	UE_LOG_ONLINE_EXTERNALUI(Log, TEXT("TestAchievementsUI bShowingUI: %d"), bShowingUI);
 	return bShowingUI;
 }
 
@@ -139,7 +139,7 @@ bool FTestExternalUIInterface::TestWebURL()
 {
 	if (bTestWebURL == false)
 	{
-		UE_LOG(LogOnline, Log, TEXT("TestWebURL (skipping)"));
+		UE_LOG_ONLINE_EXTERNALUI(Log, TEXT("TestWebURL (skipping)"));
 		return false;
 	}
 
@@ -148,7 +148,7 @@ bool FTestExternalUIInterface::TestWebURL()
 		FShowWebUrlParams(),
 		FOnShowWebUrlClosedDelegate::CreateRaw(this, &FTestExternalUIInterface::OnShowWebUrlClosed));
 
-	UE_LOG(LogOnline, Log, TEXT("TestWebURL bShowingUI: %d"), bShowingUI);
+	UE_LOG_ONLINE_EXTERNALUI(Log, TEXT("TestWebURL bShowingUI: %d"), bShowingUI);
 	return bShowingUI;
 }
 
@@ -156,7 +156,7 @@ bool FTestExternalUIInterface::TestProfileUI()
 {
 	if (bTestProfileUI == false)
 	{
-		UE_LOG(LogOnline, Log, TEXT("TestProfileUI (skipping)"));
+		UE_LOG_ONLINE_EXTERNALUI(Log, TEXT("TestProfileUI (skipping)"));
 		return false;
 	}
 
@@ -167,13 +167,13 @@ bool FTestExternalUIInterface::TestProfileUI()
 		*UserId.Get(),
 		FOnProfileUIClosedDelegate::CreateRaw(this, &FTestExternalUIInterface::OnProfileUIClosed));
 
-	UE_LOG(LogOnline, Log, TEXT("TestProfileUI bShowingUI: %d"), bShowingUI);
+	UE_LOG_ONLINE_EXTERNALUI(Log, TEXT("TestProfileUI bShowingUI: %d"), bShowingUI);
 	return bShowingUI;
 }
 
 void FTestExternalUIInterface::OnExternalUIChange(bool bIsOpening)
 {
-	UE_LOG(LogOnline, Log, TEXT("OnExternalUIChange delegate invoked. bIsOpening = %d"), bIsOpening);
+	UE_LOG_ONLINE_EXTERNALUI(Log, TEXT("OnExternalUIChange delegate invoked. bIsOpening = %d"), bIsOpening);
 
 	if (bIsOpening == false)
 	{
@@ -183,19 +183,19 @@ void FTestExternalUIInterface::OnExternalUIChange(bool bIsOpening)
 	}
 }
 
-void FTestExternalUIInterface::OnLoginUIClosed(TSharedPtr<const FUniqueNetId> LoggedInUserId, const int LocalUserId)
+void FTestExternalUIInterface::OnLoginUIClosed(TSharedPtr<const FUniqueNetId> LoggedInUserId, const int LocalUserId, const FOnlineError& Error)
 {
-	UE_LOG(LogOnline, Log, TEXT("Login UI closed by local user %d. Logged-in user = %s"), LocalUserId, *LoggedInUserId->ToString());
+	UE_LOG_ONLINE_EXTERNALUI(Log, TEXT("Login UI closed by local user %d. Logged-in user = %s.  Error = %s"), LocalUserId, *LoggedInUserId->ToString(), Error.ToLogString());
 }
 
 void FTestExternalUIInterface::OnProfileUIClosed()
 {
-	UE_LOG(LogOnline, Log, TEXT("Profile UI closed by user."));
+	UE_LOG_ONLINE_EXTERNALUI(Log, TEXT("Profile UI closed by user."));
 }
 
 void FTestExternalUIInterface::OnShowWebUrlClosed(const FString& FinalUrl)
 {
-	UE_LOG(LogOnline, Log, TEXT("Show Web Url closed with FinalUrl=%s."), *FinalUrl);
+	UE_LOG_ONLINE_EXTERNALUI(Log, TEXT("Show Web Url closed with FinalUrl=%s."), *FinalUrl);
 }
 
 #endif //WITH_DEV_AUTOMATION_TESTS

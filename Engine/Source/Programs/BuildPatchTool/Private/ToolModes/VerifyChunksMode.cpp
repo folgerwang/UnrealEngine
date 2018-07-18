@@ -1,11 +1,11 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "VerifyChunksMode.h"
+#include "ToolModes/VerifyChunksMode.h"
 #include "Interfaces/IBuildPatchServicesModule.h"
 #include "BuildPatchTool.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Paths.h"
-#include "Containers/Algo/Find.h"
+#include "Algo/Find.h"
 
 using namespace BuildPatchTool;
 

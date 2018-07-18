@@ -6,6 +6,8 @@
 #include "Widgets/Text/STextBlock.h"
 
 
+static FName SButtonTypeName("SButton");
+
 /**
  * Construct this widget
  *
@@ -50,6 +52,12 @@ void SButton::Construct( const FArguments& InArgs )
 			DetermineContent(InArgs)
 		]
 	);
+
+	// Only do this if we're exactly an SButton
+	if (GetType() == SButtonTypeName)
+	{
+		bCanTick = false;
+	}
 
 	ContentPadding = InArgs._ContentPadding;
 
@@ -346,7 +354,7 @@ void SButton::OnMouseLeave( const FPointerEvent& MouseEvent )
 	Invalidate(EInvalidateWidget::Layout);
 }
 
-void SButton::OnMouseCaptureLost()
+void SButton::OnMouseCaptureLost(const FCaptureLostEvent& CaptureLostEvent)
 {
 	Release();
 }

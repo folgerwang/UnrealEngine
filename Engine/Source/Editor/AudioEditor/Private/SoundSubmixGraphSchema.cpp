@@ -8,8 +8,8 @@
 #include "GraphEditorActions.h"
 #include "SoundSubmixEditorUtilities.h"
 #include "Sound/SoundSubmix.h"
-#include "GenericCommands.h"
-#include "MultiBoxBuilder.h"
+#include "Framework/Commands/GenericCommands.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
 
 #define LOCTEXT_NAMESPACE "SoundSubmixSchema"
 

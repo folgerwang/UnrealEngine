@@ -2,10 +2,11 @@
 
 #include "Framework/Text/Android/AndroidPlatformTextField.h"
 
+#if USE_ANDROID_JNI
 #include "HAL/IConsoleManager.h"
 #include "Widgets/Input/IVirtualKeyboardEntry.h"
 #include "Misc/ConfigCacheIni.h"
-#include "IConsoleManager.h"
+#include "HAL/IConsoleManager.h"
 
 // Java InputType class
 #define TYPE_CLASS_TEXT						0x00000001
@@ -24,6 +25,7 @@
 // Java InputType text flags
 #define TYPE_TEXT_FLAG_NO_SUGGESTIONS		0x00080001
 #define TYPE_TEXT_FLAG_MULTI_LINE			0x00020000
+#define TYPE_TEXT_FLAG_AUTO_CORRECT			0x00008000
 
 int32 GAndroidNewKeyboard = 0;
 static FAutoConsoleVariableRef CVarAndroidNewKeyboard(
@@ -62,6 +64,16 @@ void FAndroidPlatformTextField::ShowVirtualKeyboard(bool bShow, int32 UserIndex,
 		
 		// Do not make suggestions as user types
 		InputType |= TYPE_TEXT_FLAG_NO_SUGGESTIONS;
+
+		// Ensure that the autocorrect flag is turned on or off based on project settings
+		if (ShouldUseAutocorrect(TextEntryWidget))
+		{
+			InputType |= TYPE_TEXT_FLAG_AUTO_CORRECT;
+		}
+		else
+		{
+			InputType &= ~TYPE_TEXT_FLAG_AUTO_CORRECT;
+		}
 	}
 
 	bool bIsUsingIntegratedKeyboard = EnableNewKeyboardConfig();
@@ -116,6 +128,30 @@ bool FAndroidPlatformTextField::AllowMoveCursor()
 	return !EnableNewKeyboardConfig();
 }
 
+bool FAndroidPlatformTextField::ShouldUseAutocorrect(TSharedPtr<IVirtualKeyboardEntry> TextEntryWidget) const
+{
+	bool bUseAutocorrect = IPlatformTextField::ShouldUseVirtualKeyboardAutocorrect(TextEntryWidget);
+
+	if (bUseAutocorrect)
+	{
+		static FString DeviceModel = FAndroidMisc::GetDeviceModel();
+
+		TArray<FString> ExcludedDeviceModels;
+		GConfig->GetArray(TEXT("/Script/Engine.InputSettings"), TEXT("ExcludedAutocorrectDeviceModels"), ExcludedDeviceModels, GInputIni);
+
+		for (const FString& ExcludedModel : ExcludedDeviceModels)
+		{
+			if (DeviceModel.StartsWith(ExcludedModel))
+			{
+				bUseAutocorrect = false;
+				break;
+			}
+		}
+	}
+
+	return bUseAutocorrect;
+}
+
 bool FAndroidPlatformTextField::EnableNewKeyboardConfig() const
 {
 	// read the value from the config file
@@ -125,3 +161,4 @@ bool FAndroidPlatformTextField::EnableNewKeyboardConfig() const
 	// use integrated keyboard if the runtime setting is set or the console variable is set to 1
 	return bEnableNewKeyboardConfig;
 }
+#endif

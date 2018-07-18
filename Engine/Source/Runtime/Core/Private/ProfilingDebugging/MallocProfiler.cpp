@@ -17,8 +17,8 @@
 
 #if USE_MALLOC_PROFILER
 
-#include "ModuleManager.h"
-#include "MemoryMisc.h"
+#include "Modules/ModuleManager.h"
+#include "HAL/MemoryMisc.h"
 #include "HAL/PlatformStackWalk.h"
 #include "HAL/PlatformTime.h"
 #include "Misc/ConfigCacheIni.h"
@@ -1257,8 +1257,8 @@ void FMallocProfiler::GetTexturePoolSize( FGenericMemoryStats& out_Stats )
 FMallocProfilerBufferedFileWriter::FMallocProfilerBufferedFileWriter()
 :	FileWriter( NULL )
 {
-	ArIsSaving		= true;
-	ArIsPersistent	= true;
+	this->SetIsSaving(true);
+	this->SetIsPersistent(true);
 	BaseFilePath = TEXT("");
 }
 

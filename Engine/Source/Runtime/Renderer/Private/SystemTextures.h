@@ -44,6 +44,11 @@ public:
 
 	// -----------
 
+	/**
+		Any Textures added here MUST be explicitly released on ReleaseDynamicRHI()!
+		Some RHIs need all their references released during destruction!
+	*/
+
 	// float4(1,1,1,1) can be used in case a light is not shadow casting
 	TRefCountPtr<IPooledRenderTarget> WhiteDummy;
 	// float4(0,0,0,0) can be used in additive postprocessing to avoid a shader combination
@@ -60,6 +65,9 @@ public:
 	TRefCountPtr<IPooledRenderTarget> SSAORandomization;
 	/** Preintegrated GF for single sample IBL */
 	TRefCountPtr<IPooledRenderTarget> PreintegratedGF;
+	/** Linearly Transformed Cosines LUTs */
+	TRefCountPtr<IPooledRenderTarget> LTCMat;
+	TRefCountPtr<IPooledRenderTarget> LTCAmp;
 	/** Texture that holds a single value containing the maximum depth that can be stored as FP16. */
 	TRefCountPtr<IPooledRenderTarget> MaxFP16Depth;
 	/** Depth texture that holds a single depth value */

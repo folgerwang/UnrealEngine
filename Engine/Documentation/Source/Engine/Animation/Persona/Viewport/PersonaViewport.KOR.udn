@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3810557
 Availability:Public
 Title:애니메이션 뷰포트
 Crumbs: %ROOT%, Engine, Engine/Animation, Engine/Animation/Persona
@@ -113,8 +113,62 @@ tags:animation
 | **Mute Audio** | 오디오 음소거 - 프리뷰의 오디오를 음소거합니다. |
 | **Use Audio Attenuation** | 오디오 어테뉴에이션 사용 - 프리뷰로 오디오를 재생할 때 오디오 감쇠를 사용합니다. |
 
+### 피직스
+
+**Physics** (피직스) 버튼에 제공되는 옵션은 다음과 같습니다:
+
+![](PhysicsMenu.png)
+
+| 옵션 | 설명 |
+| ------ | ----------- |
+| [REGION:tablesection] Anim 애님 [/REGION] ||
+| **Physics Bend** | 피직스 벤드 - 피직스와 애니메이션을 수동 제어할 수 있도록 해줍니다. |
+| **Update Joint from Animations** | 애니메이션으로부터 조인트 업데이트 - 켜면, 조인트는 시뮬레이션 도중 그 애니메이션으로부터 업데이트됩니다. |
+| **Physics Update Mode** | 피직스 업데이트 모드 - 루트 바디 시뮬레이션이 컴포넌트 트랜스폼도 업데이트하도록 할지 여부를 결정합니다. |
+| **Poke Pause Time** | 찌르기 일시정지 시간 - 래그돌을 찔렀을 때 원래대로 블렌딩해 돌아올 때까지 걸리는 시간입니다. |
+| **Poke Blend Time** | 찌르기 블렌드 시간 - 찔렀을 때 피직스에서 애니메이션으로 블렌딩하는 데 걸리는 시간입니다. |
+| [REGION:tablesection] Simulation 시뮬레이션 [/REGION] ||
+| **Grav Scale** | 중력 스케일 - 시뮬레이션 중 사용할 중력에 대한 스케일 인수입니다. |
+| **Max FPS** | 최대 FPS - 피직스 애셋 에디터에서 시뮬레이션의 최대 초당 프레임 수(FPS) 입니다. 게임과 똑같은 FPS 를 타겟으로 할 때 좋습니다. 값이 -1 이면 최대 FPS 설정을 끕니다. |
+| [REGION:tablesection] Mouse Spring 마우스 스프링 [/REGION] ||
+| **Handle Linear Damping** | 선형 제동 처리 - 마우스 스프링 포스에 대한 선형 제동입니다. |
+| **Handle Linear Stiffness** | 선형 강성 처리 - 마우스 스프링 포스에 대한 선형 강성입니다. |
+| **Handle Angular Damping** | 각형 제동 처리 - 마우스 스프링 포스에 대한 각형 제동입니다. |
+| **Handle Angular Stiffness** | 각형 강성 처리 - 마우스 스프링 포스에 대한 각형 강성입니다. |
+| **Interpolation Speed** | 보간 속도 - 마우스 스프링 포스에 대한 피직스 타겟 트랜스폼 보간이 일어나는 속도입니다. |
+| [REGION:tablesection] Poking 찌르기 [/REGION] ||
+| **Poke Strength** | 찌르기 세기 - 좌클릭으로 찌를 때 가할 힘의 세기입니다. |
+
+
+### 프리뷰 LOD
+
+**Preview LOD** (프리뷰 LOD) 버튼에는 다음과 같은 옵션이 제공됩니다:
+
+![](lodmenu.png)
+
+| 옵션 | 설명 |
+| ---- | ---- |
+| **LOD Auto** | LOD 자동 - 레벨 오브 디테일(LOD)을 자동 선택합니다 (기본 세팅입니다). |
+| **LOD 0** | LOD 0 - LOD 0 을 LOD 로 선택합니다. |
+
+### 재생 속도
+
+**Playback Speed** (재생 속도) 버튼에는 다음과 같은 옵션이 제공됩니다:
+
+![](playbackspeed.png)
+
+| 옵션 | 설명 |
+| ---- | ---- |
+| **x0.1** | 재생 속도를 0.1 배속으로 설정합니다. |
+| **x0.25** | 재생 속도를 0.25 배속으로 설정합니다. |
+| **x0.5** | 재생 속도를 0.5 배속으로 설정합니다. |
+| **x1.0** | 재생 속도를 1.0 배속으로 설정합니다. (기본값) |
+| **x2.0** | 재생 속도를 2.0 배속으로 설정합니다. |
+| **x5.0** | 재생 속도를 5.0 배속으로 설정합니다. |
+| **x10.0** | 재생 속도를 10.0 배속으로 설정합니다. |
+[/EXCERPT:viewoptions]
+
 [COMMENT:none]
--
 [INCLUDE:#advanced]
 
 [EXCERPT:Animation]
@@ -179,66 +233,7 @@ tags:animation
 | **Mesh Info** | 메시 정보 - 뷰포트에 메시 정보를 표시할 방법입니다. |
 | **Mesh Overlay Drawing** | 메시 오버레이 그리기 - 뷰포트에 있을 때 메시 표시 방법입니다. |
 [/EXCERPT:mesh]
-
--
 [/COMMENT]
-
-
-### 피직스
-
-**Physics** (피직스) 버튼에 제공되는 옵션은 다음과 같습니다:
-
-![](PhysicsMenu.png)
-
-| 옵션 | 설명 |
-| ------ | ----------- |
-| [REGION:tablesection] Anim 애님 [/REGION] ||
-| **Physics Bend** | 피직스 벤드 - 피직스와 애니메이션을 수동 제어할 수 있도록 해줍니다. |
-| **Update Joint from Animations** | 애니메이션으로부터 조인트 업데이트 - 켜면, 조인트는 시뮬레이션 도중 그 애니메이션으로부터 업데이트됩니다. |
-| **Physics Update Mode** | 피직스 업데이트 모드 - 루트 바디 시뮬레이션이 컴포넌트 트랜스폼도 업데이트하도록 할지 여부를 결정합니다. |
-| **Poke Pause Time** | 찌르기 일시정지 시간 - 래그돌을 찔렀을 때 원래대로 블렌딩해 돌아올 때까지 걸리는 시간입니다. |
-| **Poke Blend Time** | 찌르기 블렌드 시간 - 찔렀을 때 피직스에서 애니메이션으로 블렌딩하는 데 걸리는 시간입니다. |
-| [REGION:tablesection] Simulation 시뮬레이션 [/REGION] ||
-| **Grav Scale** | 중력 스케일 - 시뮬레이션 중 사용할 중력에 대한 스케일 인수입니다. |
-| **Max FPS** | 최대 FPS - 피직스 애셋 에디터에서 시뮬레이션의 최대 초당 프레임 수(FPS) 입니다. 게임과 똑같은 FPS 를 타겟으로 할 때 좋습니다. 값이 -1 이면 최대 FPS 설정을 끕니다. |
-| [REGION:tablesection] Mouse Spring 마우스 스프링 [/REGION] ||
-| **Handle Linear Damping** | 선형 제동 처리 - 마우스 스프링 포스에 대한 선형 제동입니다. |
-| **Handle Linear Stiffness** | 선형 강성 처리 - 마우스 스프링 포스에 대한 선형 강성입니다. |
-| **Handle Angular Damping** | 각형 제동 처리 - 마우스 스프링 포스에 대한 각형 제동입니다. |
-| **Handle Angular Stiffness** | 각형 강성 처리 - 마우스 스프링 포스에 대한 각형 강성입니다. |
-| **Interpolation Speed** | 보간 속도 - 마우스 스프링 포스에 대한 피직스 타겟 트랜스폼 보간이 일어나는 속도입니다. |
-| [REGION:tablesection] Poking 찌르기 [/REGION] ||
-| **Poke Strength** | 찌르기 세기 - 좌클릭으로 찌를 때 가할 힘의 세기입니다. |
-
-
-### 프리뷰 LOD
-
-**Preview LOD** (프리뷰 LOD) 버튼에는 다음과 같은 옵션이 제공됩니다:
-
-![](lodmenu.png)
-
-| 옵션 | 설명 |
-| ---- | ---- |
-| **LOD Auto** | LOD 자동 - 레벨 오브 디테일(LOD)을 자동 선택합니다 (기본 세팅입니다). |
-| **LOD 0** | LOD 0 - LOD 0 을 LOD 로 선택합니다. |
-
-### 재생 속도
-
-**Playback Speed** (재생 속도) 버튼에는 다음과 같은 옵션이 제공됩니다:
-
-![](playbackspeed.png)
-
-| 옵션 | 설명 |
-| ---- | ---- |
-| **x0.1** | 재생 속도를 0.1 배속으로 설정합니다. |
-| **x0.25** | 재생 속도를 0.25 배속으로 설정합니다. |
-| **x0.5** | 재생 속도를 0.5 배속으로 설정합니다. |
-| **x1.0** | 재생 속도를 1.0 배속으로 설정합니다. (기본값) |
-| **x2.0** | 재생 속도를 2.0 배속으로 설정합니다. |
-| **x5.0** | 재생 속도를 5.0 배속으로 설정합니다. |
-| **x10.0** | 재생 속도를 10.0 배속으로 설정합니다. |
-[/EXCERPT:viewoptions]
-
 
 ## 이동 툴바
 

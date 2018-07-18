@@ -24,15 +24,16 @@ namespace UnrealBuildTool.Rules
 					"CoreUObject",
 					"Engine",
 					"ImageWrapper",
+					"MediaAssets",
 					"RenderCore",
 					"RHI",
 					"ShaderCore",
+					"TimeManagement",
 				}
 			);
 
 			PrivateIncludePaths.AddRange(
 				new string[] {
-					"Runtime/ImagePlate/Private",
 				}
 			);
 		}

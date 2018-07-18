@@ -3,7 +3,7 @@
 #pragma once
 
 #include "AnimSequencerInstanceProxy.h"
-#include "AnimNode_ControlRig.h"
+#include "AnimNode_ControlRig_ExternalSource.h"
 #include "AnimNodes/AnimNode_LayeredBoneBlend.h"
 #include "ControlRigSequencerAnimInstanceProxy.generated.h"
 
@@ -13,7 +13,7 @@ struct FSequencerPlayerControlRig : public FSequencerPlayerBase
 {
 	SEQUENCER_INSTANCE_PLAYER_TYPE(FSequencerPlayerControlRig, FSequencerPlayerBase)
 
-	FAnimNode_ControlRig ControlRigNode;
+	FAnimNode_ControlRig_ExternalSource ControlRigNode;
 
 	bool bApplyBoneFilter;
 };

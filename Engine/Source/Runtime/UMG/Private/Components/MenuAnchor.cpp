@@ -84,7 +84,7 @@ TSharedRef<SWidget> UMenuAnchor::HandleGetMenuContent()
 		{
 			if ( UWorld* World = GetWorld() )
 			{
-				if ( UUserWidget* MenuWidget = CreateWidget<UUserWidget>(World, MenuClass) )
+				if ( UUserWidget* MenuWidget = CreateWidget(World, MenuClass) )
 				{
 					SlateMenuWidget = MenuWidget->TakeWidget();
 				}

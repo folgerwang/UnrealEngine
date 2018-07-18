@@ -3,8 +3,8 @@
 #pragma once
 
 #include "Containers/Map.h"
-#include "Containers/Algo/BinarySearch.h"
-#include "Containers/Algo/Sort.h"
+#include "Algo/BinarySearch.h"
+#include "Algo/Sort.h"
 #include "UObject/NameTypes.h"
 
 /** 
@@ -112,6 +112,7 @@ public:
 
 	/** 
 	 * Helper function to return the amount of memory allocated by this container.
+	 * Only returns the size of allocations made directly by the container, not the elements themselves.
 	 *
 	 * @return number of bytes allocated by this container.
 	 */

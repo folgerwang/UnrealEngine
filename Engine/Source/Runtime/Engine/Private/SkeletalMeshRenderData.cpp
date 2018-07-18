@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "SkeletalMeshRenderData.h"
-#include "SkeletalMeshLODRenderData.h"
+#include "Rendering/SkeletalMeshRenderData.h"
+#include "Rendering/SkeletalMeshLODRenderData.h"
 #include "Rendering/SkeletalMeshModel.h"
 #include "Rendering/SkeletalMeshLODModel.h"
 #include "Engine/SkeletalMesh.h"
@@ -29,7 +29,7 @@ namespace SkeletalMeshCookStats
 // differences, etc.) replace the version GUID below with a new one.
 // In case of merge conflicts with DDC versions, you MUST generate a new GUID
 // and set this new GUID as the version.                                       
-#define SKELETALMESH_DERIVEDDATA_VER TEXT("979A598F4D5F4686AD99644DCC83DCF2")
+#define SKELETALMESH_DERIVEDDATA_VER TEXT("62632E8FC541408082BCF5CDBF0F301A")
 
 static const FString& GetSkeletalMeshDerivedDataVersion()
 {
@@ -47,6 +47,8 @@ static FString BuildSkeletalMeshDerivedDataKey(USkeletalMesh* SkelMesh)
 
 	KeySuffix += SkelMesh->GetImportedModel()->GetIdString();
 	KeySuffix += (SkelMesh->bUseFullPrecisionUVs || !GVertexElementTypeSupport.IsSupported(VET_Half2)) ? "1" : "0";
+	KeySuffix += SkelMesh->bHasVertexColors ? "1" : "0";
+	KeySuffix += SkelMesh->VertexColorGuid.ToString(EGuidFormats::Digits);
 
 	return FDerivedDataCacheInterface::BuildCacheKey(
 		TEXT("SKELETALMESH"),
@@ -81,7 +83,7 @@ void FSkeletalMeshRenderData::Cache(USkeletalMesh* Owner)
 			Serialize(Ar, Owner);
 
 			int32 T1 = FPlatformTime::Cycles();
-			UE_LOG(LogSkeletalMesh, Log, TEXT("Skeletal Mesh found in DDC [%fms] %s"), FPlatformTime::ToMilliseconds(T1 - T0), *Owner->GetPathName());
+			UE_LOG(LogSkeletalMesh, Verbose, TEXT("Skeletal Mesh found in DDC [%fms] %s"), FPlatformTime::ToMilliseconds(T1 - T0), *Owner->GetPathName());
 		}
 		else
 		{
@@ -144,7 +146,12 @@ void FSkeletalMeshRenderData::InitResources(bool bNeedsVertexColors, TArray<UMor
 		// initialize resources for each lod
 		for (int32 LODIndex = 0; LODIndex < LODRenderData.Num(); LODIndex++)
 		{
-			LODRenderData[LODIndex].InitResources(bNeedsVertexColors, LODIndex, InMorphTargets);
+			FSkeletalMeshLODRenderData& RenderData = LODRenderData[LODIndex];
+
+			if(RenderData.GetNumVertices() > 0)
+			{
+				RenderData.InitResources(bNeedsVertexColors, LODIndex, InMorphTargets);
+			}
 		}
 		bInitialized = true;
 	}

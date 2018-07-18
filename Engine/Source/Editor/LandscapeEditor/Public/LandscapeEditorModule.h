@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Modules/ModuleInterface.h"
-#include "SharedPointer.h"
+#include "Templates/SharedPointer.h"
 
 class ILandscapeHeightmapFileFormat;
 class ILandscapeWeightmapFileFormat;

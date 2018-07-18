@@ -40,7 +40,7 @@ class FPostProcessDownsamplePS : public FGlobalShader
 
 public:
 	FPostProcessPassParameters PostprocessParameter;
-	FDeferredPixelShaderParameters DeferredParameters;
+	FSceneTextureShaderParameters SceneTextureParameters;
 	FShaderParameter DownsampleParams;
 	FShaderParameter BufferBilinearUVMinMax;
 
@@ -50,7 +50,7 @@ public:
 		: FGlobalShader(Initializer)
 	{
 		PostprocessParameter.Bind(Initializer.ParameterMap);
-		DeferredParameters.Bind(Initializer.ParameterMap);
+		SceneTextureParameters.Bind(Initializer);
 		DownsampleParams.Bind(Initializer.ParameterMap, TEXT("DownsampleParams"));
 		BufferBilinearUVMinMax.Bind(Initializer.ParameterMap, TEXT("BufferBilinearUVMinMax"));
 	}
@@ -59,7 +59,7 @@ public:
 	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
-		Ar << PostprocessParameter << DeferredParameters << DownsampleParams << BufferBilinearUVMinMax;
+		Ar << PostprocessParameter << SceneTextureParameters << DownsampleParams << BufferBilinearUVMinMax;
 		return bShaderHasOutdatedParameters;
 	}
 
@@ -69,7 +69,7 @@ public:
 		const FPixelShaderRHIParamRef ShaderRHI = GetPixelShader();
 
 		FGlobalShader::SetParameters<FViewUniformShaderParameters>(RHICmdList, ShaderRHI, Context.View.ViewUniformBuffer);
-		DeferredParameters.Set(RHICmdList, ShaderRHI, Context.View, MD_PostProcess);
+		SceneTextureParameters.Set(RHICmdList, ShaderRHI, Context.View.FeatureLevel, ESceneTextureSetupMode::All);
 
 		// filter only if needed for better performance
 		FSamplerStateRHIParamRef Filter = (Method == 2) ? 
@@ -184,7 +184,7 @@ class FPostProcessDownsampleCS : public FGlobalShader
 
 public:
 	FPostProcessPassParameters PostprocessParameter;
-	FDeferredPixelShaderParameters DeferredParameters;
+	FSceneTextureShaderParameters SceneTextureParameters;
 	FShaderParameter DownsampleComputeParams;
 	FShaderParameter OutComputeTex;
 
@@ -193,7 +193,7 @@ public:
 		: FGlobalShader(Initializer)
 	{
 		PostprocessParameter.Bind(Initializer.ParameterMap);
-		DeferredParameters.Bind(Initializer.ParameterMap);
+		SceneTextureParameters.Bind(Initializer);
 		DownsampleComputeParams.Bind(Initializer.ParameterMap, TEXT("DownsampleComputeParams"));
 		OutComputeTex.Bind(Initializer.ParameterMap, TEXT("OutComputeTex"));
 	}
@@ -202,7 +202,7 @@ public:
 	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
-		Ar << PostprocessParameter << DeferredParameters << DownsampleComputeParams << OutComputeTex;
+		Ar << PostprocessParameter << SceneTextureParameters << DownsampleComputeParams << OutComputeTex;
 		return bShaderHasOutdatedParameters;
 	}
 
@@ -218,7 +218,7 @@ public:
 			TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI();
 
 		PostprocessParameter.SetCS(ShaderRHI, Context, RHICmdList, Filter);
-		DeferredParameters.Set(RHICmdList, ShaderRHI, Context.View, MD_PostProcess);
+		SceneTextureParameters.Set(RHICmdList, ShaderRHI, Context.View.FeatureLevel, ESceneTextureSetupMode::All);
 		RHICmdList.SetUAVParameter(ShaderRHI, OutComputeTex.GetBaseIndex(), DestUAV);
 		
 		const float PixelScale = (Method == 2) ? 0.5f : 1.0f;
@@ -440,7 +440,7 @@ void FRCPassPostProcessDownsample::Process(FRenderingCompositePassContext& Conte
 			*VertexShader,
 			EDRF_UseTriangleOptimization);
 
-		Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, false, FResolveParams());
+		Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 	}
 }
 

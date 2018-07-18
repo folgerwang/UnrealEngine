@@ -13,15 +13,49 @@ THIRD_PARTY_INCLUDES_END
 
 namespace ICUUtilities
 {
-	/** 
+	/**
+	 * Implementation of the string converter that can copy FString to icu::UnicodeString directly since the native string format for this platform is already UTF-16 (as used by ICU)
+	 * Note: Do not use this type directly! Use the FStringConverterImpl typedef, which will be set correctly for your platform
+	 */
+	class FStringConverterImpl_NativeUTF16
+	{
+	public:
+		void ConvertString(const TCHAR* Source, const int32 SourceStartIndex, const int32 SourceLen, icu::UnicodeString& Destination, const bool ShouldNullTerminate);
+		void ConvertString(const icu::UnicodeString& Source, const int32 SourceStartIndex, const int32 SourceLen, FString& Destination);
+	};
+
+	/**
+	 * Implementation of the string converter that can copy FString to icu::UnicodeString via an ICU converter since the native string format for this platform is not UTF-16 (as used by ICU)
+	 * Note: Do not use this type directly! Use the FStringConverterImpl typedef, which will be set correctly for your platform
+	 */
+	class FStringConverterImpl_ConvertToUnicodeString
+	{
+	public:
+		FStringConverterImpl_ConvertToUnicodeString();
+		~FStringConverterImpl_ConvertToUnicodeString();
+
+		void ConvertString(const TCHAR* Source, const int32 SourceStartIndex, const int32 SourceLen, icu::UnicodeString& Destination, const bool ShouldNullTerminate);
+		void ConvertString(const icu::UnicodeString& Source, const int32 SourceStartIndex, const int32 SourceLen, FString& Destination);
+
+	private:
+		UConverter* ICUConverter;
+	};
+
+	/** Work out the best string converter to use based upon our native platform string traits */
+	template <bool IsUnicode, size_t TCHARSize> struct FStringConverterImpl_PlatformSpecific { typedef FStringConverterImpl_ConvertToUnicodeString Type; };
+	template <> struct FStringConverterImpl_PlatformSpecific<true, 2> { typedef FStringConverterImpl_NativeUTF16 Type; }; // A unicode encoding with a wchar_t size of 2 bytes is assumed to be UTF-16
+	typedef FStringConverterImpl_PlatformSpecific<FPlatformString::IsUnicodeEncoded, sizeof(TCHAR)>::Type FStringConverterImpl;
+
+	/**
 	 * An object that can convert between FString and icu::UnicodeString
 	 * Note: This object is not thread-safe.
 	 */
 	class FStringConverter
 	{
 	public:
-		FStringConverter();
-		~FStringConverter();
+		FStringConverter() = default;
+		FStringConverter(const FStringConverter&) = delete;
+		FStringConverter& operator=(const FStringConverter&) = delete;
 
 		/** Convert FString -> icu::UnicodeString */
 		void ConvertString(const FString& Source, icu::UnicodeString& Destination, const bool ShouldNullTerminate = true);
@@ -36,11 +70,7 @@ namespace ICUUtilities
 		FString ConvertString(const icu::UnicodeString& Source, const int32 SourceStartIndex, const int32 SourceLen);
 
 	private:
-		/** Non-copyable */
-		FStringConverter(const FStringConverter&);
-		FStringConverter& operator=(const FStringConverter&);
-
-		UConverter* ICUConverter;
+		FStringConverterImpl Impl;
 	};
 
 	/** Convert FString -> icu::UnicodeString */

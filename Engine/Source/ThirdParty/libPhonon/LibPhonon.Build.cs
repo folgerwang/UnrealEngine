@@ -1,4 +1,5 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -20,11 +21,19 @@ public class libPhonon : ModuleRules
 
             string DllName = "phonon.dll";
 
+            // 64 bit only libraries for TAN support:
+            string TrueAudioNextDllName = "tanrt64.dll";
+            string GPUUtilitiesDllName = "GPUUtilities.dll";
+
             PublicDelayLoadDLLs.Add(DllName);
+            PublicDelayLoadDLLs.Add(TrueAudioNextDllName);
+            PublicDelayLoadDLLs.Add(GPUUtilitiesDllName);
 
             BinaryPath += "Win64/";
 
             RuntimeDependencies.Add(BinaryPath + DllName);
+            RuntimeDependencies.Add(BinaryPath + TrueAudioNextDllName);
+            RuntimeDependencies.Add(BinaryPath + GPUUtilitiesDllName);
         }
         else if (Target.Platform == UnrealTargetPlatform.Win32)
         {

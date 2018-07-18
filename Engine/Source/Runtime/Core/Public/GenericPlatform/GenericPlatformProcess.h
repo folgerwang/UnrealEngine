@@ -149,9 +149,6 @@ struct CORE_API FGenericPlatformProcess
 	/** Lookup the address of a DLL function. **/
 	static void* GetDllExport( void* DllHandle, const TCHAR* ProcName );
 
-	/** Gets the API version from the specified DLL **/
-	static int32 GetDllApiVersion( const TCHAR* Filename );
-
 	/** Adds a directory to search in when resolving implicitly loaded or filename-only DLLs. **/
 	FORCEINLINE static void AddDllDirectory(const TCHAR* Directory)
 	{

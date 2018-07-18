@@ -11,6 +11,7 @@ struct KISMET_API FBlueprintEditorTabs
 	static const FName DefaultEditorID;
 	static const FName DebugID;
 	static const FName PaletteID;
+	static const FName BookmarksID;
 	static const FName CompilerResultsID;
 	static const FName FindResultsID;
 	static const FName ConstructionScriptEditorID;

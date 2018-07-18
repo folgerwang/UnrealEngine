@@ -47,4 +47,4 @@ The Foliage Instanced Mesh system allows you to quickly paint or erase sets of S
 
 ##Foliage Mode
 
-The Foliage Instanced Mesh system enables you to quickly paint or erase batched sets of Static Meshes that use hardware instancing for efficient rendering on Landscape Actors, other Static Mesh Actors, and BSP geometry.
+The Foliage Mode enables you to quickly paint or erase batched sets of Static Meshes that use hardware instancing for efficient rendering on Landscape Actors, other Static Mesh Actors, and BSP geometry.

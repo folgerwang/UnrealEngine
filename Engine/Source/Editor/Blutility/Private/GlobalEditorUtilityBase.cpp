@@ -106,6 +106,22 @@ void UGlobalEditorUtilityBase::ForEachSelectedAsset()
 	}
 }
 
+TArray<UObject*> UGlobalEditorUtilityBase::GetSelectedAssets()
+{
+	//@TODO: Blocking load, no slow dialog
+	FContentBrowserModule& ContentBrowserModule = FModuleManager::LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
+	TArray<FAssetData> SelectedAssets;
+	ContentBrowserModule.Get().GetSelectedAssets(SelectedAssets);
+
+	TArray<UObject*> Result;
+	for (FAssetData& AssetData : SelectedAssets)
+	{
+		Result.Add(AssetData.GetAsset());
+	}
+
+	return Result;
+}
+
 UEditorPerProjectUserSettings* UGlobalEditorUtilityBase::GetEditorUserSettings()
 {
 	return GetMutableDefault<UEditorPerProjectUserSettings>();

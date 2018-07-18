@@ -80,6 +80,7 @@ namespace UnrealGameSync
 			this.Controls.Add(this.FileList);
 			this.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
 			this.Name = "FailedToDeleteWindow";
+			this.ShowInTaskbar = false;
 			this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
 			this.Text = "Failed to Delete Files";
 			this.ResumeLayout(false);

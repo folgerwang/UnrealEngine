@@ -19,7 +19,6 @@ Level.cpp: Level-related functions
 #include "GameFramework/Pawn.h"
 #include "Engine/World.h"
 #include "SceneInterface.h"
-#include "AI/Navigation/NavigationData.h"
 #include "PrecomputedLightVolume.h"
 #include "PrecomputedVolumetricLightmap.h"
 #include "Engine/MapBuildDataRegistry.h"
@@ -57,6 +56,7 @@ Level.cpp: Level-related functions
 #include "Components/ModelComponent.h"
 #include "Engine/LevelActorContainer.h"
 #include "Engine/StaticMeshActor.h"
+#include "ComponentRecreateRenderStateContext.h"
 
 DEFINE_LOG_CATEGORY(LogLevel);
 
@@ -249,6 +249,7 @@ ULevel::ULevel( const FObjectInitializer& ObjectInitializer )
 	FixupOverrideVertexColorsCount = 0;
 #endif	
 	bActorClusterCreated = false;
+	bStaticComponentsRegisteredInStreamingManager = false;
 }
 
 void ULevel::Initialize(const FURL& InURL)
@@ -404,6 +405,35 @@ void ULevel::Serialize( FArchive& Ar )
 		FWorldTileInfo Info;
 		Ar << Info;
 	}
+}
+
+void ULevel::CreateReplicatedDestructionInfo(AActor* const Actor)
+{
+	if (Actor == nullptr)
+	{
+		return;
+	}
+	
+	// mimic the checks the package map will do before assigning a guid
+	const bool bIsActorStatic = Actor->IsFullNameStableForNetworking() && Actor->IsSupportedForNetworking();
+	const bool bActorHasRole = Actor->GetRemoteRole() != ROLE_None;
+	const bool bShouldCreateDestructionInfo = bIsActorStatic && bActorHasRole;
+
+	if (bShouldCreateDestructionInfo)
+	{
+		FReplicatedStaticActorDestructionInfo NewInfo;
+		NewInfo.PathName = Actor->GetFName();
+		NewInfo.DestroyedPosition = Actor->GetActorLocation();
+		NewInfo.ObjOuter = Actor->GetOuter();
+		NewInfo.ObjClass = Actor->GetClass();
+
+		DestroyedReplicatedStaticActors.Add(NewInfo);
+	}
+}
+
+const TArray<FReplicatedStaticActorDestructionInfo>& ULevel::GetDestroyedReplicatedStaticActors() const
+{
+	return DestroyedReplicatedStaticActors;
 }
 
 bool ULevel::IsNetActor(const AActor* Actor)
@@ -812,21 +842,21 @@ namespace FLevelSortUtils
 
 	struct FDepthSort
 	{
-		TMap<AActor*, int32> DepthMap;
+		TMap<AActor*, int32>* DepthMap;
 
 		bool operator()(AActor* A, AActor* B) const
 		{
-			const int32 DepthA = A ? DepthMap.FindRef(A) : MAX_int32;
-			const int32 DepthB = B ? DepthMap.FindRef(B) : MAX_int32;
+			const int32 DepthA = A ? DepthMap->FindRef(A) : MAX_int32;
+			const int32 DepthB = B ? DepthMap->FindRef(B) : MAX_int32;
 			return DepthA < DepthB;
 		}
 	};
 }
 
 /**
-*	Sorts actors such that parent actors will appear before children actors in the list
-*	Stable sort
-*/
+ *	Sorts actors such that parent actors will appear before children actors in the list
+ *	Stable sort
+ */
 static void SortActorsHierarchy(TArray<AActor*>& Actors, UObject* Level)
 {
 	const double StartTime = FPlatformTime::Seconds();
@@ -847,16 +877,30 @@ static void SortActorsHierarchy(TArray<AActor*>& Actors, UObject* Level)
 
 	if (ParentMap.Num())
 	{
+		TMap<AActor*, int32> DepthMap;
 		FLevelSortUtils::FDepthSort DepthSorter;
+		DepthSorter.DepthMap = &DepthMap;
+
 		TArray<AActor*> ParentChain;
 		while (ParentMap.Num())
 		{
 			ParentChain.Reset();
 			FLevelSortUtils::FindAndRemoveParentChain(ParentMap, ParentChain);
 
+			// Topmost parent in found parent chain might have its parent already removed
+			// so we need to use it's stored depth as a base depth for whole chain
+			int32 ParentChainStartDepth = 0;
+			if (ParentChain.Num() > 0)
+			{
+				if (int32* StartDepthPtr = DepthMap.Find(ParentChain.Last()))
+				{
+					ParentChainStartDepth = *StartDepthPtr;
+				}
+			}
+
 			for (int32 Idx = 0; Idx < ParentChain.Num(); Idx++)
 			{
-				DepthSorter.DepthMap.Add(ParentChain[Idx], ParentChain.Num() - Idx - 1);
+				DepthMap.Add(ParentChain[Idx], ParentChainStartDepth + ParentChain.Num() - Idx - 1);
 			}
 		}
 
@@ -911,6 +955,11 @@ void ULevel::IncrementalUpdateComponents(int32 NumComponentsToUpdate, bool bReru
 #if PERF_TRACK_DETAILED_ASYNC_STATS
 			FScopeCycleCounterUObject ContextScope(Actor);
 #endif
+			if (!bHasCurrentActorCalledPreRegister)
+			{
+				Actor->PreRegisterAllComponents();
+				bHasCurrentActorCalledPreRegister = true;
+			}
 			bAllComponentsRegistered = Actor->IncrementalRegisterComponents(NumComponentsToUpdate);
 		}
 
@@ -918,6 +967,7 @@ void ULevel::IncrementalUpdateComponents(int32 NumComponentsToUpdate, bool bReru
 		{	
 			// All components have been registered fro this actor, move to a next one
 			CurrentActorIndexForUpdateComponents++;
+			bHasCurrentActorCalledPreRegister = false;
 		}
 
 		// If we do an incremental registration return to outer loop after each processed actor 
@@ -929,12 +979,11 @@ void ULevel::IncrementalUpdateComponents(int32 NumComponentsToUpdate, bool bReru
 	}
 
 	// See whether we are done.
-	if (CurrentActorIndexForUpdateComponents == Actors.Num())
+	if (CurrentActorIndexForUpdateComponents >= Actors.Num())
 	{
 		CurrentActorIndexForUpdateComponents	= 0;
+		bHasCurrentActorCalledPreRegister		= false;
 		bAreComponentsCurrentlyRegistered		= true;
-		
-		CreateCluster();
 
 #if PERF_TRACK_DETAILED_ASYNC_STATS
 		QUICK_SCOPE_CYCLE_COUNTER(STAT_ULevel_IncrementalUpdateComponents_RerunConstructionScripts);
@@ -961,6 +1010,8 @@ void ULevel::IncrementalUpdateComponents(int32 NumComponentsToUpdate, bool bReru
 			}
 			bHasRerunConstructionScripts = true;
 		}
+
+		CreateCluster();
 	}
 	// Only the game can use incremental update functionality.
 	else
@@ -998,7 +1049,7 @@ bool ULevel::IncrementalUnregisterComponents(int32 NumComponentsToUnregister)
 		}
 	}
 
-	if (CurrentActorIndexForUnregisterComponents == Actors.Num())
+	if (CurrentActorIndexForUnregisterComponents >= Actors.Num())
 	{
 		CurrentActorIndexForUnregisterComponents = 0;
 		return true;
@@ -1372,13 +1423,11 @@ void ULevel::PostEditUndo()
 		}
 		else
 		{
-			const int32 NumStreamingLevels = OwningWorld->StreamingLevels.Num();
-			for (int i = 0; i < NumStreamingLevels; ++i)
+			for (const ULevelStreaming* StreamedLevel : OwningWorld->GetStreamingLevels())
 			{
-				const ULevelStreaming* StreamedLevel = OwningWorld->StreamingLevels[i];
 				if (StreamedLevel && StreamedLevel->GetLoadedLevel() == this)
 				{
-					bIsStreamingLevelVisible = FLevelUtils::IsLevelVisible(StreamedLevel);
+					bIsStreamingLevelVisible = FLevelUtils::IsStreamingLevelVisibleInEditor(StreamedLevel);
 					break;
 				}
 			}
@@ -1387,6 +1436,11 @@ void ULevel::PostEditUndo()
 		if (bIsStreamingLevelVisible)
 		{
 			InitializeRenderingResources();
+
+			// Hack: FScene::AddPrecomputedVolumetricLightmap does not cause static draw lists to be updated - force an update so the correct base pass shader is selected in ProcessBasePassMesh.  
+			// With the normal load order, the level rendering resources are always initialized before the components that are in the level, so this is not an issue. 
+			// During undo, PostEditUndo on the component and ULevel are called in an arbitrary order.
+			MarkLevelComponentsRenderStateDirty();
 		}
 	}
 
@@ -1973,7 +2027,7 @@ void ULevel::FixupForPIE(int32 PIEInstanceID)
 	{
 		FSoftPathPIEFixupSerializer() 
 		{
-			ArIsSaving = true;
+			this->SetIsSaving(true);
 		}
 
 		FArchive& operator<<(FSoftObjectPath& Value)
@@ -2083,13 +2137,9 @@ void ULevel::ApplyWorldOffset(const FVector& InWorldOffset, bool bWorldShift)
 			AActor* Actor = Actors[ActorIndex];
 			if (Actor)
 			{
-				FVector Offset = (bWorldShift && Actor->bIgnoresOriginShifting) ? FVector::ZeroVector : InWorldOffset;
-
-				if (!Actor->IsA(ANavigationData::StaticClass())) // Navigation data will be moved in NavigationSystem
-				{
-					FScopeCycleCounterUObject Context(Actor);
-					Actor->ApplyWorldOffset(Offset, bWorldShift);
-				}
+				const FVector Offset = (bWorldShift && Actor->bIgnoresOriginShifting) ? FVector::ZeroVector : InWorldOffset;
+				FScopeCycleCounterUObject Context(Actor);
+				Actor->ApplyWorldOffset(Offset, bWorldShift);
 			}
 		}
 	}
@@ -2204,12 +2254,12 @@ void ULevel::RemoveUserDataOfClass(TSubclassOf<UAssetUserData> InUserDataClass)
 
 bool ULevel::HasVisibilityRequestPending() const
 {
-	return (OwningWorld && this == OwningWorld->CurrentLevelPendingVisibility);
+	return (OwningWorld && this == OwningWorld->GetCurrentLevelPendingVisibility());
 }
 
 bool ULevel::HasVisibilityChangeRequestPending() const
 {
-	return (OwningWorld && ( this == OwningWorld->CurrentLevelPendingVisibility || this == OwningWorld->CurrentLevelPendingInvisibility ) );
+	return (OwningWorld && ( this == OwningWorld->GetCurrentLevelPendingVisibility() || this == OwningWorld->GetCurrentLevelPendingInvisibility() ) );
 }
 
 

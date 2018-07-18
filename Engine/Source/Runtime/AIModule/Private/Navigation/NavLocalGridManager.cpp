@@ -2,7 +2,7 @@
 
 #include "Navigation/NavLocalGridManager.h"
 #include "AISystem.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "NavigationSystem.h"
 #include "Engine/Engine.h"
 
 float UNavLocalGridManager::GridCellSize = 50.0f;
@@ -199,8 +199,8 @@ void UNavLocalGridManager::ProjectGrids(const TArray<int32>& GridIndices)
 {
 	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("NavGrid: Project"), STAT_GridProject, STATGROUP_AI);
 
-	const UNavigationSystem* NavSys = UNavigationSystem::GetCurrent(GetWorld());
-	const ANavigationData* NavData = NavSys ? NavSys->GetMainNavData() : nullptr;
+	const UNavigationSystemV1* NavSys = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
+	const ANavigationData* NavData = NavSys ? NavSys->GetDefaultNavDataInstance() : nullptr;
 	
 	if (NavData)
 	{

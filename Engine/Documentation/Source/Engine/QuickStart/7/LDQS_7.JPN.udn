@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:2735872
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:7 - 応用編
 Crumbs:%ROOT%, GettingStarted, Engine/QuickStart
-Description:このガイドで説明した方法を使って、追加のコンテンツでレベルにさらに磨きをかけます。関連トピックスのドキュメントも紹介します。 
+Description:操作ガイドで説明した内容を踏まえて、プラスアルファしたコンテンツを使ってレベルアップを目指します。関連トピックスのドキュメントも紹介します。 
 SkillLevel:Beginner
 Version:4.9
 checkpoint: editorqs
@@ -10,7 +10,7 @@ checkpoint: editorqs
 [VAR:Steps]
 [OBJECT:Navigation]
 	[PARAM:previous]
-		[前のステップ](Engine/QuickStart/6 "%Engine/QuickStart/6:title%")
+		[次のステップ](Engine/QuickStart/6 "%Engine/QuickStart/6:title%")
 	[/PARAM]
 	[PARAM:current]
 	[/PARAM]
@@ -34,7 +34,7 @@ checkpoint: editorqs
 
 ![](update2.png)(h:380) ![](update4.png)(h:380)
 
-* 追加した部屋を高くして、階段でつなげる 
+* 追加した部屋を高くして階段とつなげる
 * 低木、長いす、棚、玄関のドアを追加する 
 
 ![](update6.png)(w:830)
@@ -42,9 +42,9 @@ checkpoint: editorqs
 * 異なるカラーの異なるライトを追加する 
 * アクタ上で異なるマテリアルを使用する 
 
-コンテンツ クイック スタートガイドおよびエディタ全般にで説明したトピックスに関しては、 [アンリアル エディタのマニュアル](Engine) をご覧ください。
+コンテンツ クイック スタートガイドおよびエディタ全般にわたり取り扱ったトピックスに関しては、 [**アンリアル エディタのマニュアル**](Engine) をご覧ください。
 
-クイック スタートガイドで取り扱った詳細は以下でご覧いただけます。
+以下は、このクイックスタートガイドで扱った詳細です。
 
 * レベル エディタに関する詳細は、[レベルエディタ](Engine\UI\LevelEditor) を参照してください。
 
@@ -58,7 +58,7 @@ checkpoint: editorqs
 
 * ビルドに関する詳細は、[ライトマス](Engine\Rendering\LightingAndShadows\Lightmass) を参照してください。
 
-* ライティングの基礎に関する詳細は、[ライティング クイックスタート ガイド](Engine/Rendering/LightingAndShadows/QuickStart) を参照してください。
+* ライティングの基礎に関する詳細は、[クイックスタート ホーム](Engine/Rendering/LightingAndShadows/QuickStart)
 
 
 

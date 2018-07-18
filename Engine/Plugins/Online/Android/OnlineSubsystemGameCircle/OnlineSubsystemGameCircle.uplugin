@@ -8,6 +8,9 @@
 	"CreatedBy" : "Epic Games, Inc.",
 	"CreatedByURL" : "http://epicgames.com",
 	"EnabledByDefault" : false,
+	"SupportedTargetPlatforms": [
+		"Android"
+	],
 	"Modules" :
 	[
 		{

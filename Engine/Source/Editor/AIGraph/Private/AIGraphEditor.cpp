@@ -83,8 +83,7 @@ void FAIGraphEditor::CreateCommandList()
 FGraphPanelSelectionSet FAIGraphEditor::GetSelectedNodes() const
 {
 	FGraphPanelSelectionSet CurrentSelection;
-	TSharedPtr<SGraphEditor> FocusedGraphEd = UpdateGraphEdPtr.Pin();
-	if (FocusedGraphEd.IsValid())
+	if (TSharedPtr<SGraphEditor> FocusedGraphEd = UpdateGraphEdPtr.Pin())
 	{
 		CurrentSelection = FocusedGraphEd->GetSelectedNodes();
 	}
@@ -102,8 +101,7 @@ void FAIGraphEditor::PostUndo(bool bSuccess)
 	if (bSuccess)
 	{
 		// Clear selection, to avoid holding refs to nodes that go away
-		TSharedPtr<SGraphEditor> CurrentGraphEditor = UpdateGraphEdPtr.Pin();
-		if (CurrentGraphEditor.IsValid())
+		if (TSharedPtr<SGraphEditor> CurrentGraphEditor = UpdateGraphEdPtr.Pin())
 		{
 			CurrentGraphEditor->ClearSelectionSet();
 			CurrentGraphEditor->NotifyGraphChanged();
@@ -117,8 +115,7 @@ void FAIGraphEditor::PostRedo(bool bSuccess)
 	if (bSuccess)
 	{
 		// Clear selection, to avoid holding refs to nodes that go away
-		TSharedPtr<SGraphEditor> CurrentGraphEditor = UpdateGraphEdPtr.Pin();
-		if (CurrentGraphEditor.IsValid())
+		if (TSharedPtr<SGraphEditor> CurrentGraphEditor = UpdateGraphEdPtr.Pin())
 		{
 			CurrentGraphEditor->ClearSelectionSet();
 			CurrentGraphEditor->NotifyGraphChanged();
@@ -129,8 +126,7 @@ void FAIGraphEditor::PostRedo(bool bSuccess)
 
 void FAIGraphEditor::SelectAllNodes()
 {
-	TSharedPtr<SGraphEditor> CurrentGraphEditor = UpdateGraphEdPtr.Pin();
-	if (CurrentGraphEditor.IsValid())
+	if (TSharedPtr<SGraphEditor> CurrentGraphEditor = UpdateGraphEdPtr.Pin())
 	{
 		CurrentGraphEditor->SelectAllNodes();
 	}
@@ -302,8 +298,7 @@ bool FAIGraphEditor::CanCopyNodes() const
 
 void FAIGraphEditor::PasteNodes()
 {
-	TSharedPtr<SGraphEditor> CurrentGraphEditor = UpdateGraphEdPtr.Pin();
-	if (CurrentGraphEditor.IsValid())
+	if (TSharedPtr<SGraphEditor> CurrentGraphEditor = UpdateGraphEdPtr.Pin())
 	{
 		PasteNodesHere(CurrentGraphEditor->GetPasteLocation());
 	}

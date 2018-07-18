@@ -267,15 +267,6 @@ void FilterPS(
 	float2 ScaledUVs = Input.UV * 2 - 1;
 	float3 CubeCoordinates = GetCubemapVector(ScaledUVs);
 
-#if ES2_PROFILE || METAL_PROFILE
-//@todo - mwassmer.  Write filtering that works for ES2 so specular will work.
-#define FILTER_CUBEMAP 0
-#else
-#define FILTER_CUBEMAP 1
-#endif
-
-#if FILTER_CUBEMAP
-
 	float3 N = normalize(CubeCoordinates);
 	float3x3 TangentToWorld = GetTangentBasis( N );
 
@@ -334,7 +325,7 @@ void FilterPS(
 
 			E.y *= 0.995;
 
-			float3 H = ImportanceSampleGGX( E, Roughness ).xyz;
+			float3 H = ImportanceSampleGGX( E, Pow4(Roughness) ).xyz;
 			float3 L = 2 * H.z * H - float3(0,0,1);
 
 			float NoL = L.z;
@@ -345,8 +336,8 @@ void FilterPS(
 				//float TexelWeight = CubeTexelWeight( L );
 				//float SolidAngleTexel = SolidAngleAvgTexel * TexelWeight;
 
-				//float PDF = D_GGX( Roughness, NoH ) * NoH / (4 * VoH);
-				float PDF = D_GGX( Roughness, NoH ) * 0.25;
+				//float PDF = D_GGX( Pow4(Roughness), NoH ) * NoH / (4 * VoH);
+				float PDF = D_GGX( Pow4(Roughness), NoH ) * 0.25;
 				float SolidAngleSample = 1.0 / ( NumSamples * PDF );
 				float Mip = 0.5 * log2( SolidAngleSample / SolidAngleTexel );
 
@@ -360,12 +351,6 @@ void FilterPS(
 
 		OutColor = FilteredColor / Weight;
 	}
-
-#else
-
-	OutColor = SampleCubemap(CubeCoordinates, MipIndex);
-
-#endif
 }
 
 float4 CoefficientMask0;

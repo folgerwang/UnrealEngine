@@ -2,6 +2,8 @@
 
 
 #include "Dialogs/Dialogs.h"
+#include "Misc/App.h"
+#include "Misc/AssertionMacros.h"
 #include "Misc/MessageDialog.h"
 #include "Misc/ConfigCacheIni.h"
 #include "SlateOptMacros.h"
@@ -9,9 +11,10 @@
 #include "Widgets/Layout/SBorder.h"
 #include "Widgets/Images/SImage.h"
 #include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Layout/SScrollBox.h"
 #include "Widgets/Layout/SUniformGridPanel.h"
 #include "Widgets/Input/SButton.h"
-#include "Widgets/Layout/SScrollBox.h"
 #include "Widgets/Input/SCheckBox.h"
 #include "EditorStyleSet.h"
 #include "Editor.h"
@@ -19,6 +22,7 @@
 #include "DesktopPlatformModule.h"
 #include "Widgets/Input/SHyperlink.h"
 #include "HAL/PlatformApplicationMisc.h"
+#include "HAL/PlatformMisc.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogDialogs, Log, All);
 
@@ -294,16 +298,69 @@ void CreateMsgDlgWindow(TSharedPtr<SWindow>& OutWindow, TSharedPtr<SChoiceDialog
 
 EAppReturnType::Type OpenMsgDlgInt(EAppMsgType::Type InMessageType, const FText& InMessage, const FText& InTitle)
 {
-	TSharedPtr<SWindow> MsgWindow = NULL;
-	TSharedPtr<SChoiceDialog> MsgDialog = NULL;
+	EAppReturnType::Type DefaultValue = EAppReturnType::Yes;
+	switch (InMessageType)
+	{
+	case EAppMsgType::Ok:
+		DefaultValue = EAppReturnType::Ok;
+		break;
+	case EAppMsgType::YesNo:
+		DefaultValue = EAppReturnType::No;
+		break;
+	case EAppMsgType::OkCancel:
+		DefaultValue = EAppReturnType::Cancel;
+		break;
+	case EAppMsgType::YesNoCancel:
+		DefaultValue = EAppReturnType::Cancel;
+		break;
+	case EAppMsgType::CancelRetryContinue:
+		DefaultValue = EAppReturnType::Cancel;
+		break;
+	case EAppMsgType::YesNoYesAllNoAll:
+		DefaultValue = EAppReturnType::No;
+		break;
+	case EAppMsgType::YesNoYesAllNoAllCancel:
+	default:
+		DefaultValue = EAppReturnType::Yes;
+		break;
+	}
 
-	CreateMsgDlgWindow(MsgWindow, MsgDialog, InMessageType, InMessage, InTitle);
+	if (GIsRunningUnattendedScript && InMessageType != EAppMsgType::Ok)
+	{
+		UE_LOG(LogDialogs, Error, TEXT("Message Dialog was triggered in unattended script mode without a default value. %d will be used."), (int32)DefaultValue);
+		if (FPlatformMisc::IsDebuggerPresent())
+		{
+			UE_DEBUG_BREAK();
+		}
+		else
+		{
+			FDebug::DumpStackTraceToLog();
+		}
+	}
 
-	GEditor->EditorAddModalWindow(MsgWindow.ToSharedRef());
+	return OpenMsgDlgInt(InMessageType, DefaultValue, InMessage, InTitle);
+}
 
-	EAppReturnType::Type Response = MsgDialog->GetResponse();
+EAppReturnType::Type OpenMsgDlgInt(EAppMsgType::Type InMessageType, EAppReturnType::Type InDefaultValue, const FText& InMessage, const FText& InTitle)
+{
+	if (FApp::IsUnattended() == true || GIsRunningUnattendedScript)
+	{
+		UE_LOG(LogDialogs, Log, TEXT("Message Dialog was triggered in unattended script mode without a default value. %d will be used."), (int32)InDefaultValue);
+		return InDefaultValue;
+	}
+	else
+	{
+		TSharedPtr<SWindow> MsgWindow = NULL;
+		TSharedPtr<SChoiceDialog> MsgDialog = NULL;
 
-	return Response;
+		CreateMsgDlgWindow(MsgWindow, MsgDialog, InMessageType, InMessage, InTitle);
+
+		GEditor->EditorAddModalWindow(MsgWindow.ToSharedRef());
+
+		EAppReturnType::Type Response = MsgDialog->GetResponse();
+
+		return Response;
+	}
 }
 
 TSharedRef<SWindow> OpenMsgDlgInt_NonModal(EAppMsgType::Type InMessageType, const FText& InMessage, const FText& InTitle,
@@ -808,50 +865,63 @@ bool PromptUserIfExistingObject( const FString& Name, const FString& Package, co
 
 void SGenericDialogWidget::Construct( const FArguments& InArgs )
 {
-	TSharedPtr< SScrollBox > ScrollBox;
+	TSharedPtr<SWidget> ContentWidget;
+	if (InArgs._UseScrollBox)
+	{
+		ContentWidget = 
+			SNew(SBox)
+			.MaxDesiredHeight(InArgs._ScrollBoxMaxHeight)
+			[
+				SNew(SScrollBox)
+				+SScrollBox::Slot()
+				[
+					InArgs._Content.Widget
+				]
+			];
+	}
+	else
+	{
+		ContentWidget = InArgs._Content.Widget;
+	}
 
 	this->ChildSlot
 	[
 		SNew(SVerticalBox)
 		+SVerticalBox::Slot()
-		.AutoHeight()
-		.MaxHeight(300.0f)
 		[
-			SAssignNew(ScrollBox, SScrollBox)
+			ContentWidget.ToSharedRef()
 		]
 
 		+SVerticalBox::Slot()
-			.HAlign(HAlign_Right)
-			.AutoHeight()
-			.Padding(0.0f, 2.0f, 0.0f, 0.0f)
-			[
-				SNew(SButton)
-					.Text( NSLOCTEXT("UnrealEd", "OK", "OK") )
-					.OnClicked(this, &SGenericDialogWidget::OnOK_Clicked)
-			]
-	];
-
-	ScrollBox->AddSlot()
-	[
-		InArgs._Content.Widget
+		.HAlign(HAlign_Right)
+		.AutoHeight()
+		.Padding(0.0f, 2.0f, 0.0f, 0.0f)
+		[
+			SNew(SButton)
+			.Text( NSLOCTEXT("UnrealEd", "OK", "OK") )
+			.OnClicked(this, &SGenericDialogWidget::OnOK_Clicked)
+		]
 	];
 }
 
-void SGenericDialogWidget::OpenDialog (const FText& InDialogTitle, const TSharedRef< SWidget >& DisplayContent)
+void SGenericDialogWidget::OpenDialog(const FText& InDialogTitle, const TSharedRef< SWidget >& DisplayContent, const FArguments& InArgs)
 {
 	TSharedPtr< SWindow > Window;
 	TSharedPtr< SGenericDialogWidget > GenericDialogWidget;
 
 	Window = SNew(SWindow)
 		.Title(InDialogTitle)
-		.SizingRule( ESizingRule::Autosized )
-		.SupportsMaximize(false) .SupportsMinimize(false)
+		.SizingRule(ESizingRule::Autosized)
+		.SupportsMaximize(false)
+		.SupportsMinimize(false)
 		[
 			SNew( SBorder )
 			.Padding( 4.f )
 			.BorderImage( FEditorStyle::GetBrush( "ToolPanel.GroupBorder" ) )
 			[
 				SAssignNew(GenericDialogWidget, SGenericDialogWidget)
+				.UseScrollBox(InArgs._UseScrollBox)
+				.ScrollBoxMaxHeight(InArgs._ScrollBoxMaxHeight)
 				[
 					DisplayContent
 				]

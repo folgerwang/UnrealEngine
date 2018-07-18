@@ -18,7 +18,7 @@ void UAnimNotifyState_TimedParticleEffect::NotifyBegin(USkeletalMeshComponent * 
 	// Only spawn if we've got valid params
 	if(ValidateParameters(MeshComp))
 	{
-		UParticleSystemComponent* NewComponent = UGameplayStatics::SpawnEmitterAttached(PSTemplate, MeshComp, SocketName, LocationOffset, RotationOffset);
+		UParticleSystemComponent* NewComponent = UGameplayStatics::SpawnEmitterAttached(PSTemplate, MeshComp, SocketName, LocationOffset, RotationOffset, EAttachLocation::KeepRelativeOffset, !bDestroyAtEnd);
 	}
 
 	Received_NotifyBegin(MeshComp, Animation, TotalDuration);
@@ -58,7 +58,6 @@ void UAnimNotifyState_TimedParticleEffect::NotifyEnd(USkeletalMeshComponent * Me
 				}
 				else
 				{
-					ParticleComponent->bAutoDestroy = true;
 					ParticleComponent->DeactivateSystem();
 				}
 

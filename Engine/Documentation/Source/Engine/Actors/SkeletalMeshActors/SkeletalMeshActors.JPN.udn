@@ -72,8 +72,8 @@ Skeletal Mesh アクタがレベルに追加されたら、以下の手順に従
 	![](SkeletalMeshActor_Use_Anim_Asset.png)
 
 1. **アニメーション モード** を正確に設定したら、再生するアニメーションを選択します。これを行うには、 **[コンテンツ ブラウザ]** で再生する **アニメーション シーケンス** を選択し、それを **Anim to Play** セクションに適用します。適用の方法は、**アニメーション シーケンス** を **[Anim to Play]** にドラッグ＆ドロップするか、または **[Anim to Play]** 入力ボックスの右側の矢印を使用します。
-	![](SkeletalMeshActor_Anim_To_Play.png)
 
+	![](SkeletalMeshActor_Anim_To_Play.png)
 
 ### スケルタルメッシュのアニメーションの再生	
 
@@ -82,7 +82,7 @@ Skeletal Mesh アクタがレベルに追加されたら、以下の手順に従
 	![](SkeletalMeshActor_Looping_Playing.png)
 
 
-##マテリアル オーバーライド
+## マテリアル オーバーライド
 作業する Skeletal Mesh アクタに適用済みのマテリアルをオーバーライドする必要が生じるかもしれません。Skeletal Mesh アクタのマテリアル配列に新規マテリアルを手動で追加するか、エディタ ビューポートでマテリアルをドラッグして Skeletal Mesh アクタにドロップします。Skeletal Mesh アクタでマテリアルを変更することは、他のアクタでマテリアルを変更することと同じです。
 [Region:note]
 Skeletal Mesh アクタで使用するマテリアルが正しく機能するためには、マテリアル使用フラグ、**Used with Skeletal Mesh** を有効にする必要があります。このフラグは、マテリアルの **[Details (詳細)]** パネルの **[Usage]** セクションにあります。 

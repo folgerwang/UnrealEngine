@@ -262,7 +262,7 @@ namespace Audio
 
 			SampleBufferReader.ClearBuffer();
 
-			SampleBufferReader.SetBuffer(&Buffer, NumBufferSamples, BufferChannels, BufferSampleRate);
+			SampleBufferReader.SetBuffer(Buffer, NumBufferSamples, BufferChannels, BufferSampleRate);
 
 			// Setup the sample buffer reader
 			SampleBufferReader.SetPitch(CurrentPitch);
@@ -459,7 +459,7 @@ namespace Audio
 		}
 	}
 
-	void FGranularSynth::LoadSampleBuffer(const FSampleBuffer& InSampleBuffer)
+	void FGranularSynth::LoadSampleBuffer(const TSampleBuffer<int16>& InSampleBuffer)
 	{
 		SampleBuffer = InSampleBuffer;
 	}

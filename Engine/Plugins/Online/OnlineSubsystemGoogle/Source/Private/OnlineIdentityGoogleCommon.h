@@ -2,10 +2,10 @@
 
 #pragma once
  
-#include "OnlineIdentityInterface.h"
+#include "Interfaces/OnlineIdentityInterface.h"
 #include "OnlineSubsystemGoogleTypes.h"
 #include "OnlineJsonSerializer.h"
-#include "IHttpRequest.h"
+#include "Interfaces/IHttpRequest.h"
 #include "OnlineSubsystemGooglePackage.h"
 
 // Google scope fields
@@ -19,6 +19,7 @@
 class FOnlineSubsystemGoogle;
 class FUserOnlineAccountGoogleCommon;
 
+#define AUTH_TYPE_GOOGLE TEXT("google")
 #define GOOGLE_AUTH_EXPIRED_CREDS TEXT("com.epicgames.google.oauth.expiredcreds")
 
 /**

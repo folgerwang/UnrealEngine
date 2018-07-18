@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3809606
 Availability: Docs
 Crumbs: %ROOT%, Engine, Engine/Animation
 Title: 애님그래프 포즈 노드
@@ -124,10 +124,10 @@ Pose Blender 노드는 **포즈 애셋** 을 그래프에 끌어놓을 때 자�
 | **Radial Scaling** | 방사형 스케일 - 방사형으로 적용되는 스케일로, 포즈 간 최대 거리에 적용됩니다. |
 | **Pose Source** | 포즈 소스 - 포즈 데이터의 소스로 사용할 **포즈 애셋** 입니다. |
 | **Include Ref Pose as Neutral Pose** | 레퍼런스 포즈를 중립 포즈로 포함 - 소스 본의 메시 레퍼런스 포즈를 "중립 포즈" (제로 커브)로 간주할 것인지 입니다. |
-| **Type** | 유형 - [INCLUDE:Engine\Animation\AnimPose\AnimBPPoseNodes\#typetable] |
+| **Type** | [INCLUDE:Engine\Animation\AnimPose\AnimBPPoseNodes\#typetable] | 
 | **Twist Axis** | 트위스트 축 - **Type** 이 **SwingOnly** 로 설정되었을 때 사용할 축입니다 (X, Y, 또는 Z) |
 
-[COMMENT]
+[COMMENT:none]
 
 [EXCERPT:typetable]
 | 옵션 | 설명 |

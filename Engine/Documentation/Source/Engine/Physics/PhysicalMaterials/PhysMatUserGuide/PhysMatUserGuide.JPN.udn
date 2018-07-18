@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2713167
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:物理マテリアルのユーザーガイド
 Crumbs: %ROOT%, Engine, Engine/Physics, Engine/Physics/PhysicalMaterials
@@ -6,54 +6,15 @@ Description:物理マテリアルのユーザーガイド - 物理マテリア�
 Version:4.9
 SkillLevel:Intermediate
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Physics/PhysicalMaterials/PhysMatUserGuide:title%](Engine/Physics/physics_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/physics_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Physics/PhysicalMaterials/PhysMatUserGuide:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Physics/PhysicalMaterials/PhysMatUserGuide:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Physics/PhysicalMaterials/PhysMatUserGuide]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Physics/PhysicalMaterials/PhysMatUserGuide:title%](Engine/Physics/physics_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/physics_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Physics/PhysicalMaterials/PhysMatUserGuide:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Physics/PhysicalMaterials/PhysMatUserGuide:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Physics/PhysicalMaterials/PhysMatUserGuide]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
 
 [TOC(start:2)]
 
 
-このガイドは、 **物理マテリアル** の作成および利用方法に加えて、ユーザーのプロジェクトの **サーフェス タイプ** を有効にする方法や編集方法について説明します。
+このガイドは、 **物理マテリアル** の作成および利用方法に加えて、プロジェクトの **サーフェス タイプ** を有効にする方法や編集方法について説明します。
 
 ## 作成
 
-1. コンテンツ ブラウザ** から、 ![](Engine/Audio\SoundCues\Editor\button_CB_NewAsset.png) を **クリック** して **[New Asset (新規アセット)]** -> **[Physics (物理)]** -> **[Physical Material (物理マテリアル)]** の順に選択するか、**コンテンツ ブラウザ** を **右クリック** して **[Physics (物理)]** -> **[Physical Material (物理マテリアル)]** の順で選択します。
+1. コンテンツ ブラウザから、 ![](Engine/Audio\SoundCues\Editor\button_CB_NewAsset.png) を **クリック** して **[New Asset (新規アセット)]** -> **[Physics (物理)]** -> **[Physical Material (物理マテリアル)]** の順に選択するか、**コンテンツ ブラウザ** で **右クリック** して **[Physics (物理)]** -> **[Physical Material (物理マテリアル)]** の順で選択します。
 
 	![](PhysMatCreate.jpg)
 
@@ -65,20 +26,20 @@ SkillLevel:Intermediate
 
 	![](AdjustProperties.jpg)
 
-1. **保存** ![](Shared\Icons\icon_SaveAsset_40x.png) をクリックします。
+1. ![](Shared\Icons\icon_SaveAsset_40x.png) を **クリックして保存** します。
 
 物理マテリアルのプロパティに関する情報は、 [**物理マテリアルのリファレンス**](Engine/Physics\PhysicalMaterials\Reference) を参照してください。
 
 ### サーフェス タイプ
 
-アンリアル エンジン 4 はデフォルトで 30 種類のサーフェスをサポートしています。ユーザーはサーフェスタイプに名前を付けてプロジェクトの「DefaultEngine.ini」ファイルに格納することができます。ファイルの場所は「YourProjectRoot\Config\DefaultEngine.ini」です。 
+UE4 はデフォルトで 62 種類のサーフェスをサポートしています。サーフェスタイプに名前を付けてプロジェクトの「`DefaultEngine.ini`」ファイルに格納することができます。ファイルの場所は「`YourProjectRoot\Config\DefaultEngine.ini`」です。 
 
 
 
 
-## 使用法
+## 使用方法
 
-###マテリアル
+### マテリアル
 
 1. マテリアルを **開く**、もしくは **新規作成** します。
 
@@ -96,7 +57,7 @@ SkillLevel:Intermediate
 
 ###マテリアル インスタンス
 
-1. マテリアル インスタンスを **開く**、もしくは **新規に作成** します。
+1. マテリアル インスタンスを **開く**、もしくは **新規作成** します。
 
 	![](PhysMat_MaterialInst_01.png)
 
@@ -119,7 +80,7 @@ SkillLevel:Intermediate
 
 	![](M_Glass.jpg)
 
-1. 物理アセットツールのツールバーの **[Asset]** ドロップダウンから **[Apply PhysMat (PhysMat を適用)]**  ![](AssetButton.jpg)を **クリック** します。
+1. 物理アセットツールのツールバーの **[Asset]** ドロップダウンから **[Apply PhysMat (PhysMat を適用)]** ![](AssetButton.jpg)を **クリック** します。
 	[REGION:raw]
 	![](ApplyPhysMat.jpg)
 	[/REGION]
@@ -128,7 +89,7 @@ SkillLevel:Intermediate
 
 ある特定の物理ボディと物理マテリアルを区別する必要がある場合は、個々に調整することができます。
 
-1. 物理アセットツールの **[Body Edit] モードを有効にします**。
+1. 物理アセットツールの **Body Edit モードを有効にします**。
 1. 物理ボディを **選択します**。
 1. [Details (詳細)] ペインの [Physics (物理)] カテゴリで **[Simple Collision Physical Material]** を変更します。
 
@@ -156,7 +117,7 @@ SkillLevel:Intermediate
 
 スタティック メッシュに Simple Collision Physical Material を設定するには、以下の操作を行います。
 
-1. **コンテンツ ブラウザでスタティックメッシュをダブルクリック** して、スタティックメッシュ エディタを開きます。
+1. コンテンツ ブラウザでスタティックメッシュを **ダブルクリック** して、スタティックメッシュ エディタを開きます。
 
 	![](PhysMat_StaticMeshEd_01.png)
 
@@ -171,7 +132,7 @@ SkillLevel:Intermediate
 
 ![](PhysMat_Override.png)
 
-_Phys Material Override_ プロパティはあらゆる **Physics** カテゴリに存在します。アクタ の Simple Collision Physical Materials 設定や、選択した物理マテリアルのコンポーネントを完全にオーバーライドするために使用します。
+_Phys Material Override_ プロパティはあらゆる **Physics** カテゴリに存在します。アクタの Simple Collision Physical Materials 設定や、選択した物理マテリアルのコンポーネントを完全にオーバーライドするために使用します。
 
 * スタティックメッシュのシンプル コリジョンの物理マテリアルをオーバーライドします。
 * スケルタルメッシュの物理アセットは常に Simple Collision を返すため、配置された Skeletal Mesh アクタに適用された物理マテリアル全てのオーバーライドに使用することができます。

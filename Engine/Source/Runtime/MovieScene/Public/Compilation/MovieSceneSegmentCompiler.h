@@ -5,8 +5,8 @@
 #include "CoreTypes.h"
 #include "CoreFwd.h"
 
-#include "Array.h"
-#include "InlineValue.h"
+#include "Containers/Array.h"
+#include "Misc/InlineValue.h"
 #include "Evaluation/MovieSceneSegment.h"
 
 class UMovieSceneSection;
@@ -114,7 +114,7 @@ struct FMovieSceneTrackSegmentBlender
 	 *
 	 * @return An optional new segment to define
 	 */
-	virtual TOptional<FMovieSceneSegment> InsertEmptySpace(const TRange<float>& Range, const FMovieSceneSegment* PreviousSegment, const FMovieSceneSegment* NextSegment) const
+	virtual TOptional<FMovieSceneSegment> InsertEmptySpace(const TRange<FFrameNumber>& Range, const FMovieSceneSegment* PreviousSegment, const FMovieSceneSegment* NextSegment) const
 	{
 		return TOptional<FMovieSceneSegment>();
 	}

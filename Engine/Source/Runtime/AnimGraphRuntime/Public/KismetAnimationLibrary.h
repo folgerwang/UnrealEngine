@@ -8,7 +8,7 @@
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "KismetAnimationLibrary.generated.h"
 
-UCLASS(meta=(ScriptName="AnimationLibrary"))
+UCLASS(meta=(ScriptName="AnimGraphLibrary"))
 class ANIMGRAPHRUNTIME_API UKismetAnimationLibrary : public UBlueprintFunctionLibrary
 {
 	GENERATED_UCLASS_BODY()

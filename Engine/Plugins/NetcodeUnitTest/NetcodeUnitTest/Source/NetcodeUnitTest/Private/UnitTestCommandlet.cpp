@@ -58,6 +58,7 @@ UUnitTestCommandlet::UUnitTestCommandlet(const FObjectInitializer& ObjectInitial
 
 	LogToConsole = true;
 	ShowErrorCount = true;
+	ShowProgress = true;
 }
 
 int32 UUnitTestCommandlet::Main(const FString& Params)

@@ -11,23 +11,59 @@
 /** Python type for FPyWrapperEnum */
 extern PyTypeObject PyWrapperEnumType;
 
-/** Initialize the PyWrapperEnum types and add them to the given Python module */
-void InitializePyWrapperEnum(PyObject* PyModule);
+/** Python type for FPyWrapperEnumValueDescrObject */
+extern PyTypeObject PyWrapperEnumValueDescrType;
 
-/** Type for all UE4 exposed enum instances */
+/** Initialize the PyWrapperEnum types and add them to the given Python module */
+void InitializePyWrapperEnum(PyGenUtil::FNativePythonModule& ModuleInfo);
+
+/** Type for all UE4 exposed enum instances (an instance is created for each entry in the enum, before the enum type is locked for creating new instances) */
 struct FPyWrapperEnum : public FPyWrapperBase
 {
+	/** Name of this enum entry */
+	PyObject* EntryName;
+
+	/** Value of this enum entry */
+	PyObject* EntryValue;
+
+	/** New this wrapper instance (called via tp_new for Python, or directly in C++) */
+	static FPyWrapperEnum* New(PyTypeObject* InType);
+
+	/** Free this wrapper instance (called via tp_dealloc for Python) */
+	static void Free(FPyWrapperEnum* InSelf);
+
 	/** Initialize this wrapper instance (called via tp_init for Python, or directly in C++) */
 	static int Init(FPyWrapperEnum* InSelf);
 
-	/** Set the given enum entry value on the given enum type */
-	static void SetEnumEntryValue(PyTypeObject* InType, const int64 InEnumValue, const char* InEnumValueName, const char* InEnumValueDoc);
+	/** Initialize this wrapper instance (called directly in C++) */
+	static int Init(FPyWrapperEnum* InSelf, const int64 InEnumEntryValue, const char* InEnumEntryName);
+
+	/** Deinitialize this wrapper instance (called via Init and Free to restore the instance to its New state) */
+	static void Deinit(FPyWrapperEnum* InSelf);
+
+	/** Called to validate the internal state of this wrapper instance prior to operating on it (should be called by all functions that expect to operate on an initialized type; will set an error state on failure) */
+	static bool ValidateInternalState(FPyWrapperEnum* InSelf);
+
+	/** Cast the given Python object to this wrapped type (returns a new reference) */
+	static FPyWrapperEnum* CastPyObject(PyObject* InPyObject, FPyConversionResult* OutCastResult = nullptr);
+
+	/** Cast the given Python object to this wrapped type, or attempt to convert the type into a new wrapped instance (returns a new reference) */
+	static FPyWrapperEnum* CastPyObject(PyObject* InPyObject, PyTypeObject* InType, FPyConversionResult* OutCastResult = nullptr);
+
+	/** Get the name of the enum entry as a string */
+	static FString GetEnumEntryName(FPyWrapperEnum* InSelf);
+
+	/** Get the value of the enum entry as an int */
+	static int64 GetEnumEntryValue(FPyWrapperEnum* InSelf);
+
+	/** Add the given enum entry on the given enum type (returns borrowed reference) */
+	static FPyWrapperEnum* AddEnumEntry(PyTypeObject* InType, const int64 InEnumEntryValue, const char* InEnumEntryName, const char* InEnumEntryDoc);
 };
 
 /** Meta-data for all UE4 exposed enum types */
 struct FPyWrapperEnumMetaData : public FPyWrapperBaseMetaData
 {
-	PY_OVERRIDE_GETSET_METADATA(FPyWrapperEnumMetaData)
+	PY_METADATA_METHODS(FPyWrapperEnumMetaData, FGuid(0x1D69987C, 0x2F624403, 0x8379FCB5, 0xF896B595))
 
 	FPyWrapperEnumMetaData();
 
@@ -37,8 +73,35 @@ struct FPyWrapperEnumMetaData : public FPyWrapperBaseMetaData
 	/** Get the UEnum from the type of the given instance */
 	static UEnum* GetEnum(FPyWrapperEnum* Instance);
 
+	/** Check to see if the enum is deprecated, and optionally return its deprecation message */
+	static bool IsEnumDeprecated(PyTypeObject* PyType, FString* OutDeprecationMessage = nullptr);
+
+	/** Check to see if the enum is deprecated, and optionally return its deprecation message */
+	static bool IsEnumDeprecated(FPyWrapperEnum* Instance, FString* OutDeprecationMessage = nullptr);
+
+	/** Check to see if the enum is finalized */
+	static bool IsEnumFinalized(PyTypeObject* PyType);
+
+	/** Check to see if the enum is finalized */
+	static bool IsEnumFinalized(FPyWrapperEnum* Instance);
+
+	/** Get the reflection meta data type object associated with this wrapper type if there is one or nullptr if not. */
+	virtual const UField* GetMetaType() const override
+	{
+		return Enum;
+	}
+
 	/** Unreal enum */
 	UEnum* Enum;
+
+	/** True if this enum type has been finalized after having all of its entries added to it */
+	bool bFinalized;
+
+	/** Set if this struct is deprecated and using it should emit a deprecation warning */
+	TOptional<FString> DeprecationMessage;
+
+	/** Array of enum entries in the order they were added (enum entries are stored as borrowed references) */
+	TArray<FPyWrapperEnum*> EnumEntries;
 };
 
 typedef TPyPtr<FPyWrapperEnum> FPyWrapperEnumPtr;

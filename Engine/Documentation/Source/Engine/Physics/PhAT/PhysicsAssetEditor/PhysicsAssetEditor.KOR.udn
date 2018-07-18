@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3735117
 Availability: Public
 Crumbs: %ROOT%, Engine, Engine/Animation, Engine/Animation/Persona, Engine/Animation/Persona/Modes
-Title:Physics Asset Editor Interface
-Description:Highlights the core features of the Physic Asset Editor in Unreal Engine 4. 
+Title:피직스 애셋 에디터 인터페이스
+Description:언리얼 엔진 4 의 피직스 애셋 에디터 핵심 기능에 대한 설명입니다.
 Type: landing
 version: 4.18
 Parent:Engine/Physics/PhAT
@@ -15,50 +15,50 @@ topic-image:PhysicsEditor_Topic.png
 Social-image:PhysicsAssetEditor.png
 
 
-The **Physics Asset Editor** is a tool used for working [Physics Assets](Engine/Physics/Phat) inside of Unreal Engine 4. This editor allows for the visualization and control over the body and 
-constraint hierarchy associated with a Skeletal Mesh. In this editor, you can create [Bodies](Engine/Physics/PhysicsBodies) and [Constraints](Engine/Physics/Constraints/ConstraintsReference) that are 
-used for collision and simulation of your Skeletal Mesh ragdoll.
+**Physics Asset Editor** (피직스 애셋 에디터)는 언리얼 엔진 4 의 [피직스 애셋](Engine/Physics/Phat) 작업 시 사용되는 툴입니다. 이 에디터에서 스켈레탈 메시에 연결된 바디 및 컨스트레인트 계층구조에 
+대한 시각화 및 제어가 가능합니다. 또 스켈레탈 메시 래그돌 시뮬레이션이나 콜리전에 사용되는 [바디](Engine/Physics/PhysicsBodies) 및 [컨스트레인트](Engine/Physics/Constraints/ConstraintsReference) 
+역시 여기서 생성할 수 있습니다.
 
 ![](PhysicsAssetEditor.png)
 
-Please refer to each section below for a breakdown of the Physics Asset Editor user interface:
+피직스 애셋 에디터 유저 인터페이스 분석은 아래 각 섹션을 참고해 주세요:
 
-## 1. Toolbar
+## 1. 툴바
 
-The [Toolbar](Engine/Animation/Persona/Toolbar) inside the Physics Asset Editor provides you with options for saving any changes made to your Physics Asset or locating it in the Content Browser. 
-You can set a **Preview Mesh** for this particular Physics Asset, **Enable / Disable Collision** for selected bodies, and **Simulation** settings for testing the Physics Assets ragdoll. On the 
-far right of the Toolbar is the **Editor Toolbar** which enables you to switch between the different [Animation Tools](Engine/Animation/Persona/Modes) in Unreal Engine 4.
+피직스 애셋 에디터의 [툴바](Engine/Animation/Persona/Toolbar) 에는 피직스 애셋에 가한 변경사항을 저장하는 옵션 또는 콘텐츠 브라우저에서 찾기 기능이 제공됩니다.
+특정 피직스 애셋에 **프리뷰 메시** 를 설정, 선택된 바디에 대한 **콜리전 활성화 / 비활성화**, 피직스 애셋 래그돌의 **시뮬레이션** 세팅 등을 설정할 수 있습니다.
+툴바 멀리 오른쪽에는 **에디터 툴바** 가 있어서 언리얼 엔진 4 의 다양한 [애니메이션 툴](Engine/Animation/Persona/Modes) 사이 전환이 가능합니다.
 
-## 2. Skeleton Tree
+## 2. 스켈레톤 트리
 
-The [Skeleton Tree](Engine\Physics\PhAT\SkeletonTree) shows the skeletal hierarchy of the current Skeleton asset and is where you create bodies and constraints.
+[스켈레톤 트리](Engine\Physics\PhAT\SkeletonTree) 에는 현재 스켈레톤 애셋의 스켈레탈 계층구조가 표시되며, 여기서 바디와 컨스트레인트를 만들 수 있습니다.
 
-## 3. Constraints Graph
+## 3. 컨스트레인트 그래프
 
-The [Constraints Graph](Engine\Physics\PhAT\Graph) enables you to have a visual representation of the skeletal hierarchy bodies that are constrained to another body. From this graph, you can create 
-your own constraints by pulling off the main body node (left) and selecting a new body to constrain to or even navigate the skeleton tree by double-clicking the end body to jump down the tree
-to the next set of bodies and constraints. You can also see which [Physical Animation and Constraints Profiles](Engine/Physics/PhAT/ToolsAndProfiles) are assigned based on the currently selected 
-one in the Profiles panel.
+[컨스트레인트 그래프](Engine\Physics\PhAT\Graph) 에서는 다른 바디에 컨스트레인트 설정된 스켈레탈 계층구조 바디를 시각적으로 표현해 볼 수 있습니다. 이 그래프에서, (왼쪽) 메인 바디 노드를 끌어 놓아 
+별도의 컨스트레인트를 만들고 컨스트레인트 설정할 새로운 바디를 설정하거나, 끝 바디를 더블클릭하여 트리를 다음 바디 및 컨스트레인트 세트로 점프할 수도 있습니다.
+프로파일 패널에서 현재 선택된 것에 따라 어느 [피지컬 애니메이션 및 컨스트레인트 프로파일](Engine/Physics/PhAT/ToolsAndProfiles) 이 할당되었는지도 
+확인할 수 있습니다.
 
-## 4. Viewport
+## 4. 뷰포트
 
-The [Viewport](Engine/Animation/Persona/Viewport) window enables you to preview the changes that you make and bodies positioning or preview simulation of the physics ragdoll. From the Viewport, you can
-change lighting modes, show or hide the bones, bodies, and constraints of your skeleton, and even set your Skeletal Mesh to automatically rotate around on a turntable allowing you to view it from all angles.
+[뷰포트](Engine/Animation/Persona/Viewport) 창에서는 변경사항이나 바디 위치 미리보기 또는 피직스 래그돌 시뮬레이션 미리보기가 가능합니다. 뷰포트에서, 
+라이팅 모드 변경, 스켈레톤의 컨스트레인트, 바디, 본 표시 또는 숨김, 심지어 스켈레탈 메시를 턴 테이블에 올려놓고 자동 회전시키면서 모든 방향에서 확인하도록 할 수 있습니다.
 
-## 5. Asset Details / Preview Scene Settings
+## 5. 애셋 디테일 / 프리뷰 씬 세팅
 
-The [Details](Engine/UI/LevelEditor/Details) panel, which is similar to the Main Editor, is primarily used for modifying the properties of added elements like bodies or constraints. For example, 
-when add a body or constraint to the Skeleton, clicking on it in the Skeleton Tree or Viewport will populate the Details panel with options related to how the body or constraint functions.
+[디테일](Engine/UI/LevelEditor/Details) 패널은 메인 에디터와 비슷한데, 주로 바디 또는 컨스트레인트같은 추가된 요소의 프로퍼티를 변경하는 데 사용됩니다. 예를 들어,
+스켈레톤에 바디 또는 컨스트레인트를 추가할 때, 스켈레톤 트리 또는 뷰포트에서 그것을 클릭하면 디테일 패널이 바디 또는 컨스트레인트 작동 방식에 관련된 옵션으로 채워집니다.
 
-The [Preview Scene Settings](Engine/Animation/Persona/PreviewSettings) panel enables you to quickly assess what your assets will look like in multiple environments and light scenarios without having
-to set up these scenes within your level. Several different settings can be defined and applied from Skeletal Meshes and specified animations to play along with lighting and 
-[Post Process effects](Engine/Rendering/PostProcessEffects) all within each of the [Animation Tools](Engine/Animation/Persona/Modes) inside of the Editor.
+[프리뷰 씬 세팅](Engine/Animation/Persona/PreviewSettings) 패널에서는 레벨에서 씬을 직접 구성하지 않고도 애셋이 여러 환경에서 어때 보이는지를 
+빠르게 판가름해 볼 수 있습니다. 스켈레탈 메시에서 여러가지 다양한 세팅을 정의하고 적용해 두면, 에디터 내 각 [애니메이션 툴](Engine/Animation/Persona/Modes) 안에서 라이팅과 [포스트 프로세스 이펙트](Engine/Rendering/PostProcessEffects) 가 전부 적용된 
+애니메이션을 직접 재생해 볼 수 있습니다.
 
-## 6. Tools and Profiles
+## 6. 툴 및 프로파일
 
-The [Tools](Engine/Physics/PhAT/ToolsAndProfiles#Toolstab) panel displays the options available for when generating or regenerating new or selected bodies. These are the same options available when creating a 
-Physics Asset from the Content Browser, otherwise these are the default settings that will be used when a Skeletal Mesh is imported and **Create Physics Asset** is enabled.
+[툴](Engine/Physics/PhAT/ToolsAndProfiles) 패널에는 바디를 새로 생성하거나 선택된 바디를 재생성할 때 사용할 수 있는 옵션이 표시됩니다. 콘텐츠 브라우저에서 피직스 애셋을 생성할 때도 같은 옵션을 
+사용할 수 있으며, 그 외에는 스켈레탈 메시를 임포트할 때 **Create Physics Asset** (피직스 애셋 생성) 옵션이 켜져있으면 기본 세팅으로도 사용됩니다.
 
-The [Profiles](Engine/Physics/PhAT/ToolsAndProfiles#profilestab) panel enables you to create profiles that can be reused for **Physical Animations** and **Constraints**. These profiles enable you to set 
-default settings that can be quickly assigned to other bodies or constraints.
+[프로파일](Engine/Physics/PhAT/ToolsAndProfiles) 패널에서는 프로파일을 생성한 뒤 **피지컬 애니메이션** 및 **컨스트레인트** 에 재사용할 수 있습니다. 이 프로파일을 통해 기본 세팅을 설정하고 
+다른 바디나 컨스트레인트에 빠르게 할당할 수 있습니다.
 

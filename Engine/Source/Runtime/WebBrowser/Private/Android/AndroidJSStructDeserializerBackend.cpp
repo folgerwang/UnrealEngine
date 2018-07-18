@@ -1,6 +1,9 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AndroidJSStructDeserializerBackend.h"
+
+#if USE_ANDROID_JNI
+
 #include "AndroidJSScripting.h"
 #include "UObject/UnrealType.h"
 #include "Templates/Casts.h"
@@ -99,3 +102,5 @@ FAndroidJSStructDeserializerBackend::FAndroidJSStructDeserializerBackend(FAndroi
 	auto Convert = StringCast<UCS2CHAR>(*JsonString);
 	JsonData.Append((uint8*)Convert.Get(), JsonString.Len() * sizeof(UCS2CHAR));
 }
+
+#endif // USE_ANDROID_JNI

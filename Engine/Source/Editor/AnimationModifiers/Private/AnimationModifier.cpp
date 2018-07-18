@@ -5,9 +5,9 @@
 #include "Animation/Skeleton.h"
 #include "ModifierOutputFilter.h"
 #include "Editor/Transactor.h"
-#include "UObjectIterator.h"
+#include "UObject/UObjectIterator.h"
 
-#include "Dialogs.h"
+#include "Dialogs/Dialogs.h"
 #include "Editor/Transactor.h"
 #include "UObject/UObjectIterator.h"
 

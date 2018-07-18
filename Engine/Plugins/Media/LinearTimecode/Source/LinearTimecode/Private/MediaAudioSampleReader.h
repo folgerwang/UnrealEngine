@@ -55,6 +55,10 @@ public:
 		return false;
 	}
 
+	int32 GetSampleStep() const { return SampleStep; }
+	const uint8* const GetCurrentSampleStream() const { return SampleStream; }
+
+
 protected:
 	static int GetSampleSize(EMediaAudioSampleFormat inFormat)
 	{
@@ -79,6 +83,6 @@ protected:
 	EMediaAudioSampleFormat SampleFormat;
 	const uint8* SampleStream;
 	const uint8* SampleEnd;
-	int SampleStep;
+	int32 SampleStep;
 };
 

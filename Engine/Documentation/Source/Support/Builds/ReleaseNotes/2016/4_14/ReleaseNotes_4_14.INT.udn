@@ -263,7 +263,7 @@ When you use Reflection Captures, the engine mixes the indirect specular from th
 
 Mixing works well for rough surfaces, but for smooth surfaces the reflections from Reflection Captures no longer match reflections from other methods, like Screen Space Reflections or Planar Reflections.  
 
-**Lightmap mixing is no longer done on very smooth surfaces**. ** **A surface with roughness .3 will get full lightmap mixing, fading out to no lightmap mixing by Roughness .1 and below.  This allows Reflection Captures and SSR to match much better and it's harder to spot transitions.  
+**Lightmap mixing is no longer done on very smooth surfaces.**  A surface with roughness .3 will get full lightmap mixing, fading out to no lightmap mixing by Roughness .1 and below.  This allows Reflection Captures and SSR to match much better and it's harder to spot transitions.  
 
 The below shot shows mirror surface reflections before and after.  Note the difference in the reflection of the wall between SSR and reflection captures.  The artifact is especially noticeable in motion, because it will move with your camera due to SSR limitations.
 

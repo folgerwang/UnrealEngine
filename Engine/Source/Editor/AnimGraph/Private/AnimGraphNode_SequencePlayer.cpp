@@ -309,6 +309,8 @@ EAnimAssetHandlerType UAnimGraphNode_SequencePlayer::SupportsAssetClass(const UC
 
 void UAnimGraphNode_SequencePlayer::ValidateAnimNodeDuringCompilation(class USkeleton* ForSkeleton, class FCompilerResultsLog& MessageLog)
 {
+	Super::ValidateAnimNodeDuringCompilation(ForSkeleton, MessageLog);
+
 	UAnimSequenceBase* SequenceToCheck = Node.Sequence;
 	UEdGraphPin* SequencePin = FindPin(GET_MEMBER_NAME_STRING_CHECKED(FAnimNode_SequencePlayer, Sequence));
 	if (SequencePin != nullptr && SequenceToCheck == nullptr)
@@ -403,6 +405,62 @@ const TCHAR* UAnimGraphNode_SequencePlayer::GetTimePropertyName() const
 UScriptStruct* UAnimGraphNode_SequencePlayer::GetTimePropertyStruct() const 
 {
 	return FAnimNode_SequencePlayer::StaticStruct();
+}
+
+void UAnimGraphNode_SequencePlayer::CustomizePinData(UEdGraphPin* Pin, FName SourcePropertyName, int32 ArrayIndex) const
+{
+	Super::CustomizePinData(Pin, SourcePropertyName, ArrayIndex);
+
+	if (Pin->PinName == GET_MEMBER_NAME_STRING_CHECKED(FAnimNode_SequencePlayer, PlayRate))
+	{
+		if (!Pin->bHidden)
+		{
+			// Draw value for PlayRateBasis if the pin is not exposed
+			UEdGraphPin* PlayRateBasisPin = FindPin(GET_MEMBER_NAME_STRING_CHECKED(FAnimNode_SequencePlayer, PlayRateBasis));
+			if (!PlayRateBasisPin || PlayRateBasisPin->bHidden)
+			{
+				if (Node.PlayRateBasis != 1.f)
+				{
+					FFormatNamedArguments Args;
+					Args.Add(TEXT("PinFriendlyName"), Pin->PinFriendlyName);
+					Args.Add(TEXT("PlayRateBasis"), FText::AsNumber(Node.PlayRateBasis));
+					Pin->PinFriendlyName = FText::Format(LOCTEXT("FAnimNode_SequencePlayer_PlayRateBasis_Value", "({PinFriendlyName} / {PlayRateBasis})"), Args);
+				}
+			}
+			else // PlayRateBasisPin is visible
+			{
+				FFormatNamedArguments Args;
+				Args.Add(TEXT("PinFriendlyName"), Pin->PinFriendlyName);
+				Pin->PinFriendlyName = FText::Format(LOCTEXT("FAnimNode_SequencePlayer_PlayRateBasis_Name", "({PinFriendlyName} / PlayRateBasis)"), Args);
+			}
+
+			Pin->PinFriendlyName = Node.PlayRateScaleBiasClamp.GetFriendlyName(Pin->PinFriendlyName);
+		}
+	}
+}
+
+void UAnimGraphNode_SequencePlayer::PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent)
+{
+	const FName PropertyName = (PropertyChangedEvent.Property ? PropertyChangedEvent.Property->GetFName() : NAME_None);
+
+	// Reconstruct node to show updates to PinFriendlyNames.
+	if ((PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FAnimNode_SequencePlayer, PlayRateBasis))
+		|| (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FInputScaleBiasClamp, bMapRange))
+		|| (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FInputRange, Min))
+		|| (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FInputRange, Max))
+		|| (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FInputScaleBiasClamp, Scale))
+		|| (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FInputScaleBiasClamp, Bias))
+		|| (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FInputScaleBiasClamp, bClampResult))
+		|| (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FInputScaleBiasClamp, ClampMin))
+		|| (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FInputScaleBiasClamp, ClampMax))
+		|| (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FInputScaleBiasClamp, bInterpResult))
+		|| (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FInputScaleBiasClamp, InterpSpeedIncreasing))
+		|| (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FInputScaleBiasClamp, InterpSpeedDecreasing)))
+	{
+		ReconstructNode();
+	}
+
+	Super::PostEditChangeProperty(PropertyChangedEvent);
 }
 
 #undef LOCTEXT_NAMESPACE

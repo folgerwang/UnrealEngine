@@ -27,7 +27,11 @@ namespace mtlpp
 	{
 		Validate();
 #if MTLPP_IS_AVAILABLE(10_13, 11_0)
-		return m_table->newCaptureScopeWithDevice(m_ptr, Device.GetPtr());
+#if MTLPP_CONFIG_IMP_CACHE
+		return CaptureScope(m_table->newCaptureScopeWithDevice(m_ptr, Device.GetPtr()), Device.GetTable()->TableCache, ns::Ownership::Assign);
+#else
+		return CaptureScope([(MTLCaptureManager*) m_ptr newCaptureScopeWithDevice:(id<MTLDevice>)Device.GetPtr()], nullptr, ns::Ownership::Assign);
+#endif
 #else
 		return CaptureScope();
 #endif
@@ -37,7 +41,11 @@ namespace mtlpp
 	{
 		Validate();
 #if MTLPP_IS_AVAILABLE(10_13, 11_0)
-		return m_table->newCaptureScopeWithCommandQueue(m_ptr, Queue.GetPtr());
+#if MTLPP_CONFIG_IMP_CACHE
+		return CaptureScope(m_table->newCaptureScopeWithCommandQueue(m_ptr, Queue.GetPtr()), Queue.GetTable()->TableCache, ns::Ownership::Assign);
+#else
+		return CaptureScope([(MTLCaptureManager*) m_ptr newCaptureScopeWithCommandQueue:(id<MTLCommandQueue>)Queue.GetPtr()], nullptr, ns::Ownership::Assign);
+#endif
 #else
 		return CaptureScope();
 #endif
@@ -47,7 +55,11 @@ namespace mtlpp
 	{
 		Validate();
 #if MTLPP_IS_AVAILABLE(10_13, 11_0)
+#if MTLPP_CONFIG_IMP_CACHE
 		m_table->startCaptureWithDevice(m_ptr, device.GetPtr());
+#else
+		[(MTLCaptureManager*) m_ptr startCaptureWithDevice:(id<MTLDevice>)device.GetPtr()];
+#endif
 #endif
 	}
 	
@@ -55,7 +67,11 @@ namespace mtlpp
 	{
 		Validate();
 #if MTLPP_IS_AVAILABLE(10_13, 11_0)
+#if MTLPP_CONFIG_IMP_CACHE
 		m_table->startCaptureWithCommandQueue(m_ptr, queue.GetPtr());
+#else
+		[(MTLCaptureManager*) m_ptr startCaptureWithCommandQueue:(id<MTLCommandQueue>)queue.GetPtr()];
+#endif
 #endif
 	}
 	
@@ -63,7 +79,11 @@ namespace mtlpp
 	{
 		Validate();
 #if MTLPP_IS_AVAILABLE(10_13, 11_0)
+#if MTLPP_CONFIG_IMP_CACHE
 		m_table->startCaptureWithScope(m_ptr, scope.GetPtr());
+#else
+		[(MTLCaptureManager*) m_ptr startCaptureWithScope:(id<MTLCaptureScope>)scope.GetPtr()];
+#endif
 #endif
 	}
 	
@@ -71,17 +91,25 @@ namespace mtlpp
 	{
 		Validate();
 #if MTLPP_IS_AVAILABLE(10_13, 11_0)
+#if MTLPP_CONFIG_IMP_CACHE
 		m_table->stopCapture(m_ptr);
+#else
+		[(MTLCaptureManager*) m_ptr stopCapture];
+#endif
 #endif
 	}
 	
-	CaptureScope CaptureManager::GetDefaultCaptureScope() const
+	ns::AutoReleased<CaptureScope> CaptureManager::GetDefaultCaptureScope() const
 	{
 		Validate();
 #if MTLPP_IS_AVAILABLE(10_13, 11_0)
-		return m_table->defaultCaptureScope(m_ptr);
+#if MTLPP_CONFIG_IMP_CACHE
+		return ns::AutoReleased<CaptureScope>(m_table->defaultCaptureScope(m_ptr));
 #else
-		return CaptureScope();
+		return ns::AutoReleased<CaptureScope>([(MTLCaptureManager*) m_ptr defaultCaptureScope]);
+#endif
+#else
+		return ns::AutoReleased<CaptureScope>();
 #endif
 	}
 	
@@ -89,7 +117,11 @@ namespace mtlpp
 	{
 		Validate();
 #if MTLPP_IS_AVAILABLE(10_13, 11_0)
+#if MTLPP_CONFIG_IMP_CACHE
 		m_table->SetdefaultCaptureScope(m_ptr, scope.GetPtr());
+#else
+		[(MTLCaptureManager*) m_ptr setDefaultCaptureScope: (id<MTLCaptureScope>)scope.GetPtr()];
+#endif
 #endif
 	}
 	
@@ -97,7 +129,11 @@ namespace mtlpp
 	{
 		Validate();
 #if MTLPP_IS_AVAILABLE(10_13, 11_0)
+#if MTLPP_CONFIG_IMP_CACHE
 		return m_table->isCapturing(m_ptr);
+#else
+		return [(MTLCaptureManager*) m_ptr isCapturing];
+#endif
 #else
 		return false;
 #endif

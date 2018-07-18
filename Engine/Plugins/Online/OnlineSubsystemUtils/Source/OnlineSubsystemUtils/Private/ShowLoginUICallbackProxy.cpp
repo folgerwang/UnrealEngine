@@ -35,6 +35,7 @@ void UShowLoginUICallbackProxy::Activate()
 	}
 
 	const FOnlineSubsystemBPCallHelper Helper(TEXT("ShowLoginUI"), WorldContextObject);
+
 	if (Helper.OnlineSub == nullptr)
 	{
 		OnFailure.Broadcast(MyPlayerController);
@@ -67,7 +68,7 @@ void UShowLoginUICallbackProxy::Activate()
 	}
 }
 
-void UShowLoginUICallbackProxy::OnShowLoginUICompleted(TSharedPtr<const FUniqueNetId> UniqueId, int LocalPlayerNum)
+void UShowLoginUICallbackProxy::OnShowLoginUICompleted(TSharedPtr<const FUniqueNetId> UniqueId, int LocalPlayerNum, const FOnlineError& Error)
 {
 	// Update the cached unique ID for the local player and the player state.
 	APlayerController* MyPlayerController = PlayerControllerWeakPtr.Get();

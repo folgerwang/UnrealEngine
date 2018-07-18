@@ -439,7 +439,7 @@ class TestRecursion : BuildCommand
 		Log("TestRecursion *********************");
 		string Params = ParseParamValue("Cmd");
 		Log("Recursive Command: {0}", Params);
-		RunUAT(CmdEnv, Params);
+		RunUAT(CmdEnv, Params, "Recur");
 
 	}
 }
@@ -449,10 +449,10 @@ class TestRecursionAuto : BuildCommand
 	public override void ExecuteBuild()
 	{
 		Log("TestRecursionAuto *********************");
-		RunUAT(CmdEnv, "TestMessage");
-		RunUAT(CmdEnv, "TestMessage");
-		RunUAT(CmdEnv, "TestRecursion -Cmd=TestMessage");
-		RunUAT(CmdEnv, "TestRecursion -Cmd=TestFail");
+		RunUAT(CmdEnv, "TestMessage", "TestMessage");
+		RunUAT(CmdEnv, "TestMessage", "TestMessage");
+		RunUAT(CmdEnv, "TestRecursion -Cmd=TestMessage", "TestRecursion");
+		RunUAT(CmdEnv, "TestRecursion -Cmd=TestFail", "TestRecursion");
 
 	}
 }
@@ -713,7 +713,7 @@ class TestArguments : BuildCommand
 			Log("{0}={1}", Index, Params[Index].ToString());
 		}
 
-		object[] TestArgs = new object[] { "NoXGE", "SomeArg", "Map=AwesomeMap", "run=whatever", "Stuff" };
+		string[] TestArgs = new string[] { "NoXGE", "SomeArg", "Map=AwesomeMap", "run=whatever", "Stuff" };
 
 		if (!ParseParam(TestArgs, "noxge"))
 		{
@@ -1133,47 +1133,6 @@ public class TestUATBuildProducts : BuildCommand
 }
 
 
-
-[Help("Tests WatchdogTimer functionality. The correct result is to exit the application with ExitCode=1 after a few seconds.")]
-public class TestWatchdogTimer : BuildCommand
-{
-	public override void ExecuteBuild()
-	{
-		Log("Starting 1st timer (1s). This should not crash.");
-		using (var SafeTimer = new WatchdogTimer(1))
-		{
-			// Wait 500ms
-			Log("Started {0}", SafeTimer.GetProcessName());
-			Thread.Sleep(500);
-		}
-		Log("First timer disposed successfully.");
-
-		Log("Starting 2nd timer (2s). This should throw an exception after 1 second.");
-		try
-		{
-			using (var CrashTimer = new WatchdogTimer(2))
-			{
-				// Wait 5s (this will trigger the watchdog timer)
-				Log("Started {0}", CrashTimer.GetProcessName());
-				Thread.Sleep(1000);
-				throw new Exception("Test exceptions under WatchdogTimer");
-			}
-		}
-		catch (Exception Ex)
-		{
-			Log("Triggered exception guarded by WatchdogTimer:");
-			Log(Ex.Message);
-		}
-
-		Log("Starting 3rd timer (2s). This should crash after 2 seconds.");
-		using (var CrashTimer = new WatchdogTimer(2))
-		{
-			// Wait 5s (this will trigger the watchdog timer)
-			Log("Started {0}", CrashTimer.GetProcessName());
-			Thread.Sleep(5000);
-		}
-	}
-}
 
 class TestOSSCommands : BuildCommand
 {

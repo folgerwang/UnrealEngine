@@ -324,7 +324,7 @@ namespace iPhonePackager
 				X509Certificate2 Cert = FindCertificate(p);
 				if (Cert != null)
 				{
-					bValid = (Cert.NotBefore < Now) && (Cert.NotAfter > Now);
+					bValid = (Cert.NotBefore.ToUniversalTime() < Now) && (Cert.NotAfter.ToUniversalTime() > Now);
 				}
 				bool bPassesNameCheck = p.ApplicationIdentifier.Substring(p.ApplicationIdentifierPrefix.Length+1) == CFBundleIdentifier;
 				bool bPassesCompanyCheck = false;
@@ -458,10 +458,9 @@ namespace iPhonePackager
 					X509Certificate2 ValidInTimeCert = null;
 					foreach (X509Certificate2 TestCert in FoundCerts)
 					{
-						//@TODO: Pretty sure the certificate information from the library is in local time, not UTC and this works as expected, but it should be verified!
-						DateTime EffectiveDate = TestCert.NotBefore;
-						DateTime ExpirationDate = TestCert.NotAfter;
-						DateTime Now = DateTime.Now;
+						DateTime EffectiveDate = TestCert.NotBefore.ToUniversalTime();
+						DateTime ExpirationDate = TestCert.NotAfter.ToUniversalTime();
+						DateTime Now = DateTime.UtcNow;
 
 						bool bCertTimeIsValid = (EffectiveDate < Now) && (ExpirationDate > Now);
 
@@ -573,6 +572,7 @@ namespace iPhonePackager
 			Rules1.Add("^", true);
 			Rules1.Add("^.*\\.lproj/", CreateOptionalResource(1000));
 			Rules1.Add("^.*\\.lproj/locversion.plist$", CreateOmittedResource(1100));
+			Rules1.Add("^Base\\.lproj", CreateResource(1010));
 			Rules1.Add("^version.plist$", true);
 
 			Dictionary<string, object> Rules2 = new Dictionary<string, object>();
@@ -583,6 +583,7 @@ namespace iPhonePackager
 			Rules2.Add("^.*", true);
 			Rules2.Add("^.*\\.lproj/", CreateOptionalResource(1000));
 			Rules2.Add("^.*\\.lproj/locversion.plist$", CreateOmittedResource(1100));
+			Rules2.Add("^Base\\.lproj", CreateResource(1010));
 			Rules2.Add("^Info\\.plist$", CreateOmittedResource(20));
 			Rules2.Add("^PkgInfo$", CreateOmittedResource(20));
 			Rules2.Add("^[^/]+$", CreateNestedResource(10));
@@ -604,7 +605,8 @@ namespace iPhonePackager
 
 			// Hash each file
 			IEnumerable<string> FileList = FileSystem.GetAllPayloadFiles();
-			SHA1CryptoServiceProvider HashProvider = new SHA1CryptoServiceProvider();
+			SHA1CryptoServiceProvider Hash1Provider = new SHA1CryptoServiceProvider();
+			SHA256CryptoServiceProvider Hash2Provider = new SHA256CryptoServiceProvider();
 
 			Utilities.PListHelper HashedFileEntries1 = new Utilities.PListHelper();
 			Utilities.PListHelper HashedFileEntries2 = new Utilities.PListHelper();
@@ -612,17 +614,23 @@ namespace iPhonePackager
 			{
 				if (!TrueExclusionList1.ContainsKey(Filename))
 				{
-					byte[] FileData = FileSystem.ReadAllBytes(Filename);
-					byte[] HashData = HashProvider.ComputeHash(FileData);
-
+					System.IO.Stream Stream = FileSystem.OpenRead(Filename);
+					byte[] HashData = Hash1Provider.ComputeHash(Stream);
+					FileSystem.CloseFile(Stream);
 					HashedFileEntries1.AddKeyValuePair(Filename, HashData);
 				}
 				if (!TrueExclusionList2.ContainsKey(Filename))
 				{
-					byte[] FileData = FileSystem.ReadAllBytes(Filename);
-					byte[] HashData = HashProvider.ComputeHash(FileData);
-
-					HashedFileEntries2.AddKeyValuePair(Filename, HashData);
+					System.IO.Stream Stream = FileSystem.OpenRead(Filename);
+					byte[] Hash1Data = Hash1Provider.ComputeHash(Stream);
+					FileSystem.CloseFile(Stream);
+					Stream = FileSystem.OpenRead(Filename);
+					byte[] Hash2Data = Hash2Provider.ComputeHash(Stream);
+					FileSystem.CloseFile(Stream);
+					Utilities.PListHelper HashEntries = new Utilities.PListHelper();
+					HashEntries.AddKeyValuePair("hash", Hash1Data);
+					HashEntries.AddKeyValuePair("hash2", Hash2Data);
+					HashedFileEntries2.AddKeyValuePair(Filename, HashEntries);
 				}
 			}
 

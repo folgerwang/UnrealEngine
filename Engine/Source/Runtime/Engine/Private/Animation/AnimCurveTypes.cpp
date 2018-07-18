@@ -294,11 +294,17 @@ void FTransformCurve::Resize(float NewLength, bool bInsert/* whether insert or r
 void FRawCurveTracks::EvaluateCurveData( FBlendedCurve& Curves, float CurrentTime ) const
 {
 	SCOPE_CYCLE_COUNTER(STAT_AnimSeq_EvalCurveData);
-	// evaluate the curve data at the CurrentTime and add to Instance
-	for(auto CurveIter = FloatCurves.CreateConstIterator(); CurveIter; ++CurveIter)
+	if (Curves.NumValidCurveCount > 0)
 	{
-		const FFloatCurve& Curve = *CurveIter;
-		Curves.Set(Curve.Name.UID, Curve.Evaluate(CurrentTime));
+		// evaluate the curve data at the CurrentTime and add to Instance
+		for (auto CurveIter = FloatCurves.CreateConstIterator(); CurveIter; ++CurveIter)
+		{
+			const FFloatCurve& Curve = *CurveIter;
+			if (Curves.IsEnabled(Curve.Name.UID))
+			{
+				Curves.Set(Curve.Name.UID, Curve.Evaluate(CurrentTime));
+			}
+		}
 	}
 }
 

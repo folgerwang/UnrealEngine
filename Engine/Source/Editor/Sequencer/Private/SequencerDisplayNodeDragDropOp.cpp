@@ -7,9 +7,9 @@
 #include "SequencerDisplayNode.h"
 #include "SequencerObjectBindingNode.h"
 #include "K2Node_GetSequenceBinding.h"
-#include "SBorder.h"
-#include "SImage.h"
-#include "STextBlock.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
 #include "EditorStyleSet.h"
 #include "EdGraph/EdGraph.h"
 

@@ -30,6 +30,16 @@ enum class EConsumeMouseWheel : uint8
 	Never,
 };
 
+/** Used to determine which search method we should use when finding a suitable parent window */
+UENUM(BlueprintType)
+enum class ESlateParentWindowSearchMethod : uint8
+{
+	/** Favor using the active window (will fallback to the main window if the active window is unsuitable) */
+	ActiveWindow,
+
+	/** Favor using the main window */
+	MainWindow,
+};
 
 /** Type of check box */
 UENUM()

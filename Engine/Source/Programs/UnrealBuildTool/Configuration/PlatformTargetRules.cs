@@ -50,9 +50,9 @@ namespace UnrealBuildTool
 	}
 
 	/// <summary>
-	/// Stub read-only wrapper for XboxOne-specific target settings.
+	/// Stub read-only wrapper for PS4-specific target settings.
 	/// This class is not in a restricted location to simplify code paths in UBT. It is visible to all UE4 users, without NDA, and will appear
-	/// empty to those without the XboxOne implementation code.
+	/// empty to those without the PS4 implementation code.
 	/// </summary>
 	public partial class ReadOnlyPS4TargetRules
 	{
@@ -66,6 +66,37 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="Inner">The settings object to wrap</param>
 		public ReadOnlyPS4TargetRules(PS4TargetRules Inner)
+		{
+			this.Inner = Inner;
+		}
+	}
+
+	/// <summary>
+	/// Stub partial class for Switch-specific target settings. 
+	/// This class is not in a restricted location to simplify code paths in UBT. It is visible to all UE4 users, without NDA, and will appear
+	/// empty to those without the Switch implementation code.
+	/// </summary>
+	public partial class SwitchTargetRules
+	{
+	}
+
+	/// <summary>
+	/// Stub read-only wrapper for Switch-specific target settings.
+	/// This class is not in a restricted location to simplify code paths in UBT. It is visible to all UE4 users, without NDA, and will appear
+	/// empty to those without the Switch implementation code.
+	/// </summary>
+	public partial class ReadOnlySwitchTargetRules
+	{
+		/// <summary>
+		/// The private mutable settings object
+		/// </summary>
+		private SwitchTargetRules Inner;
+
+		/// <summary>
+		/// Constructor
+		/// </summary>
+		/// <param name="Inner">The settings object to wrap</param>
+		public ReadOnlySwitchTargetRules(SwitchTargetRules Inner)
 		{
 			this.Inner = Inner;
 		}

@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "LazyObjectPtr.h"
+#include "UObject/LazyObjectPtr.h"
 #include "ActorSequenceObjectReference.generated.h"
 
 class UActorComponent;

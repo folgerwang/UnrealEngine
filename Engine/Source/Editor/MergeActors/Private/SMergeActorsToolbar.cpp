@@ -127,23 +127,30 @@ FReply SMergeActorsToolbar::OnMergeActorsClicked()
 	if (CurrentlySelectedTool >= 0 && CurrentlySelectedTool < RegisteredTools.Num())
 	{
 		const FString DefaultPackageName = RegisteredTools[CurrentlySelectedTool]->GetDefaultPackageName();
-		const FString DefaultPath = FPackageName::GetLongPackagePath(DefaultPackageName);
-		const FString DefaultName = FPackageName::GetShortName(DefaultPackageName);
-
-		// Initialize SaveAssetDialog config
-		FSaveAssetDialogConfig SaveAssetDialogConfig;
-		SaveAssetDialogConfig.DialogTitleOverride = LOCTEXT("CreateMergedActorTitle", "Create Merged Actor");
-		SaveAssetDialogConfig.DefaultPath = DefaultPath;
-		SaveAssetDialogConfig.DefaultAssetName = DefaultName;
-		SaveAssetDialogConfig.ExistingAssetPolicy = ESaveAssetDialogExistingAssetPolicy::AllowButWarn;
-
-		FContentBrowserModule& ContentBrowserModule = FModuleManager::LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
-		FString SaveObjectPath = ContentBrowserModule.Get().CreateModalSaveAssetDialog(SaveAssetDialogConfig);
-		if (!SaveObjectPath.IsEmpty())
+		if(DefaultPackageName.Len() > 0)
 		{
-			const FString PackageName = FPackageName::ObjectPathToPackageName(SaveObjectPath);
+			const FString DefaultPath = FPackageName::GetLongPackagePath(DefaultPackageName);
+			const FString DefaultName = FPackageName::GetShortName(DefaultPackageName);
 
-			RegisteredTools[CurrentlySelectedTool]->RunMerge(PackageName);
+			// Initialize SaveAssetDialog config
+			FSaveAssetDialogConfig SaveAssetDialogConfig;
+			SaveAssetDialogConfig.DialogTitleOverride = LOCTEXT("CreateMergedActorTitle", "Create Merged Actor");
+			SaveAssetDialogConfig.DefaultPath = DefaultPath;
+			SaveAssetDialogConfig.DefaultAssetName = DefaultName;
+			SaveAssetDialogConfig.ExistingAssetPolicy = ESaveAssetDialogExistingAssetPolicy::AllowButWarn;
+
+			FContentBrowserModule& ContentBrowserModule = FModuleManager::LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
+			FString SaveObjectPath = ContentBrowserModule.Get().CreateModalSaveAssetDialog(SaveAssetDialogConfig);
+			if (!SaveObjectPath.IsEmpty())
+			{
+				const FString PackageName = FPackageName::ObjectPathToPackageName(SaveObjectPath);
+
+				RegisteredTools[CurrentlySelectedTool]->RunMerge(PackageName);
+			}
+		}
+		else
+		{
+			RegisteredTools[CurrentlySelectedTool]->RunMerge(DefaultPackageName);
 		}
 	}
 
@@ -194,6 +201,7 @@ void SMergeActorsToolbar::UpdateToolbar()
 
 		HorizontalBox->AddSlot()
 		.Padding(StyleSet.GetMargin("EditorModesToolbar.SToolBarButtonBlock.Padding"))
+		.AutoWidth()
 		[
 			SNew(SCheckBox)
 			.Style(&StyleSet, "EditorModesToolbar.ToggleButton")

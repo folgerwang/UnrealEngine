@@ -66,6 +66,15 @@ public:
 	 */
 	virtual void GetProxies(FName TargetPlatformName, bool IncludeUnshared, TArray<TSharedPtr<ITargetDeviceProxy>>& OutProxies) = 0;
 
+	/**
+	* Gets a list of proxies created by the device discovery, including the "All device" proxies
+	*
+	* @param PlatformName The the name of the target platform to get proxies for (or empty string for all proxies).
+	* @param OutProxies Will hold the list of devices found by the locator.
+	* @see FindOrAddProxy, FindProxy, FindProxyDeviceForTargetDevice
+	*/
+	virtual void GetAllProxies(FName TargetPlatformName, TArray<TSharedPtr<ITargetDeviceProxy>>& OutProxies) = 0;
+
 public:
 
 	/**

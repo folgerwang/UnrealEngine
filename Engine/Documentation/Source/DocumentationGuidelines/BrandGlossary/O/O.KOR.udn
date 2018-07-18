@@ -1,17 +1,17 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3532405
 Availability: Docs
 Crumbs: %ROOT%
-Title: Brand Glossary
-Description: A glossary of key terms, which are used to describe the systems, features, and tools that belong to Unreal Engine 4 (UE4).
+Title: 브랜드 용어집
+Description: 언리얼 엔진 4 에 속하는 시스템, 피처, 툴을 설명하는 데 사용되는 핵심 용어 해설집입니다.
 Type: Reference
 Version: 4.16
 Parent:BrandGlossary
 Order:11
 Tags:Brand Glossary
 
-Welcome to the Unreal Engine 4 (UE4) **Brand Glossary**. If you want to create user-facing resources for the UE4 community, this guide 
-helps you gain a better understanding of the terms being used to describe systems, features, and tools belonging to UE4. After reading 
-through this glossary, you'll also know how to properly spell and capitalize the terms we use to describe Unreal Engine.  
+언리얼 엔진 4 (UE4) **브랜드 용어집** 에 오신 것을 환영합니다. UE4 커뮤니티의 사용자를 위한 자료를 만들고자 하는 경우, 
+UE4 에 속하는 시스템, 피처, 툴을 설명하는 데 사용되고 있는 용어의 이해를 돕기 위한 문서입니다.
+이 용어집을 통독하고나면, 언리얼 엔진 설명에 사용하는 용어의 스펠링과 대소문자 구분을 확실히 하실 수 있을 것입니다.
 
 <hr>
   
@@ -44,8 +44,8 @@ through this glossary, you'll also know how to properly spell and capitalize the
 
 ##Object
 
-The base building blocks in the Unreal Engine are called Objects, containing a lot of the essential “under the hood” functionality for your game assets. Just about everything in Unreal Engine 4 inherits (or gets some functionality) from an Object. In C++, UObject is the base class of all objects; it implements features such as garbage collection, metadata (UProperty) support for exposing variables to the Unreal Editor, and serialization for loading and saving.
+오브젝트 - 언리얼 엔진의 기본 구성 요소로, 여기에는 게임 애셋의 필수적인 "내부" 기능 다수가 포함됩니다. 언리얼 엔진 4 의 모든 것이 오브젝트를 상속( 또는 일부 함수 기능을 물려)받습니다. C++ 에서, UObject 는 모든 오브젝트의 베이스 클래스이며, 가비지 컬렉션, 언리얼 에디터에 변수를 노출시키는 메타데이터 (UProperty) 지원, 로드와 세이브를 위한 시리얼라이제이션 같은 기능을 구현합니다.
 
 ##Online Subsystem
 
-The Online subsystem and its interfaces exist to provide a clear abstraction to common online functionality across the available set of platforms in a given environment. Platforms in this context would refer to Steam, Xbox Live, Facebook, etc. Portability is one of the main goals of this subsystem.
+온라인 서브시스템 - 주어진 환경에서 사용할 수 있는 플랫폼 세트 전반에 걸친 공통 온라인 함수 기능에 대한 명확한 추상화를 인터페이스와 함께 제공하는 시스템입니다. 이 맥락에서의 플랫폼이란, Steam, Xbox Live, Facebook 등을 말합니다. 이 서브시스템의 주 목표 중 하나는 Portability, 이식성입니다.

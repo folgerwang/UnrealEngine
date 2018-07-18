@@ -76,6 +76,11 @@ protected:
 		ToolTip = "Maximum allowed time to spend for actor registration steps during level streaming (ms per frame)."))
 	float LevelStreamingActorsUpdateTimeLimit;
 
+	UPROPERTY(EditAnywhere, config, Category = LevelStreaming, AdvancedDisplay, meta = (
+		ConsoleVariable = "s.PriorityLevelStreamingActorsUpdateExtraTime", DisplayName = "Priority Actor Initialization Update Extra Time",
+		ToolTip = "Additional time to spend on actor registration steps during a high priority load."))
+	float PriorityLevelStreamingActorsUpdateExtraTime;
+
 	/** Batching granularity used to register actor components during level streaming */
 	UPROPERTY(EditAnywhere, config, Category = LevelStreaming, AdvancedDisplay, meta = (
 		ConsoleVariable = "s.LevelStreamingComponentsRegistrationGranularity", DisplayName = "Components Registration Granularity",
@@ -118,6 +123,8 @@ extern ENGINE_API int32 GAsyncLoadingUseFullTimeLimit;
 extern ENGINE_API float GPriorityAsyncLoadingExtraTime;
 /** Maximum allowed time to spend for actor registration steps during level streaming (ms per frame). */
 extern ENGINE_API float GLevelStreamingActorsUpdateTimeLimit;
+/** Additional time to spend on actor registration steps during a high priority load. */
+extern ENGINE_API float GPriorityLevelStreamingActorsUpdateExtraTime;
 /** Batching granularity used to register actor components during level streaming. */
 extern ENGINE_API int32 GLevelStreamingComponentsRegistrationGranularity;
 /** Batching granularity used to unregister actor components during level streaming.  */
@@ -130,6 +137,8 @@ extern ENGINE_API int32 GLevelStreamingForceGCAfterLevelStreamedOut;
 extern ENGINE_API int32 GLevelStreamingContinuouslyIncrementalGCWhileLevelsPendingPurge;
 /** Enables level streaming requests while async loading (of anything) while the match is already in progress and no loading screen is up. */
 extern ENGINE_API int32 GLevelStreamingAllowLevelRequestsWhileAsyncLoadingInMatch;
+/** When we're already loading this many levels and actively in match, don't allow any more requests until one of those completes.  Set to zero to disable. */
+extern ENGINE_API int32 GLevelStreamingMaxLevelRequestsAtOnceWhileInMatch;
 
 
 /**
@@ -162,6 +171,11 @@ protected:
 	uint32 AllowParallelGC : 1;
 
 	UPROPERTY(EditAnywhere, config, Category = Optimization, meta = (
+		ConsoleVariable = "gc.IncrementalBeginDestroyEnabled", DisplayName = "Incremental BeginDestroy Enabled",
+		ToolTip = "If true, the engine will destroy objects incrementally using time limit each frame."))
+	uint32 IncrementalBeginDestroyEnabled : 1;
+
+	UPROPERTY(EditAnywhere, config, Category = Optimization, meta = (
 		ConsoleVariable = "gc.CreateGCClusters", DisplayName = "Create Garbage Collector UObject Clusters",
 		ToolTip = "If true, the engine will attempt to create clusters of objects for better garbage collection performance."))
 	uint32 CreateGCClusters : 1;
@@ -185,6 +199,11 @@ protected:
 		ConsoleVariable = "gc.UseDisregardForGCOnDedicatedServers", DisplayName = "Use DisregardForGC On Dedicated Servers",
 		ToolTip = "If false, DisregardForGC will be disabled for dedicated servers."))
 	uint32 UseDisregardForGCOnDedicatedServers : 1;
+
+	UPROPERTY(EditAnywhere, config, Category = Optimization, meta = (
+		ConsoleVariable = "gc.MinGCClusterSize", DisplayName = "Minimum GC Cluster size",
+		ToolTip = "Minimum GC cluster size."))
+	int32 MinGCClusterSize;
 
 	UPROPERTY(EditAnywhere, config, Category = General, meta = (
 		ConsoleVariable = "gc.NumRetriesBeforeForcingGC", DisplayName = "Number Of Retries Before Forcing GC",

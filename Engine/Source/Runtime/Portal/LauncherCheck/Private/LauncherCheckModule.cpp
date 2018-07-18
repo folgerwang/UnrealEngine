@@ -13,7 +13,7 @@
 
 #if defined(WITH_LAUNCHERCHECK) && WITH_LAUNCHERCHECK
 
-#include "GenericPlatformHttp.h"
+#include "GenericPlatform/GenericPlatformHttp.h"
 #include "ILauncherPlatform.h"
 #include "LauncherPlatformModule.h"
 

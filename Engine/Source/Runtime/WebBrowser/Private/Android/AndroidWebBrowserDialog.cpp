@@ -1,8 +1,11 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AndroidWebBrowserDialog.h"
-#include "AndroidApplication.h"
-#include "AndroidJava.h"
+
+#if USE_ANDROID_JNI
+
+#include "Android/AndroidApplication.h"
+#include "Android/AndroidJava.h"
 
 #include <jni.h>
 
@@ -55,3 +58,5 @@ void FAndroidWebBrowserDialog::Continue(bool Success, const FText& UserResponse)
 	}
 	JEnv->CallVoidMethod(Callback, MethodId, JUserResponse);
 }
+
+#endif // USE_ANDROID_JNI

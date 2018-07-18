@@ -7,15 +7,15 @@
 #include "EditorStyleSet.h"
 
 /*-----------------------------------------------------------------------------
-   FCurveEditorCommands
+   FDistCurveEditorCommands
 -----------------------------------------------------------------------------*/
 
-class FCurveEditorCommands : public TCommands<FCurveEditorCommands>
+class FDistCurveEditorCommands : public TCommands<FDistCurveEditorCommands>
 {
 public:
 	/** Constructor */
-	FCurveEditorCommands() 
-		: TCommands<FCurveEditorCommands>("CurveEditor", NSLOCTEXT("Contexts", "CurveEditor", "CurveEditor"), NAME_None, FEditorStyle::GetStyleSetName())
+	FDistCurveEditorCommands() 
+		: TCommands<FDistCurveEditorCommands>("CurveEditor", NSLOCTEXT("Contexts", "CurveEditor", "CurveEditor"), NAME_None, FEditorStyle::GetStyleSetName())
 	{
 	}
 

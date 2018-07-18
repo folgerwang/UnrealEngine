@@ -135,6 +135,7 @@ struct FClothVertBoneData
 	GENERATED_BODY()
 
 	FClothVertBoneData()
+		: NumInfluences(0)
 	{
 		FMemory::Memset(BoneIndices, (uint8)INDEX_NONE, sizeof(BoneIndices));
 		FMemory::Memset(BoneWeights, 0, sizeof(BoneWeights));
@@ -179,6 +180,12 @@ struct CLOTHINGSYSTEMRUNTIME_API FClothPhysicalMeshData
 	// Normal at each vertex
 	UPROPERTY(EditAnywhere, Category = SimMesh)
 	TArray<FVector> Normals;
+
+#if WITH_EDITORONLY_DATA
+	// Color at each vertex
+	UPROPERTY(EditAnywhere, Category = SimMesh)
+	TArray<FColor> VertexColors;
+#endif // WITH_EDITORONLY_DATA
 
 	// Indices of the simulation mesh triangles
 	UPROPERTY(EditAnywhere, Category = SimMesh)

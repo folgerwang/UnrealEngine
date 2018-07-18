@@ -306,7 +306,7 @@ void UVREditorMotionControllerInteractor::SetupComponent( AActor* OwningActor )
 			{
 				StaticMesh = StartSplineMesh;
 			}
-			else if (i == NumLaserSplinePoints)
+			else if (i == NumLaserSplinePoints - 1)
 			{
 				StaticMesh = EndSplineMesh;
 			}

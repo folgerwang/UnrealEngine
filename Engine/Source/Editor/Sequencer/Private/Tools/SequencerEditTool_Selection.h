@@ -7,7 +7,7 @@
 #include "Input/CursorReply.h"
 #include "Input/Reply.h"
 #include "Tools/SequencerEditTool.h"
-#include "Tools/DelayedDrag.h"
+#include "Framework/DelayedDrag.h"
 
 class SSequencer;
 struct ISequencerHotspot;

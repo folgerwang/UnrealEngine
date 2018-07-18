@@ -29,6 +29,7 @@ struct TStructOpsTypeTraits<FVector> : public TStructOpsTypeTraitsBase2<FVector>
 		WithNoInitConstructor = true,
 		WithZeroConstructor = true,
 		WithNetSerializer = true,
+		WithNetSharedSerialization = true,
 		WithSerializer = true,
 	};
 };
@@ -66,6 +67,7 @@ struct TStructOpsTypeTraits<FVector2D> : public TStructOpsTypeTraitsBase2<FVecto
 		WithNoInitConstructor = true,
 		WithZeroConstructor = true,
 		WithNetSerializer = true,
+		WithNetSharedSerialization = true,
 		WithSerializer = true,
 	};
 };
@@ -91,6 +93,7 @@ struct TStructOpsTypeTraits<FPlane> : public TStructOpsTypeTraitsBase2<FPlane>
 		WithNoInitConstructor = true,
 		WithZeroConstructor = true,
 		WithNetSerializer = true,
+		WithNetSharedSerialization = true,
 		WithSerializer = true,
 	};
 };
@@ -104,6 +107,7 @@ struct TStructOpsTypeTraits<FRotator> : public TStructOpsTypeTraitsBase2<FRotato
 		WithNoInitConstructor = true,
 		WithZeroConstructor = true,
 		WithNetSerializer = true,
+		WithNetSharedSerialization = true,
 		WithSerializer = true,
 	};
 };
@@ -194,6 +198,7 @@ struct TStructOpsTypeTraits<FQuat> : public TStructOpsTypeTraitsBase2<FQuat>
 		//quat is somewhat special in that it initialized w to one
 		WithNoInitConstructor = true,
 		WithNetSerializer = true,
+		WithNetSharedSerialization = true,
 	};
 };
 IMPLEMENT_STRUCT(Quat);
@@ -271,6 +276,17 @@ struct TStructOpsTypeTraits<FTimespan> : public TStructOpsTypeTraitsBase2<FTimes
 	};
 };
 IMPLEMENT_STRUCT(Timespan);
+
+template<>
+struct TStructOpsTypeTraits<FFrameNumber> : public TStructOpsTypeTraitsBase2<FFrameNumber>
+{
+	enum
+	{
+		WithSerializer = true,
+		WithIdenticalViaEquality = true
+	};
+};
+IMPLEMENT_STRUCT(FrameNumber);
 
 template<>
 struct TStructOpsTypeTraits<FSoftObjectPath> : public TStructOpsTypeTraitsBase2<FSoftObjectPath>
@@ -382,7 +398,7 @@ UProperty::UProperty(const FObjectInitializer& ObjectInitializer)
 {
 }
 
-UProperty::UProperty(ECppProperty, int32 InOffset, uint64 InFlags)
+UProperty::UProperty(ECppProperty, int32 InOffset, EPropertyFlags InFlags)
 	: UField(FObjectInitializer::Get())
 	, ArrayDim(1)
 	, PropertyFlags(InFlags)
@@ -391,7 +407,7 @@ UProperty::UProperty(ECppProperty, int32 InOffset, uint64 InFlags)
 	Init();
 }
 
-UProperty::UProperty(const FObjectInitializer& ObjectInitializer, ECppProperty, int32 InOffset, uint64 InFlags )
+UProperty::UProperty(const FObjectInitializer& ObjectInitializer, ECppProperty, int32 InOffset, EPropertyFlags InFlags )
 : UField(ObjectInitializer)	
 , ArrayDim(1)
 , PropertyFlags(InFlags)
@@ -424,9 +440,9 @@ void UProperty::Serialize( FArchive& Ar )
 
 	Super::Serialize( Ar );
 
-	uint64 SaveFlags(PropertyFlags & ~CPF_ComputedFlags);
+	EPropertyFlags SaveFlags = PropertyFlags & ~CPF_ComputedFlags;
 	// Archive the basic info.
-	Ar << ArrayDim << SaveFlags;
+	Ar << ArrayDim << (uint64&)SaveFlags;
 	if (Ar.IsLoading())
 	{
 		PropertyFlags = (SaveFlags & ~CPF_ComputedFlags) | (PropertyFlags & CPF_ComputedFlags);
@@ -695,6 +711,11 @@ bool UProperty::ExportText_Direct
 	return false;
 }
 
+bool UProperty::IsPostLoadThreadSafe() const
+{
+	return true;
+}
+
 bool UProperty::ShouldSerializeValue( FArchive& Ar ) const
 {
 	if (Ar.ShouldSkipProperty(this))
@@ -733,6 +754,11 @@ bool UProperty::NetSerializeItem( FArchive& Ar, UPackageMap* Map, void* Data, TA
 {
 	SerializeItem( Ar, Data, NULL );
 	return 1;
+}
+
+bool UProperty::SupportsNetSharedSerialization() const
+{
+	return true;
 }
 
 //
@@ -793,9 +819,9 @@ void UProperty::LinkInternal(FArchive& Ar)
 	check(0); // Link shouldn't call super...and we should never link an abstract property, like this base class
 }
 
-bool UProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct, bool& bOutAdvanceProperty)
+EConvertFromTypeResult UProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct)
 {
-	return false;
+	return EConvertFromTypeResult::UseSerializeItem;
 }
 
 
@@ -1128,7 +1154,7 @@ const TCHAR* UProperty::ImportSingleProperty( const TCHAR* Str, void* DestData, 
 						Str = Result;
 					}
 				}
-				else if(ArrayOp == ADO_Remove)
+				else
 				{
 					int32 Size = ArrayProperty->Inner->ElementSize;
 
@@ -1165,7 +1191,7 @@ const TCHAR* UProperty::ImportSingleProperty( const TCHAR* Str, void* DestData, 
 					}
 				}
 			}
-			else if (ArrayOp == ADO_RemoveIndex)
+			else if (ArrayOp == ADO_RemoveIndex) //-V547
 			{
 				SkipWhitespace(Str);
 				if(*Str++ != '(')

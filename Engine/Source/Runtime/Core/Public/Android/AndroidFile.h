@@ -7,7 +7,9 @@
 #pragma once
 
 #include "GenericPlatform/GenericPlatformFile.h"
+#if USE_ANDROID_JNI
 #include <jni.h>
+#endif
 
 /**
 	Android File I/O implementation with additional utilities to deal
@@ -18,9 +20,11 @@ class CORE_API IAndroidPlatformFile : public IPhysicalPlatformFile
 public:
 	static IAndroidPlatformFile & GetPlatformPhysical();
 
+#if USE_ANDROID_JNI
 	// Get the android.content.res.AssetManager that Java code
 	// should use to open APK assets.
 	virtual jobject GetAssetManager() = 0;
+#endif
 
 	// Get detailed information for a file that
 	// we can hand to other Android media classes for access.

@@ -15,8 +15,15 @@ DECLARE_LOG_CATEGORY_EXTERN(LogQuadric, Log, All);
 #define WEIGHT_BY_AREA		1
 #define VOLUME_CONSTRAINT	1
 
-bool CalcGradient( double grad[4], const FVector& p0, const FVector& p1, const FVector& p2, const FVector& n, float a0, float a1, float a2 );
-bool CalcGradientMatrix( double* __restrict GradMatrix, const FVector& p0, const FVector& p1, const FVector& p2, const FVector& n );
+// Currently not used : this should be equivalent to CalcGradientMatrix followed by the CalcGradient below.
+
+bool CalcGradient( double grad[4], const double(&p0)[3], const double(&p1)[3], const double(&p2)[3], const double(&n)[3], float a0, float a1, float a2 );
+
+// Calculate the interpolation matrix @param GradMatrix that represents the interpolation coefficients across a triangle face. 
+
+bool CalcGradientMatrix( double* __restrict GradMatrix, const double(&p0)[3], const double(&p1)[3], const double(&p2)[3], const double(&n)[3]);
+
+// Use the @param GradMatrix to from the gradient of vertex data across the face of a triangle. 
 
 FORCEINLINE void CalcGradient( double* __restrict GradMatrix, double grad[4], float a0, float a1, float a2 )
 {
@@ -26,12 +33,18 @@ FORCEINLINE void CalcGradient( double* __restrict GradMatrix, double grad[4], fl
 	grad[3] = + GradMatrix[ 3] * a0 - GradMatrix[ 7] * a1 - GradMatrix[11] * a2;
 }
 
-// returns length
-FORCEINLINE float NormalizeSelf( FVector& V )
+// returns length and normalizes the input vector
+
+static FORCEINLINE double NormalizeSelf(double& Vx, double& Vy, double& Vz)
 {
-	float Length2 = V.SizeSquared();
-	float Length = FMath::Sqrt( Length2 );
-	V /= Length;
+	double Length2 = Vx * Vx + Vy * Vy + Vz * Vz;
+	double Length = sqrt(Length2);
+	{
+		double InvL = 1. / Length;
+		Vx *= InvL;
+		Vy *= InvL;
+		Vz *= InvL;
+	}
 	return Length;
 }
 
@@ -70,26 +83,44 @@ public:
 	double		a;
 };
 
-inline FQuadric::FQuadric( const FVector& p0, const FVector& p1, const FVector& p2 )
+inline FQuadric::FQuadric( const FVector& fp0, const FVector& fp1, const FVector& fp2 )
 {
-	FVector n = ( p2 - p0 ) ^ ( p1 - p0 );
-	float Length = NormalizeSelf(n);
-	if( Length < SMALL_NUMBER )
+
+	// Convert to double 
+
+	const double p0[3] = { fp0[0], fp0[1], fp0[2] };
+	const double p1[3] = { fp1[0], fp1[1], fp1[2] };
+	const double p2[3] = { fp2[0], fp2[1], fp2[2] };
+
+	// Compute the wedge product, giving the normal direction scaled by 
+	// twice the triangle area.
+	
+	double nX, nY, nZ; //  n = (p2 - p0) ^ (p1 - p0);
+	{
+		double tmpA[3] = { p2[0] - p0[0], p2[1] - p0[1], p2[2] - p0[2] };
+		double tmpB[3] = { p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2] };
+
+		nX = tmpA[1] * tmpB[2] - tmpA[2] * tmpB[1];
+		nY = tmpA[2] * tmpB[0] - tmpA[0] * tmpB[2];
+		nZ = tmpA[0] * tmpB[1] - tmpA[1] * tmpB[0];
+	}
+
+	// Rescale the normal direction vector to unit length.
+
+	const double Length = NormalizeSelf(nX, nY, nZ);
+	if (Length < double(SMALL_NUMBER))
 	{
 		Zero();
 		return;
 	}
 
-	checkSlow( FMath::IsFinite( n.X ) );
-	checkSlow( FMath::IsFinite( n.Y ) );
-	checkSlow( FMath::IsFinite( n.Z ) );
+	checkSlow(FMath::IsFinite(nX));
+	checkSlow(FMath::IsFinite(nY));
+	checkSlow(FMath::IsFinite(nZ));
 
-	double nX = n.X;
-	double nY = n.Y;
-	double nZ = n.Z;
-	
-	double area = 0.5f * Length;
-	double dist = -( nX * p0.X + nY * p0.Y + nZ * p0.Z );
+	const double area = 0.5 * Length;
+	const double dist = -(nX * p0[0] + nY * p0[1] + nZ * p0[2]); // n.dot.p0
+
 
 	nxx = nX * nX;
 	nyy = nY * nY;
@@ -126,7 +157,7 @@ inline FQuadric::FQuadric( const FVector& p0, const FVector& p1, const FVector& 
 #endif
 }
 
-inline FQuadric::FQuadric( const FVector& p0, const FVector& p1, const FVector& faceNormal, const float edgeWeight )
+inline FQuadric::FQuadric( const FVector& fp0, const FVector& fp1, const FVector& faceNormal, const float edgeWeight )
 {
 	if( !faceNormal.IsNormalized() )
 	{
@@ -134,26 +165,43 @@ inline FQuadric::FQuadric( const FVector& p0, const FVector& p1, const FVector& 
 		return;
 	}
 
-	FVector edge = p1 - p0;
+	// Convert to double 
 
-	FVector n = edge ^ faceNormal;
-	float Length = NormalizeSelf(n);
-	if( Length < SMALL_NUMBER )
+	const double p0[3] = { fp0[0], fp0[1], fp0[2] };
+	const double p1[3] = { fp1[0], fp1[1], fp1[2] };
+
+	// Compute the wedge product, giving the a direction
+	// normal to the edge and face normal (a bi-tangent) 
+
+	double nX, nY, nZ; //  n = (p1 - p0) ^ (faceNormal);
+	double edgeSize;
+	{
+		// edge = fp1 - fp0
+		double tmpA[3] = { p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2] };
+		double tmpB[3] = { faceNormal.X,  faceNormal.Y,  faceNormal.Z };
+		
+		nX = tmpA[1] * tmpB[2] - tmpA[2] * tmpB[1];
+		nY = tmpA[2] * tmpB[0] - tmpA[0] * tmpB[2];
+		nZ = tmpA[0] * tmpB[1] - tmpA[1] * tmpB[0];
+
+		edgeSize = sqrt(tmpA[0] * tmpA[0] + tmpA[1] * tmpA[1] + tmpA[2] * tmpA[2]);
+	}
+
+	// Rescale the normal direction vector to unit length.
+
+	const double Length = NormalizeSelf(nX, nY, nZ);
+	if (Length < double(SMALL_NUMBER))
 	{
 		Zero();
 		return;
 	}
 
-	checkSlow( FMath::IsFinite( n.X ) );
-	checkSlow( FMath::IsFinite( n.Y ) );
-	checkSlow( FMath::IsFinite( n.Z ) );
+	checkSlow(FMath::IsFinite(nX));
+	checkSlow(FMath::IsFinite(nY));
+	checkSlow(FMath::IsFinite(nZ));
 
-	double nX = n.X;
-	double nY = n.Y;
-	double nZ = n.Z;
-
-	double dist = -( nX * p0.X + nY * p0.Y + nZ * p0.Z );
-	double weight = edgeWeight * edge.Size();
+	double dist = -(nX * p0[0] + nY * p0[1] + nZ * p0[2]); // n.dot.p0
+	double weight = edgeWeight * edgeSize;
 
 	nxx = weight * nX * nX;
 	nyy = weight * nY * nY;
@@ -316,28 +364,46 @@ public:
 
 template< uint32 NumAttributes >
 inline TQuadricAttr< NumAttributes >::TQuadricAttr(
-	const FVector& p0, const FVector& p1, const FVector& p2,
+	const FVector& fp0, const FVector& fp1, const FVector& fp2,
 	const float* attr0, const float* attr1, const float* attr2,
 	const float* AttributeWeights )
 {
-	FVector n = ( p2 - p0 ) ^ ( p1 - p0 );
-	float Length = NormalizeSelf(n);
-	if( Length < SMALL_NUMBER )
+
+	// Convert to double 
+	
+	const double p0[3] = { fp0[0], fp0[1], fp0[2] };
+	const double p1[3] = { fp1[0], fp1[1], fp1[2] };
+	const double p2[3] = { fp2[0], fp2[1], fp2[2] };
+
+	// Compute the wedge product, giving the normal direction scaled by 
+	// twice the triangle area.
+	
+	double nX, nY, nZ; //  n = (p2 - p0) ^ (p1 - p0);
+	{
+		double tmpA[3] = { p2[0] - p0[0], p2[1] - p0[1], p2[2] - p0[2] };
+		double tmpB[3] = { p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2] };
+
+		nX = tmpA[1] * tmpB[2] - tmpA[2] * tmpB[1];
+		nY = tmpA[2] * tmpB[0] - tmpA[0] * tmpB[2];
+		nZ = tmpA[0] * tmpB[1] - tmpA[1] * tmpB[0];
+	}
+
+	// Rescale the normal direction vector to unit length.
+
+	const double Length = NormalizeSelf(nX, nY, nZ);
+	if (Length < double(SMALL_NUMBER))
 	{
 		Zero();
 		return;
 	}
 
-	checkSlow( FMath::IsFinite( n.X ) );
-	checkSlow( FMath::IsFinite( n.Y ) );
-	checkSlow( FMath::IsFinite( n.Z ) );
+	checkSlow(FMath::IsFinite(nX));
+	checkSlow(FMath::IsFinite(nY));
+	checkSlow(FMath::IsFinite(nZ));
 
-	double nX = n.X;
-	double nY = n.Y;
-	double nZ = n.Z;
-
-	double area = 0.5f * Length;
-	double dist = -( nX * p0.X + nY * p0.Y + nZ * p0.Z );
+	const double area = 0.5 * Length;
+	const double dist = -(nX * p0[0] + nY * p0[1] + nZ * p0[2]); // n.dot.p0
+	
 
 	nxx = nX * nX;
 	nyy = nY * nY;
@@ -361,6 +427,7 @@ inline TQuadricAttr< NumAttributes >::TQuadricAttr(
 #endif
 
 	double GradMatrix[12];
+	const double n[3] = { nX, nY, nZ };
 	bool bInvertable = CalcGradientMatrix( GradMatrix, p0, p1, p2, n );
 	
 	for( uint32 i = 0; i < NumAttributes; i++ )
@@ -813,8 +880,10 @@ inline bool TQuadricAttrOptimizer< NumAttributes >::Optimize( FVector& Point ) c
 	//     [ -d[ 0 .. m] ]
 
 	// ( C - 1/a * B*Bt ) * p = -1/a * B*d - dn
-
-	checkSlow( a != 0.0 );
+	if (FMath::IsNearlyZero(a, (double)(1.e-12)))
+	{
+		return false;
+	}
 	
 	// M = C - 1/a * B*Bt
 	double ia = 1.0 / a;

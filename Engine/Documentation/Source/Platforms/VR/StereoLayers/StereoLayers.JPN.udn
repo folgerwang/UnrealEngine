@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:3580774
+﻿INTSourceChangelist:3680097
 Availability:Public
 Title:VR Stereo Layers
 Crumbs:%ROOT%,
-Description:VR Stereo Layers の設定と操作方法
+Description:VR ステレオ レイヤーの設定および操作方法
 Version:4.17
 parent:Platforms/VR
 type:overview
@@ -20,7 +20,7 @@ social-image:![](Platforms\VR\VirtualRealityDevelopment_topic.png)
 
 [EXCERPT:VRStereoLayersIntro]
 
-Virtuality Reality (VR) ステレオ レイヤーは、別々のテクスチャを VR ヘッドマウント ディスプレイ (HMD) に送り、そのまま個別のレンダリング パスに再投影する機能です。ポストプロセスやアンチ エイリアシングの影響を受けずに User Interface (UI) エレメントを HMD にアタッチしたい場合に非常に便利です。以下の操作ガイドでは、サポートされているすべての VR プラットフォームでステレオ レイヤーを設定および使用する方法について説明します。  
+Virtuality Reality (VR) **Stereo Layers** は、別々のテクスチャを VR ヘッドマウント ディスプレイ (HMD) に送り、そのまま個別のレンダリング パスに再投影する機能です。ポストプロセスやアンチ エイリアシングの影響を受けずに User Interface (UI) エレメントを HMD にアタッチしたい場合に非常に便利です。以下の操作ガイドでは、サポートされているすべての VR プラットフォームで Stereo Layers を設定および使用する方法について説明します。  
 
 [/EXCERPT:VRStereoLayersIntro]
 
@@ -33,7 +33,7 @@ VR Stereo Layers は、次のような、アンリアル エンジン (UE4) が�
 * [**Google VR**](https://vr.google.com/)
 * [**Steam VR**](http://store.steampowered.com/steamvr)
 * [**PSVR**](https://www.playstation.com/en-us/explore/playstation-vr/)
-* [**OSVR**](http://www.osvr.org/)
+
 
 ## プラットフォームの違い
 
@@ -69,7 +69,7 @@ VR Stereo Layers は、次のような、アンリアル エンジン (UE4) が�
 
 * World and Tracker ロック レイヤーで Support Depth フラグをサポートします。
 
-* 複数のレイヤーに同じプロパティがあると、レイヤーのレンダリング順序は定義されません。順序を定義したい場合は、異なる優先度を使用してください。
+* Oculus プラグインは、シーンと交わる時にすべての Stereo Layers を処理します。これにより、レイヤーがまるで [**Support Depth**](Engine/Basics/Screenshots/#カスタム深度マスク) フラグが常に true に設定されているかのように振る舞います。レンダリングするレイヤーの優先順序を変更するには、最初にレンダリングしたいレイヤーを物理的にカメラの近くに動かす必要があります。
 
 ### Gear VR 
 
@@ -93,7 +93,7 @@ VR Stereo Layers は、次のような、アンリアル エンジン (UE4) が�
 
 ## レイヤー形状
 
-すべてのプラットフォームでサポートされているレイヤー形状は quadrilinear レイヤーのみです。これらの他に、Gear VR はレイヤーと Cube レイヤーをサポートします。
+すべてのプラットフォームでサポートされているレイヤー形状は quadrilinear (四角形) のレイヤーのみです。これらの他に、Gear VR はレイヤーと Cube レイヤーをサポートします。
 
 ## レイヤーの描画順序
 

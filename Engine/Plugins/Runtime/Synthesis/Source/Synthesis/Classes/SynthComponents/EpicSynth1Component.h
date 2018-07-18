@@ -9,7 +9,7 @@
 #include "UObject/Class.h"
 #include "Engine/EngineTypes.h"
 #include "Sound/SoundWaveProcedural.h"
-#include "Classes/Engine/DataTable.h"
+#include "Engine/DataTable.h"
 #include "Components/SynthComponent.h"
 #include "EpicSynth1.h"
 #include "EpicSynth1Types.h"
@@ -377,7 +377,7 @@ class SYNTHESIS_API UModularSynthComponent : public USynthComponent
 	virtual bool Init(int32& SampleRate) override;
 
 	// Called to generate more audio
-	virtual void OnGenerateAudio(float* OutAudio, int32 NumSamples) override;
+	virtual int32 OnGenerateAudio(float* OutAudio, int32 NumSamples) override;
 
 public:
 

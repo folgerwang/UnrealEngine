@@ -3,9 +3,12 @@
 using System;
 using System.Collections.Generic;
 using System.Data.SqlClient;
+using System.IO;
 using System.Linq;
+using System.Net;
 using System.Text;
 using System.Threading.Tasks;
+using System.Web.Script.Serialization;
 
 namespace WriteBadgeStatus
 {
@@ -18,31 +21,44 @@ namespace WriteBadgeStatus
 			string Name = ParseParam(Arguments, "Name");
 			string Change = ParseParam(Arguments, "Change");
 			string Project = ParseParam(Arguments, "Project");
-			string Database = ParseParam(Arguments, "Database");
+			string RestUrl = ParseParam(Arguments, "RestUrl");
 			string Status = ParseParam(Arguments, "Status");
 			string Url = ParseParam(Arguments, "Url");
 
 			// Check we've got all the arguments we need (and no more)
-			if (Arguments.Count > 0 || Name == null || Change == null || Project == null || Database == null || Status == null || Url == null)
+			if (Arguments.Count > 0 || Name == null || Change == null || Project == null || RestUrl == null || Status == null || Url == null)
 			{
 				Console.WriteLine("Syntax:");
-				Console.WriteLine("  PostBadgeStatus -Name=<Name> -Change=<CL> -Project=<DepotPath> -Database=<Connection String> -Status=<Status> -Url=<Url>");
+				Console.WriteLine("  PostBadgeStatus -Name=<Name> -Change=<CL> -Project=<DepotPath> -RestUrl=<Url> -Status=<Status> -Url=<Url>");
 				return 1;
 			}
-
-			// Open the connection and add the entry
-			using(SqlConnection Connection = new SqlConnection(Database))
+			if (RestUrl != null)
 			{
-				Connection.Open();
-				using (SqlCommand Command = new SqlCommand("INSERT INTO dbo.CIS (ChangeNumber, BuildType, Result, URL, Project, ArchivePath) VALUES (@ChangeNumber, @BuildType, @Result, @URL, @Project, @ArchivePath)", Connection))
+				BuildData Build = new BuildData
 				{
-					Command.Parameters.AddWithValue("@ChangeNumber", Change);
-					Command.Parameters.AddWithValue("@BuildType", Name);
-					Command.Parameters.AddWithValue("@Result", Status);
-					Command.Parameters.AddWithValue("@URL", Url);
-					Command.Parameters.AddWithValue("@Project", Project);
-					Command.Parameters.AddWithValue("@ArchivePath", "");
-					Command.ExecuteNonQuery();
+					BuildType = Name,
+					Url = Url,
+					Project = Project,
+					ArchivePath = ""
+				};
+				if(!int.TryParse(Change, out Build.ChangeNumber))
+				{
+					Console.WriteLine("Change must be an integer!");
+					return 1;
+				}
+				if (!Enum.TryParse<BuildData.BuildDataResult>(Status, true, out Build.Result))
+				{
+					Console.WriteLine("Change must be Starting, Failure, Warning, Success, or Skipped!");
+					return 1;
+				}
+				try
+				{
+					SendRequest(RestUrl, "CIS", "POST", new JavaScriptSerializer().Serialize(Build));
+				}
+				catch(Exception ex)
+				{
+					Console.WriteLine(string.Format("An exception was thrown attempting to send the request: {0}", ex.Message));
+					return 1;
 				}
 			}
 			return 0;
@@ -61,6 +77,95 @@ namespace WriteBadgeStatus
 				}
 			}
 			return null;
+		}
+
+		class BuildData
+		{
+			public enum BuildDataResult
+			{
+				Starting,
+				Failure,
+				Warning,
+				Success,
+				Skipped,
+			}
+
+			public int ChangeNumber;
+			public string BuildType;
+			public BuildDataResult Result;
+			public string Url;
+			public string Project;
+			public string ArchivePath;
+
+			public bool IsSuccess
+			{
+				get { return Result == BuildDataResult.Success || Result == BuildDataResult.Warning; }
+			}
+
+			public bool IsFailure
+			{
+				get { return Result == BuildDataResult.Failure; }
+			}
+		}
+
+		static string SendRequest(string URI, string Resource, string Method, string RequestBody = null, params string[] QueryParams)
+		{
+			// set up the query string
+			StringBuilder TargetURI = new StringBuilder(string.Format("{0}/api/{1}", URI, Resource));
+			if (QueryParams.Length != 0)
+			{
+				TargetURI.Append("?");
+				for (int Idx = 0; Idx < QueryParams.Length; Idx++)
+				{
+					TargetURI.Append(QueryParams[Idx]);
+					if (Idx != QueryParams.Length - 1)
+					{
+						TargetURI.Append("&");
+					}
+				}
+			}
+			HttpWebRequest Request = (HttpWebRequest)WebRequest.Create(TargetURI.ToString());
+			Request.ContentType = "application/json";
+			Request.Method = Method;
+
+
+			// Add json to request body
+			if (!string.IsNullOrEmpty(RequestBody))
+			{
+				if (Method == "POST")
+				{
+					byte[] bytes = Encoding.ASCII.GetBytes(RequestBody);
+					using (Stream RequestStream = Request.GetRequestStream())
+					{
+						RequestStream.Write(bytes, 0, bytes.Length);
+					}
+				}
+			}
+			try
+			{
+				WebResponse Repsonse = Request.GetResponse();
+				string ResponseContent = null;
+				using (StreamReader ResponseReader = new System.IO.StreamReader(Repsonse.GetResponseStream(), Encoding.Default))
+				{
+					ResponseContent = ResponseReader.ReadToEnd();
+				}
+				return ResponseContent;
+			}
+			catch (WebException ex)
+			{
+				if (ex.Response != null)
+				{
+					throw new Exception(string.Format("Request returned status: {0}, message: {1}", ((HttpWebResponse)ex.Response).StatusCode, ex.Message));
+				}
+				else
+				{
+					throw new Exception(string.Format("Request returned message: {0}", ex.InnerException.Message));
+				}
+			}
+			catch (Exception ex)
+			{
+				throw new Exception(string.Format("Couldn't complete the request, error: {0}", ex.Message));
+			}
 		}
 	}
 }

@@ -39,7 +39,10 @@ bool FMeshMaterialRenderItem::Render_GameThread(const FCanvas* Canvas)
 	ViewInitOptions.BackgroundColor = FLinearColor::Black;
 	ViewInitOptions.OverlayColor = FLinearColor::White;
 
-	const FSceneView* View = new FSceneView(ViewInitOptions);
+	FSceneView* View = new FSceneView(ViewInitOptions);
+	View->FinalPostProcessSettings.bOverride_IndirectLightingIntensity = 1;
+	View->FinalPostProcessSettings.IndirectLightingIntensity = 0.0f;
+
 
 	const bool bNeedsToSwitchVerticalAxis = RHINeedsToSwitchVerticalAxis(Canvas->GetShaderPlatform()) && !Canvas->GetAllowSwitchVerticalAxis();
 	check(bNeedsToSwitchVerticalAxis == false);
@@ -148,7 +151,10 @@ void FMeshMaterialRenderItem::PopulateWithQuadData()
 		Vert->Position.Set(ScaleX * X, ScaleY * Y, 0);
 		Vert->SetTangents(FVector(1, 0, 0), FVector(0, 1, 0), FVector(0, 0, 1));
 		FMemory::Memzero(&Vert->TextureCoordinate, sizeof(Vert->TextureCoordinate));
-		Vert->TextureCoordinate[0].Set(U + SizeU * X, V + SizeV * Y);
+		for (int32 TexcoordIndex = 0; TexcoordIndex < MAX_STATIC_TEXCOORDS; TexcoordIndex++)
+		{
+			Vert->TextureCoordinate[TexcoordIndex].Set(U + SizeU * X, V + SizeV * Y);
+		}		
 		Vert->Color = FColor::White;
 	}
 
@@ -171,11 +177,12 @@ void FMeshMaterialRenderItem::PopulateWithMeshData()
 	const float ScaleX = PropertySize.X;
 	const float ScaleY = PropertySize.Y;
 
+	const static int32 VertexPositionStoredUVChannel = 6;
 	// count number of texture coordinates for this mesh
 	const int32 NumTexcoords = [&]()
 	{
 		int32 Index = 1;
-		for (; Index < MAX_STATIC_TEXCOORDS; Index++)
+		for (; Index < VertexPositionStoredUVChannel; Index++)
 		{
 			if (RawMesh->WedgeTexCoords[Index].Num() == 0)
 			{
@@ -221,7 +228,14 @@ void FMeshMaterialRenderItem::PopulateWithMeshData()
 				{
 					Vert->TextureCoordinate[TexcoordIndex] = RawMesh->WedgeTexCoords[TexcoordIndex][SrcVertIndex];
 				}
-
+				
+				if (NumTexcoords < VertexPositionStoredUVChannel)
+				{
+					for (int32 TexcoordIndex = NumTexcoords; TexcoordIndex < VertexPositionStoredUVChannel; TexcoordIndex++)
+					{
+						Vert->TextureCoordinate[TexcoordIndex] = Vert->TextureCoordinate[FMath::Max(NumTexcoords - 1, 0)];
+					}
+				}
 				// Store original vertex positions in texture coordinate data
 				Vert->TextureCoordinate[6].X = RawMesh->VertexPositions[RawMesh->WedgeIndices[SrcVertIndex]].X;
 				Vert->TextureCoordinate[6].Y = RawMesh->VertexPositions[RawMesh->WedgeIndices[SrcVertIndex]].Y;

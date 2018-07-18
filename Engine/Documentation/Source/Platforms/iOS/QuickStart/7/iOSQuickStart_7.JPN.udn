@@ -1,51 +1,170 @@
-﻿INTSourceChangelist:2744709
+﻿INTSourceChangelist:3782314
 Title:7.デバイスでマップをテストする
 Crumbs:%ROOT%, Platforms, Platforms/iOS, Platforms/iOS/QuickStart
 Description:アンリアル エディタのマップを iOS デバイスでテストのために起動する
 Availability:Public
-Version:4.9
+Version:4.18
 SkillLevel:Intermediate
-
+Checkpoint:iOSQS
+order:7
 
 [VAR:Steps]
 [OBJECT:Navigation]
-	[PARAM:previous]
-		[前のステップ](Platforms/iOS/QuickStart/6 "%Platforms/iOS/QuickStart/6:title%")
-	[/PARAM]
-	[PARAM:current]
-	[/PARAM]
-	[PARAM:home]
-		[クイック スタートのホーム](Platforms/iOS/QuickStart)
-	[/PARAM]
-	[PARAM:next]
-		[次のステップ](Platforms/iOS/QuickStart/8 "%Platforms/iOS/QuickStart/8:title%")
-	[/PARAM]
+    [PARAM:previous]
+        [前のステップ](Platforms/iOS/QuickStart/6 "%Platforms/iOS/QuickStart/6:title%")
+    [/PARAM]
+    [PARAM:current]
+    [/PARAM]
+    [PARAM:home]
+        [クイック スタートのホーム](Platforms/iOS/QuickStart)
+    [/PARAM]
+    [PARAM:next]
+        [次のステップ](Platforms/iOS/QuickStart/8 "%Platforms/iOS/QuickStart/8:title%")
+    [/PARAM]
 [/OBJECT]
 [/VAR]
 
+[OBJECT:ToggleButtonContent]
+    [PARAMLITERAL:category]
+    OS
+    [/PARAMLITERAL]
+    [PARAMLITERAL:id]
+    windows
+    [/PARAMLITERAL]
+    [PARAMLITERAL:active]
+    active_button_content
+    [/PARAMLITERAL]
+    [PARAM:content]
+    %windows%
+    [/PARAM]
+[/OBJECT]
+[OBJECT:ToggleButtonContent]
+    [PARAMLITERAL:category]
+    OS
+    [/PARAMLITERAL]
+    [PARAMLITERAL:id]
+    mac
+    [/PARAMLITERAL]
+    [PARAMLITERAL:active]
+    [/PARAMLITERAL]
+    [PARAM:content]
+    %macos%
+    [/PARAM]
+[/OBJECT]
+
+
+
+[VAR:windows]
 
 
 %Globals:OSSelect%
+## ステップ
 
+このセクションでは、、iOS デバイスに UE4 プロジェクトをビルドおよびデプロイできるようにモバイル プロビジョンをインポートしてみます。
 
+1. まず最初に、iOS デバイスを USB ケーブルでコンピューターに接続してください。
 
-1. デバイスがまだコンピュータに接続されていなければ接続します。
+1. 次にアンリアル エディタでプロジェクトを開きます。
 
-1. アンリアル エディタでプロジェクトを開きます。
+    ![](open_project.png)(w:640)
 
-	![](open_project.png)(w:640)
+1. **[Edit]** > **[Project Settings]** でプロジェクト設定を開きます。
+    
+	![](Platforms\iOS\QuickStart\6\Provision_01.png)
+
+1. 次に **[Mobile Provision]** セクションの **[Platforms]** > **[iOS]** で **[Import Provision]** ボタンを押してプロビジョンをインポートし、**[Import Certificate]** に対しても同じことをします。 
+
+	![](Platforms\iOS\QuickStart\6\Provision_02.png)
+
+1. 設定とインポートが適切に行われると **[Status]** に **[Valid]** という文字が表示されます。 
+
+	![](Platforms\iOS\QuickStart\6\Provision_03.png)
+
+	[region:note]
+	Mobile Provisions に問題がある場合は、公式のl [Apple Help](https://developer.apple.com/library/content/documentation/IDEs/Conceptual/AppDistributionGuide/Troubleshooting/Troubleshooting.html) でトラブルシューティング情報を確認してください。 
+	[/region]
 
 1. ツールバーで **[Launch (起動)]** の隣の矢印をクリックして、**[Launch Options (起動オプション)]** メニューを開き、iOS デバイスを選択します。
 
-	![](launch_ios.png)
+    [OBJECT:ToggleButtonContent]
+    [PARAMLITERAL:category]
+    OS
+    [/PARAMLITERAL]
+    [PARAMLITERAL:id]
+    windows
+    [/PARAMLITERAL]
+    [PARAMLITERAL:active]
+    [/PARAMLITERAL]
+    [PARAM:content]
+    ![](launch_ios.png)
+    [/PARAM]
+    [/OBJECT]
+
+    [OBJECT:ToggleButtonContent]
+    [PARAMLITERAL:category]
+    OS
+    [/PARAMLITERAL]
+    [PARAMLITERAL:id]
+    mac
+    [/PARAMLITERAL]
+    [PARAMLITERAL:active]
+    [/PARAMLITERAL]
+    [PARAM:content]
+    ![](launch_ios_Mac.png)
+    [/PARAM]
+    [/OBJECT]
 
 1. 現在のマップがクック、パッケージ化されて、デバイスにインストールされます。
 
-	![](project_cooking.png)  
-	![](project_packaging.png)  
-	![](project_deploying.png)
+    ![](project_cooking.png)  
+    ![](project_packaging.png)  
+    ![](project_deploying.png)
 
-[OBJECT:ToggleButtonContent]
+1. ゲームが正常にデバイスにインストールされるとメッセージが表示されます。
+
+    ![](project_success.png)
+
+## 最終結果
+
+これで iOS デバイスが app 上に置かれて開くことができます。開くと、iOS デバイス上は以下のような画面になっています。
+
+![](game_device.png)
+
+[/VAR]
+
+[VAR:macos]
+
+
+%Globals:OSSelect%
+## ステップ
+
+このセクションでは、、iOS デバイスに UE4 プロジェクトをビルドおよびデプロイできるようにモバイル プロビジョンをインポートしてみます。
+
+1. まず最初に、iOS デバイスを USB ケーブルでコンピューターに接続してください。
+
+1. 次にアンリアル エディタでプロジェクトを開きます。
+
+	![](open_project.png)(w:640)
+
+1. **[Edit]** > **[Project Settings]** でプロジェクト設定を開きます。
+    
+	![](Platforms\iOS\QuickStart\6\Provision_01.png)
+
+1. 次に **[Mobile Provision]** セクションの **[Platforms]** > **[iOS]** で **[Import Provision]** ボタンを押してプロビジョンをインポートします。**Certificate** のインポートが必要となるのは、別のプロジェクトまはたマシンから使用する場合のみです。 
+
+	![](Platforms\iOS\QuickStart\6\Provision_02.png)
+
+1. 設定とインポートが適切に行われると **[Status]** に **[Valid]** という文字が表示されます。 
+
+	![](Platforms\iOS\QuickStart\6\Provision_03.png)
+
+	[region:note]
+	Mobile Provisions に問題がある場合は、公式のl [Apple Help](https://developer.apple.com/library/content/documentation/IDEs/Conceptual/AppDistributionGuide/Troubleshooting/Troubleshooting.html) でトラブルシューティング情報を確認してください。 
+	[/region]
+
+1. ツールバーで **[Launch (起動)]** の隣の矢印をクリックして、**[Launch Options (起動オプション)]** メニューを開き、iOS デバイスを選択します。
+
+	[OBJECT:ToggleButtonContent]
 	[PARAMLITERAL:category]
 	OS
 	[/PARAMLITERAL]
@@ -53,13 +172,13 @@ SkillLevel:Intermediate
 	windows
 	[/PARAMLITERAL]
 	[PARAMLITERAL:active]
-	active_button_content
 	[/PARAMLITERAL]
 	[PARAM:content]
-	%windows%
+	![](launch_ios.png)
 	[/PARAM]
-[/OBJECT]
-[OBJECT:ToggleButtonContent]
+	[/OBJECT]
+
+	[OBJECT:ToggleButtonContent]
 	[PARAMLITERAL:category]
 	OS
 	[/PARAMLITERAL]
@@ -69,28 +188,26 @@ SkillLevel:Intermediate
 	[PARAMLITERAL:active]
 	[/PARAMLITERAL]
 	[PARAM:content]
-	%macos%
+	![](launch_ios_Mac.png)
 	[/PARAM]
-[/OBJECT]
+	[/OBJECT]
 
+1. 現在のマップがクック、パッケージ化されて、デバイスにインストールされます。
 
-[COMMENT:none]
+	![](project_cooking.png)  
+	![](project_packaging.png)  
+	![](project_deploying.png)
 
-[VAR:windows]
-5\.デバイスへのゲームのインストールが成功するとメッセージが表示されます。
+1. ゲームが正常にデバイスにインストールされるとメッセージが表示されます。
 
-![](project_success.png)
+	![](project_success.png)
 
-6\.デバイスにインストールされたアプリケーションを起動し、ゲームをテストします。
+## 最終結果
+
+これで iOS デバイスが app 上に置かれて開くことができます。開くと、iOS デバイス上は以下のような画面になっています。
 
 ![](game_device.png)
 
 [/VAR]
-
-[VAR:macos]
-
-[/VAR]
-
-[/COMMENT]
 
 

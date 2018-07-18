@@ -23,6 +23,7 @@ DECLARE_CYCLE_STAT(TEXT("LegIK Eval"), STAT_LegIK_Eval, STATGROUP_Anim);
 DECLARE_CYCLE_STAT(TEXT("LegIK FABRIK Eval"), STAT_LegIK_FABRIK_Eval, STATGROUP_Anim);
 
 FAnimNode_LegIK::FAnimNode_LegIK()
+	: MyAnimInstanceProxy(nullptr)
 {
 	ReachPrecision = 0.01f;
 	MaxIterations = 12;
@@ -40,32 +41,39 @@ void FAnimNode_LegIK::GatherDebugData(FNodeDebugData& DebugData)
 	ComponentPose.GatherDebugData(DebugData);
 }
 
-static FVector GetBoneWorldLocation(const FTransform& InBoneTransform, const USkeletalMeshComponent& InSkelMeshComp)
+static FVector GetBoneWorldLocation(const FTransform& InBoneTransform, FAnimInstanceProxy* MyAnimInstanceProxy)
 {
 	const FVector MeshCompSpaceLocation = InBoneTransform.GetLocation();
-	return InSkelMeshComp.GetComponentTransform().TransformPosition(MeshCompSpaceLocation);
+	return MyAnimInstanceProxy->GetComponentTransform().TransformPosition(MeshCompSpaceLocation);
 }
 
 #if ENABLE_DRAW_DEBUG
-static void DrawDebugLeg(const FAnimLegIKData& InLegData, const USkeletalMeshComponent& InSkelMeshComp, const UWorld* InWorld, const FColor& InColor)
+static void DrawDebugLeg(const FAnimLegIKData& InLegData, FAnimInstanceProxy* MyAnimInstanceProxy, const FColor& InColor)
 {
+	const USkeletalMeshComponent* SkelMeshComp = MyAnimInstanceProxy->GetSkelMeshComponent();
 	for (int32 Index = 0; Index < InLegData.NumBones - 1; Index++)
 	{
-		const FVector CurrentBoneWorldLoc = GetBoneWorldLocation(InLegData.FKLegBoneTransforms[Index], InSkelMeshComp);
-		const FVector ParentBoneWorldLoc = GetBoneWorldLocation(InLegData.FKLegBoneTransforms[Index + 1], InSkelMeshComp);
-		DrawDebugLine(InWorld, CurrentBoneWorldLoc, ParentBoneWorldLoc, InColor, false, -1.f, SDPG_Foreground, 2.f);
+		const FVector CurrentBoneWorldLoc = GetBoneWorldLocation(InLegData.FKLegBoneTransforms[Index], MyAnimInstanceProxy);
+		const FVector ParentBoneWorldLoc = GetBoneWorldLocation(InLegData.FKLegBoneTransforms[Index + 1], MyAnimInstanceProxy);
+		MyAnimInstanceProxy->AnimDrawDebugLine(CurrentBoneWorldLoc, ParentBoneWorldLoc, InColor, false, -1.f, 2.f);
 	}
 }
 #endif // ENABLE_DRAW_DEBUG
 
+void FAnimNode_LegIK::Initialize_AnyThread(const FAnimationInitializeContext& Context)
+{
+	FAnimNode_SkeletalControlBase::Initialize_AnyThread(Context);
 
-void FAnimLegIKData::InitializeTransforms(USkeletalMeshComponent* SkelComp, FCSPose<FCompactPose>& MeshBases)
+	MyAnimInstanceProxy = Context.AnimInstanceProxy;
+}
+
+void FAnimLegIKData::InitializeTransforms(FAnimInstanceProxy* MyAnimInstanceProxy, FCSPose<FCompactPose>& MeshBases)
 {
 	// Initialize bone transforms
 	IKFootTransform = MeshBases.GetComponentSpaceTransform(IKFootBoneIndex);
 
 	FKLegBoneTransforms.Reset(NumBones);
-	for (auto LegBoneIndex : FKLegBoneIndices)
+	for (const FCompactPoseBoneIndex& LegBoneIndex : FKLegBoneIndices)
 	{
 		FKLegBoneTransforms.Add(MeshBases.GetComponentSpaceTransform(LegBoneIndex));
 	}
@@ -74,8 +82,8 @@ void FAnimLegIKData::InitializeTransforms(USkeletalMeshComponent* SkelComp, FCSP
 	const bool bShowDebug = (CVarAnimNodeLegIKDebug.GetValueOnAnyThread() == 1);
 	if (bShowDebug)
 	{
-		DrawDebugLeg(*this, *SkelComp, SkelComp->GetWorld(), FColor::Red);
-		DrawDebugSphere(SkelComp->GetWorld(), GetBoneWorldLocation(IKFootTransform, *SkelComp), 4.f, 4, FColor::Red, false, -1.f, SDPG_Foreground, 2.f);
+		DrawDebugLeg(*this, MyAnimInstanceProxy, FColor::Red);
+		MyAnimInstanceProxy->AnimDrawDebugSphere(GetBoneWorldLocation(IKFootTransform, MyAnimInstanceProxy), 4.f, 4, FColor::Red, false, -1.f, 2.f);
 	}
 #endif // ENABLE_ANIM_DEBUG && ENABLE_DRAW_DEBUG
 }
@@ -84,38 +92,54 @@ void FAnimNode_LegIK::EvaluateSkeletalControl_AnyThread(FComponentSpacePoseConte
 {
 	SCOPE_CYCLE_COUNTER(STAT_LegIK_Eval);
 
-#if ENABLE_ANIM_DEBUG
-	check(Output.AnimInstanceProxy->GetSkelMeshComponent());
-#endif
 	check(OutBoneTransforms.Num() == 0);
 
 	// Get transforms for each leg.
+	for (int32 LimbIndex = 0; LimbIndex < LegsData.Num(); LimbIndex++)
 	{
-		for (FAnimLegIKData& LegData : LegsData)
+		FAnimLegIKData& LegData = LegsData[LimbIndex];
+
+		LegData.InitializeTransforms(MyAnimInstanceProxy, Output.Pose);
+
+		// rotate hips so foot aligns with effector.
+		const bool bOrientedLegTowardsIK = OrientLegTowardsIK(LegData);
+
+		// expand/compress leg, so foot reaches effector.
+		const bool bDidLegReachIK = DoLegReachIK(LegData);
+
+		// Adjust knee twist orientation
+		const bool bAdjustedKneeTwist = LegData.LegDefPtr->bEnableKneeTwistCorrection ? AdjustKneeTwist(LegData) : false;
+
+		// Override Foot FK Rotation with Foot IK Rotation.
+		bool bModifiedLimb = bOrientedLegTowardsIK || bDidLegReachIK || bAdjustedKneeTwist;
+		bool bOverrideFootFKRotation = false;
+		const FQuat IKFootRotation = LegData.IKFootTransform.GetRotation();
+		if (bModifiedLimb || !LegData.FKLegBoneTransforms[0].GetRotation().Equals(IKFootRotation))
 		{
-			LegData.InitializeTransforms(Output.AnimInstanceProxy->GetSkelMeshComponent(), Output.Pose);
+			LegData.FKLegBoneTransforms[0].SetRotation(IKFootRotation);
+			bOverrideFootFKRotation = true;
+			bModifiedLimb = true;
+		}
 
-			// rotate hips so foot aligns with effector.
-			OrientLegTowardsIK(LegData, Output.AnimInstanceProxy->GetSkelMeshComponent());
-
-			// expand/compress leg, so foot reaches effector.
-			DoLegReachIK(LegData, Output.AnimInstanceProxy->GetSkelMeshComponent());
-
-			if (LegData.LegDefPtr->bEnableKneeTwistCorrection)
-			{
-				// Adjust knee twist orientation
-				AdjustKneeTwist(LegData, Output.AnimInstanceProxy->GetSkelMeshComponent());
-			}
-
-			// Override Foot FK, with IK.
-			LegData.FKLegBoneTransforms[0].SetRotation(LegData.IKFootTransform.GetRotation());
-
-			// Add transforms
+		if (bModifiedLimb)
+		{
+			// Add modified transforms
 			for (int32 Index = 0; Index < LegData.NumBones; Index++)
 			{
 				OutBoneTransforms.Add(FBoneTransform(LegData.FKLegBoneIndices[Index], LegData.FKLegBoneTransforms[Index]));
 			}
 		}
+
+#if ENABLE_ANIM_DEBUG
+		const bool bShowDebug = (CVarAnimNodeLegIKDebug.GetValueOnAnyThread() == 1);
+		if (bShowDebug)
+		{
+			FString DebugString = FString::Printf(TEXT("Limb[%d/%d] (%s) bModifiedLimb(%d) bOrientedLegTowardsIK(%d) bDidLegReachIK(%d) bAdjustedKneeTwist(%d) bOverrideFootFKRotation(%d)"),
+				LimbIndex + 1, LegsData.Num(), *LegData.LegDefPtr->FKFootBone.BoneName.ToString(), 
+				bModifiedLimb, bOrientedLegTowardsIK, bDidLegReachIK, bAdjustedKneeTwist, bOverrideFootFKRotation);
+			MyAnimInstanceProxy->AnimDrawDebugOnScreenMessage(DebugString, FColor::Red);
+		}
+#endif
 	}
 
 	// Sort OutBoneTransforms so indices are in increasing order.
@@ -129,7 +153,7 @@ static bool RotateLegByQuat(const FQuat& InDeltaRotation, FAnimLegIKData& InLegD
 		const FVector HipLocation = InLegData.FKLegBoneTransforms.Last().GetLocation();
 
 		// Rotate Leg so it is aligned with IK Target
-		for (auto& LegBoneTransform : InLegData.FKLegBoneTransforms)
+		for (FTransform& LegBoneTransform : InLegData.FKLegBoneTransforms)
 		{
 			LegBoneTransform.SetRotation(InDeltaRotation * LegBoneTransform.GetRotation());
 
@@ -155,7 +179,7 @@ static bool RotateLegByDeltaNormals(const FVector& InInitialDir, const FVector& 
 	return false;
 }
 
-void FAnimNode_LegIK::OrientLegTowardsIK(FAnimLegIKData& InLegData, USkeletalMeshComponent* SkelComp)
+bool FAnimNode_LegIK::OrientLegTowardsIK(FAnimLegIKData& InLegData)
 {
 	check(InLegData.NumBones > 1);
 	const FVector HipLocation = InLegData.FKLegBoneTransforms.Last().GetLocation();
@@ -171,15 +195,22 @@ void FAnimNode_LegIK::OrientLegTowardsIK(FAnimLegIKData& InLegData, USkeletalMes
 		const bool bShowDebug = (CVarAnimNodeLegIKDebug.GetValueOnAnyThread() == 1);
 		if (bShowDebug)
 		{
-			DrawDebugLeg(InLegData, *SkelComp, SkelComp->GetWorld(), FColor::Green);
+			DrawDebugLeg(InLegData, MyAnimInstanceProxy, FColor::Green);
 		}
 #endif
+		return true;
 	}
+
+	return false;
 }
 
-void FIKChain::InitializeFromLegData(const FAnimLegIKData& InLegData, USkeletalMeshComponent* InSkelMeshComp)
+void FIKChain::InitializeFromLegData(FAnimLegIKData& InLegData, FAnimInstanceProxy* InAnimInstanceProxy)
 {
-	Links.Reset(InLegData.NumBones);
+	if (Links.Num() != InLegData.NumBones)
+	{
+		Links.Init(FIKChainLink(), InLegData.NumBones);
+	}
+	
 	MaximumReach = 0.f;
 
 	check(InLegData.NumBones > 1);
@@ -188,14 +219,19 @@ void FIKChain::InitializeFromLegData(const FAnimLegIKData& InLegData, USkeletalM
 		const FVector BoneLocation = InLegData.FKLegBoneTransforms[Index].GetLocation();
 		const FVector ParentLocation = InLegData.FKLegBoneTransforms[Index + 1].GetLocation();
 		const float BoneLength = FVector::Dist(BoneLocation, ParentLocation);
-		Links.Add(FIKChainLink(BoneLocation, BoneLength));
+
+		FIKChainLink& Link = Links[Index];
+		Link.Location = BoneLocation;
+		Link.Length = BoneLength;
+
 		MaximumReach += BoneLength;
 	}
 
 	// Add root bone last
-	const FVector RootLocation = InLegData.FKLegBoneTransforms.Last().GetLocation();
+	const int32 RootIndex = InLegData.NumBones - 1;
+	Links[RootIndex].Location = InLegData.FKLegBoneTransforms[RootIndex].GetLocation();
+	Links[RootIndex].Length = 0.f;
 
-	Links.Add(FIKChainLink(RootLocation, 0.f));
 	NumLinks = Links.Num();
 	check(NumLinks == InLegData.NumBones);
 
@@ -206,11 +242,17 @@ void FIKChain::InitializeFromLegData(const FAnimLegIKData& InLegData, USkeletalM
 		{
 			MinRotationAngleRadians = FMath::DegreesToRadians(FMath::Clamp(InLegData.LegDefPtr->MinRotationAngle, 0.f, 90.f));
 		}
+
+		HingeRotationAxis = (InLegData.LegDefPtr->HingeRotationAxis != EAxis::None)
+			? InLegData.FKLegBoneTransforms.Last().GetUnitAxis(InLegData.LegDefPtr->HingeRotationAxis)
+			: FVector::ZeroVector;
 	}
 
-	SkelMeshComp = InSkelMeshComp;
-	bInitialized = (SkelMeshComp != nullptr);
+	MyAnimInstanceProxy = InAnimInstanceProxy;
+	bInitialized = true;
 }
+
+TAutoConsoleVariable<int32> CVarAnimLegIKTwoBone(TEXT("a.AnimNode.LegIK.EnableTwoBone"), 1, TEXT("Enable Two Bone Code Path."));
 
 void FIKChain::ReachTarget(const FVector& InTargetLocation, float InReachPrecision, int32 InMaxIterations)
 {
@@ -227,6 +269,11 @@ void FIKChain::ReachTarget(const FVector& InTargetLocation, float InReachPrecisi
 		const FVector Direction = (InTargetLocation - RootLocation).GetSafeNormal();
 		OrientAllLinksToDirection(Direction);
 	}
+	// Two Bones, we can figure out solution instantly
+	else if (NumLinks == 3 && (CVarAnimLegIKTwoBone.GetValueOnAnyThread() == 1))
+	{
+		SolveTwoBoneIK(InTargetLocation);
+	}
 	// Do iterative approach based on FABRIK
 	else
 	{
@@ -242,7 +289,76 @@ void FIKChain::OrientAllLinksToDirection(const FVector& InDirection)
 	}
 }
 
-void FAnimNode_LegIK::DoLegReachIK(FAnimLegIKData& InLegData, USkeletalMeshComponent* SkelComp)
+void FIKChain::SolveTwoBoneIK(const FVector& InTargetLocation)
+{
+	check(Links.Num() == 3);
+
+	FVector& pA = Links[0].Location; // Foot
+	FVector& pB = Links[1].Location; // Knee
+	FVector& pC = Links[2].Location; // Hip / Root
+
+	// Move foot directly to target.
+	pA = InTargetLocation;
+
+	const FVector HipToFoot = pA - pC;
+
+	// Use Law of Cosines to work out solution.
+	// At this point we know the target location is reachable, and we are already aligned with that location. So the leg is in the right plane.
+	const float a = Links[1].Length;	// hip to knee
+	const float b = HipToFoot.Size();	// hip to foot
+	const float c = Links[0].Length;	// knee to foot
+
+	const float Two_ab = 2.f * a * b;
+	const float CosC = !FMath::IsNearlyZero(Two_ab) ? (a * a + b * b - c * c) / Two_ab : 0.f;
+ 	const float C = FMath::Acos(CosC);
+	
+	// Project Knee onto Hip to Foot line.
+	const FVector HipToFootDir = !FMath::IsNearlyZero(b) ? HipToFoot / b : FVector::ZeroVector;
+	const FVector HipToKnee = pB - pC;
+	const FVector ProjKnee = pC + HipToKnee.ProjectOnToNormal(HipToFootDir);
+
+	const FVector ProjKneeToKnee = (pB - ProjKnee);
+	FVector BendDir = ProjKneeToKnee.GetSafeNormal(KINDA_SMALL_NUMBER);
+	
+	// If we have a HingeRotationAxis defined, we can cache 'BendDir'
+	// and use it when we can't determine it. (When limb is straight without a bend).
+	// We do this instead of using an explicit one, so we carry over the pole vector that animators use. 
+	// So they can animate it, and we try to extract it from the animation.
+	if ((HingeRotationAxis != FVector::ZeroVector) && (HipToFootDir != FVector::ZeroVector) && !FMath::IsNearlyZero(a))
+	{
+		const FVector HipToKneeDir = HipToKnee / a;
+		const float KneeBendDot = HipToKneeDir | HipToFootDir;
+
+		FVector& CachedRealBendDir = Links[1].RealBendDir;
+		FVector& CachedBaseBendDir = Links[1].BaseBendDir;
+
+		// Valid 'bend', cache 'BendDir'
+		if ((BendDir != FVector::ZeroVector) && (KneeBendDot < 0.99f))
+		{
+			CachedRealBendDir = BendDir;
+			CachedBaseBendDir = HingeRotationAxis ^ HipToFootDir;
+		}
+		// Limb is too straight, can't determine BendDir accurately, so use cached value if possible.
+		else 
+		{
+			// If we have cached 'BendDir', then reorient it based on 'HingeRotationAxis'
+			if (CachedRealBendDir != FVector::ZeroVector)
+			{
+				const FVector CurrentBaseBendDir = HingeRotationAxis ^ HipToFootDir;
+				const FQuat DeltaCachedToCurrBendDir = FQuat::FindBetweenNormals(CachedBaseBendDir, CurrentBaseBendDir);
+				BendDir = DeltaCachedToCurrBendDir.RotateVector(CachedRealBendDir);
+			}
+		}
+	}
+
+	// We just combine both lines into one to save a multiplication.
+	// const FVector NewProjectedKneeLoc = pC + HipToFootDir * a * CosC;
+	// const FVector NewKneeLoc = NewProjectedKneeLoc + Dir_LegLineToKnee * a * FMath::Sin(C);
+	const FVector NewKneeLoc = pC + a * (HipToFootDir * CosC + BendDir * FMath::Sin(C));
+	pB = NewKneeLoc;
+}
+
+bool FAnimNode_LegIK::DoLegReachIK(FAnimLegIKData& InLegData)
 {
 	SCOPE_CYCLE_COUNTER(STAT_LegIK_FABRIK_Eval);
 
@@ -252,11 +368,11 @@ void FAnimNode_LegIK::DoLegReachIK(FAnimLegIKData& InLegData, USkeletalMeshCompo
 	// If we're already reaching our IK Target, we have no work to do.
 	if (FootFKLocation.Equals(FootIKLocation, ReachPrecision))
 	{
-		return;
+		return false;
 	}
 
-	FIKChain IKChain;
-	IKChain.InitializeFromLegData(InLegData, SkelComp);
+	FIKChain& IKChain = InLegData.IKChain;
+	IKChain.InitializeFromLegData(InLegData, MyAnimInstanceProxy);
 
 	const int32 MaxIterationsOverride = CVarAnimLegIKMaxIterations.GetValueOnAnyThread() > 0 ? CVarAnimLegIKMaxIterations.GetValueOnAnyThread() : MaxIterations;
 	IKChain.ReachTarget(FootIKLocation, ReachPrecision, MaxIterationsOverride);
@@ -295,21 +411,23 @@ void FAnimNode_LegIK::DoLegReachIK(FAnimLegIKData& InLegData, USkeletalMeshCompo
 	const bool bShowDebug = (CVarAnimNodeLegIKDebug.GetValueOnAnyThread() == 1);
 	if (bShowDebug)
 	{
-		DrawDebugLeg(InLegData, *SkelComp, SkelComp->GetWorld(), FColor::Yellow);
+		DrawDebugLeg(InLegData, MyAnimInstanceProxy, FColor::Yellow);
 	}
 #endif
+
+	return true;
 }
 
 void FIKChain::DrawDebugIKChain(const FIKChain& IKChain, const FColor& InColor)
 {
 #if ENABLE_DRAW_DEBUG
-	if (IKChain.bInitialized && IKChain.SkelMeshComp)
+	if (IKChain.bInitialized && IKChain.MyAnimInstanceProxy)
 	{
 		for (int32 Index = 0; Index < IKChain.NumLinks - 1; Index++)
 		{
-			const FVector CurrentBoneWorldLoc = GetBoneWorldLocation(FTransform(IKChain.Links[Index].Location), *IKChain.SkelMeshComp);
-			const FVector ParentBoneWorldLoc = GetBoneWorldLocation(FTransform(IKChain.Links[Index + 1].Location), *IKChain.SkelMeshComp);
-			DrawDebugLine(IKChain.SkelMeshComp->GetWorld(), CurrentBoneWorldLoc, ParentBoneWorldLoc, InColor, false, -1.f, SDPG_Foreground, 1.f);
+			const FVector CurrentBoneWorldLoc = GetBoneWorldLocation(FTransform(IKChain.Links[Index].Location), IKChain.MyAnimInstanceProxy);
+			const FVector ParentBoneWorldLoc = GetBoneWorldLocation(FTransform(IKChain.Links[Index + 1].Location), IKChain.MyAnimInstanceProxy);
+			IKChain.MyAnimInstanceProxy->AnimDrawDebugLine(CurrentBoneWorldLoc, ParentBoneWorldLoc, InColor, false, -1.f, 1.f);
 		}
 	}
 #endif // ENABLE_DRAW_DEBUG
@@ -552,7 +670,8 @@ void FIKChain::SolveFABRIK(const FVector& InTargetLocation, float InReachPrecisi
 			if (bDrawDebug) { DrawDebugIKChain(*this, FColor::Red); }
 #endif
 
-			if ((CVarAnimLegIKAveragePull.GetValueOnAnyThread() == 1) && (Slop > 1.f))
+			// Pull averaging only has a visual impact when we have more than 2 bones (3 links).
+			if ((NumLinks > 3) && (CVarAnimLegIKAveragePull.GetValueOnAnyThread() == 1) && (Slop > 1.f))
 			{
 				FIKChain ForwardPull = *this;
 				FABRIK_ForwardReach(InTargetLocation, ForwardPull);
@@ -617,13 +736,13 @@ void FIKChain::SolveFABRIK(const FVector& InTargetLocation, float InReachPrecisi
 
 			FString DebugString = FString::Printf(TEXT("FABRIK IterationCount: [%d]/[%d], Slop: [%f]/[%f]")
 				, IterationCount, MaxIterations, Slop, ReachPrecision);
-			GEngine->AddOnScreenDebugMessage(INDEX_NONE, 0.f, FColor::Red, DebugString, false);
+			MyAnimInstanceProxy->AnimDrawDebugOnScreenMessage(DebugString, FColor::Red);
 		}
 #endif
 	}
 }
 
-void FAnimNode_LegIK::AdjustKneeTwist(FAnimLegIKData& InLegData, USkeletalMeshComponent* SkelComp)
+bool FAnimNode_LegIK::AdjustKneeTwist(FAnimLegIKData& InLegData)
 {
 	const FVector FootFKLocation = InLegData.FKLegBoneTransforms[0].GetLocation();
 	const FVector FootIKLocation = InLegData.IKFootTransform.GetLocation();
@@ -645,10 +764,13 @@ void FAnimNode_LegIK::AdjustKneeTwist(FAnimLegIKData& InLegData, USkeletalMeshCo
 		const bool bShowDebug = (CVarAnimNodeLegIKDebug.GetValueOnAnyThread() == 1);
 		if (bShowDebug)
 		{
-			DrawDebugLeg(InLegData, *SkelComp, SkelComp->GetWorld(), FColor::Magenta);
+			DrawDebugLeg(InLegData, MyAnimInstanceProxy, FColor::Magenta);
 		}
 #endif
+		return true;
 	}
+
+	return false;
 }
 
 bool FAnimNode_LegIK::IsValidToEvaluate(const USkeleton* Skeleton, const FBoneContainer& RequiredBones)
@@ -677,8 +799,18 @@ static void PopulateLegBoneIndices(FAnimLegIKData& InLegData, const FCompactPose
 
 void FAnimNode_LegIK::InitializeBoneReferences(const FBoneContainer& RequiredBones)
 {
+	// Preserve FIKChain for each leg, as we're trying to maintain CachedBendDir between LOD transitions.
+	TMap<FName, FIKChain> IKChainLUT;
+	for(const FAnimLegIKData& LegData : LegsData)
+	{
+		if (LegData.LegDefPtr)
+		{
+			IKChainLUT.Add(LegData.LegDefPtr->FKFootBone.BoneName, LegData.IKChain);
+		}
+	}
+
 	LegsData.Reset();
-	for (auto& LegDef : LegsDefinition)
+	for (FAnimLegIKDefinition& LegDef : LegsDefinition)
 	{
 		LegDef.IKFootBone.Initialize(RequiredBones);
 		LegDef.FKFootBone.Initialize(RequiredBones);
@@ -695,6 +827,10 @@ void FAnimNode_LegIK::InitializeBoneReferences(const FBoneContainer& RequiredBon
 			if (LegData.FKLegBoneIndices.Num() >= 3)
 			{
 				LegData.NumBones = LegData.FKLegBoneIndices.Num();
+				if (FIKChain* IKChainPtr = IKChainLUT.Find(LegDef.FKFootBone.BoneName))
+				{
+					LegData.IKChain = *IKChainPtr;
+				}
 				LegData.LegDefPtr = &LegDef;
 				LegsData.Add(LegData);
 			}

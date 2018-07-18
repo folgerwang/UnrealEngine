@@ -12,3 +12,7 @@ FBinaryArchiveFormatter::~FBinaryArchiveFormatter()
 {
 }
 
+bool FBinaryArchiveFormatter::RequiresStructuralMetadata() const
+{
+	return false;
+}

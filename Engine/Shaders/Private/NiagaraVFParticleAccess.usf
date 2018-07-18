@@ -4,11 +4,13 @@
  *********************************************************************************/
 Buffer<float> NiagaraParticleDataFloat;
 Buffer<int> NiagaraParticleDataInt;
-uint SafeComponentBufferSize;			// stride of data in buffers
+uint NiagaraFloatDataOffset;
+uint NiagaraFloatDataStride;
+
 
 float GetFloat(int RegisterIdx, uint InstanceID)
 {
-	return NiagaraParticleDataFloat[RegisterIdx*SafeComponentBufferSize + InstanceID];
+	return NiagaraParticleDataFloat[NiagaraFloatDataOffset + (RegisterIdx * NiagaraFloatDataStride + InstanceID)];
 }
 
 float2 GetVec2(int RegisterIndex, uint InstanceID)

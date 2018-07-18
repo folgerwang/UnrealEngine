@@ -21,12 +21,8 @@ static FAutoConsoleVariableRef CVarWholeSceneShadowUnbuiltInteractionThreshold(
 void FLightSceneInfoCompact::Init(FLightSceneInfo* InLightSceneInfo)
 {
 	LightSceneInfo = InLightSceneInfo;
-	FSphere BoundingSphere(
-		InLightSceneInfo->Proxy->GetOrigin(),
-		InLightSceneInfo->Proxy->GetRadius() > 0.0f ?
-			InLightSceneInfo->Proxy->GetRadius() :
-			FLT_MAX
-		);
+	FSphere BoundingSphere = InLightSceneInfo->Proxy->GetBoundingSphere();
+	BoundingSphere.W = BoundingSphere.W > 0.0f ? BoundingSphere.W : FLT_MAX;
 	FMemory::Memcpy(&BoundingSphereVector,&BoundingSphere,sizeof(BoundingSphereVector));
 	Color = InLightSceneInfo->Proxy->GetColor();
 	LightType = InLightSceneInfo->Proxy->GetLightType();
@@ -166,6 +162,12 @@ bool FLightSceneInfo::ShouldRenderLight(const FViewInfo& View) const
 			break;
 		case LightType_Spot:
 			if(!View.Family->EngineShowFlags.SpotLights)
+			{
+				bLocalVisible = false;
+			}
+			break;
+		case LightType_Rect:
+			if(!View.Family->EngineShowFlags.RectLights)
 			{
 				bLocalVisible = false;
 			}

@@ -1,49 +1,10 @@
-﻿INTSourceChangelist:2697095
+﻿INTSourceChangelist:3810467
 Availability:Public
 Title:ビューポートの制御
 Crumbs: %ROOT%, Engine, Engine/UI, Engine/UI/LevelEditor/Viewports
 Description:エディタのビューポートで様々な制御をする方法について学習します。
 Version:4.9
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![](ViewportControls_Topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/editor_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/UI/LevelEditor/Viewports/ViewportControls:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/UI/LevelEditor/Viewports/ViewportControls:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/UI/LevelEditor/Viewports/ViewportControls]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![](ViewportControls_Topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/editor_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/UI/LevelEditor/Viewports/ViewportControls:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/UI/LevelEditor/Viewports/ViewportControls:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/UI/LevelEditor/Viewports/ViewportControls]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:ViewportControls_Topic.png
 
 [TOC(start:2 end:3)]
 
@@ -64,8 +25,8 @@ Version:4.9
 
 ## ナビゲーション制御
 
-エディタのビューポートを様々な方法で移動できます。これは手動で行えます。 
-全ての操作をマウスだけ、またはキーボードだけ、または 2 つの操作を様々な形で組み合わせて行うことができます。
+エディタのビューポートを様々な方法で移動できます。全ての操作をマウスだけ、またはキーボードだけ、 
+または 2 つの操作を様々な形で組み合わせて行うことができます。
 
 [REGION:note]
 [キーバインディング エディタ](Engine/UI/KeyBindings) で設定可能な制御もあります。ここではデフォルト状態を 
@@ -78,12 +39,12 @@ Version:4.9
 他のキーやボタンを一切使わずにビューポートでクリック＆ドラッグした時、これらの制御が 
 デフォルト動作となります。正投影ビューポートをナビゲートするために使われる、唯一の制御でもあります。
 
-| 制御 | アクション |
+| コントロール | アクション |
 | ------- | ------- |
 | [REGION:tablesection]透視図法[/REGION] |||
-| **LMB + ドラッグ** | カメラを前後に移動させ、左右に回転させます。 |
-| **RMB + ドラッグ** | ビューポート カメラを回転させます。 |
-| **LMB + RMB + ドラッグ** | 上下に移動させます。 |
+| **左マウスボタンをクリック + ドラッグ** | カメラを前後に移動させ、左右に回転させます。 |
+| **右マウスボタンをクリック + ドラッグ** | ビューポート カメラを回転させます。 |
+| **左マウスボタンをクリック + 右マウスボタンをクリック + ドラッグ** | 上下に移動させます。 |
 | [REGION:tablesection]正投影 (上面、前面、側面)[/REGION] |||
 | **LMB + ドラッグ** | マーキー選択ボックスを作成します。 |
 | **RMB + ドラッグ** | ビューポートカメラをパンします。|
@@ -110,19 +71,19 @@ Mac の場合は、Magic Mouse に対して **[System Preference]** -> **[Mouse]
 | **F** | **F** | 選択したオブジェクト上でカメラをフォーカスさせます。これらはカメラの回転 (タンブル) を最大限に活用する際に必要な操作です。 |
 
 
-### Game-style
+### ゲームスタイル
 
 PC のシューターゲームをプレイされる方は、WASD キーで行うビューポートの制御はごく自然な感覚かもしれません。 
 WASD 移動はデフォルトで有効となっていて、**RMB** を押すといつでも使用できます。つまり WASD キーで移動中にカメラを回転させるには 
 ここでも **RMB** ボタンを使用します。
 
-これらの制御は、別のアクセス方法を提供するために矢印キーと数字キーパッドでミラーされます。
+これらの制御は、矢印キーとテンキーで同じように操作できます。
 
 [EXCERPT:GameControls]
 こうしたすべての制御方法は Perspective (透視図法) ビューポートのみで有効です。 
 デフォルトで WASD ゲームスタイルの制御をするには **RMB** ボタンを押します。
 
-| 制御 | アクション |
+| コントロール | アクション |
 | ------- | ------ |
 | **W** &#124; **Numpad8** &#124; **Up**  | カメラを前方へ移動させます。 |
 | **S** &#124; **Numpad2** &#124; **Down** | カメラを後方へ移動させます。 |
@@ -175,7 +136,7 @@ Maya の基本操作に不慣れな場合は以下の説明を参照してくだ
 | 単純な選択 | 範囲指定 |
 [/REGION]
 
-| 制御 | アクション |
+| コントロール | アクション |
 | ------- | ------ |
 | [REGION:tablesection]単純な選択[/REGION] |||
 | **LMB**  | カーソルを合わせたアクタが、現在選択中のアクタと置き換わります。 |
@@ -199,7 +160,7 @@ Maya の基本操作に不慣れな場合は以下の説明を参照してくだ
 
 ![](Engine/Actors/Transform/LE_Trans_WidgetIcons.png)
 
-| 制御 | アクション |
+| コントロール | アクション |
 | ------- | ------ |
 | **LMB + ドラッグ (変形ツール上で)** | アクティブになっている変形ギズモに応じて、選択中のアクタを移動、回転、スケーリングします。 |
 | **W** | 移動ツールを選択します。 |
@@ -226,7 +187,7 @@ Maya の基本操作に不慣れな場合は以下の説明を参照してくだ
 
 ビューポートにレベルをどう表示させるかを制御します。
 
-| 制御 | アクション |
+| コントロール | アクション |
 | ------- | ------ |
 | **G** | **Game Mode** を切り替えて、インゲームに表示されるものだけをビューポートでレンダリングするようにします。 |
 | **Ctrl + R** | アクティブ状態のビューポートでのリアルタイム再生を切り替えます。 |

@@ -1,6 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneSequenceInstanceData.h"
+#include "Evaluation/MovieSceneSequenceInstanceData.h"
 #include "Evaluation/MovieSceneEvalTemplateBase.h"
 #include "Evaluation/MovieSceneEvalTemplateSerializer.h"
 
@@ -25,5 +25,6 @@ FMovieSceneSequenceInstanceDataPtr& FMovieSceneSequenceInstanceDataPtr::operator
 
 bool FMovieSceneSequenceInstanceDataPtr::Serialize(FArchive& Ar)
 {
-	return SerializeInlineValue(*this, Ar);
+	bool bShouldWarn = !WITH_EDITORONLY_DATA;
+	return SerializeInlineValue(*this, Ar, bShouldWarn);
 }

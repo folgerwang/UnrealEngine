@@ -18,7 +18,7 @@
 #include "LandscapeProxy.h"
 #include "LandscapeInfo.h"
 #include "Interfaces/Interface_CollisionDataProvider.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "AI/NavigationSystemBase.h"
 #include "LandscapeComponent.h"
 #include "LandscapeLayerInfoObject.h"
 #include "LandscapePrivate.h"
@@ -43,7 +43,7 @@
 #include "Engine/Engine.h"
 #include "Materials/MaterialInstanceConstant.h"
 #if WITH_EDITOR && WITH_PHYSX
-	#include "IPhysXCooking.h"
+	#include "Physics/IPhysXCooking.h"
 #endif
 
 #if ENABLE_COOK_STATS
@@ -1526,7 +1526,7 @@ void ULandscapeHeightfieldCollisionComponent::PostEditUndo()
 		RecreateCollision();
 	}
 
-	UNavigationSystem::UpdateComponentInNavOctree(*this);
+	FNavigationSystem::UpdateComponentData(*this);
 }
 
 bool ULandscapeHeightfieldCollisionComponent::ComponentIsTouchingSelectionBox(const FBox& InSelBBox, const FEngineShowFlags& ShowFlags, const bool bConsiderOnlyBSP, const bool bMustEncompassEntireComponent) const
@@ -1961,7 +1961,7 @@ void ULandscapeHeightfieldCollisionComponent::ImportCustomProperties(const TCHAR
 
 		if (i != NumHeights)
 		{
-			Warn->Logf(*NSLOCTEXT("Core", "SyntaxError", "Syntax Error").ToString());
+			Warn->Log(*NSLOCTEXT("Core", "SyntaxError", "Syntax Error").ToString());
 		}
 	}
 	else if (FParse::Command(&SourceText, TEXT("DominantLayerData")))
@@ -1987,7 +1987,7 @@ void ULandscapeHeightfieldCollisionComponent::ImportCustomProperties(const TCHAR
 
 		if (i != NumDominantLayerSamples)
 		{
-			Warn->Logf(*NSLOCTEXT("Core", "SyntaxError", "Syntax Error").ToString());
+			Warn->Log(*NSLOCTEXT("Core", "SyntaxError", "Syntax Error").ToString());
 		}
 	}
 }
@@ -2045,7 +2045,7 @@ void ULandscapeMeshCollisionComponent::ImportCustomProperties(const TCHAR* Sourc
 
 		if (i != NumHeights)
 		{
-			Warn->Logf(*NSLOCTEXT("Core", "SyntaxError", "Syntax Error").ToString());
+			Warn->Log(*NSLOCTEXT("Core", "SyntaxError", "Syntax Error").ToString());
 		}
 	}
 	else if (FParse::Command(&SourceText, TEXT("DominantLayerData")))
@@ -2071,7 +2071,7 @@ void ULandscapeMeshCollisionComponent::ImportCustomProperties(const TCHAR* Sourc
 
 		if (i != NumDominantLayerSamples)
 		{
-			Warn->Logf(*NSLOCTEXT("Core", "SyntaxError", "Syntax Error").ToString());
+			Warn->Log(*NSLOCTEXT("Core", "SyntaxError", "Syntax Error").ToString());
 		}
 	}
 	else if (FParse::Command(&SourceText, TEXT("CollisionXYOffsetData")))
@@ -2102,7 +2102,7 @@ void ULandscapeMeshCollisionComponent::ImportCustomProperties(const TCHAR* Sourc
 
 		if (i != NumOffsets)
 		{
-			Warn->Logf(*NSLOCTEXT("Core", "SyntaxError", "Syntax Error").ToString());
+			Warn->Log(*NSLOCTEXT("Core", "SyntaxError", "Syntax Error").ToString());
 		}
 	}
 }
@@ -2134,7 +2134,7 @@ ULandscapeHeightfieldCollisionComponent::ULandscapeHeightfieldCollisionComponent
 	: Super(ObjectInitializer)
 {
 	SetCollisionProfileName(UCollisionProfile::BlockAll_ProfileName);
-	bGenerateOverlapEvents = false;
+	SetGenerateOverlapEvents(false);
 	CastShadow = false;
 	bUseAsOccluder = true;
 	bAllowCullDistanceVolume = false;

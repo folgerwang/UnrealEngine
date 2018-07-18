@@ -6,13 +6,27 @@ sh FixDependencyFiles.sh
 
 IS_MONO_INSTALLED=0
 MONO_VERSION_PATH=`which mono` || true
+
+# if we can't find mono path, try one last hail mary of a standard install location
+if [ "$MONO_VERSION_PATH" == "" ] || [ ! -f $MONO_VERSION_PATH ]; then
+	MONO_VERSION_PATH="/Library/Frameworks/Mono.framework/Versions/Current/Commands/mono"
+	# if it's found, then add it to the path
+	if [ ! $MONO_VERSION_PATH == "" ] && [ -f $MONO_VERSION_PATH ]; then
+		echo "Found mono via known Mono.framework path"
+		export PATH=/Library/Frameworks/Mono.framework/Versions/Current/Commands:$PATH
+	fi
+fi
+
 if [ ! $MONO_VERSION_PATH == "" ] && [ -f $MONO_VERSION_PATH ]; then
 	# If Mono is installed, check if it's 4.0.2 or higher
 	MONO_VERSION_PREFIX="Mono JIT compiler version "
 	MONO_VERSION_PREFIX_LEN=${#MONO_VERSION_PREFIX}
 	MONO_VERSION=`"${MONO_VERSION_PATH}" --version |grep "$MONO_VERSION_PREFIX"`
+	echo "Running installed mono, version: " ${MONO_VERSION}
 	MONO_VERSION=(`echo ${MONO_VERSION:MONO_VERSION_PREFIX_LEN} |tr '.' ' '`)
-	if [ ${MONO_VERSION[0]} -ge 4 ]; then
+	if [ ${MONO_VERSION[0]} -ge 5 ]; then # Allow any Mono 5.x and up
+		IS_MONO_INSTALLED=1
+	elif [ ${MONO_VERSION[0]} -eq 4 ]; then
 		if [ ${MONO_VERSION[1]} -eq 0 ] && [ ${MONO_VERSION[2]} -ge 2 ]; then
 			IS_MONO_INSTALLED=1
 		elif [ ${MONO_VERSION[1]} -gt 0 ] && [ ${MONO_VERSION[1]} -lt 6 ]; then # Mono 4.6 has issues on macOS 10.12

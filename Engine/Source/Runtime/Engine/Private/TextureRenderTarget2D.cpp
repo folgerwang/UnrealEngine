@@ -11,7 +11,7 @@
 #include "UnrealEngine.h"
 #include "DeviceProfiles/DeviceProfile.h"
 #include "DeviceProfiles/DeviceProfileManager.h"
-#include "RenderingObjectVersion.h"
+#include "UObject/RenderingObjectVersion.h"
 
 int32 GTextureRenderTarget2DMaxSizeX = 999999999;
 int32 GTextureRenderTarget2DMaxSizeY = 999999999;
@@ -115,6 +115,35 @@ void UTextureRenderTarget2D::InitAutoFormat(uint32 InSizeX, uint32 InSizeY)
 
 	// Recreate the texture's resource.
 	UpdateResource();
+}
+
+void UTextureRenderTarget2D::ResizeTarget(uint32 InSizeX, uint32 InSizeY)
+{
+	if (SizeX != InSizeX || SizeY != InSizeY)
+	{
+		SizeX = InSizeX;
+		SizeY = InSizeY;
+
+		if (Resource)
+		{
+			ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
+				ResizeRenderTarget,
+				FTextureRenderTarget2DResource*, Resource, static_cast<FTextureRenderTarget2DResource*>(Resource),
+				int32, NewSizeX, SizeX,
+				int32, NewSizeY, SizeY,
+				{
+					Resource->Resize(NewSizeX, NewSizeY);
+					Resource->UpdateDeferredResource(RHICmdList, true);
+				}
+			);
+
+
+		}
+		else
+		{
+			UpdateResource();
+		}
+	}
 }
 
 void UTextureRenderTarget2D::UpdateResourceImmediate(bool bClearRenderTarget/*=true*/)
@@ -491,7 +520,17 @@ void FTextureRenderTarget2DResource::UpdateDeferredResource( FRHICommandListImme
 	}
 
  	// copy surface to the texture for use
-	RHICmdList.CopyToResolveTarget(RenderTargetTextureRHI, TextureRHI, true, FResolveParams());
+	RHICmdList.CopyToResolveTarget(RenderTargetTextureRHI, TextureRHI, FResolveParams());
+}
+
+void FTextureRenderTarget2DResource::Resize(int32 NewSizeX, int32 NewSizeY)
+{
+	if (TargetSizeX != NewSizeX || TargetSizeY != NewSizeY)
+	{
+		TargetSizeX = NewSizeX;
+		TargetSizeY = NewSizeY;
+		UpdateRHI();
+	}
 }
 
 /** 

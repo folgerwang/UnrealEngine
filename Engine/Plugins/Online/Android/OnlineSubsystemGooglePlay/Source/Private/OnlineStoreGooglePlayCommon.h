@@ -2,9 +2,9 @@
 
 #pragma once
 
-#include "OnlineStoreInterface.h"
-#include "OnlineStoreInterfaceV2.h"
-#include "OnlinePurchaseInterface.h"
+#include "Interfaces/OnlineStoreInterface.h"
+#include "Interfaces/OnlineStoreInterfaceV2.h"
+#include "Interfaces/OnlinePurchaseInterface.h"
 
 struct FGoogleTransactionData;
 

@@ -42,6 +42,6 @@ public class StandaloneRenderer : ModuleRules
 			PublicWeakFrameworks.AddRange(new string[] { "QuartzCore" });
 		}
 
-		RuntimeDependencies.Add("$(EngineDir)/Shaders/StandaloneRenderer/...", StagedFileType.NonUFS);
+		RuntimeDependencies.Add("$(EngineDir)/Shaders/StandaloneRenderer/...", StagedFileType.UFS);
 	}
 }

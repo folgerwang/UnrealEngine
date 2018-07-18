@@ -24,7 +24,7 @@
 #include "Components/StaticMeshComponent.h"
 #include "Components/LightComponentBase.h"
 #include "Components/ReflectionCaptureComponent.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "AI/NavigationSystemBase.h"
 #include "Engine/MapBuildDataRegistry.h"
 #include "Components/LightComponent.h"
 #include "Model.h"
@@ -523,10 +523,9 @@ bool FStaticLightingSystem::BeginLightmassProcess()
 			}
 		}
 
-		for( int32 LevelIndex = 0 ; LevelIndex < World->StreamingLevels.Num() ; ++LevelIndex )
+		for (ULevelStreaming* CurStreamingLevel : World->GetStreamingLevels())
 		{
-			ULevelStreaming* CurStreamingLevel = World->StreamingLevels[ LevelIndex ];
-			if (CurStreamingLevel && CurStreamingLevel->GetLoadedLevel() && !CurStreamingLevel->bShouldBeVisibleInEditor)
+			if (CurStreamingLevel && CurStreamingLevel->GetLoadedLevel() && !CurStreamingLevel->GetShouldBeVisibleInEditor())
 			{
 				if (SkippedLevels.Len() > 0)
 				{
@@ -1889,7 +1888,7 @@ bool FStaticLightingSystem::CreateLightmassProcessor()
 		UE_LOG(LogStaticLightingSystem, Warning, TEXT("Failed to connect to Swarm."));
 		FMessageDialog::Open( EAppMsgType::Ok, 
 #if USE_LOCAL_SWARM_INTERFACE
-			LOCTEXT("FailedToConnectToSwarmDialogMessage", "Failed to connect to Swarm. Check that your network interface supports multicast.")
+			LOCTEXT("FailedToConnectToSwarmDialogMessage_CheckNetwork", "Failed to connect to Swarm. Check that your network interface supports multicast.")
 #else
 			LOCTEXT("FailedToConnectToSwarmDialogMessage", "Failed to connect to Swarm.")
 #endif	

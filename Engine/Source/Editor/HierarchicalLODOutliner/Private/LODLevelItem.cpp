@@ -7,7 +7,7 @@
 #include "IHierarchicalLODUtilities.h"
 #include "HierarchicalLODUtilitiesModule.h"
 #include "Engine/Selection.h"
-#include "MultiBoxBuilder.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "HLODOutliner.h"
 #include "Editor.h"
 
@@ -37,7 +37,7 @@ void HLODOutliner::FLODLevelItem::GenerateContextMenu(FMenuBuilder& MenuBuilder,
 			AActor* Actor = Cast<AActor>(CurrentSelection->GetSelectedObject(SelectionIndex));
 			if (Actor)
 			{
-				if (Outliner.HierarchicalLODUtilities->ShouldGenerateCluster(Actor) == EClusterGenerationError::ValidActor)
+				if (Outliner.HierarchicalLODUtilities->ShouldGenerateCluster(Actor, LODLevelIndex) == EClusterGenerationError::ValidActor)
 				{
 					ValidActorsToCluster.Add(Actor);
 				}

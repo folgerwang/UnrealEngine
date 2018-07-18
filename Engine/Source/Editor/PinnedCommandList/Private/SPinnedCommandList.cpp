@@ -16,12 +16,12 @@
 #include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "Widgets/Input/SCheckBox.h"
 #include "EditorStyleSet.h"
-#include "WidgetPath.h"
-#include "UICommandInfo.h"
-#include "UICommandList.h"
+#include "Layout/WidgetPath.h"
+#include "Framework/Commands/UICommandInfo.h"
+#include "Framework/Commands/UICommandList.h"
 #include "PinnedCommandListSettings.h"
-#include "InputBindingManager.h"
-#include "SButton.h"
+#include "Framework/Commands/InputBindingManager.h"
+#include "Widgets/Input/SButton.h"
 #include "UICommandList_Pinnable.h"
 
 #define LOCTEXT_NAMESPACE "PinnedCommandList"
@@ -77,6 +77,9 @@ public:
 		/** Identifier used for custom widget */
 		SLATE_ARGUMENT(FMargin, CustomWidgetPadding)
 
+		/** Whether to display the custom widget label */
+		SLATE_ARGUMENT(bool, ShowCustomWidgetLabel)
+
 	SLATE_END_ARGS()
 
 	/** Constructs this widget with InArgs */
@@ -120,6 +123,7 @@ public:
 						.AutoWidth()
 						[
 							SNew(STextBlock)
+							.Visibility(InArgs._ShowCustomWidgetLabel ? EVisibility::Visible : EVisibility::Collapsed)
 							.TextStyle(InArgs._StyleSet, ISlateStyle::Join(InArgs._StyleName, ".Label"))
 							.Text(CustomWidgetDisplayName)
 						]
@@ -226,10 +230,11 @@ private:
 
 	virtual FReply OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override
 	{
-		if (MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton && MouseEvent.IsShiftDown())
+		if (HasMouseCapture() && MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton)
 		{
 			// If shift is held we probably removed another widget in OnPreviewMouseButtonDown, so ignore here
-			return FReply::Handled();
+			RemoveCommand();
+			return FReply::Handled().ReleaseMouseCapture();
 		}
 
 		return FReply::Unhandled();
@@ -240,8 +245,7 @@ private:
 		// Shift-LMB removes the item
 		if (MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton && MouseEvent.IsShiftDown())
 		{
-			RemoveCommand();
-			return FReply::Handled();
+			return FReply::Handled().CaptureMouse(SharedThis(this));
 		}
 
 		return FReply::Unhandled();
@@ -511,7 +515,7 @@ void SPinnedCommandList::BindCommandList(const TSharedRef<FUICommandList_Pinnabl
 	InUICommandList_Pinnable->OnCustomWidgetInteraction().AddSP(this, &SPinnedCommandList::HandleCustomWidgetInteraction);
 }
 
-void SPinnedCommandList::RegisterCustomWidget(IPinnedCommandList::FOnGenerateCustomWidget InOnGenerateCustomWidget, FName InCustomWidgetIdentifier, FText InCustomWidgetDisplayName, FMargin InCustomWidgetPadding)
+void SPinnedCommandList::RegisterCustomWidget(IPinnedCommandList::FOnGenerateCustomWidget InOnGenerateCustomWidget, FName InCustomWidgetIdentifier, TAttribute<FText> InCustomWidgetDisplayName, FMargin InCustomWidgetPadding, bool bInShowLabel)
 {
 	// Check if the widget is registered already
 	FRegisteredCustomWidget* RegisteredWidget = CustomWidgets.FindByPredicate([InCustomWidgetIdentifier](const FRegisteredCustomWidget& InRegisteredWidget)
@@ -528,6 +532,7 @@ void SPinnedCommandList::RegisterCustomWidget(IPinnedCommandList::FOnGenerateCus
 		NewCustomWidget.CustomWidgetDisplayName = InCustomWidgetDisplayName;
 		NewCustomWidget.OnGenerateCustomWidget = InOnGenerateCustomWidget;
 		NewCustomWidget.CustomWidgetPadding = InCustomWidgetPadding;
+		NewCustomWidget.bShowLabel = bInShowLabel;
 
 		CustomWidgets.Add(NewCustomWidget);
 		LoadSettings();
@@ -618,7 +623,8 @@ TSharedPtr<SCommand> SPinnedCommandList::AddCustomWidget_Internal(FName InCustom
 				.CustomWidgetIdentifier(RegisteredWidget->CustomWidgetIdentifier)
 				.CustomWidgetDisplayName(RegisteredWidget->CustomWidgetDisplayName)
 				.CustomWidgetPadding(RegisteredWidget->CustomWidgetPadding)
-				.CommandListPinnable(InUICommandListPinnable);
+				.CommandListPinnable(InUICommandListPinnable)
+				.ShowCustomWidgetLabel(RegisteredWidget->bShowLabel);
 
 			AddCommandWidget(NewCommand);
 

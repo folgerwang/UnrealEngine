@@ -2,7 +2,7 @@
 
 #include "SoundBaseDetails.h"
 #include "Sound/SoundBase.h"
-#include "Classes/Sound/AudioSettings.h"
+#include "Sound/AudioSettings.h"
 #include "PropertyHandle.h"
 #include "DetailLayoutBuilder.h"
 

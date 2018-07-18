@@ -6,9 +6,7 @@
 #include "PropertyHandle.h"
 #include "DetailLayoutBuilder.h"
 
-#if WITH_ENGINE
 #include "AudioPluginUtilities.h"
-#endif
 
 class AUDIOSETTINGSEDITOR_API FAudioPluginWidgetManager
 {

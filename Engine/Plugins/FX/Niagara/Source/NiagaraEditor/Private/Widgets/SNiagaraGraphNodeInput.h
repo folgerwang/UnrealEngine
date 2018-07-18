@@ -2,12 +2,12 @@
 
 #pragma once
 
-#include "SGraphNode.h"
-#include "SMenuAnchor.h"
-#include "UICommandList.h"
+#include "SNiagaraGraphNode.h"
+#include "Widgets/Input/SMenuAnchor.h"
+#include "Framework/Commands/UICommandList.h"
 
 /** A graph node widget representing a niagara input node. */
-class SNiagaraGraphNodeInput : public SGraphNode
+class SNiagaraGraphNodeInput : public SNiagaraGraphNode
 {
 public:
 	SLATE_BEGIN_ARGS(SNiagaraGraphNodeInput) {}

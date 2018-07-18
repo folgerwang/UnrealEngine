@@ -29,8 +29,9 @@
 #include "AssetManagerEditorCommands.h"
 #include "Engine/BlueprintCore.h"
 #include "Widgets/Input/SComboBox.h"
-#include "SlateApplication.h"
+#include "Framework/Application/SlateApplication.h"
 #include "DragAndDrop/AssetDragDropOp.h"
+#include "Blueprint/BlueprintSupport.h"
 
 #define LOCTEXT_NAMESPACE "AssetManagementBrowser"
 
@@ -308,13 +309,13 @@ void SAssetAuditBrowser::Construct(const FArguments& InArgs)
 	AssetRegistryTagsToIgnore.Add(FPrimaryAssetId::PrimaryAssetNameTag);
 
 	// Ignore blueprint tags
-	AssetRegistryTagsToIgnore.Add("ParentClass");
-	AssetRegistryTagsToIgnore.Add("BlueprintType");
-	AssetRegistryTagsToIgnore.Add("NumReplicatedProperties");
-	AssetRegistryTagsToIgnore.Add("NativeParentClass");
-	AssetRegistryTagsToIgnore.Add("IsDataOnly");
-	AssetRegistryTagsToIgnore.Add("NativeComponents");
-	AssetRegistryTagsToIgnore.Add("BlueprintComponents");
+	AssetRegistryTagsToIgnore.Add(FBlueprintTags::ParentClassPath);
+	AssetRegistryTagsToIgnore.Add(FBlueprintTags::BlueprintType);
+	AssetRegistryTagsToIgnore.Add(FBlueprintTags::NumReplicatedProperties);
+	AssetRegistryTagsToIgnore.Add(FBlueprintTags::NativeParentClassPath);
+	AssetRegistryTagsToIgnore.Add(FBlueprintTags::IsDataOnly);
+	AssetRegistryTagsToIgnore.Add(FBlueprintTags::NumNativeComponents);
+	AssetRegistryTagsToIgnore.Add(FBlueprintTags::NumBlueprintComponents);
 
 	static const FName DefaultForegroundName("DefaultForeground");
 

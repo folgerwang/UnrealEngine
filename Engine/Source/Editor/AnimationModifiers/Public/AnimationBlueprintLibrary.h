@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "Classes/Kismet/BlueprintFunctionLibrary.h"
+#include "Kismet/BlueprintFunctionLibrary.h"
 #include "Animation/AnimEnums.h"
 #include "Animation/AnimCurveTypes.h"
 
@@ -18,6 +18,12 @@ enum class ESmartNameContainerType : uint8
 	SNCT_TrackCurveMapping	UMETA(DisplayName = "Track Curve Names"),
 	SNCT_MAX
 };
+
+/** Delegate called when a notify was replaced */
+DECLARE_DYNAMIC_DELEGATE_TwoParams(FOnNotifyReplaced, UAnimNotify*, OldNotify, UAnimNotify*, NewNotify);
+
+/** Delegate called when a notify state was replaced */
+DECLARE_DYNAMIC_DELEGATE_TwoParams(FOnNotifyStateReplaced, UAnimNotifyState*, OldNotifyState, UAnimNotifyState*, NewNotifyState);
 
 /** Blueprint library for altering and analyzing animation / skeletal data */
 UCLASS(meta=(ScriptName="AnimationLibrary"))
@@ -161,7 +167,7 @@ public:
 
 	/** Adds an Animation Notify Event to Notify track in the given Animation with the given Notify creation data */
 	UFUNCTION(BlueprintCallable, Category = "AnimationBlueprintLibrary|NotifyEvents")
-	static UAnimNotify* AddAnimationNotifyEvent(UAnimSequence* AnimationSequence, FName NotifyTrackName, float StartTime, float Duration, TSubclassOf<UAnimNotifyState> NotifyClass);
+	static UAnimNotify* AddAnimationNotifyEvent(UAnimSequence* AnimationSequence, FName NotifyTrackName, float StartTime, float Duration, TSubclassOf<UObject> NotifyClass);
 
 	/** Adds an the specific Animation Notify to the Animation Sequence (requires Notify's outer to be the Animation Sequence) */
 	UFUNCTION(BlueprintCallable, Category = "AnimationBlueprintLibrary|NotifyEvents")
@@ -174,6 +180,15 @@ public:
 	/** Removes Animation Notify Events found by Track within the Animation Sequence, and returns the number of removed name instances */
 	UFUNCTION(BlueprintCallable, Category = "AnimationBlueprintLibrary|NotifyEvents")
 	static int32 RemoveAnimationNotifyEventsByTrack(UAnimSequence* AnimationSequence, FName NotifyTrackName);	
+
+	/** Replaces animation notifies in the specified Animation Sequence */
+	UFUNCTION(BlueprintCallable, Category = "AnimationBlueprintLibrary|NotifyEvents")
+	static void ReplaceAnimNotifyStates(UAnimSequenceBase* AnimationSequence, TSubclassOf<UAnimNotifyState> OldNotifyClass, TSubclassOf<UAnimNotifyState> NewNotifyClass, FOnNotifyStateReplaced OnNotifyStateReplaced);
+
+	/** Replaces animation notifies in the specified Animation Sequence */
+	UFUNCTION(BlueprintCallable, Category = "AnimationBlueprintLibrary|NotifyEvents")
+	static void ReplaceAnimNotifies(UAnimSequenceBase* AnimationSequence, TSubclassOf<UAnimNotify> OldNotifyClass, TSubclassOf<UAnimNotify> NewNotifyClass, FOnNotifyReplaced OnNotifyReplaced);
+
 
 	// Notify Tracks
 
@@ -199,6 +214,10 @@ public:
 
 	static int32 GetTrackIndexForAnimationNotifyTrackName(const UAnimSequence* AnimationSequence, FName NotifyTrackName);
 	static const FAnimNotifyTrack& GetNotifyTrackByName(const UAnimSequence* AnimationSequence, FName NotifyTrackName);
+
+	/** Returns the actual trigger time for a NotifyEvent */
+	UFUNCTION(BlueprintPure, Category = "AnimationBlueprintLibrary|AnimationNotifies")
+	static float GetAnimNotifyEventTriggerTime(const FAnimNotifyEvent& NotifyEvent);
 
 	/** Retrieves all Animation Sync Markers for the given Notify Track Name from the given Animation Sequence */
 	UFUNCTION(BlueprintPure, Category = "AnimationBlueprintLibrary|MarkerSyncing")
@@ -352,11 +371,11 @@ public:
 
 	/** Retrieves Bone Pose data for the given Bone Names at the specified Time from the given Animation Sequence */
 	UFUNCTION(BlueprintPure, Category = "AnimationBlueprintLibrary|Pose")
-	static void GetBonePosesForTime(const UAnimSequence* AnimationSequence, TArray<FName> BoneNames, float Time, bool bExtractRootMotion, TArray<FTransform>& Poses);
+	static void GetBonePosesForTime(const UAnimSequence* AnimationSequence, TArray<FName> BoneNames, float Time, bool bExtractRootMotion, TArray<FTransform>& Poses, const USkeletalMesh* PreviewMesh = nullptr);
 
 	/** Retrieves Bone Pose data for the given Bone Names at the specified Frame from the given Animation Sequence */
 	UFUNCTION(BlueprintPure, Category = "AnimationBlueprintLibrary|Pose")
-	static void GetBonePosesForFrame(const UAnimSequence* AnimationSequence, TArray<FName> BoneNames, int32 Frame, bool bExtractRootMotion, TArray<FTransform>& Poses);
+	static void GetBonePosesForFrame(const UAnimSequence* AnimationSequence, TArray<FName> BoneNames, int32 Frame, bool bExtractRootMotion, TArray<FTransform>& Poses, const USkeletalMesh* PreviewMesh = nullptr);
 
 	// Virtual bones
 

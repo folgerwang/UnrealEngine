@@ -13,7 +13,6 @@
 #include "Framework/MultiBox/MultiBoxExtender.h"
 #include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "Widgets/Input/SButton.h"
-#include "Widgets/Input/SSlider.h"
 #include "Widgets/Images/SImage.h"
 #include "EditorStyleSet.h"
 #include "Engine/MeshMerging.h"
@@ -38,8 +37,18 @@
 
 #include "IHierarchicalLODUtilities.h"
 #include "HierarchicalLODUtilitiesModule.h"
-#include "SImage.h"
+#include "Widgets/Images/SImage.h"
 #include "DrawDebugHelpers.h"
+#include "Widgets/Layout/SUniformGridPanel.h"
+#include "EditorFontGlyphs.h"
+#include "Widgets/Layout/SScrollBorder.h"
+#include "Widgets/Layout/SWidgetSwitcher.h"
+#include "Widgets/Input/SComboButton.h"
+#include "Widgets/Layout/SWrapBox.h"
+#include "Framework/Notifications/NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
+#include "Toolkits/AssetEditorManager.h"
+#include "Engine/HLODProxy.h"
 
 #define LOCTEXT_NAMESPACE "HLODOutliner"
 
@@ -51,8 +60,7 @@ namespace HLODOutliner
 		CurrentWorld = nullptr;
 		CurrentWorldSettings = nullptr;
 		ForcedLODLevel = -1;
-		ForcedLODSliderValue = 0.0f;
-		bForcedSliderValueUpdating = false;
+		bArrangeHorizontally = false;
 
 		FHierarchicalLODUtilitiesModule& Module = FModuleManager::LoadModuleChecked<FHierarchicalLODUtilitiesModule>("HierarchicalLODUtilities");
 		HierarchicalLODUtilities = Module.GetUtilities();
@@ -81,53 +89,45 @@ namespace HLODOutliner
 		MainContentPanel = SNew(SVerticalBox);
 		ChildSlot
 			[
-				SNew(SBorder)
-				.BorderImage(FCoreStyle::Get().GetBrush("ToolPanel.GroupBorder"))
+				SNew(SVerticalBox)
+				+ SVerticalBox::Slot()
+				.AutoHeight()
 				[
-					SNew(SOverlay)
-					+SOverlay::Slot()
+					SNew(SBorder)
+					.BorderImage(FEditorStyle::GetBrush("SettingsEditor.CheckoutWarningBorder"))
+					.BorderBackgroundColor(FColor(166,137,0))							
 					[
-						SNew(SVerticalBox)
-						+ SVerticalBox::Slot()
-						.AutoHeight()
+						SNew(SHorizontalBox)
+						.Visibility_Lambda([this]() -> EVisibility 
+						{
+							bool bVisible = !bNeedsRefresh && CurrentWorld.IsValid() && HierarchicalLODUtilities->IsWorldUsedForStreaming(CurrentWorld.Get());
+							return bVisible ? EVisibility::Visible : EVisibility::Collapsed;
+						})
+
+						+ SHorizontalBox::Slot()
+						.VAlign(VAlign_Center)
+						.AutoWidth()
+						.Padding(4.0f, 0.0f, 4.0f, 0.0f)
 						[
-							SNew(SBorder)
-							.BorderImage(FEditorStyle::GetBrush("SettingsEditor.CheckoutWarningBorder"))
-							.BorderBackgroundColor(FColor(166,137,0))							
-							[
-								SNew(SHorizontalBox)
-								.Visibility_Lambda([this]() -> EVisibility 
-								{
-									bool bVisible = !bNeedsRefresh && CurrentWorld && HierarchicalLODUtilities->IsWorldUsedForStreaming(CurrentWorld);
-									return bVisible ? EVisibility::Visible : EVisibility::Collapsed;
-								})
-
-								+ SHorizontalBox::Slot()
-								.VAlign(VAlign_Center)
-								.AutoWidth()
-								.Padding(4.0f, 0.0f, 4.0f, 0.0f)
-								[
-									SNew(SImage)
-									.Image(FEditorStyle::GetBrush("SettingsEditor.WarningIcon"))
-								]
-
-								+SHorizontalBox::Slot()
-								.VAlign(VAlign_Center)
-								.AutoWidth()
-								.Padding(4.0f, 0.0f, 0.0f, 0.0f)
-								[
-									SNew(STextBlock)
-									.Text(LOCTEXT("HLODDisabledSublevel", "Changing the HLOD settings is disabled for sub-levels"))
-								]
-							]
+							SNew(SImage)
+							.Image(FEditorStyle::GetBrush("SettingsEditor.WarningIcon"))
 						]
 
-						// Overlay slot for the main HLOD window area
-						+ SVerticalBox::Slot()
+						+SHorizontalBox::Slot()
+						.VAlign(VAlign_Center)
+						.AutoWidth()
+						.Padding(4.0f, 0.0f, 0.0f, 0.0f)
 						[
-							MainContentPanel.ToSharedRef()
-						]							
-					]						
+							SNew(STextBlock)
+							.Text(LOCTEXT("HLODDisabledSublevel", "Changing the HLOD settings is disabled for sub-levels"))
+						]
+					]
+				]
+
+				// Overlay slot for the main HLOD window area
+				+ SVerticalBox::Slot()
+				[
+					MainContentPanel.ToSharedRef()
 				]
 			];
 
@@ -140,119 +140,351 @@ namespace HLODOutliner
 			.AutoHeight()
 			.Padding(0.0f, 0.0f, 0.0f, 4.0f)
 			[
-				CreateButtonWidgets()
+				SNew(SBorder)
+				.BorderImage(FCoreStyle::Get().GetBrush("ToolPanel.GroupBorder"))
+				.Padding(1.0f)
+				[
+					CreateMainButtonWidgets()
+				]
 			];
 
-		MainContentPanel->AddSlot()
-			.AutoHeight()
-			.Padding(0.0f, 0.0f, 0.0f, 4.0f)
-			[				
-				CreateForcedViewSlider()
+		TSharedRef<SHLODTree> TreeViewWidget = CreateTreeviewWidget();
+
+		TSharedRef<SWidget> ClusterWidgets = 
+			SNew(SBorder)
+			.BorderImage(FCoreStyle::Get().GetBrush("ToolPanel.GroupBorder"))
+			.Padding(1.0f)
+			[
+				SNew(SVerticalBox)
+				+SVerticalBox::Slot()
+				.Padding(2.0f)
+				.FillHeight(1.0f)
+				[
+					SNew(SScrollBorder, TreeViewWidget)
+					[
+						TreeViewWidget
+					]
+				]
+				+SVerticalBox::Slot()
+				.AutoHeight()
+				.HAlign(HAlign_Right)
+				[
+					CreateClusterButtonWidgets()
+				]
+			];
+
+		TSharedRef<SWidget> DetailsWidgets = 
+			SNew(SBorder)
+			.BorderImage(FCoreStyle::Get().GetBrush("ToolPanel.GroupBorder"))
+			.Padding(1.0f)
+			[
+				SNew(SVerticalBox)
+				+SVerticalBox::Slot()
+				.AutoHeight()
+				[
+					SNew(SBorder)
+					.BorderImage(FEditorStyle::GetBrush("SettingsEditor.CheckoutWarningBorder"))
+					.BorderBackgroundColor(FColor(166,137,0))							
+					[
+						SNew(SHorizontalBox)
+						.Visibility_Lambda([this]() -> EVisibility 
+						{
+							return GetDefault<UHierarchicalLODSettings>()->bForceSettingsInAllMaps ? EVisibility::Visible : EVisibility::Collapsed;
+						})
+
+						+SHorizontalBox::Slot()
+						.VAlign(VAlign_Center)
+						.AutoWidth()
+						.Padding(4.0f, 0.0f, 4.0f, 0.0f)
+						[
+							SNew(SImage)
+							.Image(FEditorStyle::GetBrush("Icons.Warning"))
+						]
+
+						+SHorizontalBox::Slot()
+						.VAlign(VAlign_Center)
+						.FillWidth(1.0f)
+						.Padding(4.0f, 0.0f, 0.0f, 0.0f)
+						[
+							SNew(STextBlock)
+							.AutoWrapText(true)
+							.Text(LOCTEXT("HLODForcedGlobally", "Project level HLOD Settings forced, changing the HLOD settings is disabled"))
+						]
+					]
+				]
+				+SVerticalBox::Slot()
+				.Padding(2.0f, 1.0f)
+				[
+					SettingsView.ToSharedRef()
+				]
 			];
 
 		MainContentPanel->AddSlot()
 			.FillHeight(1.0f)
 			[
-				SNew(SSplitter)
-				.Orientation(Orient_Vertical)
-				.Style(FEditorStyle::Get(), "ContentBrowser.Splitter")
-				+ SSplitter::Slot()
-				.Value(0.5)
+				SNew(SWidgetSwitcher)
+				.WidgetIndex(this, &SHLODOutliner::GetSpitterWidgetIndex)
+				+SWidgetSwitcher::Slot()
 				[
-					CreateTreeviewWidget()										
+					SNew(SSplitter)
+					.Orientation(Orient_Horizontal)
+					.Style(FEditorStyle::Get(), "ContentBrowser.Splitter")
+					+ SSplitter::Slot()
+					.Value(0.5)
+					[
+						ClusterWidgets
+					]
+					+SSplitter::Slot()
+					.Value(0.5)
+					[
+						DetailsWidgets
+					]
 				]
-				+ SSplitter::Slot()
-				.Value(0.5)
+				+SWidgetSwitcher::Slot()
 				[
-					SNew(SVerticalBox)
-					+ SVerticalBox::Slot()
-					.AutoHeight()
+					SNew(SSplitter)
+					.Orientation(Orient_Vertical)
+					.Style(FEditorStyle::Get(), "ContentBrowser.Splitter")
+					+ SSplitter::Slot()
+					.Value(0.5)
 					[
-						SNew(SBorder)
-						.BorderImage(FEditorStyle::GetBrush("SettingsEditor.CheckoutWarningBorder"))
-						.BorderBackgroundColor(FColor(166,137,0))							
-						[
-							SNew(SHorizontalBox)
-							.Visibility_Lambda([this]() -> EVisibility 
-							{
-								return GetDefault<UHierarchicalLODSettings>()->bForceSettingsInAllMaps ? EVisibility::Visible : EVisibility::Collapsed;
-							})
-
-							+ SHorizontalBox::Slot()
-							.VAlign(VAlign_Center)
-							.AutoWidth()
-							.Padding(4.0f, 0.0f, 4.0f, 0.0f)
-							[
-								SNew(SImage)
-								.Image(FEditorStyle::GetBrush("SettingsEditor.WarningIcon"))
-							]
-
-							+SHorizontalBox::Slot()
-							.VAlign(VAlign_Center)
-							.AutoWidth()
-							.Padding(4.0f, 0.0f, 0.0f, 0.0f)
-							[
-								SNew(STextBlock)
-								.Text(LOCTEXT("HLODForcedGlobally", "Project level HLOD Settings forced, changing the HLOD settings is disabled"))
-							]
-						]
+						ClusterWidgets
 					]
-					+ SVerticalBox::Slot()			
+					+SSplitter::Slot()
+					.Value(0.5)
 					[
-						SettingsView.ToSharedRef()
+						DetailsWidgets
 					]
-				]		
+				]
 			];
 		
+		MainContentPanel->AddSlot()
+			.AutoHeight()
+			.Padding(0.0f, 4.0f, 0.0f, 0.0f)
+			[
+				SNew(SBorder)
+				.BorderImage(FEditorStyle::GetBrush("SettingsEditor.CheckoutWarningBorder"))
+				.BorderBackgroundColor(FColor(166,137,0))
+				[
+					SNew(SHorizontalBox)
+					.Visibility_Lambda([this]() -> EVisibility 
+					{
+						return bCachedNeedsBuild ? EVisibility::Visible : EVisibility::Collapsed;
+					})
+
+					+ SHorizontalBox::Slot()
+					.VAlign(VAlign_Center)
+					.AutoWidth()
+					.Padding(4.0f, 0.0f, 4.0f, 0.0f)
+					[
+						SNew(SImage)
+						.Image(FEditorStyle::GetBrush("Icons.Warning"))
+					]
+
+					+SHorizontalBox::Slot()
+					.VAlign(VAlign_Center)
+					.FillWidth(1.0f)
+					.Padding(4.0f, 0.0f, 4.0f, 0.0f)
+					[
+						SNew(STextBlock)
+						.AutoWrapText(true)
+						.Text(LOCTEXT("HLODNeedsBuild", "Actors represented in HLOD have changed, generate proxy meshes to update."))
+					]
+				]
+			];
+
 		RegisterDelegates();
 	}
 
-	TSharedRef<SWidget> SHLODOutliner::CreateButtonWidgets()
+	TSharedRef<SWidget> SHLODOutliner::CreateMainButtonWidgets()
+	{
+		return SNew(SVerticalBox)
+			+SVerticalBox::Slot()
+			.Padding(FMargin(0.0f, 2.0f))
+			[
+				SNew(SWrapBox)
+				.UseAllottedWidth(true)
+
+				+ SWrapBox::Slot()
+				.Padding(FMargin(2.0f))
+				[
+					SNew(SButton)
+					.ButtonStyle(FEditorStyle::Get(), "FlatButton.Success")
+					.HAlign(HAlign_Center)
+					.OnClicked(this, &SHLODOutliner::HandleBuildLODActors)
+					.IsEnabled(this, &SHLODOutliner::CanBuildLODActors)
+					.ToolTipText(this, &SHLODOutliner::GetBuildLODActorsTooltipText)
+					[
+						SNew( SHorizontalBox )
+						+ SHorizontalBox::Slot()
+						.VAlign(VAlign_Center)
+						.AutoWidth()
+						[
+							SNew(STextBlock)
+							.TextStyle(FEditorStyle::Get(), "ContentBrowser.TopBar.Font")
+							.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.11"))
+							.Text(FEditorFontGlyphs::Building)
+						]
+						+ SHorizontalBox::Slot()
+						.AutoWidth()
+						.VAlign(VAlign_Center)
+						.Padding(4, 0, 0, 0)
+						[
+							SNew( STextBlock )
+							.TextStyle( FEditorStyle::Get(), "ContentBrowser.TopBar.Font" )
+							.Text(this, &SHLODOutliner::GetBuildText)
+						]
+					]
+				]
+
+				+ SWrapBox::Slot()
+				.Padding(FMargin(2.0f))
+				[
+					SNew(SButton)
+					.ButtonStyle(FEditorStyle::Get(), "FlatButton.Danger")
+					.HAlign(HAlign_Center)
+					.OnClicked(this, &SHLODOutliner::HandleForceBuildLODActors)
+					.ToolTipText(LOCTEXT("BuildClustersAndMeshesToolTip", "Re-generates clusters and then proxy meshes for each of the generated clusters in the level. This dirties the level."))
+					[
+						SNew( SHorizontalBox )
+						+ SHorizontalBox::Slot()
+						.VAlign(VAlign_Center)
+						.AutoWidth()
+						[
+							SNew(STextBlock)
+							.TextStyle(FEditorStyle::Get(), "ContentBrowser.TopBar.Font")
+							.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.11"))
+							.Text(FEditorFontGlyphs::Recycle)
+						]
+						+ SHorizontalBox::Slot()
+						.AutoWidth()
+						.VAlign(VAlign_Center)
+						.Padding(4, 0, 0, 0)
+						[
+							SNew( STextBlock )
+							.TextStyle( FEditorStyle::Get(), "ContentBrowser.TopBar.Font" )
+							.Text(this, &SHLODOutliner::GetForceBuildText)
+						]
+					]
+				]
+
+				+ SWrapBox::Slot()
+				.Padding(FMargin(2.0f))
+				[
+					SNew(SButton)
+					.ButtonStyle(FEditorStyle::Get(), "FlatButton")
+					.HAlign(HAlign_Center)
+					.OnClicked(this, &SHLODOutliner::HandleSaveAll)
+					.ToolTipText(LOCTEXT("SaveAllToolTip", "Saves all external HLOD data: Meshes, materials etc."))
+					[
+						SNew( SHorizontalBox )
+						+ SHorizontalBox::Slot()
+						.VAlign(VAlign_Center)
+						.AutoWidth()
+						[
+							SNew(STextBlock)
+							.TextStyle(FEditorStyle::Get(), "ContentBrowser.TopBar.Font")
+							.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.11"))
+							.Text(FEditorFontGlyphs::Floppy_O)
+						]
+						+ SHorizontalBox::Slot()
+						.AutoWidth()
+						.VAlign(VAlign_Center)
+						.Padding(4, 0, 0, 0)
+						[
+							SNew( STextBlock )
+							.TextStyle( FEditorStyle::Get(), "ContentBrowser.TopBar.Font" )
+							.Text(LOCTEXT("SaveAll", "Save All"))
+						]
+					]
+				]
+
+				+ SWrapBox::Slot()
+				.Padding(FMargin(2.0f))
+				[
+					CreateForcedViewWidget()
+				]
+			];
+	}
+
+	TSharedRef<SWidget> SHLODOutliner::CreateClusterButtonWidgets()
 	{
 		return SNew(SVerticalBox)
 			+ SVerticalBox::Slot()
-			.Padding(FMargin(0.0f, 5.0f))
+			.Padding(FMargin(0.0f, 2.0f))
 			[
 				SNew(SHorizontalBox)
+
 				+ SHorizontalBox::Slot()
-				.AutoWidth()
+				.Padding(FMargin(2.0f))
 				.VAlign(VAlign_Center)
-				.Padding(FMargin(5.0f, 0.0f))
+				.AutoWidth()
 				[
 					SNew(SButton)
+					.ButtonStyle(FEditorStyle::Get(), "FlatButton")
 					.HAlign(HAlign_Center)
-					.Text(LOCTEXT("GenerateClusters", "Generate Clusters"))
 					.OnClicked(this, &SHLODOutliner::HandlePreviewHLODs)
-					.ToolTipText(LOCTEXT("GenerateClusterToolTip", "Generates Clusters (but not proxy meshes) for Meshes in the Level"))
+					.ToolTipText(LOCTEXT("GenerateClusterToolTip", "Generates clusters (but not proxy meshes) for meshes in the level"))
+					[
+						SNew( SHorizontalBox )
+						+ SHorizontalBox::Slot()
+						.VAlign(VAlign_Center)
+						.AutoWidth()
+						[
+							SNew(STextBlock)
+							.TextStyle(FEditorStyle::Get(), "ContentBrowser.TopBar.Font")
+							.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.11"))
+							.Text(FEditorFontGlyphs::List)
+						]
+						+ SHorizontalBox::Slot()
+						.AutoWidth()
+						.VAlign(VAlign_Center)
+						.Padding(4, 0, 0, 0)
+						[
+							SNew( STextBlock )
+							.TextStyle( FEditorStyle::Get(), "ContentBrowser.TopBar.Font" )
+							.Text(LOCTEXT("GenerateClusters", "Generate Clusters"))
+						]
+					]
 				]
 
 				+ SHorizontalBox::Slot()
-				.AutoWidth()
+				.Padding(FMargin(2.0f))
 				.VAlign(VAlign_Center)
-				.Padding(FMargin(5.0f, 0.0f))
+				.AutoWidth()
 				[
 					SNew(SButton)
+					.ButtonStyle(FEditorStyle::Get(), "FlatButton")
 					.HAlign(HAlign_Center)
-					.Text(LOCTEXT("DeleteClusters", "Delete Clusters"))
 					.OnClicked(this, &SHLODOutliner::HandleDeleteHLODs)
-					.ToolTipText(LOCTEXT("DeleteClusterToolTip", "Deletes all Clusters in the Level"))
+					.IsEnabled(this, &SHLODOutliner::CanDeleteHLODs)
+					.ToolTipText(LOCTEXT("DeleteClusterToolTip", "Deletes all clusters in the level"))
+					[
+						SNew( SHorizontalBox )
+						+ SHorizontalBox::Slot()
+						.VAlign(VAlign_Center)
+						.AutoWidth()
+						[
+							SNew(STextBlock)
+							.TextStyle(FEditorStyle::Get(), "ContentBrowser.TopBar.Font")
+							.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.11"))
+							.Text(FEditorFontGlyphs::Trash)
+						]
+						+ SHorizontalBox::Slot()
+						.AutoWidth()
+						.VAlign(VAlign_Center)
+						.Padding(4, 0, 0, 0)
+						[
+							SNew( STextBlock )
+							.TextStyle( FEditorStyle::Get(), "ContentBrowser.TopBar.Font" )
+							.Text(LOCTEXT("DeleteClusters", "Delete Clusters"))
+						]
+					]
 				]
-
-				+ SHorizontalBox::Slot()
-				.AutoWidth()
-				.VAlign(VAlign_Center)
-				.Padding(FMargin(5.0f, 0.0f))
-				[
-					SNew(SButton)
-					.HAlign(HAlign_Center)
-					.Text(LOCTEXT("BuildMeshes", "Generate Proxy Meshes"))
-					.OnClicked(this, &SHLODOutliner::HandleBuildLODActors)
-					.ToolTipText(LOCTEXT("GenerateProxyMeshesToolTip", "Generates Proxy Mesh for each Clusters in the Level"))
-				]
-			];	
+			];
 	}
 
-	TSharedRef<SWidget> SHLODOutliner::CreateTreeviewWidget()
+	TSharedRef<SHLODOutliner::SHLODTree> SHLODOutliner::CreateTreeviewWidget()
 	{
 		return SAssignNew(TreeView, SHLODTree)
 			.ItemHeight(24.0f)
@@ -288,32 +520,22 @@ namespace HLODOutliner
 			);
 	}
 
-	TSharedRef<SWidget> SHLODOutliner::CreateForcedViewSlider()
+	TSharedRef<SWidget> SHLODOutliner::CreateForcedViewWidget()
 	{
-		return SNew(SVerticalBox)
-			+ SVerticalBox::Slot()
-			.Padding(FMargin(0.0f, 5.0f))
-			[
-				SNew(SHorizontalBox)
-				+ SHorizontalBox::Slot()
-				.Padding(FMargin(5.0f, 0.0f))
-				.FillWidth(0.5f)
+		return SNew(SComboButton)
+				.ContentPadding(FMargin(4.0f, 2.0f))
+				.ForegroundColor(FLinearColor::White)
+				.ButtonStyle(FEditorStyle::Get(), "FlatButton")
+				.ComboButtonStyle(FEditorStyle::Get(), "ToolbarComboButton")
+				.HasDownArrow(true)
+				.OnGetMenuContent(this, &SHLODOutliner::GetForceLevelMenuContent)
+				.ToolTipText(LOCTEXT("ForcedLODButtonTooltip", "Choose the LOD level to view."))
+				.ButtonContent()
 				[
 					SNew(STextBlock)
+					.TextStyle(FEditorStyle::Get(), "ContentBrowser.TopBar.Font")
 					.Text(this, &SHLODOutliner::HandleForceLevelText)
-				]
-				+ SHorizontalBox::Slot()
-				.Padding(FMargin(5.0f, 0.0f))
-				.FillWidth(0.5f)
-				[
-					SNew(SSlider)
-					.OnValueChanged(this, &SHLODOutliner::HandleForcedLevelSliderValueChanged)
-					.OnMouseCaptureBegin(this, &SHLODOutliner::HandleForcedLevelSliderCaptureBegin)
-					.OnMouseCaptureEnd(this, &SHLODOutliner::HandleForcedLevelSliderCaptureEnd)
-					.Orientation(Orient_Horizontal)
-					.Value(this, &SHLODOutliner::HandleForcedLevelSliderValue)
-				]
-			];
+				];
 	}
 
 	void SHLODOutliner::CreateSettingsView()
@@ -341,9 +563,7 @@ namespace HLODOutliner
 			/** Delegate to show all properties */
 			static bool IsPropertyVisible(const FPropertyAndParent& PropertyAndParent, bool bInShouldShowNonEditable)
 			{
-				if (PropertyAndParent.Property.GetFName() == GET_MEMBER_NAME_CHECKED(FMeshMergingSettings, SpecificLOD)
-					|| PropertyAndParent.Property.GetFName() == GET_MEMBER_NAME_CHECKED(FMeshMergingSettings, LODSelectionType)
-					|| PropertyAndParent.Property.GetFName() == GET_MEMBER_NAME_CHECKED(AWorldSettings, bEnableHierarchicalLODSystem))
+				if (PropertyAndParent.Property.GetFName() == GET_MEMBER_NAME_CHECKED(AWorldSettings, bEnableHierarchicalLODSystem))
 				{
 					return false;
 				}
@@ -390,9 +610,9 @@ namespace HLODOutliner
 		for (AActor* Actor : SelectedLODActors)
 		{
 			const FBox BoundingBox = Actor->GetComponentsBoundingBox(true);		
-			DrawCircle(CurrentWorld, BoundingBox.GetCenter(), FVector(1, 0, 0), FVector(0, 1, 0), FColor::Red, BoundingBox.GetExtent().Size(), 32);
-			DrawCircle(CurrentWorld, BoundingBox.GetCenter(), FVector(1, 0, 0), FVector(0, 0, 1), FColor::Red, BoundingBox.GetExtent().Size(), 32);
-			DrawCircle(CurrentWorld, BoundingBox.GetCenter(), FVector(0, 1, 0), FVector(0, 0, 1), FColor::Red, BoundingBox.GetExtent().Size(), 32);
+			DrawCircle(CurrentWorld.Get(), BoundingBox.GetCenter(), FVector(1, 0, 0), FVector(0, 1, 0), FColor::Red, BoundingBox.GetExtent().Size(), 32);
+			DrawCircle(CurrentWorld.Get(), BoundingBox.GetCenter(), FVector(1, 0, 0), FVector(0, 0, 1), FColor::Red, BoundingBox.GetExtent().Size(), 32);
+			DrawCircle(CurrentWorld.Get(), BoundingBox.GetCenter(), FVector(0, 1, 0), FVector(0, 0, 1), FColor::Red, BoundingBox.GetExtent().Size(), 32);
 		}
 
 		bool bChangeMade = false;
@@ -433,25 +653,7 @@ namespace HLODOutliner
 			TreeView->RequestTreeRefresh();		
 		}			
 
-		// Update the forced LOD level, as the slider for it is being dragged
-		if (bForcedSliderValueUpdating)
-		{
-			// Snap values
-			int32 SnappedValue = FMath::RoundToInt(FMath::Min(ForcedLODSliderValue, 1.0f) * (float)LODLevelTransitionScreenSizes.Num());
-			if (SnappedValue - 1 != ForcedLODLevel)
-			{
-				RestoreForcedLODLevel(ForcedLODLevel);
-				ForcedLODLevel = -1;
-				SetForcedLODLevel(SnappedValue - 1);
-
-				// Invalidate viewport to make sure HLODs are visible while dragging
-				if (GEditor)
-				{
-					GEditor->GetActiveViewport()->Invalidate();
-				}				
-			}
-		}
-
+		bArrangeHorizontally = AllottedGeometry.Size.X > AllottedGeometry.Size.Y;
 	}
 
 	void SHLODOutliner::OnMouseEnter(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
@@ -484,9 +686,50 @@ namespace HLODOutliner
 		FullRefresh();
 	}
 
+	int32 SHLODOutliner::GetSpitterWidgetIndex() const
+	{
+		// Split vertically or horizontally based on dimensions
+		return bArrangeHorizontally ? 0 : 1;
+	}
+
+	bool SHLODOutliner::HasHLODActors() const
+	{
+		for(const TArray<TWeakObjectPtr<ALODActor>>& LODActorArray : LODLevelActors)
+		{
+			for(TWeakObjectPtr<ALODActor> LODActor : LODActorArray)
+			{
+				if(LODActor.IsValid())
+				{
+					return true;
+				}
+			}
+		}
+
+		return false;
+	}
+
+	EActiveTimerReturnType SHLODOutliner::UpdateNeedsBuildFlagTimer(double InCurrentTime, float InDeltaTime)
+	{
+		bCachedNeedsBuild = (CurrentWorld.IsValid() && CurrentWorld->HierarchicalLODBuilder && CurrentWorld->HierarchicalLODBuilder->NeedsBuild());
+
+		return EActiveTimerReturnType::Continue;
+	}
+
+	FText SHLODOutliner::GetBuildText() const
+	{
+		return GetDefault<UHierarchicalLODSettings>()->bInvalidateHLODClusters ? LOCTEXT("BuildMeshes", "Generate Proxy Meshes") : LOCTEXT("RebuildMeshes", "Re-generate Proxy Meshes");
+	}
+
+	FText SHLODOutliner::GetForceBuildText() const
+	{
+		return HasHLODActors() ? LOCTEXT("RebuildAllClustersAndMeshes", "Rebuild All") : LOCTEXT("BuildClustersAndMeshes", "Build");
+	}
+
 	FReply SHLODOutliner::HandleBuildHLODs()
 	{
-		if (CurrentWorld)
+		CloseOpenAssetEditors();
+
+		if (CurrentWorld.IsValid())
 		{
 			CurrentWorld->HierarchicalLODBuilder->Build();
 		}
@@ -499,7 +742,7 @@ namespace HLODOutliner
 
 	FReply SHLODOutliner::HandleDeleteHLODs()
 	{
-		if (CurrentWorld)
+		if (CurrentWorld.IsValid())
 		{
 			LODLevelActors.Empty();
 			CurrentWorld->HierarchicalLODBuilder->ClearHLODs();
@@ -512,9 +755,14 @@ namespace HLODOutliner
 		return FReply::Handled();
 	}
 
+	bool SHLODOutliner::CanDeleteHLODs() const
+	{
+		return HasHLODActors();
+	}
+
 	FReply SHLODOutliner::HandlePreviewHLODs()
 	{
-		if (CurrentWorld)
+		if (CurrentWorld.IsValid())
 		{
 			CurrentWorld->HierarchicalLODBuilder->PreviewBuild();
 		}
@@ -527,7 +775,7 @@ namespace HLODOutliner
 
 	FReply SHLODOutliner::HandleDeletePreviewHLODs()
 	{
-		if (CurrentWorld)
+		if (CurrentWorld.IsValid())
 		{
 			CurrentWorld->HierarchicalLODBuilder->ClearPreviewBuild();
 		}
@@ -537,12 +785,67 @@ namespace HLODOutliner
 
 	FReply SHLODOutliner::HandleBuildLODActors()
 	{
-		if (CurrentWorld)
+		if (CurrentWorld.IsValid())
+		{
+			auto Build = [this](bool bForce = true)
+			{
+				CloseOpenAssetEditors();
+
+				DestroySelectionActors();
+			
+				CurrentWorld->HierarchicalLODBuilder->BuildMeshesForLODActors(bForce);
+				SetForcedLODLevel(ForcedLODLevel);	
+			};
+
+			// Check if we have any dirty and pop a toast saying no rebuild needed (with optional force build).
+			if(!CurrentWorld->HierarchicalLODBuilder->NeedsBuild(true))
+			{
+				FNotificationInfo Info(LOCTEXT("NoLODActorsNeedBuilding", "No LOD actors need building."));
+				Info.ButtonDetails.Add(
+					FNotificationButtonInfo(
+						LOCTEXT("ForceBuildButtonLabel", "Force Build"), 
+						LOCTEXT("ForceBuildButtonTooltip", "Force a rebuild of all LOD actors."), 
+						FSimpleDelegate::CreateLambda(Build), SNotificationItem::CS_None));
+				Info.ExpireDuration = 6.0f;
+				FSlateNotificationManager::Get().AddNotification(Info);
+			}
+			else
+			{
+				Build(false);
+			}
+		}
+
+		FMessageLog("HLODResults").Open();		
+
+		return FReply::Handled();
+	}
+
+	bool SHLODOutliner::CanBuildLODActors() const
+	{
+		return HasHLODActors();
+	}
+
+	FText SHLODOutliner::GetBuildLODActorsTooltipText() const
+	{
+		return bCachedNeedsBuild ? LOCTEXT("GenerateProxyMeshesToolTip", "Generates a proxy mesh for each cluster in the level. This only dirties the generated mesh.") : LOCTEXT("GenerateProxyMeshesNoBuildNeededToolTip", "Generates a proxy mesh for each cluster in the level. This only dirties the generated mesh.\nCurrently no actors are dirty, so no build is necessary.");
+	}
+
+	FReply SHLODOutliner::HandleForceBuildLODActors()
+	{
+		CloseOpenAssetEditors();
+
+		if (CurrentWorld.IsValid())
 		{
 			DestroySelectionActors();
-			CurrentWorld->HierarchicalLODBuilder->BuildMeshesForLODActors(false);
-			SetForcedLODLevel(ForcedLODLevel);
+			LODLevelActors.Empty();
+			CurrentWorld->HierarchicalLODBuilder->ClearHLODs();
+			CurrentWorld->HierarchicalLODBuilder->PreviewBuild();
+			CurrentWorld->HierarchicalLODBuilder->BuildMeshesForLODActors(true);
 		}
+
+		SelectedLODActors.Empty();
+		ResetLODLevelForcing();
+		FullRefresh();
 
 		FMessageLog("HLODResults").Open();		
 
@@ -552,6 +855,16 @@ namespace HLODOutliner
 	FReply SHLODOutliner::HandleForceRefresh()
 	{
 		FullRefresh();
+
+		return FReply::Handled();
+	}
+
+	FReply SHLODOutliner::HandleSaveAll()
+	{
+		if (CurrentWorld.IsValid())
+		{		
+			CurrentWorld->HierarchicalLODBuilder->SaveMeshesForActors();
+		}
 
 		return FReply::Handled();
 	}
@@ -578,13 +891,14 @@ namespace HLODOutliner
 		// HLOD related events
 		GEditor->OnHLODActorMoved().AddSP(this, &SHLODOutliner::OnHLODActorMovedEvent);
 		GEditor->OnHLODActorAdded().AddSP(this, &SHLODOutliner::OnHLODActorAddedEvent);
-		GEditor->OnHLODActorMarkedDirty().AddSP(this, &SHLODOutliner::OnHLODActorMarkedDirtyEvent);
 		GEditor->OnHLODTransitionScreenSizeChanged().AddSP(this, &SHLODOutliner::OnHLODTransitionScreenSizeChangedEvent);
 		GEditor->OnHLODLevelsArrayChanged().AddSP(this, &SHLODOutliner::OnHLODLevelsArrayChangedEvent);
 		GEditor->OnHLODActorRemovedFromCluster().AddSP(this, &SHLODOutliner::OnHLODActorRemovedFromClusterEvent);
 
 		// Register to update when an undo/redo operation has been called to update our list of actors
 		GEditor->RegisterForUndo(this);
+
+		RegisterActiveTimer(0.1f, FWidgetActiveTimerDelegate::CreateSP(this, &SHLODOutliner::UpdateNeedsBuildFlagTimer));
 	}
 
 	void SHLODOutliner::DeregisterDelegates()
@@ -610,7 +924,6 @@ namespace HLODOutliner
 		{
 			GEditor->OnHLODActorMoved().RemoveAll(this);
 			GEditor->OnHLODActorAdded().RemoveAll(this);
-			GEditor->OnHLODActorMarkedDirty().RemoveAll(this);
 			GEditor->OnHLODLevelsArrayChanged().RemoveAll(this);
 			GEditor->OnHLODActorRemovedFromCluster().RemoveAll(this);
 
@@ -621,7 +934,7 @@ namespace HLODOutliner
 
 	void SHLODOutliner::ForceViewLODActor()
 	{
-		if (CurrentWorld)
+		if (CurrentWorld.IsValid())
 		{
 			const FScopedTransaction Transaction(LOCTEXT("UndoAction_LODLevelForcedView", "LOD Level Forced View"));
 
@@ -653,45 +966,60 @@ namespace HLODOutliner
 		return (LODLevelTransitionScreenSizes.Num() > 0 && bHLODsBuild);
 	}
 
-	void SHLODOutliner::HandleForcedLevelSliderValueChanged(float NewValue)
-	{
-		ForcedLODSliderValue = NewValue;					
-	}
-
-	void SHLODOutliner::HandleForcedLevelSliderCaptureBegin()
-	{
-		bForcedSliderValueUpdating = true;
-	}
-
-	void SHLODOutliner::HandleForcedLevelSliderCaptureEnd()
-	{	
-		bForcedSliderValueUpdating = false;		
-		ForcedLODSliderValue = ((1.0f / (LODLevelTransitionScreenSizes.Num())) * (ForcedLODLevel + 1));
-	}
-
-	float SHLODOutliner::HandleForcedLevelSliderValue() const
-	{
-		return ForcedLODSliderValue;
-	}
-
 	FText SHLODOutliner::HandleForceLevelText() const
 	{
-		return FText::FromString(FString("Forced viewing level: ") + ( (ForcedLODLevel == -1) ? FString("None") : FString::FromInt(ForcedLODLevel)));
+		return ForcedLODLevel == -1 ? LOCTEXT("AutoLOD", "LOD Auto") : FText::Format(LOCTEXT("LODLevelFormat", "LOD {0}"), FText::AsNumber(ForcedLODLevel));
 	}
 
-	bool SHLODOutliner::CanHLODLevelBeForced(const uint32 LODLevel) const
+	TSharedRef<SWidget> SHLODOutliner::GetForceLevelMenuContent() const
 	{
-		return LODLevelBuildFlags[LODLevel];
+		FMenuBuilder MenuBuilder(true, nullptr);
+
+		// Auto LOD
+		MenuBuilder.AddMenuEntry(
+			LOCTEXT("AutoLOD", "LOD Auto"),
+			LOCTEXT("AutoLODTooltip", "Determine LOD level automatically"),
+			FSlateIcon(),
+			FUIAction(
+				FExecuteAction::CreateSP(this, &SHLODOutliner::SetForcedLODLevel, -1), 
+				FCanExecuteAction(), 
+				FGetActionCheckState::CreateLambda([this](){ return ForcedLODLevel == -1 ? ECheckBoxState::Checked : ECheckBoxState::Unchecked; })),
+			NAME_None,
+			EUserInterfaceActionType::RadioButton);
+
+		if(LODLevelTransitionScreenSizes.Num() > 0)
+		{
+			MenuBuilder.BeginSection("ForcedLODLevels", LOCTEXT("ForcedLODLevel", "Forced LOD Level"));
+			{
+				// Entry for each LOD level
+				for(int32 LODIndex = 0; LODIndex < LODLevelTransitionScreenSizes.Num(); ++LODIndex)
+				{
+					MenuBuilder.AddMenuEntry(
+						FText::Format(LOCTEXT("LODLevelFormat", "LOD {0}"), FText::AsNumber(LODIndex)),
+						FText::Format(LOCTEXT("LODLevelTooltipFormat", "Force LOD to level {0}"), FText::AsNumber(LODIndex)),
+						FSlateIcon(),
+						FUIAction(
+							FExecuteAction::CreateSP(this, &SHLODOutliner::SetForcedLODLevel, LODIndex), 
+							FCanExecuteAction(), 
+							FGetActionCheckState::CreateLambda([this, LODIndex](){ return ForcedLODLevel == LODIndex ? ECheckBoxState::Checked : ECheckBoxState::Unchecked; })),
+						NAME_None,
+						EUserInterfaceActionType::RadioButton);
+				}
+			}
+			MenuBuilder.EndSection();
+		}
+
+		return MenuBuilder.MakeWidget();
 	}
 
-	void SHLODOutliner::RestoreForcedLODLevel(const uint32 LODLevel)
+	void SHLODOutliner::RestoreForcedLODLevel(int32 LODLevel)
 	{
 		if (LODLevel == -1)
 		{
 			return;
 		}
 
-		if (CurrentWorld)
+		if (CurrentWorld.IsValid())
 		{
 			for (auto LevelActors : LODLevelActors)
 			{
@@ -710,15 +1038,17 @@ namespace HLODOutliner
 		}
 	}
 
-	void SHLODOutliner::SetForcedLODLevel(const uint32 LODLevel)
+	void SHLODOutliner::SetForcedLODLevel(int32 LODLevel)
 	{
+		RestoreForcedLODLevel(ForcedLODLevel);
+
 		if (LODLevel == -1)
 		{
 			ForcedLODLevel = LODLevel;
 			return;
 		}
 
-		if (CurrentWorld)
+		if (CurrentWorld.IsValid())
 		{
 			auto Level = CurrentWorld->GetCurrentLevel();
 			for (auto LevelActors : LODLevelActors)
@@ -743,7 +1073,6 @@ namespace HLODOutliner
 	{
 		RestoreForcedLODLevel(ForcedLODLevel);
 		SetForcedLODLevel(-1);
-		ForcedLODSliderValue = 0.0f;
 	}
 
 	void SHLODOutliner::CreateHierarchicalVolumeForActor()
@@ -757,14 +1086,14 @@ namespace HLODOutliner
 			FLODActorItem* ActorItem = (FLODActorItem*)(SelectedItem.Get());
 			ALODActor* LODActor = ActorItem->LODActor.Get();
 
-			AHierarchicalLODVolume* Volume = HierarchicalLODUtilities->CreateVolumeForLODActor(LODActor, CurrentWorld);
+			AHierarchicalLODVolume* Volume = HierarchicalLODUtilities->CreateVolumeForLODActor(LODActor, CurrentWorld.Get());
 			check(Volume);
 		}		
 	}
 
 	void SHLODOutliner::BuildLODActor()
 	{
-		if (CurrentWorld)
+		if (CurrentWorld.IsValid())
 		{
 			// This call came from a context menu
 			auto SelectedItems = TreeView->GetSelectedItems();
@@ -781,7 +1110,7 @@ namespace HLODOutliner
 					if (Type == ITreeItem::HierarchicalLODLevel)
 					{
 						FLODLevelItem* LevelItem = (FLODLevelItem*)(Parent.Get());
-						if (ActorItem->LODActor->IsDirty())
+						if (!ActorItem->LODActor->IsBuilt(true))
 						{
 							CurrentWorld->HierarchicalLODBuilder->BuildMeshForLODActor(ActorItem->LODActor.Get(), LevelItem->LODLevelIndex);
 						}
@@ -799,8 +1128,10 @@ namespace HLODOutliner
 
 	void SHLODOutliner::RebuildLODActor()
 	{
-		if (CurrentWorld)
+		if (CurrentWorld.IsValid())
 		{
+			CloseOpenAssetEditors();
+
 			// This call came from a context menu
 			auto SelectedItems = TreeView->GetSelectedItems();
 
@@ -816,7 +1147,6 @@ namespace HLODOutliner
 					if (Type == ITreeItem::HierarchicalLODLevel)
 					{
 						FLODLevelItem* LevelItem = (FLODLevelItem*)(Parent.Get());
-						ActorItem->LODActor->SetIsDirty(true);
 						CurrentWorld->HierarchicalLODBuilder->BuildMeshForLODActor(ActorItem->LODActor.Get(), LevelItem->LODLevelIndex);
 					}
 				}
@@ -825,14 +1155,14 @@ namespace HLODOutliner
 			SetForcedLODLevel(ForcedLODLevel);
 			TreeView->RequestScrollIntoView(SelectedItems[0]);
 		}
-
+			
 		// Show message log if there was an HLOD message
 		FMessageLog("HLODResults").Open();
 	}
 
 	void SHLODOutliner::SelectLODActor()
 	{
-		if (CurrentWorld)
+		if (CurrentWorld.IsValid())
 		{
 			// This call came from a context menu
 			auto SelectedItems = TreeView->GetSelectedItems();
@@ -881,7 +1211,7 @@ namespace HLODOutliner
 
 	void SHLODOutliner::RemoveStaticMeshActorFromCluster()
 	{
-		if (CurrentWorld)
+		if (CurrentWorld.IsValid())
 		{
 			const FScopedTransaction Transaction(LOCTEXT("UndoAction_RemoveStaticMeshActorFromCluster", "Removed Static Mesh Actor From Cluster"));
 
@@ -923,7 +1253,7 @@ namespace HLODOutliner
 
 	void SHLODOutliner::RemoveLODActorFromCluster()
 	{
-		if (CurrentWorld)
+		if (CurrentWorld.IsValid())
 		{
 			// This call came from a context menu
 			auto SelectedItems = TreeView->GetSelectedItems();
@@ -951,7 +1281,7 @@ namespace HLODOutliner
 
 	void SHLODOutliner::CreateClusterFromActors(const TArray<AActor*>& Actors, uint32 LODLevelIndex)
 	{
-		HierarchicalLODUtilities->CreateNewClusterFromActors(CurrentWorld, CurrentWorldSettings, Actors, LODLevelIndex);
+		HierarchicalLODUtilities->CreateNewClusterFromActors(CurrentWorld.Get(), CurrentWorldSettings, Actors, LODLevelIndex);
 	}
 
 	void SHLODOutliner::SelectContainedActors()
@@ -978,7 +1308,7 @@ namespace HLODOutliner
 
 	void SHLODOutliner::UpdateDrawDistancesForLODLevel(const uint32 LODLevelIndex)
 	{
-		if (CurrentWorld)
+		if (CurrentWorld.IsValid())
 		{
 			// Loop over all (streaming-)levels in the world
 			for (ULevel* Level : CurrentWorld->GetLevels())
@@ -991,7 +1321,7 @@ namespace HLODOutliner
 					{
 						if (LODActor->LODLevel == LODLevelIndex + 1)
 						{
-							if (!LODActor->IsDirty() && LODActor->GetStaticMeshComponent())
+							if (LODActor->IsBuilt(true) && LODActor->GetStaticMeshComponent())
 							{
 								const float ScreenSize = LODActor->bOverrideTransitionScreenSize ? LODActor->TransitionScreenSize : LODLevelTransitionScreenSizes[LODLevelIndex];
 								LODActor->RecalculateDrawingDistance(ScreenSize);
@@ -1005,9 +1335,9 @@ namespace HLODOutliner
 
 	void SHLODOutliner::RemoveLODLevelActors(const int32 HLODLevelIndex)
 	{
-		if (CurrentWorld)
+		if (CurrentWorld.IsValid())
 		{
-			HierarchicalLODUtilities->DeleteLODActorsInHLODLevel(CurrentWorld, HLODLevelIndex);
+			HierarchicalLODUtilities->DeleteLODActorsInHLODLevel(CurrentWorld.Get(), HLODLevelIndex);
 		}
 	}
 
@@ -1016,7 +1346,7 @@ namespace HLODOutliner
 		TSharedRef<ITableRow> Widget = SNew(SHLODWidgetItem, OwnerTable)
 			.TreeItemToVisualize(InTreeItem)
 			.Outliner(this)
-			.World(CurrentWorld);
+			.World(CurrentWorld.Get());
 
 		return Widget;
 	}
@@ -1122,7 +1452,7 @@ namespace HLODOutliner
 
 	TSharedPtr<SWidget> SHLODOutliner::OnOpenContextMenu()
 	{
-		if (!CurrentWorld)
+		if (!CurrentWorld.IsValid())
 		{
 			return nullptr;
 		}
@@ -1303,7 +1633,7 @@ namespace HLODOutliner
 
 	void SHLODOutliner::OnLevelActorsAdded(AActor* InActor)
 	{
-		if (InActor->GetWorld() == CurrentWorld && !InActor->IsA<AWorldSettings>())
+		if (InActor->GetWorld() == CurrentWorld.Get() && !InActor->IsA<AWorldSettings>())
 		{
 			FullRefresh();
 		}	
@@ -1314,21 +1644,20 @@ namespace HLODOutliner
 		if (!InActor->IsA<AWorldSettings>())
 		{			
 			// Remove InActor from LOD actor which contains it
-			for (TArray<ALODActor*>& ActorArray : LODLevelActors)
+			for (TArray<TWeakObjectPtr<ALODActor>>& ActorArray : LODLevelActors)
 			{				
-				for (ALODActor* Actor : ActorArray)
+				for (TWeakObjectPtr<ALODActor> Actor : ActorArray)
 				{
 					// Check if actor is not null due to Destroy Actor
-					if (Actor)
+					if (Actor.IsValid())
 					{
-						checkf(Actor->IsValidLowLevel(), TEXT("Invalid LODActor found in ActorArray"));
 						Actor->CleanSubActorArray();
 						const bool bRemovedSubActor = Actor->RemoveSubActor(InActor);
 
 						if (bRemovedSubActor && Actor->SubActors.Num() == 0)
 						{
-							HierarchicalLODUtilities->DestroyCluster(Actor);
-							Actor->GetWorld()->DestroyActor(Actor);						
+							HierarchicalLODUtilities->DestroyCluster(Actor.Get());
+							Actor->GetWorld()->DestroyActor(Actor.Get());
 						}
 					}
 				}
@@ -1339,18 +1668,21 @@ namespace HLODOutliner
 	
 	void SHLODOutliner::OnMapChange(uint32 MapFlags)
 	{
+		CurrentWorld = nullptr;
 		ResetCachedData();
 		FullRefresh();
 	}
 
 	void SHLODOutliner::OnNewCurrentLevel()
 	{	
+		CurrentWorld = nullptr;
 		ResetCachedData();
 		FullRefresh();
 	}
 
 	void SHLODOutliner::OnMapLoaded(const FString& Filename, bool bAsTemplate)
 	{
+		CurrentWorld = nullptr;
 		ResetCachedData();
 		FullRefresh();
 	}
@@ -1391,8 +1723,7 @@ namespace HLODOutliner
 		if (ParentActor)
 		{
 			ParentActor->Modify();
-			ParentActor->SetIsDirty(true);
-		}		
+		}
 	}
 
 	void SHLODOutliner::OnHLODActorAddedEvent(const AActor* InActor, const AActor* ParentActor)
@@ -1435,18 +1766,13 @@ namespace HLODOutliner
 			}
 
 			// Set build flags according to whether or not this LOD actor is dirty 
-			LODLevelBuildFlags[ParentLODActor->LODLevel - 1] &= !ParentLODActor->IsDirty();
+			LODLevelBuildFlags[ParentLODActor->LODLevel - 1] &= ParentLODActor->IsBuilt(true);
 		}
-	}
-
-	void SHLODOutliner::OnHLODActorMarkedDirtyEvent(ALODActor* InActor)
-	{	
-		bool check = true;
 	}
 
 	void SHLODOutliner::OnHLODTransitionScreenSizeChangedEvent()
 	{
-		if (CurrentWorld)
+		if (CurrentWorld.IsValid())
 		{	
 			const TArray<struct FHierarchicalSimplification>& HierarchicalLODSetups = CurrentWorldSettings->GetHierarchicalLODSetup();
 			int32 MaxLODLevel = FMath::Min(HierarchicalLODSetups.Num(), LODLevelTransitionScreenSizes.Num());			
@@ -1463,7 +1789,7 @@ namespace HLODOutliner
 
 	void SHLODOutliner::OnHLODLevelsArrayChangedEvent()
 	{
-		if (CurrentWorld)
+		if (CurrentWorld.IsValid())
 		{
 			FullRefresh();
 		}
@@ -1502,7 +1828,7 @@ namespace HLODOutliner
 			}
 		}	
 
-		if (CurrentWorld)
+		if (CurrentWorld.IsValid())
 		{
 			// Retrieve current world settings
 			CurrentWorldSettings = CurrentWorld->GetWorldSettings();
@@ -1513,7 +1839,7 @@ namespace HLODOutliner
 		}
 		
 
-		return (CurrentWorld != nullptr);
+		return (CurrentWorld.IsValid());
 	}
 
 	void SHLODOutliner::Populate()
@@ -1527,7 +1853,8 @@ namespace HLODOutliner
 		{
 			// Iterate over all LOD levels (Number retrieved from world settings) and add Treeview items for them
 			const TArray<struct FHierarchicalSimplification>& HierarchicalLODSetups = CurrentWorldSettings->GetHierarchicalLODSetup();
-			const uint32 LODLevels = HierarchicalLODSetups.Num();			
+			const uint32 LODLevels = HierarchicalLODSetups.Num();
+			
 			auto AddHLODLevelItem = [&](const int32 HLODLevelIndex)
 			{
 				FTreeItemRef LevelItem = MakeShareable(new FLODLevelItem(HLODLevelIndex));
@@ -1613,7 +1940,7 @@ namespace HLODOutliner
 								}
 
 								// Set build flags according to whether or not this LOD actor is dirty 
-								LODLevelBuildFlags[LODActor->LODLevel - 1] &= !LODActor->IsDirty();
+								LODLevelBuildFlags[LODActor->LODLevel - 1] &= LODActor->IsBuilt(true);
 								// Add the actor to it's HLOD levels array
 								LODLevelActors[LODActor->LODLevel - 1].Add(LODActor);
 							}
@@ -1763,14 +2090,43 @@ namespace HLODOutliner
 				bHLODEnabled = CurrentWorldSettings->bEnableHierarchicalLODSystem;
 			}
 
-			if (bHLODEnabled && CurrentWorld != nullptr)
+			if (bHLODEnabled && CurrentWorld.IsValid())
 			{
-				bHLODEnabled = !HierarchicalLODUtilities->IsWorldUsedForStreaming(CurrentWorld);
+				bHLODEnabled = !HierarchicalLODUtilities->IsWorldUsedForStreaming(CurrentWorld.Get());
 			}
 		}	
 
 		return bHLODEnabled;
 	}
-};
+
+	void SHLODOutliner::CloseOpenAssetEditors()
+	{
+		// Close any asset editors that are looking at our data
+		if(CurrentWorld.IsValid())
+		{
+			for (ULevel* Level : CurrentWorld->GetLevels())
+			{
+				for (AActor* Actor : Level->Actors)
+				{
+					if (ALODActor* LODActor = Cast<ALODActor>(Actor))
+					{
+						if(UHLODProxy* Proxy = LODActor->GetProxy())
+						{
+							if(UPackage* HLODPackage = Proxy->GetOutermost())
+							{
+								TArray<UObject*> Objects;
+								GetObjectsWithOuter(HLODPackage, Objects);
+								for(UObject* PackageObject : Objects)
+								{
+									FAssetEditorManager::Get().CloseAllEditorsForAsset(PackageObject);
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
 
 #undef LOCTEXT_NAMESPACE

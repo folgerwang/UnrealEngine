@@ -15,7 +15,7 @@
 #include "Engine/BrushBuilder.h"
 #include "Settings/LevelEditorViewportSettings.h"
 #include "Engine/Brush.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "AI/NavigationSystemBase.h"
 #include "AssetData.h"
 #include "Editor/UnrealEdEngine.h"
 #include "Animation/AnimBlueprint.h"
@@ -563,6 +563,11 @@ static bool AttemptApplyObjToComponent(UObject* ObjToUse, USceneComponent* Compo
 				else
 				{
 					bResult = FComponentEditorUtils::AttemptApplyMaterialToComponent(ComponentToApplyTo, DroppedObjAsMaterial, TargetMaterialSlot);
+
+					if (bResult)
+					{
+						GEditor->OnSceneMaterialsModified();
+					}
 				}
 			}
 		}
@@ -2200,6 +2205,13 @@ void FLevelEditorViewportClient::UpdateViewForLockedActor(float DeltaTime)
 					}
 				}
 			}
+
+			const float DistanceToCurrentLookAt = FVector::Dist( GetViewLocation() , GetLookAtLocation() );
+
+			const FQuat CameraOrientation = FQuat::MakeFromEuler( GetViewRotation().Euler() );
+			FVector Direction = CameraOrientation.RotateVector( FVector(1,0,0) );
+
+			SetLookAtLocation( GetViewLocation() + Direction * DistanceToCurrentLookAt );
 		}
 	}
 }
@@ -3413,11 +3425,9 @@ void FLevelEditorViewportClient::ApplyDeltaToActors(const FVector& InDrag,
 				TInlineComponentArray<USceneComponent*> ComponentsToMove;
 				for (FSelectedEditableComponentIterator EditableComponentIt(GEditor->GetSelectedEditableComponentIterator()); EditableComponentIt; ++EditableComponentIt)
 				{
-					USceneComponent* SceneComponent = CastChecked<USceneComponent>(*EditableComponentIt);
-					if (SceneComponent)
+					USceneComponent* SelectedComponent = Cast<USceneComponent>(*EditableComponentIt);
+					if (SelectedComponent)
 					{
-						USceneComponent* SelectedComponent = Cast<USceneComponent>(*EditableComponentIt);
-
 						// Check to see if any parent is selected
 						bool bParentAlsoSelected = false;
 						USceneComponent* Parent = SelectedComponent->GetAttachParent();
@@ -4533,7 +4543,7 @@ void FLevelEditorViewportClient::SetCameraSpeedScalar(float SpeedScalar)
 bool FLevelEditorViewportClient::OverrideHighResScreenshotCaptureRegion(FIntRect& OutCaptureRegion)
 {
 	FSlateRect Rect;
-	if (CalculateEditorConstrainedViewRect(Rect, Viewport))
+	if (CalculateEditorConstrainedViewRect(Rect, Viewport, GetDPIScale()))
 	{
 		FSlateRect InnerRect = Rect.InsetBy(FMargin(0.5f * SafePadding * Rect.GetSize().Size()));
 		OutCaptureRegion = FIntRect((int32)InnerRect.Left, (int32)InnerRect.Top, (int32)(InnerRect.Left + InnerRect.GetSize().X), (int32)(InnerRect.Top + InnerRect.GetSize().Y));

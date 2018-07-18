@@ -3,18 +3,19 @@
 #pragma once
 
 #include "CoreTypes.h"
-#include "Misc/AssertionMacros.h"
-#include "Containers/UnrealString.h"
-#include "Templates/Function.h"
-#include "HAL/ThreadSafeCounter.h"
-#include "Stats/Stats.h"
-#include "Async/TaskGraphInterfaces.h"
-#include "HAL/Runnable.h"
-#include "Misc/IQueuedWork.h"
-#include "HAL/RunnableThread.h"
-#include "Misc/QueuedThreadPool.h"
-#include "Misc/CoreStats.h"
 #include "Async/Future.h"
+#include "Async/TaskGraphInterfaces.h"
+#include "Containers/UnrealString.h"
+#include "HAL/PlatformProcess.h"
+#include "HAL/Runnable.h"
+#include "HAL/RunnableThread.h"
+#include "HAL/ThreadSafeCounter.h"
+#include "Misc/AssertionMacros.h"
+#include "Misc/CoreStats.h"
+#include "Misc/IQueuedWork.h"
+#include "Misc/QueuedThreadPool.h"
+#include "Stats/Stats.h"
+#include "Templates/Function.h"
 
 /**
  * Enumerates available asynchronous execution methods.
@@ -182,7 +183,7 @@ public:
 
 public:
 
-	// FRunnable interface
+	//~ FRunnable interface
 
 	virtual uint32 Run() override;
 
@@ -221,7 +222,7 @@ public:
 
 public:
 
-	// IQueuedWork interface
+	//~ IQueuedWork interface
 
 	virtual void DoThreadedWork() override
 	{
@@ -316,6 +317,7 @@ TFuture<ResultType> Async(EAsyncExecution Execution, TFunction<ResultType()> Fun
 		break;
 	
 	case EAsyncExecution::Thread:
+		if (FPlatformProcess::SupportsMultithreading())
 		{
 			TPromise<FRunnableThread*> ThreadPromise;
 			TAsyncRunnable<ResultType>* Runnable = new TAsyncRunnable<ResultType>(MoveTemp(Function), MoveTemp(Promise), ThreadPromise.GetFuture());
@@ -326,6 +328,10 @@ TFuture<ResultType> Async(EAsyncExecution Execution, TFunction<ResultType()> Fun
 			check(RunnableThread != nullptr);
 
 			ThreadPromise.SetValue(RunnableThread);
+		}
+		else
+		{
+			SetPromise(Promise, Function);
 		}
 		break;
 
@@ -380,15 +386,22 @@ TFuture<ResultType> AsyncThread(TFunction<ResultType()> Function, uint32 StackSi
 	TPromise<ResultType> Promise(MoveTemp(CompletionCallback));
 	TFuture<ResultType> Future = Promise.GetFuture();
 
-	TPromise<FRunnableThread*> ThreadPromise;
-	TAsyncRunnable<ResultType>* Runnable = new TAsyncRunnable<ResultType>(MoveTemp(Function), MoveTemp(Promise), ThreadPromise.GetFuture());
+	if (FPlatformProcess::SupportsMultithreading())
+	{
+		TPromise<FRunnableThread*> ThreadPromise;
+		TAsyncRunnable<ResultType>* Runnable = new TAsyncRunnable<ResultType>(MoveTemp(Function), MoveTemp(Promise), ThreadPromise.GetFuture());
 
-	const FString TAsyncThreadName = FString::Printf(TEXT("TAsyncThread %d"), FAsyncThreadIndex::GetNext());
-	FRunnableThread* RunnableThread = FRunnableThread::Create(Runnable, *TAsyncThreadName, StackSize, ThreadPri);
+		const FString TAsyncThreadName = FString::Printf(TEXT("TAsyncThread %d"), FAsyncThreadIndex::GetNext());
+		FRunnableThread* RunnableThread = FRunnableThread::Create(Runnable, *TAsyncThreadName, StackSize, ThreadPri);
 
-	check(RunnableThread != nullptr);
+		check(RunnableThread != nullptr);
 
-	ThreadPromise.SetValue(RunnableThread);
+		ThreadPromise.SetValue(RunnableThread);
+	}
+	else
+	{
+		SetPromise(Promise, Function);
+	}
 
 	return MoveTemp(Future);
 }

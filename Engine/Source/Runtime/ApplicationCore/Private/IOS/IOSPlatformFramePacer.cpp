@@ -1,10 +1,11 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "IOSPlatformFramePacer.h"
+#include "IOS/IOSPlatformFramePacer.h"
 #include "Containers/Array.h"
-#include "ThreadingBase.h"
+#include "HAL/ThreadingBase.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Misc/Parse.h"
+#include "Misc/CommandLine.h"
 
 // Collection of events listening for this trigger.
 static TArray<FEvent*> ListeningEvents;
@@ -77,11 +78,25 @@ static NSMutableSet<FIOSFramePacerHandler>* Handlers = [NSMutableSet new];
 
 -(void)signal:(id)param
 {
+	// during shutdown, this can cause crashes (only non-backgrounding apps do this)
+	if (GIsRequestingExit)
+	{
+		return;
+	};
+
 	{
 		FScopeLock Lock(&HandlersMutex);
+		double OutputSeconds = 0;
+		double OutputDuration = 0;
+		if (!UE4_TARGET_PRE_IOS10)
+		{
+			CADisplayLink* displayLink = (CADisplayLink*)param;
+			OutputSeconds = displayLink.targetTimestamp;
+			OutputDuration = displayLink.duration;
+		}
 		for (FIOSFramePacerHandler Handler in Handlers)
 		{
-			Handler(0);
+			Handler(0, OutputSeconds, OutputDuration);
 		}
 	}	
     for( auto& NextEvent : ListeningEvents )
@@ -106,6 +121,7 @@ namespace IOSDisplayConstants
 
 uint32 FIOSPlatformRHIFramePacer::FrameInterval = 1;
 FIOSFramePacer* FIOSPlatformRHIFramePacer::FramePacer = nil;
+uint32 FIOSPlatformRHIFramePacer::Pace = 0;
 
 
 bool FIOSPlatformRHIFramePacer::IsEnabled()
@@ -120,17 +136,27 @@ bool FIOSPlatformRHIFramePacer::IsEnabled()
 
 		uint32 FrameRateLock = 60;
 		FParse::Value(*FrameRateLockAsEnum, TEXT("PUFRL_"), FrameRateLock);
-		if (FrameRateLock == 0)
-		{
-			FrameRateLock = 60;
-		}
 
-		if (!bIsRHIFramePacerEnabled)
+        const bool bOverridesFrameRate = FParse::Value( FCommandLine::Get(), TEXT( "FrameRateLock=" ), FrameRateLockAsEnum );
+        if (bOverridesFrameRate)
+        {
+            FParse::Value(*FrameRateLockAsEnum, TEXT("PUFRL_"), FrameRateLock);
+        }
+        
+        if (FrameRateLock == 0)
+        {
+            FrameRateLock = 60;
+        }
+
+        if (!bIsRHIFramePacerEnabled)
 		{
 			check((IOSDisplayConstants::MaxRefreshRate % FrameRateLock) == 0);
 			FrameInterval = IOSDisplayConstants::MaxRefreshRate / FrameRateLock;
 
 			bIsRHIFramePacerEnabled = (FrameInterval > 0);
+			
+			// remember the Pace if we are enabled
+			Pace = bIsRHIFramePacerEnabled ? FrameRateLock : 0;
 		}
 		bInitialized = true;
 	}

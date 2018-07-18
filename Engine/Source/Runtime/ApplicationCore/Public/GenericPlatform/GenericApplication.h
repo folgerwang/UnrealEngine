@@ -342,7 +342,11 @@ struct FMonitorInfo
  */
 struct FDisplayMetrics
 {
-	FDisplayMetrics() : TitleSafePaddingSize(0, 0, 0, 0), ActionSafePaddingSize(0, 0, 0, 0) { }
+	FDisplayMetrics()
+		: TitleSafePaddingSize(0, 0, 0, 0)
+		, ActionSafePaddingSize(0, 0, 0, 0)
+	{
+	}
 
 	/** Width of the primary display in pixels */
 	int32 PrimaryDisplayWidth;
@@ -359,7 +363,13 @@ struct FDisplayMetrics
 	/** Virtual display coordinate range (includes all active displays) */
 	FPlatformRect VirtualDisplayRect;
 
-	/** The safe area for all content on TVs (see http://en.wikipedia.org/wiki/Safe_area_%28television%29) - content will be inset TitleSafePaddingSize.X on left _and_ right */
+	/**
+	 * The safe area for all content on TVs (see http://en.wikipedia.org/wiki/Safe_area_%28television%29) - content will be inset 
+	 * Left - X
+	 * Top - Y
+	 * Right - Z
+	 * Bottom - W
+	 */
 	FVector4 TitleSafePaddingSize;
 
 	/** The safe area for less important spill over on TVs (see TitleSafePaddingSize) */
@@ -373,10 +383,9 @@ struct FDisplayMetrics
 	/** Logs out display metrics */
 	APPLICATIONCORE_API void PrintToLog() const;
 
-protected:
 	// The title safe zone ratio that will be returned by FDisplayMetrics::GetDisplayMetrics on platforms that don't have a defined safe zone
-	static float GetDebugTitleSafeZoneRatio();
-
+	APPLICATIONCORE_API static float GetDebugTitleSafeZoneRatio();
+protected:
 	// The action safe zone ratio that will be returned by FDisplayMetrics::GetDisplayMetrics on platforms that don't have a defined safe zone
 	static float GetDebugActionSafeZoneRatio();
 
@@ -518,6 +527,8 @@ public:
 	virtual void ShowSystemHelp() {}
 
 	virtual bool ApplicationLicenseValid(FPlatformUserId PlatformUser = PLATFORMUSERID_NONE) { return true; }
+
+	virtual bool IsAllowedToRender() const { return true; }
 
 public:
 

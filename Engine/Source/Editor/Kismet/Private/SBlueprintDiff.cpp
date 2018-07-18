@@ -12,7 +12,7 @@
 #include "EditorStyleSet.h"
 #include "Animation/AnimBlueprint.h"
 #include "K2Node_MathExpression.h"
-#include "BlueprintEditorUtils.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 #include "BlueprintEditorModes.h"
 #include "DetailsDiff.h"
 #include "EdGraphUtilities.h"
@@ -24,6 +24,8 @@
 #include "Framework/Commands/GenericCommands.h"
 #include "WidgetBlueprint.h"
 #include "HAL/PlatformApplicationMisc.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Toolkits/AssetEditorManager.h"
 
 #define LOCTEXT_NAMESPACE "SBlueprintDif"
 
@@ -697,8 +699,12 @@ void SBlueprintDiff::Construct( const FArguments& InArgs)
 
 	bLockViews = true;
 
-	TAttribute<FName> GetActiveMode(this, &SBlueprintDiff::GetCurrentMode);
-	FOnModeChangeRequested SetActiveMode = FOnModeChangeRequested::CreateRaw(this, &SBlueprintDiff::SetCurrentMode);
+	if (InArgs._ParentWindow.IsValid())
+	{
+		WeakParentWindow = InArgs._ParentWindow;
+
+		AssetEditorCloseDelegate = FAssetEditorManager::Get().OnAssetEditorRequestClose().AddSP(this, &SBlueprintDiff::OnCloseAssetEditor);
+	}
 
 	FToolBarBuilder ToolbarBuilder(TSharedPtr< const FUICommandList >(), FMultiBoxCustomization::None);
 	ToolbarBuilder.AddToolBarButton(
@@ -813,6 +819,28 @@ void SBlueprintDiff::Construct( const FArguments& InArgs)
 }
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
+SBlueprintDiff::~SBlueprintDiff()
+{
+	if (AssetEditorCloseDelegate.IsValid())
+	{
+		FAssetEditorManager::Get().OnAssetEditorRequestClose().Remove(AssetEditorCloseDelegate);
+	}
+}
+
+void SBlueprintDiff::OnCloseAssetEditor(UObject* Asset, EAssetEditorCloseReason CloseReason)
+{
+	if (PanelOld.Blueprint == Asset || PanelNew.Blueprint == Asset || CloseReason == EAssetEditorCloseReason::CloseAllAssetEditors)
+	{
+		// Tell our window to close and set our selves to collapsed to try and stop it from ticking
+		SetVisibility(EVisibility::Collapsed);
+
+		if (WeakParentWindow.IsValid())
+		{
+			WeakParentWindow.Pin()->RequestDestroyWindow();
+		}
+	}
+}
+
 TSharedRef<ITableRow> SBlueprintDiff::OnGenerateRow( FGraphToDiff ParamItem, const TSharedRef<STableViewBase>& OwnerTable )
 {
 	return	SNew( STableRow< FGraphToDiff >, OwnerTable )
@@ -869,6 +897,38 @@ TSharedRef<SWidget> SBlueprintDiff::DefaultEmptyPanel()
 			SNew(STextBlock)
 			.Text(LOCTEXT("BlueprintDifGraphsToolTip", "Select Graph to Diff"))
 		];
+}
+
+TSharedPtr<SWindow> SBlueprintDiff::CreateDiffWindow(FText WindowTitle, UBlueprint* OldBlueprint, UBlueprint* NewBlueprint, const struct FRevisionInfo& OldRevision, const struct FRevisionInfo& NewRevision)
+{
+	// sometimes we're comparing different revisions of one single asset (other 
+	// times we're comparing two completely separate assets altogether)
+	bool bIsSingleAsset = (NewBlueprint->GetName() == OldBlueprint->GetName());
+
+	TSharedPtr<SWindow> Window = SNew(SWindow)
+		.Title(WindowTitle)
+		.ClientSize(FVector2D(1000, 800));
+
+	Window->SetContent(SNew(SBlueprintDiff)
+		.BlueprintOld(OldBlueprint)
+		.BlueprintNew(NewBlueprint)
+		.OldRevision(OldRevision)
+		.NewRevision(NewRevision)
+		.ShowAssetNames(!bIsSingleAsset)
+		.ParentWindow(Window));
+
+	// Make this window a child of the modal window if we've been spawned while one is active.
+	TSharedPtr<SWindow> ActiveModal = FSlateApplication::Get().GetActiveModalWindow();
+	if (ActiveModal.IsValid())
+	{
+		FSlateApplication::Get().AddWindowAsNativeChild(Window.ToSharedRef(), ActiveModal.ToSharedRef());
+	}
+	else
+	{
+		FSlateApplication::Get().AddWindow(Window.ToSharedRef());
+	}
+
+	return Window;
 }
 
 void SBlueprintDiff::NextDiff()

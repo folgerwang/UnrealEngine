@@ -12,7 +12,7 @@
 #if PLATFORM_ANDROID
 #include "Android/AndroidJNI.h"
 #include "Android/AndroidEGL.h"
-#include "AndroidApplication.h"
+#include "Android/AndroidApplication.h"
 #endif
 
 namespace OculusHMD
@@ -23,8 +23,7 @@ namespace OculusHMD
 //-------------------------------------------------------------------------------------------------
 
 FCustomPresent::FCustomPresent(class FOculusHMD* InOculusHMD, ovrpRenderAPIType InRenderAPI, EPixelFormat InDefaultPixelFormat, bool bInSupportsSRGB, bool bInSupportsDepth)
-	: FRHICustomPresent(nullptr)
-	, OculusHMD(InOculusHMD)
+	: OculusHMD(InOculusHMD)
 	, RenderAPI(InRenderAPI)
 	, DefaultPixelFormat(InDefaultPixelFormat)
 	, bSupportsSRGB(bInSupportsSRGB)
@@ -72,20 +71,6 @@ void FCustomPresent::Shutdown()
 }
 
 
-void FCustomPresent::UpdateViewport(FRHIViewport* InViewportRHI)
-{
-	CheckInGameThread();
-
-	ViewportRHI = InViewportRHI;
-	ViewportRHI->SetCustomPresent(this);
-}
-
-
-void FCustomPresent::OnBackBufferResize()
-{
-}
-
-
 bool FCustomPresent::NeedsNativePresent()
 {
 	CheckInRenderThread();
@@ -100,6 +85,11 @@ bool FCustomPresent::NeedsNativePresent()
 		{
 			bNeedsNativePresent = Frame_RenderThread->Flags.bSpectatorScreenActive;
 		}
+	}
+
+	if (FPlatformMisc::IsStandaloneStereoOnlyDevice())
+	{
+		bNeedsNativePresent = false;
 	}
 
 	return bNeedsNativePresent;
@@ -121,6 +111,11 @@ bool FCustomPresent::Present(int32& SyncInterval)
 			bNeedsNativePresent = Frame_RHIThread->Flags.bSpectatorScreenActive;
 			FinishRendering_RHIThread();
 		}
+	}
+
+	if (FPlatformMisc::IsStandaloneStereoOnlyDevice())
+	{
+		bNeedsNativePresent = false;
 	}
 
 	if (bNeedsNativePresent)
@@ -268,6 +263,13 @@ bool FCustomPresent::IsSRGB(ovrpTextureFormat InFormat)
 	return false;
 }
 
+
+int FCustomPresent::GetSystemRecommendedMSAALevel() const
+{
+	int SystemRecommendedMSAALevel = 1;
+	ovrp_GetSystemRecommendedMSAALevel2(&SystemRecommendedMSAALevel);
+	return SystemRecommendedMSAALevel;
+}
 
 
 FTextureSetProxyPtr FCustomPresent::CreateTextureSetProxy_RenderThread(uint32 InSizeX, uint32 InSizeY, EPixelFormat InFormat, FClearValueBinding InBinding, uint32 InNumMips, uint32 InNumSamples, uint32 InNumSamplesTileMem, ERHIResourceType InResourceType, const TArray<ovrpTextureHandle>& InTextures, uint32 InTexCreateFlags)

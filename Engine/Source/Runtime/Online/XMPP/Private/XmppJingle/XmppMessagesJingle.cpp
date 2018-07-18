@@ -142,8 +142,7 @@ public:
 			return buzz::XMPP_RETURN_BADSTATE;
 		}
 
-		buzz::Jid ToJidFull(ToJid.node(), GetClient()->jid().domain(), ToJid.resource());
-		buzz::XmlElement* Stanza = MessageToStanza(ToJidFull, Message);
+		buzz::XmlElement* Stanza = MessageToStanza(ToJid, Message);
 		QueueStanza(Stanza);
 		delete Stanza;
 
@@ -265,24 +264,51 @@ static void DebugPrintMessage(const FXmppMessage& Message)
 	UE_LOG(LogXmpp, Log, TEXT("   Payload= %s"), *Message.Payload);
 }
 
-bool FXmppMessagesJingle::SendMessage(const FString& RecipientId, const FXmppMessage& Message)
+bool FXmppMessagesJingle::SendMessage(const FXmppUserJid& RecipientId, const FString& Type, const FString& Payload, bool bPayloadIsSerializedJson)
 {
 	bool bStarted = false;
 	if (Connection.GetLoginStatus() == EXmppLoginStatus::LoggedIn)
 	{
-		FString RecipientNode;
-		FString RecipientDomain;
-		RecipientId.Split(TEXT("@"), &RecipientNode, &RecipientDomain);
-
-		FXmppMessage FullMessage(Message);
-		FullMessage.FromJid = FXmppUserJid(RecipientNode, RecipientDomain);
+		if (!RecipientId.IsValid())
+		{
+			UE_LOG(LogXmpp, Warning, TEXT("Unable to send message. Invalid jid: %s"), *RecipientId.GetFullPath());
+			return false;
+		}
 
 		FXmppMessageJingle* NewMessage = new FXmppMessageJingle();
-		ConvertFromMessage(*NewMessage, FullMessage);
+		FXmppJingle::ConvertFromJid(NewMessage->ToJid, RecipientId);
+
+		FString Body;
+		auto JsonWriter = TJsonWriterFactory<TCHAR, TCondensedJsonPrintPolicy<TCHAR> >::Create(&Body);
+		JsonWriter->WriteObjectStart();
+		JsonWriter->WriteValue(TEXT("type"), Type);
+		if (bPayloadIsSerializedJson)
+		{
+			JsonWriter->WriteIdentifierPrefix(TEXT("payload"));
+			JsonWriter->WriteRawJSONValue(Payload);
+		}
+		else
+		{
+			JsonWriter->WriteValue(TEXT("payload"), Payload);
+		}
+		JsonWriter->WriteValue(TEXT("timestamp"), FDateTime::UtcNow().ToIso8601());
+		JsonWriter->WriteObjectEnd();
+		JsonWriter->Close();
+		NewMessage->Body = TCHAR_TO_UTF8(*Body);
+
 		bStarted = SendMessageQueue.Enqueue(NewMessage);
 		NumMessagesSent++;
 	}
 	return bStarted;
+}
+
+bool FXmppMessagesJingle::SendMessage(const FXmppUserJid& RecipientId, const FString& Type, const TSharedRef<class FJsonObject>& Payload)
+{
+	FString SerializedPayload;
+	auto JsonWriter = TJsonWriterFactory<TCHAR, TCondensedJsonPrintPolicy<TCHAR>>::Create(&SerializedPayload);
+	check(FJsonSerializer::Serialize(Payload, JsonWriter));
+
+	return SendMessage(RecipientId, Type, SerializedPayload, true);
 }
 
 bool FXmppMessagesJingle::Tick(float DeltaTime)

@@ -13,13 +13,17 @@ struct FWeakObjectPtr;
 
 #if !defined(_WIN32) || defined(_WIN64)
 	// Let delegates store up to 32 bytes which are 16-byte aligned before we heap allocate
-	typedef TAlignedBytes<16, 16> AlignedInlineDelegateType;
-	typedef TInlineAllocator<2> DelegateAllocatorType;
+	typedef TAlignedBytes<16, 16> FAlignedInlineDelegateType;
+	#if USE_SMALL_DELEGATES
+		typedef FHeapAllocator FDelegateAllocatorType;
+	#else
+		typedef TInlineAllocator<2> FDelegateAllocatorType;
+	#endif
 #else
 	// ... except on Win32, because we can't pass 16-byte aligned types by value, as some delegates are
 	// so we'll just keep it heap-allocated, which are always sufficiently aligned.
-	typedef TAlignedBytes<16, 8> AlignedInlineDelegateType;
-	typedef FHeapAllocator DelegateAllocatorType;
+	typedef TAlignedBytes<16, 8> FAlignedInlineDelegateType;
+	typedef FHeapAllocator FDelegateAllocatorType;
 #endif
 
 
@@ -101,7 +105,7 @@ public:
 	 *
 	 * @return The object associated with this delegate if there is one.
 	 */
-	inline class UObject* GetUObject( ) const
+	FORCEINLINE class UObject* GetUObject( ) const
 	{
 		if (IDelegateInstance* Ptr = GetDelegateInstanceProtected())
 		{
@@ -116,7 +120,7 @@ public:
 	 *
 	 * @return True if the user object is still valid and it's safe to execute the function call.
 	 */
-	inline bool IsBound( ) const
+	FORCEINLINE bool IsBound( ) const
 	{
 		IDelegateInstance* Ptr = GetDelegateInstanceProtected();
 
@@ -128,7 +132,7 @@ public:
 	 *
 	 * @return True if this delegate is bound to InUserObject, false otherwise.
 	 */
-	inline bool IsBoundToObject( void const* InUserObject ) const
+	FORCEINLINE bool IsBoundToObject( void const* InUserObject ) const
 	{
 		if (!InUserObject)
 		{
@@ -143,12 +147,12 @@ public:
 	/**
 	 * Unbinds this delegate
 	 */
-	inline void Unbind( )
+	FORCEINLINE void Unbind( )
 	{
 		if (IDelegateInstance* Ptr = GetDelegateInstanceProtected())
 		{
 			Ptr->~IDelegateInstance();
-			DelegateAllocator.ResizeAllocation(0, 0, sizeof(AlignedInlineDelegateType));
+			DelegateAllocator.ResizeAllocation(0, 0, sizeof(FAlignedInlineDelegateType));
 			DelegateSize = 0;
 		}
 	}
@@ -163,14 +167,14 @@ public:
 	FORCEINLINE IDelegateInstance* GetDelegateInstance( ) const
 	{
 		return GetDelegateInstanceProtected();
-	}
+	} 
 
 	/**
 	 * Gets a handle to the delegate.
 	 *
 	 * @return The delegate instance.
 	 */
-	inline FDelegateHandle GetHandle() const
+	FORCEINLINE FDelegateHandle GetHandle() const
 	{
 		FDelegateHandle Result;
 		if (IDelegateInstance* Ptr = GetDelegateInstanceProtected())
@@ -203,10 +207,10 @@ private:
 			CurrentInstance->~IDelegateInstance();
 		}
 
-		int32 NewDelegateSize = FMath::DivideAndRoundUp(Size, (int32)sizeof(AlignedInlineDelegateType));
+		int32 NewDelegateSize = FMath::DivideAndRoundUp(Size, (int32)sizeof(FAlignedInlineDelegateType));
 		if (DelegateSize != NewDelegateSize)
 		{
-			DelegateAllocator.ResizeAllocation(0, NewDelegateSize, sizeof(AlignedInlineDelegateType));
+			DelegateAllocator.ResizeAllocation(0, NewDelegateSize, sizeof(FAlignedInlineDelegateType));
 			DelegateSize = NewDelegateSize;
 		}
 
@@ -214,7 +218,7 @@ private:
 	}
 
 private:
-	DelegateAllocatorType::ForElementType<AlignedInlineDelegateType> DelegateAllocator;
+	FDelegateAllocatorType::ForElementType<FAlignedInlineDelegateType> DelegateAllocator;
 	int32 DelegateSize;
 };
 

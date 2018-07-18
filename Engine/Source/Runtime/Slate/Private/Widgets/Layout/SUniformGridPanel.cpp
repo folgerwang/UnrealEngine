@@ -4,7 +4,7 @@
 #include "Layout/LayoutUtils.h"
 
 SUniformGridPanel::SUniformGridPanel()
-: Children()
+: Children(this)
 {
 }
 

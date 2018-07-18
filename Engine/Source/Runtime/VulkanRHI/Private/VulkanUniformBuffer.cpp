@@ -6,6 +6,15 @@
 
 #include "VulkanRHIPrivate.h"
 
+enum
+{
+#if PLATFORM_DESKTOP
+	PackedUniformsRingBufferSize = 16 * 1024 * 1024,
+#else
+	PackedUniformsRingBufferSize = 8 * 1024 * 1024,
+#endif
+};
+
 #if 0
 const int NUM_SAFE_FRAMES = 5;
 static TArray<TRefCountPtr<FVulkanBuffer>> GUBPool[NUM_SAFE_FRAMES];
@@ -56,10 +65,11 @@ FVulkanUniformBuffer::FVulkanUniformBuffer(FVulkanDevice& Device, const FRHIUnif
 	: FRHIUniformBuffer(InLayout)
 	, FVulkanResourceMultiBuffer(&Device, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, InLayout.ConstantBufferSize, UniformBufferToBufferUsage(Usage), GEmptyCreateInfo)
 {
+#if VULKAN_ENABLE_AGGRESSIVE_STATS
 	SCOPE_CYCLE_COUNTER(STAT_VulkanUniformBufferCreateTime);
+#endif
 
 	// Verify the correctness of our thought pattern how the resources are delivered
-	//	- If ResourceOffset has an offset, we also have at least one resource
 	//	- If we have at least one resource, we also expect ResourceOffset to have an offset
 	//	- Meaning, there is always a uniform buffer with a size specified larged than 0 bytes
 	check(InLayout.Resources.Num() > 0 || InLayout.ConstantBufferSize > 0);
@@ -94,14 +104,18 @@ FVulkanUniformBuffer::FVulkanUniformBuffer(FVulkanDevice& Device, const FRHIUnif
 	}
 
 	// Transfer the resource table to an internal resource-array
-	FRHIResource** InResources = (FRHIResource**)((uint8*)Contents + InLayout.ResourceOffset);
 	ResourceTable.Empty(NumResources);
 	ResourceTable.AddZeroed(NumResources);
 	for(uint32 Index = 0; Index < NumResources; Index++)
 	{
-		FRHIResource* CurrResource = InResources[Index];
-		check(CurrResource);
-		ResourceTable[Index] = CurrResource;
+		FRHIResource* Resource = *(FRHIResource**)((uint8*)Contents + InLayout.ResourceOffsets[Index]);
+
+		// Allow null SRV's in uniform buffers for feature levels that don't support SRV's in shaders
+		if (!(GMaxRHIFeatureLevel <= ERHIFeatureLevel::ES3_1 && InLayout.Resources[Index] == UBMT_SRV))
+		{
+			checkf(Resource, TEXT("Invalid resource entry creating uniform buffer, %s.Resources[%u], ResourceType 0x%x."), *InLayout.GetDebugName().ToString(), Index, InLayout.Resources[Index]);
+		}
+		ResourceTable[Index] = Resource;
 	}
 }
 
@@ -116,98 +130,30 @@ FUniformBufferRHIRef FVulkanDynamicRHI::RHICreateUniformBuffer(const void* Conte
 	return new FVulkanUniformBuffer(*Device, Layout, Contents, Usage);
 }
 
-FVulkanPooledUniformBuffer::FVulkanPooledUniformBuffer(FVulkanDevice& InDevice, uint32 InSize)
-	: Buffer(InDevice, InSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, false, __FILE__, __LINE__)
-{
-}
 
-FVulkanPooledUniformBuffer::~FVulkanPooledUniformBuffer()
-{
-
-}
-
-FVulkanGlobalUniformPool::FVulkanGlobalUniformPool()
-{
-}
-
-FVulkanGlobalUniformPool::~FVulkanGlobalUniformPool()
-{
-	for (uint32 BucketIndex = 0; BucketIndex < NumPoolBuckets; BucketIndex++)
-	{
-		GlobalUniformBufferPool[BucketIndex].Empty();
-	}
-
-	const uint32 NumUsedBuckets = NumPoolBuckets * NumFrames;
-	for (uint32 UsedBucketIndex = 0; UsedBucketIndex < NumUsedBuckets; UsedBucketIndex++)
-	{
-		UsedGlobalUniformBuffers[UsedBucketIndex].Empty();
-	}
-}
-
-static FORCEINLINE uint32 GetPoolBucketSize(uint32 NumBytes)
-{
-	return FMath::RoundUpToPowerOfTwo(NumBytes);
-}
-
-void FVulkanGlobalUniformPool::BeginFrame()
-{
-	const uint32 CurrentFrameIndex = GFrameNumberRenderThread % NumFrames;
-
-	for (uint32 BucketIndex = 0; BucketIndex < NumPoolBuckets; BucketIndex++)
-	{
-		const uint32 UsedBucketIndex = CurrentFrameIndex * NumPoolBuckets + BucketIndex;
-
-		GlobalUniformBufferPool[BucketIndex].Append(UsedGlobalUniformBuffers[UsedBucketIndex]);
-		UsedGlobalUniformBuffers[UsedBucketIndex].Reset();
-	}
-}
-
-FPooledUniformBufferRef& FVulkanGlobalUniformPool::GetGlobalUniformBufferFromPool(FVulkanDevice& InDevice, uint32 InSize)
-{
-	const uint32 BucketIndex = GetPoolBucketIndex(InSize);
-	TArray<FPooledUniformBufferRef>& PoolBucket = GlobalUniformBufferPool[BucketIndex];
-
-	const uint32 BufferSize = GetPoolBucketSize(InSize);
-
-	int32 NewIndex = 0;
-	const uint32 CurrentFrameIndex = GFrameNumberRenderThread % NumFrames;
-	const uint32 UsedBucketIndex = CurrentFrameIndex * NumPoolBuckets + BucketIndex;
-	if (PoolBucket.Num() > 0)
-	{
-		NewIndex = UsedGlobalUniformBuffers[UsedBucketIndex].Add(PoolBucket.Pop());
-	}
-	else
-	{
-		NewIndex = UsedGlobalUniformBuffers[UsedBucketIndex].Add(new FVulkanPooledUniformBuffer(InDevice, BufferSize));
-	}
-
-	return UsedGlobalUniformBuffers[UsedBucketIndex][NewIndex];
-}
-
-
-FVulkanUniformBufferUploader::FVulkanUniformBufferUploader(FVulkanDevice* InDevice, uint64 TotalSize)
+FVulkanUniformBufferUploader::FVulkanUniformBufferUploader(FVulkanDevice* InDevice)
 	: VulkanRHI::FDeviceChild(InDevice)
 	, CPUBuffer(nullptr)
-	, GPUBuffer(nullptr)
 {
 	if (Device->HasUnifiedMemory())
 	{
-		CPUBuffer = new FVulkanRingBuffer(InDevice, VULKAN_UB_RING_BUFFER_SIZE, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-		GPUBuffer = CPUBuffer;
+		CPUBuffer = new FVulkanRingBuffer(InDevice, PackedUniformsRingBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	}
 	else
 	{
-		CPUBuffer = new FVulkanRingBuffer(InDevice, VULKAN_UB_RING_BUFFER_SIZE, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-		GPUBuffer = new FVulkanRingBuffer(InDevice, VULKAN_UB_RING_BUFFER_SIZE, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		if (FVulkanPlatform::SupportsDeviceLocalHostVisibleWithNoPenalty() &&
+			InDevice->GetMemoryManager().SupportsMemoryType(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT))
+		{
+			CPUBuffer = new FVulkanRingBuffer(InDevice, PackedUniformsRingBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+		}
+		else
+		{
+			CPUBuffer = new FVulkanRingBuffer(InDevice, PackedUniformsRingBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+		}
 	}
 }
 
 FVulkanUniformBufferUploader::~FVulkanUniformBufferUploader()
 {
-	if (!Device->HasUnifiedMemory())
-	{
-		delete GPUBuffer;
-	}
-
 	delete CPUBuffer;
 }

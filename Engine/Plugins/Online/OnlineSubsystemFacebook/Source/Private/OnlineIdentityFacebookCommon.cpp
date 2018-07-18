@@ -1,7 +1,11 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineIdentityFacebookCommon.h"
+#if USES_RESTFUL_FACEBOOK
+#include "OnlineIdentityFacebookRest.h"
+#else // USES_RESTFUL_FACEBOOK
 #include "OnlineIdentityFacebook.h"
+#endif // USES_RESTFUL_FACEBOOK
 #include "OnlineSubsystemFacebookPrivate.h"
 #include "OnlineSubsystemFacebookTypes.h"
 #include "HttpModule.h"
@@ -17,6 +21,8 @@ FOnlineIdentityFacebookCommon::FOnlineIdentityFacebookCommon(FOnlineSubsystemFac
 		UE_LOG(LogOnline, Warning, TEXT("Missing MeURL= in [OnlineSubsystemFacebook.OnlineIdentityFacebook] of DefaultEngine.ini"));
 	}
 
+	MeURL.ReplaceInline(TEXT("`ver"), *InSubsystem->GetAPIVer());
+
 	// Setup permission scope fields
 	GConfig->GetArray(TEXT("OnlineSubsystemFacebook.OnlineIdentityFacebook"), TEXT("ProfileFields"), ProfileFields, GEngineIni);
 	// Add a few basic fields
@@ -29,7 +35,7 @@ FOnlineIdentityFacebookCommon::FOnlineIdentityFacebookCommon(FOnlineSubsystemFac
 
 const FUniqueNetId& FOnlineIdentityFacebookCommon::GetEmptyUniqueId()
 {
-	static TSharedRef<const FUniqueNetIdString> EmptyUniqueId = MakeShared<const FUniqueNetIdString>(FString());
+	static TSharedRef<const FUniqueNetIdFacebook> EmptyUniqueId = MakeShared<const FUniqueNetIdFacebook>(FString());
 	return *EmptyUniqueId;
 }
 
@@ -205,14 +211,14 @@ TSharedPtr<const FUniqueNetId> FOnlineIdentityFacebookCommon::CreateUniquePlayer
 	if (Bytes != nullptr && Size > 0)
 	{
 		FString StrId(Size, (TCHAR*)Bytes);
-		return MakeShareable(new FUniqueNetIdString(StrId));
+		return MakeShareable(new FUniqueNetIdFacebook(StrId));
 	}
 	return nullptr;
 }
 
 TSharedPtr<const FUniqueNetId> FOnlineIdentityFacebookCommon::CreateUniquePlayerId(const FString& Str)
 {
-	return MakeShareable(new FUniqueNetIdString(Str));
+	return MakeShareable(new FUniqueNetIdFacebook(Str));
 }
 
 bool FOnlineIdentityFacebookCommon::AutoLogin(int32 LocalUserNum)
@@ -308,6 +314,6 @@ FPlatformUserId FOnlineIdentityFacebookCommon::GetPlatformUserIdFromUniqueNetId(
 
 FString FOnlineIdentityFacebookCommon::GetAuthType() const
 {
-	return TEXT("facebook");
+	return AUTH_TYPE_FACEBOOK;
 }
 

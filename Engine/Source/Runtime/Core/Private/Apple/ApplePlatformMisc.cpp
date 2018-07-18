@@ -4,9 +4,9 @@
 	ApplePlatformMisc.mm: iOS implementations of misc functions
 =============================================================================*/
 
-#include "ApplePlatformMisc.h"
-#include "ExceptionHandling.h"
-#include "SecureHash.h"
+#include "Apple/ApplePlatformMisc.h"
+#include "HAL/ExceptionHandling.h"
+#include "Misc/SecureHash.h"
 #include "Misc/CommandLine.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Misc/Guid.h"
@@ -22,7 +22,7 @@ void FApplePlatformMisc::GetEnvironmentVariable(const TCHAR* VariableName, TCHAR
 	ANSICHAR *AnsiResult = getenv(TCHAR_TO_ANSI(*FixedVariableName));
 	if (AnsiResult)
 	{
-		wcsncpy(Result, ANSI_TO_TCHAR(AnsiResult), ResultLength);
+		FCString::Strncpy(Result, ANSI_TO_TCHAR(AnsiResult), ResultLength);
 	}
 	else
 	{

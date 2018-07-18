@@ -12,24 +12,24 @@
 
 /** The uniform shader parameters associated with a primitive. */
 BEGIN_UNIFORM_BUFFER_STRUCT(FPrimitiveUniformShaderParameters,ENGINE_API)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FMatrix,LocalToWorld)		// always needed
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FMatrix,WorldToLocal)		// rarely needed
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector4,ObjectWorldPositionAndRadius)	// needed by some materials
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector,ObjectBounds)		// only needed for editor/development
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EX(float,LocalToWorldDeterminantSign,EShaderPrecisionModifier::Half)	// could be stored in the sign bit of the object radius
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector,ActorWorldPosition)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EX(float,DecalReceiverMask,EShaderPrecisionModifier::Half)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EX(float,PerObjectGBufferData,EShaderPrecisionModifier::Half)		// 0..1, 2 bits, bDistanceFieldRepresentation, bHeightfieldRepresentation
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EX(float,UseSingleSampleShadowFromStationaryLights,EShaderPrecisionModifier::Half)	
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EX(float,UseVolumetricLightmapShadowFromStationaryLights,EShaderPrecisionModifier::Half)		
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EX(float,UseEditorDepthTest,EShaderPrecisionModifier::Half)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EX(FVector4,ObjectOrientation,EShaderPrecisionModifier::Half)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EX(FVector4,NonUniformScale,EShaderPrecisionModifier::Half)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EX(FVector4,InvNonUniformScale,EShaderPrecisionModifier::Half)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector, LocalObjectBoundsMin)		// This is used in a custom material function (ObjectLocalBounds.uasset)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(FVector, LocalObjectBoundsMax)		// This is used in a custom material function (ObjectLocalBounds.uasset)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(uint32,LightingChannelMask)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER(float,LpvBiasMultiplier)
+	UNIFORM_MEMBER(FMatrix,LocalToWorld)		// always needed
+	UNIFORM_MEMBER(FMatrix,WorldToLocal)		// rarely needed
+	UNIFORM_MEMBER(FVector4,ObjectWorldPositionAndRadius)	// needed by some materials
+	UNIFORM_MEMBER(FVector,ObjectBounds)		// only needed for editor/development
+	UNIFORM_MEMBER_EX(float,LocalToWorldDeterminantSign,EShaderPrecisionModifier::Half)	// could be stored in the sign bit of the object radius
+	UNIFORM_MEMBER(FVector,ActorWorldPosition)
+	UNIFORM_MEMBER_EX(float,DecalReceiverMask,EShaderPrecisionModifier::Half)
+	UNIFORM_MEMBER_EX(float,PerObjectGBufferData,EShaderPrecisionModifier::Half)		// 0..1, 2 bits, bDistanceFieldRepresentation, bHeightfieldRepresentation
+	UNIFORM_MEMBER_EX(float,UseSingleSampleShadowFromStationaryLights,EShaderPrecisionModifier::Half)	
+	UNIFORM_MEMBER_EX(float,UseVolumetricLightmapShadowFromStationaryLights,EShaderPrecisionModifier::Half)		
+	UNIFORM_MEMBER_EX(float,UseEditorDepthTest,EShaderPrecisionModifier::Half)
+	UNIFORM_MEMBER_EX(FVector4,ObjectOrientation,EShaderPrecisionModifier::Half)
+	UNIFORM_MEMBER_EX(FVector4,NonUniformScale,EShaderPrecisionModifier::Half)
+	UNIFORM_MEMBER_EX(FVector4,InvNonUniformScale,EShaderPrecisionModifier::Half)
+	UNIFORM_MEMBER(FVector, LocalObjectBoundsMin)		// This is used in a custom material function (ObjectLocalBounds.uasset)
+	UNIFORM_MEMBER(FVector, LocalObjectBoundsMax)		// This is used in a custom material function (ObjectLocalBounds.uasset)
+	UNIFORM_MEMBER(uint32,LightingChannelMask)
+	UNIFORM_MEMBER(float,LpvBiasMultiplier)
 END_UNIFORM_BUFFER_STRUCT(FPrimitiveUniformShaderParameters)
 
 /** Initializes the primitive uniform shader parameters. */

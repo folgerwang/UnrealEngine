@@ -16,12 +16,12 @@
 #include "Kismet/KismetArrayLibrary.h" // for Array_Get()
 #include "SPinTypeSelector.h"
 #include "ScopedTransaction.h"
-#include "MultiBoxBuilder.h" // for FMenuBuilder
+#include "Framework/MultiBox/MultiBoxBuilder.h" // for FMenuBuilder
 #include "BlueprintActionFilter.h"
-#include "SNotificationList.h" // for FNotificationInfo
-#include "NotificationManager.h"
-#include "BlueprintEditorUtils.h" // for MarkBlueprintAsModified()
-#include "CoreStyle.h"
+#include "Widgets/Notifications/SNotificationList.h" // for FNotificationInfo
+#include "Framework/Notifications/NotificationManager.h"
+#include "Kismet2/BlueprintEditorUtils.h" // for MarkBlueprintAsModified()
+#include "Styling/CoreStyle.h"
 
 
 #define LOCTEXT_NAMESPACE "GetArrayItem"

@@ -12,7 +12,7 @@
 extern PyTypeObject PyWrapperArrayType;
 
 /** Initialize the PyWrapperArray types and add them to the given Python module */
-void InitializePyWrapperArray(PyObject* PyModule);
+void InitializePyWrapperArray(PyGenUtil::FNativePythonModule& ModuleInfo);
 
 /** Type for all UE4 exposed array instances */
 struct FPyWrapperArray : public FPyWrapperBase
@@ -45,10 +45,10 @@ struct FPyWrapperArray : public FPyWrapperBase
 	static bool ValidateInternalState(FPyWrapperArray* InSelf);
 
 	/** Cast the given Python object to this wrapped type (returns a new reference) */
-	static FPyWrapperArray* CastPyObject(PyObject* InPyObject);
+	static FPyWrapperArray* CastPyObject(PyObject* InPyObject, FPyConversionResult* OutCastResult = nullptr);
 
 	/** Cast the given Python object to this wrapped type, or attempt to convert the type into a new wrapped instance (returns a new reference) */
-	static FPyWrapperArray* CastPyObject(PyObject* InPyObject, PyTypeObject* InType, const PyUtil::FPropertyDef& InElementDef);
+	static FPyWrapperArray* CastPyObject(PyObject* InPyObject, PyTypeObject* InType, const PyUtil::FPropertyDef& InElementDef, FPyConversionResult* OutCastResult = nullptr);
 
 	/** Get the length of this container (equivalent to 'len(x)' in Python) */
 	static Py_ssize_t Len(FPyWrapperArray* InSelf);
@@ -109,9 +109,14 @@ struct FPyWrapperArray : public FPyWrapperBase
 /** Meta-data for all UE4 exposed array types */
 struct FPyWrapperArrayMetaData : public FPyWrapperBaseMetaData
 {
-	PY_OVERRIDE_GETSET_METADATA(FPyWrapperArrayMetaData)
+	PY_METADATA_METHODS(FPyWrapperArrayMetaData, FGuid(0xFCD8DF06, 0x7AD6426F, 0x97482D82, 0x6E100C39))
 
-	FPyWrapperArrayMetaData();
+	FPyWrapperArrayMetaData()
+	{
+	}
+
+	/** Add object references from the given Python object to the given collector */
+	virtual void AddReferencedObjects(FPyWrapperBase* Instance, FReferenceCollector& Collector) override;
 };
 
 typedef TPyPtr<FPyWrapperArray> FPyWrapperArrayPtr;

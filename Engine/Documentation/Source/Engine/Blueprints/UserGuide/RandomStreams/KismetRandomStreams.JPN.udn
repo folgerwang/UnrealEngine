@@ -1,5 +1,4 @@
-﻿INTSourceChangelist:3244370
-Availability:Public
+﻿Availability:Public
 Title:Random Stream
 Crumbs: %ROOT%, Engine, Engine/Blueprints, Engine/Blueprints/UserGuide
 Description:Random Stream の説明とブループリントにおける使用方法
@@ -7,45 +6,7 @@ version:4.9
 Parent:Engine/Blueprints
 type:overview
 tags:Blueprints
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Blueprints/UserGuide/RandomStreams:title%](Engine\Blueprints\UserGuide\random_stream.png)
-	[/PARAM]
-	[PARAM:icon]
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Blueprints/UserGuide/RandomStreams:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Blueprints/UserGuide/RandomStreams:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Blueprints/UserGuide/RandomStreams]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Blueprints/UserGuide/RandomStreams:title%](Engine\Blueprints\UserGuide\random_stream.png)
-	[/PARAM]
-	[PARAM:icon]
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Blueprints/UserGuide/RandomStreams:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Blueprints/UserGuide/RandomStreams:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Blueprints/UserGuide/RandomStreams]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
+topic-image:Engine/Blueprints/UserGuide/random_stream.png
 
 
 [TOC (start:2)]

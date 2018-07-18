@@ -18,6 +18,9 @@ namespace ELoadingPhase
 		/** Loaded before the engine is fully initialized, immediately after the config system has been initialized.  Necessary only for very low-level hooks */
 		PostConfigInit,
 
+		/** Loaded before coreUObject for setting up manual loading screens, used for our chunk patching system */
+		PreEarlyLoadingScreen,
+
 		/** Loaded before the engine is fully initialized for modules that need to hook into the loading screen before it triggers */
 		PreLoadingScreen,
 
@@ -122,6 +125,12 @@ struct PROJECTS_API FModuleDescriptor
 	/** List of disallowed targets */
 	TArray<FString> BlacklistTargets;
 
+	/** List of allowed target configurations */
+	TArray<FString> WhitelistTargetConfigurations;
+
+	/** List of disallowed target configurations */
+	TArray<FString> BlacklistTargetConfigurations;
+
 	/** List of additional dependencies for building this module. */
 	TArray<FString> AdditionalDependencies;
 
@@ -149,6 +158,21 @@ struct PROJECTS_API FModuleDescriptor
 	/** Loads all the modules for a given loading phase. Returns a map of module names to load errors */
 	static void LoadModulesForPhase(ELoadingPhase::Type LoadingPhase, const TArray<FModuleDescriptor>& Modules, TMap<FName, EModuleLoadResult>& ModuleLoadErrors);
 
+#if !IS_MONOLITHIC
 	/** Checks that all modules are compatible with the current engine version. Returns false and appends a list of names to OutIncompatibleFiles if not. */
-	static bool CheckModuleCompatibility(const TArray<FModuleDescriptor>& Modules, bool bGameModules, TArray<FString>& OutIncompatibleFiles);
+	static bool CheckModuleCompatibility(const TArray<FModuleDescriptor>& Modules, TArray<FString>& OutIncompatibleFiles);
+#endif
+};
+
+/** Context information used when validating that source code is being placed in the correct place for a given module */
+struct FModuleContextInfo
+{
+	/** Path to the Source folder of the module */
+	FString ModuleSourcePath;
+
+	/** Name of the module */
+	FString ModuleName;
+
+	/** Type of this module, eg, Runtime, Editor, etc */
+	EHostType::Type ModuleType;
 };

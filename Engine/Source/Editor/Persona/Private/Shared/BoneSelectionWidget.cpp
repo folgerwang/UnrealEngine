@@ -76,6 +76,11 @@ void SBoneTreeMenu::Construct(const FArguments& InArgs)
 	];
 }
 
+TSharedPtr<SWidget> SBoneTreeMenu::GetFilterTextWidget()
+{
+	return FilterTextWidget;
+}
+
 TSharedRef<ITableRow> SBoneTreeMenu::MakeTreeRowWidget(TSharedPtr<FBoneNameInfo> InInfo, const TSharedRef<STableViewBase>& OwnerTable)
 {
 	return SNew(STableRow<TSharedPtr<FBoneNameInfo>>, OwnerTable)
@@ -262,7 +267,7 @@ TSharedRef<SWidget> SBoneSelectionWidget::CreateSkeletonWidgetMenu()
 		.bShowSocket(bShowSocket)
 		.SelectedBone(CurrentBoneName);
 
-	BonePickerButton->SetMenuContentWidgetToFocus(MenuWidget->FilterTextWidget);
+	BonePickerButton->SetMenuContentWidgetToFocus(MenuWidget->GetFilterTextWidget());
 
 	return MenuWidget;
 }

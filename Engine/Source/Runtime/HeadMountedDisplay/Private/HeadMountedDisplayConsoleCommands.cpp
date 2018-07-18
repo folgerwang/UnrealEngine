@@ -421,7 +421,7 @@ static void HMDVersion(const TArray<FString>& Args, UWorld*, FOutputDevice& Ar)
 {
 	if (GEngine && GEngine->XRSystem.IsValid())
 	{
-		Ar.Logf(*GEngine->XRSystem->GetVersionString());
+		Ar.Log(*GEngine->XRSystem->GetVersionString());
 	}
 }
 

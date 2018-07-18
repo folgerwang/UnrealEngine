@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2283500
+﻿INTSourceChangelist:3599948
 Availability:Docs
 Title:クラッシュレポートの設定
 Crumbs:%ROOT%, Engine
@@ -11,7 +11,7 @@ Description:アンリアル エンジン 4 のクラッシュレポート イン
 
 ユーザーは CrashReport ツールを単一の Web アプリケーションとして使用しますが、このツール自体は動作に必要となるいくつかの構成要素から成ります。エンジンがクラッシュすると、「AutoReporter.exe」 を呼び出します。このプログラムは、すべてのクラッシュデータを収集して 「http://AutoReportService」へ送信します。この Web サービスによって、レポートは CrashReport Database に登録され、その後ログおよびダンプファイルを 「http://AutoReportFiles,」 にアップロードします。これは、ファイルを単に保存し、後でレビューするときにファイルを供給するためのものです。 
 
-##要件
+## 要件
 
 * Visual Studio 2008
 * 内部ウェブサーバー 
@@ -52,7 +52,7 @@ Description:アンリアル エンジン 4 のクラッシュレポート イン
 
 #### http://CrashReport.yourdomain.com
 
-* IIS Manager を開きます。
+* IIS Manager を開きます
 * [Application Pools] を **右クリック** して -> [Add Application pool]  
 	![](AddApplicationPool.JPG)
     * 名前:CrashReport 
@@ -63,37 +63,37 @@ Description:アンリアル エンジン 4 のクラッシュレポート イン
     * サイト名:CrashReport
     * Application Pool:CrashReport  
 		![](AddSiteWizard.JPG)
-    * 物理パス：'<Web Root>/CrashReport' を共有します。  
+    * 物理パス：'<Web Root>/CrashReport' を共有します  
 		![](AddSiteCreateDirectory.JPG)
 * シンプルな配置とするために、 '<Web Root>/CrashReport' をローカルネットワークと共有します。
     * IIS から ウェブサイト名を **右クリック** して、 -> [Explore] を選択します。
-    * [フォルダ] を **右クリック** して [プロパティ] をクリックします。
-        * Permissions (許可) を自由に設定します。ただし、少なくともサイトアクセスをデプロイしているユーザーを許可します。
-        * **[OK]** をクリックして、後のデプロイのためにファイルパスを記憶しておきます。
+    * [フォルダ] を **右クリック** して [プロパティ] をクリックします
+        * Permissions (許可) を自由に設定します。ただし、少なくともサイトアクセスをデプロイしているユーザーを許可します
+        * **[OK]** をクリックして、後のデプロイのためにファイルパスを記憶させます
 
 
 #### http://AutoReportService.yourdomain.com
 
-* IIS Manager を開きます。
+* IIS Manager を開きます
 * [Application Pools] を **右クリック** して -> [Add Application pool]
     * 名前:AutoReportService
     * .Net Framework のバージョン:バージョン 2.0 以上
 * [サイト] を **右クリック** して -> [ウェブサイトを追加]
     * サイト名:AutoReportService
     * Application Pool:AutoReportService
-    * 物理パス: <Web Root>/AutoReportService
-* File System に、Web ルート外のログファイル用フォルダを作成します。
+    * 物理パス: `<Web Root>/AutoReportService`
+* File System に、Web ルート外のログファイル用フォルダを作成します
     * 例 C:\AutoReportLog\
-* シンプルな配置とするために、 <Web Root>/AutoReportService をローカルネットワークと共有します。
-    * IIS から ウェブサイト名を **右クリック** して、 [Explore] を選択します。
-    * [フォルダ] を **右クリック** して [プロパティ] をクリックします。
-        * Permissions (許可) を自由に設定します。ただし、少なくともサイトアクセスをデプロイしているユーザーを許可します。
-        * **[OK]** をクリックして、後のデプロイのためにファイルパスを記憶しておきます。
+* シンプルな配置とするために、`<Web Root>/AutoReportService` をローカルネットワークと共有します
+    * IIS から ウェブサイト名を **右クリック** して、 [Explore] を選択します
+    * [フォルダ] を **右クリック** して [プロパティ] をクリックします
+        * Permissions (許可) を自由に設定します。ただし、少なくともサイトアクセスをデプロイしているユーザーを許可します
+        * **[OK]** をクリックして、後のデプロイのためにファイルパスを記憶させます
 
 
 #### http://AutoReportFiles.yourdomain.com
 
-* IIS Manager を開きます。
+* IIS Manager を開きます
 * [Application Pools] を **右クリック** して -> [Add Application pool]
     * 名前:AutoReportFiles
     * .Net Framework のバージョン:バージョン 2.0 以上
@@ -101,16 +101,16 @@ Description:アンリアル エンジン 4 のクラッシュレポート イン
     * サイト名:AutoReportFiles
     * Application Pool:AutoReportFiles
     * 物理パス: `<Web Root>/AutoReportFiles`
-* ReportFiles に対して Directory (ディレクトリ) を作成します。
+* ReportFiles に対して Directory (ディレクトリ) を作成します
 * `<Web Root>/AutoReportFiles/ReportFiles/`
-* ログとダンプファイルに [MIME Types] を追加します。
-    * [AutoReportFiles Site] を選択します。
-    * [MIME Types] を **ダブルクリック** します。
-    * 右上隅の [追加] をクリックします。
+* ログとダンプファイルに [MIME Types] を追加します
+    * [AutoReportFiles Site] を選択します
+    * [MIME Types] を **ダブルクリック** します
+    * 右上隅の [追加] をクリックします
         * ファイル名の拡張子: ".log"
         * MIME type: "application/octet-stream"  
 			![](AddMimeTypes.JPG)
-    * 再び [追加] をクリックします。
+    * 再び [追加] をクリックします
         * ファイル名の拡張子: ".dmp"
         * MIME type: "application/octet-stream"
 
@@ -121,33 +121,33 @@ Description:アンリアル エンジン 4 のクラッシュレポート イン
 
 ### http://CrashReport.yourdomain.com
 
-* 「Web.config」を編集します。
-    * <connectionStrings> 配下に置かれた、 `<add name="CrashReportConnectionString"` で始まる行を検索します。
-    * [Connection Settings] から [Data Source]、[User ID] そして [パスワード] を編集します。
-* [Settings.settings] （または [Properties->settings]） を編集します。
+* 「Web.config」を編集します
+    * `<connectionStrings>` 配下に置かれた、 `<add name="CrashReportConnectionString"` で始まる行を検索します
+    * [Connection Settings] から [Data Source]、[User ID] そして [パスワード] を編集します
+* [Settings.settings] （または [Properties->settings]） を編集します
     * http://AutoReportFiles.yourdomain.com のために作成した URL を書き留めて、ここにその URL を入力します。
-* サイトを発行します。
+* サイトを発行します
     * [CrashReport Project] を **右クリック** して、 -> [Publish]  
 		![](PublishProject.JPG)
-    * 正しい設定であることを確認してください。  
+    * 正しい設定であることを確認してください  
 		![](PublishProjectWizard.JPG)
     * **[OK]** をクリックしてください。
 
 
 ### http://AutoReportService.yourdomain.com
 
-* 「Web.Config」を編集します。
-    * <add key="LogFileName" value= で開始する行を編集します。
-        * ウェブサーバーで、「AutoReportLog」ディレクトリのパスに値を設定します。
-    * <add key="SaveFilesPath" で開始する行を編集します。
-        * ウェブサーバーで、「AutoReportLog」ディレクトリのパスに値を設定します。
+* 「Web.Config」を編集します
+    * <add key="LogFileName" value= で開始する行を編集します
+        * ウェブサーバーで、「AutoReportLog」ディレクトリのパスに値を設定します
+    * <add key="SaveFilesPath" で開始する行を編集します
+        * ウェブサーバーで、「AutoReportLog」ディレクトリのパスに値を設定します
         * 例 `<Web Root>/AutoReportFiles/ReportFiles/`
-    * 「Crash Report Web.Config」から Connection String (接続文字列) をコピーします。 
-        * あるいは、現在の接続文字列を編集して、サーバーおよび認証設定に適合させます。
+    * 「Crash Report Web.Config」から Connection String (接続文字列) をコピーします 
+        * あるいは、現在の接続文字列を編集して、サーバーおよび認証設定に適合させます
         * これが必要な理由は、プロジェクトが Crash Report dll を使用してファイルを更新するものの、自身の接続文字列を渡すのはその実行時になるためです。  
-* サイトを発行します。
+* サイトを発行します
     * プロジェクト名を **右クリック** して、-> [Publish]
-    * 正しい設定であることを確認してください。
+    * 正しい設定であることを確認してください
     * **[OK]** をクリックしてください。
 
 
@@ -168,7 +168,7 @@ Description:アンリアル エンジン 4 のクラッシュレポート イン
 このウェブサイトは、ファイルを収集表示するだけのシンプルなサイトです。クラッシュを加えてから、当該 URL を訪れ、クリックするとログおよびダンプファイルのダウンロードが確認できれば、このサイトは正しく動作しています。
 
 
-## テスト
+## テスティング
 
 ### http://CrashReport.yourdomain.com
 
@@ -198,8 +198,8 @@ Description:アンリアル エンジン 4 のクラッシュレポート イン
 #### Bugg を作成する
 
 * 別のクラッシュを作成します。
-    * 上記の手順を繰り返します。
-* 「http://CrashReport.yourdomain.com/Buggs」へアクセスします。
-    * ここから Bugg が 1 つ確認できるはずです。 
-        * その ID をクリックすると、新たなスクリーンが現れ、作成したばかりの 2 つのテストクラッシュがリスト表示されます。
+    * 上記の手順を繰り返します
+* 「http://CrashReport.yourdomain.com/Buggs」へアクセスします
+    * ここから Bugg が 1 つ確認できるはずです 
+        * その ID をクリックすると、新たなスクリーンが現れ、作成したばかりの 2 つのテストクラッシュがリスト表示されます
 

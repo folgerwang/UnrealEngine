@@ -209,7 +209,7 @@ void FD3D11DynamicRHI::ResolveTextureUsingShader(
 * @param bKeepOriginalSurface - true if the original surface will still be used after this function so must remain valid
 * @param ResolveParams - optional resolve params
 */
-void FD3D11DynamicRHI::RHICopyToResolveTarget(FTextureRHIParamRef SourceTextureRHI, FTextureRHIParamRef DestTextureRHI, bool bKeepOriginalSurface, const FResolveParams& ResolveParams)
+void FD3D11DynamicRHI::RHICopyToResolveTarget(FTextureRHIParamRef SourceTextureRHI, FTextureRHIParamRef DestTextureRHI, const FResolveParams& ResolveParams)
 {
 	if (!SourceTextureRHI || !DestTextureRHI)
 	{
@@ -292,9 +292,9 @@ void FD3D11DynamicRHI::RHICopyToResolveTarget(FTextureRHIParamRef SourceTextureR
 				{
 					Direct3DDeviceIMContext->ResolveSubresource(
 						DestTexture2D->GetResource(),
-						0,
+						ResolveParams.DestArrayIndex,
 						SourceTexture2D->GetResource(),
-						0,
+						ResolveParams.SourceArrayIndex,
 						Fmt
 						);
 				}
@@ -311,7 +311,7 @@ void FD3D11DynamicRHI::RHICopyToResolveTarget(FTextureRHIParamRef SourceTextureR
 						SrcBox.bottom = ResolveParams.Rect.Y2;
 						SrcBox.back = 1;
 
-						Direct3DDeviceIMContext->CopySubresourceRegion(DestTexture2D->GetResource(), 0, ResolveParams.Rect.X1, ResolveParams.Rect.Y1, 0, SourceTexture2D->GetResource(), 0, &SrcBox);
+						Direct3DDeviceIMContext->CopySubresourceRegion(DestTexture2D->GetResource(), ResolveParams.DestArrayIndex, ResolveParams.DestRect.X1, ResolveParams.DestRect.Y1, 0, SourceTexture2D->GetResource(), ResolveParams.SourceArrayIndex, &SrcBox);
 					}
 					else
 					{

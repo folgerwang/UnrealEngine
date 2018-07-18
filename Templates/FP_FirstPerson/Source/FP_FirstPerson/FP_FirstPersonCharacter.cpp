@@ -97,11 +97,11 @@ void AFP_FirstPersonCharacter::OnFire()
 	}
 
 	// Try and play a firing animation if specified
-	if(FireAnimation != NULL)
+	if (FireAnimation != NULL)
 	{
 		// Get the animation object for the arms mesh
 		UAnimInstance* AnimInstance = Mesh1P->GetAnimInstance();
-		if(AnimInstance != NULL)
+		if (AnimInstance != NULL)
 		{
 			AnimInstance->Montage_Play(FireAnimation, 1.f);
 		}
@@ -110,17 +110,15 @@ void AFP_FirstPersonCharacter::OnFire()
 	// Now send a trace from the end of our gun to see if we should hit anything
 	APlayerController* PlayerController = Cast<APlayerController>(GetController());
 	
-	// Calculate the direction of fire and the start location for trace
-	FVector CamLoc;
-	FRotator CamRot;
-	PlayerController->GetPlayerViewPoint(CamLoc, CamRot);
-	const FVector ShootDir = CamRot.Vector();
-
+	FVector ShootDir = FVector::ZeroVector;
 	FVector StartTrace = FVector::ZeroVector;
+
 	if (PlayerController)
 	{
-		FRotator UnusedRot;
-		PlayerController->GetPlayerViewPoint(StartTrace, UnusedRot);
+		// Calculate the direction of fire and the start location for trace
+		FRotator CamRot;
+		PlayerController->GetPlayerViewPoint(StartTrace, CamRot);
+		ShootDir = CamRot.Vector();
 
 		// Adjust trace so there is nothing blocking the ray between the camera and the pawn, and calculate distance from adjusted start
 		StartTrace = StartTrace + ShootDir * ((GetActorLocation() - StartTrace) | ShootDir);
@@ -139,7 +137,7 @@ void AFP_FirstPersonCharacter::OnFire()
 	// If we hit an actor, with a component that is simulating physics, apply an impulse
 	if ((DamagedActor != NULL) && (DamagedActor != this) && (DamagedComponent != NULL) && DamagedComponent->IsSimulatingPhysics())
 	{
-		DamagedComponent->AddImpulseAtLocation(ShootDir*WeaponDamage, Impact.Location);
+		DamagedComponent->AddImpulseAtLocation(ShootDir * WeaponDamage, Impact.Location);
 	}
 }
 

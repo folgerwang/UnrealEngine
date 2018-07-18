@@ -1,12 +1,12 @@
-﻿INTSourceChangelist:3275206
+﻿INTSourceChangelist:3807090
 Availability:Public
 Title:コンタクト シャドウ
 Crumbs: 
-Description:UE4 のコンタクト シャドウの概要
+Description:UE4 のコンタクト シャドウの概要です。
 Version:4.14
 Parent:Engine/Rendering/LightingAndShadows
 Order:6
-Tags: Rendering
+Tags:Rendering
 Type:Reference
 reference-image:ContactShadow.gif
 Related:Engine/Rendering/LightingAndShadows/LightTypes/Point
@@ -17,7 +17,7 @@ topic-image:ContactShadow_Topic.png
 ![](ContactShadow_Banner.png)
 
 アプリケーション用にシーンとキャラクターを作成する時、 
-視覚的な深度をレンダリングに追加したい場合があります。**コンタクト シャドウ**は、シャドウイングの近似値がより正確になり、 
+視覚的な深度をレンダリングに追加したい場合があります。**コンタクト シャドウ** は、シャドウイングの近似値がより正確になり、 
 他のシャドウイング アルゴリズムでは実現不可能な輪郭シャドウの追加が可能になるので、 
 シーンの視覚的な深度と忠実度を向上させたい場合に最適です。
 
@@ -77,7 +77,7 @@ topic-image:ContactShadow_Topic.png
 1.	次に、拡張の矢印をクリックして、新規作成した Point Light コンポーネントの **[Details (詳細)]** パネルの **[Light]** セクションを展開します。
 
 	[REGION:lightbox]
-	[![](CastShadows_Step2.png)(w:360 h:640)](CastShadows_Step2.png)
+	[![](CastShadows_Step2.png)(w:360)](CastShadows_Step2.png)
 	[/REGION]
 
 	[REGION:caption]
@@ -87,7 +87,7 @@ topic-image:ContactShadow_Topic.png
 1.	コンタクト シャドウを有効にするには、**[Contact Shadow Length (コンタクト シャドウの長さ)]** を 0 より大きい値に設定します。
 
 	[REGION:lightbox]
-	[![](CastShadows_Step3.png)(w:360 h:640)](CastShadows_Step3.png)
+	[![](CastShadows_Step3.png)(w:360)](CastShadows_Step3.png)
 	[/REGION]
 
 	[REGION:caption]

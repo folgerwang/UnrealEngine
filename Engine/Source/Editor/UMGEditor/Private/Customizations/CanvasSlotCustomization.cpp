@@ -321,6 +321,9 @@ void FCanvasSlotCustomization::CustomizeAnchors(TSharedPtr<IPropertyHandle> Prop
 
 	const float FillDividePadding = 1;
 
+	FInputChord ShiftKey(EKeys::Invalid, true, false, false, false);
+	FInputChord CtrlKey(EKeys::Invalid, false, true, false, false);
+
 	AnchorsPropertyRow.CustomWidget(/*bShowChildren*/ true)
 		.NameContent()
 		[
@@ -477,14 +480,13 @@ void FCanvasSlotCustomization::CustomizeAnchors(TSharedPtr<IPropertyHandle> Prop
 								.AutoHeight()
 								[
 									SNew(STextBlock)
-									.Text(LOCTEXT("ShiftResetsAlignment", "Hold [Shift] to update the alignment to match."))
+									.Text(FText::Format(LOCTEXT("ShiftResetsAlignment", "Hold {0} to update the alignment to match."), ShiftKey.GetInputText()))
 								]
-
 								+ SVerticalBox::Slot()
 								.AutoHeight()
 								[
 									SNew(STextBlock)
-									.Text(LOCTEXT("ControlResetsPosition", "Hold [Control] to update the position to match."))
+									.Text(FText::Format(LOCTEXT("ControlResetsPosition", "Hold {0} to update the position to match."), CtrlKey.GetInputText()))
 								]
 							]
 						]

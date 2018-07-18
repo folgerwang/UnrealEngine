@@ -21,22 +21,16 @@ const uint16 GCubeIndices[12*3] =
 	1, 7, 5,
 };
 
-/** X=127.5, Y=127.5, Z=1/127.5f, W=-1.0 */
-const VectorRegister GVectorPackingConstants = MakeVectorRegister( 127.5f, 127.5f, 1.0f/127.5f, -1.0f );
-
-/** Zero Normal **/
-FPackedNormal FPackedNormal::ZeroNormal(127, 127, 127, 127);
-
 //
 // FPackedNormal serializer
 //
-FArchive& operator<<(FArchive& Ar,FPackedNormal& N)
+FArchive& operator<<(FArchive& Ar, FDeprecatedSerializedPackedNormal& N)
 {
 	Ar << N.Vector.Packed;
 	return Ar;
 }
 
-FArchive& operator<<(FArchive& Ar, FPackedRGB10A2N& N)
+FArchive& operator<<(FArchive& Ar, FPackedNormal& N)
 {
 	Ar << N.Vector.Packed;
 	return Ar;

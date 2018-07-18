@@ -94,5 +94,5 @@ void CopyCubeDepthPS(
 	float3 CubeCoordinates = GetCubemapVector(ScaledUVs, Input.FaceIndex);
 
 	OutColor = 0;
-	OutDepth = TextureCubeSampleLevel(ShadowDepthCubeTexture, ShadowDepthSampler, CubeCoordinates, 0).x;
+	OutDepth = TextureCubeSampleDepthLevel(ShadowDepthCubeTexture, ShadowDepthSampler, CubeCoordinates, 0);
 }

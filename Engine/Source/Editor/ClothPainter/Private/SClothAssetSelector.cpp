@@ -1,31 +1,32 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SClothAssetSelector.h"
-#include "SExpandableArea.h"
-#include "SBoxPanel.h"
+#include "Widgets/Layout/SExpandableArea.h"
+#include "Widgets/SBoxPanel.h"
 #include "EditorStyleSet.h"
 #include "DetailLayoutBuilder.h"
-#include "SButton.h"
-#include "SImage.h"
-#include "ClothingAsset.h"
-#include "MultiBoxBuilder.h"
-#include "SCheckBox.h"
-#include "SInlineEditableTextBlock.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Images/SImage.h"
+#include "Assets/ClothingAsset.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "Widgets/Text/SInlineEditableTextBlock.h"
 #include "Engine/SkeletalMesh.h"
 #include "ApexClothingUtils.h"
-#include "UObjectIterator.h"
+#include "UObject/UObjectIterator.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "ComponentReregisterContext.h"
-#include "MessageDialog.h"
+#include "Misc/MessageDialog.h"
 #include "ClothingSystemEditorInterfaceModule.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "ClothingAssetFactoryInterface.h"
-#include "ClothingMeshUtils.h"
+#include "Utils/ClothingMeshUtils.h"
 #include "ClothingAssetListCommands.h"
-#include "GenericCommands.h"
+#include "Framework/Commands/GenericCommands.h"
 #include "Rendering/SkeletalMeshModel.h"
 #include "ScopedTransaction.h"
 #include "Editor.h"
+#include "SCopyVertexColorSettingsPanel.h"
 
 #define LOCTEXT_NAMESPACE "ClothAssetSelector"
 
@@ -355,10 +356,11 @@ public:
 
 	SLATE_END_ARGS()
 
-	void Construct(const FArguments& InArgs, const TSharedRef<STableViewBase>& InOwnerTable, TSharedPtr<FClothingMaskListItem> InItem)
+	void Construct(const FArguments& InArgs, const TSharedRef<STableViewBase>& InOwnerTable, TSharedPtr<FClothingMaskListItem> InItem, TSharedPtr<SClothAssetSelector> InAssetSelector )
 	{
 		OnInvalidateList = InArgs._OnInvalidateList;
 		Item = InItem;
+		AssetSelectorPtr = InAssetSelector;
 
 		BindCommands();
 
@@ -442,6 +444,7 @@ public:
 				{
 					Builder.AddSubMenu(LOCTEXT("MaskActions_SetTarget", "Set Target"), LOCTEXT("MaskActions_SetTarget_Tooltip", "Choose the target for this mask"), FNewMenuDelegate::CreateSP(this, &SMaskListRow::BuildTargetSubmenu));
 					Builder.AddMenuEntry(FGenericCommands::Get().Delete);
+					Builder.AddSubMenu(LOCTEXT("MaskActions_CopyFromVertexColor", "Copy From Vertex Color"), LOCTEXT("MaskActions_CopyFromVertexColor_Tooltip", "Replace this mask with values from vertex color channel on sim mesh"), FNewMenuDelegate::CreateSP(this, &SMaskListRow::BuildCopyVertexColorSubmenu));
 				}
 				Builder.EndSection();
 
@@ -505,25 +508,25 @@ private:
 			FScopedTransaction CurrTransaction(LOCTEXT("DeleteMask_Transaction", "Delete clothing parameter mask."));
 			Item->ClothingAsset->Modify();
 
-			if(FClothLODData* LodData = GetCurrentLod())
+		if(FClothLODData* LodData = GetCurrentLod())
+		{
+			if(LodData->ParameterMasks.IsValidIndex(Item->MaskIndex))
 			{
-				if(LodData->ParameterMasks.IsValidIndex(Item->MaskIndex))
+				LodData->ParameterMasks.RemoveAt(Item->MaskIndex);
+
+				// We've removed a mask, so it will need to be applied to the clothing data
+				if(Item.IsValid())
 				{
-					LodData->ParameterMasks.RemoveAt(Item->MaskIndex);
-
-					// We've removed a mask, so it will need to be applied to the clothing data
-					if(Item.IsValid())
+					if(UClothingAsset* Asset = Item->ClothingAsset.Get())
 					{
-						if(UClothingAsset* Asset = Item->ClothingAsset.Get())
-						{
-							Asset->ApplyParameterMasks();
-						}
+						Asset->ApplyParameterMasks();
 					}
-
-					OnInvalidateList.ExecuteIfBound();
 				}
+
+				OnInvalidateList.ExecuteIfBound();
 			}
 		}
+	}
 	}
 
 	void OnSetTarget(int32 InTargetEntryIndex)
@@ -571,6 +574,21 @@ private:
 			}
 		}
 		Builder.EndSection();
+	}
+
+	/** Build sub menu for choosing which vertex color channel to copy to selected mask */
+	void BuildCopyVertexColorSubmenu(FMenuBuilder& Builder)
+	{
+		if (AssetSelectorPtr.IsValid())
+		{
+			UClothingAsset* ClothingAsset = AssetSelectorPtr.Pin()->GetSelectedAsset().Get();
+			int32 LOD = AssetSelectorPtr.Pin()->GetSelectedLod();
+			FClothParameterMask_PhysMesh* Mask = Item->GetMask();
+
+			TSharedRef<SWidget> Widget = SNew(SCopyVertexColorSettingsPanel, ClothingAsset, LOD, Mask);
+
+			Builder.AddWidget(Widget, FText::GetEmpty(), true, false);
+		}
 	}
 
 	// Mask enabled checkbox handling
@@ -644,6 +662,7 @@ private:
 	TSharedPtr<FClothingMaskListItem> Item;
 	TSharedPtr<SInlineEditableTextBlock> InlineText;
 	TSharedPtr<FUICommandList> UICommandList;
+	TWeakPtr<SClothAssetSelector> AssetSelectorPtr;
 };
 
 FName SMaskListRow::Column_Enabled(TEXT("Enabled"));
@@ -996,7 +1015,7 @@ TSharedRef<ITableRow> SClothAssetSelector::OnGenerateWidgetForMaskItem(TSharedPt
 {
 	if(FClothParameterMask_PhysMesh* Mask = InItem->GetMask())
 	{
-		return SNew(SMaskListRow, OwnerTable, InItem)
+		return SNew(SMaskListRow, OwnerTable, InItem, SharedThis(this))
 			.OnInvalidateList(this, &SClothAssetSelector::OnRefresh);
 	}
 

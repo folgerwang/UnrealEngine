@@ -4,9 +4,9 @@
 #include "Misc/Paths.h"
 #include "HAL/PlatformMisc.h"
 
-#include "GenericPlatformSymbolication.h"
+#include "GenericPlatform/GenericPlatformSymbolication.h"
 #if PLATFORM_MAC
-#include "ApplePlatformSymbolication.h"
+#include "Apple/ApplePlatformSymbolication.h"
 #endif
 
 static void ShowUsage()

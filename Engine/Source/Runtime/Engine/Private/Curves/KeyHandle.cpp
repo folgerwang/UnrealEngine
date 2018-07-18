@@ -182,7 +182,7 @@ void FKeyHandleLookupTable::MoveHandle(int32 OldIndex, int32 NewIndex)
 	{
 		TOptional<FKeyHandle> Handle = KeyHandles[OldIndex];
 
-		KeyHandles.RemoveAtSwap(OldIndex, 1, false);
+		KeyHandles.RemoveAt(OldIndex, 1, false);
 		KeyHandles.Insert(Handle, NewIndex);
 		if (Handle.IsSet())
 		{
@@ -194,6 +194,13 @@ void FKeyHandleLookupTable::MoveHandle(int32 OldIndex, int32 NewIndex)
 FKeyHandle FKeyHandleLookupTable::AllocateHandle(int32 Index)
 {
 	FKeyHandle NewKeyHandle;
+
+	int32 NumToAdd = Index + 1 - KeyHandles.Num();
+	if (NumToAdd > 0)
+	{
+		KeyHandles.AddDefaulted(NumToAdd);
+	}
+
 	KeyHandles.Insert(NewKeyHandle, Index);
 	KeyHandlesToIndices.Add(NewKeyHandle, Index);
 	return NewKeyHandle;
@@ -202,7 +209,7 @@ FKeyHandle FKeyHandleLookupTable::AllocateHandle(int32 Index)
 void FKeyHandleLookupTable::DeallocateHandle(int32 Index)
 {
 	TOptional<FKeyHandle> KeyHandle = KeyHandles[Index];
-	KeyHandles.RemoveAtSwap(Index, 1, false);
+	KeyHandles.RemoveAt(Index, 1, false);
 	if (KeyHandle.IsSet())
 	{
 		KeyHandlesToIndices.Remove(KeyHandle.GetValue());
@@ -213,4 +220,16 @@ void FKeyHandleLookupTable::Reset()
 {
 	KeyHandles.Reset();
 	KeyHandlesToIndices.Reset();
+}
+
+bool FKeyHandleLookupTable::Serialize(FArchive& Ar)
+{
+	// We're only concerned with Undo/Redo transactions
+	if (Ar.IsTransacting())
+	{
+		Ar << KeyHandles;
+		Ar << KeyHandlesToIndices;
+	}
+
+	return true;
 }

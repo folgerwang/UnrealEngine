@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3810557
 Availability: Public
 Crumbs: %ROOT%
 Title: 디스턴스 필드 앰비언트 오클루전
@@ -110,7 +110,7 @@ Social-Image:Engine/Rendering/LightingAndShadows/MeshDistanceFields/HowTo/DFHT_2
 씬 앰비언트 오클루전을 나타내는 디스턴스 필드 시각화는 레벨 뷰포트의 뷰 모드 중 **표시** > **시각화** > **Distance Fields Ambient Occlusion** (디스턴스 필드 앰비언트 오클루전)을 선택하면 됩니다.
 
 [REGION:imagetable]
-| [REGION:lightbox] [![](DFAOVisualize.png)(w:400 h:450)](DFAOVisualize.png) [/REGION] | [REGION:lightbox] [![](DFAOView.png)(w:750 h:450)](DFAOView.png) [/REGION] |
+| [REGION:lightbox] [![](DFAOVisualize.png)(w:400)](DFAOVisualize.png) [/REGION] | [REGION:lightbox] [![](DFAOView.png)(w:750)](DFAOView.png) [/REGION] |
 | --- | --- |
 | _이미지를 클릭하면 원본을 확인합니다._ | _이미지를 클릭하면 원본을 확인합니다._ |
 [/REGION]
@@ -273,9 +273,7 @@ DFAO 의 속도, 효율, 모양 개선을 위한 최적화 몇 가지는 다음�
 | 최적화 | 원래 비용 (ms) | 새로운 비용 (ms) | 절약 (ms) |
 | ------------ | ------------ | -------- | ------- |
 | 원래 반대로 하던 것을, 각 오브젝트에 대해 교차 화면 타일 목록을 생성하도록 컬링 알고리즘을 변경했습니다. 각 타일/오브젝트 교차마다 원뿔 트레이싱 스레드 그룹을 구하여, 각 파면이 훨씬 작아지고 스케쥴 방식도 개선되었습니다. | 3.63 | 3.48 | 0.15 |
-| 내부 루프의 느린 인스트럭션을 빠른 추정법으로 대체했습니다. [COMMENT:none]
--(exp2 -> sqr + 1, rcpFast, lengthFast)-
-[/COMMENT] | 3.25 | 3.09 | 0.16 |
+| 내부 루프의 느린 인스트럭션을 빠른 추정법으로 대체했습니다. | 3.25 | 3.09 | 0.16 |
 | 트랜스폼을 내부 루프에서 꺼내어 월드에서 로컬 스페이스로 이동시켰습니다 (샘플 위치는 로컬 스페이스 위치 + 방향으로 구성했습니다). | 3.09 | 3.04 | 0.05 |
 | ClearUAV 에 컴퓨트 셰이더를 사용했습니다.  | 3.04 | 2.62 | 0.42 |
 [/REGION]
@@ -300,7 +298,6 @@ DFAO 에 스무드 샘플링을 사용하기 전에는 적응형(adaptive) 샘�
 
 
 [COMMENT:none]
---
 
 [INCLUDE:#comp2]
 
@@ -330,15 +327,11 @@ DFAO 에 스무드 샘플링을 사용하기 전에는 적응형(adaptive) 샘�
 [/REGION]
 [/EXCERPT:comp2]
 
--
 [/COMMENT]
 
 
 #### 글로벌 디스턴스 필드
 
-[COMMENT:none]
--- EXCERPT taken from MeshDistanceFields.INT.udn --
-[/COMMENT]
 [INCLUDE:Engine/Rendering/LightingAndShadows/MeshDistanceFields#visualizeglobaldf1]
 
 카메라 주변 클립맵을 네 개의 슬라이스로 나누어 필요할 때만 업데이트합니다. 그러한 상황은 카메라 이동으로 새로운 슬라이스가 드러날 때만 발생하며, 오브젝트가 이동하지 않아 영향력 경계가 더티 상태가 되는 경우는 발생하지 않습니다. 
@@ -349,9 +342,6 @@ DFAO 에 스무드 샘플링을 사용하기 전에는 적응형(adaptive) 샘�
 [REGION:caption] 클립맵 텍셀 크기 시각화로, 각 클립맵을 각기 다른 색으로 나타낸 것입니다. [/REGION]
 
 
-[COMMENT:none]
--- EXCERPT taken from MeshDistanceFields.INT.udn --
-[/COMMENT]
 [INCLUDE:Engine/Rendering/LightingAndShadows/MeshDistanceFields#visualizeglobaldf2]
 
 글로벌 디스턴스 필드는 그에 해당하는 오브젝트 디스턴스 필드 부분보다 저해상도라, 근처 표면의 글로벌 디스턴스 필드 정확도가 떨어집니다. 

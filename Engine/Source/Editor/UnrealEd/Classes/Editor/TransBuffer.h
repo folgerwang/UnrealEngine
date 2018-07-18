@@ -74,39 +74,61 @@ protected:
 			Result = ActiveCount;
 			if (ActiveCount++ == 0)
 			{
-				// Cache the redo buffer in case the transaction is canceled so we can restore the state
-				int32 TransactionsToRemove = UndoBuffer.Num();
-				PreviousUndoCount = UndoCount;
-				UndoCount = 0;
-
-				// Determine if any additional entries need to be removed due to memory, avoid n^2 by unrolling GetUndoSize()
-				SIZE_T AccumulatedBufferDataSize = 0;
-				for (int32 i = 0; i < UndoBuffer.Num() - PreviousUndoCount; i++)
+				// Redo removal handling
+				if (UndoCount > 0)
 				{
-					AccumulatedBufferDataSize += UndoBuffer[i]->DataSize();
-					if (AccumulatedBufferDataSize <= MaxMemory)
-					{
-						--TransactionsToRemove;
-					}
-					else
-					{
-						break;
-					}
-				}
+					RemovedTransactions.Reserve(UndoCount);
 
-				if (TransactionsToRemove > 0)
-				{
-					RemovedTransactions.Reserve(TransactionsToRemove);
-					for (int32 i = UndoBuffer.Num() - TransactionsToRemove; i < UndoBuffer.Num(); ++i)
+					for (int32 i = UndoBuffer.Num() - UndoCount; i < UndoBuffer.Num(); ++i)
 					{
 						RemovedTransactions.Add(UndoBuffer[i]);
 					}
-					UndoBuffer.RemoveAt(UndoBuffer.Num() - TransactionsToRemove, TransactionsToRemove, false);
+
+					UndoBuffer.RemoveAt(UndoBuffer.Num() - UndoCount, UndoCount, false);
 				}
+				// Over memory budget handling
+ 				else 
+				{
+					int32 TransactionsToRemove = 0;
+
+					// Determine if any additional entries need to be removed due to memory, avoid n^2 by unrolling GetUndoSize()
+					SIZE_T AccumulatedBufferDataSize = GetUndoSize();
+
+					if (AccumulatedBufferDataSize >= MaxMemory)
+					{
+						// Then remove from the oldest one
+						for (int32 i = 0; i < UndoBuffer.Num() && AccumulatedBufferDataSize >= MaxMemory; i++)
+						{
+							if (AccumulatedBufferDataSize >= MaxMemory)
+							{
+								AccumulatedBufferDataSize -= UndoBuffer[i]->DataSize();
+								++TransactionsToRemove;
+							}
+						}
+					}
+
+					if (TransactionsToRemove > 0)
+					{
+						RemovedTransactions.Reserve(TransactionsToRemove);
+
+						for (int32 i = 0; i < TransactionsToRemove; ++i)
+						{
+							RemovedTransactions.Add(UndoBuffer[i]);
+						}
+
+						UndoBuffer.RemoveAt(0, TransactionsToRemove, false);
+					}
+				}
+
+				// Cache the redo buffer in case the transaction is canceled so we can restore the state
+				PreviousUndoCount = UndoCount;
+				UndoCount = 0;
 
 				// Begin a new transaction.
 				UndoBuffer.Emplace(MakeShareable(new TTransaction(SessionContext, Description, 1)));
-				GUndo = &UndoBuffer.Last().Get();
+				GUndo = &UndoBuffer.Last().Get();			
+
+				UndoBufferChangedDelegate.Broadcast();
 			}
 			const int32 PriorRecordsCount = (Result > 0 ? ActiveRecordCounts[Result - 1] : 0);
 			ActiveRecordCounts.Add(UndoBuffer.Last()->GetRecordCount() - PriorRecordsCount);
@@ -191,6 +213,19 @@ public:
 		return UndoDelegate;
 	}
 
+	/**
+	* Gets an event delegate that is executed when the undo buffer changed.
+	*
+	* @return The event delegate.
+	*
+	* @see OnRedo
+	*/
+	DECLARE_EVENT(UTransBuffer, FOnTransactorUndoBufferChanged)
+	FOnTransactorUndoBufferChanged& OnUndoBufferChanged()
+	{
+		return UndoBufferChangedDelegate;
+	}
+
 private:
 
 	/** Controls whether the transaction buffer is allowed to serialize object references */
@@ -206,6 +241,9 @@ private:
 
 	// Holds an event delegate that is executed when a undo operation is being attempted.
 	FOnTransactorUndo UndoDelegate;
+
+	// Holds an event delegate that is executed when the undo buffer changed.
+	FOnTransactorUndoBufferChanged UndoBufferChangedDelegate;
 
 	// Reference to the current transaction, nullptr when not transacting:
 	FTransaction* CurrentTransaction;

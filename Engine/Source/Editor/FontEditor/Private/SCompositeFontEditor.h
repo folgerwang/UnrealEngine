@@ -226,6 +226,12 @@ public:
 	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
 
 private:
+	struct FSubFaceInfo
+	{
+		int32 Index;
+		FText Description;
+	};
+
 	/** Get the current name of this typeface entry */
 	FText GetTypefaceEntryName() const;
 
@@ -249,6 +255,21 @@ private:
 
 	/** Called in response to the "Delete Font" button being clicked" */
 	FReply OnDeleteFontClicked();
+
+	/** Cache the current sub-face data for the selected font face */
+	void CacheSubFaceData();
+
+	/** Should the sub-faces combo be visible? */
+	EVisibility GetSubFaceVisibility() const;
+
+	/** Get the display name of the current sub-face selection */
+	FText GetCurrentSubFaceSelectionDisplayName() const;
+
+	/** Called when the selection of the sub-face selection combo is changed */
+	void OnSubFaceSelectionChanged(TSharedPtr<FSubFaceInfo> InSubFace, ESelectInfo::Type);
+
+	/** Make the widget for an entry in the range selection combo */
+	TSharedRef<SWidget> MakeSubFaceSelectionWidget(TSharedPtr<FSubFaceInfo> InSubFace);
 
 	/** Should the "Upgrade Data" button be visible? */
 	EVisibility GetUpgradeDataVisibility() const;
@@ -276,6 +297,12 @@ private:
 
 	/** Inline editable text for the font name */
 	TSharedPtr<SInlineEditableTextBlock> NameEditableTextBox;
+
+	/** Sub-face selection combo box widget */
+	TSharedPtr<SComboBox<TSharedPtr<FSubFaceInfo>>> SubFacesCombo;
+
+	/** Source data for the sub-faces combo box */
+	TArray<TSharedPtr<FSubFaceInfo>> SubFacesData;
 };
 
 class SSubTypefaceEditor : public SCompoundWidget

@@ -4,20 +4,22 @@
 	IOSPlatformMisc.mm: iOS implementations of misc functions
 =============================================================================*/
 
-#include "IOSPlatformMisc.h"
+#include "IOS/IOSPlatformMisc.h"
 #include "Misc/App.h"
-#include "ExceptionHandling.h"
-#include "SecureHash.h"
-#include "EngineVersion.h"
-#include "IOSMallocZone.h"
-#include "IOSApplication.h"
-#include "IOSAppDelegate.h"
-#include "IOSView.h"
+#include "HAL/ExceptionHandling.h"
+#include "Misc/SecureHash.h"
+#include "Misc/EngineVersion.h"
+#include "Templates/Function.h"
+#include "IOS/IOSMallocZone.h"
+#include "IOS/IOSApplication.h"
+#include "IOS/IOSAppDelegate.h"
+#include "IOS/IOSView.h"
 #include "IOSChunkInstaller.h"
 #include "Misc/CommandLine.h"
 #include "Misc/ConfigCacheIni.h"
+#include "Misc/CoreDelegates.h"
 #include "Apple/ApplePlatformCrashContext.h"
-#include "IOSPlatformCrashContext.h"
+#include "IOS/IOSPlatformCrashContext.h"
 #if !PLATFORM_TVOS
 #include "PLCrashReporter.h"
 #include "PLCrashReport.h"
@@ -32,12 +34,18 @@
 #include "Internationalization/Internationalization.h"
 #include "Internationalization/Culture.h"
 
+#include "FramePro/FrameProProfiler.h"
+
 #if !PLATFORM_TVOS
 #include <AdSupport/ASIdentifierManager.h> 
 #endif
 
+#include "Async/TaskGraphInterfaces.h"
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <netinet/in.h>
+
+#import <StoreKit/StoreKit.h>
+#import <DeviceCheck/DeviceCheck.h>
 
 //#include <libproc.h>
 // @pjs commented out to resolve issue with PLATFORM_TVOS being defined by mach-o loader
@@ -53,6 +61,7 @@ void (* GMemoryWarningHandler)(const FGenericMemoryWarningContext& Context) = NU
 
 /** global for showing the splash screen */
 bool GShowSplashScreen = true;
+float GOriginalBrightness = 1.0f;
 
 static int32 GetFreeMemoryMB()
 {
@@ -70,6 +79,8 @@ static int32 GetFreeMemoryMB()
 void FIOSPlatformMisc::PlatformInit()
 {
 	FAppEntry::PlatformInit();
+    
+    GOriginalBrightness = FIOSPlatformMisc::GetBrightness();
 
 	// Increase the maximum number of simultaneously open files
 	struct rlimit Limit;
@@ -94,7 +105,14 @@ void FIOSPlatformMisc::PlatformInit()
 
 void FIOSPlatformMisc::PlatformHandleSplashScreen(bool ShowSplashScreen)
 {
-    GShowSplashScreen = ShowSplashScreen;
+    if (GShowSplashScreen != ShowSplashScreen)
+    {
+        // put a render thread job to turn off the splash screen after the first render flip
+        FGraphEventRef SplashTask = FFunctionGraphTask::CreateAndDispatchWhenReady([ShowSplashScreen]()
+        {
+            GShowSplashScreen = ShowSplashScreen;
+        }, TStatId(), NULL, ENamedThreads::ActualRenderingThread);
+    }
 }
 
 const TCHAR* FIOSPlatformMisc::GamePersistentDownloadDir()
@@ -155,10 +173,49 @@ int FIOSPlatformMisc::GetBatteryLevel()
 	return [[IOSAppDelegate GetDelegate] GetBatteryLevel];
 }
 
+float FIOSPlatformMisc::GetBrightness()
+{
+#if !PLATFORM_TVOS
+	return [UIScreen mainScreen].brightness;
+#else
+	return 1.0f;
+#endif // !PLATFORM_TVOS
+}
+
+void FIOSPlatformMisc::SetBrightness(float Brightness)
+{
+#if !PLATFORM_TVOS
+	[UIScreen mainScreen].brightness = Brightness;
+#endif // !PLATFORM_TVOS
+}
+
+void FIOSPlatformMisc::ResetBrightness()
+{
+    SetBrightness(GOriginalBrightness);
+}
+
 bool FIOSPlatformMisc::IsRunningOnBattery()
 {
 	return [[IOSAppDelegate GetDelegate] IsRunningOnBattery];
 }
+
+float FIOSPlatformMisc::GetDeviceTemperatureLevel()
+{
+#if !PLATFORM_TVOS
+	if (@available(iOS 11, *))
+	{
+		switch ([[NSProcessInfo processInfo] thermalState])
+		{
+		case NSProcessInfoThermalStateNominal:	return (float)FCoreDelegates::ETemperatureSeverity::Good; break;
+		case NSProcessInfoThermalStateFair:		return (float)FCoreDelegates::ETemperatureSeverity::Bad; break;
+		case NSProcessInfoThermalStateSerious:	return (float)FCoreDelegates::ETemperatureSeverity::Serious; break;
+		case NSProcessInfoThermalStateCritical:	return (float)FCoreDelegates::ETemperatureSeverity::Critical; break;
+		}
+	}
+#endif
+	return -1.0f;
+}
+
 
 #if !PLATFORM_TVOS
 EDeviceScreenOrientation ConvertFromUIDeviceOrientation(UIDeviceOrientation Orientation)
@@ -186,7 +243,7 @@ EDeviceScreenOrientation FIOSPlatformMisc::GetDeviceOrientation()
 #endif
 }
 
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 
 bool FIOSPlatformMisc::HasPlatformFeature(const TCHAR* FeatureName)
 {
@@ -335,9 +392,9 @@ FIOSPlatformMisc::EIOSDevice FIOSPlatformMisc::GetIOSDeviceType()
 		}
 
 		// Default to highest settings currently available for any future device
-		else if (Major > 6)
+		else if (Major > 8)
 		{
-			DeviceType = IOS_IPadPro;
+			DeviceType = IOS_IPadPro2_129;
 		}
 	}
 	// iPhones
@@ -579,6 +636,15 @@ bool FIOSPlatformMisc::GetDiskTotalAndFreeSpace(const FString& InPath, uint64& T
 	return false;
 }
 
+void FIOSPlatformMisc::RequestStoreReview()
+{
+#if !PLATFORM_TVOS
+	if (@available(iOS 10, *))
+	{
+		[SKStoreReviewController requestReview];
+	}
+#endif
+}
 
 /**
 * Returns a unique string for advertising identification
@@ -638,15 +704,177 @@ class IPlatformChunkInstall* FIOSPlatformMisc::GetPlatformChunkInstall()
 	return ChunkInstall;
 }
 
+#if !PLATFORM_TVOS
+static UIFeedbackGenerator* GFeedbackGenerator = nullptr;
+#endif // !PLATFORM_TVOS
+static EMobileHapticsType GHapticsType;
+void FIOSPlatformMisc::PrepareMobileHaptics(EMobileHapticsType Type)
+{
+	// these functions must run on the main IOS thread
+	dispatch_async(dispatch_get_main_queue(), ^
+	{
+#if !PLATFORM_TVOS
+		if (GFeedbackGenerator != nullptr)
+		{
+            UE_LOG(LogIOS, Warning, TEXT("Multiple haptics were prepared at once! Implement a stack of haptics types, or a wrapper object that is returned, with state"));
+			[GFeedbackGenerator release];
+		}
+
+		GHapticsType = Type;
+		switch (GHapticsType)
+		{
+			case EMobileHapticsType::FeedbackSuccess:
+			case EMobileHapticsType::FeedbackWarning:
+			case EMobileHapticsType::FeedbackError:
+				GFeedbackGenerator = [[UINotificationFeedbackGenerator alloc] init];
+				break;
+
+			case EMobileHapticsType::SelectionChanged:
+				GFeedbackGenerator = [[UISelectionFeedbackGenerator alloc] init];
+				break;
+
+			default:
+				GHapticsType = EMobileHapticsType::ImpactLight;
+				// fall-through, and treat like Impact
+
+			case EMobileHapticsType::ImpactLight:
+				GFeedbackGenerator = [[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleLight];
+				break;
+
+			case EMobileHapticsType::ImpactMedium:
+				GFeedbackGenerator = [[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleMedium];
+				break;
+
+			case EMobileHapticsType::ImpactHeavy:
+				GFeedbackGenerator = [[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleHeavy];
+				break;
+		}
+
+		// prepare the generator object so Trigger won't delay
+		[GFeedbackGenerator prepare];
+#endif // !PLATFORM_TVOS
+	});
+}
+
+void FIOSPlatformMisc::TriggerMobileHaptics()
+{
+	dispatch_async(dispatch_get_main_queue(), ^
+	{
+#if !PLATFORM_TVOS
+		if (GFeedbackGenerator == nullptr)
+		{
+			return;
+		}
+
+		switch (GHapticsType)
+		{
+			case EMobileHapticsType::FeedbackSuccess:
+				[(UINotificationFeedbackGenerator*)GFeedbackGenerator notificationOccurred:UINotificationFeedbackTypeSuccess];
+				break;
+
+			case EMobileHapticsType::FeedbackWarning:
+				[(UINotificationFeedbackGenerator*)GFeedbackGenerator notificationOccurred:UINotificationFeedbackTypeWarning];
+				break;
+
+			case EMobileHapticsType::FeedbackError:
+				[(UINotificationFeedbackGenerator*)GFeedbackGenerator notificationOccurred:UINotificationFeedbackTypeError];
+				break;
+
+			case EMobileHapticsType::SelectionChanged:
+				[(UISelectionFeedbackGenerator*)GFeedbackGenerator selectionChanged];
+				break;
+
+			case EMobileHapticsType::ImpactLight:
+			case EMobileHapticsType::ImpactMedium:
+			case EMobileHapticsType::ImpactHeavy:
+				[(UIImpactFeedbackGenerator*)GFeedbackGenerator impactOccurred];
+				break;
+		}
+#endif // !PLATFORM_TVOS
+	});
+}
+
+void FIOSPlatformMisc::ReleaseMobileHaptics()
+{
+	dispatch_async(dispatch_get_main_queue(), ^
+	{
+#if !PLATFORM_TVOS
+		if (GFeedbackGenerator == nullptr)
+		{
+			return;
+		}
+
+		[GFeedbackGenerator release];
+		GFeedbackGenerator = nullptr;
+#endif // !PLATFORM_TVOS
+	});
+}
+
+void FIOSPlatformMisc::ShareURL(const FString& URL, const FText& Description, int32 LocationHintX, int32 LocationHintY)
+{
+	NSString* SharedString = [NSString stringWithFString:Description.ToString()];
+	NSURL* SharedURL = [NSURL URLWithString:[NSString stringWithFString:URL]];
+	CGRect PopoverLocation = CGRectMake(LocationHintX, LocationHintY, 1, 1);
+
+	dispatch_async(dispatch_get_main_queue(),^ {
+		NSArray* ObjectsToShare = @[SharedString, SharedURL];
+#if !PLATFORM_TVOS
+		// create the share sheet view
+		UIActivityViewController* ActivityVC = [[UIActivityViewController alloc] initWithActivityItems:ObjectsToShare applicationActivities:nil];
+		[ActivityVC autorelease];
+	
+		// skip over some things that don't make sense
+		ActivityVC.excludedActivityTypes = @[UIActivityTypePrint,
+											 UIActivityTypeAssignToContact,
+											 UIActivityTypeSaveToCameraRoll,
+											 UIActivityTypePostToFlickr,
+											 UIActivityTypePostToVimeo];
+		
+		if ([[UIDevice currentDevice] userInterfaceIdiom] == UIUserInterfaceIdiomPhone)
+		{
+			[[IOSAppDelegate GetDelegate].IOSController presentViewController:ActivityVC animated:YES completion:nil];
+		}
+		else
+		{
+			// Present the view controller using the popover style.
+			ActivityVC.modalPresentationStyle = UIModalPresentationPopover;
+			[[IOSAppDelegate GetDelegate].IOSController presentViewController:ActivityVC
+							   animated:YES
+							 completion:nil];
+			
+			// Get the popover presentation controller and configure it.
+			UIPopoverPresentationController* PresentationController = [ActivityVC popoverPresentationController];
+			PresentationController.sourceView = [IOSAppDelegate GetDelegate].IOSView;
+			PresentationController.sourceRect = PopoverLocation;
+			
+		}
+#endif // !PLATFORM_TVOS
+	});
+}
+
+
+void FIOSPlatformMisc::EnableVoiceChat(bool bEnable)
+{
+	return [[IOSAppDelegate GetDelegate] EnableVoiceChat:bEnable];
+}
+
+bool FIOSPlatformMisc::IsVoiceChatEnabled()
+{
+	return [[IOSAppDelegate GetDelegate] IsVoiceChatEnabled];
+}
+
 void FIOSPlatformMisc::RegisterForRemoteNotifications()
 {
+    dispatch_async(dispatch_get_main_queue(), ^{
 #if !PLATFORM_TVOS && NOTIFICATIONS_ENABLED
 	UIApplication* application = [UIApplication sharedApplication];
 	if ([application respondsToSelector : @selector(registerUserNotificationSettings:)])
 	{
 #ifdef __IPHONE_8_0
+		PRAGMA_DISABLE_DEPRECATION_WARNINGS
 		UIUserNotificationSettings * settings = [UIUserNotificationSettings settingsForTypes : (UIUserNotificationTypeBadge | UIUserNotificationTypeSound | UIUserNotificationTypeAlert) categories:nil];
 		[application registerUserNotificationSettings : settings];
+		PRAGMA_ENABLE_DEPRECATION_WARNINGS
 #endif
 	}
 	else
@@ -658,6 +886,7 @@ void FIOSPlatformMisc::RegisterForRemoteNotifications()
 #endif
 	}
 #endif
+    });
 }
 
 bool FIOSPlatformMisc::IsRegisteredForRemoteNotifications()
@@ -680,7 +909,7 @@ void FIOSPlatformMisc::GetValidTargetPlatforms(TArray<FString>& TargetPlatformNa
 #endif
 }
 
-bool FIOSPlatformMisc::HasActiveWiFiConnection()
+ENetworkConnectionType FIOSPlatformMisc::GetNetworkConnectionType()
 {
 	struct sockaddr_in ZeroAddress;
 	FMemory::Memzero(&ZeroAddress, sizeof(ZeroAddress));
@@ -693,6 +922,8 @@ bool FIOSPlatformMisc::HasActiveWiFiConnection()
 	CFRelease(ReachabilityRef);
 	
 	bool bHasActiveWiFiConnection = false;
+    bool bHasActiveCellConnection = false;
+    bool bInAirplaneMode = false;
 	if (bFlagsAvailable)
 	{
 		bool bReachable =	(ReachabilityFlags & kSCNetworkReachabilityFlagsReachable) != 0 &&
@@ -701,9 +932,28 @@ bool FIOSPlatformMisc::HasActiveWiFiConnection()
 		(ReachabilityFlags & kSCNetworkReachabilityFlagsInterventionRequired) == 0;
 		
 		bHasActiveWiFiConnection = bReachable && (ReachabilityFlags & kSCNetworkReachabilityFlagsIsWWAN) == 0;
+        bHasActiveCellConnection = bReachable && (ReachabilityFlags & kSCNetworkReachabilityFlagsIsWWAN) != 0;
+        bInAirplaneMode = ReachabilityFlags == 0;
 	}
 	
-	return bHasActiveWiFiConnection;
+    if (bHasActiveWiFiConnection)
+    {
+        return ENetworkConnectionType::WiFi;
+    }
+    else if (bHasActiveCellConnection)
+    {
+        return ENetworkConnectionType::Cell;
+    }
+    else if (bInAirplaneMode)
+    {
+        return ENetworkConnectionType::AirplaneMode;
+    }
+    return ENetworkConnectionType::None;
+}
+
+bool FIOSPlatformMisc::HasActiveWiFiConnection()
+{
+    return GetNetworkConnectionType() == ENetworkConnectionType::WiFi;
 }
 
 FString FIOSPlatformMisc::GetCPUVendor()
@@ -748,6 +998,24 @@ int32 FIOSPlatformMisc::IOSVersionCompare(uint8 Major, uint8 Minor, uint8 Revisi
 	}
 
 	return 0;
+}
+
+void FIOSPlatformMisc::RequestDeviceCheckToken(TFunction<void(const TArray<uint8>&)> QueryCompleteFunc)
+{
+	DCDevice* DeviceCheckDevice = [DCDevice currentDevice];
+	if ([DeviceCheckDevice isSupported])
+	{
+		[DeviceCheckDevice generateTokenWithCompletionHandler : ^ (NSData * _Nullable token, NSError * _Nullable error)
+		{
+			bool bSuccess = (error == NULL);
+			if (bSuccess)
+			{
+				TArray<uint8> DeviceToken((uint8*)[token bytes], [token length]);
+
+				QueryCompleteFunc(DeviceToken);
+			}
+		}];
+	}
 }
 
 /*------------------------------------------------------------------------------
@@ -1056,6 +1324,49 @@ bool FIOSPlatformMisc::DeleteStoredValue(const FString& InStoreId, const FString
 	return false;
 }
 
+#if STATS || ENABLE_STATNAMEDEVENTS
+
+void FIOSPlatformMisc::BeginNamedEventFrame()
+{
+#if FRAMEPRO_ENABLED
+	FFrameProProfiler::FrameStart();
+#endif // FRAMEPRO_ENABLED
+}
+
+void FIOSPlatformMisc::BeginNamedEvent(const struct FColor& Color, const TCHAR* Text)
+{
+#if FRAMEPRO_ENABLED
+	FFrameProProfiler::PushEvent(Text);
+#endif // FRAMEPRO_ENABLED
+}
+
+void FIOSPlatformMisc::BeginNamedEvent(const struct FColor& Color, const ANSICHAR* Text)
+{
+#if FRAMEPRO_ENABLED
+	FFrameProProfiler::PushEvent(Text);
+#endif // FRAMEPRO_ENABLED
+}
+
+void FIOSPlatformMisc::EndNamedEvent()
+{
+#if FRAMEPRO_ENABLED
+	FFrameProProfiler::PopEvent();
+#endif // FRAMEPRO_ENABLED
+}
+
+void FIOSPlatformMisc::CustomNamedStat(const TCHAR* Text, float Value, const TCHAR* Graph, const TCHAR* Unit)
+{
+	FRAMEPRO_DYNAMIC_CUSTOM_STAT(TCHAR_TO_WCHAR(Text), Value, TCHAR_TO_WCHAR(Graph), TCHAR_TO_WCHAR(Unit));
+}
+
+void FIOSPlatformMisc::CustomNamedStat(const ANSICHAR* Text, float Value, const ANSICHAR* Graph, const ANSICHAR* Unit)
+{
+	FRAMEPRO_DYNAMIC_CUSTOM_STAT(Text, Value, Graph, Unit);
+}
+
+#endif // STATS || ENABLE_STATNAMEDEVENTS
+
+
 void FIOSPlatformMisc::SetGracefulTerminationHandler()
 {
     struct sigaction Action;
@@ -1117,203 +1428,6 @@ void FIOSPlatformMisc::SetCrashHandler(void (* CrashHandler)(const FGenericCrash
         }
     }
 #endif
-}
-
-void FIOSCrashContext::GenerateWindowsErrorReport(char const* WERPath, bool bIsEnsure) const
-{
-	// @pjs commented out to resolve issue with PLATFORM_TVOS being defined by mach-o loader
-/*    int ReportFile = open(WERPath, O_CREAT|O_WRONLY, 0766);
-    if (ReportFile != -1)
-    {
-        TCHAR Line[PATH_MAX] = {};
-        
-        // write BOM
-        static uint16 ByteOrderMarker = 0xFEFF;
-        write(ReportFile, &ByteOrderMarker, sizeof(ByteOrderMarker));
-        
-        WriteLine(ReportFile, TEXT("<?xml version=\"1.0\" encoding=\"UTF-16\"?>"));
-        WriteLine(ReportFile, TEXT("<WERReportMetadata>"));
-        
-        WriteLine(ReportFile, TEXT("\t<OSVersionInformation>"));
-        WriteUTF16String(ReportFile, TEXT("\t\t<WindowsNTVersion>"));
-        WriteUTF16String(ReportFile, *GIOSAppInfo.OSVersion);
-        WriteLine(ReportFile, TEXT("</WindowsNTVersion>"));
-        
-        WriteUTF16String(ReportFile, TEXT("\t\t<Build>"));
-        WriteUTF16String(ReportFile, *GIOSAppInfo.OSVersion);
-        WriteUTF16String(ReportFile, TEXT(" ("));
-        WriteUTF16String(ReportFile, *GIOSAppInfo.OSBuild);
-        WriteLine(ReportFile, TEXT(")</Build>"));
-        
-        WriteUTF16String(ReportFile, TEXT("\t\t<Product>(0x30): IOS "));
-        WriteUTF16String(ReportFile, *GIOSAppInfo.OSVersion);
-        WriteLine(ReportFile, TEXT("</Product>"));
-        
-        WriteLine(ReportFile, TEXT("\t\t<Edition>IOS</Edition>"));
-        
-        WriteUTF16String(ReportFile, TEXT("\t\t<BuildString>IOS "));
-        WriteUTF16String(ReportFile, *GIOSAppInfo.OSVersion);
-        WriteUTF16String(ReportFile, TEXT(" ("));
-        WriteUTF16String(ReportFile, *GIOSAppInfo.OSBuild);
-        WriteLine(ReportFile, TEXT(")</BuildString>"));
-        
-        WriteUTF16String(ReportFile, TEXT("\t\t<Revision>"));
-        WriteUTF16String(ReportFile, *GIOSAppInfo.OSBuild);
-        WriteLine(ReportFile, TEXT("</Revision>"));
-        
-        WriteLine(ReportFile, TEXT("\t\t<Flavor>Multiprocessor Free</Flavor>"));
-        WriteLine(ReportFile, TEXT("\t\t<Architecture>X64</Architecture>"));
-        WriteUTF16String(ReportFile, TEXT("\t\t<LCID>"));
-        WriteUTF16String(ReportFile, *GIOSAppInfo.LCID);
-        WriteLine(ReportFile, TEXT("</LCID>"));
-        WriteLine(ReportFile, TEXT("\t</OSVersionInformation>"));
-        
-        WriteLine(ReportFile, TEXT("\t<ParentProcessInformation>"));
-        
-        WriteUTF16String(ReportFile, TEXT("\t\t<ParentProcessId>"));
-        WriteUTF16String(ReportFile, ItoTCHAR(getppid(), 10));
-        WriteLine(ReportFile, TEXT("</ParentProcessId>"));
-        
-        WriteUTF16String(ReportFile, TEXT("\t\t<ParentProcessPath>"));
-        WriteUTF16String(ReportFile, *GIOSAppInfo.ParentProcess);
-        WriteLine(ReportFile, TEXT("</ParentProcessPath>"));
-        
-        WriteLine(ReportFile, TEXT("\t\t<ParentProcessCmdLine></ParentProcessCmdLine>"));	// FIXME: supply valid?
-        WriteLine(ReportFile, TEXT("\t</ParentProcessInformation>"));
-        
-        WriteLine(ReportFile, TEXT("\t<ProblemSignatures>"));
-        WriteLine(ReportFile, TEXT("\t\t<EventType>APPCRASH</EventType>"));
-        
-        WriteUTF16String(ReportFile, TEXT("\t\t<Parameter0>UE4-"));
-        WriteUTF16String(ReportFile, *GIOSAppInfo.AppName);
-        WriteLine(ReportFile, TEXT("</Parameter0>"));
-        
-        WriteUTF16String(ReportFile, TEXT("\t\t<Parameter1>"));
-        WriteUTF16String(ReportFile, ItoTCHAR(FEngineVersion::Current().GetMajor(), 10));
-        WriteUTF16String(ReportFile, TEXT("."));
-        WriteUTF16String(ReportFile, ItoTCHAR(FEngineVersion::Current().GetMinor(), 10));
-        WriteUTF16String(ReportFile, TEXT("."));
-        WriteUTF16String(ReportFile, ItoTCHAR(FEngineVersion::Current().GetPatch(), 10));
-        WriteLine(ReportFile, TEXT("</Parameter1>"));
-        
-        // App time stamp
-        WriteLine(ReportFile, TEXT("\t\t<Parameter2>528f2d37</Parameter2>"));													// FIXME: supply valid?
-        
-        Dl_info DLInfo;
-        if(Info && Info->si_addr != 0 && dladdr(Info->si_addr, &DLInfo) != 0)
-        {
-            // Crash Module name
-            WriteUTF16String(ReportFile, TEXT("\t\t<Parameter3>"));
-            if (DLInfo.dli_fname && FCStringAnsi::Strlen(DLInfo.dli_fname))
-            {
-                FMemory::Memzero(Line, PATH_MAX * sizeof(TCHAR));
-                FUTF8ToTCHAR_Convert::Convert(Line, PATH_MAX, DLInfo.dli_fname, FCStringAnsi::Strlen(DLInfo.dli_fname));
-                WriteUTF16String(ReportFile, Line);
-            }
-            else
-            {
-                WriteUTF16String(ReportFile, TEXT("Unknown"));
-            }
-            WriteLine(ReportFile, TEXT("</Parameter3>"));
-            
-            // Check header
-            uint32 Version = 0;
-            uint32 TimeStamp = 0;
-            struct mach_header_64* Header = (struct mach_header_64*)DLInfo.dli_fbase;
-            struct load_command *CurrentCommand = (struct load_command *)( (char *)Header + sizeof(struct mach_header_64) );
-            if( Header->magic == MH_MAGIC_64 )
-            {
-                for( int32 i = 0; i < Header->ncmds; i++ )
-                {
-                    if( CurrentCommand->cmd == LC_LOAD_DYLIB )
-                    {
-                        struct dylib_command *DylibCommand = (struct dylib_command *) CurrentCommand;
-                        Version = DylibCommand->dylib.current_version;
-                        TimeStamp = DylibCommand->dylib.timestamp;
-                        Version = ((Version & 0xff) + ((Version >> 8) & 0xff) * 100 + ((Version >> 16) & 0xffff) * 10000);
-                        break;
-                    }
-                    
-                    CurrentCommand = (struct load_command *)( (char *)CurrentCommand + CurrentCommand->cmdsize );
-                }
-            }
-            
-            // Module version
-            WriteUTF16String(ReportFile, TEXT("\t\t<Parameter4>"));
-            WriteUTF16String(ReportFile, ItoTCHAR(Version, 10));
-            WriteLine(ReportFile, TEXT("</Parameter4>"));
-            
-            // Module time stamp
-            WriteUTF16String(ReportFile, TEXT("\t\t<Parameter5>"));
-            WriteUTF16String(ReportFile, ItoTCHAR(TimeStamp, 16));
-            WriteLine(ReportFile, TEXT("</Parameter5>"));
-            
-            // MethodDef token -> no equivalent
-            WriteLine(ReportFile, TEXT("\t\t<Parameter6>00000001</Parameter6>"));
-            
-            // IL Offset -> Function pointer
-            WriteUTF16String(ReportFile, TEXT("\t\t<Parameter7>"));
-            WriteUTF16String(ReportFile, ItoTCHAR((uint64)Info->si_addr, 16));
-            WriteLine(ReportFile, TEXT("</Parameter7>"));
-        }
-        
-        // Command line, must match the Windows version.
-        WriteUTF16String(ReportFile, TEXT("\t\t<Parameter8>!"));
-        WriteUTF16String(ReportFile, FCommandLine::GetOriginal());
-        WriteLine(ReportFile, TEXT("!</Parameter8>"));
-        
-        WriteUTF16String(ReportFile, TEXT("\t\t<Parameter9>"));
-        WriteUTF16String(ReportFile, *GIOSAppInfo.BranchBaseDir);
-        WriteLine(ReportFile, TEXT("</Parameter9>"));
-        
-        WriteLine(ReportFile, TEXT("\t</ProblemSignatures>"));
-        
-        WriteLine(ReportFile, TEXT("\t<DynamicSignatures>"));
-        
-        WriteUTF16String(ReportFile, TEXT("\t\t<Parameter1>"));
-        WriteUTF16String(ReportFile, *GIOSAppInfo.BiosUUID);
-        WriteLine(ReportFile, TEXT("</Parameter1>"));
-        
-        WriteUTF16String(ReportFile, TEXT("\t\t<Parameter2>"));
-        WriteUTF16String(ReportFile, *GIOSAppInfo.LCID);
-        WriteLine(ReportFile, TEXT("</Parameter2>"));
-        WriteLine(ReportFile, *FString::Printf(TEXT("\t\t<DeploymentName>%s</DeploymentName>"), FApp::GetDeploymentName()));
-        WriteLine(ReportFile, *FString::Printf(TEXT("\t\t<IsEnsure>%s</IsEnsure>"), bIsEnsure ? TEXT("1") : TEXT("0")));
-        WriteLine(ReportFile, *FString::Printf(TEXT("\t\t<IsAssert>%s</IsAssert>"), FDebug::HasAsserted() ? TEXT("1") : TEXT("0")));
-        WriteLine(ReportFile, *FString::Printf(TEXT("\t\t<CrashType>%s</CrashType>"), FGenericCrashContext::GetCrashTypeString(bIsEnsure, FDebug::HasAsserted(), GIsGPUCrashed)));
-        WriteLine(ReportFile, *FString::Printf(TEXT("\t\t<BuildVersion>%s</BuildVersion>"), FApp::GetBuildVersion()));
-        WriteLine(ReportFile, *FString::Printf(TEXT("\t\t<EngineModeEx>%s</EngineModeEx>"), FGenericCrashContext::EngineModeExString()));
-        
-        WriteLine(ReportFile, TEXT("\t</DynamicSignatures>"));
-        
-        WriteLine(ReportFile, TEXT("\t<SystemInformation>"));
-        
-        WriteUTF16String(ReportFile, TEXT("\t\t<MID>"));
-        WriteUTF16String(ReportFile, *GIOSAppInfo.MachineUUID);
-        WriteLine(ReportFile, TEXT("</MID>"));
-        
-        WriteLine(ReportFile, TEXT("\t\t<SystemManufacturer>Apple Inc.</SystemManufacturer>"));
-        
-        WriteUTF16String(ReportFile, TEXT("\t\t<SystemProductName>"));
-        WriteUTF16String(ReportFile, *GIOSAppInfo.MachineModel);
-        WriteLine(ReportFile, TEXT("</SystemProductName>"));
-        
-        WriteUTF16String(ReportFile, TEXT("\t\t<BIOSVersion>"));
-        WriteUTF16String(ReportFile, *GIOSAppInfo.BiosRelease);
-        WriteUTF16String(ReportFile, TEXT("-"));
-        WriteUTF16String(ReportFile, *GIOSAppInfo.BiosRevision);
-        WriteLine(ReportFile, TEXT("</BIOSVersion>"));
-        
-        WriteUTF16String(ReportFile, TEXT("\t\t<GraphicsCard>"));
-        WriteUTF16String(ReportFile, *GIOSAppInfo.PrimaryGPU);
-        WriteLine(ReportFile, TEXT("</GraphicsCard>"));
-        
-        WriteLine(ReportFile, TEXT("\t</SystemInformation>"));
-        
-        WriteLine(ReportFile, TEXT("</WERReportMetadata>"));
-        
-        close(ReportFile);
-    }*/
 }
 
 void FIOSCrashContext::CopyMinidump(char const* OutputPath, char const* InputPath) const
@@ -1384,12 +1498,7 @@ void FIOSCrashContext::GenerateInfoInFolder(char const* const InfoFolder, bool b
             
             close(ReportFile);
         }
-        
-        // generate "WER"
-        FCStringAnsi::Strncpy(FilePath, CrashInfoFolder, PATH_MAX);
-        FCStringAnsi::Strcat(FilePath, PATH_MAX, "/wermeta.xml");
-        GenerateWindowsErrorReport(FilePath, bIsEnsure);
-        
+                
         // generate "minidump" (Apple crash log format)
         FCStringAnsi::Strncpy(FilePath, CrashInfoFolder, PATH_MAX);
         FCStringAnsi::Strcat(FilePath, PATH_MAX, "/minidump.dmp");
@@ -1425,7 +1534,7 @@ void FIOSCrashContext::GenerateInfoInFolder(char const* const InfoFolder, bool b
         FCStringAnsi::Strncpy(FilePath, CrashInfoFolder, PATH_MAX);
         FCStringAnsi::Strcat(FilePath, PATH_MAX, "/" );
         FCStringAnsi::Strcat(FilePath, PATH_MAX, FGenericCrashContext::CrashContextRuntimeXMLNameA );
-        //SerializeAsXML( FilePath ); @todo uncomment after verification - need to do a bit more work on this for macOS
+        SerializeAsXML(*FString(FilePath));
         
         // copy log
         FCStringAnsi::Strncpy(FilePath, CrashInfoFolder, PATH_MAX);

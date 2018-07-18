@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3810467
 Availability:NoPublish
 Title:GitHub からアンリアルをフォークおよびクローンする
 Crumbs:%ROOT%, GettingStarted, GettingStarted/DownloadingUnrealEngine
@@ -103,7 +103,7 @@ GitHub からソースコードをフォークおよびクローンすること�
 		![](RunSetupShellScript_Linux.png)
 		[REGION:note]
 		*	セットアップ用シェル スクリプトが、エンジン用バイナリ コンテンツのダウンロード、前提条件のインストールを行います。現在エンジン バイナリには 3GB から 4GB 程度のディスク容量が必要なので、ダウンロードには若干時間がかかる場合があります。次回チェックアウトする場合、通常はダウンロード時間が短くなります。  
-		*	このステップを実行しても ** \*\*SUCCESS\*\* ** メッセージが表示されない場合は、**BuildThirdParty.log** ファイルで詳細を確認してください。**BuildThirdParty.log** は `[UE4Root]/Engine/Build/BatchFiles/Linux` ディレクトリにあります。
+		*	このステップを実行しても **\*\*SUCCESS\*\*** メッセージが表示されない場合は、**BuildThirdParty.log** ファイルで詳細を確認してください。**BuildThirdParty.log** は `[UE4Root]/Engine/Build/BatchFiles/Linux` ディレクトリにあります。
 		[/REGION]
 	[/PARAM]
 [/OBJECT]
@@ -155,8 +155,8 @@ GitHub からソースコードをフォークおよびクローンすること�
 
 	[REGION:note]
 	リポジトリをクローンする位置を選択することができます。
-	1. [Tool (ツール)] メニュから **[Options (オプション)]** を選択します。
 
+	1. [Tool (ツール)] メニュから **[Options (オプション)]** を選択します。
 
 		![](tools_options.png)
 

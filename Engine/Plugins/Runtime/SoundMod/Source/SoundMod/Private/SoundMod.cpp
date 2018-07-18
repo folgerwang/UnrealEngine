@@ -33,7 +33,7 @@ void USoundMod::Parse(class FAudioDevice* AudioDevice, const UPTRINT NodeWaveIns
 
 		// Create streaming wave object
 		USoundModWave* ModWave = NewObject<USoundModWave>();
-		ModWave->SampleRate = SampleRate;
+		ModWave->SetSampleRate(SampleRate);
 		ModWave->NumChannels = 2;
 		ModWave->Duration = INDEFINITELY_LOOPING_DURATION;
 		ModWave->bLooping = bLooping;
@@ -58,7 +58,7 @@ bool USoundMod::IsPlayable() const
 	return true;
 }
 
-float USoundMod::GetMaxAudibleDistance()
+float USoundMod::GetMaxDistance() const
 {
 	return (AttenuationSettings ? AttenuationSettings->Attenuation.GetMaxDimension() : WORLD_MAX);
 }

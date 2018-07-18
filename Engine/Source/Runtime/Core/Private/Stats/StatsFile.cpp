@@ -11,7 +11,7 @@
 #include "Internationalization/Internationalization.h"
 #include "Serialization/MemoryWriter.h"
 #include "Serialization/MemoryReader.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 #if	STATS
 
@@ -223,7 +223,13 @@ IStatsWriteFile::IStatsWriteFile()
 void IStatsWriteFile::Start( const FString& InFilename )
 {
 	const FString PathName = *(FPaths::ProfilingDir() + TEXT( "UnrealStats/" ));
-	const FString Filename = PathName + InFilename;
+	FString Filename = PathName + InFilename;
+
+	if (FPaths::GetExtension(Filename).IsEmpty())
+	{
+		Filename += TEXT(".ue4stats");
+	}
+
 	const FString Path = FPaths::GetPath( Filename );
 	IFileManager::Get().MakeDirectory( *Path, true );
 

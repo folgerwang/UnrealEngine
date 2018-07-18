@@ -144,90 +144,92 @@ void FSynthBenchmark::Run(FSynthBenchmarkResults& InOut, bool bGPUBenchmark, flo
 	UE_LOG(LogSynthBenchmark, Display, TEXT("  Device Id: 0x%X"), GRHIDeviceId);
 	UE_LOG(LogSynthBenchmark, Display, TEXT("  Device Revision: 0x%X"), GRHIDeviceRevision);
 
+	if (FApp::CanEverRender())
 	{
-		FTextureMemoryStats Stats;
-
-		if (GDynamicRHI)
 		{
-		RHIGetTextureMemoryStats(Stats);
-		}
+			FTextureMemoryStats Stats;
 
-		if(Stats.AreHardwareStatsValid())
-		{
-			UE_LOG(LogSynthBenchmark, Display, TEXT("  GPU Memory: %d/%d/%d MB"), 
-				FMath::DivideAndRoundUp(Stats.DedicatedVideoMemory, (int64)(1024 * 1024) ),
-				FMath::DivideAndRoundUp(Stats.DedicatedSystemMemory, (int64)(1024 * 1024) ),
-				FMath::DivideAndRoundUp(Stats.SharedSystemMemory, (int64)(1024 * 1024) ));
-		}
-	}
-
-	float GPUTime = 0.0f;
-
-	// not always done - cost some time.
-	if (bGPUBenchmark && FModuleManager::Get().IsModuleLoaded(TEXT("Renderer")))
-	{
-		IRendererModule& RendererModule = FModuleManager::GetModuleChecked<IRendererModule>(TEXT("Renderer"));
-
-		// First we run a quick test. If that shows very bad performance we don't need another test
-		// The hardware is slow, we don't need a long test and risk driver TDR (driver recovery).
-		// We have seen this problem on very low end GPUs.
-		{
-			const float fFirstWorkScale = 0.01f * WorkScale;
-			const float fSecondWorkScale = 0.1f * WorkScale;
-
-			RendererModule.GPUBenchmark(InOut, fFirstWorkScale);
-			GPUTime = InOut.ComputeTotalGPUTime();
-			if(GPUTime > 0.0f)
+			if (GDynamicRHI)
 			{
-				UE_LOG(LogSynthBenchmark, Display, TEXT("  GPU first test: %.2fs"), GPUTime);
-				PrintGPUStats(InOut.GPUStats, TEXT(" (likely to be very inaccurate)"));
+				RHIGetTextureMemoryStats(Stats);
 			}
 
-			if(GPUTime < 0.1f)
+			if (Stats.AreHardwareStatsValid())
 			{
-				RendererModule.GPUBenchmark(InOut, fSecondWorkScale);
-				GPUTime = InOut.ComputeTotalGPUTime();
+				UE_LOG(LogSynthBenchmark, Display, TEXT("  GPU Memory: %d/%d/%d MB"),
+					FMath::DivideAndRoundUp(Stats.DedicatedVideoMemory, (int64)(1024 * 1024)),
+					FMath::DivideAndRoundUp(Stats.DedicatedSystemMemory, (int64)(1024 * 1024)),
+					FMath::DivideAndRoundUp(Stats.SharedSystemMemory, (int64)(1024 * 1024)));
+			}
+		}
 
-				if(GPUTime > 0.0f)
+		float GPUTime = 0.0f;
+
+		// not always done - cost some time.
+		if (bGPUBenchmark && FModuleManager::Get().IsModuleLoaded(TEXT("Renderer")))
+		{
+			IRendererModule& RendererModule = FModuleManager::GetModuleChecked<IRendererModule>(TEXT("Renderer"));
+
+			// First we run a quick test. If that shows very bad performance we don't need another test
+			// The hardware is slow, we don't need a long test and risk driver TDR (driver recovery).
+			// We have seen this problem on very low end GPUs.
+			{
+				const float fFirstWorkScale = 0.01f * WorkScale;
+				const float fSecondWorkScale = 0.1f * WorkScale;
+
+				RendererModule.GPUBenchmark(InOut, fFirstWorkScale);
+				GPUTime = InOut.ComputeTotalGPUTime();
+				if (GPUTime > 0.0f)
 				{
-					UE_LOG(LogSynthBenchmark, Display, TEXT("  GPU second test: %.2fs"), GPUTime);
-					PrintGPUStats(InOut.GPUStats, TEXT(" (likely to be inaccurate)"));
+					UE_LOG(LogSynthBenchmark, Display, TEXT("  GPU first test: %.2fs"), GPUTime);
+					PrintGPUStats(InOut.GPUStats, TEXT(" (likely to be very inaccurate)"));
 				}
 
-				if(GPUTime < 0.1f)
+				if (GPUTime < 0.15f)
 				{
-					RendererModule.GPUBenchmark(InOut, WorkScale);
+					RendererModule.GPUBenchmark(InOut, fSecondWorkScale);
 					GPUTime = InOut.ComputeTotalGPUTime();
 
-					if(GPUTime > 0.0f)
+					if (GPUTime > 0.0f)
 					{
-						UE_LOG(LogSynthBenchmark, Display, TEXT("  GPU third test: %.2fs"), GPUTime);
-						PrintGPUStats(InOut.GPUStats, TEXT(""));
+						UE_LOG(LogSynthBenchmark, Display, TEXT("  GPU second test: %.2fs"), GPUTime);
+						PrintGPUStats(InOut.GPUStats, TEXT(" (likely to be inaccurate)"));
+					}
+
+					if (GPUTime < 0.15f)
+					{
+						RendererModule.GPUBenchmark(InOut, WorkScale);
+						GPUTime = InOut.ComputeTotalGPUTime();
+
+						if (GPUTime > 0.0f)
+						{
+							UE_LOG(LogSynthBenchmark, Display, TEXT("  GPU third test: %.2fs"), GPUTime);
+							PrintGPUStats(InOut.GPUStats, TEXT(""));
+						}
 					}
 				}
 			}
-		}
 
-		if(GPUTime > 0.0f)
-		{
-			UE_LOG(LogSynthBenchmark, Display, TEXT("  GPU Final Results:"));
-			PrintGPUStats(InOut.GPUStats, TEXT(""));
-			UE_LOG(LogSynthBenchmark, Display, TEXT(""));
-
-			for(uint32 MethodId = 0; MethodId < ARRAY_COUNT(InOut.GPUStats); ++MethodId)
+			if (GPUTime > 0.0f)
 			{
-				UE_LOG(LogSynthBenchmark, Display, TEXT("  GPU Perf Index %d: %.1f (weight %.2f)"), MethodId, InOut.GPUStats[MethodId].ComputePerfIndex(), InOut.GPUStats[MethodId].GetWeight());
+				UE_LOG(LogSynthBenchmark, Display, TEXT("  GPU Final Results:"));
+				PrintGPUStats(InOut.GPUStats, TEXT(""));
+				UE_LOG(LogSynthBenchmark, Display, TEXT(""));
+
+				for (uint32 MethodId = 0; MethodId < ARRAY_COUNT(InOut.GPUStats); ++MethodId)
+				{
+					UE_LOG(LogSynthBenchmark, Display, TEXT("  GPU Perf Index %d: %.1f (weight %.2f)"), MethodId, InOut.GPUStats[MethodId].ComputePerfIndex(), InOut.GPUStats[MethodId].GetWeight());
+				}
 			}
 		}
+
+		if (GPUTime > 0.0f)
+		{
+			UE_LOG(LogSynthBenchmark, Display, TEXT("  GPUIndex: %.1f"), InOut.ComputeGPUPerfIndex());
+		}
 	}
-	
+
 	UE_LOG(LogSynthBenchmark, Display, TEXT("  CPUIndex: %.1f"), InOut.ComputeCPUPerfIndex());
-
-	if(GPUTime > 0.0f)
-	{
-		UE_LOG(LogSynthBenchmark, Display, TEXT("  GPUIndex: %.1f"), InOut.ComputeGPUPerfIndex());
-	}
-
 	UE_LOG(LogSynthBenchmark, Display, TEXT(""));
 	UE_LOG(LogSynthBenchmark, Display, TEXT("         ... Total Time: %f sec"),  (float)(FPlatformTime::Seconds() - StartTime));
 }

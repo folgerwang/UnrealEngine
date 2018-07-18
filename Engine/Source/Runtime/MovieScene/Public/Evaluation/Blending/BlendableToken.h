@@ -3,8 +3,8 @@
 #pragma once
 
 #include "Evaluation/Blending/MovieSceneBlendType.h"
-#include "InlineValue.h"
-#include "MovieScenePlayback.h"
+#include "Misc/InlineValue.h"
+#include "Evaluation/MovieScenePlayback.h"
 #include "Evaluation/MovieSceneEvaluationScope.h"
 
 

@@ -4,6 +4,7 @@
 
 #if OCULUS_HMD_SUPPORTED_PLATFORMS
 #include "OculusHMD_CustomPresent.h"
+#include "XRThreadUtils.h"
 
 
 namespace OculusHMD
@@ -39,7 +40,7 @@ void FTextureSetProxy::GenerateMips_RenderThread(FRHICommandListImmediate& RHICm
 {
 	CheckInRenderThread();
 
-	if (RHITexture->GetNumMips() > 1)
+	if (RHITexture->GetNumMips() > 1 && RHITexture->GetTextureCube() == nullptr)
 	{
 #if PLATFORM_WINDOWS
 		RHICmdList.GenerateMips(RHITexture);

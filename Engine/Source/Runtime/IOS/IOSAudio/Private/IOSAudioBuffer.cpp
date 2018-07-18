@@ -10,7 +10,7 @@
 
 #include "IOSAudioDevice.h"
 #include "AudioEffect.h"
-#include "IAudioFormat.h"
+#include "Interfaces/IAudioFormat.h"
 #include "Sound/SoundWave.h"
 #include "AudioDeviceManager.h"
 #include "Engine/Engine.h"
@@ -35,7 +35,7 @@ FIOSAudioSoundBuffer::FIOSAudioSoundBuffer(FIOSAudioDevice* InAudioDevice, USoun
 	}
 	
 	SoundFormat = static_cast<ESoundFormat>(*DecompressionState->WaveInfo.pFormatTag);
-	SampleRate = InWave->SampleRate;
+	SampleRate = InWave->GetSampleRateForCurrentPlatform();
 	NumChannels = InWave->NumChannels;
 	BufferSize = AudioCallbackFrameSize * sizeof(uint16) * NumChannels;
 	SampleData = static_cast<int16*>(FMemory::Malloc(BufferSize));

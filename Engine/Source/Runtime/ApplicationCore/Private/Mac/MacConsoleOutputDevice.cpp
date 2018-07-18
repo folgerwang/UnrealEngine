@@ -1,14 +1,14 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "MacConsoleOutputDevice.h"
+#include "Mac/MacConsoleOutputDevice.h"
 #include "Misc/App.h"
 #include "Misc/CoreDelegates.h"
 #include "Misc/ConfigCacheIni.h"
-#include "MacApplication.h"
-#include "MacPlatformApplicationMisc.h"
+#include "Mac/MacApplication.h"
+#include "Mac/MacPlatformApplicationMisc.h"
 #include "Misc/OutputDeviceHelper.h"
 #include "Misc/ScopeLock.h"
-#include "CocoaThread.h"
+#include "Mac/CocoaThread.h"
 #include "HAL/PlatformApplicationMisc.h"
 
 FMacConsoleOutputDevice::FMacConsoleOutputDevice()
@@ -64,7 +64,7 @@ void FMacConsoleOutputDevice::CreateConsole()
 
 	MainThreadCall(^{
 		ConsoleHandle = [[FMacConsoleWindow alloc] initWithContentRect: NSMakeRect(ConsolePosX, ConsolePosY, ConsoleWidth, ConsoleHeight)
-										styleMask: (NSTitledWindowMask | NSClosableWindowMask | NSMiniaturizableWindowMask | NSResizableWindowMask)
+										styleMask: (NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskMiniaturizable | NSWindowStyleMaskResizable)
 										  backing: NSBackingStoreBuffered
 											defer: NO];
 		[ConsoleHandle setDelegate:ConsoleHandle];

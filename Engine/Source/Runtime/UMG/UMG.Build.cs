@@ -31,6 +31,8 @@ public class UMG : ModuleRules
 				"HTTP",
 				"MovieScene",
                 "MovieSceneTracks",
+                "PropertyPath",
+				"TimeManagement"
 			}
         );
 
@@ -55,6 +57,15 @@ public class UMG : ModuleRules
 				    "SlateRHIRenderer",
 			    }
             );
-		};
+		}
+
+		if (Target.Type == TargetType.Editor)
+		{
+			PublicDependencyModuleNames.AddRange(
+				new string[] {
+					"UnrealEd",
+				}
+			);
+		}
 	}
 }

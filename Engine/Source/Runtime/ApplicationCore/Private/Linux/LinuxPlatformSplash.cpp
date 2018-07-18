@@ -390,7 +390,7 @@ SDL_Surface* FLinuxSplashState::LoadImage(const FString &ImagePath)
 			const TArray<uint8>* RawData = nullptr;
 			if (ImageWrapper->GetRaw(ERGBFormat::BGRA, 8, RawData))
 			{
-				SDL_Surface *Surface = SDL_CreateRGBSurfaceWithFormat(0, ImageWrapper->GetWidth(), ImageWrapper->GetHeight(), 32, SDL_PIXELFORMAT_BGRA8888);
+				SDL_Surface *Surface = SDL_CreateRGBSurfaceWithFormat(0, ImageWrapper->GetWidth(), ImageWrapper->GetHeight(), 32, SDL_PIXELFORMAT_BGRA32);
 				if (Surface)
 				{
 					const int Width = Surface->w;

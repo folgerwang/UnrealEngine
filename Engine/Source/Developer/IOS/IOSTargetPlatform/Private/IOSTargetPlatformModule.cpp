@@ -6,45 +6,44 @@
 
 
 /**
- * Holds the target platform singleton.
- */
-static ITargetPlatform* Singleton = nullptr;
-
-
-/**
  * Module for iOS as a target platform
  */
-class FIOSTargetPlatformModule
-	: public ITargetPlatformModule
+class FIOSTargetPlatformModule : public ITargetPlatformModule
 {
 public:
 
 	/** Destructor. */
 	~FIOSTargetPlatformModule()
 	{
-		Singleton = nullptr;
+		for (ITargetPlatform* TP : TargetPlatforms)
+		{
+			delete TP;
+		}
+		TargetPlatforms.Empty();
 	}
-
-public:
 
 	//~ ITargetPlatformModule interface
 
-	virtual ITargetPlatform* GetTargetPlatform()
+	virtual TArray<ITargetPlatform*> GetTargetPlatforms() override
 	{
-		if (Singleton == nullptr)
+		if (TargetPlatforms.Num() == 0)
 		{
-			Singleton = new FIOSTargetPlatform(false);
+			TargetPlatforms.Add(new FIOSTargetPlatform(false, true));
+			TargetPlatforms.Add(new FIOSTargetPlatform(false, false));
 		}
 
-		return Singleton;
+		return TargetPlatforms;
 	}
-
-public:
 
 	//~ IModuleInterface interface
 
 	virtual void StartupModule() override { }
 	virtual void ShutdownModule() override { }
+
+protected:
+	/** Holds the target platforms. */
+	TArray<ITargetPlatform*> TargetPlatforms;
+	
 };
 
 

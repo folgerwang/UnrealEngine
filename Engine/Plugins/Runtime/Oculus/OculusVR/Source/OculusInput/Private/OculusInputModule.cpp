@@ -26,7 +26,9 @@ TSharedPtr< class IInputDevice > FOculusInputModule::CreateInputDevice( const TS
 	{
 		if (FOculusHMDModule::Get().PreInit())
 		{
-			return TSharedPtr< class IInputDevice >(new OculusInput::FOculusInput(InMessageHandler));
+			TSharedPtr< OculusInput::FOculusInput > InputDevice(new OculusInput::FOculusInput(InMessageHandler));
+			OculusInputDevice = InputDevice;
+			return InputDevice;
 		}
 		// else, they may just not have a oculus headset plugged in (which we have to account for - no need for a warning)
 	}
@@ -35,6 +37,15 @@ TSharedPtr< class IInputDevice > FOculusInputModule::CreateInputDevice( const TS
 		UE_LOG(LogOcInput, Warning, TEXT("OculusInput plugin enabled, but OculusHMD plugin is not available."));
 	}
 	return nullptr;		
+}
+
+uint32 FOculusInputModule::GetNumberOfTouchControllers() const
+{
+	if (OculusInputDevice.IsValid())
+	{
+		return OculusInputDevice.Pin()->GetNumberOfTouchControllers();
+	}
+	return 0;
 }
 
 

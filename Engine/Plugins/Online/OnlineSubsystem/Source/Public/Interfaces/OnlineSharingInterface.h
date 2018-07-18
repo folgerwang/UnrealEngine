@@ -7,6 +7,18 @@
 #include "OnlineSubsystemTypes.h"
 #include "OnlineDelegateMacros.h"
 
+ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlineSharing, Display, All);
+
+#define UE_LOG_ONLINE_SHARING(Verbosity, Format, ...) \
+{ \
+	UE_LOG(LogOnlineSharing, Verbosity, TEXT("%s%s"), ONLINE_LOG_PREFIX, *FString::Printf(Format, ##__VA_ARGS__)); \
+}
+
+#define UE_CLOG_ONLINE_SHARING(Conditional, Verbosity, Format, ...) \
+{ \
+	UE_CLOG(Conditional, LogOnlineSharing, Verbosity, TEXT("%s%s"), ONLINE_LOG_PREFIX, *FString::Printf(Format, ##__VA_ARGS__)); \
+}
+
 /**
  * Called to notify of a post being shared on the server
  *

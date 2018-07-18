@@ -10,13 +10,11 @@ namespace UnrealBuildTool.Rules
 
 			PublicIncludePaths.AddRange(
 				new string[] {
-					"Runtime/AndroidDeviceProfileSelectorRuntime/Public",
 				}
 				);
 
 			PrivateIncludePaths.AddRange(
 				new string[] {
-					"Runtime/AndroidDeviceProfileSelectorRuntime/Private",
 				}
 				);
 

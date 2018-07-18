@@ -3,17 +3,17 @@
 #pragma once
 
 #include "XRTrackingSystemBase.h"
-#include "AppleARKitConfiguration.h"
 #include "ARSystem.h"
 #include "AppleARKitHitTestResult.h"
-#include "AppleARKitLiveLinkSourceFactory.h"
+#include "AppleARKitTextures.h"
 #include "Kismet/BlueprintPlatformLibrary.h"
+#include "AppleARKitFaceSupport.h"
 
 // ARKit
-#if ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
-#import <ARKit/ARKit.h>
-#include "AppleARKitSessionDelegate.h"
-#endif // ARKIT_SUPPORT
+#if SUPPORTS_ARKIT_1_0
+	#import <ARKit/ARKit.h>
+	#include "AppleARKitSessionDelegate.h"
+#endif
 
 
 DECLARE_STATS_GROUP(TEXT("AppleARKit"), STATGROUP_APPLEARKIT, STATCAT_Advanced);
@@ -25,7 +25,8 @@ DECLARE_STATS_GROUP(TEXT("AppleARKit"), STATGROUP_APPLEARKIT, STATCAT_Advanced);
 struct FAppleARKitFrame;
 struct FAppleARKitAnchorData;
 
-class FAppleARKitSystem : public FARSystemBase
+class FAppleARKitSystem :
+	public FARSystemBase
 {
 	friend class FAppleARKitXRCamera;
 	
@@ -46,9 +47,16 @@ public:
 	void OnBeginRendering_GameThread() override;
 	bool OnStartGameFrame(FWorldContext& WorldContext) override;
 	//~ IXRTrackingSystem
+
+	void* GetARSessionRawPointer() override;
+	void* GetGameThreadARFrameRawPointer() override;
 	
 	// @todo arkit : this is for the blueprint library only; try to get rid of this method
 	bool GetCurrentFrame(FAppleARKitFrame& OutCurrentFrame) const;
+
+	/** So the module can shut down the ar services cleanly */
+	void Shutdown();
+
 private:
 	//~ FGCObject
 	virtual void AddReferencedObjects( FReferenceCollector& Collector ) override;
@@ -69,6 +77,14 @@ protected:
 	virtual UARLightEstimate* OnGetCurrentLightEstimate() const override;
 	virtual UARPin* OnPinComponent(USceneComponent* ComponentToPin, const FTransform& PinToWorldTransform, UARTrackedGeometry* TrackedGeometry = nullptr, const FName DebugName = NAME_None) override;
 	virtual void OnRemovePin(UARPin* PinToRemove) override;
+	virtual UARTextureCameraImage* OnGetCameraImage() override;
+	virtual UARTextureCameraDepth* OnGetCameraDepth() override;
+//@joeg -- ARKit 2.0 additions
+	virtual bool OnAddManualEnvironmentCaptureProbe(FVector Location, FVector Extent) override;
+	virtual TSharedPtr<FARGetCandidateObjectAsyncTask, ESPMode::ThreadSafe> OnGetCandidateObject(FVector Location, FVector Extent) const override;
+	virtual TSharedPtr<FARSaveWorldAsyncTask, ESPMode::ThreadSafe> OnSaveWorld() const override;
+	virtual EARWorldMappingState OnGetWorldMappingStatus() const override;
+//@joeg -- End additions
 	//~IARSystemSupport
 
 private:
@@ -78,12 +94,13 @@ private:
 	void OrientationChanged(const int32 NewOrientation);
 	void UpdatePoses();
 	void UpdateFrame();
+	void CalcTrackingToWorldRotation();
 
 public:
 	// Session delegate callbacks
 	void SessionDidUpdateFrame_DelegateThread( TSharedPtr< FAppleARKitFrame, ESPMode::ThreadSafe > Frame );
 	void SessionDidFailWithError_DelegateThread( const FString& Error );
-#if ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
+#if SUPPORTS_ARKIT_1_0
 	void SessionDidAddAnchors_DelegateThread( NSArray<ARAnchor*>* anchors );
 	void SessionDidUpdateAnchors_DelegateThread( NSArray<ARAnchor*>* anchors );
 	void SessionDidRemoveAnchors_DelegateThread( NSArray<ARAnchor*>* anchors );
@@ -91,7 +108,7 @@ private:
 	void SessionDidAddAnchors_Internal( TSharedRef<FAppleARKitAnchorData> AnchorData );
 	void SessionDidUpdateAnchors_Internal( TSharedRef<FAppleARKitAnchorData> AnchorData );
 	void SessionDidRemoveAnchors_Internal( FGuid AnchorGuid );
-#endif // ARKIT_SUPPORT
+#endif
 	void SessionDidUpdateFrame_Internal( TSharedRef< FAppleARKitFrame, ESPMode::ThreadSafe > Frame );
 
 	
@@ -116,14 +133,17 @@ private:
 	bool bIsRunning = false;
 	
 	void SetDeviceOrientation( EScreenOrientation::Type InOrientation );
+
+	/** Creates or clears the face ar support object if face ar has been requested */
+	void CheckForFaceARSupport(UARSessionConfig* InSessionConfig);
 	
 	/** The orientation of the device; see EScreenOrientation */
 	EScreenOrientation::Type DeviceOrientation;
 	
 	/** A rotation from ARKit TrackingSpace to Unreal Space. It is re-derived based on other parameters; users should not set it directly. */
 	FRotator DerivedTrackingToUnrealRotation;
-	
-#if ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
+
+#if SUPPORTS_ARKIT_1_0
 
 	// ARKit Session
 	ARSession* Session = nullptr;
@@ -133,8 +153,11 @@ private:
 	
 	/** The Metal texture cache for unbuffered texture uploads. */
 	CVMetalTextureCacheRef MetalTextureCache = nullptr;
-	
-#endif // ARKIT_SUPPORT
+
+	/** Cache of images that we've converted previously to prevent repeated conversion */
+	TMap< FString, CGImage* > ConvertedCandidateImages;
+
+#endif
 
 	//
 	// PROPERTIES REPORTED TO FGCObject
@@ -142,22 +165,25 @@ private:
 	TMap< FGuid, UARTrackedGeometry* > TrackedGeometries;
 	TArray<UARPin*> Pins;
 	UARLightEstimate* LightEstimate;
+	UAppleARKitTextureCameraImage* CameraImage;
+	UAppleARKitTextureCameraDepth* CameraDepth;
+	TMap< FString, UARCandidateImage* > CandidateImages;
+//@joeg -- Object detection
+	TMap< FString, UARCandidateObject* > CandidateObjects;
 	// ...
 	// PROPERTIES REPORTED TO FGCObject
 	//
 	
+	/** Controls whether we can use the existing wrapper object instead of creating a new one to cut down on UObject churn */
+	bool bCanReuseCameraImage;
+	/** Controls whether we can use the existing wrapper object instead of creating a new one to cut down on UObject churn */
+	bool bCanReuseCameraDepth;
 
 	/** The ar frame number when LastReceivedFrame was last updated */
 	uint32 GameThreadFrameNumber;
 	/** The ar timestamp of when the LastReceivedFrame was last updated */
 	double GameThreadTimestamp;
 
-	/** If requested, publishes face ar updates to LiveLink for the animation system to use */
-	TSharedPtr<ILiveLinkSourceARKit> LiveLinkSource;
-	/** Copied from the UARSessionConfig project settings object */
-	FName FaceTrackingLiveLinkSubjectName;
-	
-	
 	// An int counter that provides a human-readable debug number for Tracked Geometries.
 	uint32 LastTrackedGeometry_DebugId;
 
@@ -169,6 +195,9 @@ private:
 	TSharedPtr< FAppleARKitFrame, ESPMode::ThreadSafe > GameThreadFrame;
 	TSharedPtr< FAppleARKitFrame, ESPMode::ThreadSafe > RenderThreadFrame;
 	TSharedPtr< FAppleARKitFrame, ESPMode::ThreadSafe > LastReceivedFrame;
+
+	// The object that is handling face support if present
+	IAppleARKitFaceSupport* FaceARSupport;
 };
 
 

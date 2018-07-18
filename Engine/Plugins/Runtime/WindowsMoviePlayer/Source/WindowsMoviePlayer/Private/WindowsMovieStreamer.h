@@ -5,10 +5,13 @@
 #include "CoreMinimal.h"
 #include "MoviePlayer.h"
 
-#include "WindowsHWrapper.h"
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/WindowsHWrapper.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
+
+THIRD_PARTY_INCLUDES_START
 #include <mfapi.h>
 #include <mfidl.h>
+THIRD_PARTY_INCLUDES_END
 
 DECLARE_LOG_CATEGORY_EXTERN(LogWindowsMoviePlayer, Log, All);
 
@@ -44,7 +47,7 @@ public:
 
 private:
 	/** Opens up the next movie in the movie path queue */
-	void OpenNextMovie();
+	bool OpenNextMovie();
 	/** Closes the currently running video */
 	void CloseMovie();
 	/** Cleans up rendering resources once movies are done playing */
@@ -185,4 +188,4 @@ private:
 	TArray<uint8>& TextureData;
 };
 
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"

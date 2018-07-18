@@ -8,11 +8,40 @@
 #include "Online.h"
 #include "Misc/NetworkVersion.h"
 #include "Logging/LogMacros.h"
+#include "Misc/EngineVersion.h"
+
+#include "Interfaces/OnlinePartyInterface.h"
+#include "Interfaces/OnlineIdentityInterface.h"
+#include "Interfaces/OnlineUserInterface.h"
+#include "Interfaces/OnlineEventsInterface.h"
+#include "Interfaces/OnlineStoreInterface.h"
+#include "Interfaces/OnlineStoreInterfaceV2.h"
+#include "Interfaces/OnlinePurchaseInterface.h"
+#include "Interfaces/OnlineSharingInterface.h"
+#include "Interfaces/OnlineLeaderboardInterface.h"
 
 DEFINE_LOG_CATEGORY(LogOnline);
 DEFINE_LOG_CATEGORY(LogOnlineGame);
 DEFINE_LOG_CATEGORY(LogOnlineChat);
 DEFINE_LOG_CATEGORY(LogVoiceEngine);
+DEFINE_LOG_CATEGORY(LogOnlineVoice);
+DEFINE_LOG_CATEGORY(LogOnlineSession);
+DEFINE_LOG_CATEGORY(LogOnlineUser);
+DEFINE_LOG_CATEGORY(LogOnlineFriend);
+DEFINE_LOG_CATEGORY(LogOnlineIdentity);
+DEFINE_LOG_CATEGORY(LogOnlinePresence);
+DEFINE_LOG_CATEGORY(LogOnlineExternalUI);
+DEFINE_LOG_CATEGORY(LogOnlineAchievements);
+DEFINE_LOG_CATEGORY(LogOnlineLeaderboard);
+DEFINE_LOG_CATEGORY(LogOnlineCloud);
+DEFINE_LOG_CATEGORY(LogOnlineTitleFile);
+DEFINE_LOG_CATEGORY(LogOnlineEntitlement);
+DEFINE_LOG_CATEGORY(LogOnlineEvents);
+DEFINE_LOG_CATEGORY(LogOnlineSharing);
+DEFINE_LOG_CATEGORY(LogOnlineStore);
+DEFINE_LOG_CATEGORY(LogOnlineStoreV2);
+DEFINE_LOG_CATEGORY(LogOnlinePurchase);
+
 
 #if STATS
 ONLINESUBSYSTEM_API DEFINE_STAT(STAT_Online_Async);
@@ -47,6 +76,12 @@ int32 GetBuildUniqueId()
 	static bool bUseBuildIdOverride = false;
 	static int32 BuildIdOverride = 0;
 
+	// add a cvar so it can be modified at runtime
+	static FAutoConsoleVariableRef CVarBuildIdOverride(
+		TEXT("buildidoverride"), BuildId,
+		TEXT("Sets build id used for matchmaking "),
+		ECVF_Default);
+
 	if (!bStaticCheck)
 	{
 		bStaticCheck = true;
@@ -67,18 +102,11 @@ int32 GetBuildUniqueId()
 			}
 		}
 
-		const uint32 NetworkVersion = FNetworkVersion::GetLocalNetworkVersion();
 		if (bUseBuildIdOverride == false)
 		{
-			/** Engine package CRC doesn't change, can't be used as the version - BZ */
-			FNboSerializeToBuffer Buffer(64);
-			// Serialize to a NBO buffer for consistent CRCs across platforms
-			Buffer << NetworkVersion;
-			// Now calculate the CRC
-			uint32 Crc = FCrc::MemCrc32((uint8*)Buffer, Buffer.GetByteCount());
-
-			// make sure it's positive when it's cast back to an int
-			BuildId = static_cast<int32>(Crc & 0x7fffffff);
+			// Removed old hashing code to use something more predictable and easier to override for when
+			// it's necessary to force compatibility with an older build
+			BuildId = FNetworkVersion::GetNetworkCompatibleChangelist();
 		}
 		else
 		{
@@ -86,14 +114,74 @@ int32 GetBuildUniqueId()
 		}
 	}
 
-	UE_LOG_ONLINE(VeryVerbose, TEXT("GetBuildUniqueId: Network CL %u LocalNetworkVersion %u bUseBuildIdOverride %d BuildIdOverride %d BuildId %d"),
-		FNetworkVersion::GetNetworkCompatibleChangelist(),
-		FNetworkVersion::GetLocalNetworkVersion(),
-		bUseBuildIdOverride,
-		BuildIdOverride,
-		BuildId);
-
 	return BuildId;
+}
+
+TAutoConsoleVariable<FString> CVarPlatformOverride(
+	TEXT("oss.PlatformOverride"),
+	TEXT(""),
+	TEXT("Overrides the detected platform of this client for various debugging\n")
+	TEXT("Valid values WIN MAC PSN XBL IOS AND LIN SWT OTHER"),
+	ECVF_Cheat);
+
+FString IOnlineSubsystem::GetLocalPlatformName()
+{
+	FString OnlinePlatform;
+
+	OnlinePlatform = CVarPlatformOverride.GetValueOnAnyThread();
+	if (!OnlinePlatform.IsEmpty())
+	{
+		return OnlinePlatform.ToUpper();
+	}
+#if !UE_BUILD_SHIPPING
+	FParse::Value(FCommandLine::Get(), TEXT("PLATFORMTEST="), OnlinePlatform);
+	if (!OnlinePlatform.IsEmpty())
+	{
+		return OnlinePlatform.ToUpper();
+	}
+#endif
+	GConfig->GetString(TEXT("OnlineSubsystem"), TEXT("LocalPlatformName"), OnlinePlatform, GEngineIni);
+	if (!OnlinePlatform.IsEmpty())
+	{
+		return OnlinePlatform.ToUpper();
+	}
+	if (PLATFORM_PS4)
+	{
+		OnlinePlatform = OSS_PLATFORM_NAME_PS4;
+	}
+	else if (PLATFORM_XBOXONE)
+	{
+		OnlinePlatform = OSS_PLATFORM_NAME_XBOX;
+	}
+	else if (PLATFORM_WINDOWS)
+	{
+		OnlinePlatform = OSS_PLATFORM_NAME_WINDOWS;
+	}
+	else if (PLATFORM_MAC)
+	{
+		OnlinePlatform = OSS_PLATFORM_NAME_MAC;
+	}
+	else if (PLATFORM_LINUX)
+	{
+		OnlinePlatform = OSS_PLATFORM_NAME_LINUX;
+	}
+	else if (PLATFORM_IOS)
+	{
+		OnlinePlatform = OSS_PLATFORM_NAME_IOS;
+	}
+	else if (PLATFORM_ANDROID)
+	{
+		OnlinePlatform = OSS_PLATFORM_NAME_ANDROID;
+	}
+	else if (PLATFORM_SWITCH)
+	{
+		OnlinePlatform = OSS_PLATFORM_NAME_SWITCH;
+	}
+	else
+	{
+		OnlinePlatform = OSS_PLATFORM_NAME_OTHER;
+	}
+	return OnlinePlatform;
 }
 
 bool IsPlayerInSessionImpl(IOnlineSession* SessionInt, FName SessionName, const FUniqueNetId& UniqueId)

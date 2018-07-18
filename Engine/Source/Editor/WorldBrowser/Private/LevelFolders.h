@@ -56,7 +56,7 @@ public:
 
 
 /** The class for managing in-memory representations of level folders in the editor */
-struct FLevelFolders : public FGCObject
+struct WORLDBROWSER_API FLevelFolders : public FGCObject
 {
 	FLevelFolders();
 	~FLevelFolders();

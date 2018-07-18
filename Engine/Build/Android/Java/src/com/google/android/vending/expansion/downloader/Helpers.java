@@ -184,8 +184,8 @@ public class Helpers {
      * @param versionCode the version of the file
      * @return String the file name of the expansion file
      */
-    public static String getExpansionAPKFileName(Context c, boolean mainFile, String versionCode) {
-        return (mainFile ? "main." : "patch.") + versionCode + "." + c.getPackageName() + ".obb";
+    public static String getExpansionAPKFileName(Context c, boolean mainFile, String versionCode, String appType) {
+        return (mainFile ? "main." : "patch.") + versionCode + "." + c.getPackageName() + appType + ".obb";
     }
     /**
      * Returns the filename (where the file should be saved) from info about a download

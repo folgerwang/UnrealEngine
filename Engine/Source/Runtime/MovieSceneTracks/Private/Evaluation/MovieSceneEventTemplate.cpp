@@ -6,7 +6,7 @@
 #include "Evaluation/MovieSceneEvaluationTemplateInstance.h"
 #include "EngineGlobals.h"
 #include "MovieScene.h"
-#include "MovieSceneEvaluation.h"
+#include "Evaluation/MovieSceneEvaluation.h"
 #include "IMovieScenePlayer.h"
 
 
@@ -128,18 +128,18 @@ struct FEventTrackExecutionToken
 				{
 					if (!ParamInstanceIt)
 					{
-						UE_LOG(LogMovieScene, Warning, TEXT("Sequencer Event Track: Parameter count mistatch for event '%s'. Required parameter of type '%s' at index '%d'."), *Event.Payload.EventName.ToString(), *ParamIt->GetName(), NumParams);
+						UE_LOG(LogMovieScene, Warning, TEXT("Sequencer Event Track: Parameter count mismatch for event '%s'. Required parameter of type '%s' at index '%d'."), *Event.Payload.EventName.ToString(), *ParamIt->GetName(), NumParams);
 						return;
 					}
 					else if (!ParamIt)
 					{
 						// Mismatch (too many params)
-						UE_LOG(LogMovieScene, Warning, TEXT("Sequencer Event Track: Parameter count mistatch for event '%s'. Parameter struct contains too many parameters ('%s' is superfluous at index '%d'."), *Event.Payload.EventName.ToString(), *ParamInstanceIt->GetName(), NumParams);
+						UE_LOG(LogMovieScene, Warning, TEXT("Sequencer Event Track: Parameter count mismatch for event '%s'. Parameter struct contains too many parameters ('%s' is superfluous at index '%d'."), *Event.Payload.EventName.ToString(), *ParamInstanceIt->GetName(), NumParams);
 						return;
 					}
 					else if (!ParamInstanceIt->SameType(*ParamIt) || ParamInstanceIt->GetOffset_ForUFunction() != ParamIt->GetOffset_ForUFunction() || ParamInstanceIt->GetSize() != ParamIt->GetSize())
 					{
-						UE_LOG(LogMovieScene, Warning, TEXT("Sequencer Event Track: Parameter type mistatch for event '%s' ('%s' != '%s')."),
+						UE_LOG(LogMovieScene, Warning, TEXT("Sequencer Event Track: Parameter type mismatch for event '%s' ('%s' != '%s')."),
 							*Event.Payload.EventName.ToString(),
 							*ParamInstanceIt->GetClass()->GetName(),
 							*ParamIt->GetClass()->GetName()
@@ -187,36 +187,36 @@ void FMovieSceneEventSectionTemplate::EvaluateSwept(const FMovieSceneEvaluationO
 
 	TArray<FMovieSceneEventData> Events;
 
-	TRange<float> SweptRange = Context.GetRange();
+	TRange<FFrameNumber>            SweptRange = Context.GetFrameNumberRange();
 
-	const TArray<float>& KeyTimes = EventData.KeyTimes;
-	const TArray<FEventPayload>& KeyValues = EventData.KeyValues;
+	TArrayView<const FFrameNumber>  KeyTimes   = EventData.GetKeyTimes();
+	TArrayView<const FEventPayload> KeyValues  = EventData.GetKeyValues();
 
 	const int32 First = bBackwards ? KeyTimes.Num() - 1 : 0;
 	const int32 Last = bBackwards ? 0 : KeyTimes.Num() - 1;
 	const int32 Inc = bBackwards ? -1 : 1;
 
-	const float Position = Context.GetTime() * Context.GetRootToSequenceTransform().Inverse();
+	const float PositionInSeconds = Context.GetTime() * Context.GetRootToSequenceTransform().Inverse() / Context.GetFrameRate();
 
 	if (bBackwards)
 	{
 		// Trigger events backwards
 		for (int32 KeyIndex = KeyTimes.Num() - 1; KeyIndex >= 0; --KeyIndex)
 		{
-			float Time = KeyTimes[KeyIndex];
+			FFrameNumber Time = KeyTimes[KeyIndex];
 			if (SweptRange.Contains(Time))
 			{
-				Events.Add(FMovieSceneEventData(KeyValues[KeyIndex], Position));
+				Events.Add(FMovieSceneEventData(KeyValues[KeyIndex], PositionInSeconds));
 			}
 		}
 	}
 	// Trigger events forwards
 	else for (int32 KeyIndex = 0; KeyIndex < KeyTimes.Num(); ++KeyIndex)
 	{
-		float Time = KeyTimes[KeyIndex];
+		FFrameNumber Time = KeyTimes[KeyIndex];
 		if (SweptRange.Contains(Time))
 		{
-			Events.Add(FMovieSceneEventData(KeyValues[KeyIndex], Position));
+			Events.Add(FMovieSceneEventData(KeyValues[KeyIndex], PositionInSeconds));
 		}
 	}
 

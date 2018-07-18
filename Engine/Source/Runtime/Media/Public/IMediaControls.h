@@ -13,6 +13,9 @@
  */
 enum class EMediaControl
 {
+	/** Block on fetch. */
+	BlockOnFetch,
+
 	/** Pause playback. */
 	Pause,
 

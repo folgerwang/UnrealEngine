@@ -148,7 +148,8 @@ void FRichTextLayoutMarshaller::AppendRunsForText(
 		FRunInfo RunInfo(TextRun.Name);
 		for (const TPair<FString, FTextRange>& Pair : TextRun.MetaData)
 		{
-			RunInfo.MetaData.Add(Pair.Key, ProcessedString.Mid(Pair.Value.BeginIndex, Pair.Value.EndIndex - Pair.Value.BeginIndex));
+			int32 Length = FMath::Max(0, Pair.Value.EndIndex - Pair.Value.BeginIndex);
+			RunInfo.MetaData.Add(Pair.Key, ProcessedString.Mid(Pair.Value.BeginIndex, Length));
 		}
 
 		const FTextBlockStyle* TextBlockStyle;

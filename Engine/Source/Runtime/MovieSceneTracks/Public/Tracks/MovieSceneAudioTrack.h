@@ -27,7 +27,10 @@ class MOVIESCENETRACKS_API UMovieSceneAudioTrack
 public:
 
 	/** Adds a new sound cue to the audio */
-	virtual void AddNewSound(USoundBase* Sound, float Time);
+	virtual UMovieSceneSection* AddNewSoundOnRow(USoundBase* Sound, FFrameNumber Time, int32 RowIndex);
+
+	/** Adds a new sound cue on the next available/non-overlapping row */
+	virtual UMovieSceneSection* AddNewSound(USoundBase* Sound, FFrameNumber Time) { return AddNewSoundOnRow(Sound, Time, INDEX_NONE); }
 
 	/** @return The audio sections on this track */
 	const TArray<UMovieSceneSection*>& GetAudioSections() const
@@ -38,8 +41,6 @@ public:
 	/** @return true if this is a master audio track */
 	bool IsAMasterTrack() const;
 
-	float GetSoundDuration(USoundBase* Sound);
-
 public:
 
 	// UMovieSceneTrack interface
@@ -49,7 +50,6 @@ public:
 	virtual void AddSection(UMovieSceneSection& Section) override;
 	virtual void RemoveSection(UMovieSceneSection& Section) override;
 	virtual bool IsEmpty() const override;
-	virtual TRange<float> GetSectionBoundaries() const override;
 	virtual const TArray<UMovieSceneSection*>& GetAllSections() const override;
 	virtual bool SupportsMultipleRows() const override;
 	virtual FMovieSceneTrackRowSegmentBlenderPtr GetRowSegmentBlender() const override;

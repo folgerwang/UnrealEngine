@@ -110,7 +110,7 @@ void SKeySelector::Construct(const FArguments& InArgs)
 	// if we allow NoClear, add a "None" option to be able to clear out a binding
 	if (InArgs._AllowClear)
 	{
-		new (KeyTreeRoot) FKeyTreeItem(MakeShareable(new FKeyTreeInfo(FText(), MakeShareable(new FKey(NAME_None)))));
+		new (KeyTreeRoot) FKeyTreeItem(MakeShareable(new FKeyTreeInfo(FText(), MakeShareable(new FKey(EKeys::Invalid)))));
 	}
 
 	TreeViewWidth = InArgs._TreeViewWidth;

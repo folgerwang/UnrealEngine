@@ -1,186 +1,200 @@
-﻿INTSourceChangelist:3683933
+﻿INTSourceChangelist:3759006
+INTSourceChangelist:3759006
 Availability:Public
 Title:ゲームプレイからシーケンスをトリガーする
 Crumbs: %ROOT%, Engine, Engine/Sequencer, Engine/Sequencer/HowTo
 Description:インゲームのイベントからシーケンスをトリガーする方法を説明します。 
-Version:4.12
+Version:4.18
 SkillLevel:Intermediate
 parent:Engine/Sequencer/HowTo
 order:1
 checkpoint: editorqs
 Related:Engine/Sequencer/Overview
-Related:Engine\Sequencer\ReferenceEditor\
+Related:Engine/Blueprints
 tags:Sequencer
 type:how-to
 
-シネマティック シーケンスを作成したらカットシーンの一部としてゲームプレイ中にそれを呼び出しプレイすることができます。 
-例えば、キャラクターが部屋に入ると、カットシーンが始まったり、キャラクターが敵をキルしたらプレイするエンディング シネマティックスがあるかもしれません。 
+シネマティック シーケンスを作成したらカットシーンの一部としてゲームプレイ中にそれを呼び出して再生することができます。 
+例えば、プレイヤーが部屋に入り、カメラをあるオブジェクトにズームインさせたい場合があるかもしれません。 
+あるいは、プレイヤーが敵をキルした後に、エンディングのシネマティックスをトリガーしたいとします。 
+レベル シーケンスへの参照を取得することで、[ブループリント](Engine/Blueprints) または C++ のコードを使ってシーケンスに対して再生を再開するように指示します。 
 
-この操作ガイドでは、[](Engine/Blueprints) を使ってレベル シーケンスに対して、インゲームのイベントに応じてプレイするように指示します。 
-**[Sequence Player]** オプションを使って、レベル シーケンスが終了したときを知らせ、この時点で新たなブループリント スクリプトをアクティベートできます。 
+この操作ガイドでは、プレイヤーがトリガー ボックスに入るとライトが点灯するサンプル シネマティックスを作成します。 
+シネマティックスが再生を終了すると、シーケンサーに対してレベル内のライトに変更を適用するように指示して、シネマティックスが再生を終了してもライトが点灯したままになるようにします。 
+再生中にプレイヤーにシネマティックスをスキップさせて、シーケンサーに指示してシーンをスキップした後もライトを点灯し、そのままの状態にすることができます。
+
+![](HeroImage.png)
+
 
 ## ステップ
 
 [REGION:note]
-ここではサンプルのシーケンスが既に作成された状態で **Blueprint Third Person Template** プロジェクトを使います。 
+ここでは **Blueprint Third Person Template** プロジェクトを使います。 
 [/REGION]
 
-1.	プレイするレベル シーケンスがレベル内にない場合は、**コンテンツ ブラウザ** からレベルに **ドラッグ＆ドロップ** します。 
+1.	**[Modes]** パネルの **[Basic]** から、**[Box Trigger]** をレベルにドラッグし、自由にサイズ変更および配置します。 
 
-	![](Trigger01.png)(w:720)
+	![](Trigger01.png)
 
-1.	**[Modes (モード)]** パネルから **Trigger** をレベルにドラッグして、ニーズに応じて調整します (以下では **Box Trigger** を使用しました)。 
+	プレイヤーがトリガーに入ると、シネマティックスに対して再生を開始するようにブループリントを通して指示します。 
+
+1.	メイン ツールバーから **[Cinematics (シネマティックス)]** ボタンをクリックし、**[Add Level Sequence (レベル シーケンスを追加)]** を選択して、シネマティックスに名前を付けます。 
 
 	![](Trigger02.png)
 
-	プレイヤーがこのトリガーに入ると、レベル シーケンスにプレイを開始するように指示します。 
-
-1.	**トリガー** を選択したままの状態で、メインツールバーの **[Blueprints]** ボタンをクリックして **[Open Level Blueprint]** を選びます。 
+1.	**[Modes]** パネルの **[Basic]** から、**[Point Light]** をレベルにドラッグし、以下の位置にライトを配置します。 
 
 	![](Trigger03.png)
 
-1.	グラフを **右クリック** して、**[Collision]** で、**[Add On Actor Begin Overlap]** を選択します。 
+1.	**Point Light** を選択した状態で **[Details]** パネルで、**Intensity** の値を **0.0** に変更し、**Keyframe** ボタンをクリックします。
 
 	![](Trigger04.png)
 
-1.	レベルに戻り **[Level Sequence]** を選択します。
+	これで、ポイントライトがシーケンサーに追加され、その初期値をシーケンスの始まりの場所にキーフレーム化します。 
 
-1. メイン ツールバーで **[Blueprints]** ボタンをクリックして、**[Open Level Blueprint]** を再度選択します。
+1.	シーケンサーでは、タイムラインをフレーム **150** に移動し、ライトの **Intensity** 値を、**5000*** に移動し、それをキーフレーム化します。 
 
-1.	**右クリック** し、レベル シーケンスに **[Create a Reference to...]** オプションを選択します。 
+	[REGION:lightbox]
+	[![](Trigger05.png)(w:1000)](Trigger05.png)
+	[/REGION]
 
-	![](Trigger05.png)
+	[REGION:caption]
+	画像をクリックしてフルサイズで表示 
+	[/REGION]
 
-	プレイするレベル シーケンス上にあるものは、**CameraFlyBy** と呼ばれます。 
+	ポイントライトがオフの位置から始まり、シーケンスの再生が進むにつれて明るくなっていきます。 
 
-1.	**左クリック** して新しいノードをドラッグし、 **Get Sequence Player** ノードを追加します。 
+1.	**Add Camera** ボタンをクリックします。次にレベルのカメラをキャラクターの近くに移動し、キーフレーム化します。 
 
-	![](Trigger06.png)
+	[REGION:lightbox]
+	[![](Trigger06.png)(w:900)](Trigger06.png)
+	[/REGION]
 
-1.	**Sequence Player** ノードから、 **Play** ノードを追加し、以下のように接続します。 
+	[REGION:caption]
+	画像をクリックしてフルサイズで表示 
+	[/REGION]
 
-	![](Trigger07.png)
+1.	タイムラインをフレーム **75** まで動かします。次に、レベルでカメラをキャラクターとライトを見渡す新しい位置に動かし、それをキーフレーム化します。 
 
-	ゲームをプレイする場合、作成したシーケンスはキャラクターがトリガーに入ったときにプレイします。 
+	[REGION:lightbox]
+	[![](Trigger07.png)(w:900)](Trigger07.png)
+	[/REGION]
 
-	[OBJECT:EmbeddedVideo]
-	[PARAMLITERAL:width]
-	640
-	[/PARAMLITERAL]
-	[PARAMLITERAL:height]
-	360
-	[/PARAMLITERAL]
-	[PARAMLITERAL:videoid]
-	sjsxR2nwcNg
-	[/PARAMLITERAL]
-	[/OBJECT]
+	[REGION:caption]
+	画像をクリックしてフルサイズで表示 
+	[/REGION]
 
-	現在のセットアップでは、キャラクターはシネマティックスのプレイ中にまだ自由に動き回ることができます。 
-	シネマティックスの再生には何とか成功しましたが、シネマティックスのプレイ中にプレイヤーをロックしたり、または表示されないように **Set Hidden in Game (インゲームで非表示に設定)** したりすることができます。 
+1.	タイムラインをフレーム **150** まで動かします。次に、レベルでカメラをライトをフォーカスする位置に動かし、それをキーフレーム化します。 
 
-1.	**Level ブループリント** 内を **右クリック** して、 **Disable Input** ノードを追加します。 
+	[REGION:lightbox]
+	[![](Trigger08.png)(w:900)](Trigger08.png)
+	[/REGION]
 
-	![](Trigger08.png)
+	[REGION:caption]
+	画像をクリックしてフルサイズで表示 
+	[/REGION]
 
-	レベルでレベル シーケンスをまだ選択した状態であれば、2 つのオプションが表示されます (それ自体による **入力** の下にあるものを選択します)。 
+	シネマティックスにアニメーションをフライスルーするカメラが用意できました。プレイヤーに対してレベル内のどこにライトがあるかを示します。 
 
-1.	**Play** の後のノードを接続し、**Player Controller** からドラッグして **Get Player Controller** ノードを追加します。 
+1.	レベルの **[Trigger Box]** をクリックしてメイン ツールバーから、 **[Blueprint]** ボタンをクリックし、**Open Level Blueprint** を選択します。 
 
 	![](Trigger09.png)
 
-	これでプレイヤーに関連するプレイヤー コントローラーに対して、入力を受け取るのを停止するように指示します。 
-
-1.	**Disable Input** ノードの **Target** ピンをドラッグして、**Get Player Character** ノードを追加します。 
+1.	グラフ内で右クリックして、 **Trigger Box** で、**[Add On Actor Begin Overlap]** を選択します。 
 
 	![](Trigger10.png)
 
-	シーケンス開始時に入力を無効にしましたが、それが終了したら入力を有効にする必要があります。 
-
-1.	**Sequencer Player** ノードをドラッグして、**Get Length** ノードを追加します。 
+1.	レベルに戻り、レベル シーケンスを選択します。次に **Level ブループリント** 内に戻り右クリックして、レベル シーケンスに **Create a Reference (参照を作成)** します。 
 
 	![](Trigger11.png)
 
-1.	グラフ内を **右クリック** して、 **Set Timer by Event** ノードを追加します。 
+1.	レベル シーケンスの参照からドラッグして、**Play (SequencePlayer)** を選択します。 
 
 	![](Trigger12.png)
 
-1.	**Disable Input** の後に **Set Timer by Event** ノードを接続します。**Length** を **Time** ピンに入力します。 
+1.	**OnActorBeginOverlap** ノードを、**Play** ノードに接続します。 
 
 	![](Trigger13.png)
 
-	これでレベル シーケンスの最後にイベントを呼び出すことができます。 
+	トリガー ボックスに入ると、**Play** ノードが実行されて、レベル シーケンスが再生されます。 
 
-1.	グラフ内を **右クリック** して、 **Sequence End** と呼ばれる **カスタム イベント** を作成します。  
+	[OBJECT:EmbeddedVideo]
+		[PARAMLITERAL:videoid]
+		7G2zHwVbmHg
+		[/PARAMLITERAL]
+		[PARAMLITERAL:width]
+		100
+		[/PARAMLITERAL]
+		[PARAMLITERAL:height]
+		56.25
+		[/PARAMLITERAL]
+		[PARAMLITERAL:units]
+		%
+		[/PARAMLITERAL]
+		[PARAMLITERAL:type]
+		simple
+		[/PARAMLITERAL]
+	[/OBJECT]
+
+	エディタで再生すると、トリガー ボックスに入るときにシーケンスが再生しますが、再生は一回だけです。 
+	再度シーケンスを再生する場合、シーケンスに再生を指示する前に、Playback Position を **0** (つまりシーケンスの開始) に設定した **Set Playback Position** ノードを使って再度シーケンスの再生をやり直します。 
+
+1.	**Level ブループリント** で、**Sequence Player** ノードからドラッグして、**Set Playback Position** ノードを使用します。 
 
 	![](Trigger14.png)
 
-1.	バインド ピンを **Set Timer by Event** ノード上の **Event** ピンに接続します。 
+1.	**OnActorBeginOverlap** ノードと **Play** ノードの間の **Set Playback Position** を接続します。 
 
 	![](Trigger15.png)
 
-	**Sequence End** event に接続されているものが何であれ、レベル シーケンスが完了すると発行されるようになります。 
+	これで再生開始前に Level シーケンスを始めの部分に戻します。 
 
-1.	**Enable Input** ノードを追加し、**Get Player Character** と **Get Player Controller** ノードを接続します。 
+1.	**シーケンサー** 内で **Intensity** トラックを右クリックして、**Properties** で **[When Finished]** を **[Keep State]** に変更してください。 
 
-	[REGION:lightbox]
-	[![](Trigger16.png)](Trigger16.png)
-	[/REGION]
+	![](Trigger16.png)
 
-	[REGION:caption]
-	クリックしてフルサイズで表示 
-	[/REGION]
+	**[Keep State]** オプションを使ってライトの Intensity 設定をシーケンス終了後もそのまま残るようにすることができます。 
+	これはシーケンス終了後にシーケンサーで作成したエフェクトや設定をシーケンス終了後に残したい場合に役立ちます。 
+	例えば、シネマティックスでドアが開き、シネマティックスが終了してもドアを開けたままにしたい場合があるでしょう。 
 
-	プレイすると、レベル シーケンスがアクティブな間は、プレイ可能なキャラクターは停止し、入力を受け取りません。 
-	シーケンスが完了すると、プレイヤーは再度キャラクターに入力を与えることができます。 
+1.	**レベル ブループリント** で **Go to End and Stop** に接続された **Branch** (**Is Playing** の条件で) に接続された **F** keyboard event を追加します。
 
-	[OBJECT:EmbeddedVideo]
-	[PARAMLITERAL:width]
-	640
-	[/PARAMLITERAL]
-	[PARAMLITERAL:height]
-	360
-	[/PARAMLITERAL]
-	[PARAMLITERAL:videoid]
-	nuw87s4vNro
-	[/PARAMLITERAL]
-	[/OBJECT]
+	![](Trigger17.png)
 
-	現在のセットアップでは、シネマティックスは再トリガーできません。シーケンスを再トリガーするには、既存のセットアップにノードをもうひとつ追加する必要があります。 
+	**F** キーを押すと、レベル シーケンスが現在再生中の場合は直ちに最終点にジャンプし再生を停止します。 
+	**Go to End and Stop** ノードは、プレイヤーがシネマティックスをスキップできるようにしたいが、シーケンスの再生が続く場合にシーケンサーが適用した変更を継続する場合に役立ちます。 
 
-1.	**Level ブループリント** で、**Sequence Player** ノードをドラッグして、**Play** ノードの前に **Set Playback Position** ノードを 追加します。 
+	例えば、シネマティックスではシーケンサーがレベルでライトを点灯します。プレイヤーが点灯しているライトのカットシーンをスキップしても、カットシーンがスキップされた後もライトを点灯し続けたいとします。 
+	単に **Stop** ノードを使ってシネマティックスの再生を停止したらシネマティックスは完了せず、シネマティックスのどこでも停止を選択した場所で停止します (つまり、どこで停止したかに応じてライトは十分にオンオフしなくなります)。 
 
-	[REGION:lightbox]
-	[![](Trigger17.png)](Trigger17.png)
-	[/REGION]
-
-	[REGION:caption]
-	クリックしてフルサイズで表示 
-	[/REGION]
-
-	**Playback Position** をデフォルトで **0.0** で開始するようにすると、シーケンスはプレイされる度に最初から開始します。 
-
-1.	**[Play (プレイ)]** ボタンをクリックして、エディタでプレイします。 	
+1.	メイン エディタに戻り、メイン ツールバーで**[Play (再生)]** ボタンをクリックしてエディタで再生します。
 
 
 ## 最終結果
 
+エディタで再生すると、デフォルトでライトは点灯しないことがわかります。
+トリガー ボックスに入ると、シネマティックスが再生を開始し、ライトが点灯し、シネマティックスの完了時に点灯したままになります。 
+再度トリガー ボックスに入ることでシネマティックスを再トリガーすることができます。これにより、シーケンスが始めから再生します。 
+トリガー ボックスに入って、**F** キーを押してシネマティックスをスキップすることもできます。その結果、ライトが自動的に点灯します。 
+
 [OBJECT:EmbeddedVideo]
-[PARAMLITERAL:width]
-640
-[/PARAMLITERAL]
-[PARAMLITERAL:height]
-360
-[/PARAMLITERAL]
-[PARAMLITERAL:videoid]
-dWCbJb5YJhI
-[/PARAMLITERAL]
+	[PARAMLITERAL:videoid]
+	BJ2LbTU02iA
+	[/PARAMLITERAL]
+	[PARAMLITERAL:width]
+	100
+	[/PARAMLITERAL]
+	[PARAMLITERAL:height]
+	56.25
+	[/PARAMLITERAL]
+	[PARAMLITERAL:units]
+	%
+	[/PARAMLITERAL]
+	[PARAMLITERAL:type]
+	simple
+	[/PARAMLITERAL]
 [/OBJECT]
 
-ここまでで、ゲームプレイからトリガーされ、プレイヤーを固定するシネマティック シーケンスを作成しました。シーケンスは複数回トリガーすることもできます。シネマティックスのプレイ後に入力はプレイヤーに戻ります。 
-
-**Cinematic** セクションの **Sequencer Player** ノードから他の情報や関数にアクセスできます。 
-
-![](Trigger18.png)
 
 
 

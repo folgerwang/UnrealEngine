@@ -19,6 +19,10 @@
 #include "HTML5/HTML5PlatformSplash.h"
 #elif PLATFORM_LINUX
 #include "Linux/LinuxPlatformSplash.h"
+#elif PLATFORM_QUAIL
+#include "Quail/QuailPlatformSplash.h"
 #elif PLATFORM_SWITCH
 #include "Switch/SwitchPlatformSplash.h"
+#else
+#error Unknown platform
 #endif

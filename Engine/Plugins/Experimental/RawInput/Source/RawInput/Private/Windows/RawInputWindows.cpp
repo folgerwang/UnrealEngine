@@ -1,9 +1,9 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "RawInputWindows.h"
+#include "Windows/RawInputWindows.h"
 #include "IInputDeviceModule.h"
 #include "IInputDevice.h"
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 #include "RawInputSettings.h"
 #include "HAL/PlatformProcess.h"
 #include "Framework/Application/SlateApplication.h"

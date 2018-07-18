@@ -14,7 +14,7 @@ void FAnimNode_Slot::Initialize_AnyThread(const FAnimationInitializeContext& Con
 	WeightData.Reset();
 
 	// If this node has not already been registered with the AnimInstance, do it.
-	if (!SlotNodeInitializationCounter.IsSynchronizedWith(Context.AnimInstanceProxy->GetSlotNodeInitializationCounter()))
+	if (!SlotNodeInitializationCounter.IsSynchronized_Counter(Context.AnimInstanceProxy->GetSlotNodeInitializationCounter()))
 	{
 		SlotNodeInitializationCounter.SynchronizeWith(Context.AnimInstanceProxy->GetSlotNodeInitializationCounter());
 		Context.AnimInstanceProxy->RegisterSlotNodeWithAnimInstance(SlotName);
@@ -96,5 +96,6 @@ void FAnimNode_Slot::GatherDebugData(FNodeDebugData& DebugData)
 
 FAnimNode_Slot::FAnimNode_Slot()
 	: SlotName(FAnimSlotGroup::DefaultSlotName)
+	, bAlwaysUpdateSourcePose(false)
 {
 }

@@ -2,8 +2,8 @@
 
 #pragma once
 
-#include "Commands.h"
-#include "UICommandInfo.h"
+#include "Framework/Commands/Commands.h"
+#include "Framework/Commands/UICommandInfo.h"
 #include "EditorStyleSet.h"
 
 class FClothingAssetListCommands : public TCommands<FClothingAssetListCommands>

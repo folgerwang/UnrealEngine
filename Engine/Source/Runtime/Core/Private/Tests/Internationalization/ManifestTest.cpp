@@ -11,11 +11,8 @@
 // Helper function to count the number of entries in a manifest
 int32 CountManifestEntries( const FInternationalizationManifest& Manifest )
 {
-	int32 EntryCounter = 0;
-	for( auto Iter = Manifest.GetEntriesByKeyIterator(); Iter; ++Iter, ++EntryCounter );
-	return EntryCounter;
+	return Manifest.GetNumEntriesByKey();
 }
-
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FLocContextTest, "System.Core.Misc.Internationalization Context", EAutomationTestFlags::EditorContext | EAutomationTestFlags::ClientContext | EAutomationTestFlags::SmokeFilter)
 
@@ -131,7 +128,7 @@ bool FLocContextTest::RunTest( const FString& Parameters )
 			TestEqual( TEXT("ContextAClone == ContextA"), ContextAClone, ContextA );
 
 			// Changing the key in any way will cause comparison to fail
-			ContextAClone.Key = ContextAClone.Key + TEXT("New");
+			ContextAClone.Key = ContextAClone.Key.GetString() + TEXT("New");
 			TestNotEqual( TEXT("ContextAClone != ContextA"), ContextAClone, ContextA );
 
 			// Reset and test KeyMetadataObj change to one of the value entries
@@ -164,7 +161,7 @@ bool FLocContextTest::RunTest( const FString& Parameters )
 
 			// Differences in Key
 			TestFalse( TEXT("ContextA < ContextAClone"), ContextA < ContextAClone );
-			ContextAClone.Key = ContextAClone.Key + TEXT("A");
+			ContextAClone.Key = ContextAClone.Key.GetString() + TEXT("A");
 			//currently failing TestTrue( TEXT("ContextA < ContextAClone"), ContextA < ContextAClone );
 
 			// Adding new key metadata entry that will appear before other entries

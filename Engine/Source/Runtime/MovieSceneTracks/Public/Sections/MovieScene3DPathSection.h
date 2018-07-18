@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
 #include "Curves/KeyHandle.h"
-#include "Curves/RichCurve.h"
+#include "Channels/MovieSceneFloatChannel.h"
 #include "Sections/MovieScene3DConstraintSection.h"
 #include "MovieScene3DPathSection.generated.h"
 
@@ -35,30 +35,22 @@ class UMovieScene3DPathSection
 
 public:
 
+	virtual void InitialPlacement(const TArray<UMovieSceneSection*>& Sections, FFrameNumber InStartTime, int32 Duration, bool bAllowMultipleRows) override;
+
 	/**
 	 * Evaluates the path track.
 	 *
 	 * @param Time The position in time within the movie scene.
 	 */
-	void Eval(USceneComponent* SceneComponent, float Time, USplineComponent* SplineComponent, FVector& OutTranslation, FRotator& OutRotation) const;
+	void Eval(USceneComponent* SceneComponent, FFrameTime Time, USplineComponent* SplineComponent, FVector& OutTranslation, FRotator& OutRotation) const;
 
 	/** 
-	 * Adds a path to the section.
+	 * Sets the path binding ID
 	 *
-	 * @param Time The location in time where the path should be added.
-	 * @param SequenceEndTime The time at the end of the sequence, by default the path is set to end at this time.
 	 * @param InPathBindingID The object binding id to the path.
 	 */
-	void AddPath(float Time, float SequenceEndTime, const FMovieSceneObjectBindingID& InPathBindingID);
+	void SetPathBindingID(const FMovieSceneObjectBindingID& InPathBindingID);
 
-	/** 
-	 * Returns the timing curve.
-	 *
-	 * @return The timing curve.
-	 */
-	MOVIESCENETRACKS_API FRichCurve& GetTimingCurve() { return TimingCurve; }
-	MOVIESCENETRACKS_API const FRichCurve& GetTimingCurve() const { return TimingCurve; }
-	
 	MOVIESCENETRACKS_API MovieScene3DPathSection_Axis GetFrontAxisEnum() const { return FrontAxisEnum; }
 	MOVIESCENETRACKS_API MovieScene3DPathSection_Axis GetUpAxisEnum() const { return UpAxisEnum; }
 	MOVIESCENETRACKS_API bool GetFollow() const { return bFollow; }
@@ -67,17 +59,13 @@ public:
 
 public:
 
-	//~ MovieSceneSection interface
-
-	virtual void MoveSection(float DeltaPosition, TSet<FKeyHandle>& KeyHandles) override;
-	virtual void DilateSection(float DilationFactor, float Origin, TSet<FKeyHandle>& KeyHandles) override;
-	virtual void GetKeyHandles(TSet<FKeyHandle>& OutKeyHandles, TRange<float> TimeRange) const override;
+	const FMovieSceneFloatChannel& GetTimingChannel() const { return TimingCurve; }
 
 private:
 
 	/** Timing Curve */
-	UPROPERTY(EditAnywhere, Category="Path")
-	FRichCurve TimingCurve;
+	UPROPERTY()
+	FMovieSceneFloatChannel TimingCurve;
 
 	/** Front Axis */
 	UPROPERTY(EditAnywhere, Category="Path")

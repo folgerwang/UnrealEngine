@@ -20,7 +20,6 @@ public class ImmediatePhysics: ModuleRules
 
         PrivateIncludePaths.AddRange(
             new string[] {
-                "Runtime/ImmediatePhysics/Private"
             });
     }
 }

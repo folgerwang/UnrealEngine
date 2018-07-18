@@ -186,9 +186,11 @@ void UWidgetTree::ForWidgetAndChildren(UWidget* Widget, TFunctionRef<void(UWidge
 
 void UWidgetTree::PreSave(const class ITargetPlatform* TargetPlatform)
 {
+#if WITH_EDITORONLY_DATA
 	AllWidgets.Empty();
 
 	GetAllWidgets(AllWidgets);
+#endif
 
 	Super::PreSave( TargetPlatform);
 }
@@ -196,5 +198,7 @@ void UWidgetTree::PreSave(const class ITargetPlatform* TargetPlatform)
 void UWidgetTree::PostLoad()
 {
 	Super::PostLoad();
+#if WITH_EDITORONLY_DATA
 	AllWidgets.Empty();
+#endif
 }

@@ -63,8 +63,8 @@ version:4.9
 	class HOWTO_AUTOCAMERA_API ACameraDirector : public AActor
 	{
 		GENERATED_BODY()
-	public:
 
+	public:
 		// Sets default values for this actor's properties (このアクタのプロパティのデフォルト値を設定)
 		ACameraDirector();
 
@@ -72,7 +72,6 @@ version:4.9
 		// Called when the game starts or when spawned (ゲーム開始時またはスポーン時に呼び出されます)
 		virtual void BeginPlay() override;
 	public:
-
 		// Called every frame (フレームごとに呼び出されます)
 		virtual void Tick( float DeltaSeconds ) override;
 
@@ -105,8 +104,8 @@ version:4.9
 	void ACameraDirector::BeginPlay()
 	{
 		Super::BeginPlay();
-	}
 
+	}
 
 	// Called every frame (フレームごとに呼び出されます)
 	void ACameraDirector::Tick( float DeltaTime )
@@ -119,8 +118,8 @@ version:4.9
 		if (TimeToNextCameraChange <= 0.0f)
 		{
 			TimeToNextCameraChange += TimeBetweenCameraChanges;
-		//Find the actor that handles control for the local player. (ローカル プレイヤーをコントロールするアクタを探します。) 
 
+		//Find the actor that handles control for the local player. (ローカル プレイヤーをコントロールするアクタを探します。) 
 			APlayerController* OurPlayerController = UGameplayStatics::GetPlayerController(this, 0);
 			if (OurPlayerController)
 			{

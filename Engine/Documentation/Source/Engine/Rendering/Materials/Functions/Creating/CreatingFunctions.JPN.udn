@@ -1,10 +1,11 @@
-﻿INTSourceChangelist:2690298
+﻿INTSourceChangelist:3242329
 Availability:Public
 Title:マテリアル関数の作成
 Crumbs: %ROOT%, Engine, Engine/Rendering/Materials
 Description:マテリアル関数の作成手順
 Version:4.9
 SkillLevel:Advanced
+tags:Materials
 
 [TOC(start:2)]
 

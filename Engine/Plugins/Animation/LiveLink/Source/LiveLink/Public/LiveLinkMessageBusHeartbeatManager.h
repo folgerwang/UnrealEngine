@@ -2,10 +2,10 @@
 
 #pragma once
 
-#include "Runnable.h"
-#include "RunnableThread.h"
-#include "ThreadSafeBool.h"
-#include "CriticalSection.h"
+#include "HAL/Runnable.h"
+#include "HAL/RunnableThread.h"
+#include "HAL/ThreadSafeBool.h"
+#include "HAL/CriticalSection.h"
 
 class FLiveLinkMessageBusSource;
 

@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
-#include "AnimHand.h"
+#include "AnimBody/AnimHand.h"
 #include "AnimBody.generated.h"
 
 class UAnimBone;

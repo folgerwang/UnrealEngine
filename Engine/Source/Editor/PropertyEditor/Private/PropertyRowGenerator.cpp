@@ -3,12 +3,12 @@
 #include "PropertyRowGenerator.h"
 #include "PropertyNode.h"
 #include "ObjectPropertyNode.h"
-#include "EditorStyleSettings.h"
+#include "Classes/EditorStyleSettings.h"
 #include "DetailLayoutBuilderImpl.h"
 #include "CategoryPropertyNode.h"
 #include "SPropertyEditorEditInline.h"
 #include "DetailCategoryBuilderImpl.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "DetailLayoutHelpers.h"
 #include "PropertyHandleImpl.h"
 
@@ -16,13 +16,18 @@ class FPropertyRowGeneratorUtilities : public IPropertyUtilities
 {
 public:
 	FPropertyRowGeneratorUtilities(FPropertyRowGenerator& InGenerator)
-		: Generator(InGenerator)
+		: Generator(&InGenerator)
 	{}
+
+	void ResetGenerator()
+	{
+		Generator = nullptr;
+	}
 
 	/** IPropertyUtilities interface */
 	virtual class FNotifyHook* GetNotifyHook() const override
 	{
-		return nullptr;
+		return Generator != nullptr ? Generator->GetNotifyHook() : nullptr;
 	}
 	virtual bool AreFavoritesEnabled() const override
 	{
@@ -33,22 +38,28 @@ public:
 	virtual void CreateColorPickerWindow(const TSharedRef< class FPropertyEditor >& PropertyEditor, bool bUseAlpha) const override {}
 	virtual void EnqueueDeferredAction(FSimpleDelegate DeferredAction) override
 	{
-		Generator.EnqueueDeferredAction(DeferredAction);
+		checkf(Generator != nullptr, TEXT("Can not enqueue action, generator is no longer valid"));
+		Generator->EnqueueDeferredAction(DeferredAction);
 	}
 	virtual bool IsPropertyEditingEnabled() const override
 	{
-		return Generator.IsPropertyEditingEnabled();
+		return Generator != nullptr && Generator->IsPropertyEditingEnabled();
 	}
 
 	virtual void ForceRefresh() override
 	{
-		Generator.ForceRefresh();
+		if (Generator != nullptr)
+		{
+			Generator->ForceRefresh();
+		}
 	}
 	virtual void RequestRefresh() override {}
 
 	virtual TSharedPtr<class FAssetThumbnailPool> GetThumbnailPool() const override
 	{
-		return Generator.GetThumbnailPool();
+		return Generator != nullptr
+			? Generator->GetThumbnailPool()
+			: TSharedPtr<class FAssetThumbnailPool>();
 	}
 
 	virtual void NotifyFinishedChangingProperties(const FPropertyChangedEvent& PropertyChangedEvent) override {}
@@ -57,15 +68,23 @@ public:
 
 	const TArray<TWeakObjectPtr<UObject>>& GetSelectedObjects() const override
 	{
-		return Generator.GetSelectedObjects();
+		if (Generator != nullptr)
+		{
+			return Generator->GetSelectedObjects();
+		}
+		else
+		{
+			static TArray<TWeakObjectPtr<UObject>> NullSelectedObjects;
+			return NullSelectedObjects;
+		}
 	}
 
 	virtual bool HasClassDefaultObject() const override
 	{
-		return Generator.HasClassDefaultObject();
+		return Generator != nullptr && Generator->HasClassDefaultObject();
 	}
 private:
-	FPropertyRowGenerator& Generator;
+	FPropertyRowGenerator* Generator;
 };
 
 
@@ -78,7 +97,7 @@ FPropertyRowGenerator::FPropertyRowGenerator(const FPropertyRowGeneratorArgs& In
 
 FPropertyRowGenerator::~FPropertyRowGenerator()
 {
-
+	StaticCastSharedRef<FPropertyRowGeneratorUtilities>(PropertyUtilities)->ResetGenerator();
 }
 
 void FPropertyRowGenerator::SetObjects(const TArray<UObject*>& InObjects)
@@ -352,6 +371,7 @@ void FPropertyRowGenerator::UpdateDetailRows()
 	//NumVisbleTopLevelObjectNodes = 0;
 
 	FDetailFilter CurrentFilter;
+	CurrentFilter.bShowAllAdvanced = true;
 
 	for (int32 RootNodeIndex = 0; RootNodeIndex < RootPropertyNodes.Num(); ++RootNodeIndex)
 	{
@@ -458,6 +478,8 @@ void FPropertyRowGenerator::UpdateSinglePropertyMap(TSharedPtr<FComplexPropertyN
 	LayoutData.ClassToPropertyMap.Empty();
 
 	TSharedPtr<FDetailLayoutBuilderImpl> DetailLayout = MakeShareable(new FDetailLayoutBuilderImpl(InRootPropertyNode, LayoutData.ClassToPropertyMap, PropertyUtilities, nullptr, false));
+	DetailLayout->AddNodeVisibilityChangedHandler(FSimpleMulticastDelegate::FDelegate::CreateRaw(this, &FPropertyRowGenerator::LayoutNodeVisibilityChanged));
+	DetailLayout->SetInstancedPropertyTypeLayoutMap(InstancedTypeToLayoutMap);
 	LayoutData.DetailLayout = DetailLayout;
 
 	TSharedPtr<FComplexPropertyNode> RootPropertyNode = InRootPropertyNode;
@@ -536,5 +558,10 @@ TSharedPtr<IDetailTreeNode> FPropertyRowGenerator::FindTreeNodeRecursive(const T
 	}
 
 	return nullptr;
+}
+
+void FPropertyRowGenerator::LayoutNodeVisibilityChanged()
+{
+	UpdateDetailRows();
 }
 

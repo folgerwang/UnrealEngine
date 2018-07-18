@@ -3,7 +3,7 @@
 #include "Evaluation/MovieSceneParameterTemplate.h"
 #include "Tracks/MovieSceneMaterialTrack.h"
 #include "Components/PrimitiveComponent.h"
-#include "MovieSceneEvaluation.h"
+#include "Evaluation/MovieSceneEvaluation.h"
 
 
 FMovieSceneParameterSectionTemplate::FMovieSceneParameterSectionTemplate(const UMovieSceneParameterSection& Section)
@@ -15,42 +15,46 @@ FMovieSceneParameterSectionTemplate::FMovieSceneParameterSectionTemplate(const U
 
 void FMovieSceneParameterSectionTemplate::EvaluateCurves(const FMovieSceneContext& Context, FEvaluatedParameterSectionValues& Values) const
 {
-	float Time = Context.GetTime();
+	const FFrameTime Time = Context.GetTime();
 
 	for ( const FScalarParameterNameAndCurve& Scalar : Scalars )
 	{
-		Values.ScalarValues.Add(
-			FScalarParameterNameAndValue(Scalar.ParameterName, Scalar.ParameterCurve.Eval(Time))
-			);
+		float Value = 0;
+		if (Scalar.ParameterCurve.Evaluate(Time, Value))
+		{
+			Values.ScalarValues.Emplace(Scalar.ParameterName, Value);
+		}
 	}
 
 	for ( const FVectorParameterNameAndCurves& Vector : Vectors )
 	{
-		Values.VectorValues.Add(
-			FVectorParameterNameAndValue(
-				Vector.ParameterName,
-				FVector(
-					Vector.XCurve.Eval(Time),
-					Vector.YCurve.Eval(Time),
-					Vector.ZCurve.Eval(Time)
-				)
-			)
-		);
+		FVector Value(ForceInitToZero);
+
+		bool bAnyEvaluated = false;
+		bAnyEvaluated |= Vector.XCurve.Evaluate(Time, Value.X);
+		bAnyEvaluated |= Vector.YCurve.Evaluate(Time, Value.Y);
+		bAnyEvaluated |= Vector.ZCurve.Evaluate(Time, Value.Z);
+
+		if (bAnyEvaluated)
+		{
+			Values.VectorValues.Emplace(Vector.ParameterName, Value);
+		}
 	}
 
 	for ( const FColorParameterNameAndCurves& Color : Colors )
 	{
-		Values.ColorValues.Add(
-			FColorParameterNameAndValue(
-				Color.ParameterName,
-				FLinearColor(
-					Color.RedCurve.Eval(Time ),
-					Color.GreenCurve.Eval(Time),
-					Color.BlueCurve.Eval(Time),
-					Color.AlphaCurve.Eval(Time)
-				)
-			)
-		);
+		FLinearColor ColorValue = FLinearColor::White;
+
+		bool bAnyEvaluated = false;
+		bAnyEvaluated |= Color.RedCurve.Evaluate(  Time, ColorValue.R);
+		bAnyEvaluated |= Color.GreenCurve.Evaluate(Time, ColorValue.G);
+		bAnyEvaluated |= Color.BlueCurve.Evaluate( Time, ColorValue.B);
+		bAnyEvaluated |= Color.AlphaCurve.Evaluate(Time, ColorValue.A);
+
+		if (bAnyEvaluated)
+		{
+			Values.ColorValues.Emplace(Color.ParameterName, ColorValue);
+		}
 	}
 }
 

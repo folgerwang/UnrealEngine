@@ -1,72 +1,16 @@
-﻿INTSourceChangelist:2714445
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:1.2 -  Velocity Cone モジュールを使用した GPU パーティクル 
 Crumbs:%ROOT%, Resources, Resources/ContentExamples, Resources/ContentExamples/EffectsGallery
 Description:エフェクト ギャラリーのサンプル レベルの概要
-Related: Engine/Rendering/ParticleSystems/Overview
-Related: Engine/Rendering/ParticleSystems/Reference
-Related: Engine/Rendering/ParticleSystems/Optimization
-Related: Engine/Rendering/ParticleSystems/Reference/TypeData/GPUSprites
-Related: Engine/Rendering/ParticleSystems/ParticleLights
-Related: Engine/Rendering/ParticleSystems/Reference/Modules/VectorField
+Related:Engine/Rendering/ParticleSystems/Overview
+Related:Engine/Rendering/ParticleSystems/Reference
+Related:Engine/Rendering/ParticleSystems/Optimization
+Related:Engine/Rendering/ParticleSystems/Reference/TypeData/GPUSprites
+Related:Engine/Rendering/ParticleSystems/ParticleLights
+Related:Engine/Rendering/ParticleSystems/Reference/Modules/VectorField
 Version:4.9
-
-[VAR:Steps]
-[OBJECT:Navigation]
-	[PARAM:previous]
-		[前のサンプル](Resources/ContentExamples/EffectsGallery/1_A "%Resources/ContentExamples/EffectsGallery/1_A:title%")
-	[/PARAM]
-	[PARAM:current]
-	[/PARAM]
-	[PARAM:home]
-		[エフェクト ギャラリー ホーム](Resources/ContentExamples/EffectsGallery)
-	[/PARAM]
-	[PARAM:next]
-		[次のサンプル](Resources/ContentExamples/EffectsGallery/1_C "%Resources/ContentExamples/EffectsGallery/1_C:title%")
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Resources\ContentExamples\EffectsGallery\1_B:title%](%ROOT%\Resources\ContentExamples\EffectsGallery\1_B\1_BTopic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources\ContentExamples\EffectsGallery\1_B:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources\ContentExamples\EffectsGallery\1_B:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources\ContentExamples\EffectsGallery\1_B]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources\ContentExamples\EffectsGallery\1_B:title%](%ROOT%\Resources\ContentExamples\EffectsGallery\1_B\1_BTopic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources\ContentExamples\EffectsGallery\1_B:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources\ContentExamples\EffectsGallery\1_B:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources\ContentExamples\EffectsGallery\1_B]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:1_BTopic.png
 
 [REGION:fullwidth]
 ![](image010.png)
@@ -95,7 +39,7 @@ Velocity モジュールに関する詳細は、 [Velocity モジュールのド
 
 ### ブループリントとパーティクル
 
-このサンプルで特筆すべきことは、単なるパーティクルシステムではないという点です。エフェクトはブループリントを用いてレベルへ追加されました (BP_sway_cube)。ブループリントはコンポーネントとしてパーティクル システムを持ち、ループする回転アニメーションを定義する簡易なノードグラフを使用します。エフェクトはゆっくりと Blueprint アクタをスピンさせます。これはブループリントを利用して、パーティクル ベースのエフェクトを生き生きとしたものにする方法を示した素晴らしいサンプルです。回転エフェクトを実現する多数ある方法の 1 つであることに留意してください。
+このサンプルで特筆すべきことは、単なるパーティクルシステムではないという点です。エフェクトはブループリントを用いてレベルへ追加されました (BP_sway_cube)。ブループリントはコンポーネントとしてパーティクル システムを持ち、ループする回転アニメーションを定義する簡易なノードグラフを使用します。エフェクトはゆっくりと Blueprint アクタをスピンさせます。これはブループリントを利用して、パーティクル ベースのエフェクトを生き生きとしたものにする方法を示した素晴らしいサンプルです。これは回転エフェクトを実現する多数ある方法の 1 つであることに注意してください。
 
 [REGION:fullwidth]
 ![](SwayCube.png)

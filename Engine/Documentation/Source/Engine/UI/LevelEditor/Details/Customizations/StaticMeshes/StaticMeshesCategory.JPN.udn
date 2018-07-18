@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2687105
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:Static Mesh カテゴリ
 Crumbs: %ROOT%, Engine, Engine/UI, Engine/UI/LevelEditor, Engine/UI/LevelEditor/Details
@@ -7,7 +7,7 @@ Version:4.9
 
 **[詳細]** パネルの **Static Mesh** カテゴリは、選択したアクタが StaticMesh アクタまたは Interp アクタの場合 
 のみ表示されます。アクタの StaticMesh コンポーネントの通常埋もれている StaticMesh プロパティを第一級オブジェクトとして扱い、 
-通常の [オブジェクト リファレンス](Engine/UI/LevelEditor/Details/Properties/ObjectReference) プロパティ制御と一緒に 
+通常の [**オブジェクト リファレンス**](Engine/UI/LevelEditor/Details/Properties/ObjectReference) プロパティ制御と一緒に 
 サムネイルを盛り込んだカスタマイズされたウィジェットを使用して表示します。
 
 ![](staticmesh.png)

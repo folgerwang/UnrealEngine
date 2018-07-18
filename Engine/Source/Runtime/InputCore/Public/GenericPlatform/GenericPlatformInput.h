@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "InputCoreTypes.h"
 
 struct INPUTCORE_API FGenericPlatformInput
 {
@@ -15,6 +16,16 @@ public:
 	FORCEINLINE static uint32 GetCharKeyMap(uint32* KeyCodes, FString* KeyNames, uint32 MaxMappings)
 	{
 		return 0;
+	}
+
+	static FKey GetGamepadAcceptKey()
+	{
+		return EKeys::Gamepad_FaceButton_Bottom;
+	}
+
+	static FKey GetGamepadBackKey()
+	{
+		return EKeys::Gamepad_FaceButton_Right;
 	}
 
 protected:

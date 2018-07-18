@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "UObject/NameTypes.h"
 #include "Containers/Map.h"
-#include "Class.h"
+#include "UObject/Class.h"
 
 class FClass;
 class FClasses;

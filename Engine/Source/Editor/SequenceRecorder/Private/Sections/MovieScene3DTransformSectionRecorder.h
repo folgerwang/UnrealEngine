@@ -20,7 +20,7 @@ public:
 	virtual ~FMovieScene3DTransformSectionRecorderFactory() {}
 
 	virtual bool CanRecordObject(class UObject* InObjectToRecord) const override;
-	virtual UObject* CreateSettingsObject() const override { return NewObject<UMovieScene3DTransformSectionRecorderSettings>(); }
+	virtual UObject* CreateSettingsObject(class UObject* InOuter) const override { return NewObject<UMovieScene3DTransformSectionRecorderSettings>(InOuter, FName(TEXT("MovieScene3DTransformSectionRecorderSettings"))); }
 
 	TSharedPtr<class FMovieScene3DTransformSectionRecorder> CreateSectionRecorder(bool bRecordTransforms, TSharedPtr<class FMovieSceneAnimationSectionRecorder> InAnimRecorder) const;
 
@@ -29,18 +29,29 @@ private:
 };
 
 /** Structure used to buffer up transform keys. Keys are inserted into tracks in FinalizeSection() */
-struct FBufferedTransformKey
+struct FBufferedTransformKeys
 {
-	FBufferedTransformKey(const FTransform& InTransform, float InKeyTime)
-		: Transform(InTransform)
-		, WoundRotation(InTransform.Rotator())
-		, KeyTime(InKeyTime)
+	void Add(const FTransform& InTransform, FFrameNumber InKeyTime)
 	{
+		Times.Add(InKeyTime);
+		LocationX.Add(InTransform.GetTranslation().X);
+		LocationY.Add(InTransform.GetTranslation().Y);
+		LocationZ.Add(InTransform.GetTranslation().Z);
+
+		FRotator WoundRoation = InTransform.Rotator();
+		RotationX.Add(WoundRoation.Roll);
+		RotationY.Add(WoundRoation.Pitch);
+		RotationZ.Add(WoundRoation.Yaw);
+
+		ScaleX.Add(InTransform.GetScale3D().X);
+		ScaleY.Add(InTransform.GetScale3D().Y);
+		ScaleZ.Add(InTransform.GetScale3D().Z);
 	}
 
-	FTransform Transform;
-	FRotator WoundRotation;
-	float KeyTime;
+	TArray<FFrameNumber> Times;
+	TArray<float> LocationX, LocationY, LocationZ;
+	TArray<float> RotationX, RotationY, RotationZ;
+	TArray<float> ScaleX, ScaleY, ScaleZ;
 };
 
 class FMovieScene3DTransformSectionRecorder : public IMovieSceneSectionRecorder
@@ -54,7 +65,7 @@ public:
 	virtual ~FMovieScene3DTransformSectionRecorder() {}
 
 	virtual void CreateSection(UObject* InObjectToRecord, class UMovieScene* InMovieScene, const FGuid& Guid, float Time) override;
-	virtual void FinalizeSection() override;
+	virtual void FinalizeSection(float CurrentTime) override;
 	virtual void Record(float CurrentTime) override;
 	virtual void InvalidateObjectToRecord() override
 	{
@@ -82,7 +93,7 @@ private:
 	TWeakObjectPtr<class UMovieScene3DTransformSection> MovieSceneSection;
 
 	/** Buffer of transform keys. Keys are inserted into tracks in FinalizeSection() */
-	TArray<FBufferedTransformKey> BufferedTransforms;
+	FBufferedTransformKeys BufferedTransforms;
 
 	/** Flag if we are actually recording or not */
 	bool bRecording;
@@ -98,4 +109,7 @@ private:
 
 	/** The guid being recorded to */
 	FGuid Guid;
+
+	/** The guid being recorded to */
+	float RecordingStartTime;
 };

@@ -5,7 +5,7 @@
 #if WITH_NVCLOTH
 
 #include "SimulationEditorExtender.h"
-#include "Text.h"
+#include "Internationalization/Text.h"
 
 class USkeletalMeshComponent;
 class FPrimitiveDrawInterface;

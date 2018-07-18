@@ -5,11 +5,14 @@
 #include "CoreTypes.h"
 #include "Misc/AssertionMacros.h"
 #include "HAL/UnrealMemory.h"
+#include "Templates/AndOrNot.h"
 #include "Templates/AreTypesEqual.h"
 #include "Templates/UnrealTypeTraits.h"
 #include "Templates/RemoveReference.h"
 #include "Templates/Decay.h"
 #include "Templates/Invoke.h"
+#include "Templates/IsConstructible.h"
+#include "Templates/IsInvocable.h"
 #include "Containers/ContainerAllocationPolicies.h"
 #include "Math/UnrealMathUtility.h"
 #include <new>
@@ -90,13 +93,17 @@ namespace UE4Function_Private
 
 	#if !defined(_WIN32) || defined(_WIN64)
 		// Let TFunction store up to 32 bytes which are 16-byte aligned before we heap allocate
-		typedef TAlignedBytes<16, 16> AlignedInlineFunctionType;
-		typedef TInlineAllocator<2> FunctionAllocatorType;
+		typedef TAlignedBytes<16, 16> FAlignedInlineFunctionType;
+		#if USE_SMALL_TFUNCTIONS
+			typedef FHeapAllocator FFunctionAllocatorType;
+		#else
+			typedef TInlineAllocator<2> FFunctionAllocatorType;
+		#endif
 	#else
 		// ... except on Win32, because we can't pass 16-byte aligned types by value, as some TFunctions are.
 		// So we'll just keep it heap-allocated, which is always sufficiently aligned.
-		typedef TAlignedBytes<16, 8> AlignedInlineFunctionType;
-		typedef FHeapAllocator FunctionAllocatorType;
+		typedef TAlignedBytes<16, 8> FAlignedInlineFunctionType;
+		typedef FHeapAllocator FFunctionAllocatorType;
 	#endif
 
 	struct FFunctionStorage
@@ -116,11 +123,11 @@ namespace UE4Function_Private
 
 		void Empty()
 		{
-			Allocator.ResizeAllocation(0, 0, sizeof(UE4Function_Private::AlignedInlineFunctionType));
+			Allocator.ResizeAllocation(0, 0, sizeof(UE4Function_Private::FAlignedInlineFunctionType));
 			AllocatedSize = 0;
 		}
 
-		typedef FunctionAllocatorType::ForElementType<AlignedInlineFunctionType> AllocatorType;
+		typedef FFunctionAllocatorType::ForElementType<FAlignedInlineFunctionType> AllocatorType;
 
 		IFunction_OwnedObject* GetBoundObject() const
 		{
@@ -139,10 +146,10 @@ inline void* operator new(size_t Size, UE4Function_Private::FFunctionStorage& St
 		Obj->~IFunction_OwnedObject();
 	}
 
-	int32 NewSize = FMath::DivideAndRoundUp(Size, sizeof(UE4Function_Private::AlignedInlineFunctionType));
+	int32 NewSize = FMath::DivideAndRoundUp(Size, sizeof(UE4Function_Private::FAlignedInlineFunctionType));
 	if (Storage.AllocatedSize != NewSize)
 	{
-		Storage.Allocator.ResizeAllocation(0, NewSize, sizeof(UE4Function_Private::AlignedInlineFunctionType));
+		Storage.Allocator.ResizeAllocation(0, NewSize, sizeof(UE4Function_Private::FAlignedInlineFunctionType));
 		Storage.AllocatedSize = NewSize;
 	}
 
@@ -325,6 +332,33 @@ namespace UE4Function_Private
 			UE4Function_Private::TDebugHelper<void> DebugPtrStorage;
 		#endif
 	};
+
+	template <typename T>
+	T&& DeclVal();
+
+	template <typename FunctorType, typename Ret, typename... ParamTypes>
+	struct TFunctorReturnTypeIsCompatible
+		: TIsConstructible<Ret, decltype(DeclVal<FunctorType>()(DeclVal<ParamTypes>()...))>
+	{
+	};
+
+	template <typename FuncType, typename FunctorType>
+	struct TFuncCanBindToFunctor;
+
+	template <typename FunctorType, typename Ret, typename... ParamTypes>
+	struct TFuncCanBindToFunctor<Ret(ParamTypes...), FunctorType> :
+		TAnd<
+			TIsInvocable<FunctorType, ParamTypes...>,
+			TFunctorReturnTypeIsCompatible<FunctorType, Ret, ParamTypes...>
+		>
+	{
+	};
+
+	template <typename FunctorType, typename... ParamTypes>
+	struct TFuncCanBindToFunctor<void(ParamTypes...), FunctorType> :
+		TIsInvocable<FunctorType, ParamTypes...>
+	{
+	};
 }
 
 /**
@@ -389,7 +423,16 @@ public:
 	/**
 	 * Constructor which binds a TFunctionRef to a non-const lvalue function object.
 	 */
-	template <typename FunctorType, typename = typename TEnableIf<!TIsFunction<FunctorType>::Value && !TAreTypesEqual<TFunctionRef, FunctorType>::Value>::Type>
+	template <
+		typename FunctorType,
+		typename = typename TEnableIf<
+			TAnd<
+				TNot<TIsFunction<FunctorType>>,
+				TNot<TAreTypesEqual<TFunctionRef, FunctorType>>,
+				UE4Function_Private::TFuncCanBindToFunctor<FuncType, FunctorType>
+			>::Value
+		>::Type
+	>
 	TFunctionRef(FunctorType& Functor)
 		: Super(NoInit)
 	{
@@ -402,7 +445,16 @@ public:
 	/**
 	 * Constructor which binds a TFunctionRef to an rvalue or const lvalue function object.
 	 */
-	template <typename FunctorType, typename = typename TEnableIf<!TIsFunction<FunctorType>::Value && !TAreTypesEqual<TFunctionRef, FunctorType>::Value>::Type>
+	template <
+		typename FunctorType,
+		typename = typename TEnableIf<
+			TAnd<
+				TNot<TIsFunction<FunctorType>>,
+				TNot<TAreTypesEqual<TFunctionRef, FunctorType>>,
+				UE4Function_Private::TFuncCanBindToFunctor<FuncType, FunctorType>
+			>::Value
+		>::Type
+	>
 	TFunctionRef(const FunctorType& Functor)
 		: Super(NoInit)
 	{
@@ -415,7 +467,15 @@ public:
 	/**
 	 * Constructor which binds a TFunctionRef to a function pointer.
 	 */
-	template <typename FunctionType, typename = typename TEnableIf<TIsFunction<FunctionType>::Value>::Type>
+	template <
+		typename FunctionType,
+		typename = typename TEnableIf<
+			TAnd<
+				TIsFunction<FunctionType>,
+				UE4Function_Private::TFuncCanBindToFunctor<FuncType, FunctionType>
+			>::Value
+		>::Type
+	>
 	TFunctionRef(FunctionType* Function)
 		: Super(NoInit)
 	{
@@ -542,7 +602,15 @@ public:
 	/**
 	 * Constructor which binds a TFunction to any function object.
 	 */
-	template <typename FunctorType, typename = typename TEnableIf<!TAreTypesEqual<TFunction, typename TDecay<FunctorType>::Type>::Value>::Type>
+	template <
+		typename FunctorType,
+		typename = typename TEnableIf<
+			TAnd<
+				TNot<TAreTypesEqual<TFunction, typename TDecay<FunctorType>::Type>>,
+				UE4Function_Private::TFuncCanBindToFunctor<FuncType, FunctorType>
+			>::Value
+		>::Type
+	>
 	TFunction(FunctorType&& InFunc)
 		: Super(NoInit)
 	{

@@ -35,17 +35,7 @@ USoundWaveProcedural::USoundWaveProcedural(const FObjectInitializer& ObjectIniti
 
 	SampleByteSize = 2;
 
-	// This is set to true to default to old behavior in old audio engine
-	// Audio mixer uses sound wave procedural in async tasks and sets this to false when using it.
-	bIsReadyForDestroy = true;
-
 	checkf(NumSamplesToGeneratePerCallback >= NumBufferUnderrunSamples, TEXT("Should generate more samples than this per callback."));
-}
-
-USoundWaveProcedural::USoundWaveProcedural(FVTableHelper& Helper)
-	: Super(Helper)
-{
-	bIsReadyForDestroy = true;
 }
 
 void USoundWaveProcedural::QueueAudio(const uint8* AudioData, const int32 BufferSize)
@@ -100,8 +90,16 @@ int32 USoundWaveProcedural::GeneratePCMData(uint8* PCMData, const int32 SamplesN
 	{
 		// First try to use the virtual function which assumes we're writing directly into our audio buffer
 		// since we're calling from the audio render thread.
-		if (OnGeneratePCMAudio(AudioBuffer, SamplesToGenerate))
+		int32 NumSamplesGenerated = OnGeneratePCMAudio(AudioBuffer, SamplesToGenerate);
+		if (NumSamplesGenerated > 0)
 		{
+			// Shrink the audio buffer size to the actual number of samples generated
+			const int32 BytesGenerated = NumSamplesGenerated * SampleByteSize;
+			check(BytesGenerated <= AudioBuffer.Num());
+			if (BytesGenerated < AudioBuffer.Num())
+			{
+				AudioBuffer.SetNum(BytesGenerated, false);
+			}
 			bPumpQueuedAudio = false;
 		}
 		else if (OnSoundWaveProceduralUnderflow.IsBound())
@@ -120,16 +118,19 @@ int32 USoundWaveProcedural::GeneratePCMData(uint8* PCMData, const int32 SamplesN
 	SamplesAvailable = AudioBuffer.Num() / SampleByteSize;
 
 	// Wait until we have enough samples that are requested before starting.
-	if (SamplesAvailable >= SamplesToGenerate)
+	if (SamplesAvailable > 0)
 	{
 		const int32 SamplesToCopy = FMath::Min<int32>(SamplesToGenerate, SamplesAvailable);
 		const int32 BytesToCopy = SamplesToCopy * SampleByteSize;
 
 		FMemory::Memcpy((void*)PCMData, &AudioBuffer[0], BytesToCopy);
-		AudioBuffer.RemoveAt(0, BytesToCopy);
+		AudioBuffer.RemoveAt(0, BytesToCopy, false);
 
 		// Decrease the available by count
-		AvailableByteCount.Subtract(BytesToCopy);
+		if (bPumpQueuedAudio)
+		{
+			AvailableByteCount.Subtract(BytesToCopy);
+		}
 
 		return BytesToCopy;
 	}
@@ -164,17 +165,17 @@ void USoundWaveProcedural::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTa
 	Super::GetAssetRegistryTags(OutTags);
 }
 
-bool USoundWaveProcedural::IsReadyForFinishDestroy()
-{
-	return bIsReadyForDestroy;
-}
-
-bool USoundWaveProcedural::HasCompressedData(FName Format) const
+bool USoundWaveProcedural::HasCompressedData(FName Format, ITargetPlatform* TargetPlatform) const
 {
 	return false;
 }
 
-FByteBulkData* USoundWaveProcedural::GetCompressedData(FName Format)
+void USoundWaveProcedural::BeginGetCompressedData(FName Format, const FPlatformAudioCookOverrides* CompressionOverrides)
+{
+	// SoundWaveProcedural does not have compressed data and should generally not be asked about it
+}
+
+FByteBulkData* USoundWaveProcedural::GetCompressedData(FName Format, const FPlatformAudioCookOverrides* CompressionOverrides)
 {
 	// SoundWaveProcedural does not have compressed data and should generally not be asked about it
 	return nullptr;

@@ -23,7 +23,7 @@ Below you will find instructions on setting up a Pawn to work with a seated Ocul
     [REGION:simpletable]
 	|Component Name| Value |
     |--------|------------|
-    |** Scene**|VRCameraRoot|
+    |**Scene**|VRCameraRoot|
     |**Camera**|VRCamera|
 	[/region]
 

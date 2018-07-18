@@ -11,8 +11,8 @@
 #include "Engine/World.h"
 #include "PhysicsPublic.h"
 
-#include "IPhysXCookingModule.h"
-#include "IPhysXCooking.h"
+#include "Physics/IPhysXCookingModule.h"
+#include "Physics/IPhysXCooking.h"
 #include "Modules/ModuleManager.h"
 
 #if WITH_PHYSX
@@ -20,7 +20,7 @@
 #endif
 
 #include "PhysicsEngine/PhysicsSettings.h"
-#include "CoreDelegates.h"
+#include "Misc/CoreDelegates.h"
 
 #ifndef APEX_STATICALLY_LINKED
 	#define APEX_STATICALLY_LINKED	0
@@ -243,17 +243,21 @@ FString FStartAsyncSimulationFunction::DiagnosticMessage()
 void PvdConnect(FString Host, bool bVisualization);
 
 //////// GAME-LEVEL RIGID BODY PHYSICS STUFF ///////
-void InitGamePhys()
+bool InitGamePhys()
 {
 #if WITH_PHYSX
 	// Do nothing if SDK already exists
 	if(GPhysXFoundation != NULL)
 	{
-		return;
+		return true;
 	}
 
 	// Make sure 
-	PhysDLLHelper::LoadPhysXModules(/*bLoadCookingModule=*/ false);
+	if(!PhysDLLHelper::LoadPhysXModules(/*bLoadCookingModule=*/ false))
+	{
+		// This is fatal. We were not able to successfully load the physics modules
+		return false;
+	}
 
 	// Create Foundation
 	GPhysXAllocator = new FPhysXAllocator();
@@ -261,6 +265,11 @@ void InitGamePhys()
 
 	GPhysXFoundation = PxCreateFoundation(PX_FOUNDATION_VERSION, *GPhysXAllocator, *ErrorCallback);
 	check(GPhysXFoundation);
+
+#if STATS
+	FPhysXProfilerCallback* ProfilerCallback = new FPhysXProfilerCallback();
+	PxSetProfilerCallback(ProfilerCallback);
+#endif
 
 #if PHYSX_MEMORY_STATS
 	// Want names of PhysX allocations
@@ -345,9 +354,6 @@ void InitGamePhys()
 	GApexSDK->setEnableApexStats(false);
 #endif
 
-
-
-
 #if APEX_STATICALLY_LINKED
 
 #if WITH_APEX_CLOTHING
@@ -393,6 +399,8 @@ void InitGamePhys()
 	});
 	
 #endif // WITH_PHYSX
+
+	return true;
 }
 
 void TermGamePhys()

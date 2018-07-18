@@ -275,9 +275,6 @@ protected:
 
 private:
 	int32 NumRefs;
-
-	// FDeferredCleanupInterface
-	virtual void FinishCleanup();
 };
 
 class ENGINE_API FShadowMap2D : public FShadowMap

@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "CryptoKeys.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "ISettingsModule.h"
 #include "PropertyEditorModule.h"
 #include "CryptoKeysSettings.h"

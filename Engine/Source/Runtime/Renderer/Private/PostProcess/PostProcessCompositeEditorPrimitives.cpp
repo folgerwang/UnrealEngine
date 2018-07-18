@@ -161,7 +161,7 @@ public:
 		: FGlobalShader(Initializer)
 	{
 		PostProcessParameters.Bind(Initializer.ParameterMap);
-		DeferredParameters.Bind(Initializer.ParameterMap);
+		SceneTextureParameters.Bind(Initializer);
 		EditorPrimitivesDepth.Bind(Initializer.ParameterMap,TEXT("EditorPrimitivesDepth"));
 		EditorPrimitivesColor.Bind(Initializer.ParameterMap,TEXT("EditorPrimitivesColor"));
 		EditorPrimitivesColorSampler.Bind(Initializer.ParameterMap,TEXT("EditorPrimitivesColorSampler"));
@@ -177,7 +177,7 @@ public:
 
 		FGlobalShader::SetParameters<FViewUniformShaderParameters>(Context.RHICmdList, ShaderRHI, Context.View.ViewUniformBuffer);
 
-		DeferredParameters.Set(Context.RHICmdList, ShaderRHI, Context.View, MD_PostProcess);
+		SceneTextureParameters.Set(Context.RHICmdList, ShaderRHI, Context.View.FeatureLevel, ESceneTextureSetupMode::All);
 
 		FSamplerStateRHIRef SamplerStateRHIRef = TStaticSamplerState<SF_Point,AM_Clamp,AM_Clamp,AM_Clamp>::GetRHI();
 		PostProcessParameters.SetPS(Context.RHICmdList, ShaderRHI, Context, SamplerStateRHIRef);
@@ -230,7 +230,7 @@ public:
 	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
-		Ar << PostProcessParameters << EditorPrimitivesColor << EditorPrimitivesColorSampler << EditorPrimitivesDepth << DeferredParameters << EditorRenderParams;
+		Ar << PostProcessParameters << EditorPrimitivesColor << EditorPrimitivesColorSampler << EditorPrimitivesDepth << SceneTextureParameters << EditorRenderParams;
 		Ar << FilteredSceneDepthTexture;
 		Ar << FilteredSceneDepthTextureSampler;
 		return bShaderHasOutdatedParameters;
@@ -241,7 +241,7 @@ private:
 	FShaderResourceParameter EditorPrimitivesColorSampler;
 	FShaderResourceParameter EditorPrimitivesDepth;
 	FPostProcessPassParameters PostProcessParameters;
-	FDeferredPixelShaderParameters DeferredParameters;
+	FSceneTextureShaderParameters SceneTextureParameters;
 	FShaderParameter EditorRenderParams;
 	/** Parameter for reading filtered depth values */
 	FShaderResourceParameter FilteredSceneDepthTexture; 
@@ -312,7 +312,7 @@ static void RenderEditorPrimitives(FRHICommandListImmediate& RHICmdList, const F
 	const auto ShaderPlatform = GShaderPlatformForFeatureLevel[FeatureLevel];
 	const bool bNeedToSwitchVerticalAxis = RHINeedsToSwitchVerticalAxis(ShaderPlatform);
 
-	typename TBasePass::ContextType Context(ESceneRenderTargetsMode::SetTextures);
+	typename TBasePass::ContextType Context;
 
 	for (int32 MeshBatchIndex = 0; MeshBatchIndex < View.DynamicEditorMeshElements.Num(); MeshBatchIndex++)
 	{
@@ -350,7 +350,7 @@ static void RenderForegroundEditorPrimitives(FRHICommandListImmediate& RHICmdLis
 	{
 		DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<true, CF_Always>::GetRHI());
 		DrawViewElements<TBasePass>(RHICmdList, View, DrawRenderState,
-			typename TBasePass::ContextType(ESceneRenderTargetsMode::SetTextures), SDPG_Foreground, false);
+			typename TBasePass::ContextType(), SDPG_Foreground, false);
 		View.TopBatchedViewElements.Draw(RHICmdList, DrawRenderState, FeatureLevel, bNeedToSwitchVerticalAxis, View, false);
 	}
 
@@ -358,7 +358,7 @@ static void RenderForegroundEditorPrimitives(FRHICommandListImmediate& RHICmdLis
 	{
 		DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<true, CF_DepthNearOrEqual>::GetRHI());
 		DrawViewElements<TBasePass>(RHICmdList, View, DrawRenderState,
-			typename TBasePass::ContextType(ESceneRenderTargetsMode::SetTextures), SDPG_Foreground, false);
+			typename TBasePass::ContextType(), SDPG_Foreground, false);
 		View.TopBatchedViewElements.Draw(RHICmdList, DrawRenderState, FeatureLevel, bNeedToSwitchVerticalAxis, View, false);
 	}
 }
@@ -477,7 +477,22 @@ void FRCPassPostProcessCompositeEditorPrimitives::Process(FRenderingCompositePas
 				EDRF_UseTriangleOptimization);
 		}
 
-		FDrawingPolicyRenderState DrawRenderState(EditorView);
+		TUniformBufferRef<FOpaqueBasePassUniformParameters> OpaqueBasePassUniformBuffer;
+		TUniformBufferRef<FMobileBasePassUniformParameters> MobileBasePassUniformBuffer;
+		FUniformBufferRHIParamRef BasePassUniformBuffer = nullptr;
+
+		if (bDeferredBasePass)
+		{
+			CreateOpaqueBasePassUniformBuffer(Context.RHICmdList, EditorView, nullptr, OpaqueBasePassUniformBuffer);
+			BasePassUniformBuffer = OpaqueBasePassUniformBuffer;
+		}
+		else
+		{
+			CreateMobileBasePassUniformBuffer(Context.RHICmdList, EditorView, true, MobileBasePassUniformBuffer);
+			BasePassUniformBuffer = MobileBasePassUniformBuffer;
+		}
+
+		FDrawingPolicyRenderState DrawRenderState(EditorView, BasePassUniformBuffer);
 		DrawRenderState.SetDepthStencilAccess(FExclusiveDepthStencil::DepthWrite_StencilWrite);
 		DrawRenderState.SetBlendState(TStaticBlendStateWriteMask<CW_RGBA>::GetRHI());
 
@@ -528,10 +543,13 @@ void FRCPassPostProcessCompositeEditorPrimitives::Process(FRenderingCompositePas
 		const FSceneRenderTargetItem& DestRenderTarget = PassOutputs[0].RequestSurface(Context);
 		const FTexture2DRHIRef& DestRenderTargetSurface = (const FTexture2DRHIRef&)DestRenderTarget.TargetableTexture;
 
+
+		FIntRect DestRect = Context.GetSceneColorDestRect(DestRenderTarget);
+
 		// Set the view family's render target/viewport.
 		SetRenderTarget(Context.RHICmdList, DestRenderTargetSurface, FTextureRHIRef());
 
-		Context.SetViewportAndCallRHI(ViewRect);
+		Context.SetViewportAndCallRHI(DestRect);
 
 		// If clear is not needed, that mean already have something in MSAA buffers. Because not populating scene depth buffer
 		// into MSAA depth buffer, then force to compose any sample that have non null depth as if alpha channel was 1.
@@ -569,15 +587,15 @@ void FRCPassPostProcessCompositeEditorPrimitives::Process(FRenderingCompositePas
 		DrawRectangle(
 			Context.RHICmdList,
 			0, 0,
-			ViewRect.Width(), ViewRect.Height(),
+			DestRect.Width(), DestRect.Height(),
 			ViewRect.Min.X, ViewRect.Min.Y,
 			ViewRect.Width(), ViewRect.Height(),
-			ViewRect.Size(),
+			DestRect.Size(),
 			SrcSize,
 			*VertexShader,
 			EDRF_UseTriangleOptimization);
 
-		Context.RHICmdList.CopyToResolveTarget(DestRenderTargetSurface, DestRenderTarget.ShaderResourceTexture, false, FResolveParams());
+		Context.RHICmdList.CopyToResolveTarget(DestRenderTargetSurface, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 	}
 
 	// Clean up targets

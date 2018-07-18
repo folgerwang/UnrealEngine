@@ -72,7 +72,7 @@ struct SEQUENCER_API FKeyPropertyParams
 class SEQUENCER_API FPropertyChangedParams
 {
 public:
-	FPropertyChangedParams(TArray<UObject*> InObjectsThatChanged, const FPropertyPath& InPropertyPath, FName InStructPropertyNameToKey, ESequencerKeyMode InKeyMode);
+	FPropertyChangedParams(TArray<UObject*> InObjectsThatChanged, const FPropertyPath& InPropertyPath, const FPropertyPath& InStructPathToKey, ESequencerKeyMode InKeyMode);
 
 	/**
 	 * Gets the value of the property that changed.
@@ -115,9 +115,9 @@ public:
 	/** A path of properties to get from the root object to the property to be keyed. */
 	FPropertyPath PropertyPath;
 
-	/** Represents the FName of an inner property which should be keyed for a struct property.  If all inner 
-	properties should be keyed, this will be FName::None. */
-	const FName StructPropertyNameToKey;
+	/** Represents the path of an inner property which should be keyed for a struct property.  If all inner 
+	properties should be keyed, this will be empty. */
+	FPropertyPath StructPathToKey;
 
 	/** Keyframing params */
 	const ESequencerKeyMode KeyMode;

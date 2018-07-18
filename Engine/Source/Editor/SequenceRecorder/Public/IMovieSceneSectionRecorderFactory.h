@@ -6,7 +6,7 @@
 #include "IMovieSceneSectionRecorder.h"
 #include "Features/IModularFeature.h"
 
-/** 
+/**  
  * Factory class interface that allows the recorder to determine what recorders to apply to 
  * actors/components/objects it is presented with.
  */
@@ -32,5 +32,5 @@ public:
 	 * Create a per-recording settings object. You can access this object at record time using FActorRecordingSettings::Settings
 	 * @return an object used for user settings for this recorder
 	 */
-	virtual UObject* CreateSettingsObject() const { return nullptr; }
+	virtual UObject* CreateSettingsObject(class UObject* InOuter) const { return nullptr; }
 };

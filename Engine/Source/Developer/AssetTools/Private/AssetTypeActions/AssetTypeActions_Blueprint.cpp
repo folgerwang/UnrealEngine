@@ -5,7 +5,6 @@
 #include "GameFramework/Actor.h"
 #include "Misc/PackageName.h"
 #include "Misc/MessageDialog.h"
-#include "Framework/Application/SlateApplication.h"
 #include "EditorStyleSet.h"
 #include "Factories/BlueprintFactory.h"
 #include "ThumbnailRendering/SceneThumbnailInfo.h"
@@ -247,27 +246,7 @@ void FAssetTypeActions_Blueprint::PerformAssetDiff(UObject* OldAsset, UObject* N
 		WindowTitle = FText::Format(LOCTEXT("Blueprint Diff", "{0} - Blueprint Diff"), FText::FromString(NewBlueprint->GetName()));
 	}
 
-	const TSharedPtr<SWindow> Window = SNew(SWindow)
-		.Title(WindowTitle)
-		.ClientSize(FVector2D(1000,800));
-
-	Window->SetContent(SNew(SBlueprintDiff)
-					  .BlueprintOld(OldBlueprint)
-					  .BlueprintNew(NewBlueprint)
-					  .OldRevision(OldRevision)
-					  .NewRevision(NewRevision)
-					  .ShowAssetNames(!bIsSingleAsset) );
-
-	// Make this window a child of the modal window if we've been spawned while one is active.
-	TSharedPtr<SWindow> ActiveModal = FSlateApplication::Get().GetActiveModalWindow();
-	if ( ActiveModal.IsValid() )
-	{
-		FSlateApplication::Get().AddWindowAsNativeChild( Window.ToSharedRef(), ActiveModal.ToSharedRef() );
-	}
-	else
-	{
-		FSlateApplication::Get().AddWindow( Window.ToSharedRef() );
-	}
+	SBlueprintDiff::CreateDiffWindow(WindowTitle, OldBlueprint, NewBlueprint, OldRevision, NewRevision);
 }
 
 UThumbnailInfo* FAssetTypeActions_Blueprint::GetThumbnailInfo(UObject* Asset) const
@@ -298,15 +277,12 @@ FText FAssetTypeActions_Blueprint::GetAssetDescription(const FAssetData& AssetDa
 
 TWeakPtr<IClassTypeActions> FAssetTypeActions_Blueprint::GetClassTypeActions(const FAssetData& AssetData) const
 {
-	static const FName NativeParentClassTag = "NativeParentClass";
-	static const FName ParentClassTag = "ParentClass";
-
 	// Blueprints get the class type actions for their parent native class - this avoids us having to load the blueprint
 	UClass* ParentClass = nullptr;
 	FString ParentClassName;
-	if(!AssetData.GetTagValue(NativeParentClassTag, ParentClassName))
+	if(!AssetData.GetTagValue(FBlueprintTags::NativeParentClassPath, ParentClassName))
 	{
-		AssetData.GetTagValue(ParentClassTag, ParentClassName);
+		AssetData.GetTagValue(FBlueprintTags::ParentClassPath, ParentClassName);
 	}
 	if(!ParentClassName.IsEmpty())
 	{

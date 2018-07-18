@@ -1011,16 +1011,23 @@ static bool BlueprintActionDatabaseImpl::IsObjectValidForDatabase(UObject const*
  * FBlueprintActionDatabase
  ******************************************************************************/
 
+static FBlueprintActionDatabase* DatabaseInst = nullptr;
+
 //------------------------------------------------------------------------------
 FBlueprintActionDatabase& FBlueprintActionDatabase::Get()
 {
-	static FBlueprintActionDatabase* DatabaseInst = nullptr;
 	if (DatabaseInst == nullptr)
 	{
 		DatabaseInst = new FBlueprintActionDatabase();
 	}
 
 	return *DatabaseInst;
+}
+
+//------------------------------------------------------------------------------
+FBlueprintActionDatabase* FBlueprintActionDatabase::TryGet()
+{
+	return DatabaseInst;
 }
 
 //------------------------------------------------------------------------------
@@ -1263,6 +1270,11 @@ void FBlueprintActionDatabase::RefreshClassActions(UClass* const Class)
 		GetNodeSpecificActions(Class, Registrar);
 		// don't worry, the registrar marks new actions for priming
 	}
+	else if (Class->IsChildOf<UBlueprint>())
+	{
+		FBlueprintActionDatabaseRegistrar Registrar(ActionRegistry, UnloadedActionRegistry, ActionPrimingQueue);
+		Cast<UBlueprint>(Class->ClassDefaultObject)->GetTypeActions(Registrar);
+	}
 	else
 	{
 		FActionList& ClassActionList = ActionRegistry.FindOrAdd(Class);
@@ -1302,6 +1314,13 @@ void FBlueprintActionDatabase::RefreshAssetActions(UObject* const AssetObject)
 {
 	using namespace BlueprintActionDatabaseImpl;
 
+	// this method is very expensive and is only for blueprint editor functionality
+	// it should remain that way as *greatly* increases cook times, etc!
+	if (IsRunningCommandlet())
+	{
+		return;
+	}
+
 	FActionList& AssetActionList = ActionRegistry.FindOrAdd(AssetObject);
 	for (UBlueprintNodeSpawner* Action : AssetActionList)
 	{
@@ -1335,6 +1354,16 @@ void FBlueprintActionDatabase::RefreshAssetActions(UObject* const AssetObject)
 		{
 			AddAnimBlueprintGraphActions( AnimBlueprint, AssetActionList );
 		}
+
+		FBlueprintActionDatabaseRegistrar Registrar(ActionRegistry, UnloadedActionRegistry, ActionPrimingQueue);
+		if (!bIsInitializing)
+		{
+			// if this a call to RefreshAssetActions() from somewhere other than 
+			// RefreshAll(), then we should only add actions for this class (the
+			// node could be adding actions, probably duplicate ones for assets)
+			Registrar.ActionKeyFilter = BlueprintAsset->GeneratedClass;
+		}
+		BlueprintAsset->GetInstanceActions(Registrar);
 
 		UBlueprint::FChangedEvent& OnBPChanged = BlueprintAsset->OnChanged();
 		UBlueprint::FCompiledEvent& OnBPCompiled = BlueprintAsset->OnCompiled();
@@ -1505,14 +1534,11 @@ FBlueprintActionDatabase::FActionRegistry const& FBlueprintActionDatabase::GetAl
 void FBlueprintActionDatabase::RegisterAllNodeActions(FBlueprintActionDatabaseRegistrar& Registrar)
 {
 	// nodes may have actions they wish to add for this asset
-	for (TObjectIterator<UClass> ClassIt; ClassIt; ++ClassIt)
-	{
-		UClass* NodeClass = *ClassIt;
-		if (!NodeClass->IsChildOf<UK2Node>())
-		{
-			continue;
-		}
+	TArray<UClass*> NodeClassList;
+	GetDerivedClasses(UK2Node::StaticClass(), NodeClassList);
 
+	for (UClass* NodeClass : NodeClassList)
+	{
 		TGuardValue< TSubclassOf<UEdGraphNode> > ScopedNodeClass(Registrar.GeneratingClass, NodeClass);
 		BlueprintActionDatabaseImpl::GetNodeSpecificActions(NodeClass, Registrar);
 	}

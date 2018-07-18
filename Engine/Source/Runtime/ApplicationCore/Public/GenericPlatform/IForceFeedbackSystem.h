@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "IInputInterface.h"
+#include "GenericPlatform/IInputInterface.h"
 
 
 /**

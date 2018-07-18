@@ -8,11 +8,11 @@
 #include "IDetailChildrenBuilder.h"
 #include "UObject/UnrealType.h"
 #include "Widgets/Text/STextBlock.h"
-#include "SComboButton.h"
-#include "SListView.h"
+#include "Widgets/Input/SComboButton.h"
+#include "Widgets/Views/SListView.h"
 #include "DetailLayoutBuilder.h"
 #include "DetailCategoryBuilder.h"
-#include "SEditableTextBox.h"
+#include "Widgets/Input/SEditableTextBox.h"
 #include "Features/IModularFeatures.h"
 
 

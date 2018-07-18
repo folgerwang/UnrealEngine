@@ -13,6 +13,7 @@
 #include <DirectXMeshCode/DirectXMesh/DirectXMesh.h>
 
 #include <vector>
+#include <map>
 #include <unordered_map>
 
 #define LOCTEXT_NAMESPACE "ProxyLODMeshUtilities"
@@ -41,7 +42,7 @@ void ProxyLOD::ComputeTangentSpace( FRawMesh& RawMesh, const bool bRecomputeNorm
 // Calls into the direxXMesh library to compute the per-vertex normal, by default this will weight by area.
 // Note this is different than computing on the raw mesh, which can result in per-index tangent space.
 
-void ProxyLOD::ComputeVertexNormals( FVertexDataMesh& InOutMesh, const bool bAngleWeighted)
+void ProxyLOD::ComputeVertexNormals(FVertexDataMesh& InOutMesh, const ENormalComputationMethod Method)
 {
 	// Note:
 	// This code relies on the fact that a FVector can be cast as a XMFLOAT3, and a FVector2D can be cast as a XMFLOAT2
@@ -60,14 +61,25 @@ void ProxyLOD::ComputeVertexNormals( FVertexDataMesh& InOutMesh, const bool bAng
 
 	// Default is weight by angle.
 	DWORD NormalFlags = 0;
-	if (bAngleWeighted)
+	switch (Method)
 	{
-		NormalFlags |= DirectX::CNORM_FLAGS::CNORM_DEFAULT;
+		case ENormalComputationMethod::AngleWeighted:
+			NormalFlags |= DirectX::CNORM_FLAGS::CNORM_DEFAULT;
+			break;
+		case ENormalComputationMethod::AreaWeighted:
+			NormalFlags |= DirectX::CNORM_FLAGS::CNORM_WEIGHT_BY_AREA;
+			break;
+	
+		case ENormalComputationMethod::EqualWeighted:
+			NormalFlags |= DirectX::CNORM_FLAGS::CNORM_WEIGHT_EQUAL;
+			break;
+		
+
+		default:
+			NormalFlags |= DirectX::CNORM_FLAGS::CNORM_DEFAULT;
+			break;
 	}
-	else
-	{
-		NormalFlags |= DirectX::CNORM_FLAGS::CNORM_WEIGHT_BY_AREA;
-	}
+
 
 #if (PROXYLOD_CLOCKWISE_TRIANGLES == 1)
 	NormalFlags |= DirectX::CNORM_FLAGS::CNORM_WIND_CW;
@@ -146,131 +158,896 @@ void ProxyLOD::ComputeTangentSpace( FVertexDataMesh& InOutMesh, const bool bReco
 	if (TangentX) delete[] TangentX;
 }
 
-// The vertex and edge adjacency information for a watertight triangle mesh.
-class FAdjacencyData
+class FVertexIdToFaceIdAdjacency
+{
+public:
+	typedef TArray<int32, TInlineAllocator<16>> FaceList; 
+
+	FVertexIdToFaceIdAdjacency(const uint32* Indices, const int32 NumIndices, const int32 InNumVerts)
+	{
+		typedef uint32 VertIdxType;
+		check(NumIndices % 3 == 0);
+
+		checkSlow(InNumVerts > -1);
+		checkSlow(NumIndices > -1);
+
+		if (NumIndices == 0 && InNumVerts == 0) return;
+
+		// The number of triangles
+
+		const int32 NumTris = NumIndices / 3;
+
+		// Allocate the result array.  Note the default constructor has to be called on each ellement
+
+		{
+			ResizeInializedArray(VertexToFaces, InNumVerts);
+		}
+
+		// Construct a list of faces that are adjacent to each vertex
+
+
+		for (int32 f = 0; f < NumTris; ++f)
+		{
+			// Register this face with the correct verts
+
+			const int32 TriOffset = 3 * f;  
+			checkSlow(TriOffset + 2 < NumIndices); 
+			const VertIdxType VertId[3] = { Indices[TriOffset + 0], Indices[TriOffset + 1], Indices[TriOffset + 2] };
+
+			for (int v = 0; v < 3; ++v) {
+				checkSlow(VertId[v] < (uint32)InNumVerts);
+				// NB: For debug, make this AddUnique
+				VertexToFaces[VertId[v]].Add(f);
+			}
+		}
+	}
+
+	/**
+	* Find the faces that are adjacent to the edge Vert0-Vert1.
+	*
+	* @param Vert0 - one vertex of the edge
+	* @param Vert1 - other vertex of the edge
+	*
+	* @param AdjFaces - The Ids of faces that are adjacent to this edge.
+
+	* @return - Returns true if the edge is locally manifold (no more than 2 adj faces).  Otherwise false.
+	*/
+	bool FindAdjacentFaces(const uint32 Vert0, const uint32 Vert1, FaceList& AdjFaces) const 
+	{
+
+		// initialize 
+
+
+		// lists of faces for each vert
+
+		const FaceList& FacesAdjacentToV0 = this->VertexToFaces[Vert0];
+		const FaceList& FacesAdjacentToV1 = this->VertexToFaces[Vert1];
+
+
+		bool bManifold = true;
+
+		for (auto V0FaceId : FacesAdjacentToV0)
+		{
+			{
+				int32 Result = FacesAdjacentToV1.Find(V0FaceId);
+				if (Result != INDEX_NONE)
+				{
+					AdjFaces.Add(V0FaceId);
+				}
+			}
+		}
+
+		if (AdjFaces.Num() == 0 || AdjFaces.Num() > 2)
+		{
+			bManifold = false;
+		}
+
+		return bManifold;
+	};
+
+	// Identify the adjacent triangles to a given vertex.
+	// List of faces adjacent to each vertex
+	// ConcurrentFaceList& = VertexToFaces[VertexId] 
+
+	TArray<FaceList>  VertexToFaces;
+
+private:
+	FVertexIdToFaceIdAdjacency();
+};
+
+class FAdjacencyData : public FVertexIdToFaceIdAdjacency
 {
 
 public:
-	typedef std::vector<uint32> FaceList;
+	typedef TArray<int32, TInlineAllocator<16>> FaceList;
+	typedef TArray<int32> EdgeList;
 
-	FAdjacencyData(const uint32* Indices, const uint32 NumIndices, const uint32 NumVerts) :
-		NumEdgeAjacentFaces(NumIndices)
+	class SimpleEdge
+	{
+	public:
+		SimpleEdge() { Verts[0] = 0; Verts[1] = 0; };
+
+
+		SimpleEdge(const uint32 VertA, const uint32 VertB)
+		{
+			if (VertA > VertB)
+			{
+				Verts[0] = VertB;
+				Verts[1] = VertA;
+			}
+			else
+			{
+				Verts[0] = VertA;
+				Verts[1] = VertB;
+			}
+		}
+
+		SimpleEdge(const SimpleEdge& other)
+		{
+			Verts[0] = other.Verts[0];
+			Verts[1] = other.Verts[1];
+		}
+		SimpleEdge& operator=(const SimpleEdge& other)
+		{
+			Verts[0] = other.Verts[0];
+			Verts[1] = other.Verts[1];
+			return *this;
+		}
+
+		bool operator==(const SimpleEdge& other) const
+		{
+			return (Verts[0] == other.Verts[0] && Verts[1] == other.Verts[1]);
+		}
+
+		bool operator<(const SimpleEdge& other) const
+		{
+			return (other.Verts[0] > Verts[0] || (other.Verts[0] == Verts[0] && other.Verts[1] > Verts[1]));
+		}
+
+		uint32 Verts[2];
+	};
+
+	struct SimpleEdgeComparator
+	{
+		bool operator()(const SimpleEdge& lhs, const SimpleEdge& rhs) const
+		{
+			return lhs.operator<(rhs);
+		}
+	};
+
+	class FaceAssociation
+	{
+	public:
+		FaceAssociation() :
+			FaceId(-1),
+			NextId(-1),
+			LastId(-1)
+		{}
+
+		FaceAssociation(const int32 Id) :
+			FaceId(Id),
+			NextId(Id),
+			LastId(Id)
+		{}
+
+		FaceAssociation(const FaceAssociation& other) :
+			FaceId(other.FaceId),
+			NextId(other.NextId),
+			LastId(other.LastId)
+		{}
+
+		// For a correctly links group of faces  LastId <= FaceId <=NextId; 
+		int32 FaceId;
+		int32 NextId;
+		int32 LastId;
+	};
+
+	FAdjacencyData(const uint32* Indices, const int32 NumIndices, const int32 InNumVerts) :
+		FVertexIdToFaceIdAdjacency(Indices, NumIndices, InNumVerts)
 	{
 
+
+		int32 NumVerts = InNumVerts;
+
 		// The number of triangles
-		const uint32 NumTris = NumIndices / 3;
+
+		const int32 NumTris = NumIndices / 3;
 		check(NumIndices % 3 == 0);
 
 
-		//Allocate
-		VertexAdjacentFaceArray = new FaceList[NumVerts];
-		EdgeAdjacentFaceArray = new uint32[NumTris * 3];
+		std::map< SimpleEdge, FaceList, SimpleEdgeComparator >  EdgeToFaceMap;
 
-		for (uint32 f = 0; f < NumTris; ++f)
+
+		// Make a map of edges to faces.
+
+		for (int32 faceIdx = 0; faceIdx < NumTris; ++faceIdx)
 		{
-			// Register this face with the correct verts
-			const uint32 TriOffset = 3 * f;
-			const uint32 VertId[3] = { Indices[TriOffset + 0], Indices[TriOffset + 1], Indices[TriOffset + 2] };
+			int32 offset = 3 * faceIdx;
 
-			for (int v = 0; v < 3; ++v) {
-				check(VertId[v] < NumVerts);
-				VertexAdjacentFaceArray[VertId[v]].push_back(f);
-			}
-		}
+			// Add this face to the 3 edges
+			for (int32 v = 0; v < 3; ++v)
+			{
+				int32 nv = (v + 1) % 3; // next vertex
+				checkSlow(nv < NumVerts);  
 
-
-
-		// Find the other face adjacent to this edge of CurFace.
-		auto FindAdjacentFace = [this](const uint32 Vert0, const uint32 Vert1, const uint32 CurFace)->int32
-		{
-			const FaceList& V0Adjacent = this->VertexAdjacentFaceArray[Vert0];
-			const FaceList& V1Adjacent = this->VertexAdjacentFaceArray[Vert1];
-
-
-			int32 FoundFace = -1;
-			for (std::vector<uint32>::const_iterator V0Iter = V0Adjacent.cbegin(); V0Iter != V0Adjacent.cend(); ++V0Iter) {
-				const uint32 FaceId = *V0Iter;
-				if (FaceId == CurFace) {
-					continue;
+				SimpleEdge  Edge(Indices[offset + v], Indices[offset + nv]);
+				auto Search = EdgeToFaceMap.find(Edge);
+				if (Search != EdgeToFaceMap.end())
+				{
+					auto& Faces = Search->second;
+					Faces.Add(faceIdx);
 				}
 				else
 				{
-					auto result = std::find(std::begin(V1Adjacent), std::end(V1Adjacent), FaceId);
-					if (result != std::end(V1Adjacent))
-					{
-						FoundFace = FaceId;
-						break;
-					}
+					EdgeToFaceMap[Edge].Add(faceIdx);
 				}
 			}
+		}
 
-			//checkSlow(FoundFace != -1)
-
-			return FoundFace;
-		};
-
-
+		// Make an array of edges and a corresponding array of faces.
+		const int32 NumEdges = (int32)(EdgeToFaceMap.size());
+		{
+			ResizeArray(EdgeArray, NumEdges);
+		}
+		{
+			ResizeInializedArray(EdgeToFaces, NumEdges);
+		}
 
 		{
-			int32 AdjacentFace;
-			// Loop over faces
-			for (uint32 f = 0; f < NumTris; ++f)
+			int32 offset = 0;
+			for (auto iter = EdgeToFaceMap.begin(); iter != EdgeToFaceMap.end(); ++iter)
 			{
-				// Get the vertexIds for this face
+				EdgeArray[offset] = iter->first;
 
-				// The verts for this face
-				const uint32 FaceOffset = 3 * f;
-				const uint32 VertId[3] = { Indices[FaceOffset + 0], Indices[FaceOffset + 1], Indices[FaceOffset + 2] };
+				Swap(EdgeToFaces[offset], iter->second);
 
-				// The first edge: Tri[0] -> Tri[1]
-				const uint32 EdgeId0 = f * 3;
-				AdjacentFace = FindAdjacentFace(VertId[0], VertId[1], f);
-				EdgeAdjacentFaceArray[EdgeId0] = (uint32)AdjacentFace;
+				offset++;
+
+			}
+		}
+
+		// Allocate an array: Index by VertexId, Holds Adj Edges
+		{
+			ResizeInializedArray(VertexToEdges, NumVerts);
+		}
+
+		// make map of vertex to edge
+		for (int32 edgeIdx = 0; edgeIdx < NumEdges; ++edgeIdx)
+		{
+			const auto& Edge = EdgeArray[edgeIdx];
+			checkSlow(Edge.Verts[0] < Edge.Verts[1]); 
+			for (int32 v = 0; v < 2; ++v)
+			{
+				uint32 VertIdx = Edge.Verts[v];
+				VertexToEdges[VertIdx].Add(edgeIdx);
+			}
+		}
+
+	}
+
+	/**
+	* Find the faces that are adjacent to the edge Vert0-Vert1.
+	*
+	* @param Edge - The edge in question
+	*
+	* @param AdjFaces - The Ids of faces that are adjacent to this edge.
+	*                   If only one face is adjacent (e.g. a boundary) then -1 will
+	*                   be returned for the other.  If no faces are found then -1, will be returned for each
+	*
+	* @return - Returns true if the edge is locally manifold (no more than 2 adj faces).  Otherwise false.
+	*/
+	bool FindAdjacentFaces(const SimpleEdge& Edge, FaceList& AdjFaces) const
+	{
+		return FVertexIdToFaceIdAdjacency::FindAdjacentFaces(Edge.Verts[0], Edge.Verts[1], AdjFaces);
+	}
 
 
-				// The second edge: VertId1 -> VertId2 
-				const uint32 EdgeId1 = EdgeId0 + 1;
-				AdjacentFace = FindAdjacentFace(VertId[1], VertId[2], f);
-				EdgeAdjacentFaceArray[EdgeId1] = (uint32)AdjacentFace;
+	// Linearization of the EdgeToFaceMap
+	TArray<SimpleEdge> EdgeArray;
+	TArray<FaceList>   EdgeToFaces;   // index by edge: holds array of adj faces
+	TArray<EdgeList>   VertexToEdges; // index by vertex: holds array of edges
 
 
-				// The third edge: VertId2 -> VertId0
-				const uint32 EdgeId2 = EdgeId0 + 2;
-				AdjacentFace = FindAdjacentFace(VertId[2], VertId[0], f);
-				EdgeAdjacentFaceArray[EdgeId2] = (uint32)AdjacentFace;
+private:
+	// don't copy
+	FAdjacencyData(const FAdjacencyData& other);
+};
 
+//This assumes the the number of Faces = NumIndices / 3
+void ProxyLOD::SplitHardAngles(const float HardAngleRadians, const TArray<FVector>& FaceNormals, const int32 NumVerts, TArray<uint32>& Indices, std::vector<uint32_t>& AdditionalVertices)
+{
+
+	const uint32 NumIndices = Indices.Num();
+	// Number of faces of the mesh.  This assumes triangles only!
+
+	const uint32 NumFaces = NumIndices / 3;
+
+	checkSlow(NumFaces == FaceNormals.Num());
+
+	// Basic Adjacency Data
+
+	FAdjacencyData Adjacency(Indices.GetData(), NumIndices, NumVerts);
+
+	// Edge Count
+
+	const int32 NumEdges = Adjacency.EdgeArray.Num();
+
+	// Empty the duplicate vertex array.  Note using std::vector<uint32_t> to allow us to share some code with the UV system which also adds / splits verts.
+
+	std::vector<uint32_t>().swap(AdditionalVertices);
+
+	// Compute the angle, in radians, for each edge.  If an edge is adjacent to 
+	// more than two faces, we set this angle to zero.
+
+	TArray<float> EdgeAngleArray;
+	ResizeArray(EdgeAngleArray, NumEdges);
+	{
+
+		// Compute the difference between faces normals at each edge.  
+		// Make this zero if only one face is adjacent to edge.
+		// Make this zero if more than 2 faces are adjacent to edge.
+
+		for (int32 edgeIdx = 0; edgeIdx < NumEdges; ++edgeIdx)
+		{
+			// The adjacent faces to this edge
+			const auto& Faces = Adjacency.EdgeToFaces[edgeIdx];
+
+			if (Faces.Num() == 2)
+			{
+				const FVector& N0 = FaceNormals[Faces[0]];
+				const FVector& N1 = FaceNormals[Faces[1]];
+
+				const float CosOfAngle = FMath::Clamp(FVector::DotProduct(N0, N1), -1.f, 1.f);
+				const float AngleInRadians = FMath::Acos(CosOfAngle); // Note this is in Radians in the range [0:Pi]
+
+				EdgeAngleArray[edgeIdx] = AngleInRadians;
+			}
+			else
+			{
+				EdgeAngleArray[edgeIdx] = 0.f;
 			}
 
 		}
 	}
 
-	// Clean up
-	~FAdjacencyData()
+	// Construct a list of unique verts that need to be split.
+	// NB: multiple "Hard" edges could connect to a single vert.
+
+	TArray<int32> SplitVertexList;
 	{
-		if (EdgeAdjacentFaceArray)   delete[] EdgeAdjacentFaceArray;
-		if (VertexAdjacentFaceArray) delete[] VertexAdjacentFaceArray;
+
+		// Create a mask of valid edges (those that are adjacent to two faces)
+		// NB: could parallelize
+		TArray<int16> TwoFaceEdgeMask;
+		ResizeInializedArray(TwoFaceEdgeMask, NumEdges);
+
+		for (int32 edgeIdx = 0; edgeIdx < NumEdges; ++edgeIdx)
+		{
+			TwoFaceEdgeMask[edgeIdx] = 1;
+			const auto& Faces = Adjacency.EdgeToFaces[edgeIdx];
+			checkSlow(Faces.Num() > 0); 
+			if (Faces.Num() != 2)
+			{
+				TwoFaceEdgeMask[edgeIdx] = 0;
+			}
+		}
+
+
+		// Loop over the edges, finding the ones that exceed the hard angle limit
+		// and marking the associated vertexs.
+		// VertexSplitMask[i] = 1  if the vert should be split.
+
+
+		TArray<int16> VertToSplitMask;
+		ResizeInializedArray(VertToSplitMask, NumVerts);
+
+		for (int32 vertIdx = 0; vertIdx < NumVerts; ++vertIdx) VertToSplitMask[vertIdx] = 0;
+
+		for (int32 edgeIdx = 0; edgeIdx < NumEdges; ++edgeIdx)
+		{
+			// ignore edges that don't have exactly two faces
+
+			if (TwoFaceEdgeMask[edgeIdx] == 0)
+			{
+				continue;
+			}
+
+			// ignore edges that are under the threshold
+
+			if (EdgeAngleArray[edgeIdx] < HardAngleRadians)
+			{
+				continue;
+			}
+
+			// The edge in question
+
+			const FAdjacencyData::SimpleEdge& Edge = Adjacency.EdgeArray[edgeIdx];
+
+			// Mark the verts of this hard edge  
+			// NB: a vert may be shared by multiple hard edges,
+			// but that is fine.
+
+			VertToSplitMask[Edge.Verts[0]] = 1;
+			VertToSplitMask[Edge.Verts[1]] = 1;
+
+		}
+
+		// Insure that all the edges that are adjacent to a split vert candidate
+		// have two faces.  
+		// @todo: relax this requirement.
+
+		// Mask out any vertex that has an "invalid" edge.
+		// @todo Parallelize
+		for (int32 vertIdx = 0; vertIdx < NumVerts; ++vertIdx)
+		{
+			if (VertToSplitMask[vertIdx] == 1)
+			{
+				bool bValid = true;
+
+				// Get all adjacent edges and test that they are all valid.
+
+				const auto& AdjEdges = Adjacency.VertexToEdges[vertIdx];
+
+				for (auto edgeIdx : AdjEdges)
+				{
+					if (TwoFaceEdgeMask[edgeIdx] == 0)
+					{
+						bValid = false;
+					}
+				}
+
+				if (bValid == false)
+				{
+					VertToSplitMask[vertIdx] = 0;
+				}
+			}
+		}
+
+		// Count the number of verts to split
+
+		int32 NumSplitVerts = 0;
+		for (int32 vertIdx = 0; vertIdx < NumVerts; ++vertIdx)
+		{
+			NumSplitVerts += VertToSplitMask[vertIdx];
+		}
+
+		// Populate the list of verts to split.
+		{
+			ResizeInializedArray(SplitVertexList, NumSplitVerts);
+		}
+
+		int32 offset = 0;
+		for (int32 vertIdx = 0; vertIdx < NumVerts; ++vertIdx)
+		{
+			if (VertToSplitMask[vertIdx] == 1)
+			{
+				checkSlow(offset < NumSplitVerts); 
+				SplitVertexList[offset] = vertIdx;
+				offset++;
+			}
+		}
+
+	}
+
+	// return if there is actually no work to be done.
+	// NB: the AdditionalVertices have already been emptied.
+
+	if (SplitVertexList.Num() == 0)
+	{
+		return;
 	}
 
 
-	// Identify the adjacent triangles to a given edge.
-	// FaceId = EdgeAdjacentFaceArray[EdgeId];
-	// Where 
-	//    EdgeId = TriId, TridId + 1, TriId + 2;
 
-	uint32  NumEdgeAjacentFaces;
-	uint32* EdgeAdjacentFaceArray;
+	// Now that the verts have been identified, they could
+	// processed independently. 
 
-	// Identify the adjacent triangles to a given vertex.
-	// List of faces adjacent to each verted
-	// ConcurrentFaceList& = VertexAdjacentFaceArray[VertexId] 
+	// For each split vertex, build a list of different face groups.
+	// A FaceGroup is an array of faceIds that should share a single
+	// vertex (after splitting).
+	typedef FAdjacencyData::FaceList    FaceGroupType;
+	typedef TArray<FaceGroupType>       ListOfFaceGroupType;
 
-	FaceList*  VertexAdjacentFaceArray;
+	TArray<ListOfFaceGroupType> PerVertArrayOfFaceGroups;
+	ResizeInializedArray(PerVertArrayOfFaceGroups, SplitVertexList.Num());
 
-private:
-	// don't copy
-	FAdjacencyData(const FAdjacencyData& other) {};
-};
 
+	// NB: this could be done in parallel.
+	Parallel_For(FIntRange(0, SplitVertexList.Num()), [&](const FIntRange& Range)->void
+	{
+		//	for (int32 i = 0, IMax = SplitVertexList.Num(); i < IMax; ++i)
+		for (int32 i = Range.begin(); i < Range.end(); ++i)
+		{
+			// The index of the split vert in the vertex array - of the split verts, this is the "i-th" one.
+
+			const int32 splitVertIdx = SplitVertexList[i];
+
+			checkSlow(splitVertIdx < NumVerts && splitVertIdx > -1); 
+
+			// 
+			// -- Need to establish connectivity between the faces that are adjacent to the split vert.
+	        //
+
+		    // All the edges that are adjacent to this vert.
+
+			const auto& VertexAdjacentEdges = Adjacency.VertexToEdges[splitVertIdx];
+
+			// All the faces that are adjacent to this vertex.
+
+			const auto& AdjFaces = Adjacency.VertexToFaces[splitVertIdx];
+			const int32 NumAdjFaces = AdjFaces.Num();
+
+			// Start grouping the faces with their neighbor by constructing something
+			// like a link-list.
+
+			// Generate the link-list elements : each one "owns" a faceId
+			TArray<FAdjacencyData::FaceAssociation> FaceToFaceAssociation;
+			for (const auto& faceIdx : AdjFaces)
+			{
+				FaceToFaceAssociation.Add(FAdjacencyData::FaceAssociation(faceIdx));
+			}
+
+			// A map to index into the link-list by faceId
+			std::map<int32, FAdjacencyData::FaceAssociation*> AssociationMap;
+			for (int32 a = 0, AMax = (int32)FaceToFaceAssociation.Num(); a < AMax; ++a)
+			{
+				FAdjacencyData::FaceAssociation& Association = FaceToFaceAssociation[a];
+				AssociationMap[Association.FaceId] = &(Association);
+			}
+
+			// loop over the edges, making associations between adjacent faces if the edge isn't "Sharp"
+			// Keep track of the sharpest, non-hard edge.  This runner-up may be used to help split the faces
+			// should there be only one hard edge.
+
+			float SharpestAbsAngle = -1.f;
+			int32 SharpestEdgeIdx = -1;
+			for (const auto& edgeIdx : VertexAdjacentEdges)
+			{
+				const float AbsCurrentAngle = EdgeAngleArray[edgeIdx];
+
+				if (AbsCurrentAngle < HardAngleRadians) // Not a "Hard" edge.  The faces should be connected in this case.
+				{
+					// Keep track of the sharpest non-hard edge.  Will have to use this to form the splitting groups
+					// if there aren't any "hard edges" leaving this vert.
+
+					if (AbsCurrentAngle > SharpestAbsAngle)
+					{
+						SharpestAbsAngle = AbsCurrentAngle;
+						SharpestEdgeIdx = edgeIdx;
+					}
+
+					// The faces adj to this edge
+
+					const auto& Faces = Adjacency.EdgeToFaces[edgeIdx];
+					// This is redundant check.  We have already required that all edges have two faces.
+					checkSlow(Faces.Num() < 3); // need this to be manifold!
+
+												// By convention, for our link-list LastId <= FaceId <=NextId
+					if (Faces.Num() == 2)
+					{
+						int32 FaceA, FaceB;
+						if (Faces[0] < Faces[1])
+						{
+							FaceA = Faces[0];
+							FaceB = Faces[1];
+						}
+						else
+						{
+							FaceA = Faces[1];
+							FaceB = Faces[0];
+						}
+
+						checkSlow(FaceA != FaceB); 
+
+						auto& AssociationA = AssociationMap[FaceA];
+						AssociationA->NextId = FaceB;
+
+						auto& AssociationB = AssociationMap[FaceB];
+						AssociationB->LastId = FaceA;
+					}
+
+				}
+			}
+
+			// How many groups do our associations define?
+			// Lets count the number of times LastId == FaceId;
+			int32 GroupCount = 0;
+			int32 LastCount = 0;
+			int32 NextCount = 0;
+			for (const auto& Association : FaceToFaceAssociation)
+			{
+				if (Association.LastId == Association.FaceId)
+				{
+					LastCount++;
+					GroupCount++;
+				}
+				if (Association.NextId == Association.FaceId)
+				{
+					NextCount++;
+				}
+			}
+			
+			checkSlow(LastCount > 0 && NextCount > 0);
+
+			// If we have only one group, then use the next sharpest edge to break it into two
+			// if possible.
+
+			if (GroupCount == 1 && SharpestEdgeIdx != -1)
+			{
+				// Get the faces for the next sharpest edge
+				const auto& Faces = Adjacency.EdgeToFaces[SharpestEdgeIdx];
+
+				checkSlow(Faces.Num() < 3); // need this to be manifold!
+
+				if (Faces.Num() == 2)
+				{
+					int32 FaceA, FaceB;
+					if (Faces[0] < Faces[1])
+					{
+						FaceA = Faces[0];
+						FaceB = Faces[1];
+					}
+					else
+					{
+						FaceA = Faces[1];
+						FaceB = Faces[0];
+					}
+
+					checkSlow(FaceA != FaceB); 
+
+					auto& AssociationA = AssociationMap[FaceA];
+					//checkSlow(AssociationA->NextId == FaceB || AssociationA->NextId == FaceA || AssociationA->LastId == FaceA);
+					AssociationA->NextId = FaceA;
+
+					auto& AssociationB = AssociationMap[FaceB];
+					//checkSlow(AssociationB->LastId == FaceA || AssociationB->NextId == FaceB || AssociationB->LastId == FaceB);
+					AssociationB->LastId = FaceB;
+
+					GroupCount++;
+				}
+			}
+
+			// Should I fix the triangles now?  Okay, lets do that, but it might be better to store this information and do that 
+			// in a following parallel pass.
+
+			// loop over the groups in the association.
+			//  The i-th split vert now has the face group
+
+			ListOfFaceGroupType& FaceGroups = PerVertArrayOfFaceGroups[i];
+			if (GroupCount > 1)
+			{
+				for (auto& Association : FaceToFaceAssociation)
+				{
+					if (Association.FaceId != -1)
+					{
+						// Add this group.
+						FaceGroups.Add(FaceGroupType());
+
+						FaceGroupType& FacesInGroup = FaceGroups.Last();
+						FacesInGroup.Add(Association.FaceId);
+
+						// Go Forward, if there is a next
+						if (Association.NextId != Association.FaceId)
+						{
+							int32 NextId = Association.NextId;
+							int32 CurId = Association.FaceId;
+							while (NextId != CurId && CurId != -1)
+							{
+								auto& CurAssociation = AssociationMap[NextId];
+								CurId = CurAssociation->FaceId;
+								NextId = CurAssociation->NextId;
+								if (CurId != -1) FacesInGroup.Add(CurId);
+
+								// Mark as used
+								CurAssociation->FaceId = -1;
+							}
+						}
+
+						// Go backward, if there is a Last
+						if (Association.LastId != Association.FaceId)
+						{
+							int32 LastId = Association.LastId;
+							int32 CurId = Association.FaceId;
+							while (LastId != CurId && CurId != -1)
+							{
+								auto& CurAssociation = AssociationMap[LastId];
+								CurId = CurAssociation->FaceId;
+								LastId = CurAssociation->LastId;
+								if (CurId != -1) FacesInGroup.Add(CurId);
+
+								// Mark as used
+								CurAssociation->FaceId = -1;
+							}
+						}
+
+						// Mark this one as used:
+						Association.FaceId = -1;
+					}
+				}
+			}
+			else  // There was only one group.  Put all the faces in it.
+			{
+				FaceGroups.Add(FaceGroupType());
+				FaceGroupType& FacesInGroup = FaceGroups.Last();
+				for (auto& Association : FaceToFaceAssociation)
+				{
+					FacesInGroup.Add(Association.FaceId);
+				}
+			}
+
+		}
+	});
+	// Loop over the verts to split and use the face groups to re-write the trianlges
+	// As the same time capture the AdditionalVertices.
+	// NB: this would have to be re-worked a little if you wanted to parallelize this.
+
+	for (int32 i = 0, IMax = SplitVertexList.Num(); i < IMax; ++i)
+	{
+		// Get the index of the i-th split vert
+		const int32 splitVertIdx = SplitVertexList[i];
+
+		// Get the face groups of the i-th split vert
+		const ListOfFaceGroupType& FaceGroups = PerVertArrayOfFaceGroups[i];
+
+		// New VertexIdx
+
+
+		for (int32 faceGroupIDx = 0, FGmax = (int32)FaceGroups.Num(); faceGroupIDx < FGmax; ++faceGroupIDx)
+		{
+			// Allow the first group to use the pre-exsiting vertex
+			if (faceGroupIDx == 0) continue;
+
+			const auto& FacesInGroup = FaceGroups[faceGroupIDx];
+
+			// Where the new vert will live.
+			uint32 NewVertOffset = (uint32)AdditionalVertices.size() + (uint32)NumVerts;
+
+			for (const auto FaceId : FacesInGroup)
+			{
+
+				// for each face
+				// loop over the vertIDs for this face,
+				// and re-wire the one that should point to
+				// the new vertex.
+				int32 offset = 3 * FaceId;
+				for (int32 v = 0; v < 3; ++v)
+				{
+					checkSlow(v + offset < (int32)NumIndices);
+
+					if (Indices[v + offset] == splitVertIdx)
+					{
+						Indices[v + offset] = NewVertOffset;
+					}
+				}
+
+			}
+			// Keep track of the verts we need to copy.
+			AdditionalVertices.push_back(splitVertIdx);
+		}
+
+
+	} // end loop over split verts.
+
+}
+
+void ProxyLOD::SplitHardAngles(const float HardAngleDegrees, FVertexDataMesh& InOutMesh)
+{
+	const float HardAngleRadians = FMath::Abs(FMath::DegreesToRadians(HardAngleDegrees));
+
+	// Number of Indices and Faces
+
+	const int32 NumIndices = InOutMesh.Indices.Num();
+	const int32 NumTriangles = NumIndices / 3;
+
+	if (NumTriangles < 2) return;
+
+	// Allocate space for the face normals
+
+	TArray<FVector>  FaceNormals;
+	ResizeArray(FaceNormals, NumTriangles);
+
+	// Compute face normals in parallel
+
+	ProxyLOD::Parallel_For(ProxyLOD::FIntRange(0, NumTriangles), [&InOutMesh, &FaceNormals](const ProxyLOD::FIntRange& Range)
+	{
+		const uint32* Indices = InOutMesh.Indices.GetData();
+
+		FVector Pos[3];
+		for (uint32 f = Range.begin(), F = Range.end(); f < F; ++f)
+		{
+			const uint32 offset = 3 * f;
+			const uint32 ids[3] = { Indices[offset] , Indices[offset + 1] , Indices[offset + 2] };
+			Pos[0] = InOutMesh.Points[ids[0]];
+			Pos[1] = InOutMesh.Points[ids[1]];
+			Pos[2] = InOutMesh.Points[ids[2]];
+
+			FaceNormals[f] = ComputeNormal(Pos);
+
+		}
+	});
+
+	const int32 NumVerts = InOutMesh.Points.Num();
+	std::vector<uint32_t> dupVerts;
+	ProxyLOD::SplitHardAngles(HardAngleRadians, FaceNormals, NumVerts, InOutMesh.Indices, dupVerts);
+
+
+	// add the duplicated verts, copying all the associated data.
+
+	SplitVertices(InOutMesh, dupVerts);
+
+}
+
+namespace
+{
+	// Use the duplication vector extend the InOutVector with the correct values.
+	template <typename T>
+	void RemapMeshData(TArray<T>& InOutVector, int32 OldSize, const std::vector<uint32_t>& dupList)
+	{
+		uint32 NumDup = dupList.size();
+		if (InOutVector.Num() == OldSize && NumDup != 0)
+		{
+
+			TArray<T> Tmp;
+			ResizeArray(Tmp, OldSize + NumDup);
+
+			for (int32 i = 0; i < OldSize; ++i)
+			{
+				Tmp[i] = InOutVector[i];
+			}
+
+			for (uint32 d = 0; d < NumDup; ++d)
+			{
+				Tmp[OldSize + d] = InOutVector[dupList[d]];
+			}
+
+			Swap(Tmp, InOutVector);
+		}
+	}
+}
+
+
+
+void ProxyLOD::SplitVertices(FVertexDataMesh& InOutMesh, const std::vector<uint32_t>& dupVerts)
+{
+	const uint32 NumDup = dupVerts.size();
+
+	// Early out.
+	if (NumDup == 0) return;
+
+	const uint32 OldVertNum = InOutMesh.Points.Num();
+
+	RemapMeshData(InOutMesh.Points, OldVertNum, dupVerts);
+
+	RemapMeshData(InOutMesh.Normal, OldVertNum, dupVerts);
+
+	RemapMeshData(InOutMesh.Tangent, OldVertNum, dupVerts);
+
+	RemapMeshData(InOutMesh.BiTangent, OldVertNum, dupVerts);
+
+	RemapMeshData(InOutMesh.TransferNormal, OldVertNum, dupVerts);
+
+	RemapMeshData(InOutMesh.TangentHanded, OldVertNum, dupVerts);
+
+	RemapMeshData(InOutMesh.UVs, OldVertNum, dupVerts);
+
+	RemapMeshData(InOutMesh.FaceColors, OldVertNum, dupVerts);
+
+	RemapMeshData(InOutMesh.FacePartition, OldVertNum, dupVerts);
+
+}
+
+
+void ProxyLOD::CacheNormals(FVertexDataMesh& InMesh)
+{
+	const int32 NumNormals = InMesh.Normal.Num();
+	TArray<FVector>& CachedNormals = InMesh.TransferNormal;
+	ResizeArray(CachedNormals, NumNormals);
+
+	for (int32 i = 0; i < NumNormals; ++i)
+	{
+		CachedNormals[i] = InMesh.Normal[i];
+	}
+}
 
 // Testing function using for debugging.  Verifies that if A is adjacent to B, then B is adjacent to A.
 // Returns the number of failure cases ( should be zero!)
@@ -319,12 +1096,8 @@ void ProxyLOD::ComputeFaceAveragedVertexNormals(FAOSMesh& InOutMesh)
 {
 
 	// Generate adjacency data
-	FAdjacencyData  AdjacencyData(InOutMesh.Indexes, InOutMesh.GetNumIndexes(), InOutMesh.GetNumVertexes());
-
-	// Test that if faceA is adjacent to faceB  then faceB is adjacent to faceA\
-				// the desired result is zero
-//int TempFailedAdjCount = VerifyAdjacency(TempAdjacencyData.EdgeAdjacentFaceArray, TempAdjacencyData.NumEdgeAjacentFaces);
-
+	FVertexIdToFaceIdAdjacency AdjacencyData(InOutMesh.Indexes, InOutMesh.GetNumIndexes(), InOutMesh.GetNumVertexes());
+	
 	uint32 NumFaces = InOutMesh.GetNumIndexes() / 3;
 
 	// Generate face normals.
@@ -358,15 +1131,16 @@ void ProxyLOD::ComputeFaceAveragedVertexNormals(FAOSMesh& InOutMesh)
 			AOSVertex.Normal = FVector(0.f, 0.f, 0.f);
 
 			// loop over all the faces that share this vertex, accumulating the normal
-			const auto& AdjFaces = AdjacencyData.VertexAdjacentFaceArray[v];
-			checkSlow(AdjFaces.size() != 0);
+			const auto& AdjFaces = AdjacencyData.VertexToFaces[v];
+			checkSlow(AdjFaces.Num() != 0);
 
-			if (AdjFaces.size() != 0)
+			if (AdjFaces.Num() != 0)
 			{
 				FVector Pos[3];
-				for (auto FaceCIter = AdjFaces.cbegin(); FaceCIter != AdjFaces.cend(); ++FaceCIter)
+				for (auto FaceId: AdjFaces)
 				{
-					AOSVertex.Normal += FaceNormals[*FaceCIter];
+					checkSlow(FaceId > -1);
+					AOSVertex.Normal += FaceNormals[FaceId];
 				}
 				AOSVertex.Normal.Normalize();
 			}
@@ -926,7 +1700,7 @@ static void ComputeRawMeshNormals(FRawMesh& InOutMesh)
 static void ComputeAngleAveragedNormal(FVertexDataMesh& VertexDataMesh)
 {
 
-	//djh testing
+	
 	const int32 NormalType = 1;
 	if (NormalType == 0) return;
 

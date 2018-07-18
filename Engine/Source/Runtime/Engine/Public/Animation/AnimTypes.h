@@ -130,53 +130,104 @@ struct FPerBoneBlendWeights
 struct FGraphTraversalCounter
 {
 private:
-	int16 InternalCounter;
+	// Number of the last external frame where we updated the counter (total global frame count)
+	uint64 LastSyncronizedFrame;
+
+	// Number of counter increments since last reset
+	int16 Counter;
+
+	// Number of external frames that URO is currently scheduled to skip
+	int16 SkipFrames;
 
 public:
-	FGraphTraversalCounter()
-		: InternalCounter(INDEX_NONE)
-	{}
 
-	bool HasEverBeenUpdated() const
-	{
-		return (InternalCounter != INDEX_NONE);
-	}
+	FGraphTraversalCounter()
+		: LastSyncronizedFrame(INDEX_NONE)
+		, Counter(INDEX_NONE)
+		, SkipFrames(0)
+
+	{}
 
 	int16 Get() const
 	{
-		return InternalCounter;
+		return Counter;
 	}
 
+	bool HasEverBeenUpdated() const
+	{
+		return (Counter != INDEX_NONE) && (LastSyncronizedFrame != INDEX_NONE);
+	}
+
+	/** Increases the internal counter, and refreshes the current global frame counter */
 	void Increment()
 	{
-		InternalCounter++;
+		Counter++;
+		LastSyncronizedFrame = GFrameCounter;
 
 		// Avoid wrapping over back to INDEX_NONE, as this means 'never been traversed'
-		if (InternalCounter == INDEX_NONE)
+		if (Counter == INDEX_NONE)
 		{
-			InternalCounter++;
+			Counter++;
 		}
 	}
 
+	/** Sets the number of expected frames to be skipped by URO */
+	void SetMaxSkippedFrames(int16 InMaxSkippedFrames)
+	{
+		SkipFrames = InMaxSkippedFrames;
+	}
+
+	/** Clear the internal counters and frame skip */
 	void Reset()
 	{
-		InternalCounter = INDEX_NONE;
+		Counter = INDEX_NONE;
+		LastSyncronizedFrame = INDEX_NONE;
+		SkipFrames = 0;
 	}
 
+	/** Sync this counter with another counter */
 	void SynchronizeWith(const FGraphTraversalCounter& InMasterCounter)
 	{
-		InternalCounter = InMasterCounter.Get();
+		Counter = InMasterCounter.Counter;
+		LastSyncronizedFrame = InMasterCounter.LastSyncronizedFrame;
+		SkipFrames = InMasterCounter.SkipFrames;
 	}
 
+	DEPRECATED(4.19, "Use the specific IsSynchronized_* functions to determing sync state")
 	bool IsSynchronizedWith(const FGraphTraversalCounter& InMasterCounter) const
 	{
-		return ((InternalCounter != INDEX_NONE) && (InternalCounter == InMasterCounter.Get()));
+		return IsSynchronized_Counter(InMasterCounter);
 	}
 
+	DEPRECATED(4.19, "Use the specific WasSynchronizedLast* functions to determine sync state")
 	bool WasSynchronizedInTheLastFrame(const FGraphTraversalCounter& InMasterCounter) const
 	{
+		return WasSynchronizedCounter(InMasterCounter);
+	}
+
+	/** Check whether the internal counter is synchronized between this and another counter */
+	bool IsSynchronized_Counter(const FGraphTraversalCounter& InOtherCounter) const
+	{
+		return HasEverBeenUpdated() && Counter == InOtherCounter.Counter;
+	}
+
+	/** Check whether this counter and another were synchronized on the same global frame */
+	bool IsSynchronized_Frame(const FGraphTraversalCounter& InOtherCounter) const
+	{
+		return HasEverBeenUpdated() && LastSyncronizedFrame == InOtherCounter.LastSyncronizedFrame;
+	}
+
+	/** Check that both the internal counter and global frame are both in sync between this counter and another */
+	bool IsSynchronized_All(const FGraphTraversalCounter& InOtherCounter) const
+	{
+		return HasEverBeenUpdated() && Counter == InOtherCounter.Counter && LastSyncronizedFrame == InOtherCounter.LastSyncronizedFrame;
+	}
+
+	/** Check if this counter is either synchronized with another or is one update behind */
+	bool WasSynchronizedCounter(const FGraphTraversalCounter& InOtherCounter) const
+	{
 		// Test if we're currently in sync with our master counter
-		if (IsSynchronizedWith(InMasterCounter))
+		if(IsSynchronized_Counter(InOtherCounter))
 		{
 			return true;
 		}
@@ -185,7 +236,28 @@ public:
 		FGraphTraversalCounter TestCounter(*this);
 		TestCounter.Increment();
 
-		return TestCounter.IsSynchronizedWith(InMasterCounter);
+		return TestCounter.IsSynchronized_Counter(InOtherCounter);
+	}
+
+	/** 
+	 * Check whether this counter and another were either synchronized this global frame or were
+	 * synced one frame interval previously. A frame interval is the size of SkipFrames. This means
+	 * that if under URO a number of frames are skipped, this check will consider counters from the
+	 * last frame before the skip and the first frame after the skip as "was synchronized"
+	 *
+	 * Use this to test whether or not there's been a period when the owning animation instance has
+	 * not been updated.
+	 */
+	bool WasSynchronizedLastFrame(const FGraphTraversalCounter& InOtherCounter) const
+	{
+		// Test if we're currently in sync with our master counter
+		if(IsSynchronized_Frame(InOtherCounter))
+		{
+			return true;
+		}
+
+		// If we aren't synced then check if we were synced last frame
+		return LastSyncronizedFrame >= (GFrameCounter - SkipFrames) - 1;
 	}
 };
 
@@ -619,3 +691,22 @@ struct FAxisOption
 	}
 };
 
+// The transform component (attribute) to read from
+UENUM()
+namespace EComponentType
+{
+	enum Type
+	{
+		None = 0,
+		TranslationX,
+		TranslationY,
+		TranslationZ,
+		RotationX,
+		RotationY,
+		RotationZ,
+		Scale UMETA(DisplayName = "Scale (largest component)"),
+		ScaleX,
+		ScaleY,
+		ScaleZ
+	};
+}

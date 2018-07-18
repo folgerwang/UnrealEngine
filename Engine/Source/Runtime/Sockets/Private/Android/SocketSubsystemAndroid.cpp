@@ -5,7 +5,7 @@
 #include "IPAddress.h"
 #include "Misc/Parse.h"
 #include "Misc/CommandLine.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 
 #include <sys/ioctl.h>
 #include <net/if.h>
@@ -133,7 +133,7 @@ TSharedRef<FInternetAddr> FSocketSubsystemAndroid::GetLocalHostAddr(FOutputDevic
 		if (bIsValid)
 		{
 			UE_LOG(LogSockets, Warning, TEXT("FSocketSubsystemAndroid::GetLocalHostAddr Using MULTIHOME"));
-			return Addr;
+			return TempAddr;
 		}
 	}
 

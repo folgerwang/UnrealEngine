@@ -1383,7 +1383,7 @@ bool ParseComputePipelineDesc(const char* descriptor_path, mtlpp::Library const&
 						if (Parse(Buffer, val))
 						{
 							mtlpp::FunctionConstantValues Values;
-							uint32 IndexType = (uint32)val;
+							uint32_t IndexType = (uint32_t)val;
 							Values.SetConstantValue(&IndexType, mtlpp::DataType::UInt, ns::String(@"indexBufferType"));
 							
 							ns::AutoReleasedError error;
@@ -1532,7 +1532,7 @@ bool ParseComputePipelineDesc(const char* descriptor_path, mtlpp::Library const&
 				search_old = search;
 				if (SEARCH_AND_SCAN(search, ParseEntries::IndexBufferIndex, &IValue))
 				{
-					ComputeDesc.SetIndexBufferIndex((uint32)IValue);
+					ComputeDesc.SetIndexBufferIndex((uint32_t)IValue);
 				}
 				else
 				{
@@ -1656,7 +1656,7 @@ int main(int argc, const char * argv[])
 			}
 		}
 
-		ns::Ref<mtlpp::Device> device;
+		mtlpp::Device device;
 		if (deviceId < 0)
 		{
 			device = mtlpp::Device::CreateSystemDefaultDevice();
@@ -1666,7 +1666,7 @@ int main(int argc, const char * argv[])
 			device = mtlpp::Device::CopyAllDevices()[deviceId];
 		}
 		
-		NSLog(@"Device: %@", device->GetName().GetPtr());
+		NSLog(@"Device: %@", device.GetName().GetPtr());
 		
 		if (compute_path)
 		{
@@ -1677,7 +1677,7 @@ int main(int argc, const char * argv[])
 			if (bOK)
 			{
 				ns::AutoReleasedError error;
-				ComputeLib = device->NewLibrary(ns::String(@"/tmp/Compute.metallib"), &error);
+				ComputeLib = device.NewLibrary(ns::String(@"/tmp/Compute.metallib"), &error);
 				if (error.GetPtr())
 				{
 					NSLog(@"ComputeLib Output: %@", error.GetPtr());
@@ -1696,7 +1696,7 @@ int main(int argc, const char * argv[])
 					if (bOK)
 					{
 						ns::AutoReleasedError error;
-						mtlpp::ComputePipelineState state = device->NewComputePipelineState(descriptor, mtlpp::PipelineOption::None, nullptr, &error);
+						mtlpp::ComputePipelineState state = device.NewComputePipelineState(descriptor, mtlpp::PipelineOption::NoPipelineOption, nullptr, &error);
 						if (error.GetPtr())
 						{
 							NSLog(@"ComputePipelineState Output: %@", error.GetPtr());
@@ -1707,7 +1707,13 @@ int main(int argc, const char * argv[])
 				else
 				{
 					ns::AutoReleasedError error;
-					mtlpp::Function func = ComputeLib.NewFunction(ComputeLib.GetFunctionNames()[0]);
+					mtlpp::FunctionConstantValues ConstVals;
+					uint32_t Val = 0;
+					for (uint32_t i = 0; i < 32; i++)
+					{
+						ConstVals.SetConstantValue(&Val, mtlpp::DataType::UInt, i);
+					}
+					mtlpp::Function func = ComputeLib.NewFunction(ComputeLib.GetFunctionNames()[0], ConstVals, &error);
 					if (error.GetPtr())
 					{
 						NSLog(@"ComputeLib.NewFunction Output: %@", error.GetPtr());
@@ -1715,7 +1721,7 @@ int main(int argc, const char * argv[])
 					if(func)
 					{
 						ns::AutoReleasedError error;
-						mtlpp::ComputePipelineState state = device->NewComputePipelineState(func, &error);
+						mtlpp::ComputePipelineState state = device.NewComputePipelineState(func, &error);
 						if (error.GetPtr())
 						{
 							NSLog(@"ComputePipelineState Output: %@", error.GetPtr());
@@ -1750,7 +1756,7 @@ int main(int argc, const char * argv[])
 			if (bOK)
 			{
 				ns::AutoReleasedError error;
-				VertexLib = device->NewLibrary(ns::String(@"/tmp/Vertex.metallib"), &error);
+				VertexLib = device.NewLibrary(ns::String(@"/tmp/Vertex.metallib"), &error);
 				if (error.GetPtr())
 				{
 					NSLog(@"VertexLib Output: %@", error.GetPtr());
@@ -1765,7 +1771,7 @@ int main(int argc, const char * argv[])
 				if (bOK)
 				{
 					ns::AutoReleasedError error;
-					FragmentLib = device->NewLibrary(ns::String(@"/tmp/Fragment.metallib"), &error);
+					FragmentLib = device.NewLibrary(ns::String(@"/tmp/Fragment.metallib"), &error);
 					if (error.GetPtr())
 					{
 						NSLog(@"FragmentLib Output: %@", error.GetPtr());
@@ -1784,7 +1790,7 @@ int main(int argc, const char * argv[])
 			if (bOK)
 			{
 				ns::AutoReleasedError error;
-				mtlpp::RenderPipelineState renderPipelineState = device->NewRenderPipelineState(descriptor, &error);
+				mtlpp::RenderPipelineState renderPipelineState = device.NewRenderPipelineState(descriptor, &error);
 				if (error.GetPtr())
 				{
 					NSLog(@"renderPipelineState Output: %@", error.GetPtr());

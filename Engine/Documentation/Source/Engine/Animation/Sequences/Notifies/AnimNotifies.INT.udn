@@ -158,7 +158,7 @@ To use an AnimTrail emitter you must:
 1. Create a [Particle System](Engine/Rendering/ParticleSystems) that contains an emitter with AnimTrail type data. 
 2. Create and add a Notify State of the **Trail** type to an animation.
 
-[COMMENT]
+[COMMENT:none]
  To be included as part of a HowTo.
 Setting Up the Particle System
 
@@ -231,7 +231,7 @@ There are also some debug rendering options available:
 | **Render Tangents** | This toggles the debug rendering of the curve tangents. |
 | **Render Tessellation** | This toggles debug rendering of all vertices on the curve. This shows how the curve is tessellated between the spawn points. |
 
-[COMMENT]
+[COMMENT:none]
  To be included with AnimTrail HowTo.
 ### Controlling Animation Trails in Blueprint
 While the above method is the standard approach to controlling AnimTrails, you can also control them from inside a Blueprint without the need of an Anim Notify. 

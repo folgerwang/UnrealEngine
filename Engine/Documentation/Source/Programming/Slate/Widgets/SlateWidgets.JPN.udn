@@ -1,9 +1,9 @@
-﻿INTSourceChangelist:3372845
+﻿INTSourceChangelist:3599948
 Availability:Public
 Title:スレート ウィジェットのサンプル
 Crumbs:%ROOT%, Programming, Programming/Slate, Programming/Slate/Widgets
 Description:Slate Viewer Widget Gallery で実演されないレイアウトとウィジェットの複雑性
-version:4.9
+Version:4.9
 
 [TOC (start:2)]
 
@@ -265,7 +265,7 @@ version:4.9
 
 ### リスト表示
 
-リスト表示は、子ウィジェットのリストを格納するウィジェットです。**SListView<...>** として作成されます。
+リスト表示は、子ウィジェットのリストを格納するウィジェットです。They are made as `SListView<...>`.
 
 	SNew( SListView< TSharedPtr<FTestData> > )
 	.ItemHeight(24)
@@ -294,7 +294,7 @@ version:4.9
 
 ### ツリー表示
 
-**STreeView<...>** として作成されるツリー表示は、リストで別のウィジェットの親ウィジェットをサポートする点を除いて、リスト表示と似ています。親ウィジェットから子ウィジェットに対応するウィジェットを決定するために、渡したアイテムの子を戻すために **OnGetChildren** デリゲートを使用します。
+`STreeView<...>` として作成されるツリー表示は、リストで別のウィジェットの親ウィジェットをサポートする点を除いて、リスト表示と似ています。親ウィジェットから子ウィジェットに対応するウィジェットを決定するために、渡したアイテムの子を戻すために **OnGetChildren** デリゲートを使用します。
 
 	SNew( STreeView< TSharedPtr<FTestData> > )
 	.ItemHeight(24)
@@ -315,7 +315,7 @@ version:4.9
 
 ### タイル表示
 
-**STileView<...>** として作成されるタイル表示は、子ウィジェットがリストではなくグリッドに配列される点を除いてリスト表示に似ています。このため、タイル表示はカラムまたはカラムヘッダをサポートしません。
+`STileView<...>` として作成されるタイル表示は、子ウィジェットがリストではなくグリッドに配列される点を除いてリスト表示に似ています。このため、タイル表示はカラムまたはカラムヘッダをサポートしません。
 
 	SNew( STileView< TSharedPtr<FTestData> > )
 	.ItemWidth(128)

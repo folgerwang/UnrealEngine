@@ -2,28 +2,89 @@
 
 #include "Sections/MovieSceneColorSection.h"
 #include "UObject/StructOnScope.h"
-#include "SequencerObjectVersion.h"
+#include "UObject/SequencerObjectVersion.h"
+#include "Channels/MovieSceneChannelProxy.h"
+#include "Styling/SlateColor.h"
+
+#if WITH_EDITOR
+struct FColorSectionEditorData
+{
+	FColorSectionEditorData()
+	{
+		MetaData[0].SetIdentifiers("Color.R", FCommonChannelData::ChannelR);
+		MetaData[0].SortOrder = 0;
+		MetaData[0].Color = FCommonChannelData::RedChannelColor;
+
+		MetaData[1].SetIdentifiers("Color.G", FCommonChannelData::ChannelG);
+		MetaData[1].SortOrder = 1;
+		MetaData[1].Color = FCommonChannelData::GreenChannelColor;
+
+		MetaData[2].SetIdentifiers("Color.B", FCommonChannelData::ChannelB);
+		MetaData[2].SortOrder = 2;
+		MetaData[2].Color = FCommonChannelData::BlueChannelColor;
+
+		MetaData[3].SetIdentifiers("Color.A", FCommonChannelData::ChannelA);
+		MetaData[3].SortOrder = 3;
+
+		ExternalValues[0].OnGetExternalValue = ExtractChannelR;
+		ExternalValues[1].OnGetExternalValue = ExtractChannelG;
+		ExternalValues[2].OnGetExternalValue = ExtractChannelB;
+		ExternalValues[3].OnGetExternalValue = ExtractChannelA;
+	}
+
+	static FLinearColor GetPropertyValue(UObject& InObject, FTrackInstancePropertyBindings& Bindings)
+	{
+		const FName SlateColorName("SlateColor");
+
+		UStructProperty* ColorStructProperty = Cast<UStructProperty>(Bindings.GetProperty(InObject));
+		if (ColorStructProperty != nullptr)
+		{
+			if (ColorStructProperty->Struct->GetFName() == SlateColorName)
+			{
+				return Bindings.GetCurrentValue<FSlateColor>(InObject).GetSpecifiedColor();
+			}
+
+			if (ColorStructProperty->Struct->GetFName() == NAME_LinearColor)
+			{
+				return Bindings.GetCurrentValue<FLinearColor>(InObject);
+			}
+
+			if (ColorStructProperty->Struct->GetFName() == NAME_Color)
+			{
+				return Bindings.GetCurrentValue<FColor>(InObject);
+			}
+		}
+		return FLinearColor(0.f,0.f,0.f,0.f);
+	}
+
+	static TOptional<float> ExtractChannelR(UObject& InObject, FTrackInstancePropertyBindings* Bindings)
+	{
+		return Bindings ? GetPropertyValue(InObject, *Bindings).R : TOptional<float>();
+	}
+	static TOptional<float> ExtractChannelG(UObject& InObject, FTrackInstancePropertyBindings* Bindings)
+	{
+		return Bindings ? GetPropertyValue(InObject, *Bindings).G : TOptional<float>();
+	}
+	static TOptional<float> ExtractChannelB(UObject& InObject, FTrackInstancePropertyBindings* Bindings)
+	{
+		return Bindings ? GetPropertyValue(InObject, *Bindings).B : TOptional<float>();
+	}
+	static TOptional<float> ExtractChannelA(UObject& InObject, FTrackInstancePropertyBindings* Bindings)
+	{
+		return Bindings ? GetPropertyValue(InObject, *Bindings).A : TOptional<float>();
+	}
+
+	FMovieSceneChannelMetaData      MetaData[4];
+	TMovieSceneExternalValue<float> ExternalValues[4];
+};
+#endif
 
 /* FMovieSceneColorKeyStruct interface
  *****************************************************************************/
 
 void FMovieSceneColorKeyStruct::PropagateChanges(const FPropertyChangedEvent& ChangeEvent)
 {
-	for (int32 Index = 0; Index <= 3; ++Index)
-	{
-		if (Keys[Index] == nullptr)
-		{
-			if (Curves[Index] != nullptr)
-			{
-				Curves[Index]->SetDefaultValue(Color.Component(Index));
-			}
-		}
-		else
-		{
-			Keys[Index]->Value = Color.Component(Index);
-			Keys[Index]->Time = Time;
-		}
-	}
+	KeyStructInterop.Apply(Time);
 }
 
 
@@ -32,7 +93,7 @@ void FMovieSceneColorKeyStruct::PropagateChanges(const FPropertyChangedEvent& Ch
 
 UMovieSceneColorSection::UMovieSceneColorSection(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
-{ 
+{
 	EvalOptions.EnableAndSetCompletionMode
 		(GetLinkerCustomVersion(FSequencerObjectVersion::GUID) < FSequencerObjectVersion::WhenFinishedDefaultsToRestoreState ? 
 			EMovieSceneCompletionMode::KeepState : 
@@ -40,219 +101,45 @@ UMovieSceneColorSection::UMovieSceneColorSection(const FObjectInitializer& Objec
 			EMovieSceneCompletionMode::RestoreState : 
 			EMovieSceneCompletionMode::ProjectDefault);
 	BlendType = EMovieSceneBlendType::Absolute;
+	bSupportsInfiniteRange = true;
+
+	FMovieSceneChannelProxyData Channels;
+
+#if WITH_EDITOR
+
+	static FColorSectionEditorData EditorData;
+	Channels.Add(RedCurve,   EditorData.MetaData[0], EditorData.ExternalValues[0]);
+	Channels.Add(GreenCurve, EditorData.MetaData[1], EditorData.ExternalValues[1]);
+	Channels.Add(BlueCurve,  EditorData.MetaData[2], EditorData.ExternalValues[2]);
+	Channels.Add(AlphaCurve, EditorData.MetaData[3], EditorData.ExternalValues[3]);
+
+#else
+
+	Channels.Add(RedCurve);
+	Channels.Add(GreenCurve);
+	Channels.Add(BlueCurve);
+	Channels.Add(AlphaCurve);
+
+#endif
+
+	ChannelProxy = MakeShared<FMovieSceneChannelProxy>(MoveTemp(Channels));
 }
 
 /* UMovieSceneSection interface
  *****************************************************************************/
 
-void UMovieSceneColorSection::MoveSection(float DeltaTime, TSet<FKeyHandle>& KeyHandles)
-{
-	Super::MoveSection(DeltaTime, KeyHandles);
-
-	// Move all the curves in this section
-	RedCurve.ShiftCurve(DeltaTime, KeyHandles);
-	GreenCurve.ShiftCurve(DeltaTime, KeyHandles);
-	BlueCurve.ShiftCurve(DeltaTime, KeyHandles);
-	AlphaCurve.ShiftCurve(DeltaTime, KeyHandles);
-}
-
-
-void UMovieSceneColorSection::DilateSection(float DilationFactor, float Origin, TSet<FKeyHandle>& KeyHandles)
-{
-	Super::DilateSection(DilationFactor, Origin, KeyHandles);
-
-	RedCurve.ScaleCurve(Origin, DilationFactor, KeyHandles);
-	GreenCurve.ScaleCurve(Origin, DilationFactor, KeyHandles);
-	BlueCurve.ScaleCurve(Origin, DilationFactor, KeyHandles);
-	AlphaCurve.ScaleCurve(Origin, DilationFactor, KeyHandles);
-}
-
-
-void UMovieSceneColorSection::GetKeyHandles(TSet<FKeyHandle>& OutKeyHandles, TRange<float> TimeRange) const
-{
-	if (!TimeRange.Overlaps(GetRange()))
-	{
-		return;
-	}
-
-	for (auto It(RedCurve.GetKeyHandleIterator()); It; ++It)
-	{
-		float Time = RedCurve.GetKeyTime(It.Key());
-		if (TimeRange.Contains(Time))
-		{
-			OutKeyHandles.Add(It.Key());
-		}
-	}
-
-	for (auto It(GreenCurve.GetKeyHandleIterator()); It; ++It)
-	{
-		float Time = GreenCurve.GetKeyTime(It.Key());
-		if (TimeRange.Contains(Time))
-		{
-			OutKeyHandles.Add(It.Key());
-		}
-	}
-
-	for (auto It(BlueCurve.GetKeyHandleIterator()); It; ++It)
-	{
-		float Time = BlueCurve.GetKeyTime(It.Key());
-		if (TimeRange.Contains(Time))
-		{
-			OutKeyHandles.Add(It.Key());
-		}
-	}
-
-	for (auto It(AlphaCurve.GetKeyHandleIterator()); It; ++It)
-	{
-		float Time = AlphaCurve.GetKeyTime(It.Key());
-		if (TimeRange.Contains(Time))
-		{
-			OutKeyHandles.Add(It.Key());
-		}
-	}
-}
-
-
-TSharedPtr<FStructOnScope> UMovieSceneColorSection::GetKeyStruct(const TArray<FKeyHandle>& KeyHandles)
+TSharedPtr<FStructOnScope> UMovieSceneColorSection::GetKeyStruct(TArrayView<const FKeyHandle> KeyHandles)
 {
 	TSharedRef<FStructOnScope> KeyStruct = MakeShareable(new FStructOnScope(FMovieSceneColorKeyStruct::StaticStruct()));
 	auto Struct = (FMovieSceneColorKeyStruct*)KeyStruct->GetStructMemory();
-	{
-		Struct->Curves[0] = &RedCurve;
-		Struct->Curves[1] = &GreenCurve;
-		Struct->Curves[2] = &BlueCurve;
-		Struct->Curves[3] = &AlphaCurve;
 
-		Struct->Keys[0] = RedCurve.GetFirstMatchingKey(KeyHandles);
-		Struct->Keys[1] = GreenCurve.GetFirstMatchingKey(KeyHandles);
-		Struct->Keys[2] = BlueCurve.GetFirstMatchingKey(KeyHandles);
-		Struct->Keys[3] = AlphaCurve.GetFirstMatchingKey(KeyHandles);
+	Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle<FMovieSceneFloatChannel>(0), &Struct->Color.R, KeyHandles));
+	Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle<FMovieSceneFloatChannel>(1), &Struct->Color.G, KeyHandles));
+	Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle<FMovieSceneFloatChannel>(2), &Struct->Color.B, KeyHandles));
+	Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle<FMovieSceneFloatChannel>(3), &Struct->Color.A, KeyHandles));
 
-		float FirstValidKeyTime = 0.f;
-		for (int32 Index = 0; Index <= 3; ++Index)
-		{
-			if (Struct->Keys[Index] != nullptr)
-			{
-				FirstValidKeyTime = Struct->Keys[Index]->Time;
-				Struct->Time = FirstValidKeyTime;
-			}
-		}
-
-		for (int32 Index = 0; Index <= 3; ++Index)
-		{
-			if (Struct->Keys[Index] == nullptr && Struct->Curves[Index] != nullptr)
-			{
-				Struct->Color.Component(Index) = Struct->Curves[Index]->Eval(FirstValidKeyTime);
-			}
-			else
-			{
-				Struct->Color.Component(Index) = Struct->Keys[Index]->Value;
-			}
-		}
-	}
+	Struct->KeyStructInterop.SetStartingValues();
+	Struct->Time = Struct->KeyStructInterop.GetUnifiedKeyTime().Get(0);
 
 	return KeyStruct;
-}
-
-
-TOptional<float> UMovieSceneColorSection::GetKeyTime( FKeyHandle KeyHandle ) const
-{
-	if ( RedCurve.IsKeyHandleValid( KeyHandle ) )
-	{
-		return TOptional<float>( RedCurve.GetKeyTime( KeyHandle ) );
-	}
-	if ( GreenCurve.IsKeyHandleValid( KeyHandle ) )
-	{
-		return TOptional<float>( GreenCurve.GetKeyTime( KeyHandle ) );
-	}
-	if ( BlueCurve.IsKeyHandleValid( KeyHandle ) )
-	{
-		return TOptional<float>( BlueCurve.GetKeyTime( KeyHandle ) );
-	}
-	if ( AlphaCurve.IsKeyHandleValid( KeyHandle ) )
-	{
-		return TOptional<float>( AlphaCurve.GetKeyTime( KeyHandle ) );
-	}
-	return TOptional<float>();
-}
-
-
-void UMovieSceneColorSection::SetKeyTime( FKeyHandle KeyHandle, float Time )
-{
-	if ( RedCurve.IsKeyHandleValid( KeyHandle ) )
-	{
-		RedCurve.SetKeyTime( KeyHandle, Time );
-	}
-	else if ( GreenCurve.IsKeyHandleValid( KeyHandle ) )
-	{
-		GreenCurve.SetKeyTime( KeyHandle, Time );
-	}
-	else if ( BlueCurve.IsKeyHandleValid( KeyHandle ) )
-	{
-		BlueCurve.SetKeyTime( KeyHandle, Time );
-	}
-	else if ( AlphaCurve.IsKeyHandleValid( KeyHandle ) )
-	{
-		AlphaCurve.SetKeyTime( KeyHandle, Time );
-	}
-}
-
-
-/* IKeyframeSection interface
- *****************************************************************************/
-
-template<typename CurveType>
-CurveType* GetCurveForChannel(EKeyColorChannel Channel, CurveType* RedCurve, CurveType* GreenCurve, CurveType* BlueCurve, CurveType* AlphaCurve)
-{
-	switch (Channel)
-	{
-	case EKeyColorChannel::Red:
-		return RedCurve;
-	case EKeyColorChannel::Green:
-		return GreenCurve;
-	case EKeyColorChannel::Blue:
-		return BlueCurve;
-	case EKeyColorChannel::Alpha:
-		return AlphaCurve;
-	default:
-		checkf(false, TEXT("Invalid key color channel"));
-		return nullptr;
-	}
-}
-
-
-void UMovieSceneColorSection::AddKey(float Time, const FColorKey& Key, EMovieSceneKeyInterpolation KeyInterpolation)
-{
-	FRichCurve* ChannelCurve = GetCurveForChannel(Key.Channel, &RedCurve, &GreenCurve, &BlueCurve, &AlphaCurve);
-	AddKeyToCurve(*ChannelCurve, Time, Key.ChannelValue, KeyInterpolation);
-}
-
-
-bool UMovieSceneColorSection::NewKeyIsNewData(float Time, const FColorKey& Key) const
-{
-	const FRichCurve* ChannelCurve = GetCurveForChannel(Key.Channel, &RedCurve, &GreenCurve, &BlueCurve, &AlphaCurve);
-	return FMath::IsNearlyEqual(ChannelCurve->Eval(Time), Key.ChannelValue) == false;
-}
-
-
-bool UMovieSceneColorSection::HasKeys(const FColorKey& Key) const
-{
-	const FRichCurve* ChannelCurve = GetCurveForChannel(Key.Channel, &RedCurve, &GreenCurve, &BlueCurve, &AlphaCurve);
-	return ChannelCurve->GetNumKeys() != 0;
-}
-
-
-void UMovieSceneColorSection::SetDefault(const FColorKey& Key)
-{
-	FRichCurve* ChannelCurve = GetCurveForChannel(Key.Channel, &RedCurve, &GreenCurve, &BlueCurve, &AlphaCurve);
-	SetCurveDefault(*ChannelCurve, Key.ChannelValue);
-}
-
-
-void UMovieSceneColorSection::ClearDefaults()
-{
-	RedCurve.ClearDefaultValue();
-	GreenCurve.ClearDefaultValue();
-	BlueCurve.ClearDefaultValue();
-	AlphaCurve.ClearDefaultValue();
 }

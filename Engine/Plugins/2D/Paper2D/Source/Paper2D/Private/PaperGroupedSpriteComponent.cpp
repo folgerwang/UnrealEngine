@@ -1,13 +1,11 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "PaperGroupedSpriteComponent.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "AI/NavigationSystemBase.h"
 #include "Engine/CollisionProfile.h"
 
 #include "GroupedSpriteSceneProxy.h"
 #include "AI/NavigationSystemHelpers.h"
-#include "AI/NavigationOctree.h"
-
 
 #include "Logging/TokenizedMessage.h"
 #include "Logging/MessageLog.h"
@@ -44,7 +42,7 @@ int32 UPaperGroupedSpriteComponent::AddInstanceWithMaterial(const FTransform& Tr
 
 	MarkRenderStateDirty();
 
-	UNavigationSystem::UpdateComponentInNavOctree(*this);
+	FNavigationSystem::UpdateComponentData(*this);
 
 	return NewInstanceIndex;
 }
@@ -94,7 +92,7 @@ bool UPaperGroupedSpriteComponent::UpdateInstanceTransform(int32 InstanceIndex, 
 	}
 
 	// Request navigation update
-	UNavigationSystem::UpdateComponentInNavOctree(*this);
+	FNavigationSystem::UpdateComponentData(*this);
 
 	FSpriteInstanceData& InstanceData = PerInstanceSpriteData[InstanceIndex];
 
@@ -115,7 +113,7 @@ bool UPaperGroupedSpriteComponent::UpdateInstanceTransform(int32 InstanceIndex, 
 	}
 
 	// Request navigation update
-	UNavigationSystem::UpdateComponentInNavOctree(*this);
+	FNavigationSystem::UpdateComponentData(*this);
 
 	if (bMarkRenderStateDirty)
 	{
@@ -152,7 +150,7 @@ bool UPaperGroupedSpriteComponent::RemoveInstance(int32 InstanceIndex)
 	}
 
 	// Request navigation update
-	UNavigationSystem::UpdateComponentInNavOctree(*this);
+	FNavigationSystem::UpdateComponentData(*this);
 
 	// remove instance
 	PerInstanceSpriteData.RemoveAt(InstanceIndex);
@@ -182,7 +180,7 @@ void UPaperGroupedSpriteComponent::ClearInstances()
 	// Indicate we need to update render state to reflect changes
 	MarkRenderStateDirty();
 
-	UNavigationSystem::UpdateComponentInNavOctree(*this);
+	FNavigationSystem::UpdateComponentData(*this);
 }
 
 int32 UPaperGroupedSpriteComponent::GetInstanceCount() const
@@ -336,7 +334,7 @@ void UPaperGroupedSpriteComponent::PostEditUndo()
 {
 	Super::PostEditUndo();
 
-	UNavigationSystem::UpdateComponentInNavOctree(*this);
+	FNavigationSystem::UpdateComponentData(*this);
 }
 #endif
 

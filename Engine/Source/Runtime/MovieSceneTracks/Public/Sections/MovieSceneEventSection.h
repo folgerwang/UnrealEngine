@@ -8,10 +8,12 @@
 #include "Curves/KeyHandle.h"
 #include "MovieSceneSection.h"
 #include "Curves/NameCurve.h"
-#include "Curves/CurveInterface.h"
 #include "UObject/StructOnScope.h"
 #include "Engine/Engine.h"
 #include "UObject/SoftObjectPath.h"
+#include "Channels/MovieSceneChannel.h"
+#include "Channels/MovieSceneChannelData.h"
+#include "Channels/MovieSceneChannelTraits.h"
 #include "MovieSceneEventSection.generated.h"
 
 struct EventData;
@@ -24,30 +26,28 @@ struct MOVIESCENETRACKS_API FMovieSceneEventParameters
 	FMovieSceneEventParameters() {}
 
 	/** Construction from a struct type */
-	FMovieSceneEventParameters(UStruct& InStruct)
+	FMovieSceneEventParameters(UScriptStruct& InStruct)
 		: StructType(&InStruct)
 	{
 	}
 
-	FMovieSceneEventParameters(const FMovieSceneEventParameters& RHS) = default;
-	FMovieSceneEventParameters& operator=(const FMovieSceneEventParameters& RHS) = default;
+	MOVIESCENETRACKS_API friend bool operator==(const FMovieSceneEventParameters& A, const FMovieSceneEventParameters& B);
 
-	FMovieSceneEventParameters(FMovieSceneEventParameters&&) = default;
-	FMovieSceneEventParameters& operator=(FMovieSceneEventParameters&&) = default;
+	MOVIESCENETRACKS_API friend bool operator!=(const FMovieSceneEventParameters& A, const FMovieSceneEventParameters& B);
 
 	/**
 	 * Access the struct type of this event parameter payload
-	 * @return A valid UStruct* or nullptr if the struct is not set, or no longer available
+	 * @return A valid UScriptStruct* or nullptr if the struct is not set, or no longer available
 	 */
-	UStruct* GetStructType() const
+	UScriptStruct* GetStructType() const
 	{
-		return Cast<UStruct>(StructType.TryLoad());
+		return Cast<UScriptStruct>(StructType.TryLoad());
 	}
 
 	/**
 	 * Change the type of this event parameter payload to be the specified struct
 	 */
-	void Reassign(UStruct* NewStruct)
+	void Reassign(UScriptStruct* NewStruct)
 	{
 		StructType = NewStruct;
 
@@ -109,6 +109,15 @@ struct FEventPayload
 	FEventPayload() {}
 	FEventPayload(FName InEventName) : EventName(InEventName) {}
 
+	friend bool operator==(const FEventPayload& A, const FEventPayload& B)
+	{
+		return A.EventName == B.EventName && A.Parameters == B.Parameters;
+	}
+
+	friend bool operator!=(const FEventPayload& A, const FEventPayload& B)
+	{
+		return A.EventName != B.EventName || A.Parameters != B.Parameters;
+	}
 	/** The name of the event to trigger */
 	UPROPERTY(EditAnywhere, Category=Event)
 	FName EventName;
@@ -120,41 +129,88 @@ struct FEventPayload
 
 /** A curve of events */
 USTRUCT()
-struct FMovieSceneEventSectionData
+struct FMovieSceneEventSectionData : public FMovieSceneChannel
 {
 	GENERATED_BODY()
-	
-	FMovieSceneEventSectionData() = default;
 
-	FMovieSceneEventSectionData(const FMovieSceneEventSectionData& RHS)
-		: KeyTimes(RHS.KeyTimes)
-		, KeyValues(RHS.KeyValues)
+	/**
+	 * Called after this section data has been serialized to upgrade old data
+	 */
+	MOVIESCENETRACKS_API void PostSerialize(const FArchive& Ar);
+
+	/**
+	 * Access a mutable interface for this channel's data
+	 *
+	 * @return An object that is able to manipulate this channel's data
+	 */
+	FORCEINLINE TMovieSceneChannelData<FEventPayload> GetData()
 	{
+		return TMovieSceneChannelData<FEventPayload>(&Times, &KeyValues, &KeyHandles);
 	}
 
-	FMovieSceneEventSectionData& operator=(const FMovieSceneEventSectionData& RHS)
+	/**
+	 * Access a constant interface for this channel's data
+	 *
+	 * @return An object that is able to interrogate this channel's data
+	 */
+	FORCEINLINE TMovieSceneChannelData<const FEventPayload> GetData() const
 	{
-		KeyTimes = RHS.KeyTimes;
-		KeyValues = RHS.KeyValues;
-#if WITH_EDITORONLY_DATA
-		KeyHandles.Reset();
-#endif
-		return *this;
+		return TMovieSceneChannelData<const FEventPayload>(&Times, &KeyValues);
 	}
 
-	/** Sorted array of key times */
+	TArrayView<const FFrameNumber> GetKeyTimes() const
+	{
+		return Times;
+	}
+
+	TArrayView<const FEventPayload> GetKeyValues() const
+	{
+		return KeyValues;
+	}
+
+public:
+
+	// ~ FMovieSceneChannel Interface
+	virtual void GetKeys(const TRange<FFrameNumber>& WithinRange, TArray<FFrameNumber>* OutKeyTimes, TArray<FKeyHandle>* OutKeyHandles) override;
+	virtual void GetKeyTimes(TArrayView<const FKeyHandle> InHandles, TArrayView<FFrameNumber> OutKeyTimes) override;
+	virtual void SetKeyTimes(TArrayView<const FKeyHandle> InHandles, TArrayView<const FFrameNumber> InKeyTimes) override;
+	virtual void DuplicateKeys(TArrayView<const FKeyHandle> InHandles, TArrayView<FKeyHandle> OutNewHandles) override;
+	virtual void DeleteKeys(TArrayView<const FKeyHandle> InHandles) override;
+	virtual void ChangeFrameResolution(FFrameRate SourceRate, FFrameRate DestinationRate) override;
+	virtual TRange<FFrameNumber> ComputeEffectiveRange() const override;
+	virtual int32 GetNumKeys() const override;
+	virtual void Reset() override;
+	virtual void Offset(FFrameNumber DeltaPosition) override;
+	virtual void Optimize(const FKeyDataOptimizationParams& InParameters) override {}
+	virtual void ClearDefault() override {}
+
+private:
+
 	UPROPERTY()
-	TArray<float> KeyTimes;
+	TArray<FFrameNumber> Times;
 
 	/** Array of values that correspond to each key time */
 	UPROPERTY()
 	TArray<FEventPayload> KeyValues;
 
+	FMovieSceneKeyHandleMap KeyHandles;
+
+
 #if WITH_EDITORONLY_DATA
-	/** Transient key handles */
-	FKeyHandleLookupTable KeyHandles;
+
+	UPROPERTY()
+	TArray<float> KeyTimes_DEPRECATED;
+
 #endif
 };
+
+
+template<>
+struct TStructOpsTypeTraits<FMovieSceneEventSectionData> : public TStructOpsTypeTraitsBase2<FMovieSceneEventSectionData>
+{
+	enum { WithPostSerialize = true };
+};
+
 
 /**
  * Implements a section in movie scene event tracks.
@@ -179,18 +235,8 @@ public:
 	 * @return Event data.
 	 */
 	const FMovieSceneEventSectionData& GetEventData() const { return EventData; }
-	
-	TCurveInterface<FEventPayload, float> GetCurveInterface() { return CurveInterface.GetValue(); }
 
-public:
-
-	//~ UMovieSceneSection interface
-
-	virtual void DilateSection(float DilationFactor, float Origin, TSet<FKeyHandle>& KeyHandles) override;
-	virtual void GetKeyHandles(TSet<FKeyHandle>& KeyHandles, TRange<float> TimeRange) const override;
-	virtual void MoveSection(float DeltaPosition, TSet<FKeyHandle>& KeyHandles) override;
-	virtual TOptional<float> GetKeyTime(FKeyHandle KeyHandle) const override;
-	virtual void SetKeyTime(FKeyHandle KeyHandle, float Time) override;
+protected:
 
 private:
 
@@ -199,6 +245,23 @@ private:
 
 	UPROPERTY()
 	FMovieSceneEventSectionData EventData;
-
-	TOptional<TCurveInterface<FEventPayload, float>> CurveInterface;
 };
+
+template<>
+struct TMovieSceneChannelTraits<FMovieSceneEventSectionData> : TMovieSceneChannelTraitsBase<FMovieSceneEventSectionData>
+{
+	enum { SupportsDefaults = false };
+};
+
+/** Stub out unnecessary functions */
+inline bool EvaluateChannel(const FMovieSceneEventSectionData* InChannel, FFrameTime InTime, FEventPayload& OutValue)
+{
+	// Can't evaluate event section data in the typical sense
+	return false;
+}
+
+inline bool ValueExistsAtTime(const FMovieSceneEventSectionData* InChannel, FFrameNumber Time, const FEventPayload& Value)
+{
+	// true if any value exists
+	return InChannel->GetData().FindKey(Time) != INDEX_NONE;
+}

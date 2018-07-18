@@ -1,7 +1,7 @@
 // Copyright 2017 Google Inc.
 
 
-#include "Classes/GoogleVRControllerEventManager.h"
+#include "GoogleVRControllerEventManager.h"
 #include "GoogleVRController.h"
 #include "GoogleVRControllerPrivate.h"
 

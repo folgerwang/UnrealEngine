@@ -3,29 +3,27 @@
 #pragma once
 
 #include "CoreMinimal.h"
-// This MUST be included here to allow code that uses FGuids to work with the ToString template below.
-// 2-phase instantiation will only find overloads that it knows about at the time of definition,
-// so we must pre-include all types that have a Lex::ToString overload we may want to use.
-// Super ugly, but the only better solution is to have everyone override ToString at the global namespace
-// so ADL would find the implementation at instantiation instead.
-#include "Misc/Guid.h"
 
 /** Helpers for converting various common types to strings that analytics providers can consume. */
 namespace AnalyticsConversion
 {
 	/** Lexical conversion. Allow any type that we have a Lex for. Can't use universal references here because it then eats all non-perfect matches for the array and TMap conversions below, which we want to use a custom, analytics specific implementation for. */
 	template <typename T>
-	inline auto ToString(const T& Value) -> decltype(Lex::ToString(Value)) 
+#if PLATFORM_COMPILER_HAS_DECLTYPE_AUTO
+	inline decltype(auto) ToString(const T& Value)
+#else
+	inline auto ToString(const T& Value) -> decltype(LexToString(Value)) 
+#endif
 	{
-		return Lex::ToString(Value);
+		return LexToString(Value);
 	}
 	inline FString ToString(float Value)
 	{
-		return Lex::ToSanitizedString(Value);
+		return LexToSanitizedString(Value);
 	}
 	inline FString ToString(double Value)
 	{
-		return Lex::ToSanitizedString(Value);
+		return LexToSanitizedString(Value);
 	}
 
 	/** Array conversion. Creates comma-separated list. */

@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2750697
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:Orientation モジュール
 Crumbs: %ROOT%, Engine, Engine/Rendering/ParticleSystems, Engine/Rendering/ParticleSystems/Reference
 Description:パーティクル配置を制御するモジュールです。特定の軸に対し回転を防ぎます。
 Version:4.9
+tags:Particles
 
 
 パーティクル配置を制御するモジュールです。特定の軸に対する回転を防ぎます。
@@ -49,5 +50,5 @@ Version:4.9
 [/EXCERPT:LockAxisFlags]
 
 
-------------Axis Lock Includes-------------
+-------------Axis Lock Includes-------------
 [/COMMENT]

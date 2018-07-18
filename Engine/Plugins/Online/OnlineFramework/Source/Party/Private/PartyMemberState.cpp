@@ -78,4 +78,9 @@ void UPartyMemberState::Reset()
 	{
 		MemberStateRef->Reset();
 	}
+
+	if (MemberStateRefScratch)
+	{
+		MemberStateRefScratch->Reset();
+	}
 }

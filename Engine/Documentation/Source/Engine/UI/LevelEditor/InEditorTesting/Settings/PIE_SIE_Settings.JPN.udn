@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3810557
 Availability:Public
 Title:Play In Editor の設定
 Crumbs: %ROOT%, Engine, Engine/UI, Engine/UI/LevelEditor, Engine/UI/LevelEditor/InEditorTesting
@@ -147,6 +147,7 @@ Version:4.9
 | Run Dedicated Server |[INCLUDE:#PlayNetDedicated] |
 | Route 1st Gamepad to 2nd Client | [INCLUDE:#RouteGamepadToSecondWindow]|
 | Use Single Process |[INCLUDE:#RunUnderOneProcess] |
+[/EXCERPT:NetworkPIESettings]
 
 [COMMENT:none]
 
@@ -175,5 +176,3 @@ Version:4.9
 
 
 [/COMMENT]
-
-[/EXCERPT:NetworkPIESettings]

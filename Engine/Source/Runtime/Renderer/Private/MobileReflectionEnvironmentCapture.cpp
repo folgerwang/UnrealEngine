@@ -18,6 +18,13 @@ extern int32 GDiffuseIrradianceCubemapSize;
 extern float ComputeSingleAverageBrightnessFromCubemap(FRHICommandListImmediate& RHICmdList, ERHIFeatureLevel::Type FeatureLevel, int32 TargetSize, FSceneRenderTargetItem& Cubemap);
 extern void FullyResolveReflectionScratchCubes(FRHICommandListImmediate& RHICmdList);
 
+static TAutoConsoleVariable<int32> CVarMobileUseHighQualitySkyCaptureFiltering(
+	TEXT("r.Mobile.HighQualitySkyCaptureFiltering"),
+	1,
+	TEXT("1: (default) use high quality filtering when generating mobile sky captures.")
+	TEXT("0: use simple bilinear filtering when generating mobile sky captures."),
+	ECVF_RenderThreadSafe);
+
 class FMobileDownsamplePS : public FGlobalShader
 {
 	DECLARE_SHADER_TYPE(FMobileDownsamplePS, Global);
@@ -158,7 +165,7 @@ namespace MobileReflectionEnvironmentCapture
 						FIntPoint(MipSize, MipSize),
 						*VertexShader);
 
-					RHICmdList.CopyToResolveTarget(EffectiveRT.TargetableTexture, EffectiveRT.ShaderResourceTexture, true, FResolveParams(FResolveRect(), (ECubeFace)CubeFace, MipIndex));
+					RHICmdList.CopyToResolveTarget(EffectiveRT.TargetableTexture, EffectiveRT.ShaderResourceTexture, FResolveParams(FResolveRect(), (ECubeFace)CubeFace, MipIndex));
 				}
 			}
 		}
@@ -171,20 +178,25 @@ namespace MobileReflectionEnvironmentCapture
 		SCOPED_DRAW_EVENT(RHICmdList, CopyToSkyTexture);
 		if (ProcessedTexture->TextureRHI)
 		{
+			const bool bUseHQFiltering = CVarMobileUseHighQualitySkyCaptureFiltering.GetValueOnRenderThread() == 1;
 			const int32 EffectiveTopMipSize = ProcessedTexture->GetSizeX();
 			const int32 NumMips = FMath::CeilLogTwo(EffectiveTopMipSize) + 1;
 			FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
 
+			RHICmdList.TransitionResource(EResourceTransitionAccess::EWritable, ProcessedTexture->TextureRHI);
+
+			FRHICopyTextureInfo CopyInfo(ProcessedTexture->GetSizeX(), ProcessedTexture->GetSizeY());
+			CopyInfo.NumArraySlices = 6;
+
 			// GPU copy back to the skylight's texture, which is not a render target
 			for (int32 MipIndex = 0; MipIndex < NumMips; MipIndex++)
 			{
-				// The source for this copy is the dest from the filtering pass
-				FSceneRenderTargetItem& EffectiveSource = GetEffectiveRenderTarget(SceneContext, false, MipIndex);
-
-				for (int32 CubeFace = 0; CubeFace < CubeFace_MAX; CubeFace++)
-				{
-					RHICmdList.CopyToResolveTarget(EffectiveSource.ShaderResourceTexture, ProcessedTexture->TextureRHI, true, FResolveParams(FResolveRect(), (ECubeFace)CubeFace, MipIndex, 0, 0));
-				}
+				// For simple mobile bilin filtering the source for this copy is the dest from the filtering pass.
+				// In the HQ case, the full image is contained in GetEffectiveRenderTarget(.., false,0).
+				FSceneRenderTargetItem& EffectiveSource = GetEffectiveRenderTarget(SceneContext, false, bUseHQFiltering ? 0 : MipIndex);
+				RHICmdList.TransitionResource(EResourceTransitionAccess::EReadable, EffectiveSource.ShaderResourceTexture);
+				RHICmdList.CopyTexture(EffectiveSource.ShaderResourceTexture, ProcessedTexture->TextureRHI, CopyInfo);
+				CopyInfo.AdvanceMip();
 			}
 		}
 	}
@@ -196,7 +208,7 @@ namespace MobileReflectionEnvironmentCapture
 
 		const int32 EffectiveTopMipSize = CubmapSize;
 		const int32 NumMips = FMath::CeilLogTwo(EffectiveTopMipSize) + 1;
-
+		const bool bUseHQFiltering = CVarMobileUseHighQualitySkyCaptureFiltering.GetValueOnRenderThread() == 1;
 		FSceneRenderTargetItem& EffectiveColorRT = FSceneRenderTargets::Get(RHICmdList).ReflectionColorScratchCubemap[0]->GetRenderTargetItem();
 		// Premultiply alpha in-place using alpha blending
 		for (uint32 CubeFace = 0; CubeFace < CubeFace_MAX; CubeFace++)
@@ -235,7 +247,7 @@ namespace MobileReflectionEnvironmentCapture
 				SourceDimensions,
 				*VertexShader);
 
-			RHICmdList.CopyToResolveTarget(EffectiveColorRT.TargetableTexture, EffectiveColorRT.ShaderResourceTexture, true, FResolveParams(FResolveRect(), (ECubeFace)CubeFace));
+			RHICmdList.CopyToResolveTarget(EffectiveColorRT.TargetableTexture, EffectiveColorRT.ShaderResourceTexture, FResolveParams(FResolveRect(), (ECubeFace)CubeFace));
 		}
 
 		int32 DiffuseConvolutionSourceMip = INDEX_NONE;
@@ -292,7 +304,7 @@ namespace MobileReflectionEnvironmentCapture
 						FIntPoint(MipSize, MipSize),
 						*VertexShader);
 
-					RHICmdList.CopyToResolveTarget(EffectiveRT.TargetableTexture, EffectiveRT.ShaderResourceTexture, true, FResolveParams(FResolveRect(), (ECubeFace)CubeFace, MipIndex));
+					RHICmdList.CopyToResolveTarget(EffectiveRT.TargetableTexture, EffectiveRT.ShaderResourceTexture, FResolveParams(FResolveRect(), (ECubeFace)CubeFace, MipIndex));
 				}
 
 				if (MipSize == GDiffuseIrradianceCubemapSize)
@@ -310,14 +322,33 @@ namespace MobileReflectionEnvironmentCapture
 			ComputeDiffuseIrradiance(RHICmdList, FeatureLevel, DiffuseConvolutionSource->ShaderResourceTexture, DiffuseConvolutionSourceMip, OutIrradianceEnvironmentMap);
 		}
 
+		if (bUseHQFiltering)
+		{
+			// When HQ filtering is enabled the filter shader requires access to all mips levels of the source cubemap.
+			// Here we ensure that GetEffectiveSourceTexture(0,false) will have a complete set of mips for this process.
+			SCOPED_DRAW_EVENT(RHICmdList, PrepareSourceCubemapMipsForHQFiltering);
+			for (int32 MipIndex = 1; MipIndex < NumMips; MipIndex += 2)
+			{
+				FSceneRenderTargetItem& SourceTarget = GetEffectiveRenderTarget(SceneContext, true, MipIndex);
+				FSceneRenderTargetItem& DestTarget = GetEffectiveSourceTexture(SceneContext, true, MipIndex);
+				check(DestTarget.TargetableTexture != SourceTarget.ShaderResourceTexture);
+				for (int32 CubeFace = 0; CubeFace < CubeFace_MAX; CubeFace++)
+				{
+					RHICmdList.CopyToResolveTarget(SourceTarget.ShaderResourceTexture, DestTarget.ShaderResourceTexture, FResolveParams(FResolveRect(), (ECubeFace)CubeFace, MipIndex));
+				}
+			}
+		}
+
 		{
 			SCOPED_DRAW_EVENT(RHICmdList, FilterCubeMap);
-			// Filter all the mips, each one reads from whichever scratch render target holds the downsampled contents, and writes to the destination cubemap
+			// Filter all the mips.
+			// in simple mobile bilin case each one reads from whichever scratch render target holds the downsampled contents, and writes to the destination cubemap.
+			// HQ case, all mips are contained in GetEffectiveSourceTexture(.., false,0) as it needs a complete mip chain.
 			for (int32 MipIndex = 0; MipIndex < NumMips; MipIndex++)
 			{
 				SCOPED_DRAW_EVENT(RHICmdList, FilterCubeMip);
-				FSceneRenderTargetItem& EffectiveRT = GetEffectiveRenderTarget(SceneContext, false, MipIndex);
-				FSceneRenderTargetItem& EffectiveSource = GetEffectiveSourceTexture(SceneContext, false, MipIndex);
+				FSceneRenderTargetItem& EffectiveRT = GetEffectiveRenderTarget(SceneContext, false, bUseHQFiltering ? 0 : MipIndex);
+				FSceneRenderTargetItem& EffectiveSource = GetEffectiveSourceTexture(SceneContext, false, bUseHQFiltering ? 0 : MipIndex);
 				check(EffectiveRT.TargetableTexture != EffectiveSource.ShaderResourceTexture);
 				const int32 MipSize = 1 << (NumMips - MipIndex - 1);
 
@@ -335,35 +366,36 @@ namespace MobileReflectionEnvironmentCapture
 					RHICmdList.SetViewport(0, 0, 0.0f, MipSize, MipSize, 1.0f);
 
 					TShaderMapRef<FScreenVS> VertexShader(GetGlobalShaderMap(FeatureLevel));
-					TShaderMapRef< TCubeFilterPS<1> > CaptureCubemapArrayPixelShader(GetGlobalShaderMap(FeatureLevel));
 
-					FCubeFilterPS* PixelShader;
-					PixelShader = *TShaderMapRef< TCubeFilterPS<0> >(ShaderMap);
-					check(PixelShader);
+					FCubeFilterPS* HQFilterPixelShader = *TShaderMapRef< TCubeFilterPS<0> >(ShaderMap);
+					check(HQFilterPixelShader);
+					TShaderMapRef<FMobileDownsamplePS> BilinFilterPixelShader(ShaderMap);
+					FPixelShaderRHIParamRef PixelShaderRHI = bUseHQFiltering ? HQFilterPixelShader->GetPixelShader() : BilinFilterPixelShader->GetPixelShader();
 
 					GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
 					GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
-					GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(PixelShader);
+					GraphicsPSOInit.BoundShaderState.PixelShaderRHI = PixelShaderRHI;
 					GraphicsPSOInit.PrimitiveType = PT_TriangleList;
 
 					SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
+
+					if(bUseHQFiltering)
 					{
-						const FPixelShaderRHIParamRef ShaderRHI = PixelShader->GetPixelShader();
-
-						SetShaderValue(RHICmdList, ShaderRHI, PixelShader->CubeFace, CubeFace);
-						SetShaderValue(RHICmdList, ShaderRHI, PixelShader->MipIndex, MipIndex);
-
-						SetShaderValue(RHICmdList, ShaderRHI, PixelShader->NumMips, NumMips);
-
+						SetShaderValue(RHICmdList, PixelShaderRHI, HQFilterPixelShader->CubeFace, CubeFace);
+						SetShaderValue(RHICmdList, PixelShaderRHI, HQFilterPixelShader->MipIndex, MipIndex);
+						SetShaderValue(RHICmdList, PixelShaderRHI, HQFilterPixelShader->NumMips, NumMips);
 						SetTextureParameter(
 							RHICmdList,
-							ShaderRHI,
-							PixelShader->SourceTexture,
-							PixelShader->SourceTextureSampler,
+							PixelShaderRHI,
+							HQFilterPixelShader->SourceTexture,
+							HQFilterPixelShader->SourceTextureSampler,
 							TStaticSamplerState<SF_Trilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI(),
 							EffectiveSource.ShaderResourceTexture);
 					}
-					//PixelShader->SetParameters(RHICmdList, NumMips, CubeFace, MipIndex, EffectiveSource);
+					else
+					{
+						BilinFilterPixelShader->SetParameters(RHICmdList, CubeFace, MipIndex, EffectiveSource);
+					}
 
 					DrawRectangle(
 						RHICmdList,
@@ -375,7 +407,7 @@ namespace MobileReflectionEnvironmentCapture
 						FIntPoint(MipSize, MipSize),
 						*VertexShader);
 
-					RHICmdList.CopyToResolveTarget(EffectiveRT.TargetableTexture, EffectiveRT.ShaderResourceTexture, true, FResolveParams(FResolveRect(), (ECubeFace)CubeFace, MipIndex));
+					RHICmdList.CopyToResolveTarget(EffectiveRT.TargetableTexture, EffectiveRT.ShaderResourceTexture, FResolveParams(FResolveRect(), (ECubeFace)CubeFace, MipIndex));
 				}
 			}
 		}

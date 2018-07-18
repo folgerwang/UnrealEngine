@@ -31,6 +31,7 @@ class IMessageLogListing;
 class INameValidatorInterface;
 class ISCSEditorCustomization;
 class SBlueprintPalette;
+class SBlueprintBookmarks;
 class SFindInBlueprints;
 class SKismetDebuggingView;
 class SKismetInspector;
@@ -225,6 +226,7 @@ public:
 	TSharedRef<class SKismetInspector> GetDefaultEditor() const { return DefaultEditor.ToSharedRef(); }
 	TSharedRef<class SKismetDebuggingView> GetDebuggingView() const { return DebuggingView.ToSharedRef(); }
 	TSharedRef<class SBlueprintPalette> GetPalette() const { return Palette.ToSharedRef(); }
+	TSharedRef<class SBlueprintBookmarks> GetBookmarksWidget() const { return BookmarksWidget.ToSharedRef(); }
 	TSharedRef<class SWidget> GetCompilerResults() const { return CompilerResults.ToSharedRef(); }
 	TSharedRef<class SFindInBlueprints> GetFindResults() const { return FindResults.ToSharedRef(); }
 
@@ -294,6 +296,18 @@ public:
 	// Request a save of the edited object state
 	// This is used to delay it by one frame when triggered by a tab being closed, so it can finish closing before remembering the new state
 	void RequestSaveEditedObjectState();
+
+	/** Get the visible bounds of the given graph node */
+	void GetBoundsForNode(const UEdGraphNode* InNode, class FSlateRect& OutRect, float InPadding) const;
+
+	/** Gets the focused graph current view bookmark ID */
+	void GetViewBookmark(FGuid& BookmarkId);
+
+	/** Gets the focused graph view location/zoom amount */
+	void GetViewLocation(FVector2D& Location, float& ZoomAmount);
+
+	/** Sets the focused graph view location/zoom amount */
+	void SetViewLocation(const FVector2D& Location, float ZoomAmount, const FGuid& BookmarkId = FGuid());
 
 	/** Returns whether a graph is editable or not */
 	virtual bool IsEditable(UEdGraph* InGraph) const;
@@ -558,6 +572,15 @@ public:
 	/** Handle when the debug object is changed in the UI */
 	virtual void HandleSetObjectBeingDebugged(UObject* InObject) {}
 
+	/** Adds a new bookmark node to the Blueprint that's being edited. */
+	FBPEditorBookmarkNode* AddBookmark(const FText& DisplayName, const FEditedDocumentInfo& BookmarkInfo, bool bSharedBookmark = false);
+
+	/** Renames the bookmark node with the given ID. */
+	void RenameBookmark(const FGuid& BookmarkNodeId, const FText& NewName);
+
+	/** Removes the bookmark node with the given ID. */
+	void RemoveBookmark(const FGuid& BookmarkNodeId, bool bRefreshUI = true);
+
 protected:
 	virtual void AppendExtraCompilerResults(TSharedPtr<class IMessageLogListing> ResultsListing);
 
@@ -687,6 +710,11 @@ protected:
 	void OnAddExecutionPin();
 	bool CanAddExecutionPin() const;
 
+	void OnInsertExecutionPinBefore();
+	void OnInsertExecutionPinAfter();
+	void OnInsertExecutionPin(EPinInsertPosition Position);
+	bool CanInsertExecutionPin() const;
+
 	void OnRemoveExecutionPin();
 	bool CanRemoveExecutionPin() const;
 
@@ -781,6 +809,9 @@ protected:
 
 	void PasteNodes();
 	virtual bool CanPasteNodes() const override;
+
+	/** virtual function that gets called post paste to fix up any issue for the graph */
+	virtual void PostPasteNode(TSet<UEdGraphNode*>& PastedNodes) {};
 
 	void DuplicateNodes();
 	bool CanDuplicateNodes() const;
@@ -912,7 +943,7 @@ protected:
 	//~ End FNotifyHook Interface
 
 	/** Callback when properties have finished being handled */
-	void OnFinishedChangingProperties(const FPropertyChangedEvent& PropertyChangedEvent);
+	virtual void OnFinishedChangingProperties(const FPropertyChangedEvent& PropertyChangedEvent);
 
 	/** On starting to rename node */
 	void OnRenameNode();
@@ -931,6 +962,9 @@ protected:
 	virtual void	PostUndo(bool bSuccess) override;
 	virtual void	PostRedo(bool bSuccess) override;
 	// End of FEditorUndoClient
+
+	/** Setup all the events that the graph editor can handle */
+	virtual void SetupGraphEditorEvents(UEdGraph* InGraph, SGraphEditor::FGraphEditorEvents& InEvents);
 
 	/** Get the graph appearance of the currently focused graph */
 	FGraphAppearanceInfo GetCurrentGraphAppearance() const;
@@ -1062,6 +1096,9 @@ protected:
 
 	/** Palette of all classes with funcs/vars */
 	TSharedPtr<class SBlueprintPalette> Palette;
+
+	/** Blueprint bookmark editing widget */
+	TSharedPtr<class SBlueprintBookmarks> BookmarksWidget;
 
 	/** All of this blueprints' functions and variables */
 	TSharedPtr<class SMyBlueprint> MyBlueprintWidget;

@@ -3,12 +3,13 @@
 #pragma once 
 
 #include "Widgets/SWindow.h"
+#include "Misc/FrameRate.h"
 
 /** A dialog for collecting settings for importing post move settings from an external file. */
 class SComposurePostMoveSettingsImportDialog : public SWindow
 {
 public:
-	DECLARE_DELEGATE_ThreeParams(FOnImportSelected, FString, float, int32);
+	DECLARE_DELEGATE_ThreeParams(FOnImportSelected, FString, FFrameRate, FFrameNumber);
 	DECLARE_DELEGATE(FOnImportCanceled);
 
 public:
@@ -24,17 +25,17 @@ public:
 	 *
 	 * @param InArgs Slate arguments. 
 	 * @param InFrameSize The size of the frame in pixels that the import settings are relative to.
-	 * @param InFrameInterval The fixed frame interval for the movie scene which owns the track the data will be imported into. 
+	 * @param InFrameRate The framerate of the movie scene which owns the track the data will be imported into. 
 	 * @param InStartFrame The target start frame in the movie scene which will be used to import the data.
 	 */
-	void Construct(const FArguments& InArgs, float InFrameInterval, int32 InStartFrame);
+	void Construct(const FArguments& InArgs, FFrameRate InFrameRate, FFrameNumber InStartFrame);
 
 private:
 	FString GetFilePath() const;
 	void FilePathPicked(const FString& PickedPath);
 
-	float GetFrameInterval() const;
-	void FrameIntervalChanged(float Value);
+	FFrameRate GetFrameRate() const;
+	void FrameRateChanged(FFrameRate Value);
 
 	int32 GetStartFrame() const;
 	void StartFrameChanged(int32 Value);
@@ -44,8 +45,8 @@ private:
 
 private:
 	FString FilePath;
-	float FrameInterval;
-	int32 StartFrame;
+	FFrameRate FrameRate;
+	FFrameNumber StartFrame;
 
 	FOnImportSelected OnImportSelected;
 	FOnImportCanceled OnImportCanceled;

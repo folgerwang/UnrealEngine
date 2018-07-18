@@ -20,9 +20,9 @@ FArchiveSaveCompressedProxy::FArchiveSaveCompressedProxy( TArray<uint8>& InCompr
 :	CompressedData(InCompressedData)
 ,	CompressionFlags(InCompressionFlags)
 {
-	ArIsSaving							= true;
-	ArIsPersistent						= true;
-	ArWantBinaryPropertySerialization	= true;
+	this->SetIsSaving(true);
+	this->SetIsPersistent(true);
+	this->SetWantBinaryPropertySerialization(true);
 	bShouldSerializeToArray				= false;
 	RawBytesSerialized					= 0;
 	CurrentIndex						= 0;

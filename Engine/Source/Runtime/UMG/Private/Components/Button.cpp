@@ -141,14 +141,14 @@ void UButton::SetTouchMethod(EButtonTouchMethod::Type InTouchMethod)
 	}
 }
 
-//void UButton::SetPressMethod(EButtonPressMethod::Type InPressMethod)
-//{
-//	PressMethod = InPressMethod;
-//	if ( MyButton.IsValid() )
-//	{
-//		MyButton->SetPressMethod(PressMethod);
-//	}
-//}
+void UButton::SetPressMethod(EButtonPressMethod::Type InPressMethod)
+{
+	PressMethod = InPressMethod;
+	if ( MyButton.IsValid() )
+	{
+		MyButton->SetPressMethod(PressMethod);
+	}
+}
 
 void UButton::PostLoad()
 {

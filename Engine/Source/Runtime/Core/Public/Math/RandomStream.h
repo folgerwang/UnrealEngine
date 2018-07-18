@@ -16,11 +16,7 @@
  */
 struct FRandomStream
 {
-#ifdef COREUOBJECT_API
-	friend COREUOBJECT_API class UScriptStruct* Z_Construct_UScriptStruct_FRandomStream();
-#else
-	friend class UScriptStruct* Z_Construct_UScriptStruct_FRandomStream();
-#endif
+	friend struct Z_Construct_UScriptStruct_FRandomStream_Statics;
 	
 public:
 

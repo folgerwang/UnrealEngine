@@ -269,8 +269,8 @@ public:
 	/** The scene the primitive is in. */
 	FScene* Scene;
 
-	/** The number of dynamic point lights for ES2 */
-	int32 NumES2DynamicPointLights;
+	/** The number of movable point lights for mobile */
+	int32 NumMobileMovablePointLights;
 
 	/** This indicate that we should call the GetCustomLOD function on the proxy instead of the generic implementation. */
 	bool bIsUsingCustomLODRules : 1;
@@ -382,9 +382,6 @@ public:
 	/** Size this class uses in bytes */
 	uint32 GetMemoryFootprint();
 
-	// FDeferredCleanupInterface implementation.
-	virtual void FinishCleanup() { delete this; }
-
 	/** 
 	 * Retrieves the index of the primitive in the scene's primitives array.
 	 * This index is only valid until a primitive is added to or removed from
@@ -396,6 +393,9 @@ public:
 	 * This address is only for reference purposes
 	 */
 	FORCEINLINE const int32* GetIndexAddress() const { return &PackedIndex; }
+
+	/** Simple comparison against the invalid values used before/after scene add/remove. */
+	FORCEINLINE bool IsIndexValid() const { return PackedIndex != INDEX_NONE && PackedIndex != MAX_int32; }
 
 	/* @return true if the object needs to be rendered in the velocity pass (is not moving like the world, needed for motionblur and TemporalAA) */
 	bool ShouldRenderVelocity(const FViewInfo& View, bool bCheckVisibility = true) const;
@@ -452,6 +452,9 @@ private:
 
 	/** If this is TRUE, this primitive's precomputed lighting buffer needs to be updated before it can be rendered. */
 	bool bPrecomputedLightingBufferDirty;
+
+	/** If this is TRUE, this primitive's proxy LCIs have had a precomputed lighting buffer allocated. */
+	bool bPrecomputedLightingBufferAssignedToProxyLCIs;
 };
 
 /** Defines how the primitive is stored in the scene's primitive octree. */

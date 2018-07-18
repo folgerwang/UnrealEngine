@@ -411,7 +411,7 @@ public:
 	/**
 	 * Initializes the element type with the given argument types.
 	 *
-	 * @param  Value  The value to initialize the element counter to
+	 * @param  Arg  The value to initialize the element counter to
 	 *
 	 * @note  This constructor is not atomic.
 	 */

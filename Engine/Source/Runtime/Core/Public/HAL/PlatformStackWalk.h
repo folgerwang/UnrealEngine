@@ -17,8 +17,10 @@
 #include "Android/AndroidPlatformStackWalk.h"
 #elif PLATFORM_HTML5
 #include "HTML5/HTML5PlatformStackWalk.h"
-#elif PLATFORM_LINUX
-#include "Linux/LinuxPlatformStackWalk.h"
+#elif PLATFORM_UNIX
+#include "Unix/UnixPlatformStackWalk.h"
 #elif PLATFORM_SWITCH
 #include "Switch/SwitchPlatformStackWalk.h"
+#else
+#error Unknown platform
 #endif

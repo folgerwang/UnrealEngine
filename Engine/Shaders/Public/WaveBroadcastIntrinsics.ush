@@ -1,0 +1,78 @@
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	WaveBroadcastIntrinsics.ush: Exposes intrisics to perform broadcasting
+	within lanes of a same wave.
+=============================================================================*/
+  
+#pragma once
+
+#include "Platform.ush"
+
+
+#define PLATFORM_SUPPORTS_WAVE_BROADCAST (COMPILER_SUPPORTS_WAVE_SWIZZLE_GCN)
+
+#if PLATFORM_SUPPORTS_WAVE_BROADCAST
+
+/** Swap left lane with righ lanes within lane group (size is power of two in [2; 64]). 
+ *
+ *  If a lane is not active, the VGPR value returned is 0.
+ *
+ *  LaneGroupSize = 8
+ *  LaneId = 1
+ *
+ *         |  lane group (size=8)  |
+ *     x = | 0  1  2  3| 4  5  6  7| 8  9 ...
+ *
+ *  return | 4  5  6  7| 0  1  2  3|12 13 ...
+ */
+float WaveSwapWithinLaneGroup(float x, const uint LaneGroupSize)
+{
+	const uint and_mask = 0x1F;
+	const uint or_mask  = 0x00;
+	const uint xor_mask = LaneGroupSize >> 1;
+	return WaveLaneSwizzleGCN(x, and_mask, or_mask, xor_mask);
+}
+
+/**  Broadcast inner lane group over a lane group (size is power of two in [2; 64]).
+ *
+ *  If a lane is not active, the VGPR value returned is 0.
+ *
+ *  LaneGroupSize = 8
+ *  InnerLaneGroupSize = 2
+ *  InnerLaneGroupId = 1
+ *
+ *         |  lane group (size=8)  |
+ *     x = | 0  1  2  3  4  5  6  7| 8  9 ...
+ *
+ *  return | 2  3  2  3  2  3  2  3|10 11 ...
+ */
+float WaveBroadcastLaneGroup(float x, const uint LaneGroupSize, const uint InnerLaneGroupSize, const uint InnerLaneGroupId)
+{
+	const uint InnerGroupCount = LaneGroupSize / InnerLaneGroupSize;
+
+	const uint and_mask = ~((InnerGroupCount - 1) * InnerLaneGroupSize);
+	const uint or_mask  = InnerLaneGroupId * InnerLaneGroupSize;
+	const uint xor_mask = 0x00;
+	return WaveLaneSwizzleGCN(x, and_mask, or_mask, xor_mask);
+}
+
+
+#define __WaveBroadcastOverrideType(Type) \
+	Type WaveSwapWithinLaneGroup(Type x, const uint LaneGroupSize) \
+	{ \
+		return as##Type(WaveSwapWithinLaneGroup(asfloat(x), LaneGroupSize)); \
+	} \
+	Type WaveBroadcastLaneGroup(Type x, const uint LaneGroupSize, const uint InnerLaneGroupSize, const uint InnerLaneGroupId) \
+	{ \
+		return as##Type(WaveBroadcastLaneGroup(asfloat(x), LaneGroupSize, InnerLaneGroupSize, InnerLaneGroupId)); \
+	} \
+
+
+__WaveBroadcastOverrideType(int)
+__WaveBroadcastOverrideType(uint)
+
+
+#undef __WaveBroadcastOverrideType
+
+#endif // PLATFORM_SUPPORTS_WAVE_BROADCAST

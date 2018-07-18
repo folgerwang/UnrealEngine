@@ -1,8 +1,8 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "ControlRigModule.h"
-#include "ModuleManager.h"
-#include "ControlRigObjectSpawner.h"
+#include "Modules/ModuleManager.h"
+#include "Sequencer/ControlRigObjectSpawner.h"
 #include "ILevelSequenceModule.h"
 
 void FControlRigModule::StartupModule()

@@ -1,7 +1,7 @@
-﻿INTSourceChangelist:3692730
+﻿INTSourceChangelist:3782314
 Availability:Public
 Crumbs: %ROOT%, Platforms
-Title:Oculus How To
+Title:Oculus の操作ガイド
 Description:Rift およびアンリアル エンジン 4 の段階的な操作ガイド
 Type: how-to
 Version:4.17
@@ -16,21 +16,10 @@ Oculus Rift およびアンリアル エンジン 4 を連携して使用する�
 
 初心者向けガイドでは、UE4 プロジェクトを Rift HMD、Touch Controllers、 Guardian システムで使用できるように設定します。
 
-[DIR(output:"fancy" type:"how-to" type:"!landing" skilllevel:"Beginner" parent:"Platforms/Oculus" org:"flat")]
+[DIR(output:"fancy" type:"how-to" skilllevel:"Beginner" parent:"Platforms/Oculus" org:"flat")]
 
 ## 中級者向け
 
 中級者向けガイドでは、Chaperone システムの色の調節方法、Touch コントローラーでオブジェクトを拾う方法、および Stereo Layers を使ってユーザーに情報を表示する方法を説明します。
 
-[DIR(output:"fancy" type:"how-to" type:"!landing" skilllevel:"Intermediate" parent:"Platforms/Oculus" org:"flat")]
-
-[COMMENT:none]
-
-## 上級者向け
-
-上級者向けガイドでは、ユーザーが Chaperone システムを起動しているかどうかを探知します。スプラッシュスクリーンの設定とロード方法も説明します。 
-
-[DIR(output:"fancy" type:"how-to" type:"!landing" skilllevel:"Advanced" parent:"Platforms/Oculus" org:"flat")]
-
-
-[/COMMENT]
+[DIR(output:"fancy" type:"how-to" skilllevel:"Intermediate" parent:"Platforms/Oculus" org:"flat")]

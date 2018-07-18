@@ -70,6 +70,8 @@ private:
 
 	void WriteOptionalComma();
 	void WriteOptionalNewline();
+
+	void SerializeStringInternal(const FString& String);
 };
 
 #endif

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3809606
 Availability:Public
 Title:アニメーション シーケンス
 Crumbs: %ROOT%, Engine, Engine/Animation
@@ -102,7 +102,7 @@ Animation Sequence アセットを、**アニメーション エディタ** で�
 
 ![](AnimAssetDetails.png)
 
-[COMMENT]
+[COMMENT:none]
  This was moved with the 4.14 Animation Edtior Revamp
 ### 線形キーの削除
 

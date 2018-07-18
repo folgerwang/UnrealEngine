@@ -4,6 +4,7 @@
 
 #include "CoreTypes.h"
 #include "Containers/UnrealString.h"
+#include "Misc/FrameRate.h"
 #include "UObject/Object.h"
 #include "UObject/ObjectMacros.h"
 
@@ -21,9 +22,9 @@ class IMGMEDIAFACTORY_API UImgMediaSettings
 
 public:
 
-	/** Default number of frames per second, if not specified in image sequence or in media source (default = 24.0). */
-	UPROPERTY(config, EditAnywhere, Category=General, meta=(ClampMin=0))
-	float DefaultFps;
+	/** Default frame rate to use if none was specified in image sequence or media source (default = 1/24). */
+	UPROPERTY(config, EditAnywhere, Category=General)
+	FFrameRate DefaultFrameRate;
 
 public:
 

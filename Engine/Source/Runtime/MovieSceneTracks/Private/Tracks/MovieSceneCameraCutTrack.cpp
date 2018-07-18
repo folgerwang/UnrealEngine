@@ -3,6 +3,7 @@
 #include "Tracks/MovieSceneCameraCutTrack.h"
 #include "MovieScene.h"
 #include "MovieSceneCommonHelpers.h"
+#include "MovieSceneTimeHelpers.h"
 #include "Sections/MovieSceneCameraCutSection.h"
 #include "Evaluation/MovieSceneCameraCutTemplate.h"
 
@@ -22,23 +23,18 @@ UMovieSceneCameraCutTrack::UMovieSceneCameraCutTrack( const FObjectInitializer& 
 }
 
 
-void UMovieSceneCameraCutTrack::AddNewCameraCut(FGuid CameraHandle, float StartTime)
-{
-	AddNewCameraCut(FMovieSceneObjectBindingID(CameraHandle, MovieSceneSequenceID::Root), StartTime);
-}
-
-UMovieSceneCameraCutSection* UMovieSceneCameraCutTrack::AddNewCameraCut(const FMovieSceneObjectBindingID& CameraBindingID, float StartTime)
+UMovieSceneCameraCutSection* UMovieSceneCameraCutTrack::AddNewCameraCut(const FMovieSceneObjectBindingID& CameraBindingID, FFrameNumber StartTime)
 {
 	Modify();
 
 
-	float NewSectionEndTime = FindEndTimeForCameraCut(StartTime);
+	FFrameNumber NewSectionEndTime = FindEndTimeForCameraCut(StartTime);
 
 	// If there's an existing section, just swap the camera guid
 	UMovieSceneCameraCutSection* ExistingSection = nullptr;
 	for (auto Section : Sections)
 	{
-		if (Section->GetStartTime() == StartTime && Section->GetEndTime() == NewSectionEndTime)
+		if (Section->HasStartFrame() && Section->HasEndFrame() && Section->GetInclusiveStartFrame() == StartTime && Section->GetExclusiveEndFrame() == NewSectionEndTime)
 		{
 			ExistingSection = Cast<UMovieSceneCameraCutSection>(Section);
 			break;
@@ -53,11 +49,8 @@ UMovieSceneCameraCutSection* UMovieSceneCameraCutTrack::AddNewCameraCut(const FM
 	else
 	{
 		NewSection = NewObject<UMovieSceneCameraCutSection>(this, NAME_None, RF_Transactional);
-		{
-			NewSection->SetStartTime(StartTime);
-			NewSection->SetEndTime(FindEndTimeForCameraCut(StartTime));
-			NewSection->SetCameraBindingID(CameraBindingID);
-		}
+		NewSection->SetRange(TRange<FFrameNumber>(StartTime, NewSectionEndTime));
+		NewSection->SetCameraBindingID(CameraBindingID);
 
 		Sections.Add(NewSection);
 	}
@@ -106,6 +99,11 @@ void UMovieSceneCameraCutTrack::RemoveSection(UMovieSceneSection& Section)
 }
 
 
+void UMovieSceneCameraCutTrack::RemoveAllAnimationData()
+{
+	Sections.Empty();
+}
+
 #if WITH_EDITORONLY_DATA
 FText UMovieSceneCameraCutTrack::GetDefaultDisplayName() const
 {
@@ -121,37 +119,30 @@ void UMovieSceneCameraCutTrack::OnSectionMoved(UMovieSceneSection& Section)
 }
 #endif
 
-float UMovieSceneCameraCutTrack::FindEndTimeForCameraCut( float StartTime )
+FFrameNumber UMovieSceneCameraCutTrack::FindEndTimeForCameraCut( FFrameNumber StartTime )
 {
-	float EndTime = 0;
-	bool bFoundEndTime = false;
+	UMovieScene* OwnerScene = GetTypedOuter<UMovieScene>();
+
+	// End time should default to end where the movie scene ends. Ensure it is at least the same as start time (this should only happen when the movie scene has an initial time range smaller than the start time)
+	FFrameNumber ExclusivePlayEnd = MovieScene::DiscreteExclusiveUpper(OwnerScene->GetPlaybackRange());
+	FFrameNumber ExclusiveEndTime = FMath::Max( ExclusivePlayEnd, StartTime );
 
 	for( UMovieSceneSection* Section : Sections )
 	{
-		if( Section->GetStartTime() >= StartTime )
+		if( Section->HasStartFrame() && Section->GetInclusiveStartFrame() > StartTime )
 		{
-			EndTime = Section->GetStartTime();
-			bFoundEndTime = true;
+			ExclusiveEndTime = Section->GetInclusiveStartFrame();
 			break;
 		}
 	}
 
-	if( !bFoundEndTime )
-	{
-		UMovieScene* OwnerScene = GetTypedOuter<UMovieScene>();
-
-		// End time should just end where the movie scene ends.  Ensure it is at least the same as start time (this should only happen when the movie scene has an initial time range smaller than the start time
-		EndTime = FMath::Max( OwnerScene->GetPlaybackRange().GetUpperBoundValue(), StartTime );
-	}
-
-			
-	if( StartTime == EndTime )
+	if( StartTime == ExclusiveEndTime )
 	{
 		// Give the CameraCut a reasonable length of time to start out with.  A 0 time CameraCut is not usable
-		EndTime = StartTime + .5f;
+		ExclusiveEndTime = (StartTime + .5f * OwnerScene->GetTickResolution()).FrameNumber;
 	}
 
-	return EndTime;
+	return ExclusiveEndTime;
 }
 
 #undef LOCTEXT_NAMESPACE

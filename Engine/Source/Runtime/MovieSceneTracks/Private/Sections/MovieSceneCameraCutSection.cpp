@@ -4,7 +4,7 @@
 
 #include "MovieScene.h"
 #include "Tracks/MovieScene3DTransformTrack.h"
-#include "MovieSceneTransformTrack.h"
+#include "Tracks/MovieSceneTransformTrack.h"
 #include "MovieScene.h"
 #include "Evaluation/MovieSceneEvaluationTrack.h"
 #include "Evaluation/MovieSceneCameraCutTemplate.h"
@@ -31,7 +31,7 @@ FMovieSceneEvalTemplatePtr UMovieSceneCameraCutSection::GenerateTemplate() const
 				{
 					// Extract the transform
 					FMovieSceneEvaluationTrack TransformTrackTemplate = TransformTrack->GenerateTrackTemplate();
-					FMovieSceneContext Context = FMovieSceneEvaluationRange(GetStartTime());
+					FMovieSceneContext Context = FMovieSceneEvaluationRange(GetInclusiveStartFrame(), MovieScene->GetTickResolution());
 
 					FMovieSceneInterrogationData Container;
 					TransformTrackTemplate.Interrogate(Context, Container);

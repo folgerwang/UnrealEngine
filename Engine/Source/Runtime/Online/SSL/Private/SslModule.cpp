@@ -2,6 +2,7 @@
 
 #include "SslModule.h"
 #include "SslCertificateManager.h"
+#include "SslManager.h"
 #include "Ssl.h"
 #include "Misc/Parse.h"
 
@@ -12,6 +13,12 @@ DEFINE_LOG_CATEGORY(LogSsl);
 IMPLEMENT_MODULE(FSslModule, SSL);
 
 FSslModule* FSslModule::Singleton = NULL;
+
+FSslModule::FSslModule()
+	: CertificateManagerPtr(nullptr)
+	, SslManagerPtr(nullptr)
+{
+}
 
 bool FSslModule::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar)
 {
@@ -33,6 +40,8 @@ void FSslModule::StartupModule()
 #if WITH_SSL
 	CertificateManagerPtr = new FSslCertificateManager();
 	static_cast<FSslCertificateManager*>(CertificateManagerPtr)->BuildRootCertificateArray();
+
+	SslManagerPtr = new FSslManager();
 #endif //#if WITH_SSL
 }
 
@@ -41,6 +50,8 @@ void FSslModule::ShutdownModule()
 #if WITH_SSL
 	static_cast<FSslCertificateManager*>(CertificateManagerPtr)->EmptyRootCertificateArray();
 	delete CertificateManagerPtr;
+
+	delete SslManagerPtr;
 #endif // #if WITH_SSL
 
 	Singleton = nullptr;

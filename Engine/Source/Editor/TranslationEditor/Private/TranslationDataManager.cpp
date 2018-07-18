@@ -10,11 +10,11 @@
 #include "Dom/JsonObject.h"
 #include "Serialization/JsonSerializer.h"
 #include "EditorStyleSet.h"
-#include "ISourceControlOperation.h"
 #include "SourceControlOperations.h"
 #include "ISourceControlState.h"
 #include "ISourceControlProvider.h"
 #include "ISourceControlModule.h"
+#include "SourceControlHelpers.h"
 #include "TranslationUnit.h"
 #include "Logging/MessageLog.h"
 #include "TextLocalizationResourceGenerator.h"
@@ -37,46 +37,40 @@ DEFINE_LOG_CATEGORY_STATIC(LogTranslationEditor, Log, All);
 struct FLocTextIdentity
 {
 public:
-	FLocTextIdentity(FString InNamespace, FString InKey)
+	FLocTextIdentity(FLocKey InNamespace, FLocKey InKey)
 		: Namespace(MoveTemp(InNamespace))
 		, Key(MoveTemp(InKey))
-		, Hash(0)
 	{
-		Hash = FCrc::StrCrc32(*Namespace, Hash);
-		Hash = FCrc::StrCrc32(*Key, Hash);
 	}
 
-	FORCEINLINE const FString& GetNamespace() const
+	FORCEINLINE const FLocKey& GetNamespace() const
 	{
 		return Namespace;
 	}
 
-	FORCEINLINE const FString& GetKey() const
+	FORCEINLINE const FLocKey& GetKey() const
 	{
 		return Key;
 	}
 
 	FORCEINLINE bool operator==(const FLocTextIdentity& Other) const
 	{
-		return Namespace.Equals(Other.Namespace, ESearchCase::CaseSensitive)
-			&& Key.Equals(Other.Key, ESearchCase::CaseSensitive);
+		return Namespace == Other.Namespace && Key == Other.Key;
 	}
 
 	FORCEINLINE bool operator!=(const FLocTextIdentity& Other) const
 	{
-		return !Namespace.Equals(Other.Namespace, ESearchCase::CaseSensitive)
-			|| !Key.Equals(Other.Key, ESearchCase::CaseSensitive);
+		return Namespace != Other.Namespace || Key != Other.Key;
 	}
 
 	friend inline uint32 GetTypeHash(const FLocTextIdentity& Id)
 	{
-		return Id.Hash;
+		return HashCombine(GetTypeHash(Id.Namespace), GetTypeHash(Id.Key));
 	}
 
 private:
-	FString Namespace;
-	FString Key;
-	uint32 Hash;
+	FLocKey Namespace;
+	FLocKey Key;
 };
 
 FTranslationDataManager::FTranslationDataManager( const FString& InManifestFilePath, const FString& InNativeArchiveFilePath, const FString& InArchiveFilePath )
@@ -154,7 +148,7 @@ void FTranslationDataManager::Initialize()
 					const FManifestContext& AContext = *ContextIter;
 
 					ContextInfo.Context = AContext.SourceLocation;
-					ContextInfo.Key = AContext.Key;
+					ContextInfo.Key = AContext.Key.GetString();
 
 					// Make sure we have a unique translation unit for each unique identity.
 					UTranslationUnit*& TranslationUnit = IdentityToTranslationUnitMap.FindOrAdd(FLocTextIdentity(ManifestEntry->Namespace, AContext.Key));
@@ -166,8 +160,8 @@ void FTranslationDataManager::Initialize()
 						TranslationUnit->SetFlags(RF_Transactional);
 						TranslationUnit->HasBeenReviewed = false;
 						TranslationUnit->Source = ManifestEntry->Source.Text;
-						TranslationUnit->Namespace = ManifestEntry->Namespace;
-						TranslationUnit->Key = AContext.Key;
+						TranslationUnit->Namespace = ManifestEntry->Namespace.GetString();
+						TranslationUnit->Key = AContext.Key.GetString();
 						TranslationUnit->KeyMetaDataObject = AContext.KeyMetadataObj;
 					}
 					
@@ -335,7 +329,7 @@ bool FTranslationDataManager::WriteJSONToTextFile(TSharedRef<FJsonObject>& Outpu
 			{
 				bPreviouslyCheckedOut = true;
 			}
-			else if (!SourceControlHelpers::CheckOutFile(Filename))
+			else if (!USourceControlHelpers::CheckOutOrAddFile(Filename))
 			{
 				FFormatNamedArguments Arguments;
 				Arguments.Add(TEXT("Filename"), FText::FromString(Filename));
@@ -366,7 +360,7 @@ bool FTranslationDataManager::WriteJSONToTextFile(TSharedRef<FJsonObject>& Outpu
 				{
 					bPreviouslyCheckedOut = false;
 
-					if( !SourceControlHelpers::CheckOutFile(Filename) )
+					if( !USourceControlHelpers::CheckOutOrAddFile(Filename) )
 					{
 						FFormatNamedArguments Arguments;
 						Arguments.Add( TEXT("Filename"), FText::FromString(Filename) );

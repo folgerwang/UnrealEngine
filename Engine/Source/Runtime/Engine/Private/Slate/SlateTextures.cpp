@@ -37,11 +37,6 @@ void FSlateTexture2DRHIRef::Cleanup()
 	BeginCleanup(this);
 }
 
-void FSlateTexture2DRHIRef::FinishCleanup()
-{
-	delete this;
-}
-
 void FSlateTexture2DRHIRef::InitDynamicRHI()
 {
 	check( IsInRenderingThread() );
@@ -349,7 +344,7 @@ void FSlateTextureRenderTarget2DResource::UpdateDeferredResource(FRHICommandList
 	}
 
 	// Copy surface to the texture for use
-	RHICmdList.CopyToResolveTarget(RenderTargetTextureRHI, TextureRHI, true, FResolveParams());
+	RHICmdList.CopyToResolveTarget(RenderTargetTextureRHI, TextureRHI, FResolveParams());
 }
 
 uint32 FSlateTextureRenderTarget2DResource::GetSizeX() const

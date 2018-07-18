@@ -37,10 +37,10 @@ class FSceneView;
  * Uniform buffer to hold parameters for vector field visualization.
  */
 BEGIN_UNIFORM_BUFFER_STRUCT( FVectorFieldVisualizationParameters, )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( FMatrix, VolumeToWorld )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( FMatrix, VolumeToWorldNoScale )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( FVector, VoxelSize )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( float, Scale )
+	UNIFORM_MEMBER( FMatrix, VolumeToWorld )
+	UNIFORM_MEMBER( FMatrix, VolumeToWorldNoScale )
+	UNIFORM_MEMBER( FVector, VoxelSize )
+	UNIFORM_MEMBER( float, Scale )
 END_UNIFORM_BUFFER_STRUCT( FVectorFieldVisualizationParameters )
 typedef TUniformBufferRef<FVectorFieldVisualizationParameters> FVectorFieldVisualizationBufferRef;
 

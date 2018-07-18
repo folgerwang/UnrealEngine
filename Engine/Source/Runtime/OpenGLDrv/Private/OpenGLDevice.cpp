@@ -5,7 +5,7 @@
 =============================================================================*/
 
 #include "CoreMinimal.h"
-#include "CoreDelegates.h"
+#include "Misc/CoreDelegates.h"
 #include "Misc/CommandLine.h"
 #include "Misc/ScopeLock.h"
 #include "Stats/Stats.h"
@@ -46,6 +46,18 @@ static FOpenGLDynamicRHI* PrivateOpenGLDevicePtr = NULL;
 
 /** true if we're not using UBOs. (ES2) */
 bool GUseEmulatedUniformBuffers;
+
+#ifndef EXPERIMENTAL_OPENGL_RHITHREAD
+#define EXPERIMENTAL_OPENGL_RHITHREAD 0
+#endif
+
+static TAutoConsoleVariable<int32> CVarAllowRGLHIThread(
+	TEXT("r.OpenGL.AllowRHIThread"),
+	0,
+	TEXT("Toggle experimental OpenGL RHI thread support.\n")
+	TEXT("0: GL scene rendering operations are performed on the render thread. (default)\n")
+	TEXT("1: GL scene rendering operations are queued onto the RHI thread gaining some parallelism with the render thread. (mobile feature levels only)"),
+	ECVF_RenderThreadSafe | ECVF_ReadOnly);
 
 void OnQueryCreation( FOpenGLRenderQuery* Query )
 {
@@ -137,9 +149,17 @@ bool IsUniformBufferBound( GLuint Buffer )
 
 extern void BeginFrame_UniformBufferPoolCleanup();
 extern void BeginFrame_VertexBufferCleanup();
+extern void BeginFrame_QueryBatchCleanup();
+
 
 FOpenGLContextState& FOpenGLDynamicRHI::GetContextStateForCurrentContext(bool bAssertIfInvalid)
 {
+	// most common case
+	if (BeginSceneContextType == CONTEXT_Rendering)
+	{
+		return RenderingContextState;
+	}
+	
 	int32 ContextType = (int32)PlatformOpenGLCurrentContext(PlatformDevice);
 	if (bAssertIfInvalid)
 	{
@@ -163,11 +183,10 @@ FOpenGLContextState& FOpenGLDynamicRHI::GetContextStateForCurrentContext(bool bA
 void FOpenGLDynamicRHI::RHIBeginFrame()
 {
 	RHIPrivateBeginFrame();
-	BeginFrame_UniformBufferPoolCleanup();
-	BeginFrame_VertexBufferCleanup();
+
 	GPUProfilingData.BeginFrame(this);
 
-#if PLATFORM_ANDROID //adding #if since not sure if this is required for any other platform.
+#if PLATFORM_ANDROID && !PLATFORM_LUMINGL4 //adding #if since not sure if this is required for any other platform.
 	//we need to differential between 0 (backbuffer) and lastcolorRT.
 	FOpenGLContextState& ContextState = GetContextStateForCurrentContext();
 	ContextState.LastES2ColorRTResource = 0xFFFFFFFF;
@@ -179,6 +198,14 @@ void FOpenGLDynamicRHI::RHIEndFrame()
 {
 	GPUProfilingData.EndFrame();
 }
+
+void FOpenGLDynamicRHI::RHIPerFrameRHIFlushComplete()
+{
+	BeginFrame_UniformBufferPoolCleanup();
+	BeginFrame_VertexBufferCleanup();
+	BeginFrame_QueryBatchCleanup();
+}
+
 
 void FOpenGLDynamicRHI::RHIBeginScene()
 {
@@ -195,11 +222,14 @@ void FOpenGLDynamicRHI::RHIBeginScene()
 	{
 		ResourceTableFrameCounter = SceneFrameCounter;
 	}
+
+	BeginSceneContextType = (int32)PlatformOpenGLCurrentContext(PlatformDevice);
 }
 
 void FOpenGLDynamicRHI::RHIEndScene()
 {
 	ResourceTableFrameCounter = INDEX_NONE;
+	BeginSceneContextType = CONTEXT_Other;
 }
 
 #if PLATFORM_ANDROID
@@ -209,10 +239,10 @@ JNI_METHOD void Java_com_epicgames_ue4_MediaPlayer14_nativeClearCachedAttributeS
 	FOpenGLContextState& ContextState = PrivateOpenGLDevicePtr->GetContextStateForCurrentContext();
 
 	// update vertex attributes state
-	ContextState.VertexAttrs[PositionAttrib].bEnabled = false;
+	ContextState.SetVertexAttrEnabled(PositionAttrib, false);
 	ContextState.VertexAttrs[PositionAttrib].Stride = -1;
 
-	ContextState.VertexAttrs[TexCoordsAttrib].bEnabled = false;
+	ContextState.SetVertexAttrEnabled(TexCoordsAttrib, false);
 	ContextState.VertexAttrs[TexCoordsAttrib].Stride = -1;
 
 	// make sure the texture is set again
@@ -762,6 +792,15 @@ static void InitRHICapabilitiesForGL()
 	// Shader platform & RHI feature level
 	GMaxRHIFeatureLevel = FOpenGL::GetFeatureLevel();
 	GMaxRHIShaderPlatform = FOpenGL::GetShaderPlatform();
+	 
+	// Only enable the experimental OGL rhi thread if explicitly requested.
+#if EXPERIMENTAL_OPENGL_RHITHREAD
+	GRHISupportsRHIThread = GMaxRHIFeatureLevel <= ERHIFeatureLevel::ES3_1;
+#elif ((!PLATFORM_RHITHREAD_DEFAULT_BYPASS) || CAN_TOGGLE_COMMAND_LIST_BYPASS)
+	GRHISupportsRHIThread = GMaxRHIFeatureLevel <= ERHIFeatureLevel::ES3_1 && CVarAllowRGLHIThread.GetValueOnAnyThread();
+#else
+	GRHISupportsRHIThread = false;
+#endif
 
 	// Emulate uniform buffers on ES2, unless we're on a desktop platform emulating ES2.
 	GUseEmulatedUniformBuffers = IsES2Platform(GMaxRHIShaderPlatform) && !IsPCPlatform(GMaxRHIShaderPlatform);
@@ -784,7 +823,11 @@ static void InitRHICapabilitiesForGL()
 #if PLATFORM_ANDROIDESDEFERRED
 	UE_LOG(LogRHI, Log, TEXT("PLATFORM_ANDROIDESDEFERRED"));
 #elif PLATFORM_ANDROID
+#if PLATFORM_LUMINGL4
+	UE_LOG(LogRHI, Log, TEXT("PLATFORM_LUMINGL4"));
+#else
 	UE_LOG(LogRHI, Log, TEXT("PLATFORM_ANDROID"));
+#endif
 #endif
 
 	GMaxTextureSamplers = Value_GL_MAX_TEXTURE_IMAGE_UNITS;
@@ -795,6 +838,10 @@ static void InitRHICapabilitiesForGL()
 #if defined(GL_MAX_ARRAY_TEXTURE_LAYERS) && GL_MAX_ARRAY_TEXTURE_LAYERS
 	GMaxTextureArrayLayers = Value_GL_MAX_ARRAY_TEXTURE_LAYERS;
 #endif
+
+	GSupportsParallelRenderingTasksWithSeparateRHIThread = false; // hopefully this is just temporary
+	GRHIThreadNeedsKicking = true; // GL is SLOW
+	GRHISupportsExactOcclusionQueries = FOpenGL::SupportsExactOcclusionQueries();
 
 	GSupportsVolumeTextureRendering = FOpenGL::SupportsVolumeTextureRendering();
 	GSupportsRenderDepthTargetableShaderResources = true;
@@ -843,6 +890,13 @@ static void InitRHICapabilitiesForGL()
 		GRHISupportsTextureStreaming = true;
 	}
 
+	// Disable texture streaming if forced off by r.OpenGL.DisableTextureStreamingSupport
+	static const auto CVarDisableOpenGLTextureStreamingSupport = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.OpenGL.DisableTextureStreamingSupport"));
+	if (CVarDisableOpenGLTextureStreamingSupport->GetValueOnAnyThread())
+	{
+		GRHISupportsTextureStreaming = false;
+	}
+
 	GVertexElementTypeSupport.SetSupported(VET_Half2,		FOpenGL::SupportsVertexHalfFloat());
 	GVertexElementTypeSupport.SetSupported(VET_Half4,		FOpenGL::SupportsVertexHalfFloat());
 	GVertexElementTypeSupport.SetSupported(VET_URGB10A2N,	FOpenGL::SupportsRGB10A2());
@@ -871,7 +925,7 @@ static void InitRHICapabilitiesForGL()
 	SetupTextureFormat( PF_R16G16B16A16_SNORM,	FOpenGLTextureFormat( GL_RGBA16,				GL_RGBA16,				GL_RGBA,			GL_SHORT,						false,			false));
 
 	SetupTextureFormat( PF_R5G6B5_UNORM,		FOpenGLTextureFormat( ));
-#if PLATFORM_DESKTOP || PLATFORM_ANDROIDESDEFERRED
+#if PLATFORM_DESKTOP || PLATFORM_ANDROIDESDEFERRED || PLATFORM_LUMINGL4
 	CA_SUPPRESS(6286);
 	if (PLATFORM_DESKTOP || FOpenGL::GetFeatureLevel() >= ERHIFeatureLevel::SM4)
 	{
@@ -906,13 +960,17 @@ static void InitRHICapabilitiesForGL()
 		SetupTextureFormat( PF_R16_SINT,		FOpenGLTextureFormat( GL_R16I,					GL_R16I,				GL_RED_INTEGER,	GL_SHORT,							false,	false));
 		SetupTextureFormat( PF_R8_UINT,			FOpenGLTextureFormat( GL_R8UI,					GL_R8UI,				GL_RED_INTEGER, GL_UNSIGNED_BYTE,					false,  false));
 		SetupTextureFormat( PF_FloatRGBA,		FOpenGLTextureFormat( GL_RGBA16F,				GL_RGBA16F,				GL_RGBA,		GL_HALF_FLOAT,						false,	false));
+
 		if (FOpenGL::GetShaderPlatform() == EShaderPlatform::SP_OPENGL_ES31_EXT)
 		{
 			SetupTextureFormat(PF_G8, FOpenGLTextureFormat(GL_R8, GL_R8, GL_RED, GL_UNSIGNED_BYTE, false, false));
 			SetupTextureFormat(PF_B8G8R8A8, FOpenGLTextureFormat(GL_RGBA8, GL_SRGB8_ALPHA8, GL_RGBA, GL_UNSIGNED_BYTE, false, true));
 			SetupTextureFormat(PF_R8G8B8A8, FOpenGLTextureFormat(GL_RGBA8, GL_SRGB8_ALPHA8, GL_RGBA, GL_UNSIGNED_BYTE, false, false));
 			SetupTextureFormat(PF_R8G8B8A8_UINT, FOpenGLTextureFormat(GL_RGBA8, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE, false, false));
-			SetupTextureFormat(PF_R8G8B8A8_SNORM, FOpenGLTextureFormat(GL_RGBA8_SNORM, GL_RGBA8_SNORM, GL_RGBA, GL_BYTE, false, false));
+
+			// Should be GL_RGBA8_SNORM but it doesn't work with glTexBuffer -> mapping to Unorm and unpacking in the shader
+			SetupTextureFormat(PF_R8G8B8A8_SNORM, FOpenGLTextureFormat(GL_RGBA8, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE, false, false));
+
 			if (FOpenGL::SupportsRG16UI())
 			{
 				// The user should check for support for PF_G16R16 and implement a fallback if it's not supported!
@@ -925,7 +983,10 @@ static void InitRHICapabilitiesForGL()
 			SetupTextureFormat(PF_B8G8R8A8, FOpenGLTextureFormat(GL_RGBA8, GL_SRGB8_ALPHA8, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, false, false));
 			SetupTextureFormat(PF_R8G8B8A8, FOpenGLTextureFormat(GL_RGBA8, GL_SRGB8_ALPHA8, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8_REV, false, false));
 			SetupTextureFormat(PF_R8G8B8A8_UINT, FOpenGLTextureFormat(GL_RGBA8UI, GL_RGBA8UI, GL_RGBA_INTEGER, GL_UNSIGNED_BYTE, false, false));
-			SetupTextureFormat(PF_R8G8B8A8_SNORM, FOpenGLTextureFormat(GL_RGBA8_SNORM, GL_RGBA8_SNORM, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8, false, false));
+
+			// Should be GL_RGBA8_SNORM but it doesn't work with glTexBuffer -> mapping to Unorm and unpacking in the shader
+			SetupTextureFormat(PF_R8G8B8A8_SNORM, FOpenGLTextureFormat(GL_RGBA8, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE, false, false));
+
 			SetupTextureFormat(PF_G16R16, FOpenGLTextureFormat(GL_RG16, GL_RG16, GL_RG, GL_UNSIGNED_SHORT, false, false));
 		}
 		if (FOpenGL::SupportsPackedDepthStencil())
@@ -939,9 +1000,9 @@ static void InitRHICapabilitiesForGL()
 		}
 	}
 	else
-#endif // PLATFORM_DESKTOP || PLATFORM_ANDROIDESDEFERRED
+#endif // PLATFORM_DESKTOP || PLATFORM_ANDROIDESDEFERRED || PLATFORM_LUMINGL4
 	{
-#if !PLATFORM_DESKTOP
+#if !PLATFORM_DESKTOP && !PLATFORM_LUMINGL4
 		// ES2-based cases
 		GLuint BGRA8888 = (FOpenGL::SupportsBGRA8888() && !FOpenGL::SupportsSRGB()) ? GL_BGRA_EXT : GL_RGBA;
 		GLuint SizedBGRA8888 = (FOpenGL::SupportsBGRA8888() && !FOpenGL::SupportsSRGB()) ? GL_BGRA_EXT : GL_RGBA8;
@@ -1002,7 +1063,7 @@ static void InitRHICapabilitiesForGL()
 		{
 			// @todo android: This is cheating by not setting a stencil anywhere, need that! And Shield is still rendering black scene
 			SetupTextureFormat(PF_DepthStencil, FOpenGLTextureFormat(DepthFormat, GL_NONE, GL_DEPTH_COMPONENT, GL_UNSIGNED_INT, false, false));
-		}
+	}
 #endif // !PLATFORM_DESKTOP
 	}
 
@@ -1038,7 +1099,7 @@ static void InitRHICapabilitiesForGL()
 	{
 		SetupTextureFormat( PF_ETC1,		FOpenGLTextureFormat(GL_ETC1_RGB8_OES,					GL_ETC1_RGB8_OES,						GL_RGBA,	GL_UNSIGNED_BYTE,	true,	false));
 	}
-#if PLATFORM_ANDROID
+#if PLATFORM_ANDROID && !PLATFORM_LUMINGL4
 	if ( FOpenGL::SupportsETC2() )
 	{
 		SetupTextureFormat( PF_ETC2_RGB,	FOpenGLTextureFormat(GL_COMPRESSED_RGB8_ETC2,		GL_COMPRESSED_SRGB8_ETC2,					GL_RGBA,	GL_UNSIGNED_BYTE,	true,		false));
@@ -1082,6 +1143,7 @@ FOpenGLDynamicRHI::FOpenGLDynamicRHI()
 ,	ResourceTableFrameCounter(INDEX_NONE)
 ,	bRevertToSharedContextAfterDrawingViewport(false)
 ,	bIsRenderingContextAcquired(false)
+,   BeginSceneContextType(CONTEXT_Other)
 ,	PlatformDevice(NULL)
 ,	GPUProfilingData(this)
 {
@@ -1123,68 +1185,81 @@ FOpenGLDynamicRHI::FOpenGLDynamicRHI()
 extern void DestroyShadersAndPrograms();
 
 #if PLATFORM_ANDROID
+extern bool GOpenGLShaderHackLastCompileSuccess;
+
 // only used to test for shader compatibility issues
-static bool VerifyCompiledShader(GLuint Shader, const ANSICHAR* GlslCode, bool IsFatal )
+static bool VerifyCompiledShader(GLuint Shader, const ANSICHAR* GlslCode, bool IsFatal)
 {
 	SCOPE_CYCLE_COUNTER(STAT_OpenGLShaderCompileVerifyTime);
 
-	GLint CompileStatus;
-	glGetShaderiv(Shader, GL_COMPILE_STATUS, &CompileStatus);
-	if (CompileStatus != GL_TRUE)
+	if (!GOpenGLShaderHackLastCompileSuccess)
 	{
-		GLint LogLength;
-		ANSICHAR DefaultLog[] = "No log";
-		ANSICHAR *CompileLog = DefaultLog;
-		glGetShaderiv(Shader, GL_INFO_LOG_LENGTH, &LogLength);
-#if PLATFORM_ANDROID
-		if ( LogLength == 0 )
-		{
-			// make it big anyway
-			// there was a bug in android 2.2 where glGetShaderiv would return 0 even though there was a error message
-			// https://code.google.com/p/android/issues/detail?id=9953
-			LogLength = 4096;
-		}
-#endif
-		if (LogLength > 1)
-		{
-			CompileLog = (ANSICHAR *)FMemory::Malloc(LogLength);
-			glGetShaderInfoLog(Shader, LogLength, NULL, CompileLog);
-		}
-
 #if DEBUG_GL_SHADERS
 		if (GlslCode)
 		{
-			UE_LOG(LogRHI,Warning,TEXT("Shader:\n%s"),ANSI_TO_TCHAR(GlslCode));
-
+			UE_LOG(LogRHI, Warning, TEXT("Shader:\n%s"), ANSI_TO_TCHAR(GlslCode));
 
 			const ANSICHAR *Temp = GlslCode;
 
-			for ( int i = 0; i < 30 && (*Temp != '\0'); ++i )
+			for (int i = 0; i < 30 && (*Temp != '\0'); ++i)
 			{
-				FString Converted = ANSI_TO_TCHAR( Temp );
-				Converted.LeftChop( 256 );
+				FString Converted = ANSI_TO_TCHAR(Temp);
+				Converted.LeftChop(256);
 
-				UE_LOG(LogRHI,Display,TEXT("%s"), *Converted );
+				UE_LOG(LogRHI, Display, TEXT("%s"), *Converted);
 				Temp += Converted.Len();
 			}
-
 		}
 #endif
-		UE_LOG(LogRHI,Warning,TEXT("Failed to compile shader. Compile log:\n%s"), ANSI_TO_TCHAR(CompileLog));
+		UE_LOG(LogRHI, Warning, TEXT("Failed to compile shader."));
 
-		if (LogLength > 1)
-		{
-			FMemory::Free(CompileLog);
-		}
 		return false;
 	}
 	return true;
+
 }
+#endif
+
+#if PLATFORM_ANDROID && !PLATFORM_LUMINGL4
+static void AttemptLinkProgramExecute(GLuint VertexShaderResource, GLuint PixelShaderResource)
+{
+	GLuint Program = glCreateProgram();
+	glAttachShader(Program, VertexShaderResource);
+	glAttachShader(Program, PixelShaderResource);
+	glLinkProgram(Program);
+	GLint LinkStatus = 0;
+	glGetProgramiv(Program, GL_LINK_STATUS, &LinkStatus);
+	if (LinkStatus != GL_TRUE)
+	{
+		FOpenGL::bRequiresGLFragCoordVaryingLimitHack = true;
+		UE_LOG(LogRHI, Warning, TEXT("gl_FragCoord uses a varying... enabled hack"));
+		return;
+	}
+
+	UE_LOG(LogRHI, Warning, TEXT("gl_FragCoord does not need a varying"));
+}
+
+struct FRHICommandAttemptLinkProgram final : public FRHICommand<FRHICommandAttemptLinkProgram>
+{
+	GLuint VertexShaderResource;
+	GLuint PixelShaderResource;
+
+	FORCEINLINE_DEBUGGABLE FRHICommandAttemptLinkProgram(GLuint InVertexShaderResource, GLuint InPixelShaderResource)
+		: VertexShaderResource(InVertexShaderResource)
+		, PixelShaderResource(InPixelShaderResource)
+	{
+	}
+	void Execute(FRHICommandListBase& CmdList)
+	{
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_FRHICommandAttemptLinkProgram_Execute);
+		AttemptLinkProgramExecute(VertexShaderResource, PixelShaderResource);
+	}
+};
 #endif
 
 static void CheckVaryingLimit()
 {
-#if PLATFORM_ANDROID
+#if PLATFORM_ANDROID && !PLATFORM_LUMINGL4
 	FOpenGL::bRequiresGLFragCoordVaryingLimitHack = false;
 	if (IsES2Platform(GMaxRHIShaderPlatform))
 	{
@@ -1278,15 +1353,32 @@ static void CheckVaryingLimit()
 			Writer.Close();
 		}
 
+		FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
+
 		// Try to compile test shaders
+		GOpenGLShaderHackLastCompileSuccess = false;
 		TRefCountPtr<FOpenGLVertexShader> VertexShader = (FOpenGLVertexShader*)(RHICreateVertexShader(VertexShaderCode.GetReadAccess()).GetReference());
+
+		if (IsRunningRHIInSeparateThread())
+		{
+			RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread);
+		}
+
 		if (!VerifyCompiledShader(VertexShader->Resource, TestVertexProgram, false))
 		{
 			UE_LOG(LogRHI, Warning, TEXT("Vertex shader for varying test failed to compile. Try running anyway."));
 			FOpenGL::bIsCheckingShaderCompilerHacks = false;
 			return;
 		}
+
+		GOpenGLShaderHackLastCompileSuccess = false;
 		TRefCountPtr<FOpenGLPixelShader> PixelShader = (FOpenGLPixelShader*)(RHICreatePixelShader(FragmentShaderCode.GetReadAccess()).GetReference());
+
+		if (IsRunningRHIInSeparateThread())
+		{
+			RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread);
+		}
+
 		if (!VerifyCompiledShader(PixelShader->Resource, TestFragmentProgram, false))
 		{
 			UE_LOG(LogRHI, Warning, TEXT("Fragment shader for varying test failed to compile. Try running anyway."));
@@ -1297,20 +1389,16 @@ static void CheckVaryingLimit()
 		FOpenGL::bIsCheckingShaderCompilerHacks = false;
 
 		// Now try linking them.. this is where gl_FragCoord may cause a failure
-		GLuint Program = glCreateProgram();
-		glAttachShader(Program, VertexShader->Resource);
-		glAttachShader(Program, PixelShader->Resource);
-		glLinkProgram(Program);
-		GLint LinkStatus = 0;
-		glGetProgramiv(Program, GL_LINK_STATUS, &LinkStatus);
-		if (LinkStatus != GL_TRUE)
+		if (IsRunningRHIInSeparateThread())
 		{
-			FOpenGL::bRequiresGLFragCoordVaryingLimitHack = true;
-			UE_LOG(LogRHI, Warning, TEXT("gl_FragCoord uses a varying... enabled hack"));
-			return;
+			new (RHICmdList.AllocCommand<FRHICommandAttemptLinkProgram>()) FRHICommandAttemptLinkProgram(VertexShader->Resource, PixelShader->Resource);
+			// wait for AttemptLinkProgramExecute to complete.
+			RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread);
 		}
-
-		UE_LOG(LogRHI, Warning, TEXT("gl_FragCoord does not need a varying"));
+		else
+		{
+			AttemptLinkProgramExecute(VertexShader->Resource, PixelShader->Resource);
+		}
 	}
 #elif PLATFORM_IOS
 	if (IsES2Platform(GMaxRHIShaderPlatform))
@@ -1322,7 +1410,7 @@ static void CheckVaryingLimit()
 
 static void CheckTextureCubeLodSupport()
 {
-#if PLATFORM_ANDROID
+#if PLATFORM_ANDROID && !PLATFORM_LUMINGL4
 	if (IsES2Platform(GMaxRHIShaderPlatform))
 	{
 		UE_LOG(LogRHI, Display, TEXT("Testing for shader compiler compatibility"));
@@ -1364,8 +1452,16 @@ static void CheckTextureCubeLodSupport()
 		}
 		const TArray<uint8>& Code = ShaderCode.GetReadAccess();
 
+		FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
+
 		// try to compile without any hacks
+		GOpenGLShaderHackLastCompileSuccess = false;
 		TRefCountPtr<FOpenGLPixelShader> PixelShader = (FOpenGLPixelShader*)(RHICreatePixelShader(Code).GetReference());
+
+		if (IsRunningRHIInSeparateThread())
+		{
+			RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread);
+		}
 
 		if (VerifyCompiledShader(PixelShader->Resource, TestFragmentProgram, false))
 		{
@@ -1381,7 +1477,13 @@ static void CheckTextureCubeLodSupport()
 		// second most number of devices fall into this hack category
 		// try to compile without using precision for texture samplers
 		// Samsung Galaxy Express	Samsung Galaxy S3	Samsung Galaxy S3 mini	Samsung Galaxy Tab GT-P1000	Samsung Galaxy Tab 2
+		GOpenGLShaderHackLastCompileSuccess = false;
 		PixelShader = (FOpenGLPixelShader*)(RHICreatePixelShader(Code).GetReference());
+
+		if (IsRunningRHIInSeparateThread())
+		{
+			RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread);
+		}
 
 		if (VerifyCompiledShader(PixelShader->Resource, TestFragmentProgram, false))
 		{
@@ -1396,7 +1498,13 @@ static void CheckTextureCubeLodSupport()
 		FOpenGL::bRequiresTextureCubeLodEXTToTextureCubeLodDefine = true;
 
 		// third most likely Samsung Galaxy Tab GT-P1000
+		GOpenGLShaderHackLastCompileSuccess = false;
 		PixelShader = (FOpenGLPixelShader*)(RHICreatePixelShader(Code).GetReference());
+
+		if (IsRunningRHIInSeparateThread())
+		{
+			RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread);
+		}
 
 		if (VerifyCompiledShader(PixelShader->Resource, TestFragmentProgram, false))
 		{
@@ -1410,7 +1518,13 @@ static void CheckTextureCubeLodSupport()
 		FOpenGL::bRequiresTextureCubeLodEXTToTextureCubeLodDefine = true;
 
 		// try both hacks
+		GOpenGLShaderHackLastCompileSuccess = false;
 		PixelShader = (FOpenGLPixelShader*)(RHICreatePixelShader(Code).GetReference());
+
+		if (IsRunningRHIInSeparateThread())
+		{
+			RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread);
+		}
 
 		if (VerifyCompiledShader(PixelShader->Resource, TestFragmentProgram, false))
 		{
@@ -1428,7 +1542,7 @@ static void CheckTextureCubeLodSupport()
 
 static void CheckRoundFunction()
 {
-#if PLATFORM_ANDROID
+#if PLATFORM_ANDROID && !PLATFORM_LUMINGL4
 	FOpenGL::bRequiresRoundFunctionHack = false;
 	if (IsES2Platform(GMaxRHIShaderPlatform))
 	{
@@ -1457,7 +1571,15 @@ static void CheckRoundFunction()
 		}
 
 		// Try to compile test shaders
+		GOpenGLShaderHackLastCompileSuccess = false;
 		TRefCountPtr<FOpenGLVertexShader> VertexShader = (FOpenGLVertexShader*)(RHICreateVertexShader(VertexShaderCode.GetReadAccess()).GetReference());
+
+		if (IsRunningRHIInSeparateThread())
+		{
+			FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
+			RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread);
+		}
+
 		if (!VerifyCompiledShader(VertexShader->Resource, TestVertexProgram, false))
 		{
 			UE_LOG(LogRHI, Warning, TEXT("Using the round() function hack, because the vertex shader for round function test failed to compile."));
@@ -1488,9 +1610,12 @@ void FOpenGLDynamicRHI::Init()
 	FSamplerStateInitializerRHI PointSamplerStateParams(SF_Point,AM_Clamp,AM_Clamp,AM_Clamp);
 	PointSamplerState = this->RHICreateSamplerState(PointSamplerStateParams);
 
-	// Allocate vertex and index buffers for DrawPrimitiveUP calls.
-	DynamicVertexBuffers.Init(CalcDynamicBufferSize(1));
-	DynamicIndexBuffers.Init(CalcDynamicBufferSize(1));
+	if (FOpenGL::SupportsFastBufferData())
+	{
+		// Allocate vertex and index buffers for DrawPrimitiveUP calls.
+		DynamicVertexBuffers.Init(CalcDynamicBufferSize(1));
+		DynamicIndexBuffers.Init(CalcDynamicBufferSize(1));
+	}
 
 	// Notify all initialized FRenderResources that there's a valid RHI device to create their RHI resources for now.
 	for(TLinkedList<FRenderResource*>::TIterator ResourceIt(FRenderResource::GetResourceList());ResourceIt;ResourceIt.Next())
@@ -1528,6 +1653,15 @@ void FOpenGLDynamicRHI::Init()
 		}
 	}
 
+#else
+
+	static const auto CVarStreamingTexturePoolSize = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Streaming.PoolSize"));
+	GTexturePoolSize = (int64)CVarStreamingTexturePoolSize->GetValueOnAnyThread() * 1024 * 1024;
+
+	UE_LOG(LogRHI,Log,TEXT("Texture pool is %llu MB (of %llu MB total graphics mem)"),
+			GTexturePoolSize / 1024 / 1024,
+			FOpenGL::GetVideoMemorySize());
+
 #endif
 
 	// Flush here since we might be switching to a different context/thread for rendering
@@ -1541,6 +1675,14 @@ void FOpenGLDynamicRHI::Init()
 	CheckTextureCubeLodSupport();
 	CheckVaryingLimit();
 	CheckRoundFunction();
+}
+
+void FOpenGLDynamicRHI::PostInit()
+{
+	if (GRHISupportsRHIThread)
+	{
+		SetupRecursiveResources();
+	}
 }
 
 void FOpenGLDynamicRHI::Shutdown()
@@ -1601,6 +1743,7 @@ void FOpenGLDynamicRHI::Cleanup()
 	PendingState.BoundShaderState.SafeRelease();
 	check(!IsValidRef(PendingState.BoundShaderState));
 
+	VERIFY_GL_SCOPE();
 	PendingState.CleanupResources();
 	SharedContextState.CleanupResources();
 	RenderingContextState.CleanupResources();
@@ -1667,7 +1810,7 @@ void FOpenGLDynamicRHI::RHIFlushComputeShaderCache()
 
 void* FOpenGLDynamicRHI::RHIGetNativeDevice()
 {
-	return nullptr;
+	return PlatformDevice;
 }
 
 void FOpenGLDynamicRHI::InvalidateQueries( void )
@@ -1680,15 +1823,11 @@ void FOpenGLDynamicRHI::InvalidateQueries( void )
 			Queries[Index]->bInvalidResource = true;
 		}
 	}
+}
 
-	{
-		FScopeLock Lock(&TimerQueriesListCriticalSection);
-
-		for( int32 Index = 0; Index < TimerQueries.Num(); ++Index )
-		{
-			TimerQueries[Index]->bInvalidResource = true;
-		}
-	}
+void* FOpenGLDynamicRHI::GetOpenGLCurrentContextHandle()
+{
+	return PlatformOpenGLCurrentContextHandle(PlatformDevice);
 }
 
 void FOpenGLDynamicRHI::SetCustomPresent(FRHICustomPresent* InCustomPresent)

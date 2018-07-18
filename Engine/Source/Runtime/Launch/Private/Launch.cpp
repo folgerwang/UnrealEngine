@@ -17,13 +17,13 @@
 	#include "UnrealEdGlobals.h"
 #endif
 #if PLATFORM_WINDOWS
-	#include "WindowsHWrapper.h"
+	#include "Windows/WindowsHWrapper.h"
 #endif
 
 
 IMPLEMENT_MODULE(FDefaultModuleImpl, Launch);
 
-#if PLATFORM_WINDOWS || PLATFORM_MAC || PLATFORM_LINUX
+#if PLATFORM_WINDOWS || PLATFORM_MAC || PLATFORM_UNIX
 
 FEngineLoop	GEngineLoop;
 bool GIsConsoleExecutable = false;

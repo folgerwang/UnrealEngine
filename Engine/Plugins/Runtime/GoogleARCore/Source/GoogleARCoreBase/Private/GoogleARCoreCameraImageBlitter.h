@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "CoreDelegates.h"
+#include "Misc/CoreDelegates.h"
 #include "Engine/EngineBaseTypes.h"
 #include "Engine/Texture.h"
 #include "HAL/ThreadSafeBool.h"

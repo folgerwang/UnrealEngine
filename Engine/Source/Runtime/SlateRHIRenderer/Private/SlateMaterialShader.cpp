@@ -37,8 +37,7 @@ void FSlateMaterialShaderVS::SetMaterialShaderParameters(FRHICommandList& RHICmd
 {
 	const FVertexShaderRHIParamRef ShaderRHI = GetVertexShader();
 
-	const bool bDeferredPass = false;
-	FMaterialShader::SetParameters<FVertexShaderRHIParamRef>(RHICmdList, ShaderRHI, MaterialRenderProxy, *Material, View, View.ViewUniformBuffer, bDeferredPass, ESceneRenderTargetsMode::DontSet);
+	FMaterialShader::SetParameters<FVertexShaderRHIParamRef>(RHICmdList, ShaderRHI, MaterialRenderProxy, *Material, View, View.ViewUniformBuffer, ESceneTextureSetupMode::None);
 }
 
 void FSlateMaterialShaderVS::SetVerticalAxisMultiplier(FRHICommandList& RHICmdList, float InMultiplier )
@@ -77,7 +76,7 @@ FSlateMaterialShaderPS::FSlateMaterialShaderPS(const FMaterialShaderType::Compil
 	: FMaterialShader(Initializer)
 {
 	ShaderParams.Bind(Initializer.ParameterMap, TEXT("ShaderParams"));
-	GammaValues.Bind(Initializer.ParameterMap, TEXT("GammaValues"));
+	GammaAndAlphaValues.Bind(Initializer.ParameterMap, TEXT("GammaAndAlphaValues"));
 	AdditionalTextureParameter.Bind(Initializer.ParameterMap, TEXT("ElementTexture"));
 	TextureParameterSampler.Bind(Initializer.ParameterMap, TEXT("ElementTextureSampler"));
 }
@@ -119,8 +118,7 @@ void FSlateMaterialShaderPS::SetParameters(FRHICommandList& RHICmdList, const FS
 
 	SetShaderValue( RHICmdList, ShaderRHI, ShaderParams, InShaderParams );
 
-	const bool bDeferredPass = false;
-	FMaterialShader::SetParameters<FPixelShaderRHIParamRef>(RHICmdList, ShaderRHI, MaterialRenderProxy, *Material, View, View.ViewUniformBuffer, bDeferredPass, ESceneRenderTargetsMode::SetTextures);
+	FMaterialShader::SetParameters<FPixelShaderRHIParamRef>(RHICmdList, ShaderRHI, MaterialRenderProxy, *Material, View, View.ViewUniformBuffer, ESceneTextureSetupMode::None);
 }
 
 void FSlateMaterialShaderPS::SetAdditionalTexture( FRHICommandList& RHICmdList, const FTextureRHIParamRef InTexture, const FSamplerStateRHIRef SamplerState )
@@ -130,15 +128,15 @@ void FSlateMaterialShaderPS::SetAdditionalTexture( FRHICommandList& RHICmdList, 
 
 void FSlateMaterialShaderPS::SetDisplayGamma(FRHICommandList& RHICmdList, float InDisplayGamma)
 {
-	FVector2D InGammaValues(2.2f / InDisplayGamma, 1.0f/InDisplayGamma);
+	FVector4 InGammaValues(2.2f / InDisplayGamma, 1.0f/InDisplayGamma, 0.0f, 0.0f);
 
-	SetShaderValue(RHICmdList, GetPixelShader(), GammaValues, InGammaValues);
+	SetShaderValue(RHICmdList, GetPixelShader(), GammaAndAlphaValues, InGammaValues);
 }
 
 bool FSlateMaterialShaderPS::Serialize(FArchive& Ar)
 {
 	bool bShaderHasOutdatedParameters = FMaterialShader::Serialize(Ar);
-	Ar << GammaValues;
+	Ar << GammaAndAlphaValues;
 	Ar << ShaderParams;
 	Ar << TextureParameterSampler;
 	Ar << AdditionalTextureParameter;

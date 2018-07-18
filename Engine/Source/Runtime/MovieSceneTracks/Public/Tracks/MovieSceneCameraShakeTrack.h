@@ -22,7 +22,7 @@ class UMovieSceneCameraShakeTrack : public UMovieSceneNameableTrack
 	GENERATED_BODY()
 
 public:
-	virtual void AddNewCameraShake(float KeyTime, TSubclassOf<UCameraShake> ShakeClass);
+	virtual UMovieSceneSection* AddNewCameraShake(FFrameNumber KeyTime, TSubclassOf<UCameraShake> ShakeClass);
 	
 public:
 
@@ -31,7 +31,6 @@ public:
 	virtual void AddSection(UMovieSceneSection& Section) override;
 	virtual void RemoveSection(UMovieSceneSection& Section) override;
 	virtual bool IsEmpty() const override;
-	virtual TRange<float> GetSectionBoundaries() const override;
 	virtual bool SupportsMultipleRows() const override { return true; }
 	virtual const TArray<UMovieSceneSection*>& GetAllSections() const override;
 	virtual UMovieSceneSection* CreateNewSection() override;

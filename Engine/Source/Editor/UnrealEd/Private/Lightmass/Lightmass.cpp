@@ -24,6 +24,7 @@
 #include "Camera/CameraActor.h"
 #include "Components/PointLightComponent.h"
 #include "Components/SpotLightComponent.h"
+#include "Components/RectLightComponent.h"
 #include "Engine/GeneratedMeshAreaLight.h"
 #include "Components/DirectionalLightComponent.h"
 #include "Components/SkyLightComponent.h"
@@ -51,7 +52,7 @@
 #include "UnrealEngine.h"
 #include "ComponentRecreateRenderStateContext.h"
 #include "EditorLevelUtils.h"
-#include "MessageDialog.h"
+#include "Misc/MessageDialog.h"
 
 extern FSwarmDebugOptions GSwarmDebugOptions;
 
@@ -192,8 +193,11 @@ void Copy( const ULightComponent* In, Lightmass::FLightData& Out )
 {	
 	Copy((const ULightComponentBase*)In, Out);
 
+	const ULocalLightComponent* LocalLight = Cast<const ULocalLightComponent>(In);
 	const UPointLightComponent* PointLight = Cast<const UPointLightComponent>(In);
-	if( PointLight && PointLight->bUseInverseSquaredFalloff )
+
+	if( ( LocalLight && LocalLight->GetLightType() == LightType_Rect ) ||
+		( PointLight && PointLight->bUseInverseSquaredFalloff ) )
 	{
 		Out.LightFlags |= Lightmass::GI_LIGHT_INVERSE_SQUARED;
 	}
@@ -595,7 +599,7 @@ void FLightmassExporter::WriteToChannel( FLightmassStatistics& Stats, FGuid& Deb
 			AddMaterial(UMaterial::GetDefaultMaterial(MD_Surface));
 
 			TotalProgress = 
-				DirectionalLights.Num() + PointLights.Num() + SpotLights.Num() + SkyLights.Num() + 
+				DirectionalLights.Num() + PointLights.Num() + SpotLights.Num() + RectLights.Num() + SkyLights.Num() + 
 				StaticMeshes.Num() + StaticMeshLightingMeshes.Num() + StaticMeshTextureMappings.Num() + 
 				BSPSurfaceMappings.Num() + VolumeMappings.Num() + Materials.Num() + 
 				+ LandscapeLightingMeshes.Num() + LandscapeTextureMappings.Num();
@@ -627,6 +631,7 @@ void FLightmassExporter::WriteToChannel( FLightmassStatistics& Stats, FGuid& Deb
 			Scene.NumDirectionalLights = DirectionalLights.Num();
 			Scene.NumPointLights = PointLights.Num();
 			Scene.NumSpotLights = SpotLights.Num();
+			Scene.NumRectLights = RectLights.Num();
 			Scene.NumSkyLights = SkyLights.Num();
 			Scene.NumStaticMeshes = StaticMeshes.Num();
 			Scene.NumStaticMeshInstances = StaticMeshLightingMeshes.Num();
@@ -1058,7 +1063,7 @@ void FLightmassExporter::WriteLights( int32 Channel )
 		LightData.IndirectLightingSaturation = Light->LightmassSettings.IndirectLightingSaturation;
 		LightData.ShadowExponent = Light->LightmassSettings.ShadowExponent;
 		LightData.ShadowResolutionScale = Light->ShadowResolutionScale;
-		LightData.LightSourceRadius = Light->SourceRadius;
+		LightData.LightSourceRadius = FMath::Max( 1.0f, Light->SourceRadius );
 		LightData.LightSourceLength = Light->SourceLength;
 
 		TArray< uint8 > LightProfileTextureData;
@@ -1084,7 +1089,7 @@ void FLightmassExporter::WriteLights( int32 Channel )
 		LightData.IndirectLightingSaturation = Light->LightmassSettings.IndirectLightingSaturation;
 		LightData.ShadowExponent = Light->LightmassSettings.ShadowExponent;
 		LightData.ShadowResolutionScale = Light->ShadowResolutionScale;
-		LightData.LightSourceRadius = Light->SourceRadius;
+		LightData.LightSourceRadius = FMath::Max( 1.0f, Light->SourceRadius );
 		LightData.LightSourceLength = Light->SourceLength;
 
 		TArray< uint8 > LightProfileTextureData;
@@ -1099,6 +1104,31 @@ void FLightmassExporter::WriteLights( int32 Channel )
 		Swarm.WriteChannel( Channel, LightProfileTextureData.GetData(), LightProfileTextureData.Num() * LightProfileTextureData.GetTypeSize() );
 		Swarm.WriteChannel( Channel, &PointData, sizeof(PointData) );
 		Swarm.WriteChannel( Channel, &SpotData, sizeof(SpotData) );
+		UpdateExportProgress();
+	}
+
+	// Export rect lights.
+	for ( int32 LightIndex = 0; LightIndex < RectLights.Num(); ++LightIndex )
+	{
+		const URectLightComponent* Light = RectLights[LightIndex];
+		Lightmass::FLightData LightData;
+		Lightmass::FPointLightData PointData;
+		Copy( Light, LightData );
+		LightData.IndirectLightingSaturation = Light->LightmassSettings.IndirectLightingSaturation;
+		LightData.ShadowExponent = Light->LightmassSettings.ShadowExponent;
+		LightData.ShadowResolutionScale = Light->ShadowResolutionScale;
+		LightData.LightSourceRadius = 0.5f * Light->SourceWidth;
+		LightData.LightSourceLength = 0.5f * Light->SourceHeight;
+
+		TArray< uint8 > LightProfileTextureData;
+		CopyLightProfile( Light, LightData, LightProfileTextureData );
+
+		PointData.Radius = Light->AttenuationRadius;
+		PointData.FalloffExponent = 0.0f;
+		PointData.LightTangent = Light->GetComponentTransform().GetUnitAxis(EAxis::Z);
+		Swarm.WriteChannel( Channel, &LightData, sizeof(LightData) );
+		Swarm.WriteChannel( Channel, LightProfileTextureData.GetData(), LightProfileTextureData.Num() * LightProfileTextureData.GetTypeSize() );
+		Swarm.WriteChannel( Channel, &PointData, sizeof(PointData) );
 		UpdateExportProgress();
 	}
 
@@ -2489,6 +2519,7 @@ void FLightmassExporter::AddLight(ULightComponentBase* Light)
 	UDirectionalLightComponent* DirectionalLight = Cast<UDirectionalLightComponent>(Light);
 	UPointLightComponent* PointLight = Cast<UPointLightComponent>(Light);
 	USpotLightComponent* SpotLight = Cast<USpotLightComponent>(Light);
+	URectLightComponent* RectLight = Cast<URectLightComponent>(Light);
 	USkyLightComponent* SkyLight = Cast<USkyLightComponent>(Light);
 
 	if( DirectionalLight )
@@ -2502,6 +2533,10 @@ void FLightmassExporter::AddLight(ULightComponentBase* Light)
 	else if( PointLight )
 	{
 		PointLights.AddUnique(PointLight);
+	}
+	else if( RectLight )
+	{
+		RectLights.AddUnique(RectLight);
 	}
 	else if( SkyLight )
 	{
@@ -2778,7 +2813,8 @@ bool FLightmassProcessor::BeginRun()
 		TEXT("../Win32/UnrealLightmass-Core.dll"),
 		TEXT("../Win32/UnrealLightmass-CoreUObject.dll"),
 		TEXT("../Win32/UnrealLightmass-Projects.dll"),
-		TEXT("../Win32/UnrealLightmass-Json.dll")
+		TEXT("../Win32/UnrealLightmass-Json.dll"),
+		TEXT("../Win32/UnrealLightmass-BuildSettings.dll")
 	};
 	const int32 RequiredDependencyPaths32Count = ARRAY_COUNT(RequiredDependencyPaths32);
 
@@ -2795,6 +2831,7 @@ bool FLightmassProcessor::BeginRun()
 		TEXT("../Win64/UnrealLightmass-CoreUObject.dll"),
 		TEXT("../Win64/UnrealLightmass-Projects.dll"),
 		TEXT("../Win64/UnrealLightmass-Json.dll"),
+		TEXT("../Win64/UnrealLightmass-BuildSettings.dll"),
 		TEXT("../Win64/embree.dll"),
 		TEXT("../Win64/tbb.dll"),
 		TEXT("../Win64/tbbmalloc.dll")
@@ -2809,7 +2846,8 @@ bool FLightmassProcessor::BeginRun()
 		TEXT("../Mac/UnrealLightmass-CoreUObject.dylib"),
 		TEXT("../Mac/UnrealLightmass-Json.dylib"),
 		TEXT("../Mac/UnrealLightmass-Projects.dylib"),
-		TEXT("../Mac/UnrealLightmass-SwarmInterface.dylib")
+		TEXT("../Mac/UnrealLightmass-SwarmInterface.dylib"),
+		TEXT("../Mac/UnrealLightmass-BuildSettings.dylib"),
 		TEXT("../Mac/libembree.2.dylib"),
 		TEXT("../Mac/libtbb.dylib"),
 		TEXT("../Mac/libtbbmalloc.dylib")
@@ -2827,6 +2865,7 @@ bool FLightmassProcessor::BeginRun()
 		TEXT("../Linux/libUnrealLightmass-SwarmInterface.so"),
 		TEXT("../Linux/libUnrealLightmass-Networking.so"),
 		TEXT("../Linux/libUnrealLightmass-Messaging.so"),
+		TEXT("../Linux/libUnrealLightmass-BuildSettings.so"),
 		TEXT("../../Plugins/Messaging/UdpMessaging/Binaries/Linux/libUnrealLightmass-UdpMessaging.so")
 	};
 #else // PLATFORM_LINUX
@@ -3043,6 +3082,12 @@ bool FLightmassProcessor::BeginRun()
 			for (int32 LightIndex = 0; LightIndex < Exporter->PointLights.Num(); LightIndex++)
 			{
 				const ULightComponent* Light = Exporter->PointLights[LightIndex];
+				IssueStaticShadowDepthMapTask(Light, 10000);
+			}
+
+			for (int32 LightIndex = 0; LightIndex < Exporter->RectLights.Num(); LightIndex++)
+			{
+				const ULightComponent* Light = Exporter->RectLights[LightIndex];
 				IssueStaticShadowDepthMapTask(Light, 10000);
 			}
 		}
@@ -3315,7 +3360,7 @@ void FLightmassProcessor::ImportVolumeSamples()
 			FVector4 UnusedVolumeExtent;
 			Swarm.ReadChannel(Channel, &UnusedVolumeExtent, sizeof(UnusedVolumeExtent));
 
-			int32 NumStreamLevels = System.GetWorld()->StreamingLevels.Num();
+			int32 NumStreamLevels = System.GetWorld()->GetStreamingLevels().Num();
 			int32 NumVolumeSampleArrays;
 			Swarm.ReadChannel(Channel, &NumVolumeSampleArrays, sizeof(NumVolumeSampleArrays));
 			for (int32 ArrayIndex = 0; ArrayIndex < NumVolumeSampleArrays; ArrayIndex++)
@@ -4242,6 +4287,17 @@ ULightComponent* FLightmassProcessor::FindLight(const FGuid& LightGuid)
 		for (LightIndex = 0; LightIndex < Exporter->SpotLights.Num(); LightIndex++)
 		{
 			const USpotLightComponent* Light = Exporter->SpotLights[LightIndex];
+			if (Light)
+			{
+				if (Light->LightGuid == LightGuid)
+				{
+					return (ULightComponent*)Light;
+				}
+			}
+		}
+		for (LightIndex = 0; LightIndex < Exporter->RectLights.Num(); LightIndex++)
+		{
+			const URectLightComponent* Light = Exporter->RectLights[LightIndex];
 			if (Light)
 			{
 				if (Light->LightGuid == LightGuid)

@@ -6,7 +6,7 @@
 #include "Stats/StatsData.h"
 #include "Modules/ModuleInterface.h"
 #include "Modules/ModuleManager.h"
-#include "UnrealString.h"
+#include "Containers/UnrealString.h"
 /**
  * 
  */
@@ -38,10 +38,13 @@ private:
 	float TestTimeOut;
 	float TimeOfLastRecord;
 	float TimeBetweenRecords;
+	int32 NumOfCapturedFrames;
+	int32 NumOfFramesToCapture;
 	FString MapToTest;
 	bool bHasWarnedAboutTime;
 	bool bExitOnCompletion;
 	bool bRequiresCutsceneStart;
+	bool bCvsToolsMode;
 protected:
 public:
 
@@ -93,6 +96,7 @@ public:
 
 	void RecordFrame();
 	void GetStatsBreakdown();
+	void RecordDataInCvsToolsMode();
 	void RecordData();	
 
 	float GetAverageOfArray(TArray<float>ArrayToAvg, FString StatName);

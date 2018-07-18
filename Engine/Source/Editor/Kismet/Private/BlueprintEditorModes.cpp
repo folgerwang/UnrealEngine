@@ -14,11 +14,12 @@
 // Debugging
 // End of debugging
 
-#include "LayoutExtender.h"
+#include "Framework/Docking/LayoutExtender.h"
 #include "SBlueprintEditorToolbar.h"
 #include "BlueprintEditorTabs.h"
 #include "BlueprintEditorTabFactories.h"
 #include "BlueprintEditorSharedTabFactories.h"
+#include "BlueprintEditorSettings.h"
 
 #define LOCTEXT_NAMESPACE "BlueprintEditor"
 
@@ -61,6 +62,7 @@ TSharedPtr<FTabManager::FLayout> GetDefaltEditorLayout(TSharedPtr<class FBluepri
 					->SetSizeCoefficient( 0.20f )
 					->AddTab( FBlueprintEditorTabs::CompilerResultsID, ETabState::ClosedTab )
 					->AddTab( FBlueprintEditorTabs::FindResultsID, ETabState::ClosedTab )
+					->AddTab( FBlueprintEditorTabs::BookmarksID, ETabState::ClosedTab )
 				)
 			)
 			->Split
@@ -99,6 +101,7 @@ FBlueprintEditorApplicationMode::FBlueprintEditorApplicationMode(TSharedPtr<clas
 	}
 	BlueprintEditorTabFactories.RegisterFactory(MakeShareable(new FCompilerResultsSummoner(InBlueprintEditor)));
 	BlueprintEditorTabFactories.RegisterFactory(MakeShareable(new FFindResultsSummoner(InBlueprintEditor)));
+	BlueprintEditorTabFactories.RegisterFactory(MakeShareable(new FBookmarksSummoner(InBlueprintEditor)));
 	
 	if( bRegisterViewport )
 	{
@@ -169,6 +172,7 @@ FBlueprintDefaultsApplicationMode::FBlueprintDefaultsApplicationMode(TSharedPtr<
 	
 	BlueprintDefaultsTabFactories.RegisterFactory(MakeShareable(new FDefaultsEditorSummoner(InBlueprintEditor)));
 	BlueprintDefaultsTabFactories.RegisterFactory(MakeShareable(new FFindResultsSummoner(InBlueprintEditor)));
+	BlueprintDefaultsTabFactories.RegisterFactory(MakeShareable(new FMyBlueprintSummoner(InBlueprintEditor)));
 
 	TabLayout = FTabManager::NewLayout( "Standalone_BlueprintDefaults_Layout_v6" )
 		->AddArea
@@ -355,6 +359,7 @@ FBlueprintInterfaceApplicationMode::FBlueprintInterfaceApplicationMode(TSharedPt
 		BlueprintInterfaceTabFactories.RegisterFactory(MakeShareable(new FReplaceNodeReferencesSummoner(InBlueprintEditor)));
 	}
 	BlueprintInterfaceTabFactories.RegisterFactory(MakeShareable(new FCompilerResultsSummoner(InBlueprintEditor)));
+	BlueprintInterfaceTabFactories.RegisterFactory(MakeShareable(new FBookmarksSummoner(InBlueprintEditor)));
 	BlueprintInterfaceTabFactories.RegisterFactory(MakeShareable(new FFindResultsSummoner(InBlueprintEditor)));
 	BlueprintInterfaceTabFactories.RegisterFactory(MakeShareable(new FSelectionDetailsSummoner(InBlueprintEditor)));
 
@@ -388,6 +393,7 @@ FBlueprintInterfaceApplicationMode::FBlueprintInterfaceApplicationMode(TSharedPt
 						->SetSizeCoefficient( 0.20f )
 						->AddTab( FBlueprintEditorTabs::CompilerResultsID, ETabState::ClosedTab )
 						->AddTab( FBlueprintEditorTabs::FindResultsID, ETabState::ClosedTab )
+						->AddTab( FBlueprintEditorTabs::BookmarksID, ETabState::ClosedTab )
 					)
 				)
 				->Split
@@ -459,6 +465,7 @@ FBlueprintMacroApplicationMode::FBlueprintMacroApplicationMode(TSharedPtr<class 
 		BlueprintMacroTabFactories.RegisterFactory(MakeShareable(new FReplaceNodeReferencesSummoner(InBlueprintEditor)));
 	}
 	BlueprintMacroTabFactories.RegisterFactory(MakeShareable(new FPaletteSummoner(InBlueprintEditor)));
+	BlueprintMacroTabFactories.RegisterFactory(MakeShareable(new FBookmarksSummoner(InBlueprintEditor)));
 	BlueprintMacroTabFactories.RegisterFactory(MakeShareable(new FFindResultsSummoner(InBlueprintEditor)));
 	BlueprintMacroTabFactories.RegisterFactory(MakeShareable(new FSelectionDetailsSummoner(InBlueprintEditor)));
 
@@ -491,6 +498,7 @@ FBlueprintMacroApplicationMode::FBlueprintMacroApplicationMode(TSharedPtr<class 
 						FTabManager::NewStack()
 						->SetSizeCoefficient( 0.20f )
 						->AddTab( FBlueprintEditorTabs::FindResultsID, ETabState::ClosedTab )
+						->AddTab( FBlueprintEditorTabs::BookmarksID, ETabState::ClosedTab )
 					)
 				)
 				->Split
@@ -566,6 +574,7 @@ FBlueprintEditorUnifiedMode::FBlueprintEditorUnifiedMode(TSharedPtr<class FBluep
 	}
 	BlueprintEditorTabFactories.RegisterFactory(MakeShareable(new FCompilerResultsSummoner(InBlueprintEditor)));
 	BlueprintEditorTabFactories.RegisterFactory(MakeShareable(new FFindResultsSummoner(InBlueprintEditor)));
+	BlueprintEditorTabFactories.RegisterFactory(MakeShareable(new FBookmarksSummoner(InBlueprintEditor)));
 	
 	if( bRegisterViewport )
 	{
@@ -625,6 +634,7 @@ FBlueprintEditorUnifiedMode::FBlueprintEditorUnifiedMode(TSharedPtr<class FBluep
 						->SetSizeCoefficient( 0.20f )
 						->AddTab( FBlueprintEditorTabs::CompilerResultsID, ETabState::ClosedTab )
 						->AddTab( FBlueprintEditorTabs::FindResultsID, ETabState::ClosedTab )
+						->AddTab( FBlueprintEditorTabs::BookmarksID, ETabState::ClosedTab )
 					)
 				)
 				->Split
@@ -685,6 +695,7 @@ FBlueprintEditorUnifiedMode::FBlueprintEditorUnifiedMode(TSharedPtr<class FBluep
 						->SetSizeCoefficient( 0.20f )
 						->AddTab( FBlueprintEditorTabs::CompilerResultsID, ETabState::ClosedTab )
 						->AddTab( FBlueprintEditorTabs::FindResultsID, ETabState::ClosedTab )
+						->AddTab( FBlueprintEditorTabs::BookmarksID, ETabState::ClosedTab )
 					)
 				)
 				->Split

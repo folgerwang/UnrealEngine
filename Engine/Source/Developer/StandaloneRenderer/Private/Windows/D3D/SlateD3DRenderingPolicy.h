@@ -18,7 +18,7 @@ public:
 	~FSlateD3D11RenderingPolicy();
 
 	void UpdateVertexAndIndexBuffers( FSlateBatchData& InBatchData );
-	void DrawElements( const FMatrix& ViewProjectionMatrix, const TArray<FSlateRenderBatch>& RenderBatches, const TArray<FSlateClippingState> RenderClipStates );
+	void DrawElements( const FMatrix& ViewProjectionMatrix, const TArray<FSlateRenderBatch>& RenderBatches );
 
 	virtual TSharedRef<FSlateShaderResourceManager> GetResourceManager() const override;
 	virtual bool IsVertexColorInLinearSpace() const override { return false; }

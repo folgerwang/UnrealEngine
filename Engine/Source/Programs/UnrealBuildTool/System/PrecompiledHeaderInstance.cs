@@ -50,7 +50,7 @@ namespace UnrealBuildTool
 		/// <returns>String representation of the object</returns>
 		public override string ToString()
 		{
-			return String.Format("{0} (Optimized={1}, RTTI={2})", HeaderFile.Reference.GetFileName(), bOptimizeCode, bUseRTTI);
+			return String.Format("{0} (Optimized={1}, RTTI={2})", HeaderFile.Location.GetFileName(), bOptimizeCode, bUseRTTI);
 		}
 	}
 }

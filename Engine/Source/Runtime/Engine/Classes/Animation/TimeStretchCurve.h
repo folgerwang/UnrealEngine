@@ -30,12 +30,18 @@ struct FTimeStretchCurveMarker
 
 	FTimeStretchCurveMarker()
 		: Alpha(0.f)
-	{}
+	{
+		Time[(uint8)ETimeStretchCurveMapping::T_Original] = 0.0f;
+		Time[(uint8)ETimeStretchCurveMapping::T_TargetMin] = 0.0f;
+		Time[(uint8)ETimeStretchCurveMapping::T_TargetMax] = 0.0f;
+	}
 
 	FTimeStretchCurveMarker(float InT_Original, float InAlpha)
 		: Alpha(InAlpha)
 	{
 		Time[(uint8)ETimeStretchCurveMapping::T_Original] = InT_Original;
+		Time[(uint8)ETimeStretchCurveMapping::T_TargetMin] = 0.0f;
+		Time[(uint8)ETimeStretchCurveMapping::T_TargetMax] = 0.0f;
 	}
 }; 
 
@@ -197,7 +203,11 @@ public:
 	FTimeStretchCurve()
 		: SamplingRate(60.f)
 		, CurveValueMinPrecision(0.01f)
-	{}
+	{
+		Sum_dT_i_by_C_i[(uint8)ETimeStretchCurveMapping::T_Original] = 0.0f;
+		Sum_dT_i_by_C_i[(uint8)ETimeStretchCurveMapping::T_TargetMin] = 0.0f;
+		Sum_dT_i_by_C_i[(uint8)ETimeStretchCurveMapping::T_TargetMax] = 0.0f;
+	}
 
 	bool IsValid() const;
 	void Reset();
@@ -236,6 +246,7 @@ struct ENGINE_API FTimeStretchCurveInstance
 
 public:
 	FTimeStretchCurveInstance()
+		: bHasValidData(false)
 	{}
 
 	void InitializeFromPlayRate(float InPlayRate, const FTimeStretchCurve& TimeStretchCurve);

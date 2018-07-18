@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2691859
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:配列制御
 Crumbs: %ROOT%, Engine, Engine/UI, Engine/UI/LevelEditor, Engine/UI/LevelEditor/Details
@@ -19,7 +19,7 @@ Version:4.9
 
 ![Array with no elements](array_empty.png)
 
-配列の各要素は ![Element Options](button_array_element_options.png) ボタンを押すと表示されるいくつかのオプションのいずれすることができます。
+配列の各要素は ![Element Options](button_array_element_options.png) ボタンを押すと表示されるいくつかのオプションのいずれかを実行することができます。
 
 ![Element Options Menu](array_element_options_menu.png)
 
@@ -27,7 +27,7 @@ Version:4.9
 | ------ | ----------- |
 | **Insert** | 現在の要素の前に新規要素を配列に挿入します。 [INCLUDE:#ArrayInsert] |
 | **Delete** | 現在の要素を削除します。 [INCLUDE:#ArrayDelete] |
-| **Duplicate** | 現在の要素の後に新規の要素を配列に挿入します。 [INCLUDE:#ArrayDuplicate] |
+| **Duplicate** | 現在の要素の後に現在の要素のコピーを配列に挿入します。 [INCLUDE:#ArrayDuplicate] |
 
 [COMMENT:none]
 

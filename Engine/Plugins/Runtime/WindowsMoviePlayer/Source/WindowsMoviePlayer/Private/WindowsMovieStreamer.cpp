@@ -2,7 +2,7 @@
 
 #include "WindowsMovieStreamer.h"
 
-#include "RenderingCommon.h"
+#include "Rendering/RenderingCommon.h"
 #include "Slate/SlateTextures.h"
 #include "MoviePlayer.h"
 #include "RenderUtils.h"
@@ -14,7 +14,7 @@
 #pragma comment(lib, "mfplay")
 #pragma comment(lib, "mfuuid")
 
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 
 #include <windows.h>
 #include <shlwapi.h>
@@ -39,6 +39,8 @@ FMediaFoundationMovieStreamer::~FMediaFoundationMovieStreamer()
 	CloseMovie();
 	CleanupRenderingResources();
 
+	FlushRenderingCommands();
+
 	TextureFreeList.Empty();
 }
 
@@ -52,6 +54,8 @@ bool FMediaFoundationMovieStreamer::Init(const TArray<FString>& MoviePaths, TEnu
 	MovieIndex = 0;
 	PlaybackType = inPlaybackType;
 	StoredMoviePaths = MoviePaths;
+
+	MovieViewport->SetTexture(nullptr);
 
 	OpenNextMovie();
 
@@ -80,6 +84,11 @@ bool FMediaFoundationMovieStreamer::Tick(float DeltaTime)
 		FMemory::Memcpy( DestTextureData, TextureData.GetData(), TextureData.Num() );
 		RHIUnlockTexture2D( CurrentTexture->GetTypedResource(), 0, false );
 
+		if (MovieViewport->GetViewportRenderTargetTexture() == nullptr)
+		{
+			MovieViewport->SetTexture(Texture);
+		}
+
 		SampleGrabberCallback->SetNeedNewSample();
 	}
 
@@ -89,12 +98,18 @@ bool FMediaFoundationMovieStreamer::Tick(float DeltaTime)
 		if ((MovieIndex + 1) < StoredMoviePaths.Num())
 		{
 			++MovieIndex;
-			OpenNextMovie();
+			if (OpenNextMovie())
+			{
+				MovieViewport->SetTexture(Texture);
+			}
 		}
 		else if (PlaybackType != MT_Normal)
 		{
 			MovieIndex = PlaybackType == MT_LoadingLoop ? StoredMoviePaths.Num() - 1 : 0;
-			OpenNextMovie();
+			if (OpenNextMovie())
+			{
+				MovieViewport->SetTexture(Texture);
+			}
 		}
 		else
 		{
@@ -121,7 +136,7 @@ void FMediaFoundationMovieStreamer::Cleanup()
 	CleanupRenderingResources();
 }
 
-void FMediaFoundationMovieStreamer::OpenNextMovie()
+bool FMediaFoundationMovieStreamer::OpenNextMovie()
 {
 	check(StoredMoviePaths.Num() > 0 && MovieIndex < StoredMoviePaths.Num());
 	FString MoviePath = FPaths::ProjectContentDir() + TEXT("Movies/") + StoredMoviePaths[MovieIndex];
@@ -162,8 +177,12 @@ void FMediaFoundationMovieStreamer::OpenNextMovie()
 			});
 		}
 
-		MovieViewport->SetTexture(Texture);
 		VideoPlayer->StartPlayback();
+		return true;
+	}
+	else
+	{
+		return false;
 	}
 }
 
@@ -572,5 +591,5 @@ void FSampleGrabberCallback::SetNeedNewSample()
 }
 
 
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 

@@ -238,6 +238,7 @@ struct SDL_VideoDevice
 /* EG BEGIN */
 #ifdef SDL_WITH_EPIC_EXTENSIONS
     int (*SetKeyboardGrab) (_THIS, SDL_Window * window, SDL_bool enable);
+    SDL_bool (*ConfineCursor)(_THIS, SDL_Window * window, const SDL_Rect * rect, int flags);
     /* * * */
     /*
      * Vulkan support

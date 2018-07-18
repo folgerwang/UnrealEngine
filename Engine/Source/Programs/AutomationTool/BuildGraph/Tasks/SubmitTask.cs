@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -88,7 +88,15 @@ namespace AutomationTool.Tasks
 		public override void Execute(JobContext Job, HashSet<FileReference> BuildProducts, Dictionary<string, HashSet<FileReference>> TagNameToFileSet)
 		{
 			HashSet<FileReference> Files = ResolveFilespec(CommandUtils.RootDirectory, Parameters.Files, TagNameToFileSet);
-			if (CommandUtils.AllowSubmit && Files.Count > 0)
+			if (Files.Count == 0)
+			{
+				Log.TraceInformation("No files to submit.");
+			}
+			else if (!CommandUtils.AllowSubmit)
+			{
+				Log.TraceWarning("Submitting to Perforce is disabled by default. Run with the -submit argument to allow.");
+			}
+			else
 			{
 				// Get the connection that we're going to submit with
 				P4Connection SubmitP4 = CommandUtils.P4;
@@ -110,7 +118,7 @@ namespace AutomationTool.Tasks
 				}
 
 				// Get the latest version of it
-				int NewCL = SubmitP4.CreateChange(Description: Parameters.Description);
+				int NewCL = SubmitP4.CreateChange(Description: Parameters.Description.Replace("\\n", "\n"));
 				foreach(FileReference File in Files)
 				{
 					SubmitP4.Revert(String.Format("-k \"{0}\"", File.FullName));

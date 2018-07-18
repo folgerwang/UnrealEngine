@@ -1,29 +1,15 @@
-﻿INTSourceChangelist:3244370
-Availability:Public
-Title:2.必要なキャラクターを設定する
+﻿Availability:Public
+Title:2.必要なキャラクターの設定
 Crumbs: %ROOT%, Engine, Engine/Blueprints, Engine/Blueprints/HowTo
 Description:プレイ可能なキャラクターのゲーム設定を正しく行ってみましょう。 
 version:4.9
 tags:Blueprints
+parent:Engine\Blueprints\HowTo
+type:how-to
+type:multi-step
+order:2
 
-
-[VAR:Steps]
-[OBJECT:Navigation]
-	[PARAM:previous]
-	[前のステップ](Engine\Blueprints\HowTo\BPHT_1 "%Engine\Blueprints\HowTo\BPHT_1:title%") 
-	[/PARAM]
-	[PARAM:current]
-	[/PARAM]
-	[PARAM:home]
-		[How To ホーム](Engine\Blueprints\HowTo "%Engine\Blueprints\HowTo:Title%")
-	[/PARAM]
-	[PARAM:next]
-	[次のステップ](Engine\Blueprints\HowTo\BPHT_3 "%Engine\Blueprints\HowTo\BPHT_3:title%") 
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-
+[NAV]
 
 本ページでは、このガイドの後半で HUD に渡す変数を追加して、Character ブループリントで操作します。条件を追加して、起動した 1 つの岩に対してプレイヤーが発射できる回数を定義します。 
 
@@ -123,18 +109,4 @@ Character ブループリントを使います。
 	このカスタム イベントが呼ばれると、Shots の設定を 3 に戻し、Do N ノードがリセットされ、再度実行することができます。 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+[NAV]

@@ -259,7 +259,7 @@ namespace UnrealBuildTool
 		{
 			string BuildCommand;
 			const string CMakeSectionEnd = " )\n\n";
-			var CMakefileContent = new StringBuilder();
+			StringBuilder CMakefileContent = new StringBuilder();
 
 			// Create Engine/Project specific lists
 			StringBuilder CMakeEngineSourceFilesList = new StringBuilder("set(ENGINE_SOURCE_FILES \n");
@@ -277,11 +277,12 @@ namespace UnrealBuildTool
 			StringBuilder PreprocessorDefinitionsList = new StringBuilder("add_definitions( \n");
 
             string UE4RootPath = Utils.CleanDirectorySeparators(UnrealBuildTool.RootDirectory.FullName, '/');
-            var CMakeGameRootPath = "";
+            string CMakeGameRootPath = "";
 			string GameProjectPath = "";
 			string CMakeGameProjectFile = "";
 
 			string HostArchitecture;
+			string SetCompiler = "";
 			switch (BuildHostPlatform.Current.Platform)
 			{
 				case UnrealTargetPlatform.Win64:
@@ -302,6 +303,13 @@ namespace UnrealBuildTool
 				{
 					HostArchitecture = "Linux";
 					BuildCommand = "cd \"" + UE4RootPath + "\" && bash \"" + UE4RootPath + "/Engine/Build/BatchFiles/" + HostArchitecture + "/Build.sh\"";
+
+					string CompilerPath = LinuxCommon.WhichClang();
+					if (CompilerPath == null)
+					{
+						CompilerPath = LinuxCommon.WhichGcc();
+					}
+					SetCompiler = "set(CMAKE_CXX_COMPILER " + CompilerPath + ")\n\n";
 					break;
 				}
 				default:
@@ -341,6 +349,7 @@ namespace UnrealBuildTool
 				"set(CMAKE_CXX_STANDARD 14)\n" + // Need to keep this updated
 				"set(CMAKE_CXX_USE_RESPONSE_FILE_FOR_OBJECTS 1 CACHE BOOL \"\" FORCE)\n" +
 				"set(CMAKE_CXX_USE_RESPONSE_FILE_FOR_INCLUDES 1 CACHE BOOL \"\" FORCE)\n\n" +
+				SetCompiler +
 				"# Standard Includes\n" +
 				"include(\"" + IncludeFilePath + "\")\n" +
 				"include(\"" + DefinitionsFilePath + "\")\n" +
@@ -355,9 +364,9 @@ namespace UnrealBuildTool
 			List<string> IncludeDirectories = new List<string>();
 			List<string> PreprocessorDefinitions = new List<string>();
 
-			foreach (var CurProject in GeneratedProjectFiles)
+			foreach (ProjectFile CurProject in GeneratedProjectFiles)
 			{
-				foreach (var IncludeSearchPath in CurProject.IntelliSenseIncludeSearchPaths)
+				foreach (string IncludeSearchPath in CurProject.IntelliSenseIncludeSearchPaths)
 				{
 					string IncludeDirectory = GetIncludeDirectory(IncludeSearchPath, Path.GetDirectoryName(CurProject.ProjectFilePath.FullName));
 					if (IncludeDirectory != null && !IncludeDirectories.Contains(IncludeDirectory))
@@ -382,9 +391,9 @@ namespace UnrealBuildTool
 					}
 				}
 
-				foreach (var PreProcessorDefinition in CurProject.IntelliSensePreprocessorDefinitions)
+				foreach (string PreProcessorDefinition in CurProject.IntelliSensePreprocessorDefinitions)
 				{
-					string Definition = PreProcessorDefinition;
+					string Definition = PreProcessorDefinition.Replace("TEXT(\"", "").Replace("\")", "").Replace("()=", "=");
 					string AlternateDefinition = Definition.Contains("=0") ? Definition.Replace("=0", "=1") : Definition.Replace("=1", "=0");
 
 					if (Definition.Equals("WITH_EDITORONLY_DATA=0") || Definition.Equals("WITH_DATABASE_SUPPORT=1"))
@@ -403,10 +412,10 @@ namespace UnrealBuildTool
 			}
 
 			// Create SourceFiles, HeaderFiles, and ConfigFiles sections.
-			var AllModuleFiles = DiscoverModules(FindGameProjects());
+			List<FileReference> AllModuleFiles = DiscoverModules(FindGameProjects());
 			foreach (FileReference CurModuleFile in AllModuleFiles)
 			{
-				var FoundFiles = SourceFileSearch.FindModuleSourceFiles(CurModuleFile);
+				List<FileReference> FoundFiles = SourceFileSearch.FindModuleSourceFiles(CurModuleFile);
 				foreach (FileReference CurSourceFile in FoundFiles)
 				{
 					string SourceFileRelativeToRoot = CurSourceFile.MakeRelativeTo(UnrealBuildTool.EngineDirectory);
@@ -449,7 +458,7 @@ namespace UnrealBuildTool
 			}
 
 			// Add Engine/Shaders files (game are added via modules)
-			var EngineShaderFiles = SourceFileSearch.FindFiles(DirectoryReference.Combine(UnrealBuildTool.EngineDirectory, "Shaders"));
+			List<FileReference> EngineShaderFiles = SourceFileSearch.FindFiles(DirectoryReference.Combine(UnrealBuildTool.EngineDirectory, "Shaders"));
 			foreach (FileReference CurSourceFile in EngineShaderFiles)
 			{
 				string SourceFileRelativeToRoot = CurSourceFile.MakeRelativeTo(UnrealBuildTool.EngineDirectory);
@@ -460,7 +469,7 @@ namespace UnrealBuildTool
 			}
 
 			// Add Engine/Config ini files (game are added via modules)
-			var EngineConfigFiles = SourceFileSearch.FindFiles(DirectoryReference.Combine(UnrealBuildTool.EngineDirectory, "Config"));
+			List<FileReference> EngineConfigFiles = SourceFileSearch.FindFiles(DirectoryReference.Combine(UnrealBuildTool.EngineDirectory, "Config"));
 			foreach (FileReference CurSourceFile in EngineConfigFiles)
 			{
 				string SourceFileRelativeToRoot = CurSourceFile.MakeRelativeTo(UnrealBuildTool.EngineDirectory);
@@ -525,22 +534,22 @@ namespace UnrealBuildTool
 				UBTArguements += " -progress";	
 			}
 
-			foreach (var Project in GeneratedProjectFiles)
+			foreach (ProjectFile Project in GeneratedProjectFiles)
 			{
-				foreach (var TargetFile in Project.ProjectTargets)
+				foreach (ProjectTarget TargetFile in Project.ProjectTargets)
 				{
 					if (TargetFile.TargetFilePath == null)
 					{
 						continue;
 					}
 
-					var TargetName = TargetFile.TargetFilePath.GetFileNameWithoutAnyExtensions();       // Remove both ".cs" and ".
+					string TargetName = TargetFile.TargetFilePath.GetFileNameWithoutAnyExtensions();       // Remove both ".cs" and ".
 
 					foreach (UnrealTargetConfiguration CurConfiguration in Enum.GetValues(typeof(UnrealTargetConfiguration)))
 					{
 						if (CurConfiguration != UnrealTargetConfiguration.Unknown && CurConfiguration != UnrealTargetConfiguration.Development)
 						{
-							if (UnrealBuildTool.IsValidConfiguration(CurConfiguration) && !IsTargetExcluded(TargetName, BuildHostPlatform.Current.Platform, CurConfiguration))
+							if (InstalledPlatformInfo.IsValidConfiguration(CurConfiguration, EProjectType.Code) && !IsTargetExcluded(TargetName, BuildHostPlatform.Current.Platform, CurConfiguration))
 							{
 								if (TargetName == GameProjectName || TargetName == (GameProjectName + "Editor"))
 								{
@@ -548,7 +557,7 @@ namespace UnrealBuildTool
 								}
 
 								string ConfName = Enum.GetName(typeof(UnrealTargetConfiguration), CurConfiguration);
-								CMakefileContent.Append(String.Format("add_custom_target({0}-{3}-{1} {5} {0} {3} {1} {2}{4} VERBATIM)\n", TargetName, ConfName, CMakeProjectCmdArg, HostArchitecture, UBTArguements, BuildCommand));
+								CMakefileContent.Append(String.Format("add_custom_target({0}-{3}-{1} {5} {0} {3} {1} {2}{4} -buildscw VERBATIM)\n", TargetName, ConfName, CMakeProjectCmdArg, HostArchitecture, UBTArguements, BuildCommand));
 
 								// Add iOS and TVOS targets if valid
 								if (bIncludeIOSTargets && !IsTargetExcluded(TargetName, UnrealTargetPlatform.IOS, CurConfiguration))
@@ -569,7 +578,7 @@ namespace UnrealBuildTool
                             CMakeProjectCmdArg = "\"-project=" + CMakeGameProjectFile + "\"";
                         }
 
-                        CMakefileContent.Append(String.Format("add_custom_target({0} {4} {0} {2} Development {1}{3} VERBATIM)\n\n", TargetName, CMakeProjectCmdArg, HostArchitecture, UBTArguements, BuildCommand));
+                        CMakefileContent.Append(String.Format("add_custom_target({0} {4} {0} {2} Development {1}{3} -buildscw VERBATIM)\n\n", TargetName, CMakeProjectCmdArg, HostArchitecture, UBTArguements, BuildCommand));
 
                         // Add iOS and TVOS targets if valid
                         if (bIncludeIOSTargets && !IsTargetExcluded(TargetName, UnrealTargetPlatform.IOS, UnrealTargetConfiguration.Development))
@@ -594,7 +603,7 @@ namespace UnrealBuildTool
 				CMakefileContent.AppendLine("add_executable(FakeTarget ${ENGINE_HEADER_FILES} ${ENGINE_SOURCE_FILES} ${ENGINE_CSHARP_FILES} ${ENGINE_SHADER_FILES} ${ENGINE_CONFIG_FILES} ${PROJECT_HEADER_FILES} ${PROJECT_SOURCE_FILES} ${PROJECT_CSHARP_FILES} ${PROJECT_SHADER_FILES} ${PROJECT_CONFIG_FILES})");
 			}
 
-			var FullFileName = Path.Combine(MasterProjectPath.FullName, ProjectFileName);
+			string FullFileName = Path.Combine(MasterProjectPath.FullName, ProjectFileName);
 
 			// Write out CMake files
 			bool bWriteMakeList = WriteFileIfChanged(FullFileName, CMakefileContent.ToString());
@@ -765,7 +774,7 @@ namespace UnrealBuildTool
 				  "\t</component>" + Environment.NewLine +
 				"</project>" + Environment.NewLine;
 
-			var FullFileName = Path.Combine(MasterProjectPath.FullName, ".idea/misc.xml");
+			string FullFileName = Path.Combine(MasterProjectPath.FullName, ".idea/misc.xml");
 			WriteFileIfChanged(FullFileName, CLionIngoreXml);
 		}
 

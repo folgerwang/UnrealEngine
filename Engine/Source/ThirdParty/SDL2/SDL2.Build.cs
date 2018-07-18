@@ -13,7 +13,7 @@ public class SDL2 : ModuleRules
 		// assume SDL to be built with extensions
 		PublicDefinitions.Add("SDL_WITH_EPIC_EXTENSIONS=1");
 
-		if (Target.Platform == UnrealTargetPlatform.Linux)
+		if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
 		{
 			PublicIncludePaths.Add(SDL2Path + "include");
 			if (Target.Configuration == UnrealTargetConfiguration.Debug)

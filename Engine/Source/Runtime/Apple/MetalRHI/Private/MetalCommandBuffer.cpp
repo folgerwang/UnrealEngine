@@ -8,7 +8,6 @@
 
 #include "MetalCommandBuffer.h"
 #include "MetalRenderCommandEncoder.h"
-#include "MetalParallelRenderCommandEncoder.h"
 #include "MetalBlitCommandEncoder.h"
 #include "MetalComputeCommandEncoder.h"
 #include <objc/runtime.h>
@@ -29,6 +28,11 @@ NSString* GMetalDebugCommandTypeNames[EMetalDebugCommandTypeInvalid] = {
 
 extern int32 GMetalRuntimeDebugLevel;
 
+uint32 SafeGetRuntimeDebuggingLevel()
+{
+	return GIsRHIInitialized ? GetMetalDeviceContext().GetCommandQueue().GetRuntimeDebuggingLevel() : GMetalRuntimeDebugLevel;
+}
+
 @implementation NSObject (IMetalDebugGroupAssociation)
 @dynamic debugGroups;
 - (void)setDebugGroups:(NSMutableArray<NSString*>*)Data
@@ -42,9 +46,9 @@ extern int32 GMetalRuntimeDebugLevel;
 }
 @end
 
-@implementation FMetalDebugCommandBuffer
+#if MTLPP_CONFIG_VALIDATE && METAL_DEBUG_OPTIONS
 
-@synthesize InnerBuffer;
+@implementation FMetalDebugCommandBuffer
 
 APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMetalDebugCommandBuffer)
 
@@ -75,7 +79,6 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMetalDebugCommandBuffer)
 		delete Command;
 	}
 	
-	[InnerBuffer release];
 	[DebugGroup release];
 	[DebugInfoBuffer release];
 	DebugInfoBuffer = nil;
@@ -83,140 +86,51 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMetalDebugCommandBuffer)
 	[super dealloc];
 }
 
--(id <MTLDevice>) device
+@end
+
+FMetalCommandBufferDebugging FMetalCommandBufferDebugging::Get(mtlpp::CommandBuffer& Buffer)
 {
-	return InnerBuffer.device;
+	return Buffer.GetAssociatedObject<FMetalCommandBufferDebugging>((void const*)&FMetalCommandBufferDebugging::Get);
 }
 
--(id <MTLCommandQueue>) commandQueue
+FMetalCommandBufferDebugging::FMetalCommandBufferDebugging()
+: ns::Object<FMetalDebugCommandBuffer*>(nullptr)
 {
-	return InnerBuffer.commandQueue;
+	
+}
+FMetalCommandBufferDebugging::FMetalCommandBufferDebugging(mtlpp::CommandBuffer& Buffer)
+: ns::Object<FMetalDebugCommandBuffer*>([[FMetalDebugCommandBuffer alloc] initWithCommandBuffer:Buffer.GetPtr()], ns::Ownership::Assign)
+{
+	Buffer.SetAssociatedObject((void const*)&FMetalCommandBufferDebugging::Get, *this);
+}
+FMetalCommandBufferDebugging::FMetalCommandBufferDebugging(FMetalDebugCommandBuffer* handle)
+: ns::Object<FMetalDebugCommandBuffer*>(handle)
+{
+	
 }
 
--(BOOL) retainedReferences
+ns::AutoReleased<ns::String> FMetalCommandBufferDebugging::GetDescription()
 {
-	return InnerBuffer.retainedReferences;
+	NSMutableString* String = [[NSMutableString new] autorelease];
+	NSString* Label = m_ptr->InnerBuffer.label ? m_ptr->InnerBuffer.label : @"Unknown";
+	[String appendFormat:@"Command Buffer %p %@:", m_ptr->InnerBuffer, Label];
+	return ns::AutoReleased<ns::String>(String);
 }
 
--(NSString *)label
+ns::AutoReleased<ns::String> FMetalCommandBufferDebugging::GetDebugDescription()
 {
-	return InnerBuffer.label;
-}
-
--(void)setLabel:(NSString *)Text
-{
-	InnerBuffer.label = Text;
-}
-
--(MTLCommandBufferStatus) status
-{
-	return InnerBuffer.status;
-}
-
--(NSError *)error
-{
-	return InnerBuffer.error;
-}
-
-- (void)enqueue
-{
-	[InnerBuffer enqueue];
-}
-
-- (void)commit
-{
-	[InnerBuffer commit];
-}
-
-- (void)addScheduledHandler:(MTLCommandBufferHandler)block
-{
-	[InnerBuffer addScheduledHandler:^(id <MTLCommandBuffer>){
-		block(self);
-	 }];
-}
-
-- (void)presentDrawable:(id <MTLDrawable>)drawable
-{
-    [InnerBuffer presentDrawable:drawable];
-}
-
-#if !PLATFORM_MAC
-- (void)presentDrawable:(id <MTLDrawable>)drawable afterMinimumDuration:(CFTimeInterval)duration
-{
-#if (__clang_major__ > 8) || (__clang_major__ == 8 && __clang_minor__ >= 1)
-    [InnerBuffer presentDrawable:drawable afterMinimumDuration:duration];
-#endif
-}
-#endif
-
-- (void)presentDrawable:(id <MTLDrawable>)drawable atTime:(CFTimeInterval)presentationTime
-{
-    [InnerBuffer presentDrawable:drawable atTime:presentationTime];
-}
-
-- (void)waitUntilScheduled
-{
-	[InnerBuffer waitUntilScheduled];
-}
-
-- (void)addCompletedHandler:(MTLCommandBufferHandler)block
-{
-	[InnerBuffer addCompletedHandler:^(id <MTLCommandBuffer>){
-		block(self);
-	}];
-}
-
-- (void)waitUntilCompleted
-{
-	[InnerBuffer waitUntilCompleted];
-}
-
-- (id <MTLBlitCommandEncoder>)blitCommandEncoder
-{
-	[self beginBlitCommandEncoder:DebugGroup.lastObject ? DebugGroup.lastObject : @"Blit"];
-	return [[[FMetalDebugBlitCommandEncoder alloc] initWithEncoder:[InnerBuffer blitCommandEncoder] andCommandBuffer:self] autorelease];
-}
-
-- (id <MTLRenderCommandEncoder>)renderCommandEncoderWithDescriptor:(MTLRenderPassDescriptor *)renderPassDescriptor
-{
-    [self beginRenderCommandEncoder:DebugGroup.lastObject ? DebugGroup.lastObject : @"Render" withDescriptor:renderPassDescriptor];
-	return [[[FMetalDebugRenderCommandEncoder alloc] initWithEncoder:[InnerBuffer renderCommandEncoderWithDescriptor:renderPassDescriptor] fromDescriptor:renderPassDescriptor andCommandBuffer:self] autorelease];
-}
-
-- (id <MTLComputeCommandEncoder>)computeCommandEncoder
-{
-    [self beginComputeCommandEncoder:DebugGroup.lastObject ? DebugGroup.lastObject : @"Compute"];
-    return [[[FMetalDebugComputeCommandEncoder alloc] initWithEncoder:[InnerBuffer computeCommandEncoder] andCommandBuffer:self] autorelease];
-}
-
-- (id <MTLParallelRenderCommandEncoder>)parallelRenderCommandEncoderWithDescriptor:(MTLRenderPassDescriptor *)renderPassDescriptor
-{
-    [self beginRenderCommandEncoder:DebugGroup.lastObject ? DebugGroup.lastObject : @"Parallel Render" withDescriptor:renderPassDescriptor];
-    return [[[FMetalDebugParallelRenderCommandEncoder alloc] initWithEncoder:[InnerBuffer parallelRenderCommandEncoderWithDescriptor:renderPassDescriptor] andCommandBuffer:self withDescriptor:renderPassDescriptor] autorelease];
-}
-
--(NSString*) description
-{
-	NSMutableString* String = [NSMutableString new];
-	NSString* Label = self.label ? self.label : @"Unknown";
-	[String appendFormat:@"Command Buffer %p %@:", self, Label];
-	return String;
-}
-
--(NSString*) debugDescription
-{
-	NSMutableString* String = [NSMutableString new];
-	NSString* Label = self.label ? self.label : @"Unknown";
-	[String appendFormat:@"Command Buffer %p %@:", self, Label];
-
+	NSMutableString* String = [[NSMutableString new] autorelease];
+	NSString* Label = m_ptr->InnerBuffer.label ? m_ptr->InnerBuffer.label : @"Unknown";
+	[String appendFormat:@"Command Buffer %p %@:", m_ptr->InnerBuffer, Label];
+	
 	uint32 Index = 0;
-	if (DebugInfoBuffer)
+	if (m_ptr->DebugInfoBuffer)
 	{
-		Index = *((uint32*)DebugInfoBuffer.contents);
+		Index = *((uint32*)m_ptr->DebugInfoBuffer.contents);
 	}
 	
 	uint32 Count = 1;
-	for (FMetalDebugCommand* Command : DebugCommands)
+	for (FMetalDebugCommand* Command : m_ptr->DebugCommands)
 	{
 		if (Index == Count++)
 		{
@@ -230,271 +144,197 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMetalDebugCommandBuffer)
 	
 	[String appendFormat:@"\nResources:"];
 	
-	for (id<MTLResource> Resource : Resources)
+	for (id<MTLResource> Resource : m_ptr->Resources)
 	{
 		[String appendFormat:@"\n\t%@ (%d): %@", Resource.label, (uint32)[Resource retainCount], [Resource description]];
 	}
 	
 	[String appendFormat:@"\nStates:"];
 	
-	for (id State : States)
+	for (id State : m_ptr->States)
 	{
 		[String appendFormat:@"\n\t%@ (%d): %@", ([State respondsToSelector:@selector(label)] ? [State label] : @"(null)"), (uint32)[State retainCount], [State description]];
 	}
 	
-	return String;
+	return ns::AutoReleased<ns::String>(String);
 }
 
--(void) trackResource:(id<MTLResource>)Resource
+void FMetalCommandBufferDebugging::TrackResource(mtlpp::Resource const& Resource)
 {
-    if (DebugLevel >= EMetalDebugLevelValidation)
-    {
-        Resources.Add(Resource);
-    }
-}
-
--(void) trackState:(id)State
-{
-    if (DebugLevel >= EMetalDebugLevelValidation)
-    {
-        States.Add(State);
-    }
-}
-
--(void) beginRenderCommandEncoder:(NSString*)Label withDescriptor:(MTLRenderPassDescriptor*)RenderDesc
-{
-    if (DebugLevel >= EMetalDebugLevelValidation)
-    {
-        if (DebugLevel >= EMetalDebugLevelLogOperations)
-        {
-            check(!ActiveEncoder);
-            ActiveEncoder = [Label retain];
-            FMetalDebugCommand* Command = new FMetalDebugCommand;
-            Command->Type = EMetalDebugCommandTypeRenderEncoder;
-            Command->Label = [ActiveEncoder retain];
-            Command->PassDesc = [RenderDesc retain];
-            DebugCommands.Add(Command);
-        }
-        
-        if(RenderDesc.colorAttachments)
-        {
-            for(uint i = 0; i< 8; i++)
-            {
-                MTLRenderPassColorAttachmentDescriptor* Desc = [RenderDesc.colorAttachments objectAtIndexedSubscript:i];
-                if(Desc)
-                {
-                    [self trackResource:Desc.texture];
-                }
-            }
-        }
-        if(RenderDesc.depthAttachment)
-        {
-            [self trackResource:RenderDesc.depthAttachment.texture];
-        }
-        if(RenderDesc.stencilAttachment)
-        {
-            [self trackResource:RenderDesc.stencilAttachment.texture];
-        }
-        if(RenderDesc.visibilityResultBuffer)
-        {
-            [self trackResource:RenderDesc.visibilityResultBuffer];
-        }
-    }
-}
-
--(void) beginComputeCommandEncoder:(NSString*)Label
-{
-    if (DebugLevel >= EMetalDebugLevelLogOperations)
-    {
-        check(!ActiveEncoder);
-        ActiveEncoder = [Label retain];
-        FMetalDebugCommand* Command = new FMetalDebugCommand;
-        Command->Type = EMetalDebugCommandTypeComputeEncoder;
-        Command->Label = [ActiveEncoder retain];
-        Command->PassDesc = nil;
-        DebugCommands.Add(Command);
-    }
-}
-
--(void) beginBlitCommandEncoder:(NSString*)Label
-{
-    if (DebugLevel >= EMetalDebugLevelLogOperations)
-    {
-        check(!ActiveEncoder);
-        ActiveEncoder = [Label retain];
-        FMetalDebugCommand* Command = new FMetalDebugCommand;
-        Command->Type = EMetalDebugCommandTypeBlitEncoder;
-        Command->Label = [ActiveEncoder retain];
-        Command->PassDesc = nil;
-        DebugCommands.Add(Command);
-    }
-}
-
--(void) endCommandEncoder
-{
-    if (DebugLevel >= EMetalDebugLevelLogOperations)
-    {
-        check(ActiveEncoder);
-        FMetalDebugCommand* Command = new FMetalDebugCommand;
-        Command->Type = EMetalDebugCommandTypeEndEncoder;
-        Command->Label = ActiveEncoder;
-        Command->PassDesc = nil;
-        DebugCommands.Add(Command);
-        ActiveEncoder = nil;
-    }
-}
-
--(void) setPipeline:(NSString*)Desc
-{
-    if (DebugLevel >= EMetalDebugLevelLogOperations)
-    {
-        FMetalDebugCommand* Command = new FMetalDebugCommand;
-        Command->Type = EMetalDebugCommandTypePipeline;
-        Command->Label = [Desc retain];
-        Command->PassDesc = nil;
-        DebugCommands.Add(Command);
-    }
-}
-
--(void) draw:(NSString*)Desc
-{
-    if (DebugLevel >= EMetalDebugLevelLogOperations)
-    {
-        FMetalDebugCommand* Command = new FMetalDebugCommand;
-        Command->Type = EMetalDebugCommandTypeDraw;
-        Command->Label = [Desc retain];
-        Command->PassDesc = nil;
-        DebugCommands.Add(Command);
-    }
-}
-
--(void) dispatch:(NSString*)Desc
-{
-    if (DebugLevel >= EMetalDebugLevelLogOperations)
-    {
-        FMetalDebugCommand* Command = new FMetalDebugCommand;
-        Command->Type = EMetalDebugCommandTypeDispatch;
-        Command->Label = [Desc retain];
-        Command->PassDesc = nil;
-        DebugCommands.Add(Command);
-    }
-}
-
--(void) blit:(NSString*)Desc
-{
-    if (DebugLevel >= EMetalDebugLevelLogOperations)
-    {
-        FMetalDebugCommand* Command = new FMetalDebugCommand;
-        Command->Type = EMetalDebugCommandTypeBlit;
-        Command->Label = [Desc retain];
-        Command->PassDesc = nil;
-        DebugCommands.Add(Command);
-    }
-}
-
--(void) insertDebugSignpost:(NSString*)Label
-{
-    if (DebugLevel >= EMetalDebugLevelLogDebugGroups)
-    {
-        FMetalDebugCommand* Command = new FMetalDebugCommand;
-        Command->Type = EMetalDebugCommandTypeSignpost;
-        Command->Label = [Label retain];
-        Command->PassDesc = nil;
-        DebugCommands.Add(Command);
-    }
-}
-
--(void) pushDebugGroup:(NSString*)Group
-{
-    if (DebugLevel >= EMetalDebugLevelLogDebugGroups)
-    {
-        [DebugGroup addObject:Group];
-        FMetalDebugCommand* Command = new FMetalDebugCommand;
-        Command->Type = EMetalDebugCommandTypePushGroup;
-        Command->Label = [Group retain];
-        Command->PassDesc = nil;
-        DebugCommands.Add(Command);
-    }
-}
-
--(void) popDebugGroup
-{
-    if (DebugLevel >= EMetalDebugLevelLogDebugGroups)
-    {
-        if (DebugGroup.lastObject)
-        {
-            FMetalDebugCommand* Command = new FMetalDebugCommand;
-            Command->Type = EMetalDebugCommandTypePopGroup;
-            Command->Label = [DebugGroup.lastObject retain];
-            Command->PassDesc = nil;
-            DebugCommands.Add(Command);
-        }
-    }
-}
-
--(CFTimeInterval) kernelStartTime
-{
-#if METAL_NEW_NONNULL_DECL
-	if (GMetalCommandBufferHasStartEndTimeAPI)
-#endif
+	if (m_ptr->DebugLevel >= EMetalDebugLevelValidation)
 	{
-		return ((id<IMetalCommandBufferExtensions>)InnerBuffer).kernelStartTime;
+		m_ptr->Resources.Add(Resource.GetPtr());
 	}
-#if METAL_NEW_NONNULL_DECL
-	else
-	{
-		return 0;
-	}
-#endif
 }
-
--(CFTimeInterval) kernelEndTime
+void FMetalCommandBufferDebugging::TrackState(id State)
 {
-#if METAL_NEW_NONNULL_DECL
-	if (GMetalCommandBufferHasStartEndTimeAPI)
-#endif
+	if (m_ptr->DebugLevel >= EMetalDebugLevelValidation)
 	{
-		return ((id<IMetalCommandBufferExtensions>)InnerBuffer).kernelEndTime;
+		m_ptr->States.Add(State);
 	}
-#if METAL_NEW_NONNULL_DECL
-	else
-	{
-		return 0;
-	}
-#endif
 }
 
--(CFTimeInterval) GPUStartTime
+void FMetalCommandBufferDebugging::BeginRenderCommandEncoder(ns::String const& Label, mtlpp::RenderPassDescriptor const& Desc)
 {
-#if METAL_NEW_NONNULL_DECL
-	if (GMetalCommandBufferHasStartEndTimeAPI)
-#endif
+	if (m_ptr->DebugLevel >= EMetalDebugLevelValidation)
 	{
-		return ((id<IMetalCommandBufferExtensions>)InnerBuffer).GPUStartTime;
+		if (m_ptr->DebugLevel >= EMetalDebugLevelLogOperations)
+		{
+			check(!m_ptr->ActiveEncoder);
+			m_ptr->ActiveEncoder = [Label.GetPtr() retain];
+			FMetalDebugCommand* Command = new FMetalDebugCommand;
+			Command->Type = EMetalDebugCommandTypeRenderEncoder;
+			Command->Label = [Label.GetPtr() retain];
+			Command->PassDesc = [Desc.GetPtr() retain];
+			m_ptr->DebugCommands.Add(Command);
+		}
+		
+		ns::Array<mtlpp::RenderPassColorAttachmentDescriptor> ColorAttach = Desc.GetColorAttachments();
+		if(ColorAttach)
+		{
+			for(uint i = 0; i < 8; i++)
+			{
+				if(ColorAttach[i])
+				{
+					TrackResource(ColorAttach[i].GetTexture());
+				}
+			}
+		}
+		if(Desc.GetDepthAttachment())
+		{
+			TrackResource(Desc.GetDepthAttachment().GetTexture());
+		}
+		if(Desc.GetStencilAttachment())
+		{
+			TrackResource(Desc.GetStencilAttachment().GetTexture());
+		}
+		if(Desc.GetVisibilityResultBuffer())
+		{
+			TrackResource(Desc.GetVisibilityResultBuffer());
+		}
 	}
-#if METAL_NEW_NONNULL_DECL
-	else
-	{
-		return 0;
-	}
-#endif
 }
-
--(CFTimeInterval) GPUEndTime
+void FMetalCommandBufferDebugging::BeginComputeCommandEncoder(ns::String const& Label)
 {
-#if METAL_NEW_NONNULL_DECL
-	if (GMetalCommandBufferHasStartEndTimeAPI)
-#endif
+	if (m_ptr->DebugLevel >= EMetalDebugLevelLogOperations)
 	{
-		return ((id<IMetalCommandBufferExtensions>)InnerBuffer).GPUEndTime;
+		check(!m_ptr->ActiveEncoder);
+		m_ptr->ActiveEncoder = [Label.GetPtr() retain];
+		FMetalDebugCommand* Command = new FMetalDebugCommand;
+		Command->Type = EMetalDebugCommandTypeComputeEncoder;
+		Command->Label = [m_ptr->ActiveEncoder retain];
+		Command->PassDesc = nil;
+		m_ptr->DebugCommands.Add(Command);
 	}
-#if METAL_NEW_NONNULL_DECL
-	else
+}
+void FMetalCommandBufferDebugging::BeginBlitCommandEncoder(ns::String const& Label)
+{
+	if (m_ptr->DebugLevel >= EMetalDebugLevelLogOperations)
 	{
-		return 0;
+		check(!m_ptr->ActiveEncoder);
+		m_ptr->ActiveEncoder = [Label.GetPtr() retain];
+		FMetalDebugCommand* Command = new FMetalDebugCommand;
+		Command->Type = EMetalDebugCommandTypeBlitEncoder;
+		Command->Label = [m_ptr->ActiveEncoder retain];
+		Command->PassDesc = nil;
+		m_ptr->DebugCommands.Add(Command);
 	}
-#endif
+}
+void FMetalCommandBufferDebugging::EndCommandEncoder()
+{
+	if (m_ptr->DebugLevel >= EMetalDebugLevelLogOperations)
+	{
+		check(m_ptr->ActiveEncoder);
+		FMetalDebugCommand* Command = new FMetalDebugCommand;
+		Command->Type = EMetalDebugCommandTypeEndEncoder;
+		Command->Label = m_ptr->ActiveEncoder;
+		Command->PassDesc = nil;
+		m_ptr->DebugCommands.Add(Command);
+		m_ptr->ActiveEncoder = nil;
+	}
 }
 
-@end
+void FMetalCommandBufferDebugging::SetPipeline(ns::String const& Desc)
+{
+	if (m_ptr->DebugLevel >= EMetalDebugLevelLogOperations)
+	{
+		FMetalDebugCommand* Command = new FMetalDebugCommand;
+		Command->Type = EMetalDebugCommandTypePipeline;
+		Command->Label = [Desc.GetPtr() retain];
+		Command->PassDesc = nil;
+		m_ptr->DebugCommands.Add(Command);
+	}
+}
+void FMetalCommandBufferDebugging::Draw(ns::String const& Desc)
+{
+	if (m_ptr->DebugLevel >= EMetalDebugLevelLogOperations)
+	{
+		FMetalDebugCommand* Command = new FMetalDebugCommand;
+		Command->Type = EMetalDebugCommandTypeDraw;
+		Command->Label = [Desc.GetPtr() retain];
+		Command->PassDesc = nil;
+		m_ptr->DebugCommands.Add(Command);
+	}
+}
+void FMetalCommandBufferDebugging::Dispatch(ns::String const& Desc)
+{
+	if (m_ptr->DebugLevel >= EMetalDebugLevelLogOperations)
+	{
+		FMetalDebugCommand* Command = new FMetalDebugCommand;
+		Command->Type = EMetalDebugCommandTypeDispatch;
+		Command->Label = [Desc.GetPtr() retain];
+		Command->PassDesc = nil;
+		m_ptr->DebugCommands.Add(Command);
+	}
+}
+void FMetalCommandBufferDebugging::Blit(ns::String const& Desc)
+{
+	if (m_ptr->DebugLevel >= EMetalDebugLevelLogOperations)
+	{
+		FMetalDebugCommand* Command = new FMetalDebugCommand;
+		Command->Type = EMetalDebugCommandTypeBlit;
+		Command->Label = [Desc.GetPtr() retain];
+		Command->PassDesc = nil;
+		m_ptr->DebugCommands.Add(Command);
+	}
+}
 
+void FMetalCommandBufferDebugging::InsertDebugSignpost(ns::String const& Label)
+{
+	if (m_ptr->DebugLevel >= EMetalDebugLevelLogDebugGroups)
+	{
+		FMetalDebugCommand* Command = new FMetalDebugCommand;
+		Command->Type = EMetalDebugCommandTypeSignpost;
+		Command->Label = [Label.GetPtr() retain];
+		Command->PassDesc = nil;
+		m_ptr->DebugCommands.Add(Command);
+	}
+}
+void FMetalCommandBufferDebugging::PushDebugGroup(ns::String const& Group)
+{
+	if (m_ptr->DebugLevel >= EMetalDebugLevelLogDebugGroups)
+	{
+		[m_ptr->DebugGroup addObject:Group.GetPtr()];
+		FMetalDebugCommand* Command = new FMetalDebugCommand;
+		Command->Type = EMetalDebugCommandTypePushGroup;
+		Command->Label = [Group.GetPtr() retain];
+		Command->PassDesc = nil;
+		m_ptr->DebugCommands.Add(Command);
+	}
+}
+void FMetalCommandBufferDebugging::PopDebugGroup()
+{
+	if (m_ptr->DebugLevel >= EMetalDebugLevelLogDebugGroups)
+	{
+		if (m_ptr->DebugGroup.lastObject)
+		{
+			FMetalDebugCommand* Command = new FMetalDebugCommand;
+			Command->Type = EMetalDebugCommandTypePopGroup;
+			Command->Label = [m_ptr->DebugGroup.lastObject retain];
+			Command->PassDesc = nil;
+			m_ptr->DebugCommands.Add(Command);
+		}
+	}
+}
+
+#endif

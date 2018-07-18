@@ -18,6 +18,7 @@
 #include "DeviceProfiles/DeviceProfileManager.h"
 #include "Streaming/AsyncTextureStreaming.h"
 #include "Components/PrimitiveComponent.h"
+#include "Misc/CoreDelegates.h"
 
 bool TrackTexture( const FString& TextureName );
 bool UntrackTexture( const FString& TextureName );
@@ -42,12 +43,12 @@ FStreamingManagerTexture::FStreamingManagerTexture()
 ,	bTriggerDumpTextureGroupStats( false )
 ,	bDetailedDumpTextureGroupStats( false )
 ,	AsyncWork( nullptr )
+,	CurrentPendingMipCopyRequestIdx(0)
 ,	ProcessingStage( 0 )
 ,	NumTextureProcessingStages(5)
 ,	bUseDynamicStreaming( false )
 ,	BoostPlayerTextures( 3.0f )
 ,	MemoryMargin(0)
-,	MinEvictSize(0)
 ,	EffectiveStreamingPoolSize(0)
 ,	MemoryOverBudget(0)
 ,	MaxEverRequired(0)
@@ -59,8 +60,6 @@ FStreamingManagerTexture::FStreamingManagerTexture()
 	int32 TempInt;
 	verify( GConfig->GetInt( TEXT("TextureStreaming"), TEXT("MemoryMargin"),				TempInt,						GEngineIni ) );
 	MemoryMargin = TempInt;
-	verify( GConfig->GetInt( TEXT("TextureStreaming"), TEXT("MinEvictSize"),				TempInt,						GEngineIni ) );
-	MinEvictSize = TempInt;
 
 	verify( GConfig->GetFloat( TEXT("TextureStreaming"), TEXT("LightmapStreamingFactor"),			GLightmapStreamingFactor,		GEngineIni ) );
 	verify( GConfig->GetFloat( TEXT("TextureStreaming"), TEXT("ShadowmapStreamingFactor"),			GShadowmapStreamingFactor,		GEngineIni ) );
@@ -87,7 +86,6 @@ FStreamingManagerTexture::FStreamingManagerTexture()
 	}
 
 	// Convert from MByte to byte.
-	MinEvictSize *= 1024 * 1024;
 	MemoryMargin *= 1024 * 1024;
 
 #if STATS_FAST
@@ -114,6 +112,8 @@ FStreamingManagerTexture::FStreamingManagerTexture()
 	DynamicComponentManager.RegisterTasks(TextureInstanceAsyncWork->GetTask());
 
 	FCoreUObjectDelegates::GetPreGarbageCollectDelegate().AddRaw(this, &FStreamingManagerTexture::OnPreGarbageCollect);
+
+	FCoreDelegates::PakFileMountedCallback.AddRaw(this, &FStreamingManagerTexture::OnPakFileMounted);
 }
 
 FStreamingManagerTexture::~FStreamingManagerTexture()
@@ -132,23 +132,34 @@ FStreamingManagerTexture::~FStreamingManagerTexture()
 
 void FStreamingManagerTexture::OnPreGarbageCollect()
 {
+	FRemovedTextureArray RemovedTextures;
+
 	// Check all levels for pending kills.
 	for (int32 Index = 0; Index < LevelTextureManagers.Num(); ++Index)
 	{
 		FLevelTextureManager& LevelManager = LevelTextureManagers[Index];
 		if (LevelManager.GetLevel()->IsPendingKill())
 		{
-			FRemovedTextureArray RemovedTextures;
 			LevelManager.Remove(&RemovedTextures);
-			SetTexturesRemovedTimestamp(RemovedTextures);
 
 			// Remove the level entry. The async task view will still be valid as it uses a shared ptr.
 			LevelTextureManagers.RemoveAtSwap(Index);
 			--Index;
 		}
 	}
+
+	DynamicComponentManager.OnPreGarbageCollect(RemovedTextures);
+
+	SetTexturesRemovedTimestamp(RemovedTextures);
 }
 
+
+
+void FStreamingManagerTexture::OnPakFileMounted(const TCHAR* PakFilename)
+{
+	// clear the cached file exists checks which failed as they may now be loaded
+	bNewFilesLoaded = true;
+}
 
 /**
  * Cancels the timed Forced resources (i.e used the Kismet action "Stream In Textures").
@@ -341,16 +352,30 @@ void FStreamingManagerTexture::ConditionalUpdateStaticData()
 		for (FStreamingTexture& StreamingTexture : StreamingTextures)
 		{
 			StreamingTexture.UpdateStaticData(Settings);
+
+			// When the material quality changes, some textures could stop being used.
+			// Refreshing their removed timestamp ensures not texture ends up in the unkwown 
+			// ref heuristic (which would force load them).
+			if (PreviousSettings.MaterialQualityLevel != Settings.MaterialQualityLevel)
+			{
+				StreamingTexture.InstanceRemovedTimestamp = FApp::GetCurrentTime();
+			}
 		}
 		STAT(GatheredStats.SetupAsyncTaskCycles -= (int32)FPlatformTime::Cycles();)
 
 #if !UE_BUILD_SHIPPING
-		// Don't put anything here that could normally change in game.
-		// This is used to test regression / improvements, and insertion perfs.
-		if (PreviousSettings.bUseMaterialData != Settings.bUseMaterialData ||
+		// Those debug settings are config that are not expected to change in-game.
+		const bool bDebugSettingsChanged = 
+			PreviousSettings.bUseMaterialData != Settings.bUseMaterialData ||
 			PreviousSettings.bUseNewMetrics != Settings.bUseNewMetrics ||
 			PreviousSettings.bUsePerTextureBias != Settings.bUsePerTextureBias || 
-			PreviousSettings.MaxTextureUVDensity != Settings.MaxTextureUVDensity)
+			PreviousSettings.MaxTextureUVDensity != Settings.MaxTextureUVDensity;
+#else
+		const bool bDebugSettingsChanged = false;
+#endif
+
+		// If the material quality changes, everything needs to be updated.
+		if (bDebugSettingsChanged || PreviousSettings.MaterialQualityLevel != Settings.MaterialQualityLevel)
 		{
 			TArray<ULevel*, TInlineAllocator<32> > Levels;
 
@@ -375,7 +400,6 @@ void FStreamingManagerTexture::ConditionalUpdateStaticData()
 				NotifyPrimitiveUpdated_Concurrent(Primitive);
 			}
 		}
-#endif
 
 		// Update the cache variables.
 		PreviousLightmapStreamingFactor = GLightmapStreamingFactor;
@@ -578,21 +602,6 @@ void FStreamingManagerTexture::RemoveStreamingTexture( UTexture2D* Texture )
 	STAT(GatheredStats.CallbacksCycles += FPlatformTime::Cycles();)
 }
 
-/** Called when an actor is spawned. */
-void FStreamingManagerTexture::NotifyActorSpawned( AActor* Actor )
-{
-	if (bUseDynamicStreaming)
-	{
-		TInlineComponentArray<UPrimitiveComponent*> Components;
-		Actor->GetComponents(Components);
-
-		for(int32 ComponentIndex = 0;ComponentIndex < Components.Num();ComponentIndex++)
-		{
-			NotifyPrimitiveAttached(Components[ComponentIndex], DPT_Spawned);
-		}
-	}
-}
-
 /** Called when a spawned primitive is deleted, or when an actor is destroyed in the editor. */
 void FStreamingManagerTexture::NotifyActorDestroyed( AActor* Actor )
 {
@@ -651,33 +660,6 @@ void FStreamingManagerTexture::RemoveStaticReferences(const UPrimitiveComponent*
 		Primitive->bAttachedToStreamingManagerAsStatic = false;
 		// Nothing to do with removed textures as we are about to reinsert
 	}
-}
-
-
-/**
- * Called when a primitive is attached to an actor or another component.
- * Replaces previous info, if the primitive was already attached.
- *
- * @param InPrimitive	Newly attached dynamic/spawned primitive
- */
-void FStreamingManagerTexture::NotifyPrimitiveAttached( const UPrimitiveComponent* Primitive, EDynamicPrimitiveType DynamicType )
-{
-	STAT(GatheredStats.CallbacksCycles = -(int32)FPlatformTime::Cycles();)
-
-	// Also only consider non static primitive as they can only be created in the editor, which will trigger a data rebuild.
-	if (bUseDynamicStreaming && Primitive)
-	{
-#if STREAMING_LOG_DYNAMIC
-		UE_LOG(LogContentStreaming, Log, TEXT("NotifyPrimitiveAttached(0x%08x \"%s\"), IsRegistered=%d"), SIZE_T(Primitive), *Primitive->GetReadableName(), Primitive->IsRegistered());
-#endif
-		// This primitive is becoming dynamic, so clear static references
-		RemoveStaticReferences(Primitive);
-
-		FStreamingTextureLevelContext LevelContext(EMaterialQualityLevel::Num, Primitive);
-		DynamicComponentManager.Add(Primitive, LevelContext);
-	}
-
-	STAT(GatheredStats.CallbacksCycles += FPlatformTime::Cycles();)
 }
 
 /**
@@ -753,6 +735,48 @@ void FStreamingManagerTexture::SetTexturesRemovedTimestamp(const FRemovedTexture
 	}
 }
 
+
+void FStreamingManagerTexture::NotifyPrimitiveUpdated( const UPrimitiveComponent* Primitive )
+{
+	STAT(GatheredStats.CallbacksCycles = -(int32)FPlatformTime::Cycles();)
+
+	if (bUseDynamicStreaming && Primitive && !Primitive->bIgnoreStreamingManagerUpdate)
+	{
+		// Check if there is a pending renderstate update, useful since streaming data can be updated in UPrimitiveComponent::CreateRenderState_Concurrent().
+		// We handle this here to prevent the primitive from being updated twice in the same frame.
+		const bool bHasRenderStateUpdateScheduled = !Primitive->IsRegistered() || !Primitive->IsRenderStateCreated() || Primitive->IsRenderStateDirty();
+		bool bUpdatePrimitive = false;
+
+		if (Primitive->bHandledByStreamingManagerAsDynamic)
+		{
+			// If an update is already scheduled and it is already handled as dynamic, nothing to do.
+			bUpdatePrimitive = !bHasRenderStateUpdateScheduled;
+		}
+		else if (Primitive->bAttachedToStreamingManagerAsStatic)
+		{
+			// Change this primitive from being handled as static to being handled as dynamic.
+			// This is required because the static data can not be updated.
+			RemoveStaticReferences(Primitive);
+
+			Primitive->bHandledByStreamingManagerAsDynamic = true;
+			bUpdatePrimitive = !bHasRenderStateUpdateScheduled;
+		}
+		else
+		{
+			// If neither flag are set, NotifyPrimitiveUpdated() was called on a new primitive, which will be updated correctly when its render state gets created.
+			// Don't force a dynamic update here since a static primitive can still go through the static path at this point.
+		}
+
+		if (bUpdatePrimitive)
+		{
+			FStreamingTextureLevelContext LevelContext(EMaterialQualityLevel::Num, Primitive);
+			DynamicComponentManager.Add(Primitive, LevelContext);
+		}
+	}
+
+	STAT(GatheredStats.CallbacksCycles += FPlatformTime::Cycles();)
+}
+
 /**
  * Called when a primitive has had its textured changed.
  * Only affects primitives that were already attached.
@@ -763,7 +787,7 @@ void FStreamingManagerTexture::NotifyPrimitiveUpdated_Concurrent( const UPrimiti
 	STAT(int32 CallbackCycle = -(int32)FPlatformTime::Cycles();)
 
 	// The level context is not used currently.
-	if (bUseDynamicStreaming && Primitive && Primitive->bHandledByStreamingManagerAsDynamic)
+	if (bUseDynamicStreaming && Primitive)
 	{
 		FStreamingTextureLevelContext LevelContext(EMaterialQualityLevel::Num);
 
@@ -891,7 +915,25 @@ void FStreamingManagerTexture::UpdateStreamingTextures( int32 StageIndex, int32 
 	CurrentUpdateStreamingTextureIndex = EndIndex;
 }
 
+static TAutoConsoleVariable<int32> CVarTextureStreamingAmortizeCPUToGPUCopy(
+	TEXT("r.Streaming.AmortizeCPUToGPUCopy"),
+	0,
+	TEXT("If set and r.Streaming.MaxNumTexturesToStreamPerFrame > 0, limit the number of 2D textures ")
+	TEXT("streamed from CPU memory to GPU memory each frame"),
+	ECVF_Scalability);
 
+static TAutoConsoleVariable<int32> CVarTextureStreamingMaxNumTexturesToStreamPerFrame(
+	TEXT("r.Streaming.MaxNumTexturesToStreamPerFrame"),
+	0,
+	TEXT("Maximum number of 2D textures allowed to stream from CPU memory to GPU memory each frame. ")
+	TEXT("<= 0 means no limit. This has no effect if r.Streaming.AmortizeCPUToGPUCopy is not set"),
+	ECVF_Scalability);
+
+static FORCEINLINE bool ShouldAmortizeMipCopies()
+{
+	return CVarTextureStreamingAmortizeCPUToGPUCopy.GetValueOnGameThread()
+		&& CVarTextureStreamingMaxNumTexturesToStreamPerFrame.GetValueOnGameThread() > 0;
+}
 
 /**
  * Stream textures in/out, based on the priorities calculated by the async work.
@@ -914,11 +956,32 @@ void FStreamingManagerTexture::StreamTextures( bool bProcessEverything )
 			}
 		}
 
-		for (int32 TextureIndex : AsyncTask.GetLoadRequests())
+		if (!bProcessEverything && ShouldAmortizeMipCopies())
 		{
-			if (StreamingTextures.IsValidIndex(TextureIndex))
+			// Ignore remaining requests since they may be outdated already
+			PendingMipCopyRequests.Reset();
+			CurrentPendingMipCopyRequestIdx = 0;
+
+			// Make copies of the requests so that they can be processed later
+			for (int32 TextureIndex : AsyncTask.GetLoadRequests())
 			{
-				StreamingTextures[TextureIndex].StreamWantedMips(*this);
+				if (StreamingTextures.IsValidIndex(TextureIndex)
+					&& StreamingTextures[TextureIndex].Texture)
+				{
+					FStreamingTexture& StreamingTexture = StreamingTextures[TextureIndex];
+					StreamingTexture.CacheStreamingMetaData();
+					new (PendingMipCopyRequests) FPendingMipCopyRequest(StreamingTexture.Texture, TextureIndex);
+				}
+			}
+		}
+		else
+		{
+			for (int32 TextureIndex : AsyncTask.GetLoadRequests())
+			{
+				if (StreamingTextures.IsValidIndex(TextureIndex))
+				{
+					StreamingTextures[TextureIndex].StreamWantedMips(*this);
+				}
 			}
 		}
 	}
@@ -935,6 +998,45 @@ void FStreamingManagerTexture::StreamTextures( bool bProcessEverything )
 			if (StreamingTexture.Texture)
 			{
 				StreamingTexture.Texture->bHasStreamingUpdatePending = bNewState;
+			}
+		}
+	}
+}
+
+void FStreamingManagerTexture::ProcessPendingMipCopyRequests()
+{
+	if (!ShouldAmortizeMipCopies())
+	{
+		return;
+	}
+
+	int32 NumRemainingRequests = CVarTextureStreamingMaxNumTexturesToStreamPerFrame.GetValueOnGameThread();
+
+	while (NumRemainingRequests
+		&& CurrentPendingMipCopyRequestIdx < PendingMipCopyRequests.Num())
+	{
+		const FPendingMipCopyRequest& Request = PendingMipCopyRequests[CurrentPendingMipCopyRequestIdx++];
+
+		if (Request.Texture)
+		{
+			FStreamingTexture* StreamingTexture = nullptr;
+
+			if (StreamingTextures.IsValidIndex(Request.CachedIdx)
+				&& StreamingTextures[Request.CachedIdx].Texture == Request.Texture)
+			{
+				StreamingTexture = &StreamingTextures[Request.CachedIdx];
+			}
+			else if (ReferencedTextures.Contains(Request.Texture))
+			{
+				// Texture is still valid but its index has been changed
+				check(StreamingTextures.IsValidIndex(Request.Texture->StreamingIndex));
+				StreamingTexture = &StreamingTextures[Request.Texture->StreamingIndex];
+			}
+
+			if (StreamingTexture)
+			{
+				StreamingTexture->StreamWantedMipsUsingCachedData(*this);
+				--NumRemainingRequests;
 			}
 		}
 	}
@@ -972,18 +1074,25 @@ void FStreamingManagerTexture::CheckUserSettings()
 void FStreamingManagerTexture::SetLastUpdateTime()
 {
 	// Update the last update time.
-	if (!GIsEditor)
+	float WorldTime = 0;
+
+	for (int32 LevelIndex = 0; LevelIndex < LevelTextureManagers.Num(); ++LevelIndex)
 	{
-		for (int32 LevelIndex = 0; LevelIndex < LevelTextureManagers.Num(); ++LevelIndex)
+		// Update last update time only if there is a reasonable threshold to define visibility.
+		WorldTime = LevelTextureManagers[LevelIndex].GetWorldTime();
+		if (WorldTime > 0)
 		{
-			// Update last update time only if there is a reasonable threshold to define visibility.
-			float WorldTime = LevelTextureManagers[LevelIndex].GetWorldTime();
-			if (WorldTime > 0)
-			{
-				LastWorldUpdateTime = WorldTime - .5f;
-				break;
-			}
+			break;
 		}
+	}
+
+	if (WorldTime> 0)
+	{
+		LastWorldUpdateTime = WorldTime - .5f;
+	}
+	else if (GIsEditor)
+	{
+		LastWorldUpdateTime = -FLT_MAX; // In editor, visibility is not taken into consideration unless in PIE.
 	}
 }
 
@@ -1030,7 +1139,7 @@ void FStreamingManagerTexture::LogViewLocationChange()
  * @param DeltaTime				Time since last call in seconds
  * @param bProcessEverything	[opt] If true, process all resources with no throttling limits
  */
-static TAutoConsoleVariable<int32> CVarFramesForFullUpdate(
+ENGINE_API TAutoConsoleVariable<int32> CVarFramesForFullUpdate(
 	TEXT("r.Streaming.FramesForFullUpdate"),
 	5,
 	TEXT("Texture streaming is time sliced per frame. This values gives the number of frames to visit all textures."));
@@ -1131,7 +1240,19 @@ void FStreamingManagerTexture::UpdateResourceStreaming( float DeltaTime, bool bP
 		STAT(UpdateStats();)
 	}
 
-	TextureInstanceAsyncWork->StartBackgroundTask(CVarUseBackgroundThreadPool.GetValueOnGameThread() ? GBackgroundPriorityThreadPool : GThreadPool);
+	if (!bProcessEverything)
+	{
+		ProcessPendingMipCopyRequests();
+	}
+
+	if (FApp::ShouldUseThreadingForPerformance())
+	{
+		TextureInstanceAsyncWork->StartBackgroundTask(CVarUseBackgroundThreadPool.GetValueOnGameThread() ? GBackgroundPriorityThreadPool : GThreadPool);
+	}
+	else
+	{
+		TextureInstanceAsyncWork->StartSynchronousTask();
+	}
 }
 
 /**

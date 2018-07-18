@@ -125,6 +125,8 @@ public:
 	{
 		// supported schemes
 		SupportedUriSchemes.Add(TEXT("file"));
+		SupportedUriSchemes.Add(TEXT("http"));
+		SupportedUriSchemes.Add(TEXT("https"));
 
 		// supported platforms
 		SupportedPlatforms.Add(TEXT("iOS"));

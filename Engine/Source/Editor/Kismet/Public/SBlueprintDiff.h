@@ -3,7 +3,7 @@
 
 #include "CoreMinimal.h"
 #include "Widgets/DeclarativeSyntaxSupport.h"
-#include "Widgets/SWidget.h"
+#include "Widgets/SWindow.h"
 #include "Widgets/SCompoundWidget.h"
 #include "Textures/SlateIcon.h"
 #include "Widgets/Views/STableViewBase.h"
@@ -21,6 +21,7 @@ class IDiffControl;
 class SMyBlueprint;
 class UEdGraph;
 struct FListItemGraphToDiff;
+enum class EAssetEditorCloseReason : uint8;
 
 struct FMatchFName
 {
@@ -124,9 +125,11 @@ public:
 			SLATE_ARGUMENT( struct FRevisionInfo, OldRevision )
 			SLATE_ARGUMENT( struct FRevisionInfo, NewRevision )
 			SLATE_ARGUMENT( bool, ShowAssetNames )
+			SLATE_ARGUMENT(TSharedPtr<SWindow>, ParentWindow)
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& InArgs);
+	virtual ~SBlueprintDiff();
 
 	/** Called when a new Graph is clicked on by user */
 	void OnGraphChanged(struct FListItemGraphToDiff* Diff);
@@ -136,6 +139,9 @@ public:
 
 	/** Helper function for generating an empty widget */
 	static TSharedRef<SWidget> DefaultEmptyPanel();
+
+	/** Helper function to create a window that holds a diff widget */
+	static TSharedPtr<SWindow> CreateDiffWindow(FText WindowTitle, UBlueprint* OldBlueprint, UBlueprint* NewBlueprint, const struct FRevisionInfo& OldRevision, const struct FRevisionInfo& NewRevision);
 
 protected:
 	/** Called when user clicks button to go to next difference */
@@ -200,6 +206,9 @@ protected:
 	/** Checks if a graph is valid for diffing */
 	bool IsGraphDiffNeeded(class UEdGraph* InGraph) const;
 
+	/** Called when editor may need to be closed */
+	void OnCloseAssetEditor(UObject* Asset, EAssetEditorCloseReason CloseReason);
+
 	struct FDiffControl
 	{
 		FDiffControl()
@@ -252,6 +261,11 @@ protected:
 	FDiffControl GraphPanel;
 	FDiffControl DefaultsPanel;
 	FDiffControl ComponentsPanel;
+
+	/** A pointer to the window holding this */
+	TWeakPtr<SWindow> WeakParentWindow;
+
+	FDelegateHandle AssetEditorCloseDelegate;
 };
 
 

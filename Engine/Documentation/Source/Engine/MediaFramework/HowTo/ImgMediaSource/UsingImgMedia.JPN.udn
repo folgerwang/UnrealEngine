@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3678517
+﻿INTSourceChangelist:3726075
 Availability:Public
 Title:Image Sequence の再生
 Crumbs:%ROOT%, Engine
@@ -15,11 +15,11 @@ Related:Engine\MediaFramework
 Related:Engine\MediaFramework\TechReference
 Related:Engine\MediaFramework\MediaEditorReference
 
-**Image Media Source** アセットを使って、アンリアル エンジン 4 の中で画像のシーケンスを Media Framework ツールの一部としてプレイすることができます。 
-パスを Image Sequence ファイルに指定するので画像の場所と再生可能な場所が分かるという点で、Image Media Source アセットは **File Media Source** と似ています。 
-命名規則は重要ですので、連番の使用を推奨します。例えば _Image_01_、_Image_02_、_Image_03_ とすれば、順番で正しく再生されます。 
+**Image Media Source** アセットを使って、アンリアル エンジン 4 (UE4) の中で画像のシーケンスを Media Framework ツールの一部としてプレイすることができます。 
+ビデオへリンクするのではなくパスを Image Sequence ファイルに指定して再生できるという点で、Image Media Source アセットは [File Media Source](Engine/MediaFramework/HowTo/FileMediaSource) と似ています。 
+命名規則は重要ですので、連番の使用を推奨します。たとえば、_Image_01_、_Image_02_、_Image_03_ すれば、必ず正しく順番に再生されます。 
 
-この操作ガイドでは、 Image Media Source を使ってレベル内のスタティックメッシュ上で画像のシーケンスをプレイします。 
+この操作ガイドでは、Image Media Source を使ってレベル内のスタティックメッシュ上で画像のシーケンスをプレイします。 
 
 ![](ImageMediaHero.png)
 
@@ -27,9 +27,10 @@ Related:Engine\MediaFramework\MediaEditorReference
 
 [REGION:note]
 ここでは **Starter Content Enabled (スターター コンテンツを有効にした状態)** で **Blueprint Third Person Template** プロジェクトを使います。
+Image Sequence も必要となります。もしお持ちでない場合は、このチュートリアルで使用した [Image Sequence のサンプル](UE4_Images.rar) をダウンロードすることができます。
 [/REGION]
 
-1.	**[コンテンツ ブラウザ]** の **[Sources Panel]** を展開、**「Content」** フォルダ内に **「Movies」** という名前のフォルダを新規作成します。
+1.	**[コンテンツ ブラウザ]** の **[Sources Panel]** を展開したら、**[Content]** に **「Movies」** という名前のフォルダを新規作成します。 
 
 	![](IMGSequence_01.png)
 
@@ -37,7 +38,9 @@ Related:Engine\MediaFramework\MediaEditorReference
 
 	![](IMGSequence_02.png)
 
-	保存場所は **「Content/Movies」** フォルダを推奨します。プロジェクトで正しくメディアをパッケージ化およびデプロイすることができます。 
+	[REGION:note]
+	必須ではありませんが、保存場所は **「Content/Movies」** フォルダを推奨します。プロジェクトで正しくメディアをパッケージ化およびデプロイすることができます。 
+	[/REGION]
 
 1.	 Image Sequence の画像を **「Content/Movies」** フォルダに置きます。 
 
@@ -48,15 +51,11 @@ Related:Engine\MediaFramework\MediaEditorReference
 	Media Framework ツールを使えば、メディア ソース プロキシを使って開発中に低解像度の画像で作業することができます。 
 	作業する画像のシーケンスやファイル サイズが増えてきた場合は、低解像度の画像で作業した方が効率的であり、かつパフォーマンス問題の発生も最小限に抑えることができます。 
 
-	[REGION:note]
-	チュートリアル用の画像シーケンスがない場合は、[Sample Image Sequence](UE4_Images.rar) からもダウンロードが可能です。 
-	[/REGION]
-
-1.	アンリアル エンジン 4 の **[Auto-Import (自動インポート)]** ダイアログ ウィンドウにある **[Don't Import (インポートしない)]** をクリックします。 
+1.	**エディタ** の画面に戻って、アンリアル エンジン 4 の **[Auto-Import (自動インポート)]** ダイアログ ウィンドウにある **[Don't Import (インポートしない)]** ボタンをクリックします。 
 
 	![](IMGSequence_03b.png)
 
-	プロジェクト ディレクトリの保存場所への参照だけが必要なので、ここでは画像のインポートは行いません。 
+	プロジェクト ディレクトリのどこに置かれているのか参照可能なので、プロジェクトに画像をインポートする必要はありません。 
 
 1.	**「Content/Movies」** フォルダを右クリックして **[Media]** から **[Img Media Source]** を選択して **[MyImageSequence]** と名前を付けます。 
 
@@ -71,6 +70,7 @@ Related:Engine\MediaFramework\MediaEditorReference
 	![](IMGSequence_06.png)
 
 	開発で使用する低解像版の画像が入っている **「lowres」** フォルダを指定しています。 
+	低解像度の画像ファイルを使うと必要なメモリ量が減るため、フル解像度のファイルを使う場合よりも最適化された体験を提供することができます。 
 
 	[REGION:warning]
 	Proxy Override パスをオリジナルのフル解像度画像と同じディレクトリ構造で、同じ名前のフォルダに指定して、見つけられるようにしておきます。 
@@ -134,7 +134,7 @@ Related:Engine\MediaFramework\MediaEditorReference
 
 	![](IMGSequence_15.png)
 
-	テストする前に、[ブループリント](Engine/Blueprints) を使って、メディア プレイヤーにゲームプレイの開始時に Image Media Source アセットを開いてプレイが開始されるように指示します。 
+	テストを開始する前に、[ブループリント](Engine/Blueprints) を使って、メディア プレイヤーにゲームプレイの開始時に Image Media Source アセットを開いてプレイが開始されるように指示します。 
 
 1.	**[MyBlueprint]** パネルで **Media Player Reference** というタイプの **[MediaPlayer]** という変数を作成し **Media Player** として **MyPlayer** に割り当てます。 
 
@@ -153,7 +153,6 @@ Related:Engine\MediaFramework\MediaEditorReference
 	![](IMGSequence_18.png)
 
 1.	**コンパイル** および **保存** し、メイン エディタから **[Play]** ボタンをクリックしてエディタ内でプレイします。 
-
 
 ## 結果
 

@@ -6,9 +6,6 @@ namespace UnrealBuildTool.Rules
 	{
         public ProceduralMeshComponentEditor(ReadOnlyTargetRules Target) : base(Target)
 		{
-			PrivateIncludePaths.Add("ProceduralMeshComponentEditor/Private");
-            PublicIncludePaths.Add("ProceduralMeshComponentEditor/Public");
-
 			PublicDependencyModuleNames.AddRange(
 				new string[]
 				{

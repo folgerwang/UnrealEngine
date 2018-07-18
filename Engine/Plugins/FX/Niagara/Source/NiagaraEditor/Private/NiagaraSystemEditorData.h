@@ -2,9 +2,11 @@
 
 #pragma once
 
+#include "NiagaraEditorDataBase.h"
 #include "NiagaraSystemEditorData.generated.h"
 
 class UNiagaraStackEditorData;
+class UNiagaraSystem;
 
 /** Editor only folder data for emitters in a system. */
 UCLASS()
@@ -42,14 +44,14 @@ private:
 
 /** Editor only UI data for systems. */
 UCLASS()
-class UNiagaraSystemEditorData : public UObject
+class UNiagaraSystemEditorData : public UNiagaraEditorDataBase
 {
 	GENERATED_BODY()
 
 public:
 	UNiagaraSystemEditorData(const FObjectInitializer& ObjectInitializer);
 
-	virtual void PostLoad() override;
+	virtual void PostLoadFromOwner(UObject* InOwner) override;
 
 	/** Gets the root folder for UI folders for emitters. */
 	UNiagaraSystemEditorFolder& GetRootFolder() const;
@@ -65,6 +67,13 @@ public:
 		OwnerTransform = InTransform;
 	}
 
+	TRange<float> GetPlaybackRange() const;
+
+	void SetPlaybackRange(TRange<float> InPlaybackRange);
+
+private:
+	void UpdatePlaybackRangeFromEmitters(UNiagaraSystem* OwnerSystem);
+
 private:
 	UPROPERTY(Instanced)
 	UNiagaraSystemEditorFolder* RootFolder;
@@ -74,4 +83,10 @@ private:
 
 	UPROPERTY()
 	FTransform OwnerTransform;
+
+	UPROPERTY()
+	float PlaybackRangeMin;
+
+	UPROPERTY()
+	float PlaybackRangeMax;
 };

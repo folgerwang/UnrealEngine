@@ -57,7 +57,9 @@ public:
 
 	virtual void SetWidth( float InWidth ) override { Width = InWidth; }
 
-	virtual void Sort( TArray< TSharedRef< class IPropertyTableRow > >& Rows, const EColumnSortMode::Type SortMode ) override;
+	virtual void Sort( TArray< TSharedRef< class IPropertyTableRow > >& Rows, const EColumnSortMode::Type PrimarySortMode, const TSharedPtr<IPropertyTableColumn>& SecondarySortColumn, const EColumnSortMode::Type SecondarySortMode ) override;
+
+	virtual TSharedPtr<struct FCompareRowByColumnBase> GetPropertySorter(UProperty* Property, EColumnSortMode::Type SortMode) override;
 
 	virtual void Tick() override {}
 

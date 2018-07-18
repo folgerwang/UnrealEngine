@@ -224,6 +224,11 @@ void UBorder::SetBrushFromTexture(UTexture2D* Texture)
 
 void UBorder::SetBrushFromMaterial(UMaterialInterface* Material)
 {
+	if (!Material)
+	{
+		UE_LOG(LogSlate, Log, TEXT("UBorder::SetBrushFromMaterial.  Incoming material is null"));
+	}
+
 	Background.SetResourceObject(Material);
 
 	//TODO UMG Check if the material can be used with the UI
@@ -236,7 +241,7 @@ void UBorder::SetBrushFromMaterial(UMaterialInterface* Material)
 
 UMaterialInstanceDynamic* UBorder::GetDynamicMaterial()
 {
-	UMaterialInterface* Material = NULL;
+	UMaterialInterface* Material = nullptr;
 
 	UObject* Resource = Background.GetResourceObject();
 	Material = Cast<UMaterialInterface>(Resource);
@@ -260,8 +265,7 @@ UMaterialInstanceDynamic* UBorder::GetDynamicMaterial()
 	}
 
 	//TODO UMG can we do something for textures?  General purpose dynamic material for them?
-
-	return NULL;
+	return nullptr;
 }
 
 void UBorder::SetDesiredSizeScale(FVector2D InScale)

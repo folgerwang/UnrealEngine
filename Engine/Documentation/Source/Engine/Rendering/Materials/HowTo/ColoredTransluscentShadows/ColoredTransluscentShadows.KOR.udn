@@ -35,7 +35,7 @@ Translucent Shadow Color 는 그림자가 통과하는 오브젝트의 색을 �
 * 사용할 수 있는 Lit (라이팅포함) 및 Unlit (라이팅제외) 블렌드 모드는 Translucent, Additive, Modulate 입니다.
 
 [REGION:note]
-주
+주 
 * 간접광은 가끔 반투명 그림자를 탈색시켜, 반투명 머티리얼의 이미시브 또는 디퓨즈보다 채도가 떨어지게 만듭니다.
 * 노멀 맵 강도는 **Translucency Directional Light Intensity** (반투명 디렉셔널 라이트 강도)를 올려 임의로 조정할 수 있습니다.
 [/REGION]

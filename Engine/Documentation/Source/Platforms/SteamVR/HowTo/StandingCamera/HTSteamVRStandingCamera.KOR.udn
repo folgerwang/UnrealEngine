@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3749327
+﻿INTSourceChangelist:3810467
 Availability: Public
 Crumbs: %ROOT%, Platforms
 Title:Steam VR 용 스틴딩 카메라 구성
@@ -24,7 +24,7 @@ Steam VR 을 사용하는 언리얼 엔진 4 (UE4) 탑재 VR 체험 개발을 �
     [REGION:simpletable]
 	|컴포넌트 이름| 값 |
     |--------|------------|
-    |** Scene**|VRCameraRoot|
+    |**Scene**|VRCameraRoot|
     |**Camera**|VRCamera|
 	[/region]
 

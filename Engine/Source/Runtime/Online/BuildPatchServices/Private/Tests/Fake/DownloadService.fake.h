@@ -2,9 +2,9 @@
 #pragma once
 
 #include "Tests/Mock/DownloadService.mock.h"
-#include "IHttpResponse.h"
-#include "Async.h"
-#include "Future.h"
+#include "Interfaces/IHttpResponse.h"
+#include "Async/Async.h"
+#include "Async/Future.h"
 #include "Serialization/MemoryWriter.h"
 
 #if WITH_DEV_AUTOMATION_TESTS

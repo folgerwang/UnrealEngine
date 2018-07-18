@@ -2,6 +2,7 @@
 
 #include "SlateMaterialResource.h"
 #include "Materials/MaterialInstanceDynamic.h"
+#include "Styling/SlateBrush.h"
 
 
 FSlateMaterialResource::FSlateMaterialResource(const UMaterialInterface& InMaterial, const FVector2D& InImageSize, FSlateShaderResource* InTextureMask )
@@ -14,7 +15,7 @@ FSlateMaterialResource::FSlateMaterialResource(const UMaterialInterface& InMater
 	SlateProxy->ActualSize = InImageSize.IntPoint();
 	SlateProxy->Resource = this;
 
-#if !UE_BUILD_SHIPPING
+#if SLATE_CHECK_UOBJECT_RENDER_RESOURCES
 	MaterialObjectWeakPtr = MaterialObject; 
 	UpdateMaterialName();
 #endif
@@ -32,7 +33,7 @@ void FSlateMaterialResource::UpdateMaterial(const UMaterialInterface& InMaterial
 {
 	MaterialObject = &InMaterialResource;
 
-#if !UE_BUILD_SHIPPING
+#if SLATE_CHECK_UOBJECT_RENDER_RESOURCES
 	MaterialObjectWeakPtr = MaterialObject;
 	UpdateMaterialName();
 #endif
@@ -55,7 +56,7 @@ void FSlateMaterialResource::ResetMaterial()
 {
 	MaterialObject = nullptr;
 
-#if !UE_BUILD_SHIPPING
+#if SLATE_CHECK_UOBJECT_RENDER_RESOURCES
 	MaterialObjectWeakPtr = nullptr;
 	UpdateMaterialName();
 #endif
@@ -70,22 +71,35 @@ void FSlateMaterialResource::ResetMaterial()
 	Height = 0;
 }
 
-#if !UE_BUILD_SHIPPING
+#if SLATE_CHECK_UOBJECT_RENDER_RESOURCES
 void FSlateMaterialResource::UpdateMaterialName()
 {
 	const UMaterialInstanceDynamic* MID = Cast<UMaterialInstanceDynamic>(MaterialObject);
 	if(MID && MID->Parent)
 	{
 		// MID's don't have nice names. Get the name of the parent instead for tracking
-		MaterialName = MID->Parent->GetFName();
+		DebugName = MID->Parent->GetFName();
 	}
 	else if(MaterialObject)
 	{
-		MaterialName = MaterialObject->GetFName();
+		DebugName = MaterialObject->GetFName();
 	}
 	else
 	{
-		MaterialName = NAME_None;
+		DebugName = NAME_None;
 	}
 }
+
+void FSlateMaterialResource::CheckForStaleResources() const
+{
+	if (DebugName != NAME_None)
+	{
+		// pending kill objects may still be rendered for a frame so it is valid for the check to pass
+		const bool bEvenIfPendingKill = true;
+		// This test needs to be thread safe.  It doesn't give us as many chances to trap bugs here but it is still useful
+		const bool bThreadSafe = true;
+		checkf(MaterialObjectWeakPtr.IsValid(bEvenIfPendingKill, bThreadSafe), TEXT("Material %s has become invalid.  This means the resource was garbage collected while slate was using it"), *DebugName.ToString());
+	}
+}
+
 #endif

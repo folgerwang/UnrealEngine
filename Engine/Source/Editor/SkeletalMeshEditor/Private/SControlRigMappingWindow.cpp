@@ -14,7 +14,7 @@
 #include "ContentBrowserModule.h"
 #include "Engine/Blueprint.h"
 #include "Engine/SkeletalMesh.h"
-#include "NodeMappingProviderInterface.h"
+#include "Animation/NodeMappingProviderInterface.h"
 #include "AnimationRuntime.h"
 
 #define LOCTEXT_NAMESPACE "SControlRigMappingWindow"
@@ -213,7 +213,12 @@ void SControlRigMappingWindow::AddNodeMapping(UBlueprint* NewSourceControlRig)
 			SkeletalMesh->Modify();
 			UNodeMappingContainer* NewMapperObject = NewObject<UNodeMappingContainer>(SkeletalMesh);
 			NewMapperObject->SetSourceAsset(NewSourceControlRig);
+			// set target asset as skeletalmesh
+			NewMapperObject->SetTargetAsset(SkeletalMesh);
+			// add default mapping, this will map default settings
+			NewMapperObject->AddDefaultMapping();
 			CurrentlySelectedIndex = SkeletalMesh->NodeMappingData.Add(NewMapperObject);
+
 			RefreshList();
 		}
 	}
@@ -247,24 +252,8 @@ FReply SControlRigMappingWindow::OnRefreshNodeMappingButtonClicked()
 		UNodeMappingContainer* Container = GetCurrentBoneMappingContainer();
 		if (SkeletalMesh && Container)
 		{
-			TArray<FName> Nodes;
-			TArray<FTransform> Transforms;
-			if (GetNodeData(Container, Nodes, Transforms) > 0)
-			{
-				SkeletalMesh->Modify();
-
-				for (int32 NodeIndex = 0; NodeIndex < Nodes.Num(); ++NodeIndex)
-				{
-					const FTransform SourceTransform = Transforms[NodeIndex];
-					const FNodeMap* NodeMap = Container->GetNodeMapping(Nodes[NodeIndex]);
-					if (NodeMap)
-					{
-						int32 BoneIndex = SkeletalMesh->RefSkeleton.FindBoneIndex(NodeMap->TargetNodeName);
-						const FTransform TargetTransform = FAnimationRuntime::GetComponentSpaceTransform(SkeletalMesh->RefSkeleton, SkeletalMesh->RetargetBasePose, BoneIndex);
-						Container->SetNodeMapping(Nodes[NodeIndex], NodeMap->TargetNodeName, SourceTransform, TargetTransform);
-					}
-				}
-			}
+			SkeletalMesh->Modify();
+			Container->RefreshDataFromAssets();
 		}
 	}
 
@@ -325,7 +314,7 @@ void SControlRigMappingWindow::OnAssetSelectedFromMeshPicker(const FAssetData& A
 bool SControlRigMappingWindow::OnShouldFilterAnimAsset(const FAssetData& AssetData) const
 {
 	FString ParentClassName;
-	if (AssetData.GetTagValue(FName(TEXT("NativeParentClass")), ParentClassName))
+	if (AssetData.GetTagValue(FBlueprintTags::NativeParentClassPath, ParentClassName))
 	{
 		if (ParentClassName.IsEmpty() == false)
 		{
@@ -388,20 +377,6 @@ class UNodeMappingContainer* SControlRigMappingWindow::GetCurrentBoneMappingCont
 	return nullptr;
 }
 
-int32 SControlRigMappingWindow::GetNodeData(class UNodeMappingContainer* InContainer, TArray<FName>& OutNodeNames, TArray<FTransform>& OutTransforms) const
-{
-	// this getter is not const
-	const INodeMappingProviderInterface* NodeMappingProvider = InContainer->GetSourceAssetCDO();
-	if (NodeMappingProvider)
-	{
-		NodeMappingProvider->GetMappableNodeData(OutNodeNames, OutTransforms);
-		ensureAlways(OutNodeNames.Num() == OutTransforms.Num());
-
-		return OutNodeNames.Num();
-	}
-
-	return 0;
-}
 void SControlRigMappingWindow::OnBoneMappingChanged(FName NodeName, FName BoneName)
 {
 	// set mapping
@@ -409,23 +384,7 @@ void SControlRigMappingWindow::OnBoneMappingChanged(FName NodeName, FName BoneNa
 	UNodeMappingContainer* Container = GetCurrentBoneMappingContainer();
 	if (Mesh && Container)
 	{
-		TArray<FName> Nodes;
-		TArray<FTransform> Transforms;
-		if (GetNodeData(Container, Nodes, Transforms) > 0)
-		{
-			int32 NodeIndex = Nodes.Find(NodeName);
-			if (NodeIndex != INDEX_NONE)
-			{
-				const FScopedTransaction Transaction(LOCTEXT("ControlRigMapping_MappingChanged", "Node Mapping Changed"));
-
-				Mesh->Modify();
-
-				const FTransform SourceTransform = Transforms[NodeIndex];
-				int32 BoneIndex = Mesh->RefSkeleton.FindBoneIndex(BoneName);
-				const FTransform TargetTransform = FAnimationRuntime::GetComponentSpaceTransform(Mesh->RefSkeleton, Mesh->RetargetBasePose, BoneIndex);
-				Container->SetNodeMapping(NodeName, BoneName, SourceTransform, TargetTransform);
-			}
-		}
+		Container->AddMapping(NodeName, BoneName);
 	}
 }
 
@@ -434,7 +393,8 @@ FName SControlRigMappingWindow::GetBoneMapping(FName NodeName)
 	UNodeMappingContainer* Container = GetCurrentBoneMappingContainer();
 	if (Container)
 	{
-		return Container->GetTargetNodeName(NodeName);
+		const FName* Target = Container->GetNodeMappingTable().Find(NodeName);;
+		return Target? (*Target) : NAME_None;
 	}
 
 	return NAME_None;
@@ -449,21 +409,21 @@ void SControlRigMappingWindow::CreateBoneMappingList(const FString& SearchText, 
 	if (Container)
 	{
 		bool bDoFiltering = !SearchText.IsEmpty();
-		TArray<FName> Nodes;
-		TArray<FTransform> Transforms;
+		const TMap<FName, FNodeItem>& SourceItems = Container->GetSourceItems();
+		const TMap<FName, FName>& SourceToTarget = Container->GetNodeMappingTable();
 
-		if (GetNodeData(Container, Nodes, Transforms) > 0)
+		if ( SourceItems.Num() > 0 )
 		{
-			for ( int32 Index=0; Index<Nodes.Num(); ++Index )
+			for ( auto Iter = SourceItems.CreateConstIterator() ; Iter; ++Iter )
 			{
-				const FName& Name = Nodes[Index];
+				const FName& Name = Iter.Key();
 				const FString& DisplayName = Name.ToString();
-				const FName& BoneName = Container->GetTargetNodeName(Name);
+				const FName* BoneName = SourceToTarget.Find(Name);
 
 				if (bDoFiltering)
 				{
 					// make sure it doens't fit any of them
-					if (!DisplayName.Contains(SearchText) && !BoneName.ToString().Contains(SearchText))
+					if (!DisplayName.Contains(SearchText) && (BoneName && !(*BoneName).ToString().Contains(SearchText)))
 					{
 						continue; // Skip items that don't match our filter
 					}

@@ -378,7 +378,7 @@ void FIntroTutorials::HandleSDKNotInstalled(const FString& PlatformName, const F
 	}
 	else
 	{
-		IDocumentation::Get()->Open( InTutorialAsset );
+		IDocumentation::Get()->Open(InTutorialAsset);
 	}
 }
 

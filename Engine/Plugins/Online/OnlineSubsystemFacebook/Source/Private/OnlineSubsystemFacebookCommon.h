@@ -59,6 +59,9 @@ public:
 
 	// FOnlineSubsystemFacebookCommon
 
+	/** @return the API version in use (depends on the Facebook app settings) */
+	const FString& GetAPIVer() const { return APIVer; }
+
 	/**
 	 * Destructor
 	 */
@@ -74,6 +77,8 @@ protected:
 
 	/** The client id given to us by Facebook */
 	FString ClientId;
+	/** Version of the API in use (depends on the Facebook app settings) */
+	FString APIVer;
 
 	/** Facebook implementation of identity interface */
 	FOnlineIdentityFacebookCommonPtr FacebookIdentity;

@@ -26,6 +26,14 @@ FAutoConsoleVariableRef CVarAOScatterTileCulling(
 	ECVF_RenderThreadSafe
 	);
 
+int32 GAverageDistanceFieldObjectsPerCullTile = 512;
+FAutoConsoleVariableRef CVarMaxDistanceFieldObjectsPerCullTile(
+	TEXT("r.AOAverageObjectsPerCullTile"),
+	GAverageDistanceFieldObjectsPerCullTile,
+	TEXT("Determines how much memory should be allocated in distance field object culling data structures.  Too much = memory waste, too little = flickering due to buffer overflow."),
+	ECVF_RenderThreadSafe | ECVF_ReadOnly
+	);
+
 class FCircleVertexBuffer : public FVertexBuffer
 {
 public:
@@ -88,7 +96,7 @@ void FTileIntersectionResources::InitDynamicRHI()
 	const bool b16BitCulledTileIndexBuffer = bAllow16BitIndices && b16BitObjectIndices && TileDimensions.X * TileDimensions.Y < (1 << 16);
 	CulledTileDataArray.Initialize(
 		b16BitCulledTileIndexBuffer ? sizeof(uint16) : sizeof(uint32), 
-		GMaxDistanceFieldObjectsPerCullTile * TileDimensions.X * TileDimensions.Y * CulledTileDataStride, 
+		GAverageDistanceFieldObjectsPerCullTile * TileDimensions.X * TileDimensions.Y * CulledTileDataStride, 
 		b16BitCulledTileIndexBuffer ? PF_R16_UINT : PF_R32_UINT, 
 		BUF_Static | FastVRamFlag, 
 		TEXT("CulledTileDataArray"));
@@ -240,7 +248,7 @@ public:
 	FBuildTileConesCS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
 		: FGlobalShader(Initializer)
 	{
-		DeferredParameters.Bind(Initializer.ParameterMap);
+		SceneTextureParameters.Bind(Initializer);
 		AOParameters.Bind(Initializer.ParameterMap);
 		TileConeAxisAndCos.Bind(Initializer.ParameterMap, TEXT("TileConeAxisAndCos"));
 		TileConeDepthRanges.Bind(Initializer.ParameterMap, TEXT("TileConeDepthRanges"));
@@ -258,7 +266,7 @@ public:
 		FComputeShaderRHIParamRef ShaderRHI = GetComputeShader();
 
 		FGlobalShader::SetParameters<FViewUniformShaderParameters>(RHICmdList, ShaderRHI, View.ViewUniformBuffer);
-		DeferredParameters.Set(RHICmdList, ShaderRHI, View, MD_PostProcess);
+		SceneTextureParameters.Set(RHICmdList, ShaderRHI, View.FeatureLevel, ESceneTextureSetupMode::All);
 		AOParameters.Set(RHICmdList, ShaderRHI, Parameters);
 
 		FTileIntersectionResources* TileIntersectionResources = ((FSceneViewState*)View.State)->AOTileIntersectionResources;
@@ -301,7 +309,7 @@ public:
 	virtual bool Serialize(FArchive& Ar)
 	{		
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
-		Ar << DeferredParameters;
+		Ar << SceneTextureParameters;
 		Ar << AOParameters;
 		Ar << TileConeAxisAndCos;
 		Ar << TileConeDepthRanges;
@@ -314,7 +322,7 @@ public:
 
 private:
 
-	FDeferredPixelShaderParameters DeferredParameters;
+	FSceneTextureShaderParameters SceneTextureParameters;
 	FAOParameters AOParameters;
 	FRWShaderParameter TileConeAxisAndCos;
 	FRWShaderParameter TileConeDepthRanges;
@@ -595,20 +603,23 @@ void ScatterTilesToObjects(FRHICommandListImmediate& RHICmdList, const FViewInfo
 	SetRenderTarget(RHICmdList, NULL, NULL);
 }
 
-FIntPoint BuildTileObjectLists(FRHICommandListImmediate& RHICmdList, FScene* Scene, TArray<FViewInfo>& Views, FSceneRenderTargetItem& DistanceFieldNormal, const FDistanceFieldAOParameters& Parameters)
+FIntPoint GetTileListGroupSizeForView(const FViewInfo& View)
+{
+	return FIntPoint(
+		FMath::DivideAndRoundUp(FMath::Max(View.ViewRect.Size().X / GAODownsampleFactor, 1), GDistanceFieldAOTileSizeX),
+		FMath::DivideAndRoundUp(FMath::Max(View.ViewRect.Size().Y / GAODownsampleFactor, 1), GDistanceFieldAOTileSizeY));
+}
+
+void BuildTileObjectLists(FRHICommandListImmediate& RHICmdList, FScene* Scene, TArray<FViewInfo>& Views, FSceneRenderTargetItem& DistanceFieldNormal, const FDistanceFieldAOParameters& Parameters)
 {
 	SCOPED_DRAW_EVENT(RHICmdList, BuildTileList);
 	SetRenderTarget(RHICmdList, NULL, NULL);
-
-	FIntPoint TileListGroupSize;
 
 	for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
 	{
 		const FViewInfo& View = Views[ViewIndex];
 
-		TileListGroupSize = FIntPoint(
-			FMath::DivideAndRoundUp(FMath::Max(View.ViewRect.Size().X / GAODownsampleFactor, 1), GDistanceFieldAOTileSizeX),
-			FMath::DivideAndRoundUp(FMath::Max(View.ViewRect.Size().Y / GAODownsampleFactor, 1), GDistanceFieldAOTileSizeY));
+		const FIntPoint TileListGroupSize = GetTileListGroupSizeForView(View);
 
 		FTileIntersectionResources*& TileIntersectionResources = ((FSceneViewState*)View.State)->AOTileIntersectionResources;
 
@@ -686,6 +697,4 @@ FIntPoint BuildTileObjectLists(FRHICommandListImmediate& RHICmdList, FScene* Sce
 			ensure(0);
 		}
 	}
-
-	return TileListGroupSize;
 }

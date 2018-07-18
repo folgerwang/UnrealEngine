@@ -9,7 +9,7 @@
 #include "Sound/AudioSettings.h"
 #include "Sound/SoundAttenuation.h"
 #include "GameFramework/PlayerState.h"
-#include "SynthComponent.h"
+#include "Components/SynthComponent.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "VoiceConfig.generated.h"
 
@@ -34,9 +34,6 @@ enum class EAudioEncodeHint : uint8
 
 namespace MicSilenceDetectionConfig
 {
-	static const float AttackTime = 2.0f;
-	static const float ReleaseTime = 1100.0f;
-	static float Threshold = 0.08f;
 	static const Audio::EPeakMode::Type LevelDetectionMode = Audio::EPeakMode::Type::Peak;
 	static const bool IsAnalog = false;
 

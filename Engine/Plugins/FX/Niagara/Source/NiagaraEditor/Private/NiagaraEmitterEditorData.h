@@ -19,7 +19,17 @@ public:
 
 	UNiagaraStackEditorData& GetStackEditorData() const;
 
+	TRange<float> GetPlaybackRange() const;
+
+	void SetPlaybackRange(TRange<float> InPlaybackRange);
+
 private:
 	UPROPERTY(Instanced)
 	UNiagaraStackEditorData* StackEditorData;
+
+	UPROPERTY()
+	float PlaybackRangeMin;
+
+	UPROPERTY()
+	float PlaybackRangeMax;
 };

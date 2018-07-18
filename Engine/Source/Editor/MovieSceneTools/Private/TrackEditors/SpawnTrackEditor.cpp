@@ -66,12 +66,6 @@ bool FSpawnTrackEditor::SupportsSequence(UMovieSceneSequence* InSequence) const
 }
 
 
-TSharedRef<ISequencerSection> FSpawnTrackEditor::MakeSectionInterface(UMovieSceneSection& SectionObject, UMovieSceneTrack& Track, FGuid ObjectBinding)
-{
-	return MakeShareable(new FBoolPropertySection(SectionObject, Track.GetDisplayName()));
-}
-
-
 void FSpawnTrackEditor::HandleAddSpawnTrackMenuEntryExecute(FGuid ObjectBinding)
 {
 	FScopedTransaction AddSpawnTrackTransaction(LOCTEXT("AddSpawnTrack_Transaction", "Add Spawn Track"));

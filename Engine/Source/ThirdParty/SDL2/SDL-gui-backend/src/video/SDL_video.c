@@ -2543,6 +2543,14 @@ SDL_SetKeyboardGrab(SDL_Window * window, SDL_bool enable)
     return _this->SetKeyboardGrab(_this, window, enable);
 }
 
+SDL_bool 
+SDL_ConfineCursor(SDL_Window * window, const SDL_Rect * rect)
+{
+    if (!_this->ConfineCursor) {
+        return SDL_FALSE;
+    }
+    return _this->ConfineCursor(_this, window, rect, 0);
+}
 
 int
 SDL_VK_LoadLibrary(const char *path)

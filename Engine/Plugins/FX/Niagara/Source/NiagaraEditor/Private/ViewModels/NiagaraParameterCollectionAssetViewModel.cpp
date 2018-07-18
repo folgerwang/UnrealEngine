@@ -9,8 +9,8 @@
 
 #include "ScopedTransaction.h"
 #include "EditorSupportDelegates.h"
-#include "ModuleManager.h"
-#include "TNiagaraViewModelManager.h"
+#include "Modules/ModuleManager.h"
+#include "ViewModels/TNiagaraViewModelManager.h"
 #include "Math/NumericLimits.h"
 
 #include "NiagaraDataInterface.h"

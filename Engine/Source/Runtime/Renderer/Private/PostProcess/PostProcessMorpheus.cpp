@@ -51,7 +51,7 @@ class FPostProcessMorpheusPS : public FGlobalShader
 
 public:
 	FPostProcessPassParameters PostprocessParameter;
-	FDeferredPixelShaderParameters DeferredParameters;
+	FSceneTextureShaderParameters SceneTextureParameters;
 	
 	// Distortion parameter values
 	FShaderParameter TextureScale;
@@ -68,7 +68,7 @@ public:
 		: FGlobalShader(Initializer)
 	{
 		PostprocessParameter.Bind(Initializer.ParameterMap);
-		DeferredParameters.Bind(Initializer.ParameterMap);
+		SceneTextureParameters.Bind(Initializer);
 
 		TextureScale.Bind(Initializer.ParameterMap, TEXT("TextureScale"));
 		//check(TextureScaleLeft.IsBound());		
@@ -96,7 +96,7 @@ public:
 		FGlobalShader::SetParameters<FViewUniformShaderParameters>(RHICmdList, ShaderRHI, Context.View.ViewUniformBuffer);
 
 		PostprocessParameter.SetPS(RHICmdList, ShaderRHI, Context, TStaticSamplerState<SF_Bilinear, AM_Border, AM_Border, AM_Border>::GetRHI());
-		DeferredParameters.Set(RHICmdList, ShaderRHI, Context.View, MD_PostProcess);
+		SceneTextureParameters.Set(RHICmdList, ShaderRHI, Context.View.FeatureLevel, ESceneTextureSetupMode::All);
 
 		{
 			static FName MorpheusName(TEXT("PSVR"));
@@ -138,7 +138,7 @@ public:
 	virtual bool Serialize(FArchive& Ar)
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
-		Ar << PostprocessParameter << DeferredParameters << TextureScale << TextureOffset << TextureUVOffset << RCoefficients << GCoefficients << BCoefficients << DistortionTextureSampler;
+		Ar << PostprocessParameter << SceneTextureParameters << TextureScale << TextureOffset << TextureUVOffset << RCoefficients << GCoefficients << BCoefficients << DistortionTextureSampler;
 		return bShaderHasOutdatedParameters;
 	}
 };
@@ -208,9 +208,16 @@ void FRCPassPostProcessMorpheus::Process(FRenderingCompositePassContext& Context
 	
 	FIntRect SrcRect = View.ViewRect;
 
-	//we should be the last node in the graph, so use the 'unscaled' view rect.  aka the one not affected by screenpercentage as we should be 
-	//targetting the final final up/downsampled backbuffer.
-	FIntRect DestRect = View.UnscaledViewRect; //View.ViewRect; // View.UnscaledViewRect;
+	// Hard coding the output dimensions.
+	// Most VR pathways can send whatever resolution to the api, and it will handle scaling, but here
+	// the output is just regular windows desktop, so we need it to be the right size regardless of pixel density.
+	FIntRect DestRect(0, 0, 960, 1080);
+	if (View.StereoPass == eSSP_RIGHT_EYE)
+	{
+		DestRect.Min.X += 960;
+		DestRect.Max.X += 960;
+	}
+	
 	FIntPoint SrcSize = InputDesc->Extent;
 
 	const FSceneRenderTargetItem& DestRenderTarget = PassOutputs[0].RequestSurface(Context);
@@ -260,7 +267,7 @@ void FRCPassPostProcessMorpheus::Process(FRenderingCompositePassContext& Context
 	checkf(false, TEXT("Unsupported path.  Morpheus should be disabled."));
 #endif
 
-	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, false, FResolveParams());
+	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 }
 
 FPooledRenderTargetDesc FRCPassPostProcessMorpheus::ComputeOutputDesc(EPassOutputId InPassOutputId) const

@@ -5,6 +5,10 @@
 #include "NiagaraScriptToolkit.h"
 #include "NiagaraEditorStyle.h"
 #include "AssetData.h"
+#include "NiagaraEditorUtilities.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+
+#define LOCTEXT_NAMESPACE "NiagaraScriptAssetTypeActions"
 
 const FName FAssetTypeActions_NiagaraScriptFunctions::NiagaraFunctionScriptName = FName("Niagara Function Script");
 const FName FAssetTypeActions_NiagaraScriptModules::NiagaraModuleScriptName = FName("Niagara Module Script");
@@ -56,7 +60,30 @@ FText FAssetTypeActions_NiagaraScript::GetDisplayNameFromAssetData(const FAssetD
 	return FAssetTypeActions_NiagaraScript::GetName();
 }
 
+bool FAssetTypeActions_NiagaraScript::HasActions(const TArray<UObject*>& InObjects) const
+{
+	for (UObject* ActionObject : InObjects)
+	{
+		if (FNiagaraEditorUtilities::IsCompilableAssetClass(ActionObject->GetClass()) == false)
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
+void FAssetTypeActions_NiagaraScript::GetActions(const TArray<UObject*>& InObjects, FMenuBuilder& MenuBuilder)
+{
+	MenuBuilder.AddMenuEntry(
+		LOCTEXT("MarkDependentCompilableAssetsDirtyLabel", "Mark dependent compilable assets dirty"),
+		LOCTEXT("MarkDependentCompilableAssetsDirtyToolTip", "Finds all niagara assets which depend on this asset either directly or indirectly,\n and marks them dirty so they can be saved with the latest version."),
+		FSlateIcon(),
+		FUIAction(FExecuteAction::CreateStatic(&FNiagaraEditorUtilities::MarkDependentCompilableAssetsDirty, InObjects)));
+}
+
 UClass* FAssetTypeActions_NiagaraScript::GetSupportedClass() const
 { 
 	return UNiagaraScript::StaticClass(); 
 }
+
+#undef LOCTEXT_NAMESPACE

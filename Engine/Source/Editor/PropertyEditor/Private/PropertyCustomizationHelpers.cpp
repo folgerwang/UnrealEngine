@@ -1597,11 +1597,12 @@ private:
 };
 
 
-FSectionList::FSectionList(IDetailLayoutBuilder& InDetailLayoutBuilder, FSectionListDelegates& InSectionListDelegates, bool bInAllowCollapse, int32 InThumbnailSize, int32 InSectionsLodIndex)
+FSectionList::FSectionList(IDetailLayoutBuilder& InDetailLayoutBuilder, FSectionListDelegates& InSectionListDelegates, bool bInInitiallyCollapsed, int32 InThumbnailSize, int32 InSectionsLodIndex, FName InSectionListName)
 	: SectionListDelegates(InSectionListDelegates)
 	, DetailLayoutBuilder(InDetailLayoutBuilder)
 	, SectionListBuilder(new FSectionListBuilder(InThumbnailSize))
-	, bAllowCollpase(bInAllowCollapse)
+	, bInitiallyCollapsed(bInInitiallyCollapsed)
+	, SectionListName(InSectionListName)
 	, ThumbnailSize(InThumbnailSize)
 	, SectionsLodIndex(InSectionsLodIndex)
 {

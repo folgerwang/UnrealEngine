@@ -37,7 +37,7 @@ bool FXmppPresenceStrophe::ReceiveStanza(const FStropheStanza& IncomingStanza)
 		// Our MultiUserChat interface will handle this stanza
 		return false;
 	}
-	else if (!FromJid.Resource.IsEmpty())
+	else if (FromJid.Resource.IsEmpty())
 	{
 		// Skip user presence updates that are missing a resource
 		return true;
@@ -89,7 +89,7 @@ bool FXmppPresenceStrophe::ReceiveStanza(const FStropheStanza& IncomingStanza)
 		TOptional<const FStropheStanza> TimestampStanza = IncomingStanza.GetChild(Strophe::SN_DELAY);
 		if (TimestampStanza.IsSet())
 		{
-			FDateTime::ParseIso8601(*TimestampStanza->GetText(), Presence.SentTime);
+			FDateTime::ParseIso8601(*TimestampStanza->GetAttribute(Strophe::SA_STAMP), Presence.SentTime);
 		}
 
 		FString UnusedPlatformUserId;
@@ -112,22 +112,25 @@ bool FXmppPresenceStrophe::UpdatePresence(const FXmppUserPresence& NewPresence)
 			{
 			case EXmppPresenceStatus::Away:
 				AvailabilityStanza.SetText(TEXT("away"));
+				PresenceStanza.AddChild(AvailabilityStanza);
 				break;
 			case EXmppPresenceStatus::Chat:
 				AvailabilityStanza.SetText(TEXT("chat"));
+				PresenceStanza.AddChild(AvailabilityStanza);
 				break;
 			case EXmppPresenceStatus::DoNotDisturb:
 				AvailabilityStanza.SetText(TEXT("dnd"));
+				PresenceStanza.AddChild(AvailabilityStanza);
 				break;
 			case EXmppPresenceStatus::ExtendedAway:
 				AvailabilityStanza.SetText(TEXT("xa"));
+				PresenceStanza.AddChild(AvailabilityStanza);
 				break;
 			}
-
-			PresenceStanza.AddChild(AvailabilityStanza);
 		}
 
 		// Update Status String
+		if (!NewPresence.StatusStr.IsEmpty())
 		{
 			FStropheStanza StatusStanza(ConnectionManager, Strophe::SN_STATUS);
 			StatusStanza.SetText(NewPresence.StatusStr);

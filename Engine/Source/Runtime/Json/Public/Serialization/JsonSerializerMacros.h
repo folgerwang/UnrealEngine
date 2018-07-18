@@ -25,13 +25,42 @@
 		Serializer.Serialize(TEXT(JsonName), JsonValue)
 
 #define JSON_SERIALIZE_ARRAY(JsonName, JsonArray) \
-	    Serializer.SerializeArray(TEXT(JsonName), JsonArray)
+		Serializer.SerializeArray(TEXT(JsonName), JsonArray)
 
 #define JSON_SERIALIZE_MAP(JsonName, JsonMap) \
 		Serializer.SerializeMap(TEXT(JsonName), JsonMap)
 
+#define JSON_SERIALIZE_SIMPLECOPY(JsonMap) \
+		Serializer.SerializeSimpleMap(JsonMap)
+
 #define JSON_SERIALIZE_SERIALIZABLE(JsonName, JsonValue) \
 		JsonValue.Serialize(Serializer, false)
+
+#define JSON_SERIALIZE_RAW_JSON_STRING(JsonName, JsonValue) \
+		if (Serializer.IsLoading()) \
+		{ \
+			if (Serializer.GetObject()->HasTypedField<EJson::Object>(TEXT(JsonName))) \
+			{ \
+				TSharedPtr<FJsonObject> JsonObject = Serializer.GetObject()->GetObjectField(TEXT(JsonName)); \
+				if (JsonObject.IsValid()) \
+				{ \
+					auto Writer = TJsonWriterFactory<TCHAR, TCondensedJsonPrintPolicy<TCHAR>>::Create(&JsonValue); \
+					FJsonSerializer::Serialize(JsonObject.ToSharedRef(), Writer); \
+				} \
+			} \
+			else \
+			{ \
+				JsonValue = FString(); \
+			} \
+		} \
+		else \
+		{ \
+			if (!JsonValue.IsEmpty()) \
+			{ \
+				Serializer.WriteIdentifierPrefix(TEXT(JsonName)); \
+				Serializer.WriteRawJSONValue(*JsonValue); \
+			} \
+		}
 
 #define JSON_SERIALIZE_ARRAY_SERIALIZABLE(JsonName, JsonArray, ElementType) \
 		if (Serializer.IsLoading()) \
@@ -127,6 +156,7 @@ struct FJsonSerializerBase
 	virtual void EndArray() = 0;
 	virtual void Serialize(const TCHAR* Name, int32& Value) = 0;
 	virtual void Serialize(const TCHAR* Name, uint32& Value) = 0;
+	virtual void Serialize(const TCHAR* Name, int64& Value) = 0;
 	virtual void Serialize(const TCHAR* Name, bool& Value) = 0;
 	virtual void Serialize(const TCHAR* Name, FString& Value) = 0;
 	virtual void Serialize(const TCHAR* Name, FText& Value) = 0;
@@ -137,8 +167,10 @@ struct FJsonSerializerBase
 	virtual void SerializeArray(const TCHAR* Name, FJsonSerializableArray& Value) = 0;
 	virtual void SerializeMap(const TCHAR* Name, FJsonSerializableKeyValueMap& Map) = 0;
 	virtual void SerializeMap(const TCHAR* Name, FJsonSerializableKeyValueMapInt& Map) = 0;
+	virtual void SerializeSimpleMap(FJsonSerializableKeyValueMap& Map) = 0;
 	virtual TSharedPtr<FJsonObject> GetObject() = 0;
 	virtual void WriteIdentifierPrefix(const TCHAR* Name) = 0;
+	virtual void WriteRawJSONValue(const TCHAR* Value) = 0;
 };
 
 /**
@@ -167,9 +199,9 @@ public:
 	{
 	}
 
-    /** Is the JSON being read from */
+	/** Is the JSON being read from */
 	virtual bool IsLoading() const override { return false; }
-    /** Is the JSON being written to */
+	/** Is the JSON being written to */
 	virtual bool IsSaving() const override { return true; }
 	/** Access to the root object */
 	virtual TSharedPtr<FJsonObject> GetObject() override { return TSharedPtr<FJsonObject>(); }
@@ -230,6 +262,16 @@ public:
 	virtual void Serialize(const TCHAR* Name, uint32& Value) override
 	{
 		JsonWriter->WriteValue(Name, static_cast<int64>(Value));
+	}
+	/**
+	 * Writes the field name and the corresponding value to the JSON data
+	 *
+	 * @param Name the field name to write out
+	 * @param Value the value to write out
+	 */
+	virtual void Serialize(const TCHAR* Name, int64& Value) override
+	{
+		JsonWriter->WriteValue(Name, Value);
 	}
 	/**
 	 * Writes the field name and the corresponding value to the JSON data
@@ -359,9 +401,20 @@ public:
 		JsonWriter->WriteObjectEnd();
 	}
 
+	virtual void SerializeSimpleMap(FJsonSerializableKeyValueMap& Map) override
+	{
+		// writing does nothing here, this is meant to read in all data from a json object 
+		// writing is explicitly handled per key/type
+	}
+
 	virtual void WriteIdentifierPrefix(const TCHAR* Name)
 	{
 		JsonWriter->WriteIdentifierPrefix(Name);
+	}
+
+	virtual void WriteRawJSONValue(const TCHAR* Value)
+	{
+		JsonWriter->WriteRawJSONValue(Value);
 	}
 };
 
@@ -389,9 +442,9 @@ public:
 	{
 	}
 
-    /** Is the JSON being read from */
+	/** Is the JSON being read from */
 	virtual bool IsLoading() const override { return true; }
-    /** Is the JSON being written to */
+	/** Is the JSON being written to */
 	virtual bool IsSaving() const override { return false; }
 	/** Access to the root Json object being read */
 	virtual TSharedPtr<FJsonObject> GetObject() override { return JsonObject; }
@@ -446,6 +499,19 @@ public:
 	 * @param Value the out value to read the data into
 	 */
 	virtual void Serialize(const TCHAR* Name, uint32& Value) override
+	{
+		if (JsonObject->HasTypedField<EJson::Number>(Name))
+		{
+			JsonObject->TryGetNumberField(Name, Value);
+		}
+	}
+	/**
+	 * If the underlying json object has the field, it is read into the value
+	 *
+	 * @param Name the name of the field to read
+	 * @param Value the out value to read the data into
+	 */
+	virtual void Serialize(const TCHAR* Name, int64& Value) override
 	{
 		if (JsonObject->HasTypedField<EJson::Number>(Name))
 		{
@@ -599,7 +665,26 @@ public:
 		}
 	}
 
+	virtual void SerializeSimpleMap(FJsonSerializableKeyValueMap& Map) override
+	{
+		// Iterate all of the keys and their values, only taking simple types (not array/object), all in string form
+		for (auto KeyValueIt = JsonObject->Values.CreateConstIterator(); KeyValueIt; ++KeyValueIt)
+		{
+			FString Value;
+			if (KeyValueIt.Value()->TryGetString(Value))
+			{ 
+				Map.Add(KeyValueIt.Key(), Value);
+			}
+		}
+	}
+
 	virtual void WriteIdentifierPrefix(const TCHAR* Name)
+	{
+		// Should never be called on a reader
+		check(false);
+	}
+
+	virtual void WriteRawJSONValue(const TCHAR* Value)
 	{
 		// Should never be called on a reader
 		check(false);
@@ -612,8 +697,8 @@ public:
 struct FJsonSerializable
 {
 	/**
-		Virtualize destructor as we provide overridable functions
-	*/
+	 *	Virtualize destructor as we provide overridable functions
+	 */
 	virtual ~FJsonSerializable() {}
 
 	/**
@@ -662,6 +747,7 @@ struct FJsonSerializable
 		FJsonSerializerWriter<TCHAR, TCondensedJsonPrintPolicy< TCHAR >> Serializer(JsonWriter);
 		((FJsonSerializable*)this)->Serialize(Serializer, bFlatObject);
 	}
+
 	/**
 	 * Serializes the contents of a JSON string into this object
 	 *
@@ -680,6 +766,26 @@ struct FJsonSerializable
 		}
 		return false;
 	}
+
+	/**
+	 * Serializes the contents of a JSON string into this object
+	 *
+	 * @param Json the JSON data to serialize from
+	 */
+	virtual bool FromJson(FString&& Json)
+	{
+		TSharedPtr<FJsonObject> JsonObject;
+		TSharedRef<TJsonReader<> > JsonReader = TJsonReaderFactory<>::Create(MoveTemp(Json));
+		if (FJsonSerializer::Deserialize(JsonReader,JsonObject) &&
+			JsonObject.IsValid())
+		{
+			FJsonSerializerReader Serializer(JsonObject);
+			Serialize(Serializer, false);
+			return true;
+		}
+		return false;
+	}
+
 	virtual bool FromJson(TSharedPtr<FJsonObject> JsonObject)
 	{
 		if (JsonObject.IsValid())

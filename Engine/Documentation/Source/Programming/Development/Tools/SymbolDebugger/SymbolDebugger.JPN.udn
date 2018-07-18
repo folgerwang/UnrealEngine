@@ -1,7 +1,7 @@
-﻿INTSourceChangelist:2711040
-Availability:Public
-Title:シンボルデバッガ
-Crumbs: %ROOT%, Engine, Programming, Programming/Development/Tools
+﻿INTSourceChangelist:3782314
+Availability:NoPublish
+Title:シンボル・デバッガ
+Crumbs: %ROOT%
 Description:エンジン クラッシュから生成されるミニダンプ ファイルのデバッグに使用するツール
 Version:4.9
 
@@ -19,11 +19,11 @@ Version:4.9
 
 1. [メソッドの選択](#メソッドの選択)
 1. [メソッドの入力](#メソッドの入力)
-1. [シンボル ストア](#SymbolStoreセクション)
+1. [Symbol Store](#SymbolStore セクション)
 1. [プラットフォーム](#Platformセクション)
 1. [エンジン バージョン](#EngineVersionセクション)
 1. [チェンジリスト番号](#ChangelistNumberセクション)
-1. [ソース コントロールのラベル](#SourceControlLabelセクション)
+1. [Source Control Label](#SourceControlLabelセクション)
 1. [アクション ボタン](#ActionButtonsセクション)
 
 
@@ -59,7 +59,7 @@ Version:4.9
 
 この値は [VisualStudioの設定](#VisualStudioの設定) でも利用する必要があります。
 
-### Platformセクション
+### プラットフォーム
 
 **[Platform]** セクションにはビルドに対応するプラットフォームが入っています。CrashDump 以外のメソッドに設定した場合、この値を適切なプラットフォーム文字列へ設定しなくてはいけません (例えば、**Win32** や **Win64**)。
 
@@ -99,7 +99,7 @@ Version:4.9
 
 ![Enable Source Server](vs_source_server.png)
  
-Visual Studioの準備に必要な最後の作業として、「P4.exe」ファイルは信頼できるコマンドであることを Visual Studio に知らせます。(この作業をしないと、P4 にソースファイルをフェッチさせるためのダイアログが継続的に表示されます。)以下のフォルダに `srcsrv.ini` というファイル名を追加して行います。
+Visual Studioの準備に必要な最後の作業として、「P4.exe」ファイルは信頼できるコマンドであることを Visual Studio に知らせます。（この作業をしないと、P4 にソースファイルをフェッチさせるためのダイアログが継続的に表示されます。）以下のフォルダに `srcsrv.ini` というファイル名を追加して行います。
 
 	C:\Program Files (x86)\Microsoft Visual Studio 12.0\Common7\IDE (for Visual Studio 2013)
 	C:\Program Files (x86)\Microsoft Visual Studio 11.0\Common7\IDE (for Visual Studio 2012)
@@ -112,7 +112,7 @@ Visual Studioの準備に必要な最後の作業として、「P4.exe」ファ�
 
 
 [COMMENT:none]
--## ToDo List-
+todo:
 [/COMMENT]
 
 [COMMENT:none]

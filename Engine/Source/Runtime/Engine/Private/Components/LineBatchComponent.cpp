@@ -116,8 +116,12 @@ ULineBatchComponent::ULineBatchComponent(const FObjectInitializer& ObjectInitial
 	SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
 
 	bUseEditorCompositing = true;
-	bGenerateOverlapEvents = false;
+	SetGenerateOverlapEvents(false);
 	bCalculateAccurateBounds = true;
+	DefaultLifeTime = 1.0f;
+
+	// Ignore streaming updates since GetUsedMaterials() is not implemented.
+	bIgnoreStreamingManagerUpdate = true;
 }
 
 void ULineBatchComponent::DrawLine(const FVector& Start, const FVector& End, const FLinearColor& Color, uint8 DepthPriority, const float Thickness, const float LifeTime)

@@ -28,8 +28,8 @@ DEFINE_LOG_CATEGORY(LogPaperCBExtensions);
 
 //////////////////////////////////////////////////////////////////////////
 
-FContentBrowserMenuExtender_SelectedAssets ContentBrowserExtenderDelegate;
-FDelegateHandle ContentBrowserExtenderDelegateHandle;
+static FContentBrowserMenuExtender_SelectedAssets ContentBrowserExtenderDelegate;
+static FDelegateHandle ContentBrowserExtenderDelegateHandle;
 
 //////////////////////////////////////////////////////////////////////////
 // FContentBrowserSelectedAssetExtensionBase

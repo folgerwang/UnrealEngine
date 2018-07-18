@@ -53,7 +53,7 @@ public class HLSLCC : ModuleRules
 				PublicAdditionalLibraries.Add(LibPath + "Mac/libhlslcc.a");
 			}
 		}
-		else if (Target.Platform == UnrealTargetPlatform.Linux)
+		else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
 		{
 			PublicAdditionalLibraries.Add(LibPath + "Linux/" + Target.Architecture + "/libhlslcc.a");
 		}

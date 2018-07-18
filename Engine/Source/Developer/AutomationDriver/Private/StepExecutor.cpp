@@ -6,9 +6,9 @@
 
 #include "DriverConfiguration.h"
 
-#include "ScopeLock.h"
-#include "Ticker.h"
-#include "Async.h"
+#include "Misc/ScopeLock.h"
+#include "Containers/Ticker.h"
+#include "Async/Async.h"
 
 
 class FStepExecutor
@@ -97,6 +97,8 @@ private:
 
 	bool ExecuteStep(float Delta, int32 StepIndex)
 	{
+        QUICK_SCOPE_CYCLE_COUNTER(STAT_FStepExecutor_ExecuteStep);
+
 		check(IsInGameThread());
 
 		FStepResult Result = FStepResult(FStepResult::EState::FAILED, 0);

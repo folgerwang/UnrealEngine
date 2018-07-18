@@ -1,6 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "SSynthKnob.h"
+#include "UI/SSynthKnob.h"
 #include "Rendering/DrawElements.h"
 
 #define LOCTEXT_NAMESPACE "SynthKnob"

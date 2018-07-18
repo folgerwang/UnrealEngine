@@ -1,10 +1,9 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
-// ..
 
 #include "ShaderFormatVectorVM.h"
 #include "VectorVMBackend.h"
 #include "CoreMinimal.h"
-#include "FileHelper.h"
+#include "Misc/FileHelper.h"
 #include "ShaderCore.h"
 #include "CrossCompilerCommon.h"
 #include "ShaderCompilerCommon.h"
@@ -76,28 +75,27 @@ bool CompileShader_VectorVM(const FShaderCompilerInput& Input, FShaderCompilerOu
 
 	const EHlslShaderFrequency Frequency = HSF_VertexShader;
 
-	//TODO: Do this later when we implement the rest of the shader plumbing stuff.
-// 		// Write out the preprocessed file and a batch file to compile it if requested (DumpDebugInfoPath is valid)
-// 		if (bDumpDebugInfo)
-// 		{
-// 			FArchive* FileWriter = IFileManager::Get().CreateFileWriter(*(Input.DumpDebugInfoPath / Input.GetSourceFilename()));
-// 			if (FileWriter)
-// 			{
-// 				auto AnsiSourceFile = StringCast<ANSICHAR>(*PreprocessedShader);
-// 				FileWriter->Serialize((ANSICHAR*)AnsiSourceFile.Get(), AnsiSourceFile.Length());
-//				{
-//					FString Line = CrossCompiler::CreateResourceTableFromEnvironment(Input.Environment);
-//					FileWriter->Serialize(TCHAR_TO_ANSI(*Line), Line.Len());
-//				}
-// 				FileWriter->Close();
-// 				delete FileWriter;
-// 			}
-// 
-// 			if (Input.bGenerateDirectCompileFile)
-// 			{
-// 				FFileHelper::SaveStringToFile(CreateShaderCompilerWorkerDirectCommandLine(Input), *(Input.DumpDebugInfoPath / TEXT("DirectCompile.txt")));
-// 			}
-// 		}
+ 		// Write out the preprocessed file and a batch file to compile it if requested (DumpDebugInfoPath is valid)
+	if (bDumpDebugInfo)
+	{
+		FArchive* FileWriter = IFileManager::Get().CreateFileWriter(*(Input.DumpDebugInfoPath / Input.GetSourceFilename()));
+		if (FileWriter)
+		{
+			auto AnsiSourceFile = StringCast<ANSICHAR>(*PreprocessedShader);
+			FileWriter->Serialize((ANSICHAR*)AnsiSourceFile.Get(), AnsiSourceFile.Length());
+			{
+				FString Line = CrossCompiler::CreateResourceTableFromEnvironment(Input.Environment);
+				FileWriter->Serialize(TCHAR_TO_ANSI(*Line), Line.Len());
+			}
+			FileWriter->Close();
+			delete FileWriter;
+		}
+
+		if (Input.bGenerateDirectCompileFile)
+		{
+			FFileHelper::SaveStringToFile(CreateShaderCompilerWorkerDirectCommandLine(Input), *(Input.DumpDebugInfoPath / TEXT("DirectCompile.txt")));
+		}
+	}
 
 	//Is stuff like this needed? What others?
 	uint32 CCFlags = HLSLCC_NoPreprocess;
@@ -139,31 +137,31 @@ bool CompileShader_VectorVM(const FShaderCompilerInput& Input, FShaderCompilerOu
 			) ? 1 : 0;
 	}
 
-		if (ErrorLog)
+	if (ErrorLog)
+	{
+		int32 SrcLen = FPlatformString::Strlen(ErrorLog);
+		int32 DestLen = FPlatformString::ConvertedLength<TCHAR, ANSICHAR>(ErrorLog, SrcLen);
+		TArray<TCHAR> Converted;
+		Converted.AddUninitialized(DestLen);
+
+		FPlatformString::Convert<ANSICHAR, TCHAR>(Converted.GetData(), DestLen, ErrorLog, SrcLen);
+		Converted.Add(0);
+
+		VMCompilationOutput.Errors = Converted.GetData();
+
+		TArray<FString> OutputByLines;
+		PreprocessedShader.ParseIntoArrayLines(OutputByLines, false);
+
+		FString OutputHlsl;
+		for (int32 i = 0; i < OutputByLines.Num(); i++)
 		{
-			int32 SrcLen = FPlatformString::Strlen(ErrorLog);
-			int32 DestLen = FPlatformString::ConvertedLength<TCHAR, ANSICHAR>(ErrorLog, SrcLen);
-			TArray<TCHAR> Converted;
-			Converted.AddUninitialized(DestLen);
-
-			FPlatformString::Convert<ANSICHAR, TCHAR>(Converted.GetData(), DestLen, ErrorLog, SrcLen);
-			Converted.Add(0);
-
-			VMCompilationOutput.Errors = Converted.GetData();
-
-			TArray<FString> OutputByLines;
-			PreprocessedShader.ParseIntoArrayLines(OutputByLines, false);
-
-			FString OutputHlsl;
-			for (int32 i = 0; i < OutputByLines.Num(); i++)
-			{
-				UE_LOG(LogVectorVMShaderCompiler, Warning, TEXT("/*%d*/%s"), i, *OutputByLines[i]);
-			}
+			UE_LOG(LogVectorVMShaderCompiler, Warning, TEXT("/*%d*/%s"), i, *OutputByLines[i]);
 		}
-		else
-		{
-			VMCompilationOutput.Errors.Empty();
-		}
+	}
+	else
+	{
+		VMCompilationOutput.Errors.Empty();
+	}
 
 	//TODO: Try to get rid of the CompilationOutput and have the vm bytecode life in the shader eco-system as the compute shader version will.
 //		int32 SourceLen = VVMBackEnd.ByteCode.Num();//ShaderSource ? FCStringAnsi::Strlen(ShaderSource) : 0;
@@ -238,9 +236,9 @@ bool CompileShader_VectorVM(const FShaderCompilerInput& Input, FShaderCompilerOu
 		UE_LOG(LogVectorVMShaderCompiler, Warning, TEXT("%s"), (const char*)ShaderSource);
 		free(ShaderSource);
 	}
-		if (VMCompilationOutput.Errors.Len() != 0)
+	if (VMCompilationOutput.Errors.Len() != 0)
 	{
-			UE_LOG(LogVectorVMShaderCompiler, Warning, TEXT("%s"), *VMCompilationOutput.Errors);
+		UE_LOG(LogVectorVMShaderCompiler, Warning, TEXT("%s"), *VMCompilationOutput.Errors);
 		free(ErrorLog);
 	}
 

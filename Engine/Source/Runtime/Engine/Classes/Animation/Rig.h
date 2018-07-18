@@ -15,6 +15,7 @@
 #include "UObject/ObjectMacros.h"
 #include "UObject/Object.h"
 #include "ReferenceSkeleton.h"
+#include "Animation/NodeMappingProviderInterface.h"
 #include "Rig.generated.h"
 
 class USkeleton;
@@ -142,7 +143,7 @@ DECLARE_DELEGATE_RetVal_OneParam(int32, FGetParentIndex, FName);
  *		- support to share different animations
  */
 UCLASS(hidecategories=Object, MinimalAPI)
-class URig : public UObject
+class URig : public UObject, public INodeMappingProviderInterface
 {
 	GENERATED_UCLASS_BODY()
 
@@ -214,7 +215,9 @@ private:
 	bool AddRigConstraint(FName NodeName, EControlConstraint::Type	ConstraintType, EConstraintTransform::Type	TranformType, FName ParentSpace, float Weight = 1.f);
 
 #endif // WITH_EDITOR
-	
+
+	// INodeMappingProviderInterface
+	virtual void GetMappableNodeData(TArray<FName>& OutNames, TArray<FNodeItem>& OutNodeItems) const override;
 	// not useful so far
 //	void CalculateComponentSpace(int32 NodeIndex, const FTransform& LocalTransform, const TArray<FTransform> & TransformBuffer, const FGetParentIndex& DelegateToGetParentIndex, FTransform& OutComponentSpaceTransform) const;
 //	void CalculateLocalSpace(int32 NodeIndex, const FTransform& ComponentTransform, const TArray<FTransform> & TransformBuffer, const FGetParentIndex& DelegateToGetParentIndex, FTransform& OutLocalSpaceTransform) const;

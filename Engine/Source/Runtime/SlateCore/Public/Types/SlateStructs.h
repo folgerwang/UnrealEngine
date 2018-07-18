@@ -31,7 +31,7 @@ public:
 	/**
 	 * Checks whether the size is set.
 	 *
-	 * @return true if the size is set, false if it is unespecified.
+	 * @return true if the size is set, false if it is unspecified.
 	 * @see Get
 	 */
 	bool IsSet( ) const
@@ -50,6 +50,12 @@ public:
 	float Get( ) const
 	{
 		return Size;
+	}
+
+	/** Compare one optional size to another for equality */
+	bool operator==(const FOptionalSize& Other) const
+	{
+		return (Size == Other.Size);
 	}
 
 private:

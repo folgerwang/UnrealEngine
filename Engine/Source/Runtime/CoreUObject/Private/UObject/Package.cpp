@@ -220,12 +220,19 @@ void UPackage::BeginDestroy()
 	// Detach linker if still attached
 	if (LinkerLoad)
 	{
-		LinkerLoad->Detach();
-		FLinkerManager::Get().RemoveLinker(LinkerLoad);
+		// Detach() below will most likely null the LinkerLoad so keep a temp copy so that we can still call RemoveLinker on it
+		FLinkerLoad* LocalLinkerToRemove = LinkerLoad;
+		LocalLinkerToRemove->Detach();
+		FLinkerManager::Get().RemoveLinker(LocalLinkerToRemove);
 		LinkerLoad = nullptr;
 	}
 
 	Super::BeginDestroy();
+}
+
+bool UPackage::IsPostLoadThreadSafe() const
+{
+	return true;
 }
 
 // UE-21181 - Tracking where the loaded editor level's package gets flagged as a PIE object

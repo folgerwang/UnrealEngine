@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3481084
+﻿INTSourceChangelist:3810467
 Availability:Public
 Title:メインメニュー バー
 Crumbs:%ROOT%, Engine, Engine/UI
@@ -6,7 +6,7 @@ Description:エディタでの作業時に使用する一般的なツールや�
 Version:4.9
 
 [EXCERPT:Intro]
-Windows アプリケーションを使用したことがあれば、エディタの **メニュー バー** は見慣れているはずです。このメニューバーからエディタのレベルでの作業中に、一般的なツールやコマンドを利用できます。
+Windows アプリケーションを使用したことがあれば、エディタの **メニュー バー** は馴染みがあるものでしょう。このメニューバーからエディタのレベルでの作業中に、一般的なツールやコマンドを利用できます。
 [/EXCERPT:Intro]
 
 [OBJECT:ToggleButtonContent]
@@ -117,7 +117,7 @@ mac
 %commonwindowmenu%
 
 [VAR:CommonWindowMenu]
-| [REGION:tablesection]** **[/REGION] ||
+| [REGION:tablesection] [/REGION] ||
 | **コンテンツ ブラウザ** | コンテンツ アセットで作業するために最高 4 つまでの [**コンテンツ ブラウザ**](Engine/Content/Browser) を開きます。 |
 | **Developer Tools** | エンジンやエディタで作業するプログラマーにとって有用な様々な **[](Engine\Tools\DevTools)** にアクセスすることができます。 |
 | **Blueprint Debugger** | **[](Engine/Blueprints/UserGuide/Debugging)** パネルを開きます。 |

@@ -34,12 +34,17 @@
 			this.CategoriesGroupBox = new System.Windows.Forms.GroupBox();
 			this.CategoriesCheckList = new System.Windows.Forms.CheckedListBox();
 			this.SplitContainer = new System.Windows.Forms.SplitContainer();
+			this.tableLayoutPanel1 = new System.Windows.Forms.TableLayoutPanel();
+			this.groupBox1 = new System.Windows.Forms.GroupBox();
+			this.SyncAllProjects = new System.Windows.Forms.CheckBox();
 			this.ViewGroupBox.SuspendLayout();
 			this.CategoriesGroupBox.SuspendLayout();
 			((System.ComponentModel.ISupportInitialize)(this.SplitContainer)).BeginInit();
 			this.SplitContainer.Panel1.SuspendLayout();
 			this.SplitContainer.Panel2.SuspendLayout();
 			this.SplitContainer.SuspendLayout();
+			this.tableLayoutPanel1.SuspendLayout();
+			this.groupBox1.SuspendLayout();
 			this.SuspendLayout();
 			// 
 			// ViewGroupBox
@@ -49,7 +54,7 @@
 			this.ViewGroupBox.Dock = System.Windows.Forms.DockStyle.Fill;
 			this.ViewGroupBox.Location = new System.Drawing.Point(0, 0);
 			this.ViewGroupBox.Name = "ViewGroupBox";
-			this.ViewGroupBox.Size = new System.Drawing.Size(1008, 216);
+			this.ViewGroupBox.Size = new System.Drawing.Size(1008, 225);
 			this.ViewGroupBox.TabIndex = 5;
 			this.ViewGroupBox.TabStop = false;
 			this.ViewGroupBox.Text = "Custom View";
@@ -72,23 +77,27 @@
 			this.ViewTextBox.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
             | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
+			this.ViewTextBox.BorderStyle = System.Windows.Forms.BorderStyle.None;
 			this.ViewTextBox.Font = new System.Drawing.Font("Courier New", 8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
 			this.ViewTextBox.Location = new System.Drawing.Point(15, 25);
 			this.ViewTextBox.Margin = new System.Windows.Forms.Padding(7);
 			this.ViewTextBox.Multiline = true;
 			this.ViewTextBox.Name = "ViewTextBox";
 			this.ViewTextBox.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
-			this.ViewTextBox.Size = new System.Drawing.Size(976, 179);
+			this.ViewTextBox.Size = new System.Drawing.Size(976, 188);
 			this.ViewTextBox.TabIndex = 6;
 			this.ViewTextBox.WordWrap = false;
 			// 
 			// CategoriesGroupBox
 			// 
+			this.CategoriesGroupBox.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
 			this.CategoriesGroupBox.Controls.Add(this.CategoriesCheckList);
-			this.CategoriesGroupBox.Dock = System.Windows.Forms.DockStyle.Fill;
-			this.CategoriesGroupBox.Location = new System.Drawing.Point(0, 0);
+			this.CategoriesGroupBox.Location = new System.Drawing.Point(0, 63);
+			this.CategoriesGroupBox.Margin = new System.Windows.Forms.Padding(0, 3, 0, 0);
 			this.CategoriesGroupBox.Name = "CategoriesGroupBox";
-			this.CategoriesGroupBox.Size = new System.Drawing.Size(1008, 415);
+			this.CategoriesGroupBox.Size = new System.Drawing.Size(1008, 364);
 			this.CategoriesGroupBox.TabIndex = 4;
 			this.CategoriesGroupBox.TabStop = false;
 			this.CategoriesGroupBox.Text = "Categories";
@@ -98,14 +107,14 @@
 			this.CategoriesCheckList.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
             | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
-			this.CategoriesCheckList.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+			this.CategoriesCheckList.BorderStyle = System.Windows.Forms.BorderStyle.None;
 			this.CategoriesCheckList.CheckOnClick = true;
 			this.CategoriesCheckList.FormattingEnabled = true;
 			this.CategoriesCheckList.IntegralHeight = false;
-			this.CategoriesCheckList.Location = new System.Drawing.Point(15, 25);
+			this.CategoriesCheckList.Location = new System.Drawing.Point(12, 26);
 			this.CategoriesCheckList.Margin = new System.Windows.Forms.Padding(7);
 			this.CategoriesCheckList.Name = "CategoriesCheckList";
-			this.CategoriesCheckList.Size = new System.Drawing.Size(976, 379);
+			this.CategoriesCheckList.Size = new System.Drawing.Size(986, 328);
 			this.CategoriesCheckList.Sorted = true;
 			this.CategoriesCheckList.TabIndex = 7;
 			// 
@@ -118,15 +127,57 @@
 			// 
 			// SplitContainer.Panel1
 			// 
-			this.SplitContainer.Panel1.Controls.Add(this.CategoriesGroupBox);
+			this.SplitContainer.Panel1.Controls.Add(this.tableLayoutPanel1);
 			// 
 			// SplitContainer.Panel2
 			// 
 			this.SplitContainer.Panel2.Controls.Add(this.ViewGroupBox);
-			this.SplitContainer.Size = new System.Drawing.Size(1008, 643);
-			this.SplitContainer.SplitterDistance = 415;
+			this.SplitContainer.Size = new System.Drawing.Size(1008, 667);
+			this.SplitContainer.SplitterDistance = 430;
 			this.SplitContainer.SplitterWidth = 12;
 			this.SplitContainer.TabIndex = 8;
+			// 
+			// tableLayoutPanel1
+			// 
+			this.tableLayoutPanel1.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+			this.tableLayoutPanel1.AutoSize = true;
+			this.tableLayoutPanel1.ColumnCount = 1;
+			this.tableLayoutPanel1.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+			this.tableLayoutPanel1.Controls.Add(this.groupBox1, 0, 0);
+			this.tableLayoutPanel1.Controls.Add(this.CategoriesGroupBox, 0, 1);
+			this.tableLayoutPanel1.Location = new System.Drawing.Point(0, 0);
+			this.tableLayoutPanel1.Margin = new System.Windows.Forms.Padding(0);
+			this.tableLayoutPanel1.Name = "tableLayoutPanel1";
+			this.tableLayoutPanel1.RowCount = 2;
+			this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle());
+			this.tableLayoutPanel1.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+			this.tableLayoutPanel1.Size = new System.Drawing.Size(1008, 427);
+			this.tableLayoutPanel1.TabIndex = 8;
+			// 
+			// groupBox1
+			// 
+			this.groupBox1.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+			this.groupBox1.Controls.Add(this.SyncAllProjects);
+			this.groupBox1.Location = new System.Drawing.Point(0, 3);
+			this.groupBox1.Margin = new System.Windows.Forms.Padding(0, 3, 0, 3);
+			this.groupBox1.Name = "groupBox1";
+			this.groupBox1.Size = new System.Drawing.Size(1008, 54);
+			this.groupBox1.TabIndex = 8;
+			this.groupBox1.TabStop = false;
+			this.groupBox1.Text = "General";
+			// 
+			// SyncAllProjectsInStream
+			// 
+			this.SyncAllProjects.AutoSize = true;
+			this.SyncAllProjects.Location = new System.Drawing.Point(12, 23);
+			this.SyncAllProjects.Name = "SyncAllProjectsInStream";
+			this.SyncAllProjects.Size = new System.Drawing.Size(163, 19);
+			this.SyncAllProjects.TabIndex = 6;
+			this.SyncAllProjects.Text = "Sync all projects in stream";
+			this.SyncAllProjects.UseVisualStyleBackColor = true;
 			// 
 			// SyncFilterControl
 			// 
@@ -137,14 +188,18 @@
 			this.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
 			this.Name = "SyncFilterControl";
 			this.Padding = new System.Windows.Forms.Padding(7);
-			this.Size = new System.Drawing.Size(1022, 657);
+			this.Size = new System.Drawing.Size(1022, 681);
 			this.ViewGroupBox.ResumeLayout(false);
 			this.ViewGroupBox.PerformLayout();
 			this.CategoriesGroupBox.ResumeLayout(false);
 			this.SplitContainer.Panel1.ResumeLayout(false);
+			this.SplitContainer.Panel1.PerformLayout();
 			this.SplitContainer.Panel2.ResumeLayout(false);
 			((System.ComponentModel.ISupportInitialize)(this.SplitContainer)).EndInit();
 			this.SplitContainer.ResumeLayout(false);
+			this.tableLayoutPanel1.ResumeLayout(false);
+			this.groupBox1.ResumeLayout(false);
+			this.groupBox1.PerformLayout();
 			this.ResumeLayout(false);
 
 		}
@@ -157,6 +212,8 @@
 		private System.Windows.Forms.SplitContainer SplitContainer;
 		private System.Windows.Forms.LinkLabel SyntaxButton;
 		private System.Windows.Forms.TextBox ViewTextBox;
-
+		private System.Windows.Forms.TableLayoutPanel tableLayoutPanel1;
+		private System.Windows.Forms.GroupBox groupBox1;
+		public System.Windows.Forms.CheckBox SyncAllProjects;
 	}
 }

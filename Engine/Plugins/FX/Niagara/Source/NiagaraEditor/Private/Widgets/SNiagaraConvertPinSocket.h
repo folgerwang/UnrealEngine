@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "DecoratedDragDropOp.h"
+#include "DragAndDrop/DecoratedDragDropOp.h"
 
 class FNiagaraConvertPinSocketViewModel;
 class FMenuBuilder;

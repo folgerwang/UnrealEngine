@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "AI/Navigation/CrowdManagerBase.h"
+#include "CrowdManagerBase.h"
 #include "CoreMinimal.h"
 #include "Stats/Stats.h"
 #include "UObject/ObjectMacros.h"
@@ -10,6 +10,7 @@
 #include "AI/Navigation/NavigationTypes.h"
 #include "Tickable.h"
 #include "DrawDebugHelpers.h"
+#include "NavFilters/NavigationQueryFilter.h"
 #include "CrowdManager.generated.h"
 
 class ANavigationData;
@@ -39,7 +40,7 @@ class dtObstacleAvoidanceDebugData;
  *  but it's slower than AvoidanceManager solution (RVO, cares only about agents)
  *
  *  All agents will operate on the same navmesh data, which will be picked from
- *  navigation system defaults (UNavigationSystem::SupportedAgents[0])
+ *  navigation system defaults (UNavigationSystemV1::SupportedAgents[0])
  *
  *  To use it, you have to add CrowdFollowingComponent to your agent
  *  (usually: replace class of PathFollowingComponent in AIController by adding 

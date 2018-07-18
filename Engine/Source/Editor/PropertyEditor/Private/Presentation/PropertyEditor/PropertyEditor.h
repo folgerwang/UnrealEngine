@@ -6,8 +6,6 @@
 #include "PropertyHandle.h"
 #include "Editor/SceneOutliner/Public/SceneOutlinerFwd.h"
 
-class FResetToDefaultOverride;
-
 class FPropertyEditor : public TSharedFromThis< FPropertyEditor >	
 {
 public:
@@ -65,16 +63,8 @@ public:
 	/**	@return The display name to be used for the property */
 	FText GetDisplayName() const;
 
-	/** @return Whether or not resetting this property to its default value is a valid and worthwhile operation */
-	bool IsResetToDefaultAvailable() const;
-
 	/**	@return Whether the property passes the current filter restrictions. If no there are no filter restrictions false will be returned. */
 	bool DoesPassFilterRestrictions() const;
-
-	/**	@return Whether the property's current value differs from the default value. */
-	bool ValueDiffersFromDefault() const;
-
-	FText GetResetToDefaultLabel() const;
 
 	void AddPropertyEditorChild( const TSharedRef<FPropertyEditor>& Child );
 	void RemovePropertyEditorChild( const TSharedRef<FPropertyEditor>& Child );
@@ -89,9 +79,6 @@ public:
 	void MakeNewBlueprint();
 	void BrowseTo();
 	void EmptyArray();
-	void Find();
-	void ResetToDefault();
-	void CustomResetToDefault(const FResetToDefaultOverride& OnCustomResetToDefault);
 	void OnGetClassesForAssetPicker( TArray<const UClass*>& OutClasses );
 	void OnAssetSelected( const FAssetData& AssetData );
 	void OnActorSelected( AActor* InActor );
@@ -128,8 +115,6 @@ private:
 	void OnDuplicateItem();
 	void OnBrowseTo();
 	void OnEmptyArray();
-	void OnResetToDefault();
-	void OnCustomResetToDefault(const FResetToDefaultOverride& OnCustomResetToDefault);
 
 	/**
 	 * Returns true if the value of the conditional property matches the value required.  Indicates whether editing or otherwise interacting with this item's

@@ -1,11 +1,11 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "ILiveLinkSource.h"
 #include "MessageEndpoint.h"
 #include "IMessageContext.h"
-#include "ThreadSafeBool.h"
+#include "HAL/ThreadSafeBool.h"
 
 class ILiveLinkClient;
 struct FLiveLinkPongMessage;

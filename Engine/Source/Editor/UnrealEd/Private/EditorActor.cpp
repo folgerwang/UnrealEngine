@@ -14,7 +14,7 @@
 #include "GameFramework/Actor.h"
 #include "GameFramework/Pawn.h"
 #include "Engine/World.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "AI/NavigationSystemBase.h"
 #include "Components/LightComponent.h"
 #include "Model.h"
 #include "Exporters/Exporter.h"
@@ -236,14 +236,13 @@ bool UUnrealEdEngine::WarnIfDestinationLevelIsHidden( UWorld* InWorld )
 	FSuppressableWarningDialog PasteHiddenWarning( Info );
 
 	//check streaming levels first	
-	for (int32 i = 0; i < InWorld->StreamingLevels.Num(); i++)
+	for (ULevelStreaming* StreamedLevel : InWorld->GetStreamingLevels())
 	{
-		ULevelStreaming* StreamedLevel = InWorld->StreamingLevels[i];
 		//this is the active level - check if it is visible
-		if ( StreamedLevel != NULL && StreamedLevel->bShouldBeVisibleInEditor == false )
+		if (StreamedLevel && StreamedLevel->GetShouldBeVisibleInEditor() == false )
 		{
 			ULevel* Level = StreamedLevel->GetLoadedLevel();
-			if( Level != NULL && Level->IsCurrentLevel() )
+			if( Level && Level->IsCurrentLevel() )
 			{
 				//the streamed level is not visible - check what the user wants to do
 				FSuppressableWarningDialog::EResult DialogResult = PasteHiddenWarning.ShowModal();
@@ -819,6 +818,11 @@ bool UUnrealEdEngine::edactDeleteSelected( UWorld* InWorld, bool bVerifyDeletion
 		{
 			for (AActor* ReferencingActor : (*ReferencingActors))
 			{
+				// Skip to next if we are referencing ourselves
+				if (ReferencingActor == Actor)
+				{
+					continue;
+				}
 
 				// If the referencing actor is a child actor that is referencing us, do not treat it
 				// as referencing for the purposes of warning about deletion
@@ -1026,13 +1030,11 @@ bool UUnrealEdEngine::edactDeleteSelected( UWorld* InWorld, bool bVerifyDeletion
 
 	if( LevelsToRebuildNavigation.Num() )
 	{
-		UWorld* World = GetEditorWorldContext().World();
-		UNavigationSystem* NavSys = UNavigationSystem::GetCurrent(World);
-		if (NavSys)
+		for (ULevel* Level : LevelsToRebuildNavigation)
 		{
-			for ( ULevel* Level : LevelsToRebuildNavigation )
+			if (Level)
 			{
-				NavSys->UpdateLevelCollision(Level);
+				FNavigationSystem::UpdateLevelCollision(*Level);
 			}
 		}
 	}
@@ -1751,7 +1753,7 @@ void UUnrealEdEngine::edactSelectAll( UWorld* InWorld )
 	for( FActorIterator It(InWorld); It; ++It )
 	{
 		AActor* Actor = *It;
-		if( !Actor->IsSelected() && !Actor->IsHiddenEd() )
+		if( !Actor->IsSelected() && !Actor->IsHiddenEd() && Actor->IsSelectable())
 		{
 			SelectActor( Actor, 1, 0 );
 		}

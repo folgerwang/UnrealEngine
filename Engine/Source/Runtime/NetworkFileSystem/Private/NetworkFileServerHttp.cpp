@@ -12,6 +12,7 @@
 #include "Serialization/MemoryReader.h"
 
 #if ENABLE_HTTP_FOR_NFS
+#include "Ssl.h"
 
 class FNetworkFileServerClientConnectionHTTP : public FNetworkFileServerClientConnection
 {
@@ -83,13 +84,25 @@ FNetworkFileServerHttp::FNetworkFileServerHttp(
 	FNetworkFileDelegateContainer InNetworkFileDelegateContainer,
 	const TArray<ITargetPlatform*>& InActiveTargetPlatforms
 	)
-	:ActiveTargetPlatforms(InActiveTargetPlatforms)
-	,Port(InPort)
+	: ActiveTargetPlatforms(InActiveTargetPlatforms)
+	, SslContext(nullptr)
+	, Context(nullptr)
+	, Port(InPort)
 {
 	if (Port < 0 )
 	{
 		Port = DEFAULT_HTTP_FILE_SERVING_PORT;
 	}
+
+#if WITH_SSL
+	// Create a context for SSL
+	FSslModule& SslModule = FModuleManager::LoadModuleChecked<FSslModule>("SSL");
+	ISslManager& SslManager = SslModule.GetSslManager();
+	if (SslManager.InitializeSsl())
+	{
+		SslContext = SslManager.CreateSslContext(FSslContextCreateOptions());
+	}
+#endif
 
 	UE_LOG(LogFileServer, Warning, TEXT("Unreal Network Http File Server starting up..."));
 
@@ -140,12 +153,25 @@ bool FNetworkFileServerHttp::Init()
 	// tack on this object.
 	Info.user = this;
 
+#if WITH_SSL
+	// SSL client options
+	if (SslContext)
+	{
+		Info.provided_client_ssl_ctx = SslContext;
+		Info.options &= ~(LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT); // Do not need to globally init
+	}
+	else
+#endif
+	{
+		Info.options |= LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT;
+	}
+
 	Context = lws_create_context(&Info);
 
 	Port = Info.port;
 
 	if (Context == NULL) {
-		UE_LOG(LogFileServer, Error, TEXT(" Could not create a libwebsocket content.\n Port : %d is already in use.\n Exiting...\n"), Port);
+		UE_LOG(LogFileServer, Error, TEXT(" Could not create a libwebsocket context.\n Port : %d is already in use.\n Exiting...\n"), Port);
 		return false;
 	}
 
@@ -191,6 +217,17 @@ void FNetworkFileServerHttp::Shutdown()
 		delete WorkerThread;
 		WorkerThread = NULL;
 	}
+
+#if WITH_SSL
+	FSslModule& SslModule = FModuleManager::LoadModuleChecked<FSslModule>("SSL");
+	ISslManager& SslManager = SslModule.GetSslManager();
+	if (SslContext)
+	{
+		SslManager.DestroySslContext(SslContext);
+		SslContext = nullptr;
+	}
+	SslManager.ShutdownSsl();
+#endif
 }
 
 uint32 FNetworkFileServerHttp::Run()

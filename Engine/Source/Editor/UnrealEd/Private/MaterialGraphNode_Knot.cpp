@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "MaterialGraphNode_Knot.h"
-#include "Kismet2NameValidators.h"
+#include "Kismet2/Kismet2NameValidators.h"
 #include "BlueprintNodeSpawner.h"
 #include "BlueprintActionDatabaseRegistrar.h"
 #include "MaterialEditorUtilities.h"

@@ -21,10 +21,10 @@
 #endif
 
 #if PLATFORM_WINDOWS
-#include "WindowsCursor.h"
+#include "Windows/WindowsCursor.h"
 typedef FWindowsCursor FPlatformCursor;
 #elif PLATFORM_MAC
-#include "MacCursor.h"
+#include "Mac/MacCursor.h"
 typedef FMacCursor FPlatformCursor;
 #else
 #endif

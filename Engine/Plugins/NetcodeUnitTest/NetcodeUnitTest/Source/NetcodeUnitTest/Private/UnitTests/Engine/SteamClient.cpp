@@ -31,11 +31,28 @@ USteamClient::USteamClient(const FObjectInitializer& ObjectInitializer)
 	NetDriverLog = TEXT("LogNet: GameNetDriver SteamNetDriver");
 }
 
+bool USteamClient::ValidateUnitTestSettings(bool bCDOCheck)
+{
+	bool bSuccess = Super::ValidateUnitTestSettings(bCDOCheck);
+
+	if (bSuccess && FParse::Param(FCommandLine::Get(), TEXT("-NoSteam")))
+	{
+		UNIT_LOG(ELogType::StatusFailure | ELogType::StyleBold, TEXT("Unit test can't run with Steam disabled."));
+
+		bSuccess = false;
+	}
+
+	return bSuccess;
+}
+
 void USteamClient::InitializeEnvironmentSettings()
 {
 	Super::InitializeEnvironmentSettings();
 
 	BaseServerParameters += TEXT(" -NetDriverOverrides=OnlineSubsystemSteam.SteamNetDriver");
+
+	// The base unit test code tries to disable Steam - strip that out
+	BaseServerParameters = BaseServerParameters.Replace(TEXT("-NoSteam"), TEXT(""));
 
 	// Need to modify the local environment too, to enable Steam and disable attempts to init the Steam server API, on the client
 	GEngine->Exec(nullptr, TEXT("OSS.SteamUnitTest 1"));

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3661537
+﻿INTSourceChangelist:3782314
 Availability:Public
 Crumbs: %ROOT%, Platforms
 Title:Gear VR 用カメラの設定
@@ -6,7 +6,7 @@ Description:Gear VR 用に UE4 のカメラを設定する方法
 Type: how-to
 SkillLevel:Beginner
 Version:4.17
-Parent:Platforms/GearVR/HowTo
+Parent:Platforms/GearVR
 Order:2
 Tags:Basics
 topic-image:HT_GearVR_Camera_Setup_Topic_Image.png
@@ -18,7 +18,7 @@ prereq:Platforms\GearVR\QuickStart
 Gear VR の場合、座式でもスタンディング式でもユーザー カメラの設定方法は同じです。このガイドでは、Gear VR HMD 用に UE4 カメラを設定する方法ついて説明します。
 
 
-## Gear VR 体験向けプロジェクトおよび基本的なカメラの設定する 
+## ステップ
 
 プロジェクト設定要件および Gear VR 体験に必要な Pawn ブループリントの作成と設定方法について説明します。
 
@@ -70,13 +70,6 @@ Gear VR の場合、座式でもスタンディング式でもユーザー カ�
     [region:note]
     この VR カメラ設定方法は実際のカメラを動かさずにカメラ位置のオフセットが可能です。エピックは VR HMD の種類に関係なく、この方法を推奨します。
     [/region]
-
-VR プレイヤー向けの基本的なブループリントが作成されました。次のセクションでは、Gear VR で使えるようにブループリントを設定していきます。
-
-## ステップ
-
-Gear VR 体験向けのカメラ設定は、以下の手順で行います。
-
 
 1. まず、**GearVR_Pawn** ブループリントを開き、**イベントグラフ** で **Event Begin Play** ノードを引き出して Executable Actions リストを表示します。**Set Tracking Origin** を検索して、クリックしてイベントグラフに追加します。
 

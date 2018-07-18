@@ -32,6 +32,14 @@ public:
 	virtual void RemoveEditingAsset(UObject* Asset) = 0;
 };
 
+/** The way that editors were requested to close */
+enum class EAssetEditorCloseReason : uint8
+{
+	CloseAllEditorsForAsset,
+	CloseOtherEditors,
+	RemoveAssetFromAllEditors,
+	CloseAllAssetEditors,
+};
 
 /**
  * Implements a manager for Editor windows that are currently open and the assets they are editing.
@@ -53,7 +61,7 @@ public:
 	 * Tries to open an editor for the specified asset.  Returns true if the asset is open in an editor.
 	 * If the file is already open in an editor, it will not create another editor window but instead bring it to front
 	 */
-	bool OpenEditorForAsset(UObject* Asset, const EToolkitMode::Type ToolkitMode = EToolkitMode::Standalone, TSharedPtr<IToolkitHost> OpenedFromLevelEditor = TSharedPtr<IToolkitHost>());
+	bool OpenEditorForAsset(UObject* Asset, const EToolkitMode::Type ToolkitMode = EToolkitMode::Standalone, TSharedPtr<IToolkitHost> OpenedFromLevelEditor = TSharedPtr<IToolkitHost>(), const bool bShowProgressWindow = true);
 
 	/** 
 	 * Tries to open an editor for all of the specified assets. 
@@ -83,6 +91,10 @@ public:
 	/** Remove given asset from all open editors */
 	void RemoveAssetFromAllEditors(UObject* Asset);
 
+	/** Event called when CloseAllEditorsForAsset/RemoveAssetFromAllEditors is called */
+	DECLARE_EVENT_TwoParams(FAssetEditorManager, FAssetEditorRequestCloseEvent, UObject*, EAssetEditorCloseReason);
+	virtual FAssetEditorRequestCloseEvent& OnAssetEditorRequestClose() { return AssetEditorRequestCloseEvent; }
+
 	/** Get all assets currently being tracked with open editors */
 	TArray<UObject*> GetAllEditedAssets();
 
@@ -90,6 +102,7 @@ public:
 	void NotifyAssetOpened(UObject* Asset, IAssetEditorInstance* Instance);
 	void NotifyAssetsOpened( const TArray< UObject* >& Assets, IAssetEditorInstance* Instance);
 
+	/** Called when an asset has been opened in an editor */
 	DECLARE_EVENT_TwoParams(FAssetEditorManager, FOnAssetOpenedInEditorEvent, UObject*, IAssetEditorInstance*);
 	virtual FOnAssetOpenedInEditorEvent& OnAssetOpenedInEditor() { return AssetOpenedInEditorEvent; }
 
@@ -196,6 +209,10 @@ private:
 	/** Holds a delegate to be invoked when the widget ticks. */
 	FTickerDelegate TickDelegate;
 
+	/** Call to request closing editors for an asset */
+	FAssetEditorRequestCloseEvent AssetEditorRequestCloseEvent;
+
+	/** Called when an asset has been opened in an editor */
 	FOnAssetOpenedInEditorEvent AssetOpenedInEditorEvent;
 
 	/** Multicast delegate executed when an asset editor is requested to be opened */

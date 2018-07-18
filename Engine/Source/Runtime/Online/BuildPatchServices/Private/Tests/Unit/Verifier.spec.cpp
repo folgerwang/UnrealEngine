@@ -1,6 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "AutomationTest.h"
+#include "Misc/AutomationTest.h"
 #include "Misc/SecureHash.h"
 #include "Math/RandomStream.h"
 #include "Tests/TestHelpers.h"
@@ -342,7 +342,7 @@ void FVerifierSpec::MakeFileData()
 	AllFiles = TSet<FString>(MockManifest->BuildFileList);
 	MockManifest->TaggedFileList = AllFiles;
 	FRandomStream RandomData(0);
-	FSHAHashData SHAHashData;
+	FSHAHash SHAHashData;
 	for (const FString& Filename : MockManifest->BuildFileList)
 	{
 		FString FullFilename = VerifyDirectory / Filename;

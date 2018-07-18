@@ -109,7 +109,7 @@ void FD3D11DynamicRHI::InitConstantBuffers()
 	{
 		uint32 Size = GConstantBufferSizes[BufferIndex];
 		uint32 SubBuffers = 1;
-		if(BufferIndex == GLOBAL_CONSTANT_BUFFER_INDEX)
+		if(BufferIndex == GLOBAL_CONSTANT_BUFFER_INDEX) //-V547
 		{
 			SubBuffers = 5;
 		}

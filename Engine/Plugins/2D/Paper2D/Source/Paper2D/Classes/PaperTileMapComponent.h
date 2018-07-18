@@ -97,6 +97,14 @@ public:
 	// Should this component show an outline around the first layer when the component is not selected?
 	UPROPERTY(Category=Rendering, EditAnywhere)
 	bool bShowOutlineWhenUnselected;
+
+	// Should this component show a tile grid when the component is not selected?
+	UPROPERTY(Category=Rendering, EditAnywhere)
+	bool bShowPerTileGridWhenUnselected;
+
+	// Should this component show an outline around each layer when the component is not selected?
+	UPROPERTY(Category=Rendering, EditAnywhere)
+	bool bShowPerLayerGridWhenUnselected;
 #endif
 
 protected:

@@ -47,8 +47,33 @@ namespace FHttpRetrySystem
     typedef TOptionalSetting<RetryTimeoutRelativeSecondsType> FRetryTimeoutRelativeSecondsSetting;
 	typedef TSet<int32> FRetryResponseCodes;
     typedef TSet<FName> FRetryVerbs;
+	
+	struct FRetryDomains
+	{
+		FRetryDomains(TArray<FString>&& InDomains) 
+			: Domains(MoveTemp(InDomains))
+			, ActiveIndex(0)
+		{}
+
+		/** The domains to use */
+		const TArray<FString> Domains;
+		/**
+		 * Index into Domains to attempt
+		 * Domains are cycled through on some errors, and when we succeed on one domain, we remain on that domain until that domain results in an error
+		 */
+		TAtomic<int32> ActiveIndex;
+	};
+	typedef TSharedPtr<FRetryDomains, ESPMode::ThreadSafe> FRetryDomainsPtr;
 };
 
+/**
+* Delegate called when an Http request will be retried in the future
+*
+* @param first parameter - original Http request that started things
+* @param second parameter - response received from the server if a successful connection was established
+* @param third parameter - seconds in the future when the response will be retried
+*/
+DECLARE_DELEGATE_ThreeParams(FHttpRequestWillRetryDelegate, FHttpRequestPtr, FHttpResponsePtr, float);
 
 namespace FHttpRetrySystem
 {
@@ -77,8 +102,7 @@ namespace FHttpRetrySystem
 		// IHttpRequest interface
 		HTTP_API virtual bool ProcessRequest() override;
 		HTTP_API virtual void CancelRequest() override;
-		virtual FHttpRequestCompleteDelegate& OnProcessRequestComplete() override { return OnProcessRequestCompleteDelegate; }
-		virtual FHttpRequestProgressDelegate& OnRequestProgress() override { return OnProcessRequestProgressDelegate; }
+		virtual FHttpRequestWillRetryDelegate& OnRequestWillRetry() { return OnRequestWillRetryDelegate; }
 		
 		// FRequest
 		EStatus::Type GetRetryStatus() const { return Status; }
@@ -92,10 +116,16 @@ namespace FHttpRetrySystem
 			const FRetryLimitCountSetting& InRetryLimitCountOverride = FRetryLimitCountSetting::Unused(),
 			const FRetryTimeoutRelativeSecondsSetting& InRetryTimeoutRelativeSecondsOverride = FRetryTimeoutRelativeSecondsSetting::Unused(),
             const FRetryResponseCodes& InRetryResponseCodes = FRetryResponseCodes(),
-            const FRetryVerbs& InRetryVerbs = FRetryVerbs()
+            const FRetryVerbs& InRetryVerbs = FRetryVerbs(),
+			const FRetryDomainsPtr& InRetryDomains = FRetryDomainsPtr()
 			);
 
 		void HttpOnRequestProgress(FHttpRequestPtr InHttpRequest, int32 BytesSent, int32 BytesRcv);
+
+		/** Update our HTTP request's URL's domain from our RetryDomains */
+		void SetUrlFromRetryDomains();
+		/** Move to the next retry domain from our RetryDomains */
+		void MoveToNextRetryDomain();
 
 		EStatus::Type                        Status;
 
@@ -103,9 +133,13 @@ namespace FHttpRetrySystem
         FRetryTimeoutRelativeSecondsSetting  RetryTimeoutRelativeSecondsOverride;
 		FRetryResponseCodes					 RetryResponseCodes;
         FRetryVerbs                          RetryVerbs;
+		FRetryDomainsPtr					 RetryDomains;
+		/** The current index in RetryDomains we are attempting */
+		int32								 RetryDomainsIndex = 0;
+		/** The original URL before replacing anything from RetryDomains */
+		FString								 OriginalUrl;
 
-		FHttpRequestCompleteDelegate OnProcessRequestCompleteDelegate;
-		FHttpRequestProgressDelegate OnProcessRequestProgressDelegate;
+		FHttpRequestWillRetryDelegate OnRequestWillRetryDelegate;
 
 		FManager& RetryManager;
     };
@@ -126,7 +160,8 @@ namespace FHttpRetrySystem
 			const FRetryLimitCountSetting& InRetryLimitCountOverride = FRetryLimitCountSetting::Unused(),
 			const FRetryTimeoutRelativeSecondsSetting& InRetryTimeoutRelativeSecondsOverride = FRetryTimeoutRelativeSecondsSetting::Unused(),
 			const FRetryResponseCodes& InRetryResponseCodes = FRetryResponseCodes(),
-			const FRetryVerbs& InRetryVerbs = FRetryVerbs()
+			const FRetryVerbs& InRetryVerbs = FRetryVerbs(),
+			const FRetryDomainsPtr& InRetryDomains = FRetryDomainsPtr()
 			);
 
 

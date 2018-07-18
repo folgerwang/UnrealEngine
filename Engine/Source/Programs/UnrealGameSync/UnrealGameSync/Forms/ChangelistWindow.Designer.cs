@@ -83,7 +83,7 @@ namespace UnrealGameSync
 			this.AcceptButton = this.OkBtn;
 			this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-			this.ClientSize = new System.Drawing.Size(485, 92);
+			this.ClientSize = new System.Drawing.Size(485, 91);
 			this.Controls.Add(this.CancelBtn);
 			this.Controls.Add(this.label1);
 			this.Controls.Add(this.OkBtn);
@@ -95,6 +95,7 @@ namespace UnrealGameSync
 			this.MinimizeBox = false;
 			this.MinimumSize = new System.Drawing.Size(501, 130);
 			this.Name = "ChangelistWindow";
+			this.ShowInTaskbar = false;
 			this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
 			this.Text = "Manually Sync Changelist";
 			this.ResumeLayout(false);

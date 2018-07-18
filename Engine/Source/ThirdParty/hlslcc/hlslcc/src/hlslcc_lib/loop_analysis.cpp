@@ -238,8 +238,9 @@ loop_analysis::visit_enter(ir_call *ir)
 
 ir_visitor_status loop_analysis::visit(ir_variable* var)
 {
-	void* entry = hash_table_find(var_ht, (void*)var);
-	check(entry == NULL);
+#if !(NDEBUG)
+	check(hash_table_find(var_ht, (void*)var) == NULL);
+#endif
 	hash_table_insert(var_ht, (void*)(if_statement_depth + 1), (void*)var);
 	return visit_continue;
 }
@@ -652,7 +653,12 @@ bool is_loop_terminator(ir_if *ir)
 
 	ir_instruction *const inst =
 		(ir_instruction *)ir->then_instructions.get_head();
-	check(inst != NULL);
+
+	if (inst == nullptr)
+	{
+		// This fixes a case where we have an empty then block which hasn't been optimized yet
+		return false;
+	}
 
 	if (inst->ir_type != ir_type_loop_jump)
 		return false;

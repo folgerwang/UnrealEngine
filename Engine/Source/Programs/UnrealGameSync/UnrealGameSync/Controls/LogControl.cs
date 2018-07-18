@@ -221,11 +221,14 @@ namespace UnrealGameSync
 			bIsSelecting = false;
 			Selection = null;
 
-			SCROLLINFO ScrollInfo = new SCROLLINFO();
-			ScrollInfo.cbSize = Marshal.SizeOf(ScrollInfo);
-			ScrollInfo.fMask = ScrollInfoMask.SIF_RANGE | ScrollInfoMask.SIF_PAGE | ScrollInfoMask.SIF_POS;
-			SetScrollInfo(Handle, ScrollBarType.SB_HORZ, ScrollInfo, true);
-			SetScrollInfo(Handle, ScrollBarType.SB_VERT, ScrollInfo, true);
+			if(IsHandleCreated)
+			{
+				SCROLLINFO ScrollInfo = new SCROLLINFO();
+				ScrollInfo.cbSize = Marshal.SizeOf(ScrollInfo);
+				ScrollInfo.fMask = ScrollInfoMask.SIF_RANGE | ScrollInfoMask.SIF_PAGE | ScrollInfoMask.SIF_POS;
+				SetScrollInfo(Handle, ScrollBarType.SB_HORZ, ScrollInfo, true);
+				SetScrollInfo(Handle, ScrollBarType.SB_VERT, ScrollInfo, true);
+			}
 
 			QueuedLines = new ConcurrentQueue<string>();
 			if(LogFileStream != null)
@@ -291,45 +294,48 @@ namespace UnrealGameSync
 		{
 			Lines.AddRange(NewLines);
 
-			// Figure out if we're tracking the last line
-			bool bIsTrackingLastLine = IsTrackingLastLine();
-
-			int NewMaxLineLength = Math.Max(MaxLineLength, NewLines.Max(x => x.Length));
-			if(NewMaxLineLength > MaxLineLength)
+			if(IsHandleCreated)
 			{
-				MaxLineLength = NewMaxLineLength;
+				// Figure out if we're tracking the last line
+				bool bIsTrackingLastLine = IsTrackingLastLine();
 
-				SCROLLINFO HorizontalScroll = new SCROLLINFO();
-				HorizontalScroll.cbSize = Marshal.SizeOf(HorizontalScroll);
-				HorizontalScroll.fMask = ScrollInfoMask.SIF_PAGE | ScrollInfoMask.SIF_RANGE;
-				HorizontalScroll.nMin = 0;
-				HorizontalScroll.nMax = NewMaxLineLength;
-				HorizontalScroll.nPage = ScrollColumnsPerPage;
-				SetScrollInfo(Handle, ScrollBarType.SB_HORZ, HorizontalScroll, true);
-			}
-
-			SCROLLINFO VerticalScroll = new SCROLLINFO();
-			VerticalScroll.cbSize = Marshal.SizeOf(VerticalScroll);
-			VerticalScroll.fMask = ScrollInfoMask.SIF_POS | ScrollInfoMask.SIF_RANGE | ScrollInfoMask.SIF_PAGE | ScrollInfoMask.SIF_TRACKPOS;
-			GetScrollInfo(Handle, ScrollBarType.SB_VERT, VerticalScroll);
-
-			if(bTrackingScroll)
-			{
-				UpdateVerticalScrollPosition(VerticalScroll.nTrackPos, ref VerticalScroll);
-			}
-			else
-			{
-				VerticalScroll.fMask = ScrollInfoMask.SIF_RANGE | ScrollInfoMask.SIF_PAGE;
-				VerticalScroll.nMin = 0;
-				if(bIsTrackingLastLine)
+				int NewMaxLineLength = Math.Max(MaxLineLength, NewLines.Max(x => x.Length));
+				if(NewMaxLineLength > MaxLineLength)
 				{
-					VerticalScroll.fMask |= ScrollInfoMask.SIF_POS;
-					VerticalScroll.nPos = Math.Max(Lines.Count - 1 - ScrollLinesPerPage + 1, 0);
-					ScrollLine = Math.Max(Lines.Count - 1 - ScrollLinesPerPage + 1, 0);
+					MaxLineLength = NewMaxLineLength;
+
+					SCROLLINFO HorizontalScroll = new SCROLLINFO();
+					HorizontalScroll.cbSize = Marshal.SizeOf(HorizontalScroll);
+					HorizontalScroll.fMask = ScrollInfoMask.SIF_PAGE | ScrollInfoMask.SIF_RANGE;
+					HorizontalScroll.nMin = 0;
+					HorizontalScroll.nMax = NewMaxLineLength;
+					HorizontalScroll.nPage = ScrollColumnsPerPage;
+					SetScrollInfo(Handle, ScrollBarType.SB_HORZ, HorizontalScroll, true);
 				}
-				VerticalScroll.nMax = Math.Max(Lines.Count - 1, 1);
-				VerticalScroll.nPage = ScrollLinesPerPage;
-				SetScrollInfo(Handle, ScrollBarType.SB_VERT, VerticalScroll, true);
+
+				SCROLLINFO VerticalScroll = new SCROLLINFO();
+				VerticalScroll.cbSize = Marshal.SizeOf(VerticalScroll);
+				VerticalScroll.fMask = ScrollInfoMask.SIF_POS | ScrollInfoMask.SIF_RANGE | ScrollInfoMask.SIF_PAGE | ScrollInfoMask.SIF_TRACKPOS;
+				GetScrollInfo(Handle, ScrollBarType.SB_VERT, VerticalScroll);
+
+				if(bTrackingScroll)
+				{
+					UpdateVerticalScrollPosition(VerticalScroll.nTrackPos, ref VerticalScroll);
+				}
+				else
+				{
+					VerticalScroll.fMask = ScrollInfoMask.SIF_RANGE | ScrollInfoMask.SIF_PAGE;
+					VerticalScroll.nMin = 0;
+					if(bIsTrackingLastLine)
+					{
+						VerticalScroll.fMask |= ScrollInfoMask.SIF_POS;
+						VerticalScroll.nPos = Math.Max(Lines.Count - 1 - ScrollLinesPerPage + 1, 0);
+						ScrollLine = Math.Max(Lines.Count - 1 - ScrollLinesPerPage + 1, 0);
+					}
+					VerticalScroll.nMax = Math.Max(Lines.Count - 1, 1);
+					VerticalScroll.nPage = ScrollLinesPerPage;
+					SetScrollInfo(Handle, ScrollBarType.SB_VERT, VerticalScroll, true);
+				}
 			}
 
 			Invalidate();

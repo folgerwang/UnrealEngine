@@ -40,6 +40,7 @@ void SMultiLineEditableText::Construct( const FArguments& InArgs )
 	bAllowContextMenu = InArgs._AllowContextMenu;
 	OnContextMenuOpening = InArgs._OnContextMenuOpening;
 	bRevertTextOnEscape = InArgs._RevertTextOnEscape;
+	VirtualKeyboardOptions = InArgs._VirtualKeyboardOptions;
 	VirtualKeyboardTrigger = InArgs._VirtualKeyboardTrigger;
 	VirtualKeyboardDismissAction = InArgs._VirtualKeyboardDismissAction;
 	OnHScrollBarUserScrolled = InArgs._OnHScrollBarUserScrolled;
@@ -313,6 +314,11 @@ void SMultiLineEditableText::EnsureActiveTick()
 EKeyboardType SMultiLineEditableText::GetVirtualKeyboardType() const
 {
 	return Keyboard_Default;
+}
+
+FVirtualKeyboardOptions SMultiLineEditableText::GetVirtualKeyboardOptions() const
+{
+	return VirtualKeyboardOptions;
 }
 
 EVirtualKeyboardTrigger SMultiLineEditableText::GetVirtualKeyboardTrigger() const

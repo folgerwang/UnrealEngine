@@ -57,6 +57,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Interaction", AdvancedDisplay)
 	TEnumAsByte<EButtonTouchMethod::Type> TouchMethod;
 
+	/** The type of keyboard/gamepad button press action required by the user to trigger the buttons 'Click' */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Interaction", AdvancedDisplay)
+	TEnumAsByte<EButtonPressMethod::Type> PressMethod;
+
 	/** Sometimes a button should only be mouse-clickable and never keyboard focusable. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Interaction")
 	bool IsFocusable;
@@ -109,8 +113,8 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Button")
 	void SetTouchMethod(EButtonTouchMethod::Type InTouchMethod);
 
-	//UFUNCTION(BlueprintCallable, Category="Button")
-	//void SetPressMethod(EButtonPressMethod::Type InPressMethod);
+	UFUNCTION(BlueprintCallable, Category="Button")
+	void SetPressMethod(EButtonPressMethod::Type InPressMethod);
 
 public:
 

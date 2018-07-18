@@ -7,7 +7,7 @@
 #include "GenericPlatform/GenericPlatformFile.h"
 #include "Templates/ScopedPointer.h"
 #include "Misc/Paths.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 class IAsyncReadFileHandle;
 
@@ -634,6 +634,10 @@ public:
 			return LowerLevel->OpenAsyncRead(*UserFilename);
 		}
 		return LowerLevel->OpenAsyncRead(Filename);
+	}
+	virtual void ThrottleAsyncPrecaches(bool bEnablePrecacheRequests) override
+	{
+		LowerLevel->ThrottleAsyncPrecaches(bEnablePrecacheRequests);
 	}
 
 };

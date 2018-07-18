@@ -288,6 +288,10 @@ FMaterialPixelParameters GetMaterialPixelParameters(FVertexFactoryInterpolantsVS
 	Result.TangentToWorld = AssembleTangentToWorld( TangentToWorld0, TangentToWorld2 );
 	Result.TwoSidedSign = 1;
 
+#if USE_WORLDVERTEXNORMAL_CENTER_INTERPOLATION
+	Result.WorldVertexNormal_Center = Interpolants.TangentToWorld2_Center.xyz;
+#endif
+
 	return Result;
 }
 
@@ -298,7 +302,7 @@ FMaterialVertexParameters GetMaterialVertexParameters(FVertexFactoryInput Input,
 	Result.WorldPosition = WorldPosition;
 	Result.VertexColor = Intermediates.VertexColor;
 	Result.PreSkinnedPosition = Input.Position.xyz;
-	Result.PreSkinnedNormal = Input.TangentZ.xyz * 2.f - 1.f;
+	Result.PreSkinnedNormal = TangentBias(Input.TangentZ.xyz);
 
 	Result.Particle.TranslatedWorldPositionAndSize.xyz = Intermediates.ParticleTranslatedWorldPosition.xyz;
 	Result.Particle.TranslatedWorldPositionAndSize.w = 1;
@@ -509,7 +513,15 @@ FVertexFactoryInterpolantsVSToPS VertexFactoryGetInterpolantsVSToPS(FVertexFacto
 	#endif
 #elif NUM_TEX_COORD_INTERPOLATORS
 	#if (ES2_PROFILE || ES3_1_PROFILE)
-		GetMaterialCustomizedUVs(VertexParameters, Interpolants.TexCoords);
+		float2 CustomizedUVs[NUM_TEX_COORD_INTERPOLATORS];
+		GetMaterialCustomizedUVs(VertexParameters, CustomizedUVs);
+		GetCustomInterpolators(VertexParameters, CustomizedUVs);
+
+		UNROLL
+		for(int CoordinateIndex = 0;CoordinateIndex < NUM_TEX_COORD_INTERPOLATORS;++CoordinateIndex)
+		{
+			Interpolants.TexCoords[CoordinateIndex] = CustomizedUVs[CoordinateIndex];
+		}
 	#else
 		// Ensure the unused components of the last packed texture coordinate are initialized.
 		Interpolants.TexCoords[(NUM_TEX_COORD_INTERPOLATORS + 1) / 2 - 1] = 0;
@@ -533,6 +545,9 @@ FVertexFactoryInterpolantsVSToPS VertexFactoryGetInterpolantsVSToPS(FVertexFacto
 
 	Interpolants.TangentToWorld0.w = 0;
 	CalcTangentToWorld(Input, Intermediates, Interpolants.TangentToWorld0.xyz, Interpolants.TangentToWorld2);
+#if USE_WORLDVERTEXNORMAL_CENTER_INTERPOLATION
+	Interpolants.TangentToWorld2_Center = Interpolants.TangentToWorld2;
+#endif
 
 #if INTERPOLATE_VERTEX_COLOR
 	Interpolants.VertexColor = Intermediates.VertexColor;

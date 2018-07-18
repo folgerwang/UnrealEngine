@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3810467
 Availability:Public
 Title:모바일 플랫폼에서의 포스트 프로세스 이펙트
 Crumbs:
@@ -40,17 +40,17 @@ reference-image:Mobile_PostProcessEffect.gif
 
 ### 콘솔을 통한 톤매퍼 필름 켜기
 UE4 에디터에서 톤매퍼를 켜는 방법은, 먼저 **물결표** (`) 키를 눌러 콘솔을 열고 다음 명령을 입력합니다.
-* ** r.Mobile.TonemapperFilm 1** 
+* **r.Mobile.TonemapperFilm 1** 
 
 톤매퍼를 끄려면, 콘솔을 열고 다음 명령을 입력합니다.
-*  ** r.Mobile.TonemapperFilm 0**
+*  **r.Mobile.TonemapperFilm 0**
 
 [region:note]
 이 방법으로 켜고 끄는 톤매퍼는 해당 세션에서만 적용됩니다. 톤매퍼를 항상 켜려면 DefaultEngine.ini 에 사용하려는 톤매퍼 세팅을 추가해 줘야 합니다.
 [/region]
 
 [REGION:lightbox]
-[![](TM_Console.png)(w:468 h:315)](TM_Console.png)
+[![](TM_Console.png)(w:468)](TM_Console.png)
 [/REGION]
 
 [REGION:caption]
@@ -61,7 +61,7 @@ UE4 에디터에서 톤매퍼를 켜는 방법은, 먼저 **물결표** (`) 키�
 프로젝트 전반적으로 톤매퍼를 켜고 끄려면 프로젝트 **DefaultEngine.ini** 파일의 **Rendering Settings** 섹션에 **r.tonemapperfilm=1** 을 추가해야 합니다.
 
 [REGION:lightbox]
-[![](TM_Default_Engine_INI.png)(w:422 h:199)](TM_Default_Engine_INI.png)
+[![](TM_Default_Engine_INI.png)(w:422)](TM_Default_Engine_INI.png)
 [/REGION]
 	
 [REGION:caption]
@@ -69,7 +69,7 @@ UE4 에디터에서 톤매퍼를 켜는 방법은, 먼저 **물결표** (`) 키�
 [/REGION]
 
 [REGION:lightbox]
-[![](TM_INI_Location.png)(w:422 h:199)](TM_INI_Location.png)
+[![](TM_INI_Location.png)(w:422)](TM_INI_Location.png)
 [/REGION]
 	
 [REGION:caption]
@@ -80,7 +80,7 @@ UE4 에디터에서 톤매퍼를 켜는 방법은, 먼저 **물결표** (`) 키�
 모바일 디바이스에서 톤 매퍼를 켜고 끄기 위해서는, 화면을 동시에 **네 손가락** 터치하여 **콘솔 창** 을 띄운 다음 **r.tonemapperfilm 1** 을 입력하면 톤매퍼가 켜지고, **r.tonemapperfilm 0** 을 입력하면 톤매퍼가 꺼집니다.
 
 [REGION:lightbox]
-[![](TM_Phone_Console.png)(w:640 h:360)](TM_Phone_Console.png)
+[![](TM_Phone_Console.png)(w:640)](TM_Phone_Console.png)
 [/REGION]
 	
 [REGION:caption]
@@ -91,7 +91,7 @@ UE4 에디터에서 톤매퍼를 켜는 방법은, 먼저 **물결표** (`) 키�
 여기서는 모바일 디바이스에서 어떤 포스트 프로세스 이펙트와 세팅이 지원되는지, 그리고 톤매퍼 활성화가 필요한지 살펴보도록 하겠습니다.
 
 [REGION:lightbox]
-[![](TM_PostProcess_Settings.png)(w:275 h:355)](TM_PostProcess_Settings.png)
+[![](TM_PostProcess_Settings.png)(w:275)](TM_PostProcess_Settings.png)
 [/REGION]
 	
 [REGION:caption]

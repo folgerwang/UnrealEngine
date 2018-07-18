@@ -4,45 +4,7 @@ Crumbs: %ROOT%, Engine, Engine/Rendering/LightingAndShadows
 Description:Lightmass の概要説明
 SkillLevel:Beginner
 Version:4.9
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Rendering/LightingAndShadows/Lightmass/Basics:title%](LMass_Topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Rendering/LightingAndShadows/Lightmass/Basics:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Rendering/LightingAndShadows/Lightmass/Basics:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/LightingAndShadows/Lightmass/Basics]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Rendering/LightingAndShadows/Lightmass/Basics:title%](LMass_Topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Rendering/LightingAndShadows/Lightmass/Basics:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Rendering/LightingAndShadows/Lightmass/Basics:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/LightingAndShadows/Lightmass/Basics]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:LMass_Topic.png
 
 [REGION:fullwidth raw]
 ![](Engine/Rendering/LightingAndShadows/lighting_overview_banner_001.png)(convert:false)
@@ -60,7 +22,7 @@ Version:4.9
 
 [INCLUDE:Engine/Rendering/LightingAndShadows/Lightmass#LightMass_003]
 
-## 構築
+## ビルド方法
 
 1. メニューバーの **[Build]** ![](LI_Build.png) をクリックします (ビルドボタンの隣にある小さな下向き三角を使用して、必要に応じて **[Build Lighting]** を選択することもできます)。
 
@@ -68,12 +30,12 @@ Version:4.9
 
 	![](LI_SLInprogress.png)
 
-1. 終了時に **[Keep]** をクリックします。
+1. 終了したら **[Keep]** をクリックします。
 
 	![](LI_SLComplete.png)
 
 
-これで終わりです。ライト数、品質モード、レベルのサイズ、lightmass Importance Volume に含まれる部分、Swarm クライアント用に使用するコンピュータの可用性によって、このプロセスの所要時間は数分から長時間の範囲で変動します。
+これで終わりです！ライト数、品質モード、レベルのサイズ、lightmass Importance Volume に含まれる部分、Swarm クライアント用に使用するコンピュータの可用性によって、このプロセスの所要時間は数分から長時間の範囲で変動します。
 
 ## Quality モード
 

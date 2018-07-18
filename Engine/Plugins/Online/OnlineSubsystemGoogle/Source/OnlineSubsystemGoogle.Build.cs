@@ -7,7 +7,8 @@ public class OnlineSubsystemGoogle : ModuleRules
 {
 	public OnlineSubsystemGoogle(ReadOnlyTargetRules Target) : base(Target)
 	{
-		PublicDefinitions.Add("ONLINESUBSYSTEMGOOGLE_PACKAGE=1");
+		bool bUsesRestfulImpl = false;
+		PrivateDefinitions.Add("ONLINESUBSYSTEMGOOGLE_PACKAGE=1");
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
 
 		PrivateIncludePaths.Add("Private");
@@ -48,25 +49,10 @@ public class OnlineSubsystemGoogle : ModuleRules
 
 			PublicAdditionalFrameworks.Add(
 			new UEBuildFramework(
-				"GoogleAppUtilities",
-				"ThirdParty/IOS/GoogleSignInSDK/GoogleAppUtilities.embeddedframework.zip"
-			)
-			);
-
-			PublicAdditionalFrameworks.Add(
-			new UEBuildFramework(
 				"GoogleSignInDependencies",
 				"ThirdParty/IOS/GoogleSignInSDK/GoogleSignInDependencies.embeddedframework.zip"
 			)
 			);
-
-			PublicAdditionalFrameworks.Add(
-			new UEBuildFramework(
-				"GoogleSymbolUtilities",
-				"ThirdParty/IOS/GoogleSignInSDK/GoogleSymbolUtilities.embeddedframework.zip"
-			)
-			);
-
 		}
 		else if (Target.Platform == UnrealTargetPlatform.Android)
 		{
@@ -84,7 +70,7 @@ public class OnlineSubsystemGoogle : ModuleRules
 		}
 		else if (Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Win64)
 		{
-			PrivateIncludePaths.Add("Private/Windows");
+			bUsesRestfulImpl = true;
 		}
 		else if (Target.Platform == UnrealTargetPlatform.XboxOne)
 		{
@@ -94,9 +80,31 @@ public class OnlineSubsystemGoogle : ModuleRules
 		{
 			PrivateIncludePaths.Add("Private/PS4");
 		}
+		else if (Target.Platform == UnrealTargetPlatform.Mac)
+		{
+			bUsesRestfulImpl = true;
+		}
+		else if (Target.Platform == UnrealTargetPlatform.Linux)
+		{
+			bUsesRestfulImpl = true;
+		}
+        else if (Target.Platform == UnrealTargetPlatform.Switch)
+        {
+            bUsesRestfulImpl = true;
+        }
 		else
 		{
 			PrecompileForTargets = PrecompileTargetsType.None;
+		}
+
+		if (bUsesRestfulImpl)
+		{
+			PublicDefinitions.Add("USES_RESTFUL_GOOGLE=1");
+			PrivateIncludePaths.Add("Private/Rest");
+		}
+		else
+		{
+			PublicDefinitions.Add("USES_RESTFUL_GOOGLE=0");
 		}
 	}
 }

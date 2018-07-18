@@ -406,12 +406,14 @@ public:
 		if( IsBound() )
 		{
 			FString AllDelegatesString = TEXT( "[" );
+			bool bAddComma = false;
 			for( typename FInvocationList::TConstIterator CurDelegate( InvocationList ); CurDelegate; ++CurDelegate )
 			{
-				if( !AllDelegatesString.IsEmpty() )
+				if (bAddComma)
 				{
 					AllDelegatesString += TEXT( ", " );
 				}
+				bAddComma = true;
 				AllDelegatesString += CurDelegate->template ToString<UObjectTemplate>();
 			}
 			AllDelegatesString += TEXT( "]" );
@@ -474,16 +476,35 @@ public:
 	}
 
 	/**
-	 * Returns all objects associated with this multicast-delegate.  For advanced uses only -- you should never
-	 * need call this function in normal circumstances.
+	 * Returns all objects associated with this multicast-delegate.
+	 * For advanced uses only -- you should never need call this function in normal circumstances.
  	 * @return	List of objects bound to this delegate
-	*/
+	 */
 	TArray< UObject* > GetAllObjects()
 	{
 		TArray< UObject* > OutputList;
 		for( typename FInvocationList::TIterator CurDelegate( InvocationList ); CurDelegate; ++CurDelegate )
 		{
 			UObject* CurObject = CurDelegate->GetUObject();
+			if( CurObject != nullptr )
+			{
+				OutputList.Add( CurObject );
+			}
+		}
+		return OutputList;
+	}
+
+	/**
+	 * Returns all objects associated with this multicast-delegate, even if unreachable.
+	 * For advanced uses only -- you should never need call this function in normal circumstances.
+ 	 * @return	List of objects bound to this delegate
+	 */
+	TArray< UObject* > GetAllObjectsEvenIfUnreachable()
+	{
+		TArray< UObject* > OutputList;
+		for( typename FInvocationList::TIterator CurDelegate( InvocationList ); CurDelegate; ++CurDelegate )
+		{
+			UObject* CurObject = CurDelegate->GetUObjectEvenIfUnreachable();
 			if( CurObject != nullptr )
 			{
 				OutputList.Add( CurObject );

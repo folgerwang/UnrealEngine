@@ -8,39 +8,25 @@
 
 #include "VulkanResources.h"
 
-struct FVulkanPooledUniformBuffer : public FRefCountedObject
-{
-	FVulkanPooledUniformBuffer(FVulkanDevice& InDevice, uint32 InSize);
-	~FVulkanPooledUniformBuffer();
-
-	FVulkanBuffer Buffer;
-};
-
-typedef TRefCountPtr<FVulkanPooledUniformBuffer> FPooledUniformBufferRef;
-
-class FVulkanGlobalUniformPool
+class FGlobalUniformBufferManager
 {
 public:
-	FVulkanGlobalUniformPool();
-	~FVulkanGlobalUniformPool();
 
-	void BeginFrame();
-	FPooledUniformBufferRef& GetGlobalUniformBufferFromPool(FVulkanDevice& InDevice, uint32 InSize);
-
-private:
-	FORCEINLINE uint32 GetPoolBucketIndex(uint32 NumBytes) const
+protected:
+	struct FBufferEntry
 	{
-		uint32 Index = FMath::CeilLogTwo(NumBytes);
-		check(Index < NumPoolBuckets);
-		return Index;
-	}
-
-	enum
-	{
-		NumPoolBuckets	= 17,
-		NumFrames		= 4,	// Should be at least the same as the number of command-buffers we run
+		VulkanRHI::FBufferAllocation* BufferAlloc = nullptr;
+		FVulkanCmdBuffer* StartCmdBuffer = nullptr;
+		uint64 StartFence = 0;
 	};
 
-	TArray<FPooledUniformBufferRef> GlobalUniformBufferPool[NumPoolBuckets];
-	TArray<FPooledUniformBufferRef> UsedGlobalUniformBuffers[NumPoolBuckets * NumFrames];
+	struct
+	{
+		FBufferEntry Entry;
+		TArray<uint32> Offsets;
+		TArray<uint32> Sizes;
+	} CurrentGfx;
+
+	TArray<FBufferEntry> UsedEntries;
+	TArray<VulkanRHI::FBufferAllocation*> FreeEntries;
 };

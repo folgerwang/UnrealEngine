@@ -18,8 +18,7 @@
 #include "Components/StaticMeshComponent.h"
 #include "Components/LightComponent.h"
 #include "Model.h"
-#include "Curves/KeyHandle.h"
-#include "Curves/RichCurve.h"
+#include "Channels/MovieSceneFloatChannel.h"
 #include "Animation/AnimTypes.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Editor/EditorPerProjectUserSettings.h"
@@ -37,6 +36,7 @@
 #include "Engine/Polys.h"
 #include "Engine/StaticMesh.h"
 #include "Editor.h"
+#include "Channels/MovieSceneChannelProxy.h"
 
 #include "Materials/Material.h"
 #include "Materials/MaterialExpressionConstant.h"
@@ -81,6 +81,7 @@
 #include "Evaluation/MovieScenePlayback.h"
 #include "Evaluation/MovieSceneEvaluationTemplateInstance.h"
 #include "MovieSceneSequence.h"
+#include "MovieSceneTimeHelpers.h"
 
 #if WITH_PHYSX
 #include "DynamicMeshBuilder.h"
@@ -94,6 +95,7 @@
 #include "Widgets/SWindow.h"
 #include "Framework/Application/SlateApplication.h"
 #include "Interfaces/IMainFrameModule.h"
+#include "UObject/MetaData.h"
 
 namespace UnFbx
 {
@@ -103,9 +105,11 @@ TSharedPtr<FFbxExporter> FFbxExporter::StaticInstance;
 FFbxExporter::FFbxExporter()
 {
 	//We use the FGCObject pattern to keep the fbx export option alive during the editor session
-	ExportOptions = NewObject<UFbxExportOption>();
+	ExportOptionsUI = NewObject<UFbxExportOption>();
 	//Load the option from the user save ini file
-	ExportOptions->LoadOptions();
+	ExportOptionsUI->LoadOptions();
+
+	ExportOptionsOverride = nullptr;
 
 	// Create the SdkManager
 	SdkManager = FbxManager::Create();
@@ -140,15 +144,28 @@ void FFbxExporter::DeleteInstance()
 	StaticInstance.Reset();
 }
 
+void FFbxExporter::AddReferencedObjects(FReferenceCollector& Collector)
+{
+	if (ExportOptionsUI != nullptr)
+	{
+		Collector.AddReferencedObject(ExportOptionsUI);
+	}
+
+	if (ExportOptionsOverride != nullptr)
+	{
+		Collector.AddReferencedObject(ExportOptionsOverride);
+	}
+}
+
 void FFbxExporter::FillExportOptions(bool BatchMode, bool bShowOptionDialog, const FString& FullPath, bool& OutOperationCanceled, bool& bOutExportAll)
 {
 	OutOperationCanceled = false;
 	
 	//Export option should have been set in the constructor
-	check(ExportOptions != nullptr);
+	check(ExportOptionsUI != nullptr);
 	
 	//Load the option from the user save ini file
-	ExportOptions->LoadOptions();
+	ExportOptionsUI->LoadOptions();
 	
 	//Return if we do not show the export options or we are running automation test or we are unattended
 	if (!bShowOptionDialog || GIsAutomationTesting || FApp::IsUnattended())
@@ -176,14 +193,14 @@ void FFbxExporter::FillExportOptions(bool BatchMode, bool bShowOptionDialog, con
 	Window->SetContent
 	(
 		SAssignNew(FbxOptionWindow, SFbxExportOptionsWindow)
-		.ExportOptions(ExportOptions)
+		.ExportOptions(ExportOptionsUI)
 		.WidgetWindow(Window)
 		.FullPath(FText::FromString(FullPath))
 		.BatchMode(BatchMode)
 	);
 
 	FSlateApplication::Get().AddModalWindow(Window, ParentWindow, false);
-	ExportOptions->SaveOptions();
+	ExportOptionsUI->SaveOptions();
 
 	if (FbxOptionWindow->ShouldExport())
 	{
@@ -195,6 +212,15 @@ void FFbxExporter::FillExportOptions(bool BatchMode, bool bShowOptionDialog, con
 	}
 }
 
+void FFbxExporter::SetExportOptionsOverride(UFbxExportOption* OverrideOptions)
+{
+	ExportOptionsOverride = OverrideOptions;
+}
+
+UFbxExportOption* FFbxExporter::GetExportOptions()
+{
+	return ExportOptionsOverride ? ExportOptionsOverride : ExportOptionsUI;
+}
 
 void FFbxExporter::CreateDocument()
 {
@@ -215,7 +241,7 @@ void FFbxExporter::CreateDocument()
 	
 	//FbxScene->GetGlobalSettings().SetOriginalUpAxis(KFbxAxisSystem::Max);
 	FbxAxisSystem::EFrontVector FrontVector = (FbxAxisSystem::EFrontVector)-FbxAxisSystem::eParityOdd;
-	if (ExportOptions->bForceFrontXAxis)
+	if (GetExportOptions()->bForceFrontXAxis)
 		FrontVector = FbxAxisSystem::eParityEven;
 
 	const FbxAxisSystem UnrealZUp(FbxAxisSystem::eZAxis, FrontVector, FbxAxisSystem::eRightHanded);
@@ -247,13 +273,21 @@ void FFbxExporter::WriteToFile(const TCHAR* Filename)
 
 	int32 FileFormat = -1;
 	bool bEmbedMedia = false;
+	bool bASCII = GetExportOptions()->bASCII;
 
 	// Create an exporter.
 	FbxExporter* Exporter = FbxExporter::Create(SdkManager, "");
 
 	// set file format
 	// Write in fall back format if pEmbedMedia is true
-	FileFormat = SdkManager->GetIOPluginRegistry()->GetNativeWriterFormat();
+	if (bASCII)
+	{
+		FileFormat = SdkManager->GetIOPluginRegistry()->FindWriterIDByDescription("FBX ascii (*.fbx)");
+	}
+	else
+	{
+		FileFormat = SdkManager->GetIOPluginRegistry()->GetNativeWriterFormat();
+	}
 
 	// Set the export states. By default, the export states are always set to 
 	// true except for the option eEXPORT_TEXTURE_AS_EMBEDDED. The code below 
@@ -266,10 +300,11 @@ void FFbxExporter::WriteToFile(const TCHAR* Filename)
 	IOS_REF.SetBoolProp(EXP_FBX_GOBO,            true);
 	IOS_REF.SetBoolProp(EXP_FBX_ANIMATION,       true);
 	IOS_REF.SetBoolProp(EXP_FBX_GLOBAL_SETTINGS, true);
+	IOS_REF.SetBoolProp(EXP_ASCIIFBX,            bASCII);
 
 	//Get the compatibility from the editor settings
 	const char* CompatibilitySetting = FBX_2013_00_COMPATIBLE;
-	const EFbxExportCompatibility FbxExportCompatibility = ExportOptions->FbxExportCompatibility;
+	const EFbxExportCompatibility FbxExportCompatibility = GetExportOptions()->FbxExportCompatibility;
 	switch (FbxExportCompatibility)
 	{
 		case EFbxExportCompatibility::FBX_2011:
@@ -823,7 +858,7 @@ void FFbxExporter::ExportStaticMesh(AActor* Actor, UStaticMeshComponent* StaticM
 	FString FbxMeshName = StaticMesh->GetName().Replace(TEXT("-"), TEXT("_"));
 	FColorVertexBuffer* ColorBuffer = NULL;
 
-	if(ExportOptions->LevelOfDetail && StaticMesh->GetNumLODs() > 1)
+	if(GetExportOptions()->LevelOfDetail && StaticMesh->GetNumLODs() > 1)
 	{
 		//Create a fbx LOD Group node
 		FbxNode* FbxActor = ExportActor(Actor, false, NodeNameAdapter);
@@ -852,7 +887,7 @@ void FFbxExporter::ExportStaticMesh(AActor* Actor, UStaticMeshComponent* StaticM
 			if (CurrentLodIndex + 1 < StaticMesh->GetNumLODs())
 			{
 				//Convert the screen size to a threshold, it is just to be sure that we set some threshold, there is no way to convert this precisely
-				double LodScreenSize = (double)(10.0f / StaticMesh->RenderData->ScreenSize[CurrentLodIndex]);
+				double LodScreenSize = (double)(10.0f / StaticMesh->RenderData->ScreenSize[CurrentLodIndex].Default);
 				FbxLodGroupAttribute->AddThreshold(LodScreenSize);
 			}
 			ExportStaticMeshToFbx(StaticMesh, CurrentLodIndex, *FbxMeshName, FbxActorLOD, -1, ColorBuffer);
@@ -1039,7 +1074,7 @@ void FFbxExporter::ExportStaticMesh( UStaticMesh* StaticMesh, const TArray<FStat
 	FbxNode* MeshNode = FbxNode::Create(Scene, TCHAR_TO_UTF8(*MeshName));
 	Scene->GetRootNode()->AddChild(MeshNode);
 
-	if (ExportOptions->LevelOfDetail && StaticMesh->GetNumLODs() > 1)
+	if (GetExportOptions()->LevelOfDetail && StaticMesh->GetNumLODs() > 1)
 	{
 		FString LodGroup_MeshName = MeshName + ("_LodGroup");
 		FbxLODGroup *FbxLodGroupAttribute = FbxLODGroup::Create(Scene, TCHAR_TO_UTF8(*LodGroup_MeshName));
@@ -1054,7 +1089,7 @@ void FFbxExporter::ExportStaticMesh( UStaticMesh* StaticMesh, const TArray<FStat
 			if (CurrentLodIndex + 1 < StaticMesh->GetNumLODs())
 			{
 				//Convert the screen size to a threshold, it is just to be sure that we set some threshold, there is no way to convert this precisely
-				double LodScreenSize = (double)(10.0f / StaticMesh->RenderData->ScreenSize[CurrentLodIndex]);
+				double LodScreenSize = (double)(10.0f / StaticMesh->RenderData->ScreenSize[CurrentLodIndex].Default);
 				FbxLodGroupAttribute->AddThreshold(LodScreenSize);
 			}
 			ExportStaticMeshToFbx(StaticMesh, CurrentLodIndex, *MeshName, FbxActorLOD, -1, nullptr, MaterialOrder);
@@ -1452,19 +1487,21 @@ FFbxExporter::FLevelSequenceAnimTrackAdapter::FLevelSequenceAnimTrackAdapter( IM
 
 float FFbxExporter::FLevelSequenceAnimTrackAdapter::GetAnimationStart() const
 {
-	return MovieScene->GetPlaybackRange().GetLowerBoundValue();
+	return MovieScene->GetPlaybackRange().GetLowerBoundValue() / MovieScene->GetTickResolution();
 }
 
 float FFbxExporter::FLevelSequenceAnimTrackAdapter::GetAnimationLength() const
 {
-	return MovieScene->GetPlaybackRange().Size<float>();
+	return FFrameNumber(MovieScene::DiscreteSize(MovieScene->GetPlaybackRange())) / MovieScene->GetTickResolution();
 }
 
 
 void FFbxExporter::FLevelSequenceAnimTrackAdapter::UpdateAnimation( float Time )
 {
-	FMovieSceneContext Context = FMovieSceneContext(FMovieSceneEvaluationRange(Time), MovieScenePlayer->GetPlaybackStatus()).SetHasJumped(true);
-	return MovieScenePlayer->GetEvaluationTemplate().Evaluate( Context, *MovieScenePlayer );
+	// Convert the time in seconds to a frame time
+	FFrameTime FrameTime = Time * MovieScene->GetTickResolution();
+	FMovieSceneContext Context = FMovieSceneContext(FMovieSceneEvaluationRange(FrameTime, MovieScene->GetTickResolution()), MovieScenePlayer->GetPlaybackStatus()).SetHasJumped(true);
+	MovieScenePlayer->GetEvaluationTemplate().Evaluate( Context, *MovieScenePlayer );
 }
 
 
@@ -1474,7 +1511,7 @@ bool FFbxExporter::ExportLevelSequence( UMovieScene* MovieScene, const TArray<FG
 	{
 		return false;
 	}
-			
+
 	for ( const FMovieSceneBinding& MovieSceneBinding : MovieScene->GetBindings() )
 	{
 		// If there are specific bindings to export, export those only
@@ -1506,7 +1543,7 @@ bool FFbxExporter::ExportLevelSequence( UMovieScene* MovieScene, const TArray<FG
 				{
 					USkeletalMeshComponent* SkeletalMeshComp = Cast<USkeletalMeshComponent>( Actor->GetComponentByClass( USkeletalMeshComponent::StaticClass() ) );
 					
-					const bool bSkip3DTransformTrack = SkeletalMeshComp && ExportOptions->MapSkeletalMotionToRoot;
+					const bool bSkip3DTransformTrack = SkeletalMeshComp && GetExportOptions()->MapSkeletalMotionToRoot;
 
 					// Look for the tracks that we currently support
 					for ( UMovieSceneTrack* Track : MovieSceneBinding.GetTracks() )
@@ -1561,14 +1598,16 @@ FbxNode* FFbxExporter::ExportActor(AActor* Actor, bool bExportComponents, INodeN
 
 		// For cameras and lights: always add a rotation to get the correct coordinate system.
         FTransform RotationDirectionConvert = FTransform::Identity;
-		if (Actor->IsA(ACameraActor::StaticClass()) || Actor->IsA(ALight::StaticClass()))
+		const bool bIsCameraActor = Actor->IsA(ACameraActor::StaticClass());
+		const bool bIsLightActor = Actor->IsA(ALight::StaticClass());
+		if (bIsCameraActor || bIsLightActor)
 		{
-			if (Actor->IsA(ACameraActor::StaticClass()))
+			if (bIsCameraActor)
 			{
                 FRotator Rotator = FFbxDataConverter::GetCameraRotation().GetInverse();
 				RotationDirectionConvert = FTransform(Rotator);
 			}
-			else if (Actor->IsA(ALight::StaticClass()))
+			else if (bIsLightActor)
 			{
 				FRotator Rotator = FFbxDataConverter::GetLightRotation().GetInverse();
 				RotationDirectionConvert = FTransform(Rotator);
@@ -1663,15 +1702,16 @@ FbxNode* FFbxExporter::ExportActor(AActor* Actor, bool bExportComponents, INodeN
 				USceneComponent* Component = ComponentsToExport[CompIndex];
 
                 RotationDirectionConvert = FTransform::Identity;
-                // For cameras and lights: always add a rotation to get the correct coordinate system.
+                // For cameras and lights: always add a rotation to get the correct coordinate system
+				// Unless we are parented to an Actor of the same type, since the rotation direction was already added
 				if (Component->IsA(UCameraComponent::StaticClass()) || Component->IsA(ULightComponent::StaticClass()))
 				{
-					if (Component->IsA(UCameraComponent::StaticClass()))
+					if (!bIsCameraActor && Component->IsA(UCameraComponent::StaticClass()))
 					{
                     	FRotator Rotator = FFbxDataConverter::GetCameraRotation().GetInverse();
 						RotationDirectionConvert = FTransform(Rotator);
 					}
-					else if (Component->IsA(ULightComponent::StaticClass()))
+					else if (!bIsLightActor && Component->IsA(ULightComponent::StaticClass()))
 					{
 						FRotator Rotator = FFbxDataConverter::GetLightRotation().GetInverse();
 						RotationDirectionConvert = FTransform(Rotator);
@@ -2038,7 +2078,7 @@ void FFbxExporter::ExportAnimatedVector(FbxAnimCurve* FbxCurve, const char* Chan
 
 			// Setup tangents for bezier curves. Avoid this for keys created from baking 
 			// transforms since there is no tangent info created for these types of keys. 
-			if( Interpolation == FbxAnimCurveDef::eInterpolationCubic )
+			if( Interpolation == FbxAnimCurveDef::eInterpolationCubic ) //-V547
 			{
 				float OutTangentValue = (CurveIndex == 0) ? Key.LeaveTangent.X : (CurveIndex == 1) ? Key.LeaveTangent.Y : Key.LeaveTangent.Z;
 				float OutTangentX = (KeyIndex < KeyCount - 1) ? (KeyTimes[KeyIndex + 1] - KeyTime) / 3.0f : 0.333f;
@@ -2261,18 +2301,6 @@ void FFbxExporter::ExportAnimatedFloat(FbxProperty* FbxProperty, FInterpCurveFlo
 	AnimCurve->KeyModifyEnd();
 }
 
-FKeyHandle FindRichCurveKey(FRichCurve& InCurve, float InKeyTime)
-{
-	for ( auto It = InCurve.GetKeyHandleIterator(); It; ++It )
-	{
-		if (IsEquivalent(InCurve.GetKeyTime(It.Key()), InKeyTime))
-		{
-			return It.Key();
-		}
-	}
-	return FKeyHandle();
-}
-
 
 void RichCurveInterpolationToFbxInterpolation(ERichCurveInterpMode InInterpolation, ERichCurveTangentMode InTangentMode, FbxAnimCurveDef::EInterpolationType &OutInterpolation, FbxAnimCurveDef::ETangentMode &OutTangentMode)
 {
@@ -2304,43 +2332,39 @@ void RichCurveInterpolationToFbxInterpolation(ERichCurveInterpMode InInterpolati
 	}
 }
 
-void FFbxExporter::ExportRichCurveToFbxCurve(FbxAnimCurve& InFbxCurve, FRichCurve& InRichCurve, ERichCurveValueMode ValueMode, bool bNegative)
+void FFbxExporter::ExportChannelToFbxCurve(FbxAnimCurve& InFbxCurve, const FMovieSceneFloatChannel& InChannel, FFrameRate TickResolution, ERichCurveValueMode ValueMode, bool bNegative)
 {
+	const float NegateFactor = bNegative ? -1.f : 1.f;
+
 	InFbxCurve.KeyModifyBegin();
 
-	for ( auto It = InRichCurve.GetKeyHandleIterator(); It; ++It )
+	TArrayView<const FFrameNumber>          Times  = InChannel.GetTimes();
+	TArrayView<const FMovieSceneFloatValue> Values = InChannel.GetValues();
+
+	for (int32 Index = 0; Index < Times.Num(); ++Index)
 	{
-		FKeyHandle KeyHandle = It.Key();
-		float KeyTime = InRichCurve.GetKeyTime(KeyHandle);
-		float Value = ValueMode == ERichCurveValueMode::Fov
-			? DefaultCamera->ComputeFocalLength( InRichCurve.Eval( KeyTime ) )
-			: InRichCurve.Eval( KeyTime );
+		FFrameNumber          KeyTime  = Times[Index];
+		FMovieSceneFloatValue KeyValue = Values[Index];
+
+		const float Value = (ValueMode == ERichCurveValueMode::Fov ? DefaultCamera->ComputeFocalLength( KeyValue.Value ) : KeyValue.Value) * NegateFactor;
 
 		FbxTime FbxTime;
 		FbxAnimCurveKey FbxKey;
-		FbxTime.SetSecondDouble((float)KeyTime);
+		FbxTime.SetSecondDouble(KeyTime / TickResolution);
 
 		int FbxKeyIndex = InFbxCurve.KeyAdd(FbxTime);
 
 		FbxAnimCurveDef::EInterpolationType Interpolation = FbxAnimCurveDef::eInterpolationCubic;
 		FbxAnimCurveDef::ETangentMode Tangent = FbxAnimCurveDef::eTangentAuto;
 
-		RichCurveInterpolationToFbxInterpolation(InRichCurve.GetKeyInterpMode(KeyHandle), InRichCurve.GetKeyTangentMode(KeyHandle), Interpolation, Tangent);
-
-		if (bNegative)
-		{
-			Value = -Value;
-		}
+		RichCurveInterpolationToFbxInterpolation(KeyValue.InterpMode, KeyValue.TangentMode, Interpolation, Tangent);
 
 		if (Interpolation == FbxAnimCurveDef::eInterpolationCubic)
 		{
-			FRichCurveKey RichCurveKey = InRichCurve.GetKey( KeyHandle );
-
-			FKeyHandle NextKeyHandle = InRichCurve.GetNextKey(KeyHandle);
-			if (InRichCurve.IsKeyHandleValid(NextKeyHandle))
+			if (Index < Times.Num() - 1)
 			{
-				float LeaveTangent = RichCurveKey.LeaveTangent;
-				float NextArriveTangent = InRichCurve.GetKey(NextKeyHandle).ArriveTangent;
+				float LeaveTangent = KeyValue.Tangent.LeaveTangent * TickResolution.AsDecimal();
+				float NextArriveTangent = Values[Index+1].Tangent.ArriveTangent * TickResolution.AsDecimal();
 
 				if (bNegative)
 				{
@@ -2363,7 +2387,7 @@ void FFbxExporter::ExportRichCurveToFbxCurve(FbxAnimCurve& InFbxCurve, FRichCurv
 	InFbxCurve.KeyModifyEnd();
 }
 
-void FFbxExporter::ExportLevelSequence3DTransformTrack( FbxNode& FbxActor, UMovieScene3DTransformTrack& TransformTrack, AActor* Actor, const TRange<float>& InPlaybackRange )
+void FFbxExporter::ExportLevelSequence3DTransformTrack( FbxNode& FbxActor, UMovieScene3DTransformTrack& TransformTrack, AActor* Actor, const TRange<FFrameNumber>& InPlaybackRange )
 {
 	FbxAnimLayer* BaseLayer = AnimStack->GetMember<FbxAnimLayer>( 0 );
 
@@ -2381,6 +2405,8 @@ void FFbxExporter::ExportLevelSequence3DTransformTrack( FbxNode& FbxActor, UMovi
 		return;
 	}
 
+	FFrameRate TickResolution = TransformTrack.GetTypedOuter<UMovieScene>()->GetTickResolution();
+
 	FbxAnimCurveNode* TranslationNode = FbxActor.LclTranslation.GetCurveNode( BaseLayer, true );
 	FbxAnimCurveNode* RotationNode = FbxActor.LclRotation.GetCurveNode( BaseLayer, true );
 	FbxAnimCurveNode* ScaleNode = FbxActor.LclScaling.GetCurveNode( BaseLayer, true );
@@ -2396,26 +2422,28 @@ void FFbxExporter::ExportLevelSequence3DTransformTrack( FbxNode& FbxActor, UMovi
 	FbxAnimCurve* FbxCurveScaleX = FbxActor.LclScaling.GetCurve( BaseLayer, FBXSDK_CURVENODE_COMPONENT_X, true );
 	FbxAnimCurve* FbxCurveScaleY = FbxActor.LclScaling.GetCurve( BaseLayer, FBXSDK_CURVENODE_COMPONENT_Y, true );
 	FbxAnimCurve* FbxCurveScaleZ = FbxActor.LclScaling.GetCurve( BaseLayer, FBXSDK_CURVENODE_COMPONENT_Z, true );
-		
+
+	TArrayView<FMovieSceneFloatChannel*> FloatChannels = TransformSection->GetChannelProxy().GetChannels<FMovieSceneFloatChannel>();
+
 	// Translation
-	ExportRichCurveToFbxCurve(*FbxCurveTransX, TransformSection->GetTranslationCurve( EAxis::X ), ERichCurveValueMode::Default, false);
-	ExportRichCurveToFbxCurve(*FbxCurveTransY, TransformSection->GetTranslationCurve( EAxis::Y ), ERichCurveValueMode::Default, true);
-	ExportRichCurveToFbxCurve(*FbxCurveTransZ, TransformSection->GetTranslationCurve( EAxis::Z ), ERichCurveValueMode::Default, false);
+	ExportChannelToFbxCurve(*FbxCurveTransX, *FloatChannels[0], TickResolution, ERichCurveValueMode::Default, false);
+	ExportChannelToFbxCurve(*FbxCurveTransY, *FloatChannels[1], TickResolution, ERichCurveValueMode::Default, true);
+	ExportChannelToFbxCurve(*FbxCurveTransZ, *FloatChannels[2], TickResolution, ERichCurveValueMode::Default, false);
 
 	// Scale - don't generate scale keys for cameras
 	if (!bIsCameraActor)
 	{
-		ExportRichCurveToFbxCurve(*FbxCurveScaleX, TransformSection->GetScaleCurve( EAxis::X ), ERichCurveValueMode::Default, false);
-		ExportRichCurveToFbxCurve(*FbxCurveScaleY, TransformSection->GetScaleCurve( EAxis::Y ), ERichCurveValueMode::Default, false);
-		ExportRichCurveToFbxCurve(*FbxCurveScaleZ, TransformSection->GetScaleCurve( EAxis::Z ), ERichCurveValueMode::Default, false);
+		ExportChannelToFbxCurve(*FbxCurveScaleX, *FloatChannels[6], TickResolution, ERichCurveValueMode::Default, false);
+		ExportChannelToFbxCurve(*FbxCurveScaleY, *FloatChannels[7], TickResolution, ERichCurveValueMode::Default, false);
+		ExportChannelToFbxCurve(*FbxCurveScaleZ, *FloatChannels[8], TickResolution, ERichCurveValueMode::Default, false);
 	}
 
 	// Rotation - bake rotation for cameras and lights
 	if (!bBakeRotations)
 	{
-		ExportRichCurveToFbxCurve(*FbxCurveRotX, TransformSection->GetRotationCurve( EAxis::X ), ERichCurveValueMode::Default, false);
-		ExportRichCurveToFbxCurve(*FbxCurveRotY, TransformSection->GetRotationCurve( EAxis::Y ), ERichCurveValueMode::Default, true);
-		ExportRichCurveToFbxCurve(*FbxCurveRotZ, TransformSection->GetRotationCurve( EAxis::Z ), ERichCurveValueMode::Default, true);
+		ExportChannelToFbxCurve(*FbxCurveRotX, *FloatChannels[3], TickResolution, ERichCurveValueMode::Default, false);
+		ExportChannelToFbxCurve(*FbxCurveRotY, *FloatChannels[4], TickResolution, ERichCurveValueMode::Default, true);
+		ExportChannelToFbxCurve(*FbxCurveRotZ, *FloatChannels[5], TickResolution, ERichCurveValueMode::Default, true);
 	}
 	else
 	{
@@ -2435,18 +2463,29 @@ void FFbxExporter::ExportLevelSequence3DTransformTrack( FbxNode& FbxActor, UMovi
 		FbxCurveRotY->KeyModifyBegin();
 		FbxCurveRotZ->KeyModifyBegin();
 
-		float InterpLength = InPlaybackRange.GetUpperBoundValue() - InPlaybackRange.GetLowerBoundValue();
-		int NumKeys = InterpLength * BakeTransformsFPS;
+		FFrameNumber PlayStart      = MovieScene::DiscreteInclusiveLower(InPlaybackRange);
+		double       PlayDuration   = FFrameTime(MovieScene::DiscreteSize(InPlaybackRange)) / TickResolution;
+		int32        NumKeys        = PlayDuration * BakeTransformsFPS;
+
 		for ( int KeyIndex = 0; KeyIndex < NumKeys; KeyIndex++ )
 		{
-			float KeyTime = InPlaybackRange.GetLowerBoundValue() + ( KeyIndex * InterpLength / NumKeys );
+			FFrameTime RelativeKeyTime = ( KeyIndex * PlayDuration / NumKeys ) * TickResolution;
+			FFrameTime KeyTime         = RelativeKeyTime + PlayStart;
 
-			FVector Trans;
-			TransformSection->EvalTranslation(KeyTime, Trans);
+			FVector Trans = FVector::ZeroVector;
+			FloatChannels[0]->Evaluate(KeyTime, Trans.X);
+			FloatChannels[1]->Evaluate(KeyTime, Trans.Y);
+			FloatChannels[2]->Evaluate(KeyTime, Trans.Z);
+
 			FRotator Rotator;
-			TransformSection->EvalRotation(KeyTime, Rotator);
+			FloatChannels[3]->Evaluate(KeyTime, Rotator.Roll);
+			FloatChannels[4]->Evaluate(KeyTime, Rotator.Pitch);
+			FloatChannels[5]->Evaluate(KeyTime, Rotator.Yaw);
+
 			FVector Scale;
-			TransformSection->EvalScale(KeyTime, Scale);
+			FloatChannels[6]->Evaluate(KeyTime, Scale.X);
+			FloatChannels[7]->Evaluate(KeyTime, Scale.Y);
+			FloatChannels[8]->Evaluate(KeyTime, Scale.Z);
 
 			FTransform RelativeTransform;
 			RelativeTransform.SetTranslation(Trans);
@@ -2460,7 +2499,7 @@ void FFbxExporter::ExportLevelSequence3DTransformTrack( FbxNode& FbxActor, UMovi
 			FbxVector4 KeyScale = Converter.ConvertToFbxScale(RelativeTransform.GetScale3D());
 
 			FbxTime FbxTime;
-			FbxTime.SetSecondDouble((float)KeyTime);
+			FbxTime.SetSecondDouble(KeyTime / TickResolution);
 
 			FbxCurveRotX->KeySet(FbxCurveRotX->KeyAdd(FbxTime), FbxTime, KeyRot[0]);
 			FbxCurveRotY->KeySet(FbxCurveRotY->KeyAdd(FbxTime), FbxTime, KeyRot[1]);
@@ -2480,7 +2519,8 @@ void FFbxExporter::ExportLevelSequenceFloatTrack( FbxNode& FbxActor, UMovieScene
 		? Cast<UMovieSceneFloatSection>( FloatTrack.GetAllSections()[0] )
 		: nullptr;
 
-	if ( FloatSection == nullptr || FloatSection->GetFloatCurve().GetNumKeys() == 0 )
+	const FMovieSceneFloatChannel* FloatChannel = FloatSection ? FloatSection->GetChannelProxy().GetChannel<FMovieSceneFloatChannel>(0) : nullptr;
+	if ( FloatChannel == nullptr || FloatChannel->GetTimes().Num() == 0 )
 	{
 		return;
 	}
@@ -2521,11 +2561,9 @@ void FFbxExporter::ExportLevelSequenceFloatTrack( FbxNode& FbxActor, UMovieScene
 		Property = FbxActor.FindProperty( "UE_MotionBlur_Amount", false );
 	}
 
-	FRichCurve& FloatCurve = FloatSection->GetFloatCurve();
-
 	if (Property == 0)
 	{
-		CreateAnimatableUserProperty(&FbxActor, FloatCurve.GetDefaultValue(), TCHAR_TO_UTF8(*PropertyName), TCHAR_TO_UTF8(*PropertyName));
+		CreateAnimatableUserProperty(&FbxActor, FloatChannel->GetDefault().Get(MAX_flt), TCHAR_TO_UTF8(*PropertyName), TCHAR_TO_UTF8(*PropertyName));
 
 		Property = FbxActor.FindProperty(TCHAR_TO_UTF8(*PropertyName), false);
 	}
@@ -2542,10 +2580,11 @@ void FFbxExporter::ExportLevelSequenceFloatTrack( FbxNode& FbxActor, UMovieScene
 		return;
 	}
 
-	CurveNode->SetChannelValue<double>( 0U, FloatCurve.GetDefaultValue() );
+	CurveNode->SetChannelValue<double>( 0U, FloatChannel->GetDefault().Get(MAX_flt) );
 	CurveNode->ConnectToChannel( AnimCurve, 0U );
 
-	ExportRichCurveToFbxCurve(*AnimCurve, FloatCurve, IsFoV ? ERichCurveValueMode::Fov : ERichCurveValueMode::Default);
+	FFrameRate TickResolution = FloatTrack.GetTypedOuter<UMovieScene>()->GetTickResolution();
+	ExportChannelToFbxCurve(*AnimCurve, *FloatChannel, TickResolution, IsFoV ? ERichCurveValueMode::Fov : ERichCurveValueMode::Default);
 }
 		
 /**
@@ -2980,9 +3019,9 @@ private:
 				Verts[VIx].Position = ArcRot.TransformPosition(ArcVerts[v].Position);
 
 				Verts[VIx].SetTangents(
-					ArcRot.TransformVector(ArcVerts[v].TangentX),
+					ArcRot.TransformVector(ArcVerts[v].TangentX.ToFVector()),
 					ArcRot.TransformVector(ArcVerts[v].GetTangentY()),
-					ArcRot.TransformVector(ArcVerts[v].TangentZ)
+					ArcRot.TransformVector(ArcVerts[v].TangentZ.ToFVector())
 					);
 			}
 		}
@@ -3012,19 +3051,19 @@ private:
 				if (r != 0)
 				{
 					int32 indexV = a0start + r + 0;
-					FVector TangentZ = SphereTransform.TransformVector(SpheresVerts[SphereIndex][indexV].TangentZ);
+					FVector TangentZ = SphereTransform.TransformVector(SpheresVerts[SphereIndex][indexV].TangentZ.ToFVector());
 					FbxVector4 FbxNormal = FbxVector4(TangentZ.X, -TangentZ.Y, TangentZ.Z);
 					FbxNormal.Normalize();
 					LayerElementNormal->GetDirectArray().Add(FbxNormal);
 
 					indexV = a1start + r + 0;
-					TangentZ = SphereTransform.TransformVector(SpheresVerts[SphereIndex][indexV].TangentZ);
+					TangentZ = SphereTransform.TransformVector(SpheresVerts[SphereIndex][indexV].TangentZ.ToFVector());
 					FbxNormal = FbxVector4(TangentZ.X, -TangentZ.Y, TangentZ.Z);
 					FbxNormal.Normalize();
 					LayerElementNormal->GetDirectArray().Add(FbxNormal);
 
 					indexV = a0start + r + 1;
-					TangentZ = SphereTransform.TransformVector(SpheresVerts[SphereIndex][indexV].TangentZ);
+					TangentZ = SphereTransform.TransformVector(SpheresVerts[SphereIndex][indexV].TangentZ.ToFVector());
 					FbxNormal = FbxVector4(TangentZ.X, -TangentZ.Y, TangentZ.Z);
 					FbxNormal.Normalize();
 					LayerElementNormal->GetDirectArray().Add(FbxNormal);
@@ -3032,19 +3071,19 @@ private:
 				if (r != SphereNumRings - 1)
 				{
 					int32 indexV = a1start + r + 0;
-					FVector TangentZ = SphereTransform.TransformVector(SpheresVerts[SphereIndex][indexV].TangentZ);
+					FVector TangentZ = SphereTransform.TransformVector(SpheresVerts[SphereIndex][indexV].TangentZ.ToFVector());
 					FbxVector4 FbxNormal = FbxVector4(TangentZ.X, -TangentZ.Y, TangentZ.Z);
 					FbxNormal.Normalize();
 					LayerElementNormal->GetDirectArray().Add(FbxNormal);
 
 					indexV = a1start + r + 1;
-					TangentZ = SphereTransform.TransformVector(SpheresVerts[SphereIndex][indexV].TangentZ);
+					TangentZ = SphereTransform.TransformVector(SpheresVerts[SphereIndex][indexV].TangentZ.ToFVector());
 					FbxNormal = FbxVector4(TangentZ.X, -TangentZ.Y, TangentZ.Z);
 					FbxNormal.Normalize();
 					LayerElementNormal->GetDirectArray().Add(FbxNormal);
 
 					indexV = a0start + r + 1;
-					TangentZ = SphereTransform.TransformVector(SpheresVerts[SphereIndex][indexV].TangentZ);
+					TangentZ = SphereTransform.TransformVector(SpheresVerts[SphereIndex][indexV].TangentZ.ToFVector());
 					FbxNormal = FbxVector4(TangentZ.X, -TangentZ.Y, TangentZ.Z);
 					FbxNormal.Normalize();
 					LayerElementNormal->GetDirectArray().Add(FbxNormal);
@@ -3138,9 +3177,9 @@ private:
 				Verts[VIx].Position = ArcRot.TransformPosition(ArcVerts[VertIdx].Position);
 
 				Verts[VIx].SetTangents(
-					ArcRot.TransformVector(ArcVerts[VertIdx].TangentX),
+					ArcRot.TransformVector(ArcVerts[VertIdx].TangentX.ToFVector()),
 					ArcRot.TransformVector(ArcVerts[VertIdx].GetTangentY()),
-					ArcRot.TransformVector(ArcVerts[VertIdx].TangentZ)
+					ArcRot.TransformVector(ArcVerts[VertIdx].TangentZ.ToFVector())
 					);
 			}
 		}
@@ -3171,19 +3210,19 @@ private:
 				if (RingIdx != 0)
 				{
 					int32 indexV = a0start + RingIdx + 0;
-					FVector TangentZ = CapsuleTransform.TransformVector(CapsuleVerts[CapsuleIndex][indexV].TangentZ);
+					FVector TangentZ = CapsuleTransform.TransformVector(CapsuleVerts[CapsuleIndex][indexV].TangentZ.ToFVector());
 					FbxVector4 FbxNormal = FbxVector4(TangentZ.X, -TangentZ.Y, TangentZ.Z);
 					FbxNormal.Normalize();
 					LayerElementNormal->GetDirectArray().Add(FbxNormal);
 
 					indexV = a1start + RingIdx + 0;
-					TangentZ = CapsuleTransform.TransformVector(CapsuleVerts[CapsuleIndex][indexV].TangentZ);
+					TangentZ = CapsuleTransform.TransformVector(CapsuleVerts[CapsuleIndex][indexV].TangentZ.ToFVector());
 					FbxNormal = FbxVector4(TangentZ.X, -TangentZ.Y, TangentZ.Z);
 					FbxNormal.Normalize();
 					LayerElementNormal->GetDirectArray().Add(FbxNormal);
 
 					indexV = a0start + RingIdx + 1;
-					TangentZ = CapsuleTransform.TransformVector(CapsuleVerts[CapsuleIndex][indexV].TangentZ);
+					TangentZ = CapsuleTransform.TransformVector(CapsuleVerts[CapsuleIndex][indexV].TangentZ.ToFVector());
 					FbxNormal = FbxVector4(TangentZ.X, -TangentZ.Y, TangentZ.Z);
 					FbxNormal.Normalize();
 					LayerElementNormal->GetDirectArray().Add(FbxNormal);
@@ -3191,19 +3230,19 @@ private:
 				if (RingIdx != CapsuleNumRings - 1)
 				{
 					int32 indexV = a1start + RingIdx + 0;
-					FVector TangentZ = CapsuleTransform.TransformVector(CapsuleVerts[CapsuleIndex][indexV].TangentZ);
+					FVector TangentZ = CapsuleTransform.TransformVector(CapsuleVerts[CapsuleIndex][indexV].TangentZ.ToFVector());
 					FbxVector4 FbxNormal = FbxVector4(TangentZ.X, -TangentZ.Y, TangentZ.Z);
 					FbxNormal.Normalize();
 					LayerElementNormal->GetDirectArray().Add(FbxNormal);
 
 					indexV = a1start + RingIdx + 1;
-					TangentZ = CapsuleTransform.TransformVector(CapsuleVerts[CapsuleIndex][indexV].TangentZ);
+					TangentZ = CapsuleTransform.TransformVector(CapsuleVerts[CapsuleIndex][indexV].TangentZ.ToFVector());
 					FbxNormal = FbxVector4(TangentZ.X, -TangentZ.Y, TangentZ.Z);
 					FbxNormal.Normalize();
 					LayerElementNormal->GetDirectArray().Add(FbxNormal);
 
 					indexV = a0start + RingIdx + 1;
-					TangentZ = CapsuleTransform.TransformVector(CapsuleVerts[CapsuleIndex][indexV].TangentZ);
+					TangentZ = CapsuleTransform.TransformVector(CapsuleVerts[CapsuleIndex][indexV].TangentZ.ToFVector());
 					FbxNormal = FbxVector4(TangentZ.X, -TangentZ.Y, TangentZ.Z);
 					FbxNormal.Normalize();
 					LayerElementNormal->GetDirectArray().Add(FbxNormal);
@@ -3331,6 +3370,33 @@ FbxNode* FFbxExporter::ExportCollisionMesh(const UStaticMesh* StaticMesh, const 
 }
 #endif
 
+void ExportObjectMetadata(const UObject* ObjectToExport, FbxNode* Node)
+{
+	if (ObjectToExport && Node)
+	{
+		// Retrieve the metadata map without creating it
+		const TMap<FName, FString>* MetadataMap = UMetaData::GetMapForObject(ObjectToExport);
+		if (MetadataMap)
+		{
+			static const FString MetadataPrefix(FBX_METADATA_PREFIX);
+			for (const auto& MetadataIt : *MetadataMap)
+			{
+				// Export object metadata tags that are prefixed as FBX custom user-defined properties
+				// Remove the prefix since it's for Unreal use only (and '.' is considered an invalid character for user property names in DCC like Maya)
+				FString TagAsString = MetadataIt.Key.ToString();
+				if (TagAsString.RemoveFromStart(MetadataPrefix))
+				{
+					FbxProperty Property = FbxProperty::Create(Node, FbxStringDT, TCHAR_TO_UTF8(*TagAsString));
+					FbxString ValueString(TCHAR_TO_UTF8(*MetadataIt.Value));
+
+					Property.Set(ValueString);
+					Property.ModifyFlag(FbxPropertyFlags::eUserDefined, true);
+				}
+			}
+		}
+	}
+}
+
 /**
  * Exports a static mesh
  * @param StaticMesh	The static mesh to export
@@ -3370,21 +3436,8 @@ FbxNode* FFbxExporter::ExportStaticMeshToFbx(const UStaticMesh* StaticMesh, int3
 		TArray<int32> VertRemap;
 		TArray<int32> UniqueVerts;
 
-		if (ExportOptions->WeldedVertices)
-		{
-			// Weld verts
-			DetermineVertsToWeld(VertRemap, UniqueVerts, RenderMesh);
-		}
-		else
-		{
-			// Do not weld verts
-			VertRemap.AddUninitialized(RenderMesh.VertexBuffers.StaticMeshVertexBuffer.GetNumVertices());
-			for (int32 i = 0; i < VertRemap.Num(); i++)
-			{
-				VertRemap[i] = i;
-			}
-			UniqueVerts = VertRemap;
-		}
+		// Weld verts
+		DetermineVertsToWeld(VertRemap, UniqueVerts, RenderMesh);
 
 		// Create and fill in the vertex position data source.
 		// The position vertices are duplicated, for some reason, retrieve only the first half vertices.
@@ -3514,17 +3567,8 @@ FbxNode* FFbxExporter::ExportStaticMeshToFbx(const UStaticMesh* StaticMesh, int3
 
 			TArray<int32> UvsRemap;
 			TArray<int32> UniqueUVs;
-			if (ExportOptions->WeldedVertices)
-			{
-				// Weld UVs
-				DetermineUVsToWeld(UvsRemap, UniqueUVs, RenderMesh.VertexBuffers.StaticMeshVertexBuffer, TexCoordSourceIndex);
-			}
-			else
-			{
-				// Do not weld UVs
-				UvsRemap = VertRemap;
-				UniqueUVs = UvsRemap;
-			}
+			// Weld UVs
+			DetermineUVsToWeld(UvsRemap, UniqueUVs, RenderMesh.VertexBuffers.StaticMeshVertexBuffer, TexCoordSourceIndex);
 
 			// Create the texture coordinate data source.
 			for (int32 FbxVertIndex = 0; FbxVertIndex < UniqueUVs.Num(); FbxVertIndex++)
@@ -3627,7 +3671,7 @@ FbxNode* FFbxExporter::ExportStaticMeshToFbx(const UStaticMesh* StaticMesh, int3
 		uint32 ColorVertexCount = ColorBufferToUse->GetNumVertices();
 
 		// Only export vertex colors if they exist
-		if (ExportOptions->VertexColor && ColorVertexCount > 0)
+		if (GetExportOptions()->VertexColor && ColorVertexCount > 0)
 		{
 			FbxLayerElementVertexColor* VertexColor = FbxLayerElementVertexColor::Create(Mesh, "");
 			VertexColor->SetMappingMode(FbxLayerElement::eByPolygonVertex);
@@ -3682,7 +3726,7 @@ FbxNode* FFbxExporter::ExportStaticMeshToFbx(const UStaticMesh* StaticMesh, int3
 	}
 
 #if WITH_PHYSX
-	if ((ExportLOD == 0 || ExportLOD == -1) && ExportOptions->Collision)
+	if ((ExportLOD == 0 || ExportLOD == -1) && GetExportOptions()->Collision)
 	{
 		ExportCollisionMesh(StaticMesh, MeshName, FbxActor);
 	}
@@ -3691,6 +3735,8 @@ FbxNode* FFbxExporter::ExportStaticMeshToFbx(const UStaticMesh* StaticMesh, int3
 
 	//Set the original meshes in case it was already existing
 	FbxActor->SetNodeAttribute(Mesh);
+
+	ExportObjectMetadata(StaticMesh, FbxActor);
 
 	return FbxActor;
 }
@@ -3718,21 +3764,8 @@ void FFbxExporter::ExportSplineMeshToFbx(const USplineMeshComponent* SplineMeshC
 	TArray<int32> VertRemap;
 	TArray<int32> UniqueVerts;
 
-	if (ExportOptions->WeldedVertices)
-	{
-		// Weld verts
-		DetermineVertsToWeld(VertRemap, UniqueVerts, RenderMesh);
-	}
-	else
-	{
-		// Do not weld verts
-		VertRemap.AddUninitialized(RenderMesh.VertexBuffers.StaticMeshVertexBuffer.GetNumVertices());
-		for (int32 i = 0; i < VertRemap.Num(); i++)
-		{
-			VertRemap[i] = i;
-		}
-		UniqueVerts = VertRemap;
-	}
+	// Weld verts
+	DetermineVertsToWeld(VertRemap, UniqueVerts, RenderMesh);
 
 	FbxMesh* Mesh = FbxMesh::Create(Scene, TCHAR_TO_UTF8(MeshName));
 
@@ -3838,17 +3871,8 @@ void FFbxExporter::ExportSplineMeshToFbx(const USplineMeshComponent* SplineMeshC
 
 		TArray<int32> UvsRemap;
 		TArray<int32> UniqueUVs;
-		if (ExportOptions->WeldedVertices)
-		{
-			// Weld UVs
-			DetermineUVsToWeld(UvsRemap, UniqueUVs, RenderMesh.VertexBuffers.StaticMeshVertexBuffer, TexCoordSourceIndex);
-		}
-		else
-		{
-			// Do not weld UVs
-			UvsRemap = VertRemap;
-			UniqueUVs = UvsRemap;
-		}
+		// Weld UVs
+		DetermineUVsToWeld(UvsRemap, UniqueUVs, RenderMesh.VertexBuffers.StaticMeshVertexBuffer, TexCoordSourceIndex);
 
 		// Create the texture coordinate data source.
 		for (int32 UnrealVertIndex : UniqueUVs)
@@ -3925,7 +3949,7 @@ void FFbxExporter::ExportSplineMeshToFbx(const USplineMeshComponent* SplineMeshC
 	uint32 ColorVertexCount = ColorBufferToUse->GetNumVertices();
 
 	// Only export vertex colors if they exist
-	if (ExportOptions->VertexColor && ColorVertexCount > 0)
+	if (GetExportOptions()->VertexColor && ColorVertexCount > 0)
 	{
 		FbxLayerElementVertexColor* VertexColor = FbxLayerElementVertexColor::Create(Mesh, "");
 		VertexColor->SetMappingMode(FbxLayerElement::eByPolygonVertex);

@@ -5,7 +5,8 @@
 #include "CoreMinimal.h"
 #include "OnlineAsyncTaskManager.h"
 #include "OnlineSubsystemGooglePlayPackage.h"
-#include "OnlineAchievementsInterface.h"
+#include "Interfaces/OnlineAchievementsInterface.h"
+#include "OnlineIdentityInterfaceGooglePlay.h"
 
 THIRD_PARTY_INCLUDES_START
 #include "gpg/achievement_manager.h"
@@ -18,7 +19,7 @@ class FOnlineAsyncTaskGooglePlayQueryAchievements : public FOnlineAsyncTaskBasic
 public:
 	FOnlineAsyncTaskGooglePlayQueryAchievements(
 		FOnlineSubsystemGooglePlay* InSubsystem,
-		const FUniqueNetIdString& InUserId,
+		const FUniqueNetIdGooglePlay& InUserId,
 		const FOnQueryAchievementsCompleteDelegate& InDelegate);
 
 	// FOnlineAsyncItem
@@ -30,7 +31,7 @@ public:
 	virtual void Tick() override;
 
 private:
-	FUniqueNetIdString UserId;
+	FUniqueNetIdGooglePlay UserId;
 	FOnQueryAchievementsCompleteDelegate Delegate;
 	gpg::AchievementManager::FetchAllResponse Response;
 };

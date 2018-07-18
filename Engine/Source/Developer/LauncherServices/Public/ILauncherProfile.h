@@ -678,6 +678,15 @@ public:
 	 */
 	virtual FString GetProjectPath( ) const = 0;
 
+	/**
+	 * Gets the additional command line parameters that will be used when the app launches.
+	 * These will be used by all launch roles
+	 *
+	 * @return The additional command line parameters
+	 * @see SetAdditionalCommandLineParameters
+	 */
+	virtual FString GetAdditionalCommandLineParameters() const = 0;
+
     /**
      * Gets the timeout time for the cook on the fly server.
      *
@@ -1188,6 +1197,15 @@ public:
 	 * @see GetProjectPath
 	 */
 	virtual void SetProjectPath( const FString& Path ) = 0;
+
+	/**
+	 * Sets the additional command line parameters for the application to use at launch.
+	 * These will be used by all launch roles
+	 *
+	 * @param	Params	The additional command line parameters to use
+	 * @see GetAdditionalCommandLineParameters
+	 */
+	virtual void SetAdditionalCommandLineParameters(const FString& Params) = 0;
 
 	/**
 	 * Sets whether to use a streaming file server.

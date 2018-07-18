@@ -130,6 +130,7 @@ private:
 	/** Resizes the buffer to the passed in size.  Preserves internal data*/
 	void ResizeBuffer( int32 NewSizeBytes )
 	{
+		QUICK_SCOPE_CYCLE_COUNTER(Slate_RTResizeBuffer);
 		checkSlow( IsInRenderingThread() );
 
 		int32 FinalSize = FMath::Max( NewSizeBytes, MinBufferSize );

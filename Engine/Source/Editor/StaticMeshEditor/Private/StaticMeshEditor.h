@@ -21,6 +21,7 @@ class IDecomposeMeshToHullsAsync;
 #endif
 
 class FStaticMeshDetails;
+class FEditorViewportClient;
 class IDetailsView;
 class SAdvancedPreviewDetailsTab;
 class SConvexDecomposition;
@@ -113,11 +114,16 @@ public:
 	virtual int32 GetCurrentLODLevel() override;
 	virtual int32 GetCurrentLODIndex() override;
 
+	virtual int32 GetCustomData(const int32 Key) const override;
+	virtual void SetCustomData(const int32 Key, const int32 CustomData) override;
+
 	virtual void RefreshTool() override;
 	virtual void RefreshViewport() override;
 	virtual void DoDecomp(uint32 InHullCount, int32 InMaxHullVerts, uint32 InHullPrecision) override;
 
 	virtual TSet< int32 >& GetSelectedEdges() override;
+
+	virtual FEditorViewportClient& GetViewportClient() override;
 	// End of IStaticMeshEditor
 
 	/** Extends the toolbar menu to include static mesh editor options */
@@ -160,9 +166,6 @@ public:
 			OnSelectedLODChanged.Broadcast();
 		}
 	}
-
-	class FStaticMeshEditorViewportClient& GetViewportClient();
-	const class FStaticMeshEditorViewportClient& GetViewportClient() const;
 
 	/** For asynchronous convex decomposition support, this class is tickable in the editor to be able to confirm
 	that the process is completed */
@@ -210,6 +213,12 @@ private:
 
 	/** A general callback for the combo boxes in the Static Mesh Editor to force a viewport refresh when a selection changes. */
 	void ComboBoxSelectionChanged(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
+
+	/* Callback to reimport the base mesh*/
+	void HandleReimportMesh();
+	
+	/* Callback to reimport the base mesh and also all custom LODs*/
+	void HandleReimportAllMesh();
 
 	/**
 	 *	Sets the editor's current mesh and refreshes various settings to correspond with the new data.
@@ -359,7 +368,7 @@ private:
 	TArray<int32> NumUVChannels;
 
 	/** Delegates called after an undo operation for child widgets to refresh */
-	FOnPostUndoMulticaster OnPostUndo;	
+	FOnPostUndoMulticaster OnPostUndo;
 
 	/** Information on the selected collision primitives */
 	TArray<FPrimData> SelectedPrims;
@@ -389,4 +398,7 @@ private:
 	static const FName SocketManagerTabId;
 	static const FName CollisionTabId;
 	static const FName PreviewSceneSettingsTabId;
+
+	/** Allow custom data for this editor */
+	TMap<int32, int32> CustomEditorData;
 };

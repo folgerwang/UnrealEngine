@@ -16,12 +16,8 @@ struct FMovieSceneVisibilitySectionTemplate : public FMovieSceneBoolPropertySect
 {
 	GENERATED_BODY()
 	
-	FMovieSceneVisibilitySectionTemplate(){}
+	FMovieSceneVisibilitySectionTemplate() {}
 	FMovieSceneVisibilitySectionTemplate(const UMovieSceneBoolSection& Section, const UMovieScenePropertyTrack& Track);
-
-	/** Temporarily hidden in game */
-	UPROPERTY()
-	bool bTemporarilyHiddenInGame;
 
 private:
 	virtual UScriptStruct& GetScriptStructImpl() const override { return *StaticStruct(); }

@@ -447,17 +447,4 @@ void UK2Node_SpawnActorFromClass::ExpandNode(class FKismetCompilerContext& Compi
 	SpawnNode->BreakAllNodeLinks();
 }
 
-bool UK2Node_SpawnActorFromClass::HasExternalDependencies(TArray<class UStruct*>* OptionalOutput) const
-{
-	UClass* SourceClass = GetClassToSpawn();
-	const UBlueprint* SourceBlueprint = GetBlueprint();
-	const bool bResult = (SourceClass != NULL) && (SourceClass->ClassGeneratedBy != SourceBlueprint);
-	if (bResult && OptionalOutput)
-	{
-		OptionalOutput->AddUnique(SourceClass);
-	}
-	const bool bSuperResult = Super::HasExternalDependencies(OptionalOutput);
-	return bSuperResult || bResult;
-}
-
 #undef LOCTEXT_NAMESPACE

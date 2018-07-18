@@ -3,7 +3,7 @@
 #pragma once 
 
 #include "USDImportOptions.h"
-#include "TokenizedMessage.h"
+#include "Logging/TokenizedMessage.h"
 #include "USDPrimResolver.h"
 
 THIRD_PARTY_INCLUDES_START

@@ -3,8 +3,8 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "OnlineFriendsInterface.h"
-#include "OnlinePresenceInterface.h"
+#include "Interfaces/OnlineFriendsInterface.h"
+#include "Interfaces/OnlinePresenceInterface.h"
 #include "OnlineSubsystemFacebookTypes.h"
 #include "OnlineJsonSerializer.h"
 #include "Http.h"
@@ -23,7 +23,8 @@ class FOnlineSubsystemFacebook;
  * Info associated with an online friend on the Facebook service
  */
 class FOnlineFriendFacebook : 
-	public FOnlineFriend
+	public FOnlineFriend,
+	public FJsonSerializable
 {
 public:
 
@@ -45,7 +46,7 @@ public:
 	 * Init/default constructor
 	 */
 	FOnlineFriendFacebook(const FString& InUserId=TEXT("")) 
-		: UserIdPtr(new FUniqueNetIdString(InUserId))
+		: UserIdPtr(new FUniqueNetIdFacebook(InUserId))
 	{
 	}
 
@@ -84,8 +85,8 @@ private:
 		return false;
 	}
 
-	void AddUserAttributes(const TSharedPtr<FJsonObject>& JsonUser);
-
+	/** User Id */
+	FString UserIdStr;
 	/** User Id represented as a FUniqueNetId */
 	TSharedRef<const FUniqueNetId> UserIdPtr;
 	/** Profile picture */
@@ -94,6 +95,13 @@ private:
 	FJsonSerializableKeyValueMap AccountData;
 	/** @temp presence info */
 	FOnlineUserPresence Presence;
+
+	// FJsonSerializable
+	BEGIN_ONLINE_JSON_SERIALIZER
+		ONLINE_JSON_SERIALIZE(FRIEND_FIELD_ID, UserIdStr);
+		ONLINE_JSON_SERIALIZE_OBJECT_SERIALIZABLE(PICTURE_DATA, Picture);
+		ONLINE_JSON_SERIALIZE_SIMPLE_COPY(AccountData);
+	END_ONLINE_JSON_SERIALIZER
 
 	/** Allow the FB friends to fill in our private members from it's callbacks */
 	friend class FOnlineFriendsFacebookCommon;

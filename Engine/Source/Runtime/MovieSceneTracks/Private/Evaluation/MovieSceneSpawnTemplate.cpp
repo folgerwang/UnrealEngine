@@ -3,7 +3,7 @@
 #include "Evaluation/MovieSceneSpawnTemplate.h"
 #include "MovieSceneSequence.h"
 #include "Sections/MovieSceneSpawnSection.h"
-#include "MovieSceneEvaluation.h"
+#include "Evaluation/MovieSceneEvaluation.h"
 #include "IMovieScenePlayer.h"
 #include "MovieSceneBindingOverridesInterface.h"
 
@@ -94,7 +94,7 @@ struct FSpawnObjectToken : IMovieSceneExecutionToken
 };
 
 FMovieSceneSpawnSectionTemplate::FMovieSceneSpawnSectionTemplate(const UMovieSceneSpawnSection& SpawnSection)
-	: Curve(SpawnSection.GetCurve())
+	: Curve(SpawnSection.GetChannel())
 {
 }
 
@@ -102,10 +102,11 @@ void FMovieSceneSpawnSectionTemplate::Evaluate(const FMovieSceneEvaluationOperan
 {
 	MOVIESCENE_DETAILED_SCOPE_CYCLE_COUNTER(MovieSceneEval_SpawnTrack_Evaluate)
 
-	const float Time = Context.GetTime();
-	ExecutionTokens.Add(
-		FSpawnObjectToken(Curve.Evaluate(Time) != 0)
-		);
+	bool SpawnValue = false;
+	if (Curve.Evaluate(Context.GetTime(), SpawnValue))
+	{
+		ExecutionTokens.Add(FSpawnObjectToken(SpawnValue));
+	}
 }
 
 FMovieSceneAnimTypeID FMovieSceneSpawnSectionTemplate::GetAnimTypeID()

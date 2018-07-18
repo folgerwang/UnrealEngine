@@ -29,7 +29,7 @@ AStaticMeshActor::AStaticMeshActor(const FObjectInitializer& ObjectInitializer)
 	StaticMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("StaticMeshComponent0"));
 	StaticMeshComponent->SetCollisionProfileName(UCollisionProfile::BlockAll_ProfileName);
 	StaticMeshComponent->Mobility = EComponentMobility::Static;
-	StaticMeshComponent->bGenerateOverlapEvents = false;
+	StaticMeshComponent->SetGenerateOverlapEvents(false);
 	StaticMeshComponent->bUseDefaultCollision = true;
 
 	RootComponent = StaticMeshComponent;
@@ -67,6 +67,14 @@ void AStaticMeshActor::SetMobility(EComponentMobility::Type InMobility)
 	{
 		StaticMeshComponent->SetMobility(InMobility);
 	}
+}
+
+void AStaticMeshActor::Serialize(FArchive& Ar)
+{
+	Super::Serialize(Ar);
+#if WITH_EDITOR
+	Ar.UsingCustomVersion(FFrameworkObjectVersion::GUID);
+#endif
 }
 
 #if WITH_EDITOR
@@ -133,12 +141,6 @@ bool AStaticMeshActor::GetReferencedContentObjects( TArray<UObject*>& Objects ) 
 		Objects.Add(StaticMeshComponent->GetStaticMesh());
 	}
 	return true;
-}
-
-void AStaticMeshActor::Serialize(FArchive& Ar)
-{
-	Super::Serialize(Ar);
-	Ar.UsingCustomVersion(FFrameworkObjectVersion::GUID);
 }
 
 void AStaticMeshActor::PostLoad()

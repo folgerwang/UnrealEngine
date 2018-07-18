@@ -11,7 +11,7 @@
 #include "GameFramework/Actor.h"
 #include "Engine/World.h"
 #include "Components/PrimitiveComponent.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "AI/NavigationSystemBase.h"
 #include "Engine/BlueprintGeneratedClass.h"
 #include "ContentStreaming.h"
 #include "ComponentReregisterContext.h"
@@ -425,9 +425,9 @@ bool UActorComponent::ComponentIsInPersistentLevel(bool bIncludeLevelStreamingPe
 		return false;
 	}
 
-	return ( (MyLevel == MyWorld->PersistentLevel) || ( bIncludeLevelStreamingPersistent && MyWorld->StreamingLevels.Num() > 0 &&
-														Cast<ULevelStreamingPersistent>(MyWorld->StreamingLevels[0]) != NULL &&
-														MyWorld->StreamingLevels[0]->GetLoadedLevel() == MyLevel ) );
+	return ( (MyLevel == MyWorld->PersistentLevel) || ( bIncludeLevelStreamingPersistent && MyWorld->GetStreamingLevels().Num() > 0 &&
+														Cast<ULevelStreamingPersistent>(MyWorld->GetStreamingLevels()[0]) &&
+														MyWorld->GetStreamingLevels()[0]->GetLoadedLevel() == MyLevel ) );
 }
 
 FString UActorComponent::GetReadableName() const
@@ -704,12 +704,15 @@ void UActorComponent::PostEditChangeChainProperty(FPropertyChangedChainEvent& Pr
 
 void UActorComponent::OnRegister()
 {
+#if !UE_BUILD_SHIPPING
+	// These are removed in shipping because they are still likely to fail in Test and Development builds, and checks in shipping makes this rather expensive.
 	checkf(!IsUnreachable(), TEXT("%s"), *GetDetailedInfo());
 	checkf(!GetOuter()->IsTemplate(), TEXT("'%s' (%s)"), *GetOuter()->GetFullName(), *GetDetailedInfo());
 	checkf(!IsTemplate(), TEXT("'%s' (%s)"), *GetOuter()->GetFullName(), *GetDetailedInfo() );
+	checkf(!IsPendingKill(), TEXT("OnRegister: %s to %s"), *GetDetailedInfo(), GetOwner() ? *GetOwner()->GetFullName() : TEXT("*** No Owner ***") );
+#endif
 	checkf(WorldPrivate, TEXT("OnRegister: %s to %s"), *GetDetailedInfo(), GetOwner() ? *GetOwner()->GetFullName() : TEXT("*** No Owner ***") );
 	checkf(!bRegistered, TEXT("OnRegister: %s to %s"), *GetDetailedInfo(), GetOwner() ? *GetOwner()->GetFullName() : TEXT("*** No Owner ***") );
-	checkf(!IsPendingKill(), TEXT("OnRegister: %s to %s"), *GetDetailedInfo(), GetOwner() ? *GetOwner()->GetFullName() : TEXT("*** No Owner ***") );
 
 	bRegistered = true;
 
@@ -1014,10 +1017,12 @@ void UActorComponent::RegisterComponentWithWorld(UWorld* InWorld)
 
 		for (UObject* Child : Children)
 		{
-			UActorComponent* ChildComponent = Cast<UActorComponent>(Child);
-			if (ChildComponent && !ChildComponent->IsRegistered() && ChildComponent->GetOwner() == MyOwner)
+			if (UActorComponent* ChildComponent = Cast<UActorComponent>(Child))
 			{
-				ChildComponent->RegisterComponentWithWorld(InWorld);
+				if (ChildComponent->bAutoRegister && !ChildComponent->IsRegistered() && ChildComponent->GetOwner() == MyOwner)
+				{
+					ChildComponent->RegisterComponentWithWorld(InWorld);
+				}
 			}
 		}
 
@@ -1704,7 +1709,7 @@ void UActorComponent::DetermineUCSModifiedProperties()
 			FComponentPropertySkipper()
 				: FArchive()
 			{
-				ArIsSaving = true;
+				this->SetIsSaving(true);
 
 				// Include properties that would normally skip tagged serialization (e.g. bulk serialization of array properties).
 				ArPortFlags |= PPF_ForceTaggedSerialization;
@@ -1777,11 +1782,11 @@ void UActorComponent::HandleCanEverAffectNavigationChange(bool bForceUpdate)
 		if (bCanEverAffectNavigation)
 		{
 			bNavigationRelevant = IsNavigationRelevant();
-			UNavigationSystem::OnComponentRegistered(this);
+			FNavigationSystem::OnComponentRegistered(*this);
 		}
 		else
 		{
-			UNavigationSystem::OnComponentUnregistered(this);
+			FNavigationSystem::OnComponentUnregistered(*this);
 		}
 	}
 }

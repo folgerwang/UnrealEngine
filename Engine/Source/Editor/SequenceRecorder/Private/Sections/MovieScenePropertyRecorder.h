@@ -6,6 +6,7 @@
 #include "MovieSceneCommonHelpers.h"
 #include "MovieSceneSection.h"
 #include "SequenceRecorderSettings.h"
+#include "MovieScene.h"
 
 
 /** Interface for a generic property recorder */
@@ -16,7 +17,7 @@ public:
 
 	virtual void Record(UObject* InObjectToRecord, float InCurrentTime) = 0;
 
-	virtual void Finalize(UObject* InObjectToRecord) = 0;
+	virtual void Finalize(UObject* InObjectToRecord, float InCurrentTime) = 0;
 };
 
 /** Helper struct for recording properties */
@@ -24,7 +25,7 @@ template <typename PropertyType>
 struct FPropertyKey
 {
 	PropertyType Value;
-	float Time;
+	FFrameNumber Time;
 };
 
 /** Recorder for a simple property of type PropertyType */
@@ -52,13 +53,16 @@ public:
 	{
 		if (InObjectToRecord != nullptr)
 		{
-			MovieSceneSection->SetEndTime(InCurrentTime);
+			FFrameRate   TickResolution  = MovieSceneSection->GetTypedOuter<UMovieScene>()->GetTickResolution();
+			FFrameNumber CurrentFrame    = (InCurrentTime * TickResolution).FloorToFrame();
+
+			MovieSceneSection->ExpandToFrame(CurrentFrame);
 
 			PropertyType NewValue = Binding.GetCurrentValue<PropertyType>(*InObjectToRecord);
 			if (ShouldAddNewKey(NewValue))
 			{
 				FPropertyKey<PropertyType> Key;
-				Key.Time = InCurrentTime;
+				Key.Time = CurrentFrame;
 				Key.Value = NewValue;
 
 				Keys.Add(Key);
@@ -68,7 +72,7 @@ public:
 		}
 	}
 
-	virtual void Finalize(UObject* InObjectToRecord) override
+	virtual void Finalize(UObject* InObjectToRecord, float InCurrentTime) override
 	{
 		for (const FPropertyKey<PropertyType>& Key : Keys)
 		{
@@ -136,13 +140,16 @@ public:
 	{
 		if (InObjectToRecord != nullptr)
 		{
-			MovieSceneSection->SetEndTime(InCurrentTime);
+			FFrameRate   TickResolution  = MovieSceneSection->GetTypedOuter<UMovieScene>()->GetTickResolution();
+			FFrameNumber CurrentFrame    = (InCurrentTime * TickResolution).FloorToFrame();
+
+			MovieSceneSection->ExpandToFrame(CurrentFrame);
 
 			int64 NewValue = Binding.GetCurrentValueForEnum(*InObjectToRecord);
 			if (ShouldAddNewKey(NewValue))
 			{
 				FPropertyKey<int64> Key;
-				Key.Time = InCurrentTime;
+				Key.Time = CurrentFrame;
 				Key.Value = NewValue;
 
 				Keys.Add(Key);
@@ -152,7 +159,7 @@ public:
 		}
 	}
 
-	virtual void Finalize(UObject* InObjectToRecord) override
+	virtual void Finalize(UObject* InObjectToRecord, float InCurrentTime) override
 	{
 		for (const FPropertyKey<int64>& Key : Keys)
 		{

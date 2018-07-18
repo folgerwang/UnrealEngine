@@ -1,11 +1,15 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "AndroidWindow.h"
+#include "Android/AndroidWindow.h"
+#if USE_ANDROID_JNI
 #include <android/native_window.h>
 #include <android/native_window_jni.h>
 #include <jni.h>
+#endif
 #include "HAL/OutputDevices.h"
 #include "HAL/IConsoleManager.h"
+#include "Misc/CommandLine.h"
+#include "HAL/PlatformStackWalk.h"
 
 // Cached calculated screen resolution
 static int32 WindowWidth = -1;
@@ -64,6 +68,7 @@ void FAndroidWindow::SetOSWindowHandle(void* InWindow)
 //This function is declared in the Java-defined class, GameActivity.java: "public native void nativeSetObbInfo(String PackageName, int Version, int PatchVersion);"
 static bool GAndroidIsPortrait = false;
 static int GAndroidDepthBufferPreference = 0;
+#if USE_ANDROID_JNI
 JNI_METHOD void Java_com_epicgames_ue4_GameActivity_nativeSetWindowInfo(JNIEnv* jenv, jobject thiz, jboolean bIsPortrait, jint DepthBufferPreference)
 {
 	WindowInit = false;
@@ -78,6 +83,7 @@ JNI_METHOD void Java_com_epicgames_ue4_GameActivity_nativeSetSurfaceViewInfo(JNI
 	GSurfaceViewHeight = height;
 	UE_LOG(LogAndroid, Log, TEXT("nativeSetSurfaceViewInfo width=%d and height=%d"), GSurfaceViewWidth, GSurfaceViewHeight);
 }
+#endif
 
 int32 FAndroidWindow::GetDepthBufferPreference()
 {
@@ -91,12 +97,16 @@ void FAndroidWindow::InvalidateCachedScreenRect()
 
 void FAndroidWindow::AcquireWindowRef(ANativeWindow* InWindow)
 {
+#if USE_ANDROID_JNI
 	ANativeWindow_acquire(InWindow);
+#endif
 }
 
 void FAndroidWindow::ReleaseWindowRef(ANativeWindow* InWindow)
 {
+#if USE_ANDROID_JNI
 	ANativeWindow_release(InWindow);
+#endif
 }
 
 void FAndroidWindow::SetHardwareWindow(void* InWindow)
@@ -109,16 +119,42 @@ void* FAndroidWindow::GetHardwareWindow()
 	return NativeWindow;
 }
 
+#if USE_ANDROID_JNI
 extern bool AndroidThunkCpp_IsGearVRApplication();
-
+#endif
 FPlatformRect FAndroidWindow::GetScreenRect()
 {
+	int32 OverrideResX, OverrideResY;
+	// allow a subplatform to dictate resolution - we can't easily subclass FAndroidWindow the way its used
+	if (FPlatformMisc::GetOverrideResolution(OverrideResX, OverrideResY))
+	{
+		FPlatformRect Rect;
+		Rect.Left = Rect.Top = 0;
+		Rect.Right = OverrideResX;
+		Rect.Bottom = OverrideResY;
+
+		return Rect;
+	}
+
+	// too much of the following code needs JNI things, just assume override
+#if !USE_ANDROID_JNI
+
+	UE_LOG(LogAndroid, Fatal, TEXT("FAndroidWindow::CalculateSurfaceSize currently expedcts non-JNI platforms to override resolution"));
+	return FPlatformRect();
+#else
+
 	// CSF is a multiplier to 1280x720
 	static IConsoleVariable* CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.MobileContentScaleFactor"));
 	static const bool bIsGearVRApp = AndroidThunkCpp_IsGearVRApplication();
 	// If the app is for Gear VR then always use 0 as ScaleFactor (to match window size).
 	float RequestedContentScaleFactor = (!bIsGearVRApp) ? CVar->GetFloat() : 0;
 
+	FString CmdLineCSF;
+	if (FParse::Value(FCommandLine::Get(), TEXT("mcsf="), CmdLineCSF, false))
+	{
+		RequestedContentScaleFactor = FCString::Atof(*CmdLineCSF);
+	}
+	
 	ANativeWindow* Window = (ANativeWindow*)FAndroidWindow::GetHardwareWindow();
 	static const bool bIsDaydreamApp = FAndroidMisc::IsDaydreamApplication();
 	if (bIsDaydreamApp && Window == NULL)
@@ -308,19 +344,76 @@ FPlatformRect FAndroidWindow::GetScreenRect()
 	bLastMosaicState = bMosaicEnabled;
 
 	return ScreenRect;
+#endif
 }
 
 
 void FAndroidWindow::CalculateSurfaceSize(void* InWindow, int32_t& SurfaceWidth, int32_t& SurfaceHeight)
 {
-	check(InWindow);
+	// allow a subplatform to dictate resolution - we can't easily subclass FAndroidWindow the way its used
+	if (FPlatformMisc::GetOverrideResolution(SurfaceWidth, SurfaceHeight))
+	{
+		return;
+	}
+
+	// too much of the following code needs JNI things, just assume override
+#if !USE_ANDROID_JNI
+	
+	UE_LOG(LogAndroid, Fatal, TEXT("FAndroidWindow::CalculateSurfaceSize currently expedcts non-JNI platforms to override resolution"));
+
+#else
 
 	static const bool bIsMobileVRApp = AndroidThunkCpp_IsGearVRApplication() || FAndroidMisc::IsDaydreamApplication();
 
 	ANativeWindow* Window = (ANativeWindow*)InWindow;
 
-	SurfaceWidth = (GSurfaceViewWidth > 0) ? GSurfaceViewWidth : ANativeWindow_getWidth(Window);
-	SurfaceHeight = (GSurfaceViewHeight > 0) ? GSurfaceViewHeight : ANativeWindow_getHeight(Window);
+	if (InWindow == nullptr)
+	{
+		// log the issue and callstack for backtracking the issue
+		// dump the stack HERE
+		{
+			const SIZE_T StackTraceSize = 65535;
+			ANSICHAR* StackTrace = (ANSICHAR*)FMemory::Malloc(StackTraceSize);
+			StackTrace[0] = 0;
+
+			// Walk the stack and dump it to the allocated memory.
+			FPlatformStackWalk::StackWalkAndDump(StackTrace, StackTraceSize, 0, NULL);
+
+			FPlatformMisc::LowLevelOutputDebugString(TEXT("== WARNNG: CalculateSurfaceSize called with NULL window:"));
+
+			ANSICHAR* Start = StackTrace;
+			ANSICHAR* Next = StackTrace;
+			FPlatformMisc::LowLevelOutputDebugString(TEXT("==> STACK TRACE"));
+			while (*Next)
+			{
+				while (*Next)
+				{
+					if (*Next == 10 || *Next == 13)
+					{
+						while (*Next == 10 || *Next == 13)
+						{
+							*Next++ = 0;
+						}
+						break;
+					}
+					++Next;
+				}
+				FPlatformMisc::LowLevelOutputDebugStringf(TEXT("==> %s"), ANSI_TO_TCHAR(Start));
+				Start = Next;
+			}
+			FPlatformMisc::LowLevelOutputDebugString(TEXT("<== STACK TRACE"));
+
+			FMemory::Free(StackTrace);
+		}
+
+		SurfaceWidth = (GSurfaceViewWidth > 0) ? GSurfaceViewWidth : 1280;
+		SurfaceHeight = (GSurfaceViewHeight > 0) ? GSurfaceViewHeight : 720;
+	}
+	else
+	{
+		SurfaceWidth = (GSurfaceViewWidth > 0) ? GSurfaceViewWidth : ANativeWindow_getWidth(Window);
+		SurfaceHeight = (GSurfaceViewHeight > 0) ? GSurfaceViewHeight : ANativeWindow_getHeight(Window);
+	}
 
 	// some phones gave it the other way (so, if swap if the app is landscape, but width < height)
 	if ((GAndroidIsPortrait && SurfaceWidth > SurfaceHeight) || 
@@ -331,10 +424,11 @@ void FAndroidWindow::CalculateSurfaceSize(void* InWindow, int32_t& SurfaceWidth,
 
 	// ensure the size is divisible by a specified amount
 	// do not convert to a surface size that is larger than native resolution
-	// Mobile VR doesn’t need buffer quantization as UE4 never renders directly to the buffer in VR mode. 
+	// Mobile VR doesnï¿½t need buffer quantization as UE4 never renders directly to the buffer in VR mode. 
 	const int DividableBy = bIsMobileVRApp ? 1 : 8;
 	SurfaceWidth = (SurfaceWidth / DividableBy) * DividableBy;
 	SurfaceHeight = (SurfaceHeight / DividableBy) * DividableBy;
+#endif
 }
 
 bool FAndroidWindow::OnWindowOrientationChanged(bool bIsPortrait)

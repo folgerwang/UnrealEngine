@@ -48,7 +48,7 @@
 
 #include "Kismet2/BlueprintEditorUtils.h"
 #include "ObjectEditorUtils.h"
-#include "Private/GraphActionNode.h"
+#include "GraphEditor/Private/GraphActionNode.h"
 #include "SourceCodeNavigation.h"
 #include "EditorCategoryUtils.h"
 #include "Widgets/Input/SSearchBox.h"
@@ -2082,12 +2082,16 @@ void SMyBlueprint::ImplementFunction(FEdGraphSchemaAction_K2Graph* GraphAction)
 		}
 		else
 		{
-			UK2Node_Event* NewEventNodeTemplate = NewObject<UK2Node_Event>();
-			NewEventNodeTemplate->EventReference.SetExternalMember(EventName, OverrideFuncClass);
-			NewEventNodeTemplate->bOverrideFunction = true;
-
-			const FVector2D NewNodePos = EventGraph->GetGoodPlaceForNewNode();
-			UK2Node_Event* NewEventNode = FEdGraphSchemaAction_K2NewNode::SpawnNodeFromTemplate<UK2Node_Event>(EventGraph, NewEventNodeTemplate, NewNodePos);
+			UK2Node_Event* NewEventNode = FEdGraphSchemaAction_K2NewNode::SpawnNode<UK2Node_Event>(
+				EventGraph,
+				EventGraph->GetGoodPlaceForNewNode(),
+				EK2NewNodeFlags::SelectNewNode,
+				[EventName, OverrideFuncClass](UK2Node_Event* NewInstance)
+				{
+					NewInstance->EventReference.SetExternalMember(EventName, OverrideFuncClass);
+					NewInstance->bOverrideFunction = true;
+				}
+			);
 			if (NewEventNode)
 			{
 				FKismetEditorUtilities::BringKismetToFocusAttentionOnObject(NewEventNode);

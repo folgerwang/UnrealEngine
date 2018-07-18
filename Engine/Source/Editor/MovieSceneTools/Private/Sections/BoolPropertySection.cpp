@@ -2,49 +2,39 @@
 
 #include "Sections/BoolPropertySection.h"
 #include "Rendering/DrawElements.h"
-#include "Curves/IntegralCurve.h"
-#include "BoolKeyArea.h"
 #include "SequencerSectionPainter.h"
 #include "ISectionLayoutBuilder.h"
 #include "EditorStyleSet.h"
 #include "CommonMovieSceneTools.h"
 #include "Sections/MovieSceneBoolSection.h"
+#include "Channels/MovieSceneChannelProxy.h"
 
-
-void FBoolPropertySection::GenerateSectionLayout( class ISectionLayoutBuilder& LayoutBuilder ) const
-{
-	UMovieSceneBoolSection* BoolSection = Cast<UMovieSceneBoolSection>( &SectionObject );
-	TAttribute<TOptional<bool>> ExternalValue;
-	if (CanGetPropertyValue())
-	{
-		ExternalValue.Bind(TAttribute<TOptional<bool>>::FGetter::CreateLambda([&]
-		{
-			return GetPropertyValue<bool>();
-		}));
-	}
-	TSharedRef<FBoolKeyArea> KeyArea = MakeShareable( new FBoolKeyArea( BoolSection->GetCurve(), ExternalValue, BoolSection ) );
-	LayoutBuilder.SetSectionAsKeyArea( KeyArea );
-}
 
 int32 FBoolPropertySection::OnPaintSection( FSequencerSectionPainter& Painter ) const
 {
 	// custom drawing for bool curves
-	UMovieSceneBoolSection* BoolSection = Cast<UMovieSceneBoolSection>( &SectionObject );
+	UMovieSceneBoolSection* BoolSection = Cast<UMovieSceneBoolSection>( WeakSection.Get() );
 
-	TArray<float> SectionSwitchTimes;
+	TArray<FFrameTime> SectionSwitchTimes;
 
 	const FTimeToPixel& TimeConverter = Painter.GetTimeConverter();
 
 	// Add the start time
-	const float StartTime = TimeConverter.PixelToTime(0.f);
-	const float EndTime = TimeConverter.PixelToTime(Painter.SectionGeometry.GetLocalSize().X);
+	const FFrameNumber StartTime = TimeConverter.PixelToFrame(0.f).FloorToFrame();
+	const FFrameNumber EndTime   = TimeConverter.PixelToFrame(Painter.SectionGeometry.GetLocalSize().X).CeilToFrame();
 	
 	SectionSwitchTimes.Add(StartTime);
 
-	FIntegralCurve& BoolCurve = BoolSection->GetCurve();
-	for ( TArray<FIntegralKey>::TConstIterator It( BoolCurve.GetKeyIterator() ); It; ++It )
+	int32 LayerId = Painter.PaintSectionBackground();
+
+	FMovieSceneBoolChannel* BoolChannel = BoolSection->GetChannelProxy().GetChannel<FMovieSceneBoolChannel>(0);
+	if (!BoolChannel)
 	{
-		float Time = It->Time;
+		return LayerId;
+	}
+
+	for ( FFrameNumber Time : BoolChannel->GetTimes() )
+	{
 		if ( Time > StartTime && Time < EndTime )
 		{
 			SectionSwitchTimes.Add( Time );
@@ -52,8 +42,6 @@ int32 FBoolPropertySection::OnPaintSection( FSequencerSectionPainter& Painter ) 
 	}
 
 	SectionSwitchTimes.Add(EndTime);
-
-	int32 LayerId = Painter.PaintSectionBackground();
 
 	const ESlateDrawEffect DrawEffects = Painter.bParentEnabled
 		? ESlateDrawEffect::None
@@ -66,12 +54,15 @@ int32 FBoolPropertySection::OnPaintSection( FSequencerSectionPainter& Painter ) 
 
 	for ( int32 i = 0; i < SectionSwitchTimes.Num() - 1; ++i )
 	{
-		float ThisTime = SectionSwitchTimes[i];
+		FFrameTime ThisTime = SectionSwitchTimes[i];
+
+		bool ValueAtTime = false;
+		BoolChannel->Evaluate(ThisTime, ValueAtTime);
+
+		const FColor Color = ValueAtTime ? FColor(0, 255, 0, 125) : FColor(255, 0, 0, 125);
 		
-		const FColor Color = BoolSection->Eval(ThisTime, false) ? FColor(0, 255, 0, 125) : FColor(255, 0, 0, 125);
-		
-		FVector2D StartPos(TimeConverter.TimeToPixel(ThisTime), VerticalOffset);
-		FVector2D Size(TimeConverter.TimeToPixel(SectionSwitchTimes[i+1]) - StartPos.X, Height);
+		FVector2D StartPos(TimeConverter.FrameToPixel(ThisTime), VerticalOffset);
+		FVector2D Size(TimeConverter.FrameToPixel(SectionSwitchTimes[i+1]) - StartPos.X, Height);
 
 		FSlateDrawElement::MakeBox(
 			Painter.DrawElements,

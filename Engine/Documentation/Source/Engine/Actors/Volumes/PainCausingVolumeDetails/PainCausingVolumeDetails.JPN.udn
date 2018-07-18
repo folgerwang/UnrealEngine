@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3379420
+﻿INTSourceChangelist:3750352
 Availability:Docs
 Title:ボリュームの概要
 Crumbs:%ROOT%, Engine, Engine/Actors, Engine/Actors/Volumes
@@ -10,8 +10,6 @@ type:reference
 ### Pain-Causing Volume
 
 Physics Volume から割り当てが可能なプロパティの他に、Pain Causing Volume には以下の固有のプロパティもあります。
-
-![](paincausingvolume.png)
 
 | プロパティ | 説明 |
 | ------- | ------------ |

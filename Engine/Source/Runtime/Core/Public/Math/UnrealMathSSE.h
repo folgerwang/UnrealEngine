@@ -6,7 +6,7 @@ struct FMath;
 
 #ifdef __cplusplus_cli
 // there are compile issues with this file in managed mode, so use the FPU version
-#include "UnrealMathFPU.h"
+#include "Math/UnrealMathFPU.h"
 #else
 
 // We require SSE2
@@ -813,7 +813,29 @@ FORCEINLINE VectorRegister VectorTransformVector(const VectorRegister&  VecP,  c
  */
 #define VectorShuffle( Vec1, Vec2, X, Y, Z, W )	_mm_shuffle_ps( Vec1, Vec2, SHUFFLEMASK(X,Y,Z,W) )
 
+/**
+* Creates a vector by combining two high components from each vector
+*
+* @param Vec1		Source vector1
+* @param Vec2		Source vector2
+* @return			The combined vector
+*/
+FORCEINLINE VectorRegister VectorCombineHigh(const VectorRegister& Vec1, const VectorRegister& Vec2 )
+{
+	return VectorShuffle(Vec1, Vec2, 2, 3, 2, 3);
+}
 
+/**
+* Creates a vector by combining two low components from each vector
+*
+* @param Vec1		Source vector1
+* @param Vec2		Source vector2
+* @return			The combined vector
+*/
+FORCEINLINE VectorRegister VectorCombineLow(const VectorRegister& Vec1, const VectorRegister& Vec2 )
+{
+	return VectorShuffle(Vec1, Vec2, 0, 1, 0, 1);
+}
 
 /**
  * These functions return a vector mask to indicate which components pass the comparison.
@@ -848,37 +870,6 @@ FORCEINLINE VectorRegister VectorTransformVector(const VectorRegister&  VecP,  c
 #define VectorDivide( Vec1, Vec2 )		_mm_div_ps( Vec1, Vec2 )
 
 /**
- * Counts the number of trailing zeros in the bit representation of the value,
- * counting from least-significant bit to most.
- *
- * @param Value the value to determine the number of leading zeros for
- * @return the number of zeros before the first "on" bit
- */
-#if PLATFORM_WINDOWS
-#pragma intrinsic( _BitScanForward )
-FORCEINLINE uint32 appCountTrailingZeros(uint32 Value)
-{
-	if (Value == 0)
-	{
-		return 32;
-	}
-	unsigned long BitIndex;	// 0-based, where the LSB is 0 and MSB is 31
-	_BitScanForward( &BitIndex, Value );	// Scans from LSB to MSB
-	return BitIndex;
-}
-#else // PLATFORM_WINDOWS
-FORCEINLINE uint32 appCountTrailingZeros(uint32 Value)
-{
-	if (Value == 0)
-	{
-		return 32;
-	}
-	return __builtin_ffs(Value) - 1;
-}
-#endif // PLATFORM_WINDOWS
-
-
-/**
  * Merges the XYZ components of one vector with the W component of another vector and returns the result.
  *
  * @param VecXYZ	Source vector for XYZ_
@@ -897,6 +888,23 @@ FORCEINLINE uint32 appCountTrailingZeros(uint32 Value)
 // Looks complex but is really quite straightforward:
 // Load as 32-bit value, unpack 4x unsigned bytes to 4x 16-bit ints, then unpack again into 4x 32-bit ints, then convert to 4x floats
 #define VectorLoadByte4( Ptr )			_mm_cvtepi32_ps(_mm_unpacklo_epi16(_mm_unpacklo_epi8(_mm_cvtsi32_si128(*(int32*)Ptr), _mm_setzero_si128()), _mm_setzero_si128()))
+
+/**
+* Loads 4 signed BYTEs from unaligned memory and converts them into 4 FLOATs.
+* IMPORTANT: You need to call VectorResetFloatRegisters() before using scalar FLOATs after you've used this intrinsic!
+*
+* @param Ptr			Unaligned memory pointer to the 4 BYTEs.
+* @return				VectorRegister( float(Ptr[0]), float(Ptr[1]), float(Ptr[2]), float(Ptr[3]) )
+*/
+// Looks complex but is really quite straightforward:
+// Load as 32-bit value, unpack 4x unsigned bytes to 4x 16-bit ints, then unpack again into 4x 32-bit ints, then convert to 4x floats
+FORCEINLINE VectorRegister VectorLoadSignedByte4(const void* Ptr)
+{
+	auto Temp = _mm_unpacklo_epi16(_mm_unpacklo_epi8(_mm_cvtsi32_si128(*(int32*)Ptr), _mm_setzero_si128()), _mm_setzero_si128());
+	auto Mask = _mm_cmpgt_epi32(Temp, _mm_set1_epi32(127));
+	auto Comp = _mm_and_si128(Mask, _mm_set1_epi32(~127));
+	return _mm_cvtepi32_ps(_mm_or_si128(Comp, Temp));
+}
 
 /**
  * Loads 4 BYTEs from unaligned memory and converts them into 4 FLOATs in reversed order.
@@ -924,6 +932,21 @@ FORCEINLINE void VectorStoreByte4( const VectorRegister& Vec, void* Ptr )
 	// Convert 4x floats to 4x 32-bit ints, then pack into 4x 16-bit ints, then into 4x 8-bit unsigned ints, then store as a 32-bit value
 	*(int32*)Ptr = _mm_cvtsi128_si32(_mm_packus_epi16(_mm_packs_epi32(_mm_cvttps_epi32(Vec), _mm_setzero_si128()), _mm_setzero_si128()));
 }
+
+/**
+* Converts the 4 FLOATs in the vector to 4 BYTEs, clamped to [-127,127], and stores to unaligned memory.
+* IMPORTANT: You need to call VectorResetFloatRegisters() before using scalar FLOATs after you've used this intrinsic!
+*
+* @param Vec			Vector containing 4 FLOATs
+* @param Ptr			Unaligned memory pointer to store the 4 BYTEs.
+*/
+FORCEINLINE void VectorStoreSignedByte4(const VectorRegister& Vec, void* Ptr)
+{
+	// Looks complex but is really quite straightforward:
+	// Convert 4x floats to 4x 32-bit ints, then pack into 4x 16-bit ints, then into 4x 8-bit unsigned ints, then store as a 32-bit value
+	*(int32*)Ptr = _mm_cvtsi128_si32(_mm_packs_epi16(_mm_packs_epi32(_mm_cvttps_epi32(Vec), _mm_setzero_si128()), _mm_setzero_si128()));
+}
+
 
 /**
 * Loads packed RGB10A2(4 bytes) from unaligned memory and converts them into 4 FLOATs.
@@ -975,29 +998,27 @@ FORCEINLINE void VectorStoreURGB10A2N(const VectorRegister& Vec, void* Ptr)
 }
 
 /**
-* Loads packed RGBA16(4 bytes) from unaligned memory and converts them into 4 FLOATs.
-* IMPORTANT: You need to call VectorResetFloatRegisters() before using scalar FLOATs after you've used this intrinsic!
-*
-* @param Ptr			Unaligned memory pointer to the RGBA16(8 bytes).
-* @return				VectorRegister with 4 FLOATs loaded from Ptr.
-*/
-FORCEINLINE VectorRegister VectorLoadURGBA16N(void* Ptr)
+ * Loads packed RGBA16(8 bytes) from unaligned memory and converts them into 4 FLOATs.
+ * IMPORTANT: You need to call VectorResetFloatRegisters() before using scalar FLOATs after you've used this intrinsic!
+ *
+ * @param Ptr			Unaligned memory pointer to the RGBA16(8 bytes).
+ * @return				VectorRegister with 4 FLOATs loaded from Ptr.
+ */
+#define VectorLoadURGBA16N( Ptr ) _mm_cvtepi32_ps(_mm_unpacklo_epi16(_mm_loadl_epi64((const __m128i*)Ptr), _mm_setzero_si128()))
+
+/**
+ * Loads packed signed RGBA16(8 bytes) from unaligned memory and converts them into 4 FLOATs.
+ * IMPORTANT: You need to call VectorResetFloatRegisters() before using scalar FLOATs after you've used this intrinsic!
+ *
+ * @param Ptr			Unaligned memory pointer to the RGBA16(8 bytes).
+ * @return				VectorRegister with 4 FLOATs loaded from Ptr.
+ */
+FORCEINLINE VectorRegister VectorLoadSRGBA16N(const void* Ptr)
 {
-	VectorRegisterDouble TmpD = _mm_load1_pd(reinterpret_cast<const double *>(Ptr));
-
-	VectorRegisterInt Mask = MakeVectorRegisterInt(0x0000FFFF, 0x0000FFFF, 0xFFFF0000, 0xFFFF0000);
-	VectorRegisterInt FlipSign = MakeVectorRegisterInt(0, 0, 0x80000000, 0x80000000);
-
-	VectorRegister Tmp = _mm_and_ps(
-		reinterpret_cast<const VectorRegister*>(&TmpD)[0], 
-		reinterpret_cast<const VectorRegister*>(&Mask)[0]
-		);
-
-	Tmp = _mm_xor_ps(Tmp, reinterpret_cast<const VectorRegister*>(&FlipSign)[0]);
-	Tmp = _mm_cvtepi32_ps(reinterpret_cast<const VectorRegisterInt*>(&Tmp)[0]);
-	Tmp = _mm_add_ps(Tmp, MakeVectorRegister(0, 0, 32768.0f*65536.0f, 32768.0f*65536.0f));
-	Tmp = _mm_mul_ps(Tmp, MakeVectorRegister(1.0f / 65535.0f, 1.0f / 65535.0f, 1.0f / (65535.0f*65536.0f), 1.0f / (65535.0f*65536.0f)));
-	return _mm_shuffle_ps(Tmp, Tmp, _MM_SHUFFLE(3, 1, 2, 0));
+	auto Temp = _mm_unpacklo_epi16(_mm_loadl_epi64((const __m128i*)Ptr), _mm_setzero_si128());
+	auto Mask = _mm_cmpgt_epi32(Temp, _mm_set1_epi32(32767));
+	auto Comp = _mm_and_si128(Mask, _mm_set1_epi32(~32767));
+	return _mm_cvtepi32_ps(_mm_or_si128(Comp, Temp));
 }
 
 /**

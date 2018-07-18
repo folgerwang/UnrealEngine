@@ -2,6 +2,7 @@
 #pragma once
 
 #include "Installer/ChunkReferenceTracker.h"
+#include "Templates/Greater.h"
 #include "Algo/Sort.h"
 
 #if WITH_DEV_AUTOMATION_TESTS

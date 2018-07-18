@@ -6,7 +6,7 @@
 #include "UObject/ObjectMacros.h"
 #include "BodySetupEnums.generated.h"
 
-UENUM()
+UENUM(BlueprintType)
 enum ECollisionTraceFlag
 {
 	/** Use project physics settings (DefaultShapeComplexity) */
@@ -44,9 +44,6 @@ namespace EBodyCollisionResponse
 
 
 /** Helpers to convert enum to string */
-namespace Lex
-{
-	ENGINE_API const TCHAR* ToString(ECollisionTraceFlag Enum);
-	ENGINE_API const TCHAR* ToString(EPhysicsType Enum);
-	ENGINE_API const TCHAR* ToString(EBodyCollisionResponse::Type Enum);
-}
+ENGINE_API const TCHAR* LexToString(ECollisionTraceFlag Enum);
+ENGINE_API const TCHAR* LexToString(EPhysicsType Enum);
+ENGINE_API const TCHAR* LexToString(EBodyCollisionResponse::Type Enum);

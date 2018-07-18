@@ -15,7 +15,7 @@
 #include "UserInterface/PropertyDetails/PropertyDetailsUtilities.h"
 #include "Widgets/Colors/SColorPicker.h"
 #include "Widgets/Input/SSearchBox.h"
-#include "EditorStyleSettings.h"
+#include "Classes/EditorStyleSettings.h"
 #include "DetailLayoutBuilderImpl.h"
 
 
@@ -43,10 +43,12 @@ void SDetailsView::Construct(const FArguments& InArgs)
 
 	PropertyUtilities = MakeShareable( new FPropertyDetailsUtilities( *this ) );
 	
+	ColumnWidth = DetailsViewArgs.ColumnWidth;
+
 	ColumnSizeData.LeftColumnWidth = TAttribute<float>( this, &SDetailsView::OnGetLeftColumnWidth );
 	ColumnSizeData.RightColumnWidth = TAttribute<float>( this, &SDetailsView::OnGetRightColumnWidth );
 	ColumnSizeData.OnWidthChanged = SSplitter::FOnSlotResized::CreateSP( this, &SDetailsView::OnSetColumnWidth );
-
+	
 	// We want the scrollbar to always be visible when objects are selected, but not when there is no selection - however:
 	//  - We can't use AlwaysShowScrollbar for this, as this will also show the scrollbar when nothing is selected
 	//  - We can't use the Visibility construction parameter, as it gets translated into user visibility and can hide the scrollbar even when objects are selected
@@ -87,7 +89,36 @@ void SDetailsView::Construct(const FArguments& InArgs)
 				EUserInterfaceActionType::ToggleButton
 			);
 		}
-
+		if (DetailsViewArgs.bShowKeyablePropertiesOption)
+		{
+			DetailViewOptions.AddMenuEntry(
+				LOCTEXT("ShowOnlyKeyable", "Show Only Keyable Properties"),
+				LOCTEXT("ShowOnlyKeyable_ToolTip", "Displays only properties which are keyable"),
+				FSlateIcon(),
+				FUIAction(
+					FExecuteAction::CreateSP(this, &SDetailsView::OnShowKeyableClicked),
+					FCanExecuteAction(),
+					FIsActionChecked::CreateSP(this, &SDetailsView::IsShowKeyableChecked)
+				),
+				NAME_None,
+				EUserInterfaceActionType::ToggleButton
+			);
+		}
+		if (DetailsViewArgs.bShowAnimatedPropertiesOption)
+		{
+			DetailViewOptions.AddMenuEntry(
+				LOCTEXT("ShowAnimated", "Show Only Animated Properties"),
+				LOCTEXT("ShowAnimated_ToolTip", "Displays only properties which are animated (have tracks)"),
+				FSlateIcon(),
+				FUIAction(
+					FExecuteAction::CreateSP(this, &SDetailsView::OnShowAnimatedClicked),
+					FCanExecuteAction(),
+					FIsActionChecked::CreateSP(this, &SDetailsView::IsShowAnimatedChecked)
+				),
+				NAME_None,
+				EUserInterfaceActionType::ToggleButton
+			);
+		}
 		DetailViewOptions.AddMenuEntry(
 			LOCTEXT("ShowAllAdvanced", "Show All Advanced Details"),
 			LOCTEXT("ShowAllAdvanced_ToolTip", "Shows all advanced detail sections in each category"),
@@ -825,7 +856,8 @@ void SDetailsView::PostSetObject()
 	InitParams.bAllowChildren = true;
 	InitParams.bForceHiddenPropertyVisibility = 
 		FPropertySettings::Get().ShowHiddenProperties() || 
-		( GetDefault<UEditorStyleSettings>()->bShowHiddenPropertiesWhilePlaying && bAnyPIEObjects );
+		( GetDefault<UEditorStyleSettings>()->bShowHiddenPropertiesWhilePlaying && bAnyPIEObjects ) ||
+		DetailsViewArgs.bForceHiddenPropertyVisibility;
 
 	switch ( DetailsViewArgs.DefaultsOnlyVisibility )
 	{
@@ -847,9 +879,6 @@ void SDetailsView::PostSetObject()
 		FObjectPropertyNode* RootPropertyNode = ComplexRootNode->AsObjectNode();
 
 		RootPropertyNode->InitNode( InitParams );
-
-		// Restore existing expanded items
-		RestoreExpandedItems(ComplexRootNode.ToSharedRef());
 	}
 
 	UpdatePropertyMaps();

@@ -233,9 +233,7 @@ static FName MakeViewportContextName(FName InContext, int32 InViewportIndex)
 
 FPreviewViewportSummoner::FPreviewViewportSummoner(TSharedPtr<class FAssetEditorToolkit> InHostingApp, const FPersonaViewportArgs& InArgs, int32 InViewportIndex)
 	: FWorkflowTabFactory(ViewportInstanceToTabName(InViewportIndex), InHostingApp)
-	, SkeletonTree(InArgs.SkeletonTree)
 	, PreviewScene(InArgs.PreviewScene)
-	, OnPostUndo(InArgs.OnPostUndo)
 	, BlueprintEditor(InArgs.BlueprintEditor)
 	, OnViewportCreated(InArgs.OnViewportCreated)
 	, OnGetViewportText(InArgs.OnGetViewportText)
@@ -263,7 +261,7 @@ FPreviewViewportSummoner::FPreviewViewportSummoner(TSharedPtr<class FAssetEditor
 
 TSharedRef<SWidget> FPreviewViewportSummoner::CreateTabBody(const FWorkflowTabSpawnInfo& Info) const
 {
-	TSharedRef<SAnimationEditorViewportTabBody> NewViewport = SNew(SAnimationEditorViewportTabBody, SkeletonTree.Pin().ToSharedRef(), PreviewScene.Pin().ToSharedRef(), HostingApp.Pin().ToSharedRef(), OnPostUndo, ViewportIndex)
+	TSharedRef<SAnimationEditorViewportTabBody> NewViewport = SNew(SAnimationEditorViewportTabBody, PreviewScene.Pin().ToSharedRef(), HostingApp.Pin().ToSharedRef(), ViewportIndex)
 		.BlueprintEditor(BlueprintEditor.Pin())
 		.OnInvokeTab(FOnInvokeTab::CreateSP(HostingApp.Pin().Get(), &FAssetEditorToolkit::InvokeTab))
 		.AddMetaData<FTagMetaData>(TEXT("Persona.Viewport"))
@@ -611,7 +609,13 @@ FAdvancedPreviewSceneTabSummoner::FAdvancedPreviewSceneTabSummoner(TSharedPtr<cl
 TSharedRef<class IDetailCustomization> FAdvancedPreviewSceneTabSummoner::CustomizePreviewSceneDescription()
 {
 	TSharedRef<IPersonaPreviewScene> PreviewSceneRef = PreviewScene.Pin().ToSharedRef();
-	return MakeShareable(new FPreviewSceneDescriptionCustomization(FAssetData(&PreviewSceneRef->GetPersonaToolkit()->GetEditableSkeleton()->GetSkeleton()).GetExportTextName(), PreviewSceneRef->GetPersonaToolkit()));
+	FString SkeletonName;
+	TSharedPtr<IEditableSkeleton> EditableSkeleton = PreviewSceneRef->GetPersonaToolkit()->GetEditableSkeleton();
+	if(EditableSkeleton.IsValid())
+	{
+		SkeletonName = FAssetData(&EditableSkeleton->GetSkeleton()).GetExportTextName();
+	}
+	return MakeShareable(new FPreviewSceneDescriptionCustomization(SkeletonName, PreviewSceneRef->GetPersonaToolkit()));
 }
 
 TSharedRef<class IPropertyTypeCustomization> FAdvancedPreviewSceneTabSummoner::CustomizePreviewMeshCollectionEntry()

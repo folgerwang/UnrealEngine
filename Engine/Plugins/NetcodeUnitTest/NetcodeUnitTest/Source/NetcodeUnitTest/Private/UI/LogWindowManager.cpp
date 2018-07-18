@@ -98,7 +98,7 @@ void FLogWindowManager::Initialize(int InLogWidth, int InLogHeight)
 
 TSharedPtr<SLogWindow> FLogWindowManager::CreateLogWindow(FString Title, ELogType ExpectedFilters, bool bStatusWindow)
 {
-	TSharedPtr<SLogWindow> ReturnVal = NULL;
+	TSharedPtr<SLogWindow> ReturnVal = nullptr;
 
 	// Instead of searching for the first empty space, try to create log windows in a row pattern based upon the grid
 	int FreeGridPos = FindFreeGridPos();
@@ -176,7 +176,7 @@ void FLogWindowManager::OnWindowClosed(const TSharedRef<SWindow>& ClosedWindow)
 			if (GridSpaces[i].LogWindow == ClosedPtr)
 			{
 				FreeGridPos = i;
-				GridSpaces[i].LogWindow = NULL;
+				GridSpaces[i].LogWindow = nullptr;
 
 				break;
 			}
@@ -222,7 +222,7 @@ void FLogWindowManager::OnWindowClosed(const TSharedRef<SWindow>& ClosedWindow)
 
 
 		// Notify the unit test manager, in case action is to be taken upon closing a log window
-		if (GUnitTestManager != NULL)
+		if (GUnitTestManager != nullptr)
 		{
 			GUnitTestManager->NotifyLogWindowClosed(ClosedWindow);
 		}

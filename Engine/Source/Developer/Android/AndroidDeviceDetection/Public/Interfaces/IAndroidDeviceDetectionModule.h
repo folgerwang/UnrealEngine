@@ -19,8 +19,9 @@ class IAndroidDeviceDetectionModule
 public:
 	/**
 	 * Returns the android device detection singleton.
+	 * @param AlternamePlatformName If a platform needs a separate detection instance, pass in an identifier here to create a new one
 	 */
-	virtual IAndroidDeviceDetection* GetAndroidDeviceDetection() = 0;
+	virtual IAndroidDeviceDetection* GetAndroidDeviceDetection(const TCHAR* AlternamePlatformName=TEXT("")) = 0;
 
 protected:
 

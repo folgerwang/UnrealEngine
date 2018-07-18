@@ -5,7 +5,7 @@
 #include "Interfaces/ITargetPlatformManagerModule.h"
 #include "Interfaces/ITargetPlatform.h"
 #include "Misc/CoreMisc.h"
-#include "TaskGraphInterfaces.h"
+#include "Async/TaskGraphInterfaces.h"
 #include "Misc/CommandLine.h"
 #include "Containers/Ticker.h"
 #include "HAL/PlatformProcess.h"

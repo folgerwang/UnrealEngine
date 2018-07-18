@@ -83,20 +83,11 @@ namespace PyUtil
 
 		bool SetValue(PyObject* InPyObj, const TCHAR* InErrorCtxt);
 
-		bool IsValid() const
-		{
-			return Prop && Value;
-		}
+		bool IsValid() const;
 
-		const UProperty* GetProp() const
-		{
-			return Prop;
-		}
+		const UProperty* GetProp() const;
 
-		void* GetValue() const
-		{
-			return Value;
-		}
+		void* GetValue(const int32 InArrayIndex = 0) const;
 
 	private:
 		const UProperty* Prop;
@@ -206,11 +197,11 @@ namespace PyUtil
 	/** Check to see if the given property is an output parameter for a function */
 	bool IsOutputParameter(const UProperty* InParam);
 
-	/** Given a set of potential return values and the struct data associated with them, pack them appropriately for returning to Python */
-	PyObject* PackReturnValues(const UFunction* InFunc, const TArrayView<const UProperty*>& InReturnProperties, const void* InBaseParamsAddr, const TCHAR* InErrorCtxt, const TCHAR* InCallingCtxt);
+	/** Import a UHT default value on the given property */
+	void ImportDefaultValue(const UProperty* InProp, void* InPropValue, const FString& InDefaultValue);
 
-	/** Given a Python return value, unpack the values into the struct data associated with them */
-	bool UnpackReturnValues(PyObject* InRetVals, const UFunction* InFunc, const TArrayView<const UProperty*>& InReturnProperties, void* InBaseParamsAddr, const TCHAR* InErrorCtxt, const TCHAR* InCallingCtxt);
+	/** Invoke a function call. Returns false if a Python exception was raised */
+	bool InvokeFunctionCall(UObject* InObj, const UFunction* InFunc, void* InBaseParamsAddr, const TCHAR* InErrorCtxt);
 
 	/** Given a Python function, get the names of the arguments along with their default values */
 	bool InspectFunctionArgs(PyObject* InFunc, TArray<FString>& OutArgNames, TArray<FPyObjectPtr>* OutArgDefaults = nullptr);
@@ -224,11 +215,21 @@ namespace PyUtil
 	/** Validate that the given index is valid for the container length */
 	int ValidateContainerIndexParam(const Py_ssize_t InIndex, const Py_ssize_t InLen, const UProperty* InProp, const TCHAR* InErrorCtxt);
 
-	/** Given a struct, get the named property value from it */
-	PyObject* GetUEPropValue(const UStruct* InStruct, void* InStructData, const FName InPropName, const char *InAttributeName, PyObject* InOwnerPyObject, const TCHAR* InErrorCtxt);
+	/** Resolve a container index (taking into account negative indices) */
+	Py_ssize_t ResolveContainerIndexParam(const Py_ssize_t InIndex, const Py_ssize_t InLen);
 
-	/** Given a struct, set the named property value on it */
-	int SetUEPropValue(const UStruct* InStruct, void* InStructData, PyObject* InValue, const FName InPropName, const char *InAttributeName, const FPyWrapperOwnerContext& InChangeOwner, const uint64 InReadOnlyFlags, const TCHAR* InErrorCtxt);
+	/**
+	 * Given a Python object, try and get the owner Unreal object for the instance.
+	 * For wrapped objects this is the wrapped instance, for wrapped structs it will attempt to walk through the owner chain to find a wrapped object.
+	 * @return The owner Unreal object, or null.
+	 */
+	UObject* GetOwnerObject(PyObject* InPyObj);
+
+	/** Get the current value of the given property from the given struct */
+	PyObject* GetPropertyValue(const UStruct* InStruct, void* InStructData, const UProperty* InProp, const char *InAttributeName, PyObject* InOwnerPyObject, const TCHAR* InErrorCtxt);
+
+	/** Set the current value of the given property from the given struct */
+	int SetPropertyValue(const UStruct* InStruct, void* InStructData, PyObject* InValue, const UProperty* InProp, const char *InAttributeName, const FPyWrapperOwnerContext& InChangeOwner, const uint64 InReadOnlyFlags, const bool InOwnerIsTemplate, const TCHAR* InErrorCtxt);
 
 	/**
 	 * Check to see if the given object implements a length function.
@@ -258,7 +259,7 @@ namespace PyUtil
 	 * Test to see whether the given module is available for import (is in the sys.modules table (which includes built-in modules), or is in any known sys.path path).
 	 * @note This function can't handle dot separated names.
 	 */
-	bool IsModuleAvailableForImport(const TCHAR* InModuleName);
+	bool IsModuleAvailableForImport(const TCHAR* InModuleName, FString* OutResolvedFile = nullptr);
 
 	/**
 	 * Test to see whether the given module is available for import (is in the sys.modules table).
@@ -277,6 +278,11 @@ namespace PyUtil
 	void RemoveSystemPath(const FString& InPath);
 
 	/**
+	 * Get the current sys.path list.
+	 */
+	TArray<FString> GetSystemPaths();
+
+	/**
 	 * Get the doc string of the given object (if any).
 	 */
 	FString GetDocString(PyObject* InPyObj);
@@ -284,7 +290,7 @@ namespace PyUtil
 	/**
 	 * Get the friendly value of the given struct that can be used when stringifying struct values for Python.
 	 */
-	FString GetFriendlyStructValue(const UStruct* InStruct, const void* InStructValue, const uint32 InPortFlags);
+	FString GetFriendlyStructValue(const UScriptStruct* InStruct, const void* InStructValue, const uint32 InPortFlags);
 
 	/**
 	 * Get the friendly value of the given property that can be used when stringifying property values for Python.
@@ -348,8 +354,25 @@ namespace PyUtil
 		return SetPythonError(InException, (PyObject*)InErrorContext, InErrorMsg);
 	}
 
+	/** Set a Python warning (see PyErr_WarnEx for the return value meaning) */
+	int SetPythonWarning(PyObject* InException, PyTypeObject* InErrorContext, const TCHAR* InErrorMsg);
+	int SetPythonWarning(PyObject* InException, PyObject* InErrorContext, const TCHAR* InErrorMsg);
+	int SetPythonWarning(PyObject* InException, const TCHAR* InErrorContext, const TCHAR* InErrorMsg);
+
+	template <typename T>
+	int SetPythonWarning(PyObject* InException, T* InErrorContext, const TCHAR* InErrorMsg)
+	{
+		return SetPythonWarning(InException, (PyObject*)InErrorContext, InErrorMsg);
+	}
+
+	/** Enable developer warnings (eg, deprecation warnings) */
+	bool EnableDeveloperWarnings();
+
 	/** Log any pending Python error (will also clear the error) */
 	void LogPythonError(const bool bInteractive = false);
+
+	/** Re-throw any pending Python error via FFrame::KismetExecutionMessage (will also clear the error) */
+	void ReThrowPythonError();
 }
 
 #endif	// WITH_PYTHON

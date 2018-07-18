@@ -17,7 +17,7 @@
 #include "UObject/Package.h"
 #include "Templates/Casts.h"
 #include "UObject/GCObject.h"
-#include "LinkerLoad.h"
+#include "UObject/LinkerLoad.h"
 #include "Misc/CommandLine.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUObjectBase, Log, All);
@@ -74,7 +74,7 @@ UObjectBase::UObjectBase( EObjectFlags InFlags )
 ,	InternalIndex		(INDEX_NONE)
 ,	ClassPrivate		(nullptr)
 ,	OuterPrivate		(nullptr)
-#if ENABLE_STATNAMEDEVENTS
+#if ENABLE_STATNAMEDEVENTS_UOBJECT
 , StatIDStringStorage(nullptr)
 #endif
 {}
@@ -92,7 +92,7 @@ UObjectBase::UObjectBase(UClass* InClass, EObjectFlags InFlags, EInternalObjectF
 ,	InternalIndex		(INDEX_NONE)
 ,	ClassPrivate		(InClass)
 ,	OuterPrivate		(InOuter)
-#if ENABLE_STATNAMEDEVENTS
+#if ENABLE_STATNAMEDEVENTS_UOBJECT
 , StatIDStringStorage(nullptr)
 #endif
 {
@@ -116,13 +116,13 @@ UObjectBase::~UObjectBase()
 		GUObjectArray.FreeUObjectIndex(this);
 	}
 
-#if ENABLE_STATNAMEDEVENTS
+#if ENABLE_STATNAMEDEVENTS_UOBJECT
 	delete[] StatIDStringStorage;
 	StatIDStringStorage = nullptr;
 #endif
 }
 
-#if STATS || ENABLE_STATNAMEDEVENTS
+#if STATS || ENABLE_STATNAMEDEVENTS_UOBJECT
 
 void UObjectBase::CreateStatID() const
 {
@@ -657,21 +657,9 @@ void UObjectCompiledInDefer(UClass *(*InRegister)(), UClass *(*InStaticClass)(),
 	if (!bDynamic)
 	{
 #if WITH_HOT_RELOAD
-		UClass* ClassToHotReload = nullptr;
-		bool    bFound           = false;
-
 		// Either add all classes if not hot-reloading, or those which have changed
 		TMap<FName, FFieldCompiledInInfo*>& DeferMap = GetDeferRegisterClassMap();
-		if (GIsHotReload)
-		{
-			FFieldCompiledInInfo* FoundInfo = DeferMap.FindChecked(Name);
-			if (FoundInfo->bHasChanged)
-			{
-				bFound = true;
-				ClassToHotReload = FoundInfo->OldClass;
-			}
-		}
-		if (!GIsHotReload || bFound)
+		if (!GIsHotReload || DeferMap.FindChecked(Name)->bHasChanged)
 #endif
 		{
 			FString NoPrefix(RemoveClassPrefix(Name));
@@ -680,22 +668,6 @@ void UObjectCompiledInDefer(UClass *(*InRegister)(), UClass *(*InStaticClass)(),
 
 			TArray<UClass *(*)()>& DeferredCompiledInRegistration = GetDeferredCompiledInRegistration();
 			checkSlow(!DeferredCompiledInRegistration.Contains(InRegister));
-
-#if WITH_HOT_RELOAD
-			// Mark existing class as no longer constructed and collapse the Children list so that it gets rebuilt upon registration
-			if (ClassToHotReload)
-			{
-				ClassToHotReload->ClassFlags &= ~CLASS_Constructed;
-				for (UField* Child = ClassToHotReload->Children; Child; )
-				{
-					UField* NextChild = Child->Next;
-					Child->Next = nullptr;
-					Child = NextChild;
-				}
-				ClassToHotReload->Children = nullptr;
-			}
-#endif
-
 			DeferredCompiledInRegistration.Add(InRegister);
 		}
 	}
@@ -942,16 +914,17 @@ static FAutoConsoleVariableRef CMaxObjectsInGame(
 void UObjectBaseInit()
 {
 	// Zero initialize and later on get value from .ini so it is overridable per game/ platform...
-	int32 MaxObjectsNotConsideredByGC	= 0;  
-	int32 SizeOfPermanentObjectPool	= 0;
+	int32 MaxObjectsNotConsideredByGC = 0;
+	int32 SizeOfPermanentObjectPool = 0;
 	int32 MaxUObjects = 2 * 1024 * 1024; // Default to ~2M UObjects
+	bool bPreAllocateUObjectArray = false;	
 
 	// To properly set MaxObjectsNotConsideredByGC look for "Log: XXX objects as part of root set at end of initial load."
 	// in your log file. This is being logged from LaunchEnglineLoop after objects have been added to the root set. 
 
 	// Disregard for GC relies on seekfree loading for interaction with linkers. We also don't want to use it in the Editor, for which
 	// FPlatformProperties::RequiresCookedData() will be false. Please note that GIsEditor and FApp::IsGame() are not valid at this point.
-	if( FPlatformProperties::RequiresCookedData() )
+	if (FPlatformProperties::RequiresCookedData())
 	{
 		FString Value;
 		bool bIsCookOnTheFly = FParse::Value(FCommandLine::Get(), TEXT("-filehostip="), Value);
@@ -970,6 +943,9 @@ void UObjectBaseInit()
 
 		// Maximum number of UObjects in cooked game
 		GConfig->GetInt(TEXT("/Script/Engine.GarbageCollectionSettings"), TEXT("gc.MaxObjectsInGame"), MaxUObjects, GEngineIni);
+
+		// If true, the UObjectArray will pre-allocate all entries for UObject pointers
+		GConfig->GetBool(TEXT("/Script/Engine.GarbageCollectionSettings"), TEXT("gc.PreAllocateUObjectArray"), bPreAllocateUObjectArray, GEngineIni);
 	}
 	else
 	{
@@ -983,11 +959,14 @@ void UObjectBaseInit()
 #endif
 	}
 
+
 	// Log what we're doing to track down what really happens as log in LaunchEngineLoop doesn't report those settings in pristine form.
-	UE_LOG(LogInit, Log, TEXT("Presizing for max %d objects, including %i objects not considered by GC, pre-allocating %i bytes for permanent pool."), MaxUObjects, MaxObjectsNotConsideredByGC, SizeOfPermanentObjectPool);
+	UE_LOG(LogInit, Log, TEXT("%s for max %d objects, including %i objects not considered by GC, pre-allocating %i bytes for permanent pool."), 
+		bPreAllocateUObjectArray ? TEXT("Pre-allocating") : TEXT("Presizing"),
+		MaxUObjects, MaxObjectsNotConsideredByGC, SizeOfPermanentObjectPool);
 
 	GUObjectAllocator.AllocatePermanentObjectPool(SizeOfPermanentObjectPool);
-	GUObjectArray.AllocateObjectPool(MaxUObjects, MaxObjectsNotConsideredByGC);
+	GUObjectArray.AllocateObjectPool(MaxUObjects, MaxObjectsNotConsideredByGC, bPreAllocateUObjectArray);
 
 	void InitAsyncThread();
 	InitAsyncThread();

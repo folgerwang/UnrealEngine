@@ -9,6 +9,7 @@
 #include "Containers/Set.h"
 #include "UObject/NameTypes.h"
 #include "Misc/Guid.h"
+#include "Serialization/StructuredArchive.h"
 
 struct ECustomVersionSerializationFormat
 {
@@ -69,6 +70,7 @@ struct CORE_API FCustomVersion
 	}
 
 	CORE_API friend FArchive& operator<<(FArchive& Ar, FCustomVersion& Version);
+	CORE_API friend void operator<<(FStructuredArchive::FSlot Slot, FCustomVersion& Version);
 
 	/** Gets the friendly name for error messages or whatever */
 	const FName GetFriendlyName() const;
@@ -128,6 +130,7 @@ public:
 
 	/** Serialization. */
 	void Serialize(FArchive& Ar, ECustomVersionSerializationFormat::Type Format = ECustomVersionSerializationFormat::Latest);
+	void Serialize(FStructuredArchive::FSlot Slot, ECustomVersionSerializationFormat::Type Format = ECustomVersionSerializationFormat::Latest);
 
 	/**
 	 * Gets a singleton with the registered versions.

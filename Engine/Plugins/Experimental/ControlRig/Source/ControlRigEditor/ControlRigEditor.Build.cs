@@ -7,9 +7,10 @@ namespace UnrealBuildTool.Rules
         public ControlRigEditor(ReadOnlyTargetRules Target) : base(Target)
         {
             PrivateIncludePaths.Add("ControlRigEditor/Private");
-            PrivateIncludePaths.Add("ControlRigEditor/Private/InputOutput");
             PrivateIncludePaths.Add("ControlRigEditor/Private/Sequencer");
             PrivateIncludePaths.Add("ControlRigEditor/Private/EditMode");
+            PrivateIncludePaths.Add("ControlRigEditor/Private/Graph");
+            PrivateIncludePaths.Add("ControlRigEditor/Private/Editor");
 
             PrivateDependencyModuleNames.AddRange(
                 new string[]
@@ -40,6 +41,11 @@ namespace UnrealBuildTool.Rules
                     "LevelEditor",
                     "SceneOutliner",
                     "LevelSequence",
+                    "GraphEditor",
+                    "PropertyPath",
+                    "Persona",
+                    "UMG",
+					"TimeManagement",
                 }
             );
         }

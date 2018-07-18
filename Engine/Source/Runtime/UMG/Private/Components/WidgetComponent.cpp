@@ -20,7 +20,7 @@
 #include "Slate/SGameLayerManager.h"
 #include "Slate/WidgetRenderer.h"
 #include "Slate/SWorldWidgetScreenLayer.h"
-#include "SViewport.h"
+#include "Widgets/SViewport.h"
 
 DECLARE_CYCLE_STAT(TEXT("3DHitTesting"), STAT_Slate3DHitTesting, STATGROUP_Slate);
 
@@ -472,13 +472,13 @@ public:
 						// Make a material for drawing solid collision stuff
 						auto SolidMaterialInstance = new FColoredMaterialRenderProxy(
 							GEngine->ShadedLevelColorationUnlitMaterial->GetRenderProxy(IsSelected(), IsHovered()),
-							WireframeColor
+							GetWireframeColor()
 							);
 
 						Collector.RegisterOneFrameMaterialProxy(SolidMaterialInstance);
 
 						FTransform GeomTransform(GetLocalToWorld());
-						InBodySetup->AggGeom.GetAggGeom(GeomTransform, WireframeColor.ToFColor(true), SolidMaterialInstance, false, true, UseEditorDepthTest(), ViewIndex, Collector);
+						InBodySetup->AggGeom.GetAggGeom(GeomTransform, GetWireframeColor().ToFColor(true), SolidMaterialInstance, false, true, UseEditorDepthTest(), ViewIndex, Collector);
 					}
 					// wireframe
 					else
@@ -502,6 +502,9 @@ public:
 
 		Result.bDrawRelevance = IsShown(View) && bVisible && View->Family->EngineShowFlags.WidgetComponents;
 		Result.bDynamicRelevance = true;
+		Result.bRenderCustomDepth = ShouldRenderCustomDepth();
+		Result.bRenderInMainPass = ShouldRenderInMainPass();
+		Result.bUsesLightingChannels = GetLightingChannelMask() != GetDefaultLightingChannelMask();
 		Result.bShadowRelevance = IsShadowCast(View);
 		Result.bEditorPrimitiveRelevance = false;
 
@@ -557,6 +560,7 @@ UWidgetComponent::UWidgetComponent( const FObjectInitializer& PCIP )
 	, LastWidgetRenderTime(0)
 	, bReceiveHardwareInput(false)
 	, bWindowFocusable(true)
+	, bApplyGammaCorrection(false)
 	, BackgroundColor( FLinearColor::Transparent )
 	, TintColorAndOpacity( FLinearColor::White )
 	, OpacityFromTexture( 1.0f )
@@ -594,12 +598,12 @@ UWidgetComponent::UWidgetComponent( const FObjectInitializer& PCIP )
 	MaskedMaterial_OneSided = MaskedMaterial_OneSided_Finder.Object;
 
 	LastLocalHitLocation = FVector2D::ZeroVector;
-	//bGenerateOverlapEvents = false;
+	//SetGenerateOverlapEvents(false);
 	bUseEditorCompositing = false;
 
 	Space = EWidgetSpace::World;
 	TimingPolicy = EWidgetTimingPolicy::RealTime;
-	Pivot = FVector2D(0.5, 0.5);
+	Pivot = FVector2D(0.5f, 0.5f);
 
 	bAddedToScreen = false;
 }
@@ -623,7 +627,7 @@ FPrimitiveSceneProxy* UWidgetComponent::CreateSceneProxy()
 		return nullptr;
 	}
 
-	if (WidgetRenderer.IsValid() && CurrentSlateWidget.IsValid())
+	if (WidgetRenderer && CurrentSlateWidget.IsValid())
 	{
 		// Create a new MID for the current base material
 		{
@@ -770,9 +774,9 @@ void UWidgetComponent::OnRegister()
 				RegisterHitTesterWithViewport(GameViewportWidget);
 			}
 
-			if ( !WidgetRenderer.IsValid() && !GUsingNullRHI )
+			if ( !WidgetRenderer && !GUsingNullRHI )
 			{
-				WidgetRenderer = MakeShareable(new FWidgetRenderer());
+				WidgetRenderer = new FWidgetRenderer(bApplyGammaCorrection);
 			}
 		}
 
@@ -869,7 +873,11 @@ void UWidgetComponent::ReleaseResources()
 		Widget = nullptr;
 	}
 
-	WidgetRenderer.Reset();
+	if (WidgetRenderer)
+	{
+		BeginCleanup(WidgetRenderer);
+		WidgetRenderer = nullptr;
+	}
 
 	UnregisterWindow();
 }
@@ -920,7 +928,7 @@ void UWidgetComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, 
 				// the world is paused, this also takes care of the case where the widget component is rendering at
 				// a different rate than the rest of the world.
 				const float DeltaTimeFromLastDraw = LastWidgetRenderTime == 0 ? 0 : (GetCurrentTime() - LastWidgetRenderTime);
-			    DrawWidgetToRenderTarget(DeltaTimeFromLastDraw);
+				DrawWidgetToRenderTarget(DeltaTimeFromLastDraw);
 		    }
 	    }
 	    else
@@ -1270,7 +1278,7 @@ void UWidgetComponent::InitWidget()
 	{
 		if ( WidgetClass && Widget == nullptr && GetWorld() )
 		{
-			Widget = CreateWidget<UUserWidget>(GetWorld(), WidgetClass);
+			Widget = CreateWidget(GetWorld(), WidgetClass);
 		}
 		
 #if WITH_EDITOR
@@ -1293,6 +1301,11 @@ void UWidgetComponent::SetOwnerPlayer(ULocalPlayer* LocalPlayer)
 		RemoveWidgetFromScreen();
 		OwnerPlayer = LocalPlayer;
 	}
+}
+
+void UWidgetComponent::SetManuallyRedraw(bool bUseManualRedraw)
+{
+	bManuallyRedraw = bUseManualRedraw;
 }
 
 ULocalPlayer* UWidgetComponent::GetOwnerPlayer() const
@@ -1843,7 +1856,7 @@ void UWidgetComponent::SetWidgetClass(TSubclassOf<UUserWidget> InWidgetClass)
 		{
 			if (WidgetClass)
 			{
-				UUserWidget* NewWidget = CreateWidget<UUserWidget>(GetWorld(), WidgetClass);
+				UUserWidget* NewWidget = CreateWidget(GetWorld(), WidgetClass);
 				SetWidget(NewWidget);
 			}
 			else

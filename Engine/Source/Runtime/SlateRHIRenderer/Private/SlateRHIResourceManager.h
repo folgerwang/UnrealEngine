@@ -106,10 +106,6 @@ private:
 	/** Map of all object resources */
 	typedef TMap<TWeakObjectPtr<UObject>, TSharedPtr<FSlateAtlasedTextureResource> > FObjectResourceMap;
 	FObjectResourceMap ObjectMap;
-
-	uint64 TextureMemorySincePurge;
-
-	int32 LastExpiredMaterialNumMarker;
 };
 
 
@@ -125,7 +121,7 @@ struct FCachedRenderBuffers
 /**
  * Stores a mapping of texture names to their RHI texture resource               
  */
-class FSlateRHIResourceManager : public ISlateAtlasProvider, public ISlateRenderDataManager, public FSlateShaderResourceManager, public FTickableGameObject, public FGCObject
+class FSlateRHIResourceManager : public ISlateAtlasProvider, public ISlateRenderDataManager, public FSlateShaderResourceManager, public FTickableGameObject
 {
 public:
 	FSlateRHIResourceManager();
@@ -147,9 +143,6 @@ public:
 	virtual TStatId GetStatId() const override { RETURN_QUICK_DECLARE_CYCLE_STAT(FSlateRHIResourceManager, STATGROUP_Tickables); }
 	virtual void Tick(float DeltaSeconds) override;
 
-	/** FGCObject interface */
-	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
-
 	/**
 	 * Loads and creates rendering resources for all used textures.  
 	 * In this implementation all textures must be known at startup time or they will not be found
@@ -157,13 +150,6 @@ public:
 	void LoadUsedTextures();
 
 	void LoadStyleResources( const ISlateStyle& Style );
-
-	/**
-	 * Clears accessed UTexture and Material resources from the previous frame
-	 * The accessed textures is used to determine which textures need be updated on the render thread
-	 * so they can be used by slate
-	 */
-	void BeginReleasingAccessedResources(bool bImmediatelyFlush);
 
 	/**
 	 * Updates texture atlases if needed
@@ -252,7 +238,13 @@ public:
 	void AddSceneAt(FSceneInterface* Scene, int32 Index);
 	void ClearScenes();
 
+	FCriticalSection* GetResourceCriticalSection() { return &ResourceCriticalSection; }
+
 private:
+	void OnPostGarbageCollect();
+
+	void TryToCleanupExpiredResources(bool bForceCleanup);
+
 	void ReleaseCachedBuffer(FRHICommandListImmediate& RHICmdList, FCachedRenderBuffers* PooledBuffer);
 
 	/**
@@ -262,15 +254,26 @@ private:
 	void ReleaseCachedRenderData(FRHICommandListImmediate& RHICmdList, const FSlateRenderDataHandle* RenderHandle, const ILayoutCache* LayoutCacher);
 
 private:
-	/**
-	 * Gets the current accessed UObject tracking set.
-	 */
-	TSet<UObject*>& GetAccessedUObjects();
 
 	/**
 	 * Deletes resources created by the manager
 	 */
 	void DeleteResources();
+
+	/**
+	 * Deletes re-creatable brush resources - a soft reset.
+	 */
+	void DeleteUObjectBrushResources();
+
+	/**
+	 * Deletes cached buffers
+	 */
+	void DeleteCachedBuffers();
+
+	/**
+	 * Debugging command to try forcing a refresh of UObject brushes.
+	 */
+	void DeleteBrushResourcesCommand();
 
 	/** 
 	 * Creates textures from files on disk and atlases them if possible
@@ -312,28 +315,17 @@ private:
 	UTexture* GetBadResourceTexture();
 
 private:
+	/**
+	 * Necessary to grab before flushing the resource pool, as it may be being 
+	 * accessed by multiple threads when loading.
+	 */
+	FCriticalSection ResourceCriticalSection;
+
+	/** Attempt to cleanup */
+	bool bExpiredResourcesNeedCleanup;
+
 	/** Map of all active dynamic resources being used by brushes */
 	FDynamicResourceMap DynamicResourceMap;
-	/**
-	 * All sets of accessed UObjects.  We have to track multiple sets, because a single set
-	 * needs to follow the set of objects through the renderer safely.  So we round robin
-	 * the buffers.
-	 */
-	TArray< TSet<UObject*>* > AllAccessedUObject;
-	/**
-	 * Tracks a pointer to the current accessed UObject set we're builing this frame, 
-	 * don't use this directly, use GetAccessedUObjects().
-	 */
-	TSet<UObject*>* CurrentAccessedUObject;
-	/**
-	 * Used accessed UObject sets are added to this queue from the Game Thread.
-	 * The RenderThread moves them onto the CleanAccessedObjectSets queue.
-	 */
-	TQueue< TSet<UObject*>* > DirtyAccessedObjectSets;
-	/**
-	 * The RenderThread moves previously dirty UObject sets onto this queue.
-	 */
-	TQueue< TSet<UObject*>* > CleanAccessedObjectSets;
 	/** List of old utexture resources that are free to use as new resources */
 	TArray< TSharedPtr<FSlateUTextureResource> > UTextureFreeList;
 	/** List of old dynamic resources that are free to use as new resources */
@@ -363,7 +355,10 @@ private:
 	 */
 	TArray<FCachedRenderBuffers*> PooledBuffersPendingRelease;
 
-
+	/**  */
 	TArray<FSceneInterface*> ActiveScenes;
+
+	/** Debugging Commands */
+	FAutoConsoleCommand DeleteResourcesCommand;
 };
 

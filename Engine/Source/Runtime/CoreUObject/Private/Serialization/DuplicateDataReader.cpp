@@ -20,13 +20,13 @@
  * @param	InDuplicatedObjects		map of original object to copy of that object
  * @param	InObjectData			object data to read from
  */
-FDuplicateDataReader::FDuplicateDataReader( class FUObjectAnnotationSparse<FDuplicatedObject,false>& InDuplicatedObjects ,const TArray<uint8>& InObjectData, uint32 InPortFlags, UObject* InDestOuter )
+FDuplicateDataReader::FDuplicateDataReader( class FUObjectAnnotationSparse<FDuplicatedObject,false>& InDuplicatedObjects ,const FLargeMemoryData& InObjectData, uint32 InPortFlags, UObject* InDestOuter )
 	: DuplicatedObjectAnnotation(InDuplicatedObjects)
 	, ObjectData(InObjectData)
 	, Offset(0)
 {
-	ArIsLoading			= true;
-	ArIsPersistent		= true;
+	this->SetIsLoading(true);
+	this->SetIsPersistent(true);
 	ArPortFlags |= PPF_Duplicate | InPortFlags;
 
 #if USE_STABLE_LOCALIZATION_KEYS

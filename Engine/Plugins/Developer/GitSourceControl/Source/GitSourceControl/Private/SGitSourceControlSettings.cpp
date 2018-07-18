@@ -12,9 +12,11 @@
 #include "Widgets/Input/SEditableTextBox.h"
 #include "Widgets/Input/SButton.h"
 #include "Widgets/Input/SCheckBox.h"
+#include "Widgets/Input/SFilePathPicker.h"
+#include "EditorDirectories.h"
 #include "EditorStyleSet.h"
-#include "SSeparator.h"
-#include "SMultiLineEditableTextBox.h"
+#include "Widgets/Layout/SSeparator.h"
+#include "Widgets/Input/SMultiLineEditableTextBox.h"
 #include "Framework/Notifications/NotificationManager.h"
 #include "Widgets/Notifications/SNotificationList.h"
 #include "SourceControlOperations.h"
@@ -32,6 +34,13 @@ void SGitSourceControlSettings::Construct(const FArguments& InArgs)
 	bAutoInitialCommit = true;
 
 	InitialCommitMessage = LOCTEXT("InitialCommitMessage", "Initial commit");
+
+	const FText FileFilterType = NSLOCTEXT("GitSourceControl", "Executables", "Executables");
+#if PLATFORM_WINDOWS
+	const FString FileFilterText = FString::Printf(TEXT("%s (*.exe)|*.exe"), *FileFilterType.ToString());
+#else
+	const FString FileFilterText = FString::Printf(TEXT("%s"), *FileFilterType.ToString());
+#endif
 
 	ChildSlot
 	[
@@ -58,11 +67,15 @@ void SGitSourceControlSettings::Construct(const FArguments& InArgs)
 				+SHorizontalBox::Slot()
 				.FillWidth(2.0f)
 				[
-					SNew(SEditableTextBox)
-					.Text(this, &SGitSourceControlSettings::GetBinaryPathText)
-					.ToolTipText(LOCTEXT("BinaryPathLabel_Tooltip", "Path to Git binary"))
-					.OnTextCommitted(this, &SGitSourceControlSettings::OnBinaryPathTextCommited)
-					.Font(Font)
+					SNew(SFilePathPicker)
+					.BrowseButtonImage(FEditorStyle::GetBrush("PropertyWindow.Button_Ellipsis"))
+					.BrowseButtonStyle(FEditorStyle::Get(), "HoverHintOnly")
+					.BrowseButtonToolTip(LOCTEXT("BinaryPathLabel_Tooltip", "Path to Git binary"))
+					.BrowseDirectory(FEditorDirectories::Get().GetLastDirectory(ELastDirectory::GENERIC_OPEN))
+					.BrowseTitle(LOCTEXT("BinaryPathBrowseTitle", "File picker..."))
+					.FilePath(this, &SGitSourceControlSettings::GetBinaryPathString)
+					.FileTypeFilter(FileFilterText)
+					.OnPathPicked(this, &SGitSourceControlSettings::OnBinaryPathPicked)
 				]
 			]
 			// Root of the local repository
@@ -163,6 +176,32 @@ void SGitSourceControlSettings::Construct(const FArguments& InArgs)
 					.Font(Font)
 				]
 			]
+			// Option to configure the URL of the default remote 'origin'
+			+SVerticalBox::Slot()
+			.AutoHeight()
+			.Padding(2.0f)
+			.VAlign(VAlign_Center)
+			[
+				SNew(SHorizontalBox)
+				.Visibility(this, &SGitSourceControlSettings::CanInitializeGitRepository)
+				.ToolTipText(LOCTEXT("ConfigureOrigin_Tooltip", "Configure the URL of the default remote 'origin'"))
+				+SHorizontalBox::Slot()
+				.FillWidth(1.0f)
+				[
+					SNew(STextBlock)
+					.Text(LOCTEXT("ConfigureOrigin", "URL of the remote server 'origin'"))
+					.Font(Font)
+				]
+				+SHorizontalBox::Slot()
+				.FillWidth(2.0f)
+				.VAlign(VAlign_Center)
+				[
+					SNew(SEditableTextBox)
+					.Text(this, &SGitSourceControlSettings::GetRemoteUrl)
+					.OnTextCommitted(this, &SGitSourceControlSettings::OnRemoteUrlCommited)
+					.Font(Font)
+				]
+			]
 			// Option to add a proper .gitignore file (true by default)
 			+SVerticalBox::Slot()
 			.AutoHeight()
@@ -201,7 +240,7 @@ void SGitSourceControlSettings::Construct(const FArguments& InArgs)
 				.FillWidth(0.1f)
 				[
 					SNew(SCheckBox)
-					.ToolTipText(LOCTEXT("CreateGitAttributes_Tooltip", "Create and add a '.gitattributes' file to enable Git LFS for the whole 'Content/' directory (needs Git LFS extensions to be installed)."))
+					.ToolTipText(LOCTEXT("CreateGitAttributesAll_Tooltip", "Create and add a '.gitattributes' file to enable Git LFS for the whole 'Content/' directory (needs Git LFS extensions to be installed)."))
 					.IsChecked(ECheckBoxState::Unchecked)
 					.OnCheckStateChanged(this, &SGitSourceControlSettings::OnCheckedCreateGitAttributes)
 					.IsEnabled(this, &SGitSourceControlSettings::CanInitializeGitLfs)
@@ -280,16 +319,17 @@ SGitSourceControlSettings::~SGitSourceControlSettings()
 	RemoveInProgressNotification();
 }
 
-FText SGitSourceControlSettings::GetBinaryPathText() const
+FString SGitSourceControlSettings::GetBinaryPathString() const
 {
 	FGitSourceControlModule& GitSourceControl = FModuleManager::LoadModuleChecked<FGitSourceControlModule>("GitSourceControl");
-	return FText::FromString(GitSourceControl.AccessSettings().GetBinaryPath());
+	return GitSourceControl.AccessSettings().GetBinaryPath();
 }
 
-void SGitSourceControlSettings::OnBinaryPathTextCommited(const FText& InText, ETextCommit::Type InCommitType) const
+void SGitSourceControlSettings::OnBinaryPathPicked( const FString& PickedPath ) const
 {
 	FGitSourceControlModule& GitSourceControl = FModuleManager::LoadModuleChecked<FGitSourceControlModule>("GitSourceControl");
-	const bool bChanged = GitSourceControl.AccessSettings().SetBinaryPath(InText.ToString());
+	FString PickedFullPath = FPaths::ConvertRelativePathToFull(PickedPath);
+	const bool bChanged = GitSourceControl.AccessSettings().SetBinaryPath(PickedFullPath);
 	if(bChanged)
 	{
 		// Re-Check provided git binary path for each change
@@ -344,8 +384,16 @@ FReply SGitSourceControlSettings::OnClickedInitializeGitRepository()
 	TArray<FString> InfoMessages;
 	TArray<FString> ErrorMessages;
 
-	// 1. Synchronous (very quick) "git init" operation: initialize a Git local repository with a .git/ subdirectory
+	// 1.a. Synchronous (very quick) "git init" operation: initialize a Git local repository with a .git/ subdirectory
 	GitSourceControlUtils::RunCommand(TEXT("init"), PathToGitBinary, PathToProjectDir, TArray<FString>(), TArray<FString>(), InfoMessages, ErrorMessages);
+	// 1.b. Synchronous (very quick) "git remote add" operation: configure the URL of the default remote server 'origin' if specified
+	if(!RemoteUrl.IsEmpty())
+	{
+		TArray<FString> Parameters;
+		Parameters.Add(TEXT("add origin"));
+		Parameters.Add(RemoteUrl.ToString());
+		GitSourceControlUtils::RunCommand(TEXT("remote"), PathToGitBinary, PathToProjectDir, Parameters, TArray<FString>(), InfoMessages, ErrorMessages);
+	}
 
 	// Check the new repository status to enable connection (branch, user e-mail)
 	GitSourceControl.GetProvider().CheckRepositoryStatus(PathToGitBinary);
@@ -514,6 +562,16 @@ void SGitSourceControlSettings::OnInitialCommitMessageCommited(const FText& InTe
 FText SGitSourceControlSettings::GetInitialCommitMessage() const
 {
 	return InitialCommitMessage;
+}
+
+void SGitSourceControlSettings::OnRemoteUrlCommited(const FText& InText, ETextCommit::Type InCommitType)
+{
+	RemoteUrl = InText;
+}
+
+FText SGitSourceControlSettings::GetRemoteUrl() const
+{
+	return RemoteUrl;
 }
 
 #undef LOCTEXT_NAMESPACE

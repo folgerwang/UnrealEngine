@@ -36,12 +36,58 @@ static bool IsRetainedRenderingEnabled()
 
 #endif
 
+/** Whether or not the platform should have deferred retainer widget render target updating enabled by default */
+#define PLATFORM_REQUIRES_DEFERRED_RETAINER_UPDATE PLATFORM_IOS || PLATFORM_ANDROID;
 
-//---------------------------------------------------
+/**
+ * If this is true the retained rendering render thread work will happen during normal slate render thread rendering after the back buffer has been presented
+ * in order to avoid extra render target switching in the middle of the frame. The downside is that the UI update will be a frame late
+ */
+int32 GDeferRetainedRenderingRenderThread = PLATFORM_REQUIRES_DEFERRED_RETAINER_UPDATE;
+FAutoConsoleVariableRef DeferRetainedRenderingRT(
+	TEXT("Slate.DeferRetainedRenderingRenderThread"),
+	GDeferRetainedRenderingRenderThread,
+	TEXT("Whether or not to defer retained rendering to happen at the same time as the rest of slate render thread work"));
+
+
+class FRetainerWidgetRenderingResources : public FDeferredCleanupInterface, public FGCObject
+{
+public:
+	FRetainerWidgetRenderingResources()
+		: WidgetRenderer(nullptr)
+		, RenderTarget(nullptr)
+		, DynamicEffect(nullptr)
+	{}
+
+	~FRetainerWidgetRenderingResources()
+	{
+		// Note not using deferred cleanup for widget renderer here as it is already in deferred cleanup
+		if (WidgetRenderer)
+		{
+			delete WidgetRenderer;
+		}
+	}
+
+	/** FGCObject interface */
+	virtual void AddReferencedObjects(FReferenceCollector& Collector) override
+	{
+		Collector.AddReferencedObject(RenderTarget);
+		Collector.AddReferencedObject(DynamicEffect);
+	}
+public:
+	FWidgetRenderer* WidgetRenderer;
+	UTextureRenderTarget2D* RenderTarget;
+	UMaterialInstanceDynamic* DynamicEffect;
+};
+
+TArray<SRetainerWidget*, TInlineAllocator<3>> SRetainerWidget::Shared_WaitingToRender;
+int32 SRetainerWidget::Shared_MaxRetainerWorkPerFrame(0);
+TFrameValue<int32> SRetainerWidget::Shared_RetainerWorkThisFrame(0);
+
 
 SRetainerWidget::SRetainerWidget()
-	: CachedWindowToDesktopTransform(0, 0)
-	, DynamicEffect(nullptr)
+	: EmptyChildSlot(this)
+	, RenderingResources(new FRetainerWidgetRenderingResources)
 {
 }
 
@@ -53,6 +99,11 @@ SRetainerWidget::~SRetainerWidget()
 		OnRetainerModeChangedDelegate.RemoveAll( this );
 #endif
 	}
+
+	// Begin deferred cleanup of rendering resources.  DO NOT delete here.  Will be deleted when safe
+	BeginCleanup(RenderingResources);
+
+	Shared_WaitingToRender.Remove(this);
 }
 
 void SRetainerWidget::UpdateWidgetRenderer()
@@ -62,10 +113,13 @@ void SRetainerWidget::UpdateWidgetRenderer()
 	// since the rest of slate does blending in gamma space.
 	const bool bWriteContentInGammaSpace = true;
 
-	if (!WidgetRenderer.IsValid())
+	if (!RenderingResources->WidgetRenderer)
 	{
-		WidgetRenderer = MakeShareable(new FWidgetRenderer(bWriteContentInGammaSpace));
+		RenderingResources->WidgetRenderer = new FWidgetRenderer(bWriteContentInGammaSpace);
 	}
+
+	UTextureRenderTarget2D* RenderTarget = RenderingResources->RenderTarget;
+	FWidgetRenderer* WidgetRenderer = RenderingResources->WidgetRenderer;
 
 	WidgetRenderer->SetUseGammaCorrection(bWriteContentInGammaSpace);
 	WidgetRenderer->SetIsPrepassNeeded(false);
@@ -85,11 +139,16 @@ void SRetainerWidget::UpdateWidgetRenderer()
 
 void SRetainerWidget::Construct(const FArguments& InArgs)
 {
+	FSlateApplicationBase::Get().OnGlobalInvalidate().AddSP(this, &SRetainerWidget::OnGlobalInvalidate);
+
 	STAT(MyStatId = FDynamicStats::CreateStatId<FStatGroup_STATGROUP_Slate>(InArgs._StatId);)
 
-	RenderTarget = NewObject<UTextureRenderTarget2D>();
+	UTextureRenderTarget2D* RenderTarget = NewObject<UTextureRenderTarget2D>();
 	RenderTarget->ClearColor = FLinearColor::Transparent;
+	RenderTarget->OverrideFormat = PF_B8G8R8A8;
+	RenderTarget->bForceLinearGamma = false;
 
+	RenderingResources->RenderTarget = RenderTarget;
 	SurfaceBrush.SetResourceObject(RenderTarget);
 
 	Window = SNew(SVirtualWindow)
@@ -157,6 +216,11 @@ void SRetainerWidget::OnRetainerModeChanged()
 	Invalidate(EInvalidateWidget::Layout);
 }
 
+void SRetainerWidget::OnGlobalInvalidate()
+{
+	RequestRender();
+}
+
 #if !UE_BUILD_SHIPPING
 
 void SRetainerWidget::OnRetainerModeCVarChanged( IConsoleVariable* CVar )
@@ -191,25 +255,26 @@ void SRetainerWidget::SetContent(const TSharedRef< SWidget >& InContent)
 
 UMaterialInstanceDynamic* SRetainerWidget::GetEffectMaterial() const
 {
-	return DynamicEffect;
+	return RenderingResources->DynamicEffect;
 }
 
 void SRetainerWidget::SetEffectMaterial(UMaterialInterface* EffectMaterial)
 {
 	if ( EffectMaterial )
 	{
-		DynamicEffect = Cast<UMaterialInstanceDynamic>(EffectMaterial);
+		UMaterialInstanceDynamic* DynamicEffect = Cast<UMaterialInstanceDynamic>(EffectMaterial);
 		if ( !DynamicEffect )
 		{
 			DynamicEffect = UMaterialInstanceDynamic::Create(EffectMaterial, GetTransientPackage());
 		}
+		RenderingResources->DynamicEffect = DynamicEffect;
 
-		SurfaceBrush.SetResourceObject(DynamicEffect);
+		SurfaceBrush.SetResourceObject(RenderingResources->DynamicEffect);
 	}
 	else
 	{
-		DynamicEffect = nullptr;
-		SurfaceBrush.SetResourceObject(RenderTarget);
+		RenderingResources->DynamicEffect = nullptr;
+		SurfaceBrush.SetResourceObject(RenderingResources->RenderTarget);
 	}
 
 	UpdateWidgetRenderer();
@@ -223,12 +288,6 @@ void SRetainerWidget::SetTextureParameter(FName TextureParameter)
 void SRetainerWidget::SetWorld(UWorld* World)
 {
 	OuterWorld = World;
-}
-
-void SRetainerWidget::AddReferencedObjects(FReferenceCollector& Collector)
-{
-	Collector.AddReferencedObject(RenderTarget);
-	Collector.AddReferencedObject(DynamicEffect);
 }
 
 FChildren* SRetainerWidget::GetChildren()
@@ -274,27 +333,19 @@ void SRetainerWidget::InvalidateWidget(SWidget* InvalidateWidget)
 	}
 }
 
+void SRetainerWidget::SetRenderingPhase(int32 InPhase, int32 InPhaseCount)
+{
+	Phase = InPhase;
+	PhaseCount = InPhaseCount;
+}
+
 void SRetainerWidget::RequestRender()
 {
 	bRenderRequested = true;
 }
 
-bool SRetainerWidget::PaintRetainedContent(const FPaintArgs& Args)
+bool SRetainerWidget::PaintRetainedContent(const FPaintArgs& Args, const FGeometry& AllottedGeometry)
 {
-	// In order to get material parameter collections to function properly, we need the current world's Scene
-	// properly propagated through to any widgets that depend on that functionality. The SceneViewport and RetainerWidget the 
-	// only location where this information exists in Slate, so we push the current scene onto the current
-	// Slate application so that we can leverage it in later calls.
-	UWorld* TickWorld = OuterWorld.Get();
-	if (TickWorld && TickWorld->Scene && IsInGameThread())
-	{
-		FSlateApplication::Get().GetRenderer()->RegisterCurrentScene(TickWorld->Scene);
-	}
-	else if (IsInGameThread())
-	{
-		FSlateApplication::Get().GetRenderer()->RegisterCurrentScene(nullptr);
-	}
-
 	if (RenderOnPhase)
 	{
 		if (LastTickedFrame != GFrameCounter && (GFrameCounter % PhaseCount) == Phase)
@@ -303,14 +354,45 @@ bool SRetainerWidget::PaintRetainedContent(const FPaintArgs& Args)
 		}
 	}
 
-	SCOPE_CYCLE_COUNTER( STAT_SlateRetainerWidgetTick );
+	if (Shared_MaxRetainerWorkPerFrame > 0)
+	{
+		if (Shared_RetainerWorkThisFrame.TryGetValue(0) > Shared_MaxRetainerWorkPerFrame)
+		{
+			Shared_WaitingToRender.AddUnique(this);
+			return false;
+		}
+	}
+	
+	const FPaintGeometry PaintGeometry = AllottedGeometry.ToPaintGeometry();
+	const FVector2D RenderSize = PaintGeometry.GetLocalSize() * PaintGeometry.GetAccumulatedRenderTransform().GetMatrix().GetScale().GetVector();
+
+	if (RenderSize != PreviousRenderSize)
+	{
+		PreviousRenderSize = RenderSize;
+		bRenderRequested = true;
+	}
+
 	if ( bRenderRequested )
 	{
+		// In order to get material parameter collections to function properly, we need the current world's Scene
+		// properly propagated through to any widgets that depend on that functionality. The SceneViewport and RetainerWidget the 
+		// only location where this information exists in Slate, so we push the current scene onto the current
+		// Slate application so that we can leverage it in later calls.
+		UWorld* TickWorld = OuterWorld.Get();
+		if (TickWorld && TickWorld->Scene && IsInGameThread())
+		{
+			FSlateApplication::Get().GetRenderer()->RegisterCurrentScene(TickWorld->Scene);
+		}
+		else if (IsInGameThread())
+		{
+			FSlateApplication::Get().GetRenderer()->RegisterCurrentScene(nullptr);
+		}
+
+		// Update the number of retainers we've drawn this frame.
+		Shared_RetainerWorkThisFrame = Shared_RetainerWorkThisFrame.TryGetValue(0) + 1;
+
 		LastTickedFrame = GFrameCounter;
 		const double TimeSinceLastDraw = FApp::GetCurrentTime() - LastDrawTime;
-
-		FPaintGeometry PaintGeometry = CachedAllottedGeometry.ToPaintGeometry();
-		FVector2D RenderSize = PaintGeometry.GetLocalSize() * PaintGeometry.GetAccumulatedRenderTransform().GetMatrix().GetScale().GetVector();
 
 		const uint32 RenderTargetWidth  = FMath::RoundToInt(RenderSize.X);
 		const uint32 RenderTargetHeight = FMath::RoundToInt(RenderSize.Y);
@@ -321,11 +403,14 @@ bool SRetainerWidget::PaintRetainedContent(const FPaintArgs& Args)
 		Window->SetVisibility(GetVisibility());
 
 		// Need to prepass.
-		Window->SlatePrepass(CachedAllottedGeometry.Scale);
+		Window->SlatePrepass(AllottedGeometry.Scale);
 
 		// Reset the cached node pool index so that we effectively reset the pool.
 		LastUsedCachedNodeIndex = 0;
 		RootCacheNode = nullptr;
+
+		UTextureRenderTarget2D* RenderTarget = RenderingResources->RenderTarget;
+		FWidgetRenderer* WidgetRenderer = RenderingResources->WidgetRenderer;
 
 		if ( RenderTargetWidth != 0 && RenderTargetHeight != 0 )
 		{
@@ -334,11 +419,21 @@ bool SRetainerWidget::PaintRetainedContent(const FPaintArgs& Args)
 				if ( RenderTarget->GetSurfaceWidth() != RenderTargetWidth ||
 					 RenderTarget->GetSurfaceHeight() != RenderTargetHeight )
 				{
-					const bool bForceLinearGamma = false;
-					RenderTarget->InitCustomFormat(RenderTargetWidth, RenderTargetHeight, PF_B8G8R8A8, bForceLinearGamma);
+					
+					// If the render target resource already exists just resize it.  Calling InitCustomFormat flushes render commands which could result in a huge hitch
+					if(RenderTarget->GameThread_GetRenderTargetResource() && RenderTarget->OverrideFormat == PF_B8G8R8A8)
+					{
+						RenderTarget->ResizeTarget(RenderTargetWidth, RenderTargetHeight);
+					}
+					else
+					{
+						const bool bForceLinearGamma = false;
+						RenderTarget->InitCustomFormat(RenderTargetWidth, RenderTargetHeight, PF_B8G8R8A8, bForceLinearGamma);
+						RenderTarget->UpdateResourceImmediate();
+					}
 				}
 
-				const float Scale = CachedAllottedGeometry.Scale;
+				const float Scale = AllottedGeometry.Scale;
 
 				const FVector2D DrawSize = FVector2D(RenderTargetWidth, RenderTargetHeight);
 				const FGeometry WindowGeometry = FGeometry::MakeRoot(DrawSize * ( 1 / Scale ), FSlateLayoutTransform(Scale, PaintGeometry.DrawPosition));
@@ -351,7 +446,6 @@ bool SRetainerWidget::PaintRetainedContent(const FPaintArgs& Args)
 				SRetainerWidget* MutableThis = const_cast<SRetainerWidget*>(this);
 				TSharedRef<SRetainerWidget> SharedMutableThis = SharedThis(MutableThis);
 				
-				//FPaintArgs PaintArgs(Window.ToSharedRef().Get(), Args.GetGrid(), Args.GetWindowToDesktopTransform(), FApp::GetCurrentTime(), Args.GetDeltaTime());
 				FPaintArgs PaintArgs(*this, Args.GetGrid(), Args.GetWindowToDesktopTransform(), FApp::GetCurrentTime(), Args.GetDeltaTime());
 
 				RootCacheNode = CreateCacheNode();
@@ -363,9 +457,11 @@ bool SRetainerWidget::PaintRetainedContent(const FPaintArgs& Args)
 					Window.ToSharedRef(),
 					WindowGeometry,
 					WindowGeometry.GetLayoutBoundingRect(),
-					TimeSinceLastDraw);
+					TimeSinceLastDraw,
+					GDeferRetainedRenderingRenderThread!=0);
 
 				bRenderRequested = false;
+				Shared_WaitingToRender.Remove(this);
 
 				LastDrawTime = FApp::GetCurrentTime();
 
@@ -388,12 +484,12 @@ int32 SRetainerWidget::OnPaint(const FPaintArgs& Args, const FGeometry& Allotted
 	if ( bEnableRetainedRendering && IsAnythingVisibleToRender() )
 	{
 		SCOPE_CYCLE_COUNTER( STAT_SlateRetainerWidgetPaint );
-		CachedAllottedGeometry = AllottedGeometry;
-		CachedWindowToDesktopTransform = Args.GetWindowToDesktopTransform();
 
 		TSharedRef<SRetainerWidget> SharedMutableThis = SharedThis(MutableThis);
 
-		const bool bNewFramePainted = MutableThis->PaintRetainedContent(Args);
+		const bool bNewFramePainted = MutableThis->PaintRetainedContent(Args, AllottedGeometry);
+
+		UTextureRenderTarget2D* RenderTarget = RenderingResources->RenderTarget;
 
 		if ( RenderTarget->GetSurfaceWidth() >= 1 && RenderTarget->GetSurfaceHeight() >= 1 )
 		{
@@ -401,6 +497,9 @@ int32 SRetainerWidget::OnPaint(const FPaintArgs& Args, const FGeometry& Allotted
 			// Retainer widget uses pre-multiplied alpha, so pre-multiply the color by the alpha to respect opacity.
 			const FLinearColor PremultipliedColorAndOpacity(ComputedColorAndOpacity * ComputedColorAndOpacity.A);
 
+			FWidgetRenderer* WidgetRenderer = RenderingResources->WidgetRenderer;
+			UMaterialInstanceDynamic* DynamicEffect = RenderingResources->DynamicEffect;
+	
 			const bool bDynamicMaterialInUse = (DynamicEffect != nullptr);
 			if (bDynamicMaterialInUse)
 			{

@@ -29,6 +29,7 @@ protected:
 	TSharedPtr<IPropertyHandle> MaxFStopHandle;
 	TSharedPtr<IPropertyHandle> MinFocusDistanceHandle;
 	TSharedPtr<IPropertyHandle> MaxReproRatioHandle;
+	TSharedPtr<IPropertyHandle> DiaphragmBladeCountHandle;
 
 	TSharedPtr<class SComboBox< TSharedPtr<FString> > > PresetComboBox;
 	TArray< TSharedPtr< FString > >						PresetComboList;

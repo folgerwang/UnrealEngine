@@ -2,7 +2,7 @@
 #include "Generation/FileAttributesParser.h"
 #include "Templates/ScopedPointer.h"
 #include "Misc/FileHelper.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogFileAttributesParser, Log, All);
 DEFINE_LOG_CATEGORY(LogFileAttributesParser);

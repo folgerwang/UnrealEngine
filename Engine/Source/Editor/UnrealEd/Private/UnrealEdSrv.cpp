@@ -100,7 +100,7 @@
 #include "EngineUtils.h"
 #include "AutoReimport/AssetSourceFilenameCache.h"
 #if PLATFORM_WINDOWS
-	#include "WindowsHWrapper.h"
+	#include "Windows/WindowsHWrapper.h"
 #endif
 #include "ActorGroupingUtils.h"
 

@@ -11,13 +11,13 @@
 #include "ScopedTransaction.h"
 #include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
 #include "ISinglePropertyView.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "GraphEditorSettings.h"
-#include "SMultiLineEditableTextBox.h"
+#include "Widgets/Input/SMultiLineEditableTextBox.h"
 
 #define LOCTEXT_NAMESPACE "SNiagaraGraphNodeCustomHlsl"
 
-SNiagaraGraphNodeCustomHlsl::SNiagaraGraphNodeCustomHlsl() : SGraphNode()
+SNiagaraGraphNodeCustomHlsl::SNiagaraGraphNodeCustomHlsl() : SNiagaraGraphNode()
 {
 
 }
@@ -25,6 +25,7 @@ SNiagaraGraphNodeCustomHlsl::SNiagaraGraphNodeCustomHlsl() : SGraphNode()
 void SNiagaraGraphNodeCustomHlsl::Construct(const FArguments& InArgs, UEdGraphNode* InGraphNode)
 {
 	GraphNode = InGraphNode;
+	RegisterNiagaraGraphNode(InGraphNode);
 	UpdateGraphNode();
 }
 

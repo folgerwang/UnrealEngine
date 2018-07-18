@@ -22,11 +22,11 @@
 #pragma pack(push,8)
 #endif
 #define D3D_OVERLOADS 1
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 #include <d3d12.h>
 #include "d3dx12.h"
 #include <d3d12sdklayers.h>
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 #undef DrawText
 

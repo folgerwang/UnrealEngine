@@ -4,13 +4,13 @@
 	MacPlatformMemory.cpp: Mac platform memory functions
 =============================================================================*/
 
-#include "MacPlatformMemory.h"
+#include "Mac/MacPlatformMemory.h"
 #include "HAL/PlatformMemory.h"
-#include "MallocTBB.h"
-#include "MallocAnsi.h"
-#include "MallocBinned.h"
-#include "MallocBinned2.h"
-#include "MallocStomp.h"
+#include "HAL/MallocTBB.h"
+#include "HAL/MallocAnsi.h"
+#include "HAL/MallocBinned.h"
+#include "HAL/MallocBinned2.h"
+#include "HAL/MallocStomp.h"
 #include "Misc/AssertionMacros.h"
 #include "Misc/CoreStats.h"
 #include "CoreGlobals.h"
@@ -18,11 +18,36 @@
 #include <sys/param.h>
 #include <sys/mount.h>
 
+#if WITH_MALLOC_STOMP
+extern "C"
+{
+	#include <crt_externs.h> // Needed for _NSGetArgc & _NSGetArgv
+}
+#endif
+
+#include "rd_route.h"
+
 // Set rather to use BinnedMalloc2 for binned malloc, can be overridden below
 #define USE_MALLOC_BINNED2 (1)
 
+void* CFNetwork_CFAllocatorOperatorNew_Replacement(unsigned long Size, CFAllocatorRef Alloc)
+{
+	if (Alloc)
+	{
+		return CFAllocatorAllocate(Alloc, Size, 0);
+	}
+	else
+	{
+		return FMemory::Malloc(Size);
+	}
+}
+
 FMalloc* FMacPlatformMemory::BaseAllocator()
 {
+	//c++filt __ZnwmPK13__CFAllocator => "operator new(unsigned long, __CFAllocator const*)"
+	int err = rd_route_byname("_ZnwmPK13__CFAllocator", "/System/Library/Frameworks/CFNetwork.framework/Versions/A/CFNetwork", (void*)&CFNetwork_CFAllocatorOperatorNew_Replacement, nullptr);
+	check(err == 0);
+	
 	bool bIsMavericks = false;
 
 	char OSRelease[PATH_MAX] = {};
@@ -39,10 +64,6 @@ FMalloc* FMacPlatformMemory::BaseAllocator()
 	if (FORCE_ANSI_ALLOCATOR || IS_PROGRAM)
 	{
 		AllocatorToUse = EMemoryAllocatorToUse::Ansi;
-	}
-	else if (USE_MALLOC_STOMP)
-	{
-		AllocatorToUse = EMemoryAllocatorToUse::Stomp;
 	}
 	else if ((WITH_EDITORONLY_DATA || IS_PROGRAM) && TBB_ALLOCATOR_ALLOWED)
 	{
@@ -69,11 +90,28 @@ FMalloc* FMacPlatformMemory::BaseAllocator()
 	#endif
 #endif
 
+#if WITH_MALLOC_STOMP
+	if (_NSGetArgc() && _NSGetArgv())
+	{
+		int Argc = *_NSGetArgc();
+		char** Argv = *_NSGetArgv();
+		for (int i = 1; i < Argc; ++i)
+		{
+			const char* Arg = Argv[i];
+			if (FCStringAnsi::Stricmp(Arg, "-stompmalloc") == 0)
+			{
+				AllocatorToUse = EMemoryAllocatorToUse::Stomp;
+				break;
+			}
+		}
+	}
+#endif
+
 	switch (AllocatorToUse)
 	{
 	case EMemoryAllocatorToUse::Ansi:
 		return new FMallocAnsi();
-#if USE_MALLOC_STOMP
+#if WITH_MALLOC_STOMP
 	case EMemoryAllocatorToUse::Stomp:
 		return new FMallocStomp();
 #endif
@@ -158,6 +196,7 @@ const FPlatformMemoryConstants& FMacPlatformMemory::GetConstants()
 		MemoryConstants.BinnedPageSize = FMath::Max((SIZE_T)65536, (SIZE_T)PageSize);
 
 		MemoryConstants.TotalPhysicalGB = (MemoryConstants.TotalPhysical + 1024 * 1024 * 1024 - 1) / 1024 / 1024 / 1024;
+		MemoryConstants.AddressLimit = FPlatformMath::RoundUpToPowerOfTwo64(MemoryConstants.TotalPhysical);
 	}
 
 	return MemoryConstants;	

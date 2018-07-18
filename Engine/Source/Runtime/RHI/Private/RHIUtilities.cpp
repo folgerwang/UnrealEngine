@@ -8,8 +8,8 @@ RHIUtilities.cpp:
 #include "HAL/PlatformStackWalk.h"
 #include "HAL/IConsoleManager.h"
 #include "RHI.h"
-#include "Runnable.h"
-#include "RunnableThread.h"
+#include "HAL/Runnable.h"
+#include "HAL/RunnableThread.h"
 
 #define USE_FRAME_OFFSET_THREAD 1
 
@@ -45,7 +45,7 @@ void FDumpTransitionsHelper::DumpResourceTransition(const FName& ResourceName, c
 
 FAutoConsoleVariableSink FDumpTransitionsHelper::CVarDumpTransitionsForResourceSink(FConsoleCommandDelegate::CreateStatic(&FDumpTransitionsHelper::DumpTransitionForResourceHandler));
 
-void EnableDepthBoundsTest(FRHICommandList& RHICmdList, float WorldSpaceDepthNear, float WorldSpaceDepthFar, const FMatrix& ProjectionMatrix)
+void SetDepthBoundsTest(FRHICommandList& RHICmdList, float WorldSpaceDepthNear, float WorldSpaceDepthFar, const FMatrix& ProjectionMatrix)
 {
 	if (GSupportsDepthBoundsTest)
 	{
@@ -64,15 +64,7 @@ void EnableDepthBoundsTest(FRHICommandList& RHICmdList, float WorldSpaceDepthNea
 		}
 
 		// Note, using a reversed z depth surface
-		RHICmdList.EnableDepthBoundsTest(true, DepthFar, DepthNear);
-	}
-}
-
-void DisableDepthBoundsTest(FRHICommandList& RHICmdList)
-{
-	if (GSupportsDepthBoundsTest)
-	{
-		RHICmdList.EnableDepthBoundsTest(false, 0, 1);
+		RHICmdList.SetDepthBounds(DepthFar, DepthNear);
 	}
 }
 
@@ -173,16 +165,12 @@ struct FRHIFrameOffsetThread : public FRunnable
 		{
 			FRHIFlipDetails NewFlipFrame = GDynamicRHI->RHIWaitForFlip(-1);
 
-			FPlatformMisc::BeginNamedEvent(FColor::Orange, *FString::Printf(TEXT("Flip %d"), NewFlipFrame.PresentIndex));
-
 			int32 SyncInterval = RHIGetSyncInterval();
 			double TargetFrameTimeInSeconds = double(SyncInterval) / 60.0;
 			double SlackInSeconds = CVarRHISyncSlackMS.GetValueOnAnyThread() / 1000.0;
 			double TargetFlipTime = (NewFlipFrame.VBlankTimeInSeconds + TargetFrameTimeInSeconds) - SlackInSeconds;
 
 			double Timeout = FMath::Max(0.0, TargetFlipTime - FPlatformTime::Seconds());
-
-			FPlatformMisc::EndNamedEvent();
 
 			FPlatformProcess::Sleep(Timeout);
 

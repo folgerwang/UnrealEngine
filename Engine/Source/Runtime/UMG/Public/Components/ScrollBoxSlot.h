@@ -27,6 +27,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Layout|ScrollBox Slot")
 	TEnumAsByte<EHorizontalAlignment> HorizontalAlignment;
 
+	/** The alignment of the object vertically. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Layout|ScrollBox Slot")
+	TEnumAsByte<EVerticalAlignment> VerticalAlignment;
+
 public:
 
 	UFUNCTION(BlueprintCallable, Category="Layout|ScrollBox Slot")
@@ -34,6 +38,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category="Layout|ScrollBox Slot")
 	void SetHorizontalAlignment(EHorizontalAlignment InHorizontalAlignment);
+
+	UFUNCTION(BlueprintCallable, Category = "Layout|ScrollBox Slot")
+	void SetVerticalAlignment(EVerticalAlignment InVerticalAlignment);
 
 public:
 

@@ -48,7 +48,7 @@ public class VorbisFile : ModuleRules
 			}
 			PublicAdditionalLibraries.Add(VorbisLibPath + "libvorbisfile" + OpimizationSuffix + ".bc");
 		}
-		else if (Target.Platform == UnrealTargetPlatform.Android)
+		else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Android))
 		{
 			// filtered in toolchain
 			PublicLibraryPaths.Add(VorbisPath + "Lib/Android/ARMv7");
@@ -58,7 +58,7 @@ public class VorbisFile : ModuleRules
 
 			PublicAdditionalLibraries.Add("vorbisfile");
 		}
-		else if (Target.Platform == UnrealTargetPlatform.Linux)
+		else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
 		{
 			PublicAdditionalLibraries.Add(VorbisPath + "lib/Linux/" + Target.Architecture + "/libvorbisfile.a");
 			PublicAdditionalLibraries.Add(VorbisPath + "lib/Linux/" + Target.Architecture + "/libvorbisenc.a");

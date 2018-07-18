@@ -18,6 +18,7 @@ FConstraintDrive::FConstraintDrive()
 FLinearDriveConstraint::FLinearDriveConstraint()
 	: PositionTarget(ForceInit)
 	, VelocityTarget(ForceInit)
+	, bEnablePositionDrive(false)
 {
 }
 

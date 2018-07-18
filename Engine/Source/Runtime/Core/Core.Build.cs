@@ -12,31 +12,7 @@ public class Core : ModuleRules
 
 		SharedPCHHeaderFile = "Public/CoreSharedPCH.h";
 
-		bAddDefaultIncludePaths = false;
-
-		PublicIncludePaths.AddRange(
-			new string[] {
-				"Runtime/Core/Public",
-				"Runtime/Core/Public/Internationalization",
-				"Runtime/Core/Public/Async",
-				"Runtime/Core/Public/Concurrency",
-				"Runtime/Core/Public/Containers",
-				"Runtime/Core/Public/Delegates",
-				"Runtime/Core/Public/GenericPlatform",
-				"Runtime/Core/Public/HAL",
-				"Runtime/Core/Public/Logging",
-				"Runtime/Core/Public/Math",
-				"Runtime/Core/Public/Misc",
-				"Runtime/Core/Public/Modules",
-				"Runtime/Core/Public/Modules/Boilerplate",
-				"Runtime/Core/Public/ProfilingDebugging",
-				"Runtime/Core/Public/Serialization",
-				"Runtime/Core/Public/Serialization/Csv",
-				"Runtime/Core/Public/Stats",
-				"Runtime/Core/Public/Templates",
-				"Runtime/Core/Public/UObject",
-			}
-			);
+		PrivateDependencyModuleNames.Add("BuildSettings");
 
 		PrivateIncludePaths.AddRange(
 			new string[] {
@@ -44,10 +20,8 @@ public class Core : ModuleRules
 				"Runtime/SynthBenchmark/Public",
 				"Runtime/Core/Private",
 				"Runtime/Core/Private/Misc",
-				"Runtime/Core/Private/Serialization/Json",
                 "Runtime/Core/Private/Internationalization",
 				"Runtime/Core/Private/Internationalization/Cultures",
-                "Runtime/Analytics/Public",
 				"Runtime/Engine/Public",
 			}
 			);
@@ -73,7 +47,6 @@ public class Core : ModuleRules
 		if ((Target.Platform == UnrealTargetPlatform.Win64) ||
 			(Target.Platform == UnrealTargetPlatform.Win32))
 		{
-			PublicIncludePaths.Add("Runtime/Core/Public/Windows");
 			AddEngineThirdPartyPrivateStaticDependencies(Target,
 				"zlib");
 
@@ -84,11 +57,11 @@ public class Core : ModuleRules
 		}
 		else if (Target.Platform == UnrealTargetPlatform.Mac)
 		{
-			PublicIncludePaths.AddRange(new string[] { "Runtime/Core/Public/Apple", "Runtime/Core/Public/Mac" });
 			AddEngineThirdPartyPrivateStaticDependencies(Target,
 				"IntelTBB",
 				"zlib",
-				"PLCrashReporter"
+				"PLCrashReporter",
+				"rd_route"
 				);
 			PublicFrameworks.AddRange(new string[] { "Cocoa", "Carbon", "IOKit", "Security" });
 			
@@ -99,14 +72,13 @@ public class Core : ModuleRules
 		}
 		else if (Target.Platform == UnrealTargetPlatform.IOS || Target.Platform == UnrealTargetPlatform.TVOS)
 		{
-			PublicIncludePaths.AddRange(new string[] {"Runtime/Core/Public/Apple", "Runtime/Core/Public/IOS"});
 			AddEngineThirdPartyPrivateStaticDependencies(Target,
 				"zlib"
 				);
-			PublicFrameworks.AddRange(new string[] { "UIKit", "Foundation", "AudioToolbox", "AVFoundation", "GameKit", "StoreKit", "CoreVideo", "CoreMedia", "CoreGraphics", "GameController", "SystemConfiguration" });
+			PublicFrameworks.AddRange(new string[] { "UIKit", "Foundation", "AudioToolbox", "AVFoundation", "GameKit", "StoreKit", "CoreVideo", "CoreMedia", "CoreGraphics", "GameController", "SystemConfiguration", "DeviceCheck" });
 			if (Target.Platform == UnrealTargetPlatform.IOS)
 			{
-				PublicFrameworks.AddRange(new string[] { "CoreMotion", "AdSupport" });
+				PublicFrameworks.AddRange(new string[] { "CoreMotion", "AdSupport", "WebKit" });
                 AddEngineThirdPartyPrivateStaticDependencies(Target,
                     "PLCrashReporter"
                     );
@@ -120,17 +92,16 @@ public class Core : ModuleRules
 				PublicFrameworks.AddRange(new string[] { "iAD" });
 			}
 		}
-		else if (Target.Platform == UnrealTargetPlatform.Android)
+		else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Android))
 		{
-			PublicIncludePaths.Add("Runtime/Core/Public/Android");
 			AddEngineThirdPartyPrivateStaticDependencies(Target,
 				"cxademangle",
 				"zlib"
 				);
 		}
-        else if ((Target.Platform == UnrealTargetPlatform.Linux))
+		else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
         {
-            PublicIncludePaths.Add("Runtime/Core/Public/Linux");
+			PublicIncludePaths.Add(string.Format("Runtime/Core/Public/{0}", Target.Platform.ToString()));
 			AddEngineThirdPartyPrivateStaticDependencies(Target,
 				"zlib",
 				"jemalloc",
@@ -206,5 +177,26 @@ public class Core : ModuleRules
         {
             PublicDefinitions.Add("WITH_DIRECTXMATH=0");
         }
+
+        // Decide if validating memory allocator (aka MallocStomp) can be used on the current platform.
+        // Run-time validation must be enabled through '-stompmalloc' command line argument.
+
+        bool bWithMallocStomp = false;
+        if (Target.Configuration != UnrealTargetConfiguration.Shipping)
+        {
+            switch (Target.Platform)
+            {
+                case UnrealTargetPlatform.Mac:
+                case UnrealTargetPlatform.Linux:
+                //case UnrealTargetPlatform.Win32: // 32-bit windows can technically be supported, but will likely run out of virtual memory space quickly
+                //case UnrealTargetPlatform.XboxOne: // XboxOne could be supported, as it's similar enough to Win64
+                case UnrealTargetPlatform.Win64:
+                    bWithMallocStomp = true;
+                break;
+            }
+        }
+
+        PublicDefinitions.Add("WITH_MALLOC_STOMP=" + (bWithMallocStomp ? "1" : "0"));
+
     }
 }

@@ -6,18 +6,19 @@
 #include "NiagaraGraph.h"
 #include "NiagaraNode.h"
 #include "NiagaraNodeInput.h"
-#include "AssetEditorManager.h"
+#include "Toolkits/AssetEditorManager.h"
 #include "GraphEditor.h"
 #include "EditorStyleSet.h"
-#include "SBorder.h"
-#include "SBoxPanel.h"
-#include "TextLayout.h"
-#include "SErrorText.h"
-#include "STextBlock.h"
+#include "Widgets/Layout/SBorder.h"
+#include "Widgets/SBoxPanel.h"
+#include "Framework/Text/TextLayout.h"
+#include "Widgets/Notifications/SErrorText.h"
+#include "Widgets/Text/STextBlock.h"
 #include "NiagaraEditorSettings.h"
 #include "EdGraphSchema_Niagara.h"
 #include "ScopedTransaction.h"
 #include "NiagaraEditorUtilities.h"
+#include "NiagaraNodeFactory.h"
 
 #define LOCTEXT_NAMESPACE "NiagaraScriptGraph"
 
@@ -77,12 +78,17 @@ TSharedRef<SGraphEditor> SNiagaraScriptGraph::ConstructGraphEditor()
 	Events.OnVerifyTextCommit = FOnNodeVerifyTextCommit::CreateSP(this, &SNiagaraScriptGraph::OnVerifyNodeTextCommit);
 	Events.OnSpawnNodeByShortcut = SGraphEditor::FOnSpawnNodeByShortcut::CreateSP(this, &SNiagaraScriptGraph::OnSpawnGraphNodeByShortcut);
 
-	return SNew(SGraphEditor)
+	TSharedRef<SGraphEditor> CreatedGraphEditor = SNew(SGraphEditor)
 		.AdditionalCommands(ViewModel->GetCommands())
 		.Appearance(AppearanceInfo)
 		.TitleBar(TitleBarWidget)
 		.GraphToEdit(ViewModel->GetGraph())
 		.GraphEvents(Events);
+
+	// Set a niagara node factory.
+	CreatedGraphEditor->SetNodeFactory(MakeShareable(new FNiagaraNodeFactory()));
+
+	return CreatedGraphEditor;
 }
 
 void SNiagaraScriptGraph::ViewModelSelectedNodesChanged()

@@ -84,7 +84,7 @@ public:
 	ERichCurveTangentMode TangentMode;
 
 private:
-	void Record(USkeletalMeshComponent* Component, FTransform const& ComponentToWorld, const TArray<FTransform>& SpacesBases, const FBlendedHeapCurve& AnimationCurves, int32 FrameToAdd);
+	bool Record(USkeletalMeshComponent* Component, FTransform const& ComponentToWorld, const TArray<FTransform>& SpacesBases, const FBlendedHeapCurve& AnimationCurves, int32 FrameToAdd);
 
 	void RecordNotifies(USkeletalMeshComponent* Component, const TArray<FAnimNotifyEventReference>& AnimNotifies, float DeltaTime, float RecordTime);
 
@@ -92,7 +92,7 @@ private:
 
 	// recording curve data 
 	TArray< TArray<FCurveElement> >  RecordedCurves;
-	TArray<SmartName::UID_Type> const * UIDList;
+	TArray<uint16> const * UIDToArrayIndexLUT;
 };
 
 //////////////////////////////////////////////////////////////////////////

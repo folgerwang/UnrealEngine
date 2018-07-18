@@ -129,8 +129,11 @@ public:
 	UPROPERTY(replicated)
 	uint8 RemoteViewPitch;
 
+	/** Playback of replays writes blended pitch to this, rather than the RemoteViewPitch. This is to avoid having to compress and interpolated value. */
+	float BlendedReplayViewPitch;
+
 	/** Controller of the last Actor that caused us damage. */
-	UPROPERTY(transient)
+	UPROPERTY(BlueprintReadOnly, transient, Category="Pawn")
 	AController* LastHitBy;
 
 	/** Controller currently possessing this Actor */

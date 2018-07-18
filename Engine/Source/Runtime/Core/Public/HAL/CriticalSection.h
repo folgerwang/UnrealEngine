@@ -18,8 +18,10 @@
 	#include "Android/AndroidCriticalSection.h"
 #elif PLATFORM_HTML5
 	#include "HTML5/HTML5CriticalSection.h"
-#elif PLATFORM_LINUX
-	#include "Linux/LinuxCriticalSection.h"
+#elif PLATFORM_UNIX
+	#include "Unix/UnixCriticalSection.h"
 #elif PLATFORM_SWITCH
 	#include "Switch/SwitchCriticalSection.h"
+#else
+	#error Unknown platform
 #endif

@@ -161,6 +161,24 @@ static void TerminateOnDeviceRemoved(HRESULT D3DResult, ID3D11Device* Direct3DDe
 
 	if (D3DResult == DXGI_ERROR_DEVICE_REMOVED)
 	{
+#if NV_AFTERMATH
+		uint32 Result = 0xffffffff;
+		uint32 bDeviceActive = 0;
+		if (GDX11NVAfterMathEnabled)
+		{
+			GFSDK_Aftermath_Device_Status Status;
+			auto Res = GFSDK_Aftermath_GetDeviceStatus(&Status);
+			Result = uint32(Res);
+			if (Res == GFSDK_Aftermath_Result_Success)
+			{
+				bDeviceActive = Status == GFSDK_Aftermath_Device_Status_Active ? 1 : 0;
+			}
+		}
+		UE_LOG(LogD3D11RHI, Log, TEXT("[Aftermath] GDynamicRHI=%p, GDX11NVAfterMathEnabled=%d, Result=0x%08X, bDeviceActive=%d"), GDynamicRHI, GDX11NVAfterMathEnabled, Result, bDeviceActive);
+#else
+		UE_LOG(LogD3D11RHI, Log, TEXT("[Aftermath] NV_AFTERMATH is not set"));
+#endif
+
 		GIsGPUCrashed = true;		
 		if (Direct3DDevice)
 		{

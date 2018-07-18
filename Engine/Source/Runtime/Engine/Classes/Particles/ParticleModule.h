@@ -221,9 +221,10 @@ class ENGINE_API UParticleModule : public UObject
 #endif // WITH_EDITORONLY_DATA
 
 	//~ Begin UObject Interface
+	virtual bool IsPostLoadThreadSafe() const override;
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
-#endif // WITH_EDITOR
+#endif // WITH_EDITOR	
 	//~ End UObject Interface
 
 	/**

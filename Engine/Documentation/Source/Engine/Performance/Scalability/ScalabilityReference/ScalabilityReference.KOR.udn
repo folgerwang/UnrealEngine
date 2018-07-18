@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3807090
 Availability:Public
 Title: Scalability, 엔진 퀄리티 참고서
 Crumbs: %ROOT%, Engine, Engine/Performance, Engine/Performance/Scalability
@@ -367,7 +367,7 @@ sg.ShadowQuality 0 은 왼쪽, 3 은 오른쪽.
 머티리얼은 "Quality Switch" 표현식을 사용하여 최종 모양에는 효과가 미미하면서 비용은 비싼 머티리얼 부분을 끌 수 있습니다. 그 효과를 확인하기 위해서는 낮음 퀄리티 모드로 토글해야 합니다.
 
 [REGION:lightbox]
-[![](SC_SwitchNode.png)(w:555 h:391)](SC_SwitchNode.png)
+[![](SC_SwitchNode.png)(w:555)](SC_SwitchNode.png)
 [/REGION]
 
 **머티리얼 퀄리티 레벨** 이 낮음 또는 높음으로 설정될 때마다, 이 머티리얼에 대해 (낮음 핀 또는 높음 핀) 어느 표현식을 구할지 결정합니다. 입력이 없는 경우 기본 핀은 높음 또는 낮음 (또는 양쪽)으로 채웁니다. 이 머티리얼은 높음으로 설정시 꽤나 비용이 많이 드는 펄린 노이즈 연산이 두 개 있습니다:
@@ -384,11 +384,11 @@ sg.ShadowQuality 0 은 왼쪽, 3 은 오른쪽.
 [/REGION]
 
 [REGION:lightbox]
-[![](SC_Closeup.png)(w:681 h:164)](SC_Closeup.png)
+[![](SC_Closeup.png)(w:681)](SC_Closeup.png)
 [/REGION]
 
 [REGION:lightbox]
-[![](SC_MirrorComplexity.png)(w:450 h:681)](SC_MirrorComplexity.png)
+[![](SC_MirrorComplexity.png)(w:450)](SC_MirrorComplexity.png)
 [/REGION]
 
 _위의 **셰이더 복잡도** 모드에서 녹색이 짙어질 수록 셰이더 비용이 많이 드는 것이므로, 높음 퀄리티 머티리얼이 다른 셰이더보다 비용이 높음을 보여줍니다._

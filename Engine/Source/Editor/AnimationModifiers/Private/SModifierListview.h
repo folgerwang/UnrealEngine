@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "SListView.h"
+#include "Widgets/Views/SListView.h"
 #include "IDetailsView.h"
 #include "AnimationModifier.h"
 

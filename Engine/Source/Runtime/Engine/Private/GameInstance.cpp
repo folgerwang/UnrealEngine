@@ -9,7 +9,7 @@
 #include "TimerManager.h"
 #include "Engine/LatentActionManager.h"
 #include "Engine/World.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "AI/NavigationSystemBase.h"
 #include "Misc/Paths.h"
 #include "UObject/CoreOnline.h"
 #include "GameFramework/PlayerController.h"
@@ -27,6 +27,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "Framework/Application/SlateApplication.h"
 #include "GenericPlatform/GenericApplication.h"
+#include "Misc/PackageName.h"
 
 #if WITH_EDITOR
 #include "Settings/LevelEditorPlaySettings.h"
@@ -98,9 +99,9 @@ void UGameInstance::Init()
 
 void UGameInstance::OnConsoleInput(const FString& Command)
 {
-#if !UE_BUILD_SHIPPING && !UE_BUILD_TEST
+#if !UE_BUILD_SHIPPING
 	UConsole* ViewportConsole = (GEngine->GameViewport != nullptr) ? GEngine->GameViewport->ViewportConsole : nullptr;
-	if (ViewportConsole)
+	if (ViewportConsole) 
 	{
 		ViewportConsole->ConsoleCommand(Command);
 	}
@@ -150,6 +151,50 @@ void UGameInstance::InitializeStandalone()
 	WorldContext->SetCurrentWorld(DummyWorld);
 
 	Init();
+}
+
+void UGameInstance::InitializeForMinimalNetRPC(const FName InPackageName)
+{
+	check(!InPackageName.IsNone());
+
+	// Creates the world context. This should be the only WorldContext that ever gets created for this GameInstance.
+	WorldContext = &GetEngine()->CreateNewWorldContext(EWorldType::GameRPC);
+	WorldContext->OwningGameInstance = this;
+
+	UPackage* NetWorldPackage = nullptr;
+	UWorld* NetWorld = nullptr;
+	CreateMinimalNetRPCWorld(InPackageName, NetWorldPackage, NetWorld);
+
+	NetWorld->SetGameInstance(this);
+	WorldContext->SetCurrentWorld(NetWorld);
+
+	Init();
+}
+
+void UGameInstance::CreateMinimalNetRPCWorld(const FName InPackageName, UPackage*& OutWorldPackage, UWorld*& OutWorld)
+{
+	check(!InPackageName.IsNone());
+
+	const FName WorldName = FPackageName::GetShortFName(InPackageName);
+
+	// Create the empty named world within the given package. This will be the world name used with "Browse" to initialize the RPC server and connect the client(s).
+	OutWorldPackage = NewObject<UPackage>(nullptr, InPackageName, RF_Transient);
+	OutWorldPackage->ThisContainsMap();
+
+	OutWorld = NewObject<UWorld>(OutWorldPackage, WorldName);
+	OutWorld->WorldType = EWorldType::GameRPC;
+	OutWorld->InitializeNewWorld(UWorld::InitializationValues()
+		.InitializeScenes(false)
+		.AllowAudioPlayback(false)
+		.RequiresHitProxies(false)
+		.CreatePhysicsScene(false)
+		.CreateNavigation(false)
+		.CreateAISystem(false)
+		.ShouldSimulatePhysics(false)
+		.EnableTraceCollision(false)
+		.SetTransactional(false)
+		.CreateFXSystem(false)
+		);
 }
 
 #if WITH_EDITOR
@@ -320,7 +365,7 @@ FGameInstancePIEResult UGameInstance::StartPlayInEditorGameInstance(ULocalPlayer
 
 		PlayWorld->InitializeActorsForPlay(URL);
 		// calling it after InitializeActorsForPlay has been called to have all potential bounding boxed initialized
-		UNavigationSystem::InitializeForWorld(PlayWorld, LocalPlayers.Num() > 0 ? FNavigationSystemRunMode::PIEMode : FNavigationSystemRunMode::SimulationMode);
+		FNavigationSystem::AddNavigationSystemToWorld(*PlayWorld, LocalPlayers.Num() > 0 ? FNavigationSystemRunMode::PIEMode : FNavigationSystemRunMode::SimulationMode);
 
 		// @todo, just use WorldContext.GamePlayer[0]?
 		if (LocalPlayer)
@@ -689,9 +734,10 @@ APlayerController* UGameInstance::GetFirstLocalPlayerController(UWorld* World) c
 		// Only return a local PlayerController from the given World.
 		for (FConstPlayerControllerIterator Iterator = World->GetPlayerControllerIterator(); Iterator; ++Iterator)
 		{
-			if (*Iterator != nullptr && (*Iterator)->IsLocalController())
+			APlayerController* PC = Iterator->Get();
+			if (PC && PC->IsLocalController())
 			{
-				return Iterator->Get();
+				return PC;
 			}
 		}
 	}
@@ -733,13 +779,13 @@ TSharedPtr<const FUniqueNetId> UGameInstance::GetPrimaryPlayerUniqueId() const
 		}
 	}
 
-	TSharedPtr<const FUniqueNetId> LocalUserId = nullptr;
+	FUniqueNetIdRepl LocalUserId;
 	if (PrimaryLP)
 	{
 		LocalUserId = PrimaryLP->GetPreferredUniqueNetId();
 	}
 
-	return LocalUserId;
+	return LocalUserId.GetUniqueNetId();
 }
 
 ULocalPlayer* UGameInstance::FindLocalPlayerFromControllerId(const int32 ControllerId) const
@@ -759,19 +805,14 @@ ULocalPlayer* UGameInstance::FindLocalPlayerFromUniqueNetId(const FUniqueNetId& 
 {
 	for (ULocalPlayer* Player : LocalPlayers)
 	{
-		if (Player == NULL)
+		if (Player == nullptr)
 		{
 			continue;
 		}
 
-		TSharedPtr<const FUniqueNetId> OtherUniqueNetId = Player->GetPreferredUniqueNetId();
-
-		if (!OtherUniqueNetId.IsValid())
-		{
-			continue;
-		}
-
-		if (*OtherUniqueNetId == UniqueNetId)
+		FUniqueNetIdRepl OtherUniqueNetId = Player->GetPreferredUniqueNetId();
+		if (OtherUniqueNetId.IsValid() &&
+			*OtherUniqueNetId == UniqueNetId)
 		{
 			// Match
 			return Player;
@@ -973,6 +1014,7 @@ bool UGameInstance::PlayReplay(const FString& Name, UWorld* WorldOverride, const
 	{
 		UE_LOG(LogDemo, Warning, TEXT( "Demo playback failed: %s" ), *Error );
 		CurrentWorld->DestroyDemoNetDriver();
+		return false;
 	}
 	else
 	{
@@ -1082,28 +1124,27 @@ void UGameInstance::PreloadContentForURL(FURL InURL)
 
 AGameModeBase* UGameInstance::CreateGameModeForURL(FURL InURL)
 {
-	UWorld* World = GetWorld();
 	// Init the game info.
-	FString Options(TEXT(""));
-	TCHAR GameParam[256] = TEXT("");
-	FString	Error = TEXT("");
-	AWorldSettings* Settings = World->GetWorldSettings();
+	FString Options;
+	FString GameParam;
 	for (int32 i = 0; i < InURL.Op.Num(); i++)
 	{
 		Options += TEXT("?");
 		Options += InURL.Op[i];
-		FParse::Value(*InURL.Op[i], TEXT("GAME="), GameParam, ARRAY_COUNT(GameParam));
+		FParse::Value(*InURL.Op[i], TEXT("GAME="), GameParam);
 	}
 
+	UWorld* World = GetWorld();
+	AWorldSettings* Settings = World->GetWorldSettings();
 	UGameEngine* const GameEngine = Cast<UGameEngine>(GEngine);
 
 	// Get the GameMode class. Start by using the default game type specified in the map's worldsettings.  It may be overridden by settings below.
 	TSubclassOf<AGameModeBase> GameClass = Settings->DefaultGameMode;
 
 	// If there is a GameMode parameter in the URL, allow it to override the default game type
-	if (GameParam[0])
+	if (!GameParam.IsEmpty())
 	{
-		FString const GameClassName = UGameMapsSettings::GetGameModeForName(FString(GameParam));
+		FString const GameClassName = UGameMapsSettings::GetGameModeForName(GameParam);
 
 		// If the gamename was specified, we can use it to fully load the pergame PreLoadClass packages
 		if (GameEngine)
@@ -1191,4 +1232,14 @@ AGameModeBase* UGameInstance::CreateGameModeForURL(FURL InURL)
 TSubclassOf<AGameModeBase> UGameInstance::OverrideGameModeClass(TSubclassOf<AGameModeBase> GameModeClass, const FString& MapName, const FString& Options, const FString& Portal) const
 {
 	 return GameModeClass;
+}
+
+void UGameInstance::RegisterReferencedObject(UObject* ObjectToReference)
+{
+	ReferencedObjects.AddUnique(ObjectToReference);
+}
+
+void UGameInstance::UnregisterReferencedObject(UObject* ObjectToReference)
+{
+	ReferencedObjects.RemoveSingleSwap(ObjectToReference);
 }

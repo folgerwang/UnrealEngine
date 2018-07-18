@@ -2,21 +2,19 @@
 
 
 #include "BlueprintEditorModule.h"
+
+#include "BlueprintDebugger.h"
 #include "Editor.h"
 #include "Modules/ModuleManager.h"
-#include "Framework/Application/SlateApplication.h"
-#include "EditorStyleSet.h"
 #include "EditorUndoClient.h"
-#include "Kismet2/KismetEditorUtilities.h"
 #include "Logging/TokenizedMessage.h"
 #include "Misc/ConfigCacheIni.h"
 #include "UObject/UObjectHash.h"
 #include "Serialization/ArchiveReplaceObjectRef.h"
 #include "BlueprintEditor.h"
+#include "Kismet2/KismetEditorUtilities.h"
+#include "Kismet2/KismetDebugUtilities.h"
 #include "Kismet2/BlueprintEditorUtils.h"
-//#include "BlueprintWarningsConfigurationPanel.h"
-#include "Editor/WorkspaceMenuStructure/Public/WorkspaceMenuStructure.h"
-#include "Editor/WorkspaceMenuStructure/Public/WorkspaceMenuStructureModule.h"
 #include "Editor/LevelEditor/Public/LevelEditor.h"
 #include "UserDefinedEnumEditor.h"
 #include "MessageLogInitializationOptions.h"
@@ -29,37 +27,12 @@
 #include "UserDefinedStructureEditor.h"
 #include "EdGraphUtilities.h"
 #include "BlueprintGraphPanelPinFactory.h"
-#include "Widgets/Docking/SDockTab.h"
+#include "WatchPointViewer.h"
 #include "KismetCompiler.h"
-#include "CallStackViewer.h"
 
 #define LOCTEXT_NAMESPACE "BlueprintEditor"
 
 IMPLEMENT_MODULE( FBlueprintEditorModule, Kismet );
-
-const FName BlueprintEditorAppName = FName(TEXT("BlueprintEditorApp"));
-const FName DebuggerAppName = FName(TEXT("DebuggerApp"));
-
-//////////////////////////////////////////////////////////////////////////
-// SDebuggerApp
-
-#include "Debugging/SKismetDebuggingView.h"
-
-static bool CanCloseBlueprintDebugger()
-{
-	return !GIntraFrameDebuggingGameThread;
-}
-
-TSharedRef<SDockTab> CreateBluprintDebuggerTab( const FSpawnTabArgs& Args )
-{
-	return SNew(SDockTab)
-		.TabRole( ETabRole::NomadTab )
-		.OnCanCloseTab( SDockTab::FCanCloseTab::CreateStatic(&CanCloseBlueprintDebugger) )
-		.Label( NSLOCTEXT("BlueprintDebugger", "TabTitle", "Blueprint Debugger") )
-		[
-			SNew(SKismetDebuggingView)
-		];
-}
 
 //////////////////////////////////////////////////////////////////////////
 // FBlueprintEditorModule
@@ -195,15 +168,7 @@ void FBlueprintEditorModule::StartupModule()
 	MenuExtensibilityManager = MakeShareable(new FExtensibilityManager);
 	SharedBlueprintEditorCommands = MakeShareable(new FUICommandList);
 
-	const IWorkspaceMenuStructure& MenuStructure = WorkspaceMenu::GetMenuStructure();
-
-	FGlobalTabmanager::Get()->RegisterNomadTabSpawner( DebuggerAppName, FOnSpawnTab::CreateStatic(&CreateBluprintDebuggerTab) )
-		.SetDisplayName( NSLOCTEXT("BlueprintDebugger", "TabTitle", "Blueprint Debugger") )
-		.SetTooltipText( NSLOCTEXT("BlueprintDebugger", "TooltipText", "Open the Blueprint Debugger tab.") )
-		.SetGroup( MenuStructure.GetDeveloperToolsDebugCategory() )
-		.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "BlueprintDebugger.TabIcon"));
-
-	CallStackViewer::RegisterTabSpawner();
+	BlueprintDebugger = MakeUnique<FBlueprintDebugger>();
 
 	// Have to check GIsEditor because right now editor modules can be loaded by the game
 	// Once LoadModule is guaranteed to return NULL for editor modules in game, this can be removed
@@ -262,11 +227,6 @@ void FBlueprintEditorModule::ShutdownModule()
 	SharedBlueprintEditorCommands.Reset();
 	MenuExtensibilityManager.Reset();
 
-	if (FSlateApplication::IsInitialized())
-	{
-		FGlobalTabmanager::Get()->UnregisterNomadTabSpawner( DebuggerAppName );
-	}
-	
 	// Remove level viewport context menu extenders
 	if ( FModuleManager::Get().IsModuleLoaded( "LevelEditor" ) )
 	{
@@ -299,6 +259,8 @@ TSharedRef<IBlueprintEditor> FBlueprintEditorModule::CreateBlueprintEditor(const
 		NewBlueprintEditor->RegisterSCSEditorCustomization(It->Key, It->Value.Execute(NewBlueprintEditor));
 	}
 	
+	WatchViewer::UpdateWatchListFromBlueprint(Blueprint);
+
 	EBlueprintType const BPType = Blueprint ? (EBlueprintType)Blueprint->BlueprintType : BPTYPE_Normal;
 	BlueprintEditorOpened.Broadcast(BPType);
 
@@ -314,6 +276,11 @@ TSharedRef<IBlueprintEditor> FBlueprintEditorModule::CreateBlueprintEditor(const
 	for(auto It(SCSEditorCustomizations.CreateConstIterator()); It; ++It)
 	{
 		NewBlueprintEditor->RegisterSCSEditorCustomization(It->Key, It->Value.Execute(NewBlueprintEditor));
+	}
+
+	for (UBlueprint* Blueprint : BlueprintsToEdit)
+	{
+		WatchViewer::UpdateWatchListFromBlueprint(Blueprint);
 	}
 
 	EBlueprintType const BPType = ( (BlueprintsToEdit.Num() > 0) && (BlueprintsToEdit[0] != NULL) ) 

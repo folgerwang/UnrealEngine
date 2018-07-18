@@ -32,12 +32,9 @@ extern CORE_API void NewReportEnsure( const TCHAR* ErrorMessage );
 #include <signal.h>
 extern CORE_API int32 ReportCrash( ucontext_t *Context, int32 Signal, struct __siginfo* Info );
 extern CORE_API void NewReportEnsure( const TCHAR* ErrorMessage );
-#elif PLATFORM_LINUX
+#elif PLATFORM_UNIX
 extern CORE_API void NewReportEnsure( const TCHAR* ErrorMessage );
 #endif
-/** Placeholder functions for checking image integrity. May or may not be used. DO NOT DELETE! */
-extern CORE_API void CheckImageIntegrity();
-extern CORE_API void CheckImageIntegrityAtRuntime();
 
 enum class ECrashType
 {

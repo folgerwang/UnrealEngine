@@ -35,7 +35,7 @@ public:
 	{
 		if (Singleton == NULL)
 		{
-			Singleton = new TLinuxTargetPlatform<false, false, false>();
+			Singleton = new TLinuxTargetPlatform<FLinuxPlatformProperties<false, false, false> >();
 		}
 
 		return Singleton;

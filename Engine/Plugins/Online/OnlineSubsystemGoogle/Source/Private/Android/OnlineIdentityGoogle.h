@@ -9,8 +9,6 @@
 
 class FOnlineSubsystemGoogle;
 
-#define GOOGLE_AUTH_CANCELED	  TEXT("com.epicgames.login.canceled");
-
 /** Tied to GoogleLogin.java */
 enum class EGoogleLoginResponse : uint8
 {
@@ -20,6 +18,8 @@ enum class EGoogleLoginResponse : uint8
 	RESPONSE_CANCELED = 1,
 	/** Google Sign In  SDK error */
 	RESPONSE_ERROR = 2,
+	/** Developer setup error */
+	RESPONSE_DEVELOPER_ERROR
 };
 
 inline const TCHAR* ToString(EGoogleLoginResponse Response)
@@ -32,6 +32,8 @@ inline const TCHAR* ToString(EGoogleLoginResponse Response)
 			return TEXT("RESPONSE_CANCELED");
 		case EGoogleLoginResponse::RESPONSE_ERROR:
 			return TEXT("RESPONSE_ERROR");
+		case EGoogleLoginResponse::RESPONSE_DEVELOPER_ERROR:
+			return TEXT("RESPONSE_DEVELOPER_ERROR");
 	}
 
 	return TEXT("");
@@ -85,6 +87,13 @@ public:
 	// FOnlineIdentityGoogle
 
 	FOnlineIdentityGoogle(FOnlineSubsystemGoogle* InSubsystem);
+
+	/**	
+	 * Initialize the interface
+	 * 
+	 * @return true if successful, false if there was an issue
+	 */
+	bool Init();
 
 	/**
 	 * Destructor

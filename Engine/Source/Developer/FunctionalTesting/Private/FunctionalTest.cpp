@@ -176,7 +176,7 @@ void AFunctionalTest::OnConstruction(const FTransform& Transform)
 	{
 		if ( bIsEnabled )
 		{
-			TestName->SetTextRenderColor(FColor(11, 255, 0));
+			TestName->SetTextRenderColor(FColor(45, 255, 0));
 			TestName->SetText(FText::FromString(GetActorLabel()));
 		}
 		else
@@ -184,22 +184,22 @@ void AFunctionalTest::OnConstruction(const FTransform& Transform)
 			TestName->SetTextRenderColor(FColor(55, 55, 55));
 			TestName->SetText(FText::FromString(GetActorLabel() + TEXT("\n") + TEXT("# Disabled #")));
 		}
+
+		//TestName->SetTextMaterial();
 	}
 #endif
 }
 
 bool AFunctionalTest::RunTest(const TArray<FString>& Params)
 {
-	FAutomationTestFramework::Get().SetTreatWarningsAsErrors(bWarningsAsErrors);
+	ensure(GetWorld()->HasBegunPlay());
 
-	//Scalability::FQualityLevels Quality;
-	//Quality.SetDefaults();
-	//Scalability::SetQualityLevels(Quality);
+	FAutomationTestFramework::Get().SetTreatWarningsAsErrors(bWarningsAsErrors);
 
 	FailureMessage = TEXT("");
 	
 	//Do not collect garbage during the test. We force GC at the end.
-	GEngine->DelayGarbageCollection();
+	//GEngine->DelayGarbageCollection();
 
 	RunFrame = GFrameNumber;
 	RunTime = GetWorld()->GetTimeSeconds();
@@ -362,6 +362,12 @@ void AFunctionalTest::FinishTest(EFunctionalTestResult TestResult, const FString
 
 void AFunctionalTest::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+	// If end play occurs and we're still running, notify that the testing has stopped.
+	if (bIsRunning)
+	{
+		TestFinishedObserver.ExecuteIfBound(this);
+	}
+
 	TestFinishedObserver.Unbind();
 
 	Super::EndPlay(EndPlayReason);
@@ -1262,14 +1268,18 @@ FPerfStatsRecord* UAutomationPerformaceHelper::GetCurrentRecord()
 
 void UAutomationPerformaceHelper::StartCPUProfiling()
 {
+#if UE_EXTERNAL_PROFILING_ENABLED
 	UE_LOG(LogFunctionalTest, Log, TEXT("START PROFILING..."));
 	ExternalProfiler.StartProfiler(false);
+#endif
 }
 
 void UAutomationPerformaceHelper::StopCPUProfiling()
 {
+#if UE_EXTERNAL_PROFILING_ENABLED
 	UE_LOG(LogFunctionalTest, Log, TEXT("STOP PROFILING..."));
 	ExternalProfiler.StopProfiler();
+#endif
 }
 
 void UAutomationPerformaceHelper::TriggerGPUTraceIfRecordFallsBelowBudget()

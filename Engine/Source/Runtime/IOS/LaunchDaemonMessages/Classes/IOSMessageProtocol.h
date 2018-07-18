@@ -43,7 +43,11 @@ struct FIOSLaunchDaemonPong
 	UPROPERTY()
 	bool bCanReboot;
 
-	FIOSLaunchDaemonPong() {}
+	FIOSLaunchDaemonPong()
+		: bCanPowerOff(false)
+		, bCanPowerOn(false)
+		, bCanReboot(false)
+	{}
 
 	FIOSLaunchDaemonPong(FString InDeviceID, FString InDeviceName, FString InDeviceStatus, FString InDeviceType, bool bInCanPowerOff, bool bInCanPowerOn, bool bInCanReboot)
 		: DeviceID(InDeviceID)

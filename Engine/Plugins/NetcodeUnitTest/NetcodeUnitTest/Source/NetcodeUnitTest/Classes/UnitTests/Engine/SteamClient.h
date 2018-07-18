@@ -22,6 +22,8 @@ protected:
 	bool bPendingConnect;
 
 protected:
+	virtual bool ValidateUnitTestSettings(bool bCDOCheck) override;
+
 	virtual void InitializeEnvironmentSettings() override;
 
 	virtual FString ConstructServerParameters() override;

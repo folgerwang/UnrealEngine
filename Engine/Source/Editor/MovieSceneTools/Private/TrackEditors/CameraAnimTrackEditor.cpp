@@ -25,22 +25,17 @@
 #define LOCTEXT_NAMESPACE "FCameraAnimTrackEditor"
 
 
-class FCameraAnimSection : public ISequencerSection
+class FCameraAnimSection : public FSequencerSection
 {
 public:
 	FCameraAnimSection(UMovieSceneSection& InSection)
-		: Section( InSection )
+		: FSequencerSection( InSection )
 	{ }
 
 	/** ISequencerSection interface */
-	virtual UMovieSceneSection* GetSectionObject() override
-	{ 
-		return &Section;
-	}
-	
 	virtual FText GetSectionTitle() const override 
 	{ 
-		UMovieSceneCameraAnimSection const* const AnimSection = Cast<UMovieSceneCameraAnimSection>(&Section);
+		UMovieSceneCameraAnimSection const* const AnimSection = Cast<UMovieSceneCameraAnimSection>(WeakSection.Get());
 		UCameraAnim const* const Anim = AnimSection ? AnimSection->AnimData.CameraAnim : nullptr;
 		if (Anim)
 		{
@@ -48,21 +43,6 @@ public:
 		}
 		return LOCTEXT("NoCameraAnimSection", "No Camera Anim");
 	}
-
-	virtual void GenerateSectionLayout( class ISectionLayoutBuilder& LayoutBuilder ) const override
-	{
-// 		UMovieSceneCameraAnimSection* PathSection = Cast<UMovieSceneCameraAnimSection>(&Section);
-// 		LayoutBuilder.AddKeyArea("Timing", LOCTEXT("TimingArea", "Timing"), MakeShareable( new FFloatCurveKeyArea ( &PathSection->GetTimingCurve( ), PathSection ) ) );
-	}
-
-	virtual int32 OnPaintSection( FSequencerSectionPainter& InPainter ) const override 
-	{
-		return InPainter.PaintSectionBackground();
-	}
-
-private:
-	/** The section we are visualizing */
-	UMovieSceneSection& Section;
 };
 
 
@@ -130,6 +110,8 @@ bool FCameraAnimTrackEditor::HandleAssetAdded(UObject* Asset, const FGuid& Targe
 				OutObjects.Add(Object);
 			}
 
+			const FScopedTransaction Transaction(LOCTEXT("AddCameraAnim_Transaction", "Add Camera Anim"));
+
 			AnimatablePropertyChanged(FOnKeyProperty::CreateRaw(this, &FCameraAnimTrackEditor::AddKeyInternal, OutObjects, CameraAnim));
 
 			return true;
@@ -178,6 +160,7 @@ void FCameraAnimTrackEditor::AddCameraAnimSubMenu(FMenuBuilder& MenuBuilder, FGu
 	FAssetPickerConfig AssetPickerConfig;
 	{
 		AssetPickerConfig.OnAssetSelected = FOnAssetSelected::CreateRaw(this, &FCameraAnimTrackEditor::OnCameraAnimAssetSelected, ObjectBinding);
+		AssetPickerConfig.OnAssetEnterPressed = FOnAssetEnterPressed::CreateRaw(this, &FCameraAnimTrackEditor::OnCameraAnimAssetEnterPressed, ObjectBinding);
 		AssetPickerConfig.bAllowNullSelection = false;
 		AssetPickerConfig.InitialAssetViewType = EAssetViewType::List;
 		AssetPickerConfig.Filter.ClassNames.Add(UCameraAnim::StaticClass()->GetFName());
@@ -229,9 +212,15 @@ void FCameraAnimTrackEditor::OnCameraAnimAssetSelected(const FAssetData& AssetDa
 	}
 }
 
+void FCameraAnimTrackEditor::OnCameraAnimAssetEnterPressed(const TArray<FAssetData>& AssetData, FGuid ObjectBinding)
+{
+	if (AssetData.Num() > 0)
+	{
+		OnCameraAnimAssetSelected(AssetData[0].GetAsset(), ObjectBinding);
+	}
+}
 
-
-FKeyPropertyResult FCameraAnimTrackEditor::AddKeyInternal(float KeyTime, const TArray<TWeakObjectPtr<UObject>> Objects, UCameraAnim* CameraAnim)
+FKeyPropertyResult FCameraAnimTrackEditor::AddKeyInternal(FFrameNumber KeyTime, const TArray<TWeakObjectPtr<UObject>> Objects, UCameraAnim* CameraAnim)
 {
 	FKeyPropertyResult KeyPropertyResult;
 
@@ -250,8 +239,12 @@ FKeyPropertyResult FCameraAnimTrackEditor::AddKeyInternal(float KeyTime, const T
 
 			if (ensure(Track))
 			{
-				Cast<UMovieSceneCameraAnimTrack>(Track)->AddNewCameraAnim(KeyTime, CameraAnim);
+				UMovieSceneSection* NewSection = Cast<UMovieSceneCameraAnimTrack>(Track)->AddNewCameraAnim(KeyTime, CameraAnim);
 				KeyPropertyResult.bTrackModified = true;
+
+				GetSequencer()->EmptySelection();
+				GetSequencer()->SelectSection(NewSection);
+				GetSequencer()->ThrobSectionSelection();
 			}
 		}
 	}

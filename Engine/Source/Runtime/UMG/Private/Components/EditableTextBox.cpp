@@ -62,6 +62,7 @@ TSharedRef<SWidget> UEditableTextBox::RebuildWidget()
 		.OnTextChanged(BIND_UOBJECT_DELEGATE(FOnTextChanged, HandleOnTextChanged))
 		.OnTextCommitted(BIND_UOBJECT_DELEGATE(FOnTextCommitted, HandleOnTextCommitted))
 		.VirtualKeyboardType(EVirtualKeyboardType::AsKeyboardType(KeyboardType.GetValue()))
+		.VirtualKeyboardOptions(VirtualKeyboardOptions)
 		.VirtualKeyboardDismissAction(VirtualKeyboardDismissAction)
 		.Justification(Justification);
 
@@ -135,6 +136,15 @@ void UEditableTextBox::SetIsReadOnly(bool bReadOnly)
 	if ( MyEditableTextBlock.IsValid() )
 	{
 		MyEditableTextBlock->SetIsReadOnly(IsReadOnly);
+	}
+}
+
+void UEditableTextBox::SetIsPassword(bool bIsPassword)
+{
+	IsPassword = bIsPassword;
+	if (MyEditableTextBlock.IsValid())
+	{
+		MyEditableTextBlock->SetIsPassword(IsPassword);
 	}
 }
 

@@ -251,7 +251,7 @@ We will then change the Parent Material to show how changes to the Parent will a
 	[![](Materails_Instances_Add_New_Param.png)(w:920 convert:false)](Materails_Instances_Add_New_Param.png)
 	[/REGION]
 
-1. Once the Material has been compiled, you can close down the **Master Material** and then open up the ** Red Material Instance**. 
+1. Once the Material has been compiled, you can close down the **Master Material** and then open up the **Red Material Instance**. 
    Once opened, notice how there is now a new input for **Specular**.
    Now check both the **Blue** and **Green** Material Instances, notice how they both now have new inputs for **Specular**. 
    This is where the real power of the Material Instance lies, Changes that you make to the Parent Material will always be propagated to their children. 

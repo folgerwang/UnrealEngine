@@ -4,10 +4,8 @@
 
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
-#include "Curves/KeyHandle.h"
 #include "MovieSceneSection.h"
-#include "Curves/IntegralCurve.h"
-#include "Sections/IKeyframeSection.h"
+#include "Channels/MovieSceneBoolChannel.h"
 #include "MovieSceneBoolSection.generated.h"
 
 /**
@@ -16,7 +14,6 @@
 UCLASS(MinimalAPI)
 class UMovieSceneBoolSection 
 	: public UMovieSceneSection
-	, public IKeyframeSection<bool>
 {
 	GENERATED_UCLASS_BODY()
 
@@ -28,36 +25,8 @@ public:
 
 public:
 
-	/**
-	 * Update this section.
-	 *
-	 * @param Position The position in time within the movie scene.
-	 */
-	virtual bool Eval(float Position, bool DefaultValue) const;
-
-	/** Gets all the keys of this boolean section. */
-	FIntegralCurve& GetCurve() { return BoolCurve; }
-	const FIntegralCurve& GetCurve() const { return BoolCurve; }
-	
-public:
-
-	//~ IKeyframeSection interface
-
-	virtual void AddKey(float Time, const bool& Value, EMovieSceneKeyInterpolation KeyInterpolation) override;
-	virtual void SetDefault(const bool& Value) override;
-	virtual bool NewKeyIsNewData(float Time, const bool& Value) const override;
-	virtual bool HasKeys(const bool& Value) const override;
-	virtual void ClearDefaults() override;
-
-public:
-
-	//~ UMovieSceneSection interface 
-
-	virtual void MoveSection(float DeltaPosition, TSet<FKeyHandle>& KeyHandles) override;
-	virtual void DilateSection(float DilationFactor, float Origin, TSet<FKeyHandle>& KeyHandles) override;
-	virtual void GetKeyHandles(TSet<FKeyHandle>& OutKeyHandles, TRange<float> TimeRange) const override;
-	virtual TOptional<float> GetKeyTime(FKeyHandle KeyHandle) const override;
-	virtual void SetKeyTime(FKeyHandle KeyHandle, float Time) override;
+	FMovieSceneBoolChannel& GetChannel() { return BoolCurve; }
+	const FMovieSceneBoolChannel& GetChannel() const { return BoolCurve; }
 
 public:
 
@@ -65,11 +34,34 @@ public:
 
 	virtual void PostLoad() override;
 
-private:
+protected:
+
+	/**
+	 * Update the channel proxy to ensure it has the correct flags and pointers
+	 */
+	void ReconstructChannelProxy();
 
 	/** Ordered curve data */
-	// @todo Sequencer This could be optimized by packing the bools separately
-	// but that may not be worth the effort
 	UPROPERTY()
-	FIntegralCurve BoolCurve;
+	FMovieSceneBoolChannel BoolCurve;
+
+#if WITH_EDITORONLY_DATA
+
+public:
+
+	/**
+	 * Set a flag indicating that the actual property that this bool represents is the opposite of the values stored in this section
+	 */
+	void SetIsExternallyInverted(bool bInIsExternallyInverted);
+
+protected:
+
+	/** Overloaded serializer to ensure that the channel proxy is updated correctly on load and duplicate */
+	virtual void Serialize(FArchive& Ar) override;
+
+	/** True if this section represents a property that is the inversion of the values stored on this channel */
+	UPROPERTY()
+	bool bIsExternallyInverted;
+
+#endif
 };

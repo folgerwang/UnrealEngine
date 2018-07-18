@@ -212,6 +212,9 @@ struct _xmpp_conn_t {
     xmpp_handlist_t *timed_handlers;
     hash_t *id_handlers;
     xmpp_handlist_t *handlers;
+
+	/* external event driven socket */
+	xmpp_conn_extsock_t *extsock;
 };
 
 void conn_disconnect(xmpp_conn_t * const conn);

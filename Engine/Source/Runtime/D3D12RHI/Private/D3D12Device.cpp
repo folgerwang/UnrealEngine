@@ -13,11 +13,11 @@ namespace D3D12RHI
 using namespace D3D12RHI;
 
 FD3D12Device::FD3D12Device() :
-	FD3D12Device(GDefaultGPUMask, nullptr)
+	FD3D12Device(FRHIGPUMask::GPU0(), nullptr)
 	{
 	}
 
-FD3D12Device::FD3D12Device(GPUNodeMask Node, FD3D12Adapter* InAdapter) :
+FD3D12Device::FD3D12Device(FRHIGPUMask Node, FD3D12Adapter* InAdapter) :
 	RTVAllocator(Node, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, 256),
 	DSVAllocator(Node, D3D12_DESCRIPTOR_HEAP_TYPE_DSV, 256),
 	SRVAllocator(Node, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 1024),
@@ -27,9 +27,9 @@ FD3D12Device::FD3D12Device(GPUNodeMask Node, FD3D12Adapter* InAdapter) :
 #endif
 	SamplerAllocator(Node, FD3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, 128),
 	SamplerID(0),
-	OcclusionQueryHeap(this, D3D12_QUERY_HEAP_TYPE_OCCLUSION, 65536),
+	OcclusionQueryHeap(this, D3D12_QUERY_HEAP_TYPE_OCCLUSION, 65536, 4 /*frames to keep results */ * 1 /*batches per frame*/),
+	TimestampQueryHeap(this, D3D12_QUERY_HEAP_TYPE_TIMESTAMP, 8192, 4 /*frames to keep results */ * 5 /*batches per frame*/ ),
 	DefaultBufferAllocator(this, Node), //Note: Cross node buffers are possible 
-	PendingCommandListsTotalWorkCommands(0),
 	CommandListManager(nullptr),
 	CopyCommandListManager(nullptr),
 	AsyncCommandListManager(nullptr),
@@ -95,7 +95,7 @@ void FD3D12Device::CreateCommandContexts()
 	{
 		FD3D12SubAllocatedOnlineHeap::SubAllocationDesc SubHeapDesc(&GlobalViewHeap, CurrentGlobalHeapOffset, DescriptorSuballocationPerContext);
 
-		const bool bIsDefaultContext = (i == 0);
+		const bool bIsDefaultContext = (i == 0); //-V547
 		const bool bIsAsyncComputeContext = true;
 		FD3D12CommandContext* NewCmdContext = GetOwningRHI()->CreateCommandContext(this, SubHeapDesc, bIsDefaultContext, bIsAsyncComputeContext);
 		CurrentGlobalHeapOffset += DescriptorSuballocationPerContext;
@@ -113,27 +113,77 @@ void FD3D12Device::CreateCommandContexts()
 bool FD3D12Device::IsGPUIdle()
 {
 	FD3D12Fence& Fence = CommandListManager->GetFence();
-	return Fence.GetLastCompletedFence() >= (Fence.GetCurrentFence() - 1);
+	return Fence.IsFenceComplete(Fence.GetLastSignaledFence());
 }
+
+#if PLATFORM_WINDOWS
+typedef HRESULT(WINAPI *FDXGIGetDebugInterface1)(UINT, REFIID, void **);
+#endif
+
 
 void FD3D12Device::SetupAfterDeviceCreation()
 {
 	ID3D12Device* Direct3DDevice = GetParentAdapter()->GetD3DDevice();
 
 #if PLATFORM_WINDOWS
-	IUnknown* RenderDoc;
-	IID RenderDocID;
-	if (SUCCEEDED(IIDFromString(L"{A7AA6116-9C8D-4BBA-9083-B4D816B71B78}", &RenderDocID)))
+	// Check if we're running under GPU capture
+	bool bUnderGPUCapture = false;
+
+	// RenderDoc
 	{
-		if (SUCCEEDED(Direct3DDevice->QueryInterface(RenderDocID, (void**)(&RenderDoc))))
+		IID RenderDocID;
+		if (SUCCEEDED(IIDFromString(L"{A7AA6116-9C8D-4BBA-9083-B4D816B71B78}", &RenderDocID)))
 		{
-			// Running under RenderDoc, so enable capturing mode
-			GDynamicRHI->EnableIdealGPUCaptureOptions(true);
+			TRefCountPtr<IUnknown> RenderDoc;
+			if (SUCCEEDED(Direct3DDevice->QueryInterface(RenderDocID, (void**)RenderDoc.GetInitReference())))
+			{
+				// Running under RenderDoc, so enable capturing mode
+				bUnderGPUCapture = true;
+			}
 		}
 	}
+
+	// AMD RGP profiler
 	if (GEmitRgpFrameMarkers && GetOwningRHI()->GetAmdAgsContext())
 	{
 		// Running on AMD with RGP profiling enabled, so enable capturing mode
+		bUnderGPUCapture = true;
+	}
+#if USE_PIX
+	// PIX (note that DXGIGetDebugInterface1 requires Windows 8.1 and up)
+	if (FWindowsPlatformMisc::VerifyWindowsVersion(6, 3))
+	{
+		FDXGIGetDebugInterface1 DXGIGetDebugInterface1FnPtr = nullptr;
+
+		// CreateDXGIFactory2 is only available on Win8.1+, find it if it exists
+		HMODULE DxgiDLL = LoadLibraryA("dxgi.dll");
+		if (DxgiDLL)
+		{
+#pragma warning(push)
+#pragma warning(disable: 4191) // disable the "unsafe conversion from 'FARPROC' to 'blah'" warning
+			DXGIGetDebugInterface1FnPtr = (FDXGIGetDebugInterface1)(GetProcAddress(DxgiDLL, "DXGIGetDebugInterface1"));
+#pragma warning(pop)
+			FreeLibrary(DxgiDLL);
+		}
+		
+		if (DXGIGetDebugInterface1FnPtr)
+		{
+			IID GraphicsAnalysisID;
+			if (SUCCEEDED(IIDFromString(L"{9F251514-9D4D-4902-9D60-18988AB7D4B5}", &GraphicsAnalysisID)))
+			{
+				TRefCountPtr<IUnknown> GraphicsAnalysis;
+				if (SUCCEEDED(DXGIGetDebugInterface1FnPtr(0, GraphicsAnalysisID, (void**)GraphicsAnalysis.GetInitReference())))
+				{
+					// Running under PIX, so enable capturing mode
+					bUnderGPUCapture = true;
+				}
+			}
+		}
+	}
+#endif
+
+	if(bUnderGPUCapture)
+	{
 		GDynamicRHI->EnableIdealGPUCaptureOptions(true);
 	}
 #endif
@@ -174,8 +224,9 @@ void FD3D12Device::SetupAfterDeviceCreation()
 		
 	GlobalViewHeap.Init(NumGlobalViewDesc, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
-	// Init the occlusion query heap
+	// Init the occlusion and timestamp query heaps
 	OcclusionQueryHeap.Init();
+	TimestampQueryHeap.Init();
 
 	CommandListManager->Create(L"3D Queue");
 	CopyCommandListManager->Create(L"Copy Queue");
@@ -268,8 +319,28 @@ void FD3D12Device::Cleanup()
 	AsyncCommandListManager->Destroy();
 
 	OcclusionQueryHeap.Destroy();
+	TimestampQueryHeap.Destroy();
 
 	D3DX12Residency::DestroyResidencyManager(ResidencyManager);
+}
+
+ID3D12CommandQueue* FD3D12Device::GetD3DCommandQueue(ED3D12CommandQueueType InQueueType) const
+{
+	switch (InQueueType)
+	{
+	case ED3D12CommandQueueType::Default:
+		check(CommandListManager->GetQueueType() == InQueueType);
+		return CommandListManager->GetD3DCommandQueue();
+	case ED3D12CommandQueueType::Async:
+		check(AsyncCommandListManager->GetQueueType() == InQueueType);
+		return AsyncCommandListManager->GetD3DCommandQueue();
+	case ED3D12CommandQueueType::Copy:
+		check(CopyCommandListManager->GetQueueType() == InQueueType);
+		return CopyCommandListManager->GetD3DCommandQueue();
+	default:
+		check(false);
+		return nullptr;
+	}
 }
 
 void FD3D12Device::RegisterGPUWork(uint32 NumPrimitives, uint32 NumVertices)
@@ -287,20 +358,14 @@ void FD3D12Device::PopGPUEvent()
 	GetParentAdapter()->GetGPUProfiler().PopEvent();
 }
 
-void FD3D12Device::GetLocalVideoMemoryInfo(DXGI_QUERY_VIDEO_MEMORY_INFO* LocalVideoMemoryInfo)
-{
-#if PLATFORM_WINDOWS
-	TRefCountPtr<IDXGIAdapter3> Adapter3;
-	VERIFYD3D12RESULT(GetParentAdapter()->GetAdapter()->QueryInterface(IID_PPV_ARGS(Adapter3.GetInitReference())));
-
-	VERIFYD3D12RESULT(Adapter3->QueryVideoMemoryInfo(GetNodeIndex(), DXGI_MEMORY_SEGMENT_GROUP_LOCAL, LocalVideoMemoryInfo));
-#endif
-}
-
 void FD3D12Device::BlockUntilIdle()
 {
 	GetDefaultCommandContext().FlushCommands();
-	GetDefaultAsyncComputeContext().FlushCommands();
+
+	if (GEnableAsyncCompute)
+	{
+		GetDefaultAsyncComputeContext().FlushCommands();
+	}
 
 	GetCommandListManager().WaitForCommandQueueFlush();
 	GetCopyCommandListManager().WaitForCommandQueueFlush();

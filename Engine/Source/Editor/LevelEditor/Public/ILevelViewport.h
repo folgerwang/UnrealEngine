@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -8,6 +8,7 @@
 
 class FLevelEditorViewportClient;
 class FViewport;
+class FSceneViewport;
 
 /**
  * Public interface to SLevelViewport
@@ -55,6 +56,8 @@ public:
 	 * @return true if this viewport has a play in editor session (could be inactive)                   
 	 */
 	virtual bool HasPlayInEditorViewport() const = 0; 
+
+	virtual TSharedPtr<FSceneViewport> GetSharedActiveViewport() const  = 0;
 
 	/**
 	 * @return The editor client for this viewport

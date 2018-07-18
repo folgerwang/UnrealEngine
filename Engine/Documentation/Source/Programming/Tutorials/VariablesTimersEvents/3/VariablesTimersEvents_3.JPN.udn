@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2728592
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:3.ブループリントで C++ コードを拡張およびオーバーライドする
 Crumbs:%ROOT%, Programming, Programming/Tutorials, Programming/Tutorials/VariablesTimersEvents
@@ -60,13 +60,13 @@ version:4.9
 
 	[![](SelectParticle.png)](SelectParticle.png)
 
-1. **ブループリント エディタ** の左上にある **[Compile (コンパイル)]** ボタンをクリックします。
+1. **ブループリント エディタ** の左上にある **[Compile (コンパイル)]** ボタンをクリックして変更を保存します。
 
 1. ここで **[Play (再生)]** を押すと、カウントダウンが始まり、カウントダウン数がゼロになると爆発します。
 
 	[![](Explosion_Zero.png)](Explosion_Zero.png)
 
-	しかし、カウントダウンは最後に「0」ではなく「GO!」となるようにプログラミングしました。C++ の機能を **ブループリント** ビジュアルスクリプティングに完全に置きかえたため、これはもう起こりません。この場合、この状況は意図したものではないため、この関数の C++ バージョンへのコールを追加しなくてはいけません。**Countdown Has Finished** ノードを右クリックして、コンテキスト メニューから **Add call to parent function** を選択します。
+	しかし、カウントダウンは最後に「0」ではなく「GO!」となるようにプログラミングしました。C++ の機能を **ブループリント** ビジュアルスクリプティングに完全に置きかえたため、これはもう起こりません。この状況は意図したものではないため、この関数の C++ バージョンへの呼び出しを追加しなくてはいけません。**Countdown Has Finished** ノードを右クリックして、コンテキスト メニューから **Add call to parent function** を選択します。
 
 	[![](CallToParent_Menu.png)](CallToParent_Menu.png)
 
@@ -78,122 +78,116 @@ version:4.9
 
 	[![](CallToParent_FixPins.png)](CallToParent_FixPins.png)
 
-	これでゲームの実行時にカウントダウンが終了すると "GO!" (C++ コードから) という文字と爆発 (ブループリント グラフ) が表示されます！
+	これでゲームの実行時にカウントダウンが終了すると "GO!" (C++ コードから) という文字と爆発 (ブループリント グラフから) が表示されます！
 
 	[![](Explosion_Go.png)](Explosion_Go.png)
 
-----
+## 完成コード
 
-[OBJECT:Section]
-    [PARAMLITERAL:id]
-    コード
-    [/PARAMLITERAL]
-    [PARAM:heading]
-	    完成コード
-    [/PARAM]
-    [PARAM:content]
-		**Countdown.h**
-			// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+**Countdown.h**
 
-			#pragma once
+	// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
 
-			#include "GameFramework/Actor.h"
-			#include "Countdown.generated.h"
+	#pragma once
 
-			UCLASS()
-			class HOWTO_VTE_API ACountdown : public AActor
-			{
-				GENERATED_BODY()
+	#include "GameFramework/Actor.h"
+	#include "Countdown.generated.h"
+
+	UCLASS()
+	class HOWTO_VTE_API ACountdown : public AActor
+	{
+		GENERATED_BODY()
+	
+	public:	
+		// Sets default values for this actor's properties
+		ACountdown();
+
+	protected:
+		// Called when the game starts or when spawned
+		virtual void BeginPlay() override;
+	
 	public:
+		// Called every frame
+		virtual void Tick( float DeltaSeconds ) override;
 
-				// このアクタのプロパティのデフォルト値を設定します。
-				ACountdown();
+		//How long, in seconds, the countdown will run
+		UPROPERTY(EditAnywhere)
+		int32 CountdownTime;
 
-				// ゲーム開始またはスポーン時に呼ばれます
-				virtual void BeginPlay() override;
-	// フレーム毎に呼ばれます
+		UTextRenderComponent* CountdownText;
 
-				virtual void Tick( float DeltaSeconds ) override;
+		void UpdateTimerDisplay();
 
-				// カウントダウンの実行時間 (秒)
-				UPROPERTY(EditAnywhere)
-				int32 CountdownTime;
+		void AdvanceTimer();
 
-				UTextRenderComponent* CountdownText;
+		UFUNCTION(BlueprintNativeEvent)
+		void CountdownHasFinished();
+		virtual void CountdownHasFinished_Implementation();
 
-				void UpdateTimerDisplay();
-
-				void AdvanceTimer();
-
-				UFUNCTION(BlueprintNativeEvent)
-				void CountdownHasFinished();
-				virtual void CountdownHasFinished_Implementation();
-
-				FTimerHandle CountdownTimerHandle;
-			};
+		FTimerHandle CountdownTimerHandle;
+	};
 
 
-		**Countdown.cpp**
-			// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+**Countdown.cpp**
 
-			#include "HowTo_VTE.h"
-			#include "Countdown.h"
+	// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
 
-			// デフォルト値を設定
-			ACountdown::ACountdown()
-			{
- 				// フレーム毎に Tick() を呼び出すようにこのアクタを設定。必要がなければパフォーマンスを向上させるためにオフにすることができます。
-				PrimaryActorTick.bCanEverTick = false;
-	CountdownText = CreateDefaultSubobject<UTextRenderComponent>(TEXT("CountdownNumber"));
+	#include "HowTo_VTE.h"
+	#include "Countdown.h"
 
-				CountdownText->SetHorizontalAlignment(EHTA_Center);
-				CountdownText->SetWorldSize(150.0f);
-				RootComponent = CountdownText;
+	// Sets default values
+	ACountdown::ACountdown()
+	{
+ 		// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
+		PrimaryActorTick.bCanEverTick = false;
+	
+		CountdownText = CreateDefaultSubobject<UTextRenderComponent>(TEXT("CountdownNumber"));
+		CountdownText->SetHorizontalAlignment(EHTA_Center);
+		CountdownText->SetWorldSize(150.0f);
+		RootComponent = CountdownText;
 
-				CountdownTime = 3;
-			}
+		CountdownTime = 3;
+	}
 
-			// ゲーム開始またはスポーン時に呼ばれます
-			void ACountdown::BeginPlay()
-			{
-				Super::BeginPlay();
-	UpdateTimerDisplay();
+	// Called when the game starts or when spawned
+	void ACountdown::BeginPlay()
+	{
+		Super::BeginPlay();
+	
+		UpdateTimerDisplay();
+		GetWorldTimerManager().SetTimer(CountdownTimerHandle, this, &ACountdown::AdvanceTimer, 1.0f, true);
+	}
 
-				GetWorldTimerManager().SetTimer(CountdownTimerHandle, this, &ACountdown::AdvanceTimer, 1.0f, true);
-			}
+	// Called every frame
+	void ACountdown::Tick( float DeltaTime )
+	{
+		Super::Tick( DeltaTime );
 
-			// フレーム毎に呼ばれます
-			void ACountdown::Tick( float DeltaTime )
-			{
-				Super::Tick( DeltaTime );
+	}
 
-			}
+	void ACountdown::UpdateTimerDisplay()
+	{
+		CountdownText->SetText(FString::FromInt(FMath::Max(CountdownTime, 0)));
+	}
 
-			void ACountdown::UpdateTimerDisplay()
-			{
-				CountdownText->SetText(FString::FromInt(FMath::Max(CountdownTime, 0)));
-			}
+	void ACountdown::AdvanceTimer()
+	{
+		--CountdownTime;
+		UpdateTimerDisplay();
+		if (CountdownTime < 1)
+		{
+			// We're done counting down, so stop running the timer.
+			GetWorldTimerManager().ClearTimer(CountdownTimerHandle);
+			//Perform any special actions we want to do when the timer ends.
+			CountdownHasFinished();
+		}
+	}
 
-			void ACountdown::AdvanceTimer()
-			{
-				--CountdownTime;
-				UpdateTimerDisplay();
-				if (CountdownTime < 1)
-				{
-					//カウントダウンを終了したのでタイマーの実行を停止します。
-					GetWorldTimerManager().ClearTimer(CountdownTimerHandle);
-					//タイマー終了時に任意の特別なアクションを実行。
-					CountdownHasFinished();
-				}
-			}
+	void ACountdown::CountdownHasFinished_Implementation()
+	{
+		//Change to a special readout
+		CountdownText->SetText(TEXT("GO!"));
+	}
 
-			void ACountdown::CountdownHasFinished_Implementation()
-			{
-				//特別な読み出しに変更
-				CountdownText->SetText(TEXT("GO!"));
-			}
-
-    [/PARAM]
-[/OBJECT]
 
 

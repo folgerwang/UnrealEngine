@@ -71,7 +71,7 @@ Below is an example of each of these falloff types when operating on the heightm
 [REGION:imagetable]
 | ![](Smooth.jpg)(w:200) | ![](Linear.jpg)(w:200) | ![](Sphere.jpg)(w:200) | ![](Tip.jpg)(w:200) |
 | -------- | ----------- | ------ | ----- |
-| ** Smooth **| ** Linear ** | ** Spherical** | ** Tip ** | 
+| **Smooth**| **Linear** | **Spherical** | **Tip** | 
 [/REGION]
 
 ## Alpha
@@ -91,7 +91,7 @@ The **Alpha** brush is similar to the Pattern brush, but instead of tiling the t
 | --- | --- |
 | **Texture** | Sets the Texture to be used, assigned from the **Content Browser**. |
 | **Texture Channel** | Sets the Alpha brush's contents to the data from the corresponding channel of the Texture that is currently assigned.  |
-| **Brush Size ** | Sets the size of the brush. |
+| **Brush Size** | Sets the size of the brush. |
 | **Use Clay Brush** | If selected, uses a clay brush. |
 
 

@@ -10,6 +10,11 @@ echo
 echo Running AutomationTool...
 echo
 
+TermHandler() {
+	GPID=$(ps -o pgid= $UATPid)
+	kill -TERM -$GPID 2> /dev/null
+}
+
 # loop over the arguments, quoting spaces to pass to UAT proper
 Args=
 i=0
@@ -91,10 +96,15 @@ if [ -z "$uebp_LogFolder" ]; then
 else
 	LogDir="$uebp_LogFolder"
 fi
+
+trap TermHandler SIGTERM SIGINT
+
 # you can't set a dotted env var nicely in sh, but env will run a command with
 # a list of env vars set, including dotted ones
 echo Start UAT: mono AutomationTool.exe "${Args[@]}"
-env uebp_LogFolder="$LogDir" mono AutomationTool.exe "${Args[@]}" $UATCompileArg
+env uebp_LogFolder="$LogDir" mono AutomationTool.exe "${Args[@]}" $UATCompileArg &
+UATPid=$!
+wait $UATPid
 UATReturn=$?
 
 # @todo: Copy log files to somewhere useful

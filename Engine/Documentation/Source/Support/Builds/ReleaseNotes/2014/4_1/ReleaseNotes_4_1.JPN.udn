@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3367477
+﻿INTSourceChangelist:3782314
 Title:アンリアル エンジン 4.1 リリース ノート
 Crumbs:%ROOT%, Support/Builds
 Description:
@@ -432,8 +432,8 @@ QA_APPROVED_UE4_BUILD_MINIMUM
 * **FBX**
 	* New:Added an **Import All** button to the FBX import dialog.This will import all selected files with the same FBX settings without being asked more than once
 	* Changed FBX Import Options Window for clarity:
-	![](fbx.png)
 
+	![](fbx.png)
 
 	* Changed the default setting of **Import Meshes in Bone Hierarchy**, under the Skeletal Mesh import settings, to be enabled by default.This will result in any non-skinned meshes in the bone hierarchy being imported as actual meshes and not as bones. 
 	* Fixed importing with Materials and Textures that are the same name as each other or a mesh.This will no longer cause a crash, instead unique names will be generated for each conflict.

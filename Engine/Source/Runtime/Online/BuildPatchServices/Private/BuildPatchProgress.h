@@ -8,7 +8,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "ThreadSafeBool.h"
+#include "HAL/ThreadSafeBool.h"
 #include "Installer/Controllable.h"
 #include "BuildPatchState.h"
 

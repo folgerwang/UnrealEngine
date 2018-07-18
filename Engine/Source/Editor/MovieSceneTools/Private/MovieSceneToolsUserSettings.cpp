@@ -31,6 +31,7 @@ void UMovieSceneUserThumbnailSettings::PostEditChangeProperty(FPropertyChangedEv
 UMovieSceneUserImportFBXSettings::UMovieSceneUserImportFBXSettings(const FObjectInitializer& Initializer)
 	: Super(Initializer)
 {
+	bMatchByNameOnly = true;
 	bForceFrontXAxis = false;
 	bCreateCameras = true;
 	bReduceKeys = true;

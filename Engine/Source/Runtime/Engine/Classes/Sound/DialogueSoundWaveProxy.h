@@ -32,7 +32,7 @@ public:
 	/** 
 	 * Returns the farthest distance at which the sound could be heard
 	 */
-	virtual float GetMaxAudibleDistance() override;
+	virtual float GetMaxDistance() const override;
 
 	/** 
 	 * Returns the length of the sound

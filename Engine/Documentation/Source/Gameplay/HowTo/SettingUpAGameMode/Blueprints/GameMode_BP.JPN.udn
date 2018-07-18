@@ -3,7 +3,7 @@ Availability:Public
 Title:ブループリントでゲームモードをセットアップする操作手順
 Crumbs: %ROOT%, Gameplay, Gameplay\HowTo\SettingUpAGameMode
 Description:ブループリントでゲームモードをセットアップする操作手順
-Version:4.14
+Version: 4.14
 SkillLevel:Advanced
 type:how-to
 
@@ -60,8 +60,8 @@ _以下の例では、**Blueprint Third Person Template** を使用しますが�
 
 	ここでは、 **ThirdPersonCharacter** が **Default Pawn Class** として使用されているのがわかります。 
 
-	## デフォルトのゲームモードをオーバーライドする
 
+## デフォルトのゲームモードをオーバーライドする
 
 Default Game Mode を割り当てたら、それをレベル単位でワールド設定メニューの GameMode Override セクションでオーバーライドすることができます。以下の手順では、デフォルトの Game Mode をオーバーライドする方法について説明します。 
 

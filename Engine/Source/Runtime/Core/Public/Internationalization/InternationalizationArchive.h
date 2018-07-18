@@ -10,23 +10,24 @@
 #include "Containers/Map.h"
 #include "Templates/SharedPointer.h"
 #include "Internationalization/InternationalizationManifest.h"
-#include "LocKeyFuncs.h"
+#include "Internationalization/LocKeyFuncs.h"
 
 class FLocMetadataObject;
 
 class CORE_API FArchiveEntry
 {
 public:
-	FArchiveEntry(const FString& InNamespace, const FString& InKey, const FLocItem& InSource, const FLocItem& InTranslation, TSharedPtr<FLocMetadataObject> InKeyMetadataObj = nullptr, bool IsOptional = false);
+	FArchiveEntry(const FLocKey& InNamespace, const FLocKey& InKey, const FLocItem& InSource, const FLocItem& InTranslation, TSharedPtr<FLocMetadataObject> InKeyMetadataObj = nullptr, bool IsOptional = false);
 
-	const FString Namespace;
-	const FString Key;
+	const FLocKey Namespace;
+	const FLocKey Key;
 	const FLocItem Source;
 	FLocItem Translation;
 	bool bIsOptional;
 	TSharedPtr<FLocMetadataObject> KeyMetadataObj;
 };
 
+typedef TMultiMap< FLocKey, TSharedRef< FArchiveEntry > > FArchiveEntryByLocKeyContainer;
 typedef TMultiMap< FString, TSharedRef< FArchiveEntry >, FDefaultSetAllocator, FLocKeyMultiMapFuncs< TSharedRef< FArchiveEntry > > > FArchiveEntryByStringContainer;
 
 class CORE_API FInternationalizationArchive 
@@ -47,16 +48,16 @@ public:
 	{
 	}
 
-	bool AddEntry(const FString& Namespace, const FString& Key, const FLocItem& Source, const FLocItem& Translation, const TSharedPtr<FLocMetadataObject> KeyMetadataObj, const bool bOptional);
+	bool AddEntry(const FLocKey& Namespace, const FLocKey& Key, const FLocItem& Source, const FLocItem& Translation, const TSharedPtr<FLocMetadataObject> KeyMetadataObj, const bool bOptional);
 	bool AddEntry(const TSharedRef<FArchiveEntry>& InEntry);
 
 	void UpdateEntry(const TSharedRef<FArchiveEntry>& OldEntry, const TSharedRef<FArchiveEntry>& NewEntry);
 
-	bool SetTranslation(const FString& Namespace, const FString& Key, const FLocItem& Source, const FLocItem& Translation, const TSharedPtr<FLocMetadataObject> KeyMetadataObj);
+	bool SetTranslation(const FLocKey& Namespace, const FLocKey& Key, const FLocItem& Source, const FLocItem& Translation, const TSharedPtr<FLocMetadataObject> KeyMetadataObj);
 
-	TSharedPtr<FArchiveEntry> FindEntryByKey(const FString& Namespace, const FString& Key, const TSharedPtr<FLocMetadataObject> KeyMetadataObj) const;
+	TSharedPtr<FArchiveEntry> FindEntryByKey(const FLocKey& Namespace, const FLocKey& Key, const TSharedPtr<FLocMetadataObject> KeyMetadataObj) const;
 
-	FArchiveEntryByStringContainer::TConstIterator GetEntriesByKeyIterator() const
+	FArchiveEntryByLocKeyContainer::TConstIterator GetEntriesByKeyIterator() const
 	{
 		return EntriesByKey.CreateConstIterator();
 	}
@@ -89,5 +90,5 @@ public:
 private:
 	EFormatVersion FormatVersion;
 	FArchiveEntryByStringContainer EntriesBySourceText;
-	FArchiveEntryByStringContainer EntriesByKey;
+	FArchiveEntryByLocKeyContainer EntriesByKey;
 };

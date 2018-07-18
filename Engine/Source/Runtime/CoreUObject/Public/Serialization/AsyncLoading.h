@@ -334,7 +334,7 @@ public:
 * FLinkerLoad.
 */
 
-struct FAsyncPackage : FGCObject
+struct FAsyncPackage : public FGCObject
 {
 	friend struct FScopedAsyncPackageEvent;
 	/**
@@ -477,6 +477,10 @@ struct FAsyncPackage : FGCObject
 
 	/** FGCObject Interface */
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
+	virtual FString GetReferencerName() const override
+	{ 
+		return FString::Printf(TEXT("FAsyncPackage %s"), *GetPackageName().ToString()); 
+	}
 
 	/** Adds a new object referenced by this package */
 	void AddObjectReference(UObject* InObject);
@@ -491,6 +495,9 @@ struct FAsyncPackage : FGCObject
 	/** Gets all assets loaded by this async package, used in the editor */
 	void GetLoadedAssets(TArray<FWeakObjectPtr>& AssetList);
 #endif
+
+	/** Creates GC clusters from loaded objects */
+	EAsyncPackageState::Type CreateClusters(double InTickStartTime, bool bInUseTimeLimit, float& InOutTimeLimit);
 
 private:	
 
@@ -539,12 +546,16 @@ private:
 	int32							PreLoadIndex;
 	/** Current index into ObjLoaded array used to spread routing PreLoad over several frames			*/
 	int32							PreLoadSortIndex;
+	/** Current index into ObjLoaded array used to spread routing PreLoad over several frames			*/
+	int32							FinishExternalReadDependenciesIndex;
 	/** Current index into ObjLoaded array used to spread routing PostLoad over several frames			*/
 	int32							PostLoadIndex;
 	/** Current index into DeferredPostLoadObjects array used to spread routing PostLoad over several frames			*/
 	int32						DeferredPostLoadIndex;
 	/** Current index into DeferredFinalizeObjects array used to spread routing PostLoad over several frames			*/
 	int32						DeferredFinalizeIndex;
+	/** Current index into DeferredClusterObjects array used to spread routing CreateClusters over several frames			*/
+	int32						DeferredClusterIndex;
 	/** Currently used time limit for this tick.														*/
 	float						TimeLimit;
 	/** Whether we are using a time limit for this tick.												*/
@@ -579,6 +590,8 @@ private:
 	TArray<UObject*> PackageObjLoaded;
 	/** Packages that were loaded synchronously while async loading this package or packages added by verify import */
 	TArray<FLinkerLoad*> DelayedLinkerClosePackages;
+	/** Objects to create GC clusters from */
+	TArray<UObject*> DeferredClusterObjects;
 
 	/** List of all request handles */
 	TArray<int32> RequestIDs;
@@ -926,7 +939,9 @@ struct FScopedAsyncPackageEvent
 	~FScopedAsyncPackageEvent();
 };
 
+// Stats for ChartCreation.cpp
+extern COREUOBJECT_API double GFlushAsyncLoadingTime;
+extern COREUOBJECT_API uint32 GFlushAsyncLoadingCount;
+extern COREUOBJECT_API uint32 GSyncLoadCount;
 
-
-
-
+extern COREUOBJECT_API void ResetAsyncLoadingStats();

@@ -1,6 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "SkeletalMeshCustomizationHelpers.h"
+#include "Customizations/SkeletalMeshCustomizationHelpers.h"
 #include "PhysicsEngine/PhysicsSettings.h"
 #include "Widgets/SBoxPanel.h"
 #include "Widgets/Layout/SBox.h"

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3332303
+﻿INTSourceChangelist:3872326
 Availability:Public
 Title:Linux クイックスタート ガイド
 Crumbs:
@@ -17,7 +17,9 @@ topic-image:linuxQS_topic.png
 
 [REGION:imagetable]
 ![](CompiledEditor_Linux.png)(w:920)  
+[REGION:caption]
 このチュートリアルを一通り学習すると、Linux でアンリアル エンジン 4 (UE4) を実行することができます。
+[/REGION]
 [/REGION]
 
 ## 目標
@@ -33,19 +35,9 @@ UE4 を Linux マシンで実行するための主要なワークフローのセ
 * アンリアル エンジンをソースからビルドする
 * HLinux マシンでアンリアル エンジンを実行する
 
-[OBJECT:TopicList]
-	[PARAM:icon]
-		![](%ROOT%/build_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		ステップ
-	[/PARAM]
-	[PARAM:description]
-	[/PARAM]
-	[PARAM:links]
-	[DIR(output:"checkpoint" parent:"Platforms/Linux/BeginnerLinuxDeveloper/SettingUpAnUnrealWorkflow" org:"hierarchy")]
-	[/PARAM]
-[/OBJECT]
+## ステップ
+
+[DIR(output:"checkpoint" parent:"Platforms/Linux/BeginnerLinuxDeveloper/SettingUpAnUnrealWorkflow" org:"hierarchy")]
 
 [REGION:call_to_action]
 	[クリックして開始](Platforms/Linux/BeginnerLinuxDeveloper/SettingUpAnUnrealWorkflow/1 "%Platforms/Linux/BeginnerLinuxDeveloper/SettingUpAnUnrealWorkflow/1:title%")

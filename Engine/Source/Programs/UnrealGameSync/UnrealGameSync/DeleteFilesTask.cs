@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -11,39 +11,59 @@ namespace UnrealGameSync
 {
 	class DeleteFilesTask : IModalTask
 	{
-		List<FileInfo> Files;
-		List<DirectoryInfo> Directories;
+		PerforceConnection Perforce;
+		List<FileInfo> FilesToSync;
+		List<FileInfo> FilesToDelete;
+		List<DirectoryInfo> DirectoriesToDelete;
 
-		public DeleteFilesTask(List<FileInfo> InFiles, List<DirectoryInfo> InDirectories)
+		public DeleteFilesTask(PerforceConnection Perforce, List<FileInfo> FilesToSync, List<FileInfo> FilesToDelete, List<DirectoryInfo> DirectoriesToDelete)
 		{
-			Files = InFiles;
-			Directories = InDirectories;
+			this.Perforce = Perforce;
+			this.FilesToSync = FilesToSync;
+			this.FilesToDelete = FilesToDelete;
+			this.DirectoriesToDelete = DirectoriesToDelete;
 		}
 
 		public bool Run(out string ErrorMessage)
 		{
 			StringBuilder FailMessage = new StringBuilder();
-			foreach(FileInfo File in Files)
+
+			if(FilesToSync.Count > 0)
 			{
-				try
+				List<string> RevisionsToSync = new List<string>();
+				foreach(FileInfo FileToSync in FilesToSync)
 				{
-					File.IsReadOnly = false;
-					File.Delete();
+					RevisionsToSync.Add(String.Format("{0}#have", PerforceUtils.EscapePath(FileToSync.FullName)));
 				}
-				catch(Exception Ex)
+
+				StringWriter Log = new StringWriter();
+				if(!Perforce.Sync(RevisionsToSync, x => { }, new List<string>(), true, null, Log))
 				{
-					FailMessage.AppendFormat("{0} ({1})\r\n", File.FullName, Ex.Message.Trim());
+					FailMessage.Append(Log.ToString());
 				}
 			}
-			foreach(DirectoryInfo Directory in Directories)
+
+			foreach(FileInfo FileToDelete in FilesToDelete)
 			{
 				try
 				{
-					Directory.Delete(true);
+					FileToDelete.IsReadOnly = false;
+					FileToDelete.Delete();
 				}
 				catch(Exception Ex)
 				{
-					FailMessage.AppendFormat("{0} ({1})\r\n", Directory.FullName, Ex.Message.Trim());
+					FailMessage.AppendFormat("{0} ({1})\r\n", FileToDelete.FullName, Ex.Message.Trim());
+				}
+			}
+			foreach(DirectoryInfo DirectoryToDelete in DirectoriesToDelete)
+			{
+				try
+				{
+					DirectoryToDelete.Delete(true);
+				}
+				catch(Exception Ex)
+				{
+					FailMessage.AppendFormat("{0} ({1})\r\n", DirectoryToDelete.FullName, Ex.Message.Trim());
 				}
 			}
 

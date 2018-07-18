@@ -11,7 +11,7 @@
 #include "Widgets/Input/SEditableTextBox.h"
 #include "Widgets/Input/SComboButton.h"
 #include "Widgets/Views/STableViewBase.h"
-#include "ISourceControlOperation.h"
+#include "SourceControlOperationBase.h"
 #include "ISourceControlProvider.h"
 
 class SButton;
@@ -19,13 +19,13 @@ class SButton;
 /**
  * Internal-only source control operation for retrieving available workspaces.
  */
-class FGetWorkspaces : public ISourceControlOperation
+class FGetWorkspaces : public FSourceControlOperationBase
 {
 public:
 	// ISourceControlOperation interface
-	virtual FName GetName() const override 
-	{ 
-		return "GetWorkspaces"; 
+	virtual FName GetName() const override
+	{
+		return "GetWorkspaces";
 	}
 
 public:
@@ -47,9 +47,9 @@ namespace ESourceControlOperationState
 class SPerforceSourceControlSettings : public SCompoundWidget
 {
 public:
-	
+
 	SLATE_BEGIN_ARGS(SPerforceSourceControlSettings) {}
-	
+
 	SLATE_END_ARGS()
 
 public:
@@ -58,7 +58,7 @@ public:
 
 	/** Get the currently entered password */
 	static FString GetPassword();
-	
+
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime );
 private:
 

@@ -17,28 +17,18 @@ extern void UpdateHistory(
 	FRHICommandList& RHICmdList,
 	const FViewInfo& View, 
 	const TCHAR* BentNormalHistoryRTName,
-	const TCHAR* ConfidenceHistoryRTName,
-	const TCHAR* IrradianceHistoryRTName,
 	IPooledRenderTarget* VelocityTexture,
+	FSceneRenderTargetItem& BentNormalInterpolation,
 	FSceneRenderTargetItem& DistanceFieldNormal,
 	/** Contains last frame's history, if non-NULL.  This will be updated with the new frame's history. */
 	FIntRect* DistanceFieldAOHistoryViewRect,
 	TRefCountPtr<IPooledRenderTarget>* BentNormalHistoryState,
-	TRefCountPtr<IPooledRenderTarget>* ConfidenceHistoryState,
-	TRefCountPtr<IPooledRenderTarget>* IrradianceHistoryState,
-	/** Source */
-	TRefCountPtr<IPooledRenderTarget>& BentNormalSource, 
-	TRefCountPtr<IPooledRenderTarget>& ConfidenceSource,
-	TRefCountPtr<IPooledRenderTarget>& IrradianceSource, 
 	/** Output of Temporal Reprojection for the next step in the pipeline. */
 	TRefCountPtr<IPooledRenderTarget>& BentNormalHistoryOutput,
-	TRefCountPtr<IPooledRenderTarget>& IrradianceHistoryOutput);
+	const FDistanceFieldAOParameters& Parameters);
 
 extern void UpsampleBentNormalAO(
 	FRHICommandList& RHICmdList, 
 	const TArray<FViewInfo>& Views, 
-	TRefCountPtr<IPooledRenderTarget>& DistanceFieldAOBentNormal, 
-	TRefCountPtr<IPooledRenderTarget>& DistanceFieldIrradiance,
-	bool bModulateSceneColor,
-	bool bVisualizeAmbientOcclusion,
-	bool bVisualizeGlobalIllumination);
+	TRefCountPtr<IPooledRenderTarget>& DistanceFieldAOBentNormal,
+	bool bModulateSceneColor);

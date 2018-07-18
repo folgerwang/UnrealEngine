@@ -427,8 +427,8 @@ QA_APPROVED_UE4_BUILD_MINIMUM
 * Explicit registration of archive custom versions is now needed.
 	* If a particular class wishes to use Ar.CustomVer(Guid) in its Serialize function, then it should make a Ar.UsingCustomVersion(Guid) call first to inform the archive that the object depends on that custom version.
 	* That Guid must have already been registered via an FCustomVersionRegistration global object.
-	For example:
 
+		For example:
 
 			void MyObject::Serialize(FArchive& Ar)
 			{

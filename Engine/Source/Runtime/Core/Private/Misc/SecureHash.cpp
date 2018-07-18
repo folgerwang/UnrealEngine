@@ -460,72 +460,69 @@ void FMD5::Decode( uint32* output, const uint8* input, int32 len )
 // }
 /// @endcond
 
-namespace Lex
+FString LexToString(const FMD5Hash& Hash)
 {
-	FString ToString(const FMD5Hash& Hash)
+	if (!Hash.bIsValid)
 	{
-		if (!Hash.bIsValid)
-		{
-			return FString();
-		}
-
-		return FString::Printf(TEXT("%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x"),
-			Hash.Bytes[0], Hash.Bytes[1], Hash.Bytes[2], Hash.Bytes[3], Hash.Bytes[4], Hash.Bytes[5], Hash.Bytes[6], Hash.Bytes[7],
-			Hash.Bytes[8], Hash.Bytes[9], Hash.Bytes[10], Hash.Bytes[11], Hash.Bytes[12], Hash.Bytes[13], Hash.Bytes[14], Hash.Bytes[15]);
+		return FString();
 	}
 
-	void FromString(FMD5Hash& Hash, const TCHAR* Buffer)
+	return FString::Printf(TEXT("%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x"),
+		Hash.Bytes[0], Hash.Bytes[1], Hash.Bytes[2], Hash.Bytes[3], Hash.Bytes[4], Hash.Bytes[5], Hash.Bytes[6], Hash.Bytes[7],
+		Hash.Bytes[8], Hash.Bytes[9], Hash.Bytes[10], Hash.Bytes[11], Hash.Bytes[12], Hash.Bytes[13], Hash.Bytes[14], Hash.Bytes[15]);
+}
+
+void LexFromString(FMD5Hash& Hash, const TCHAR* Buffer)
+{
+	auto HexCharacterToDecimalValue = [](const TCHAR InHexChar, uint8& OutDecValue) -> bool
 	{
-		auto HexCharacterToDecimalValue = [](const TCHAR InHexChar, uint8& OutDecValue) -> bool
+		TCHAR Base = 0;
+		if (InHexChar >= '0' && InHexChar <= '9')
 		{
-			TCHAR Base = 0;
-			if (InHexChar >= '0' && InHexChar <= '9')
-			{
-				OutDecValue = InHexChar - '0';
-			}
-			else if (InHexChar >= 'A' && InHexChar <= 'F')
-			{
-				OutDecValue = (InHexChar - 'A') + 10;
-			}
-			else if (InHexChar >= 'a' && InHexChar <= 'f')
-			{
-				OutDecValue = (InHexChar - 'a') + 10;
-			}
-			else
-			{
-				return false;
-			}
-
-			return true;
-		};
-
-		uint8 Bytes[16];
-		for (int32 ByteIndex = 0, BufferIndex = 0; ByteIndex < 16; ++ByteIndex)
+			OutDecValue = InHexChar - '0';
+		}
+		else if (InHexChar >= 'A' && InHexChar <= 'F')
 		{
-			const TCHAR FirstChar = Buffer[BufferIndex++];
-			if (FirstChar == '\0')
-			{
-				return;
-			}
-
-			const TCHAR SecondChar = Buffer[BufferIndex++];
-			if (SecondChar == '\0')
-			{
-				return;
-			}
-
-			uint8 FirstCharVal, SecondCharVal;
-			if (!HexCharacterToDecimalValue(FirstChar, FirstCharVal) || !HexCharacterToDecimalValue(SecondChar, SecondCharVal))
-			{
-				return;
-			}
-
-			Bytes[ByteIndex] = (FirstCharVal << 4) + SecondCharVal;
+			OutDecValue = (InHexChar - 'A') + 10;
+		}
+		else if (InHexChar >= 'a' && InHexChar <= 'f')
+		{
+			OutDecValue = (InHexChar - 'a') + 10;
+		}
+		else
+		{
+			return false;
 		}
 
-		FMemory::Memcpy(Hash.Bytes, Bytes, 16);
-		Hash.bIsValid = true;
+		return true;
+	};
+
+	uint8 Bytes[16];
+	for (int32 ByteIndex = 0, BufferIndex = 0; ByteIndex < 16; ++ByteIndex)
+	{
+		const TCHAR FirstChar = Buffer[BufferIndex++];
+		if (FirstChar == '\0')
+		{
+			return;
+		}
+
+		const TCHAR SecondChar = Buffer[BufferIndex++];
+		if (SecondChar == '\0')
+		{
+			return;
+		}
+
+		uint8 FirstCharVal, SecondCharVal;
+		if (!HexCharacterToDecimalValue(FirstChar, FirstCharVal) || !HexCharacterToDecimalValue(SecondChar, SecondCharVal))
+		{
+			return;
+		}
+
+		Bytes[ByteIndex] = (FirstCharVal << 4) + SecondCharVal;
 	}
+
+	FMemory::Memcpy(Hash.Bytes, Bytes, 16);
+	Hash.bIsValid = true;
 }
 
 FMD5Hash FMD5Hash::HashFile(const TCHAR* InFilename, TArray<uint8>* Buffer)

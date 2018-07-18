@@ -20,6 +20,7 @@ public:
 public:	
 	FAnimNode_BlendListByBool()
 		: FAnimNode_BlendListBase()
+		, bActiveValue(false)
 	{
 	}
 

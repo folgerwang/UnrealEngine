@@ -54,7 +54,7 @@ public:
 private:
 
 	/** Delegate for AnimatablePropertyChanged in AddKey */
-	FKeyPropertyResult AddKeyInternal(float KeyTime, const TArray<TWeakObjectPtr<UObject>> Objects, UCameraAnim* CameraAnim);
+	FKeyPropertyResult AddKeyInternal(FFrameNumber KeyTime, const TArray<TWeakObjectPtr<UObject>> Objects, UCameraAnim* CameraAnim);
 
 	/** Animation sub menu */
 	TSharedRef<SWidget> BuildCameraAnimSubMenu(FGuid ObjectBinding);
@@ -62,6 +62,9 @@ private:
 
 	/** Animation asset selected */
 	void OnCameraAnimAssetSelected(const FAssetData& AssetData, FGuid ObjectBinding);
+
+	/** Animation asset enter pressed */
+	void OnCameraAnimAssetEnterPressed(const TArray<FAssetData>& AssetData, FGuid ObjectBinding);
 
 	class UCameraComponent* AcquireCameraComponentFromObjectGuid(const FGuid& Guid);
 };

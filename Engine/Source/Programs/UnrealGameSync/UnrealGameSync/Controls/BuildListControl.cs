@@ -62,16 +62,30 @@ namespace UnrealGameSync
 
 		public int GetFirstVisibleIndex()
 		{
+			if(!IsHandleCreated)
+			{
+				return 0;
+			}
 			return SendMessage(Handle, LVM_GETTOPINDEX, IntPtr.Zero, IntPtr.Zero).ToInt32();
 		}
 
 		public int GetVisibleItemsPerPage()
 		{
+			if(!IsHandleCreated)
+			{
+				return Height / Font.Height;
+			}
 			return SendMessage(Handle, LVM_GETCOUNTPERPAGE, IntPtr.Zero, IntPtr.Zero).ToInt32();
 		}
 
 		public bool GetScrollPosition(out int ScrollY)
 		{
+			if(!IsHandleCreated)
+			{
+				ScrollY = 0;
+				return false;
+			}
+
 			SCROLLINFO ScrollInfo = new SCROLLINFO();
 			ScrollInfo.cbSize = Marshal.SizeOf(ScrollInfo);
 			ScrollInfo.fMask = SIF_ALL;
@@ -89,21 +103,27 @@ namespace UnrealGameSync
 
 		public void SetScrollPosition(int ScrollY)
 		{
-			SCROLLINFO ScrollInfo = new SCROLLINFO();
-			ScrollInfo.cbSize = Marshal.SizeOf(ScrollInfo);
-			ScrollInfo.nPos = ScrollY;
-			ScrollInfo.fMask = SIF_POS;
-			SetScrollInfo(Handle, SB_VERT, ScrollInfo, 0);
+			if(IsHandleCreated)
+			{
+				SCROLLINFO ScrollInfo = new SCROLLINFO();
+				ScrollInfo.cbSize = Marshal.SizeOf(ScrollInfo);
+				ScrollInfo.nPos = ScrollY;
+				ScrollInfo.fMask = SIF_POS;
+				SetScrollInfo(Handle, SB_VERT, ScrollInfo, 0);
+			}
 		}
 
 		public bool IsScrolledToLastPage()
 		{
-			SCROLLINFO ScrollInfo = new SCROLLINFO();
-			ScrollInfo.cbSize = Marshal.SizeOf(ScrollInfo);
-			ScrollInfo.fMask = SIF_ALL;
-			if(GetScrollInfo(Handle, SB_VERT, ScrollInfo) != 0 && ScrollInfo.nPos >= ScrollInfo.nMax - ScrollInfo.nPage)
+			if(IsHandleCreated)
 			{
-				return true;
+				SCROLLINFO ScrollInfo = new SCROLLINFO();
+				ScrollInfo.cbSize = Marshal.SizeOf(ScrollInfo);
+				ScrollInfo.fMask = SIF_ALL;
+				if(GetScrollInfo(Handle, SB_VERT, ScrollInfo) != 0 && ScrollInfo.nPos >= ScrollInfo.nMax - ScrollInfo.nPage)
+				{
+					return true;
+				}
 			}
 			return false;
 		}

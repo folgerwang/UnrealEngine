@@ -8,14 +8,15 @@
 #include "ControlRig.h"
 #include "ControlRigEditModeSettings.h"
 #include "IDetailRootObjectCustomization.h"
-#include "ModuleManager.h"
-#include "SControlManipulatorPicker.h"
-#include "Rigs/HierarchicalRig.h"
-#include "Rigs/HumanRig.h"
+#include "Modules/ModuleManager.h"
 #include "ControlRigEditMode.h"
 #include "EditorModeManager.h"
-#include "SExpandableArea.h"
-#include "SScrollBox.h"
+#include "Widgets/Layout/SExpandableArea.h"
+#include "Widgets/Layout/SScrollBox.h"
+#include "MovieSceneSequence.h"
+#include "MovieScene.h"
+
+#include "SControlPicker.h"
 
 #define LOCTEXT_NAMESPACE "ControlRigRootCustomization"
 
@@ -40,7 +41,7 @@ public:
 	}
 };
 
-void SControlRigEditModeTools::Construct(const FArguments& InArgs)
+void SControlRigEditModeTools::Construct(const FArguments& InArgs, UWorld* InWorld)
 {
 	// initialize settings view
 	FDetailsViewArgs DetailsViewArgs;
@@ -83,8 +84,7 @@ void SControlRigEditModeTools::Construct(const FArguments& InArgs)
 				.BorderBackgroundColor(FLinearColor(.6f, .6f, .6f))
 				.BodyContent()
 				[
-					SAssignNew(ControlPicker, SControlManipulatorPicker)
-					.OnManipulatorsPicked(this, &SControlRigEditModeTools::OnManipulatorsPicked)
+					SAssignNew(ControlPicker, SControlPicker, InWorld)
 				]
 			]
 
@@ -100,7 +100,7 @@ void SControlRigEditModeTools::Construct(const FArguments& InArgs)
 	FControlRigEditMode* ControlRigEditMode = static_cast<FControlRigEditMode*>(GLevelEditorModeTools().GetActiveMode(FControlRigEditMode::ModeName));
 	if (ControlRigEditMode)
 	{
-		ControlRigEditMode->OnNodesSelected().AddSP(this, &SControlRigEditModeTools::OnSelectionSetChanged);
+		ControlRigEditMode->OnControlsSelected().AddSP(this, &SControlRigEditModeTools::OnSelectionSetChanged);
 	}	
 }
 
@@ -108,18 +108,18 @@ void SControlRigEditModeTools::SetDetailsObjects(const TArray<TWeakObjectPtr<>>&
 {
 	DetailsView->SetObjects(InObjects);
 
-	// Look for the first UHierarchicalRig
-	UHierarchicalRig* Rig = nullptr;
+	// Look for the first UControlRig
+	UControlRig* Rig = nullptr;
 	for (TWeakObjectPtr<UObject> ObjPtr : InObjects)
 	{
-		Rig = Cast<UHierarchicalRig>(ObjPtr.Get());
+		Rig = Cast<UControlRig>(ObjPtr.Get());
 		if (Rig)
 		{
 			break;
 		}
 	}
 
-	ControlPicker->SetHierarchicalRig(Rig);
+	ControlPicker->SetControlRig(Rig);
 
 	// Expand when you have a rig, collapse when set to null
 	PickerExpander->SetExpanded(Rig != nullptr);
@@ -154,6 +154,26 @@ bool SControlRigEditModeTools::IsPropertyKeyingEnabled() const
 	return false;
 }
 
+bool SControlRigEditModeTools::IsPropertyAnimated(const IPropertyHandle& PropertyHandle, UObject *ParentObject) const
+{
+	TSharedPtr<ISequencer> Sequencer = WeakSequencer.Pin();
+	if (Sequencer.IsValid() && Sequencer->GetFocusedMovieSceneSequence())
+	{
+		FGuid ObjectHandle = Sequencer->GetHandleToObject(ParentObject);
+		if (ObjectHandle.IsValid()) 
+		{
+			UMovieScene* MovieScene = Sequencer->GetFocusedMovieSceneSequence()->GetMovieScene();
+			UProperty* Property = PropertyHandle.GetProperty();
+			TSharedRef<FPropertyPath> PropertyPath = FPropertyPath::CreateEmpty();
+			PropertyPath->AddProperty(FPropertyInfo(Property));
+			FName PropertyName(*PropertyPath->ToString(TEXT(".")));
+			TSubclassOf<UMovieSceneTrack> TrackClass; //use empty @todo find way to get the UMovieSceneTrack from the Property type.
+			return MovieScene->FindTrack(TrackClass, ObjectHandle, PropertyName) != nullptr;
+		}
+	}
+	return false;
+}
+
 void SControlRigEditModeTools::OnKeyPropertyClicked(const IPropertyHandle& KeyedPropertyHandle)
 {
 	TArray<UObject*> Objects;
@@ -171,11 +191,12 @@ bool SControlRigEditModeTools::ShouldShowPropertyOnDetailCustomization(const FPr
 {
 	auto ShouldPropertyBeVisible = [](const UProperty& InProperty)
 	{
-		bool bShow = InProperty.HasAnyPropertyFlags(CPF_Interp) || InProperty.HasMetaData(UControlRig::AnimationInputMetaName) || InProperty.HasMetaData(UControlRig::AnimationOutputMetaName);
+		bool bShow = InProperty.HasAnyPropertyFlags(CPF_Interp) || InProperty.HasMetaData(UControlRig::InputMetaName) || InProperty.HasMetaData(UControlRig::OutputMetaName);
 
-		// Show 'PickerIKTogglePos' properties
+	/*	// Show 'PickerIKTogglePos' properties
 		bShow |= (InProperty.GetFName() == GET_MEMBER_NAME_CHECKED(FLimbControl, PickerIKTogglePos));
 		bShow |= (InProperty.GetFName() == GET_MEMBER_NAME_CHECKED(FSpineControl, PickerIKTogglePos));
+*/
 
 		// Always show settings properties
 		bShow |= Cast<UClass>(InProperty.GetOuter()) == UControlRigEditModeSettings::StaticClass();
@@ -203,7 +224,7 @@ bool SControlRigEditModeTools::IsReadOnlyPropertyOnDetailCustomization(const FPr
 {
 	auto ShouldPropertyBeEnabled = [](const UProperty& InProperty)
 	{
-		bool bShow = InProperty.HasAnyPropertyFlags(CPF_Interp) || InProperty.HasMetaData(UControlRig::AnimationInputMetaName);
+		bool bShow = InProperty.HasAnyPropertyFlags(CPF_Interp) || InProperty.HasMetaData(UControlRig::InputMetaName);
 
 		// Always show settings properties
 		bShow |= Cast<UClass>(InProperty.GetOuter()) == UControlRigEditModeSettings::StaticClass();
@@ -229,25 +250,27 @@ bool SControlRigEditModeTools::IsReadOnlyPropertyOnDetailCustomization(const FPr
 
 static bool bPickerChangingSelection = false;
 
-void SControlRigEditModeTools::OnManipulatorsPicked(const TArray<FName>& Manipulators)
+void SControlRigEditModeTools::OnManipulatorsPicked(const TArray<FString>& Manipulators)
 {
 	FControlRigEditMode* ControlRigEditMode = static_cast<FControlRigEditMode*>(GLevelEditorModeTools().GetActiveMode(FControlRigEditMode::ModeName));
 	if (ControlRigEditMode)
 	{
 		bPickerChangingSelection = true;
-		ControlRigEditMode->ClearNodeSelection();
-		ControlRigEditMode->SetNodeSelection(Manipulators, true);
+		ControlRigEditMode->ClearControlSelection();
+		ControlRigEditMode->SetControlSelection(Manipulators, true);
 		bPickerChangingSelection = false;
 	}
 }
 
-void SControlRigEditModeTools::OnSelectionSetChanged(const TArray<FName>& SelectedManipulators)
+void SControlRigEditModeTools::OnSelectionSetChanged(const TArray<FString>& SelectedManipulators)
 {
+/*
 	// Don't want to udpate picker selection set if its the picker causing the change
 	if (!bPickerChangingSelection)
 	{
 		ControlPicker->SetSelectedManipulators(SelectedManipulators);
 	}
+*/
 }
 
 #undef LOCTEXT_NAMESPACE

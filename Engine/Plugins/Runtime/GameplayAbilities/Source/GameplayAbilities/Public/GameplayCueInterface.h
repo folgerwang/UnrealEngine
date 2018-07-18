@@ -23,8 +23,10 @@ class GAMEPLAYABILITIES_API IGameplayCueInterface
 {
 	GENERATED_IINTERFACE_BODY()
 
+	/** Handle a single gameplay cue */
 	virtual void HandleGameplayCue(AActor *Self, FGameplayTag GameplayCueTag, EGameplayCueEvent::Type EventType, FGameplayCueParameters Parameters);
 
+	/** Wrapper that handles multiple cues */
 	virtual void HandleGameplayCues(AActor *Self, const FGameplayTagContainer& GameplayCueTags, EGameplayCueEvent::Type EventType, FGameplayCueParameters Parameters);
 
 	/** Returns true if the actor can currently accept gameplay cues associated with the given tag. Returns true by default. Allows actors to opt out of cues in cases such as pending death */
@@ -44,8 +46,10 @@ class GAMEPLAYABILITIES_API IGameplayCueInterface
 	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category="Ability|GameplayCue")
 	virtual void ForwardGameplayCueToParent();
 
+	/** Calls the UFunction override for a specific gameplay cue */
 	static void DispatchBlueprintCustomHandler(AActor* Actor, UFunction* Func, EGameplayCueEvent::Type EventType, FGameplayCueParameters Parameters);
 
+	/** Clears internal cache of what classes implement which functions */
 	static void ClearTagToFunctionMap();
 
 	IGameplayCueInterface() : bForwardToParent(false) {}
@@ -53,7 +57,6 @@ class GAMEPLAYABILITIES_API IGameplayCueInterface
 private:
 	/** If true, keep checking for additional handlers */
 	bool bForwardToParent;
-
 };
 
 
@@ -64,8 +67,6 @@ private:
  *	
  *	Essentially provides bare necessities to replicate GameplayCue Tags.
  */
-
-
 struct FActiveGameplayCueContainer;
 
 USTRUCT(BlueprintType)

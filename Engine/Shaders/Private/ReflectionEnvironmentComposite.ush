@@ -5,13 +5,7 @@
 =============================================================================*/
 
 #if FEATURE_LEVEL >= FEATURE_LEVEL_SM5
-	/** Prenormalized capture of the scene that's closest to the object being rendered, used for reflection environment on translucency. */
-	TextureCubeArray ReflectionCubemap;
-	SamplerState ReflectionCubemapSampler;
 	int SingleCubemapArrayIndex;	
-#else
-	TextureCube ReflectionCubemap;
-	SamplerState ReflectionCubemapSampler;
 #endif  
 
 float4 SingleCaptureOffsetAndAverageBrightness;
@@ -46,16 +40,23 @@ float3 CompositeReflectionCapturesAndSkylight(
 			break;
 		}
 
-		uint CaptureIndex = 0;
+	uint CaptureIndex = 0;
+	#if INSTANCED_STEREO
 		BRANCH
 		if (EyeIndex == 0)
 		{
-			CaptureIndex = CompositeTileReflectionCaptureIndices[CaptureDataStartIndex + TileCaptureIndex];
+	#endif
+	
+			CaptureIndex = ForwardLightData.CulledLightDataGrid[CaptureDataStartIndex + TileCaptureIndex];
+	
+	#if INSTANCED_STEREO
 		}
 		else
 		{
-			CaptureIndex = InstancedCompositeTileReflectionCaptureIndices[CaptureDataStartIndex + TileCaptureIndex];
+			CaptureIndex = ForwardLightDataISR.CulledLightDataGrid[CaptureDataStartIndex + TileCaptureIndex];
 		}
+	#endif
+
 			
 		float4 CapturePositionAndRadius = ReflectionCapture.PositionAndRadius[CaptureIndex];
 		float4 CaptureProperties = ReflectionCapture.CaptureProperties[CaptureIndex];
@@ -101,7 +102,7 @@ float3 CompositeReflectionCapturesAndSkylight(
 			float CaptureArrayIndex = CaptureProperties.g;
 
 			{
-				float4 Sample = ReflectionCubemap.SampleLevel(ReflectionCubemapSampler, float4(ProjectedCaptureVector, CaptureArrayIndex), Mip);
+				float4 Sample = ReflectionStruct.ReflectionCubemap.SampleLevel(ReflectionStruct.ReflectionCubemapSampler, float4(ProjectedCaptureVector, CaptureArrayIndex), Mip);
 
 				Sample.rgb *= CaptureProperties.r;
 				Sample *= DistanceAlpha;
@@ -136,7 +137,7 @@ float3 CompositeReflectionCapturesAndSkylight(
 		ProjectedCaptureVector = lerp(RayDirection, normalize(ProjectedCaptureVector), DistanceAlpha);
 	#endif
 
-	float4 Sample = TextureCubeArraySampleLevel(ReflectionCubemap, ReflectionCubemapSampler, ProjectedCaptureVector, SingleCubemapArrayIndex, Mip);
+	float4 Sample = TextureCubeArraySampleLevel(ReflectionStruct.ReflectionCubemap, ReflectionStruct.ReflectionCubemapSampler, ProjectedCaptureVector, SingleCubemapArrayIndex, Mip);
 
 	Sample.rgb *= SingleCaptureBrightness;
 	ImageBasedReflections = float4(Sample.rgb, 1 - Sample.a);
@@ -161,7 +162,7 @@ float3 CompositeReflectionCapturesAndSkylight(
 #if ENABLE_SKY_LIGHT
 
 	BRANCH  
-	if (SkyLightParameters.y > 0)
+	if (ReflectionStruct.SkyLightParameters.y > 0)
 	{
 		float SkyAverageBrightness = 1.0f;
 
@@ -172,7 +173,7 @@ float3 CompositeReflectionCapturesAndSkylight(
 		#endif
 
 		// Normalize for static skylight types which mix with lightmaps
-		bool bNormalize = SkyLightParameters.z < 1 && ALLOW_STATIC_LIGHTING;
+		bool bNormalize = ReflectionStruct.SkyLightParameters.z < 1 && ALLOW_STATIC_LIGHTING;
 
 		FLATTEN
 		if (bNormalize)

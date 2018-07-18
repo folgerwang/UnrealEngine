@@ -13,6 +13,25 @@
 
 struct FPropertyChangedEvent;
 
+UENUM()
+enum class ECookProgressDisplayMode : int32
+{
+	/** Don't display any progress messages */
+	Nothing = 0,
+
+	/** Display the number of remaining packages */
+	RemainingPackages = 1,
+
+	/** Display names of cooked packages */
+	PackageNames = 2,
+
+	/** Display the number of remaining packages and package names */
+	NamesAndRemainingPackages = 3,
+
+	/** MAX - invalid */
+	Max UMETA(Hidden),
+};
+
 /**
  * Various cooker settings.
  */
@@ -39,6 +58,11 @@ public:
 	/** Enable -iterate for launch on */
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = Cooker, meta = (DisplayName = "Iterative cooking for the File->Cook Content menu item"))
 	bool bIterativeCookingForFileCookContent;
+
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = Cooker, meta = (
+		ConsoleVariable = "cook.displaymode", DisplayName = "Cooker Progress Display Mode",
+		ToolTip = "Controls log output of the cooker"))
+	ECookProgressDisplayMode CookProgressDisplayMode;
 
 	/** Ignore ini changes when doing iterative cooking, either in editor or out of editor */
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = Cooker, AdvancedDisplay)
@@ -76,8 +100,8 @@ public:
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = Textures, meta = (DisplayName = "PVRTC Compression Quality (0-4, 0 is fastest)"))
 	int32 DefaultPVRTCQuality;
 
-	/** Quality of 0 means fastest, 4 means best quality */
-	UPROPERTY(GlobalConfig, EditAnywhere, Category = Textures, meta = (DisplayName = "ASTC Compression Quality vs Speed (0-4, 0 is fastest)"))
+	/** Quality of 0 means fastest, 3 means best quality */
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = Textures, meta = (DisplayName = "ASTC Compression Quality vs Speed (0-3, 0 is fastest)"))
 	int32 DefaultASTCQualityBySpeed;
 
 	/** Quality of 0 means smallest (12x12 block size), 4 means best (4x4 block size) */

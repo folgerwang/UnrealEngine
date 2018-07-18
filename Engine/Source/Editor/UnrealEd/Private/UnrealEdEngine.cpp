@@ -15,6 +15,8 @@
 #include "Materials/Material.h"
 #include "Editor/EditorPerProjectUserSettings.h"
 #include "ISourceControlModule.h"
+#include "SourceControlHelpers.h"
+#include "SourceControlOperations.h"
 #include "Settings/EditorExperimentalSettings.h"
 #include "Settings/EditorLoadingSavingSettings.h"
 #include "ThumbnailRendering/ThumbnailManager.h"
@@ -574,15 +576,24 @@ void UUnrealEdEngine::OnSourceControlStateUpdated(const FSourceControlOperationR
 				{
 					if (SourceControlState->CanCheckout())
 					{
-						if (Settings->bAutomaticallyCheckoutOnAssetModification)
+						// If this package is checked out or modified in another branch
+						if (SourceControlState->IsCheckedOutOrModifiedInOtherBranch())
 						{
-							PackagesToAutomaticallyCheckOut.Add(PackagePtr);
-							FilesToAutomaticallyCheckOut.Add(SourceControlHelpers::PackageFilename(Package));
+							PackageToNotifyState.Add(PackagePtr, NS_PendingWarning);
+							bShowPackageNotification = true;
 						}
 						else
 						{
-							PackageToNotifyState.Add(PackagePtr, NS_PendingPrompt);
-							bShowPackageNotification = true;
+							if (Settings->bAutomaticallyCheckoutOnAssetModification)
+							{
+								PackagesToAutomaticallyCheckOut.Add(PackagePtr);
+								FilesToAutomaticallyCheckOut.Add(SourceControlHelpers::PackageFilename(Package));
+							}
+							else
+							{
+								PackageToNotifyState.Add(PackagePtr, NS_PendingPrompt);
+								bShowPackageNotification = true;
+							}
 						}
 					}
 					else if (!SourceControlState->IsCurrent() || SourceControlState->IsCheckedOutOther())
@@ -670,11 +681,11 @@ UWorld* SavedGWorld = NULL;
 void UUnrealEdEngine::OnPreWindowsMessage(FViewport* Viewport, uint32 Message)
 {
 	// Make sure the proper GWorld is set before handling the windows message
-	if( GEditor->GameViewport && !GUnrealEd->bIsSimulatingInEditor && GEditor->GameViewport->Viewport == Viewport && !GIsPlayInEditorWorld )
+	if( GameViewport && !bIsSimulatingInEditor && GameViewport->Viewport == Viewport && !GIsPlayInEditorWorld )
 	{
 		// remember the current GWorld that will be restored in the PostWindowsMessage callback
 		SavedGWorld = GWorld;
-		SetPlayInEditorWorld( GEditor->PlayWorld );
+		SetPlayInEditorWorld( PlayWorld );
 	}
 	else
 	{
@@ -727,7 +738,7 @@ void UUnrealEdEngine::ConvertMatinees()
 			if( InterpData->IsIn( Level ) ) 
 			{
 				// We dont care about renaming references or adding redirectors.  References to this will be old seqact_interps
-				GEditor->RenameObject( InterpData, Level->GetOutermost(), *InterpData->GetName() );
+				RenameObject( InterpData, Level->GetOutermost(), *InterpData->GetName() );
 
 				AMatineeActor* MatineeActor = Level->OwningWorld->SpawnActor<AMatineeActor>(StartLocation, FRotator::ZeroRotator);
 				StartLocation.Y += 50;

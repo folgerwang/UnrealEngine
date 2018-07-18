@@ -14,12 +14,6 @@ Topic-image:BuildOps_Topic.png
 [TOC(start:2 end:3)]
 
 
-[VAR:spacer]![](%ROOT%/spacer.png)(w:150 convert:false)[/VAR]
-[VAR:spacer2]![](%ROOT%/spacer.png)(w:40 convert:false)[/VAR]
-
-
-
-
 As part of the packaging process, the [Automation Tool](Programming/Automation) (sometimes abbreviated as UAT for Unreal Automation Tool) is used to work through a set of utility scripts for manipulating Unreal Engine 4 (UE4) projects. For the packaging process, the Automation Tool uses a particular command called **BuildCookRun**. These build operations cook content for a platform, package it up into the platforms own file format, deploys it to the device, and automatically runs the project (where applicable). This process enables you to deploy content to a given platform at any point during development for testing, debugging, and even full distribution of a project.
 
 
@@ -222,4 +216,5 @@ To deploy a build from the Project Launcher, you must have a project that cooked
 [REGION:note]
 For additional information about this deployment methods and their available settings, refer to the [Project Launcher](Engine/Deployment/ProjectLauncher#deploy) reference page.
 [/REGION]
+
 

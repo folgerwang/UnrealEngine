@@ -60,17 +60,17 @@ static FAutoConsoleVariableRef CVarNumLightsBeforeUsingTiledDeferred(
  * Light data is split into two constant buffers to allow more lights per pass before hitting the d3d11 max constant buffer size of 4096 float4's
  */
 BEGIN_UNIFORM_BUFFER_STRUCT(FTiledDeferredLightData,)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_ARRAY(FVector4,LightPositionAndInvRadius,[GMaxNumTiledDeferredLights])
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_ARRAY(FVector4,LightColorAndFalloffExponent,[GMaxNumTiledDeferredLights])
+	UNIFORM_MEMBER_ARRAY(FVector4,LightPositionAndInvRadius,[GMaxNumTiledDeferredLights])
+	UNIFORM_MEMBER_ARRAY(FVector4,LightColorAndFalloffExponent,[GMaxNumTiledDeferredLights])
 END_UNIFORM_BUFFER_STRUCT(FTiledDeferredLightData)
 
 IMPLEMENT_UNIFORM_BUFFER_STRUCT(FTiledDeferredLightData,TEXT("TiledDeferred"));
 
 /** Second constant buffer of light data for tiled deferred. */
 BEGIN_UNIFORM_BUFFER_STRUCT(FTiledDeferredLightData2,)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_ARRAY(FVector4,LightDirectionAndSpotlightMaskAndMinRoughness,[GMaxNumTiledDeferredLights])
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_ARRAY(FVector4,SpotAnglesAndSourceRadiusAndSimpleLighting,[GMaxNumTiledDeferredLights])
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_ARRAY(FVector4,ShadowMapChannelMask,[GMaxNumTiledDeferredLights])
+	UNIFORM_MEMBER_ARRAY(FVector4,LightDirectionAndSpotlightMaskAndSpecularScale,[GMaxNumTiledDeferredLights])
+	UNIFORM_MEMBER_ARRAY(FVector4,SpotAnglesAndSourceRadiusAndSimpleLighting,[GMaxNumTiledDeferredLights])
+	UNIFORM_MEMBER_ARRAY(FVector4,ShadowMapChannelMask,[GMaxNumTiledDeferredLights])
 END_UNIFORM_BUFFER_STRUCT(FTiledDeferredLightData2)
 
 IMPLEMENT_UNIFORM_BUFFER_STRUCT(FTiledDeferredLightData2,TEXT("TiledDeferred2"));
@@ -101,13 +101,17 @@ public:
 	FTiledDeferredLightingCS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
 		: FGlobalShader(Initializer)
 	{
-		DeferredParameters.Bind(Initializer.ParameterMap);
+		SceneTextureParameters.Bind(Initializer);
 		InTexture.Bind(Initializer.ParameterMap, TEXT("InTexture"));
 		OutTexture.Bind(Initializer.ParameterMap, TEXT("OutTexture"));
 		NumLights.Bind(Initializer.ParameterMap, TEXT("NumLights"));
 		ViewDimensions.Bind(Initializer.ParameterMap, TEXT("ViewDimensions"));
-		PreIntegratedBRDF.Bind(Initializer.ParameterMap, TEXT("PreIntegratedBRDF"));
-		PreIntegratedBRDFSampler.Bind(Initializer.ParameterMap, TEXT("PreIntegratedBRDFSampler"));
+		LTCMatTexture.Bind(Initializer.ParameterMap, TEXT("LTCMatTexture"));
+		LTCMatSampler.Bind(Initializer.ParameterMap, TEXT("LTCMatSampler"));
+		LTCAmpTexture.Bind(Initializer.ParameterMap, TEXT("LTCAmpTexture"));
+		LTCAmpSampler.Bind(Initializer.ParameterMap, TEXT("LTCAmpSampler"));
+		TransmissionProfilesTexture.Bind(Initializer.ParameterMap, TEXT("SSProfilesTexture"));
+		TransmissionProfilesLinearSampler.Bind(Initializer.ParameterMap, TEXT("TransmissionProfilesLinearSampler"));
 	}
 
 	FTiledDeferredLightingCS()
@@ -131,7 +135,7 @@ public:
 		FComputeShaderRHIParamRef ShaderRHI = GetComputeShader();
 
 		FGlobalShader::SetParameters<FViewUniformShaderParameters>(RHICmdList, ShaderRHI, View.ViewUniformBuffer);
-		DeferredParameters.Set(RHICmdList, ShaderRHI, View, MD_PostProcess);
+		SceneTextureParameters.Set(RHICmdList, ShaderRHI, View.FeatureLevel, ESceneTextureSetupMode::All);
 		SetTextureParameter(RHICmdList, ShaderRHI, InTexture, InTextureValue.GetRenderTargetItem().ShaderResourceTexture);
 
 		FUnorderedAccessViewRHIParamRef OutUAV = OutTextureValue.GetRenderTargetItem().UAV;
@@ -143,11 +147,41 @@ public:
 		SetTextureParameter(
 			RHICmdList, 
 			ShaderRHI,
-			PreIntegratedBRDF,
-			PreIntegratedBRDFSampler,
+			LTCMatTexture,
+			LTCMatSampler,
 			TStaticSamplerState<SF_Bilinear,AM_Clamp,AM_Clamp,AM_Clamp>::GetRHI(),
-			GEngine->PreIntegratedSkinBRDFTexture->Resource->TextureRHI
+			GSystemTextures.LTCMat->GetRenderTargetItem().ShaderResourceTexture
 			);
+
+		SetTextureParameter(
+			RHICmdList, 
+			ShaderRHI,
+			LTCAmpTexture,
+			LTCAmpSampler,
+			TStaticSamplerState<SF_Bilinear,AM_Clamp,AM_Clamp,AM_Clamp>::GetRHI(),
+			GSystemTextures.LTCAmp->GetRenderTargetItem().ShaderResourceTexture
+			);
+
+		if (TransmissionProfilesTexture.IsBound())
+		{
+			FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
+			const IPooledRenderTarget* PooledRT = GetSubsufaceProfileTexture_RT((FRHICommandListImmediate&)RHICmdList);
+
+			if (!PooledRT)
+			{
+				// no subsurface profile was used yet
+				PooledRT = GSystemTextures.BlackDummy;
+			}
+
+			const FSceneRenderTargetItem& Item = PooledRT->GetRenderTargetItem();
+
+			SetTextureParameter(RHICmdList,
+				ShaderRHI,
+				TransmissionProfilesTexture,
+				TransmissionProfilesLinearSampler,
+				TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI(),
+				Item.ShaderResourceTexture);
+		}
 
 		static const auto AllowStaticLightingVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.AllowStaticLighting"));
 		const bool bAllowStaticLighting = (!AllowStaticLightingVar || AllowStaticLightingVar->GetValueOnRenderThread() != 0);
@@ -183,10 +217,10 @@ public:
 				}
 
 				{
-					// SpotlightMaskAndMinRoughness, >0:Spotlight, MinRoughness = abs();
-					float W = FMath::Max(0.0001f, LightParameters.LightMinRoughness) * ((LightSceneInfo->Proxy->GetLightType() == LightType_Spot) ? 1 : -1);
+					// SignBit:Spotlight, SpecularScale = abs();
+					float W = LightParameters.SpecularScale * ((LightSceneInfo->Proxy->GetLightType() == LightType_Spot) ? 1 : -1);
 
-					LightData2.LightDirectionAndSpotlightMaskAndMinRoughness[LightIndex] = FVector4(LightParameters.NormalizedLightDirection, W);
+					LightData2.LightDirectionAndSpotlightMaskAndSpecularScale[LightIndex] = FVector4(LightParameters.NormalizedLightDirection, W);
 				}
 
 				LightData2.SpotAnglesAndSourceRadiusAndSimpleLighting[LightIndex] = FVector4(
@@ -215,7 +249,7 @@ public:
 				const FSimpleLightPerViewEntry& SimpleLightPerViewData = SimpleLights.GetViewDependentData(SimpleLightIndex, ViewIndex, NumViews);
 				LightData.LightPositionAndInvRadius[LightIndex] = FVector4(SimpleLightPerViewData.Position, 1.0f / FMath::Max(SimpleLight.Radius, KINDA_SMALL_NUMBER));
 				LightData.LightColorAndFalloffExponent[LightIndex] = FVector4(SimpleLight.Color, SimpleLight.Exponent);
-				LightData2.LightDirectionAndSpotlightMaskAndMinRoughness[LightIndex] = FVector4(FVector(1, 0, 0), 0);
+				LightData2.LightDirectionAndSpotlightMaskAndSpecularScale[LightIndex] = FVector4(FVector(1, 0, 0), 0);
 				LightData2.SpotAnglesAndSourceRadiusAndSimpleLighting[LightIndex] = FVector4(-2, 1, 0, 1);
 				LightData2.ShadowMapChannelMask[LightIndex] = FVector4(0, 0, 0, 0);
 			}
@@ -237,13 +271,17 @@ public:
 	virtual bool Serialize(FArchive& Ar) override
 	{		
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
-		Ar << DeferredParameters;
+		Ar << SceneTextureParameters;
 		Ar << OutTexture;
 		Ar << InTexture;
 		Ar << NumLights;
 		Ar << ViewDimensions;
-		Ar << PreIntegratedBRDF;
-		Ar << PreIntegratedBRDFSampler;
+		Ar << LTCMatTexture;
+		Ar << LTCMatSampler;
+		Ar << LTCAmpTexture;
+		Ar << LTCAmpSampler;
+		Ar << TransmissionProfilesTexture;
+		Ar << TransmissionProfilesLinearSampler;
 		return bShaderHasOutdatedParameters;
 	}
 
@@ -259,13 +297,17 @@ public:
 
 private:
 
-	FDeferredPixelShaderParameters DeferredParameters;
+	FSceneTextureShaderParameters SceneTextureParameters;
 	FShaderResourceParameter InTexture;
 	FRWShaderParameter OutTexture;
 	FShaderParameter NumLights;
 	FShaderParameter ViewDimensions;
-	FShaderResourceParameter PreIntegratedBRDF;
-	FShaderResourceParameter PreIntegratedBRDFSampler;
+	FShaderResourceParameter LTCMatTexture;
+	FShaderResourceParameter LTCMatSampler;
+	FShaderResourceParameter LTCAmpTexture;
+	FShaderResourceParameter LTCAmpSampler;
+	FShaderResourceParameter TransmissionProfilesTexture;
+	FShaderResourceParameter TransmissionProfilesLinearSampler;
 };
 
 // #define avoids a lot of code duplication

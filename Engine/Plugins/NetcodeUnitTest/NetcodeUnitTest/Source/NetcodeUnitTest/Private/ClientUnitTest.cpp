@@ -251,9 +251,10 @@ void UClientUnitTest::NotifyNetworkFailure(ENetworkFailure::Type FailureType, co
 				{
 					LogMsg += TEXT(".");
 
-					// @todo #JohnB: Should this only be a warning if automation is not running? Otherwise should be normal log
-					UNIT_LOG(ELogType::StatusWarning, TEXT("%s"), *LogMsg);
-					UNIT_STATUS_LOG(ELogType::StatusWarning | ELogType::StatusVerbose, TEXT("%s"), *LogMsg);
+					ELogType CurLogType = GIsAutomationTesting ? ELogType::None : ELogType::StatusWarning;
+
+					UNIT_LOG(CurLogType, TEXT("%s"), *LogMsg);
+					UNIT_STATUS_LOG(CurLogType | ELogType::StatusVerbose, TEXT("%s"), *LogMsg);
 
 					bPendingNetworkFailure = true;
 				}
@@ -1155,13 +1156,20 @@ void UClientUnitTest::StartUnitTestServer()
 				}
 			}
 
-			auto CurHandle = ServerHandle.Pin();
+			TSharedPtr<FUnitTestProcess> CurHandle = ServerHandle.Pin();
 
 			CurHandle->ProcessTag = FString::Printf(TEXT("UE4_Server_%i"), CurHandle->ProcessID);
 			CurHandle->BaseLogType = ELogType::Server;
 			CurHandle->LogPrefix = TEXT("[SERVER]");
 			CurHandle->MainLogColor = COLOR_CYAN;
 			CurHandle->SlateLogColor = FLinearColor(0.f, 1.f, 1.f);
+
+			// Strip out 'Error: ' from server log output, when expecting a crash during automation testing,
+			// in order to avoid triggering an automation test failure
+			if (GIsAutomationTesting && !!(UnitTestFlags & EUnitTestFlags::ExpectServerCrash))
+			{
+				CurHandle->bStripErrorLogs = true;
+			}
 		}
 	}
 	else

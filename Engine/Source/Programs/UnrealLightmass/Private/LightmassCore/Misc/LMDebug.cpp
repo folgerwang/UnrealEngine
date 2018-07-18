@@ -2,7 +2,7 @@
 
 #include "LMDebug.h"
 #include "LMCore.h"
-#include "ExceptionHandling.h"
+#include "HAL/ExceptionHandling.h"
 #include "UnrealLightmass.h"
 #include "Misc/OutputDeviceRedirector.h"
 #include "HAL/FileManager.h"
@@ -11,7 +11,7 @@
 #include "Misc/CommandLine.h"
 
 #if PLATFORM_WINDOWS
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 #endif // PLATFORM_WINDOWS
 
 namespace Lightmass
@@ -186,5 +186,5 @@ void appHandleCriticalError()
 }	//namespace Lightmass
 
 #if PLATFORM_WINDOWS
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 #endif // PLATFORM_WINDOWS

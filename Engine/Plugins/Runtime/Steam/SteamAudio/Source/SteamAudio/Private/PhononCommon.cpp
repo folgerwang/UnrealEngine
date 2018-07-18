@@ -5,10 +5,10 @@
 #include "PhononCommon.h"
 #include "Misc/Paths.h"
 #include "EngineUtils.h"
-#include "FileManager.h"
-#include "IPluginManager.h"
+#include "HAL/FileManager.h"
+#include "Interfaces/IPluginManager.h"
 #include "HAL/PlatformProcess.h"
-#include "Regex.h"
+#include "Internationalization/Regex.h"
 
 DEFINE_LOG_CATEGORY(LogSteamAudio);
 
@@ -77,28 +77,23 @@ namespace SteamAudio
 	FString RuntimePath;
 	FString EditorOnlyPath;
 
-	static void* UnrealAlloc(const size_t size, const size_t alignment)
+	void* UnrealAlloc(const size_t size, const size_t alignment)
 	{
 		return FMemory::Malloc(size, alignment);
 	}
 
-	static void UnrealFree(void* ptr)
+	void UnrealFree(void* ptr)
 	{
 		FMemory::Free(ptr);
 	}
 
-	static void UnrealLog(char* msg)
+	void UnrealLog(char* msg)
 	{
 		FString Message(msg);
 		UE_LOG(LogSteamAudio, Log, TEXT("%s"), *Message); 
 	}
 
-	const IPLContext GlobalContext =
-	{
-		UnrealLog,
-		nullptr, //UnrealAlloc, 
-		nullptr  //UnrealFree
-	};
+	IPLhandle GlobalContext = nullptr;
 
 	FVector UnrealToPhononFVector(const FVector& UnrealCoords, const bool bScale)
 	{
@@ -199,36 +194,6 @@ namespace SteamAudio
 				OutMatrix[j * 4 + i] = ConvertedMatrix.M[i][j];
 			}
 		}
-	}
-
-	// https://www.mbeckler.org/blog/?p=114
-	FText PrettyPrintedByte(const int32 NumBytes)
-	{
-		FString suffixes[7];
-		suffixes[0] = "B";
-		suffixes[1] = "KB";
-		suffixes[2] = "MB";
-		suffixes[3] = "GB";
-		suffixes[4] = "TB";
-		suffixes[5] = "PB";
-		suffixes[6] = "EB";
-		uint32 s = 0; // which suffix to use
-		double count = NumBytes;
-		while (count >= 1024 && s < 7)
-		{
-			s++;
-			count /= 1024;
-		}
-		
-		FFormatNamedArguments Arguments;
-		FNumberFormattingOptions NumberFormat;
-		NumberFormat.MinimumIntegralDigits = 1;
-		NumberFormat.MaximumIntegralDigits = 10000;
-		NumberFormat.MinimumFractionalDigits = 1;
-		NumberFormat.MaximumFractionalDigits = 1;
-		Arguments.Add(TEXT("Count"), FText::AsNumber(count, &NumberFormat));
-		Arguments.Add(TEXT("Suffix"), FText::FromString(suffixes[s]));
-		return FText::Format(NSLOCTEXT("ByteText", "ByteText", "{Count} {Suffix}"), Arguments);
 	}
 
 	FString StrippedMapName(const FString& MapName)

@@ -10,10 +10,9 @@ using Tools.DotNETCommon;
 
 namespace UnrealBuildTool
 {
-	class HTML5ToolChain : VCToolChain
+	class HTML5ToolChain : UEToolChain
 	{
 		// ini configurations
-		static bool targetWebGL2 = true; // Currently if this is set to true, UE4 can still fall back to WebGL 1 at runtime if browser does not support WebGL 2.
 		static bool enableSIMD = false;
 		static bool enableMultithreading = false;
 		static bool bEnableTracing = false; // Debug option
@@ -36,7 +35,7 @@ namespace UnrealBuildTool
 		}
 
 		public HTML5ToolChain(FileReference InProjectFile)
-			: base(CppPlatform.HTML5, WindowsCompiler.VisualStudio2015, false, false, null)
+			: base(CppPlatform.HTML5)
 		{
 			if (!HTML5SDKInfo.IsSDKInstalled())
 			{
@@ -53,12 +52,6 @@ namespace UnrealBuildTool
 												: DirectoryReference.FromFile(InProjectFile);
 			ConfigHierarchy Ini = ConfigCache.ReadHierarchy(ConfigHierarchyType.Engine, ProjectDir, UnrealTargetPlatform.HTML5);
 
-			// these will be going away...
-			bool targetWebGL1 = false; // inverted check
-			if ( Ini.GetBool("/Script/HTML5PlatformEditor.HTML5TargetSettings", "TargetWebGL1", out targetWebGL1) )
-			{
-				targetWebGL2  = !targetWebGL1;
-			}
 //			Ini.GetBool("/Script/HTML5PlatformEditor.HTML5TargetSettings", "EnableSIMD", out enableSIMD);
 //			Ini.GetBool("/Script/HTML5PlatformEditor.HTML5TargetSettings", "EnableMultithreading", out enableMultithreading);
 			Ini.GetBool("/Script/HTML5PlatformEditor.HTML5TargetSettings", "EnableTracing", out bEnableTracing);
@@ -68,7 +61,6 @@ namespace UnrealBuildTool
 				// TODO: double check Engine/Source/Runtime/Core/Private/HTML5/HTML5PlatformProcess.cpp::SupportsMultithreading()
 				enableMultithreading = false;
 
-			Log.TraceInformation("HTML5ToolChain: TargetWebGL2 = "       + targetWebGL2         );
 			Log.TraceInformation("HTML5ToolChain: EnableSIMD = "         + enableSIMD           );
 			Log.TraceInformation("HTML5ToolChain: EnableMultithreading " + enableMultithreading );
 			Log.TraceInformation("HTML5ToolChain: EnableTracing = "      + bEnableTracing       );
@@ -82,7 +74,7 @@ namespace UnrealBuildTool
 			HTML5SDKInfo.SetupEmscriptenTemp();
 			HTML5SDKInfo.SetUpEmscriptenConfigFile();
 
-			if (Environment.GetEnvironmentVariable("EMSDK") == null) // If env. var EMSDK is present, Emscripten is already configured by the developer
+			if (Environment.GetEnvironmentVariable("EMSDK") == null) // If EMSDK is present, Emscripten is already configured by the developer
 			{
 				// If not using preset emsdk, configure our generated .emscripten config, instead of autogenerating one in the user's home directory.
 				Environment.SetEnvironmentVariable("EM_CONFIG", HTML5SDKInfo.DOT_EMSCRIPTEN);
@@ -95,6 +87,7 @@ namespace UnrealBuildTool
 			string Result = " ";
 //			string Result = " -Werror";
 
+			Result += " -fdiagnostics-format=msvc";
 			Result += " -fno-exceptions";
 
 			Result += " -Wdelete-non-virtual-dtor";
@@ -162,16 +155,6 @@ namespace UnrealBuildTool
 				Result += " -s USE_PTHREADS=1";
 			}
 
-			// --------------------------------------------------------------------------------
-			// normally, these option are for linking -- but it using here to force recompile when
-//			if (targetWebGL2) // flipping between webgl1 and webgl2
-//			{
-				Result += " -s USE_WEBGL2=1"; // see NOTE: UE-51094 UE-51267 futher below...
-//			}
-//			else
-//			{
-//				Result += " -s USE_WEBGL2=0";
-//			}
 			// --------------------------------------------------------------------------------
 
 			// Expect that Emscripten SDK has been properly set up ahead in time (with emsdk and prebundled toolchains this is always the case)
@@ -299,17 +282,8 @@ namespace UnrealBuildTool
 			// NOTE: UE-51094 UE-51267 -- always USE_WEBGL2, webgl1 only feature can be switched on the fly via url paramater "?webgl1"
 //			if (targetWebGL2)
 			{
-				// WARNING - WARNING - WARNING - WARNING
-				// ensure the following chunk of code is added near the end of "Parse args" at the end of "shared.Settings..." section
-				// in file: .../Engine/Extras/ThirdPartyNotUE/emsdk/emscripten/XXX/emcc.py
-				//		## *** UE4 EDIT start ***
-				//		if shared.Settings.USE_WEBGL2:
-				//		  newargs.append('-DUE4_HTML5_TARGET_WEBGL2=1')
-				//		## *** UE4 EDIT end ***
-
 				// Enable targeting WebGL 2 when available.
 				Result += " -s USE_WEBGL2=1";
-
 
 				// Also enable WebGL 1 emulation in WebGL 2 contexts. This adds backwards compatibility related features to WebGL 2,
 				// such as:
@@ -356,68 +330,32 @@ namespace UnrealBuildTool
 			return Result;
 		}
 
-		public static void CompileOutputReceivedDataEventHandler(Object Sender, DataReceivedEventArgs Line)
+		public void AddIncludePath(ref string Arguments, DirectoryReference IncludePath)
 		{
-			var Output = Line.Data;
-			if (Output == null)
+			if(IncludePath.IsUnderDirectory(UnrealBuildTool.EngineDirectory))
 			{
-				return;
+				Arguments += string.Format(" -I\"{0}\"", IncludePath.MakeRelativeTo(UnrealBuildTool.EngineSourceDirectory));
 			}
-
-			Output = Output.Replace("\\", "/");
-			// Need to match following for clickable links
-			string RegexFilePath = @"^([\/A-Za-z0-9_\-\.]*)+\.(cpp|c|mm|m|hpp|h)";
-			string RegexFilePath2 = @"^([A-Z]:[\/A-Za-z0-9_\-\.]*)+\.(cpp|c|mm|m|hpp|h)";
-			string RegexLineNumber = @"\:\d+\:\d+\:";
-			string RegexDescription = @"(\serror:\s|\swarning:\s).*";
-
-			// Get Matches
-			string MatchFilePath = Regex.Match(Output, RegexFilePath).Value;
-			if (MatchFilePath.Length == 0)
+			else
 			{
-				MatchFilePath = Regex.Match(Output, RegexFilePath2).Value;
+				Arguments += string.Format(" -I\"{0}\"", IncludePath);
 			}
-			string MatchLineNumber = Regex.Match(Output, RegexLineNumber).Value;
-			string MatchDescription = Regex.Match(Output, RegexDescription).Value;
-
-			// If any of the above matches failed, do nothing
-			if (MatchFilePath.Length == 0 ||
-				MatchLineNumber.Length == 0 ||
-				MatchDescription.Length == 0)
-			{
-				Log.TraceInformation(Output);
-				return;
-			}
-
-			// Convert Path
-			string RegexStrippedPath = @"(Engine\/|[A-Za-z0-9_\-\.]*\/).*";
-			string ConvertedFilePath = Regex.Match(MatchFilePath, RegexStrippedPath).Value;
-			ConvertedFilePath = Path.GetFullPath(/*"..\\..\\" +*/ ConvertedFilePath);
-
-			// Extract Line + Column Number
-			string ConvertedLineNumber = Regex.Match(MatchLineNumber, @"\d+").Value;
-			string ConvertedColumnNumber = Regex.Match(MatchLineNumber, @"(?<=:\d+:)\d+").Value;
-
-			// Write output
-			string ConvertedExpression = "  " + ConvertedFilePath + "(" + ConvertedLineNumber + "," + ConvertedColumnNumber + "):" + MatchDescription;
-			Log.TraceInformation(ConvertedExpression); // To create clickable vs link
-			Log.TraceInformation(Output);				// To preserve readable output log
 		}
 
-		public override CPPOutput CompileCPPFiles(CppCompileEnvironment CompileEnvironment, List<FileItem> SourceFiles, string ModuleName, ActionGraph ActionGraph)
+		public override CPPOutput CompileCPPFiles(CppCompileEnvironment CompileEnvironment, List<FileItem> InputFiles, DirectoryReference OutputDir, string ModuleName, ActionGraph ActionGraph)
 		{
 			string Arguments = GetCLArguments_Global(CompileEnvironment);
 
 			CPPOutput Result = new CPPOutput();
 
 			// Add include paths to the argument list.
-			foreach (string IncludePath in CompileEnvironment.IncludePaths.UserIncludePaths)
+			foreach (DirectoryReference IncludePath in CompileEnvironment.IncludePaths.UserIncludePaths)
 			{
-				Arguments += string.Format(" -I\"{0}\"", IncludePath);
+				AddIncludePath(ref Arguments, IncludePath);
 			}
-			foreach (string IncludePath in CompileEnvironment.IncludePaths.SystemIncludePaths)
+			foreach (DirectoryReference IncludePath in CompileEnvironment.IncludePaths.SystemIncludePaths)
 			{
-				Arguments += string.Format(" -I\"{0}\"", IncludePath);
+				AddIncludePath(ref Arguments, IncludePath);
 			}
 
 
@@ -432,10 +370,17 @@ namespace UnrealBuildTool
 				Arguments += string.Format(" -D__EMSCRIPTEN_TRACING__");
 			}
 
-			foreach (FileItem SourceFile in SourceFiles)
+			// Force include all the requested headers
+			foreach(FileItem ForceIncludeFile in CompileEnvironment.ForceIncludeFiles)
+			{
+				Arguments += String.Format(" -include \"{0}\"", ForceIncludeFile.Location);
+			}
+
+			foreach (FileItem SourceFile in InputFiles)
 			{
 				Action CompileAction = ActionGraph.Add(ActionType.Compile);
 				CompileAction.CommandDescription = "Compile";
+				CompileAction.PrerequisiteItems.AddRange(CompileEnvironment.ForceIncludeFiles);
 //				CompileAction.bPrintDebugInfo = true;
 
 				bool bIsPlainCFile = Path.GetExtension(SourceFile.AbsolutePath).ToUpperInvariant() == ".C";
@@ -445,11 +390,11 @@ namespace UnrealBuildTool
 
 				// Add the source file path to the command-line.
 				string FileArguments = string.Format(" \"{0}\"", SourceFile.AbsolutePath);
-				var ObjectFileExtension = UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.HTML5).GetBinaryExtension(UEBuildBinaryType.Object);
+				string ObjectFileExtension = UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.HTML5).GetBinaryExtension(UEBuildBinaryType.Object);
 				// Add the object file to the produced item list.
 				FileItem ObjectFile = FileItem.GetItemByFileReference(
 					FileReference.Combine(
-						CompileEnvironment.OutputDirectory,
+						OutputDir,
 						Path.GetFileName(SourceFile.AbsolutePath) + ObjectFileExtension
 						)
 					);
@@ -473,7 +418,6 @@ namespace UnrealBuildTool
 
 				//System.Console.WriteLine(CompileAction.CommandArguments);
 				CompileAction.StatusDescription = Path.GetFileName(SourceFile.AbsolutePath);
-				CompileAction.OutputEventHandler = new DataReceivedEventHandler(CompileOutputReceivedDataEventHandler);
 
 				// Don't farm out creation of precomputed headers as it is the critical path task.
 				CompileAction.bCanExecuteRemotely = CompileEnvironment.PrecompiledHeaderAction != PrecompiledHeaderAction.Create;
@@ -493,65 +437,11 @@ namespace UnrealBuildTool
 			return Result;
 		}
 
-		public override CPPOutput CompileRCFiles(CppCompileEnvironment CompileEnvironment, List<FileItem> RCFiles, ActionGraph ActionGraph)
+		public override CPPOutput CompileRCFiles(CppCompileEnvironment CompileEnvironment, List<FileItem> InputFiles, DirectoryReference OutputDir, ActionGraph ActionGraph)
 		{
 			CPPOutput Result = new CPPOutput();
 
 			return Result;
-		}
-
-		/// <summary>
-		/// Translates clang output warning/error messages into vs-clickable messages
-		/// </summary>
-		/// <param name="sender"> Sending object</param>
-		/// <param name="e"> Event arguments (In this case, the line of string output)</param>
-		protected void RemoteOutputReceivedEventHandler(object sender, DataReceivedEventArgs e)
-		{
-			var Output = e.Data;
-			if (Output == null)
-			{
-				return;
-			}
-
-			if (Utils.IsRunningOnMono)
-			{
-				Log.TraceInformation(Output);
-			}
-			else
-			{
-				// Need to match following for clickable links
-				string RegexFilePath = @"^(\/[A-Za-z0-9_\-\.]*)+\.(cpp|c|mm|m|hpp|h)";
-				string RegexLineNumber = @"\:\d+\:\d+\:";
-				string RegexDescription = @"(\serror:\s|\swarning:\s).*";
-
-				// Get Matches
-				string MatchFilePath = Regex.Match(Output, RegexFilePath).Value.Replace("Engine/Source/../../", "");
-				string MatchLineNumber = Regex.Match(Output, RegexLineNumber).Value;
-				string MatchDescription = Regex.Match(Output, RegexDescription).Value;
-
-				// If any of the above matches failed, do nothing
-				if (MatchFilePath.Length == 0 ||
-					MatchLineNumber.Length == 0 ||
-					MatchDescription.Length == 0)
-				{
-					Log.TraceInformation(Output);
-					return;
-				}
-
-				// Convert Path
-				string RegexStrippedPath = @"\/Engine\/.*"; //@"(Engine\/|[A-Za-z0-9_\-\.]*\/).*";
-				string ConvertedFilePath = Regex.Match(MatchFilePath, RegexStrippedPath).Value;
-				ConvertedFilePath = Path.GetFullPath("..\\.." + ConvertedFilePath);
-
-				// Extract Line + Column Number
-				string ConvertedLineNumber = Regex.Match(MatchLineNumber, @"\d+").Value;
-				string ConvertedColumnNumber = Regex.Match(MatchLineNumber, @"(?<=:\d+:)\d+").Value;
-
-				// Write output
-				string ConvertedExpression = "  " + ConvertedFilePath + "(" + ConvertedLineNumber + "," + ConvertedColumnNumber + "):" + MatchDescription;
-				Log.TraceInformation(ConvertedExpression);	// To create clickable vs link
-//				Log.TraceInformation(Output);				// To preserve readable output log
-			}
 		}
 
 		public override FileItem LinkFiles(LinkEnvironment LinkEnvironment, bool bBuildImportLibraryOnly, ActionGraph ActionGraph)
@@ -641,10 +531,10 @@ namespace UnrealBuildTool
 
 			FileReference ResponseFileName = GetResponseFileName(LinkEnvironment, OutputFile);
 
+			FileItem ResponseFileItem = FileItem.CreateIntermediateTextFile(ResponseFileName, ReponseLines);
 
-			LinkAction.CommandArguments += string.Format(" @\"{0}\"", ResponseFile.Create(ResponseFileName, ReponseLines));
-
-			LinkAction.OutputEventHandler = new DataReceivedEventHandler(RemoteOutputReceivedEventHandler);
+			LinkAction.CommandArguments += string.Format(" @\"{0}\"", ResponseFileName);
+			LinkAction.PrerequisiteItems.Add(ResponseFileItem);
 
 			return OutputFile;
 		}
@@ -652,10 +542,10 @@ namespace UnrealBuildTool
 		public override void ModifyBuildProducts(ReadOnlyTargetRules Target, UEBuildBinary Binary, List<string> Libraries, List<UEBuildBundleResource> BundleResources, Dictionary<FileReference, BuildProductType> BuildProducts)
 		{
 			// we need to include the generated .mem and .symbols file.
-			if (Binary.Config.Type != UEBuildBinaryType.StaticLibrary)
+			if (Binary.Type != UEBuildBinaryType.StaticLibrary)
 			{
-				BuildProducts.Add(Binary.Config.OutputFilePath.ChangeExtension("wasm"), BuildProductType.RequiredResource);
-				BuildProducts.Add(Binary.Config.OutputFilePath + ".symbols", BuildProductType.RequiredResource);
+				BuildProducts.Add(Binary.OutputFilePath.ChangeExtension("wasm"), BuildProductType.RequiredResource);
+				BuildProducts.Add(Binary.OutputFilePath + ".symbols", BuildProductType.RequiredResource);
 			}
 		}
 	};

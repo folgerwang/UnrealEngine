@@ -11,9 +11,9 @@
 #include "Interfaces/OnlinePurchaseInterface.h"
 
 #if UE_BUILD_SHIPPING
-#include "JsonObject.h"
-#include "JsonReader.h"
-#include "JsonSerializer.h"
+#include "Dom/JsonObject.h"
+#include "Serialization/JsonReader.h"
+#include "Serialization/JsonSerializer.h"
 #endif
 
 namespace OSSConsoleVariables
@@ -251,7 +251,7 @@ bool FOnlineSubsystemImpl::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice
 	{
 		bWasHandled = HandlePurchaseExecCommands(InWorld, Cmd, Ar);
 	}
-	
+
 	return bWasHandled;
 }
 
@@ -394,7 +394,7 @@ bool FOnlineSubsystemImpl::HandleSessionExecCommands(UWorld* InWorld, const TCHA
 {
 	bool bWasHandled = false;
 
-	if (FParse::Command(&Cmd, TEXT("DUMPSESSIONS")))
+	if (FParse::Command(&Cmd, TEXT("DUMP")))
 	{
 		IOnlineSessionPtr SessionsInt = GetSessionInterface();
 		if (SessionsInt.IsValid())

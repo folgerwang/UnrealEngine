@@ -7,8 +7,6 @@ public class ClothingSystemEditor : ModuleRules
 {
 	public ClothingSystemEditor(ReadOnlyTargetRules Target) : base(Target)
 	{
-		PrivateIncludePaths.Add("Runtime/ClothingSystemEditor/Private");
-
         PublicIncludePathModuleNames.Add("UnrealEd");
         PublicIncludePathModuleNames.Add("ClothingSystemRuntime");
         PublicIncludePathModuleNames.Add("ClothingSystemEditorInterface");

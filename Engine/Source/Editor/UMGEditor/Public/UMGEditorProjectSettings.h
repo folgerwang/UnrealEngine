@@ -53,6 +53,12 @@ public:
 	UPROPERTY(EditAnywhere, config, Category=Compiler)
 	bool bCookSlowConstructionWidgetTree;
 
+	/**
+	 * 
+	 */
+	UPROPERTY(EditAnywhere, config, Category=Compiler)
+	bool bWidgetSupportsDynamicCreation;
+
 	UPROPERTY(EditAnywhere, config, Category=Designer)
 	TArray<FDebugResolution> DebugResolutions;
 

@@ -682,20 +682,20 @@ NOTE the other tuning knobs are now in the shader function inputs!
 /*--------------------------------------------------------------------------*/
 #if (FXAA_HLSL_4 == 1)
     #define FxaaInt2 int2
-    struct FxaaTex { SamplerState smpl; Texture2D tex; };
-    #define FxaaTexTop(t, p) t.tex.SampleLevel(t.smpl, p, 0.0)
-    #define FxaaTexOff(t, p, o, r) t.tex.SampleLevel(t.smpl, p, 0.0, o)
+    struct FxaaTex { SamplerState smpl; Texture2D tex; float4 UVMinMax; };
+    #define FxaaTexTop(t, p) t.tex.SampleLevel(t.smpl, clamp(p, t.UVMinMax.xy, t.UVMinMax.zw), 0.0)
+    #define FxaaTexOff(t, p, o, r) t.tex.SampleLevel(t.smpl, clamp(p, t.UVMinMax.xy, t.UVMinMax.zw), 0.0, o)
 #endif
 /*--------------------------------------------------------------------------*/
 #if (FXAA_HLSL_5 == 1)
     #define FxaaInt2 int2
-    struct FxaaTex { SamplerState smpl; Texture2D tex; };
-    #define FxaaTexTop(t, p) t.tex.SampleLevel(t.smpl, p, 0.0)
-    #define FxaaTexOff(t, p, o, r) t.tex.SampleLevel(t.smpl, p, 0.0, o)
-    #define FxaaTexAlpha4(t, p) t.tex.GatherAlpha(t.smpl, p)
-    #define FxaaTexOffAlpha4(t, p, o) t.tex.GatherAlpha(t.smpl, p, o)
-    #define FxaaTexGreen4(t, p) t.tex.GatherGreen(t.smpl, p)
-    #define FxaaTexOffGreen4(t, p, o) t.tex.GatherGreen(t.smpl, p, o)
+    struct FxaaTex { SamplerState smpl; Texture2D tex; float4 UVMinMax; };
+    #define FxaaTexTop(t, p) t.tex.SampleLevel(t.smpl, clamp(p, t.UVMinMax.xy, t.UVMinMax.zw), 0.0)
+    #define FxaaTexOff(t, p, o, r) t.tex.SampleLevel(t.smpl, clamp(p, t.UVMinMax.xy, t.UVMinMax.zw), 0.0, o)
+    #define FxaaTexAlpha4(t, p) t.tex.GatherAlpha(t.smpl, clamp(p, t.UVMinMax.xy, t.UVMinMax.zw))
+    #define FxaaTexOffAlpha4(t, p, o) t.tex.GatherAlpha(t.smpl, clamp(p, t.UVMinMax.xy, t.UVMinMax.zw), o)
+    #define FxaaTexGreen4(t, p) t.tex.GatherGreen(t.smpl, clamp(p, t.UVMinMax.xy, t.UVMinMax.zw))
+    #define FxaaTexOffGreen4(t, p, o) t.tex.GatherGreen(t.smpl, clamp(p, t.UVMinMax.xy, t.UVMinMax.zw), o)
 #endif
 
 
@@ -703,7 +703,20 @@ NOTE the other tuning knobs are now in the shader function inputs!
                    GREEN AS LUMA OPTION SUPPORT FUNCTION
 ============================================================================*/
 #if (FXAA_GREEN_AS_LUMA == 0)
-    FxaaFloat FxaaLuma(FxaaFloat4 rgba) { return rgba.w; }
+
+	#if POST_PROCESS_ALPHA == 2
+		// POST_PROCESS_ALPHA == 2 allows the tonemapper to not output Luma in alpha channel,
+		// therefore need to compute it manually.
+		FxaaFloat FxaaLuma(FxaaFloat4 rgba)
+		{
+			return dot(rgba.rgb, FxaaFloat3(0.299f, 0.587f, 0.114f));
+		}
+
+	#else
+		FxaaFloat FxaaLuma(FxaaFloat4 rgba) { return rgba.w; }
+
+	#endif
+
 #else
     FxaaFloat FxaaLuma(FxaaFloat4 rgba) { return rgba.y; }
 #endif    

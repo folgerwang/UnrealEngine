@@ -50,15 +50,21 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Variations")
 	TArray<FSoundVariation> Variations;
 
+	//~ Begin UObject Interface
+	virtual void PostLoad() override;
+	virtual void Serialize(FArchive& Ar) override;
+	//~ End UObject INterface
+
 	//~ Begin USoundBase Interface.
 	virtual bool IsPlayable() const override;
 	virtual void Parse(class FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanceHash, FActiveSound& ActiveSound, const FSoundParseParameters& ParseParams, TArray<FWaveInstance*>& WaveInstances) override;
-	virtual float GetMaxAudibleDistance() override;
+	virtual float GetMaxDistance() const override;
 	virtual float GetDuration() override;
 	//~ End USoundBase Interface.
 
 protected:
 	void ChooseSoundWave();
+	void CacheValues();
 
 	// The current chosen sound wave
 	UPROPERTY(transient)

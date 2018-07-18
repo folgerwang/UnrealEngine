@@ -15,7 +15,7 @@
 #include "PhysicsEngine/PhysicsAsset.h"
 #include "PhysicsEngine/PhysicsConstraintTemplate.h"
 #include "PreviewScene.h"
-#include "ScopedSlowTask.h"
+#include "Misc/ScopedSlowTask.h"
 #include "SkinnedBoneTriangleCache.h"
 
 namespace FPhysicsAssetUtils
@@ -598,6 +598,37 @@ bool CreateCollisionFromBoneInternal(UBodySetup* bs, USkeletalMesh* skelMesh, in
 
 
 		bs->AggGeom.SphylElems.Add(SphylElem);
+	}
+	else if (Params.GeomType == EFG_TaperedCapsule)
+	{
+		FKTaperedCapsuleElem TaperedCapsuleElem;
+
+		if (BoxExtent.X > BoxExtent.Z && BoxExtent.X > BoxExtent.Y)
+		{
+			//X is the biggest so we must rotate X-axis into Z-axis
+			TaperedCapsuleElem.SetTransform(FTransform(FQuat(FVector(0, 1, 0), -PI * 0.5f)) * ElementTransform);
+			TaperedCapsuleElem.Radius0 = FMath::Max(BoxExtent.Y, BoxExtent.Z) * 1.01f;
+			TaperedCapsuleElem.Radius1 = FMath::Max(BoxExtent.Y, BoxExtent.Z) * 1.01f;
+			TaperedCapsuleElem.Length = BoxExtent.X * 1.01f;
+		}
+		else if (BoxExtent.Y > BoxExtent.Z && BoxExtent.Y > BoxExtent.X)
+		{
+			//Y is the biggest so we must rotate Y-axis into Z-axis
+			TaperedCapsuleElem.SetTransform(FTransform(FQuat(FVector(1, 0, 0), PI * 0.5f)) * ElementTransform);
+			TaperedCapsuleElem.Radius0 = FMath::Max(BoxExtent.X, BoxExtent.Z) * 1.01f;
+			TaperedCapsuleElem.Radius1 = FMath::Max(BoxExtent.X, BoxExtent.Z) * 1.01f;
+			TaperedCapsuleElem.Length = BoxExtent.Y * 1.01f;
+		}
+		else
+		{
+			//Z is the biggest so use transform as is
+			TaperedCapsuleElem.SetTransform(ElementTransform);
+			TaperedCapsuleElem.Radius0 = FMath::Max(BoxExtent.X, BoxExtent.Y) * 1.01f;
+			TaperedCapsuleElem.Radius1 = FMath::Max(BoxExtent.X, BoxExtent.Y) * 1.01f;
+			TaperedCapsuleElem.Length = BoxExtent.Z * 1.01f;
+		}
+
+		bs->AggGeom.TaperedCapsuleElems.Add(TaperedCapsuleElem);
 	}
 
 	return true;

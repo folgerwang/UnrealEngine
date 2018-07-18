@@ -117,7 +117,7 @@ public:
 
 
 	/** @return An image that represents this button's border*/
-	const FSlateBrush* GetBorder() const;
+	virtual const FSlateBrush* GetBorder() const;
 
 	/**
 	 * Returns true if this button is currently pressed
@@ -175,7 +175,7 @@ public:
 	virtual FReply OnMouseMove( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
 	virtual void OnMouseEnter( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
 	virtual void OnMouseLeave( const FPointerEvent& MouseEvent ) override;
-	virtual void OnMouseCaptureLost() override;
+	virtual void OnMouseCaptureLost(const FCaptureLostEvent& CaptureLostEvent) override;
 	virtual bool IsInteractable() const override;
 	// SWidget
 

@@ -3,8 +3,8 @@
 #if WITH_EDITOR
 
 #include "RenderDocPluginNotification.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
+#include "Framework/Notifications/NotificationManager.h"
 
 FRenderDocPluginNotification::FRenderDocPluginNotification()
 	: RenderDocNotificationPtr()

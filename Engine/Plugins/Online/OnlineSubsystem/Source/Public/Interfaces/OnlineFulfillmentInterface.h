@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "OnlinePurchaseInterface.h"
+#include "Interfaces/OnlinePurchaseInterface.h"
 
 /**
  * IOnlineFulfillment - Interface for redeeming codes.

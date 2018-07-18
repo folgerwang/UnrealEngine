@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3718992
+﻿INTSourceChangelist:3782314
 Availability:Public
 Crumbs: %ROOT%
 Title:6. 追加情報
@@ -14,33 +14,25 @@ Checkpoint:RIFTQS
 
 アンリアル エンジン 4 で VR プロジェクトを開発するために役立つ情報が記載されているリソースを紹介します。
 
-## ドキュメント
+## ドキュメンテーション
 
 [REGION:buttonlist]
-
-	* [](Platforms\VR)
-		* [](Platforms\VR\CheatSheet)
-		* [](Platforms\Oculus\BestPractices)
-	* [Oculus ドキュメント](https://developer.oculus.com/documentation/)
-		* [ユーザーガイド](http://static.oculus.com/sdk-downloads/documents/Oculus_User_Guide_0.4.4.pdf)
-		* [デベロッパー ガイド](http://static.oculus.com/sdk-downloads/documents/Oculus_Developer_Guide_0.4.4.pdf)
-	
-[/REGION]
-[REGION:buttonlist]
+* [](Platforms\VR)
+	* [](Platforms\VR\CheatSheet)
+	* [](Platforms\Oculus\BestPractices)
+* [Oculus ドキュメント](https://developer.oculus.com/documentation/)
+	* [ユーザーガイド](http://static.oculus.com/sdk-downloads/documents/Oculus_User_Guide_0.4.4.pdf)
+	* [デベロッパー ガイド](http://static.oculus.com/sdk-downloads/documents/Oculus_Developer_Guide_0.4.4.pdf)
 [/REGION]
 
 ## お試しコンテンツ
 
-[REGION:buttonlist]
-
-		[REGION:imagetable]
-		| ![](store_CouchKnights_screenshot_3.png)(w:420) | [![](store_Showdown_screenshot_5.png)(w:420)](https://www.unrealengine.com/marketplace/showdown-demo) |
-		| ------------ | ---------------- |
-		| CouchKnights | Showdown |
-		| [![](store_VREditor_screenshot_5.png)(w:420)](https://docs.unrealengine.com/latest/INT/Engine/Editor/VR/index.html) | [![](store_RoboRecall_screenshot_5.png)(w:420)](https://docs.unrealengine.com/latest/INT/Modding/RoboRecall/) |
-		| VR Mode |Robo Recall |
-		[/REGION]
-	
+[REGION:imagetable]
+| ![](store_CouchKnights_screenshot_3.png)(w:420) | [![](store_Showdown_screenshot_5.png)(w:420)](https://www.unrealengine.com/marketplace/showdown-demo) |
+| ------------ | ---------------- |
+| CouchKnights | Showdown |
+| [![](store_VREditor_screenshot_5.png)(w:420)](Engine/Editor/VR) | [![](store_RoboRecall_screenshot_5.png)(w:420)](Modding/RoboRecall) |
+| VR Mode |Robo Recall |
 [/REGION]
 
 [NAV]

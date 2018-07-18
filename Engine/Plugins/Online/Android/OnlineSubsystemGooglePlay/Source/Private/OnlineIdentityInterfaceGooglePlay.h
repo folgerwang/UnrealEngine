@@ -3,13 +3,16 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "OnlineIdentityInterface.h"
+#include "Interfaces/OnlineIdentityInterface.h"
 #include "OnlineSubsystemGooglePlayPackage.h"
 
 THIRD_PARTY_INCLUDES_START
 #include "gpg/status.h"
 #include "gpg/player.h"
 THIRD_PARTY_INCLUDES_END
+
+// from OnlineSubsystemTypes.h
+TEMP_UNIQUENETIDSTRING_SUBCLASS(FUniqueNetIdGooglePlay, GOOGLEPLAY_SUBSYSTEM);
 
 class FOnlineIdentityGooglePlay :
 	public IOnlineIdentity
@@ -27,7 +30,7 @@ private:
 	bool bRegisteringUser;
 
 	/** UID for this identity */
-	TSharedPtr< const FUniqueNetIdString > UniqueNetId;
+	TSharedPtr< const FUniqueNetIdGooglePlay > UniqueNetId;
 
 	struct FPendingConnection
 	{
@@ -46,9 +49,9 @@ PACKAGE_SCOPE:
 	FOnlineIdentityGooglePlay(FOnlineSubsystemGooglePlay* InSubsystem);
 
 	/** Allow individual interfaces to access the currently signed-in user's id */
-	TSharedPtr<const FUniqueNetIdString> GetCurrentUserId() const { return UniqueNetId; }
+	TSharedPtr<const FUniqueNetIdGooglePlay> GetCurrentUserId() const { return UniqueNetId; }
 
-	void SetCurrentUserId(TSharedPtr<const FUniqueNetIdString> InUniqueNetId) { UniqueNetId = InUniqueNetId; }
+	void SetCurrentUserId(TSharedPtr<const FUniqueNetIdGooglePlay> InUniqueNetId) { UniqueNetId = InUniqueNetId; }
 
 	/** Called from ExternalUIInterface to set UniqueId and PlayerAlias after authentication */
 	void SetPlayerDataFromFetchSelfResponse(const gpg::Player& PlayerData);

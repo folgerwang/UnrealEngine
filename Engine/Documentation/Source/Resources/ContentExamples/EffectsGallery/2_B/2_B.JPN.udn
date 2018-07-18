@@ -1,73 +1,17 @@
-﻿INTSourceChangelist:2714514
+﻿INTSourceChangelist:3782314
 Availability:Public
-Title:2.2  - グローバル ベクターフィールド経由のパーティクル動作の操作
+Title:2.2 - グローバル ベクターフィールド経由のパーティクル動作の操作
 Crumbs:%ROOT%, Resources, Resources/ContentExamples, Resources/ContentExamples/EffectsGallery
 Description:エフェクト ギャラリーのサンプル レベルの概要
-Related: Engine/Rendering/ParticleSystems/Reference/Modules/VectorField
-Related: Engine/Rendering/ParticleSystems/Overview
-Related: Engine/Rendering/ParticleSystems/Reference
-Related: Engine/Rendering/ParticleSystems/Optimization
-Related: Engine/Rendering/ParticleSystems/Reference/TypeData/GPUSprites
-Related: Engine/Rendering/ParticleSystems/ParticleLights
-Related: Engine/Rendering/ParticleSystems/Reference/Modules/VectorField
+Related:Engine/Rendering/ParticleSystems/Reference/Modules/VectorField
+Related:Engine/Rendering/ParticleSystems/Overview
+Related:Engine/Rendering/ParticleSystems/Reference
+Related:Engine/Rendering/ParticleSystems/Optimization
+Related:Engine/Rendering/ParticleSystems/Reference/TypeData/GPUSprites
+Related:Engine/Rendering/ParticleSystems/ParticleLights
+Related:Engine/Rendering/ParticleSystems/Reference/Modules/VectorField
 Version:4.9
-
-[VAR:Steps]
-[OBJECT:Navigation]
-	[PARAM:previous]
-		[前のサンプル](Resources/ContentExamples/EffectsGallery/2_A "%Resources/ContentExamples/EffectsGallery/2_A:title%")
-	[/PARAM]
-	[PARAM:current]
-	[/PARAM]
-	[PARAM:home]
-		[エフェクト ギャラリー ホーム](Resources/ContentExamples/EffectsGallery)
-	[/PARAM]
-	[PARAM:next]
-		[次のサンプル](Resources/ContentExamples/EffectsGallery/2_C "%Resources/ContentExamples/EffectsGallery/2_C:title%")
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Resources\ContentExamples\EffectsGallery\2_B:title%](%ROOT%\Resources\ContentExamples\EffectsGallery\2_B\2_BTopic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources\ContentExamples\EffectsGallery\2_B:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources\ContentExamples\EffectsGallery\2_B:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources\ContentExamples\EffectsGallery\2_B]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources\ContentExamples\EffectsGallery\2_B:title%](%ROOT%\Resources\ContentExamples\EffectsGallery\2_B\2_BTopic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources\ContentExamples\EffectsGallery\2_B:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources\ContentExamples\EffectsGallery\2_B:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources\ContentExamples\EffectsGallery\2_B]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:2_BTopic.png
 
 [REGION:fullwidth]
 ![](image050.png)

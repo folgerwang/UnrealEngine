@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "USDImportOptions.h"
-#include "UnrealType.h"
+#include "UObject/UnrealType.h"
 
 UUSDImportOptions::UUSDImportOptions(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

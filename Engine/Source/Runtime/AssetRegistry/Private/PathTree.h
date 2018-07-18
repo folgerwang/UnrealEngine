@@ -21,7 +21,14 @@ public:
 
 	uint32 GetAllocatedSize(void) const
 	{
-		return ParentPathToChildPaths.GetAllocatedSize() + ChildPathToParentPath.GetAllocatedSize();
+		uint32 AllocatedSize = ParentPathToChildPaths.GetAllocatedSize() + ChildPathToParentPath.GetAllocatedSize();
+
+		for (const TPair<FName, TSet<FName>>& Pair : ParentPathToChildPaths)
+		{
+			AllocatedSize += Pair.Value.GetAllocatedSize();
+		}
+
+		return AllocatedSize;
 	}
 
 private:

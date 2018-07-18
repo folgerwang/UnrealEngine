@@ -22,9 +22,11 @@ class FStropheStanza
 	friend class FStropheError;
 	// For GetStanzaPtr access
 	friend class FStropheConnection;
+	friend class FStropheWebsocketConnection;
 
 	// For cloning stanzas from our socket
 	friend int StropheStanzaEventHandler(xmpp_conn_t* const Connection, xmpp_stanza_t* const IncomingStanza, void* const UserData);
+	friend int StropheWebsocketStanzaEventHandler(xmpp_conn_t* const Connection, xmpp_stanza_t* const IncomingStanza, void* const UserData);
 
 public:
 	explicit FStropheStanza(const FXmppConnectionStrophe& Context, const FString& StanzaName = FString());

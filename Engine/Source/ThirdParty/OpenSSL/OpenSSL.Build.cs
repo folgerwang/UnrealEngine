@@ -9,7 +9,7 @@ public class OpenSSL : ModuleRules
 	{
 		Type = ModuleType.External;
 
-		string OpenSSL101Path = Path.Combine(Target.UEThirdPartySourceDirectory, "OpenSSL", "1.0.1g");
+		string OpenSSL101sPath = Path.Combine(Target.UEThirdPartySourceDirectory, "OpenSSL", "1_0_1s");
 		string OpenSSL102hPath = Path.Combine(Target.UEThirdPartySourceDirectory, "OpenSSL", "1_0_2h");
 		string OpenSSL102Path = Path.Combine(Target.UEThirdPartySourceDirectory, "OpenSSL", "1.0.2g");
 
@@ -45,7 +45,7 @@ public class OpenSSL : ModuleRules
 			PublicAdditionalLibraries.Add(Path.Combine(LibPath, "libeay" + LibPostfixAndExt));
 			PublicAdditionalLibraries.Add(Path.Combine(LibPath, "ssleay" + LibPostfixAndExt));
 		}
-		else if (Target.Platform == UnrealTargetPlatform.Linux)
+		else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
 		{
 			string platform = "/Linux/" + Target.Architecture;
 			string IncludePath = OpenSSL102hPath + "/include" + platform;
@@ -61,8 +61,22 @@ public class OpenSSL : ModuleRules
 		}
 		else if (Target.Platform == UnrealTargetPlatform.Android)
 		{
-			string LibPath = Path.Combine(OpenSSL101Path, "lib", PlatformSubdir);
-			PublicLibraryPaths.Add(LibPath);
+			string IncludePath = OpenSSL101sPath + "/include/Android";
+			PublicIncludePaths.Add(IncludePath);
+
+			// unneeded since included in libcurl
+			// string LibPath = Path.Combine(OpenSSL101sPath, "lib", PlatformSubdir);
+			//PublicLibraryPaths.Add(LibPath);
+		}
+		else if (Target.Platform == UnrealTargetPlatform.IOS)
+		{
+			string IncludePath = OpenSSL101sPath + "/include/IOS";
+			string LibraryPath = OpenSSL101sPath + "/lib/IOS";
+
+			PublicIncludePaths.Add(IncludePath);
+
+			PublicAdditionalLibraries.Add(LibraryPath + "/libssl.a");
+			PublicAdditionalLibraries.Add(LibraryPath + "/libcrypto.a");
 		}
 	}
 }

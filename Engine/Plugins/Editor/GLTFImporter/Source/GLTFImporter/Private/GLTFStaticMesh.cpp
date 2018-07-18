@@ -166,8 +166,7 @@ UStaticMesh* ImportStaticMesh(const FAsset& Asset, const TArray<UMaterial*>& Mat
 
 	UStaticMesh* StaticMesh = NewObject<UStaticMesh>(AssetPackage, FName(*AssetName), Flags);
 
-	StaticMesh->SourceModels.AddDefaulted();
-	FStaticMeshSourceModel& SourceModel = StaticMesh->SourceModels.Last();
+	FStaticMeshSourceModel& SourceModel = StaticMesh->AddSourceModel();
 	FMeshBuildSettings& Settings = SourceModel.BuildSettings;
 
 	Settings.bRecomputeNormals = false;

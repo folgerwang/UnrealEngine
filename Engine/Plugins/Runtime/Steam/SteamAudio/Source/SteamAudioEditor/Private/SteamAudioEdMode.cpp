@@ -6,7 +6,7 @@
 #include "SteamAudioEdModeToolkit.h"
 #include "SteamAudioEditorModule.h"
 
-#include "ToolkitManager.h"
+#include "Toolkits/ToolkitManager.h"
 #include "EditorModeManager.h"
 
 namespace SteamAudio

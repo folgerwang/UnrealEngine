@@ -1,31 +1,11 @@
-﻿INTSourceChangelist:2953341
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:Level ブループリント UI
 Crumbs: %ROOT%, Engine/Blueprints, Engine/Blueprints/Editor
 Description:Level ブループリントで作業する際のブループリント エディタの UI エレメントの分類
 version:4.9
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Blueprints/Editor/UIBreakdowns/LevelBPUI:title%](Engine/Blueprints\UserGuide\Types\level_blueprint_test_image.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/blueprint_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Blueprints/Editor/UIBreakdowns/LevelBPUI:title%
-	[/PARAM]
-	[PARAM:description]
-		%description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Blueprints/Editor/UIBreakdowns/LevelBPUI]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-
+tags:Blueprints
+topic-image:Engine/Blueprints/UserGuide/Types/level_blueprint_test_image.png
 
 [INCLUDE:Engine/Blueprints/UserGuide/Types/LevelBlueprint#Intro]
 
@@ -48,20 +28,20 @@ Level ブループリントの編集時は、以下のセクションがブル�
 [COMMENT:none]
 --------
 [EXCERPT:Visible]
-1. [メニュー](Engine/Blueprints/Editor\UIComponents\Menu)
-1. [ツールバー](Engine/Blueprints/Editor\UIComponents\Toolbar)
-1. [My Blueprint](Engine/Blueprints/Editor\UIComponents\MyBlueprint)
-1. [詳細](Engine/Blueprints/Editor\UIComponents\Details)
-1. [グラフ エディタ](Engine/Blueprints/Editor\UIComponents\GraphEditor)
+1. [メニュー](Engine/Blueprints/Editor/UIComponents/Menu)
+1. [Toolbar](Engine/Blueprints/Editor/UIComponents/Toolbar)
+1. [My Blueprint](Engine/Blueprints/Editor/UIComponents/MyBlueprint)
+1. [詳細](Engine/Blueprints/Editor/UIComponents/Details)
+1. [グラフ エディタ](Engine/Blueprints/Editor/UIComponents/GraphEditor)
 [/EXCERPT:Visible]
 
 [EXCERPT:Invisible]
-* [クラスデフォルト](Engine/Blueprints/Editor\Modes\Defaults\DefaultsTab)
-* [コンパイラの結果](Engine/Blueprints/Editor\UIComponents\CompilerResults)
-* [デバッグ](Engine/Blueprints/Editor\UIComponents\Debug)
-* [検索結果](Engine/Blueprints/Editor\UIComponents\FindResults)
-* [パレット](Engine/Blueprints/Editor\UIComponents\Palette)
-* [ビューポート](Engine/Blueprints/Editor\UIComponents\Viewport)
+* [クラスのデフォルト](Engine/Blueprints/Editor/Modes/Defaults/DefaultsTab)
+* [コンパイラの結果](Engine/Blueprints/Editor/UIComponents/CompilerResults)
+* [デバッグ](Engine/Blueprints/Editor/UIComponents/Debug)
+* [結果検索](Engine/Blueprints/Editor/UIComponents/FindResults)
+* [Palette](Engine/Blueprints/Editor/UIComponents/Palette)
+* [ビューポート](Engine/Blueprints/Editor/UIComponents/Viewport)
 [/EXCERPT:Invisible]
 -----------
 [/COMMENT]

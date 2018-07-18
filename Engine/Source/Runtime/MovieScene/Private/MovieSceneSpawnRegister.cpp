@@ -3,6 +3,8 @@
 #include "MovieSceneSpawnRegister.h"
 #include "MovieScene.h"
 #include "IMovieScenePlayer.h"
+#include "Evaluation/MovieSceneEvaluationTemplateInstance.h"
+#include "MovieSceneSpawnableAnnotation.h"
 
 UObject* FMovieSceneSpawnRegister::FindSpawnedObject(const FGuid& BindingId, FMovieSceneSequenceIDRef TemplateID) const
 {
@@ -31,6 +33,11 @@ UObject* FMovieSceneSpawnRegister::SpawnObject(const FGuid& BindingId, UMovieSce
 	
 	if (SpawnedActor)
 	{
+#if WITH_EDITOR
+		UMovieSceneSequence* Sequence = Player.GetEvaluationTemplate().GetSequence(TemplateID);
+		FMovieSceneSpawnableAnnotation::Add(SpawnedActor, BindingId, Sequence);
+#endif
+
 		FMovieSceneSpawnRegisterKey Key(TemplateID, BindingId);
 		Register.Add(Key, FSpawnedObject(BindingId, *SpawnedActor, Spawnable->GetSpawnOwnership()));
 
@@ -38,7 +45,7 @@ UObject* FMovieSceneSpawnRegister::SpawnObject(const FGuid& BindingId, UMovieSce
 	}
 
 	return SpawnedActor;
-};
+}
 
 bool FMovieSceneSpawnRegister::DestroySpawnedObject(const FGuid& BindingId, FMovieSceneSequenceIDRef TemplateID, IMovieScenePlayer& Player)
 {

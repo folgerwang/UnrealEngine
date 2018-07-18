@@ -1,5 +1,4 @@
-﻿INTSourceChangelist:3457153
-Availability:Public
+﻿Availability:Public
 Title:アンリアル エンジン 4.16 リリース ノート
 Description:Unreal Engine 4.16 リリース ノート
 Crumbs:%ROOT%, Engine
@@ -38,11 +37,11 @@ reference-image: image_35.gif
 
 Volumetric Fog を使って背景の雰囲気づくりをしましょう。密度の変化をサポートすることでライトシャフトを漂う埃やスモークをシミュレートできます。ライトをいくつでも使用して Volumetric Fog に影響を与えることができます。
 
-![image alt text](image_0.png)(w:929 h:529 convert:false)
+![image alt text](image_0.png)(w:929 convert:false)
 
-![image alt text](image_1.png)(w:928 h:510 convert:false)
+![image alt text](image_1.png)(w:928 convert:false)
 
-![image alt text](image_2.png)(w:928 h:510 convert:false)
+![image alt text](image_2.png)(w:928 convert:false)
 
 Volumetric Fog は以下のライティングをサポートします。
 
@@ -62,7 +61,7 @@ Volumetric Fog の設定については、この [ドキュメント](Engine/Ren
 
 この機能を使って物理的にリアルなブルームのポスト プロセス エフェクトを作りましょう！ アンリアル エンジン 4.16 には、FFT ブルーム機能があります。カスタムのブルーム カーネルの形状を使用し、思い描いた結果に合わせて強さを制御することでアーティストの表現の幅が広がります。
 
-![image alt text](image_3.png)(w:928 h:485 convert:false)
+![image alt text](image_3.png)(w:928 convert:false)
 
 カーネル画像と共にソース画像の数学的畳み込みを使うことで、このブルーム技術では星状のバーストから周囲を照らすディフューズまで一連の反応を生み出すことができます。イメージ ベースの折り畳みが生み出す新たなリアリズムは、視覚的に面白い、非対称のカーネル イメージによるものです。通常、放射状の線から成る星状のバーストのように見えますが、まつ毛のようなシルエット、ボケ、その他のアーティファクトを含むことがあります。 
 
@@ -72,7 +71,7 @@ Volumetric Fog の設定については、この [ドキュメント](Engine/Ren
 
 **ディスタンス フィールド アンビエント オクルージョン** と **レイトレース ディスタンス フィールドシャドウ** は、現行の生成コンソールと標準的仕様の PC で **30-50% 程度速くなっています！** こうした機能によって、一段とリアルな環境光とシーンの動的メッシュに対するエリア シャドウが実現します。
 
-![image alt text](image_4.png)(w:929 h:513 convert:false)
+![image alt text](image_4.png)(w:929 convert:false)
 
 さらにスタティックメッシュの **Distance Field Generation は、Intel の Embree のレイトレーシング ライブラリによって 2.5 倍速くなっています。**Eight Bit Mesh Distance Fields と Compress Mesh Distance Fields のプロジェクト設定を有効にすると、メモリ使用量も大幅に削減します。
 
@@ -127,14 +126,14 @@ Volumetric Fog の設定については、この [ドキュメント](Engine/Ren
 登録開発者は、Nintendo Switch 向けのゲームを制作し、リリースすることができます。制作に使用できる UE4 の Nintendo Switch サポートは認証に合致したものであり、ネットワーク接続のマルチプレイヤーに対応し、ディファード、モバイル フォワード、クラスター フォワードといった複数のレンダリング パイプラインを利用することができます。Nintendo Switch 向けに様々なタイプのゲームを出荷することができます。
 
 [REGION:raw]
-![image alt text](image_7.png)(w:925 h:641 convert:false)
+![image alt text](image_7.png)(w:925 convert:false)
 [/REGION]
 
 ### 新規:VR モード UI とインタラクションの更新
 
 アンリアル エディタの VR モードは、一段と直観的なワークフローと編集ができるように改善されました。
 
-![image alt text](image_8.jpg)(w:722 h:646 convert:false)
+![image alt text](image_8.jpg)(w:722 convert:false)
 
 新しい非対称コントローラーのセットアップでは、改善されたラジアル メニューとレベル内のオブジェクトを迅速かつ容易に扱えるように精度を高めたインタラクション レーザーがあります。
 
@@ -216,7 +215,7 @@ Volumetric Fog の設定については、この [ドキュメント](Engine/Ren
 
 **DirectX 12 は Xbox One のデフォルト レンダラになりました！** DirectX 12 で安定性を高め、パフォーマンスを向上させるために多数の更新を加えました。これをデフォルトの RHI とし、Xbox One 向けに制作されたタイトルで **CPU と GPU の性能を向上** させます。
 
-![image alt text](image_12.png)(w:556 h:356 convert:false)
+![image alt text](image_12.png)(w:556 convert:false)
 
 #### D3D11 へのスイッチバック
 
@@ -235,7 +234,7 @@ D3D11 にスイッチバックする必要があるタイトルの場合、以�
 UE4 は HTML5 の新しい WebAssembly 標準 (WASM) をサポートするようになりました。これは、ウェブ向けに C++ をコンパイルし、実行する非常に迅速で効率性の高い方法です。Mozilla の最新の Emscripten ツールチェーン (v1.37.9) を使っています。これは新しい技術であり、すべてのブラウザでサポートされているわけではありません。そのため、早期アクセス機能とみなされ、GitHub のアクセスを必要とします。
 
 [REGION:raw]
-![image alt text](image_13.png)(w:929 h:630 convert:false)
+![image alt text](image_13.png)(w:929 convert:false)
 [/REGION]
 
 WASM は、アプリケーションのダウンロード サイズ、起動時間、メモリ消費を改善し、パフォーマンスを大幅に高める Web アプリケーション向けのバイナリ形式の JavaScript です。WASM とブラウザのサポートに関する詳細は、[http://webassembly.org/](http://webassembly.org/) をご覧ください。
@@ -295,7 +294,7 @@ Firefox や Chrome のブラウザ (対応バージョンは上記のとおり) 
 リリースの都度、プラットフォーム パートナーからの最新の SDK リリースに対応するようにエンジンをアップデートしています。
 
 [REGION:raw]
-![image alt text](image_15.jpg)(w:929 h:522 convert:false)
+![image alt text](image_15.jpg)(w:929 convert:false)
 [/REGION]
 
 * **Visual Studio:**重要:このリリースでは、Windows の Visual Studio 2013 はサポートしなくなりました。Visual Studio 2015 または Visual Studio 2017 にアップグレードしてください。
@@ -415,7 +414,7 @@ Pose Driver 機能に多くの改善を施しました。これにより、ボ�
 
 Actor Merge ツール、Hierarchical LOD システムを使う場合の **オパシティ (マスク) 値のベイクアウト** のサポートを追加しました。結果として得られる (インスタンス化) マテリアルでは設定したブレンド モードを使って正しいレンダリング パスに従うようにします。以下は、ベイクアウトしたマスクしたマテリアルの例です。
 
-![image alt text](image_20.png)(w:904 h:740 convert:false)
+![image alt text](image_20.png)(w:904 convert:false)
 
 ### 新規:Mesh Paint Tool の改善
 
@@ -516,7 +515,7 @@ Look At 制御のビジュアル化も改善されました。例えば、クラ
 
 この追加データを含めるには、**[Create Animation]** メニューまたは **[Export Animation]** メニューから **Preview Mesh** を選択します。
 
-![image alt text](image_25.png)(w:697 h:256 convert:false)
+![image alt text](image_25.png)(w:697 convert:false)
 
 ### 新規:Unreal Audio Engine (早期アクセス プレビュー)
 
@@ -542,7 +541,7 @@ GDC で発表された新しい Unreal Audio Engine が PC、 Mac、 iOS、 Andr
 
 エピック ゲームズと Valve が協力して、Unreal Audio Engineの新機能を使用し、Steam Audio SDK を完全に統合した実装をリリースしました。
 
-![image alt text](image_26.png)(w:600 h:160 convert:false)
+![image alt text](image_26.png)(w:600 convert:false)
 
  Steam Audio は、基本的に新しい Unreal Audio Engine の空間化、オクルージョン、リバーブのシステムと統合し、UE4 で VR 向けの次世代の物理ベースのオーディオ体験を実現します。これは Steam Audio の早期アクセス版であり、4.17 では大幅な更新、さらに多くのサンプル プロジェクト、ワークフローの改善が予定されています。エピック ゲームズと Valve では、フィードバック、ご質問、改善案をお待ちしております。  
 
@@ -552,7 +551,7 @@ Steam Audio に関する情報、ドキュメント、サポートのヘルプ�
 
 カラー グレーディングのユーザーインターフェース (UI) が、簡単に使用できるように改善されました。
 
-![image alt text](image_27.jpg)(w:529 h:257 convert:false)
+![image alt text](image_27.jpg)(w:529 convert:false)
 
 * HSV モードが追加されました。
 
@@ -572,7 +571,7 @@ Steam Audio に関する情報、ドキュメント、サポートのヘルプ�
 
 UE4 は文字列テーブルをサポートするようになりました！
 
-![image alt text](image_29.png)(w:601 h:218 convert:false)
+![image alt text](image_29.png)(w:601 convert:false)
 
 文字列テーブルはローカライズしたテキストをひとつ (または複数) の決まった場所にまとめます。次に他のアセットまたはコードから文字列テーブル内のエントリを参照し、ローカライズしたテキストを簡単に再利用できるようにします。文字列テーブルは C++ で定義し、CSV ファイルで読み込むか、アセットとして作成します。
 
@@ -619,7 +618,7 @@ UE4 は Android 23 以降で必要なランタイム パーミッションをサ
 
 Android 23 をターゲットにする場合、Android Runtimes Permission プラグインには、ネイティブ コードまたは **Check Android Permission** ブループリント ノードを使って既にパーミッションが与えられているかをランタイムにチェックする機能があります。パーミッションがまだ認められていない場合は、そのアプリケーションが **Request Android Permissions** ブループリント ノードを使ってユーザーからパーミッションをリクエストします。次に **On Permissions Granted Dynamic Delegate** に結合されているイベントを使ってその結果を取得します。これにより、ゲームでパーミッションを必要とする機能を求める前に、パーミッションを与えることが可能になり、ユーザー体験を高めることができます。ターゲットとするバージョンが Android 23 よりも前の場合、通常どおり Android Manifest で指定してパーミッションを与えます。
 
-![image alt text](image_32.png)(w:718 h:346 convert:false)
+![image alt text](image_32.png)(w:718 convert:false)
 
 **Note:** 4.16 では、Android SDK 23 以降をインストールする必要があります。この SDK レベルをインストールしていない場合、Engine/Extras/AndroidWorks ディレクトリに CodeWorksforAndroid-1R6u1 インストーラがあります。さらに、"Project Settings (プロジェクト設定)" の Android SDK で Android SDK API レベルを matchndk から œlatest に変更してください。これにより、UE4 は Android SDK platforms ディレクトリにあるインストールされている最新 SDK を確実に使用するようになります。NDK API Level を変更する必要はありません。 android-19 は、APK を Lollipop (Android 5.0) よりも前のバージョンにインストールする適切なものです。これよりも高く設定すると、アプリケーションで Android 5.0 以降が必要になります。
 
@@ -655,7 +654,7 @@ FBX ファイルからカプセルのシンプル コリジョンを、これま
 
 **Play Montage** は、Anim Montages をプレイするためのブループリント ロジックで使用できる新しい非同期ノードです。モンタージュがブレンドおよび中断された場合に別のノードをトリガーさせて、いくつかのコールバック イベントへのアクセスを容易にします。
 
-![image alt text](image_33.png)(w:376 h:272 convert:false)
+![image alt text](image_33.png)(w:376 convert:false)
 
 * Montage がプレイを終了し完全にブレンドされると OnCompleted が呼び出されます。
 
@@ -754,11 +753,11 @@ Vertex Interpolator ノードがマテリアル グラフに追加され、頂�
 
 頂点シェーダーへ作業をオフロード処理するための現在のワークフローは Customized UV 出力で使用されます。このフローは、データのパッケージ処理が手作業なので少々面倒です。以下の例は、予めスキンメッシュ化したデータをパックし、エフェクトで使用するためにアンパックするマテリアルです。
 
-![image alt text](image_36.png)(w:766 h:665 convert:false)
+![image alt text](image_36.png)(w:766 convert:false)
 
 この新しい補間ノードはパック処理を自動で行うので、グラフの簡素化およびインライン化が可能になります。
 
-![image alt text](image_37.png)(w:776 h:357 convert:false)
+![image alt text](image_37.png)(w:776 convert:false)
 
 Customized UV で既にパックされた作業は VS (頂点シェーダー) ピンに接続され PS (ピクセル シェーダー) ピンから抽出されます。
 
@@ -776,7 +775,7 @@ Asset Manager がスキャンした Primary Asset Types は、ロード前のラ
 
 アセット管理フレームワーク内にビルドされているので、Asset Audit ウィンドウは一度の多数アセットに対して、ディスク サイズ、メモリ使用状況、アセット プロパティ全般の監査を行うことができます。コンテンツ ブラウザの特別版になります。**[Window] > [Developer Tools]** メニュー、もしくはコンテンツ ブラウザまたはリファレンス ビューアの右クリック メニューからアクセスできます。ウィンドウを開いたら、アセットはボタンを使って追加することができます。クック済みアセット レジストリからロードされたプラットフォーム データは、プラットフォーム ドロップダウンを使ってロードすることができます。こちらは、PS4 のシューティングゲームで使われているテクスチャの監査の例です。
 
-![image alt text](image_38.png)(w:929 h:289 convert:false)
+![image alt text](image_38.png)(w:929 convert:false)
 
 ### VR: VR 向けコンソールコマンドの統合
 
@@ -812,7 +811,7 @@ UMG ウィジェット作成速度が最高 3 倍になりました! クック�
 
 このメソッドには制約があります。ウィジェットのコンパイル ステップのどこかで、インスタンス化処理が正常かどうか、あるいはサブオブジェクト プロパティでのユーザーのインスタンス化設定忘れのためにインスタンス化後に GLEO リファレンスが残っていないかどうかを確認します。ただし、すべての UVisuals (ウィジェットおよびスロット) が DefaultToInstanced になり、インスタンス化フラッグを要求するほとんどのケースに対応してくれるので、そのような事はあまりありません。ネイティブ コードで BindWidget を使う場合は特にそうです。
 
-## リリース ノート 「訳注： 以下は、非常に技術的な部分が含まれるため、翻訳を省略します。」
+## RELEASE NOTES (以下の、細部に関する翻訳は割愛します。)
 
 ### AI
 
@@ -1108,7 +1107,7 @@ UMG ウィジェット作成速度が最高 3 倍になりました! クック�
 
 * Macro instances that contain latent actions will now show an overlay clock icon like other latent nodes, which makes them easier to spot and understand that they impact execution flow
 
-	![image alt text](image_39.png)(w:720 h:180 convert:false)
+	![image alt text](image_39.png)(w:720 convert:false)
 
 * New:Improved comments in Blueprints.
 
@@ -1492,11 +1491,11 @@ UMG ウィジェット作成速度が最高 3 倍になりました! クック�
 
     * You can adjust the 'Editor Window Background Color' for a subtle effect, as the default background is already a pretty dark grey:
 
-		![image alt text](image_40.jpg)(w:929 h:416 convert:false)
+		![image alt text](image_40.jpg)(w:929 convert:false)
 
     * Or you can edit the tint in the two brushes (which sets the texture to a white default one) to get a very brazen effect:
 
-		![image alt text](image_41.jpg)(w:929 h:416 convert:false)
+		![image alt text](image_41.jpg)(w:929 convert:false)
 
 * New:Added Data Table export/import support for TMap and TSet.
 

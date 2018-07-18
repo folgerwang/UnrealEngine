@@ -4,9 +4,15 @@
 #include "ARBlueprintLibrary.h"
 #include "ARSystem.h"
 #include "ARTrackable.h"
+#include "DrawDebugHelpers.h"
 #include "Templates/Casts.h"
 
 UGoogleARCorePlaneRendererComponent::UGoogleARCorePlaneRendererComponent()
+	: bRenderPlane(true)
+	, bRenderBoundaryPolygon(true)
+	, PlaneColor(FColor::Green)
+	, BoundaryPolygonColor(FColor::Blue)
+	, BoundaryPolygonThickness(0.5f)
 {
 	PrimaryComponentTick.bCanEverTick = true;
 
@@ -27,22 +33,46 @@ void UGoogleARCorePlaneRendererComponent::DrawPlanes()
 	{
 		TArray<UARTrackedGeometry*> PlaneList;
 		PlaneList = UARBlueprintLibrary::GetAllGeometries();
-		for (UARTrackedGeometry* Plane : PlaneList)
+		for (UARTrackedGeometry* TrackedGeometry : PlaneList)
 		{
-			if (!Plane->IsA(UARPlaneGeometry::StaticClass()))
+			if (!TrackedGeometry->IsA(UARPlaneGeometry::StaticClass()))
 			{
 				continue;
 			}
-
-			if (Plane->GetTrackingState() != EARTrackingState::Tracking)
+			
+			if (TrackedGeometry->GetTrackingState() != EARTrackingState::Tracking)
 			{
 				continue;
 			}
-
+			
+			UARPlaneGeometry* Plane = Cast<UARPlaneGeometry>(TrackedGeometry);
 			if (bRenderPlane)
 			{
-				CastChecked<UARPlaneGeometry>(Plane)->DebugDraw(World, BoundaryPolygonColor, BoundaryPolygonThickness);
+				FTransform BoundingBoxTransform = Plane->GetLocalToWorldTransform();
+				FVector BoundingBoxLocation = BoundingBoxTransform.GetLocation();
+				FVector BoundingBoxSize = Plane->GetExtent();
+				
+				PlaneVertices.Empty();
+				PlaneVertices.Add(BoundingBoxTransform.TransformPosition(FVector(-BoundingBoxSize.X / 2.0f, -BoundingBoxSize.Y / 2.0f, 0)));
+				PlaneVertices.Add(BoundingBoxTransform.TransformPosition(FVector(-BoundingBoxSize.X / 2.0f, BoundingBoxSize.Y / 2.0f, 0)));
+				PlaneVertices.Add(BoundingBoxTransform.TransformPosition(FVector(BoundingBoxSize.X / 2.0f, BoundingBoxSize.Y / 2.0f, 0)));
+				PlaneVertices.Add(BoundingBoxTransform.TransformPosition(FVector(BoundingBoxSize.X / 2.0f, -BoundingBoxSize.Y / 2.0f, 0)));
+				// plane quad
+				DrawDebugMesh(World, PlaneVertices, PlaneIndices, PlaneColor);
 			}
+			
+			if (bRenderBoundaryPolygon)
+			{
+				const TArray<FVector>& BoundaryPolygonData = Plane->GetBoundaryPolygonInLocalSpace();
+				FTransform PlaneCenter = Plane->GetLocalToWorldTransform();
+				for (int i = 0; i < BoundaryPolygonData.Num(); i++)
+				{
+					FVector Start = PlaneCenter.TransformPosition(BoundaryPolygonData[i]);
+					FVector End = PlaneCenter.TransformPosition(BoundaryPolygonData[(i + 1) % BoundaryPolygonData.Num()]);
+					DrawDebugLine(World, Start, End, BoundaryPolygonColor, false, -1.f, 0, BoundaryPolygonThickness);
+				}
+			}
+
 		}
 	}
 }

@@ -24,6 +24,19 @@ FDelegateHandle FTicker::AddTicker(const FTickerDelegate& InDelegate, float InDe
 	return InDelegate.GetHandle();
 }
 
+
+FDelegateHandle FTicker::AddTicker(const TCHAR* InName, float InDelay, TFunction<bool(float)> Function)
+{
+	// todo - use InName for profiling. Added in sig to be forward looking..
+
+	FTickerDelegate Delegate = FTickerDelegate::CreateLambda(Function);
+
+	// We can add elements safely even during tick.
+	Elements.Emplace(CurrentTime + InDelay, InDelay, Delegate);
+
+	return Delegate.GetHandle();
+}
+
 void FTicker::RemoveTicker(FDelegateHandle Handle)
 {
 	// must remove the handle from both arrays because we could be in the middle of a tick, 
@@ -117,6 +130,11 @@ bool FTicker::FElement::Fire(float DeltaTime)
 	return false;
 }
 
+#if PLATFORM_WINDOWS && PLATFORM_32BITS
+// Workaround for ICE on VC++ 2017 14.13.26128 for UE4Game Win32
+PRAGMA_DISABLE_OPTIMIZATION
+#endif
+
 FTickerObjectBase::FTickerObjectBase(float InDelay, FTicker& InTicker)
 	: Ticker(InTicker)
 {
@@ -124,6 +142,10 @@ FTickerObjectBase::FTickerObjectBase(float InDelay, FTicker& InTicker)
 	FTickerDelegate TickDelegate = FTickerDelegate::CreateRaw(this, &FTickerObjectBase::Tick);
 	TickHandle = Ticker.AddTicker(TickDelegate, InDelay);
 }
+
+#if PLATFORM_WINDOWS && PLATFORM_32BITS
+PRAGMA_ENABLE_OPTIMIZATION
+#endif
 
 FTickerObjectBase::~FTickerObjectBase()
 {

@@ -141,17 +141,18 @@ static void WriteReplayInfo( const FString& StreamName, const FNullReplayInfo& R
 // Returns a name formatted as "demoX", where X is 0-9.
 // Returns the first value that doesn't yet exist, or if they all exist, returns the oldest one
 // (it will be overwritten).
-static FString GetAutomaticDemoName()
+FString GetAutomaticDemoName()
 {
+	const int MaxDemos = FNetworkReplayStreaming::GetMaxNumberOfAutomaticReplays();
+	const bool bUnlimitedDemos = MaxDemos == 0;
+
 	FString FinalDemoName;
 	FDateTime BestDateTime = FDateTime::MaxValue();
 
-	const int MAX_DEMOS = 10;
-
-	for (int32 i = 0; i < MAX_DEMOS; i++)
+	int32 i = 1;
+	while(bUnlimitedDemos || i <= MaxDemos)
 	{
-		const FString DemoName = FString::Printf(TEXT("demo%i"), i + 1);
-		
+		const FString DemoName = FString::Printf(TEXT("demo%i"), i);
 		const FString FullDemoName = GetDemoFilename(DemoName);
 		
 		FDateTime DateTime = IFileManager::Get().GetTimeStamp(*FullDemoName);
@@ -162,20 +163,30 @@ static FString GetAutomaticDemoName()
 			FinalDemoName = DemoName;
 			break;
 		}
-		else if (DateTime < BestDateTime)
+		else if (!bUnlimitedDemos && DateTime < BestDateTime)
 		{
 			// Use the oldest file
 			FinalDemoName = DemoName;
 			BestDateTime = DateTime;
 		}
+
+		++i;
 	}
 
 	return FinalDemoName;
 }
 
-void FNullNetworkReplayStreamer::StartStreaming( const FString& CustomName, const FString& FriendlyName, const TArray< FString >& UserNames, bool bRecord, const FNetworkReplayVersion& ReplayVersion, const FOnStreamReadyDelegate& Delegate )
+void FNullNetworkReplayStreamer::StartStreaming(const FString& CustomName, const FString& FriendlyName, const TArray< int32 >& UserIndices, bool bRecord, const FNetworkReplayVersion& ReplayVersion, const FStartStreamingCallback& Delegate)
+{
+	StartStreaming(CustomName, FriendlyName, TArray<FString>(), bRecord, ReplayVersion, Delegate);
+}
+
+void FNullNetworkReplayStreamer::StartStreaming( const FString& CustomName, const FString& FriendlyName, const TArray< FString >& UserNames, bool bRecord, const FNetworkReplayVersion& ReplayVersion, const FStartStreamingCallback& Delegate )
 {
 	FString FinalDemoName = CustomName;
+
+	FStartStreamingResult Result;
+	Result.bRecording = bRecord;
 
 	if ( CustomName.IsEmpty() )
 	{
@@ -187,7 +198,8 @@ void FNullNetworkReplayStreamer::StartStreaming( const FString& CustomName, cons
 		else
 		{
 			// Can't play a replay if the user didn't provide a name!
-			Delegate.ExecuteIfBound( false, bRecord );
+			Result.Result = EStreamingOperationResult::ReplayNotFound;
+			Delegate.ExecuteIfBound( Result );
 			return;
 		}
 	}
@@ -233,7 +245,11 @@ void FNullNetworkReplayStreamer::StartStreaming( const FString& CustomName, cons
 	}
 
 	// Notify immediately
-	Delegate.ExecuteIfBound( FileAr.Get() != nullptr && HeaderAr.Get() != nullptr, bRecord );
+	if (FileAr.Get() != nullptr && HeaderAr.Get() != nullptr)
+	{
+		Result.Result = EStreamingOperationResult::Success;
+	}
+	Delegate.ExecuteIfBound(Result);
 }
 
 void FNullNetworkReplayStreamer::StopStreaming()
@@ -287,39 +303,57 @@ bool FNullNetworkReplayStreamer::IsNamedStreamLive( const FString& StreamName ) 
 	return !IFileManager::Get().FileExists(*GetFinalFilename(StreamName));
 }
 
-void FNullNetworkReplayStreamer::DeleteFinishedStream( const FString& StreamName, const FOnDeleteFinishedStreamComplete& Delegate ) const
+void FNullNetworkReplayStreamer::DeleteFinishedStream(const FString& StreamName, const int32 UserIndex, const FDeleteFinishedStreamCallback& Delegate)
 {
+	DeleteFinishedStream(StreamName, Delegate);
+}
+
+void FNullNetworkReplayStreamer::DeleteFinishedStream( const FString& StreamName, const FDeleteFinishedStreamCallback& Delegate )
+{
+	FDeleteFinishedStreamResult Result;
+
 	// Live streams can't be deleted
 	if (IsNamedStreamLive(StreamName))
 	{
 		UE_LOG(LogNullReplay, Log, TEXT("Can't delete network replay stream %s because it is live!"), *StreamName);
-		Delegate.ExecuteIfBound(false);
-		return;
+	}
+	else
+	{
+		// Delete the directory with the specified name in the Saved/Demos directory
+		const FString DemoName = GetStreamDirectory(StreamName);
+		if (!FPaths::DirectoryExists(DemoName))
+		{
+			Result.Result = EStreamingOperationResult::ReplayNotFound;
+		}
+		else if (IFileManager::Get().DeleteDirectory(*DemoName, false, true))
+		{
+			Result.Result = EStreamingOperationResult::Success;
+		}
 	}
 
-	// Delete the directory with the specified name in the Saved/Demos directory
-	const FString DemoName = GetStreamDirectory(StreamName);
-
-	const bool DeleteSucceeded = IFileManager::Get().DeleteDirectory( *DemoName, false, true );
-
-	Delegate.ExecuteIfBound(DeleteSucceeded);
+	Delegate.ExecuteIfBound(Result);
 }
 
-void FNullNetworkReplayStreamer::EnumerateStreams( const FNetworkReplayVersion& ReplayVersion, const FString& UserString, const FString& MetaString, const FOnEnumerateStreamsComplete& Delegate )
+void FNullNetworkReplayStreamer::EnumerateStreams(const FNetworkReplayVersion& ReplayVersion, const int32 UserIndex, const FString& MetaString, const TArray< FString >& ExtraParms, const FEnumerateStreamsCallback& Delegate)
+{
+	EnumerateStreams(ReplayVersion, FString(), MetaString, ExtraParms, Delegate);
+}
+
+void FNullNetworkReplayStreamer::EnumerateStreams( const FNetworkReplayVersion& ReplayVersion, const FString& UserString, const FString& MetaString, const FEnumerateStreamsCallback& Delegate )
 {
 	EnumerateStreams( ReplayVersion, UserString, MetaString, TArray< FString >(), Delegate );
 }
 
-void FNullNetworkReplayStreamer::EnumerateStreams( const FNetworkReplayVersion& ReplayVersion, const FString& UserString, const FString& MetaString, const TArray< FString >& ExtraParms, const FOnEnumerateStreamsComplete& Delegate )
+void FNullNetworkReplayStreamer::EnumerateStreams( const FNetworkReplayVersion& ReplayVersion, const FString& UserString, const FString& MetaString, const TArray< FString >& ExtraParms, const FEnumerateStreamsCallback& Delegate )
 {
 	// Simply returns a stream for each folder in the Saved/Demos directory
-	const FString WildCardPath = GetDemoPath() + TEXT( "*" );
+	const FString WildCardPath = ::GetDemoPath() + TEXT( "*" );
 
 	TArray<FString> DirectoryNames;
 	IFileManager::Get().FindFiles( DirectoryNames, *WildCardPath, false, true );
 
-	TArray<FNetworkReplayStreamInfo> Results;
-
+	FEnumerateStreamsResult Result;
+	
 	for ( const FString& Directory : DirectoryNames )
 	{
 		// Assume there will be one file with a .demo extension in the directory
@@ -348,14 +382,16 @@ void FNullNetworkReplayStreamer::EnumerateStreams( const FNetworkReplayVersion& 
 			Info.Name = Directory;
 			Info.Timestamp = IFileManager::Get().GetTimeStamp( *FullDemoFilePath );
 			Info.bIsLive = IsNamedStreamLive( Directory );
+			Info.Changelist = StoredReplayInfo.Changelist;
 			Info.LengthInMS = StoredReplayInfo.LengthInMS;
 			Info.FriendlyName = StoredReplayInfo.FriendlyName;
 
-			Results.Add( Info );
+			Result.FoundStreams.Add( Info );
 		}
 	}
 
-	Delegate.ExecuteIfBound( Results );
+	Result.Result = EStreamingOperationResult::Success;
+	Delegate.ExecuteIfBound( Result );
 }
 
 void FNullNetworkReplayStreamer::AddUserToReplay(const FString& UserString)
@@ -368,19 +404,111 @@ void FNullNetworkReplayStreamer::AddEvent( const uint32 TimeInMS, const FString&
 	UE_LOG(LogNullReplay, Log, TEXT("FNullNetworkReplayStreamer::AddEvent is currently unsupported."));
 }
 
-void FNullNetworkReplayStreamer::EnumerateEvents( const FString& Group, const FEnumerateEventsCompleteDelegate& EnumerationCompleteDelegate )
+void FNullNetworkReplayStreamer::EnumerateEvents(const FString& ReplayName, const FString& Group, const int32 UserIndex, const FEnumerateEventsCallback& Delegate)
+{
+	EnumerateEvents(Group, Delegate);
+}
+
+void FNullNetworkReplayStreamer::EnumerateEvents(const FString& ReplayName, const FString& Group, const FEnumerateEventsCallback& Delegate)
+{
+	EnumerateEvents(Group, Delegate);
+}
+
+void FNullNetworkReplayStreamer::EnumerateEvents( const FString& Group, const FEnumerateEventsCallback& Delegate )
 {
 	UE_LOG(LogNullReplay, Log, TEXT("FNullNetworkReplayStreamer::EnumerateEvents is currently unsupported."));
+	FEnumerateEventsResult Result;
+	Result.Result = EStreamingOperationResult::Unsupported;
+	Delegate.Execute(Result);
 }
 
-void FNullNetworkReplayStreamer::RequestEventData(const FString& EventID, const FOnRequestEventDataComplete& RequestEventDataComplete)
+void FNullNetworkReplayStreamer::RequestEventData(const FString& ReplayName, const FString& EventID, const int32 UserIndex, const FRequestEventDataCallback& Delegate)
+{
+	RequestEventData(EventID, Delegate);
+}
+
+void FNullNetworkReplayStreamer::RequestEventData(const FString& ReplayName, const FString& EventID, const FRequestEventDataCallback& Delegate)
+{
+	RequestEventData(EventID, Delegate);
+}
+
+void FNullNetworkReplayStreamer::RequestEventData(const FString& EventID, const FRequestEventDataCallback& Delegate)
 {
 	UE_LOG(LogNullReplay, Log, TEXT("FNullNetworkReplayStreamer::RequestEventData is currently unsupported."));
+	FRequestEventDataResult Result;
+	Result.Result = EStreamingOperationResult::Unsupported;
+	Delegate.Execute(Result);
 }
 
-void FNullNetworkReplayStreamer::SearchEvents(const FString& EventGroup, const FOnEnumerateStreamsComplete& Delegate)
+void FNullNetworkReplayStreamer::SearchEvents(const FString& EventGroup, const FSearchEventsCallback& Delegate)
 {
 	UE_LOG(LogNullReplay, Log, TEXT("FNullNetworkReplayStreamer::SearchEvents is currently unsupported."));
+	FSearchEventsResult Result;
+	Result.Result = EStreamingOperationResult::Unsupported;
+	Delegate.Execute(Result);
+}
+
+void FNullNetworkReplayStreamer::KeepReplay(const FString& ReplayName, const bool bKeep, const int32 UserIndex, const FKeepReplayCallback& Delegate)
+{
+	KeepReplay(ReplayName, bKeep, Delegate);
+}
+
+void FNullNetworkReplayStreamer::KeepReplay(const FString& ReplayName, const bool bKeep, const FKeepReplayCallback& Delegate)
+{
+	// Replays are kept during streaming so there's no need to explicitly save them.
+	// However, sanity check that what was passed in still exists.
+	FKeepReplayResult Result;
+	if (!FPaths::DirectoryExists(GetStreamDirectory(ReplayName)))
+	{
+		Result.Result = EStreamingOperationResult::ReplayNotFound;
+	}
+	else
+	{
+		Result.Result = EStreamingOperationResult::Success;
+		Result.NewReplayName = ReplayName;
+	}
+
+	Delegate.Execute(Result);
+}
+
+void FNullNetworkReplayStreamer::RenameReplayFriendlyName(const FString& ReplayName, const FString& NewFriendlyName, const int32 UserIndex, const FRenameReplayCallback& Delegate)
+{
+	RenameReplayFriendlyName(ReplayName, NewFriendlyName, Delegate);
+}
+
+void FNullNetworkReplayStreamer::RenameReplayFriendlyName(const FString& ReplayName, const FString& NewFriendlyName, const FRenameReplayCallback& Delegate)
+{
+	UE_LOG(LogNullReplay, Log, TEXT("FNullNetworkReplayStreamer::RenameReplayFriendlyName is currently unsupported."));
+	FRenameReplayResult Result;
+	Result.Result = EStreamingOperationResult::Unsupported;
+	Delegate.Execute(Result);
+}
+
+void FNullNetworkReplayStreamer::RenameReplay(const FString& ReplayName, const FString& NewName, const int32 UserIndex, const FRenameReplayCallback& Delegate)
+{
+	RenameReplay(ReplayName, NewName, Delegate);
+}
+
+void FNullNetworkReplayStreamer::RenameReplay(const FString& ReplayName, const FString& NewName, const FRenameReplayCallback& Delegate)
+{
+	UE_LOG(LogNullReplay, Log, TEXT("FNullNetworkReplayStreamer::RenameReplay is currently unsupported."));
+	FRenameReplayResult Result;
+	Result.Result = EStreamingOperationResult::Unsupported;
+	Delegate.Execute(Result);
+}
+
+void FNullNetworkReplayStreamer::EnumerateRecentStreams(const FNetworkReplayVersion& ReplayVersion, const int32 UserIndex, const FEnumerateStreamsCallback& Delegate)
+{
+	EnumerateRecentStreams(ReplayVersion, FString(), Delegate);
+}
+
+void FNullNetworkReplayStreamer::EnumerateRecentStreams(const FNetworkReplayVersion& ReplayVersion, const FString& RecentViewer, const FEnumerateStreamsCallback& Delegate)
+{
+	UE_LOG(LogNullReplay, Log, TEXT("FNullNetworkReplayStreamer::EnumerateRecentStreams is currently unsupported."));
+
+	FEnumerateStreamsResult Result;
+	Result.Result = EStreamingOperationResult::Unsupported;
+	Delegate.Execute(Result);
 }
 
 FArchive* FNullNetworkReplayStreamer::GetCheckpointArchive()
@@ -430,57 +558,62 @@ void FNullNetworkReplayStreamer::FlushCheckpoint(const uint32 TimeInMS)
 	++CurrentCheckpointIndex;
 }
 
-void FNullNetworkReplayStreamer::GotoCheckpointIndex(const int32 CheckpointIndex, const FOnCheckpointReadyDelegate& Delegate)
+void FNullNetworkReplayStreamer::GotoCheckpointIndex(const int32 CheckpointIndex, const FGotoCallback& Delegate)
 {
 	GotoCheckpointIndexInternal(CheckpointIndex, Delegate, -1);
 }
 
-void FNullNetworkReplayStreamer::GotoCheckpointIndexInternal(int32 CheckpointIndex, const FOnCheckpointReadyDelegate& Delegate, int32 TimeInMS)
+void FNullNetworkReplayStreamer::GotoCheckpointIndexInternal(int32 CheckpointIndex, const FGotoCallback& Delegate, int32 ExtraTimeInMS)
 {
 	check( FileAr.Get() != nullptr);
 
+	FGotoResult Result;
 	if ( CheckpointIndex == -1 )
 	{
 		// Create a dummy checkpoint archive to indicate this is the first checkpoint
 		CheckpointAr.Reset(new FArchive);
 
 		FileAr->Seek(0);
-		
-		Delegate.ExecuteIfBound( true, TimeInMS );
-		return;
+		Result.ExtraTimeMS = ExtraTimeInMS;
+		Result.Result = EStreamingOperationResult::Success;
 	}
-
-	// Attempt to open the checkpoint file for the given index. Will fail if file doesn't exist.
-	const FString CheckpointFilename = GetCheckpointFilename(CurrentStreamName, CheckpointIndex);
-	CheckpointAr.Reset( IFileManager::Get().CreateFileReader( *CheckpointFilename ) );
-
-	if ( CheckpointAr.Get() == nullptr )
+	else
 	{
-		UE_LOG(LogNullReplay, Log, TEXT("FNullNetworkReplayStreamer::GotoCheckpointIndex. Index: %i. Couldn't open checkpoint file %s"), CheckpointIndex, *CheckpointFilename);
-		Delegate.ExecuteIfBound( false, TimeInMS );
-		return;
+		// Attempt to open the checkpoint file for the given index. Will fail if file doesn't exist.
+		const FString CheckpointFilename = GetCheckpointFilename(CurrentStreamName, CheckpointIndex);
+		CheckpointAr.Reset(IFileManager::Get().CreateFileReader(*CheckpointFilename));
+
+		if (CheckpointAr.Get() == nullptr)
+		{
+			UE_LOG(LogNullReplay, Log, TEXT("FNullNetworkReplayStreamer::GotoCheckpointIndex. Index: %i. Couldn't open checkpoint file %s"), CheckpointIndex, *CheckpointFilename);
+		}
+		else
+		{
+			Result.ExtraTimeMS = ExtraTimeInMS;
+			Result.Result = EStreamingOperationResult::Success;
+
+			// Open and deserialize the corresponding event, this tells us where we need to seek to
+			// in the main replay file to sync up with the checkpoint we're loading.
+			const FString EventFilename = GetEventFilename(CurrentStreamName, CheckpointIndex);
+			TUniquePtr<FArchive> EventFile(IFileManager::Get().CreateFileReader(*EventFilename));
+			if (EventFile.Get() != nullptr)
+			{
+				FString JsonString;
+				*EventFile << JsonString;
+
+				FNullCheckpointListItem Item;
+				Item.FromJson(JsonString);
+
+				// Reopen, since for live replays the file is being written to and read from simultaneously
+				// and we need the reported file size to be up to date.
+				ReopenStreamFileForReading();
+
+				FileAr->Seek(FCString::Atoi64(*Item.Metadata));
+			}
+		}
 	}
 
-	// Open and deserialize the corresponding event, this tells us where we need to seek to
-	// in the main replay file to sync up with the checkpoint we're loading.
-	const FString EventFilename = GetEventFilename(CurrentStreamName, CheckpointIndex);
-	TUniquePtr<FArchive> EventFile( IFileManager::Get().CreateFileReader(*EventFilename));
-	if (EventFile.Get() != nullptr)
-	{
-		FString JsonString;
-		*EventFile << JsonString;
-
-		FNullCheckpointListItem Item;
-		Item.FromJson(JsonString);
-
-		// Reopen, since for live replays the file is being written to and read from simultaneously
-		// and we need the reported file size to be up to date.
-		ReopenStreamFileForReading();
-
-		FileAr->Seek( FCString::Atoi64( *Item.Metadata ) );
-	}
-
-	Delegate.ExecuteIfBound( true, TimeInMS );
+	Delegate.ExecuteIfBound( Result );
 }
 
 void FNullNetworkReplayStreamer::ReopenStreamFileForReading()
@@ -503,7 +636,7 @@ void FNullNetworkReplayStreamer::UpdateReplayInfoIfValid()
 	}
 }
 
-void FNullNetworkReplayStreamer::GotoTimeInMS(const uint32 TimeInMS, const FOnCheckpointReadyDelegate& Delegate)
+void FNullNetworkReplayStreamer::GotoTimeInMS(const uint32 TimeInMS, const FGotoCallback& Delegate)
 {
 	// Enumerate all the events in the events folder, since we need to know what times the checkpoints correlate with
 	TArray<FNullCheckpointListItem> Checkpoints;
@@ -606,6 +739,12 @@ void FNullNetworkReplayStreamer::Tick(float DeltaSeconds)
 TStatId FNullNetworkReplayStreamer::GetStatId() const
 {
 	RETURN_QUICK_DECLARE_CYCLE_STAT(FNullNetworkReplayStreamer, STATGROUP_Tickables);
+}
+
+EStreamingOperationResult FNullNetworkReplayStreamer::GetDemoPath(FString& DemoPath) const
+{
+	DemoPath = ::GetDemoPath();
+	return EStreamingOperationResult::Success;
 }
 
 IMPLEMENT_MODULE( FNullNetworkReplayStreamingFactory, NullNetworkReplayStreaming )

@@ -240,6 +240,9 @@ public:
 	/** Get the type of virtual keyboard to use for this widget */
 	virtual EKeyboardType GetVirtualKeyboardType() const = 0;
 
+	/** Get the options for the virtual keyboard used for this widget */
+	virtual FVirtualKeyboardOptions GetVirtualKeyboardOptions() const = 0;
+
 	/** Get the type of event that will trigger the display of the virtual keyboard */
 	virtual EVirtualKeyboardTrigger GetVirtualKeyboardTrigger() const = 0;
 

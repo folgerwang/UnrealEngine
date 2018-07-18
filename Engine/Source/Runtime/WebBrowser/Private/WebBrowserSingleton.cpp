@@ -13,7 +13,7 @@
 #include "WebBrowserLog.h"
 
 #if PLATFORM_WINDOWS
-#include "WindowsHWrapper.h"
+#include "Windows/WindowsHWrapper.h"
 #endif
 
 #if WITH_CEF3
@@ -23,23 +23,30 @@
 #include "CEF/CEFWebBrowserWindow.h"
 #include "CEF/CEFSchemeHandler.h"
 #	if PLATFORM_WINDOWS
-#		include "AllowWindowsPlatformTypes.h"
+#		include "Windows/AllowWindowsPlatformTypes.h"
 #	endif
 #	pragma push_macro("OVERRIDE")
 #		undef OVERRIDE // cef headers provide their own OVERRIDE macro
 THIRD_PARTY_INCLUDES_START
+#if PLATFORM_APPLE
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
+#endif
 #		include "include/cef_app.h"
+#if PLATFORM_APPLE
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
+#endif
 THIRD_PARTY_INCLUDES_END
 #	pragma pop_macro("OVERRIDE")
 #	if PLATFORM_WINDOWS
-#		include "HideWindowsPlatformTypes.h"
+#		include "Windows/HideWindowsPlatformTypes.h"
 #	endif
 #endif
 
-#if PLATFORM_ANDROID
+#if PLATFORM_ANDROID && USE_ANDROID_JNI
 #	include "Android/AndroidWebBrowserWindow.h"
 #elif PLATFORM_IOS
 #	include <IOS/IOSPlatformWebBrowser.h>
+#	include <IOS/IOSCookieManager.h>
 #elif PLATFORM_PS4
 #	include <PS4/PS4PlatformWebBrowser.h>
 #endif
@@ -297,6 +304,8 @@ FWebBrowserSingleton::FWebBrowserSingleton(const FWebBrowserInitSettings& WebBro
 	SetCurrentThreadName(TCHAR_TO_ANSI( *(FName( NAME_GameThread ).GetPlainNameString()) ));
 
 	DefaultCookieManager = FCefWebBrowserCookieManagerFactory::Create(CefCookieManager::GetGlobalManager(nullptr));
+#elif PLATFORM_IOS
+	DefaultCookieManager = MakeShareable(new FIOSCookieManager());
 #endif
 }
 
@@ -322,18 +331,21 @@ void FWebBrowserSingleton::HandleRenderProcessCreated(CefRefPtr<CefListValue> Ex
 FWebBrowserSingleton::~FWebBrowserSingleton()
 {
 #if WITH_CEF3
-	// Force all existing browsers to close in case any haven't been deleted
-	for (int32 Index = 0; Index < WindowInterfaces.Num(); ++Index)
 	{
-		auto BrowserWindow = WindowInterfaces[Index].Pin();
-		if (BrowserWindow.IsValid() && BrowserWindow->IsValid())
+		FScopeLock Lock(&WindowInterfacesCS);
+		// Force all existing browsers to close in case any haven't been deleted
+		for (int32 Index = 0; Index < WindowInterfaces.Num(); ++Index)
 		{
-			// Call CloseBrowser directly on the Host object as FWebBrowserWindow::CloseBrowser is delayed
-			BrowserWindow->InternalCefBrowser->GetHost()->CloseBrowser(true);
+			auto BrowserWindow = WindowInterfaces[Index].Pin();
+			if (BrowserWindow.IsValid() && BrowserWindow->IsValid())
+			{
+				// Call CloseBrowser directly on the Host object as FWebBrowserWindow::CloseBrowser is delayed
+				BrowserWindow->InternalCefBrowser->GetHost()->CloseBrowser(true);
+			}
 		}
+		// Clear this before CefShutdown() below
+		WindowInterfaces.Reset();
 	}
-	// Clear this before CefShutdown() below
-	WindowInterfaces.Reset();
 
 	// Remove references to the scheme handler factories
 	CefClearSchemeHandlerFactories();
@@ -373,7 +385,10 @@ TSharedPtr<IWebBrowserWindow> FWebBrowserSingleton::CreateBrowserWindow(
 	TSharedPtr<FCEFWebBrowserWindow> NewBrowserWindow(new FCEFWebBrowserWindow(BrowserWindowInfo->Browser, BrowserWindowInfo->Handler, InitialURL, ContentsToLoad, bShowErrorMessage, bThumbMouseButtonNavigation, bUseTransparency, bJSBindingsToLoweringEnabled));
 	BrowserWindowInfo->Handler->SetBrowserWindow(NewBrowserWindow);
 
-	WindowInterfaces.Add(NewBrowserWindow);
+	{
+		FScopeLock Lock(&WindowInterfacesCS);
+		WindowInterfaces.Add(NewBrowserWindow);
+	}
 	return NewBrowserWindow;
 #endif
 	return nullptr;
@@ -485,11 +500,14 @@ TSharedPtr<IWebBrowserWindow> FWebBrowserSingleton::CreateBrowserWindow(const FC
 				bJSBindingsToLoweringEnabled));
 			NewHandler->SetBrowserWindow(NewBrowserWindow);
 
-			WindowInterfaces.Add(NewBrowserWindow);
+			{
+				FScopeLock Lock(&WindowInterfacesCS);
+				WindowInterfaces.Add(NewBrowserWindow);
+			}
 			return NewBrowserWindow;
 		}
 	}
-#elif PLATFORM_ANDROID
+#elif PLATFORM_ANDROID && USE_ANDROID_JNI
 	// Create new window
 	TSharedPtr<FAndroidWebBrowserWindow> NewBrowserWindow = MakeShareable(new FAndroidWebBrowserWindow(
 		WindowSettings.InitialURL,
@@ -518,6 +536,8 @@ TSharedPtr<IWebBrowserWindow> FWebBrowserSingleton::CreateBrowserWindow(const FC
 
 bool FWebBrowserSingleton::Tick(float DeltaTime)
 {
+    QUICK_SCOPE_CYCLE_COUNTER(STAT_FWebBrowserSingleton_Tick);
+
 #if WITH_CEF3
 	FScopeLock Lock(&WindowInterfacesCS);
 	bool bIsSlateAwake = FSlateApplication::IsInitialized() && !FSlateApplication::Get().IsSlateAsleep();
@@ -580,22 +600,24 @@ PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 TSharedPtr<IWebBrowserCookieManager> FWebBrowserSingleton::GetCookieManager(TOptional<FString> ContextId) const
 {
-	if (!ContextId.IsSet())
+	if (ContextId.IsSet())
 	{
-		return DefaultCookieManager;
-	}
-
 #if WITH_CEF3
-	const CefRefPtr<CefRequestContext>* ExistingContext = RequestContexts.Find(ContextId.GetValue());
+		const CefRefPtr<CefRequestContext>* ExistingContext = RequestContexts.Find(ContextId.GetValue());
 
-	if (ExistingContext)
-	{
-		// Cache these cookie managers?
-		return FCefWebBrowserCookieManagerFactory::Create((*ExistingContext)->GetDefaultCookieManager(nullptr));
-	}
+		if (ExistingContext)
+		{
+			// Cache these cookie managers?
+			return FCefWebBrowserCookieManagerFactory::Create((*ExistingContext)->GetDefaultCookieManager(nullptr));
+		}
+		else
+		{
+			UE_LOG(LogWebBrowser, Log, TEXT("No cookie manager for ContextId=%s.  Using default cookie manager"), *ContextId.GetValue());
+		}
 #endif
-
-	return nullptr;
+	}
+	// No ContextId or cookie manager instance associated with it.  Use default
+	return DefaultCookieManager;
 }
 
 bool FWebBrowserSingleton::RegisterContext(const FBrowserContextSettings& Settings)

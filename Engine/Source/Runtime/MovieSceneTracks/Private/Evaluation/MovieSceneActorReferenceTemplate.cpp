@@ -5,18 +5,17 @@
 #include "Sections/MovieSceneActorReferenceSection.h"
 #include "Tracks/MovieSceneActorReferenceTrack.h"
 #include "GameFramework/Actor.h"
-#include "MovieSceneEvaluation.h"
+#include "Evaluation/MovieSceneEvaluation.h"
 
 
 namespace PropertyTemplate
 {
 	template<>
-	AActor* ConvertFromIntermediateType<AActor*, FGuid>(const FGuid& InObjectGuid, const FMovieSceneEvaluationOperand& Operand, FPersistentEvaluationData& PersistentData, IMovieScenePlayer& Player)
+	AActor* ConvertFromIntermediateType<AActor*, FMovieSceneObjectBindingID>(const FMovieSceneObjectBindingID& InObjectBinding, const FMovieSceneEvaluationOperand& Operand, FPersistentEvaluationData& PersistentData, IMovieScenePlayer& Player)
 	{
-		FMovieSceneEvaluationOperand NewOperand = Operand;
-		NewOperand.ObjectBindingID = InObjectGuid;
+		FMovieSceneObjectBindingID ResolvedID = InObjectBinding.ResolveLocalToRoot(Operand.SequenceID, Player.GetEvaluationTemplate().GetHierarchy());
 
-		for (TWeakObjectPtr<>& WeakObject : Player.FindBoundObjects(NewOperand))
+		for (TWeakObjectPtr<>& WeakObject : Player.FindBoundObjects(ResolvedID.GetGuid(), ResolvedID.GetSequenceID()))
 		{
 			if (AActor* Actor = Cast<AActor>(WeakObject.Get()))
 			{
@@ -43,7 +42,7 @@ namespace PropertyTemplate
 		return InValue != nullptr;
 	}
 
-	template<> IMovieScenePreAnimatedTokenPtr CacheExistingState<AActor*, FGuid>(UObject& Object, FTrackInstancePropertyBindings& PropertyBindings)
+	template<> IMovieScenePreAnimatedTokenPtr CacheExistingState<AActor*, FMovieSceneObjectBindingID>(UObject& Object, FTrackInstancePropertyBindings& PropertyBindings)
 	{
 		return TCachedState<AActor*, TWeakObjectPtr<AActor>>(PropertyBindings.GetCurrentValue<AActor*>(Object), PropertyBindings);
 	}
@@ -51,18 +50,14 @@ namespace PropertyTemplate
 
 FMovieSceneActorReferenceSectionTemplate::FMovieSceneActorReferenceSectionTemplate(const UMovieSceneActorReferenceSection& Section, const UMovieScenePropertyTrack& Track)
 	: PropertyData(Track.GetPropertyName(), Track.GetPropertyPath())
-	, ActorGuidIndexCurve(Section.GetActorReferenceCurve())
-	, ActorGuids(Section.GetActorGuids())
+	, ActorReferenceData(Section.GetActorReferenceData())
 {
 }
 
 void FMovieSceneActorReferenceSectionTemplate::Evaluate(const FMovieSceneEvaluationOperand& Operand, const FMovieSceneContext& Context, const FPersistentEvaluationData& PersistentData, FMovieSceneExecutionTokens& ExecutionTokens) const
 {
 	using namespace PropertyTemplate;
-	FSectionData& TrackData = PersistentData.GetSectionData<FSectionData>();
 
-	const int32 ActorGuidIndex = ActorGuidIndexCurve.Evaluate(Context.GetTime());
-	FGuid ObjectBindingID = ActorGuids.IsValidIndex(ActorGuidIndex) ? ActorGuids[ActorGuidIndex] : FGuid();
-
-	ExecutionTokens.Add(TPropertyTrackExecutionToken<AActor*, FGuid>(ObjectBindingID));
+	FMovieSceneActorReferenceKey ObjectBinding = ActorReferenceData.Evaluate(Context.GetTime());
+	ExecutionTokens.Add(TPropertyTrackExecutionToken<AActor*, FMovieSceneObjectBindingID>(ObjectBinding.Object));
 }

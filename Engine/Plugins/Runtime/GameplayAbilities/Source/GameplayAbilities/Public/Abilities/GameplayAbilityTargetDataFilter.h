@@ -8,6 +8,7 @@
 #include "GameFramework/Actor.h"
 #include "GameplayAbilityTargetDataFilter.generated.h"
 
+/** Set rather it is possible to target self */
 UENUM(BlueprintType)
 namespace ETargetDataFilterSelf
 {
@@ -19,6 +20,7 @@ namespace ETargetDataFilterSelf
 	};
 }
 
+/** Simple actor target filter, games can subclass this */
 USTRUCT(BlueprintType)
 struct GAMEPLAYABILITIES_API FGameplayTargetDataFilter
 {
@@ -28,6 +30,7 @@ struct GAMEPLAYABILITIES_API FGameplayTargetDataFilter
 	{
 	}
 
+	/** Returns true if the actor passes the filter and will be targeted */
 	virtual bool FilterPassesForActor(const AActor* ActorToBeFiltered) const
 	{
 		switch (SelfFilter.GetValue())
@@ -57,6 +60,7 @@ struct GAMEPLAYABILITIES_API FGameplayTargetDataFilter
 		return (bReverseFilter ^ true);
 	}
 
+	/** Initializes SelfActor */
 	void InitializeFilterContext(AActor* FilterActor);
 
 	/** Actor we're comparing against. */
@@ -76,7 +80,7 @@ struct GAMEPLAYABILITIES_API FGameplayTargetDataFilter
 	bool bReverseFilter;
 };
 
-
+/** Polymorphic handle to filter structure that handles checking if actors should be targeted */
 USTRUCT(BlueprintType)
 struct GAMEPLAYABILITIES_API FGameplayTargetDataFilterHandle
 {
@@ -84,6 +88,7 @@ struct GAMEPLAYABILITIES_API FGameplayTargetDataFilterHandle
 
 	TSharedPtr<FGameplayTargetDataFilter> Filter;
 
+	/** Returns true if the actor passes the filter and will be targeted */
 	bool FilterPassesForActor(const AActor* ActorToBeFiltered) const
 	{
 		if (!ActorToBeFiltered)

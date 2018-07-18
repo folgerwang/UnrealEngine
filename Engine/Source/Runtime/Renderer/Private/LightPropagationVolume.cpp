@@ -107,14 +107,14 @@ static TAutoConsoleVariable<float> CVarLPVDirectionalOcclusionDefaultSpecular(
  * Uniform buffer parameters for LPV direct injection shaders
  */
 BEGIN_UNIFORM_BUFFER_STRUCT( FLpvDirectLightInjectParameters, )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( float, LightRadius )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( FVector4, LightPosition )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( FVector4, LightColor )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( float, LightFalloffExponent )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( float, LightSourceLength )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( FVector4, LightDirection )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( FVector2D, LightSpotAngles )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( float, bLightInverseSquaredAttenuation )
+	UNIFORM_MEMBER( float, LightRadius )
+	UNIFORM_MEMBER( FVector4, LightPosition )
+	UNIFORM_MEMBER( FVector4, LightColor )
+	UNIFORM_MEMBER( float, LightFalloffExponent )
+	UNIFORM_MEMBER( float, LightSourceLength )
+	UNIFORM_MEMBER( FVector4, LightDirection )
+	UNIFORM_MEMBER( FVector2D, LightSpotAngles )
+	UNIFORM_MEMBER( float, bLightInverseSquaredAttenuation )
 END_UNIFORM_BUFFER_STRUCT( FLpvDirectLightInjectParameters )
 
 IMPLEMENT_UNIFORM_BUFFER_STRUCT(FLpvDirectLightInjectParameters,TEXT("LpvInject"));
@@ -784,13 +784,13 @@ FLightPropagationVolume::FLightPropagationVolume() :
 	int32 GvListBufferSize = RSMResolution * RSMResolution * 16; // Allow 16 layers of depth per every pixel of the RSM (on average) 
 	int32 VplListBufferSize = RSMResolution * RSMResolution * 4; // Allow 4 layers of depth per pixel in the RSM (1 for the RSM injection + 3 for light injection)
 	mVplListBuffer->Initialize( sizeof( VplListEntry ), VplListBufferSize, 0, TEXT("mVplListBuffer"), true, false );
-	mVplListHeadBuffer = new FRWBufferByteAddress();
+	mVplListHeadBuffer = new FRWByteAddressBuffer();
 	mVplListHeadBuffer->Initialize( LPV_GRIDRES*LPV_GRIDRES*LPV_GRIDRES*4, BUF_ByteAddressBuffer );
 
 	// Geometry volume buffers
 	GvListBuffer = new FRWBufferStructured();
 	GvListBuffer->Initialize( sizeof( VplListEntry ), GvListBufferSize, 0, TEXT("GvListBuffer"), true, false );
-	GvListHeadBuffer = new FRWBufferByteAddress();
+	GvListHeadBuffer = new FRWByteAddressBuffer();
 	GvListHeadBuffer->Initialize( LPV_GRIDRES*LPV_GRIDRES*LPV_GRIDRES*4, BUF_ByteAddressBuffer );
 
 	LpvWriteUniformBufferParams = new FLpvWriteUniformBufferParameters;

@@ -14,6 +14,7 @@
 
 #include "Widgets/LayerManager/STooltipPresenter.h"
 #include "Widgets/Layout/SPopup.h"
+#include "Framework/Application/SlateApplication.h"
 
 FWidgetRenderer::FWidgetRenderer(bool bUseGammaCorrection, bool bInClearTarget)
 	: bPrepassNeeded(true)
@@ -85,7 +86,7 @@ UTextureRenderTarget2D* FWidgetRenderer::CreateTargetFor(FVector2D DrawSize, Tex
 	return nullptr;
 }
 
-void FWidgetRenderer::DrawWidget(UTextureRenderTarget2D* RenderTarget, const TSharedRef<SWidget>& Widget, FVector2D DrawSize, float DeltaTime)
+void FWidgetRenderer::DrawWidget(UTextureRenderTarget2D* RenderTarget, const TSharedRef<SWidget>& Widget, FVector2D DrawSize, float DeltaTime, bool bDeferRenderTargetUpdate)
 {
 	TSharedRef<SVirtualWindow> Window = SNew(SVirtualWindow).Size(DrawSize);
 	TSharedRef<FHittestGrid> HitTestGrid = MakeShareable(new FHittestGrid());
@@ -93,7 +94,7 @@ void FWidgetRenderer::DrawWidget(UTextureRenderTarget2D* RenderTarget, const TSh
 	Window->SetContent(Widget);
 	Window->Resize(DrawSize);
 
-	DrawWindow(RenderTarget, HitTestGrid, Window, 1, DrawSize, DeltaTime);
+	DrawWindow(RenderTarget, HitTestGrid, Window, 1, DrawSize, DeltaTime, bDeferRenderTargetUpdate);
 }
 
 void FWidgetRenderer::DrawWindow(
@@ -102,18 +103,21 @@ void FWidgetRenderer::DrawWindow(
 	TSharedRef<SWindow> Window,
 	float Scale,
 	FVector2D DrawSize,
-	float DeltaTime)
+	float DeltaTime,
+	bool bDeferRenderTargetUpdate)
 {
 	FGeometry WindowGeometry = FGeometry::MakeRoot(DrawSize * ( 1 / Scale ), FSlateLayoutTransform(Scale));
 
-	DrawWindow(
+	DrawWindow
+	(
 		RenderTarget,
 		HitTestGrid,
 		Window,
 		WindowGeometry,
 		WindowGeometry.GetLayoutBoundingRect(),
-		DeltaTime
-		);
+		DeltaTime,
+		bDeferRenderTargetUpdate
+	);
 }
 
 void FWidgetRenderer::DrawWindow(
@@ -122,10 +126,11 @@ void FWidgetRenderer::DrawWindow(
 	TSharedRef<SWindow> Window,
 	FGeometry WindowGeometry,
 	FSlateRect WindowClipRect,
-	float DeltaTime)
+	float DeltaTime,
+	bool bDeferRenderTargetUpdate)
 {
 	FPaintArgs PaintArgs(Window.Get(), HitTestGrid.Get(), FVector2D::ZeroVector, FApp::GetCurrentTime(), DeltaTime);
-	DrawWindow(PaintArgs, RenderTarget, Window, WindowGeometry, WindowClipRect, DeltaTime);
+	DrawWindow(PaintArgs, RenderTarget, Window, WindowGeometry, WindowClipRect, DeltaTime, bDeferRenderTargetUpdate);
 }
 
 void FWidgetRenderer::DrawWindow(
@@ -134,9 +139,13 @@ void FWidgetRenderer::DrawWindow(
 	TSharedRef<SWindow> Window,
 	FGeometry WindowGeometry,
 	FSlateRect WindowClipRect,
-	float DeltaTime)
+	float DeltaTime,
+	bool bDeferRenderTargetUpdate)
 {
 #if !UE_SERVER
+	FSlateRenderer* MainSlateRenderer = FSlateApplication::Get().GetRenderer();
+	FScopeLock ScopeLock(MainSlateRenderer->GetResourceCriticalSection());
+
 	if ( LIKELY(FApp::CanEverRender()) )
 	{
 	    if ( bPrepassNeeded )
@@ -174,27 +183,15 @@ void FWidgetRenderer::DrawWindow(
 
 		DrawBuffer.ViewOffset = ViewOffset;
 
-		struct FRenderThreadContext
-		{
-			FSlateDrawBuffer* DrawBuffer;
-			FTextureRenderTarget2DResource* RenderTargetResource;
-			TSharedPtr<ISlate3DRenderer, ESPMode::ThreadSafe> Renderer;
-			bool bClearTarget;
-		}
-		Context =		
+		FRenderThreadUpdateContext Context =
 		{
 			&DrawBuffer,
-			static_cast<FTextureRenderTarget2DResource*>(RenderTarget->GameThread_GetRenderTargetResource()),
-			Renderer,
+			RenderTarget->GameThread_GetRenderTargetResource(),
+			Renderer.Get(),
 			bClearTarget
 		};
 
-		// Enqueue a command to unlock the draw buffer after all windows have been drawn
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(FWidgetRenderer_DrawWindow,
-			FRenderThreadContext, InContext, Context,
-			{
-				InContext.Renderer->DrawWindowToTarget_RenderThread(RHICmdList, InContext.RenderTargetResource, *InContext.DrawBuffer, InContext.bClearTarget);
-			});
+		FSlateApplication::Get().GetRenderer()->AddWidgetRendererUpdate(Context, bDeferRenderTargetUpdate);
 	}
 #endif // !UE_SERVER
 }

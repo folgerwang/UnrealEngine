@@ -12,7 +12,7 @@ class UAnimSequence;
 class UFactory;
 
 /** Delegate used when creating Assets from an AnimSequence */
-DECLARE_DELEGATE_TwoParams(FOnConfigureFactory, class UFactory*, class UAnimSequence* );
+DECLARE_DELEGATE_RetVal_TwoParams(bool, FOnConfigureFactory, class UFactory*, class UAnimSequence* );
 
 class FAssetTypeActions_AnimSequence : public FAssetTypeActions_AnimationAsset
 {
@@ -39,13 +39,13 @@ private:
 	void ExecuteNewPoseAsset(TArray<TWeakObjectPtr<UAnimSequence>> Objects) const;
 
 	/** Delegate handler passed to CreateAnimationAssets when creating AnimComposites */
-	void ConfigureFactoryForAnimComposite(UFactory* AssetFactory, UAnimSequence* SourceAnimation) const;
+	bool ConfigureFactoryForAnimComposite(UFactory* AssetFactory, UAnimSequence* SourceAnimation) const;
 
 	/** Delegate handler passed to CreateAnimationAssets when creating AnimMontages */
-	void ConfigureFactoryForAnimMontage(UFactory* AssetFactory, UAnimSequence* SourceAnimation) const;
+	bool ConfigureFactoryForAnimMontage(UFactory* AssetFactory, UAnimSequence* SourceAnimation) const;
 
 	/** Delegate handler passed to CreateAnimationAssets when creating PoseAssets */
-	void ConfigureFactoryForPoseAsset(UFactory* AssetFactory, UAnimSequence* SourceAnimation) const;
+	bool ConfigureFactoryForPoseAsset(UFactory* AssetFactory, UAnimSequence* SourceAnimation) const;
 
 	/** Creates animation assets of the supplied class */
 	void CreateAnimationAssets(const TArray<TWeakObjectPtr<UAnimSequence>>& AnimSequences, TSubclassOf<UAnimationAsset> AssetClass, UFactory* AssetFactory, const FString& InSuffix, FOnConfigureFactory OnConfigureFactory) const;

@@ -3,7 +3,7 @@
 #include "Sound/SoundNodeAssetReferencer.h"
 #include "Sound/SoundNodeQualityLevel.h"
 #include "Sound/SoundCue.h"
-#include "FrameworkObjectVersion.h"
+#include "UObject/FrameworkObjectVersion.h"
 
 bool USoundNodeAssetReferencer::ShouldHardReferenceAsset() const
 {

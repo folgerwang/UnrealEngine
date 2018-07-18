@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3108692
+﻿INTSourceChangelist:3807090
 Availability:Public
 Title: 캐스케이드 섀도 사용법
 Crumbs:%ROOT%, Platforms, Platforms/Mobile
@@ -22,7 +22,7 @@ UE4 모바일 프로젝트에서 Dynamic Cascaded Shadow Map (다이내믹 캐�
 1. **프로젝트 세팅** 창을 열고 **엔진** > **Rendering** (렌더링) > **Mobile** (모바일) 섹션에서 **Enable Combined Static and CSM Shadowing** (스태틱 및 CSM 섀도 조합 활성화) 옵션을 켭니다.
 	
 	[region:lightbox]
-	[![](Platforms\Mobile\Lighting\CSM_Setup_00.png)(w:562 h:310)](Platforms\Mobile\Lighting\CSM_Setup_00.png)
+	[![](Platforms\Mobile\Lighting\CSM_Setup_00.png)(w:562)](Platforms\Mobile\Lighting\CSM_Setup_00.png)
 	[/region]
 
 	[REGION:caption]
@@ -33,7 +33,7 @@ UE4 모바일 프로젝트에서 Dynamic Cascaded Shadow Map (다이내믹 캐�
 1. CSM 은 씬에 **디렉셔널 라이트** 가 있을 경우에만 작동합니다. 없다면 지금 하나 추가한 뒤 선택해 주세요. 그런 다음 **트랜스폼** 섹션 아래 **모빌리티** 세팅이 **스테이셔너리** 로 설정되었는지 확인합니다.
 	
 	[region:lightbox]
-	[![](Platforms\Mobile\Lighting\CSM_Setup_01.png)(w:300 h:400)](Platforms\Mobile\Lighting\CSM_Setup_01.png)
+	[![](Platforms\Mobile\Lighting\CSM_Setup_01.png)(w:300)](Platforms\Mobile\Lighting\CSM_Setup_01.png)
 	[/region]
 
 	[REGION:caption]
@@ -43,7 +43,7 @@ UE4 모바일 프로젝트에서 Dynamic Cascaded Shadow Map (다이내믹 캐�
 1. 디렉셔널 라이트를 선택한 채, **디테일** 패널에서 **Cascaded Shadows Maps** (캐스케이드 섀도 맵) 섹션을 찾은 다음 디렉셔널 라이트의 다음 프로퍼티를 조절합니다.
 	
 	[region:lightbox]
-	[![](Platforms\Mobile\Lighting\CSM_Setup_02.png)(w:300 h:400)](Platforms\Mobile\Lighting\CSM_Setup_02.png)
+	[![](Platforms\Mobile\Lighting\CSM_Setup_02.png)(w:300)](Platforms\Mobile\Lighting\CSM_Setup_02.png)
 	[/region]
 
 	[REGION:caption]
@@ -60,7 +60,7 @@ UE4 모바일 프로젝트에서 Dynamic Cascaded Shadow Map (다이내믹 캐�
 1. 프로젝트의 레벨 안에서 CSM 을 받고자 하는 스태틱 메시를 선택하고 **디테일** 패널의 **Mobile** 섹션 아래 **Receive Combined Static and CSM Shadows from Stationary Lights** 옵션을 체크합니다.
 	
 	[region:lightbox]
-	[![](Platforms\Mobile\Lighting\CSM_Setup_03.png)(w:300 h:400)](Platforms\Mobile\Lighting\CSM_Setup_03.png)
+	[![](Platforms\Mobile\Lighting\CSM_Setup_03.png)(w:300)](Platforms\Mobile\Lighting\CSM_Setup_03.png)
 	[/region]
 
 	[REGION:caption]
@@ -87,7 +87,7 @@ UE4 모바일 프로젝트에서 Dynamic Cascaded Shadow Map (다이내믹 캐�
 1. **메인 툴바** 에서 **플레이 모드** 를 **모바일 프리뷰** 로 변경하고 **플레이** 버튼을 눌러 레벨을 실행합니다.
 
 	[region:lightbox]
-	[![](Platforms\Mobile\Lighting\CSM_Setup_04.png)(w:800 h:400)](Platforms\Mobile\Lighting\CSM_Setup_04.png)
+	[![](Platforms\Mobile\Lighting\CSM_Setup_04.png)(w:800)](Platforms\Mobile\Lighting\CSM_Setup_04.png)
 	[/region]
 
 	[REGION:caption]
@@ -101,12 +101,13 @@ UE4 모바일 프로젝트에서 Dynamic Cascaded Shadow Map (다이내믹 캐�
 1. 레벨이 성공적으로 실행되면, 캐릭터를 스태틱 섀도 안에 두었다가 그 그림자 밖으로 나가도록 해 보세요. 아래 그림처럼 캐릭터의 다이내믹 섀도가 레벨에 미리 구워진 스태틱 섀도와 잘 어우러지는 것을 확인할 수 있습니다.
 	
 	[REGION:lightbox]
-	[![](Platforms\Mobile\Lighting\CSM_Final_Result.png)(w:262 h:281)](Platforms\Mobile\Lighting\CSM_Final_Result.png)
+	[![](Platforms\Mobile\Lighting\CSM_Final_Result.png)(w:262)](Platforms\Mobile\Lighting\CSM_Final_Result.png)
 	[/REGION]
 
 	[REGION:caption]
 	클릭하면 이미지 원본을 봅니다.
 	[/REGION]
+
 	[region:note]
 	배경에 배치한 스태틱 메시에서 캐릭터에 그림자를 드리우도록 하려면, 그 스태틱 메시의 **모빌리티** 세팅을 **스태틱** 에서 **무버블** 로 변경해 줘야 합니다.
 	[/region]

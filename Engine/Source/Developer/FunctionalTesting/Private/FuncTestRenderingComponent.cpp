@@ -90,7 +90,7 @@ UFuncTestRenderingComponent::UFuncTestRenderingComponent(const FObjectInitialize
 
 	bIsEditorOnly = true;
 
-	bGenerateOverlapEvents = false;
+	SetGenerateOverlapEvents(false);
 }
 
 FPrimitiveSceneProxy* UFuncTestRenderingComponent::CreateSceneProxy()

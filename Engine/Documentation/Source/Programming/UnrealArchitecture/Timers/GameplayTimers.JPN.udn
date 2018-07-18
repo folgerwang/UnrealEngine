@@ -39,19 +39,19 @@ Timer をクリアするには、`SetTimer` の呼び出し中に書き込まれ
 	void AMyActor::BeginPlay()
 	{
 		Super::BeginPlay();
-		// Call RepeatingFunction once per second, starting two seconds from now. (今から 2 秒後に開始しますが、1 秒毎に RepeatingFunction を呼び出します。) 
+		// Call RepeatingFunction once per second, starting two seconds from now.
 		GetWorldTimerManager().SetTimer(MemberTimerHandle, this, &AMyActor::RepeatingFunction, 1.0f, true, 2.0f);
 	}
-	void AMyActor::RepeatingFunction()
 
+	void AMyActor::RepeatingFunction()
 	{
-		// Once we've called this function enough times, clear the Timer. (この関数を十分な回数呼び出したら、Timer をクリアします。)
+		// Once we've called this function enough times, clear the Timer.
 		if (--RepeatingCallsRemaining <= 0)
 		{
 			GetWorldTimerManager().ClearTimer(MemberTimerHandle);
-			// MemberTimerHandle can now be reused for any other Timer. (MemberTimerHandle を他の Timer のために再利用することができます) 
+			// MemberTimerHandle can now be reused for any other Timer.
 		}
-		// Do something here... (ここで何かを行います)
+		// Do something here...
 	}
 
 [REGION:tip]
@@ -81,7 +81,7 @@ Timer Manager はタイマーの管理に加え、レート、経過時間、残
 
 例:
 
-	// This weapon's rate of fire changes as it warms up. (この武器の発砲のレートは、ウォームアップに従い変化します。) 現在、発砲を待機していますか？ その場合、ショット間の現在の遅延はどれくらいの長さですか？ 
+	// This weapon's rate of fire changes as it warms up. Is it currently waiting to fire, and if so, how long is the current delay between shots?
 	GetWorldTimerManager().GetTimerRate(this, &AUTWeapon::RefireCheckTimer);
 
 ### GetTimerElapsed&Remaining 関数
@@ -90,7 +90,7 @@ Timer Manager はタイマーの管理に加え、レート、経過時間、残
 
 例:
 
-	// How long will it be until this weapon is ready to fire again? (この武器が再度発砲可能になるまでどれくらいかかりますか？) If the answer comes back as -1, it is ready now. ( -1 が戻されれば、準備が整っています。) 
+	// How long will it be until this weapon is ready to fire again? If the answer comes back as -1, it is ready now.
 	GetWorldTimerManager().GetTimerElapsed(this, &AUTWeapon::RefireCheckTimer);
 
 [REGION:note]

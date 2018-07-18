@@ -32,7 +32,10 @@ public:
 public:
 
 	/** Adds a new media source to the track. */
-	virtual void AddNewMediaSource(UMediaSource& MediaSource, float Time);
+	virtual UMovieSceneSection* AddNewMediaSourceOnRow(UMediaSource& MediaSource, FFrameNumber Time, int32 RowIndex);
+
+	/** Adds a new media source on the next available/non-overlapping row. */
+	virtual UMovieSceneSection* AddNewMediaSource(UMediaSource& MediaSource, FFrameNumber Time) { return AddNewMediaSourceOnRow(MediaSource, Time, INDEX_NONE); }
 
 public:
 
@@ -42,7 +45,6 @@ public:
 	virtual UMovieSceneSection* CreateNewSection() override;
 	virtual FMovieSceneEvalTemplatePtr CreateTemplateForSection(const UMovieSceneSection& InSection) const override;
 	virtual const TArray<UMovieSceneSection*>& GetAllSections() const override;
-	virtual TRange<float> GetSectionBoundaries() const override;
 	virtual bool HasSection(const UMovieSceneSection& Section) const override;
 	virtual bool IsEmpty() const override;
 	virtual void RemoveSection(UMovieSceneSection& Section) override;

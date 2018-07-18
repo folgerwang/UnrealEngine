@@ -72,6 +72,7 @@
 #include "Dialogs/Dialogs.h"
 #include "Framework/Notifications/NotificationManager.h"
 #include "Widgets/Notifications/SNotificationList.h"
+#include "MovieSceneTimeHelpers.h"
 
 #define LOCTEXT_NAMESPACE "MatineeToLevelSequence"
 
@@ -274,7 +275,7 @@ protected:
 			FText NotificationText;
 			if (NewActors.Num() == 1)
 			{
-				NotificationText = FText::Format(LOCTEXT("MatineeToLevelSequence_Result", "Conversion to {0} complete with {1} warnings"), FText::FromString(NewActors[0]->GetActorLabel()), FText::AsNumber(NumWarnings));
+				NotificationText = FText::Format(LOCTEXT("MatineeToLevelSequence_SingularResult", "Conversion to {0} complete with {1} warnings"), FText::FromString(NewActors[0]->GetActorLabel()), FText::AsNumber(NumWarnings));
 			}
 			else
 			{
@@ -487,7 +488,7 @@ protected:
 				if (MatineeAnimControlTrack->GetNumKeyframes() != 0 && PossessableGuid.IsValid())
 				{
 					UMovieSceneSkeletalAnimationTrack* SkeletalAnimationTrack = NewMovieScene->AddTrack<UMovieSceneSkeletalAnimationTrack>(PossessableGuid);	
-					float EndPlaybackRange = NewMovieScene->GetPlaybackRange().GetUpperBoundValue();
+					FFrameNumber EndPlaybackRange = MovieScene::DiscreteExclusiveUpper(NewMovieScene->GetPlaybackRange());
 					FMatineeImportTools::CopyInterpAnimControlTrack(MatineeAnimControlTrack, SkeletalAnimationTrack, EndPlaybackRange);
 				}
 			}
@@ -697,7 +698,8 @@ protected:
 			MatineeActor->InitInterp();
 
 			// Set the length
-			NewMovieScene->SetPlaybackRange(0.0f, MatineeActor->MatineeData->InterpLength);
+			const int32 LengthInFrames = (MatineeActor->MatineeData->InterpLength * NewMovieScene->GetTickResolution()).FrameNumber.Value;
+			NewMovieScene->SetPlaybackRange(FFrameNumber(0), LengthInFrames + 1);
 
 			// Convert the groups
 			for (int32 i=0; i<MatineeActor->GroupInst.Num(); ++i)

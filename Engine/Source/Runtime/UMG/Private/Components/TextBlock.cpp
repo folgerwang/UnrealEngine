@@ -78,7 +78,6 @@ void UTextBlock::SetFont(FSlateFontInfo InFontInfo)
 	if (MyTextBlock.IsValid())
 	{
 		MyTextBlock->SetFont(Font);
-		MyTextBlock->Invalidate(EInvalidateWidget::LayoutAndVolatility);
 	}
 }
 

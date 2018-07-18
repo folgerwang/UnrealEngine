@@ -7,7 +7,7 @@
 #include "Widgets/SWidget.h"
 #include "Widgets/DeclarativeSyntaxSupport.h"
 #include "SOutputLog.h"
-#include "TargetDeviceId.h"
+#include "Interfaces/TargetDeviceId.h"
 #include "Interfaces/ITargetDevice.h"
 
 class SComboButton;
@@ -15,7 +15,6 @@ class SComboButton;
 struct FTargetDeviceEntry
 {
 	FTargetDeviceId			DeviceId;
-	FString					DeviceName;
 	const FSlateBrush*		DeviceIconBrush;
 	ITargetDeviceWeakPtr	DeviceWeakPtr;
 };

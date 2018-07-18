@@ -37,6 +37,8 @@ public:
 	virtual void SetupLanguageIntrinsics(_mesa_glsl_parse_state* State, exec_list* ir) override;
 
 	virtual bool AllowsSharingSamplers() const override { return bShareSamplers; }
+
+	virtual bool RequiresNegateDDY() const override { return false; }
 };
 
 class ir_variable;
@@ -70,7 +72,7 @@ struct FVulkanBindingTable
 	}
 
 	void SortBindings();
-	void PrintBindingTableDefines(char** Buffer);
+	void PrintBindingTableDefines(char** OutBuffer) const;
 
 private:
 	// Previous implementation supported bindings only for textures.

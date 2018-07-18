@@ -1,43 +1,11 @@
-﻿INTSourceChangelist:2712628
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:機能別サンプル
 Crumbs:%ROOT%, Resources
 Description:機能別サンプルに含まれているサンプルを紹介します
 Version:4.9
+topic-image:ce_topic.png
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![](ce_topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/ContentExamples]
-	[/PARAM]
-	[PARAM:description]
-	%Resources/ContentExamples:description%
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![](ce_topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/ContentExamples]
-	[/PARAM]
-	[PARAM:description]
-	%Resources/ContentExamples:description%
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
 [EXCERPT:ContentExamples] 
 [REGION:fullwidth]
@@ -51,65 +19,49 @@ Version:4.9
 
 ## 基本
 
-[REGION:topics third]
 %Resources/ContentExamples/ExampleLevelOverview:TopicCompact%
 %Resources/ContentExamples/LevelDesign:TopicCompact%
 %Resources/ContentExamples/Brushes:TopicCompact%
 %Resources/ContentExamples/ImportOptions:TopicCompact%
 %Resources/ContentExamples/NavMesh:TopicCompact%
 %Resources/ContentExamples/MathHall:TopicCompact%
-[/REGION]
-
 
 ## アニメーション
 
-[REGION:topics third]
 %Resources/ContentExamples/Animation:TopicCompact%
 %Resources/ContentExamples/MorphTargets:TopicCompact%
-[/REGION]
 
-## オーディオ
+## Audio
 
-[REGION:topics third]
 %Resources/ContentExamples/Audio:TopicCompact%
-[/REGION]
 
 ## ブループリントとブループリントのネットワーク
 
-[REGION:topics third]
 %Resources/ContentExamples/Blueprints:TopicCompact%
 %Resources/ContentExamples/Blueprint_Splines:TopicCompact%
 %Resources/ContentExamples/Networking:TopicCompact%
-[/REGION]
 
 
 ## ランドスケープ
-[REGION:topics third]
+
 %Resources/ContentExamples/Landscapes:TopicCompact%
-[/REGION]
 
 ## マチネ / シネマティックス
 
-[REGION:topics third]
 %Resources/ContentExamples/Matinee:TopicCompact%
-[/REGION]
 
 ## ペーパー 2D
 
-[REGION:topics third]
 %Resources/ContentExamples/Paper2D:TopicCompact%
-[/REGION]
 
 
-## フィジックス
+## 物理
 
-[REGION:topics third]
 %Resources/ContentExamples/Physics:TopicCompact%
 %Resources/ContentExamples/Destructables:TopicCompact%
-[/REGION]
 
 ## レンダリング
-[REGION:topics third]
+
 %Resources/ContentExamples/Materials:TopicCompact%
 %Resources/ContentExamples/Lighting:TopicCompact%
 %Resources/ContentExamples/PostProcessing:TopicCompact%
@@ -119,13 +71,11 @@ Version:4.9
 %Resources/ContentExamples/DynamicSceneShadows:TopicCompact%
 %Resources/ContentExamples/Reflections:TopicCompact%
 %Resources/ContentExamples/Decals:TopicCompact%
-[/REGION]
 
 ## スタティックメッシュ / ボリューム
-[REGION:topics third]
+
 %Resources/ContentExamples/StaticMeshes:TopicCompact%
 %Resources/ContentExamples/Volumes:TopicCompact%
-[/REGION]
 
 
 

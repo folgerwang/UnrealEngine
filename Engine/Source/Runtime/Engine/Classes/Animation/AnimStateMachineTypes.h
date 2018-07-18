@@ -157,6 +157,7 @@ struct FAnimationTransitionBetweenStates : public FAnimationStateBase
 		: FAnimationStateBase()
 		, PreviousState(INDEX_NONE)
 		, NextState(INDEX_NONE)
+		, CrossfadeDuration(0.0f)
 		, StartNotify(INDEX_NONE)
 		, EndNotify(INDEX_NONE)
 		, InterruptNotify(INDEX_NONE)

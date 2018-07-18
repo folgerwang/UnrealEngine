@@ -16,7 +16,8 @@ public class IOSTargetPlatform : ModuleRules
 				"TargetPlatform",
 				"DesktopPlatform",
 				"LaunchDaemonMessages",
-				"Projects"
+				"Projects",
+				"AudioPlatformConfiguration"
 			}
 		);
 
@@ -26,8 +27,6 @@ public class IOSTargetPlatform : ModuleRules
 				"TargetDeviceServices",
 			}
 		);
-
-		PlatformSpecificDynamicallyLoadedModuleNames.Add("LaunchDaemonMessages");
 
 		PrivateIncludePaths.Add("Developer/IOS/IOSTargetPlatform/Private");
 

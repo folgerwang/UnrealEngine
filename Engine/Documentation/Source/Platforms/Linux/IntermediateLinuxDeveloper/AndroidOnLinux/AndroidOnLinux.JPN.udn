@@ -1,10 +1,10 @@
-﻿INTSourceChangelist:3457813
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:Linux 上で Android 向けゲームを開発するためのクイックスタート ガイド
 Crumbs:%ROOT%
 Description:Linux 上で Android 向けゲームを開発する方法を学びます。
 Platform:Linux
-Version:4.14
+Version:4.17
 type:quick start
 parent:Platforms/Linux
 order:5
@@ -37,19 +37,9 @@ Linux から Android デバイス向けゲームの作成および配布を予�
 * UE4 から Android デバイスにレベルをデプロイする方法 
 * モバイル ゲームをリリース用にパッケージする方法 
 
-[OBJECT:TopicList]
-	[PARAM:icon]
-		![](%ROOT%/build_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		ステップ
-	[/PARAM]
-	[PARAM:description]
-	[/PARAM]
-	[PARAM:links]
-	[DIR(output:"checkpoint" parent:"Platforms/Linux/IntermediateLinuxDeveloper/AndroidOnLinux" org:"hierarchy")]
-	[/PARAM]
-[/OBJECT]
+## ステップ
+
+[DIR(output:"checkpoint" parent:"Platforms/Linux/IntermediateLinuxDeveloper/AndroidOnLinux" org:"hierarchy")]
 
 [REGION:call_to_action]
 	[クリックして始めよう](Platforms/Linux/IntermediateLinuxDeveloper/AndroidOnLinux/1 "%Platforms/Linux/IntermediateLinuxDeveloper/AndroidOnLinux/1:title%")

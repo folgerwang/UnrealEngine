@@ -9,6 +9,22 @@
 
 MTLPP_BEGIN
 
+namespace ue4
+{
+	template<>
+	struct ITable<id<MTLArgumentEncoder>, void> : public IMPTable<id<MTLArgumentEncoder>, void>, public ITableCacheRef
+	{
+		ITable()
+		{
+		}
+		
+		ITable(Class C)
+		: IMPTable<id<MTLArgumentEncoder>, void>(C)
+		{
+		}
+	};
+}
+
 namespace mtlpp
 {
 	class Device;
@@ -20,10 +36,10 @@ namespace mtlpp
 	{
 	public:
 		ArgumentEncoder() { }
-		ArgumentEncoder(ns::Protocol<id<MTLArgumentEncoder>>::type handle) : ns::Object<ns::Protocol<id<MTLArgumentEncoder>>::type>(handle) { }
+		ArgumentEncoder(ns::Protocol<id<MTLArgumentEncoder>>::type handle, ue4::ITableCache* cache = nullptr, ns::Ownership const retain = ns::Ownership::Retain) : ns::Object<ns::Protocol<id<MTLArgumentEncoder>>::type>(handle, retain, ue4::ITableCacheRef(cache).GetArgumentEncoder(handle)) { }
 		
-		Device     GetDevice() const;
-		ns::String GetLabel() const;
+		ns::AutoReleased<Device>     GetDevice() const;
+		ns::AutoReleased<ns::String> GetLabel() const;
 		NSUInteger GetEncodedLength() const;
 		NSUInteger GetAlignment() const;
 		void* GetConstantDataAtIndex(NSUInteger index) const;

@@ -46,6 +46,28 @@ void UGCObjectReferencer::RemoveObject(FGCObject* Object)
 	check(NumRemoved == 1);
 }
 
+bool UGCObjectReferencer::GetReferencerName(UObject* Object, FString& OutName) const
+{
+	// Let each registered object handle its AddReferencedObjects call
+	for (int32 i = 0; i < ReferencedObjects.Num(); i++)
+	{
+		TArray<UObject*> ObjectArray;
+		FReferenceFinder Collector(ObjectArray);
+
+		FGCObject* GCReporter = ReferencedObjects[i];
+		check(GCReporter);
+		GCReporter->AddReferencedObjects(Collector);
+
+		if (ObjectArray.Contains(Object))
+		{
+			OutName = GCReporter->GetReferencerName();
+			return true;
+		}
+	}
+
+	return false;
+}
+
 void UGCObjectReferencer::FinishDestroy()
 {
 	if ( !HasAnyFlags(RF_ClassDefaultObject) )

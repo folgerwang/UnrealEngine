@@ -9,6 +9,7 @@
 #include "RenderingThread.h"
 #include "GameFramework/PlayerController.h"
 #include "Engine/Canvas.h"
+#include "Engine/RendererSettings.h"
 #include "Application/SlateApplicationBase.h"
 #include "Layout/WidgetPath.h"
 #include "UnrealEngine.h"
@@ -21,8 +22,6 @@
 #include "StereoRenderTargetManager.h"
 
 extern EWindowMode::Type GetWindowModeType(EWindowMode::Type WindowMode);
-
-static EPixelFormat SceneTargetFormat = PF_A2B10G10R10;
 
 FSceneViewport::FSceneViewport( FViewportClient* InViewportClient, TSharedPtr<SViewport> InViewportWidget )
 	: FViewport( InViewportClient )
@@ -42,6 +41,7 @@ FSceneViewport::FSceneViewport( FViewportClient* InViewportClient, TSharedPtr<SV
 	, bUseSeparateRenderTarget( InViewportWidget.IsValid() ? !InViewportWidget->ShouldRenderDirectly() : true )
 	, bForceSeparateRenderTarget( false )
 	, bIsResizing( false )
+	, bForceViewportSize(false)
 	, bPlayInEditorIsSimulate( false )
 	, bCursorHiddenDueToCapture( false )
 	, MousePosBeforeHiddenDueToCapture( -1, -1 )
@@ -324,8 +324,8 @@ FVector2D FSceneViewport::VirtualDesktopPixelToViewport(FIntPoint VirtualDesktop
 	// Virtual Desktop Pixel to local slate unit
 	const FVector2D TransformedPoint = CachedGeometry.AbsoluteToLocal(FVector2D(VirtualDesktopPointPx.X, VirtualDesktopPointPx.Y));
 
-	// Pixels to normalized coordinates
-	return FVector2D( TransformedPoint.X / SizeX, TransformedPoint.Y / SizeY );
+	// Pixels to normalized coordinates and correct for DPI scale
+	return FVector2D( TransformedPoint.X / SizeX * CachedGeometry.Scale, TransformedPoint.Y / SizeY * CachedGeometry.Scale );
 }
 
 FIntPoint FSceneViewport::ViewportToVirtualDesktopPixel(FVector2D ViewportCoordinate) const
@@ -335,7 +335,8 @@ FIntPoint FSceneViewport::ViewportToVirtualDesktopPixel(FVector2D ViewportCoordi
 	// Local slate unit to virtual desktop pixel.
 	const FVector2D TransformedPoint = FVector2D( CachedGeometry.LocalToAbsolute( LocalCoordinateInSu ) );
 
-	return FIntPoint( FMath::TruncToInt(TransformedPoint.X), FMath::TruncToInt(TransformedPoint.Y) );
+	//Correct for DPI
+	return FIntPoint( FMath::TruncToInt(TransformedPoint.X / CachedGeometry.Scale), FMath::TruncToInt(TransformedPoint.Y / CachedGeometry.Scale) );
 }
 
 void FSceneViewport::OnDrawViewport( const FGeometry& AllottedGeometry, const FSlateRect& MyCullingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled )
@@ -357,23 +358,26 @@ void FSceneViewport::OnDrawViewport( const FGeometry& AllottedGeometry, const FS
 	}
 	
 	/** Check to see if the viewport should be resized */
-	FIntPoint DrawSize = FIntPoint( FMath::RoundToInt( AllottedGeometry.GetDrawSize().X ), FMath::RoundToInt( AllottedGeometry.GetDrawSize().Y ) );
-	if( GetSizeXY() != DrawSize )
+	if (!bForceViewportSize)
 	{
-		TSharedPtr<SWindow> Window = FSlateApplication::Get().FindWidgetWindow( ViewportWidget.Pin().ToSharedRef() );
-		if ( Window.IsValid() )
+		FIntPoint DrawSize = FIntPoint( FMath::RoundToInt( AllottedGeometry.GetDrawSize().X ), FMath::RoundToInt( AllottedGeometry.GetDrawSize().Y ) );
+		if( GetSizeXY() != DrawSize )
 		{
-			//@HACK VREDITOR
-			//check(Window.IsValid());
-			if ( Window->IsViewportSizeDrivenByWindow() )
+			TSharedPtr<SWindow> Window = FSlateApplication::Get().FindWidgetWindow( ViewportWidget.Pin().ToSharedRef() );
+			if ( Window.IsValid() )
 			{
-				if (ViewportWidget.Pin()->ShouldRenderDirectly())
+				//@HACK VREDITOR
+				//check(Window.IsValid());
+				if ( Window->IsViewportSizeDrivenByWindow() )
 				{
-					InitialPositionX = FMath::Max(0.0f, AllottedGeometry.AbsolutePosition.X);
-					InitialPositionY = FMath::Max(0.0f, AllottedGeometry.AbsolutePosition.Y);
-				}
+					if (ViewportWidget.Pin()->ShouldRenderDirectly())
+					{
+						InitialPositionX = FMath::Max(0.0f, AllottedGeometry.AbsolutePosition.X);
+						InitialPositionY = FMath::Max(0.0f, AllottedGeometry.AbsolutePosition.Y);
+					}
 
-				ResizeViewport(FMath::Max(0, DrawSize.X), FMath::Max(0, DrawSize.Y), Window->GetWindowMode());
+					ResizeViewport(FMath::Max(0, DrawSize.X), FMath::Max(0, DrawSize.Y), Window->GetWindowMode());
+				}
 			}
 		}
 	}
@@ -388,11 +392,15 @@ void FSceneViewport::OnDrawViewport( const FGeometry& AllottedGeometry, const FS
 		FMath::RoundToInt( CanvasMinY + AllottedGeometry.GetLocalSize().Y * AllottedGeometry.Scale ) );
 
 
-	DebugCanvasDrawer->BeginRenderingCanvas( CanvasRect );
+	if(DebugCanvasDrawer->GetGameThreadDebugCanvas() && DebugCanvasDrawer->GetGameThreadDebugCanvas()->HasBatchesToRender())
+	{
+		DebugCanvasDrawer->BeginRenderingCanvas(CanvasRect);
 
-	// Draw above everything else
-	uint32 MaxLayer = MAX_uint32;
-	FSlateDrawElement::MakeCustom( OutDrawElements, MAX_uint32, DebugCanvasDrawer );
+
+		// Draw above everything else
+		uint32 MaxLayer = MAX_uint32;
+		FSlateDrawElement::MakeCustom(OutDrawElements, MAX_uint32, DebugCanvasDrawer);
+	}
 
 }
 
@@ -750,9 +758,17 @@ FReply FSceneViewport::OnTouchStarted( const FGeometry& MyGeometry, const FPoint
 		// Switch to the viewport clients world before processing input
 		FScopedConditionalWorldSwitcher WorldSwitcher( ViewportClient );
 
-		const FVector2D TouchPosition = MyGeometry.AbsoluteToLocal(TouchEvent.GetScreenSpacePosition());
+		const FVector2D TouchPosition = MyGeometry.AbsoluteToLocal(TouchEvent.GetScreenSpacePosition()) * MyGeometry.Scale;
 
-		if( !ViewportClient->InputTouch( this, TouchEvent.GetUserIndex(), TouchEvent.GetPointerIndex(), ETouchType::Began, TouchPosition, FDateTime::Now(), TouchEvent.GetTouchpadIndex()) )
+		if(ViewportClient->InputTouch( this, TouchEvent.GetUserIndex(), TouchEvent.GetPointerIndex(), ETouchType::Began, TouchPosition, TouchEvent.GetTouchForce(), FDateTime::Now(), TouchEvent.GetTouchpadIndex()) )
+		{
+			const bool bTemporaryCapture = ViewportClient->CaptureMouseOnClick() == EMouseCaptureMode::CaptureDuringMouseDown;
+			if (bTemporaryCapture)
+			{
+				CurrentReplyState = AcquireFocusAndCapture(TouchPosition.IntPoint());
+			}
+		}
+		else
 		{
 			CurrentReplyState = FReply::Unhandled(); 
 		}
@@ -774,9 +790,9 @@ FReply FSceneViewport::OnTouchMoved( const FGeometry& MyGeometry, const FPointer
 		// Switch to the viewport clients world before processing input
 		FScopedConditionalWorldSwitcher WorldSwitcher( ViewportClient );
 
-		const FVector2D TouchPosition = MyGeometry.AbsoluteToLocal(TouchEvent.GetScreenSpacePosition());
+		const FVector2D TouchPosition = MyGeometry.AbsoluteToLocal(TouchEvent.GetScreenSpacePosition()) * MyGeometry.Scale;
 
-		if( !ViewportClient->InputTouch( this, TouchEvent.GetUserIndex(), TouchEvent.GetPointerIndex(), ETouchType::Moved, TouchPosition, FDateTime::Now(), TouchEvent.GetTouchpadIndex()) )
+		if( !ViewportClient->InputTouch( this, TouchEvent.GetUserIndex(), TouchEvent.GetPointerIndex(), ETouchType::Moved, TouchPosition, TouchEvent.GetTouchForce(), FDateTime::Now(), TouchEvent.GetTouchpadIndex()) )
 		{
 			CurrentReplyState = FReply::Unhandled(); 
 		}
@@ -805,11 +821,16 @@ FReply FSceneViewport::OnTouchEnded( const FGeometry& MyGeometry, const FPointer
 		// Switch to the viewport clients world before processing input
 		FScopedConditionalWorldSwitcher WorldSwitcher( ViewportClient );
 
-		const FVector2D TouchPosition = MyGeometry.AbsoluteToLocal(TouchEvent.GetScreenSpacePosition());
+		const FVector2D TouchPosition = MyGeometry.AbsoluteToLocal(TouchEvent.GetScreenSpacePosition()) * MyGeometry.Scale;
 
-		if( !ViewportClient->InputTouch( this, TouchEvent.GetUserIndex(), TouchEvent.GetPointerIndex(), ETouchType::Ended, TouchPosition, FDateTime::Now(), TouchEvent.GetTouchpadIndex()) )
+		if( !ViewportClient->InputTouch( this, TouchEvent.GetUserIndex(), TouchEvent.GetPointerIndex(), ETouchType::Ended, TouchPosition, 0.0f, FDateTime::Now(), TouchEvent.GetTouchpadIndex()) )
 		{
 			CurrentReplyState = FReply::Unhandled(); 
+		}
+
+		if (ViewportClient->CaptureMouseOnClick() == EMouseCaptureMode::CaptureDuringMouseDown)
+		{
+			CurrentReplyState.ReleaseMouseCapture();
 		}
 	}
 
@@ -1031,9 +1052,9 @@ FReply FSceneViewport::OnFocusReceived(const FFocusEvent& InFocusEvent)
 		{
 			FSlateApplication& SlateApp = FSlateApplication::Get();
 
-			const bool bPermanentCapture =
-				( ViewportClient->CaptureMouseOnClick() == EMouseCaptureMode::CapturePermanently ) ||
-				( ViewportClient->CaptureMouseOnClick() == EMouseCaptureMode::CapturePermanently_IncludingInitialMouseDown );
+			const bool bPermanentCapture = !GIsEditor && 
+				(( ViewportClient->CaptureMouseOnClick() == EMouseCaptureMode::CapturePermanently ) ||
+				( ViewportClient->CaptureMouseOnClick() == EMouseCaptureMode::CapturePermanently_IncludingInitialMouseDown ));
 
 			if ( SlateApp.IsActive() && !ViewportClient->IgnoreInput() && bPermanentCapture )
 			{
@@ -1106,6 +1127,11 @@ FReply FSceneViewport::OnViewportActivated(const FWindowActivateEvent& InActivat
 		FScopedConditionalWorldSwitcher WorldSwitcher(ViewportClient);
 		ViewportClient->Activated(this, InActivateEvent);
 		
+		// Determine if we're in permanent capture mode.  This cannot be cached as part of bShouldCaptureMouseOnActivate because it could change between window activate and deactivate
+		const bool bPermanentCapture =
+			!GIsEditor && ((ViewportClient->CaptureMouseOnClick() == EMouseCaptureMode::CapturePermanently) ||
+			(ViewportClient->CaptureMouseOnClick() == EMouseCaptureMode::CapturePermanently_IncludingInitialMouseDown));
+
 		// If we are activating and had Mouse Capture on deactivate then we should get focus again
 		// It's important to note in the case of:
 		//    InActivateEvent.ActivationType == FWindowActivateEvent::EA_ActivateByMouse
@@ -1114,7 +1140,7 @@ FReply FSceneViewport::OnViewportActivated(const FWindowActivateEvent& InActivat
 		//    - the user clicked on the application header
 		//    - the user clicked on some UI
 		//    - the user clicked in our window but not an area our viewport covers.
-		if (InActivateEvent.GetActivationType() == FWindowActivateEvent::EA_Activate && bShouldCaptureMouseOnActivate)
+		if (InActivateEvent.GetActivationType() == FWindowActivateEvent::EA_Activate && (bShouldCaptureMouseOnActivate || bPermanentCapture))
 		{
 			return AcquireFocusAndCapture(GetSizeXY() / 2);
 		}
@@ -1135,7 +1161,7 @@ void FSceneViewport::OnViewportDeactivated(const FWindowActivateEvent& InActivat
 	// This fixes the case where the application is deactivated, then the user click on the windows header
 	// this activates the window but we do not capture the mouse, then the User Alt-Tabs to the application.
 	// We properly acquire capture because we maintained the "true" through the activation where nothing was focuses
-	bShouldCaptureMouseOnActivate = bShouldCaptureMouseOnActivate || HasMouseCapture();
+	bShouldCaptureMouseOnActivate = !GIsEditor  && (bShouldCaptureMouseOnActivate || HasMouseCapture());
 
 	KeyStateMap.Empty();
 	if (ViewportClient != nullptr)
@@ -1165,12 +1191,13 @@ void FSceneViewport::ResizeFrame(uint32 NewWindowSizeX, uint32 NewWindowSizeY, E
 
 			const FVector2D OldWindowPos = WindowToResize->GetPositionInScreen();
 			const FVector2D OldWindowSize = WindowToResize->GetClientSizeInScreen();
-			const EWindowMode::Type OldWindowMode = WindowMode;
+			const EWindowMode::Type OldWindowMode = WindowToResize->GetWindowMode();
 
 			// Set the new window mode first to ensure that the work area size is correct (fullscreen windows can affect this)
 			if (NewWindowMode != OldWindowMode)
 			{
 				WindowToResize->SetWindowMode(NewWindowMode);
+				WindowMode = NewWindowMode;
 			}
 
 			TOptional<FVector2D> NewWindowPos;
@@ -1262,16 +1289,27 @@ void FSceneViewport::ResizeFrame(uint32 NewWindowSizeX, uint32 NewWindowSizeY, E
 			}
 #endif
 			// Resize window
-			if (NewWindowSize != OldWindowSize || (NewWindowPos.IsSet() && NewWindowPos != OldWindowPos) || NewWindowMode != OldWindowMode)
+			const bool bSizeChanged = NewWindowSize != OldWindowSize;
+			const bool bPositionChanged = NewWindowPos.IsSet() && NewWindowPos != OldWindowPos;
+			const bool bModeChanged = NewWindowMode != OldWindowMode;
+			if (bSizeChanged || bPositionChanged || bModeChanged)
 			{
-				LockMouseToViewport(!CurrentReplyState.ShouldReleaseMouseLock());
-				if (NewWindowPos.IsSet())
+				if (CurrentReplyState.ShouldReleaseMouseLock())
+				{
+					LockMouseToViewport(false);
+				}
+
+				if (bModeChanged || (bSizeChanged && bPositionChanged))
 				{
 					WindowToResize->ReshapeWindow(NewWindowPos.GetValue(), NewWindowSize);
 				}
-				else
+				else if (bSizeChanged)
 				{
 					WindowToResize->Resize(NewWindowSize);
+				}
+				else
+				{
+					WindowToResize->MoveWindowTo(NewWindowPos.GetValue());
 				}
 			}
 
@@ -1295,6 +1333,16 @@ void FSceneViewport::ResizeFrame(uint32 NewWindowSizeX, uint32 NewWindowSizeY, E
 
 			UCanvas::UpdateAllCanvasSafeZoneData();
 		}
+	}
+}
+
+void FSceneViewport::SetFixedViewportSize(uint32 NewViewportSizeX, uint32 NewViewportSizeY)
+{
+	bForceViewportSize = true;
+	TSharedPtr<SWindow> Window = FSlateApplication::Get().FindWidgetWindow(ViewportWidget.Pin().ToSharedRef());
+	if (Window.IsValid())
+	{
+		ResizeViewport(FMath::Max(0U, NewViewportSizeX), FMath::Max(0U, NewViewportSizeY), Window->GetWindowMode());
 	}
 }
 
@@ -1476,7 +1524,7 @@ void FSceneViewport::UpdateViewportRHI(bool bDestroyed, uint32 NewSizeX, uint32 
 	}
 }
 
-void FSceneViewport::EnqueueBeginRenderFrame()
+void FSceneViewport::EnqueueBeginRenderFrame(const bool bShouldPresent)
 {
 	check( IsInGameThread() );
 	const bool bStereoRenderingAvailable = GEngine->StereoRenderingDevice.IsValid() && IsStereoRenderingAllowed();
@@ -1542,9 +1590,9 @@ void FSceneViewport::EnqueueBeginRenderFrame()
 		Viewport->SetRenderTargetTextureRenderThread(RT);			
 	});		
 
-	FViewport::EnqueueBeginRenderFrame();
+	FViewport::EnqueueBeginRenderFrame(bShouldPresent);
 
-	if (StereoRenderTargetManager != nullptr)
+	if (StereoRenderTargetManager != nullptr && bShouldPresent)
 	{
 		StereoRenderTargetManager->UpdateViewport(UseSeparateRenderTarget(), *this, ViewportWidget.Pin().Get());
 	}
@@ -1573,7 +1621,7 @@ void FSceneViewport::EndRenderFrame(FRHICommandListImmediate& RHICmdList, bool b
 	{
 		if (BufferedSlateHandles[CurrentBufferedTargetIndex])
 		{			
-			RHICmdList.CopyToResolveTarget(RenderTargetTextureRenderThreadRHI, RenderTargetTextureRenderThreadRHI, false, FResolveParams());
+			RHICmdList.CopyToResolveTarget(RenderTargetTextureRenderThreadRHI, RenderTargetTextureRenderThreadRHI, FResolveParams());
 		}
 	}
 	else
@@ -1771,6 +1819,9 @@ void FSceneViewport::InitDynamicRHI()
 		}
 		check(BufferedSlateHandles.Num() == BufferedRenderTargetsRHI.Num() && BufferedSlateHandles.Num() == BufferedShaderResourceTexturesRHI.Num());
 
+		static const auto CVarDefaultBackBufferPixelFormat = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.DefaultBackBufferPixelFormat"));
+		EPixelFormat SceneTargetFormat = EDefaultBackBufferPixelFormat::Convert2PixelFormat(EDefaultBackBufferPixelFormat::FromInt(CVarDefaultBackBufferPixelFormat->GetValueOnRenderThread()));
+
 		FRHIResourceCreateInfo CreateInfo;
 		FTexture2DRHIRef BufferedRTRHI;
 		FTexture2DRHIRef BufferedSRVRHI;
@@ -1778,7 +1829,7 @@ void FSceneViewport::InitDynamicRHI()
 		for (int32 i = 0; i < NumBufferedFrames; ++i)
 		{
 			// try to allocate texture via StereoRenderingDevice; if not successful, use the default way
-			if (StereoRenderTargetManager == nullptr || !StereoRenderTargetManager->AllocateRenderTargetTexture(i, TexSizeX, TexSizeY, PF_B8G8R8A8, 1, TexCreate_None, TexCreate_RenderTargetable, BufferedRTRHI, BufferedSRVRHI))
+			if (StereoRenderTargetManager == nullptr || !StereoRenderTargetManager->AllocateRenderTargetTexture(i, TexSizeX, TexSizeY, SceneTargetFormat, 1, TexCreate_None, TexCreate_RenderTargetable, BufferedRTRHI, BufferedSRVRHI))
 			{
 				RHICreateTargetableShaderResource2D(TexSizeX, TexSizeY, SceneTargetFormat, 1, TexCreate_None, TexCreate_RenderTargetable, false, CreateInfo, BufferedRTRHI, BufferedSRVRHI);
 			}

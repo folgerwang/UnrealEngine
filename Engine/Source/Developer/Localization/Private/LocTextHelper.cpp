@@ -16,7 +16,7 @@
 
 DEFINE_LOG_CATEGORY_STATIC(LogLocTextHelper, Log, All);
 
-void FLocTextConflicts::AddConflict(const FString& InNamespace, const FString& InKey, const TSharedPtr<FLocMetadataObject>& InKeyMetadata, const FLocItem& InSource, const FString& InSourceLocation)
+void FLocTextConflicts::AddConflict(const FLocKey& InNamespace, const FLocKey& InKey, const TSharedPtr<FLocMetadataObject>& InKeyMetadata, const FLocItem& InSource, const FString& InSourceLocation)
 {
 	TSharedPtr<FConflict> ExistingEntry = FindEntryByKey(InNamespace, InKey, InKeyMetadata);
 	if (!ExistingEntry.IsValid())
@@ -28,14 +28,14 @@ void FLocTextConflicts::AddConflict(const FString& InNamespace, const FString& I
 	ExistingEntry->Add(InSource, InSourceLocation.ReplaceCharWithEscapedChar());
 }
 
-TSharedPtr<FLocTextConflicts::FConflict> FLocTextConflicts::FindEntryByKey(const FString& InNamespace, const FString& InKey, const TSharedPtr<FLocMetadataObject> InKeyMetadata) const
+TSharedPtr<FLocTextConflicts::FConflict> FLocTextConflicts::FindEntryByKey(const FLocKey& InNamespace, const FLocKey& InKey, const TSharedPtr<FLocMetadataObject> InKeyMetadata) const
 {
 	TArray<TSharedRef<FConflict>> MatchingEntries;
 	EntriesByKey.MultiFind(InKey, MatchingEntries);
 
 	for (const TSharedRef<FConflict>& Entry : MatchingEntries)
 	{
-		if (Entry->Namespace.Equals(InNamespace, ESearchCase::CaseSensitive))
+		if (Entry->Namespace == InNamespace)
 		{
 			if (InKeyMetadata.IsValid() != Entry->KeyMetadataObj.IsValid())
 			{
@@ -58,8 +58,8 @@ FString FLocTextConflicts::GetConflictReport() const
 	for (const auto& ConflictPair : EntriesByKey)
 	{
 		const TSharedRef<FConflict>& Conflict = ConflictPair.Value;
-		const FString& Namespace = Conflict->Namespace;
-		const FString& Key = Conflict->Key;
+		const FString& Namespace = Conflict->Namespace.GetString();
+		const FString& Key = Conflict->Key.GetString();
 
 		bool bAddToReport = false;
 		TArray<FLocItem> SourceList;
@@ -246,7 +246,7 @@ bool FLocTextWordCounts::FromCSV(const FString& InCSVString, FText* OutError)
 
 			// Parse required data
 			FDateTime::Parse(CsvCells[DateTimeColumn], RowData.Timestamp);
-			Lex::FromString(RowData.SourceWordCount, CsvCells[WordCountColumn]);
+			LexFromString(RowData.SourceWordCount, CsvCells[WordCountColumn]);
 
 			// Parse per-culture data
 			for (const auto& PerCultureColumnPair : PerCultureColumns)
@@ -254,7 +254,7 @@ bool FLocTextWordCounts::FromCSV(const FString& InCSVString, FText* OutError)
 				if (CsvCells.IsValidIndex(PerCultureColumnPair.Value))
 				{
 					int32 PerCultureWordCount = 0;
-					Lex::FromString(PerCultureWordCount, CsvCells[PerCultureColumnPair.Value]);
+					LexFromString(PerCultureWordCount, CsvCells[PerCultureColumnPair.Value]);
 					RowData.PerCultureWordCounts.Add(PerCultureColumnPair.Key, PerCultureWordCount);
 				}
 			}
@@ -378,10 +378,14 @@ const TArray<FString>& FLocTextHelper::GetForeignCultures() const
 	return ForeignCultures;
 }
 
-TArray<FString> FLocTextHelper::GetAllCultures() const
+TArray<FString> FLocTextHelper::GetAllCultures(const bool bSingleCultureMode) const
 {
+	// Single-culture mode is a hack for the Localization commandlets
+	// In this mode we only include the native culture if we have no foreign cultures
+	const bool bIncludeNativeCulture = (!bSingleCultureMode || ForeignCultures.Num() == 0) && !NativeCulture.IsEmpty();
+
 	TArray<FString> AllCultures;
-	if (!NativeCulture.IsEmpty())
+	if (bIncludeNativeCulture)
 	{
 		AllCultures.Add(NativeCulture);
 	}
@@ -434,7 +438,7 @@ void FLocTextHelper::TrimManifest()
 		// We'll generate a new manifest by only including items that are not in the dependencies
 		TSharedRef<FInternationalizationManifest> TrimmedManifest = MakeShareable(new FInternationalizationManifest());
 
-		for (FManifestEntryByStringContainer::TConstIterator It(Manifest->GetEntriesByKeyIterator()); It; ++It)
+		for (FManifestEntryByStringContainer::TConstIterator It(Manifest->GetEntriesBySourceTextIterator()); It; ++It)
 		{
 			const TSharedRef<FManifestEntry> ManifestEntry = It.Value();
 
@@ -450,8 +454,8 @@ void FLocTextHelper::TrimManifest()
 						// There is a dependency manifest entry that has the same namespace and keys as our main manifest entry but the source text differs.
 						FString Message = SanitizeLogOutput(
 							FString::Printf(TEXT("Found previously entered localized string [%s] %s %s=\"%s\" %s. It was previously \"%s\" %s in dependency manifest %s."),
-								*ManifestEntry->Namespace,
-								*Context.Key,
+								*ManifestEntry->Namespace.GetString(),
+								*Context.Key.GetString(),
 								*FJsonInternationalizationMetaDataSerializer::MetadataToString(Context.KeyMetadataObj),
 								*ManifestEntry->Source.Text,
 								*FJsonInternationalizationMetaDataSerializer::MetadataToString(ManifestEntry->Source.MetadataObj),
@@ -477,8 +481,8 @@ void FLocTextHelper::TrimManifest()
 					if (!bAddSuccessful)
 					{
 						UE_LOG(LogLocTextHelper, Error, TEXT("Could not process localized string: %s [%s] %s=\"%s\" %s."),
-							*ManifestEntry->Namespace,
-							*Context.Key,
+							*ManifestEntry->Namespace.GetString(),
+							*Context.Key.GetString(),
 							*ManifestEntry->Source.Text,
 							*FJsonInternationalizationMetaDataSerializer::MetadataToString(ManifestEntry->Source.MetadataObj)
 							);
@@ -710,7 +714,7 @@ bool FLocTextHelper::AddDependency(const FString& InDependencyFilePath, FText* O
 	return false;
 }
 
-TSharedPtr<FManifestEntry> FLocTextHelper::FindDependencyEntry(const FString& InNamespace, const FString& InKey, const FString* InSourceText, FString* OutDependencyFilePath) const
+TSharedPtr<FManifestEntry> FLocTextHelper::FindDependencyEntry(const FLocKey& InNamespace, const FLocKey& InKey, const FString* InSourceText, FString* OutDependencyFilePath) const
 {
 	for (int32 DepIndex = 0; DepIndex < Dependencies.Num(); ++DepIndex)
 	{
@@ -730,7 +734,7 @@ TSharedPtr<FManifestEntry> FLocTextHelper::FindDependencyEntry(const FString& In
 	return nullptr;
 }
 
-TSharedPtr<FManifestEntry> FLocTextHelper::FindDependencyEntry(const FString& InNamespace, const FManifestContext& InContext, FString* OutDependencyFilePath) const
+TSharedPtr<FManifestEntry> FLocTextHelper::FindDependencyEntry(const FLocKey& InNamespace, const FManifestContext& InContext, FString* OutDependencyFilePath) const
 {
 	for (int32 DepIndex = 0; DepIndex < Dependencies.Num(); ++DepIndex)
 	{
@@ -750,7 +754,7 @@ TSharedPtr<FManifestEntry> FLocTextHelper::FindDependencyEntry(const FString& In
 	return nullptr;
 }
 
-bool FLocTextHelper::AddSourceText(const FString& InNamespace, const FLocItem& InSource, const FManifestContext& InContext, const FString* InDescription)
+bool FLocTextHelper::AddSourceText(const FLocKey& InNamespace, const FLocItem& InSource, const FManifestContext& InContext, const FString* InDescription)
 {
 	checkf(Manifest.IsValid(), TEXT("Attempted to add source text, but no manifest has been loaded!"));
 	
@@ -779,8 +783,8 @@ bool FLocTextHelper::AddSourceText(const FString& InNamespace, const FLocItem& I
 			FString Message = SanitizeLogOutput(
 				FString::Printf(TEXT("Found previously entered localized string: %s [%s] %s %s=\"%s\" %s. It was previously \"%s\" %s in %s."),
 					(InDescription ? **InDescription : *FString()),
-					*InNamespace,
-					*InContext.Key,
+					*InNamespace.GetString(),
+					*InContext.Key.GetString(),
 					*FJsonInternationalizationMetaDataSerializer::MetadataToString(InContext.KeyMetadataObj),
 					*InSource.Text,
 					*FJsonInternationalizationMetaDataSerializer::MetadataToString(InSource.MetadataObj),
@@ -802,8 +806,8 @@ bool FLocTextHelper::AddSourceText(const FString& InNamespace, const FLocItem& I
 		{
 			UE_LOG(LogLocTextHelper, Error, TEXT("Could not process localized string: %s [%s] %s=\"%s\" %s."),
 				(InDescription ? **InDescription : *FString()),
-				*InNamespace,
-				*InContext.Key,
+				*InNamespace.GetString(),
+				*InContext.Key.GetString(),
 				*InSource.Text,
 				*FJsonInternationalizationMetaDataSerializer::MetadataToString(InSource.MetadataObj)
 				);
@@ -819,13 +823,13 @@ void FLocTextHelper::UpdateSourceText(const TSharedRef<FManifestEntry>& InOldEnt
 	Manifest->UpdateEntry(InOldEntry, InNewEntry);
 }
 
-TSharedPtr<FManifestEntry> FLocTextHelper::FindSourceText(const FString& InNamespace, const FString& InKey, const FString* InSourceText) const
+TSharedPtr<FManifestEntry> FLocTextHelper::FindSourceText(const FLocKey& InNamespace, const FLocKey& InKey, const FString* InSourceText) const
 {
 	checkf(Manifest.IsValid(), TEXT("Attempted to find source text, but no manifest has been loaded!"));
 	return Manifest->FindEntryByKey(InNamespace, InKey, InSourceText);
 }
 
-TSharedPtr<FManifestEntry> FLocTextHelper::FindSourceText(const FString& InNamespace, const FManifestContext& InContext) const
+TSharedPtr<FManifestEntry> FLocTextHelper::FindSourceText(const FLocKey& InNamespace, const FManifestContext& InContext) const
 {
 	checkf(Manifest.IsValid(), TEXT("Attempted to find source text, but no manifest has been loaded!"));
 	return Manifest->FindEntryByContext(InNamespace, InContext);
@@ -835,7 +839,7 @@ void FLocTextHelper::EnumerateSourceTexts(const FEnumerateSourceTextsFuncPtr& In
 {
 	checkf(Manifest.IsValid(), TEXT("Attempted to enumerate source texts, but no manifest has been loaded!"));
 
-	for (FManifestEntryByStringContainer::TConstIterator It(Manifest->GetEntriesByKeyIterator()); It; ++It)
+	for (FManifestEntryByStringContainer::TConstIterator It(Manifest->GetEntriesBySourceTextIterator()); It; ++It)
 	{
 		const TSharedRef<FManifestEntry> ManifestEntry = It.Value();
 
@@ -860,7 +864,7 @@ void FLocTextHelper::EnumerateSourceTexts(const FEnumerateSourceTextsFuncPtr& In
 	}
 }
 
-bool FLocTextHelper::AddTranslation(const FString& InCulture, const FString& InNamespace, const FString& InKey, const TSharedPtr<FLocMetadataObject>& InKeyMetadataObj, const FLocItem& InSource, const FLocItem& InTranslation, const bool InOptional)
+bool FLocTextHelper::AddTranslation(const FString& InCulture, const FLocKey& InNamespace, const FLocKey& InKey, const TSharedPtr<FLocMetadataObject>& InKeyMetadataObj, const FLocItem& InSource, const FLocItem& InTranslation, const bool InOptional)
 {
 	TSharedPtr<FInternationalizationArchive> Archive = Archives.FindRef(InCulture);
 	checkf(Archive.IsValid(), TEXT("Attempted to add a translation, but no valid archive could be found for '%s'!"), *InCulture);
@@ -874,7 +878,7 @@ bool FLocTextHelper::AddTranslation(const FString& InCulture, const TSharedRef<F
 	return Archive->AddEntry(InEntry);
 }
 
-bool FLocTextHelper::UpdateTranslation(const FString& InCulture, const FString& InNamespace, const FString& InKey, const TSharedPtr<FLocMetadataObject>& InKeyMetadataObj, const FLocItem& InSource, const FLocItem& InTranslation)
+bool FLocTextHelper::UpdateTranslation(const FString& InCulture, const FLocKey& InNamespace, const FLocKey& InKey, const TSharedPtr<FLocMetadataObject>& InKeyMetadataObj, const FLocItem& InSource, const FLocItem& InTranslation)
 {
 	TSharedPtr<FInternationalizationArchive> Archive = Archives.FindRef(InCulture);
 	checkf(Archive.IsValid(), TEXT("Attempted to update a translation, but no valid archive could be found for '%s'!"), *InCulture);
@@ -888,7 +892,7 @@ void FLocTextHelper::UpdateTranslation(const FString& InCulture, const TSharedRe
 	Archive->UpdateEntry(InOldEntry, InNewEntry);
 }
 
-bool FLocTextHelper::ImportTranslation(const FString& InCulture, const FString& InNamespace, const FString& InKey, const TSharedPtr<FLocMetadataObject> InKeyMetadataObj, const FLocItem& InSource, const FLocItem& InTranslation, const bool InOptional)
+bool FLocTextHelper::ImportTranslation(const FString& InCulture, const FLocKey& InNamespace, const FLocKey& InKey, const TSharedPtr<FLocMetadataObject> InKeyMetadataObj, const FLocItem& InSource, const FLocItem& InTranslation, const bool InOptional)
 {
 	TSharedPtr<FInternationalizationArchive> Archive = Archives.FindRef(InCulture);
 	checkf(Archive.IsValid(), TEXT("Attempted to update a translation, but no valid archive could be found for '%s'!"), *InCulture);
@@ -903,7 +907,7 @@ bool FLocTextHelper::ImportTranslation(const FString& InCulture, const FString& 
 	return Archive->AddEntry(InNamespace, InKey, InSource, InTranslation, InKeyMetadataObj, InOptional);
 }
 
-TSharedPtr<FArchiveEntry> FLocTextHelper::FindTranslation(const FString& InCulture, const FString& InNamespace, const FString& InKey, const TSharedPtr<FLocMetadataObject> InKeyMetadataObj) const
+TSharedPtr<FArchiveEntry> FLocTextHelper::FindTranslation(const FString& InCulture, const FLocKey& InNamespace, const FLocKey& InKey, const TSharedPtr<FLocMetadataObject> InKeyMetadataObj) const
 {
 	return FindTranslationImpl(InCulture, InNamespace, InKey, InKeyMetadataObj);
 }
@@ -931,7 +935,7 @@ void FLocTextHelper::EnumerateTranslations(const FString& InCulture, const FEnum
 	}, InCheckDependencies);
 }
 
-void FLocTextHelper::GetExportText(const FString& InCulture, const FString& InNamespace, const FString& InKey, const TSharedPtr<FLocMetadataObject> InKeyMetadataObj, const ELocTextExportSourceMethod InSourceMethod, const FLocItem& InSource, FLocItem& OutSource, FLocItem& OutTranslation) const
+void FLocTextHelper::GetExportText(const FString& InCulture, const FLocKey& InNamespace, const FLocKey& InKey, const TSharedPtr<FLocMetadataObject> InKeyMetadataObj, const ELocTextExportSourceMethod InSourceMethod, const FLocItem& InSource, FLocItem& OutSource, FLocItem& OutTranslation) const
 {
 	// Default to the raw source text for the case where we're not using native translations as source
 	OutSource = InSource;
@@ -964,7 +968,7 @@ void FLocTextHelper::GetExportText(const FString& InCulture, const FString& InNa
 	}
 }
 
-void FLocTextHelper::GetRuntimeText(const FString& InCulture, const FString& InNamespace, const FString& InKey, const TSharedPtr<FLocMetadataObject> InKeyMetadataObj, const ELocTextExportSourceMethod InSourceMethod, const FLocItem& InSource, FLocItem& OutTranslation, const bool bSkipSourceCheck) const
+void FLocTextHelper::GetRuntimeText(const FString& InCulture, const FLocKey& InNamespace, const FLocKey& InKey, const TSharedPtr<FLocMetadataObject> InKeyMetadataObj, const ELocTextExportSourceMethod InSourceMethod, const FLocItem& InSource, FLocItem& OutTranslation, const bool bSkipSourceCheck) const
 {
 	OutTranslation = InSource;
 
@@ -999,7 +1003,7 @@ void FLocTextHelper::GetRuntimeText(const FString& InCulture, const FString& InN
 	}
 }
 
-void FLocTextHelper::AddConflict(const FString& InNamespace, const FString& InKey, const TSharedPtr<FLocMetadataObject>& InKeyMetadata, const FLocItem& InSource, const FString& InSourceLocation)
+void FLocTextHelper::AddConflict(const FLocKey& InNamespace, const FLocKey& InKey, const TSharedPtr<FLocMetadataObject>& InKeyMetadata, const FLocItem& InSource, const FString& InSourceLocation)
 {
 	ConflictTracker.AddConflict(InNamespace, InKey, InKeyMetadata, InSource, InSourceLocation);
 }
@@ -1104,7 +1108,7 @@ FLocTextWordCounts FLocTextHelper::GetWordCountReport(const FDateTime& InTimesta
 
 	// Count the number of source text words
 	{
-		TSet<FString, FLocKeySetFuncs> CountedEntries;
+		TSet<FLocKey> CountedEntries;
 		EnumerateSourceTexts([&WordCountRowData, &CountedEntries, &CountWords](TSharedRef<FManifestEntry> InManifestEntry) -> bool
 		{
 			const int32 NumWords = CountWords(InManifestEntry->Source.Text);
@@ -1114,7 +1118,7 @@ FLocTextWordCounts FLocTextHelper::GetWordCountReport(const FDateTime& InTimesta
 			{
 				if (!Context.bIsOptional)
 				{
-					const FString CountedEntryId = FString::Printf(TEXT("%s::%s::%s"), *InManifestEntry->Source.Text, *InManifestEntry->Namespace, *Context.Key);
+					const FLocKey CountedEntryId = FString::Printf(TEXT("%s::%s::%s"), *InManifestEntry->Source.Text, *InManifestEntry->Namespace.GetString(), *Context.Key.GetString());
 					if (!CountedEntries.Contains(CountedEntryId))
 					{
 						WordCountRowData->SourceWordCount += NumWords;
@@ -1134,7 +1138,7 @@ FLocTextWordCounts FLocTextHelper::GetWordCountReport(const FDateTime& InTimesta
 	for (const FString& CultureName : GetAllCultures())
 	{
 		int32& PerCultureWordCount = WordCountRowData->PerCultureWordCounts.Add(CultureName, 0);
-		TSet<FString, FLocKeySetFuncs> CountedEntries;
+		TSet<FLocKey> CountedEntries;
 
 		// Finds all the manifest entries in the archive and adds the source text word count to the running total if there is a valid translation.
 		EnumerateSourceTexts([this, &CultureName, &PerCultureWordCount, &CountedEntries, &CountWords](TSharedRef<FManifestEntry> InManifestEntry) -> bool
@@ -1153,7 +1157,7 @@ FLocTextWordCounts FLocTextHelper::GetWordCountReport(const FDateTime& InTimesta
 
 					if (!WordCountTranslation.Text.IsEmpty())
 					{
-						const FString CountedEntryId = FString::Printf(TEXT("%s::%s::%s"), *InManifestEntry->Source.Text, *InManifestEntry->Namespace, *Context.Key);
+						const FLocKey CountedEntryId = FString::Printf(TEXT("%s::%s::%s"), *InManifestEntry->Source.Text, *InManifestEntry->Namespace.GetString(), *Context.Key.GetString());
 						if (!CountedEntries.Contains(CountedEntryId))
 						{
 							PerCultureWordCount += NumWords;
@@ -1266,7 +1270,7 @@ FString FLocTextHelper::SanitizeLogOutput(const FString& InString)
 	return ResultStr;
 }
 
-bool FLocTextHelper::FindKeysForLegacyTranslation(const FString& InCulture, const FString& InNamespace, const FString& InSource, const TSharedPtr<FLocMetadataObject> InKeyMetadataObj, TArray<FString>& OutKeys) const
+bool FLocTextHelper::FindKeysForLegacyTranslation(const FString& InCulture, const FLocKey& InNamespace, const FString& InSource, const TSharedPtr<FLocMetadataObject> InKeyMetadataObj, TArray<FLocKey>& OutKeys) const
 {
 	checkf(Manifest.IsValid(), TEXT("Attempted to find a key for a legacy translation, but no manifest has been loaded!"));
 
@@ -1280,7 +1284,7 @@ bool FLocTextHelper::FindKeysForLegacyTranslation(const FString& InCulture, cons
 	return FindKeysForLegacyTranslation(Manifest.ToSharedRef(), NativeArchive, InNamespace, InSource, InKeyMetadataObj, OutKeys);
 }
 
-bool FLocTextHelper::FindKeysForLegacyTranslation(const TSharedRef<const FInternationalizationManifest>& InManifest, const TSharedPtr<const FInternationalizationArchive>& InNativeArchive, const FString& InNamespace, const FString& InSource, const TSharedPtr<FLocMetadataObject> InKeyMetadataObj, TArray<FString>& OutKeys)
+bool FLocTextHelper::FindKeysForLegacyTranslation(const TSharedRef<const FInternationalizationManifest>& InManifest, const TSharedPtr<const FInternationalizationArchive>& InNativeArchive, const FLocKey& InNamespace, const FString& InSource, const TSharedPtr<FLocMetadataObject> InKeyMetadataObj, TArray<FLocKey>& OutKeys)
 {
 	FString RealSourceText = InSource;
 
@@ -1291,7 +1295,7 @@ bool FLocTextHelper::FindKeysForLegacyTranslation(const TSharedRef<const FIntern
 		for (FArchiveEntryByStringContainer::TConstIterator It = InNativeArchive->GetEntriesBySourceTextIterator(); It; ++It)
 		{
 			const TSharedRef<FArchiveEntry>& ArchiveEntry = It.Value();
-			if (ArchiveEntry->Namespace.Equals(InNamespace, ESearchCase::CaseSensitive) && ArchiveEntry->Translation.Text.Equals(InSource, ESearchCase::CaseSensitive))
+			if (ArchiveEntry->Namespace == InNamespace && ArchiveEntry->Translation.Text.Equals(InSource, ESearchCase::CaseSensitive))
 			{
 				if (!ArchiveEntry->KeyMetadataObj.IsValid() && !InKeyMetadataObj.IsValid())
 				{
@@ -1513,7 +1517,7 @@ bool FLocTextHelper::SaveArchiveImpl(const TSharedRef<const FInternationalizatio
 	return bSaved;
 }
 
-TSharedPtr<FArchiveEntry> FLocTextHelper::FindTranslationImpl(const FString& InCulture, const FString& InNamespace, const FString& InKey, const TSharedPtr<FLocMetadataObject> InKeyMetadataObj) const
+TSharedPtr<FArchiveEntry> FLocTextHelper::FindTranslationImpl(const FString& InCulture, const FLocKey& InNamespace, const FLocKey& InKey, const TSharedPtr<FLocMetadataObject> InKeyMetadataObj) const
 {
 	TSharedPtr<FInternationalizationArchive> Archive = Archives.FindRef(InCulture);
 	checkf(Archive.IsValid(), TEXT("Attempted to find a translation, but no valid archive could be found for '%s'!"), *InCulture);

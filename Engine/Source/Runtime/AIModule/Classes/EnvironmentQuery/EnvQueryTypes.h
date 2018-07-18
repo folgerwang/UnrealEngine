@@ -8,7 +8,7 @@
 #include "UObject/Object.h"
 #include "Templates/SubclassOf.h"
 #include "Engine/EngineTypes.h"
-#include "AI/Navigation/NavFilters/NavigationQueryFilter.h"
+#include "NavFilters/NavigationQueryFilter.h"
 #include "EnvironmentQuery/Items/EnvQueryItemType.h"
 #include "EnvironmentQuery/EnvQueryContext.h"
 #include "BehaviorTree/BehaviorTreeTypes.h"
@@ -243,7 +243,7 @@ namespace EEnvOverlapShape
 	};
 }
 
-UENUM()
+UENUM(meta=(ScriptName="EnvDirectionType"))
 namespace EEnvDirection
 {
 	enum Type
@@ -320,8 +320,12 @@ struct AIMODULE_API FEnvTraceData
 		Detailed,
 	};
 
-	FEnvTraceData() : 
-		ProjectDown(1024.0f), ProjectUp(1024.0f), ExtentX(10.0f), ExtentY(10.0f), ExtentZ(10.0f), bOnlyBlockingHits(true),
+	FEnvTraceData() :
+		VersionNum(0), 
+		ProjectDown(1024.0f), ProjectUp(1024.0f), ExtentX(10.0f), ExtentY(10.0f), ExtentZ(10.0f),
+		PostProjectionVerticalOffset(0.0f),	TraceChannel(TraceTypeQuery1), SerializedChannel(ECC_WorldStatic),
+		TraceShape(EEnvTraceShape::Line), TraceMode(EEnvQueryTrace::None),
+		bTraceComplex(false), bOnlyBlockingHits(true),
 		bCanTraceOnNavMesh(true), bCanTraceOnGeometry(true), bCanDisableTrace(true), bCanProjectDown(false)
 	{
 	}
@@ -419,6 +423,8 @@ struct AIMODULE_API FEnvOverlapData
 		ExtentY(10.0f),
 		ExtentZ(10.0f),
 		ShapeOffset(FVector::ZeroVector),
+		OverlapChannel(ECC_WorldStatic),
+		OverlapShape(EEnvOverlapShape::Box),
 		bOnlyBlockingHits(true),
 		bOverlapComplex(false)
 	{
@@ -533,8 +539,8 @@ public:
 	void GetAllAsActors(TArray<AActor*>& OutActors) const;
 	void GetAllAsLocations(TArray<FVector>& OutLocations) const;
 
-	FEnvQueryResult() : ItemType(NULL), Status(EEnvQueryStatus::Processing), OptionIndex(0) {}
-	FEnvQueryResult(const EEnvQueryStatus::Type& InStatus) : ItemType(NULL), Status(InStatus), OptionIndex(0) {}
+	FEnvQueryResult() : ItemType(NULL), Status(EEnvQueryStatus::Processing), OptionIndex(0), QueryID(0) {}
+	FEnvQueryResult(const EEnvQueryStatus::Type& InStatus) : ItemType(NULL), Status(InStatus), OptionIndex(0), QueryID(0) {}
 
 	FORCEINLINE bool IsFinished() const { return Status != EEnvQueryStatus::Processing; }
 	FORCEINLINE bool IsAborted() const { return Status == EEnvQueryStatus::Aborted; }

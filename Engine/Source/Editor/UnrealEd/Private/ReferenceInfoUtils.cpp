@@ -490,9 +490,9 @@ namespace ReferenceInfoUtils
 		}
 
 		// Add this referenced asset's information to the list.
-		FileAr.Logf(TEXT(""));
-		FileAr.Logf(*ObjName);
-		FileAr.Logf(*Underline);
+		FileAr.Log(TEXT(""));
+		FileAr.Log(*ObjName);
+		FileAr.Log(*Underline);
 		FileAr.Logf(TEXT("Grouping: %s"), *ObjectPathName);
 		FileAr.Logf(TEXT("Class: %s"), GetObjectNameFromCache(ReferencedObject->GetClass()));
 		FileAr.Logf(TEXT("Size: %s"), *ResourceSizeString);

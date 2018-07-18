@@ -3,8 +3,8 @@
 #pragma once
 
 #include "CoreTypes.h"
-#include "WindowsPlatformCompilerSetup.h"
-#include "MinimalWindowsApi.h"
+#include "Windows/WindowsPlatformCompilerSetup.h"
+#include "Windows/MinimalWindowsApi.h"
 
 // Macro for releasing COM objects
 #define SAFE_RELEASE(p) { if(p) { (p)->Release(); (p)=NULL; } }

@@ -19,18 +19,22 @@
 class UAbilitySystemComponent;
 class UGameplayEffect;
 
-// meta =(RestrictedToClasses="GameplayAbility")
+/** Blueprint library for ability system. Many of these functions are useful to call from native as well */
 UCLASS(meta=(ScriptName="AbilitySystemLibrary"))
 class GAMEPLAYABILITIES_API UAbilitySystemBlueprintLibrary : public UBlueprintFunctionLibrary
 {
 	GENERATED_UCLASS_BODY()
 
+	/** Tries to find an ability system component on the actor, will use AbilitySystemInterface */
 	UFUNCTION(BlueprintPure, Category = Ability)
 	static UAbilitySystemComponent* GetAbilitySystemComponent(AActor *Actor);
 
-	// NOTE: The Actor passed in must implement IAbilitySystemInterface! or else this function will silently fail to
-	// send the event.  The actor needs the interface to find the UAbilitySystemComponent, and if the component isn't
-	// found, the event will not be sent.
+	/**
+	 * This function can be used to trigger an ability on the actor in question with useful payload data.
+	 * NOTE: The Actor passed in must implement IAbilitySystemInterface! or else this function will silently fail to
+	 * send the event.  The actor needs the interface to find the UAbilitySystemComponent, and if the component isn't
+	 * found, the event will not be sent.
+	 */
 	UFUNCTION(BlueprintCallable, Category = Ability, Meta = (Tooltip = "This function can be used to trigger an ability on the actor in question with useful payload data."))
 	static void SendGameplayEventToActor(AActor* Actor, FGameplayTag EventTag, FGameplayEventData Payload);
 	
@@ -38,32 +42,33 @@ class GAMEPLAYABILITIES_API UAbilitySystemBlueprintLibrary : public UBlueprintFu
 	//		Attribute
 	// -------------------------------------------------------------------------------
 
+	/** Returns true if the attribute actually exists */
 	UFUNCTION(BlueprintPure, Category = "Ability|Attribute")
 	static bool IsValid(FGameplayAttribute Attribute);
 
 	/** Returns the value of Attribute from the ability system component belonging to Actor. */
 	UFUNCTION(BlueprintPure, Category = "Ability|Attribute")
-	static float GetFloatAttribute(const class AActor* Actor, FGameplayAttribute Attribute, bool& bSuccessfullyFoundAttribute);
+	static float GetFloatAttribute(const AActor* Actor, FGameplayAttribute Attribute, bool& bSuccessfullyFoundAttribute);
 
 	/** Returns the value of Attribute from the ability system component AbilitySystem. */
 	UFUNCTION(BlueprintPure, Category = "Ability|Attribute")
-	static float GetFloatAttributeFromAbilitySystemComponent(const class UAbilitySystemComponent* AbilitySystem, FGameplayAttribute Attribute, bool& bSuccessfullyFoundAttribute);
+	static float GetFloatAttributeFromAbilitySystemComponent(const UAbilitySystemComponent* AbilitySystem, FGameplayAttribute Attribute, bool& bSuccessfullyFoundAttribute);
 
 	/** Returns the base value of Attribute from the ability system component belonging to Actor. */
 	UFUNCTION(BlueprintPure, Category = "Ability|Attribute")
-	static float GetFloatAttributeBase(const class AActor* Actor, FGameplayAttribute Attribute, bool& bSuccessfullyFoundAttribute);
+	static float GetFloatAttributeBase(const AActor* Actor, FGameplayAttribute Attribute, bool& bSuccessfullyFoundAttribute);
 
 	/** Returns the base value of Attribute from the ability system component AbilitySystemComponent. */
 	UFUNCTION(BlueprintPure, Category = "Ability|Attribute")
-	static float GetFloatAttributeBaseFromAbilitySystemComponent(const class UAbilitySystemComponent* AbilitySystemComponent, FGameplayAttribute Attribute, bool& bSuccessfullyFoundAttribute);
+	static float GetFloatAttributeBaseFromAbilitySystemComponent(const UAbilitySystemComponent* AbilitySystemComponent, FGameplayAttribute Attribute, bool& bSuccessfullyFoundAttribute);
 
 	/** Returns the value of Attribute from the ability system component AbilitySystem after evaluating it with source and target tags. bSuccess indicates the success or failure of this operation. */
 	UFUNCTION(BlueprintPure, Category = "Ability|Attribute")
-	static float EvaluateAttributeValueWithTags(class UAbilitySystemComponent* AbilitySystem, FGameplayAttribute Attribute, const FGameplayTagContainer& SourceTags, const FGameplayTagContainer& TargetTags, bool& bSuccess);
+	static float EvaluateAttributeValueWithTags(UAbilitySystemComponent* AbilitySystem, FGameplayAttribute Attribute, const FGameplayTagContainer& SourceTags, const FGameplayTagContainer& TargetTags, bool& bSuccess);
 
 	/** Returns the value of Attribute from the ability system component AbilitySystem after evaluating it with source and target tags using the passed in base value instead of the real base value. bSuccess indicates the success or failure of this operation. */
 	UFUNCTION(BlueprintPure, Category = "Ability|Attribute")
-	static float EvaluateAttributeValueWithTagsAndBase(class UAbilitySystemComponent* AbilitySystem, FGameplayAttribute Attribute, const FGameplayTagContainer& SourceTags, const FGameplayTagContainer& TargetTags, float BaseValue, bool& bSuccess);
+	static float EvaluateAttributeValueWithTagsAndBase(UAbilitySystemComponent* AbilitySystem, FGameplayAttribute Attribute, const FGameplayTagContainer& SourceTags, const FGameplayTagContainer& TargetTags, float BaseValue, bool& bSuccess);
 
 	/** Simple equality operator for gameplay attributes */
 	UFUNCTION(BlueprintPure, meta=(DisplayName = "Equal (Gameplay Attribute)", CompactNodeTitle = "==", Keywords = "== equal"), Category="Ability|Attribute")
@@ -77,21 +82,27 @@ class GAMEPLAYABILITIES_API UAbilitySystemBlueprintLibrary : public UBlueprintFu
 	//		TargetData
 	// -------------------------------------------------------------------------------
 
+	/** Copies targets from HandleToAdd to TargetHandle */
 	UFUNCTION(BlueprintCallable, Category = "Ability|TargetData")
 	static FGameplayAbilityTargetDataHandle AppendTargetDataHandle(FGameplayAbilityTargetDataHandle TargetHandle, const FGameplayAbilityTargetDataHandle& HandleToAdd);
 
+	/** Creates a target data with a source and destination location */
 	UFUNCTION(BlueprintPure, Category = "Ability|TargetData")
 	static FGameplayAbilityTargetDataHandle	AbilityTargetDataFromLocations(const FGameplayAbilityTargetingLocationInfo& SourceLocation, const FGameplayAbilityTargetingLocationInfo& TargetLocation);
 
+	/** Creates a target data with a single hit result */
 	UFUNCTION(BlueprintPure, Category = "Ability|TargetData")
 	static FGameplayAbilityTargetDataHandle	AbilityTargetDataFromHitResult(const FHitResult& HitResult);
 
+	/** Returns number of target data objects, not necessarily number of distinct targets */
 	UFUNCTION(BlueprintPure, Category = "Ability|TargetData")
 	static int32 GetDataCountFromTargetData(const FGameplayAbilityTargetDataHandle& TargetData);
 
+	/** Creates single actor target data */
 	UFUNCTION(BlueprintPure, Category = "Ability|TargetData")
 	static FGameplayAbilityTargetDataHandle	AbilityTargetDataFromActor(AActor* Actor);
 
+	/** Creates actor array target data */
 	UFUNCTION(BlueprintPure, Category = "Ability|TargetData")
 	static FGameplayAbilityTargetDataHandle	AbilityTargetDataFromActorArray(const TArray<AActor*>& ActorArray, bool OneTargetPerHandle);
 
@@ -111,6 +122,7 @@ class GAMEPLAYABILITIES_API UAbilitySystemBlueprintLibrary : public UBlueprintFu
 	UFUNCTION(BlueprintPure, Category = "Spec")
 	static FGameplayEffectSpecHandle CloneSpecHandle(AActor* InNewInstigator, AActor* InEffectCauser, FGameplayEffectSpecHandle GameplayEffectSpecHandle_Clone);
 
+	/** Returns all actors targeted */
 	UFUNCTION(BlueprintPure, Category = "Ability|TargetData")
 	static TArray<AActor*> GetActorsFromTargetData(const FGameplayAbilityTargetDataHandle& TargetData, int32 Index);
 
@@ -122,24 +134,31 @@ class GAMEPLAYABILITIES_API UAbilitySystemBlueprintLibrary : public UBlueprintFu
 	UFUNCTION(BlueprintPure, Category = "Ability|TargetData")
 	static bool TargetDataHasActor(const FGameplayAbilityTargetDataHandle& TargetData, int32 Index);
 
+	/** Returns true if the target data has a hit result */
 	UFUNCTION(BlueprintPure, Category = "Ability|TargetData")
 	static bool TargetDataHasHitResult(const FGameplayAbilityTargetDataHandle& HitResult, int32 Index);
 
+	/** Returns the hit result for a given index if it exists */
 	UFUNCTION(BlueprintPure, Category = "Ability|TargetData")
 	static FHitResult GetHitResultFromTargetData(const FGameplayAbilityTargetDataHandle& HitResult, int32 Index);
 
+	/** Returns true if the target data has an origin */
 	UFUNCTION(BlueprintPure, Category = "Ability|TargetData")
 	static bool TargetDataHasOrigin(const FGameplayAbilityTargetDataHandle& TargetData, int32 Index);
 
+	/** Returns the origin for a given index if it exists */
 	UFUNCTION(BlueprintPure, Category = "Ability|TargetData")
 	static FTransform GetTargetDataOrigin(const FGameplayAbilityTargetDataHandle& TargetData, int32 Index);
 
+	/** Returns true if the target data has an end point */
 	UFUNCTION(BlueprintPure, Category = "Ability|TargetData")
 	static bool TargetDataHasEndPoint(const FGameplayAbilityTargetDataHandle& TargetData, int32 Index);
 
+	/** Returns the end point for a given index if it exists */
 	UFUNCTION(BlueprintPure, Category = "Ability|TargetData")
 	static FVector GetTargetDataEndPoint(const FGameplayAbilityTargetDataHandle& TargetData, int32 Index);
 
+	/** Returns the end point transform for a given index if it exists */
 	UFUNCTION(BlueprintPure, Category = "Ability|TargetData")
 	static FTransform GetTargetDataEndPointTransform(const FGameplayAbilityTargetDataHandle& TargetData, int32 Index);
 
@@ -147,18 +166,23 @@ class GAMEPLAYABILITIES_API UAbilitySystemBlueprintLibrary : public UBlueprintFu
 	//		GameplayEffectContext
 	// -------------------------------------------------------------------------------
 
+	/** Returns true if this context has ever been initialized */
 	UFUNCTION(BlueprintPure, Category = "Ability|EffectContext", Meta = (DisplayName = "IsValid"))
 	static bool EffectContextIsValid(FGameplayEffectContextHandle EffectContext);
 
+	/** Returns true if the ability system component that instigated this is locally controlled */
 	UFUNCTION(BlueprintPure, Category = "Ability|EffectContext", Meta = (DisplayName = "IsInstigatorLocallyControlled"))
 	static bool EffectContextIsInstigatorLocallyControlled(FGameplayEffectContextHandle EffectContext);
 
+	/** Extracts a hit result from the effect context if it is set */
 	UFUNCTION(BlueprintPure, Category = "Ability|EffectContext", Meta = (DisplayName = "GetHitResult"))
 	static FHitResult EffectContextGetHitResult(FGameplayEffectContextHandle EffectContext);
 
+	/** Returns true if there is a valid hit result inside the effect context */
 	UFUNCTION(BlueprintPure, Category = "Ability|EffectContext", Meta = (DisplayName = "HasHitResult"))
 	static bool EffectContextHasHitResult(FGameplayEffectContextHandle EffectContext);
 
+	/** Adds a hit result to the effect context */
 	UFUNCTION(BlueprintCallable, Category = "Ability|EffectContext", Meta = (DisplayName = "AddHitResult"))
 	static void EffectContextAddHitResult(FGameplayEffectContextHandle EffectContext, FHitResult HitResult, bool bReset);
 
@@ -189,22 +213,28 @@ class GAMEPLAYABILITIES_API UAbilitySystemBlueprintLibrary : public UBlueprintFu
 	// -------------------------------------------------------------------------------
 	//		GameplayCue
 	// -------------------------------------------------------------------------------
-	
+
+	/** Returns true if the ability system component that spawned this cue is locally controlled */
 	UFUNCTION(BlueprintPure, Category="Ability|GameplayCue")
 	static bool IsInstigatorLocallyControlled(FGameplayCueParameters Parameters);
 
+	/** Returns true if the ability system component that spawned this cue is locally controlled and a player */
 	UFUNCTION(BlueprintPure, Category="Ability|GameplayCue")
 	static bool IsInstigatorLocallyControlledPlayer(FGameplayCueParameters Parameters);
 
+	/** Returns number of actors stored in the Effect Context used by this cue */
 	UFUNCTION(BlueprintPure, Category = "Ability|GameplayCue")
 	static int32 GetActorCount(FGameplayCueParameters Parameters);
 
+	/** Returns actor stored in the Effect Context used by this cue */
 	UFUNCTION(BlueprintPure, Category = "Ability|GameplayCue")
 	static AActor* GetActorByIndex(FGameplayCueParameters Parameters, int32 Index);
 
+	/** Returns a hit result stored in the effect context if valid */
 	UFUNCTION(BlueprintPure, Category = "Ability|GameplayCue")
 	static FHitResult GetHitResult(FGameplayCueParameters Parameters);
 
+	/** Checks if the effect context has a hit reslt stored inside */
 	UFUNCTION(BlueprintPure, Category = "Ability|GameplayCue")
 	static bool HasHitResult(FGameplayCueParameters Parameters);
 
@@ -234,34 +264,37 @@ class GAMEPLAYABILITIES_API UAbilitySystemBlueprintLibrary : public UBlueprintFu
 
 	/** Returns true if the aggregated source and target tags from the effect spec meets the tag requirements */
 	UFUNCTION(BlueprintPure, Category = "Ability|GameplayCue")
-	static bool DoesGameplayCueMeetTagRequirements(FGameplayCueParameters Parameters, UPARAM(ref) FGameplayTagRequirements& SourceTagReqs, UPARAM(ref) FGameplayTagRequirements& TargetTagReqs);
+	static bool DoesGameplayCueMeetTagRequirements(FGameplayCueParameters Parameters, const FGameplayTagRequirements& SourceTagReqs, const FGameplayTagRequirements& TargetTagReqs);
 
 	// -------------------------------------------------------------------------------
 	//		GameplayEffectSpec
 	// -------------------------------------------------------------------------------
-	
+
+	/** Sets a raw name Set By Caller magnitude value, the tag version should normally be used */
 	UFUNCTION(BlueprintCallable, Category = "Ability|GameplayEffect")
 	static FGameplayEffectSpecHandle AssignSetByCallerMagnitude(FGameplayEffectSpecHandle SpecHandle, FName DataName, float Magnitude);
 
+	/** Sets a gameplay tag Set By Caller magnitude value */
 	UFUNCTION(BlueprintCallable, Category = "Ability|GameplayEffect")
 	static FGameplayEffectSpecHandle AssignTagSetByCallerMagnitude(FGameplayEffectSpecHandle SpecHandle, FGameplayTag DataTag, float Magnitude);
 
+	/** Manually sets the duration on a specific effect */
 	UFUNCTION(BlueprintCallable, Category = "Ability|GameplayEffect")
 	static FGameplayEffectSpecHandle SetDuration(FGameplayEffectSpecHandle SpecHandle, float Duration);
 
-	// This instance of the effect will now grant NewGameplayTag to the object that this effect is applied to.
+	/** This instance of the effect will now grant NewGameplayTag to the object that this effect is applied to */
 	UFUNCTION(BlueprintCallable, Category = "Ability|GameplayEffect")
 	static FGameplayEffectSpecHandle AddGrantedTag(FGameplayEffectSpecHandle SpecHandle, FGameplayTag NewGameplayTag);
 
-	// This instance of the effect will now grant NewGameplayTags to the object that this effect is applied to.
+	/** This instance of the effect will now grant NewGameplayTags to the object that this effect is applied to */
 	UFUNCTION(BlueprintCallable, Category = "Ability|GameplayEffect")
 	static FGameplayEffectSpecHandle AddGrantedTags(FGameplayEffectSpecHandle SpecHandle, FGameplayTagContainer NewGameplayTags);
 
-	// Adds NewGameplayTag to this instance of the effect.
+	/** Adds NewGameplayTag to this instance of the effect */
 	UFUNCTION(BlueprintCallable, Category = "Ability|GameplayEffect")
 	static FGameplayEffectSpecHandle AddAssetTag(FGameplayEffectSpecHandle SpecHandle, FGameplayTag NewGameplayTag);
 
-	// Adds NewGameplayTags to this instance of the effect.
+	/** Adds NewGameplayTags to this instance of the effect */
 	UFUNCTION(BlueprintCallable, Category = "Ability|GameplayEffect")
 	static FGameplayEffectSpecHandle AddAssetTags(FGameplayEffectSpecHandle SpecHandle, FGameplayTagContainer NewGameplayTags);
 
@@ -320,12 +353,15 @@ class GAMEPLAYABILITIES_API UAbilitySystemBlueprintLibrary : public UBlueprintFu
 	UFUNCTION(BlueprintCallable, Category = "Ability|GameplayEffect")
 	static float GetActiveGameplayEffectExpectedEndTime(FActiveGameplayEffectHandle ActiveHandle);
 
+	/** Returns the total duration for a given GameplayEffect */
 	UFUNCTION(BlueprintCallable, Category = "Ability|GameplayEffect")
 	static float GetActiveGameplayEffectTotalDuration(FActiveGameplayEffectHandle ActiveHandle);
 
+	/** Returns the total duration for a given GameplayEffect, basically ExpectedEndTime - Current Time */
 	UFUNCTION(BlueprintCallable, Category = "Ability|GameplayEffect", meta = (WorldContext = "WorldContextObject"))
 	static float GetActiveGameplayEffectRemainingDuration(UObject* WorldContextObject, FActiveGameplayEffectHandle ActiveHandle);
 
+	/** Returns a debug string for display */
 	UFUNCTION(BlueprintPure, Category = "Ability|GameplayEffect", Meta = (DisplayName = "Get Active GameplayEffect Debug String "))
 	static FString GetActiveGameplayEffectDebugString(FActiveGameplayEffectHandle ActiveHandle);
 

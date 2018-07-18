@@ -105,7 +105,7 @@ void MainOnePassPointLightGS(triangle FShadowDepthVSToGS Input[3], inout Triangl
 				{
 					Output.OutPosition = ClipSpacePositions[VertexIndex];
 
-#if VULKAN_PROFILE_SM5 || VULKAN_PROFILE_SM4 || VULKAN_PROFILE
+#if COMPILER_VULKAN
 					// We currently can't always do this in hlslcc, as some cubemaps don't require this (eg LUTs)
 					Output.OutPosition.y *= -1;
 #endif

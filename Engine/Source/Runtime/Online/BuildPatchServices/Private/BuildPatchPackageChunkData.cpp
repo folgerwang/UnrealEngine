@@ -4,6 +4,7 @@
 #include "BuildPatchManifest.h"
 #include "Async/TaskGraphInterfaces.h"
 #include "Serialization/MemoryWriter.h"
+#include "Misc/OutputDeviceRedirector.h"
 #include "Core/Platform.h"
 #include "Common/HttpManager.h"
 #include "Common/FileSystem.h"

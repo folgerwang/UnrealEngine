@@ -6,6 +6,65 @@ UNiagaraEditorSettings::UNiagaraEditorSettings(const FObjectInitializer& ObjectI
 	: Super(ObjectInitlaizer)
 {
 	bAutoCompile = true;
+	bAutoPlay = true;
+	bResetSimulationOnChange = true;
+	bResimulateOnChangeWhilePaused = true;
+}
+
+bool UNiagaraEditorSettings::GetAutoCompile() const
+{
+	return bAutoCompile;
+}
+
+void UNiagaraEditorSettings::SetAutoCompile(bool bInAutoCompile)
+{
+	if (bAutoCompile != bInAutoCompile)
+	{
+		bAutoCompile = bInAutoCompile;
+		SaveConfig();
+	}
+}
+
+bool UNiagaraEditorSettings::GetAutoPlay() const
+{
+	return bAutoPlay;
+}
+
+void UNiagaraEditorSettings::SetAutoPlay(bool bInAutoPlay)
+{
+	if (bAutoPlay != bInAutoPlay)
+	{
+		bAutoPlay = bInAutoPlay;
+		SaveConfig();
+	}
+}
+
+bool UNiagaraEditorSettings::GetResetSimulationOnChange() const
+{
+	return bResetSimulationOnChange;
+}
+
+void UNiagaraEditorSettings::SetResetSimulationOnChange(bool bInResetSimulationOnChange)
+{
+	if (bResetSimulationOnChange != bInResetSimulationOnChange)
+	{
+		bResetSimulationOnChange = bInResetSimulationOnChange;
+		SaveConfig();
+	}
+}
+
+bool UNiagaraEditorSettings::GetResimulateOnChangeWhilePaused() const
+{
+	return bResimulateOnChangeWhilePaused;
+}
+
+void UNiagaraEditorSettings::SetResimulateOnChangeWhilePaused(bool bInResimulateOnChangeWhilePaused)
+{
+	if (bResimulateOnChangeWhilePaused != bInResimulateOnChangeWhilePaused)
+	{
+		bResimulateOnChangeWhilePaused = bInResimulateOnChangeWhilePaused;
+		SaveConfig();
+	}
 }
 
 FName UNiagaraEditorSettings::GetCategoryName() const
@@ -13,14 +72,11 @@ FName UNiagaraEditorSettings::GetCategoryName() const
 	return TEXT("Plugins");
 }
 
-#if WITH_EDITOR
 FText UNiagaraEditorSettings::GetSectionText() const
 {
 	return NSLOCTEXT("NiagaraEditorPlugin", "NiagaraEditorSettingsSection", "Niagara Editor");
 }
-#endif
 
-#if WITH_EDITOR
 void UNiagaraEditorSettings::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	if (PropertyChangedEvent.Property != nullptr)
@@ -35,6 +91,3 @@ UNiagaraEditorSettings::FOnNiagaraEditorSettingsChanged& UNiagaraEditorSettings:
 }
 
 UNiagaraEditorSettings::FOnNiagaraEditorSettingsChanged UNiagaraEditorSettings::SettingsChangedDelegate;
-#endif
-
-

@@ -450,6 +450,8 @@ inline void SetUniformBufferParameter(
 {
 	// This will trigger if the parameter was not serialized
 	checkSlow(Parameter.IsInitialized());
+	// If it is bound, we must set it so something valid
+	checkSlow(!Parameter.IsBound() || UniformBufferRHI);
 	if(Parameter.IsBound())
 	{
 		RHICmdList.SetShaderUniformBuffer( Shader, Parameter.GetBaseIndex(), UniformBufferRHI);
@@ -467,6 +469,8 @@ inline void SetUniformBufferParameter(
 {
 	// This will trigger if the parameter was not serialized
 	checkSlow(Parameter.IsInitialized());
+	// If it is bound, we must set it so something valid
+	checkSlow(!Parameter.IsBound() || IsValidRef(UniformBufferRef));
 	if(Parameter.IsBound())
 	{
 		RHICmdList.SetShaderUniformBuffer( Shader, Parameter.GetBaseIndex(), UniformBufferRef);
@@ -484,6 +488,8 @@ inline void SetUniformBufferParameter(
 {
 	// This will trigger if the parameter was not serialized
 	checkSlow(Parameter.IsInitialized());
+	// If it is bound, we must set it so something valid
+	checkSlow(!Parameter.IsBound() || UniformBuffer.GetUniformBufferRHI());
 	if (Parameter.IsBound())
 	{
 		RHICmdList.SetShaderUniformBuffer( Shader, Parameter.GetBaseIndex(), UniformBuffer.GetUniformBufferRHI());

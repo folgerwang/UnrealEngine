@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -8,6 +8,8 @@ using System.IO;
 using Microsoft.Win32;
 using System.Linq;
 using Tools.DotNETCommon;
+using Microsoft.VisualStudio.Setup.Configuration;
+using System.Runtime.InteropServices;
 
 namespace UnrealBuildTool
 {
@@ -82,6 +84,25 @@ namespace UnrealBuildTool
 		public WindowsCompiler Compiler = WindowsCompiler.Default;
 
 		/// <summary>
+		/// The specific toolchain version to use. This may be a specific version number (eg. "14.13.26128") or the string "Latest" to select the newest available version. By default, we use the
+		/// toolchain version indicated by WindowsPlatform.DefaultToolChainVersion if it is available, or the latest version otherwise.
+		/// </summary>
+		[XmlConfigFile(Category = "WindowsPlatform")]
+		public string CompilerVersion = null;
+
+		/// <summary>
+		/// The specific Windows SDK version to use. This may be a specific version number (eg. "8.1", "10.0", or "10.0.10150.0") or the string "Latest" to select the newest available version.
+		/// By default, we use the Windows SDK version indicated by WindowsPlatform.DefaultWindowsSdkVersion if it is available, or the latest version otherwise.
+		/// </summary>
+		[XmlConfigFile(Category = "WindowsPlatform")]
+		public string WindowsSdkVersion = null;
+
+		/// <summary>
+		/// Value for the WINVER macro, defining the minimum supported Windows version.
+		/// </summary>
+		public int TargetWindowsVersion = 0x601;
+
+		/// <summary>
 		/// Enable PIX debugging (automatically disabled in Shipping and Test configs)
 		/// </summary>
 		[ConfigFile(ConfigHierarchyType.Engine, "/Script/WindowsTargetPlatform.WindowsTargetSettings", "bEnablePIXProfiling")]
@@ -140,6 +161,20 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// The stack size when linking a non-editor target
+		/// </summary>
+		[RequiresUniqueBuildEnvironment]
+		[ConfigFile(ConfigHierarchyType.Engine, "/Script/WindowsTargetPlatform.WindowsTargetSettings")]
+		public int DefaultStackSize = 5000000;
+
+		/// <summary>
+		/// The stack size to commit when linking a non-editor target
+		/// </summary>
+		[RequiresUniqueBuildEnvironment]
+		[ConfigFile(ConfigHierarchyType.Engine, "/Script/WindowsTargetPlatform.WindowsTargetSettings")]
+		public int DefaultStackSizeCommit;
+
+		/// <summary>
 		/// When using a Visual Studio compiler, returns the version name as a string
 		/// </summary>
 		/// <returns>The Visual Studio compiler version name (e.g. "2015")</returns>
@@ -190,6 +225,21 @@ namespace UnrealBuildTool
 			get { return Inner.Compiler; }
 		}
 
+		public string CompilerVersion
+		{
+			get { return Inner.CompilerVersion; }
+		}
+
+		public string WindowsSdkVersion
+		{
+			get { return Inner.WindowsSdkVersion; }
+		}
+
+		public int TargetWindowsVersion
+		{
+			get { return Inner.TargetWindowsVersion; }
+		}
+
 		public bool bPixProfilingEnabled
 		{
 			get { return Inner.bPixProfilingEnabled; }
@@ -235,6 +285,16 @@ namespace UnrealBuildTool
 			get { return Inner.bStrictConformanceMode; }
 		}
 
+		public int DefaultStackSize
+		{
+			get { return Inner.DefaultStackSize; }
+		}
+
+		public int DefaultStackSizeCommit
+		{
+			get { return Inner.DefaultStackSizeCommit; }
+		}
+
 		public string GetVisualStudioCompilerVersionName()
 		{
 			return Inner.GetVisualStudioCompilerVersionName();
@@ -248,6 +308,36 @@ namespace UnrealBuildTool
 
 	class WindowsPlatform : UEBuildPlatform
 	{
+		/// <summary>
+		/// The default compiler version to be used, if installed. 
+		/// </summary>
+		static readonly VersionNumber DefaultToolChainVersion = VersionNumber.Parse("14.13.26128");
+
+		/// <summary>
+		/// The default Windows SDK version to be used, if installed.
+		/// </summary>
+		static readonly VersionNumber DefaultVersion = VersionNumber.Parse("10.0.16299.0");
+
+		/// <summary>
+		/// Cache of Visual Studio installation directories
+		/// </summary>
+		private static Dictionary<WindowsCompiler, List<DirectoryReference>> CachedVSInstallDirs = new Dictionary<WindowsCompiler, List<DirectoryReference>>();
+
+		/// <summary>
+		/// Cache of Visual C++ installation directories
+		/// </summary>
+		private static Dictionary<WindowsCompiler, Dictionary<VersionNumber, DirectoryReference>> CachedVCToolChainDirs = new Dictionary<WindowsCompiler, Dictionary<VersionNumber, DirectoryReference>>();
+
+		/// <summary>
+		/// Cache of Windows SDK installation directories
+		/// </summary>
+		private static IReadOnlyDictionary<VersionNumber, DirectoryReference> CachedWindowsSdkDirs;
+
+		/// <summary>
+		/// Cache of Universal CRT installation directories
+		/// </summary>
+		private static IReadOnlyDictionary<VersionNumber, DirectoryReference> CachedUniversalCrtDirs;
+
 		/// <summary>
 		/// True if we should use Clang/LLVM instead of MSVC to compile code on Windows platform
 		/// </summary>
@@ -272,13 +362,6 @@ namespace UnrealBuildTool
 		/// True if we should use the Intel linker (xilink) when bCompileWithICL is enabled, otherwise we use the MSVC linker
 		/// </summary>
 		public static readonly bool bAllowICLLinker = bCompileWithICL && true;
-
-		/// <summary>
-		/// Whether to compile against the Windows 10 SDK, instead of the Windows 8.1 SDK.  This requires the Visual Studio 2015
-		/// compiler or later, and the Windows 10 SDK must be installed.  The application will require at least Windows 8.x to run.
-		/// @todo UWP: Expose this to be enabled more easily for building Windows 10 desktop apps
-		/// </summary>
-		public static readonly bool bUseWindowsSDK10 = false;
 
 		/// <summary>
 		/// True if we allow using addresses larger than 2GB on 32 bit builds
@@ -373,6 +456,18 @@ namespace UnrealBuildTool
 			{
 				Target.bUsePDBFiles = true;
 			}
+
+//			@Todo: Still getting reports of frequent OOM issues with this enabled as of 15.7.
+//			// Enable fast PDB linking if we're on VS2017 15.7 or later. Previous versions have OOM issues with large projects.
+//			if(!Target.bFormalBuild && !Target.bUseFastPDBLinking.HasValue && Target.WindowsPlatform.Compiler >= WindowsCompiler.VisualStudio2017)
+//			{
+//				VersionNumber Version;
+//				DirectoryReference ToolChainDir;
+//				if(TryGetVCToolChainDir(Target.WindowsPlatform.Compiler, Target.WindowsPlatform.CompilerVersion, out Version, out ToolChainDir) && Version >= new VersionNumber(14, 14, 26316))
+//				{
+//					Target.bUseFastPDBLinking = true;
+//				}
+//			}
 		}
 
 		/// <summary>
@@ -401,9 +496,9 @@ namespace UnrealBuildTool
 			if(ProjectFileGenerator.GetPreferredSourceCodeAccessor(ProjectFile, out PreferredAccessor))
 			{
 				if(PreferredAccessor == ProjectFileFormat.VisualStudio2017)
-				{
-					return WindowsCompiler.VisualStudio2017;
-				}
+			    {
+				    return WindowsCompiler.VisualStudio2017;
+			    }
 				else if(PreferredAccessor == ProjectFileFormat.VisualStudio2015)
 				{
 					return WindowsCompiler.VisualStudio2015;
@@ -411,25 +506,24 @@ namespace UnrealBuildTool
 			}
 
 			// Second, default based on what's installed, test for 2015 first
-			DirectoryReference VCInstallDir;
-			if (TryGetVCInstallDir(WindowsCompiler.VisualStudio2015, out VCInstallDir))
-			{
-				return WindowsCompiler.VisualStudio2015;
-			}
-			if (TryGetVCInstallDir(WindowsCompiler.VisualStudio2017, out VCInstallDir))
+			if (HasCompiler(WindowsCompiler.VisualStudio2017))
 			{
 				return WindowsCompiler.VisualStudio2017;
+			}
+			if (HasCompiler(WindowsCompiler.VisualStudio2015))
+			{
+				return WindowsCompiler.VisualStudio2015;
 			}
 
 			// If we do have a Visual Studio installation, but we're missing just the C++ parts, warn about that.
 			DirectoryReference VSInstallDir;
-			if (TryGetVSInstallDir(WindowsCompiler.VisualStudio2015, out VSInstallDir))
-			{
-				Log.TraceWarning("Visual Studio 2015 is installed, but is missing the C++ toolchain. Please verify that \"Common Tools for Visual C++ 2015\" are selected from the Visual Studio 2015 installation options.");
-			}
-			else if (TryGetVSInstallDir(WindowsCompiler.VisualStudio2017, out VSInstallDir))
+			if (TryGetVSInstallDir(WindowsCompiler.VisualStudio2017, out VSInstallDir))
 			{
 				Log.TraceWarning("Visual Studio 2017 is installed, but is missing the C++ toolchain. Please verify that the \"VC++ 2017 toolset\" component is selected in the Visual Studio 2017 installation options.");
+			}
+			else if (TryGetVSInstallDir(WindowsCompiler.VisualStudio2015, out VSInstallDir))
+			{
+				Log.TraceWarning("Visual Studio 2015 is installed, but is missing the C++ toolchain. Please verify that \"Common Tools for Visual C++ 2015\" are selected from the Visual Studio 2015 installation options.");
 			}
 			else
 			{
@@ -459,7 +553,7 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// Read the Visual Studio install directory for the given compiler version. Note that it is possible for the compiler toolchain to be installed without
+		/// Get the first Visual Studio install directory for the given compiler version. Note that it is possible for the compiler toolchain to be installed without
 		/// Visual Studio.
 		/// </summary>
 		/// <param name="Compiler">Version of the toolchain to look for.</param>
@@ -473,61 +567,235 @@ namespace UnrealBuildTool
 				return false;
 			}
 
-			switch (Compiler)
-			{
-				case WindowsCompiler.VisualStudio2015:
-					return TryReadInstallDirRegistryKey32("Microsoft\\VisualStudio\\SxS\\VS7", "14.0", out InstallDir);
-				case WindowsCompiler.VisualStudio2017:
-					return TryReadInstallDirRegistryKey32("Microsoft\\VisualStudio\\SxS\\VS7", "15.0", out InstallDir);
-				default:
-					throw new BuildException("Invalid compiler version ({0})", Compiler);
-			}
-		}
-
-		/// <summary>
-		/// Read the Visual C++ install directory for the given version.
-		/// </summary>
-		/// <param name="Compiler">Version of the toolchain to look for.</param>
-		/// <param name="InstallDir">On success, the directory that Visual C++ is installed to.</param>
-		/// <returns>True if the directory was found, false otherwise.</returns>
-		public static bool TryGetVCInstallDir(WindowsCompiler Compiler, out DirectoryReference InstallDir)
-		{
-			if (BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Win64 && BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Win32)
+			List<DirectoryReference> InstallDirs = FindVSInstallDirs(Compiler);
+			if(InstallDirs.Count == 0)
 			{
 				InstallDir = null;
 				return false;
 			}
-
-			if (Compiler == WindowsCompiler.VisualStudio2015)
+			else
 			{
-				return TryReadInstallDirRegistryKey32("Microsoft\\VisualStudio\\SxS\\VC7", "14.0", out InstallDir);
+				InstallDir = InstallDirs[0];
+				return true;
 			}
-			else if (Compiler == WindowsCompiler.VisualStudio2017)
-			{
-				// VS15Preview installs the compiler under the IDE directory, and does not register it as a standalone component. Check just in case this changes 
-				// for compat in future since it's more specific.
-				if (TryReadInstallDirRegistryKey32("Microsoft\\VisualStudio\\SxS\\VC7", "15.0", out InstallDir))
-				{
-					return true;
-				}
+		}
 
-				// Otherwise just check under the VS folder...
-				DirectoryReference VSInstallDir;
-				if (TryGetVSInstallDir(Compiler, out VSInstallDir))
-				{
-					FileReference VersionPath = FileReference.Combine(VSInstallDir, "VC", "Auxiliary", "Build", "Microsoft.VCToolsVersion.default.txt");
-					if (FileReference.Exists(VersionPath))
-					{
-						InstallDir = VersionPath.Directory.ParentDirectory.ParentDirectory;
-						return true;
-					}
+		/// <summary>
+		/// Read the Visual Studio install directory for the given compiler version. Note that it is possible for the compiler toolchain to be installed without
+		/// Visual Studio.
+		/// </summary>
+		/// <param name="Compiler">Version of the toolchain to look for.</param>
+		/// <returns>List of directories containing Visual Studio installations</returns>
+		public static List<DirectoryReference> FindVSInstallDirs(WindowsCompiler Compiler)
+		{
+			List<DirectoryReference> InstallDirs;
+			if(!CachedVSInstallDirs.TryGetValue(Compiler, out InstallDirs))
+			{
+				InstallDirs = new List<DirectoryReference>();
+			    if (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64 || BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win32)
+			    {
+				    if(Compiler == WindowsCompiler.VisualStudio2015)
+				    {
+					    // VS2015 just installs one toolchain; use that.
+					    DirectoryReference InstallDir;
+					    if(TryReadInstallDirRegistryKey32("Microsoft\\VisualStudio\\SxS\\VS7", "14.0", out InstallDir))
+					    {
+						    InstallDirs.Add(InstallDir);
+					    }
+				    }
+				    else if(Compiler == WindowsCompiler.VisualStudio2017)
+				    {
+					    // Enumerate all the installed Visual Studio instances using the interop SDK. There may be several installed side by side on a single machine (preview, community, enterprise, etc...).
+					    try
+					    {
+						    SetupConfiguration Setup = new SetupConfiguration();
+						    IEnumSetupInstances Enumerator = Setup.EnumAllInstances(); 
+    
+						    ISetupInstance[] Instances = new ISetupInstance[1];
+						    for(;;)
+						    { 
+							    int NumFetched; 
+							    Enumerator.Next(1, Instances, out NumFetched);
+    
+							    if(NumFetched == 0)
+							    {
+								    break;
+							    }
+    
+							    ISetupInstance2 Instance = (ISetupInstance2)Instances[0];
+							    if((Instance.GetState() & InstanceState.Local) == InstanceState.Local)
+							    {
+								    InstallDirs.Add(new DirectoryReference(Instance.GetInstallationPath()));
+							    }
+						    }
+					    }
+					    catch
+					    {
+					    }
+				    }
+				    else
+				    {
+					    throw new BuildException("Unsupported compiler version ({0})", Compiler);
+				    }
 				}
-				return false;
+				CachedVSInstallDirs.Add(Compiler, InstallDirs);
+			}
+			return InstallDirs;
+		}	 
+
+		/// <summary>
+		/// Determines the directory containing the MSVC toolchain
+		/// </summary>
+		/// <param name="Compiler">Major version of the compiler to use</param>
+		/// <returns>Map of version number to directories</returns>
+		public static Dictionary<VersionNumber, DirectoryReference> FindVCToolChainDirs(WindowsCompiler Compiler)
+		{
+			Dictionary<VersionNumber, DirectoryReference> ToolChainVersionToDir;
+			if(!CachedVCToolChainDirs.TryGetValue(Compiler, out ToolChainVersionToDir))
+			{
+				ToolChainVersionToDir = new Dictionary<VersionNumber, DirectoryReference>();
+			    if (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64 || BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win32)
+			    {
+				    if(Compiler == WindowsCompiler.VisualStudio2015)
+				    {
+					    // VS2015 just installs one toolchain; use that.
+					    List<DirectoryReference> InstallDirs = FindVSInstallDirs(Compiler);
+					    foreach(DirectoryReference InstallDir in InstallDirs)
+					    {
+							DirectoryReference ToolChainBaseDir = DirectoryReference.Combine(InstallDir, "VC");
+							if(IsValidToolChainDir2015(ToolChainBaseDir))
+							{
+								ToolChainVersionToDir[new VersionNumber(14, 0)] = ToolChainBaseDir;
+							}
+					    }
+				    }
+				    else if(Compiler == WindowsCompiler.VisualStudio2017)
+				    {
+						// Enumerate all the manually installed toolchains
+						List<DirectoryReference> InstallDirs = FindVSInstallDirs(Compiler);
+					    foreach(DirectoryReference InstallDir in InstallDirs)
+					    {
+						    DirectoryReference ToolChainBaseDir = DirectoryReference.Combine(InstallDir, "VC", "Tools", "MSVC");
+						    if(DirectoryReference.Exists(ToolChainBaseDir))
+						    {
+							    foreach(DirectoryReference ToolChainDir in DirectoryReference.EnumerateDirectories(ToolChainBaseDir))
+							    {
+								    VersionNumber Version;
+								    if(VersionNumber.TryParse(ToolChainDir.GetDirectoryName(), out Version) && IsValidToolChainDir2017(ToolChainDir))
+								    {
+									    ToolChainVersionToDir[Version] = ToolChainDir;
+								    }
+							    }
+						    }
+					    }
+    
+					    // Enumerate all the AutoSDK toolchains
+					    DirectoryReference PlatformDir;
+					    if(UEBuildPlatformSDK.TryGetHostPlatformAutoSDKDir(out PlatformDir))
+					    {
+						    DirectoryReference ToolChainBaseDir = DirectoryReference.Combine(PlatformDir, "Win64", "VS2017");
+						    if(DirectoryReference.Exists(ToolChainBaseDir))
+						    {
+							    foreach(DirectoryReference ToolChainDir in DirectoryReference.EnumerateDirectories(ToolChainBaseDir))
+							    {
+								    VersionNumber Version;
+								    if(VersionNumber.TryParse(ToolChainDir.GetDirectoryName(), out Version) && IsValidToolChainDir2017(ToolChainDir))
+								    {
+									    ToolChainVersionToDir[Version] = ToolChainDir;
+								    }
+							    }
+						    }
+					    }
+				    }
+				    else
+				    {
+					    throw new BuildException("Unsupported compiler version ({0})", Compiler);
+				    }
+				}
+				CachedVCToolChainDirs.Add(Compiler, ToolChainVersionToDir);
+			}
+			return ToolChainVersionToDir;
+		}
+
+		/// <summary>
+		/// Checks if the given directory contains a valid Visual Studio 2015 toolchain
+		/// </summary>
+		/// <param name="ToolChainDir">Directory to check</param>
+		/// <returns>True if the given directory is valid</returns>
+		static bool IsValidToolChainDir2015(DirectoryReference ToolChainDir)
+		{
+			return FileReference.Exists(FileReference.Combine(ToolChainDir, "bin", "amd64", "cl.exe")) || FileReference.Exists(FileReference.Combine(ToolChainDir, "bin", "x86_amd64", "cl.exe"));
+		}
+
+		/// <summary>
+		/// Checks if the given directory contains a valid Visual Studio 2017 toolchain
+		/// </summary>
+		/// <param name="ToolChainDir">Directory to check</param>
+		/// <returns>True if the given directory is valid</returns>
+		static bool IsValidToolChainDir2017(DirectoryReference ToolChainDir)
+		{
+			return FileReference.Exists(FileReference.Combine(ToolChainDir, "bin", "Hostx86", "x64", "cl.exe")) || FileReference.Exists(FileReference.Combine(ToolChainDir, "bin", "Hostx64", "x64", "cl.exe"));
+		}
+
+		/// <summary>
+		/// Determines if a given compiler is installed
+		/// </summary>
+		/// <param name="Compiler">Compiler to check for</param>
+		/// <returns>True if the given compiler is installed</returns>
+		public static bool HasCompiler(WindowsCompiler Compiler)
+		{
+			return FindVCToolChainDirs(Compiler).Count > 0;
+		}
+
+		/// <summary>
+		/// Determines the directory containing the MSVC toolchain
+		/// </summary>
+		/// <param name="Compiler">Major version of the compiler to use</param>
+		/// <param name="CompilerVersion">The minimum compiler version to use</param>
+		/// <param name="OutToolChainVersion">Receives the chosen toolchain version</param>
+		/// <param name="OutToolChainDir">Receives the directory containing the toolchain</param>
+		/// <returns>True if the toolchain directory was found correctly</returns>
+		public static bool TryGetVCToolChainDir(WindowsCompiler Compiler, string CompilerVersion, out VersionNumber OutToolChainVersion, out DirectoryReference OutToolChainDir)
+		{
+			// Find all the installed toolchains
+			Dictionary<VersionNumber, DirectoryReference> ToolChainVersionToDir = FindVCToolChainDirs(Compiler);
+
+			// Figure out the actual version number that we want
+			VersionNumber ToolChainVersion = null;
+			if(CompilerVersion != null)
+			{
+				if(String.Compare(CompilerVersion, "Latest", StringComparison.InvariantCultureIgnoreCase) == 0 && ToolChainVersionToDir.Count > 0)
+				{
+					ToolChainVersion = ToolChainVersionToDir.OrderBy(x => x.Key).Last().Key;
+				}
+				else if(!VersionNumber.TryParse(CompilerVersion, out ToolChainVersion))
+				{
+					throw new BuildException("Unable to find Visual C++ toolchain; '{0}' is an invalid version", CompilerVersion);
+				}
 			}
 			else
 			{
-				throw new BuildException("Invalid compiler version ({0})", Compiler);
+				if(ToolChainVersionToDir.ContainsKey(DefaultToolChainVersion))
+				{
+					ToolChainVersion = DefaultToolChainVersion;
+				}
+				else if(ToolChainVersionToDir.Count > 0)
+				{
+					ToolChainVersion = ToolChainVersionToDir.OrderBy(x => x.Key).Last().Key;
+				}
 			}
+
+			// Get the actual directory for this version
+			if(ToolChainVersion != null && ToolChainVersionToDir.TryGetValue(ToolChainVersion, out OutToolChainDir))
+			{
+				OutToolChainVersion = ToolChainVersion;
+				return true;
+			}
+
+			// Otherwise fail
+			OutToolChainVersion = null;
+			OutToolChainDir = null;
+			return false;
 		}
 
 		/// <summary>
@@ -578,6 +846,295 @@ namespace UnrealBuildTool
 				Value = new DirectoryReference(StringValue);
 				return true;
 			}
+		}
+
+		/// <summary>
+		/// Gets the path to MSBuild. This mirrors the logic in GetMSBuildPath.bat.
+		/// </summary>
+		/// <param name="OutLocation">On success, receives the path to the MSBuild executable.</param>
+		/// <returns>True on success.</returns>
+		public static bool TryGetMsBuildPath(out FileReference OutLocation)
+		{
+			// Get the Visual Studio 2017 install directory
+			List<DirectoryReference> InstallDirs = WindowsPlatform.FindVSInstallDirs(WindowsCompiler.VisualStudio2017);
+			foreach(DirectoryReference InstallDir in InstallDirs)
+			{
+				FileReference MsBuildLocation = FileReference.Combine(InstallDir, "MSBuild", "15.0", "Bin", "MSBuild.exe");
+				if(FileReference.Exists(MsBuildLocation))
+				{
+					OutLocation = MsBuildLocation;
+					return true;
+				}
+			}
+
+			// Try to get the MSBuild 14.0 path directly (see https://msdn.microsoft.com/en-us/library/hh162058(v=vs.120).aspx)
+			FileReference ToolPath = FileReference.Combine(DirectoryReference.GetSpecialFolder(Environment.SpecialFolder.ProgramFilesX86), "MSBuild", "14.0", "bin", "MSBuild.exe");
+			if(FileReference.Exists(ToolPath))
+			{
+				OutLocation = ToolPath;
+				return true;
+			} 
+
+			// Check for older versions of MSBuild. These are registered as separate versions in the registry.
+			if (TryReadMsBuildInstallPath("Microsoft\\MSBuild\\ToolsVersions\\14.0", "MSBuildToolsPath", "MSBuild.exe", out ToolPath))
+			{
+				OutLocation = ToolPath;
+				return true;
+			}
+			if (TryReadMsBuildInstallPath("Microsoft\\MSBuild\\ToolsVersions\\12.0", "MSBuildToolsPath", "MSBuild.exe", out ToolPath))
+			{
+				OutLocation = ToolPath;
+				return true;
+			}
+			if (TryReadMsBuildInstallPath("Microsoft\\MSBuild\\ToolsVersions\\4.0", "MSBuildToolsPath", "MSBuild.exe", out ToolPath))
+			{
+				OutLocation = ToolPath;
+				return true;
+			}
+
+			OutLocation = null;
+			return false;
+		}
+
+		/// <summary>
+		/// Gets the MSBuild path, and throws an exception on failure.
+		/// </summary>
+		/// <returns>Path to MSBuild</returns>
+		public static FileReference GetMsBuildToolPath()
+		{
+			FileReference Location;
+			if(!TryGetMsBuildPath(out Location))
+			{
+				throw new BuildException("Unable to find installation of MSBuild.");
+			}
+ 			return Location;
+		}
+
+		/// <summary>
+		/// Function to query the registry under HKCU/HKLM Win32/Wow64 software registry keys for a certain install directory.
+		/// This mirrors the logic in GetMSBuildPath.bat.
+		/// </summary>
+		/// <returns></returns>
+		static bool TryReadMsBuildInstallPath(string KeyRelativePath, string KeyName, string MsBuildRelativePath, out FileReference OutMsBuildPath)
+		{
+			string[] KeyBasePaths =
+			{
+				@"HKEY_CURRENT_USER\SOFTWARE\",
+				@"HKEY_LOCAL_MACHINE\SOFTWARE\",
+				@"HKEY_CURRENT_USER\SOFTWARE\Wow6432Node\",
+				@"HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\"
+			};
+
+			foreach (string KeyBasePath in KeyBasePaths)
+			{
+				string Value = Registry.GetValue(KeyBasePath + KeyRelativePath, KeyName, null) as string;
+				if (Value != null)
+				{
+					FileReference MsBuildPath = FileReference.Combine(new DirectoryReference(Value), MsBuildRelativePath);
+					if (FileReference.Exists(MsBuildPath))
+					{
+						OutMsBuildPath = MsBuildPath;
+						return true;
+					}
+				}
+			}
+
+			OutMsBuildPath = null;
+			return false;
+		}
+
+		/// <summary>
+		/// Updates the CachedWindowsSdkDirs and CachedUniversalCrtDirs variables
+		/// </summary>
+		private static void UpdateCachedWindowsSdks()
+		{
+			Dictionary<VersionNumber, DirectoryReference> WindowsSdkDirs = new Dictionary<VersionNumber, DirectoryReference>();
+			Dictionary<VersionNumber, DirectoryReference> UniversalCrtDirs = new Dictionary<VersionNumber, DirectoryReference>();
+
+			// Enumerate the Windows 8.1 SDK, if present
+			DirectoryReference InstallDir_8_1;
+			if(TryReadInstallDirRegistryKey32("Microsoft\\Microsoft SDKs\\Windows\\v8.1", "InstallationFolder", out InstallDir_8_1))
+			{
+				if(FileReference.Exists(FileReference.Combine(InstallDir_8_1, "Include", "um", "windows.h")))
+				{
+					Log.TraceLog("Found Windows 8.1 SDK at {0}", InstallDir_8_1);
+					VersionNumber Version_8_1 = new VersionNumber(8, 1);
+					WindowsSdkDirs[Version_8_1] = InstallDir_8_1;
+				}
+			}
+
+			// Find all the root directories for Windows 10 SDKs
+			List<DirectoryReference> InstallDirs_10 = new List<DirectoryReference>();
+			EnumerateSdkRootDirs(InstallDirs_10);
+
+			// Enumerate all the Windows 10 SDKs
+			foreach(DirectoryReference InstallDir_10 in InstallDirs_10.Distinct())
+			{
+				DirectoryReference IncludeRootDir = DirectoryReference.Combine(InstallDir_10, "Include");
+				if(DirectoryReference.Exists(IncludeRootDir))
+				{
+					foreach(DirectoryReference IncludeDir in DirectoryReference.EnumerateDirectories(IncludeRootDir))
+					{
+						VersionNumber IncludeVersion;
+						if(VersionNumber.TryParse(IncludeDir.GetDirectoryName(), out IncludeVersion))
+						{
+							if(FileReference.Exists(FileReference.Combine(IncludeDir, "um", "windows.h")))
+							{
+								Log.TraceLog("Found Windows 10 SDK version {0} at {1}", IncludeVersion, InstallDir_10);
+								WindowsSdkDirs[IncludeVersion] = InstallDir_10;
+							}
+							if(FileReference.Exists(FileReference.Combine(IncludeDir, "ucrt", "corecrt.h")))
+							{
+								Log.TraceLog("Found Universal CRT version {0} at {1}", IncludeVersion, InstallDir_10);
+								UniversalCrtDirs[IncludeVersion] = InstallDir_10;
+							}
+						}
+					}
+				}
+			}
+
+			CachedWindowsSdkDirs = WindowsSdkDirs;
+			CachedUniversalCrtDirs = UniversalCrtDirs;
+		}
+
+		/// <summary>
+		/// Finds all the installed Windows SDK versions
+		/// </summary>
+		/// <returns>Map of version number to Windows SDK directories</returns>
+		public static IReadOnlyDictionary<VersionNumber, DirectoryReference> FindWindowsSdkDirs()
+		{
+			// Update the cache of install directories, if it's not set
+			if(CachedWindowsSdkDirs == null)
+			{
+				UpdateCachedWindowsSdks();
+			}
+			return CachedWindowsSdkDirs;
+		}
+
+		/// <summary>
+		/// Finds all the installed Universal CRT versions
+		/// </summary>
+		/// <returns>Map of version number to universal CRT directories</returns>
+		public static IReadOnlyDictionary<VersionNumber, DirectoryReference> FindUniversalCrtDirs()
+		{
+			if(CachedUniversalCrtDirs == null)
+			{
+				UpdateCachedWindowsSdks();
+			}
+			return CachedUniversalCrtDirs;
+		}
+
+		/// <summary>
+		/// Enumerates all the Windows 10 SDK root directories
+		/// </summary>
+		/// <param name="RootDirs">Receives all the Windows 10 sdk root directories</param>
+		private static void EnumerateSdkRootDirs(List<DirectoryReference> RootDirs)
+		{
+			DirectoryReference RootDir;
+			if(TryReadInstallDirRegistryKey32("Microsoft\\Windows Kits\\Installed Roots", "KitsRoot10", out RootDir))
+			{
+				Log.TraceLog("Found Windows 10 SDK root at {0} (1)", RootDir);
+				RootDirs.Add(RootDir);
+			}
+			if(TryReadInstallDirRegistryKey32("Microsoft\\Microsoft SDKs\\Windows\\v10.0", "InstallationFolder", out RootDir))
+			{
+				Log.TraceLog("Found Windows 10 SDK root at {0} (2)", RootDir);
+				RootDirs.Add(RootDir);
+			}
+
+			DirectoryReference HostAutoSdkDir;
+			if(UEBuildPlatformSDK.TryGetHostPlatformAutoSDKDir(out HostAutoSdkDir))
+			{
+				DirectoryReference RootDirAutoSdk = DirectoryReference.Combine(HostAutoSdkDir, "Win64", "Windows Kits", "10");
+				if(DirectoryReference.Exists(RootDirAutoSdk))
+				{
+					Log.TraceLog("Found Windows 10 AutoSDK root at {0}", RootDirAutoSdk);
+					RootDirs.Add(RootDirAutoSdk);
+				}
+			}
+		}
+
+		/// <summary>
+		/// Determines the directory containing the Windows SDK toolchain
+		/// </summary>
+		/// <param name="DesiredVersion">The desired Windows SDK version. This may be "Latest", a specific version number, or null. If null, the function will look for DefaultWindowsSdkVersion. Failing that, it will return the latest version.</param>
+		/// <param name="OutSdkVersion">Receives the version number of the selected Windows SDK</param>
+		/// <param name="OutSdkDir">Receives the root directory for the selected SDK</param>
+		/// <returns>True if the toolchain directory was found correctly</returns>
+		public static bool TryGetWindowsSdkDir(string DesiredVersion, out VersionNumber OutSdkVersion, out DirectoryReference OutSdkDir)
+		{
+			// Get a map of Windows SDK versions to their root directories
+			IReadOnlyDictionary<VersionNumber, DirectoryReference> WindowsSdkDirs = FindWindowsSdkDirs();
+
+			// Figure out which version number to look for
+			VersionNumber WindowsSdkVersion = null;
+			if(DesiredVersion != null)
+			{
+				if(String.Compare(DesiredVersion, "Latest", StringComparison.InvariantCultureIgnoreCase) == 0 && CachedWindowsSdkDirs.Count > 0)
+				{
+					WindowsSdkVersion = CachedWindowsSdkDirs.OrderBy(x => x.Key).Last().Key;
+				}
+				else if(!VersionNumber.TryParse(DesiredVersion, out WindowsSdkVersion))
+				{
+					throw new BuildException("Unable to find requested Windows SDK; '{0}' is an invalid version", DesiredVersion);
+				}
+			}
+			else
+			{
+				if(CachedWindowsSdkDirs.ContainsKey(DefaultVersion))
+				{
+					WindowsSdkVersion = DefaultVersion;
+				}
+				else if(CachedWindowsSdkDirs.Count > 0)
+				{
+					WindowsSdkVersion = CachedWindowsSdkDirs.OrderBy(x => x.Key).Last().Key;
+				}
+			}
+
+			// Get the actual directory for this version
+			DirectoryReference SdkDir;
+			if(WindowsSdkVersion != null && CachedWindowsSdkDirs.TryGetValue(WindowsSdkVersion, out SdkDir))
+			{
+				OutSdkDir = SdkDir;
+				OutSdkVersion = WindowsSdkVersion;
+				return true;
+			}
+			else
+			{
+				OutSdkDir = null;
+				OutSdkVersion = null;
+				return false;
+			}
+		}
+
+		/// <summary>
+		/// Gets the installation directory for the NETFXSDK
+		/// </summary>
+		/// <param name="OutInstallDir">Receives the installation directory on success</param>
+		/// <returns>True if the directory was found, false otherwise</returns>
+		public static bool TryGetNetFxSdkInstallDir(out DirectoryReference OutInstallDir)
+		{
+			DirectoryReference HostAutoSdkDir;
+			if(UEBuildPlatformSDK.TryGetHostPlatformAutoSDKDir(out HostAutoSdkDir))
+			{
+				DirectoryReference NetFxDir_4_6 = DirectoryReference.Combine(HostAutoSdkDir, "Win64", "Windows Kits", "NETFXSDK", "4.6");
+				if(FileReference.Exists(FileReference.Combine(NetFxDir_4_6, "Include", "um", "mscoree.h")))
+				{
+					OutInstallDir = NetFxDir_4_6;
+					return true;
+				}
+
+				DirectoryReference NetFxDir_4_6_1 = DirectoryReference.Combine(HostAutoSdkDir, "Win64", "Windows Kits", "NETFXSDK", "4.6.1");
+				if(FileReference.Exists(FileReference.Combine(NetFxDir_4_6_1, "Include", "um", "mscoree.h")))
+				{
+					OutInstallDir = NetFxDir_4_6_1;
+					return true;
+				}
+			}
+
+			return TryReadInstallDirRegistryKey32("Microsoft\\Microsoft SDKs\\NETFXSDK\\4.6", "KitsInstallationFolder", out OutInstallDir) ||
+			       TryReadInstallDirRegistryKey32("Microsoft\\Microsoft SDKs\\NETFXSDK\\4.6.1", "KitsInstallationFolder", out OutInstallDir) ||
+				   TryReadInstallDirRegistryKey32("Microsoft\\Microsoft SDKs\\NETFXSDK\\4.6.2", "KitsInstallationFolder", out OutInstallDir);
 		}
 
 		/// <summary>
@@ -643,20 +1200,20 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// Get the extension to use for debug info for the given binary type
+		/// Get the extensions to use for debug info for the given binary type
 		/// </summary>
 		/// <param name="Target">The target being built</param>
 		/// <param name="InBinaryType"> The binary type being built</param>
-		/// <returns>string    The debug info extension (i.e. 'pdb')</returns>
-		public override string GetDebugInfoExtension(ReadOnlyTargetRules Target, UEBuildBinaryType InBinaryType)
+		/// <returns>string[]    The debug info extensions (i.e. 'pdb')</returns>
+		public override string[] GetDebugInfoExtensions(ReadOnlyTargetRules Target, UEBuildBinaryType InBinaryType)
 		{
 			switch (InBinaryType)
 			{
 				case UEBuildBinaryType.DynamicLinkLibrary:
 				case UEBuildBinaryType.Executable:
-					return ".pdb";
+					return new string[] {".pdb"};
 			}
-			return "";
+			return new string [] {};
 		}
 
 		/// <summary>
@@ -774,9 +1331,6 @@ namespace UnrealBuildTool
 				{
 					Rules.PublicDefinitions.Add("D3D12_PROFILING_ENABLED=0");
 				}
-
-				// To enable platform specific D3D12 RHI Types
-				Rules.PrivateIncludePaths.Add("Runtime/Windows/D3D12RHI/Private/Windows");
 			}
 
 			// Delay-load D3D12 so we can use the latest features and still run on downlevel versions of the OS
@@ -792,19 +1346,8 @@ namespace UnrealBuildTool
 		public override void SetUpEnvironment(ReadOnlyTargetRules Target, CppCompileEnvironment CompileEnvironment, LinkEnvironment LinkEnvironment)
 		{
 			CompileEnvironment.Definitions.Add("WIN32=1");
-
-			if (WindowsPlatform.bUseWindowsSDK10)
-			{
-				// Windows 8 or higher required
-				CompileEnvironment.Definitions.Add("_WIN32_WINNT=0x0602");
-				CompileEnvironment.Definitions.Add("WINVER=0x0602");
-			}
-			else
-			{
-				// Windows 7 or higher required
-				CompileEnvironment.Definitions.Add("_WIN32_WINNT=0x0601");
-				CompileEnvironment.Definitions.Add("WINVER=0x0601");
-			}
+			CompileEnvironment.Definitions.Add(String.Format("_WIN32_WINNT=0x{0:X4}", Target.WindowsPlatform.TargetWindowsVersion));
+			CompileEnvironment.Definitions.Add(String.Format("WINVER=0x{0:X4}", Target.WindowsPlatform.TargetWindowsVersion));
 			CompileEnvironment.Definitions.Add("PLATFORM_WINDOWS=1");
 
 			CompileEnvironment.Definitions.Add("DEPTH_32_BIT_CONVERSION=0");
@@ -821,13 +1364,13 @@ namespace UnrealBuildTool
 			// Add path to Intel math libraries when using ICL based on target platform
 			if (WindowsPlatform.bCompileWithICL)
 			{
-				var Result = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "IntelSWTools", "compilers_and_libraries", "windows", "compiler", "lib", Target.Platform == UnrealTargetPlatform.Win32 ? "ia32" : "intel64");
+				string Result = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "IntelSWTools", "compilers_and_libraries", "windows", "compiler", "lib", Target.Platform == UnrealTargetPlatform.Win32 ? "ia32" : "intel64");
 				if (!Directory.Exists(Result))
 				{
 					throw new BuildException("ICL was selected but the required math libraries were not found.  Could not find: " + Result);
 				}
 
-				LinkEnvironment.LibraryPaths.Add(Result);
+				LinkEnvironment.LibraryPaths.Add(new DirectoryReference(Result));
 			}
 
 			// Explicitly exclude the MS C++ runtime libraries we're not using, to ensure other libraries we link with use the same
@@ -944,21 +1487,8 @@ namespace UnrealBuildTool
 			}
 
 			// Set up default stack size
-			ConfigHierarchy EngineIni = ConfigCache.ReadHierarchy(ConfigHierarchyType.Engine, DirectoryReference.FromFile(Target.ProjectFile), UnrealTargetPlatform.Win64);
-			String TargetSettingsIniPath = "/Script/WindowsTargetPlatform.WindowsTargetSettings";
-			int IniDefaultStackSize = 0;
-			String StackSizeName = Target.Type == TargetType.Editor ? "DefaultStackSizeEditor" : "DefaultStackSize";
-			if (EngineIni.GetInt32(TargetSettingsIniPath, StackSizeName, out IniDefaultStackSize))
-			{
-				LinkEnvironment.DefaultStackSize = IniDefaultStackSize;
-			}
-
-			int IniDefaultStackSizeCommit = 0;
-			String StackSizeCommitName = Target.Type == TargetType.Editor ? "DefaultStackSizeCommitEditor" : "DefaultStackSizeCommit";
-			if (EngineIni.GetInt32(TargetSettingsIniPath, StackSizeCommitName, out IniDefaultStackSizeCommit))
-			{
-				LinkEnvironment.DefaultStackSizeCommit = IniDefaultStackSizeCommit;
-			}
+			LinkEnvironment.DefaultStackSize = Target.WindowsPlatform.DefaultStackSize;
+			LinkEnvironment.DefaultStackSizeCommit = Target.WindowsPlatform.DefaultStackSizeCommit;
 
 			LinkEnvironment.ModuleDefinitionFile = Target.WindowsPlatform.ModuleDefinitionFile;
 		}
@@ -1062,15 +1592,11 @@ namespace UnrealBuildTool
 		{
 			if (Target.WindowsPlatform.StaticAnalyzer == WindowsStaticAnalyzer.PVSStudio)
 			{
-				return new PVSToolChain(CppPlatform, Target.WindowsPlatform.Compiler);
-			}
-			else if(Target.WindowsPlatform.StaticAnalyzer == WindowsStaticAnalyzer.VisualCpp)
-			{
-				return new VCToolChain(CppPlatform, Target.WindowsPlatform.Compiler, true, Target.WindowsPlatform.bStrictConformanceMode, Target.WindowsPlatform.ObjSrcMapFile);
+				return new PVSToolChain(CppPlatform, Target);
 			}
 			else
 			{
-				return new VCToolChain(CppPlatform, Target.WindowsPlatform.Compiler, false, Target.WindowsPlatform.bStrictConformanceMode, Target.WindowsPlatform.ObjSrcMapFile);
+				return new VCToolChain(CppPlatform, Target);
 			}
 		}
 

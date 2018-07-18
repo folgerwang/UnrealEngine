@@ -27,8 +27,8 @@ public:
 	class FScrollableSnapshotImageSlot : public TSupportsOneChildMixin<FScrollableSnapshotImageSlot>
 	{
 	public:
-		FScrollableSnapshotImageSlot()
-			: TSupportsOneChildMixin<FScrollableSnapshotImageSlot>()
+		FScrollableSnapshotImageSlot(SWidget* InOwner)
+			: TSupportsOneChildMixin<FScrollableSnapshotImageSlot>(InOwner)
 		{
 		}
 	};
@@ -48,7 +48,7 @@ public:
 	SScrollableSnapshotImage()
 		: PhysicalOffset(ForceInitToZero)
 		, CachedSize(ForceInitToZero)
-		, ChildSlot()
+		, ChildSlot(this)
 		, ScrollyZoomy(false)
 		, SnapshotDataPtr(nullptr)
 		, bIsPicking(false)

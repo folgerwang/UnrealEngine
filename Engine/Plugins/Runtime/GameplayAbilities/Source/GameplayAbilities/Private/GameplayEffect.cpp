@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "GameplayEffect.h"
 #include "TimerManager.h"
@@ -85,15 +85,6 @@ void UGameplayEffect::PostLoad()
 	// We also copy the tags from the old tag containers into the inheritable tag containers
 
 	UpdateInheritedTagProperties();
-
-	for (FGameplayAbilitySpecDef& Def : GrantedAbilities)
-	{
-		if (Def.Level != INDEX_NONE)
-		{
-			Def.LevelScalableFloat.SetValue(Def.Level);
-			Def.Level = INDEX_NONE;
-		}
-	}
 
 	HasGrantedApplicationImmunityQuery = !GrantedApplicationImmunityQuery.IsEmpty();
 
@@ -476,6 +467,36 @@ TSubclassOf<UGameplayModMagnitudeCalculation> FGameplayEffectModifierMagnitude::
 	}
 
 	return CustomCalcClass;
+}
+
+bool FGameplayEffectModifierMagnitude::Serialize(FArchive& Ar)
+{
+	// Clear properties that are not needed for the chosen calculation type
+	if (Ar.IsSaving() && Ar.IsPersistent() && !Ar.IsTransacting())
+	{
+		if (MagnitudeCalculationType != EGameplayEffectMagnitudeCalculation::ScalableFloat)
+		{
+			ScalableFloatMagnitude = FScalableFloat();
+		}
+
+		if (MagnitudeCalculationType != EGameplayEffectMagnitudeCalculation::AttributeBased)
+		{
+			AttributeBasedMagnitude = FAttributeBasedFloat();
+		}
+
+		if (MagnitudeCalculationType != EGameplayEffectMagnitudeCalculation::CustomCalculationClass)
+		{
+			CustomMagnitude = FCustomCalculationBasedFloat();
+		}
+
+		if (MagnitudeCalculationType != EGameplayEffectMagnitudeCalculation::SetByCaller)
+		{
+			SetByCallerMagnitude = FSetByCallerFloat();
+		}
+	}
+
+	// Return false to let normal tagged serialization occur
+	return false;
 }
 
 bool FGameplayEffectModifierMagnitude::operator==(const FGameplayEffectModifierMagnitude& Other) const
@@ -2344,7 +2365,7 @@ bool FActiveGameplayEffectsContainer::HandleActiveGameplayEffectStackOverflow(co
 
 bool FActiveGameplayEffectsContainer::ShouldUseMinimalReplication()
 {
-	return IsNetAuthority() && (Owner->ReplicationMode == EReplicationMode::Minimal || Owner->ReplicationMode == EReplicationMode::Mixed);
+	return IsNetAuthority() && (Owner->ReplicationMode == EGameplayEffectReplicationMode::Minimal || Owner->ReplicationMode == EGameplayEffectReplicationMode::Mixed);
 }
 
 void FActiveGameplayEffectsContainer::SetBaseAttributeValueFromReplication(FGameplayAttribute Attribute, float ServerValue)
@@ -3641,12 +3662,12 @@ bool FActiveGameplayEffectsContainer::NetDeltaSerialize(FNetDeltaSerializeInfo& 
 {
 	if (Owner)
 	{
-		EReplicationMode ReplicationMode = Owner->ReplicationMode;
-		if (ReplicationMode == EReplicationMode::Minimal)
+		EGameplayEffectReplicationMode ReplicationMode = Owner->ReplicationMode;
+		if (ReplicationMode == EGameplayEffectReplicationMode::Minimal)
 		{
 			return false;
 		}
-		else if (ReplicationMode == EReplicationMode::Mixed)
+		else if (ReplicationMode == EGameplayEffectReplicationMode::Mixed)
 		{
 			if (UPackageMapClient* Client = Cast<UPackageMapClient>(DeltaParms.Map))
 			{
@@ -3791,6 +3812,14 @@ void FActiveGameplayEffectsContainer::CheckDuration(FActiveGameplayEffectHandle 
 						FScopeCurrentGameplayEffectBeingApplied ScopedGEApplication(&Effect.Spec, Owner);
 
 						ExecuteActiveEffectsFrom(Effect.Spec);
+
+						// Invoke Delegates for periodic effects being executed
+						UAbilitySystemComponent* SourceASC = Effect.Spec.GetContext().GetInstigatorAbilitySystemComponent();
+						Owner->OnPeriodicGameplayEffectExecuteOnSelf(SourceASC, Effect.Spec, Handle);
+						if (SourceASC)
+						{
+							SourceASC->OnPeriodicGameplayEffectExecuteOnTarget(Owner, Effect.Spec, Handle);
+						}
 
 						// The above call to ExecuteActiveEffectsFrom could cause this effect to be explicitly removed
 						// (for example it could kill the owner and cause the effect to be wiped via death).

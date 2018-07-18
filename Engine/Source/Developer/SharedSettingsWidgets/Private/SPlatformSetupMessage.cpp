@@ -11,6 +11,7 @@
 #include "GenericPlatform/GenericPlatformFile.h"
 #include "ISourceControlProvider.h"
 #include "ISourceControlModule.h"
+#include "SourceControlHelpers.h"
 #include "EditorStyleSet.h"
 #include "Widgets/Layout/SWidgetSwitcher.h"
 #include "Framework/Notifications/NotificationManager.h"

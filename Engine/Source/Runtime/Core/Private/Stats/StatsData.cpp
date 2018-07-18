@@ -35,7 +35,7 @@ const FName FStatConstants::RAW_EventWaitWithId = FStatNameAndInfo( GET_STATFNAM
 const FName FStatConstants::RAW_EventTriggerWithId = FStatNameAndInfo( GET_STATFNAME( STAT_EventTriggerWithId ), true ).GetRawName();
 const FName FStatConstants::RAW_NamedMarker = FStatNameAndInfo( GET_STATFNAME( STAT_NamedMarker ), true ).GetRawName(); 
 
-const FStatNameAndInfo FStatConstants::AdvanceFrame = FStatNameAndInfo( NAME_AdvanceFrame, "", "", TEXT( "" ), EStatDataType::ST_int64, true, false );
+const FStatNameAndInfo FStatConstants::AdvanceFrame = FStatNameAndInfo( NAME_AdvanceFrame, "", "", TEXT( "" ), EStatDataType::ST_int64, true, false, false );
 
 extern bool GRenderStats;
 
@@ -122,7 +122,7 @@ void FRawStatStackNode::CullByCycles( int64 MinCycles )
 			{
 				if (!Culled)
 				{
-					Culled = new FRawStatStackNode( FStatMessage( NAME_OtherChildren, EStatDataType::ST_int64, nullptr, nullptr, nullptr, true, true ) );
+					Culled = new FRawStatStackNode( FStatMessage( NAME_OtherChildren, EStatDataType::ST_int64, nullptr, nullptr, nullptr, true, true, false ) );
 					Culled->Meta.NameAndInfo.SetFlag( EStatMetaFlags::IsPackedCCAndDuration, true );
 					Culled->Meta.Clear();
 				}
@@ -1374,7 +1374,7 @@ void FStatsThreadState::GetRawStackStats(int64 TargetFrame, FRawStatStackNode& R
 		if (!ThreadRoot)
 		{
 			FString ThreadIdName = FStatsUtils::BuildUniqueThreadName( Packet.ThreadId );
-			ThreadRoot = Root.Children.Add( ThreadName, new FRawStatStackNode( FStatMessage( ThreadName, EStatDataType::ST_int64, STAT_GROUP_TO_FStatGroup( STATGROUP_Threads )::GetGroupName(), STAT_GROUP_TO_FStatGroup( STATGROUP_Threads )::GetGroupCategory(), *ThreadIdName, true, true ) ) );
+			ThreadRoot = Root.Children.Add( ThreadName, new FRawStatStackNode( FStatMessage( ThreadName, EStatDataType::ST_int64, STAT_GROUP_TO_FStatGroup( STATGROUP_Threads )::GetGroupName(), STAT_GROUP_TO_FStatGroup( STATGROUP_Threads )::GetGroupCategory(), *ThreadIdName, true, true, false ) ) );
 			ThreadRoot->Meta.NameAndInfo.SetFlag(EStatMetaFlags::IsPackedCCAndDuration, true);
 			ThreadRoot->Meta.Clear();
 		}
@@ -1739,13 +1739,6 @@ void FStatsThreadState::FindOrAddMetaData(FStatMessage const& Item)
 			FSimpleDelegateGraphTask::FDelegate::CreateRaw(&FStatGroupGameThreadNotifier::Get(), &FStatGroupGameThreadNotifier::NewData, Item.NameAndInfo),
 			GET_STATID(STAT_FSimpleDelegateGraphTask_StatsGroupToGame), nullptr, ENamedThreads::GameThread
 		);
-	}
-	else
-	{
-		if (LongName != Result->NameAndInfo.GetRawName())
-		{
-			UE_LOG(LogStats, Warning, TEXT("MetaData mismatch. Did you assign a stat to two groups? New %s old %s"), *LongName.ToString(), *Result->NameAndInfo.GetRawName().ToString());
-		}
 	}
 }
 

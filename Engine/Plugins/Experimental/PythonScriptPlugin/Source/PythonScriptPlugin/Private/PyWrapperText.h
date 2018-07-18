@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "PyWrapperBase.h"
+#include "PyWrapperBasic.h"
 
 #if WITH_PYTHON
 
@@ -10,34 +10,24 @@
 extern PyTypeObject PyWrapperTextType;
 
 /** Initialize the FPyWrapperText types and add them to the given Python module */
-void InitializePyWrapperText(PyObject* PyModule);
+void InitializePyWrapperText(PyGenUtil::FNativePythonModule& ModuleInfo);
 
 /** Type for all UE4 exposed FText instances */
-struct FPyWrapperText : public FPyWrapperBase
+struct FPyWrapperText : public TPyWrapperBasic<FText, FPyWrapperText>
 {
-	/** The wrapped text */
-	FText Text;
-
-	/** New this wrapper instance (called via tp_new for Python, or directly in C++) */
-	static FPyWrapperText* New(PyTypeObject* InType);
-
-	/** Free this wrapper instance (called via tp_dealloc for Python) */
-	static void Free(FPyWrapperText* InSelf);
-
-	/** Initialize this wrapper instance (called via tp_init for Python, or directly in C++) */
-	static int Init(FPyWrapperText* InSelf);
-
-	/** Initialize this wrapper instance to the given value (called via tp_init for Python, or directly in C++) */
-	static int Init(FPyWrapperText* InSelf, const FText InValue);
-
-	/** Deinitialize this wrapper instance (called via Init and Free to restore the instance to its New state) */
-	static void Deinit(FPyWrapperText* InSelf);
+	typedef TPyWrapperBasic<FText, FPyWrapperText> Super;
 
 	/** Cast the given Python object to this wrapped type (returns a new reference) */
-	static FPyWrapperText* CastPyObject(PyObject* InPyObject);
+	static FPyWrapperText* CastPyObject(PyObject* InPyObject, FPyConversionResult* OutCastResult = nullptr);
 
 	/** Cast the given Python object to this wrapped type, or attempt to convert the type into a new wrapped instance (returns a new reference) */
-	static FPyWrapperText* CastPyObject(PyObject* InPyObject, PyTypeObject* InType);
+	static FPyWrapperText* CastPyObject(PyObject* InPyObject, PyTypeObject* InType, FPyConversionResult* OutCastResult = nullptr);
+
+	/** Initialize the value of this wrapper instance (internal) */
+	static void InitValue(FPyWrapperText* InSelf, const FText InValue);
+
+	/** Deinitialize the value of this wrapper instance (internal) */
+	static void DeinitValue(FPyWrapperText* InSelf);
 };
 
 typedef TPyPtr<FPyWrapperText> FPyWrapperTextPtr;

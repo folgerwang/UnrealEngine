@@ -15,6 +15,7 @@
 #include "Interfaces/IProjectTargetPlatformEditorModule.h"
 #include "Interfaces/IProjectManager.h"
 #include "InstalledPlatformInfo.h"
+#include "Misc/DataDrivenPlatformInfoRegistry.h"
 
 #define LOCTEXT_NAMESPACE "FPackageProjectMenu"
 
@@ -32,7 +33,7 @@ public:
 	 */
 	static void MakeMenu( FMenuBuilder& MenuBuilder )
 	{
-		const TArray<FString>& ConfidentalPlatforms = FPlatformMisc::GetConfidentialPlatforms();
+		const TArray<FString>& ConfidentalPlatforms = FDataDrivenPlatformInfoRegistry::GetConfidentialPlatforms();
 
 		TArray<PlatformInfo::FVanillaPlatformEntry> VanillaPlatforms = PlatformInfo::BuildPlatformHierarchy(PlatformInfo::EPlatformFilter::All);
 		if (!VanillaPlatforms.Num())
@@ -152,6 +153,10 @@ protected:
 	{
 		for (const PlatformInfo::FPlatformInfo* SubPlatformInfo : SubPlatformInfos)
 		{
+			if (SubPlatformInfo->PlatformType != PlatformInfo::EPlatformType::Game)
+			{
+				continue;
+			}
 			AddPlatformToMenu(MenuBuilder, *SubPlatformInfo);
 		}
 	}
@@ -185,7 +190,10 @@ protected:
 
 		// Add the Client configurations if there is a {ProjectName}Client.Target.cs file.
 		TArray<FString> ClientTargetFileNames;
-		IFileManager::Get().FindFiles(ClientTargetFileNames, *(FPaths::GameSourceDir() / TEXT("*client.target.cs")), true, false);
+		if (FInstalledPlatformInfo::Get().IsValidPlatformType(PlatformInfo::EPlatformType::Client))
+		{
+			IFileManager::Get().FindFiles(ClientTargetFileNames, *(FPaths::GameSourceDir() / TEXT("*client.target.cs")), true, false);
+		}
 
 		if (ClientTargetFileNames.Num() > 0)
 		{

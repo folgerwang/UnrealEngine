@@ -20,7 +20,7 @@
  * @param	InApplyFlags			the flags that should always be set on the duplicated objects (regardless of whether they're set on the source)
  * @param	InInstanceGraph			the instancing graph to use when creating the duplicate objects.
  */
-FDuplicateDataWriter::FDuplicateDataWriter( FUObjectAnnotationSparse<FDuplicatedObject,false>& InDuplicatedObjects ,TArray<uint8>& InObjectData,UObject* SourceObject,
+FDuplicateDataWriter::FDuplicateDataWriter( FUObjectAnnotationSparse<FDuplicatedObject,false>& InDuplicatedObjects, FLargeMemoryData& InObjectData, UObject* SourceObject,
 	UObject* DestObject, EObjectFlags InFlagMask, EObjectFlags InApplyFlags, EInternalObjectFlags InInternalFlagMask, EInternalObjectFlags InApplyInternalFlags, FObjectInstancingGraph* InInstanceGraph, uint32 InPortFlags)
 : DuplicatedObjectAnnotation(InDuplicatedObjects)
 , ObjectData(InObjectData)
@@ -31,8 +31,8 @@ FDuplicateDataWriter::FDuplicateDataWriter( FUObjectAnnotationSparse<FDuplicated
 , ApplyInternalFlags(InApplyInternalFlags)
 , InstanceGraph(InInstanceGraph)
 {
-	ArIsSaving			= true;
-	ArIsPersistent		= true;
+	this->SetIsSaving(true);
+	this->SetIsPersistent(true);
 	ArAllowLazyLoading	= false;
 	ArPortFlags |= PPF_Duplicate | InPortFlags;
 

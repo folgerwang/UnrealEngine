@@ -25,7 +25,8 @@
         "Linux",
         "Mac",
         "Win32",
-        "Win64"
+        "Win64",
+        "Lumin"
       ]
     },
     {

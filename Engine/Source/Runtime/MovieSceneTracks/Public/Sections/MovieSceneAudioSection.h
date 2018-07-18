@@ -4,10 +4,10 @@
 
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
-#include "Curves/KeyHandle.h"
 #include "MovieSceneSection.h"
 #include "Runtime/Engine/Classes/Components/AudioComponent.h"
 #include "Sound/SoundAttenuation.h"
+#include "Channels/MovieSceneFloatChannel.h"
 #include "MovieSceneAudioSection.generated.h"
 
 class USoundBase;
@@ -28,36 +28,26 @@ public:
 
 	/** Gets the sound for this section */
 	class USoundBase* GetSound() const {return Sound;}
-	
+
 	/** Set the offset into the beginning of the audio clip */
 	void SetStartOffset(float InStartOffset) {StartOffset = InStartOffset;}
-	
+
 	/** Get the offset into the beginning of the audio clip */
 	float GetStartOffset() const {return StartOffset;}
-	
-	/**
-	 * @return The range of times that the sound plays, truncated by the section limits
-	 */
-	TRange<float> GetAudioRange() const;
-	
-	DEPRECATED(4.15, "Audio true range no longer supported.")
-	TRange<float> GetAudioTrueRange() const;
-	
+
 	/**
 	 * Gets the sound volume curve
 	 *
 	 * @return The rich curve for this sound volume
 	 */
-	FRichCurve& GetSoundVolumeCurve() { return SoundVolume; }
-	const FRichCurve& GetSoundVolumeCurve() const { return SoundVolume; }
+	const FMovieSceneFloatChannel& GetSoundVolumeChannel() const { return SoundVolume; }
 
 	/**
 	 * Gets the sound pitch curve
 	 *
 	 * @return The rich curve for this sound pitch
 	 */
-	FRichCurve& GetPitchMultiplierCurve() { return PitchMultiplier; }
-	const FRichCurve& GetPitchMultiplierCurve() const { return PitchMultiplier; }
+	const FMovieSceneFloatChannel& GetPitchMultiplierChannel() const { return PitchMultiplier; }
 
 	/**
 	 * Return the sound volume
@@ -65,15 +55,12 @@ public:
 	 * @param InTime	The position in time within the movie scene
 	 * @return The volume the sound will be played with.
 	 */
-	float GetSoundVolume(float InTime) const { return SoundVolume.Eval(InTime); }
-
-	/**
-	 * Sets the sound volume
-	 *
-	 * @param InTime	The position in time within the movie scene
-	 * @param InVolume	The volume to set
-	 */
-	void SetSoundVolume(float InTime, float InVolume) { SoundVolume.AddKey(InTime, InVolume); }
+	float GetSoundVolume(FFrameTime InTime) const
+	{
+		float OutValue = 0.f;
+		SoundVolume.Evaluate(InTime, OutValue);
+		return OutValue;
+	}
 
 	/**
 	 * Return the pitch multiplier
@@ -81,26 +68,11 @@ public:
 	 * @param Position	The position in time within the movie scene
 	 * @return The pitch multiplier the sound will be played with.
 	 */
-	float GetPitchMultiplier(float InTime) const { return PitchMultiplier.Eval(InTime); }
-
-	/**
-	 * Set the pitch multiplier
-	 *
-	 * @param Position	The position in time within the movie scene
-	 * @param InPitch The pitch multiplier to set
-	 */
-	void SetPitchMultiplier(float InTime, float InPitchMultiplier) { PitchMultiplier.AddKey(InTime, InPitchMultiplier); }
-
-	/**
-	 * Returns whether or not a provided position in time is within the timespan of the audio range
-	 *
-	 * @param Position	The position to check
-	 * @return true if the position is within the timespan, false otherwise
-	 */
-	bool IsTimeWithinAudioRange( float Position ) const 
+	float GetPitchMultiplier(FFrameTime InTime) const
 	{
-		TRange<float> AudioRange = GetAudioRange();
-		return Position >= AudioRange.GetLowerBoundValue() && Position <= AudioRange.GetUpperBoundValue();
+		float OutValue = 0.f;
+		PitchMultiplier.Evaluate(InTime, OutValue);
+		return OutValue;
 	}
 
 	/**
@@ -166,16 +138,11 @@ public:
 
 public:
 
-	// MovieSceneSection interface
-
-	virtual void MoveSection( float DeltaPosition, TSet<FKeyHandle>& KeyHandles ) override;
-	virtual void DilateSection( float DilationFactor, float Origin, TSet<FKeyHandle>& KeyHandles ) override;
-	virtual UMovieSceneSection* SplitSection(float SplitTime) override;
-	virtual void GetKeyHandles(TSet<FKeyHandle>& OutKeyHandles, TRange<float> TimeRange) const override;
-	virtual void GetSnapTimes(TArray<float>& OutSnapTimes, bool bGetSectionBorders) const override;
-	virtual TOptional<float> GetOffsetTime() const override { return TOptional<float>(StartOffset); }
-	virtual TOptional<float> GetKeyTime( FKeyHandle KeyHandle ) const override { return TOptional<float>(); }
-	virtual void SetKeyTime( FKeyHandle KeyHandle, float Time ) override { }
+	//~ UMovieSceneSection interface
+	virtual TOptional<TRange<FFrameNumber> > GetAutoSizeRange() const override;
+	virtual void TrimSection(FQualifiedFrameTime TrimTime, bool bTrimLeft) override;
+	virtual UMovieSceneSection* SplitSection(FQualifiedFrameTime SplitTime) override;
+	virtual TOptional<FFrameTime> GetOffsetTime() const override;
 	virtual FMovieSceneEvalTemplatePtr GenerateTemplate() const override;
 
 private:
@@ -201,12 +168,12 @@ private:
 	float AudioVolume_DEPRECATED;
 
 	/** The volume the sound will be played with. */
-	UPROPERTY( EditAnywhere, Category = "Audio" )
-	FRichCurve SoundVolume;
+	UPROPERTY( )
+	FMovieSceneFloatChannel SoundVolume;
 
 	/** The pitch multiplier the sound will be played with. */
-	UPROPERTY( EditAnywhere, Category = "Audio" )
-	FRichCurve PitchMultiplier;
+	UPROPERTY( )
+	FMovieSceneFloatChannel PitchMultiplier;
 
 	UPROPERTY( EditAnywhere, Category="Audio" )
 	bool bSuppressSubtitles;

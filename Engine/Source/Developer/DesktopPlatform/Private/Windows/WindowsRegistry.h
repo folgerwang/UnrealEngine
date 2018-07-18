@@ -7,8 +7,8 @@
 #include "Containers/Map.h"
 #include "Containers/UnrealString.h"
 #include "Templates/ScopedPointer.h"
-#include "WindowsHWrapper.h"
-#include "UniquePtr.h"
+#include "Windows/WindowsHWrapper.h"
+#include "Templates/UniquePtr.h"
 
 struct FRegistryValue
 {

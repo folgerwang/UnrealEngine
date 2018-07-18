@@ -12,6 +12,8 @@
 #include "EditorStyleSet.h"
 #include "Engine/Blueprint.h"
 #include "ISourceControlModule.h"
+#include "ISourceControlRevision.h"
+#include "SourceControlHelpers.h"
 #include "IAssetTypeActions.h"
 #include "Widgets/Images/SThrobber.h"
 #include "Kismet2/BlueprintEditorUtils.h"

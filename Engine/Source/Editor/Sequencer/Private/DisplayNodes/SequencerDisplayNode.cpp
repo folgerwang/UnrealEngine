@@ -17,7 +17,6 @@
 #include "IKeyArea.h"
 #include "DisplayNodes/SequencerTrackNode.h"
 #include "Sequencer.h"
-#include "GroupedKeyArea.h"
 #include "SAnimationOutlinerTreeNode.h"
 #include "SequencerSettings.h"
 #include "SSequencerSectionAreaView.h"
@@ -25,12 +24,10 @@
 #include "Framework/Commands/GenericCommands.h"
 #include "ScopedTransaction.h"
 #include "SequencerKeyTimeCache.h"
+#include "SequencerKeyCollection.h"
 
 #define LOCTEXT_NAMESPACE "SequencerDisplayNode"
 
-
-/** When 0, regeneration of dynamic key groups is enabled, when non-zero, such behaviour is disabled */
-FThreadSafeCounter KeyGroupRegenerationLock;
 
 namespace SequencerNodeConstants
 {
@@ -68,7 +65,9 @@ public:
 
 	SLATE_BEGIN_ARGS(SSequencerObjectTrack) {}
 		/** The view range of the section area */
-		SLATE_ATTRIBUTE( TRange<float>, ViewRange )
+		SLATE_ATTRIBUTE( TRange<double>, ViewRange )
+		/** The tick resolution of the current sequence*/
+		SLATE_ATTRIBUTE( FFrameRate, TickResolution )
 	SLATE_END_ARGS()
 
 	/** SLeafWidget Interface */
@@ -80,6 +79,7 @@ public:
 		RootNode = InRootNode;
 		
 		ViewRange = InArgs._ViewRange;
+		TickResolution = InArgs._TickResolution;
 
 		check(RootNode->GetType() == ESequencerNode::Object);
 	}
@@ -100,12 +100,16 @@ private:
 	TSharedPtr<FSequencerDisplayNode> RootNode;
 
 	/** The current view range */
-	TAttribute< TRange<float> > ViewRange;
+	TAttribute< TRange<double> > ViewRange;
+	/** The current tick resolution */
+	TAttribute< FFrameRate > TickResolution;
 
 	FSequencerKeyCollectionSignature KeyCollectionSignature;
 
+	/** The cached tick resolution these positions were generated with */
+	FFrameRate CachedTickResolution;
 	/** The time-range for which KeyDrawPositions was generated */
-	TRange<float> CachedViewRange;
+	TRange<double> CachedViewRange;
 	/** Cached pixel positions for all keys in the current view range */
 	TArray<float> KeyDrawPositions;
 	/** Cached key times per key area. Updated when section signature changes */
@@ -117,10 +121,16 @@ void SSequencerObjectTrack::Tick( const FGeometry& AllottedGeometry, const doubl
 {
 	SWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
 
-	FSequencerKeyCollectionSignature NewCollectionSignature = FSequencerKeyCollectionSignature::FromNodesRecursive({ RootNode.Get() }, 0.f);
-	if (NewCollectionSignature != KeyCollectionSignature || CachedViewRange != ViewRange.Get())
+	FSequencerKeyCollectionSignature NewCollectionSignature = FSequencerKeyCollectionSignature::FromNodesRecursive({ RootNode.Get() }, 0);
+
+	TRange<double> OldCachedViewRange = CachedViewRange;
+	FFrameRate OldCachedTickResolution = CachedTickResolution;
+
+	CachedViewRange = ViewRange.Get();
+	CachedTickResolution = TickResolution.Get();
+
+	if (NewCollectionSignature != KeyCollectionSignature || CachedViewRange != OldCachedViewRange || CachedTickResolution != OldCachedTickResolution)
 	{
-		CachedViewRange = ViewRange.Get();
 		KeyCollectionSignature = MoveTemp(NewCollectionSignature);
 		GenerateCachedKeyPositions(AllottedGeometry);
 	}
@@ -128,7 +138,7 @@ void SSequencerObjectTrack::Tick( const FGeometry& AllottedGeometry, const doubl
 
 int32 SSequencerObjectTrack::OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyCullingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const
 {
-	if (RootNode->GetSequencer().GetSettings()->GetShowCombinedKeyframes())
+	if (RootNode->GetSequencer().GetSequencerSettings()->GetShowCombinedKeyframes())
 	{
 		for (float KeyPosition : KeyDrawPositions)
 		{
@@ -190,7 +200,7 @@ void SSequencerObjectTrack::GenerateCachedKeyPositions(const FGeometry& Allotted
 
 		// Generate a new cache
 		FSequencerCachedKeys TempCache;
-		TempCache.Update(KeyArea);
+		TempCache.Update(KeyArea, CachedTickResolution);
 
 		if (CacheKey.IsValid())
 		{
@@ -208,50 +218,54 @@ void SSequencerObjectTrack::GenerateCachedKeyPositions(const FGeometry& Allotted
 	// we use a collection of iterators that are only incremented when they've been added to the KeyDrawPositions array
 	struct FIter
 	{
-		FIter(TArrayView<const FSequencerCachedKey> In) : KeysInRange(In), CurrentIndex(0) {}
+		FIter(TArrayView<const double> InTimes) : KeysInRange(InTimes), CurrentIndex(0) {}
 
-		explicit                     operator bool() const   { return KeysInRange.IsValidIndex(CurrentIndex); }
-		FIter&                       operator++()            { ++CurrentIndex; return *this; }
+		explicit      operator bool() const { return KeysInRange.IsValidIndex(CurrentIndex); }
+		FIter&        operator++()          { ++CurrentIndex; return *this; }
 
-		const FSequencerCachedKey&   operator*() const       { return KeysInRange[CurrentIndex]; }
-		const FSequencerCachedKey*   operator->() const      { return &KeysInRange[CurrentIndex]; }
+		double        operator*() const     { return KeysInRange[CurrentIndex]; }
+		const double* operator->() const    { return &KeysInRange[CurrentIndex]; }
 	private:
-		TArrayView<const FSequencerCachedKey> KeysInRange;
+		TArrayView<const double> KeysInRange;
 		int32 CurrentIndex;
 	};
 
 	TArray<FIter> AllIterators;
 	for (auto& Pair : SectionToKeyTimeCache)
 	{
-		AllIterators.Add(Pair.Value.GetKeysInRange(CachedViewRange));
+		TArrayView<const double> Times;
+		Pair.Value.GetKeysInRange(CachedViewRange, &Times, nullptr, nullptr);
+		AllIterators.Add(Times);
 	}
 	for (auto& Uncached: UncachableKeyTimes)
 	{
-		AllIterators.Add(Uncached.GetKeysInRange(CachedViewRange));
+		TArrayView<const double> Times;
+		Uncached.GetKeysInRange(CachedViewRange, &Times, nullptr, nullptr);
+		AllIterators.Add(Times);
 	}
 
-	FTimeToPixel TimeToPixelConverter(AllottedGeometry, CachedViewRange);
+	FTimeToPixel TimeToPixelConverter(AllottedGeometry, CachedViewRange, CachedTickResolution);
 
 	// While any iterator is still valid, find and add the earliest time
 	while (AllIterators.ContainsByPredicate([](FIter& It){ return It; }))
 	{
-		float EarliestTime = TNumericLimits<float>::Max();
+		double EarliestTime = TNumericLimits<double>::Max();
 		for (FIter& It : AllIterators)
 		{
-			if (It && It->Time < EarliestTime)
+			if (It && *It < EarliestTime)
 			{
-				EarliestTime = It->Time;
+				EarliestTime = *It;
 			}
 		}
 
 		// Add the position as a pixel position
-		const float KeyPosition = TimeToPixelConverter.TimeToPixel(EarliestTime);
+		const float KeyPosition = TimeToPixelConverter.SecondsToPixel(EarliestTime);
 		KeyDrawPositions.Add(KeyPosition);
 
 		// Increment any other iterators that are close enough to the time we just added
 		for (FIter& It : AllIterators)
 		{
-			while (It && FMath::IsNearlyEqual(KeyPosition, TimeToPixelConverter.TimeToPixel(It->Time), DuplicateThresholdPx))
+			while (It && FMath::IsNearlyEqual(KeyPosition, TimeToPixelConverter.SecondsToPixel(*It), DuplicateThresholdPx))
 			{
 				++It;
 			}
@@ -435,7 +449,79 @@ void FSequencerDisplayNode::AddKeyAreaNode(FName KeyAreaName, const FText& Displ
 
 FLinearColor FSequencerDisplayNode::GetDisplayNameColor() const
 {
-	return FLinearColor( 1.f, 1.f, 1.f, 1.f );
+	auto FindInActiveSection = [](FSequencerDisplayNode& InNode, bool EmptyNotActive = true)
+	{
+		if (InNode.GetType() == ESequencerNode::KeyArea)
+		{
+			const FSequencerSectionKeyAreaNode& KeyAreaNode = static_cast<FSequencerSectionKeyAreaNode&>(InNode);
+			auto KeyAreaNodes=  KeyAreaNode.GetAllKeyAreas();
+			if (KeyAreaNodes.Num() > 0)
+			{
+				for (const TSharedRef<IKeyArea>& KeyArea : KeyAreaNodes)
+				{
+					const UMovieSceneSection* Section = KeyArea->GetOwningSection();
+					if (Section && Section->IsActive())
+					{
+						// Stop traversing
+						return false;
+					}
+				}
+			}
+			else
+			{
+				return EmptyNotActive;
+			}
+		}
+		else if (InNode.GetType() == ESequencerNode::Track)
+		{
+			TArray<TSharedRef<FSequencerSectionKeyAreaNode>> KeyAreaNodes;
+			const FSequencerTrackNode& TrackNode = static_cast<FSequencerTrackNode&>(InNode);
+			TrackNode.GetChildKeyAreaNodesRecursively(KeyAreaNodes);
+			if (KeyAreaNodes.Num() > 0)
+			{
+				for (TSharedRef<FSequencerSectionKeyAreaNode> KeyAreaNode : KeyAreaNodes)
+				{
+					for (TSharedPtr<IKeyArea> KeyArea : KeyAreaNode->GetAllKeyAreas())
+					{
+						const UMovieSceneSection* Section = KeyArea->GetOwningSection();
+						if (Section && Section->IsActive())
+						{
+							// Stop traversing
+							return false;
+						}
+					}
+				}
+			}
+			else
+			{
+				if (TrackNode.GetSections().Num() > 0)
+				{
+					for (auto Section : TrackNode.GetSections())
+					{
+						if (Section->GetSectionObject() && Section->GetSectionObject()->IsActive())
+						{
+							// Stop traversing
+							return false;
+						}
+					}
+				}
+				else
+				{
+					return EmptyNotActive;
+				}
+			}
+		}
+		// Continue traversing
+		return true;
+	};
+
+	FSequencerDisplayNode *This = const_cast<FSequencerDisplayNode*>(this);
+	//if empty with no key areas or sections then it's active, otherwise
+	//find first child with active section, then it's active, else inactive.
+	const bool bFoundInActiveSection = ChildNodes.Num() > 0 ? This->Traverse_ParentFirst(FindInActiveSection) :
+		((this->GetType() == ESequencerNode::Track || this->GetType() == ESequencerNode::KeyArea) && FindInActiveSection(*(This), false))
+		||false;
+	return bFoundInActiveSection ? FLinearColor(0.6f, 0.6f, 0.6f, 0.6f) : FLinearColor(1.0f, 1.0f, 1.0f, 1.0f);
 }
 
 FText FSequencerDisplayNode::GetDisplayNameToolTipText() const
@@ -483,7 +569,7 @@ FText FSequencerDisplayNode::GetIconToolTipText() const
 	return FText();
 }
 
-TSharedRef<SWidget> FSequencerDisplayNode::GenerateWidgetForSectionArea(const TAttribute< TRange<float> >& ViewRange)
+TSharedRef<SWidget> FSequencerDisplayNode::GenerateWidgetForSectionArea(const TAttribute< TRange<double> >& ViewRange)
 {
 	if (GetType() == ESequencerNode::Track && static_cast<FSequencerTrackNode&>(*this).GetSubTrackMode() != FSequencerTrackNode::ESubTrackMode::ParentTrack)
 	{
@@ -494,13 +580,18 @@ TSharedRef<SWidget> FSequencerDisplayNode::GenerateWidgetForSectionArea(const TA
 	if (GetType() == ESequencerNode::Object)
 	{
 		return SNew(SSequencerObjectTrack, SharedThis(this))
-			.ViewRange(ViewRange);
+			.ViewRange(ViewRange)
+			.TickResolution(this, &FSequencerDisplayNode::GetTickResolution);
 	}
 
 	// currently only section areas display widgets
 	return SNullWidget::NullWidget;
 }
 
+FFrameRate FSequencerDisplayNode::GetTickResolution() const
+{
+	return GetSequencer().GetFocusedTickResolution();
+}
 
 TSharedPtr<FSequencerDisplayNode> FSequencerDisplayNode::GetSectionAreaAuthority() const
 {
@@ -529,6 +620,7 @@ FString FSequencerDisplayNode::GetPathName() const
 
 	if (ParentNode.IsValid())
 	{
+		ensure(ParentNode != SharedThis(this));
 		PathName = ParentNode.Pin()->GetPathName() + TEXT(".");
 	}
 
@@ -738,24 +830,6 @@ bool FSequencerDisplayNode::IsHovered() const
 }
 
 
-TSharedRef<FGroupedKeyArea> FSequencerDisplayNode::GetKeyGrouping(UMovieSceneSection* InSection)
-{
-	TSharedRef<FGroupedKeyArea>* KeyGroup = KeyGroupings.FindByPredicate([=](const TSharedRef<FGroupedKeyArea>& InKeyArea) { return InKeyArea->GetOwningSection() == InSection; });
-	if (KeyGroup)
-	{
-		if (KeyGroupRegenerationLock.GetValue() == 0)
-		{
-			(*KeyGroup)->Update();
-		}
-		return *KeyGroup;
-	}
-
-	// Just make a new one
-	KeyGroupings.Emplace(MakeShared<FGroupedKeyArea>(*this, InSection));
-	return KeyGroupings.Last();
-}
-
-
 void FSequencerDisplayNode::HandleContextMenuRenameNodeExecute()
 {
 	RenameRequestedEvent.Broadcast();
@@ -765,18 +839,6 @@ void FSequencerDisplayNode::HandleContextMenuRenameNodeExecute()
 bool FSequencerDisplayNode::HandleContextMenuRenameNodeCanExecute() const
 {
 	return CanRenameNode();
-}
-
-
-void FSequencerDisplayNode::DisableKeyGoupingRegeneration()
-{
-	KeyGroupRegenerationLock.Increment();
-}
-
-
-void FSequencerDisplayNode::EnableKeyGoupingRegeneration()
-{
-	KeyGroupRegenerationLock.Decrement();
 }
 
 

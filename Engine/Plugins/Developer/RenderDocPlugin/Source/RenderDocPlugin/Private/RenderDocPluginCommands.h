@@ -5,7 +5,7 @@
 #if WITH_EDITOR
 
 #include "RenderDocPluginStyle.h"
-#include "Commands.h"
+#include "Framework/Commands/Commands.h"
 
 class FRenderDocPluginCommands : public TCommands<FRenderDocPluginCommands>
 {

@@ -27,17 +27,15 @@ void FOnlineMessagePayload::FromBytes(const TArray<uint8>& InBytes)
 
 void FOnlineMessagePayload::ToJson(FJsonObject& OutJsonObject) const
 {
-	TArray<TSharedPtr<FJsonValue> > JsonProperties;
-	for (const auto It : KeyValData)
+	TSharedRef<FJsonObject> JsonProperties = MakeShared<FJsonObject>();
+	for (const auto& It : KeyValData)
 	{
 		const FString& PropertyName = It.Key;
 		const FVariantData& PropertyValue = It.Value;
 
-		TSharedRef<FJsonObject> PropertyJson = PropertyValue.ToJson();
-		PropertyJson->SetStringField(TEXT("Name"), *PropertyName);
-		JsonProperties.Add(MakeShareable(new FJsonValueObject(PropertyJson)));
+		PropertyValue.AddToJsonObject(JsonProperties, PropertyName);
 	}
-	OutJsonObject.SetArrayField(TEXT("Properties"), JsonProperties);
+	OutJsonObject.SetObjectField(TEXT("Properties"), JsonProperties);
 }
 
 FString FOnlineMessagePayload::ToJsonStr() const
@@ -53,25 +51,17 @@ FString FOnlineMessagePayload::ToJsonStr() const
 
 void FOnlineMessagePayload::FromJson(const FJsonObject& JsonObject)
 {
-	if (JsonObject.HasTypedField<EJson::Array>(TEXT("Properties")))
+	if (JsonObject.HasTypedField<EJson::Object>(TEXT("Properties")))
 	{
 		KeyValData.Empty();
-		const TArray<TSharedPtr<FJsonValue> >& JsonProperties = JsonObject.GetArrayField(TEXT("Properties"));
-		for (auto JsonPropertyValue : JsonProperties)
+		const TSharedPtr<FJsonObject>& JsonProperties = JsonObject.GetObjectField(TEXT("Properties"));
+		for (auto& JsonProperty : JsonProperties->Values)
 		{
-			TSharedPtr<FJsonObject> JsonPropertyObject = JsonPropertyValue->AsObject();
-			if (JsonPropertyObject.IsValid())
+			FString PropertyName;
+			FVariantData PropertyData;
+			if (PropertyData.FromJsonValue(JsonProperty.Key, JsonProperty.Value.ToSharedRef(), PropertyName))
 			{
-				FString PropertyName;
-				if (JsonPropertyObject->TryGetStringField(TEXT("Name"), PropertyName) &&
-					!PropertyName.IsEmpty())
-				{
-					FVariantData PropertyData;
-					if (PropertyData.FromJson(JsonPropertyObject.ToSharedRef()))
-					{
-						KeyValData.Add(PropertyName, PropertyData);
-					}
-				}
+				KeyValData.Add(PropertyName, PropertyData);
 			}
 		}
 	}

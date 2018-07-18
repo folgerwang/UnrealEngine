@@ -14,7 +14,7 @@
 #include "HAL/IPlatformFileCachedWrapper.h"
 #include "HAL/IPlatformFileModule.h"
 #include "HAL/IPlatformFileOpenLogWrapper.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 FPlatformFileManager::FPlatformFileManager()
 	: TopmostPlatformFile(NULL)

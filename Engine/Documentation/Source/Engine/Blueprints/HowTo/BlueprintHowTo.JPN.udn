@@ -1,49 +1,13 @@
-﻿INTSourceChangelist:3244370
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:ブループリント通信プロジェクト
 Crumbs: %ROOT%, Engine, Engine/Blueprints
 Description:様々なブループリント通信方法を使って作成されたサンプル プロジェクト 
 version:4.9
 tags:Blueprints
+topic-image:BPCommTopic.png
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine\Blueprints\HowTo:title%](BPCommTopic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/build_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Blueprints\HowTo:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Blueprints\HowTo:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine\Blueprints\HowTo]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine\Blueprints\HowTo:title%](BPCommTopic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/build_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Blueprints\HowTo:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Blueprints\HowTo:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine\Blueprints\HowTo]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+
 
 この **ブループリント通信プロジェクト** では、シンプルな射撃スタイルのゲームを作成します。プロジェクトではレベルからキャラクターへの通信方法に加えて、キャラクター情報の HUD への渡し方を学びます。プロジェクトの終了時には、以下のようなものが出来上がります。
 
@@ -63,17 +27,10 @@ tags:Blueprints
 Character ブループリントに格納された情報 (発射または起動する岩の数、発射あたりの残弾数、プレイヤーの得点) も受け取り、それを HUD に渡してスクリーン上に表示します。 
 
 ## ステップ
+[DIR(output:"checkpoint" parent:"Engine\Blueprints\HowTo")]
 
-[REGION:buttonlist]
-
-	* [](Engine\Blueprints\HowTo\BPHT_1 "%Engine\Blueprints\HowTo\BPHT_1:description%")
-	* [](Engine\Blueprints\HowTo\BPHT_2 "%Engine\Blueprints\HowTo\BPHT_2:description%")
-	* [](Engine\Blueprints\HowTo\BPHT_3 "%Engine\Blueprints\HowTo\BPHT_3:description%")
-	* [](Engine\Blueprints\HowTo\BPHT_4 "%Engine\Blueprints\HowTo\BPHT_4:description%")
-	* [](Engine\Blueprints\HowTo\BPHT_5 "%Engine\Blueprints\HowTo\BPHT_5:description%")
-	* [](Engine\Blueprints\HowTo\BPHT_6 "%Engine\Blueprints\HowTo\BPHT_6:description%")
-	* [](Engine\Blueprints\HowTo\BPHT_7 "%Engine\Blueprints\HowTo\BPHT_7:description%")
-	
+[REGION:call_to_action]
+[クリックして開始](Engine\Blueprints\HowTo/BPHT_1 "%Engine\Blueprints\HowTo\BPHT_1:description%")
 [/REGION]
 
 

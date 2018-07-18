@@ -14,6 +14,9 @@ TSharedPtr< struct FVisualLoggerGraphsDatabase > FVisualLoggerGraphsDatabase::St
 void FVisualLoggerDBRow::AddItem(const FVisualLogDevice::FVisualLogEntryItem& NewItem) 
 { 
 	const int32 ItemIndex = Items.Add(NewItem);
+	const int32 HiddenIndex = HiddenItems.Add(false);
+	checkf(ItemIndex == HiddenIndex, TEXT("Items and HiddenItems should have matching indices."));
+
 	DBEvents.OnNewItem.Broadcast(*this, ItemIndex);
 }
 
@@ -35,13 +38,12 @@ const FVisualLogDevice::FVisualLogEntryItem& FVisualLoggerDBRow::GetCurrentItem(
 
 void FVisualLoggerDBRow::SetItemVisibility(int32 ItemIndex, bool IsVisible)
 { 
-	if (IsVisible)
+	const bool IsHidden = !IsVisible;
+	if (HiddenItems[ItemIndex] != IsHidden)
 	{
-		HiddenItems.RemoveSingleSwap(ItemIndex);
-	}
-	else
-	{
-		HiddenItems.AddUnique(ItemIndex);
+		HiddenItems[ItemIndex] = IsHidden;
+		NumHiddenItems += IsHidden ? 1 : -1;
+		check(NumHiddenItems >= 0);
 	}
 }
 

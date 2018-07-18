@@ -16,15 +16,15 @@
 #include "HAL/PlatformTime.h"
 #include "HAL/ThreadSafeBool.h" 
 #include "HAL/PlatformStackWalk.h"
-#include "GenericPlatformStackWalk.h" 
+#include "GenericPlatform/GenericPlatformStackWalk.h" 
 #include "Containers/Queue.h"
 #include "Misc/FeedbackContext.h"
-#include "Future.h"
-#include "Async.h"
+#include "Async/Future.h"
+#include "Async/Async.h"
 #include "Misc/Guid.h"
 #include "Math/Vector.h"
 #include "Math/Color.h"
-#include "PlatformProcess.h"
+#include "HAL/PlatformProcess.h"
 #include "Misc/AutomationEvent.h"
 #include "Internationalization/Regex.h"
 
@@ -137,9 +137,9 @@ public:
 	int32 RemoveAllEvents(TFunctionRef<bool(FAutomationEvent&)> FilterPredicate);
 
 	/** Any errors that occurred during execution */
-	const TArray<FAutomationEvent>& GetEvents() const { return Events; }
+	const TArray<FAutomationExecutionEntry>& GetEntries() const { return Entries; }
 
-	void AddEvent(const FAutomationEvent& Event);
+	void AddEvent(const FAutomationEvent& Event, int StackOffset = 0);
 
 	void AddWarning(const FString& WarningMessage);
 	void AddError(const FString& ErrorMessage);
@@ -179,7 +179,7 @@ public:
 
 private:
 	/** Any errors that occurred during execution */
-	TArray<FAutomationEvent> Events;
+	TArray<FAutomationExecutionEntry> Entries;
 
 	int32 Errors;
 	int32 Warnings;
@@ -549,6 +549,7 @@ struct FAutomationScreenshotData
 {
 	FString Name;
 	FString Context;
+	FString Notes;
 
 	FGuid Id;
 	FString Commit;
@@ -623,6 +624,27 @@ struct FAutomationScreenshotData
 	}
 };
 
+struct CORE_API FAutomationScreenshotCompareResults
+{
+	FAutomationScreenshotCompareResults()
+		: UniqueId()
+		, bWasNew(false)
+		, bWasSimilar(false)
+		, MaxLocalDifference(0)
+		, GlobalDifference(0)
+		, ErrorMessage()
+	{
+	}
+
+	FGuid UniqueId;
+	bool bWasNew;
+	bool bWasSimilar;
+	double MaxLocalDifference;
+	double GlobalDifference;
+	FString ErrorMessage;
+
+	FAutomationEvent ToAutomationEvent(const FString& ScreenhotName) const;
+};
 
 
 /**
@@ -633,7 +655,7 @@ struct FAutomationScreenshotData
  */
 DECLARE_DELEGATE_TwoParams(FOnTestScreenshotCaptured, const TArray<FColor>&, const FAutomationScreenshotData&);
 
-DECLARE_MULTICAST_DELEGATE_FiveParams(FOnTestScreenshotComparisonComplete, bool /*bWasNew*/, bool /*bWasSimilar*/, double /*MaxLocalDifference*/, double /*GlobalDifference*/, FString /*ErrorMessage*/);
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnTestScreenshotComparisonComplete, const FAutomationScreenshotCompareResults& /*CompareResults*/);
 
 DECLARE_MULTICAST_DELEGATE_TwoParams(FOnTestDataRetrieved, bool /*bWasNew*/, const FString& /*JsonData*/);
 
@@ -832,7 +854,7 @@ public:
 	bool GetTreatWarningsAsErrors() const;
 	void SetTreatWarningsAsErrors(TOptional<bool> bTreatWarningsAsErrors);
 
-	void NotifyScreenshotComparisonComplete(bool bWasNew, bool bWasSimilar, double MaxLocalDifference, double GlobalDifference, FString ErrorMessage);
+	void NotifyScreenshotComparisonComplete(const FAutomationScreenshotCompareResults& CompareResults);
 	void NotifyTestDataRetrieved(bool bWasNew, const FString& JsonData);
 	void NotifyPerformanceDataRetrieved(bool bSuccess, const FString& ErrorMessage);
 
@@ -997,6 +1019,9 @@ public:
 	 */
 	virtual uint32 GetTestFlags() const = 0;
 
+	/** Gets the C++ name of the test. */
+	FString GetTestName() const { return TestName; }
+
 	/**
 	 * Pure virtual method; returns the number of participants for this test
 	 *
@@ -1021,7 +1046,7 @@ public:
 	 * @param	InFilename	The filename the error originated in
 	 * @param	InLineNumber	The line number in the file this error originated in
 	 */
-	virtual void AddError(const FString& InError, const FString& InFilename, int32 InLineNumber);
+	virtual void AddErrorS(const FString& InError, const FString& InFilename, int32 InLineNumber);
 
 	/**
 	 * Adds an warning message to this test
@@ -1030,7 +1055,7 @@ public:
 	 * @param	InFilename	The filename the error originated in
 	 * @param	InLineNumber	The line number in the file this error originated in
 	 */
-	virtual void AddWarning(const FString& InWarning, const FString& InFilename, int32 InLineNumber);
+	virtual void AddWarningS(const FString& InWarning, const FString& InFilename, int32 InLineNumber);
 
 	/**
 	 * Adds a warning to this test
@@ -1051,6 +1076,13 @@ public:
 	 * @param	InLogItem	Log item to add to this test
 	 */
 	virtual void AddInfo( const FString& InLogItem, int32 StackOffset = 0);
+
+	/**
+	 * Adds an automation event directly into the execution log.
+	 *
+	 * @param	InLogItem	Log item to add to this test
+	 */
+	virtual void AddEvent(const FAutomationEvent& InEvent, int32 StackOffset = 0);
 
 	/**
 	 * Adds a analytics string to parse later
@@ -1608,15 +1640,19 @@ private:
 
 DECLARE_DELEGATE(FDoneDelegate);
 
-class CORE_API FAutomationSpecBase : public FAutomationTestBase
+class CORE_API FAutomationSpecBase 
+	: public FAutomationTestBase
+	, public TSharedFromThis<FAutomationSpecBase>
 {
 private:
 
 	class FSingleExecuteLatentCommand : public IAutomationLatentCommand
 	{
 	public:
-		FSingleExecuteLatentCommand(TFunction<void()> InPredicate)
-			: Predicate(MoveTemp(InPredicate))
+		FSingleExecuteLatentCommand(const FAutomationSpecBase* const InSpec, TFunction<void()> InPredicate, bool bInSkipIfErrored = false)
+			: Spec(InSpec)
+			, Predicate(MoveTemp(InPredicate))
+			, bSkipIfErrored(bInSkipIfErrored)
 		{ }
 
 		virtual ~FSingleExecuteLatentCommand()
@@ -1624,21 +1660,31 @@ private:
 
 		virtual bool Update() override
 		{
+			if (bSkipIfErrored && Spec->HasAnyErrors())
+			{
+				return true;
+			}
+
 			Predicate();
 			return true;
 		}
 
 	private:
 
+		const FAutomationSpecBase* const Spec;
 		const TFunction<void()> Predicate;
+		const bool bSkipIfErrored;
 	};
 
 	class FUntilDoneLatentCommand : public IAutomationLatentCommand
 	{
 	public:
 
-		FUntilDoneLatentCommand(TFunction<void(const FDoneDelegate&)> InPredicate)
-			: Predicate(MoveTemp(InPredicate))
+		FUntilDoneLatentCommand(FAutomationSpecBase* const InSpec, TFunction<void(const FDoneDelegate&)> InPredicate, const FTimespan& InTimeout, bool bInSkipIfErrored = false)
+			: Spec(InSpec)
+			, Predicate(MoveTemp(InPredicate))
+			, Timeout(InTimeout)
+			, bSkipIfErrored(bInSkipIfErrored)
 			, bIsRunning(false)
 			, bDone(false)
 		{ }
@@ -1650,15 +1696,25 @@ private:
 		{
 			if (!bIsRunning)
 			{
+				if (bSkipIfErrored && Spec->HasAnyErrors())
+				{
+					return true;
+				}
+
 				Predicate(FDoneDelegate::CreateSP(this, &FUntilDoneLatentCommand::Done));
 				bIsRunning = true;
+				StartedRunning = FDateTime::UtcNow();
 			}
 
 			if (bDone)
 			{
-				// Reset the done for the next potential run of this command
-				bDone = false;
-				bIsRunning = false;
+				Reset();
+				return true;
+			}
+			else if (FDateTime::UtcNow() >= StartedRunning + Timeout)
+			{
+				Reset();
+				Spec->AddError(TEXT("Latent command timed out."), 0);
 				return true;
 			}
 
@@ -1672,11 +1728,22 @@ private:
 			bDone = true;
 		}
 
+		void Reset()
+		{
+			// Reset the done for the next potential run of this command
+			bDone = false;
+			bIsRunning = false;
+		}
+
 	private:
 
+		FAutomationSpecBase* const Spec;
 		const TFunction<void(const FDoneDelegate&)> Predicate;
+		const FTimespan Timeout;
+		const bool bSkipIfErrored;
 
 		bool bIsRunning;
+		FDateTime StartedRunning;
 		FThreadSafeBool bDone;
 	};
 
@@ -1684,9 +1751,12 @@ private:
 	{
 	public:
 
-		FAsyncUntilDoneLatentCommand(EAsyncExecution InExecution, TFunction<void(const FDoneDelegate&)> InPredicate)
-			: Execution(InExecution)
+		FAsyncUntilDoneLatentCommand(FAutomationSpecBase* const InSpec, EAsyncExecution InExecution, TFunction<void(const FDoneDelegate&)> InPredicate, const FTimespan& InTimeout, bool bInSkipIfErrored = false)
+			: Spec(InSpec)
+			, Execution(InExecution)
 			, Predicate(MoveTemp(InPredicate))
+			, Timeout(InTimeout)
+			, bSkipIfErrored(bInSkipIfErrored)
 			, bDone(false)
 		{ }
 
@@ -1697,16 +1767,27 @@ private:
 		{
 			if (!Future.IsValid())
 			{
+				if (bSkipIfErrored && Spec->HasAnyErrors())
+				{
+					return true;
+				}
+
 				Future = Async<void>(Execution, [this]() {
 					Predicate(FDoneDelegate::CreateRaw(this, &FAsyncUntilDoneLatentCommand::Done));
 				});
+
+				StartedRunning = FDateTime::UtcNow();
 			}
 
 			if (bDone)
 			{
-				// Reset the done for the next potential run of this command
-				bDone = false;
-				Future = TFuture<void>();
+				Reset();
+				return true;
+			}
+			else if (FDateTime::UtcNow() >= StartedRunning + Timeout)
+			{
+				Reset();
+				Spec->AddError(TEXT("Latent command timed out."), 0);
 				return true;
 			}
 
@@ -1720,22 +1801,36 @@ private:
 			bDone = true;
 		}
 
+		void Reset()
+		{
+			// Reset the done for the next potential run of this command
+			bDone = false;
+			Future = TFuture<void>();
+		}
+
 	private:
 
+		FAutomationSpecBase* const Spec;
 		const EAsyncExecution Execution;
 		const TFunction<void(const FDoneDelegate&)> Predicate;
+		const FTimespan Timeout;
+		const bool bSkipIfErrored;
 
-		TFuture<void> Future;
 		FThreadSafeBool bDone;
+		FDateTime StartedRunning;
+		TFuture<void> Future;
 	};
 
 	class FAsyncLatentCommand : public IAutomationLatentCommand
 	{
 	public:
 
-		FAsyncLatentCommand(EAsyncExecution InExecution, TFunction<void()> InPredicate)
-			: Execution(InExecution)
+		FAsyncLatentCommand(FAutomationSpecBase* const InSpec, EAsyncExecution InExecution, TFunction<void()> InPredicate, const FTimespan& InTimeout, bool bInSkipIfErrored = false)
+			: Spec(InSpec)
+			, Execution(InExecution)
 			, Predicate(MoveTemp(InPredicate))
+			, Timeout(InTimeout)
+			, bSkipIfErrored(bInSkipIfErrored)
 			, bDone(false)
 		{ }
 
@@ -1746,17 +1841,28 @@ private:
 		{
 			if (!Future.IsValid())
 			{
+				if (bSkipIfErrored && Spec->HasAnyErrors())
+				{
+					return true;
+				}
+
 				Future = Async<void>(Execution, [this]() {
 					Predicate();
 					bDone = true;
 				});
+
+				StartedRunning = FDateTime::UtcNow();
 			}
 
 			if (bDone)
 			{
-				// Reset the done for the next potential run of this command
-				bDone = false;
-				Future = TFuture<void>();
+				Reset();
+				return true;
+			}
+			else if (FDateTime::UtcNow() >= StartedRunning + Timeout)
+			{
+				Reset();
+				Spec->AddError(TEXT("Latent command timed out."), 0);
 				return true;
 			}
 
@@ -1770,13 +1876,24 @@ private:
 			bDone = true;
 		}
 
+		void Reset()
+		{
+			// Reset the done for the next potential run of this command
+			bDone = false;
+			Future = TFuture<void>();
+		}
+
 	private:
 
+		FAutomationSpecBase* const Spec;
 		const EAsyncExecution Execution;
 		const TFunction<void()> Predicate;
+		const FTimespan Timeout;
+		const bool bSkipIfErrored;
 
-		TFuture<void> Future;
 		FThreadSafeBool bDone;
+		FDateTime StartedRunning;
+		TFuture<void> Future;
 	};
 
 	struct FSpecIt
@@ -1826,6 +1943,8 @@ public:
 
 	FAutomationSpecBase(const FString& InName, const bool bInComplexTask)
 		: FAutomationTestBase(InName, bInComplexTask)
+		, DefaultTimeout(FTimespan::FromSeconds(30))
+		, bEnableSkipIfError(true)
 		, RootDefinitionScope(MakeShareable(new FSpecDefinitionScope()))
 	{
 		DefinitionScopeStack.Push(RootDefinitionScope.ToSharedRef());
@@ -1955,12 +2074,27 @@ public:
 		//disabled
 	}
 
+	void xIt(const FString& InDescription, EAsyncExecution Execution, const FTimespan& Timeout, TFunction<void()> DoWork)
+	{
+		//disabled
+	}
+
 	void xLatentIt(const FString& InDescription, TFunction<void(const FDoneDelegate&)> DoWork)
 	{
 		//disabled
 	}
 
+	void xLatentIt(const FString& InDescription, const FTimespan& Timeout, TFunction<void(const FDoneDelegate&)> DoWork)
+	{
+		//disabled
+	}
+
 	void xLatentIt(const FString& InDescription, EAsyncExecution Execution, TFunction<void(const FDoneDelegate&)> DoWork)
+	{
+		//disabled
+	}
+
+	void xLatentIt(const FString& InDescription, EAsyncExecution Execution, const FTimespan& Timeout, TFunction<void(const FDoneDelegate&)> DoWork)
 	{
 		//disabled
 	}
@@ -1971,7 +2105,7 @@ public:
 		const TArray<FProgramCounterSymbolInfo> Stack = FPlatformStackWalk::GetStack(1, 1);
 
 		PushDescription(InDescription);
-		CurrentScope->It.Push(MakeShareable(new FSpecIt(GetDescription(), GetId(), Stack[0].Filename, Stack[0].LineNumber, MakeShareable(new FSingleExecuteLatentCommand(DoWork)))));
+		CurrentScope->It.Push(MakeShareable(new FSpecIt(GetDescription(), GetId(), Stack[0].Filename, Stack[0].LineNumber, MakeShareable(new FSingleExecuteLatentCommand(this, DoWork, bEnableSkipIfError)))));
 		PopDescription(InDescription);
 	}
 
@@ -1981,7 +2115,17 @@ public:
 		const TArray<FProgramCounterSymbolInfo> Stack = FPlatformStackWalk::GetStack(1, 1);
 
 		PushDescription(InDescription);
-		CurrentScope->It.Push(MakeShareable(new FSpecIt(GetDescription(), GetId(), Stack[0].Filename, Stack[0].LineNumber, MakeShareable(new FAsyncLatentCommand(Execution, DoWork)))));
+		CurrentScope->It.Push(MakeShareable(new FSpecIt(GetDescription(), GetId(), Stack[0].Filename, Stack[0].LineNumber, MakeShareable(new FAsyncLatentCommand(this, Execution, DoWork, DefaultTimeout, bEnableSkipIfError)))));
+		PopDescription(InDescription);
+	}
+
+	void It(const FString& InDescription, EAsyncExecution Execution, const FTimespan& Timeout, TFunction<void()> DoWork)
+	{
+		const TSharedRef<FSpecDefinitionScope> CurrentScope = DefinitionScopeStack.Last();
+		const TArray<FProgramCounterSymbolInfo> Stack = FPlatformStackWalk::GetStack(1, 1);
+
+		PushDescription(InDescription);
+		CurrentScope->It.Push(MakeShareable(new FSpecIt(GetDescription(), GetId(), Stack[0].Filename, Stack[0].LineNumber, MakeShareable(new FAsyncLatentCommand(this, Execution, DoWork, Timeout, bEnableSkipIfError)))));
 		PopDescription(InDescription);
 	}
 
@@ -1991,7 +2135,17 @@ public:
 		const TArray<FProgramCounterSymbolInfo> Stack = FPlatformStackWalk::GetStack(1, 1);
 
 		PushDescription(InDescription);
-		CurrentScope->It.Push(MakeShareable(new FSpecIt(GetDescription(), GetId(), Stack[0].Filename, Stack[0].LineNumber, MakeShareable(new FUntilDoneLatentCommand(DoWork)))));
+		CurrentScope->It.Push(MakeShareable(new FSpecIt(GetDescription(), GetId(), Stack[0].Filename, Stack[0].LineNumber, MakeShareable(new FUntilDoneLatentCommand(this, DoWork, DefaultTimeout, bEnableSkipIfError)))));
+		PopDescription(InDescription);
+	}
+
+	void LatentIt(const FString& InDescription, const FTimespan& Timeout, TFunction<void(const FDoneDelegate&)> DoWork)
+	{
+		const TSharedRef<FSpecDefinitionScope> CurrentScope = DefinitionScopeStack.Last();
+		const TArray<FProgramCounterSymbolInfo> Stack = FPlatformStackWalk::GetStack(1, 1);
+
+		PushDescription(InDescription);
+		CurrentScope->It.Push(MakeShareable(new FSpecIt(GetDescription(), GetId(), Stack[0].Filename, Stack[0].LineNumber, MakeShareable(new FUntilDoneLatentCommand(this, DoWork, Timeout, bEnableSkipIfError)))));
 		PopDescription(InDescription);
 	}
 
@@ -2001,7 +2155,17 @@ public:
 		const TArray<FProgramCounterSymbolInfo> Stack = FPlatformStackWalk::GetStack(1, 1);
 
 		PushDescription(InDescription);
-		CurrentScope->It.Push(MakeShareable(new FSpecIt(GetDescription(), GetId(), Stack[0].Filename, Stack[0].LineNumber, MakeShareable(new FAsyncUntilDoneLatentCommand(Execution, DoWork)))));
+		CurrentScope->It.Push(MakeShareable(new FSpecIt(GetDescription(), GetId(), Stack[0].Filename, Stack[0].LineNumber, MakeShareable(new FAsyncUntilDoneLatentCommand(this, Execution, DoWork, DefaultTimeout, bEnableSkipIfError)))));
+		PopDescription(InDescription);
+	}
+
+	void LatentIt(const FString& InDescription, EAsyncExecution Execution, const FTimespan& Timeout, TFunction<void(const FDoneDelegate&)> DoWork)
+	{
+		const TSharedRef<FSpecDefinitionScope> CurrentScope = DefinitionScopeStack.Last();
+		const TArray<FProgramCounterSymbolInfo> Stack = FPlatformStackWalk::GetStack(1, 1);
+
+		PushDescription(InDescription);
+		CurrentScope->It.Push(MakeShareable(new FSpecIt(GetDescription(), GetId(), Stack[0].Filename, Stack[0].LineNumber, MakeShareable(new FAsyncUntilDoneLatentCommand(this, Execution, DoWork, Timeout, bEnableSkipIfError)))));
 		PopDescription(InDescription);
 	}
 
@@ -2015,7 +2179,17 @@ public:
 		// disabled
 	}
 
+	void xBeforeEach(EAsyncExecution Execution, const FTimespan& Timeout, TFunction<void()> DoWork)
+	{
+		// disabled
+	}
+
 	void xLatentBeforeEach(TFunction<void(const FDoneDelegate&)> DoWork)
+	{
+		// disabled
+	}
+
+	void xLatentBeforeEach(const FTimespan& Timeout, TFunction<void(const FDoneDelegate&)> DoWork)
 	{
 		// disabled
 	}
@@ -2025,28 +2199,51 @@ public:
 		// disabled
 	}
 
+	void xLatentBeforeEach(EAsyncExecution Execution, const FTimespan& Timeout, TFunction<void(const FDoneDelegate&)> DoWork)
+	{
+		// disabled
+	}
+
 	void BeforeEach(TFunction<void()> DoWork)
 	{
 		const TSharedRef<FSpecDefinitionScope> CurrentScope = DefinitionScopeStack.Last();
-		CurrentScope->BeforeEach.Push(MakeShareable(new FSingleExecuteLatentCommand(DoWork)));
+		CurrentScope->BeforeEach.Push(MakeShareable(new FSingleExecuteLatentCommand(this, DoWork, bEnableSkipIfError)));
 	}
 
 	void BeforeEach(EAsyncExecution Execution, TFunction<void()> DoWork)
 	{
 		const TSharedRef<FSpecDefinitionScope> CurrentScope = DefinitionScopeStack.Last();
-		CurrentScope->BeforeEach.Push(MakeShareable(new FAsyncLatentCommand(Execution, DoWork)));
+		CurrentScope->BeforeEach.Push(MakeShareable(new FAsyncLatentCommand(this, Execution, DoWork, DefaultTimeout, bEnableSkipIfError)));
+	}
+
+	void BeforeEach(EAsyncExecution Execution, const FTimespan& Timeout, TFunction<void()> DoWork)
+	{
+		const TSharedRef<FSpecDefinitionScope> CurrentScope = DefinitionScopeStack.Last();
+		CurrentScope->BeforeEach.Push(MakeShareable(new FAsyncLatentCommand(this, Execution, DoWork, Timeout, bEnableSkipIfError)));
 	}
 
 	void LatentBeforeEach(TFunction<void(const FDoneDelegate&)> DoWork)
 	{
 		const TSharedRef<FSpecDefinitionScope> CurrentScope = DefinitionScopeStack.Last();
-		CurrentScope->BeforeEach.Push(MakeShareable(new FUntilDoneLatentCommand(DoWork)));
+		CurrentScope->BeforeEach.Push(MakeShareable(new FUntilDoneLatentCommand(this, DoWork, DefaultTimeout, bEnableSkipIfError)));
+	}
+
+	void LatentBeforeEach(const FTimespan& Timeout, TFunction<void(const FDoneDelegate&)> DoWork)
+	{
+		const TSharedRef<FSpecDefinitionScope> CurrentScope = DefinitionScopeStack.Last();
+		CurrentScope->BeforeEach.Push(MakeShareable(new FUntilDoneLatentCommand(this, DoWork, Timeout, bEnableSkipIfError)));
 	}
 	     
 	void LatentBeforeEach(EAsyncExecution Execution, TFunction<void(const FDoneDelegate&)> DoWork)
 	{
 		const TSharedRef<FSpecDefinitionScope> CurrentScope = DefinitionScopeStack.Last();
-		CurrentScope->BeforeEach.Push(MakeShareable(new FAsyncUntilDoneLatentCommand(Execution, DoWork)));
+		CurrentScope->BeforeEach.Push(MakeShareable(new FAsyncUntilDoneLatentCommand(this, Execution, DoWork, DefaultTimeout, bEnableSkipIfError)));
+	}
+
+	void LatentBeforeEach(EAsyncExecution Execution, const FTimespan& Timeout, TFunction<void(const FDoneDelegate&)> DoWork)
+	{
+		const TSharedRef<FSpecDefinitionScope> CurrentScope = DefinitionScopeStack.Last();
+		CurrentScope->BeforeEach.Push(MakeShareable(new FAsyncUntilDoneLatentCommand(this, Execution, DoWork, Timeout, bEnableSkipIfError)));
 	}
 
 	void xAfterEach(TFunction<void()> DoWork)
@@ -2059,7 +2256,17 @@ public:
 		// disabled
 	}
 
+	void xAfterEach(EAsyncExecution Execution, const FTimespan& Timeout, TFunction<void()> DoWork)
+	{
+		// disabled
+	}
+
 	void xLatentAfterEach(TFunction<void(const FDoneDelegate&)> DoWork)
+	{
+		// disabled
+	}
+
+	void xLatentAfterEach(const FTimespan& Timeout, TFunction<void(const FDoneDelegate&)> DoWork)
 	{
 		// disabled
 	}
@@ -2069,31 +2276,60 @@ public:
 		// disabled
 	}
 
+	void xLatentAfterEach(EAsyncExecution Execution, const FTimespan& Timeout, TFunction<void(const FDoneDelegate&)> DoWork)
+	{
+		// disabled
+	}
+
 	void AfterEach(TFunction<void()> DoWork)
 	{
 		const TSharedRef<FSpecDefinitionScope> CurrentScope = DefinitionScopeStack.Last();
-		CurrentScope->AfterEach.Push(MakeShareable(new FSingleExecuteLatentCommand(DoWork)));
+		CurrentScope->AfterEach.Push(MakeShareable(new FSingleExecuteLatentCommand(this, DoWork)));
 	}
 
 	void AfterEach(EAsyncExecution Execution, TFunction<void()> DoWork)
 	{
 		const TSharedRef<FSpecDefinitionScope> CurrentScope = DefinitionScopeStack.Last();
-		CurrentScope->AfterEach.Push(MakeShareable(new FAsyncLatentCommand(Execution, DoWork)));
+		CurrentScope->AfterEach.Push(MakeShareable(new FAsyncLatentCommand(this, Execution, DoWork, DefaultTimeout)));
+	}
+
+	void AfterEach(EAsyncExecution Execution, const FTimespan& Timeout, TFunction<void()> DoWork)
+	{
+		const TSharedRef<FSpecDefinitionScope> CurrentScope = DefinitionScopeStack.Last();
+		CurrentScope->AfterEach.Push(MakeShareable(new FAsyncLatentCommand(this, Execution, DoWork, Timeout)));
 	}
 
 	void LatentAfterEach(TFunction<void(const FDoneDelegate&)> DoWork)
 	{
 		const TSharedRef<FSpecDefinitionScope> CurrentScope = DefinitionScopeStack.Last();
-		CurrentScope->AfterEach.Push(MakeShareable(new FUntilDoneLatentCommand(DoWork)));
+		CurrentScope->AfterEach.Push(MakeShareable(new FUntilDoneLatentCommand(this, DoWork, DefaultTimeout)));
+	}
+
+	void LatentAfterEach(const FTimespan& Timeout, TFunction<void(const FDoneDelegate&)> DoWork)
+	{
+		const TSharedRef<FSpecDefinitionScope> CurrentScope = DefinitionScopeStack.Last();
+		CurrentScope->AfterEach.Push(MakeShareable(new FUntilDoneLatentCommand(this, DoWork, Timeout)));
 	}
 
 	void LatentAfterEach(EAsyncExecution Execution, TFunction<void(const FDoneDelegate&)> DoWork)
 	{
 		const TSharedRef<FSpecDefinitionScope> CurrentScope = DefinitionScopeStack.Last();
-		CurrentScope->AfterEach.Push(MakeShareable(new FAsyncUntilDoneLatentCommand(Execution, DoWork)));
+		CurrentScope->AfterEach.Push(MakeShareable(new FAsyncUntilDoneLatentCommand(this, Execution, DoWork, DefaultTimeout)));
+	}
+
+	void LatentAfterEach(EAsyncExecution Execution, const FTimespan& Timeout, TFunction<void(const FDoneDelegate&)> DoWork)
+	{
+		const TSharedRef<FSpecDefinitionScope> CurrentScope = DefinitionScopeStack.Last();
+		CurrentScope->AfterEach.Push(MakeShareable(new FAsyncUntilDoneLatentCommand(this, Execution, DoWork, Timeout)));
 	}
 
 protected:
+
+	/* The timespan for how long a block should be allowed to execute before giving up and failing the test */
+	FTimespan DefaultTimeout;
+
+	/* Whether or not BeforeEach and It blocks should skip execution if the test has already failed */
+	bool bEnableSkipIfError;
 
 	void EnsureDefinitions() const
 	{
@@ -2294,6 +2530,82 @@ class CommandName : public IAutomationLatentCommand \
 		virtual bool Update() override; \
 	private: \
 	ParamType ParamName; \
+}
+
+#define DEFINE_LATENT_AUTOMATION_COMMAND_TWO_PARAMETER(CommandName,ParamType0,ParamName0,ParamType1,ParamName1)	\
+class CommandName : public IAutomationLatentCommand \
+	{ \
+	public: \
+	CommandName(ParamType0 InputParam0, ParamType1 InputParam1) \
+	: ParamName0(InputParam0) \
+	, ParamName1(InputParam1) \
+		{} \
+		virtual ~CommandName() \
+		{} \
+		virtual bool Update() override; \
+	private: \
+	ParamType0 ParamName0; \
+	ParamType1 ParamName1; \
+}
+
+#define DEFINE_LATENT_AUTOMATION_COMMAND_THREE_PARAMETER(CommandName,ParamType0,ParamName0,ParamType1,ParamName1,ParamType2,ParamName2)	\
+class CommandName : public IAutomationLatentCommand \
+	{ \
+	public: \
+		CommandName(ParamType0 InputParam0, ParamType1 InputParam1, ParamType2 InputParam2) \
+		: ParamName0(InputParam0) \
+		, ParamName1(InputParam1) \
+		, ParamName2(InputParam2) \
+		{} \
+		virtual ~CommandName() \
+		{} \
+		virtual bool Update() override; \
+	private: \
+	ParamType0 ParamName0; \
+	ParamType1 ParamName1; \
+	ParamType2 ParamName2; \
+}
+
+#define DEFINE_LATENT_AUTOMATION_COMMAND_FOUR_PARAMETER(CommandName,ParamType0,ParamName0,ParamType1,ParamName1,ParamType2,ParamName2,ParamType3,ParamName3)	\
+class CommandName : public IAutomationLatentCommand \
+	{ \
+	public: \
+		CommandName(ParamType0 InputParam0, ParamType1 InputParam1, ParamType2 InputParam2, ParamType3 InputParam3) \
+		: ParamName0(InputParam0) \
+		, ParamName1(InputParam1) \
+		, ParamName2(InputParam2) \
+		, ParamName3(InputParam3) \
+		{} \
+		virtual ~CommandName() \
+		{} \
+		virtual bool Update() override; \
+	private: \
+	ParamType0 ParamName0; \
+	ParamType1 ParamName1; \
+	ParamType2 ParamName2; \
+	ParamType3 ParamName3; \
+}
+
+#define DEFINE_LATENT_AUTOMATION_COMMAND_FIVE_PARAMETER(CommandName,ParamType0,ParamName0,ParamType1,ParamName1,ParamType2,ParamName2,ParamType3,ParamName3,ParamType4,ParamName4)	\
+class CommandName : public IAutomationLatentCommand \
+	{ \
+	public: \
+		CommandName(ParamType0 InputParam0, ParamType1 InputParam1, ParamType2 InputParam2, ParamType3 InputParam3, ParamType4 InputParam4) \
+		: ParamName0(InputParam0) \
+		, ParamName1(InputParam1) \
+		, ParamName2(InputParam2) \
+		, ParamName3(InputParam3) \
+		, ParamName4(InputParam4) \
+		{} \
+		virtual ~CommandName() \
+		{} \
+		virtual bool Update() override; \
+	private: \
+	ParamType0 ParamName0; \
+	ParamType1 ParamName1; \
+	ParamType2 ParamName2; \
+	ParamType3 ParamName3; \
+	ParamType4 ParamName4; \
 }
 
 #define DEFINE_EXPORTED_LATENT_AUTOMATION_COMMAND(EXPORT_API, CommandName)	\

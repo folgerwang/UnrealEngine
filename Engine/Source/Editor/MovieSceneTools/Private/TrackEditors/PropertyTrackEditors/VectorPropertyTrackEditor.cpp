@@ -1,12 +1,11 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "TrackEditors/PropertyTrackEditors/VectorPropertyTrackEditor.h"
-#include "Sections/VectorPropertySection.h"
-#include "MovieSceneVectorTrack.h"
+#include "Tracks/MovieSceneVectorTrack.h"
 #include "MatineeImportTools.h"
 #include "Matinee/InterpTrackVectorProp.h"
 #include "UnrealEdGlobals.h"
-#include "Classes/Editor/UnrealEdEngine.h"
+#include "Editor/UnrealEdEngine.h"
 
 
 FName FVectorPropertyTrackEditor::XName( "X" );
@@ -20,15 +19,7 @@ TSharedRef<ISequencerTrackEditor> FVectorPropertyTrackEditor::CreateTrackEditor(
 	return MakeShareable( new FVectorPropertyTrackEditor( InSequencer ) );
 }
 
-
-TSharedRef<ISequencerSection> FVectorPropertyTrackEditor::MakeSectionInterface(UMovieSceneSection& SectionObject, UMovieSceneTrack& Track, FGuid ObjectBinding)
-{
-	UMovieScenePropertyTrack* PropertyTrack = Cast<UMovieScenePropertyTrack>(&Track);
-	checkf(PropertyTrack != nullptr, TEXT("Incompatible track in FVectorTrackEditor"));
-	return MakeShareable(new FVectorPropertySection(GetSequencer().Get(), ObjectBinding, PropertyTrack->GetPropertyName(), PropertyTrack->GetPropertyPath(), SectionObject, Track.GetDisplayName()));
-}
-
-void FVectorPropertyTrackEditor::GenerateKeysFromPropertyChanged( const FPropertyChangedParams& PropertyChangedParams, TArray<FVectorKey>& NewGeneratedKeys, TArray<FVectorKey>& DefaultGeneratedKeys )
+void FVectorPropertyTrackEditor::GenerateKeysFromPropertyChanged( const FPropertyChangedParams& PropertyChangedParams, FGeneratedTrackKeys& OutGeneratedKeys )
 {
 	const UStructProperty* StructProp = Cast<const UStructProperty>( PropertyChangedParams.PropertyPath.GetLeafMostProperty().Property.Get() );
 
@@ -62,30 +53,29 @@ void FVectorPropertyTrackEditor::GenerateKeysFromPropertyChanged( const FPropert
 		Channels = 4;
 	}
 
-	FName ChannelName = PropertyChangedParams.StructPropertyNameToKey;
+	FPropertyPath StructPath = PropertyChangedParams.StructPathToKey;
+	FName ChannelName = StructPath.GetNumProperties() != 0 ? StructPath.GetLeafMostProperty().Property->GetFName() : NAME_None;
 
-	TArray<FVectorKey>& XKeys = ChannelName == NAME_None || ChannelName == XName ? NewGeneratedKeys : DefaultGeneratedKeys;
-	XKeys.Add( FVectorKey( EKeyVectorChannel::X, VectorValues.X ) );
+	const bool bKeyX = ChannelName == NAME_None || ChannelName == XName;
+	const bool bKeyY = ChannelName == NAME_None || ChannelName == YName;
 
-	TArray<FVectorKey>& YKeys = ChannelName == NAME_None || ChannelName == YName ? NewGeneratedKeys : DefaultGeneratedKeys;
-	YKeys.Add( FVectorKey( EKeyVectorChannel::Y, VectorValues.Y ) );
+	OutGeneratedKeys.Add(FMovieSceneChannelValueSetter::Create<FMovieSceneFloatChannel>(0, VectorValues.X, bKeyX));
+	OutGeneratedKeys.Add(FMovieSceneChannelValueSetter::Create<FMovieSceneFloatChannel>(1, VectorValues.Y, bKeyY));
 
 	if ( Channels >= 3 )
 	{
-		TArray<FVectorKey>& ZKeys = ChannelName == NAME_None || ChannelName == ZName ? NewGeneratedKeys : DefaultGeneratedKeys;
-		ZKeys.Add( FVectorKey( EKeyVectorChannel::Z, VectorValues.Z ) );
+		OutGeneratedKeys.Add(FMovieSceneChannelValueSetter::Create<FMovieSceneFloatChannel>(2, VectorValues.Z, ChannelName == NAME_None || ChannelName == ZName));
 	}
 
 	if ( Channels >= 4 )
 	{
-		TArray<FVectorKey>& WKeys = ChannelName == NAME_None || ChannelName == WName ? NewGeneratedKeys : DefaultGeneratedKeys;
-		WKeys.Add( FVectorKey( EKeyVectorChannel::W, VectorValues.W ) );
+		OutGeneratedKeys.Add(FMovieSceneChannelValueSetter::Create<FMovieSceneFloatChannel>(3, VectorValues.W, ChannelName == NAME_None || ChannelName == WName));
 	}
 }
 
 void FVectorPropertyTrackEditor::InitializeNewTrack( UMovieSceneVectorTrack* NewTrack, FPropertyChangedParams PropertyChangedParams )
 {
-	FPropertyTrackEditor<UMovieSceneVectorTrack, UMovieSceneVectorSection, FVectorKey>::InitializeNewTrack( NewTrack, PropertyChangedParams );
+	FPropertyTrackEditor::InitializeNewTrack( NewTrack, PropertyChangedParams );
 	const UStructProperty* StructProp = Cast<const UStructProperty>( PropertyChangedParams.PropertyPath.GetLeafMostProperty().Property.Get() );
 	FName StructName = StructProp->Struct->GetFName();
 

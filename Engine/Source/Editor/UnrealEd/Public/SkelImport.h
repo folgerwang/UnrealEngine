@@ -208,14 +208,16 @@ struct VPoint
 
 struct ExistingMeshLodSectionData
 {
-	ExistingMeshLodSectionData(FName InImportedMaterialSlotName, bool InbCastShadow, bool InbRecomputeTangents)
+	ExistingMeshLodSectionData(FName InImportedMaterialSlotName, bool InbCastShadow, bool InbRecomputeTangents, int32 InGenerateUpTo)
 	: ImportedMaterialSlotName(InImportedMaterialSlotName)
 	, bCastShadow(InbCastShadow)
 	, bRecomputeTangents(InbRecomputeTangents)
+	, GenerateUpTo(InGenerateUpTo)
 	{}
 	FName ImportedMaterialSlotName;
 	bool bCastShadow;
 	bool bRecomputeTangents;
+	int32 GenerateUpTo;
 };
 
 struct ExistingSkelMeshData
@@ -231,8 +233,11 @@ struct ExistingSkelMeshData
 	UPhysicsAsset*							ExistingShadowPhysicsAsset;
 	USkeleton*								ExistingSkeleton;
 	TArray<FTransform>						ExistingRetargetBasePose;
+	USkeletalMeshLODSettings*				ExistingLODSettings;
+	TSubclassOf<UAnimInstance>				ExistingPostProcessAnimBlueprint;
 
 	bool									bExistingUseFullPrecisionUVs;
+	bool									bExistingUseHighPrecisionTangentBasis;
 
 	TArray<FBoneMirrorExport>				ExistingMirrorTable;
 
@@ -250,6 +255,7 @@ struct ExistingSkelMeshData
 	TArray<TArray<FName>> LastImportMeshLodSectionMaterialData;
 
 	FSkeletalMeshSamplingInfo				ExistingSamplingInfo;
+	FPerPlatformInt							MinLOD;
 };
 
 /**

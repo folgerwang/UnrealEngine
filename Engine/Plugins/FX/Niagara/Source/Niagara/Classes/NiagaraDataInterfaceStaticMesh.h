@@ -41,8 +41,6 @@ class UNiagaraDataInterfaceStaticMesh;
 
 struct FNDIStaticMesh_InstanceData
 {
-	FRandomStream RandStream;//Might remove this when we rework randoms. I don't like stateful randoms as they can't work on GPU and likely not threaded VM either!
-
 	 //Cached ptr to component we sample from. 
 	TWeakObjectPtr<USceneComponent> Component;
 
@@ -73,13 +71,16 @@ struct FNDIStaticMesh_InstanceData
 	/** Allows sampling of the mesh's tris based on a dynamic color range. */
 	TSharedPtr<struct FDynamicVertexColorFilterData> DynamicVertexColorSampler;
 
+	/** Cached change id off of the data interface.*/
+	uint32 ChangeId;
+
 	FORCEINLINE UStaticMesh* GetActualMesh()const { return Mesh; }
 	FORCEINLINE bool UsesAreaWeighting()const { return bIsAreaWeightedSampling; }
 	FORCEINLINE bool MeshHasPositions()const { return Mesh && Mesh->RenderData->LODResources[0].VertexBuffers.PositionVertexBuffer.GetNumVertices() > 0; }
 	FORCEINLINE bool MeshHasVerts()const { return Mesh && Mesh->RenderData->LODResources[0].VertexBuffers.StaticMeshVertexBuffer.GetNumVertices() > 0; }
 	FORCEINLINE bool MeshHasColors()const { return Mesh && Mesh->RenderData->LODResources[0].VertexBuffers.ColorVertexBuffer.GetNumVertices() > 0; }
 
-	FORCEINLINE_DEBUGGABLE bool ResetRequired()const;
+	FORCEINLINE_DEBUGGABLE bool ResetRequired(UNiagaraDataInterfaceStaticMesh* Interface)const;
 
 	FORCEINLINE const TArray<int32>& GetValidSections()const { return ValidSections; }
 	FORCEINLINE const FStaticMeshAreaWeightedSectionSampler& GetAreaWeigtedSampler()const { return Sampler; }
@@ -110,12 +111,16 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Mesh")
 	FNDIStaticMeshSectionFilter SectionFilter;
 
+    /** Changed within the editor on PostEditChangeProperty. Should be changed whenever a refresh is desired.*/
+	uint32 ChangeId;
+
 public:
 
 	//~ UObject interface
 
 #if WITH_EDITOR
 	virtual void PostInitProperties()override;
+	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif
 
 public:
@@ -128,10 +133,14 @@ public:
 	virtual int32 PerInstanceDataSize()const override { return sizeof(FNDIStaticMesh_InstanceData); }
 
 	virtual void GetFunctions(TArray<FNiagaraFunctionSignature>& OutFunctions)override;
-	virtual FVMExternalFunction GetVMExternalFunction(const FVMExternalFunctionBindingInfo& BindingInfo, void* InstanceData)override;
+	virtual void GetVMExternalFunction(const FVMExternalFunctionBindingInfo& BindingInfo, void* InstanceData, FVMExternalFunction &OutFunc) override;
 	virtual bool Equals(const UNiagaraDataInterface* Other) const override;
 	virtual bool CanExecuteOnTarget(ENiagaraSimTarget Target)const override { return Target == ENiagaraSimTarget::CPUSim; }
+#if WITH_EDITOR
+	virtual TArray<FNiagaraDataInterfaceError> GetErrors() override;
+#endif
 public:
+	void GetNumTriangles(FVectorVMContext& Context);
 
 	template<typename TAreaWeighted>
 	void RandomSection(FVectorVMContext& Context);
@@ -167,6 +176,9 @@ public:
 	void GetLocalToWorldInverseTransposed(FVectorVMContext& Context);
 	void GetWorldVelocity(FVectorVMContext& Context);
 
+	template<typename TransformHandlerType, typename VertexIndexType>
+	void GetVertexPosition(FVectorVMContext& Context);
+
 	FORCEINLINE_DEBUGGABLE bool UsesSectionFilter()const { return SectionFilter.CanEverReject(); }
 
 	//TODO: Vertex color filtering requires a bit more work.
@@ -174,17 +186,17 @@ public:
 
 protected:
 	virtual bool CopyToInternal(UNiagaraDataInterface* Destination) const override;
-
+	
 private:
 	
 	template<typename TAreaWeighted, bool bFiltered>
-	FORCEINLINE_DEBUGGABLE int32 RandomSection(FStaticMeshLODResources& Res, FNDIStaticMesh_InstanceData* InstData);
+	FORCEINLINE_DEBUGGABLE int32 RandomSection(FRandomStream& RandStream, FStaticMeshLODResources& Res, FNDIStaticMesh_InstanceData* InstData);
 
 	template<typename TAreaWeighted, bool bFiltered>
-	FORCEINLINE_DEBUGGABLE int32 RandomTriIndex(FStaticMeshLODResources& Res, FNDIStaticMesh_InstanceData* InstData);
+	FORCEINLINE_DEBUGGABLE int32 RandomTriIndex(FRandomStream& RandStream, FStaticMeshLODResources& Res, FNDIStaticMesh_InstanceData* InstData);
 
 	template<typename TAreaWeighted>
-	FORCEINLINE_DEBUGGABLE int32 RandomTriIndexOnSection(FStaticMeshLODResources& Res, int32 SectionIdx, FNDIStaticMesh_InstanceData* InstData);
+	FORCEINLINE_DEBUGGABLE int32 RandomTriIndexOnSection(FRandomStream& RandStream, FStaticMeshLODResources& Res, int32 SectionIdx, FNDIStaticMesh_InstanceData* InstData);
 
 	void WriteTransform(const FMatrix& ToWrite, FVectorVMContext& Context);
 };

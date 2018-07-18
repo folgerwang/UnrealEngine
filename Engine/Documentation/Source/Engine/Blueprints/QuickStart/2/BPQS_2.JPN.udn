@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2735872
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:2.ジャンプ台（Launchpad）を構成する
 Crumbs:%ROOT%, Engine, Engine/Blueprints, Engine/Blueprints/QuickStart
@@ -7,16 +7,17 @@ version:4.9
 parent:Engine/Blueprints/QuickStart
 order:2
 type:multi-step
+tags:Blueprints
 
 [VAR:Steps]
 [OBJECT:Navigation]
 	[PARAM:previous]
-		[前の手順](Engine/Blueprints/QuickStart/1 "%Engine/Blueprints/QuickStart/1:title%")
+		[前のステップ](Engine/Blueprints/QuickStart/1 "%Engine/Blueprints/QuickStart/1:title%")
 	[/PARAM]
 	[PARAM:current]
 	[/PARAM]
 	[PARAM:home]
-		[クイックスタートのホーム画面](Engine/Blueprints/QuickStart)
+		[クイックスタートホーム](Engine/Blueprints/QuickStart)
 	[/PARAM]
 	[PARAM:next]
 		[次の手順](Engine/Blueprints/QuickStart/3 "%Engine/Blueprints/QuickStart/3:title%")
@@ -34,8 +35,8 @@ type:multi-step
 
 	![](TopPlatforms.png)(w:500)
 
-	Empty Actor (空のアクタ) を使用して、ジャンプ台の要素すべてを保持するコンテナを作成します。必要となる 2 つの要素 (またはコンポーネント) は、ジャンプ台を表す形状とキャラクターがこれにオーバーラップした時の
-	トリガーです。 
+	Empty Actor (空のアクタ) を使用して、ジャンプ台の要素すべてを保持するコンテナを作成します。必要な 2 つのパート (またはコンポーネント) は、ジャンプ台を表現するための形状と、
+	キャラクターがそれとオーバーラップする時のためのトリガーです。 
 
 1. **[Modes (モード)]** パネルで **[Basic (基本)]** をクリック、そして **[Empty Actor]** を探します。
 
@@ -43,12 +44,12 @@ type:multi-step
 1. アクタをレベルへドラッグして、表示されているプラットフォームのどれかに配置します。
 
 	![](DragEmptyActor.png)
-1. レベルでアクタを選択すると、アクタのプロパティが **[Details (詳細)]** パネルに表示されます。**[Details (詳細)]** パネルの一番上でアクタの名前を変更することができます。テキストボックスをクリックして、「LaunchPad」など新しい名前を入力してください。
+1. レベルでアクタを選択すると、アクタのプロパティが **[Details (詳細)]** パネルに表示されます。**[Details (詳細)]** パネルの一番上でアクタの名前を変更することができます。ボックス内をクリックして、例えば「ジャンプ台」など名前を付けてください。
 
 	![](NameLaunchpad.png)
 
-	最初に追加するコンポーネントはキューブです。これは、プラットフォームサイズに収まるように多少縮小します。このコンポーネントを追加すると、まず Root コンポーネントになります。その他のコンポーネントは
-	このRoot に従ってシーン内に配置、スケール、そして移動します。作業しながらコンポーネントを再配置することもできるので、これが最終決定となるわけではありません。
+	最初に追加するコンポーネントはキューブです。これは、プラットフォームサイズに収まるように多少縮小します。このコンポーネントを追加すると、まず Root コンポーネントになります。
+	その他のコンポーネントはこのRootに従ってシーン内に配置、スケール、そして移動します。作業しながらコンポーネントを再配置することもできるので、これが最終決定となるわけではありません。
 1. **[Components]** パネルで、 **[Add Component (コンポーネントを追加)]** ボタンをクリックして **[Camera]** を選択します。
 1. **キューブ** コンポーネントを選択すると、このコンポーネントの調整が可能になります。キューブを (1、1、0.1) にサイズ変更します。
 
@@ -62,7 +63,7 @@ type:multi-step
 
 ![](LaunchPadActor.png)
 
-設定通りにアクタを作成したので、これをブループリント クラスに変換します。ブループリントエディタ内でコンポーネントをさらに追加して、これまでと同じ操作でレベルのコンポーネントを調整できます。
+設定通りにアクタを作成したので、これをブループリント クラスに変換します。**ブループリントエディタ** 内でコンポーネントをさらに追加して、これまでと同じ操作でレベルのコンポーネントを調整できます。
 
 
 ---

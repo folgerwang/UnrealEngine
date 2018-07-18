@@ -31,7 +31,7 @@ struct OVERLAY_API FOverlayItem
 	FTimespan EndTime;
 
 	/** Text that appears onscreen when the overlay is shown */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Display Data")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Display Data", meta=(MultiLine=True))
 	FString Text;
 
 	/** The position of the text on screen (Between 0.0 and 1.0) */

@@ -1,10 +1,10 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "WindowsPlatformCrashContext.h"
-#include "PlatformMallocCrash.h"
-#include "ExceptionHandling.h"
-#include "EngineVersion.h"
-#include "EngineBuildSettings.h"
+#include "Windows/WindowsPlatformCrashContext.h"
+#include "HAL/PlatformMallocCrash.h"
+#include "HAL/ExceptionHandling.h"
+#include "Misc/EngineVersion.h"
+#include "Misc/EngineBuildSettings.h"
 #include "HAL/ExceptionHandling.h"
 #include "HAL/ThreadHeartBeat.h"
 #include "HAL/PlatformProcess.h"
@@ -17,11 +17,13 @@
 #include "Misc/MessageDialog.h"
 #include "Misc/CoreDelegates.h"
 #include "Misc/OutputDeviceRedirector.h"
+#include "Misc/OutputDeviceFile.h"
 #include "Templates/ScopedPointer.h"
-#include "WindowsPlatformStackWalk.h"
-#include "WindowsHWrapper.h"
-#include "AllowWindowsPlatformTypes.h"
-#include "UniquePtr.h"
+#include "Windows/WindowsPlatformStackWalk.h"
+#include "Windows/WindowsHWrapper.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
+#include "Templates/UniquePtr.h"
+#include "Misc/OutputDeviceArchiveWrapper.h"
 
 #include <strsafe.h>
 #include <dbghelp.h>
@@ -151,35 +153,45 @@ int32 ReportCrashUsingCrashReportClient(FWindowsPlatformCrashContext& InContext,
 
 			// Copy log
 			const FString LogSrcAbsolute = FPlatformOutputDevices::GetAbsoluteLogFilename();
+			FString LogFilename = FPaths::GetCleanFilename(LogSrcAbsolute);
+			const FString LogDstAbsolute = FPaths::Combine(*CrashFolderAbsolute, *LogFilename);
 
 			// Flush out the log
 			GLog->Flush();
 
 			// If we have a memory only log, make sure it's dumped to file before we attach it to the report
-			bool bHasLogFile = !FPlatformOutputDevices::GetLog()->IsMemoryOnly();
 #if !NO_LOGGING
-			if (!bHasLogFile)
+			bool bMemoryOnly = FPlatformOutputDevices::GetLog()->IsMemoryOnly();
+			bool bBacklogEnabled = FOutputDeviceRedirector::Get()->IsBacklogEnabled();
+
+			if (bMemoryOnly || bBacklogEnabled)
 			{
-				FArchive* LogFile = IFileManager::Get().CreateFileWriter(*LogSrcAbsolute, FILEWRITE_AllowRead);
+				FArchive* LogFile = IFileManager::Get().CreateFileWriter(*LogDstAbsolute, FILEWRITE_AllowRead);
 				if (LogFile)
 				{
-					FPlatformOutputDevices::GetLog()->Dump(*LogFile);
+					if (bMemoryOnly)
+					{
+						FPlatformOutputDevices::GetLog()->Dump(*LogFile);
+					}
+					else
+					{
+						FOutputDeviceArchiveWrapper Wrapper(LogFile);
+						GLog->SerializeBacklog(&Wrapper);
+					}
+
 					LogFile->Flush();
 					delete LogFile;
-					bHasLogFile = true;
 				}
 			}
-#endif
-			if (bHasLogFile)
+			else
 			{
-				FString LogFilename = FPaths::GetCleanFilename(LogSrcAbsolute);
-				const FString LogDstAbsolute = FPaths::Combine(*CrashFolderAbsolute, *LogFilename);
 				const bool bReplace = true;
 				const bool bEvenIfReadOnly = false;
 				const bool bAttributes = false;
 				FCopyProgress* const CopyProgress = nullptr;
 				static_cast<void>(IFileManager::Get().Copy(*LogDstAbsolute, *LogSrcAbsolute, bReplace, bEvenIfReadOnly, bAttributes, CopyProgress, FILEREAD_AllowWrite, FILEWRITE_AllowRead));	// best effort, so don't care about result: couldn't copy -> tough, no log
 			}
+#endif // !NO_LOGGING
 
 			// If present, include the crash report config file to pass config values to the CRC
 			const TCHAR* CrashConfigSrcPath = FWindowsPlatformCrashContext::GetCrashConfigFilePath();
@@ -230,8 +242,37 @@ int32 ReportCrashUsingCrashReportClient(FWindowsPlatformCrashContext& InContext,
 				CrashReportClientArguments += FString(TEXT(" -DebugSymbols=")) + DownstreamStorage;
 			}
 
+			// CrashReportClient.exe should run without dragging in binaries from an inherited dll directory
+			// So, get the current dll directory for restore and clear before creating process
+			TCHAR* CurrentDllDirectory = nullptr;
+			DWORD BufferSize = (GetDllDirectory(0, nullptr) + 1) * sizeof(TCHAR);
+			
+			if (BufferSize > 0)
+			{
+				CurrentDllDirectory = (TCHAR*) FMemory::Malloc(BufferSize);
+				if (CurrentDllDirectory)
+				{
+					FMemory::Memset(CurrentDllDirectory, BufferSize, 0);
+					GetDllDirectory(BufferSize, CurrentDllDirectory);
+					SetDllDirectory(nullptr);
+				}
+			}
+
+			FString AbsCrashReportClientLog;
+			if (FParse::Value(FCommandLine::Get(), TEXT("AbsCrashReportClientLog="), AbsCrashReportClientLog))
+			{
+				CrashReportClientArguments += FString::Format(TEXT(" -abslog=\"{0}\""), { AbsCrashReportClientLog });
+			}
+
 			FString CrashClientPath = FPaths::Combine(*FPaths::EngineDir(), TEXT("Binaries"), FPlatformProcess::GetBinariesSubdirectory(), CrashReportClientExeName);
 			bCrashReporterRan = FPlatformProcess::CreateProc(*CrashClientPath, *CrashReportClientArguments, true, false, false, NULL, 0, NULL, NULL).IsValid();
+
+			// Restore the dll directory
+			if (CurrentDllDirectory)
+			{
+				SetDllDirectory(CurrentDllDirectory);
+				FMemory::Free(CurrentDllDirectory);
+			}
 		}
 
 		if (!bCrashReporterRan && !bNoDialog)
@@ -296,7 +337,10 @@ void NewReportEnsure( const TCHAR* ErrorMessage )
 	// The reason why we don't call HeartBeat() at the end of this function is that maybe this thread
 	// Never had a heartbeat checked and may not be sending heartbeats at all which would later lead to a false positives when detecting hangs.
 	FThreadHeartBeat::Get().KillHeartBeat();
-	FGameThreadHitchHeartBeat::Get().FrameStart(true);
+	if (IsInGameThread())
+	{
+		FGameThreadHitchHeartBeat::Get().FrameStart(true);
+	}
 
 	bReentranceGuard = true;
 
@@ -319,14 +363,14 @@ void NewReportEnsure( const TCHAR* ErrorMessage )
 	EnsureLock.Unlock();
 }
 
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 // Original code below
 
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 	#include <ErrorRep.h>
 	#include <DbgHelp.h>
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 #pragma comment(lib, "Faultrep.lib")
 
@@ -334,7 +378,7 @@ void NewReportEnsure( const TCHAR* ErrorMessage )
  * Creates an info string describing the given exception record.
  * See MSDN docs on EXCEPTION_RECORD.
  */
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 void CreateExceptionInfoString(EXCEPTION_RECORD* ExceptionRecord)
 {
 	// #CrashReport: 2014-08-18 Fix FString usage?
@@ -495,6 +539,14 @@ private:
 		const bool bIsEnsure = false;
 		FWindowsPlatformCrashContext CrashContext(bIsEnsure);
 
+		// Thread context wrapper for stack operations
+		void* ContextWrapper = FWindowsPlatformStackWalk::MakeThreadContextWrapper(ExceptionInfo->ContextRecord, CrashingThreadHandle);
+
+		// Generate the portable callstack, for non-Asserts pass in a negative IgnoreCount as need top of crash context record, and IgnoreCount is increased by stack walking methods
+		const int32 IgnoreCount = FDebug::HasAsserted() ? 1 : -3;
+		const int32 MaxDepth = 100;
+		FGenericCrashContext::GeneratePortableCallStack(IgnoreCount, MaxDepth, ContextWrapper);
+
 		// First launch the crash reporter client.
 #if WINVER > 0x502	// Windows Error Reporting is not supported on Windows XP
 		if (GUseCrashReportClient)
@@ -528,9 +580,13 @@ private:
 			ANSICHAR* StackTrace = (ANSICHAR*)GMalloc->Malloc(StackTraceSize);
 			StackTrace[0] = 0;
 			// Walk the stack and dump it to the allocated memory. This process usually allocates a lot of memory.
-			void* ContextWapper = FWindowsPlatformStackWalk::MakeThreadContextWrapper(ExceptionInfo->ContextRecord, CrashingThreadHandle);
-			FPlatformStackWalk::StackWalkAndDump(StackTrace, StackTraceSize, 0, ContextWapper);
-			FWindowsPlatformStackWalk::ReleaseThreadContextWrapper(ContextWapper);
+			if (!ContextWrapper)
+			{
+				ContextWrapper = FWindowsPlatformStackWalk::MakeThreadContextWrapper(ExceptionInfo->ContextRecord, CrashingThreadHandle);
+			}
+			
+			FPlatformStackWalk::StackWalkAndDump(StackTrace, StackTraceSize, 0, ContextWrapper);
+			
 			if (ExceptionInfo->ExceptionRecord->ExceptionCode != 1)
 			{
 				CreateExceptionInfoString(ExceptionInfo->ExceptionRecord);
@@ -543,6 +599,12 @@ private:
 			GMalloc->Free(StackTrace);
 		}
 
+		// Make sure any thread context wrapper is released
+		if (ContextWrapper)
+		{
+			FWindowsPlatformStackWalk::ReleaseThreadContextWrapper(ContextWrapper);
+		}
+
 #if !UE_BUILD_SHIPPING
 		FPlatformStackWalk::UploadLocalSymbols();
 #endif
@@ -550,7 +612,7 @@ private:
 
 };
 
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 TUniquePtr<FCrashReportingThread> GCrashReportingThread = MakeUnique<FCrashReportingThread>();
 

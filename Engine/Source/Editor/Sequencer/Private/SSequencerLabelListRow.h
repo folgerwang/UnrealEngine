@@ -106,7 +106,7 @@ public:
 						.VAlign(VAlign_Center)
 						[
 							SAssignNew(EditableLabel, SEditableLabel)
-								.CanEdit(this, &SSequencerLabelListRow::HandleFolderNameCanEdit)
+								.CanEdit(this, &SSequencerLabelListRow::CanEnterRenameMode)
 								.OnTextChanged(this, &SSequencerLabelListRow::HandleFolderNameTextChanged)
 								.Text(
 									Node->Label.IsEmpty()
@@ -123,6 +123,12 @@ public:
 	void EnterRenameMode()
 	{
 		EditableLabel->EnterTextMode();
+	}
+
+	/** Can this label be edited? */
+	bool CanEnterRenameMode() const
+	{
+		return !Node->Label.IsEmpty();
 	}
 
 private:
@@ -148,11 +154,6 @@ private:
 	{
 		// TODO sequencer: gmp: allow folder color customization
 		return FLinearColor::Gray;
-	}
-
-	bool HandleFolderNameCanEdit() const
-	{
-		return !Node->Label.IsEmpty();
 	}
 
 	void HandleFolderNameTextChanged(const FText& NewLabel)

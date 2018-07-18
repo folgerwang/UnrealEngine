@@ -1,29 +1,35 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreMinimal.h"
+#include "ComponentVisualizer.h"
 #include "Modules/ModuleInterface.h"
 #include "Modules/ModuleManager.h"
 #include "AssetToolsModule.h"
 #include "UObject/UObjectHash.h"
 #include "UObject/UObjectIterator.h"
 #include "Editor.h"
+#include "Editor/UnrealEdEngine.h"
 #include "IAssetTypeActions.h"
 #include "PropertyEditorModule.h"
 #include "ThumbnailRendering/ThumbnailManager.h"
 #include "ThumbnailRendering/TextureThumbnailRenderer.h"
 #include "Toolkits/AssetEditorToolkit.h"
+#include "UnrealEdGlobals.h"
 
 #include "BaseMediaSource.h"
 #include "FileMediaSource.h"
 #include "MediaPlayer.h"
+#include "MediaSoundComponent.h"
 #include "MediaTexture.h"
 #include "PlatformMediaSource.h"
 
-#include "AssetTools/MediaSourceActions.h"
-#include "AssetTools/MediaTextureActions.h"
 #include "AssetTools/FileMediaSourceActions.h"
 #include "AssetTools/MediaPlayerActions.h"
 #include "AssetTools/MediaPlaylistActions.h"
+#include "AssetTools/MediaSourceActions.h"
+#include "AssetTools/MediaTextureActions.h"
+#include "AssetTools/PlatformMediaSourceActions.h"
+#include "AssetTools/StreamMediaSourceActions.h"
 
 #include "Customizations/BaseMediaSourceCustomization.h"
 #include "Customizations/FileMediaSourceCustomization.h"
@@ -32,6 +38,8 @@
 
 #include "Models/MediaPlayerEditorCommands.h"
 #include "Shared/MediaPlayerEditorStyle.h"
+#include "Visualizers/MediaSoundComponentVisualizer.h"
+
 #include "MediaPlayerEditorLog.h"
 
 
@@ -72,6 +80,12 @@ public:
 
 	virtual void StartupModule() override
 	{
+		BaseMediaSourceName = UBaseMediaSource::StaticClass()->GetFName();
+		FileMediaSourceName = UFileMediaSource::StaticClass()->GetFName();
+		MediaSoundComponentName = UMediaSoundComponent::StaticClass()->GetFName();
+		MediaTextureName = UMediaTexture::StaticClass()->GetFName();
+		PlatformMediaSourceName = UPlatformMediaSource::StaticClass()->GetFName();
+
 		Style = MakeShareable(new FMediaPlayerEditorStyle());
 
 		FMediaPlayerEditorCommands::Register();
@@ -81,6 +95,7 @@ public:
 		RegisterEditorDelegates();
 		RegisterMenuExtensions();
 		RegisterThumbnailRenderers();
+		RegisterVisualizers();
 	}
 
 	virtual void ShutdownModule() override
@@ -90,6 +105,7 @@ public:
 		UnregisterEditorDelegates();
 		UnregisterMenuExtensions();
 		UnregisterThumbnailRenderers();
+		UnregisterVisualizers();
 	}
 
 protected:
@@ -104,6 +120,8 @@ protected:
 		RegisterAssetTypeAction(AssetTools, MakeShareable(new FMediaPlaylistActions(Style.ToSharedRef())));
 		RegisterAssetTypeAction(AssetTools, MakeShareable(new FMediaSourceActions));
 		RegisterAssetTypeAction(AssetTools, MakeShareable(new FMediaTextureActions));
+		RegisterAssetTypeAction(AssetTools, MakeShareable(new FPlatformMediaSourceActions(Style.ToSharedRef())));
+		RegisterAssetTypeAction(AssetTools, MakeShareable(new FStreamMediaSourceActions(Style.ToSharedRef())));
 	}
 
 	/**
@@ -139,11 +157,6 @@ protected:
 	/** Register details view customizations. */
 	void RegisterCustomizations()
 	{
-		BaseMediaSourceName = UBaseMediaSource::StaticClass()->GetFName();
-		FileMediaSourceName = UFileMediaSource::StaticClass()->GetFName();
-		MediaTextureName = UMediaTexture::StaticClass()->GetFName();
-		PlatformMediaSourceName = UPlatformMediaSource::StaticClass()->GetFName();
-
 		FPropertyEditorModule& PropertyModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
 		{
 			PropertyModule.RegisterCustomClassLayout(FileMediaSourceName, FOnGetDetailCustomizationInstance::CreateStatic(&FFileMediaSourceCustomization::MakeInstance));
@@ -218,13 +231,49 @@ protected:
 		}
 	}
 
+protected:
+
+	/** Register all component visualizers. */
+	void RegisterVisualizers()
+	{
+		if (GUnrealEd != nullptr)
+		{
+			RegisterVisualizer(*GUnrealEd, MediaSoundComponentName, MakeShared<FMediaSoundComponentVisualizer>());
+		}
+	}
+
+	/**
+	 * Register a component visualizer.
+	 *
+	 * @param ComponentClassName The name of the component class to register.
+	 * @param Visualizer The component visualizer to register.
+	 */
+	void RegisterVisualizer(UUnrealEdEngine& UnrealEdEngine, const FName& ComponentClassName, const TSharedRef<FComponentVisualizer>& Visualizer)
+	{
+		UnrealEdEngine.RegisterComponentVisualizer(ComponentClassName, Visualizer);
+		Visualizer->OnRegister();
+	}
+
+	/** Unregister all component visualizers. */
+	void UnregisterVisualizers()
+	{
+		if (GUnrealEd != nullptr)
+		{
+			GUnrealEd->UnregisterComponentVisualizer(MediaSoundComponentName);
+		}
+	}
+
 private:
 
 	void HandleEditorBeginPIE(bool bIsSimulating)
 	{
 		for (TObjectIterator<UMediaPlayer> It; It; ++It)
 		{
-			(*It)->Close();
+			UMediaPlayer* Player = *It;
+			if (Player->AffectedByPIEHandling)
+			{
+				Player->Close();
+			}
 		}
 	}
 
@@ -232,7 +281,11 @@ private:
 	{
 		for (TObjectIterator<UMediaPlayer> It; It; ++It)
 		{
-			(*It)->Close();
+			UMediaPlayer* Player = *It;
+			if (Player->AffectedByPIEHandling)
+			{
+				(*It)->Close();
+			}
 		}
 	}
 
@@ -240,7 +293,11 @@ private:
 	{
 		for (TObjectIterator<UMediaPlayer> It; It; ++It)
 		{
-			(*It)->PausePIE();
+			UMediaPlayer* Player = *It;
+			if (Player->AffectedByPIEHandling)
+			{
+				(*It)->PausePIE();
+			}
 		}
 	}
 
@@ -248,7 +305,11 @@ private:
 	{
 		for (TObjectIterator<UMediaPlayer> It; It; ++It)
 		{
-			(*It)->ResumePIE();
+			UMediaPlayer* Player = *It;
+			if (Player->AffectedByPIEHandling)
+			{
+				(*It)->ResumePIE();
+			}
 		}
 	}
 
@@ -269,6 +330,7 @@ private:
 	/** Class names. */
 	FName BaseMediaSourceName;
 	FName FileMediaSourceName;
+	FName MediaSoundComponentName;
 	FName MediaTextureName;
 	FName PlatformMediaSourceName;
 };

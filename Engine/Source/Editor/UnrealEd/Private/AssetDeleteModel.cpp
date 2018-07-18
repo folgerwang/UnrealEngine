@@ -356,9 +356,8 @@ bool FAssetDeleteModel::CanReplaceReferencesWith( const FAssetData& InAssetData 
 	if (FirstPendingDelete->IsChildOf(UBlueprint::StaticClass()) && AssetDataClass->IsChildOf(UBlueprint::StaticClass()))
 	{
 		// Get BP native parent classes
-		static const FName ParentClassName("ParentClass");
 		UClass* OriginalBPParentClass = CastChecked<UBlueprint>(PendingDeletes[0]->GetObject())->ParentClass;
-		const FString BPClassNameToTest = InAssetData.GetTagValueRef<FString>(ParentClassName);
+		const FString BPClassNameToTest = InAssetData.GetTagValueRef<FString>(FBlueprintTags::ParentClassPath);
 
 		if (!BPClassNameToTest.IsEmpty())
 		{

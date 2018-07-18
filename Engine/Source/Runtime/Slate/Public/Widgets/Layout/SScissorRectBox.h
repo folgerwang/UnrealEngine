@@ -33,6 +33,10 @@ class SLATE_API SScissorRectBox : public SPanel
 public:
 	class FScissorRectSlot : public TSupportsOneChildMixin<FScissorRectSlot>
 	{
+	public:
+		FScissorRectSlot(SWidget* InOwner)
+			: TSupportsOneChildMixin<FScissorRectSlot>(InOwner)
+		{}
 	};
 
 	SLATE_BEGIN_ARGS(SScissorRectBox)

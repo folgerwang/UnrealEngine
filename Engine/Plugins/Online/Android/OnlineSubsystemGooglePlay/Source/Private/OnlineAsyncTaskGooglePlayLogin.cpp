@@ -71,7 +71,7 @@ void FOnlineAsyncTaskGooglePlayLogin::Finalize()
 
 void FOnlineAsyncTaskGooglePlayLogin::TriggerDelegates()
 {
-	UE_LOG(LogOnline, Log, TEXT("FOnlineAsyncTaskGooglePlayLogin: TriggerDelegates. %d"), bWasSuccessful);
+	UE_LOG(LogOnline, Log, TEXT("FOnlineAsyncTaskGooglePlayLogin: TriggerDelegates. %d"), WasSuccessful());
 	Delegate.ExecuteIfBound();
 }
 

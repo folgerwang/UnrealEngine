@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2728318
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:カメラ エフェクトの使用
 Crumbs: %ROOT%, Engine, Engine/Matinee, Engine/Matinee/HowTo
@@ -10,19 +10,19 @@ SkillLevel:Intermediate
 
 [INCLUDE:Engine/Matinee/HowTo/MHT_1#projectstart]
 
-マチネ、カメラ、プロップを追加する
+## マチネ、カメラ、プロップを追加する
 
 この手順では、**Matinee アクタ**、**カメラ**、およびショット対象のプロップを追加します。 
 
-1. **ツールバー** メニューから **[マチネ]** を選択し、**[Add Matinee]** ボタンをクリックします。 
+1. **ツールバー** メニューから **[マチネ]** を選択し、**[Add Matinee (マチネ追加)]** ボタンをクリックします。 
 
 	![](Engine\Matinee\HowTo\MHT_1\MHT1_AddMatinee.png)(w:720)
 
-1. マチネ の undo 警告メッセージが表示されたら、**Continue** ボタンをクリックします。 
+1. マチネ の undo 警告メッセージが表示されたら、**[Continue]** ボタンをクリックします。 
 
 	![](Engine\Matinee\HowTo\MHT_1\MHT1_MatineeWarning.png)
 
-1. **マチネ エディタ** ウィンドウが開きます。 
+1. **[マチネ エディタ]** ウィンドウが開きます。 
 
 	[REGION:lightbox]
 	[![](Engine\Matinee\HowTo\MHT_1\MHT1_MatineeOpen.png)(w:640)](Engine\Matinee\HowTo\MHT_1\MHT1_MatineeOpen.png)
@@ -56,8 +56,7 @@ SkillLevel:Intermediate
 
 	![](MHT4_C2_CameraSettings.png)
 
-
-カメラをマチネに追加し、トラックを追加する
+## カメラをマチネに追加し、トラックを追加する
 
 このステップでは、**カメラ** を **マチネ** に追加し、シーンで操作するポストプロセスのトラックをセットアップします。
 
@@ -92,6 +91,7 @@ SkillLevel:Intermediate
 1. 手順 7 と 8 を繰り返しますが、**CameraComponent.PostProcessSettings.FilmContrast** オプションを追加し、**Ok** を押します。 
 
 1. 再度手順 7 と 8 を繰り返しますが、今回は、**CameraComponent.PostProcessSettings.FilmSaturation** オプションを追加し、**Ok** を押します。 
+
 1. これで Camera1 グループは、以下のように **Movement** トラックと **FOV** トラック、さらに 3 つの **Float Property** トラックを持つようになります。 
 
 	![](MHT4_Camera1PropertiesComplete.png)
@@ -106,8 +106,7 @@ SkillLevel:Intermediate
 
 	![](MHT4_CameraGroupsComplete.png)
 
-
-Camera 1, Shot 1 - 移動とポストプロセス エフェクト
+## Camera 1, Shot 1 - 移動とポストプロセス エフェクト
 
 この手順では、カメラの移動とポストプロセス エフェクトを Camera 1 に追加しますが、これが第 1 のショットになります。
 
@@ -145,7 +144,7 @@ Camera 1, Shot 1 - 移動とポストプロセス エフェクト
 
 1. マチネ エディタへ戻ります。**Camera1** の **FOVAngle** をクリックします。 
 
-1. タイムバー がまだ **5.00** にある状態で **[Enter]** キーを押して新規キーフレームを追加します。 
+1. タイムバーがまだ **5.00** にある状態で **Enter** キーを押して、新規キーフレームを追加します。 
 
 1. 新規キーフレーム上で **右クリック** して **Set Value** を選択してその値を **45** に設定します。 
 
@@ -161,11 +160,9 @@ Camera 1, Shot 1 - 移動とポストプロセス エフェクト
 
 	_これでバックグラウンドがフォーカスされ、続いてフォアグラウンドの低木をフォーカスするにつれて、バックグラウンドはブレンドしてフォーカスされなくなります。_
 
-
-Camera 2, Shot 2 - 移動とポストプロセス エフェクト
+## Camera 2, Shot 2 - 移動とポストプロセス エフェクト
 
 この手順では、カメラの移動とポストプロセス エフェクトを Camera 2 に追加しますが、これが第 2 のショットになります。 
-
 
 1. **Camera2** の **Movement** トラック上でタイムバーを **5.00** に移動し、**[Enter]** キーを押してキーフレームを追加し、**0.00** のキーフレームを削除します。
 
@@ -216,7 +213,7 @@ Camera 2, Shot 2 - 移動とポストプロセス エフェクト
 	_これで、岩にフォーカスをあてながらバックグラウンドをぼやかし、雲にパンすると雲にフォーカスが合わせられます。_
 
 
-Camera 1, Shot 3 - フィルム エフェクトを追加する
+## Camera 1, Shot 3 - フィルム エフェクトを追加する
 
 この手順では、シーケンスの第 3 のショットのためにカメラ 1 に切り替え、フィルムのポストプロセス エフェクトを追加します。 
 
@@ -272,8 +269,7 @@ Camera 1, Shot 3 - フィルム エフェクトを追加する
 
 	_マチネで更新されるため、これらの設定はデフォルトのままにします。_
 
-
-Camera 2, Shot 4 - シーンカラー エフェクトを追加する
+## Camera 2, Shot 4 - シーンカラー エフェクトを追加する
 
 この手順では、最終ショットのためにカメラ 2 に切り替え、シーンにノイズフィルタ エフェクトを追加します。 
 
@@ -295,18 +291,18 @@ Camera 2, Shot 4 - シーンカラー エフェクトを追加する
 
 	![](MHT4_C2_FinalPlacement.png)(w:640)
 
-1. CameraActor2 を選択したままの状態で [詳細] パネルで **Scene Color** セクションを探し、**Grain Intensity** を **有効** にします。 
+1. CameraActor2 をまだ選択した状態で、 [詳細] パネルの **[Scene Color]** で、**[Grain Intensity]** を有効にします。 
 
 	![](MHT4_C2_EnableIntensity.png)
 
 	_マチネで更新されるため、この設定はデフォルトのままにします。_
 
-
-Director Group - カメラのカットとフェードを追加する
+## Director Group - カメラのカットとフェードを追加する
 
 この手順では、カメラのカットとフェードを **Director** トラックで追加して終了します。 
 
 1. マチネ エディタ内の Camera2 の最後のトラックの空のスペースで、**右クリック** し、コンテキスト メニューから **Add New Director Group** を選択します。 
+
 	![](MHT4_AddDirectorGroup.png)(h:400)
 
 1. 新規 **Director** トラックでタイムバーが **0.00** にある状態で、**Enter** を押して新規のキーを追加し、ポップアップメニューから **Camera1** を選択します。 

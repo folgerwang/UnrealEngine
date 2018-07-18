@@ -228,7 +228,7 @@ UArrowComponent::UArrowComponent(const FObjectInitializer& ObjectInitializer)
 	ArrowSize = 1.0f;
 	bHiddenInGame = true;
 	bUseEditorCompositing = true;
-	bGenerateOverlapEvents = false;
+	SetGenerateOverlapEvents(false);
 	bIsScreenSizeScaled = false;
 	ScreenSize = DEFAULT_SCREEN_SIZE;
 #if WITH_EDITORONLY_DATA

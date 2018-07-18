@@ -9,7 +9,7 @@
 #include "DetailPropertyRow.h"
 #include "IDetailCustomization.h"
 #include "ObjectPropertyNode.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "SPropertyEditorEditInline.h"
 
 namespace DetailLayoutHelpers

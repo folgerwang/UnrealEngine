@@ -14,6 +14,7 @@
 #include "Components/DirectionalLightComponent.h"
 #include "Components/SkyLightComponent.h"
 #include "Components/LineBatchComponent.h"
+#include "Components/ReflectionCaptureComponent.h"
 
 FPreviewScene::FPreviewScene(FPreviewScene::ConstructionValues CVS)
 	: PreviewWorld(NULL)
@@ -140,6 +141,12 @@ void FPreviewScene::AddReferencedObjects( FReferenceCollector& Collector )
 {
 	Collector.AddReferencedObjects( Components );
 	Collector.AddReferencedObject( PreviewWorld );
+}
+
+void FPreviewScene::UpdateCaptureContents()
+{
+	USkyLightComponent::UpdateSkyCaptureContents(PreviewWorld);
+	UReflectionCaptureComponent::UpdateReflectionCaptureContents(PreviewWorld);
 }
 
 void FPreviewScene::ClearLineBatcher()

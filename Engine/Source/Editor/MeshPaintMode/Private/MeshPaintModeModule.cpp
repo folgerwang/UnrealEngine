@@ -13,7 +13,7 @@
 
 #include "PaintModeSettings.h"
 
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 
 IMPLEMENT_MODULE(FMeshPaintModeModule, MeshPaintMode );
 
@@ -40,9 +40,12 @@ void FMeshPaintModeModule::ShutdownModule()
 	FEditorModeRegistry::Get().UnregisterMode(FBuiltinEditorModes::EM_MeshPaint);
 
 	/** De-register detail/property customization */
-	FPropertyEditorModule& PropertyModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
-	PropertyModule.UnregisterCustomClassLayout("PaintModeSettings");
-	PropertyModule.UnregisterCustomPropertyTypeLayout("VertexPaintSettings");
-	PropertyModule.UnregisterCustomPropertyTypeLayout("TexturePaintSettings");
-	PropertyModule.UnregisterCustomPropertyTypeLayout("TexturePaintSettings");
+	FPropertyEditorModule* PropertyModule = FModuleManager::GetModulePtr<FPropertyEditorModule>("PropertyEditor");
+	if (PropertyModule)
+	{
+		PropertyModule->UnregisterCustomClassLayout("PaintModeSettings");
+		PropertyModule->UnregisterCustomPropertyTypeLayout("VertexPaintSettings");
+		PropertyModule->UnregisterCustomPropertyTypeLayout("TexturePaintSettings");
+		PropertyModule->UnregisterCustomPropertyTypeLayout("TexturePaintSettings");
+	}
 }

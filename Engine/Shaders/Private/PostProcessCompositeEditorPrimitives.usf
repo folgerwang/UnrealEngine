@@ -115,7 +115,7 @@ void MainComposeEditorPrimitivesPS(
 	float2 SceneBufferUV = ViewportUVToBufferUV(ViewportUV);
 
 	float2 PixelPosF = UVAndScreenPos.zw * ScreenPosToPixel.xy + ScreenPosToPixel.zw + 0.5f;
-	int2 PixelPos = int2(SvPosition.xy);
+	int2 PixelPos = int2(ViewportUVToPostProcessingSceneColorBufferUV(ViewportUV) * PostprocessInput0Size.xy);
 	
 	// Fetch scene color.
 	float2 SceneColorUV = ViewportUVToPostProcessingSceneColorBufferUV(ViewportUV);

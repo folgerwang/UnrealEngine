@@ -10,6 +10,8 @@
 #include "AI/Navigation/NavigationTypes.h"
 #include "NavLinkDefinition.generated.h"
 
+class UNavAreaBase;
+
 UENUM()
 namespace ENavLinkDirection
 {
@@ -159,7 +161,7 @@ struct ENGINE_API FNavigationLinkBase
 private:
 	/** Area type of this link (empty = default) */
 	UPROPERTY(EditAnywhere, Category = Default)
-	TSubclassOf<class UNavArea> AreaClass;
+	TSubclassOf<UNavAreaBase> AreaClass;
 
 	TWeakObjectPtr<UClass> AreaClassOb;
 };

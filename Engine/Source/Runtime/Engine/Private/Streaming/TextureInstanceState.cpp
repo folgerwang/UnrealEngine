@@ -12,7 +12,7 @@
 #include "Components/PrimitiveComponent.h"
 #include "Engine/Texture2D.h"
 #include "UObject/UObjectHash.h"
-#include "RefCounting.h"
+#include "Templates/RefCounting.h"
 
 int32 FTextureInstanceState::AddBounds(const UPrimitiveComponent* Component)
 {
@@ -55,6 +55,12 @@ int32 FTextureInstanceState::AddBounds(const FBoxSphereBounds& Bounds, uint32 Pa
 void FTextureInstanceState::RemoveBounds(int32 BoundsIndex)
 {
 	checkSlow(!FreeBoundIndices.Contains(BoundsIndex));
+
+	// If the BoundsIndex is out of range, the next code will crash.	
+	if (!ensure(Bounds4Components.IsValidIndex(BoundsIndex)))
+	{
+		return;
+	}
 
 	// Because components can be removed in CheckRegistrationAndUnpackBounds, which iterates on BoundsToUnpack,
 	// here we invalidate the index, instead of removing it, to avoid resizing the array.
@@ -259,6 +265,8 @@ void FTextureInstanceState::AddTextureElements(const UPrimitiveComponent* Compon
 
 EAddComponentResult FTextureInstanceState::AddComponent(const UPrimitiveComponent* Component, FStreamingTextureLevelContext& LevelContext, float MaxAllowedUIDensity)
 {
+	check(Component);
+
 	TArray<FStreamingTexturePrimitiveInfo> TextureInstanceInfos;
 	Component->GetStreamingTextureInfoWithNULLRemoval(LevelContext, TextureInstanceInfos);
 	// Texture entries are guarantied to be relevant here, except for bounds if the component is not registered.

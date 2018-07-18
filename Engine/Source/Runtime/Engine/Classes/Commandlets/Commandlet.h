@@ -24,6 +24,9 @@
  *
  * Commandlets are executed in a "raw" environment, in which the game isn't
  * loaded, the client code isn't loaded, no levels are loaded, and no actors exist.
+ * 
+ * To disable shader compiling during the run of the commandlet add "-NoShaderCompile" to the commandline.
+ * This would be added as data member setting except that the shader compiler is initialized before a commandlet is created so it cannot be queried soon enough.
  */
 
 #pragma once
@@ -79,7 +82,10 @@ class UCommandlet : public UObject
 	/** Whether to show standard error and warning count on exit */
 	UPROPERTY()
 	uint32 ShowErrorCount:1;
-
+  
+	/** Whether to show cooking progress on tick */
+	UPROPERTY()
+	uint32 ShowProgress:1;
 
 	/**
 	 * Entry point for your commandlet

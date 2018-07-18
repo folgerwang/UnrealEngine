@@ -8,7 +8,7 @@ public class jemalloc : ModuleRules
 	{
 		Type = ModuleType.External;
 
-        if (Target.Platform == UnrealTargetPlatform.Linux)
+		if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
         {
 		    // includes may differ depending on target platform
 		    PublicIncludePaths.Add(Target.UEThirdPartySourceDirectory + "jemalloc/include/Linux/" + Target.Architecture);

@@ -236,6 +236,7 @@ private:
 	friend class UTexture;
 	friend class UTexture2D;
 	friend class UTextureCube;
+	friend class UVolumeTexture;
 
 	/** The bulk source data. */
 	FByteBulkData BulkData;
@@ -359,7 +360,7 @@ struct FTexturePlatformData
 		uint32 InFlags,
 		class ITextureCompressorModule* Compressor);
 	void FinishCache();
-	ENGINE_API bool TryInlineMipData();
+	ENGINE_API bool TryInlineMipData(int32 FirstMipToLoad = 0);
 	bool AreDerivedMipsAvailable() const;
 #endif
 
@@ -756,7 +757,7 @@ public:
 #if WITH_EDITORONLY_DATA
 	ENGINE_API virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const override;
 #endif
-	ENGINE_API virtual bool IsPostLoadThreadSafe() const override{ return false; }
+	ENGINE_API virtual bool IsPostLoadThreadSafe() const override;
 	//~ End UObject Interface.
 
 	/**

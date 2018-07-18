@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3810557
 Availability:Public
 Title:게임 프로젝트 컴파일하기
 Crumbs: %ROOT%, Programming, Programming/Development
@@ -24,6 +24,11 @@ UnrealBuildTool 은 `*.Build.cs` 와 `*.Target.cs` 파일을 사용하여 게임
 
 언리얼 엔진 4 와 UnrealBuildTool 은 엔진 컴파일 방식을 결정하는 데 있어 여러가지 빌드 환경설정을 사용합니다. 만들고자 하는 빌드의 용도에 따라 사용할 환경설정이 결정됩니다.
 
+[INCLUDE:#winbuildconfig]
+
+[/EXCERPT:Main]
+
+[COMMENT:none]
 [EXCERPT:winbuildconfig]
 각 빌드 환경설정에는 두 개의 키워드가 들어있습니다. 그 중 첫 번째는 엔진과 게임 프로젝트의 상태를 나타냅니다. 예를 들어 **Debug** 환경설정을 사용해서 컴파일을 하는 경우, 
 게임 코드 디버깅이 가능합니다. 둘째 키워드는 빌드 대상이 되는 타겟입니다. 예를 들어, 프로젝트를 언리얼에서 열고자 하는 경우, 타겟 키워드를 **Editor** 로 붙여 
@@ -44,8 +49,7 @@ UnrealBuildTool 은 `*.Build.cs` 와 `*.Target.cs` 파일을 사용하여 게임
 | **Client**                  | UE4 네트워킹 기능을 사용하는 멀티플레이어 프로젝트 작업을 하는 경우, 이 타겟은 지정된 프로젝트를 멀티플레이어 게임의 UE4 클라이언트-서버 모델에서 클라이언트로 지정합니다. `<Game>Client.Target.cs` 파일이 있다면, **Client** 빌드 환경설정이 사용됩니다. |
 | **Server**                  | UE4 네트워킹 기능을 사용하는 멀티플레이어 프로젝트 작업을 하는 경우, 이 타겟은 지정된 프로젝트를 멀티플레이어 게임의 UE4 클라이언트-서버 모델에서 서버로 지정합니다. `<Game>Server.Target.cs` 파일이 있다면, **Server** 빌드 환경설정이 사용됩니다. |                                                                                                                                
 [/EXCERPT:winbuildconfig]
-
-[/EXCERPT:Main]
+[/COMMENT]
 
 [EXCERPT:VS]
 ## Visual Studio 로 빌드하기
@@ -69,7 +73,7 @@ UnrealBuildTool 은 `*.Build.cs` 와 `*.Target.cs` 파일을 사용하여 게임
 솔루션 플랫폼 설정은 Visual Studio 툴바에서 가능합니다.
 [COMMENT:none]
 
-UE4 currently supports the following platforms:
+UE4 에서 현재 지원하는 플랫폼은 다음과 같습니다:
 
 * **윈도우 64-비트**
 
@@ -122,6 +126,17 @@ Visual Studio 에서 빌드할 때, 게임 프로젝트에 추가로 엔진도 �
 
 이제 컴파일된 프로젝트로 [엔진을 실행](GettingStarted/RunningUnrealEngine) 시킬 수 있습니다.
 
+[INCLUDE:#MatchEXE]
+
+### Visual Studio 알려진 문제
+
+| 문제 | 해법 |
+| ---- | ---- |
+| "Project is out of date" 라는 메시지가 항상 나타납니다. | 사실 최신 프로젝트인데도 Visual Studio 는 오래되었다 보는 것입니다. 이 메시지는 **Do not show this dialog again** 박스를 체크하고 **No** 를 선택하여 억제시켜도 안전합니다. |
+| _Debug_ 환경설정 사용시 **No Debugging Information** 창이 뜹니다. | UE4editor.exe 는 _Development_ 환경설정을 사용해서 컴파일되었기 때문입니다. 이런 경고에도 불구하고 _Debug_ 환경설정으로 컴파일해도 게임 프로젝트를 디버깅할 수 있습니다. 이 메시지는 **Do not show this dialog again** 박스를 체크하고 **Yes** 를 눌러 억제시켜도 안전합니다. |
+[/EXCERPT:VS]
+
+[COMMENT:none]
 [EXCERPT:MatchEXE]
 [REGION:note]
 엔진을 실행할 때는, 프로젝트 리빌드시 선택한 빌드 환경설정에 일치하는 언리얼 엔진 실행파일을 사용하는 것이 중요합니다. 예를 들어 프로젝트를 **DebugGame Uncooked** 빌드 환경설정으로 
@@ -132,14 +147,7 @@ Visual Studio 에서 빌드할 때, 게임 프로젝트에 추가로 엔진도 �
 언리얼을 실행할 때 중요한 점은, **Uncooked** 환경설정으로 프로젝트를 리빌드한 경우 `-game` 플래그를 붙여야 하고, **Debug** 환경설정으로 프로젝트를 리빌드한 경우 `-debug` 플래그를 붙여야 합니다.
 [/REGION:note]
 [/EXCERPT:MatchEXE]
-
-### Visual Studio 알려진 문제
-
-| 문제 | 해법 |
-| ---- | ---- |
-| "Project is out of date" 라는 메시지가 항상 나타납니다. | 사실 최신 프로젝트인데도 Visual Studio 는 오래되었다 보는 것입니다. 이 메시지는 **Do not show this dialog again** 박스를 체크하고 **No** 를 선택하여 억제시켜도 안전합니다. |
-| _Debug_ 환경설정 사용시 **No Debugging Information** 창이 뜹니다. | UE4editor.exe 는 _Development_ 환경설정을 사용해서 컴파일되었기 때문입니다. 이런 경고에도 불구하고 _Debug_ 환경설정으로 컴파일해도 게임 프로젝트를 디버깅할 수 있습니다. 이 메시지는 **Do not show this dialog again** 박스를 체크하고 **Yes** 를 눌러 억제시켜도 안전합니다. |
-[/EXCERPT:VS]
+[/COMMENT]
 
 [EXCERPT:Xcode]
 
@@ -151,15 +159,11 @@ Xcode 에서 빌드할 때는, 프로젝트만 컴파일하는 것이지, 에디
 
 **프로젝트를 컴파일하려면:**
 
-언리얼 엔진 Xcode 프로젝트는 Xcode 의 **Product > Build For > Profiling** 사용시 Development 환경설정을, **Product > Build** 옵션 사용시 Debug 환경설정을 사용하도록 되어 있습니다. 이 작동방식은 타겟 스키마를 편집하여 바꿀 수 있습니다.
+언리얼 엔진 Xcode 프로젝트는 Xcode 의 **Product - Build For - Profiling** 사용시 Development 환경설정을, **Product - Build** 옵션 사용시 Debug 환경설정을 사용하도록 되어 있습니다. 이 작동방식은 타겟 스키마를 편집하여 바꿀 수 있습니다.
 
 이제 컴파일된 프로젝트로 [엔진을 실행](GettingStarted/RunningUnrealEngine) 할 수 있습니다.
 
-[EXCERPT:MatchDMG]
-[REGION:note]
-바이너리 에디터 실행시, 프로젝트 리빌드를 **Uncooked** 환경설정으로 한 경우 `-game` 플래그를, **Debug** 환경설정으로 한 경우 `-debug` 플래그를 붙여줘야 합니다.
-[/REGION:note]	
-[/EXCERPT:MatchDMG]
+[INCLUDE:#MatchDMG]
 
 ### Xcode 알려진 문제
 
@@ -168,6 +172,7 @@ Xcode 에서 빌드할 때는, 프로젝트만 컴파일하는 것이지, 에디
 | ----- | -------- |
 | 중단점에 Xcode 가 멈추지 않습니다 | [INCLUDE:#XcodeDebug] |
 
+[/EXCERPT:Xcode]
 [COMMENT:none]
 
 [EXCERPT:XcodeDebug]
@@ -176,11 +181,10 @@ Xcode 의 LLDB 디버거 설정을 올바르게 해 줘야 언리얼 엔진 프�
 	settings set target.inline-breakpoint-strategy always
 [/EXCERPT:XcodeDebug]
 
-[/COMMENT]
+[EXCERPT:MatchDMG]
+[REGION:note]
+바이너리 에디터 실행시, 프로젝트 리빌드를 **Uncooked** 환경설정으로 한 경우 `-game` 플래그를, **Debug** 환경설정으로 한 경우 `-debug` 플래그를 붙여줘야 합니다.
+[/REGION:note]	
+[/EXCERPT:MatchDMG]
 
-[/EXCERPT:Xcode]
-
-[COMMENT:none]
- The following was deprecated per LaurenR 29.7.15
-| **Uncooked**                | Projects built using configurations that have an **Uncooked** type should be opened in Unreal Editor with the "-game" flag.  This runs your game with uncooked content, in a new window, and is equivalent to **Play in > New Window at Default Player Start** in the editor.       | 
 [/COMMENT]

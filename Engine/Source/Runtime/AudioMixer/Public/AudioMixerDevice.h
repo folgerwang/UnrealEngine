@@ -28,6 +28,29 @@ namespace Audio
 		{}
 	};
 
+	/** Data used to schedule events automatically in the audio renderer in audio mixer. */
+	struct FAudioThreadTimingData
+	{
+		/** The time since audio device started. */
+		double StartTime;
+
+		/** The clock of the audio thread, periodically synced to the audio render thread time. */
+		double AudioThreadTime;
+
+		/** The clock of the audio render thread. */
+		double AudioRenderThreadTime;
+
+		/** The current audio thread fraction for audio events relative to the render thread. */
+		double AudioThreadTimeJitterDelta;
+
+		FAudioThreadTimingData()
+			: StartTime(0.0)
+			, AudioThreadTime(0.0)
+			, AudioRenderThreadTime(0.0)
+			, AudioThreadTimeJitterDelta(0.05)
+		{}
+	};
+
 	// Master submixes
 	namespace EMasterSubmixType
 	{
@@ -55,6 +78,7 @@ namespace Audio
 		virtual void FadeIn() override;
 		virtual void FadeOut() override;
 		virtual void TeardownHardware() override;
+		virtual void UpdateHardwareTiming() override;
 		virtual void UpdateHardware() override;
 		virtual double GetAudioTime() const override;
 		virtual FAudioEffectsManager* CreateEffectsManager() override;
@@ -62,6 +86,7 @@ namespace Audio
 		virtual FName GetRuntimeFormat(USoundWave* SoundWave) override;
 		virtual bool HasCompressedAudioInfoClass(USoundWave* SoundWave) override;
 		virtual bool SupportsRealtimeDecompression() const override;
+		virtual bool DisablePCMAudioCaching() const override;
 		virtual class ICompressedAudioInfo* CreateCompressedAudioInfo(USoundWave* SoundWave) override;
 		virtual bool ValidateAPICall(const TCHAR* Function, uint32 ErrorCode) override;
 		virtual bool Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar) override;
@@ -81,6 +106,14 @@ namespace Audio
 		// Updates the source effect chain (using unique object id). 
 		virtual void UpdateSourceEffectChain(const uint32 SourceEffectChainId, const TArray<FSourceEffectChainEntry>& SourceEffectChain, const bool bPlayEffectChainTails) override;
 		virtual bool GetCurrentSourceEffectChain(const uint32 SourceEffectChainId, TArray<FSourceEffectChainEntry>& OutCurrentSourceEffectChainEntries) override;
+		
+		// Submix recording callbacks:
+		virtual void StartRecording(USoundSubmix* InSubmix, float ExpectedRecordingDuration) override;
+		virtual Audio::AlignedFloatBuffer& StopRecording(USoundSubmix* InSubmix, float& OutNumChannels, float& OutSampleRate) override;
+
+		// Submix buffer listener callbacks
+		virtual void RegisterSubmixBufferListener(ISubmixBufferListener* InSubmixBufferListener, USoundSubmix* InSubmix = nullptr) override;
+		virtual void UnregisterSubmixBufferListener(ISubmixBufferListener* InSubmixBufferListener, USoundSubmix* InSubmix = nullptr) override;
 		//~ End FAudioDevice
 
 		//~ Begin IAudioMixer
@@ -106,8 +139,8 @@ namespace Audio
 
 		int32 GetNumOutputFrames() const { return PlatformSettings.CallbackBufferFrameSize; }
 
-		void Get3DChannelMap(const ESubmixChannelFormat InSubmixChannelType, const FWaveInstance* InWaveInstance, const float EmitterAzimuth, const float NormalizedOmniRadius, TArray<float>& OutChannelMap);
-		void Get2DChannelMap(bool bIsVorbis, const ESubmixChannelFormat InSubmixChannelType, const int32 NumSourceChannels, const bool bIsCenterChannelOnly, TArray<float>& OutChannelMap) const;
+		void Get3DChannelMap(const ESubmixChannelFormat InSubmixChannelType, const FWaveInstance* InWaveInstance, const float EmitterAzimuth, const float NormalizedOmniRadius, Audio::AlignedFloatBuffer& OutChannelMap);
+		void Get2DChannelMap(bool bIsVorbis, const ESubmixChannelFormat InSubmixChannelType, const int32 NumSourceChannels, const bool bIsCenterChannelOnly, Audio::AlignedFloatBuffer& OutChannelMap) const;
 
 		int32 GetDeviceSampleRate() const;
 		int32 GetDeviceOutputChannels() const;
@@ -140,6 +173,11 @@ namespace Audio
 
 		// Retrieves the listener transforms
 		const TArray<FTransform>* GetListenerTransforms();
+
+		// Audio thread tick timing relative to audio render thread timing
+		double GetAudioThreadTime() const { return AudioThreadTimingData.AudioThreadTime; }
+		double GetAudioRenderThreadTime() const { return AudioThreadTimingData.AudioRenderThreadTime; }
+		double GetAudioClockDelta() const { return AudioClockDelta; }
 
 	private:
 		// Resets the thread ID used for audio rendering
@@ -183,6 +221,12 @@ namespace Audio
 		/** Channel type arrays for submix channel types. */
 		TMap<ESubmixChannelFormat, TArray<EAudioMixerChannel::Type>> ChannelArrays;
 
+		/** What upmix method to use for mono channel upmixing. */
+		EMonoChannelUpmixMethod MonoChannelUpmixMethod;
+
+		/** What panning method to use for panning. */
+		EPanningMethod PanningMethod;
+
 		/** The audio output stream parameters used to initialize the audio hardware. */
 		FAudioMixerOpenStreamParams OpenStreamParams;
 
@@ -191,6 +235,9 @@ namespace Audio
 
 		/** The audio clock from device initialization, updated at block rate. */
 		double AudioClock;
+
+		/** Timing data for audio thread. */
+		FAudioThreadTimingData AudioThreadTimingData;
 
 		/** The platform device info for this mixer device. */
 		FAudioPlatformDeviceInfo PlatformInfo;

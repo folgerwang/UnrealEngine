@@ -69,7 +69,6 @@ void FNiagaraCollisionBatch::KickoffNewBatch(FNiagaraEmitterInstance *Sim, float
 				FNiagaraCollisionTrace Trace;
 				Trace.CollisionTraceHandle = Handle;
 				Trace.SourceParticleIndex = i;
-				Trace.OriginalVelocity = Velocity;
 				CollisionTraces.Add(Trace);
 			}
 
@@ -122,7 +121,6 @@ void FNiagaraCollisionBatch::GenerateEventsFromResults(FNiagaraEmitterInstance *
 					FNiagaraCollisionEventPayload Event;
 					Event.CollisionNormal = Hit->ImpactNormal;
 					Event.CollisionPos = Hit->ImpactPoint;
-					Event.CollisionVelocity = CurCheck.OriginalVelocity;
 					Event.ParticleIndex = CurTrace.UserData;
 					check(!Event.CollisionNormal.ContainsNaN());
 					check(Event.CollisionNormal.IsNormalized());
@@ -190,7 +188,7 @@ void FNiagaraCollisionBatch::GenerateEventsFromResults(FNiagaraEmitterInstance *
 
 
 
-int32 FNiagaraDICollisionQueryBatch::SubmitQuery(FVector Position, FVector Velocity, float CollisionSize, float DeltaSeconds)
+int32 FNiagaraDICollisionQueryBatch::SubmitQuery(FVector Position, FVector Direction, float CollisionSize, float DeltaSeconds)
 {
 	SCOPE_CYCLE_COUNTER(STAT_NiagaraCollision);
 	int32 Ret = INDEX_NONE;
@@ -199,13 +197,13 @@ int32 FNiagaraDICollisionQueryBatch::SubmitQuery(FVector Position, FVector Veloc
 		//int32 TestCollision = *TstIt;
 		//if (TestCollision)
 		{
-			FVector EndPosition = Position + Velocity * DeltaSeconds;
+			FVector EndPosition = Position + Direction * DeltaSeconds;
 
 			float Length;
-			FVector Direction;
-			Velocity.ToDirectionAndLength(Direction, Length);
-			Position -= Direction * (CollisionSize / 2);
-			EndPosition += Direction * (CollisionSize/ 2);
+			FVector NormDir;
+			Direction.ToDirectionAndLength(NormDir, Length);
+			Position -= NormDir * (CollisionSize / 2);
+			EndPosition += NormDir * (CollisionSize/ 2);
 
 			FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(NiagraAsync));
 			QueryParams.OwnerTag = "Niagara";
@@ -219,7 +217,8 @@ int32 FNiagaraDICollisionQueryBatch::SubmitQuery(FVector Position, FVector Veloc
 			FNiagaraCollisionTrace Trace;
 			Trace.CollisionTraceHandle = Handle;
 			Trace.SourceParticleIndex = TraceID;
-			Trace.OriginalVelocity = Velocity;
+			Trace.CollisionSize = CollisionSize;
+			Trace.DeltaSeconds = DeltaSeconds;
 
 			int32 TraceIdx = CollisionTraces[GetWriteBufferIdx()].Add(Trace);
 			IdToTraceIdx[GetWriteBufferIdx()].Add(TraceID) = TraceIdx;
@@ -282,13 +281,21 @@ bool FNiagaraDICollisionQueryBatch::GetQueryResult(uint32 InTraceID, FNiagaraDIC
 
 				Payloads.Add(Event);
 				*/
-				Result.CollisionPos = Hit->ImpactPoint;
+				Result.CollisionPos = Hit->ImpactPoint;// -NormVel*(CurTrace.CollisionSize / 2);
 				Result.CollisionNormal = Hit->ImpactNormal;
-				Result.CollisionVelocity = CurTrace.OriginalVelocity;
 				Result.TraceID = InTraceID;
-				Result.PhysicalMaterialIdx = Hit->PhysMaterial->GetUniqueID();
-				Result.Friction = Hit->PhysMaterial->Friction;
-				Result.Restitution = Hit->PhysMaterial->Restitution;
+				if (Hit->PhysMaterial.IsValid())
+				{
+					Result.PhysicalMaterialIdx = Hit->PhysMaterial->GetUniqueID();
+					Result.Friction = Hit->PhysMaterial->Friction;
+					Result.Restitution = Hit->PhysMaterial->Restitution;
+				}
+				else
+				{
+					Result.PhysicalMaterialIdx = -1;
+					Result.Friction = 0.0f;
+					Result.Restitution = 0.0f;
+				}
 				return true;
 			}
 		}

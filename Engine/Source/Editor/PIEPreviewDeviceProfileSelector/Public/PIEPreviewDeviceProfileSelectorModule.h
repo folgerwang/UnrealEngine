@@ -5,16 +5,16 @@
 #include "IDeviceProfileSelectorModule.h"
 #include "PIEPreviewDeviceEnumeration.h"
 #include "RHIDefinitions.h"
-#include "CommandLine.h"
+#include "Misc/CommandLine.h"
 #include "Widgets/SWindow.h"
-#include "Private/PIEPreviewWindowCoreStyle.h"
-#include "Private/PIEPreviewWindow.h"
+#include "../Private/PIEPreviewWindowCoreStyle.h"
+#include "../Private/PIEPreviewWindow.h"
 #include "IPIEPreviewDeviceModule.h"
 /**
 * Implements the Preview Device Profile Selector module.
 */
 
-class PIEPREVIEWDEVICEPROFILESELECTOR_API FPIEPreviewDeviceModule
+class FPIEPreviewDeviceModule
 	: public IPIEPreviewDeviceModule
 {
 public:

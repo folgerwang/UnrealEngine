@@ -75,7 +75,7 @@ void FDragTool_ActorFrustumSelect::EndDrag()
 	bool bSelectionChanged = false;
 
 	// Let the editor mode try to handle the selection.
-	const bool bEditorModeHandledSelection = ModeTools->FrustumSelect(Frustum, bLeftMouseButtonDown);
+	const bool bEditorModeHandledSelection = ModeTools->FrustumSelect(Frustum, LevelViewportClient, bLeftMouseButtonDown);
 
 	if( !bEditorModeHandledSelection )
 	{
@@ -119,50 +119,9 @@ void FDragTool_ActorFrustumSelect::EndDrag()
 			// Extend the endpoint of the rect to get the actual line
 			FIntRect BoxRect( FIntPoint( FMath::Max( 0.0f, Start.X ), FMath::Max( 0.0f, Start.Y ) ), FIntPoint( FMath::Min(ViewportSizeX, FMath::TruncToInt(End.X+1)), FMath::Min( ViewportSizeY, FMath::TruncToInt(End.Y+1) ) ) );
 
-			const TArray<FColor>& RawHitProxyData = LevelViewportClient->Viewport->GetRawHitProxyData(BoxRect);
-
 			TSet<AActor*> HitActors;
 			TSet<UModel*> HitModels;
-
-
-			// Lower the resolution with massive box selects
-			int32 Step = (BoxRect.Width() > 500 && BoxRect.Height() > 500) ? 4 : 1;
-
-
-			for (int32 Y = BoxRect.Min.Y; Y < BoxRect.Max.Y; Y = Y < BoxRect.Max.Y - 1 ? FMath::Min(BoxRect.Max.Y-1, Y+Step) : ++Y )
-			{
-				const FColor* SourceData = &RawHitProxyData[Y * ViewportSizeX];
-				for (int32 X = BoxRect.Min.X; X < BoxRect.Max.X; X = X < BoxRect.Max.X-1 ? FMath::Min(BoxRect.Max.X-1, X + Step) : ++X )
-				{
-					FHitProxyId HitProxyId(SourceData[X]);
-					HHitProxy* HitProxy = GetHitProxyById(HitProxyId);
-
-					if (HitProxy)
-					{
-						if( HitProxy->IsA(HActor::StaticGetType()) )
-						{
-							AActor* Actor = ((HActor*)HitProxy)->Actor;
-							if (Actor)
-							{
-								HitActors.Add(Actor);
-							}
-						}
-						else if( HitProxy->IsA(HModel::StaticGetType()) )
-						{
-							HitModels.Add( ((HModel*)HitProxy)->GetModel() );
-						}
-						else if( HitProxy->IsA(HBSPBrushVert::StaticGetType()) )
-						{
-							HBSPBrushVert* HitBSPBrushVert = ((HBSPBrushVert*)HitProxy);
-							if( HitBSPBrushVert->Brush.IsValid() )
-							{
-								HitActors.Add( HitBSPBrushVert->Brush.Get() );
-							}
-						}
-					}
-
-				}
-			}
+			LevelViewportClient->Viewport->GetActorsAndModelsInHitProxy( BoxRect, HitActors, HitModels );
 
 			if (HitModels.Num() > 0)
 			{
@@ -298,10 +257,15 @@ void FDragTool_ActorFrustumSelect::CalculateFrustum( FSceneView* View, FConvexVo
 		FPlane BottomPlane(BoxPoint3, BoxPoint4, CamPoint); // Bottom Plane
 		FPlane LeftPlane(BoxPoint4, BoxPoint1, CamPoint); // Left Plane
 
-		// Try to get all six planes to create a frustum
+		// Try to get all six planes to create a frustum.
+		// The frustum is built with the first four planes corresponding to the sides of the frustum.
 		FPlane NearPlane;
 		FPlane FarPlane;
 		OutFrustum.Planes.Empty();
+		OutFrustum.Planes.Add(TopPlane);
+		OutFrustum.Planes.Add(RightPlane);
+		OutFrustum.Planes.Add(BottomPlane);
+		OutFrustum.Planes.Add(LeftPlane);
 		if ( View->ViewMatrices.GetViewProjectionMatrix().GetFrustumNearPlane(NearPlane) )
 		{
 			OutFrustum.Planes.Add(NearPlane);
@@ -310,10 +274,6 @@ void FDragTool_ActorFrustumSelect::CalculateFrustum( FSceneView* View, FConvexVo
 		{
 			OutFrustum.Planes.Add(FarPlane);
 		}
-		OutFrustum.Planes.Add(TopPlane);
-		OutFrustum.Planes.Add(RightPlane);
-		OutFrustum.Planes.Add(BottomPlane);
-		OutFrustum.Planes.Add(LeftPlane);
 		OutFrustum.Init();
 	}
 	else

@@ -14,6 +14,7 @@
 #include "Misc/RemoteConfigIni.h"
 #include "Misc/DefaultValueHelper.h"
 #include "Misc/ConfigManifest.h"
+#include "Misc/DataDrivenPlatformInfoRegistry.h"
 
 #if WITH_EDITOR
 	#define INI_CACHE 1
@@ -318,6 +319,62 @@ static void FixupArrayOfStructKeysForSection(FConfigSection* Section, const FStr
 	}
 }
 
+
+/**
+ * Check if an ini file exists, allowing a delegate to determine if it will handle loading it
+ */
+static bool DoesConfigFileExistWrapper(const TCHAR* IniFile)
+{
+	// will any delegates return contents via PreLoadConfigFileDelegate()?
+	int32 ResponderCount = 0;
+	FCoreDelegates::CountPreLoadConfigFileRespondersDelegate.Broadcast(IniFile, ResponderCount);
+
+	if (ResponderCount > 0)
+	{
+		return true;
+	}
+
+	// otherwise just look for the normal file to exist
+	return IFileManager::Get().FileSize(IniFile) >= 0;
+}
+
+/**
+ * Load ini file, but allowing a delegate to handle the loading instead of the standard file load
+ */
+static bool LoadConfigFileWrapper(const TCHAR* IniFile, FString& Contents)
+{
+	// let other systems load the file instead of the standard load below
+	FCoreDelegates::PreLoadConfigFileDelegate.Broadcast(IniFile, Contents);
+
+	// if this loaded any text, we are done, and we won't override the contents with standard ini file data
+	if (Contents.Len())
+	{
+		return true;
+	}
+
+	// note: we don't check if FileOperations are disabled because downloadable content calls this directly (which
+	// needs file ops), and the other caller of this is already checking for disabled file ops
+	// and don't read from the file, if the delegate got anything loaded
+	return FFileHelper::LoadFileToString(Contents, IniFile);
+}
+
+/**
+ * Save an ini file, with delegates also saving the file (its safe to allow both to happen, even tho loading doesn't behave this way)
+ */
+static bool SaveConfigFileWrapper(const TCHAR* IniFile, const FString& Contents)
+{
+	// let anyone that needs to save it, do so (counting how many did)
+	int32 SavedCount = 0;
+	FCoreDelegates::PreSaveConfigFileDelegate.Broadcast(IniFile, Contents, SavedCount);
+
+	// save it even if a delegate did as well
+	bool bLocalWriteSucceeded = FFileHelper::SaveStringToFile(Contents, IniFile);
+
+	// success is based on a delegate or file write working (or both)
+	return SavedCount > 0 || bLocalWriteSucceeded;
+}
+
+
 /*-----------------------------------------------------------------------------
 	FConfigFile
 -----------------------------------------------------------------------------*/
@@ -383,10 +440,24 @@ FConfigSection* FConfigFile::FindOrAddSection(const FString& SectionName)
 bool FConfigFile::Combine(const FString& Filename)
 {
 	FString Text;
-	// note: we don't check if FileOperations are disabled because downloadable content calls this directly (which
-	// needs file ops), and the other caller of this is already checking for disabled file ops
-	if( FFileHelper::LoadFileToString( Text, *Filename ) )
+
+	if (LoadConfigFileWrapper(*Filename, Text))
 	{
+		if (Text.StartsWith("#!"))
+		{
+			// this will import/"execute" another .ini file before this one - useful for subclassing platforms, like tvOS extending iOS
+			// the text following the #! is a relative path to another .ini file
+			FString TheLine;
+			int32 LinesConsumed = 0;
+			// skip over the #!
+			const TCHAR* Ptr = *Text + 2;
+			FParse::LineExtended(&Ptr, TheLine, LinesConsumed, false);
+			TheLine = TheLine.TrimEnd();
+		
+			// now import the relative path'd file (TVOS would have #!../IOS) recursively
+			Combine(FPaths::GetPath(Filename) / TheLine);
+		}
+
 		CombineFromBuffer(Text);
 		return true;
 	}
@@ -712,7 +783,7 @@ void FConfigFile::Read( const FString& Filename )
 		Empty();
 		FString Text;
 
-		if( FFileHelper::LoadFileToString( Text, *Filename ) )
+		if (LoadConfigFileWrapper(*Filename, Text))
 		{
 			// process the contents of the string
 			ProcessInputFileContents(Text);
@@ -886,7 +957,7 @@ static bool LoadIniFileHierarchy(const FConfigFileHierarchy& HierarchyToLoad, FC
 		{
 			const FIniFilename& IniToLoad = HierarchyIt.Value;
 			if (IniToLoad.bRequired == false &&
-				 (!IsUsingLocalIniFile(*IniToLoad.Filename, nullptr) || IFileManager::Get().FileSize(*IniToLoad.Filename) >= 0))
+				 (!IsUsingLocalIniFile(*IniToLoad.Filename, nullptr) || DoesConfigFileExistWrapper(*IniToLoad.Filename)))
 			{
 				NumExistingOptionalInis++;
 			}
@@ -944,7 +1015,7 @@ static bool LoadIniFileHierarchy(const FConfigFileHierarchy& HierarchyToLoad, FC
 			if (bDoProcess)
 			{
 				// Spit out friendly error if there was a problem locating .inis (e.g. bad command line parameter or missing folder, ...).
-				if (IsUsingLocalIniFile(*IniFileName, nullptr) && (IFileManager::Get().FileSize(*IniFileName) < 0))
+				if (IsUsingLocalIniFile(*IniFileName, nullptr) && !DoesConfigFileExistWrapper(*IniFileName))
 				{
 					if (IniToLoad.bRequired)
 					{
@@ -1222,7 +1293,8 @@ bool FConfigFile::Write( const FString& Filename, bool bDoRemoteWrite/* = true*/
 		// Write out the remote version (assuming it was loaded)
 		FRemoteConfig::Get()->Write(*Filename, Text);
 	}
-	bool bResult = FFileHelper::SaveStringToFile( Text, *Filename );
+
+	bool bResult = SaveConfigFileWrapper(*Filename, Text);
 
 #if INI_CACHE
 	// if we wrote the config successfully
@@ -1486,7 +1558,7 @@ void FConfigFile::SaveSourceToBackupFile()
 		Text += LINE_TERMINATOR;
 	}
 
-	if(!FFileHelper::SaveStringToFile( Text, *Filename ))
+	if(!SaveConfigFileWrapper(*Filename, Text))
 	{
 		UE_LOG(LogConfig, Warning, TEXT("Failed to saved backup for config[%s]"), *Name.ToString());
 	}
@@ -1612,7 +1684,7 @@ FConfigFile* FConfigCacheIni::Find( const FString& Filename, bool CreateIfNotFou
 	// Get file.
 	FConfigFile* Result = TMap<FString,FConfigFile>::Find( Filename );
 	// this is || filesize so we load up .int files if file IO is allowed
-	if( !Result && !bAreFileOperationsDisabled && (CreateIfNotFound || ( IFileManager::Get().FileSize(*Filename) >= 0 ) ) )
+	if( !Result && !bAreFileOperationsDisabled && (CreateIfNotFound || DoesConfigFileExistWrapper(*Filename) ) )
 	{
 		Result = &Add( Filename, FConfigFile() );
 		Result->Read( Filename );
@@ -1827,7 +1899,7 @@ void FConfigCacheIni::Parse1ToNSectionOfStrings(const TCHAR* Section, const TCHA
 void FConfigCacheIni::LoadFile( const FString& Filename, const FConfigFile* Fallback, const TCHAR* PlatformString )
 {
 	// if the file has some data in it, read it in
-	if( !IsUsingLocalIniFile(*Filename, nullptr) || (IFileManager::Get().FileSize(*Filename) >= 0) )
+	if( !IsUsingLocalIniFile(*Filename, nullptr) || DoesConfigFileExistWrapper(*Filename) )
 	{
 		FConfigFile* Result = &Add(Filename, FConfigFile());
 		bool bDoEmptyConfig = false;
@@ -2795,7 +2867,7 @@ bool FConfigCacheIni::ForEachEntry(const FKeyValueSink& Visitor, const TCHAR* Se
  **/
 static void LoadAnIniFile(const FString& FilenameToLoad, FConfigFile& ConfigFile)
 {
-	if( !IsUsingLocalIniFile(*FilenameToLoad, nullptr) || (IFileManager::Get().FileSize( *FilenameToLoad ) >= 0) )
+	if( !IsUsingLocalIniFile(*FilenameToLoad, nullptr) || DoesConfigFileExistWrapper(*FilenameToLoad) )
 	{
 		ProcessIniContents(*FilenameToLoad, *FilenameToLoad, &ConfigFile, false, false);
 	}
@@ -2978,6 +3050,8 @@ static void GetSourceIniHierarchyFilenames(const TCHAR* InBaseIniName, const TCH
 	 **************************************************/
 	
 	const FString PlatformName(InPlatformName ? InPlatformName : ANSI_TO_TCHAR(FPlatformProperties::IniPlatformName()));
+	// look up if there's a parent (for example, TVOS's IniParent is IOS)
+	const FString PlatformParentName = FDataDrivenPlatformInfoRegistry::GetPlatformInfo(PlatformName).IniParent;
 
 	// [[[[ ENGINE DEFAULTS ]]]]
 	// Engine/Config/Base.ini (included in every ini type, required)
@@ -2991,6 +3065,11 @@ static void GetSourceIniHierarchyFilenames(const TCHAR* InBaseIniName, const TCH
 	// Engine/Config/Base* ini
 	OutHierarchy.Add(EConfigFileHierarchy::EngineDirBase, FIniFilename(FString::Printf(TEXT("%sBase%s.ini"), EngineConfigDir, InBaseIniName), false));
 	// Engine/Config/Platform/BasePlatform* ini // this is to workaround the issue where Engine -> Project -> EnginePlat -> ProjectPlat would make the project's settings get overwritten by EnginePlat settings
+
+	if (PlatformParentName.Len() > 0)
+	{
+		OutHierarchy.Add(EConfigFileHierarchy::EngineDir_BasePlatformParent, FIniFilename(FString::Printf(TEXT("%s%s/Base%s%s.ini"), EngineConfigDir, *PlatformParentName, *PlatformParentName, InBaseIniName), false));
+	}
 	if (PlatformName.Len() > 0)
 	{
 		OutHierarchy.Add(EConfigFileHierarchy::EngineDir_BasePlatform, FIniFilename(FString::Printf(TEXT("%s%s/Base%s%s.ini"), EngineConfigDir, *PlatformName, *PlatformName, InBaseIniName), false));
@@ -3027,6 +3106,22 @@ static void GetSourceIniHierarchyFilenames(const TCHAR* InBaseIniName, const TCH
 	FString HierarchyCheckpointPath = FString::Printf(TEXT("%sNoRedist/Default%s.ini"), SourceConfigDir, InBaseIniName);
 	OutHierarchy.Add(EConfigFileHierarchy::GameDirDefault_NoRedist, FIniFilename(HierarchyCheckpointPath, false, GenerateHierarchyCacheKey(OutHierarchy, HierarchyCheckpointPath, InBaseIniName)));
 	
+	if (PlatformParentName.Len() > 0)
+	{
+		// [[[[ PLATFORM DEFAULTS AND PROJECT SETTINGS ]]]]
+		// Engine/Config/PlatformParent/PlatformParent* ini
+		OutHierarchy.Add(EConfigFileHierarchy::EngineDir_PlatformParent, FIniFilename(FString::Printf(TEXT("%s%s/%s%s.ini"), EngineConfigDir, *PlatformParentName, *PlatformParentName, InBaseIniName), false));
+		// Engine/Config/NotForLicensees/PlatformParent/PlatformParent* ini
+		OutHierarchy.Add(EConfigFileHierarchy::EngineDir_PlatformParent_NotForLicensees, FIniFilename(FString::Printf(TEXT("%sNotForLicensees/%s/%s%s.ini"), EngineConfigDir, *PlatformParentName, *PlatformParentName, InBaseIniName), false));
+		// Engine/Config/NoRedist/PlatformParent/PlatformParent* ini
+		OutHierarchy.Add(EConfigFileHierarchy::EngineDir_PlatformParent_NoRedist, FIniFilename(FString::Printf(TEXT("%sNoRedist/%s/%s%s.ini"), EngineConfigDir, *PlatformParentName, *PlatformParentName, InBaseIniName), false));
+		// Game/Config/PlatformParent/PlatformParent* ini
+		OutHierarchy.Add(EConfigFileHierarchy::GameDir_PlatformParent, FIniFilename(FString::Printf(TEXT("%s%s/%s%s.ini"), SourceConfigDir, *PlatformParentName, *PlatformParentName, InBaseIniName), false));
+		// Game/Config/NotForLicensee/PlatformParent/PlatformParent* ini
+		OutHierarchy.Add(EConfigFileHierarchy::GameDir_PlatformParent_NotForLicensees, FIniFilename(FString::Printf(TEXT("%sNotForLicensees/%s/%s%s.ini"), SourceConfigDir, *PlatformParentName, *PlatformParentName, InBaseIniName), false));
+		// Game/Config/NoRedist/PlatformParent/PlatformParent* ini
+		OutHierarchy.Add(EConfigFileHierarchy::GameDir_PlatformParent_NoRedist, FIniFilename(FString::Printf(TEXT("%sNoRedist/%s/%s%s.ini"), SourceConfigDir, *PlatformParentName, *PlatformParentName, InBaseIniName), false));
+	}
 	if (PlatformName.Len() > 0)
 	{
 		// [[[[ PLATFORM DEFAULTS AND PROJECT SETTINGS ]]]]
@@ -3160,7 +3255,11 @@ void FConfigCacheIni::InitializeConfigSystem()
 	FConfigCacheIni::LoadGlobalIniFile(GHardwareIni, TEXT("Hardware"));
 	
 	// Load user game settings .ini, allowing merging. This also updates the user .ini if necessary.
+#if PLATFORM_PS4
+	FConfigCacheIni::LoadGlobalIniFile(GGameUserSettingsIni, TEXT("GameUserSettings"), nullptr, false, false, true, *GetGameUserSettingsDir());
+#else
 	FConfigCacheIni::LoadGlobalIniFile(GGameUserSettingsIni, TEXT("GameUserSettings"));
+#endif
 
 	// now we can make use of GConfig
 	GConfig->bIsReadyForUse = true;
@@ -3276,6 +3375,8 @@ bool FConfigCacheIni::LoadExternalIniFile(FConfigFile& ConfigFile, const TCHAR* 
 
 		// now generate and make sure it's up to date (using IniName as a Base for an ini filename)
 		const bool bAllowGeneratedINIs = true;
+		// @todo This bNeedsWrite afaict is always true even if it loaded a completely valid generated/final .ini, and the write below will
+		// just write out the exact same thing it read in!
 		bool bNeedsWrite = GenerateDestIniFile(ConfigFile, DestIniFilename, ConfigFile.SourceIniHierarchy, bAllowGeneratedIniWhenCooked, true);
 
 		ConfigFile.Name = IniName;
@@ -3317,13 +3418,30 @@ void FConfigCacheIni::LoadConsoleVariablesFromINI()
 	IConsoleManager::Get().CallAllConsoleVariableSinks();
 }
 
+FString FConfigCacheIni::GetGameUserSettingsDir()
+{
+	// Default value from LoadGlobalIniFile
+	FString ConfigDir = FPaths::GeneratedConfigDir();
+
+#if PLATFORM_PS4
+	bool bUsesDownloadZero = false;
+	if (GConfig->GetBool(TEXT("/Script/PS4PlatformEditor.PS4TargetSettings"), TEXT("bUsesDownloadZero"), bUsesDownloadZero, GEngineIni) && bUsesDownloadZero)
+	{
+		// Allow loading/saving via /download0/
+		ConfigDir = FPlatformProcess::UserSettingsDir();
+	}
+#endif
+
+	return ConfigDir;
+}
+
 void FConfigFile::UpdateSections(const TCHAR* DiskFilename, const TCHAR* IniRootName/*=nullptr*/, const TCHAR* OverridePlatform/*=nullptr*/)
 {
 	// since we don't want any modifications to other sections, we manually process the file, not read into sections, etc
 	FString DiskFile;
 	FString NewFile;
 	bool bIsLastLineEmtpy = false;
-	if (FFileHelper::LoadFileToString(DiskFile, DiskFilename))
+	if (LoadConfigFileWrapper(DiskFilename, DiskFile))
 	{
 		// walk each line
 		const TCHAR* Ptr = DiskFile.Len() > 0 ? *DiskFile : nullptr;
@@ -3404,7 +3522,6 @@ void FConfigFile::UpdateSections(const TCHAR* DiskFilename, const TCHAR* IniRoot
 }
 
 
-
 /**
  * Functionality to assist with updating a config file with one property value change.
  */
@@ -3439,7 +3556,7 @@ public:
 		UpdatePropertyInSection();
 		// Rebuild the file with the updated section.
 		const FString NewFile = IniFileMakeup.BeforeSection + IniFileMakeup.Section + IniFileMakeup.AfterSection;
-		return FFileHelper::SaveStringToFile(NewFile, *IniFilename);
+		return SaveConfigFileWrapper(*IniFilename, NewFile);
 	}
 
 
@@ -3516,7 +3633,7 @@ private:
 	void PopulateFileContentHelper()
 	{
 		FString UnprocessedFileContents;
-		if (FFileHelper::LoadFileToString(UnprocessedFileContents, *IniFilename))
+		if (LoadConfigFileWrapper(*IniFilename, UnprocessedFileContents))
 		{
 			// Find the section in the file text.
 			const FString DecoratedSectionName = FString::Printf(TEXT("[%s]"), *SectionName);
@@ -3614,6 +3731,28 @@ bool FConfigFile::UpdateSinglePropertyInSection(const TCHAR* DiskFilename, const
 	return bSuccessfullyUpdatedFile;
 }
 
+const TCHAR* ConvertValueFromHumanFriendlyValue( const TCHAR* Value )
+{
+	static const TCHAR* OnValue = TEXT("1");
+	static const TCHAR* OffValue = TEXT("0");
+
+	// allow human friendly names
+	if (FCString::Stricmp(Value, TEXT("True")) == 0
+		|| FCString::Stricmp(Value, TEXT("Yes")) == 0
+		|| FCString::Stricmp(Value, TEXT("On")) == 0)
+	{
+		return OnValue;
+	}
+	else if (FCString::Stricmp(Value, TEXT("False")) == 0
+		|| FCString::Stricmp(Value, TEXT("No")) == 0
+		|| FCString::Stricmp(Value, TEXT("Off")) == 0)
+	{
+		return OffValue;
+	}
+	return Value;
+}
+
+
 // @param IniFile for error reporting
 // to have one single function to set a cvar from ini (handing friendly names, cheats for shipping and message about cheats in non shipping)
 CORE_API void OnSetCVarFromIniEntry(const TCHAR *IniFile, const TCHAR *Key, const TCHAR* Value, uint32 SetBy, bool bAllowCheating)
@@ -3621,19 +3760,8 @@ CORE_API void OnSetCVarFromIniEntry(const TCHAR *IniFile, const TCHAR *Key, cons
 	check(IniFile && Key && Value);
 	check((SetBy & ~ECVF_SetByMask) == 0);
 
-	// allow human friendly names
-	if (FCString::Stricmp(Value, TEXT("True")) == 0
-	|| FCString::Stricmp(Value, TEXT("Yes")) == 0
-	|| FCString::Stricmp(Value, TEXT("On")) == 0)
-	{
-		Value = TEXT("1");
-	}
-	else if(FCString::Stricmp(Value, TEXT("False")) == 0
-	|| FCString::Stricmp(Value, TEXT("No")) == 0
-	|| FCString::Stricmp(Value, TEXT("Off")) == 0)
-	{
-		Value = TEXT("0");
-	}
+
+	Value = ConvertValueFromHumanFriendlyValue(Value);
 
 	IConsoleVariable* CVar = IConsoleManager::Get().FindConsoleVariable(Key); 
 
@@ -3680,8 +3808,11 @@ CORE_API void OnSetCVarFromIniEntry(const TCHAR *IniFile, const TCHAR *Key, cons
 	}
 }
 
+
 void ApplyCVarSettingsFromIni(const TCHAR* InSectionName, const TCHAR* InIniFilename, uint32 SetBy, bool bAllowCheating)
 {
+	FCoreDelegates::OnApplyCVarFromIni.Broadcast(InSectionName, InIniFilename, SetBy, bAllowCheating);
+
 	if(FConfigSection* Section = GConfig->GetSectionPrivate(InSectionName, false, true, InIniFilename))
 	{
 		for(FConfigSectionMap::TConstIterator It(*Section); It; ++It)
@@ -3706,4 +3837,159 @@ void ApplyCVarSettingsGroupFromIni(const TCHAR* InSectionBaseName, const TCHAR* 
 	// Lookup the config section for this section and group number
 	FString SectionName = FString::Printf(TEXT("%s@%s"), InSectionBaseName, InSectionTag);
 	ApplyCVarSettingsFromIni(*SectionName, InIniFilename, SetBy);
+}
+
+
+
+
+
+class FCVarIniHistoryHelper
+{
+private:
+	struct FCVarIniHistory
+	{
+		FCVarIniHistory(const FString& InSectionName, const FString& InIniName, uint32 InSetBy, bool InbAllowCheating) :
+			SectionName(InSectionName), FileName(InIniName), SetBy(InSetBy), bAllowCheating(InbAllowCheating)
+		{}
+
+		FString SectionName;
+		FString FileName;
+		uint32 SetBy;
+		bool bAllowCheating;
+	};
+	TArray<FCVarIniHistory> CVarIniHistory;
+	bool bRecurseCheck;
+
+	void OnApplyCVarFromIniCallback(const TCHAR* SectionName, const TCHAR* IniFilename, uint32 SetBy, bool bAllowCheating)
+	{
+		if ( bRecurseCheck == true )
+		{
+			return;
+		}
+		CVarIniHistory.Add(FCVarIniHistory(SectionName, IniFilename, SetBy, bAllowCheating));
+	}
+
+
+public:
+	FCVarIniHistoryHelper() : bRecurseCheck( false )
+	{
+		
+		FCoreDelegates::OnApplyCVarFromIni.AddRaw(this, &FCVarIniHistoryHelper::OnApplyCVarFromIniCallback);
+	}
+
+	~FCVarIniHistoryHelper()
+	{
+		FCoreDelegates::OnApplyCVarFromIni.RemoveAll(this);
+	}
+
+
+
+	void ReapplyIniHistory()
+	{
+		for (const FCVarIniHistory& IniHistory : CVarIniHistory)
+		{
+			const FString& SectionName = IniHistory.SectionName;
+			const FString& IniFilename = IniHistory.FileName;
+			const uint32& SetBy = IniHistory.SetBy;
+			if (FConfigSection* Section = GConfig->GetSectionPrivate(*SectionName, false, true, *IniFilename))
+			{
+				for (FConfigSectionMap::TConstIterator It(*Section); It; ++It)
+				{
+					const FString& KeyString = It.Key().GetPlainNameString();
+					const FString& ValueString = It.Value().GetValue();
+
+
+					IConsoleVariable* CVar = IConsoleManager::Get().FindConsoleVariable(*KeyString);
+
+					if ( !CVar )
+					{
+						continue;
+					}
+
+					// if this cvar was last set by this config setting 
+					// then we want to reapply any new changes
+					if (!CVar->TestFlags((EConsoleVariableFlags)SetBy))
+					{
+						continue;
+					}
+
+					// convert to human friendly string
+					const TCHAR* HumanFriendlyValue = ConvertValueFromHumanFriendlyValue(*ValueString);
+					const FString CurrentValue = CVar->GetString();
+					if (CurrentValue.Compare(HumanFriendlyValue, ESearchCase::CaseSensitive) == 0)
+					{
+						continue;
+					}
+					else
+					{
+						// this is more expensive then a CaseSensitive version and much less likely
+						if (CurrentValue.Compare(HumanFriendlyValue, ESearchCase::IgnoreCase) == 0)
+						{
+							continue;
+						}
+					}
+
+					if (CVar->TestFlags(EConsoleVariableFlags::ECVF_ReadOnly) )
+					{
+						UE_LOG(LogConfig, Warning, TEXT("Failed to change Readonly CVAR value %s %s -> %s Config %s %s"),
+							*KeyString, *CurrentValue, HumanFriendlyValue, *IniFilename, *SectionName);
+
+						continue;
+					}
+
+					UE_LOG(LogConfig, Display, TEXT("Applied changed CVAR value %s %s -> %s Config %s %s"), 
+						*KeyString, *CurrentValue, HumanFriendlyValue, *IniFilename, *SectionName);
+
+					OnSetCVarFromIniEntry(*IniFilename, *KeyString, *ValueString, SetBy, IniHistory.bAllowCheating);
+				}
+			}
+		}
+		bRecurseCheck=false;
+	}
+};
+
+FCVarIniHistoryHelper *IniHistoryHelper = nullptr;
+
+
+
+
+void RecordApplyCVarSettingsFromIni()
+{
+	IniHistoryHelper = new FCVarIniHistoryHelper();
+}
+
+void ReapplyRecordedCVarSettingsFromIni()
+{
+	// first we need to reload the inis 
+	struct FIniToReload
+	{
+		FIniToReload(const FString& InGlobalName, const FString& InIniBaseName) : IniBaseName(InIniBaseName), IniGlobalName(InGlobalName) { }
+		FString IniBaseName;
+		FString IniGlobalName;
+	};
+	TArray<FIniToReload> InisToReloadList;
+	InisToReloadList.Empty(GConfig->Num());
+	for (const auto& GlobalIni : *GConfig)
+	{
+		InisToReloadList.Add(FIniToReload(GlobalIni.Key, GlobalIni.Value.Name.ToString()));
+	}
+
+	for (const FIniToReload& IniToReload : InisToReloadList)
+	{
+		FString TempGlobalName = IniToReload.IniGlobalName;
+		GConfig->LoadGlobalIniFile(TempGlobalName, *IniToReload.IniBaseName, NULL, true);
+		if (TempGlobalName.Compare( IniToReload.IniGlobalName,  ESearchCase::IgnoreCase) != 0 )
+		{
+			UE_LOG(LogConfig, Warning, TEXT("Tried to reload ini %s final name was %s"), *IniToReload.IniGlobalName, *TempGlobalName );
+		}
+	}
+
+	check(IniHistoryHelper != nullptr);
+	IniHistoryHelper->ReapplyIniHistory();
+}
+
+void DeleteRecordedCVarSettingsFromIni()
+{
+	check(IniHistoryHelper != nullptr);
+	delete IniHistoryHelper;
 }

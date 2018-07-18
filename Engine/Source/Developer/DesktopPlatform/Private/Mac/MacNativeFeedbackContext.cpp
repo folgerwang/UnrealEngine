@@ -1,8 +1,8 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "MacNativeFeedbackContext.h"
-#include "MacApplication.h"
-#include "CocoaThread.h"
+#include "Mac/MacApplication.h"
+#include "Mac/CocoaThread.h"
 #include "Misc/OutputDeviceHelper.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Misc/OutputDeviceRedirector.h"
@@ -61,10 +61,12 @@
 		
 		NSRect WindowRect = NSMakeRect(ConsolePosX, ConsolePosY, ConsoleWidth, ConsoleHeight);
 		
-		Window = [[NSWindow alloc] initWithContentRect:WindowRect styleMask:NSTitledWindowMask|NSMiniaturizableWindowMask|NSResizableWindowMask|NSClosableWindowMask backing:NSBackingStoreBuffered defer:NO];
+		Window = [[NSWindow alloc] initWithContentRect:WindowRect styleMask:NSWindowStyleMaskTitled|NSWindowStyleMaskMiniaturizable|NSWindowStyleMaskResizable|NSWindowStyleMaskClosable backing:NSBackingStoreBuffered defer:NO];
 		[Window setTitle:@"Unreal Engine 4"];
 		[Window setReleasedWhenClosed:NO];
 		[Window setMinSize:NSMakeSize(400, 100)];
+		[Window setRestorable:NO];
+		[Window disableSnapshotRestoration];
 		
 		NSView* View = [Window contentView];
 		[View setAutoresizesSubviews:YES];

@@ -4,6 +4,7 @@
 #include "Misc/CoreDelegates.h"
 #include "UObject/UObjectGlobals.h"
 #include "UObject/Class.h"
+#include "UObject/CoreRedirects.h"
 #include "Misc/CommandLine.h"
 #include "Misc/FileHelper.h"
 #include "EngineGlobals.h"
@@ -23,6 +24,8 @@
 
 #define LOCTEXT_NAMESPACE "MovieSceneCapture"
 
+DEFINE_LOG_CATEGORY(LogMovieSceneCapture);
+
 class FMovieSceneCaptureModule : public IMovieSceneCaptureModule
 {
 private:
@@ -30,15 +33,22 @@ private:
 	/** Handle to a movie capture implementation created from the command line, to be initialized once a world is loaded */
 	FMovieSceneCaptureHandle StartupMovieCaptureHandle;
 	FMovieSceneCaptureProtocolRegistry ProtocolRegistry;
-
+	bool bStereoAllowed;
+	
 	virtual FMovieSceneCaptureProtocolRegistry& GetProtocolRegistry()
 	{
 		return ProtocolRegistry;
 	}
 
+	virtual bool IsStereoAllowed() override
+	{
+		return bStereoAllowed;
+	}
 	
 	virtual void StartupModule() override
 	{
+		bStereoAllowed = false;
+		
 		FCoreDelegates::OnPreExit.AddRaw(this, &FMovieSceneCaptureModule::PreExit);
 		FCoreUObjectDelegates::PostLoadMapWithWorld.AddRaw(this, &FMovieSceneCaptureModule::OnPostLoadMap );
 
@@ -124,7 +134,12 @@ private:
 		{
 			return nullptr;
 		}
-
+		
+		if (FParse::Param(FCommandLine::Get(), TEXT("EmulateStereo")))
+		{
+			bStereoAllowed = true;
+		}
+		
 		FString TypeName;
 		if( FParse::Value( FCommandLine::Get(), TEXT( "-MovieSceneCaptureType=" ), TypeName ) )
 		{
@@ -161,7 +176,18 @@ private:
 					UClass* Class = FindObject<UClass>(nullptr, *TypeName);
 					if (!Class)
 					{
-						return nullptr;
+						const FCoreRedirect* ValueRedirect = nullptr;
+						FCoreRedirectObjectName NewRedirectName;
+
+						if (FCoreRedirects::RedirectNameAndValues(ECoreRedirectFlags::Type_Class, TypeName, NewRedirectName, &ValueRedirect))
+						{
+							Class = FindObject<UClass>(nullptr, *NewRedirectName.ToString());
+						}
+
+						if (!Class)
+						{
+							return nullptr;
+						}
 					}
 
 					Capture = NewObject<UMovieSceneCapture>(GetTransientPackage(), Class);
@@ -194,7 +220,18 @@ private:
 			UClass* Class = FindObject<UClass>( nullptr, *TypeName );
 			if( !Class )
 			{
-				return nullptr;
+				const FCoreRedirect* ValueRedirect = nullptr;
+				FCoreRedirectObjectName NewRedirectName;
+
+				if (FCoreRedirects::RedirectNameAndValues(ECoreRedirectFlags::Type_Class, TypeName, NewRedirectName, &ValueRedirect))
+				{
+					Class = FindObject<UClass>(nullptr, *NewRedirectName.ToString());
+				}
+
+				if (!Class)
+				{
+					return nullptr;
+				}
 			}
 
 			Capture = NewObject<UMovieSceneCapture>( GetTransientPackage(), Class );

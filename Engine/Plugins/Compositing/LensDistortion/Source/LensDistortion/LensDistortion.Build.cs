@@ -14,7 +14,6 @@ namespace UnrealBuildTool.Rules
 
 			PrivateIncludePaths.AddRange(
 				new string[] {
-					"FX/LensDistortion/Private",
                     "../../../../Source/Runtime/Engine/",
                     "../../../../Source/Runtime/RHI/",
 					// ... add other private include paths required here ...

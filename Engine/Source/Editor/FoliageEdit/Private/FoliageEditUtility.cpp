@@ -4,11 +4,11 @@
 #include "FoliageType.h"
 #include "InstancedFoliage.h"
 #include "LevelUtils.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
+#include "Framework/Notifications/NotificationManager.h"
 #include "InstancedFoliageActor.h"
 #include "ScopedTransaction.h"
-#include "DlgPickAssetPath.h"
+#include "Dialogs/DlgPickAssetPath.h"
 #include "AssetRegistryModule.h"
 #include "FoliageEdMode.h"
 #include "FileHelpers.h"
@@ -140,7 +140,7 @@ void FFoliageEditUtility::MoveActorFoliageInstancesToLevel(ULevel* InTargetLevel
 
 	// Get a world context
 	UWorld* World = InTargetLevel->OwningWorld;
-	bool PromptToMoveFoliageTypeToAsset = World->StreamingLevels.Num() > 0;
+	bool PromptToMoveFoliageTypeToAsset = World->GetStreamingLevels().Num() > 0;
 	bool ShouldPopulateMeshList = false;
 
 	const FScopedTransaction Transaction(NSLOCTEXT("UnrealEd", "MoveSelectedFoliageToSelectedLevel", "Move Selected Foliage to Level"), !GEditor->IsTransactionActive());

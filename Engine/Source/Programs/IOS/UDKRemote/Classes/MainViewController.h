@@ -98,6 +98,8 @@
 @property (nonatomic, retain) IBOutlet UINavigationController* NavController;
 @property (nonatomic, retain) IBOutlet UIImageView* Background;
 @property (nonatomic, retain) IBOutlet UIButton* InfoButton;
+@property (nonatomic, retain) IBOutlet UILabel* Text1;
+@property (nonatomic, retain) IBOutlet UILabel* Text2;
 @property (retain) CMMotionManager* MotionManager;
 @property (retain) CMAttitude* ReferenceAttitude;
 @property (retain) NSTimer* MotionTimer;

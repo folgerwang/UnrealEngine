@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneInitialValueStore.h"
-#include "MovieSceneBlendingActuator.h"
+#include "Evaluation/Blending/MovieSceneInitialValueStore.h"
+#include "Evaluation/Blending/MovieSceneBlendingActuator.h"
 
 struct FMovieSceneRemoveInitialValueToken : IMovieScenePreAnimatedToken
 {

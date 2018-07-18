@@ -1,23 +1,40 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 
 /*=============================================================================================
 	AndroidString.h: Android platform string classes
 ==============================================================================================*/
 
-//@todo android: probably rewrite/simplify most of this.  currently it converts all wide chars
+#pragma once
+
+#include "Misc/Build.h"
+#include "HAL/Platform.h"
+
+/**
+ * Android string implementation
+ **/
+
+#if PLATFORM_TCHAR_IS_CHAR16
+
+// By default we now use 2-byte strings on Android.
+
+#include "GenericPlatform/GenericWidePlatformString.h"
+
+typedef FGenericWidePlatformString FAndroidPlatformString;
+
+#else
+
+// NOTE: This legacy 4-byte implementation will probably be removed in the future.
+
+// @todo android: probably rewrite/simplify most of this.  currently it converts all wide chars
 // to ANSI.  The Android NDK appears to have wchar_t support, but many of the functions appear
 // to just be stubs to the non-wide versions.  This doesn't work for obvious reasons.
 
-#pragma once
 #include "Misc/Char.h"
 #include "GenericPlatform/GenericPlatformMemory.h"
 #include "GenericPlatform/GenericPlatformStricmp.h"
 #include "GenericPlatform/GenericPlatformString.h"
 
-/**
- * Android string implementation
- **/
 struct FAndroidPlatformString : public FGenericPlatformString
 {
 	template <typename CharType>
@@ -580,14 +597,7 @@ struct FAndroidPlatformString : public FGenericPlatformString
 
 		return Result;
 	}
-
-	static const ANSICHAR* GetEncodingName()
-	{
-		return "UTF-32LE";
-	}
-
-	static const bool IsUnicodeEncoded = true;
 };
-
+#endif
 
 typedef FAndroidPlatformString FPlatformString;

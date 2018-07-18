@@ -41,7 +41,8 @@ public:
 		TasksAttempted(EPresenceTestStatus::None),
 		bHasCreatedSession(false),
 		bHasFailed(false),
-		TestTimeStart(0.0)
+		TestTimeStart(0.0),
+		ArbitraryFetchTimeStart(0.0)
 	{
 	}
 
@@ -88,6 +89,7 @@ private:
 	bool bHasCreatedSession;
 	bool bHasFailed;
 	double TestTimeStart;
+	double ArbitraryFetchTimeStart;
 
 	/** Cached presence object for testing if the presences are the same */
 	FOnlineUserPresenceStatus CachedPresence;

@@ -31,7 +31,9 @@ FVulkanShaderResourceView::~FVulkanShaderResourceView()
 
 void FVulkanShaderResourceView::UpdateView()
 {
+#if VULKAN_ENABLE_AGGRESSIVE_STATS
 	SCOPE_CYCLE_COUNTER(STAT_VulkanSRVUpdateTime);
+#endif
 
 	// update the buffer view for dynamic backed buffers (or if it was never set)
 	if (SourceBuffer != nullptr)
@@ -98,7 +100,9 @@ FVulkanUnorderedAccessView::~FVulkanUnorderedAccessView()
 
 void FVulkanUnorderedAccessView::UpdateView()
 {
+#if VULKAN_ENABLE_AGGRESSIVE_STATS
 	SCOPE_CYCLE_COUNTER(STAT_VulkanUAVUpdateTime);
+#endif
 
 	// update the buffer view for dynamic VB backed buffers (or if it was never set)
 	if (SourceVertexBuffer != nullptr)
@@ -198,6 +202,18 @@ FUnorderedAccessViewRHIRef FVulkanDynamicRHI::RHICreateUnorderedAccessView(FVert
 	return UAV;
 }
 
+FUnorderedAccessViewRHIRef FVulkanDynamicRHI::RHICreateUnorderedAccessView(FIndexBufferRHIParamRef IndexBufferRHI, uint8 Format)
+{
+	FVulkanIndexBuffer* IndexBuffer = ResourceCast(IndexBufferRHI);
+
+	FVulkanUnorderedAccessView* UAV = new FVulkanUnorderedAccessView(Device);
+	// delay the shader view create until we use it, so we just track the source info here
+	UAV->BufferViewFormat = (EPixelFormat)Format;
+	UAV->SourceIndexBuffer = IndexBuffer;
+
+	return UAV;
+}
+
 FShaderResourceViewRHIRef FVulkanDynamicRHI::RHICreateShaderResourceView(FStructuredBufferRHIParamRef StructuredBufferRHI)
 {
 	FVulkanStructuredBuffer* StructuredBuffer = ResourceCast(StructuredBufferRHI);
@@ -258,7 +274,13 @@ void FVulkanCommandListContext::RHIClearTinyUAV(FUnorderedAccessViewRHIParamRef 
 
 	if (CmdBuffer->IsInsideRenderPass())
 	{
-		TransitionState.EndRenderPass(CmdBuffer);
+		TransitionAndLayoutManager.EndEmulatedRenderPass(CmdBuffer);
+		if (GVulkanSubmitAfterEveryEndRenderPass)
+		{
+			CommandBufferManager->SubmitActiveCmdBuffer();
+			CommandBufferManager->PrepareForNewActiveCommandBuffer();
+			CmdBuffer = CommandBufferManager->GetActiveCmdBuffer();
+		}
 	}
 
 	if (UnorderedAccessView->SourceVertexBuffer)
@@ -297,12 +319,24 @@ FVulkanComputeFence::~FVulkanComputeFence()
 {
 }
 
-void FVulkanComputeFence::WriteCmd(VkCommandBuffer CmdBuffer)
+void FVulkanComputeFence::WriteCmd(VkCommandBuffer CmdBuffer, bool bInWriteEvent)
 {
 	FRHIComputeFence::WriteFence();
-	VulkanRHI::vkCmdSetEvent(CmdBuffer, Handle, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+	bWriteEvent = bInWriteEvent;
+	if (bInWriteEvent)
+	{
+		VulkanRHI::vkCmdSetEvent(CmdBuffer, Handle, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+	}
 }
 
+
+void FVulkanComputeFence::WriteWaitEvent(VkCommandBuffer CmdBuffer)
+{
+	if (bWriteEvent)
+	{
+		VulkanRHI::vkCmdWaitEvents(CmdBuffer, 1, &Handle, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, nullptr, 0, nullptr, 0, nullptr);
+	}
+}
 
 FComputeFenceRHIRef FVulkanDynamicRHI::RHICreateComputeFence(const FName& Name)
 {
@@ -313,7 +347,6 @@ void FVulkanCommandListContext::RHIWaitComputeFence(FComputeFenceRHIParamRef InF
 {
 	FVulkanComputeFence* Fence = ResourceCast(InFence);
 	FVulkanCmdBuffer* CmdBuffer = CommandBufferManager->GetActiveCmdBuffer();
-	VkEvent Event = Fence->GetHandle();
-	VulkanRHI::vkCmdWaitEvents(CmdBuffer->GetHandle(), 1, &Event, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, nullptr, 0, nullptr, 0, nullptr);
+	Fence->WriteWaitEvent(CmdBuffer->GetHandle());
 	IRHICommandContext::RHIWaitComputeFence(InFence);
 }

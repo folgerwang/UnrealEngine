@@ -1,48 +1,11 @@
-﻿INTSourceChangelist:2735872
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:キーバインディング エディタ
 Crumbs:%ROOT%, Engine, Engine/UI
 Description:アンリアル エディタ内の共通コマンド用に設定可能な制御
 Version:4.9
+topic-image:Engine/UI/KeyBinding_topic.png
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/UI/KeyBindings:title%](Engine/UI/KeyBinding_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/editor_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/UI/KeyBindings:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/UI/KeyBindings:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/UI/KeyBindings]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/UI/KeyBindings:title%](Engine/UI/KeyBinding_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/editor_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/UI/KeyBindings:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/UI/KeyBindings:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/UI/KeyBindings]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
 [EXCERPT:Intro]
 **キーボード ショートカット** とは、特定のコマンドやアクションを実行するためにキーボードで押すキーの組み合わせです。アンリアル エンジン 4 のメインフレームやその他のツール特有のものだけでなく共通コマンドも設定可能です。アンリアル エディタでは、ワークフローや個人の好みに合わせて特定のキーや特定コマンドの組み合わせてバインドして、キーボード ショートカットをカスタマイズすることができます。 

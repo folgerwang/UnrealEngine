@@ -4,6 +4,7 @@
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
 #include "UObject/Object.h"
+#include "Sound/SampleBuffer.h"
 #include "SoundEffectSubmix.h"
 #include "IAmbisonicsMixer.h"
 #include "SoundSubmix.generated.h"
@@ -11,6 +12,7 @@
 class UEdGraph;
 class USoundEffectSubmixPreset;
 class USoundSubmix;
+class ISubmixBufferListener;
 
 /* Submix channel format. 
  Allows submixes to have sources mix to a particular channel configuration for potential effect chain requirements.
@@ -42,6 +44,16 @@ enum class ESubmixChannelFormat : uint8
 	Count UMETA(Hidden)
 };
 
+UENUM(BlueprintType)
+enum class EAudioRecordingExportType : uint8
+{
+	// Exports a USoundWave.
+	SoundWave,
+
+	// Exports a WAV file.
+	WavFile
+};
+
 // Class used to send audio to submixes from USoundBase
 USTRUCT(BlueprintType)
 struct ENGINE_API FSoundSubmixSendInfo
@@ -56,6 +68,12 @@ struct ENGINE_API FSoundSubmixSendInfo
 	UPROPERTY(EditAnywhere, Category = SubmixSend)
 	USoundSubmix* SoundSubmix;
 };
+
+/**
+* Called when a recorded file has finished writing to disk.
+* 
+*/
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnSubmixRecordedFileDone,const USoundWave*, ResultingSoundWave);
 
 #if WITH_EDITOR
 
@@ -98,6 +116,26 @@ class ENGINE_API USoundSubmix : public UObject
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = SoundSubmix)
 	UAmbisonicsSubmixSettingsBase* AmbisonicsPluginSettings;
 
+	// Blueprint delegate for when a recorded file is finished exporting.
+	UPROPERTY(BlueprintAssignable)
+	FOnSubmixRecordedFileDone OnSubmixRecordedFileDone;
+
+	// Start recording the audio from this submix.
+	UFUNCTION(BlueprintCallable, Category = "Audio|Bounce", meta = (WorldContext = "WorldContextObject", DisplayName = "Start Recording Submix Output"))
+	void StartRecordingOutput(const UObject* WorldContextObject, float ExpectedDuration);
+
+	void StartRecordingOutput(FAudioDevice* InDevice, float ExpectedDuration);
+
+	// Finish recording the audio from this submix and export it as a wav file or a USoundWave.
+	UFUNCTION(BlueprintCallable, Category = "Audio|Bounce", meta = (WorldContext = "WorldContextObject", DisplayName = "Finish Recording Submix Output"))
+	void StopRecordingOutput(const UObject* WorldContextObject, EAudioRecordingExportType ExportType, const FString& Name, FString Path, USoundWave* ExistingSoundWaveToOverwrite = nullptr);
+
+	void StopRecordingOutput(FAudioDevice* InDevice, EAudioRecordingExportType ExportType, const FString& Name, FString Path, USoundWave* ExistingSoundWaveToOverwrite = nullptr);
+
+	// Registers and unregisters buffer listeners with the submix
+	void RegisterSubmixBufferListener(ISubmixBufferListener* InBufferListener);
+	void UnregisterSubmixBufferListener(ISubmixBufferListener* InBufferListener);
+
 protected:
 
 	//~ Begin UObject Interface.
@@ -109,6 +147,9 @@ protected:
 	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif
 	//~ End UObject Interface.
+
+	// State handling for bouncing output.
+	TUniquePtr<Audio::FAudioRecordingData> RecordingData;
 
 public:
 

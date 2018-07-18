@@ -175,6 +175,9 @@ namespace PlatformInfo
 		/** An identifier that corresponds to UBT's UnrealTargetPlatform enum (and by proxy, FGenericPlatformMisc::GetUBTPlatform()) */
 		FName UBTTargetId;
 
+		/** An identifier to group similar platforms together, such as "Mobile" and "Console". Used for Per-Platform Override Properties. */
+		FName PlatformGroupName;
+
 		/** Returns true if this platform is vanilla */
 		FORCEINLINE bool IsVanilla() const
 		{
@@ -362,14 +365,18 @@ namespace PlatformInfo
 	* @return An EPlatformType value.
 	*/
 	DESKTOPPLATFORM_API EPlatformType EPlatformTypeFromString(const FString& PlatformTypeName);
+
+	/**
+	* Returns a list of all defined Platform Groups, excluding None.
+    * Used to to present a list in the Per-Platform Properties UI.
+	* @return An EPlatformType value.
+	*/
+	DESKTOPPLATFORM_API const TArray<FName>& GetAllPlatformGroupNames();
 }
 
-namespace Lex
-{
-	DESKTOPPLATFORM_API FString ToString(const PlatformInfo::EPlatformType Value);
+DESKTOPPLATFORM_API FString LexToString(const PlatformInfo::EPlatformType Value);
 
-	inline void FromString(PlatformInfo::EPlatformType& OutValue, const TCHAR* Buffer)
-	{
-		OutValue = PlatformInfo::EPlatformTypeFromString(FString(Buffer));
-	}
+inline void LexFromString(PlatformInfo::EPlatformType& OutValue, const TCHAR* Buffer)
+{
+	OutValue = PlatformInfo::EPlatformTypeFromString(FString(Buffer));
 }

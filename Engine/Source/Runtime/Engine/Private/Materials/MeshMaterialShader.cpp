@@ -53,6 +53,8 @@ FShaderCompileJob* FMeshMaterialShaderType::BeginCompileShader(
 	check(VertexFactoryType);
 	VertexFactoryType->ModifyCompilationEnvironment(Platform, Material, ShaderEnvironment);
 
+	Material->SetupExtaCompilationSettings(Platform, NewJob->Input.ExtraSettings);
+
 	//update material shader stats
 	UpdateMaterialShaderCompilingStats(Material);
 
@@ -139,6 +141,7 @@ FShader* FMeshMaterialShaderType::FinishCompileShader(
 	if (!Shader)
 	{
 		Shader = (*ConstructCompiledRef)(CompiledShaderInitializerType(this, CurrentJob.Output, Resource, UniformExpressionSet, MaterialShaderMapHash, InDebugDescription, ShaderPipelineType, CurrentJob.VFType));
+		((FMeshMaterialShader*)Shader)->ValidateAfterBind();
 		CurrentJob.Output.ParameterMap.VerifyBindingsAreComplete(GetName(), CurrentJob.Output.Target, CurrentJob.VFType);
 	}
 

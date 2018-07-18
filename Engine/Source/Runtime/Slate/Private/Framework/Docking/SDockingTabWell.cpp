@@ -17,7 +17,7 @@ const FVector2D FDockingConstants::GetMaxTabSizeFor( ETabRole TabRole )
 }
 
 SDockingTabWell::SDockingTabWell()
-: Tabs()
+: Tabs(this)
 {
 }
 

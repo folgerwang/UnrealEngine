@@ -75,7 +75,7 @@ EARTrackingQuality UARBlueprintLibrary::GetTrackingQuality()
 
 void UARBlueprintLibrary::StartARSession(UARSessionConfig* SessionConfig)
 {
-	static const TCHAR* NotARApp_Warning = TEXT("Attempting to Start an AR session but there is no AR system. To use AR, enable bIsARApp under Project Settings.");
+	static const TCHAR NotARApp_Warning[] = TEXT("Attempting to start an AR session but there is no AR plugin configured. To use AR, enable the proper AR plugin in the Plugin Settings.");
 	
 	auto ARSystem = GetARSystem();
 	if (ensureAlwaysMsgf(ARSystem.IsValid(), NotARApp_Warning))
@@ -315,3 +315,146 @@ EARLineTraceChannels UARTraceResultLibrary::GetTraceChannel( const FARTraceResul
 {
 	return TraceResult.GetTraceChannel();
 }
+
+UARTextureCameraImage* UARBlueprintLibrary::GetCameraImage()
+{
+	UARTextureCameraImage* Image = nullptr;
+
+	auto ARSystem = GetARSystem();
+	if (ensure(ARSystem.IsValid()))
+	{
+		Image = ARSystem->GetCameraImage();
+	}
+	return Image;
+}
+
+UARTextureCameraDepth* UARBlueprintLibrary::GetCameraDepth()
+{
+	UARTextureCameraDepth* Depth = nullptr;
+
+	auto ARSystem = GetARSystem();
+	if (ensure(ARSystem.IsValid()))
+	{
+		Depth = ARSystem->GetCameraDepth();
+	}
+	return Depth;
+}
+
+//@joeg -- Helpers to make things easier
+
+TArray<UARPlaneGeometry*> UARBlueprintLibrary::GetAllTrackedPlanes()
+{
+	TArray<UARPlaneGeometry*> ResultList;
+	
+	auto ARSystem = GetARSystem();
+	if (ensure(ARSystem.IsValid()))
+	{
+		for (UARTrackedGeometry* Geo : ARSystem->GetAllTrackedGeometries())
+		{
+			if (UARPlaneGeometry* Item = Cast<UARPlaneGeometry>(Geo))
+			{
+				ResultList.Add(Item);
+			}
+		}
+	}
+	return ResultList;
+}
+
+TArray<UARTrackedPoint*> UARBlueprintLibrary::GetAllTrackedPoints()
+{
+	TArray<UARTrackedPoint*> ResultList;
+	
+	auto ARSystem = GetARSystem();
+	if (ensure(ARSystem.IsValid()))
+	{
+		for (UARTrackedGeometry* Geo : ARSystem->GetAllTrackedGeometries())
+		{
+			if (UARTrackedPoint* Item = Cast<UARTrackedPoint>(Geo))
+			{
+				ResultList.Add(Item);
+			}
+		}
+	}
+	return ResultList;
+}
+
+TArray<UARTrackedImage*> UARBlueprintLibrary::GetAllTrackedImages()
+{
+	TArray<UARTrackedImage*> ResultList;
+	
+	auto ARSystem = GetARSystem();
+	if (ensure(ARSystem.IsValid()))
+	{
+		for (UARTrackedGeometry* Geo : ARSystem->GetAllTrackedGeometries())
+		{
+			if (UARTrackedImage* Item = Cast<UARTrackedImage>(Geo))
+			{
+				ResultList.Add(Item);
+			}
+		}
+	}
+	return ResultList;
+}
+
+TArray<UAREnvironmentCaptureProbe*> UARBlueprintLibrary::GetAllTrackedEnvironmentCaptureProbes()
+{
+	TArray<UAREnvironmentCaptureProbe*> ResultList;
+	
+	auto ARSystem = GetARSystem();
+	if (ensure(ARSystem.IsValid()))
+	{
+		for (UARTrackedGeometry* Geo : ARSystem->GetAllTrackedGeometries())
+		{
+			if (UAREnvironmentCaptureProbe* Item = Cast<UAREnvironmentCaptureProbe>(Geo))
+			{
+				ResultList.Add(Item);
+			}
+		}
+	}
+	return ResultList;
+}
+
+//@joeg -- Added environmental texture probe support
+bool UARBlueprintLibrary::AddManualEnvironmentCaptureProbe(FVector Location, FVector Extent)
+{
+	auto ARSystem = GetARSystem();
+	if (ensure(ARSystem.IsValid()))
+	{
+		return ARSystem->AddManualEnvironmentCaptureProbe(Location, Extent);
+	}
+	return false;
+}
+
+EARWorldMappingState UARBlueprintLibrary::GetWorldMappingStatus()
+{
+	auto ARSystem = GetARSystem();
+	if (ensure(ARSystem.IsValid()))
+	{
+		return ARSystem->GetWorldMappingStatus();
+	}
+	return EARWorldMappingState::NotAvailable;
+}
+
+TSharedPtr<FARSaveWorldAsyncTask, ESPMode::ThreadSafe> UARBlueprintLibrary::SaveWorld()
+{
+	auto ARSystem = GetARSystem();
+	if (ensure(ARSystem.IsValid()))
+	{
+		return ARSystem->SaveWorld();
+		
+	}
+	return TSharedPtr<FARSaveWorldAsyncTask, ESPMode::ThreadSafe>();
+}
+
+TSharedPtr<FARGetCandidateObjectAsyncTask, ESPMode::ThreadSafe> UARBlueprintLibrary::GetCandidateObject(FVector Location, FVector Extent)
+{
+	auto ARSystem = GetARSystem();
+	if (ensure(ARSystem.IsValid()))
+	{
+		return ARSystem->GetCandidateObject(Location, Extent);
+		
+	}
+	return TSharedPtr<FARGetCandidateObjectAsyncTask, ESPMode::ThreadSafe>();
+}
+
+//@joeg -- End additions

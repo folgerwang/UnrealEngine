@@ -1,6 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "IOSDebugOutputDevice.h"
+#include "IOS/IOSDebugOutputDevice.h"
 #include "HAL/PlatformMisc.h"
 #include "CoreGlobals.h"
 #include "Misc/OutputDeviceHelper.h"

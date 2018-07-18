@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2720244
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:1.13 - スクリーン比率
 Crumbs:%ROOT%, Resources, Resources/ContentExamples, Resources/ContentExamples/PostProcessing
@@ -7,65 +7,8 @@ Related:Engine/Rendering/Overview
 Related:Engine/Rendering/PostProcessEffects
 Related:Engine/Rendering/PostProcessEffects/PostProcessMaterials
 Version:4.9
+topic-image:Resources/ContentExamples/PostProcessing/PP_13.png
 
-[VAR:Steps]
-[OBJECT:Navigation]
-	[PARAM:previous]
-		[前のサンプル](Resources/ContentExamples/PostProcessing/1_12 "%Resources/ContentExamples/PostProcessing/1_12:title%")
-	[/PARAM]
-	[PARAM:current]
-	[/PARAM]
-	[PARAM:home]
-		[ポストプロセスのホーム](Resources/ContentExamples/PostProcessing)
-	[/PARAM]
-	[PARAM:next]
-		[次のサンプル](Resources/ContentExamples/PostProcessing/1_14 "%Resources/ContentExamples/PostProcessing/1_14:title%")
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources/ContentExamples/PostProcessing/1_13:title%](Resources/ContentExamples/PostProcessing/PP_13.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%\rendering_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/PostProcessing/1_13:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/ContentExamples/PostProcessing/1_13:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/ContentExamples/PostProcessing/1_13]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Resources/ContentExamples/PostProcessing/1_13:title%](Resources/ContentExamples/PostProcessing/PP_13.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%\rendering_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/PostProcessing/1_13:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/ContentExamples/PostProcessing/1_13:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/ContentExamples/PostProcessing/1_13]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-<div align="center">
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
 	![Screen Percentage - 100](1_13_01.png)(w:600)
@@ -74,17 +17,6 @@ Version:4.9
 	![Screen Percentage - 25](1_13_02.png)(w:600)
 	[/PARAM]
 [/OBJECT]
-</div>
-
-[COMMENT:none]
--
-<div align="center">
-[REGION:lightbox]
-[![](1_13_01.png)(w:440)](1_13_01.png) [![](1_13_02.png)(w:440)](1_13_02.png)
-[/REGION:lightbox]
-</div>
--
-[/COMMENT]
 
 **Screen Percentage** は、低解像度でシーンをレンダリングして拡大します。この値は、シーンの全体的な解像度の比率を表します。
 

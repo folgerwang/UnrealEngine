@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "IHeadMountedDisplayModule.h"
 
 #define OSVR_UNREAL_4_11 1

@@ -494,7 +494,8 @@ void UViewportWorldInteraction::RemoveInteractor( UViewportInteractor* Interacto
 void UViewportWorldInteraction::SetTransformer( UViewportTransformer* NewTransformer )
 {
 	// Clear all existing transformables
-	SetTransformables( TArray< TUniquePtr< class FViewportTransformable > >() );
+	const bool bNewObjectsSelected = false;
+	SetTransformables( TArray< TUniquePtr< class FViewportTransformable > >(), bNewObjectsSelected );
 
 	if( ViewportTransformer != nullptr )
 	{
@@ -514,7 +515,7 @@ void UViewportWorldInteraction::SetTransformer( UViewportTransformer* NewTransfo
 }
 
 
-void UViewportWorldInteraction::SetTransformables( TArray< TUniquePtr< class FViewportTransformable > >&& NewTransformables )
+void UViewportWorldInteraction::SetTransformables( TArray< TUniquePtr< class FViewportTransformable > >&& NewTransformables, const bool bNewObjectsSelected )
 {
 	// We're dealing with a new set of transformables, so clear out anything that was going on with the old ones.
 	bDraggedSinceLastSelection = false;
@@ -534,7 +535,6 @@ void UViewportWorldInteraction::SetTransformables( TArray< TUniquePtr< class FVi
 
 	Transformables = MoveTemp( NewTransformables );
 
-	const bool bNewObjectsSelected = true;
 	RefreshTransformGizmo( bNewObjectsSelected );
 }
 
@@ -559,19 +559,26 @@ bool UViewportWorldInteraction::InputKey( FEditorViewportClient* InViewportClien
 
 	if( IsActive() && !bWasHandled )
 	{
-		check(InViewportClient != nullptr);
-		OnKeyInputEvent.Broadcast(InViewportClient, Key, Event, bWasHandled);
+		check( InViewportClient != nullptr );
 
-		if( !bWasHandled || !IsActive() )
+		// Don't bother processing clicks if Alt is held down, as that's used for orbit in level viewports
+		FInputEventState InputState( InViewportClient->Viewport, Key, Event );
+		const bool bAltOrbitDragging = InputState.IsAltButtonPressed() && !InputState.IsCtrlButtonPressed() && !InputState.IsShiftButtonPressed() && Key == EKeys::LeftMouseButton;
+		if( !bAltOrbitDragging )
 		{
-			for( UViewportInteractor* Interactor : Interactors )
-			{
-				bWasHandled = Interactor->HandleInputKey( *InViewportClient, Key, Event );
+			OnKeyInputEvent.Broadcast(InViewportClient, Key, Event, bWasHandled);
 
-				// Stop iterating if the input was handled by an Interactor
-				if( bWasHandled || !IsActive() )
+			if( !bWasHandled || !IsActive() )
+			{
+				for( UViewportInteractor* Interactor : Interactors )
 				{
-					break;
+					bWasHandled = Interactor->HandleInputKey( *InViewportClient, Key, Event );
+
+					// Stop iterating if the input was handled by an Interactor
+					if( bWasHandled || !IsActive() )
+					{
+						break;
+					}
 				}
 			}
 		}
@@ -2336,6 +2343,7 @@ void UViewportWorldInteraction::StopDragging( UViewportInteractor* Interactor )
 					InteractorData.DragOperationComponent->ClearDragOperation();
 				}
 				InteractorData.DragOperationComponent.Reset();
+				InteractorData.DraggingMode = EViewportInteractionDraggingMode::Nothing;
 
 				// If we're not dragging anything around, check to see if transformables have come to a rest.
 				const bool bTransformablesStillMoving =

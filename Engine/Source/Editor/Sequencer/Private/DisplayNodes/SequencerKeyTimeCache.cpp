@@ -5,42 +5,56 @@
 #include "Algo/Sort.h"
 #include "Algo/BinarySearch.h"
 
-void FSequencerCachedKeys::Update(TSharedRef<IKeyArea> KeyArea)
+void FSequencerCachedKeys::Update(TSharedRef<IKeyArea> InKeyArea, FFrameRate SourceResolution)
 {
-	if (!CachedKeys.IsSet())
-	{
-		CachedKeys.Emplace();
-	}
-
-	UMovieSceneSection* Section = KeyArea->GetOwningSection();
-	if (!Section || !CachedSignature.IsValid() || Section->GetSignature() != CachedSignature)
+	UMovieSceneSection* Section = InKeyArea->GetOwningSection();
+	if (!Section || !CachedSignature.IsValid() || Section->GetSignature() != CachedSignature || SourceResolution != CachedTickResolution)
 	{
 		CachedSignature = Section ? Section->GetSignature() : FGuid();
+		CachedTickResolution = SourceResolution;
 
-		CachedKeys->Reset();
+		CachedKeyFrames.Reset();
+
+		TArray<FKeyHandle> Handles;
+		InKeyArea->GetKeyInfo(&Handles, &CachedKeyFrames);
+
+		CachedKeyTimes.Reset(CachedKeyFrames.Num());
+		CachedKeyHandles.Reset(CachedKeyFrames.Num());
 
 		// Generate and cache
-		for (FKeyHandle KeyHandle : KeyArea->GetUnsortedKeyHandles())
+		for (int32 Index = 0; Index < CachedKeyFrames.Num(); ++Index)
 		{
-			CachedKeys->Add(FSequencerCachedKey{ KeyHandle, KeyArea->GetKeyTime(KeyHandle) });
+			CachedKeyTimes.Add(CachedKeyFrames[Index] / SourceResolution);
+			CachedKeyHandles.Add(Handles[Index]);
 		}
 
-		Algo::SortBy(CachedKeys.GetValue(), &FSequencerCachedKey::Time);
+		KeyArea = InKeyArea;
 	}
 }
 
-TArrayView<const FSequencerCachedKey> FSequencerCachedKeys::GetKeysInRange(TRange<float> ViewRange) const
+void FSequencerCachedKeys::GetKeysInRange(const TRange<double>& Range, TArrayView<const double>* OutTimes, TArrayView<const FFrameNumber>* OutKeyFrames, TArrayView<const FKeyHandle>* OutHandles) const
 {
 	// Binary search the first time that's >= the lower bound
-	int32 FirstVisibleIndex = Algo::LowerBoundBy(CachedKeys.GetValue(), ViewRange.GetLowerBoundValue(), &FSequencerCachedKey::Time, TLess<float>());
+	int32 FirstVisibleIndex = Algo::LowerBound(CachedKeyTimes, Range.GetLowerBoundValue());
 	// Binary search the last time that's > the upper bound
-	int32 LastVisibleIndex = Algo::UpperBoundBy(CachedKeys.GetValue(), ViewRange.GetUpperBoundValue(), &FSequencerCachedKey::Time, TLess<float>());
+	int32 LastVisibleIndex = Algo::UpperBound(CachedKeyTimes, Range.GetUpperBoundValue());
 
 	int32 Num = LastVisibleIndex - FirstVisibleIndex;
-	if (CachedKeys->IsValidIndex(FirstVisibleIndex) && LastVisibleIndex <= CachedKeys->Num())
+	if (CachedKeyTimes.IsValidIndex(FirstVisibleIndex) && LastVisibleIndex <= CachedKeyTimes.Num())
 	{
-		return MakeArrayView(&CachedKeys.GetValue()[FirstVisibleIndex], Num);
-	}
+		if (OutTimes)
+		{
+			*OutTimes = MakeArrayView(&CachedKeyTimes[FirstVisibleIndex], Num);
+		}
 
-	return TArrayView<const FSequencerCachedKey>();
+		if (OutKeyFrames)
+		{
+			*OutKeyFrames = MakeArrayView(&CachedKeyFrames[FirstVisibleIndex], Num);
+		}
+
+		if (OutHandles)
+		{
+			*OutHandles = MakeArrayView(&CachedKeyHandles[FirstVisibleIndex], Num);
+		}
+	}
 }

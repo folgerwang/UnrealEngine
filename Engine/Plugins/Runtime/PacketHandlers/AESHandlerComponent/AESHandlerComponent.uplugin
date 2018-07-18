@@ -22,12 +22,15 @@
 			"LoadingPhase" : "Default",
 			"WhitelistPlatforms":
 			[
+				"Android",
+				"IOS",
 				"Mac",
 				"Win32",
 				"Win64",
 				"Linux",
 				"PS4",
-				"XboxOne"
+				"XboxOne",
+				"Switch" 
 			]
 		}
 	],
@@ -38,12 +41,15 @@
 			"Enabled": true,
 			"WhitelistPlatforms":
 			[
+				"Android",
+				"IOS",
 				"Mac",
 				"Win32",
 				"Win64",
 				"Linux",
 				"PS4",
-				"XboxOne"
+				"XboxOne",
+				"Switch" 
 			]
 		}
 	]

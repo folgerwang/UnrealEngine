@@ -4,6 +4,7 @@
 #include "ImgMediaPrivate.h"
 
 #include "Algo/Reverse.h"
+#include "Misc/FrameRate.h"
 #include "HAL/FileManager.h"
 #include "HAL/PlatformProcess.h"
 #include "Misc/Paths.h"
@@ -43,13 +44,17 @@ FImgMediaLoader::FImgMediaLoader(const TSharedRef<FImgMediaScheduler, ESPMode::T
 	, Scheduler(InScheduler)
 	, SequenceDim(FIntPoint::ZeroValue)
 	, SequenceDuration(FTimespan::Zero())
-	, SequenceFps(0.0f)
+	, SequenceFrameRate(0, 0)
 	, LastRequestedFrame(INDEX_NONE)
-{ }
+{
+	UE_LOG(LogImgMedia, Verbose, TEXT("Loader %p: Created"), this);
+}
 
 
 FImgMediaLoader::~FImgMediaLoader()
 {
+	UE_LOG(LogImgMedia, Verbose, TEXT("Loader %p: Destroyed"), this);
+
 	// clean up work item pool
 	for (auto Work : WorkPool)
 	{
@@ -74,7 +79,7 @@ FImgMediaLoader::~FImgMediaLoader()
 uint64 FImgMediaLoader::GetBitRate() const
 {
 	FScopeLock Lock(&CriticalSection);
-	return SequenceDim.X * SequenceDim.Y * sizeof(uint16) * SequenceFps * 8;
+	return SequenceDim.X * SequenceDim.Y * sizeof(uint16) * 8 * SequenceFrameRate.AsDecimal();
 }
 
 
@@ -97,7 +102,7 @@ void FImgMediaLoader::GetCompletedTimeRanges(TRangeSet<FTimespan>& OutRangeSet) 
 
 TSharedPtr<FImgMediaTextureSample, ESPMode::ThreadSafe> FImgMediaLoader::GetFrameSample(FTimespan Time)
 {
-	const int32 FrameIndex = TimeToFrame(Time);
+	const int32 FrameIndex = TimeToFrameNumber(Time);
 
 	if (FrameIndex == INDEX_NONE)
 	{
@@ -113,12 +118,12 @@ TSharedPtr<FImgMediaTextureSample, ESPMode::ThreadSafe> FImgMediaLoader::GetFram
 		return nullptr;
 	}
 
-	const FTimespan FrameTime = FTimespan::FromSeconds(FrameIndex / SequenceFps);
-	const FTimespan FrameDuration = FTimespan::FromSeconds(1.0f / SequenceFps);
+	const FTimespan FrameStartTime = FrameNumberToTime(FrameIndex);
+	const FTimespan NextStartTime = FrameNumberToTime(FrameIndex + 1);
 
 	auto Sample = MakeShared<FImgMediaTextureSample, ESPMode::ThreadSafe>();
 	
-	if (!Sample->Initialize(*Frame->Get(), SequenceDim, FrameTime, FrameDuration))
+	if (!Sample->Initialize(*Frame->Get(), SequenceDim, FrameStartTime, NextStartTime - FrameStartTime))
 	{
 		return nullptr;
 	}
@@ -153,11 +158,18 @@ IQueuedWork* FImgMediaLoader::GetWork()
 }
 
 
-void FImgMediaLoader::Initialize(const FString& SequencePath, const float FpsOverride, bool Loop)
+void FImgMediaLoader::Initialize(const FString& SequencePath, const FFrameRate& FrameRateOverride, bool Loop)
 {
+	UE_LOG(LogImgMedia, Verbose, TEXT("Loader %p: Initializing with %s (FrameRateOverride = %s, Loop = %i)"),
+		this,
+		*SequencePath,
+		*FrameRateOverride.ToPrettyText().ToString(),
+		Loop
+	);
+
 	check(!Initialized); // reinitialization not allowed for now
 
-	LoadSequence(SequencePath, FpsOverride, Loop);
+	LoadSequence(SequencePath, FrameRateOverride, Loop);
 	FPlatformMisc::MemoryBarrier();
 
 	Initialized = true;
@@ -166,15 +178,18 @@ void FImgMediaLoader::Initialize(const FString& SequencePath, const float FpsOve
 
 bool FImgMediaLoader::RequestFrame(FTimespan Time, float PlayRate, bool Loop)
 {
-	const int32 FrameIndex = TimeToFrame(Time);
+	const int32 FrameNumber = TimeToFrameNumber(Time);
 
-	if ((FrameIndex == INDEX_NONE) || (FrameIndex == LastRequestedFrame))
+	if ((FrameNumber == INDEX_NONE) || (FrameNumber == LastRequestedFrame))
 	{
+		UE_LOG(LogImgMedia, VeryVerbose, TEXT("Loader %p: Skipping frame %i for time %s"), this, FrameNumber, *Time.ToString(TEXT("%h:%m:%s.%t")));
 		return false;
 	}
 
-	Update(FrameIndex, PlayRate, Loop);
-	LastRequestedFrame = FrameIndex;
+	UE_LOG(LogImgMedia, VeryVerbose, TEXT("Loader %p: Requesting frame %i for time %s"), this, FrameNumber, *Time.ToString(TEXT("%h:%m:%s.%t")));
+
+	Update(FrameNumber, PlayRate, Loop);
+	LastRequestedFrame = FrameNumber;
 
 	return true;
 }
@@ -185,22 +200,31 @@ bool FImgMediaLoader::RequestFrame(FTimespan Time, float PlayRate, bool Loop)
 
 void FImgMediaLoader::FrameNumbersToTimeRanges(const TArray<int32>& FrameNumbers, TRangeSet<FTimespan>& OutRangeSet) const
 {
-	if (SequenceFps <= 0.0f)
+	if (!SequenceFrameRate.IsValid() || (SequenceFrameRate.Numerator <= 0))
 	{
 		return;
 	}
 
-	const FTimespan FrameDuration = FTimespan::FromSeconds(1.0 / SequenceFps);
-
-	for (const auto Frame : FrameNumbers)
+	for (const auto FrameNumber : FrameNumbers)
 	{
-		const FTimespan StartTime = FTimespan::FromSeconds(Frame / SequenceFps);
-		OutRangeSet.Add(TRange<FTimespan>(StartTime, StartTime + FrameDuration));
+		const FTimespan FrameStartTime = FrameNumberToTime(FrameNumber);
+		const FTimespan NextStartTime = FrameNumberToTime(FrameNumber + 1);
+
+		OutRangeSet.Add(TRange<FTimespan>(FrameStartTime, NextStartTime));
 	}
 }
 
 
-void FImgMediaLoader::LoadSequence(const FString& SequencePath, const float FpsOverride, bool Loop)
+FTimespan FImgMediaLoader::FrameNumberToTime(uint32 FrameNumber) const
+{
+	return FTimespan(FMath::DivideAndRoundNearest(
+		FrameNumber * SequenceFrameRate.Denominator * ETimespan::TicksPerSecond,
+		(int64)SequenceFrameRate.Numerator
+	));
+}
+
+
+void FImgMediaLoader::LoadSequence(const FString& SequencePath, const FFrameRate& FrameRateOverride, bool Loop)
 {
 	SCOPE_CYCLE_COUNTER(STAT_ImgMedia_LoaderLoadSequence);
 
@@ -219,7 +243,7 @@ void FImgMediaLoader::LoadSequence(const FString& SequencePath, const float FpsO
 		return;
 	}
 
-	UE_LOG(LogImgMedia, Verbose, TEXT("Found %i image files in %s"), FoundFiles.Num(), *SequencePath);
+	UE_LOG(LogImgMedia, Verbose, TEXT("Loader %p: Found %i image files in %s"), this, FoundFiles.Num(), *SequencePath);
 
 	FoundFiles.Sort();
 
@@ -270,16 +294,16 @@ void FImgMediaLoader::LoadSequence(const FString& SequencePath, const float FpsO
 
 	SequenceDim = FirstFrameInfo.Dim;
 
-	if (FpsOverride > 0.0f)
+	if (FrameRateOverride.IsValid() && (FrameRateOverride.Numerator > 0))
 	{
-		SequenceFps = FpsOverride;
+		SequenceFrameRate = FrameRateOverride;
 	}
 	else
 	{
-		SequenceFps = FirstFrameInfo.Fps;
+		SequenceFrameRate = FirstFrameInfo.FrameRate;
 	}
 
-	SequenceDuration = FTimespan::FromSeconds(ImagePaths.Num() / SequenceFps);
+	SequenceDuration = FrameNumberToTime(ImagePaths.Num());
 
 	// initialize loader
 	auto Settings = GetDefault<UImgMediaSettings>();
@@ -304,18 +328,18 @@ void FImgMediaLoader::LoadSequence(const FString& SequencePath, const float FpsO
 	Info += FString::Printf(TEXT("    Format: %s\n"), *FirstFrameInfo.FormatName);
 	Info += FString::Printf(TEXT("    Compression: %s\n"), *FirstFrameInfo.CompressionName);
 	Info += FString::Printf(TEXT("    Frames: %i\n"), ImagePaths.Num());
-	Info += FString::Printf(TEXT("    FPS: %f\n"), SequenceFps);
+	Info += FString::Printf(TEXT("    Frame Rate: %.2f (%i/%i)\n"), SequenceFrameRate.AsDecimal(), SequenceFrameRate.Numerator, SequenceFrameRate.Denominator);
 }
 
 
-uint32 FImgMediaLoader::TimeToFrame(FTimespan Time) const
+uint32 FImgMediaLoader::TimeToFrameNumber(FTimespan Time) const
 {
 	if ((Time < FTimespan::Zero()) || (Time > SequenceDuration))
 	{
 		return INDEX_NONE;
 	}
 
-	return (Time * SequenceFps).GetTicks() / ETimespan::TicksPerSecond;
+	return (Time.GetTicks() * SequenceFrameRate.Numerator) / (ETimespan::TicksPerSecond * SequenceFrameRate.Denominator);
 }
 
 
@@ -451,6 +475,7 @@ void FImgMediaLoader::NotifyWorkComplete(FImgMediaLoaderWork& CompletedWork, int
 	{
 		if (Frame.IsValid())
 		{
+			UE_LOG(LogImgMedia, VeryVerbose, TEXT("Loader %p: Loaded frame %i"), this, FrameNumber);
 			Frames.Add(FrameNumber, Frame);
 		}
 	}

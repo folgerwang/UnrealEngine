@@ -373,7 +373,7 @@ bool FAvfMediaPlayer::Open(const FString& Url, const IMediaOptions* /*Options*/)
 	else
 	{
 		// Assume that this has been percent encoded for now - when we support HTTP Live Streaming we will need to check for that.
-		nsMediaUrl = [NSURL URLWithString: Path.GetNSString()];
+		nsMediaUrl = [NSURL URLWithString: Url.GetNSString()];
 	}
 
 	// open media file
@@ -455,7 +455,9 @@ bool FAvfMediaPlayer::Open(const FString& Url, const IMediaOptions* /*Options*/)
 	[PlayerItem addObserver:MediaHelper forKeyPath:@"status" options:0 context:PlayerItem];
 
 	[MediaPlayer replaceCurrentItemWithPlayerItem : PlayerItem];
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	[[MediaPlayer currentItem] seekToTime:kCMTimeZero];
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 	MediaPlayer.rate = 0.0;
 	CurrentTime = FTimespan::Zero();

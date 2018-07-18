@@ -19,7 +19,7 @@
 #include "ActorPickerMode.h"
 #include "SceneOutlinerPublicTypes.h"
 #include "SceneOutlinerModule.h"
-#include "Private/SSocketChooser.h"
+#include "Editor/SceneOutliner/Private/SSocketChooser.h"
 #include "LevelEditor.h"
 #include "MovieSceneObjectBindingIDPicker.h"
 #include "MovieSceneToolHelpers.h"
@@ -129,7 +129,7 @@ void FActorPickerTrackEditor::ShowActorSubMenu(FMenuBuilder& MenuBuilder, FGuid 
 
 	// Always recreate the binding picker to ensure we have the correct sequence ID
 	BindingIDPicker = MakeShared<FTrackEditorBindingIDPicker>(SequencerPtr->GetFocusedTemplateID(), SequencerPtr);
-	BindingIDPicker->OnBindingPicked().AddRaw(this, &FActorPickerTrackEditor::ExistingBindingPicked, ObjectBinding);
+	BindingIDPicker->OnBindingPicked().AddRaw(this, &FActorPickerTrackEditor::ExistingBindingPicked, ObjectBinding, Section);
 
 	FText ExistingBindingText = LOCTEXT("ExistingBinding", "Existing Binding");
 	FText NewBindingText = LOCTEXT("NewBinding", "New Binding");
@@ -260,7 +260,7 @@ void FActorPickerTrackEditor::ActorPicked(AActor* ParentActor, FGuid ObjectGuid,
 }
 
 
-void FActorPickerTrackEditor::ExistingBindingPicked(FMovieSceneObjectBindingID ExistingBindingID, FGuid ObjectBinding)
+void FActorPickerTrackEditor::ExistingBindingPicked(FMovieSceneObjectBindingID ExistingBindingID, FGuid ObjectBinding, UMovieSceneSection* Section)
 {
 	TSharedPtr<ISequencer> SequencerPtr = GetSequencer();
 
@@ -272,13 +272,13 @@ void FActorPickerTrackEditor::ExistingBindingPicked(FMovieSceneObjectBindingID E
 			AActor* Actor = Cast<AActor>(RuntimeObject.Get());
 			if (Actor)
 			{
-				ActorPickerIDPicked(FActorPickerID(Actor, ExistingBindingID), ObjectBinding, nullptr);
+				ActorPickerIDPicked(FActorPickerID(Actor, ExistingBindingID), ObjectBinding, Section);
 				return;
 			}
 		}
 	}
 
-	ActorPickerIDPicked(FActorPickerID(nullptr, ExistingBindingID), ObjectBinding, nullptr);
+	ActorPickerIDPicked(FActorPickerID(nullptr, ExistingBindingID), ObjectBinding, Section);
 }
 
 

@@ -21,6 +21,18 @@ struct IMPTableBase
 	{
 	}
 	
+	template<typename AssociatedObject>
+	static AssociatedObject GetAssociatedObject(ObjC Object)
+	{
+		return (AssociatedObject)objc_getAssociatedObject((id)Object, (void const*)&GetAssociatedObject<AssociatedObject>);
+	}
+	
+	template<typename AssociatedObject>
+	static void SetAssociatedObject(ObjC Object, AssociatedObject Assoc)
+	{
+		objc_setAssociatedObject((id)Object, (void const*)&GetAssociatedObject<AssociatedObject>, (id)Assoc, (objc_AssociationPolicy)(01401));
+	}
+	
 	template<typename InterposeClass>
 	void RegisterInterpose(Class C)
 	{
@@ -51,6 +63,16 @@ struct IMPTable : public IMPTableBase<ObjC>
 		IMPTableBase<ObjC>::template RegisterInterpose<Interpose>(C);
 	}
 };
+
+namespace ue4
+{
+	template<typename ObjC, typename Interpose>
+	struct ITable : public IMPTable<ObjC, Interpose>
+	{
+		ITable() {}
+		ITable(Class Obj) : IMPTable<ObjC, Interpose>(Obj) {}
+	};
+}
 
 MTLPP_END
 

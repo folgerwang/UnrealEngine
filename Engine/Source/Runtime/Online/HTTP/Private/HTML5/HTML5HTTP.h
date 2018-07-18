@@ -5,30 +5,30 @@
 #include "CoreMinimal.h"
 #include "Containers/UnrealString.h"
 #include "Containers/Map.h"
-#include "Interfaces/IHttpRequest.h"
+#include "GenericPlatform/HttpRequestImpl.h"
 #include "Interfaces/IHttpResponse.h"
 
 /**
 * HTML5 implementation of an Http request
 */
-class FHTML5HttpRequest : public IHttpRequest
+class FHTML5HttpRequest : public FHttpRequestImpl
 {
 public:
 	// implementation friends
 	friend class FHTML5HttpResponse;
 
 	//~ Begin IHttpBase Interface
-	virtual FString GetURL() override;
-	virtual FString GetURLParameter(const FString& ParameterName) override;
-	virtual FString GetHeader(const FString& HeaderName) override;
-	virtual TArray<FString> GetAllHeaders() override;
-	virtual FString GetContentType() override;
-	virtual int32 GetContentLength() override;
-	virtual const TArray<uint8>& GetContent() override;
+	virtual FString GetURL() const override;
+	virtual FString GetURLParameter(const FString& ParameterName) const override;
+	virtual FString GetHeader(const FString& HeaderName) const override;
+	virtual TArray<FString> GetAllHeaders() const override;
+	virtual FString GetContentType() const override;
+	virtual int32 GetContentLength() const override;
+	virtual const TArray<uint8>& GetContent() const override;
 	//~ End IHttpBase Interface
 
 	//~ Begin IHttpRequest Interface
-	virtual FString GetVerb() override;
+	virtual FString GetVerb() const override;
 	virtual void SetVerb(const FString& InVerb) override;
 	virtual void SetURL(const FString& InURL) override;
 	virtual void SetContent(const TArray<uint8>& ContentPayload) override;
@@ -36,13 +36,11 @@ public:
 	virtual void SetHeader(const FString& HeaderName, const FString& HeaderValue) override;
 	virtual void AppendToHeader(const FString& HeaderName, const FString& AdditionalHeaderValue) override;
 	virtual bool ProcessRequest() override;
-	virtual FHttpRequestCompleteDelegate& OnProcessRequestComplete() override;
-	virtual FHttpRequestProgressDelegate& OnRequestProgress() override;
 	virtual void CancelRequest() override;
-	virtual EHttpRequestStatus::Type GetStatus() override;
+	virtual EHttpRequestStatus::Type GetStatus() const override;
 	virtual const FHttpResponsePtr GetResponse() const override;
 	virtual void Tick(float DeltaSeconds) override;
-	virtual float GetElapsedTime() override;
+	virtual float GetElapsedTime() const override;
 	//~ End IHttpRequest Interface
 
 	/**
@@ -98,12 +96,6 @@ private:
 	/** BYTE array payload to use with the request. Typically for a POST */
 	TArray<uint8> RequestPayload;
 
-	/** Delegate that will get called once request completes or on any error */
-	FHttpRequestCompleteDelegate RequestCompleteDelegate;
-
-	/** Delegate that will get called once per tick with bytes downloaded so far */
-	FHttpRequestProgressDelegate RequestProgressDelegate;
-
 	/** Current status of request being processed */
 	EHttpRequestStatus::Type CompletionStatus;
 
@@ -142,24 +134,24 @@ public:
 
 
 	//~ Begin IHttpBase Interface
-	virtual FString GetURL() override;
-	virtual FString GetURLParameter(const FString& ParameterName) override;
-	virtual FString GetHeader(const FString& HeaderName) override;
-	virtual TArray<FString> GetAllHeaders() override;
-	virtual FString GetContentType() override;
-	virtual int32 GetContentLength() override;
-	virtual const TArray<uint8>& GetContent() override;
+	virtual FString GetURL() const override;
+	virtual FString GetURLParameter(const FString& ParameterName) const override;
+	virtual FString GetHeader(const FString& HeaderName) const override;
+	virtual TArray<FString> GetAllHeaders() const override;
+	virtual FString GetContentType() const override;
+	virtual int32 GetContentLength() const override;
+	virtual const TArray<uint8>& GetContent() const override;
 	//~ End IHttpBase Interface
 
 	//~ Begin IHttpResponse Interface
-	virtual int32 GetResponseCode() override;
-	virtual FString GetContentAsString() override;
+	virtual int32 GetResponseCode() const override;
+	virtual FString GetContentAsString() const override;
 	//~ End IHttpResponse Interface
 
 	/**
 	* Check whether a response is ready or not.
 	*/
-	bool IsReady();
+	bool IsReady() const;
 
 	/**
 	* Constructor

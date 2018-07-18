@@ -1,48 +1,323 @@
-﻿INTSourceChangelist:2683713
+﻿INTSourceChangelist:3807090
 Availability:Public
-Title:Sky Lights（スカイライト）
-Crumbs: %ROOT%, Engine, Engine/Rendering/LightingAndShadows, Engine/Rendering/LightingAndShadows/LightTypes
-Description:Sky Light（スカイライト）の基礎
-Version:4.9
+Crumbs: %ROOT%
+Title:スカイライト
+Description:アンリアル エンジン 4 のスカイライトの概要
+Type:Overview
+SkillLevel:Beginner
+Version:4.18
+Parent:Engine/Rendering/LightingAndShadows
+Related:Engine/Rendering/LightingAndShadows/Lightmass
+Related:Engine/Rendering/LightingAndShadows/LightTypes
+Related:Engine/Rendering/LightingAndShadows/DistanceFieldAmbientOcclusion
+Order:
+Tags:lighting
+Topic-Image:SkyLight_Topic.png
+Social-Image:SkyLight_1.png
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Rendering/LightingAndShadows/LightTypes/SkyLight:title%](SkyLight_Topic.png)
+[REGION:fullwidth raw]
+![](Skylight_Header.png)
+[/REGION]
+
+[TOC(start:2 end:2)]
+
+
+
+スカイライト は、レベルの遠い部分 (SkyDistanceThreshold 以遠全て) をキャプチャし、それをライトとしてシーンに適用します。空が大気圏または、スカイボックスの一番上にレイヤーされた雲、あるいは遠くの山々とつながっていても、 
+空の外観とライティング / 反射が一致します。キューブマップの使用を手動で指定することもできます。 
+
+## Scene Capture
+
+Sky Light はシーンを再キャプチャするのみです。 
+
+* **Static Sky Lights** は、ライティングのビルド時に自動的に更新されます
+* **Stationary (固定) Sky Light** あるいは **Movable (ムーバブル) Sky Light** の場合、ロード時に 1 度更新され、あとは **Recapture Sky** の呼び出し時に更新されます。これは **[Details]** パネルまたはインゲームでのブループリントの呼び出しで行われます。
+
+[REGION:note]
+スカイボックスが使用しているテクスチャを変更した場合、変更は自動認識されません。更新には上記の手順のいずれかを使用しなけばなりません。
+[/REGION]
+
+スカイライトは室内エリアのぼやけを防ぐローカル空間のシャドウイングをサポートしているので、空のライトを表現するにはアンビエント キューブマップではなくスカイライトを使用すべきです。
+
+
+## 可動性
+
+他の [ライトのタイプ](Engine/Rendering/LightingAndShadows/LightTypes) と同様に、スカイライトの **可動性** は以下のいずれかに設定することができます。
+
+[REGION:raw]
+![](skylightIcon.png)
+[/REGION]
+
+[REGION:simpletable]
+| 可動性の状態 | 説明 |
+| --- | --- |
+| **Static (静的)**  | ゲーム中はライティングの変更はできません。これは、最速のレンダリング方法であり、焼き付けたライティングを可能にします。  |
+| **Stationary (固定)**  | ライティングのビルド中に、シャドウイングとライト バウンスが静的なジオメトリからキャプチャのみされます。すべての他のライティングは動的です。この設定により、ゲーム中にライトのカラー、強度、キューブマップを変更することが可能となりますが、移動および部分的なライトのベイクはできません。  |
+| **Movable (ムーバブル)**  | 必要に応じてインゲームでの移動および変更が可能です。 |
+[/REGION]
+
+
+### Static Sky Light (静的スカイライト)
+
+**Static Mobility (静的可動性)** が設定されている Sky Light (スカイライト) は、静的オブジェクト用のライトマップに完全に焼き付けられるので、負荷は全くかかりません。ライトのプロパティを編集した場合、
+レベルに対してライティングが再びビルドされるまで、変更は反映されません。 
+
+**モバイル向け開発で唯一サポートされているスカイライトになります。**
+
+[REGION:note]
+Static Sky Light を使う場合、**Static Mobility (静的可動性)** または **Stationary Mobility (固定可動性)** のあるコンポーネントとライトのみがキャプチャされ、静的スカイライトのライティングに使用されます。さらに、 
+マテリアルのエミッシブ効果のみが Static Sky Light (静的スカイライト) でキャプチャされます。これはフィードバックループを避けるためです。この理由から、すべてのスカイボックスのマテリアルには必ず **[Unlit]** を設定してください。
+[/REGION]
+
+### Stationary Sky Light (固定スカイライト)
+
+**[Stationary (固定)]** を設定したスカイライトは、[Static (静的)] に設定した場合と同様に、[ライトマス](Engine/Rendering/LightingAndShadows/Lightmass) からシャドウイングをベイクされます。レベル内に Stationary Sky (固定スカイライト)を配置したら、 
+焼き付けられらシャドウイングを取得するために再度ライティングをリビルドする必要があります。
+
+他の[Stationary Lights](Engine/Rendering/LightingAndShadows/LightMobility/StationaryLights) と同じ要領で、ランタイム時に **ブループリント** または **シーケンサー** で変更可能なプロパティもあります。つまり、
+レベル全体を再ビルドしなくても、スカイライトの **強度** または **カラー** を変更することができるのです。ただし、間接ライティングはライトマップ上に焼き付けられ、実行時での変更はできません。間接ライティングの量は、 
+**[Indirect Lighting Intensity]** によって調節ができます。
+
+[REGION:note]
+Stationary Sky Light を使う場合、レベル内でモビリティが **[Static]** または **[Stationary]** に設定されたしたのあるコンポーネントとライトのみがキャプチャされ、静的スカイライトのライティングに使用されます。さらに、 
+マテリアルのエミッシブ効果のみが Stationary Sky Light (固定スカイライト) でキャプチャされます。これはフィードバックループを避けるためです。この理由から、すべてのスカイボックスのマテリアルには必ず **[Unlit]** を設定してください。
+[/REGION]
+
+
+### Movable Sky Light (可動スカイライト)
+
+**Movable** に設定されたスカイライトは事前計算は一切使用しません。シーンをキャプチャする設定にされると、コンポーネントとライトの可動性をキャプチャします。
+
+
+#### ディスタンス フィールド アンビエント オクルージョン
+
+[REGION:warning]
+この機能はデフォルトではオンにはなっていません。[Distance Field](Engine/Rendering/LightingAndShadows/MeshDistanceFields) 機能を使って有効にします。
+[/REGION]
+
+Movable Sky Light のシャドウイングには、剛体オブジェクトをそれぞれ事前計算した Signed Distance Field Volumes から
+Distance Field Ambient Occlusion を作成する機能があります。Distance Field Ambient Occlusion は動的シーンの変更に対応しているので、剛体メッシュの移動あるいは非表示が可能となり、オクルージョンにも影響を与えることが可能です。 
+
+[REGION:lightbox]
+[![](Engine/Rendering/LightingAndShadows/DistanceFieldAmbientOcclusion/DFAOView.png)(w:550)](Engine/Rendering/LightingAndShadows/DistanceFieldAmbientOcclusion/DFAOView.png)
+[/REGION]
+[REGION:caption] クリックしてフルサイズ表示 [/REGION]
+
+
+[REGION:note]
+詳細は [Distance Field Ambient Occlusion の使用方法](Engine/Rendering/LightingAndShadows/MeshDistanceFields/HowTo/DFHT_2) をご覧ください。
+[/REGION]
+
+
+
+## 事前計算されたスカイライト
+
+ベイクされたライティングを Static または Stationary Sky Light で使う場合、ライティングとシャドウイングのデータはライトマップに格納されます。このセクションでは、 
+[ライトマス](Engine/Rendering/LightingAndShadows/Lightmass) がサポートするこれらの機能について説明します。
+
+
+### Static Sky Light の指向性の改善
+
+4.18 より前のアンリアル エンジンでは、スカイライトは三次の球面調和関数 (Spherical Harmonic) でライトマスに表現されていましたが、日の出や日没のディテールはキャプチャしていませんでした。 
+フィルタリングされたキューブマップを使って、デフォルト設定でより高い解像度が得られるようになりました。さらにライトマスは、エイリアシングを避けるために、 
+Final Gather のレイの大きさに応じて適切な [キューブマップ テクスチャの MIP](Engine/Content/Types/Textures/Properties#LevelOfDetail) を選択します。
+
+[REGION:tip]
+**[Engine Content]** > **[MapTemplates]** > **[Sky]** から **[SunsetAmbientCubemap]** では、この種類のインタラクションの素晴らしいサンプルを見ることができます。
+[/REGION]
+
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![Third Order Spherical Harmonic | (Before) ](SkyLight_2.png)(w:1000)
 	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Rendering/LightingAndShadows/LightTypes/SkyLight:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Rendering/LightingAndShadows/LightTypes/SkyLight:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/LightingAndShadows/LightTypes/SkyLight]
+	[PARAM:after]
+	![Filtered Cubemap | (After)](SkyLight_1.png)(w:1000)
 	[/PARAM]
 [/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Rendering/LightingAndShadows/LightTypes/SkyLight:title%](SkyLight_Topic.png)
+[REGION:caption]  [/REGION]
+[REGION:caption]
+基本レベルを使って改善したサンプルです (エピックの [Robo Recall](Modding/RoboRecall) より)。 
+[/REGION]
+
+明るさと色のバリエーションが多いスカイライトのキューブマップで遮蔽度がかなり高いシーンの場合にこの違いが顕著になります。 
+
+#### Camera Obscura
+
+Static Sky Light の方向性が向上すると、開口部を十分に小さくすることでピンホール カメラ エフェクト ([Camera Obscura](https://en.wikipedia.org/wiki/Camera_obscura)) を再現することができます。 
+開口部が小さくなるほど、スカイライトの指向性は高まります。 
+
+[REGION:imagetable]
+| [REGION:lightbox] [![](CO_Cubemap.png)(h:265)](CO_Cubemap.png) [/REGION] | [REGION:lightbox] [![](CO_Result.png)(h:265)](CO_Result.png) [/REGION]  |
+| ---- | ---- |
+| スカイライトのソース キューブマップ | 結果のライトビルド |
+| _画像をクリックしてフルサイズ表示_ | _画像をクリックしてフルサイズ表示_ |
+[/REGION]
+
+### Stationary Sky Light のベント法線
+
+ライティングとは別にライトマスが焼き付けたスカイライトのシャドウイングは、**Bent Normal** と呼ばれる指向性オクルージョン情報を格納しています。Aftermath は現在アンリアル エンジン エディタにおいて、 
+テクセルから最もオクルードされたいない方向への方向です。ほぼオクルードされたエリアは、サーフェス法線ではな Sky Light に対してこの方向を使います。それによりクラックの質が改善されます。 
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![Static Sky Light Ambient Occlusion Only](1SkyLightAOOnly.png)(w:700)
 	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Rendering/LightingAndShadows/LightTypes/SkyLight:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Rendering/LightingAndShadows/LightTypes/SkyLight:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/LightingAndShadows/LightTypes/SkyLight]
+	[PARAM:after]
+	![Stationary Sky Light with Bent Normal](1SkyLightBentNormal.png)(w:700)
 	[/PARAM]
 [/OBJECT]
-[/VAR]
+
+[REGION:note]
+詳細は [Bent Normal Map](Engine/Rendering/LightingAndShadows/BentNormalMaps) をご覧ください。
+[/REGION]
+
+
+
+
+
+
+### 複数バウンスの設定
+
+スカイライトの間接光を複数回バウンスさせる設定は、[World Settings]** > **[Lightmass]** の **[Num Sky Lighting Bounces]** で行います。 
+
+![](LightmassSettings.png)
+[REGION:caption] 使用するスカイライトのバウンス回数の設定[/REGION]
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![Number of Bounces: 1](SkyLight_4.png)(w:1000)
+	[/PARAM]
+	[PARAM:after]
+	![Number of Bounces: 10](SkyLight_3.png)(w:1000)
+	[/PARAM]
+[/OBJECT]
+
+
+スカイライトの複数バウンスの効果を得るには、ほとんどのケースでマテリアルのディフューズの値を高くする必要があります。例えば、ディフューズが .18 (18% グレイ) の場合、2 回目のスカイライトのバウンスはライトが放射するエネルギーの .18^3 = .006 しか寄与せず、
+これはごくわずかなものです。例えば、ディフューズが 0.5 の場合、2 回目のスカイライトのバウンスはライトが放射するエネルギーの 0.125 寄与し、顕著なものになっています。
+
+[REGION:warning]
+バウンスを追加する毎に分散できないビルドの時間が増えるため、注意深く使用してください。
+[/REGION]
+
+[COMMENT:none]
+-
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![Number of Bounces: 1](SkyLight_6.png)(w:1000)
+	[/PARAM]
+	[PARAM:after]
+	![Number of Bounces: 10](SkyLight_5.png)(w:1000)
+	[/PARAM]
+[/OBJECT]
+-
+[/COMMENT]
+
+## プロパティ
+
+Sky Light コンポーネントのプロパティは、ライトとスカイライトの 2 つに大きく分類されます。これらはアクタの **[Details]** パネルからアクセスすることができます。
+
+![](SkyLightSettings.png)
+
+### Light
+
+以下の設定はすべての [ライト タイプ][Light Types](Engine/Rendering/LightingAndShadows/LightTypes) で共通です。
+
+[REGION:raw]
+| プロパティ | 説明 |
+| --- | --- |
+| **Intensity** | ライトが放出するエネルギーの合計です。 |
+| **Light Color** | ライトが放つ色を指定します。 |
+| **Affects World** | ライトがワールドに影響を及ぼせるのか、あるいは無効なのかを設定します。 |
+| **Cast Shadows** | ライトにシャドウをキャストさせるかを設定します。 |
+| **Casts Static Shadows** |静的オブジェクトからライトにシャドウをキャストさせるかを設定します。 また、Cast Shadows を True に設定することが要求されます。 |
+| **Casts Dynamic Shadows** | 動的オブジェクトからライトにシャドウをキャストさせるかを設定します。 また、Cast Shadows を True に設定することを要求します。 |
+| **Indirect Lighting Intensity** | ライトからの間接光の効果をスケーリングします。0 にするとこのライトのグローバル イルミネーション (GI) を無効にします。 |
+| **Volumetric Scattering Intensity** | このライトからのボリュメトリック スキャタリングの強度です。Intensity と Light Color を調節します。 |
+| **Cast Volumetric Shadow** | ライトが Volumetric Fog を投影するかどうか設定します。 |
+[/REGION]
+
+### スカイライト
+
+以下は、スカイライトに特有の設定です。
+
+[REGION:raw]
+| プロパティ | 説明 |
+| --- | --- |
+| **Source Type** | 遠くのシーンをキャプチャし光源として使用するか、あるいは特定のキューブマップを使用するかを設定します。シーンをキャプチャすると、スカイライト位置から SkyDistanceThreshold 値よりも遠方にある対象がすべて含まれます。 [INCLUDE:#sourcetype]  |
+| **Cubemap** | Source Type が SLS_SpecifiedCubemap に設定されている場合、天空光を使用するようにキューブマップを指定します。 |
+| **Source Cubemap Angle** | Source Type を SLS Specified Cubemap に設定した場合にソース キューブマップを回転させる角度です。 |
+| **Cubemap Resolution** | 処理された最上部のキューブマップ MIP の最大解像度です。サイズは 2 の累乗にしなければいけません。 |
+| **Sky Distance Threshold** | そこからはどのジオメトリも空の一部として見なされるスカイライトからの距離です (反射キャプチャ でも使用されます)。 |
+| **Capture Emissive Only** | エミッシブ マテリアルのみをキャプチャします。すべてのライティングをスキップするため、キャプチャが軽くなります。Capture Every Frame の使用時に推奨します。 |
+| **Lower Hemisphere is Solid Color** | 下半球から放たれる全てのライトをゼロに設定するかどうかを決めます。下半球からの光の漏れを防ぐのに便利なプロパティです。 |
+| **Recapture Scene** | Sky Light アクタが SLS_CapturedScene に設定されると、シーンを照らすためにスカイサイトが使用している画像を再キャプチャします。|
+[/REGION]
+
+
+[COMMENT:none]
+-
+
+[EXCERPT:sourcetype]
+| --- | --- |
+| **SLS Captured Scene** | キャプチャしたシーンからスカイライトを構築します。スカイライト位置から SkyDistanceThreshold 値よりも遠方にある対象がすべて含まれます。 |
+| **SLS Specified Cubemap** | 指定したキューブマップからスカイライトを構築します。
+[/EXCERPT:sourcetype]
+-
+[/COMMENT]
+
+
+## ムーバブル オブジェクトからのシャドウイング
+
+ムーバブル オブジェクトから背景へのソフト シャドウイングは、スケルタル メッシュへの [Capsule Shadows](Engine/Rendering/LightingAndShadows/CapsuleShadows) の使用、または 
+剛体メッシュへの [Distance Field Indirect Shadowing](Engine/Rendering/LightingAndShadows/MeshDistanceFields/HowTo/DFHT_4) の使用によって実現できます。そのためには、正しく機能するように別途設定が必要です。
+
+## 制限事項
+
+以下は、スカイライトと併用すると便利ですが、まだ実装されていない機能です。 
+
+* Stationary (固定) および Movable (可動) バージョン向けのシーンの動的再キャプチャSkyLightComponent 上の RecaptureSky() と呼ばれるブループリント機能は使用可能ですが、処理落ちが発生します。
+
+	![](RecaptureSkyLightBP.png)(w:700)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[COMMENT:none]
+-
+
 
 [REGION:fullwidth raw]
 ![](Skylight_Header.png)
@@ -61,20 +336,8 @@ Sky Light (スカイライト) は、ライティングを再ビルド、また�
 
 Sky Light (スカイライト) の **可動性** は **Static (静的)** あるいは **Stationary (固定)** に設定できます。
 
-[OBJECT:topiclistnotitle]
-	[PARAM:icon]
-		![](skylight_icon.png)(convert:false) 
-	[/PARAM]
-	[PARAM:description]
-	**Static (静的)** - (左の画像) ゲーム中のライトの変更が不可能です。1 番早いレンダリングの方法で、ライトの焼付けが可能です。
-
-	**Stationary (固定)** - (同じく左の画像) ライトは **ライトマス** で焼き付けられた静的ジオメトリからのシャドウイングと反射光のみを持ちます。この設定により、ゲーム中にライトのカラーと強度を変更することが可能となりますが、移動および部分的なライトの焼付けはできません。 
-	[/PARAM]
-[/OBJECT]
-
-[REGION:raw]
-![](spacer.png)
-[/REGION]
+* **Static (静的)** - (左の画像) ゲーム中のライトの変更が不可能です。これは、最速のレンダリング方法であり、焼き付けたライティングを可能にします。
+* 	**Stationary (固定)** - (同じく左の画像) ライトは **ライトマス** で焼き付けられた静的ジオメトリからのシャドウイングと反射光のみを持ちます。この設定により、ゲーム中にライトのカラーと強度を変更することが可能となりますが、移動および部分的なライトの焼付けはできません。 
 
 これは Sky Light (スカイライト) を使ったシーンからのサンプル画像です。
 
@@ -87,8 +350,7 @@ Sky Light (スカイライト) の **可動性** は **Static (静的)** ある�
 	[/PARAM]
 [/OBJECT]
 
-[COMMENT:none]
-
+<!--
 [REGION:lightbox]
 
 [![](skyLightEx_01.png)(w:884)](skyLightEx_01.png) [![](skyLightEx_02.png)(w:884)](skyLightEx_02.png)
@@ -103,13 +365,13 @@ _このシーンは、異なる HDR スカイボックス キューブマップ�
 
 **Static Mobility (静的可動性)** が設定されている Sky Light (スカイライト) は、静的オブジェクト用のライトマップに完全に焼き付けられるので、負荷は全くかかりません。モバイル上で唯一サポートされている種類のスカイライトになります。ライティングが再びビルドされるまで、ライトのプロパティの編集は表示されません。
 
-注記：**Static Mobility (静的可動性)** または **Stationary Mobility (固定可動性)** のあるコンポーネントとライトのみがキャプチャされ、静的スカイライトのライティングに使用されます。さらに、マテリアルのエミッシブ効果のみが **Static Sky Light (静的スカイライト)** でキャプチャされます。これはフィードバックループを避けるためです。スカイボックスには unlit マテリアルがあるようにしてください。
+注意：**Static Mobility (静的可動性)** または **Stationary Mobility (固定可動性)** のあるコンポーネントとライトのみがキャプチャされ、静的スカイライトのライティングに使用されます。さらに、マテリアルのエミッシブ効果のみが **Static Sky Light (静的スカイライト)** でキャプチャされます。これはフィードバックループを避けるためです。スカイボックスには unlit マテリアルがあるようにしてください。
 
 ## Stationary Skylight (固定スカイライト)
 
-**Stationary Mobility (固定可動性)**が設定されている Sky Light (スカイライト) は、**ライトマス** から焼き付けられたシャドウイングを取得します。レベル内に Stationary Sky (固定スカイライト)を配置したら、焼き付けられらシャドウイングを取得するために再度ライティングをリビルドする必要があります。スカイライトはリビルドせずに好きなだけ変更することができます。  
+**Stationary Mobility**が設定されている Sky Light (スカイライト) は、**ライトマス** から焼き付けられたシャドウイングを取得します。レベル内に Stationary Sky (固定スカイライト)を配置したら、焼き付けられらシャドウイングを取得するために再度ライティングをリビルドする必要があります。スカイライトはリビルドせずに好きなだけ変更することができます。  
 
-**Lightmass** が焼き付けた Sky Light のシャドウイングは、**Bent Normal** と呼ばれる指向性オクルージョン情報を格納しています。テクセルから最もオクルードされたいない方向への方向です。ほぼオクルードされたエリアは、サーフェス法線ではな Sky Light に対してこの方向を使います。それによりクラックの質がかなり良くなります。 
+**ライトマス** が焼き付けた Sky Light のシャドウイングは、**Bent Normal** と呼ばれる指向性オクルージョン情報を格納しています。テクセルから最もオクルードされたいない方向への方向です。ほぼオクルードされたエリアは、サーフェス法線ではな Sky Light に対してこの方向を使います。それによりクラックの質がかなり良くなります。 
 
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
@@ -131,9 +393,9 @@ _このシーンは、異なる HDR スカイボックス キューブマップ�
 [/COMMENT]
 _ 1 枚目の画像は AO のみを適用したスカイライトです。2 枚目の画像はベント法線オクルージョンを使用したスカイライトです。ライティングが差し込む場所でクラックの表面がどのように一致しているかに注目してください。_ 
 
-注記：**Static (静的)** または **Stationary Mobility (固定可動性)** のあるコンポーネントとライトのみがキャプチャされ、固定スカイライトのあるライティングに使用されます。
+注意：**Static (静的)** または **Stationary Mobility (固定可動性)** のあるコンポーネントとライトのみがキャプチャされ、Stationary Sky Light のあるライティングに使用されます。
 
-すべての種類の **Stationary Light (固定スカイライト)** のように、直接ライティングの色は **ブループリント** あるいは **マチネ** の実行時に変更することができます。ただし、間接ライティングはライトマップ上に焼き付けられ、実行時での変更はできません。間接ライティングの量は IndirectLightingIntensity で制御ができます。
+すべての種類の **Stationary Light (固定ライト)** のように、直接ライティングの色は **ブループリント** あるいは **マチネ** の実行時に変更することができます。ただし、間接ライティングはライトマップ上に焼き付けられ、実行時での変更はできません。間接ライティングの量は IndirectLightingIntensity で制御ができます。
 
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
@@ -158,11 +420,11 @@ _上: 直接ライティングのみ、下：Stationary Skylight (固定スカ�
 
 ## Movable Skylight (可動スカイライト)
 
-**Movable Skylight (可動スカイライト)** は事前計算を一切使用しません。シーンを天空光源としてキャプチャする設定にされると、コンポーネントとライトの可動性をキャプチャします。
+**Movable Skylight** は事前計算を一切使用しません。シーンを天空光源としてキャプチャする設定にされると、コンポーネントとライトの可動性をキャプチャします。
 
 ### ディスタンス フィールド アンビエント オクルージョン
 
-Movable Skylight (可動スカイライト) のシャドウイングでは [ディスタンス フィールド アンビエント オクルージョン](Engine/Rendering/LightingAndShadows/DistanceFieldAmbientOcclusion) と呼ばれる新機能が備わっています。これは、剛体オブジェクトをそれぞれ事前計算した Signed Distance Field Volumes からアンビエント オクルージョンを作成する機能です。動的シーンの変更をサポートするので、剛体メッシュを移動あるいは非表示にしてオクルージョンに影響を及ぼします。この機能はデフォルトではオンにはなっていないので、幾つか設定をしなければなりません。
+Movable Skylight (可動スカイライト) のシャドウイングには [ディスタンス フィールド アンビエント オクルージョン](Engine/Rendering/LightingAndShadows/DistanceFieldAmbientOcclusion) と呼ばれる新機能が備わっています。これは、剛体オブジェクトをそれぞれ事前計算した Signed Distance Field Volumes からアンビエント オクルージョンを作成する機能です。動的シーンの変更に対応しているので、剛体メッシュの移動あるいは非表示が可能となり、オクルージョンにも影響を与えます。この機能はデフォルトではオンにはなっていないので、幾つか設定をしなければなりません。
 
 ## 制限事項
 
@@ -170,24 +432,25 @@ Movable Skylight (可動スカイライト) のシャドウイングでは [デ�
 * 可動オブジェクト (キャラクタ) から環境へのソフト シャドウイング。
 * **Stationary (固定)** および **Movable (可動)** バージョン向けのシーンの動的再キャプチャSkyLightComponent 上にある RecaptureSky() と呼ばれるブループリント機能は使用可能ですが、処理落ちが発生します。
 
-## Sky Light (スカイライト) のプロパティ
+## スカイライトのプロパティ
 
-Sky Light (スカイライト) のプロパティは、ライトとスカイライトの 2 つに大きく分類されます。 
+Sky Light  のプロパティは、Light と Sky Light の 2 つに大きく分類されます。 
 
-###ライト
+### Light
 | プロパティ | 説明 |
 | -------- | ----------- |
-| **Intensity** | ライトが放つエネルギーの合計。 |
+| **Intensity** | ライトが放出するエネルギーの合計です。 |
 | **Light Color** | ライトが放つ色を指定します。 |
 | **Affects World** | ライトがワールドに影響を及ぼせるのか、あるいは無効なのかを設定します。 |
 | **Casts Shadows** | ライトにシャドウをキャストさせるかを設定します。 |
 
-### Sky Light (スカイライト)
+### スカイライト
 | プロパティ | 説明 |
 | -------- | ----------- |
 | **Source Type** | 遠くのシーンをキャプチャし光源として使用するか、あるいは特定のキューブマップを使用するかを設定します。シーンをキャプチャすると、スカイライト位置から `SkyDistanceThreshold` 値よりも遠方にある対象がすべて含まれます。 |
 | **Cubemap** | Source Type が `SLS_SpecifiedCubemap` に設定されている場合、天空光を使用するようにキューブマップを指定します。 |
 | **Sky Distance Threshold** | そこからはどのジオメトリも空の一部として見なされるスカイライトからの距離です (反射キャプチャ でも使用されます)。 |
 | **Lower Hemisphere is Black** | 下半球から放たれる全てのライトをゼロに設定するかどうかを決めます。下半球からの光の漏れを防ぐのに便利なプロパティです。 |
-| **Recapture Scene** | Sky Light アクタが 「SLS_CapturedScene」に設定されると、シーンを照らすためにスカイサイトが使用している画像を再キャプチャします。|
+| **Recapture Scene** | Sky Light アクタが `SLS_CapturedScene`に設定されると、シーンを照らすためにスカイサイトが使用している画像を再キャプチャします。|
 
+---->

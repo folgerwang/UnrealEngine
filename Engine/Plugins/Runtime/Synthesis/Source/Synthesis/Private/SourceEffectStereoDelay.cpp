@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SourceEffects/SourceEffectStereoDelay.h"
-#include "Casts.h"
+#include "Templates/Casts.h"
 
 void FSourceEffectStereoDelay::Init(const FSoundEffectSourceInitData& InitData)
 {

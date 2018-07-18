@@ -1,34 +1,39 @@
-﻿INTSourceChangelist:3456880
+﻿INTSourceChangelist:3810467
 Availability:Public
+Crumbs: %ROOT%
 Title:モーション コントローラー コンポーネントの設定
-Crumbs:%ROOT%, Platforms
 Description:VR インタラクション用モーション コントローラーの設定方法
-Navigation:platform
-version:4.9
-Skilllevel:Intermediate
+Type:Overview
+SkillLevel:Beginner
+Version:4.17
 parent:Platforms/VR
-type:overview
+Order:2
+Tags:VR
 
 [TOC(start:2)]
 
-モーション コントローラーをコンポーネントとしてポーン / キャラクターに追加し、「右手 / 左手」の指定およびモーション コントローラーの使用が可能になりました。
-このガイドでは、モーション コントローラーを使うための VR プロジェクトの設定方法について説明します。
+開発対象の Virtual Reality プラットフォームの種類に関係なく、モーション コントローラーにサポートを追加するとコントローラーあるいはマウスとキーボードでは達成できなかった没入度とインタラクションのレベルを追加することができます。この操作ガイドでは、サポートされている VR プラットフォームにモーション コントローラーのサポートを追加する方法を説明します。 
 
-[region:tip]
-VR ヘッドセットとモーション コントローラーがパソコンに接続されていますか。必要なドライバーはインストール済みでしょうか。今一度ご確認ください。 
-各種 VR ヘッドセットを UE4 向けの設定する方法には、[VR](Platforms/VR) をご覧ください。
-[/region]
+## サポート対象プラットフォーム 
+
+[Components] タブにある Motion Controller コンポーネントは、以下の VR プラットフォームで使用できます。
+
+* Oculus VR
+* Steam VR
+* Gear VR
+* Playstation VR
+
+上記の中に開発中のプラットフォームがない場合、プラットフォームのドキュメントでモーション コントローラの使用設定方法を必ず確認してください。 
 
 ## モーション コントローラーの設定
 
- VR プロジェクトでモーション コントローラー コンポーネントを使用する設定にするには、モーション コントローラー コンポーネントをポーンに追加し設定する必要があります。 
-このセクションでは、モーション コントローラーでプロジェクトで簡単に使う方法を説明します。
+まず、モーション コントローラーを動かすために必要なコンポーネントの追加および設定方法を説明します。
 
 [region:note]
-この設定は、すべての UE4 プロジェクトに適用できます。
+この操作ガイドは、開発中の VR Head Mounted Display (HMD) で既にポーンが設定されていることを前提にしています。方法が分からない場合は、[VR の開発](Platforms/VR) で開発中の VR ヘッドマウントディスプレイ (HMD) 向けの設定方法を確認してください。 
 [/region]
 
-1. **コンテンツ ブラウザ** で **Player Pawn** ブループリントを開きます。
+1. まず **コンテンツ ブラウザ** から **Player Pawn** ブループリントを開きます。
 
     [REGION:lightbox]
     [![](Open_VR_Pawn.png)(w:427)](Open_VR_Pawn.png)
@@ -38,76 +43,78 @@ VR ヘッドセットとモーション コントローラーがパソコンに�
     クリックしてフルサイズで表示
     [/REGION]
 
-1. ブループリントを開いたら、**[Viewport]** タブの **[Components]** セクションの **[Add Component (コンポーネントを追加)]** ボタンをクリックして、このブループリントに追加できるコンポーネントを表示します。 
+1. **[Components]** セクションの **[Add Component (コンポーネントを追加)]** ボタンをクリックして、このブループリントに追加できるコンポーネントを表示します。 
 
     [REGION:lightbox]
-    [![](Find_Components.png)(w:418)](Find_Components.png)
+    [![](Find_Components.png)(w:435)](Find_Components.png)
     [/REGION]
 
     [REGION:caption]
     クリックしてフルサイズで表示
     [/REGION]
 
-1. **「Motion」** というワードを使って、表示された一覧の中でモーション コントローラーを検索します。 
-    Motion Controller コンポーネントが見つかったら、クリックしてコンポーネント リストに追加します。
+1. 検索ボックスに **「Motion」** と入力し、結果に出てきた **Motion Controller** コンポーネントをクリックしてコンポーネント リストに追加し、名前を **「MC_Left」** にします。
 
-    [OBJECT:EmbeddedVideo]
-    [PARAMLITERAL:width]
-    640
-    [/PARAMLITERAL]
-    [PARAMLITERAL:height]
-    360
-    [/PARAMLITERAL]
-    [PARAMLITERAL:videoid]
-    kcyHnfpmWbU
-    [/PARAMLITERAL]
-    [/OBJECT]
+	![](Add_MC_Component.png)
 
-1. モーション コントローラーが追加されたらクリックして、**[Motion Controller]** セクションの **[Details (詳細)]** パネルの **[Hand]** が **[Left (左)]** に設定されていることを確認してください。
+1. 追加された Motion Controller コンポーネントを選択して、**[Details (詳細)]** パネルの **[Motion Controller]** セクションの **[Hand]** が **[Left (左)]** に設定されていることを確認してください。
 
     [REGION:lightbox]
-    [![](Setting_Up_Components.png)(w:418)](Setting_Up_Components.png)
+    [![](Setting_Up_Components.png)(w:787)](Setting_Up_Components.png)
     [/REGION]
 
     [REGION:caption]
     クリックしてフルサイズで表示
     [/REGION]
 
-1. モーション コントローラーをワールドで視覚表示するには、**[Components] パネル** で **[Motion Controller Component]** を選択し、**[Add Component]** ボタンで **[Static Mesh Component]** を追加します。
-    そのスタティックメッシュ コンポーネントをモーション コントローラー上にドラッグして、モーション コントローラー コンポーネントの親とし、 
-    [Details (詳細)] パネルで、スタティックメッシュ アセットを新規コンポーネントのスタティックメッシュ プロパティに割り当てます。
+1. 次に、**[Components] パネル** で **[Motion Controller Component]** を選択し、**[Add Component]** ボタンをクリックしたら、**[Static Mesh Component]** を検索して追加し、名前を **「SM_Left」** にします。 
 
-    [OBJECT:EmbeddedVideo]
-    [PARAMLITERAL:width]
-    640
-    [/PARAMLITERAL]
-    [PARAMLITERAL:height]
-    360
-    [/PARAMLITERAL]
-    [PARAMLITERAL:videoid]
-    x4vjDqnHQnk
-    [/PARAMLITERAL]
-    [/OBJECT]
+	![](Add_SM_To_MC.png)
 
-    [region:tip]
-    現在プロジェクトにスタティクメッシュ アセットがない場合は、メッシュを 1 つインポートするか、ツールバーの [Marketplace] ボタンをクリックしてマーケットプレイスへ移動し、プロジェクトで使うアセットをいくつかダウンロードしてください。
-    選択したスタティック メッシュが大きすぎたり小さすぎたりする場合、[Details (詳細)] パネルの [Transform (トランスフォーム)] メニューの [Scale] セクションで好きな大きさに調整できます。
-    [/region]
+	[region:note]
+	Static Mesh コンポーネントが Motion Controller コンポーネントの子になっていることを確認してください。そうでないと、スタティックメッシュがモーション コントローラーと一緒に動きません。
+	[/region]
 
-1. ルートの親となる別の Motion Controller コンポーネントを追加し、**[Right Hand (右手)]** となるように設定します。新しい Motion Controller コンポーネントの親とし、右手メッシュを適用した Static Mesh コンポーネントを追加します。
+1. ここで、スタティックメッシュの [Details] パネルの中の **[Static Mesh]** セクションに「Static Mesh」と入力して、モーション コントローラーの見え方を確認します。ここではシンプルなボックスを使っていますが、お持ちのスタティックメッシュを自由に使ってください。
 
     [REGION:lightbox]
-    [![](Finshed_MC_Setup.png)(w:418)](Finshed_MC_Setup.png)
+    [![](SM_MC_Static_Mesh.png)(w:787)](SM_MC_Static_Mesh.png)
     [/REGION]
 
     [REGION:caption]
     クリックしてフルサイズで表示
     [/REGION]
 
-    [region:note]
-    上の画像では、2 つ存在することを表すために、コーン形状を 2 つに分けました。 
-    プロジェクトを設定する際、お互いの右上に来るように両方のスタティックメッシュ コンポーネントは 0,0,0 のままにしておきます。
-    [/region]
+1. ここで、Left hand Motion Controller の設定をまるごと複製し、**Left** を **Right** に置き換えます。Motion Controller コンポーネントの **[Hand]** を [Left] から **[Right]** に変更して、このモーション コントローラーを適用する手を必ず変更してください。
+
+    [REGION:lightbox]
+    [![](Finshed_MC_Setup.png)(w:787)](Finshed_MC_Setup.png)
+    [/REGION]
+
+    [REGION:caption]
+    クリックしてフルサイズで表示
+    [/REGION]
+
+1. [Compile] ボタンと [Save] ボタンを押して、テスト レベルに置かれていることを確認してからプロジェクトを起動してください。HMD を装着しモーション コントローラーを握ると、以下のビデオに映っていることができるようになります。
+
+	[OBJECT:EmbeddedVideo]
+		[PARAMLITERAL:videoid]
+		CD6-Mje1y6g
+		[/PARAMLITERAL]
+		[PARAMLITERAL:width]
+		100
+		[/PARAMLITERAL]
+		[PARAMLITERAL:height]
+		56.25
+		[/PARAMLITERAL]
+		[PARAMLITERAL:units]
+		%
+		[/PARAMLITERAL]
+		[PARAMLITERAL:type]
+		simple
+		[/PARAMLITERAL]
+	[/OBJECT]
+
 
 ## モーション コントローラーを使った作業
 
@@ -119,11 +126,11 @@ UE4 内でのモーション コントローラーを使った作業は、ゲー
 
 ![](Working_With_MC.png)
 
-利用可能な Motion Controller 入力オプション、その横に大文字の **L** / **R**、一番右にはその値が制御する対象が表示されます。 
-L / R は、モーション コントローラーの **Left** または **Right** です。
+右用と左用のモーション コントローラーの入力は別々なのでご注意ください。入力ノードの横の大文字の **L** または **R** は、このモーション コントローラーの左右を表しています。
 
 ![](MC_Left_Right.png)
 
+[COMMENT:none]
 
 ## モーション コントローラーの使用方法
 
@@ -212,6 +219,8 @@ L / R は、モーション コントローラーの **Left** または **Right*
         VXUowSUKT9I
         [/PARAMLITERAL]
     [/OBJECT]
+
+[/COMMENT]
 
 ## トレーニング ストリーム
 

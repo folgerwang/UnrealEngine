@@ -183,6 +183,8 @@ static bool SendAsUtf8(FSocket* Conn, const FString& Message)
 
 bool FPerfCounters::Tick(float DeltaTime)
 {
+    QUICK_SCOPE_CYCLE_COUNTER(STAT_FPerfCounters_Tick);
+
 	if (LIKELY(Socket != nullptr))
 	{
 		TickSocket(DeltaTime);

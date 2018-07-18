@@ -5,8 +5,8 @@
 #include "Modules/ModuleManager.h"
 #include "MovieSceneImagePlateSection.h"
 #include "PropertyEditorModule.h"
-#include "SlateStyle.h"
-#include "SlateStyleRegistry.h"
+#include "Styling/SlateStyle.h"
+#include "Styling/SlateStyleRegistry.h"
 #include "ImagePlateTrackEditor.h"
 #include "AssetTypeActions_ImagePlateFileSequence.h"
 #include "IAssetTools.h"
@@ -23,8 +23,7 @@ public:
 		const FVector2D Icon16x16(16.f, 16.f);
 		const FVector2D Icon64x64(64.f, 64.f);
 
-		FString PluginBasePath = FPaths::GetPath(FModuleManager::Get().GetModuleFilename("ImagePlate"));
-		SetContentRoot(PluginBasePath / TEXT("../../Resources/Icons"));
+		SetContentRoot(FPaths::EnginePluginsDir() / TEXT("Experimental/ImagePlate/Resources/Icons"));
 
 		Set("ClassIcon.ImagePlate", new FSlateImageBrush(RootToContentDir(TEXT("ImagePlate_16x.png")), Icon16x16));
 		Set("ClassThumbnail.ImagePlate", new FSlateImageBrush(RootToContentDir(TEXT("ImagePlate_64x.png")), Icon64x64));

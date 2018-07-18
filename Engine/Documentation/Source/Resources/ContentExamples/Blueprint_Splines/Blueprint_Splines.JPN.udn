@@ -1,45 +1,17 @@
-﻿INTSourceChangelist:2712997
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:ブループリント スプラインのコンテンツ サンプル
 Crumbs:%ROOT%, Resources, Resources/ContentExamples
 Description:ブループリント スプラインのコンテンツ サンプルで提供されるサンプルの概要
 Related:Engine/Rendering/Materials
 Version:4.9
+tags:Splines
+topic-image:blueprintSplines_ce_compact.png
 
 [REGION:banner]
 ![](blueprintSplines_ce_header.png)(convert:false)
 [/REGION]
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources/ContentExamples/Blueprint_Splines:title%](blueprintSplines_ce_compact.png)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/Blueprint_Splines:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/ContentExamples/Blueprint_Splines:description%
-	[/PARAM]
-	[PARAM:path]
-	[RELATIVE:Resources/ContentExamples/Blueprint_Splines]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Resources/ContentExamples/Blueprint_Splines:title%](blueprintSplines_ce_compact.png)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/Blueprint_Splines:title%
-	[/PARAM]
-	[PARAM:path]
-	[RELATIVE:Resources/ContentExamples/Blueprint_Splines]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
 [TOC(start:2 end:2)]
 
@@ -56,7 +28,7 @@ Version:4.9
 
 次のショーケースでは、ビューポート内のパスやスケール可能なスタティックメッシュに対して、Spline コンポーネントがブループリントのコンストラクション スクリプトとリアルタイムで併用されているかを実演しています。 
 
-| サンプル | 実演内容 |
+| サンプル | 内容 |
 | ------- | ------------ |
 | **1.1 Blueprint Spline コンポーネント** | スプライン コンポーネント がビューポート内でいかに簡単に編集できるかを実演します (ビューポート内で Spline  コンポーネントを 4 スプライン ポイント移動する、など)。 |
 | **1.2 スプラインに沿ってコンポーネントを配置する** | ブループリント が Spline コンポーネントから様々な種類の情報を抽出する方法を実演します (配置されているスプラインの向きによって方向が決定される場合、Static Mesh コンポーネントはスプラインの長さに沿って配置する方法を説明します)。 |
@@ -69,7 +41,7 @@ Version:4.9
 
 **動的処理のサンプル** では、ゲーム中に Spline コンポーネント を動的に更新して、オブジェクトの環境バックグラウンド移動の提供、あるいはオブジェクトやプレイ可能なキャラクターをアニメートする方法を紹介します。 
 
-| サンプル | 実演内容 |
+| サンプル | 内容 |
 | ------- | ------------ |
 | **2.1 スプラインをパスとして使用** | パーティクル エフェクト が辿るパスとして使用される Spline コンポーネント のサンプルです。 |
 | **2.2 シミュレーション中にスプラインを変更する** | ゲームプレイ中に Spline コンポーネント を動的に作成する方法を紹介します (プレイ時またはシミュレーション時にスプラインにそってアニメートするランタンの列)。 |

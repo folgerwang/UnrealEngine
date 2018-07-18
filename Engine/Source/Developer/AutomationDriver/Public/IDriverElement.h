@@ -2,7 +2,7 @@
 #pragma once
 
 #include "IElementLocator.h"
-#include "AsyncResult.h"
+#include "Async/AsyncResult.h"
 #include "InputCoreTypes.h"
 #include "GenericPlatform/GenericApplicationMessageHandler.h"
 

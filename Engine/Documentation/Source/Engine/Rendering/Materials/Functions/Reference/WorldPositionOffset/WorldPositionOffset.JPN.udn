@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2994308
+﻿INTSourceChangelist:3242329
 Availability:Public
 title:WorldPositionOffset
 Crumbs: %ROOT%, Engine, Engine/Rendering/Materials,  Engine/Rendering/Materials/Functions
 Description:World Position Offset を使用して頂点の操作を処理する関数
 Version:4.9
+tags:Materials
 
 [TOC (start:2 end:3)]
 

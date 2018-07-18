@@ -7,7 +7,7 @@
 #include "UObject/SoftObjectPath.h"
 #include "Misc/Guid.h"
 #include "Engine/Engine.h"
-#include "Paths.h"
+#include "Misc/Paths.h"
 #include "LevelSequenceBindingReference.generated.h"
 
 /**
@@ -120,9 +120,28 @@ struct FLevelSequenceBindingReferences
 	 */
 	void ResolveBinding(const FGuid& ObjectId, UObject* InContext, TArray<UObject*, TInlineAllocator<1>>& OutObjects) const;
 
+	/**
+	 * Const accessor for the currently bound anim instance IDs
+	 */
+	const TSet<FGuid>& GetBoundAnimInstances() const
+	{
+		return AnimSequenceInstances;
+	}
+
+	/**
+	 * Filter out any bindings that do not match the specified set of GUIDs
+	 *
+	 * @param ValidBindingIDs A set of GUIDs that are considered valid. Anything references not matching these will be removed.
+	 */
+	void RemoveInvalidBindings(const TSet<FGuid>& ValidBindingIDs);
+
 private:
 
 	/** The map from object binding ID to an array of references that pertain to that ID */
 	UPROPERTY()
 	TMap<FGuid, FLevelSequenceBindingReferenceArray> BindingIdToReferences;
+
+	/** A set of object binding IDs that relate to anim sequence instances (must be a child of USkeletalMeshComponent) */
+	UPROPERTY()
+	TSet<FGuid> AnimSequenceInstances;
 };

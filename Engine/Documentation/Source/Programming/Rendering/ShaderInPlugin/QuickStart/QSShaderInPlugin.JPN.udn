@@ -1,5 +1,5 @@
-﻿INTSourceChangelist:3567323
-Availability:Docs
+﻿INTSourceChangelist:3782314
+Availability:Public
 Crumbs: %ROOT%
 Title:プラグインとして新規グローバル シェーダーを作成する
 Description:プラグインとして新規グローバル シェーダーを作成する
@@ -10,7 +10,7 @@ Parent:Programming/Rendering/ShaderInPlugin
 Order:1
 Tags:Rendering
 Tags:Render Targets
-Tags:Plugin
+tags:Plugin
 Checkpoint:shaderqs
 
 
@@ -32,12 +32,7 @@ Checkpoint:shaderqs
 
 ## ステップ
 
-[REGION:buttonlist]
-
-	[DIR(output:"checkpoint" parent:"Programming\Rendering\ShaderInPlugin\QuickStart" org:"hierarchy")]
-	
-[/REGION]
-
+[DIR(output:"checkpoint" parent:"Programming\Rendering\ShaderInPlugin\QuickStart" org:"hierarchy")]
 
 [REGION:call_to_action]
 	[クリックして開始](Programming\Rendering\ShaderInPlugin\QuickStart\1 "%Programming\Rendering\ShaderInPlugin\QuickStart\1:title%")

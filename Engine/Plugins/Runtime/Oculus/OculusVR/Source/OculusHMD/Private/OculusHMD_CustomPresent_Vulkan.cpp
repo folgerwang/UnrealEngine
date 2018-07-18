@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "OculusHMD_CustomPresent.h"
 #include "OculusHMDPrivateRHI.h"
@@ -8,7 +8,7 @@
 
 #if PLATFORM_WINDOWS
 #ifndef WINDOWS_PLATFORM_TYPES_GUARD
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 #endif
 #endif
 
@@ -27,8 +27,11 @@ public:
 	// Implementation of FCustomPresent, called by Plugin itself
 	virtual bool IsUsingCorrectDisplayAdapter() const override;
 	virtual void* GetOvrpInstance() const override;
+	virtual void* GetOvrpPhysicalDevice() const override;
 	virtual void* GetOvrpDevice() const override;
 	virtual void* GetOvrpCommandQueue() const override;
+	virtual int GetSystemRecommendedMSAALevel() const override;
+	virtual int GetEyeLayerFlags() const override;
 	virtual FTextureRHIRef CreateTexture_RenderThread(uint32 InSizeX, uint32 InSizeY, EPixelFormat InFormat, FClearValueBinding InBinding, uint32 InNumMips, uint32 InNumSamples, uint32 InNumSamplesTileMem, ERHIResourceType InResourceType, ovrpTextureHandle InTexture, uint32 InTexCreateFlags) override;
 	virtual void AliasTextureResources_RHIThread(FTextureRHIParamRef DestTexture, FTextureRHIParamRef SrcTexture) override;
 };
@@ -37,6 +40,12 @@ public:
 FVulkanCustomPresent::FVulkanCustomPresent(FOculusHMD* InOculusHMD) :
 	FCustomPresent(InOculusHMD, ovrpRenderAPI_Vulkan, PF_R8G8B8A8, false, false)
 {
+#if PLATFORM_ANDROID
+	if (GRHISupportsRHIThread && GIsThreadedRendering && GUseRHIThread_InternalUseOnly)
+	{
+		SetRHIThreadEnabled(false, false);
+	}
+#endif
 }
 
 
@@ -70,6 +79,13 @@ void* FVulkanCustomPresent::GetOvrpInstance() const
 }
 
 
+void* FVulkanCustomPresent::GetOvrpPhysicalDevice() const
+{
+	FVulkanDynamicRHI* DynamicRHI = static_cast<FVulkanDynamicRHI*>(GDynamicRHI);
+	return DynamicRHI->GetDevice()->GetPhysicalHandle();
+}
+
+
 void* FVulkanCustomPresent::GetOvrpDevice() const
 {
 	FVulkanDynamicRHI* DynamicRHI = static_cast<FVulkanDynamicRHI*>(GDynamicRHI);
@@ -84,6 +100,21 @@ void* FVulkanCustomPresent::GetOvrpCommandQueue() const
 }
 
 
+int FVulkanCustomPresent::GetSystemRecommendedMSAALevel() const
+{
+	// UNDONE VulkanRHI support for MSAA swap chains
+	return 1;
+}
+
+int FVulkanCustomPresent::GetEyeLayerFlags() const
+{
+#if PLATFORM_ANDROID
+	return ovrpLayerFlag_TextureOriginAtBottomLeft;
+#else
+	return 0;
+#endif
+}
+
 FTextureRHIRef FVulkanCustomPresent::CreateTexture_RenderThread(uint32 InSizeX, uint32 InSizeY, EPixelFormat InFormat, FClearValueBinding InBinding, uint32 InNumMips, uint32 InNumSamples, uint32 InNumSamplesTileMem, ERHIResourceType InResourceType, ovrpTextureHandle InTexture, uint32 InTexCreateFlags)
 {
 	CheckInRenderThread();
@@ -93,7 +124,7 @@ FTextureRHIRef FVulkanCustomPresent::CreateTexture_RenderThread(uint32 InSizeX, 
 	switch (InResourceType)
 	{
 	case RRT_Texture2D:
-		return DynamicRHI->RHICreateTexture2DFromResource(InFormat, InSizeX, InSizeY, InNumMips, InNumSamples, (VkImage) InTexture, InTexCreateFlags).GetReference();
+		return DynamicRHI->RHICreateTexture2DFromResource(InFormat, InSizeX, InSizeY, InNumMips, InNumSamples, InNumSamplesTileMem, (VkImage) InTexture, InTexCreateFlags).GetReference();
 
 	case RRT_Texture2DArray:
 		return DynamicRHI->RHICreateTexture2DArrayFromResource(InFormat, InSizeX, InSizeY, 2, InNumMips, (VkImage) InTexture, InTexCreateFlags).GetReference();

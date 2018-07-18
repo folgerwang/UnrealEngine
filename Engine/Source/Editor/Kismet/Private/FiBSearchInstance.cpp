@@ -106,7 +106,7 @@ public:
 
 	}
 
-	FFiBContextHelper(TWeakPtr< FImaginaryFiBData > InContext)
+	FFiBContextHelper(FImaginaryFiBDataWeakPtr InContext)
 		: Context(InContext)
 	{
 	}
@@ -132,7 +132,7 @@ public:
 	}
 
 	/** Context that is actually being tested */
-	TWeakPtr< FImaginaryFiBData > Context;
+	FImaginaryFiBDataWeakPtr Context;
 
 	/** Modified in a const function callback, this is a going list of all search components that matched the expression */
 	mutable TMultiMap< const FImaginaryFiBData*, FComponentUniqueDisplay > MatchingSearchComponents;
@@ -141,7 +141,7 @@ public:
 ////////////////////////
 // FFiBSearchInstance
 
-FSearchResult FFiBSearchInstance::StartSearchQuery(const FString& InSearchString, TSharedPtr<FImaginaryBlueprint> InImaginaryBlueprintRoot)
+FSearchResult FFiBSearchInstance::StartSearchQuery(const FString& InSearchString, FImaginaryFiBDataSharedPtr InImaginaryBlueprintRoot)
 {
 	PendingSearchables.Add(InImaginaryBlueprintRoot);
 	DoSearchQuery(InSearchString);
@@ -149,13 +149,13 @@ FSearchResult FFiBSearchInstance::StartSearchQuery(const FString& InSearchString
 	return GetSearchResults(InImaginaryBlueprintRoot);
 }
 
-void FFiBSearchInstance::MakeSearchQuery(const FString& InSearchString, TSharedPtr<FImaginaryBlueprint> InImaginaryBlueprintRoot)
+void FFiBSearchInstance::MakeSearchQuery(const FString& InSearchString, FImaginaryFiBDataSharedPtr InImaginaryBlueprintRoot)
 {
 	PendingSearchables.Add(InImaginaryBlueprintRoot);
 	DoSearchQuery(InSearchString);
 }
 
-FSearchResult FFiBSearchInstance::GetSearchResults(TSharedPtr<FImaginaryBlueprint> InImaginaryBlueprintRoot)
+FSearchResult FFiBSearchInstance::GetSearchResults(FImaginaryFiBDataSharedPtr InImaginaryBlueprintRoot)
 {
 	FSearchResult CachedSearchResult = FImaginaryFiBData::CreateSearchTree(nullptr, InImaginaryBlueprintRoot, MatchesSearchQuery, MatchingSearchComponents);
 	return MatchesSearchQuery.Num() > 0? CachedSearchResult : nullptr;
@@ -183,7 +183,7 @@ bool FFiBSearchInstance::DoSearchQuery(const FString& InSearchString, bool bInCo
 	for (int SearchableIdx = 0; SearchableIdx < PendingSearchables.Num(); ++SearchableIdx)
 	{
 		CurrentSearchable = PendingSearchables[SearchableIdx];
-		TSharedPtr< FImaginaryFiBData > CurrentSearchablePinned = CurrentSearchable.Pin();
+		FImaginaryFiBDataSharedPtr CurrentSearchablePinned = CurrentSearchable.Pin();
 		CurrentSearchablePinned->ParseAllChildData();
 		if (ExpressionEvaluator->TestTextFilter(*CurrentSearchablePinned.Get()))
 		{
@@ -193,8 +193,8 @@ bool FFiBSearchInstance::DoSearchQuery(const FString& InSearchString, bool bInCo
 		if (bInComplete || CurrentSearchablePinned->IsCategory())
 		{
 			// Any children that are not treated as a TagAndValue Category should be added for independent searching
-			TArray< TSharedPtr< FImaginaryFiBData > > Children = CurrentSearchablePinned->GetAllParsedChildData();
-			for (TSharedPtr< FImaginaryFiBData > Child : Children)
+			TArray<FImaginaryFiBDataSharedPtr> Children = CurrentSearchablePinned->GetAllParsedChildData();
+			for (FImaginaryFiBDataSharedPtr Child : Children)
 			{
 				if (!Child->IsTagAndValueCategory())
 				{
@@ -208,7 +208,7 @@ bool FFiBSearchInstance::DoSearchQuery(const FString& InSearchString, bool bInCo
 	return MatchesSearchQuery.Num() > 0;
 }
 
-void FFiBSearchInstance::CreateFilteredResultsListFromTree(ESearchQueryFilter InSearchQueryFilter, TArray< TSharedPtr<FImaginaryFiBData> >& InOutValidSearchResults)
+void FFiBSearchInstance::CreateFilteredResultsListFromTree(ESearchQueryFilter InSearchQueryFilter, TArray<FImaginaryFiBDataSharedPtr>& InOutValidSearchResults)
 {
 	for (const FImaginaryFiBData* ImaginaryDataPtr : MatchesSearchQuery)
 	{
@@ -220,9 +220,9 @@ void FFiBSearchInstance::CreateFilteredResultsListFromTree(ESearchQueryFilter In
 	}
 }
 
-void FFiBSearchInstance::BuildFunctionTargets(TSharedPtr<FImaginaryFiBData> InRootData, ESearchQueryFilter InSearchQueryFilter, TArray< TWeakPtr< FImaginaryFiBData > >& OutTargetPendingSearchables)
+void FFiBSearchInstance::BuildFunctionTargets(FImaginaryFiBDataSharedPtr InRootData, ESearchQueryFilter InSearchQueryFilter, TArray<FImaginaryFiBDataWeakPtr>& OutTargetPendingSearchables)
 {
-	for (TSharedPtr<FImaginaryFiBData> ChildData : InRootData->GetAllParsedChildData())
+	for (FImaginaryFiBDataSharedPtr ChildData : InRootData->GetAllParsedChildData())
 	{
 		if (!ChildData->IsCategory() && ChildData->IsCompatibleWithFilter(InSearchQueryFilter))
 		{
@@ -236,9 +236,9 @@ void FFiBSearchInstance::BuildFunctionTargets(TSharedPtr<FImaginaryFiBData> InRo
 	}
 }
 
-void FFiBSearchInstance::BuildFunctionTargetsByName(TSharedPtr<FImaginaryFiBData> InRootData, FString InTagName, TArray< TWeakPtr< FImaginaryFiBData > >& OutTargetPendingSearchables)
+void FFiBSearchInstance::BuildFunctionTargetsByName(FImaginaryFiBDataSharedPtr InRootData, FString InTagName, TArray<FImaginaryFiBDataWeakPtr>& OutTargetPendingSearchables)
 {
-	for (TSharedPtr<FImaginaryFiBData> ChildData : InRootData->GetAllParsedChildData())
+	for (FImaginaryFiBDataSharedPtr ChildData : InRootData->GetAllParsedChildData())
 	{
 		if (ChildData->IsCategory())
 		{
@@ -262,7 +262,7 @@ bool FFiBSearchInstance::OnFilterFunction(const FTextFilterString& A, ESearchQue
 		TSharedPtr< FFiBSearchInstance > SubSearchInstance(new FFiBSearchInstance);
 		bool bSearchSuccess = false;
 
-		TSharedPtr< FImaginaryFiBData > CurrentSearchablePinned = CurrentSearchable.Pin();
+		FImaginaryFiBDataSharedPtr CurrentSearchablePinned = CurrentSearchable.Pin();
 		if (CurrentSearchablePinned->CanCallFilter(InSearchQueryFilter))
 		{
 			CurrentSearchablePinned->ParseAllChildData();
@@ -304,7 +304,7 @@ bool FFiBSearchInstance::OnFilterDefaultFunction(const FTextFilterString& InFunc
 		TSharedPtr< FFiBSearchInstance > SubSearchInstance(new FFiBSearchInstance);
 		bool bSearchSuccess = false;
 
-		TSharedPtr< FImaginaryFiBData > CurrentSearchablePinned = CurrentSearchable.Pin();
+		FImaginaryFiBDataSharedPtr CurrentSearchablePinned = CurrentSearchable.Pin();
 		CurrentSearchablePinned->ParseAllChildData();
 		BuildFunctionTargetsByName(CurrentSearchablePinned, InFunctionName.AsString(), SubSearchInstance->PendingSearchables);
 

@@ -131,7 +131,7 @@ void FRCPassPostProcessBusyWait::Process(FRenderingCompositePassContext& Context
 		*VertexShader,
 		EDRF_UseTriangleOptimization);
 
-	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, false, FResolveParams());
+	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 
 	SceneContext.SetLightAttenuation(0);
 }

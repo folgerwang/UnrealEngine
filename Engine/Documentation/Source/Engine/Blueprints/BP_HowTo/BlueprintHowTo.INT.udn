@@ -22,30 +22,12 @@ When you are ready and have an understanding of the core aspects behind Blueprin
 [DIR(output:"fancy" type:"how-to" skill:"Beginner" parent:"Engine/Blueprints/BP_HowTo" org:"hierarchy")]
 
 ## Intermediate
-[REGION:wrapper transparent]
-[](FANCY:Engine/Blueprints/BP_HowTo/ActorReference "%Engine/Blueprints/BP_HowTo/ActorReference:description%")
-[](FANCY:Engine/Blueprints/BP_HowTo/MakingFunctions "%Engine/Blueprints/BP_HowTo/MakingFunctions:description%")
-[](FANCY:Engine/Blueprints/BP_HowTo/WorkingWithArrays "%Engine/Blueprints/BP_HowTo/WorkingWithArrays:description%")
-[](FANCY:Engine/Blueprints/UserGuide/Variables "%Engine/Blueprints/UserGuide/Variables:description%")
-[/REGION]
+
+[DIR(output:"fancy" type:"how-to" skill:"Intermediate" parent:"Engine/Blueprints/BP_HowTo" org:"hierarchy")]
 
 ## Advanced
-[REGION:wrapper transparent]
-[](FANCY:Engine/Blueprints/BP_HowTo/DirectBlueprintComs "%Engine/Blueprints/BP_HowTo/DirectBlueprintComs:description%")
-[](FANCY:Engine/Blueprints/BP_HowTo/Casting "%Engine/Blueprints/BP_HowTo/Casting:description%")
-[](FANCY:Engine/Blueprints/BP_HowTo/Interfaces "%Engine/Blueprints/BP_HowTo/Interfaces:description%")
-[](FANCY:Engine/Blueprints/BP_HowTo/EventDispatcher "%Engine/Blueprints/BP_HowTo/EventDispatcher:description%")
-[](FANCY:Engine/Blueprints/BP_HowTo/MakingMacros "%Engine/Blueprints/BP_HowTo/MakingMacros:description%")
-[](FANCY:Engine/Blueprints/BP_HowTo/MacroLibraries "%Engine/Blueprints/BP_HowTo/MacroLibraries:description%")
-[/REGION]
 
-[COMMENT:none]
- To remove since information is redundant. 
-
-| **[](Engine/Blueprints/BP_HowTo/BasicUsage)** | %Engine/Blueprints/BP_HowTo/BasicUsage:description% |
-
-
-[/COMMENT]
+[DIR(output:"fancy" type:"how-to" skill:"Advanced" parent:"Engine/Blueprints/BP_HowTo" org:"hierarchy")]
 
 
 

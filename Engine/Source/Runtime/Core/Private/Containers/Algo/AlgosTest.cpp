@@ -6,14 +6,15 @@
 #include "Containers/Array.h"
 #include "Containers/UnrealString.h"
 #include "Misc/AutomationTest.h"
-#include "Containers/Algo/Copy.h"
-#include "Containers/Algo/Heapify.h"
-#include "Containers/Algo/HeapSort.h"
-#include "Containers/Algo/IntroSort.h"
-#include "Containers/Algo/IsHeap.h"
-#include "Containers/Algo/IsSorted.h"
-#include "Containers/Algo/Sort.h"
-#include "Containers/Algo/Transform.h"
+#include "Algo/Copy.h"
+#include "Algo/Heapify.h"
+#include "Algo/HeapSort.h"
+#include "Algo/IntroSort.h"
+#include "Algo/IsHeap.h"
+#include "Algo/IsSorted.h"
+#include "Algo/Sort.h"
+#include "Algo/Transform.h"
+#include "Algo/LevenshteinDistance.h"
 #include "Templates/Greater.h"
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FAlgosTest, "System.Core.Misc.Algos", EAutomationTestFlags::ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
@@ -352,6 +353,107 @@ bool FAlgosTest::RunTest(const FString& Parameters)
 		Algo::SortBy(TestArray, Projection, Predicate);
 
 		check(Algo::IsSortedBy(TestArray, Projection, Predicate));
+	}
+
+	// Edit distance test
+	{
+		auto RunEditDistanceTest = [this](const FString& A, const FString& B, const ESearchCase::Type SearchCase, const int32 ExpectedResultDistance)
+		{
+			// Run test
+			int32 ResultDistance = MAX_int32;
+			if (SearchCase == ESearchCase::IgnoreCase)
+			{
+				ResultDistance = Algo::LevenshteinDistance(A.ToLower(), B.ToLower());
+			}
+			else
+			{
+				ResultDistance = Algo::LevenshteinDistance(A, B);
+			}
+
+			if (ResultDistance != ExpectedResultDistance)
+			{
+				FString SearchCaseStr = SearchCase == ESearchCase::CaseSensitive ? TEXT("CaseSensitive") : TEXT("IgnoreCase");
+				AddError(FString::Printf(TEXT("Algo::EditDistance return the wrong distance between 2 string (A '%s', B '%s', case '%s', result '%d', expected '%d')."), *A, *B, *SearchCaseStr, ResultDistance, ExpectedResultDistance));
+			}
+		};
+		//Empty tests
+		RunEditDistanceTest(TEXT(""), TEXT("Saturday"), ESearchCase::CaseSensitive, 8);
+		RunEditDistanceTest(TEXT(""), TEXT("Saturday"), ESearchCase::IgnoreCase, 8);
+		RunEditDistanceTest(TEXT("Saturday"), TEXT(""), ESearchCase::CaseSensitive, 8);
+		RunEditDistanceTest(TEXT("Saturday"), TEXT(""), ESearchCase::IgnoreCase, 8);
+		//One letter tests
+		RunEditDistanceTest(TEXT("a"), TEXT("a"), ESearchCase::CaseSensitive, 0);
+		RunEditDistanceTest(TEXT("a"), TEXT("b"), ESearchCase::CaseSensitive, 1);
+		//Equal tests
+		RunEditDistanceTest(TEXT("Saturday"), TEXT("Saturday"), ESearchCase::CaseSensitive, 0);
+		RunEditDistanceTest(TEXT("Saturday"), TEXT("Saturday"), ESearchCase::IgnoreCase, 0);
+		//Simple casing test
+		RunEditDistanceTest(TEXT("Saturday"), TEXT("saturday"), ESearchCase::CaseSensitive, 1);
+		RunEditDistanceTest(TEXT("Saturday"), TEXT("saturday"), ESearchCase::IgnoreCase, 0);
+		RunEditDistanceTest(TEXT("saturday"), TEXT("Saturday"), ESearchCase::CaseSensitive, 1);
+		RunEditDistanceTest(TEXT("saturday"), TEXT("Saturday"), ESearchCase::IgnoreCase, 0);
+		RunEditDistanceTest(TEXT("SaturdaY"), TEXT("saturday"), ESearchCase::CaseSensitive, 2);
+		RunEditDistanceTest(TEXT("SaturdaY"), TEXT("saturday"), ESearchCase::IgnoreCase, 0);
+		RunEditDistanceTest(TEXT("saturdaY"), TEXT("Saturday"), ESearchCase::CaseSensitive, 2);
+		RunEditDistanceTest(TEXT("saturdaY"), TEXT("Saturday"), ESearchCase::IgnoreCase, 0);
+		RunEditDistanceTest(TEXT("SATURDAY"), TEXT("saturday"), ESearchCase::CaseSensitive, 8);
+		RunEditDistanceTest(TEXT("SATURDAY"), TEXT("saturday"), ESearchCase::IgnoreCase, 0);
+		//First char diff
+		RunEditDistanceTest(TEXT("Saturday"), TEXT("baturday"), ESearchCase::CaseSensitive, 1);
+		RunEditDistanceTest(TEXT("Saturday"), TEXT("baturday"), ESearchCase::IgnoreCase, 1);
+		//Last char diff
+		RunEditDistanceTest(TEXT("Saturday"), TEXT("Saturdai"), ESearchCase::CaseSensitive, 1);
+		RunEditDistanceTest(TEXT("Saturday"), TEXT("Saturdai"), ESearchCase::IgnoreCase, 1);
+		//Middle char diff
+		RunEditDistanceTest(TEXT("Satyrday"), TEXT("Saturday"), ESearchCase::CaseSensitive, 1);
+		RunEditDistanceTest(TEXT("Satyrday"), TEXT("Saturday"), ESearchCase::IgnoreCase, 1);
+		//Real cases
+		RunEditDistanceTest(TEXT("Copy_Body"), TEXT("Body"), ESearchCase::CaseSensitive, 5);
+		RunEditDistanceTest(TEXT("Copy_Body"), TEXT("Body"), ESearchCase::IgnoreCase, 5);
+		RunEditDistanceTest(TEXT("copy_Body"), TEXT("Paste_Body"), ESearchCase::CaseSensitive, 5);
+		RunEditDistanceTest(TEXT("copy_Body"), TEXT("Paste_Body"), ESearchCase::IgnoreCase, 5);
+		RunEditDistanceTest(TEXT("legs"), TEXT("Legs_1"), ESearchCase::CaseSensitive, 3);
+		RunEditDistanceTest(TEXT("legs"), TEXT("Legs_1"), ESearchCase::IgnoreCase, 2);
+		RunEditDistanceTest(TEXT("arms"), TEXT("Arms"), ESearchCase::CaseSensitive, 1);
+		RunEditDistanceTest(TEXT("arms"), TEXT("Arms"), ESearchCase::IgnoreCase, 0);
+		RunEditDistanceTest(TEXT("Saturday"), TEXT("Sunday"), ESearchCase::CaseSensitive, 3);
+		RunEditDistanceTest(TEXT("Saturday"), TEXT("Sunday"), ESearchCase::IgnoreCase, 3);
+		RunEditDistanceTest(TEXT("Saturday"), TEXT("suNday"), ESearchCase::CaseSensitive, 4);
+		RunEditDistanceTest(TEXT("Saturday"), TEXT("suNday"), ESearchCase::IgnoreCase, 3);
+		RunEditDistanceTest(TEXT("Saturday"), TEXT("sUnday"), ESearchCase::CaseSensitive, 5);
+		RunEditDistanceTest(TEXT("Saturday"), TEXT("sUnday"), ESearchCase::IgnoreCase, 3);
+
+		auto RunEditDistanceTestArray = [this](const FString& ArrayDescriptionA, const FString& ArrayDescriptionB, const TArray<int32>& A, const TArray<int32>& B, const int32 ExpectedResultDistance)
+		{
+			// Run test
+			int32 ResultDistance = Algo::LevenshteinDistance(A, B);
+
+			if (ResultDistance != ExpectedResultDistance)
+			{
+				AddError(FString::Printf(TEXT("Algo::EditDistance return the wrong distance between 2 array (A '%s', B '%s', result '%d', expected '%d')."), *ArrayDescriptionA, *ArrayDescriptionB, ResultDistance, ExpectedResultDistance));
+			}
+		};
+
+		TArray<int32> A = { 1, 2, 3, 4 };
+		TArray<int32> B = { 1, 2, 3, 4 };
+		//Identical array
+		RunEditDistanceTestArray(FString("{1, 2, 3, 4}"), FString("{1, 2, 3, 4}"), A, B, 0);
+		//1 difference
+		B[3] = 10;
+		RunEditDistanceTestArray(FString("{1, 2, 3, 4}"), FString("{1, 2, 3, 10}"), A, B, 1);
+		//1 character less
+		B.RemoveAt(3);
+		RunEditDistanceTestArray(FString("{1, 2, 3, 4}"), FString("{1, 2, 3}"), A, B, 1);
+		//1 character more
+		B.Add(4);
+		B.Add(5);
+		RunEditDistanceTestArray(FString("{1, 2, 3, 4}"), FString("{1, 2, 3, 4, 5}"), A, B, 1);
+		//2 character more
+		B.Add(6);
+		RunEditDistanceTestArray(FString("{1, 2, 3, 4}"), FString("{1, 2, 3, 4, 5, 6}"), A, B, 2);
+		//B string empty 
+		B.Empty();
+		RunEditDistanceTestArray(FString("{1, 2, 3, 4}"), FString("{}"), A, B, A.Num());
 	}
 
 	return true;

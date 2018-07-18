@@ -81,9 +81,8 @@ FAutoConsoleTaskPriority CPrio_DispatchTaskPriority(
 FAutoConsoleTaskPriority CPrio_CleanupTaskPriority(
 	TEXT("TaskGraph.TaskPriorities.TickCleanupTaskPriority"),
 	TEXT("Task and thread priority for tick cleanup."),
-	ENamedThreads::BackgroundThreadPriority, // if we have background priority task threads, then use them...
-	ENamedThreads::HighTaskPriority, // .. at high task priority
-	ENamedThreads::NormalTaskPriority // if we don't have background threads, then use normal priority threads at normal task priority instead
+	ENamedThreads::NormalThreadPriority, 
+	ENamedThreads::NormalTaskPriority	
 	);
 
 FAutoConsoleTaskPriority CPrio_NormalAsyncTickTaskPriority(
@@ -539,7 +538,7 @@ public:
 				if (TickCompletionEvents[Block].Num())
 				{
 					FTaskGraphInterface::Get().WaitUntilTasksComplete(TickCompletionEvents[Block], ENamedThreads::GameThread);
-					if (SingleThreadedMode() || Block == TG_NewlySpawned || CVarAllowAsyncTickCleanup.GetValueOnGameThread() == 0)
+					if (SingleThreadedMode() || Block == TG_NewlySpawned || CVarAllowAsyncTickCleanup.GetValueOnGameThread() == 0 || TickCompletionEvents[Block].Num() < 50)
 					{
 						ResetTickGroup(Block);
 					}
@@ -761,6 +760,14 @@ public:
 		bTickNewlySpawned = true;
 
 		{
+			SCOPE_CYCLE_COUNTER(STAT_GatherTicksForParallel);
+			for (TSet<FTickFunction*>::TIterator It(AllEnabledTickFunctions); It; ++It)
+			{
+				FTickFunction* TickFunction = *It;
+				AllTickFunctions.Add(TickFunction);
+			}
+		}
+		{
 			SCOPE_CYCLE_COUNTER(STAT_DequeueCooldowns);
 			// Determine which cooled down ticks will be enabled this frame
 			float CumulativeCooldown = 0.f;
@@ -782,14 +789,6 @@ public:
 
 				AllCoolingDownTickFunctions.Head = TickFunction->Next;
 				TickFunction = TickFunction->Next;
-			}
-		}
-		{
-			SCOPE_CYCLE_COUNTER(STAT_GatherTicksForParallel);
-			for (TSet<FTickFunction*>::TIterator It(AllEnabledTickFunctions); It; ++It)
-			{
-				FTickFunction* TickFunction = *It;
-				AllTickFunctions.Add(TickFunction);
 			}
 		}
 	}
@@ -1209,17 +1208,24 @@ public:
 			break;
 
 		case FTickFunction::ETickState::CoolingDown:
-			FTickFunction* PrevComparisionFunction = nullptr;
+			// If a cooling function is in the reschedule list then we must be in a pause frame and it has already been set for
+			// reschedule and removed from the cooldown list so we won't find it there. This is fine as the reschedule will see
+			// the tick function is disabled and not reschedule it.
+			auto FindTickFunctionInRescheduleList = [TickFunction](const FTickScheduleDetails& TSD)
+			{
+				return (TSD.TickFunction == TickFunction);
+			};
+			bool bFound = TickFunctionsToReschedule.ContainsByPredicate(FindTickFunctionInRescheduleList);
+			FTickFunction* PrevComparisonFunction = nullptr;
 			FTickFunction* ComparisonFunction = AllCoolingDownTickFunctions.Head;
-			bool bFound = false;
 			while (ComparisonFunction && !bFound)
 			{
 				if (ComparisonFunction == TickFunction)
 				{
 					bFound = true;
-					if (PrevComparisionFunction)
+					if (PrevComparisonFunction)
 					{
-						PrevComparisionFunction->Next = TickFunction->Next;
+						PrevComparisonFunction->Next = TickFunction->Next;
 					}
 					else
 					{
@@ -1234,7 +1240,7 @@ public:
 				}
 				else
 				{
-					PrevComparisionFunction = ComparisonFunction;
+					PrevComparisonFunction = ComparisonFunction;
 					ComparisonFunction = ComparisonFunction->Next;
 				}
 			}
@@ -1361,8 +1367,8 @@ public:
 
 		int32 NumWorkerThread = 0;
 		bool bConcurrentQueue = false;
-#if !PLATFORM_WINDOWS
-		// the windows scheduler will hang for seconds trying to do this algorithm, threads starve even though other threads are calling sleep(0)
+#if !PLATFORM_WINDOWS && !PLATFORM_ANDROID
+		// some schedulers will hang for seconds trying to do this algorithm, threads starve even though other threads are calling sleep(0)
 		if (!FTickTaskSequencer::SingleThreadedMode())
 		{
 			bConcurrentQueue = !!CVarAllowConcurrentQueue.GetValueOnGameThread();
@@ -1603,6 +1609,7 @@ FTickFunction::FTickFunction()
 	, ActualEndTickGroup(TG_PrePhysics)
 	, bTickEvenWhenPaused(false)
 	, bCanEverTick(false)
+	, bStartWithTickEnabled(false)
 	, bAllowTickOnDedicatedServer(true)
 	, bHighPriority(false)
 	, bRunOnAnyThread(false)

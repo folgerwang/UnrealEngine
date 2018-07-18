@@ -28,9 +28,9 @@
 #include "Widgets/Views/STableRow.h"
 #include "Widgets/Views/SListView.h"
 #include "EditorStyleSet.h"
-#include "ISourceControlOperation.h"
 #include "SourceControlOperations.h"
 #include "ISourceControlModule.h"
+#include "SourceControlHelpers.h"
 #include "FileHelpers.h"
 #include "SDiscoveringAssetsDialog.h"
 #include "AssetRegistryModule.h"
@@ -45,6 +45,8 @@
 #include "Settings/EditorProjectSettings.h"
 #include "AssetToolsLog.h"
 #include "Settings/EditorProjectSettings.h"
+#include "Engine/World.h"
+#include "Engine/MapBuildDataRegistry.h"
 
 #define LOCTEXT_NAMESPACE "AssetRenameManager"
 
@@ -257,9 +259,39 @@ bool FAssetRenameManager::FixReferencesAndRename(const TArray<FAssetRenameData>&
 	// Prep a list of assets to rename with an extra boolean to determine if they should leave a redirector or not
 	TArray<FAssetRenameDataWithReferencers> AssetsToRename;
 	AssetsToRename.Reset(AssetsAndNames.Num());
+	// Avoid duplicates when adding MapBuildData to list
+	TMap<UObject*, bool> AssetsToRenameLookup;
 	for (const FAssetRenameData& AssetRenameData : AssetsAndNames)
 	{
-		AssetsToRename.Emplace(FAssetRenameDataWithReferencers(AssetRenameData));
+		AssetsToRenameLookup.FindOrAdd(AssetRenameData.Asset.Get());
+	}
+	for (const FAssetRenameData& AssetRenameData : AssetsAndNames)
+	{
+		if (!AssetRenameData.OldObjectPath.IsValid() && !AssetRenameData.NewObjectPath.IsValid())
+		{
+			// Rename MapBuildData when renaming world
+			UWorld* World = Cast<UWorld>(AssetRenameData.Asset.Get());
+			if (World && World->PersistentLevel && World->PersistentLevel->MapBuildData && !AssetsToRenameLookup.Contains(World->PersistentLevel->MapBuildData))
+			{
+				FString NewMapBuildDataName = AssetRenameData.NewName + TEXT("_BuiltData");
+				// Perform rename of MapBuildData before world otherwise original files left behind
+				AssetsToRename.EmplaceAt(0, FAssetRenameDataWithReferencers(FAssetRenameData(World->PersistentLevel->MapBuildData, AssetRenameData.NewPackagePath, NewMapBuildDataName)));
+				AssetsToRename[0].bOnlyFixSoftReferences = AssetRenameData.bOnlyFixSoftReferences;
+				AssetsToRenameLookup.Add(World->PersistentLevel->MapBuildData);
+			}
+		}
+
+		// Perform rename of MapBuildData before world otherwise original files left behind
+		UMapBuildDataRegistry* MapBuildData = Cast<UMapBuildDataRegistry>(AssetRenameData.Asset.Get());
+		if (MapBuildData)
+		{
+			AssetsToRename.EmplaceAt(0, FAssetRenameDataWithReferencers(AssetRenameData));
+		}
+		else
+		{
+			AssetsToRename.Emplace(FAssetRenameDataWithReferencers(AssetRenameData));
+		}
+
 		if (!AssetRenameData.bOnlyFixSoftReferences)
 		{
 			bSoftReferencesOnly = false;
@@ -827,7 +859,7 @@ struct FSoftObjectPathRenameSerializer : public FArchiveUObject
 		, bFoundReference(false)
 	{
 		// Mark it as saving to correctly process all references
-		ArIsSaving = true;
+		this->SetIsSaving(true);
 	}
 
 	FArchive& operator<<(FSoftObjectPath& Value)

@@ -12,7 +12,7 @@
 #include "AudioDecompress.h"
 #include "AudioEffect.h"
 #include "CoreAudioEffects.h"
-#include "IAudioFormat.h"
+#include "Interfaces/IAudioFormat.h"
 
 /*------------------------------------------------------------------------------------
  FCoreAudioSoundBuffer.
@@ -92,7 +92,7 @@ int32 FCoreAudioSoundBuffer::GetSize( void )
  */
 void FCoreAudioSoundBuffer::InitAudioStreamBasicDescription( UInt32 FormatID, USoundWave* Wave, bool bCheckPCMData )
 {
-	PCMFormat.mSampleRate = Wave->SampleRate;
+	PCMFormat.mSampleRate = Wave->GetSampleRateForCurrentPlatform();
 	PCMFormat.mFormatID = FormatID;
 	PCMFormat.mFormatID = kAudioFormatLinearPCM;
 	PCMFormat.mFormatFlags = kLinearPCMFormatFlagIsPacked | kAudioFormatFlagsNativeEndian | kLinearPCMFormatFlagIsSignedInteger;
@@ -152,7 +152,7 @@ void FCoreAudioSoundBuffer::Seek( const float SeekTime )
  */
 FCoreAudioSoundBuffer* FCoreAudioSoundBuffer::CreateQueuedBuffer( FCoreAudioDevice* CoreAudioDevice, USoundWave* Wave )
 {
-	check(Wave->bIsPrecacheDone);
+	check(Wave->GetPrecacheState() == ESoundWavePrecacheState::Done);
 
 	// Always create a new buffer for real time decompressed sounds
 	FCoreAudioSoundBuffer* Buffer = new FCoreAudioSoundBuffer( CoreAudioDevice, SoundFormat_PCMRT );
@@ -292,7 +292,7 @@ FCoreAudioSoundBuffer* FCoreAudioSoundBuffer::CreateStreamingBuffer(FCoreAudioDe
 	if (Buffer->DecompressionState->StreamCompressedInfo(Wave, &QualityInfo))
 	{
 		// Refresh the wave data
-		Wave->SampleRate = QualityInfo.SampleRate;
+		Wave->SetSampleRate(QualityInfo.SampleRate);
 		Wave->NumChannels = QualityInfo.NumChannels;
 		Wave->RawPCMDataSize = QualityInfo.SampleDataSize;
 		Wave->Duration = QualityInfo.Duration;

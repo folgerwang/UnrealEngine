@@ -150,11 +150,10 @@ void AGameplayAbilityTargetActor::BindToConfirmCancelInputs()
 {
 	check(OwningAbility);
 
-	UAbilitySystemComponent* ASC = OwningAbility->GetCurrentActorInfo()->AbilitySystemComponent.Get();
+	const FGameplayAbilityActorInfo* const Info = OwningAbility->GetCurrentActorInfo();
+	UAbilitySystemComponent* const ASC = Info->AbilitySystemComponent.Get();
 	if (ASC)
 	{
-		const FGameplayAbilityActorInfo* Info = OwningAbility->GetCurrentActorInfo();
-
 		if (Info->IsLocallyControlled())
 		{
 			// We have to wait for the callback from the AbilitySystemComponent. Which will always be instigated locally

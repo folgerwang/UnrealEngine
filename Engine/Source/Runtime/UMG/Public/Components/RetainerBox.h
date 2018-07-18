@@ -32,13 +32,13 @@ public:
 	 * Should this widget redraw the contents it has every time it receives an invalidation request
 	 * from it's children, similar to the invalidation panel.
 	 */
-	UPROPERTY(EditAnywhere, Category=RenderRules)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=RenderRules)
 	bool RenderOnInvalidation;
 
 	/**
 	 * Should this widget redraw the contents it has every time the phase occurs.
 	 */
-	UPROPERTY(EditAnywhere, Category=RenderRules)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=RenderRules)
 	bool RenderOnPhase;
 
 	/**
@@ -48,7 +48,7 @@ public:
 	 * If the Phase were 0, and the PhaseCount were 2, this retainer would draw a fresh frame every
 	 * other frame.  So in a 60Hz game, the UI would render at 30Hz.
 	 */
-	UPROPERTY(EditAnywhere, Category=RenderRules, meta = (UIMin = 0, ClampMin = 0))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=RenderRules, meta = (UIMin = 0, ClampMin = 0))
 	int32 Phase;
 
 	/**
@@ -59,10 +59,16 @@ public:
 	 * If the Phase were 0, and the PhaseCount were 2, this retainer would draw a fresh frame every 
 	 * other frame.  So in a 60Hz game, the UI would render at 30Hz.
 	 */
-	UPROPERTY(EditAnywhere, Category=RenderRules, meta=( UIMin=1, ClampMin=1 ))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=RenderRules, meta=( UIMin=1, ClampMin=1 ))
 	int32 PhaseCount;
 
 public:
+
+	/**
+	 * Requests the retainer redrawn the contents it has.
+	 */
+	UFUNCTION(BlueprintCallable, Category="Retainer")
+	void SetRenderingPhase(int RenderPhase, int32 TotalPhases);
 
 	/**
 	 * Requests the retainer redrawn the contents it has.

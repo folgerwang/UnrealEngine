@@ -2,9 +2,9 @@
 
 #include "PLUGIN_NAME.h"
 #include "Core.h"
-#include "ModuleManager.h"
-#include "IPluginManager.h"
-#include "ExampleLibrary.h"
+#include "Modules/ModuleManager.h"
+#include "Interfaces/IPluginManager.h"
+#include "PLUGIN_NAMELibrary/ExampleLibrary.h"
 
 #define LOCTEXT_NAMESPACE "FPLUGIN_NAMEModule"
 

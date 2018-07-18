@@ -24,7 +24,7 @@
 
 #define LOCTEXT_NAMESPACE "AssetManager"
 
-DEFINE_LOG_CATEGORY_STATIC(LogAssetManager, Log, All);
+DEFINE_LOG_CATEGORY(LogAssetManager);
 
 /** Structure defining the current loading state of an asset */
 struct FPrimaryAssetLoadState
@@ -296,7 +296,7 @@ FPrimaryAssetId UAssetManager::DeterminePrimaryAssetIdForObject(const UObject* O
 
 bool UAssetManager::IsAssetDataBlueprintOfClassSet(const FAssetData& AssetData, const TSet<FName>& ClassNameSet)
 {
-	const FString ParentClassFromData = AssetData.GetTagValueRef<FString>("ParentClass");
+	const FString ParentClassFromData = AssetData.GetTagValueRef<FString>(FBlueprintTags::ParentClassPath);
 	if (!ParentClassFromData.IsEmpty())
 	{
 		const FString ClassObjectPath = FPackageName::ExportTextPathToObjectPath(ParentClassFromData);
@@ -1483,7 +1483,7 @@ TSharedPtr<FStreamableHandle> UAssetManager::LoadAssetList(const TArray<FSoftObj
 	}
 
 	// SynchronousLoad doesn't make sense if chunks are missing
-	if (bShouldUseSynchronousLoad && MissingChunks.Num() > 0)
+	if (bShouldUseSynchronousLoad && MissingChunks.Num() == 0)
 	{
 		NewHandle = StreamableManager.RequestSyncLoad(AssetList, false, DebugName);
 	}
@@ -2670,6 +2670,12 @@ void UAssetManager::UpdateManagementDatabase(bool bForceRefresh)
 
 			for (const FName& AssetPackage : AssetPackagesReferenced)
 			{
+				if (AssetPackage == NAME_None)
+				{
+					UE_LOG(LogAssetManager, Warning, TEXT("Ignoring 'None' reference originating from %s"), *PrimaryAssetId.ToString());
+					continue;
+				}
+
 				TMultiMap<FAssetIdentifier, FAssetIdentifier>& ManagerMap = Rules.bApplyRecursively ? PriorityManagementMap.FindOrAdd(Rules.Priority) : NoReferenceManagementMap;
 
 				ManagerMap.Add(PrimaryAssetId, AssetPackage);
@@ -2839,18 +2845,27 @@ void UAssetManager::ModifyCook(TArray<FName>& PackagesToCook, TArray<FName>& Pac
 		{
 			EPrimaryAssetCookRule CookRule = GetPackageCookRule(AssetData.PackageName);
 
-			if (CookRule == EPrimaryAssetCookRule::AlwaysCook && !TypeInfo.bIsEditorOnly)
+			// Treat DevAlwaysCook as AlwaysCook, may get excluded in VerifyCanCookPackage
+			bool bAlwaysCook = (CookRule == EPrimaryAssetCookRule::AlwaysCook || CookRule == EPrimaryAssetCookRule::DevelopmentAlwaysCook);
+			bool bCanCook = VerifyCanCookPackage(AssetData.PackageName, false);
+
+			if (bAlwaysCook && bCanCook && !TypeInfo.bIsEditorOnly)
 			{
-				// If this is always cook and not editor only, cook it
+				// If this is always cook, not excluded, and not editor only, cook it
 				PackagesToCook.AddUnique(AssetData.PackageName);
 			}
-			else if (!VerifyCanCookPackage(AssetData.PackageName, false))
+			else if (!bCanCook)
 			{
 				// If this package cannot be cooked, add to exclusion list
 				PackagesToNeverCook.AddUnique(AssetData.PackageName);
 			}
 		}
 	}
+}
+
+bool UAssetManager::ShouldCookForPlatform(const UPackage* Package, const ITargetPlatform* TargetPlatform)
+{
+	return true;
 }
 
 EPrimaryAssetCookRule UAssetManager::GetPackageCookRule(FName PackageName) const
@@ -2897,7 +2912,7 @@ bool UAssetManager::VerifyCanCookPackage(FName PackageName, bool bLogError) cons
 		
 		return false;
 	}
-	else if (CookRule == EPrimaryAssetCookRule::DevelopmentCook && bOnlyCookProductionAssets)
+	else if ((CookRule == EPrimaryAssetCookRule::DevelopmentCook || CookRule == EPrimaryAssetCookRule::DevelopmentAlwaysCook) && bOnlyCookProductionAssets)
 	{
 		if (bLogError)
 		{
@@ -3238,7 +3253,7 @@ void UAssetManager::RefreshAssetData(UObject* ChangedObject)
 	}
 }
 
-void UAssetManager::InitializeAssetBundlesFromMetadata(const UStruct* Struct, const void* StructValue, FAssetBundleData& AssetBundle) const
+void UAssetManager::InitializeAssetBundlesFromMetadata(const UStruct* Struct, const void* StructValue, FAssetBundleData& AssetBundle, FName DebugName) const
 {
 	static FName AssetBundlesName = TEXT("AssetBundles");
 
@@ -3283,44 +3298,62 @@ void UAssetManager::InitializeAssetBundlesFromMetadata(const UStruct* Struct, co
 				It.SkipRecursiveProperty();
 			}
 		}
+		else if (const UObjectProperty* ObjectProperty = Cast<UObjectProperty>(Property))
+		{
+			if (ObjectProperty->PropertyFlags & CPF_InstancedReference)
+			{
+				UObject* const* ObjectPtr = reinterpret_cast<UObject* const*>(PropertyValue);
+				if (ObjectPtr && *ObjectPtr)
+				{
+					UAssetManager::Get().InitializeAssetBundlesFromMetadata(*ObjectPtr, AssetBundle);
+				}
+			}
+		}
 
 		if (!FoundRef.IsNull())
 		{
-			// Compute the intersection of all specified bundle sets in this property and parent properties
-			TSet<FName> BundleSet;
-
-			TArray<const UProperty*> PropertyChain;
-			It.GetPropertyChain(PropertyChain);
-
-			for (const UProperty* PropertyToSearch : PropertyChain)
+			if (!FoundRef.GetLongPackageName().IsEmpty())
 			{
-				if (PropertyToSearch->HasMetaData(AssetBundlesName))
+				// Compute the intersection of all specified bundle sets in this property and parent properties
+				TSet<FName> BundleSet;
+
+				TArray<const UProperty*> PropertyChain;
+				It.GetPropertyChain(PropertyChain);
+
+				for (const UProperty* PropertyToSearch : PropertyChain)
 				{
-					TSet<FName> LocalBundleSet;
-					TArray<FString> BundleList;
-					const FString& BundleString = PropertyToSearch->GetMetaData(AssetBundlesName);
-					BundleString.ParseIntoArrayWS(BundleList, TEXT(","));
+					if (PropertyToSearch->HasMetaData(AssetBundlesName))
+					{
+						TSet<FName> LocalBundleSet;
+						TArray<FString> BundleList;
+						const FString& BundleString = PropertyToSearch->GetMetaData(AssetBundlesName);
+						BundleString.ParseIntoArrayWS(BundleList, TEXT(","));
 
-					for (const FString& BundleNameString : BundleList)
-					{
-						LocalBundleSet.Add(FName(*BundleNameString));
-					}
+						for (const FString& BundleNameString : BundleList)
+						{
+							LocalBundleSet.Add(FName(*BundleNameString));
+						}
 
-					// If Set is empty, initialize. Otherwise intersect
-					if (BundleSet.Num() == 0)
-					{
-						BundleSet = LocalBundleSet;
-					}
-					else
-					{
-						BundleSet = BundleSet.Intersect(LocalBundleSet);
+						// If Set is empty, initialize. Otherwise intersect
+						if (BundleSet.Num() == 0)
+						{
+							BundleSet = LocalBundleSet;
+						}
+						else
+						{
+							BundleSet = BundleSet.Intersect(LocalBundleSet);
+						}
 					}
 				}
-			}
 
-			for (const FName& BundleName : BundleSet)
+				for (const FName& BundleName : BundleSet)
+				{
+					AssetBundle.AddBundleAsset(BundleName, FoundRef);
+				}
+			}
+			else
 			{
-				AssetBundle.AddBundleAsset(BundleName, FoundRef);
+				UE_LOG(LogAssetManager, Error, TEXT("Asset bundle reference with invalid package name in %s. Property:%s"), *DebugName.ToString(), *GetNameSafe(Property));
 			}
 		}
 	}

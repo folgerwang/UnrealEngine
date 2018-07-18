@@ -8,7 +8,7 @@ public class DX11 : ModuleRules
 		Type = ModuleType.External;
 
 		string DirectXSDKDir = Target.UEThirdPartySourceDirectory + "Windows/DirectX";
-		PublicSystemIncludePaths.Add(DirectXSDKDir + "/include");
+		PublicSystemIncludePaths.Add(DirectXSDKDir + "/Include");
 
 		if (Target.Platform == UnrealTargetPlatform.Win64 || Target.Platform == UnrealTargetPlatform.Win32)
 		{

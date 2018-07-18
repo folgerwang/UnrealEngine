@@ -397,9 +397,7 @@ be enabled for the entire project. You can also control the self-shadowing that 
 [REGION:raw]
 | Property | Description |
 | -------- | ----------- |
-| **Generate Mesh Distance Field** | Whether to generate a Distance Field for this mesh, which can be used with [Distance Field Indirect Shadows](Engine/Rendering/LightingAndShadows/MeshDistanceFields). This is ignored if the Project Setting for **Generate Mesh Distance Fields** is enabled.  | [COMMENT:none]
-TODO FINISH THE LINK 
-[/COMMENT]
+| **Generate Mesh Distance Field** | Whether to generate a Distance Field for this mesh, which can be used with [Distance Field Indirect Shadows](Engine/Rendering/LightingAndShadows/MeshDistanceFields). This is ignored if the Project Setting for **Generate Mesh Distance Fields** is enabled.  | 
 | **Distance Field Self Shadow Bias** | Used for reducing self-shadowing from Distance Field methods when using World Position Offset to animate the mesh' vertices. |
 [/REGION]
 

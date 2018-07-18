@@ -31,7 +31,7 @@ void FOnlineNotification::SetTypeFromPayload()
 	{
 		if (!Payload->TryGetStringField(TEXT("Type"), TypeStr))
 		{
-			UE_LOG(LogOnline, Error, TEXT("No type in notification JSON object"));
+			UE_LOG_ONLINE(Error, TEXT("No type in notification JSON object"));
 			TypeStr = TEXT("<no type>");
 		}
 	}

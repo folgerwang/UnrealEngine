@@ -13,6 +13,10 @@
 
 #define LOCTEXT_NAMESPACE "VehicleHUD"
 
+#ifndef HMD_MODULE_INCLUDED
+#define HMD_MODULE_INCLUDED 0
+#endif
+
 ATP_VehicleAdvHud::ATP_VehicleAdvHud()
 {
 	static ConstructorHelpers::FObjectFinder<UFont> Font(TEXT("/Engine/EngineFonts/RobotoDistanceField"));

@@ -19,10 +19,13 @@ class UMovieSceneSkeletalAnimationTrack
 public:
 
 	/** Adds a new animation to this track */
-	virtual void AddNewAnimation(float KeyTime, class UAnimSequenceBase* AnimSequence);
+	virtual UMovieSceneSection* AddNewAnimationOnRow(FFrameNumber KeyTime, class UAnimSequenceBase* AnimSequence, int32 RowIndex);
+
+	/** Adds a new animation to this track on the next available/non-overlapping row */
+	virtual UMovieSceneSection* AddNewAnimation(FFrameNumber KeyTime, class UAnimSequenceBase* AnimSequence) { return AddNewAnimationOnRow(KeyTime, AnimSequence, INDEX_NONE); }
 
 	/** Gets the animation sections at a certain time */
-	TArray<UMovieSceneSection*> GetAnimSectionsAtTime(float Time);
+	TArray<UMovieSceneSection*> GetAnimSectionsAtTime(FFrameNumber Time);
 
 public:
 
@@ -34,7 +37,6 @@ public:
 	virtual void AddSection(UMovieSceneSection& Section) override;
 	virtual void RemoveSection(UMovieSceneSection& Section) override;
 	virtual bool IsEmpty() const override;
-	virtual TRange<float> GetSectionBoundaries() const override;
 	virtual const TArray<UMovieSceneSection*>& GetAllSections() const override;
 	virtual UMovieSceneSection* CreateNewSection() override;
 	virtual FMovieSceneTrackRowSegmentBlenderPtr GetRowSegmentBlender() const override;

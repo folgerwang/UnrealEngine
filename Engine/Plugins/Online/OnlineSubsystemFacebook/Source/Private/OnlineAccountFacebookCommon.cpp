@@ -10,38 +10,25 @@ bool FUserOnlineAccountFacebookCommon::Parse(const FString& InAuthTicket, const 
 	{
 		if (!JsonStr.IsEmpty())
 		{
-			TSharedPtr<FJsonObject> JsonUser;
-			TSharedRef< TJsonReader<> > JsonReader = TJsonReaderFactory<>::Create(JsonStr);
-
-			if (FJsonSerializer::Deserialize(JsonReader, JsonUser) &&
-				JsonUser.IsValid())
+			if (FromJson(JsonStr))
 			{
-				if (FromJson(JsonUser))
+				if (!UserId.IsEmpty())
 				{
-					if (!UserId.IsEmpty())
-					{
-						UserIdPtr = MakeShared<FUniqueNetIdString>(UserId);
+					UserIdPtr = MakeShared<FUniqueNetIdFacebook>(UserId);
 
-						AddUserAttributes(JsonUser);
+					// update the access token
+					AuthTicket = InAuthTicket;
 
-						// update the access token
-						AuthTicket = InAuthTicket;
-
-						bResult = true;
-					}
-					else
-					{
-						UE_LOG_ONLINE(Warning, TEXT("FUserOnlineAccountFacebookCommon: Missing user id. payload=%s"), *JsonStr);
-					}
+					bResult = true;
 				}
 				else
 				{
-					UE_LOG_ONLINE(Warning, TEXT("FUserOnlineAccountFacebookCommon: Invalid response payload=%s"), *JsonStr);
+					UE_LOG_ONLINE(Warning, TEXT("FUserOnlineAccountFacebookCommon: Missing user id. payload=%s"), *JsonStr);
 				}
 			}
 			else
 			{
-				UE_LOG_ONLINE(Warning, TEXT("FUserOnlineAccountFacebookCommon: Can't deserialize payload=%s"), *JsonStr);
+				UE_LOG_ONLINE(Warning, TEXT("FUserOnlineAccountFacebookCommon: Invalid response payload=%s"), *JsonStr);
 			}
 		}
 		else
@@ -89,28 +76,12 @@ FString FUserOnlineAccountFacebookCommon::GetAccessToken() const
 
 bool FUserOnlineAccountFacebookCommon::GetAuthAttribute(const FString& AttrName, FString& OutAttrValue) const
 {
-	return false;
-}
-
-void FUserOnlineAccountFacebookCommon::AddUserAttributes(const TSharedPtr<FJsonObject>& JsonUser)
-{
-	for (auto It = JsonUser->Values.CreateConstIterator(); It; ++It)
+	if (AttrName == AUTH_ATTR_REFRESH_TOKEN)
 	{
-		if (It.Value().IsValid())
-		{
-			if (It.Value()->Type == EJson::String)
-			{
-				AccountData.Add(It.Key(), It.Value()->AsString());
-			}
-			else if (It.Value()->Type == EJson::Boolean)
-			{
-				AccountData.Add(It.Key(), It.Value()->AsBool() ? TEXT("true") : TEXT("false"));
-			}
-			else if (It.Value()->Type == EJson::Number)
-			{
-				AccountData.Add(It.Key(), FString::Printf(TEXT("%f"), (double)It.Value()->AsNumber()));
-			}
-		}
+		OutAttrValue = AuthTicket;
+		return true;
 	}
+
+	return false;
 }
 

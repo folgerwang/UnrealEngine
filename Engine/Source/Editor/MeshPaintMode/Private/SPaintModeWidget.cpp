@@ -4,13 +4,13 @@
 
 #include "PropertyEditorModule.h"
 #include "IDetailsView.h"
-#include "SScrollBox.h"
-#include "SBoxPanel.h"
-#include "SWrapBox.h"
-#include "SBox.h"
-#include "SButton.h"
-#include "SImage.h"
-#include "MultiBoxBuilder.h"
+#include "Widgets/Layout/SScrollBox.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Layout/SWrapBox.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Images/SImage.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "PropertyCustomizationHelpers.h"
 #include "PaintModeSettingsCustomization.h"
 #include "PaintModePainter.h"
@@ -102,6 +102,9 @@ TSharedPtr<SWidget> SPaintModeWidget::CreateVertexPaintWidget()
 	TSharedPtr<SWidget> VertexColorWidget;
 	TSharedPtr<SHorizontalBox> VertexColorActionBox;
 	TSharedPtr<SHorizontalBox> InstanceColorActionBox;
+
+	static const FText SkelMeshNotificationText = LOCTEXT("SkelMeshAssetPaintInfo", "Paint is directly propagated to Skeletal Mesh Asset(s)");
+	static const FText StaticMeshNotificationText = LOCTEXT("StaticMeshAssetPaintInfo", "Paint is directly applied to all LODs");	
 		
 	SAssignNew(VertexColorWidget, SVerticalBox)
 	.Visibility(this, &SPaintModeWidget::IsVertexPaintModeVisible)
@@ -134,7 +137,8 @@ TSharedPtr<SWidget> SPaintModeWidget::CreateVertexPaintWidget()
 			SNew(SHorizontalBox)
 			.Visibility_Lambda([this]() -> EVisibility 
 			{
-				const bool bVisible = MeshPainter && MeshPainter->GetSelectedComponents<USkeletalMeshComponent>().Num();
+				bool bVisible = MeshPainter && MeshPainter->GetSelectedComponents<USkeletalMeshComponent>().Num();
+				bVisible |= ((PaintModeSettings->PaintMode == EPaintMode::Vertices) && !PaintModeSettings->VertexPaintSettings.bPaintOnSpecificLOD);
 				return bVisible ? EVisibility::Visible : EVisibility::Collapsed;
 			})
 		
@@ -154,7 +158,12 @@ TSharedPtr<SWidget> SPaintModeWidget::CreateVertexPaintWidget()
 			[
 				SNew(STextBlock)
 				.AutoWrapText(true)
-				.Text(LOCTEXT("SkelMeshAssetPaintInfo", "Paint is directly propagated to Skeletal Mesh Asset(s)"))
+				.Text_Lambda([this]() -> FText
+				{
+					const bool bSkelMeshText = MeshPainter && MeshPainter->GetSelectedComponents<USkeletalMeshComponent>().Num();
+					const bool bLODPaintText = (PaintModeSettings->PaintMode == EPaintMode::Vertices) && !PaintModeSettings->VertexPaintSettings.bPaintOnSpecificLOD;
+					return FText::Format(FTextFormat::FromString(TEXT("{0}{1}{2}")), bSkelMeshText ? SkelMeshNotificationText : FText::GetEmpty(), bSkelMeshText && bLODPaintText ? FText::FromString(TEXT("\n")) : FText::GetEmpty(), bLODPaintText ? StaticMeshNotificationText : FText::GetEmpty());
+				})
 			]
 		]
 	];
@@ -178,6 +187,7 @@ TSharedPtr<SWidget> SPaintModeWidget::CreateVertexPaintWidget()
 	InstanceToolbarBuilder.AddToolBarButton(FPaintModeCommands::Get().Paste, NAME_None, FText::GetEmpty(), TAttribute<FText>(), FSlateIcon(FEditorStyle::GetStyleSetName(), "MeshPaint.Paste"));
 	InstanceToolbarBuilder.AddToolBarButton(FPaintModeCommands::Get().Remove, NAME_None, FText::GetEmpty(), TAttribute<FText>(), FSlateIcon(FEditorStyle::GetStyleSetName(), "MeshPaint.Remove"));
 	InstanceToolbarBuilder.AddToolBarButton(FPaintModeCommands::Get().Fix, NAME_None, FText::GetEmpty(), TAttribute<FText>(), FSlateIcon(FEditorStyle::GetStyleSetName(), "MeshPaint.Fix"));
+	InstanceToolbarBuilder.AddToolBarButton(FPaintModeCommands::Get().PropagateVertexColorsToLODs, NAME_None, FText::GetEmpty(), TAttribute<FText>(), FSlateIcon(FEditorStyle::GetStyleSetName(), "MeshPaint.Propagate"));
 
 	InstanceColorActionBox->AddSlot()
 	.FillWidth(1.0f)

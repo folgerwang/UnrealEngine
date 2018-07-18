@@ -10,7 +10,7 @@
 #include "Widgets/Input/SButton.h"
 #include "Widgets/Views/SListView.h"
 #include "EditorFontGlyphs.h"
-#include "Application/SlateApplication.h"
+#include "Framework/Application/SlateApplication.h"
 
 #include "Styling/CoreStyle.h"
 #if WITH_EDITOR
@@ -32,6 +32,7 @@
 #include "Blueprint/WidgetTree.h"
 #include "WidgetBlueprintEditorUtils.h"
 #include "ScopedTransaction.h"
+#include "Styling/SlateIconFinder.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 
@@ -202,8 +203,9 @@ TOptional<EItemDropZone> ProcessHierarchyDragDrop(const FDragDropEvent& DragDrop
 
 					Blueprint->WidgetTree->SetFlags(RF_Transactional);
 					Blueprint->WidgetTree->Modify();
+					
+					Parent->SetFlags(RF_Transactional);
 					Parent->Modify();
-
 					UWidget* Widget = TemplateDragDropOp->Template->Create(Blueprint->WidgetTree);
 
 					UPanelSlot* NewSlot = nullptr;
@@ -306,7 +308,8 @@ TOptional<EItemDropZone> ProcessHierarchyDragDrop(const FDragDropEvent& DragDrop
 				for (const auto& DraggedWidget : HierarchyDragDropOp->DraggedWidgets)
 				{
 					UWidget* TemplateWidget = DraggedWidget.Widget.GetTemplate();
-
+					TemplateWidget->SetFlags(RF_Transactional);
+					TemplateWidget->Modify();
 					if (Index.IsSet())
 					{
 						// If we're inserting at an index, and the widget we're moving is already
@@ -358,7 +361,7 @@ TOptional<EItemDropZone> ProcessHierarchyDragDrop(const FDragDropEvent& DragDrop
 					}
 
 					TemplateWidget->RemoveFromParent();
-
+					
 					if (OriginalBP != nullptr && OriginalBP != Blueprint)
 					{
 						FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(OriginalBP);
@@ -924,13 +927,13 @@ FText FHierarchyWidget::GetLabelToolTipText() const
 	return FText::GetEmpty();
 }
 
-const FSlateBrush* GetEditorIcon_Deprecated(UWidget* Widget);
-
 const FSlateBrush* FHierarchyWidget::GetImage() const
 {
-	// @todo UMG: remove after 4.12
-	return GetEditorIcon_Deprecated(Item.GetTemplate());
-	// return FClassIconFinder::FindIconForClass(Item.GetTemplate()->GetClass());
+	if (Item.GetTemplate())
+	{
+		return FSlateIconFinder::FindIconBrushForClass(Item.GetTemplate()->GetClass());
+	}
+	return nullptr;
 }
 
 FSlateFontInfo FHierarchyWidget::GetFont() const

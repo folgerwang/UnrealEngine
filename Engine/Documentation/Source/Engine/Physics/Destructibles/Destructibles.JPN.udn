@@ -1,48 +1,9 @@
-﻿INTSourceChangelist:2713167
+﻿INTSourceChangelist:3782314
 Availability:Docs
 Title:Destructible アクタ
 Crumbs: %ROOT%, Engine
 Description:
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Physics/Destructibles:title%](Engine/Physics/physics_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/physics_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Physics/Destructibles:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Physics/Destructibles:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Physics/Destructibles]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Physics/Destructibles:title%](Engine/Physics/physics_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/physics_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Physics/Destructibles:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Physics/Destructibles:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Physics/Destructibles]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
 [REGION:banner]
 ![Physics](Engine/Physics/physics_landing_banner.png)
@@ -54,20 +15,10 @@ Description:
 
 ## トピックス
 
-[REGION:topics third]
 %Engine/Physics\Destructibles\Intro:topic%
 %Engine/Physics\Destructibles\DestructibleTutorial:topic%
 %Engine/Physics\Destructibles\FractureFX:topic%
 %Engine/Physics\Destructibles\Support:topic%
 %Engine/Physics\Destructibles\DestructibleProperties:topic%
-[/REGION]
 
-[PUBLISH:docs]
-## 例
-
-[REGION:todo]
-コンテンツ サンプルのリンクは、準備でき次第ここに貼ります。
-[/REGION]
-
-[/PUBLISH:docs]
 

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3717037
+﻿INTSourceChangelist:3807090
 Availability:Public
 Title:アニメーションのブレンドとプロパティ
 Crumbs: %ROOT%, Engine, Engine/Sequencer, Engine/Sequencer/HowTo
@@ -20,7 +20,7 @@ type:how-to
 
 このガイドでは、キャラクターの歩行からジャンプへ、そして再び歩行へと戻り、ブレンドするアニメーション シーケンスのサンプルを作成します。 
 
-![](AnimationBlending.png)(w:720 h:480)
+![](AnimationBlending.png)(w:720)
 
 ## ステップ
 

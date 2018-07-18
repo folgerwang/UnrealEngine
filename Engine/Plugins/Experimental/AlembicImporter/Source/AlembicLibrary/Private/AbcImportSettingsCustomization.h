@@ -44,7 +44,7 @@ public:
 
 protected:
 	EVisibility ArePropertiesVisible(const int32 VisibleType) const;
-	UAbcImportSettings* Settings;
+	TSharedPtr<IPropertyHandle> SamplingTypeHandle;
 };
 
 /** AbcCompression settings customizations handles hiding/showing properties according to the base calculation type */
@@ -66,7 +66,7 @@ public:
 
 protected:
 	EVisibility ArePropertiesVisible(const int32 VisibleType) const;
-	UAbcImportSettings* Settings;
+	TSharedPtr<IPropertyHandle> BaseCalculationTypeHandle;
 };
 
 class FAbcConversionSettingsCustomization
@@ -75,9 +75,7 @@ class FAbcConversionSettingsCustomization
 public:
 	static TSharedRef<IPropertyTypeCustomization> MakeInstance();
 
-	FAbcConversionSettingsCustomization()
-	{ }
-
+	FAbcConversionSettingsCustomization() : Settings(nullptr) { }
 	virtual ~FAbcConversionSettingsCustomization() {}
 
 	/** Begin IPropertyTypeCustomization interface */
@@ -88,5 +86,6 @@ public:
 protected:
 	void OnConversionPresetChanged();
 	void OnConversionValueChanged();
-	UAbcImportSettings* Settings;
+
+	struct FAbcConversionSettings* Settings;
 };

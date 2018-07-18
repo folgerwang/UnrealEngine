@@ -1,6 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "WindowsErrorReport.h"
+#include "Windows/WindowsErrorReport.h"
 #include "CrashDebugHelperModule.h"
 #include "CrashReportUtil.h"
 #include "CrashDescription.h"
@@ -11,10 +11,10 @@
 #include "Internationalization/Internationalization.h"
 #include "HAL/PlatformFileManager.h"
 
-#include "WindowsHWrapper.h"
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/WindowsHWrapper.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 #include <ShlObj.h>
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 #define LOCTEXT_NAMESPACE "CrashReportClient"
 

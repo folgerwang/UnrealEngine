@@ -27,6 +27,9 @@ private:
 	void* SteamServerDLLHandle;
 #endif	//LOADING_STEAM_LIBRARIES_DYNAMICALLY
 
+	/** If we force loaded the steamclient dlls due to launch flags */
+	bool bForceLoadSteamClientDll;
+
 	/**
 	 *	Load the required modules for Steam
 	 */
@@ -45,6 +48,7 @@ public:
 		, SteamDLLHandle(NULL)
 		, SteamServerDLLHandle(NULL)
 #endif	//LOADING_STEAM_LIBRARIES_DYNAMICALLY
+		, bForceLoadSteamClientDll(false)
 	{}
 
 	virtual ~FOnlineSubsystemSteamModule() {}

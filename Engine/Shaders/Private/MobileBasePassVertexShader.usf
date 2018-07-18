@@ -12,14 +12,14 @@
 #endif
 
 #include "Common.ush"
+
+// Reroute MobileSceneTextures uniform buffer references to the base pass uniform buffer
+#define MobileSceneTextures MobileBasePass.SceneTextures
+
 #include "MobileBasePassCommon.ush"
 #include "/Engine/Generated/Material.ush"
 #include "/Engine/Generated/VertexFactory.ush"
 #include "HeightFogCommon.ush"
-
-#if MOBILE_MULTI_VIEW
-int MobileMultiViewMask;
-#endif
 
 struct FMobileShadingBasePassVSToPS
 {
@@ -42,14 +42,6 @@ void Main(
 {
 #if MOBILE_MULTI_VIEW
 	const int MultiViewId = int(ViewId);
-	// Early out with a degenerate vertex to be clipped if the view is masked
-	BRANCH
-	if (MultiViewId == MobileMultiViewMask)
-	{
-		Output.Position = vec4(0.0);	
-		return;
-	}
-
 	ResolvedView = ResolveView(uint(MultiViewId));
 	Output.BasePassInterpolants.MultiViewId = float(MultiViewId);
 #else

@@ -124,7 +124,7 @@ public:
 	TWeakPtr<SViewport> GetViewportWidget() const { return ViewportWidget; }
 
 	/** Called before BeginRenderFrame is enqueued */
-	virtual void EnqueueBeginRenderFrame() override;
+	virtual void EnqueueBeginRenderFrame(const bool bShouldPresent) override;
 
 	/** Called when a frame starts to render */
 	virtual void BeginRenderFrame(FRHICommandListImmediate& RHICmdList) override;
@@ -245,6 +245,7 @@ public:
 	virtual FIntPoint GetSize() const override { return GetSizeXY(); }
 	
 	void SetViewportSize(uint32 NewSizeX,uint32 NewSizeY);
+	void SetFixedViewportSize(uint32 NewSizeX, uint32 NewSizeY);
 	TSharedPtr<SWindow> FindWindow();
 
 	/** Should return true, if stereo rendering is allowed in this viewport */
@@ -402,6 +403,8 @@ private:
 	bool bForceSeparateRenderTarget;
 	/** Whether or not we are currently resizing */
 	bool bIsResizing;
+	/** Do not resize the RenderTarget when resizing */
+	bool bForceViewportSize;
 	/** Delegate that is fired off in ResizeFrame after ResizeViewport */
 	FOnSceneViewportResize OnSceneViewportResizeDel;
 	/** Whether the PIE viewport is currently in simulate in editor mode */

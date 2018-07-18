@@ -954,3 +954,9 @@ void UTimelineComponent::GetAllCurves(TSet<class UCurveBase*>& InOutCurves) cons
 {
 	TheTimeline.GetAllCurves(InOutCurves);
 }
+
+
+bool UTimelineComponent::IsPostLoadThreadSafe() const
+{
+	return true;
+}

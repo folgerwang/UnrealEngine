@@ -9,7 +9,7 @@
 #include "Styling/SlateColor.h"
 #include "Styling/SlateTypes.h"
 #include "Styling/CoreStyle.h"
-#include "Text/STextBlock.h"
+#include "Widgets/Text/STextBlock.h"
 #include "Widgets/SOverlay.h"
 #include "Widgets/SWindow.h"
 

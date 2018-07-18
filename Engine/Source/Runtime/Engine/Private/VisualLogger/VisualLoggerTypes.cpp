@@ -540,29 +540,29 @@ FArchive& FVisualLoggerHelpers::Serialize(FArchive& Ar, TArray<FVisualLogDevice:
 
 void FVisualLoggerHelpers::GetCategories(const FVisualLogEntry& EntryItem, TArray<FVisualLoggerCategoryVerbosityPair>& OutCategories)
 {
-	for (const auto& CurrentEvent : EntryItem.Events)
+	for (const auto& Element : EntryItem.Events)
 	{
-		OutCategories.AddUnique(FVisualLoggerCategoryVerbosityPair(*CurrentEvent.Name, ELogVerbosity::All));
+		OutCategories.AddUnique(FVisualLoggerCategoryVerbosityPair(*Element.Name, Element.Verbosity));
 	}
 
-	for (const auto& CurrentLine : EntryItem.LogLines)
+	for (const auto& Element : EntryItem.LogLines)
 	{
-		OutCategories.AddUnique(FVisualLoggerCategoryVerbosityPair(CurrentLine.Category, ELogVerbosity::All));
+		OutCategories.AddUnique(FVisualLoggerCategoryVerbosityPair(Element.Category, Element.Verbosity));
 	}
 
-	for (const auto& CurrentElement : EntryItem.ElementsToDraw)
+	for (const auto& Element : EntryItem.ElementsToDraw)
 	{
-		OutCategories.AddUnique(FVisualLoggerCategoryVerbosityPair(CurrentElement.Category, ELogVerbosity::All));
+		OutCategories.AddUnique(FVisualLoggerCategoryVerbosityPair(Element.Category, Element.Verbosity));
 	}
 
-	for (const auto& CurrentSample : EntryItem.HistogramSamples)
+	for (const auto& Element : EntryItem.HistogramSamples)
 	{
-		OutCategories.AddUnique(FVisualLoggerCategoryVerbosityPair(CurrentSample.Category, ELogVerbosity::All));
+		OutCategories.AddUnique(FVisualLoggerCategoryVerbosityPair(Element.Category, Element.Verbosity));
 	}
 
-	for (const auto& CurrentBlock : EntryItem.DataBlocks)
+	for (const auto& Element : EntryItem.DataBlocks)
 	{
-		OutCategories.AddUnique(FVisualLoggerCategoryVerbosityPair(CurrentBlock.Category, ELogVerbosity::All));
+		OutCategories.AddUnique(FVisualLoggerCategoryVerbosityPair(Element.Category, Element.Verbosity));
 	}
 }
 

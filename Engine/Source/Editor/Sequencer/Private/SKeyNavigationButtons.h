@@ -6,7 +6,8 @@
 #include "Misc/Attribute.h"
 #include "Styling/SlateColor.h"
 #include "Input/Reply.h"
-#include "DisplayNodes/SequencerDisplayNode.h"
+#include "DisplayNodes/SequencerObjectBindingNode.h"
+#include "DisplayNodes/SequencerSectionKeyAreaNode.h"
 #include "Widgets/DeclarativeSyntaxSupport.h"
 #include "Widgets/SBoxPanel.h"
 #include "Widgets/SCompoundWidget.h"
@@ -16,10 +17,12 @@
 #include "Widgets/Input/SButton.h"
 #include "EditorStyleSet.h"
 #include "SequencerCommonHelpers.h"
-#include "IKeyArea.h"
 #include "MovieSceneCommonHelpers.h"
 #include "ScopedTransaction.h"
 #include "SequencerCommands.h"
+#include "ISequencerModule.h"
+#include "Modules/ModuleManager.h"
+#include "IKeyArea.h"
 
 #define LOCTEXT_NAMESPACE "SKeyNavigationButtons"
 
@@ -135,48 +138,50 @@ public:
 	FReply OnPreviousKeyClicked()
 	{
 		FSequencer& Sequencer = DisplayNode->GetSequencer();
-		float ClosestPreviousKeyDistance = MAX_FLT;
-		float CurrentTime = Sequencer.GetLocalTime();
-		float PreviousTime = 0;
-		bool PreviousKeyFound = false;
 
-		TArray<float> AllTimes;
+		FFrameTime ClosestPreviousKeyDistance = FFrameTime(TNumericLimits<int32>::Max(), 0.99999f);
+		FFrameTime CurrentTime = Sequencer.GetLocalTime().Time;
+		TOptional<FFrameTime> PreviousTime;
+
+		TArray<FFrameNumber> AllTimes;
 
 		TSet<TSharedPtr<IKeyArea>> KeyAreas;
 		SequencerHelpers::GetAllKeyAreas( DisplayNode, KeyAreas );
-		for ( TSharedPtr<IKeyArea> KeyArea : KeyAreas )
+
+		for ( TSharedPtr<IKeyArea> Keyarea : KeyAreas )
 		{
-			for ( FKeyHandle& KeyHandle : KeyArea->GetUnsortedKeyHandles() )
-			{
-				float KeyTime = KeyArea->GetKeyTime( KeyHandle );
-				AllTimes.Add(KeyTime);
-			}
+			Keyarea->GetKeyTimes(AllTimes);
 		}
 
 		TSet<TWeakObjectPtr<UMovieSceneSection> > Sections;
 		SequencerHelpers::GetAllSections( DisplayNode.ToSharedRef(), Sections );
 		for ( TWeakObjectPtr<UMovieSceneSection> Section : Sections )
 		{
-			if (Section.IsValid() && !Section->IsInfinite())
+			if (Section.IsValid())
 			{
-				AllTimes.Add(Section->GetStartTime());
-				AllTimes.Add(Section->GetEndTime());
+				if (Section->HasStartFrame())
+				{
+					AllTimes.Add(Section->GetInclusiveStartFrame());
+				}
+				if (Section->HasEndFrame())
+				{
+					AllTimes.Add(Section->GetExclusiveEndFrame()-1);
+				}
 			}
 		}
 
-		for (float Time : AllTimes)
+		for (FFrameNumber Time : AllTimes)
 		{
 			if (Time < CurrentTime && CurrentTime - Time < ClosestPreviousKeyDistance)
 			{
 				PreviousTime = Time;
 				ClosestPreviousKeyDistance = CurrentTime - Time;
-				PreviousKeyFound = true;
 			}
 		}
 
-		if (PreviousKeyFound)
+		if (PreviousTime.IsSet())
 		{
-			Sequencer.SetLocalTime(PreviousTime);
+			Sequencer.SetLocalTime(PreviousTime.GetValue());
 		}
 		return FReply::Handled();
 	}
@@ -185,48 +190,49 @@ public:
 	FReply OnNextKeyClicked()
 	{
 		FSequencer& Sequencer = DisplayNode->GetSequencer();
-		float ClosestNextKeyDistance = MAX_FLT;
-		float CurrentTime = Sequencer.GetLocalTime();
-		float NextTime = 0;
-		bool NextKeyFound = false;
+		FFrameTime ClosestNextKeyDistance = FFrameTime(TNumericLimits<int32>::Max(), 0.99999f);
+		FFrameTime CurrentTime = Sequencer.GetLocalTime().Time;
+		TOptional<FFrameTime> NextTime;
 
-		TArray<float> AllTimes;
+		TArray<FFrameNumber> AllTimes;
 
 		TSet<TSharedPtr<IKeyArea>> KeyAreas;
 		SequencerHelpers::GetAllKeyAreas( DisplayNode, KeyAreas );
-		for ( TSharedPtr<IKeyArea> KeyArea : KeyAreas )
+
+		for ( TSharedPtr<IKeyArea> Keyarea : KeyAreas )
 		{
-			for ( FKeyHandle& KeyHandle : KeyArea->GetUnsortedKeyHandles() )
-			{
-				float KeyTime = KeyArea->GetKeyTime( KeyHandle );
-				AllTimes.Add(KeyTime);
-			}
+			Keyarea->GetKeyTimes(AllTimes);
 		}
 
 		TSet<TWeakObjectPtr<UMovieSceneSection> > Sections;
 		SequencerHelpers::GetAllSections( DisplayNode.ToSharedRef(), Sections );
 		for ( TWeakObjectPtr<UMovieSceneSection> Section : Sections )
 		{
-			if (Section.IsValid() && !Section->IsInfinite())
+			if (Section.IsValid())
 			{
-				AllTimes.Add(Section->GetStartTime());
-				AllTimes.Add(Section->GetEndTime());
+				if (Section->HasStartFrame())
+				{
+					AllTimes.Add(Section->GetInclusiveStartFrame());
+				}
+				if (Section->HasEndFrame())
+				{
+					AllTimes.Add(Section->GetExclusiveEndFrame()-1);
+				}
 			}
 		}
 
-		for (float Time : AllTimes)
+		for (FFrameNumber Time : AllTimes)
 		{
 			if (Time > CurrentTime && Time - CurrentTime < ClosestNextKeyDistance)
 			{
 				NextTime = Time;
 				ClosestNextKeyDistance = Time - CurrentTime;
-				NextKeyFound = true;
 			}
 		}
 
-		if (NextKeyFound)
+		if (NextTime.IsSet())
 		{
-			Sequencer.SetLocalTime(NextTime);
+			Sequencer.SetLocalTime(NextTime.GetValue());
 		}
 
 		return FReply::Handled();
@@ -236,42 +242,61 @@ public:
 	FReply OnAddKeyClicked()
 	{
 		FSequencer& Sequencer = DisplayNode->GetSequencer();
-		float CurrentTime = Sequencer.GetLocalTime();
+		FFrameTime CurrentTime = Sequencer.GetLocalTime().Time;
 
-		TSet<TSharedPtr<IKeyArea>> KeyAreas;
-		SequencerHelpers::GetAllKeyAreas(DisplayNode, KeyAreas);
+		// Gather all sections on this node so we can decide which one to key
+		TSet<TWeakObjectPtr<UMovieSceneSection> > WeakSections;
+		SequencerHelpers::GetAllSections( DisplayNode.ToSharedRef(), WeakSections );
 
-		// Prune out any key areas that do not exist at the current time, or are overlapped
-		TMap<FName, TArray<TSharedPtr<IKeyArea>>> NameToKeyAreas;
-		for (TSharedPtr<IKeyArea> KeyArea : KeyAreas)
+		TArray<UMovieSceneSection*> SectionArray;
+		SectionArray.Reserve(WeakSections.Num());
+		for (TWeakObjectPtr<UMovieSceneSection> WeakSection : WeakSections)
 		{
-			NameToKeyAreas.FindOrAdd(KeyArea->GetName()).Add(KeyArea);
+			if (UMovieSceneSection* Section = WeakSection.Get())
+			{
+				SectionArray.Add(Section);
+			}
+		}
+
+		// Add keys specifically only on the closest or overlapping section
+		const int32 SectionIndex = SequencerHelpers::GetSectionFromTime(SectionArray, CurrentTime.FrameNumber);
+		if (SectionIndex == INDEX_NONE)
+		{
+			return FReply::Handled();
 		}
 
 		FScopedTransaction Transaction(LOCTEXT("AddKeys", "Add Keys at Current Time"));
-		for (auto& Pair : NameToKeyAreas)
+
+		// Add the section to the transaction
+		UMovieSceneSection* SectionToKey = SectionArray[SectionIndex];
+		SectionToKey->SetFlags(RF_Transactional);
+		if (!SectionToKey->TryModify())
 		{
-			TArray<UMovieSceneSection*> AllSections;
-			for (TSharedPtr<IKeyArea>& KeyArea : Pair.Value)
+			return FReply::Handled();
+		}
+
+		TSharedPtr<FSequencerObjectBindingNode> ParentObjectBinding = DisplayNode->FindParentObjectBindingNode();
+		FGuid ObjectBinding = ParentObjectBinding.IsValid() ? ParentObjectBinding->GetObjectBinding() : FGuid();
+
+		TArray<TSharedRef<FSequencerSectionKeyAreaNode>> KeyAreaNodes;
+		if (DisplayNode->GetType() == ESequencerNode::KeyArea)
+		{
+			KeyAreaNodes.Add(StaticCastSharedPtr<FSequencerSectionKeyAreaNode>(DisplayNode).ToSharedRef());
+		}
+		DisplayNode->GetChildKeyAreaNodesRecursively(KeyAreaNodes);
+
+		for (TSharedRef<FSequencerSectionKeyAreaNode> KeyAreaNode : KeyAreaNodes)
+		{
+			TSharedPtr<IKeyArea> KeyArea =  KeyAreaNode->GetKeyArea(SectionToKey);
+			if (KeyArea.IsValid())
 			{
-				AllSections.Add(KeyArea->GetOwningSection());
-			}
-
-			int32 KeyAreaIndex = SequencerHelpers::GetSectionFromTime(AllSections, CurrentTime);
-
-			if (KeyAreaIndex != INDEX_NONE)
-			{
-				UMovieSceneSection* OwningSection = AllSections[KeyAreaIndex];
-
-				OwningSection->SetFlags(RF_Transactional);
-				if (OwningSection->TryModify())
-				{
-					Pair.Value[KeyAreaIndex]->AddKeyUnique(CurrentTime, Sequencer.GetKeyInterpolation());
-					Sequencer.NotifyMovieSceneDataChanged(EMovieSceneDataChangeType::TrackValueChanged);
-				}
+				KeyArea->AddOrUpdateKey(CurrentTime.FrameNumber, ObjectBinding, Sequencer);
 			}
 		}
 
+		SectionToKey->ExpandToFrame(CurrentTime.FrameNumber);
+
+		Sequencer.NotifyMovieSceneDataChanged(EMovieSceneDataChangeType::TrackValueChanged);
 		Sequencer.UpdatePlaybackRange();
 
 		return FReply::Handled();

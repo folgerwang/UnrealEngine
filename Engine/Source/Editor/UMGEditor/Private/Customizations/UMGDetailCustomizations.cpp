@@ -24,6 +24,7 @@
 #include "Kismet2/BlueprintEditorUtils.h"
 #include "Components/PanelSlot.h"
 #include "Details/SPropertyBinding.h"
+#include "Widgets/Layout/SWidgetSwitcher.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 
@@ -102,7 +103,7 @@ void FBlueprintWidgetCustomization::CreateEventCustomization( IDetailLayoutBuild
 	IDetailPropertyRow& PropertyRow = PropertyCategory.AddProperty(DelegatePropertyHandle);
 	PropertyRow.OverrideResetToDefault(FResetToDefaultOverride::Create(FResetToDefaultHandler::CreateSP(this, &FBlueprintWidgetCustomization::ResetToDefault_RemoveBinding)));
 
-	FString LabelStr = Property->GetName();
+	FString LabelStr = Property->GetDisplayNameText().ToString();
 	LabelStr.RemoveFromEnd(TEXT("Event"));
 
 	FText Label = FText::FromString(LabelStr);
@@ -158,6 +159,45 @@ void FBlueprintWidgetCustomization::ResetToDefault_RemoveBinding(TSharedPtr<IPro
 	FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
 }
 
+
+FReply FBlueprintWidgetCustomization::HandleAddOrViewEventForVariable(const FName EventName, FName PropertyName, TWeakObjectPtr<UClass> PropertyClass)
+{
+	UBlueprint* BlueprintObj = Blueprint;
+
+	// Find the corresponding variable property in the Blueprint
+	UObjectProperty* VariableProperty = FindField<UObjectProperty>(BlueprintObj->SkeletonGeneratedClass, PropertyName);
+
+	if (VariableProperty)
+	{
+		if (!FKismetEditorUtilities::FindBoundEventForComponent(BlueprintObj, EventName, VariableProperty->GetFName()))
+		{
+			FKismetEditorUtilities::CreateNewBoundEventForClass(PropertyClass.Get(), EventName, BlueprintObj, VariableProperty);
+		}
+		else
+		{
+			const UK2Node_ComponentBoundEvent* ExistingNode = FKismetEditorUtilities::FindBoundEventForComponent(BlueprintObj, EventName, VariableProperty->GetFName());
+			if (ExistingNode)
+			{
+				FKismetEditorUtilities::BringKismetToFocusAttentionOnObject(ExistingNode);
+			}
+		}
+	}
+
+	return FReply::Handled();
+}
+
+int32 FBlueprintWidgetCustomization::HandleAddOrViewIndexForButton(const FName EventName, FName PropertyName) const
+{
+	UBlueprint* BlueprintObj = Blueprint;
+
+	if (FKismetEditorUtilities::FindBoundEventForComponent(BlueprintObj, EventName, PropertyName))
+	{
+		return 0; // View
+	}
+
+	return 1; // Add
+}
+
 void FBlueprintWidgetCustomization::CreateMulticastEventCustomization(IDetailLayoutBuilder& DetailLayout, FName ThisComponentName, UClass* PropertyClass, UMulticastDelegateProperty* DelegateProperty)
 {
 	const FString AddString = FString(TEXT("Add "));
@@ -176,9 +216,6 @@ void FBlueprintWidgetCustomization::CreateMulticastEventCustomization(IDetailLay
 		PropertyTooltip = FText::FromString(DelegateProperty->GetName());
 	}
 
-	// Add on category for delegate property
-	const FText EventCategory = FObjectEditorUtils::GetCategoryText(DelegateProperty);
-
 	UObjectProperty* ComponentProperty = FindField<UObjectProperty>(Blueprint->SkeletonGeneratedClass, ThisComponentName);
 
 	if ( !ComponentProperty )
@@ -186,72 +223,59 @@ void FBlueprintWidgetCustomization::CreateMulticastEventCustomization(IDetailLay
 		return;
 	}
 
-	const UK2Node* EventNode = FKismetEditorUtilities::FindBoundEventForComponent(Blueprint, DelegateProperty->GetFName(), ComponentProperty->GetFName());
+	FName PropertyName = ComponentProperty->GetFName();
+	FName EventName = DelegateProperty->GetFName();
+	FText EventText = DelegateProperty->GetDisplayNameText();
 
-	TSharedPtr<FEdGraphSchemaAction> ClickAction;
-	TSharedPtr<SWidget> ButtonContent;
+	IDetailCategoryBuilder& EventCategory = DetailLayout.EditCategory(TEXT("Events"), LOCTEXT("Events", "Events"), ECategoryPriority::Uncommon);
 
-	if ( EventNode )
-	{
-		TSharedPtr<FEdGraphSchemaAction_K2ViewNode> NewDelegateNode = TSharedPtr<FEdGraphSchemaAction_K2ViewNode>(new FEdGraphSchemaAction_K2ViewNode(EventCategory, FText::FromString(ViewString + DelegateProperty->GetName()), PropertyTooltip, K2Schema->AG_LevelReference));
-		NewDelegateNode->NodePtr = EventNode;
-
-		ClickAction = NewDelegateNode;
-
-		ButtonContent = SNew(STextBlock)
-			.Text(LOCTEXT("ViewEvent", "View"));
-	}
-	else
-	{
-		TSharedPtr<FEdGraphSchemaAction_K2NewNode> NewDelegateNode = TSharedPtr<FEdGraphSchemaAction_K2NewNode>(new FEdGraphSchemaAction_K2NewNode(EventCategory, FText::FromString(AddString + DelegateProperty->GetName()), PropertyTooltip, K2Schema->AG_LevelReference));
-
-		UK2Node_ComponentBoundEvent* NewComponentEvent = NewObject<UK2Node_ComponentBoundEvent>(Blueprint, UK2Node_ComponentBoundEvent::StaticClass());
-		NewComponentEvent->InitializeComponentBoundEventParams(ComponentProperty, DelegateProperty);
-		NewDelegateNode->NodeTemplate = NewComponentEvent;
-		NewDelegateNode->bGotoNode = true;
-
-		ClickAction = NewDelegateNode;
-
-		ButtonContent = SNew(SImage)
-			.Image(FEditorStyle::GetBrush("Plus"));
-	}
-
-	TSharedRef<IPropertyHandle> DelegatePropertyHandle = DetailLayout.GetProperty(DelegateProperty->GetFName(), CastChecked<UClass>(DelegateProperty->GetOuter()));
-
-	IDetailCategoryBuilder& PropertyCategory = DetailLayout.EditCategory("Events", LOCTEXT("Events", "Events"), ECategoryPriority::Uncommon);
-
-	FText DelegatePropertyName = FText::FromString(DelegateProperty->GetName());
-	PropertyCategory.AddCustomRow(DelegatePropertyName)
-	.NameContent()
-	[
-		SNew(SHorizontalBox)
-
-		+ SHorizontalBox::Slot()
-		.AutoWidth()
-		.VAlign(VAlign_Center)
-		.Padding(0,0,5,0)
+	EventCategory.AddCustomRow(EventText)
+		.NameContent()
 		[
-			SNew(SImage)
-			.Image(FEditorStyle::GetBrush("GraphEditor.Event_16x"))
-		]
+			SNew(SHorizontalBox)
+			.ToolTipText(DelegateProperty->GetToolTipText())
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			.VAlign(VAlign_Center)
+			.Padding(0, 0, 5, 0)
+			[
+				SNew(SImage)
+				.Image(FEditorStyle::GetBrush("GraphEditor.Event_16x"))
+			]
 
-		+ SHorizontalBox::Slot()
-		.VAlign(VAlign_Center)
-		[
-			SNew(STextBlock)
-			.Font(IDetailLayoutBuilder::GetDetailFont())
-			.Text(DelegatePropertyName)
+			+ SHorizontalBox::Slot()
+			.VAlign(VAlign_Center)
+			[
+				SNew(STextBlock)
+				.Font(IDetailLayoutBuilder::GetDetailFont())
+				.Text(EventText)
+			]
 		]
-	]
-	.ValueContent()
-	.MinDesiredWidth(150)
-	.MaxDesiredWidth(200)
-	[
-		SNew(SGraphSchemaActionButton, Editor.Pin(), ClickAction)
+		.ValueContent()
+		.MinDesiredWidth(150)
+		.MaxDesiredWidth(200)
 		[
-			ButtonContent.ToSharedRef()
-		]
-	];
+			SNew(SButton)
+			.ButtonStyle(FEditorStyle::Get(), "FlatButton.Success")
+			.HAlign(HAlign_Center)
+			.OnClicked(this, &FBlueprintWidgetCustomization::HandleAddOrViewEventForVariable, EventName, PropertyName, MakeWeakObjectPtr(PropertyClass))
+			.ForegroundColor(FSlateColor::UseForeground())
+			[
+				SNew(SWidgetSwitcher)
+				.WidgetIndex(this, &FBlueprintWidgetCustomization::HandleAddOrViewIndexForButton, EventName, PropertyName)
+				+ SWidgetSwitcher::Slot()
+				[
+					SNew(STextBlock)
+					.Font(FEditorStyle::GetFontStyle(TEXT("BoldFont")))
+					.Text(LOCTEXT("ViewEvent", "View"))
+				]
+				+ SWidgetSwitcher::Slot()
+				[
+					SNew(SImage)
+					.Image(FEditorStyle::GetBrush("Plus"))
+				]
+			]
+		];
 }
 
 void FBlueprintWidgetCustomization::CustomizeDetails( IDetailLayoutBuilder& DetailLayout )
@@ -302,7 +326,7 @@ void FBlueprintWidgetCustomization::PerformBindingCustomization(IDetailLayoutBui
 			if ( UDelegateProperty* DelegateProperty = Cast<UDelegateProperty>(*PropertyIt) )
 			{
 				//TODO Remove the code to use ones that end with "Event".  Prefer metadata flag.
-				if ( DelegateProperty->GetBoolMetaData(IsBindableEventName) || DelegateProperty->GetName().EndsWith(TEXT("Event")) )
+				if ( DelegateProperty->HasMetaData(IsBindableEventName) || DelegateProperty->GetName().EndsWith(TEXT("Event")) )
 				{
 					CreateEventCustomization(DetailLayout, DelegateProperty, Widget);
 				}

@@ -65,7 +65,7 @@ public:
 			TangentBufferData = static_cast<FPackedNormal*>(Data);
 			if (RHISupportsManualVertexFetch(GMaxRHIShaderPlatform))
 			{
-				TangentBufferSRV = RHICreateShaderResourceView(TangentBuffer.VertexBufferRHI, sizeof(FPackedNormal), PF_R8G8B8A8);
+				TangentBufferSRV = RHICreateShaderResourceView(TangentBuffer.VertexBufferRHI, sizeof(FPackedNormal), PF_R8G8B8A8_SNORM);
 			}
 		}
 

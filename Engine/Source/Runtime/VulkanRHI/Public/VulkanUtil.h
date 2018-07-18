@@ -10,7 +10,7 @@
 
 class FVulkanCmdBuffer;
 class FVulkanRenderQuery;
-class FOLDVulkanRenderQuery;
+class FVulkanRenderQuery;
 class FVulkanCommandListContext;
 
 class FVulkanGPUTiming : public FGPUTiming
@@ -61,6 +61,8 @@ public:
 		return true;
 	}
 
+	static void CalibrateTimers(FVulkanCommandListContext& InCmdContext);
+
 private:
 	/**
 	 * Initializes the static variables, if necessary.
@@ -82,8 +84,14 @@ private:
 	int32 NumActiveTimers = 0;
 	struct FBeginEndPair
 	{
-		FOLDVulkanRenderQuery* Begin;
-		FOLDVulkanRenderQuery* End;
+#if VULKAN_USE_NEW_QUERIES
+		FVulkanCmdBuffer* BeginCmdBuffer = nullptr;
+		uint64 BeginFenceCounter = 0;
+		FVulkanCmdBuffer* EndCmdBuffer = nullptr;
+		uint64 EndFenceCounter = 0;
+#endif
+		FVulkanRenderQuery* Begin;
+		FVulkanRenderQuery* End;
 	};
 	FBeginEndPair Timers[MaxTimers];
 };
@@ -186,6 +194,16 @@ struct FVulkanGPUProfiler : public FGPUProfiler
 	bool bCommandlistSubmitted;
 	FVulkanDevice* Device;
 	FVulkanCommandListContext* CmdContext;
+
+#if VULKAN_SUPPORTS_AMD_BUFFER_MARKER
+	void PushMarkerForCrash(VkCommandBuffer CmdBuffer, VkBuffer DestBuffer, const TCHAR* Name);
+	void PopMarkerForCrash(VkCommandBuffer CmdBuffer, VkBuffer DestBuffer);
+	void DumpCrashMarkers(void* BufferData);
+#endif
+
+	// For crash/marker tracking
+	TMap<uint32, FString> CachedStrings;
+	TArray<uint32> PushPopStack;
 };
 
 namespace VulkanRHI
@@ -198,10 +216,19 @@ namespace VulkanRHI
 	 * @param	Filename - The filename of the source file containing Code.
 	 * @param	Line - The line number of Code within Filename.
 	 */
-	void VerifyVulkanResult(VkResult Result, const ANSICHAR* VkFuntion, const ANSICHAR* Filename, uint32 Line);
+	extern VULKANRHI_API void VerifyVulkanResult(VkResult Result, const ANSICHAR* VkFuntion, const ANSICHAR* Filename, uint32 Line);
 
 	VkBuffer CreateBuffer(FVulkanDevice* InDevice, VkDeviceSize Size, VkBufferUsageFlags BufferUsageFlags, VkMemoryRequirements& OutMemoryRequirements);
 }
 
 #define VERIFYVULKANRESULT(VkFunction)				{ const VkResult ScopedResult = VkFunction; if (ScopedResult != VK_SUCCESS) { VulkanRHI::VerifyVulkanResult(ScopedResult, #VkFunction, __FILE__, __LINE__); }}
 #define VERIFYVULKANRESULT_EXPANDED(VkFunction)		{ const VkResult ScopedResult = VkFunction; if (ScopedResult < VK_SUCCESS) { VulkanRHI::VerifyVulkanResult(ScopedResult, #VkFunction, __FILE__, __LINE__); }}
+
+
+template<typename T>
+inline bool CopyAndReturnNotEqual(T& A, T B)
+{
+	const bool bOut = A != B;
+	A = B;
+	return bOut;
+}

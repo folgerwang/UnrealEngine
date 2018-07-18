@@ -10,19 +10,19 @@ FTestUserInterface::FTestUserInterface(const FString& InSubsystem)
 	: OnlineSub(NULL)
 	, bQueryUserInfo(true)
 {
-	UE_LOG(LogOnline, Display, TEXT("FTestUserInterface::FTestUserInterface"));
+	UE_LOG_ONLINE_USER(Display, TEXT("FTestUserInterface::FTestUserInterface"));
 	SubsystemName = InSubsystem;
 }
 
 
 FTestUserInterface::~FTestUserInterface()
 {
-	UE_LOG(LogOnline, Display, TEXT("FTestUserInterface::~FTestUserInterface"));
+	UE_LOG_ONLINE_USER(Display, TEXT("FTestUserInterface::~FTestUserInterface"));
 }
 
 void FTestUserInterface::Test(UWorld* InWorld, const TArray<FString>& InUserIds)
 {
-	UE_LOG(LogOnline, Display, TEXT("FTestUserInterface::Test"));
+	UE_LOG_ONLINE_USER(Display, TEXT("FTestUserInterface::Test"));
 
 	OnlineSub = Online::GetSubsystem(InWorld, SubsystemName.Len() ? FName(*SubsystemName, FNAME_Find) : NAME_None);
 	if (OnlineSub != NULL &&
@@ -57,7 +57,7 @@ void FTestUserInterface::Test(UWorld* InWorld, const TArray<FString>& InUserIds)
 	}
 	else
 	{
-		UE_LOG(LogOnline, Warning,
+		UE_LOG_ONLINE_USER(Warning,
 			TEXT("Failed to get user interface for %s"), *SubsystemName);
 		
 		FinishTest();
@@ -89,7 +89,7 @@ void FTestUserInterface::FinishTest()
 
 void FTestUserInterface::OnQueryUserInfoComplete(int32 LocalPlayer, bool bWasSuccessful, const TArray< TSharedRef<const FUniqueNetId> >& UserIds, const FString& ErrorStr)
 {
-	UE_LOG(LogOnline, Log,
+	UE_LOG_ONLINE_USER(Log,
 		TEXT("GetUserInterface() for player (%d) was success=%d"), LocalPlayer, bWasSuccessful);
 
 	if (bWasSuccessful)
@@ -99,23 +99,23 @@ void FTestUserInterface::OnQueryUserInfoComplete(int32 LocalPlayer, bool bWasSuc
 			TSharedPtr<FOnlineUser> User = OnlineSub->GetUserInterface()->GetUserInfo(LocalPlayer, *UserIds[UserIdx]);
 			if (User.IsValid())
 			{
-				UE_LOG(LogOnline, Log,
+				UE_LOG_ONLINE_USER(Log,
 					TEXT("PlayerId=%s found"), *UserIds[UserIdx]->ToDebugString());
-				UE_LOG(LogOnline, Log,
+				UE_LOG_ONLINE_USER(Log,
 					TEXT("	DisplayName=%s"), *User->GetDisplayName());
-				UE_LOG(LogOnline, Log,
+				UE_LOG_ONLINE_USER(Log,
 					TEXT("	RealName=%s"), *User->GetRealName());
 			}
 			else
 			{
-				UE_LOG(LogOnline, Log,
+				UE_LOG_ONLINE_USER(Log,
 					TEXT("PlayerId=%s not found"), *UserIds[UserIdx]->ToDebugString());
 			}
 		}
 	}
 	else
 	{
-		UE_LOG(LogOnline, Error, TEXT("GetUserInterface() failure. Error = %s"), *ErrorStr);
+		UE_LOG_ONLINE_USER(Error, TEXT("GetUserInterface() failure. Error = %s"), *ErrorStr);
 	}
 
 	// done

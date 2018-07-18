@@ -21,6 +21,7 @@
 #include "PlatformHttp.h"
 #include "Misc/EngineVersion.h"
 
+
 /** When enabled (and -AnalyticsTrackPerf is specified on the command line, will log out analytics flush timings on a regular basis to Saved/AnalyticsTiming.csv. */
 #define ANALYTICS_PERF_TRACKING_ENABLED !UE_BUILD_SHIPPING
 #if ANALYTICS_PERF_TRACKING_ENABLED
@@ -37,7 +38,7 @@ struct FAnalyticsPerfTracker : FTickerObjectBase
 			LogFile.Serialize(TEXT("Date,CL,RunID,Time,WindowSeconds,ProfiledSeconds,Frames,Flushes,Events,Bytes,FrameCounter"), ELogVerbosity::Log, FName());
 			LastSubmitTime = StartTime;
 			StartDate = FDateTime::UtcNow().ToIso8601();
-			CL = Lex::ToString(FEngineVersion::Current().GetChangelist());
+			CL = LexToString(FEngineVersion::Current().GetChangelist());
 		}
 	}
 
@@ -74,6 +75,8 @@ private:
 	/** Check to see if we need to log another window of time. */
 	virtual bool Tick(float DeltaTime) override
 	{
+        QUICK_SCOPE_CYCLE_COUNTER(STAT_IAnalyticsProviderET_Tick);
+
 		if (bEnabled)
 		{
 			++FramesThisWindow;
@@ -202,11 +205,11 @@ public:
 	FString GetAPIKey() const { return APIKey; }
 
 private:
-	/** 
+	/**
 	 * Determines whether we need to flush. Generally, this is only if we have cached events.
 	 * Since the first event is always a control event, and we overwrite multiple control events in a row,
 	 * we can safely say that if the array is longer than 1 item, it must have a real event in it to flush.
-	 * 
+	 *
 	 * NOTE: This MUST be accessed inside a lock on CachedEventsCS!!
 	 */
 	bool ShouldFlush() const
@@ -273,8 +276,8 @@ private:
 			, bIsDefaultAttributes(bInIsDefaultAttributes)
 		{}
 	};
-	
-	/** 
+
+	/**
 	 * List of analytic events pending a server update .
 	 * NOTE: This MUST be accessed inside a lock on CachedEventsCS!!
 	 */
@@ -343,7 +346,7 @@ FAnalyticsProviderET::FAnalyticsProviderET(const FAnalyticsET::Config& ConfigVal
 	FString ConfigAppVersion = ConfigValues.AppVersionET;
 	// Allow the cmdline to force a specific AppVersion so it can be set dynamically.
 	FParse::Value(FCommandLine::Get(), TEXT("ANALYTICSAPPVERSION="), ConfigAppVersion, false);
-	AppVersion = ConfigAppVersion.IsEmpty() 
+	AppVersion = ConfigAppVersion.IsEmpty()
 		? FString(FApp::GetBuildVersion())
 		: ConfigAppVersion.Replace(TEXT("%VERSION%"), FApp::GetBuildVersion(), ESearchCase::CaseSensitive);
 
@@ -398,12 +401,12 @@ bool FAnalyticsProviderET::Tick(float DeltaSeconds)
 			else
 			{
 				LastFrameCounterFlushed = GFrameCounter;
-				FTimespan TimeSinceLastFailure = FDateTime::UtcNow() - LastFailedFlush;	
+				FTimespan TimeSinceLastFailure = FDateTime::UtcNow() - LastFailedFlush;
 				if (TimeSinceLastFailure.GetTotalSeconds() >= RetryDelaySecs)
 				{
-			FlushEvents();
-		}
-	}
+					FlushEvents();
+				}
+			}
 		}
 	}
 	return true;
@@ -429,7 +432,7 @@ bool FAnalyticsProviderET::StartSession(const TArray<FAnalyticsEventAttribute>& 
 bool FAnalyticsProviderET::StartSession(TArray<FAnalyticsEventAttribute>&& Attributes)
 {
 	UE_LOG(LogAnalytics, Log, TEXT("[%s] AnalyticsET::StartSession"), *APIKey);
-	
+
 	// end/flush previous session before staring new one
 	if (bSessionInProgress)
 	{
@@ -442,8 +445,6 @@ bool FAnalyticsProviderET::StartSession(TArray<FAnalyticsEventAttribute>&& Attri
 
 	// always ensure we send a few specific attributes on session start.
 	TArray<FAnalyticsEventAttribute> AppendedAttributes(MoveTemp(Attributes));
-	// this allows mapping to ad networks attribution data
-	AppendedAttributes.Emplace(TEXT("AttributionId"), FPlatformMisc::GetUniqueAdvertisingId());
 	// we should always know what platform is hosting this session.
 	AppendedAttributes.Emplace(TEXT("Platform"), FString(FPlatformProperties::IniPlatformName()));
 
@@ -453,7 +454,7 @@ bool FAnalyticsProviderET::StartSession(TArray<FAnalyticsEventAttribute>&& Attri
 }
 
 /**
- * End capturing stats and queue the upload 
+ * End capturing stats and queue the upload
  */
 void FAnalyticsProviderET::EndSession()
 {
@@ -481,7 +482,7 @@ void FAnalyticsProviderET::FlushEvents()
 	{
 		return;
 	}
-	
+
 	ANALYTICS_FLUSH_TRACKING_BEGIN();
 	int EventCount = 0;
 	int PayloadSize = 0;
@@ -593,13 +594,13 @@ void FAnalyticsProviderET::FlushEvents()
 			JsonWriter->WriteObjectEnd();
 			JsonWriter->Close();
 
-			FString URLPath = FString::Printf(TEXT("datarouter/api/v1/public/data?SessionID=%s&AppID=%s&AppVersion=%s&UserID=%s&AppEnvironment=%s&UploadType=%s"),
-				*FPlatformHttp::UrlEncode(SessionID),
-				*FPlatformHttp::UrlEncode(APIKey),
-				*FPlatformHttp::UrlEncode(AppVersion),
-				*FPlatformHttp::UrlEncode(UserID),
-				*FPlatformHttp::UrlEncode(AppEnvironment),
-				*FPlatformHttp::UrlEncode(UploadType));
+			// UrlEncode NOTE: need to concatenate everything
+			FString URLPath  = TEXT("datarouter/api/v1/public/data?SessionID=") + FPlatformHttp::UrlEncode(SessionID);
+					URLPath += TEXT("&AppID=") + FPlatformHttp::UrlEncode(APIKey);
+					URLPath += TEXT("&AppVersion=") + FPlatformHttp::UrlEncode(AppVersion);
+					URLPath += TEXT("&UserID=") + FPlatformHttp::UrlEncode(UserID);
+					URLPath += TEXT("&AppEnvironment=") + FPlatformHttp::UrlEncode(AppEnvironment);
+					URLPath += TEXT("&UploadType=") + FPlatformHttp::UrlEncode(UploadType);
 			PayloadSize = URLPath.Len() + Payload.Len();
 
 			if (UE_LOG_ACTIVE(LogAnalytics, VeryVerbose))
@@ -679,15 +680,16 @@ void FAnalyticsProviderET::FlushEvents()
 					// Create/send Http request for an event
 					TSharedRef<IHttpRequest> HttpRequest = FHttpModule::Get().CreateRequest();
 					HttpRequest->SetHeader(TEXT("Content-Type"), TEXT("text/plain"));
+
 					// Don't need to URL encode the APIServer or the EventParams, which are already encoded, and contain parameter separaters that we DON'T want encoded.
-					HttpRequest->SetURL(FString::Printf(TEXT("%sSendEvent.1?SessionID=%s&AppID=%s&AppVersion=%s&UserID=%s&EventName=%s%s"),
-						*APIServer,
-						*FPlatformHttp::UrlEncode(SessionID),
-						*FPlatformHttp::UrlEncode(APIKey),
-						*FPlatformHttp::UrlEncode(AppVersion),
-						*FPlatformHttp::UrlEncode(UserID),
-						*FPlatformHttp::UrlEncode(Event.EventName),
-						*EventParams));
+					FString URLPath  = APIServer;
+							URLPath += TEXT("SendEvent.1?SessionID=") + FPlatformHttp::UrlEncode(SessionID);
+							URLPath += TEXT("&AppID=") + FPlatformHttp::UrlEncode(APIKey);
+							URLPath += TEXT("&AppVersion=") + FPlatformHttp::UrlEncode(AppVersion);
+							URLPath += TEXT("&UserID=") + FPlatformHttp::UrlEncode(UserID);
+							URLPath += TEXT("&EventName=") + FPlatformHttp::UrlEncode(Event.EventName);
+							URLPath += EventParams;
+					HttpRequest->SetURL(URLPath);
 					PayloadSize = HttpRequest->GetURL().Len();
 					HttpRequest->SetVerb(TEXT("GET"));
 					if (!bInDestructor)

@@ -1,81 +1,28 @@
-﻿INTSourceChangelist:2714346
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:1.1 - デカールの基本
 Crumbs:%ROOT%, Resources, Resources/ContentExamples, Resources/ContentExamples/Decals
 Description:デカールのサンプル レベルの概要、サンプル 1.1：デカールの基本
-Related: Engine/Actors/DecalActor
-Related: Engine/Rendering/Materials/PhysicallyBased
-Related: Engine/Rendering/Materials
-Related: Engine/Rendering/Materials/MaterialProperties/BlendModes
-Related: Engine/Rendering/Materials/ExpressionReference
-Related: Engine/Rendering/Materials/MaterialInputs
-Related: Engine/Rendering/Materials/LayeredMaterials
-Related: Engine/Rendering/Materials/MaterialInstances
+Related:Engine/Actors/DecalActor
+Related:Engine/Rendering/Materials/PhysicallyBased
+Related:Engine/Rendering/Materials
+Related:Engine/Rendering/Materials/MaterialProperties/BlendModes
+Related:Engine/Rendering/Materials/ExpressionReference
+Related:Engine/Rendering/Materials/MaterialInputs
+Related:Engine/Rendering/Materials/LayeredMaterials
+Related:Engine/Rendering/Materials/MaterialInstances
 Version:4.9
+topic-image:Resources\ContentExamples\Decals\Decals_1.png
 
-[VAR:Steps]
-[OBJECT:Navigation]
-	[PARAM:previous]
-	[/PARAM]
-	[PARAM:current]
-	[/PARAM]
-	[PARAM:home]
-		[デカールのホーム](Resources/ContentExamples/Decals)
-	[/PARAM]
-	[PARAM:next]
-		[次のサンプル](Resources/ContentExamples/Decals/1_2 "%Resources/ContentExamples/Decals/1_2:title%")
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources/ContentExamples/Decals/1_1:title%](Resources\ContentExamples\Decals\Decals_1.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%\rendering_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/Decals/1_1:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/ContentExamples/Decals/1_1:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/ContentExamples/Decals/1_1]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Resources/ContentExamples/Decals/1_1:title%](Resources\ContentExamples\Decals\Decals_1.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%\rendering_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/Decals/1_1:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/ContentExamples/Decals/1_1:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/ContentExamples/Decals/1_1]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
 [REGION:fullwidth]
 
 ![%Resources/ContentExamples/Decals/1_1:title%](Resources\ContentExamples\Decals\Decals_1.png)
 
+[/REGION]
 
 
-**デカール** はレベル内のスタティックメッシュやスケルタルメッシュを含むメッシュに投影されるマテリアルです。こうしたメッシュには、静的または可動の可動性の設定がありますが、デカールはこうしたメッシュに投影されます。ほとんどのデカールは極端にパフォーマンスを低下させずに一斉にレンダリングすることができます。スクリーン空間サイズが大きくなり、シェーダー命令カウントが増えるとパフォーマンスが低下します。
+**デカール** はレベル内のスタティックメッシュやスケルタルメッシュを含むメッシュに投影されるマテリアルです。こうしたメッシュには、静的または可動の可動性の設定がありますが、デカールはこうしたメッシュに投影されます。ほとんどのデカールは極端にパフォーマンスを低下させずに一斉にレンダリングすることができます。スクリーン スペースのサイズが大きくなり、シェーダー命令カウントが増えるとパフォーマンスが低下します。
 
 
 Deferred Decal アクタは、 **[Modes (モード)]** パネルの **[All Classes (全てのクラス)]** タブから直接追加することができます。その後、新規のマテリアルを作成して **マテリアル ドメイン** のプロパティをマテリアルの **[Details (詳細)]** パネルで **Deferred Decal** へ変更します。その後、マテリアルを Decal アクタへ適用します。
@@ -89,9 +36,8 @@ Decal アクタはワイヤー フレームボックスとして表示されま�
 デカールに対する投影距離は、デカールのスプライトを囲むボックスの X- 軸のスケーリングによって決まります。サーフェスがこのボックスの領域範囲に近づくと、デカールが消えていくブレンディングがあります。
 
 ![](DecalFadeaway.png)
+
 [REGION:caption]
 上の画像では、サーフェスが Decal アクタから遠くに離れすぎると背面の壁へのデカールの投影は、ブレンドして消え始めます。
 [/REGION]
 
-
-[/REGION]

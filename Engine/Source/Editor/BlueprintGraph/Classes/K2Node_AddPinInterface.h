@@ -4,7 +4,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Interface.h"
+#include "UObject/Interface.h"
 #include "K2Node_AddPinInterface.generated.h"
 
 UINTERFACE(meta=(CannotImplementInterfaceInBlueprint))

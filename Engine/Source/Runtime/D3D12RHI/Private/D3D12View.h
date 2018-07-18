@@ -630,7 +630,8 @@ public:
 		: FD3D12DeviceChild(InParentDevice)
 	{
 		// Allocate descriptor slot
-		FD3D12OfflineDescriptorManager& DescriptorAllocator = GetParentDevice()->GetViewDescriptorAllocator<TDesc>();
+		FD3D12Device* Device = GetParentDevice();
+		FD3D12OfflineDescriptorManager& DescriptorAllocator = Device->template GetViewDescriptorAllocator<TDesc>();
 		Handle = DescriptorAllocator.AllocateHeapSlot(Index);
 		check(Handle.ptr != 0);
 	}
@@ -638,7 +639,8 @@ public:
 	~TD3D12ViewDescriptorHandle()
 	{
 		// Free descriptor slot
-		FD3D12OfflineDescriptorManager& DescriptorAllocator = GetParentDevice()->GetViewDescriptorAllocator<TDesc>();
+		FD3D12Device* Device = GetParentDevice();
+		FD3D12OfflineDescriptorManager& DescriptorAllocator = Device->template GetViewDescriptorAllocator<TDesc>();
 		DescriptorAllocator.FreeHeapSlot(Handle, Index);
 		Handle.ptr = 0;
 	}

@@ -3,7 +3,7 @@ Availability:Public
 Title:2 - Aim Offset を作成する
 Crumbs: %ROOT%, Engine, Engine\Animation, Engine\Animation\AnimHowTo
 Description:各照準ポーズを使って、各ポーズ間でブレンドする Aim Offset を作成します。 
-version:4.14
+version: 4.14
 skilllevel:Advanced
 parent:Engine/Animation/AnimHowTo/AimOffset
 type:how-to
@@ -57,6 +57,7 @@ tags:Aim Offset
 	![](Add01.png)
 
 	グリッド内でマウスを動かすとポーズのブレンドをプレビューすることができます。マウスの位置に応じてビューポートのメッシュがそのポーズを更新します。 
+
 	これで Aim Offset がセットアップされました。次のステップでは、**Animation ブループリント** 内で使用するためにこれを接続し、ゲームプレイでブレンドできるようにします。 
 
 [NAV]

@@ -63,7 +63,7 @@ Alex Silkin (alexSilkin), alwei, Allegorithmic, Artem V. Navrotskiy (bozaro), Ce
 ![](StaticLightingfromEmissiveMaterials.png)
 
 * 이 기능을 켜려면 모빌리티를 스태틱으로 설정하고 섀도 캐스팅 컴포넌트의 "Use Emissive For Static Lighting" (스태틱 라이팅에 이미시브 사용) 옵션을 사용하면 됩니다. 켜면, 라이트매스는 이미시브 텍스처 소스에서 구은 직사광을 생성합니다.
-* <b>주:</b> 이 기능은 이미시브 라이팅을 제한시킨 빠른 버전입니다. 직사광만 계산되지만 빌드 시간에는 영향이 없습니다. 다른 광원이 있는 씬에서 사용하는 것이 좋습니다.
+* 주: 이 기능은 이미시브 라이팅을 제한시킨 빠른 버전입니다. 직사광만 계산되지만 빌드 시간에는 영향이 없습니다. 다른 광원이 있는 씬에서 사용하는 것이 좋습니다.
 
 #### 폴리지의 스태틱 라이팅
 폴리지 오브젝트와 인스턴싱된 메시에 미리계산된 빛과 그림자가 지원됩니다! 스테이셔너리 / 스태틱 라이트가 있는 씬의 매우 효율적인 렌더링이 가능합니다.
@@ -210,7 +210,7 @@ Alex Silkin (alexSilkin), alwei, Allegorithmic, Artem V. Navrotskiy (bozaro), Ce
 	* **Root Motion from Everything** 모두에서 루트 모션 - 루트 모션 처리를 위한 새로운 메소드입니다 (아래 자세히 설명합니다).
 	* **Root Motion from Montages Only** 몽타주에서만 루트 모션 - 원래 루트 모션 방식(이자 모든 신규 블루프린트의 기본)입니다.
 
-* 애셋의 루트 모션 셋업입니다:
+애셋의 루트 모션 셋업입니다:
 
 ![](RootMotion02.png)
 
@@ -357,14 +357,12 @@ Alex Silkin (alexSilkin), alwei, Allegorithmic, Artem V. Navrotskiy (bozaro), Ce
 	* 서브서피스 스캐터링
 	* 모바일 플랫폼용 머티리얼 업데이트
 * UMG 문서 업데이트
-	* 3D 위젯 컴포넌트
-	* 컴포짓 폰트 지원
+	3D 위젯 컴포넌트
+	컴포짓 폰트 지원
 * 스크린샷
 
 ###### 에디터내 도움말
 * 스켈레탈 에디터 길잡이 튜토리얼에서 창 포커스 관련 문제를 고쳤습니다.
-
-역주: 이후 세부사항은 번역 제공하지 않습니다.
 
 ###### API Documentation
 * New: Added some basic documentation to the stats system.

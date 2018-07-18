@@ -9,6 +9,24 @@
 #include "TonemapCommon.ush"
 #include "EyeAdaptationCommon.ush"
 
+
+
+
+/** Values of DIM_OUTPUT_DEVICE (matching C++'s FTonemapperOutputDevice) */
+	#define TONEMAPPER_OUTOUT_sRGB 0
+	#define TONEMAPPER_OUTOUT_Rec709 1
+	#define TONEMAPPER_OUTOUT_ExplicitGammaMapping 2
+	#define TONEMAPPER_OUTOUT_ACES1000nitST2084 3
+	#define TONEMAPPER_OUTOUT_ACES2000nitST2084 4
+	#define TONEMAPPER_OUTOUT_ACES1000nitScRGB 5
+	#define TONEMAPPER_OUTOUT_ACES2000nitScRGB 6
+	#define TONEMAPPER_OUTOUT_LinearEXR 7
+
+
+#ifndef DIM_OUTPUT_DEVICE
+	#define DIM_OUTPUT_DEVICE (TONEMAPPER_OUTOUT_sRGB)
+#endif
+
 // 0 / 1(slower, visualize multiple internals side by side for the same image portion, see DebugTile)
 #define DEBUG_TONEMAPPER 0
 
@@ -20,9 +38,6 @@ SamplerState NoiseTextureSampler;
 float4 ColorScale0;
 // xyz:Bloom1Tint.rgb, w:unused
 float4 ColorScale1;
-
-// to scale UV (with border) to NormaizedUV (without border)
-float2 TexScale;
 
 // from the postprocess settings, x:VignetteIntensity, y:SharpenDiv6
 float2 TonemapperParams;
@@ -47,19 +62,6 @@ half GrainFromUV(float2 GrainUV)
 	return Grain;
 }
 
-uint OutputDevice;
-uint EncodeHDROutput;
-
-uint GetOutputDevice()
-{
-#if FEATURE_LEVEL > FEATURE_LEVEL_ES3_1
-	return OutputDevice;
-#else
-	// Only sRGB output for Mobile
-	return 0;
-#endif 
-}
-
 // LUT for color grading
 #if USE_VOLUME_LUT == 1
 	Texture3D		ColorGradingLUT;
@@ -74,12 +76,14 @@ half3 ColorLookupTable( half3 LinearColor )
 {
 	float3 LUTEncodedColor;
 	// Encode as ST-2084 (Dolby PQ) values
-	if( GetOutputDevice() >= 3 )
+	#if (DIM_OUTPUT_DEVICE == TONEMAPPER_OUTOUT_ACES1000nitST2084 || DIM_OUTPUT_DEVICE == TONEMAPPER_OUTOUT_ACES2000nitST2084 || DIM_OUTPUT_DEVICE == TONEMAPPER_OUTOUT_ACES1000nitScRGB || DIM_OUTPUT_DEVICE == TONEMAPPER_OUTOUT_ACES2000nitScRGB || DIM_OUTPUT_DEVICE == TONEMAPPER_OUTOUT_LinearEXR)
 		LUTEncodedColor = LinearToST2084( LinearColor );
-	// Encode as log values
-	else
+
+	#else
 		LUTEncodedColor = LinToLog( LinearColor + LogToLin( 0 ) );
-	
+
+	#endif
+
 	float3 UVW = LUTEncodedColor * ((LUTSize - 1) / LUTSize) + (0.5f / LUTSize);
 
 #if USE_VOLUME_LUT == 1
@@ -248,8 +252,6 @@ float RemapScalar(float Low, float High, float x)
 	return (x - Low) / (High - Low);
 }
 
-uint OutputGamut;
-
 float max4(float4 x)
 {
 	return max(max(x.r, x.g), max(x.b, x.a));
@@ -289,13 +291,13 @@ half3 LookupSceneColor(float2 SceneUV, int2 PixelOffset)
 #endif
 }
 
-float3 SampleSceneColor(float2 SceneUV)
+float4 SampleSceneColor(float2 SceneUV)
 {
 	#if USE_GRAIN_JITTER
 		SceneUV = clamp(SceneUV, SceneUVMinMax.xy, SceneUVMinMax.zw);
 	#endif
 
-	return Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, SceneUV).rgb;
+	return Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, SceneUV);
 }
 
 float4 TonemapCommonPS(
@@ -361,16 +363,16 @@ float4 TonemapCommonPS(
 	        CAUV.xy = ScreenPosToUV(CAUV.xy);
 	        CAUV.zw = ScreenPosToUV(CAUV.zw);
 
-		half3 SceneColor = SampleSceneColor(CAUV.xy + SceneUVJitter.xy).rgb;
+		half4 SceneColor = SampleSceneColor(CAUV.xy + SceneUVJitter.xy);
 		half SceneColorG = SampleSceneColor(CAUV.zw + SceneUVJitter.xy).g;
 		half SceneColorB = SampleSceneColor(SceneUV).b;
 		SceneColor.g = SceneColorG;
 		SceneColor.b = SceneColorB;
 	#else
-		half3 SceneColor = SampleSceneColor(SceneUV).rgb;
+		half4 SceneColor = SampleSceneColor(SceneUV);
 	#endif
 
-	SceneColor *= OneOverPreExposure;
+	SceneColor.rgb *= OneOverPreExposure;
 
 	float ExposureScale = ExposureScaleVignette.x;
 
@@ -407,7 +409,7 @@ float4 TonemapCommonPS(
 //		half A0 = max3(SceneColor);
 //		half4 LuminanceNeightbors = half4(max3(C1), max3(C2), max3(C3), max3(C4));
 		// 5 instructiopns less than reference
-		half A0 = Luminance(SceneColor);
+		half A0 = Luminance(SceneColor.rgb);
 		half4 LuminanceNeightbors = half4(Luminance(C1), Luminance(C2), Luminance(C3), Luminance(C4));
 		// 9 instructions less than reference (green is often a good approximation for the luminance)
 		//half A0 = SceneColor.g;
@@ -439,8 +441,8 @@ float4 TonemapCommonPS(
 //		half3 BlurredSceneColor = ((C1 + C2 + C3 + C4) + SceneColor * 2) / 6;
 //		SceneColor = lerp(SceneColor, BlurredSceneColor, LerpFactor);
 		// optimized, Div6 went into the C++ code
-		half3 DeltaColor = (C1 + C2 + C3 + C4) - SceneColor * 4;
-		SceneColor += DeltaColor * LerpFactor;
+		half3 DeltaColor = (C1 + C2 + C3 + C4) - SceneColor.rgb * 4;
+		SceneColor.rgb += DeltaColor * LerpFactor;
 	}
 #endif
 
@@ -449,11 +451,11 @@ float4 TonemapCommonPS(
 		#if FEATURE_LEVEL > FEATURE_LEVEL_ES3_1 // On mobile ExposureScale applied in base pass PS
 			SceneColor.rgb *= ExposureScale;
 		#endif
-		OutColor.rgb = pow(SceneColor, InverseGamma.x);
+		OutColor.rgb = pow(SceneColor.rgb, InverseGamma.x);
 
 	#else 
 
-		half3 LinearColor = SceneColor * ColorScale0.rgb;
+		half3 LinearColor = SceneColor.rgb * ColorScale0.rgb;
 
 		#if USE_BLOOM
 			float2 BloomUV = clamp(UV, SceneBloomUVMinMax.xy, SceneBloomUVMinMax.zw);
@@ -523,19 +525,18 @@ float4 TonemapCommonPS(
 			OutColor.rgb = sRGBToLinear( OutColor.rgb );
 		#endif
 
-		// We always process in PQ for precision but can output in ScRGB
-		BRANCH
-		if (GetOutputDevice() == 5 || GetOutputDevice() == 6)
-		{
-			OutColor.xyz = ST2084ToScRGB(OutColor.xyz, GetOutputDevice());
-		}		
-		else if (GetOutputDevice() == 7)
-		{
+		#if DIM_OUTPUT_DEVICE == TONEMAPPER_OUTOUT_ACES1000nitScRGB || DIM_OUTPUT_DEVICE == TONEMAPPER_OUTOUT_ACES2000nitScRGB
+			OutColor.xyz = ST2084ToScRGB(OutColor.xyz, DIM_OUTPUT_DEVICE);
+
+		#elif DIM_OUTPUT_DEVICE == TONEMAPPER_OUTOUT_LinearEXR
 			OutColor.xyz = ST2084ToLinear(OutColor.xyz);
-		}
-		
 
+		#endif
 
+	#endif
+	
+	#if POST_PROCESS_ALPHA == 2
+		OutColor.a = SceneColor.a;
 	#endif
 
 #if DEBUG_TONEMAPPER
@@ -745,7 +746,13 @@ void MainPS_ES2(
 		#if USE_MSAA
 			SceneColor.rgb *= rcp(SceneColor.r*(-0.299) + SceneColor.g*(-0.587) + SceneColor.b*(-0.114) + 1.0);
 		#endif
-		OutColor.rgb = sqrt(SceneColor.rgb);
+
+		#if FEATURE_LEVEL == FEATURE_LEVEL_ES3_1
+			OutColor.rgb = pow(SceneColor.rgb, InverseGamma.x);
+		#else
+			OutColor.rgb = sqrt(SceneColor.rgb);
+		#endif
+
 	#else
 
 		#if USE_GRAIN_JITTER || USE_GRAIN_INTENSITY || USE_GRAIN_QUANTIZATION
@@ -789,7 +796,7 @@ void MainPS_ES2(
 			// Try to kill negatives and NaNs here
 			SceneColor.rgb = max(SceneColor.rgb, 0);
 		#endif
-
+			
 		#if USE_32BPP_HDR
 		{
 			SceneColor = Decode32BPPHDR(SceneColor, SvPosition, PostprocessInput0, PostprocessInput0Sampler, InTexCoords);

@@ -258,19 +258,13 @@ void UProceduralFoliageComponent::PostEditImport()
 bool UProceduralFoliageComponent::GenerateProceduralContent(TArray <FDesiredFoliageInstance>& OutInstances)
 {
 #if WITH_EDITOR
-	
-	if (ExecuteSimulation(OutInstances))
-	{
-		RemoveProceduralContent();
-		return true;
-	}
-
+	return ExecuteSimulation(OutInstances);
 #endif
 
 	return false;
 }
 
-void UProceduralFoliageComponent::RemoveProceduralContent()
+void UProceduralFoliageComponent::RemoveProceduralContent(bool InRebuildTree)
 {
 #if WITH_EDITOR
 	UWorld* World = GetWorld();
@@ -282,7 +276,7 @@ void UProceduralFoliageComponent::RemoveProceduralContent()
 			AInstancedFoliageActor* IFA = AInstancedFoliageActor::GetInstancedFoliageActorForLevel(Level);
 			if (IFA)
 			{
-				IFA->DeleteInstancesForProceduralFoliageComponent(this);
+				IFA->DeleteInstancesForProceduralFoliageComponent(this, InRebuildTree);
 			}
 		}
 	}

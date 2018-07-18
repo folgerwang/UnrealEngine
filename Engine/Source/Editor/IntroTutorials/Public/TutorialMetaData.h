@@ -6,12 +6,12 @@
 #include "Misc/Guid.h"
 #include "Types/ISlateMetaData.h"
 
-class INTROTUTORIALS_API FTutorialMetaData : public FTagMetaData
+class FTutorialMetaData : public FTagMetaData
 {
 public:
 	SLATE_METADATA_TYPE(FTutorialMetaData, FTagMetaData)
 
-		FTutorialMetaData(FName InTag, FString InTabType, FString InFriendlyName = FString())
+	FTutorialMetaData(FName InTag, FString InTabType, FString InFriendlyName = FString())
 		: FTagMetaData(InTag)
 		, TabTypeToOpen(InTabType)
 		, FriendlyName(InFriendlyName)
@@ -29,12 +29,12 @@ public:
 	FString FriendlyName;
 };
 
-class INTROTUTORIALS_API FGraphNodeMetaData : public FTutorialMetaData
+class FGraphNodeMetaData : public FTutorialMetaData
 {
 public:
 	SLATE_METADATA_TYPE(FGraphNodeMetaData, FTutorialMetaData)
 
-		FGraphNodeMetaData(FName InTag, FString InFriendlyName = FString(), FString InOuterName = FString(), FString InTabType = FString())
+	FGraphNodeMetaData(FName InTag, FString InFriendlyName = FString(), FString InOuterName = FString(), FString InTabType = FString())
 		: FTutorialMetaData(InTag, InTabType, InFriendlyName)
 		, OuterName(InOuterName)
 		{

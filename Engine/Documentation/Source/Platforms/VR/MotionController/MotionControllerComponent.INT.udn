@@ -185,7 +185,7 @@ In the following section, we will set the Motion Controllers up so that when you
         [/REGION]    
     [/region]
 
-1. Select the **Spawn Actor** node and assign the ** BP_Sphere** Blueprint that was created in step one to the Class input.
+1. Select the **Spawn Actor** node and assign the **BP_Sphere** Blueprint that was created in step one to the Class input.
 
     ![](Setting_SpawnActor_Up.png)
 

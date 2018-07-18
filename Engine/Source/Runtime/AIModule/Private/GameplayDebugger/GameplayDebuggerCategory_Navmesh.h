@@ -6,7 +6,7 @@
 
 #include "CoreMinimal.h"
 #include "GameplayDebuggerCategory.h"
-#include "AI/Navigation/NavMeshRenderingComponent.h"
+#include "NavMesh/NavMeshRenderingComponent.h"
 
 class APlayerController;
 

@@ -24,9 +24,9 @@ class UNiagaraScriptSource : public UNiagaraScriptSourceBase
 	virtual void PostLoad() override;
 
 	// UNiagaraScriptSourceBase interface.
-	virtual ENiagaraScriptCompileStatus Compile(UNiagaraScript* ScriptOwner, FString& OutGraphLevelErrorMessages) override;
+	//virtual ENiagaraScriptCompileStatus Compile(UNiagaraScript* ScriptOwner, FString& OutGraphLevelErrorMessages) override;
 	virtual bool IsSynchronized(const FGuid& InChangeId) override;
-	virtual void MarkNotSynchronized() override;
+	virtual void MarkNotSynchronized(FString Reason) override;
 
 	virtual UNiagaraScriptSourceBase* MakeRecursiveDeepCopy(UObject* DestOuter, TMap<const UObject*, UObject*>& ExistingConversions) const override;
 
@@ -35,27 +35,17 @@ class UNiagaraScriptSource : public UNiagaraScriptSourceBase
 
 	virtual FGuid GetChangeID();
 
-	virtual bool IsPreCompiled() const override;
-	virtual void PreCompile(UNiagaraEmitter* Emitter, bool bClearErrors = true) override;
-	virtual bool GatherPreCompiledVariables(const FString& InNamespaceFilter, TArray<FNiagaraVariable>& OutVars) override;
-	virtual void PostCompile() override;
-	virtual bool PostLoadFromEmitter(UNiagaraEmitter& OwningEmitter) override;
+	virtual void ComputeVMCompilationId(struct FNiagaraVMExecutableDataId& Id, ENiagaraScriptUsage InUsage, const FGuid& InUsageId) const override;
+
+	virtual void PostLoadFromEmitter(UNiagaraEmitter& OwningEmitter) override;
 
 	NIAGARAEDITOR_API virtual bool AddModuleIfMissing(FString ModulePath, ENiagaraScriptUsage Usage, bool& bOutFoundModule)override;
 
-	TArray<FNiagaraParameterMapHistory>& GetPrecomputedHistories() { return PrecompiledHistories; }
-	class UNiagaraGraph* GetPrecomputedNodeGraph() { return NodeGraphDeepCopy; }
-
+	virtual void CleanUpOldAndInitializeNewRapidIterationParameters(FString UniqueEmitterName, ENiagaraScriptUsage ScriptUsage, FGuid ScriptUsageId, FNiagaraParameterStore& RapidIterationParameters) const override;
+	virtual void InvalidateCachedCompileIds() override;
 private:
 	void OnGraphChanged(const FEdGraphEditAction &Action);
 	void OnGraphDataInterfaceChanged();
 
-private:
-	bool bIsPrecompiled;
-	TArray<FNiagaraParameterMapHistory> PrecompiledHistories;
 
-	void UpgradeForScriptRapidIterationVariables();
-
-	UPROPERTY()
-	class UNiagaraGraph* NodeGraphDeepCopy;
 };

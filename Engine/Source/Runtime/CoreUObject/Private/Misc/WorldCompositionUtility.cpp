@@ -10,7 +10,8 @@
 #include "Serialization/ArchiveAsync.h"
 #include "UObject/PackageFileSummary.h"
 #include "UObject/Linker.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
+#include "UObject/FortniteMainBranchObjectVersion.h"
 
 FArchive& operator<<( FArchive& Ar, FWorldTileLayer& D )
 {
@@ -30,6 +31,25 @@ FArchive& operator<<( FArchive& Ar, FWorldTileLayer& D )
 	return Ar;
 }
 
+void operator<<(FStructuredArchive::FSlot Slot, FWorldTileLayer& D)
+{
+	FStructuredArchive::FRecord Record = Slot.EnterRecord();
+	int32 Version = Slot.GetUnderlyingArchive().UE4Ver();
+
+	// Serialized with FPackageFileSummary
+	Record << NAMED_ITEM("Name", D.Name) << NAMED_ITEM("Reserved0", D.Reserved0) << NAMED_ITEM("Reserved1", D.Reserved1);
+
+	if (Version >= VER_UE4_WORLD_LEVEL_INFO_UPDATED)
+	{
+		Record << NAMED_ITEM("StreamingDistance", D.StreamingDistance);
+	}
+
+	if (Version >= VER_UE4_WORLD_LAYER_ENABLE_DISTANCE_STREAMING)
+	{
+		Record << NAMED_ITEM("DistanceStreamingEnabled", D.DistanceStreamingEnabled);
+	}
+}
+
 FArchive& operator<<( FArchive& Ar, FWorldTileLODInfo& D )
 {
 	// Serialized with FPackageFileSummary
@@ -41,16 +61,42 @@ FArchive& operator<<( FArchive& Ar, FWorldTileLODInfo& D )
 	return Ar;
 }
 
+void operator<<(FStructuredArchive::FSlot Slot, FWorldTileLODInfo& D)
+{
+	FStructuredArchive::FRecord Record = Slot.EnterRecord();
+
+	// Serialized with FPackageFileSummary
+	Record << NAMED_ITEM("RelativeStreamingDistance", D.RelativeStreamingDistance)
+		<< NAMED_ITEM("Reserved0", D.Reserved0)
+		<< NAMED_ITEM("Reserved1", D.Reserved1)
+		<< NAMED_ITEM("Reserved2", D.Reserved2)
+		<< NAMED_ITEM("Reserved3", D.Reserved3);
+}
+
 FArchive& operator<<( FArchive& Ar, FWorldTileInfo& D )
 {
 	// Serialized with FPackageFileSummary
-	Ar << D.Position << D.Bounds  << D.Layer;
+	Ar.UsingCustomVersion(FFortniteMainBranchObjectVersion::GUID);
+
+	if (Ar.IsLoading() && Ar.CustomVer(FFortniteMainBranchObjectVersion::GUID) < FFortniteMainBranchObjectVersion::WorldCompositionTile3DOffset)
+	{
+		FIntPoint Position2D;
+		Ar << Position2D;
+		D.Position = FIntVector(Position2D.X, Position2D.Y, 0);
+	}
+	else
+	{
+		Ar << D.Position;
+	}
+
+	Ar << D.Bounds;
+	Ar << D.Layer;
 	
 	if (Ar.UE4Ver() >= VER_UE4_WORLD_LEVEL_INFO_UPDATED)
 	{
 		Ar << D.bHideInTileView << D.ParentTilePackageName;
 	}
-
+	
 	if (Ar.UE4Ver() >= VER_UE4_WORLD_LEVEL_INFO_LOD_LIST)
 	{
 		Ar << D.LODList;
@@ -67,6 +113,35 @@ FArchive& operator<<( FArchive& Ar, FWorldTileInfo& D )
 	}
 
 	return Ar;
+}
+
+void operator<<(FStructuredArchive::FSlot Slot, FWorldTileInfo& D)
+{
+	FStructuredArchive::FRecord Record = Slot.EnterRecord();
+	int32 ArchiveVersion = Slot.GetUnderlyingArchive().UE4Ver();
+
+	// Serialized with FPackageFileSummary
+	Record << NAMED_ITEM("Position", D.Position) << NAMED_ITEM("Bounds", D.Bounds) << NAMED_ITEM("Layer", D.Layer);
+
+	if (ArchiveVersion >= VER_UE4_WORLD_LEVEL_INFO_UPDATED)
+	{
+		Record << NAMED_ITEM("HideInTileView", D.bHideInTileView) << NAMED_ITEM("ParentTilePackageName", D.ParentTilePackageName);
+	}
+
+	if (ArchiveVersion >= VER_UE4_WORLD_LEVEL_INFO_LOD_LIST)
+	{
+		Record << NAMED_ITEM("LODList", D.LODList);
+	}
+
+	if (ArchiveVersion >= VER_UE4_WORLD_LEVEL_INFO_ZORDER)
+	{
+		Record << NAMED_ITEM("ZOrder", D.ZOrder);
+	}
+
+	if (Slot.GetUnderlyingArchive().GetPortFlags() & PPF_DuplicateForPIE)
+	{
+		Record << NAMED_ITEM("AbsolutePosition", D.AbsolutePosition);
+	}
 }
 
 bool FWorldTileInfo::Read(const FString& InPackageFileName, FWorldTileInfo& OutInfo)
@@ -103,7 +178,8 @@ bool FWorldTileInfo::Read(const FString& InPackageFileName, FWorldTileInfo& OutI
 		FileReader->SetUE4Ver(FileSummary.GetFileVersionUE4());
 		FileReader->SetEngineVer(FileSummary.SavedByEngineVersion);
 		FileReader->SetLicenseeUE4Ver(FileSummary.GetFileVersionLicenseeUE4());
-
+		FileReader->SetCustomVersions(FileSummary.GetCustomVersionContainer());
+		
 		// Load the structure
 		*FileReader << OutInfo;
 	}

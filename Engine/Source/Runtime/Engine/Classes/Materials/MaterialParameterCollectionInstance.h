@@ -51,6 +51,8 @@ class ENGINE_API UMaterialParameterCollectionInstance : public UObject
 
 	void UpdateRenderState();
 
+	void DeferredUpdateRenderState();
+
 	/** Tracks whether this instance has ever issued a missing parameter warning, to reduce log spam. */
 	bool bLoggedMissingParameterWarning;
 
@@ -75,6 +77,9 @@ protected:
 
 	/** Boils down the instance overrides and default values into data to be set on the uniform buffer. */
 	void GetParameterData(TArray<FVector4>& ParameterData) const;
+	
+	/** Tracks whether this instance needs to update the render state from the game thread */
+	bool bNeedsRenderStateUpdate;
 };
 
 

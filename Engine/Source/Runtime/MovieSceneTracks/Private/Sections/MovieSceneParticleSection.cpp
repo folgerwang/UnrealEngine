@@ -2,76 +2,40 @@
 
 #include "Sections/MovieSceneParticleSection.h"
 #include "Evaluation/MovieSceneParticleTemplate.h"
-#include "SequencerObjectVersion.h"
+#include "UObject/SequencerObjectVersion.h"
+#include "Channels/MovieSceneChannelProxy.h"
+#include "UObject/Package.h"
+
+FMovieSceneParticleChannel::FMovieSceneParticleChannel()
+{
+	SetEnum(FindObject<UEnum>(ANY_PACKAGE, TEXT("EParticleKey")));
+}
 
 UMovieSceneParticleSection::UMovieSceneParticleSection( const FObjectInitializer& ObjectInitializer )
 	: Super( ObjectInitializer )
 {
-	ParticleKeys.SetDefaultValue((int32)EParticleKey::Deactivate);
-	ParticleKeys.SetUseDefaultValueBeforeFirstKey(true);
-	SetIsInfinite(true);
-		
+#if WITH_EDITORONLY_DATA
+	bIsInfinite_DEPRECATED = true;
+#endif
+
+	SetRange(TRange<FFrameNumber>::All());
+
 	EvalOptions.EnableAndSetCompletionMode
 		(GetLinkerCustomVersion(FSequencerObjectVersion::GUID) < FSequencerObjectVersion::WhenFinishedDefaultsToRestoreState ? 
 			EMovieSceneCompletionMode::KeepState : 
 			GetLinkerCustomVersion(FSequencerObjectVersion::GUID) < FSequencerObjectVersion::WhenFinishedDefaultsToProjectDefault ? 
 			EMovieSceneCompletionMode::RestoreState : 
 			EMovieSceneCompletionMode::ProjectDefault);
-}
 
-void UMovieSceneParticleSection::AddKey( float Time, EParticleKey::Type KeyType )
-{
-	ParticleKeys.AddKey( Time, (int32)KeyType );
-}
+#if WITH_EDITOR
 
-void UMovieSceneParticleSection::MoveSection( float DeltaPosition, TSet<FKeyHandle>& KeyHandles )
-{
-	Super::MoveSection( DeltaPosition, KeyHandles );
+	ChannelProxy = MakeShared<FMovieSceneChannelProxy>(ParticleKeys, FMovieSceneChannelMetaData(), TMovieSceneExternalValue<uint8>());
 
-	ParticleKeys.ShiftCurve( DeltaPosition, KeyHandles );
-}
+#else
 
-void UMovieSceneParticleSection::DilateSection( float DilationFactor, float Origin, TSet<FKeyHandle>& KeyHandles )
-{
-	Super::DilateSection( DilationFactor, Origin, KeyHandles );
+	ChannelProxy = MakeShared<FMovieSceneChannelProxy>(ParticleKeys);
 
-	ParticleKeys.ScaleCurve( Origin, DilationFactor, KeyHandles );
-}
-
-void UMovieSceneParticleSection::GetKeyHandles( TSet<FKeyHandle>& OutKeyHandles, TRange<float> TimeRange ) const
-{
-	if (!TimeRange.Overlaps(GetRange()))
-	{
-		return;
-	}
-
-	for ( auto It( ParticleKeys.GetKeyHandleIterator() ); It; ++It )
-	{
-		float Time = ParticleKeys.GetKeyTime( It.Key() );
-		if (TimeRange.Contains(Time))
-		{
-			OutKeyHandles.Add( It.Key() );
-		}
-	}
-}
-
-
-TOptional<float> UMovieSceneParticleSection::GetKeyTime( FKeyHandle KeyHandle ) const
-{
-	if ( ParticleKeys.IsKeyHandleValid( KeyHandle ) )
-	{
-		return TOptional<float>( ParticleKeys.GetKeyTime( KeyHandle ) );
-	}
-	return TOptional<float>();
-}
-
-
-void UMovieSceneParticleSection::SetKeyTime( FKeyHandle KeyHandle, float Time )
-{
-	if ( ParticleKeys.IsKeyHandleValid( KeyHandle ) )
-	{
-		ParticleKeys.SetKeyTime( KeyHandle, Time );
-	}
+#endif
 }
 
 FMovieSceneEvalTemplatePtr UMovieSceneParticleSection::GenerateTemplate() const

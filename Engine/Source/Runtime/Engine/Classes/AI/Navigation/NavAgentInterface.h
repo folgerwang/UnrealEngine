@@ -9,6 +9,7 @@
 #include "NavAgentInterface.generated.h"
 
 class AActor;
+class IPathFollowingAgentInterface;
 
 UINTERFACE(MinimalAPI, meta=(CannotImplementInterfaceInBlueprint))
 class UNavAgentInterface : public UInterface
@@ -48,6 +49,9 @@ class INavAgentInterface
 
 	/** Checks if the agent is actively following a navigation path */
 	virtual bool IsFollowingAPath() const { return false; }
+
+	/** Retrieves PathFollowingAgent for this NavAgent */
+	virtual IPathFollowingAgentInterface* GetPathFollowingAgent() const { return nullptr; }
 
 	//----------------------------------------------------------------------//
 	// DEPRECATED

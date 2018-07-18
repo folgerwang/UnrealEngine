@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3244370
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:ブループリントのベスト プラクティス
 Crumbs:%ROOT%, Engine/Blueprints
@@ -6,39 +6,7 @@ Description:ブループリントの使用および設定時にベストな判�
 version:4.9
 parent:Engine/Blueprints
 tags:Blueprints
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-	![](Engine/Blueprints/BestPractices_Topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Blueprints\BestPractices:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Blueprints\BestPractices:description%
-	[/PARAM]
-	[PARAM:path]
-	[RELATIVE:Engine\Blueprints\BestPractices]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-	![](Engine/Blueprints/BestPractices_Topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Blueprints\BestPractices:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Blueprints\BestPractices:description%
-	[/PARAM]
-	[PARAM:path]
-	[RELATIVE:Engine\Blueprints\BestPractices]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:BestPractices_Topic.png
 
 [TOC(start:2)]
 
@@ -134,7 +102,8 @@ Class 変数は、ブループリントの複数の場所からアクセスが�
 
 ブループリント エディタで作業する場合、使用するノードや既存のノードやコメントを検索するためのトリックがいくつかあります。
 
-* 既存ブループリントで何かを検索する時は、検索対象が変数、関数、コメントどれであっても、ブループリントエディタで **[Search (検索)]** ボタンを使用します。**[Find in Current Blueprint (現行ブループリントで検索)]** ボックスのチェックを外せば、ロードしていないブループリントを含めてすべてのブループリントを検索するので、実装したての何かをちょっと確認したりする場合に便利です。
+* 既存ブループリントで何かを検索する時は、検索対象が変数、関数、コメントどれであっても、ブループリントエディタで **[Search (検索)]** ボタンを使用します。**[Find in Current Blueprint (現行ブループリントで検索)]** ボックスのチェックを外せば、ロードしていないブループリントを含めてすべてのブループリントを検索します。
+実装したての何かをちょっと確認したりする場合に便利です。  
 
 	![](SearchResults.png)
 

@@ -32,25 +32,19 @@ namespace SteamAudio
 			return;
 		}
 
-		IPLhandle RendererPtr = Environment.Initialize(ListenerWorld, AudioDevice);
-
-		// If we've succeeded, pass the phonon environmental renderer to the occlusion and reverb plugins, if we're using them
-		if (RendererPtr)
+		if (Environment.Initialize(ListenerWorld, AudioDevice))
 		{
 			if (IsUsingSteamAudioPlugin(EAudioPlugin::REVERB))
 			{
-				ReverbPtr = (FPhononReverb*)AudioDevice->ReverbPluginInterface.Get();
-				ReverbPtr->SetEnvironmentalRenderer(RendererPtr);
-				ReverbPtr->SetEnvironmentCriticalSection(Environment.GetEnvironmentCriticalSection());
+				ReverbPtr = static_cast<FPhononReverb*>(AudioDevice->ReverbPluginInterface.Get());
+				ReverbPtr->SetEnvironment(&Environment);
 				ReverbPtr->CreateReverbEffect();
 			}
 
 			if (IsUsingSteamAudioPlugin(EAudioPlugin::OCCLUSION))
 			{
-				OcclusionPtr = (FPhononOcclusion*)AudioDevice->OcclusionInterface.Get();
-				OcclusionPtr->SetEnvironment(Environment.GetEnvironmentHandle());
-				OcclusionPtr->SetEnvironmentalRenderer(RendererPtr);
-				OcclusionPtr->SetCriticalSectionHandle(Environment.GetEnvironmentCriticalSection());
+				OcclusionPtr = static_cast<FPhononOcclusion*>(AudioDevice->OcclusionInterface.Get());
+				OcclusionPtr->SetEnvironment(&Environment);
 			}
 
 			bEnvironmentCreated = true;

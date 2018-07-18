@@ -40,8 +40,8 @@ public:
 
 		SLATE_END_ARGS()
 
-		SScrollBarTrack()
-		: Children()
+	SScrollBarTrack()
+		: Children(this)
 	{
 	}
 

@@ -16,7 +16,8 @@
 #include "PropertyEditorModule.h"
 #include "IDetailsView.h"
 #include "IVREditorModule.h"
-
+#include "MovieScene.h"
+#include "MovieSceneTimeHelpers.h"
 
 #define LOCTEXT_NAMESPACE "FThumbnailSection"
 
@@ -108,7 +109,7 @@ void FThumbnailSection::BuildSectionContextMenu(FMenuBuilder& MenuBuilder, const
 
 				TSharedPtr<ISequencer> Sequencer = SequencerPtr.Pin();
 
-				FText CurrentTime = FText::FromString(Sequencer->GetZeroPadNumericTypeInterface()->ToString(Sequencer->GetLocalTime()));
+				FText CurrentTime = FText::FromString(Sequencer->GetNumericTypeInterface()->ToString(Sequencer->GetLocalTime().Time.GetFrame().Value));
 
 				InMenuBuilder.BeginSection(NAME_None, LOCTEXT("ThisSectionText", "This Section"));
 				{
@@ -124,7 +125,7 @@ void FThumbnailSection::BuildSectionContextMenu(FMenuBuilder& MenuBuilder, const
 						FSlateIcon(),
 						FUIAction(
 							FExecuteAction::CreateLambda([=]{
-								SetSingleTime(Sequencer->GetLocalTime());
+								SetSingleTime(Sequencer->GetLocalTime().AsSeconds());
 								GetMutableDefault<UMovieSceneUserThumbnailSettings>()->bDrawSingleThumbnails = true;
 								GetMutableDefault<UMovieSceneUserThumbnailSettings>()->SaveConfig();
 							})
@@ -208,11 +209,11 @@ int32 FThumbnailSection::OnPaintSection( FSequencerSectionPainter& InPainter ) c
 
 	// @todo Sequencer: Need a way to visualize the key here
 
-	const TRange<float> VisibleRange = GetVisibleRange();
-	const TRange<float> GenerationRange = GetTotalRange();
+	const TRange<double> VisibleRange = GetVisibleRange();
+	const TRange<double> GenerationRange = GetTotalRange();
 
-	const float TimePerPx = GenerationRange.Size<float>() / InPainter.SectionGeometry.GetLocalSize().X;
-	
+	const float TimePerPx = GenerationRange.Size<double>() / InPainter.SectionGeometry.GetLocalSize().X;
+
 	FSlateRect ThumbnailClipRect = SectionGeometry.GetLayoutBoundingRect().InsetBy(FMargin(SectionThumbnailPadding, 0.f)).IntersectionWith(InPainter.SectionClippingRect);
 
 	for (const TSharedPtr<FTrackEditorThumbnail>& Thumbnail : ThumbnailCache.GetThumbnails())
@@ -221,13 +222,13 @@ int32 FThumbnailSection::OnPaintSection( FSequencerSectionPainter& InPainter ) c
 		FIntPoint ThumbnailSize = Thumbnail->GetSize();
 		
 		// Calculate the paint geometry for this thumbnail
-		TOptional<float> SingleReferenceFrame = ThumbnailCache.GetSingleReferenceFrame();
+		TOptional<double> SingleReferenceFrame = ThumbnailCache.GetSingleReferenceFrame();
 
 		// Single thumbnails are always drawn at the start of the section, clamped to the visible range
 		// Thumbnail sequences draw relative to their actual position in the sequence/section
-		const int32 Offset = SingleReferenceFrame.IsSet() ?
-			FMath::Max((VisibleRange.GetLowerBoundValue() - GenerationRange.GetLowerBoundValue()) / TimePerPx, 0.f) + SectionThumbnailPadding :
-			(Thumbnail->GetTimeRange().GetLowerBoundValue() - GenerationRange.GetLowerBoundValue()) / TimePerPx;
+		const int32 Offset = SingleReferenceFrame.IsSet()
+			? FMath::Max(float(VisibleRange.GetLowerBoundValue() - GenerationRange.GetLowerBoundValue()) / TimePerPx, 0.f) + SectionThumbnailPadding
+			: (Thumbnail->GetTimeRange().GetLowerBoundValue() - GenerationRange.GetLowerBoundValue()) / TimePerPx;
 
 		FPaintGeometry PaintGeometry = SectionGeometry.ToPaintGeometry(
 			ThumbnailSize,
@@ -269,33 +270,42 @@ int32 FThumbnailSection::OnPaintSection( FSequencerSectionPainter& InPainter ) c
 	return LayerId + 2;
 }
 
-TRange<float> FThumbnailSection::GetVisibleRange() const
+TRange<double> FThumbnailSection::GetVisibleRange() const
 {
-	TRange<float> GlobalVisibleRange = SequencerPtr.Pin()->GetViewRange();
+	TRange<double> GlobalVisibleRange = SequencerPtr.Pin()->GetViewRange();
 	if (TimeSpace == ETimeSpace::Global)
 	{
 		return GlobalVisibleRange;
 	}
-	
-	return TRange<float>(
-		GlobalVisibleRange.GetLowerBoundValue() - Section->GetStartTime(),
-		GlobalVisibleRange.GetUpperBoundValue() - Section->GetStartTime()
+
+	const FFrameRate TickResolution = Section->GetTypedOuter<UMovieScene>()->GetTickResolution();
+
+	const double     StartOffset = Section->HasStartFrame() ? Section->GetInclusiveStartFrame() / TickResolution : 0.0;
+	const double     EndOffset   = Section->HasEndFrame()   ? Section->GetExclusiveEndFrame()   / TickResolution : 0.0;
+
+	return TRange<double>(
+		GlobalVisibleRange.GetLowerBoundValue() - StartOffset,
+		GlobalVisibleRange.GetUpperBoundValue() - EndOffset
 	);
 }
 
-TRange<float> FThumbnailSection::GetTotalRange() const
+TRange<double> FThumbnailSection::GetTotalRange() const
 {
-	if (Section->IsInfinite())
+	TRange<FFrameNumber> SectionRange   = Section->GetRange();
+	FFrameRate           TickResolution = Section->GetTypedOuter<UMovieScene>()->GetTickResolution();
+
+	if (TimeSpace == ETimeSpace::Global)
 	{
-		return GetVisibleRange();
-	}
-	else if (TimeSpace == ETimeSpace::Global)
-	{
-		return Section->GetRange();
+		return SectionRange / TickResolution;
 	}
 	else
 	{
-		return TRange<float>(0.f, Section->GetRange().Size<float>());
+		const bool bHasDiscreteSize = SectionRange.GetLowerBound().IsClosed() && SectionRange.GetUpperBound().IsClosed();
+		TRangeBound<double> UpperBound = bHasDiscreteSize
+			? TRangeBound<double>::Exclusive(FFrameNumber(MovieScene::DiscreteSize(SectionRange)) / TickResolution)
+			: TRangeBound<double>::Open();
+
+		return TRange<double>(0, UpperBound);
 	}
 }
 
@@ -333,7 +343,7 @@ void FViewportThumbnailSection::PreDraw(FTrackEditorThumbnail& Thumbnail, FLevel
 
 		SavedPlaybackStatus = Sequencer->GetPlaybackStatus();
 		Sequencer->SetPlaybackStatus(EMovieScenePlayerStatus::Jumping);
-		Sequencer->SetLocalTimeDirectly(Thumbnail.GetEvalPosition());
+		Sequencer->SetLocalTimeDirectly(Thumbnail.GetEvalPosition() * Sequencer->GetLocalTime().Rate );
 		Sequencer->ForceEvaluate();
 
 		ViewportClient.SetActorLock(Camera);

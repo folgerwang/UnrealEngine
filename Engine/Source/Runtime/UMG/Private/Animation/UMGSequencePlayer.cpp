@@ -4,14 +4,14 @@
 #include "MovieScene.h"
 #include "UMGPrivate.h"
 #include "Animation/WidgetAnimation.h"
+#include "MovieSceneTimeHelpers.h"
 
 
 UUMGSequencePlayer::UUMGSequencePlayer(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 	PlayerStatus = EMovieScenePlayerStatus::Stopped;
-	TimeCursorPosition = 0.0f;
-	AnimationStartOffset = 0;
+	TimeCursorPosition = FFrameTime(0);
 	PlaybackSpeed = 1;
 	Animation = nullptr;
 	bIsEvaluating = false;
@@ -20,28 +20,29 @@ UUMGSequencePlayer::UUMGSequencePlayer(const FObjectInitializer& ObjectInitializ
 void UUMGSequencePlayer::InitSequencePlayer( UWidgetAnimation& InAnimation, UUserWidget& InUserWidget )
 {
 	Animation = &InAnimation;
+	UserWidget = &InUserWidget;
+
 
 	UMovieScene* MovieScene = Animation->GetMovieScene();
 
 	// Cache the time range of the sequence to determine when we stop
-	TimeRange = MovieScene->GetPlaybackRange();
-	AnimationStartOffset = TimeRange.GetLowerBoundValue();
-
-	UserWidget = &InUserWidget;
+	Duration = MovieScene::DiscreteSize(MovieScene->GetPlaybackRange());
+	AnimationResolution = MovieScene->GetTickResolution();
+	AbsolutePlaybackStart = MovieScene::DiscreteInclusiveLower(MovieScene->GetPlaybackRange());
 }
 
 void UUMGSequencePlayer::Tick(float DeltaTime)
 {
 	if ( PlayerStatus == EMovieScenePlayerStatus::Playing )
 	{
-		const double AnimationLength = CurrentPlayRange.Size<double>();
+		FFrameTime DeltaFrameTime = (bIsPlayingForward ? DeltaTime * PlaybackSpeed : -DeltaTime * PlaybackSpeed) * AnimationResolution;
 
-		double LastTimePosition = TimeCursorPosition;
-		TimeCursorPosition += bIsPlayingForward ? DeltaTime * PlaybackSpeed : -DeltaTime * PlaybackSpeed;
+		FFrameTime LastTimePosition = TimeCursorPosition;
+		TimeCursorPosition += DeltaFrameTime;
 
 		// Check if we crossed over bounds
-		const bool bCrossedLowerBound = TimeCursorPosition < CurrentPlayRange.GetLowerBoundValue();
-		const bool bCrossedUpperBound = TimeCursorPosition > CurrentPlayRange.GetUpperBoundValue();
+		const bool bCrossedLowerBound = TimeCursorPosition < 0;
+		const bool bCrossedUpperBound = TimeCursorPosition >= FFrameTime(Duration);
 		const bool bCrossedEndTime = bIsPlayingForward
 			? LastTimePosition < EndTime && EndTime <= TimeCursorPosition
 			: LastTimePosition > EndTime && EndTime >= TimeCursorPosition;
@@ -60,38 +61,40 @@ void UUMGSequencePlayer::Tick(float DeltaTime)
 		{
 			if (bCompleted)
 			{
-				TimeCursorPosition = CurrentPlayRange.GetLowerBoundValue();
+				TimeCursorPosition = FFrameTime(0);
 			}
 			else
 			{
 				if (PlayMode == EUMGSequencePlayMode::PingPong)
 				{
 					bIsPlayingForward = !bIsPlayingForward;
-					TimeCursorPosition = FMath::Abs(TimeCursorPosition - CurrentPlayRange.GetLowerBoundValue()) + CurrentPlayRange.GetLowerBoundValue();
+					TimeCursorPosition = FMath::Abs(TimeCursorPosition);
 				}
 				else
 				{
-					TimeCursorPosition += AnimationLength;
+					TimeCursorPosition += FFrameTime(Duration);
 					LastTimePosition = TimeCursorPosition;
 				}
 			}
 		}
 		else if (bCrossedUpperBound)
 		{
+			FFrameTime LastValidFrame(Duration-1, 0.99999994f);
+
 			if (bCompleted)
 			{
-				TimeCursorPosition = CurrentPlayRange.GetUpperBoundValue();
+				TimeCursorPosition = LastValidFrame;
 			}
 			else
 			{
 				if (PlayMode == EUMGSequencePlayMode::PingPong)
 				{
 					bIsPlayingForward = !bIsPlayingForward;
-					TimeCursorPosition = CurrentPlayRange.GetUpperBoundValue() - (TimeCursorPosition - CurrentPlayRange.GetUpperBoundValue());
+					TimeCursorPosition = LastValidFrame - (TimeCursorPosition - FFrameTime(Duration));
 				}
 				else
 				{
-					TimeCursorPosition -= AnimationLength;
+					TimeCursorPosition = TimeCursorPosition - FFrameTime(Duration);
 					LastTimePosition = TimeCursorPosition;
 				}
 			}
@@ -105,11 +108,11 @@ void UUMGSequencePlayer::Tick(float DeltaTime)
 		}
 		if (RootTemplateInstance.IsValid())
 		{
+			UMovieScene* MovieScene = Animation->GetMovieScene();
+
 			bIsEvaluating = true;
 
-			const FMovieSceneContext Context(
-				FMovieSceneEvaluationRange(TimeCursorPosition + AnimationStartOffset, LastTimePosition + AnimationStartOffset),
-				PlayerStatus);
+			const FMovieSceneContext Context(FMovieSceneEvaluationRange(AbsolutePlaybackStart + TimeCursorPosition, AbsolutePlaybackStart + LastTimePosition, AnimationResolution), PlayerStatus);
 			RootTemplateInstance.Evaluate(Context, *this);
 
 			bIsEvaluating = false;
@@ -126,29 +129,28 @@ void UUMGSequencePlayer::Tick(float DeltaTime)
 	}
 }
 
-void UUMGSequencePlayer::PlayInternal(double StartAtTime, double EndAtTime, double SubAnimStartTime, double SubAnimEndTime, int32 InNumLoopsToPlay, EUMGSequencePlayMode::Type InPlayMode, float InPlaybackSpeed)
+void UUMGSequencePlayer::PlayInternal(double StartAtTime, double EndAtTime, int32 InNumLoopsToPlay, EUMGSequencePlayMode::Type InPlayMode, float InPlaybackSpeed)
 {
 	RootTemplateInstance.Initialize(*Animation, *this);
 
 	PlaybackSpeed = FMath::Abs(InPlaybackSpeed);
 	PlayMode = InPlayMode;
 
-	// Set the temporary range for this play of the animation
-	CurrentPlayRange = TRange<double>(SubAnimStartTime, TRangeBound<double>::Inclusive(SubAnimEndTime));
+	FFrameTime LastValidFrame(Duration-1, 0.99999994f);
 
 	if (PlayMode == EUMGSequencePlayMode::Reverse)
 	{
 		// When playing in reverse count subtract the start time from the end.
-		TimeCursorPosition = CurrentPlayRange.GetUpperBoundValue() - StartAtTime;
+		TimeCursorPosition = LastValidFrame - StartAtTime * AnimationResolution;
 	}
 	else
 	{
-		TimeCursorPosition = StartAtTime;
+		TimeCursorPosition = StartAtTime * AnimationResolution;
 	}
-	
+
 	// Clamp the start time and end time to be within the bounds
-	TimeCursorPosition = FMath::Clamp(TimeCursorPosition, CurrentPlayRange.GetLowerBoundValue(), CurrentPlayRange.GetUpperBoundValue());
-	EndTime = FMath::Clamp(EndAtTime, CurrentPlayRange.GetLowerBoundValue(), CurrentPlayRange.GetUpperBoundValue());
+	TimeCursorPosition = FMath::Clamp(TimeCursorPosition, FFrameTime(0), LastValidFrame);
+	EndTime = FMath::Clamp(EndAtTime * AnimationResolution, FFrameTime(0), LastValidFrame);
 
 	if ( PlayMode == EUMGSequencePlayMode::PingPong )
 	{
@@ -167,8 +169,8 @@ void UUMGSequencePlayer::PlayInternal(double StartAtTime, double EndAtTime, doub
 	// rendered using the first frames data, otherwise you may see a *pop* due to a widget being constructed with a default different than the
 	// first frame of the animation.
 	if (RootTemplateInstance.IsValid())
-	{			
-		const FMovieSceneContext Context(FMovieSceneEvaluationRange(TimeCursorPosition, TimeCursorPosition), PlayerStatus);
+	{
+		const FMovieSceneContext Context(FMovieSceneEvaluationRange(AbsolutePlaybackStart + TimeCursorPosition, AbsolutePlaybackStart + TimeCursorPosition, AnimationResolution), PlayerStatus);
 		RootTemplateInstance.Evaluate(Context, *this);
 	}
 
@@ -178,18 +180,12 @@ void UUMGSequencePlayer::PlayInternal(double StartAtTime, double EndAtTime, doub
 
 void UUMGSequencePlayer::Play(float StartAtTime, int32 InNumLoopsToPlay, EUMGSequencePlayMode::Type InPlayMode, float InPlaybackSpeed)
 {
-	double SubAnimStartTime = 0.0;
-	double SubAnimEndTime = TimeRange.Size<float>();
-
-	PlayInternal(StartAtTime, 0.0, SubAnimStartTime, SubAnimEndTime, InNumLoopsToPlay, InPlayMode, InPlaybackSpeed);
+	PlayInternal(StartAtTime, 0.0, InNumLoopsToPlay, InPlayMode, InPlaybackSpeed);
 }
 
 void UUMGSequencePlayer::PlayTo(float StartAtTime, float EndAtTime, int32 InNumLoopsToPlay, EUMGSequencePlayMode::Type InPlayMode, float InPlaybackSpeed)
 {
-	double SubAnimStartTime = 0.0;
-	double SubAnimEndTime = TimeRange.Size<float>();
-
-	PlayInternal(StartAtTime, EndAtTime, SubAnimStartTime, SubAnimEndTime, InNumLoopsToPlay, InPlayMode, InPlaybackSpeed);
+	PlayInternal(StartAtTime, EndAtTime, InNumLoopsToPlay, InPlayMode, InPlaybackSpeed);
 }
 
 void UUMGSequencePlayer::Pause()
@@ -204,7 +200,7 @@ void UUMGSequencePlayer::Pause()
 	PlayerStatus = EMovieScenePlayerStatus::Stopped;
 
 	// Evaluate the sequence at its current time, with a status of 'stopped' to ensure that animated state pauses correctly. (ie. audio sounds should stop/pause)
-	const FMovieSceneContext Context(FMovieSceneEvaluationRange(TimeCursorPosition, TimeCursorPosition), PlayerStatus);
+	const FMovieSceneContext Context(FMovieSceneEvaluationRange(AbsolutePlaybackStart + TimeCursorPosition, AbsolutePlaybackStart + TimeCursorPosition, AnimationResolution), PlayerStatus);
 	RootTemplateInstance.Evaluate(Context, *this);
 
 	ApplyLatentActions();
@@ -230,7 +226,7 @@ void UUMGSequencePlayer::Stop()
 
 	if (RootTemplateInstance.IsValid())
 	{
-		const FMovieSceneContext Context(FMovieSceneEvaluationRange(0), PlayerStatus);
+		const FMovieSceneContext Context(FMovieSceneEvaluationRange(AbsolutePlaybackStart, AnimationResolution), PlayerStatus);
 		RootTemplateInstance.Evaluate(Context, *this);
 		RootTemplateInstance.Finish(*this);
 	}
@@ -238,7 +234,7 @@ void UUMGSequencePlayer::Stop()
 	OnSequenceFinishedPlayingEvent.Broadcast(*this);
 	Animation->OnAnimationFinished.Broadcast();
 
-	TimeCursorPosition = 0;
+	TimeCursorPosition = FFrameTime(0);
 }
 
 void UUMGSequencePlayer::SetNumLoopsToPlay(int32 InNumLoopsToPlay)

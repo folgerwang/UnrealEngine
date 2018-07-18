@@ -10,8 +10,8 @@
 #include "Animation/Skeleton.h"
 #include "Engine/SkeletalMesh.h"
 #include "Engine/SkeletalMeshSocket.h"
-#include "SkeletalMeshRenderData.h"
-#include "SkeletalMeshLODRenderData.h"
+#include "Rendering/SkeletalMeshRenderData.h"
+#include "Rendering/SkeletalMeshLODRenderData.h"
 
 /*-----------------------------------------------------------------------------
 	FSkeletalMeshMerge
@@ -134,6 +134,9 @@ bool FSkeletalMeshMerge::FinalizeMesh()
 			if (SrcMesh->bHasVertexColors)
 			{
 				MergeMesh->bHasVertexColors = true;
+#if WITH_EDITORONLY_DATA
+				MergeMesh->VertexColorGuid = FGuid::NewGuid();
+#endif
 			}
 
 			FMergeMeshInfo& MeshInfo = SrcMeshInfo[MeshIdx];
@@ -188,6 +191,7 @@ bool FSkeletalMeshMerge::FinalizeMesh()
 		}
 
 		// process each LOD for the new merged mesh
+		MergeMesh->AllocateResourceForRendering();
 		for (int32 LODIdx = 0; LODIdx < MaxNumLODs; LODIdx++)
 		{
 			if (!MergeMesh->bUseFullPrecisionUVs)
@@ -274,7 +278,7 @@ void FSkeletalMeshMerge::GenerateNewSectionArray( TArray<FNewSectionInfo>& NewSe
 			FSkeletalMeshRenderData* SrcResource = SrcMesh->GetResourceForRendering();
 			int32 SourceLODIdx = FMath::Min(LODIdx, SrcResource->LODRenderData.Num()-1);
 			FSkeletalMeshLODRenderData& SrcLODData = SrcResource->LODRenderData[SourceLODIdx];
-			FSkeletalMeshLODInfo& SrcLODInfo = SrcMesh->LODInfo[SourceLODIdx];
+			FSkeletalMeshLODInfo& SrcLODInfo = *(SrcMesh->GetLODInfo(SourceLODIdx));
 
 			// iterate over each section of this LOD
 			for( int32 SectionIdx=0; SectionIdx < SrcLODData.RenderSections.Num(); SectionIdx++ )
@@ -388,8 +392,8 @@ template<typename VertexDataType>
 void FSkeletalMeshMerge::CopyVertexFromSource(VertexDataType& DestVert, const FSkeletalMeshLODRenderData& SrcLODData, int32 SourceVertIdx, const FMergeSectionInfo& MergeSectionInfo)
 {
 	DestVert.Position = SrcLODData.StaticVertexBuffers.PositionVertexBuffer.VertexPosition(SourceVertIdx);
-	DestVert.TangentX = SrcLODData.StaticVertexBuffers.StaticMeshVertexBuffer.VertexTangentX_Typed<EStaticMeshVertexTangentBasisType::Default>(SourceVertIdx);
-	DestVert.TangentZ = SrcLODData.StaticVertexBuffers.StaticMeshVertexBuffer.VertexTangentZ_Typed<EStaticMeshVertexTangentBasisType::Default>(SourceVertIdx);
+	DestVert.TangentX = SrcLODData.StaticVertexBuffers.StaticMeshVertexBuffer.VertexTangentX(SourceVertIdx);
+	DestVert.TangentZ = SrcLODData.StaticVertexBuffers.StaticMeshVertexBuffer.VertexTangentZ(SourceVertIdx);
 
 	// Copy all UVs that are available
 	uint32 LODNumTexCoords = SrcLODData.StaticVertexBuffers.StaticMeshVertexBuffer.GetNumTexCoords();
@@ -426,13 +430,12 @@ template<typename VertexDataType, typename SkinWeightType>
 void FSkeletalMeshMerge::GenerateLODModel( int32 LODIdx )
 {
 	// add the new LOD model entry
-	MergeMesh->AllocateResourceForRendering();
 	FSkeletalMeshRenderData* MergeResource = MergeMesh->GetResourceForRendering();
 	check(MergeResource);
 
 	FSkeletalMeshLODRenderData& MergeLODData = *new(MergeResource->LODRenderData) FSkeletalMeshLODRenderData;
 	// add the new LOD info entry
-	FSkeletalMeshLODInfo& MergeLODInfo = *new(MergeMesh->LODInfo) FSkeletalMeshLODInfo;
+	FSkeletalMeshLODInfo& MergeLODInfo = MergeMesh->AddLODInfo();
 	MergeLODInfo.ScreenSize = MergeLODInfo.LODHysteresis = MAX_FLT;
 
 	// generate an array with info about new sections that need to be created
@@ -535,10 +538,24 @@ void FSkeletalMeshMerge::GenerateLODModel( int32 LODIdx )
 			}
 
 			// get the source skel LOD info from this merge entry
-			const FSkeletalMeshLODInfo& SrcLODInfo = MergeSectionInfo.SkelMesh->LODInfo[SourceLODIdx];
+			const FSkeletalMeshLODInfo& SrcLODInfo = *(MergeSectionInfo.SkelMesh->GetLODInfo(SourceLODIdx));
 
-			// keep track of the lowest LOD displayfactor and hysterisis
-			MergeLODInfo.ScreenSize = FMath::Min<float>(MergeLODInfo.ScreenSize, SrcLODInfo.ScreenSize);
+			// keep track of the lowest LOD displayfactor and hysteresis
+			MergeLODInfo.ScreenSize.Default = FMath::Min<float>(MergeLODInfo.ScreenSize.Default, SrcLODInfo.ScreenSize.Default);
+#if WITH_EDITORONLY_DATA
+			for(const TTuple<FName, float>& PerPlatform : SrcLODInfo.ScreenSize.PerPlatform)
+			{
+				float* Value = MergeLODInfo.ScreenSize.PerPlatform.Find(PerPlatform.Key);
+				if(Value)
+				{
+					*Value = FMath::Min<float>(PerPlatform.Value, *Value);	
+				}
+				else
+				{
+					MergeLODInfo.ScreenSize.PerPlatform.Add(PerPlatform.Key, PerPlatform.Value);
+				}
+			}
+#endif
 			MergeLODInfo.LODHysteresis = FMath::Min<float>(MergeLODInfo.LODHysteresis,SrcLODInfo.LODHysteresis);
 
 			// get the source skel LOD model from this merge entry
@@ -715,7 +732,7 @@ void FSkeletalMeshMerge::GenerateLODModel( int32 LODIdx )
 	for (int i = 0; i < MergedVertexBuffer.Num(); i++)
 	{
 		MergeLODData.StaticVertexBuffers.PositionVertexBuffer.VertexPosition(i) = MergedVertexBuffer[i].Position;
-		MergeLODData.StaticVertexBuffers.StaticMeshVertexBuffer.SetVertexTangents(i, MergedVertexBuffer[i].TangentX, MergedVertexBuffer[i].GetTangentY(), MergedVertexBuffer[i].TangentZ);
+		MergeLODData.StaticVertexBuffers.StaticMeshVertexBuffer.SetVertexTangents(i, MergedVertexBuffer[i].TangentX.ToFVector(), MergedVertexBuffer[i].GetTangentY(), MergedVertexBuffer[i].TangentZ.ToFVector());
 		for (uint32 j = 0; j < TotalNumUVs; j++)
 		{
 			MergeLODData.StaticVertexBuffers.StaticMeshVertexBuffer.SetVertexUV(i, j, MergedVertexBuffer[i].UVs[j]);
@@ -792,7 +809,7 @@ int32 FSkeletalMeshMerge::CalculateLodCount(const TArray<USkeletalMesh*>& Source
 
 		if (SourceMesh)
 		{
-			LodCount = FMath::Min<int32>(LodCount, SourceMesh->LODInfo.Num());
+			LodCount = FMath::Min<int32>(LodCount, SourceMesh->GetLODNum());
 		}
 	}
 
@@ -932,7 +949,7 @@ void FSkeletalMeshMerge::ReleaseResources(int32 Slack)
 		Resource->LODRenderData.Empty(Slack);
 	}
 
-	MergeMesh->LODInfo.Empty(Slack);
+	MergeMesh->ResetLODInfo();
 	MergeMesh->Materials.Empty();
 }
 

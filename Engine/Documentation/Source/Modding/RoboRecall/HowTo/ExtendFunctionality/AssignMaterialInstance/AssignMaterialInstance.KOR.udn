@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3807090
 Availability: Public
 Title:3. 머티리얼 인스턴스 할당
 Crumbs:%ROOT%
@@ -30,14 +30,14 @@ checkpoint:mod_extend
 
 2. **컴포넌트** 패널에서 **GrenadeGunPistol(self)** 를 선택합니다.
 
-	![image alt text](image_0.png)(w:302 h:253 convert:false)
+	![image alt text](image_0.png)(w:302 convert:false)
 
 3. 디테일 패널에서 **Dissolve** 를 검색하면 **Dissolve Material** 프로퍼티를 쉽게 찾을 수 있습니다.
 
 4. **Dissolve Material** 프로퍼티에 대한 드롭다운 메뉴를 클릭하여 애셋 선택기를 띄우고 **GrenadeGun_Dissolve_MI** 를 선택합니다. 검색창을 사용하여 목록에 빠르게 필터를 적용할 수 있습니다.
 
 	[REGION:raw]
-	![image alt text](image_1.png)(w:933 h:494 convert:false)
+	![image alt text](image_1.png)(w:933 convert:false)
 	[/REGION]
 
 5. 블루프린트 에디터 툴바에서 **컴파일** 버튼을 클릭하여 블루프린트를 업데이트하고 **저장** 버튼을 눌러 변경사항을 저장합니다.

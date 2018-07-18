@@ -6,12 +6,13 @@
 
 
 SWeakWidget::SWeakWidget()
-	: WeakChild()
+	: WeakChild(this)
 { }
 
 
 void SWeakWidget::Construct(const FArguments& InArgs)
 {
+	bCanTick = false;
 	WeakChild.AttachWidget( InArgs._PossiblyNullContent );
 }
 

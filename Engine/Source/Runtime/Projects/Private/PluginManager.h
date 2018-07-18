@@ -98,7 +98,9 @@ public:
 	virtual void GetLocalizationPathsForEnabledPlugins( TArray<FString>& OutLocResPaths ) override;
 	virtual void SetRegisterMountPointDelegate( const FRegisterMountPointDelegate& Delegate ) override;
 	virtual bool AreRequiredPluginsAvailable() override;
+#if !IS_MONOLITHIC
 	virtual bool CheckModuleCompatibility( TArray<FString>& OutIncompatibleModules ) override;
+#endif
 	virtual TSharedPtr<IPlugin> FindPlugin(const FString& Name) override;
 	virtual TArray<TSharedRef<IPlugin>> GetEnabledPlugins() override;
 	virtual TArray<TSharedRef<IPlugin>> GetEnabledPluginsWithContent() const override;
@@ -106,6 +108,7 @@ public:
 	virtual TArray< FPluginStatus > QueryStatusForAllPlugins() const override;
 	virtual void AddPluginSearchPath(const FString& ExtraDiscoveryPath, bool bRefresh = true) override;
 	virtual TArray<TSharedRef<IPlugin>> GetPluginsWithPakFile() const override;
+	virtual FNewPluginMountedEvent& OnNewPluginCreated() override;
 	virtual FNewPluginMountedEvent& OnNewPluginMounted() override;
 	virtual void MountNewlyCreatedPlugin(const FString& PluginName) override;
 
@@ -177,6 +180,7 @@ private:
 	TSet<FString> PluginDiscoveryPaths;
 
 	/** Callback for notifications that a new plugin was mounted */
+	FNewPluginMountedEvent NewPluginCreatedEvent;
 	FNewPluginMountedEvent NewPluginMountedEvent;
 };
 PRAGMA_ENABLE_DEPRECATION_WARNINGS

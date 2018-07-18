@@ -38,19 +38,22 @@ struct ILanguageSpec
 	virtual bool SupportsSaturateIntrinsic() const { return false; }
 	
 	// Whether the backend can generate a sincos instruction
-    virtual bool SupportsSinCosIntrinsic() const { return false; }
-    
-    // Whether the backend can generate correct native matrix intrinsics (given HLSL row-major matrices)
-    virtual bool SupportsMatrixIntrinsics() const { return false; }
-    
-    // Whether the backend allows reads from non-scalar UAVs
-    virtual bool AllowsImageLoadsForNonScalar() const { return true; }
+	virtual bool SupportsSinCosIntrinsic() const { return false; }
+	
+	// Whether the backend can generate correct native matrix intrinsics (given HLSL row-major matrices)
+	virtual bool SupportsMatrixIntrinsics() const { return false; }
+	
+	// Whether the backend allows reads from non-scalar UAVs
+	virtual bool AllowsImageLoadsForNonScalar() const { return true; }
 	
 	// GLSL doesn't allow non-comparison sampling operations on shadow/depth textures, but that's not universally true
 	virtual bool AllowsAllTextureOperationsOnDepthTextures() const { return false; }
-    
-    // Whether the language allows "invariant *Buffer<T> N" to specify that the buffer N is strongly typed as T to optimise access performance.
-    virtual bool AllowsInvariantBufferTypes() const { return false; }
+	
+	// Whether the language allows "invariant *Buffer<T> N" to specify that the buffer N is strongly typed as T to optimise access performance.
+	virtual bool AllowsInvariantBufferTypes() const { return false; }
+
+	// Does this language require negating DDY?
+	virtual bool RequiresNegateDDY() const { return true; }
 };
 
 enum

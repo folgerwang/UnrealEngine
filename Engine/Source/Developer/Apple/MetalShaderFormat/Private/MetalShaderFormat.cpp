@@ -1,17 +1,17 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "MetalShaderFormat.h"
-#include "ModuleInterface.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"
 #include "Interfaces/IShaderFormat.h"
 #include "Interfaces/IShaderFormatModule.h"
 #include "ShaderCore.h"
-#include "IShaderFormatArchive.h"
+#include "Interfaces/IShaderFormatArchive.h"
 #include "hlslcc.h"
 #include "MetalShaderResources.h"
 #include "HAL/FileManager.h"
 #include "Serialization/Archive.h"
-#include "ConfigCacheIni.h"
+#include "Misc/ConfigCacheIni.h"
 #include "MetalBackend.h"
 
 extern uint16 GetXcodeVersion(uint64& BuildVersion);
@@ -32,10 +32,12 @@ static FString METAL_MAP_EXTENSION(TEXT(".metalmap"));
 class FMetalShaderFormatArchive : public IShaderFormatArchive
 {
 public:
-	FMetalShaderFormatArchive(FName InFormat, FString const& WorkingDirectory)
-	: Format(InFormat)
+	FMetalShaderFormatArchive(FString const& InLibraryName, FName InFormat, FString const& WorkingDirectory)
+	: LibraryName(InLibraryName)
+	, Format(InFormat)
 	, WorkingDir(WorkingDirectory)
 	{
+		check(LibraryName.Len() > 0);
 		check(Format == NAME_SF_METAL || Format == NAME_SF_METAL_MRT || Format == NAME_SF_METAL_SM5_NOTESS || Format == NAME_SF_METAL_SM5 || Format == NAME_SF_METAL_MACES3_1 || Format == NAME_SF_METAL_MACES2 || Format == NAME_SF_METAL_MRT_MAC);
 		ArchivePath = (WorkingDir / Format.GetPlainNameString());
 		IFileManager::Get().DeleteDirectory(*ArchivePath, false, true);
@@ -65,11 +67,12 @@ public:
 	virtual bool Finalize( FString OutputDir, FString DebugOutputDir, TArray<FString>* OutputFiles )
 	{
 		bool bOK = false;
-		FString LibraryPath = (OutputDir / Format.GetPlainNameString()) + METAL_LIB_EXTENSION;
+		FString LibraryPlatformName = FString::Printf(TEXT("%s_%s"), *LibraryName, *Format.GetPlainNameString());
+		FString LibraryPath = (OutputDir / LibraryPlatformName) + METAL_LIB_EXTENSION;
 		
 		if (FinalizeLibrary_Metal(Format, ArchivePath, LibraryPath, Shaders, DebugOutputDir))
 		{
-			FString BinaryShaderFile = (OutputDir / Format.GetPlainNameString()) + METAL_MAP_EXTENSION;
+			FString BinaryShaderFile = (OutputDir / LibraryPlatformName) + METAL_MAP_EXTENSION;
 			FArchive* BinaryShaderAr = IFileManager::Get().CreateFileWriter(*BinaryShaderFile);
 			if( BinaryShaderAr != NULL )
 			{
@@ -94,6 +97,7 @@ public:
 	virtual ~FMetalShaderFormatArchive() { }
 	
 private:
+	FString LibraryName;
 	FName Format;
 	FString WorkingDir;
 	FString ArchivePath;
@@ -107,7 +111,7 @@ class FMetalShaderFormat : public IShaderFormat
 public:
 	enum
 	{
-		HEADER_VERSION = 53,
+		HEADER_VERSION = 57,
 	};
 	
 	struct FVersion
@@ -148,9 +152,9 @@ public:
 	{ 
 		return CanCompileBinaryShaders();
 	}
-    virtual class IShaderFormatArchive* CreateShaderArchive( FName Format, const FString& WorkingDirectory ) const override final
+    virtual class IShaderFormatArchive* CreateShaderArchive( FString const& LibraryName, FName Format, const FString& WorkingDirectory ) const override final
     {
-		return new FMetalShaderFormatArchive(Format, WorkingDirectory);
+		return new FMetalShaderFormatArchive(LibraryName, Format, WorkingDirectory);
     }
 	virtual bool CanCompileBinaryShaders() const override final
 	{
@@ -182,14 +186,31 @@ uint32 GetMetalFormatVersion(FName Format)
 	{
 		GConfig->GetBool(TEXT("/Script/MacTargetPlatform.MacTargetSettings"), TEXT("XcodeVersionInShaderVersion"), bAddXcodeVersionInShaderVersion, GEngineIni);
 	}
+
+	// We want to include the Xcode App and build version to avoid
+	// weird mismatches where some shaders are built with one version
+	// of the metal frontend and others with a different version.
+	uint64 BuildVersion = 0;
+	
+	// GetXcodeVersion returns:
+	// Major  << 8 | Minor << 4 | Patch
+	AppVersion = GetXcodeVersion(BuildVersion);
+	
 	if (!FApp::IsEngineInstalled() && bAddXcodeVersionInShaderVersion)
 	{
-		uint64 BuildVersion = 0;
-		AppVersion = GetXcodeVersion(BuildVersion);
+		// For local development we'll mix in the xcode version
+		// and build version.
 		AppVersion ^= (BuildVersion & 0xff);
 		AppVersion ^= ((BuildVersion >> 16) & 0xff);
 		AppVersion ^= ((BuildVersion >> 32) & 0xff);
 		AppVersion ^= ((BuildVersion >> 48) & 0xff);
+	}
+	else
+	{
+		// In the other case (ie, shipping editor binary distributions)
+		// We will only mix in the Major version of Xcode used to create
+		// the shader binaries.
+		AppVersion = (AppVersion >> 8) & 0xff;
 	}
 
 	Version.Version.XcodeVersion = AppVersion;

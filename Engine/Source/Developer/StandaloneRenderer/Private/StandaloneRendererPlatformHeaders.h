@@ -5,8 +5,8 @@
 #include "CoreMinimal.h"
 
 #if PLATFORM_WINDOWS
-#include "WindowsHWrapper.h"
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/WindowsHWrapper.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 
 // D3D headers.
 
@@ -22,15 +22,15 @@
 
 #pragma warning(pop)
 
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 #endif		// PLATFORM_WINDOWS
 
 #if PLATFORM_WINDOWS
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 #include <GL/gl.h>
 #include <GL/glext.h>
 #include <GL/wglext.h>
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 #elif PLATFORM_MAC
 #include <OpenGL/gl.h>
 #include <OpenGL/glext.h>

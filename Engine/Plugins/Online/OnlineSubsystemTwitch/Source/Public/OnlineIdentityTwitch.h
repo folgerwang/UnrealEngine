@@ -2,10 +2,10 @@
 
 #pragma once
  
-#include "OnlineIdentityInterface.h"
+#include "Interfaces/OnlineIdentityInterface.h"
 #include "OnlineSubsystemTwitchPackage.h"
 #include "Http.h"
-#include "Guid.h"
+#include "Misc/Guid.h"
 
 typedef TSharedPtr<class IHttpRequest> FHttpRequestPtr;
 typedef TSharedPtr<class IHttpResponse, ESPMode::ThreadSafe> FHttpResponsePtr;
@@ -215,7 +215,7 @@ private:
 	/**
 	 * Delegate fired when the call to ShowLoginUI completes
 	 */
-	void OnExternalUILoginComplete(TSharedPtr<const FUniqueNetId> UniqueId, const int ControllerIndex);
+	void OnExternalUILoginComplete(TSharedPtr<const FUniqueNetId> UniqueId, const int ControllerIndex, const FOnlineError& Error);
 
 	/** 
 	 * Function called after logging out has completed, or if the user revoked their auth token

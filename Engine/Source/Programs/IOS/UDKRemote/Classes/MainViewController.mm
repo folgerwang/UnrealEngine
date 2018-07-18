@@ -184,7 +184,8 @@ static void SocketDataCallback(CFSocketRef Socket, CFSocketCallBackType Callback
 		self.PingTimer = [NSTimer scheduledTimerWithTimeInterval:3.0f target:self selector:@selector(OnPingTimer:) userInfo:nil repeats:YES];		
 
 		// gyro is now a required capability, so just use it
-//		assert(MotionManager.deviceMotionAvailable);
+		self.MotionManager = [[CMMotionManager alloc] init];
+		assert(MotionManager.deviceMotionAvailable);
 		MotionManager.deviceMotionUpdateInterval = 1.0 / 30.0;
 		[MotionManager startDeviceMotionUpdates];
 
@@ -202,12 +203,7 @@ static void SocketDataCallback(CFSocketRef Socket, CFSocketCallBackType Callback
 }
 
 
-/*
-// Implement viewDidLoad to do additional setup after loading the view, typically from a nib.
-- (void)viewDidLoad {
-	[super viewDidLoad];
-}
-*/
+
 
 
 - (void)flipsideViewControllerDidFinish:(FlipsideViewController *)controller 
@@ -231,6 +227,9 @@ static void SocketDataCallback(CFSocketRef Socket, CFSocketCallBackType Callback
 	
 	// resolve any new addresses
 	[self UpdateSocketAddr];
+
+////	self.view.contentInset = UIEdgeInsets(100,100,100,100);
+//	self.view.frame = CGRectMake(self.view.frame.origin.x + 40, self.view.frame.origin.y + 40, self.view.frame.size.width - 40, self.view.frame.size.height - 40);
 }
 
 
@@ -290,22 +289,78 @@ static void SocketDataCallback(CFSocketRef Socket, CFSocketCallBackType Callback
 }
 
 
-
-// Override to allow orientations other than the default portrait orientation.
-- (BOOL)shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)InterfaceOrientation 
+- (UIInterfaceOrientationMask)supportedInterfaceOrientations
 {
 	// does user want to allow orientation changes?
 	if (AppDelegate.bLockOrientation)
 	{
 		// if so, return yes for the current orientation (caller wants at least one to return YES)
-		return InterfaceOrientation == AppDelegate.LockedOrientation; 
+		return 1 << AppDelegate.LockedOrientation;
 	}
-	return YES;
+	return UIInterfaceOrientationMaskAll;
 }
 
+-(void)viewDidLoad
+{
+	[super viewDidLoad];
+}
+
+-(void)MoveTopRightControl:(UIView*)Control OldInsets:(UIEdgeInsets)Old NewInsets:(UIEdgeInsets)New
+{
+	CGRect Frame = Control.frame;
+	Frame.origin.x -= New.right - Old.right;
+	Frame.origin.y += New.top - Old.top;
+	Control.frame = Frame;
+}
+
+-(void)MoveBottomLeftControl:(UIView*)Control OldInsets:(UIEdgeInsets)Old NewInsets:(UIEdgeInsets)New
+{
+	CGRect Frame = Control.frame;
+	Frame.origin.x += New.left - Old.left;
+	Frame.origin.y -= New.bottom - Old.bottom;
+	Control.frame = Frame;
+}
+
+UIEdgeInsets LastInsets = UIEdgeInsetsMake(0,0,0,0);
+-(void)viewDidLayoutSubviews
+{
+	[super viewDidLayoutSubviews];
+
+	if (@available(iOS 11, *))
+	{
+		UIEdgeInsets NewInsets = [self.view safeAreaInsets];
+		NSLog(@"NewInsets: %.2f, %.2f - %.2f, %.2f", NewInsets.left, NewInsets.top, NewInsets.right, NewInsets.bottom);
+
+		if (LastInsets.left != NewInsets.left || LastInsets.top != NewInsets.top ||
+			LastInsets.right != NewInsets.right || LastInsets.bottom != NewInsets.bottom)
+		{
+			NSLog(@"Info.top = %f", self.InfoButton.frame.origin.y);
+
+			[self MoveTopRightControl:self.InfoButton OldInsets:LastInsets NewInsets:NewInsets];
+			[self MoveBottomLeftControl:self.Text1 OldInsets:LastInsets NewInsets:NewInsets];
+			[self MoveBottomLeftControl:self.Text2 OldInsets:LastInsets NewInsets:NewInsets];
+			[self MoveBottomLeftControl:self.HelpLabel OldInsets:LastInsets NewInsets:NewInsets];
+			[self MoveBottomLeftControl:self.HostNameLabel OldInsets:LastInsets NewInsets:NewInsets];
+			[self MoveBottomLeftControl:self.ResolvedNameLabel OldInsets:LastInsets NewInsets:NewInsets];
 
 
+			CGRect BackgroundFrame = self.Background.frame;
+			BackgroundFrame.origin.x += NewInsets.left - LastInsets.left;
+			BackgroundFrame.origin.y += NewInsets.top - LastInsets.top;
+			BackgroundFrame.size.width += LastInsets.left + LastInsets.right - (NewInsets.left + NewInsets.right);
+			BackgroundFrame.size.height += LastInsets.top + LastInsets.bottom - (NewInsets.top + NewInsets.bottom);
+			self.Background.frame = BackgroundFrame;
 
+//			Frame = self.InfoButton.frame; Frame.origin.y += NewInsets.top - LastInsets.top; self.InfoButton.frame = Frame;
+//			Frame = self.Text1.frame; Frame.origin.y += NewInsets.bottom - LastInsets.bottom; self.InfoButton.frame = Frame;
+
+			NSLog(@"Info.top = %f", self.InfoButton.frame.origin.y);
+
+			LastInsets = NewInsets;
+
+		}
+	}
+}
 
 
 
@@ -709,10 +764,16 @@ static void SocketDataCallback(CFSocketRef Socket, CFSocketCallBackType Callback
 		for (UITouch* Touch in Touches)
 		{
 			// send the touch coords in 0..1 range
-			CGPoint Loc = [Touch locationInView:self.view];
+			CGPoint Loc = [Touch locationInView:self.Background];
 			float Data[2];
-			Data[0] = (float)Loc.x / (float)self.view.bounds.size.width;
-			Data[1] = (float)Loc.y / (float)self.view.bounds.size.height;
+			Data[0] = (float)Loc.x / (float)self.Background.bounds.size.width;
+			Data[1] = (float)Loc.y / (float)self.Background.bounds.size.height;
+
+			if (Data[0] < 0.0f) Data[0] = 0.0f;
+			if (Data[0] > 1.0f) Data[0] = 1.0f;
+			if (Data[1] < 0.0f) Data[1] = 0.0f;
+			if (Data[1] > 1.0f) Data[1] = 1.0f;
+
 			unsigned char TouchIndex = [self GetTouchIndex:Touch];
 			[self PushData:DataType Data:Data DataSize:sizeof(Data) UniqueTouchHandle:TouchIndex];
 
@@ -780,6 +841,9 @@ static void SocketDataCallback(CFSocketRef Socket, CFSocketCallBackType Callback
 {
 	if (!AppDelegate.bShouldIgnoreTilt)
 	{
+
+
+
 		// get the CMMotion data
 		CMAttitude* CurrentAttitude = MotionManager.deviceMotion.attitude;
 		CMRotationRate CurrentRotationRate = MotionManager.deviceMotion.rotationRate;

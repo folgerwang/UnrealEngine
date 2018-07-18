@@ -169,24 +169,28 @@ public:
 	bool			SupportsObject( const UObject* Object, const TWeakObjectPtr<UObject>* WeakObjectPtr=nullptr /** Optional: pass in existing weakptr to prevent this function from constructing one internally */ ) const;
 	bool			IsDynamicObject( const UObject* Object );
 	bool			IsNetGUIDAuthority() const;
-	FNetworkGUID	GetOrAssignNetGUID( const UObject* Object, const TWeakObjectPtr<UObject>* WeakObjectPtr=nullptr /** Optional: pass in existing weakptr to prevent this function from constructing one internally */ );
+	FNetworkGUID	GetOrAssignNetGUID( UObject* Object, const TWeakObjectPtr<UObject>* WeakObjectPtr=nullptr /** Optional: pass in existing weakptr to prevent this function from constructing one internally */ );
 	FNetworkGUID	GetNetGUID( const UObject* Object ) const;
-	FNetworkGUID	AssignNewNetGUID_Server( const UObject* Object );
+	FNetworkGUID	GetOuterNetGUID( const FNetworkGUID& NetGUID ) const;
+	FNetworkGUID	AssignNewNetGUID_Server( UObject* Object );
+	FNetworkGUID	AssignNewNetGUIDFromPath_Server( const FString& PathName, UObject* ObjOuter, UClass* ObjClass );
 	void			RegisterNetGUID_Internal( const FNetworkGUID& NetGUID, const FNetGuidCacheObject& CacheObject );
-	void			RegisterNetGUID_Server( const FNetworkGUID& NetGUID, const UObject* Object );
+	void			RegisterNetGUID_Server( const FNetworkGUID& NetGUID, UObject* Object );
 	void			RegisterNetGUID_Client( const FNetworkGUID& NetGUID, const UObject* Object );
 	void			RegisterNetGUIDFromPath_Client( const FNetworkGUID& NetGUID, const FString& PathName, const FNetworkGUID& OuterGUID, const uint32 NetworkChecksum, const bool bNoLoad, const bool bIgnoreWhenMissing );
+	void			RegisterNetGUIDFromPath_Server( const FNetworkGUID& NetGUID, const FString& PathName, const FNetworkGUID& OuterGUID, const uint32 NetworkChecksum, const bool bNoLoad, const bool bIgnoreWhenMissing );
 	UObject *		GetObjectFromNetGUID( const FNetworkGUID& NetGUID, const bool bIgnoreMustBeMapped );
 	bool			ShouldIgnoreWhenMissing( const FNetworkGUID& NetGUID ) const;
 	bool			IsGUIDRegistered( const FNetworkGUID& NetGUID ) const;
 	bool			IsGUIDLoaded( const FNetworkGUID& NetGUID ) const;
 	bool			IsGUIDBroken( const FNetworkGUID& NetGUID, const bool bMustBeRegistered ) const;
 	bool			IsGUIDNoLoad( const FNetworkGUID& NetGUID ) const;
+	bool			IsGUIDPending( const FNetworkGUID& NetGUID ) const;
 	FString			FullNetGUIDPath( const FNetworkGUID& NetGUID ) const;
 	void			GenerateFullNetGUIDPath_r( const FNetworkGUID& NetGUID, FString& FullPath ) const;
 	bool			ShouldIgnorePackageMismatch() const;
-	uint32			GetClassNetworkChecksum( const UClass* Class );
-	uint32			GetNetworkChecksum( const UObject* Obj );
+	uint32			GetClassNetworkChecksum( UClass* Class );
+	uint32			GetNetworkChecksum( UObject* Obj );
 	void			SetNetworkChecksumMode( const ENetworkChecksumMode NewMode );
 	void			SetAsyncLoadMode( const EAsyncLoadMode NewMode );
 	bool			ShouldAsyncLoad() const;
@@ -199,6 +203,7 @@ public:
 	int32											UniqueNetIDs[2];
 
 	TSet< FNetworkGUID >							ImportedNetGuids;
+	TMap< FNetworkGUID, TSet< FNetworkGUID > >		PendingOuterNetGuids;
 
 	bool											IsExportingNetGUIDBunch;
 
@@ -286,9 +291,12 @@ public:
 	void ReceiveNetGUIDBunch( FInBunch &InBunch );
 	void AppendExportBunches(TArray<FOutBunch *>& OutgoingBunches);
 
+	void AppendExportData(FArchive& Archive);
+	void ReceiveExportData(FArchive& Archive);
+
 	TMap<FNetworkGUID, int32>	NetGUIDExportCountMap;	// How many times we've exported each NetGUID on this connection. Public for ListNetGUIDExports 
 
-	void HandleUnAssignedObject( const UObject* Obj );
+	void HandleUnAssignedObject( UObject* Obj );
 
 	static void	AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
 
@@ -322,18 +330,27 @@ public:
 	void								AddNetFieldExportGroup( const FString& PathName, TSharedPtr< FNetFieldExportGroup > NewNetFieldExportGroup );
 	void								TrackNetFieldExport( FNetFieldExportGroup* NetFieldExportGroup, const int32 NetFieldExportHandle );
 	TSharedPtr< FNetFieldExportGroup >	GetNetFieldExportGroupChecked( const FString& PathName ) const;
-	void								SerializeNetFieldExportGroupMap( FArchive& Ar );
+	void								SerializeNetFieldExportGroupMap( FArchive& Ar, bool bClearPendingExports=true );
 
 protected:
 
 	/** Functions to help with exporting/importing net field export info */
+	DEPRECATED(4.20, "This method is deprecated. Please use AppendNetFieldExports(FArchive*) instead.")
 	void								AppendNetFieldExports( TArray<FOutBunch *>& OutgoingBunches );
-	void								ReceiveNetFieldExports( FInBunch &InBunch );
+	void								AppendNetFieldExports( FArchive& Archive );
 
-	bool	ExportNetGUID( FNetworkGUID NetGUID, const UObject* Object, FString PathName, UObject* ObjOuter );
+	DEPRECATED(4.20, "This method is deprecated. Please use ReceiveNetFieldExports(FArchive*) instead.")
+	void								ReceiveNetFieldExports( FInBunch &InBunch );
+	void								ReceiveNetFieldExports( FArchive& Archive );
+
+	void AppendNetExportGUIDs(FArchive& Archive);
+	void ReceiveNetExportGUIDs(FArchive& Archive);
+
+	bool	ExportNetGUIDForReplay( FNetworkGUID&, UObject* Object, FString& PathName, UObject* ObjOuter );
+	bool	ExportNetGUID( FNetworkGUID NetGUID, UObject* Object, FString PathName, UObject* ObjOuter );
 	void	ExportNetGUIDHeader();
 
-	void			InternalWriteObject( FArchive& Ar, FNetworkGUID NetGUID, const UObject* Object, FString ObjectPathName, UObject* ObjectOuter );	
+	void			InternalWriteObject( FArchive& Ar, FNetworkGUID NetGUID, UObject* Object, FString ObjectPathName, UObject* ObjectOuter );	
 	FNetworkGUID	InternalLoadObject( FArchive & Ar, UObject *& Object, int InternalLoadObjectRecursionCount );
 
 	virtual UObject* ResolvePathAndAssignNetGUID( const FNetworkGUID& NetGUID, const FString& PathName ) override;
@@ -346,6 +363,7 @@ protected:
 
 	bool ObjectLevelHasFinishedLoading(UObject* Obj);
 
+	TArray<TArray<uint8>>				ExportGUIDArchives;
 	TSet< FNetworkGUID >				CurrentExportNetGUIDs;				// Current list of NetGUIDs being written to the Export Bunch.
 	TSet< FNetworkGUID >				CurrentQueuedBunchNetGUIDs;			// List of NetGuids with currently queued bunches
 

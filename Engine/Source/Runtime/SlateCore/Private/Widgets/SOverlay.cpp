@@ -7,7 +7,7 @@
 
 
 SOverlay::SOverlay()
-: Children()
+	: Children(this)
 {
 	bCanTick = false;
 	bCanSupportFocus = false;
@@ -71,7 +71,7 @@ int32 SOverlay::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeomet
 	FArrangedChildren ArrangedChildren(EVisibility::Visible);
 	{
 		// The box panel has no visualization of its own; it just visualizes its children.
-		this->ArrangeChildren(AllottedGeometry, ArrangedChildren);
+		ArrangeChildren(AllottedGeometry, ArrangedChildren);
 	}
 
 	// Because we paint multiple children, we must track the maximum layer id that they produced in case one of our parents
@@ -79,9 +79,16 @@ int32 SOverlay::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeomet
 	int32 MaxLayerId = LayerId;
 
 	const FPaintArgs NewArgs = Args.WithNewParent(this);
+	const bool bChildrenEnabled = ShouldBeEnabled(bParentEnabled);
 
 	for (int32 ChildIndex = 0; ChildIndex < ArrangedChildren.Num(); ++ChildIndex)
 	{
+		// We don't increment the first layer.
+		if (ChildIndex > 0)
+		{
+			MaxLayerId++;
+		}
+
 		FArrangedWidget& CurWidget = ArrangedChildren[ChildIndex];
 
 		const int32 CurWidgetsMaxLayerId =
@@ -90,9 +97,9 @@ int32 SOverlay::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeomet
 				CurWidget.Geometry,
 				MyCullingRect,
 				OutDrawElements,
-				MaxLayerId + 1,
+				MaxLayerId,
 				InWidgetStyle,
-				ShouldBeEnabled(bParentEnabled));
+				bChildrenEnabled);
 
 		MaxLayerId = FMath::Max(MaxLayerId, CurWidgetsMaxLayerId);
 	}

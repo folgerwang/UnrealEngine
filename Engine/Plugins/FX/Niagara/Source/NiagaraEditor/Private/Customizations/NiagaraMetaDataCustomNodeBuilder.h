@@ -1,31 +1,14 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "DetailLayoutBuilder.h"
-#include "DetailCategoryBuilder.h"
 #include "IDetailPropertyRow.h"
-#include "DetailWidgetRow.h"
-#include "SInlineEditableTextBlock.h"
-#include "NiagaraMetaDataCollectionViewModel.h"
-#include "NiagaraScriptInputCollectionViewModel.h"
-#include "NiagaraScriptOutputCollectionViewModel.h"
 #include "NiagaraMetaDataCollectionViewModel.h"
 #include "NiagaraMetaDataViewModel.h"
-#include "NiagaraScriptViewModel.h"
-#include "NiagaraParameterViewModel.h"
-#include "NiagaraEditorStyle.h"
 #include "IDetailChildrenBuilder.h"
-#include "MultiBoxBuilder.h"
-#include "SComboButton.h"
-#include "SImage.h"
-#include "NiagaraEditorModule.h"
-#include "ModuleManager.h"
-#include "INiagaraEditorTypeUtilities.h"
-#include "SBox.h"
-#include "NiagaraScript.h"
-#include "StructOnScope.h"
-#include "Text.h"
+#include "UObject/StructOnScope.h"
 #include "IDetailGroup.h"
+#include "NiagaraEditorModule.h"
+#include "Modules/ModuleManager.h"
 
 
 #define LOCTEXT_NAMESPACE "NiagaraMetaDataCustomNodeBuilder"
@@ -80,6 +63,27 @@ public:
 				MetaDataGroup.AddPropertyRow(DescriptionRow->GetPropertyHandle()->AsShared());
 
 				TSharedPtr<IPropertyHandle> PropertyHandle = DescriptionRow->GetPropertyHandle();
+				PropertyHandle->SetOnPropertyValueChanged(FSimpleDelegate::CreateSP(MetadataViewModel, &FNiagaraMetaDataViewModel::NotifyMetaDataChanged));
+			}
+			IDetailPropertyRow* CategoryRow = ChildrenBuilder.AddExternalStructureProperty(StructData, FName(TEXT("CategoryName")), "CategoryName");
+
+			if (CategoryRow)
+			{
+				CategoryRow->Visibility(EVisibility::Hidden); // hide it here, show it in groups only
+				MetaDataGroup.AddPropertyRow(CategoryRow->GetPropertyHandle()->AsShared());
+
+				TSharedPtr<IPropertyHandle> PropertyHandle = CategoryRow->GetPropertyHandle();
+				PropertyHandle->SetOnPropertyValueChanged(FSimpleDelegate::CreateSP(MetadataViewModel, &FNiagaraMetaDataViewModel::NotifyMetaDataChanged));
+			}
+
+			IDetailPropertyRow* SortingRow = ChildrenBuilder.AddExternalStructureProperty(StructData, FName(TEXT("EditorSortPriority")), "EditorSortPriority");
+
+			if (SortingRow)
+			{
+				SortingRow->Visibility(EVisibility::Hidden); // hide it here, show it in groups only
+				MetaDataGroup.AddPropertyRow(SortingRow->GetPropertyHandle()->AsShared());
+
+				TSharedPtr<IPropertyHandle> PropertyHandle = SortingRow->GetPropertyHandle();
 				PropertyHandle->SetOnPropertyValueChanged(FSimpleDelegate::CreateSP(MetadataViewModel, &FNiagaraMetaDataViewModel::NotifyMetaDataChanged));
 			}
 

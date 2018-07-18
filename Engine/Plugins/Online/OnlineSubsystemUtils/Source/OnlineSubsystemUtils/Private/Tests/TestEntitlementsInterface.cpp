@@ -27,7 +27,7 @@ void FTestEntitlementsInterface::Test(UWorld* InWorld)
 		}
 		else
 		{
-			UE_LOG(LogOnline, Warning, TEXT("Entitlement test failed. Failed to get entitlement service API"));
+			UE_LOG_ONLINE_ENTITLEMENT(Warning, TEXT("Entitlement test failed. Failed to get entitlement service API"));
 
 			// done with the test
 			FinishTest();
@@ -35,7 +35,7 @@ void FTestEntitlementsInterface::Test(UWorld* InWorld)
 	}
 	else
 	{
-		UE_LOG(LogOnline, Warning, TEXT("Entitlement test failed. No logged in user"));
+		UE_LOG_ONLINE_ENTITLEMENT(Warning, TEXT("Entitlement test failed. No logged in user"));
 
 		// done with the test
 		FinishTest();
@@ -70,7 +70,7 @@ void FTestEntitlementsInterface::FinishTest()
 
 void FTestEntitlementsInterface::OnQueryEntitlementsComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& Namespace, const FString& Error)
 {
-	UE_LOG(LogOnline, Log, TEXT("enumerated entitlements. UserId=%s Result=%s Error=[%s]"), 
+	UE_LOG_ONLINE_ENTITLEMENT(Log, TEXT("enumerated entitlements. UserId=%s Result=%s Error=[%s]"), 
 		*InUserId.ToDebugString(), bWasSuccessful ? TEXT("true") : TEXT("false"), *Error);
 
 	// Now check em out
@@ -80,7 +80,7 @@ void FTestEntitlementsInterface::OnQueryEntitlementsComplete(bool bWasSuccessful
 	for (auto It = Entitlements.CreateConstIterator(); It; ++It)
 	{
 		const TSharedRef<FOnlineEntitlement> Entry = *It;
-		UE_LOG(LogOnline, Log, TEXT("	entitlement id=%s name=%s"),
+		UE_LOG_ONLINE_ENTITLEMENT(Log, TEXT("	entitlement id=%s name=%s"),
 			*Entry->Id, *Entry->Name);
 	}
 

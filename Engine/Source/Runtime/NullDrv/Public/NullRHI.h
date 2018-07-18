@@ -196,6 +196,10 @@ public:
 		return new FRHIUnorderedAccessView(); 
 	}
 
+	virtual FUnorderedAccessViewRHIRef RHICreateUnorderedAccessView(FIndexBufferRHIParamRef IndexBuffer, uint8 Format) final override
+	{
+		return new FRHIUnorderedAccessView();
+	}
 
 	virtual FShaderResourceViewRHIRef RHICreateShaderResourceView(FStructuredBufferRHIParamRef StructuredBuffer) final override
 	{ 
@@ -374,7 +378,7 @@ public:
 	virtual void RHIUnlockTextureCubeFace(FTextureCubeRHIParamRef Texture, uint32 FaceIndex, uint32 ArrayIndex, uint32 MipIndex, bool bLockWithinMiptail) final override
 	{
 	}
-	virtual void RHICopyToResolveTarget(FTextureRHIParamRef SourceTexture, FTextureRHIParamRef DestTexture, bool bKeepOriginalSurface, const FResolveParams& ResolveParams) final override
+	virtual void RHICopyToResolveTarget(FTextureRHIParamRef SourceTexture, FTextureRHIParamRef DestTexture, const FResolveParams& ResolveParams) final override
 	{
 
 	}
@@ -433,28 +437,17 @@ public:
 		return true; 
 	}
 
-	virtual void RHIBeginOcclusionQueryBatch() final override
-	{
-
-	}
-	virtual void RHIEndOcclusionQueryBatch() final override
-	{
-
-	}
 	virtual void RHISubmitCommandsHint() final override
 	{
-
 	}
 
 
 	virtual void RHIBeginDrawingViewport(FViewportRHIParamRef Viewport, FTextureRHIParamRef RenderTargetRHI) final override
 	{
-
 	}
 
 	virtual void RHIEndDrawingViewport(FViewportRHIParamRef Viewport, bool bPresent, bool bLockToVsync) final override
 	{
-
 	}
 
 	virtual FTexture2DRHIRef RHIGetViewportBackBuffer(FViewportRHIParamRef Viewport) final override
@@ -725,10 +718,6 @@ public:
 
 	}
 
-	virtual void RHIDiscardRenderTargets(bool Depth,bool Stencil,uint32 ColorBitMask) final override
-	{
-
-	}
 	virtual void RHISetRenderTargetsAndClear(const FRHISetRenderTargetsInfo& RenderTargetsInfo) final override
 	{
 
@@ -805,9 +794,11 @@ public:
 	{
 
 	}
-	virtual void RHIEnableDepthBoundsTest(bool bEnable, float MinDepth, float MaxDepth) final override
+	virtual void RHIEnableDepthBoundsTest(bool bEnable) final override
 	{
-
+	}
+	virtual void RHISetDepthBounds(float MinDepth, float MaxDepth) final override
+	{
 	}
 	virtual void* RHIGetNativeDevice() final override
 	{ 

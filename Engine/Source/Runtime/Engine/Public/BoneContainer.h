@@ -49,6 +49,40 @@ struct FCurveEvaluationOption
 	{
 	}
 };
+
+/** Stores cached data for Orient and Scale bone translation retargeting */
+struct FOrientAndScaleRetargetingCachedData
+{
+	FQuat TranslationDeltaOrient;
+	float TranslationScale;
+	FVector SourceTranslation;
+	FVector TargetTranslation;
+
+	FOrientAndScaleRetargetingCachedData
+	(
+		const FQuat& InTranslationDeltaOrient, 
+		const float InTranslationScale, 
+		const FVector& InSourceTranslation,
+		const FVector& InTargetTranslation
+	)
+		: TranslationDeltaOrient(InTranslationDeltaOrient)
+		, TranslationScale(InTranslationScale)
+		, SourceTranslation(InSourceTranslation)
+		, TargetTranslation(InTargetTranslation)
+	{
+	}
+};
+
+/** Retargeting cached data for a specific Retarget Source */
+struct FRetargetSourceCachedData
+{
+	/** Orient and Scale cached data. */
+	TArray<FOrientAndScaleRetargetingCachedData> OrientAndScaleData;
+
+	/** LUT from CompactPoseIndex to OrientAndScaleIndex */
+	TArray<int32> CompactPoseIndexToOrientAndScaleIndex;
+};
+
 /**
 * This is a native transient structure.
 * Contains:
@@ -85,9 +119,6 @@ private:
 	// Look up from compact pose format to skeleton
 	TArray<FCompactPoseBoneIndex> SkeletonToCompactPose;
 
-	/** Animation Curve UID array that matters to this container. Recalculated everytime LOD changes. */
-	TArray<SmartName::UID_Type> AnimCurveNameUids;
-
 	// Compact pose format of Parent Bones (to save us converting to mesh space and back)
 	TArray<FCompactPoseBoneIndex> CompactPoseParentBones;
 
@@ -96,6 +127,9 @@ private:
 
 	// Array of cached virtual bone data so that animations running from raw data can generate them.
 	TArray<FVirtualBoneCompactPoseData> VirtualBoneCompactPoseData;
+
+	/** Look up table of UID to array index UIDToArrayIndexLUT[InUID] = ArrayIndex of order. If MAX_uint16, it is invalid.*/
+	TArray<uint16> UIDToArrayIndexLUT;
 
 	/** For debugging. */
 	/** Disable Retargeting. Extract animation, but do not retarget it. */
@@ -252,11 +286,11 @@ public:
 	/** Returns true if bone is child of for current asset. */
 	bool BoneIsChildOf(const FCompactPoseBoneIndex& BoneIndex, const FCompactPoseBoneIndex& ParentBoneIndex) const;
 
-	/** Get AnimCurveNameUids for curve evaluation */
-	TArray<SmartName::UID_Type> const& GetAnimCurveNameUids() const
+	/** Get UID To Array look up table */
+	TArray<uint16> const& GetUIDToArrayLookupTable() const
 	{
-		return AnimCurveNameUids; 
-	} 
+		return UIDToArrayIndexLUT;
+	}
 
 	/**
 	* Serializes the bones
@@ -327,7 +361,15 @@ public:
 	/** Cache required Anim Curve Uids */
 	void CacheRequiredAnimCurveUids(const FCurveEvaluationOption& CurveEvalOption);
 
+	const FRetargetSourceCachedData& GetRetargetSourceCachedData(const FName& InRetargetSource) const;
+
 private:
+	/** 
+	 * Runtime cached data for retargeting from a specific RetargetSource to this current SkelMesh LOD.
+	 * @todo: We could also cache this once per skelmesh per lod, rather than creating it at runtime for each skelmesh instance.
+	 */
+	mutable TMap<FName, FRetargetSourceCachedData> RetargetSourceCachedDataLUT;
+
 	/** Initialize FBoneContainer. */
 	void Initialize(const FCurveEvaluationOption& CurveEvalOption);
 
@@ -337,6 +379,8 @@ private:
 	/** Cache remapping data if current Asset is a Skeleton, with all compatible Skeletons. */
 	void RemapFromSkeleton(USkeleton const & SourceSkeleton);
 };
+
+
 USTRUCT()
 struct FBoneReference
 {

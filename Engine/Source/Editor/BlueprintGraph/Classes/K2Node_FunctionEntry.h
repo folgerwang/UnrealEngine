@@ -55,6 +55,7 @@ class UK2Node_FunctionEntry : public UK2Node_FunctionTerminator
 
 	//~ Begin UK2Node_EditablePinBase Interface
 	virtual bool CanUseRefParams() const override { return true; }
+	virtual bool ShouldUseConstRefParams() const override;
 	virtual bool ModifyUserDefinedPinDefaultValue(TSharedPtr<FUserPinInfo> PinInfo, const FString& NewDefaultValue) override;
 	//~ End UK2Node_EditablePinBase Interface
 

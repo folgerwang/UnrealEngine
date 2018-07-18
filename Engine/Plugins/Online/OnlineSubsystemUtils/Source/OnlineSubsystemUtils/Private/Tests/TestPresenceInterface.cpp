@@ -1,9 +1,13 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "TestPresenceInterface.h"
+#include "EngineGlobals.h"
 #include "OnlineSubsystemUtils.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
+
+#define PRESENCE_TEST_LOG_KEY 50
+#define PRESENCE_TEST_TIMEOUT 120
 
 FTestPresenceInterface::~FTestPresenceInterface()
 {
@@ -33,7 +37,7 @@ void FTestPresenceInterface::CleanupTest()
 
 	if (GEngine)
 	{
-		GEngine->OnWorldDestroyed().RemoveAll(this);
+		GEngine->OnWorldDestroyed().RemoveAll(this);	
 	}
 }
 
@@ -88,9 +92,11 @@ FString FTestPresenceInterface::PrintTestFailure() const
 
 bool FTestPresenceInterface::Tick(float DeltaTime)
 {
+    QUICK_SCOPE_CYCLE_COUNTER(STAT_FTestPresenceInterface_Tick);
+
 	// If we don't get an update within 2min while this test runs, mark the delegate watch task as a failure
 	if (!EnumHasAnyFlags(CompletedTasks, EPresenceTestStatus::WorkingDelegate) &&
-		FPlatformTime::Seconds() - TestTimeStart > 120 &&
+		FPlatformTime::Seconds() - TestTimeStart > PRESENCE_TEST_TIMEOUT &&
 		TestTimeStart > 0)
 	{
 		bHasFailed = true;
@@ -98,9 +104,25 @@ bool FTestPresenceInterface::Tick(float DeltaTime)
 		TestTimeStart = 0; // Reset the time so we don't run the task again
 	}
 
+	// Handle failing out the arbitrary fetch test
+	if (!EnumHasAnyFlags(CompletedTasks, EPresenceTestStatus::FetchRandom) &&
+		EnumHasAnyFlags(RequiredFlags, EPresenceTestStatus::FetchRandom) &&
+		FPlatformTime::Seconds() - ArbitraryFetchTimeStart > PRESENCE_TEST_TIMEOUT &&
+		ArbitraryFetchTimeStart > 0)
+	{
+		bHasFailed = true;
+		TasksAttempted |= EPresenceTestStatus::FetchRandom;
+		ArbitraryFetchTimeStart = 0;
+	}
+
 	if (EnumHasAllFlags(CompletedTasks, RequiredFlags) || (bHasFailed && EnumHasAllFlags(TasksAttempted, RequiredFlags)))
 	{
-		UE_LOG_ONLINE(Log, TEXT("Presence testing completed! Success: %d Failed Tasks: %s"), !bHasFailed, *PrintTestFailure());
+		UE_LOG_ONLINE_PRESENCE(Log, TEXT("Presence testing completed! Success: %d Failed Tasks: %s"), !bHasFailed, *PrintTestFailure());
+		if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(PRESENCE_TEST_LOG_KEY, 5.f, (bHasFailed) ? FColor::Red : FColor::Green, 
+				TEXT("Presence Test has completed. See log for details."));
+		}
 		delete this;
 		return false;
 	}
@@ -109,7 +131,7 @@ bool FTestPresenceInterface::Tick(float DeltaTime)
 		// Fail out if there is another session in use.
 		if (SessionInt->GetNumSessions() != 0)
 		{
-			UE_LOG_ONLINE(Warning, TEXT("Presence testing was aborted as another session was detected."));
+			UE_LOG_ONLINE_PRESENCE(Warning, TEXT("Presence testing was aborted as another session was detected."));
 			delete this;
 			return false;
 		}
@@ -129,7 +151,7 @@ bool FTestPresenceInterface::Tick(float DeltaTime)
 
 		if (!SessionInt->CreateSession(*CurrentUser, NAME_GameSession, SessionSettings))
 		{
-			UE_LOG_ONLINE(Warning, TEXT("Presence test session failed to create!"));
+			UE_LOG_ONLINE_PRESENCE(Warning, TEXT("Presence test session failed to create!"));
 			TasksAttempted |= EPresenceTestStatus::DelayedWriteFlags;
 			bHasFailed = true;
 		}
@@ -150,7 +172,7 @@ void FTestPresenceInterface::Test(UWorld* InWorld, const FString& RandomUser)
 
 	if (!SessionInt.IsValid() || !PresenceInt.IsValid() || !FriendsInt.IsValid() || !OnlineSub->GetIdentityInterface().IsValid())
 	{
-		UE_LOG_ONLINE(Warning, TEXT("The Presence test must be ran in an OSS that implements the Session, Identity, Presence and Friends interfaces"));
+		UE_LOG_ONLINE_PRESENCE(Warning, TEXT("The Presence test must be ran in an OSS that implements the Session, Identity, Presence and Friends interfaces"));
 		delete this;
 		return;
 	}
@@ -158,7 +180,7 @@ void FTestPresenceInterface::Test(UWorld* InWorld, const FString& RandomUser)
 	// As we need to push some session information around, it will be best that we require the user is not already in a session
 	if (SessionInt->GetNumSessions() != 0)
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Presence test cannot be run while already in a session."));
+		UE_LOG_ONLINE_PRESENCE(Warning, TEXT("Presence test cannot be run while already in a session."));
 		delete this;
 		return;
 	}
@@ -179,12 +201,14 @@ void FTestPresenceInterface::Test(UWorld* InWorld, const FString& RandomUser)
 	// If we get a null sharedpointer or if the netid is invalid, we cannot continue.
 	if (!CurrentUser.IsValid() || !CurrentUser->IsValid())
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Presence test requires a valid user logged in!"));
+		UE_LOG_ONLINE_PRESENCE(Warning, TEXT("Presence test requires a valid user logged in!"));
 		delete this;
 		return;
 	}
 
 	World = InWorld;
+	// This test typically times out after two minutes. This timer is set for a bit longer than that, just in case.
+	GEngine->AddOnScreenDebugMessage(PRESENCE_TEST_LOG_KEY, 145.0f, FColor::Yellow, TEXT("Presence Test is running. Please wait until it completes."));
 	GEngine->OnWorldDestroyed().AddRaw(this, &FTestPresenceInterface::OnWorldDestroyed);
 
 	// Grab the user's friends
@@ -197,12 +221,21 @@ void FTestPresenceInterface::Test(UWorld* InWorld, const FString& RandomUser)
 	// Fetch a non-friend profile (if the platform supports it)
 	if (!RandomUser.IsEmpty())
 	{
-		PresenceInt->QueryPresence(FUniqueNetIdString(RandomUser), IOnlinePresence::FOnPresenceTaskCompleteDelegate::CreateRaw(this, &FTestPresenceInterface::OnRandomUserFetchComplete));
-		RequiredFlags |= EPresenceTestStatus::FetchRandom;
+		TSharedPtr<const FUniqueNetId> ArbitraryId = OnlineSub->GetIdentityInterface()->CreateUniquePlayerId(RandomUser);
+		if (ArbitraryId.IsValid())
+		{
+			PresenceInt->QueryPresence(*ArbitraryId, IOnlinePresence::FOnPresenceTaskCompleteDelegate::CreateRaw(this, &FTestPresenceInterface::OnRandomUserFetchComplete));
+			ArbitraryFetchTimeStart = FPlatformTime::Seconds();
+			RequiredFlags |= EPresenceTestStatus::FetchRandom;
+		}
+		else
+		{
+			UE_LOG_ONLINE(Warning, TEXT("Presence Interface Test could not create a player id for the given arbitrary user id! Skipping test!"));
+		}
 	}
 	else
 	{
-		UE_LOG_ONLINE(Log, TEXT("Presence Interface Test is skipping random user presence fetch"));
+		UE_LOG_ONLINE_PRESENCE(Log, TEXT("Presence Interface Test is skipping random user presence fetch"));
 	}
 
 	// Push a presence update
@@ -222,11 +255,11 @@ void FTestPresenceInterface::PrintPresence(const FUniqueNetId& UserId, TSharedPt
 {
 	if (!UserId.IsValid() || !PresenceData.IsValid())
 	{
-		UE_LOG_ONLINE(Log, TEXT("Could not print out status data as it is invalid!"));
+		UE_LOG_ONLINE_PRESENCE(Log, TEXT("Could not print out status data as it is invalid!"));
 		return;
 	}
 
-	UE_LOG_ONLINE(Log, TEXT("UserId %s [%s] has presence: InSession[%d] Online[%d] Playing[%d] ThisGame[%d] Joinable[%d] StatusStr[%s]"), 
+	UE_LOG_ONLINE_PRESENCE(Log, TEXT("UserId %s [%s] has presence: InSession[%d] Online[%d] Playing[%d] ThisGame[%d] Joinable[%d] StatusStr[%s]"), 
 		*UserId.ToString(),
 		EOnlinePresenceState::ToString(PresenceData->Status.State),
 		((PresenceData->SessionId.IsValid()) ? PresenceData->SessionId->IsValid() : 0),
@@ -236,12 +269,12 @@ void FTestPresenceInterface::PrintPresence(const FUniqueNetId& UserId, TSharedPt
 		PresenceData->bIsJoinable,
 		((PresenceData->Status.StatusStr.IsEmpty()) ? TEXT("No Status") : *PresenceData->Status.StatusStr));
 
-	UE_LOG_ONLINE(Log, TEXT("Properties [%d] Key=Value"), PresenceData->Status.Properties.Num());
+	UE_LOG_ONLINE_PRESENCE(Log, TEXT("Properties [%d] Key=Value"), PresenceData->Status.Properties.Num());
 	for (FPresenceProperties::TConstIterator Itr(PresenceData->Status.Properties); Itr; ++Itr)
 	{
 		const FString& Key = Itr.Key();
 		const FString& Value = Itr.Value().ToString();
-		UE_LOG_ONLINE(Log, TEXT("%s=%s"), *Key, *Value);
+		UE_LOG_ONLINE_PRESENCE(Log, TEXT("%s=%s"), *Key, *Value);
 	}
 }
 
@@ -262,13 +295,13 @@ bool FTestPresenceInterface::DoesPresenceMatchWithCache(const TSharedPtr<FOnline
 
 	if (CachedPresence.StatusStr != PresenceToTest->Status.StatusStr)
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Presence test fails, status strings are different"));
+		UE_LOG_ONLINE_PRESENCE(Warning, TEXT("Presence test fails, status strings are different"));
 		return false;
 	}
 
 	if (PresenceToTest->Status.Properties.Num() < CachedPresence.Properties.Num())
 	{
-		UE_LOG_ONLINE(Warning, TEXT("Presence test fails. Tested presence has %d keys over %d keys"), 
+		UE_LOG_ONLINE_PRESENCE(Warning, TEXT("Presence test fails. Tested presence has %d keys over %d keys"), 
 			PresenceToTest->Status.Properties.Num(),
 			CachedPresence.Properties.Num());
 		return false;
@@ -281,14 +314,14 @@ bool FTestPresenceInterface::DoesPresenceMatchWithCache(const TSharedPtr<FOnline
 		const FString& Value = Itr.Value().ToString();
 		if (PresenceToTest->Status.Properties.Find(Key) == nullptr)
 		{
-			UE_LOG_ONLINE(Warning, TEXT("Presence test fails, missing key %s"), *Key);
+			UE_LOG_ONLINE_PRESENCE(Warning, TEXT("Presence test fails, missing key %s"), *Key);
 			return false;
 		}
 
 		PresenceToTest->Status.Properties.Find(Key)->GetValue(TestValue);
 		if (Value != TestValue)
 		{
-			UE_LOG_ONLINE(Warning, TEXT("Presence test fails, key %s has different values. Cached=%s Has=%s"), *Key, *Value, *TestValue);
+			UE_LOG_ONLINE_PRESENCE(Warning, TEXT("Presence test fails, key %s has different values. Cached=%s Has=%s"), *Key, *Value, *TestValue);
 			return false;
 		}
 	}
@@ -298,7 +331,7 @@ bool FTestPresenceInterface::DoesPresenceMatchWithCache(const TSharedPtr<FOnline
 
 void FTestPresenceInterface::OnSelfPresenceFetchComplete(const FUniqueNetId& UserId, const bool bWasSuccessful)
 {
-	UE_LOG_ONLINE(Log, TEXT("FTestPresenceInterface::OnSelfPresenceFetchComplete Succeeded? %d"), bWasSuccessful);
+	UE_LOG_ONLINE_PRESENCE(Log, TEXT("FTestPresenceInterface::OnSelfPresenceFetchComplete Succeeded? %d"), bWasSuccessful);
 	TasksAttempted |= EPresenceTestStatus::FetchSelf;
 	if (bWasSuccessful)
 	{
@@ -337,7 +370,7 @@ void FTestPresenceInterface::OnPresencePushComplete(const FUniqueNetId& UserId, 
 	}
 	
 	TasksAttempted |= EPresenceTestStatus::PushSelf;
-	UE_LOG_ONLINE(Log, TEXT("FTestPresenceInterface::OnPresencePushComplete Task Succeeded? %d Data correct? %d"), bWasSuccessful, bPushCorrect);
+	UE_LOG_ONLINE_PRESENCE(Log, TEXT("FTestPresenceInterface::OnPresencePushComplete Task Succeeded? %d Data correct? %d"), bWasSuccessful, bPushCorrect);
 }
 
 void FTestPresenceInterface::OnPresencePushWithSessionComplete(const FUniqueNetId& UserId, const bool bWasSuccessful)
@@ -364,12 +397,12 @@ void FTestPresenceInterface::OnPresencePushWithSessionComplete(const FUniqueNetI
 	}
 
 	TasksAttempted |= EPresenceTestStatus::PushSelfSession;
-	UE_LOG_ONLINE(Log, TEXT("FTestPresenceInterface::OnPresencePushWithSessionComplete Task Succeeded? %d Data correct? %d"), bWasSuccessful, bPushCorrect);
+	UE_LOG_ONLINE_PRESENCE(Log, TEXT("FTestPresenceInterface::OnPresencePushWithSessionComplete Task Succeeded? %d Data correct? %d"), bWasSuccessful, bPushCorrect);
 }
 
 void FTestPresenceInterface::OnFriendPresenceFetchComplete(const FUniqueNetId& UserId, const bool bWasSuccessful)
 {
-	UE_LOG_ONLINE(Log, TEXT("FTestPresenceInterface::OnFriendPresenceFetchComplete. User: %s Succeeded? %d"), *UserId.ToString(), bWasSuccessful);
+	UE_LOG_ONLINE_PRESENCE(Log, TEXT("FTestPresenceInterface::OnFriendPresenceFetchComplete. User: %s Succeeded? %d"), *UserId.ToString(), bWasSuccessful);
 	TasksAttempted |= EPresenceTestStatus::FetchFriend;
 	if (bWasSuccessful)
 	{
@@ -386,7 +419,7 @@ void FTestPresenceInterface::OnFriendPresenceFetchComplete(const FUniqueNetId& U
 
 void FTestPresenceInterface::OnRandomUserFetchComplete(const FUniqueNetId& UserId, const bool bWasSuccessful)
 {
-	UE_LOG_ONLINE(Log, TEXT("FTestPresenceInterface::OnRandomUserFetchComplete User: %s Succeeded? %d"), *UserId.ToString(), bWasSuccessful);
+	UE_LOG_ONLINE_PRESENCE(Log, TEXT("FTestPresenceInterface::OnRandomUserFetchComplete User: %s Succeeded? %d"), *UserId.ToString(), bWasSuccessful);
 	TasksAttempted |= EPresenceTestStatus::FetchRandom;
 	if (bWasSuccessful)
 	{
@@ -403,7 +436,7 @@ void FTestPresenceInterface::OnRandomUserFetchComplete(const FUniqueNetId& UserI
 
 void FTestPresenceInterface::OnPresenceRecieved(const FUniqueNetId& UserId, const TSharedRef<FOnlineUserPresence>& PresenceData)
 {
-	UE_LOG_ONLINE(Verbose, TEXT("Recieved a presence update event about user %s"), *UserId.ToString());
+	UE_LOG_ONLINE_PRESENCE(Verbose, TEXT("Recieved a presence update event about user %s"), *UserId.ToString());
 	// We expect to get a status update about someone on your friends list at least.
 	CompletedTasks |= EPresenceTestStatus::WorkingDelegate;
 	TasksAttempted |= EPresenceTestStatus::WorkingDelegate;
@@ -411,7 +444,7 @@ void FTestPresenceInterface::OnPresenceRecieved(const FUniqueNetId& UserId, cons
 
 void FTestPresenceInterface::OnReadFriendsListComplete(int32 LocalUserNum, bool bWasSuccessful, const FString& ListName, const FString& ErrorStr)
 {
-	UE_LOG_ONLINE(Log, TEXT("Friends list fetch task for presence test complete. Success? %d"), bWasSuccessful);
+	UE_LOG_ONLINE_PRESENCE(Log, TEXT("Friends list fetch task for presence test complete. Success? %d"), bWasSuccessful);
 	if (bWasSuccessful)
 	{
 		FriendsInt->GetFriendsList(0, EFriendsLists::ToString(EFriendsLists::Default), FriendsCache);
@@ -428,7 +461,7 @@ void FTestPresenceInterface::OnReadFriendsListComplete(int32 LocalUserNum, bool 
 		}
 		else
 		{
-			UE_LOG_ONLINE(Warning, TEXT("Test user has no friends! Cannot fetch friend presence data if user has no friends!"));
+			UE_LOG_ONLINE_PRESENCE(Warning, TEXT("Test user has no friends! Cannot fetch friend presence data if user has no friends!"));
 		}
 	}
 
@@ -438,7 +471,7 @@ void FTestPresenceInterface::OnReadFriendsListComplete(int32 LocalUserNum, bool 
 
 void FTestPresenceInterface::OnCreateSessionComplete(FName SessionName, bool bWasSuccessful)
 {
-	UE_LOG_ONLINE(Log, TEXT("Session creation task for presence test complete. Success? %d"), bWasSuccessful);
+	UE_LOG_ONLINE_PRESENCE(Log, TEXT("Session creation task for presence test complete. Success? %d"), bWasSuccessful);
 	if (bWasSuccessful && World != nullptr)
 	{
 		// Add a delay write to pushing new session information for the following reasons:

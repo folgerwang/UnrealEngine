@@ -7,11 +7,11 @@
 #include "ClassViewerFilter.h"
 #include "PropertyEditorModule.h"
 #include "IDetailsView.h"
-#include "Dialogs.h"
-#include "SCheckBox.h"
-#include "SBox.h"
-#include "SImage.h"
-#include "STextBlock.h"
+#include "Dialogs/Dialogs.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Text/STextBlock.h"
 #include "Toolkits/AssetEditorManager.h"
 
 #include "ClothPaintingModule.h"
@@ -19,7 +19,7 @@
 #include "ClothingPaintEditMode.h"
 
 #include "IPersonaPreviewScene.h"
-#include "Classes/Animation/DebugSkelMeshComponent.h"
+#include "Animation/DebugSkelMeshComponent.h"
 
 #include "AssetEditorModeManager.h"
 
@@ -27,8 +27,8 @@
 #include "SClothPaintWidget.h"
 #include "IPersonaToolkit.h"
 #include "SClothAssetSelector.h"
-#include "ClothingAsset.h"
-#include "SScrollBox.h"
+#include "Assets/ClothingAsset.h"
+#include "Widgets/Layout/SScrollBox.h"
 #include "ComponentReregisterContext.h"
 
 #define LOCTEXT_NAMESPACE "SClothPaintTab"

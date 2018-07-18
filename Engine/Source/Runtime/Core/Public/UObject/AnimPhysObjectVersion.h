@@ -43,6 +43,8 @@ struct CORE_API FAnimPhysObjectVersion
 		ChangeRetargetSourceReferenceToSoftObjectPtr,
 		// Save editor only full pose for pose asset 
 		SaveEditorOnlyFullPoseForPoseAsset,
+		// Asset change and cleanup to facilitate new streaming system
+		GeometryCacheAssetDeprecation,
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,
 		LatestVersion = VersionPlusOne - 1

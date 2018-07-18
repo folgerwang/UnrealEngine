@@ -117,6 +117,11 @@ UParticleModule::UParticleModule(const FObjectInitializer& ObjectInitializer)
 	bUpdateForGPUEmitter = false;
 }
 
+bool UParticleModule::IsPostLoadThreadSafe() const
+{
+	return true;
+}
+
 #if WITH_EDITOR
 void UParticleModule::PostEditChangeProperty( FPropertyChangedEvent& PropertyChangedEvent )
 {
@@ -2048,6 +2053,11 @@ void UParticleModuleSubUV::PostLoad()
 	}	
 }
 
+bool UParticleModuleSubUV::IsPostLoadThreadSafe() const
+{
+	return false;
+}
+
 void UParticleModuleSubUV::PostInitProperties()
 {
 	Super::PostInitProperties();
@@ -3440,6 +3450,8 @@ UParticleModuleTypeDataMesh::UParticleModuleTypeDataMesh(const FObjectInitialize
 	CameraFacingUpAxisOption_DEPRECATED = CameraFacing_NoneUP;
 	CameraFacingOption = XAxisFacing_NoUp;
 	bCollisionsConsiderPartilceSize = true;
+	bUseStaticMeshLODs = true;
+	LODSizeScale = 1.0f;
 }
 
 FParticleEmitterInstance* UParticleModuleTypeDataMesh::CreateInstance(UParticleEmitter* InEmitterParent, UParticleSystemComponent* InComponent)
@@ -3500,6 +3512,10 @@ void UParticleModuleTypeDataMesh::PostLoad()
 	}
 }
 
+bool UParticleModuleTypeDataMesh::IsPostLoadThreadSafe() const
+{
+	return false;
+}
 
 #if WITH_EDITOR
 void UParticleModuleTypeDataMesh::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)

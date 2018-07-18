@@ -12,6 +12,7 @@
 #include "TextureEditorToolkit.h"
 #include "ISettingsModule.h"
 #include "Customizations/TextureDetailsCustomization.h"
+#include "Customizations/CurveLinearColorAtlasDetailsCustomization.h"
 
 
 #define LOCTEXT_NAMESPACE "FTextureEditorModule"
@@ -73,6 +74,7 @@ public:
 
 		FPropertyEditorModule& PropertyModule = FModuleManager::GetModuleChecked<FPropertyEditorModule>("PropertyEditor");
 		PropertyModule.RegisterCustomClassLayout("Texture", FOnGetDetailCustomizationInstance::CreateStatic(&FTextureDetails::MakeInstance));
+		PropertyModule.RegisterCustomClassLayout("CurveLinearColorAtlas", FOnGetDetailCustomizationInstance::CreateStatic(&FCurveLinearColorAtlasDetails::MakeInstance));
 	}
 
 	virtual void ShutdownModule( ) override
@@ -91,6 +93,7 @@ public:
 
 		FPropertyEditorModule& PropertyModule = FModuleManager::GetModuleChecked<FPropertyEditorModule>("PropertyEditor");
 		PropertyModule.UnregisterCustomClassLayout("Texture");
+		PropertyModule.UnregisterCustomClassLayout("CurveLinearColorAtlas");
 	}
 
 private:

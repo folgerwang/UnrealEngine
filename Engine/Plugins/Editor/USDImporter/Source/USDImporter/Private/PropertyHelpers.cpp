@@ -1,9 +1,9 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "PropertyHelpers.h"
-#include "UnrealType.h"
+#include "UObject/UnrealType.h"
 #include "CoreMinimal.h"
-#include "Class.h"
+#include "UObject/Class.h"
 
 namespace PropertyHelpers
 {
@@ -27,7 +27,7 @@ namespace PropertyHelpers
 					{
 						TCHAR NumberBuffer[11];
 						FMemory::Memcpy(NumberBuffer, &PropertyName[OpenIndex + 1], sizeof(TCHAR) * NumberLength);
-						LexicalConversion::FromString(PropertyAndIndex.ArrayIndex, NumberBuffer);
+						LexFromString(PropertyAndIndex.ArrayIndex, NumberBuffer);
 					}
 				}
 

@@ -138,14 +138,67 @@ float USoundNode::GetDuration()
 {
 	// Iterate over children and return maximum length of any of them
 	float MaxDuration = 0.0f;
-	for( int32 i = 0; i < ChildNodes.Num(); i++ )
+	for (USoundNode* ChildNode : ChildNodes)
 	{
-		if( ChildNodes[ i ] )
+		if (ChildNode)
 		{
-			MaxDuration = FMath::Max( ChildNodes[ i ]->GetDuration(), MaxDuration );
+			MaxDuration = FMath::Max(ChildNode->GetDuration(), MaxDuration);
 		}
 	}
 	return MaxDuration;
+}
+
+float USoundNode::GetMaxDistance() const
+{
+	float MaxDistance = 0.0f;
+	for (USoundNode* ChildNode : ChildNodes)
+	{
+		if (ChildNode)
+		{
+			ChildNode->ConditionalPostLoad();
+			MaxDistance = FMath::Max(ChildNode->GetMaxDistance(), MaxDistance);
+		}
+	}
+	return MaxDistance;
+}
+
+bool USoundNode::HasDelayNode() const
+{
+	for (USoundNode* ChildNode : ChildNodes)
+	{
+		if (ChildNode)
+		{
+			ChildNode->ConditionalPostLoad();
+			return ChildNode->HasDelayNode();
+		}
+	}
+	return false;
+}
+
+bool USoundNode::HasConcatenatorNode() const
+{
+	for (USoundNode* ChildNode : ChildNodes)
+	{
+		if (ChildNode)
+		{
+			ChildNode->ConditionalPostLoad();
+			return ChildNode->HasConcatenatorNode();
+		}
+	}
+	return false;
+}
+
+bool USoundNode::IsVirtualizeWhenSilent() const
+{
+	for (USoundNode* ChildNode : ChildNodes)
+	{
+		if (ChildNode)
+		{
+			ChildNode->ConditionalPostLoad();
+			return ChildNode->IsVirtualizeWhenSilent();
+		}
+	}
+	return false;
 }
 
 int32 USoundNode::GetNumSounds(const UPTRINT NodeWaveInstanceHash, FActiveSound& ActiveSound) const

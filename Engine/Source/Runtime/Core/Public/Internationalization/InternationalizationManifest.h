@@ -9,7 +9,7 @@
 #include "Containers/Set.h"
 #include "Containers/Map.h"
 #include "Templates/SharedPointer.h"
-#include "LocKeyFuncs.h"
+#include "Internationalization/LocKeyFuncs.h"
 
 class FLocMetadataObject;
 
@@ -23,8 +23,8 @@ public:
 	{
 	}
 
-	explicit FManifestContext(FString InKey)
-		: Key(MoveTemp(InKey))
+	explicit FManifestContext(const FLocKey& InKey)
+		: Key(InKey)
 		, SourceLocation()
 		, bIsOptional(false)
 	{
@@ -39,7 +39,7 @@ public:
 	bool operator<(const FManifestContext& Other) const;
 
 public:
-	FString Key;
+	FLocKey Key;
 	FString SourceLocation;
 	bool bIsOptional;
 
@@ -89,22 +89,23 @@ public:
 class CORE_API FManifestEntry
 {
 public:
-	FManifestEntry(const FString& InNamespace, const FLocItem& InSource)
+	FManifestEntry(const FLocKey& InNamespace, const FLocItem& InSource)
 		: Namespace(InNamespace)
 		, Source(InSource)
 		, Contexts()
 	{
 	}
 
-	const FManifestContext* FindContext(const FString& ContextKey, const TSharedPtr<FLocMetadataObject>& KeyMetadata = nullptr) const;
-	const FManifestContext* FindContextByKey(const FString& ContextKey) const;
+	const FManifestContext* FindContext(const FLocKey& ContextKey, const TSharedPtr<FLocMetadataObject>& KeyMetadata = nullptr) const;
+	const FManifestContext* FindContextByKey(const FLocKey& ContextKey) const;
 
-	const FString Namespace;
+	const FLocKey Namespace;
 	const FLocItem Source;
 	TArray<FManifestContext> Contexts;
 };
 
 
+typedef TMultiMap< FLocKey, TSharedRef< FManifestEntry > > FManifestEntryByLocKeyContainer;
 typedef TMultiMap< FString, TSharedRef< FManifestEntry >, FDefaultSetAllocator, FLocKeyMultiMapFuncs< TSharedRef< FManifestEntry > > > FManifestEntryByStringContainer;
 
 
@@ -131,17 +132,17 @@ public:
 	*
 	* @return Returns true if add was successful or a matching entry already exists, false is only returned in the case where a duplicate context was found with different text.
 	*/
-	bool AddSource(const FString& Namespace, const FLocItem& Source, const FManifestContext& Context);
+	bool AddSource(const FLocKey& Namespace, const FLocItem& Source, const FManifestContext& Context);
 
 	void UpdateEntry(const TSharedRef<FManifestEntry>& OldEntry, TSharedRef<FManifestEntry>& NewEntry);
 
-	TSharedPtr<FManifestEntry> FindEntryBySource(const FString& Namespace, const FLocItem& Source) const;
+	TSharedPtr<FManifestEntry> FindEntryBySource(const FLocKey& Namespace, const FLocItem& Source) const;
 
-	TSharedPtr<FManifestEntry> FindEntryByContext(const FString& Namespace, const FManifestContext& Context) const;
+	TSharedPtr<FManifestEntry> FindEntryByContext(const FLocKey& Namespace, const FManifestContext& Context) const;
 
-	TSharedPtr<FManifestEntry> FindEntryByKey(const FString& Namespace, const FString& Key, const FString* SourceText = nullptr) const;
+	TSharedPtr<FManifestEntry> FindEntryByKey(const FLocKey& Namespace, const FLocKey& Key, const FString* SourceText = nullptr) const;
 
-	FManifestEntryByStringContainer::TConstIterator GetEntriesByKeyIterator() const
+	FManifestEntryByLocKeyContainer::TConstIterator GetEntriesByKeyIterator() const
 	{
 		return EntriesByKey.CreateConstIterator();
 	}
@@ -174,5 +175,5 @@ public:
 private:
 	EFormatVersion FormatVersion;
 	FManifestEntryByStringContainer EntriesBySourceText;
-	FManifestEntryByStringContainer EntriesByKey;
+	FManifestEntryByLocKeyContainer EntriesByKey;
 };

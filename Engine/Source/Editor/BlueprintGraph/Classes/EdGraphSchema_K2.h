@@ -574,7 +574,7 @@ public:
 	virtual bool DefaultValueSimpleValidation(const FEdGraphPinType& PinType, const FName PinName, const FString& NewDefaultValue, UObject* NewDefaultObject, const FText& InText, FString* OutMsg = nullptr) const;
 
 	/** Returns true if the owning node is a function with AutoCreateRefTerm meta data */
-	bool IsAutoCreateRefTerm(const UEdGraphPin* Pin) const;
+	static bool IsAutoCreateRefTerm(const UEdGraphPin* Pin);
 
 	/** See if a class has any members that are accessible by a blueprint */
 	bool ClassHasBlueprintAccessibleMembers(const UClass* InClass) const;
@@ -808,7 +808,7 @@ public:
 	 * @param	Function				The function to check for auto-emitted ref terms on
 	 * @param	AutoEmitParameterNames	(out) Returns an array of param names that should be auto-emitted if nothing is connected
 	 */
-	void GetAutoEmitTermParameters(const UFunction* Function, TArray<FString>& AutoEmitParameterNames) const;
+	static void GetAutoEmitTermParameters(const UFunction* Function, TArray<FString>& AutoEmitParameterNames);
 
 	/**
 	 * Determine if a function has a parameter of a specific type.
@@ -929,7 +929,7 @@ public:
 	 *
 	 * @return	true if the pin types and directions are compatible.
 	 */
-	virtual bool ArePinsCompatible(const UEdGraphPin* PinA, const UEdGraphPin* PinB, const UClass* CallingContext = NULL, bool bIgnoreArray = false) const;
+	virtual bool ArePinsCompatible(const UEdGraphPin* PinA, const UEdGraphPin* PinB, const UClass* CallingContext = NULL, bool bIgnoreArray = false) const override;
 
 	/**
 	 * Returns the connection response for connecting PinA to PinB, which have already been determined to be compatible
@@ -1094,6 +1094,8 @@ public:
 	/** Create sub menu that shows all possible variables that can be used to replace the existing variable reference */
 	static void GetReplaceVariableMenu(class FMenuBuilder& MenuBuilder, class UK2Node_Variable* Variable, UBlueprint* OwnerBlueprint, bool bReplaceExistingVariable = false);
 
+	/** Function called when the owning module is shut down */ 
+	static void Shutdown();
 private:
 
 	/**

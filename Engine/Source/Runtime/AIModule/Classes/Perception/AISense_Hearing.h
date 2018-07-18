@@ -88,6 +88,8 @@ protected:
 
 public:	
 	void RegisterEvent(const FAINoiseEvent& Event);	
+	void RegisterEventsBatch(const TArray<FAINoiseEvent>& Events);
+
 	// part of BP interface. Translates PerceptionEvent to FAINoiseEvent and call RegisterEvent(const FAINoiseEvent& Event)
 	virtual void RegisterWrappedEvent(UAISenseEvent& PerceptionEvent) override;
 

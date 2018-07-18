@@ -2,6 +2,7 @@
 
 #include "Sections/MovieScene3DPathSection.h"
 #include "Components/SplineComponent.h"
+#include "Channels/MovieSceneChannelProxy.h"
 
 
 UMovieScene3DPathSection::UMovieScene3DPathSection( const FObjectInitializer& ObjectInitializer )
@@ -11,12 +12,35 @@ UMovieScene3DPathSection::UMovieScene3DPathSection( const FObjectInitializer& Ob
 	, bFollow (true)
 	, bReverse (false)
 	, bForceUpright (false)
-{ }
-
-
-void UMovieScene3DPathSection::Eval( USceneComponent* SceneComponent, float Position, USplineComponent* SplineComponent, FVector& OutTranslation, FRotator& OutRotation ) const
 {
-	float Timing = TimingCurve.Eval( Position );
+#if WITH_EDITOR
+
+	static const FMovieSceneChannelMetaData MetaData("Timing", NSLOCTEXT("MovieScene3DPathSection", "TimingArea", "Timing"));
+	ChannelProxy = MakeShared<FMovieSceneChannelProxy>(TimingCurve, MetaData, TMovieSceneExternalValue<float>());
+
+#else
+
+	ChannelProxy = MakeShared<FMovieSceneChannelProxy>(TimingCurve);
+
+#endif
+}
+
+void UMovieScene3DPathSection::InitialPlacement(const TArray<UMovieSceneSection*>& Sections, FFrameNumber InStartTime, int32 Duration, bool bAllowMultipleRows)
+{
+	Super::InitialPlacement(Sections, InStartTime, Duration, bAllowMultipleRows);
+
+	TMovieSceneChannelData<FMovieSceneFloatValue> KeyData = TimingCurve.GetData();
+	KeyData.UpdateOrAddKey(InStartTime, FMovieSceneFloatValue(0.f));
+	if (Duration > 0)
+	{
+		KeyData.UpdateOrAddKey(InStartTime + Duration, FMovieSceneFloatValue(1.f));
+	}
+}
+
+void UMovieScene3DPathSection::Eval( USceneComponent* SceneComponent, FFrameTime Position, USplineComponent* SplineComponent, FVector& OutTranslation, FRotator& OutRotation ) const
+{
+	float Timing = 0.f;
+	TimingCurve.Evaluate( Position, Timing );
 
 	if (Timing < 0.f)
 	{
@@ -110,48 +134,10 @@ void UMovieScene3DPathSection::Eval( USceneComponent* SceneComponent, float Posi
 }
 
 
-void UMovieScene3DPathSection::MoveSection( float DeltaPosition, TSet<FKeyHandle>& KeyHandles )
-{
-	Super::MoveSection( DeltaPosition, KeyHandles );
-
-	// Move the curve
-	TimingCurve.ShiftCurve(DeltaPosition, KeyHandles);
-}
-
-
-void UMovieScene3DPathSection::DilateSection( float DilationFactor, float Origin, TSet<FKeyHandle>& KeyHandles )
-{	
-	Super::DilateSection(DilationFactor, Origin, KeyHandles);
-	
-	TimingCurve.ScaleCurve(Origin, DilationFactor, KeyHandles);
-}
-
-
-void UMovieScene3DPathSection::GetKeyHandles(TSet<FKeyHandle>& OutKeyHandles, TRange<float> TimeRange) const
-{
-	if (!TimeRange.Overlaps(GetRange()))
-	{
-		return;
-	}
-
-	for (auto It(TimingCurve.GetKeyHandleIterator()); It; ++It)
-	{
-		float Time = TimingCurve.GetKeyTime(It.Key());
-		if (TimeRange.Contains(Time))
-		{
-			OutKeyHandles.Add(It.Key());
-		}
-	}
-}
-
-
-void UMovieScene3DPathSection::AddPath( float Time, float SequenceEndTime, const FMovieSceneObjectBindingID& InPathBindingID )
+void UMovieScene3DPathSection::SetPathBindingID( const FMovieSceneObjectBindingID& InPathBindingID )
 {
 	if (TryModify())
 	{
 		ConstraintBindingID = InPathBindingID;
-
-		TimingCurve.UpdateOrAddKey(Time, 0);
-		TimingCurve.UpdateOrAddKey(SequenceEndTime, 1);
-	}		
+	}
 }

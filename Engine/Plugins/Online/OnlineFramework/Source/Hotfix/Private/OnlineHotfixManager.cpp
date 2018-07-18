@@ -1,21 +1,33 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineHotfixManager.h"
+#include "OnlineSubsystemUtils.h"
 #include "GenericPlatform/GenericPlatformFile.h"
-#include "Misc/CommandLine.h"
-#include "Misc/FileHelper.h"
 #include "Internationalization/Culture.h"
-#include "Misc/CoreDelegates.h"
-#include "Misc/App.h"
 #include "UObject/UObjectIterator.h"
 #include "UObject/Package.h"
-#include "Misc/PackageName.h"
-#include "OnlineSubsystemUtils.h"
+#include "Http.h"
+
 #include "Logging/LogSuppressionInterface.h"
+
+#include "Misc/NetworkVersion.h"
+
+#include "Misc/PackageName.h"
+#include "Misc/CommandLine.h"
+#include "Misc/FileHelper.h"
+#include "Misc/CoreDelegates.h"
+#include "Misc/App.h"
+
 #include "Engine/CurveTable.h"
 #include "Engine/DataTable.h"
+#include "Curves/CurveFloat.h"
 
 DEFINE_LOG_CATEGORY(LogHotfixManager);
+
+/** This character must be between important pieces of file information (platform, initype, version) */
+#define HOTFIX_SEPARATOR TEXT("_")
+/** The prefix for any hotfix file that expects to indicate version information */
+#define HOTFIX_VERSION_TAG TEXT("Ver-")
 
 FName NAME_HotfixManager(TEXT("HotfixManager"));
 
@@ -33,6 +45,82 @@ public:
 
 	TArray<FString> Files;
 };
+
+namespace
+{
+	/** @return the expected network version for hotfix files determined at compile time */
+	FString GetNetworkVersion()
+	{
+		static FString NetVerStr;
+		if (NetVerStr.IsEmpty())
+		{
+			uint32 NetVer = FNetworkVersion::GetNetworkCompatibleChangelist();
+			NetVerStr = FString::Printf(TEXT("%s%d"), HOTFIX_VERSION_TAG, NetVer);
+		}
+		return NetVerStr;
+	}
+
+	/**
+	 * Given a hotfix file name, return the file name with version stripped out and exposed separately
+	 *
+	 * @param InFilename name of file to search for version information
+	 * @param OutFilename name with version information removed
+	 * @param OutVersion version of the hotfix file it present in the name
+	 */
+	void GetFilenameAndVersion(const FString& InFilename, FString& OutFilename, FString& OutVersion)
+	{
+		TArray<FString> FileParts;
+		int32 NumTokens = InFilename.ParseIntoArray(FileParts, HOTFIX_SEPARATOR);
+		if (NumTokens > 0)
+		{
+			for (int i = 0; i < FileParts.Num(); i++)
+			{
+				if (FileParts[i].StartsWith(HOTFIX_VERSION_TAG))
+				{
+					OutVersion = FileParts[i];
+				}
+				else
+				{
+					OutFilename += FileParts[i];
+					if (i < FileParts.Num() - 1)
+					{
+						OutFilename += HOTFIX_SEPARATOR;
+					}
+				}
+			}
+		}
+	}
+
+	/**
+	 * Is this hotfix file compatible with the current build
+	 * If the file has version information it is compared with compatibility
+	 * If the file has NO version information it is assumed compatible
+	 *
+	 * @param InFilename name of the file to check 
+	 * @param OutFilename name of file with version information stripped
+	 * 
+	 * @return true if file is compatible, false otherwise
+	 */
+	bool IsCompatibleHotfixFile(const FString& InFilename, FString& OutFilename)
+	{
+		bool bHasVersion = false;
+		bool bCompatibleHotfix = false;
+		const FString NetworkVersion = GetNetworkVersion();
+		FString OutVersion;
+		GetFilenameAndVersion(InFilename, OutFilename, OutVersion);
+
+		if (!OutVersion.IsEmpty())
+		{
+			bHasVersion = true;
+			if (OutVersion == NetworkVersion)
+			{
+				bCompatibleHotfix = true;
+			}
+		}
+
+		return bCompatibleHotfix || !bHasVersion;
+	}
+}
 
 UOnlineHotfixManager::UOnlineHotfixManager() :
 	Super(),
@@ -82,10 +170,14 @@ void UOnlineHotfixManager::PostInitProperties()
 {
 #if !UE_BUILD_SHIPPING
 	FParse::Value(FCommandLine::Get(), TEXT("HOTFIXPREFIX="), DebugPrefix);
+	if (!DebugPrefix.IsEmpty())
+	{
+		DebugPrefix += HOTFIX_SEPARATOR;
+	}
 #endif
 	// So we only try to apply files for this platform
 	PlatformPrefix = DebugPrefix + ANSI_TO_TCHAR(FPlatformProperties::PlatformName());
-	PlatformPrefix += TEXT("_");
+	PlatformPrefix += HOTFIX_SEPARATOR;
 	// Server prefix
 	ServerPrefix = DebugPrefix + TEXT("DedicatedServer");
 	// Build the default prefix too
@@ -175,32 +267,41 @@ struct FHotfixFileSortPredicate
 		{
 		}
 
-		int32 GetPriorityForCompare(const FString& HotfixName) const
+		int32 GetPriorityForCompare(const FString& InHotfixName) const
 		{
 			// Non-ini files are applied last
-			int32 Priority = 5;
+			int32 Priority = 50;
 			
-			if (HotfixName.EndsWith(TEXT("INI")))
+			if (InHotfixName.EndsWith(TEXT("INI")))
 			{
+				FString HotfixName, NetworkVersion;
+				GetFilenameAndVersion(InHotfixName, HotfixName, NetworkVersion);
+
 				// Defaults are applied first
 				if (HotfixName.StartsWith(DefaultPrefix))
 				{
-					Priority = 1;
+					Priority = 10;
 				}
 				// Server trumps default
 				else if (HotfixName.StartsWith(ServerPrefix))
 				{
-					Priority = 2;
+					Priority = 20;
 				}
 				// Platform trumps server
 				else if (HotfixName.StartsWith(PlatformPrefix))
 				{
-					Priority = 3;
+					Priority = 30;
 				}
 				// Other INIs whitelisted in game override of WantsHotfixProcessing will trump all other INIs
 				else
 				{
-					Priority = 4;
+					Priority = 40;
+				}
+
+				if (!NetworkVersion.IsEmpty())
+				{
+					// Versioned hotfixes apply last within their type
+					Priority += 5;
 				}
 			}
 
@@ -255,18 +356,12 @@ void UOnlineHotfixManager::OnEnumerateFilesComplete(bool bWasSuccessful, const F
 		BuildHotfixFileListDeltas();
 		// Sort after filtering so that the comparison below doesn't fail to different order from the server
 		ChangedHotfixFileList.Sort<FHotfixFileSortPredicate>(FHotfixFileSortPredicate(PlatformPrefix, ServerPrefix, DefaultPrefix));
-		// Perform any undo operations needed
-		if (ChangedHotfixFileList.Num() > 0 || RemovedHotfixFileList.Num() > 0)
-		{
-			RestoreBackupIniFiles();
-			UnmountHotfixFiles();
-		}
 		// Read any changed files
 		if (ChangedHotfixFileList.Num() > 0)
 		{
 			// Update our totals for our progress delegates
 			TotalFiles = ChangedHotfixFileList.Num();
-			for (auto& FileHeader : ChangedHotfixFileList)
+			for (const FCloudFileHeader& FileHeader : ChangedHotfixFileList)
 			{
 				TotalBytes += FileHeader.FileSize;
 			}
@@ -274,6 +369,14 @@ void UOnlineHotfixManager::OnEnumerateFilesComplete(bool bWasSuccessful, const F
 		}
 		else
 		{
+			if (RemovedHotfixFileList.Num() > 0)
+			{
+				// No changes, just reverts
+				// Perform any undo operations needed
+				RestoreBackupIniFiles();
+				UnmountHotfixFiles();
+			}
+
 			UE_LOG(LogHotfixManager, Display, TEXT("Returned hotfix data is the same as last application, skipping the apply phase"));
 			TriggerHotfixComplete(EHotfixResult::SuccessNoChange);
 		}
@@ -381,39 +484,61 @@ void UOnlineHotfixManager::BuildHotfixFileListDeltas()
 	RemovedHotfixFileList.Empty();
 	ChangedHotfixFileList.Empty();
 	// Go through the current list and see if it's changed from the previous attempt
-	for (auto& CurrentHeader : HotfixFileList)
+	TSet<FString> DirtyIniCategories;
+	for (const FCloudFileHeader& CurrentHeader : HotfixFileList)
 	{
-		bool bFoundMatch = false;
-		for (auto& LastHeader : LastHotfixFileList)
-		{
-			if (LastHeader == CurrentHeader)
-			{
-				bFoundMatch = true;
-				break;
-			}
-		}
+		bool bFoundMatch = LastHotfixFileList.Contains(CurrentHeader);
 		if (!bFoundMatch)
 		{
-			// We're different so add to the process list
+			// All NEW or CHANGED ini files will be added to the process list
 			ChangedHotfixFileList.Add(CurrentHeader);
+
+			if (CurrentHeader.FileName.EndsWith(TEXT(".INI"), ESearchCase::IgnoreCase))
+			{
+				// Make sure that ALL INIs of this "category" get marked for inclusion below
+				DirtyIniCategories.Add(GetStrippedConfigFileName(CurrentHeader.FileName));
+			}
 		}
 	}
 	// Find any files that have been removed from the set of hotfix files
-	for (auto& LastHeader : LastHotfixFileList)
+	for (const FCloudFileHeader& LastHeader : LastHotfixFileList)
 	{
-		bool bFoundMatch = false;
-		for (auto& CurrentHeader : HotfixFileList)
-		{
-			if (LastHeader.FileName == CurrentHeader.FileName)
+		bool bFoundMatch = HotfixFileList.ContainsByPredicate(
+			[&LastHeader](const FCloudFileHeader& CurrentHeader)
 			{
-				bFoundMatch = true;
-				break;
-			}
-		}
+				return LastHeader.FileName == CurrentHeader.FileName;
+			});
 		if (!bFoundMatch)
 		{
 			// We've been removed so add to the removed list
 			RemovedHotfixFileList.Add(LastHeader);
+
+			if (LastHeader.FileName.EndsWith(TEXT(".INI"), ESearchCase::IgnoreCase))
+			{
+				// Make sure that ALL INIs of this "category" get marked for inclusion below
+				DirtyIniCategories.Add(GetStrippedConfigFileName(LastHeader.FileName));
+			}
+		}
+	}
+
+	// Apply all hotfix files for each ini file if the category has been marked dirty
+	// For example, if DefaultGame.ini has changed, also consider XboxOne_Game.ini changed
+	// This is necessary because we revert the ini file to the pre-hotfix state
+	if (DirtyIniCategories.Num() > 0)
+	{
+		for (const FCloudFileHeader& CurrentHeader : HotfixFileList)
+		{
+			if (CurrentHeader.FileName.EndsWith(TEXT(".INI"), ESearchCase::IgnoreCase))
+			{
+				for (const FString& StrippedIniName : DirtyIniCategories)
+				{
+					if (CurrentHeader.FileName.EndsWith(StrippedIniName, ESearchCase::IgnoreCase))
+					{
+						// Be sure to include any ini in a "dirty" category that remains in the latest HotfixFileList
+						ChangedHotfixFileList.AddUnique(CurrentHeader);
+					}
+				}
+			}
 		}
 	}
 }
@@ -437,12 +562,12 @@ void UOnlineHotfixManager::ReadHotfixFiles()
 		check(OnlineTitleFile.IsValid());
 		// Kick off a read for each file
 		// Do this in two passes so already cached files don't trigger completion
-		for (auto& FileHeader : ChangedHotfixFileList)
+		for (const FCloudFileHeader& FileHeader : ChangedHotfixFileList)
 		{
-			UE_LOG(LogOnline, VeryVerbose, TEXT("HF: %s %s %d "), *FileHeader.DLName, *FileHeader.FileName, FileHeader.FileSize);
+			UE_LOG(LogHotfixManager, VeryVerbose, TEXT("HF: %s %s %d "), *FileHeader.DLName, *FileHeader.FileName, FileHeader.FileSize);
 			PendingHotfixFiles.Add(FileHeader.DLName, FPendingFileDLProgress());
 		}
-		for (auto& FileHeader : ChangedHotfixFileList)
+		for (const FCloudFileHeader& FileHeader : ChangedHotfixFileList)
 		{
 			OnlineTitleFile->ReadFile(FileHeader.DLName);
 		}
@@ -490,7 +615,12 @@ void UOnlineHotfixManager::UpdateProgress(uint32 FileCount, uint64 UpdateSize)
 
 void UOnlineHotfixManager::ApplyHotfix()
 {
-	for (auto& FileHeader : ChangedHotfixFileList)
+	// Perform any undo operations needed
+	// This occurs same frame as the application of new hotfixes
+	RestoreBackupIniFiles();
+	UnmountHotfixFiles();
+
+	for (const FCloudFileHeader& FileHeader : ChangedHotfixFileList)
 	{
 		if (!ApplyHotfixProcessing(FileHeader))
 		{
@@ -537,25 +667,34 @@ bool UOnlineHotfixManager::WantsHotfixProcessing(const FCloudFileHeader& FileHea
 	const FString Extension = FPaths::GetExtension(FileHeader.FileName);
 	if (Extension == TEXT("INI"))
 	{
-		bool bIsServerHotfix = FileHeader.FileName.StartsWith(ServerPrefix);
-		bool bWantsServerHotfix = IsRunningDedicatedServer() && bIsServerHotfix;
-		bool bWantsDefaultHotfix = FileHeader.FileName.StartsWith(DefaultPrefix);
-		bool bWantsPlatformHotfix = FileHeader.FileName.StartsWith(PlatformPrefix);
+		FString CloudFilename;
+		if (IsCompatibleHotfixFile(FileHeader.FileName, CloudFilename))
+		{
+			bool bIsServerHotfix = CloudFilename.StartsWith(ServerPrefix);
+			bool bWantsServerHotfix = IsRunningDedicatedServer() && bIsServerHotfix;
+			bool bWantsDefaultHotfix = CloudFilename.StartsWith(DefaultPrefix);
+			bool bWantsPlatformHotfix = CloudFilename.StartsWith(PlatformPrefix);
 
-		if (bWantsPlatformHotfix)
-		{
-			UE_LOG(LogHotfixManager, Verbose, TEXT("Using platform hotfix %s"), * FileHeader.FileName);
-		}
-		else if (bWantsServerHotfix)
-		{
-			UE_LOG(LogHotfixManager, Verbose, TEXT("Using server hotfix %s"), * FileHeader.FileName);
-		}
-		else if (bWantsDefaultHotfix)
-		{
-			UE_LOG(LogHotfixManager, Verbose, TEXT("Using default hotfix %s"), * FileHeader.FileName);
-		}
+			if (bWantsPlatformHotfix)
+			{
+				UE_LOG(LogHotfixManager, Verbose, TEXT("Using platform hotfix %s"), *FileHeader.FileName);
+			}
+			else if (bWantsServerHotfix)
+			{
+				UE_LOG(LogHotfixManager, Verbose, TEXT("Using server hotfix %s"), *FileHeader.FileName);
+			}
+			else if (bWantsDefaultHotfix)
+			{
+				UE_LOG(LogHotfixManager, Verbose, TEXT("Using default hotfix %s"), *FileHeader.FileName);
+			}
 
-		return bWantsPlatformHotfix || bWantsServerHotfix || bWantsDefaultHotfix;
+			return bWantsPlatformHotfix || bWantsServerHotfix || bWantsDefaultHotfix;
+		}
+		else
+		{
+			UE_LOG(LogHotfixManager, Verbose, TEXT("File not compatible %s, skipping."), *FileHeader.FileName);
+			return false;
+		}
 	}
 	else if (Extension == TEXT("PAK"))
 	{
@@ -573,11 +712,16 @@ bool UOnlineHotfixManager::ApplyHotfixProcessing(const FCloudFileHeader& FileHea
 		TArray<uint8> FileData;
 		if (OnlineTitleFile->GetFileContents(FileHeader.DLName, FileData))
 		{
+			UE_LOG(LogHotfixManager, Verbose, TEXT("Applying hotfix %s"), *FileHeader.FileName);
 			// Convert to a FString
 			FileData.Add(0);
 			FString HotfixStr;
 			FFileHelper::BufferToString(HotfixStr, FileData.GetData(), FileData.Num());
 			bSuccess = HotfixIniFile(FileHeader.FileName, HotfixStr);
+		}
+		else
+		{
+			UE_LOG(LogHotfixManager, Warning, TEXT("Failed to get contents of %s"), *FileHeader.FileName);
 		}
 	}
 	else if (Extension == TEXT("LOCRES"))
@@ -596,7 +740,10 @@ bool UOnlineHotfixManager::ApplyHotfixProcessing(const FCloudFileHeader& FileHea
 
 FString UOnlineHotfixManager::GetStrippedConfigFileName(const FString& IniName)
 {
-	FString StrippedIniName(IniName);
+	FString StrippedIniName;
+	FString NetworkVersion;
+	GetFilenameAndVersion(IniName, StrippedIniName, NetworkVersion);
+
 	if (StrippedIniName.StartsWith(PlatformPrefix))
 	{
 		StrippedIniName = IniName.Right(StrippedIniName.Len() - PlatformPrefix.Len());
@@ -650,6 +797,8 @@ FConfigFile* UOnlineHotfixManager::GetConfigFile(const FString& IniName)
 
 bool UOnlineHotfixManager::HotfixIniFile(const FString& FileName, const FString& IniData)
 {
+	const bool bIsEngineIni = FileName.Contains(TEXT("Engine.ini"));
+
 	FConfigFile* ConfigFile = GetConfigFile(FileName);
 	// Store the original file so we can undo this later
 	FConfigFileBackup& BackupFile = BackupIniFile(FileName, ConfigFile);
@@ -660,6 +809,9 @@ bool UOnlineHotfixManager::HotfixIniFile(const FString& FileName, const FString&
 	int32 StartIndex = 0;
 	int32 EndIndex = 0;
 	bool bUpdateLogSuppression = false;
+	bool bUpdateConsoleVariables = false;
+	bool bUpdateHttpConfigs = false;
+	TSet<FString> OnlineSubSections;
 	// Find the set of object classes that were affected
 	while (StartIndex >= 0 && StartIndex < IniData.Len() && EndIndex >= StartIndex)
 	{
@@ -671,6 +823,36 @@ bool UOnlineHotfixManager::HotfixIniFile(const FString& FileName, const FString&
 			EndIndex = IniData.Find(TEXT("]"), ESearchCase::IgnoreCase, ESearchDir::FromStart, StartIndex);
 			if (EndIndex > StartIndex)
 			{
+				// Ignore square brackets in the middle of string
+				// - per object section starts with new line
+				// - there's no " character between opening bracket and line start
+				const bool bStartsWithNewLine = (StartIndex == 0) || (IniData[StartIndex - 1] == TEXT('\n'));
+				if (!bStartsWithNewLine)
+				{
+					bool bStartsInsideString = false;
+					for (int32 CharIdx = StartIndex - 1; CharIdx >= 0; CharIdx--)
+					{
+						const bool bHasStringMarker = (IniData[CharIdx] == TEXT('"'));
+						if (bHasStringMarker)
+						{
+							bStartsInsideString = true;
+							break;
+						}
+
+						const bool bHasNewLineMarker = (IniData[CharIdx] == TEXT('\n'));
+						if (bHasNewLineMarker)
+						{
+							break;
+						}
+					}
+
+					if (bStartsInsideString)
+					{
+						StartIndex = EndIndex;
+						continue;
+					}
+				}
+
 				int32 PerObjectNameIndex = IniData.Find(TEXT(" "), ESearchCase::IgnoreCase, ESearchDir::FromStart, StartIndex);
 
 				const TCHAR* AssetHotfixIniHACK = TEXT("[AssetHotfix]");
@@ -678,6 +860,31 @@ bool UOnlineHotfixManager::HotfixIniFile(const FString& FileName, const FString&
 				{
 					// HACK - Make AssetHotfix the last element in the ini file so that this parsing isn't affected by it for now
 					break;
+				}
+
+				if (bIsEngineIni)
+				{
+					const TCHAR* LogConfigSection = TEXT("[Core.Log]");
+					const TCHAR* ConsoleVariableSection = TEXT("[ConsoleVariables]");
+					const TCHAR* HttpSection = TEXT("[HTTP]");
+					const TCHAR* OnlineSubSectionKey = TEXT("[OnlineSubsystem"); // note "]" omitted on purpose since we want a partial match
+					if (!bUpdateLogSuppression && FCString::Strnicmp(*IniData + StartIndex, LogConfigSection, FCString::Strlen(LogConfigSection)) == 0)
+					{
+						bUpdateLogSuppression = true;
+					}
+					else if (!bUpdateConsoleVariables && FCString::Strnicmp(*IniData + StartIndex, ConsoleVariableSection, FCString::Strlen(ConsoleVariableSection)) == 0)
+					{
+						bUpdateConsoleVariables = true;
+					}
+					else if (!bUpdateHttpConfigs &&	FCString::Strnicmp(*IniData + StartIndex, HttpSection, FCString::Strlen(HttpSection)) == 0)
+					{
+						bUpdateHttpConfigs = true;
+					}
+					else if (FCString::Strnicmp(*IniData + StartIndex, OnlineSubSectionKey, FCString::Strlen(OnlineSubSectionKey)) == 0)
+					{
+						const FString SectionStr = IniData.Mid(StartIndex, EndIndex - StartIndex + 1);
+						OnlineSubSections.Add(SectionStr);
+					}
 				}
 
 				// Per object config entries will have a space in the name, but classes won't
@@ -696,14 +903,6 @@ bool UOnlineHotfixManager::HotfixIniFile(const FString& FileName, const FString&
 							// Add this to the list to check against
 							Classes.Add(Class);
 							BackupFile.ClassesReloaded.AddUnique(Class->GetPathName());
-						}
-					}
-					else if (FileName.Contains(TEXT("Engine.ini")))
-					{
-						const TCHAR* LogConfigSection = TEXT("[Core.Log]");
-						if (FCString::Strnicmp(*IniData + StartIndex, LogConfigSection, FCString::Strlen(LogConfigSection)) == 0)
-						{
-							bUpdateLogSuppression = true;
 						}
 					}
 				}
@@ -741,29 +940,26 @@ bool UOnlineHotfixManager::HotfixIniFile(const FString& FileName, const FString&
 
 	int32 NumObjectsReloaded = 0;
 	const double StartTime = FPlatformTime::Seconds();
-	if (Classes.Num())
+	// Now that we have a list of classes to update, we can iterate objects and reload
+	for (UClass* Class : Classes)
 	{
-		// Now that we have a list of classes to update, we can iterate objects and reload
-		for (FObjectIterator It; It; ++It)
+		if (Class->HasAnyClassFlags(CLASS_Config))
 		{
-			UClass* Class = It->GetClass();
-			if (Class->HasAnyClassFlags(CLASS_Config))
+			TArray<UObject*> Objects;
+			GetObjectsOfClass(Class, Objects, true, RF_NoFlags);
+			for (UObject* Object : Objects)
 			{
-				// Check to see if this class is in our list (yes, potentially n^2, but not in practice)
-				for (int32 ClassIndex = 0; ClassIndex < Classes.Num(); ClassIndex++)
+				if (!Object->IsPendingKill())
 				{
-					if (It->IsA(Classes[ClassIndex]))
-					{
-						// Force a reload of the config vars
-						UE_LOG(LogHotfixManager, Verbose, TEXT("Reloading %s"), *It->GetPathName());
-						It->ReloadConfig();
-						NumObjectsReloaded++;
-						break;
-					}
+					// Force a reload of the config vars
+					UE_LOG(LogHotfixManager, Verbose, TEXT("Reloading %s"), *Object->GetPathName());
+					Object->ReloadConfig();
+					NumObjectsReloaded++;
 				}
 			}
 		}
 	}
+
 	// Reload any PerObjectConfig objects that were affected
 	for (auto ReloadObject : PerObjectConfigObjects)
 	{
@@ -776,6 +972,25 @@ bool UOnlineHotfixManager::HotfixIniFile(const FString& FileName, const FString&
 	if (bUpdateLogSuppression)
 	{
 		FLogSuppressionInterface::Get().ProcessConfigAndCommandLine();
+	}
+
+	// Reload console variables if configs changed
+	if (bUpdateConsoleVariables)
+	{
+		FConfigCacheIni::LoadConsoleVariablesFromINI();
+	}
+
+	// Reload configs relevant to the HTTP module
+	if (bUpdateHttpConfigs)
+	{
+		FHttpModule::Get().UpdateConfigs();
+	}
+
+	// Reload configs relevant to OSS config sections that were updated
+	IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get(OSSName.Len() ? FName(*OSSName, FNAME_Find) : NAME_None);
+	if (OnlineSub != nullptr)
+	{
+		OnlineSub->ReloadConfigs(OnlineSubSections);
 	}
 
 	UE_LOG(LogHotfixManager, Log, TEXT("Updating config from %s took %f seconds and reloaded %d objects"),
@@ -808,7 +1023,7 @@ bool UOnlineHotfixManager::HotfixPakFile(const FCloudFileHeader& FileHeader)
 		const double StartTime = FPlatformTime::Seconds();
 		TArray<FString> IniList;
 		// Iterate through the pak file's contents for INI and asset reloading
-		for (auto& InternalPakFileName : Visitor.Files)
+		for (const FString& InternalPakFileName : Visitor.Files)
 		{
 			if (InternalPakFileName.EndsWith(TEXT(".ini")))
 			{
@@ -822,7 +1037,7 @@ bool UOnlineHotfixManager::HotfixPakFile(const FCloudFileHeader& FileHeader)
 		// Sort the INIs so they are processed consistently
 		IniList.Sort<FHotfixFileSortPredicate>(FHotfixFileSortPredicate(PlatformPrefix, ServerPrefix, DefaultPrefix));
 		// Now process the INIs in sorted order
-		for (auto& IniName : IniList)
+		for (const FString& IniName : IniList)
 		{
 			HotfixPakIniFile(IniName);
 			NumInisReloaded++;
@@ -833,7 +1048,7 @@ bool UOnlineHotfixManager::HotfixPakFile(const FCloudFileHeader& FileHeader)
 		if (bLogMountedPakContents)
 		{
 			UE_LOG(LogHotfixManager, Log, TEXT("Files in pak file (%s):"), *FileHeader.FileName);
-			for (auto& FileName : Visitor.Files)
+			for (const FString& FileName : Visitor.Files)
 			{
 				UE_LOG(LogHotfixManager, Log, TEXT("\t\t%s"), *FileName);
 			}
@@ -869,15 +1084,28 @@ bool UOnlineHotfixManager::HotfixPakIniFile(const FString& FileName)
 	int32 NumObjectsReloaded = 0;
 	// Now that we have a list of classes to update, we can iterate objects and
 	// reload if they match the INI file that was changed
-	for (FObjectIterator It; It; ++It)
+	TArray<UObject*> Classes;
+	GetObjectsOfClass(UClass::StaticClass(), Classes, true, RF_NoFlags);
+	TArray<UClass*> ClassesToReload;
+	for (UObject* ClassObject : Classes)
 	{
-		UClass* Class = It->GetClass();
-		if (Class->HasAnyClassFlags(CLASS_Config) &&
-			Class->ClassConfigName == ConfigFile->Name)
+		if (UClass* const Class = Cast<UClass>(ClassObject))
 		{
-			// Force a reload of the config vars
-			It->ReloadConfig();
-			NumObjectsReloaded++;
+			if (Class->HasAnyClassFlags(CLASS_Config) &&
+				Class->ClassConfigName == ConfigFile->Name)
+			{
+				TArray<UObject*> Objects;
+				GetObjectsOfClass(Class, Objects, true, RF_NoFlags);
+				for (UObject* Object : Objects)
+				{
+					if (!Object->IsPendingKill())
+					{
+						// Force a reload of the config vars
+						Object->ReloadConfig();
+						NumObjectsReloaded++;
+					}
+				}
+			}
 		}
 	}
 	UE_LOG(LogHotfixManager, Log, TEXT("Updating config from %s took %f seconds reloading %d objects"),
@@ -887,7 +1115,7 @@ bool UOnlineHotfixManager::HotfixPakIniFile(const FString& FileName)
 
 const FString UOnlineHotfixManager::GetFriendlyNameFromDLName(const FString& DLName) const
 {
-	for (auto& Header : HotfixFileList)
+	for (const FCloudFileHeader& Header : HotfixFileList)
 	{
 		if (Header.DLName == DLName)
 		{
@@ -904,7 +1132,7 @@ void UOnlineHotfixManager::UnmountHotfixFiles()
 		return;
 	}
 	// Unmount any changed hotfix files since we need to download them again
-	for (auto& FileHeader : ChangedHotfixFileList)
+	for (const FCloudFileHeader& FileHeader : ChangedHotfixFileList)
 	{
 		for (int32 Index = 0; Index < MountedPakFiles.Num(); Index++)
 		{
@@ -919,7 +1147,7 @@ void UOnlineHotfixManager::UnmountHotfixFiles()
 		}
 	}
 	// Unmount any removed hotfix files
-	for (auto& FileHeader : RemovedHotfixFileList)
+	for (const FCloudFileHeader& FileHeader : RemovedHotfixFileList)
 	{
 		for (int32 Index = 0; Index < MountedPakFiles.Num(); Index++)
 		{
@@ -961,9 +1189,16 @@ void UOnlineHotfixManager::OnReadFileProgress(const FString& FileName, uint64 By
 
 UOnlineHotfixManager::FConfigFileBackup& UOnlineHotfixManager::BackupIniFile(const FString& IniName, const FConfigFile* ConfigFile)
 {
+	FString BackupIniName = GetConfigFileNamePath(GetStrippedConfigFileName(IniName));
+	if (FConfigFileBackup* Backup = IniBackups.FindByPredicate([&BackupIniName](const FConfigFileBackup& Entry){ return Entry.IniName == BackupIniName; }))
+	{
+		// Only store one copy of each ini file, consisting of the original state
+		return *Backup;
+	}
+
 	int32 AddAt = IniBackups.AddDefaulted();
 	FConfigFileBackup& NewBackup = IniBackups[AddAt];
-	NewBackup.IniName = GetConfigFileNamePath(GetStrippedConfigFileName(IniName));
+	NewBackup.IniName = BackupIniName;
 	NewBackup.ConfigData = *ConfigFile;
 	// There's a lack of deep copy related to the SourceConfigFile so null it out
 	NewBackup.ConfigData.SourceConfigFile = nullptr;
@@ -980,7 +1215,7 @@ void UOnlineHotfixManager::RestoreBackupIniFiles()
 	TArray<FString> ClassesToRestore;
 
 	// Restore any changed INI files and build a list of which ones changed for UObject reloading below
-	for (auto& FileHeader : ChangedHotfixFileList)
+	for (const FCloudFileHeader& FileHeader : ChangedHotfixFileList)
 	{
 		if (FileHeader.FileName.EndsWith(TEXT(".INI")))
 		{
@@ -1001,7 +1236,7 @@ void UOnlineHotfixManager::RestoreBackupIniFiles()
 	}
 
 	// Also restore any files that were previously part of the hotfix and now are not
-	for (auto& FileHeader : RemovedHotfixFileList)
+	for (const FCloudFileHeader& FileHeader : RemovedHotfixFileList)
 	{
 		if (FileHeader.FileName.EndsWith(TEXT(".INI")))
 		{
@@ -1036,20 +1271,19 @@ void UOnlineHotfixManager::RestoreBackupIniFiles()
 			}
 		}
 
-		for (FObjectIterator It; It; ++It)
+		for (UClass* Class : RestoredClasses)
 		{
-			UClass* Class = It->GetClass();
 			if (Class->HasAnyClassFlags(CLASS_Config))
 			{
-				// Check to see if this class is in our list (yes, potentially n^2, but not in practice)
-				for (int32 ClassIndex = 0; ClassIndex < RestoredClasses.Num(); ClassIndex++)
+				TArray<UObject*> Objects;
+				GetObjectsOfClass(Class, Objects, true, RF_NoFlags);
+				for (UObject* Object : Objects)
 				{
-					if (It->IsA(RestoredClasses[ClassIndex]))
+					if (!Object->IsPendingKill())
 					{
-						UE_LOG(LogHotfixManager, Verbose, TEXT("Restoring %s"), *It->GetPathName());
-						It->ReloadConfig();
+						UE_LOG(LogHotfixManager, Verbose, TEXT("Restoring %s"), *Object->GetPathName());
+						Object->ReloadConfig();
 						NumObjectsReloaded++;
-						break;
 					}
 				}
 			}
@@ -1058,7 +1292,6 @@ void UOnlineHotfixManager::RestoreBackupIniFiles()
 	UE_LOG(LogHotfixManager, Log, TEXT("Restoring config for %d changed classes took %f seconds reloading %d objects"),
 		ClassesToRestore.Num(), FPlatformTime::Seconds() - StartTime, NumObjectsReloaded);
 }
-
 
 void UOnlineHotfixManager::PatchAssetsFromIniFiles()
 {
@@ -1078,8 +1311,9 @@ void UOnlineHotfixManager::PatchAssetsFromIniFiles()
 			TArray<UClass*> PatchableAssetClasses;
 			{
 				// These are the asset types we support patching right now
-				PatchableAssetClasses.Add( UCurveTable::StaticClass() );
-				PatchableAssetClasses.Add( UDataTable::StaticClass() );
+				PatchableAssetClasses.Add(UCurveTable::StaticClass());
+				PatchableAssetClasses.Add(UDataTable::StaticClass());
+				PatchableAssetClasses.Add(UCurveFloat::StaticClass());
 			}
 
 			// Make sure the entry has a valid class name that we supprt
@@ -1093,96 +1327,84 @@ void UOnlineHotfixManager::PatchAssetsFromIniFiles()
 				}
 			}
 
-			if( AssetClass != nullptr )
+			if (AssetClass != nullptr)
 			{
-				const TCHAR* ValueChars = *It.Value().GetValue();
+				TArray<FString> ProblemStrings;
 
-				// Expecting an opening paren from the config system
-				if( ValueChars != nullptr && *( ValueChars++ ) == L'(' )
+				FString DataLine(*It.Value().GetValue());
+
+				if (!DataLine.IsEmpty())
 				{
-					FString AssetPath;
-					int32 NumCharsRead = 0;
-					if( FParse::QuotedString( ValueChars, /* Out */ AssetPath, /* Out */ &NumCharsRead ) && !AssetPath.IsEmpty() )
+					TArray<FString> Tokens;
+					DataLine.ParseIntoArray(Tokens, TEXT(";"));
+					if (Tokens.Num() == 3 || Tokens.Num() == 5)
 					{
-						// Skip past what we read out of the buffer
-						ValueChars += NumCharsRead;
+						const FString& AssetPath(Tokens[0]);
+						const FString& HotfixType(Tokens[1]);
 
 						// Find or load the asset
-						UObject* Asset = StaticLoadObject( AssetClass, nullptr, *AssetPath );
-						if( Asset != nullptr )
+						UObject* Asset = StaticLoadObject(AssetClass, nullptr, *AssetPath);
+						if (Asset != nullptr)
 						{
-							TArray<FString> ProblemStrings;
+							const FString RowUpdate(TEXT("RowUpdate"));
+							const FString TableUpdate(TEXT("TableUpdate"));
 
-							// Expecting a comma from config system
-							FParse::Next( &ValueChars );	// Skip whitespace
-							if( *( ValueChars++ ) == L',' )
+							if (HotfixType == RowUpdate && Tokens.Num() == 5)
 							{
+								// The hotfix line should be
+								//	+DataTable=<data table path>;RowUpdate;<row name>;<column name>;<new value>
+								//	+CurveTable=<curve table path>;RowUpdate;<row name>;<column name>;<new value>
+								//	+CurveFloat=<curve float path>;RowUpdate;None;<column name>;<new value>
+								HotfixRowUpdate(Asset, AssetPath, Tokens[2], Tokens[3], Tokens[4], ProblemStrings);
+							}
+							else if (HotfixType == TableUpdate && Tokens.Num() == 3)
+							{
+								// The hotfix line should be
+								//	+DataTable=<data table path>;TableUpdate;"<json data>"
+								//	+CurveTable=<curve table path>;TableUpdate;"<json data>"
+								
+								// We have to read json data as quoted string because tokenizing it creates extra unwanted characters.
 								FString JsonData;
-								if( FParse::QuotedString( ValueChars, /* Out */ JsonData, /* Out */ &NumCharsRead ) && !JsonData.IsEmpty() )
+								if (FParse::QuotedString(*Tokens[2], JsonData))
 								{
-									// Skip past what we read out of the buffer
-									ValueChars += NumCharsRead;
-
-									// OK, here we go!  Let's import over the object in place.
-									UCurveTable* CurveTable = Cast<UCurveTable>( Asset );
-									UDataTable* DataTable = Cast<UDataTable>( Asset );
-									if( CurveTable != nullptr )
-									{
-										ProblemStrings.Append( CurveTable->CreateTableFromJSONString( JsonData ) );
-									}
-									else if( DataTable != nullptr )
-									{
-										ProblemStrings.Append( DataTable->CreateTableFromJSONString( JsonData ) );
-									}
-									else
-									{
-										// A supported asset type was added but no handling code for patching the asset was included
-										check( 0 );
-									}
+									HotfixTableUpdate(Asset, AssetPath, JsonData, ProblemStrings);
 								}
 								else
 								{
-									ProblemStrings.Add( TEXT( "Couldn't parse a quoted Json string with the asset's new content." ) );
+									ProblemStrings.Add(TEXT("Json data wasn't able to be parsed as a quoted string. Check that we have opening and closing quotes around the json data."));
 								}
 							}
 							else
 							{
-								ProblemStrings.Add( TEXT( "Was expecting a ',' before the quoted Json data." ) );
-							}
-
-							if( ProblemStrings.Num() > 0 )
-							{
-								for( const FString& ProblemString : ProblemStrings )
-								{
-									UE_LOG( LogHotfixManager, Error, TEXT( "%s: %s" ), *Asset->GetPathName(), *ProblemString );
-								}
-							}
-							else
-							{
-								// We'll keep a reference to the successfully patched asset.  We want to make sure our changes survive throughout
-								// this session, so we reference it to prevent it from being evicted from memory.  It's OK if we end up re-patching
-								// the same asset multiple times per session.
-								AssetsHotfixedFromIniFiles.Add( Asset );
+								ProblemStrings.Add(TEXT("Expected a hotfix type of RowUpdate with 5 tokens or TableUpdate with 3 tokens."));
 							}
 						}
 						else
 						{
-							UE_LOG( LogHotfixManager, Error, TEXT( "Couldn't find or load asset '%s' (class '%s').  This asset will not be patched.  Double check that your asset type and path string is correct." ), *AssetPath, *AssetClass->GetPathName() );
+							const FString Problem(FString::Printf(TEXT("Couldn't find or load asset '%s' (class '%s').  This asset will not be patched.  Double check that your asset type and path string is correct."), *AssetPath, *AssetClass->GetPathName()));
+							ProblemStrings.Add(Problem);
+						}
+
+						if (ProblemStrings.Num() > 0)
+						{
+							for (const FString& ProblemString : ProblemStrings)
+							{
+								UE_LOG(LogHotfixManager, Error, TEXT("%s: %s"), *GetPathNameSafe(Asset), *ProblemString);
+							}
+						}
+						else
+						{
+							// We'll keep a reference to the successfully patched asset.  We want to make sure our changes survive throughout
+							// this session, so we reference it to prevent it from being evicted from memory.  It's OK if we end up re-patching
+							// the same asset multiple times per session.
+							AssetsHotfixedFromIniFiles.Add(Asset);
 						}
 					}
 					else
 					{
-						UE_LOG( LogHotfixManager, Error, TEXT( "Entry for asset type '%s' was missing an 'Asset=' field.  This entry was skipped." ), *AssetClass->GetPathName() );
+						UE_LOG(LogHotfixManager, Error, TEXT("Wasn't able to parse the data with semicolon separated values. Expecting 3 or 5 arguments."));
 					}
 				}
-				else
-				{
-					UE_LOG( LogHotfixManager, Error, TEXT( "Malformed string when reading entry for asset type '%s'.  This entry was skipped." ), *It.Key().ToString() );
-				}
-			}
-			else
-			{
-				UE_LOG( LogHotfixManager, Error, TEXT( "Couldn't recognize the asset type name '%s' for entry.  This entry was skipped." ), *It.Key().ToString() );
 			}
 		}
 	}
@@ -1201,6 +1423,218 @@ void UOnlineHotfixManager::PatchAssetsFromIniFiles()
 	}
 }
 
+
+void UOnlineHotfixManager::HotfixRowUpdate(UObject* Asset, const FString& AssetPath, const FString& RowName, const FString& ColumnName, const FString& NewValue, TArray<FString>& ProblemStrings)
+{
+	if (AssetPath.IsEmpty())
+	{
+		ProblemStrings.Add(TEXT("The table's path is empty. We cannot continue the hotfix."));
+		return;
+	}
+	if (RowName.IsEmpty())
+	{
+		ProblemStrings.Add(TEXT("The row name is empty. We cannot continue the hotfix."));
+		return;
+	}
+	if (ColumnName.IsEmpty())
+	{
+		ProblemStrings.Add(TEXT("The column name is empty. We cannot continue the hotfix."));
+		return;
+	}
+	if (NewValue.IsEmpty())
+	{
+		ProblemStrings.Add(TEXT("The new value is empty. We cannot continue the hotfix."));
+		return;
+	}
+
+	UDataTable* DataTable = Cast<UDataTable>(Asset);
+	UCurveTable* CurveTable = Cast<UCurveTable>(Asset);
+	UCurveFloat* CurveFloat = Cast<UCurveFloat>(Asset);
+	if (DataTable != nullptr)
+	{
+		// Edit the row with the new value.
+		UProperty* DataTableRowProperty = DataTable->RowStruct->FindPropertyByName(FName(*ColumnName));
+		if (DataTableRowProperty)
+		{
+			UNumericProperty* NumProp = Cast<UNumericProperty>(DataTableRowProperty);
+			if (NumProp)
+			{
+				if (NewValue.IsNumeric())
+				{
+					// Get the row data by name.
+					static const FString Context = FString(TEXT("UOnlineHotfixManager::PatchAssetsFromIniFiles"));
+					FTableRowBase* DataTableRow = DataTable->FindRow<FTableRowBase>(FName(*RowName), Context);
+
+					if (DataTableRow)
+					{
+						void* RowData = NumProp->ContainerPtrToValuePtr<void>(DataTableRow, 0);
+
+						if (RowData)
+						{
+							if (NumProp->IsInteger())
+							{
+								const int64 OldPropertyValue = NumProp->GetSignedIntPropertyValue(RowData);
+								const int64 NewPropertyValue = FCString::Atoi(*NewValue);
+								NumProp->SetIntPropertyValue(RowData, NewPropertyValue);
+								UE_LOG(LogHotfixManager, Display, TEXT("Data table %s row %s updated column %s from %i to %i."), *AssetPath, *RowName, *ColumnName, OldPropertyValue, NewPropertyValue);
+							}
+							else
+							{
+								const double OldPropertyValue = NumProp->GetFloatingPointPropertyValue(RowData);
+								const double NewPropertyValue = FCString::Atod(*NewValue);
+								NumProp->SetFloatingPointPropertyValue(RowData, NewPropertyValue);
+								UE_LOG(LogHotfixManager, Display, TEXT("Data table %s row %s updated column %s from %.2f to %.2f."), *AssetPath, *RowName, *ColumnName, OldPropertyValue, NewPropertyValue);
+							}
+						}
+						else
+						{
+							const FString Problem(FString::Printf(TEXT("The data table row data for row %s was not found."), *RowName));
+							ProblemStrings.Add(Problem);
+						}
+					}
+					else
+					{
+						const FString Problem(FString::Printf(TEXT("The data table row %s was not found."), *RowName));
+						ProblemStrings.Add(Problem);
+					}
+				}
+				else
+				{
+					const FString Problem(FString::Printf(TEXT("The new value %s is not a number when it should be."), *NewValue));
+					ProblemStrings.Add(Problem);
+				}
+			}
+			else
+			{
+				const FString Problem(FString::Printf(TEXT("The data table row property named %s is not a numeric property and it should be."), *ColumnName));
+				ProblemStrings.Add(Problem);
+			}
+		}
+		else
+		{
+			const FString Problem(FString::Printf(TEXT("Couldn't find the data table property named %s. Check the spelling."), *ColumnName));
+			ProblemStrings.Add(Problem);
+		}
+	}
+	else if (CurveTable)
+	{
+		if (ColumnName.IsNumeric())
+		{
+			// Get the row data by name.
+			static const FString Context = FString(TEXT("UOnlineHotfixManager::PatchAssetsFromIniFiles"));
+			FRichCurve* CurveTableRow = CurveTable->FindCurve(FName(*RowName), Context);
+			
+			if (CurveTableRow)
+			{
+				// Edit the row with the new value.
+				const float KeyTime = FCString::Atof(*ColumnName);
+				FKeyHandle Key = CurveTableRow->FindKey(KeyTime);
+				if (CurveTableRow->IsKeyHandleValid(Key))
+				{
+					if (NewValue.IsNumeric())
+					{
+						const float OldPropertyValue = CurveTableRow->GetKeyValue(Key);
+						const float NewPropertyValue = FCString::Atof(*NewValue);
+						CurveTableRow->SetKeyValue(Key, NewPropertyValue);
+
+						UE_LOG(LogHotfixManager, Display, TEXT("Curve table %s row %s updated column %s from %.2f to %.2f."), *AssetPath, *RowName, *ColumnName, OldPropertyValue, NewPropertyValue);
+					}
+					else
+					{
+						const FString Problem(FString::Printf(TEXT("The new value %s is not a number when it should be."), *NewValue));
+						ProblemStrings.Add(Problem);
+					}
+				}
+				else
+				{
+					const FString Problem(FString::Printf(TEXT("The column name %s isn't a valid key into the curve table."), *ColumnName));
+					ProblemStrings.Add(Problem);
+				}
+			}
+			else
+			{
+				const FString Problem(FString::Printf(TEXT("The curve table row for row name %s was not found."), *RowName));
+				ProblemStrings.Add(Problem);
+			}
+		}
+		else
+		{
+			const FString Problem(FString::Printf(TEXT("The column name %s is not a number when it should be."), *ColumnName));
+			ProblemStrings.Add(Problem);
+		}
+	}
+	else if (CurveFloat)
+	{
+		if (ColumnName.IsNumeric())
+		{
+			// Edit the curve with the new value.
+			const float KeyTime = FCString::Atof(*ColumnName);
+			FKeyHandle Key = CurveFloat->FloatCurve.FindKey(KeyTime);
+			if (CurveFloat->FloatCurve.IsKeyHandleValid(Key))
+			{
+				if (NewValue.IsNumeric())
+				{
+					const float OldPropertyValue = CurveFloat->FloatCurve.GetKeyValue(Key);
+					const float NewPropertyValue = FCString::Atof(*NewValue);
+					CurveFloat->FloatCurve.SetKeyValue(Key, NewPropertyValue);
+
+					UE_LOG(LogHotfixManager, Display, TEXT("Curve float %s updated column %s from %.2f to %.2f."), *AssetPath, *ColumnName, OldPropertyValue, NewPropertyValue);
+				}
+				else
+				{
+					const FString Problem(FString::Printf(TEXT("The new value %s is not a number when it should be."), *NewValue));
+					ProblemStrings.Add(Problem);
+				}
+			}
+			else
+			{
+				const FString Problem(FString::Printf(TEXT("The column name %s isn't a valid key into the curve float."), *ColumnName));
+				ProblemStrings.Add(Problem);
+			}
+		}
+		else
+		{
+			const FString Problem(FString::Printf(TEXT("The column name %s is not a number when it should be."), *ColumnName));
+			ProblemStrings.Add(Problem);
+		}
+	}
+	else
+	{
+		ProblemStrings.Add(TEXT("The Asset isn't a Data Table, Curve Table, or Curve Float."));
+	}
+}
+
+void UOnlineHotfixManager::HotfixTableUpdate(UObject* Asset, const FString& AssetPath, const FString& JsonData, TArray<FString>& ProblemStrings)
+{
+	if (AssetPath.IsEmpty())
+	{
+		ProblemStrings.Add(TEXT("The table's path is empty. We cannot continue the hotfix."));
+		return;
+	}
+	if (JsonData.IsEmpty())
+	{
+		ProblemStrings.Add(TEXT("The JSON data is empty. We cannot continue the hotfix."));
+		return;
+	}
+
+	// Let's import over the object in place.
+	UCurveTable* CurveTable = Cast<UCurveTable>(Asset);
+	UDataTable* DataTable = Cast<UDataTable>(Asset);
+	if (CurveTable != nullptr)
+	{
+		ProblemStrings.Append(CurveTable->CreateTableFromJSONString(JsonData));
+		UE_LOG(LogHotfixManager, Display, TEXT("Curve table %s updated."), *AssetPath);
+	}
+	else if (DataTable != nullptr)
+	{
+		ProblemStrings.Append(DataTable->CreateTableFromJSONString(JsonData));
+		UE_LOG(LogHotfixManager, Display, TEXT("Data table %s updated."), *AssetPath);
+	}
+	else
+	{
+		ProblemStrings.Add(TEXT("We can't do a table update on this asset (for example, Curve Float cannot be table updated)."));
+	}
+}
 
 struct FHotfixManagerExec :
 	public FSelfRegisteringExec
@@ -1230,6 +1664,8 @@ struct FHotfixManagerExec :
 			TestList.Add(Header);
 			Header.FileName = TEXT("DefaultGame.ini");
 			TestList.Add(Header);
+			Header.FileName = TEXT("Ver-1234_DefaultEngine.ini");
+			TestList.Add(Header);
 			Header.FileName = TEXT("PS4_DefaultEngine.ini");
 			TestList.Add(Header);
 			Header.FileName = TEXT("DefaultEngine.ini");
@@ -1238,6 +1674,10 @@ struct FHotfixManagerExec :
 			TestList.Add(Header);
 			Header.FileName = TEXT("PS4_DefaultGame.ini");
 			TestList.Add(Header);
+			Header.FileName = TEXT("Ver-1234_PS4_DefaultGame.ini");
+			TestList.Add(Header);
+			Header.FileName = TEXT("PS4_Ver-1234_DefaultGame.ini");
+			TestList.Add(Header);
 			Header.FileName = TEXT("AnotherRandom.ini");
 			TestList.Add(Header);
 			Header.FileName = TEXT("DedicatedServerEngine.ini");
@@ -1245,7 +1685,7 @@ struct FHotfixManagerExec :
 			TestList.Sort<FHotfixFileSortPredicate>(FHotfixFileSortPredicate(TEXT("PS4_"), TEXT("DedicatedServer"), TEXT("Default")));
 
 			UE_LOG(LogHotfixManager, Log, TEXT("Hotfixing sort is:"));
-			for (auto& FileHeader : TestList)
+			for (const FCloudFileHeader& FileHeader : TestList)
 			{
 				UE_LOG(LogHotfixManager, Log, TEXT("\t%s"), *FileHeader.FileName);
 			}
@@ -1262,7 +1702,7 @@ struct FHotfixManagerExec :
 			TestList2.Sort<FHotfixFileSortPredicate>(FHotfixFileSortPredicate(TEXT("PS4_"), TEXT("DedicatedServer"), TEXT("Default")));
 
 			UE_LOG(LogHotfixManager, Log, TEXT("Hotfixing PAK INI file sort is:"));
-			for (auto& IniName : TestList2)
+			for (const FString& IniName : TestList2)
 			{
 				UE_LOG(LogHotfixManager, Log, TEXT("\t%s"), *IniName);
 			}

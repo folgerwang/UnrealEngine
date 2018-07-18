@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3810467
 Availability:Public
 Title: 리플렉션 인바이언먼트
 Crumbs: %ROOT%, Engine, Engine/Rendering/LightingAndShadows
@@ -16,7 +16,7 @@ topic-image:reflection_topic.png
 [/EXCERPT:ReflectionEnv001]
 
 [REGION:fullwidth]
-![리플렉션 인바이언먼트](reflection_environment.png)
+![Reflection Environment](reflection_environment.png)
 [/REGION]
 
 ## 리플렉션 인바이언먼트 간단 셋업
@@ -60,7 +60,7 @@ topic-image:reflection_topic.png
 | 매끄러운 표면에 굴곡진 지오메트리: 리플렉션 퀄리티 좋음 | 거친 표면에 평평한 지오메트리: 리플렉션 퀄리티 좋음 | 부드러운 표면에 평평한 지오메트리: 리플렉션이 맞지 않는다는게 드러납니다.
 [/REGION]
 
-1. 리플렉션이 있었으면 하는 곳에 리플렉션 캡처를 놓습니다. 반사시키고자 하는 레벨 부분이 반경 
+리플렉션이 있었으면 하는 곳에 리플렉션 캡처를 놓습니다. 반사시키고자 하는 레벨 부분이 반경 
 안에 꼭 맞게끔 구체 캡처를 놓도록 해 보세요. 레벨이 그 구체 모양에 재투영될 것이기 때문입니다. 
 레벨 지오메트리 너무 가까이에는 캡처를 놓지 않는 것이 좋은데, 그 지오메트리가 반사면의 주를 이뤄 
 뒤쪽의 디테일이 먹히기 때문입니다.
@@ -144,10 +144,10 @@ Reflection Environment 작동방식은 여러 지점에서 정적인 레벨을 �
 
 UE4 콘솔에서 다음 명령을 통해 라이트맵 믹싱 정도를 미세 조정할 수 있습니다.
  
-* **r.ReflectionEnvironmentBeginMixingRoughness (기본값 = 0.1)**
-* **r.ReflectionEnvironmentEndMixingRoughness (기본값 = 0.3)**
-* ** r.ReflectionEnvironmentLightmapMixBasedOnRoughness (기본값 = 1)**
-* **r.ReflectionEnvironmentLightmapMixLargestWeight (기본값 = 1000)**
+* **r.ReflectionEnvironmentBeginMixingRoughness (default = 0.1)**
+* **r.ReflectionEnvironmentEndMixingRoughness (default = 0.3)**
+* **r.ReflectionEnvironmentLightmapMixBasedOnRoughness (default = 1)**
+* **r.ReflectionEnvironmentLightmapMixLargestWeight (default = 1000)**
 
 ## 하이 퀄리티 리플렉션
 
@@ -164,19 +164,19 @@ UE4 콘솔에서 다음 명령을 통해 라이트맵 믹싱 정도를 미세 �
 1. 스태틱 메시 에디터에서 **디테일** 패널의 **LOD0** 옵션을 펼칩니다.
 
 	[REGION:lightbox]
-	[![](SM_HP_Vertex_Normals_00.png)(w:400 h:350)](SM_HP_Vertex_Normals_00.png)
+	[![](SM_HP_Vertex_Normals_00.png)(w:400)](SM_HP_Vertex_Normals_00.png)
 	[/REGION]
 
 1. **LOD0** 하단에 보면 **Build Settings** (빌드 세팅)이라는 부분이 있습니다. 그 옆의 작은 삼각형을 클릭하여 빌드 세팅 옵션을 펼칩니다.
 
 	[REGION:lightbox]
-	[![](SM_HP_Vertex_Normals_01.png)(w:400 h:350)](SM_HP_Vertex_Normals_01.png)
+	[![](SM_HP_Vertex_Normals_01.png)(w:400)](SM_HP_Vertex_Normals_01.png)
 	[/REGION]
 
 1. 그 이름 옆의 체크박스를 클릭하여 **Use High Precision Tangent Basis** (고정밀 탄젠트 베이시스 사용) 옵션을 켠 뒤 **변경사항 적용** 버튼을 눌러 새로운 세팅을 적용합니다.
 
 	[REGION:lightbox]
-	[![](SM_HP_Vertex_Normals_02.png)(w:400 h:350)](SM_HP_Vertex_Normals_02.png)
+	[![](SM_HP_Vertex_Normals_02.png)(w:400)](SM_HP_Vertex_Normals_02.png)
 	[/REGION]
 
 뷰포트가 자동으로 업데이트되어 변경사항이 반영됩니다.
@@ -195,7 +195,7 @@ UE4 콘솔에서 다음 명령을 통해 라이트맵 믹싱 정도를 미세 �
 [/OBJECT]
 
 [REGION:lightbox]
-[![](SM_HP_Vertex_Normals_Wireframe.png)(w:582 h:580)](SM_HP_Vertex_Normals_Wireframe.png)
+[![](SM_HP_Vertex_Normals_Wireframe.png)(w:582)](SM_HP_Vertex_Normals_Wireframe.png)
 [/REGION]
 	
 
@@ -208,13 +208,13 @@ UE4 콘솔에서 다음 명령을 통해 라이트맵 믹싱 정도를 미세 �
 1. **메인 툴바** 에서 **편집** > **프로젝트 세팅** 으로 **프로젝트 세팅** 창을 엽니다.
 
 	[REGION:lightbox]
-	[![](ARCS_00.png)(w:400 h:350)](ARCS_00.png)
+	[![](ARCS_00.png)(w:400)](ARCS_00.png)
 	[/REGION]
 
 1. 프로젝트 세팅의 **Engine** (엔진) 섹션에서, **Rendering** (렌더링) 옵션을 클릭하고, **Optimizations** (최적화) 섹션 아래 **Gbuffer Format** (GBuffer 포맷)을 **Default** (기본)에서 **High Precision Normals** (고정밀 노멀)로 변경합니다.
 
 	[REGION:lightbox]
-	[![](HPGBuffer_01.png)(w:400 h:350)](HPGBuffer_01.png)
+	[![](HPGBuffer_01.png)(w:400)](HPGBuffer_01.png)
 	[/REGION]
 
 	[region:warning]
@@ -279,7 +279,7 @@ Reflection Probe(리플렉션 프로브)를 편집할 때, 원하는 결과를 �
 라이트의 밝기 수정이나 레벨 지오메트리 이동 등 레벨에 다른 종류의 편집을 한 경우, 리플렉션 캡처 액터를 선택하고 **Update Captures** (캡처 업데이트) 버튼을 클릭해야 변경내용이 전파됩니다.
 
 [REGION:lightbox]
-[![](Update_Captures_Button.png)(w:400 h:350)](Update_Captures_Button.png)
+[![](Update_Captures_Button.png)(w:400)](Update_Captures_Button.png)
 [/REGION]
 
 ### 리플렉션 프로브에 커스텀 HDRI 큐브맵 사용
@@ -300,7 +300,7 @@ Reflection Probe(리플렉션 프로브)를 편집할 때, 원하는 결과를 �
 1. 먼저, 사용할 수 있는 HDRI 큐브맵 텍스처가 있는지 확인합니다. 프로젝트에 HDRI 큐브맵 텍스처가 없는 경우, 시작용 콘텐츠에 **HDRI_Epic_Courtyard_Daylight** 라는 이름으로 포함된 것이 있습니다.
 
 	[REGION:lightbox]
-	[![](Custom_Cubemap_00.png)(w:400 h:350)](Custom_Cubemap_00.png)
+	[![](Custom_Cubemap_00.png)(w:400)](Custom_Cubemap_00.png)
 	[/REGION]
 
 	[region:note]
@@ -311,19 +311,19 @@ Reflection Probe(리플렉션 프로브)를 편집할 때, 원하는 결과를 �
 1. 레벨에 배치된 **Reflection Probe** (리플렉션 프로브) 액터를 선택한 뒤 **디테일** 패널에서 **Reflection Capture** (리플렉션 캡처) 부분 아래 **Reflection Source Type** (리플렉션 소스 유형) 옵션을 **Captured Scene** (캡처된 씬)에서 **Specified Cubemap** (지정된 큐브맵)으로 변경합니다.
 
 	[REGION:lightbox]
-	[![](Custom_Cubemap_01.png)(w:400 h:350)](Custom_Cubemap_01.png)
+	[![](Custom_Cubemap_01.png)(w:400)](Custom_Cubemap_01.png)
 	[/REGION]
 
 1. 여전히 레벨에 리플렉션 프로브를 선택한 상태에서, 콘텐츠 브라우저로 가 사용하고자 하는 HDRI 텍스처를 선택합니다. 그런 다음 리플렉션 캡처 액터에서, 콘텐츠 브라우저의 HDRI 텍스처를 끌어 **Reflection Capture** (리플렉션 캡처) 아래 **Cubemap** 입력에 놓습니다.
 
 	[REGION:lightbox]
-	[![](Custom_Cubemap_02.png)(w:400 h:350)](Custom_Cubemap_02.png)
+	[![](Custom_Cubemap_02.png)(w:400)](Custom_Cubemap_02.png)
 	[/REGION]
 
 1. **캡처 업데이트** 버튼을 눌러 리플렉션 캡처 액터가 방금 지정된 새로운 HDRI 큐브맵 텍스처를 사용하도록 새로고칩니다.
 
 	[REGION:lightbox]
-	[![](Custom_Cubemap_03.png)(w:400 h:350)](Custom_Cubemap_03.png)
+	[![](Custom_Cubemap_03.png)(w:400)](Custom_Cubemap_03.png)
 	[/REGION]
 
 ### 리플렉션 프로브 해상도 조절
@@ -333,13 +333,13 @@ Reflection Probe(리플렉션 프로브)를 편집할 때, 원하는 결과를 �
 1. **메인 툴바** 의 **편집** > **프로젝트 세팅** 을 통해 **프로젝트 세팅** 창을 엽니다.
 	
 	[REGION:lightbox]
-	[![](ARCS_00.png)(w:400 h:350)](ARCS_00.png)
+	[![](ARCS_00.png)(w:400)](ARCS_00.png)
 	[/REGION]
 
 1. 프로젝트 세팅 메뉴에서 **Engine** (엔진) > **Rendering** (렌더링) 부분으로 이동한 뒤 **Textures** (텍스처) 옵션을 찾습니다.
 	
 	[REGION:lightbox]
-	[![](ARCS_01.png)(w:400 h:350)](ARCS_01.png)
+	[![](ARCS_01.png)(w:400)](ARCS_01.png)
 	[/REGION]
 
 1. **Reflection Capture Resolution** (리플렉션 캡처 해상도) 옵션을 조절하는 것으로 지정된 HDRI 큐브맵 텍스처의 크기를 늘이거나 줄일 수 있습니다.
@@ -362,25 +362,25 @@ Reflection Probe(리플렉션 프로브)를 편집할 때, 원하는 결과를 �
 1. **모드** 패널의 **라이트** 부분 아래 **스카이라이트** 를 끌어 레벨에 놓습니다.
 	
 	[REGION:lightbox]
-	[![](Skylight_Reflection_00.png)(w:500 h:300)](Skylight_Reflection_00.png)
+	[![](Skylight_Reflection_00.png)(w:500)](Skylight_Reflection_00.png)
 	[/REGION]
 
 1. **디테일** 패널의 **라이트** 부분 아래 스카이라이트를 선택한 뒤, **Source Type** (소스 유형)을 **SLS Captured Scene** 에서 **SLS Specified Cubemap** 으로 변경합니다.
 
 	[REGION:lightbox]
-	[![](Skylight_Reflection_01.png)(w:500 h:300)](Skylight_Reflection_01.png)
+	[![](Skylight_Reflection_01.png)(w:500)](Skylight_Reflection_01.png)
 	[/REGION]
 
 1. **Cubemap** (큐브맵) 부분의 드롭다운 박스를 클릭한 다음 목록에서 HDRI 큐브 맵을 선택합니다.
 
 	[REGION:lightbox]
-	[![](Skylight_Reflection_02.png)(w:300 h:300)](Skylight_Reflection_02.png)
+	[![](Skylight_Reflection_02.png)(w:300)](Skylight_Reflection_02.png)
 	[/REGION]
 
 1. 큐브맵을 선택한 후에는 **Cubemap Resolution** 입력 값을 변경하여 해상도를 조절할 수 있습니다.
 	
 	[REGION:lightbox]
-	[![](Skylight_Reflection_03.png)(w:300 h:300)](Skylight_Reflection_03.png)
+	[![](Skylight_Reflection_03.png)(w:300)](Skylight_Reflection_03.png)
 	[/REGION]
 
 	[region:note]
@@ -394,25 +394,25 @@ Reflection Probe(리플렉션 프로브)를 편집할 때, 원하는 결과를 �
 1. 먼저 레벨에 추가된 **리플렉션 프로브** 가 최소 하나 있는지, **Reflection Source Type** (리플렉션 소스 유형)을 **Specified Cubemap** (지정된 큐브맵)으로 설정했는지, **Cubemap** 입력에 HDRI 텍스처를 입력했는지 확인합니다.
 
 	[REGION:lightbox]
-	[![](Blend_RFD_00.png)(w:600 h:400)](Blend_RFD_00.png)
+	[![](Blend_RFD_00.png)(w:600)](Blend_RFD_00.png)
 	[/REGION]
 
 1. 레벨에 리플렉션 프로브를 새로 추가하거나 기존의 것을 복제한 뒤, 노랑 영향력 반경 일부가 첫 번쨰 리플렉션 프로브와 겹치도록 위치와 **Influence Radius** (영향력 반경)을 조절합니다.
 
 	[REGION:lightbox]
-	[![](Blend_RFD_01.png)(w:600 h:400)](Blend_RFD_01.png)
+	[![](Blend_RFD_01.png)(w:600)](Blend_RFD_01.png)
 	[/REGION]
 
 1. 새로 복제/생성된 리플렉션 프로브 액터를 선택하고 **디테일** 패널의 **Cubemap** 부분 아래에서 HDRI 큐브맵을 다른 것으로 변경합니다.
 
 	[REGION:lightbox]
-	[![](Blend_RFD_02.png)(w:600 h:400)](Blend_RFD_02.png)
+	[![](Blend_RFD_02.png)(w:600)](Blend_RFD_02.png)
 	[/REGION]
 
 1. 추가/복제된 리플렉션 프로브를 여전히 선택해 둔 채, **디테일** 패널로 가 **Reflection Capture** 부분의 **Update Captures** (캡처 업데이트) 버튼을 눌러 리플렉션이 Cubemap 입력에 연결된 것을 사용하도록 업데이트합니다.
 
 	[REGION:lightbox]
-	[![](Blend_RFD_03.png)(w:600 h:400)](Blend_RFD_03.png)
+	[![](Blend_RFD_03.png)(w:600)](Blend_RFD_03.png)
 	[/REGION]
 
 1. 리플렉션 프로브를 선택하고 레벨에서 이동시켜 보면 두 개의 HDRI 큐브맵이 서로 어떻게 섞이는지 더욱 잘 파악해 볼 수 있습니다.

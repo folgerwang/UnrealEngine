@@ -20,7 +20,7 @@
 #include "K2Node_IfThenElse.h"
 #include "K2Node_TemporaryVariable.h"
 #include "Kismet2/BlueprintEditorUtils.h"
-#include "EditorStyleSettings.h"
+#include "Classes/EditorStyleSettings.h"
 #include "Editor.h"
 #include "EdGraphUtilities.h"
 
@@ -1861,7 +1861,7 @@ void UK2Node_CallFunction::ValidateNodeDuringCompilation(class FCompilerResultsL
 			check(Blueprint);
 			UClass* ParentClass = Blueprint->ParentClass;
 			check(ParentClass);
-			if (ParentClass && !FBlueprintEditorUtils::ImplentsGetWorld(Blueprint) && !ParentClass->HasMetaDataHierarchical(FBlueprintMetadata::MD_ShowWorldContextPin))
+			if (ParentClass && !FBlueprintEditorUtils::ImplementsGetWorld(Blueprint) && !ParentClass->HasMetaDataHierarchical(FBlueprintMetadata::MD_ShowWorldContextPin))
 			{
 				MessageLog.Warning(*LOCTEXT("FunctionUnsafeInContext", "Function '@@' is unsafe to call from blueprints of class '@@'.").ToString(), this, ParentClass);
 			}
@@ -2336,7 +2336,7 @@ bool UK2Node_CallFunction::ReconnectPureExecPins(TArray<UEdGraphPin*>& OldPins)
 		}
 		if (PinExec)
 		{
-			PinExec->bSavePinIfOrphaned = false; 
+			PinExec->SetSavePinIfOrphaned(false); 
 
 			// look for old then pin
 			UEdGraphPin* PinThen = nullptr;
@@ -2350,7 +2350,7 @@ bool UK2Node_CallFunction::ReconnectPureExecPins(TArray<UEdGraphPin*>& OldPins)
 			}
 			if (PinThen)
 			{
-				PinThen->bSavePinIfOrphaned = false;
+				PinThen->SetSavePinIfOrphaned(false);
 
 				// reconnect all incoming links to old exec pin to the far end of the old then pin.
 				if (PinThen->LinkedTo.Num() > 0)

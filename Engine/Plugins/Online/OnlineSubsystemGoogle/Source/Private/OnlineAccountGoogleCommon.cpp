@@ -47,9 +47,7 @@ bool FUserOnlineAccountGoogleCommon::Parse(const FAuthTokenGoogle& InAuthToken, 
 			{
 				if (!UserId.IsEmpty())
 				{
-					UserIdPtr = MakeShared<FUniqueNetIdString>(UserId);
-
-					AddUserAttributes(InJsonObject);
+					UserIdPtr = MakeShared<FUniqueNetIdGoogle>(UserId);
 
 					// update the access token
 					AuthToken = InAuthToken;
@@ -112,27 +110,5 @@ FString FUserOnlineAccountGoogleCommon::GetAccessToken() const
 bool FUserOnlineAccountGoogleCommon::GetAuthAttribute(const FString& AttrName, FString& OutAttrValue) const
 {
 	return AuthToken.GetAuthData(AttrName, OutAttrValue);
-}
-
-void FUserOnlineAccountGoogleCommon::AddUserAttributes(const TSharedPtr<FJsonObject>& JsonUser)
-{
-	for (auto It = JsonUser->Values.CreateConstIterator(); It; ++It)
-	{
-		if (It.Value().IsValid())
-		{
-			if (It.Value()->Type == EJson::String)
-			{
-				AccountData.Add(It.Key(), It.Value()->AsString());
-			}
-			else if (It.Value()->Type == EJson::Boolean)
-			{
-				AccountData.Add(It.Key(), It.Value()->AsBool() ? TEXT("true") : TEXT("false"));
-			}
-			else if (It.Value()->Type == EJson::Number)
-			{
-				AccountData.Add(It.Key(), FString::Printf(TEXT("%f"), (double)It.Value()->AsNumber()));
-			}
-		}
-	}
 }
 

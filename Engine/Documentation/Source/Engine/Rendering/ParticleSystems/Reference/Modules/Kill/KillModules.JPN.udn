@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2750648
+﻿INTSourceChangelist:3243860
 Availability:Public
 Title:Kill モジュール
 Crumbs: %ROOT%, Engine, Engine/Rendering/ParticleSystems, Engine/Rendering/ParticleSystems/Reference
 Description:特定の実装で定義されたルールに一致した場合に任意のパーティクルを Kill (消去) します 
 Version:4.9
+tags:Particles
 
 [TOC(start:2 end:3)]
 

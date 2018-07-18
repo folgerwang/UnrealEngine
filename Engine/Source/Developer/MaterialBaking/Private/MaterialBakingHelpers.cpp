@@ -4,7 +4,7 @@
 #include "Math/Color.h"
 #include "Async/ParallelFor.h"
 
-FColor FMaterialBakingHelpers::BoxBlurSample(TArray<FColor>& InBMP, int32 X, int32 Y, int32 InImageWidth, int32 InImageHeight, bool bIsNormalMap)
+static FColor BoxBlurSample(TArray<FColor>& InBMP, int32 X, int32 Y, int32 InImageWidth, int32 InImageHeight)
 {
 	const int32 SampleCount = 8;
 	const int32 PixelIndices[SampleCount] = { -(InImageWidth + 1), -InImageWidth, -(InImageWidth - 1),
@@ -16,7 +16,10 @@ FColor FMaterialBakingHelpers::BoxBlurSample(TArray<FColor>& InBMP, int32 X, int
 		-1, 0, 1 };
 
 	int32 PixelsSampled = 0;
-	FLinearColor CombinedColor = FColor::Black;
+	int32 CombinedColorR = 0;
+	int32 CombinedColorG = 0;
+	int32 CombinedColorB = 0;
+	int32 CombinedColorA = 0;
 
 	// Take samples for blur with square indices
 	for (int32 SampleIndex = 0; SampleIndex < SampleCount; ++SampleIndex)
@@ -27,26 +30,28 @@ FColor FMaterialBakingHelpers::BoxBlurSample(TArray<FColor>& InBMP, int32 X, int
 		// Check if we are not out of texture bounds
 		if (InBMP.IsValidIndex(PixelIndex) && XIndex >= 0 && XIndex < InImageWidth)
 		{
-			const FLinearColor SampledColor = InBMP[PixelIndex].ReinterpretAsLinear();
-			// Check if the pixel is a rendered one (not clear colour)
-			if ((!(SampledColor.R == 1.0f && SampledColor.B == 1.0f && SampledColor.G == 0.0f)) && (!bIsNormalMap || SampledColor.B != 0.0f))
+			const FColor SampledColor = InBMP[PixelIndex];
+			// Check if the pixel is a rendered one (not clear color)
+			if ((!(SampledColor.R == 255 && SampledColor.B == 255 && SampledColor.G == 0)))
 			{
-				CombinedColor += SampledColor;
+				CombinedColorR += SampledColor.R;
+				CombinedColorG += SampledColor.G;
+				CombinedColorB += SampledColor.B;
+				CombinedColorA += SampledColor.A;
 				++PixelsSampled;
 			}
 		}
 	}
-	CombinedColor /= PixelsSampled;
 
 	if (PixelsSampled == 0)
 	{
 		return InBMP[((Y * InImageWidth) + X)];
 	}
 
-	return CombinedColor.ToFColor(false);
+	return FColor(CombinedColorR / PixelsSampled, CombinedColorG / PixelsSampled, CombinedColorB / PixelsSampled, CombinedColorA / PixelsSampled);
 }
 
-void FMaterialBakingHelpers::PerformUVBorderSmear(TArray<FColor>& InOutPixels, int32 ImageWidth, int32 ImageHeight, bool bIsNormalMap)
+void FMaterialBakingHelpers::PerformUVBorderSmear(TArray<FColor>& InOutPixels, int32 ImageWidth, int32 ImageHeight, int32 MaxIterations)
 {
 	// This is ONLY possible because this is never called from multiple threads
 	static TArray<FColor> Swap;
@@ -59,17 +64,18 @@ void FMaterialBakingHelpers::PerformUVBorderSmear(TArray<FColor>& InOutPixels, i
 	TArray<FColor>* Current = &InOutPixels;
 	TArray<FColor>* Scratch = &Swap;
 
-	const int32 MaxIterations = 32;
+	MaxIterations = MaxIterations < 1 ? FMath::Max(ImageWidth, ImageHeight) : MaxIterations;
 	const int32 NumThreads = [&]()
 	{
 		return FPlatformProcess::SupportsMultithreading() ? FPlatformMisc::NumberOfCores() : 1;
 	}();
 
 	const int32 LinesPerThread = FMath::CeilToInt((float)ImageHeight / (float)NumThreads);
-	int32* MagentaPixels = new int32[NumThreads];
-	FMemory::Memzero(MagentaPixels, sizeof(int32) * NumThreads);
+	uint32* MagentaPixels = new uint32[NumThreads];
+	FMemory::Memset(MagentaPixels, 0xff, sizeof(uint32) * NumThreads);
 
-	int32 SummedMagentaPixels = 1;
+	uint32 TotalPixels = ImageWidth * ImageHeight;
+	uint32 SummedMagentaPixels = 1;
 
 	// Sampling
 	int32 LoopCount = 0;
@@ -77,33 +83,38 @@ void FMaterialBakingHelpers::PerformUVBorderSmear(TArray<FColor>& InOutPixels, i
 	{
 		SummedMagentaPixels = 0;
 		// Left / right, Top / down
-		ParallelFor(NumThreads, [ImageWidth, ImageHeight, bIsNormalMap, MaxIterations, LoopCount, Current, Scratch, &MagentaPixels, LinesPerThread]
+		ParallelFor(NumThreads, [ImageWidth, ImageHeight, MaxIterations, LoopCount, Current, Scratch, &MagentaPixels, LinesPerThread]
 		(int32 Index)
 		{
-			const int32 StartY = FMath::CeilToInt((Index)* LinesPerThread);
-			const int32 EndY = FMath::Min(FMath::CeilToInt((Index + 1) * LinesPerThread), ImageHeight);
-
-			for (int32 Y = StartY; Y < EndY; Y++)
+			if(MagentaPixels[Index] > 0)
 			{
-				for (int32 X = 0; X < ImageWidth; X++)
+				MagentaPixels[Index] = 0;
+
+				const int32 StartY = FMath::CeilToInt((Index)* LinesPerThread);
+				const int32 EndY = FMath::Min(FMath::CeilToInt((Index + 1) * LinesPerThread), ImageHeight);
+
+				for (int32 Y = StartY; Y < EndY; Y++)
 				{
-					const int32 PixelIndex = (Y * ImageWidth) + X;
-					FColor& Color = (*Current)[PixelIndex];
-					if ((Color.R == 255 && Color.B == 255 && Color.G == 0) || (bIsNormalMap && Color.B == 0))
+					for (int32 X = 0; X < ImageWidth; X++)
 					{
-						MagentaPixels[Index]++;
-						const FColor SampledColor = BoxBlurSample(*Scratch, X, Y, ImageWidth, ImageHeight, bIsNormalMap);
-						// If it's a valid pixel
-						if ((!(SampledColor.R == 255 && SampledColor.B == 255 && SampledColor.G == 0)) && (!bIsNormalMap || SampledColor.B != 0))
+						const int32 PixelIndex = (Y * ImageWidth) + X;
+						FColor& Color = (*Current)[PixelIndex];
+						if (Color.R == 255 && Color.B == 255 && Color.G == 0)
 						{
-							Color = SampledColor;
-						}
-						else
-						{
-							// If we are at the end of our iterations, replace the pixels with black
-							if (LoopCount == (MaxIterations - 1))
+							MagentaPixels[Index]++;
+							const FColor SampledColor = BoxBlurSample(*Scratch, X, Y, ImageWidth, ImageHeight);
+							// If it's a valid pixel
+							if (!(SampledColor.R == 255 && SampledColor.B == 255 && SampledColor.G == 0))
 							{
-								Color = FColor(0, 0, 0, 0);
+								Color = SampledColor;
+							}
+							else
+							{
+								// If we are at the end of our iterations, replace the pixels with black
+								if (LoopCount == (MaxIterations - 1))
+								{
+									Color = FColor(0, 0, 0, 0);
+								}
 							}
 						}
 					}
@@ -114,7 +125,13 @@ void FMaterialBakingHelpers::PerformUVBorderSmear(TArray<FColor>& InOutPixels, i
 		for (int32 ThreadIndex = 0; ThreadIndex < NumThreads; ++ThreadIndex)
 		{
 			SummedMagentaPixels += MagentaPixels[ThreadIndex];
-			MagentaPixels[ThreadIndex] = 0;
+		}
+
+		// If after iterating over all pixels we found they were all magenta, exit early
+		if(SummedMagentaPixels >= TotalPixels)
+		{
+			FMemory::Memset(Current->GetData(), 0, Current->Num() * sizeof(FColor));
+			break;
 		}
 
 		TArray<FColor>& Temp = *Scratch;

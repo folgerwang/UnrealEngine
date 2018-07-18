@@ -49,6 +49,7 @@ public:
 		FMeshMaterialShader(Initializer)
 	{
 		LightMapPolicyType::VertexParametersType::Bind(Initializer.ParameterMap);
+		PassUniformBuffer.Bind(Initializer.ParameterMap, FSceneTexturesUniformParameters::StaticStruct.GetShaderVariableName());
 	}
 	TLightMapDensityVS() {}
 
@@ -62,10 +63,11 @@ public:
 	void SetParameters(		
 		FRHICommandList& RHICmdList, 
 		const FMaterialRenderProxy* MaterialRenderProxy,
-		const FSceneView& View
+		const FSceneView& View, 
+		const FDrawingPolicyRenderState& DrawRenderState
 		)
 	{
-		FMeshMaterialShader::SetParameters(RHICmdList, GetVertexShader(), MaterialRenderProxy, *MaterialRenderProxy->GetMaterial(View.GetFeatureLevel()), View, View.ViewUniformBuffer, ESceneRenderTargetsMode::SetTextures);
+		FMeshMaterialShader::SetParameters(RHICmdList, GetVertexShader(), MaterialRenderProxy, *MaterialRenderProxy->GetMaterial(View.GetFeatureLevel()), View, DrawRenderState.GetViewUniformBuffer(), DrawRenderState.GetPassUniformBuffer());
 	}
 
 	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy,const FMeshBatchElement& BatchElement,const FDrawingPolicyRenderState& DrawRenderState)
@@ -171,12 +173,13 @@ public:
 		VertexMappedColor.Bind(Initializer.ParameterMap,TEXT("VertexMappedColor"));
 		GridTexture.Bind(Initializer.ParameterMap,TEXT("GridTexture"));
 		GridTextureSampler.Bind(Initializer.ParameterMap,TEXT("GridTextureSampler"));
+		PassUniformBuffer.Bind(Initializer.ParameterMap, FSceneTexturesUniformParameters::StaticStruct.GetShaderVariableName());
 	}
 	TLightMapDensityPS() {}
 
-	void SetParameters(FRHICommandList& RHICmdList, const FMaterialRenderProxy* MaterialRenderProxy,const FSceneView* View)
+	void SetParameters(FRHICommandList& RHICmdList, const FMaterialRenderProxy* MaterialRenderProxy,const FSceneView* View,const FDrawingPolicyRenderState& DrawRenderState)
 	{
-		FMeshMaterialShader::SetParameters(RHICmdList, GetPixelShader(), MaterialRenderProxy, *MaterialRenderProxy->GetMaterial(View->GetFeatureLevel()), *View, View->ViewUniformBuffer, ESceneRenderTargetsMode::SetTextures);
+		FMeshMaterialShader::SetParameters(RHICmdList, GetPixelShader(), MaterialRenderProxy, *MaterialRenderProxy->GetMaterial(View->GetFeatureLevel()), *View, DrawRenderState.GetViewUniformBuffer(), DrawRenderState.GetPassUniformBuffer());
 
 		if (GridTexture.IsBound())
 		{
@@ -318,17 +321,17 @@ public:
 	void SetSharedState(FRHICommandList& RHICmdList, const FDrawingPolicyRenderState& DrawRenderState, const FSceneView* View, const ContextDataType) const
 	{
 		// Set the base pass shader parameters for the material.
-		VertexShader->SetParameters(RHICmdList, MaterialRenderProxy,*View);
-		PixelShader->SetParameters(RHICmdList, MaterialRenderProxy,View);
+		VertexShader->SetParameters(RHICmdList, MaterialRenderProxy,*View,DrawRenderState);
+		PixelShader->SetParameters(RHICmdList, MaterialRenderProxy,View,DrawRenderState);
 
 		if(HullShader && DomainShader)
 		{
-			HullShader->SetParameters(RHICmdList, MaterialRenderProxy,*View);
-			DomainShader->SetParameters(RHICmdList, MaterialRenderProxy,*View);
+			HullShader->SetParameters(RHICmdList, MaterialRenderProxy,*View,DrawRenderState.GetViewUniformBuffer(), DrawRenderState.GetPassUniformBuffer());
+			DomainShader->SetParameters(RHICmdList, MaterialRenderProxy,*View,DrawRenderState.GetViewUniformBuffer(), DrawRenderState.GetPassUniformBuffer());
 		}
 
-		// Set the light-map policy.
-		LightMapPolicy.Set(RHICmdList, VertexShader,PixelShader,VertexShader,PixelShader,VertexFactory,MaterialRenderProxy,View);
+		check(VertexFactory && VertexFactory->IsInitialized());
+		VertexFactory->SetStreams(View->FeatureLevel, RHICmdList);
 	}
 
 	void SetMeshRenderState(

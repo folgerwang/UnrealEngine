@@ -11,6 +11,8 @@ class FMovieSceneCaptureProtocolRegistry;
 class FSceneViewport;
 class IMovieSceneCaptureInterface;
 
+MOVIESCENECAPTURE_API DECLARE_LOG_CATEGORY_EXTERN(LogMovieSceneCapture, Log, All);
+
 class IMovieSceneCaptureModule : public IModuleInterface
 {
 public:
@@ -29,5 +31,6 @@ public:
 
 	virtual void DestroyAllActiveCaptures() = 0;
 	virtual FMovieSceneCaptureProtocolRegistry& GetProtocolRegistry() = 0;
+	virtual bool IsStereoAllowed() = 0;
 };
 

@@ -17,6 +17,7 @@
 #include "Serialization/JsonSerializer.h"
 #include "Data/ChunkData.h"
 #include "Core/BlockStructure.h"
+#include "Data/ManifestUObject.h"
 
 using namespace BuildPatchServices;
 
@@ -24,10 +25,6 @@ using namespace BuildPatchServices;
 
 // The manifest header magic codeword, for quick checking that the opened file is probably a manifest file.
 #define MANIFEST_HEADER_MAGIC		0x44BEC00C
-
-// The maximum number of FNames that we expect a manifest to generate. This is not a technical limitation, just a sanity check
-// and can be increased if more properties are added to our manifest UObject. FNames are only used by the UOject serialization system.
-#define MANIFEST_MAX_NAMES			50
 
 /**
  * Helper functions that convert generic types to and from string blobs for use with JSON parsing.
@@ -151,41 +148,9 @@ FArchive& operator<<(FArchive& Ar, FManifestFileHeader& Header)
 	return Ar;
 }
 
-/* FCustomFieldData implementation
+/* FChunkInfo implementation
 *****************************************************************************/
-FCustomFieldData::FCustomFieldData()
-	: Key(TEXT(""))
-	, Value(TEXT(""))
-{
-}
-
-FCustomFieldData::FCustomFieldData(const FString& InKey, const FString& InValue)
-	: Key(InKey)
-	, Value(InValue)
-{
-}
-
-/* FSHAHashData implementation
-*****************************************************************************/
-FSHAHashData::FSHAHashData()
-{
-	FMemory::Memset(Hash, 0, FSHA1::DigestSize);
-}
-
-FString FSHAHashData::ToString() const
-{
-	return BytesToHex(Hash, FSHA1::DigestSize);
-}
-
-bool FSHAHashData::IsZero() const
-{
-	static const uint8 Zero[FSHA1::DigestSize] = {0};
-	return FMemory::Memcmp(Hash, Zero, FSHA1::DigestSize) == 0;
-}
-
-/* FChunkInfoData implementation
-*****************************************************************************/
-FChunkInfoData::FChunkInfoData()
+FChunkInfo::FChunkInfo()
 	: Guid()
 	, Hash(0)
 	, ShaHash()
@@ -194,18 +159,18 @@ FChunkInfoData::FChunkInfoData()
 {
 }
 
-/* FChunkPartData implementation
+/* FChunkPart implementation
 *****************************************************************************/
-FChunkPartData::FChunkPartData()
+FChunkPart::FChunkPart()
 	: Guid()
 	, Offset(0)
 	, Size(0)
 {
 }
 
-/* FFileManifestData implementation
+/* FFileManifest implementation
 *****************************************************************************/
-FFileManifestData::FFileManifestData()
+FFileManifest::FFileManifest()
 	: Filename(TEXT(""))
 	, FileHash()
 	, FileChunkParts()
@@ -217,278 +182,23 @@ FFileManifestData::FFileManifestData()
 {
 }
 
-int64 FFileManifestData::GetFileSize() const
+int64 FFileManifest::GetFileSize() const
 {
 	return FileSize;
 }
 
-bool FFileManifestData::operator<(const FFileManifestData& Other) const
+bool FFileManifest::operator<(const FFileManifest& Other) const
 {
 	return Filename < Other.Filename;
 }
 
-void FFileManifestData::Init()
+void FFileManifest::Init()
 {
 	FileSize = 0;
 	for (auto FileChunkPartIt = FileChunkParts.CreateConstIterator(); FileChunkPartIt; ++FileChunkPartIt)
 	{
 		FileSize += (*FileChunkPartIt).Size;
 	}
-}
-
-/**
- * Archive for writing a manifest into memory
- */
-class FManifestWriter : public FArchive
-{
-public:
-	FManifestWriter()
-		: FArchive()
-		, Offset(0)
-	{
-		ArIsPersistent = false;
-		ArIsSaving = true;
-	}
-
-	virtual void Seek(int64 InPos) override
-	{
-		Offset = InPos;
-	}
-
-	virtual int64 Tell() override
-	{
-		return Offset;
-	}
-
-	virtual FString GetArchiveName() const override
-	{
-		return TEXT("FManifestWriter");
-	}
-
-	virtual FArchive& operator<<(FName& N) override
-	{
-		if (!FNameIndexLookup.Contains(N))
-		{
-			const int32 ArNameIndex = FNameIndexLookup.Num();
-			FNameIndexLookup.Add(N, ArNameIndex);
-		}
-		*this << FNameIndexLookup[N];
-		return *this;
-	}
-
-	virtual void Serialize(void* Data, int64 Num) override
-	{
-		if (Num && !ArIsError)
-		{
-			const int64 NumBytesToAdd = Offset + Num - Bytes.Num();
-			if (NumBytesToAdd > 0)
-			{
-				const int64 NewArrayCount = Bytes.Num() + NumBytesToAdd;
-				if (NewArrayCount >= MAX_int32)
-				{
-					ArIsError = true;
-					return;
-				}
-
-				Bytes.AddUninitialized((int32)NumBytesToAdd);
-			}
-
-			check((Offset + Num) <= Bytes.Num());
-
-			if (Num)
-			{
-				FMemory::Memcpy(&Bytes[Offset], Data, Num);
-				Offset += Num;
-			}
-		}
-	}
-
-	virtual int64 TotalSize() override
-	{
-		return Bytes.Num();
-	}
-
-	void Finalize()
-	{
-		TArray<uint8> FinalData;
-		FMemoryWriter NameTableWriter(FinalData);
-
-		int32 NumNames = FNameIndexLookup.Num();
-		check(NumNames <= MANIFEST_MAX_NAMES);
-		NameTableWriter << NumNames;
-		for (auto& MapEntry : FNameIndexLookup)
-		{
-			FName& Name = MapEntry.Key;
-			int32& Index = MapEntry.Value;
-			NameTableWriter << Name;
-			NameTableWriter << Index;
-		}
-
-		FinalData.Append(Bytes);
-
-		Bytes = MoveTemp(FinalData);
-	}
-
-	TArray<uint8>& GetBytes()
-	{
-		return Bytes;
-	}
-
-private:
-	int64 Offset;
-	TArray<uint8> Bytes;
-	TMap<FName, int32> FNameIndexLookup;
-};
-
-/**
- * Archive for reading a manifest from data in memory
- */
-class FManifestReader : public FArchive
-{
-public:
-	FManifestReader(const TArray<uint8>& InBytes)
-		: FArchive()
-		, Offset(0)
-		, Bytes(InBytes)
-	{
-		ArIsPersistent = false;
-		ArIsLoading = true;
-
-		// Must load table immediately
-		FMemoryReader NameTableReader(InBytes);
-		int32 NumNames;
-		NameTableReader << NumNames;
-
-		// Check not insane, we know to expect a small number for a manifest
-		if (NumNames < MANIFEST_MAX_NAMES)
-		{
-			FNameLookup.Empty(NumNames);
-			for (; NumNames > 0; --NumNames)
-			{
-				FName Name;
-				int32 Index;
-				NameTableReader << Name;
-				NameTableReader << Index;
-				FNameLookup.Add(Index, Name);
-			}
-		}
-		else
-		{
-			ArIsError = true;
-		}
-
-		Offset = NameTableReader.Tell();
-	}
-
-	virtual FString GetArchiveName() const override
-	{
-		return TEXT("FManifestReader");
-	}
-
-	virtual void Seek(int64 InPos) override
-	{
-		check(InPos <= Bytes.Num());
-		Offset = InPos;
-	}
-
-	virtual int64 Tell() override
-	{
-		return Offset;
-	}
-
-	virtual FArchive& operator<<(FName& N) override
-	{
-		if (ArIsError)
-		{
-			N = NAME_None;
-		}
-		else
-		{
-			// Read index and lookup
-			int32 ArNameIndex;
-			*this << ArNameIndex;
-			if (FNameLookup.Contains(ArNameIndex))
-			{
-				N = FNameLookup[ArNameIndex];
-			}
-			else
-			{
-				N = NAME_None;
-				ArIsError = true;
-			}
-		}
-		return *this;
-	}
-
-	virtual void Serialize(void* Data, int64 Num) override
-	{
-		if (Num && !ArIsError)
-		{
-			// Only serialize if we have the requested amount of data
-			if (Offset + Num <= Bytes.Num())
-			{
-				FMemory::Memcpy(Data, &Bytes[Offset], Num);
-				Offset += Num;
-			}
-			else
-			{
-				ArIsError = true;
-			}
-		}
-	}
-
-	virtual int64 TotalSize() override
-	{
-		return Bytes.Num();
-	}
-
-private:
-	int64 Offset;
-	const TArray<uint8>& Bytes;
-	TMap<int32, FName> FNameLookup;
-};
-
-/* UBuildPatchManifest implementation
-*****************************************************************************/
-UBuildPatchManifest::UBuildPatchManifest(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer)
-	, ManifestFileVersion(EBuildPatchAppManifestVersion::Invalid)
-	, bIsFileData(false)
-	, AppID(INDEX_NONE)
-	, AppName(TEXT(""))
-	, BuildVersion(TEXT(""))
-	, LaunchExe(TEXT(""))
-	, LaunchCommand(TEXT(""))
-	, PrereqIds()
-	, PrereqName(TEXT(""))
-	, PrereqPath(TEXT(""))
-	, PrereqArgs(TEXT(""))
-	, FileManifestList()
-	, ChunkList()
-	, CustomFields()
-{
-}
-
-void UBuildPatchManifest::Clear()
-{
-	ManifestFileVersion = EBuildPatchAppManifestVersion::Invalid;
-	bIsFileData = false;
-	AppID = INDEX_NONE;
-	AppName.Empty();
-	BuildVersion.Empty();
-	LaunchExe.Empty();
-	LaunchCommand.Empty();
-	PrereqIds.Empty();
-	PrereqName.Empty();
-	PrereqPath.Empty();
-	PrereqArgs.Empty();
-	FileManifestList.Empty();
-	ChunkList.Empty();
-	CustomFields.Empty();
-}
-
-UBuildPatchManifest::~UBuildPatchManifest()
-{
 }
 
 /* FBuildPatchCustomField implementation
@@ -627,44 +337,13 @@ FBuildPatchAppManifest::~FBuildPatchAppManifest()
 
 bool FBuildPatchAppManifest::SaveToFile(const FString& Filename, bool bUseBinary)
 {
-	bool bSuccess = false;
-	FArchive* FileOut = IFileManager::Get().CreateFileWriter(*Filename);
-	if (FileOut)
+	TUniquePtr<FArchive> FileOut(IFileManager::Get().CreateFileWriter(*Filename));
+	bool bSuccess = FileOut.IsValid();
+	if (bSuccess)
 	{
 		if (bUseBinary)
 		{
-			FManifestWriter ManifestData;
-			Serialize(ManifestData);
-			ManifestData.Finalize();
-			if (!ManifestData.IsError())
-			{
-				int32 DataSize = ManifestData.TotalSize();
-				TArray<uint8> TempCompressed;
-				TempCompressed.AddUninitialized(DataSize);
-				int32 CompressedSize = DataSize;
-				bool bDataIsCompressed = FCompression::CompressMemory(
-					static_cast<ECompressionFlags>(COMPRESS_ZLIB | COMPRESS_BiasMemory),
-					TempCompressed.GetData(),
-					CompressedSize,
-					ManifestData.GetBytes().GetData(),
-					DataSize);
-				TempCompressed.SetNum(CompressedSize);
-
-				TArray<uint8>& FileData = bDataIsCompressed ? TempCompressed : ManifestData.GetBytes();
-
-				FManifestFileHeader Header;
-				Header.StoredAs = bDataIsCompressed ? EManifestFileHeader::STORED_COMPRESSED : EManifestFileHeader::STORED_RAW;
-				Header.DataSize = DataSize;
-				Header.CompressedSize = bDataIsCompressed ? CompressedSize : 0;
-				FSHA1::HashBuffer(FileData.GetData(), FileData.Num(), Header.SHAHash.Hash);
-
-				// Write to disk
-				*FileOut << Header;
-				Header.HeaderSize = FileOut->Tell();
-				FileOut->Seek(0);
-				*FileOut << Header;
-				FileOut->Serialize(FileData.GetData(), FileData.Num());
-			}
+			bSuccess = FManifestUObject::SaveToArchive(*FileOut, *this);
 		}
 		else
 		{
@@ -673,9 +352,7 @@ bool FBuildPatchAppManifest::SaveToFile(const FString& Filename, bool bUseBinary
 			FTCHARToUTF8 JsonUTF8(*JSONOutput);
 			FileOut->Serialize((UTF8CHAR*)JsonUTF8.Get(), JsonUTF8.Length() * sizeof(UTF8CHAR));
 		}
-		bSuccess = FileOut->Close();
-		delete FileOut;
-		FileOut = nullptr;
+		bSuccess = FileOut->Close() && bSuccess;
 	}
 
 	return bSuccess;
@@ -703,119 +380,10 @@ bool FBuildPatchAppManifest::DeserializeFromData(const TArray<uint8>& DataInput)
 		}
 		else
 		{
-			FMemoryReader ManifestFile(DataInput);
-			FManifestFileHeader Header;
-			ManifestFile << Header;
-			const int32 SignedHeaderSize = Header.HeaderSize;
-			if (Header.CheckMagic() && DataInput.Num() > SignedHeaderSize)
-			{
-				FSHAHashData DataHash;
-				FSHA1::HashBuffer(&DataInput[Header.HeaderSize], DataInput.Num() - Header.HeaderSize, DataHash.Hash);
-				if (DataHash == Header.SHAHash)
-				{
-					TArray<uint8> UncompressedData;
-					if (Header.StoredAs == EManifestFileHeader::STORED_COMPRESSED && (Header.CompressedSize + Header.HeaderSize) == DataInput.Num())
-					{
-						UncompressedData.AddUninitialized(Header.DataSize);
-						if (!FCompression::UncompressMemory(
-							static_cast<ECompressionFlags>(COMPRESS_ZLIB | COMPRESS_BiasMemory),
-							UncompressedData.GetData(),
-							Header.DataSize,
-							&DataInput[Header.HeaderSize],
-							DataInput.Num() - Header.HeaderSize))
-						{
-							return false;
-						}
-					}
-					else if ((Header.DataSize + Header.HeaderSize) == DataInput.Num())
-					{
-						UncompressedData.Append(&DataInput[Header.HeaderSize], Header.DataSize);
-					}
-					else
-					{
-						return false;
-					}
-					FManifestReader ManifestData(UncompressedData);
-					return Serialize(ManifestData);
-				}
-				else
-				{
-					return false;
-				}
-			}
-			else
-			{
-				return false;
-			}
+			return FManifestUObject::LoadFromMemory(DataInput, *this);
 		}
 	}
 	return false;
-}
-
-bool FBuildPatchAppManifest::Serialize(FArchive& Ar)
-{
-	UBuildPatchManifest* Data = NewObject<UBuildPatchManifest>();
-	Data->AddToRoot();
-
-	// Make sure we use the correct serialization version, this is now fixed and must never use a newer version,
-	// because the property tag has changed in structure meaning older clients would not read correctly.
-	Ar.SetUE4Ver(VER_UE4_STRUCT_GUID_IN_PROPERTY_TAG - 1);
-
-	if (Ar.IsLoading())
-	{
-		DestroyData();
-	}
-	else
-	{
-		Data->ManifestFileVersion = ManifestFileVersion;
-		Data->bIsFileData = bIsFileData;
-		Data->AppID = AppID;
-		Data->AppName = AppName;
-		Data->BuildVersion = BuildVersion;
-		Data->LaunchExe = LaunchExe;
-		Data->LaunchCommand = LaunchCommand;
-		Data->PrereqIds = PrereqIds;
-		Data->PrereqName = PrereqName;
-		Data->PrereqPath = PrereqPath;
-		Data->PrereqArgs = PrereqArgs;
-		Data->FileManifestList = FileManifestList;
-		Data->ChunkList = ChunkList;
-		Data->CustomFields = CustomFields;
-	}
-
-	Data->Serialize(Ar);
-
-	if (Ar.IsLoading())
-	{
-		ManifestFileVersion = MoveTemp(Data->ManifestFileVersion);
-		bIsFileData = MoveTemp(Data->bIsFileData);
-		AppID = MoveTemp(Data->AppID);
-		AppName = MoveTemp(Data->AppName);
-		BuildVersion = MoveTemp(Data->BuildVersion);
-		LaunchExe = MoveTemp(Data->LaunchExe);
-		LaunchCommand = MoveTemp(Data->LaunchCommand);
-		PrereqIds = MoveTemp(Data->PrereqIds);
-		PrereqName = MoveTemp(Data->PrereqName);
-		PrereqPath = MoveTemp(Data->PrereqPath);
-		PrereqArgs = MoveTemp(Data->PrereqArgs);
-		FileManifestList = MoveTemp(Data->FileManifestList);
-		ChunkList = MoveTemp(Data->ChunkList);
-		CustomFields = MoveTemp(Data->CustomFields);
-
-		// If we didn't load the version number, we know it was skipped when saving therefore must be
-		// the first UObject version
-		if (ManifestFileVersion == static_cast<uint8>(EBuildPatchAppManifestVersion::Invalid))
-		{
-			ManifestFileVersion = EBuildPatchAppManifestVersion::StoredAsCompressedUClass;
-		}
-
-		// Setup internal lookups
-		InitLookups();
-	}
-
-	Data->Clear();
-	Data->RemoveFromRoot();
-	return !Ar.IsError();
 }
 
 void FBuildPatchAppManifest::DestroyData()
@@ -854,7 +422,7 @@ void FBuildPatchAppManifest::InitLookups()
 	FileManifestLookup.Empty(FileManifestList.Num());
 	TaggedFilesLookup.Empty();
 	FileNameLookup.Empty(bIsFileData ? FileManifestList.Num() : 0);
-	for (FFileManifestData& File : FileManifestList)
+	for (FFileManifest& File : FileManifestList)
 	{
 		File.Init();
 		TotalBuildSize += File.GetFileSize();
@@ -880,13 +448,13 @@ void FBuildPatchAppManifest::InitLookups()
 	}
 	TotalDownloadSize = 0;
 	ChunkInfoLookup.Empty(ChunkList.Num());
-	for (FChunkInfoData& Chunk : ChunkList)
+	for (FChunkInfo& Chunk : ChunkList)
 	{
 		ChunkInfoLookup.Add(Chunk.Guid, &Chunk);
 		TotalDownloadSize += Chunk.FileSize;
 	}
 	CustomFieldLookup.Empty(CustomFields.Num());
-	for (FCustomFieldData& CustomField : CustomFields)
+	for (FCustomField& CustomField : CustomFields)
 	{
 		CustomFieldLookup.Add(CustomField.Key, &CustomField);
 	}
@@ -921,7 +489,7 @@ void FBuildPatchAppManifest::SerializeToJSON(FString& JSONOutput)
 		Writer->WriteValue(TEXT("PrereqArgs"), PrereqArgs);
 		// Write file manifest data
 		Writer->WriteArrayStart(TEXT("FileManifestList"));
-		for (const FFileManifestData& FileManifest : FileManifestList)
+		for (const FFileManifest& FileManifest : FileManifestList)
 		{
 			Writer->WriteObjectStart();
 			{
@@ -948,7 +516,7 @@ void FBuildPatchAppManifest::SerializeToJSON(FString& JSONOutput)
 				{
 					Writer->WriteArrayStart(TEXT("FileChunkParts"));
 					{
-						for (const FChunkPartData& FileChunkPart : FileManifest.FileChunkParts)
+						for (const FChunkPart& FileChunkPart : FileManifest.FileChunkParts)
 						{
 							Writer->WriteObjectStart();
 							{
@@ -978,7 +546,7 @@ void FBuildPatchAppManifest::SerializeToJSON(FString& JSONOutput)
 		Writer->WriteArrayEnd();
 		// Write chunk hash list
 		Writer->WriteObjectStart(TEXT("ChunkHashList"));
-		for (const FChunkInfoData& ChunkInfo : ChunkList)
+		for (const FChunkInfo& ChunkInfo : ChunkList)
 		{
 			const FGuid& ChunkGuid = ChunkInfo.Guid;
 			const uint64& ChunkHash = ChunkInfo.Hash;
@@ -987,16 +555,16 @@ void FBuildPatchAppManifest::SerializeToJSON(FString& JSONOutput)
 		Writer->WriteObjectEnd();
 		// Write chunk sha list
 		Writer->WriteObjectStart(TEXT("ChunkShaList"));
-		for (const FChunkInfoData& ChunkInfo : ChunkList)
+		for (const FChunkInfo& ChunkInfo : ChunkList)
 		{
 			const FGuid& ChunkGuid = ChunkInfo.Guid;
-			const FSHAHashData& ChunkSha = ChunkInfo.ShaHash;
+			const FSHAHash& ChunkSha = ChunkInfo.ShaHash;
 			Writer->WriteValue(ChunkGuid.ToString(), ToHexString(ChunkSha));
 		}
 		Writer->WriteObjectEnd();
 		// Write data group list
 		Writer->WriteObjectStart(TEXT("DataGroupList"));
-		for (const FChunkInfoData& ChunkInfo : ChunkList)
+		for (const FChunkInfo& ChunkInfo : ChunkList)
 		{
 			const FGuid& DataGuid = ChunkInfo.Guid;
 			const uint8& DataGroup = ChunkInfo.GroupNumber;
@@ -1005,7 +573,7 @@ void FBuildPatchAppManifest::SerializeToJSON(FString& JSONOutput)
 		Writer->WriteObjectEnd();
 		// Write chunk size list
 		Writer->WriteObjectStart(TEXT("ChunkFilesizeList"));
-		for (const FChunkInfoData& ChunkInfo : ChunkList)
+		for (const FChunkInfo& ChunkInfo : ChunkList)
 		{
 			const FGuid& ChunkGuid = ChunkInfo.Guid;
 			const int64& ChunkSize = ChunkInfo.FileSize;
@@ -1014,7 +582,7 @@ void FBuildPatchAppManifest::SerializeToJSON(FString& JSONOutput)
 		Writer->WriteObjectEnd();
 		// Write custom fields
 		Writer->WriteObjectStart(TEXT("CustomFields"));
-		for (const FCustomFieldData& CustomField : CustomFields)
+		for (const FCustomField& CustomField : CustomFields)
 		{
 			Writer->WriteValue(CustomField.Key, CustomField.Value);
 		}
@@ -1110,15 +678,15 @@ bool FBuildPatchAppManifest::DeserializeFromJSON( const FString& JSONInput )
 		{
 			TSharedPtr<FJsonObject> JsonFileManifest = (*JsonFileManifestIt)->AsObject();
 
-			const int32 FileIndex = FileManifestList.Add(FFileManifestData());
-			FFileManifestData& FileManifest = FileManifestList[FileIndex];
+			const int32 FileIndex = FileManifestList.Add(FFileManifest());
+			FFileManifest& FileManifest = FileManifestList[FileIndex];
 			FileManifest.Filename = JsonFileManifest->GetStringField(TEXT("Filename"));
 			bSuccess = bSuccess && FString::ToBlob(JsonFileManifest->GetStringField(TEXT("FileHash")), FileManifest.FileHash.Hash, FSHA1::DigestSize);
 			TArray<TSharedPtr<FJsonValue>> JsonChunkPartArray = JsonFileManifest->GetArrayField(TEXT("FileChunkParts"));
 			for (auto JsonChunkPartIt = JsonChunkPartArray.CreateConstIterator(); JsonChunkPartIt && bSuccess; ++JsonChunkPartIt)
 			{
-				const int32 ChunkIndex = FileManifest.FileChunkParts.Add(FChunkPartData());
-				FChunkPartData& FileChunkPart = FileManifest.FileChunkParts[ChunkIndex];
+				const int32 ChunkIndex = FileManifest.FileChunkParts.Add(FChunkPart());
+				FChunkPart& FileChunkPart = FileManifest.FileChunkParts[ChunkIndex];
 				TSharedPtr<FJsonObject> JsonChunkPart = (*JsonChunkPartIt)->AsObject();
 				bSuccess = bSuccess && FGuid::Parse(JsonChunkPart->GetStringField(TEXT("Guid")), FileChunkPart.Guid);
 				bSuccess = bSuccess && FromStringBlob(JsonChunkPart->GetStringField(TEXT("Offset")), FileChunkPart.Offset);
@@ -1141,7 +709,7 @@ bool FBuildPatchAppManifest::DeserializeFromJSON( const FString& JSONInput )
 		}
 	}
 	FileManifestList.Sort();
-	for (FFileManifestData& FileManifest : FileManifestList)
+	for (FFileManifest& FileManifest : FileManifestList)
 	{
 		FileManifestLookup.Add(FileManifest.Filename, &FileManifest);
 	}
@@ -1149,12 +717,12 @@ bool FBuildPatchAppManifest::DeserializeFromJSON( const FString& JSONInput )
 	// For each chunk setup its info
 	for (const FGuid& DataGuid : AllDataGuids)
 	{
-		int32 ChunkIndex = ChunkList.Add(FChunkInfoData());
+		int32 ChunkIndex = ChunkList.Add(FChunkInfo());
 		ChunkList[ChunkIndex].Guid = DataGuid;
 	}
 
 	// Setup chunk info lookup
-	for (FChunkInfoData& ChunkInfo : ChunkList)
+	for (FChunkInfo& ChunkInfo : ChunkList)
 	{
 		ChunkInfoLookup.Add(ChunkInfo.Guid, &ChunkInfo);
 	}
@@ -1174,7 +742,7 @@ bool FBuildPatchAppManifest::DeserializeFromJSON( const FString& JSONInput )
 			bSuccess = bSuccess && FromStringBlob(ChunkHashIt.Value()->AsString(), ChunkHash);
 			if (bSuccess && ChunkInfoLookup.Contains(ChunkGuid))
 			{
-				FChunkInfoData* ChunkInfoData = ChunkInfoLookup[ChunkGuid];
+				FChunkInfo* ChunkInfoData = ChunkInfoLookup[ChunkGuid];
 				ChunkInfoData->Hash = ChunkHash;
 				bHasChunkHashList = true;
 			}
@@ -1189,12 +757,12 @@ bool FBuildPatchAppManifest::DeserializeFromJSON( const FString& JSONInput )
 		for (auto ChunkHashIt = JsonChunkHashListObj->Values.CreateConstIterator(); ChunkHashIt && bSuccess; ++ChunkHashIt)
 		{
 			FGuid ChunkGuid;
-			FSHAHashData ChunkSha;
+			FSHAHash ChunkSha;
 			bSuccess = bSuccess && FGuid::Parse(ChunkHashIt.Key(), ChunkGuid);
 			bSuccess = bSuccess && FromHexString(ChunkHashIt.Value()->AsString(), ChunkSha);
 			if (bSuccess && ChunkInfoLookup.Contains(ChunkGuid))
 			{
-				FChunkInfoData* ChunkInfoData = ChunkInfoLookup[ChunkGuid];
+				FChunkInfo* ChunkInfoData = ChunkInfoLookup[ChunkGuid];
 				ChunkInfoData->ShaHash = ChunkSha;
 			}
 		}
@@ -1215,10 +783,10 @@ bool FBuildPatchAppManifest::DeserializeFromJSON( const FString& JSONInput )
 		// We fall back to using the hash of the prereq exe if we have no prereq ids specified
 		FString PrereqFilename = PrereqPath;
 		PrereqFilename.ReplaceInline(TEXT("\\"), TEXT("/"));
-		const FFileManifestData* const * FoundFileManifest = FileManifestLookup.Find(PrereqFilename);
+		const FFileManifest* const * FoundFileManifest = FileManifestLookup.Find(PrereqFilename);
 		if (FoundFileManifest)
 		{
-			FSHAHashData PrereqHash;
+			FSHAHash PrereqHash;
 			FMemory::Memcpy(PrereqHash.Hash, (*FoundFileManifest)->FileHash.Hash, FSHA1::DigestSize);
 			PrereqIds.Add(PrereqHash.ToString());
 		}
@@ -1238,7 +806,7 @@ bool FBuildPatchAppManifest::DeserializeFromJSON( const FString& JSONInput )
 			bSuccess = bSuccess && FromStringBlob(DataGroupIt.Value()->AsString(), DataGroup);
 			if (bSuccess && ChunkInfoLookup.Contains(DataGuid))
 			{
-				FChunkInfoData* ChunkInfoData = ChunkInfoLookup[DataGuid];
+				FChunkInfo* ChunkInfoData = ChunkInfoLookup[DataGuid];
 				ChunkInfoData->GroupNumber = DataGroup;
 			}
 		}
@@ -1247,7 +815,7 @@ bool FBuildPatchAppManifest::DeserializeFromJSON( const FString& JSONInput )
 	{
 		// If the list did not exist in the manifest then the grouping is the deprecated crc functionality, as long
 		// as there are no previous parsing errors we can build the group list from the Guids.
-		for (FChunkInfoData& ChunkInfo : ChunkList)
+		for (FChunkInfo& ChunkInfo : ChunkList)
 		{
 			ChunkInfo.GroupNumber = FCrc::MemCrc_DEPRECATED(&ChunkInfo.Guid, sizeof(FGuid)) % 100;
 		}
@@ -1268,7 +836,7 @@ bool FBuildPatchAppManifest::DeserializeFromJSON( const FString& JSONInput )
 				FromStringBlob(ChunkFilesizeIt.Value()->AsString(), ChunkSize);
 				if (ChunkInfoLookup.Contains(ChunkGuid))
 				{
-					FChunkInfoData* ChunkInfoData = ChunkInfoLookup[ChunkGuid];
+					FChunkInfo* ChunkInfoData = ChunkInfoLookup[ChunkGuid];
 					ChunkInfoData->FileSize = ChunkSize;
 					bHasChunkFilesizeList = true;
 				}
@@ -1278,7 +846,7 @@ bool FBuildPatchAppManifest::DeserializeFromJSON( const FString& JSONInput )
 	if (bHasChunkFilesizeList == false)
 	{
 		// Missing chunk list, version before we saved them compressed.. Assume chunk size
-		for (FChunkInfoData& ChunkInfo : ChunkList)
+		for (FChunkInfo& ChunkInfo : ChunkList)
 		{
 			ChunkInfo.FileSize = BuildPatchServices::ChunkDataSize;
 		}
@@ -1303,11 +871,11 @@ bool FBuildPatchAppManifest::DeserializeFromJSON( const FString& JSONInput )
 		TSharedPtr< FJsonObject > JsonCustomFieldsObj = JsonCustomFields->AsObject();
 		for( auto CustomFieldIt = JsonCustomFieldsObj->Values.CreateConstIterator(); CustomFieldIt && bSuccess; ++CustomFieldIt )
 		{
-			CustomFields.Add(FCustomFieldData(CustomFieldIt.Key(), CustomFieldIt.Value()->AsString()));
+			CustomFields.Add(FCustomField(CustomFieldIt.Key(), CustomFieldIt.Value()->AsString()));
 		}
 	}
 	CustomFieldLookup.Empty(CustomFields.Num());
-	for (FCustomFieldData& CustomField : CustomFields)
+	for (FCustomField& CustomField : CustomFields)
 	{
 		CustomFieldLookup.Add(CustomField.Key, &CustomField);
 	}
@@ -1315,7 +883,7 @@ bool FBuildPatchAppManifest::DeserializeFromJSON( const FString& JSONInput )
 	// If this is file data, fill out the guid to filename lookup, and chunk file size and SHA.
 	if (bIsFileData)
 	{
-		for (FFileManifestData& FileManifest : FileManifestList)
+		for (FFileManifest& FileManifest : FileManifestList)
 		{
 			if (FileManifest.FileChunkParts.Num() == 1)
 			{
@@ -1323,7 +891,7 @@ bool FBuildPatchAppManifest::DeserializeFromJSON( const FString& JSONInput )
 				FileNameLookup.Add(Guid, &FileManifest.Filename);
 				if (ChunkInfoLookup.Contains(Guid))
 				{
-					FChunkInfoData* ChunkInfoData = ChunkInfoLookup[Guid];
+					FChunkInfo* ChunkInfoData = ChunkInfoLookup[Guid];
 					ChunkInfoData->FileSize = FileManifest.GetFileSize();
 					ChunkInfoData->ShaHash = FileManifest.FileHash;
 				}
@@ -1340,11 +908,11 @@ bool FBuildPatchAppManifest::DeserializeFromJSON( const FString& JSONInput )
 	TotalDownloadSize = 0;
 	if (bSuccess)
 	{
-		for (const FFileManifestData& FileManifest : FileManifestList)
+		for (const FFileManifest& FileManifest : FileManifestList)
 		{
 			TotalBuildSize += FileManifest.GetFileSize();
 		}
-		for (const FChunkInfoData& Chunk : ChunkList)
+		for (const FChunkInfo& Chunk : ChunkList)
 		{
 			TotalDownloadSize += Chunk.FileSize;
 		}
@@ -1374,10 +942,10 @@ void FBuildPatchAppManifest::GetChunksRequiredForFiles(const TSet<FString>& File
 {
 	for (const FString& Filename : Filenames)
 	{
-		const FFileManifestData* FileManifest = GetFileManifest(Filename);
+		const FFileManifest* FileManifest = GetFileManifest(Filename);
 		if (FileManifest != nullptr)
 		{
-			for (const FChunkPartData& ChunkPart : FileManifest->FileChunkParts)
+			for (const FChunkPart& ChunkPart : FileManifest->FileChunkParts)
 			{
 				RequiredChunks.Add(ChunkPart.Guid);
 			}
@@ -1397,18 +965,18 @@ int64 FBuildPatchAppManifest::GetDownloadSize(const TSet<FString>& Tags) const
 	int64 TotalSize = 0;
 	for (const FString& Tag : Tags)
 	{
-		const TArray<FFileManifestData*>* Files = TaggedFilesLookup.Find(Tag);
+		const TArray<FFileManifest*>* Files = TaggedFilesLookup.Find(Tag);
 		if (Files != nullptr)
 		{
-			for (const FFileManifestData* File : *Files)
+			for (const FFileManifest* File : *Files)
 			{
-				for (const FChunkPartData& ChunkPart : File->FileChunkParts)
+				for (const FChunkPart& ChunkPart : File->FileChunkParts)
 				{
 					bool bAlreadyInSet;
 					RequiredChunks.Add(ChunkPart.Guid, &bAlreadyInSet);
 					if (!bAlreadyInSet)
 					{
-						const FChunkInfoData * const * ChunkInfo = ChunkInfoLookup.Find(ChunkPart.Guid);
+						const FChunkInfo * const * ChunkInfo = ChunkInfoLookup.Find(ChunkPart.Guid);
 						if (ChunkInfo != nullptr)
 						{
 							TotalSize += (*ChunkInfo)->FileSize;
@@ -1471,14 +1039,14 @@ int64 FBuildPatchAppManifest::GetBuildSize() const
 int64 FBuildPatchAppManifest::GetBuildSize(const TSet<FString>& Tags) const
 {
 	// For each tag we iterate the files and for each new file we find we add the size for it.
-	TSet<const FFileManifestData*> RequiredFiles;
+	TSet<const FFileManifest*> RequiredFiles;
 	int64 TotalSize = 0;
 	for (const FString& Tag : Tags)
 	{
-		const TArray<FFileManifestData*>* Files = TaggedFilesLookup.Find(Tag);
+		const TArray<FFileManifest*>* Files = TaggedFilesLookup.Find(Tag);
 		if (Files != nullptr)
 		{
-			for (const FFileManifestData* File : *Files)
+			for (const FFileManifest* File : *Files)
 			{
 				bool bAlreadyInSet;
 				RequiredFiles.Add(File, &bAlreadyInSet);
@@ -1511,7 +1079,7 @@ int64 FBuildPatchAppManifest::GetFileSize(const TSet<FString>& Filenames) const
 
 int64 FBuildPatchAppManifest::GetFileSize(const FString& Filename) const
 {
-	FFileManifestData* const * FileManifest = FileManifestLookup.Find(Filename);
+	FFileManifest* const * FileManifest = FileManifestLookup.Find(Filename);
 	if (FileManifest)
 	{
 		return (*FileManifest)->GetFileSize();
@@ -1577,10 +1145,10 @@ void FBuildPatchAppManifest::GetTaggedFileList(const TSet<FString>& Tags, TSet<F
 {
 	for (const FString& Tag : Tags)
 	{
-		const TArray<FFileManifestData*>* Files = TaggedFilesLookup.Find(Tag);
+		const TArray<FFileManifest*>* Files = TaggedFilesLookup.Find(Tag);
 		if (Files != nullptr)
 		{
-			for (const FFileManifestData* File : *Files)
+			for (const FFileManifest* File : *Files)
 			{
 				TaggedFiles.Add(File->Filename);
 			}
@@ -1596,15 +1164,15 @@ void FBuildPatchAppManifest::GetDataList(TArray<FGuid>& DataGuids) const
 void FBuildPatchAppManifest::GetDataList(TSet<FGuid>& DataGuids) const
 {
 	DataGuids.Empty(ChunkInfoLookup.Num());
-	for (const TPair<FGuid, FChunkInfoData*> Pair : ChunkInfoLookup)
+	for (const TPair<FGuid, FChunkInfo*> Pair : ChunkInfoLookup)
 	{
 		DataGuids.Add(Pair.Key);
 	}
 }
 
-const FFileManifestData* FBuildPatchAppManifest::GetFileManifest(const FString& Filename) const
+const FFileManifest* FBuildPatchAppManifest::GetFileManifest(const FString& Filename) const
 {
-	const FFileManifestData* const * FileManifest = FileManifestLookup.Find(Filename);
+	const FFileManifest* const * FileManifest = FileManifestLookup.Find(Filename);
 	return (FileManifest) ? (*FileManifest) : nullptr;
 }
 
@@ -1615,7 +1183,7 @@ bool FBuildPatchAppManifest::IsFileDataManifest() const
 
 bool FBuildPatchAppManifest::GetChunkHash(const FGuid& ChunkGuid, uint64& OutHash) const
 {
-	const FChunkInfoData* const * ChunkInfo = ChunkInfoLookup.Find(ChunkGuid);
+	const FChunkInfo* const * ChunkInfo = ChunkInfoLookup.Find(ChunkGuid);
 	if (ChunkInfo)
 	{
 		OutHash = (*ChunkInfo)->Hash;
@@ -1624,18 +1192,19 @@ bool FBuildPatchAppManifest::GetChunkHash(const FGuid& ChunkGuid, uint64& OutHas
 	return false;
 }
 
-bool FBuildPatchAppManifest::GetChunkShaHash(const FGuid& ChunkGuid, FSHAHashData& OutHash) const
+bool FBuildPatchAppManifest::GetChunkShaHash(const FGuid& ChunkGuid, FSHAHash& OutHash) const
 {
-	const FChunkInfoData* const * ChunkInfo = ChunkInfoLookup.Find(ChunkGuid);
+	static const uint8 Zero[FSHA1::DigestSize] = {0};
+	const FChunkInfo* const * ChunkInfo = ChunkInfoLookup.Find(ChunkGuid);
 	if (ChunkInfo != nullptr)
 	{
 		OutHash = (*ChunkInfo)->ShaHash;
-		return OutHash.IsZero() == false;
+		return FMemory::Memcmp(OutHash.Hash, Zero, FSHA1::DigestSize) != 0;
 	}
 	return false;
 }
 
-bool FBuildPatchAppManifest::GetFileHash(const FGuid& FileGuid, FSHAHashData& OutHash) const
+bool FBuildPatchAppManifest::GetFileHash(const FGuid& FileGuid, FSHAHash& OutHash) const
 {
 	const FString* const * FoundFilename = FileNameLookup.Find(FileGuid);
 	if (FoundFilename)
@@ -1645,9 +1214,9 @@ bool FBuildPatchAppManifest::GetFileHash(const FGuid& FileGuid, FSHAHashData& Ou
 	return false;
 }
 
-bool FBuildPatchAppManifest::GetFileHash(const FString& Filename, FSHAHashData& OutHash) const
+bool FBuildPatchAppManifest::GetFileHash(const FString& Filename, FSHAHash& OutHash) const
 {
-	const FFileManifestData* const * FoundFileManifest = FileManifestLookup.Find(Filename);
+	const FFileManifest* const * FoundFileManifest = FileManifestLookup.Find(Filename);
 	if (FoundFileManifest)
 	{
 		FMemory::Memcpy(OutHash.Hash, (*FoundFileManifest)->FileHash.Hash, FSHA1::DigestSize);
@@ -1658,7 +1227,7 @@ bool FBuildPatchAppManifest::GetFileHash(const FString& Filename, FSHAHashData& 
 
 bool FBuildPatchAppManifest::GetFilePartHash(const FGuid& FilePartGuid, uint64& OutHash) const
 {
-	const FChunkInfoData* const * FilePartInfo = ChunkInfoLookup.Find(FilePartGuid);
+	const FChunkInfo* const * FilePartInfo = ChunkInfoLookup.Find(FilePartGuid);
 	if (FilePartInfo)
 	{
 		OutHash = (*FilePartInfo)->Hash;
@@ -1723,8 +1292,8 @@ void FBuildPatchAppManifest::CopyCustomFields(const IBuildManifestRef& InOther, 
 	FBuildPatchAppManifestRef Other = StaticCastSharedRef< FBuildPatchAppManifest >(InOther);
 
 	// Use lookup to overwrite existing and list additional fields
-	TArray<FCustomFieldData> Extras;
-	for (const FCustomFieldData& CustomField : Other->CustomFields)
+	TArray<FCustomField> Extras;
+	for (const FCustomField& CustomField : Other->CustomFields)
 	{
 		if (CustomFieldLookup.Contains(CustomField.Key))
 		{
@@ -1744,7 +1313,7 @@ void FBuildPatchAppManifest::CopyCustomFields(const IBuildManifestRef& InOther, 
 
 	// Reset the loookup
 	CustomFieldLookup.Empty(CustomFields.Num());
-	for (FCustomFieldData& CustomField : CustomFields)
+	for (FCustomField& CustomField : CustomFields)
 	{
 		CustomFieldLookup.Add(CustomField.Key, &CustomField);
 	}
@@ -1768,9 +1337,9 @@ const IManifestFieldPtr FBuildPatchAppManifest::SetCustomField(const FString& Fi
 	}
 	else
 	{
-		CustomFields.Add(FCustomFieldData(FieldName, Value));
+		CustomFields.Add(FCustomField(FieldName, Value));
 		CustomFieldLookup.Empty(CustomFields.Num());
-		for (FCustomFieldData& CustomField : CustomFields)
+		for (FCustomField& CustomField : CustomFields)
 		{
 			CustomFieldLookup.Add(CustomField.Key, &CustomField);
 		}
@@ -1790,9 +1359,9 @@ const IManifestFieldPtr FBuildPatchAppManifest::SetCustomField(const FString& Fi
 
 void FBuildPatchAppManifest::RemoveCustomField(const FString& FieldName)
 {
-	CustomFields.RemoveAll([&](const FCustomFieldData& Entry){ return Entry.Key == FieldName; });
+	CustomFields.RemoveAll([&](const FCustomField& Entry){ return Entry.Key == FieldName; });
 	CustomFieldLookup.Empty(CustomFields.Num());
-	for (FCustomFieldData& CustomField : CustomFields)
+	for (FCustomField& CustomField : CustomFields)
 	{
 		CustomFieldLookup.Add(CustomField.Key, &CustomField);
 	}
@@ -1833,10 +1402,10 @@ TArray<FFileChunkPart> FBuildPatchAppManifest::GetFilePartsForChunk(const FGuid&
 {
 	TArray<FFileChunkPart> FileParts;
 	FBlockStructure FoundParts;
-	for (const FFileManifestData& FileManifest: FileManifestList)
+	for (const FFileManifest& FileManifest: FileManifestList)
 	{
 		uint64 FileOffset = 0;
-		for (const FChunkPartData& ChunkPart : FileManifest.FileChunkParts)
+		for (const FChunkPart& ChunkPart : FileManifest.FileChunkParts)
 		{
 			if (ChunkId == ChunkPart.Guid)
 			{
@@ -1861,9 +1430,9 @@ TArray<FFileChunkPart> FBuildPatchAppManifest::GetFilePartsForChunk(const FGuid&
 
 bool FBuildPatchAppManifest::HasFileAttributes() const
 {
-	for (const TPair<FString, FFileManifestData*>& FileManifestPair : FileManifestLookup)
+	for (const TPair<FString, FFileManifest*>& FileManifestPair : FileManifestLookup)
 	{
-		const FFileManifestData* FileManifest = FileManifestPair.Value;
+		const FFileManifest* FileManifest = FileManifestPair.Value;
 		if (FileManifest->bIsReadOnly || FileManifest->bIsUnixExecutable || FileManifest->bIsCompressed)
 		{
 			return true;
@@ -1878,7 +1447,7 @@ void FBuildPatchAppManifest::GetRemovableFiles(const IBuildManifestRef& InOldMan
 	const FBuildPatchAppManifestRef OldManifest = StaticCastSharedRef< FBuildPatchAppManifest >(InOldManifest);
 	// Simply put, any files that exist in the OldManifest file list, but do not in this manifest's file list, are assumed
 	// to be files no longer required by the build
-	for (const FFileManifestData& OldFile : OldManifest->FileManifestList)
+	for (const FFileManifest& OldFile : OldManifest->FileManifestList)
 	{
 		if (!FileManifestLookup.Contains(OldFile.Filename))
 		{
@@ -1932,7 +1501,7 @@ void FBuildPatchAppManifest::GetOutdatedFiles(const FBuildPatchAppManifestPtr& O
 	{
 		// Enumerate files in the this file list, that do not exist, or have different hashes in the OldManifest
 		// to be files no longer required by the build
-		for (const FFileManifestData& NewFile : FileManifestList)
+		for (const FFileManifest& NewFile : FileManifestList)
 		{
 			const int64 ExistingFileSize = IFileManager::Get().FileSize(*(InstallDirectory / NewFile.Filename));
 			// Check changed
@@ -1957,8 +1526,8 @@ bool FBuildPatchAppManifest::IsFileOutdated(const FBuildPatchAppManifestRef& Old
 		return false;
 	}
 	// Get file manifests
-	const FFileManifestData* OldFile = OldManifest->GetFileManifest(Filename);
-	const FFileManifestData* NewFile = GetFileManifest(Filename);
+	const FFileManifest* OldFile = OldManifest->GetFileManifest(Filename);
+	const FFileManifest* NewFile = GetFileManifest(Filename);
 	// Out of date if not in either manifest
 	if (!OldFile || !NewFile)
 	{
@@ -1976,9 +1545,9 @@ uint32 FBuildPatchAppManifest::GetNumberOfChunkReferences(const FGuid& ChunkGuid
 {
 	uint32 RefCount = 0;
 	// For each file in the manifest, check if it has references to this chunk
-	for (const FFileManifestData& FileManifest : FileManifestList)
+	for (const FFileManifest& FileManifest : FileManifestList)
 	{
-		for (const FChunkPartData& ChunkPart : FileManifest.FileChunkParts)
+		for (const FChunkPart& ChunkPart : FileManifest.FileChunkParts)
 		{
 			if (ChunkPart.Guid == ChunkGuid)
 			{

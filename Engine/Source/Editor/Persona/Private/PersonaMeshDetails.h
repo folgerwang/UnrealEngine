@@ -12,7 +12,7 @@
 #include "PropertyHandle.h"
 #include "IDetailCustomNodeBuilder.h"
 #include "IDetailCustomization.h"
-#include "SComboBox.h"
+#include "Widgets/Input/SComboBox.h"
 
 struct FAssetData;
 class FDetailWidgetRow;
@@ -48,7 +48,7 @@ struct FClothAssetSubmeshIndex
 struct FClothingComboInfo
 {
 	/* Per-material clothing combo boxes, array size must be same to # of sections */
-	TArray<TSharedPtr< STextComboBox >>		ClothingComboBoxes;
+	TArray<TSharedPtr< class STextComboBox >>		ClothingComboBoxes;
 	/* Clothing combo box strings */
 	TArray<TSharedPtr<FString> >			ClothingComboStrings;
 	/* Mapping from a combo box string to the asset and submesh it was generated from */
@@ -78,69 +78,10 @@ struct FSectionLocalizer
 	int32 SectionIndex;
 };
 
-class FSkelMeshReductionSettingsLayout : public IDetailCustomNodeBuilder, public TSharedFromThis<FSkelMeshReductionSettingsLayout>
-{
-public:
-	FSkelMeshReductionSettingsLayout(int32 InLODIndex, TSharedRef<class FPersonaMeshDetails> InParentLODSettings, const USkeleton* InSkeleton);
-	virtual ~FSkelMeshReductionSettingsLayout();
-
-	const FSkeletalMeshOptimizationSettings& GetSettings() const;
-	void UpdateSettings(const FSkeletalMeshOptimizationSettings& InSettings);
-private:
-	/** IDetailCustomNodeBuilder Interface*/
-	virtual void SetOnRebuildChildren(FSimpleDelegate InOnRegenerateChildren) override {}
-	virtual void GenerateHeaderRowContent(FDetailWidgetRow& NodeRow) override;
-	virtual void GenerateChildContent(IDetailChildrenBuilder& ChildrenBuilder) override;
-	virtual void Tick(float DeltaTime) override{}
-	virtual bool RequiresTick() const override { return false; }
-	virtual FName GetName() const override { static FName MeshReductionSettings("MeshReductionSettings"); return MeshReductionSettings; }
-	virtual bool InitiallyCollapsed() const override { return true; }
-
-	FReply OnApplyChanges();
-	float GetPercentTriangles() const;
-	float GetMaxDeviation() const;
-	float GetWeldingThreshold() const;
-	ECheckBoxState ShouldRecomputeTangents() const;
-	float GetHardAngleThreshold() const;
-	int32 GetMaxBonesPerVertex() const;
-	int32 GetBaseLOD() const;
-
-	void OnPercentTrianglesChanged(float NewValue);
-	void OnMaxDeviationChanged(float NewValue);
-	void OnReductionAmountChanged(float NewValue);
-	void OnRecomputeTangentsChanged(ECheckBoxState NewValue);
-	void OnWeldingThresholdChanged(float NewValue);
-	void OnHardAngleThresholdChanged(float NewValue);
-	void OnMaxBonesPerVertexChanged(int32 NewValue);
-	void OnBaseLODChanged(int32 NewBasedLOD);
-
-	void OnSilhouetteImportanceChanged(TSharedPtr<FString> NewValue, ESelectInfo::Type SelectInfo);
-	void OnTextureImportanceChanged(TSharedPtr<FString> NewValue, ESelectInfo::Type SelectInfo);
-	void OnShadingImportanceChanged(TSharedPtr<FString> NewValue, ESelectInfo::Type SelectInfo);
-	void OnSkinningImportanceChanged(TSharedPtr<FString> NewValue, ESelectInfo::Type SelectInfo);
-
-	void UpdateBonesToRemoveProperties(int32 LODIndex);
-	void RefreshBonesToRemove();
-
-private:
-	int32 LODIndex;
-	TWeakPtr<class FPersonaMeshDetails> ParentLODSettings;
-	FSkeletalMeshOptimizationSettings ReductionSettings;
-
-	const USkeleton* Skeleton;
-
-	TArray<TSharedPtr<FString> > ImportanceOptions;
-	TArray<TSharedPtr<FString> > SimplificationOptions;
-	TSharedPtr<STextComboBox> SilhouetteCombo;
-	TSharedPtr<STextComboBox> TextureCombo;
-	TSharedPtr<STextComboBox> ShadingCombo;
-	TSharedPtr<STextComboBox> SkinningCombo;
-};
-
 class FPersonaMeshDetails : public IDetailCustomization
 {
 public:
-	FPersonaMeshDetails(TSharedRef<class IPersonaToolkit> InPersonaToolkit) : PersonaToolkitPtr(InPersonaToolkit) { CustomLODEditMode = false; }
+	FPersonaMeshDetails(TSharedRef<class IPersonaToolkit> InPersonaToolkit) : PersonaToolkitPtr(InPersonaToolkit), MeshDetailLayout(nullptr) { CustomLODEditMode = false; }
 	~FPersonaMeshDetails();
 
 	/** Makes a new instance of this detail layout class for a specific detail view requesting it */
@@ -210,6 +151,13 @@ private:
 	EVisibility ShowEnabledSectionDetail(int32 LodIndex, int32 SectionIndex) const;
 	EVisibility ShowDisabledSectionDetail(int32 LodIndex, int32 SectionIndex) const;
 	void OnSectionEnabledChanged(int32 LodIndex, int32 SectionIndex, bool bEnable);
+
+	TOptional<int8> GetSectionGenerateUpToValue(int32 LodIndex, int32 SectionIndex) const;
+	void SetSectionGenerateUpToValue(int8 Value, int32 LodIndex, int32 SectionIndex);
+	void SetSectionGenerateUpToValueCommitted(int8 Value, ETextCommit::Type CommitInfo, int32 LodIndex, int32 SectionIndex);
+	EVisibility ShowSectionGenerateUpToSlider(int32 LodIndex, int32 SectionIndex) const;
+	ECheckBoxState IsGenerateUpToSectionEnabled(int32 LodIndex, int32 SectionIndex) const;
+	void OnSectionGenerateUpToChanged(ECheckBoxState NewState, int32 LodIndex, int32 SectionIndex);
 
 	TSharedRef<SWidget> OnGenerateLodComboBoxForLodPicker();
 	EVisibility LodComboBoxVisibilityForLodPicker() const;
@@ -412,6 +360,8 @@ private:
 
 	/** apply LOD changes if the user modified LOD reduction settings */
 	FReply OnApplyChanges();
+	/** Apply specified LOD Index */
+	FReply RegenerateLOD(int32 LODIndex);
 	/** Removes the specified lod from the skeletal mesh */
 	FReply RemoveOneLOD(int32 LODIndex);
 	/** Remove Bones again */
@@ -481,7 +431,6 @@ public:
 
 	bool IsApplyNeeded() const;
 	bool IsGenerateAvailable() const;
-	void ApplyChanges(int32 DesiredLOD, const FSkeletalMeshOptimizationSettings& ReductionSettings);
 	void ApplyChanges();
 	FText GetApplyButtonText() const;
 
@@ -499,9 +448,6 @@ private:
 	/** Helper value that corresponds to the 'Number of LODs' spinbox.*/
 	int32 LODCount;
 
-	/** Simplification options for each LOD level */
-	TArray<TSharedPtr<FSkelMeshReductionSettingsLayout>> ReductionSettingsWidgets;
-
 	/* This is to know if material are used by any LODs sections. */
 	TMap<int32, TArray<FSectionLocalizer>> MaterialUsedMap;
 
@@ -510,6 +456,12 @@ private:
 
 	bool CustomLODEditMode;
 	TArray<bool> DetailDisplayLODs;
+
+	/*
+	 * Helper to keep the old GenerateUpTo slider value to register transaction correctly.
+	 * The key is the union of LOD index and section index.
+	 */
+	TMap<int64, int8> OldGenerateUpToSliderValues;
 
 private:
 
@@ -583,4 +535,12 @@ private:
 	/* Removes a clothing asset */ 
 	FReply OnRemoveApexFileClicked(int32 AssetIndex, IDetailLayoutBuilder* DetailLayout);
 
+	/* Create LOD setting assets from current setting */
+	FReply OnSaveLODSettings();
+
+	/** LOD Settings Selected */
+	void OnLODSettingsSelected(const FAssetData& AssetData);
+
+	/** LOD Info editing is enabled? LODIndex == -1, then it just verifies if the asset exists */
+	bool IsLODInfoEditingEnabled(int32 LODIndex) const;
 };

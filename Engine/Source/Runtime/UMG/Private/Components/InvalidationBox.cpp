@@ -26,9 +26,13 @@ void UInvalidationBox::ReleaseSlateResources(bool bReleaseChildren)
 
 TSharedRef<SWidget> UInvalidationBox::RebuildWidget()
 {
-	MyInvalidationPanel = 
+	MyInvalidationPanel =
 		SNew(SInvalidationPanel)
-		.CacheRelativeTransforms(CacheRelativeTransforms);
+		.CacheRelativeTransforms(CacheRelativeTransforms)
+#if !UE_BUILD_SHIPPING
+		.DebugName(GetPathName())
+#endif
+		;
 
 	MyInvalidationPanel->SetCanCache(IsDesignTime() ? false : bCanCache);
 

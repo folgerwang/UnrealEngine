@@ -155,7 +155,7 @@ namespace BuildPatchServices
 		Manifest->GetDataList(DataList);
 		if (!Manifest->IsFileDataManifest())
 		{
-			FSHAHashData DataShaHash;
+			FSHAHash DataShaHash;
 			uint64 DataChunkHash;
 			for (const auto& DataGuid : DataList)
 			{

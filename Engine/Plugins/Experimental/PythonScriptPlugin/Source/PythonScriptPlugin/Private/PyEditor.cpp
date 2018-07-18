@@ -2,7 +2,9 @@
 
 #include "PyEditor.h"
 #include "PyUtil.h"
+#include "PyGenUtil.h"
 #include "PyConversion.h"
+#include "PyWrapperTypeRegistry.h"
 
 #if WITH_EDITOR
 #include "Editor.h"
@@ -117,8 +119,8 @@ PyTypeObject InitializePyScopedEditorTransactionType()
 
 	static PyMethodDef PyMethods[] = {
 		{ "__enter__", PyCFunctionCast(&FMethods::EnterScope), METH_NOARGS, "x.__enter__() -> self -- begin this transaction" },
-		{ "__exit__", PyCFunctionCast(&FMethods::ExitScope), METH_VARARGS | METH_KEYWORDS, "x.__exit__(type, value, traceback) -- end this transaction" },
-		{ "cancel", PyCFunctionCast(&FMethods::Cancel), METH_NOARGS, "x.cancel() -- cancel this transaction" },
+		{ "__exit__", PyCFunctionCast(&FMethods::ExitScope), METH_VARARGS | METH_KEYWORDS, "x.__exit__(type, value, traceback) -> None -- end this transaction" },
+		{ "cancel", PyCFunctionCast(&FMethods::Cancel), METH_NOARGS, "x.cancel() -> None -- cancel this transaction" },
 		{ nullptr, nullptr, 0, nullptr }
 	};
 
@@ -151,18 +153,22 @@ PyMethodDef PyEditorMethods[] = {
 
 void InitializeModule()
 {
+	PyGenUtil::FNativePythonModule NativePythonModule;
+	NativePythonModule.PyModuleMethods = PyEditorMethods;
+
 #if PY_MAJOR_VERSION >= 3
-	PyObject* PyModule = PyImport_AddModule("_unreal_editor");
-	PyModule_AddFunctions(PyModule, PyEditorMethods);
+	NativePythonModule.PyModule = PyImport_AddModule("_unreal_editor");
+	PyModule_AddFunctions(NativePythonModule.PyModule, PyEditorMethods);
 #else	// PY_MAJOR_VERSION >= 3
-	PyObject* PyModule = Py_InitModule("_unreal_editor", PyEditorMethods);
+	NativePythonModule.PyModule = Py_InitModule("_unreal_editor", PyEditorMethods);
 #endif	// PY_MAJOR_VERSION >= 3
 
 	if (PyType_Ready(&PyScopedEditorTransactionType) == 0)
 	{
-		Py_INCREF(&PyScopedEditorTransactionType);
-		PyModule_AddObject(PyModule, PyScopedEditorTransactionType.tp_name, (PyObject*)&PyScopedEditorTransactionType);
+		NativePythonModule.AddType(&PyScopedEditorTransactionType);
 	}
+
+	FPyWrapperTypeRegistry::Get().RegisterNativePythonModule(MoveTemp(NativePythonModule));
 }
 
 }

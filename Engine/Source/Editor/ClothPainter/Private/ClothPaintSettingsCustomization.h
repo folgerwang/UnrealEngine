@@ -5,7 +5,7 @@
 #include "IDetailCustomization.h"
 #include "IPropertyTypeCustomization.h"
 #include "IDetailRootObjectCustomization.h"
-#include "SListView.h"
+#include "Widgets/Views/SListView.h"
 
 class FClothPainter;
 class UClothingAsset;

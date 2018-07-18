@@ -10,7 +10,7 @@
  * or maybe removed entirely.
  */
 SResponsiveGridPanel::SResponsiveGridPanel()
-: Slots()
+: Slots(this)
 {}
 
 SResponsiveGridPanel::FSlot& SResponsiveGridPanel::AddSlot(int32 Row)

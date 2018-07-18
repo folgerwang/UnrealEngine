@@ -9,9 +9,9 @@
 #include "PhononCommon.h"
 
 #include "Components/PrimitiveComponent.h"
-#include "PlatformFileManager.h"
-#include "GenericPlatformFile.h"
-#include "Paths.h"
+#include "HAL/PlatformFilemanager.h"
+#include "GenericPlatform/GenericPlatformFile.h"
+#include "Misc/Paths.h"
 #include "Engine/World.h"
 
 #if WITH_EDITOR
@@ -32,7 +32,7 @@ APhononProbeVolume::APhononProbeVolume(const FObjectInitializer& ObjectInitializ
 {
 	auto RootPrimitiveComponent = Cast<UPrimitiveComponent>(this->GetRootComponent());
 	RootPrimitiveComponent->BodyInstance.SetCollisionProfileName("NoCollision");
-	RootPrimitiveComponent->bGenerateOverlapEvents = false;
+	RootPrimitiveComponent->SetGenerateOverlapEvents(false);
 
 	FRotator DefaultRotation(0, 0, 0);
 	PhononProbeComponent = CreateDefaultSubobject<UPhononProbeComponent>(TEXT("PhononProbeComponent0"));
@@ -69,7 +69,7 @@ void APhononProbeVolume::PlaceProbes(IPLhandle PhononScene, IPLProbePlacementPro
 	ProbePlacementParameters.maxOctreeTriangles = 0;
 
 	// Create probe box, generate probes
-	iplCreateProbeBox(PhononScene, ProbeBoxTransformMatrix, ProbePlacementParameters, ProbePlacementCallback, &ProbeBox);
+	iplCreateProbeBox(SteamAudio::GlobalContext, PhononScene, ProbeBoxTransformMatrix, ProbePlacementParameters, ProbePlacementCallback, &ProbeBox);
 
 	ProbeDataSize = SaveProbeBoxToDisk(ProbeBox);
 
@@ -151,7 +151,7 @@ void APhononProbeVolume::UpdateProbeData(IPLhandle ProbeBox)
 
 	// Update probe batch serialized data
 	IPLhandle ProbeBatch = nullptr;
-	iplCreateProbeBatch(&ProbeBatch);
+	iplCreateProbeBatch(SteamAudio::GlobalContext, &ProbeBatch);
 
 	NumProbes = iplGetProbeSpheres(ProbeBox, nullptr);
 	for (int32 i = 0; i < NumProbes; ++i)
@@ -205,7 +205,7 @@ bool APhononProbeVolume::LoadProbeBoxFromDisk(IPLhandle* ProbeBox) const
 	{
 		ProbeBoxData.SetNum(ProbeBoxFileHandle->Size());
 		ProbeBoxFileHandle->Read(ProbeBoxData.GetData(), ProbeBoxData.Num());
-		iplLoadProbeBox(ProbeBoxData.GetData(), ProbeBoxData.Num(), ProbeBox);
+		iplLoadProbeBox(SteamAudio::GlobalContext, ProbeBoxData.GetData(), ProbeBoxData.Num(), ProbeBox);
 		delete ProbeBoxFileHandle;
 	}
 	else
@@ -233,7 +233,7 @@ bool APhononProbeVolume::LoadProbeBatchFromDisk(IPLhandle* ProbeBatch) const
 	{
 		ProbeBatchData.SetNum(ProbeBatchFileHandle->Size());
 		ProbeBatchFileHandle->Read(ProbeBatchData.GetData(), ProbeBatchData.Num());
-		iplLoadProbeBatch(ProbeBatchData.GetData(), ProbeBatchData.Num(), ProbeBatch);
+		iplLoadProbeBatch(SteamAudio::GlobalContext, ProbeBatchData.GetData(), ProbeBatchData.Num(), ProbeBatch);
 		delete ProbeBatchFileHandle;
 	}
 	else

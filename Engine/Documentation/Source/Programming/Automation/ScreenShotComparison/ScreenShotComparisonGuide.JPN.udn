@@ -222,18 +222,18 @@ Screenshot Comparison ブラウザから、任意の画像をクリックする�
 ## スクリーンショットのワークフロー
 
 1. まず、スクリーンショットを撮るために使用する方法を選びます。 
-	* [Screenshot Functional Test アクタ](#FunctionalScreenshotTestアクタ)
 
+	* [Screenshot Functional Test アクタ](#FunctionalScreenshotTestアクタ)
 	* [他の機能テストの一部としてスクリーンショットを撮る](#他のFunctionalTestの一部としてスクリーンショットを撮る)
 
 1. テストをローカルで実行するか、ビルド ファームで実行する場合、最初のスクリーンショットを承認する必要があることを知らせる警告が送られます。  
-	[REGION:lightbox] 
 
+	[REGION:lightbox] 
 	[![](MessageLogWarning.png)(w:700)](MessageLogWarning.png)
 	[/REGION] 
 	[REGION:caption] クリックしてフルサイズ表示 [/REGION]
-	Screenshot ブラウザでは、**[Add New]** をクリックして Ground Truth 画像を追加します。
 
+	Screenshot ブラウザでは、**[Add New]** をクリックして Ground Truth 画像を追加します。
 
 	[REGION:lightbox] 
 	[![](ScreenshotAddNew.png)(w:700)](ScreenshotAddNew.png)

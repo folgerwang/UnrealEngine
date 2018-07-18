@@ -9,7 +9,15 @@
 #include "IWebBrowserWindow.h"
 #include "Widgets/SWindow.h"
 #import <UIKit/UIKit.h>
-#import <UIKit/UIWebView.h>
+#if !PLATFORM_TVOS
+#import "WebKit/WebKit.h"
+#endif
+
+#include "Engine/Texture2D.h"
+#include "Materials/MaterialInstanceDynamic.h"
+#include "WebBrowserTexture.h"
+#include "Misc/ConfigCacheIni.h"
+
 
 class SIOSWebBrowserWidget;
 class SWebBrowserView;
@@ -18,27 +26,47 @@ class SWebBrowserView;
 * Wrapper to contain the UIWebView and implement its delegate functions
 */
 #if !PLATFORM_TVOS
-@interface IOSWebViewWrapper : NSObject <UIWebViewDelegate>
+@interface IOSWebViewWrapper : NSObject <WKUIDelegate, WKNavigationDelegate>
 #else
 @interface IOSWebViewWrapper : NSObject
 #endif
 {
 	TSharedPtr<SIOSWebBrowserWidget> WebBrowserWidget;
+	FTextureRHIRef VideoTexture;
 	bool bNeedsAddToView;
+	bool IsIOS3DBrowser;
+	bool bVideoTextureValid;
+	bool bSupportsMetal;
+	bool bSupportsMetalMRT;
 }
 #if !PLATFORM_TVOS
-@property(strong) UIWebView* WebView;
+@property(strong) WKWebView* WebView;
+@property(strong) UIView* WebViewContainer;
 #endif
 @property(copy) NSURL* NextURL;
 @property(copy) NSString* NextContent;
 @property CGRect DesiredFrame;
 
--(void)create:(TSharedPtr<SIOSWebBrowserWidget>)InWebBrowserWidget useTransparency:(bool)InUseTransparency;
+-(void)create:(TSharedPtr<SIOSWebBrowserWidget>)InWebBrowserWidget useTransparency : (bool)InUseTransparency
+supportsMetal : (bool)InSupportsMetal supportsMetalMRT : (bool)InSupportsMetalMRT;
 -(void)close;
 -(void)updateframe:(CGRect)InFrame;
 -(void)loadstring:(NSString*)InString dummyurl:(NSURL*)InURL;
 -(void)loadurl:(NSURL*)InURL;
 -(void)executejavascript:(NSString*)InJavaScript;
+-(void)set3D:(bool)InIsIOS3DBrowser;
+-(void)setWebViewVisible;
+-(FTextureRHIRef)GetVideoTexture;
+-(void)SetVideoTexture:(FTextureRHIRef)Texture;
+-(void)SetVideoTextureValid:(bool)Condition;
+-(bool)IsVideoTextureValid;
+-(bool)UpdateVideoFrame:(void*)ptr;
+-(void)updateWebViewGLESTexture:(GLuint)gltexture;
+- (void)updateWebViewMetalTexture : (id<MTLTexture>)texture;
+#if !PLATFORM_TVOS
+-(BOOL)webView:(UIWebView*)InWebView shouldStartLoadWithRequest:(NSURLRequest*)InRequest navigationType:(UIWebViewNavigationType)InNavigationType;
+-(void)webView:(UIWebView*)InWebView didFailLoadWithError:(NSError*)InError;
+#endif
 @end
 
 /**
@@ -79,6 +107,7 @@ public:
 	virtual void LoadURL(FString NewURL) override;
 	virtual void LoadString(FString Contents, FString DummyURL) override;
 	virtual void SetViewportSize(FIntPoint WindowSize, FIntPoint WindowPos) override;
+	virtual FIntPoint GetViewportSize() const;
 	virtual FSlateShaderResource* GetTexture(bool bIsPopup = false) override;
 	virtual bool IsValid() const override;
 	virtual bool IsInitialized() const override;
@@ -276,6 +305,7 @@ private:
 
 	TSharedPtr<SWindow> ParentWindow;
 
+	FIntPoint IOSWindowSize;
 };
 
 #endif

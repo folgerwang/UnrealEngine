@@ -1,14 +1,14 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "StringTable.h"
-#include "StringTableCore.h"
-#include "StringTableRegistry.h"
+#include "Internationalization/StringTable.h"
+#include "Internationalization/StringTableCore.h"
+#include "Internationalization/StringTableRegistry.h"
 #include "UObject/SoftObjectPtr.h"
-#include "PackageName.h"
-#include "GCObject.h"
+#include "Misc/PackageName.h"
+#include "UObject/GCObject.h"
 #include "Misc/ScopeLock.h"
 #include "Templates/Casts.h"
-#include "SlateApplicationBase.h"
+#include "Application/SlateApplicationBase.h"
 #include "Serialization/PropertyLocalizationDataGathering.h"
 
 #if WITH_EDITORONLY_DATA
@@ -82,7 +82,7 @@ private:
 	//~ IStringTableEngineInterop interface
 	virtual void RedirectAndLoadStringTableAssetImpl(FName& InOutTableId, const EStringTableLoadingPolicy InLoadingPolicy) override
 	{
-		FSoftObjectPath StringTableAssetReference = GetAssetReference(InOutTableId);
+		const FSoftObjectPath StringTableAssetReference = GetAssetReference(InOutTableId);
 		if (StringTableAssetReference.IsValid())
 		{
 			UStringTable* StringTableAsset = Cast<UStringTable>(StringTableAssetReference.ResolveObject());
@@ -109,6 +109,12 @@ private:
 
 		UStringTable* StringTableAsset = FStringTableRegistry::Get().FindStringTableAsset(InTableId);
 		InAr << StringTableAsset;
+	}
+
+	virtual bool IsStringTableFromAssetImpl(const FName InTableId) override
+	{
+		const FSoftObjectPath StringTableAssetReference = GetAssetReference(InTableId);
+		return StringTableAssetReference.IsValid();
 	}
 
 	static FSoftObjectPath GetAssetReference(const FName InTableId)

@@ -8,7 +8,7 @@
 #include "VREditorWidgetComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "VREditorActions.h"
-#include "SlateApplication.h"
+#include "Framework/Application/SlateApplication.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "VREditorAssetContainer.h"
 #include "VRModeSettings.h"
@@ -33,6 +33,11 @@ AVREditorRadialFloatingUI::AVREditorRadialFloatingUI()
 	FadeDelay( 0.0f ),
 	InitialScale( 1.0f )
 {
+	if (HasAnyFlags(RF_ClassDefaultObject))
+	{
+		return;
+	}
+
 	const bool bTransient = true;
 	USceneComponent* SceneComponent = CreateDefaultSubobject<USceneComponent>( TEXT( "SceneComponent" ), bTransient );
 	check( SceneComponent != nullptr );
@@ -40,7 +45,7 @@ AVREditorRadialFloatingUI::AVREditorRadialFloatingUI()
 
 	DefaultGlowAmount = 2.0f;
 
-	UVREditorAssetContainer* AssetContainer = LoadObject<UVREditorAssetContainer>(nullptr, *UVREditorMode::AssetContainerPath);
+	const UVREditorAssetContainer& AssetContainer = UVREditorMode::LoadAssetContainer();
 
 	{
 		WindowMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("WindowMesh"));
@@ -50,7 +55,7 @@ AVREditorRadialFloatingUI::AVREditorRadialFloatingUI()
 		WindowMeshComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 		WindowMeshComponent->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
 
-		WindowMeshComponent->SetStaticMesh(AssetContainer->RadialMenuMainMesh);
+		WindowMeshComponent->SetStaticMesh(AssetContainer.RadialMenuMainMesh);
 		WindowMeshComponent->CreateAndSetMaterialInstanceDynamic(0);
 		UMaterialInstanceDynamic* DiskMaterial = Cast<UMaterialInstanceDynamic>(WindowMeshComponent->GetMaterial(0));
 		GlowAmount = DefaultGlowAmount;
@@ -59,7 +64,7 @@ AVREditorRadialFloatingUI::AVREditorRadialFloatingUI()
 		WindowMeshComponent->SetRelativeRotation(FRotator(-90.0f, 0.0f, 0.0f).Quaternion());
 		WindowMeshComponent->SetRelativeScale3D(FVector(2.5f));
 
-		WindowMeshComponent->bGenerateOverlapEvents = false;
+		WindowMeshComponent->SetGenerateOverlapEvents(false);
 		WindowMeshComponent->SetCanEverAffectNavigation(false);
 		WindowMeshComponent->bCastDynamicShadow = false;
 		WindowMeshComponent->bCastStaticShadow = false;
@@ -75,12 +80,12 @@ AVREditorRadialFloatingUI::AVREditorRadialFloatingUI()
 		ArrowMeshComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 		ArrowMeshComponent->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
 
-		ArrowMeshComponent->SetStaticMesh(AssetContainer->RadialMenuPointerMesh);
+		ArrowMeshComponent->SetStaticMesh(AssetContainer.RadialMenuPointerMesh);
 		ArrowMeshComponent->CreateAndSetMaterialInstanceDynamic(0);
 		UMaterialInstanceDynamic* ArrowMaterial = Cast<UMaterialInstanceDynamic>(ArrowMeshComponent->GetMaterial(0));
 		ArrowAlpha = 0.0f;
 		ArrowMaterial->SetScalarParameterValue("Alpha", ArrowAlpha);
-		ArrowMeshComponent->bGenerateOverlapEvents = false;
+		ArrowMeshComponent->SetGenerateOverlapEvents(false);
 		ArrowMeshComponent->SetCanEverAffectNavigation(false);
 		ArrowMeshComponent->bCastDynamicShadow = false;
 		ArrowMeshComponent->bCastStaticShadow = false;
@@ -94,7 +99,7 @@ AVREditorRadialFloatingUI::AVREditorRadialFloatingUI()
 		CentralWidgetComponent->SetupAttachment(RootComponent);
 		CentralWidgetComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 		CentralWidgetComponent->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
-		CentralWidgetComponent->bGenerateOverlapEvents = false;
+		CentralWidgetComponent->SetGenerateOverlapEvents(false);
 		CentralWidgetComponent->SetCanEverAffectNavigation(false);
 		CentralWidgetComponent->bCastDynamicShadow = false;
 		CentralWidgetComponent->bCastStaticShadow = false;
@@ -539,7 +544,7 @@ void AVREditorRadialFloatingUI::SimulateLeftClick()
 		}
 		if (ButtonTypeOverride == FName(TEXT("SButton")))
 		{
-			const FPointerEvent& SimulatedPointer = FPointerEvent(uint32(0), uint32(0), FVector2D::ZeroVector, FVector2D::ZeroVector, true);
+			const FPointerEvent& SimulatedPointer = FPointerEvent(uint32(0), uint32(0), FVector2D::ZeroVector, FVector2D::ZeroVector, 1.0f, true);
 			const FGeometry& ChildGeometry = FGeometry();
 			CurrentlyHoveredButton->OnMouseButtonDown(ChildGeometry, SimulatedPointer);
 			CurrentlyHoveredButton->OnMouseButtonUp(ChildGeometry, SimulatedPointer);

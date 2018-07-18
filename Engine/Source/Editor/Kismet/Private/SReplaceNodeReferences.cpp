@@ -8,9 +8,6 @@
 #include "Engine/MemberReference.h"
 #include "EdGraphSchema_K2.h"
 #include "K2Node_Variable.h"
-
-#include "FindInBlueprintManager.h"
-#include "FindInBlueprints.h"
 #include "Kismet2/BlueprintEditorUtils.h"
 #include "ImaginaryBlueprintData.h"
 #include "ObjectEditorUtils.h"
@@ -448,7 +445,7 @@ void SReplaceNodeReferences::OnSubmitSearchQuery(bool bFindAndReplace)
 	FindInBlueprints->MakeSearchQuery(SearchTerm, false, ESearchQueryFilter::NodesFilter, EFiBVersion::FIB_VER_VARIABLE_REFERENCE, OnSearchComplete);
 }
 
-void SReplaceNodeReferences::FindAllReplacementsComplete(TArray<TSharedPtr<class FImaginaryFiBData>>& InRawDataList)
+void SReplaceNodeReferences::FindAllReplacementsComplete(TArray<FImaginaryFiBDataSharedPtr>& InRawDataList)
 {
 	if (SelectedTargetReferenceItem.IsValid())
 	{
@@ -460,7 +457,7 @@ void SReplaceNodeReferences::FindAllReplacementsComplete(TArray<TSharedPtr<class
 			BlueprintEditor.Pin()->GetBlueprintObj()->Modify();
 
 			TArray< UBlueprint* > BlueprintsModified;
-			for (TSharedPtr<class FImaginaryFiBData> ImaginaryData : InRawDataList)
+			for (FImaginaryFiBDataSharedPtr ImaginaryData : InRawDataList)
 			{
 				BlueprintsModified.AddUnique(ImaginaryData->GetBlueprint());
 				UObject* Node = ImaginaryData->GetObject(ImaginaryData->GetBlueprint());

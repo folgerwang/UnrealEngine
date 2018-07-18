@@ -16,7 +16,5 @@ public class LiveLinkMessageBusFramework : ModuleRules
                 "LiveLinkInterface"
             }
         );
-
-        PrivateIncludePaths.Add("LiveLinkMessageBusFramework/Private");
 	}
 }

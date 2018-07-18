@@ -1,5 +1,4 @@
-﻿INTSourceChangelist:3489715
-Availability:Public
+﻿Availability:Public
 Title:スクリプト処理の基礎
 Crumbs: %ROOT%, Engine, Engine/Blueprints
 Description:ブループリント ビジュアル スクリプティング システムの変数と実行フローの概要
@@ -7,45 +6,9 @@ version:4.12
 parent:Engine/Blueprints
 tags:Blueprints
 type:landing
+topic-image:Engine/Blueprints/UserGuide/using_interface_topic.png
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Blueprints/Scripting:title%](Engine\Blueprints\UserGuide\using_interface_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/reference_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Blueprints/Scripting:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Blueprints/Scripting:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Blueprints/Scripting]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Blueprints/Scripting:title%](BasicScripting.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/reference_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Blueprints/Scripting:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Blueprints/Scripting:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Blueprints/Scripting]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+
 
 ブループリントは、スクリプト処理言語を可視化して表示します。可視化することで、データ タイプ変数、配列、構造体など標準的なスクリプト処理言語のニュアンスを幅広く共有することができます。 
 ブループリントは、各ノードを明確に線形実行しなければなりませんが、実行フローは典型的なスクリプト処理言語のように機能します。それでは、様々な変数タイプ、それらの使い方、グラフ内のノードの実行に関して 

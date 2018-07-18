@@ -4,8 +4,8 @@
 
 #include "CoreMinimal.h"
 #include "Misc/FeedbackContext.h"
-#include "WindowsHWrapper.h"
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/WindowsHWrapper.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 #include <CommCtrl.h>
 
 
@@ -64,4 +64,4 @@ private:
 	static void LayoutControls(HWND hWnd, const FWindowParams* Params);
 };
 
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"

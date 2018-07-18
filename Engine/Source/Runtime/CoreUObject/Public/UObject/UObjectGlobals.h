@@ -10,7 +10,8 @@
 #include "Stats/Stats.h"
 #include "UObject/ObjectMacros.h"
 #include "Misc/OutputDeviceRedirector.h"
-#include "PrimaryAssetId.h"
+#include "UObject/PrimaryAssetId.h"
+#include "Templates/Function.h"
 #include "Templates/IsArrayOrRefOfType.h"
 #include "Serialization/ArchiveUObject.h"
 
@@ -51,6 +52,8 @@ DECLARE_CYCLE_STAT_EXTERN(TEXT("NetSerializeFast Array BuildMap"),STAT_NetSerial
 
 /** set while in SavePackage() to detect certain operations that are illegal while saving */
 extern COREUOBJECT_API bool					GIsSavingPackage;
+/** This allows loading unversioned cooked content in the editor */
+extern COREUOBJECT_API bool					GAllowUnversionedContentInEditor;
 
 namespace EDuplicateMode
 {
@@ -148,7 +151,7 @@ struct FObjectDuplicationParameters
 	COREUOBJECT_API FObjectDuplicationParameters( UObject* InSourceObject, UObject* InDestOuter );
 };
 
-COREUOBJECT_API TArray<const TCHAR*> ParsePropertyFlags(uint64 Flags);
+COREUOBJECT_API TArray<const TCHAR*> ParsePropertyFlags(EPropertyFlags Flags);
 
 COREUOBJECT_API UPackage* GetTransientPackage();
 
@@ -173,6 +176,8 @@ COREUOBJECT_API FString ResolveIniObjectsReference(const FString& ObjectReferenc
 
 COREUOBJECT_API bool ResolveName(UObject*& Outer, FString& ObjectsReferenceString, bool Create, bool Throw, uint32 LoadFlags = LOAD_None);
 COREUOBJECT_API void SafeLoadError( UObject* Outer, uint32 LoadFlags, const TCHAR* ErrorMessage);
+
+COREUOBJECT_API int32 UpdateSuffixForNextNewObject(UObject* Parent, UClass* Class, TFunctionRef<void(int32&)> IndexMutator);
 
 /**
  * Fast version of StaticFindObject that relies on the passed in FName being the object name
@@ -264,10 +269,6 @@ COREUOBJECT_API UObject* StaticConstructObject_Internal(UClass* Class, UObject* 
 COREUOBJECT_API UObject* StaticDuplicateObject(UObject const* SourceObject, UObject* DestOuter, const FName DestName = NAME_None, EObjectFlags FlagMask = RF_AllFlags, UClass* DestClass = nullptr, EDuplicateMode::Type DuplicateMode = EDuplicateMode::Normal, EInternalObjectFlags InternalFlagsMask = EInternalObjectFlags::AllFlags);
 COREUOBJECT_API UObject* StaticDuplicateObjectEx( struct FObjectDuplicationParameters& Parameters );
 
-/**
- * Performs UObject system pre-initialization. Deprecated, do not use.
- */
-COREUOBJECT_API void PreInitUObject();
 /** 
  *   Iterate over all objects considered part of the root to setup GC optimizations
  */
@@ -282,7 +283,7 @@ COREUOBJECT_API void StaticTick( float DeltaTime, bool bUseFullTimeLimit = true,
  * @param	LoadFlags	Flags controlling loading behavior
  * @return	Loaded package if successful, NULL otherwise
  */
-COREUOBJECT_API UPackage* LoadPackage( UPackage* InOuter, const TCHAR* InLongPackageName, uint32 LoadFlags );
+COREUOBJECT_API UPackage* LoadPackage( UPackage* InOuter, const TCHAR* InLongPackageName, uint32 LoadFlags, FArchive* InReaderOverride = nullptr );
 
 /* Async package loading result */
 namespace EAsyncLoadingResult
@@ -528,6 +529,14 @@ void GlobalSetProperty( const TCHAR* Value, UClass* Class, UProperty* Property, 
  */
 COREUOBJECT_API bool SaveToTransactionBuffer(UObject* Object, bool bMarkDirty);
 
+/**
+ * Causes the transaction system to emit a snapshot event for the given object if the following conditions are met:
+ *  a) The object is currently transacting.
+ *  b) The object has changed since it started transacting.
+ *
+ * @param	Object		object to snapshot.
+ */
+COREUOBJECT_API void SnapshotTransactionBuffer(UObject* Object);
 
 /**
  * Check for StaticAllocateObject error; only for use with the editor, make or other commandlets.
@@ -1274,6 +1283,13 @@ inline T* GetMutableDefault()
 template< class T > 
 inline T* GetMutableDefault(UClass *Class);
 
+// Returns true if a class has been loaded (e.g. it has a CDO)
+template< class T >
+inline bool IsClassLoaded()
+{
+	return T::StaticClass()->GetDefaultObject(false) != nullptr;
+}
+
 /**
  * Looks for delegate signature with given name.
  */
@@ -1604,6 +1620,9 @@ public:
 	template<class UObjectType>
 	void AddReferencedObject(UObjectType*& Object, const UObject* ReferencingObject = nullptr, const UProperty* ReferencingProperty = nullptr)
 	{
+		// @todo: should be uncommented when proper usage is fixed everywhere
+		// static_assert(sizeof(UObjectType) > 0, "AddReferencedObject: Element must be a pointer to a fully-defined type");
+		// static_assert(TPointerIsConvertibleFromTo<UObjectType, const UObjectBase>::Value, "AddReferencedObject: Element must be a pointer to a type derived from UObject");
 		HandleObjectReference(*(UObject**)&Object, ReferencingObject, ReferencingProperty);
 	}
 
@@ -1732,8 +1751,6 @@ public:
 		}
 		return *PersistentFrameReferenceCollectorArchive;
 	}
-
-	virtual void SetShouldHandleAsWeakRef(bool bWeakRef) {}
 
 protected:
 	/**
@@ -1875,6 +1892,10 @@ struct COREUOBJECT_API FCoreUObjectDelegates
 		}
 	}
 
+	/** Callback for an object being transacted */
+	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnObjectTransacted, UObject*, const class FTransactionObjectEvent&);
+	static FOnObjectTransacted OnObjectTransacted;
+
 	/** Callback for when an asset is saved. This is called from UObject::PreSave before it is actually written to disk, for every object saved */
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnObjectSaved, UObject*);
 	static FOnObjectSaved OnObjectSaved;
@@ -1967,6 +1988,9 @@ struct COREUOBJECT_API FCoreUObjectDelegates
 	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnRedirectorFollowed, const FString&, UObject*);
 	DEPRECATED(4.17, "RedirectorFollowed is deprecated, FixeupRedirects was replaced with ResavePackages -FixupRedirect")
 	static FOnRedirectorFollowed RedirectorFollowed;
+
+	DECLARE_DELEGATE_RetVal_TwoParams(bool, FShouldCookPackageForPlatform, const UPackage*, const ITargetPlatform*);
+	static FShouldCookPackageForPlatform ShouldCookPackageForPlatform;
 };
 
 /** Allows release builds to override not verifying GC assumptions. Useful for profiling as it's hitchy. */
@@ -2034,12 +2058,12 @@ struct FAssetMsg
 		{ \
 			UE_LOG_EXPAND_IS_FATAL(Verbosity, PREPROCESSOR_NOTHING, if (!CategoryName.IsSuppressed(ELogVerbosity::Verbosity))) \
 			{ \
-				FString NewFormat = FString::Printf(TEXT("%s: %s"), *FAssetMsg::FormatPathForAssetLog(Asset), Format);\
-				FMsg::Logf_Internal(__FILE__, __LINE__, CategoryName.GetCategoryName(), ELogVerbosity::Verbosity, *NewFormat, ##__VA_ARGS__); \
+				FString FormatPath = FAssetMsg::FormatPathForAssetLog(Asset);\
+				FMsg::Logf_Internal(__FILE__, __LINE__, CategoryName.GetCategoryName(), ELogVerbosity::Verbosity, TEXT("%s: ") Format, *FormatPath, ##__VA_ARGS__); \
 				UE_LOG_EXPAND_IS_FATAL(Verbosity, \
 					{ \
 						_DebugBreakAndPromptForRemote(); \
-						FDebug::AssertFailed("", __FILE__, __LINE__, *NewFormat, ##__VA_ARGS__); \
+						FDebug::AssertFailed("", __FILE__, __LINE__, TEXT("%s: ") Format, *FormatPath, ##__VA_ARGS__); \
 						CA_ASSUME(false); \
 					}, \
 					PREPROCESSOR_NOTHING \
@@ -2114,29 +2138,6 @@ namespace UE4CodeGen_Private
 		Native
 	};
 
-	// These templates exist to help generate better code for pointers to lambdas in Clang.
-	// They simply provide a static function which, when called, will call the lambda, and we can take the
-	// address of this function.  Using lambdas' implicit conversion to function type will generate runtime code bloat.
-	template <typename LambdaType>
-	struct TBoolSetBitWrapper
-	{
-		static void SetBit(void* Ptr)
-		{
-			TBoolSetBitWrapper Empty;
-			(*(LambdaType*)&Empty)(Ptr);
-		}
-	};
-
-	template <typename LambdaType>
-	struct TNewCppStructOpsWrapper
-	{
-		static void* NewCppStructOps()
-		{
-			TNewCppStructOpsWrapper Empty;
-			return (*(LambdaType*)&Empty)();
-		}
-	};
-
 #if WITH_METADATA
 	struct FMetaDataPairParam
 	{
@@ -2162,7 +2163,7 @@ namespace UE4CodeGen_Private
 		EPropertyClass Type;
 		const char*    NameUTF8;
 		EObjectFlags   ObjectFlags;
-		uint64         PropertyFlags;
+		EPropertyFlags PropertyFlags;
 		int32          ArrayDim;
 		const char*    RepNotifyFuncUTF8;
 	};
@@ -2172,7 +2173,7 @@ namespace UE4CodeGen_Private
 		EPropertyClass Type;
 		const char*    NameUTF8;
 		EObjectFlags   ObjectFlags;
-		uint64         PropertyFlags;
+		EPropertyFlags PropertyFlags;
 		int32          ArrayDim;
 		const char*    RepNotifyFuncUTF8;
 		int32          Offset;
@@ -2183,7 +2184,7 @@ namespace UE4CodeGen_Private
 		EPropertyClass   Type;
 		const char*      NameUTF8;
 		EObjectFlags     ObjectFlags;
-		uint64           PropertyFlags;
+		EPropertyFlags   PropertyFlags;
 		int32            ArrayDim;
 		const char*      RepNotifyFuncUTF8;
 		int32            Offset;
@@ -2198,7 +2199,7 @@ namespace UE4CodeGen_Private
 		EPropertyClass   Type;
 		const char*      NameUTF8;
 		EObjectFlags     ObjectFlags;
-		uint64           PropertyFlags;
+		EPropertyFlags   PropertyFlags;
 		int32            ArrayDim;
 		const char*      RepNotifyFuncUTF8;
 		int32            Offset;
@@ -2214,7 +2215,7 @@ namespace UE4CodeGen_Private
 		EPropertyClass   Type;
 		const char*      NameUTF8;
 		EObjectFlags     ObjectFlags;
-		uint64           PropertyFlags;
+		EPropertyFlags   PropertyFlags;
 		int32            ArrayDim;
 		const char*      RepNotifyFuncUTF8;
 		uint32           ElementSize;
@@ -2232,7 +2233,7 @@ namespace UE4CodeGen_Private
 		EPropertyClass   Type;
 		const char*      NameUTF8;
 		EObjectFlags     ObjectFlags;
-		uint64           PropertyFlags;
+		EPropertyFlags   PropertyFlags;
 		int32            ArrayDim;
 		const char*      RepNotifyFuncUTF8;
 		int32            Offset;
@@ -2248,7 +2249,7 @@ namespace UE4CodeGen_Private
 		EPropertyClass   Type;
 		const char*      NameUTF8;
 		EObjectFlags     ObjectFlags;
-		uint64           PropertyFlags;
+		EPropertyFlags   PropertyFlags;
 		int32            ArrayDim;
 		const char*      RepNotifyFuncUTF8;
 		int32            Offset;
@@ -2265,7 +2266,7 @@ namespace UE4CodeGen_Private
 		EPropertyClass   Type;
 		const char*      NameUTF8;
 		EObjectFlags     ObjectFlags;
-		uint64           PropertyFlags;
+		EPropertyFlags   PropertyFlags;
 		int32            ArrayDim;
 		const char*      RepNotifyFuncUTF8;
 		int32            Offset;
@@ -2281,7 +2282,7 @@ namespace UE4CodeGen_Private
 		EPropertyClass   Type;
 		const char*      NameUTF8;
 		EObjectFlags     ObjectFlags;
-		uint64           PropertyFlags;
+		EPropertyFlags   PropertyFlags;
 		int32            ArrayDim;
 		const char*      RepNotifyFuncUTF8;
 		int32            Offset;
@@ -2297,7 +2298,7 @@ namespace UE4CodeGen_Private
 		EPropertyClass   Type;
 		const char*      NameUTF8;
 		EObjectFlags     ObjectFlags;
-		uint64           PropertyFlags;
+		EPropertyFlags   PropertyFlags;
 		int32            ArrayDim;
 		const char*      RepNotifyFuncUTF8;
 		int32            Offset;
@@ -2313,7 +2314,7 @@ namespace UE4CodeGen_Private
 		EPropertyClass   Type;
 		const char*      NameUTF8;
 		EObjectFlags     ObjectFlags;
-		uint64           PropertyFlags;
+		EPropertyFlags   PropertyFlags;
 		int32            ArrayDim;
 		const char*      RepNotifyFuncUTF8;
 		int32            Offset;
@@ -2329,7 +2330,7 @@ namespace UE4CodeGen_Private
 		EPropertyClass   Type;
 		const char*      NameUTF8;
 		EObjectFlags     ObjectFlags;
-		uint64           PropertyFlags;
+		EPropertyFlags   PropertyFlags;
 		int32            ArrayDim;
 		const char*      RepNotifyFuncUTF8;
 		int32            Offset;
@@ -2345,7 +2346,7 @@ namespace UE4CodeGen_Private
 		EPropertyClass   Type;
 		const char*      NameUTF8;
 		EObjectFlags     ObjectFlags;
-		uint64           PropertyFlags;
+		EPropertyFlags   PropertyFlags;
 		int32            ArrayDim;
 		const char*      RepNotifyFuncUTF8;
 		int32            Offset;

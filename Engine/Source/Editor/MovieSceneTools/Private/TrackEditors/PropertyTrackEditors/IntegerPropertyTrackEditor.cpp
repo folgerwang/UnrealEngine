@@ -1,7 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "TrackEditors/PropertyTrackEditors/IntegerPropertyTrackEditor.h"
-#include "Sections/IntegerPropertySection.h"
 
 
 TSharedRef<ISequencerTrackEditor> FIntegerPropertyTrackEditor::CreateTrackEditor( TSharedRef<ISequencer> OwningSequencer )
@@ -10,21 +9,8 @@ TSharedRef<ISequencerTrackEditor> FIntegerPropertyTrackEditor::CreateTrackEditor
 }
 
 
-TSharedRef<ISequencerSection> FIntegerPropertyTrackEditor::MakeSectionInterface(UMovieSceneSection& SectionObject, UMovieSceneTrack& Track, FGuid ObjectBinding)
+void FIntegerPropertyTrackEditor::GenerateKeysFromPropertyChanged( const FPropertyChangedParams& PropertyChangedParams, FGeneratedTrackKeys& OutGeneratedKeys )
 {
-	UMovieScenePropertyTrack* PropertyTrack = Cast<UMovieScenePropertyTrack>(&Track);
-	if (PropertyTrack != nullptr)
-	{
-		return MakeShareable(new FIntegerPropertySection(GetSequencer().Get(), ObjectBinding, PropertyTrack->GetPropertyName(), PropertyTrack->GetPropertyPath(), SectionObject, Track.GetDisplayName()));
-	}
-	else
-	{
-		return MakeShareable(new FIntegerPropertySection(SectionObject, Track.GetDisplayName()));
-	}
-}
-
-
-void FIntegerPropertyTrackEditor::GenerateKeysFromPropertyChanged( const FPropertyChangedParams& PropertyChangedParams, TArray<int32>& NewGeneratedKeys, TArray<int32>& DefaultGeneratedKeys )
-{
-	NewGeneratedKeys.Add( PropertyChangedParams.GetPropertyValue<int32>() );
+	const int32 KeyedValue = PropertyChangedParams.GetPropertyValue<int32>();
+	OutGeneratedKeys.Add(FMovieSceneChannelValueSetter::Create<FMovieSceneIntegerChannel>(0, KeyedValue, true));
 }

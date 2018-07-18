@@ -18,7 +18,7 @@ struct FMovieSceneEventSectionTemplate : public FMovieSceneEvalTemplate
 {
 	GENERATED_BODY()
 	
-	FMovieSceneEventSectionTemplate() {}
+	FMovieSceneEventSectionTemplate() : bFireEventsWhenForwards(false), bFireEventsWhenBackwards(false) {}
 	FMovieSceneEventSectionTemplate(const UMovieSceneEventSection& Section, const UMovieSceneEventTrack& Track);
 
 	UPROPERTY()

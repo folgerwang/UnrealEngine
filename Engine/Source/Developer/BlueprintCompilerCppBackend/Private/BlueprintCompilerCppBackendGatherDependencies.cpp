@@ -715,7 +715,7 @@ TSet<const UObject*> FGatherConvertedClassDependencies::AllDependencies() const
 	return All;
 }
 
-class FArchiveReferencesInStructIntance : public FArchive
+class FArchiveReferencesInStructInstance : public FArchive
 {
 public:
 
@@ -738,7 +738,7 @@ public:
 	}
 	//~ End FArchive Interface
 
-	FArchiveReferencesInStructIntance()
+	FArchiveReferencesInStructInstance()
 	{
 		ArIsObjectReferenceCollector = true;
 		ArIsFilterEditorOnly = true;
@@ -746,14 +746,14 @@ public:
 };
 
 
-void FGatherConvertedClassDependencies::GatherAssetReferencedByUDSDefaultValue(TSet<UObject*>& Dependencies, UUserDefinedStruct* Struct)
+void FGatherConvertedClassDependencies::GatherAssetsReferencedByUDSDefaultValue(TSet<UObject*>& Dependencies, UUserDefinedStruct* Struct)
 {
 	if (Struct)
 	{
 		FStructOnScope StructOnScope(Struct);
 		Struct->InitializeDefaultValue(StructOnScope.GetStructMemory());
-		FArchiveReferencesInStructIntance ArchiveReferencesInStructIntance;
-		Struct->SerializeItem(ArchiveReferencesInStructIntance, StructOnScope.GetStructMemory(), nullptr);
-		Dependencies.Append(ArchiveReferencesInStructIntance.References);
+		FArchiveReferencesInStructInstance ArchiveReferencesInStructInstance;
+		Struct->SerializeItem(ArchiveReferencesInStructInstance, StructOnScope.GetStructMemory(), nullptr);
+		Dependencies.Append(ArchiveReferencesInStructInstance.References);
 	}
 }

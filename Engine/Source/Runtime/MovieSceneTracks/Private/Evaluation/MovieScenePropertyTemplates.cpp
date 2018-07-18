@@ -11,7 +11,7 @@
 #include "Sections/MovieSceneStringSection.h"
 #include "Tracks/MovieScenePropertyTrack.h"
 #include "MovieScene.h"
-#include "MovieSceneEvaluation.h"
+#include "Evaluation/MovieSceneEvaluation.h"
 #include "MovieSceneTemplateCommon.h"
 #include "Evaluation/Blending/MovieSceneMultiChannelBlending.h"
 
@@ -29,7 +29,7 @@ namespace
 //	Boolean Property Template
 FMovieSceneBoolPropertySectionTemplate::FMovieSceneBoolPropertySectionTemplate(const UMovieSceneBoolSection& Section, const UMovieScenePropertyTrack& Track)
 	: FMovieScenePropertySectionTemplate(Track.GetPropertyName(), Track.GetPropertyPath())
-	, BoolCurve(Section.GetCurve())
+	, BoolCurve(Section.GetChannel())
 {
 	PropertyData.PropertyName = SanitizeBoolPropertyName(PropertyData.PropertyName);
 }
@@ -37,9 +37,10 @@ FMovieSceneBoolPropertySectionTemplate::FMovieSceneBoolPropertySectionTemplate(c
 void FMovieSceneBoolPropertySectionTemplate::Evaluate(const FMovieSceneEvaluationOperand& Operand, const FMovieSceneContext& Context, const FPersistentEvaluationData& PersistentData, FMovieSceneExecutionTokens& ExecutionTokens) const
 {
 	// Only evaluate if the curve has any data
-	if (BoolCurve.HasAnyData())
+	bool Result = false;
+	if (BoolCurve.Evaluate(Context.GetTime(), Result))
 	{
-		ExecutionTokens.Add(TPropertyTrackExecutionToken<bool>(!!BoolCurve.Evaluate(Context.GetTime())));
+		ExecutionTokens.Add(TPropertyTrackExecutionToken<bool>(Result));
 	}
 }
 
@@ -48,22 +49,23 @@ void FMovieSceneBoolPropertySectionTemplate::Evaluate(const FMovieSceneEvaluatio
 //	Float Property Template
 FMovieSceneFloatPropertySectionTemplate::FMovieSceneFloatPropertySectionTemplate(const UMovieSceneFloatSection& Section, const UMovieScenePropertyTrack& Track)
 	: FMovieScenePropertySectionTemplate(Track.GetPropertyName(), Track.GetPropertyPath())
-	, FloatCurve(Section.GetFloatCurve())
+	, FloatFunction(Section.GetChannel())
 	, BlendType(Section.GetBlendType().Get())
 {}
 
 void FMovieSceneFloatPropertySectionTemplate::Evaluate(const FMovieSceneEvaluationOperand& Operand, const FMovieSceneContext& Context, const FPersistentEvaluationData& PersistentData, FMovieSceneExecutionTokens& ExecutionTokens) const
 {
+	float Result = 0.f;
+
 	// Only evaluate if the curve has any data
-	if (FloatCurve.HasAnyData())
+	if (FloatFunction.Evaluate(Context.GetTime(), Result))
 	{
 		// Actuator type ID for this property
 		FMovieSceneBlendingActuatorID ActuatorTypeID = EnsureActuator<float>(ExecutionTokens.GetBlendingAccumulator());
 
 		// Add the blendable to the accumulator
-		const float Value = FloatCurve.Eval(Context.GetTime());
 		const float Weight = EvaluateEasing(Context.GetTime());
-		ExecutionTokens.BlendToken(ActuatorTypeID, TBlendableToken<float>(Value, BlendType, Weight));
+		ExecutionTokens.BlendToken(ActuatorTypeID, TBlendableToken<float>(Result, BlendType, Weight));
 	}
 }
 
@@ -72,15 +74,15 @@ void FMovieSceneFloatPropertySectionTemplate::Evaluate(const FMovieSceneEvaluati
 //	Byte Property Template
 FMovieSceneBytePropertySectionTemplate::FMovieSceneBytePropertySectionTemplate(const UMovieSceneByteSection& Section, const UMovieScenePropertyTrack& Track)
 	: FMovieScenePropertySectionTemplate(Track.GetPropertyName(), Track.GetPropertyPath())
-	, ByteCurve(Section.GetCurve())
+	, ByteCurve(Section.ByteCurve)
 {}
 
 void FMovieSceneBytePropertySectionTemplate::Evaluate(const FMovieSceneEvaluationOperand& Operand, const FMovieSceneContext& Context, const FPersistentEvaluationData& PersistentData, FMovieSceneExecutionTokens& ExecutionTokens) const
 {
-	// Only evaluate if the curve has any data
-	if (ByteCurve.HasAnyData())
+	uint8 Result = 0;
+	if (ByteCurve.Evaluate(Context.GetTime(), Result))
 	{
-		ExecutionTokens.Add(TPropertyTrackExecutionToken<uint8>(ByteCurve.Evaluate(Context.GetTime())));
+		ExecutionTokens.Add(TPropertyTrackExecutionToken<uint8>(Result));
 	}
 }
 
@@ -89,15 +91,15 @@ void FMovieSceneBytePropertySectionTemplate::Evaluate(const FMovieSceneEvaluatio
 //	Enum Property Template
 FMovieSceneEnumPropertySectionTemplate::FMovieSceneEnumPropertySectionTemplate(const UMovieSceneEnumSection& Section, const UMovieScenePropertyTrack& Track)
 	: FMovieScenePropertySectionTemplate(Track.GetPropertyName(), Track.GetPropertyPath())
-	, EnumCurve(Section.GetCurve())
+	, EnumCurve(Section.EnumCurve)
 {}
 
 void FMovieSceneEnumPropertySectionTemplate::Evaluate(const FMovieSceneEvaluationOperand& Operand, const FMovieSceneContext& Context, const FPersistentEvaluationData& PersistentData, FMovieSceneExecutionTokens& ExecutionTokens) const
 {
-	// Only evaluate if the curve has any data
-	if (EnumCurve.HasAnyData())
+	uint8 Result = 0;
+	if (EnumCurve.Evaluate(Context.GetTime(), Result))
 	{
-		ExecutionTokens.Add(TPropertyTrackExecutionToken<int64>(EnumCurve.Evaluate(Context.GetTime())));
+		ExecutionTokens.Add(TPropertyTrackExecutionToken<uint8>(Result));
 	}
 }
 
@@ -106,21 +108,21 @@ void FMovieSceneEnumPropertySectionTemplate::Evaluate(const FMovieSceneEvaluatio
 //	Integer Property Template
 FMovieSceneIntegerPropertySectionTemplate::FMovieSceneIntegerPropertySectionTemplate(const UMovieSceneIntegerSection& Section, const UMovieScenePropertyTrack& Track)
 	: FMovieScenePropertySectionTemplate(Track.GetPropertyName(), Track.GetPropertyPath())
-	, IntegerCurve(Section.GetCurve())
+	, IntegerCurve(Section.GetChannel())
 	, BlendType(Section.GetBlendType().Get())
 {}
 
 void FMovieSceneIntegerPropertySectionTemplate::Evaluate(const FMovieSceneEvaluationOperand& Operand, const FMovieSceneContext& Context, const FPersistentEvaluationData& PersistentData, FMovieSceneExecutionTokens& ExecutionTokens) const
 {
-	if (IntegerCurve.HasAnyData())
+	int32 Result = 0;
+	if (IntegerCurve.Evaluate(Context.GetTime(), Result))
 	{
 		// Actuator type ID for this property
 		FMovieSceneBlendingActuatorID ActuatorTypeID = EnsureActuator<int32>(ExecutionTokens.GetBlendingAccumulator());
 
 		// Add the blendable to the accumulator
-		const int32 Value = IntegerCurve.Evaluate(Context.GetTime());
 		const float Weight = EvaluateEasing(Context.GetTime());
-		ExecutionTokens.BlendToken(ActuatorTypeID, TBlendableToken<int32>(Value, BlendType, Weight));
+		ExecutionTokens.BlendToken(ActuatorTypeID, TBlendableToken<int32>(Result, BlendType, Weight));
 	}
 }
 
@@ -129,14 +131,15 @@ void FMovieSceneIntegerPropertySectionTemplate::Evaluate(const FMovieSceneEvalua
 //	String Property Template
 FMovieSceneStringPropertySectionTemplate::FMovieSceneStringPropertySectionTemplate(const UMovieSceneStringSection& Section, const UMovieScenePropertyTrack& Track)
 	: FMovieScenePropertySectionTemplate(Track.GetPropertyName(), Track.GetPropertyPath())
-	, StringCurve(Section.GetStringCurve())
+	, StringCurve(Section.GetChannel())
 {}
 
 void FMovieSceneStringPropertySectionTemplate::Evaluate(const FMovieSceneEvaluationOperand& Operand, const FMovieSceneContext& Context, const FPersistentEvaluationData& PersistentData, FMovieSceneExecutionTokens& ExecutionTokens) const
 {
-	if (StringCurve.HasAnyData())
+	const FString* Result = StringCurve.Evaluate(Context.GetTime());
+	if (Result)
 	{
-		ExecutionTokens.Add(TPropertyTrackExecutionToken<FString>(StringCurve.Eval(Context.GetTime(), FString())));
+		ExecutionTokens.Add(TPropertyTrackExecutionToken<FString>(*Result));
 	}
 }
 
@@ -150,22 +153,23 @@ FMovieSceneVectorPropertySectionTemplate::FMovieSceneVectorPropertySectionTempla
 {
 	for (int32 Index = 0; Index < NumChannelsUsed; ++Index)
 	{
-		ComponentCurves[Index] = Section.GetCurve(Index);
+		ComponentCurves[Index] = Section.GetChannel(Index);
 	}
 }
 
 /** Helper function fo evaluating a number of curves for a specific vector type */
 template<typename VectorType, uint8 N>
-void EvaluateVectorCurve(EMovieSceneBlendType BlendType, float Weight, float Time, const FRichCurve* Curves, FMovieSceneBlendingActuatorID ActuatorTypeID, FMovieSceneExecutionTokens& ExecutionTokens)
+void EvaluateVectorCurve(EMovieSceneBlendType BlendType, float Weight, FFrameTime Time, const FMovieSceneFloatChannel* Channels, FMovieSceneBlendingActuatorID ActuatorTypeID, FMovieSceneExecutionTokens& ExecutionTokens)
 {
 	MovieScene::TMultiChannelValue<float, N> AnimatedChannels;
 
 	for (uint8 Index = 0; Index < N; ++Index)
 	{
-		const FRichCurve& Curve = Curves[Index];
-		if (Curve.HasAnyData())
+		const FMovieSceneFloatChannel& Channel = Channels[Index];
+		float Result = 0;
+		if (Channel.Evaluate(Time, Result))
 		{
-			AnimatedChannels.Set(Index, Curve.Eval(Time));
+			AnimatedChannels.Set(Index, Result);
 		}
 	}
 
@@ -180,8 +184,8 @@ void FMovieSceneVectorPropertySectionTemplate::Evaluate(const FMovieSceneEvaluat
 {
 	FMovieSceneBlendingAccumulator& Accumulator = ExecutionTokens.GetBlendingAccumulator();
 
-	const float Time = Context.GetTime();
-	const float Weight = EvaluateEasing(Context.GetTime());
+	const FFrameTime Time   = Context.GetTime();
+	const float      Weight = EvaluateEasing(Context.GetTime());
 
 	switch (NumChannelsUsed)
 	{
@@ -218,13 +222,45 @@ void FMovieSceneTransformPropertySectionTemplate::Evaluate(const FMovieSceneEval
 	// Actuator type ID for this property
 	FMovieSceneBlendingActuatorID ActuatorTypeID = EnsureActuator<FTransform>(ExecutionTokens.GetBlendingAccumulator());
 
-	// Add the blendable to the accumulator
+	// Evaluate the easing, and multiply this with the manual weight specified on the manual weight curve
 	float Weight = EvaluateEasing(Context.GetTime());
 	if (EnumHasAllFlags(TemplateData.Mask.GetChannels(), EMovieSceneTransformChannel::Weight))
 	{
-		Weight *= TemplateData.ManualWeight.Eval(Context.GetTime());
+		float ManualWeight = 1.f;
+		TemplateData.ManualWeight.Evaluate(Context.GetTime(), ManualWeight);
+		Weight *= ManualWeight;
 	}
 
 	// Add the blendable to the accumulator
 	ExecutionTokens.BlendToken(ActuatorTypeID, TBlendableToken<FTransform>(TransformValue, TemplateData.BlendType, Weight));
+}
+
+
+//	----------------------------------------------------------------------------
+//	Euler transform Property Template
+FMovieSceneEulerTransformPropertySectionTemplate::FMovieSceneEulerTransformPropertySectionTemplate(const UMovieScene3DTransformSection& Section, const UMovieScenePropertyTrack& Track)
+	: FMovieScenePropertySectionTemplate(Track.GetPropertyName(), Track.GetPropertyPath())
+	, TemplateData(Section)
+{}
+
+void FMovieSceneEulerTransformPropertySectionTemplate::Evaluate(const FMovieSceneEvaluationOperand& Operand, const FMovieSceneContext& Context, const FPersistentEvaluationData& PersistentData, FMovieSceneExecutionTokens& ExecutionTokens) const
+{
+	MovieScene::TMultiChannelValue<float, 9> TransformValue = TemplateData.Evaluate(Context.GetTime());
+
+	// Actuator type ID for this property
+	FMovieSceneBlendingActuatorID ActuatorTypeID = EnsureActuator<FEulerTransform>(ExecutionTokens.GetBlendingAccumulator());
+
+	// Add the blendable to the accumulator
+	float Weight = EvaluateEasing(Context.GetTime());
+	if (EnumHasAllFlags(TemplateData.Mask.GetChannels(), EMovieSceneTransformChannel::Weight))
+	{
+		float ChannelWeight = 0.f;
+		if (TemplateData.ManualWeight.Evaluate(Context.GetTime(), ChannelWeight))
+		{
+			Weight *= ChannelWeight;
+		}
+	}
+
+	// Add the blendable to the accumulator
+	ExecutionTokens.BlendToken(ActuatorTypeID, TBlendableToken<FEulerTransform>(TransformValue, TemplateData.BlendType, Weight));
 }

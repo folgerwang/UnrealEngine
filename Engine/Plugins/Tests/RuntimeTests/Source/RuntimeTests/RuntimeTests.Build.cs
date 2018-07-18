@@ -9,8 +9,6 @@ public class RuntimeTests : ModuleRules
 		
 		PublicIncludePaths.AddRange(
 			new string[] {
-				"RuntimeTests/Public"
-				
 				// ... add public include paths required here ...
 			}
 			);
@@ -18,8 +16,6 @@ public class RuntimeTests : ModuleRules
 		
 		PrivateIncludePaths.AddRange(
 			new string[] {
-				"RuntimeTests/Private",
-				
 				// ... add other private include paths required here ...
 			}
 			);

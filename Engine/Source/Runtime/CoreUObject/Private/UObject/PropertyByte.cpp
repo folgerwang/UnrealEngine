@@ -166,10 +166,8 @@ struct TConvertIntToEnumProperty
 	}
 };
 
-bool UByteProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct, bool& bOutAdvanceProperty)
+EConvertFromTypeResult UByteProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct)
 {
-	bOutAdvanceProperty = true;
-
 	if (Tag.Type == NAME_ByteProperty  && ((Tag.EnumName == NAME_None) != (Enum == nullptr)))
 	{
 		// a byte property gained or lost an enum
@@ -182,8 +180,7 @@ bool UByteProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8
 
 			if (PropertyOwner)
 			{
-				bOutAdvanceProperty = false;
-				return bOutAdvanceProperty;
+				return EConvertFromTypeResult::UseSerializeItem;
 			}
 
 			// simply pretend the property still doesn't have an enum and serialize the single byte
@@ -286,10 +283,10 @@ bool UByteProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8
 	}
 	else
 	{
-		bOutAdvanceProperty = false;
+		return EConvertFromTypeResult::UseSerializeItem;
 	}
 
-	return bOutAdvanceProperty;
+	return EConvertFromTypeResult::Converted;
 }
 
 void UByteProperty::ExportTextItem( FString& ValueStr, const void* PropertyValue, const void* DefaultValue, UObject* Parent, int32 PortFlags, UObject* ExportRootScope ) const
@@ -362,7 +359,7 @@ const TCHAR* UByteProperty::ImportText_Internal( const TCHAR* InBuffer, void* Da
 			if (EnumIndex == INDEX_NONE && (Temp.IsNumeric() && !Algo::Find(Temp, TEXT('.'))))
 			{
 				int64 EnumValue = INDEX_NONE;
-				Lex::FromString(EnumValue, *Temp);
+				LexFromString(EnumValue, *Temp);
 				EnumIndex = Enum->GetIndexByValue(EnumValue);
 			}
 			if (EnumIndex != INDEX_NONE)

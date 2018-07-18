@@ -36,12 +36,15 @@ namespace UnrealBuildTool.Rules
 			if ((Target.Platform == UnrealTargetPlatform.Win64) ||
 				(Target.Platform == UnrealTargetPlatform.Win32))
 			{
-				AddEngineThirdPartyPrivateStaticDependencies(Target,
+                PublicIncludePathModuleNames.Add("UELibSampleRate");
+
+                AddEngineThirdPartyPrivateStaticDependencies(Target,
 					"UEOgg",
 					"Vorbis",
 					"VorbisFile",
-					"libOpus"
-					);
+					"libOpus",
+                    "UELibSampleRate"
+                    );
 			}
 
 			// TODO test this for HTML5 !
@@ -64,7 +67,7 @@ namespace UnrealBuildTool.Rules
 				PublicFrameworks.AddRange(new string[] { "AVFoundation", "CoreVideo", "CoreMedia" });
 			}
 
-			if (Target.Platform == UnrealTargetPlatform.Android)
+			if (Target.IsInPlatformGroup(UnrealPlatformGroup.Android))
 			{
 				AddEngineThirdPartyPrivateStaticDependencies(Target,
 					"UEOgg",
@@ -73,7 +76,7 @@ namespace UnrealBuildTool.Rules
 					);
 			}
 
-			if (Target.Platform == UnrealTargetPlatform.Linux)
+			if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
 			{
 				AddEngineThirdPartyPrivateStaticDependencies(Target,
 					"UEOgg",

@@ -1,26 +1,31 @@
-﻿INTSourceChangelist:3340382
-Availability:Docs
+﻿INTSourceChangelist:3782314
+Availability:Public
+Crumbs: %ROOT%
 Title:ディスタンス フィールドの操作ガイド
-Crumbs:
 Description:アンリアル エンジン 4 でメッシュ ディスタンス フィールドの様々な特性を使用するための操作ガイド
-Version:4.15
-type:landing
-parent:Engine/Rendering/LightingAndShadows/DistanceFields
-order:
+Type: how-to
+Version:4.18
+Parent:Engine/Rendering/LightingAndShadows/MeshDistanceFields
+Related:Engine/Rendering/LightingAndShadows/RayTracedDistanceFieldShadowing
+Related:Engine/Rendering/LightingAndShadows/DistanceFieldAmbientOcclusion
+Related:Engine/Rendering/LightingAndShadows/MeshDistanceFields/Reference
+Order:
+Tags:Lighting
 topic-image:DFHowTo_topic.png
-tags:Lighting
 
 
-プロジェクトでディスタンス フィールドをさらに使いやすくするための様々なトピックを 1 つずつ説明しします。 
-
+このガイドは、[Distance Field Ambient Occlusion](Engine/Rendering/LightingAndShadows/DistanceFieldAmbientOcclusion) を使ったシーンへのスカイライトの追加方法、 
+ライトに [RayTraced Distance Field Shadowing](Engine/Rendering/LightingAndShadows/RayTracedDistanceFieldShadowing) を有効にする方法、
+シーンのコリジョンに Mesh Distance Field を使用するためのパーティクル ビジュアル エフェクトを設定方法など、
+[Mesh Distance Fields](Engine/Rendering/LightingAndShadows/MeshDistanceFields) で使用できる機能をステップごとに操作ガイドです。
 
 ## 初心者向け
 
-[DIR(output:"fancy" parent:"Engine/Rendering/LightingAndShadows/DistanceFields/HowTo" skill_level:"Beginner")]
+[DIR(output:"fancy" parent:"Engine/Rendering/LightingAndShadows/MeshDistanceFields/HowTo" skill_level:"Beginner" tags:"Lighting")]
 
 ## 中級者向け
 
-[DIR(output:"fancy" parent:"Engine/Rendering/LightingAndShadows/DistanceFields/HowTo" skill_level:"Intermediate")]
+[DIR(output:"fancy" parent:"Engine/Rendering/LightingAndShadows/MeshDistanceFields/HowTo" skill_level:"Intermediate" tags:"Lighting")]
 
 
 [COMMENT:none]
@@ -29,5 +34,6 @@ tags:Lighting
 
 [DIR(output:"fancy" parent:"Engine/Rendering/Materials/HowTo" skill_level:"Advanced")]
 
+skill_level:"Intermediate"
 -
 [/COMMENT]

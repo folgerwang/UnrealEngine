@@ -4,6 +4,7 @@
 
 // Module dependencies
 #include "Interfaces/ISslCertificateManager.h"
+#include "Interfaces/ISslManager.h"
 
 // Module includes
 #include "SslModule.h"

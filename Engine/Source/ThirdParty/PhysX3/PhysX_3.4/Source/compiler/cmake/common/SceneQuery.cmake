@@ -14,8 +14,14 @@ SOURCE_GROUP(include FILES ${SCENEQUERY_HEADERS})
 SET(SCENEQUERY_SOURCE			
 	${SCENEQUERY_BASE_DIR}/src/SqAABBPruner.cpp
 	${SCENEQUERY_BASE_DIR}/src/SqAABBPruner.h
+	${SCENEQUERY_BASE_DIR}/src/SqIncrementalAABBPrunerCore.cpp
+	${SCENEQUERY_BASE_DIR}/src/SqIncrementalAABBPrunerCore.h
 	${SCENEQUERY_BASE_DIR}/src/SqAABBTree.cpp
 	${SCENEQUERY_BASE_DIR}/src/SqAABBTree.h
+	${SCENEQUERY_BASE_DIR}/src/SqAABBTreeBuild.cpp
+	${SCENEQUERY_BASE_DIR}/src/SqAABBTreeBuild.h
+	${SCENEQUERY_BASE_DIR}/src/SqIncrementalAABBTree.cpp
+	${SCENEQUERY_BASE_DIR}/src/SqIncrementalAABBTree.h
 	${SCENEQUERY_BASE_DIR}/src/SqAABBTreeQuery.h
 	${SCENEQUERY_BASE_DIR}/src/SqAABBTreeUpdateMap.cpp
 	${SCENEQUERY_BASE_DIR}/src/SqAABBTreeUpdateMap.h

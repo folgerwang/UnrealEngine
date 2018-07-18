@@ -32,7 +32,7 @@ APlayerController* GetPlayerControllerFromNetId(UWorld* World, const FUniqueNetI
 		{
 			APlayerController* PlayerController = Iterator->Get();
 			// Determine if this is a player with replication
-			if (PlayerController->PlayerState != NULL && PlayerController->PlayerState->UniqueId.IsValid())
+			if (PlayerController && PlayerController->PlayerState != NULL && PlayerController->PlayerState->UniqueId.IsValid())
 			{
 				// If the ids match, then this is the right player.
 				if (*PlayerController->PlayerState->UniqueId == PlayerNetId)
@@ -64,7 +64,7 @@ void AGameSession::HandleMatchHasStarted()
 		for (FConstPlayerControllerIterator Iterator = World->GetPlayerControllerIterator(); Iterator; ++Iterator)
 		{
 			APlayerController* PlayerController = Iterator->Get();
-			if (!PlayerController->IsLocalController())
+			if (PlayerController && !PlayerController->IsLocalController())
 			{
 				PlayerController->ClientStartOnlineSession();
 			}
@@ -106,7 +106,7 @@ void AGameSession::HandleMatchHasEnded()
 		for (FConstPlayerControllerIterator Iterator = World->GetPlayerControllerIterator(); Iterator; ++Iterator)
 		{
 			APlayerController* PlayerController = Iterator->Get();
-			if (!PlayerController->IsLocalController())
+			if (PlayerController && !PlayerController->IsLocalController())
 			{
 				PlayerController->ClientEndOnlineSession();
 			}
@@ -251,13 +251,23 @@ void AGameSession::UnregisterPlayer(FName InSessionName, const FUniqueNetIdRepl&
 	}
 }
 
+void AGameSession::UnregisterPlayers(FName InSessionName, const TArray< TSharedRef<const FUniqueNetId> >& Players)
+{
+	UWorld* World = GetWorld();
+	if (GetNetMode() != NM_Standalone &&
+		Players.Num() > 0)
+	{
+		// Remove the player from the session
+		UOnlineEngineInterface::Get()->UnregisterPlayers(World, InSessionName, Players);
+	}
+}
+
 void AGameSession::UnregisterPlayer(const APlayerController* ExitingPlayer)
 {
 	if (GetNetMode() != NM_Standalone &&
 		ExitingPlayer != NULL &&
 		ExitingPlayer->PlayerState &&
-		ExitingPlayer->PlayerState->UniqueId.IsValid() &&
-		ExitingPlayer->PlayerState->UniqueId->IsValid())
+		ExitingPlayer->PlayerState->UniqueId.IsValid())
 	{
 		UnregisterPlayer(ExitingPlayer->PlayerState->SessionName, ExitingPlayer->PlayerState->UniqueId);
 	}

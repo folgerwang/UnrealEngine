@@ -277,7 +277,6 @@ public:
 
 		return false;
 	}
-#endif // WITH_EDITOR
 
 	/** Finds the first matching parameter's description */
 	bool GetParameterDesc(const FMaterialParameterInfo& ParameterInfo, FString& OutDesc)
@@ -322,6 +321,7 @@ public:
 
 		return false;
 	}
+#endif // WITH_EDITOR
 
 	/** Returns if any of the matching parameters have changed */
 	template <typename ParameterType, typename ExpressionType>

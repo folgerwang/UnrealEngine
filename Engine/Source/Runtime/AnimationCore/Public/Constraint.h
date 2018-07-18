@@ -13,6 +13,7 @@
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
 #include "CommonAnimTypes.h"
+#include "EulerTransform.h"
 #include "Constraint.generated.h"
 
 struct FMultiTransformBlendHelper;
@@ -27,13 +28,13 @@ struct ANIMATIONCORE_API FFilterOptionPerAxis
 {
 	GENERATED_USTRUCT_BODY()
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = FFilterOptionPerAxis)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Axis Filter")
 	bool bX;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = FFilterOptionPerAxis)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Axis Filter")
 	bool bY;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = FFilterOptionPerAxis)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Axis Filter")
 	bool bZ;
 
 	FFilterOptionPerAxis()
@@ -42,43 +43,49 @@ struct ANIMATIONCORE_API FFilterOptionPerAxis
 		, bZ(true)
 	{}
 
-	// @todo: this might not work with quaternion
-	void FilterVector(FVector4& Input) const
+	void FilterVector(FVector& Input, float ResetValue = 0.f) const
 	{
 		if (!bX)
 		{
-			Input.X = 0.f;
+			Input.X = ResetValue;
 		}
 
 		if (!bY)
 		{
-			Input.Y = 0.f;
+			Input.Y = ResetValue;
 		}
 
 		if (!bZ)
 		{
-			Input.Z = 0.f;
+			Input.Z = ResetValue;
 		}
 	}
 
 	void FilterQuat(FQuat& Input) const
 	{
+		FRotator Rotator = Input.Rotator();
+
+		FilterRotator(Rotator);
+
+		Input = Rotator.Quaternion();
+	}
+
+	void FilterRotator(FRotator& Input) const
+	{
 		if (!bX)
 		{
-			Input.X = 0.f;
+			Input.Roll = 0.f;
 		}
 
 		if (!bY)
 		{
-			Input.Y = 0.f;
+			Input.Pitch = 0.f;
 		}
 
 		if (!bZ)
 		{
-			Input.Z = 0.f;
+			Input.Yaw = 0.f;
 		}
-
-		Input.Normalize();
 	}
 
 	friend FArchive & operator<<(FArchive & Ar, FFilterOptionPerAxis & D)
@@ -94,6 +101,52 @@ struct ANIMATIONCORE_API FFilterOptionPerAxis
 	{
 		// if none of them is set, it's not valid
 		return bX || bY || bZ;
+	}
+};
+
+/** A filter for a whole transform */
+USTRUCT(BlueprintType)
+struct ANIMATIONCORE_API FTransformFilter
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Axis Filter")
+	FFilterOptionPerAxis TranslationFilter;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Axis Filter")
+	FFilterOptionPerAxis RotationFilter;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Axis Filter")
+	FFilterOptionPerAxis ScaleFilter;
+
+	void FilterTransform(FTransform& Input) const
+	{
+		FVector Location = Input.GetLocation();
+		TranslationFilter.FilterVector(Location);
+		Input.SetLocation(Location);
+
+		FQuat Rotation = Input.GetRotation();
+		RotationFilter.FilterQuat(Rotation);
+		Input.SetRotation(Rotation);
+
+		FVector Scale3D = Input.GetScale3D();
+		ScaleFilter.FilterVector(Scale3D, 1.f);
+		Input.SetScale3D(Scale3D);
+	}
+
+	void FilterTransform(FEulerTransform& Input) const
+	{
+		FVector Location = Input.Location;
+		TranslationFilter.FilterVector(Location);
+		Input.Location = Location;
+
+		FRotator Rotation = Input.Rotation;
+		RotationFilter.FilterRotator(Rotation);
+		Input.Rotation = Rotation;
+
+		FVector Scale = Input.Scale;
+		ScaleFilter.FilterVector(Scale, 1.f);
+		Input.Scale = Scale;
 	}
 };
 
@@ -383,6 +436,8 @@ struct ANIMATIONCORE_API FAimConstraintDescription : public FConstraintDescripti
 	FAxis LookUp_Axis;
 	UPROPERTY(EditAnywhere, Category = FAimConstraintDescription)
 	bool bUseLookUp;
+	UPROPERTY(EditAnywhere, Category = FAimConstraintDescription)
+	FVector LookUpTarget;
 
 	FAimConstraintDescription()
 		: LookAt_Axis()
@@ -505,7 +560,7 @@ private:
 public:
 	// this does not check type - we can, but that is hard to maintain, maybe I'll change later 
 	template <typename T>	
-	const T* GetTypedConstraint() const
+	T* GetTypedConstraint() const
 	{
 		return static_cast<T*>(ConstraintDescription);
 	}
@@ -599,9 +654,6 @@ struct ANIMATIONCORE_API FConstraintData
 	/** Constraint Description */
 	UPROPERTY()
 	FConstraintDescriptor Constraint;
-	/** Target Node of this constraint */
-	UPROPERTY()
-	FName TargetNode;
 	/** Weight of the constraint */
 	UPROPERTY()
 	float Weight;
@@ -616,15 +668,13 @@ struct ANIMATIONCORE_API FConstraintData
 	FTransform CurrentTransform;
 
 	FConstraintData()
-		: TargetNode(NAME_None)
-		, Weight(1.f)
+		: Weight(1.f)
 		, bMaintainOffset(true)
 		, Offset(FTransform::Identity)
 	{}
 
 	FConstraintData(const FTransformConstraintDescription& InTrans, FName InTargetNode = NAME_None, float InWeight = 1.f, bool bInMaintainOffset = true, const FTransform& InOffset = FTransform::Identity)
 		: Constraint(InTrans)
-		, TargetNode(InTargetNode)
 		, Weight(InWeight)
 		, bMaintainOffset(bInMaintainOffset)
 		, Offset(InOffset)
@@ -632,7 +682,6 @@ struct ANIMATIONCORE_API FConstraintData
 
 	FConstraintData(const FAimConstraintDescription& InAim, FName InTargetNode = NAME_None, float InWeight = 1.f, bool bInMaintainOffset = true, const FTransform& InOffset = FTransform::Identity)
 		: Constraint(InAim)
-		, TargetNode(InTargetNode)
 		, Weight(InWeight)
 		, bMaintainOffset(bInMaintainOffset)
 		, Offset(InOffset)
@@ -641,7 +690,6 @@ struct ANIMATIONCORE_API FConstraintData
 	friend FArchive & operator<<(FArchive & Ar, FConstraintData & D)
 	{
 		Ar << D.Constraint;
-		Ar << D.TargetNode;
 		Ar << D.Weight;
 		Ar << D.bMaintainOffset;
 		Ar << D.Offset;

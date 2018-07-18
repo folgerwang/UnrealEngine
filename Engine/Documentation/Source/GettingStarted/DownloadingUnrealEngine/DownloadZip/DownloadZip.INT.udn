@@ -108,7 +108,7 @@ If you prefer to download our source code as a Zip file from GitHub, this page i
 
 		[REGION:note]
 		*	Our Setup shell script downloads binary content for the engine and installs prerequesites. Downloading engine binaries may take some time because they currently take up three to four gigabytes of disk space. Subsequent checkouts take less time to download.  
-		*	If you don't see a ** \*\*SUCCESS\*\* ** message after running this step, refer to the **'BuildThirdParty.log'** file for more information. **'BuildThirdParty.log'** is located in the `[UE4Root]/Engine/Build/BatchFiles/Linux` directory.
+		*	If you don't see a **\*\*SUCCESS\*\*** message after running this step, refer to the **'BuildThirdParty.log'** file for more information. **'BuildThirdParty.log'** is located in the `[UE4Root]/Engine/Build/BatchFiles/Linux` directory.
 		[/REGION]
 	[/PARAM]
 [/OBJECT]

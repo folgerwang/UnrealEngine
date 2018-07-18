@@ -11,7 +11,6 @@ public class Qos : ModuleRules
 
 		PrivateIncludePaths.AddRange(
 			new string[] {
-				"Private",
 			}
 			);
 

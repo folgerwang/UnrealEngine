@@ -37,7 +37,6 @@
 
 @implementation SIMainViewController
 {
-  FBSDKLikeButton *_photoLikeButton;
   NSArray *_photos;
 }
 
@@ -46,15 +45,15 @@
 + (NSArray *)demoPhotos
 {
   return @[
-           [SIPhoto photoWithObjectURL:[NSURL URLWithString:@"http://shareitexampleapp.parseapp.com/goofy/"]
+           [SIPhoto photoWithObjectURL:[NSURL URLWithString:@"https://d3uu10x6fsg06w.cloudfront.net/shareitexampleapp/goofy/index.html"]
                                  title:@"Make a Goofy Face"
                                 rating:5
                                  image:[UIImage imageNamed:@"Goofy"]],
-           [SIPhoto photoWithObjectURL:[NSURL URLWithString:@"http://shareitexampleapp.parseapp.com/viking/"]
+           [SIPhoto photoWithObjectURL:[NSURL URLWithString:@"https://d3uu10x6fsg06w.cloudfront.net/shareitexampleapp/viking/index.html"]
                                  title:@"Happy Viking, Happy Liking"
                                 rating:3
                                  image:[UIImage imageNamed:@"Viking"]],
-           [SIPhoto photoWithObjectURL:[NSURL URLWithString:@"http://shareitexampleapp.parseapp.com/liking/"]
+           [SIPhoto photoWithObjectURL:[NSURL URLWithString:@"https://d3uu10x6fsg06w.cloudfront.net/shareitexampleapp/liking/index.html"]
                                  title:@"Happy Liking, Happy Viking"
                                 rating:4
                                  image:[UIImage imageNamed:@"Liking"]],
@@ -72,15 +71,6 @@
 {
   [super viewDidLoad];
   self.loginButton.publishPermissions = @[@"publish_actions"];
-
-  _photoLikeButton = [[FBSDKLikeButton alloc] init];
-  _photoLikeButton.objectType = FBSDKLikeObjectTypeOpenGraph;
-  self.navigationItem.leftBarButtonItem = [[UIBarButtonItem alloc] initWithCustomView:_photoLikeButton];
-
-  self.pageLikeControl.likeControlAuxiliaryPosition = FBSDKLikeControlAuxiliaryPositionBottom;
-  self.pageLikeControl.likeControlHorizontalAlignment = FBSDKLikeControlHorizontalAlignmentCenter;
-  self.pageLikeControl.foregroundColor = [UIColor whiteColor];
-  self.pageLikeControl.objectID = @"shareitexampleapp";
 
   [self _configurePhotos];
 }
@@ -241,7 +231,6 @@
 {
   SIPhoto *photo = [self _currentPhoto];
   [self _mainView].photo = photo;
-  _photoLikeButton.objectID = photo.objectURL.absoluteString;
 }
 
 #pragma mark - FBSDKSharingDelegate

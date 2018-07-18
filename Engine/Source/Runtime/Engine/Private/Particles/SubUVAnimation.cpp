@@ -25,7 +25,8 @@ FString FSubUVDerivedData::GetDDCKeyString(const FGuid& StateId, int32 SizeX, in
 	{
 		KeyString += FString::Printf(TEXT("_%u"), OpacitySourceMode);
 	}
-
+	// adding v2 to the key after fixing color channel offsets
+	KeyString += TEXT("_V2");
 	return FDerivedDataCacheInterface::BuildCacheKey(TEXT("SUBUV_"), SUBUV_DERIVEDDATA_VER, *KeyString);
 }
 
@@ -540,29 +541,29 @@ FIntPoint Neighbors[] =
 	FIntPoint(-1, 0)
 };
 
-uint8 ComputeOpacityValue(const uint8* RGBA, EOpacitySourceMode OpacitySourceMode)
+uint8 ComputeOpacityValue(const uint8* BGRA, EOpacitySourceMode OpacitySourceMode)
 {
 	if (OpacitySourceMode == OSM_Alpha)
 	{
-		return *(RGBA + 3);
+		return *(BGRA + 3);
 	}
 	else if (OpacitySourceMode == OSM_RedChannel)
 	{
-		return *(RGBA + 0);
+		return *(BGRA + 2);
 	}
 	else if (OpacitySourceMode == OSM_GreenChannel)
 	{
-		return *(RGBA + 1);
+		return *(BGRA + 1);
 	}
 	else if (OpacitySourceMode == OSM_BlueChannel)
 	{
-		return *(RGBA + 2);
+		return *(BGRA + 0);
 	}
 	else
 	{
-		uint32 R = *RGBA;
-		uint32 G = *(RGBA + 1);
-		uint32 B = *(RGBA + 2);
+		uint32 R = *BGRA;
+		uint32 G = *(BGRA + 1);
+		uint32 B = *(BGRA + 2);
 
 		return (uint8)((R + G + B) / 3);
 	}

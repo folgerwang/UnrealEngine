@@ -118,6 +118,16 @@ struct RHI_API FGPUProfilerEventNodeFrame
 };
 
 /**
+* Two timestamps performed on GPU and CPU at nearly the same time.
+* This can be used to visualize GPU and CPU timing events on the same timeline.
+*/
+struct FGPUTimingCalibrationTimestamp
+{
+	uint64 GPUMicroseconds;
+	uint64 CPUMicroseconds;
+};
+
+/**
  * Holds information if this platform's GPU allows timing
  */
 struct RHI_API FGPUTiming
@@ -141,6 +151,16 @@ public:
 	static uint64 GetTimingFrequency()
 	{
 		return GTimingFrequency;
+	}
+
+	/**
+	* Returns a pair of timestamps performed on GPU and CPU at nearly the same time, in microseconds.
+	*
+	* @return CPU and GPU timestamps, in microseconds. Both are 0 if feature isn't supported.
+	*/
+	static FGPUTimingCalibrationTimestamp GetCalibrationTimestamp()
+	{
+		return GCalibrationTimestamp;
 	}
 
 	typedef void (PlatformStaticInitialize)(void*);
@@ -172,6 +192,13 @@ protected:
 
 	/** Frequency for the timing values, in number of ticks per seconds, or 0 if the feature isn't supported. */
 	static uint64	GTimingFrequency;
+
+	/**
+	* Two timestamps performed on GPU and CPU at nearly the same time.
+	* This can be used to visualize GPU and CPU timing events on the same timeline.
+	* Both values may be 0 if timer calibration is not available on current platform.
+	*/
+	static FGPUTimingCalibrationTimestamp GCalibrationTimestamp;
 };
 
 /** 

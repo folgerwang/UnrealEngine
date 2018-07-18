@@ -522,26 +522,34 @@ struct FMallocBinned2::Private
 	}
 
 
-	static FCriticalSection FreeBlockListsRegistrationMutex;
-	static TArray<FPerThreadFreeBlockLists*> RegisteredFreeBlockLists;
+	static FCriticalSection& GetFreeBlockListsRegistrationMutex()
+	{
+		static FCriticalSection FreeBlockListsRegistrationMutex;
+		return FreeBlockListsRegistrationMutex;
+	}
+	static TArray<FPerThreadFreeBlockLists*>& GetRegisteredFreeBlockLists()
+	{
+		static TArray<FPerThreadFreeBlockLists*> RegisteredFreeBlockLists;
+		return RegisteredFreeBlockLists;
+	}
 	static void RegisterThreadFreeBlockLists( FPerThreadFreeBlockLists* FreeBlockLists )
 	{
-		FScopeLock Lock(&FreeBlockListsRegistrationMutex);
+		FScopeLock Lock(&GetFreeBlockListsRegistrationMutex());
 #if BINNED2_ALLOCATOR_STATS_VALIDATION
 		++RecursionCounter;
 #endif
-		RegisteredFreeBlockLists.Add(FreeBlockLists);
+		GetRegisteredFreeBlockLists().Add(FreeBlockLists);
 #if BINNED2_ALLOCATOR_STATS_VALIDATION
 		--RecursionCounter;
 #endif
 	}
 	static void UnregisterThreadFreeBlockLists( FPerThreadFreeBlockLists* FreeBlockLists )
 	{
-		FScopeLock Lock(&FreeBlockListsRegistrationMutex);
+		FScopeLock Lock(&GetFreeBlockListsRegistrationMutex());
 #if BINNED2_ALLOCATOR_STATS_VALIDATION
 		++RecursionCounter;
 #endif
-		RegisteredFreeBlockLists.Remove(FreeBlockLists);
+		GetRegisteredFreeBlockLists().Remove(FreeBlockLists);
 #if BINNED2_ALLOCATOR_STATS_VALIDATION
 		--RecursionCounter;
 #endif
@@ -553,11 +561,9 @@ struct FMallocBinned2::Private
 
 FMallocBinned2::Private::FGlobalRecycler FMallocBinned2::Private::GGlobalRecycler;
 
-TArray<FMallocBinned2::FPerThreadFreeBlockLists*> FMallocBinned2::Private::RegisteredFreeBlockLists;
 #if BINNED2_ALLOCATOR_STATS
 int64 FMallocBinned2::FPerThreadFreeBlockLists::ConsolidatedMemory = 0;
 #endif
-FCriticalSection FMallocBinned2::Private::FreeBlockListsRegistrationMutex;
 
 FORCEINLINE bool FMallocBinned2::FPoolList::IsEmpty() const
 {
@@ -1151,8 +1157,8 @@ int64 FMallocBinned2::GetTotalAllocatedSmallPoolMemory() const
 {
 	int64 FreeBlockAllocatedMemory = 0;
 	{
-		FScopeLock Lock(&Private::FreeBlockListsRegistrationMutex);
-		for (const FPerThreadFreeBlockLists* FreeBlockLists : Private::RegisteredFreeBlockLists)
+		FScopeLock Lock(&Private::GetFreeBlockListsRegistrationMutex());
+		for (const FPerThreadFreeBlockLists* FreeBlockLists : Private::GetRegisteredFreeBlockLists())
 		{
 			FreeBlockAllocatedMemory += FreeBlockLists->AllocatedMemory;
 		}

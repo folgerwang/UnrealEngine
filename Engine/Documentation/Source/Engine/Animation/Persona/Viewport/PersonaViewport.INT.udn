@@ -112,8 +112,62 @@ The **Show** button provides the following options:
 | **Mute Audio** | Mutes audio from the preview. |
 | **Use Audio Attenuation** | Use audio attenuation when playing back audio in the preview. |
 
+### Physics
+
+The **Physics** button provides the following options: 
+
+![](PhysicsMenu.png)
+
+| Option | Description |
+| ------ | ----------- |
+| [REGION:tablesection] Anim [/REGION] ||
+| **Physics Bend** | Lets you manually control the physics and animation. |
+| **Update Joint from Animations** | When enabled, any joints will update from its animations while simulating. |
+| **Physics Update Mode** | Determines whether the simulations of the root body also updates the component transform. |
+| **Poke Pause Time** | The time between poking the ragdoll and starting to blend back. |
+| **Poke Blend Time** | The time that is taken to blend from physics to the animation. |
+| [REGION:tablesection] Simulation [/REGION] ||
+| **Grav Scale** | Scale factor for the gravity used while simulating. |
+| **Max FPS** | The max frames per second (FPS) for simulation in the Physics Asset Editor. This is helpful for targeting the same FPS as your game. A value of -1 will disable a set Max FPS. |
+| [REGION:tablesection] Mouse Spring [/REGION] ||
+| **Handle Linear Damping** | Linear damping for mouse spring forces. |
+| **Handle Linear Stiffness** | Linear stiffness for mouse spring forces. |
+| **Handle Angular Damping** | Angular damping for mouse springs forces.  |
+| **Handle Angular Stiffness** | Angular stiffness for mouse spring forces. |
+| **Interpolation Speed** | How quickly interpolation takes place for the physics target transform for mouse spring forces. |
+| [REGION:tablesection] Poking [/REGION] ||
+| **Poke Strength** | The strength of the impulse used when poking with left mouse button. |
+
+
+### Preview LODs
+
+The **Preview LODs** button provides the following options: 
+
+![](lodmenu.png)
+
+| Option | Description |
+| ------ | ----------- |
+| **LOD Auto** | Automatically selects the Level Of Detail (LOD) (this is the default setting). |
+| **LOD 0** | Selects LOD 0 as the LOD. |
+
+### Playback Speed
+
+The **Playback Speed** button provides the following options: 
+
+![](playbackspeed.png)
+
+| Option | Description |
+| ------ | ----------- |
+| **x0.1** | Sets the playback speed to 0.1.|
+| **x0.25** | Sets the playback speed to 0.25. |
+| **x0.5** | Sets the playback speed to 0.5. |
+| **x1.0** | Sets the playback speed to 1.0 (this is the default setting). |
+| **x2.0** | Sets the playback speed to 2.0. |
+| **x5.0** | Sets the playback speed to 5.0. |
+| **x10.0** | Sets the playback speed to 10.0. |
+[/EXCERPT:viewoptions]
+
 [COMMENT:none]
--
 [INCLUDE:#advanced]
 
 [EXCERPT:Animation]
@@ -178,66 +232,7 @@ The **Show** button provides the following options:
 | **Mesh Info** | How mesh info should be displayed in the viewport. |
 | **Mesh Overlay Drawing** | How the mesh should be displayed while in the viewport. |
 [/EXCERPT:mesh]
-
--
 [/COMMENT]
-
-
-### Physics
-
-The **Physics** button provides the following options: 
-
-![](PhysicsMenu.png)
-
-| Option | Description |
-| ------ | ----------- |
-| [REGION:tablesection] Anim [/REGION] ||
-| **Physics Bend** | Lets you manually control the physics and animation. |
-| **Update Joint from Animations** | When enabled, any joints will update from its animations while simulating. |
-| **Physics Update Mode** | Determines whether the simulations of the root body also updates the component transform. |
-| **Poke Pause Time** | The time between poking the ragdoll and starting to blend back. |
-| **Poke Blend Time** | The time that is taken to blend from physics to the animation. |
-| [REGION:tablesection] Simulation [/REGION] ||
-| **Grav Scale** | Scale factor for the gravity used while simulating. |
-| **Max FPS** | The max frames per second (FPS) for simulation in the Physics Asset Editor. This is helpful for targeting the same FPS as your game. A value of -1 will disable a set Max FPS. |
-| [REGION:tablesection] Mouse Spring [/REGION] ||
-| **Handle Linear Damping** | Linear damping for mouse spring forces. |
-| **Handle Linear Stiffness** | Linear stiffness for mouse spring forces. |
-| **Handle Angular Damping** | Angular damping for mouse springs forces.  |
-| **Handle Angular Stiffness** | Angular stiffness for mouse spring forces. |
-| **Interpolation Speed** | How quickly interpolation takes place for the physics target transform for mouse spring forces. |
-| [REGION:tablesection] Poking [/REGION] ||
-| **Poke Strength** | The strength of the impulse used when poking with left mouse button. |
-
-
-### Preview LODs
-
-The **Preview LODs** button provides the following options: 
-
-![](lodmenu.png)
-
-| Option | Description |
-| ------ | ----------- |
-| **LOD Auto** | Automatically selects the Level Of Detail (LOD) (this is the default setting). |
-| **LOD 0** | Selects LOD 0 as the LOD. |
-
-### Playback Speed
-
-The **Playback Speed** button provides the following options: 
-
-![](playbackspeed.png)
-
-| Option | Description |
-| ------ | ----------- |
-| **x0.1** | Sets the playback speed to 0.1.|
-| **x0.25** | Sets the playback speed to 0.25. |
-| **x0.5** | Sets the playback speed to 0.5. |
-| **x1.0** | Sets the playback speed to 1.0 (this is the default setting). |
-| **x2.0** | Sets the playback speed to 2.0. |
-| **x5.0** | Sets the playback speed to 5.0. |
-| **x10.0** | Sets the playback speed to 10.0. |
-[/EXCERPT:viewoptions]
-
 
 ## Movement Toolbar
 

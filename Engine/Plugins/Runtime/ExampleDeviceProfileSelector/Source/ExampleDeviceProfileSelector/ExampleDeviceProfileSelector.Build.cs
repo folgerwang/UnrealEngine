@@ -6,18 +6,6 @@ namespace UnrealBuildTool.Rules
 	{
         public ExampleDeviceProfileSelector(ReadOnlyTargetRules Target) : base(Target)
 		{
-			PublicIncludePaths.AddRange(
-				new string[] {
-                    "Runtime/ExampleDeviceProfileSelector/Public",
-				}
-				);
-
-			PrivateIncludePaths.AddRange(
-				new string[] {
-					"Runtime/ExampleDeviceProfileSelector/Private",
-				}
-				);
-
 			PublicDependencyModuleNames.AddRange(
 				new string[]
 				{

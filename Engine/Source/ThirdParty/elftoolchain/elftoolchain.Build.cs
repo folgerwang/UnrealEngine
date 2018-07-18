@@ -10,7 +10,7 @@ public class elftoolchain : ModuleRules
 
 		PublicIncludePaths.Add(Target.UEThirdPartySourceDirectory + "elftoolchain/include/" + Target.Architecture);
 
-        if (Target.Platform == UnrealTargetPlatform.Linux)
+		if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
         {
 			string LibDir = Target.UEThirdPartySourceDirectory + "elftoolchain/lib/Linux/" + Target.Architecture;
 			PublicAdditionalLibraries.Add(LibDir + "/libelf.a");

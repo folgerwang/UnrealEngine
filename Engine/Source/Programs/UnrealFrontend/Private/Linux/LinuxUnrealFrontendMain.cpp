@@ -2,10 +2,9 @@
 
 #include "CoreMinimal.h"
 #include "UnrealFrontendMain.h"
-#include "RequiredProgramMainCPPInclude.h"
-#include "LinuxCommonStartup.h"
+#include "UnixCommonStartup.h"
 
 int main(int argc, char *argv[])
 {
-	return CommonLinuxMain(argc, argv, &UnrealFrontendMain);
+	return CommonUnixMain(argc, argv, &UnrealFrontendMain);
 }

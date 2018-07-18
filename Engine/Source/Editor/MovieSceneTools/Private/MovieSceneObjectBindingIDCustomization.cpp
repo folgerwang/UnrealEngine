@@ -11,8 +11,8 @@
 #include "IDetailChildrenBuilder.h"
 #include "SDropTarget.h"
 #include "ISequencer.h"
-#include "SComboButton.h"
-#include "STextBlock.h"
+#include "Widgets/Input/SComboButton.h"
+#include "Widgets/Text/STextBlock.h"
 #include "ScopedTransaction.h"
 #include "SequencerObjectBindingDragDropOp.h"
 
@@ -137,7 +137,7 @@ void FMovieSceneObjectBindingIDCustomization::SetCurrentValue(const FMovieSceneO
 
 	for (void* Ptr : Ptrs)
 	{
-		*static_cast<FMovieSceneObjectBindingID*>(Ptr) = InObjectBinding;
+		*static_cast<FMovieSceneObjectBindingID*>(Ptrs[0]) = InObjectBinding;
 	}
 	
 	StructProperty->NotifyPostChange();

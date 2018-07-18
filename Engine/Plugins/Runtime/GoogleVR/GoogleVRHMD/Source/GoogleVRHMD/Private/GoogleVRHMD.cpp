@@ -15,8 +15,8 @@
 #if GOOGLEVRHMD_SUPPORTED_IOS_PLATFORMS
 #include "IOS/IOSApplication.h"
 #include "IOS/IOSWindow.h"
-#include "IOSAppDelegate.h"
-#include "IOSView.h"
+#include "IOS/IOSAppDelegate.h"
+#include "IOS/IOSView.h"
 #endif
 #if GOOGLEVRHMD_SUPPORTED_INSTANT_PREVIEW_PLATFORMS
 #include "GlobalShader.h"
@@ -129,11 +129,11 @@ JNI_METHOD void Java_com_epicgames_ue4_GameActivity_nativeOnUiLayerBack(JNIEnv* 
 
 void AndroidThunkCpp_UiLayer_SetEnabled(bool bEnable)
 {
- 	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
- 	{
+	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
+	{
 		static jmethodID UiLayerMethod = FJavaWrapper::FindMethod(Env, FJavaWrapper::GameActivityClassID, "AndroidThunkJava_UiLayer_SetEnabled", "(Z)V", false);
 		FJavaWrapper::CallVoidMethod(Env, FJavaWrapper::GameActivityThis, UiLayerMethod, bEnable);
- 	}
+	}
 }
 void AndroidThunkCpp_UiLayer_SetViewerName(const FString& ViewerName)
 {
@@ -142,41 +142,41 @@ void AndroidThunkCpp_UiLayer_SetViewerName(const FString& ViewerName)
 		return;
 	}
 
- 	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
- 	{
+	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
+	{
 		static jmethodID UiLayerMethod = FJavaWrapper::FindMethod(Env, FJavaWrapper::GameActivityClassID, "AndroidThunkJava_UiLayer_SetViewerName", "(Ljava/lang/String;)V", false);
 		jstring NameJava = Env->NewStringUTF(TCHAR_TO_UTF8(*ViewerName));
 		FJavaWrapper::CallVoidMethod(Env, FJavaWrapper::GameActivityThis, UiLayerMethod, NameJava);
- 	}
+	}
 }
 
 gvr_context* AndroidThunkCpp_GetNativeGVRApi()
 {
- 	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
- 	{
+	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
+	{
 		static jmethodID Method = FJavaWrapper::FindMethod(Env, FJavaWrapper::GameActivityClassID, "AndroidThunkJava_GetNativeGVRApi", "()J", false);
 		return reinterpret_cast<gvr_context*>(CallLongMethod(Env, FJavaWrapper::GameActivityThis, Method));
- 	}
+	}
 
 	return nullptr;
 }
 
 void AndroidThunkCpp_GvrLayout_SetFixedPresentationSurfaceSizeToCurrent()
 {
- 	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
- 	{
+	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
+	{
 		static jmethodID Method = FJavaWrapper::FindMethod(Env, FJavaWrapper::GameActivityClassID, "AndroidThunkJava_GvrLayout_SetFixedPresentationSurfaceSizeToCurrent", "()V", false);
 		FJavaWrapper::CallVoidMethod(Env, FJavaWrapper::GameActivityThis, Method);
- 	}
+	}
 }
 
 bool AndroidThunkCpp_ProjectWantsCardboardOnlyMode()
 {
- 	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
- 	{
+	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
+	{
 		static jmethodID Method = FJavaWrapper::FindMethod(Env, FJavaWrapper::GameActivityClassID, "AndroidThunkJava_ProjectWantsCardboardOnlyMode", "()Z", false);
 		return FJavaWrapper::CallBooleanMethod(Env, FJavaWrapper::GameActivityThis, Method);
- 	}
+	}
 
 	return false;
 }
@@ -930,8 +930,7 @@ void FGoogleVRHMD::SetNumOfDistortionPoints(int32 XPoints, int32 YPoints)
 #if !GOOGLEVRHMD_SUPPORTED_PLATFORMS
 	XPoints = 40;
 	YPoints = 40;
-#endif
-
+#else
 	// clamp values
 	if (XPoints < 2)
 	{
@@ -950,6 +949,7 @@ void FGoogleVRHMD::SetNumOfDistortionPoints(int32 XPoints, int32 YPoints)
 	{
 		YPoints = 200;
 	}
+#endif
 
 	// calculate our values
 	DistortionPointsX = XPoints;
@@ -1369,11 +1369,9 @@ void FGoogleVRHMD::PostRenderViewFamily_RenderThread(FRHICommandListImmediate& R
 			*VertexShader,
 			EDRF_Default);
 		// Asynchronously copy delayed render target from GPU to CPU
-		const bool bKeepOriginalSurface = false;
 		RHICmdList.CopyToResolveTarget(
 			DestRenderTarget.TargetableTexture,
 			ReadbackTextures[ReadbackTextureCount % kReadbackTextureCount],
-			bKeepOriginalSurface,
 			FResolveParams());
 		ReadbackReferencePoses[ReadbackTextureCount % kReadbackTextureCount] = RenderReferencePose;
 		RHICmdList.EndRenderQuery(ReadbackCopyQueries[ReadbackTextureCount % kReadbackTextureCount]);
@@ -1545,10 +1543,10 @@ FMatrix FGoogleVRHMD::GetStereoProjectionMatrix(const enum EStereoscopicPass Ste
 	if (bIsInstantPreviewActive) {
 		int index = (StereoPassType == eSSP_LEFT_EYE) ? 0 : 1;
 		// Have to flip left/right and top/bottom to match UE4 expectations
-		float Right = FPlatformMath::Tan(FMath::DegreesToRadians(EyeViews.eye_views[index].eye_fov.left));
-		float Left = -FPlatformMath::Tan(FMath::DegreesToRadians(EyeViews.eye_views[index].eye_fov.right));
-		float Bottom = -FPlatformMath::Tan(FMath::DegreesToRadians(EyeViews.eye_views[index].eye_fov.top));
-		float Top = FPlatformMath::Tan(FMath::DegreesToRadians(EyeViews.eye_views[index].eye_fov.bottom));
+		float Right = FPlatformMath::Tan(FMath::DegreesToRadians(FMath::Abs(EyeViews.eye_views[index].eye_fov.left)));
+		float Left = -FPlatformMath::Tan(FMath::DegreesToRadians(FMath::Abs(EyeViews.eye_views[index].eye_fov.right)));
+		float Bottom = -FPlatformMath::Tan(FMath::DegreesToRadians(FMath::Abs(EyeViews.eye_views[index].eye_fov.top)));
+		float Top = FPlatformMath::Tan(FMath::DegreesToRadians(FMath::Abs(EyeViews.eye_views[index].eye_fov.bottom)));
 		float ZNear = GNearClippingPlane;
 		float SumRL = (Right + Left);
 		float SumTB = (Top + Bottom);
@@ -1622,14 +1620,17 @@ void FGoogleVRHMD::GetEyeRenderParams_RenderThread(const struct FRenderingCompos
 	}
 }
 
-void FGoogleVRHMD::UpdateViewportRHIBridge(bool bUseSeparateRenderTarget, const class FViewport& InViewport, FRHIViewport* const ViewportRHI)
+FXRRenderBridge* FGoogleVRHMD::GetActiveRenderBridge_GameThread(bool /* bUseSeparateRenderTarget */)
 {
+	check(IsInGameThread());
 #if GOOGLEVRHMD_SUPPORTED_PLATFORMS
-
 	check(CustomPresent);
-	CustomPresent->UpdateViewport(InViewport, ViewportRHI);
-
+	if (CustomPresent->IsInitialized())
+	{
+		return CustomPresent;
+	}
 #endif // GOOGLEVRHMD_SUPPORTED_PLATFORMS
+	return nullptr;
 }
 
 void FGoogleVRHMD::CalculateRenderTargetSize(const class FViewport& Viewport, uint32& InOutSizeX, uint32& InOutSizeY)
@@ -2200,13 +2201,13 @@ bool FGoogleVRHMD::OnStartGameFrame( FWorldContext& WorldContext )
 			GEngine->GameViewport->Viewport &&
 			GEngine->GameViewport->Viewport->GetClient() )
 		{
-			GEngine->GameViewport->Viewport->GetClient()->InputTouch(GEngine->GameViewport->Viewport, 0, 0, ETouchType::Began, FVector2D(-1, -1), FDateTime::Now(), 0);
-			GEngine->GameViewport->Viewport->GetClient()->InputTouch(GEngine->GameViewport->Viewport, 0, 0, ETouchType::Ended, FVector2D(-1, -1), FDateTime::Now(), 0);
+			GEngine->GameViewport->Viewport->GetClient()->InputTouch(GEngine->GameViewport->Viewport, 0, 0, ETouchType::Began, FVector2D(-1, -1), 1.f, FDateTime::Now(), 0);
+			GEngine->GameViewport->Viewport->GetClient()->InputTouch(GEngine->GameViewport->Viewport, 0, 0, ETouchType::Ended, FVector2D(-1, -1), 1.f, FDateTime::Now(), 0);
 		}
 		bTriggerDetected = false;
 	}
 
-	//Update the head pose at the begnning of a frame. This headpose will be used for both simulation and rendering.
+	//Update the head pose at the beginning of a frame. This headpose will be used for both simulation and rendering.
 	UpdatePoses();
 
 	// Update ViewportList from GVR API
@@ -2334,6 +2335,8 @@ void FGoogleVRHMD::SetTrackingOrigin(EHMDTrackingOrigin::Type InOrigin)
 		return;
 	}
 	TrackingOrigin = InOrigin;
+
+	OnTrackingOriginChanged();
 }
 
 EHMDTrackingOrigin::Type FGoogleVRHMD::GetTrackingOrigin()

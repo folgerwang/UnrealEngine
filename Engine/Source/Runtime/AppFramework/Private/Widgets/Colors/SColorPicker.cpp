@@ -26,7 +26,7 @@
 #include "Widgets/Colors/SColorSpectrum.h"
 #include "Widgets/Colors/SColorThemes.h"
 #include "Widgets/Layout/SExpandableArea.h"
-#include "MenuStack.h"
+#include "Framework/Application/MenuStack.h"
 
 #define LOCTEXT_NAMESPACE "ColorPicker"
 

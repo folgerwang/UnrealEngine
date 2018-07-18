@@ -7,9 +7,9 @@
 #include "IStringTableEditor.h"
 #include "EditorUndoClient.h"
 
-#include "SEditableTextBox.h"
-#include "SMultiLineEditableTextBox.h"
-#include "SListView.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Widgets/Input/SMultiLineEditableTextBox.h"
+#include "Widgets/Views/SListView.h"
 
 /** Viewer/editor for a String Table */
 class FStringTableEditor : public IStringTableEditor, public FEditorUndoClient

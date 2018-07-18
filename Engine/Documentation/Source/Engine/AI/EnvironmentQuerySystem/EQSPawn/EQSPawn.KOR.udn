@@ -53,7 +53,7 @@ version: 4.9
 | **Draw Failed Items** | 실패한 아이템 그리기 - 실패한 테스트, 즉 트레이스가 타겟을 찾는데 실패한 경우를 배제시킬 수 있도록 합니다. |
 | **Re Run Query Only on Finished Move** | 이동 완료시에만 쿼리 재실행 - EQSTestingPawn 이동 중지시에만 뷰포트에 디버그 시각화를 업데이트합니다. 매우 빠른 인바이언먼트 쿼리 작업을 하지 않는 이상 이 옵션은 켜 두는 것이 좋습니다. |
 | **Should be Visible in Game** | 게임에서 보이도록 할지 - EQSTestingPawn 및 그 디버그 시각화가 실행중인 게임에 보이도록 합니다. |
-| **Querying Mode** | 쿼리 모드 - [INCLUDE:#eqs1] |
+| **Querying Mode** | [INCLUDE:#eqs1] |
 
 [COMMENT:none]
 

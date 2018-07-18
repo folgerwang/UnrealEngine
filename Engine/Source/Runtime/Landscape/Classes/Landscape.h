@@ -24,7 +24,7 @@ enum ELandscapeSetupErrors
 	LSE_MAX,
 };
 
-UCLASS(MinimalAPI, showcategories=(Display, Movement, Collision, Lighting, LOD, Input))
+UCLASS(MinimalAPI, showcategories=(Display, Movement, Collision, Lighting, LOD, Input), hidecategories=(Mobility))
 class ALandscape : public ALandscapeProxy
 {
 	GENERATED_BODY()

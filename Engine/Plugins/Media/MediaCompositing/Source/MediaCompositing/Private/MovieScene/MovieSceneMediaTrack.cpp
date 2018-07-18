@@ -4,6 +4,7 @@
 
 #include "MediaPlayer.h"
 #include "MediaSource.h"
+#include "MovieScene.h"
 #include "MovieSceneMediaSection.h"
 #include "MovieSceneMediaTemplate.h"
 #include "UObject/Package.h"
@@ -33,16 +34,21 @@ UMovieSceneMediaTrack::UMovieSceneMediaTrack(const FObjectInitializer& ObjectIni
 /* UMovieSceneMediaTrack interface
  *****************************************************************************/
 
-void UMovieSceneMediaTrack::AddNewMediaSource(UMediaSource& MediaSource, float Time)
+UMovieSceneSection* UMovieSceneMediaTrack::AddNewMediaSourceOnRow(UMediaSource& MediaSource, FFrameNumber Time, int32 RowIndex)
 {
 	const float DefaultMediaSectionDuration = 1.0f;
+	FFrameRate TickResolution = GetTypedOuter<UMovieScene>()->GetTickResolution();
+	FFrameTime DurationToUse  = DefaultMediaSectionDuration * TickResolution;
 
+	// add the section
 	UMovieSceneMediaSection* NewSection = NewObject<UMovieSceneMediaSection>(this);
 
-	NewSection->InitialPlacement(MediaSections, Time, Time + DefaultMediaSectionDuration, SupportsMultipleRows());
+	NewSection->InitialPlacementOnRow(MediaSections, Time, DurationToUse.FrameNumber.Value, RowIndex);
 	NewSection->SetMediaSource(&MediaSource);
 
 	MediaSections.Add(NewSection);
+
+	return NewSection;
 }
 
 
@@ -64,19 +70,6 @@ UMovieSceneSection* UMovieSceneMediaTrack::CreateNewSection()
 const TArray<UMovieSceneSection*>& UMovieSceneMediaTrack::GetAllSections() const
 {
 	return MediaSections;
-}
-
-
-TRange<float> UMovieSceneMediaTrack::GetSectionBoundaries() const
-{
-	TArray<TRange<float>> Bounds;
-
-	for (int32 i = 0; i < MediaSections.Num(); ++i)
-	{
-		Bounds.Add(MediaSections[i]->GetRange());
-	}
-
-	return TRange<float>::Hull(Bounds);
 }
 
 

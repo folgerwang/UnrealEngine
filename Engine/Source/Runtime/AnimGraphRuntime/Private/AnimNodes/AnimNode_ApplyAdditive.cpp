@@ -2,6 +2,7 @@
 
 #include "AnimNodes/AnimNode_ApplyAdditive.h"
 #include "AnimationRuntime.h"
+#include "Animation/AnimInstanceProxy.h"
 
 /////////////////////////////////////////////////////
 // FAnimNode_ApplyAdditive
@@ -12,6 +13,9 @@ void FAnimNode_ApplyAdditive::Initialize_AnyThread(const FAnimationInitializeCon
 
 	Base.Initialize(Context);
 	Additive.Initialize(Context);
+
+	AlphaBoolBlend.Reinitialize();
+	AlphaScaleBiasClamp.Reinitialize();
 }
 
 void FAnimNode_ApplyAdditive::CacheBones_AnyThread(const FAnimationCacheBonesContext& Context) 
@@ -25,12 +29,28 @@ void FAnimNode_ApplyAdditive::Update_AnyThread(const FAnimationUpdateContext& Co
 	Base.Update(Context);
 
 	ActualAlpha = 0.f;
-	if (IsLODEnabled(Context.AnimInstanceProxy, LODThreshold))
+	if (IsLODEnabled(Context.AnimInstanceProxy))
 	{
 		// @note: If you derive from this class, and if you have input that you rely on for base
 		// this is not going to work	
 		EvaluateGraphExposedInputs.Execute(Context);
-		ActualAlpha = AlphaScaleBias.ApplyTo(Alpha);
+
+		switch (AlphaInputType)
+		{
+		case EAnimAlphaInputType::Float:
+			ActualAlpha = AlphaScaleBias.ApplyTo(AlphaScaleBiasClamp.ApplyTo(Alpha, Context.GetDeltaTime()));
+			break;
+		case EAnimAlphaInputType::Bool:
+			ActualAlpha = AlphaBoolBlend.ApplyTo(bAlphaBoolEnabled, Context.GetDeltaTime());
+			break;
+		case EAnimAlphaInputType::Curve:
+			if (UAnimInstance* AnimInstance = Cast<UAnimInstance>(Context.AnimInstanceProxy->GetAnimInstanceObject()))
+			{
+				ActualAlpha = AlphaScaleBiasClamp.ApplyTo(AnimInstance->GetCurveValue(AlphaCurveName), Context.GetDeltaTime());
+			}
+			break;
+		};
+
 		if (FAnimWeight::IsRelevant(ActualAlpha))
 		{
 			Additive.Update(Context.FractionalWeight(ActualAlpha));
@@ -62,6 +82,8 @@ FAnimNode_ApplyAdditive::FAnimNode_ApplyAdditive()
 	: Alpha(1.0f)
 	, LODThreshold(INDEX_NONE)
 	, ActualAlpha(0.f)
+	, AlphaInputType(EAnimAlphaInputType::Float)
+	, bAlphaBoolEnabled(true)
 {
 }
 

@@ -13,7 +13,8 @@
 #include "RHI.h"
 #include "RenderResource.h"
 #include "RenderUtils.h"
-#include "EnumClassFlags.h"
+#include "Misc/EnumClassFlags.h"
+#include "UniformBuffer.h"
 
 class FCanvas;
 class FMaterial;
@@ -21,6 +22,7 @@ class FSceneInterface;
 class FSceneRenderTargets;
 class FSceneView;
 class FSceneViewFamily;
+class FSceneTexturesUniformParameters;
 struct FMeshBatch;
 struct FSynthBenchmarkResults;
 
@@ -398,6 +400,10 @@ struct FSceneRenderTargetItem
 		TargetableTexture.SafeRelease();
 		ShaderResourceTexture.SafeRelease();
 		UAV.SafeRelease();
+		for (int32 i = 0; i < MipUAVs.Num(); i++)
+		{
+			MipUAVs[i].SafeRelease();
+		}
 		for( int32 i = 0; i < MipSRVs.Num(); i++ )
 		{
 			MipSRVs[i].SafeRelease();
@@ -415,8 +421,11 @@ struct FSceneRenderTargetItem
 	FTextureRHIRef TargetableTexture;
 	/** The 2D or cubemap shader-resource 2D texture that the targetable textures may be resolved to. */
 	FTextureRHIRef ShaderResourceTexture;
-	/** only created if requested through the flag  */
+	/** only created if requested through the flag, same as MipUAVs[0] */
+	// TODO: refactor all the code to only use MipUAVs?
 	FUnorderedAccessViewRHIRef UAV;
+	/** only created if requested through the flag  */
+	TArray< FUnorderedAccessViewRHIRef, TInlineAllocator<1> > MipUAVs;
 	/** only created if requested through the flag  */
 	TArray< FShaderResourceViewRHIRef > MipSRVs;
 
@@ -535,8 +544,11 @@ class FPostOpaqueRenderParameters
 		FMatrix ViewMatrix;
 		FMatrix ProjMatrix;
 		FRHITexture2D* DepthTexture;
+		FRHITexture2D* NormalTexture;
 		FRHITexture2D* SmallDepthTexture;
 		FRHICommandListImmediate* RHICmdList;
+		FUniformBufferRHIParamRef ViewUniformBuffer;
+		TUniformBufferRef<FSceneTexturesUniformParameters> SceneTexturesUniformParams;
 		void* Uid; // A unique identifier for the view.
 };
 DECLARE_DELEGATE_OneParam(FPostOpaqueRenderDelegate, class FPostOpaqueRenderParameters&);
@@ -545,7 +557,7 @@ DECLARE_DELEGATE_OneParam(FPostOpaqueRenderDelegate, class FPostOpaqueRenderPara
 class FComputeDispatcher
 {
 public:
-	virtual void Execute(FRHICommandList &RHICmdList) = 0;
+	virtual void Execute(FRHICommandList &RHICmdList, FUniformBufferRHIParamRef ViewUniformBuffer) = 0;
 };
 
 
@@ -725,10 +737,13 @@ public:
 
 	virtual void RegisterPostOpaqueRenderDelegate(const FPostOpaqueRenderDelegate& PostOpaqueRenderDelegate) = 0;
 	virtual void RegisterOverlayRenderDelegate(const FPostOpaqueRenderDelegate& OverlayRenderDelegate) = 0;
+	virtual void RenderPostOpaqueExtensions(const class FViewInfo& View, FRHICommandListImmediate& RHICmdList, class FSceneRenderTargets& SceneContext, TUniformBufferRef<FSceneTexturesUniformParameters>& SceneTextureUniformParams) = 0;
+	virtual void RenderOverlayExtensions(const class FViewInfo& View, FRHICommandListImmediate& RHICmdList, FSceneRenderTargets& SceneContext) = 0;
+	virtual bool HasPostOpaqueExtentions() const = 0;
 
 	virtual void RegisterPostOpaqueComputeDispatcher(FComputeDispatcher *Dispatcher) = 0;
 	virtual void UnRegisterPostOpaqueComputeDispatcher(FComputeDispatcher *Dispatcher) = 0;
-	virtual void DispatchPostOpaqueCompute(FRHICommandList &CmdList) = 0;
+	virtual void DispatchPostOpaqueCompute(FRHICommandList &CmdList, FUniformBufferRHIParamRef ViewUniformBuffer) = 0;
 
 	/** Delegate that is called upon resolving scene color. */
 	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnResolvedSceneColor, FRHICommandListImmediate& /*RHICmdList*/, class FSceneRenderTargets& /*SceneContext*/);

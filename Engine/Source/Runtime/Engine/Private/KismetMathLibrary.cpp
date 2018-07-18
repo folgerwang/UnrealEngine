@@ -570,6 +570,11 @@ bool UKismetMathLibrary::NearlyEqual_TransformTransform(const FTransform& A, con
 		FTransform::AreScale3DsEqual(A, B, Scale3DTolerance);
 }
 
+float UKismetMathLibrary::Transform_Determinant(const FTransform& Transform)
+{
+	return Transform.ToMatrixWithScale().Determinant();
+}
+
 bool UKismetMathLibrary::ClassIsChildOf(TSubclassOf<class UObject> TestClass, TSubclassOf<class UObject> ParentClass)
 {
 	return ((*ParentClass != NULL) && (*TestClass != NULL)) ? (*TestClass)->IsChildOf(*ParentClass) : false;
@@ -999,6 +1004,16 @@ bool UKismetMathLibrary::IsPointInBoxWithTransform(FVector Point, const FTransfo
 	// Now it's just a normal point-in-box test, with a box at the origin.
 	const FBox Box(-BoxExtent, BoxExtent);
 	return Box.IsInsideOrOn(PointInComponentSpace);
+}
+
+void UKismetMathLibrary::GetSlopeDegreeAngles(const FVector& MyRightYAxis, const FVector& FloorNormal, const FVector& UpVector, float& OutSlopePitchDegreeAngle, float& OutSlopeRollDegreeAngle)
+{
+	const FVector FloorZAxis = FloorNormal;
+	const FVector FloorXAxis = MyRightYAxis ^ FloorZAxis;
+	const FVector FloorYAxis = FloorZAxis ^ FloorXAxis;
+
+	OutSlopePitchDegreeAngle = 90.f - FMath::RadiansToDegrees(FMath::Acos(FloorXAxis | UpVector));
+	OutSlopeRollDegreeAngle = 90.f - FMath::RadiansToDegrees(FMath::Acos(FloorYAxis | UpVector));
 }
 
 bool UKismetMathLibrary::LinePlaneIntersection(const FVector& LineStart, const FVector& LineEnd, const FPlane& APlane, float& T, FVector& Intersection)

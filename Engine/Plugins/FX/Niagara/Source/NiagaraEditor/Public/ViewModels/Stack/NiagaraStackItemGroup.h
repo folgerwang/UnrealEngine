@@ -2,10 +2,10 @@
 
 #pragma once
 
-#include "NiagaraStackEntry.h"
+#include "ViewModels/Stack/NiagaraStackEntry.h"
+#include "ViewModels/Stack/INiagaraStackItemGroupAddUtilities.h"
+#include "Layout/Visibility.h"
 #include "NiagaraStackItemGroup.generated.h"
-
-class UNiagaraStackEditorData;
 
 UCLASS()
 class NIAGARAEDITOR_API UNiagaraStackItemGroup : public UNiagaraStackEntry
@@ -13,29 +13,38 @@ class NIAGARAEDITOR_API UNiagaraStackItemGroup : public UNiagaraStackEntry
 	GENERATED_BODY()
 
 public:
-	void Initialize(TSharedRef<FNiagaraSystemViewModel> InSystemViewModel, TSharedRef<FNiagaraEmitterViewModel> InEmitterViewModel, UNiagaraStackEditorData& InStackEditorData);
+	void Initialize(FRequiredEntryData InRequiredEntryData, FText InDisplayName, FText InToolTip, INiagaraStackItemGroupAddUtilities* InAddUtilities);
 
 	//~ UNiagaraStackEntry interface
-	virtual bool GetCanExpand() const override;
-	virtual bool GetIsExpanded() const override;
-	virtual void SetIsExpanded(bool bInExpanded) override;
-	virtual FName GetItemBackgroundName() const override;
-	virtual FName GetTextStyleName() const override;
+	virtual FText GetDisplayName() const override;
+	virtual EStackRowStyle GetStackRowStyle() const override;
 	virtual FText GetTooltipText() const override;
-
-	virtual void SetTooltipText(const FText& InText);
 
 	virtual bool CanDelete() const { return false; }
 	virtual bool Delete() { return false; }
 
-	virtual bool CanAdd() const { return false; }
-	virtual bool Add() { return false; }
+	INiagaraStackItemGroupAddUtilities* GetAddUtilities() const;
+
+	uint32 GetRecursiveStackIssuesCount() const;
+	EStackIssueSeverity GetHighestStackIssueSeverity() const;
 	
 protected:
-	UNiagaraStackEditorData& GetStackEditorData() const;
+	void SetDisplayName(FText InDisplayName);
+	
+	virtual void RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren, TArray<FStackIssue>& NewIssues) override;
+
+	virtual int32 GetChildIndentLevel() const override;
+
+	virtual void ChlildStructureChangedInternal() override;
 
 private:
-	UNiagaraStackEditorData* StackEditorData;
+	INiagaraStackItemGroupAddUtilities* AddUtilities;
 
-	FText TooltipText;
+	FText GroupDisplayName;
+	FText GroupToolTip;
+
+	/** How many errors this entry has along its tree. */
+	mutable TOptional<uint32> RecursiveStackIssuesCount;
+	/** The highest severity of issues along this entry's tree. */
+	mutable TOptional<EStackIssueSeverity> HighestIssueSeverity;
 };

@@ -10,6 +10,8 @@
 #include "SequencerHotspots.h"
 #include "ScopedTransaction.h"
 #include "Tools/SequencerSnapField.h"
+#include "Channels/MovieSceneChannelHandle.h"
+
 
 class FSequencer;
 class FSlateWindowElementList;
@@ -80,6 +82,29 @@ private:
 	/** The sections we are interacting with */
 	TArray<FSectionHandle> Sections;
 
+	/********************************************************/
+	struct FPreDragChannelData
+	{
+		/** Weak handle to the base channel ptr */
+		FMovieSceneChannelHandle Channel;
+
+		/** Array of all the handles in the section at the start of the drag */
+		TArray<FKeyHandle> Handles;
+		/** Array of all the above handle's times, one per index of Handles */
+		TArray<FFrameNumber> FrameNumbers;
+	};
+
+	struct FPreDragSectionData
+	{
+		/** Pointer to the movie section, this section is only valid during a drag operation*/
+		UMovieSceneSection * MovieSection;
+		/** The initial range of the section before it was resized */
+		TRange<FFrameNumber> InitialRange;
+		/** Array of all the channels in the section before it was resized */
+		TArray<FPreDragChannelData> Channels;
+	};
+	TArray<FPreDragSectionData> PreDragSectionData;
+
 	/** true if dragging  the end of the section, false if dragging the start */
 	bool bDraggingByEnd;
 
@@ -87,52 +112,90 @@ private:
 	bool bIsSlipping;
 
 	/** Time where the mouse is pressed */
-	float MouseDownTime;
+	FFrameTime MouseDownTime;
 
 	/** The section start or end times when the mouse is pressed */
-	TMap<TWeakObjectPtr<UMovieSceneSection>, float> SectionInitTimes;
-
-	/** The exact key handles that we're dragging */
-	TSet<FKeyHandle> DraggedKeyHandles;
+	TMap<TWeakObjectPtr<UMovieSceneSection>, FFrameNumber> SectionInitTimes;
 
 	/** Optional snap field to use when dragging */
 	TOptional<FSequencerSnapField> SnapField;
 };
 
-
-/** Operation to move the currently selected sections */
-class FMoveSection
+/**
+ * This drag operation handles moving both keys and sections depending on what you have selected.
+ */
+class FMoveKeysAndSections
 	: public FEditToolDragOperation
 {
 public:
-	FMoveSection( FSequencer& InSequencer, TArray<FSectionHandle> Sections );
-
-	~FMoveSection();
-
-public:
+	FMoveKeysAndSections(FSequencer& InSequencer, const TSet<FSequencerSelectedKey>& InSelectedKeys, TArray<FSectionHandle> InSelectedSections, bool InbHotspotWasSection);
+	~FMoveKeysAndSections();
 
 	// FEditToolDragOperation interface
-
 	virtual void OnBeginDrag(const FPointerEvent& MouseEvent, FVector2D LocalMousePos, const FVirtualTrackArea& VirtualTrackArea) override;
 	virtual void OnDrag(const FPointerEvent& MouseEvent, FVector2D LocalMousePos, const FVirtualTrackArea& VirtualTrackArea) override;
 	virtual void OnEndDrag(const FPointerEvent& MouseEvent, FVector2D LocalMousePos, const FVirtualTrackArea& VirtualTrackArea) override;
-	virtual FCursorReply GetCursor() const override { return FCursorReply::Cursor( EMouseCursor::CardinalCross ); }
+	virtual FCursorReply GetCursor() const override { return FCursorReply::Cursor(EMouseCursor::CardinalCross); }
+	// ~FEditToolDragOperation interface
 
-private:
-	/** Callback for when the node tree is updated in sequencer. */
+protected:
+	/** Calculate the possible horizontal movement we can, constrained by sections running into things. */
+	TOptional<FFrameNumber> GetMovementDeltaX(FFrameTime MouseTime);
+	/** Move selected sections, if any. */
+	bool HandleSectionMovement(FFrameTime MouseTime, FVector2D VirtualMousePos, FVector2D LocalMousePos, TOptional<FFrameNumber> MaxDeltaX, FFrameNumber DesiredDeltaX);
+	/** Move selected keys, if any. */
+	void HandleKeyMovement(TOptional<FFrameNumber> MaxDeltaX, FFrameNumber DesiredDeltaX);
+
 	void OnSequencerNodeTreeUpdated();
 
-private:
-	/** The sections we are interacting with */
+	/** Calls Modify on sections that own keys we're moving, as the need to be notified the data is about to change too. */
+	void ModifyNonSelectedSections();
+
+protected:
+	/** Array of sections that we're moving. */
 	TArray<FSectionHandle> Sections;
 
-	/** The exact key handles that we're dragging */
-	TSet<FKeyHandle> DraggedKeyHandles;
+	/** Set of keys that are being moved. */
+	TSet<FSequencerSelectedKey> Keys;
+	TArray<FSequencerSelectedKey> KeysAsArray;
 
-	/** Array of desired offsets relative to the mouse position. Representes a contiguous array of start/end times directly corresponding to Sections array */
-	struct FRelativeOffset { float StartTime, EndTime; };
+	/** What was the time of the mouse for the previous frame? Used to calculate a per-frame delta. */
+	FFrameTime MouseTimePrev;
 
+	struct FRelativeOffset
+	{
+		FRelativeOffset()
+			: StartOffset()
+			, EndOffset()
+		{
+		}
+
+		/**
+		 * The offset for the start of the section. Can be unset in the case of a section with no lower bound.
+		 * Keys are represented only by StartOffset and do not have an End Offset (which would imply a range).
+		 */
+		TOptional<FFrameTime> StartOffset;
+
+		/**
+		 * The offset for the end of the section. Can be unset in the case of a section with no upper bound.
+		 */
+		TOptional<FFrameTime> EndOffset;
+	};
+
+	/** Array of relative offsets for each selected item. Keys + Sections are both added to this array. */
 	TArray<FRelativeOffset> RelativeOffsets;
+
+	struct FInitialRowIndex
+	{
+		UMovieSceneSection* Section;
+		int32 RowIndex;
+	};
+
+	/** Store the row each section starts on when we start dragging. */
+	TArray<FInitialRowIndex> InitialSectionRowIndicies;
+
+	/** Array of sections that we called Modify on because we're editing keys that belong to these sections, but not actually moving these sections. */
+	TArray<UMovieSceneSection*> ModifiedNonSelectedSections;
 
 	/** Optional snap field to use when dragging */
 	TOptional<FSequencerSnapField> SnapField;
@@ -140,55 +203,19 @@ private:
 	/** A handle for the sequencer node tree updated delegate. */
 	FDelegateHandle SequencerNodeTreeUpdatedHandle;
 
-	struct FInitialRowIndex { UMovieSceneSection* Section; int32 RowIndex; };
-	TArray<FInitialRowIndex> InitialRowIndices;
-};
-
-
-/**
- * Operation to move the currently selected keys
- */
-class FMoveKeys
-	: public FEditToolDragOperation
-{
-public:
-	FMoveKeys( FSequencer& InSequencer, const TSet<FSequencerSelectedKey>& InSelectedKeys )
-		: FEditToolDragOperation(InSequencer)
-		, SelectedKeys( InSelectedKeys )
-	{ }
-
-public:
-
-	// FEditToolDragOperation interface
-
-	virtual void OnBeginDrag(const FPointerEvent& MouseEvent, FVector2D LocalMousePos, const FVirtualTrackArea& VirtualTrackArea) override;
-	virtual void OnDrag(const FPointerEvent& MouseEvent, FVector2D LocalMousePos, const FVirtualTrackArea& VirtualTrackArea) override;
-	virtual void OnEndDrag(const FPointerEvent& MouseEvent, FVector2D LocalMousePos, const FVirtualTrackArea& VirtualTrackArea) override;
-
-protected:
-
-	/** The selected keys being moved. */
-	const TSet<FSequencerSelectedKey>& SelectedKeys;
-
-	/** Map of relative offsets from the original mouse position */
-	TMap<FSequencerSelectedKey, float> RelativeOffsets;
-
-	/** Snap field used to assist in snapping calculations */
-	TOptional<FSequencerSnapField> SnapField;
-
-	/** The set of sections being modified */
-	TSet<UMovieSceneSection*> ModifiedSections;
+	/** If the user is moving them via clicking on the Section then we'll allow vertical re-arranging, otherwise not. */
+	bool bHotspotWasSection;
 };
 
 /**
- * Operation to drag-duplicate the currently selected keys
+ * Operation to drag-duplicate the currently selected keys and sections.
  */
-class FDuplicateKeys : public FMoveKeys
+class FDuplicateKeysAndSections : public FMoveKeysAndSections
 {
 public:
 
-	FDuplicateKeys( FSequencer& InSequencer, const TSet<FSequencerSelectedKey>& InSelectedKeys )
-		: FMoveKeys(InSequencer, InSelectedKeys)
+	FDuplicateKeysAndSections( FSequencer& InSequencer, const TSet<FSequencerSelectedKey>& InSelectedKeys, TArray<FSectionHandle> InSelectedSections, bool InbHotspotWasSection)
+		: FMoveKeysAndSections(InSequencer, InSelectedKeys, InSelectedSections, InbHotspotWasSection)
 	{}
 
 public:
@@ -196,7 +223,6 @@ public:
 	virtual void OnBeginDrag(const FPointerEvent& MouseEvent, FVector2D LocalMousePos, const FVirtualTrackArea& VirtualTrackArea) override;
 	virtual void OnEndDrag(const FPointerEvent& MouseEvent, FVector2D LocalMousePos, const FVirtualTrackArea& VirtualTrackArea) override;
 };
-
 
 /**
  * An operation to change a section's ease in/out by dragging its left or right handle
@@ -227,10 +253,10 @@ private:
 	bool bEaseIn;
 
 	/** Time where the mouse is pressed */
-	float MouseDownTime;
+	FFrameTime MouseDownTime;
 
 	/** The section ease in/out when the mouse was pressed */
-	TOptional<float> InitValue;
+	TOptional<int32> InitValue;
 
 	/** Optional snap field to use when dragging */
 	TOptional<FSequencerSnapField> SnapField;

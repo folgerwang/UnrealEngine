@@ -388,7 +388,10 @@ public:
 		FScopeLock Lock(&CriticalSection);
 
 		uint32 MapIndex = GetMapIndex(Key, KeyHash);
-		check(IsItemInUse(MapIndex));
+		if (!ensure(IsItemInUse(MapIndex)))
+		{
+			return Values();
+		}
 
 		uint32 KeyIndex = Map[MapIndex];
 

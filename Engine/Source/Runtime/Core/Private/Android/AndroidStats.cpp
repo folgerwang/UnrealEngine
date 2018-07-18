@@ -1,10 +1,10 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "AndroidStats.h"
+#include "Android/AndroidStats.h"
 #include "CoreMinimal.h"
-#include "AndroidMisc.h"
+#include "Android/AndroidMisc.h"
 #include "Stats/Stats.h"
-#include "IConsoleManager.h"
+#include "HAL/IConsoleManager.h"
 
 DECLARE_STATS_GROUP(TEXT("Android CPU stats"), STATGROUP_AndroidCPU, STATCAT_Advanced);
 

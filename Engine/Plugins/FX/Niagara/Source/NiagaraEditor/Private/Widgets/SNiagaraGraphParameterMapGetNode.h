@@ -1,9 +1,9 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "SGraphNode.h"
+#include "SNiagaraGraphNode.h"
 
-class SNiagaraGraphParameterMapGetNode : public SGraphNode
+class SNiagaraGraphParameterMapGetNode : public SNiagaraGraphNode
 {
 public:
 	SLATE_BEGIN_ARGS(SNiagaraGraphParameterMapGetNode) {}

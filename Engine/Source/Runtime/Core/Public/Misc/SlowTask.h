@@ -109,4 +109,9 @@ public:
 	 * Get the frame message or default message if empty
 	 */
 	FText GetCurrentMessage() const;
+
+	/**
+	 * True if the user has requested that the slow task be canceled
+	 */
+	bool ShouldCancel() const;
 };

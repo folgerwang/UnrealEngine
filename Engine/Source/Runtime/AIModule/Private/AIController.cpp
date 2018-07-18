@@ -2,7 +2,7 @@
 
 #include "AIController.h"
 #include "CollisionQueryParams.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "NavigationSystem.h"
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/PhysicsVolume.h"
 #include "Actions/PawnActionsComponent.h"
@@ -476,12 +476,8 @@ void AAIController::Possess(APawn* InPawn)
 		return;
 	}
 
-	// no point in doing navigation setup if pawn has no movement component
-	const UPawnMovementComponent* MovementComp = InPawn->GetMovementComponent();
-	if (MovementComp != NULL)
-	{
-		UpdateNavigationComponents();
-	}
+	// not calling UpdateNavigationComponents() anymore. The PathFollowingComponent 
+	// is now observing newly possessed pawns (via OnNewPawn)
 
 	if (PathFollowingComponent)
 	{
@@ -560,11 +556,6 @@ void AAIController::SetPawn(APawn* InPawn)
 			}
 		}
 	}
-}
-
-void AAIController::InitNavigationControl(UPathFollowingComponent*& PathFollowingComp)
-{
-	PathFollowingComp = PathFollowingComponent;
 }
 
 EPathFollowingRequestResult::Type AAIController::MoveToActor(AActor* Goal, float AcceptanceRadius, bool bStopOnOverlap, bool bUsePathfinding, bool bCanStrafe, TSubclassOf<UNavigationQueryFilter> FilterClass, bool bAllowPartialPaths)
@@ -647,7 +638,7 @@ FPathFollowingRequestResult AAIController::MoveTo(const FAIMoveRequest& MoveRequ
 		// fail if projection to navigation is required but it failed
 		if (bCanRequestMove && MoveRequest.IsProjectingGoal())
 		{
-			UNavigationSystem* NavSys = UNavigationSystem::GetCurrent(GetWorld());
+			UNavigationSystemV1* NavSys = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
 			const FNavAgentProperties& AgentProps = GetNavAgentPropertiesRef();
 			FNavLocation ProjectedLocation;
 
@@ -753,7 +744,7 @@ bool AAIController::BuildPathfindingQuery(const FAIMoveRequest& MoveRequest, FPa
 {
 	bool bResult = false;
 
-	UNavigationSystem* NavSys = UNavigationSystem::GetCurrent(GetWorld());
+	UNavigationSystemV1* NavSys = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
 	const ANavigationData* NavData = (NavSys == nullptr) ? nullptr :
 		MoveRequest.IsUsingPathfinding() ? NavSys->GetNavDataForProps(GetNavAgentPropertiesRef()) :
 		NavSys->GetAbstractNavData();
@@ -798,7 +789,7 @@ void AAIController::FindPathForMoveRequest(const FAIMoveRequest& MoveRequest, FP
 {
 	SCOPE_CYCLE_COUNTER(STAT_AI_Overall);
 
-	UNavigationSystem* NavSys = UNavigationSystem::GetCurrent(GetWorld());
+	UNavigationSystemV1* NavSys = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
 	if (NavSys)
 	{
 		FPathFindingResult PathResult = NavSys->FindPathSync(Query);

@@ -6,10 +6,14 @@
 
 #pragma once
 
-#include "StandardPlatformString.h"
-#include "AssertionMacros.h"
-#include "OutputDevice.h"
 #include "CoreTypes.h"
+#if PLATFORM_TCHAR_IS_CHAR16
+#include "GenericPlatform/GenericWidePlatformString.h"
+#else
+#include "GenericPlatform/StandardPlatformString.h"
+#endif
+#include "Misc/AssertionMacros.h"
+#include "Misc/OutputDevice.h"
 
 #if PLATFORM_MAC
 #include "Mac/MacSystemIncludes.h"
@@ -39,9 +43,14 @@ class FString;
 
 
 /**
-* Mac string implementation
+* 2-byte replacement s string implementation
 **/
-struct FApplePlatformString : public FStandardPlatformString
+struct FApplePlatformString
+#if PLATFORM_TCHAR_IS_CHAR16
+	: public FGenericWidePlatformString
+#else
+	: public FStandardPlatformString
+#endif
 {
 	// These should be replaced with equivalent Convert and ConvertedLength functions when we properly support variable-length encodings.
 /*	static void WideCharToMultiByte(const TCHAR *Source, uint32 LengthWM1, ANSICHAR *Dest, uint32 LengthA)
@@ -77,23 +86,17 @@ struct FApplePlatformString : public FStandardPlatformString
 	{
 		const SIZE_T Length = CFStringGetLength( CFStr );
 		CFRange Range = CFRangeMake( 0, Length );
-		CFStringGetBytes( CFStr, Range, kCFStringEncodingUTF32LE, '?', false, ( uint8 *)TChar, Length * sizeof( TCHAR ) + 1, NULL );
+		CFStringGetBytes( CFStr, Range, sizeof( TCHAR ) == 4 ? kCFStringEncodingUTF32LE : kCFStringEncodingUnicode, '?', false, ( uint8 *)TChar, Length * sizeof( TCHAR ) + 1, NULL );
 		TChar[Length] = 0;
 	}
 	static CFStringRef TCHARToCFString( const TCHAR *TChar )
 	{
-		const SIZE_T Length = wcslen( TChar );
-		CFStringRef String = CFStringCreateWithBytes( kCFAllocatorDefault, ( const uint8 *)TChar, Length * sizeof( TCHAR ), kCFStringEncodingUTF32LE, false );
-		check(String);
+		const SIZE_T Length = Strlen( TChar );
+		CFStringRef String = CFStringCreateWithBytes( kCFAllocatorDefault, ( const uint8 *)TChar, Length * sizeof( TCHAR ), sizeof( TCHAR ) == 4 ? kCFStringEncodingUTF32LE : kCFStringEncodingUnicode, false );
+		// we are getting some crashes on strings that aren't converting - so, instead of crashing, print them out instead
+		ensureMsgf(String, TEXT("Failed to allocated CFString for '%s' -- Length id %d"), TChar ? TChar : TEXT("nullptr"), Length);
 		return String;
 	}
-
-	static const ANSICHAR* GetEncodingName()
-	{
-		return "UTF-32LE";
-	}
-
-	static const bool IsUnicodeEncoded = true;
 };
 
 typedef FApplePlatformString FPlatformString;

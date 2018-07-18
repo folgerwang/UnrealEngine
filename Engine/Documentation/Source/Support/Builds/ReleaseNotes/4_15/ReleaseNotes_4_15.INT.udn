@@ -317,7 +317,7 @@ Three new viewmodes are available that make it much easier to ensure the texture
 
 * **Primitive Distance Accuracy** - This shows the accuracy of the distance computed by the streamer as compared to the distance computed by the GPU. The streamer computes the distance from the viewpoint to the texture instance axis-aligned bounding boxes (AABB). This bounding box is computed in the build process by summing up the component lod-section AABBs that are using the texture.
 
-* **Mesh UV Densities Accuracy** -** **This view mode shows the effect of the UV densities used by the streamer for each mesh. If the UV densities are wrong, then the textures on those meshes risk being under-streamed (blurry) or over-streamed (wasting memory).
+* **Mesh UV Densities Accuracy** - This view mode shows the effect of the UV densities used by the streamer for each mesh. If the UV densities are wrong, then the textures on those meshes risk being under-streamed (blurry) or over-streamed (wasting memory).
 
 * **Material Texture Scales Accuracy** - Some textures used in a material are sampled using a scaled value of one of the mesh UV channels. The texture streaming build tries to compute which texture coordinate is used and what scale is applied to each sampled texture. This could fail for many reasons, in which case the streamer fallbacks on assuming the texture was sampled with texcoord 0 and a scale of 1.
 

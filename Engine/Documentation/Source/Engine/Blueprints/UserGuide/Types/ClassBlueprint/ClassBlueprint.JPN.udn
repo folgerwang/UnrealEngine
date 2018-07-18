@@ -1,5 +1,4 @@
-﻿INTSourceChangelist:3244370
-Availability:Public
+﻿Availability:Public
 Title:ブループリント クラス
 Crumbs: %ROOT%, Engine/Blueprints, Engine/Blueprints/Anatomy
 Description:新規のクラスまたはアクタのタイプを定義し、その後、他のアクタと同じように動作をするインスタンスとして配置することができます。
@@ -9,44 +8,7 @@ Parent:Engine/Blueprints/Anatomy
 Tags:Class Blueprints
 tags:Blueprints
 order:1
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Blueprints\UserGuide\Types\ClassBlueprint:title%](Engine/Blueprints/UserGuide/Types/class_blueprint_test_image.png)
-	[/PARAM]
-	[PARAM:icon]
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Blueprints\UserGuide\Types\ClassBlueprint:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Blueprints\UserGuide\Types\ClassBlueprint:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Blueprints\UserGuide\Types\ClassBlueprint]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Blueprints\UserGuide\Types\ClassBlueprint:title%](Engine/Blueprints/UserGuide/Types/class_blueprint_test_image.png)
-	[/PARAM]
-	[PARAM:icon]
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Blueprints\UserGuide\Types\ClassBlueprint:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Blueprints\UserGuide\Types\ClassBlueprint:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Blueprints\UserGuide\Types\ClassBlueprint]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:Engine/Blueprints/UserGuide/Types/class_blueprint_test_image.png
 
 [TOC (start:2)]
 
@@ -139,8 +101,8 @@ _ブループリント_ はコード入力ではなく、アンリアル エデ�
 **データのみのブループリント** は、親から継承したコード (ノードグラフ形式)、 
 変数、そしてコンポーネントのみを格納するブループリント クラスです。継承したプロパティは微調整や修正が可能ですが、新規のエレメントは追加できません。 
 基本的にこれらはアーキタイプの代わりで、デザイナーがプロパティや設定アイテムを変化させるために使用します。
-データのみのブループリントはコンパクトなプロパティ エディタで編集されますが、**ブループリントエディタ** の機能をくまなく使用してコード、変数、またはコンポーネントを単に追加するだけで 
 
+データのみのブループリントはコンパクトなプロパティ エディタで編集されますが、**ブループリントエディタ** の機能をくまなく使用してコード、変数、またはコンポーネントを単に追加するだけで 
 完全なブループリントへ変換することができます。
 [/EXCERPT:DataBlueprint]
 

@@ -12,9 +12,9 @@
 #include "Windows/COMPointer.h"
 
 #if PLATFORM_WINDOWS
-	#include "AllowWindowsPlatformTypes.h"
+	#include "Windows/AllowWindowsPlatformTypes.h"
 #else
-	#include "XboxOneAllowPlatformTypes.h"
+	#include "XboxOne/XboxOneAllowPlatformTypes.h"
 #endif
 
 
@@ -352,9 +352,9 @@ STDMETHODIMP FMfMediaByteStream::Write(const BYTE* pb, ULONG cb, ULONG* pcbWritt
 
 
 #if PLATFORM_WINDOWS
-	#include "HideWindowsPlatformTypes.h"
+	#include "Windows/HideWindowsPlatformTypes.h"
 #else
-	#include "XboxOneHidePlatformTypes.h"
+	#include "XboxOne/XboxOneHidePlatformTypes.h"
 #endif
 
 #endif //MFMEDIA_SUPPORTED_PLATFORM

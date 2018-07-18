@@ -1,5 +1,4 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
-// .
 
 #pragma once
 
@@ -113,6 +112,7 @@ struct FMetalCodeBackend : public FCodeBackend
 	void PromoteInputsAndOutputsGlobalHalfToFloat(exec_list* ir, _mesa_glsl_parse_state* state, EHlslShaderFrequency Frequency);
 	void ConvertHalfToFloatUniformsAndSamples(exec_list* ir, _mesa_glsl_parse_state* State, bool bConvertUniforms, bool bConvertSamples);
 	void BreakPrecisionChangesVisitor(exec_list* ir, _mesa_glsl_parse_state* State);
+	void FixupMetalBaseOffsets(exec_list* ir, _mesa_glsl_parse_state* state, EHlslShaderFrequency Frequency);
 
     TMap<ir_variable*, uint32> ImageRW;
     FMetalTessellationOutputs& TessAttribs;
@@ -120,6 +120,7 @@ struct FMetalCodeBackend : public FCodeBackend
 	uint32 InvariantBuffers;
 	uint32 TypedBuffers;
     uint32 TypedUAVs;
+	uint32 ConstantBuffers;
     
     uint8 Version;
 	EMetalGPUSemantics bIsDesktop;
@@ -134,6 +135,7 @@ struct FMetalCodeBackend : public FCodeBackend
 	bool bIsTessellationVSHS = false;
 	unsigned int inputcontrolpoints = 0;
 	unsigned int patchesPerThreadgroup = 0;
+	uint32 PatchControlPointStructHash;
 };
 
 struct FShaderCompilerEnvironment;

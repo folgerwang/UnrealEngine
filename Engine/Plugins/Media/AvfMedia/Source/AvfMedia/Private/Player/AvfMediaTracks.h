@@ -34,12 +34,22 @@ class FAvfMediaTracks
 
 	struct FTrack
 	{
+		FTrack()
+		: Loaded(false)
+		, FrameSize(0, 0)
+		, FrameRate(0.f)
+		{ }
+		
 		AVAssetTrack* AssetTrack;
 		FText DisplayName;
 		bool Loaded;
 		FString Name;
 		NSObject* Output;
 		int32 StreamIndex;
+
+		//Cached Video Track Data
+		FIntPoint FrameSize;
+		float FrameRate;
 	};
 
 public:
@@ -89,7 +99,6 @@ public:
 
 	/** Reset the stream collection. */
 	void Reset();
-
 public:
 
 	//~ IMediaTracks interface

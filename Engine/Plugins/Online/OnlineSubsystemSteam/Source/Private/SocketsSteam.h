@@ -104,13 +104,6 @@ public:
 	 */
 	virtual bool Listen(int32 MaxBacklog) override;
 
-	/**
-	 * Queries the socket to determine if there is a pending connection
-	 *
-	 * @param bHasPendingConnection out parameter indicating whether a connection is pending or not
-	 *
-	 * @return true if successful, false otherwise
-	 */
 	virtual bool WaitForPendingConnection(bool& bHasPendingConnection, const FTimespan& WaitTime) override;
 
 	/**

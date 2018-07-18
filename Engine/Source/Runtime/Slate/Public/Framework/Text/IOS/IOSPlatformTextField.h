@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "IPlatformTextField.h"
+#include "Framework/Application/IPlatformTextField.h"
 #include "Internationalization/Text.h"
 
 #import <UIKit/UIKit.h>
@@ -43,6 +43,7 @@ typedef FIOSPlatformTextField FPlatformTextField;
 
 -(void)show:(TSharedPtr<IVirtualKeyboardEntry>)InTextWidget;
 -(void)hide;
+-(bool)hasTextWidget;
 
 @end
 #endif

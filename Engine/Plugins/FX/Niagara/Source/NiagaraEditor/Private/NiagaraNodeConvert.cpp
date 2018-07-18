@@ -196,7 +196,9 @@ void UNiagaraNodeConvert::AutowireNewNode(UEdGraphPin* FromPin)
 			}
 		}
 	}
-	GetGraph()->NotifyGraphChanged();
+
+	MarkNodeRequiresSynchronization(__FUNCTION__, true);
+	//GetGraph()->NotifyGraphChanged();
 }
 
 FText UNiagaraNodeConvert::GetNodeTitle(ENodeTitleType::Type TitleType)const

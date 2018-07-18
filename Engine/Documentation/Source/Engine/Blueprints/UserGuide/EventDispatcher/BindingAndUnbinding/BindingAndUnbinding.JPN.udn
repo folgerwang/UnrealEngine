@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2688200
+﻿INTSourceChangelist:3736174
 Availability:Public
 Title:イベントの追加と削除
 Crumbs: %ROOT%, Engine, Engine/Blueprints, Engine/Blueprints/UserGuide, Engine/Blueprints/UserGuide/EventDispatcher
 Description:イベント ディスパッチャーのイベントリストからイベントを追加および削除する方法
 version:4.9
+tags:Blueprints
 
 [TOC(start:2 end:3)]
 

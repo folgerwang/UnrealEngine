@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "ObjectMacros.h"
+#include "UObject/ObjectMacros.h"
 #include "Engine/Texture2D.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "ImportanceSamplingLibrary.generated.h"
@@ -34,7 +34,7 @@ namespace EImportanceWeight
 * Texture processed for importance sampling
 * Holds marginal PDF of the rows, as well as the PDF of each row
 */
-USTRUCT(BlueprintType, meta = (HasNativeMake = "Engine.ImportanceLibrary.MakeImportanceTexture", HasNativeBreak = "Engine.ImportanceLibrary.BreakImportanceTexture"))
+USTRUCT(BlueprintType, meta = (HasNativeMake = "Engine.ImportanceSamplingLibrary.MakeImportanceTexture", HasNativeBreak = "Engine.ImportanceSamplingLibrary.BreakImportanceTexture"))
 struct FImportanceTexture
 {
 	GENERATED_BODY();
@@ -72,7 +72,7 @@ struct FImportanceTexture
 
 public:
 	/* Default constructor, must Initialize before use */
-	FImportanceTexture() : Texture(0) {}
+	FImportanceTexture() : NumMips(0), Texture(0), Weighting(EImportanceWeight::Luminance) {}
 
 	/* Constructor with initialization */
 	FImportanceTexture(UTexture2D *SourceTexture, TEnumAsByte<EImportanceWeight::Type> WeightingFunc)

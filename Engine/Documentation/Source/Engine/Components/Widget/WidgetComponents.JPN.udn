@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3108692
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:Widget コンポーネント
 Crumbs:%ROOT%, Engine, Engine/Components
@@ -51,11 +51,6 @@ Widget コンポーネントを含むアクタをレベルに配置すると、 
 | **Draw at Desired Size** | Widget クラスによって指定される必要なサイズにレンダー ターゲットを自動的に一致させます。すべてのフレームで行うと負荷が高くなります。 
 | **Pivot** | その位置に相対的にウィジェットが配置されるアラインメント / 回転軸です。 |
 
-[PUBLISH:Docs]
-[REGION:note]
-3D UI エレメントの作成については、[](Engine\UMG\HowTo\InWorldWidgetInteraction) と [](Engine\UMG\HowTo\VirtualKeyboards) をご覧ください。 
-[/REGION]
-[/PUBLISH:Docs]
 
 
 

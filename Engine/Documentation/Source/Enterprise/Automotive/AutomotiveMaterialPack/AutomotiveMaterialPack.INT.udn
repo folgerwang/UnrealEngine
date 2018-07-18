@@ -1,10 +1,10 @@
 Availability:Public
 Title: Automotive Material Pack
-Description:A breakdown of what assets the Automotive Material pack contains and how to use them.
+Description:A breakdown of what assets the Automotive Material pack contains and how to use them
 Crumbs:%ROOT%,
 version:4.13
-Parent:Enterprise/Automotive
-tags:Enterprise
+Parent:Enterprise
+tags:Studio
 tags:Automotive
 tags:Materials
 type:overview
@@ -135,7 +135,7 @@ By adjusting just these four different parameters you can achieve vastly differe
 The following image sequence shows off the variety of paint colors and surface looks that can be achieved by using just  the parameters listed above.
 
 [REGION:fullwidth]
-[INCLUDE:Enterprise\Automotive\AutomotiveMaterialPack\#CP]
+[INCLUDE:#CP]
 [/REGION]
 
 ### Orange Peel Material Parameter
@@ -143,7 +143,7 @@ The following image sequence shows off the variety of paint colors and surface l
 The Clearcoat lacquer that is applied on top of automotive paint often has a slightly bumpy surface similar to the peel of an Orange. Because of this resemblance, this dimpled or uneven part of the Clearcoat is referred to as the Orange Peel. You can control the intensity of the Orange Peel using the **Orange Peel Strength** and **Orange Peel Scale** parameters. To disable the Orange Peel effect, set the **Orange Peel Strength** to **0**.
 
 [REGION:fullwidth]
-[INCLUDE:Enterprise\Automotive\AutomotiveMaterialPack\#OP]
+[INCLUDE:#OP]
 [/REGION]
 
 ### Carbon Fiber
@@ -196,7 +196,7 @@ If you are unfamiliar with how to use Vertex Paint in UE4 please check out the [
 [/region]
 
 [REGION:fullwidth]
-[INCLUDE:Enterprise\Automotive\AutomotiveMaterialPack\#RM]
+[INCLUDE:#RM]
 [/REGION]
 
 ### Brake Rotor
@@ -332,7 +332,7 @@ The reflector Material is used for the plastic  reflectors you find next to turn
 * **Triangle**
 
 	[REGION:fullwidth]
-	[INCLUDE:Enterprise\Automotive\AutomotiveMaterialPack\#RF]
+	[INCLUDE:#RF]
 	[/REGION]
 
 To change which reflector pattern is used,  open up the **Reflector** Material Instance and change the **Reflector(Bottom Layer) Normal** to the reflector pattern you want to use.

@@ -256,7 +256,7 @@ static void RestoreExistingDestMeshData(ExistingDestMeshData* MeshData, UDestruc
 		// Restore old settings, but resize arrays to make sense with the new NxDestructibleAsset
 		if (MeshData->SkelMeshData != NULL)
 		{
-			RestoreExistingSkelMeshData(MeshData->SkelMeshData, DestructibleMesh, INDEX_NONE, false, false);
+			RestoreExistingSkelMeshData(MeshData->SkelMeshData, DestructibleMesh, INDEX_NONE, false);
 		}
 		DestructibleMesh->BodySetup =  MeshData->BodySetup;
 		DestructibleMesh->FractureEffects = MeshData->FractureEffects;
@@ -830,6 +830,12 @@ bool SetApexDestructibleAsset(UDestructibleMesh& DestructibleMesh, apex::Destruc
 	bool bHaveNormals, bHaveTangents;
 	if (!FillSkelMeshImporterFromApexDestructibleAsset(*SkelMeshImportDataPtr, ApexDestructibleAsset, bHaveNormals, bHaveTangents))
 	{
+		if (ExistDestMeshDataPtr)
+		{
+			RestoreExistingDestMeshData(ExistDestMeshDataPtr, &DestructibleMesh);
+			delete ExistDestMeshDataPtr;
+			ExistDestMeshDataPtr = NULL;
+		}
 		return false;
 	}
 
@@ -855,6 +861,12 @@ bool SetApexDestructibleAsset(UDestructibleMesh& DestructibleMesh, apex::Destruc
 	int32 SkeletalDepth=0;
 	if(!ProcessImportMeshSkeleton(DestructibleMesh.Skeleton, DestructibleMesh.RefSkeleton, SkeletalDepth, *SkelMeshImportDataPtr))
 	{
+		if (ExistDestMeshDataPtr)
+		{
+			RestoreExistingDestMeshData(ExistDestMeshDataPtr, &DestructibleMesh);
+			delete ExistDestMeshDataPtr;
+			ExistDestMeshDataPtr = NULL;
+		}
 		return false;
 	}
 	UE_LOG(LogApexDestructibleAssetImport, Warning, TEXT("Bones digested - %i  Depth of hierarchy - %i"), DestructibleMesh.RefSkeleton.GetNum(), SkeletalDepth);
@@ -867,9 +879,9 @@ bool SetApexDestructibleAsset(UDestructibleMesh& DestructibleMesh, apex::Destruc
 	DestructibleMeshResource.LODModels.Empty();
 	new(DestructibleMeshResource.LODModels)FSkeletalMeshLODModel();
 
-	DestructibleMesh.LODInfo.Empty();
-	DestructibleMesh.LODInfo.AddZeroed();
-	DestructibleMesh.LODInfo[0].LODHysteresis = 0.02f;
+	DestructibleMesh.ResetLODInfo();
+	DestructibleMesh.AddLODInfo();
+	DestructibleMesh.GetLODInfo(0)->LODHysteresis = 0.02f;
 
 	// Create initial bounding box based on expanded version of reference pose for meshes without physics assets. Can be overridden by artist.
 	FBox BoundingBox(SkelMeshImportDataPtr->Points.GetData(), SkelMeshImportDataPtr->Points.Num());
@@ -904,6 +916,10 @@ bool SetApexDestructibleAsset(UDestructibleMesh& DestructibleMesh, apex::Destruc
 		if (!MeshUtilities.BuildSkeletalMesh(DestructibleMeshResource.LODModels[0], DestructibleMesh.RefSkeleton, LODInfluences,LODWedges,LODFaces,LODPoints,LODPointToRawMap,BuildOptions))
 		{
 			DestructibleMesh.MarkPendingKill();
+
+			delete ExistDestMeshDataPtr;
+			ExistDestMeshDataPtr = NULL;
+
 			return false;
 		}
 
@@ -969,9 +985,7 @@ bool BuildDestructibleMeshFromFractureSettings(UDestructibleMesh& DestructibleMe
 	apex::DestructibleAsset* NewApexDestructibleAsset = NULL;
 
 #if WITH_EDITORONLY_DATA
-	UDestructibleFractureSettings* FractureSettings = DestructibleMesh.FractureSettings;
-
-	if (FractureSettings)
+	if (DestructibleMesh.FractureSettings != NULL)
 	{
 		TArray<UMaterialInterface*> OverrideMaterials;
 		OverrideMaterials.SetNumUninitialized(DestructibleMesh.Materials.Num());	//save old materials
@@ -982,7 +996,6 @@ bool BuildDestructibleMeshFromFractureSettings(UDestructibleMesh& DestructibleMe
 
 		DestructibleMesh.Materials.SetNum(DestructibleMesh.FractureSettings->Materials.Num());
 
-		// If we have valid overrides or defaults, use those settings - otherwise a blank material (from default construction above)
 		for (int32 MaterialIndex = 0; MaterialIndex < DestructibleMesh.Materials.Num(); ++MaterialIndex)
 		{
 			if(MaterialIndex < OverrideMaterials.Num() && OverrideMaterials[MaterialIndex])//if user has overridden materials use it
@@ -991,12 +1004,13 @@ bool BuildDestructibleMeshFromFractureSettings(UDestructibleMesh& DestructibleMe
 				DestructibleMesh.Materials[MaterialIndex].ImportedMaterialSlotName = OverrideMaterials[MaterialIndex]->GetFName();
 				DestructibleMesh.Materials[MaterialIndex].MaterialSlotName = OverrideMaterials[MaterialIndex]->GetFName();
 			}
-			else if(FractureSettings->Materials[MaterialIndex])
+			else
 			{
-				DestructibleMesh.Materials[MaterialIndex].MaterialInterface = FractureSettings->Materials[MaterialIndex];
-				DestructibleMesh.Materials[MaterialIndex].ImportedMaterialSlotName = FractureSettings->Materials[MaterialIndex]->GetFName();
-				DestructibleMesh.Materials[MaterialIndex].MaterialSlotName = FractureSettings->Materials[MaterialIndex]->GetFName();
+				DestructibleMesh.Materials[MaterialIndex].MaterialInterface = DestructibleMesh.FractureSettings->Materials[MaterialIndex];
+				DestructibleMesh.Materials[MaterialIndex].ImportedMaterialSlotName = DestructibleMesh.FractureSettings->Materials[MaterialIndex]->GetFName();
+				DestructibleMesh.Materials[MaterialIndex].MaterialSlotName = DestructibleMesh.FractureSettings->Materials[MaterialIndex]->GetFName();
 			}
+
 		}
 
 		apex::DestructibleAssetCookingDesc DestructibleAssetCookingDesc;

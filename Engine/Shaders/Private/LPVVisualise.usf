@@ -33,11 +33,15 @@
 //-------------------------------------------------------------------------------------------------
 
 // GS to VS
+#if !USING_VERTEX_SHADER_LAYER
 struct VIn
 {
     float4 position : SV_POSITION;
 	float4 params	: TEXCOORD0;
 };
+#else
+#define VIn VOut
+#endif
 
 struct VOut 
 {
@@ -48,20 +52,52 @@ struct VOut
 //-------------------------------------------------------------------------------------------------
 
 // Visualization
-VIn VShader(uint id : SV_InstanceID)
+VIn VShader(uint InstanceId : SV_InstanceID
+#if USING_VERTEX_SHADER_LAYER
+, uint VertexId : SV_VertexID
+#endif
+)
 {
-	uint sliceIndex = id % 32; 
-	uint orientation = id / 32;
+	uint sliceIndex = InstanceId % 32;
+	uint orientation = InstanceId / 32;
 
 	VIn output;
 	output.position.xyz = float3( 0, (float(sliceIndex)/31.0f)*2-1, 0 );
 	output.position.w = 1;
 
+#if !USING_VERTEX_SHADER_LAYER
 	output.params = float4( sliceIndex, orientation,0,0 ) ;
+#else
+	float3 verts[4] = {
+	float3(-1,-1,0 ),
+	float3( 1,-1,0 ),
+	float3( 1, 1,0 ),
+	float3(-1, 1,0 ) };
+
+	float3x3 rot[3] =
+	{
+	float3x3( float3(1,0,0), float3(0,1,0), float3(0,0,1) ),
+	float3x3( float3(0,1,0), float3(1,0,0), float3(0,0,1) ),
+	float3x3( float3(1,0,0), float3(0,0,1), float3(0,1,0) )
+	};
+
+	float3 centreWorld = output.position.xyz;
+	int indices[6] = { 0,1,2, 2,3,0 };
+	int index = indices[VertexId];
+
+	float3 p = ( centreWorld + verts[ index ].xzy );
+	p = mul( p, rot[ (int)orientation ] );
+	float4 vert = float4( p, 1 );
+	output.texCoord = p.xyz * 0.5 + 0.5;
+	vert.xyz *= CUBESIZE;
+	vert.xyz += View.ViewForward * 100;
+	output.position = mul( vert, View.TranslatedWorldToClip);
+#endif
     return output;
 }
 
 
+#if !USING_VERTEX_SHADER_LAYER
 [maxvertexcount(12)]
 void GShader( point VIn input[1], inout TriangleStream<VOut> TriStream )
 {
@@ -99,10 +135,10 @@ void GShader( point VIn input[1], inout TriangleStream<VOut> TriStream )
 	}
 	TriStream.RestartStrip();
 }
+#endif
 
 
-
-float4 PShader(VOut IN) : SV_Target
+void PShader(VOut IN, out float4 OutColor : SV_Target0)
 {
 	float3 pos;
 	pos.xyz = IN.texCoord.xyz * 31.0f;
@@ -144,5 +180,5 @@ float4 PShader(VOut IN) : SV_Target
 		colour = float3(0,0,50);
 	}
 #endif 
-	return float4( colour / 3, 1 );
+	OutColor = float4( colour / 3, 1 );
 }

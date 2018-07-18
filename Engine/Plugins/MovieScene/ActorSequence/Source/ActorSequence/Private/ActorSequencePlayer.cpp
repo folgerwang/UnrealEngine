@@ -1,8 +1,8 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "ActorSequencePlayer.h"
-#include "Classes/Engine/BlueprintGeneratedClass.h"
-#include "Classes/Engine/SimpleConstructionScript.h"
+#include "Engine/BlueprintGeneratedClass.h"
+#include "Engine/SimpleConstructionScript.h"
 
 
 UObject* UActorSequencePlayer::GetPlaybackContext() const

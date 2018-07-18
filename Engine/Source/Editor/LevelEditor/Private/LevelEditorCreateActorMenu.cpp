@@ -21,8 +21,9 @@
 #include "ActorFactories/ActorFactoryDirectionalLight.h"
 #include "ActorFactories/ActorFactoryPlayerStart.h"
 #include "ActorFactories/ActorFactoryPointLight.h"
-#include "ActorFactories/ActorFactorySphereVolume.h"
 #include "ActorFactories/ActorFactorySpotLight.h"
+#include "ActorFactories/ActorFactoryRectLight.h"
+#include "ActorFactories/ActorFactorySphereVolume.h"
 #include "ActorFactories/ActorFactoryTriggerBox.h"
 #include "ActorFactories/ActorFactoryTriggerCapsule.h"
 #include "ActorFactories/ActorFactoryTriggerSphere.h"
@@ -240,12 +241,9 @@ static void GetContentBrowserSelectionFactoryMenuEntries( FAssetData& TargetAsse
 	{
 		// For blueprints, attempt to determine placeability from its tag information
 
-		const FName NativeParentClassTag = TEXT("NativeParentClass");
-		const FName ClassFlagsTag = TEXT("ClassFlags");
-
 		FString TagValue;
 
-		if ( TargetAssetData.GetTagValue( NativeParentClassTag, TagValue ) && !TagValue.IsEmpty() )
+		if ( TargetAssetData.GetTagValue( FBlueprintTags::NativeParentClassPath, TagValue ) && !TagValue.IsEmpty() )
 		{
 			// If the native parent class can't be placed, neither can the blueprint
 
@@ -256,7 +254,7 @@ static void GetContentBrowserSelectionFactoryMenuEntries( FAssetData& TargetAsse
 			bPlaceable = AssetSelectionUtils::IsClassPlaceable( NativeParentClass );
 		}
 		
-		if ( bPlaceable && TargetAssetData.GetTagValue( ClassFlagsTag, TagValue ) && !TagValue.IsEmpty() )
+		if ( bPlaceable && TargetAssetData.GetTagValue( FBlueprintTags::ClassFlags, TagValue ) && !TagValue.IsEmpty() )
 		{
 			// Check to see if this class is placeable from its class flags
 
@@ -472,6 +470,14 @@ void LevelEditorCreateActorMenu::FillAddReplaceActorMenu( FMenuBuilder& MenuBuil
 		{
 			AssetMenuOptions.Empty();
 			UActorFactory* Factory = GEditor->FindActorFactoryByClass( UActorFactoryPointLight::StaticClass() );
+			FAssetData AssetData = FAssetData( Factory->GetDefaultActorClass( FAssetData() ) );
+			AssetMenuOptions.Add( FActorFactoryAssetProxy::FMenuItem( Factory, AssetData ) );
+			BuildSingleAssetAddReplaceActorMenu( MenuBuilder, AssetData, AssetMenuOptions, CreateMode );
+		}
+
+		{
+			AssetMenuOptions.Empty();
+			UActorFactory* Factory = GEditor->FindActorFactoryByClass( UActorFactoryRectLight::StaticClass() );
 			FAssetData AssetData = FAssetData( Factory->GetDefaultActorClass( FAssetData() ) );
 			AssetMenuOptions.Add( FActorFactoryAssetProxy::FMenuItem( Factory, AssetData ) );
 			BuildSingleAssetAddReplaceActorMenu( MenuBuilder, AssetData, AssetMenuOptions, CreateMode );

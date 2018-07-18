@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "AssetEditorToolkit.h"
+#include "Toolkits/AssetEditorToolkit.h"
 
 class UClothingAsset;
 class SClothPaintWidget;

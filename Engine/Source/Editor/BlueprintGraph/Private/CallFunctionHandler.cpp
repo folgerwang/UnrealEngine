@@ -514,7 +514,7 @@ void FKCHandler_CallFunction::RegisterNets(FKismetFunctionContext& Context, UEdG
 		if (Function->HasMetaData(FBlueprintMetadata::MD_WorldContext))
 		{
 			UEdGraphSchema_K2 const* K2Schema = CompilerContext.GetSchema();
-			const bool bHasIntrinsicWorldContext = !K2Schema->IsStaticFunctionGraph(Context.SourceGraph) && FBlueprintEditorUtils::ImplentsGetWorld(Context.Blueprint);
+			const bool bHasIntrinsicWorldContext = !K2Schema->IsStaticFunctionGraph(Context.SourceGraph) && FBlueprintEditorUtils::ImplementsGetWorld(Context.Blueprint);
 
 			const FName WorldContextPinName = *Function->GetMetaData(FBlueprintMetadata::MD_WorldContext);
 

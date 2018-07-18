@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3809606
 Availability:Public
 Title:ステートマシン
 Crumbs: %ROOT%, Engine, Engine/Animation
@@ -13,7 +13,7 @@ related:Gameplay/HowTo/CharacterMovement/Blueprints
 ![](StateMachineImage.png)
 [/REGION]
 
-[COMMENT]
+[COMMENT:none]
 
 [EXCERPT:Intro]
 **ステートマシン** は、スケルタルメッシュのアニメーションを一連のステートへ分割するグラフィカルな手法です。こうしたステートは、あるステートから別のステートにブレンドする方法を制御する 遷移ルールによって管理されます。ひとつのツールとして、ステートマシンはスケルタルメッシュのアニメーションのデザイン プロセスを非常に単純化します。すなわち、複雑なブループリント ネットワークを作成する必要なく、アニメーションのタイプによってキャラクターがどのように動くかを簡単に制御するグラフを作成できます。

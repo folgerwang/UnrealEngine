@@ -52,9 +52,9 @@ Visual Studio 2015 includes [many new improvements](https://msdn.microsoft.com/e
 
 You can download the free **Visual Studio 2015 Community Edition** [right here](http://go.microsoft.com/fwlink/?LinkId=532606).  For other versions, head over to the [Visual Studio web site](http://www.visualstudio.com).  Unreal Engine supports Visual Studio 2015 Community, Professional, Enterprise as well as Express for Desktop (with some limitations.)
 
-**Important: ** The launcher distribution of the engine now **requires Visual Studio 2015 with C++ support enabled**.  Please upgrade your team now!  If you use the New Project wizard inside Unreal Engine, we’ll help you get Visual Studio 2015 downloaded and installed.
+**Important:** The launcher distribution of the engine now **requires Visual Studio 2015 with C++ support enabled**.  Please upgrade your team now!  If you use the New Project wizard inside Unreal Engine, we’ll help you get Visual Studio 2015 downloaded and installed.
 
-**Important: ** The Visual Studio 2015 installer does not install C++ by default when installing manually.  Make sure to choose "**Custom**" when prompted, then expand the **Programming Languages** section, and check **Visual C++**. 
+**Important:** The Visual Studio 2015 installer does not install C++ by default when installing manually.  Make sure to choose "**Custom**" when prompted, then expand the **Programming Languages** section, and check **Visual C++**. 
 
 When compiling your project the first time, be on the lookout for new compiler errors reported because the new C++ compiler is more strict.  Microsoft has posted [this](https://msdn.microsoft.com/en-us/library/bb531344.aspx)[ document](https://msdn.microsoft.com/en-us/library/bb531344.aspx) with examples of changes that could affect your code.
 

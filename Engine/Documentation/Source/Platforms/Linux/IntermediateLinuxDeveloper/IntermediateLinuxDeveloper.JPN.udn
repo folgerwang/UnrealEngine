@@ -1,4 +1,4 @@
-﻿INTSourceChangeList:3108692
+﻿INTSourceChangelist:3782314
 Availability:NoPublish
 Title:中級レベルの Linux デベロッパー向け
 Crumbs:%ROOT%, Platforms, Platforms/Linux
@@ -11,30 +11,7 @@ parent:Platforms/Linux
 order:2
 tags:Linux
 SkillLevel:Intermediate
-
-[VAR:Params]
-[PARAM:image]
-	![%Platforms/Linux/IntermediateLinuxDeveloper:title%](intermediate_topics.png)
-[/PARAM]
-[PARAM:icon]
-	![](%ROOT%/tutorial_icon.png)(convert:false)
-[/PARAM]
-[PARAM:title]
-	%Platforms/Linux/IntermediateLinuxDeveloper:title%
-[/PARAM]
-[PARAM:description]
-	%Platforms/Linux/IntermediateLinuxDeveloper:description%
-[/PARAM]
-[PARAM:path]
-	[RELATIVE:Platforms/Linux/IntermediateLinuxDeveloper]
-[/PARAM]
-[/VAR]
-
-[VAR:Topic]
-[OBJECT:Topic]
-%params%
-[/OBJECT]
-[/VAR]
+topic-image:intermediate_topics.png
 
 Linux でのゲーム開発経験はあるけれども、他の人とゲームを共有する方法を学習したことがない人向けのラーニング パスです。以下のラーニング パスは、
 クロスコンパイル、マルチプラットフォーム ゲーム開発、 

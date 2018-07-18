@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3810557
 Title: 모바일 패키징 마법사
 Description: 모바일 패키징 마법사를 사용하여 UE4 모바일 프로젝트의 설치 크기를 줄이는 법입니다.
 Crumbs:%ROOT%, Platforms, Platforms/Mobile, Platforms/Mobile/MobilePackagingWizard/
@@ -344,8 +344,7 @@ Related:Engine/Deployment/UnrealFrontend
 	[/OBJECT]
 
 	[region:warning]
-	DLC 를 빌드하기 전 프로젝트 파일을 패키징해야 합니다. <!--DLC 먼저 패키징을 시도해 보면 프로젝트 패키징은 이루어지지 않습니다.
-[/COMMENT]
+	DLC 를 빌드하기 전 프로젝트 파일을 패키징해야 합니다.
 	[/region]
 
 1. **Launch this Profile** (이 프로파일 실행) 버튼을 누르면, 프로젝트 런처가 패키징 프로세스를 시작합니다. 프로젝트 런처 창에서 패키징 프로세스 진행상황을 확인할 수 있습니다.
@@ -741,9 +740,7 @@ mac
 	[/OBJECT]
 
 	[region:warning]
-	DLC 를 빌드하기 전 프로젝트 파일을 패키징해야 합니다. [COMMENT:none]
-DLC 먼저 패키징을 시도해 보면 프로젝트 패키징은 이루어지지 않습니다.
-[/COMMENT]
+	DLC 를 빌드하기 전 프로젝트 파일을 패키징해야 합니다.
 	[/region]
 
 1. **Launch this Profile** (이 프로파일 실행) 버튼을 누르면, 프로젝트 런처가 패키징 프로세스를 시작합니다. 프로젝트 런처 창에서 패키징 프로세스 진행상황을 확인할 수 있습니다.
@@ -905,4 +902,4 @@ mac
 이 폴더 안에는 사용자가 모바일 디바이스에 어플리케이션을 다운로드하여 설치한 이후 다운로드하도록 구성된 프로젝트의 여러 부분을 찾을 수 있습니다.
 
 [/EXCERPT:ios]
--->
+[/COMMENT]

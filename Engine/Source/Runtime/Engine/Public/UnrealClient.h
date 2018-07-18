@@ -19,6 +19,7 @@
 class FCanvas;
 class FViewport;
 class FViewportClient;
+class UModel;
 
 /**
  * A render target.
@@ -125,7 +126,7 @@ public:
 */
 #define MAX_HITPROXYSIZE 200
 
-DECLARE_DELEGATE(FOnScreenshotRequestProcessed);
+DECLARE_MULTICAST_DELEGATE(FOnScreenshotRequestProcessed);
 
 struct ENGINE_API FScreenshotRequest
 {
@@ -198,12 +199,14 @@ struct FStatUnitData
 	float GameThreadTime;
 	float GPUFrameTime;
 	float FrameTime;
+	float RHITTime;
 
 	/** Raw equivalents of the above variables */
 	float RawRenderThreadTime;
 	float RawGameThreadTime;
 	float RawGPUFrameTime;
 	float RawFrameTime;
+	float RawRHITTime;
 
 	/** Time that has transpired since the last draw call */
 	double LastTime;
@@ -216,6 +219,7 @@ struct FStatUnitData
 	TArray<float> GameThreadTimes;
 	TArray<float> GPUFrameTimes;
 	TArray<float> FrameTimes;
+	TArray<float> RHITTimes;
 	TArray<float> ResolutionFractions;
 #endif //!UE_BUILD_SHIPPING
 
@@ -224,6 +228,7 @@ struct FStatUnitData
 		, GameThreadTime(0.0f)
 		, GPUFrameTime(0.0f)
 		, FrameTime(0.0f)
+		, RHITTime(0.0f)
 		, RawRenderThreadTime(0.0f)
 		, RawGameThreadTime(0.0f)
 		, RawGPUFrameTime(0.0f)
@@ -236,6 +241,7 @@ struct FStatUnitData
 		GameThreadTimes.AddZeroed(NumberOfSamples);
 		GPUFrameTimes.AddZeroed(NumberOfSamples);
 		FrameTimes.AddZeroed(NumberOfSamples);
+		RHITTimes.AddZeroed(NumberOfSamples);
 		ResolutionFractions.Reserve(NumberOfSamples);
 		for (int32 i = 0; i < NumberOfSamples; i++)
 		{
@@ -361,9 +367,10 @@ public:
 	virtual void SetPreCaptureMousePosFromSlateCursor() {}
 
 	/**
-	 *	Starts a new rendering frame. Called from the game thread thread.
+	 * Starts a new rendering frame. Called from the game thread thread.
+	 * @param bShouldPresent Whether the frame will be presented to the screen
 	 */
-	ENGINE_API virtual void	EnqueueBeginRenderFrame();
+	ENGINE_API virtual void	EnqueueBeginRenderFrame(const bool bShouldPresent);
 
 	/**
 	 *	Starts a new rendering frame. Called from the rendering thread.
@@ -438,6 +445,13 @@ public:
 	 * Caution is required as calling Invalidate after this will free the returned HHitProxy.
 	 */
 	ENGINE_API HHitProxy* GetHitProxy(int32 X,int32 Y);
+
+	/**
+	 * Returns all actors and models found in the hit proxy within a specified region.
+	 * InRect must be entirely within the viewport's client area.
+	 * If the hit proxies are not cached, this will call ViewportClient->Draw with a hit-testing canvas.
+	 */
+	ENGINE_API void GetActorsAndModelsInHitProxy(FIntRect InRect, TSet<AActor*>& OutActors, TSet<UModel*>& OutModels);
 
 	/**
 	 * Retrieves the interface to the viewport's frame, if it has one.
@@ -764,11 +778,15 @@ public:
 	 * @param	Handle - Identifier unique to this touch event
 	 * @param	Type - What kind of touch event this is (see ETouchType)
 	 * @param	TouchLocation - Screen position of the touch
+	 * @param	Force - How hard the touch is
 	 * @param	DeviceTimestamp - Timestamp of the event
 	 * @param	TouchpadIndex - For devices with multiple touchpads, this is the index of which one
 	 * @return	True to consume the key event, false to pass it on.
 	 */
-	virtual bool InputTouch(FViewport* Viewport, int32 ControllerId, uint32 Handle, ETouchType::Type Type, const FVector2D& TouchLocation, FDateTime DeviceTimestamp, uint32 TouchpadIndex) { return false; }
+	virtual bool InputTouch(FViewport* Viewport, int32 ControllerId, uint32 Handle, ETouchType::Type Type, const FVector2D& TouchLocation, float Force, FDateTime DeviceTimestamp, uint32 TouchpadIndex) { return false; }
+
+	DEPRECATED(4.20, "InputTouch now takes a Force")
+	bool InputTouch(FViewport* Viewport, int32 ControllerId, uint32 Handle, ETouchType::Type Type, const FVector2D& TouchLocation, FDateTime DeviceTimestamp, uint32 TouchpadIndex) { return InputTouch(Viewport, ControllerId, Handle, Type, TouchLocation, 1.0f, DeviceTimestamp, TouchpadIndex); }
 
 	/**
 	 * Check a gesture event received by the viewport.

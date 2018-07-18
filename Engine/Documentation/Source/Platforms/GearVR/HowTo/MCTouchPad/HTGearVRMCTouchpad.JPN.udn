@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3661537
+﻿INTSourceChangelist:3782314
 Availability:Public
 Crumbs: %ROOT%
 Title:Gear VR タッチパッドの使用方法 
@@ -6,7 +6,7 @@ Description:Google VR モーション コントローラーのタッチパッド
 Type: how-to
 SkillLevel:Intermediate
 Version:4.17
-Parent:Platforms/GearVR/HowTo
+Parent:Platforms/GearVR
 Order:3
 Tags:GearVR
 topic-image:Platforms\GearVR\HowTo\GearVR_How_To_Header.png
@@ -15,6 +15,8 @@ prereq:Platforms\GearVR\QuickStart
 prereq:Platforms\GearVR\HowTo\CameraSetup
 prereq:Platforms\GearVR\HowTo\MotionController
 
+![](HTGVRMCTouchpad_Here_Image.png)
+
 Gear VR モーション コントローラー (MC) タッチパッドは非常に正確なので、高い精度が要求される様々なインタラクションの実行に使用することができます。メニュー オプションのスクロールからマップ上への正確な位置の描画まで、タッチパッドには仮想世界とインタラクトする様々な使い方があります。Gear VR モーション コントローラー タッチパッドを触る現在位置の取得および表示方法を説明します。
 
 [region:note]
@@ -22,6 +24,8 @@ Gear VR モーション コントローラー (MC) タッチパッドは非常�
 [/region]
 
 ## ステップ
+
+ユーザーが触った場所を表示するように Gear VR モーション コントローラー (MC) タッチパッドを設定する方法を説明します。
 
 1. まず最初に **[Component]** タブからプレイヤーの Pawn ブループリントを開いて、**X_Position** および **Y_Position**.という名前の **Text Render** コンポーネントを追加します。以下のように、2 つとも **Motion Controller** コンポーネントが親になるようにしてください。
 

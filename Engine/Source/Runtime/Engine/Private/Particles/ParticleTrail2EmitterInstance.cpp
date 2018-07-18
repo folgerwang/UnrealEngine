@@ -196,13 +196,19 @@ void FParticleTrailsEmitterInstance_Base::UpdateBoundingBox(float DeltaTime)
 			FVector MaxPos(-FLT_MAX);
 			FVector TempMin;
 			FVector TempMax;
+			bool bSkipDoubleSpawnUpdate = !SpriteTemplate->bUseLegacySpawningBehavior;
 			for (int32 i = 0; i < LocalActiveParticles; i++)
 			{
 				DECLARE_PARTICLE_PTR(Particle, ParticleData + ParticleStride * ParticleIndices[i]);
 				FVector Size = Particle->Size * Scale;
 				// Do linear integrator and update bounding box
-				Particle->Location	+= DeltaTime * Particle->Velocity;
-				Particle->Rotation	+= DeltaTime * Particle->RotationRate;
+				bool bJustSpawned = (Particle->Flags & STATE_Particle_JustSpawned) != 0;
+				Particle->Flags &= ~STATE_Particle_JustSpawned;
+
+				//Don't update position for newly spawned particles. They already have a partial update applied during spawn.
+				bool bSkipUpdate = bJustSpawned && bSkipDoubleSpawnUpdate;
+				Particle->Location	+= bSkipUpdate ? FVector::ZeroVector : DeltaTime * Particle->Velocity;
+				Particle->Rotation	+= bSkipUpdate ? 0.0f : DeltaTime * Particle->RotationRate;
 				Particle->Location	+= PositionOffsetThisTick;
 				FPlatformMisc::Prefetch(ParticleData, (ParticleIndices[i+1] * ParticleStride));
 				FPlatformMisc::Prefetch(ParticleData, (ParticleIndices[i+1] * ParticleStride) + PLATFORM_CACHE_LINE_SIZE);
@@ -3360,7 +3366,7 @@ float FParticleAnimTrailEmitterInstance::Spawn(float DeltaTime)
 	//@todo. Support multiple trails per emitter
 	// Find the start particle of the current trail...
 	int32 StartIndex = -1;
-	if (TrailIdx != INDEX_NONE)
+	if (TrailIdx != INDEX_NONE) //-V547
 	{
 		FBaseParticle* Particle = nullptr;
 		FAnimTrailTypeDataPayload* TrailData = nullptr;
@@ -3537,14 +3543,20 @@ void FParticleAnimTrailEmitterInstance::UpdateBoundingBox(float DeltaTime)
 			FVector PrevParticleLocation = FirstParticle->Location;
 			float PrevParticleLength = FirstPayload->Length;
 
+			bool bSkipDoubleSpawnUpdate = !SpriteTemplate->bUseLegacySpawningBehavior;
 			for (int32 i = 0; i < LocalActiveParticles; i++)
 			{
 				DECLARE_PARTICLE_PTR(Particle, ParticleData + ParticleStride * ParticleIndices[i]);
 				FAnimTrailTypeDataPayload*	Payload = ((FAnimTrailTypeDataPayload*)((uint8*)Particle + TypeDataOffset));
 
+				bool bJustSpawned = (Particle->Flags & STATE_Particle_JustSpawned) != 0;
+				Particle->Flags &= ~STATE_Particle_JustSpawned;
+
+				//Don't update position for newly spawned particles. They already have a partial update applied during spawn.
+				bool bSkipUpdate = bJustSpawned && bSkipDoubleSpawnUpdate;
 				// Do linear integrator and update bounding box
-				Particle->Location	+= DeltaTime * Particle->Velocity;
-				Particle->Rotation	+= DeltaTime * Particle->RotationRate;
+				Particle->Location	+= bSkipUpdate ? FVector::ZeroVector : DeltaTime * Particle->Velocity;
+				Particle->Rotation	+= bSkipUpdate ? 0.0f : DeltaTime * Particle->RotationRate;
 				Particle->Location	+= PositionOffsetThisTick;
 				
 				FPlatformMisc::Prefetch(ParticleData, (ParticleIndices[i+1] * ParticleStride));

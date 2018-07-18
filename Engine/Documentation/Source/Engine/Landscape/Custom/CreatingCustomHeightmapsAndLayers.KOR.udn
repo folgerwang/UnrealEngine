@@ -35,11 +35,11 @@ tags:Landscape
 
 [COMMENT:none]
 
-### Landscape Size vs. Layer Size
+### 랜드스케이프 크기 vs 레이어 크기
 
-The following chart shows the relation between Landscape height map size and Landscape layer size. It is very important that you make sure that you Landscape layer is the correct size. If the layer size is wrong it will not import into UE4.
+다음 표는 랜드스케이프 하이트 맵 크기와 랜드스케이프 레이어 크기 사이 상관관계를 나타냅니다. 랜드스케이프 레이어 크기가 제대로 되어있는지 확인하는 것이 매우 중요합니다. 그 레이어 크기가 잘못되면, UE4 에 임포트되지 않습니다.
 
-| Landscape Height Map Size | Layer Size|
+| 랜드스케이프 하이트 맵 크기 | 레이어 크기|
 | --------|---------|
 | 16 x 16 | 16 x 16 |
 | 32 x 32 | 32 x 32 |
@@ -51,7 +51,7 @@ The following chart shows the relation between Landscape height map size and Lan
 | 2048 x 2048 | 2160 x 2160 |
 | 4096 x 4096 | 4336 x 4336 |
 
-If your layers are not output at the correct size you will receive the following warning.  
+레이어가 올바른 크기로 출력되지 않는 경우, 다음과 같은 경고가 납니다.  
 
 ![](Landscape_Layer_Import_Error.png)
 

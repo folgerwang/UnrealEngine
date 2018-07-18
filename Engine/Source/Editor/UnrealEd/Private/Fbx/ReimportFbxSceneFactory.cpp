@@ -54,7 +54,7 @@
 
 #include "ObjectTools.h"
 
-#include "AI/Navigation/NavCollision.h"
+#include "AI/Navigation/NavCollisionBase.h"
 
 #define LOCTEXT_NAMESPACE "FBXSceneReImportFactory"
 
@@ -245,6 +245,7 @@ bool GetFbxSceneReImportOptions(UnFbx::FFbxImporter* FbxImporter
 	GlobalImportSettings->bConvertScene = true;
 	GlobalImportSettings->bConvertSceneUnit = true;
 
+	GlobalImportSettings->OverrideMaterials.Reset();
 
 	TSharedPtr<SWindow> ParentWindow;
 	if (FModuleManager::Get().IsModuleLoaded("MainFrame"))
@@ -1426,8 +1427,8 @@ EReimportResult::Type UReimportFbxSceneFactory::ReimportStaticMesh(void* VoidFbx
 	}
 
 	// preserve settings in navcollision subobject
-	UNavCollision* NavCollision = Mesh->NavCollision ?
-		(UNavCollision*)StaticDuplicateObject(Mesh->NavCollision, GetTransientPackage()) :
+	UNavCollisionBase* NavCollision = Mesh->NavCollision ?
+		(UNavCollisionBase*)StaticDuplicateObject(Mesh->NavCollision, GetTransientPackage()) :
 		nullptr;
 
 	// preserve extended bound settings

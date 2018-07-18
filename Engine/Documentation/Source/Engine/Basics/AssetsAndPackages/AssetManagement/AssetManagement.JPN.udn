@@ -44,21 +44,21 @@ UE4 では [アセット](Engine/Basics/AssetsAndPackages/) のロード、ア�
 
 ほとんどのプライマリ アセットはアーティストやデザイナーが編集できるように **コンテンツ ブラウザ** にあり、ディスク上に保存されるアセット ファイルとして存在します。この方法で使用できるクラスをプログラマーが作成する最も簡単な方法は、`UPrimaryDataAsset` から継承することです。`UPrimaryDataAsset` は、`UDataAsset` のひとつのバージョンであり、ビルトインされているアセット バンドル データをロードし、保存する機能を持っています。`APawn` など他の基本クラスが必要な場合、クラスに対して機能するアセット バンドルを取得するために追加しなければならない最小限の機能例として `UPrimaryDataAsset` が便利です。以下のクラスは Fortnite の Zone Theme データを格納し、ゲームのマップ選択モードでエリアの視覚表現をビルドするときにどのアート アセットを使うかをゲームに指示します。
 
-	/** A zone that can be selected by the user from the map screen (マップ画面からユーザーによって選択可能なゾーン) */
+	/** A zone that can be selected by the user from the map screen */
 	UCLASS(Blueprintable)
 	class FORTNITEGAME_API UFortZoneTheme : public UPrimaryDataAsset
 	{
 		GENERATED_UCLASS_BODY()
 
-		/** Name of the zone (ゾーン内) */
+		/** Name of the zone */
 		UPROPERTY(EditDefaultsOnly, Category=Zone)
 		FText ZoneName;
 
-		/** The map that will be loaded when entering this zone (このゾーンに入る場合にロードされるマップ) */
+		/** The map that will be loaded when entering this zone */
 		UPROPERTY(EditDefaultsOnly, Category=Zone)
 		TAssetPtr<UWorld> ZoneToUse;
 
-		/** The blueprint class used to represent this zone on the map (このゾーンをマップ上に表現するために使うブループリント クラスです) */
+		/** The blueprint class used to represent this zone on the map */
 		UPROPERTY(EditDefaultsOnly, Category=Visual, meta=(AssetBundles = "Menu"))
 		TAssetSubclassOf<class AFortTheaterMapTile> TheaterMapTileClass;
 	};
@@ -76,6 +76,7 @@ UE4 では [アセット](Engine/Basics/AssetsAndPackages/) のロード、ア�
 [REGION:note]デフォルトの Asset Manager クラスは、特別な機能が必要でない限り、オーバーライドされる必要はありません。デフォルトの Engine クラス、 `UAssetManager` を使用することができます。この場合、このステップをスキップすることができます。[/REGION]
 
 1. **プライマリ アセットをアセット マネージャで登録する** これは次の 3 種類の方法で行うことができます。すなわち、**Project Settings** メニューで設定する、アセットの配列のパスを手動で追加して `DefaultGame.ini` でスキャンする、または Asset Manager クラスがスタートアップ中にそれを行うようにプログラミングします。
+
 	* **Project Settings** (**Game / Asset Manager** セクションの下) による設定は以下のようになります。:
 	![](ProjectSettingsAssetManager.png)
 	[REGION:caption]プライマリ アセットのスキャンのパスを設定することができます。[/REGION]
@@ -92,7 +93,6 @@ UE4 では [アセット](Engine/Basics/AssetsAndPackages/) のロード、ア�
 	[/REGION]
 
 	* `DefaultGame.ini` を編集するには、`/Script/Engine.AssetManagerSettings` というセクションを見つけ (または作成)し、Primary Asset クラスを手動で追加します。以下のような形式になります。
-
 			[/Script/Engine.AssetManagerSettings]
 			!PrimaryAssetTypesToScan=ClearArray
 			+PrimaryAssetTypesToScan=(PrimaryAssetType="Map",AssetBaseClass=/Script/Engine.World,bHasBlueprintClasses=False,bIsEditorOnly=True,Directories=((Path="/Game/Maps")),SpecificAssets=,Rules=(Priority=-1,bApplyRecursively=True,ChunkId=-1,CookRule=Unknown))
@@ -124,20 +124,21 @@ UE4 では [アセット](Engine/Basics/AssetsAndPackages/) のロード、ア�
 
 例えば、Fortnite では以下のコードをそのカスタムのAsset Manager クラスで使って、ゲーム中にダウンロードされた "theater" データに基づきアセットを構築しロードします。
 
-	// Construct the name from the theater ID (theater ID から名前を構築) 
+	// Construct the name from the theater ID
 	UFortAssetManager& AssetManager = UFortAssetManager::Get();
 	FPrimaryAssetId TheaterAssetId = FPrimaryAssetId(UFortAssetManager::FortTheaterInfoType, FName(*TheaterData.UniqueId));
+				
 	TArray<FStringAssetReference> AssetReferences;
 	AssetManager.ExtractStringAssetReferences(FFortTheaterMapData::StaticStruct(), &TheaterData, AssetReferences);
 
 	FAssetBundleData GameDataBundles;
 	GameDataBundles.AddBundleAssets(UFortAssetManager::LoadStateMenu, AssetReferences);
 
-	// Recursively expand references to pick up tile blueprints in Zone (参照を再帰的に展開し、Zone 内のブループリントを選ぶ)
+	// Recursively expand references to pick up tile blueprints in Zone
 	AssetManager.RecursivelyExpandBundleData(GameDataBundles);
 
-	// Register a dynamic asset (動的アセットを登録する) 
+	// Register a dynamic Asset 
 	AssetManager.AddDynamicAsset(TheaterAssetId, FStringAssetReference(), GameDataBundles);
 
-	// Start preloading (プリロードを開始する)
+	// Start preloading
 	AssetManager.LoadPrimaryAsset(TheaterAssetId, AssetManager.GetDefaultBundleState());

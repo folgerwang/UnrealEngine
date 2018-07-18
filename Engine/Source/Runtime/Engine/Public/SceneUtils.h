@@ -13,7 +13,7 @@
 #include "CoreMinimal.h"
 #include "Stats/Stats.h"
 #include "RHI.h"
-#include "CsvProfiler.h"
+#include "ProfilingDebugging/CsvProfiler.h"
 
 // Note:  WITH_PROFILEGPU should be 0 for final builds
 #define WANTS_DRAW_MESH_EVENTS (RHI_COMMAND_LIST_DEBUG_TRACES || (WITH_PROFILEGPU && PLATFORM_SUPPORTS_DRAW_MESH_EVENTS))
@@ -98,7 +98,7 @@ class FScopedGPUStatEvent;
 	#define SCOPED_CONDITIONAL_DRAW_EVENTF_COLOR(RHICmdList, Color, Name, Condition, Format, ...) TDrawEvent<FRHICommandList> PREPROCESSOR_JOIN(Event_##Name,__LINE__); if(GetEmitDrawEvents() && (Condition)) PREPROCESSOR_JOIN(Event_##Name,__LINE__).Start(RHICmdList, Color, Format, ##__VA_ARGS__);
 	#define BEGIN_DRAW_EVENTF(RHICmdList, Name, Event, Format, ...) if(GetEmitDrawEvents()) Event.Start(RHICmdList, FColor(0), Format, ##__VA_ARGS__);
 	#define BEGIN_DRAW_EVENTF_COLOR(RHICmdList, Color, Name, Event, Format, ...) if(GetEmitDrawEvents()) Event.Start(RHICmdList, Color, Format, ##__VA_ARGS__);
-	#define STOP_DRAW_EVENT(Event) Event.Stop();
+	#define STOP_DRAW_EVENT(Event) (Event).Stop();
 
 	#define SCOPED_COMPUTE_EVENT(RHICmdList, Name) TDrawEvent<FRHIAsyncComputeCommandList> PREPROCESSOR_JOIN(Event_##Name,__LINE__); if(GetEmitDrawEvents()) PREPROCESSOR_JOIN(Event_##Name,__LINE__).Start(RHICmdList, FColor(0), TEXT(#Name));
 	#define SCOPED_COMPUTE_EVENT_COLOR(RHICmdList, Color, Name) TDrawEvent<FRHIAsyncComputeCommandList> PREPROCESSOR_JOIN(Event_##Name,__LINE__); if(GetEmitDrawEvents()) PREPROCESSOR_JOIN(Event_##Name,__LINE__).Start(RHICmdList, Color, TEXT(#Name));
@@ -282,6 +282,10 @@ ENGINE_API bool IsMobileHDR32bpp();
 ENGINE_API bool IsMobileHDRMosaic();
 
 ENGINE_API EMobileHDRMode GetMobileHDRMode();
+
+// this function is used to suppress static analysis warnings
+// it is mainly used in certain situations with IsMobileHDR*() conditions
+ENGINE_API bool IsHTML5Platform();
 
 /**
 * A pool of render (e.g. occlusion/timer) queries which are allocated individually, and returned to the pool as a group.

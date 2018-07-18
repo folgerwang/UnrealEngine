@@ -46,6 +46,12 @@ FString FQosInterface::GetRegionId() const
 	return RegionManager->GetRegionId();
 }
 
+FString FQosInterface::GetBestRegion() const
+{
+	check(RegionManager);
+	return RegionManager->GetBestRegion();
+}
+
 bool FQosInterface::AllRegionsFound() const
 {
 	check(RegionManager);
@@ -76,8 +82,20 @@ bool FQosInterface::SetSelectedRegion(const FString& InRegionId)
 	return RegionManager->SetSelectedRegion(InRegionId);
 }
 
+void FQosInterface::ClearSelectedRegion()
+{
+	check(RegionManager);
+	RegionManager->ClearSelectedRegion();
+}
+
 void FQosInterface::DumpRegionStats()
 {
 	check(RegionManager);
 	return RegionManager->DumpRegionStats();
+}
+
+void FQosInterface::RegisterQoSSettingsChangedDelegate(const FSimpleDelegate& OnQoSSettingsChanged)
+{
+	check(RegionManager);
+	RegionManager->RegisterQoSSettingsChangedDelegate(OnQoSSettingsChanged);
 }

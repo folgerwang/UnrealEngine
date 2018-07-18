@@ -2,14 +2,14 @@
 
 #include "Commandlets/FixConflictingLocalizationKeys.h"
 #include "Commandlets/GatherTextCommandletBase.h"
-#include "Object.h"
-#include "Class.h"
-#include "Package.h"
-#include "TextProperty.h"
-#include "LocKeyFuncs.h"
-#include "Paths.h"
-#include "PackageName.h"
-#include "TextNamespaceUtil.h"
+#include "UObject/Object.h"
+#include "UObject/Class.h"
+#include "UObject/Package.h"
+#include "UObject/TextProperty.h"
+#include "Internationalization/LocKeyFuncs.h"
+#include "Misc/Paths.h"
+#include "Misc/PackageName.h"
+#include "Internationalization/TextNamespaceUtil.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogFixConflictingLocalizationKeys, Log, All);
 
@@ -37,7 +37,7 @@ bool UnmanglePropertyName(const FString& InName, FString& OutName, EMangledPrope
 			OutName = InName.Left(IndexStartIndex);
 
 			const FString IndexStr = InName.Mid(IndexStartIndex + 1, InName.Len() - IndexStartIndex - 1);
-			Lex::FromString(OutIndex, *IndexStr);
+			LexFromString(OutIndex, *IndexStr);
 
 			OutType = EMangledPropertyContainerType::Fixed;
 			return true;
@@ -63,7 +63,7 @@ bool UnmanglePropertyName(const FString& InName, FString& OutName, EMangledPrope
 			}
 
 			const FString IndexStr = InName.Mid(IndexStartIndex + 1, IndexLen);
-			Lex::FromString(OutIndex, *IndexStr);
+			LexFromString(OutIndex, *IndexStr);
 
 			OutType = InName[InName.Len() - 2] == TEXT('y') ? EMangledPropertyContainerType::DynamicKey : EMangledPropertyContainerType::Dynamic;
 			return true;
@@ -328,13 +328,13 @@ int32 UFixConflictingLocalizationKeysCommandlet::Main(const FString& Params)
 	// Build up a list of conflicting texts from the manifest (mimicking the 4.15 collapsing behavior)
 	TArray<FString> ConflictingSources;
 	{
-		TMap<FString, FLocItem, FDefaultSetAllocator, FLocKeyMapFuncs<FLocItem>> NsKeyToSourceString;
+		TMap<FLocKey, FLocItem> NsKeyToSourceString;
 
 		LocTextHelper.EnumerateSourceTexts([&NsKeyToSourceString, &ConflictingSources](TSharedRef<FManifestEntry> InManifestEntry) -> bool
 		{
 			for (const FManifestContext& Context : InManifestEntry->Contexts)
 			{
-				const FString NsKey = FString::Printf(TEXT("%s:%s"), *TextNamespaceUtil::StripPackageNamespace(InManifestEntry->Namespace), *Context.Key);
+				const FLocKey NsKey = FString::Printf(TEXT("%s:%s"), *TextNamespaceUtil::StripPackageNamespace(InManifestEntry->Namespace.GetString()), *Context.Key.GetString());
 
 				const FLocItem* ExistingSourceItem = NsKeyToSourceString.Find(NsKey);
 				if (ExistingSourceItem)

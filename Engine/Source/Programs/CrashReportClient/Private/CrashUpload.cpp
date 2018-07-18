@@ -16,6 +16,9 @@
 #include "PendingReports.h"
 #include "CrashDescription.h"
 #include "Misc/EngineBuildSettings.h"
+#include "Misc/CommandLine.h"
+
+#include "Stats/Stats.h"
 
 // Switched off CRR upload - Jun 2016
 #define PRIMARY_UPLOAD_RECEIVER 0
@@ -343,6 +346,24 @@ void FCrashUploadBase::AddReportToFailedList() const
 	}
 }
 
+void FCrashUploadBase::CleanCrashReportDirectory(const FString& CrashReportDirectory)
+{
+	// Clean crash report folder if requested
+	if (FParse::Param(FCommandLine::Get(), TEXT("CleanCrashReports")))
+	{
+		// Check that the crash directory is valid and resides in /Saved/Crashes
+		FString NormalizedReportDirectory = CrashReportDirectory;
+		FPaths::NormalizeDirectoryName(NormalizedReportDirectory);
+		if (NormalizedReportDirectory.Contains(TEXT("/Saved/Crashes/")))
+		{
+			UE_LOG(CrashReportClientLog, Log, TEXT("Removing crash report directory %s"), *CrashReportDirectory);
+			IFileManager& FileManager = IFileManager::Get();
+			FileManager.DeleteDirectory(*CrashReportDirectory, false, true);
+		}
+	}
+}
+
+
 // FCrashUploadToReceiver //////////////////////////////////////////////////////
 
 FCrashUploadToReceiver::FCrashUploadToReceiver(const FString& InReceiverAddress)
@@ -365,6 +386,8 @@ FCrashUploadToReceiver::~FCrashUploadToReceiver()
 
 bool FCrashUploadToReceiver::PingTimeout(float DeltaTime)
 {
+    QUICK_SCOPE_CYCLE_COUNTER(STAT_FCrashUploadToReceiver_PingTimeout);
+
 	if (EUploadState::PingingServer == State)
 	{
 		SetCurrentState(EUploadState::ServerNotAvailable);
@@ -765,7 +788,7 @@ void FCrashUploadToDataRouter::CompressAndSendData()
 #if PRIMARY_UPLOAD_DATAROUTER
 		// completed upload to DR so send analytics
 		FPrimaryCrashProperties::Get()->SendPostUploadAnalytics();
-#endif
+#endif		
 		return;
 	}
 	else
@@ -800,6 +823,8 @@ void FCrashUploadToDataRouter::OnProcessRequestComplete(FHttpRequestPtr HttpRequ
 		}
 		else
 		{
+			// Successfully submitted crash report
+			CleanCrashReportDirectory(ErrorReport.GetReportDirectory());
 			CheckPendingReportsForFilesToUpload();
 		}
 		break;

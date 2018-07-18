@@ -978,7 +978,7 @@ static bool BlueprintActionFilterImpl::IsIncompatibleImpureNode(FBlueprintAction
 
 	for (UEdGraph* Graph : FilterContext.Graphs)
 	{
-		if (UEdGraphSchema_K2* K2Schema = Graph->Schema->GetDefaultObject<UEdGraphSchema_K2>())
+		if (const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>())
 		{
 			bAllowImpureNodes &= K2Schema->DoesGraphSupportImpureFunctions(Graph);
 		}
@@ -996,7 +996,7 @@ static bool BlueprintActionFilterImpl::IsIncompatibleLatentNode(FBlueprintAction
 
 	for (UEdGraph* Graph : FilterContext.Graphs)
 	{
-		if (UEdGraphSchema_K2* K2Schema = Graph->Schema->GetDefaultObject<UEdGraphSchema_K2>())
+		if (const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>())
 		{
 			if(K2Schema->GetGraphType(Graph) == GT_Function)
 			{
@@ -1219,7 +1219,7 @@ static bool BlueprintActionFilterImpl::HasMatchingPin(FBlueprintActionInfo& Blue
 
 		UBlueprint* Blueprint = FBlueprintEditorUtils::FindBlueprintForGraph(OuterGraph);
 		check(Blueprint != nullptr);
-		UEdGraphSchema_K2 const* Schema = CastChecked<UEdGraphSchema_K2>(OuterGraph->GetSchema());
+		UEdGraphSchema const* Schema = OuterGraph->GetSchema();
 
 		UClass const* CallingContext = GetAuthoritativeBlueprintClass(Blueprint);
 		UK2Node* K2TemplateNode = Cast<UK2Node>(TemplateNode);
@@ -1560,13 +1560,7 @@ static bool BlueprintActionFilterImpl::IsNotSubClassCast(FBlueprintActionFilter 
 //------------------------------------------------------------------------------
 static bool BlueprintActionFilterImpl::IsNodeTemplateSelfFiltered(FBlueprintActionFilter const& Filter, FBlueprintActionInfo& BlueprintAction)
 {
-	bool bIsFilteredOut = false;
-
-	if(UK2Node* NodeTemplate = Cast<UK2Node>(BlueprintAction.NodeSpawner->GetTemplateNode()))
-	{
-		bIsFilteredOut = NodeTemplate->IsActionFilteredOut(Filter);
-	}
-	return bIsFilteredOut;
+	return BlueprintAction.NodeSpawner->IsTemplateNodeFilteredOut(Filter);
 }
 
 //------------------------------------------------------------------------------

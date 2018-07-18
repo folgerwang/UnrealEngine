@@ -7,16 +7,18 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "TargetPlatformBase.h"
-#include "IOSPlatformProperties.h"
-#include "Ticker.h"
+#include "Common/TargetPlatformBase.h"
+#include "IOS/IOSPlatformProperties.h"
+#include "Containers/Ticker.h"
 #include "IOSMessageProtocol.h"
 #include "IMessageContext.h"
 #include "IOSTargetDevice.h"
 #include "IOSDeviceHelper.h"
 #include "Misc/ConfigCacheIni.h"
 
+
 #if WITH_ENGINE
+#include "AudioCompressionSettings.h"
 #include "StaticMeshResources.h"
 #endif // WITH_ENGINE
 
@@ -30,7 +32,7 @@ public:
 	/**
 	 * Default constructor.
 	 */
-	IOSTARGETPLATFORM_API FIOSTargetPlatform(bool bInISTVOS);
+	IOSTARGETPLATFORM_API FIOSTargetPlatform(bool bInISTVOS, bool bInIsClientOnly);
 
 	/**
 	 * Destructor.
@@ -46,6 +48,11 @@ public:
 		return false;
 	}
 
+	virtual bool IsClientOnly() const override
+	{
+		return bIsClientOnly;
+	}
+
 	//~ End TTargetPlatformBase Interface
 
 public:
@@ -55,7 +62,11 @@ public:
 	// this is used for cooking to a separate directory, NOT for runtime. Runtime TVOS is still "IOS"
 	virtual FString PlatformName() const override
 	{
-		return bIsTVOS ? "TVOS" : "IOS";
+		if (bIsTVOS)
+		{
+			return bIsClientOnly ? "TVOSClient" : "TVOS";
+		}
+		return bIsClientOnly ? "IOSClient" : "IOS";
 	}
 
     virtual FString IniPlatformName() const override
@@ -126,6 +137,9 @@ public:
 
 	virtual FName GetWaveFormat( const class USoundWave* Wave ) const override;
 	virtual void GetAllWaveFormats(TArray<FName>& OutFormat) const override;
+
+	virtual FPlatformAudioCookOverrides* GetAudioCompressionSettings() const override;
+
 #endif // WITH_ENGINE
 
 	virtual void GetBuildProjectSettingKeys(FString& OutSection, TArray<FString>& InBoolKeys, TArray<FString>& InIntKeys, TArray<FString>& InStringKeys) const override
@@ -184,6 +198,9 @@ private:
 	
 	// true if this is targeting TVOS vs IOS
 	bool bIsTVOS;
+
+	// true if this is a client-only TP
+	bool bIsClientOnly;
 
 	// Contains all discovered IOSTargetDevices over the network.
 	TMap<FTargetDeviceId, FIOSTargetDevicePtr> Devices;

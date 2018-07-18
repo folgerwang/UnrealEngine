@@ -13,8 +13,9 @@
 #include "SequencerSettings.h"
 #include "Tools/EditToolDragOperations.h"
 #include "IKeyArea.h"
-#include "SBox.h"
-#include "SlateApplication.h"
+#include "Widgets/Layout/SBox.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Misc/Timecode.h"
 
 const FName FSequencerEditTool_Movement::Identifier = "Movement";
 
@@ -38,14 +39,17 @@ FReply FSequencerEditTool_Movement::OnMouseButtonDown(SWidget& OwnerWidget, cons
 
 		DelayedDrag = FDelayedDrag_Hotspot(VirtualTrackArea.CachedTrackAreaGeometry().AbsoluteToLocal(MouseEvent.GetScreenSpacePosition()), MouseEvent.GetEffectingButton(), Hotspot);
 
- 		if (Sequencer.GetSettings()->GetSnapPlayTimeToPressedKey() || (MouseEvent.IsShiftDown() && MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton) )
+ 		if (Sequencer.GetSequencerSettings()->GetSnapPlayTimeToPressedKey() || (MouseEvent.IsShiftDown() && MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton) )
 		{
 			if (DelayedDrag->Hotspot.IsValid())
 			{
 				if (DelayedDrag->Hotspot->GetType() == ESequencerHotspot::Key)
 				{
-					FSequencerSelectedKey& ThisKey = StaticCastSharedPtr<FKeyHotspot>(DelayedDrag->Hotspot)->Key;
-					Sequencer.SetLocalTime(ThisKey.KeyArea->GetKeyTime(ThisKey.KeyHandle.GetValue()));
+					TOptional<FFrameNumber> Time = StaticCastSharedPtr<FKeyHotspot>(DelayedDrag->Hotspot)->GetTime();
+					if (Time.IsSet())
+					{
+						Sequencer.SetLocalTime(Time.GetValue());
+					}
 				}
 			}
 		}
@@ -71,8 +75,8 @@ FReply FSequencerEditTool_Movement::OnMouseMove(SWidget& OwnerWidget, const FGeo
 			if (DragOperation.IsValid())
 			{
 				DragPosition = MyGeometry.AbsoluteToLocal(MouseEvent.GetScreenSpacePosition());
-				
-				float CurrentTime = VirtualTrackArea.PixelToTime(DragPosition.X);
+
+				double CurrentTime = VirtualTrackArea.PixelToSeconds(DragPosition.X);
 				Sequencer.UpdateAutoScroll(CurrentTime);
 				
 				DragOperation->OnDrag(MouseEvent, DragPosition, VirtualTrackArea);
@@ -97,11 +101,11 @@ FReply FSequencerEditTool_Movement::OnMouseMove(SWidget& OwnerWidget, const FGeo
 	return FReply::Unhandled();
 }
 
-bool FSequencerEditTool_Movement::GetHotspotTime(float& HotspotTime) const
+bool FSequencerEditTool_Movement::GetHotspotTime(FFrameTime& HotspotTime) const
 {
 	if (DelayedDrag->Hotspot.IsValid())
 	{
-		TOptional<float> OptionalHotspotTime = DelayedDrag->Hotspot->GetTime();
+		TOptional<FFrameNumber> OptionalHotspotTime = DelayedDrag->Hotspot->GetTime();
 		if (OptionalHotspotTime.IsSet())
 		{
 			HotspotTime = OptionalHotspotTime.GetValue();
@@ -111,12 +115,12 @@ bool FSequencerEditTool_Movement::GetHotspotTime(float& HotspotTime) const
 	return false;
 }
 
-float FSequencerEditTool_Movement::GetHotspotOffsetTime(float CurrentTime) const
+FFrameTime FSequencerEditTool_Movement::GetHotspotOffsetTime(FFrameTime CurrentTime) const
 {
 	//@todo abstract dragging offset from shift
 	if (DelayedDrag->Hotspot.IsValid() && FSlateApplication::Get().GetModifierKeys().IsShiftDown())
 	{
-		TOptional<float> OptionalOffsetTime = DelayedDrag->Hotspot->GetOffsetTime();
+		TOptional<FFrameTime> OptionalOffsetTime = DelayedDrag->Hotspot->GetOffsetTime();
 		if (OptionalOffsetTime.IsSet())
 		{
 			return OptionalOffsetTime.GetValue();
@@ -140,9 +144,28 @@ TSharedPtr<ISequencerEditToolDragOperation> FSequencerEditTool_Movement::CreateD
 		{
 			return HotspotDrag;
 		}
-
-		// Ok, the hotspot doesn't know how to drag - let's decide for ourselves
 		auto HotspotType = DelayedDrag->Hotspot->GetType();
+
+		const bool bSectionsSelected = Selection.GetSelectedSections().Num() > 0;
+		const bool bKeySelected = Selection.GetSelectedKeys().Num() > 0;
+		// @todo sequencer: Make this a customizable UI command modifier?
+		const bool bIsDuplicateEvent = MouseEvent.IsAltDown() || MouseEvent.GetEffectingButton() == EKeys::MiddleMouseButton;
+		const bool bHotspotIsSection = HotspotType == ESequencerHotspot::Section;
+
+		// If they have both keys and sections selected then we only support moving them right now, so we
+		// check for that first before trying to figure out if they're resizing or dilating.
+		if (bSectionsSelected && bKeySelected && !bIsDuplicateEvent)
+		{
+			TArray<FSectionHandle> SelectedSectionHandles = SequencerWidget->GetSectionHandles(Selection.GetSelectedSections());
+			TSet<FSequencerSelectedKey> SelectedKeys = Selection.GetSelectedKeys();
+
+			return MakeShareable(new FMoveKeysAndSections(Sequencer, SelectedKeys, SelectedSectionHandles, bHotspotIsSection));
+		}
+		else if (bIsDuplicateEvent)
+		{
+			return MakeShareable(new FDuplicateKeysAndSections(Sequencer, Selection.GetSelectedKeys(), SequencerWidget->GetSectionHandles(Selection.GetSelectedSections()), bHotspotIsSection));
+		}
+
 
 		TOptional<FSectionHandle> SectionToDrag;
 		if (HotspotType == ESequencerHotspot::Section || HotspotType == ESequencerHotspot::EasingArea)
@@ -177,41 +200,47 @@ TSharedPtr<ISequencerEditToolDragOperation> FSequencerEditTool_Movement::CreateD
 			}
 			else
 			{
-				return MakeShareable( new FMoveSection( Sequencer, SectionHandles ) );
+				TSet<FSequencerSelectedKey> EmptyKeySet;
+				return MakeShareable( new FMoveKeysAndSections( Sequencer, EmptyKeySet, SectionHandles, true) );
 			}
 		}
 		// Moving key(s)?
 		else if (HotspotType == ESequencerHotspot::Key)
 		{
-			FSequencerSelectedKey& ThisKey = StaticCastSharedPtr<FKeyHotspot>(DelayedDrag->Hotspot)->Key;
+			TArrayView<const FSequencerSelectedKey> HoveredKeys = StaticCastSharedPtr<FKeyHotspot>(DelayedDrag->Hotspot)->Keys;
 
-			// If it's not selected, we'll treat this as a unique drag
-			if (!Selection.IsSelected(ThisKey))
+			auto AnyUnselectedKey = [&Selection](const FSequencerSelectedKey& InKey)
 			{
+				return !Selection.IsSelected(InKey);
+			};
+
+			if (HoveredKeys.ContainsByPredicate(AnyUnselectedKey))
+			{
+				// If any are not selected, we'll treat this as a unique drag
 				Selection.EmptySelectedKeys();
 				Selection.EmptySelectedSections();
 				Selection.EmptyNodesWithSelectedKeysOrSections();
-				Selection.AddToSelection(ThisKey);
+				for (const FSequencerSelectedKey& Key : HoveredKeys)
+				{
+					Selection.AddToSelection(Key);
+				}
 				SequencerHelpers::UpdateHoveredNodeFromSelectedKeys(Sequencer);
 			}
 
-			// @todo sequencer: Make this a customizable UI command modifier?
-			if (MouseEvent.IsAltDown() || MouseEvent.GetEffectingButton() == EKeys::MiddleMouseButton)
-			{
-				return MakeShareable( new FDuplicateKeys( Sequencer, Selection.GetSelectedKeys() ) );
-			}
-
-			return MakeShareable( new FMoveKeys( Sequencer, Selection.GetSelectedKeys() ) );
+			TArray<FSectionHandle> EmptySectionHandles;
+			return MakeShareable( new FMoveKeysAndSections( Sequencer, Selection.GetSelectedKeys(), EmptySectionHandles, false) );
 		}
 	}
 	// If we're not dragging a hotspot, sections take precedence over keys
 	else if (Selection.GetSelectedSections().Num())
 	{
-		return MakeShareable( new FMoveSection( Sequencer, SequencerWidget->GetSectionHandles(Selection.GetSelectedSections()) ) );
+		TSet<FSequencerSelectedKey> EmptyKeySet;
+		return MakeShareable( new FMoveKeysAndSections( Sequencer, EmptyKeySet, SequencerWidget->GetSectionHandles(Selection.GetSelectedSections()), true ) );
 	}
 	else if (Selection.GetSelectedKeys().Num())
 	{
-		return MakeShareable( new FMoveKeys( Sequencer, Selection.GetSelectedKeys() ) );
+		TArray<FSectionHandle> EmptySectionHandles;
+		return MakeShareable( new FMoveKeysAndSections( Sequencer, Selection.GetSelectedKeys(), EmptySectionHandles, false) );
 	}
 
 	return nullptr;
@@ -233,6 +262,8 @@ FReply FSequencerEditTool_Movement::OnMouseButtonUp(SWidget& OwnerWidget, const 
 		{
 			GEditor->EndTransaction();
 		}
+
+		Sequencer.StopAutoscroll();
 
 		// Only return handled if we actually started a drag
 		return FReply::Handled().ReleaseMouseCapture();
@@ -303,7 +334,7 @@ int32 FSequencerEditTool_Movement::OnPaint(const FGeometry& AllottedGeometry, co
 
 		if (Hotspot.IsValid())
 		{
-			float CurrentTime = 0.0f;
+			FFrameTime CurrentTime;
 
 			if (GetHotspotTime(CurrentTime))
 			{
@@ -320,8 +351,8 @@ int32 FSequencerEditTool_Movement::OnPaint(const FGeometry& AllottedGeometry, co
 				const float HorizontalDelta = DragPosition.X - DelayedDrag->GetInitialPosition().X;
 				const float InitialY = DelayedDrag->GetInitialPosition().Y;
 
-				const FVector2D OldPos = FVector2D(VirtualTrackArea.TimeToPixel(OriginalHotspotTime), InitialY);
-				const FVector2D NewPos = FVector2D(VirtualTrackArea.TimeToPixel(CurrentTime), InitialY);
+				const FVector2D OldPos = FVector2D(VirtualTrackArea.FrameToPixel(OriginalHotspotTime), InitialY);
+				const FVector2D NewPos = FVector2D(VirtualTrackArea.FrameToPixel(CurrentTime), InitialY);
 
 				TArray<FVector2D> LinePoints;
 				{
@@ -377,7 +408,7 @@ int32 FSequencerEditTool_Movement::OnPaint(const FGeometry& AllottedGeometry, co
 				);
 
 				// draw offset string
-				float OffsetTime = GetHotspotOffsetTime(CurrentTime);
+				FFrameTime OffsetTime = GetHotspotOffsetTime(CurrentTime);
 				const FString OffsetString = TimeToString(OffsetTime, true);
 				const FVector2D OffsetStringSize = FontMeasureService->Measure(OffsetString, SmallLayoutFont);
 				const FVector2D OffsetPos = FVector2D(NewPos.X + MousePadding, NewPos.Y - 0.5f * OffsetStringSize.Y);
@@ -439,22 +470,59 @@ bool FSequencerEditTool_Movement::CanDeactivate() const
 }
 
 
-FString FSequencerEditTool_Movement::TimeToString(float Time, bool IsDelta) const
+FString FSequencerEditTool_Movement::TimeToString(FFrameTime Time, bool IsDelta) const
 {
-	USequencerSettings* Settings = Sequencer.GetSettings();
+	USequencerSettings* Settings = Sequencer.GetSequencerSettings();
+	check(Settings);
 
-	if ((Settings != nullptr) && Settings->GetShowFrameNumbers())
+	// We don't use the Sequencer's Numeric Type interface as we want to show a "+" only for delta movement and not the absolute time.
+	EFrameNumberDisplayFormats DisplayFormat = Settings->GetTimeDisplayFormat();
+	switch (DisplayFormat)
 	{
-		if (SequencerSnapValues::IsTimeSnapIntervalFrameRate(Sequencer.GetFixedFrameInterval()))
+		case EFrameNumberDisplayFormats::Seconds:
 		{
-			const float FrameRate = 1.0f / Sequencer.GetFixedFrameInterval();
-			const int32 Frame = SequencerHelpers::TimeToFrame(Time, FrameRate);
+			FFrameRate TickResolution = Sequencer.GetFocusedTickResolution();
+			double TimeInSeconds = TickResolution.AsSeconds(Time);
+			return IsDelta ? FString::Printf(TEXT("[%+.2fs]"), TimeInSeconds) : FString::Printf(TEXT("%.2fs"), TimeInSeconds);
+		}
+		case EFrameNumberDisplayFormats::Frames:
+		{
+			FFrameRate TickResolution = Sequencer.GetFocusedTickResolution();
+			FFrameRate DisplayRate    = Sequencer.GetFocusedDisplayRate();
 
-			return IsDelta ? FString::Printf(TEXT("[%+d]"), Frame) : FString::Printf(TEXT("%d"), Frame);
+			// Convert from sequence resolution into display rate frames.
+			FFrameTime DisplayTime = FFrameRate::TransformTime(Time, TickResolution, DisplayRate);
+			FString SubframeIndicator = FMath::IsNearlyZero(DisplayTime.GetSubFrame()) ? TEXT("") : TEXT("*");
+			int32 ZeroPadFrames = Sequencer.GetSequencerSettings()->GetZeroPadFrames();
+			return IsDelta ? FString::Printf(TEXT("[%+0*d%s]"), ZeroPadFrames, DisplayTime.GetFrame().Value, *SubframeIndicator) : FString::Printf(TEXT("%0*d%s"), ZeroPadFrames, DisplayTime.GetFrame().Value, *SubframeIndicator);
+		}
+		case EFrameNumberDisplayFormats::NonDropFrameTimecode:
+		{
+			FFrameRate SourceFrameRate = Sequencer.GetFocusedTickResolution();
+			FFrameRate DestinationFrameRate = Sequencer.GetFocusedDisplayRate();
+
+			FFrameNumber DisplayRateFrameNumber = FFrameRate::TransformTime(Time, SourceFrameRate, DestinationFrameRate).FloorToFrame();
+
+			FTimecode AsNonDropTimecode = FTimecode::FromFrameNumber(DisplayRateFrameNumber, DestinationFrameRate, false);
+
+			const bool bForceSignDisplay = IsDelta;
+			return IsDelta ? FString::Printf(TEXT("[%s]"), *AsNonDropTimecode.ToString(bForceSignDisplay)) : FString::Printf(TEXT("%s"), *AsNonDropTimecode.ToString(bForceSignDisplay));
+		}
+		case EFrameNumberDisplayFormats::DropFrameTimecode:
+		{
+			FFrameRate SourceFrameRate = Sequencer.GetFocusedTickResolution();
+			FFrameRate DestinationFrameRate = Sequencer.GetFocusedDisplayRate();
+
+			FFrameNumber DisplayRateFrameNumber = FFrameRate::TransformTime(Time, SourceFrameRate, DestinationFrameRate).FloorToFrame();
+
+			FTimecode AsDropTimecode = FTimecode::FromFrameNumber(DisplayRateFrameNumber, DestinationFrameRate, true);
+
+			const bool bForceSignDisplay = IsDelta;
+			return IsDelta ? FString::Printf(TEXT("[%s]"), *AsDropTimecode.ToString(bForceSignDisplay)) : FString::Printf(TEXT("%s"), *AsDropTimecode.ToString(bForceSignDisplay));
 		}
 	}
 
-	return IsDelta ? FString::Printf(TEXT("[%+.3f]"), Time) : FString::Printf(TEXT("%.3f"), Time);
+	return FString();
 }
 
 const ISequencerHotspot* FSequencerEditTool_Movement::GetDragHotspot() const

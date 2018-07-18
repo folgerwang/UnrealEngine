@@ -6,6 +6,7 @@
 #include "Blueprint/UserWidget.h"
 #include "MovieScene.h"
 #include "Components/PanelSlot.h"
+#include "UObject/SequencerObjectVersion.h"
 
 
 #define LOCTEXT_NAMESPACE "UWidgetAnimation"
@@ -19,6 +20,20 @@ UWidgetAnimation::UWidgetAnimation(const FObjectInitializer& ObjectInitializer)
 	, MovieScene(nullptr)
 {
 	bParentContextsAreSignificant = false;
+	bLegacyFinishOnStop = true;
+}
+
+/* UObject interface
+ *****************************************************************************/
+
+void UWidgetAnimation::PostLoad()
+{
+	if (GetLinkerCustomVersion(FSequencerObjectVersion::GUID) < FSequencerObjectVersion::FinishUMGEvaluation)
+	{
+		bLegacyFinishOnStop = false;
+	}
+
+	Super::PostLoad();
 }
 
 
@@ -37,6 +52,8 @@ UWidgetAnimation* UWidgetAnimation::GetNullAnimation()
 		NullAnimation->AddToRoot();
 		NullAnimation->MovieScene = NewObject<UMovieScene>(NullAnimation, FName("No Animation"));
 		NullAnimation->MovieScene->AddToRoot();
+
+		NullAnimation->MovieScene->SetDisplayRate(FFrameRate(20, 1));
 	}
 
 	return NullAnimation;
@@ -47,13 +64,13 @@ UWidgetAnimation* UWidgetAnimation::GetNullAnimation()
 
 float UWidgetAnimation::GetStartTime() const
 {
-	return MovieScene->GetPlaybackRange().GetLowerBoundValue();
+	return MovieScene->GetPlaybackRange().GetLowerBoundValue() / MovieScene->GetTickResolution();
 }
 
 
 float UWidgetAnimation::GetEndTime() const
 {
-	return MovieScene->GetPlaybackRange().GetUpperBoundValue();
+	return MovieScene->GetPlaybackRange().GetUpperBoundValue() / MovieScene->GetTickResolution();
 }
 
 
@@ -189,5 +206,9 @@ void UWidgetAnimation::UnbindPossessableObjects(const FGuid& ObjectId)
 	});
 }
 
+bool UWidgetAnimation::IsPostLoadThreadSafe() const
+{
+	return true;
+}
 
 #undef LOCTEXT_NAMESPACE

@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "UnrealType.h"
+#include "UObject/UnrealType.h"
 #include "Widgets/SWidget.h"
 #include "PropertyEditorModule.h"
 #include "UObject/PropertyPortFlags.h"
@@ -211,18 +211,25 @@ public:
 	virtual void SetOnChildPropertyValueChanged( const FSimpleDelegate& InOnChildPropertyValueChanged ) = 0;
 
 	/**
-	* Sets a delegate to call when the value of the property is about to be changed
-	*
-	* @param InOnPropertyValuePreChange	The delegate to call
-	*/
+	 * Sets a delegate to call when the value of the property is about to be changed
+	 *
+	 * @param InOnPropertyValuePreChange	The delegate to call
+	 */
 	virtual void SetOnPropertyValuePreChange(const FSimpleDelegate& InOnPropertyValuePreChange) = 0;
 
 	/**
-	* Sets a delegate to call when the value of the property of a child is about to be changed
-	*
-	* @param InOnChildPropertyValuePreChange	The delegate to call
-	*/
+	 * Sets a delegate to call when the value of the property of a child is about to be changed
+	 *
+	 * @param InOnChildPropertyValuePreChange	The delegate to call
+	 */
 	virtual void SetOnChildPropertyValuePreChange(const FSimpleDelegate& InOnChildPropertyValuePreChange) = 0;
+
+	/**
+	 * Sets a delegate to call when the property is reset to default
+	 *
+	 * @param InOnPropertyResetToDefault	The delegate to call
+	 */
+	virtual void SetOnPropertyResetToDefault(const FSimpleDelegate& InOnPropertyResetToDefault) = 0;
 
 	/**
 	 * Gets the typed value of a property.  
@@ -253,6 +260,7 @@ public:
 	virtual FPropertyAccess::Result GetValue( UObject*& OutValue ) const = 0;
 	virtual FPropertyAccess::Result GetValue( const UObject*& OutValue ) const = 0;
 	virtual FPropertyAccess::Result GetValue( FAssetData& OutValue ) const = 0;
+	virtual FPropertyAccess::Result GetValueData( void*& OutAddress ) const = 0;
 
 	/**
 	 * Sets the typed value of a property.  
@@ -597,18 +605,6 @@ public:
 	 * Sets an override for this property's reset to default behavior
 	 */
 	virtual void ExecuteCustomResetToDefault(const class FResetToDefaultOverride& OnCustomResetToDefault) = 0;
-
-	DEPRECATED(4.17, "IsResetToDefaultAvailable has been deprecated.  Use CanResetToDefault instead")
-	bool IsResetToDefaultAvailable() const
-	{
-		return CanResetToDefault();
-	}
-
-	DEPRECATED(4.17, "CustomResetToDefault has been deprecated.  Use ExecuteCustomResetToDefault instead")
-	void CustomResetToDefault(const class FResetToDefaultOverride& OnCustomResetToDefault)
-	{
-		ExecuteCustomResetToDefault(OnCustomResetToDefault);
-	}
 };
 
 /**

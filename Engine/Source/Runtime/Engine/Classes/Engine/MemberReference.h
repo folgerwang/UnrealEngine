@@ -98,6 +98,7 @@ public:
 		: MemberParent(nullptr)
 		, MemberName(NAME_None)
 		, bSelfContext(false)
+		, bWasDeprecated(false)
 	{
 	}
 

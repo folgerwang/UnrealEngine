@@ -3,6 +3,7 @@
 #include "WheeledVehicleMovementComponent.h"
 #include "EngineGlobals.h"
 #include "GameFramework/Pawn.h"
+#include "GameFramework/PlayerController.h"
 #include "PhysxUserData.h"
 #include "Engine/Engine.h"
 #include "CanvasItem.h"

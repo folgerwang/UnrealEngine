@@ -22,8 +22,8 @@ public:
 	FObjectReader(UObject* Obj, TArray<uint8>& InBytes, bool bIgnoreClassRef = false, bool bIgnoreArchetypeRef = false)
 		: Bytes(InBytes)
 	{
-		ArIsLoading = true;
-		ArIsPersistent = false;
+		this->SetIsLoading(true);
+		this->SetIsPersistent(false);
 		ArIgnoreClassRef = bIgnoreClassRef;
 		ArIgnoreArchetypeRef = bIgnoreArchetypeRef;
 
@@ -76,8 +76,8 @@ protected:
 	FObjectReader(TArray<uint8>& InBytes)
 		: Bytes(InBytes)
 	{
-		ArIsLoading = true;
-		ArIsPersistent = false;
+		this->SetIsLoading(true);
+		this->SetIsPersistent(false);
 		ArIgnoreClassRef = false;
 		ArIgnoreArchetypeRef = false;
 	}

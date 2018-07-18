@@ -7,6 +7,8 @@
 #ifndef __POST_PROCESS_COMMON__
 #define __POST_PROCESS_COMMON__
 
+#include "SceneTexturesCommon.ush"
+
 /// e.g.
 //   PostprocessInput0.SampleLevel(PostprocessInput0Sampler, float2 UV, 0)
 //   Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, float2 UV)
@@ -29,6 +31,14 @@ Texture2D PostprocessInput5;
 SamplerState PostprocessInput5Sampler;
 Texture2D PostprocessInput6;
 SamplerState PostprocessInput6Sampler;
+Texture2D PostprocessInput7;
+SamplerState PostprocessInput7Sampler;
+Texture2D PostprocessInput8;
+SamplerState PostprocessInput8Sampler;
+Texture2D PostprocessInput9;
+SamplerState PostprocessInput9Sampler;
+Texture2D PostprocessInput10;
+SamplerState PostprocessInput10Sampler;
 
 // width, height, 1/width, 1/height
 float4 PostprocessInput0Size;
@@ -38,6 +48,10 @@ float4 PostprocessInput3Size;
 float4 PostprocessInput4Size;
 float4 PostprocessInput5Size;
 float4 PostprocessInput6Size;
+float4 PostprocessInput7Size;
+float4 PostprocessInput8Size;
+float4 PostprocessInput9Size;
+float4 PostprocessInput10Size;
 
 // xy = min valid BufferUV for a bilinear sampler in PostprocessInput%d, zw = max valid BufferUV for a bilinear sampler.
 float4 PostprocessInput0MinMax;
@@ -47,6 +61,10 @@ float4 PostprocessInput3MinMax;
 float4 PostprocessInput4MinMax;
 float4 PostprocessInput5MinMax;
 float4 PostprocessInput6MinMax;
+float4 PostprocessInput7MinMax;
+float4 PostprocessInput8MinMax;
+float4 PostprocessInput9MinMax;
+float4 PostprocessInput10MinMax;
 
 // viewport width, height, 1/width, 1/height (scaled to the current rendertarget resolution), depends on SetViewportAndCallRHI() call
 float4 ViewportSize;
@@ -170,7 +188,7 @@ float4 GatherSceneDepth(float2 UV, float2 InvBufferSize)
 {
 #if FEATURE_LEVEL >= FEATURE_LEVEL_SM5
 	// using Gather: xyzw in counter clockwise order starting with the sample to the lower left of the queried location
-	float4 DeviceZ = SceneDepthTextureNonMS.Gather(BilinearTextureSampler0, UV);
+	float4 DeviceZ = SceneTexturesStruct.SceneDepthTextureNonMS.Gather(BilinearTextureSampler0, UV);
 
 	return float4(
 		ConvertFromDeviceZ(DeviceZ.x),

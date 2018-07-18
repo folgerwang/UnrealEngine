@@ -199,7 +199,7 @@ namespace BuildPatchServices
 		 * @param HashState			An FSHA1 hash state to update with the data going into the destination file.
 		 * @return true if no errors were detected
 		 */
-		bool InsertChunkData(const FChunkPartData& ChunkPart, FArchive& DestinationFile, FSHA1& HashState);
+		bool InsertChunkData(const FChunkPart& ChunkPart, FArchive& DestinationFile, FSHA1& HashState);
 
 		/**
 		 * Delete all contents of a directory

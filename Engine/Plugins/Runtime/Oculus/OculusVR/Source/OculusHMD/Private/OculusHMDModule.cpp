@@ -5,6 +5,10 @@
 #include "OculusHMDPrivateRHI.h"
 #include "Containers/StringConv.h"
 #include "Misc/EngineVersion.h"
+#if PLATFORM_ANDROID
+#include "Android/AndroidApplication.h"
+#endif
+
 
 //-------------------------------------------------------------------------------------------------
 // FOculusHMDModule
@@ -82,7 +86,13 @@ bool FOculusHMDModule::PreInit()
 			}
 #endif
 			// Initialize OVRPlugin
-			if (OVRP_FAILURE(ovrp_PreInitialize2()))
+#if PLATFORM_ANDROID
+			void* activity = (void*) FAndroidApplication::GetGameActivityThis();
+#else
+			void* activity = nullptr;
+#endif
+
+			if (OVRP_FAILURE(ovrp_PreInitialize3(activity)))
 			{
 				UE_LOG(LogHMD, Log, TEXT("Failed initializing OVRPlugin %s"), TEXT(OVRP_VERSION_STR));
 				return false;
@@ -94,17 +104,29 @@ bool FOculusHMDModule::PreInit()
 			{
 				SetGraphicsAdapterLuid(*(const uint64*) displayAdapterId);
 			}
+			else
+			{
+				UE_LOG(LogHMD, Log, TEXT("Could not determine HMD display adapter"));
+			}
 
 			const WCHAR* audioInDeviceId;
 			if (OVRP_SUCCESS(ovrp_GetAudioInDeviceId2((const void**) &audioInDeviceId)) && audioInDeviceId)
 			{
 				GConfig->SetString(TEXT("Oculus.Settings"), TEXT("AudioInputDevice"), audioInDeviceId, GEngineIni);
 			}
+			else
+			{
+				UE_LOG(LogHMD, Log, TEXT("Could not determine HMD audio input device"));
+			}
 
 			const WCHAR* audioOutDeviceId;
 			if (OVRP_SUCCESS(ovrp_GetAudioOutDeviceId2((const void**) &audioOutDeviceId)) && audioOutDeviceId)
 			{
 				GConfig->SetString(TEXT("Oculus.Settings"), TEXT("AudioOutputDevice"), audioOutDeviceId, GEngineIni);
+			}
+			else
+			{
+				UE_LOG(LogHMD, Log, TEXT("Could not determine HMD audio output device"));
 			}
 #endif
 
@@ -205,11 +227,13 @@ TSharedPtr< class IXRTrackingSystem, ESPMode::ThreadSafe > FOculusHMDModule::Cre
 TSharedPtr< IHeadMountedDisplayVulkanExtensions, ESPMode::ThreadSafe >  FOculusHMDModule::GetVulkanExtensions()
 {
 #if OCULUS_HMD_SUPPORTED_PLATFORMS
-	if (!VulkanExtensions.IsValid())
+	if (PreInit())
 	{
-		VulkanExtensions = MakeShareable(new OculusHMD::FVulkanExtensions);
+		if (!VulkanExtensions.IsValid())
+		{
+			VulkanExtensions = MakeShareable(new OculusHMD::FVulkanExtensions);
+		}
 	}
-
 	return VulkanExtensions;
 #endif
 	return nullptr;

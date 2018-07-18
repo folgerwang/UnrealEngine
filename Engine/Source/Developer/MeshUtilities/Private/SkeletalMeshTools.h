@@ -112,10 +112,5 @@ namespace SkeletalMeshTools
 	*/
 	void ChunkSkinnedVertices(TArray<FSkinnedMeshChunk*>& Chunks,int32 MaxBonesPerChunk);
 
-	/**
-	 * Copies data out of Model so that the data can be processed in the background.
-	 */
-	void CopySkinnedModelData(FSkinnedModelData& OutData, FSkeletalMeshLODModel& Model);
-	
 	void CalcBoneVertInfos(USkeletalMesh* SkeletalMesh, TArray<FBoneVertInfo>& Infos, bool bOnlyDominant);
 };

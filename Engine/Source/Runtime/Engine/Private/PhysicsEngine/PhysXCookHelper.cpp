@@ -3,19 +3,21 @@
 
 #include "PhysXCookHelper.h"
 #include "PhysXSupport.h"
-#include "IPhysXCookingModule.h"
+#include "Physics/IPhysXCookingModule.h"
 
 #if WITH_PHYSX
 
-#include "IPhysXCooking.h"
+#include "Physics/IPhysXCooking.h"
 
 FPhysXCookHelper::FPhysXCookHelper(IPhysXCookingModule* InPhysXCookingModule)
 	: PhysXCookingModule(InPhysXCookingModule)
 {
 }
 
-void FPhysXCookHelper::CreatePhysicsMeshes_Concurrent()
+bool FPhysXCookHelper::CreatePhysicsMeshes_Concurrent()
 {
+	bool bSuccess = true;
+
 	CreateConvexElements_Concurrent(CookInfo.NonMirroredConvexVertices, OutNonMirroredConvexMeshes, false);
 	CreateConvexElements_Concurrent(CookInfo.MirroredConvexVertices, OutMirroredConvexMeshes, true);
 
@@ -25,6 +27,7 @@ void FPhysXCookHelper::CreatePhysicsMeshes_Concurrent()
 		const bool bError = !PhysXCookingModule->GetPhysXCooking()->CreateTriMesh(FPlatformProperties::GetPhysicsFormat(), CookInfo.TriMeshCookFlags, CookInfo.TriangleMeshDesc.Vertices, CookInfo.TriangleMeshDesc.Indices, CookInfo.TriangleMeshDesc.MaterialIndices, CookInfo.TriangleMeshDesc.bFlipNormals, OutTriangleMeshes[0]);
 		if (bError)
 		{
+			bSuccess = false;
 			UE_LOG(LogPhysics, Warning, TEXT("Failed to cook TriMesh: %s."), *CookInfo.OuterDebugName);
 		}
 		else if (CookInfo.bSupportUVFromHitResults)
@@ -32,6 +35,8 @@ void FPhysXCookHelper::CreatePhysicsMeshes_Concurrent()
 			OutUVInfo.FillFromTriMesh(CookInfo.TriangleMeshDesc);
 		}
 	}
+
+    return bSuccess;
 }
 
 void FPhysXCookHelper::CreatePhysicsMeshesAsync_Concurrent(FSimpleDelegateGraphTask::FDelegate FinishDelegate)

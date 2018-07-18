@@ -2,10 +2,10 @@
 
 #pragma once
 
-#include "DeclarativeSyntaxSupport.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
 #include "Widgets/SCompoundWidget.h"
-#include "SListView.h"
-#include "SComboBox.h"
+#include "Widgets/Views/SListView.h"
+#include "Widgets/Input/SComboBox.h"
 #include "EditorUndoClient.h"
 
 class USkeletalMesh;

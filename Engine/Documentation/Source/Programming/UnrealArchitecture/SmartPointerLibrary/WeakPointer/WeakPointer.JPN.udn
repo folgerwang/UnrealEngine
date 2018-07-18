@@ -21,15 +21,15 @@ Tags:Programming
 
 弱いポインタは常にシェアード ポインタや参照、または別の弱いポインタから作成されます。
 
-	// Allocate a new tree node. (新規の Tree ノードをアロケートする)
+	// Allocate a new tree node.
 	TSharedRef<FTreeNode> NodeOwner( new FTreeNode() );
 
-	// Create a weak pointer to the new tree node. (新規の Tree ノードに弱いポインタを作成する) 
+	// Create a weak pointer to the new tree node.
 	TWeakPtr<FTreenode> NodeObserver( NodeOwner );
 
 弱いポインタはオブジェクトの破棄を防止しないことを覚えておいてください。NodeObserver がまだスコープ内の時に NodeOwner がリセットされると、オブジェクトは削除されます。
 
-	// Destroy the node (ノードを破棄する)
+	// Destroy the node.
 	NodeOwner.Reset();
 
 弱いポインタはシェアード ポインタと同様に、安全にコピーすることができます。
@@ -44,13 +44,13 @@ Tags:Programming
 
 弱いポインタのオブジェクトへのアクセスは、まず **Pin()** メソッドを呼び出してで弱いポインタをシェアード ポインタへ昇格させます。
 
-	// Get access to the node through the weak pointer. (弱いポインタを経由してノードへアクセスする)
+	// Get access to the node through the weak pointer.
 	TSharedPtr<TFreeNode> LockedObserver( NodeObserver.Pin() );
 
-	// Check that the shared reference was successfully created from the weak reference. (弱い参照から共有参照の作成に成功したことを確認します。) 
+	// Check that the shared reference was successfully created from the weak reference.
 	If( LockedObserver.IsValid() )
 	{
-		// Object still exists, so it can be accessed. (オブジェクトはまだ存在しアクセスが可能です) 
+		// Object still exists, so it can be accessed.
 		LockedObserver->ListChildren();
 	}
 
@@ -58,7 +58,7 @@ Pin() は高速です。Pin と呼ばれるのは、弱いポインタが一時�
 
 弱いポインタはオブジェクトが削除されると自動的に認識します。このようなケースは IsValid() メソッドを使用して安全に処理できます。
 
-	// Make sure the weak pointer's object still exists before accessing it. (アクセスする前に弱いポインタのオブジェクトがまだ存在することを確認します。)
+	// Make sure the weak pointer's object still exists before accessing it.
 	if( NodeObserver.IsValid() )
 	{
 		...
@@ -70,10 +70,10 @@ Pin() は高速です。Pin と呼ばれるのは、弱いポインタが一時�
 
 	class FTreeNode
 	{
-		/** このノードによって所有される子ノード */
+		/** Child nodes, owned by this node. */
 		TArray< TSharedPtr<FTreeNode> > Children;
 
-		/** 弱いポインタはこのノードの親へ戻ります */
+		/** Weak pointer back to this node's parent. */
 		TWeakPtr<FTreeNode> Parent;
 	}
 

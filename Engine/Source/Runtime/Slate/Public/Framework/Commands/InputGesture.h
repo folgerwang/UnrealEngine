@@ -6,4 +6,4 @@
     #pragma message("#include InputChord.h instead of InputGesture.h")
 #endif
 
-#include "InputChord.h"
+#include "Framework/Commands/InputChord.h"

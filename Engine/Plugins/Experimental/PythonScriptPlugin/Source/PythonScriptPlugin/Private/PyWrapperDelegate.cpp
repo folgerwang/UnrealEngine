@@ -3,33 +3,149 @@
 #include "PyWrapperDelegate.h"
 #include "PyWrapperObject.h"
 #include "PyWrapperTypeRegistry.h"
+#include "PyGIL.h"
 #include "PyUtil.h"
+#include "PyGenUtil.h"
 #include "PyConversion.h"
+#include "PyReferenceCollector.h"
 #include "UObject/Class.h"
 #include "UObject/UnrealType.h"
 #include "UObject/StructOnScope.h"
 #include "Templates/Casts.h"
 
+const FName UPythonCallableForDelegate::GeneratedFuncName = "CallPython";
+
+void UPythonCallableForDelegate::BeginDestroy()
+{
+#if WITH_PYTHON
+	// This may be called after Python has already shut down
+	if (Py_IsInitialized())
+	{
+		FPyScopedGIL GIL;
+		PyCallable.Reset();
+	}
+	else
+	{
+		// Release ownership if Python has been shut down to avoid attempting to delete the callable (which is already dead)
+		PyCallable.Release();
+	}
+#endif	// WITH_PYTHON
+
+	Super::BeginDestroy();
+}
+
+DEFINE_FUNCTION(UPythonCallableForDelegate::CallPythonNative)
+{
+#if WITH_PYTHON
+	if (P_THIS->PyCallable)
+	{
+		auto DoCall = [&]() -> bool
+		{
+			if (Stack.Node->Children == nullptr)
+			{
+				// Simple case, no parameters or return value
+				FPyObjectPtr RetVals = FPyObjectPtr::StealReference(PyObject_CallObject(P_THIS->PyCallable, nullptr));
+				if (!RetVals)
+				{
+					return false;
+				}
+			}
+			else
+			{
+				PyGenUtil::FGeneratedWrappedFunction DelegateFuncDef;
+				DelegateFuncDef.SetFunction(Stack.Node, PyGenUtil::FGeneratedWrappedFunction::SFF_ExtractParameters);
+
+				// Complex case, parameters or return value
+				TArray<FPyObjectPtr, TInlineAllocator<4>> PyParams;
+
+				// Get the value of the input params for the Python args
+				{
+					int32 ArgIndex = 0;
+					for (const PyGenUtil::FGeneratedWrappedMethodParameter& ParamDef : DelegateFuncDef.InputParams)
+					{
+						FPyObjectPtr& PyParam = PyParams.AddDefaulted_GetRef();
+						if (!PyConversion::PythonizeProperty_InContainer(ParamDef.ParamProp, Stack.Locals, 0, PyParam.Get()))
+						{
+							PyUtil::SetPythonError(PyExc_TypeError, P_THIS->PyCallable, *FString::Printf(TEXT("Failed to convert argument at pos '%d' when calling function '%s' on '%s'"), ArgIndex + 1, *Stack.Node->GetName(), *P_THIS_OBJECT->GetName()));
+							return false;
+						}
+						++ArgIndex;
+					}
+				}
+
+				FPyObjectPtr PyArgs = FPyObjectPtr::StealReference(PyTuple_New(PyParams.Num()));
+				for (int32 PyParamIndex = 0; PyParamIndex < PyParams.Num(); ++PyParamIndex)
+				{
+					PyTuple_SetItem(PyArgs, PyParamIndex, PyParams[PyParamIndex].Release()); // SetItem steals the reference
+				}
+
+				FPyObjectPtr RetVals = FPyObjectPtr::StealReference(PyObject_CallObject(P_THIS->PyCallable, PyArgs));
+				if (!RetVals)
+				{
+					return false;
+				}
+
+				if (!PyGenUtil::UnpackReturnValues(RetVals, Stack.Locals, DelegateFuncDef.OutputParams, *PyUtil::GetErrorContext(P_THIS->PyCallable), *FString::Printf(TEXT("function '%s' on '%s'"), *Stack.Node->GetName(), *P_THIS_OBJECT->GetName())))
+				{
+					return false;
+				}
+
+				// Copy the data back out of the function call
+				if (const UProperty* ReturnProp = Stack.Node->GetReturnProperty())
+				{
+					ReturnProp->CopyCompleteValue(RESULT_PARAM, ReturnProp->ContainerPtrToValuePtr<void>(Stack.Locals));
+				}
+				for (FOutParmRec* OutParamRec = Stack.OutParms; OutParamRec; OutParamRec = OutParamRec->NextOutParm)
+				{
+					OutParamRec->Property->CopyCompleteValue(OutParamRec->PropAddr, OutParamRec->Property->ContainerPtrToValuePtr<void>(Stack.Locals));
+				}
+			}
+
+			return true;
+		};
+
+		// Execute Python code within this block
+		{
+			FPyScopedGIL GIL;
+
+			if (!DoCall())
+			{
+				PyUtil::ReThrowPythonError();
+			}
+		}
+	}
+#endif	// WITH_PYTHON
+}
+
+#if WITH_PYTHON
+PyObject* UPythonCallableForDelegate::GetCallable() const
+{
+	return (PyObject*)PyCallable.GetPtr();
+}
+
+void UPythonCallableForDelegate::SetCallable(PyObject* InCallable)
+{
+	FPyScopedGIL GIL;
+	PyCallable = FPyObjectPtr::NewReference(InCallable);
+}
+#endif	// WITH_PYTHON
+
 #if WITH_PYTHON
 
-void InitializePyWrapperDelegate(PyObject* PyModule)
+void InitializePyWrapperDelegate(PyGenUtil::FNativePythonModule& ModuleInfo)
 {
 	if (PyType_Ready(&PyWrapperDelegateType) == 0)
 	{
 		static FPyWrapperDelegateMetaData MetaData;
 		FPyWrapperDelegateMetaData::SetMetaData(&PyWrapperDelegateType, &MetaData);
-
-		Py_INCREF(&PyWrapperDelegateType);
-		PyModule_AddObject(PyModule, PyWrapperDelegateType.tp_name, (PyObject*)&PyWrapperDelegateType);
+		ModuleInfo.AddType(&PyWrapperDelegateType);
 	}
 
 	if (PyType_Ready(&PyWrapperMulticastDelegateType) == 0)
 	{
 		static FPyWrapperMulticastDelegateMetaData MetaData;
 		FPyWrapperMulticastDelegateMetaData::SetMetaData(&PyWrapperMulticastDelegateType, &MetaData);
-
-		Py_INCREF(&PyWrapperMulticastDelegateType);
-		PyModule_AddObject(PyModule, PyWrapperMulticastDelegateType.tp_name, (PyObject*)&PyWrapperMulticastDelegateType);
+		ModuleInfo.AddType(&PyWrapperMulticastDelegateType);
 	}
 }
 
@@ -37,7 +153,7 @@ void InitializePyWrapperDelegate(PyObject* PyModule)
 namespace PyDelegateUtil
 {
 
-bool PythonArgsToDelegate(PyObject* InArgs, const UFunction* InDelegateSignature, FScriptDelegate& OutDelegate, const TCHAR* InFuncCtxt, const TCHAR* InErrorCtxt)
+bool PythonArgsToDelegate_ObjectAndName(PyObject* InArgs, const PyGenUtil::FGeneratedWrappedFunction& InDelegateSignature, FScriptDelegate& OutDelegate, const TCHAR* InFuncCtxt, const TCHAR* InErrorCtxt)
 {
 	PyObject* PyObj = nullptr;
 	PyObject* PyFuncNameObj = nullptr;
@@ -49,12 +165,14 @@ bool PythonArgsToDelegate(PyObject* InArgs, const UFunction* InDelegateSignature
 	UObject* Obj = nullptr;
 	if (!PyConversion::Nativize(PyObj, Obj))
 	{
+		PyUtil::SetPythonError(PyExc_TypeError, InErrorCtxt, *FString::Printf(TEXT("Failed to convert argument 0 (%s) to 'Object'"), *PyUtil::GetFriendlyTypename(PyObj)));
 		return false;
 	}
 
 	FName FuncName;
 	if (!PyConversion::Nativize(PyFuncNameObj, FuncName))
 	{
+		PyUtil::SetPythonError(PyExc_TypeError, InErrorCtxt, *FString::Printf(TEXT("Failed to convert argument 1 (%s) to 'Name'"), *PyUtil::GetFriendlyTypename(PyFuncNameObj)));
 		return false;
 	}
 
@@ -67,15 +185,80 @@ bool PythonArgsToDelegate(PyObject* InArgs, const UFunction* InDelegateSignature
 		const UFunction* Func = Obj->FindFunction(FuncName);
 
 		// Valid signature?
-		if (Func && !InDelegateSignature->IsSignatureCompatibleWith(Func))
+		if (Func && !InDelegateSignature.Func->IsSignatureCompatibleWith(Func))
 		{
-			PyUtil::SetPythonError(PyExc_TypeError, InErrorCtxt, *FString::Printf(TEXT("Function '%s' on '%s' does not match the signature required by the delegate '%s'"), *Func->GetName(), *Obj->GetName(), *InDelegateSignature->GetName()));
+			PyUtil::SetPythonError(PyExc_TypeError, InErrorCtxt, *FString::Printf(TEXT("Function '%s' on '%s' does not match the signature required by the delegate '%s'"), *Func->GetName(), *Obj->GetName(), *InDelegateSignature.Func->GetName()));
 			return false;
 		}
 	}
 
 	OutDelegate.BindUFunction(Obj, FuncName);
 	return true;
+}
+
+bool PythonArgsToPythonCallable(PyObject* InArgs, PyObject*& OutPyCallable, const TCHAR* InFuncCtxt, const TCHAR* InErrorCtxt)
+{
+	PyObject* PyObj = nullptr;
+	if (!PyArg_ParseTuple(InArgs, TCHAR_TO_UTF8(*FString::Printf(TEXT("O:%s"), InFuncCtxt)), &PyObj))
+	{
+		return false;
+	}
+
+	if (!PyCallable_Check(PyObj))
+	{
+		PyUtil::SetPythonError(PyExc_TypeError, InErrorCtxt, *FString::Printf(TEXT("Given argument is of type '%s' which isn't callable"), *PyUtil::GetFriendlyTypename(PyObj)));
+		return false;
+	}
+
+	OutPyCallable = PyObj;
+	return true;
+}
+
+bool PythonCallableToDelegate(PyObject* InPyCallable, const PyGenUtil::FGeneratedWrappedFunction& InDelegateSignature, const UClass* InPythonCallableForDelegateClass, FScriptDelegate& OutDelegate, const TCHAR* InErrorCtxt)
+{
+	if (!InPythonCallableForDelegateClass)
+	{
+		PyUtil::SetPythonError(PyExc_Exception, InErrorCtxt, TEXT("Delegate wrapper proxy class is null! Cannot create binding"));
+		return false;
+	}
+
+	// Inspect the arguments from the Python callable
+	// If this fails, don't error as it may be a C++ wrapped function we were passed (and inspect doesn't work with those)
+	TArray<FString> CallableArgNames;
+	if (PyUtil::InspectFunctionArgs(InPyCallable, CallableArgNames))
+	{
+		// If the callable is a method with a bound "self", remove the first argument
+		const bool bHasSelf = PyMethod_Check(InPyCallable) && PyMethod_GET_SELF(InPyCallable);
+		if (bHasSelf && CallableArgNames.Num() > 0)
+		{
+			CallableArgNames.RemoveAt(0, 1, /*bAllowShrinking*/false);
+		}
+
+		if (InDelegateSignature.InputParams.Num() != CallableArgNames.Num())
+		{
+			PyUtil::SetPythonError(PyExc_Exception, InErrorCtxt, *FString::Printf(TEXT("Callable has the incorrect number of arguments (expected %d, got %d)"), InDelegateSignature.InputParams.Num(), CallableArgNames.Num()));
+			return false;
+		}
+	}
+
+	// Note: -----------------------------------------------------------------------------------------------------------------------------------------------------------
+	//  Delegates only hold a weak reference to the object. Wrapped delegates will attempt to keep the proxy object alive as long as it is referenced in Python, 
+	//  but once Python is no longer referencing it, there is no guarantee that the proxy won't be GC'd unless C++ code explicitly keeps the delegate object alive.
+	//  This is a known and accepted state of delegates as they currently stand. In the future we may revisit this and attempt to improve the lifetime management.
+	UPythonCallableForDelegate* PythonCallableForDelegate = NewObject<UPythonCallableForDelegate>(GetTransientPackage(), (UClass*)InPythonCallableForDelegateClass);
+	PythonCallableForDelegate->SetCallable(InPyCallable);
+	OutDelegate.BindUFunction(PythonCallableForDelegate, UPythonCallableForDelegate::GeneratedFuncName);
+	return true;
+}
+
+bool PythonArgsToDelegate_Callable(PyObject* InArgs, const PyGenUtil::FGeneratedWrappedFunction& InDelegateSignature, const UClass* InPythonCallableForDelegateClass, FScriptDelegate& OutDelegate, const TCHAR* InFuncCtxt, const TCHAR* InErrorCtxt)
+{
+	PyObject* PyCallable = nullptr;
+	if (!PythonArgsToPythonCallable(InArgs, PyCallable, InFuncCtxt, InErrorCtxt))
+	{
+		return false;
+	}
+	return PythonCallableToDelegate(PyCallable, InDelegateSignature, InPythonCallableForDelegateClass, OutDelegate, InErrorCtxt);
 }
 
 } // namespace PyDelegateUtil
@@ -124,7 +307,6 @@ struct TPyWrapperDelegateImpl
 		if (Self)
 		{
 			new(&Self->OwnerContext) FPyWrapperOwnerContext();
-			Self->DelegateSignature = nullptr;
 			Self->DelegateInstance = nullptr;
 			new(&Self->InternalDelegateInstance) DelegateType();
 		}
@@ -150,21 +332,13 @@ struct TPyWrapperDelegateImpl
 			return BaseInit;
 		}
 
-		const UFunction* DelegateSignature = MetaDataType::GetDelegateSignature(InSelf);
-		if (!DelegateSignature)
-		{
-			PyUtil::SetPythonError(PyExc_Exception, InSelf, TEXT("DelegateSignature is null"));
-			return -1;
-		}
-
-		InSelf->DelegateSignature = DelegateSignature;
 		InSelf->DelegateInstance = &InSelf->InternalDelegateInstance;
 
 		FactoryType::Get().MapInstance(InSelf->DelegateInstance, InSelf);
 		return 0;
 	}
 
-	static int Init(WrapperType* InSelf, const FPyWrapperOwnerContext& InOwnerContext, const UFunction* InDelegateSignature, DelegateType* InValue, const EPyConversionMethod InConversionMethod)
+	static int Init(WrapperType* InSelf, const FPyWrapperOwnerContext& InOwnerContext, DelegateType* InValue, const EPyConversionMethod InConversionMethod)
 	{
 		InOwnerContext.AssertValidConversionMethod(InConversionMethod);
 
@@ -198,7 +372,6 @@ struct TPyWrapperDelegateImpl
 		check(DelegateInstanceToUse);
 
 		InSelf->OwnerContext = InOwnerContext;
-		InSelf->DelegateSignature = InDelegateSignature;
 		InSelf->DelegateInstance = DelegateInstanceToUse;
 
 		FactoryType::Get().MapInstance(InSelf->DelegateInstance, InSelf);
@@ -217,19 +390,12 @@ struct TPyWrapperDelegateImpl
 			InSelf->OwnerContext.Reset();
 		}
 
-		InSelf->DelegateSignature = nullptr;
 		InSelf->DelegateInstance = nullptr;
 		InSelf->InternalDelegateInstance.Clear();
 	}
 
 	static bool ValidateInternalState(WrapperType* InSelf)
 	{
-		if (!InSelf->DelegateSignature)
-		{
-			PyUtil::SetPythonError(PyExc_Exception, Py_TYPE(InSelf), TEXT("Internal Error - DelegateSignature is null!"));
-			return false;
-		}
-
 		if (!InSelf->DelegateInstance)
 		{
 			PyUtil::SetPythonError(PyExc_Exception, Py_TYPE(InSelf), TEXT("Internal Error - DelegateInstance is null!"));
@@ -254,7 +420,9 @@ struct TPyWrapperDelegateImpl
 			return nullptr;
 		}
 
-		if (InSelf->DelegateSignature->Children == nullptr)
+		const PyGenUtil::FGeneratedWrappedFunction& DelegateSignature = MetaDataType::GetDelegateSignature(InSelf);
+
+		if (DelegateSignature.Func->Children == nullptr)
 		{
 			// Simple case, no parameters or return value
 			FDelegateInvocation::Call(*InSelf->DelegateInstance, nullptr);
@@ -262,60 +430,30 @@ struct TPyWrapperDelegateImpl
 		}
 
 		// Complex case, parameters or return value
-		FStructOnScope DelegateParams(InSelf->DelegateSignature);
-		TArray<const UProperty*, TInlineAllocator<4>> OutParams;
-
-		// Add the return property first
-		if (const UProperty* ReturnProp = InSelf->DelegateSignature->GetReturnProperty())
+		TArray<PyObject*> Params;
+		if (!PyGenUtil::ParseMethodParameters(InArgs, nullptr, DelegateSignature.InputParams, "delegate", Params))
 		{
-			OutParams.Add(ReturnProp);
-		}
-
-		// Add any other output params in order, and set the value of the input params from the Python args
-		int32 ArgIndex = 0;
-		const int32 NumArgs = PyTuple_GET_SIZE(InArgs);
-		for (TFieldIterator<const UProperty> ParamIt(InSelf->DelegateSignature); ParamIt; ++ParamIt)
-		{
-			const UProperty* Param = *ParamIt;
-
-			if (PyUtil::IsInputParameter(Param))
-			{
-				PyObject* ParsedArg = nullptr;
-				if (ArgIndex < NumArgs)
-				{
-					ParsedArg = PyTuple_GET_ITEM(InArgs, ArgIndex);
-				}
-
-				if (!ParsedArg)
-				{
-					PyUtil::SetPythonError(PyExc_TypeError, InSelf, *FString::Printf(TEXT("Required argument at pos %d not found"), ArgIndex + 1));
-					return nullptr;
-				}
-
-				if (!PyConversion::NativizeProperty_InContainer(ParsedArg, Param, DelegateParams.GetStructMemory(), 0))
-				{
-					PyUtil::SetPythonError(PyExc_TypeError, InSelf, *FString::Printf(TEXT("Failed to convert argument at pos '%d' when calling delegate"), ArgIndex + 1));
-					return nullptr;
-				}
-
-				++ArgIndex;
-			}
-
-			if (PyUtil::IsOutputParameter(Param))
-			{
-				OutParams.Add(Param);
-			}
-		}
-
-		// Too many arguments?
-		if (ArgIndex > NumArgs)
-		{
-			PyUtil::SetPythonError(PyExc_TypeError, InSelf, *FString::Printf(TEXT("Delegate takes at most %d argument%s (%d given)"), ArgIndex, (ArgIndex == 1 ? TEXT("") : TEXT("s")), NumArgs));
 			return nullptr;
 		}
 
+		FStructOnScope DelegateParams(DelegateSignature.Func);
+		PyGenUtil::ApplyParamDefaults(DelegateParams.GetStructMemory(), DelegateSignature.InputParams);
+		for (int32 ParamIndex = 0; ParamIndex < Params.Num(); ++ParamIndex)
+		{
+			const PyGenUtil::FGeneratedWrappedMethodParameter& ParamDef = DelegateSignature.InputParams[ParamIndex];
+
+			PyObject* PyValue = Params[ParamIndex];
+			if (PyValue)
+			{
+				if (!PyConversion::NativizeProperty_InContainer(PyValue, ParamDef.ParamProp, DelegateParams.GetStructMemory(), 0))
+				{
+					PyUtil::SetPythonError(PyExc_TypeError, InSelf, *FString::Printf(TEXT("Failed to convert parameter '%s' when calling delegate"), UTF8_TO_TCHAR(ParamDef.ParamName.GetData())));
+					return nullptr;
+				}
+			}
+		}
 		FDelegateInvocation::Call(*InSelf->DelegateInstance, DelegateParams.GetStructMemory());
-		return PyUtil::PackReturnValues(InSelf->DelegateSignature, OutParams, DelegateParams.GetStructMemory(), *PyUtil::GetErrorContext(InSelf), TEXT("delegate"));
+		return PyGenUtil::PackReturnValues(DelegateParams.GetStructMemory(), DelegateSignature.OutputParams, *PyUtil::GetErrorContext(InSelf), TEXT("delegate"));
 	}
 };
 
@@ -338,9 +476,9 @@ int FPyWrapperDelegate::Init(FPyWrapperDelegate* InSelf)
 	return FPyWrapperDelegateImpl::Init(InSelf);
 }
 
-int FPyWrapperDelegate::Init(FPyWrapperDelegate* InSelf, const FPyWrapperOwnerContext& InOwnerContext, const UFunction* InDelegateSignature, FScriptDelegate* InValue, const EPyConversionMethod InConversionMethod)
+int FPyWrapperDelegate::Init(FPyWrapperDelegate* InSelf, const FPyWrapperOwnerContext& InOwnerContext, FScriptDelegate* InValue, const EPyConversionMethod InConversionMethod)
 {
-	return FPyWrapperDelegateImpl::Init(InSelf, InOwnerContext, InDelegateSignature, InValue, InConversionMethod);
+	return FPyWrapperDelegateImpl::Init(InSelf, InOwnerContext, InValue, InConversionMethod);
 }
 
 void FPyWrapperDelegate::Deinit(FPyWrapperDelegate* InSelf)
@@ -353,10 +491,14 @@ bool FPyWrapperDelegate::ValidateInternalState(FPyWrapperDelegate* InSelf)
 	return FPyWrapperDelegateImpl::ValidateInternalState(InSelf);
 }
 
-FPyWrapperDelegate* FPyWrapperDelegate::CastPyObject(PyObject* InPyObject)
+FPyWrapperDelegate* FPyWrapperDelegate::CastPyObject(PyObject* InPyObject, FPyConversionResult* OutCastResult)
 {
+	SetOptionalPyConversionResult(FPyConversionResult::Failure(), OutCastResult);
+
 	if (PyObject_IsInstance(InPyObject, (PyObject*)&PyWrapperDelegateType) == 1)
 	{
+		SetOptionalPyConversionResult(FPyConversionResult::Success(), OutCastResult);
+
 		Py_INCREF(InPyObject);
 		return (FPyWrapperDelegate*)InPyObject;
 	}
@@ -364,13 +506,20 @@ FPyWrapperDelegate* FPyWrapperDelegate::CastPyObject(PyObject* InPyObject)
 	return nullptr;
 }
 
-FPyWrapperDelegate* FPyWrapperDelegate::CastPyObject(PyObject* InPyObject, PyTypeObject* InType)
+FPyWrapperDelegate* FPyWrapperDelegate::CastPyObject(PyObject* InPyObject, PyTypeObject* InType, FPyConversionResult* OutCastResult)
 {
+	SetOptionalPyConversionResult(FPyConversionResult::Failure(), OutCastResult);
+
 	if (PyObject_IsInstance(InPyObject, (PyObject*)InType) == 1 && (InType == &PyWrapperDelegateType || PyObject_IsInstance(InPyObject, (PyObject*)&PyWrapperDelegateType) == 1))
 	{
+		SetOptionalPyConversionResult(Py_TYPE(InPyObject) == InType ? FPyConversionResult::Success() : FPyConversionResult::SuccessWithCoercion(), OutCastResult);
+
 		Py_INCREF(InPyObject);
 		return (FPyWrapperDelegate*)InPyObject;
 	}
+
+	// Note: -----------------------------------------------------------------------------------------------------------------------------------------------------------
+	//  We currently don't allow coercion from a Python callable here as the lifetime rules of delegate proxies mean we want people to make that choice explicitly
 
 	return nullptr;
 }
@@ -396,9 +545,9 @@ int FPyWrapperMulticastDelegate::Init(FPyWrapperMulticastDelegate* InSelf)
 	return FPyWrapperMulticastDelegateImpl::Init(InSelf);
 }
 
-int FPyWrapperMulticastDelegate::Init(FPyWrapperMulticastDelegate* InSelf, const FPyWrapperOwnerContext& InOwnerContext, const UFunction* InDelegateSignature, FMulticastScriptDelegate* InValue, const EPyConversionMethod InConversionMethod)
+int FPyWrapperMulticastDelegate::Init(FPyWrapperMulticastDelegate* InSelf, const FPyWrapperOwnerContext& InOwnerContext, FMulticastScriptDelegate* InValue, const EPyConversionMethod InConversionMethod)
 {
-	return FPyWrapperMulticastDelegateImpl::Init(InSelf, InOwnerContext, InDelegateSignature, InValue, InConversionMethod);
+	return FPyWrapperMulticastDelegateImpl::Init(InSelf, InOwnerContext, InValue, InConversionMethod);
 }
 
 void FPyWrapperMulticastDelegate::Deinit(FPyWrapperMulticastDelegate* InSelf)
@@ -411,10 +560,14 @@ bool FPyWrapperMulticastDelegate::ValidateInternalState(FPyWrapperMulticastDeleg
 	return FPyWrapperMulticastDelegateImpl::ValidateInternalState(InSelf);
 }
 
-FPyWrapperMulticastDelegate* FPyWrapperMulticastDelegate::CastPyObject(PyObject* InPyObject)
+FPyWrapperMulticastDelegate* FPyWrapperMulticastDelegate::CastPyObject(PyObject* InPyObject, FPyConversionResult* OutCastResult)
 {
+	SetOptionalPyConversionResult(FPyConversionResult::Failure(), OutCastResult);
+
 	if (PyObject_IsInstance(InPyObject, (PyObject*)&PyWrapperMulticastDelegateType) == 1)
 	{
+		SetOptionalPyConversionResult(FPyConversionResult::Success(), OutCastResult);
+
 		Py_INCREF(InPyObject);
 		return (FPyWrapperMulticastDelegate*)InPyObject;
 	}
@@ -422,10 +575,14 @@ FPyWrapperMulticastDelegate* FPyWrapperMulticastDelegate::CastPyObject(PyObject*
 	return nullptr;
 }
 
-FPyWrapperMulticastDelegate* FPyWrapperMulticastDelegate::CastPyObject(PyObject* InPyObject, PyTypeObject* InType)
+FPyWrapperMulticastDelegate* FPyWrapperMulticastDelegate::CastPyObject(PyObject* InPyObject, PyTypeObject* InType, FPyConversionResult* OutCastResult)
 {
+	SetOptionalPyConversionResult(FPyConversionResult::Failure(), OutCastResult);
+
 	if (PyObject_IsInstance(InPyObject, (PyObject*)InType) == 1 && (InType == &PyWrapperMulticastDelegateType || PyObject_IsInstance(InPyObject, (PyObject*)&PyWrapperMulticastDelegateType) == 1))
 	{
+		SetOptionalPyConversionResult(Py_TYPE(InPyObject) == InType ? FPyConversionResult::Success() : FPyConversionResult::SuccessWithCoercion(), OutCastResult);
+
 		Py_INCREF(InPyObject);
 		return (FPyWrapperMulticastDelegate*)InPyObject;
 	}
@@ -461,9 +618,25 @@ PyTypeObject InitializePyWrapperDelegateType()
 				return BaseInit;
 			}
 
-			if (PyTuple_Size(InArgs) > 0 && !PyDelegateUtil::PythonArgsToDelegate(InArgs, InSelf->DelegateSignature, *InSelf->DelegateInstance, TEXT("call"), *PyUtil::GetErrorContext(InSelf)))
+			const PyGenUtil::FGeneratedWrappedFunction& DelegateSignature = FPyWrapperDelegateMetaData::GetDelegateSignature(InSelf);
+			const UClass* PythonCallableForDelegateClass = FPyWrapperDelegateMetaData::GetPythonCallableForDelegateClass(InSelf);
+
+			const int32 ArgsCount = PyTuple_Size(InArgs);
+			if (ArgsCount == 1)
 			{
-				return -1;
+				// One argument is assumed to be a callable
+				if (!PyDelegateUtil::PythonArgsToDelegate_Callable(InArgs, DelegateSignature, PythonCallableForDelegateClass, *InSelf->DelegateInstance, TEXT("call"), *PyUtil::GetErrorContext(InSelf)))
+				{
+					return -1;
+				}
+			}
+			else if (ArgsCount > 0)
+			{
+				// Anything else is assumed to be an object and name pair
+				if (!PyDelegateUtil::PythonArgsToDelegate_ObjectAndName(InArgs, DelegateSignature, *InSelf->DelegateInstance, TEXT("call"), *PyUtil::GetErrorContext(InSelf)))
+				{
+					return -1;
+				}
 			}
 
 			return 0;
@@ -529,7 +702,8 @@ PyTypeObject InitializePyWrapperDelegateType()
 				return nullptr;
 			}
 
-			return (PyObject*)FPyWrapperDelegateFactory::Get().CreateInstance(InSelf->DelegateSignature, InSelf->DelegateInstance, FPyWrapperOwnerContext(), EPyConversionMethod::Copy);
+			const PyGenUtil::FGeneratedWrappedFunction& DelegateSignature = FPyWrapperDelegateMetaData::GetDelegateSignature(InSelf);
+			return (PyObject*)FPyWrapperDelegateFactory::Get().CreateInstance(DelegateSignature.Func, InSelf->DelegateInstance, FPyWrapperOwnerContext(), EPyConversionMethod::Copy);
 		}
 
 		static PyObject* IsBound(FPyWrapperDelegate* InSelf)
@@ -547,6 +721,31 @@ PyTypeObject InitializePyWrapperDelegateType()
 			Py_RETURN_FALSE;
 		}
 
+		static PyObject* BindDelegate(FPyWrapperDelegate* InSelf, PyObject* InArgs)
+		{
+			if (!FPyWrapperDelegate::ValidateInternalState(InSelf))
+			{
+				return nullptr;
+			}
+
+			PyObject* PyObj = nullptr;
+			if (!PyArg_ParseTuple(InArgs, "O:bind_delegate", &PyObj))
+			{
+				return nullptr;
+			}
+
+			FPyWrapperDelegate* PyOtherDelegate = FPyWrapperDelegate::CastPyObject(PyObj, Py_TYPE(InSelf));
+			if (!PyOtherDelegate)
+			{
+				PyUtil::SetPythonError(PyExc_TypeError, InSelf, *FString::Printf(TEXT("Failed to convert argument 0 (%s) to '%s'"), *PyUtil::GetFriendlyTypename(PyObj), *PyUtil::GetFriendlyTypename(InSelf)));
+				return nullptr;
+			}
+
+			*InSelf->DelegateInstance = *PyOtherDelegate->DelegateInstance;
+
+			Py_RETURN_NONE;
+		}
+
 		static PyObject* BindFunction(FPyWrapperDelegate* InSelf, PyObject* InArgs)
 		{
 			if (!FPyWrapperDelegate::ValidateInternalState(InSelf))
@@ -554,7 +753,25 @@ PyTypeObject InitializePyWrapperDelegateType()
 				return nullptr;
 			}
 
-			if (!PyDelegateUtil::PythonArgsToDelegate(InArgs, InSelf->DelegateSignature, *InSelf->DelegateInstance, TEXT("bind_function"), *PyUtil::GetErrorContext(InSelf)))
+			const PyGenUtil::FGeneratedWrappedFunction& DelegateSignature = FPyWrapperDelegateMetaData::GetDelegateSignature(InSelf);
+			if (!PyDelegateUtil::PythonArgsToDelegate_ObjectAndName(InArgs, DelegateSignature, *InSelf->DelegateInstance, TEXT("bind_function"), *PyUtil::GetErrorContext(InSelf)))
+			{
+				return nullptr;
+			}
+
+			Py_RETURN_NONE;
+		}
+
+		static PyObject* BindCallable(FPyWrapperDelegate* InSelf, PyObject* InArgs)
+		{
+			if (!FPyWrapperDelegate::ValidateInternalState(InSelf))
+			{
+				return nullptr;
+			}
+
+			const PyGenUtil::FGeneratedWrappedFunction& DelegateSignature = FPyWrapperDelegateMetaData::GetDelegateSignature(InSelf);
+			const UClass* PythonCallableForDelegateClass = FPyWrapperDelegateMetaData::GetPythonCallableForDelegateClass(InSelf);
+			if (!PyDelegateUtil::PythonArgsToDelegate_Callable(InArgs, DelegateSignature, PythonCallableForDelegateClass, *InSelf->DelegateInstance, TEXT("bind_callable"), *PyUtil::GetErrorContext(InSelf)))
 			{
 				return nullptr;
 			}
@@ -597,11 +814,13 @@ PyTypeObject InitializePyWrapperDelegateType()
 
 	static PyMethodDef PyMethods[] = {
 		{ "cast", PyCFunctionCast(&FMethods::Cast), METH_VARARGS | METH_CLASS, "X.cast(object) -> struct -- cast the given object to this Unreal delegate type" },
-		{ "__copy__", PyCFunctionCast(&FMethods::Copy), METH_NOARGS, "x.__copy__() -> struct -- copy this Unreal delegate" },
+		{ "__copy__", PyCFunctionCast(&FMethods::Copy), METH_NOARGS, "x.__copy__() -> delegate -- copy this Unreal delegate" },
 		{ "copy", PyCFunctionCast(&FMethods::Copy), METH_NOARGS, "x.copy() -> struct -- copy this Unreal delegate" },
 		{ "is_bound", PyCFunctionCast(&FMethods::IsBound), METH_NOARGS, "x.is_bound() -> bool -- is this Unreal delegate bound to something?" },
-		{ "bind_function", PyCFunctionCast(&FMethods::BindFunction), METH_VARARGS, "x.bind_function(obj, name) -- bind this Unreal delegate to a named Unreal function on the given object instance" },
-		{ "unbind", PyCFunctionCast(&FMethods::Unbind), METH_NOARGS, "x.unbind() -- unbind this Unreal delegate" },
+		{ "bind_delegate", PyCFunctionCast(&FMethods::BindDelegate), METH_VARARGS, "x.bind_delegate(delegate) -> None -- bind this Unreal delegate to the same object and function as another delegate" },
+		{ "bind_function", PyCFunctionCast(&FMethods::BindFunction), METH_VARARGS, "x.bind_function(obj, name) -> None -- bind this Unreal delegate to a named Unreal function on the given object instance" },
+		{ "bind_callable", PyCFunctionCast(&FMethods::BindCallable), METH_VARARGS, "x.bind_callable(callable) -> None -- bind this Unreal delegate to a Python callable" },
+		{ "unbind", PyCFunctionCast(&FMethods::Unbind), METH_NOARGS, "x.unbind() -> None -- unbind this Unreal delegate" },
 		{ "execute", PyCFunctionCast(&FMethods::Execute), METH_VARARGS, "x.execute(...) -> value -- call this Unreal delegate, but error if it's unbound" },
 		{ "execute_if_bound", PyCFunctionCast(&FMethods::ExecuteIfBound), METH_VARARGS, "x.execute_if_bound(...) -> value -- call this Unreal delegate, but only if it's bound to something" },
 		{ nullptr, nullptr, 0, nullptr }
@@ -609,7 +828,7 @@ PyTypeObject InitializePyWrapperDelegateType()
 
 	PyTypeObject PyType = {
 		PyVarObject_HEAD_INIT(nullptr, 0)
-		"PyWrapperDelegate", /* tp_name */
+		"DelegateBase", /* tp_name */
 		sizeof(FPyWrapperDelegate), /* tp_basicsize */
 	};
 
@@ -661,8 +880,10 @@ PyTypeObject InitializePyWrapperMulticastDelegateType()
 
 			if (PyTuple_Size(InArgs) > 0)
 			{
+				const PyGenUtil::FGeneratedWrappedFunction& DelegateSignature = FPyWrapperMulticastDelegateMetaData::GetDelegateSignature(InSelf);
+
 				FScriptDelegate Delegate;
-				if (!PyDelegateUtil::PythonArgsToDelegate(InArgs, InSelf->DelegateSignature, Delegate, TEXT("call"), *PyUtil::GetErrorContext(InSelf)))
+				if (!PyDelegateUtil::PythonArgsToDelegate_ObjectAndName(InArgs, DelegateSignature, Delegate, TEXT("call"), *PyUtil::GetErrorContext(InSelf)))
 				{
 					return -1;
 				}
@@ -732,7 +953,8 @@ PyTypeObject InitializePyWrapperMulticastDelegateType()
 				return nullptr;
 			}
 
-			return (PyObject*)FPyWrapperMulticastDelegateFactory::Get().CreateInstance(InSelf->DelegateSignature, InSelf->DelegateInstance, FPyWrapperOwnerContext(), EPyConversionMethod::Copy);
+			const PyGenUtil::FGeneratedWrappedFunction& DelegateSignature = FPyWrapperMulticastDelegateMetaData::GetDelegateSignature(InSelf);
+			return (PyObject*)FPyWrapperMulticastDelegateFactory::Get().CreateInstance(DelegateSignature.Func, InSelf->DelegateInstance, FPyWrapperOwnerContext(), EPyConversionMethod::Copy);
 		}
 
 		static PyObject* IsBound(FPyWrapperMulticastDelegate* InSelf)
@@ -757,8 +979,31 @@ PyTypeObject InitializePyWrapperMulticastDelegateType()
 				return nullptr;
 			}
 
+			const PyGenUtil::FGeneratedWrappedFunction& DelegateSignature = FPyWrapperMulticastDelegateMetaData::GetDelegateSignature(InSelf);
+
 			FScriptDelegate Delegate;
-			if (!PyDelegateUtil::PythonArgsToDelegate(InArgs, InSelf->DelegateSignature, Delegate, TEXT("add_function"), *PyUtil::GetErrorContext(InSelf)))
+			if (!PyDelegateUtil::PythonArgsToDelegate_ObjectAndName(InArgs, DelegateSignature, Delegate, TEXT("add_function"), *PyUtil::GetErrorContext(InSelf)))
+			{
+				return nullptr;
+			}
+
+			InSelf->DelegateInstance->Add(Delegate);
+
+			Py_RETURN_NONE;
+		}
+
+		static PyObject* AddCallable(FPyWrapperMulticastDelegate* InSelf, PyObject* InArgs)
+		{
+			if (!FPyWrapperMulticastDelegate::ValidateInternalState(InSelf))
+			{
+				return nullptr;
+			}
+
+			const PyGenUtil::FGeneratedWrappedFunction& DelegateSignature = FPyWrapperMulticastDelegateMetaData::GetDelegateSignature(InSelf);
+			const UClass* PythonCallableForDelegateClass = FPyWrapperMulticastDelegateMetaData::GetPythonCallableForDelegateClass(InSelf);
+
+			FScriptDelegate Delegate;
+			if (!PyDelegateUtil::PythonArgsToDelegate_Callable(InArgs, DelegateSignature, PythonCallableForDelegateClass, Delegate, TEXT("add_callable"), *PyUtil::GetErrorContext(InSelf)))
 			{
 				return nullptr;
 			}
@@ -775,13 +1020,60 @@ PyTypeObject InitializePyWrapperMulticastDelegateType()
 				return nullptr;
 			}
 
+			const PyGenUtil::FGeneratedWrappedFunction& DelegateSignature = FPyWrapperMulticastDelegateMetaData::GetDelegateSignature(InSelf);
+
 			FScriptDelegate Delegate;
-			if (!PyDelegateUtil::PythonArgsToDelegate(InArgs, InSelf->DelegateSignature, Delegate, TEXT("add_function_unique"), *PyUtil::GetErrorContext(InSelf)))
+			if (!PyDelegateUtil::PythonArgsToDelegate_ObjectAndName(InArgs, DelegateSignature, Delegate, TEXT("add_function_unique"), *PyUtil::GetErrorContext(InSelf)))
 			{
 				return nullptr;
 			}
 
 			InSelf->DelegateInstance->AddUnique(Delegate);
+
+			Py_RETURN_NONE;
+		}
+
+		static PyObject* AddCallableUnique(FPyWrapperMulticastDelegate* InSelf, PyObject* InArgs)
+		{
+			if (!FPyWrapperMulticastDelegate::ValidateInternalState(InSelf))
+			{
+				return nullptr;
+			}
+
+			// We need to search for an entry using the current callable rather than use the normal AddUnique function, 
+			// as that only checks the object and function name and each Python callable proxy is its own instance
+			PyObject* PyCallable = nullptr;
+			if (!PyDelegateUtil::PythonArgsToPythonCallable(InArgs, PyCallable, TEXT("add_callable_unique"), *PyUtil::GetErrorContext(InSelf)))
+			{
+				return nullptr;
+			}
+
+			bool bAddDelegate = true;
+			for (const UObject* DelegateObj : InSelf->DelegateInstance->GetAllObjects())
+			{
+				if (const UPythonCallableForDelegate* PythonCallableForDelegate = ::Cast<UPythonCallableForDelegate>(DelegateObj))
+				{
+					if (PythonCallableForDelegate->GetCallable() == PyCallable)
+					{
+						bAddDelegate = false;
+						break;
+					}
+				}
+			}
+
+			if (bAddDelegate)
+			{
+				const PyGenUtil::FGeneratedWrappedFunction& DelegateSignature = FPyWrapperMulticastDelegateMetaData::GetDelegateSignature(InSelf);
+				const UClass* PythonCallableForDelegateClass = FPyWrapperMulticastDelegateMetaData::GetPythonCallableForDelegateClass(InSelf);
+
+				FScriptDelegate Delegate;
+				if (!PyDelegateUtil::PythonCallableToDelegate(PyCallable, DelegateSignature, PythonCallableForDelegateClass, Delegate, *PyUtil::GetErrorContext(InSelf)))
+				{
+					return nullptr;
+				}
+
+				InSelf->DelegateInstance->Add(Delegate);
+			}
 
 			Py_RETURN_NONE;
 		}
@@ -793,13 +1085,51 @@ PyTypeObject InitializePyWrapperMulticastDelegateType()
 				return nullptr;
 			}
 
+			const PyGenUtil::FGeneratedWrappedFunction& DelegateSignature = FPyWrapperMulticastDelegateMetaData::GetDelegateSignature(InSelf);
+
 			FScriptDelegate Delegate;
-			if (!PyDelegateUtil::PythonArgsToDelegate(InArgs, InSelf->DelegateSignature, Delegate, TEXT("remove_function"), *PyUtil::GetErrorContext(InSelf)))
+			if (!PyDelegateUtil::PythonArgsToDelegate_ObjectAndName(InArgs, DelegateSignature, Delegate, TEXT("remove_function"), *PyUtil::GetErrorContext(InSelf)))
 			{
 				return nullptr;
 			}
 
 			InSelf->DelegateInstance->Remove(Delegate);
+
+			Py_RETURN_NONE;
+		}
+
+		static PyObject* RemoveCallable(FPyWrapperMulticastDelegate* InSelf, PyObject* InArgs)
+		{
+			if (!FPyWrapperMulticastDelegate::ValidateInternalState(InSelf))
+			{
+				return nullptr;
+			}
+
+			// We need to search for an entry using the current callable rather than use the normal Remove function, 
+			// as that only checks the object and function name and each Python callable proxy is its own instance
+			PyObject* PyCallable = nullptr;
+			if (!PyDelegateUtil::PythonArgsToPythonCallable(InArgs, PyCallable, TEXT("remove_callable"), *PyUtil::GetErrorContext(InSelf)))
+			{
+				return nullptr;
+			}
+
+			UPythonCallableForDelegate* PythonCallableForDelegateToRemove = nullptr;
+			for (UObject* DelegateObj : InSelf->DelegateInstance->GetAllObjects())
+			{
+				if (UPythonCallableForDelegate* PythonCallableForDelegate = ::Cast<UPythonCallableForDelegate>(DelegateObj))
+				{
+					if (PythonCallableForDelegate->GetCallable() == PyCallable)
+					{
+						PythonCallableForDelegateToRemove = PythonCallableForDelegate;
+						break;
+					}
+				}
+			}
+
+			if (PythonCallableForDelegateToRemove)
+			{
+				InSelf->DelegateInstance->RemoveAll(PythonCallableForDelegateToRemove);
+			}
 
 			Py_RETURN_NONE;
 		}
@@ -835,13 +1165,51 @@ PyTypeObject InitializePyWrapperMulticastDelegateType()
 				return nullptr;
 			}
 
+			const PyGenUtil::FGeneratedWrappedFunction& DelegateSignature = FPyWrapperMulticastDelegateMetaData::GetDelegateSignature(InSelf);
+
 			FScriptDelegate Delegate;
-			if (!PyDelegateUtil::PythonArgsToDelegate(InArgs, InSelf->DelegateSignature, Delegate, TEXT("contains_function"), *PyUtil::GetErrorContext(InSelf)))
+			if (!PyDelegateUtil::PythonArgsToDelegate_ObjectAndName(InArgs, DelegateSignature, Delegate, TEXT("contains_function"), *PyUtil::GetErrorContext(InSelf)))
 			{
 				return nullptr;
 			}
 
 			if (InSelf->DelegateInstance->Contains(Delegate))
+			{
+				Py_RETURN_TRUE;
+			}
+
+			Py_RETURN_FALSE;
+		}
+
+		static PyObject* ContainsCallable(FPyWrapperMulticastDelegate* InSelf, PyObject* InArgs)
+		{
+			if (!FPyWrapperMulticastDelegate::ValidateInternalState(InSelf))
+			{
+				return nullptr;
+			}
+
+			// We need to search for an entry using the current callable rather than use the normal Contains function, 
+			// as that only checks the object and function name and each Python callable proxy is its own instance
+			PyObject* PyCallable = nullptr;
+			if (!PyDelegateUtil::PythonArgsToPythonCallable(InArgs, PyCallable, TEXT("contains_callable"), *PyUtil::GetErrorContext(InSelf)))
+			{
+				return nullptr;
+			}
+
+			bool bContainsCallable = false;
+			for (const UObject* DelegateObj : InSelf->DelegateInstance->GetAllObjects())
+			{
+				if (const UPythonCallableForDelegate* PythonCallableForDelegate = ::Cast<UPythonCallableForDelegate>(DelegateObj))
+				{
+					if (PythonCallableForDelegate->GetCallable() == PyCallable)
+					{
+						bContainsCallable = true;
+						break;
+					}
+				}
+			}
+
+			if (bContainsCallable)
 			{
 				Py_RETURN_TRUE;
 			}
@@ -872,19 +1240,23 @@ PyTypeObject InitializePyWrapperMulticastDelegateType()
 		{ "__copy__", PyCFunctionCast(&FMethods::Copy), METH_NOARGS, "x.__copy__() -> struct -- copy this Unreal delegate" },
 		{ "copy", PyCFunctionCast(&FMethods::Copy), METH_NOARGS, "x.copy() -> struct -- copy this Unreal delegate" },
 		{ "is_bound", PyCFunctionCast(&FMethods::IsBound), METH_NOARGS, "x.is_bound() -> bool -- is this Unreal delegate bound to something?" },
-		{ "add_function", PyCFunctionCast(&FMethods::AddFunction), METH_VARARGS, "x.add_function(obj, name) -- add a binding to a named Unreal function on the given object instance to the invocation list of this Unreal delegate" },
-		{ "add_function_unique", PyCFunctionCast(&FMethods::AddFunctionUnique), METH_VARARGS, "x.add_function_unique(obj, name) -- add a unique binding to a named Unreal function on the given object instance to the invocation list of this Unreal delegate" },
-		{ "remove_function", PyCFunctionCast(&FMethods::RemoveFunction), METH_VARARGS, "x.remove_function(obj, name) -- remove a binding to a named Unreal function on the given object instance from the invocation list of this Unreal delegate" },
-		{ "remove_object", PyCFunctionCast(&FMethods::RemoveObject), METH_VARARGS, "x.remove_object(obj) -- remove all bindings for the given object instance from the invocation list of this Unreal delegate" },
-		{ "contains_function", PyCFunctionCast(&FMethods::ContainsFunction), METH_VARARGS, "x.contains_function(obj, name) -- does the invocation list of this Unreal delegate contain a binding to a named Unreal function on the given object instance" },
-		{ "clear", PyCFunctionCast(&FMethods::Clear), METH_NOARGS, "x.clear() -- clear the invocation list of this Unreal delegate" },
-		{ "broadcast", PyCFunctionCast(&FMethods::Broadcast), METH_VARARGS, "x.broadcast(...) -- invoke this Unreal multicast delegate" },
+		{ "add_function", PyCFunctionCast(&FMethods::AddFunction), METH_VARARGS, "x.add_function(obj, name) -> None -- add a binding to a named Unreal function on the given object instance to the invocation list of this Unreal delegate" },
+		{ "add_callable", PyCFunctionCast(&FMethods::AddCallable), METH_VARARGS, "x.add_callable(callable) -> None -- add a binding to a Python callable to the invocation list of this Unreal delegate" },
+		{ "add_function_unique", PyCFunctionCast(&FMethods::AddFunctionUnique), METH_VARARGS, "x.add_function_unique(obj, name) -> None -- add a unique binding to a named Unreal function on the given object instance to the invocation list of this Unreal delegate" },
+		{ "add_callable_unique", PyCFunctionCast(&FMethods::AddCallableUnique), METH_VARARGS, "x.add_callable_unique(callable) -> None -- add a unique binding to a Python callable to the invocation list of this Unreal delegate" },
+		{ "remove_function", PyCFunctionCast(&FMethods::RemoveFunction), METH_VARARGS, "x.remove_function(obj, name) -> None -- remove a binding to a named Unreal function on the given object instance from the invocation list of this Unreal delegate" },
+		{ "remove_callable", PyCFunctionCast(&FMethods::RemoveCallable), METH_VARARGS, "x.remove_callable(callable) -> None -- remove a binding to a Python callable from the invocation list of this Unreal delegate" },
+		{ "remove_object", PyCFunctionCast(&FMethods::RemoveObject), METH_VARARGS, "x.remove_object(obj) -> None -- remove all bindings for the given object instance from the invocation list of this Unreal delegate" },
+		{ "contains_function", PyCFunctionCast(&FMethods::ContainsFunction), METH_VARARGS, "x.contains_function(obj, name) -> bool -- does the invocation list of this Unreal delegate contain a binding to a named Unreal function on the given object instance" },
+		{ "contains_callable", PyCFunctionCast(&FMethods::ContainsCallable), METH_VARARGS, "x.contains_callable(callable) -> bool -- does the invocation list of this Unreal delegate contain a binding to a Python callable" },
+		{ "clear", PyCFunctionCast(&FMethods::Clear), METH_NOARGS, "x.clear() -> None -- clear the invocation list of this Unreal delegate" },
+		{ "broadcast", PyCFunctionCast(&FMethods::Broadcast), METH_VARARGS, "x.broadcast(...) -> None -- invoke this Unreal multicast delegate" },
 		{ nullptr, nullptr, 0, nullptr }
 	};
 
 	PyTypeObject PyType = {
 		PyVarObject_HEAD_INIT(nullptr, 0)
-		"PyWrapperMulticastDelegate", /* tp_name */
+		"MulticastDelegateBase", /* tp_name */
 		sizeof(FPyWrapperMulticastDelegate), /* tp_basicsize */
 	};
 
@@ -914,5 +1286,27 @@ PyTypeObject InitializePyWrapperMulticastDelegateType()
 
 PyTypeObject PyWrapperDelegateType = InitializePyWrapperDelegateType();
 PyTypeObject PyWrapperMulticastDelegateType = InitializePyWrapperMulticastDelegateType();
+
+void FPyWrapperDelegateMetaData::AddReferencedObjects(FPyWrapperBase* Instance, FReferenceCollector& Collector)
+{
+	TPyWrapperDelegateMetaData<FPyWrapperDelegate>::AddReferencedObjects(Instance, Collector);
+
+	FPyWrapperDelegate* Self = static_cast<FPyWrapperDelegate*>(Instance);
+	if (Self->DelegateInstance)
+	{
+		FPyReferenceCollector::AddReferencedObjectsFromDelegate(Collector, *Self->DelegateInstance);
+	}
+}
+
+void FPyWrapperMulticastDelegateMetaData::AddReferencedObjects(FPyWrapperBase* Instance, FReferenceCollector& Collector)
+{
+	TPyWrapperDelegateMetaData<FPyWrapperMulticastDelegate>::AddReferencedObjects(Instance, Collector);
+
+	FPyWrapperMulticastDelegate* Self = static_cast<FPyWrapperMulticastDelegate*>(Instance);
+	if (Self->DelegateInstance)
+	{
+		FPyReferenceCollector::AddReferencedObjectsFromMulticastDelegate(Collector, *Self->DelegateInstance);
+	}
+}
 
 #endif	// WITH_PYTHON

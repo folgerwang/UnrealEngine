@@ -6,6 +6,8 @@
 #include "Misc/AssertionMacros.h"
 #include "Templates/TypeCompatibleBytes.h"
 #include "Templates/UnrealTemplate.h"
+#include "Serialization/Archive.h"
+
 
 /**
  * When we have an optional value IsSet() returns true, and GetValue() is meaningful.
@@ -138,9 +140,39 @@ public:
 		}
 		return (*(OptionalType*)&lhs.Value) == (*(OptionalType*)&rhs.Value);
 	}
+
 	friend bool operator!=(const TOptional& lhs, const TOptional& rhs)
 	{
 		return !(lhs == rhs);
+	}
+
+	friend FArchive& operator<<(FArchive& Ar, TOptional& Optional)
+	{
+		bool bOptionalIsSet = Optional.bIsSet;
+		Ar << bOptionalIsSet;
+		if (Ar.IsLoading())
+		{
+			if (bOptionalIsSet)
+			{
+				if (!Optional.bIsSet)
+				{
+					Optional.Emplace();
+				}
+				Ar << Optional.GetValue();
+			}
+			else
+			{
+				Optional.Reset();
+			}
+		}
+		else
+		{
+			if (bOptionalIsSet)
+			{
+				Ar << Optional.GetValue();
+			}
+		}
+		return Ar;
 	}
 
 	/** @return true when the value is meaningful; false if calling GetValue() is undefined. */

@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -14,14 +14,6 @@ namespace UnrealBuildTool
 	/// </summary>
 	public class PlatformExports
 	{
-		/// <summary>
-		/// Returns a list of restricted folder names
-		/// </summary>
-		public static FileSystemName[] RestrictedFolderNames
-		{
-			get { return UEBuildPlatform.RestrictedFolderNames; }
-		}
-
 		/// <summary>
 		/// Checks whether the given platform is available
 		/// </summary>
@@ -65,6 +57,49 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Checks whether the given project requires a build because of platform needs
+		/// </summary>
+		/// <param name="ProjectFile">The project file</param>
+		/// <param name="Platform">Platform to check settings for</param>
+		/// <returns>True if the project requires a build for the platform</returns>
+		public static bool RequiresBuild(FileReference ProjectFile, UnrealTargetPlatform Platform)
+		{
+			UEBuildPlatform BuildPlat = UEBuildPlatform.GetBuildPlatform(Platform, true);
+			return (BuildPlat == null) ? false : BuildPlat.RequiresBuild(Platform, ProjectFile.Directory);
+		}
+
+		/// <summary>
+		/// Returns an array of all platform folder names
+		/// </summary>
+		/// <returns>All platform folder names</returns>
+		public static FileSystemName[] GetPlatformFolderNames()
+		{
+			return UEBuildPlatform.GetPlatformFolderNames();
+		}
+
+		/// <summary>
+		/// Returns an array of all platform folder names
+		/// </summary>
+		/// <param name="Platform">The platform to get the included folder names for</param>
+		/// <returns>All platform folder names</returns>
+		public static FileSystemName[] GetIncludedFolderNames(UnrealTargetPlatform Platform)
+		{
+			UEBuildPlatform BuildPlatform = UEBuildPlatform.GetBuildPlatform(Platform, false);
+			return BuildPlatform.GetIncludedFolderNames();
+		}
+
+		/// <summary>
+		/// Returns all the excluded folder names for a given platform
+		/// </summary>
+		/// <param name="Platform">The platform to get the excluded folder names for</param>
+		/// <returns>Array of folder names</returns>
+		public static FileSystemName[] GetExcludedFolderNames(UnrealTargetPlatform Platform)
+		{
+			UEBuildPlatform BuildPlatform = UEBuildPlatform.GetBuildPlatform(Platform, false);
+			return BuildPlatform.GetExcludedFolderNames();
+		}
+
+		/// <summary>
 		/// Check whether the given platform supports XGE
 		/// </summary>
 		/// <param name="Platform">Platform to check</param>
@@ -72,6 +107,16 @@ namespace UnrealBuildTool
 		public static bool CanUseXGE(UnrealTargetPlatform Platform)
 		{
 			return UEBuildPlatform.IsPlatformAvailable(Platform) && UEBuildPlatform.GetBuildPlatform(Platform).CanUseXGE();
+		}
+
+		/// <summary>
+		/// Check whether the given platform supports the parallel executor in UAT
+		/// </summary>
+		/// <param name="Platform">Platform to check</param>
+		/// <returns>True if the platform supports the parallel executor in UAT</returns>
+		public static bool CanUseParallelExecutor(UnrealTargetPlatform Platform)
+		{
+			return UEBuildPlatform.IsPlatformAvailable(Platform) && UEBuildPlatform.GetBuildPlatform(Platform).CanUseParallelExecutor();
 		}
 
 		/// <summary>

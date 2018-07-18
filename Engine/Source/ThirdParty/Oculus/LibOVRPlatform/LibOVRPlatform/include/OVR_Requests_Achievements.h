@@ -57,7 +57,9 @@
 /// the fields of a bitfield achievement
 
 /// Add 'count' to the achievement with the given name. This must be a COUNT
-/// achievement.
+/// achievement. The largest number that is supported by this method is the max
+/// value of a signed 64-bit integer. If the number is larger than that, it is
+/// clamped to that max value before being passed to the servers.
 ///
 /// A message with type ::ovrMessage_Achievements_AddCount will be generated in response.
 ///

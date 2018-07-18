@@ -5,6 +5,7 @@
 =============================================================================*/
 
 #include "Serialization/CustomVersion.h"
+#include "Serialization/StructuredArchiveFromArchive.h"
 
 namespace
 {
@@ -22,12 +23,17 @@ namespace
 		}
 	};
 
-	FArchive& operator<<(FArchive& Ar, FEnumCustomVersion_DEPRECATED& Version)
+	void operator<<(FStructuredArchive::FSlot Slot, FEnumCustomVersion_DEPRECATED& Version)
 	{
 		// Serialize keys
-		Ar << Version.Tag;
-		Ar << Version.Version;
+		FStructuredArchive::FRecord Record = Slot.EnterRecord();
+		Record << NAMED_ITEM("Tag", Version.Tag);
+		Record << NAMED_ITEM("Version", Version.Version);
+	}
 
+	FArchive& operator<<(FArchive& Ar, FEnumCustomVersion_DEPRECATED& Version)
+	{
+		FStructuredArchiveFromArchive(Ar).GetSlot() << Version;
 		return Ar;
 	}
 
@@ -44,11 +50,17 @@ namespace
 		}
 	};
 
+	void operator<<(FStructuredArchive::FSlot Slot, FGuidCustomVersion_DEPRECATED& Version)
+	{
+		FStructuredArchive::FRecord Record = Slot.EnterRecord();
+		Record << NAMED_ITEM("Key", Version.Key);
+		Record << NAMED_ITEM("Version", Version.Version);
+		Record << NAMED_ITEM("FriendlyName", Version.FriendlyName);
+	}
+
 	FArchive& operator<<(FArchive& Ar, FGuidCustomVersion_DEPRECATED& Version)
 	{
-		Ar << Version.Key;
-		Ar << Version.Version;
-		Ar << Version.FriendlyName;
+		FStructuredArchiveFromArchive(Ar).GetSlot() << Version;
 		return Ar;
 	}
 }
@@ -93,53 +105,64 @@ FCustomVersionContainer& FCustomVersionContainer::GetInstance()
 
 FArchive& operator<<(FArchive& Ar, FCustomVersion& Version)
 {
-	Ar << Version.Key;
-	Ar << Version.Version;
+	FStructuredArchiveFromArchive(Ar).GetSlot() << Version;
 	return Ar;
+}
+
+void operator<<(FStructuredArchive::FSlot Slot, FCustomVersion& Version)
+{
+	FStructuredArchive::FRecord Record = Slot.EnterRecord();
+	Record << NAMED_ITEM("Key", Version.Key);
+	Record << NAMED_ITEM("Version", Version.Version);
 }
 
 void FCustomVersionContainer::Serialize(FArchive& Ar, ECustomVersionSerializationFormat::Type Format)
 {
+	Serialize(FStructuredArchiveFromArchive(Ar).GetSlot(), Format);
+}
+
+void FCustomVersionContainer::Serialize(FStructuredArchive::FSlot Slot, ECustomVersionSerializationFormat::Type Format)
+{
 	switch (Format)
 	{
-		default: check(false);
+	default: check(false);
 
-		case ECustomVersionSerializationFormat::Enums:
+	case ECustomVersionSerializationFormat::Enums:
+	{
+		// We should only ever be loading enums.  They should never be saved - they only exist for backward compatibility.
+		check(Slot.GetUnderlyingArchive().IsLoading());
+
+		TArray<FEnumCustomVersion_DEPRECATED> OldTags;
+		Slot << OldTags;
+
+		Versions.Empty(OldTags.Num());
+		for (auto It = OldTags.CreateConstIterator(); It; ++It)
 		{
-			// We should only ever be loading enums.  They should never be saved - they only exist for backward compatibility.
-			check(Ar.IsLoading());
-
-			TArray<FEnumCustomVersion_DEPRECATED> OldTags;
-			Ar << OldTags;
-
-			Versions.Empty(OldTags.Num());
-			for (auto It = OldTags.CreateConstIterator(); It; ++It)
-			{
-				Versions.Add(It->ToCustomVersion());
-			}
+			Versions.Add(It->ToCustomVersion());
 		}
-		break;
+	}
+	break;
 
-		case ECustomVersionSerializationFormat::Guids:
+	case ECustomVersionSerializationFormat::Guids:
+	{
+		// We should only ever be loading old versions.  They should never be saved - they only exist for backward compatibility.
+		check(Slot.GetUnderlyingArchive().IsLoading());
+
+		TArray<FGuidCustomVersion_DEPRECATED> VersionArray;
+		Slot << VersionArray;
+		Versions.Empty(VersionArray.Num());
+		for (FGuidCustomVersion_DEPRECATED& OldVer : VersionArray)
 		{
-			// We should only ever be loading old versions.  They should never be saved - they only exist for backward compatibility.
-			check(Ar.IsLoading());
-
-			TArray<FGuidCustomVersion_DEPRECATED> VersionArray;
-			Ar << VersionArray;
-			Versions.Empty(VersionArray.Num());
-			for (FGuidCustomVersion_DEPRECATED& OldVer : VersionArray)
-			{
-				Versions.Add(OldVer.ToCustomVersion());
-			}
+			Versions.Add(OldVer.ToCustomVersion());
 		}
-		break;
+	}
+	break;
 
-		case ECustomVersionSerializationFormat::Optimized:
-		{
-			Ar << Versions;
-		}
-		break;
+	case ECustomVersionSerializationFormat::Optimized:
+	{
+		Slot << Versions;
+	}
+	break;
 	}
 }
 
@@ -201,7 +224,7 @@ FCustomVersionRegistration::FCustomVersionRegistration(FGuid InKey, int32 InVers
 			TEXT("Custom version registrations cannot change between hotreloads - \"%s\" version %d is being reregistered as \"%s\" version %d"),
 			*ExistingRegistration->GetFriendlyName().ToString(),
 			ExistingRegistration->Version,
-			InFriendlyName,
+			*InFriendlyName.ToString(),
 			InVersion
 		);
 

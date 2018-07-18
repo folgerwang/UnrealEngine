@@ -15,7 +15,7 @@
 * A property track editor for colors.
 */
 class FColorPropertyTrackEditor
-	: public FPropertyTrackEditor<UMovieSceneColorTrack, UMovieSceneColorSection, FColorKey>
+	: public FPropertyTrackEditor<UMovieSceneColorTrack>
 {
 public:
 
@@ -25,7 +25,7 @@ public:
 	 * @param InSequencer The sequencer instance to be used by this tool.
 	 */
 	FColorPropertyTrackEditor(TSharedRef<ISequencer> InSequencer)
-		: FPropertyTrackEditor<UMovieSceneColorTrack, UMovieSceneColorSection, FColorKey>(InSequencer, GetAnimatedPropertyTypes())
+		: FPropertyTrackEditor(InSequencer, GetAnimatedPropertyTypes())
 	{
 	}
 
@@ -57,7 +57,7 @@ protected:
 
 	//~ FPropertyTrackEditor interface
 
-	virtual void GenerateKeysFromPropertyChanged(const FPropertyChangedParams& PropertyChangedParams, TArray<FColorKey>& NewGeneratedKeys, TArray<FColorKey>& DefaultGeneratedKeys) override;
+	virtual void GenerateKeysFromPropertyChanged(const FPropertyChangedParams& PropertyChangedParams, FGeneratedTrackKeys& OutGeneratedKeys) override;
 
 protected:
 

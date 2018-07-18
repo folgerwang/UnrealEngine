@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -78,6 +78,11 @@ namespace Tools.DotNETCommon
 			else if(ObjectType == typeof(string[]))
 			{
 				return Reader.ReadArray(x => x.ReadString());
+			}
+			else if(ObjectType == typeof(bool?))
+			{
+				int Value = Reader.ReadInt32();
+				return (Value == -1)? (bool?)null : (Value == 0)? (bool?)false : (bool?)true;
 			}
 			else if(ObjectType.IsEnum)
 			{

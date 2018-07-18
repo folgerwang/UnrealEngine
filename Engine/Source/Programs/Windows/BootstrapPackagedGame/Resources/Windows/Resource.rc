@@ -31,7 +31,7 @@ BEGIN
             VALUE "CompanyName", BUILD_PROJECT_COMPANY_NAME
             VALUE "LegalCopyright", BUILD_PROJECT_COPYRIGHT_STRING
 			VALUE "ProductName", BUILD_PROJECT_PRODUCT_NAME
-            VALUE "ProductVersion", BUILD_VERSION
+            VALUE "ProductVersion", ENGINE_VERSION_STRING
             VALUE "FileDescription", BUILD_PROJECT_PRODUCT_NAME
             VALUE "InternalName", BUILD_PROJECT_PRODUCT_IDENTIFIER
         END

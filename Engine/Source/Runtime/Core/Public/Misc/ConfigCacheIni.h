@@ -18,12 +18,13 @@
 #include "Math/Vector.h"
 #include "Math/Rotator.h"
 #include "Misc/Paths.h"
+#include "Serialization/StructuredArchiveFromArchive.h"
 
 CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogConfig, Warning, All);
 
 // Server builds should be tweakable even in Shipping
 #define ALLOW_INI_OVERRIDE_FROM_COMMANDLINE			(UE_SERVER || !(UE_BUILD_SHIPPING))
-
+#define CONFIG_REMEMBER_ACCESS_PATTERN (WITH_EDITOR || 0)
 struct FConfigValue
 {
 public:
@@ -31,7 +32,7 @@ public:
 
 	FConfigValue(const TCHAR* InValue)
 		: SavedValue(InValue)
-#if WITH_EDITOR
+#if CONFIG_REMEMBER_ACCESS_PATTERN 
 		, bRead(false)
 #endif
 	{
@@ -40,7 +41,7 @@ public:
 
 	FConfigValue(FString InValue)
 		: SavedValue(MoveTemp(InValue))
-#if WITH_EDITOR
+#if CONFIG_REMEMBER_ACCESS_PATTERN 
 		, bRead(false)
 #endif
 	{
@@ -50,7 +51,7 @@ public:
 	FConfigValue( const FConfigValue& InConfigValue ) 
 		: SavedValue( InConfigValue.SavedValue )
 		, ExpandedValue( InConfigValue.ExpandedValue )
-#if WITH_EDITOR
+#if CONFIG_REMEMBER_ACCESS_PATTERN 
 		, bRead( InConfigValue.bRead )
 #endif
 	{
@@ -60,7 +61,7 @@ public:
 	// Returns the ini setting with any macros expanded out
 	const FString& GetValue() const 
 	{ 
-#if WITH_EDITOR
+#if CONFIG_REMEMBER_ACCESS_PATTERN 
 		bRead = true; 
 #endif
 		return (ExpandedValue.Len() > 0 ? ExpandedValue : SavedValue); 
@@ -69,12 +70,12 @@ public:
 	// Returns the original ini setting without macro expansion
 	const FString& GetSavedValue() const 
 	{ 
-#if WITH_EDITOR
+#if CONFIG_REMEMBER_ACCESS_PATTERN 
 		bRead = true; 
 #endif
 		return SavedValue; 
 	}
-#if WITH_EDITOR
+#if CONFIG_REMEMBER_ACCESS_PATTERN 
 	inline const bool HasBeenRead() const
 	{
 		return bRead;
@@ -95,14 +96,21 @@ public:
 
 	friend FArchive& operator<<(FArchive& Ar, FConfigValue& ConfigSection)
 	{
-		Ar << ConfigSection.SavedValue;
+		FStructuredArchiveFromArchive(Ar).GetSlot() << ConfigSection;
+		return Ar;
+	}
 
-		if (Ar.IsLoading())
+	friend void operator<<(FStructuredArchive::FSlot Slot, FConfigValue& ConfigSection)
+	{
+		Slot << ConfigSection.SavedValue;
+
+		if (Slot.GetUnderlyingArchive().IsLoading())
 		{
 			ConfigSection.ExpandValueInternal();
+#if CONFIG_REMEMBER_ACCESS_PATTERN 
+			ConfigSection.bRead = false;
+#endif
 		}
-
-		return Ar;
 	}
 
 	/**
@@ -155,7 +163,7 @@ private:
 
 	FString SavedValue;
 	FString ExpandedValue;
-#if WITH_EDITOR
+#if CONFIG_REMEMBER_ACCESS_PATTERN 
 	mutable bool bRead; // has this value been read since the config system started
 #endif
 };
@@ -246,6 +254,7 @@ enum class EConfigFileHierarchy : uint8
 	// Engine/Config/*.ini
 	EngineDirBase,
 	// Engine/Config/Platform/BasePlatform* ini
+	EngineDir_BasePlatformParent,
 	EngineDir_BasePlatform,
 	// Engine/Config/NotForLicensees/*.ini
 	EngineDirBase_NotForLicensees,
@@ -261,18 +270,25 @@ enum class EConfigFileHierarchy : uint8
 	// Game/Config/NoRedist*.ini
 	GameDirDefault_NoRedist,
 
+
 	// Engine/Config/PlatformName/PlatformName*.ini
+	EngineDir_PlatformParent,
 	EngineDir_Platform,
 	// Engine/Config/NotForLicensees/PlatformName/PlatformName*.ini
+	EngineDir_PlatformParent_NotForLicensees,
 	EngineDir_Platform_NotForLicensees,
 	// Engine/Config/NoRedist/PlatformName/PlatformName*.ini
+	EngineDir_PlatformParent_NoRedist,
 	EngineDir_Platform_NoRedist,
 
 	// Game/Config/PlatformName/PlatformName*.ini
+	GameDir_PlatformParent,
 	GameDir_Platform,
 	// Game/Config/NotForLicensees/PlatformName/PlatformName*.ini
+	GameDir_PlatformParent_NotForLicensees,
 	GameDir_Platform_NotForLicensees,
 	// Game/Config/NoRedist/PlatformName/PlatformName*.ini
+	GameDir_PlatformParent_NoRedist,
 	GameDir_Platform_NoRedist,
 
 	// <UserSettingsDir|AppData>/Unreal Engine/Engine/Config/User*.ini
@@ -822,6 +838,11 @@ public:
 	 * Works even if the variable is registered after the ini file was loaded.
 	 */
 	static void LoadConsoleVariablesFromINI();
+	
+	/**
+	 * Less than ideal solution for allowing user settings to be saved on all platforms
+	 */
+	static FString GetGameUserSettingsDir();
 
 private:
 	/** true if file operations should not be performed */
@@ -859,3 +880,25 @@ CORE_API void ApplyCVarSettingsGroupFromIni(const TCHAR* InSectionBaseName, cons
  * @param SetBy anything in ECVF_LastSetMask e.g. ECVF_SetByScalability
  */
 CORE_API void ApplyCVarSettingsFromIni(const TCHAR* InSectionBaseName, const TCHAR* InIniFilename, uint32 SetBy, bool bAllowCheating = false);
+
+
+
+/**
+ * CVAR Ini history records all calls to ApplyCVarSettingsFromIni and can re run them 
+ */
+
+/**
+ * Helper function to start recording ApplyCVarSettings function calls 
+ * uses these to generate a history of applied ini settings sections
+ */
+CORE_API void RecordApplyCVarSettingsFromIni();
+
+/**
+ * Helper function to reapply inis which have been applied after RecordCVarIniHistory was called
+ */
+CORE_API void ReapplyRecordedCVarSettingsFromIni();
+
+/**
+ * Helper function to clean up ini history
+ */
+CORE_API void DeleteRecordedCVarSettingsFromIni();

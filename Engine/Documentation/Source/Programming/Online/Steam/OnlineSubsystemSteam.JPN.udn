@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3596779
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:Online Subsystem Steam
 Crumbs:%ROOT%, Programming
@@ -187,30 +187,23 @@ Steam を初期化する前に、UE4 は `steam_appid.txt` を生成します(�
 
 以上、短いガイドでしたが、アプリケーションの `DefaultEngine.ini` は以下の設定ブロックのようになっています。他のプロジェクトの設定や Online Subsystem の使い方は、サンプル プロジェクトのライブラリを参照してください。
 
-[OBJECT:Section]
-    [PARAMLITERAL:id]
-    code
-    [/PARAMLITERAL]
-    [PARAM:heading]
-    Finished Settings
-    [/PARAM]
-    [PARAM:content]
-		**DefaultEngine.ini**
-			[/Script/Engine.GameEngine]
-			+NetDriverDefinitions=(DefName="GameNetDriver",DriverClassName="OnlineSubsystemSteam.SteamNetDriver",DriverClassNameFallback="OnlineSubsystemUtils.IpNetDriver")
+#### 仕上げの設定
+    
+**DefaultEngine.ini**
 
-			[OnlineSubsystem]
-			DefaultPlatformService=Steam
+	[/Script/Engine.GameEngine]
+	+NetDriverDefinitions=(DefName="GameNetDriver",DriverClassName="OnlineSubsystemSteam.SteamNetDriver",DriverClassNameFallback="OnlineSubsystemUtils.IpNetDriver")
 
-			[OnlineSubsystemSteam]
-			bEnabled=true
-			SteamDevAppId=480
+	[OnlineSubsystem]
+	DefaultPlatformService=Steam
 
-			[/Script/OnlineSubsystemSteam.SteamNetDriver]
-			NetConnectionClassName="OnlineSubsystemSteam.SteamNetConnection"
-    [/PARAM]
-[/OBJECT]
+	[OnlineSubsystemSteam]
+	bEnabled=true
+	SteamDevAppId=480
 
+	[/Script/OnlineSubsystemSteam.SteamNetDriver]
+	NetConnectionClassName="OnlineSubsystemSteam.SteamNetConnection"
+    
 ## 追記
 
 ### モジュール設定

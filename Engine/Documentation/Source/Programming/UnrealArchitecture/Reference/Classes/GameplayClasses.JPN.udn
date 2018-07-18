@@ -1,15 +1,15 @@
-﻿INTSourceChangelist:2938463
+﻿INTSourceChangelist:3108692
 Availability:Public
 Title:ゲームプレイ クラス
 Crumbs:%ROOT%, Programming, Programming/UnrealArchitecture/Reference
-Description:ゲームプレイ クラスの作成および実装に関する参照ページ
-Version:4.9
+Description:ゲームプレイ クラスの作成および実装に関するリファレンス ページ
+Version:4.11
 
 [TOC(start:2)]
 
-アンリアルエンジンで使用するすべてのゲームプレイ クラスは、クラス ヘッダ ファイル (`.h`) とクラス ソース ファイル(`.cpp`)で構成 
+アンリアルエンジンで使用する全てのゲームプレイ クラスは、クラス ヘッダ ファイル (`.h`) とクラス ソース ファイル(`.cpp`)で構成 
 されています。クラス ソース ファイルは、クラスに属する関数を _実装_ することによってクラスの機能を定義するファイルである一方で、 
-クラス ヘッダ ファイルにはクラスの宣言と変数や関数など、そのメンバーが 
+クラス ヘッダ ファイルには変数や関数など、クラスの宣言とそのメンバーが 
 含まれています。
 
 アンリアルエンジンのクラスには標準化した命名スキームがあり、クラスの最初の文字 (プレフィックス) を見ただけで、 
@@ -25,15 +25,15 @@ Version:4.9
 ## クラスの追加
 
 [](Programming\Development\ManagingGameCode\CppClassWizard) は、新規クラスに必要なヘッダ ファイルとソース ファイルを設定し、それに応じてゲーム モジュールを更新します。 
-ヘッダ ファイルとソース ファイルは、 UCLASS() マクロのようなアンリアル エンジン固有のコードに加えて、クラス宣言とクラス コンストラクタを自動的にインクルードします。
+ヘッダ ファイルとソース ファイルには、 UCLASS() マクロのようなアンリアル エンジン固有のコードに加えて、クラス宣言とクラス コンストラクタを自動的にインクルードします。
 
-## クラス ヘッダ
+## クラスヘッダ
 
 アンリアル エンジンのゲームプレイクラスにはそれぞれ、固有のクラス ヘッダ ファイルがあります。ファイルには、その中で定義されているクラスと一致する名前を付けなければなりません。 
 `A` または `U` のプレフィックスを差し引いて「`.h` 」ファイル拡張子を使用します。例えば `AActor` クラスのクラス ヘッダ ファイルの名前は `Actor.h` となります。
-ゲーム プレイ クラスのクラス ヘッダ ファイルは、
+エピック ゲームズのコードはこうしたガイドラインに従いますが、現在のエンジンではクラス名とソースファイル名との間には正式な関係は存在しません。
 
-クラス、変数、関数の宣言プロセスを単純化するために、指定されたマクロと標準の C++ 記法を併用します。
+ゲーム プレイ クラスのクラス ヘッダ ファイルは、クラス、変数、関数の宣言プロセスを単純化するために、特殊マクロと標準の C++ 記法を併用します。
 
 各ゲームプレイ クラスのヘッダ ファイル最上部には、以下のようにクラス用に (自動) 生成されたヘッダ ファイルをインクルードしなくてはいけません。従って `ClassName.h` の上には次の行が表示されます。
 
@@ -41,8 +41,10 @@ Version:4.9
 
 ### クラスの宣言
 
-クラスの宣言はクラス名と継承されたクラスを定義します。 
-つまり、継承する関数とクラスや、[クラス指定子](#クラス指定子) やメタデータ経由で望まれるエンジンやエディタのその他の特定のビヘイビアです。クラスの宣言の記法は以下の通りです。
+クラスの宣言はクラス名、継承元のクラス、継承した関数や変数があれば定義します。クラスの宣言では、[クラス指定子](#クラス指定子) やメタデータ経由で望まれる 
+他のエンジンやエディタ固有の動作も定義します。 
+
+クラスの宣言の記法は以下の通りです。
 
 	UCLASS([specifier, specifier, ...], [meta(key=value, key=value, ...)])
 	class ClassName : public ParentName
@@ -50,9 +52,9 @@ Version:4.9
 		GENERATED_BODY()
 	}
 
-宣言は、クラス用の標準の C++ クラス宣言で構成されています。標準の宣言の上で、クラス指定子やメタデータなどの記述子が `UCLASS` マクロへ 
-渡されます。宣言されるクラス用に `UClass` を作成するために使用され、エンジンの指定されたクラス表現とみなされます。また、`GENERATED_BODY()` マクロを 
-クラス本体の冒頭に配置しなくてはいけません。
+宣言は、クラスのための標準の C++ クラス宣言で構成されています。標準の宣言の上で、クラス指定子やメタデータなどの記述子が UCLASS マクロへ 
+渡されます。これらは宣言されているクラスに対して `UClass` を作成するために使用され、エンジンの特別なクラス表現とみなされます。また、`GENERATED_BODY()` マクロを 
+マクロはクラス本体の冒頭に配置しなくてはいけません。
 
 #### クラス指定子
 
@@ -61,7 +63,7 @@ Version:4.9
 ## クラスの実装
 
 すべてのゲームプレイ クラスは、適切に実装するために `GENERATED_BODY` マクロを使用しなければなりません。これは、クラスとそのすべての変数と関数を定義するクラスヘッダ (.h) ファイルで 
-行われます。クラス ソース ファイルとヘッダー ファイルのベスト プラクティスは、`A` や `U` のプレフィックスを取り除いて、実行中のクラスに一致する名前をつけることです。従って、`AActor` クラスのソース ファイルは 
+行われます。クラス ソース ファイルとヘッダー ファイルのベスト プラクティスは、`A` または `U` のプレフィックスを取り除いて、実行中のクラスに一致する名前をつけることです。従って、`AActor` クラスのソース ファイルは 
 `Actor.cpp` という名前になります。そのヘッダ ファイルは `Actor.h` という名前になります。これは、エディタ内の "Add C++ Class" メニュー オプションによって作成されるクラスを自動的に処理します。
 
 このソース ファイル (.cpp) には C++ クラス宣言を含むヘッダ ファイル (.h) がインクルードされていなければなりません。これは通常自動生成されますが、必要に応じて手書きのコードでも作成可能です。例えば、`AActor` クラスに対する C++ 宣言は 
@@ -76,15 +78,15 @@ Version:4.9
 ### クラス コンストラクタ
 
 `UObjects` は **コンストラクタ** を使ってプロパティおよびその他の変数のデフォルト値の設定や、その他必要な初期化を実行します。クラス コンストラクタは通常、クラス実装ファイル内に置かれます。 
-例えば、`AActor::AActor` コンストラクタであれば `Actor.cpp` の中です。 
+例えば、`AActor::AActor` コンストラクタであれば、 `Actor.cpp` の中です。 
 
 [REGION:note]
-コンストラクタは、モジュール別に特別な「constructors」ファイルに置かれる場合もあります。例えば、`AActor::AActor` コンストラクタは `EngineConstructors.cpp` 内に存在します。これは 
+一部のコンストラクタは、モジュール別に特別な「コンストラクタ」ファイルに置かれる場合もあります。例えば、`AActor::AActor` コンストラクタは `EngineConstructors.cpp` 内に存在します。これは 
 以前に、コンストラクタの採用に `DEFAULTS` ブロックを使用した自動変換プロセスの結果です。これらは時間と共にそれぞれのクラス ソース ファイルに移動していきます。
 [/REGION]
 
 コンストラクタ インラインをクラス ヘッダ ファイルに配置することも可能です。ただし、コンストラクタがクラス ヘッダ ファイル内にある場合、 
- 自動コードジェネレータがヘッダ中でコンストラクタ宣言を作成するのを阻まないように、 UClass は `CustomConstructor` 指定子で宣言されなければなりません。
+自動コードジェネレータがヘッダにコンストラクタ宣言を生成することを防ぐために、 UClass は `CustomConstructor` 指定子で宣言されなければなりません。
 
 #### コンストラクタの形式
 
@@ -92,7 +94,7 @@ Version:4.9
 
 	UMyObject::UMyObject()
 	{
-		// Initialize CDO properties here. (ここで CDO プロパティを初期化します。)
+		// Initialize Class Default Object properties here.
 	}
 
 このコンストラクタが Class Default Object (CDO) を初期化し、クラスのその後のインスタンスがベースとするマスター コピーになります。特別なプロパティ変更構造体をサポートする 
@@ -101,28 +103,28 @@ Version:4.9
 	UMyObject::UMyObject(const FObjectInitializer& ObjectInitializer)
 	:Super(ObjectInitializer)
 	{
-		// Initialize CDO properties here. (ここで CDO プロパティを初期化します。)
+		// Initialize CDO properties here.
 	}
 
 上記のコンストラクタは両方とも実際には初期化は実行しませんが、エンジンがすべてのフィールドをゼロ、NULL、またはデフォルト コンストラクタが実装する値にしているはずです。
 ただし、コンストラクタに書き込まれた初期化コードは CDO に適用されるので、
-`CreateNewObject` や `SpawnActor` など、エンジン内で正しく作成されたオブジェクトの新規インスタンスにコピーされます。
+`CreateNewObject` や `SpawnActor` のように、エンジン内で正しく作成されたオブジェクトの新規インスタンスにコピーされます。
 
-コンストラクタにパスされる `FObjectInitializer` パラメータは、const とマークされますが、プロパティとサブオブジェクトをオーバーライドするための設定が可能です。作成された `UObject` にこれらの値が反映されるので、 
+コンストラクタに渡される `FObjectInitializer` パラメータは、const とマークされていますが、ビルトインの「可変」 (mutable) 関数経由で設定してプロパティとサブオブジェクトをオーバーライドすることができます。作成されている `UObject` にこれらの値が反映されるので、 
 それを使って登録されたプロパティまたはコンポーネントの値を変更することができます。
 
 	AUDKEmitterPool::AUDKEmitterPool(const FObjectInitializer& ObjectInitializer)
 	:Super(ObjectInitializer.DoNotCreateDefaultSubobject(TEXT("SomeComponent")).DoNotCreateDefaultSubobject(TEXT("SomeOtherComponent")))
 	{
-		// Initialize CDO properties here. (ここで CDO プロパティを初期化します。)
+		// Initialize CDO properties here.
 	}
 
-上記のケースでは、おそらく、スーパークラスは "SomeComponent" および "SomeOtherComponent" という名前のサブオブジェクトをコンストラクタ内に作成しようとしますが、FObjectInitializer があるので作成はしません。 
-次のケースでは、SomeProperty が CDO のデフォルトを 26 にするので、AUTDemoHUD の各インスタンスが新しくなります。
+上記のケースでは、スーパークラスは "SomeComponent" および "SomeOtherComponent" という名前のサブオブジェクトをコンストラクタ内に作成しようとしますが、FObjectInitializer があるので作成はしません。 
+次のケースでは、`SomeProperty` が CDO でデフォルトで 26 になるので、AUTDemoHUD の各インスタンスが新しくなります。
 
 	AUTDemoHUD::AUTDemoHUD()
 	{
-		// Initialize CDO properties here. (ここで CDO プロパティを初期化します。)
+		// Initialize CDO properties here.
 		SomeProperty = 26;
 	}
 
@@ -131,14 +133,14 @@ Version:4.9
 さらに複雑なデータ型、特にクラスの参照、名前、アセットの参照のために値を設定する場合、 
 必要な様々なプロパティ値を保持するためにコンストラクタ内で **ConstructorStatics** 構造体を定義およびインスタンス化することが求められます。`ConstructorStatics` 構造体は、コンストラクタの初回実行時のみ作成されます。次の実行時にはポインタをコピーするだけなので、 
 処理速度が超高速になります。`ConstructorStatics` 構造体が作成されると、後にコンストラクタで実際のプロパティに値を代入する時に、 
-アクセスできるように構造体のメンバに値が割り当てられます。
+アクセス手段として構造体のメンバに値が代入されます。
 
 **ContructorHelpers** は、コンストラクタ特有の共通のアクションを実行するために使用するヘルパー テンプレートを含む `ObjectBase.h` で定義される特別な名前空間です。例えばヘルパー テンプレートには、 
 アセットやクラスへの参照を検索するためだけでなく、コンポーネントを作成したり検索するものもあります。
 
 ##### アセットの参照
 
-クラスにアセットの参照が存在しないことが理想的です。ハードコード化されたアセットの参照は壊れやすいので、アセット プロパティの設定にはブループリントの使用が推奨されてきました。しかしながら、 
+クラスにアセットの参照が存在しないことが理想的です。ハードコード化されたアセットの参照は壊れやすいので、アセット プロパティの設定にはブループリントの使用が推奨されてきました。しかし、 
 ハードコード化された参照は完全にサポートされています。オブジェクトを構築するたびにアセットの検索を行いたくないため、検索は 1 度だけ行います。静的な構造体を使用して、アセット検索は必ず 1 回だけ 
 実行するようにできます。
 
@@ -158,21 +160,28 @@ Version:4.9
 		};
 		static FConstructorStatics ConstructorStatics;
 
-		// Property initialization (プロパティの初期化)
+		// Property initialization
 
 		StaticMesh = ConstructorStatics.Object0.Object;
 	}
 
 ##### クラスの参照
 
-`ConstructorHelpers::FClassFinder` は指定された `UClass` への参照を検索します。クラスが見つからない場合は失敗したことが報告されます。
+`ConstructorHelpers::FClassFinder` は指定された `UClass` への参照を検索し、見つからない場合は失敗したことを報告します。
 
 	APylon::APylon(const class FObjectInitializer& ObjectInitializer)
 	:Super(ObjectInitializer)
 	{
-		// Structure to hold one-time initialization (一度きりの初期化を保持する構造体)
+		// Structure to hold one-time initialization
 		static FClassFinder<UNavigationMeshBase> ClassFinder(TEXT("class'Engine.NavigationMeshBase'"));
-		NavMeshClass = ClassFinder.Succeeded() ?ClassFinder.Class : nullptr;
+		if (ClassFinder.Succeeded())
+		{
+			NavMeshClass = ClassFinder.Class;
+		}
+		else
+		{
+			NavMeshClass = nullptr;
+		}
 	}
 
 たいていの場合、 `USomeClass::StaticClass()` を使って ClassFinder の複雑さをまとめてスキップすることができます。例えば、ほとんどの状況で次のメソッドを利用できます。
@@ -183,7 +192,7 @@ Version:4.9
 
 ##### コンポーネントとサブ オブジェクト
 
-コンポーネント サブオブジェクトの作成およびアクタの階層へのアタッチも、コンストラクタの実行中に行うことができます。アクタのスポーン時に、そのコンポーネントは CDO からクローンされます。コンポーネントが毎回正しく作成、破壊、ガーベジコレクション処理されるように、
+コンポーネント サブオブジェクトの作成およびアクタの階層へのアタッチも、コンストラクタ内で行うことができます。アクタのスポーン時に、そのコンポーネントは CDO からクローンされます。コンポーネントが毎回正しく作成、破棄、ガーベジコレクション処理されるように、
 コンストラクタで作成された各コンポーネントへのポインタは、所有クラスの UPROPERTY に格納されます。
 
 	UCLASS()
@@ -201,10 +210,10 @@ Version:4.9
 
 	AWindPointSource::AWindPointSource()
 	{
-		// Create a new component and give it a name. (次に、スタティックメッシュのコンポーネントを作成し、名前を付けます。)
+		// Create a new component and give it a name.
 		WindPointSource = CreateDefaultSubobject<UWindPointSourceComponent>(TEXT("WindPointSourceComponent0"));
 
-		// Set our new component as the RootComponent of this actor, or attach it to the root if one already exists. (新規コンポーネントをこのアクタの RootComponent に設定する、もしくはルートが既に存在している場合はルートにアタッチします。)
+		// Set our new component as the RootComponent of this actor, or attach it to the root if one already exists.
 		if (RootComponent == nullptr)
 		{
 			RootComponent = WindPointSource;
@@ -214,11 +223,11 @@ Version:4.9
 			WindPointSource->AttachTo(RootComponent);
 		}
 
-		// Create a second component. (2 つ目のコンポーネントを作成します。)このコンポーネントはさきほど作成したコンポーネントにアタッチされます。
+		// Create a second component.This will be attached to the component we just created.
 		DisplaySphere = CreateDefaultSubobject<UDrawSphereComponent>(TEXT("DrawSphereComponent0"));
 		DisplaySphere->AttachTo(RootComponent);
 
-		// Set some properties on the new component. (新規コンポーネントにプロパティを設定します。)
+		// Set some properties on the new component.
 		DisplaySphere->ShapeColor.R = 173;
 		DisplaySphere->ShapeColor.G = 239;
 		DisplaySphere->ShapeColor.B = 231;
@@ -228,7 +237,7 @@ Version:4.9
 		DisplaySphere->bAbsoluteScale = true;
 	}
 
-親クラスに属するコンポーネントの修正は通常必要ありません。ただし、親クラスによって作成されたコンポーネントを含め、アタッチされたすべてのコンポーネントの現在のリストが 
-利用できます。ルート コンポーネントを含め、`USceneComponent` に `GetAttachParent`、`GetParentComponents`、`GetNumChildrenComponents`、`GetChildrenComponents`、`GetChildComponent` を 
-呼び出してみてください。
+親クラスに属するコンポーネントの修正は通常必要ありません。ただし、親クラスによって作成されたコンポーネントを含め、アタッチされたすべてのコンポーネントの現在のリストが、 
+ルート コンポーネントを含め、`USceneComponent` の `GetAttachParent`、`GetParentComponents`、`GetNumChildrenComponents`、`GetChildrenComponents`、`GetChildComponent` を 
+呼び出すことで利用することができます。
 

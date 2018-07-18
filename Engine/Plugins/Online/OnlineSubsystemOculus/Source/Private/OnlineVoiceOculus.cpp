@@ -9,7 +9,7 @@
 #include "Runtime/Engine/Classes/Sound/SoundWaveProcedural.h"
 #include "OnlineSubsystemUtils.h"
 
-#include "ConfigCacheIni.h"
+#include "Misc/ConfigCacheIni.h"
 #include "OnlineSubsystemOculusPackage.h"
 
 // Define the voice sample rate the default in OVR_VoipSampleRate

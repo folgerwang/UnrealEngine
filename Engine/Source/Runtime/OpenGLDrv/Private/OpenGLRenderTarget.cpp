@@ -129,7 +129,7 @@ GLuint FOpenGLDynamicRHI::GetOpenGLFramebuffer(uint32 NumSimultaneousRenderTarge
 	glBindFramebuffer(GL_FRAMEBUFFER, Framebuffer);
 	VERIFY_GL(glBindFramebuffer)
 
-#if PLATFORM_ANDROID
+#if PLATFORM_ANDROID && !PLATFORM_LUMINGL4
 	static const auto CVarMobileMultiView = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("vr.MobileMultiView"));
 
 	// Allocate mobile multi-view frame buffer if enabled and supported.
@@ -197,12 +197,12 @@ GLuint FOpenGLDynamicRHI::GetOpenGLFramebuffer(uint32 NumSimultaneousRenderTarge
 			switch (RenderTarget->Target)
 			{
 			case GL_TEXTURE_2D:
-#if PLATFORM_ANDROID
+#if PLATFORM_ANDROID && !PLATFORM_LUMINGL4
 			case GL_TEXTURE_EXTERNAL_OES:
 #endif
 			case GL_TEXTURE_2D_MULTISAMPLE:
 			{
-#if PLATFORM_ANDROID
+#if PLATFORM_ANDROID && !PLATFORM_LUMINGL4
 				FOpenGLTexture2D* RenderTarget2D = (FOpenGLTexture2D*)RenderTarget;
 				const uint32 NumSamplesTileMem = RenderTarget2D->GetNumSamplesTileMem();
 				if (NumSamplesTileMem > 1 && glFramebufferTexture2DMultisampleEXT)
@@ -236,13 +236,13 @@ GLuint FOpenGLDynamicRHI::GetOpenGLFramebuffer(uint32 NumSimultaneousRenderTarge
 			switch( RenderTarget->Target )
 			{
 			case GL_TEXTURE_2D:
-#if PLATFORM_ANDROID
+#if PLATFORM_ANDROID && !PLATFORM_LUMINGL4
 			case GL_TEXTURE_EXTERNAL_OES:
 #endif
 			case GL_TEXTURE_2D_MULTISAMPLE:
 			{
 				check(ArrayIndices[RenderTargetIndex] == 0);
-#if PLATFORM_ANDROID
+#if PLATFORM_ANDROID && !PLATFORM_LUMINGL4
 				FOpenGLTexture2D* RenderTarget2D = (FOpenGLTexture2D*)RenderTarget;
 				const uint32 NumSamplesTileMem = RenderTarget2D->GetNumSamplesTileMem();
 				if (NumSamplesTileMem > 1 && glFramebufferTexture2DMultisampleEXT)
@@ -284,12 +284,12 @@ GLuint FOpenGLDynamicRHI::GetOpenGLFramebuffer(uint32 NumSimultaneousRenderTarge
 		switch (DepthStencilTarget->Target)
 		{
 		case GL_TEXTURE_2D:
-#if PLATFORM_ANDROID
+#if PLATFORM_ANDROID && !PLATFORM_LUMINGL4
 		case GL_TEXTURE_EXTERNAL_OES:
 #endif
 		case GL_TEXTURE_2D_MULTISAMPLE:
 		{
-#if PLATFORM_ANDROID
+#if PLATFORM_ANDROID && !PLATFORM_LUMINGL4
 			FOpenGLTexture2D* DepthStencilTarget2D = (FOpenGLTexture2D*)DepthStencilTarget;
 			const uint32 NumSamplesTileMem = DepthStencilTarget2D->GetNumSamplesTileMem();
 			if (NumSamplesTileMem > 1)
@@ -373,8 +373,6 @@ GLuint FOpenGLDynamicRHI::GetOpenGLFramebuffer(uint32 NumSimultaneousRenderTarge
 
 void ReleaseOpenGLFramebuffers(FOpenGLDynamicRHI* Device, FTextureRHIParamRef TextureRHI)
 {
-	VERIFY_GL_SCOPE();
-
 	FOpenGLTextureBase* Texture = GetOpenGLTextureFromRHITexture(TextureRHI);
 
 	if (Texture)
@@ -406,8 +404,14 @@ void ReleaseOpenGLFramebuffers(FOpenGLDynamicRHI* Device, FTextureRHIParamRef Te
 			{
 				GLuint FramebufferToDelete = It.Value()-1;
 				check(FramebufferToDelete > 0);
-				Device->PurgeFramebufferFromCaches( FramebufferToDelete );
-				glDeleteFramebuffers( 1, &FramebufferToDelete );
+
+				RunOnGLRenderContextThread( [=]() 
+					{
+						VERIFY_GL_SCOPE();
+						Device->PurgeFramebufferFromCaches( FramebufferToDelete );
+						glDeleteFramebuffers( 1, &FramebufferToDelete );
+					});
+
 				It.RemoveCurrent();
 			}
 		}
@@ -439,7 +443,7 @@ void FOpenGLDynamicRHI::PurgeFramebufferFromCaches( GLuint Framebuffer )
 	}
 }
 
-void FOpenGLDynamicRHI::RHICopyToResolveTarget(FTextureRHIParamRef SourceTextureRHI, FTextureRHIParamRef DestTextureRHI, bool bKeepOriginalSurface, const FResolveParams& ResolveParams)
+void FOpenGLDynamicRHI::RHICopyToResolveTarget(FTextureRHIParamRef SourceTextureRHI, FTextureRHIParamRef DestTextureRHI, const FResolveParams& ResolveParams)
 {
 	if (!SourceTextureRHI || !DestTextureRHI)
 	{
@@ -809,7 +813,7 @@ void FOpenGLDynamicRHI::ReadSurfaceDataRaw(FOpenGLContextState& ContextState, FT
 
 		FMemory::Free( FloatBGRAData );
 	}
-#if PLATFORM_ANDROID
+#if PLATFORM_ANDROID && !PLATFORM_LUMINGL4
 	else
 	{
 		// OpenGL ES is limited in what it can do with ReadPixels
@@ -877,6 +881,9 @@ void FOpenGLDynamicRHI::RHIReadSurfaceData(FTextureRHIParamRef TextureRHI,FIntRe
 		return;
 	}
 
+	FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
+	
+	RHITHREAD_GLCOMMAND_PROLOGUE();
 	TArray<uint8> Temp;
 
 	FOpenGLContextState& ContextState = GetContextStateForCurrentContext();
@@ -891,10 +898,15 @@ void FOpenGLDynamicRHI::RHIReadSurfaceData(FTextureRHIParamRef TextureRHI,FIntRe
 
 		FMemory::Memcpy(OutData.GetData(), Temp.GetData(), Size * sizeof(FColor));
 	}
+	RHITHREAD_GLCOMMAND_EPILOGUE();
 }
 
 void FOpenGLDynamicRHI::RHIMapStagingSurface(FTextureRHIParamRef TextureRHI,void*& OutData,int32& OutWidth,int32& OutHeight)
 {
+	FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
+
+	RHITHREAD_GLCOMMAND_PROLOGUE();
+
 	VERIFY_GL_SCOPE();
 	
 	FOpenGLTexture2D* Texture2D = (FOpenGLTexture2D*)TextureRHI->GetTexture2D();
@@ -906,20 +918,30 @@ void FOpenGLDynamicRHI::RHIMapStagingSurface(FTextureRHIParamRef TextureRHI,void
 	
 	uint32 Stride = 0;
 	OutData = Texture2D->Lock( 0, 0, RLM_ReadOnly, Stride );
+	RHITHREAD_GLCOMMAND_EPILOGUE();
 }
 
 void FOpenGLDynamicRHI::RHIUnmapStagingSurface(FTextureRHIParamRef TextureRHI)
 {
+	FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
+
+	RHITHREAD_GLCOMMAND_PROLOGUE();
+
 	VERIFY_GL_SCOPE();
 	
 	FOpenGLTexture2D* Texture2D = (FOpenGLTexture2D*)TextureRHI->GetTexture2D();
 	check(Texture2D);
 
 	Texture2D->Unlock( 0, 0 );
+	RHITHREAD_GLCOMMAND_EPILOGUE();
 }
 
 void FOpenGLDynamicRHI::RHIReadSurfaceFloatData(FTextureRHIParamRef TextureRHI,FIntRect Rect,TArray<FFloat16Color>& OutData,ECubeFace CubeFace,int32 ArrayIndex,int32 MipIndex)
 {
+	FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
+
+	RHITHREAD_GLCOMMAND_PROLOGUE();
+
 	VERIFY_GL_SCOPE();	
 
 	//reading from arrays only supported on SM5 and up.
@@ -987,10 +1009,15 @@ void FOpenGLDynamicRHI::RHIReadSurfaceFloatData(FTextureRHIParamRef TextureRHI,F
 	}
 
 	GetContextStateForCurrentContext().Framebuffer = (GLuint)-1;
+	RHITHREAD_GLCOMMAND_EPILOGUE();
 }
 
 void FOpenGLDynamicRHI::RHIRead3DSurfaceFloatData(FTextureRHIParamRef TextureRHI,FIntRect Rect,FIntPoint ZMinMax,TArray<FFloat16Color>& OutData)
 {
+	FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
+
+	RHITHREAD_GLCOMMAND_PROLOGUE();
+
 	VERIFY_GL_SCOPE();
 
 	check( FOpenGL::SupportsFloatReadSurface() );
@@ -1043,6 +1070,8 @@ void FOpenGLDynamicRHI::RHIRead3DSurfaceFloatData(FTextureRHIParamRef TextureRHI
 	glDeleteFramebuffers( 1, &SourceFramebuffer);
 	FOpenGL::DeleteTextures( 1, &TempTexture );
 	ContextState.Framebuffer = (GLuint)-1;
+
+	RHITHREAD_GLCOMMAND_EPILOGUE();
 }
 
 
@@ -1061,15 +1090,28 @@ void FOpenGLDynamicRHI::BindPendingFramebuffer( FOpenGLContextState& ContextStat
 
 			if ( FOpenGL::SupportsMultipleRenderTargets() )
 			{
-				FOpenGL::ReadBuffer( PendingState.FirstNonzeroRenderTarget >= 0 ? GL_COLOR_ATTACHMENT0 + PendingState.FirstNonzeroRenderTarget : GL_NONE);
+				//if (ContextState.FirstNonzeroRenderTarget != PendingState.FirstNonzeroRenderTarget)
+				//{
+					FOpenGL::ReadBuffer( PendingState.FirstNonzeroRenderTarget >= 0 ? GL_COLOR_ATTACHMENT0 + PendingState.FirstNonzeroRenderTarget : GL_NONE);
+					//ContextState.FirstNonzeroRenderTarget = PendingState.FirstNonzeroRenderTarget;
+				//}
 				GLenum DrawFramebuffers[MaxSimultaneousRenderTargets];
 				const GLint MaxDrawBuffers = GMaxOpenGLDrawBuffers;
 
+				bool bNeedToDrawBuffers = false;
 				for (int32 RenderTargetIndex = 0; RenderTargetIndex < MaxDrawBuffers; ++RenderTargetIndex)
 				{
 					DrawFramebuffers[RenderTargetIndex] = PendingState.RenderTargets[RenderTargetIndex] ? GL_COLOR_ATTACHMENT0 + RenderTargetIndex : GL_NONE;
+					if (ContextState.DrawFramebuffers[RenderTargetIndex] != DrawFramebuffers[RenderTargetIndex])
+					{
+						bNeedToDrawBuffers = true;
+						ContextState.DrawFramebuffers[RenderTargetIndex] = DrawFramebuffers[RenderTargetIndex];
+					}
 				}
-				FOpenGL::DrawBuffers(MaxDrawBuffers, DrawFramebuffers);
+				if (bNeedToDrawBuffers)
+				{
+					FOpenGL::DrawBuffers(MaxDrawBuffers, DrawFramebuffers);
+				}
 			}
 		}
 		else
@@ -1080,5 +1122,25 @@ void FOpenGLDynamicRHI::BindPendingFramebuffer( FOpenGLContextState& ContextStat
 		}
 
 		ContextState.Framebuffer = PendingState.Framebuffer;
+	}
+}
+
+
+void FOpenGLDynamicRHI::RHIBeginRenderPass(const FRHIRenderPassInfo& InInfo, const TCHAR* InName)
+{
+	IRHICommandContext::RHIBeginRenderPass(InInfo, InName);
+	if (InInfo.bOcclusionQueries)
+	{
+		extern void BeginOcclusionQueryBatch(uint32);
+		BeginOcclusionQueryBatch(InInfo.NumOcclusionQueries);
+	}
+}
+
+void FOpenGLDynamicRHI::RHIEndRenderPass()
+{
+	if (RenderPassInfo.bOcclusionQueries)
+	{
+		extern void EndOcclusionQueryBatch();
+		EndOcclusionQueryBatch();
 	}
 }

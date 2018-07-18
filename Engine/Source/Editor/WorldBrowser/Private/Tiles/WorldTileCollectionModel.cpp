@@ -222,7 +222,7 @@ void FWorldTileCollectionModel::TranslateLevels(const FLevelModelList& InLevels,
 	for (auto It = TilesToMove.CreateIterator(); It; ++It)
 	{
 		TSharedPtr<FWorldTileModel> TileModel = StaticCastSharedPtr<FWorldTileModel>(*It);
-		FIntPoint NewPosition = TileModel->GetAbsoluteLevelPosition() + FIntPoint(InDelta.X, InDelta.Y);
+		FIntVector NewPosition = TileModel->GetAbsoluteLevelPosition() + FIntVector(InDelta.X, InDelta.Y, 0);
 		TileModel->SetLevelPosition(NewPosition);
 	}
 
@@ -263,7 +263,7 @@ TSharedPtr<WorldHierarchy::FWorldBrowserDragDropOp> FWorldTileCollectionModel::C
 			TSharedPtr<FWorldTileModel> Tile = StaticCastSharedPtr<FWorldTileModel>(LevelModel);
 			if (Tile->IsLoaded())
 			{
-				StreamingLevelsToDrag.AddUnique(Tile->GetAssosiatedStreamingLevel());
+				StreamingLevelsToDrag.AddUnique(Tile->GetAssociatedStreamingLevel());
 			}
 			else
 			{
@@ -620,9 +620,11 @@ bool FWorldTileCollectionModel::GetPlayerView(FVector& Location, FRotator& Rotat
 		UWorld* SimulationWorld = GetSimulationWorld();
 		for (FConstPlayerControllerIterator Iterator = SimulationWorld->GetPlayerControllerIterator(); Iterator; ++Iterator)
 		{
-			APlayerController* PlayerActor = Iterator->Get();
-			PlayerActor->GetPlayerViewPoint(Location, Rotation);
-			return true;
+			if (APlayerController* PlayerActor = Iterator->Get())
+			{
+				PlayerActor->GetPlayerViewPoint(Location, Rotation);
+				return true;
+			}
 		}
 	}
 	
@@ -1465,7 +1467,7 @@ void FWorldTileCollectionModel::AddLandscapeProxy_Executed(FWorldTileModel::EWor
 		Levels.Add(NewLevelModel);
 
 		ALandscapeProxy* SourceLandscape = LandscapeTileModel->GetLandscape();
-		FIntPoint SourceTileOffset = LandscapeTileModel->GetAbsoluteLevelPosition();
+		FIntVector SourceTileOffset = LandscapeTileModel->GetAbsoluteLevelPosition();
 
 		NewLevelModel->SetVisible(false);
 		NewLevelModel->CreateAdjacentLandscapeProxy(SourceLandscape, SourceTileOffset, InWhere);
@@ -1697,7 +1699,7 @@ void FWorldTileCollectionModel::ImportTiledLandscape_Executed()
 						}
 
 						// Place level tile at correct position in the world
-						NewTileModel->SetLevelPosition(TileOffset);
+						NewTileModel->SetLevelPosition(FIntVector(TileOffset.X, TileOffset.Y, 0));
 
 						// Save level with a landscape
 						FEditorFileUtils::SaveLevel(NewWorld->PersistentLevel, *MapFileName);
@@ -1827,14 +1829,14 @@ void FWorldTileCollectionModel::PostUndo(bool bSuccess)
 	}
 }
 
-void FWorldTileCollectionModel::MoveWorldOrigin(const FIntPoint& InOrigin)
+void FWorldTileCollectionModel::MoveWorldOrigin(const FIntPoint& InOrigin2D)
 {
 	if (IsReadOnly())
 	{
 		return;
 	}
 	
-	GetWorld()->SetNewWorldOrigin(FIntVector(InOrigin.X, InOrigin.Y, 0));
+	GetWorld()->SetNewWorldOrigin(FIntVector(InOrigin2D.X, InOrigin2D.Y, 0));
 	RequestUpdateAllLevels();
 }
 
@@ -1846,7 +1848,9 @@ void FWorldTileCollectionModel::MoveWorldOrigin_Executed()
 	}
 
 	TSharedPtr<FWorldTileModel> TargetModel = StaticCastSharedPtr<FWorldTileModel>(SelectedLevelsList[0]);
-	MoveWorldOrigin(TargetModel->GetAbsoluteLevelPosition());
+	FIntVector IntOrigin = FIntVector(TargetModel->GetAbsoluteLevelPosition());
+	FIntPoint IntOrign2D = FIntPoint(IntOrigin.X, IntOrigin.Y);
+	MoveWorldOrigin(IntOrign2D);
 }
 
 void FWorldTileCollectionModel::ResetWorldOrigin_Executed()
@@ -1871,11 +1875,12 @@ void FWorldTileCollectionModel::ResetLevelOrigin_Executed()
 	{
 		TSharedPtr<FWorldTileModel> TileModel = StaticCastSharedPtr<FWorldTileModel>(*It);
 		
-		FIntPoint AbsolutePosition = TileModel->GetAbsoluteLevelPosition();
-		if (AbsolutePosition != FIntPoint::ZeroValue)
+		FIntVector AbsolutePosition = TileModel->GetAbsoluteLevelPosition();
+		FIntPoint AbsolutePosition2D = FIntPoint(AbsolutePosition.X, AbsolutePosition.Y);
+		if (AbsolutePosition2D != FIntPoint::ZeroValue)
 		{
 			FLevelModelList LevelsToMove; LevelsToMove.Add(TileModel);
-			TranslateLevels(LevelsToMove, FIntPoint::ZeroValue - AbsolutePosition, false);
+			TranslateLevels(LevelsToMove, FIntPoint::ZeroValue - AbsolutePosition2D, false);
 		}
 	}
 
@@ -1989,7 +1994,7 @@ bool FWorldTileCollectionModel::GenerateLODLevels(FLevelModelList InLevelList, i
 		LODPackage->FileName = FName(*LODLevelFileName);
 
 		// This is current actors offset from their original position
-		FVector ActorsOffset = FVector(TileModel->GetAbsoluteLevelPosition() - GetWorldOriginLocationXY(GetWorld()));
+		FVector ActorsOffset = FVector(TileModel->GetAbsoluteLevelPosition() - GetWorld()->OriginLocation);
 		if (GetWorld()->WorldComposition->bTemporallyDisableOriginTracking)
 		{
 			ActorsOffset = FVector::ZeroVector;
@@ -2144,14 +2149,14 @@ bool FWorldTileCollectionModel::GenerateLODLevels(FLevelModelList InLevelList, i
 				StaticMesh->LightMapResolution = 64;
 				StaticMesh->LightMapCoordinateIndex = 1;
 
-				FStaticMeshSourceModel* SrcModel = new (StaticMesh->SourceModels) FStaticMeshSourceModel();
+				FStaticMeshSourceModel& SrcModel = StaticMesh->AddSourceModel();
 				/*Don't allow the engine to recalculate normals*/
-				SrcModel->BuildSettings.bRecomputeNormals = false;
-				SrcModel->BuildSettings.bRecomputeTangents = false;
-				SrcModel->BuildSettings.bRemoveDegenerates = false;
-				SrcModel->BuildSettings.bUseHighPrecisionTangentBasis = false;
-				SrcModel->BuildSettings.bUseFullPrecisionUVs = false;
-				SrcModel->RawMeshBulkData->SaveRawMesh(LandscapeRawMesh);
+				SrcModel.BuildSettings.bRecomputeNormals = false;
+				SrcModel.BuildSettings.bRecomputeTangents = false;
+				SrcModel.BuildSettings.bRemoveDegenerates = false;
+				SrcModel.BuildSettings.bUseHighPrecisionTangentBasis = false;
+				SrcModel.BuildSettings.bUseFullPrecisionUVs = false;
+				SrcModel.SaveRawMesh(LandscapeRawMesh);
 
 				//Assign the proxy material to the static mesh
 				StaticMesh->StaticMaterials.Add(FStaticMaterial(StaticLandscapeMaterial));

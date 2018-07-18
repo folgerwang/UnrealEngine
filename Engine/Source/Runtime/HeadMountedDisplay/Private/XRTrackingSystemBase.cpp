@@ -5,6 +5,10 @@
 #include "Engine/Engine.h" // for FWorldContext
 #include "Engine/LocalPlayer.h"
 #include "Camera/CameraComponent.h"
+#include "GameFramework/PlayerController.h"
+
+// Tracking system delegates
+FXRTrackingSystemDelegates::FXRTrackingOriginChanged FXRTrackingSystemDelegates::OnXRTrackingOriginChanged;
 
 FXRTrackingSystemBase::FXRTrackingSystemBase()
 {

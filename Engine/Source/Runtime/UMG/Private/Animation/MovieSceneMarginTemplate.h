@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
-#include "Curves/RichCurve.h"
+#include "Channels/MovieSceneFloatChannel.h"
 #include "Evaluation/MovieSceneEvalTemplate.h"
 #include "Evaluation/MovieScenePropertyTemplate.h"
 #include "Evaluation/Blending/MovieSceneMultiChannelBlending.h"
@@ -21,8 +21,13 @@ struct FMovieSceneMarginSectionTemplate : public FMovieScenePropertySectionTempl
 {
 	GENERATED_BODY()
 	
-	FMovieSceneMarginSectionTemplate(){}
+	FMovieSceneMarginSectionTemplate() : BlendType((EMovieSceneBlendType)0) {}
 	FMovieSceneMarginSectionTemplate(const UMovieSceneMarginSection& Section, const UMovieScenePropertyTrack& Track);
+
+	const FMovieSceneFloatChannel& GetTopCurve() const    { return TopCurve; }
+	const FMovieSceneFloatChannel& GetLeftCurve() const   { return LeftCurve; }
+	const FMovieSceneFloatChannel& GetRightCurve() const  { return RightCurve; }
+	const FMovieSceneFloatChannel& GetBottomCurve() const { return BottomCurve; }
 
 private:
 
@@ -30,16 +35,16 @@ private:
 	virtual void Evaluate(const FMovieSceneEvaluationOperand& Operand, const FMovieSceneContext& Context, const FPersistentEvaluationData& PersistentData, FMovieSceneExecutionTokens& ExecutionTokens) const override;
 
 	UPROPERTY()
-	FRichCurve TopCurve;
+	FMovieSceneFloatChannel TopCurve;
 
 	UPROPERTY()
-	FRichCurve LeftCurve;
+	FMovieSceneFloatChannel LeftCurve;
 
 	UPROPERTY()
-	FRichCurve RightCurve;
+	FMovieSceneFloatChannel RightCurve;
 
 	UPROPERTY()
-	FRichCurve BottomCurve;
+	FMovieSceneFloatChannel BottomCurve;
 
 	UPROPERTY()
 	EMovieSceneBlendType BlendType;

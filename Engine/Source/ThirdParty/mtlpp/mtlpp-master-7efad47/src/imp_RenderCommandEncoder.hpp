@@ -88,10 +88,10 @@ struct IMPTable<id<MTLRenderCommandEncoder>, void> : public IMPTableCommandEncod
 	, INTERPOSE_CONSTRUCTOR(SetTilesamplerstatesWithrange, C)
 	, INTERPOSE_CONSTRUCTOR(SetTilesamplerstateLodminclampLodmaxclampAtindex, C)
 	, INTERPOSE_CONSTRUCTOR(SetTilesamplerstatesLodminclampsLodmaxclampsWithrange, C)
+	, INTERPOSE_CONSTRUCTOR(dispatchThreadsPerTile, C)
 	, INTERPOSE_CONSTRUCTOR(tileWidth, C)
 	, INTERPOSE_CONSTRUCTOR(tileHeight, C)
 	, INTERPOSE_CONSTRUCTOR(setThreadgroupMemoryLength, C)
-	, INTERPOSE_CONSTRUCTOR(dispatchThreadsPerTile, C)
 	{
 	}
 	

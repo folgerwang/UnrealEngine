@@ -7,12 +7,14 @@
 #include "Engine/Texture2D.h"
 #include "ThumbnailRendering/ThumbnailManager.h"
 #include "Engine/TextureCube.h"
+#include "Engine/VolumeTexture.h"
 #include "Engine/TextureRenderTarget2D.h"
 #include "Engine/TextureRenderTargetCube.h"
 #include "UnrealEdGlobals.h"
 #include "CubemapUnwrapUtils.h"
 #include "Slate/SceneViewport.h"
 #include "Texture2DPreview.h"
+#include "VolumeTexturePreview.h"
 #include "TextureEditorSettings.h"
 #include "Widgets/STextureEditorViewport.h"
 #include "CanvasTypes.h"
@@ -64,10 +66,9 @@ void FTextureEditorViewportClient::Draw(FViewport* Viewport, FCanvas* Canvas)
 
 	Canvas->Clear( Settings.BackgroundColor );
 
-	TextureEditorPtr.Pin()->PopulateQuickInfo();
-	
 	UTexture2D* Texture2D = Cast<UTexture2D>(Texture);
 	UTextureCube* TextureCube = Cast<UTextureCube>(Texture);
+	UVolumeTexture* VolumeTexture = Cast<UVolumeTexture>(Texture);
 	UTextureRenderTarget2D* TextureRT2D = Cast<UTextureRenderTarget2D>(Texture);
 	UTextureRenderTargetCube* RTTextureCube = Cast<UTextureRenderTargetCube>(Texture);
 
@@ -78,9 +79,12 @@ void FTextureEditorViewportClient::Draw(FViewport* Viewport, FCanvas* Canvas)
 		Texture2D->WaitForStreaming();
 	}
 
+	TextureEditorPtr.Pin()->PopulateQuickInfo();
+
 	// Figure out the size we need
 	uint32 Width, Height;
 	TextureEditorPtr.Pin()->CalculateTextureDimensions(Width, Height);
+	const float MipLevel = (float)TextureEditorPtr.Pin()->GetMipLevel();
 
 	TRefCountPtr<FBatchedElementParameters> BatchedElementParameters;
 
@@ -88,24 +92,31 @@ void FTextureEditorViewportClient::Draw(FViewport* Viewport, FCanvas* Canvas)
 	{
 		if (TextureCube || RTTextureCube)
 		{
-			BatchedElementParameters = new FMipLevelBatchedElementParameters((float)TextureEditorPtr.Pin()->GetMipLevel(), false);
+			BatchedElementParameters = new FMipLevelBatchedElementParameters(MipLevel, false);
+		}
+		else if (VolumeTexture)
+		{
+			BatchedElementParameters = new FBatchedElementVolumeTexturePreviewParameters(
+				Settings.VolumeViewMode == TextureEditorVolumeViewMode_DepthSlices, 
+				FMath::Max<int32>(VolumeTexture->GetSizeZ() >> VolumeTexture->GetCachedLODBias(), 1), 
+				MipLevel, 
+				(float)TextureEditorPtr.Pin()->GetVolumeOpacity(),
+				true, 
+				TextureEditorPtr.Pin()->GetVolumeOrientation());
 		}
 		else if (Texture2D)
 		{
-			float MipLevel = (float)TextureEditorPtr.Pin()->GetMipLevel();
 			bool bIsNormalMap = Texture2D->IsNormalMap();
 			bool bIsSingleChannel = Texture2D->CompressionSettings == TC_Grayscale || Texture2D->CompressionSettings == TC_Alpha;
 			BatchedElementParameters = new FBatchedElementTexture2DPreviewParameters(MipLevel, bIsNormalMap, bIsSingleChannel);
 		}
 		else if (TextureRT2D)
 		{
-			float MipLevel = (float)TextureEditorPtr.Pin()->GetMipLevel();
 			BatchedElementParameters = new FBatchedElementTexture2DPreviewParameters(MipLevel, false, false);
 		}
 		else
 		{
 			// Default to treating any UTexture derivative as a 2D texture resource
-			float MipLevel = (float)TextureEditorPtr.Pin()->GetMipLevel();
 			BatchedElementParameters = new FBatchedElementTexture2DPreviewParameters(MipLevel, false, false);
 		}
 	}
@@ -155,10 +166,34 @@ bool FTextureEditorViewportClient::InputKey(FViewport* Viewport, int32 Controlle
 
 		return true;
 	}
-
+	else if (Key == EKeys::RightMouseButton)
+	{
+		TextureEditorPtr.Pin()->SetVolumeOrientation(FRotator(90, 0, -90));
+	}
 	return false;
 }
 
+bool FTextureEditorViewportClient::InputAxis(FViewport* Viewport, int32 ControllerId, FKey Key, float Delta, float DeltaTime, int32 NumSamples, bool bGamepad)
+{
+	if (Key == EKeys::MouseX || Key == EKeys::MouseY)
+	{
+		FRotator DeltaRotator(ForceInitToZero);
+		const float RotationSpeed = .2f;
+		if (Key == EKeys::MouseY)
+		{
+			DeltaRotator.Pitch = Delta * RotationSpeed;
+		}
+		else
+		{
+			DeltaRotator.Yaw = Delta * RotationSpeed;
+		}
+
+		TextureEditorPtr.Pin()->SetVolumeOrientation((FRotationMatrix::Make(DeltaRotator) * FRotationMatrix::Make(TextureEditorPtr.Pin()->GetVolumeOrientation())).Rotator());
+		return true;
+	}
+
+	return false;
+}
 
 bool FTextureEditorViewportClient::InputGesture(FViewport* Viewport, EGestureEvent GestureType, const FVector2D& GestureDelta, bool bIsDirectionInvertedFromDevice)
 {

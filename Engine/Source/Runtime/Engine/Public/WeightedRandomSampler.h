@@ -47,6 +47,8 @@ public:
 	virtual void Initialize();
 
 	virtual void Serialize(FArchive& Ar);
+
+	int32 GetNumEntries() const { return Prob.Num(); }
 protected:
 	TArray<float> Prob;
 	TArray<int32> Alias;

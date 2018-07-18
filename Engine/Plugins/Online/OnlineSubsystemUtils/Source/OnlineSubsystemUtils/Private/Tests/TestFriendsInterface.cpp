@@ -3,7 +3,7 @@
 #include "Tests/TestFriendsInterface.h"
 #include "OnlineSubsystemNames.h"
 #include "OnlineSubsystemUtils.h"
-#include "OnlineSharingInterface.h"
+#include "Interfaces/OnlineSharingInterface.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
 
@@ -46,7 +46,7 @@ void FTestFriendsInterface::Test(UWorld* InWorld, const TArray<FString>& Invites
 	}
 	else
 	{
-		UE_LOG(LogOnline, Warning, TEXT("Failed to get friends interface for %s"), *SubsystemName);
+		UE_LOG_ONLINE_FRIEND(Warning, TEXT("Failed to get friends interface for %s"), *SubsystemName);
 		FinishTest();
 	}
 }
@@ -140,7 +140,7 @@ void FTestFriendsInterface::FinishTest()
 
 void FTestFriendsInterface::OnReadFriendsComplete(int32 LocalPlayer, bool bWasSuccessful, const FString& ListName, const FString& ErrorStr)
 {
-	UE_LOG(LogOnline, Log,
+	UE_LOG_ONLINE_FRIEND(Log,
 		TEXT("ReadFriendsList() for player (%d) was success=%d error=%s"), LocalPlayer, bWasSuccessful, *ErrorStr);
 
 	if (bWasSuccessful)
@@ -149,7 +149,7 @@ void FTestFriendsInterface::OnReadFriendsComplete(int32 LocalPlayer, bool bWasSu
 		// Grab the friends data so we can print it out
 		if (OnlineSub->GetFriendsInterface()->GetFriendsList(LocalPlayer, ListName, Friends))
 		{
-			UE_LOG(LogOnline, Log,
+			UE_LOG_ONLINE_FRIEND(Log,
 				TEXT("GetFriendsList(%d) returned %d friends"), LocalPlayer, Friends.Num());
 
 			// Clear old entries
@@ -160,23 +160,23 @@ void FTestFriendsInterface::OnReadFriendsComplete(int32 LocalPlayer, bool bWasSu
 			{
 				const FOnlineFriend& Friend = *Friends[Index];
 				const FOnlineUserPresence& Presence = Friend.GetPresence();
-				UE_LOG(LogOnline, Log,
+				UE_LOG_ONLINE_FRIEND(Log,
 					TEXT("\t%s has unique id (%s)"), *Friend.GetDisplayName(), *Friend.GetUserId()->ToDebugString());
-				UE_LOG(LogOnline, Log,
+				UE_LOG_ONLINE_FRIEND(Log,
 					TEXT("\t\t Invite status (%s)"), EInviteStatus::ToString(Friend.GetInviteStatus()));
-				UE_LOG(LogOnline, Log,
+				UE_LOG_ONLINE_FRIEND(Log,
 					TEXT("\t\t Presence: %s"), *Presence.Status.StatusStr);
-				UE_LOG(LogOnline, Log,
+				UE_LOG_ONLINE_FRIEND(Log,
 					TEXT("\t\t State: %s"), EOnlinePresenceState::ToString(Presence.Status.State));
-				UE_LOG(LogOnline, Log,
+				UE_LOG_ONLINE_FRIEND(Log,
 					TEXT("\t\t bIsOnline (%s)"), Presence.bIsOnline ? TEXT("true") : TEXT("false"));
-				UE_LOG(LogOnline, Log,
+				UE_LOG_ONLINE_FRIEND(Log,
 					TEXT("\t\t bIsPlaying (%s)"), Presence.bIsPlaying ? TEXT("true") : TEXT("false"));
-				UE_LOG(LogOnline, Log,
+				UE_LOG_ONLINE_FRIEND(Log,
 					TEXT("\t\t bIsPlayingThisGame (%s)"), Presence.bIsPlayingThisGame ? TEXT("true") : TEXT("false"));
-				UE_LOG(LogOnline, Log,
+				UE_LOG_ONLINE_FRIEND(Log,
 					TEXT("\t\t bIsJoinable (%s)"), Presence.bIsJoinable ? TEXT("true") : TEXT("false"));
-				UE_LOG(LogOnline, Log,
+				UE_LOG_ONLINE_FRIEND(Log,
 					TEXT("\t\t bHasVoiceSupport (%s)"), Presence.bHasVoiceSupport ? TEXT("true") : TEXT("false"));
 
 				// keep track of pending invites from the list and accept them
@@ -190,7 +190,7 @@ void FTestFriendsInterface::OnReadFriendsComplete(int32 LocalPlayer, bool bWasSu
 		}	
 		else
 		{
-			UE_LOG(LogOnline, Log,
+			UE_LOG_ONLINE_FRIEND(Log,
 				TEXT("GetFriendsList(%d) failed"), LocalPlayer);
 		}
 	}
@@ -203,7 +203,7 @@ void FTestFriendsInterface::OnReadFriendsComplete(int32 LocalPlayer, bool bWasSu
 
 void FTestFriendsInterface::OnQueryRecentPlayersComplete(const FUniqueNetId& UserId, const FString& Namespace, bool bWasSuccessful, const FString& ErrorStr)
 {
-	UE_LOG(LogOnline, Log,
+	UE_LOG_ONLINE_FRIEND(Log,
 		TEXT("QueryRecentPlayers() for player (%s) was success=%d error=%s"), *UserId.ToDebugString(), bWasSuccessful, *ErrorStr);
 
 	if (bWasSuccessful)
@@ -212,15 +212,15 @@ void FTestFriendsInterface::OnQueryRecentPlayersComplete(const FUniqueNetId& Use
 		// Grab the friends data so we can print it out
 		if (OnlineSub->GetFriendsInterface()->GetRecentPlayers(UserId, Namespace, Players))
 		{
-			UE_LOG(LogOnline, Log,
+			UE_LOG_ONLINE_FRIEND(Log,
 				TEXT("GetRecentPlayers returned %d players"), Players.Num());
 
 			// Log each friend's data out
 			for (auto RecentPlayer : Players)
 			{
-				UE_LOG(LogOnline, Log,
+				UE_LOG_ONLINE_FRIEND(Log,
 					TEXT("\t%s has unique id (%s)"), *RecentPlayer->GetDisplayName(), *RecentPlayer->GetUserId()->ToDebugString());
-				UE_LOG(LogOnline, Log,
+				UE_LOG_ONLINE_FRIEND(Log,
 					TEXT("\t LastSeen (%s)"), *RecentPlayer->GetLastSeen().ToString());
 			}
 		}
@@ -234,7 +234,7 @@ void FTestFriendsInterface::OnQueryRecentPlayersComplete(const FUniqueNetId& Use
 
 void FTestFriendsInterface::OnAcceptInviteComplete(int32 LocalPlayer, bool bWasSuccessful, const FUniqueNetId& FriendId, const FString& ListName, const FString& ErrorStr)
 {
-	UE_LOG(LogOnline, Log, TEXT("AcceptInvite() for player (%d) from friend (%s) was success=%d. %s"), 
+	UE_LOG_ONLINE_FRIEND(Log, TEXT("AcceptInvite() for player (%d) from friend (%s) was success=%d. %s"), 
 		LocalPlayer, *FriendId.ToDebugString(), bWasSuccessful, *ErrorStr);
 
 	// done with this part of the test if no more invites to accept
@@ -254,7 +254,7 @@ void FTestFriendsInterface::OnAcceptInviteComplete(int32 LocalPlayer, bool bWasS
 
 void FTestFriendsInterface::OnSendInviteComplete(int32 LocalPlayer, bool bWasSuccessful, const FUniqueNetId& FriendId, const FString& ListName, const FString& ErrorStr)
 {
-	UE_LOG(LogOnline, Log, TEXT("SendInvite() for player (%d) to friend (%s) was success=%d. %s"), 
+	UE_LOG_ONLINE_FRIEND(Log, TEXT("SendInvite() for player (%d) to friend (%s) was success=%d. %s"), 
 		LocalPlayer, *FriendId.ToDebugString(), bWasSuccessful, *ErrorStr);
 
 	// done with this part of the test if no more invites to send
@@ -274,7 +274,7 @@ void FTestFriendsInterface::OnSendInviteComplete(int32 LocalPlayer, bool bWasSuc
 
 void FTestFriendsInterface::OnDeleteFriendComplete(int32 LocalPlayer, bool bWasSuccessful, const FUniqueNetId& FriendId, const FString& ListName, const FString& ErrorStr)
 {
-	UE_LOG(LogOnline, Log, TEXT("DeleteFriend() for player (%d) to friend (%s) was success=%d. %s"), 
+	UE_LOG_ONLINE_FRIEND(Log, TEXT("DeleteFriend() for player (%d) to friend (%s) was success=%d. %s"), 
 		LocalPlayer, *FriendId.ToDebugString(), bWasSuccessful, *ErrorStr);
 
 	// done with this part of the test if no more friends to delete
@@ -294,7 +294,7 @@ void FTestFriendsInterface::OnDeleteFriendComplete(int32 LocalPlayer, bool bWasS
 
 void FTestFriendsInterface::OnDeleteFriendsListComplete(int32 LocalPlayer, bool bWasSuccessful, const FString& ListName, const FString& ErrorStr)
 {
-	UE_LOG(LogOnline, Log,
+	UE_LOG_ONLINE_FRIEND(Log,
 		TEXT("DeleteFriendsList() for player (%d) was success=%d"), LocalPlayer, bWasSuccessful);
 
 	// done with this part of the test
@@ -306,7 +306,7 @@ void FTestFriendsInterface::OnDeleteFriendsListComplete(int32 LocalPlayer, bool 
 
 void FTestFriendsInterface::OnQueryBlockedPlayersComplete(const FUniqueNetId& UserId, bool bWasSuccessful, const FString& Error)
 {
-	UE_LOG(LogOnline, Log, TEXT("QueryBlockedPlayers() for player (%s) was success=%d"), *UserId.ToDebugString(), bWasSuccessful);
+	UE_LOG_ONLINE_FRIEND(Log, TEXT("QueryBlockedPlayers() for player (%s) was success=%d"), *UserId.ToDebugString(), bWasSuccessful);
 	bQueryBlockedPlayers = false;
 
 	if (bWasSuccessful)
@@ -314,17 +314,17 @@ void FTestFriendsInterface::OnQueryBlockedPlayersComplete(const FUniqueNetId& Us
 		TArray<TSharedRef<FOnlineBlockedPlayer>> BlockedPlayers;
 		if (OnlineSub->GetFriendsInterface()->GetBlockedPlayers(UserId, BlockedPlayers))
 		{
-			UE_LOG(LogOnline, Log, TEXT("GetBlockedPlayers() (%s) returned %d blocked users"), *UserId.ToDebugString(), BlockedPlayers.Num());
+			UE_LOG_ONLINE_FRIEND(Log, TEXT("GetBlockedPlayers() (%s) returned %d blocked users"), *UserId.ToDebugString(), BlockedPlayers.Num());
 
 			for (int32 Index = 0; Index < BlockedPlayers.Num(); Index++)
 			{
 				const FOnlineBlockedPlayer& BlockedPlayer = *BlockedPlayers[Index];
-				UE_LOG(LogOnline, Log, TEXT("\t%s (%s) is blocked"), *BlockedPlayer.GetRealName(), *BlockedPlayer.GetUserId()->ToDebugString());
+				UE_LOG_ONLINE_FRIEND(Log, TEXT("\t%s (%s) is blocked"), *BlockedPlayer.GetRealName(), *BlockedPlayer.GetUserId()->ToDebugString());
 			}
 		}
 		else
 		{
-			UE_LOG(LogOnline, Log, TEXT("GetBlockedPlayers() for player %s failed"), *UserId.ToDebugString());
+			UE_LOG_ONLINE_FRIEND(Log, TEXT("GetBlockedPlayers() for player %s failed"), *UserId.ToDebugString());
 		}
 	}
 

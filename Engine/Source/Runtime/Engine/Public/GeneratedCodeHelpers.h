@@ -6,10 +6,10 @@
 // THIS FILE SHOULD BE USED ONLY BY AUTOMATICALLY GENERATED CODE. 
 
 // Common includes
-#include "Runtime/Core/Public/Core.h"
 #include "UObject/Stack.h"
 #include "Blueprint/BlueprintSupport.h"
 #include "Engine/BlueprintGeneratedClass.h"
+#include "Engine/UserDefinedStruct.h"
 
 // Common libraries
 #include "Kismet/KismetArrayLibrary.h"

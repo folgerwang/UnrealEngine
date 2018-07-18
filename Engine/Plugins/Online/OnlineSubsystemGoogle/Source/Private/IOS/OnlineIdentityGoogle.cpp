@@ -2,6 +2,7 @@
 
 #include "OnlineIdentityGoogle.h"
 #include "OnlineSubsystemGooglePrivate.h"
+#include "Interfaces/OnlineExternalUIInterface.h"
 #include "GoogleHelper.h"
 
 #include "Misc/ConfigCacheIni.h"
@@ -91,7 +92,7 @@ bool FOnlineIdentityGoogle::Login(int32 LocalUserNum, const FOnlineAccountCreden
 							FString ErrorStr;
 							if (InResponseCode == EGoogleLoginResponse::RESPONSE_CANCELED)
 							{
-								ErrorStr = GOOGLE_AUTH_CANCELED;
+								ErrorStr = LOGIN_CANCELLED;
 							}
 							else
 							{
@@ -112,6 +113,7 @@ bool FOnlineIdentityGoogle::Login(int32 LocalUserNum, const FOnlineAccountCreden
 				}
 			};
 
+			bTriggeredLogin = true;
 			RetrieveDiscoveryDocument(MoveTemp(PendingLoginFn));
 		}
 		else

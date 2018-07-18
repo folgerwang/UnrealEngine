@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreTypes.h"
+#include "Misc/FrameRate.h"
 #include "IMediaTextureSample.h"
 #include "Math/IntPoint.h"
 #include "Templates/SharedPointer.h"
@@ -22,8 +23,8 @@ struct FImgMediaFrameInfo
 	/** Name of the image format (i.e. "EXR"). */
 	FString FormatName;
 
-	/** Frames per second. */
-	float Fps;
+	/** Frame rate. */
+	FFrameRate FrameRate;
 
 	/** Whether the frame is in sRGB color space. */
 	bool Srgb;

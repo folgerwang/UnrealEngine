@@ -1,51 +1,16 @@
-﻿INTSourceChangelist:2752527
+﻿INTSourceChangelist:3782314
 Availability:Docs
 Title:レベル スクリプト
 Crumbs:%ROOT%, Resources
 Description:レベル スクリプトのサンプル レベルの概要
 Version:4.9
+topic-image:level_scripting_topic.png
 
 [REGION:banner]
 ![](level_scripting_header.png)(convert:false)
 [/REGION]
 
 [TOC(start:2 end:2)]
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources/ContentExamples/LevelScripting:title%](level_scripting_topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/LevelScripting:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/ContentExamples/LevelScripting:description%
-	[/PARAM]
-	[PARAM:path]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Resources/ContentExamples/LevelScripting:title%](level_scripting_topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/LevelScripting:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/ContentExamples/LevelScripting:description%
-	[/PARAM]
-	[PARAM:path]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[COMMENT:none]
-Insert path when done! [RELATIVE:Resources/ContentExamples/LevelScripting]
-[/COMMENT]
 
 **レベル スクリプト** のサンプル レベルへようこそ！
 
@@ -58,14 +23,12 @@ Insert path when done! [RELATIVE:Resources/ContentExamples/LevelScripting]
 
 ## 例
 
-[REGION:topics fourth]
 %Resources/ContentExamples/LevelScripting/1_1:TopicCompact%
 %Resources/ContentExamples/LevelScripting/1_2:TopicCompact%
 %Resources/ContentExamples/LevelScripting/1_3:TopicCompact%
 %Resources/ContentExamples/LevelScripting/1_4:TopicCompact%
-[/REGION]
-
 
 ## 関連トピックと参考文献
-* [ブループリント](Engine/Blueprints)
+
+* [Blueprints](Engine/Blueprints)
 * [マチネとシネマチック](Engine/Matinee)

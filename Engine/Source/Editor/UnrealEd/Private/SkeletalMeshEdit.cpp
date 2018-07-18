@@ -27,7 +27,7 @@
 #include "FbxImporter.h"
 #include "Misc/FbxErrors.h"
 #include "Editor/EditorPerProjectUserSettings.h"
-#include "UObjectIterator.h"
+#include "UObject/UObjectIterator.h"
 #include "ComponentReregisterContext.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "FbxAnimUtils.h"
@@ -1204,9 +1204,12 @@ bool UnFbx::FFbxImporter::ImportAnimation(USkeleton* Skeleton, UAnimSequence * D
 		// The sequence already existed when we began the import. We need to scale the key times for all curves to match the new 
 		// duration before importing over them. This is to catch any user-added curves
 		float ScaleFactor = DestSeq->SequenceLength / PreviousSequenceLength;
-		for(FFloatCurve& Curve : DestSeq->RawCurveData.FloatCurves)
+		if (!FMath::IsNearlyEqual(ScaleFactor, 1.f))
 		{
-			Curve.FloatCurve.ScaleCurve(0.0f, ScaleFactor);
+			for (FFloatCurve& Curve : DestSeq->RawCurveData.FloatCurves)
+			{
+				Curve.FloatCurve.ScaleCurve(0.0f, ScaleFactor);
+			}
 		}
 	}
 
@@ -1398,6 +1401,8 @@ bool UnFbx::FFbxImporter::ImportAnimation(USkeleton* Skeleton, UAnimSequence * D
 	}
 
 	// importing custom attribute END
+	
+	const bool bSourceDataExists = DestSeq->HasSourceRawData();
 	TArray<AnimationTransformDebug::FAnimationTransformDebugData> TransformDebugData;
 	int32 TotalNumKeys = 0;
 	const FReferenceSkeleton& RefSkeleton = Skeleton->GetReferenceSkeleton();
@@ -1591,7 +1596,7 @@ bool UnFbx::FFbxImporter::ImportAnimation(USkeleton* Skeleton, UAnimSequence * D
 		GWarn->BeginSlowTask( LOCTEXT("BeginCompressAnimation", "Compress Animation"), true);
 		GWarn->StatusForceUpdate(1, 1, LOCTEXT("CompressAnimation", "Compressing Animation"));
 		// if source data exists, you should bake it to Raw to apply
-		if(DestSeq->DoesContainTransformCurves())
+		if(bSourceDataExists)
 		{
 			DestSeq->BakeTrackCurvesToRawAnimation();
 		}

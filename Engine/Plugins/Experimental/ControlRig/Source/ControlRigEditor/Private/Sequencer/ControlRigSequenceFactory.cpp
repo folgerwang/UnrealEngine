@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "ControlRigSequenceFactory.h"
-#include "ControlRigSequence.h"
+#include "Sequencer/ControlRigSequence.h"
 #include "MovieScene.h"
 #include "MovieSceneToolsProjectSettings.h"
 
@@ -22,7 +22,9 @@ UObject* UControlRigSequenceFactory::FactoryCreateNew(UClass* Class, UObject* In
 	
 	// Set up some sensible defaults
 	const UMovieSceneToolsProjectSettings* ProjectSettings = GetDefault<UMovieSceneToolsProjectSettings>();
-	NewSequence->GetMovieScene()->SetPlaybackRange(ProjectSettings->DefaultStartTime, ProjectSettings->DefaultStartTime + ProjectSettings->DefaultDuration);
+
+	FFrameRate TickResolution = NewSequence->GetMovieScene()->GetTickResolution();
+	NewSequence->GetMovieScene()->SetPlaybackRange((ProjectSettings->DefaultStartTime*TickResolution).FloorToFrame(), (ProjectSettings->DefaultDuration*TickResolution).FloorToFrame().Value);
 
 	return NewSequence;
 }

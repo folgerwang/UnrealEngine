@@ -1,103 +1,146 @@
-﻿INTSourceChangelist:3482332
+﻿INTSourceChangelist:3782314
 Title:8.ゲームをパッケージ化する
 Crumbs:%ROOT%, Platforms, Platforms/iOS, Platforms/iOS/QuickStart
 Description:ゲームをパッケージ化して iOS デバイスにインストールする方法
 Availability:Public
-Version:4.9
+Version:4.18
 SkillLevel:Intermediate
-
+Checkpoint:iOSQS
+order:8
 
 [VAR:Steps]
 [OBJECT:Navigation]
-	[PARAM:previous]
-		[前のステップ](Platforms/iOS/QuickStart/7 "%Platforms/iOS/QuickStart/7:title%")
-	[/PARAM]
-	[PARAM:current]
-	[/PARAM]
-	[PARAM:home]
-		[クイック スタートのホーム](Platforms/iOS/QuickStart)
-	[/PARAM]
-	[PARAM:next]
-		[次のステップ](Platforms/iOS/QuickStart/9 "%Platforms/iOS/QuickStart/9:title%")
-	[/PARAM]
+    [PARAM:previous]
+        [前のステップ](Platforms/iOS/QuickStart/7 "%Platforms/iOS/QuickStart/7:title%")
+    [/PARAM]
+    [PARAM:current]
+    [/PARAM]
+    [PARAM:home]
+        [クイック スタートのホーム](Platforms/iOS/QuickStart)
+    [/PARAM]
+    [PARAM:next]
+        [次のステップ](Platforms/iOS/QuickStart/9 "%Platforms/iOS/QuickStart/9:title%")
+    [/PARAM]
 [/OBJECT]
 [/VAR]
 
 
 
-%Globals:OSSelect%
+
 
 [OBJECT:ToggleButtonContent]
-	[PARAMLITERAL:category]
-	OS
-	[/PARAMLITERAL]
-	[PARAMLITERAL:id]
-	windows
-	[/PARAMLITERAL]
-	[PARAMLITERAL:active]
-	active_button_content
-	[/PARAMLITERAL]
-	[PARAM:content]
-	[INCLUDE:#windows]
-	[/PARAM]
+    [PARAMLITERAL:category]
+    OS
+    [/PARAMLITERAL]
+    [PARAMLITERAL:id]
+    windows
+    [/PARAMLITERAL]
+    [PARAMLITERAL:active]
+    active_button_content
+    [/PARAMLITERAL]
+    [PARAM:content]
+    %windows%
+    [/PARAM]
 [/OBJECT]
 [OBJECT:ToggleButtonContent]
-	[PARAMLITERAL:category]
-	OS
-	[/PARAMLITERAL]
-	[PARAMLITERAL:id]
-	mac
-	[/PARAMLITERAL]
-	[PARAMLITERAL:active]
-	[/PARAMLITERAL]
-	[PARAM:content]
-	[INCLUDE:#macos]
-	[/PARAM]
+    [PARAMLITERAL:category]
+    OS
+    [/PARAMLITERAL]
+    [PARAMLITERAL:id]
+    mac
+    [/PARAMLITERAL]
+    [PARAMLITERAL:active]
+    [/PARAMLITERAL]
+    [PARAM:content]
+    %macos%
+    [/PARAM]
 [/OBJECT]
+
+
+
+
+[VAR:windows]
+
+%Globals:OSSelect%
+## ステップ
+
+次のセクションでは、UE4 エディタなしでインストール可能な UE4 プロジェクトの **.IPA** の作成方法を説明します。
+
 1. まだ接続していない場合は、デバイスをコンピューターに接続してください。
 
 1. アンリアル エディタでプロジェクトを開きます。
 
-	![](open_project.png)(w:640)
+    ![](Platforms\iOS\QuickStart\7\open_project.png)
 
 1. **[File (ファイル)]** メニューから **[Package Project (プロジェクトをパッケージ)] > [iOS]** の順に選択します。
 
-	![](package_menu.png)
+    ![](package_menu.png)
 
-1. ディレクトリ ダイアログでプロジェクトのディレクトリを選択します。パッケージ化したプロジェクト (`.ipa` ファイル) が置かれている場所です。
+1. ディレクトリ ダイアログで `.ipa` ファイルの保存場所を選択します。
 
 1. ゲームのパッケージ化処理中に、パッケージ化に関するメッセージが右下隅に表示されます。
+    
+    ![](project_package.png)
 
-	![](project_package.png)
+1. プロジェクトが正常にパッケージ化されるとメッセージが表示されます。
 
-1. ゲームが正常にデバイスにインストールされるとメッセージが表示されます。
+    ![](package_complete.png)
 
-	![](package_complete.png)
+## 最終結果
 
-1. `[ProjectDirectory]/iOS` ディレクトリの中に生成された `.ipa` ファイルを **ダブルクリック** します。iTunes が開いて、ゲームが Apps ライブラリにリストされます。
+以上の設定を完了すると、iOS デバイスへデプロイ可能な状態の .IPA が出来上がります。
 
-1. iTunes の右上隅で、デバイス ボタンをクリックし、**[Apps]** タブを選択します。
-
-	![](device_apps.png)
-
-1. アプリケーションのリストでゲームを探して、**[Install (インストール)]** をクリックします。テキストが **「Will Install」** に変わります。
-
-	![](app_install.png)
-
-1. iTunes の右下隅で、**[Apply (適用)]** または **[Sync (同期)]** をクリックして、ゲームをデバイスに同期します。
-
-1. デバイスにインストールされたアプリケーションを起動してゲームをテストします。
-
-	![](game_device.png)(w:650)
-
-[COMMENT:none]
-
-[EXCERPT:windows]
-[/EXCERPT:windows]
-[EXCERPT:macos]
-
-[/EXCERPT:macos]
-
-[/COMMENT]
+![](app_Install_xCode_6.png)
 
 
+[/VAR]
+
+[VAR:macos]
+
+%Globals:OSSelect%
+## ステップ
+
+次のセクションでは、UE4 エディタなしでインストール可能な UE4 プロジェクトの **.IPA** の作成方法を説明します。
+
+1. まだ接続していない場合は、デバイスをコンピューターに接続してください。
+
+1. アンリアル エディタでプロジェクトを開きます。
+
+    ![](Platforms\iOS\QuickStart\7\open_project.png)
+
+1. **[File (ファイル)]** メニューから **[Package Project (プロジェクトをパッケージ)] > [iOS]** の順に選択します。
+
+    ![](package_menu.png)
+
+1. ディレクトリ ダイアログで、プロジェクトのディレクトリを選択します。そこがパッケージ化したプロジェクト (`.ipa` ファイル) が置かれる場所になります。
+
+1. ゲームのパッケージ化処理中に、パッケージ化に関するメッセージが右下隅に表示されます。
+    
+    ![](project_package.png)
+
+1. プロジェクトが正常にパッケージ化されるとメッセージが表示されます。
+
+    ![](package_complete.png)
+
+1. xCode から **[Window]** へ行き、 **[Devices and Simulators]** をします。
+
+	![](app_Install_xCode_1.png)
+
+1. **[Devices]** セクションの **[プラス]** 記号を押すと、アプリケーションのインストール処理が開始します。
+
+	![](app_Install_xCode_2.png)
+
+1. UE4 が作成した **.ipa** ファイルを探して選択して、**[Open]** ボタンを押すとインストール処理が開始します。
+
+	![](app_Install_xCode_3.png)
+
+1. インストールの進捗はデバイスウィンドウの上部に表示されます。
+
+## 最終結果
+
+完了すると ipa が iOS デバイスに追加されます。
+
+![](app_Install_xCode_5.png)
+
+
+[/VAR]

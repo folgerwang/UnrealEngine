@@ -1,7 +1,7 @@
 // Copyright 2017 Google Inc.
 
 
-#include "Classes/GoogleVRWidgetInteractionComponent.h"
+#include "GoogleVRWidgetInteractionComponent.h"
 #include "GoogleVRController.h"
 #include "Components/WidgetInteractionComponent.h"
 #include "Components/WidgetComponent.h"

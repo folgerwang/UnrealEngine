@@ -170,6 +170,8 @@ public:
 	 */
 	static FString ProjectIntermediateDir();
 
+	static FString ShaderWorkingDir();
+
 	DEPRECATED(4.18, "FPaths::GameIntermediateDir() has been superseded by FPaths::ProjectIntermediateDir().")
 	static FORCEINLINE FString GameIntermediateDir() { return ProjectIntermediateDir(); }
 
@@ -189,6 +191,11 @@ public:
 	 * @return mods directory
 	 */
 	static FString ProjectModsDir();
+
+	/*
+	* Returns true if a writable directory for downloaded data that persists across play sessions is available
+	*/
+	static bool HasProjectPersistentDownloadDir();
 
 	/*
 	* Returns the writable directory for downloaded data that persists across play sessions.
@@ -310,7 +317,7 @@ public:
 	 */
 	static const TArray<FString>& GetPropertyNameLocalizationPaths();
 
-		/** 
+	/** 
 	 * Returns a list of tool tip localization paths
 	 */
 	static const TArray<FString>& GetToolTipLocalizationPaths();
@@ -319,6 +326,16 @@ public:
 	 * Returns a list of game-specific localization paths
 	 */
 	static const TArray<FString>& GetGameLocalizationPaths();
+
+	/** 
+	 * Returns a list of restricted/internal folder names (without any slashes) which may be tested against full paths to determine if a path is restricted or not.
+	 */
+	static const TArray<FString>& GetRestrictedFolderNames();
+
+	/** 
+	 * Determines if supplied path uses a restricted/internal subdirectory.	Note that slashes are normalized and character case is ignored for the comparison.
+	 */
+	static bool IsRestrictedPath(const FString& InPath);
 
 	/**
 	 * Returns the saved directory that is not game specific. This is usually the same as
@@ -515,6 +532,22 @@ public:
 	 */
 	static FString CreateTempFilename( const TCHAR* Path, const TCHAR* Prefix = TEXT(""), const TCHAR* Extension = TEXT(".tmp") );
 
+	/**
+	* Returns a string containing all invalid characters as dictated by the operating system
+	* 
+	* @return FString
+	*/
+	static const FString& GetInvalidFileSystemChars();
+
+	/**
+	*	Returns a string that is safe to use as a filename because all items in
+	*	GetInvalidFileSystemChars() are removed
+	* 
+	* @param  InPath
+	* @return FString
+	*/
+	static FString MakeValidFileName(const FString& InString, const TCHAR InReplacementChar=0);
+
 	/** 
 	 * Validates that the parts that make up the path contain no invalid characters as dictated by the operating system
 	 * Note that this is a different set of restrictions to those imposed by FPackageName
@@ -570,9 +603,4 @@ private:
 		static FCriticalSection Lock;
 		return &Lock; 
 	}
-
-#if WITH_EDITOR
-	/** RootPrefix used by IsRelative(). Static to minimise string allocations. */
-	static FString RootPrefix;
-#endif // WITH_EDITOR
 };

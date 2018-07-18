@@ -41,6 +41,10 @@ public:
 	TSharedPtr< FUICommandInfo > SetShowSockets;
 	TSharedPtr< FUICommandInfo > SetDrawAdditionalData;
 
+	// Mesh toolbar Commands
+	TSharedPtr< FUICommandInfo > ReimportMesh;
+	TSharedPtr< FUICommandInfo > ReimportAllMesh;
+
 	// View Menu Commands
 	TSharedPtr< FUICommandInfo > SetShowNormals;
 	TSharedPtr< FUICommandInfo > SetShowTangents;

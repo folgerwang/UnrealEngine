@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3244370
+﻿INTSourceChangelist:3810557
 Availability:Public
 Title: 그래프 에디터 탭
 Crumbs:%ROOT%, Engine/Blueprints, Engine/Blueprints/Editor, Engine/Blueprints/Editor/UIBreakdowns/LevelBPUI
@@ -32,6 +32,20 @@ tags:Blueprints
 
 **그래프 에디터** 탭은 아래와 같은 방법으로 조작 가능합니다:
 
+[INCLUDE:#Controls]
+
+[REGION:tip]
+스태틱 메시, 사운드 큐, 스켈레탈 메시, 파티클 시스템 애셋은 콘텐츠 브라우저에서 끌어 
+**그래프 에디터** 탭에 놓으면 해당 애셋이 자동 할당된 AddComponent 펑션 콜이 생성됩니다.
+
+[REGION:raw]
+![Blueprints - Drag and Drop Component](k2_component_graph_drag.png)(w:900 convert:false)
+[/REGION:raw]
+
+[/REGION:tip]
+[/EXCERPT:Main]
+
+[COMMENT:none]
 [EXCERPT:Controls]
 
 | 콘트롤 | 동작 |
@@ -50,16 +64,4 @@ tags:Blueprints
 | 핀에 Alt + 클릭 | 선택된 핀으로 연결되는 모든 선을 제거합니다. |
 
 [/EXCERPT:Controls]
-
-
-[REGION:tip]
-스태틱 메시, 사운드 큐, 스켈레탈 메시, 파티클 시스템 애셋은 콘텐츠 브라우저에서 끌어 
-**그래프 에디터** 탭에 놓으면 해당 애셋이 자동 할당된 AddComponent 펑션 콜이 생성됩니다.
-
-[REGION:raw]
-![Blueprints - Drag and Drop Component](k2_component_graph_drag.png)(w:900 convert:false)
-[/REGION:raw]
-
-[/REGION:tip]
-[/EXCERPT:Main]
-
+[/COMMENT]

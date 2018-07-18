@@ -2,6 +2,9 @@
 #pragma once
 
 #include "CoreMinimal.h"
+
+#if USE_ANDROID_JNI
+
 #include "WebJSFunction.h"
 #include "WebJSScripting.h"
 
@@ -52,3 +55,5 @@ private:
 	/** Pointer to the Android Browser for this window. */
 	TWeakPtr<class FAndroidWebBrowserWindow> WindowPtr;
 };
+
+#endif // USE_ANDROID_JNI

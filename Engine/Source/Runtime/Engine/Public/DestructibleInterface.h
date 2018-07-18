@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "Interface.h"
+#include "UObject/Interface.h"
 #include "DestructibleInterface.generated.h"
 
 UINTERFACE()

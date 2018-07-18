@@ -6,6 +6,7 @@
 #include "UObject/ObjectMacros.h"
 #include "UObject/Object.h"
 #include "Engine/EngineTypes.h"
+#include "PerPlatformProperties.h"
 #include "LandscapeGrassType.generated.h"
 
 class UStaticMesh;
@@ -31,8 +32,8 @@ struct FGrassVariety
 	UStaticMesh* GrassMesh;
 
 	/* Instances per 10 square meters. */
-	UPROPERTY(EditAnywhere, Category=Grass)
-	float GrassDensity;
+	UPROPERTY(EditAnywhere, Category=Grass, meta = (UIMin = 0, ClampMin = 0, UIMax = 1000, ClampMax = 1000))
+	FPerPlatformFloat GrassDensity;
 
 	/* If true, use a jittered grid sequence for placement, otherwise use a halton sequence. */
 	UPROPERTY(EditAnywhere, Category=Grass)
@@ -42,21 +43,21 @@ struct FGrassVariety
 	float PlacementJitter;
 
 	/* The distance where instances will begin to fade out if using a PerInstanceFadeAmount material node. 0 disables. */
-	UPROPERTY(EditAnywhere, Category=Grass)
-	int32 StartCullDistance;
+	UPROPERTY(EditAnywhere, Category=Grass, meta = (UIMin = 0, ClampMin = 0, UIMax = 1000000, ClampMax = 1000000))
+	FPerPlatformInt StartCullDistance;
 
 	/**
 	 * The distance where instances will have completely faded out when using a PerInstanceFadeAmount material node. 0 disables. 
 	 * When the entire cluster is beyond this distance, the cluster is completely culled and not rendered at all.
 	 */
-	UPROPERTY(EditAnywhere, Category = Grass)
-	int32 EndCullDistance;
+	UPROPERTY(EditAnywhere, Category = Grass, meta = (UIMin = 0, ClampMin = 0, UIMax = 1000000, ClampMax = 1000000))
+	FPerPlatformInt EndCullDistance;
 
 	/** 
 	 * Specifies the smallest LOD that will be used for this component.
 	 * If -1 (default), the MinLOD of the static mesh asset will be used instead.
 	 */
-	UPROPERTY(EditAnywhere, Category = Grass)
+	UPROPERTY(EditAnywhere, Category = Grass, meta = (UIMin = -1, ClampMin = -1, UIMax = 8, ClampMax = 8))
 	int32 MinLOD;
 
 	/** Specifies grass instance scaling type */
@@ -98,6 +99,14 @@ struct FGrassVariety
 	UPROPERTY(EditAnywhere, Category = Grass)
 	bool bReceivesDecals;
 
+	/** Whether the grass should cast shadows when using non-precomputed shadowing. **/
+	UPROPERTY(EditAnywhere, Category = Grass)
+	bool bCastDynamicShadow;
+
+	/** Whether we should keep a cpu copy of the instance buffer. This should be set to true if you plan on using GetOverlappingXXXXCount functions of the component otherwise it won't return any data.**/
+	UPROPERTY(EditAnywhere, Category = Grass)
+	bool bKeepInstanceBufferCPUCopy;
+
 	FGrassVariety()
 		: GrassMesh(nullptr)
 		, GrassDensity(400)
@@ -114,6 +123,8 @@ struct FGrassVariety
 		, AlignToSurface(true)
 		, bUseLandscapeLightmap(false)
 		, bReceivesDecals(true)
+		, bCastDynamicShadow(true)
+		, bKeepInstanceBufferCPUCopy(false)
 	{
 	}
 };
@@ -125,6 +136,13 @@ class ULandscapeGrassType : public UObject
 
 	UPROPERTY(EditAnywhere, Category = Grass)
 	TArray<FGrassVariety> GrassVarieties;
+
+	/**
+	* Whether this grass type should be affected by the Engine Scalability system's Foliage grass.DensityScale setting. 
+	* This is enabled by default but can be disabled should this grass type be important for gameplay reasons.
+	*/
+	UPROPERTY(EditAnywhere, Category = Scalability)
+	uint32 bEnableDensityScaling : 1;
 
 	UPROPERTY()
 	UStaticMesh* GrassMesh_DEPRECATED;

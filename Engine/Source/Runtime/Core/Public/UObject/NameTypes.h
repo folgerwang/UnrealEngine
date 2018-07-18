@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -12,6 +12,7 @@
 #include "Containers/StringConv.h"
 #include "UObject/UnrealNames.h"
 #include "Templates/Atomic.h"
+#include "Serialization/StructuredArchive.h"
 
 /*----------------------------------------------------------------------------
 	Definitions.
@@ -19,7 +20,7 @@
 
 /** 
  * Do we want to support case-variants for FName?
- * This will add an extra NAME_INDEX variable to FName, but means that ToString() will return you the exact same 
+ * This will add an extra NAME_INunrealDEX variable to FName, but means that ToString() will return you the exact same 
  * string that FName::Init was called with (which is useful if your FNames are shown to the end user)
  * Currently this is enabled for the Editor and any Programs (such as UHT), but not the Runtime
  */
@@ -252,6 +253,7 @@ public:
 
 	// Functions.
 	CORE_API void Write(FArchive& Ar) const;
+	CORE_API void Write(FStructuredArchive::FSlot Slot) const;
 
 	// Friend for access to Flags.
 	template<typename TCharType>
@@ -328,6 +330,12 @@ struct FNameEntrySerialized
 	friend CORE_API FArchive& operator<<(FArchive& Ar, FNameEntrySerialized* E)
 	{
 		return Ar << *E;
+	}
+
+	friend CORE_API void operator<<(FStructuredArchive::FSlot Slot, FNameEntrySerialized& E);
+	friend CORE_API void operator<<(FStructuredArchive::FSlot Slot, FNameEntrySerialized* E)
+	{
+		Slot << *E;
 	}
 };
 
@@ -628,7 +636,7 @@ public:
 			return CurEntry->GetWideName();
 		}
 
-		return L"*INVALID*";
+		return TEXT("*INVALID*");
 	}
 
 	const FNameEntry* GetComparisonNameEntry() const;
@@ -1200,7 +1208,6 @@ private:
 
 	/** Singleton to retrieve the critical section. */
 	static FCriticalSection* GetCriticalSection();
-
 };
 
 template<> struct TIsZeroConstructType<class FName> { enum { Value = true }; };
@@ -1212,17 +1219,14 @@ inline uint32 GetTypeHash( const FName N )
 	return N.GetComparisonIndex() + N.GetNumber();
 }
 
-namespace Lex
+FORCEINLINE FString LexToString(const FName& Name)
 {
-	FORCEINLINE FString ToString(const FName& Name)
-	{
-		return Name.ToString();
-	}
+	return Name.ToString();
+}
 
-	FORCEINLINE void FromString(FName& Name, const TCHAR* Str)
-	{
-		Name = FName(Str);
-	}
+FORCEINLINE void LexFromString(FName& Name, const TCHAR* Str)
+{
+	Name = FName(Str);
 }
 
 FORCEINLINE FMinimalName NameToMinimalName(const FName& InName)

@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2940199
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:モバイル プラットフォーム向けのマテリアル
 Crumbs:%ROOT%, Platforms, Platforms/Mobile
 Description:モバイル ゲーム向けのマテリアル設定
 Platform:Mobile
+Related:Platforms/Mobile/Previewer/
 Related:Platforms/Mobile/Performance
 Related:Platforms/Mobile/Textures
 Related:Engine/Rendering/Materials/CustomizedUVs
@@ -19,7 +20,7 @@ tags:mobile
 [TOC(start:2)]
 
 モバイル プラットフォーム (Feature Level ES 2) 上のマテリアルは他のプラットフォームと同様にノードベースの作成プロセスを使用します。ほぼ全てのマテリアル入力がモバイル マテリアルで利用でき、 
-通常マテリアルの外観と挙動は他のプラットフォームと同じです。例えば、以下の Material 入力は全て、 
+マテリアルの外見とビヘイビアは通常、他のモバイル プラットフォーム上と同じです。例えば、以下の Material 入力は全て、 
 PC 上とモバイル プラットフォーム上では全く同じです。
 
 * **BaseColor**
@@ -31,13 +32,11 @@ PC 上とモバイル プラットフォーム上では全く同じです。
 
 ただし、モバイル プラットフォーム上で使用するマテリアルを作成する場合は、以下を考慮しなければなりません。
 
-* ハードウェアの制限により、テクスチャ サンプリングは 5 つまでしか使えません。
+* ハードウェアの制限により、テクスチャ サンプラは 5 つまでしか使えません。
 * シェーディング モデルは Default と Unlit しか利用できません。
 * 依存したテクスチャ フェッチを避けるため [](Engine/Rendering/Materials/CustomizedUVs) の使用が望ましいです (テクスチャ UV 上では一致しません)。
 * 透過およびマスク付マテリアルは非常に負荷が高くなります。できる限り [不透明マテリアル](Engine/Rendering/Materials/MaterialProperties/BlendModes#opaque) の使用を推奨します。
-* 深度フェードを **iOS platforms** の透過マテリアルに使用できます。ハードウェアが深度バッファからのフェッチをサポートしていないプラットフォームではサポートしていないので、 
-	許容範囲を超えるパフォーマンス負荷が発生します。
-
+* 深度フェードを **iOS platforms** の透過マテリアルに使用できます。ハードウェアが深度バッファからのフェッチをサポートしていないプラットフォームではサポートしていないので、許容範囲を超えるパフォーマンス負荷が発生します。
 
 また、モバイル プラットフォームでは使用できない機能もあります。
 
@@ -54,15 +53,44 @@ Feature Level ES 3.1 はハイエンド モバイル デバイス (Metal-compati
 
 
 ## モバイル専用のマテリアル設定
+以下の Mobile プロパティを使うと、モバイル デバイスでマテリアルを使用する際にレンダリング負荷を最適化して抑えることができます。 
 
 | プロパティ | 説明 |
 | -------- | ---------- |
-| bFullyRough | 有効にすると、多数のシェーダー ALU インストラクションとサンプラ 1 つが保存されます。反射エネルギー全体を維持しながら、スペキュラを効率よく無効化します。|
-| bUseLightmapDirectionality | 無効にすると、ライトマップからのライティングはフラットになりますが負荷が小さくなります。 |
+| **bFullyRough** | 有効にすると、多数のシェーダー ALU インストラクションとサンプラが 1 つ保存します。反射エネルギー全体を維持しながら、スペキュラを効率よく無効化します。|
+| **High Quality Reflections** |フォワード レンダリングにおいて質の高い反射が可能になります。この設定を有効にすると、リフレクション キューブマップ用にあと 2 つサンプラが使用されるためサンプラ数が減ります。 |
+| **bUseLightmapDirectionality** | 無効にすると、ライトマップからのライティングはフラットになりますが負荷が小さくなります。 |
+| **Use Full Precision** | [INCLUDE:Platforms\Mobile\Materials\#UFP]|
 
 ## モバイル用マテリアルのトラブルシューティング
-
+PC とモバイル間のハードウェアの違いのため、オプションによっては、PC 上では正常に動くにもかかわらずモバイル デバイスで見ると動作しない問題が発生します。以下の表はよくある問題とその解決方法です。
 | 問題 | 解決法 |
 | ----- | -------- |
 | モバイル プレビューアにデフォルト マテリアルが表示されてしまう。 | **Engine\Saved** の [ログ ファイル](Engine/Basics/DirectoryStructure) を開いて、そのマテリアルの修正方法が分かるエラー メッセージを探します。 |
 | フレームレートはすべて正しいはずなのに Time 表現式を伴うマテリアル アニメーションがぎくしゃくする。 | Period を伴う **Time** 表現式において Period プロパティが有効にされていることを確認してください。これにより、演算処理が CPU に移動し、ハーフではなくフル精度で実行します。 |
+| Materials using **World Coordinates** 演算あるいは非常に小さい値が正確に表示されない。 | モバイル デバイスで正しく表示されないマテリアルの [Use Full Precision] オプションを有効にしてみてください。モバイル デバイス上ではパフォーマンスをあげるためにマテリアルの精度レベルを小数点第 1 位または小数点第 2 位におく場合がよくあります。**[Use Full Precision]** を使うことで、マテリアルの精度をマテリアル エディタで設定した値のままにすることができます。 |
+| エディタでは問題のないマテリアルがエディタでは見え方に問題がある。 | モバイル デバイス上でマテリアルがどのように見えるのか知るために UE4 エディタの **Preview Rendering Level** を切り替えるとターゲット デバイスのレンダリング性能をシミュレーションすることができます。詳細は [モバイル プレビュア](Platforms/Mobile/Previewer/) を参照してください。 |
+
+
+
+[COMMENT:none]
+
+[EXCERPT:UFP]
+有効にすると、マテリアルのシェーダーはモバイル デバイスで最も高い精度の演算を使用します。この方法は、ワールド座標の使用時や光沢のあるマテリアル上での難しいスペキュラ反射など、精度の低い演算によって生じるレンダリング関連の問題の解決になります。 
+
+[REGION:note]
+シェーダーの精度を最高にすると、マテリアルの負荷はさらに高くなります。
+[/REGION]
+
+[OBJECT:ComparisonSlider]
+	[PARAM:before]
+	![Full Precision Off ](Full_Precision_Off.png)
+	[/PARAM]
+	[PARAM:after]
+	![Full Precision On](Full_Precision_On.png)
+	[/PARAM]
+[/OBJECT]
+[/EXCERPT:UFP]
+
+[/COMMENT]
+

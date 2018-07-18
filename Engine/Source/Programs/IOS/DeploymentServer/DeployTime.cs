@@ -77,8 +77,11 @@ namespace DeploymentServer
 		{
 			return Deployer.InstallFilesOnDevice(BundleIdentifier, ManifestFile);
 		}
-
-		public bool BackupDocumentsDirectory(string BundleIdentifier, string DestinationDocumentsDirectory)
+        public bool CopyFileToDevice(string BundleIdentifier, string SourceFile, string DestFile)
+        {
+            return Deployer.CopyFileToDevice(BundleIdentifier, SourceFile, DestFile);
+        }
+        public bool BackupDocumentsDirectory(string BundleIdentifier, string DestinationDocumentsDirectory)
 		{
 			return Deployer.BackupDocumentsDirectory(BundleIdentifier, DestinationDocumentsDirectory);
 		}
@@ -458,7 +461,27 @@ namespace DeploymentServer
 				}
 				return bResult;
 			});
-		}
+        }
+
+		/// <summary>
+		/// Copies a single file to a specified location on the device for the given bundle
+		/// </summary>
+        public bool CopyFileToDevice(string BundleIdentifier, string SourceFile, string DestFile)
+        {
+            return PerformActionOnAllDevices(StandardEnumerationDelayMS, delegate (MobileDeviceInstance Device)
+            {
+                bool bResult = true;
+                string DeviceType = Device.ProductType;
+                if (String.IsNullOrEmpty(DeviceId) || Device.DeviceId == DeviceId ||
+                    (DeviceId.Contains("All_tvOS_On") && DeviceType.Contains("TV")) ||
+                    (DeviceId.Contains("All_iOS_On") && !DeviceType.Contains("TV")))
+                {
+                    bResult = Device.TryCopyFile(BundleIdentifier, SourceFile, DestFile);
+                    ReportIF.Log("");
+                }
+                return bResult;
+            });
+        }
 
         public bool BackupDocumentsDirectory(string BundleIdentifier, string DestinationDocumentsDirectory)
         {

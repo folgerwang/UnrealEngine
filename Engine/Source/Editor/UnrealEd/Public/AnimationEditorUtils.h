@@ -129,6 +129,7 @@ namespace AnimationEditorUtils
 
 	// Is the supplied UEdGraph an Animation Graph
 	UNREALED_API bool IsAnimGraph(UEdGraph* Graph);
+
 	UNREALED_API void SetPoseWatch(UPoseWatch* PoseWatch, UAnimBlueprint* AnimBlueprintIfKnown = nullptr);
 	UNREALED_API UPoseWatch* FindPoseWatchForNode(const UEdGraphNode* Node, UAnimBlueprint* AnimBlueprintIfKnown=nullptr);
 	UNREALED_API void MakePoseWatchForNode(UAnimBlueprint* AnimBlueprint, UEdGraphNode* Node, FColor PoseWatchColour);

@@ -1,13 +1,20 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Sections/MovieSceneBoolSection.h"
-#include "SequencerObjectVersion.h"
+#include "UObject/SequencerObjectVersion.h"
+#include "Channels/MovieSceneChannelProxy.h"
 
 UMovieSceneBoolSection::UMovieSceneBoolSection( const FObjectInitializer& ObjectInitializer )
 	: Super( ObjectInitializer )
 	, DefaultValue_DEPRECATED(false)
 {
-	SetIsInfinite(true);
+	bSupportsInfiniteRange = true;
+#if WITH_EDITORONLY_DATA
+	bIsInfinite_DEPRECATED = true;
+	bIsExternallyInverted = false;
+#endif
+
+	SetRange(TRange<FFrameNumber>::All());
 
 	EvalOptions.EnableAndSetCompletionMode
 		(GetLinkerCustomVersion(FSequencerObjectVersion::GUID) < FSequencerObjectVersion::WhenFinishedDefaultsToRestoreState ? 
@@ -15,106 +22,62 @@ UMovieSceneBoolSection::UMovieSceneBoolSection( const FObjectInitializer& Object
 			GetLinkerCustomVersion(FSequencerObjectVersion::GUID) < FSequencerObjectVersion::WhenFinishedDefaultsToProjectDefault ? 
 			EMovieSceneCompletionMode::RestoreState : 
 			EMovieSceneCompletionMode::ProjectDefault);
+
+	ReconstructChannelProxy();
+}
+
+#if WITH_EDITORONLY_DATA
+
+void UMovieSceneBoolSection::SetIsExternallyInverted(bool bInIsExternallyInverted)
+{
+	bIsExternallyInverted = bInIsExternallyInverted;
+	ReconstructChannelProxy();
+}
+
+void UMovieSceneBoolSection::Serialize(FArchive& Ar)
+{
+	Super::Serialize(Ar);
+
+	if (Ar.IsLoading())
+	{
+		ReconstructChannelProxy();
+	}
+}
+
+#endif
+
+
+void UMovieSceneBoolSection::ReconstructChannelProxy()
+{
+#if WITH_EDITOR
+
+	// set up the external value to retrieve the inverted value if necessary. This is used by visibility tracks that
+	// are bound to "Actor Hidden in Game" properties, but displayed as "Visibility"
+	struct FGetInvertedBool
+	{
+		static TOptional<bool> GetValue(UObject& InObject, FTrackInstancePropertyBindings* Bindings)
+		{
+			return Bindings ? !Bindings->GetCurrentValue<bool>(InObject) : TOptional<bool>();
+		}
+	};
+
+	TMovieSceneExternalValue<bool> ExternalValue;
+	ExternalValue.OnGetExternalValue = bIsExternallyInverted ? FGetInvertedBool::GetValue :TMovieSceneExternalValue<bool>::GetValue;
+
+	ChannelProxy = MakeShared<FMovieSceneChannelProxy>(BoolCurve, FMovieSceneChannelMetaData(), ExternalValue);
+
+#else
+
+	ChannelProxy = MakeShared<FMovieSceneChannelProxy>(BoolCurve);
+
+#endif
 }
 
 void UMovieSceneBoolSection::PostLoad()
 {
-	if (GetCurve().GetDefaultValue() == MAX_int32 && DefaultValue_DEPRECATED)
+	if (!BoolCurve.GetDefault().IsSet() && DefaultValue_DEPRECATED)
 	{
-		GetCurve().SetDefaultValue(DefaultValue_DEPRECATED);
+		BoolCurve.SetDefault(DefaultValue_DEPRECATED);
 	}
 	Super::PostLoad();
-}
-
-bool UMovieSceneBoolSection::Eval( float Position, bool DefaultValue ) const
-{
-	return !!BoolCurve.Evaluate(Position, DefaultValue);
-}
-
-
-void UMovieSceneBoolSection::MoveSection( float DeltaPosition, TSet<FKeyHandle>& KeyHandles )
-{
-	Super::MoveSection( DeltaPosition, KeyHandles );
-
-	BoolCurve.ShiftCurve(DeltaPosition, KeyHandles);
-}
-
-
-void UMovieSceneBoolSection::DilateSection( float DilationFactor, float Origin, TSet<FKeyHandle>& KeyHandles )
-{
-	Super::DilateSection(DilationFactor, Origin, KeyHandles);
-	
-	BoolCurve.ScaleCurve(Origin, DilationFactor, KeyHandles);
-}
-
-
-void UMovieSceneBoolSection::GetKeyHandles(TSet<FKeyHandle>& OutKeyHandles, TRange<float> TimeRange) const
-{
-	if (!TimeRange.Overlaps(GetRange()))
-	{
-		return;
-	}
-
-	for (auto It(BoolCurve.GetKeyHandleIterator()); It; ++It)
-	{
-		float Time = BoolCurve.GetKeyTime(It.Key());
-		if (TimeRange.Contains(Time))
-		{
-			OutKeyHandles.Add(It.Key());
-		}
-	}
-}
-
-
-TOptional<float> UMovieSceneBoolSection::GetKeyTime( FKeyHandle KeyHandle ) const
-{
-	if ( BoolCurve.IsKeyHandleValid( KeyHandle ) )
-	{
-		return TOptional<float>( BoolCurve.GetKeyTime( KeyHandle ) );
-	}
-	return TOptional<float>();
-}
-
-
-void UMovieSceneBoolSection::SetKeyTime( FKeyHandle KeyHandle, float Time )
-{
-	if ( BoolCurve.IsKeyHandleValid( KeyHandle ) )
-	{
-		BoolCurve.SetKeyTime( KeyHandle, Time );
-	}
-}
-
-
-void UMovieSceneBoolSection::AddKey( float Time, const bool& Value, EMovieSceneKeyInterpolation KeyInterpolation )
-{
-	if (TryModify())
-	{
-		BoolCurve.UpdateOrAddKey(Time, Value ? 1 : 0);
-	}
-}
-
-
-void UMovieSceneBoolSection::SetDefault( const bool& Value )
-{
-	uint8 NewValue = Value ? 1 : 0;
-	if (BoolCurve.GetDefaultValue() != NewValue && TryModify())
-	{
-		BoolCurve.SetDefaultValue(NewValue);
-	}
-}
-
-
-bool UMovieSceneBoolSection::NewKeyIsNewData( float Time, const bool& Value ) const
-{
-	return Eval(Time, Value) != Value;
-}
-
-bool UMovieSceneBoolSection::HasKeys( const bool& Value ) const
-{
-	return BoolCurve.GetNumKeys() != 0;
-}
-
-void UMovieSceneBoolSection::ClearDefaults()
-{
-	BoolCurve.ClearDefaultValue();
 }

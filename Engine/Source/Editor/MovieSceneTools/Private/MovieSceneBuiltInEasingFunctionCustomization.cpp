@@ -7,11 +7,11 @@
 #include "DetailCategoryBuilder.h"
 #include "DetailWidgetRow.h"
 
-#include "STextBlock.h"
-#include "SGridPanel.h"
-#include "SButton.h"
-#include "SBox.h"
-#include "SlateApplication.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Layout/SGridPanel.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Layout/SBox.h"
+#include "Framework/Application/SlateApplication.h"
 #include "ScopedTransaction.h"
 
 #include "EditorStyleSet.h"

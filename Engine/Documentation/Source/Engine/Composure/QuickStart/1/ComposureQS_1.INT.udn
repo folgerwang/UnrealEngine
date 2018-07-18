@@ -65,7 +65,7 @@ To fully follow along with this Quick Start you will need to download and create
 
 1. Open up the ComposureQS level that was previously saved and then press **CTRL+V** to paste the copied Actors into the level. 
 
-1. Over in the **World Outliner**, click on the **Sky Light** and in the **Details** panel under **Light** change the **Source Type ** to **SLS Specified Cubemap** and in the **Cubemap** input, select the **3D5A2486_Panorama_hdr_orient_CC** .HDR Cubemap.
+1. Over in the **World Outliner**, click on the **Sky Light** and in the **Details** panel under **Light** change the **Source Type** to **SLS Specified Cubemap** and in the **Cubemap** input, select the **3D5A2486_Panorama_hdr_orient_CC** .HDR Cubemap.
 
     ![](ComposureQS_S1_4.png)
 

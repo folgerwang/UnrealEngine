@@ -2,8 +2,8 @@
 
 #pragma once
 
-#include "ApplicationMode.h"
-#include "WorkflowCentricApplication.h"
+#include "WorkflowOrientedApp/ApplicationMode.h"
+#include "WorkflowOrientedApp/WorkflowCentricApplication.h"
 #include "WorkflowOrientedApp/WorkflowTabManager.h"
 
 class FPhysicsAssetEditor;

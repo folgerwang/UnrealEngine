@@ -1207,11 +1207,6 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
       if not shared.Settings.LEGALIZE_JS_FFI:
         assert shared.Building.is_wasm_only(), 'LEGALIZE_JS_FFI incompatible with RUNNING_JS_OPTS and non-wasm BINARYEN_METHOD.'
 
-      ## *** UE4 EDIT start ***
-      if shared.Settings.USE_WEBGL2:
-        newargs.append('-DUE4_HTML5_TARGET_WEBGL2=1')
-      ## *** UE4 EDIT end ***
-
       shared.Settings.EMSCRIPTEN_VERSION = shared.EMSCRIPTEN_VERSION
       shared.Settings.OPT_LEVEL = options.opt_level
       shared.Settings.DEBUG_LEVEL = options.debug_level

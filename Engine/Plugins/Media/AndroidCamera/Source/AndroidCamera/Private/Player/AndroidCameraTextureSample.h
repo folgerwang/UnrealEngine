@@ -133,7 +133,7 @@ public:
 	 */
 	FRHITexture2D* InitializeTexture(FTimespan InTime)
 	{
-		check(IsInRenderingThread());
+		check(IsInRenderingThread() || IsInRHIThread());
 
 		Time = InTime;
 

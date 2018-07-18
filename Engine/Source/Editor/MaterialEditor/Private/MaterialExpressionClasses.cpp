@@ -9,6 +9,7 @@
 #include "MaterialEditor.h"
 #include "UObject/UObjectHash.h"
 #include "UObject/UObjectIterator.h"
+#include "Modules/ModuleManager.h"
 #include "Preferences/MaterialEditorOptions.h"
 #include "MaterialEditorModule.h"
 

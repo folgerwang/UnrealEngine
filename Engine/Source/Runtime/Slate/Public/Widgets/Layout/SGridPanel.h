@@ -200,7 +200,7 @@ public:
 	 *
 	 * @return FVector2D  The desired size of the region of cells specified.
 	 */
-	FVector2D GetDesiredSize( const FIntPoint& StartCell, int32 Width, int32 Height ) const;
+	FVector2D GetDesiredRegionSize( const FIntPoint& StartCell, int32 Width, int32 Height ) const;
 
 	/** Specify a column to stretch instead of sizing to content. */
 	void SetColumnFill( int32 ColumnId, const TAttribute<float>& Coefficient );

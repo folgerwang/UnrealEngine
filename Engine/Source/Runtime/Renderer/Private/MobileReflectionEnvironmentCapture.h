@@ -8,7 +8,7 @@
 
 #include "CoreMinimal.h"
 #include "RHI.h"
-#include "SHMath.h"
+#include "Math/SHMath.h"
 #include "ScenePrivate.h"
 
 namespace MobileReflectionEnvironmentCapture

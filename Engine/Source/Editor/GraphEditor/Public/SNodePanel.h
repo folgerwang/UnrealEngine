@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Misc/Attribute.h"
+#include "Misc/Guid.h"
 #include "Layout/Visibility.h"
 #include "Layout/SlateRect.h"
 #include "Layout/Geometry.h"
@@ -25,7 +26,7 @@
 #include "EditorStyleSet.h"
 #include "Layout/LayoutUtils.h"
 #include "MarqueeOperation.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 class FActiveTimerHandle;
 class FScopedTransaction;
@@ -573,6 +574,7 @@ public:
 		: BorderImage( FCoreStyle::Get().GetBrush( "NoBorder" ) )
 		, BorderBackgroundColor( FEditorStyle::GetColor("Graph.ForegroundColor"))
 		, DesiredSizeScale(FVector2D(1,1))
+		, Children(this)
 		{
 		}
 
@@ -653,11 +655,14 @@ public:
 	/** @return the view offset in graph space */
 	FVector2D GetViewOffset() const;
 
+	/** @return the current view bookmark ID */
+	const FGuid& GetViewBookmarkId() const { return CurrentBookmarkGuid; }
+
 	/** Given a coordinate in panel space (i.e. panel widget space), return the same coordinate in graph space while taking zoom and panning into account */
 	FVector2D PanelCoordToGraphCoord(const FVector2D& PanelSpaceCoordinate) const;
 
-	/** Restore the graph panel to the supplied view offset/zoom */
-	void RestoreViewSettings(const FVector2D& InViewOffset, float InZoomAmount);
+	/** Restore the graph panel to the supplied view offset/zoom. Also, optionally set the current bookmark ID. */
+	void RestoreViewSettings(const FVector2D& InViewOffset, float InZoomAmount, const FGuid& InBookmarkGuid = FGuid());
 
 	/** Get the grid snap size */
 	static float GetSnapGridSize();
@@ -957,4 +962,7 @@ private:
 	/** Zoom target rectangle */
 	FVector2D ZoomTargetTopLeft;
 	FVector2D ZoomTargetBottomRight;
+
+	/** Current view bookmark info */
+	FGuid CurrentBookmarkGuid;
 };

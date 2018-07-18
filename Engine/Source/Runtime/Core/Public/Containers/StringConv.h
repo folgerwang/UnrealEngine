@@ -553,7 +553,7 @@ private:
 		while (Source < SourceEnd && DestLen > 0)
 		{
 			// Read our codepoint, advancing the source pointer
-			uint32 Codepoint = CodepointFromUtf8(Source, Source - SourceEnd);
+			uint32 Codepoint = CodepointFromUtf8(Source, SourceEnd - Source);
 
 			// We want to write out two chars
 			if (UE4StringConv_Private::IsEncodedSurrogate(Codepoint))
@@ -715,6 +715,13 @@ typedef TStringConversion<FUTF8ToTCHAR_Convert> FUTF8ToTCHAR;
 #define ANSI_TO_TCHAR(str) (TCHAR*)StringCast<TCHAR>(static_cast<const ANSICHAR*>(str)).Get()
 #define TCHAR_TO_UTF8(str) (ANSICHAR*)FTCHARToUTF8((const TCHAR*)str).Get()
 #define UTF8_TO_TCHAR(str) (TCHAR*)FUTF8ToTCHAR((const ANSICHAR*)str).Get()
+
+// special needs handling for going from char16_t to wchar_t for third party libraries that need wchar_t
+#if PLATFORM_TCHAR_IS_CHAR16
+#define TCHAR_TO_WCHAR(str) (wchar_t*)StringCast<wchar_t>(static_cast<const TCHAR*>(str)).Get()
+#else
+#define TCHAR_TO_WCHAR(str) str
+#endif
 
 // This seemingly-pointless class is intended to be API-compatible with TStringConversion
 // and is returned by StringCast when no string conversion is necessary.

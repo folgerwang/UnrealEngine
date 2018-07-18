@@ -3,8 +3,8 @@
 #include "GoogleHelper.h"
 #include "OnlineSubsystemGooglePrivate.h"
 
-#include "CoreDelegates.h"
-#include "IOSAppDelegate.h"
+#include "Misc/CoreDelegates.h"
+#include "IOS/IOSAppDelegate.h"
 #include "IOS/IOSAsyncTask.h"
 
 // Explicit refresh token

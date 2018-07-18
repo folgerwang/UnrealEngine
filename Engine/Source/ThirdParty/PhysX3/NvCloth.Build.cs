@@ -29,8 +29,9 @@ public class NvCloth : ModuleRules
                     return NvClothLibraryMode.Checked;
                 }
 			case UnrealTargetConfiguration.Shipping:
-			case UnrealTargetConfiguration.Test:
 				return NvClothLibraryMode.Shipping;
+			case UnrealTargetConfiguration.Test:
+				return NvClothLibraryMode.Profile;
 			case UnrealTargetConfiguration.Development:
 			case UnrealTargetConfiguration.DebugGame:
 			case UnrealTargetConfiguration.Unknown:
@@ -221,7 +222,7 @@ public class NvCloth : ModuleRules
                 PublicDefinitions.Add("UE_NVCLOTH_SUFFIX=" + LibrarySuffix);
             }
 		}
-		else if (Target.Platform == UnrealTargetPlatform.Linux)
+		else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
 		{
             if (Target.Architecture != "arm-unknown-linux-gnueabihf")
             {

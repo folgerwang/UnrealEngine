@@ -13,6 +13,7 @@ class FStaticMeshRenderData;
 class ULevel;
 class UStaticMeshComponent;
 struct FHierarchicalSimplification;
+class UHLODProxy;
 
 enum class EClusterGenerationError : uint32
 {
@@ -60,8 +61,19 @@ public:
 
 	virtual float CalculateDrawDistanceFromScreenSize(const float SphereRadius, const float ScreenSize, const FMatrix& ProjectionMatrix) = 0;
 
-	/** Creates or retrieves the HLOD package that is created for the given level */
 	virtual UPackage* CreateOrRetrieveLevelHLODPackage(const ULevel* InLevel) = 0;
+
+	/** Creates or retrieves the HLOD package that is created for the given level */
+	virtual UPackage* CreateOrRetrieveLevelHLODPackage(const ULevel* InLevel, const uint32 HLODLevelIndex) = 0;
+
+	/** Retrieves the HLOD package that is created for the given level */
+	virtual UPackage* RetrieveLevelHLODPackage(const ULevel* InLevel, const uint32 HLODLevelIndex) = 0;
+
+	/** Creates or retrieves the HLOD proxy that is created for the given level */
+	virtual UHLODProxy* CreateOrRetrieveLevelHLODProxy(const ULevel* InLevel, const uint32 HLODLevelIndex) = 0;
+
+	/** Retrieves the HLOD proxy that is created for the given level */
+	virtual UHLODProxy* RetrieveLevelHLODProxy(const ULevel* InLevel, const uint32 HLODLevelIndex) = 0;
 
 	/**
 	* Builds a virtual mesh object for the given LODACtor
@@ -71,6 +83,8 @@ public:
 	* @return UStaticMesh*
 	*/
 	virtual bool BuildStaticMeshForLODActor(ALODActor* LODActor, UPackage* AssetsOuter, const FHierarchicalSimplification& LODSetup) = 0;
+	virtual bool BuildStaticMeshForLODActor(ALODActor* LODActor, UPackage* AssetsOuter, const FHierarchicalSimplification& LODSetup, UMaterialInterface* InBaseMaterial) = 0;
+	virtual bool BuildStaticMeshForLODActor(ALODActor* LODActor, UHLODProxy* Proxy, const FHierarchicalSimplification& LODSetup, UMaterialInterface* InBaseMaterial) = 0;
 	
 	/**
 	* Returns whether or not the given actor is eligible for creating a HLOD cluster creation
@@ -78,7 +92,7 @@ public:
 	* @param Actor - Actor to check for if it is eligible for cluster generation
 	* @return EClusterGenerationError
 	*/
-	virtual EClusterGenerationError ShouldGenerateCluster(AActor* Actor) = 0;
+	virtual EClusterGenerationError ShouldGenerateCluster(AActor* Actor, const int32 HLODLevelIndex) = 0;
 
 	/** Returns the ALODActor parent for the given InActor, nullptr if none available */
 	virtual ALODActor* GetParentLODActor(const AActor* InActor) = 0;
@@ -164,4 +178,10 @@ public:
 	* @param InWorld - World to check whether or not it is used as a streaming level
 	*/
 	virtual bool IsWorldUsedForStreaming(const UWorld* InWorld) = 0;
+
+	/** 
+	 * Cleans any standalone flags for meshes, textures and materials. This ensures that they get garbage collected when not referenced any more.
+	 * @param InPackage	The HLOD package to clean
+	 */
+	virtual void CleanStandaloneAssetsInPackage(UPackage* InPackage) = 0;
 };

@@ -5,11 +5,12 @@
 #include "Sections/MovieScene3DTransformSection.h"
 #include "Evaluation/MovieSceneTemplateCommon.h"
 #include "MovieSceneCommonHelpers.h"
-#include "MovieSceneEvaluation.h"
+#include "Evaluation/MovieSceneEvaluation.h"
 #include "IMovieScenePlayer.h"
+#include "Channels/MovieSceneChannelProxy.h"
 #include "Evaluation/Blending/BlendableTokenStack.h"
 #include "Evaluation/Blending/MovieSceneBlendingActuatorID.h"
-#include "IMovieSceneTransformOrigin.h"
+#include "Tracks/IMovieSceneTransformOrigin.h"
 
 DECLARE_CYCLE_STAT(TEXT("Transform Track Evaluate"), MovieSceneEval_TransformTrack_Evaluate, STATGROUP_MovieSceneEval);
 DECLARE_CYCLE_STAT(TEXT("Transform Track Token Execute"), MovieSceneEval_TransformTrack_TokenExecute, STATGROUP_MovieSceneEval);
@@ -84,7 +85,7 @@ struct FComponentTransformActuator : TMovieSceneBlendingActuator<F3DTransformTra
 
 			SceneComponent->SetMobility(EComponentMobility::Movable);
 
-			InFinalValue.Apply(*SceneComponent, Context.GetDelta());
+			InFinalValue.Apply(*SceneComponent, Context.GetDelta() / Context.GetFrameRate());
 		}
 	}
 
@@ -171,9 +172,11 @@ void FMovieSceneComponentTransformSectionTemplate::Evaluate(const FMovieSceneEva
 
 	// Add the blendable to the accumulator
 	float Weight = EvaluateEasing(Context.GetTime());
-	if (EnumHasAllFlags(TemplateData.Mask.GetChannels(), EMovieSceneTransformChannel::Weight) && TemplateData.ManualWeight.HasAnyData())
+	if (EnumHasAllFlags(TemplateData.Mask.GetChannels(), EMovieSceneTransformChannel::Weight))
 	{
-		Weight *= TemplateData.ManualWeight.Eval(Context.GetTime());
+		float ManualWeight = 1.f;
+		TemplateData.ManualWeight.Evaluate(Context.GetTime(), ManualWeight);
+		Weight *= ManualWeight;
 	}
 
 	ExecutionTokens.BlendToken(ActuatorTypeID, TBlendableToken<F3DTransformTrackToken>(TransformValue, TemplateData.BlendType, Weight));
@@ -198,9 +201,11 @@ void FMovieSceneComponentTransformSectionTemplate::Interrogate(const FMovieScene
 
 	// Add the blendable to the accumulator
 	float Weight = EvaluateEasing(Context.GetTime());
-	if (EnumHasAllFlags(TemplateData.Mask.GetChannels(), EMovieSceneTransformChannel::Weight) && TemplateData.ManualWeight.HasAnyData())
+	if (EnumHasAllFlags(TemplateData.Mask.GetChannels(), EMovieSceneTransformChannel::Weight))
 	{
-		Weight *= TemplateData.ManualWeight.Eval(Context.GetTime());
+		float ManualWeight = 1.f;
+		TemplateData.ManualWeight.Evaluate(Context.GetTime(), ManualWeight);
+		Weight *= ManualWeight;
 	}
 
 	Container.GetAccumulator().BlendToken(FMovieSceneEvaluationOperand(), ActuatorTypeID, FMovieSceneEvaluationScope(), Context, TBlendableToken<F3DTransformTrackToken>(TransformValue, TemplateData.BlendType, Weight));
@@ -209,35 +214,38 @@ void FMovieSceneComponentTransformSectionTemplate::Interrogate(const FMovieScene
 FMovieScene3DTransformTemplateData::FMovieScene3DTransformTemplateData(const UMovieScene3DTransformSection& Section)
 	: BlendType(Section.GetBlendType().Get())
 	, Mask(Section.GetMask())
+	, bUseQuaternionInterpolation(Section.GetUseQuaternionInterpolation())
 {
 	EMovieSceneTransformChannel MaskChannels = Mask.GetChannels();
+	TArrayView<FMovieSceneFloatChannel*> FloatChannels = Section.GetChannelProxy().GetChannels<FMovieSceneFloatChannel>();
 
-	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::TranslationX))	TranslationCurve[0]	= Section.GetTranslationCurve(EAxis::X);
-	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::TranslationY))	TranslationCurve[1]	= Section.GetTranslationCurve(EAxis::Y);
-	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::TranslationZ))	TranslationCurve[2]	= Section.GetTranslationCurve(EAxis::Z);
+	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::TranslationX))	TranslationCurve[0]	= *FloatChannels[0];
+	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::TranslationY))	TranslationCurve[1]	= *FloatChannels[1];
+	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::TranslationZ))	TranslationCurve[2]	= *FloatChannels[2];
 
-	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::RotationX))		RotationCurve[0]	= Section.GetRotationCurve(EAxis::X);
-	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::RotationY))		RotationCurve[1]	= Section.GetRotationCurve(EAxis::Y);
-	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::RotationZ))		RotationCurve[2]	= Section.GetRotationCurve(EAxis::Z);
+	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::RotationX))		RotationCurve[0]	= *FloatChannels[3];
+	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::RotationY))		RotationCurve[1]	= *FloatChannels[4];
+	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::RotationZ))		RotationCurve[2]	= *FloatChannels[5];
 
-	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::ScaleX))			ScaleCurve[0]		= Section.GetScaleCurve(EAxis::X);
-	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::ScaleY))			ScaleCurve[1]		= Section.GetScaleCurve(EAxis::Y);
-	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::ScaleZ))			ScaleCurve[2]		= Section.GetScaleCurve(EAxis::Z);
+	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::ScaleX))			ScaleCurve[0]		= *FloatChannels[6];
+	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::ScaleY))			ScaleCurve[1]		= *FloatChannels[7];
+	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::ScaleZ))			ScaleCurve[2]		= *FloatChannels[8];
 
-	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::Weight))			ManualWeight		= Section.GetManualWeightCurve();
+	if (EnumHasAllFlags(MaskChannels, EMovieSceneTransformChannel::Weight))			ManualWeight		= *FloatChannels[9];
 }
 
-MovieScene::TMultiChannelValue<float, 9> FMovieScene3DTransformTemplateData::Evaluate(float Time) const
+MovieScene::TMultiChannelValue<float, 9> FMovieScene3DTransformTemplateData::Evaluate(FFrameTime Time) const
 {
 	MovieScene::TMultiChannelValue<float, 9> AnimatedData;
 
 	EMovieSceneTransformChannel ChannelMask = Mask.GetChannels();
 
-	auto EvalChannel = [&AnimatedData, Time, ChannelMask](uint8 ChanneIndex, EMovieSceneTransformChannel Channel, const FRichCurve& Curve)
+	auto EvalChannel = [&AnimatedData, Time, ChannelMask](uint8 ChanneIndex, EMovieSceneTransformChannel ChannelType, const FMovieSceneFloatChannel& Channel)
 	{
-		if (EnumHasAllFlags(ChannelMask, Channel) && Curve.HasAnyData())
+		float Value = 0.f;
+		if (EnumHasAllFlags(ChannelMask, ChannelType) && Channel.Evaluate(Time, Value))
 		{
-			AnimatedData.Set(ChanneIndex, Curve.Eval(Time));
+			AnimatedData.Set(ChanneIndex, Value);
 		}
 	};
 
@@ -245,9 +253,131 @@ MovieScene::TMultiChannelValue<float, 9> FMovieScene3DTransformTemplateData::Eva
 	EvalChannel(1, EMovieSceneTransformChannel::TranslationY, TranslationCurve[1]);
 	EvalChannel(2, EMovieSceneTransformChannel::TranslationZ, TranslationCurve[2]);
 
-	EvalChannel(3, EMovieSceneTransformChannel::RotationX, RotationCurve[0]);
-	EvalChannel(4, EMovieSceneTransformChannel::RotationY, RotationCurve[1]);
-	EvalChannel(5, EMovieSceneTransformChannel::RotationZ, RotationCurve[2]);
+	if (!bUseQuaternionInterpolation)
+	{
+		EvalChannel(3, EMovieSceneTransformChannel::RotationX, RotationCurve[0]);
+		EvalChannel(4, EMovieSceneTransformChannel::RotationY, RotationCurve[1]);
+		EvalChannel(5, EMovieSceneTransformChannel::RotationZ, RotationCurve[2]);
+	}
+	else
+	{
+		//Use Quaternion Interpolation. This is complicated since unlike Matinee we may not have
+		//a key for each Euler angle at the same times. So we need a way to calculate which 'range'
+		//to perform the interpolation. To do this if finds the exclusive closest range of keys to encomposs
+		//the passed in time
+		auto SetFrameRange = [Time](TRange<FFrameNumber> &FrameRange, const TArrayView<const FFrameNumber> &Times)
+		{
+			int32 Index1, Index2;
+			Index2 = 0;
+			Index2 = Algo::UpperBound(Times, Time.FrameNumber);
+			Index1 = Index2 - 1;
+			Index1 = Index1 >= 0 ? Index1 : INDEX_NONE;
+			Index2 = Index2 < Times.Num() ? Index2 : INDEX_NONE;
+			if (Index1 != INDEX_NONE && Index2 != INDEX_NONE)
+			{
+				if (Times[Index1] != Time.FrameNumber && Times[Index1] > FrameRange.GetLowerBoundValue()) 
+				{
+					FrameRange.SetLowerBoundValue(Times[Index1]);
+				}
+				if (Times[Index2] != Time.FrameNumber && Times[Index1] < FrameRange.GetUpperBoundValue())
+				{
+					FrameRange.SetUpperBoundValue(Times[Index2]);
+				}
+			}
+		};
+
+		TRange<FFrameNumber> FrameRange(TNumericLimits<FFrameNumber>::Min(), TNumericLimits<FFrameNumber>::Max());
+		if (EnumHasAllFlags(ChannelMask, EMovieSceneTransformChannel::RotationX))
+		{
+			SetFrameRange(FrameRange, RotationCurve[0].GetTimes());
+		}
+		if (EnumHasAllFlags(ChannelMask, EMovieSceneTransformChannel::RotationY))
+		{
+			SetFrameRange(FrameRange, RotationCurve[1].GetTimes());
+		}
+		if (EnumHasAllFlags(ChannelMask, EMovieSceneTransformChannel::RotationZ))
+		{
+			SetFrameRange(FrameRange, RotationCurve[2].GetTimes());
+		}
+		FFrameNumber LowerBound = FrameRange.GetLowerBoundValue();
+		FFrameNumber UpperBound = FrameRange.GetUpperBoundValue();
+		if (LowerBound != TNumericLimits<FFrameNumber>::Min() && UpperBound != TNumericLimits<FFrameNumber>::Max())
+		{
+			float Value;
+			FVector FirstRot(0.0f, 0.0f, 0.0f);
+			FVector SecondRot(0.0f, 0.0f, 0.0f);
+			double U = (Time.AsDecimal() - (double) FrameRange.GetLowerBoundValue().Value) /
+				double(FrameRange.GetUpperBoundValue().Value - FrameRange.GetLowerBoundValue().Value);
+			U = FMath::Clamp(U, 0.0, 1.0);
+
+			if (EnumHasAllFlags(ChannelMask, EMovieSceneTransformChannel::RotationX))
+			{
+				if (RotationCurve[0].Evaluate(LowerBound, Value))
+				{
+					FirstRot[0] = Value;
+				}
+				if (RotationCurve[0].Evaluate(UpperBound, Value))
+				{
+					SecondRot[0] = Value;
+				}
+			}
+			if (EnumHasAllFlags(ChannelMask, EMovieSceneTransformChannel::RotationY))
+			{
+				if (RotationCurve[1].Evaluate(LowerBound, Value))
+				{
+					FirstRot[1] = Value;
+				}
+				if (RotationCurve[1].Evaluate(UpperBound, Value))
+				{
+					SecondRot[1] = Value;
+				}
+			}
+			if (EnumHasAllFlags(ChannelMask, EMovieSceneTransformChannel::RotationZ))
+			{
+				if (RotationCurve[2].Evaluate(LowerBound, Value))
+				{
+					FirstRot[2] = Value;
+				}
+				if (RotationCurve[2].Evaluate(UpperBound, Value))
+				{
+					SecondRot[2] = Value;
+				}
+			}
+
+			const FQuat Key1Quat = FQuat::MakeFromEuler(FirstRot);
+			const FQuat Key2Quat = FQuat::MakeFromEuler(SecondRot);
+
+			const FQuat SlerpQuat = FQuat::Slerp(Key1Quat, Key2Quat, U);
+			FVector Euler = FRotator(SlerpQuat).Euler();
+			AnimatedData.Set(3, Euler[0]);
+			AnimatedData.Set(4, Euler[1]);
+			AnimatedData.Set(5, Euler[2]);
+		}
+
+		else  //no range found default to regular, but still do RotToQuat
+		{
+			float Value;
+			FVector CurrentRot(0.0f, 0.0f, 0.0f);
+			FRotator Rotator;
+			if (EnumHasAllFlags(ChannelMask, EMovieSceneTransformChannel::RotationX) && RotationCurve[0].Evaluate(Time, Value))
+			{
+				CurrentRot[0] = Value;
+			}
+			if (EnumHasAllFlags(ChannelMask, EMovieSceneTransformChannel::RotationY) && RotationCurve[1].Evaluate(Time, Value))
+			{
+				CurrentRot[1] = Value;
+			}
+			if (EnumHasAllFlags(ChannelMask, EMovieSceneTransformChannel::RotationZ) && RotationCurve[2].Evaluate(Time, Value))
+			{
+				CurrentRot[2] = Value;
+			}
+			FQuat Quat = FQuat::MakeFromEuler(CurrentRot);
+			FVector Euler = FRotator(Quat).Euler();
+			AnimatedData.Set(3, Euler[0]);
+			AnimatedData.Set(4, Euler[1]);
+			AnimatedData.Set(5, Euler[2]);
+		}
+	}
 
 	EvalChannel(6, EMovieSceneTransformChannel::ScaleX, ScaleCurve[0]);
 	EvalChannel(7, EMovieSceneTransformChannel::ScaleY, ScaleCurve[1]);

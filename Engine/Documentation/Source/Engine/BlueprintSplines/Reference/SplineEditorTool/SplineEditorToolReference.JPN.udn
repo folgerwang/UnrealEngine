@@ -1,4 +1,4 @@
-﻿INTSourceChangeList:3149199
+﻿INTSourceChangelist:3801260
 Availability:Public
 Title:ブループリント スプライン エディタ および ツールのリファレンス
 Crumbs: %ROOT%, Engine
@@ -14,49 +14,7 @@ reference-image:MoveTangent.gif
 reference-image:RotatePoint.gif
 reference-image:ScalePoint.gif
 tags:Splines
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/BlueprintSplines/Reference/SplineEditorTool:title%](Engine/BlueprintSplines/Splines_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/editor_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/BlueprintSplines/Reference/SplineEditorTool:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/BlueprintSplines/Reference/SplineEditorTool:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/BlueprintSplines/Reference/SplineEditorTool]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/BlueprintSplines/Reference/SplineEditorTool:title%](Engine/BlueprintSplines/Splines_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/editor_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/BlueprintSplines/Reference/SplineEditorTool:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/BlueprintSplines/Reference/SplineEditorTool:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/BlueprintSplines/Reference/SplineEditorTool]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:spacer]![](%ROOT%/spacer.png)(w:150 convert:false)[/VAR]
-
-[VAR:spacer2]![](%ROOT%/spacer.png)(w:40 convert:false)[/VAR]
+topic-image:Engine/BlueprintSplines/Splines_topic.png
 
 このページでは、**Blueprint Spline コンポーネント** と **Blueprint Spline Mesh コンポーネント** をレベル エディタで編集するツールおよび手順を説明します。4.13 では、以下のツールと手順を使って **Blueprint Spline コンポーネント** は **ブループリント エディタ ビューポート** でも編集ができます。
 
@@ -132,12 +90,12 @@ tags:Splines
 ![](Spline_RC_Curve.png)
 
 [REGION:raw]
-| オプション | %spacer% | 説明 |
-| --- | :---: | :--- |
-| **Add Spline Point Here** || 新しいスプライン ポイントをカーソル位置に追加します。 |
-| **Reset to Default** || スプラインをアーキタイプ デフォルトにリセットします。 |
-| **Visualize Roll and Scale** || エディタでスプラインがロールとスケールを視覚化するかどうか設定します。 |
-| **Allow Discontinous Splines** || 視覚化により **Arrive** と **Leave** タンジェントを別々に設定できるようにするかトグルします。 |
+| オプション | 説明 |
+| --- | :--- |
+| **Add Spline Point Here** | 新しいスプライン ポイントをカーソル位置に追加します。 |
+| **Reset to Default** | スプラインをアーキタイプ デフォルトにリセットします。 |
+| **Visualize Roll and Scale** | エディタでスプラインがロールとスケールを視覚化するかどうか設定します。 |
+| **Allow Discontinous Splines** | 視覚化により **Arrive** と **Leave** タンジェントを別々に設定できるようにするかトグルします。 |
 [/REGION]
 
 

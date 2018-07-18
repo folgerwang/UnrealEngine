@@ -6,10 +6,13 @@
 #include "RenderingThread.h" // for ENQUEUE_RENDER_COMMAND
 #include "SceneView.h" // for FSceneViewFamily
 #include "Logging/LogMacros.h" // for DEFINE_LOG_CATEGORY_STATIC
-
+#include "IXRTrackingSystem.h"
 #include "IMotionController.h"
 #include "Templates/TypeHash.h"
 #include "Features/IModularFeatures.h"
+#include "GameFramework/WorldSettings.h"
+#include "XRMotionControllerBase.h"
+#include "Engine/Engine.h" // for GEngine->XRSystem
 
 DEFINE_LOG_CATEGORY_STATIC(LogMotionDelayBuffer, Log, All);
 
@@ -61,6 +64,8 @@ namespace MotionDelayService_Impl
 {
 	struct FPoseSample
 	{
+		FPoseSample() : Position(FVector::ZeroVector), Orientation(FRotator::ZeroRotator), TimeStamp(0.0) {}
+
 		FVector  Position;
 		FRotator Orientation;
 		double   TimeStamp;
@@ -81,6 +86,8 @@ namespace MotionDelayService_Impl
 	static uint32 LastSyncFrameId = UINT_MAX;
 	static uint32 PostRenderCleanupId_RenderThread = UINT_MAX;
 
+	static double FrameSyncTime = 0.0;
+
 	template <typename F>
 	static FORCEINLINE void ForEachClient(F Action);
 	template <typename F>
@@ -92,7 +99,7 @@ namespace MotionDelayService_Impl
 	static void RefreshMotionSources();
 
 	static void SyncDelayBuffers(uint32 FrameId);
-	static void SampleDevicePose(const FMotionDelayTarget::FMotionSource& TargetSource, FPoseSample& PoseOut);
+	static bool SampleDevicePose(const FMotionDelayTarget::FMotionSource& TargetSource, FPoseSample& PoseOut);
 	static void PostRender_RenderThread(uint32 FrameId);
 }
 
@@ -217,7 +224,15 @@ static void MotionDelayService_Impl::SyncDelayBuffers(uint32 FrameId)
 		for (auto& Sampler : SourceSamples)
 		{
 			FPoseSample NewSample;
-			SampleDevicePose(Sampler.Key, NewSample);
+			if (!SampleDevicePose(Sampler.Key, NewSample))
+			{
+				if (Sampler.Value.Num() > 0)
+				{
+					const FPoseSample& LastSample = Sampler.Value[0];
+					NewSample.Position = LastSample.Position;
+					NewSample.Orientation = LastSample.Orientation;
+				}
+			}
 
 			Sampler.Value.Add(NewSample);
 		}
@@ -234,18 +249,22 @@ static void MotionDelayService_Impl::SyncDelayBuffers(uint32 FrameId)
 
 			const USceneComponent* AttachParent = Component->GetAttachParent();
 			FTransform ParentTransform = AttachParent ? AttachParent->GetComponentTransform() : FTransform::Identity;
-			Target.LateUpdate.Setup(ParentTransform, Component);
+			Target.LateUpdate.Setup(ParentTransform, Component, false);
 		};
 		ForEachTarget(RemovedUsedSource);
 
 		LastSyncFrameId = FrameId;
+		FrameSyncTime = FPlatformTime::Seconds();
 	}
 }
 
 //------------------------------------------------------------------------------
-static void MotionDelayService_Impl::SampleDevicePose(const FMotionDelayTarget::FMotionSource& TargetSource, FPoseSample& PoseOut)
+static bool MotionDelayService_Impl::SampleDevicePose(const FMotionDelayTarget::FMotionSource& TargetSource, FPoseSample& PoseOut)
 {
+	PoseOut = FPoseSample();
 	PoseOut.TimeStamp = FPlatformTime::Seconds();
+
+	bool bSuccess = false;
 
 	TArray<IMotionController*> MotionControllers = IModularFeatures::Get().GetModularFeatureImplementations<IMotionController>(IMotionController::GetModularFeatureName());
 	for (IMotionController* MotionController : MotionControllers)
@@ -254,10 +273,27 @@ static void MotionDelayService_Impl::SampleDevicePose(const FMotionDelayTarget::
 		{
 			if (MotionController->GetControllerOrientationAndPosition(TargetSource.PlayerIndex, TargetSource.SourceId, PoseOut.Orientation, PoseOut.Position, DefaultWorldToMetersScale))
 			{
+				bSuccess = true;
 				break;
 			}
 		}
 	}
+
+	if (TargetSource.SourceId == FXRMotionControllerBase::HMDSourceId)
+	{
+		IXRTrackingSystem* TrackingSys = GEngine->XRSystem.Get();
+		if (TrackingSys)
+		{
+			FQuat OrientationQuat;
+			if (TrackingSys->GetCurrentPose(IXRTrackingSystem::HMDDeviceId, OrientationQuat, PoseOut.Position))
+			{
+				PoseOut.Orientation = OrientationQuat.Rotator();
+				bSuccess = true;
+			}
+		}
+	}
+
+	return bSuccess;
 }
 
 /* FMotionDelayService
@@ -331,14 +367,15 @@ namespace MotionDelayClient_Impl
 static void MotionDelayClient_Impl::CalulateDelayTransform(uint32 DesiredDelay, const TCircularHistoryBuffer<MotionDelayService_Impl::FPoseSample>& SampleBuffer, const TCircularHistoryBuffer<FVector> ScaleBuffer, FTransform& TransformOut)
 {
 	checkSlow(IsInGameThread());
-	checkSlow(SampleBuffer.Num() == ScaleBuffer.Num());
 
 	int32 SampleAIndex = SampleBuffer.Num() - 1, SampleBIndex = INDEX_NONE;
 	const int32 EstimatedIndex = FMath::Min(SampleAIndex, EstimateDelayIndex(DesiredDelay));
 
 	const double DelaySeconds = DesiredDelay / 1000.f;
-	// @TODO: this would be more accurate if we calculated this to be the estimated render time (or if we put it off later)
-	double CurrentTime = FPlatformTime::Seconds();
+	// need to use the same current time for all delay transforms in a single frame, so that all
+	// the calculated (interpolated) transforms match up relative to each other
+	// NOTE: this is not what the current time will be by the time this renders, so you may have to fold in some extra delay
+	const double CurrentTime = MotionDelayService_Impl::FrameSyncTime;
 
 	int8 IncrementDir = 0;
 	for (int32 SampleIndex = EstimatedIndex; SampleIndex < SampleBuffer.Num() && SampleIndex >= 0; SampleIndex += IncrementDir)
@@ -407,9 +444,28 @@ void FMotionDelayClient::BeginRenderViewFamily(FSceneViewFamily& ViewFamily)
 	TArray<FTargetTransform> RenderTransforms;
 	RenderTransforms.Reserve(DelayTargets.Num());
 
+	TArray<USceneComponent*> ExemptTargets;
+	GetExemptTargets(ExemptTargets);
+
+	auto IsTargetExempt = [&ExemptTargets](const TWeakObjectPtr<USceneComponent>& DelayTarget)->bool
+	{
+		bool bExempt = !DelayTarget.IsValid();
+		if (!bExempt)
+		{
+			USceneComponent* Target = DelayTarget.Get();
+			bExempt = ExemptTargets.Contains(Target);
+		}
+		return bExempt;
+	};
+
 	const uint32 DesiredLatency = GetDesiredDelay();
 	for (auto& Target : DelayTargets)
 	{
+		if (IsTargetExempt(Target.Key))
+		{
+			continue;
+		}
+
 		TCircularHistoryBuffer<FPoseSample>* SampleBuffer = SourceSamples.Find(Target.Value->MotionSource);
 		if (ensure(SampleBuffer))
 		{
@@ -480,4 +536,23 @@ void FMotionDelayClient::Restore_RenderThread(FSceneInterface* Scene)
 	{
 		Transform.DelayTarget->LateUpdate.Apply_RenderThread(Scene, Transform.DelayTransform, Transform.RestoreTransform);
 	}
+}
+
+//------------------------------------------------------------------------------
+bool FMotionDelayClient::FindDelayTransform(USceneComponent* Target, uint32 Delay, FTransform& TransformOut)
+{
+	using namespace MotionDelayService_Impl;
+
+	bool bFoundTransform = false;
+	if (FSharedDelayTarget* TargetData = DelayTargets.Find(Target))
+	{
+		TCircularHistoryBuffer<FPoseSample>* SampleBuffer = SourceSamples.Find((*TargetData)->MotionSource);
+		if (ensure(SampleBuffer))
+		{
+			MotionDelayClient_Impl::CalulateDelayTransform(Delay, *SampleBuffer, (*TargetData)->ScaleHistoryBuffer, TransformOut);
+			bFoundTransform = true;
+		}
+	}
+
+	return bFoundTransform;
 }

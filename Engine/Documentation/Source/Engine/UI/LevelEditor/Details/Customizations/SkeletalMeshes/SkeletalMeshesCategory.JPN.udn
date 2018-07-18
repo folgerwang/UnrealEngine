@@ -1,5 +1,5 @@
-﻿Title:スケルタルメッシュカテゴリ
+﻿Availability:Docs
+Title:スケルタル メッシュのカテゴリ
 Crumbs: %ROOT%, Engine, Engine/UI, Engine/UI/LevelEditor, Engine/UI/LevelEditor/Details
-Description:アクタの全コンポーネントに適用されたスケルタルメッシュのアセットの表示および修正するための特別制御
-Availability:Docs
+Description:アクタの全コンポーネントに適用される SkeletalMesh アセットの表示および修正に使用するカスタマイズ制御について説明します。
 

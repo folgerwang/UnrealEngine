@@ -17,7 +17,7 @@
 #include "AnimPreviewInstance.h"
 #include "IEditableSkeleton.h"
 #include "PropertyCustomizationHelpers.h"
-#include "MultiBoxBuilder.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
 
 #define LOCTEXT_NAMESPACE "SRetargetManager"
 
@@ -112,7 +112,7 @@ void SRetargetManager::Construct(const FArguments& InArgs, const TSharedRef<IEdi
 		.Padding(2, 5)
 		[
 			// construct rig manager window
-			SNew(SRigWindow, InEditableSkeleton, InOnPostUndo)
+			SNew(SRigWindow, InEditableSkeleton, InPreviewScene, InOnPostUndo)
 		]
 
 		+SVerticalBox::Slot()

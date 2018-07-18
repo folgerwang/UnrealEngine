@@ -28,7 +28,9 @@ extern const uint32 UpdateObjectsGroupSize;
 
 inline bool DoesPlatformSupportDistanceFieldAO(EShaderPlatform Platform)
 {
-	return Platform == SP_PCD3D_SM5 || Platform == SP_PS4 || Platform == SP_XBOXONE_D3D12 || (IsMetalPlatform(Platform) && GetMaxSupportedFeatureLevel(Platform) >= ERHIFeatureLevel::SM5 && RHIGetShaderLanguageVersion(Platform) >= 2) || Platform == SP_VULKAN_SM5;
+	return Platform == SP_PCD3D_SM5 || Platform == SP_PS4 || Platform == SP_XBOXONE_D3D12
+		|| (IsMetalPlatform(Platform) && GetMaxSupportedFeatureLevel(Platform) >= ERHIFeatureLevel::SM5 && RHIGetShaderLanguageVersion(Platform) >= 2)
+		|| IsVulkanSM5Platform(Platform);
 }
 
 extern FIntPoint GetBufferSizeForAO();
@@ -279,7 +281,7 @@ public:
 extern void GetSpacedVectors(uint32 FrameNumber, TArray<FVector, TInlineAllocator<9> >& OutVectors);
 
 BEGIN_UNIFORM_BUFFER_STRUCT(FAOSampleData2,)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_ARRAY(FVector4,SampleDirections,[NumConeSampleDirections])
+	UNIFORM_MEMBER_ARRAY(FVector4,SampleDirections,[NumConeSampleDirections])
 END_UNIFORM_BUFFER_STRUCT(FAOSampleData2)
 
 class FAOParameters
@@ -332,6 +334,44 @@ private:
 	FShaderParameter AOStepExponentScale;
 	FShaderParameter AOMaxViewDistance;
 	FShaderParameter AOGlobalMaxOcclusionDistance;
+};
+
+class FDFAOUpsampleParameters
+{
+public:
+	void Bind(const FShaderParameterMap& ParameterMap)
+	{
+		BentNormalAOTexture.Bind(ParameterMap, TEXT("BentNormalAOTexture"));
+		BentNormalAOSampler.Bind(ParameterMap, TEXT("BentNormalAOSampler"));
+		AOBufferBilinearUVMax.Bind(ParameterMap, TEXT("AOBufferBilinearUVMax"));
+	}
+
+	void Set(FRHICommandList& RHICmdList, const FPixelShaderRHIParamRef& ShaderRHI, const FViewInfo& View, const TRefCountPtr<IPooledRenderTarget>& DistanceFieldAOBentNormal)
+	{
+		FTextureRHIParamRef BentNormalAO = DistanceFieldAOBentNormal ? DistanceFieldAOBentNormal->GetRenderTargetItem().ShaderResourceTexture : GWhiteTexture->TextureRHI;
+		SetTextureParameter(RHICmdList, ShaderRHI, BentNormalAOTexture, BentNormalAOSampler, TStaticSamplerState<SF_Bilinear>::GetRHI(), BentNormalAO);
+
+		FIntPoint const AOBufferSize = GetBufferSizeForAO();
+		FVector2D const UVMax(
+			(View.ViewRect.Width() / GAODownsampleFactor - 0.51f) / AOBufferSize.X, // 0.51 - so bilateral gather4 won't sample invalid texels
+			(View.ViewRect.Height() / GAODownsampleFactor - 0.51f) / AOBufferSize.Y);
+		SetShaderValue(RHICmdList, ShaderRHI, AOBufferBilinearUVMax, UVMax);
+	}
+
+	/** Serializer. */
+	friend FArchive& operator<<(FArchive& Ar, FDFAOUpsampleParameters& P)
+	{
+		Ar << P.BentNormalAOTexture;
+		Ar << P.BentNormalAOSampler;
+		Ar << P.AOBufferBilinearUVMax;
+
+		return Ar;
+	}
+
+private:
+	FShaderResourceParameter BentNormalAOTexture;
+	FShaderResourceParameter BentNormalAOSampler;
+	FShaderParameter AOBufferBilinearUVMax;
 };
 
 inline float GetMaxAOViewDistance()
@@ -484,4 +524,5 @@ extern void TrackGPUProgress(FRHICommandListImmediate& RHICmdList, uint32 DebugI
 extern bool ShouldRenderDeferredDynamicSkyLight(const FScene* Scene, const FSceneViewFamily& ViewFamily);
 
 extern void CullObjectsToView(FRHICommandListImmediate& RHICmdList, FScene* Scene, const FViewInfo& View, const FDistanceFieldAOParameters& Parameters, FDistanceFieldObjectBufferResource& CulledObjectBuffers);
-extern FIntPoint BuildTileObjectLists(FRHICommandListImmediate& RHICmdList, FScene* Scene, TArray<FViewInfo>& Views, FSceneRenderTargetItem& DistanceFieldNormal, const FDistanceFieldAOParameters& Parameters);
+extern void BuildTileObjectLists(FRHICommandListImmediate& RHICmdList, FScene* Scene, TArray<FViewInfo>& Views, FSceneRenderTargetItem& DistanceFieldNormal, const FDistanceFieldAOParameters& Parameters);
+extern FIntPoint GetTileListGroupSizeForView(const FViewInfo& View);

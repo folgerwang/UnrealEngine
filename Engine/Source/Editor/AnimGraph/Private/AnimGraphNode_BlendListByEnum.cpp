@@ -176,7 +176,7 @@ void UAnimGraphNode_BlendListByEnum::RemovePinFromBlendList(UEdGraphPin* Pin)
 		// setting up removed pins info 
 		RemovedPinArrayIndex = ArrayIndex;
 		Node.RemovePose(ArrayIndex);
-		Pin->bSavePinIfOrphaned = false;
+		Pin->SetSavePinIfOrphaned(false);
 		ReconstructNode();
 		//@TODO: Just want to invalidate the visual representation currently
 		FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(GetBlueprint());
@@ -291,6 +291,8 @@ void UAnimGraphNode_BlendListByEnum::Serialize(FArchive& Ar)
 
 void UAnimGraphNode_BlendListByEnum::ValidateAnimNodeDuringCompilation(class USkeleton* ForSkeleton, class FCompilerResultsLog& MessageLog)
 {
+	Super::ValidateAnimNodeDuringCompilation(ForSkeleton, MessageLog);
+
 	if (BoundEnum == NULL)
 	{
 		MessageLog.Error(TEXT("@@ references an unknown enum; please delete the node and recreate it"), this);

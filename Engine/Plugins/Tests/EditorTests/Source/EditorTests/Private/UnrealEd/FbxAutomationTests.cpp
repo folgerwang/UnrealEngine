@@ -145,6 +145,16 @@ bool FFbxImportAssetsAutomationTest::RunTest(const FString& Parameters)
 	//Read the fbx options from the .json file and fill the ImportUI
 	FbxAutomationTestsAPI::ReadFbxOptions(FileOptionAndResult, TestPlanArray);
 
+	static const auto CVarDistanceField = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.GenerateMeshDistanceFields"));
+	int32 OriginalCVarDistanceFieldValue = CVarDistanceField->GetValueOnGameThread();
+	IConsoleVariable* CVarDistanceFieldInterface = IConsoleManager::Get().FindConsoleVariable(TEXT("r.GenerateMeshDistanceFields"));
+	//Avoid building the distance field when we do fbx automation test
+	if (OriginalCVarDistanceFieldValue != 0 && CVarDistanceFieldInterface)
+	{
+		//Hack we change the distance field user console variable to control the build, but we put back the value after the first build
+		CVarDistanceFieldInterface->SetWithCurrentPriority(0);
+	}
+
 	FAssetToolsModule& AssetToolsModule = FModuleManager::LoadModuleChecked<FAssetToolsModule>("AssetTools");
 	bool CurTestSuccessful = (TestPlanArray.Num() > 0);
 	TArray<UObject*> GlobalImportedObjects;
@@ -164,8 +174,6 @@ bool FFbxImportAssetsAutomationTest::RunTest(const FString& Parameters)
 				UFbxFactory* FbxFactory = NewObject<UFbxFactory>(UFbxFactory::StaticClass());
 				FbxFactory->AddToRoot();
 				
-				TestPlan->ImportUI->bResetMaterialSlots = false;
-
 				FbxFactory->ImportUI = TestPlan->ImportUI;
 				//Skip the auto detect type on import, the test set a specific value
 				FbxFactory->SetDetectImportTypeOnImport(false);
@@ -265,8 +273,6 @@ bool FFbxImportAssetsAutomationTest::RunTest(const FString& Parameters)
 					UReimportFbxStaticMeshFactory* FbxStaticMeshReimportFactory = NewObject<UReimportFbxStaticMeshFactory>(UReimportFbxStaticMeshFactory::StaticClass());
 					FbxStaticMeshReimportFactory->AddToRoot();
 					
-					TestPlan->ImportUI->bResetMaterialSlots = false;
-
 					FbxStaticMeshReimportFactory->ImportUI = TestPlan->ImportUI;
 
 					UStaticMesh *ReimportStaticMesh = Cast<UStaticMesh>(GlobalImportedObjects[0]);
@@ -305,8 +311,6 @@ bool FFbxImportAssetsAutomationTest::RunTest(const FString& Parameters)
 				{
 					UReimportFbxSkeletalMeshFactory* FbxSkeletalMeshReimportFactory = NewObject<UReimportFbxSkeletalMeshFactory>(UReimportFbxSkeletalMeshFactory::StaticClass());
 					FbxSkeletalMeshReimportFactory->AddToRoot();
-					
-					TestPlan->ImportUI->bResetMaterialSlots = false;
 					
 					FbxSkeletalMeshReimportFactory->ImportUI = TestPlan->ImportUI;
 
@@ -1640,6 +1644,12 @@ bool FFbxImportAssetsAutomationTest::RunTest(const FString& Parameters)
 			}
 			ObjectTools::ForceDeleteObjects(ObjectToDelete, false);
 		}
+	}
+	
+	//Put back the distance field value
+	if (OriginalCVarDistanceFieldValue != 0 && CVarDistanceFieldInterface)
+	{
+		CVarDistanceFieldInterface->SetWithCurrentPriority(OriginalCVarDistanceFieldValue);
 	}
 
 	return CurTestSuccessful;

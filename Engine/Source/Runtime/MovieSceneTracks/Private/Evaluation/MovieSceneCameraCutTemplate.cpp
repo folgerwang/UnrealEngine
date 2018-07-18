@@ -2,7 +2,7 @@
 
 #include "Evaluation/MovieSceneCameraCutTemplate.h"
 #include "Sections/MovieSceneCameraCutSection.h"
-#include "MovieSceneEvaluation.h"
+#include "Evaluation/MovieSceneEvaluation.h"
 #include "IMovieScenePlayer.h"
 #include "GameFramework/Actor.h"
 #include "ContentStreaming.h"
@@ -114,12 +114,9 @@ struct FCameraCutExecutionToken : IMovieSceneExecutionToken
 		FMovieSceneSequenceID SequenceID = Operand.SequenceID;
 		if (CameraBindingID.GetSequenceID().IsValid())
 		{
-			if (const FMovieSceneSubSequenceData* SubData = Player.GetEvaluationTemplate().GetHierarchy().FindSubData(SequenceID))
-			{
-				// Ensure that this ID is resolvable from the root, based on the current local sequence ID
-				FMovieSceneObjectBindingID RootBindingID = CameraBindingID.ResolveLocalToRoot(SequenceID, Player.GetEvaluationTemplate().GetHierarchy());
-				SequenceID = RootBindingID.GetSequenceID();
-			}
+			// Ensure that this ID is resolvable from the root, based on the current local sequence ID
+			FMovieSceneObjectBindingID RootBindingID = CameraBindingID.ResolveLocalToRoot(SequenceID, Player.GetEvaluationTemplate().GetHierarchy());
+			SequenceID = RootBindingID.GetSequenceID();
 		}
 
 		FMovieSceneEvaluationOperand CameraOperand(SequenceID, CameraBindingID.GetGuid());

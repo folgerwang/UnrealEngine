@@ -6,7 +6,9 @@ namespace UnrealBuildTool.Rules
 	{
 		public NullNetworkReplayStreaming( ReadOnlyTargetRules Target ) : base(Target)
 		{
-			PrivateIncludePaths.Add( "Runtime/NetworkReplayStreaming/NullNetworkReplayStreaming/Private" );
+            ShortName = "NullReplayStreaming";
+
+            PrivateIncludePaths.Add( "Runtime/NetworkReplayStreaming/NullNetworkReplayStreaming/Private" );
 
 			PrivateDependencyModuleNames.AddRange(
 				new string[]

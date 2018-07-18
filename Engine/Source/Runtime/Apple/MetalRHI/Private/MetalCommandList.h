@@ -31,7 +31,7 @@ public:
 	 * Command buffer failure reporting function.
 	 * @param CompletedBuffer The buffer to check for failure.
 	 */
-	static void HandleMetalCommandBufferFailure(id <MTLCommandBuffer> CompletedBuffer);
+	static void HandleMetalCommandBufferFailure(mtlpp::CommandBuffer const& CompletedBuffer);
 	
 #pragma mark - Public Command List Mutators -
 	
@@ -41,7 +41,7 @@ public:
 	 * @param CompletionHandlers The completion handlers that should be attached to this command-buffer.
 	 * @param bWait Whether to wait for the command buffer to complete - it is an error to set this to true on a deferred command-list.
 	 */
-	void Commit(id<MTLCommandBuffer> Buffer, NSArray<MTLCommandBufferHandler>* CompletionHandlers, bool const bWait);
+	void Commit(mtlpp::CommandBuffer& Buffer, TArray<ns::Object<mtlpp::CommandBufferHandler>> CompletionHandlers, bool const bWait);
 	
 	/**
 	 * Submits all outstanding command-buffers in the proper commit order to the command-queue.
@@ -65,6 +65,6 @@ public:
 private:
 #pragma mark - Private Member Variables -
 	FMetalCommandQueue& CommandQueue;
-	NSMutableArray<id<MTLCommandBuffer>>* SubmittedBuffers;
+	TArray<mtlpp::CommandBuffer> SubmittedBuffers;
 	bool bImmediate;
 };

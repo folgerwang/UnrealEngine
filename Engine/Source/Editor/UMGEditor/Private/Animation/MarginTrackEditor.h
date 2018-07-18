@@ -12,7 +12,7 @@
 #include "Animation/MovieSceneMarginSection.h"
 
 class FMarginTrackEditor
-	: public FPropertyTrackEditor<UMovieSceneMarginTrack, UMovieSceneMarginSection, FMarginKey>
+	: public FPropertyTrackEditor<UMovieSceneMarginTrack>
 {
 public:
 
@@ -22,7 +22,7 @@ public:
 	 * @param InSequencer The sequencer instance to be used by this tool
 	 */
 	FMarginTrackEditor( TSharedRef<ISequencer> InSequencer )
-		: FPropertyTrackEditor<UMovieSceneMarginTrack, UMovieSceneMarginSection, FMarginKey>( InSequencer, GetAnimatedPropertyTypes() )
+		: FPropertyTrackEditor( InSequencer, GetAnimatedPropertyTypes() )
 	{
 	}
 
@@ -44,15 +44,11 @@ public:
 	 */
 	static TSharedRef<ISequencerTrackEditor> CreateTrackEditor( TSharedRef<ISequencer> OwningSequencer );
 
-	//~ ISequencerTrackEditor Interface
-
-	virtual TSharedRef<ISequencerSection> MakeSectionInterface(UMovieSceneSection& SectionObject, UMovieSceneTrack& Track, FGuid ObjectBinding) override;
-
 protected:
 
 	//~ FPropertyTrackEditor Interface
 
-	virtual void GenerateKeysFromPropertyChanged( const FPropertyChangedParams& PropertyChangedParams, TArray<FMarginKey>& NewGeneratedKeys, TArray<FMarginKey>& DefaultGeneratedKeys) override;
+	virtual void GenerateKeysFromPropertyChanged( const FPropertyChangedParams& PropertyChangedParams, FGeneratedTrackKeys& OutGeneratedKeys) override;
 
 private:
 

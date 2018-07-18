@@ -16,14 +16,14 @@
 #include "LevelEditorActions.h"
 #include "LevelEditorViewport.h"
 #include "EngineUtils.h"
-#include "SDockTab.h"
-#include "SExpandableArea.h"
-#include "SGridPanel.h"
-#include "SSpinBox.h"
-#include "SScrollBox.h"
-#include "SComboBox.h"
-#include "SButton.h"
-#include "SListView.h"
+#include "Widgets/Docking/SDockTab.h"
+#include "Widgets/Layout/SExpandableArea.h"
+#include "Widgets/Layout/SGridPanel.h"
+#include "Widgets/Input/SSpinBox.h"
+#include "Widgets/Layout/SScrollBox.h"
+#include "Widgets/Input/SComboBox.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Views/SListView.h"
 #include "Async/Async.h"
 #include "Kismet/GameplayStatics.h"
 #include "Runtime/Slate/Public/Widgets/Notifications/SNotificationList.h"
@@ -94,7 +94,7 @@ namespace SteamAudio
 					.OnClicked(this, &FBakeIndirectWindow::OnBakeSelected)
 					[
 						SNew(STextBlock)
-						.Text(NSLOCTEXT("SteamAudio", "BakeSelectedText", "Bake Selected"))
+						.Text(NSLOCTEXT("SteamAudio", "BakeSelected", "Bake Selected"))
 						.Font(IDetailLayoutBuilder::GetDetailFont())
 					]
 				]
@@ -145,7 +145,7 @@ namespace SteamAudio
 				+ SHorizontalBox::Slot()
 				[
 					SNew(STextBlock)
-					.Text(PrettyPrintedByte(Item->DataSize))
+					.Text(FText::AsMemory(Item->DataSize))
 					.Font(IDetailLayoutBuilder::GetDetailFont())
 				]
 			];

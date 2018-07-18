@@ -159,7 +159,7 @@ class ENGINE_API UParticleModuleLocationBoneSocket : public UParticleModuleLocat
 	 *
 	 *	@return	USkeletalMeshComponent*		The skeletal mesh component to use as the source
 	 */
-	USkeletalMeshComponent* GetSkeletalMeshComponentSource(FParticleEmitterInstance* Owner);
+	void GetSkeletalMeshComponentSource(FParticleEmitterInstance* Owner, FModuleLocationBoneSocketInstancePayload* InstancePayload);
 
 	/**
 	 *	Retrieve the position for the given socket index.
@@ -195,6 +195,8 @@ struct FModuleLocationBoneSocketInstancePayload
 {
 	/** The skeletal mesh component used as the source of the sockets */
 	TWeakObjectPtr<USkeletalMeshComponent> SourceComponent;
+	/** Actor pointer we took the skel mesh comp from. */
+	TWeakObjectPtr<AActor> CachedActor;
 	/** The last selected index into the socket array */
 	int32 LastSelectedIndex;
 	/** The position of each bone/socket from the previous tick. Used to calculate the inherited bone velocity when spawning particles. */

@@ -19,10 +19,9 @@
 #include "LocalVertexFactory.h"
 #include "MaterialShared.h"
 #include "Materials/Material.h"
-#include "Components/InstancedStaticMeshComponent.h"
 #include "StaticMeshResources.h"
+#include "Components/InstancedStaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
-
 
 #include "StaticMeshLight.h"
 
@@ -54,45 +53,17 @@ class FStaticMeshInstanceBuffer : public FRenderResource
 public:
 
 	/** Default constructor. */
-	FStaticMeshInstanceBuffer(ERHIFeatureLevel::Type InFeatureLevel, bool InIsDynamic, bool InRequireCPUAccess);
+	FStaticMeshInstanceBuffer(ERHIFeatureLevel::Type InFeatureLevel, bool InRequireCPUAccess);
 
 	/** Destructor. */
 	~FStaticMeshInstanceBuffer();
 
-	/** Delete existing resources */
-	void CleanUp();
-
 	/**
 	 * Initializes the buffer with the component's data.
-	 * @param InComponent - The owning component
-	 * @param InHitProxies - Array of hit proxies for each instance, if desired.
-	 */
-	void Init(UInstancedStaticMeshComponent* InComponent, const TArray<TRefCountPtr<HHitProxy> >& InHitProxies, bool InitializeBufferFromData);
-
-	/**
-	 * Update the specified instance range (called on game thread)
-	 * @param InComponent - The owning component
-	 * @param InHitProxies - Array of hit proxies for each instance, if desired.
-	 * @param InUpdateInstanceStartingIndex - Starting instance index to update.
-	 * @param InUpdateInstanceIndexCount - Instance count to update.
-	 */
-	void UpdateInstanceData(UInstancedStaticMeshComponent* InComponent, const TArray<TRefCountPtr<HHitProxy> >& InHitProxies, int32 InUpdateInstanceStartingIndex, int32 InUpdateInstanceIndexCount, bool InUpdateRandomStream);
-
-	/**
-	 * Initializes the buffer with the component's data.
-	 * @param InComponent - The owning component; this need not have PerInstanceSMData, as we are taking a prebuilt instance buffer
 	 * @param Other - instance data, this call assumes the memory, so this will be empty after the call
 	 */
-	ENGINE_API void InitFromPreallocatedData(UInstancedStaticMeshComponent* InComponent, FStaticMeshInstanceData& Other, bool InRequireCPUAccess);
-
-	/**
-	 * Update the RHI vertex buffer (called on render thread)
-	 * @param InIndexList - List of items to update in the buffer (an empty list means we want to update all the buffer)
-	 */
-	void UpdateRHIVertexBuffer(const TSet<int32>& InIndexList);
-
-	/** Serializer. */
-	friend FArchive& operator<<(FArchive& Ar, FStaticMeshInstanceBuffer& VertexBuffer);
+	ENGINE_API void InitFromPreallocatedData(FStaticMeshInstanceData& Other);
+	ENGINE_API void UpdateFromCommandBuffer_Concurrent(FInstanceUpdateCmdBuffer& CmdBuffer);
 
 	/**
 	 * Specialized assignment operator, only used when importing LOD's. 
@@ -101,11 +72,6 @@ public:
 
 	// Other accessors.
 	FORCEINLINE uint32 GetNumInstances() const
-	{
-		return NumInstances;
-	}
-
-	FORCEINLINE uint32 GetCurrentNumInstances() const
 	{
 		return InstanceData->GetNumInstances();
 	}
@@ -119,6 +85,11 @@ public:
 	{
 		InstanceData->GetInstanceShaderValues(InstanceIndex, InstanceTransform, InstanceLightmapAndShadowMapUVBias, InstanceOrigin);
 	}
+	
+	FORCEINLINE FStaticMeshInstanceData* GetInstanceData() const
+	{
+		return InstanceData.Get();
+	}
 
 	// FRenderResource interface.
 	virtual void InitRHI() override;
@@ -126,8 +97,16 @@ public:
 	virtual void InitResource() override;
 	virtual void ReleaseResource() override;
 	virtual FString GetFriendlyName() const override { return TEXT("Static-mesh instances"); }
+	SIZE_T GetResourceSize() const;
 
 	void BindInstanceVertexBuffer(const class FVertexFactory* VertexFactory, struct FInstancedStaticMeshDataType& InstancedStaticMeshData) const;
+
+public:
+	/** The vertex data storage type */
+	TSharedPtr<FStaticMeshInstanceData, ESPMode::ThreadSafe> InstanceData;
+
+	/** Keep CPU copy of instance data*/
+	bool RequireCPUAccess;
 
 private:
 	class FInstanceOriginBuffer : public FVertexBuffer
@@ -148,33 +127,13 @@ private:
 	} InstanceLightmapBuffer;
 	FShaderResourceViewRHIRef InstanceLightmapSRV;
 
-	/** The vertex data storage type */
-	FStaticMeshInstanceData* InstanceData;
-
-	/** The cached number of instances. */
-	uint32 NumInstances;
-
-	/** Is the vertex buffer considered dynamic */
-	bool IsDynamic;
-
-	/** Do we need specificy CPU access for instances */
-	bool RequireCPUAccess;
-
-	/** Is used to generate random value for each instance consistently between Update call */
-	FRandomStream RandomStream;
-
-	/** Allocates the vertex data storage type. */
-	void AllocateData(bool bRequestsCPUAccess);
-
-	/** Accepts preallocated data; Other is left empty after the call because no memory is copied. */
-	void AllocateData(FStaticMeshInstanceData& Other, bool bRequestsCPUAccess);
-
-	void UpdateRHIVertexBuffer(int32 StartingIndex, uint32 InstanceCount);
+	/** Delete existing resources */
+	void CleanUp();
 
 	void CreateVertexBuffer(FResourceArrayInterface* InResourceArray, uint32 InUsage, uint32 InStride, uint8 InFormat, FVertexBufferRHIRef& OutVertexBufferRHI, FShaderResourceViewRHIRef& OutInstanceSRV);
-	bool UpdateDynamicVertexBuffer(int32 StartingIndex, uint32 InstanceCount, uint32 Stride, FVertexBufferRHIRef VetexBuffer, FResourceArrayInterface* ResourceArray);
 	
-	bool ComponentRequestsCPUAccess(UInstancedStaticMeshComponent* InComponent);
+	/**  */
+	void UpdateFromCommandBuffer_RenderThread(FInstanceUpdateCmdBuffer& CmdBuffer);
 };
 
 /*-----------------------------------------------------------------------------
@@ -206,9 +165,9 @@ struct FInstancedStaticMeshDataType
 	/** The stream to read the Lightmap Bias and Random instance ID from. */
 	FVertexStreamComponent InstanceLightmapAndShadowMapUVBiasComponent;
 
-	FShaderResourceViewRHIParamRef InstanceOriginSRV;
-	FShaderResourceViewRHIParamRef InstanceTransformSRV;
-	FShaderResourceViewRHIParamRef InstanceLightmapSRV;
+	FShaderResourceViewRHIParamRef InstanceOriginSRV = nullptr;
+	FShaderResourceViewRHIParamRef InstanceTransformSRV = nullptr;
+	FShaderResourceViewRHIParamRef InstanceLightmapSRV = nullptr;
 };
 
 /**
@@ -397,6 +356,7 @@ private:
 	FShaderResourceParameter VertexFetch_InstanceLightmapBufferParameter;
 };
 
+struct FInstanceUpdateCmdBuffer;
 /*-----------------------------------------------------------------------------
 	FPerInstanceRenderData
 	Holds render data that can persist between scene proxy reconstruction
@@ -404,144 +364,29 @@ private:
 struct FPerInstanceRenderData
 {
 	// Should be always constructed on main thread
-	FPerInstanceRenderData(UInstancedStaticMeshComponent* InComponent, ERHIFeatureLevel::Type InFeaureLevel, bool IsDynamicBuffer, bool InRequireCPUAccess, bool InitializeBufferFromData)
-		: InstanceBuffer(InFeaureLevel, IsDynamicBuffer, InRequireCPUAccess)
-	{
-		if (InitializeBufferFromData)
-		{
-			// Create hit proxies for each instance if the component wants
-			if (GIsEditor && InComponent->bHasPerInstanceHitProxies)
-			{
-				QUICK_SCOPE_CYCLE_COUNTER(STAT_FPerInstanceRenderData_HitProxies);
-				HitProxies.Reserve(InComponent->PerInstanceSMData.Num());
-
-				for (int32 InstanceIdx = 0; InstanceIdx < InComponent->PerInstanceSMData.Num(); InstanceIdx++)
-				{
-					HitProxies.Add(new HInstancedStaticMeshInstance(InComponent, InstanceIdx));
-				}
-			}
-		}
-
-		// initialize the instance buffer from the component's instances
-		InstanceBuffer.Init(InComponent, HitProxies, InitializeBufferFromData);
-
-		InitResource();
-	}
-
-	FPerInstanceRenderData(UInstancedStaticMeshComponent* InComponent, FStaticMeshInstanceData& Other, ERHIFeatureLevel::Type InFeaureLevel, bool IsDynamicBuffer, bool InRequireCPUAccess)
-		: InstanceBuffer(InFeaureLevel, IsDynamicBuffer, InRequireCPUAccess)
-	{
-		InstanceBuffer.InitFromPreallocatedData(InComponent, Other, InRequireCPUAccess);
-
-		InitResource();
-	}
-	
-	// Should be always destructed on render thread
-	~FPerInstanceRenderData()
-	{
-		InstanceBuffer.ReleaseResource();
-	}
+	FPerInstanceRenderData(FStaticMeshInstanceData& Other, ERHIFeatureLevel::Type InFeaureLevel, bool InRequireCPUAccess);
+	~FPerInstanceRenderData();
 
 	/**
 	 * Call to update the Instance buffer with pre allocated data without recreating the FPerInstanceRenderData
 	 * @param InComponent - The owning component
 	 * @param InOther - The Instance data to copy into our instance buffer
 	 */
-	void UpdateFromPreallocatedData(UInstancedStaticMeshComponent* InComponent, FStaticMeshInstanceData& InOther, bool InRequireCPUAccess)
-	{
-		InstanceBuffer.InitFromPreallocatedData(InComponent, InOther, InRequireCPUAccess);
-	}
-
-	/** Will Initialize the resource if it contain instances */
-	void InitResource()
-	{
-		if (InstanceBuffer.GetNumInstances() > 0)
-		{
-			BeginInitResource(&InstanceBuffer);
-		}
-	}
-
-	/**
-	 * Will add missing proxy data if using them
-	 * @param InComponent - The owning component
-	 * @param InUpdateInstanceStartingIndex - Starting instance index to update.
-	 * @param InUpdateInstanceIndexCount - Instance count to update.
-	 */
-	void AddHitProxyData(UInstancedStaticMeshComponent* InComponent, int32 InUpdateInstanceStartingIndex, int32 InUpdateInstanceIndexCount)
-	{
-		// Assume Array Index == Instance Index for each proxy
-		if (GIsEditor && InComponent->bHasPerInstanceHitProxies)
-		{
-			QUICK_SCOPE_CYCLE_COUNTER(STAT_FPerInstanceRenderData_AddHitProxies);
-
-			for (int32 InstanceIdx = InUpdateInstanceStartingIndex; InstanceIdx < InUpdateInstanceStartingIndex + InUpdateInstanceIndexCount; InstanceIdx++)
-			{
-				if (!HitProxies.IsValidIndex(InstanceIdx))
-				{
-					HitProxies.Add(new HInstancedStaticMeshInstance(InComponent, InstanceIdx));
-				}
-			}
-		}
-	}
-
-	/**
-	 * Will update the specified instance range in the instance buffer
-	 * @param InComponent - The owning component
-	 * @param InUpdateInstanceStartingIndex - Starting instance index to update.
-	 * @param InUpdateInstanceIndexCount - Instance count to update.
-	 * @param InUpdateProxyData - Should we update the hit proxy data to match the updated instances.
-	 */
-	void UpdateInstanceData(UInstancedStaticMeshComponent* InComponent, int32 InUpdateInstanceStartingIndex, int32 InUpdateInstanceIndexCount = 1, bool InUpdateProxyData = true, bool InUpdateRandomStream = false)
-	{
-		QUICK_SCOPE_CYCLE_COUNTER(STAT_FoliageBufferUpdate);
-
-		if (InUpdateProxyData)
-		{
-			AddHitProxyData(InComponent, InUpdateInstanceStartingIndex, InUpdateInstanceIndexCount);
-		}
-
-		InstanceBuffer.UpdateInstanceData(InComponent, HitProxies, InUpdateInstanceStartingIndex, InUpdateInstanceIndexCount, InUpdateRandomStream);
-	}
-
-	void UpdateAllInstanceData(UInstancedStaticMeshComponent* InComponent, bool InUpdateProxyData = true, bool InUpdateRandomStream = false)
-	{
-		QUICK_SCOPE_CYCLE_COUNTER(STAT_FoliageBufferUpdate);
-
-		if (InUpdateProxyData)
-		{
-			AddHitProxyData(InComponent, 0, InComponent->PerInstanceSMData.Num());
-		}
-
-		// Force full refresh of ALL the buffer instance (including the removed one as we might need to re locate them)
-		InstanceBuffer.UpdateInstanceData(InComponent, HitProxies, 0, FMath::Max((int32)InstanceBuffer.GetNumInstances(), InComponent->PerInstanceSMData.Num()), InUpdateRandomStream);
-	}
-
-	/**
-	 * Remove a single instance from the instance buffer
-	 * @param InComponent - The owning component.
-	 * @param InInstanceIndex - The index to remove.
-	 */
-	void RemoveInstanceData(UInstancedStaticMeshComponent* InComponent, int32 InInstanceIndex)
-	{
-		if (HitProxies.IsValidIndex(InInstanceIndex))
-		{
-			HitProxies.RemoveAtSwap(InInstanceIndex);
-
-			if (HitProxies.IsValidIndex(InInstanceIndex))
-			{
-				// Update the hit proxy instance index to be the new one
-				HInstancedStaticMeshInstance* HitProxy = HitProxyCast<HInstancedStaticMeshInstance>(HitProxies[InInstanceIndex].GetReference());
-				HitProxy->InstanceIndex = InInstanceIndex;
-			}
-		}
-
-		UpdateInstanceData(InComponent, InInstanceIndex, 1, false);
-	}
+	ENGINE_API void UpdateFromPreallocatedData(FStaticMeshInstanceData& InOther);
 		
-	/** Instance buffer */
-	FStaticMeshInstanceBuffer			InstanceBuffer;
+	/**
+	*/
+	ENGINE_API void UpdateFromCommandBuffer(FInstanceUpdateCmdBuffer& CmdBuffer);
+
 	/** Hit proxies for the instances */
 	TArray<TRefCountPtr<HHitProxy>>		HitProxies;
+
+	/** cached per-instance resource size*/
+	SIZE_T								ResourceSize;
+
+	/** Instance buffer */
+	FStaticMeshInstanceBuffer			InstanceBuffer;
+	TSharedPtr<FStaticMeshInstanceData, ESPMode::ThreadSafe> InstanceBuffer_GameThread;
 };
 
 
@@ -558,21 +403,9 @@ public:
 	  , PerInstanceRenderData(InComponent->PerInstanceRenderData)
 	  , LODModels(Component->GetStaticMesh()->RenderData->LODResources)
 	  , FeatureLevel(InFeatureLevel)
-		, NumInstances(PerInstanceRenderData.IsValid() ? PerInstanceRenderData->InstanceBuffer.GetNumInstances() : 0)
 	{
+		check(PerInstanceRenderData.IsValid());
 		// Allocate the vertex factories for each LOD
-		InitVertexFactories();
-		ReInitVertexFactories();
-		RegisterSpeedTreeWind();
-	}
-
-	FInstancedStaticMeshRenderData(UInstancedStaticMeshComponent* InComponent, ERHIFeatureLevel::Type InFeatureLevel, FStaticMeshInstanceData& Other)
-		: Component(InComponent)
-		, PerInstanceRenderData(InComponent->PerInstanceRenderData)
-		, LODModels(Component->GetStaticMesh()->RenderData->LODResources)
-		, FeatureLevel(InFeatureLevel)
-		, NumInstances(PerInstanceRenderData.IsValid() ? PerInstanceRenderData->InstanceBuffer.GetNumInstances() : 0)
-	{
 		InitVertexFactories();
 		ReInitVertexFactories();
 		RegisterSpeedTreeWind();
@@ -580,32 +413,6 @@ public:
 
 	~FInstancedStaticMeshRenderData()
 	{
-	}
-
-	/**
-	 * Update the per instance render data
-	 * @param InNeedUpdatingInstanceIndexList - list of instance index to update (or empty if we want to update all of it).
-	 */
-	void UpdatePerInstanceRenderData(const TSet<int32>& InNeedUpdatingInstanceIndexList)
-	{
-		if (PerInstanceRenderData.IsValid() && PerInstanceRenderData->InstanceBuffer.GetNumInstances() > 0)
-		{
-			if (!PerInstanceRenderData->InstanceBuffer.IsInitialized())
-			{
-				PerInstanceRenderData->InitResource();
-			}
-			else
-			{
-				FStaticMeshInstanceBuffer* InstanceBuffer = &PerInstanceRenderData->InstanceBuffer;
-				TSet<int32> InstanceIndexList = InNeedUpdatingInstanceIndexList;
-				ENQUEUE_RENDER_COMMAND(FPerInstanceRenderDataBufferUpdate)(
-						[InstanceBuffer, InstanceIndexList](FRHICommandListImmediate& RHICmdList)
-					{
-						InstanceBuffer->UpdateRHIVertexBuffer(InstanceIndexList);
-					});
-			}
-		}
-		ReInitVertexFactories();
 	}
 
 	void ReInitVertexFactories()
@@ -670,9 +477,6 @@ public:
 	/** Feature level used when creating instance data */
 	ERHIFeatureLevel::Type FeatureLevel;
 
-	/** Number of instances */
-	int32 NumInstances;
-
 private:
 
 	void InitVertexFactories()
@@ -694,7 +498,6 @@ private:
 			VertexFactories.Add(VertexFactoryPtr);
 		}
 	}
-
 };
 
 
@@ -709,30 +512,14 @@ public:
 
 	FInstancedStaticMeshSceneProxy(UInstancedStaticMeshComponent* InComponent, ERHIFeatureLevel::Type InFeatureLevel)
 	:	FStaticMeshSceneProxy(InComponent, true)
+	,	StaticMesh(InComponent->GetStaticMesh())
 	,	InstancedRenderData(InComponent, InFeatureLevel)
 #if WITH_EDITOR
 	,	bHasSelectedInstances(InComponent->SelectedInstances.Num() > 0)
 #endif
 	{
 		SetupProxy(InComponent);
-
-		InstancedRenderData.UpdatePerInstanceRenderData(InComponent->NeedUpdatingInstanceIndexList);
-		InComponent->NeedUpdatingInstanceIndexList.Reset();
 	}
-
-	FInstancedStaticMeshSceneProxy(UInstancedStaticMeshComponent* InComponent, ERHIFeatureLevel::Type InFeatureLevel, FStaticMeshInstanceData& Other)
-		:	FStaticMeshSceneProxy(InComponent, true)
-		,	InstancedRenderData(InComponent, InFeatureLevel, Other)
-#if WITH_EDITOR
-		,	bHasSelectedInstances(InComponent->SelectedInstances.Num() > 0)
-#endif
-	{
-		SetupProxy(InComponent);
-
-		InstancedRenderData.UpdatePerInstanceRenderData(InComponent->NeedUpdatingInstanceIndexList);
-		InComponent->NeedUpdatingInstanceIndexList.Reset();
-	}
-
 
 	~FInstancedStaticMeshSceneProxy()
 	{
@@ -781,21 +568,7 @@ public:
 	 * @param OutHitProxies - Hit proxes which are created should be added to this array.
 	 * @return The hit proxy to use by default for elements drawn by DrawDynamicElements.
 	 */
-	virtual HHitProxy* CreateHitProxies(UPrimitiveComponent* Component,TArray<TRefCountPtr<HHitProxy> >& OutHitProxies) override
-	{
-		if(InstancedRenderData.PerInstanceRenderData.IsValid() && InstancedRenderData.PerInstanceRenderData->HitProxies.Num() )
-		{
-			// Add any per-instance hit proxies.
-			OutHitProxies += InstancedRenderData.PerInstanceRenderData->HitProxies;
-
-			// No default hit proxy.
-			return NULL;
-		}
-		else
-		{
-			return FStaticMeshSceneProxy::CreateHitProxies(Component, OutHitProxies);
-		}
-	}
+	virtual HHitProxy* CreateHitProxies(UPrimitiveComponent* Component,TArray<TRefCountPtr<HHitProxy> >& OutHitProxies) override;
 
 	virtual bool IsDetailMesh() const override
 	{
@@ -803,6 +576,9 @@ public:
 	}
 
 protected:
+	/** Cache of the StaticMesh asset, needed to release SpeedTree resources*/
+	UStaticMesh* StaticMesh;
+
 	/** Per component render data */
 	FInstancedStaticMeshRenderData InstancedRenderData;
 

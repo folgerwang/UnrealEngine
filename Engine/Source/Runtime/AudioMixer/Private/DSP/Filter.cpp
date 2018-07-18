@@ -5,6 +5,11 @@
 
 namespace Audio
 {
+    float FBiquadFilter::ClampCutoffFrequency(float InCutoffFrequency)
+    {
+        return FMath::Clamp(InCutoffFrequency, 5.0f, SampleRate / 2.0f - 1.0f);
+    }
+    
 	FBiquadFilter::FBiquadFilter()
 		: FilterType(EBiquadFilter::Lowpass)
 		, Biquad(nullptr)
@@ -30,7 +35,7 @@ namespace Audio
 		SampleRate = InSampleRate;
 		NumChannels = InNumChannels;
 		FilterType = InFilterType;
-		Frequency = FMath::Max(InCutoffFrequency, 20.0f);
+        Frequency = ClampCutoffFrequency(InCutoffFrequency);
 		Bandwidth = InBandwidth;
 		GainDB = InGainDB;
 
@@ -73,7 +78,7 @@ namespace Audio
 
 	void FBiquadFilter::SetParams(const EBiquadFilter::Type InFilterType, const float InCutoffFrequency, const float InBandwidth, const float InGainDB)
 	{
-		const float InCutoffFrequencyClamped = FMath::Max(InCutoffFrequency, 20.0f);
+		const float InCutoffFrequencyClamped = ClampCutoffFrequency(InCutoffFrequency);
 
 		if (FilterType != InFilterType ||
 			!FMath::IsNearlyEqual(Frequency, InCutoffFrequencyClamped) ||
@@ -99,7 +104,7 @@ namespace Audio
 
 	void FBiquadFilter::SetFrequency(const float InCutoffFrequency)
 	{
-		const float InCutoffFrequencyClamped = FMath::Max(InCutoffFrequency, 0.0f);
+        const float InCutoffFrequencyClamped = ClampCutoffFrequency(InCutoffFrequency);
 		if (Frequency != InCutoffFrequencyClamped)
 		{
 			Frequency = InCutoffFrequencyClamped;

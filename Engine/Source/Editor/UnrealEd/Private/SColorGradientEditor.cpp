@@ -23,6 +23,7 @@
 #include "Widgets/Colors/SColorPicker.h"
 #include "SCurveEditor.h"
 #include "ScopedTransaction.h"
+#include "Misc/Optional.h"
 
 
 #define LOCTEXT_NAMESPACE "SColorGradientEditor"
@@ -166,9 +167,39 @@ int32 SColorGradientEditor::OnPaint( const FPaintArgs& Args, const FGeometry& Al
 		// If no alpha keys are available, treat the curve as being completely opaque for drawing purposes
 		bool bHasAnyAlphaKeys = CurveOwner->HasAnyAlphaKeys(); 
 
-		// If any transpareny (A < 1) is found, we'll draw a checkerboard to visualize the color with alpha
+		// If any transparency (A < 1) is found, we'll draw a checkerboard to visualize the color with alpha
 		bool bHasTransparency = false;
+		static const FSlateBrush* WhiteBrush = FEditorStyle::GetBrush("WhiteBrush");
 
+		if (bColorAreaHovered)
+		{
+			// Draw a checkerboard behind there is any transparency visible
+			FSlateDrawElement::MakeBox
+			(
+				OutDrawElements,
+				LayerId,
+				ColorMarkAreaGeometry.ToPaintGeometry(),
+				WhiteBrush,
+				DrawEffects,
+				FLinearColor(.5f, .5f, .5f, .15f)
+				);
+			++LayerId;
+		}
+		else if (bAlphaAreaHovered)
+		{
+			// Draw a checkerboard behind there is any transparency visible
+			FSlateDrawElement::MakeBox
+			(
+				OutDrawElements,
+				LayerId,
+				AlphaMarkAreaGeometry.ToPaintGeometry(),
+				WhiteBrush,
+				DrawEffects,
+				FLinearColor(.5f, .5f, .5f, .15f)
+			);
+			++LayerId;
+		}
+			
 		// Sample the curve every 2 units.  THe curve could be non-linear so sampling at each stop would display an incorrect gradient
 		for( int32 CurrentStep = Start; CurrentStep < Finish; CurrentStep+=2 )
 		{
@@ -177,6 +208,9 @@ int32 SColorGradientEditor::OnPaint( const FPaintArgs& Args, const FGeometry& Al
 
 			// Sample the curve
 			FLinearColor Color = CurveOwner->GetLinearColorValue( Time );
+			//Slate MakeGradient call expects the linear colors to be pre-converted to sRGB
+			FColor ColorNosRGB = Color.ToFColor(true);
+			Color = ColorNosRGB.ReinterpretAsLinear();
 			if( !bHasAnyAlphaKeys )
 			{
 				// Only show alpha if there is at least one key.  For some curves, alpha may not be important
@@ -214,7 +248,7 @@ int32 SColorGradientEditor::OnPaint( const FPaintArgs& Args, const FGeometry& Al
 				GradientAreaGeometry.ToPaintGeometry(),
 				Stops,
 				Orient_Vertical,
-				DrawEffects | ESlateDrawEffect::NoGamma
+				DrawEffects
 			);	
 		}
 
@@ -304,7 +338,8 @@ FReply SColorGradientEditor::OnMouseButtonDown( const FGeometry& MyGeometry, con
 {
 	if( IsEditingEnabled.Get() == true )
 	{
-		if( MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton )
+		// Don't capture shift+click as the Curve Editor already handles this
+		if( MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton && !MouseEvent.IsShiftDown() )
 		{
 			// Select the stop under the mouse if any and capture the mouse to get detect dragging
 			SelectedStop = GetGradientStopAtPoint( MouseEvent.GetScreenSpacePosition(), MyGeometry );
@@ -347,6 +382,25 @@ FReply SColorGradientEditor::OnMouseButtonDoubleClick( const FGeometry& InMyGeom
 
 FReply SColorGradientEditor::OnMouseMove( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
 {
+	FGeometry ColorMarkAreaGeometry = GetColorMarkAreaGeometry(MyGeometry);
+	FGeometry AlphaMarkAreaGeometry = GetAlphaMarkAreaGeometry(MyGeometry);
+
+	if (ColorMarkAreaGeometry.IsUnderLocation(MouseEvent.GetScreenSpacePosition()))
+	{
+		bColorAreaHovered = true;
+		bAlphaAreaHovered = false;
+	}
+	else if (AlphaMarkAreaGeometry.IsUnderLocation(MouseEvent.GetScreenSpacePosition()))
+	{
+		bColorAreaHovered = false;
+		bAlphaAreaHovered = true;
+	}
+	else
+	{
+		bColorAreaHovered = false;
+		bAlphaAreaHovered = false;
+	}
+
 	if( HasMouseCapture() && IsEditingEnabled.Get() == true )
 	{
 		DistanceDragged += FMath::Abs( MouseEvent.GetCursorDelta().X );
@@ -446,6 +500,12 @@ FReply SColorGradientEditor::OnKeyDown( const FGeometry& MyGeometry, const FKeyE
 	}
 
 	return FReply::Unhandled();
+}
+
+void SColorGradientEditor::OnMouseLeave(const FPointerEvent& MouseEvent)
+{
+	bColorAreaHovered = false;
+	bAlphaAreaHovered = false;
 }
 
 FVector2D SColorGradientEditor::ComputeDesiredSize( float ) const
@@ -590,7 +650,7 @@ void SColorGradientEditor::OpenGradientStopColorPicker()
 		// Open a color picker
 		FColorPickerArgs ColorPickerArgs;
 
-		ColorPickerArgs.bOnlyRefreshOnMouseUp = false;
+		ColorPickerArgs.bOnlyRefreshOnMouseUp = true;
 		ColorPickerArgs.bIsModal = false;
 		ColorPickerArgs.ParentWidget = SharedThis( this );
 		ColorPickerArgs.bUseAlpha = false;
@@ -696,8 +756,8 @@ void SColorGradientEditor::OnSetGradientStopTimeFromPopup( const FText& NewText,
 void SColorGradientEditor::DrawGradientStopMark( const FGradientStopMark& Mark, const FGeometry& Geometry, float XPos, const FLinearColor& Color, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FSlateRect& InClippingRect, ESlateDrawEffect DrawEffects, bool bColor, const FWidgetStyle& InWidgetStyle ) const
 {
 	static const FSlateBrush* WhiteBrush = FEditorStyle::GetBrush("WhiteBrush");
-	static const FSlateBrush* ColorStopBrush = FEditorStyle::GetBrush("Sequencer.Timeline.ScrubHandleDown");
-	static const FSlateBrush* AlphaStopBrush = FEditorStyle::GetBrush("Sequencer.Timeline.ScrubHandleUp");
+	static const FSlateBrush* ColorStopBrush = FEditorStyle::GetBrush("CurveEditor.Gradient.HandleDown");
+	static const FSlateBrush* AlphaStopBrush = FEditorStyle::GetBrush("CurveEditor.Gradient.HandleUp");
 	static const FLinearColor SelectionColor = FEditorStyle::GetSlateColor("SelectionColor").GetColor( InWidgetStyle );
 
 	const float HandleSize = 13.0f;
@@ -721,6 +781,7 @@ void SColorGradientEditor::DrawGradientStopMark( const FGradientStopMark& Mark, 
 	);
 
 	// Draw a box with the gradient stop color
+	//Slate MakeGradient call expects the linear colors to be pre-converted to sRGB
 	FSlateDrawElement::MakeBox
 	( 
 		OutDrawElements,
@@ -728,7 +789,7 @@ void SColorGradientEditor::DrawGradientStopMark( const FGradientStopMark& Mark, 
 		Geometry.ToPaintGeometry( FVector2D( XPos-HandleRect.Left+3, bColor ? HandleRect.Top+3.0f : HandleRect.Top+6), FVector2D( HandleRect.Right-6, HandleRect.Bottom-9 ) ),
 		WhiteBrush,
 		DrawEffects,
-		Color.ToFColor(false)
+		Color.ToFColor(true)
 	);
 }
 FGeometry SColorGradientEditor::GetColorMarkAreaGeometry( const FGeometry& InGeometry ) const

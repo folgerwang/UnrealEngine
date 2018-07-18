@@ -140,8 +140,9 @@ public:
 	/** Returns uncompressed image data, decompressing it on demand if needed. */
 	const TArray< uint8 >& GetUncompressedImageData() const;
 
-	/** Serializer */
-	void Serialize( FArchive& Ar );
+	/** Serializers */
+	void Serialize(FArchive& Ar);
+	void Serialize(FStructuredArchive::FSlot Slot);
 	
 	/** Compress image data. */
 	void CompressImageData();

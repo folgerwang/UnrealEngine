@@ -2,12 +2,11 @@
 Availability:Public
 Title:カーブで操作するアニメーション
 Crumbs: %ROOT%, Engine, Engine/Animation
-Description:Pose アセットとカーブ データを使ってアニメーション カーブ データで操作する新規アニメーション シーケンスを作成します。
-Related:Engine\Animation\AnimHowTo\CreatePoseAsset
-Related:Engine\Animation\Persona\AnimCurves
-Related:Engine\Animation\AnimPose
-version:4.14
-skilllevel:Advanced
+Description:Pose アセットとカーブ データを使ってアニメーション カーブ データで操作する新規アニメーション Related: Engine\Animation\AnimHowTo\CreatePoseAsset
+Related: Engine\Animation\Persona\AnimCurves
+Related: Engine\Animation\AnimPose
+version: 4.14
+skilllevel: Advanced
 
 
 この操作ガイドでは、アニメーションを動かすためにカーブデータを使用する新規歩行アニメーションを作成します。 
@@ -19,6 +18,7 @@ skilllevel:Advanced
 [/REGION]
 
 1. **コンテンツ ブラウザ** の **「Content/Mannequin/Animations」** フォルダの **ThirdPersonWalk** 上で **右クリック** して、**[Create PoseAsset]** を選択します。 
+
 	![](CreatePoseAsset_01.png)
 
 1.	この新規 **Pose アセット** に対してデフォルトの名前を使用するようにします。次にそれを **ダブルクリック** して開きます。

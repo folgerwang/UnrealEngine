@@ -62,10 +62,19 @@ typedef FWindowsPlatformTypes FPlatformTypes;
 #define PLATFORM_SUPPORTS_TBB								1
 #define PLATFORM_SUPPORTS_NAMED_PIPES						1
 #define PLATFORM_COMPILER_HAS_TCHAR_WMAIN					1
-
+#define PLATFORM_SUPPORTS_EARLY_MOVIE_PLAYBACK				(!WITH_EDITOR) // movies will start before engine is initalized
 #define PLATFORM_RHITHREAD_DEFAULT_BYPASS					WITH_EDITOR
 
 #define PLATFORM_SUPPORTS_STACK_SYMBOLS						1
+
+#if defined(__INTEL_COMPILER) || _MSC_VER > 1900
+	#define PLATFORM_COMPILER_HAS_DECLTYPE_AUTO 1
+#else
+	// Static analysis causes internal compiler errors with auto-deduced return types,
+	// but some older VC versions still have return type deduction failures inside the delegate code
+	// when they are enabled.  So we currently only enable them for static analysis builds.
+	#define PLATFORM_COMPILER_HAS_DECLTYPE_AUTO USING_CODE_ANALYSIS
+#endif
 
 // Intrinsics for 128-bit atomics on Windows platform requires Windows 8 or higher (WINVER>=0x0602)
 // http://msdn.microsoft.com/en-us/library/windows/desktop/hh972640.aspx
@@ -141,7 +150,7 @@ typedef FWindowsPlatformTypes FPlatformTypes;
 
 
 // Include code analysis features
-#include "WindowsPlatformCodeAnalysis.h"
+#include "Windows/WindowsPlatformCodeAnalysis.h"
 
 #if USING_CODE_ANALYSIS && _MSC_VER == 1900
 	// Disable this warning as VC2015 Update 1 produces this warning erroneously when placed on variadic templates:

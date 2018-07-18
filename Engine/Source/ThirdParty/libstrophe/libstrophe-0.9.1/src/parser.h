@@ -35,7 +35,7 @@ parser_t *parser_new(xmpp_ctx_t *ctx,
                      void *userdata);
 void parser_free(parser_t *parser);
 char* parser_attr_name(xmpp_ctx_t *ctx, char *nsname);
-int parser_reset(parser_t *parser);
+int parser_reset(parser_t *parser, int depth);
 int parser_feed(parser_t *parser, char *chunk, int len);
 
 #endif /* __LIBSTROPHE_PARSER_H__ */

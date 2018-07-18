@@ -3,6 +3,7 @@
 #pragma once
 
 #include "Containers/Array.h"
+#include "Delegates/Delegate.h"
 #include "Misc/Timespan.h"
 #include "Modules/ModuleInterface.h"
 #include "Templates/SharedPointer.h"
@@ -116,6 +117,13 @@ public:
 	 * @see GetClock
 	 */
 	virtual IMediaTicker& GetTicker() = 0;
+
+	/**
+	 * Get a Delegate that is trigger once all MediaClockSink are TickInput
+	 *
+	 * @return the OnTickPreEngineCompleted
+	 */
+	virtual FSimpleMulticastDelegate& GetOnTickPreEngineCompleted() = 0;
 
 	/**
 	 * Whether media objects should lock to the media clock's time code.

@@ -5,6 +5,7 @@
 =============================================================================*/
 
 #include "Common.ush"
+#include "SceneTexturesCommon.ush"
 
 void DownsampleLightShaftsVertexMain(
 	in float2 InPosition : ATTRIBUTE0,

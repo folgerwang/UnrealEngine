@@ -28,18 +28,18 @@
 #include "HttpModule.h"
 
 #if PLATFORM_WINDOWS
-#include "WindowsHWrapper.h"
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/WindowsHWrapper.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 	#include <DbgHelp.h>				
 	#include <TlHelp32.h>		
 	#include <psapi.h>
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 #elif PLATFORM_MAC
 #include <mach-o/dyld.h>
 #include <mach-o/nlist.h>
 #include <mach-o/stab.h>
 #include <cxxabi.h>
-#include "ApplePlatformSymbolication.h"
+#include "Apple/ApplePlatformSymbolication.h"
 #endif
 #include "Framework/Notifications/NotificationManager.h"
 #include "Widgets/Notifications/SNotificationList.h"
@@ -1796,11 +1796,11 @@ FSourceCodeNavigation::FOnNewModuleAdded& FSourceCodeNavigation::AccessOnNewModu
 	return FSourceCodeNavigationImpl::Get().OnNewModuleAdded;
 }
 
-bool FSourceCodeNavigation::FindModulePath( const FString& ModuleName, FString &OutModulePath )
+bool FSourceCodeNavigation::FindModulePath( const FString& InModuleName, FString &OutModulePath )
 {
 	// Try to find a file matching the module name
 	const TArray<FString>& ModuleNames = GetSourceFileDatabase().GetModuleNames();
-	FString FindModuleSuffix = FString(TEXT("/")) + ModuleName + ".Build.cs";
+	FString FindModuleSuffix = FString(TEXT("/")) + InModuleName + ".Build.cs";
 	for (int32 Idx = 0; Idx < ModuleNames.Num(); Idx++)
 	{
 		if (ModuleNames[Idx].EndsWith(FindModuleSuffix))
@@ -1812,92 +1812,113 @@ bool FSourceCodeNavigation::FindModulePath( const FString& ModuleName, FString &
 	return false;
 }
 
-bool FSourceCodeNavigation::FindClassHeaderPath( const UField *Field, FString &OutClassHeaderPath )
+bool FSourceCodeNavigation::FindModulePath( const UPackage* InModulePackage, FString& OutClassHeaderPath )
 {
-	// Get the class package, and skip past the "/Script/" portion to get the module name
-	UPackage *ModulePackage = Field->GetTypedOuter<UPackage>();
-	FString ModulePackageName = ModulePackage->GetName();
+	if (!InModulePackage)
+	{
+		return false;
+	}
+
+	// Get the package name and skip past the "/Script/" portion to get the module name
+	FString ModulePackageName = InModulePackage->GetName();
 
 	int32 ModuleNameIdx;
-	if(ModulePackageName.FindLastChar(TEXT('/'), ModuleNameIdx))
+
+	if (ModulePackageName.FindLastChar(TEXT('/'), ModuleNameIdx))
 	{
 		// Find the base path for the module
-		FString ModuleBasePath;
-		if(FSourceCodeNavigation::FindModulePath(*ModulePackageName + ModuleNameIdx + 1, ModuleBasePath))
+		return FindModulePath(*ModulePackageName + ModuleNameIdx + 1, OutClassHeaderPath);
+	}
+
+	return false;
+}
+
+bool FSourceCodeNavigation::FindClassHeaderPath( const UField* InField, FString &OutClassHeaderPath )
+{
+	if (!InField)
+	{
+		return false;
+	}
+
+	// Get the class package, and skip past the "/Script/" portion to get the module name
+	UPackage* ModulePackage = InField->GetTypedOuter<UPackage>();
+
+	// Find the base path for the module
+	FString ModuleBasePath;
+	if(FSourceCodeNavigation::FindModulePath(ModulePackage, ModuleBasePath))
+	{
+		// Get the metadata for the class path relative to the module base
+		const FString& ModuleRelativePath = ModulePackage->GetMetaData()->GetValue(InField, TEXT("ModuleRelativePath"));
+		if(ModuleRelativePath.Len() > 0)
 		{
-			// Get the metadata for the class path relative to the module base
-			const FString& ModuleRelativePath = ModulePackage->GetMetaData()->GetValue(Field, TEXT("ModuleRelativePath"));
-			if(ModuleRelativePath.Len() > 0)
-			{
-				OutClassHeaderPath = ModuleBasePath / ModuleRelativePath;
-				return true;
-			}
+			OutClassHeaderPath = ModuleBasePath / ModuleRelativePath;
+			return true;
 		}
 	}
 	return false;
 }
 
-bool FSourceCodeNavigation::FindClassSourcePath( const UField *Field, FString &OutClassSourcePath )
+bool FSourceCodeNavigation::FindClassSourcePath( const UField* InField, FString &OutClassSourcePath )
 {
-	// Get the class package, and skip past the "/Script/" portion to get the module name
-	UPackage *ModulePackage = Field->GetTypedOuter<UPackage>();
-	FString ModulePackageName = ModulePackage->GetName();
-
-	int32 ModuleNameIdx;
-	if(ModulePackageName.FindLastChar(TEXT('/'), ModuleNameIdx))
+	if (!InField)
 	{
-		// Find the base path for the module
-		FString ModuleBasePath;
-		if(FSourceCodeNavigation::FindModulePath(*ModulePackageName + ModuleNameIdx + 1, ModuleBasePath))
+		return false;
+	}
+
+	// Get the class package, and skip past the "/Script/" portion to get the module name
+	UPackage *ModulePackage = InField->GetTypedOuter<UPackage>();
+
+	// Find the base path for the module
+	FString ModuleBasePath;
+	if (FSourceCodeNavigation::FindModulePath(ModulePackage, ModuleBasePath))
+	{
+		// Get the metadata for the class path relative to the module base
+		// Given this we can try and find the corresponding .cpp file
+		const FString& ModuleRelativePath = ModulePackage->GetMetaData()->GetValue(InField, TEXT("ModuleRelativePath"));
+		if(ModuleRelativePath.Len() > 0)
 		{
-			// Get the metadata for the class path relative to the module base
-			// Given this we can try and find the corresponding .cpp file
-			const FString& ModuleRelativePath = ModulePackage->GetMetaData()->GetValue(Field, TEXT("ModuleRelativePath"));
-			if(ModuleRelativePath.Len() > 0)
+			const FString PotentialCppLeafname = FPaths::GetBaseFilename(ModuleRelativePath) + TEXT(".cpp");
+			FString PotentialCppFilename = ModuleBasePath / FPaths::GetPath(ModuleRelativePath) / PotentialCppLeafname;
+
+			// Is the .cpp file in the same folder as the header file?
+			if(FPaths::FileExists(PotentialCppFilename))
 			{
-				const FString PotentialCppLeafname = FPaths::GetBaseFilename(ModuleRelativePath) + TEXT(".cpp");
-				FString PotentialCppFilename = ModuleBasePath / FPaths::GetPath(ModuleRelativePath) / PotentialCppLeafname;
+				OutClassSourcePath = PotentialCppFilename;
+				return true;
+			}
 
-				// Is the .cpp file in the same folder as the header file?
-				if(FPaths::FileExists(PotentialCppFilename))
-				{
-					OutClassSourcePath = PotentialCppFilename;
-					return true;
-				}
+			const FString PublicPath = ModuleBasePath / "Public" / "";		// Ensure trailing /
+			const FString PrivatePath = ModuleBasePath / "Private" / "";	// Ensure trailing /
+			const FString ClassesPath = ModuleBasePath / "Classes" / "";	// Ensure trailing /
 
-				const FString PublicPath = ModuleBasePath / "Public" / "";		// Ensure trailing /
-				const FString PrivatePath = ModuleBasePath / "Private" / "";	// Ensure trailing /
-				const FString ClassesPath = ModuleBasePath / "Classes" / "";	// Ensure trailing /
+			// If the path starts with Public or Classes, try swapping those out with Private
+			if(PotentialCppFilename.StartsWith(PublicPath))
+			{
+				PotentialCppFilename.ReplaceInline(*PublicPath, *PrivatePath);
+			}
+			else if(PotentialCppFilename.StartsWith(ClassesPath))
+			{
+				PotentialCppFilename.ReplaceInline(*ClassesPath, *PrivatePath);
+			}
+			else
+			{
+				PotentialCppFilename.Empty();
+			}
+			if(!PotentialCppFilename.IsEmpty() && FPaths::FileExists(PotentialCppFilename))
+			{
+				OutClassSourcePath = PotentialCppFilename;
+				return true;
+			}
 
-				// If the path starts with Public or Classes, try swapping those out with Private
-				if(PotentialCppFilename.StartsWith(PublicPath))
-				{
-					PotentialCppFilename.ReplaceInline(*PublicPath, *PrivatePath);
-				}
-				else if(PotentialCppFilename.StartsWith(ClassesPath))
-				{
-					PotentialCppFilename.ReplaceInline(*ClassesPath, *PrivatePath);
-				}
-				else
-				{
-					PotentialCppFilename.Empty();
-				}
-				if(!PotentialCppFilename.IsEmpty() && FPaths::FileExists(PotentialCppFilename))
-				{
-					OutClassSourcePath = PotentialCppFilename;
-					return true;
-				}
-
-				// Still no luck, try and search for the file on the filesystem
-				TArray<FString> Filenames;
-				IFileManager::Get().FindFilesRecursive(Filenames, *ModuleBasePath, *PotentialCppLeafname, true, false, false);
+			// Still no luck, try and search for the file on the filesystem
+			TArray<FString> Filenames;
+			IFileManager::Get().FindFilesRecursive(Filenames, *ModuleBasePath, *PotentialCppLeafname, true, false, false);
 				
-				if(Filenames.Num() > 0)
-				{
-					// Assume it's the first match (we should really only find a single file with a given name within a project anyway)
-					OutClassSourcePath = Filenames[0];
-					return true;
-				}
+			if(Filenames.Num() > 0)
+			{
+				// Assume it's the first match (we should really only find a single file with a given name within a project anyway)
+				OutClassSourcePath = Filenames[0];
+				return true;
 			}
 		}
 	}

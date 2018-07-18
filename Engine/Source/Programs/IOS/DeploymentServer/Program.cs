@@ -166,7 +166,11 @@ namespace DeploymentServer
 					bResult = Deployer.InstallFilesOnDevice(Bundle, Manifest);
 					break;
 
-				case "install":
+                case "copyfile":
+                    bResult = Deployer.CopyFileToDevice(Bundle, FileList[0], FileList[1]);
+                    break;
+
+                case "install":
 					bResult = Deployer.InstallIPAOnDevice(ipaPath);
 					break;
 

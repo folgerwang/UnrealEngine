@@ -7,18 +7,18 @@
 #include "IDetailPropertyRow.h"
 #include "IDetailChildrenBuilder.h"
 #include "DetailWidgetRow.h"
-#include "STextBlock.h"
+#include "Widgets/Text/STextBlock.h"
 #include "PropertyRestriction.h"
-
 #include "Engine/Texture2D.h"
-
 #include "Widgets/SBoxPanel.h"
 #include "Widgets/Input/SCheckBox.h"
-
 #include "PaintModeSettings.h"
 #include "PaintModePainter.h"
 #include "Widgets/Input/SNumericEntryBox.h"
 #include "PropertyCustomizationHelpers.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Layout/SBox.h"
+#include "ScopedTransaction.h"
 
 TSharedRef<IPropertyTypeCustomization> FTexturePaintSettingsCustomization::MakeInstance()
 {
@@ -62,7 +62,7 @@ void FTexturePaintSettingsCustomization::CustomizeChildren(TSharedRef<IPropertyH
 	TArray<TSharedRef<IPropertyHandle>> Channels = { RedChannel, GreenChannel, BlueChannel, AlphaChannel };
 	TSharedPtr<SHorizontalBox> ChannelsWidget;
 
-	ChildBuilder.AddCustomRow(NSLOCTEXT("ColorMask", "ChannelLabel", "Channels"))
+	ChildBuilder.AddCustomRow(NSLOCTEXT("VertexPaintSettings", "ChannelLabel", "Channels"))
 		.NameContent()
 		[
 			SNew(STextBlock)
@@ -148,7 +148,17 @@ void FTexturePaintSettingsCustomization::CustomizeChildren(TSharedRef<IPropertyH
 }
 
 /** List of property names which require customization, will be filtered out of property */
-TArray<FName> FVertexPaintSettingsCustomization::CustomPropertyNames = { GET_MEMBER_NAME_CHECKED(FVertexPaintSettings, bWriteRed), GET_MEMBER_NAME_CHECKED(FVertexPaintSettings, bWriteGreen), GET_MEMBER_NAME_CHECKED(FVertexPaintSettings, bWriteBlue), GET_MEMBER_NAME_CHECKED(FVertexPaintSettings, bWriteAlpha), GET_MEMBER_NAME_CHECKED(FVertexPaintSettings, bPaintOnSpecificLOD), GET_MEMBER_NAME_CHECKED(FVertexPaintSettings, LODIndex) };
+TArray<FName> FVertexPaintSettingsCustomization::CustomPropertyNames = 
+{ 
+	GET_MEMBER_NAME_CHECKED(FVertexPaintSettings, PaintColor),
+	GET_MEMBER_NAME_CHECKED(FVertexPaintSettings, EraseColor),
+	GET_MEMBER_NAME_CHECKED(FVertexPaintSettings, bWriteRed), 
+	GET_MEMBER_NAME_CHECKED(FVertexPaintSettings, bWriteGreen), 
+    GET_MEMBER_NAME_CHECKED(FVertexPaintSettings, bWriteBlue), 
+	GET_MEMBER_NAME_CHECKED(FVertexPaintSettings, bWriteAlpha), 
+	GET_MEMBER_NAME_CHECKED(FVertexPaintSettings, bPaintOnSpecificLOD), 
+	GET_MEMBER_NAME_CHECKED(FVertexPaintSettings, LODIndex)
+};
 
 TSharedRef<IPropertyTypeCustomization> FVertexPaintSettingsCustomization::MakeInstance()
 {
@@ -191,16 +201,76 @@ void FVertexPaintSettingsCustomization::CustomizeChildren(TSharedRef<IPropertyHa
 	}
 
 	/** Creates a custom widget row containing all color channel flags */	
+	TSharedRef<IPropertyHandle> PaintColor = CustomizedProperties.FindChecked(GET_MEMBER_NAME_CHECKED(FVertexPaintSettings, PaintColor));
+	TSharedRef<IPropertyHandle> EraseColor = CustomizedProperties.FindChecked(GET_MEMBER_NAME_CHECKED(FVertexPaintSettings, EraseColor));
 	TSharedRef<IPropertyHandle> RedChannel = CustomizedProperties.FindChecked(GET_MEMBER_NAME_CHECKED(FVertexPaintSettings, bWriteRed));
 	TSharedRef<IPropertyHandle> GreenChannel = CustomizedProperties.FindChecked(GET_MEMBER_NAME_CHECKED(FVertexPaintSettings, bWriteGreen));
 	TSharedRef<IPropertyHandle> BlueChannel = CustomizedProperties.FindChecked(GET_MEMBER_NAME_CHECKED(FVertexPaintSettings, bWriteBlue));
 	TSharedRef<IPropertyHandle> AlphaChannel = CustomizedProperties.FindChecked(GET_MEMBER_NAME_CHECKED(FVertexPaintSettings, bWriteAlpha));
 	TArray<TSharedRef<IPropertyHandle>> Channels = { RedChannel, GreenChannel, BlueChannel, AlphaChannel };
 	TSharedPtr<SHorizontalBox> ChannelsWidget;
+	
+	// Customize paint color with a swap button
+	{
+		TSharedPtr<SWidget> NameWidget;
+		TSharedPtr<SWidget> ValueWidget;
+		
+		IDetailPropertyRow& PaintColorProp = ChildBuilder.AddProperty(PaintColor);
+		PaintColorProp.GetDefaultWidgets(NameWidget, ValueWidget, true);
+		FDetailWidgetRow& Row = PaintColorProp.CustomWidget(true);
+		Row.NameContent()
+		[
+			NameWidget.ToSharedRef()
+		];
 
-	ChildBuilder.AddCustomRow(NSLOCTEXT("ColorMask", "ChannelLabel", "Channels"))
+		Row.ValueContent()
+		.MinDesiredWidth(250)
+		.MaxDesiredWidth(0)
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.FillWidth(1.0)
+			.HAlign(HAlign_Left)
+			[
+				SNew(SBox)
+				.WidthOverride(250.f)
+				[
+					ValueWidget.ToSharedRef()
+				]
+			]
+			+ SHorizontalBox::Slot()
+			.HAlign(HAlign_Center)
+			.AutoWidth()
+			[
+				SNew(SButton)
+				.ButtonStyle(FEditorStyle::Get(), "HoverHintOnly")
+				.ToolTipText(NSLOCTEXT("VertexPaintSettings", "SwapColors", "Swap Paint and Erase Colors"))
+				.HAlign(HAlign_Center)
+				.VAlign(VAlign_Center)
+				.OnClicked(this, &FVertexPaintSettingsCustomization::OnSwapColorsClicked)
+				.ContentPadding(0)
+				[
+					SNew(SImage).Image(FEditorStyle::GetBrush("MeshPaint.Swap"))
+				]
+			]
+		];
+	}
+
+	{
+		IDetailPropertyRow& EraseColorProp = ChildBuilder.AddProperty(EraseColor);
+
+		TSharedPtr<SWidget> NameWidget;
+		TSharedPtr<SWidget> ValueWidget;
+		
+		FDetailWidgetRow& Row = EraseColorProp.CustomWidget(true);
+		Row.ValueContent().MinDesiredWidth(250 - 16.f);
+		EraseColorProp.GetDefaultWidgets(NameWidget, ValueWidget, Row, true);
+	}
+
+	ChildBuilder.AddCustomRow(NSLOCTEXT("VertexPaintSettings", "ChannelLabel", "Channels"))
 		.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &FVertexPaintSettingsCustomization::ArePropertiesVisible, 0)))
 		.NameContent()
+
 		[
 			SNew(STextBlock)
 			.Text(NSLOCTEXT("VertexPaintSettings", "ChannelsLabel", "Channels"))
@@ -308,6 +378,21 @@ void FVertexPaintSettingsCustomization::OnTextureWeightTypeChanged(TSharedRef<IP
 	EraseWeightProperty->GetValue(Value);
 	Value = FMath::Clamp<uint8>(Value, 0, EnumValue - 1);
 	EraseWeightProperty->SetValue(Value);
+}
+
+FReply FVertexPaintSettingsCustomization::OnSwapColorsClicked()
+{
+	FScopedTransaction Transaction(NSLOCTEXT("VertexPaintSettings", "SwapColorsTransation", "Swap paint and erase colors"));
+
+	UPaintModeSettings* Settings = UPaintModeSettings::Get();
+
+	Settings->Modify();
+
+	FLinearColor TempPaintColor = PaintSettings->PaintColor;
+	PaintSettings->PaintColor = PaintSettings->EraseColor;
+	PaintSettings->EraseColor = TempPaintColor;
+
+	return FReply::Handled();
 }
 
 TSharedRef<IDetailCustomization> FPaintModeSettingsCustomization::MakeInstance()

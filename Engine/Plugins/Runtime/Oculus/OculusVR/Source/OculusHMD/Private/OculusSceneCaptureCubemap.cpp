@@ -13,6 +13,7 @@
 #include "TextureResource.h"
 #include "HAL/FileManager.h"
 #include "Misc/FileHelper.h"
+#include "XRThreadUtils.h"
 
 //-------------------------------------------------------------------------------------------------
 // UOculusSceneCaptureCubemap
@@ -100,7 +101,7 @@ void UOculusSceneCaptureCubemap::StartCapture(UWorld* World, uint32 InCaptureBox
 
 void UOculusSceneCaptureCubemap::Tick(float DeltaTime)
 {
-	OculusHMD::ExecuteOnRenderThread([]()
+	ExecuteOnRenderThread([]()
 	{
 		TickRenderingTickables();
 	});

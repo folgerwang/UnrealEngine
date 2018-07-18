@@ -6,7 +6,7 @@
 #include "UObject/ObjectMacros.h"
 #include "UObject/ScriptMacros.h"
 #include "LevelSequence.h"
-#include "ControlRigSequenceObjectReference.h"
+#include "Sequencer/ControlRigSequenceObjectReference.h"
 #include "ControlRigSequence.generated.h"
 
 class UMovieScene;

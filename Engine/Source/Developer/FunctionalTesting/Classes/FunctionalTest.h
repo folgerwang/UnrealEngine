@@ -17,6 +17,7 @@ class UBillboardComponent;
 class UTraceQueryTestResults;
 class UWorld;
 
+#if UE_EXTERNAL_PROFILING_ENABLED
 //Experimental effort at automated cpu captures from the functional testing.
 class FFunctionalTestExternalProfiler : public FScopedExternalProfilerBase
 {
@@ -24,6 +25,7 @@ public:
 	void StartProfiler(const bool bWantPause){ StartScopedTimer(bWantPause); }
 	void StopProfiler(){StopScopedTimer();}
 }; 
+#endif	// UE_EXTERNAL_PROFILING_ENABLED
 
 struct FStatsData
 {
@@ -174,7 +176,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = Perf)
 	void EndStatsFile();
 
+#if UE_EXTERNAL_PROFILING_ENABLED
 	FFunctionalTestExternalProfiler ExternalProfiler;
+#endif
 
 	/** The path and base name for all output files. */
 	FString OutputFileBase;
@@ -218,14 +222,14 @@ protected:
 	 * Allows a test to be disabled.  If a test is disabled, it will not appear in the set of
 	 * runnable tests (after saving the map).
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Functional Testing")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Functional Testing", meta=(ScriptName="IsEnabledValue"))
 	uint32 bIsEnabled:1;
 
 	/**
 	 * If this is enabled, any warning logged while this functional test is running is treated as
 	 * an error.
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Functional Testing")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Functional Testing", meta=(ScriptName="WarningsAsErrorsValue"))
 	uint32 bWarningsAsErrors:1;
 
 	/**
@@ -341,14 +345,14 @@ public:
 	 * Assert on a relationship between two integers.
 	 * @param What	A name to use in the message if the assert fails (What: expected {Actual} to be <ShouldBe> {Expected} for context '')
 	 */
-	UFUNCTION(BlueprintCallable, Category = "Asserts", DisplayName = "Assert Value (int)", meta = ( HidePin = "ContextObject", DefaultToSelf = "ContextObject"))
+	UFUNCTION(BlueprintCallable, Category = "Asserts", DisplayName = "Assert Value (Integer)", meta = ( HidePin = "ContextObject", DefaultToSelf = "ContextObject"))
 	bool AssertValue_Int(int32 Actual, EComparisonMethod ShouldBe, int32 Expected, const FString& What, const UObject* ContextObject = nullptr);
 
 	/**
 	 * Assert on a relationship between two floats.
 	 * @param What	A name to use in the message if the assert fails (What: expected {Actual} to be <ShouldBe> {Expected} for context '')
 	 */
-	UFUNCTION(BlueprintCallable, Category = "Asserts", DisplayName = "Assert Value (float)", meta = ( HidePin = "ContextObject", DefaultToSelf = "ContextObject"))
+	UFUNCTION(BlueprintCallable, Category = "Asserts", DisplayName = "Assert Value (Float)", meta = ( HidePin = "ContextObject", DefaultToSelf = "ContextObject"))
 	bool AssertValue_Float(float Actual, EComparisonMethod ShouldBe, float Expected, const FString& What, const UObject* ContextObject = nullptr);
 
 	/**
@@ -383,7 +387,7 @@ public:
 	* Assert that two ints are equal
 	* @param What	A name to use in the message if the assert fails (What: expected {Actual} to be Equal To {Expected} for context '')
 	*/
-	UFUNCTION(BlueprintCallable, Category = "Asserts", DisplayName = "Assert Equal (Int)", meta = (HidePin = "ContextObject", DefaultToSelf = "ContextObject"))
+	UFUNCTION(BlueprintCallable, Category = "Asserts", DisplayName = "Assert Equal (Integer)", meta = (HidePin = "ContextObject", DefaultToSelf = "ContextObject"))
 	bool AssertEqual_Int(const int Actual, const int Expected, const FString& What, const UObject* ContextObject = nullptr);
 
 	/**
@@ -590,6 +594,7 @@ public:
 
 	TArray<FString> Steps;
 	
+	UPROPERTY(BlueprintReadOnly, Category = "Functional Testing")
 	float TotalTime;
 
 	uint32 RunFrame;

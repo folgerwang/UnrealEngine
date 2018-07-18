@@ -8,7 +8,7 @@ Version:4.9
 [TOC (start:2)]
 
 ## 이 페이지를 읽는 방법
-Slate (슬레이트) 디자인을 이끄는 핵심 개념에 대해 알아보실 수 있는 페이지로, 정해진 순서는 없습니다.
+**Slate** (슬레이트) 디자인을 이끄는 핵심 개념에 대해 알아보실 수 있는 페이지로, 정해진 순서는 없습니다.
 확고한 구조나 장대한 이론같은 것은 여기 없으며, 그저 UI 를 빚어가는 경험에서 우러나온 
 원칙을 모아둔 것일 뿐입니다.
 
@@ -65,10 +65,10 @@ UI 는 Model 을 시각화시키고 조작합니다. Slate 는 Model 의 데이�
 사용자가 어떠한 동작을 하면, Slate 위젯은 데이터 수정을 위해 write 델리게이트를 부릅(invoke)니다.
 
 
-텍스트를 표시하는 Slate 위젯 STextBlock 를 봅시다.
+텍스트를 표시하는 Slate 위젯 **STextBlock** 를 봅시다.
 표시할 데이터를 어디서 구할지 STextBlock 에 꼭 알려야 합니다.
 데이터를 동적으로 설정할 수도 있습니다만, 델리게이트(, 다른 말로 사용자가 지정한 함수)를 통해 하는 것이 조금 더 유연한 방법입니다.
-그를 위해 STextBlock 에서는 Text 라는 델리게이트를 사용합니다.
+그를 위해 STextBlock 에서는 **Text** 라는 델리게이트를 사용합니다.
 
 [REGION:figure]
 
@@ -87,13 +87,13 @@ UI 는 Model 을 시각화시키고 조작합니다. Slate 는 Model 의 데이�
 [/REGION]
 [/REGION]
 
-위의 예에서 Text 는 문자열인 반면, `framerate` 는 거의 `float` 나 `integer` 로 저장된다는 것도 고려해 봅시다. 델리게이트를 사용하면 값을 읽을 때마다 유연하게 변환할 수 있습니다.
+위의 예에서 Text 는 문자열인 반면, framerate 는 거의 `float` 나 `integer` 로 저장된다는 것도 고려해 봅시다. 델리게이트를 사용하면 값을 읽을 때마다 유연하게 변환할 수 있습니다.
 그렇다는 것은 바로 퍼포먼스 문제를 떠올리게 되는데, 아래 [퍼포먼스 고려사항](#퍼포먼스고려사항) 에서 다루고 있습니다.
 
 
 
-SEditableText 는 입출력 둘 다를 담당하는 Slate 위젯입니다. STextBlock 처럼 Text 델리게이트를 사용하여 데이터를 시각화시킵니다.
-사용자가 편집가능 텍스트 필드에 약간의 텍스트를 입력하고서 엔터키를 칠 때, SEditableText 는 OnTextChanged 델리게이트를 부릅니다.
+**SEditableText** 는 입출력 둘 다를 담당하는 Slate 위젯입니다. STextBlock 처럼 Text 델리게이트를 사용하여 데이터를 시각화시킵니다.
+사용자가 편집가능 텍스트 필드에 약간의 텍스트를 입력하고서 엔터키를 칠 때, SEditableText 는 **OnTextChanged** 델리게이트를 부릅니다.
 여기서 프로그래머가 입력을 유효화(validate)시키고 Model 의 데이터를 OnTextChanged 로 변형(mutate)시키기에 적합한 함수성을 붙여뒀다는 가정을 합니다.
 
 [REGION:figure]
@@ -110,7 +110,7 @@ SEditableText 는 입출력 둘 다를 담당하는 Slate 위젯입니다. SText
 +-----------------+
 ~~~
 	[REGION:caption]
-		SEditable 텍스트는 `item name` 을 읽습니다. 사용자가 엔터키를 치면 새로운 텍스트가 OnTextChanged 에 전송되며, 거기서 텍스트를 유효화시키고 적합하다면 `item name` 에 할당합니다.
+		SEditable 텍스트는 item name 을 읽습니다. 사용자가 엔터키를 치면 새로운 텍스트가 OnTextChanged 에 전송되며, 거기서 텍스트를 유효화시키고 적합하다면 item name 에 할당합니다.
 	[/REGION]
 [/REGION]
 
@@ -119,7 +119,7 @@ SEditableText 는 입출력 둘 다를 담당하는 Slate 위젯입니다. SText
 ### 특성(Attribute)과 인수(Argument)
 
 델리게이트를 사용하는 것이 항상 바람직한 것은 아닙니다. 용도에 따라 Slate 위젯에 붙일 인수는 상수값이나 함수여야 할 수도 있습니다.
-이러한 개념은 `TAttribute<T>` 클래스를 통해 캡슐화시킵니다. 이 특성은 상수나 델리게이트로 설정 가능합니다.
+이러한 개념은 `TAttribute< T >` 클래스를 통해 캡슐화시킵니다. 이 특성은 상수나 델리게이트로 설정 가능합니다.
 
 ## 퍼포먼스 고려사항
 
@@ -141,15 +141,15 @@ Model 의 구조(체)가 급격히 변하는 상황에서는 보통 실효화(in
 실효는 빈도도 낮고 드문드문 등장하는(low granularity) 이벤트에 쓰는 것을 규칙으로 삼습니다.
 
 그래프에 노드를 표시하는 키즈멧을 예로 들어 봅시다.
-업데이트 요청이 생기면 모든 Graph Panel 위젯을 지운 후 재생성합니다.
+업데이트 요청이 생기면 모든 **Graph** Panel 위젯을 지운 후 재생성합니다.
 그렇게 하는 편이 실효를 세밀하게(fine-grain) 하는 것보다 단순하고 관리하기에 좋습니다.
 
 ## 자손 슬롯
 
 모든 Slate 위젯에서 자손은 (평이한 자손 위젯 배열의 저장과는 반대로) 자손 슬롯에 저장합니다.
-자손 슬롯은 항상 유효한 위젯, 기본적으로 시각화나 상호작용이 없는 위젯인 SNullWidget 을 저장합니다.
+자손 슬롯은 항상 유효한 위젯, 기본적으로 시각화나 상호작용이 없는 위젯인 **SNullWidget** 을 저장합니다.
 각 위젯 유형은 자체적인 요구를 충족시키는 자손 슬롯 유형을 별도로 선언할 수 있습니다.
-SVerticalSlot 가 자손을 배치(arrange)하는 방식이 SCanvas 와는 완전 다르면서, 또 SUniformGridPanel 와는 꽤나 다른 것을 감안해 봅시다.
+**SVerticalSlot** 가 자손을 배치(arrange)하는 방식이 **SCanvas** 와는 완전 다르면서, 또 SUniformGridPanel 와는 꽤나 다른 것을 감안해 봅시다.
 각 패널 유형은 슬롯을 통해 자손의 배치에 영향을 끼치는 자손별 세팅 집합을 요청할 수 있습니다.
 
 
@@ -157,17 +157,17 @@ SVerticalSlot 가 자손을 배치(arrange)하는 방식이 SCanvas 와는 완�
 
 위젯은 세 가지 변종이 있습니다.
 
-* Leaf Widgets 잎 위젯 - 자손 슬롯이 없는 위젯입니다. 예로 STextBlock 은 텍스트를 표시합니다. 텍스트를 어떻게 그릴 것인지 원래부터 알고 있습니다.
-* Panels 패널 - 자손 슬롯의 수가 가변적인 위젯입니다. 예로 SVerticalBox 는 약간의 레이아웃 규칙이 주어진다면 몇 개의 자손도 수직 배치 가능합니다.
-* Compound Widgets 복합 위젯 - 명시적으로 이름붙은 자손 슬롯의 갯수가 고정된 위젯입니다. 예로 SButton 에는 Content 라는 슬롯이 하나 있어, 버튼 안에 몇 개의 위젯이든 포함할 수 있습니다.
+* **Leaf Widgets** 잎 위젯 - 자손 슬롯이 없는 위젯입니다. 예로 STextBlock 은 텍스트를 표시합니다. 텍스트를 어떻게 그릴 것인지 원래부터 알고 있습니다.
+* **Panels** 패널 - 자손 슬롯의 수가 가변적인 위젯입니다. 예로 **SVerticalBox** 는 약간의 레이아웃 규칙이 주어진다면 몇 개의 자손도 수직 배치 가능합니다.
+* **Compound Widgets** 복합 위젯 - 명시적으로 이름붙은 자손 슬롯의 갯수가 고정된 위젯입니다. 예로 **SButton** 에는 Content 라는 슬롯이 하나 있어, 버튼 안에 몇 개의 위젯이든 포함할 수 있습니다.
 
 
 ## 레이아웃
 
 Slate 레이아웃은 두 패스로 이루어집니다. 두 패스로 분해한 것은 최적화 때문이며, 아쉽게도 투명한 것은 아닙니다.
 
-1. Pass 1: Cache Desired Size - 연관된 함수는 `SWidget::CacheDesiredSize`, `SWidget::ComputeDesiredSize`.
-1. Pass 2: ArrangeChildren - 연관된 함수는 `SWidget::ArrangeChildren`
+1. Pass 1: **Cache Desired Size** - 연관된 함수는 **SWidget::CacheDesiredSize** and **SWidget::ComputeDesiredSize**
+1. Pass 2: **ArrangeChildren** - 연관된 함수는 **SWidget::ArrangeChildren**
 
 
 보다 자세히:
@@ -249,7 +249,7 @@ ArrangeChildren 은 하향식(top-down) 패스입니다. Slate 는 최상위 창
 첫 슬롯은 자손의 Desired Size 를 사용하고 싶다는 것을 나타내며, 14 유닛 공간이 할당됩니다.
 둘째 슬롯은 사용가능한 폭을 채우고 싶다는 것을 나타내며, 나머지 (11 유닛) 공간이 할당됩니다.
 실제 SHorizontalBox 위젯에서 SImage 슬롯 안에서의 정렬 방식은, Left, Center, Right, Fill 이 가능한 
-HAlign 프로퍼티에 의해 주도된다는 점에 유념해 주시구요.
+**HAlign** 프로퍼티에 의해 주도된다는 점에 유념해 주시구요.
 
 
 실제적으로 Slate 는 절대 ArrangeChildren 패스를 온전히 수행하지 않습니다. 대신 이 함수성은 다른 함수성을 구현하는 데 사용됩니다.
@@ -263,7 +263,7 @@ HAlign 프로퍼티에 의해 주도된다는 점에 유념해 주시구요.
 
 최상위 창부터 시작하여 계층구조를 따라 내려오면서, 모든 위젯의 그리기 요소를 그리기 목록에 덧붙입니다.
 위젯은 페인트 도중 두 가지 작업을 하는 경향이 있습니다: 실제 그리기 요소를 출력하거나, 자손 위젯이 있을 위치를 알아낸 다음 
-자손 위젯더러 스스로 그리라고 요청합니다. 고로 단순화된 범용 OnPaint 함수는 다음과 같이 생각해 볼 수 있습니다:
+자손 위젯더러 스스로 그리라고 요청합니다. 고로 단순화된 범용 **OnPaint** 함수는 다음과 같이 생각해 볼 수 있습니다:
 
 ~~~
 .	// 배치된 자손은 위젯과 그에 할당된 지오메트리 입니다.
@@ -320,6 +320,7 @@ C++ 함수 바인딩에 컴파일 시간 검사가 되도록도 했으면 했습
 해법은 C++ 부분집합으로써 선언형 UI 기술 언어를 만드는 것이었습니다.
 
 예제는 코드베이스에 숱하게 많습니다.
+
 
 
 

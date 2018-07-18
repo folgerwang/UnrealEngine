@@ -5,7 +5,6 @@
 #include "DisplayNodes/SequencerObjectBindingNode.h"
 #include "DisplayNodes/SequencerTrackNode.h"
 #include "SequencerCommonHelpers.h"
-#include "IKeyArea.h"
 
 FSequencerSelection::FSequencerSelection()
 	: SuspendBroadcastCount(0)
@@ -101,11 +100,18 @@ TArray<UMovieSceneTrack*> FSequencerSelection::GetSelectedTracks() const
 	
 	for (const TSharedRef<FSequencerDisplayNode>& SelectedNode : SelectedOutlinerNodes)
 	{
-		if (SelectedNode->GetType() == ESequencerNode::Track)
+		TSharedPtr<FSequencerDisplayNode> CurrentNode = SelectedNode;
+		while (CurrentNode.IsValid() && CurrentNode->GetType() != ESequencerNode::Track)
 		{
-			if (UMovieSceneTrack* Track = StaticCastSharedRef<FSequencerTrackNode>(SelectedNode)->GetTrack())
+			CurrentNode = CurrentNode->GetParent();
+		}
+
+		if (CurrentNode.IsValid())
+		{
+			UMovieSceneTrack* SelectedTrack = StaticCastSharedPtr<FSequencerTrackNode>(CurrentNode)->GetTrack();
+			if (SelectedTrack != nullptr)
 			{
-				OutTracks.Add(Track);
+				OutTracks.Add(SelectedTrack);
 			}
 		}
 	}
@@ -123,10 +129,7 @@ void FSequencerSelection::AddToSelection(FSequencerSelectedKey Key)
 	}
 
 	// Deselect any outliner nodes that aren't within the trunk of this key
-	if (Key.KeyArea.IsValid())
-	{
-		EmptySelectedOutlinerNodesWithoutSection(Key.KeyArea->GetOwningSection());
-	}
+	EmptySelectedOutlinerNodesWithoutSection(Key.Section);
 }
 
 void FSequencerSelection::AddToSelection(UMovieSceneSection* Section)

@@ -1,16 +1,16 @@
-﻿// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "RequiredProgramMainCPPInclude.h"
-#include "CommandLine.h"
-#include "TaskGraphInterfaces.h"
-#include "ModuleManager.h"
-#include "Object.h"
-#include "ConfigCacheIni.h"
+#include "Misc/CommandLine.h"
+#include "Async/TaskGraphInterfaces.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/Object.h"
+#include "Misc/ConfigCacheIni.h"
 
 #include "LiveLinkProvider.h"
 #include "LiveLinkRefSkeleton.h"
 #include "LiveLinkTypes.h"
-#include "OutputDevice.h"
+#include "Misc/OutputDevice.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogBlankMayaPlugin, Log, All);
 

@@ -5,10 +5,75 @@
 #include "IMovieSceneModule.h"
 #include "MovieScene.h"
 #include "Compilation/IMovieSceneTemplateGenerator.h"
-
+#include "HAL/IConsoleManager.h"
+#include "Logging/MessageLog.h"
+#include "Misc/UObjectToken.h"
 
 DEFINE_LOG_CATEGORY(LogMovieScene);
 
+TAutoConsoleVariable<FString> CVarLegacyConversionFrameRate(
+	TEXT("MovieScene.LegacyConversionFrameRate"),
+	TEXT("60000fps"),
+	TEXT("Specifies default tick resolution for UMovieScene data saved before 4.20 (default: 60000fps). Examples: 60000 fps, 120/1 (120 fps), 30000/1001 (29.97), 0.01s (10ms)."),
+	ECVF_Default);
+
+struct FCachedLegacyConversionFrameRate
+{
+	FCachedLegacyConversionFrameRate()
+		: FrameRate(60000, 1)
+	{
+		DelegateHandle = IConsoleManager::Get().RegisterConsoleVariableSink_Handle(FConsoleCommandDelegate::CreateRaw(this, &FCachedLegacyConversionFrameRate::OnChanged));
+
+		OnChanged();
+	}
+	~FCachedLegacyConversionFrameRate()
+	{
+		IConsoleManager::Get().UnregisterConsoleVariableSink_Handle(DelegateHandle);
+	}
+
+	void OnChanged()
+	{
+		TryParseString(FrameRate, *CVarLegacyConversionFrameRate.GetValueOnGameThread());
+	}
+
+	FFrameRate FrameRate;
+	FConsoleVariableSinkHandle DelegateHandle;
+};
+
+FFrameRate GetLegacyConversionFrameRate()
+{
+	static FCachedLegacyConversionFrameRate CachedRate;
+	return CachedRate.FrameRate;
+}
+
+void EmitLegacyOutOfBoundsError(UObject* Object, FFrameRate InFrameRate, double InTime)
+{
+#if WITH_EDITOR
+	static const FName NAME_AssetCheck("AssetCheck");
+
+	FMessageLog AssetCheckLog(NAME_AssetCheck);
+
+	const FText Message = FText::Format(
+		NSLOCTEXT("MovieScene", "LegacyOutOfBoundsError", "Encountered time ({0} seconds) that is out of the supported range with a resolution of {1}fps. Saving this asset will cause loss of data. Please reduce MovieScene.LegacyConversionFrameRate and re-load this asset."),
+		InTime, InFrameRate.AsDecimal()
+	);
+	AssetCheckLog.Error()
+		->AddToken(FUObjectToken::Create(Object))
+		->AddToken(FTextToken::Create(Message));
+
+	AssetCheckLog.Open(EMessageSeverity::Warning);
+#endif
+}
+
+FFrameNumber UpgradeLegacyMovieSceneTime(UObject* ErrorContext, FFrameRate InFrameRate, double InTime)
+{
+	double ClampedKeyTime = FMath::Clamp(InTime, -InFrameRate.MaxSeconds(), InFrameRate.MaxSeconds());
+	if (InTime != ClampedKeyTime)
+	{
+		EmitLegacyOutOfBoundsError(ErrorContext, InFrameRate, InTime);
+	}
+	return InFrameRate.AsFrameNumber(ClampedKeyTime);
+}
 
 /**
  * MovieScene module implementation.

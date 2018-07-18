@@ -5,6 +5,7 @@
 #include "XmppStrophe/XmppPresenceStrophe.h"
 #include "XmppStrophe/StropheStanza.h"
 #include "XmppStrophe/StropheStanzaConstants.h"
+#include "XmppLog.h"
 
 #if WITH_XMPP_STROPHE
 
@@ -75,27 +76,24 @@ bool FXmppPrivateChatStrophe::ReceiveStanza(const FStropheStanza& IncomingStanza
 	return true;
 }
 
-bool FXmppPrivateChatStrophe::SendChat(const FString& RecipientId, const FXmppChatMessage& Chat)
+bool FXmppPrivateChatStrophe::SendChat(const FXmppUserJid& RecipientId, const FString& Message)
 {
 	if (ConnectionManager.GetLoginStatus() != EXmppLoginStatus::LoggedIn)
 	{
 		return false;
 	}
 
+	if (!RecipientId.IsValid())
+	{
+		UE_LOG(LogXmpp, Warning, TEXT("Unable to send chat message. Invalid jid: %s"), *RecipientId.GetFullPath());
+		return false;
+	}
+
 	FStropheStanza ChatStanza(ConnectionManager, Strophe::SN_MESSAGE);
 	{
 		ChatStanza.SetType(Strophe::ST_CHAT);
-		ChatStanza.SetTo(Chat.ToJid);
-		ChatStanza.SetFrom(Chat.FromJid);
-		ChatStanza.AddBodyWithText(Chat.Body);
-
-		// Update Sent Time
-		FStropheStanza DelayStanza(ConnectionManager, Strophe::SN_DELAY);
-		{
-			DelayStanza.SetNamespace(Strophe::SNS_DELAY);
-			DelayStanza.SetAttribute(Strophe::SA_STAMP, FDateTime::UtcNow().ToIso8601());
-			ChatStanza.AddChild(DelayStanza);
-		}
+		ChatStanza.SetTo(RecipientId);
+		ChatStanza.AddBodyWithText(Message);
 	}
 
 	return ConnectionManager.SendStanza(MoveTemp(ChatStanza));

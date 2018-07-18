@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineFriendGameCircle.h"
-#include "OnlinePresenceInterface.h"
+#include "Interfaces/OnlinePresenceInterface.h"
 #include "OnlineSubsystem.h"
 
 FOnlineFriendGameCircle::FOnlineFriendGameCircle(TSharedPtr<const FUniqueNetId> InUniqueId, const FString& InPlayerAlias, const FString& InAvatarURL)

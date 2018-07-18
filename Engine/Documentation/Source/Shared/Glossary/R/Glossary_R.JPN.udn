@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2620017
+﻿INTSourceChangelist:3810557
 Title:R
 Crumbs:Shared/Glossary
 Description:
@@ -11,12 +11,14 @@ Availability:NoPublish
 回転ツール 
 	[/PARAM]
 	[PARAM:Definition]
-
-[EXCERPT:Glossary_Rotate_tool]
-**回転ツール** は、シーンのアクタを X 、 Y 、 Z 軸に沿ってスケーリングさせる変換ウィジェットです。
-[/EXCERPT:Glossary_Rotate_tool]
-
+		[INCLUDE:#Glossary_Rotate_tool]
 	[/PARAM]
 [/OBJECT]
 
 [/EXCERPT:Glossary_R]
+
+[COMMENT:none]
+[EXCERPT:Glossary_Rotate_tool]
+**回転ツール** は、シーンのアクタを X 、 Y 、 Z 軸に沿ってスケーリングさせる変換ウィジェットです。
+[/EXCERPT:Glossary_Rotate_tool]
+[/COMMENT]

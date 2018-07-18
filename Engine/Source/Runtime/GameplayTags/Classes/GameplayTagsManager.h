@@ -40,12 +40,34 @@ struct FGameplayTagTableRow : public FTableRowBase
 	GAMEPLAYTAGS_API bool operator<(FGameplayTagTableRow const& Other) const;
 };
 
+/** Simple struct for a table row in the restricted gameplay tag table and element in the ini list */
+USTRUCT()
+struct FRestrictedGameplayTagTableRow : public FGameplayTagTableRow
+{
+	GENERATED_USTRUCT_BODY()
+
+	/** Tag specified in the table */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = GameplayTag)
+	bool bAllowNonRestrictedChildren;
+
+	/** Constructors */
+	FRestrictedGameplayTagTableRow() {}
+	FRestrictedGameplayTagTableRow(FName InTag, const FString& InDevComment = TEXT(""), bool InAllowNonRestrictedChildren = false) : FGameplayTagTableRow(InTag, InDevComment), bAllowNonRestrictedChildren(InAllowNonRestrictedChildren) {}
+	GAMEPLAYTAGS_API FRestrictedGameplayTagTableRow(FRestrictedGameplayTagTableRow const& Other);
+
+	/** Assignment/Equality operators */
+	GAMEPLAYTAGS_API FRestrictedGameplayTagTableRow& operator=(FRestrictedGameplayTagTableRow const& Other);
+	GAMEPLAYTAGS_API bool operator==(FRestrictedGameplayTagTableRow const& Other) const;
+	GAMEPLAYTAGS_API bool operator!=(FRestrictedGameplayTagTableRow const& Other) const;
+};
+
 UENUM()
 enum class EGameplayTagSourceType : uint8
 {
 	Native,				// Was added from C++ code
 	DefaultTagList,		// The default tag list in DefaultGameplayTags.ini
 	TagList,			// Another tag list from an ini in tags/*.ini
+	RestrictedTagList,	// Restricted tags from an ini
 	DataTable,			// From a DataTable
 	Invalid,			// Not a real source
 };
@@ -68,13 +90,17 @@ struct FGameplayTagSource
 	UPROPERTY()
 	class UGameplayTagsList* SourceTagList;
 
+	/** If this has restricted tags and is bound to an ini object for saving, this is the one */
+	UPROPERTY()
+	class URestrictedGameplayTagsList* SourceRestrictedTagList;
+
 	FGameplayTagSource() 
-		: SourceName(NAME_None), SourceType(EGameplayTagSourceType::Invalid), SourceTagList(nullptr) 
+		: SourceName(NAME_None), SourceType(EGameplayTagSourceType::Invalid), SourceTagList(nullptr), SourceRestrictedTagList(nullptr)
 	{
 	}
 
-	FGameplayTagSource(FName InSourceName, EGameplayTagSourceType InSourceType, UGameplayTagsList* InSourceTagList = nullptr) 
-		: SourceName(InSourceName), SourceType(InSourceType), SourceTagList(InSourceTagList)
+	FGameplayTagSource(FName InSourceName, EGameplayTagSourceType InSourceType, UGameplayTagsList* InSourceTagList = nullptr, URestrictedGameplayTagsList* InSourceRestrictedTagList = nullptr) 
+		: SourceName(InSourceName), SourceType(InSourceType), SourceTagList(InSourceTagList), SourceRestrictedTagList(InSourceRestrictedTagList)
 	{
 	}
 
@@ -107,7 +133,7 @@ struct FGameplayTagNode
 	FGameplayTagNode(){};
 
 	/** Simple constructor */
-	FGameplayTagNode(FName InTag, TSharedPtr<FGameplayTagNode> InParentNode);
+	FGameplayTagNode(FName InTag, TSharedPtr<FGameplayTagNode> InParentNode, bool InIsExplicitTag, bool InIsRestrictedTag, bool InAllowNonRestrictedChildren);
 
 	/** Returns a correctly constructed container with only this tag, useful for doing container queries */
 	FORCEINLINE const FGameplayTagContainer& GetSingleTagContainer() const { return CompleteTagWithParents; }
@@ -159,6 +185,30 @@ struct FGameplayTagNode
 	/** Reset the node of all of its values */
 	GAMEPLAYTAGS_API void ResetNode();
 
+	/** Returns true if the tag was explicitly specified in code or data */
+	FORCEINLINE bool IsExplicitTag() const {
+#if WITH_EDITORONLY_DATA
+		return bIsExplicitTag;
+#endif
+		return true;
+	}
+
+	/** Returns true if the tag is a restricted tag and allows non-restricted children */
+	FORCEINLINE bool GetAllowNonRestrictedChildren() const { 
+#if WITH_EDITORONLY_DATA
+		return bAllowNonRestrictedChildren;  
+#endif
+		return true;
+	}
+
+	/** Returns true if the tag is a restricted tag */
+	FORCEINLINE bool IsRestrictedGameplayTag() const {
+#if WITH_EDITORONLY_DATA
+		return bIsRestrictedTag;
+#endif
+		return true;
+	}
+
 private:
 	/** Raw name for this tag at current rank in the tree */
 	FName Tag;
@@ -181,9 +231,28 @@ private:
 
 	/** Comment for this tag */
 	FString DevComment;
+
+	/** If this is true then the tag can only have normal tag children if bAllowNonRestrictedChildren is true */
+	uint8 bIsRestrictedTag : 1;
+
+	/** If this is true then any children of this tag must come from the restricted tags */
+	uint8 bAllowNonRestrictedChildren : 1;
+
+	/** If this is true then the tag was explicitly added and not only implied by its child tags */
+	uint8 bIsExplicitTag : 1;
+
+	/** If this is true then at least one tag that inherits from this tag is coming from multiple sources. Used for updating UI in the editor. */
+	uint8 bDescendantHasConflict : 1;
+
+	/** If this is true then this tag is coming from multiple sources. No descendants can be changed on this tag until this is resolved. */
+	uint8 bNodeHasConflict : 1;
+
+	/** If this is true then at least one tag that this tag descends from is coming from multiple sources. This tag and it's descendants can't be changed in the editor. */
+	uint8 bAncestorHasConflict : 1;
 #endif 
 
 	friend class UGameplayTagsManager;
+	friend class SGameplayTagWidget;
 };
 
 /** Holds data about the tag dictionary, is in a singleton UObject */
@@ -205,6 +274,16 @@ class GAMEPLAYTAGS_API UGameplayTagsManager : public UObject
 
 		return *SingletonManager;
 	}
+
+	/**
+	* Adds the gameplay tags corresponding to the strings in the array TagStrings to OutTagsContainer
+	*
+	* @param TagStrings Array of strings to search for as tags to add to the tag container
+	* @param OutTagsContainer Container to add the found tags to.
+	* @param ErrorIfNotfound: ensure() that tags exists.
+	*
+	*/
+	void RequestGameplayTagContainer(const TArray<FString>& TagStrings, FGameplayTagContainer& OutTagsContainer, bool bErrorIfNotFound=true) const;
 
 	/**
 	 * Gets the FGameplayTag that corresponds to the TagName
@@ -342,7 +421,7 @@ class GAMEPLAYTAGS_API UGameplayTagsManager : public UObject
 	/** Returns true if if the passed in name is in the tag dictionary and can be created */
 	bool ValidateTagCreation(FName TagName) const;
 
-	/** Returns the tag source for a given tag source name, or null if not found */
+	/** Returns the tag source for a given tag source name and type, or null if not found */
 	const FGameplayTagSource* FindTagSource(FName TagSourceName) const;
 
 	/** Fills in an array with all tag sources of a specific type */
@@ -372,6 +451,15 @@ class GAMEPLAYTAGS_API UGameplayTagsManager : public UObject
 	{
 		return bUseFastReplication;
 	}
+
+	/** Returns a list of the ini files that contain restricted tags */
+	void GetRestrictedTagConfigFiles(TArray<FString>& RestrictedConfigFiles) const;
+
+	/** Returns a list of the source files that contain restricted tags */
+	void GetRestrictedTagSources(TArray<const FGameplayTagSource*>& Sources) const;
+
+	/** Returns a list of the owners for a restricted tag config file. May be empty */
+	void GetOwnersForTagSource(const FString& SourceName, TArray<FString>& OutOwners) const;
 
 	/** Handles redirectors for an entire container, will also error on invalid tags */
 	void RedirectTagsForContainer(FGameplayTagContainer& Container, UProperty* SerializingProperty) const;
@@ -417,8 +505,8 @@ class GAMEPLAYTAGS_API UGameplayTagsManager : public UObject
 	/** Returns true if this tag is directly in the dictionary already */
 	bool IsDictionaryTag(FName TagName) const;
 
-	/** Returns comment and source for tag. If not found return false */
-	bool GetTagEditorData(FName TagName, FString& OutComment, FName &OutTagSource) const;
+	/** Returns information about tag. If not found return false */
+	bool GetTagEditorData(FName TagName, FString& OutComment, FName &OutTagSource, bool& bOutIsTagExplicit, bool &bOutIsRestrictedTag, bool &bOutAllowNonRestrictedChildren) const;
 
 	/** Refresh the gameplaytag tree due to an editor change */
 	void EditorRefreshGameplayTagTree();
@@ -497,24 +585,29 @@ private:
 	friend class FGameplayEffectsTest;
 	friend class FGameplayTagsModule;
 	friend class FGameplayTagsEditorModule;
+	friend class UGameplayTagsSettings;
+	friend class SAddNewGameplayTagSourceWidget;
 
 	/**
 	 * Helper function to insert a tag into a tag node array
 	 *
-	 * @param Tag					Tag to insert
-	 * @param ParentNode			Parent node, if any, for the tag
-	 * @param NodeArray				Node array to insert the new node into, if necessary (if the tag already exists, no insertion will occur)
-	 * @param SourceName			File tag was added from
-	 * @param DevComment			Comment from developer about this tag
+	 * @param Tag							Tag to insert
+	 * @param ParentNode					Parent node, if any, for the tag
+	 * @param NodeArray						Node array to insert the new node into, if necessary (if the tag already exists, no insertion will occur)
+	 * @param SourceName					File tag was added from
+	 * @param DevComment					Comment from developer about this tag
+	 * @param bIsExplicitTag				Is the tag explicitly defined or is it implied by the existence of a child tag
+	 * @param bIsRestrictedTag				Is the tag a restricted tag or a regular gameplay tag
+	 * @param bAllowNonRestrictedChildren	If the tag is a restricted tag, can it have regular gameplay tag children or should all of its children be restricted tags as well?
 	 *
 	 * @return Index of the node of the tag
 	 */
-	int32 InsertTagIntoNodeArray(FName Tag, TSharedPtr<FGameplayTagNode> ParentNode, TArray< TSharedPtr<FGameplayTagNode> >& NodeArray, FName SourceName, const FString& DevComment);
+	int32 InsertTagIntoNodeArray(FName Tag, TSharedPtr<FGameplayTagNode> ParentNode, TArray< TSharedPtr<FGameplayTagNode> >& NodeArray, FName SourceName, const FString& DevComment, bool bIsExplicitTag, bool bIsRestrictedTag, bool bAllowNonRestrictedChildren);
 
 	/** Helper function to populate the tag tree from each table */
 	void PopulateTreeFromDataTable(class UDataTable* Table);
 
-	void AddTagTableRow(const FGameplayTagTableRow& TagRow, FName SourceName);
+	void AddTagTableRow(const FGameplayTagTableRow& TagRow, FName SourceName, bool bIsRestrictedTag = false);
 
 	void AddChildrenTags(FGameplayTagContainer& TagContainer, TSharedPtr<FGameplayTagNode> GameplayTagNode, bool RecurseAll=true, bool OnlyIncludeDictionaryTags=false) const;
 
@@ -532,6 +625,9 @@ private:
 
 	/** Constructs the net indices for each tag */
 	void ConstructNetIndex();
+
+	/** Marks all of the nodes that descend from CurNode as having an ancestor node that has a source conflict. */
+	void MarkChildrenOfNodeConflict(TSharedPtr<FGameplayTagNode> CurNode);
 
 	/** Roots of gameplay tag nodes */
 	TSharedPtr<FGameplayTagNode> GameplayRootTag;
@@ -569,6 +665,9 @@ private:
 
 	/** Sorted list of nodes, used for network replication */
 	TArray<TSharedPtr<FGameplayTagNode>> NetworkGameplayTagNodeIndex;
+
+	UPROPERTY()
+	TArray<UDataTable*> RestrictedGameplayTagTables;
 
 	/** Holds all of the valid gameplay-related tags that can be applied to assets */
 	UPROPERTY()

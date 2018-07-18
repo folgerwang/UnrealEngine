@@ -60,13 +60,13 @@ namespace UnrealBuildTool
 		}
 		protected override bool WriteMasterProjectFile(ProjectFile UBTProject)
 		{
-			var SolutionFileName = MasterProjectName + SolutionExtension;
-			var CodeCompletionFile = MasterProjectName + CodeCompletionFileName;
-			var CodeCompletionPreProcessorFile = MasterProjectName + CodeCompletionPreProcessorFileName;
+			string SolutionFileName = MasterProjectName + SolutionExtension;
+			string CodeCompletionFile = MasterProjectName + CodeCompletionFileName;
+			string CodeCompletionPreProcessorFile = MasterProjectName + CodeCompletionPreProcessorFileName;
 
-			var FullCodeLiteMasterFile = Path.Combine(MasterProjectPath.FullName, SolutionFileName);
-			var FullCodeLiteCodeCompletionFile = Path.Combine(MasterProjectPath.FullName, CodeCompletionFile);
-			var FullCodeLiteCodeCompletionPreProcessorFile = Path.Combine(MasterProjectPath.FullName, CodeCompletionPreProcessorFile);
+			string FullCodeLiteMasterFile = Path.Combine(MasterProjectPath.FullName, SolutionFileName);
+			string FullCodeLiteCodeCompletionFile = Path.Combine(MasterProjectPath.FullName, CodeCompletionFile);
+			string FullCodeLiteCodeCompletionPreProcessorFile = Path.Combine(MasterProjectPath.FullName, CodeCompletionPreProcessorFile);
 
 			//
 			// HACK 
@@ -76,7 +76,7 @@ namespace UnrealBuildTool
 			List<string> IncludeDirectories = new List<string>();
 			List<string> PreProcessor = new List<string>();
 
-			foreach (var CurProject in GeneratedProjectFiles)
+			foreach (ProjectFile CurProject in GeneratedProjectFiles)
 			{
 				CodeLiteProject Project = CurProject as CodeLiteProject;
 				if (Project == null)
@@ -84,20 +84,20 @@ namespace UnrealBuildTool
 					continue;
 				}
 
-				foreach (var CurrentPath in Project.IntelliSenseIncludeSearchPaths)
+				foreach (string CurrentPath in Project.IntelliSenseIncludeSearchPaths)
 				{
 					// Convert relative path into absolute.
 					DirectoryReference IntelliSenseIncludeSearchPath = DirectoryReference.Combine(Project.ProjectFilePath.Directory, CurrentPath);
 					IncludeDirectories.Add(IntelliSenseIncludeSearchPath.FullName);
 				}
-				foreach (var CurrentPath in Project.IntelliSenseSystemIncludeSearchPaths)
+				foreach (string CurrentPath in Project.IntelliSenseSystemIncludeSearchPaths)
 				{
 					// Convert relative path into absolute.
 					DirectoryReference IntelliSenseSystemIncludeSearchPath = DirectoryReference.Combine(Project.ProjectFilePath.Directory, CurrentPath);
 					IncludeDirectories.Add(IntelliSenseSystemIncludeSearchPath.FullName);
 				}
 
-				foreach (var CurDef in Project.IntelliSensePreprocessorDefinitions)
+				foreach (string CurDef in Project.IntelliSensePreprocessorDefinitions)
 				{
 					if (!PreProcessor.Contains(CurDef))
 					{
@@ -133,7 +133,7 @@ namespace UnrealBuildTool
 			// Write Code Completion folders into the WorkspaceParserPaths section.
 			//
 			XElement CodeLiteWorkspaceParserPaths = new XElement("WorkspaceParserPaths");
-			foreach (var CurrentPath in IncludeDirectories)
+			foreach (string CurrentPath in IncludeDirectories)
 			{
 				XElement CodeLiteWorkspaceParserPathInclude = new XElement("Include");
 				XAttribute CodeLiteWorkspaceParserPath = new XAttribute("Path", CurrentPath);
@@ -150,9 +150,9 @@ namespace UnrealBuildTool
 			XElement CodeLiteWorkspaceTargetPrograms = null;
 			XElement CodeLiteWorkspaceTargetGame = null;
 
-			foreach (var CurProject in AllProjectFiles)
+			foreach (ProjectFile CurProject in AllProjectFiles)
 			{
-				var ProjectExtension = CurProject.ProjectFilePath.GetExtension();
+				string ProjectExtension = CurProject.ProjectFilePath.GetExtension();
 
 				//
 				// TODO For now ignore C# project files.
@@ -254,7 +254,7 @@ namespace UnrealBuildTool
 			XElement CodeLiteWorkspaceBuildMatrix = new XElement("BuildMatrix");
 			foreach (UnrealTargetConfiguration CurConfiguration in SupportedConfigurations)
 			{
-				if (UnrealBuildTool.IsValidConfiguration(CurConfiguration))
+				if (InstalledPlatformInfo.IsValidConfiguration(CurConfiguration, EProjectType.Code))
 				{
 					XElement CodeLiteWorkspaceBuildMatrixConfiguration = new XElement("WorkspaceConfiguration");
 					XAttribute CodeLiteWorkspaceProjectName = new XAttribute("Name", CurConfiguration.ToString());
@@ -262,9 +262,9 @@ namespace UnrealBuildTool
 					CodeLiteWorkspaceBuildMatrixConfiguration.Add(CodeLiteWorkspaceProjectName);
 					CodeLiteWorkspaceBuildMatrixConfiguration.Add(CodeLiteWorkspaceProjectSelected);
 
-					foreach (var CurProject in AllProjectFiles)
+					foreach (ProjectFile CurProject in AllProjectFiles)
 					{
-						var ProjectExtension = CurProject.ProjectFilePath.GetExtension();
+						string ProjectExtension = CurProject.ProjectFilePath.GetExtension();
 
 						//
 						// TODO For now ignore C# project files.
@@ -310,9 +310,9 @@ namespace UnrealBuildTool
 		public override void CleanProjectFiles(DirectoryReference InMasterProjectDirectory, string InMasterProjectName, DirectoryReference InIntermediateProjectFilesDirectory)
 		{
 			// TODO Delete all files here. Not finished yet.
-			var SolutionFileName = InMasterProjectName + SolutionExtension;
-			var CodeCompletionFile = InMasterProjectName + CodeCompletionFileName;
-			var CodeCompletionPreProcessorFile = InMasterProjectName + CodeCompletionPreProcessorFileName;
+			string SolutionFileName = InMasterProjectName + SolutionExtension;
+			string CodeCompletionFile = InMasterProjectName + CodeCompletionFileName;
+			string CodeCompletionPreProcessorFile = InMasterProjectName + CodeCompletionPreProcessorFileName;
 
 			FileReference FullCodeLiteMasterFile = FileReference.Combine(InMasterProjectDirectory, SolutionFileName);
 			FileReference FullCodeLiteCodeCompletionFile = FileReference.Combine(InMasterProjectDirectory, CodeCompletionFile);

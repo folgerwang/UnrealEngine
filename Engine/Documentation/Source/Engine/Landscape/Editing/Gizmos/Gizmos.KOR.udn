@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3807090
 Availability: Public
 Title:랜드스케이프 기즈모
 Crumbs: %ROOT%, Engine, Engine/Landscape, Engine/Landscape/Editing
@@ -78,7 +78,7 @@ IdzHGD7iWdg
 
 (#CopyingData)
 
-### 기즈모로 복사하기
+## 기즈모로 복사하기
 
 랜드스케이프 일부분을 복사하기 위해서는, 그 영역에 대한 데이터를 기즈모로 복사해야 합니다. 그런 다음 그 데이터를 나중에 다른 위치로 붙여넣으면 됩니다.
 
@@ -156,7 +156,7 @@ IdzHGD7iWdg
 	[/REGION]
 [COMMENT:none]
 --
-    ![pastemask_region.jpg](pastemask_region.jpg)(w:667 h:363) ![pastemask_partial.jpg](pastemask_partial.jpg)(w:667 h:363)
+    ![pastemask_region.jpg](pastemask_region.jpg)(w:667) ![pastemask_partial.jpg](pastemask_partial.jpg)(w:667)
 --
 [/COMMENT]
 
@@ -172,7 +172,7 @@ IdzHGD7iWdg
 (#ImportingGizmo)
 **데이터를 기즈모로 임포트하려면:**
 
-1. 파일 찾기 (...) 버튼( ![import_filebrowse.png](import_filebrowse.png) ) 을 클릭하고 기즈모로 임포트하려는 하이트맵 (16-비트 raw) 파일을 선택합니다. 하이트맵 파일명과 크기 칸이 채워집니다.  
+1. 파일 찾기 ( ![import_filebrowse.png](import_filebrowse.png)(convert:false)) 버튼을 클릭하고 기즈모로 임포트하려는 하이트맵 (16-비트 raw) 파일을 선택합니다. 하이트맵 파일명과 크기 칸이 채워집니다.  
     ![gizmo_import_file.png](gizmo_import_file.png)(convert:false)  
 	[REGION:note]
 임포트 프로세스에서는 .raw 파일 포맷을 사용하기에, 이미지 X Y 크기를 자동으로 알 수 없습니다. 그저 잘 찍는 수밖에 없으니, 하이트맵을 제대로 임포트하려면 각 크기를 수동으로 바꿔줘야 할 수도 있습니다.  
@@ -198,26 +198,26 @@ Layer Name 이 랜드스케이프 상에 존재하는 레이어 이름에 일치
 
 1. 기즈모에 데이터를 채운 상태로 ([기즈모로 데이터 복사하기](#CopyingData) 참고), **Export Gizmo Data** (기즈모 데이터 익스포트) 버튼을 누르면 기즈모 데이터를 파일로 익스포트할 수 있습니다. **Gizmo copy/paste all layers** 체크박스를 켜면 레이어 웨이트 데이터도 파일로 익스포트합니다.  
 1. 하이트맵 파일 위치와 이름을 선택합니다.  
-    ![export_file.jpg](export_file.jpg)(w:625 h:436)  
+    ![export_file.jpg](export_file.jpg)(w:625)
 1. 레이어를 익스포트한다면 각 레이어에 대한 위치와 파일명을 선택합니다.  
-    ![export_layerfile.jpg](export_layerfile.jpg)(w:625 h:436)
+    ![export_layerfile.jpg](export_layerfile.jpg)(w:625)
 
 
 [COMMENT:none]
 
 ## 기즈모 리스트
 
-![gizmolist.jpg](gizmolist.jpg)(w:267 h:60)
+![gizmolist.jpg](gizmolist.jpg)(w:267)
 
 기즈모 리스트에는 나중에 쉽게 재사용 가능하도록 저장된 기즈모 목록이 표시됩니다.
 
-![gizmolist_populated.jpg](gizmolist_populated.jpg)(w:266 h:98)
+![gizmolist_populated.jpg](gizmolist_populated.jpg)(w:266)
 
 | **콘트롤** | **설명** |
 | --- | --- |
-| ![gizmolist_pin.jpg](gizmolist_pin.jpg) | 목록에 기즈모의 현재 위치, 크기, 로테이션을 저장합니다. |
-| ![gizmolist_remove.jpg](gizmolist_remove.jpg) | 목록에 현재 선택되어 있는 기즈모를 제거합니다. |
-| ![gizmolist_goto.jpg](gizmolist_goto.jpg) | 기즈모의 위치, 크기, 로테이션을 목록에 현재 선택되어 있는 기즈모의 것으로 설정합니다. |
+| ![gizmolist_pin.jpg](gizmolist_pin.jpg)| 목록에 기즈모의 현재 위치, 크기, 로테이션을 저장합니다. |
+| ![gizmolist_remove.jpg](gizmolist_remove.jpg)| 목록에 현재 선택되어 있는 기즈모를 제거합니다. |
+| ![gizmolist_goto.jpg](gizmolist_goto.jpg)| 기즈모의 위치, 크기, 로테이션을 목록에 현재 선택되어 있는 기즈모의 것으로 설정합니다. |
 
 
 [/COMMENT]

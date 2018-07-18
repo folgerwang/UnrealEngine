@@ -1,9 +1,11 @@
-﻿INTSourceChangelist:2728086
+﻿INTSourceChangelist:3782314
 Availability:Licensee
 Title:アンリアル デベロッパー ネットワーク入門編
 Crumbs:%ROOT%, GettingStarted
 Description:UDN の基本的な使用法を取り上げたドキュメント
-Version:4.9
+Version: 4.9
+parent:%ROOT%
+order:101
 
 
 
@@ -12,16 +14,14 @@ Version:4.9
 以下のセクションは、UDN のサポートサイトの使用を開始した方々に向けて重要な情報を詳述しています。 
 
 [REGION:note]
-	UDN の使用中に発見した全ての問題は質問として投稿してください。ヘルプが必要な方は、下記の **Support Questions (「質問をする」) ** セクションを使用してください。
+	UDN の使用中に問題を発見した場合は、質問として投稿してください。ヘルプが必要な方は、下記の **Support Questions (「質問をする」) ** セクションを使用してください。
 [/REGION]
 
-## 開始する
+## はじめよう
 
 [REGION:buttonlist]
-
-		* [Content Searches](Support\UDNGettingStarted\ContentSearches)
-		* [Support Questions](Support\UDNGettingStarted\SupportQuestions)
-	
+* [Content Searches](Support\UDNGettingStarted\ContentSearches)
+* [Support Questions](Support\UDNGettingStarted\SupportQuestions)
 [/REGION]
 
 

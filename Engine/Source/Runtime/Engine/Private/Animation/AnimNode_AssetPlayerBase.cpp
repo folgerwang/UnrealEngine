@@ -6,6 +6,7 @@
 FAnimNode_AssetPlayerBase::FAnimNode_AssetPlayerBase()
 	: bIgnoreForRelevancyTest(false)
 	, GroupIndex(INDEX_NONE)
+	, GroupRole(EAnimGroupRole::CanBeLeader)
 	, BlendWeight(0.0f)
 	, InternalTimeAccumulator(0.0f)
 	, bHasBeenFullWeight(false)

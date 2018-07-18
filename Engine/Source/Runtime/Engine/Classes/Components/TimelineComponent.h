@@ -504,6 +504,10 @@ public:
 	virtual bool IsReadyForOwnerToAutoDestroy() const override;
 	//~ End ActorComponent Interface.
 
+	//~ Begin UObject Interface. 
+	virtual bool IsPostLoadThreadSafe() const override;
+	//~ End UObject Interface
+
 	/** Get the signature function for Timeline event functions */
 	ENGINE_API static UFunction* GetTimelineEventSignature();
 	/** Get the signature function for Timeline float functions */

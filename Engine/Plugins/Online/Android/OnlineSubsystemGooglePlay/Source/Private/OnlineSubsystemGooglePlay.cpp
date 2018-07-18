@@ -10,7 +10,7 @@
 #include "OnlineExternalUIInterfaceGooglePlay.h"
 #include "OnlinePurchaseGooglePlay.h"
 #include "OnlineStoreGooglePlay.h"
-#include "AndroidApplication.h"
+#include "Android/AndroidApplication.h"
 #include "Android/AndroidJNI.h"
 #include "OnlineAsyncTaskManagerGooglePlay.h"
 #include "OnlineAsyncTaskGooglePlayLogin.h"
@@ -199,7 +199,7 @@ bool FOnlineSubsystemGooglePlay::Tick(float DeltaTime)
 
 bool FOnlineSubsystemGooglePlay::Shutdown() 
 {
-	UE_LOG(LogOnline, Log, TEXT("FOnlineSubsystemGooglePlay::Shutdown()"));
+	UE_LOG(LogOnline, VeryVerbose, TEXT("FOnlineSubsystemGooglePlay::Shutdown()"));
 
 	FOnlineSubsystemImpl::Shutdown();
 
@@ -289,7 +289,9 @@ void FOnlineSubsystemGooglePlay::StartShowLoginUITask(int PlayerId, const FOnLog
 	if (AreAnyAsyncLoginTasksRunning())
 	{
 		UE_LOG(LogOnline, Log, TEXT("FOnlineSubsystemGooglePlay::StartShowLoginUITask: An asynchronous login task is already running."));
-		Delegate.ExecuteIfBound(nullptr, PlayerId);
+		FOnlineError Error(false);
+		Error.SetFromErrorCode(TEXT("FOnlineSubsystemGooglePlay::StartShowLoginUITask: An asynchronous login task is already running."));
+		Delegate.ExecuteIfBound(nullptr, PlayerId, Error);
 		return;
 	}
 

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3807090
 Availability: Public
 title:텍스처링
 Crumbs: %ROOT%, Engine, Engine/Rendering/Materials,  Engine/Rendering/Materials/Functions
@@ -275,7 +275,7 @@ SubUV_Function 은 여러 프레임에 걸친 스프라이트 시트나 텍스�
 | **Frame (Scalar)** | 프레임 (스칼라) - 애니메이션의 현재 프레임입니다. 0 부터 시작하고, 정수 값에 블렌딩합니다. 예를 들어 2.35 면 셋째 넷째 프레임 사이에 35% 블렌딩이 만들어집니다. |
 
 
-![SubUV_Function](SubUV_Function_Demo.png)(w:800 h:375)
+![SubUV_Function](SubUV_Function_Demo.png)(w:800)
 
 ### TwoSidedTexturing
 
@@ -348,7 +348,7 @@ MF_TerrainHeightLerp (터레인 높이 선형보간)은 하이트맵 값에 따�
 | **Lerp Alpha No Contrast** | 선형보간 알파 대비 없음 - 선형보간을 돌리는 데 사용된 알파 채널에 대비 증폭을 적용하지 않은 것입니다. |
 
 
-![MF_TerrainHeightLerp](MF_TerrainHeightLerp_Demo.png)(w:600 h:543)
+![MF_TerrainHeightLerp](MF_TerrainHeightLerp_Demo.png)(w:600)
 
  TODO
 ### WorldAlignedStain

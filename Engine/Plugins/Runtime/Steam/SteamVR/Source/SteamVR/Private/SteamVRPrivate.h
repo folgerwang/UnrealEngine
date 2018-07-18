@@ -3,7 +3,7 @@
 #pragma once
 
 /** Name of the current OpenVR SDK version in use (matches directory name) */
-#define OPENVR_SDK_VER TEXT("OpenVRv1_0_10")
+#define OPENVR_SDK_VER TEXT("OpenVRv1_0_11")
 
 // for STEAMVR_SUPPORTED_PLATFORMS, keep at top
 #include "ISteamVRPlugin.h"
@@ -13,7 +13,7 @@
 #include "Runtime/Engine/Public/ScreenRendering.h"
 
 #if PLATFORM_WINDOWS
-#include "WindowsHWrapper.h"
+#include "Windows/WindowsHWrapper.h"
 #endif
 
 #if STEAMVR_SUPPORTED_PLATFORMS

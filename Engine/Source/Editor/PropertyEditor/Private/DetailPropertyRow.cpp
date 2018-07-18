@@ -121,13 +121,13 @@ IDetailPropertyRow& FDetailPropertyRow::OverrideResetToDefault(const FResetToDef
 	return *this;
 }
 
-void FDetailPropertyRow::GetDefaultWidgets( TSharedPtr<SWidget>& OutNameWidget, TSharedPtr<SWidget>& OutValueWidget ) 
+void FDetailPropertyRow::GetDefaultWidgets( TSharedPtr<SWidget>& OutNameWidget, TSharedPtr<SWidget>& OutValueWidget, bool bAddWidgetDecoration )
 {
 	FDetailWidgetRow Row;
-	GetDefaultWidgets(OutNameWidget, OutValueWidget, Row);
+	GetDefaultWidgets(OutNameWidget, OutValueWidget, Row, bAddWidgetDecoration);
 }
 
-void FDetailPropertyRow::GetDefaultWidgets( TSharedPtr<SWidget>& OutNameWidget, TSharedPtr<SWidget>& OutValueWidget, FDetailWidgetRow& Row )
+void FDetailPropertyRow::GetDefaultWidgets( TSharedPtr<SWidget>& OutNameWidget, TSharedPtr<SWidget>& OutValueWidget, FDetailWidgetRow& Row, bool bAddWidgetDecoration )
 {
 	TSharedPtr<FDetailWidgetRow> CustomTypeRow;
 	if ( CustomTypeInterface.IsValid() ) 
@@ -137,7 +137,6 @@ void FDetailPropertyRow::GetDefaultWidgets( TSharedPtr<SWidget>& OutNameWidget, 
 		CustomTypeInterface->CustomizeHeader(PropertyHandle.ToSharedRef(), *CustomTypeRow, *this);
 	}
 
-	const bool bAddWidgetDecoration = false;
 	MakeNameOrKeyWidget(Row,CustomTypeRow);
 	MakeValueWidget(Row,CustomTypeRow,bAddWidgetDecoration);
 
@@ -379,9 +378,7 @@ TSharedPtr<IPropertyTypeCustomization> FDetailPropertyRow::GetPropertyCustomizat
 		static FName NAME_PropertyEditor("PropertyEditor");
 		FPropertyEditorModule& PropertyEditorModule = FModuleManager::GetModuleChecked<FPropertyEditorModule>(NAME_PropertyEditor);
 
-		IDetailsViewPrivate* DetailsView = InParentCategory->GetDetailsView();
-
-		FPropertyTypeLayoutCallback LayoutCallback = PropertyEditorModule.GetPropertyTypeCustomization(Property, *PropHandle, DetailsView ? DetailsView->GetCustomPropertyTypeLayoutMap() : FCustomPropertyTypeLayoutMap() );
+		FPropertyTypeLayoutCallback LayoutCallback = PropertyEditorModule.GetPropertyTypeCustomization(Property, *PropHandle, InParentCategory->GetCustomPropertyTypeLayoutMap() );
 		if (LayoutCallback.IsValid())
 		{
 			if (PropHandle->IsValidHandle())

@@ -32,6 +32,8 @@ IConsoleVariable* FStereoPanoramaManager::OutputDir                  = IConsoleM
 IConsoleVariable* FStereoPanoramaManager::ShouldOverrideInitialYaw   = IConsoleManager::Get().RegisterConsoleVariable(TEXT("SP.ShouldOverrideInitialYaw"), true, TEXT("Override Initial Camera Yaw. Set to true if you don't want to use PlayerController View Dir"), ECVF_Default);
 IConsoleVariable* FStereoPanoramaManager::ForcedInitialYaw           = IConsoleManager::Get().RegisterConsoleVariable(TEXT("SP.ForcedInitialYaw"), 90.0f, TEXT("Yaw value for initial Camera view direction. Set ShouldOverrideInitialYaw to true to use this value"), ECVF_Default);
 IConsoleVariable* FStereoPanoramaManager::FadeStereoToZeroAtSides    = IConsoleManager::Get().RegisterConsoleVariable(TEXT("SP.FadeStereoToZeroAtSides"), false, TEXT("Fade stereo effect between left/right eye to zero at 90 degrees."), ECVF_Default);
+//This will use camera's rotation. Use param by adding desired axis. Pitch=1 Yaw=2 Roll=4, All axis is 7 (=1+2+4)
+IConsoleVariable* FStereoPanoramaManager::UseCameraRotation = IConsoleManager::Get().RegisterConsoleVariable(TEXT("SP.UseCameraRotation"), 0, TEXT("Allow each axis to follow camera rotation. Pitch=1 Yaw=2 Roll=4, All axis is 7 (=1+2+4) "), ECVF_Default);
 
 bool FStereoPanoramaManager::ValidateRendererState() const
 {
@@ -47,8 +49,25 @@ bool FStereoPanoramaManager::ValidateRendererState() const
 	return true;
 }
 
+bool FStereoPanoramaManager::CheckPreviousJobState() const
+{
+	if (SceneCapturer)
+	{
+		UE_LOG(LogStereoPanorama, Error, TEXT("Previous Job is not finished."));
+		return true;
+	}
+	return false;
+	
+}
+
 void FStereoPanoramaManager::PanoramicScreenshot(const TArray<FString>& Args)
 {
+
+	if (CheckPreviousJobState())
+	{
+		return;
+	}
+
 	if (!ValidateRendererState())
 	{
 		return;
@@ -61,6 +80,12 @@ void FStereoPanoramaManager::PanoramicScreenshot(const TArray<FString>& Args)
 
 void FStereoPanoramaManager::PanoramicScreenshot(const int32 InStartFrame, const int32 InEndFrame, FStereoCaptureDoneDelegate& InStereoCaptureDoneDelegate)
 {
+
+	if (CheckPreviousJobState())
+	{
+		return;
+	}
+
 #if WITH_EDITOR
 	if (GIsEditor)
 	{
@@ -93,6 +118,8 @@ void FStereoPanoramaManager::Cleanup()
 			FEditorDelegates::EndPIE.RemoveAll(this);
 		}
 #endif
+		// Stop Tick at the time of cleanup.
+		SceneCapturer->bIsTicking = false;
 
 		SceneCapturer->Reset();
 		SceneCapturer->RemoveFromRoot();
@@ -105,11 +132,16 @@ void FStereoPanoramaManager::Cleanup()
 
 void FStereoPanoramaManager::PanoramicMovie(const TArray<FString>& Args)
 {
+	if (CheckPreviousJobState())
+	{
+		return;
+	}
+	
 	if (!ValidateRendererState())
 	{
 		return;
 	}
-
+	
     int32 StartFrame = 0;
     int32 EndFrame   = 0;
 

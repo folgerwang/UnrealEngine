@@ -144,6 +144,7 @@ private:
 public:
 
 	UUpdateManager();
+	virtual ~UUpdateManager();
 
 	/**
 	 * Reset so you can call StartCheck again
@@ -312,6 +313,23 @@ protected:
 
 	/** Change the state of the update manager */
 	virtual void SetUpdateState(EUpdateState NewState);
+
+	/** If application is suspended longer than this, trigger an update check when resuming */
+	UPROPERTY(Config)
+	int32 AppSuspendedUpdateCheckTimeSeconds;
+
+	/** Time when application was deactivated */
+	FDateTime DeactivatedTime;
+
+	/** Register deactivate/reactivate delegates */
+	void RegisterDelegates();
+	/** Unregister deactivate/reactivate delegates */
+	void UnregisterDelegates();
+
+	/** Called when application is about to be deactivated */
+	virtual void OnApplicationWillDeactivate();
+	/** Called when application has been reactivated */
+	virtual void OnApplicationHasReactivated();
 
 protected:
 

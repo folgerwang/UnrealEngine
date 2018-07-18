@@ -907,12 +907,18 @@ bool FNetworkFileServerClientConnection::ProcessGetFileList( FArchive& In, FArch
 		DirectoriesToNotRecurse.Add(FString(RootDirectories[DirIndex] / TEXT("DerivedDataCache")));
 	}
 
+	UE_LOG(LogFileServer, Display, TEXT("Scanning server files for timestamps..."));
+
+	double FileScanStartTime = FPlatformTime::Seconds();
+
 	// use the timestamp grabbing visitor (include directories)
 	FLocalTimestampDirectoryVisitor Visitor(*Sandbox, DirectoriesToSkip, DirectoriesToNotRecurse, true);
 	for (int32 DirIndex = 0; DirIndex < RootDirectories.Num(); DirIndex++)
 	{
 		Sandbox->IterateDirectory(*RootDirectories[DirIndex], Visitor);
 	}
+
+	UE_LOG(LogFileServer, Display, TEXT("Scanned server files, found %d files in %.2f seconds"), Visitor.FileTimes.Num(), FPlatformTime::Seconds() - FileScanStartTime);
 
 	// report the package version information
 	// The downside of this is that ALL cooked data will get tossed on package version changes

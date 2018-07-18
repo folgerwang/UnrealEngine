@@ -7,8 +7,6 @@
 #include "DisplayNodes/SequencerSectionKeyAreaNode.h"
 #include "DisplayNodes/SequencerTrackNode.h"
 
-class FGroupedKeyArea;
-
 /** A layout element specifying the geometry required to render a key area */
 struct FSectionLayoutElement
 {
@@ -16,7 +14,7 @@ struct FSectionLayoutElement
 	enum EType { Single, Group };
 
 	/** Construct this element from a grouped key area */
-	static FSectionLayoutElement FromGroup(const TSharedRef<FSequencerDisplayNode>& InNode, const TSharedRef<FGroupedKeyArea>& InKeyAreaGroup, float InOffset);
+	static FSectionLayoutElement FromGroup(const TSharedRef<FSequencerDisplayNode>& InNode, UMovieSceneSection* InSection, float InOffset);
 
 	/** Construct this element from a single Key area node */
 	static FSectionLayoutElement FromKeyAreaNode(const TSharedRef<FSequencerSectionKeyAreaNode>& InKeyAreaNode, UMovieSceneSection* InSection, float InOffset);
@@ -36,8 +34,8 @@ struct FSectionLayoutElement
 	/** Retrieve the desired height of this element based on the specified parent geometry */
 	float GetHeight() const;
 
-	/** Access the key area that this layout element was generated for */
-	TSharedPtr<IKeyArea> GetKeyArea() const;
+	/** Access all the key areas that this layout element represents */
+	TArrayView<const TSharedRef<IKeyArea>> GetKeyAreas() const;
 
 	/** Access the display node that this layout element was generated for */
 	TSharedPtr<FSequencerDisplayNode> GetDisplayNode() const;
@@ -45,7 +43,7 @@ struct FSectionLayoutElement
 private:
 
 	/** Pointer to the key area that we were generated from */
-	TSharedPtr<IKeyArea> KeyArea;
+	TArray<TSharedRef<IKeyArea>, TInlineAllocator<1>> KeyAreas;
 
 	/** The specific node that this key area relates to */
 	TSharedPtr<FSequencerDisplayNode> DisplayNode;

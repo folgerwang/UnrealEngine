@@ -1,16 +1,16 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 #include "CryptoKeysOpenSSL.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 
 #if PLATFORM_WINDOWS
-#include <AllowWindowsPlatformTypes.h>
+#include "Windows/AllowWindowsPlatformTypes.h"
 #endif
 
 #include <openssl/rand.h>
 #include <openssl/pem.h>
 
 #if PLATFORM_WINDOWS
-#include <HideWindowsPlatformTypes.h>
+#include "Windows/HideWindowsPlatformTypes.h"
 #endif
 
 #include "Math/BigInt.h"

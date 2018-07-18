@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -8,8 +8,8 @@
 #include "LiveLinkDrivenComponent.generated.h"
 
 /** A component that applies data from Live Link to the owning actor */
-UCLASS(Blueprintable, ClassGroup = "LiveLink", meta = (BlueprintSpawnableComponent))
-class LIVELINK_API ULiveLinkDrivenComponent : public UActorComponent
+UCLASS(ClassGroup = "LiveLink", deprecated)
+class LIVELINK_API UDEPRECATED_LiveLinkDrivenComponent : public UActorComponent
 {
 	GENERATED_UCLASS_BODY()
 

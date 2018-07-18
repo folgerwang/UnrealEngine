@@ -32,10 +32,10 @@ struct FMovieSceneMediaSectionParams
 	FString Proxy;
 
 	UPROPERTY()
-	float SectionEndTime;
+	FFrameNumber SectionStartFrame;
 
 	UPROPERTY()
-	float SectionStartTime;
+	FFrameNumber SectionEndFrame;
 };
 
 

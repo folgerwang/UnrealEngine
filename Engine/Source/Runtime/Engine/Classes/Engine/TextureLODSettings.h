@@ -17,13 +17,21 @@ struct ENGINE_API FTextureLODGroup
 	GENERATED_USTRUCT_BODY()
 
 	FTextureLODGroup()
-		: MinLODMipCount(0)
+		: Group(TEXTUREGROUP_World)
+		, MinLODMipCount(0)
 		, MaxLODMipCount(12)
 		, LODBias(0)
+		, LODBias_Smaller(-1)
+		, LODBias_Smallest(-1)
 		, NumStreamedMips(-1)
 		, MipGenSettings(TextureMipGenSettings::TMGS_SimpleAverage)
 		, MinLODSize(1)
 		, MaxLODSize(4096)
+		, MaxLODSize_Smaller(-1)
+		, MaxLODSize_Smallest(-1)
+		, OptionalLODBias(0)
+		, OptionalMaxLODSize(4096)
+		, OptionalMaxLODMipCount(12)
 		, MinMagFilter(NAME_Aniso)
 		, MipFilter(NAME_Point)
 	{
@@ -43,7 +51,13 @@ struct ENGINE_API FTextureLODGroup
 	/** Group LOD bias.																*/
 	UPROPERTY()
 	int32 LODBias;
-	
+
+	UPROPERTY()
+	int32 LODBias_Smaller;
+
+	UPROPERTY()
+	int32 LODBias_Smallest;
+
 	/** Sampler filter state.														*/
 	ETextureSamplerFilter Filter;
 	
@@ -60,6 +74,22 @@ struct ENGINE_API FTextureLODGroup
 
 	UPROPERTY()
 	int32 MaxLODSize;
+
+	UPROPERTY()
+	int32 MaxLODSize_Smaller;
+
+	UPROPERTY()
+	int32 MaxLODSize_Smallest;
+
+	/** If this is greater then 0 will put that number of mips into an optional bulkdata package */
+	UPROPERTY()
+	int32 OptionalLODBias;
+
+	/** Put all the mips which have a width / height larger then OptionalLODSize into an optional bulkdata package */
+	UPROPERTY()
+	int32 OptionalMaxLODSize;
+
+	int32 OptionalMaxLODMipCount;
 
 	UPROPERTY()
 	FName MinMagFilter;
@@ -102,32 +132,20 @@ public:
 	 * @param	MipGenSetting				Mip generation setting
 	 * @return	LOD bias
 	 */
-	int32 CalculateLODBias( int32 Width, int32 Height, int32 LODGroup, int32 LODBias, int32 NumCinematicMipLevels, TextureMipGenSettings MipGenSetting ) const;
+	int32 CalculateLODBias( int32 Width, int32 Height, int32 MaxSize, int32 LODGroup, int32 LODBias, int32 NumCinematicMipLevels, TextureMipGenSettings MipGenSetting ) const;
 
+	/**
+	 * Calculate num optional mips
+	 *
+	 * @param	LODGroup					Which LOD group the texture belongs to
+	 * @param	MipGenSetting				Mip generation setting
+	 * @return	Num optional mips counted from higest mip
+	 */
+	int32 CalculateNumOptionalMips(int32 LODGroup, const int32 Width, const int32 Height, const int32 NumMips, const int32 MinMipToInline, TextureMipGenSettings InMipGenSetting) const;
 
 #if WITH_EDITORONLY_DATA
 	void GetMipGenSettings( const UTexture& Texture, TextureMipGenSettings& OutMipGenSettings, float& OutSharpen, uint32& OutKernelSize, bool& bOutDownsampleWithAverage, bool& bOutSharpenWithoutColorShift, bool &bOutBorderColorBlack ) const;
 #endif // #if WITH_EDITORONLY_DATA
-
-	/**
-	 * Will return the LODBias for a passed in LODGroup
-	 *
-	 * @param	InLODGroup		The LOD Group ID 
-	 * @return	LODBias
-	 */
-	int32 GetTextureLODGroupLODBias( int32 InLODGroup ) const;
-
-	/**
-	 * Returns the LODGroup setting for number of streaming mip-levels.
-	 * -1 means that all mip-levels are allowed to stream.
-	 *
-	 * @param	InLODGroup		The LOD Group ID 
-	 * @return	Number of streaming mip-levels for textures in the specified LODGroup
-	 */
-	int32 GetNumStreamedMips( int32 InLODGroup ) const;
-
-	int32 GetMinLODMipCount( int32 InLODGroup ) const;
-	int32 GetMaxLODMipCount( int32 InLODGroup ) const;
 
 	/**
 	 * Returns the filter state that should be used for the passed in texture, taking

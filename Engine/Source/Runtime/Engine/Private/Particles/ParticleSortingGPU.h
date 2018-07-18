@@ -19,9 +19,14 @@ class FParticleSortBuffers : public FRenderResource
 public:
 
 	/** Initialization constructor. */
-	explicit FParticleSortBuffers(int32 InBufferSize)
-		: BufferSize(InBufferSize)
+	explicit FParticleSortBuffers()
+		:BufferSize(0)
 	{
+	}
+
+	void SetBufferSize(int32 InBufferSize)
+	{
+		BufferSize = InBufferSize;
 	}
 
 	/**

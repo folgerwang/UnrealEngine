@@ -28,26 +28,12 @@ public:
 
 public:
 
-	/**
-	 * Adds an string to the appropriate section.
-	 *
-	 * This method will create a new section if no appropriate one exists.
-	 *
-	 * @param Time The time at which the string should be triggered.
-	 * @param String The string to add.
-	 * @param KeyParams The keying parameters
-	 */
-	bool AddKeyToSection(float Time, const FString& String);
-
-public:
-
 	//~ UMovieSceneTrack interface
 
 	virtual void AddSection(UMovieSceneSection& Section) override;
 	virtual UMovieSceneSection* CreateNewSection() override;
 	virtual FMovieSceneEvalTemplatePtr CreateTemplateForSection(const UMovieSceneSection& InSection) const override;
 	virtual const TArray<UMovieSceneSection*>& GetAllSections() const override;
-	virtual TRange<float> GetSectionBoundaries() const override;
 	virtual bool HasSection(const UMovieSceneSection& Section) const override;
 	virtual bool IsEmpty() const override;
 	virtual void RemoveAllAnimationData() override;

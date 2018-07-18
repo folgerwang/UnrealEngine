@@ -9,7 +9,8 @@
 #include "UObject/Object.h"
 #include "UObject/Class.h"
 #include "UObject/Package.h"
-
+#include "UObject/UObjectAnnotation.h"
+#include "Stats/StatsMisc.h"
 
 UObject* GetArchetypeFromRequiredInfoImpl(UClass* Class, UObject* Outer, FName Name, EObjectFlags ObjectFlags, bool bUseUpToDateClass)
 {
@@ -102,3 +103,83 @@ UObject* UObject::GetArchetypeFromRequiredInfo(UClass* Class, UObject* Outer, FN
 	return GetArchetypeFromRequiredInfoImpl(Class, Outer, Name, ObjectFlags, bUseUpToDateClass);
 }
 
+#define UE_CACHE_ARCHETYPE (1 && !WITH_EDITORONLY_DATA)
+#define UE_VERIFY_CACHED_ARCHETYPE 0
+
+#if UE_CACHE_ARCHETYPE
+struct FArchetypeInfo
+{
+	/**
+	* default contructor
+	* Default constructor must be the default item
+	*/
+	FArchetypeInfo() 
+		: Archetype(nullptr)
+	{
+	}
+	/**
+	* Determine if this linker pair is the default
+	* @return true is this is a default pair. We only check the linker because CheckInvariants rules out bogus combinations
+	*/
+	FORCEINLINE bool IsDefault()
+	{
+		return Archetype == nullptr;
+	}
+
+	/**
+	* Constructor
+	* @param InArchetype Archetype to assign
+	*/
+	FArchetypeInfo(UObject* InArchetype) 
+		: Archetype(InArchetype)
+	{
+	}
+
+	UObject* Archetype;
+};
+
+static FUObjectAnnotationDense<FArchetypeInfo, true> ArchetypeAnnotation;
+
+#endif // UE_CACHE_ARCHETYPE
+
+//DECLARE_FLOAT_ACCUMULATOR_STAT(TEXT("UObject::GetArchetype"), STAT_FArchiveRealtimeGC_GetArchetype, STATGROUP_GC);
+
+UObject* UObject::GetArchetype() const
+{
+	//SCOPE_SECONDS_ACCUMULATOR(STAT_FArchiveRealtimeGC_GetArchetype);
+
+#if UE_CACHE_ARCHETYPE
+	UObject* Archetype = ArchetypeAnnotation.GetAnnotation(this).Archetype;
+	if (Archetype == nullptr)
+	{
+		Archetype = GetArchetypeFromRequiredInfo(GetClass(), GetOuter(), GetFName(), GetFlags());
+		if (Archetype)
+		{
+			ArchetypeAnnotation.AddAnnotation(this, Archetype);
+		}
+	}		
+#if UE_VERIFY_CACHED_ARCHETYPE
+	else
+	{
+		UObject* CurrentArchetype = GetArchetypeFromRequiredInfo(GetClass(), GetOuter(), GetFName(), GetFlags());
+		if (CurrentArchetype != Archetype)
+		{
+			UE_LOG(LogClass, Fatal, TEXT("Cached archetype mismatch: %s vs current: %s"), *Archetype->GetFullName(), *CurrentArchetype->GetFullName());
+		}
+	}
+#endif // UE_VERIFY_CACHED_ARCHETYPE
+	check(Archetype == nullptr || Archetype->IsValidLowLevelFast());
+
+	return Archetype;
+#else
+	return GetArchetypeFromRequiredInfo(GetClass(), GetOuter(), GetFName(), GetFlags());
+#endif // UE_CACHE_ARCHETYPE
+}
+
+/** Removes all cached archetypes to avoid doing it in static exit where it may cause crashes */
+void CleanupCachedArchetypes()
+{
+#if UE_CACHE_ARCHETYPE
+	ArchetypeAnnotation.RemoveAllAnnotations();
+#endif
+}

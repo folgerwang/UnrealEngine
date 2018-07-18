@@ -8,7 +8,7 @@
 #include "EngineGlobals.h"
 #include "GameFramework/PlayerController.h"
 #include "IMovieScenePlayer.h"
-#include "MovieSceneEvaluation.h"
+#include "Evaluation/MovieSceneEvaluation.h"
 
 DECLARE_CYCLE_STAT(TEXT("Fade Track Token Execute"), MovieSceneEval_FadeTrack_TokenExecute, STATGROUP_MovieSceneEval);
 
@@ -121,7 +121,7 @@ struct FFadeExecutionToken : IMovieSceneExecutionToken, FFadeTrackToken
 };
 
 FMovieSceneFadeSectionTemplate::FMovieSceneFadeSectionTemplate(const UMovieSceneFadeSection& Section)
-	: FadeCurve(Section.GetFloatCurve())
+	: FadeCurve(Section.GetChannel())
 	, FadeColor(Section.FadeColor)
 	, bFadeAudio(Section.bFadeAudio)
 {
@@ -129,6 +129,9 @@ FMovieSceneFadeSectionTemplate::FMovieSceneFadeSectionTemplate(const UMovieScene
 
 void FMovieSceneFadeSectionTemplate::Evaluate(const FMovieSceneEvaluationOperand& Operand, const FMovieSceneContext& Context, const FPersistentEvaluationData& PersistentData, FMovieSceneExecutionTokens& ExecutionTokens) const
 {
-	float FadeValue = FadeCurve.Eval(Context.GetTime());
-	ExecutionTokens.Add(FFadeExecutionToken(FadeValue, FadeColor, bFadeAudio));
+	float FadeValue = 1.f;
+	if (FadeCurve.Evaluate(Context.GetTime(), FadeValue))
+	{
+		ExecutionTokens.Add(FFadeExecutionToken(FadeValue, FadeColor, bFadeAudio));
+	}
 }

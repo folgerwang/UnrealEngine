@@ -12,7 +12,6 @@ public class IOSAudio : ModuleRules
 
 		PublicIncludePaths.AddRange(new string[]
 		{
-			"Runtime/Audio/IOSAudio/Public",
 		});
 		
 		PrivateDependencyModuleNames.AddRange(new string[]
@@ -20,6 +19,7 @@ public class IOSAudio : ModuleRules
 			"Core",
 			"CoreUObject",
 			"Engine",
+            "AudioMixer"
 		});
 
 		PublicFrameworks.AddRange(new string[]

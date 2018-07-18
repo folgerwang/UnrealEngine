@@ -11,7 +11,7 @@
 #include "EditorDirectories.h"
 #include "IDesktopPlatform.h"
 #include "DesktopPlatformModule.h"
-#include "SlateApplication.h"
+#include "Framework/Application/SlateApplication.h"
 #include "Rendering/SkeletalMeshModel.h"
 
 #include "ClothingAssetFactory.h"

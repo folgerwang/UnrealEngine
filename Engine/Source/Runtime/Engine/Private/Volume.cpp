@@ -22,7 +22,7 @@ AVolume::AVolume(const FObjectInitializer& ObjectInitializer)
 	GetBrushComponent()->AlwaysLoadOnServer = true;
 	static FName CollisionProfileName(TEXT("OverlapAll"));
 	GetBrushComponent()->SetCollisionProfileName(CollisionProfileName);
-	GetBrushComponent()->bGenerateOverlapEvents = true;
+	GetBrushComponent()->SetGenerateOverlapEvents(true);
 	bReplicateMovement = false;
 #if WITH_EDITORONLY_DATA
 	bActorLabelEditable = true;
@@ -54,6 +54,20 @@ void AVolume::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent
 }
 
 #endif // WITH_EDITOR
+
+/** @returns the coarse bounds of this volume */
+FBoxSphereBounds AVolume::GetBounds() const
+{
+	if (GetBrushComponent())
+	{
+		return GetBrushComponent()->CalcBounds(GetBrushComponent()->GetComponentTransform());
+	}
+	else
+	{
+		UE_LOG(LogVolume, Error, TEXT("AVolume::GetBounds : No BrushComponent"));
+		return FBoxSphereBounds(EForceInit::ForceInitToZero);
+	}
+}
 
 bool AVolume::EncompassesPoint(FVector Point, float SphereRadius/*=0.f*/, float* OutDistanceToPoint) const
 {

@@ -8,7 +8,7 @@
 #include "Serialization/ObjectReader.h"
 
 #if WITH_EDITOR
-#include "BlueprintEditorUtils.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 #endif
 ////////////////////////////////////////////////////////////////////////////////////////
 
@@ -62,7 +62,6 @@ public:
 ////////////////////////////////////////////////////////////////////////////////////////
 UControlRigComponent::UControlRigComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
-	, bNeedsInitialization(false)
 {
 	PrimaryComponentTick.TickGroup = TG_PrePhysics;
 	PrimaryComponentTick.bStartWithTickEnabled = true;
@@ -88,44 +87,37 @@ void UControlRigComponent::PostEditChangeProperty(FPropertyChangedEvent& Propert
 void UControlRigComponent::OnRegister()
 {
 	Super::OnRegister();
-	bNeedsInitialization = true;
 
-	RegisterTickDependencies();
+	if (ControlRig)
+	{
+		OnPreInitialize();
+		ControlRig->Initialize();
+		OnPostInitialize();
+	}
 }
 
 void UControlRigComponent::OnUnregister()
 {
 	Super::OnUnregister();
-
-	UnRegisterTickDependencies();
 }
 
 void UControlRigComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
 {
-	RegisterTickDependencies();
-
 	// @TODO: Add task to perform evaluation rather than performing it here.
 	// @TODO: Double buffer ControlRig?
-	
 	if (ControlRig)
 	{
-		if (bNeedsInitialization)
-		{
-			OnPreInitialize();
-			ControlRig->Initialize();
-			OnPostInitialize();
-			bNeedsInitialization = false;
-		}
-
 		ControlRig->SetDeltaTime(DeltaTime);
+
+		// Call pre-evaluation callbacks (e.g. for copying input data into the rig)
 		OnPreEvaluate();
-		ControlRig->PreEvaluate();
+		ControlRig->PreEvaluate_GameThread();
 
-		// @TODO: If we were to multi-thread execution, Evaluate() should probably be the call that gets made on 
-		// a worker thread and the order of PreEvaluate/Evaluate/PostEvaluate should be preserved
-		ControlRig->Evaluate();
+		// If we multi-thread rig evaluation, then this call should be made on worker threads, but pre/post evaluate should be called on the game thread
+		ControlRig->Evaluate_AnyThread();
 
-		ControlRig->PostEvaluate();
+		// Call post-evaluation callbacks (e.g. for copying output data out of the rig)
+		ControlRig->PostEvaluate_GameThread();
 		OnPostEvaluate();
 	}
 }
@@ -155,34 +147,6 @@ void UControlRigComponent::OnPostEvaluate_Implementation()
 	OnPostEvaluateDelegate.Broadcast(this);
 }
 
-void UControlRigComponent::RegisterTickDependencies()
-{
-	if (ControlRig)
-	{
-		TArray<FTickPrerequisite, TInlineAllocator<1>> TickPrerequisites;
-		ControlRig->GetTickDependencies(TickPrerequisites);
-		for (const FTickPrerequisite& TickPrerequisite : TickPrerequisites)
-		{
-			PrimaryComponentTick.AddPrerequisite(TickPrerequisite.PrerequisiteObject.Get(), *TickPrerequisite.PrerequisiteTickFunction);
-		}
-	}
-}
-
-void UControlRigComponent::UnRegisterTickDependencies()
-{
-	if (ControlRig)
-	{
-		TArray<FTickPrerequisite, TInlineAllocator<1>> TickPrerequisites;
-		ControlRig->GetTickDependencies(TickPrerequisites);
-		for (const FTickPrerequisite& TickPrerequisite : TickPrerequisites)
-		{
-			if (TickPrerequisite.PrerequisiteObject.IsValid() && TickPrerequisite.PrerequisiteTickFunction)
-			{
-				PrimaryComponentTick.RemovePrerequisite(TickPrerequisite.PrerequisiteObject.Get(), *TickPrerequisite.PrerequisiteTickFunction);
-			}
-		}
-	}
-}
 FActorComponentInstanceData* UControlRigComponent::GetComponentInstanceData() const
 {
 	FControlRigComponentInstanceData* InstanceData = new FControlRigComponentInstanceData(this);

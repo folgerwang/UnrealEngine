@@ -19,14 +19,18 @@ struct FSelectionPreviewVisitor final
 		, SetStateTo(InSetStateTo)
 	{}
 
-	virtual void VisitKey(FKeyHandle KeyHandle, float KeyTime, const TSharedPtr<IKeyArea>& KeyArea, UMovieSceneSection* Section, TSharedRef<FSequencerDisplayNode> Node) const override
+	virtual void VisitKey(FKeyHandle KeyHandle, FFrameNumber KeyTime, const TSharedPtr<IKeyArea>& KeyArea, UMovieSceneSection* Section, TSharedRef<FSequencerDisplayNode> Node) const override
 	{
 		FSequencerSelectedKey Key(*Section, KeyArea, KeyHandle);
 
-		// If we're trying to change this key's selection state, we go into 'key selection mode', thus we reset the selection state of any nodes that weren't selected by keys
+		// Under default behavior keys have priority, so if a key is changing selection state then we remove any sections from the selection. The user can bypass this
+		// by holding down the control key which will allow selecting both keys and sections.
+		bool bKeySelectionHasPriority = !FSlateApplication::Get().GetModifierKeys().IsControlDown();
 		bool bKeyIsSelected = ExistingSelection.IsSelected(Key);
-		if ( (bKeyIsSelected && SetStateTo == ESelectionPreviewState::NotSelected) ||
-			(!bKeyIsSelected && SetStateTo == ESelectionPreviewState::Selected) )
+
+		if (bKeySelectionHasPriority && 
+			((bKeyIsSelected && SetStateTo == ESelectionPreviewState::NotSelected) ||
+			(!bKeyIsSelected && SetStateTo == ESelectionPreviewState::Selected)))
 		{
 			// Clear selected nodes
 			for (TSharedRef<FSequencerDisplayNode> SelectedNode : NodesSelectedBySections)
@@ -48,9 +52,12 @@ struct FSelectionPreviewVisitor final
 
 	virtual void VisitSection(UMovieSceneSection* Section, TSharedRef<FSequencerDisplayNode> Node) const
 	{
-		// Never select a combination of sections and keys
-		// Never allow infinite sections to be selected (they're only selectable through right click)
-		if (SelectionPreview.GetDefinedKeyStates().Num() == 0 && !Section->IsInfinite())
+		// If key selection has priority then we check to see if there are any keys selected. If there are key selected, we don't add this section.
+		// Otherwise, we bypass this check and only care that the range isn't infinite (those are selectable via right click)
+		bool bKeySelectionHasPriority = !FSlateApplication::Get().GetModifierKeys().IsControlDown();
+		bool bKeyStateCheck = bKeySelectionHasPriority ? SelectionPreview.GetDefinedKeyStates().Num() == 0 : true;
+
+		if (bKeyStateCheck && Section->GetRange() != TRange<FFrameNumber>::All())
 		{
 			SelectionPreview.SetSelectionState(Section, SetStateTo);
 			SelectionPreview.SetSelectionState(Node, SetStateTo);
@@ -141,13 +148,13 @@ public:
 		CurrentMousePos = LocalMousePos;
 		CurrentMousePos.X = FMath::Clamp(CurrentMousePos.X, 0.f, VirtualTrackArea.GetPhysicalSize().X);
 
-		TRange<float> ViewRange = Sequencer.GetViewRange();
+		TRange<double> ViewRange = Sequencer.GetViewRange();
 
 		// Handle virtual scrolling when at the horizontal extremes of the widget
 		{
-			const float ScrollThresholdH = ViewRange.Size<float>() * 0.025f;
+			const double ScrollThresholdH = ViewRange.Size<double>() * 0.025f;
 
-			float Difference = CurrentPosition.X - (ViewRange.GetLowerBoundValue() + ScrollThresholdH);
+			double Difference = CurrentPosition.X - (ViewRange.GetLowerBoundValue() + ScrollThresholdH);
 			if (Difference < 0 && MouseDelta.X < 0)
 			{
 				Sequencer.StartAutoscroll(Difference);
@@ -181,7 +188,7 @@ public:
 		const auto& RootNodes = SequencerWidget->GetTreeView()->GetNodeTree()->GetRootNodes();
 
 		// Now walk everything within the current marquee range, setting preview selection states as we go
-		FSequencerEntityWalker Walker(FSequencerEntityRange(TopLeft(), BottomRight()), VirtualKeySize);
+		FSequencerEntityWalker Walker(FSequencerEntityRange(TopLeft(), BottomRight(), VirtualTrackArea.GetTickResolution()), VirtualKeySize);
 		Walker.Traverse(FSelectionPreviewVisitor(SelectionPreview, Sequencer.GetSelection(), PreviewState), RootNodes);
 	}
 
@@ -227,6 +234,17 @@ public:
 			if (Pair.Value == ESelectionPreviewState::Selected)
 			{
 				Selection.AddToNodesWithSelectedKeysOrSections(Pair.Key);
+
+				// If this node exists inside a collapsed parent, we add such parents to the selection preview as well so that the node highlight is correct for accumulated keys
+				TSharedPtr<FSequencerDisplayNode> ParentNode = Pair.Key->GetParent();
+				while (ParentNode.IsValid())
+				{
+					if (!ParentNode->IsExpanded())
+					{
+						Selection.AddToNodesWithSelectedKeysOrSections(ParentNode.ToSharedRef());
+					}
+					ParentNode = ParentNode->GetParent();
+				}
 			}
 			else
 			{

@@ -22,17 +22,17 @@ enum class ESequencerEasingType
 struct FKeyHotspot
 	: ISequencerHotspot
 {
-	FKeyHotspot(FSequencerSelectedKey InKey)
-		: Key(InKey)
+	FKeyHotspot(TArray<FSequencerSelectedKey> InKeys)
+		: Keys(MoveTemp(InKeys))
 	{ }
 
 	virtual ESequencerHotspot GetType() const override { return ESequencerHotspot::Key; }
 	virtual void UpdateOnHover(SSequencerTrackArea& InTrackArea, ISequencer& InSequencer) const override;
-	virtual TOptional<float> GetTime() const override;
-	virtual bool PopulateContextMenu(FMenuBuilder& MenuBuilder, ISequencer& Sequencer, float MouseDownTime) override;
+	virtual TOptional<FFrameNumber> GetTime() const override;
+	virtual bool PopulateContextMenu(FMenuBuilder& MenuBuilder, ISequencer& Sequencer, FFrameTime MouseDownTime) override;
 
-	/** The key itself */
-	FSequencerSelectedKey Key;
+	/** The keys that are part of this hotspot */
+	TArray<FSequencerSelectedKey> Keys;
 };
 
 
@@ -67,10 +67,10 @@ struct FSectionHotspot
 
 	virtual ESequencerHotspot GetType() const override { return ESequencerHotspot::Section; }
 	virtual void UpdateOnHover(SSequencerTrackArea& InTrackArea, ISequencer& InSequencer) const override;
-	virtual TOptional<float> GetTime() const override;
-	virtual TOptional<float> GetOffsetTime() const override;
+	virtual TOptional<FFrameNumber> GetTime() const override;
+	virtual TOptional<FFrameTime> GetOffsetTime() const override;
 	virtual TSharedPtr<ISequencerEditToolDragOperation> InitiateDrag(ISequencer&) override { return nullptr; }
-	virtual bool PopulateContextMenu(FMenuBuilder& MenuBuilder, ISequencer& Sequencer, float MouseDownTime) override;
+	virtual bool PopulateContextMenu(FMenuBuilder& MenuBuilder, ISequencer& Sequencer, FFrameTime MouseDownTime) override;
 
 	/** Handle to the section */
 	FSectionHandle Section;
@@ -91,7 +91,7 @@ struct FSectionResizeHotspot
 
 	virtual ESequencerHotspot GetType() const override { return HandleType == Left ? ESequencerHotspot::SectionResize_L : ESequencerHotspot::SectionResize_R; }
 	virtual void UpdateOnHover(SSequencerTrackArea& InTrackArea, ISequencer& InSequencer) const override;
-	virtual TOptional<float> GetTime() const override;
+	virtual TOptional<FFrameNumber> GetTime() const override;
 	virtual TSharedPtr<ISequencerEditToolDragOperation> InitiateDrag(ISequencer& Sequencer) override;
 	virtual FCursorReply GetCursor() const { return FCursorReply::Cursor( EMouseCursor::ResizeLeftRight ); }
 
@@ -112,8 +112,8 @@ struct FSectionEasingHandleHotspot
 
 	virtual ESequencerHotspot GetType() const override { return HandleType == ESequencerEasingType::In ? ESequencerHotspot::EaseInHandle : ESequencerHotspot::EaseOutHandle; }
 	virtual void UpdateOnHover(SSequencerTrackArea& InTrackArea, ISequencer& InSequencer) const override;
-	virtual bool PopulateContextMenu(FMenuBuilder& MenuBuilder, ISequencer& Sequencer, float MouseDownTime) override;
-	virtual TOptional<float> GetTime() const override;
+	virtual bool PopulateContextMenu(FMenuBuilder& MenuBuilder, ISequencer& Sequencer, FFrameTime MouseDownTime) override;
+	virtual TOptional<FFrameNumber> GetTime() const override;
 	virtual TSharedPtr<ISequencerEditToolDragOperation> InitiateDrag(ISequencer& Sequencer) override;
 	virtual FCursorReply GetCursor() const { return FCursorReply::Cursor( EMouseCursor::ResizeLeftRight ); }
 
@@ -139,7 +139,7 @@ struct FSectionEasingAreaHotspot
 	FSectionEasingAreaHotspot(const TArray<FEasingAreaHandle>& InEasings, FSectionHandle InVisibleSection) : FSectionHotspot(InVisibleSection), Easings(InEasings) {}
 
 	virtual ESequencerHotspot GetType() const override { return ESequencerHotspot::EasingArea; }
-	virtual bool PopulateContextMenu(FMenuBuilder& MenuBuilder, ISequencer& Sequencer, float MouseDownTime) override;
+	virtual bool PopulateContextMenu(FMenuBuilder& MenuBuilder, ISequencer& Sequencer, FFrameTime MouseDownTime) override;
 
 	bool Contains(FSectionHandle InSection) const { return Easings.ContainsByPredicate([=](const FEasingAreaHandle& InHandle){ return InHandle.Section == InSection; }); }
 

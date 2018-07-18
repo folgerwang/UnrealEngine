@@ -1,4 +1,4 @@
-﻿INTSourceChecklist:3520085
+﻿INTSourceChangelist:3677919
 Availability:Public
 Crumbs:%ROOT%
 Title:Volumetric Fog
@@ -104,6 +104,10 @@ Volume マテリアルは現在パーティクル上でのみ機能し、パー�
 Volumetric Fog に使用されるボリューム テクスチャ (voxels) はかなり低解像で、カメラ錐体にそって並びます。Volumetric Fog は、フレームごとにサブボクセル ジッターが異なる
 負荷の高いテンポラル リプロジェクション フィルタを使用します。懐中電灯や火光のように高速で変化するライトは、副次的影響としてライティング トレイルが残ってしまいます。これらのライトの効果を無効にするには、**[Volumetric Scattering Intensity]** を 0 に設定します。
 
+## Volumetric Fog のフォグの事前計算ライティング
+
+[INCLUDE:Engine/Rendering/LightingAndShadows/VolumetricLightmaps#Volumetricfog]
+
 ## パフォーマンス
 
 Volumetric Fog の GPU 負荷は、Engine Shadow Scalability (Engine/Performance/Scalability/ScalabilityReference) から設定するボリューム テクスチャ解像度によって主に制御されます。Volumetric Fog の負荷は、**High** に設定した PlayStation 4 で 1 ミリ秒、
@@ -118,6 +122,8 @@ Volumetric Fog が現在サポートする機能は以下のとおりです。
 
 * カスケード シャドウ マップからのシャドウイングまたは静的シャドウイング、もしくは Light 関数のある単一の指向性ライト。
 * 動的または静的シャドウイングが付いた任意の数のポイントライトおよびスポットライト (**Cast Volumetric Shadowing** が有効の場合)。
+* Stationary Skylight (固定スカイライト) のシャドウイング。
+* Volumetric Lightmap を使った事前計算されたライティング (Static Light (静的ライト) の直接ライティング、Stationary Light (固定ライト) の間接ライティング)。
 * ディスタンス フィールド アンビエント オクルージョン (有効の場合) からのシャドウイングが付いた単一のスカイライト。 
 * パーティクル ライト (**Volumetric Scattering Intensity** が 0 より大きい場合)。
 
@@ -128,8 +134,6 @@ Volumetric Fog が現在サポートする機能は以下のとおりです。
 
 以下は、Volumetric Fog の使用中は **サポートされない機能** です。
 
-* 事前計算されたグローバル イルミネーション
-* Stationary Skylight (固定スカイライト) のシャドウイング
 * ポイントライトおよびスポットライト上での IES プロファイルと Light 関数 
 * レイトレース ディスタンス フィールドシャドウからのシャドウイング
 * Volumetric Fog (そのもの) からのシャドウイング

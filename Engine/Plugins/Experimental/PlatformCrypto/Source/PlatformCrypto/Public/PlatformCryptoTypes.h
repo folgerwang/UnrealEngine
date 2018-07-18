@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Stats.h"
+#include "Stats/Stats.h"
 
 /**
  * Generic result type for cryptographic functions.

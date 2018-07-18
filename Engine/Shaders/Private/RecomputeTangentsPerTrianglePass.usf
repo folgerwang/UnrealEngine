@@ -54,13 +54,13 @@ FVertexData GetVertex(uint VertexIndex)
 		Ret.Position.z = GPUPositionCacheBuffer[3 * OutputOffset + 2];
 
 		float W = GPUTangentCacheBuffer[2 * OutputOffset + GPUSKIN_RWBUFFER_OFFSET_TANGENT_Z].w;
-		Ret.OriginalOrientation = (W == 0) ? 1 : -1;
+		Ret.OriginalOrientation = (W <= 0) ? 1 : -1;
 	}
 
 	{
 		uint InputOffset = VertexIndex + InputStreamStart;
 
-		Ret.UV = UVsInputBuffer[InputOffset];
+		Ret.UV = UVsInputBuffer[InputOffset * NumTexCoords + SelectedTexCoord];
 	}
 
 	return Ret;

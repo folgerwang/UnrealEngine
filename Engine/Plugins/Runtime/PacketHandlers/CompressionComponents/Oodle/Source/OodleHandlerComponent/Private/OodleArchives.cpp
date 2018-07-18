@@ -289,26 +289,33 @@ uint32 FPacketCaptureArchive::GetPacketCount()
 		{
 			int64 ArcTotal = InnerArchive.TotalSize();
 
-			check(Header.PacketDataOffset.Get() != 0);
-
-			SeekPush(Header.PacketDataOffset.Get());
-
-			while ((InnerArchive.Tell() + (int64)sizeof(uint32)) < ArcTotal)
+			if (Header.PacketDataOffset.Get() != 0)
 			{
-				uint32 PacketSize = 0;
+				check(Header.PacketDataOffset.Get() != 0);
 
-				InnerArchive << PacketSize;
+				SeekPush(Header.PacketDataOffset.Get());
 
-				int64 NewPos = InnerArchive.Tell() + PacketSize;
-
-				if (NewPos <= ArcTotal)
+				while ((InnerArchive.Tell() + (int64)sizeof(uint32)) < ArcTotal)
 				{
-					InnerArchive.Seek(NewPos);
-					ReturnVal++;
-				}
-			}
+					uint32 PacketSize = 0;
 
-			SeekPop();
+					InnerArchive << PacketSize;
+
+					int64 NewPos = InnerArchive.Tell() + PacketSize;
+
+					if (NewPos <= ArcTotal)
+					{
+						InnerArchive.Seek(NewPos);
+						ReturnVal++;
+					}
+				}
+
+				SeekPop();
+			}
+			else
+			{
+				UE_LOG(OodleHandlerComponentLog, Warning, TEXT("Skipping packet file because it is malformed."));
+			}
 		}
 	}
 

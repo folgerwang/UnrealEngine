@@ -32,6 +32,25 @@ public:
 		NonInstancedDitherLODFactorParameter.Bind(Initializer.ParameterMap, TEXT("NonInstancedDitherLODFactor"));
 	}
 
+	static bool ValidateCompiledResult(EShaderPlatform Platform, const TArray<FMaterial*>& Materials, const FVertexFactoryType* VertexFactoryType, const FShaderParameterMap& ParameterMap, TArray<FString>& OutError)
+	{
+		return true;
+	}
+
+	FORCEINLINE void ValidateAfterBind()
+	{
+		checkfSlow(PassUniformBuffer.IsInitialized(), TEXT("FMeshMaterialShader must bind a pass uniform buffer, even if it is just FSceneTexturesUniformParameters: %s"), GetType()->GetName());
+	}
+
+	template< typename ShaderRHIParamRef >
+	void SetPassUniformBuffer(
+		FRHICommandList& RHICmdList,
+		const ShaderRHIParamRef ShaderRHI,
+		FUniformBufferRHIParamRef PassUniformBufferValue)
+	{
+		SetUniformBufferParameter(RHICmdList, ShaderRHI, PassUniformBuffer, PassUniformBufferValue);
+	}
+
 	template< typename ShaderRHIParamRef >
 	void SetParameters(
 		FRHICommandList& RHICmdList,
@@ -40,14 +59,14 @@ public:
 		const FMaterial& Material,
 		const FSceneView& View,
 		const TUniformBufferRef<FViewUniformShaderParameters>& ViewUniformBuffer,
-		ESceneRenderTargetsMode::Type TextureMode)
+		FUniformBufferRHIParamRef PassUniformBufferValue)
 	{
-		FMaterialShader::SetParameters(RHICmdList, ShaderRHI, MaterialRenderProxy, Material, View, ViewUniformBuffer, false, TextureMode);
-	}
+		SetUniformBufferParameter(RHICmdList, ShaderRHI, PassUniformBuffer, PassUniformBufferValue);
 
-	void SetVFParametersOnly(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FMeshBatchElement& BatchElement)
-	{
-		VertexFactoryParameters.SetMesh(RHICmdList, this,VertexFactory,View,BatchElement, 0);
+		checkfSlow(!(PassUniformBuffer.IsBound() && SceneTextureParameters.IsBound()) || SceneTextureParameters.IsSameUniformParameter(PassUniformBuffer), TEXT("If the pass uniform buffer is bound, it should contain SceneTexturesStruct: %s"), GetType()->GetName());
+
+		SetViewParameters(RHICmdList, ShaderRHI, View, ViewUniformBuffer);
+		FMaterialShader::SetParametersInner(RHICmdList, ShaderRHI, MaterialRenderProxy, Material, View);
 	}
 
 	template< typename ShaderRHIParamRef >
@@ -72,6 +91,9 @@ public:
 	virtual const FVertexFactoryParameterRef* GetVertexFactoryParameterRef() const override { return &VertexFactoryParameters; }
 	virtual bool Serialize(FArchive& Ar) override;
 	virtual uint32 GetAllocatedSize() const override;
+
+protected:
+	FShaderUniformBufferParameter PassUniformBuffer;
 
 private:
 	FVertexFactoryParameterRef VertexFactoryParameters;

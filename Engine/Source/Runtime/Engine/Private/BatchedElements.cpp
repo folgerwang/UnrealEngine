@@ -200,6 +200,15 @@ void FBatchedElements::AddTriangleExtensive(int32 V0,int32 V1,int32 V2,FBatchedE
 			MeshElement->MaxVertex = V0;
 			// keep track of the min vertex index used
 			MeshElement->MinVertex = FMath::Min(FMath::Min(V0,V1),V2);
+
+			// UE-50111: try to catch the crash earlier
+#if WITH_EDITOR
+			if (!Texture->SamplerStateRHI.GetReference()
+				|| Texture->SamplerStateRHI->GetRefCount() == 0)
+			{
+				UE_LOG(LogBatchedElements, VeryVerbose, TEXT("Texture doesn't have a valid sampler state. %p"), Texture->SamplerStateRHI.GetReference());
+			}
+#endif
 		}
 	}
 
@@ -1166,6 +1175,12 @@ bool FBatchedElements::Draw(FRHICommandList& RHICmdList, const FDrawingPolicyRen
 				// Only render blend modes in the filter
 				if (Filter & MeshFilter)
 				{
+					if (!MeshElement.Texture->SamplerStateRHI.GetReference())
+					{
+						DEFINE_LOG_CATEGORY_STATIC(Debuggg, Log, Log);
+						UE_LOG(Debuggg, Log, TEXT(""));
+					}
+
 					// Set the appropriate pixel shader for the mesh.
 					PrepareShaders(RHICmdList, GraphicsPSOInit, FeatureLevel, MeshElement.BlendMode, Transform, bNeedToSwitchVerticalAxis, MeshElement.BatchedElementParameters, MeshElement.Texture, bHitTesting, Gamma, &MeshElement.GlowInfo, &View);
 					RHICmdList.SetStencilRef(StencilRef);

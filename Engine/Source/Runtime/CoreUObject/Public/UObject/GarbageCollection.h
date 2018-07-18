@@ -510,6 +510,6 @@ class FGarbageCollectionTracer
 public:
 	virtual ~FGarbageCollectionTracer() {}
 
-	virtual void PerformReachabilityAnalysisOnObjects(FGCArrayStruct* ArrayStruct, TArray<UObject*>& ObjectsToSerialize, EObjectFlags KeepFlags, bool bForceSingleThreaded) = 0;
+	virtual void PerformReachabilityAnalysisOnObjects(FGCArrayStruct* ArrayStruct, bool bForceSingleThreaded) = 0;
 
 };

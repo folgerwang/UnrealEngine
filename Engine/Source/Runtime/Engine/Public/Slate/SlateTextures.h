@@ -23,7 +23,6 @@ public:
 	virtual ~FSlateTexture2DRHIRef();
 
 	virtual void Cleanup() override;
-	virtual void FinishCleanup() override;
 
 	virtual uint32 GetWidth() const override { return Width; }
 	virtual uint32 GetHeight() const override { return Height; }

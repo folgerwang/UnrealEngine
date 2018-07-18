@@ -35,7 +35,7 @@ bool UKismetGuidLibrary::IsValid_Guid( const FGuid& InGuid )
 }
 
 
-void UKismetGuidLibrary::Invalidate_Guid( UPARAM(ref) FGuid& InGuid )
+void UKismetGuidLibrary::Invalidate_Guid( FGuid& InGuid )
 {
 	InGuid.Invalidate();
 }

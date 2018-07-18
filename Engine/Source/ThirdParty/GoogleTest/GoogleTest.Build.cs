@@ -80,6 +80,25 @@ public class GoogleTest : ModuleRules
                 PublicAdditionalLibraries.Add(LibraryPath + "libgmock_main.dylib");
             }
         }
+        else if (Target.Platform == UnrealTargetPlatform.Linux)
+        {
+            if (Target.LinkType == TargetLinkType.Monolithic)
+            {
+                PartialLibraryPath += DefaultConfiguration + "/";
+                LibraryPath += PartialLibraryPath;
+                LibraryPath += Target.Architecture + "/";
+            }
+            else
+            {
+                PartialLibraryPath += DefaultConfiguration + "_fPIC/";
+                LibraryPath += PartialLibraryPath;
+                LibraryPath += Target.Architecture + "/";
+            }
+
+            PublicAdditionalLibraries.Add(LibraryPath + "libgtest.a");
+            PublicAdditionalLibraries.Add(LibraryPath + "libgmock.a");
+            PublicAdditionalLibraries.Add(LibraryPath + "libgmock_main.a");
+        }
 
         PublicLibraryPaths.Add(LibraryPath);
 

@@ -5,11 +5,11 @@
 #include "CoreTypes.h"
 #include "Containers/Map.h"
 #include "GenericPlatform/ITextInputMethodSystem.h"
-#include "TextStoreACP.h"
+#include "Windows/TextStoreACP.h"
 
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 #include <msctf.h>
-#include "COMPointer.h"
+#include "Windows/COMPointer.h"
 
 class FGenericWindow;
 
@@ -158,4 +158,4 @@ private:
 };
 
 
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"

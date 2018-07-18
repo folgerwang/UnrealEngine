@@ -61,6 +61,11 @@ public:
 		SRV_Dynamic,
 		SRV_Static,
 	};
+
+	bool bDepthBoundsEnabled = false;
+	float DepthBoundsMin = 0.0f;
+	float DepthBoundsMax = 1.0f;
+
 protected:
 	ID3D11DeviceContext* Direct3DDeviceIMContext;
 
@@ -287,6 +292,25 @@ protected:
 	}
 
 public:
+	template <EShaderFrequency ShaderFrequency>
+	D3D11_STATE_CACHE_INLINE void ClearConstantBuffers()
+	{
+#if D3D11_ALLOW_STATE_CACHE
+		FMemory::Memzero(CurrentConstantBuffers[ShaderFrequency]);
+#endif
+		ID3D11Buffer* Empty[D3D11_COMMONSHADER_CONSTANT_BUFFER_API_SLOT_COUNT] = {0};
+		CA_SUPPRESS(6326);
+		switch (ShaderFrequency)
+		{
+		case SF_Vertex:		Direct3DDeviceIMContext->VSSetConstantBuffers(0, D3D11_COMMONSHADER_CONSTANT_BUFFER_API_SLOT_COUNT, Empty); break;
+		case SF_Hull:		Direct3DDeviceIMContext->HSSetConstantBuffers(0, D3D11_COMMONSHADER_CONSTANT_BUFFER_API_SLOT_COUNT, Empty); break;
+		case SF_Domain:		Direct3DDeviceIMContext->DSSetConstantBuffers(0, D3D11_COMMONSHADER_CONSTANT_BUFFER_API_SLOT_COUNT, Empty); break;
+		case SF_Geometry:	Direct3DDeviceIMContext->GSSetConstantBuffers(0, D3D11_COMMONSHADER_CONSTANT_BUFFER_API_SLOT_COUNT, Empty); break;
+		case SF_Pixel:		Direct3DDeviceIMContext->PSSetConstantBuffers(0, D3D11_COMMONSHADER_CONSTANT_BUFFER_API_SLOT_COUNT, Empty); break;
+		case SF_Compute:	Direct3DDeviceIMContext->CSSetConstantBuffers(0, D3D11_COMMONSHADER_CONSTANT_BUFFER_API_SLOT_COUNT, Empty); break;
+		}
+	}
+
 	template <EShaderFrequency ShaderFrequency>
 	D3D11_STATE_CACHE_INLINE void SetShaderResourceView(ID3D11ShaderResourceView* SRV, uint32 ResourceIndex, ESRV_Type SrvType = SRV_Unknown)
 	{

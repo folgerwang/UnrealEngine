@@ -9,6 +9,7 @@
 #include "ShowLoginUICallbackProxy.generated.h"
 
 class APlayerController;
+struct FOnlineError;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnlineShowLoginUIResult, APlayerController*, PlayerController);
 
@@ -38,7 +39,7 @@ public:
 
 private:
 	// Internal callback when the login UI closes, calls out to the public success/failure callbacks
-	void OnShowLoginUICompleted(TSharedPtr<const FUniqueNetId> UniqueId, int LocalUserNum);
+	void OnShowLoginUICompleted(TSharedPtr<const FUniqueNetId> UniqueId, int LocalUserNum, const FOnlineError& Error);
 
 	// The player controller triggering things
 	TWeakObjectPtr<APlayerController> PlayerControllerWeakPtr;

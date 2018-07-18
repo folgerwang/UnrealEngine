@@ -215,10 +215,19 @@ FbxNode* FFbxExporter::ExportAnimSequence( const UAnimSequence* AnimSeq, const U
 
 
 	FbxNode* RootNode = (ActorRootNode)? ActorRootNode : Scene->GetRootNode();
+
+	//Create a temporary node attach to the scene root.
+	//This will allow us to do the binding without the scene transform (non uniform scale is not supported when binding the skeleton)
+	//We then detach from the temp node and attach to the parent and remove the temp node
+	FString FbxNodeName = FGuid::NewGuid().ToString(EGuidFormats::Digits);
+	FbxNode* TmpNodeNoTransform = FbxNode::Create(Scene, TCHAR_TO_UTF8(*FbxNodeName));
+	Scene->GetRootNode()->AddChild(TmpNodeNoTransform);
+
+
 	// Create the Skeleton
 	TArray<FbxNode*> BoneNodes;
 	FbxNode* SkeletonRootNode = CreateSkeleton(SkelMesh, BoneNodes);
-	RootNode->AddChild(SkeletonRootNode);
+	TmpNodeNoTransform->AddChild(SkeletonRootNode);
 
 
 	// Export the anim sequence
@@ -254,7 +263,7 @@ FbxNode* FFbxExporter::ExportAnimSequence( const UAnimSequence* AnimSeq, const U
 		FbxNode* MeshRootNode = CreateMesh(SkelMesh, *MeshNodeName);
 		if(MeshRootNode)
 		{
-			RootNode->AddChild(MeshRootNode);
+			TmpNodeNoTransform->AddChild(MeshRootNode);
 		}
 
 		if(SkeletonRootNode && MeshRootNode)
@@ -265,7 +274,22 @@ FbxNode* FFbxExporter::ExportAnimSequence( const UAnimSequence* AnimSeq, const U
 			// Add the bind pose
 			CreateBindPose(MeshRootNode);
 		}
+
+		if (MeshRootNode)
+		{
+			TmpNodeNoTransform->RemoveChild(MeshRootNode);
+			RootNode->AddChild(MeshRootNode);
+		}
 	}
+	
+	if (SkeletonRootNode)
+	{
+		TmpNodeNoTransform->RemoveChild(SkeletonRootNode);
+		RootNode->AddChild(SkeletonRootNode);
+	}
+
+	Scene->GetRootNode()->RemoveChild(TmpNodeNoTransform);
+	Scene->RemoveNode(TmpNodeNoTransform);
 
 	return SkeletonRootNode;
 }
@@ -439,7 +463,7 @@ void FFbxExporter::ExportAnimTrack(IAnimTrackAdapter& AnimTrackAdapter, AActor* 
 
 			FTransform BoneTransform = SkeletalMeshComponent->BoneSpaceTransforms[BoneIndex];
 
-			if (ExportOptions->MapSkeletalMotionToRoot && BoneIndex == 0)
+			if (GetExportOptions()->MapSkeletalMotionToRoot && BoneIndex == 0)
 			{
 				BoneTransform = SkeletalMeshComponent->GetSocketTransform(BoneName) * InitialInvParentTransform;
 			}

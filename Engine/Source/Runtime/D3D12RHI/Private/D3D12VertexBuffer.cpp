@@ -44,15 +44,40 @@ FD3D12VertexBuffer::~FD3D12VertexBuffer()
 	}
 }
 
-void FD3D12VertexBuffer::Rename(FD3D12ResourceLocation& NewResource)
+void FD3D12VertexBuffer::Rename(FD3D12ResourceLocation& NewLocation)
 {
-	FD3D12ResourceLocation::TransferOwnership(ResourceLocation, NewResource);
+	FD3D12ResourceLocation::TransferOwnership(ResourceLocation, NewLocation);
 
 	if (DynamicSRV != nullptr)
 	{
 		DynamicSRV->Rename(ResourceLocation);
 	}
 }
+
+void FD3D12VertexBuffer::RenameLDAChain(FD3D12ResourceLocation& NewLocation)
+{
+	ensure(GetUsage() & BUF_AnyDynamic);
+	Rename(NewLocation);
+
+	if (GNumExplicitGPUsForRendering > 1)
+	{
+		// Mutli-GPU support : renaming the LDA only works if we start we the head link. Otherwise Rename() must be used per GPU.
+		ensure(IsHeadLink());
+		ensure(GetParentDevice() == NewLocation.GetParentDevice());
+
+		// Update all of the resources in the LDA chain to reference this cross-node resource
+		for (FD3D12VertexBuffer* NextBuffer = GetNextObject(); NextBuffer; NextBuffer = NextBuffer->GetNextObject())
+		{
+			FD3D12ResourceLocation::ReferenceNode(NextBuffer->GetParentDevice(), NextBuffer->ResourceLocation, ResourceLocation);
+
+			if (NextBuffer->DynamicSRV)
+			{
+				NextBuffer->DynamicSRV->Rename(NextBuffer->ResourceLocation);
+			}
+		}
+	}
+}
+
 
 FVertexBufferRHIRef FD3D12DynamicRHI::RHICreateVertexBuffer(uint32 Size, uint32 InUsage, FRHIResourceCreateInfo& CreateInfo)
 {
@@ -140,7 +165,7 @@ void FD3D12DynamicRHI::RHICopyVertexBuffer(FVertexBufferRHIParamRef SourceBuffer
 		Context.CommandListHandle.UpdateResidency(pDestResource);
 		Context.CommandListHandle.UpdateResidency(pSourceResource);
 
-		DEBUG_RHI_EXECUTE_COMMAND_LIST(this);
+		DEBUG_EXECUTE_COMMAND_CONTEXT(Device->GetDefaultCommandContext());
 
 		Device->RegisterGPUWork(1);
 

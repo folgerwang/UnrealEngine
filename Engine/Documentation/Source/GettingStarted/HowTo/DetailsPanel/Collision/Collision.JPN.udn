@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2827260
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:3.アクタの物理とコリジョンの調整
 Crumbs: %ROOT%, Gameplay, GettingStarted\HowTo, GettingStarted\HowTo\DetailsPanel
@@ -50,7 +50,7 @@ checkpoint: editorqs
 
 1.	**[Physics]** セクションで **[Simulate Physics]** チェックボックスにチェックを入れます。 
 
-	![](Details18.png)
+	![](Details18c.png)
 
 	[REGION:note]
 	さらに設定可能なオプションがあります。例えば、 [減衰、コンストレイント](Engine/Physics/Constraints/DampingAndFriction) です。これは、アクタの物理がどのようにシミュレーションされるかに影響を及ぼします。ただし、このチュートリアルでは物理のシミュレーションだけを行うため、ゲームプレイ中の物理によって影響を受ける可能性があります。 
@@ -84,7 +84,7 @@ checkpoint: editorqs
 
 	![](Details23.png)
 
-1.	**メイン ツールバー** で **Play** ボタンをクリックしてエディタで再生します。 
+1.	メイン ツールバーで **Play** ボタンをクリックしてエディタで再生します。 
 
 	![](Details24.png)
 

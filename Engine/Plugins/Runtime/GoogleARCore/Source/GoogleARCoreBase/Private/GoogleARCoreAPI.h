@@ -7,6 +7,7 @@
 #include "GoogleARCoreTypes.h"
 #include "GoogleARCoreSessionConfig.h"
 #include "GoogleARCoreCameraImageBlitter.h"
+#include "GoogleARCoreAugmentedImage.h"
 #include "ARSessionConfig.h"
 
 #if PLATFORM_ANDROID
@@ -17,80 +18,82 @@
 
 DEFINE_LOG_CATEGORY_STATIC(LogGoogleARCoreAPI, Log, All);
 
+#define NDK_IMAGE_VERSION_INTEGER 24
+
 enum class EGoogleARCoreAPIStatus : int
 {
 	/// The operation was successful.
 	AR_SUCCESS = 0,
-	
+
 	/// One of the arguments was invalid, either null or not appropriate for the
 	/// operation requested.
 	AR_ERROR_INVALID_ARGUMENT = -1,
-	
+
 	/// An internal error occurred that the application should not attempt to
 	/// recover from.
 	AR_ERROR_FATAL = -2,
-	
+
 	/// An operation was attempted that requires the session be running, but the
 	/// session was paused.
 	AR_ERROR_SESSION_PAUSED = -3,
-	
+
 	/// An operation was attempted that requires the session be paused, but the
 	/// session was running.
 	AR_ERROR_SESSION_NOT_PAUSED = -4,
-	
+
 	/// An operation was attempted that the session be in the TRACKING state,
 	/// but the session was not.
 	AR_ERROR_NOT_TRACKING = -5,
-	
+
 	/// A texture name was not set by calling ArSession_setCameraTextureName()
 	/// before the first call to ArSession_update()
 	AR_ERROR_TEXTURE_NOT_SET = -6,
-	
+
 	/// An operation required GL context but one was not available.
 	AR_ERROR_MISSING_GL_CONTEXT = -7,
-	
+
 	/// The configuration supplied to ArSession_configure() was unsupported.
 	/// To avoid this error, ensure that Session_checkSupported() returns true.
 	AR_ERROR_UNSUPPORTED_CONFIGURATION = -8,
-	
+
 	/// The android camera permission has not been granted prior to calling
 	/// ArSession_resume()
 	AR_ERROR_CAMERA_PERMISSION_NOT_GRANTED = -9,
-	
+
 	/// Acquire failed because the object being acquired is already released.
 	/// For example, this happens if the application holds an ::ArFrame beyond
 	/// the next call to ArSession_update(), and then tries to acquire its point
 	/// cloud.
 	AR_ERROR_DEADLINE_EXCEEDED = -10,
-	
+
 	/// There are no available resources to complete the operation.  In cases of
 	/// @c acquire methods returning this error, This can be avoided by
 	/// releasing previously acquired objects before acquiring new ones.
 	AR_ERROR_RESOURCE_EXHAUSTED = -11,
-	
+
 	/// Acquire failed because the data isn't available yet for the current
 	/// frame. For example, acquire the image metadata may fail with this error
 	/// because the camera hasn't fully started.
 	AR_ERROR_NOT_YET_AVAILABLE = -12,
-	
+
 	/// The android camera has been reallocated to a higher priority app or is
 	/// otherwise unavailable.
 	AR_ERROR_CAMERA_NOT_AVAILABLE = -13,
-	
+
 	/// The ARCore APK is not installed on this device.
 	AR_UNAVAILABLE_ARCORE_NOT_INSTALLED = -100,
-	
+
 	/// The device is not currently compatible with ARCore.
 	AR_UNAVAILABLE_DEVICE_NOT_COMPATIBLE = -101,
-	
+
 	/// The ARCore APK currently installed on device is too old and needs to be
 	/// updated.
 	AR_UNAVAILABLE_APK_TOO_OLD = -103,
-	
+
 	/// The ARCore APK currently installed no longer supports the ARCore SDK
 	/// that the application was built with.
 	AR_UNAVAILABLE_SDK_TOO_OLD = -104,
-	
+
 	/// The user declined installation of the ARCore APK during this run of the
 	/// application and the current request was not marked as user-initiated.
 	AR_UNAVAILABLE_USER_DECLINED_INSTALLATION = -105
@@ -111,6 +114,10 @@ static ArTrackableType GetTrackableType(UClass* ClassType)
 	{
 		return ArTrackableType::AR_TRACKABLE_POINT;
 	}
+	else if (ClassType == UGoogleARCoreAugmentedImage::StaticClass())
+	{
+		return ArTrackableType::AR_TRACKABLE_AUGMENTED_IMAGE;
+	}
 	else
 	{
 		return ArTrackableType::AR_TRACKABLE_NOT_VALID;
@@ -120,6 +127,7 @@ static ArTrackableType GetTrackableType(UClass* ClassType)
 
 class FGoogleARCoreFrame;
 class FGoogleARCoreSession;
+class UGoogleARCoreCameraImage;
 
 UCLASS()
 class UGoogleARCoreUObjectManager : public UObject
@@ -188,6 +196,10 @@ public:
 
 	void GetAllAnchors(TArray<UARPin*>& OutAnchors) const;
 	template< class T > void GetAllTrackables(TArray<T*>& OutARCoreTrackableList);
+	EGoogleARCoreAPIStatus AcquireCameraImage(UGoogleARCoreCameraImage *&OutCameraImage);
+
+	void* GetLatestFrameRawPointer();
+
 private:
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
 	EGoogleARCoreAPIStatus SessionCreateStatus;
@@ -213,7 +225,7 @@ class FGoogleARCoreFrame
 public:
 	FGoogleARCoreFrame(FGoogleARCoreSession* Session);
 	~FGoogleARCoreFrame();
-	
+
 	void Init();
 
 	void Update(float WorldToMeterScale);
@@ -224,7 +236,7 @@ public:
 
 	void GetUpdatedAnchors(TArray<UARPin*>& OutUpdatedAnchors) const;
 	template< class T > void GetUpdatedTrackables(TArray<T*>& OutARCoreTrackableList) const;
-	
+
 	void ARLineTrace(const FVector2D& ScreenPosition, EGoogleARCoreLineTraceChannel RequestedTraceChannels, TArray<FARTraceResult>& OutHitResults) const;
 
 	bool IsDisplayRotationChanged() const;
@@ -236,6 +248,7 @@ public:
 	EGoogleARCoreAPIStatus AcquirePointCloud(UGoogleARCorePointCloud*& OutLatestPointCloud) const;
 #if PLATFORM_ANDROID
 	EGoogleARCoreAPIStatus GetCameraMetadata(const ACameraMetadata*& OutCameraMetadata) const;
+	ArFrame* GetHandle() { return FrameHandle; };
 #endif
 
 private:
@@ -285,7 +298,7 @@ public:
 	virtual ~FGoogleARCoreTrackableResource()
 	{
 		ArTrackable_release(TrackableHandle);
-		TrackableHandle = nullptr;	
+		TrackableHandle = nullptr;
 	}
 
 	EARTrackingState GetTrackingState();
@@ -294,7 +307,7 @@ public:
 
 	TWeakPtr<FGoogleARCoreSession> GetSession() { return Session; }
 	ArTrackable* GetNativeHandle() { return TrackableHandle; }
-	
+
 	void ResetNativeHandle(ArTrackable* InTrackableHandle);
 
 protected:
@@ -336,12 +349,28 @@ public:
 #endif
 };
 
+class FGoogleARCoreAugmentedImageResource : public FGoogleARCoreTrackableResource
+{
+public:
+#if PLATFORM_ANDROID
+	FGoogleARCoreAugmentedImageResource(TSharedPtr<FGoogleARCoreSession> InSession, ArTrackable* InTrackableHandle, UARTrackedGeometry* InTrackedGeometry)
+		: FGoogleARCoreTrackableResource(InSession, InTrackableHandle, InTrackedGeometry)
+	{
+		ensure(TrackableHandle != nullptr);
+	}
+
+	void UpdateGeometryData() override;
+
+	ArAugmentedImage* GetImageHandle() { return reinterpret_cast<ArAugmentedImage*>(TrackableHandle); }
+#endif
+};
+
 #if PLATFORM_ANDROID
 // Template function definition
 template< class T >
 T* UGoogleARCoreUObjectManager::GetTrackableFromHandle(ArTrackable* TrackableHandle, FGoogleARCoreSession* Session)
 {
-	if (!TrackableHandleMap.Contains(TrackableHandle) 
+	if (!TrackableHandleMap.Contains(TrackableHandle)
 		|| !TrackableHandleMap[TrackableHandle].IsValid()
 		|| TrackableHandleMap[TrackableHandle]->GetTrackingState() == EARTrackingState::StoppedTracking)
 	{
@@ -362,15 +391,21 @@ T* UGoogleARCoreUObjectManager::GetTrackableFromHandle(ArTrackable* TrackableHan
 			NewTrackableObject = static_cast<UARTrackedGeometry*>(PointObject);
 			NativeResource = new FGoogleARCoreTrackedPointResource(Session->AsShared(), TrackableHandle, NewTrackableObject);
 		}
+		else if (TrackableType == ArTrackableType::AR_TRACKABLE_AUGMENTED_IMAGE)
+		{
+			UGoogleARCoreAugmentedImage* ImageObject = NewObject<UGoogleARCoreAugmentedImage>();
+			NewTrackableObject = static_cast<UARTrackedGeometry*>(ImageObject);
+			NativeResource = new FGoogleARCoreAugmentedImageResource(Session->AsShared(), TrackableHandle, NewTrackableObject);
+		}
 
 		// We should have a valid trackable object now.
-		checkf(NewTrackableObject, TEXT("Unknow ARCore Trackable Type: %d"), TrackableType);
-		
+		checkf(NewTrackableObject, TEXT("Unknown ARCore Trackable Type: %d"), TrackableType);
+
 		NewTrackableObject->InitializeNativeResource(NativeResource);
 		NativeResource = nullptr;
 
 		FGoogleARCoreTrackableResource* TrackableResource = reinterpret_cast<FGoogleARCoreTrackableResource*>(NewTrackableObject->GetNativeResource());
-		
+
 		// Update the tracked geometry data using the native resource
 		TrackableResource->UpdateGeometryData();
 		ensure(TrackableResource->GetTrackingState() != EARTrackingState::StoppedTracking);

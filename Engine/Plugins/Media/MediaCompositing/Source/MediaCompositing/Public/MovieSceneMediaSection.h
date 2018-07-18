@@ -43,6 +43,8 @@ public:
 	 */
 	UMovieSceneMediaSection(const FObjectInitializer& ObjectInitializer);
 
+	virtual void PostInitProperties() override;
+
 public:
 
 	/**

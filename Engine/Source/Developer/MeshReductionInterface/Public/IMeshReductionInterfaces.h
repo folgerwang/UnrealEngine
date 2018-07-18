@@ -7,6 +7,10 @@
 #include "Engine/MeshMerging.h"
 #include "Modules/ModuleInterface.h"
 
+struct FOverlappingCorners;
+struct FRawMesh;
+class FMeshDescription;
+
 /**
 * Mesh reduction interface.
 */
@@ -23,12 +27,28 @@ public:
 	* @param ReductionSettings - Setting with which to reduce the mesh.
 	*/
 	virtual void Reduce(
-		struct FRawMesh& OutReducedMesh,
+		FRawMesh& OutReducedMesh,
 		float& OutMaxDeviation,
 		const struct FRawMesh& InMesh,
+		const FOverlappingCorners& InOverlappingCorners,
+		const struct FMeshReductionSettings& ReductionSettings
+	) = 0;
+
+	/**
+	* Reduces the raw mesh using the provided reduction settings.
+	* @param OutReducedMesh - Upon return contains the reduced mesh.
+	* @param OutMaxDeviation - Upon return contains the maximum distance by which the reduced mesh deviates from the original.
+	* @param InMesh - The mesh to reduce.
+	* @param ReductionSettings - Setting with which to reduce the mesh.
+	*/
+	virtual void ReduceMeshDescription(
+		FMeshDescription& OutReducedMesh,
+		float& OutMaxDeviation,
+		const FMeshDescription& InMesh,
 		const TMultiMap<int32, int32>& InOverlappingCorners,
 		const struct FMeshReductionSettings& ReductionSettings
 	) = 0;
+
 	/**
 	* Reduces the provided skeletal mesh.
 	* @returns true if reduction was successful.
@@ -36,8 +56,6 @@ public:
 	virtual bool ReduceSkeletalMesh(
 		class USkeletalMesh* SkeletalMesh,
 		int32 LODIndex,
-		const struct FSkeletalMeshOptimizationSettings& Settings,
-		bool bCalcLODDistance,
 		bool bReregisterComponent = true
 	) = 0;
 	/**
@@ -66,6 +84,12 @@ struct FMergeCompleteData
 	FMeshProxySettings InProxySettings;
 	/** Callback delegate object used as a callback when the job finishes */
 	FCreateProxyDelegate CallbackDelegate;
+	/** List of Components containing imposter LODs */
+	TArray<const UStaticMeshComponent*> ImposterComponents;
+	/** List of Components incorporated into the Proxy Mesh */
+	TArray<UStaticMeshComponent*> StaticMeshComponents;
+	/** Base material to instance for the proxy material */
+	UMaterialInterface* BaseMaterial;
 };
 
 struct FFlattenMaterial;

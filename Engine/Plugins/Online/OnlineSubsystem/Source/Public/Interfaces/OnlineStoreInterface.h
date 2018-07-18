@@ -8,6 +8,18 @@
 #include "OnlineDelegateMacros.h"
 #include "OnlineStoreInterface.generated.h"
 
+ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlineStore, Display, All);
+
+#define UE_LOG_ONLINE_STORE(Verbosity, Format, ...) \
+{ \
+	UE_LOG(LogOnlineStore, Verbosity, TEXT("%s%s"), ONLINE_LOG_PREFIX, *FString::Printf(Format, ##__VA_ARGS__)); \
+}
+
+#define UE_CLOG_ONLINE_STORE(Conditional, Verbosity, Format, ...) \
+{ \
+	UE_CLOG(Conditional, LogOnlineStore, Verbosity, TEXT("%s%s"), ONLINE_LOG_PREFIX, *FString::Printf(Format, ##__VA_ARGS__)); \
+}
+
 /**
  * Possible result states of an in-app purchase transaction
  */

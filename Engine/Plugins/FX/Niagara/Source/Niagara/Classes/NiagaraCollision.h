@@ -19,7 +19,8 @@ struct FNiagaraCollisionTrace
 {
 	FTraceHandle CollisionTraceHandle;
 	uint32 SourceParticleIndex;
-	FVector OriginalVelocity;
+	float CollisionSize;
+	float DeltaSeconds;
 };
 
 
@@ -37,11 +38,11 @@ public:
 		FNiagaraEventDataSetMgr::Reset(OwnerSystemInstanceName, EmitterName);
 	}
 
-	void Tick(ENiagaraSimTarget Target)
+	void Tick()
 	{
 		if (CollisionEventDataSet)
 		{
-			CollisionEventDataSet->Tick(Target);
+			CollisionEventDataSet->Tick();
 		}
 	}
 
@@ -57,7 +58,7 @@ public:
 	{
 		if (CollisionEventDataSet)
 		{
-			CollisionEventDataSet->Reset();
+			CollisionEventDataSet->Init(FNiagaraDataSetID(), ENiagaraSimTarget::CPUSim);
 		}
 		EmitterName = InEmitterName;
 		OwnerSystemInstanceName = InOwnerSystemInstanceName;
@@ -155,7 +156,7 @@ public:
 		TraceID = 0;
 	}
 
-	int32 SubmitQuery(FVector Position, FVector Velocity, float CollisionSize, float DeltaSeconds);
+	int32 SubmitQuery(FVector Position, FVector Direction, float CollisionSize, float DeltaSeconds);
 	bool GetQueryResult(uint32 TraceID, FNiagaraDICollsionQueryResult &Result);
 
 private:

@@ -2,7 +2,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "ITextInputMethodSystem.h"
+#include "GenericPlatform/ITextInputMethodSystem.h"
 
 #ifdef __OBJC__
 

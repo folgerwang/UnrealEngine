@@ -10,6 +10,7 @@
 #include "OnlineSessionAsyncServerSteam.h"
 #include "OnlineLeaderboardInterfaceSteam.h"
 #include "OnlineExternalUIInterfaceSteam.h"
+#include "OnlineAuthInterfaceSteam.h"
 #include "SocketSubsystemSteam.h"
 #include "SteamUtilities.h"
 
@@ -602,7 +603,7 @@ public:
 	 */
 	virtual void Finalize() override
 	{
-		Subsystem->TriggerOnConnectionStatusChangedDelegates(EOnlineServerConnectionStatus::Normal, ConnectionState);
+		Subsystem->TriggerOnConnectionStatusChangedDelegates(Subsystem->GetSubsystemName().ToString(), EOnlineServerConnectionStatus::Normal, ConnectionState);
 	}
 };
 
@@ -753,7 +754,7 @@ public:
 		if (bTriggerConnectionStatusUpdate)
 		{
 			EOnlineServerConnectionStatus::Type ConnectionState = SteamConnectionResult(CallbackResults.m_eResult);
-			Subsystem->TriggerOnConnectionStatusChangedDelegates(EOnlineServerConnectionStatus::Normal, ConnectionState);
+			Subsystem->TriggerOnConnectionStatusChangedDelegates(Subsystem->GetSubsystemName().ToString(), EOnlineServerConnectionStatus::Normal, ConnectionState);
 		}
 	}
 };
@@ -835,6 +836,75 @@ public:
 void FOnlineAsyncTaskManagerSteam::OnPolicyResponseGS(GSPolicyResponse_t* CallbackData)
 {
 	FOnlineAsyncEventSteamServerPolicyResponseGS* NewEvent = new FOnlineAsyncEventSteamServerPolicyResponseGS(SteamSubsystem, *CallbackData);
+	UE_LOG_ONLINE(Verbose, TEXT("%s"), *NewEvent->ToString());
+	AddToOutQueue(NewEvent);
+}
+
+
+class FOnlineAsyncEventSteamAuthenticationResponse : public FOnlineAsyncEvent<FOnlineSubsystemSteam>
+{
+private:
+	ValidateAuthTicketResponse_t CallbackResults;
+	bool bIsServer;
+
+	FOnlineAsyncEventSteamAuthenticationResponse()
+	{
+	}
+
+public:
+	FOnlineAsyncEventSteamAuthenticationResponse(FOnlineSubsystemSteam* InSubsystem, const ValidateAuthTicketResponse_t& InResults, bool bInServerCall) :
+		FOnlineAsyncEvent(InSubsystem),
+		CallbackResults(InResults),
+		bIsServer(bInServerCall)
+	{
+	}
+
+	virtual ~FOnlineAsyncEventSteamAuthenticationResponse()
+	{
+	}
+
+	/**
+	*	Get a human readable description of task
+	*/
+	virtual FString ToString() const override
+	{
+		return FString::Printf(TEXT("FOnlineAsyncEventSteamAuthenticationResponse Received code %d. Is server? %d"), (int32)CallbackResults.m_eAuthSessionResponse, bIsServer);
+	}
+
+	/**
+	* Give the async task a chance to marshal its data back to the game thread
+	* Can only be called on the game thread by the async task manager
+	*/
+	virtual void Finalize() override
+	{
+		FOnlineAuthSteamPtr AuthInt = StaticCastSharedPtr<FOnlineAuthSteam>(Subsystem->GetAuthInterface());
+		if (AuthInt.IsValid())
+		{
+			AuthInt->OnAuthResult(FUniqueNetIdSteam(CallbackResults.m_SteamID), CallbackResults.m_eAuthSessionResponse);
+		}
+		else
+		{
+			UE_LOG_ONLINE(Warning, TEXT("Auth interface is not valid!"));
+		}
+	}
+};
+
+/**
+* Notification event from Steam regarding a ticket authentication response for server
+*/
+void FOnlineAsyncTaskManagerSteam::OnAuthenticationResponseGS(ValidateAuthTicketResponse_t* CallbackData)
+{
+	FOnlineAsyncEventSteamAuthenticationResponse* NewEvent = new FOnlineAsyncEventSteamAuthenticationResponse(SteamSubsystem, *CallbackData, true);
+	UE_LOG_ONLINE(Verbose, TEXT("%s"), *NewEvent->ToString());
+	AddToOutQueue(NewEvent);
+}
+
+/**
+* Notification event from Steam regarding a ticket authentication response for clients
+*/
+void FOnlineAsyncTaskManagerSteam::OnAuthenticationResponse(ValidateAuthTicketResponse_t* CallbackData)
+{
+	FOnlineAsyncEventSteamAuthenticationResponse* NewEvent = new FOnlineAsyncEventSteamAuthenticationResponse(SteamSubsystem, *CallbackData, false);
 	UE_LOG_ONLINE(Verbose, TEXT("%s"), *NewEvent->ToString());
 	AddToOutQueue(NewEvent);
 }

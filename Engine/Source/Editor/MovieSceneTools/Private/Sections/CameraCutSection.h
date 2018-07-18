@@ -35,13 +35,13 @@ public:
 	virtual FMargin GetContentPadding() const override;
 	// FThumbnail interface
 
-	virtual void SetSingleTime(float GlobalTime) override;
+	virtual void SetSingleTime(double GlobalTime) override;
 	virtual FText HandleThumbnailTextBlockText() const override;
 
 private:
 
 	/** Get a representative camera for the given time */
-	const AActor* GetCameraForFrame(float Time) const;
+	const AActor* GetCameraForFrame(FFrameNumber Time) const;
 
 	/** Callback for executing a "Set Camera" menu entry in the context menu. */
 	void HandleSetCameraMenuEntryExecute(AActor* InCamera);

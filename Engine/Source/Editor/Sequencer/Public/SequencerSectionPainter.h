@@ -60,5 +60,8 @@ public:
 
 	/** Whether the section is hovered or not */
 	bool bIsHighlighted;
+	
+	/** Whether the section is selected or not */
+	bool bIsSelected;
 };
 

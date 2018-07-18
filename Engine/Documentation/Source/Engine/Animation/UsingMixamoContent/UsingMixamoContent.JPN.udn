@@ -94,8 +94,8 @@ Mixamo Animation Pack にある 15 種類のキャラクターを、Character �
 
 	![](TopDownCharacterBP_Select.png)
 1. **[Components (コンポーネント)]** パネルで **Mesh** コンポーネントを選択します。
-	![](Mesh_Select.png)
 
+	![](Mesh_Select.png)
 1. **Skeletal Mesh** 欄の **Mesh** で、お好みの Mixamo スケルタルメッシュを選択します。この例では、Mixamo_Zoe を選択します。
 
 	![](SkeletalMesh_Select.png)

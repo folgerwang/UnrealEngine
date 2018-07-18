@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections;
@@ -87,8 +87,7 @@ namespace UnrealBuildTool
 						Hashtable Results = Command("/", "date", string.Join(" && ", Commands), null);
 						if ((Int64)Results["ExitCode"] != 0)
 						{
-							Log.TraceError("Failed to run init commands on {0}. Output = {1}", MacName, Results["CommandOutput"]);
-							return RemoteToolChain.RemoteToolChainErrorCode.SSHCommandFailed;
+							throw new BuildException("Failed to run init commands on remote server {0}. Output = {1}", MacName, Results["CommandOutput"]);
 						}
 
 						string[] Lines = ((string)Results["CommandOutput"]).Split("\r\n".ToCharArray(), StringSplitOptions.RemoveEmptyEntries);
@@ -112,7 +111,7 @@ namespace UnrealBuildTool
 						int NumCores = int.Parse(Lines[2]);
 						MaxRemoteCommandsAllowed = Math.Min(NumProcesses, NumCores);
 
-						Console.WriteLine("Remote time is {0}, difference is {1}", RemoteTimebase.ToString(), TimeDifferenceFromRemote.ToString());
+						Log.TraceInformation("Remote time is {0}, difference is {1}", RemoteTimebase.ToString(), TimeDifferenceFromRemote.ToString());
 					}
 
 					if (bFlushBuildDir)
@@ -120,17 +119,19 @@ namespace UnrealBuildTool
 						Command("/", "rm", "-rf /UE4/Builds/" + Environment.MachineName, null);
 					}
 				}
+				catch (BuildException)
+				{
+					throw;
+				}
 				catch (Exception Ex)
 				{
 					Log.TraceVerbose("SSH Initialize exception {0}", Ex.ToString());
-					Log.TraceError("Failed to run init commands on {0}", MacName);
-					return RemoteToolChain.RemoteToolChainErrorCode.SSHCommandFailed;
+					throw new BuildException("Failed to run init commands on remote server {0}", MacName);
 				}
 			}
 			else
 			{
-				Log.TraceError("Failed to ping Mac named {0}", MacName);
-				return RemoteToolChain.RemoteToolChainErrorCode.ServerNotResponding;
+				throw new BuildException("Failed to ping Mac named {0}", MacName);
 			}
 
 			return RemoteToolChain.RemoteToolChainErrorCode.NoError;
@@ -387,7 +388,7 @@ namespace UnrealBuildTool
 				// execute the command!
 				Int64[] FileSizeAndDates = RPCCommandHelper.RPCBatchFileInfo(GetSocket(), FileList.ToString());
 
-				Console.WriteLine("BatchFileInfo version 1 took {0}", (DateTime.Now - Now).ToString());
+				Log.TraceInformation("BatchFileInfo version 1 took {0}", (DateTime.Now - Now).ToString());
 
 				// now update the source times
 				for (int Index = 0; Index < Files.Length; Index++)
@@ -420,7 +421,7 @@ namespace UnrealBuildTool
 				// execute the file, not a commandline
 				Hashtable Results = Command(RemoteDir, "sh", RemoteCommandsFile + " && rm " + RemoteCommandsFile, null);
 
-				Console.WriteLine("BatchFileInfo took {0}", (DateTime.Now - Now).ToString());
+				Log.TraceInformation("BatchFileInfo took {0}", (DateTime.Now - Now).ToString());
 
 				string[] Lines = ((string)Results["CommandOutput"]).Split("\r\n".ToCharArray(), StringSplitOptions.RemoveEmptyEntries);
 				if (Lines.Length != Files.Length * 2)

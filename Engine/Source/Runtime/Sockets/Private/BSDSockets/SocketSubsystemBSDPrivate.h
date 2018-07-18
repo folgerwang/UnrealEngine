@@ -6,7 +6,7 @@
 #include "SocketSubsystem.h"
 
 #if PLATFORM_HAS_BSD_SOCKET_FEATURE_WINSOCKETS
-	#include "WindowsHWrapper.h"
+	#include "Windows/WindowsHWrapper.h"
 	#include "Windows/AllowWindowsPlatformTypes.h"
 
 	#include <winsock2.h>

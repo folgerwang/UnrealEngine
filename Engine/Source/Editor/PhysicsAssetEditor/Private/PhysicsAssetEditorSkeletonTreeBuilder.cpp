@@ -7,7 +7,7 @@
 #include "PhysicsEngine/PhysicsAsset.h"
 #include "IPersonaPreviewScene.h"
 #include "Animation/DebugSkelMeshComponent.h"
-#include "TextFilterExpressionEvaluator.h"
+#include "Misc/TextFilterExpressionEvaluator.h"
 
 #define LOCTEXT_NAMESPACE "PhysicsAssetEditorSkeletonTreeBuilder"
 
@@ -107,7 +107,7 @@ void FPhysicsAssetEditorSkeletonTreeBuilder::AddBodies(FSkeletonTreeBuilderOutpu
 
 						const FKAggregateGeom& AggGeom = PhysicsAsset->SkeletalBodySetups[BodySetupIndex]->AggGeom;
 						
-						bool bHasShapes = AggGeom.SphereElems.Num() > 0 || AggGeom.BoxElems.Num() > 0 || AggGeom.SphylElems.Num() > 0 || AggGeom.ConvexElems.Num() > 0;
+						bool bHasShapes = AggGeom.GetElementCount() > 0;
 
 						if (bHasShapes)
 						{
@@ -132,6 +132,11 @@ void FPhysicsAssetEditorSkeletonTreeBuilder::AddBodies(FSkeletonTreeBuilderOutpu
 							for (ShapeIndex = 0; ShapeIndex < AggGeom.ConvexElems.Num(); ++ShapeIndex)
 							{
 								Output.Add(MakeShared<FSkeletonTreePhysicsShapeItem>(BodySetup, BoneName, BodySetupIndex, EAggCollisionShape::Convex, ShapeIndex, SkeletonTreePtr.Pin().ToSharedRef()), BoneName, FSkeletonTreePhysicsBodyItem::GetTypeId());
+							}
+
+							for (ShapeIndex = 0; ShapeIndex < AggGeom.TaperedCapsuleElems.Num(); ++ShapeIndex)
+							{
+								Output.Add(MakeShared<FSkeletonTreePhysicsShapeItem>(BodySetup, BoneName, BodySetupIndex, EAggCollisionShape::TaperedCapsule, ShapeIndex, SkeletonTreePtr.Pin().ToSharedRef()), BoneName, FSkeletonTreePhysicsBodyItem::GetTypeId());
 							}
 						}
 

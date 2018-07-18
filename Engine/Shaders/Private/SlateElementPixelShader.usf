@@ -5,15 +5,10 @@
 #include "GammaCorrectionCommon.ush"
 #include "SlateShaderCommon.ush"
 
-/** Display gamma x:gamma curve adjustment, y:inverse gamma (1/GEngine->DisplayGamma) */
-half2 GammaValues;
+/** Display gamma x:gamma curve adjustment, y:inverse gamma (1/GEngine->DisplayGamma), z:InvertAlpha */
+half4 GammaAndAlphaValues;
 /** Per element params */
 float4 ShaderParams;
-
-#if !USE_MATERIALS
-/** Per element option to invert the alpha, mostly only useful when dealing with data coming from the scene renderer, which writes out inverse opacity. */
-half InvertAlpha;
-#endif
 
 /** Texture for the element */
 Texture2D ElementTexture;
@@ -24,9 +19,9 @@ half3 GammaCorrect(half3 InColor)
 	half3 CorrectedColor = InColor;
 
 #if SOURCE_IN_LINEAR_SPACE
-	FLATTEN if( GammaValues.y != 1.0f )
+	FLATTEN if( GammaAndAlphaValues.y != 1.0f )
 	{
-		CorrectedColor = ApplyGammaCorrection(CorrectedColor, GammaValues.x);
+		CorrectedColor = ApplyGammaCorrection(CorrectedColor, GammaAndAlphaValues.x);
 	}
 #endif
 
@@ -211,57 +206,23 @@ half4 GetBorderElementColor( VertexToPixelInterpolants InVertex )
  */
 half4 GetLineSegmentElementColor( VertexToPixelInterpolants InVertex )
 {
-	float Width = ShaderParams.x;
-	float Radius = ShaderParams.y;
+	float LineWidth = ShaderParams.x;
+	float FilterWidthScale = ShaderParams.y;
+	float Gradient = GetUV(InVertex, 0).x;
+	float2 GradientDerivative = float2(abs(ddx(Gradient)), abs(ddy(Gradient)));
+	float PixelSizeInUV = sqrt(dot(GradientDerivative, GradientDerivative));
+	float HalfLineWidthUV = 0.5f * PixelSizeInUV * LineWidth;
+	float HalfFilterWidthUV = FilterWidthScale * PixelSizeInUV;
+	float DistanceToLineCenter = abs(0.5f - Gradient);
+	float LineCoverage = smoothstep(HalfLineWidthUV + HalfFilterWidthUV, HalfLineWidthUV - HalfFilterWidthUV, DistanceToLineCenter);
 
-	float2 StartPos = GetUV( InVertex, 0 );
-	float2 EndPos = GetUV( InVertex, 1 );
-
-	float2 Diff = float2( StartPos.y - EndPos.y, EndPos.x - StartPos.x ) ;
-
-	float K = 2/( (2*Radius + Width)*sqrt( dot( Diff, Diff) ) );
-
-	// Generate two edge functions that will be used to determine the distance we are from the actual line segment. 
-	// The number of pixels generated for the actual line is larger than what will be displayed on screen.  We use the extra pixels
-	// to fade out the line over distance.
-	float3 E0 = K*float3( StartPos.y - EndPos.y, EndPos.x - StartPos.x, (StartPos.x*EndPos.y - EndPos.x*StartPos.y) );
-	E0.z += 1;
-
-	float3 E1 = K*float3( EndPos.y - StartPos.y, StartPos.x - EndPos.x, (EndPos.x*StartPos.y - StartPos.x*EndPos.y) );
-	E1.z += 1;
-
-	// this algorithm requires the original position passed into the VS, not the transformed position output by the VS
-	float3 Pos = float3(InVertex.OriginalPosition.xy,1);
-
-	// Compute the distance this pixel is away from the actual line
-	float2 Distance = float2( dot(E0,Pos), dot(E1,Pos) );
-
-	// A value of zero for distance means the pixel is greater than w/2 + filter radius away from the line 
-	// and should be discarded
-	if( any( Distance < 0 ) )
+	if (LineCoverage <= 0.0f)
 	{
-		// using discard instead of clip because
-		// apparently clipped pixels are written into the stencil buffer but discards are not
 		discard;
 	}
 
 	half4 Color = InVertex.Color;
-	
-	// Use the shortest distance to the edge
-	float Index = min(Distance.x,Distance.y);
-
-	// Without this, the texture sample sometimes samples the next entry in the table.  Usually occurs when sampling the last entry in the table but instead	
-	// samples the first and we get white pixels 
-	const float HalfPixelOffset = 1/32.f;
-
-	Color.a *= smoothstep(0.3, 1.0f, Index);
-	
-	// Simple alpha test to help with overlapping segments
-	if( Color.a < 0.05f )
-	{
-		discard;
-	}
-
+	Color.a *= LineCoverage;
 	return Color;
 } 
 #endif
@@ -295,17 +256,13 @@ half4 Main( VertexToPixelInterpolants VIn ) : SV_Target0
 	OutColor.rgb = lerp( OutColor.rgb, Grayish, clamp( distance( OutColor.rgb, Grayish ), 0, .8)  );
 #endif
 
-#if !USE_MATERIALS
-	OutColor = ApplyColorVisionDeficiencyFilter(OutColor);
-#endif
-
 	// gamma correct
 	OutColor.rgb = GammaCorrect(OutColor.rgb);
 
 #if !USE_MATERIALS
     // Deal with cases where the incoming alpha is inverted like if you're dealing with render targets coming
     // from the scene renderer.
-    OutColor.a = lerp(OutColor.a, 1 - OutColor.a, InvertAlpha);
+    OutColor.a = lerp(OutColor.a, 1 - OutColor.a, GammaAndAlphaValues.z);
 #endif
     
 	return OutColor;

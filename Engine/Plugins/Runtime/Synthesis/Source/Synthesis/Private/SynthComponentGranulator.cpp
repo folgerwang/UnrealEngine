@@ -23,10 +23,11 @@ bool UGranularSynth::Init(int32& SampleRate)
 	return true;
 }
 
-void UGranularSynth::OnGenerateAudio(float* OutAudio, int32 NumSamples)
+int32 UGranularSynth::OnGenerateAudio(float* OutAudio, int32 NumSamples)
 {
 	const int32 NumFrames = NumSamples / NumChannels;
 	GranularSynth.Generate(OutAudio, NumFrames);
+	return NumSamples;
 }
 
 void UGranularSynth::OnRegister()
@@ -103,7 +104,7 @@ void UGranularSynth::TickComponent(float DeltaTime, enum ELevelTick TickType, FA
 {
 	if (SoundWaveLoader.Update())
 	{
-		Audio::FSampleBuffer SampleBuffer;
+		Audio::TSampleBuffer<int16> SampleBuffer;
 		SoundWaveLoader.GetSampleBuffer(SampleBuffer);
 
 		SynthCommand([this, SampleBuffer]()

@@ -220,6 +220,11 @@ void PlatformDestroyOpenGLDevice(FPlatformOpenGLDevice* Device)
 	PlatformReleaseOpenGLContext( Device, NULL);
 }
 
+FPlatformOpenGLContext* PlatformGetOpenGLRenderingContext(FPlatformOpenGLDevice* Device)
+{
+	return Device->SharedContext;
+}
+
 FPlatformOpenGLContext* PlatformCreateOpenGLContext(FPlatformOpenGLDevice* Device, void* InWindowHandle)
 {
 	Device->SharedContext->Context = SDL_GL_CreateContext((SDL_Window*)InWindowHandle);
@@ -268,6 +273,11 @@ void PlatformNULLContextSetup()
 EOpenGLCurrentContext PlatformOpenGLCurrentContext(FPlatformOpenGLDevice* Device)
 {
 	return CONTEXT_Shared;
+}
+
+void* PlatformOpenGLCurrentContextHandle(FPlatformOpenGLDevice* Device)
+{
+	return Device->SharedContext->Context;
 }
 
 void PlatformResizeGLContext( FPlatformOpenGLDevice* Device, FPlatformOpenGLContext* Context, uint32 SizeX, uint32 SizeY, bool bFullscreen, bool bWasFullscreen, GLenum BackBufferTarget, GLuint BackBufferResource)

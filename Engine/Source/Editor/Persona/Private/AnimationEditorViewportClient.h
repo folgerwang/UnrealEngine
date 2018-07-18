@@ -14,7 +14,6 @@
 #include "Preferences/PersonaOptions.h"
 
 class FCanvas;
-class ISkeletonTree;
 class UPersonaOptions;
 class USkeletalMeshSocket;
 struct FCompactHeapPose;
@@ -123,7 +122,7 @@ protected:
 	void DrawNodeDebugLines(TArray<FText>& Lines, FCanvas* Canvas, FSceneView* View);
 
 public:
-	FAnimationViewportClient(const TSharedRef<class ISkeletonTree>& InSkeletonTree, const TSharedRef<class IPersonaPreviewScene>& InPreviewScene, const TSharedRef<class SAnimationEditorViewport>& InAnimationEditorViewport, const TSharedRef<class FAssetEditorToolkit>& InAssetEditorToolkit, int32 InViewportIndex, bool bInShowStats);
+	FAnimationViewportClient(const TSharedRef<class IPersonaPreviewScene>& InPreviewScene, const TSharedRef<class SAnimationEditorViewport>& InAnimationEditorViewport, const TSharedRef<class FAssetEditorToolkit>& InAssetEditorToolkit, int32 InViewportIndex, bool bInShowStats);
 	virtual ~FAnimationViewportClient();
 
 	// FEditorViewportClient interface
@@ -302,9 +301,6 @@ public:
 	/** Get the playback speed mode */
 	EAnimationPlaybackSpeeds::Type GetPlaybackSpeedMode() const;
 
-	/** Get the skeleton tree we are bound to */
-	TSharedRef<class ISkeletonTree> GetSkeletonTree() const  { return SkeletonTreePtr.Pin().ToSharedRef(); }
-
 	/** Get the preview scene we are viewing */
 	TSharedRef<class IPersonaPreviewScene> GetPreviewScene() const { return PreviewScenePtr.Pin().ToSharedRef(); }
 
@@ -343,9 +339,6 @@ public:
 	UPersonaOptions* ConfigOption;
 
 private:
-	/** Weak pointer back to the skeleton tree we are bound to */
-	TWeakPtr<class ISkeletonTree> SkeletonTreePtr;
-
 	/** Weak pointer back to the preview scene we are viewing */
 	TWeakPtr<class IPersonaPreviewScene> PreviewScenePtr;
 
@@ -399,7 +392,7 @@ private:
 	void SetCameraTargetLocation(const FSphere &BoundSphere, float DeltaSeconds);
 
 	/** Draws Mesh Bones in foreground **/
-	void DrawMeshBones(USkeletalMeshComponent * MeshComponent, FPrimitiveDrawInterface* PDI) const;
+	void DrawMeshBones(UDebugSkelMeshComponent * MeshComponent, FPrimitiveDrawInterface* PDI) const;
 	/** Draws the given array of transforms as bones */
 	void DrawBonesFromTransforms(TArray<FTransform>& Transforms, UDebugSkelMeshComponent * MeshComponent, FPrimitiveDrawInterface* PDI, FLinearColor BoneColour, FLinearColor RootBoneColour) const;
 	/** Draws Bones for a compact pose */
@@ -415,9 +408,9 @@ private:
 	/** Draw Bones for non retargeted animation. */
 	void DrawMeshBonesBakedAnimation(UDebugSkelMeshComponent * MeshComponent, FPrimitiveDrawInterface* PDI) const;
 	/** Draws Bones for RequiredBones with WorldTransform **/
-	void DrawBones(const USkeletalMeshComponent* MeshComponent, const TArray<FBoneIndexType> & RequiredBones, const TArray<FTransform> & WorldTransforms, FPrimitiveDrawInterface* PDI, const TArray<FLinearColor>& BoneColours, float LineThickness = 0.f, bool bForceDraw = false) const;
+	void DrawBones(const TArray<FBoneIndexType> & RequiredBones, const FReferenceSkeleton& RefSkeleton, const TArray<FTransform> & WorldTransforms, const TArray<int32>& InSelectedBones, FPrimitiveDrawInterface* PDI, const TArray<FLinearColor>& BoneColours, float LineThickness = 0.f, bool bForceDraw = false) const;
 	/** Draw Sub set of Bones **/
-	void DrawMeshSubsetBones(const USkeletalMeshComponent* MeshComponent, const TArray<int32>& BonesOfInterest, FPrimitiveDrawInterface* PDI) const;
+	void DrawMeshSubsetBones(const UDebugSkelMeshComponent* MeshComponent, const TArray<int32>& BonesOfInterest, FPrimitiveDrawInterface* PDI) const;
 
 	/** Draws bones from watched poses*/
 	void DrawWatchedPoses(UDebugSkelMeshComponent * MeshComponent, FPrimitiveDrawInterface* PDI);
@@ -448,9 +441,6 @@ private:
 	void GetAllVertexIndicesUsedInSection(const FRawStaticIndexBuffer16or32Interface& IndexBuffer,
 										  const FSkelMeshRenderSection& SkelMeshSection,
 										  TArray<int32>& OutIndices) const;
-
-	/** Override for preview component selection to inform the editor we consider it selected */
-	bool PreviewComponentSelectionOverride(const UPrimitiveComponent* InComponent) const;
 
 	/** Used for camera tracking - store data about the scene pre-tick */
 	void HandlePreviewScenePreTick();

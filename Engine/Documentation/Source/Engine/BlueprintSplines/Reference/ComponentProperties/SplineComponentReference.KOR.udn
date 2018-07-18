@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3801260
 Availability:Public
 Title:블루프린트 스플라인 컴포넌트 프로퍼티 참고서
 Crumbs: %ROOT%, Engine
@@ -173,7 +173,7 @@ topic-image:Engine/BlueprintSplines/Splines_topic.png
 [EXCERPT:PointsType]
 선택된 **커브 포인트** 의 커브 유형을 정의합니다. 
 
-| 유형 | %spacer2% | 설명 |
+| 유형 | 설명 |
 | --- | :--- |
 | **Linear** | 선형 - 선택된 **커브 포인트** 에서 다음까지 커브는 직선입니다. 선택된 **커프 포인트** 로 들어오는 탄젠트는 물론 다음으로 출발하는 탄젠트에까지 영향을 끼칩니다. |
 | **Curve** | 커브 - 기본값입니다. (선택된 것 이전 및 다음) **커브 포인트** 의 위치로, 선택된 **커브 포인트** 의 탄젠트를 정의합니다. |

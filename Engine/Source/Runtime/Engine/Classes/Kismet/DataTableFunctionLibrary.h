@@ -9,7 +9,7 @@
 #include "UObject/ScriptMacros.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "Engine/DataTable.h"
-#include "Class.h" // for FStructUtils
+#include "UObject/Class.h" // for FStructUtils
 #include "DataTableFunctionLibrary.generated.h"
 
 class UCurveTable;
@@ -101,4 +101,39 @@ class ENGINE_API UDataTableFunctionLibrary : public UBlueprintFunctionLibrary
 		}
 		*(bool*)RESULT_PARAM = bSuccess;
     }
+
+#if WITH_EDITOR
+	/** 
+	 * Empty and fill a Data Table from CSV string.
+	 * @param	CSVString	The Data that representing the contents of a CSV file.
+	 * @return	True if the operation succeeds, check the log for errors if it didn't succeed.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Editor Scripting | DataTable", DisplayName="Fill Data Table from CSV String")
+	static bool FillDataTableFromCSVString(UDataTable* DataTable, const FString& CSVString);
+
+	/** 
+	 * Empty and fill a Data Table from CSV file.
+	 * @param	CSVFilePath	The file path of the CSV file.
+	 * @return	True if the operation succeeds, check the log for errors if it didn't succeed.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Editor Scripting | DataTable", DisplayName = "Fill Data Table from CSV File")
+	static bool FillDataTableFromCSVFile(UDataTable* DataTable, const FString& CSVFilePath);
+
+	/** 
+	 * Empty and fill a Data Table from JSON string.
+	 * @param	JSONString	The Data that representing the contents of a JSON file.
+	 * @return	True if the operation succeeds, check the log for errors if it didn't succeed.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Editor Scripting | DataTable", DisplayName = "Fill Data Table from JSON String")
+	static bool FillDataTableFromJSONString(UDataTable* DataTable, const FString& JSONString);
+
+
+	/** 
+	 * Empty and fill a Data Table from JSON file.
+	 * @param	JSONFilePath	The file path of the JSON file.
+	 * @return	True if the operation succeeds, check the log for errors if it didn't succeed.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Editor Scripting | DataTable", DisplayName = "Fill Data Table from JSON File")
+	static bool FillDataTableFromJSONFile(UDataTable* DataTable, const FString& JSONFilePath);
+#endif //WITH_EDITOR
 };

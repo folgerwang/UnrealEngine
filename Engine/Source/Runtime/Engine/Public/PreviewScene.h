@@ -80,6 +80,9 @@ public:
 	/** Clean out the line batcher each frame */
 	void ClearLineBatcher();
 
+	/** Update sky and reflection captures */
+	void UpdateCaptureContents();
+
 	FRotator GetLightDirection();
 	void SetLightDirection(const FRotator& InLightDir);
 	void SetLightBrightness(float LightBrightness);

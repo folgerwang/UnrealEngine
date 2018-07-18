@@ -141,10 +141,10 @@ struct SLATECORE_API FFontData
 	FFontData();
 
 	/** Construct the raw data from a font face asset */
-	explicit FFontData(const UObject* const InFontFaceAsset);
+	explicit FFontData(const UObject* const InFontFaceAsset, const int32 InSubFaceIndex = 0);
 
 	/** Construct the raw data from a filename and the font data attributes */
-	FFontData(FString InFontFilename, const EFontHinting InHinting, const EFontLoadingPolicy InLoadingPolicy);
+	FFontData(FString InFontFilename, const EFontHinting InHinting, const EFontLoadingPolicy InLoadingPolicy, const int32 InSubFaceIndex = 0);
 
 	/** Is this font data set to a font? (either by filename or by inline data) */
 	bool HasFont() const;
@@ -157,6 +157,12 @@ struct SLATECORE_API FFontData
 
 	/** Get the enum controlling how this font should be loaded at runtime. */
 	EFontLoadingPolicy GetLoadingPolicy() const;
+
+	/** Get the index of the sub-face that should be used. */
+	int32 GetSubFaceIndex() const;
+
+	/** Set the index of the sub-face that should be used. */
+	void SetSubFaceIndex(const int32 InSubFaceIndex);
 
 	/** Get the method to use when laying out the font? */
 	EFontLayoutMethod GetLayoutMethod() const;
@@ -199,6 +205,7 @@ struct SLATECORE_API FFontData
 			KeyHash = HashCombine(KeyHash, GetTypeHash(Key.Hinting));
 			KeyHash = HashCombine(KeyHash, GetTypeHash(Key.LoadingPolicy));
 		}
+		KeyHash = HashCombine(KeyHash, GetTypeHash(Key.SubFaceIndex));
 
 		return KeyHash;
 	}
@@ -235,6 +242,13 @@ private:
 	 */
 	UPROPERTY()
 	EFontLoadingPolicy LoadingPolicy;
+
+	/**
+	 * The index of the sub-face that should be used.
+	 * This is typically zero unless using a TTC/OTC font.
+	 */
+	UPROPERTY()
+	int32 SubFaceIndex;
 
 	/**
 	 * Font data v3. This points to a font face asset.

@@ -18,6 +18,9 @@ template<typename ElementType> class TRangeSet
 	typedef TRangeBound<ElementType> BoundsType;
 	typedef TRange<ElementType> RangeType;
 
+	/*~ Typedef used to pass/return small element types by value rather than const& */
+	typedef typename TCallTraits<ElementType>::ParamType ElementValueOrConstRef;
+
 public:
 
 	/** Default constructor. */
@@ -113,7 +116,7 @@ public:
 	 * @param Element The element to check.
 	 * @return true if the element is in the set, false otherwise.
 	 */
-	bool Contains(const ElementType& Element) const
+	bool Contains(ElementValueOrConstRef Element) const
 	{
 		for (typename TArray<RangeType>::TConstIterator It(Ranges); It; ++It)
 		{
@@ -171,7 +174,7 @@ public:
 	 * @return Bound value.
 	 * @see GetMaxBoundValue, GetMinBound, HasMinBound
 	 */
-	const ElementType& GetMinBoundValue() const
+	ElementType GetMinBoundValue() const
 	{
 		return GetMinBound().GetValue();
 	}
@@ -202,7 +205,7 @@ public:
 	 * @return Bound value.
 	 * @see GetMaxBound, GetMinBoundValue, HasMaxBound
 	 */
-	const ElementType& GetMaxBoundValue() const
+	ElementType GetMaxBoundValue() const
 	{
 		return GetMaxBound().GetValue();
 	}

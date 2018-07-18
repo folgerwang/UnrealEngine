@@ -20,13 +20,14 @@
 
 #if PLATFORM_WINDOWS
 
-	#include "AllowWindowsPlatformTypes.h"
+	#include "Windows/AllowWindowsPlatformTypes.h"
 	#include <winreg.h>
-	#include "HideWindowsPlatformTypes.h"
+	#include "Windows/HideWindowsPlatformTypes.h"
 
 	#define XGE_CONTROL_WORKER_NAME		TEXT("XGEControlWorker")
 	#define XGE_CONTROL_WORKER_FILENAME	TEXT("XGEControlWorker.exe")
 	#define XGE_CONTROL_WORKER_REL_DIR	TEXT("../../../Engine/Binaries/Win64/")
+	#define XGE_CONTROL_WORKER_EXE_PATH TEXT("../../../Engine/Binaries/Win64/XGEControlWorker.exe")
 
 #else
 #error XGE Controller is not supported on non-Windows platforms.
@@ -176,6 +177,11 @@ bool FXGEControllerModule::IsSupported()
 		return bSupported;
 
 #if PLATFORM_WINDOWS
+
+	if (!FPlatformProcess::SupportsMultithreading())
+	{
+		return false; // current implementation requires worker threads
+	}
 
 	// Check the command line to see if the XGE controller has been enabled/disabled.
 	// This overrides the value of the console variable.
@@ -391,6 +397,13 @@ void FXGEControllerModule::WriteOutThreadProc()
 		{
 			UE_LOG(LogXGEController, Fatal, TEXT("Failed to launch the XGE control worker process."));
 		}
+
+		// If the engine crashes, we don't get a chance to kill the build process.
+		// Start up the build monitor process to monitor for engine crashes.
+		uint32 BuildMonitorProcessID;
+		FString XGMonitorArgs = FString::Printf(TEXT("-xgemonitor %d %d"), FPlatformProcess::GetCurrentProcessId(), XGConsoleProcID);
+		FProcHandle BuildMonitorHandle = FPlatformProcess::CreateProc(XGE_CONTROL_WORKER_EXE_PATH, *XGMonitorArgs, true, false, false, &BuildMonitorProcessID, 0, nullptr, nullptr);
+		FPlatformProcess::CloseProc(BuildMonitorHandle);
 
 		// Wait for the controller to connect to the output pipe
 		if (!OutputNamedPipe.OpenConnection())

@@ -1,5 +1,4 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
-// .
 
 #pragma once
 
@@ -67,6 +66,8 @@ struct FBuffers
 
 	// Information about textures & samplers; we need to have unique samplerstate indices, as one they can be used independent of each other
 	TArray<std::string> UniqueSamplerStates;
+	
+	uint32 MaxTextures;
 
 	void AddBuffer(ir_variable* Var)
 	{
@@ -166,13 +167,15 @@ struct FBuffers
 		{
 			auto* Var = Buffers[i]->as_variable();
 			check(Var);
-            if(Var->type->sampler_buffer && Var->type->inner_type->components() != 3 && !Var->invariant)
+			bool bIsStructuredBuffer = (!strncmp(Var->type->name, "RWStructuredBuffer<", 19) || !strncmp(Var->type->name, "StructuredBuffer<", 17));
+			bool bIsByteAddressBuffer = (!strncmp(Var->type->name, "RWByteAddressBuffer", 19) || !strncmp(Var->type->name, "ByteAddressBuffer", 17));
+			if (Var->type->is_image())
+			{
+				IBuffers.push_back(Var);
+			}
+			else if(Var->type->sampler_buffer && Var->type->inner_type->components() != 3 && !Var->invariant && !bIsStructuredBuffer && !bIsByteAddressBuffer)
             {
                 TBuffers.push_back(Var);
-            }
-            else if (Var->type->is_image())
-            {
-                IBuffers.push_back(Var);
             }
 			else if (Var->semantic && strlen(Var->semantic) == 1)
 			{
@@ -263,7 +266,7 @@ struct FBuffers
         
         uint32 TypedBuffers = 0;
         static const uint32 MaxBuffers = 30;
-        static const uint32 MaxTextures = 128;
+		check(MaxTextures > 0);
         
         for (int i = 0; i < MaxBuffers && !TBuffers.empty(); ++i)
         {
@@ -311,7 +314,7 @@ struct FBuffers
 			}
 		}
         
-        for(int i = 0; i < MaxTextures && !RTextures.empty(); i++)
+        for(int i = 0; i < (int)MaxTextures && !RTextures.empty(); i++)
         {
             // Can't override a typed-buffer/texture
             if ((i >= MaxBuffers || !(TypedBuffers & (1 << i))) && (i >= AllTextures.Num() || !AllTextures[i]))

@@ -10,7 +10,7 @@
 class FPaintArgs;
 class FSlateWindowElementList;
 class ISequencer;
-class ISequencerKeyCollection;
+class FSequencerKeyCollection;
 
 class SCinematicTransportRange : public SCompoundWidget
 {
@@ -31,7 +31,7 @@ public:
 	virtual FReply OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
 	virtual FReply OnMouseMove(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent);
 	virtual FReply OnMouseButtonUp(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
-	virtual void OnMouseCaptureLost() override;
+	virtual void OnMouseCaptureLost(const FCaptureLostEvent& CaptureLostEvent) override;
 
 private:
 
@@ -43,7 +43,7 @@ private:
 	TWeakPtr<ISequencer> WeakSequencer;
 
 	/** The collection of keys for the currently active sequencer selection */
-	TUniquePtr<ISequencerKeyCollection> ActiveKeyCollection;
+	TUniquePtr<FSequencerKeyCollection> ActiveKeyCollection;
 
 	bool bDraggingTime;
 };

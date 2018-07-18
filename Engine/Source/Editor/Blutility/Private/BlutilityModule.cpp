@@ -17,6 +17,8 @@
 #include "BlutilityDetailsPanel.h"
 #include "BlutilityShelf.h"
 #include "Widgets/Docking/SDockTab.h"
+#include "BlutilityContentBrowserExtensions.h"
+#include "BlutilityLevelEditorExtensions.h"
 
 /////////////////////////////////////////////////////
 
@@ -51,6 +53,9 @@ public:
 		FGlobalTabmanager::Get()->RegisterTabSpawner(BlutilityModule::BlutilityShelfApp, FOnSpawnTab::CreateStatic(&SpawnBlutilityShelfTab))
 			.SetDisplayName(NSLOCTEXT("BlutilityShelf", "TabTitle", "Blutility Shelf"))
 			.SetGroup(WorkspaceMenu::GetMenuStructure().GetToolsCategory());
+
+		FBlutilityContentBrowserExtensions::InstallHooks();
+		FBlutilityLevelEditorExtensions::InstallHooks();
 	}
 
 	virtual void ShutdownModule() override
@@ -59,6 +64,9 @@ public:
 		{
 			return;
 		}
+
+		FBlutilityLevelEditorExtensions::RemoveHooks();
+		FBlutilityContentBrowserExtensions::RemoveHooks();
 
 		FGlobalTabmanager::Get()->UnregisterTabSpawner(BlutilityModule::BlutilityShelfApp);
 

@@ -21,9 +21,9 @@ PRAGMA_POP
 
 #include "VectorVM.h"
 
-#include "IConsoleManager.h"
+#include "HAL/IConsoleManager.h"
 
-#include "Stats.h"
+#include "Stats/Stats.h"
 
 DECLARE_STATS_GROUP(TEXT("VectorVMBackend"), STATGROUP_VectorVMBackend, STATCAT_Advanced);
 
@@ -77,6 +77,95 @@ bool FVectorVMCodeBackend::GenerateMain(EHlslShaderFrequency Frequency, const ch
 	return true;
 }
 
+/** Finds all external function calls (those with no body) and make them built in. This is to bypass issues with constant propagation visitor. */
+class ir_make_external_funcs_builtin : public ir_hierarchical_visitor
+{
+	_mesa_glsl_parse_state *parse_state;
+	ir_make_external_funcs_builtin(_mesa_glsl_parse_state *in_state) : parse_state(in_state) {	}
+	virtual ~ir_make_external_funcs_builtin() {	}
+
+	virtual ir_visitor_status visit_enter(ir_function_signature *sig)
+	{
+		if (sig->body.get_head() == nullptr)
+		{
+			sig->is_builtin = true;
+		}
+		return visit_continue;
+	}
+
+public:
+	static void run(exec_list *ir, _mesa_glsl_parse_state *state)
+	{
+		ir_make_external_funcs_builtin visitor(state);
+		visit_list_elements(&visitor, ir);
+	}
+};
+
+/** Removes any stat scopes that are now empty due to other optimizations. */
+class ir_remove_empty_stat_scopes : public ir_hierarchical_visitor
+{
+	_mesa_glsl_parse_state *parse_state;
+	ir_remove_empty_stat_scopes(_mesa_glsl_parse_state *in_state)
+		: parse_state(in_state)
+		, progress(false)
+	{
+	}
+	virtual ~ir_remove_empty_stat_scopes() {	}
+
+	TArray<ir_call*> EnterStatScopeCalls;
+	TArray<int32> StatScopeAssingmentCounts;
+
+	bool progress;
+
+	virtual ir_visitor_status visit_enter(ir_call* call)
+	{
+		if (strcmp(call->callee_name(), "EnterStatScope") == 0)
+		{
+			EnterStatScopeCalls.Push(call);
+			StatScopeAssingmentCounts.Push(0);			
+		}
+		else if (strcmp(call->callee_name(), "ExitStatScope") == 0)
+		{
+			check(EnterStatScopeCalls.Num() == StatScopeAssingmentCounts.Num());
+			if (EnterStatScopeCalls.Num() == 0)
+			{
+				_mesa_glsl_error(parse_state, "Mismatched EnterStatScope/ExitStatScope calls.");
+				return visit_stop;
+			}
+
+			ir_call* EnterCall = EnterStatScopeCalls.Pop();
+			int32 NumAssignments = StatScopeAssingmentCounts.Pop();
+			if (NumAssignments == 0)
+			{
+				EnterCall->remove();
+				call->remove();
+			}
+		}
+		return visit_continue_with_parent;
+	}
+
+	virtual ir_visitor_status visit_enter(ir_assignment* assign)
+	{
+		if (StatScopeAssingmentCounts.Num() > 0)
+		{
+			++StatScopeAssingmentCounts.Last();
+		}
+		return visit_continue_with_parent;
+	}
+
+public:
+
+	static void run(exec_list *ir, _mesa_glsl_parse_state *state)
+	{
+		ir_remove_empty_stat_scopes visitor(state);
+		do
+		{
+			visitor.progress = false;
+			visit_list_elements(&visitor, ir);
+		} while (visitor.progress);
+	}
+};
+
 char* FVectorVMCodeBackend::GenerateCode(exec_list* ir, _mesa_glsl_parse_state* state, EHlslShaderFrequency Frequency)
 {
 	SCOPE_CYCLE_COUNTER(STAT_VVMGenerateCode); 
@@ -86,21 +175,26 @@ char* FVectorVMCodeBackend::GenerateCode(exec_list* ir, _mesa_glsl_parse_state* 
 	if (state->error) return nullptr;
 
 	bool progress = false;
+
+	ir_make_external_funcs_builtin::run(ir, state);
+
+	FlattenUniformBufferStructures(ir, state);
+
+	state->conservative_propagation = false;
 	{
 		SCOPE_CYCLE_COUNTER(STAT_VVMInitMisc);
 		vm_debug_print("== Initial misc ==\n");
 		do
 		{
-			//progress = do_function_inlining(ir);//Full optimization pass earlier will have already done this.
+// 			progress = do_function_inlining(ir);//Full optimization pass earlier will have already done this.
 			progress = do_mat_op_to_vec(ir);
 			progress = do_vec_op_to_scalar(ir, state) || progress;
 			progress = do_vec_index_to_swizzle(ir) || progress;
-			progress = do_copy_propagation(ir) || progress;
-			progress = do_copy_propagation_elements(ir) || progress;
-			progress = do_swizzle_swizzle(ir) || progress;
+			progress = do_optimization_pass(ir, state, true) || progress;
+			vm_debug_print("======== Optimization Pass ==============\n");
+			vm_debug_dump(ir, state);
 		} while (progress);
 		//validate_ir_tree(ir, state);
-		vm_debug_dump(ir, state);
 		if (state->error) return nullptr;
 	}
 	
@@ -178,6 +272,8 @@ char* FVectorVMCodeBackend::GenerateCode(exec_list* ir, _mesa_glsl_parse_state* 
 			progress = do_copy_propagation_elements(ir) || progress;
 			progress = do_constant_propagation(ir) || progress;
 		} while (progress);
+
+		ir_remove_empty_stat_scopes::run(ir, state);
 		vm_debug_dump(ir, state);
 	}
 
@@ -187,6 +283,7 @@ char* FVectorVMCodeBackend::GenerateCode(exec_list* ir, _mesa_glsl_parse_state* 
 	}
 
 	if (state->error) return nullptr;
+
 	{
 		SCOPE_CYCLE_COUNTER(STAT_VVMGenByteCode);
 		vm_gen_bytecode(ir, state, CompilationOutput);
@@ -204,6 +301,9 @@ void FVectorVMLanguageSpec::SetupLanguageIntrinsics(_mesa_glsl_parse_state* Stat
 	make_intrinsic_genType(ir, State, "rand", ir_invalid_opcode, IR_INTRINSIC_FLOAT, 1, 1, 4);
 	make_intrinsic_genType(ir, State, "rand", ir_invalid_opcode, IR_INTRINSIC_INT, 1, 1, 4);
 	make_intrinsic_genType(ir, State, "Modulo", ir_invalid_opcode, IR_INTRINSIC_FLOAT, 1, 1, 4);
+
+	make_intrinsic_genType(ir, State, "EnterStatScope", ir_invalid_opcode, IR_INTRINSIC_RETURNS_VOID | IR_INTRINSIC_INT, 1, 1, 1);
+	make_intrinsic_genType(ir, State, "ExitStatScope", ir_invalid_opcode, IR_INTRINSIC_RETURNS_VOID, 0, 0, 0);
 
 // Dont need all these as we're only using the basic scalar function which we provide the signature for in the usf.
 // 	make_intrinsic_genType(ir, State, "InputDataFloat", ir_invalid_opcode, IR_INTRINSIC_FLOAT, 2, 1, 1);

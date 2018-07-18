@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3482309
+﻿INTSourceChangelist:3810557
 Title:モバイル パッケージング ウィザード 
 Description:モバイル パッケージング ウィザードを使って UE4 モバイル プロジェクトのインストール サイズを小さくする
 Crumbs:%ROOT%, Platforms, Platforms/Mobile, Platforms/Mobile/MobilePackagingWizard/
@@ -210,7 +210,7 @@ Related:Engine/Deployment/UnrealFrontend
 	[/PARAM]
 	[/OBJECT]
 
-	1. **[Distributable APK]** メニューで **[Build Configuration (ビルド コンフィギュレーション)]** を **[Development]** に設定して使用したいマップを選択し、完了したら **[Next]** ボタンを押します。 
+1. **[Distributable APK]** メニューで **[Build Configuration (ビルド コンフィギュレーション)]** を **[Development]** に設定して使用したいマップを選択し、完了したら **[Next]** ボタンを押します。 
 
 	[OBJECT:ToggleButtonContent]
 	[PARAMLITERAL:category]
@@ -344,8 +344,7 @@ Related:Engine/Deployment/UnrealFrontend
 	[/OBJECT]
 
 	[region:warning]
-	DLC をビルドする前にプロジェクトのファイルをパッケージしなければなりません。 <!--先に DLC をビルドしてもプロジェクトはパックされません。
-[/COMMENT]
+	DLC をビルドする前にプロジェクトのファイルをパッケージしなければなりません。
 	[/region]
 
 1. **[Launch this Profile (このプロファイルを起動)]** ボタンを押すと、プロジェクト ランチャーがパッケージングを開始します。[Project Launcher] ウィンドウでパッケージ処理の進捗を確認できます。
@@ -741,9 +740,7 @@ mac
 	[/OBJECT]
 
 	[region:warning]
-	DLC をビルドする前にプロジェクトのファイルをパッケージしなければなりません。 [COMMENT:none]
-先に DLC をビルドしてもプロジェクトはパックされません。
-[/COMMENT]
+	DLC をビルドする前にプロジェクトのファイルをパッケージしなければなりません。
 	[/region]
 
 1. **[Launch this Profile (このプロファイルを起動)]** ボタンを押すと、プロジェクト ランチャーがパッケージングを開始します。[Project Launcher] ウィンドウでパッケージ処理の進捗を確認できます。
@@ -905,4 +902,4 @@ mac
 フォルダには、ユーザーがモバイル デバイス上にアプリケーションをダウンロードおよびインストールした後にダウンロードされるように設定されているプロジェクトの様々な構成要素があります。
 
 [/EXCERPT:ios]
--->
+[/COMMENT]

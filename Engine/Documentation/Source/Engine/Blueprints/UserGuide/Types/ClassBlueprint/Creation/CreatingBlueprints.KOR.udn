@@ -70,9 +70,9 @@ _블루프린트_ 는 패키지에 저장되며, 다른 애셋과 마찬가지�
 
 [/EXCERPT:CreateBP2]
 
-[EXCERPT:CreateBP3]
-
 다른 방법으로는:
+
+[EXCERPT:CreateBP3]
 
 1. 콘텐츠 브라우저의 왼편에 있는 **애셋 트리** 내 폴더에 우클릭합니다.
 
@@ -100,7 +100,7 @@ _블루프린트_ 는 패키지에 저장되며, 다른 애셋과 마찬가지�
 ![Create Blueprint Menu Option](k2_create_menu.png)
 
 또는 ![Content Browser New Button](k2_create_new.png) 버튼을 클릭하고 **Factory** (팩토리)를 만들고자 하는 
-_블루프린트_ 유형으로 설정합니다. 예제에서는 **Blueprint** (블루프린트)를 선택하여 보통 _블루프린트_ 를 만들었습니다.
+블루프린트 유형으로 설정합니다. 예제에서는 **Blueprint** (블루프린트)를 선택하여 보통 _블루프린트_ 를 만들었습니다.
 
 ![New Dialog Blueprint Factory Option](k2_create_factory.png)
 

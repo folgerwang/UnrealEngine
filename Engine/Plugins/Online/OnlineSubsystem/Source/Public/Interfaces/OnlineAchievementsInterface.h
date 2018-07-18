@@ -1,12 +1,21 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
-
-
 #pragma once
-
 
 #include "CoreMinimal.h"
 #include "OnlineDelegateMacros.h"
 #include "OnlineStats.h"
+
+ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlineAchievements, Display, All);
+
+#define UE_LOG_ONLINE_ACHIEVEMENTS(Verbosity, Format, ...) \
+{ \
+	UE_LOG(LogOnlineAchievements, Verbosity, TEXT("%s%s"), ONLINE_LOG_PREFIX, *FString::Printf(Format, ##__VA_ARGS__)); \
+}
+
+#define UE_CLOG_ONLINE_ACHIEVEMENTS(Conditional, Verbosity, Format, ...) \
+{ \
+	UE_CLOG(Conditional, LogOnlineAchievements, Verbosity, TEXT("%s%s"), ONLINE_LOG_PREFIX, *FString::Printf(Format, ##__VA_ARGS__)); \
+}
 
 /**
  * Delegate fired when achievements have been written to the server
@@ -100,27 +109,30 @@ public:
 	 */
 	virtual void WriteAchievements(const FUniqueNetId& PlayerId, FOnlineAchievementsWriteRef& WriteObject, const FOnAchievementsWrittenDelegate& Delegate = FOnAchievementsWrittenDelegate()) = 0;
 
-	
 	/**
-	 * Read achievements from the server
+	 * Read achievement ids and progress from the server
+	 * You must use QueryAchievementDescriptions to get more information about the achievements
+	 * @see FOnlineAchievement
+	 * @see QueryAchievementDescriptions
 	 *
-	 * @param PlayerId - The uid of the player we are reading achievements for
+	 * @param PlayerId the id of the player we are reading achievements for
+	 * @param Delegate the delegate to trigger when the query is complete
 	 *
 	 * @return Whether we have kicked off a read attempt
 	 */
 	virtual void QueryAchievements(const FUniqueNetId& PlayerId, const FOnQueryAchievementsCompleteDelegate& Delegate = FOnQueryAchievementsCompleteDelegate()) = 0;
-
 	
 	/**
-	 * Read achievement descriptions from the server
+	 * Read achievement descriptions from the server for displaying achievements in game
+	 * @see FOnlineAchievementDesc
 	 *
-	 * @param PlayerId - The uid of the player we are reading achievements for
+	 * @param PlayerId the id of the player we are reading achievements for
+	 * @param Delegate the delegate to trigger when the query is complete
 	 *
 	 * @return Whether we have kicked off a read attempt
 	 */
 	virtual void QueryAchievementDescriptions( const FUniqueNetId& PlayerId, const FOnQueryAchievementsCompleteDelegate& Delegate = FOnQueryAchievementsCompleteDelegate() ) = 0;
 
-	
 	/**
 	 * Get an achievement object which was previously synced from the server
 	 *
@@ -132,7 +144,6 @@ public:
 	 */
 	virtual EOnlineCachedResult::Type GetCachedAchievement( const FUniqueNetId& PlayerId, const FString& AchievementId, FOnlineAchievement& OutAchievement) = 0;
 	
-
 	/**
 	 * Get all the achievement objects for the specified player
 	 *
@@ -143,7 +154,6 @@ public:
 	 */
 	virtual EOnlineCachedResult::Type GetCachedAchievements(const FUniqueNetId& PlayerId, TArray<FOnlineAchievement>& OutAchievements) = 0;
 	
-
 	/**
 	 * Get all the achievement description object for the specified achievement id
 	 *

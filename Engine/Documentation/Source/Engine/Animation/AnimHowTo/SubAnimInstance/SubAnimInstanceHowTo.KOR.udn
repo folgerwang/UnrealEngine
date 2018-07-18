@@ -74,7 +74,7 @@ tags:Skeletal Controls
 
 	![](SubAnimBP06.png)
 
-애니메이션 블루프린트를 **컴파일** 하면, 프리뷰 창의 캐릭터가 팔을 위로 올릴 것입니다.
+	애니메이션 블루프린트를 **컴파일** 하면, 프리뷰 창의 캐릭터가 팔을 위로 올릴 것입니다.
 
 	![](CompliedBlueprint.png)
 

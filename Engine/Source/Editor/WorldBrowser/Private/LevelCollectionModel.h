@@ -23,7 +23,7 @@ typedef TFilterCollection< const FLevelModel* >		LevelFilterCollection;
 /**
  * Interface for non-UI presentation logic for a world
  */
-class FLevelCollectionModel
+class WORLDBROWSER_API FLevelCollectionModel
 	: public TSharedFromThis<FLevelCollectionModel>	
 	, public FTickableEditorObject
 {
@@ -577,12 +577,6 @@ protected:
 	/** Guard to avoid recursive level selection updates */
 	bool								bUpdatingLevelsSelection;
 };
-
-/** Current world origin location on XY plane  */
-FORCEINLINE FIntPoint GetWorldOriginLocationXY(UWorld* InWorld)
-{
-	return FIntPoint(InWorld->OriginLocation.X, InWorld->OriginLocation.Y);
-}
 
 //
 // Helper struct to temporally make specified UObject immune to dirtying

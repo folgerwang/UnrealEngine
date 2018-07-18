@@ -19,7 +19,9 @@ public:
 	virtual const FProjectDescriptor *GetCurrentProject() const override;
 	virtual bool LoadProjectFile( const FString& ProjectFile ) override;
 	virtual bool LoadModulesForProject( const ELoadingPhase::Type LoadingPhase ) override;
+#if !IS_MONOLITHIC
 	virtual bool CheckModuleCompatibility( TArray<FString>& OutIncompatibleModules ) override;
+#endif
 	virtual const FString& GetAutoLoadProjectFileName() override;
 	virtual bool SignSampleProject(const FString& FilePath, const FString& Category, FText& OutFailReason) override;
 	virtual bool QueryStatusForProject(const FString& FilePath, FProjectStatus& OutProjectStatus) const override;
@@ -37,6 +39,7 @@ public:
 	virtual bool SaveCurrentProjectToDisk(FText& OutFailReason) override;
 	virtual bool IsEnterpriseProject() override;
 	virtual void SetIsEnterpriseProject(bool bValue) override;
+	virtual TArray<FModuleContextInfo>& GetCurrentProjectModuleContextInfos() override;
 
 private:
 	static void QueryStatusForProjectImpl(const FProjectDescriptor& Project, const FString& FilePath, FProjectStatus& OutProjectStatus);
@@ -46,6 +49,9 @@ private:
 
 	/** The project that is currently loaded in the editor */
 	TSharedPtr< FProjectDescriptor > CurrentProject;
+
+	/** Cached list of module infos for the project that is currently loaded in the editor */
+	TArray<FModuleContextInfo> CurrentProjectModuleContextInfos;
 
 	/** Whether the current project has been modified but not saved to disk */
 	bool bIsCurrentProjectDirty;

@@ -1104,7 +1104,7 @@ static FString DumpBlueprintInfoUtils::BuildByteSizeString(int32 ByteSize)
 	int32 UnitsIndex = 0;
 	float ConvertedSize = ByteSize;
 
-	TCHAR const* Format = TEXT("%.0f %s");
+	bool bIsIntegral = true;
 
 	float const MetricStepSize = 1024.0f;
 	while ((ConvertedSize > MetricStepSize) && (UnitsIndex < ByteUnits_MAX))
@@ -1112,10 +1112,17 @@ static FString DumpBlueprintInfoUtils::BuildByteSizeString(int32 ByteSize)
 		ConvertedSize /= MetricStepSize;
 		++UnitsIndex;
 
-		Format = TEXT("%.2f %s");
+		bIsIntegral = false;
 	}
 
-	return FString::Printf(Format, ConvertedSize, ByteUnits[UnitsIndex]);
+	if (bIsIntegral)
+	{
+		return FString::Printf(TEXT("%.0f %s"), ConvertedSize, ByteUnits[UnitsIndex]);
+	}
+	else
+	{
+		return FString::Printf(TEXT("%.2f %s"), ConvertedSize, ByteUnits[UnitsIndex]);
+	}
 }
 
 //------------------------------------------------------------------------------

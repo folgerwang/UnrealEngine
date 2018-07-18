@@ -1,9 +1,8 @@
-﻿INTSourceChangelist:3477690
-Availability:Public
+﻿Availability:Public
 Title:3.プロジェクトの作成
 Crumbs:%ROOT%, Platforms, Platforms/Android, Platforms/Android/GettingStarted
 Description:テンプレート プロジェクトを開始する
-Version:4.16
+Version:4.17
 Skilllevel:Intermediate
 tags:Android
 tags:Mobile
@@ -28,7 +27,7 @@ Blueprint Third Person template を用いてブループリント ベースの�
 * スターター コンテンツは含めない
 * AndroidProject にプロジェクト名を付ける
 
-![](new_android_project.png)
+	![](new_android_project.png)
 
 1. 完了したら緑の **[Create Project (プロジェクトを作成)]** ボタンを押してプロジェクトを作成します。
 

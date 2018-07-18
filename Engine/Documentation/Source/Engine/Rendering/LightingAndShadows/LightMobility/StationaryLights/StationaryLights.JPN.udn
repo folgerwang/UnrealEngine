@@ -1,47 +1,14 @@
-﻿Availability:Public
+﻿INTSourceChangelist:3736212
+Availability:Public
 Title:Stationary lights (固定ライト)
 Crumbs: %ROOT%, Engine, Engine/Rendering/LightingAndShadows,Engine/Rendering/LightingAndShadows/LightMobility
-Description:ランタイム時に、色と輝度の変更が可能、移動、回転、サイズの変更が不可能なライトの概要
+Description:ランタイム時において、色と輝度の変更は可能、移動、回転、サイズへの影響の変更は不可能なライトの説明です。
 Version:4.9
+parent:Engine/Rendering/LightingAndShadows/LightMobility
+order:2
+type:overview
+topic-image:stationarylights_topic.png
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-	![%Engine/Rendering/LightingAndShadows/LightMobility/StationaryLights:title%](%ROOT%/Engine/Rendering/LightingAndShadows/LightMobility/StationaryLights/stationarylights_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-	![](%ROOT%/ue4_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-	%Engine/Rendering/LightingAndShadows/LightMobility/StationaryLights:title%
-	[/PARAM]
-	[PARAM:description]
-	%Engine/Rendering/LightingAndShadows/LightMobility/StationaryLights:description%
-	[/PARAM]
-	[PARAM:path]
-	[RELATIVE:Engine/Rendering/LightingAndShadows/LightMobility/StationaryLights]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-	![%Engine/Rendering/LightingAndShadows/LightMobility/StationaryLights:title%](%ROOT%/Engine/Rendering/LightingAndShadows/LightMobility/StationaryLights/stationarylights_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-	![](%ROOT%/ue4_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-	%Engine/Rendering/LightingAndShadows/LightMobility/StationaryLights:title%
-	[/PARAM]
-	[PARAM:description]
-	%Engine/Rendering/LightingAndShadows/LightMobility/StationaryLights:description%
-	[/PARAM]
-	[PARAM:path]
-	[RELATIVE:Engine/Rendering/LightingAndShadows/LightMobility/StationaryLights]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
 [REGION:banner]
 ![](Engine/Rendering/LightingAndShadows/lighting_overview_banner_001.png)(convert:false)
@@ -49,14 +16,12 @@ Version:4.9
 
 [TOC(start:2 end:2)]
 
-
-
 [INCLUDE:Resources/ContentExamples\Lighting\2_2#StationaryLights01]
 
 ## 直接ライティング
 
 Stationary Light (固定ライト) の直接ライティングは、ディファード シェーディングを使用して動的にレンダリングされます。Light 関数または IES プロファイルと一緒に使用することにより、 
-ランタイム時に輝度と色の変更を可能にします。デリゲートタイプの宣言をしたり、 
+ランタイム時に輝度と色の変更を可能にします。これらの 
 移動ライト同様の高品質な解析的スペキュラになります。直接ライティングは、 
 ライトの **Visible** プロパティを修正することによって、直接ライティングをゲームで表示したり非表示にすることができます。
 
@@ -71,14 +36,14 @@ Stationary light (固定ライト) からの直接ライティング
 ## 直接シャドウイング
 
 光源をリアルタイムにシャドウイングすると、パフォーマンス負荷が高くなります。シャドウのある完全に動的なライトは、 
-シャドウ無しの動的ライトよりもレンダリングに 20 倍の負荷がかかっても珍しくはありません。従って、 
+シャドウ無しの動的ライトよりもレンダリングに 20 倍の負荷がかかっても珍しくはありません。従って 
 Stationary light (固定ライト) は、ある制限を伴って、静的オブジェクトに対し静的シャドウイングのみを表現することができます。
 
 ### 静的シャドウイング
 
 #### 不透明
 
-[**Lightmass**](Engine/Rendering/LightingAndShadows/Lightmass) は 
+[**ライトマス**](Engine/Rendering/LightingAndShadows/Lightmass) は 
 Stationary light (固定ライト) に対し _ディスタンス フィールド シャドウマップ_ を生成します。ディスタンス フィールド シャドウマップにより、 
 低解像度でもシャドウ変遷を非常に正確に、しかもランタイム負荷をほとんどかけずに行うことができます。ライトマップ同様に、 
 ディスタンス フィールド シャドウマップは、 

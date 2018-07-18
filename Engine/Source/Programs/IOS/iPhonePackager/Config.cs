@@ -262,11 +262,11 @@ namespace iPhonePackager
 			}
 			if (Program.GameConfiguration == "Development")
 			{
-				Filename = Path.Combine(BinariesDir, FilePrefix + GameName + Program.Architecture + FileSuffix);
+				Filename = Path.Combine(BinariesDir, FilePrefix + (bIsCodeBasedProject ? GameName : "UE4Game") + Program.Architecture + FileSuffix);
 			}
 			else
 			{
-				Filename = Path.Combine(BinariesDir, FilePrefix + GameName + "-" + Config.OSString + "-" + Program.GameConfiguration + Program.Architecture + FileSuffix);
+				Filename = Path.Combine(BinariesDir, FilePrefix + (bIsCodeBasedProject ? GameName : "UE4Game") + "-" + Config.OSString + "-" + Program.GameConfiguration + Program.Architecture + FileSuffix);
 			}
 
 			// ensure the directory exists
@@ -309,6 +309,11 @@ namespace iPhonePackager
 		/// Is this a distribution packaging build?  Controls a number of aspects of packing (which signing prefix and provisioning profile to use, etc...)
 		/// </summary>
 		public static bool bForDistribution = false;
+
+		/// <summary>
+		/// Is this a c++ code based project?  So far used on repackagefromstage to properly choose the .ipa name
+		/// </summary>
+		public static bool bIsCodeBasedProject = false;
 
 		/// <summary>
 		/// Is this going to try automatic signing?

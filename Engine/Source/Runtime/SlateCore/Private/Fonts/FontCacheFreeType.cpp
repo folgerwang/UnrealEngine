@@ -142,7 +142,7 @@ FFreeTypeLibrary::FFreeTypeLibrary()
 		FT_Int Major, Minor, Patch;
 
 		FT_Library_Version(FTLibrary, &Major, &Minor, &Patch);
-		UE_LOG(LogSlate, Log, TEXT("Using Freetype %d.%d.%d"), Major, Minor, Patch);
+		UE_LOG(LogSlate, Log, TEXT("Using FreeType %d.%d.%d"), Major, Minor, Patch);
 	}
 
 #endif // WITH_FREETYPE
@@ -157,7 +157,7 @@ FFreeTypeLibrary::~FFreeTypeLibrary()
 }
 
 
-FFreeTypeFace::FFreeTypeFace(const FFreeTypeLibrary* InFTLibrary, FFontFaceDataConstRef InMemory, const EFontLayoutMethod InLayoutMethod)
+FFreeTypeFace::FFreeTypeFace(const FFreeTypeLibrary* InFTLibrary, FFontFaceDataConstRef InMemory, const int32 InFaceIndex, const EFontLayoutMethod InLayoutMethod)
 #if WITH_FREETYPE
 	: FTFace(nullptr)
 	, Memory(MoveTemp(InMemory))
@@ -166,7 +166,17 @@ FFreeTypeFace::FFreeTypeFace(const FFreeTypeLibrary* InFTLibrary, FFontFaceDataC
 	LayoutMethod = InLayoutMethod;
 
 #if WITH_FREETYPE
-	FT_New_Memory_Face(InFTLibrary->GetLibrary(), Memory->GetData().GetData(), static_cast<FT_Long>(Memory->GetData().Num()), 0, &FTFace);
+	FT_Error Error = FT_New_Memory_Face(InFTLibrary->GetLibrary(), Memory->GetData().GetData(), static_cast<FT_Long>(Memory->GetData().Num()), InFaceIndex, &FTFace);
+	
+	if (Error)
+	{
+		// You can look these error codes up in the FreeType docs: https://www.freetype.org/freetype2/docs/reference/ft2-error_code_values.html
+		ensureAlwaysMsgf(0, TEXT("FT_New_Memory_Face failed with error code %i"), Error);
+
+		// We assume the face is null if the function errored
+		ensureAlwaysMsgf(FTFace == nullptr, TEXT("FT_New_Memory_Face failed but also returned a non-null FT_Face. This is unexpected and may leak memory!"));
+		FTFace = nullptr;
+	}
 
 	ParseAttributes();
 
@@ -177,7 +187,7 @@ FFreeTypeFace::FFreeTypeFace(const FFreeTypeLibrary* InFTLibrary, FFontFaceDataC
 #endif // WITH_FREETYPE
 }
 
-FFreeTypeFace::FFreeTypeFace(const FFreeTypeLibrary* InFTLibrary, const FString& InFilename, const EFontLayoutMethod InLayoutMethod)
+FFreeTypeFace::FFreeTypeFace(const FFreeTypeLibrary* InFTLibrary, const FString& InFilename, const int32 InFaceIndex, const EFontLayoutMethod InLayoutMethod)
 #if WITH_FREETYPE
 	: FTFace(nullptr)
 	, FTStreamHandler(InFilename)
@@ -196,7 +206,17 @@ FFreeTypeFace::FFreeTypeFace(const FFreeTypeLibrary* InFTLibrary, const FString&
 	FTFaceOpenArgs.flags = FT_OPEN_STREAM;
 	FTFaceOpenArgs.stream = &FTStream;
 
-	FT_Open_Face(InFTLibrary->GetLibrary(), &FTFaceOpenArgs, 0, &FTFace);
+	FT_Error Error = FT_Open_Face(InFTLibrary->GetLibrary(), &FTFaceOpenArgs, InFaceIndex, &FTFace);
+
+	if (Error)
+	{
+		// You can look these error codes up in the FreeType docs: https://www.freetype.org/freetype2/docs/reference/ft2-error_code_values.html
+		ensureAlwaysMsgf(0, TEXT("FT_Open_Face failed with error code %i"), Error);
+
+		// We assume the face is null if the function errored
+		ensureAlwaysMsgf(FTFace == nullptr, TEXT("FT_Open_Face failed but also returned a non-null FT_Face. This is unexpected and may leak memory!"));
+		FTFace = nullptr;
+	}
 
 	ParseAttributes();
 
@@ -225,6 +245,80 @@ FFreeTypeFace::~FFreeTypeFace()
 #endif // WITH_FREETYPE
 }
 
+TArray<FString> FFreeTypeFace::GetAvailableSubFaces(const FFreeTypeLibrary* InFTLibrary, FFontFaceDataConstRef InMemory)
+{
+	TArray<FString> Result;
+
+#if WITH_FREETYPE
+	FT_Face FTFace = nullptr;
+	FT_New_Memory_Face(InFTLibrary->GetLibrary(), InMemory->GetData().GetData(), static_cast<FT_Long>(InMemory->GetData().Num()), -1, &FTFace);
+	if (FTFace)
+	{
+		const int32 NumFaces = FTFace->num_faces;
+		FT_Done_Face(FTFace);
+		FTFace = nullptr;
+
+		Result.Reserve(NumFaces);
+		for (int32 FaceIndex = 0; FaceIndex < NumFaces; ++FaceIndex)
+		{
+			FT_New_Memory_Face(InFTLibrary->GetLibrary(), InMemory->GetData().GetData(), static_cast<FT_Long>(InMemory->GetData().Num()), FaceIndex, &FTFace);
+			if (FTFace)
+			{
+				Result.Add(FString::Printf(TEXT("%s (%s)"), UTF8_TO_TCHAR(FTFace->family_name), UTF8_TO_TCHAR(FTFace->style_name)));
+				FT_Done_Face(FTFace);
+				FTFace = nullptr;
+			}
+		}
+	}
+#endif // WITH_FREETYPE
+
+	return Result;
+}
+
+TArray<FString> FFreeTypeFace::GetAvailableSubFaces(const FFreeTypeLibrary* InFTLibrary, const FString& InFilename)
+{
+	TArray<FString> Result;
+
+#if WITH_FREETYPE
+	FFTStreamHandler FTStreamHandler(InFilename);
+
+	FT_StreamRec FTStream;
+	FMemory::Memzero(FTStream);
+	FTStream.size = FTStreamHandler.FontSizeBytes;
+	FTStream.descriptor.pointer = &FTStreamHandler;
+	FTStream.close = &FFTStreamHandler::CloseFile;
+	FTStream.read = &FFTStreamHandler::ReadData;
+
+	FT_Open_Args FTFaceOpenArgs;
+	FMemory::Memzero(FTFaceOpenArgs);
+	FTFaceOpenArgs.flags = FT_OPEN_STREAM;
+	FTFaceOpenArgs.stream = &FTStream;
+
+	FT_Face FTFace = nullptr;
+	FT_Open_Face(InFTLibrary->GetLibrary(), &FTFaceOpenArgs, -1, &FTFace);
+	if (FTFace)
+	{
+		const int32 NumFaces = FTFace->num_faces;
+		FT_Done_Face(FTFace);
+		FTFace = nullptr;
+
+		Result.Reserve(NumFaces);
+		for (int32 FaceIndex = 0; FaceIndex < NumFaces; ++FaceIndex)
+		{
+			FT_Open_Face(InFTLibrary->GetLibrary(), &FTFaceOpenArgs, FaceIndex, &FTFace);
+			if (FTFace)
+			{
+				Result.Add(FString::Printf(TEXT("%s (%s)"), UTF8_TO_TCHAR(FTFace->family_name), UTF8_TO_TCHAR(FTFace->style_name)));
+				FT_Done_Face(FTFace);
+				FTFace = nullptr;
+			}
+		}
+	}
+#endif // WITH_FREETYPE
+
+	return Result;
+}
+
 #if WITH_FREETYPE
 void FFreeTypeFace::ParseAttributes()
 {
@@ -232,7 +326,7 @@ void FFreeTypeFace::ParseAttributes()
 	{
 		// Parse out the font attributes
 		TArray<FString> Styles;
-		FString(FTFace->style_name).ParseIntoArray(Styles, TEXT(" "), true);
+		FString(UTF8_TO_TCHAR(FTFace->style_name)).ParseIntoArray(Styles, TEXT(" "), true);
 
 		for (const FString& Style : Styles)
 		{

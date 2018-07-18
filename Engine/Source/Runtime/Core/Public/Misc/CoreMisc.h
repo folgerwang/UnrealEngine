@@ -7,6 +7,7 @@
 #include "Containers/Array.h"
 #include "Containers/UnrealString.h"
 #include "Containers/Map.h"
+#include "Templates/Function.h"
 #include "Math/IntPoint.h"
 #include "UObject/NameTypes.h"
 #include "CoreGlobals.h"
@@ -191,6 +192,69 @@ public:
 	{
 		return bValue;
 	}
+};
+
+/**
+ * Function signature for handlers for script exceptions.
+ */
+typedef TFunction<void(ELogVerbosity::Type /*Verbosity*/, const TCHAR* /*ExceptionMessage*/, const TCHAR* /*StackMessage*/)> FScriptExceptionHandlerFunc;
+
+/** 
+ * Exception handler stack used for script exceptions.
+ */
+class CORE_API FScriptExceptionHandler : public TThreadSingleton<FScriptExceptionHandler>
+{
+public:
+	/**
+	 * Get the exception handler for the current thread
+	 */
+	static FScriptExceptionHandler& Get();
+
+	/**
+	 * Push an exception handler onto the stack
+	 */
+	void PushExceptionHandler(const FScriptExceptionHandlerFunc& InFunc);
+
+	/**
+	 * Pop an exception handler from the stack
+	 */
+	void PopExceptionHandler();
+
+	/**
+	 * Handle an exception using the active exception handler
+	 */
+	void HandleException(ELogVerbosity::Type Verbosity, const TCHAR* ExceptionMessage, const TCHAR* StackMessage);
+
+	/**
+	 * Handler for a script exception that emits an ensure (for warnings or errors)
+	 */
+	static void AssertionExceptionHandler(ELogVerbosity::Type Verbosity, const TCHAR* ExceptionMessage, const TCHAR* StackMessage);
+
+	/**
+	 * Handler for a script exception that emits a log message
+	 */
+	static void LoggingExceptionHandler(ELogVerbosity::Type Verbosity, const TCHAR* ExceptionMessage, const TCHAR* StackMessage);
+
+private:
+	/**
+	 * Default script exception handler
+	 */
+	static FScriptExceptionHandlerFunc DefaultExceptionHandler;
+
+	/**
+	 * Stack of active exception handlers
+	 * The top of the stack will be called on an exception, or DefaultExceptionHandler will be used if the stack is empty
+	 */
+	TArray<FScriptExceptionHandlerFunc, TInlineAllocator<4>> ExceptionHandlerStack;
+};
+
+/** 
+ * Scoped struct used to push and pop a script exception handler
+ */
+struct CORE_API FScopedScriptExceptionHandler
+{
+	explicit FScopedScriptExceptionHandler(const FScriptExceptionHandlerFunc& InFunc);
+	~FScopedScriptExceptionHandler();
 };
 
 #ifndef DO_BLUEPRINT_GUARD

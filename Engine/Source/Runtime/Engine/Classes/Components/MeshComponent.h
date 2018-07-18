@@ -8,7 +8,7 @@
 #include "Engine/TextureStreamingTypes.h"
 #include "Components/PrimitiveComponent.h"
 #include "Materials/MaterialInterface.h"
-#include "SortedMap.h"
+#include "Containers/SortedMap.h"
 #include "MeshComponent.generated.h"
 
 /**

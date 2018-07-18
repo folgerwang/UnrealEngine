@@ -6,7 +6,7 @@
 
 #include "ISettingsModule.h"
 #include "Engine/World.h"
-#include "SlateStyleRegistry.h"
+#include "Styling/SlateStyleRegistry.h"
 #include "Kismet/GameplayStatics.h"
 #include "Async/Async.h"
 #include "UnrealEdGlobals.h"
@@ -14,8 +14,8 @@
 #include "LevelEditorViewport.h"
 #include "LevelEditor.h"
 #include "PropertyEditorModule.h"
-#include "SlateStyle.h"
-#include "IPluginManager.h"
+#include "Styling/SlateStyle.h"
+#include "Interfaces/IPluginManager.h"
 #include "ClassIconFinder.h"
 #include "Editor.h"
 
@@ -37,9 +37,9 @@
 #include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "AssetRegistryModule.h"
 #include "EditorModeManager.h"
-#include "PlatformFileManager.h"
-#include "GenericPlatformFile.h"
-#include "Paths.h"
+#include "HAL/PlatformFilemanager.h"
+#include "GenericPlatform/GenericPlatformFile.h"
+#include "Misc/Paths.h"
 
 #include <atomic>
 
@@ -95,8 +95,8 @@ namespace SteamAudio
 		ISettingsModule* SettingsModule = FModuleManager::Get().GetModulePtr<ISettingsModule>("Settings");
 		if (SettingsModule)
 		{
-			SettingsModule->RegisterSettings("Project", "Plugins", "Steam Audio", NSLOCTEXT("SteamAudio", "Steam Audio", "Steam Audio"),
-				NSLOCTEXT("SteamAudio", "Configure Steam Audio settings", "Configure Steam Audio settings"), GetMutableDefault<USteamAudioSettings>());
+			SettingsModule->RegisterSettings("Project", "Plugins", "Steam Audio", NSLOCTEXT("SteamAudio", "SteamAudio", "Steam Audio"),
+				NSLOCTEXT("SteamAudio", "ConfigureSteamAudioSettings", "Configure Steam Audio settings"), GetMutableDefault<USteamAudioSettings>());
 		}
 
 		// Create bake indirect window
@@ -132,7 +132,7 @@ namespace SteamAudio
 		// Register the ed mode
 		FEditorModeRegistry::Get().RegisterMode<FSteamAudioEdMode>(
 			FSteamAudioEdMode::EM_SteamAudio,
-			NSLOCTEXT("EditorModes", "SteamAudioMode", "Steam Audio"),
+			NSLOCTEXT("SteamAudio", "SteamAudioMode", "Steam Audio"),
 			FSlateIcon(SteamAudioStyleSet->GetStyleSetName(), "LevelEditor.SteamAudioMode", "LevelEditor.SteamAudioMode.Small"),
 			true);
 
@@ -190,10 +190,10 @@ namespace SteamAudio
 		FUIAction ActionBakeIndirect(FExecuteAction::CreateRaw(this, &FSteamAudioEditorModule::BakeIndirect),
 			FCanExecuteAction::CreateRaw(this, &FSteamAudioEditorModule::IsReadyToBakeIndirect));
 
-		Builder.BeginSection("LevelEditorIR", NSLOCTEXT("SteamAudio", "Steam Audio", "Steam Audio"));
+		Builder.BeginSection("LevelEditorIR", NSLOCTEXT("SteamAudio", "SteamAudio", "Steam Audio"));
 
-		Builder.AddMenuEntry(NSLOCTEXT("SteamAudio", "Bake Indirect Sound...", "Bake Indirect Sound..."),
-			NSLOCTEXT("SteamAudio", "Opens indirect baking manager.", "Opens indirect baking manager."), FSlateIcon(), ActionBakeIndirect,
+		Builder.AddMenuEntry(NSLOCTEXT("SteamAudio", "BakeIndirectSound", "Bake Indirect Sound..."),
+			NSLOCTEXT("SteamAudio", "OpensIndirectBakingManager", "Opens indirect baking manager."), FSlateIcon(), ActionBakeIndirect,
 			NAME_None, EUserInterfaceActionType::Button);
 
 		Builder.EndSection();

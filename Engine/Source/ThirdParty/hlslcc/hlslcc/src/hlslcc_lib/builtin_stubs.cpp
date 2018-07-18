@@ -535,7 +535,7 @@ void make_intrinsic_ddy(exec_list *ir, _mesa_glsl_parse_state *state)
 				new(ctx)ir_dereference_variable(arg0),
 				NULL, NULL, NULL);
 
-			if (state->adjust_clip_space_dx11_to_opengl)
+			if (state->adjust_clip_space_dx11_to_opengl && state->LanguageSpec->RequiresNegateDDY())
 			{
 				call = new(ctx)ir_expression(ir_unop_neg, call->type, call, NULL);
 			}

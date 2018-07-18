@@ -55,6 +55,8 @@ public:
 		, PendingResolveRevNumber(INVALID_REVISION)
 		, bModifed(false)
 		, TimeStamp(0)
+		, HeadModTime(0)
+		, HeadChangeList(0)
 	{
 	}
 
@@ -74,6 +76,12 @@ public:
 	virtual bool CanCheckout() const override;
 	virtual bool IsCheckedOut() const override;
 	virtual bool IsCheckedOutOther(FString* Who = NULL) const override;
+	virtual bool IsCheckedOutInOtherBranch(const FString& CurrentBranch = FString()) const override;
+	virtual bool IsModifiedInOtherBranch(const FString& CurrentBranch = FString()) const override;
+	virtual bool IsCheckedOutOrModifiedInOtherBranch(const FString& CurrentBranch = FString()) const override { return IsCheckedOutInOtherBranch(CurrentBranch) || IsModifiedInOtherBranch(CurrentBranch); }
+	virtual TArray<FString> GetCheckedOutBranches() const override { return CheckedOutBranches; }
+	virtual FString GetOtherUserBranchCheckedOuts() const override { return OtherUserBranchCheckedOuts; }
+	virtual bool GetOtherBranchHeadModification(FString& HeadBranchOut, FString& ActionOut, int32& HeadChangeListOut) const override;
 	virtual bool IsCurrent() const override;
 	virtual bool IsSourceControlled() const override;
 	virtual bool IsAdded() const override;
@@ -135,4 +143,23 @@ public:
 
 	/** The timestamp of the last update */
 	FDateTime TimeStamp;
+
+	/** The branch with the head change list */
+	FString HeadBranch;
+
+	/** The action within the head branch  */
+	FString HeadAction;
+
+	/** The last file modification time, note that P4 delete actions have a modification time of 0 */
+	int64 HeadModTime;
+
+	/** The change list the last modification */
+	int32 HeadChangeList;
+
+	/** Branches the file is checked out in */
+	TArray<FString> CheckedOutBranches;
+
+	/** Amalgamated information of users who have file checked out in another branch */
+	FString OtherUserBranchCheckedOuts;
+
 };

@@ -99,6 +99,10 @@ void IssueScalableLongGPUTask(FRHICommandListImmediate& RHICmdList, int32 NumIte
 
 void MeasureLongGPUTaskExecutionTime(FRHICommandListImmediate& RHICmdList)
 {
+	if (TimeQueryStart != nullptr && TimeQueryEnd != nullptr)
+	{
+		return;
+	}
 	check(TimeQueryStart == nullptr && TimeQueryEnd == nullptr);
 
 	TimeQueryStart = RHICmdList.CreateRenderQuery(RQT_AbsoluteTime);
@@ -112,4 +116,10 @@ void MeasureLongGPUTaskExecutionTime(FRHICommandListImmediate& RHICmdList)
 
 		RHICmdList.EndRenderQuery(TimeQueryEnd);
 	}
+}
+
+void ClearLongGPUTaskQueries()
+{
+	TimeQueryStart = nullptr;
+	TimeQueryEnd = nullptr;
 }

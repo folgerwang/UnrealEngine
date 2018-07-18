@@ -7,7 +7,7 @@
 #include "UObject/Class.h"
 #include "Misc/InlineValue.h"
 #include "Evaluation/MovieSceneEvalTemplateBase.h"
-#include "MovieSceneSegment.h"
+#include "Evaluation/MovieSceneSegment.h"
 #include "MovieSceneTrackImplementation.generated.h"
 
 
@@ -148,6 +148,10 @@ struct FMovieSceneTrackImplementationPtr
 			void* Allocation = Reserve(StructOps.GetSize(), StructOps.GetAlignment());
 			StructOps.Construct(Allocation);
 			StructOps.Copy(Allocation, &RHS.GetValue(), 1);
+		}
+		else
+		{
+			Reset();
 		}
 
 		return *this;

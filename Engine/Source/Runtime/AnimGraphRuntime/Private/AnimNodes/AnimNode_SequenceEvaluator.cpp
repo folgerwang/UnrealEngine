@@ -44,9 +44,9 @@ void FAnimNode_SequenceEvaluator::UpdateAssetPlayer(const FAnimationUpdateContex
 					case ESequenceEvalReinit::StartPosition: InternalTimeAccumulator = StartPosition; break;
 					case ESequenceEvalReinit::ExplicitTime: InternalTimeAccumulator = ExplicitTime; break;
 				}
-			}
 
-			InternalTimeAccumulator = FMath::Clamp(InternalTimeAccumulator, 0.f, Sequence->SequenceLength);
+				InternalTimeAccumulator = FMath::Clamp(InternalTimeAccumulator, 0.f, Sequence->SequenceLength);
+			}
 
 			float TimeJump = ExplicitTime - InternalTimeAccumulator;
 			if (bShouldLoop)
@@ -64,6 +64,13 @@ void FAnimNode_SequenceEvaluator::UpdateAssetPlayer(const FAnimationUpdateContex
 				}
 			}
 
+			// if you jump from front to end or end to front, your time jump is 0.f, so nothing moves
+			// to prevent that from happening, we set current accumulator to explicit time
+ 			if (TimeJump == 0.f)
+ 			{
+ 				InternalTimeAccumulator = ExplicitTime;
+ 			}
+			
 			const float DeltaTime = Context.GetDeltaTime();
 			const float PlayRate = FMath::IsNearlyZero(DeltaTime) ? 0.f : (TimeJump / DeltaTime);
 			CreateTickRecordForNode(Context, Sequence, bShouldLoop, PlayRate);

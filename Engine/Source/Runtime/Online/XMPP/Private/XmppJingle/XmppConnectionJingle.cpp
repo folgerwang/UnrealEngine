@@ -162,8 +162,15 @@ public:
 			{
 				// tick connection on this thread
 				Connection.HandlePumpTick(XmppPump);
+
 				// allow xmpp pump to process
-				XmppThread->ProcessMessages(100);
+				const int32 DefaultTimeoutMs = 100;
+				XmppThread->ProcessMessages(DefaultTimeoutMs);
+
+#if PLATFORM_PS4
+				const float DefaultTimeBetweenPollsSeconds = 0.005;
+				FPlatformProcess::Sleep(DefaultTimeBetweenPollsSeconds);
+#endif
 			}
 		}		
 		return 0;

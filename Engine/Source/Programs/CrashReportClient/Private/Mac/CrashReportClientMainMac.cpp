@@ -1,9 +1,10 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "CrashReportClientApp.h"
-#include "ExceptionHandling.h"
-#include "MacPlatformCrashContext.h"
-#include "CocoaThread.h"
+#include "HAL/ExceptionHandling.h"
+#include "Mac/MacPlatformCrashContext.h"
+#include "Mac/MacPlatformProcess.h"
+#include "Mac/CocoaThread.h"
 #include "HAL/PlatformApplicationMisc.h"
 
 /**

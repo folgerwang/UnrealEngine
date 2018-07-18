@@ -5,27 +5,29 @@
 #if WITH_PYTHON
 
 FPyWrapperOwnerContext::FPyWrapperOwnerContext()
+	: OwnerObject()
+	, OwnerProperty(nullptr)
 {
 }
 
-FPyWrapperOwnerContext::FPyWrapperOwnerContext(PyObject* InOwner, const FName InPropName)
+FPyWrapperOwnerContext::FPyWrapperOwnerContext(PyObject* InOwner, const UProperty* InProp)
 	: OwnerObject(FPyObjectPtr::NewReference(InOwner))
-	, OwnerPropertyName(InPropName)
+	, OwnerProperty(InProp)
 {
-	checkf(OwnerPropertyName.IsNone() || OwnerObject.IsValid(), TEXT("Owner context cannot have an owner property without an owner object"));
+	checkf(!OwnerProperty || OwnerObject.IsValid(), TEXT("Owner context cannot have an owner property without an owner object"));
 }
 
-FPyWrapperOwnerContext::FPyWrapperOwnerContext(const FPyObjectPtr& InOwner, const FName InPropName)
+FPyWrapperOwnerContext::FPyWrapperOwnerContext(const FPyObjectPtr& InOwner, const UProperty* InProp)
 	: OwnerObject(InOwner)
-	, OwnerPropertyName(InPropName)
+	, OwnerProperty(InProp)
 {
-	checkf(OwnerPropertyName.IsNone() || OwnerObject.IsValid(), TEXT("Owner context cannot have an owner property without an owner object"));
+	checkf(!OwnerProperty || OwnerObject.IsValid(), TEXT("Owner context cannot have an owner property without an owner object"));
 }
 
 void FPyWrapperOwnerContext::Reset()
 {
 	OwnerObject.Reset();
-	OwnerPropertyName = NAME_None;
+	OwnerProperty = nullptr;
 }
 
 bool FPyWrapperOwnerContext::HasOwner() const
@@ -38,9 +40,9 @@ PyObject* FPyWrapperOwnerContext::GetOwnerObject() const
 	return (PyObject*)OwnerObject.GetPtr();
 }
 
-FName FPyWrapperOwnerContext::GetOwnerPropertyName() const
+const UProperty* FPyWrapperOwnerContext::GetOwnerProperty() const
 {
-	return OwnerPropertyName;
+	return OwnerProperty;
 }
 
 void FPyWrapperOwnerContext::AssertValidConversionMethod(const EPyConversionMethod InMethod) const

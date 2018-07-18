@@ -195,7 +195,7 @@ void FPostProcessSettingsCustomization::CustomizeHeader( TSharedRef<IPropertyHan
 	// No header
 }
 
-void FWeightedBlendableCustomization::AddDirectAsset(TSharedRef<IPropertyHandle> StructPropertyHandle, UPackage* Package, TSharedPtr<IPropertyHandle> Weight, TSharedPtr<IPropertyHandle> Value, UClass* Class)
+void FWeightedBlendableCustomization::AddDirectAsset(TSharedRef<IPropertyHandle> StructPropertyHandle, TSharedPtr<IPropertyHandle> Weight, TSharedPtr<IPropertyHandle> Value, UClass* Class)
 {
 	Weight->SetValue(1.0f);
 
@@ -283,7 +283,7 @@ TSharedRef<SWidget> FWeightedBlendableCustomization::GenerateContentWidget(TShar
 							SupportedClass == UMaterialInstanceConstant::StaticClass()
 							))
 						{
-							FUIAction Direct2(FExecuteAction::CreateSP(this, &FWeightedBlendableCustomization::AddDirectAsset, StructPropertyHandle, Package, Weight, Value, SupportedClass));
+							FUIAction Direct2(FExecuteAction::CreateSP(this, &FWeightedBlendableCustomization::AddDirectAsset, StructPropertyHandle, Weight, Value, SupportedClass));
 
 							FName ClassName = SupportedClass->GetFName();
 						
@@ -405,13 +405,23 @@ void FWeightedBlendableCustomization::CustomizeHeader( TSharedRef<IPropertyHandl
 		{
 			UObject* ref = *It;
 
-			if(StructPackage)
+			if (StructPackage)
 			{
-				// does this mean we have to deal with multiple levels? The code here is not ready for that
-				check(StructPackage == ref->GetOutermost());
+				// Differing outermost package values indicate that the current RefObject refers to post-process 
+				// volumes selected within different levels, e.g. persistent and a sub-level. 
+				// In this case, do not store a package name. It is only used by ComputeSwitcherIndex() to determine direct
+				// vs. indirect assets in the post process materials/blendables array. When more than one volume is selected, the direct
+				// asset entries will simple read 'Multiple values' since each belongs to separate post-process volumes.
+				if (StructPackage != ref->GetOutermost())
+				{
+					StructPackage = NULL;
+					break;
+				}
 			}
-
-			StructPackage = ref->GetOutermost();
+			else
+			{
+				StructPackage = ref->GetOutermost();
+			}
 		}
 	}
 

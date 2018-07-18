@@ -32,7 +32,7 @@ struct FARFilter
 	TArray<FName> ClassNames;
 
 	/** The filter component for properties marked with the AssetRegistrySearchable flag */
-	TMultiMap<FName, FString> TagsAndValues;
+	TMultiMap<FName, TOptional<FString>> TagsAndValues;
 
 	/** Only if bRecursiveClasses is true, the results will exclude classes (and subclasses) in this list */
 	UPROPERTY(transient, BlueprintReadWrite, Category=AssetRegistry)

@@ -5,7 +5,7 @@ Description:UE4 を使用した開発で Visual Studio を設定するための�
 Crumbs: %ROOT%
 Parent:Programming/Development
 Order:
-Version:4.16
+Version: 4.16
 type:overview
 tags:Visual Studio
 skilllevel:Beginner
@@ -44,47 +44,47 @@ UE4 のオープン ソース バージョン (GitHub および P4 から入手�
 
 1. 以下の手順に従い、Solution Configurations ドロップダウン メニューの幅を広げます。
 	1. ツールバーを右クリックして、表示されるメニュー下部の **[カスタマイズ]** を選択します。
+
 		![](SelectingCustomize.png)
-
 	1. **[コマンド]** タブをクリックします。
+
 		![](ClickCommandsTab.png)
-
 	1. **[ツールバー]** ラジオボタンを選択します。
+
 		![](SelectToolbarRadioButton.png)
-
 	1. **ツールバー** の横のドロップダウンから、**[Standard]** を選択します。
+
 		![](SelectStandard.png)
-
 	1. 下にある **コントロール** リストから **Solution Configurations** コントロールを選びます。
+
 		![](SelectSolutionConfigControl.png)
-
 	1. 右側の **[Modify Selection]** を選択します。
+
 		![](ClickModifySelection.png)
-
 	1. **幅** を '200' に設定します。
+
 		![](SetWidth_200.png)
-
 	1. **[Close]** をクリックします。ツールバーが直ちに更新されます。
-		![](ClickClosetoUpdateToolbar.png)
 
+		![](ClickClosetoUpdateToolbar.png)
 1. 以下の手順に従い、Solution Platforms ドロップダウンを追加します。
 	1. 標準ツールバーの右端のボタンで、ツールバーのボタンを追加 / 削除するドロップダウン メニューが開きます。
-		![](SelectDropDownButton.png)
 
+		![](SelectDropDownButton.png)
 	1. ドロップダウン ボタンをクリックして、**[Add or Remove Buttons]** 上にカーソルを合わせて、**[Solution Platforms]** をクリックしてツールバーにメニューを追加します。
 
 		![](SelectSolutionPlatforms.png)
 1. **[Error List]** ウィンドウをオフにすることをお勧めします。通常、コードにエラーがあると自動的に **[Error List]** ウィンドウが表示されます。ただし、アンリアル エンジンでの作業中は、誤ったエラー情報が **[Error List]** ウィンドウに表示されることがあります。この **[Error List]** ウィンドウを無効にして、**[Output]** ウィンドウを使ってアンリアル エンジンで作業する際に実際のコード エラーを表示させると良いでしょう。以下の手順では、**[Error List]** ウィンドウを閉じる方法を説明します。
 	1. 開いている場合は **[Error List]** ウィンドウを閉じます。 
 	1. **[ツール]** メニューから **[オプション]**ダイアログを開きます。
+
 		![](OpenOptionsDialog.png)
-
 	1. **[Projects and Solutions (プロジェクトとソリューション)]** を選択して **[Always show error list if build finishes with error (ビルドがエラーで終わった場合、常にエラー リストを表示する)]** のチェックを外します。
+
 		![](UncheckErrorsListOption.png)
-
 	1. **[OK]** をクリックします。
-		[/EXCERPT:BasicVSFormat]
 
+		[/EXCERPT:BasicVSFormat]
 
 [REGION:tip]
 他に役立つ設定手順として以下があります。
@@ -117,7 +117,7 @@ Visual Studio を初めてインストールする場合、以下のオプショ
 ![](VS2017_SettingsNoInstaller.png)
 
 (#Intellisense)
-## Intellisense、 Live Errors、 および Squiggles
+## Intellisense, Live Errors, and Squiggles
 
 UE4 プロジェクトは、IntelliSense を正式サポートするようになりました。このサポートには、ライブエラーリストと「Squiggles」も含まれます
  (有効にする方法は以下を参照してください)。
@@ -167,8 +167,7 @@ C++ ファイルを開いたとき、以下のアイコンが表示されるこ�
 [INCLUDE:Programming/Development/VisualStudioSetup/UnrealVS#Overview]
 
 
-設定と拡張機能の使用に関する情報は、[](Programming/Development/VisualStudioSetup/UnrealVS) ページを参照してください。 
-　
+設定と拡張機能の使用に関する情報は、[](Programming/Development/VisualStudioSetup/UnrealVS) ページを参照してください。 　
 
 
 ##デバッグ作業

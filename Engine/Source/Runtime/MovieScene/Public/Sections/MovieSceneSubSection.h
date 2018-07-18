@@ -67,6 +67,11 @@ public:
 public:
 
 	/**
+	 * Get the transform that converts time from this section's time-base to its inner sequence's
+	 */
+	FMovieSceneSequenceTransform OuterToInnerTransform() const;
+
+	/**
 	 * Sets the sequence played by this section.
 	 *
 	 * @param Sequence The sequence to play.
@@ -128,12 +133,10 @@ public:
 public:
 
 	//~ UMovieSceneSection interface
-
-	virtual UMovieSceneSection* SplitSection( float SplitTime ) override;
-	virtual void TrimSection( float TrimTime, bool bTrimLeft ) override;
-	virtual TOptional<float> GetOffsetTime() const override { return TOptional<float>(Parameters.StartOffset); }
-	virtual TOptional<float> GetKeyTime( FKeyHandle KeyHandle ) const override { return TOptional<float>(); }
-	virtual void SetKeyTime( FKeyHandle KeyHandle, float Time ) override { }
+	virtual TOptional<TRange<FFrameNumber> > GetAutoSizeRange() const override;
+	virtual UMovieSceneSection* SplitSection( FQualifiedFrameTime SplitTime ) override;
+	virtual void TrimSection( FQualifiedFrameTime TrimTime, bool bTrimLeft ) override;
+	virtual TOptional<FFrameTime> GetOffsetTime() const override { return TOptional<FFrameTime>(FFrameTime(Parameters.GetStartFrameOffset())); }
 
 public:
 

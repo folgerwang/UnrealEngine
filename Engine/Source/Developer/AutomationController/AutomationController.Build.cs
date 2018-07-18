@@ -49,9 +49,13 @@ namespace UnrealBuildTool.Rules
 			PrivateIncludePaths.AddRange(
 				new string[]
 				{
-					"Runtime/AutomationController/Private"
 				}
 			);
+
+			if (Target.bCompileAgainstEngine && Target.Configuration != UnrealTargetConfiguration.Shipping)
+			{
+				PrecompileForTargets = PrecompileTargetsType.Any;
+			}
 		}
 	}
 }

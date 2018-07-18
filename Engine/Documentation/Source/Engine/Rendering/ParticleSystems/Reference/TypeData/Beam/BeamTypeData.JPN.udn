@@ -1,9 +1,13 @@
-﻿INTSourceChangelist:2750835
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:Beam Type Data
 Crumbs: %ROOT%, Engine, Engine/Rendering/ParticleSystems, Engine/Rendering/ParticleSystems/Reference
-Description:Beam Type Data モジュールは、電気エネルギーが放つビームなどのエフェクト作成に実用的です。
+Description:Beam Type Data モジュールは、エミッターによるビームの出力を表します。パーティクルやアクタ、またターゲット ポイントとエミッタのように、ソース点の間のパーティクルを結合してストリームを形成します。
 Version:4.9
+tags:Particles
+tags:TypeData
+order:1
+topic-image:psys_beam.gif
 
 
 [EXCERPT:Intro]

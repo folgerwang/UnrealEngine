@@ -3,11 +3,12 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Misc/FrameTime.h"
 #include "UObject/ObjectMacros.h"
 #include "UObject/Class.h"
 #include "Containers/ArrayView.h"
-#include "SequencerObjectVersion.h"
-
+#include "UObject/SequencerObjectVersion.h"
+#include "MovieSceneFrameMigration.h"
 #include "MovieSceneSegment.generated.h"
 
 struct FMovieSceneEvaluationTrackSegments;
@@ -83,21 +84,21 @@ struct FSectionEvaluationData
 	GENERATED_BODY()
 
 	/** Default constructor */
-	FSectionEvaluationData() : ImplIndex(-1), ForcedTime(TNumericLimits<float>::Lowest()), Flags(ESectionEvaluationFlags::None) {}
+	FSectionEvaluationData() : ImplIndex(-1), ForcedTime(TNumericLimits<int32>::Lowest()), Flags(ESectionEvaluationFlags::None) {}
 
 	/** Construction from an implementaiton index (probably a section) */
 	explicit FSectionEvaluationData(int32 InImplIndex)
-		: ImplIndex(InImplIndex), ForcedTime(TNumericLimits<float>::Lowest()), Flags(ESectionEvaluationFlags::None)
+		: ImplIndex(InImplIndex), ForcedTime(TNumericLimits<int32>::Lowest()), Flags(ESectionEvaluationFlags::None)
 	{}
 
 	/** Construction from an implementaiton index and a time to force evaluation at */
-	FSectionEvaluationData(int32 InImplIndex, float InForcedTime)
+	FSectionEvaluationData(int32 InImplIndex, FFrameNumber InForcedTime)
 		: ImplIndex(InImplIndex), ForcedTime(InForcedTime), Flags(ESectionEvaluationFlags::None)
 	{}
 
 	/** Construction from an implementaiton index and custom eval flags */
 	FSectionEvaluationData(int32 InImplIndex, ESectionEvaluationFlags InFlags)
-		: ImplIndex(InImplIndex), ForcedTime(TNumericLimits<float>::Lowest()), Flags(InFlags)
+		: ImplIndex(InImplIndex), ForcedTime(TNumericLimits<int32>::Lowest()), Flags(InFlags)
 	{}
 
 	friend bool operator==(FSectionEvaluationData A, FSectionEvaluationData B)
@@ -105,9 +106,9 @@ struct FSectionEvaluationData
 		return A.ImplIndex == B.ImplIndex && A.ForcedTime == B.ForcedTime && A.Flags == B.Flags;
 	}
 
-	float GetTime(float InActualTime)
+	FFrameTime GetTime(FFrameTime InActualTime)
 	{
-		return ForcedTime == TNumericLimits<float>::Lowest() ? InActualTime : ForcedTime;
+		return ForcedTime == TNumericLimits<int32>::Lowest() ? InActualTime : FFrameTime(ForcedTime);
 	}
 
 	/** Check if this is a preroll eval */
@@ -128,7 +129,7 @@ struct FSectionEvaluationData
 
 	/** A forced time to evaluate this section at */
 	UPROPERTY()
-	float ForcedTime;
+	FFrameNumber ForcedTime;
 
 	/** Additional flags for evaluating this section */
 	UPROPERTY()
@@ -146,12 +147,12 @@ struct FMovieSceneSegment
 	FMovieSceneSegment()
 	{}
 
-	FMovieSceneSegment(const TRange<float>& InRange)
+	FMovieSceneSegment(const TRange<FFrameNumber>& InRange)
 		: Range(InRange)
 		, bAllowEmpty(false)
 	{}
 
-	FMovieSceneSegment(const TRange<float>& InRange, TArrayView<const FSectionEvaluationData> InApplicationImpls)
+	FMovieSceneSegment(const TRange<FFrameNumber>& InRange, TArrayView<const FSectionEvaluationData> InApplicationImpls)
 		: Range(InRange)
 		, bAllowEmpty(true)
 	{
@@ -176,7 +177,7 @@ struct FMovieSceneSegment
 	{
 		if (Range.Adjoins(OtherSegment.Range) && Impls == OtherSegment.Impls && bAllowEmpty == OtherSegment.bAllowEmpty)
 		{
-			Range = TRange<float>::Hull(OtherSegment.Range, Range);
+			Range = TRange<FFrameNumber>::Hull(OtherSegment.Range, Range);
 			return true;
 		}
 		return false;
@@ -185,9 +186,19 @@ struct FMovieSceneSegment
 	/** Custom serializer to accomodate the inline allocator on our array */
 	bool Serialize(FArchive& Ar)
 	{
-		Ar << Range;
-
 		Ar.UsingCustomVersion(FSequencerObjectVersion::GUID);
+
+		if (Ar.IsLoading() && Ar.CustomVer(FSequencerObjectVersion::GUID) < FSequencerObjectVersion::FloatToIntConversion)
+		{
+			TRange<float> OldFloatRange;
+			Ar << OldFloatRange;
+			Range = FMovieSceneFrameRange::FromFloatRange(OldFloatRange);
+		}
+		else
+		{
+			Ar << Range;
+		}
+
 		if (Ar.CustomVer(FSequencerObjectVersion::GUID) >= FSequencerObjectVersion::EvaluationTree)
 		{
 			Ar << ID;
@@ -217,7 +228,7 @@ struct FMovieSceneSegment
 	}
 
 	/** The segment's range */
-	FFloatRange Range;
+	TRange<FFrameNumber> Range;
 
 	FMovieSceneSegmentIdentifier ID;
 

@@ -1,24 +1,24 @@
-﻿INTSourceChangelist:3108692
+﻿INTSourceChangelist:3807090
 Availability: Licensee
-Title:에픽 게임스로 VPN 연결 셋업하기
+Title:에픽 게임스 VPN 연결 구성
 Crumbs:%ROOT%, Engine, Programming, Programming/Basics
-Description:퍼포스 서버에 접근하여 엔진을 구하기 위해서 에픽의 가상 사설 네트워크(VPN)에 접속하는 방법 안내서입니다.
+Description:퍼포스 서버에 접근하여 엔진을 구하기 위해서 에픽의 VPN, 가상 사설 네트워크에 연결하는 방법 안내서입니다.
 version: 4.9
 
 [TOC(start:2)]
 
-퍼포스 디포에 연결하기 위한 에픽 게임스로의 안전한 VPN(Virtual Private Network, 가상 사설 네트워크) 연결 셋업 절차 안내서입니다. VPN 연결 셋업을 마치셨다면 [퍼포스 셋업](GettingStarted/DownloadingUnrealEngine/Perforce/Setup) 을 하실 수 있습니다.
+퍼포스 디포에 연결하기 위한 에픽 게임스로의 안전한 VPN(Virtual Private Network, 가상 사설 네트워크) 연결 구성 안내서입니다. VPN 연결 셋업을 마치셨다면 [퍼포스 셋업](GettingStarted/DownloadingUnrealEngine/Perforce/Setup) 을 하실 수 있습니다.
 
 에픽의 정기 점검 시간은 **매달 둘째 넷째 일요일 오후 10시(일광절약시간제 적용시 9시) 부터 4시간동안** 계획되어 있습니다. 이 기간 도중엔 지원 창구, 특히 네트워크/서버 리소스 일부 또는 전부가 영향을 받을 수 있다는 점 유념해 주시기 바랍니다.
 
 [REGION:warning]
-VPN 접속정보는 UDN 접속정보와 동일하지 않습니다. VPN/P4 접속정보는 한 세트이며, 프로젝트 단위로 부여됩니다. 귀사의 테크니컬 담당자가 이 정보를 갖고 있을 것입니다.%ENDCOLOR%
+VPN 계정 정보는 UDN 계정 정보와 동일하지 않습니다. VPN/P4 계정 정보는 한 세트이며, 프로젝트 단위로 부여됩니다. 귀사의 테크니컬 담당자가 이 정보를 갖고 있을 것입니다.%ENDCOLOR%
 [/REGION]
 
 
-## 연결성(Connectivity) 정책
+## 연결 정책
 
-에픽으로의 VPN 연결성은 두 가지 방법 중 하나입니다. 첫째 방법은 스튜디오에 다섯개까지 내부 워크스테이션에서 에픽 프록시 서버로의 직접 VPN 연결을 허용하는 방법입니다 (단 풀 빌드 싱크는 한 기계에만 허용됩니다). 둘째 방법은 스튜디오가 자체 프록시를 직접 에픽의 디포에 연결하도록 하여, 스튜디오의 개발자는 자체 로컬 프록시에 연결하는 것입니다. 이 로컬 프록시에서 디포로는 1차적인 것과 백업, 동시에 두 개의 VPN 연결이 허용됩니다.
+에픽으로의 VPN 연결 방법은 둘 중 하나입니다. 첫째 방법은 스튜디오에 다섯개까지 내부 워크스테이션에서 에픽 프록시 서버로의 직접 VPN 연결을 허용하는 방법입니다 (단 풀 빌드 싱크는 한 기계에만 허용됩니다). 둘째 방법은 스튜디오가 자체 프록시를 직접 에픽의 디포에 연결하도록 하여, 스튜디오의 개발자는 자체 로컬 프록시에 연결하는 것입니다. 이 로컬 프록시에서 디포로는 1차적인 것과 백업, 동시에 두 개의 VPN 연결이 허용됩니다.
 
 이 방법은 서로 독립적이라, 한 스튜디오가 두 연결 형식을 동시에 사용할 수는 없음을 이해해 주시기 바랍니다. 어느 경우든 한 기계의 동시 P4 연결 수는 제한되지 않으며, 스튜디오에서의 VPN 연결 수만 제한되는 것입니다.
 
@@ -106,21 +106,21 @@ VPN 연결에 지원되는 유일한 클라이언트는 [Cisco](http://www.cisco
 
 	**주:** 윈도우 7 이나 비스타를 사용하는 경우, 설치를 허용할 것인지 물어옵니다.
 
-1. 인스톨이 완료되면 자동으로 접속될 것이며, 태스크 트레이에 아이콘이 나타날 것입니다.
+1. 인스톨이 완료되면 자동으로 연결될 것이며, 태스크 트레이에 아이콘이 나타날 것입니다.
 
 	![vpn_webpage_connected.jpg](vpn_webpage_connected.jpg)(w:500 h:373)
 
 	
 [/EXCERPT:Browser]
 
-이 프로세스로 PC에 AnyConnect 클라이언트가 설치됩니다. 즉 다음부터는 어플리케이션을 실행하기만 하면 연결된다는 소리입니다. 그러나 윈도우의 시작 메뉴에 항목이 추가되지는 않습니다. AnyConnect 를 사용하여 VPN 에 수동으로 연결하는 법에 대한 세부사항은 [AnyConnect 를 통해 VPN 연결하기](GettingStarted/DownloadingUnrealEngine/VPNSetup#AnyConnect) 부분을 참고하시기 바랍니다.
+이 프로세스로 PC에 AnyConnect 클라이언트가 설치됩니다. 즉 다음부터는 어플리케이션을 실행하기만 하면 연결된다는 소리입니다. 그러나 윈도우의 시작 메뉴에 항목이 추가되지는 않습니다. AnyConnect 를 사용하여 VPN 에 수동으로 연결하는 법에 대한 세부사항은 [](GettingStarted/DownloadingUnrealEngine/VPNSetup) 문서를 참고하시기 바랍니다.
 
 VPN 연결 구성을 마치고 나면 [퍼포스 구성](GettingStarted/DownloadingUnrealEngine/Perforce/Setup) 과정을 계속하면 됩니다.
 
 
 #### 추가 공지
 
-윈도우 비스타에서는, (연결은 되었으되) VPN에 있지 않은 기타 리소스나 인터넷 사용을 허용하는 기능은 작동하지 않습니다. 연결이 끊어지자 마자 모든 것이 정상으로 돌아가게 됩니다.
+윈도우 비스타에서는, (연결은 되었지만) VPN 에 있지 않은 기타 리소스나 인터넷 사용을 허용하는 기능은 작동하지 않습니다. 연결이 끊어지자 마자 모든 것이 정상으로 돌아가게 됩니다.
 
 그래도 계속 문제가 있으면 MS-DOS 명령 프롬프트에 다음 명령을 입력해 보십시오:
 
@@ -183,7 +183,7 @@ VPN 연결 구성이 완료되면 [퍼포스 구성](GettingStarted/DownloadingU
 
 ## OpenConnect 를 통해 VPN 연결하기 (미지원)
 
-OpenConnect는 AnyConnect에 대한 오픈 소스 대안책입니다. 이 패키지는 다수의 리눅스 배포에 포함되기에, Cisco가 지원하지 않는 배포와도 잘 작동할 수 있습니다. 다음 패키지가 설치되어 있으면, OpenConnect를 통해 접속할 수 있을 것입니다:
+OpenConnect는 AnyConnect에 대한 오픈 소스 대안책입니다. 이 패키지는 다수의 리눅스 배포에 포함되기에, Cisco가 지원하지 않는 배포와도 잘 작동할 수 있습니다. 다음 패키지가 설치되어 있으면, OpenConnect를 통해 연결할 수 있을 것입니다:
 
 
 * vpnc-script
@@ -250,7 +250,7 @@ VPN AnyConnect 클라이언트 설치 문제해결:
 
 ## 직접 지원
 
-VPN 접속에 문제가 있으시다면:
+VPN 연결에 문제가 있으시다면:
 
 
 * [UDN](http://udn.unrealengine.com) 에 다음 정보를 포함하여 게시해 주시기 바랍니다:

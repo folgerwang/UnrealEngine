@@ -9,7 +9,7 @@ FNameTableArchiveReader::FNameTableArchiveReader(int32 SerializationVersion, con
 	, ProxyAr(nullptr)
 	, FileAr(nullptr)
 {
-	ArIsLoading = true;
+	this->SetIsLoading(true);
 
 	FileAr = IFileManager::Get().CreateFileReader(*Filename, FILEREAD_Silent);
 	if (FileAr && !FileAr->IsError() && FileAr->TotalSize() > 0)
@@ -44,7 +44,7 @@ FNameTableArchiveReader::FNameTableArchiveReader(FArchive& WrappedArchive)
 	, ProxyAr(&WrappedArchive)
 	, FileAr(nullptr)
 {
-	ArIsLoading = true;
+	this->SetIsLoading(true);
 
 	if (!SerializeNameMap())
 	{
@@ -218,7 +218,7 @@ FNameTableArchiveWriter::FNameTableArchiveWriter(int32 SerializationVersion, con
 	, FinalFilename(Filename)
 	, TempFilename(Filename + TEXT(".tmp"))
 {
-	ArIsSaving = true;
+	this->SetIsSaving(true);
 
 	// Save to a temp file first, then move to the destination to avoid corruption
 	FileAr = IFileManager::Get().CreateFileWriter(*TempFilename, 0);
@@ -249,7 +249,7 @@ FNameTableArchiveWriter::FNameTableArchiveWriter(FArchive& WrappedArchive)
 	, ProxyAr(&WrappedArchive)
 	, FileAr(nullptr)
 {
-	ArIsSaving = true;
+	this->SetIsSaving(true);
 
 	// Just write a 0 for the name table offset for now. This will be overwritten later when we are done serializing
 	NameOffsetLoc = Tell();

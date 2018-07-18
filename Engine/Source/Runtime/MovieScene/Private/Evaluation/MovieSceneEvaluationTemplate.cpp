@@ -51,11 +51,10 @@ const TMovieSceneEvaluationTree<FMovieSceneSubSectionData>& FMovieSceneEvaluatio
 	return SubSectionFieldData.Field;
 }
 
-void FMovieSceneEvaluationTemplate::AddSubSectionRange(UMovieSceneSubSection& InSubSection, const FGuid& InObjectBindingId, const TRange<float>& InRange, ESectionEvaluationFlags InFlags)
+void FMovieSceneEvaluationTemplate::AddSubSectionRange(UMovieSceneSubSection& InSubSection, const FGuid& InObjectBindingId, const TRange<FFrameNumber>& InRange, ESectionEvaluationFlags InFlags)
 {
-	if (!ensure(!InSubSection.IsInfinite()))
+	if (!ensure(InRange.GetLowerBound().IsClosed() && InRange.GetUpperBound().IsClosed()))
 	{
-		// @todo: Infinite sub sections??
 		return;
 	}
 
@@ -65,23 +64,20 @@ void FMovieSceneEvaluationTemplate::AddSubSectionRange(UMovieSceneSubSection& In
 	// Don't need to do anything else if the section was already generated
 	if (!TemplateLedger.ContainsSubSection(InSubSection.GetSignature()))
 	{
-		if (InSubSection.GetSequence())
-		{
-			FMovieSceneSequenceID SubSequenceID = InSubSection.GetSequenceID();
-			FSubSequenceInstanceDataParams InstanceParams{ SubSequenceID, FMovieSceneEvaluationOperand(MovieSceneSequenceID::Root, InObjectBindingId) };
-
-			FMovieSceneSubSequenceData NewSubData = InSubSection.GenerateSubSequenceData(InstanceParams);
-
-			Hierarchy.Add(NewSubData, SubSequenceID, MovieSceneSequenceID::Root);
-		}
-
-		TRange<float> EntireSectionRange(InSubSection.GetStartTime() - InSubSection.GetPreRollTime(), TRangeBound<float>::Inclusive(InSubSection.GetEndTime() + InSubSection.GetPostRollTime()));
+		TRange<FFrameNumber> EntireSectionRange = InSubSection.GetRange();
+		EntireSectionRange.SetLowerBoundValue(EntireSectionRange.GetLowerBoundValue() - InSubSection.GetPreRollFrames());
+		EntireSectionRange.SetUpperBoundValue(EntireSectionRange.GetUpperBoundValue() + InSubSection.GetPostRollFrames());
 
 		// Add the section to the ledger
 		TemplateLedger.SubSectionRanges.Add(InSubSection.GetSignature(), EntireSectionRange);
 
 		// Invalidate the overlapping field
 		EvaluationField.Invalidate(EntireSectionRange);
+
+		// Invalidate the sequence hierarchy for the leaf starting at this sub section.
+		// The hierarchy will be populated by the compiler when this template is compiled
+		FMovieSceneSequenceID SubSequenceID = InSubSection.GetSequenceID();
+		Hierarchy.Remove(MakeArrayView(&SubSequenceID, 1));
 	}
 }
 
@@ -113,7 +109,7 @@ void FMovieSceneEvaluationTemplate::DefineTrackStructure(FMovieSceneTrackIdentif
 	if (bAddEmptySpace && bInvalidateEvaluationField)
 	{
 		// Optimization - when tracks can add empty space, we just invalidate the entire field once
-		EvaluationField.Invalidate(TRange<float>::All());
+		EvaluationField.Invalidate(TRange<FFrameNumber>::All());
 		bInvalidateEvaluationField = false;
 	}
 
@@ -185,9 +181,9 @@ void FMovieSceneEvaluationTemplate::RemoveStaleData(const TSet<FGuid>& ActiveSig
 
 	// Remove stale sub sections
 	{
-		TArray<TTuple<FGuid, FFloatRange>> SubSectionsToRemove;
+		TArray<TTuple<FGuid, FMovieSceneFrameRange>> SubSectionsToRemove;
 
-		for (const TTuple<FGuid, FFloatRange>& Pair : TemplateLedger.SubSectionRanges)
+		for (const TTuple<FGuid, FMovieSceneFrameRange>& Pair : TemplateLedger.SubSectionRanges)
 		{
 			if (!ActiveSignatures.Contains(Pair.Key))
 			{
@@ -195,10 +191,10 @@ void FMovieSceneEvaluationTemplate::RemoveStaleData(const TSet<FGuid>& ActiveSig
 			}
 		}
 
-		for (const TTuple<FGuid, FFloatRange>& Pair : SubSectionsToRemove)
+		for (const TTuple<FGuid, FMovieSceneFrameRange>& Pair : SubSectionsToRemove)
 		{
 			TemplateLedger.SubSectionRanges.Remove(Pair.Key);
-			EvaluationField.Invalidate(Pair.Value);
+			EvaluationField.Invalidate(Pair.Value.Value);
 		}
 	}
 }

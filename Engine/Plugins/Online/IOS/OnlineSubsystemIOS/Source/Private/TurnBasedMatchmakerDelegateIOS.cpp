@@ -2,7 +2,7 @@
 
 #include "OnlineSubsystemIOSPrivatePCH.h"
 
-#include "OnlineTurnBasedInterface.h"
+#include "Interfaces/OnlineTurnBasedInterface.h"
 #include "TurnBasedMatchmakerDelegateIOS.h"
 
 @interface FTurnBasedMatchmakerDelegateIOS()

@@ -1,5 +1,4 @@
-﻿INTSourceChangelist:2657979
-Availability:Public
+﻿Availability:Public
 Title:頂点アニメーション ツール - タイムライン メッシュ
 Crumbs: %ROOT%, Engine, Engine/Animation
 Description:3Ds Max 頂点アニメーション ツールセットのユーザーガイド
@@ -12,11 +11,12 @@ Version:4.9
 ## 3Ds Max のコンテンツ作成とアニメートしたメッシュのタイムラインの設定
 
 
-1. まず以下のオプションを使用してワールドの「0,0,0」の位置に **Standard Primitives** から **ティーポット** を作成します。
+1. まず以下のオプションを使用してワールドの 0,0,0 の位置に **Standard Primitives** から **ティーポット** を作成します。
 	* **Radius:** 70.0
 	* **Segments:** 5
+	
+	[![](VAT_Teapot_Setup_00.png)
 
-	![](VAT_Teapot_Setup_00.png)
 
 1. 次に Modifier List からティーポットに **Bend** モディファイアを適用して、 **Direction** を **90** に設定します。 
 
@@ -98,7 +98,8 @@ yqqHsxrPk9o
 * [Mip Gen Settings] を必ず **[No Mip Maps]** に設定してください。
 * [Texture Group (テクスチャ グループ)] を **[UI]** に変更してください。
 * **[sRGB]** が無効になっていることを確認してください。
-* [Compression Settings (圧縮設定)] を **[TC_HDR]** に設定してください。
+* [Compression Settings (圧縮設定)] を **TC_HDR** に設定してください。
+* フィルタを **Nearest** に設定します。
 
 	![](VAT_EXR_Texture_Setup.png)
 
@@ -108,7 +109,8 @@ yqqHsxrPk9o
 * [Texture Group (テクスチャ グループ)] を **[UI]** に変更してください。
 * **[sRGB]** が無効になっていることを確認してください。
 * [Compression Settings (圧縮設定)]を **[TC_Vector Displacement Map]** に設定してください。
-
+* フィルタを **Nearest** に設定します。
+	
 	![](VAT_Normal_Texture_Setup.png)
 
 テクスチャを正しく設定したら、変更をすべて保存するためにコンテンツ ブラウザで必ず **[Save All]** ボタンを押してください。 

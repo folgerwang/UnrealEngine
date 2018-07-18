@@ -7,11 +7,14 @@
 #pragma once
 
 #if PLATFORM_MAC
-#include "CocoaTextView.h"
+#include "Mac/CocoaTextView.h"
 @interface FMetalView : FCocoaTextView
 @end
 #endif
-#include "PlatformFramePacer.h"
+#include "HAL/PlatformFramePacer.h"
+THIRD_PARTY_INCLUDES_START
+#include "mtlpp.hpp"
+THIRD_PARTY_INCLUDES_END
 
 enum EMetalViewportAccessFlag
 {
@@ -23,7 +26,7 @@ enum EMetalViewportAccessFlag
 
 class FMetalCommandQueue;
 
-typedef void (^FMetalViewportPresentHandler)(uint32 CGDirectDisplayID);
+typedef void (^FMetalViewportPresentHandler)(uint32 CGDirectDisplayID, double OutputSeconds, double OutputDuration);
 
 class FMetalViewport : public FRHIViewport
 {
@@ -34,8 +37,8 @@ public:
 	void Resize(uint32 InSizeX, uint32 InSizeY, bool bInIsFullscreen,EPixelFormat Format);
 	
 	TRefCountPtr<FMetalTexture2D> GetBackBuffer(EMetalViewportAccessFlag Accessor) const;
-	id<MTLDrawable> GetDrawable(EMetalViewportAccessFlag Accessor);
-	id<MTLTexture> GetDrawableTexture(EMetalViewportAccessFlag Accessor);
+	mtlpp::Drawable GetDrawable(EMetalViewportAccessFlag Accessor);
+	FMetalTexture GetDrawableTexture(EMetalViewportAccessFlag Accessor);
 	void ReleaseDrawable(void);
 
 	// supports pulling the raw MTLTexture
@@ -60,7 +63,7 @@ private:
 	uint32 GetViewportIndex(EMetalViewportAccessFlag Accessor) const;
 
 private:
-	TMetalPtr<id<MTLDrawable>> Drawable;
+	mtlpp::Drawable Drawable;
 	TRefCountPtr<FMetalTexture2D> BackBuffer[2];
 	mutable FCriticalSection Mutex;
 	

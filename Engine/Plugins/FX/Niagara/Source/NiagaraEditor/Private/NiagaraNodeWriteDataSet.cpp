@@ -37,6 +37,7 @@ void UNiagaraNodeWriteDataSet::AllocateDefaultPins()
 		//Pin->bDefaultValueIsIgnored = true;
 	}
 
+	AddParameterMapPins();
 	AddConditionPin();
 	
 	bool useFriendlyNames = (VariableFriendlyNames.Num() == Variables.Num());
@@ -83,7 +84,7 @@ void UNiagaraNodeWriteDataSet::Compile(class FHlslNiagaraTranslator* Translator,
 
 	FNiagaraDataSetID AlteredDataSet = DataSet;
 	AlteredDataSet.Name = EventName;
-	Translator->WriteDataSet(AlteredDataSet, Variables, ENiagaraDataSetAccessMode::AppendConsume, Inputs);
+	Translator->WriteDataSet(AlteredDataSet, Variables, ENiagaraDataSetAccessMode::AppendConsume, Inputs, Outputs);
 
 }
 
@@ -103,7 +104,7 @@ void UNiagaraNodeWriteDataSet::PostLoad()
 
 	if (!bFoundMatchingPin)
 	{
-		AddConditionPin(0);
+		AddConditionPin(1);
 	}
 
 	if (EventName.IsNone())
@@ -111,6 +112,35 @@ void UNiagaraNodeWriteDataSet::PostLoad()
 		EventName = DataSet.Name;
 	}
 }
+
+void UNiagaraNodeWriteDataSet::BuildParameterMapHistory(FNiagaraParameterMapHistoryBuilder& OutHistory, bool bRecursive)
+{
+	if (bRecursive)
+	{
+		OutHistory.VisitInputPins(this);
+	}
+
+	if (!IsNodeEnabled() && OutHistory.GetIgnoreDisabled())
+	{
+		RouteParameterMapAroundMe(OutHistory, bRecursive);
+		return;
+	}
+
+	int32 ParamMapIdx = INDEX_NONE;
+	if (GetInputPin(0)->LinkedTo.Num() != 0)
+	{
+		ParamMapIdx = OutHistory.TraceParameterMapOutputPin(UNiagaraNode::TraceOutputPin(GetInputPin(0)->LinkedTo[0]));
+	}
+
+	if (ParamMapIdx != INDEX_NONE)
+	{
+		uint32 NodeIdx = OutHistory.BeginNodeVisitation(ParamMapIdx, this);
+		OutHistory.EndNodeVisitation(ParamMapIdx, NodeIdx);
+	}
+
+	OutHistory.RegisterParameterMapPin(ParamMapIdx, GetOutputPin(0));
+}
+
 
 #undef LOCTEXT_NAMESPACE
 

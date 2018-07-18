@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "LiveLinkDrivenComponent.h"
 
@@ -7,7 +7,7 @@
 
 #include "GameFramework/Actor.h"
 
-ULiveLinkDrivenComponent::ULiveLinkDrivenComponent(const FObjectInitializer& ObjectInitializer)
+UDEPRECATED_LiveLinkDrivenComponent::UDEPRECATED_LiveLinkDrivenComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 	PrimaryComponentTick.TickGroup = TG_PrePhysics;
@@ -19,17 +19,17 @@ ULiveLinkDrivenComponent::ULiveLinkDrivenComponent(const FObjectInitializer& Obj
 	
 }
 
-void ULiveLinkDrivenComponent::OnRegister()
+void UDEPRECATED_LiveLinkDrivenComponent::OnRegister()
 {
 	Super::OnRegister();
 }
 
-void ULiveLinkDrivenComponent::OnUnregister()
+void UDEPRECATED_LiveLinkDrivenComponent::OnUnregister()
 {
 	Super::OnUnregister();
 }
 
-void ULiveLinkDrivenComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
+void UDEPRECATED_LiveLinkDrivenComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
 {
 	if (ILiveLinkClient* Client = ClientRef.GetClient())
 	{

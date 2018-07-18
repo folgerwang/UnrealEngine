@@ -11,6 +11,7 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <utime.h>
+#include <unistd.h>
 
 // Set up compiler pragmas, etc
 #include "Android/AndroidCompilerSetup.h"

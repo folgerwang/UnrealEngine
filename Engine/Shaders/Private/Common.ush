@@ -42,6 +42,11 @@
 #define TextureExternal Texture2D
 #endif
 
+#if FEATURE_LEVEL < FEATURE_LEVEL_SM5
+	// Define TextureCubeArray to something which will compile so we can use it in uniform buffers
+	#define TextureCubeArray TextureCube
+#endif
+
 // Generated file that contains uniform buffer declarations needed by the shader being compiled 
 #include "/Engine/Generated/GeneratedUniformBuffers.ush" 
 
@@ -59,7 +64,7 @@
 #endif
 
 // Using SV_ClipDistance has overhead (15% slower base pass in triangle bound test scene on PS4) so projects have to opt-in
-#define USE_GLOBAL_CLIP_PLANE (PLATFORM_SUPPORTS_GLOBAL_CLIP_PLANE && PROJECT_ALLOW_GLOBAL_CLIP_PLANE)
+#define USE_GLOBAL_CLIP_PLANE (PLATFORM_SUPPORTS_GLOBAL_CLIP_PLANE && PROJECT_ALLOW_GLOBAL_CLIP_PLANE && !MATERIAL_DOMAIN_POSTPROCESS && !MATERIAL_DOMAIN_UI)
 
 // This would need to be a #define in GLSL to ignore the SamplerState, however, it is currently a function call in HLSL
 // for type checking of the parameters - ironically the type checking is really only needed in GLSL!
@@ -127,9 +132,25 @@ MaterialFloat4 Texture3DSampleLevel(Texture3D Tex, SamplerState Sampler, float3 
 {
 	return Tex.SampleLevel(Sampler, UV, Mip);
 }
+MaterialFloat4 Texture3DSampleBias(Texture3D Tex, SamplerState Sampler, float3 UV, MaterialFloat MipBias)
+{
+#if COMPUTESHADER
+	return Tex.SampleBias(Sampler, UV, 0);
+#else
+	return Tex.SampleBias(Sampler, UV, MipBias);
+#endif
+}
+MaterialFloat4 Texture3DSampleGrad(Texture3D Tex, SamplerState Sampler, float3 UV, MaterialFloat3 DDX, MaterialFloat3 DDY)
+{
+	return Tex.SampleGrad(Sampler, UV, DDX, DDY);
+}
 MaterialFloat4 TextureCubeSampleLevel(TextureCube Tex, SamplerState Sampler, float3 UV, MaterialFloat Mip)
 {
 	return Tex.SampleLevel(Sampler, UV, Mip);
+}
+MaterialFloat TextureCubeSampleDepthLevel(TextureCube TexDepth, SamplerState Sampler, float3 UV, MaterialFloat Mip)
+{
+return TexDepth.SampleLevel(Sampler, UV, Mip).r;
 }
 MaterialFloat4 TextureCubeSampleBias(TextureCube Tex, SamplerState Sampler, float3 UV, MaterialFloat MipBias)
 {
@@ -317,8 +338,12 @@ MaterialFloat4 Texture2DSampleBicubic( Texture2D Tex, SamplerState Sampler, floa
 	return OutColor;
 }
 
-	// TANGENTTOWORLD0 is the first row of the tangent to world matrix, w might be needed for padding and is not used yet.
-	// TANGENTTOWORLD2 is the last row of the tangent to world matrix, determinant of tangent basis in w
+// TANGENTTOWORLD0 is the first row of the tangent to world matrix, w might be needed for padding and is not used yet.
+// TANGENTTOWORLD2 is the last row of the tangent to world matrix, determinant of tangent basis in w
+	
+// Helper macro to determine whether we need to separately interpolate the world vertex normal to the pixel center.
+// Currently only curvature-to-roughness needs this interpolation, so disable it when it's not used to save on interpolants.
+#define USE_WORLDVERTEXNORMAL_CENTER_INTERPOLATION	(FEATURE_LEVEL >= FEATURE_LEVEL_SM5 && MATERIAL_NORMAL_CURVATURE_TO_ROUGHNESS)
 
 #if FEATURE_LEVEL >= FEATURE_LEVEL_SM5
 
@@ -327,9 +352,14 @@ MaterialFloat4 Texture2DSampleBicubic( Texture2D Tex, SamplerState Sampler, floa
 
 	// _centroid is needed to get better quality with MSAA
 
-	// The D3D shader compiler combines _centroid and non controid. Using float3 would results in a internal
+	// The D3D shader compiler combines _centroid and non centroid. Using float3 would result in a internal
 	// shader compiler error. This block is using float4 to prevent that.
+#if USE_WORLDVERTEXNORMAL_CENTER_INTERPOLATION
+	#define TANGENTTOWORLD_INTERPOLATOR_BLOCK	float4 TangentToWorld0 : TEXCOORD10_centroid; float4	TangentToWorld2	: TEXCOORD11_centroid; \
+		float4	TangentToWorld2_Center	: TEXCOORD15;
+#else
 	#define TANGENTTOWORLD_INTERPOLATOR_BLOCK	float4 TangentToWorld0 : TEXCOORD10_centroid; float4	TangentToWorld2	: TEXCOORD11_centroid;
+#endif
 
 #else
 
@@ -574,35 +604,128 @@ MaterialFloat PhongShadingPow(MaterialFloat X, MaterialFloat Y)
 	#define NumMSAASamples 4
 #endif
 
-// depth in the red channel in DeviceZ
-Texture2D		SceneDepthTexture;
-SamplerState	SceneDepthTextureSampler;
-Texture2D		CustomDepthTexture;
-SamplerState	CustomDepthTextureSampler;
-// Custom Stencil texture used for mobile platforms
-Texture2D		MobileCustomStencilTexture;
-SamplerState	MobileCustomStencilTextureSampler;
-// scene HDR color
-Texture2D		SceneColorTexture;
-SamplerState	SceneColorTextureSampler;
-// copy of scene alpha for PC ES2 emulation
-Texture2D		SceneAlphaCopyTexture;
-SamplerState	SceneAlphaCopyTextureSampler;
 // shadow and light function
 Texture2D		LightAttenuationTexture;
 SamplerState	LightAttenuationTextureSampler;
 
-#if FEATURE_LEVEL >= FEATURE_LEVEL_SM4
-// Scene depth-stencil buffer used for stencil reads
-Texture2D<uint2>	SceneStencilTexture;
-#endif
-
 // We don't use an inline function so we can avoid type promotion/ coercion.
 #define RETURN_COLOR( Color ) ( Color )
 
-// Tangent space bias
+// Convert from unorm to snorm and viceversa
+float ConvertTangentUnormToSnorm8(float Input)
+{
+	int IntVal = int(round(Input * 255.0f));
+	//negate
+	IntVal = (IntVal > 127) ? (IntVal | 0xFFFFFF80) : IntVal;
+	return clamp(IntVal / 127.0f, -1, 1);
+}
+
+float2 ConvertTangentUnormToSnorm8(float2 Input)
+{
+	int2 IntVal = int2(round(Input * 255.0f));
+	//negate
+	IntVal = (IntVal > 127) ? (IntVal | 0xFFFFFF80) : IntVal;
+	return clamp(IntVal / 127.0f, -1, 1);
+}
+
+float3 ConvertTangentUnormToSnorm8(float3 Input)
+{
+	int3 IntVal = int3(round(Input * 255.0f));
+	IntVal = (IntVal > 127) ? (IntVal | 0xFFFFFF80) : IntVal;
+	return clamp(IntVal / 127.0f, -1, 1);
+}
+
+float4 ConvertTangentUnormToSnorm8(float4 Input)
+{
+	int4 IntVal = int4(round(Input * 255.0f));
+	//negate
+	IntVal = (IntVal > 127) ? (IntVal | 0xFFFFFF80) : IntVal;
+	return clamp(IntVal / 127.0f, -1, 1);
+}
+
+float ConvertTangentUnormToSnorm16(float Input)
+{
+	int IntVal = int(round(Input * 65535.0f));
+	//negate
+	IntVal = (IntVal > 32767) ? (IntVal | 0xFFFF8000) : IntVal;
+	return clamp(IntVal / 32767.0f, -1, 1);
+}
+
+float2 ConvertTangentUnormToSnorm16(float2 Input)
+{
+	int2 IntVal = int2(round(Input * 65535.0f));
+	//negate
+	IntVal = (IntVal > 32767) ? (IntVal | 0xFFFFFF80) : IntVal;
+	return clamp(IntVal / 32767.0f, -1, 1);
+}
+
+float3 ConvertTangentUnormToSnorm16(float3 Input)
+{
+	int3 IntVal = int3(round(Input * 65535.0f));
+	IntVal = (IntVal > 32767) ? (IntVal | 0xFFFFFF80) : IntVal;
+	return clamp(IntVal / 32767.0f, -1, 1);
+}
+
+float4 ConvertTangentUnormToSnorm16(float4 Input)
+{
+	int4 IntVal = int4(round(Input * 65535.0f));
+	//negate
+	IntVal = (IntVal > 32767) ? (IntVal | 0xFFFFFF80) : IntVal;
+	return clamp(IntVal / 32767.0f, -1, 1);
+}
+
+float ConvertTangentSnormToUnorm8(float Input)
+{
+	float Res = Input >= 0.0f ? Input * 127 : ((Input + 1.0) * 127) + 128;
+	return clamp(Res / 255, 0.0f, 0.99f);
+}
+
+float2 ConvertTangentSnormToUnorm8(float2 Input)
+{
+	float2 Res = Input >= 0.0f ? Input * 127 : ((Input + 1.0) * 127) + 128;
+	return clamp(Res / 255, 0.0f, 0.99f);
+}
+
+float3 ConvertTangentSnormToUnorm8(float3 Input)
+{
+	float3 Res = Input >= 0.0f ? Input * 127 : ((Input + 1.0) * 127) + 128;
+	return clamp(Res / 255, 0.0f, 0.99f);
+}
+
+float4 ConvertTangentSnormToUnorm8(float4 Input)
+{
+	float4 Res = Input >= 0.0f ? Input * 127 : ((Input + 1.0) * 127) + 128;
+	return clamp(Res / 255, 0.0f, 0.99f);
+}
+
+float ConvertTangentSnormToUnorm16(float Input)
+{
+	float Res = Input >= 0.0f ? Input * 32767 : ((Input + 1.0) * 32767) + 32768;
+	return clamp(Res / 65535, 0.0f, 0.99f);
+}
+
+float2 ConvertTangentSnormToUnorm16(float2 Input)
+{
+	float2 Res = Input >= 0.0f ? Input * 32767 : ((Input + 1.0) * 32767) + 32768;
+	return clamp(Res / 65535, 0.0f, 0.99f);
+}
+
+float3 ConvertTangentSnormToUnorm16(float3 Input)
+{
+	float3 Res = Input >= 0.0f ? Input * 32767 : ((Input + 1.0) * 32767) + 32768;
+	return clamp(Res / 65535, 0.0f, 0.99f);
+}
+
+float4 ConvertTangentSnormToUnorm16(float4 Input)
+{
+	float4 Res = Input >= 0.0f ? Input * 32767 : ((Input + 1.0) * 32767) + 32768;
+	return clamp(Res / 65535, 0.0f, 0.99f);
+}
+
+// Tangent space bias/unbias
 // We don't use a function so we can avoid type promotion/ coercion.
-#define TangentBias(X) (X * 2.0f - 1.0f)
+#define TangentBias(X)		(X)
+#define TangentUnbias(X)	(X)
 
 float Square( float x )
 {
@@ -765,35 +888,6 @@ MaterialFloat4 EncodeLightAttenuation(MaterialFloat4 InColor)
 {
 	return sqrt(InColor);
 }
-
-/** return the scene lighting texture */
-MaterialFloat3 CalcSceneColor(MaterialFloat2 ScreenUV)
-{
-#if SCENE_TEXTURES_DISABLED
-	return MaterialFloat3(0.0f,0.0f,0.0f);
-#else
-	return Texture2DSampleLevel(SceneColorTexture, SceneColorTextureSampler, ScreenUV, 0).rgb;
-#endif
-}
-
-/** return all channels of the scene lighting texture */
-MaterialFloat4 CalcFullSceneColor(MaterialFloat2 ScreenUV)
-{
-#if SCENE_TEXTURES_DISABLED
-	return MaterialFloat4(0.0f, 0.0f, 0.0f, 0.0f);
-#else
-	return Texture2DSample(SceneColorTexture, SceneColorTextureSampler,ScreenUV);
-#endif
-}
-
-/** Encodes HDR linear scene color for storage in the 8 bit light attenuation texture. */
-MaterialFloat3 EncodeSceneColorForMaterialNode(MaterialFloat3 LinearSceneColor)
-{
-	// Preserving a range from [0, 10]
-	// Remap values to get more bits of precision in the darks
-	return pow(LinearSceneColor * .1f, .25f);
-}
-
 
 //
 // MOBILE WITHOUT FP16 SUPPORT: 8-BIT/CHANNEL MOSAICING FOR LINEAR HDR
@@ -1027,24 +1121,7 @@ float2 CalcScreenUVFromOffsetFraction(float4 ScreenPosition, float2 OffsetFracti
 	// Clamp to valid area of the screen to avoid reading garbage
 	//@todo - soft clamp
 	float2 OffsetNDC = clamp(NDC + OffsetFraction * float2(2, -2), -.999f, .999f);
-	return float2(OffsetNDC * View.ScreenPositionScaleBias.xy + View.ScreenPositionScaleBias.wz);
-}
-
-Texture2D		SceneColorCopyTexture;
-SamplerState	SceneColorCopyTextureSampler;
-
-/** Applies an offset to the scene texture lookup and decodes the HDR linear space color. */
-float3 DecodeSceneColorForMaterialNode(float2 ScreenUV)
-{
-#if HIT_PROXY_SHADER || SCENE_TEXTURES_DISABLED
-	// Hit proxies rendering pass doesn't have access to valid render buffers
-	return float3(0.0f, 0.0f, 0.0f);
-#else
-	float4 EncodedSceneColor = Texture2DSample(SceneColorCopyTexture, SceneColorCopyTextureSampler, ScreenUV);
-
-	// Undo the function in EncodeSceneColorForMaterialNode
-	return pow(EncodedSceneColor.rgb, 4) * 10;
-#endif
+	return float2(OffsetNDC * ResolvedView.ScreenPositionScaleBias.xy + ResolvedView.ScreenPositionScaleBias.wz);
 }
 
 float4 GetPerPixelLightAttenuation(float2 UV)
@@ -1079,104 +1156,9 @@ float ConvertToDeviceZ(float SceneDepth)
 	}
 }
 
-/** Returns clip space W, which is world space distance along the View Z axis. Note if you need DeviceZ LookupDeviceZ() is the faster option */
-float CalcSceneDepth(float2 ScreenUV)
-{
-#if SCENE_TEXTURES_DISABLED
-	return 0.0f;
-#else
-	#if FEATURE_LEVEL > FEATURE_LEVEL_ES3_1 || MOBILE_FORCE_DEPTH_TEXTURE_READS
-		return ConvertFromDeviceZ(Texture2DSampleLevel(SceneDepthTexture, SceneDepthTextureSampler, ScreenUV, 0).r);
-	#else
-		#if COMPILER_GLSL_ES2
-			#if IOS
-				// Only call FramebufferFetch when actually compiling for IOS ES2.
-				return FramebufferFetchES2().w;
-			#elif WEBGL
-				return Texture2DSampleLevel(SceneAlphaCopyTexture, SceneAlphaCopyTextureSampler, ScreenUV, 0).r;
-			#else 
-				float SceneW = ConvertFromDeviceZ(Texture2DSampleLevel(SceneDepthTexture, SceneDepthTextureSampler, ScreenUV, 0).r);		
-				return DepthbufferFetchES2(SceneW, View.InvDeviceZToWorldZTransform[2], View.InvDeviceZToWorldZTransform[3]);
-			#endif 
-		#elif METAL_PROFILE && !MAC
-				return FramebufferFetchES2().w;
-		#else
-			return ConvertFromDeviceZ(Texture2DSampleLevel(SceneDepthTexture, SceneDepthTextureSampler, ScreenUV, 0).r);
-		#endif
-	#endif
-#endif
-}
-
-/** Returns DeviceZ which is the z value stored in the depth buffer. */
-float LookupDeviceZ( float2 ScreenUV )
-{
-#if FEATURE_LEVEL > FEATURE_LEVEL_ES3_1
-	// native Depth buffer lookup
-	return Texture2DSampleLevel(SceneDepthTexture, SceneDepthTextureSampler, ScreenUV, 0).r;
-#else
-	#if COMPILER_GLSL_ES2
-		// todo: can be optimized
-		return ConvertToDeviceZ(CalcSceneDepth(ScreenUV));
-	#elif METAL_PROFILE
-		// todo: can be optimized
-		return ConvertToDeviceZ(CalcSceneDepth(ScreenUV));
-	#else
-		// native Depth buffer lookup
-		return Texture2DSampleLevel(SceneDepthTexture, SceneDepthTextureSampler, ScreenUV, 0).r;
-	#endif
-#endif
-}
-
-#if FEATURE_LEVEL >= FEATURE_LEVEL_SM4 || MOBILE_EMULATION
-
-	// depth in in DeviceZ
-	Texture2D<float> SceneDepthTextureNonMS;
-
-	/** Returns clip space W, which is world space distance along the View Z axis. */
-	float CalcSceneDepth(uint2 PixelPos)
-	{
-#if SCENE_TEXTURES_DISABLED
-		return 0.0f;
-#else
-		float DeviceZ = SceneDepthTextureNonMS.Load(int3(PixelPos, 0));
-
-		// Fetch the depth buffer Z / W value, solve for W
-		return ConvertFromDeviceZ(DeviceZ);
-#endif
-	}
-#endif
-
-/**
-* Returns scene color in rgb, depth in a
-*/
-float4 CalcSceneColorAndDepth( float2 ScreenUV )
-{
-	return float4(CalcSceneColor(ScreenUV), CalcSceneDepth(ScreenUV));
-}
-
-#if FEATURE_LEVEL >= FEATURE_LEVEL_SM4
-#if FEATURE_LEVEL == FEATURE_LEVEL_SM4
-	// SM4 requires texture size to be explicitly stated and expressed as the number of samples.
-	Texture2DMS<float4, NumMSAASamples> SceneColorSurface;
-	Texture2DMS<float, NumMSAASamples> SceneDepthSurface;
-#else
-	Texture2DMS<float4> SceneColorSurface;
-	Texture2DMS<float> SceneDepthSurface;
-#endif // FEATURE_LEVEL
-	float CalcSceneDepthMSAA(float2 ScreenUV,uint SampleIndex)
-	{
-		int2 IntUV = int2(trunc(ScreenUV * View.BufferSizeAndInvSize.xy));
-		float DeviceZ = SceneDepthSurface.Load(IntUV,SampleIndex);
-
-		return ConvertFromDeviceZ(DeviceZ);
-	}
-#endif
-	 
-// ----------------------------
-
 float2 ScreenPositionToBufferUV(float4 ScreenPosition)
 {
-	return float2(ScreenPosition.xy / ScreenPosition.w * View.ScreenPositionScaleBias.xy + View.ScreenPositionScaleBias.wz);
+	return float2(ScreenPosition.xy / ScreenPosition.w * ResolvedView.ScreenPositionScaleBias.xy + ResolvedView.ScreenPositionScaleBias.wz);
 }
 
 float2 SvPositionToBufferUV(float4 SvPosition)
@@ -1781,6 +1763,9 @@ struct FPixelShaderOut
 
 #endif // GetGlobalSampler
 
+
+#if SUPPORTS_INDEPENDENT_SAMPLERS
+
 // Shortcuts for global samplers.
 #define GlobalPointClampedSampler GetGlobalSampler(Point, Clamped)
 #define GlobalPointWrappedSampler GetGlobalSampler(Point, Wrapped)
@@ -1788,3 +1773,5 @@ struct FPixelShaderOut
 #define GlobalBilinearWrappedSampler GetGlobalSampler(Bilinear, Wrapped)
 #define GlobalTrilinearClampedSampler GetGlobalSampler(Trilinear, Clamped)
 #define GlobalTrilinearWrappedSampler GetGlobalSampler(Trilinear, Wrapped)
+
+#endif // SUPPORTS_INDEPENDENT_SAMPLERS

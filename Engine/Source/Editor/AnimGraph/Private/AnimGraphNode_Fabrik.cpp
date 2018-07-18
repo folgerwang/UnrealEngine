@@ -8,7 +8,7 @@
 /////////////////////////////////////////////////////
 // UAnimGraphNode_Fabrik 
 
-#define LOCTEXT_NAMESPACE "A3Nodes"
+#define LOCTEXT_NAMESPACE "AnimGraphNode_Fabrik"
 
 UAnimGraphNode_Fabrik::UAnimGraphNode_Fabrik(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)

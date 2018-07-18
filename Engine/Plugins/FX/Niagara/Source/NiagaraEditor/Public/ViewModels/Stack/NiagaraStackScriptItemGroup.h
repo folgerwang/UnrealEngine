@@ -2,15 +2,18 @@
 
 #pragma once
 
-#include "NiagaraStackItemGroup.h"
+#include "ViewModels/Stack/NiagaraStackItemGroup.h"
 #include "NiagaraCommon.h"
+#include "UObject/ObjectKey.h"
 #include "NiagaraStackScriptItemGroup.generated.h"
 
 class FNiagaraScriptViewModel;
-class UNiagaraStackEditorData;
-class UNiagaraStackAddScriptModuleItem;
 class UNiagaraStackSpacer;
 class UNiagaraNodeOutput;
+class UNiagaraNodeFunctionCall;
+class FScriptItemGroupAddUtilities;
+class UNiagaraStackModuleItem;
+class UEdGraph;
 
 UCLASS()
 class NIAGARAEDITOR_API UNiagaraStackScriptItemGroup : public UNiagaraStackItemGroup
@@ -19,9 +22,9 @@ class NIAGARAEDITOR_API UNiagaraStackScriptItemGroup : public UNiagaraStackItemG
 
 public:
 	void Initialize(
-		TSharedRef<FNiagaraSystemViewModel> InSystemViewModel,
-		TSharedRef<FNiagaraEmitterViewModel> InEmitterViewModel,
-		UNiagaraStackEditorData& InStackEditorData,
+		FRequiredEntryData InRequiredEntryData,
+		FText InDisplayName,
+		FText InToolTip,
 		TSharedRef<FNiagaraScriptViewModel> InScriptViewModel,
 		ENiagaraScriptUsage InScriptUsage,
 		FGuid InScriptUsageId = FGuid());
@@ -29,38 +32,37 @@ public:
 	ENiagaraScriptUsage GetScriptUsage() const { return ScriptUsage; }
 	FGuid GetScriptUsageId() const { return ScriptUsageId; }
 
-	virtual FText GetDisplayName() const override;
-	void SetDisplayName(FText InDisplayName);
-
-	virtual int32 GetErrorCount() const override;
-	virtual bool GetErrorFixable(int32 ErrorIdx) const override;
-	virtual bool TryFixError(int32 ErrorIdx) override;
-	virtual FText GetErrorText(int32 ErrorIdx) const override;
-	virtual FText GetErrorSummaryText(int32 ErrorIdx) const override;
-
 protected:
-	virtual void RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren) override;
-	TWeakPtr<FNiagaraScriptViewModel> ScriptViewModel;
+	virtual void RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren, TArray<FStackIssue>& NewIssues) override;
+
+	virtual void FinalizeInternal() override;
+
+	virtual TOptional<FDropResult> ChildRequestCanDropInternal(const UNiagaraStackEntry& TargetChild, const TArray<UNiagaraStackEntry*>& DraggedEntries) override;
+
+	virtual TOptional<FDropResult> ChildRequestDropInternal(const UNiagaraStackEntry& TargetChild, const TArray<UNiagaraStackEntry*>& DraggedEntries) override;
 
 private:
-	void ItemAdded();
+	void ItemAdded(UNiagaraNodeFunctionCall* AddedModule);
 
 	void ChildModifiedGroupItems();
 
+	void OnScriptGraphChanged(const struct FEdGraphEditAction& InAction);
+
+protected:
+	TWeakPtr<FNiagaraScriptViewModel> ScriptViewModel;
+	void RefreshIssues(TArray<FStackIssue>& NewIssues);
+
 private:
+	TSharedPtr<FScriptItemGroupAddUtilities> AddUtilities;
+
 	ENiagaraScriptUsage ScriptUsage;
 
 	FGuid ScriptUsageId;
+	bool bIsValidForOutput;
 
-	FText DisplayName;
+	TWeakObjectPtr<UEdGraph> ScriptGraph;
 
-	DECLARE_DELEGATE(FFixError);
-	struct FError
-	{
-		FText ErrorText;
-		FText ErrorSummaryText;
-		FFixError Fix;
-	};
+	FDelegateHandle OnGraphChangedHandle;
 
-	TSharedPtr<FError> Error;
+	TMap<FObjectKey, UNiagaraStackModuleItem*> StackSpacerToModuleItemMap;
 };

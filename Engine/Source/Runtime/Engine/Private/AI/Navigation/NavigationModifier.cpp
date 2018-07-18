@@ -5,12 +5,9 @@
 #include "EngineStats.h"
 #include "GameFramework/Actor.h"
 #include "Components/BrushComponent.h"
-#include "AI/Navigation/RecastHelpers.h"
-#include "AI/Navigation/NavLinkTrivial.h"
-#include "AI/Navigation/NavAreas/NavAreaMeta.h"
 #include "PhysicsEngine/BodySetup.h"
-#include "AI/Navigation/NavigationSystem.h"
-#include "AI/Navigation/NavAreas/NavArea_LowHeight.h"
+#include "AI/NavigationSystemBase.h"
+#include "AI/Navigation/NavAreaBase.h"
 
 // if square distance between two points is less than this the those points
 // will be considered identical when calculating convex hull
@@ -42,7 +39,7 @@ void FNavigationLinkBase::SetAreaClass(UClass* InAreaClass)
 UClass* FNavigationLinkBase::GetAreaClass() const
 {
 	UClass* ClassOb = AreaClassOb.Get();
-	return ClassOb ? ClassOb : (UClass*)UNavigationSystem::GetDefaultWalkableArea();
+	return ClassOb ? ClassOb : *FNavigationSystem::GetDefaultWalkableArea();
 }
 
 void FNavigationLinkBase::InitializeAreaClass(const bool bForceRefresh)
@@ -52,8 +49,7 @@ void FNavigationLinkBase::InitializeAreaClass(const bool bForceRefresh)
 
 bool FNavigationLinkBase::HasMetaArea() const
 {
-	UClass* ClassOb = GetAreaClass();
-	return ClassOb && ClassOb->IsChildOf(UNavAreaMeta::StaticClass());
+	return AreaClass && AreaClass->GetDefaultObject<UNavAreaBase>()->IsMetaArea();
 }
 
 void FNavigationLinkBase::PostSerialize(const FArchive& Ar)
@@ -279,7 +275,7 @@ bool UNavLinkDefinition::HasAdjustableLinks() const
 // FAreaNavModifier
 //----------------------------------------------------------------------//
 
-FAreaNavModifier::FAreaNavModifier(float Radius, float Height, const FTransform& LocalToWorld, const TSubclassOf<UNavArea> InAreaClass)
+FAreaNavModifier::FAreaNavModifier(float Radius, float Height, const FTransform& LocalToWorld, const TSubclassOf<UNavAreaBase> InAreaClass)
 {
 	Init(InAreaClass);
 	
@@ -296,25 +292,25 @@ FAreaNavModifier::FAreaNavModifier(float Radius, float Height, const FTransform&
 	Bounds = FBox::BuildAABB(LocalToWorld.GetLocation(), FVector(Radius, Radius, Height));
 }
 
-FAreaNavModifier::FAreaNavModifier(const FVector& Extent, const FTransform& LocalToWorld, const TSubclassOf<UNavArea> InAreaClass)
+FAreaNavModifier::FAreaNavModifier(const FVector& Extent, const FTransform& LocalToWorld, const TSubclassOf<UNavAreaBase> InAreaClass)
 {
 	Init(InAreaClass);
 	SetBox(FBox::BuildAABB(FVector::ZeroVector, Extent), LocalToWorld);
 }
 
-FAreaNavModifier::FAreaNavModifier(const FBox& Box, const FTransform& LocalToWorld, const TSubclassOf<UNavArea> InAreaClass)
+FAreaNavModifier::FAreaNavModifier(const FBox& Box, const FTransform& LocalToWorld, const TSubclassOf<UNavAreaBase> InAreaClass)
 {
 	Init(InAreaClass);
 	SetBox(Box, LocalToWorld);
 }
 
-FAreaNavModifier::FAreaNavModifier(const TArray<FVector>& InPoints, ENavigationCoordSystem::Type CoordType, const FTransform& LocalToWorld, const TSubclassOf<UNavArea> InAreaClass)
+FAreaNavModifier::FAreaNavModifier(const TArray<FVector>& InPoints, ENavigationCoordSystem::Type CoordType, const FTransform& LocalToWorld, const TSubclassOf<UNavAreaBase> InAreaClass)
 {
 	Init(InAreaClass);
 	SetConvex(InPoints.GetData(), 0, InPoints.Num(), CoordType, LocalToWorld);
 }
 
-FAreaNavModifier::FAreaNavModifier(const TArray<FVector>& InPoints, const int32 FirstIndex, const int32 LastIndex, ENavigationCoordSystem::Type CoordType, const FTransform& LocalToWorld, const TSubclassOf<UNavArea> InAreaClass)
+FAreaNavModifier::FAreaNavModifier(const TArray<FVector>& InPoints, const int32 FirstIndex, const int32 LastIndex, ENavigationCoordSystem::Type CoordType, const FTransform& LocalToWorld, const TSubclassOf<UNavAreaBase> InAreaClass)
 {
 	check(InPoints.IsValidIndex(FirstIndex) && InPoints.IsValidIndex(LastIndex-1));
 
@@ -322,7 +318,7 @@ FAreaNavModifier::FAreaNavModifier(const TArray<FVector>& InPoints, const int32 
 	SetConvex(InPoints.GetData(), FirstIndex, LastIndex, CoordType, LocalToWorld);
 }
 
-FAreaNavModifier::FAreaNavModifier(const TNavStatArray<FVector>& InPoints, const int32 FirstIndex, const int32 LastIndex, ENavigationCoordSystem::Type CoordType, const FTransform& LocalToWorld, const TSubclassOf<UNavArea> InAreaClass)
+FAreaNavModifier::FAreaNavModifier(const TNavStatArray<FVector>& InPoints, const int32 FirstIndex, const int32 LastIndex, ENavigationCoordSystem::Type CoordType, const FTransform& LocalToWorld, const TSubclassOf<UNavAreaBase> InAreaClass)
 {
 	check(InPoints.IsValidIndex(FirstIndex) && InPoints.IsValidIndex(LastIndex-1));
 
@@ -330,7 +326,7 @@ FAreaNavModifier::FAreaNavModifier(const TNavStatArray<FVector>& InPoints, const
 	SetConvex(InPoints.GetData(), FirstIndex, LastIndex, CoordType, LocalToWorld);
 }
 
-FAreaNavModifier::FAreaNavModifier(const UBrushComponent* BrushComponent, const TSubclassOf<UNavArea> InAreaClass)
+FAreaNavModifier::FAreaNavModifier(const UBrushComponent* BrushComponent, const TSubclassOf<UNavAreaBase> InAreaClass)
 {
 	check(BrushComponent != NULL);
 
@@ -375,7 +371,7 @@ void FAreaNavModifier::GetConvex(FConvexNavAreaData& Data) const
 	Data.MaxZ = LastPoint.Y;
 }
 
-void FAreaNavModifier::Init(const TSubclassOf<UNavArea> InAreaClass)
+void FAreaNavModifier::Init(const TSubclassOf<UNavAreaBase> InAreaClass)
 {
 	bIncludeAgentHeight = false;
 	ApplyMode = ENavigationAreaMode::Apply;
@@ -385,24 +381,32 @@ void FAreaNavModifier::Init(const TSubclassOf<UNavArea> InAreaClass)
 	SetAreaClass(InAreaClass);
 }
 
-void FAreaNavModifier::SetAreaClass(const TSubclassOf<UNavArea> InAreaClass)
+bool IsMetaAreaClass(UClass& AreaClass)
+{
+	const UNavAreaBase* AreaClassCDO = GetDefault<UNavAreaBase>(&AreaClass);
+	return AreaClassCDO && AreaClassCDO->IsMetaArea();
+}
+
+void FAreaNavModifier::SetAreaClass(const TSubclassOf<UNavAreaBase> InAreaClass)
 {
 	AreaClassOb = (UClass*)InAreaClass;
 
-	const UClass* AreaClass1 = AreaClassOb.Get();
-	const UClass* AreaClass2 = ReplaceAreaClassOb.Get();
-	bHasMetaAreas = (AreaClass1 && AreaClass1->IsChildOf(UNavAreaMeta::StaticClass())) || (AreaClass2 && AreaClass2->IsChildOf(UNavAreaMeta::StaticClass()));
+	UClass* AreaClass1 = AreaClassOb.Get();
+	UClass* AreaClass2 = ReplaceAreaClassOb.Get();
+	bHasMetaAreas = (AreaClass1 && IsMetaAreaClass(*AreaClass1))
+		|| (AreaClass2 && IsMetaAreaClass(*AreaClass2));
 }
 
-void FAreaNavModifier::SetAreaClassToReplace(const TSubclassOf<UNavArea> InAreaClass)
+void FAreaNavModifier::SetAreaClassToReplace(const TSubclassOf<UNavAreaBase> InAreaClass)
 {
 	ReplaceAreaClassOb = (UClass*)InAreaClass;
 
-	const UClass* AreaClass1 = AreaClassOb.Get();
-	const UClass* AreaClass2 = ReplaceAreaClassOb.Get();
-	bHasMetaAreas = (AreaClass1 && AreaClass1->IsChildOf(UNavAreaMeta::StaticClass())) || (AreaClass2 && AreaClass2->IsChildOf(UNavAreaMeta::StaticClass()));
+	UClass* AreaClass1 = AreaClassOb.Get();
+	UClass* AreaClass2 = ReplaceAreaClassOb.Get();
+	bHasMetaAreas = (AreaClass1 && IsMetaAreaClass(*AreaClass1))
+		|| (AreaClass2 && IsMetaAreaClass(*AreaClass2));
 
-	bIsLowAreaModifier = (AreaClass2 == UNavArea_LowHeight::StaticClass());
+	bIsLowAreaModifier = (AreaClass2 && AreaClass2->GetDefaultObject<UNavAreaBase>()->IsLowArea());
 	ApplyMode = bIsLowAreaModifier ? ENavigationAreaMode::ReplaceInLowPass : AreaClass2 ? ENavigationAreaMode::Replace : ENavigationAreaMode::Apply;
 }
 
@@ -464,9 +468,12 @@ void FAreaNavModifier::SetConvex(const FVector* InPoints, const int32 FirstIndex
 	TArray<FVector, TInlineAllocator<MaxConvexPoints>> HullVertices;
 	HullVertices.Empty(MaxConvexPoints);
 
+	const FTransform& NavCoordTransform = FNavigationSystem::GetCoordTransformTo(CoordType);
+
 	for (int32 i = FirstIndex; i < LastIndex; i++)
 	{
-		const FVector Point = (CoordType == ENavigationCoordSystem::Recast) ? Recast2UnrealPoint(InPoints[i]) : InPoints[i];
+		//const FVector Point = (CoordType == ENavigationCoordSystem::Recast) ? Recast2UnrealPoint(InPoints[i]) : InPoints[i];
+		const FVector Point = NavCoordTransform.TransformPosition(InPoints[i]);
 
 		FVector TransformedPoint = LocalToWorld.TransformPosition(Point);
 		ConvexData.MinZ = FMath::Min( ConvexData.MinZ, TransformedPoint.Z );
@@ -705,8 +712,8 @@ FCompositeNavModifier FCompositeNavModifier::GetInstantiatedMetaModifier(const F
 		{
 			if (Area->HasMetaAreas())
 			{
-				Area->SetAreaClass(UNavAreaMeta::PickAreaClass(Area->GetAreaClass(), ActorOwner, *NavAgent));
-				Area->SetAreaClassToReplace(UNavAreaMeta::PickAreaClass(Area->GetAreaClassToReplace(), ActorOwner, *NavAgent));
+				Area->SetAreaClass(UNavAreaBase::PickAreaClassForAgent(Area->GetAreaClass(), *ActorOwner, *NavAgent));
+				Area->SetAreaClassToReplace(UNavAreaBase::PickAreaClassForAgent(Area->GetAreaClassToReplace(), *ActorOwner, *NavAgent));
 			}
 		}
 	}
@@ -720,13 +727,13 @@ FCompositeNavModifier FCompositeNavModifier::GetInstantiatedMetaModifier(const F
 				for (int32 LinkIndex = 0; LinkIndex < SimpleLink->Links.Num(); ++LinkIndex)
 				{
 					FNavigationLink& Link = SimpleLink->Links[LinkIndex];
-					Link.SetAreaClass(UNavAreaMeta::PickAreaClass(Link.GetAreaClass(), ActorOwner, *NavAgent));
+					Link.SetAreaClass(UNavAreaBase::PickAreaClassForAgent(Link.GetAreaClass(), *ActorOwner, *NavAgent));
 				}
 
 				for (int32 LinkIndex = 0; LinkIndex < SimpleLink->SegmentLinks.Num(); ++LinkIndex)
 				{
 					FNavigationSegmentLink& Link = SimpleLink->SegmentLinks[LinkIndex];
-					Link.SetAreaClass(UNavAreaMeta::PickAreaClass(Link.GetAreaClass(), ActorOwner, *NavAgent));
+					Link.SetAreaClass(UNavAreaBase::PickAreaClassForAgent(Link.GetAreaClass(), *ActorOwner, *NavAgent));
 				}
 			}
 		}
@@ -754,7 +761,7 @@ FCompositeNavModifier FCompositeNavModifier::GetInstantiatedMetaModifier(const F
 				{
 					const int32 AddedIdx = SimpleLink.Links.Add(Links[LinkIndex]);
 					FNavigationLink& NavLink = SimpleLink.Links[AddedIdx];
-					NavLink.SetAreaClass(UNavAreaMeta::PickAreaClass(NavLink.GetAreaClass(), ActorOwner, *NavAgent));
+					NavLink.SetAreaClass(UNavAreaBase::PickAreaClassForAgent(NavLink.GetAreaClass(), *ActorOwner, *NavAgent));
 				}				
 
 				const TArray<FNavigationSegmentLink>& SegmentLinks = UNavLinkDefinition::GetSegmentLinksDefinition(CustomLink->GetNavLinkClass());
@@ -769,7 +776,7 @@ FCompositeNavModifier FCompositeNavModifier::GetInstantiatedMetaModifier(const F
 				{
 					const int32 AddedIdx = SimpleSegLink.SegmentLinks.Add(SegmentLinks[LinkIndex]);
 					FNavigationSegmentLink& NavLink = SimpleSegLink.SegmentLinks[AddedIdx];
-					NavLink.SetAreaClass(UNavAreaMeta::PickAreaClass(NavLink.GetAreaClass(), ActorOwner, *NavAgent));
+					NavLink.SetAreaClass(UNavAreaBase::PickAreaClassForAgent(NavLink.GetAreaClass(), *ActorOwner, *NavAgent));
 				}
 
 				Result.CustomLinks.RemoveAtSwap(Index, 1, false);
@@ -780,7 +787,7 @@ FCompositeNavModifier FCompositeNavModifier::GetInstantiatedMetaModifier(const F
 	return Result;
 }
 
-void FCompositeNavModifier::CreateAreaModifiers(const UPrimitiveComponent* PrimComp, const TSubclassOf<UNavArea> AreaClass)
+void FCompositeNavModifier::CreateAreaModifiers(const UPrimitiveComponent* PrimComp, const TSubclassOf<UNavAreaBase> AreaClass)
 {
 	UBodySetup* BodySetup = PrimComp ? ((UPrimitiveComponent*)PrimComp)->GetBodySetup() : nullptr;
 	if (BodySetup == nullptr)
@@ -840,12 +847,4 @@ uint32 FCompositeNavModifier::GetAllocatedSize() const
 bool FCompositeNavModifier::HasPerInstanceTransforms() const
 {
 	return NavDataPerInstanceTransformDelegate.IsBound();
-}
-
-//----------------------------------------------------------------------//
-// UNavLinkTrivial
-//----------------------------------------------------------------------//
-UNavLinkTrivial::UNavLinkTrivial(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
-{
-	FNavigationLink& Link = Links[Links.Add(FNavigationLink(FVector(0,100,0), FVector(0,-100,0)))];
 }

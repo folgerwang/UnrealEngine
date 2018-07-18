@@ -12,7 +12,7 @@
 /**
  * An MRU list of files.
  */
-class FMRUList
+class UNREALED_API FMRUList
 {
 public:
 	FMRUList(const FString& InINISection, const int32 InitMaxItems = 12 );
@@ -68,7 +68,7 @@ public:
 	 * @param	ItemIndex		Index of the item to query
 	 * @return					true if the item exists, false if it doesn't
 	 */
-	UNREALED_API bool VerifyMRUFile(int32 ItemIndex);
+	bool VerifyMRUFile(int32 ItemIndex);
 
 	/**
 	 * Accessor.

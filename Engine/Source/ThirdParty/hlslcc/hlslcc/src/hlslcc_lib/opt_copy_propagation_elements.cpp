@@ -238,6 +238,7 @@ public:
 		this->acp = new acpe_hash_table(mem_ctx);
 		this->kills = new(mem_ctx)exec_list;
 		this->killed_all = false;
+		this->conservative_propagation = true;
 	}
 	~ir_copy_propagation_elements_visitor()
 	{
@@ -269,6 +270,8 @@ public:
 	bool progress;
 
 	bool killed_all;
+
+	bool conservative_propagation;
 
 	/* Context for our local data structures. */
 	void *mem_ctx;
@@ -480,11 +483,18 @@ ir_visitor_status ir_copy_propagation_elements_visitor::visit_enter(ir_call *ir)
 		else
 		{
 			has_out_params = true;
+			ir_variable* param_var = ir->as_variable();
+			if (param_var && !conservative_propagation)
+			{
+				//todo: can probably be less aggressive here by tracking what components the function actually writes to.
+				kill_entry* k = new(mem_ctx)kill_entry(param_var, ~0);
+				kill(k);
+			}
 		}
 		sig_param_iter.next();
 	}
 
-	if (!ir->callee->is_builtin || has_out_params)
+	if (!ir->callee->is_builtin || (has_out_params && conservative_propagation))
 	{
 		/* Since we're unlinked, we don't (necessarily) know the side effects of
 		* this call.  So kill all copies.
@@ -734,9 +744,10 @@ void ir_copy_propagation_elements_visitor::add_copy(ir_assignment *ir)
 	this->acp->add_acp(entry);
 }
 
-bool do_copy_propagation_elements(exec_list *instructions)
+bool do_copy_propagation_elements(exec_list *instructions, bool conservative_propagation)
 {
 	ir_copy_propagation_elements_visitor v;
+	v.conservative_propagation = conservative_propagation;
 
 	visit_list_elements(&v, instructions);
 

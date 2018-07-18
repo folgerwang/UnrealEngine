@@ -16,7 +16,11 @@ namespace mtlpp
 	{
 		Validate();
 #if MTLPP_IS_AVAILABLE(10_13, 11_0)
+#if MTLPP_CONFIG_IMP_CACHE
 		m_table->beginScope(m_ptr);
+#else
+		[(id<MTLCaptureScope>) m_ptr beginScope];
+#endif
 #endif
 	}
 	
@@ -24,17 +28,25 @@ namespace mtlpp
 	{
 		Validate();
 #if MTLPP_IS_AVAILABLE(10_13, 11_0)
+#if MTLPP_CONFIG_IMP_CACHE
 		m_table->endScope(m_ptr);
+#else
+		[(id<MTLCaptureScope>) m_ptr endScope];
+#endif
 #endif
 	}
 	
-	ns::String   CaptureScope::GetLabel() const
+	ns::AutoReleased<ns::String>   CaptureScope::GetLabel() const
 	{
 		Validate();
 #if MTLPP_IS_AVAILABLE(10_13, 11_0)
-		return m_table->label(m_ptr);
+#if MTLPP_CONFIG_IMP_CACHE
+		return ns::AutoReleased<ns::String>(m_table->label(m_ptr));
 #else
-		return ns::String();
+		return ns::AutoReleased<ns::String>([(id<MTLCaptureScope>) m_ptr label]);
+#endif
+#else
+		return ns::AutoReleased<ns::String>();
 #endif
 	}
 	
@@ -42,27 +54,40 @@ namespace mtlpp
 	{
 		Validate();
 #if MTLPP_IS_AVAILABLE(10_13, 11_0)
+#if MTLPP_CONFIG_IMP_CACHE
 		m_table->Setlabel(m_ptr, label.GetPtr());
+#else
+		[(id<MTLCaptureScope>) m_ptr setLabel:(NSString*)label.GetPtr()];
+#endif
 #endif
 	}
 	
-	Device CaptureScope::GetDevice() const
+	ns::AutoReleased<Device> CaptureScope::GetDevice() const
 	{
 		Validate();
 #if MTLPP_IS_AVAILABLE(10_13, 11_0)
-		return m_table->device(m_ptr);
+#if MTLPP_CONFIG_IMP_CACHE
+		return ns::AutoReleased<Device>(m_table->device(m_ptr));
 #else
-		return Device();
+		return ns::AutoReleased<Device>([(id<MTLCaptureScope>) m_ptr device]);
+#endif
+#else
+		return ns::AutoReleased<Device>();
 #endif
 	}
 	
-	CommandQueue CaptureScope::GetCommandQueue() const
+	ns::AutoReleased<CommandQueue> CaptureScope::GetCommandQueue() const
 	{
 		Validate();
 #if MTLPP_IS_AVAILABLE(10_13, 11_0)
-		return m_table->commandQueue(m_ptr);
+#if MTLPP_CONFIG_IMP_CACHE
+		id<MTLCommandQueue> handle = m_table->commandQueue(m_ptr);
+		return ns::AutoReleased<CommandQueue>(handle, m_table->TableCache->GetCommandQueue(handle));
 #else
-		return CommandQueue();
+		return ns::AutoReleased<CommandQueue>([(id<MTLCaptureScope>) m_ptr commandQueue]);
+#endif
+#else
+		return ns::AutoReleased<CommandQueue>();
 #endif
 	}
 }

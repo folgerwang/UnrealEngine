@@ -32,6 +32,9 @@
 #include "SequencerSettings.h"
 
 #include "BlueprintEditorModule.h"
+#include "PropertyEditorModule.h"
+#include "DynamicEntryBoxDetails.h"
+#include "ListViewBaseDetails.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 
@@ -86,6 +89,11 @@ public:
 		WidgetMaterialTrackEditorCreateTrackEditorHandle  = SequencerModule.RegisterTrackEditor(FOnCreateTrackEditor::CreateStatic(&FWidgetMaterialTrackEditor::CreateTrackEditor));
 
 		RegisterSettings();
+
+		// Class detail customizations
+		FPropertyEditorModule& PropertyModule = FModuleManager::GetModuleChecked<FPropertyEditorModule>(TEXT("PropertyEditor"));
+		PropertyModule.RegisterCustomClassLayout(TEXT("DynamicEntryBox"), FOnGetDetailCustomizationInstance::CreateStatic(&FDynamicEntryBoxDetails::MakeInstance));
+		PropertyModule.RegisterCustomClassLayout(TEXT("ListViewBase"), FOnGetDetailCustomizationInstance::CreateStatic(&FListViewBaseDetails::MakeInstance));
 	}
 
 	/** Called before the module is unloaded, right before the module object is destroyed. */

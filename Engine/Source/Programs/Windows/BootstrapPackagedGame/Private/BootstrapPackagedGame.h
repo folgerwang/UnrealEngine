@@ -4,7 +4,10 @@
 
 struct IUnknown;
 
+#pragma pack(push, 8)
 #include <windows.h>
+#pragma pack(pop)
+
 #include <tchar.h>
 #include <assert.h>
 #include <stdio.h>

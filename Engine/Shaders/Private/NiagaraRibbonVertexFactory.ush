@@ -26,21 +26,38 @@ float3 TransformVector(float3 InVector)
 /*
 float3 GetNiagaraParticlePosition(uint InstanceID)
 {
+	if (NiagaraRibbonVF.PositionDataOffset == -1)
+	{
+		return TransformPosition(float3(0.0f, 0.0f, 0.0f));
+	}
 	return TransformPosition(GetVec3(NiagaraRibbonVF.PositionDataOffset, InstanceID));
 }
 float GetNiagaraParticleRibbonWidth(uint InstanceID)
 {
+	if (NiagaraRibbonVF.WidthDataOffset == -1)
+	{
+		return 1.0f;
+	}
 	return GetFloat(NiagaraRibbonVF.WidthDataOffset, InstanceID);
 }
 float GetNiagaraParticleRibbonTwist(uint InstanceID)
 {
+	if (NiagaraRibbonVF.TwistDataOffset == -1)
+	{
+		return 0.0f;
+	}
 	return GetFloat(NiagaraRibbonVF.TwistDataOffset, InstanceID);
 }
 float4 GetNiagaraParticleColor(uint InstanceID)
 {
+	if (NiagaraRibbonVF.ColorDataOffset == -1)
+	{
+		return float4(1.0f, 1.0f, 1.0f, 1.0f);
+	}
 	return GetVec4(NiagaraRibbonVF.ColorDataOffset, InstanceID);
 }
-#if USE_DYNAMIC_PARAMETERS
+
+#if NUM_DYNAMIC_PARAMETERS > 0
 float4 GetNiagaraParticleDynamicParameters(uint InstanceID)
 {
 	if (NiagaraRibbonVF.MaterialParamDataOffset == -1)
@@ -50,11 +67,41 @@ float4 GetNiagaraParticleDynamicParameters(uint InstanceID)
 	return GetVec4(NiagaraRibbonVF.MaterialParamDataOffset, InstanceID);
 }
 #endif
+#if NUM_DYNAMIC_PARAMETERS > 1
+float4 GetNiagaraParticleDynamicParameters1(uint InstanceID)
+{
+	if (NiagaraRibbonVF.MaterialParam1DataOffset == -1)
+	{
+		return float4(1.0f, 1.0f, 1.0f, 1.0f);
+	}
+	return GetVec4(NiagaraRibbonVF.MaterialParam1DataOffset, InstanceID);
+}
+#endif
+#if NUM_DYNAMIC_PARAMETERS > 2
+float4 GetNiagaraParticleDynamicParameters2(uint InstanceID)
+{
+	if (NiagaraRibbonVF.MaterialParam2DataOffset == -1)
+	{
+		return float4(1.0f, 1.0f, 1.0f, 1.0f);
+	}
+	return GetVec4(NiagaraRibbonVF.MaterialParam2DataOffset, InstanceID);
+}
+#endif
+#if NUM_DYNAMIC_PARAMETERS > 3
+float4 GetNiagaraParticleDynamicParameters3(uint InstanceID)
+{
+	if (NiagaraRibbonVF.MaterialParam3DataOffset == -1)
+	{
+		return float4(1.0f, 1.0f, 1.0f, 1.0f);
+	}
+	return GetVec4(NiagaraRibbonVF.MaterialParam3DataOffset, InstanceID);
+}
+#endif
 
 
 float3 GetNiagaraParticleFacingVector(uint InstanceID)
 {
-	float3 Val = float3(0.0f, 0.0f, 0.0f);
+	float3 Val = float3(0.0f, 0.0f, 1.0f);
     if(NiagaraRibbonVF.FacingOffset != -1)
 	{
 		Val = GetVec3(NiagaraRibbonVF.FacingOffset, InstanceID);
@@ -77,9 +124,18 @@ struct FVertexFactoryInput
 	float Twist						: ATTRIBUTE5;
 	float3 CustomFacingVector		: ATTRIBUTE6;
 
-#if USE_DYNAMIC_PARAMETERS
+#if NUM_DYNAMIC_PARAMETERS > 0
 	float4 DynamicParameter0		: ATTRIBUTE7;
-#endif	//USE_DYNAMIC_PARAMETERS
+#endif
+#if NUM_DYNAMIC_PARAMETERS > 1
+	float4 DynamicParameter1		: ATTRIBUTE8;
+#endif
+#if NUM_DYNAMIC_PARAMETERS > 2
+	float4 DynamicParameter2		: ATTRIBUTE9;
+#endif
+#if NUM_DYNAMIC_PARAMETERS > 3
+	float4 DynamicParameter3		: ATTRIBUTE10;
+#endif
 
 /** Optional instance ID for vertex layered rendering */
 #if FEATURE_LEVEL >= FEATURE_LEVEL_SM4
@@ -90,6 +146,9 @@ struct FVertexFactoryInput
 #if FEATURE_LEVEL >= FEATURE_LEVEL_SM4 && ONEPASS_POINTLIGHT_SHADOW && USING_VERTEX_SHADER_LAYER
 	uint InstanceId	: SV_InstanceID;
 #endif
+
+	// soon
+	//float NormalizedAge			: ATTRIBUTE8;
 };
 
 struct FVertexFactoryInterpolantsVSToPS
@@ -105,9 +164,18 @@ struct FVertexFactoryInterpolantsVSToPS
 	float4  Color				: TEXCOORD3;
 #endif
 
-#if USE_DYNAMIC_PARAMETERS
+#if NUM_DYNAMIC_PARAMETERS > 0
 	float4 DynamicParameter0	: TEXCOORD4;
-#endif	//USE_DYNAMIC_PARAMETERS
+#endif
+#if NUM_DYNAMIC_PARAMETERS > 1
+	float4 DynamicParameter1	: TEXCOORD5;
+#endif
+#if NUM_DYNAMIC_PARAMETERS > 2
+	float4 DynamicParameter2	: TEXCOORD6;
+#endif
+#if NUM_DYNAMIC_PARAMETERS > 3
+	float4 DynamicParameter3	: TEXCOORD7;
+#endif
 
 #if INSTANCED_STEREO
 	nointerpolation uint PackedEyeIndex : PACKED_EYE_INDEX;
@@ -119,7 +187,7 @@ struct FVertexFactoryIntermediates
 	/** The color of the sprite. */
 	float4 Color;
 	float RibbonWidth;
-	float4 Right, Up;
+	float3 Right, Up;
 	float3 CameraDirection;
 };
 
@@ -160,10 +228,19 @@ FMaterialPixelParameters GetMaterialPixelParameters(FVertexFactoryInterpolantsVS
 #endif
 
 	Result.TwoSidedSign = 1;
-
-#if USE_DYNAMIC_PARAMETERS
+	
+#if NUM_DYNAMIC_PARAMETERS > 0
 	Result.Particle.DynamicParameter = Interpolants.DynamicParameter0;
-#endif	//USE_DYNAMIC_PARAMETERS
+#endif
+#if NUM_DYNAMIC_PARAMETERS > 1
+	Result.Particle.DynamicParameter1 = Interpolants.DynamicParameter1;
+#endif
+#if NUM_DYNAMIC_PARAMETERS > 2
+	Result.Particle.DynamicParameter2 = Interpolants.DynamicParameter2;
+#endif
+#if NUM_DYNAMIC_PARAMETERS > 3
+	Result.Particle.DynamicParameter3 = Interpolants.DynamicParameter3;
+#endif
 
 	return Result;
 }
@@ -203,16 +280,15 @@ float3 SafeNormalize(float3 V)
 	return V / sqrt(max(dot(V,V),0.01));
 }
 
-void GetTangents(FVertexFactoryInput Input,out float4 Right,out float4 Up, out float3 CameraDirection)
+void GetTangents(FVertexFactoryInput Input,out float3 Right,out float3 Up, out float3 CameraDirection)
 {
 	float4	Position			= TransformLocalToTranslatedWorld(Input.Position.xyz);
-			//OldPosition			= TransformLocalToTranslatedWorld(Input.OldPosition.xyz);
 
-	CameraDirection		= SafeNormalize(ResolvedView.WorldCameraOrigin - Input.Position.xyz );		// TODO: handle local space
-	float3 ParticleDirection	= Input.Direction; //SafeNormalize(Position.xyz - OldPosition.xyz);
+	CameraDirection				= SafeNormalize(ResolvedView.WorldCameraOrigin - Input.Position.xyz );		// TODO: handle local space
+	float3 ParticleDirection	= Input.Direction;
 
 	float4	Right_Square		= BeamTrailVF.CameraRight,
-			Up_Square			= BeamTrailVF.CameraUp;			
+			Up_Square			= BeamTrailVF.CameraUp;		
 			
 	float4	Right_Rotated		= (-1.0 * cos(Input.Twist) * Up_Square) + (sin(Input.Twist) * Right_Square),
 			Up_Rotated			= (       sin(Input.Twist) * Up_Square) + (cos(Input.Twist) * Right_Square);
@@ -220,20 +296,36 @@ void GetTangents(FVertexFactoryInput Input,out float4 Right,out float4 Up, out f
 	float4	Right_Velocity		= float4( SafeNormalize( cross( CameraDirection, ParticleDirection	) ), 0.0 ),
 			Up_Velocity			= float4( ParticleDirection, 0.0 );
 
-	float3 NormDir = SafeNormalize(Input.Direction.xyz);
-	float3 RightDir;
-	if(NiagaraRibbonVF.UseCustomFacing)
+	float3 NormDir = SafeNormalize(ParticleDirection);
+	float3 RightDir, Facing;
+
+
+	/*if(NiagaraRibbonVF.UseCustomFacing)
 	{
-		RightDir = SafeNormalize(cross(NormDir, Input.CustomFacingVector));
+		Facing = Input.CustomFacingVector;
+	}
+	else*/
+	{
+		Facing = CameraDirection.xyz;
+	}
+
+	if(Input.Twist != 0.0f)
+	{
+		float cosa = cos(Input.Twist);
+		Facing = Facing * cosa + cross(Facing, Input.Direction) * sin(Input.Twist) + Input.Direction * dot(Input.Direction, Facing) * (1-cosa);
+	}
+
+	if( abs(dot(NormDir, Facing)) < 0.999f)
+	{
+		RightDir = SafeNormalize(cross(NormDir, Facing));
 	}
 	else
 	{
-		//float Blend = abs(dot(NormDir, SafeNormalize(CameraDirection.xyz)));
-		RightDir = SafeNormalize(cross(NormDir, CameraDirection.xyz));
+		RightDir = SafeNormalize(cross(NormDir, float3(0.0f, 0.0f, -1.0f)));
 	}
-	
-	Right = float4(RightDir, 0.0f);
-	Up = float4(NormDir, 0.0f);
+
+	Right = RightDir;
+	Up = NormDir;
 	return;
 	/*
 	//	enum EParticleScreenAlignment
@@ -252,36 +344,23 @@ float4 CalcWorldPosition(FVertexFactoryInput Input, FVertexFactoryIntermediates 
 	// expand and align
 	int Sgn = (((int)Input.VertexID & 0x1) * 2) - 1;
 	float3 NormDir = SafeNormalize(Input.Direction.xyz);
-	float3 RightDir;
-	if(NiagaraRibbonVF.UseCustomFacing)
-	{
-		RightDir = SafeNormalize(cross(NormDir, Input.CustomFacingVector));
-	}
-	else
-	{
-		//float Blend = abs(dot(NormDir, SafeNormalize(Intermediates.CameraDirection.xyz)));
-		RightDir = SafeNormalize(cross(NormDir, Intermediates.CameraDirection.xyz));
-	}
-	float3 UpDir = cross(RightDir, NormDir);
-
-	//float4	Right_Rotated		= (-1.0 * cos(Input.Twist) * UpDir) + (sin(Input.Twist) * RightDir),
-	//		Up_Rotated			= (       sin(Input.Twist) * UpDir) + (cos(Input.Twist) * RightDir);
-
+	float3 RightDir = Intermediates.Right;
+	float3 UpDir = Intermediates.Up;
 	float3 Pos = Input.Position.xyz + RightDir * Sgn * Input.Size.xxx;
 	return TransformLocalToTranslatedWorld(Pos);
 }
 
 /** derive basis vectors */
-float3x3 CalcTangentBasis(FVertexFactoryInput Input)
+float3x3 CalcTangentBasis(FVertexFactoryInput Input, FVertexFactoryIntermediates Intermediates)
 {
 	float4	Right,
 			Up;
 	float3	CameraDir;
-	GetTangents(Input,Right,Up, CameraDir);
+	//GetTangents(Input,Right,Up, CameraDir);
 	return float3x3(
-			Right.xyz,
-			Up.xyz,
-			-normalize(cross(Right.xyz,Up.xyz))
+			Intermediates.Right.xyz,
+			Intermediates.Up.xyz,
+			-normalize(cross(Intermediates.Right.xyz, Intermediates.Up.xyz))
 			);
 }
 
@@ -320,11 +399,20 @@ FVertexFactoryInterpolantsVSToPS VertexFactoryGetInterpolantsVSToPS(FVertexFacto
 	Interpolants.Color		= Intermediates.Color;
 #endif
 
-#if USE_DYNAMIC_PARAMETERS
+#if NUM_DYNAMIC_PARAMETERS > 0
 	Interpolants.DynamicParameter0 = Input.DynamicParameter0;
-#endif	//USE_DYNAMIC_PARAMETERS
+#endif
+#if NUM_DYNAMIC_PARAMETERS > 1
+	Interpolants.DynamicParameter1 = Input.DynamicParameter1;
+#endif
+#if NUM_DYNAMIC_PARAMETERS > 2
+	Interpolants.DynamicParameter2 = Input.DynamicParameter2;
+#endif
+#if NUM_DYNAMIC_PARAMETERS > 3
+	Interpolants.DynamicParameter3 = Input.DynamicParameter3;
+#endif
 
-	float3x3 TangentToLocal = CalcTangentBasis(Input);
+	float3x3 TangentToLocal = CalcTangentBasis(Input, Intermediates);
 	float3x3 TangentToWorld = mul(TangentToLocal, GetLocalToWorld3x3());
 
 	Interpolants.TangentToWorld0 = TangentToWorld[0];
@@ -350,7 +438,7 @@ float4 VertexFactoryGetPreviousWorldPosition(FVertexFactoryInput Input, FVertexF
 */
 float3x3 VertexFactoryGetTangentToLocal( FVertexFactoryInput Input, FVertexFactoryIntermediates Intermediates )
 {
-	return CalcTangentBasis(Input);
+	return CalcTangentBasis(Input, Intermediates);
 }
 
 #if INSTANCED_STEREO

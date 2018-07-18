@@ -17,18 +17,6 @@ namespace UnrealBuildTool.Rules
                 }
             );
 
-            PrivateIncludePaths.AddRange(
-                new string[] {            
-                    "AudioCapture/Private"
-                }
-            );
-
-            PublicIncludePaths.AddRange(
-                new string[] {
-                    "AudioCapture/Public"
-                }
-            );
-
             if (Target.Platform == UnrealTargetPlatform.Win32 ||
                 Target.Platform == UnrealTargetPlatform.Win64)
             {
@@ -37,6 +25,11 @@ namespace UnrealBuildTool.Rules
 
                 // Allow us to use direct sound
                 AddEngineThirdPartyPrivateStaticDependencies(Target, "DirectSound");
+            }
+            else if (Target.Platform == UnrealTargetPlatform.Lumin)
+            {
+                PublicDependencyModuleNames.Add("MLSDK");
+                PublicDefinitions.Add("WITH_AUDIOCAPTURE=1");
             }
             else
             {

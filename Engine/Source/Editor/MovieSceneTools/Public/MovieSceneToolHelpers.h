@@ -11,6 +11,9 @@
 #include "MovieSceneObjectBindingID.h"
 #include "MovieSceneObjectBindingIDPicker.h"
 #include "ISequencer.h"
+#include "Logging/TokenizedMessage.h"
+#include "MovieSceneTranslator.h"
+#include "MovieSceneCaptureSettings.h"
 
 class ISequencer;
 class UMovieScene;
@@ -18,6 +21,9 @@ class UMovieSceneSection;
 class UInterpTrackMoveAxis;
 struct FMovieSceneObjectBindingID;
 class UMovieSceneTrack;
+
+struct FMovieSceneFloatValue;
+template<typename ChannelType> struct TMovieSceneChannelData;
 
 DECLARE_DELEGATE_TwoParams(FOnEnumSelectionChanged, int32 /*Selection*/, ESelectInfo::Type /*SelectionType*/);
 
@@ -32,7 +38,7 @@ public:
 	 * @param Time	The time at which to trim
 	 * @param bTrimLeft Trim left or trim right
 	 */
-	static void TrimSection(const TSet<TWeakObjectPtr<UMovieSceneSection>>& Sections, float Time, bool bTrimLeft);
+	static void TrimSection(const TSet<TWeakObjectPtr<UMovieSceneSection>>& Sections, FQualifiedFrameTime Time, bool bTrimLeft);
 
 	/**
 	 * Splits sections at the given time
@@ -40,7 +46,7 @@ public:
 	 * @param Sections The sections to split
 	 * @param Time	The time at which to split
 	 */
-	static void SplitSection(const TSet<TWeakObjectPtr<UMovieSceneSection>>& Sections, float Time);
+	static void SplitSection(const TSet<TWeakObjectPtr<UMovieSceneSection>>& Sections, FQualifiedFrameTime Time);
 
 	/**
 	 * Parse a shot name into its components.
@@ -79,7 +85,7 @@ public:
 	 * @param Time The time to generate the new shot name at
 	 * @return The new shot name
 	 */
-	static FString GenerateNewShotName(const TArray<UMovieSceneSection*>& AllSections, float Time);
+	static FString GenerateNewShotName(const TArray<UMovieSceneSection*>& AllSections, FFrameNumber Time);
 
 	/**
 	 * Gather takes - level sequence assets that have the same shot prefix and shot number in the same asset path (directory)
@@ -128,7 +134,7 @@ public:
 	 * @param InOpenDirectory Optional directory path to open from. If none given, a dialog will pop up to prompt the user
 	 * @return Whether the import was successful
 	 */
-	static bool ShowImportEDLDialog(UMovieScene* InMovieScene, float InFrameRate, FString InOpenDirectory = TEXT(""));
+	static bool ShowImportEDLDialog(UMovieScene* InMovieScene, FFrameRate InFrameRate, FString InOpenDirectory = TEXT(""));
 
 	/**
 	 * Show Export EDL Dialog
@@ -139,16 +145,57 @@ public:
 	 * @param InHandleFrames The number of handle frames to include for each shot.
 	 * @return Whether the export was successful
 	 */
-	static bool ShowExportEDLDialog(const UMovieScene* InMovieScene, float InFrameRate, FString InSaveDirectory = TEXT(""), int32 InHandleFrames = 8);
+	static bool ShowExportEDLDialog(const UMovieScene* InMovieScene, FFrameRate InFrameRate, FString InSaveDirectory = TEXT(""), int32 InHandleFrames = 8);
+
+	/**
+	* Import movie scene formats
+	*
+	* @param InImporter The movie scene importer.
+	* @param InMovieScene The movie scene to import the format into
+	* @param InFrameRate The frame rate to import the format at
+	* @param InOpenDirectory Optional directory path to open from. If none given, a dialog will pop up to prompt the user
+	* @return Whether the import was successful
+	*/
+	static bool MovieSceneTranslatorImport(FMovieSceneImporter* InImporter, UMovieScene* InMovieScene, FFrameRate InFrameRate, FString InOpenDirectory = TEXT(""));
+
+	/**
+	* Export movie scene formats
+	*
+	* @param InExporter The movie scene exporter.
+	* @param InMovieScene The movie scene with the cinematic shot track and audio tracks to export
+	* @param InFrameRate The frame rate to export the AAF at
+	* @param InSaveDirectory Optional directory path to save to. If none given, a dialog will pop up to prompt the user
+	* @param InHandleFrames The number of handle frames to include for each shot.
+	* @return Whether the export was successful
+	*/
+	static bool MovieSceneTranslatorExport(FMovieSceneExporter* InExporter, const UMovieScene* InMovieScene, const FMovieSceneCaptureSettings& Settings);
+
+	/** 
+	* Log messages and display error message window for MovieScene translators
+	*
+	* @param InTranslator The movie scene importer or exporter.
+	* @param InContext The context used to gather error, warning or info messages during import or export.
+	* @param bDisplayMessages Whether to open the message log window after adding the message.
+	*/
+	static void MovieSceneTranslatorLogMessages(FMovieSceneTranslator* InTranslator, TSharedRef<FMovieSceneTranslatorContext> InContext, bool bDisplayMessages);
+
+	/**
+	* Log error output for MovieScene translators
+	*
+	* @param InTranslator The movie scene importer or exporter.
+	* @param InContext The context used to gather error, warning or info messages during import or export.
+	*/
+	static void MovieSceneTranslatorLogOutput(FMovieSceneTranslator* InTranslator, TSharedRef<FMovieSceneTranslatorContext> InContext);
 
 	/**
 	 * Import FBX
 	 *
 	 * @param InMovieScene The movie scene to import the fbx into
 	 * @param InObjectBindingNameMap The object binding to name map to map import fbx animation onto
+	 * @param bCreateCameras Whether to allow creation of cameras if found in the fbx file.
 	 * @return Whether the import was successful
 	 */
-	static bool ImportFBX(UMovieScene* InMovieScene, ISequencer& InSequencer, const TMap<FGuid, FString>& InObjectBindingNameMap);
+	static bool ImportFBX(UMovieScene* InMovieScene, ISequencer& InSequencer, const TMap<FGuid, FString>& InObjectBindingNameMap, TOptional<bool> bCreateCameras);
 
 	/*
 	 * Rich curve interpolation to matinee interpolation
@@ -159,12 +206,13 @@ public:
 	static EInterpCurveMode RichCurveInterpolationToMatineeInterpolation( ERichCurveInterpMode InterpMode );
 
 	/*
-	 * Copy rich curve to move axis
+	 * Copy key data to move axis
 	 *
-	 * @param RichCurve The rich curve to copy from
+	 * @param KeyData The key data to copy from
 	 * @param MoveAxis The move axis to copy to
+	 * @param FrameRate The frame rate of the source channel
 	 */
-	static void CopyRichCurveToMoveAxis(const FRichCurve& RichCurve, UInterpTrackMoveAxis* MoveAxis);
+	static void CopyKeyDataToMoveAxis(const TMovieSceneChannelData<FMovieSceneFloatValue>& KeyData, UInterpTrackMoveAxis* MoveAxis, FFrameRate FrameRate);
 
 	/*
 	 * Export the object binding to a camera anim
@@ -174,6 +222,11 @@ public:
 	 * @return The exported camera anim asset
 	 */
 	static UObject* ExportToCameraAnim(UMovieScene* InMovieScene, FGuid& InObjectBinding);
+
+	/*
+	 * @return Whether this object class has hidden mobility and can't be animated
+	 */
+	static bool HasHiddenMobility(const UClass* ObjectClass);
 };
 
 class FTrackEditorBindingIDPicker : public FMovieSceneObjectBindingIDPicker
@@ -201,4 +254,5 @@ private:
 
 	FOnBindingPicked OnBindingPickedEvent;
 };
+
 

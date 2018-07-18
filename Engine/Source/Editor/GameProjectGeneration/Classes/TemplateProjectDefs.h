@@ -134,6 +134,9 @@ class UTemplateProjectDefs : public UObject
 	/** Callback for adding config values */
 	virtual void AddConfigValues(TArray<FTemplateConfigValue>& ConfigValuesToSet, const FString& TemplateName, const FString& ProjectName, bool bShouldGenerateCode) const { }
 
+	/** Callback before project generation is done, allowing for custom project generation behavior */
+	virtual bool PreGenerateProject(const FString& DestFolder, const FString& SrcFolder, const FString& NewProjectFile, const FString& TemplateFile, bool bShouldGenerateCode, FText& OutFailReason) { return true; }
+
 	/** Callback after project generation is done, allowing for custom project generation behavior */
 	virtual bool PostGenerateProject(const FString& DestFolder, const FString& SrcFolder, const FString& NewProjectFile, const FString& TemplateFile, bool bShouldGenerateCode, FText& OutFailReason) { return true;  }
 

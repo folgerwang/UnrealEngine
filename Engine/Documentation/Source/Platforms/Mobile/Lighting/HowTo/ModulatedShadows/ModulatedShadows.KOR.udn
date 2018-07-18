@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3108692
+﻿INTSourceChangelist:3807090
 Availability:Public
 Title: 모듈레이트 섀도 사용법
 Crumbs:%ROOT%, Platforms, Platforms/Mobile
@@ -22,7 +22,7 @@ UE4 프로젝트에 모듈레이트(Modulated) 섀도를 켜는 방법은 다음
 1. 레벨에 **디렉셔널 라이트** 가 배치되어 있는지, 그 **모빌리티** 가 **스테이셔너리** 로 설정되어 있는지 확인합니다.
 	
 	[REGION:lightbox]
-	[![](Platforms\Mobile\Lighting\Mod_Setup_01.png)(w:342 h:137)](Platforms\Mobile\Lighting\Mod_Setup_01.png)
+	[![](Platforms\Mobile\Lighting\Mod_Setup_01.png)(w:342)](Platforms\Mobile\Lighting\Mod_Setup_01.png)
 	[/REGION]
 
 	[REGION:caption]
@@ -36,7 +36,7 @@ UE4 프로젝트에 모듈레이트(Modulated) 섀도를 켜는 방법은 다음
 1. 디렉셔널 라이트를 선택하고 **디테일** 패널에서 **Light** 섹션 아래 작은 흰색 삼각형을 클릭하여 **고급** 옵션을 펼치면 Modulated (모듈레이트) 섀도 옵션이 보입니다.
 
 	[REGION:lightbox]
-	[![](Platforms\Mobile\Lighting\Mod_Setup_02.png)(w:342 h:137)](Platforms\Mobile\Lighting\Mod_Setup_02.png)
+	[![](Platforms\Mobile\Lighting\Mod_Setup_02.png)(w:342)](Platforms\Mobile\Lighting\Mod_Setup_02.png)
 	[/REGION]
 
 	[REGION:caption]
@@ -54,7 +54,7 @@ UE4 프로젝트에 모듈레이트(Modulated) 섀도를 켜는 방법은 다음
 1. 모듈레이트 섀도가 어때보이는지 확인하기 위해서는 **모바일 프리뷰어** 에서 게임을 실행시키거나, 프로젝트를 모바일 디바이스에 직접 디플로이해 봐야 합니다. 이 예제에서는 모듈레이트 섀도의 색을 기본 회색에서 빨강으로 바꾸어 눈에 띄도록 했습니다.
 
 	[REGION:lightbox]
-	[![](Platforms\Mobile\Lighting\Mod_Setup_04.png)(w:288 h:265)](Platforms\Mobile\Lighting\Mod_Setup_04.png)
+	[![](Platforms\Mobile\Lighting\Mod_Setup_04.png)(w:288)](Platforms\Mobile\Lighting\Mod_Setup_04.png)
 	[/REGION]
 
 	[REGION:caption]

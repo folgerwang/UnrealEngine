@@ -1,9 +1,10 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "CoreMinimal.h"
 #include "IDetailCustomization.h"
+#include "Input/Reply.h"
 
 class FNiagaraScriptViewModel;
 class INiagaraParameterCollectionViewModel;
@@ -16,6 +17,9 @@ public:
 	FNiagaraScriptDetails(TSharedPtr<FNiagaraScriptViewModel> InScriptViewModel);
 
 	virtual void CustomizeDetails(IDetailLayoutBuilder& DetailBuilder);
+
+	FReply OnRefreshMetadata();
+
 private:
 	TSharedPtr<FNiagaraScriptViewModel> ScriptViewModel;
 

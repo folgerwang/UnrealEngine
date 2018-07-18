@@ -1,5 +1,4 @@
-﻿INTSourceChangelist:2591123
-Availability:Public
+﻿Availability:Public
 Title:3.ランドスケープマテリアルと Grass ツール
 Crumbs:
 Description:Grass ツールとランドスケープ テレインの両方と連動するマテリアルの設定方法
@@ -18,7 +17,7 @@ Version:4.8
 		[クイックスタートのホームページ](Engine\OpenWorldTools\Grass\QuickStart "%Engine\OpenWorldTools\Grass\QuickStart:Title%")
 	[/PARAM]
 	[PARAM:next]
-	[次の手順](Engine\OpenWorldTools\Grass\QuickStart\4 "%Engine\OpenWorldTools\Grass\QuickStart\4:title%") 
+	[次のステップ](Engine\OpenWorldTools\Grass\QuickStart\4 "%Engine\OpenWorldTools\Grass\QuickStart\4:title%") 
 	[/PARAM]
 [/OBJECT]
 [/VAR]
@@ -26,7 +25,7 @@ Version:4.8
 
 
 Grass ツールの使用を開始する前に、ランドスケープテレインと **Landscape Grass Type** の両方と機能するマテリアルを作成しなくてはいけません。 
-次のセクションで Landscape Grass Type と連動させるこのマテリアルの作成および接続方法を紹介します。 
+このセクションでは、Landscape Grass Type と機能するようにマテリアルのセットアップとリンク付けする方法を説明します。 
 
 [region:tip]
 UE4 のランドスケープテレインの動作方法に関する詳細を知りたい方は、[ランドスケープ](https://docs.unrealengine.com/latest/INT/Engine/Landscape/index.html) ページを参照してください。
@@ -45,9 +44,9 @@ UE4 のランドスケープテレインの動作方法に関する詳細を知�
 	![](T_Added_Textures.png)
 
 1. **パレット** 検索機能を使用して以下の Material Expression ノードを検索します。
-	必要な Material Expression ノードを見つけたら、パレット内でこれを選択してマテリアルグラフへドラッグします。
+	 Material Expression ノードが見つかったら、マテリアル グループにドラッグ＆ドロップします。
 
-	|マテリアル式名 | 量 | 理由|
+	|マテリアル式名 | 数量 | 理由|
 	|-------------------------|--------|--------|
 	|**Landscape Layer Blend**   | 1     | ランドスケープテレインをよりリアルに表現するために複数レイヤーをまとめて、もしくは個別にブレンドおよびペイントしなくてはいけません。その際に Landscape Layer Blend を使用します。 |
 	|**Landscape Layer Sample**  | 1     | このマテリアル式はマテリアルとランドスケープのやり取りを可能にして、特定のランドスケープレイヤーがペイントされるたびに、正しいスタティックメッシュを確実に使用します。  |
@@ -85,7 +84,7 @@ UE4 のランドスケープテレインの動作方法に関する詳細を知�
 
 	![](T_LLW_Setup.png)
 
-1. 作業が終了すると、マテリアルは以下のように表示されます。いつものように、**[Apply (適用)]** と **[Save (保存)]** ボタンを押してマテリアルをコンパイルおよび保存します。
+1. 完了するとマテリアルは以下のようになります。いつものように、**[Apply (適用)]** と **[Save (保存)]** ボタンを押してマテリアルをコンパイルおよび保存します。
 
 	![](T_Final_Material.png)
 

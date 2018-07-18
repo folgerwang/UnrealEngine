@@ -113,7 +113,7 @@ FSlateTextureDataPtr FTileThumbnail::ToSlateTextureData(const FObjectThumbnail* 
 
 FTileAtlasPage::FTileAtlasPage()
 {
-	AtlasTexture = UTexture2DDynamic::Create(TileThumbnailAtlasSize, TileThumbnailAtlasSize, PF_B8G8R8A8, false);
+	AtlasTexture = UTexture2DDynamic::Create(TileThumbnailAtlasSize, TileThumbnailAtlasSize, FTexture2DDynamicCreateInfo(PF_B8G8R8A8, false));
 	AtlasTexture->AddToRoot();
 
 	static int32 NextPageUniqueID = 1;

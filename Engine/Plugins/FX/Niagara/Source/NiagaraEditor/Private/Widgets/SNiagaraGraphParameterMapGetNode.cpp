@@ -2,9 +2,9 @@
 
 #include "SNiagaraGraphParameterMapGetNode.h"
 #include "NiagaraNodeParameterMapGet.h"
-#include "SButton.h"
+#include "Widgets/Input/SButton.h"
 #include "GraphEditorSettings.h"
-#include "DrawElements.h"
+#include "Rendering/DrawElements.h"
 #include "Widgets/SBoxPanel.h"
 #include "SGraphPin.h"
 
@@ -16,7 +16,9 @@ void SNiagaraGraphParameterMapGetNode::Construct(const FArguments& InArgs, UEdGr
 	BackgroundBrush = FEditorStyle::GetBrush("Graph.Pin.Background");
 	BackgroundHoveredBrush = FEditorStyle::GetBrush("PlainBorder");
 
-	GraphNode = InGraphNode;
+	GraphNode = InGraphNode; 
+	RegisterNiagaraGraphNode(InGraphNode);
+
 	UpdateGraphNode();
 }
 

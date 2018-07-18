@@ -3,7 +3,7 @@
 #pragma once
 
 #include "Apple/ApplePlatformFile.h"
-#include "UnrealString.h"
+#include "Containers/UnrealString.h"
 
 class IFileHandle;
 class FApplePlatformFile;

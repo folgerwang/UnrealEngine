@@ -1,48 +1,9 @@
-﻿INTSourceChangelist:2683545
-Availability:Public
+﻿Availability:Public
 Title:ライトシャフト
 Crumbs: %ROOT%, Engine, Engine/Rendering/LightingAndShadows
 Description:大気中にライトを散乱（スキャッタリング）させるシミュレーション
 Version:4.9
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Rendering/LightingAndShadows/LightShafts:title%](LShaft_Topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/tech_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Rendering/LightingAndShadows/LightShafts:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Rendering/LightingAndShadows/LightShafts:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/LightingAndShadows/LightShafts]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Rendering/LightingAndShadows/LightShafts:title%](LShaft_Topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/tech_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Rendering/LightingAndShadows/LightShafts:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Rendering/LightingAndShadows/LightShafts:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/LightingAndShadows/LightShafts]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:LShaft_Topic.png
 
 [REGION:banner]
 ![](lightShafts_banner.png)
@@ -68,7 +29,7 @@ Version:4.9
 | **Occlusion Depth Range** | この距離よりもカメラに近い全てのものは、ライトシャフトをオクルードします。 |
 | **Enable Light Shaft Bloom** | ライトからライトシャフトブルームをレンダリングするか否かを設定するプロパティです。指向性ライトは、ライト方向周りの色に放射状ブラーが適用されてから再びシーンへ適用されます。 |
 | **Bloom Scale** | ブルームの追加色をスケーリングして、多かれ少なかれ明確にします。 |
-| **Bloom Threshold** | ライトシャフトにブルームを作成するためにシーンカラーの値がこの閾値以上でなくてはいけないことを意味します。 |
+| **Bloom Threshold** | ライトシャフトにブルームを作成するためにシーンカラーに必要な閾値です。 |
 | **Bloom Tint** | ブルームの色を作成するためにシーンの色に反して乗算します。ライトシャフトのブルーム効果をカラー化します。 |
 | **Light Shaft Override Direction** | ライトの実際の方向以外のどこかから発生するライトシャフトの作成に使用します (ゼロではなく、かつノーマライズする必要がない場合のみ使用されます)。|
   

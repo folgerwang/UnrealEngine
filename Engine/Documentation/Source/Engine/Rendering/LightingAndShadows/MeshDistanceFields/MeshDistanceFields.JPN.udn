@@ -1,7 +1,7 @@
-﻿INTSourceChangelist:3716175
+﻿INTSourceChangelist:3809606
 Availability:Public
 Crumbs: %ROOT%
-Title:Mesh Distance Fields
+Title:メッシュディスタンス フィールド
 Description:ゲーム開発における Mesh Distance Field の使い方および機能の概要
 Type:Overview
 SkillLevel:Intermediate
@@ -83,7 +83,7 @@ Signed Distance Field の光線をすべての方向で計算します。
 ビューポートで **[Show]** > **[Visualize]** > **[Mesh Distance Fields]** を選択すると、シーンを表現する Mesh Distance Fields を視覚化することができます。
 
 [REGION:imagetable]
-| [REGION:lightbox] [![](EnableMDFViewMode.png)(w:400 h:450)](EnableMDFViewMode.png) [/REGION] | [REGION:lightbox] [![](VisualizeMeshDistanceFields.jpg)(w:750 h:450)](VisualizeMeshDistanceFields.jpg) [/REGION] |
+| [REGION:lightbox] [![](EnableMDFViewMode.png)(w:400)](EnableMDFViewMode.png) [/REGION] | [REGION:lightbox] [![](VisualizeMeshDistanceFields.jpg)(w:750)](VisualizeMeshDistanceFields.jpg) [/REGION] |
 | --- | --- |
 | 視覚化を有効にするメニュー | Mesh Distance Field の視覚化 |
 | _画像をクリックしてフルサイズ表示_ | _画像をクリックしてフルサイズ表示_ |
@@ -102,7 +102,7 @@ Mesh Distance Field 表現の品質はボリューム テクスチャの解像�
 
 
 大きなメッシュは様々はエラーを起こしやすいため、同じサイズのメッシュでレベルを構成した場合、Mesh Distance Field の品質が最も良くなります。例えば [Fortnite](https://www.epicgames.com/fortnite) では、メッシュをグリッドに合わせるか、またはプロップをレベルの回りに置くことで
-エラーも少なく、非常にきれいに仕上がりました。ランドスケープは[ハイト フィールド](Engine/Rendering/LightingAndShadows/DistanceFieldAmbientOcclusion#landscapes) で別に処理され、Distance Field の解像度の影響は受けません。
+エラーも少なく、非常にきれいに仕上がりました。ランドスケープは[ハイト フィールド](Engine/Rendering/LightingAndShadows/DistanceFieldAmbientOcclusion#ランドスケープ) で別に処理され、Distance Field の解像度の影響は受けません。
 
 [REGION:imagetable]
 | [REGION:lightbox] [![](Mesh.jpg)(w:375)](Mesh.jpg) [/REGION] | [REGION:lightbox] [![](LowResDistanceField.jpg)(w:375)](LowResDistanceField.jpg) [/REGION] | [REGION:lightbox] [![](HighResDistanceField.jpg)(w:375)](HighResDistanceField.jpg) [/REGION] |
@@ -151,7 +151,7 @@ Global Distance Field は、カメラを追いかけながらレベル内で Sig
 [Show] > **[Visualize]** > **[Global Distance Fields]** をクリックすることで、Global Distance Field をビューポートで視覚化できます。 
 
 [REGION:lightbox] 
-[![](EnableGDFViewMode.png)(w:400 h:485)](EnableGDFViewMode.png) 
+[![](EnableGDFViewMode.png)(w:400)](EnableGDFViewMode.png) 
 [/REGION]
 [REGION:caption] クリックしてフルサイズ表示 [/REGION]
 
@@ -181,7 +181,7 @@ Foliage アセットは Distance Field を利用して、動的オクルージ�
 #### Two-Sided Distance Field
 
 (木のような) 高密度のメッシュの場合、通常はマスクされたマテリアルで構成されていたサーフェスで葉や枝の多数の穴を表現しますが、
-これらはソリッドなサーフェスとして適切に表現することはできません。このため、**スタティックメッシュ エディタ** の [ビルド設定](Engine/Rendering/LightingAndShadows/MeshDistanceFields/Reference#BuildSettings) で 
+これらはソリッドなサーフェスとして適切に表現することはできません。このため、**スタティックメッシュ エディタ** の [ビルド設定](Engine/Rendering/LightingAndShadows/MeshDistanceFields/Reference#ビルド設定) で 
  **[Two-Sided Distance Field Generation]** を有効にします。このオプションはフォリッジと相性が良いですが、光線を伸ばす負荷が高くなります。
 
 [REGION:imagetable]
@@ -196,7 +196,6 @@ Foliage アセットは Distance Field を利用して、動的オクルージ�
 
 
 [COMMENT:none]
--
 [EXCERPT:twosided]
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
@@ -207,10 +206,9 @@ Foliage アセットは Distance Field を利用して、動的オクルージ�
 	[/PARAM]
 [/OBJECT]
 [/EXCERPT:twosided]
--
 [/COMMENT]
 
-##### フォリッジ ツールの設定
+##### Foliage ツール設定
 
 [Foliage ツール](Engine/Foliage) では、アンビエント オクルージョンとシャドウイングのために、フォリッジのタイプに Distance Field のライティング機能を使ってもらいたいならば、そのフォリッジのタイプを有効化しなければなりません。この設定はデフォルトでは無効になっています。
 草などのフォリッジ アセットの中には、インスタンス数が非常に多いためタイル カリング バッファをオーバーフローしてしまう場合があり、その時に目障りなアーティファクトが発生してしまうからです。そのため、必要なフォリッジ アセットに対してのみ  
@@ -219,7 +217,6 @@ Foliage アセットは Distance Field を利用して、動的オクルージ�
 ![](FoliageToolSettings.png)
 
 [COMMENT:none]
--
 #### ランドスケープ
 
 ランドスケープは Mesh Distance Field の代わりにハイトフィールドを使って表現します。Mesh Distance Field 表現を伴わないピクセルを有効にしてオクルージョンを受け取ることが可能になったこのハイトフィールドに対して、おおよそのコーン交差が計算されます。
@@ -227,12 +224,9 @@ Foliage アセットは Distance Field を利用して、動的オクルージ�
 
 ![](Landscape.png)(w:700)
 [REGION:caption] ディスタンス フィールド アンビエント オクルージョン ビューモードでのランドスケープ ハイトフィールド[/REGION]
-
--
 [/COMMENT]
 
 [COMMENT:none]
--
 ### カリング
 
 シーンを構成するオブジェクトは完全に GPU で管理されるので、以下のオブジェクトのカリングは CPU 上で実行する場合の 100 倍高速になります。 
@@ -246,7 +240,6 @@ Foliage アセットは Distance Field を利用して、動的オクルージ�
 	- オブジェクトからパイプラインへのすべての操作を GPU で行うため実現可能
 	- 光線が SDF を進む時トライアングルは含まないのでグラフィック API コールはオブジェクト上では使用しません。これによりオブジェクトの管理とカリングを GPU 上で行うことが可能になります。
 	(他の技法と併用して)。
--
 [/COMMENT]
 
 
@@ -292,7 +285,7 @@ Foliage アセットは Distance Field を利用して、動的オクルージ�
 [EXCERPT:optimizations]
 * **[Project Settings]** > **[Rendering]** で有効にします。 
 	[REGION:lightbox]
-	[![](Engine\Rendering\LightingAndShadows\MeshDistanceFields\Reference\ProjectSettings.png)(w:500 h:250)](Engine\Rendering\LightingAndShadows\MeshDistanceFields\Reference\ProjectSettings.png)
+	[![](Engine\Rendering\LightingAndShadows\MeshDistanceFields\Reference\ProjectSettings.png)(w:500)](Engine\Rendering\LightingAndShadows\MeshDistanceFields\Reference\ProjectSettings.png)
 	[/REGION]
 	[REGION:caption] クリックしてフルサイズ表示 [/REGION]
 	* **[Compress Mesh Distance Fields]** を有効にすると、Distance Fields ボリューム テクスチャを圧縮してメモリに格納することができます。これにより、メモリ使用量は減りますが、
@@ -327,8 +320,7 @@ Foliage アセットは Distance Field を利用して、動的オクルージ�
 
 ## 基本
 
-[DIR(output:"topiccompact" parent:"Engine/Rendering/LightingAndShadows/MeshDistanceFields" org:"hierarchy" tags:"Distance Fields" end:"1")]
-[DIR(output:"topiccompact" parent:"Engine/Rendering/LightingAndShadows/MeshDistanceFields" org:"hierarchy" tags:"Lighting" tags:"!Distance Fields" end:"1")]
+[DIR(output:"topiccompact" parent:"Engine/Rendering/LightingAndShadows/MeshDistanceFields" org:"hierarchy" end:"1")]
 
 
 

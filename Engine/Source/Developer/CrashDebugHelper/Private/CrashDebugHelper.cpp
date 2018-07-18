@@ -20,6 +20,7 @@
 #include "ISourceControlProvider.h"
 #include "ISourceControlModule.h"
 #include "ISourceControlLabel.h"
+#include "SourceControlHelpers.h"
 #endif
 
 #ifndef MINIDUMPDIAGNOSTICS

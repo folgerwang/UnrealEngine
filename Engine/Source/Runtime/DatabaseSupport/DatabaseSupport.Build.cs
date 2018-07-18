@@ -21,7 +21,6 @@ namespace UnrealBuildTool.Rules
 
 			PrivateIncludePaths.AddRange(
 				new string[] {
-					"DatabaseSupport/Private",
 					// ... add other private include paths required here ...
 				}
 				);

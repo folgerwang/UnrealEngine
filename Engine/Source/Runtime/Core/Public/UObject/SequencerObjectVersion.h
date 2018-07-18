@@ -30,6 +30,15 @@ struct CORE_API FSequencerObjectVersion
 		// When finished now defaults to project default
 		WhenFinishedDefaultsToProjectDefault,
 
+		// When finished now defaults to project default
+		FloatToIntConversion,
+
+		// Purged old spawnable blueprint classes from level sequence assets
+		PurgeSpawnableBlueprints,
+
+		// Finish UMG evaluation on end
+		FinishUMGEvaluation,
+
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,
 		LatestVersion = VersionPlusOne - 1

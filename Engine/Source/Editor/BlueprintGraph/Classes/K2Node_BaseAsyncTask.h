@@ -41,6 +41,7 @@ class BLUEPRINTGRAPH_API UK2Node_BaseAsyncTask : public UK2Node
 	virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const override;
 	virtual bool IsCompatibleWithGraph(const UEdGraph* TargetGraph) const override;
 	virtual void ValidateNodeDuringCompilation(class FCompilerResultsLog& MessageLog) const override;
+	virtual void GetPinHoverText(const UEdGraphPin& Pin, FString& HoverTextOut) const override;
 	// End of UEdGraphNode interface
 
 	// UK2Node interface
@@ -101,4 +102,18 @@ protected:
 	// Pin Redirector support
 	static TMap<FName, FAsyncTaskPinRedirectMapInfo> AsyncTaskPinRedirectMap;
 	static bool bAsyncTaskPinRedirectMapInitialized;
+
+private:
+	/** Invalidates current pin tool tips, so that they will be refreshed before being displayed: */
+	void InvalidatePinTooltips() { bPinTooltipsValid = false; }
+
+	/**
+	* Creates hover text for the specified pin.
+	*
+	* @param   Pin				The pin you want hover text for (should belong to this node)
+	*/
+	void GeneratePinTooltip(UEdGraphPin& Pin) const;
+
+	/** Flag used to track validity of pin tooltips, when tooltips are invalid they will be refreshed before being displayed */
+	mutable bool bPinTooltipsValid;
 };

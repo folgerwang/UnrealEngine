@@ -1,0 +1,41 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "VirtualCamera",
+	"Description": "",
+	"Category": "Virtual Production",
+	"CreatedBy": "",
+	"CreatedByURL": "",
+	"DocsURL": "",
+	"MarketplaceURL": "",
+	"SupportURL": "",
+	"CanContainContent": true,
+	"IsBetaVersion": true,
+  "Installed": false,
+  "EnabledByDefault": false,
+  "Modules": [
+    {
+      "Name": "VirtualCamera",
+      "Type": "Runtime",
+      "LoadingPhase": "Default",
+      "WhitelistPlatforms" :
+			[
+				"Win64",
+				"Win32",
+				"Linux",
+				"Mac"
+			]
+    }
+  ],
+  "Plugins": [
+    {
+      "Name": "RemoteSession",
+      "Enabled": true
+    },
+    {
+      "Name": "SteamVR",
+      "Enabled":  true
+    }
+  ]
+}

@@ -604,7 +604,7 @@ void FLevelModel::UpdateSimulationStatus(ULevelStreaming* StreamingLevel)
 			SimulationStatus.bVisible = true;
 		}
 	}
-	else if (StreamingLevel->bHasLoadRequestPending)
+	else if (StreamingLevel->HasLoadRequestPending())
 	{
 		SimulationStatus.bLoading = true;
 	}

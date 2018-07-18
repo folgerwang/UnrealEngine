@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3807090
 Availability: Public
 Crumbs: %ROOT%
 Title: 레이 트레이스 디스턴스 필드 소프트 섀도우
@@ -126,10 +126,10 @@ Social-Image:DirectionalLightAreaShadows.jpg
 
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
-	![Light Source Angle: | 1 ](DF_LSA_1.png)(w:1000 h:650)
+	![Light Source Angle: | 1 ](DF_LSA_1.png)(w:1000)
 	[/PARAM]
 	[PARAM:after]
-	![Light Source Angle: | 3 ](DF_LSA_3.png)(w:1000 h:650)
+	![Light Source Angle: | 3 ](DF_LSA_3.png)(w:1000)
 	[/PARAM]
 [/OBJECT]
 [REGION:caption]

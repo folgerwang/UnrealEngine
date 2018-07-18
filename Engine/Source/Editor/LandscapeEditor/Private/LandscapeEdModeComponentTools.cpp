@@ -21,7 +21,7 @@
 #include "LandscapeEdModeTools.h"
 #include "PhysicalMaterials/PhysicalMaterial.h"
 #include "Materials/MaterialExpressionLandscapeVisibilityMask.h"
-#include "Containers/Algo/Copy.h"
+#include "Algo/Copy.h"
 
 #define LOCTEXT_NAMESPACE "Landscape"
 
@@ -720,7 +720,7 @@ public:
 					// clear transient mobile data
 					Component->MobileDataSourceHash.Invalidate();
 					Component->MobileMaterialInterface = nullptr;
-					Component->MobileWeightNormalmapTexture = nullptr;
+					Component->MobileWeightmapTextures.Reset();
 					
 					Component->UpdateMaterialInstances();
 

@@ -1,7 +1,8 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "LocationServicesIOSImplModule.h"
-#include "Classes/LocationServicesBPLibrary.h"
+#include "LocationServicesIOSImpl.h"
+#include "LocationServicesBPLibrary.h"
 
 IMPLEMENT_MODULE(FLocationServicesIOSImplModule, LocationServicesIOSImpl)
 

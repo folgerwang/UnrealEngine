@@ -16,16 +16,22 @@ namespace mtlpp
 {
 	struct Origin : public MTLPPOrigin
     {
+		inline Origin() {}
+		inline Origin(MTLPPOrigin const& Other) : MTLPPOrigin(Other) {}
         inline Origin(NSUInteger X, NSUInteger Y, NSUInteger Z) { x = X; y = Y; z = Z; }
     };
 
     struct Size  : public MTLPPSize
     {
+		inline Size() {}
+		inline Size(MTLPPSize const& Other) : MTLPPSize(Other) {}
 		inline Size(NSUInteger Width, NSUInteger Height, NSUInteger Depth) { width = Width; height = Height; depth = Depth; }
     };
 
 	struct Region : public MTLPPRegion
     {
+		inline Region() {}
+		inline Region(MTLPPRegion const& Other) : MTLPPRegion(Other) {}
         inline Region(NSUInteger x, NSUInteger width) { origin = {x, 0, 0}; size = {width, 1, 1}; }
 
         inline Region(NSUInteger x, NSUInteger y, NSUInteger width, NSUInteger height) { origin = {x, y, 0}; size = {width, height, 1}; }
@@ -35,6 +41,7 @@ namespace mtlpp
 	
 	struct SamplePosition : public MTLPPSamplePosition
 	{
+		inline SamplePosition(MTLPPSamplePosition const& Other) : MTLPPSamplePosition(Other) {}
 		inline SamplePosition(float a, float b) { x = a; y = b; }
 	} MTLPP_AVAILABLE(10_13, 11_0);
 }

@@ -229,7 +229,7 @@ Whether this angular motor uses SLERP (Spherical Linear Interpolation) or decomp
 
 | Property | Description |
 | -------- | ----------- |
-|[REGION:tablesection]Constraint[/REGION]|
+|[REGION:tablesection]Constraint[/REGION]||
 | **Component Name 1** |  |
 | **Component Name 2** |   |
 | **Joint Name** |  |
@@ -259,7 +259,7 @@ Whether this angular motor uses SLERP (Spherical Linear Interpolation) or decomp
 
 | Property | Description |
 | -------- | ----------- |
-|[REGION:tablesection]Linear Limits[/REGION]|
+|[REGION:tablesection]Linear Limits[/REGION]||
 | **Linear XMotion** |  |
 | **Linear YMotion** |  |
 | **Linear ZMotion** |  |
@@ -270,11 +270,11 @@ Whether this angular motor uses SLERP (Spherical Linear Interpolation) or decomp
 | **Linear Limit Damping** |  |
 | **Linear Breakable** |  |
 | **Linear Break Threshold** |  |
-|[REGION:tablesection]Projection[/REGION]|
+|[REGION:tablesection]Projection[/REGION]||
 | **Enable Projection** |  |
 | **Projection Linear Tolerance** |  |
 | **Projection Angular Tolerance** |  |
-|[REGION:tablesection]Angular Limits[/REGION]|
+|[REGION:tablesection]Angular Limits[/REGION]||
 | **Angular Swing 1Motion** |  |
 | **Angular Swing 2Motion** |  |
 | **Angular Twist Motion** |  |
@@ -290,7 +290,7 @@ Whether this angular motor uses SLERP (Spherical Linear Interpolation) or decomp
 | **Twist Limit Damping** |  |
 | **Angular Breakable** |  |
 | **Angular Break Threshold** |  |
-|[REGION:tablesection]Linear Motor[/REGION]|
+|[REGION:tablesection]Linear Motor[/REGION]||
 | **Linear Position Drive** |  |
 | **Linear XPosition Drive** |  |
 | **Linear YPosition Drive** |  |
@@ -301,17 +301,14 @@ Whether this angular motor uses SLERP (Spherical Linear Interpolation) or decomp
 | **Linear Velocity Target** |  |
 | **Linear Velocity Strength** | Damping to apply to the linear drive. |
 | **Max Linear Force** | Limit to the force the linear drive can apply. |
-|[REGION:tablesection]Angular Motor[/REGION]|
+|[REGION:tablesection]Angular Motor[/REGION]||
 | **Angular Orientation Drive** |  |
 | **Angular Orientation Target** |  |
 | **Angular Position Strength** | Spring value to apply for the angular drive. |
 | **Angular Velocity Drive** |  |
 | **Angular Velocity Target** |  |
 | **Angular Velocity Strength** | Damping value to apply for the angular drive. |
-| **Max Angular Force ** | Limit to the force the angular drive can apply. |
-
-
-<!--
+| **Max Angular Force** | Limit to the force the angular drive can apply. |
 
 [EXCERPT:linearMotionEnum]
 | **Type** | **Description** |
@@ -329,8 +326,6 @@ Whether this angular motor uses SLERP (Spherical Linear Interpolation) or decomp
 | **Locked** | Fully constraint around this axis. |
 [/EXCERPT:angularMotionEnum]
 
-
-[/COMMENT]
 
 ## Further Information
 
@@ -360,10 +355,6 @@ Under most circumstances, the Linear Motions' freedoms will remain locked. Howev
 
 _From left to right (Physics Constraint scaled up 4x): Linear Motions limited to 15 Units, and Linear Motions set to free._
 
-[COMMENT:none]
- For information on all the properties relating to Linear Freedom and Limits see: [%Engine/Physics\Constraints\ConstraintsReferencetitle%](Engine/Physics\Constraints\ConstraintsReference 
-[/COMMENT]
-
 ### Angular Freedom and Limits
 
 ![](PhysCon_AngularLimitsProps.png)
@@ -384,10 +375,6 @@ Further, since the joint is located where the Physics Constraint Actor is locate
 [![](PhysCon_AngPos1.png)(h:312)](PhysCon_AngPos1.png) [![](PhysCon_AngPos2.png)(h:312)](PhysCon_AngPos2.png) 
 [/REGION]
 
-[COMMENT:none]
- For information on all the properties relating to Angular Freedom and Limits see: [%Engine/Physics\Constraints\ConstraintsReferencetitle%](Engine/Physics\Constraints\ConstraintsReference 
-[/COMMENT]
-
 ### Orientation
 
 The axes of a Physics Constraint Actor are in line with the rotation of the Physics Constraint Actor, and not aligned between the two objects. Given you desired effect, you will need to be aware of how the constraint is oriented.
@@ -404,9 +391,7 @@ In either setup, the Physics Constraint has its Linear XMotion set to free, and 
 [![](PhysCon_SimFlat.png)(w:453)](PhysCon_SimFlat.png) [![](PhysCon_SimAngled.png)(w:453)](PhysCon_SimAngled.png)
 [/REGION]
 
-When using Angular limits, it is assumed that the Twist Axis (positive X) will be aligned pointing towards the blue constrained Actor (Constrained Actor 2). [COMMENT:none]
--This is really important because the -
-[/COMMENT] 
+When using Angular limits, it is assumed that the Twist Axis (positive X) will be aligned pointing towards the blue constrained Actor (Constrained Actor 2). 
 
 [REGION:lightbox]
 [![](PhysCon_Angular.png)(w:453)](PhysCon_Angular.png) [![](PhysCon_AngularSim.png)(w:453)](PhysCon_AngularSim.png)
@@ -416,32 +401,7 @@ Also, while simulating, you will notice that the cone that represents the angula
 
 ![](PhysCon_AngularCone_2.png)(h:300 convert:false) ![](PhysCon_Arc.png)(h:300 convert:false)
 
-[COMMENT:none]
-
-
-### Ball And Socket
-A ball-and-socket joint is simply a joint that has all its linear parts locked and all its angular parts free.
-
-
-### Hinge
-A hinge is like a ball-and-socket in that all its linear parts are locked, but its swing parts are also locked, so it can only rotate around its twist axis.
-
-
-### Prismatic
-A prismatic joint has 2 out of its 3 linear degrees of freedom locked, and also has all its angular degrees of freedom locked. This allows is to slide down a 'rail' but cannot rotate at all.
-
-
-### Joint Friction
-You can simulate joint friction using the drive settings. Turn on velocity drive with a target velocity of zero, and use the LinearDriveForceLimit and AngularDriveForceLimit settings to control how strongly the joint will resist motion.
-
-
-### Punch bag
-You could simulate something like a punch-bag (a ball on the top of a vertical pole that can be knocked around) with a joint by first creating a ball-and-socket joint. Then turn on swing position drive and adjust the **AngularDriveSpring** and **AngularDriveDamping** until it springs nicely around the upright position when pushed. You could turn on swing limits as well to ensure that it cannot bend over too far.
-
-
 [/COMMENT]
--->
-
 
 
 

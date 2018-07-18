@@ -9,6 +9,8 @@ IMPLEMENT_MODULE( FAssetRegistryModule, AssetRegistry );
 
 void FAssetRegistryModule::StartupModule()
 {
+	LLM_SCOPE(ELLMTag::AssetRegistry);
+
 	AssetRegistry = MakeWeakObjectPtr(const_cast<UAssetRegistryImpl*>(GetDefault<UAssetRegistryImpl>()));
 	ConsoleCommands = new FAssetRegistryConsoleCommands(*this);
 }

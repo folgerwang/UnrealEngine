@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3617957
+﻿INTSourceChangelist:3801260
 Availability:Public
 Crumbs: %ROOT%
 Title:色対応表 (LUT) によるカラー グレーディング
@@ -12,10 +12,6 @@ Order:1000
 Tags:Post Process
 Topic-image:ColorGrading_Topic.png
 Social-image:ColorGrading_Overview.png
-
-[VAR:spacer]![](%ROOT%/spacer.png)(w:150 convert:false)[/VAR]
-[VAR:spacer2]![](%ROOT%/spacer.png)(w:40 convert:false)[/VAR]
-[VAR:spacer3]![](%ROOT%/spacer.png)(w:0 convert:false)[/VAR]
 
 
 ![](Engine/Rendering/PostProcessEffects/ColorGrading/ColorGrading_Overview.png)
@@ -51,10 +47,10 @@ Social-image:ColorGrading_Overview.png
 LUT を使用するには、使用するポストプロセスボリュームに LUT テクスチャを割り当てて強度を調節する必要があります。
 
 [REGION:raw]
-| プロパティ | %spacer2% | 説明 |
-| -------- | --------- | ----------- |
-| **Color Grading LUT Intensity** || A scaling factor that controls the effect of the color correction.色補正のエフェクトを制御するスケーリング係数です。 |
-| **Color Grading LUT** || 色補正の色対応表として使用する LUT テクスチャです。[ [INCLUDE:#ColorGradingLUT] |
+| プロパティ | 説明 |
+| -------- | ----------- |
+| **Color Grading LUT Intensity** | 色補正のエフェクトを制御するスケーリング係数です。 |
+| **Color Grading LUT** | 色補正の色対応表として使用する LUT テクスチャです。[ [INCLUDE:#ColorGradingLUT] |
 [/REGION]
 
 [COMMENT:none]
@@ -152,8 +148,8 @@ Photoshop 特有の単語が出てくると思います。
 		simple
 		[/PARAMLITERAL]
 	[/OBJECT]
-	1. 次に **[File]** > **[Save As]** で色補正を行った新しい LUR に名前を付けます。
 
+1. 次に **[File]** > **[Save As]** で色補正を行った新しい LUR に名前を付けます。
 1. UE4 において、コンテンツ ブラウザで **ドラッグ＆ドロップ** メソッドを使用、あるいはコンテンツ ブラウザの **[Import]** ボタンを使って、色補正を行った LUT をエディタにインポートします。
 
 	![](LUT5.png)(w:850)
@@ -163,15 +159,15 @@ Photoshop 特有の単語が出てくると思います。
 	[REGION:imagetable]
 	| ![](LUT6.png)(w:450) | [INCLUDE:#textureproperties] |
 	| --- | --- |
-	|||
+	||
 	[/REGION]
 
 1. 次に Post Process Volume で **[Details]** パネルの **[Color Grading]** > **[Global]** セクションで **[Color Grading LUT]** を有効にして LUT を適用します。 
 
 	[REGION:imagetable]
-| ![](LUT8.png)(h:400) | [INCLUDE:#finalcomparison] |
+	| ![](LUT8.png)(h:400) | [INCLUDE:#finalcomparison] |
 	| --- | --- |
-	|||
+	||
 	[/REGION]
 
 [COMMENT:none]

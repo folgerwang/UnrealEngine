@@ -74,7 +74,7 @@
 #include "Containers/SparseArray.h"
 #include "Containers/ScriptArray.h"
 #include "Containers/BitArray.h"
-#include "Containers/Algo/Reverse.h"
+#include "Algo/Reverse.h"
 #include "Math/Color.h"
 #include "Misc/Parse.h"
 #include "Math/IntPoint.h"
@@ -484,7 +484,7 @@
 #include "Engine/Blueprint.h"
 #include "Engine/BlueprintCore.h"
 #include "AI/Navigation/NavigationTypes.h"
-#include "AI/Navigation/NavFilters/NavigationQueryFilter.h"
+#include "NavFilters/NavigationQueryFilter.h"
 #include "Engine/LatentActionManager.h"
 #include "Engine/World.h"
 #include "WorldCollision.h"
@@ -608,9 +608,8 @@
 #include "Engine/FontImportOptions.h"
 #include "Animation/AnimBlueprint.h"
 #include "EngineModule.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "AI/NavigationSystemBase.h"
 #include "GenericOctreePublic.h"
-#include "AI/Navigation/NavigationData.h"
 #include "CanvasTypes.h"
 #include "Sound/SoundBase.h"
 #include "Components/LightComponent.h"
@@ -618,15 +617,6 @@
 
 // From EditorStyle:
 #include "EditorStyleSet.h"
-
-// From SourceControl:
-#include "ISourceControlState.h"
-#include "SourceControlHelpers.h"
-#include "ISourceControlRevision.h"
-#include "ISourceControlProvider.h"
-#include "ISourceControlOperation.h"
-#include "SourceControlOperations.h"
-#include "ISourceControlModule.h"
 
 // From BlueprintGraph:
 #include "BlueprintNodeSignature.h"

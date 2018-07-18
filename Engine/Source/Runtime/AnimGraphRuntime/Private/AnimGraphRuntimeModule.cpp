@@ -2,6 +2,9 @@
 
 #include "Modules/ModuleInterface.h"
 #include "Modules/ModuleManager.h"
+#include "BoneControllers/AnimNode_AnimDynamics.h"
+#include "UObject/UObjectIterator.h"
+#include "Animation/AnimInstance.h"
 
 //////////////////////////////////////////////////////////////////////////
 // FAnimGraphRuntimeModule

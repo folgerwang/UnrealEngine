@@ -768,6 +768,7 @@ bool FComponentEditorUtils::AttemptApplyMaterialToComponent(USceneComponent* Sce
 		}
 
 		SceneComponent->MarkRenderStateDirty();
+		GEditor->OnSceneMaterialsModified();
 	}
 
 	return bResult;

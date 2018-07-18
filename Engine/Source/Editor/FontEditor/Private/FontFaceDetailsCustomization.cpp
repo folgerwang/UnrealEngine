@@ -118,7 +118,7 @@ FReply FFontFaceDetailsCustomization::OnBrowseFontPath()
 			LOCTEXT("FontPickerTitle", "Choose a font file...").ToString(),
 			DefaultPath,
 			TEXT(""),
-			TEXT("All Font Files (*.ttf, *.otf)|*.ttf;*.otf|TrueType fonts (*.ttf)|*.ttf|OpenType fonts (*.otf)|*.otf"),
+			TEXT("All Font Files (*.ttf, *.ttc, *.otf, *.otc)|*.ttf;*.ttc;*.otf;*.otc|TrueType fonts (*.ttf, *.ttc)|*.ttf;*.ttc|OpenType fonts (*.otf, *.otc)|*.otf;*.otc"),
 			EFileDialogFlags::None,
 			OutFiles
 			))
@@ -145,6 +145,7 @@ void FFontFaceDetailsCustomization::OnFontPathPicked(const FString& InNewFontFil
 			FontFace->Modify();
 			FontFace->SourceFilename = InNewFontFilename;
 			FontFace->FontFaceData = FFontFaceData::MakeFontFaceData(MoveTemp(FontData)); // Make a new instance as the existing one may be being used by the font cache
+			FontFace->CacheSubFaces();
 		}
 	}
 

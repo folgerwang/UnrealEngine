@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3749327
+﻿INTSourceChangelist:3810467
 Availability:Public
 Crumbs: %ROOT%, Platforms
 Title:SteamVR 用 スタンディング式カメラの設定方法
@@ -24,7 +24,7 @@ SteamVR 向けにアンリアル エンジン 4 (UE4) で VR 体験の開発を�
     [REGION:simpletable]
 	|コンポーネント名| 値 |
     |--------|------------|
-    |** Scene**|VRCameraRoot|
+    |**Scene**|VRCameraRoot|
     |**Camera**|VRCamera|
 	[/region]
 

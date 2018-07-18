@@ -72,7 +72,36 @@ void SStructureDetailsView::Construct(const FArguments& InArgs)
 				EUserInterfaceActionType::ToggleButton 
 			);
 		}
-
+		if (DetailsViewArgs.bShowKeyablePropertiesOption)
+		{
+			DetailViewOptions.AddMenuEntry(
+				LOCTEXT("ShowOnlyKeyable", "Show Only Keyable Properties"),
+				LOCTEXT("ShowOnlyKeyable_ToolTip", "Displays only properties which are keyable"),
+				FSlateIcon(),
+				FUIAction(
+					FExecuteAction::CreateSP(this, &SStructureDetailsView::OnShowKeyableClicked),
+					FCanExecuteAction(),
+					FIsActionChecked::CreateSP(this, &SStructureDetailsView::IsShowKeyableChecked)
+				),
+				NAME_None,
+				EUserInterfaceActionType::ToggleButton
+			);
+		}
+		if (DetailsViewArgs.bShowAnimatedPropertiesOption)
+		{
+			DetailViewOptions.AddMenuEntry(
+				LOCTEXT("ShowAnimated", "Show Only Animated Properties"),
+				LOCTEXT("ShowAnimated_ToolTip", "Displays only properties which are animated (have tracks)"),
+				FSlateIcon(),
+				FUIAction(
+					FExecuteAction::CreateSP(this, &SStructureDetailsView::OnShowAnimatedClicked),
+					FCanExecuteAction(),
+					FIsActionChecked::CreateSP(this, &SStructureDetailsView::IsShowAnimatedChecked)
+				),
+				NAME_None,
+				EUserInterfaceActionType::ToggleButton
+			);
+		}
 		FUIAction ShowAllAdvancedAction( 
 			FExecuteAction::CreateSP(this, &SStructureDetailsView::OnShowAllAdvancedClicked),
 			FCanExecuteAction(),
@@ -208,7 +237,7 @@ void SStructureDetailsView::SetStructureData(TSharedPtr<FStructOnScope> InStruct
 	InitParams.ArrayOffset = 0;
 	InitParams.ArrayIndex = INDEX_NONE;
 	InitParams.bAllowChildren = true;
-	InitParams.bForceHiddenPropertyVisibility = FPropertySettings::Get().ShowHiddenProperties();
+	InitParams.bForceHiddenPropertyVisibility = FPropertySettings::Get().ShowHiddenProperties() || DetailsViewArgs.bForceHiddenPropertyVisibility;
 	InitParams.bCreateCategoryNodes = false;
 
 	RootNode->InitNode(InitParams);

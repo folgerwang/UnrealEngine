@@ -6,6 +6,7 @@ UMovieSceneFolder::UMovieSceneFolder( const FObjectInitializer& ObjectInitialize
 	: Super( ObjectInitializer )
 #if WITH_EDITORONLY_DATA
 	, FolderColor(FColor::White)
+	, SortingOrder(-1)
 #endif
 {
 }

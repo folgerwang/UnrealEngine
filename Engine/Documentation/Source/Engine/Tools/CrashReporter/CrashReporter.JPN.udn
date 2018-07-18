@@ -1,4 +1,5 @@
-﻿Availability:Epic
+﻿INTSourceChangelist:3599948
+Availability:Epic
 Title:クラッシュ レポータ
 Crumbs:%ROOT%
 Description:アンリアル エンジンで発生したクラッシュの情報を収集するアプリケーション
@@ -7,7 +8,7 @@ Description:アンリアル エンジンで発生したクラッシュの情報�
 
 クラッシュレポータのプログラム一式は、社内および社外のエンドユーザーによるアプリケーションのクラッシュ時における情報の保存および分析を可能にします。
 
-##必要最低条件
+## 必要最低条件
 
 * MVC3 がインストールされた Visual Studio 2012
 * .NET40 をサポートする IIS サーバー
@@ -24,28 +25,28 @@ Description:アンリアル エンジンで発生したクラッシュの情報�
 
 
 
-詳細な API ドキュメントは Perforce の以下の場所に格納されています。/Engine/Source/Programs/CrashReporter/CrashReportHelp/bin/Development/CrashReportHelp.chm
+詳細な API ドキュメントは Perforce: /Engine/Source/Programs/CrashReporter/CrashReportHelp/bin/Development/CrashReportHelp.chm に格納されています。
 
 ## クラッシュレポートの生成
 
 * NewReportCrash() はレポートを作成して CrashReportUploader を起動します。
 
 
-レポートには Windows Error Reporting のメタデータ、クラッシュのミニ ダンプファイル、最新のログ、任意で最新利用時のビデオファイルが含まれます。必要に応じて、任意のファイルを AddMiscFiles() へ追加することができます。サーバのプロセッサーを除いて特に変更は 
-必要ありません。新しい形式の Windows Error Reporting は Windows Vista へ追加されました。 XP のサポートを必要とする場合、注意が必要です。
+レポートには Windows Error Reporting のメタデータ、クラッシュのミニ ダンプファイル、最新のログ、任意で最新利用時のビデオファイルが含まれます。必要に応じて、任意のファイルを AddMiscFiles() へ追加することができます。 
+サーバのプロセッサーを除いて特に変更は必要ありません。新しい形式の Windows Error Reporting は Windows Vista へ追加されました。 XP のサポートを必要とする場合、注意が必要です。
 
 ## クラッシュレポートのアップロード
 
 * /Engine/Binaries/DotNET/CrashReportUploader.exe.config にはコンフィギュレーション プロパティが格納されています。
-    * 'CrashReportUploadURL' - クラッシュを送信する CrashReportReceiver の URL です。
+    * 'CrashReportUploadURL' - クラッシュの送信先となる CrashReportReceiver の URL です。
 	* 'UploadHistory' - 過去のクラッシュをさかのぼって検索する日数です。
 	* 'LocalDomain' - ローカル シンボル ルックアップ ヒューリスティックを支援するドメインです。
 
 
-アプリケーションは、UploadHistory で設定した日数をさかのぼって関連する全てのクラッシュを検索して、'CrashReportUploadURL' へアップロードします。アプリケーションは処理状態を把握しません。つまりエンジンからの直接入力を必要としません。スタンドアローン アプリケーションとして実行が可能で、
-エンジンからの直接入力同様に検索およびアップロードを行います。何らかの理由でアップロードが失敗すると (URL が存在しないなど)、アップローダーの次の起動で再試行となります。パラメータは必要ありませんが、コマンドライン オプションとして '-unattended' と '-logfolder=<folder name>' が推奨されています。 
+アプリケーションは、 'UploadHistory' で設定した日数をさかのぼって関連する全てのクラッシュを検索して、'CrashReportUploadURL' へアップロードします。アプリケーションは処理状態を把握しません。つまりエンジンからの直接入力を必要としません。
+スタンドアローン アプリケーションとして実行が可能で、エンジンからの直接入力同様に検索およびアップロードを行います。何らかの理由でアップロードが失敗すると (URL が存在しないなど)、アップローダーの次の起動で再試行となります。パラメータは必要ありませんが、コマンドライン オプションとして '-unattended' と '-logfolder=<folder name>' が推奨されています。 
 
-クラッシュレポートは、 'SpecialFolder.LocalApplicationData\Microsoft\Windows\WER\ReportQueue\AppCrash_UE4-*' のパターンと一致するすべてのフォルダを検索して発見されます。これらのフォルダには、既にアップロードされたレポートの存在をチェックする Guid があります。
+クラッシュレポートは、 `SpecialFolder.LocalApplicationData\Microsoft\Windows\WER\ReportQueue\AppCrash_UE4-*` のパターンと一致するすべてのフォルダを検索して発見されます。これらのフォルダには、既にアップロードされたレポートの存在をチェックする Guid があります。
 
 アップローダーは、ローカルでコンパイルされたバイナリを考慮して pdb ファイルを検索し、ローカル ドメイン上での実行状況をチェックします。両方の条件が満たされると、レポートの生成に「MinidumpDiagnostics.exe」ファイルが実行されます (callstack を含む)。その後レポートの一部として
 アップロードされます。
@@ -59,9 +60,9 @@ Description:アンリアル エンジンで発生したクラッシュの情報�
 
 
 これはサーバーの DMZ 領域に設置されたウェブ サービスです。'CrashReportUploadURL' 経由でどこからでもアクセスが可能です。アクセスが可能な全ての社外サーバーは、最低限のアクセスが可能なセキュリティに制限されています。基本的な拒否チェックを行った後、
-安全な場所で一時フォルダにファイルを受け取ります。全ファイルを受け取ると、プロセッサが検知できるようにフォルダ名を変更します。現時点での安全は場所は、イントラネットからもアクセスが可能な NFS ドライブです。
+安全な場所で一時フォルダにファイルを受け取ります。全ファイルを受け取ると、プロセッサが検知できるようにフォルダ名を変更します。現時点での安全は場所は、イントラネットからもアクセスが可能な NFS ドライブです。レポート フォルダには組み込み Guid があります (例えば、'AppCrash_UE4-FortniteGame_a50cecbc1f087cac2543eb9f04823bbb548b119_cab_17bf8494' です)。
 
-レポート フォルダには組み込み Guid があります(例えば、'AppCrash_UE4-FortniteGame_a50cecbc1f087cac2543eb9f04823bbb548b119_cab_17bf8494' です)。これはレポート アップロードの 2 重送信を防ぎます。 
+これはレポート アップロードの 2 重送信を防ぎます (例えば、'AppCrash_UE4-FortniteGame_a50cecbc1f087cac2543eb9f04823bbb548b119_cab_17bf8494' です)。これはレポート アップロードの 2 重送信を防ぎます。
 
 より詳細なカリング処理のために Windows Error Reporting メタデータが解析されます。現時点では、デバッグビルドからのクラッシュと MinidumpDiagnostics (これ自体が同期できないため) からのクラッシュを拒否します。
 
@@ -77,8 +78,8 @@ Description:アンリアル エンジンで発生したクラッシュの情報�
 
 
 Crash Report Processor は、新規レポート用に安全な場所 ('ReportLandingZone') をモニターするサービスです。NFS はディレクトリの監視をサポートしないため、時間がかかります。サービスは興味のあるファイルを検索して、
-必要に応じてミニ ダンプファイルに MinidumpDiagnostics を呼びます。その後データベースにクラッシュ レポートを追加するためにウェブ サービスを呼び出します。ウェブサイトから容易にアクセスできるように、返された ID をデータファイルの命名に使用します。残りのファイルは削除され、
-フォルダ名のみが残ります。アーキテクチャの性質上、バイナリ画像は x64 コールスタックウォーキングに必要です。 Microsoft Symbol Server と同期するには、システムの dll ファイルでクラッシュが発生する x64 ミニ ダンプファイルのコールスタック ウォーキングのサポートが必要です。
+必要に応じてミニ ダンプファイルに MinidumpDiagnostics を呼びます。その後データベースにクラッシュ レポートを追加するためにウェブ サービスを呼び出します。ウェブサイトから容易にアクセスできるように、
+返された ID をデータファイルの命名に使用します。アーキテクチャの性質上、バイナリ画像は x64 コールスタックウォーキングに必要です。 Microsoft Symbol Server と同期するには、システムの dll ファイルでクラッシュが発生する x64 ミニ ダンプファイルのコールスタック ウォーキングのサポートが必要です。
 
 MinidumpDiagnostics はミニ ダンプのモジュール リストからバージョン番号を抽出して、正確なバイナリ、シンボル、 Perfoce からのソースとの同期に使用します。その後、コールスタックは WinDbg と同じ技術を使用して評価され、 
 可能な限りの情報が Diagnostics.txt へ書き込まれます。
@@ -94,13 +95,13 @@ clientspec はシンボルルックアップに全てのコンテンツを必要
 クラッシュやクラッシュの一群を表示して、ソート、検索、フィルタリングが出来るウェブサイトです。
 
 基本的な表示は、ユーザーグループごとにクラッシュのリストを経由します。(例：'EngineQA'、 'GameQA'、 'Coder')クラッシュ ID が選択されて、クラッシュの詳細、ログ、ミニダンプ、そして利用可能な場合はビデオを表示します。
-CrashGroups をクリックすると、コールスタックのパターンでグループ分けされたクラッシュを表示します。CrashGroupID は、詳細や CrashGroup に関連する全てのクラッシュのリストを表示させるために選択します。CrashGroup は、 SQL サーバーに格納する
- 'UpdateCrashesByPattern' プロシージャを 10 分ごとに実行して更新されます。
+CrashGroups をクリックすると、コールスタックのパターンでグループ分けされたクラッシュを表示します。CrashGroupID は、詳細や CrashGroup に関連する全てのクラッシュのリストを表示させるために選択します。CrashGroup は、
+SQL サーバーに格納する   'UpdateCrashesByPattern' プロシージャを 10 分ごとに実行して更新されます。
  
 ## データベースの設定
 
-スクリプトを作成する /Engine/Source/Programs/CrashReporter/DatabaseDefinition/CreateCrashReporterDatabase.sql  を実行して、保存するプロシージャ 'UpdateCrashesByPattern' を 10 分ごとに実行するように SQL サーバーにジョブを設定します。設定は、'Run Update Script' を実行する SQL サーバーエージェントのジョブ設定で行います。
-これは前述の保存されたプロシージャを実行します。
+スクリプトを作成する /Engine/Source/Programs/CrashReporter/DatabaseDefinition/CreateCrashReporterDatabase.sql  を実行して、保存するプロシージャ 'UpdateCrashesByPattern' を 10 分ごとに実行するように SQL サーバーにジョブを設定します。設定は、
+'Run Update Script' を実行する SQL サーバーエージェントのジョブ設定で行います。
 
 ## ウェブサイトの設定
 

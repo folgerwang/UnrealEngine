@@ -21,9 +21,8 @@ class UMaterialExpressionBentNormalCustomOutput : public UMaterialExpressionCust
 	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex) override;
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
 	virtual uint32 GetInputType(int32 InputIndex) override { return MCT_Float3; }
-#endif
-
 	virtual FExpressionInput* GetInput(int32 InputIndex) override;
+#endif
 	virtual int32 GetNumOutputs() const override { return 1; }
 	virtual FString GetFunctionName() const override { return TEXT("GetBentNormal"); }
 	virtual FString GetDisplayName() const override { return TEXT("BentNormal"); }

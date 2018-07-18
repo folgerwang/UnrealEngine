@@ -24,17 +24,17 @@ namespace SkeletalMeshTools
 			}
 		}
 
-		if(!NormalsEqual(V1.TangentX, V2.TangentX, OverlappingThresholds))
+		if(!NormalsEqual(V1.TangentX.ToFVector(), V2.TangentX.ToFVector(), OverlappingThresholds))
 		{
 			return false;
 		}
 
-		if(!NormalsEqual(V1.TangentY, V2.TangentY, OverlappingThresholds))
+		if(!NormalsEqual(V1.TangentY.ToFVector(), V2.TangentY.ToFVector(), OverlappingThresholds))
 		{
 			return false;
 		}
 
-		if(!NormalsEqual(V1.TangentZ, V2.TangentZ, OverlappingThresholds))
+		if(!NormalsEqual(V1.TangentZ.ToFVector(), V2.TangentZ.ToFVector(), OverlappingThresholds))
 		{
 			return false;
 		}
@@ -294,32 +294,6 @@ namespace SkeletalMeshTools
 #endif // #if WITH_EDITORONLY_DATA
 	}
 
-	/**
-	 * Copies data out of Model so that the data can be processed in the background.
-	 */
-	void CopySkinnedModelData(FSkinnedModelData& OutData, FSkeletalMeshLODModel& Model)
-	{
-	#if WITH_EDITORONLY_DATA
-		Model.GetVertices(OutData.Vertices);
-		OutData.Indices = Model.IndexBuffer;
-		if (Model.RawPointIndices.GetElementCount() == OutData.Vertices.Num())
-		{
-			OutData.RawPointIndices.Empty(Model.RawPointIndices.GetElementCount());
-			OutData.RawPointIndices.AddUninitialized(Model.RawPointIndices.GetElementCount());
-			void* DestPtr = OutData.RawPointIndices.GetData();
-			Model.RawPointIndices.GetCopy(&DestPtr, /*bDiscardInternalCopy=*/false);
-			check(DestPtr == OutData.RawPointIndices.GetData());
-		}
-		OutData.MeshToImportVertexMap = Model.MeshToImportVertexMap;
-		OutData.Sections = Model.Sections;
-		for (int32 SectionIndex = 0; SectionIndex < Model.Sections.Num(); ++SectionIndex)
-		{
-			TArray<FBoneIndexType>& DestBoneMap = *new(OutData.BoneMaps) TArray<FBoneIndexType>();
-			DestBoneMap = Model.Sections[SectionIndex].BoneMap;
-		}
-		OutData.NumTexCoords = Model.NumTexCoords;
-	#endif // #if WITH_EDITORONLY_DATA
-	};
 	
 	// Find the most dominant bone for each vertex
 	int32 GetDominantBoneIndex(FSoftSkinVertex* SoftVert)

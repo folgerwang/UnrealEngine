@@ -1,5 +1,4 @@
-﻿INTSourceChangelist:3244370
-Availability:Public
+﻿Availability:Public
 Title:コンストラクション スクリプト
 Crumbs: %ROOT%, Engine, Engine/Blueprints, Engine/Blueprints/UserGuide
 Description:初期化を行うためにブループリントのインスタンス作成時に実行されるグラフ
@@ -7,44 +6,7 @@ version:4.9
 Parent:Engine/Blueprints/Anatomy
 Tags:Graphs
 tags:Blueprints
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine\Blueprints\UserGuide\UserConstructionScript:title%](Engine\Blueprints\UserGuide\UserConstructionScript\ucs_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Blueprints\UserGuide\UserConstructionScript:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Blueprints\UserGuide\UserConstructionScript:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine\Blueprints\UserGuide\UserConstructionScript]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine\Blueprints\UserGuide\UserConstructionScript:title%](Engine\Blueprints\UserGuide\UserConstructionScript\ucs_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Blueprints\UserGuide\UserConstructionScript:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Blueprints\UserGuide\UserConstructionScript:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine\Blueprints\UserGuide\UserConstructionScript]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:Engine/Blueprints/UserGuide/UserConstructionScript/ucs_topic.png
 
 
 [REGION:banner]

@@ -9,7 +9,48 @@ THIRD_PARTY_INCLUDES_END
 
 namespace ICUUtilities
 {
-	FStringConverter::FStringConverter()
+	void FStringConverterImpl_NativeUTF16::ConvertString(const TCHAR* Source, const int32 SourceStartIndex, const int32 SourceLen, icu::UnicodeString& Destination, const bool ShouldNullTerminate)
+	{
+		if (SourceLen > 0)
+		{
+			// Get the internal buffer of the string, we're going to write to it directly
+			UChar* InternalStringBuffer = Destination.getBuffer(SourceLen + 1);
+
+			// Copy into the string buffer and optionally terminate
+			FMemory::Memcpy(InternalStringBuffer, Source + SourceStartIndex, SourceLen * sizeof(TCHAR));
+			if (ShouldNullTerminate)
+			{
+				InternalStringBuffer[SourceLen] = 0;
+			}
+
+			// Size it back down to the correct size and release our lock on the string buffer
+			Destination.releaseBuffer(SourceLen);
+		}
+		else
+		{
+			Destination.remove();
+		}
+	}
+
+	void FStringConverterImpl_NativeUTF16::ConvertString(const icu::UnicodeString& Source, const int32 SourceStartIndex, const int32 SourceLen, FString& Destination)
+	{
+		if (SourceLen > 0)
+		{
+			// Get the internal buffer of the string, we're going to write to it directly
+			TArray<TCHAR>& InternalStringBuffer = Destination.GetCharArray();
+			InternalStringBuffer.SetNumUninitialized(SourceLen + 1);
+
+			// Copy into the string buffer and terminate
+			FMemory::Memcpy(InternalStringBuffer.GetData(), Source.getBuffer() + SourceStartIndex, SourceLen * sizeof(TCHAR));
+			InternalStringBuffer[SourceLen] = 0;
+		}
+		else
+		{
+			Destination.Reset();
+		}
+	}
+
+	FStringConverterImpl_ConvertToUnicodeString::FStringConverterImpl_ConvertToUnicodeString()
 		: ICUConverter(nullptr)
 	{
 		UErrorCode ICUStatus = U_ZERO_ERROR;
@@ -17,17 +58,12 @@ namespace ICUUtilities
 		check(U_SUCCESS(ICUStatus));
 	}
 
-	FStringConverter::~FStringConverter()
+	FStringConverterImpl_ConvertToUnicodeString::~FStringConverterImpl_ConvertToUnicodeString()
 	{
 		ucnv_close(ICUConverter);
 	}
 
-	void FStringConverter::ConvertString(const FString& Source, icu::UnicodeString& Destination, const bool ShouldNullTerminate)
-	{
-		ConvertString(*Source, 0, Source.Len(), Destination, ShouldNullTerminate);
-	}
-
-	void FStringConverter::ConvertString(const TCHAR* Source, const int32 SourceStartIndex, const int32 SourceLen, icu::UnicodeString& Destination, const bool ShouldNullTerminate)
+	void FStringConverterImpl_ConvertToUnicodeString::ConvertString(const TCHAR* Source, const int32 SourceStartIndex, const int32 SourceLen, icu::UnicodeString& Destination, const bool ShouldNullTerminate)
 	{
 		if (SourceLen > 0)
 		{
@@ -60,6 +96,46 @@ namespace ICUUtilities
 		}
 	}
 
+	void FStringConverterImpl_ConvertToUnicodeString::ConvertString(const icu::UnicodeString& Source, const int32 SourceStartIndex, const int32 SourceLen, FString& Destination)
+	{
+		if (SourceLen > 0)
+		{
+			UErrorCode ICUStatus = U_ZERO_ERROR;
+
+			ucnv_reset(ICUConverter);
+
+			// Get the internal buffer of the string, we're going to use it as scratch space
+			TArray<TCHAR>& InternalStringBuffer = Destination.GetCharArray();
+
+			// Work out the maximum size required and resize the buffer so it can hold enough data
+			const int32_t DestinationCapacityBytes = UCNV_GET_MAX_BYTES_FOR_STRING(SourceLen, ucnv_getMaxCharSize(ICUConverter));
+			const int32 DestinationCapacityTCHARs = DestinationCapacityBytes / sizeof(TCHAR);
+			InternalStringBuffer.SetNumUninitialized(DestinationCapacityTCHARs);
+
+			// Perform the conversion into the string buffer, and then null terminate the FString and size it back down to the correct size
+			const int32_t DestinationSizeBytes = ucnv_fromUChars(ICUConverter, reinterpret_cast<char*>(InternalStringBuffer.GetData()), DestinationCapacityBytes, Source.getBuffer() + SourceStartIndex, SourceLen, &ICUStatus);
+			const int32 DestinationSizeTCHARs = DestinationSizeBytes / sizeof(TCHAR);
+			InternalStringBuffer[DestinationSizeTCHARs] = 0;
+			InternalStringBuffer.SetNum(DestinationSizeTCHARs + 1, /*bAllowShrinking*/false); // the array size includes null
+
+			check(U_SUCCESS(ICUStatus));
+		}
+		else
+		{
+			Destination.Reset();
+		}
+	}
+
+	void FStringConverter::ConvertString(const FString& Source, icu::UnicodeString& Destination, const bool ShouldNullTerminate)
+	{
+		ConvertString(*Source, 0, Source.Len(), Destination, ShouldNullTerminate);
+	}
+
+	void FStringConverter::ConvertString(const TCHAR* Source, const int32 SourceStartIndex, const int32 SourceLen, icu::UnicodeString& Destination, const bool ShouldNullTerminate)
+	{
+		Impl.ConvertString(Source, SourceStartIndex, SourceLen, Destination, ShouldNullTerminate);
+	}
+
 	icu::UnicodeString FStringConverter::ConvertString(const FString& Source, const bool ShouldNullTerminate)
 	{
 		icu::UnicodeString Destination;
@@ -81,32 +157,7 @@ namespace ICUUtilities
 
 	void FStringConverter::ConvertString(const icu::UnicodeString& Source, const int32 SourceStartIndex, const int32 SourceLen, FString& Destination)
 	{
-		if (Source.length() > 0)
-		{
-			UErrorCode ICUStatus = U_ZERO_ERROR;
-
-			ucnv_reset(ICUConverter);
-			
-			// Get the internal buffer of the string, we're going to use it as scratch space
-			TArray<TCHAR>& InternalStringBuffer = Destination.GetCharArray();
-				
-			// Work out the maximum size required and resize the buffer so it can hold enough data
-			const int32_t DestinationCapacityBytes = UCNV_GET_MAX_BYTES_FOR_STRING(SourceLen, ucnv_getMaxCharSize(ICUConverter));
-			const int32 DestinationCapacityTCHARs = DestinationCapacityBytes / sizeof(TCHAR);
-			InternalStringBuffer.SetNumUninitialized(DestinationCapacityTCHARs);
-
-			// Perform the conversion into the string buffer, and then null terminate the FString and size it back down to the correct size
-			const int32_t DestinationSizeBytes = ucnv_fromUChars(ICUConverter, reinterpret_cast<char*>(InternalStringBuffer.GetData()), DestinationCapacityBytes, Source.getBuffer() + SourceStartIndex, SourceLen, &ICUStatus);
-			const int32 DestinationSizeTCHARs = DestinationSizeBytes / sizeof(TCHAR);
-			InternalStringBuffer[DestinationSizeTCHARs] = 0;
-			InternalStringBuffer.SetNum(DestinationSizeTCHARs + 1, /*bAllowShrinking*/false); // the array size includes null
-
-			check(U_SUCCESS(ICUStatus));
-		}
-		else
-		{
-			Destination.Empty();
-		}
+		Impl.ConvertString(Source, SourceStartIndex, SourceLen, Destination);
 	}
 
 	FString FStringConverter::ConvertString(const icu::UnicodeString& Source)
@@ -284,14 +335,14 @@ namespace ICUUtilities
 			return InCultureCode;
 		}
 
-		// ICU culture codes (IETF language tags) may only contain A-Z, a-z, 0-9, -, or _
+		// ICU culture codes (IETF language tags) may only contain A-Z, a-z, 0-9, -, ,_, @, ;, =, or .
 		FString SanitizedCultureCode = InCultureCode;
 		{
 			SanitizedCultureCode.GetCharArray().RemoveAll([](const TCHAR InChar)
 			{
 				if (InChar != 0)
 				{
-					const bool bIsValid = (InChar >= TEXT('A') && InChar <= TEXT('Z')) || (InChar >= TEXT('a') && InChar <= TEXT('z')) || (InChar >= TEXT('0') && InChar <= TEXT('9')) || (InChar == TEXT('-')) || (InChar == TEXT('_'));
+					const bool bIsValid = (InChar >= TEXT('A') && InChar <= TEXT('Z')) || (InChar >= TEXT('a') && InChar <= TEXT('z')) || (InChar >= TEXT('0') && InChar <= TEXT('9')) || (InChar == TEXT('-')) || (InChar == TEXT('_')) || (InChar == TEXT('@')) || (InChar == TEXT(';')) || (InChar == TEXT('=')) || (InChar == TEXT('.'));
 					return !bIsValid;
 				}
 				return false;

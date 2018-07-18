@@ -184,7 +184,7 @@ private:
 	void PopulateLayersList();
 
 	/** Scrolls world origin to specified position */
-	void MoveWorldOrigin(const FIntPoint& InOrigin);
+	void MoveWorldOrigin(const FIntPoint& InOrigin2D);
 
 	/** Adds a loaded level to the world and makes it visible if possible 
 	 *	@return Whether level was added to the world

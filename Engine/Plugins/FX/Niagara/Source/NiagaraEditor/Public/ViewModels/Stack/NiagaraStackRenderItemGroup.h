@@ -2,8 +2,10 @@
 
 #pragma once
 
-#include "NiagaraStackItemGroup.h"
+#include "ViewModels/Stack/NiagaraStackItemGroup.h"
 #include "NiagaraStackRenderItemGroup.generated.h"
+
+class UNiagaraRendererProperties;
 
 UCLASS()
 class NIAGARAEDITOR_API UNiagaraStackRenderItemGroup : public UNiagaraStackItemGroup
@@ -11,15 +13,15 @@ class NIAGARAEDITOR_API UNiagaraStackRenderItemGroup : public UNiagaraStackItemG
 	GENERATED_BODY()
 
 public:
-	virtual FText GetDisplayName() const override;
-	void SetDisplayName(FText InDisplayName);
+	void Initialize(FRequiredEntryData InRequiredEntryData);
 
 protected:
-	virtual void RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren) override;
+	virtual void RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren, TArray<FStackIssue>& NewIssues) override;
 
 private:
+	void ItemAdded(UNiagaraRendererProperties* AddedRenderer);
 	void ChildModifiedGroupItems();
 
 private:
-	FText DisplayName;
+	TSharedPtr<INiagaraStackItemGroupAddUtilities> AddUtilities;
 };

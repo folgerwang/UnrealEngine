@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
 #include "UObject/Object.h"
-#include "TextProperty.h"
+#include "UObject/TextProperty.h"
 #include "MaterialImportHelpers.generated.h"
 
 class UMaterialInterface;
@@ -33,5 +33,5 @@ public:
 	static UNREALED_API UMaterialInterface* FindExistingMaterialFromSearchLocation(const FString& MaterialFullName, const FString& BasePackagePath, EMaterialSearchLocation SearchLocation, FText& OutError);
 
 	UFUNCTION(BlueprintCallable, Category = "Editor Scripting | Materials")
-	static UNREALED_API UMaterialInterface* FindExistingMaterial(const FString& BasePath, const FString& MaterialFullName, FText& OutError);
+	static UNREALED_API UMaterialInterface* FindExistingMaterial(const FString& BasePath, const FString& MaterialFullName, const bool bRecursivePaths, FText& OutError);
 };

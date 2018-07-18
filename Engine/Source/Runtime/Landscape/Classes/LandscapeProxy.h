@@ -326,7 +326,7 @@ public:
 	~FAsyncGrassTask();
 };
 
-UCLASS(Abstract, MinimalAPI, NotBlueprintable, hidecategories=(Display, Attachment, Physics, Debug, Lighting, LOD), showcategories=(Lighting, Rendering, "Utilities|Transformation"))
+UCLASS(Abstract, MinimalAPI, NotBlueprintable, hidecategories=(Display, Attachment, Physics, Debug, Lighting, LOD), showcategories=(Lighting, Rendering, "Utilities|Transformation"), hidecategories=(Mobility))
 class ALandscapeProxy : public AActor
 {
 	GENERATED_BODY()
@@ -364,7 +364,7 @@ public:
 	float ComponentScreenSizeToUseSubSections;
 
 	/** The distribution setting used to change the LOD 0 generation, 1.75 is the normal distribution, numbers influence directly the LOD0 proportion on screen. */
-	UPROPERTY(EditAnywhere, Category = "LOD Distribution", meta = (DisplayName = "LOD 0", ClampMin = "1.0", ClampMax = "5.0", UIMin = "1.0", UIMax = "5.0"))
+	UPROPERTY(EditAnywhere, Category = "LOD Distribution", meta = (DisplayName = "LOD 0", ClampMin = "1.0", ClampMax = "10.0", UIMin = "1.0", UIMax = "10.0"))
 	float LOD0DistributionSetting;
 
 	/** The distribution setting used to change the LOD generation, 2 is the normal distribution, small number mean you want your last LODs to take more screen space and big number mean you want your first LODs to take more screen space. */
@@ -382,6 +382,10 @@ public:
 	/** Component screen size (0.0 - 1.0) at which we start the tessellation falloff. */
 	UPROPERTY(EditAnywhere, Category = Tessellation, meta=(editcondition= UseTessellationComponentScreenSizeFalloff, ClampMin = "0.01", ClampMax = "1.0", UIMin = "0.01", UIMax = "1.0", DisplayName = "Tessellation Component Screen Size Falloff"))
 	float TessellationComponentScreenSizeFalloff;
+
+	/** Landscape LOD to use as an occluder geometry for software occlusion */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=LOD)
+	int32 OccluderGeometryLOD;
 
 #if WITH_EDITORONLY_DATA
 	/** LOD level to use when exporting the landscape to obj or FBX */
@@ -414,7 +418,7 @@ public:
 	float StreamingDistanceMultiplier;
 
 	/** Combined material used to render the landscape */
-	UPROPERTY(EditAnywhere, Category=Landscape)
+	UPROPERTY(EditAnywhere, BlueprintSetter=EditorSetLandscapeMaterial, Category=Landscape)
 	UMaterialInterface* LandscapeMaterial;
 
 	/** Material used to render landscape components with holes. If not set, LandscapeMaterial will be used (blend mode will be overridden to Masked if it is set to Opaque) */
@@ -475,6 +479,10 @@ public:
 	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=Lighting, meta=(DisplayName = "Far Shadow"))
 	uint32 bCastFarShadow:1;
 	
+	/** Controls whether the landscape should affect dynamic distance field lighting methods. **/
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Lighting, AdvancedDisplay)
+	uint8 bAffectDistanceFieldLighting:1;
+
 	/**
 	* Channels that this Landscape should be in.  Lights with matching channels will affect the Landscape.
 	* These channels only apply to opaque materials, direct lighting, and dynamic lighting and shadowing.
@@ -496,6 +504,9 @@ public:
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=Rendering,  meta=(UIMin = "0", UIMax = "255", editcondition = "bRenderCustomDepth", DisplayName = "CustomDepth Stencil Value"))
 	int32 CustomDepthStencilValue;
 
+	/**  Max draw distance exposed to LDs. The real max draw distance is the min (disregarding 0) of this and volumes affecting this object. */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category = LOD, meta = (DisplayName = "Desired Max Draw Distance"))
+	float LDMaxDrawDistance;
 
 #if WITH_EDITORONLY_DATA
 	UPROPERTY(transient)
@@ -586,8 +597,10 @@ public:
 	LANDSCAPE_API static ULandscapeLayerInfoObject* VisibilityLayer;
 #endif
 
+#if WITH_EDITORONLY_DATA
 	/** Map of material instance constants used to for the components. Key is generated with ULandscapeComponent::GetLayerAllocationKey() */
 	TMap<FString, UMaterialInstanceConstant*> MaterialInstanceConstantMap;
+#endif
 
 	/** Map of weightmap usage */
 	TMap<UTexture2D*, FLandscapeWeightmapUsage> WeightmapUsageMap;
@@ -613,6 +626,10 @@ public:
 	/** Change TessellationComponentScreenSizeFalloff value on the render proxy.*/
 	UFUNCTION(BlueprintCallable, Category = "Rendering")
 	virtual void ChangeTessellationComponentScreenSizeFalloff(float InUseTessellationComponentScreenSizeFalloff);
+
+	/* Setter for LandscapeMaterial. Has no effect outside the editor. */
+	UFUNCTION(BlueprintSetter)
+	void EditorSetLandscapeMaterial(UMaterialInterface* NewLandscapeMaterial);
 
 	// Editor-time blueprint functions
 
@@ -693,6 +710,12 @@ public:
 
 	/** Frame counter to count down to the next time we check to update baked textures, so we don't check every frame */
 	int32 UpdateBakedTexturesCountdown;
+
+	/** Editor notification when changing feature level, used to flush grass */
+	void OnFeatureLevelChanged(ERHIFeatureLevel::Type NewFeatureLevel);
+
+	/** Handle so we can unregister the delegate */
+	FDelegateHandle FeatureLevelChangedDelegateHandle;
 #endif
 
 	//~ Begin AActor Interface.
@@ -788,7 +811,9 @@ public:
 	*/
 	LANDSCAPE_API bool ExportToRawMesh(int32 InExportLOD, FRawMesh& OutRawMesh, const FBoxSphereBounds& InBounds ) const;
 
-
+	/** Generate platform data if it's missing or outdated */
+	LANDSCAPE_API void CheckGenerateLandscapePlatformData(bool bIsCooking, const ITargetPlatform* TargetPlatform);
+	
 	/** @return Current size of bounding rectangle in quads space */
 	LANDSCAPE_API FIntRect GetBoundingRect() const;
 
@@ -809,6 +834,25 @@ public:
 
 	/** remove an overlapping component. Called from MapCheck. */
 	LANDSCAPE_API void RemoveOverlappingComponent(ULandscapeComponent* Component);
+
+	/**
+	* Samples an array of values from a Texture Render Target 2D. 
+	* Only works in the editor
+	*/
+	LANDSCAPE_API static TArray<FLinearColor> SampleRTData(UTextureRenderTarget2D* InRenderTarget, FLinearColor InRect);
+
+	/**
+	* Overwrites a landscape heightmap with render target data
+	* Only works in the editor
+	*/
+	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Landscape Import Heightmap from RenderTarget", Keywords = "Push RenderTarget to Landscape Heightmap", UnsafeDuringActorConstruction = "true"), Category = Rendering)
+	bool LandscapeImportHeightmapFromRenderTarget(UTextureRenderTarget2D* InRenderTarget);
+	/**
+	* Overwrites a landscape weightmap with render target data
+	* Only works in the editor
+	*/
+	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Landscape Import Weightmap from RenderTarget", Keywords = "Push RenderTarget to Landscape Heightmap", UnsafeDuringActorConstruction = "true"), Category = Rendering)
+	bool LandscapeImportWeightmapFromRenderTarget(UTextureRenderTarget2D* InRenderTarget, FName InLayerName);
 
 	DECLARE_EVENT(ALandscape, FLandscapeMaterialChangedDelegate);
 	FLandscapeMaterialChangedDelegate& OnMaterialChangedDelegate() { return LandscapeMaterialChangedDelegate; }

@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "Synth2DSliderStyle.h"
-#include "IPluginManager.h"
+#include "UI/Synth2DSliderStyle.h"
+#include "Interfaces/IPluginManager.h"
 #include "SynthesisModule.h"
 #include "CoreMinimal.h"
 #include "HAL/FileManager.h"

@@ -12,7 +12,7 @@
 #include "Misc/OutputDeviceError.h"
 #include "Misc/ObjectThumbnail.h"
 #include "Serialization/CustomVersion.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 class Error;
 
@@ -154,6 +154,7 @@ public:
 	virtual bool IsNameStableForNetworking() const override { return true; }		// For now, assume all packages have stable net names
 	virtual bool NeedsLoadForClient() const override { return true; }				// To avoid calling the expensive generic version, which only makes sure that the UPackage static class isn't excluded
 	virtual bool NeedsLoadForServer() const override { return true; }
+	virtual bool IsPostLoadThreadSafe() const override;
 
 #if WITH_EDITORONLY_DATA
 																					/** Sets the bLoadedByEditorPropertiesOnly flag */
@@ -199,20 +200,6 @@ public:
 
 	// World browser information
 	TUniquePtr< FWorldTileInfo > WorldTileInfo;
-
-private:
-	mutable TUniquePtr<TMap<FName, int32>> ClassUniqueNameIndexMap;
-
-public:
-
-	TMap<FName, int32>& GetClassUniqueNameIndexMap() const
-	{
-		if (ClassUniqueNameIndexMap == nullptr)
-		{
-			ClassUniqueNameIndexMap.Reset(new TMap<FName, int32>());
-		}
-		return *ClassUniqueNameIndexMap;
-	}
 
 	/**
 	* Called after the C++ constructor and after the properties have been initialized, but before the config has been loaded, etc.
@@ -547,7 +534,7 @@ public:
 	* @param	InOuter							the outer to use for the new package
 	* @param	Linker							linker we're currently saving with
 	*/
-	static void SaveThumbnails( UPackage* InOuter, FLinkerSave* Linker );
+	static void SaveThumbnails(UPackage* InOuter, FLinkerSave* Linker, FStructuredArchive::FSlot Slot);
 
 	/**
 	* Static: Saves asset registry data for the specified package outer and linker
@@ -555,7 +542,7 @@ public:
 	* @param	InOuter							the outer to use for the new package
 	* @param	Linker							linker we're currently saving with
 	*/
-	static void SaveAssetRegistryData( UPackage* InOuter, FLinkerSave* Linker );
+	static void SaveAssetRegistryData(UPackage* InOuter, FLinkerSave* Linker, FStructuredArchive::FSlot Slot);
 
 	/**
 	* Static: Saves the level information used by the World browser
@@ -563,7 +550,7 @@ public:
 	* @param	InOuter							the outer to use for the new package
 	* @param	Linker							linker we're currently saving with
 	*/
-	static void SaveWorldLevelInfo( UPackage* InOuter, FLinkerSave* Linker );
+	static void SaveWorldLevelInfo(UPackage* InOuter, FLinkerSave* Linker, FStructuredArchive::FSlot Slot);
 
 	/**
 	* Determines if a package contains no more assets.

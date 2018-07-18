@@ -6,7 +6,8 @@
 #include "Types/SlateEnums.h"
 #include "Layout/Visibility.h"
 #include "IDetailCustomization.h"
-#include "Reply.h"
+#include "Input/Reply.h"
+
 
 struct FAssetData;
 class IDetailGroup;
@@ -50,6 +51,9 @@ private:
 	void CreateParameterValueWidget(class UDEditorParameterValue* Parameter, TSharedPtr<IPropertyHandle> ParameterProperty, IDetailGroup& DetailGroup);
 	void CreateMaskParameterValueWidget(class UDEditorParameterValue* Parameter, TSharedPtr<IPropertyHandle> ParameterProperty, IDetailGroup& DetailGroup);
 	void CreateVectorChannelMaskParameterValueWidget(class UDEditorParameterValue* Parameter, TSharedPtr<IPropertyHandle> ParameterProperty, IDetailGroup& DetailGroup);
+	void CreateScalarAtlasPositionParameterValueWidget(class UDEditorParameterValue* Parameter, TSharedPtr<IPropertyHandle> ParameterProperty, IDetailGroup& DetailGroup);
+
+	FString GetCurvePath(class UDEditorScalarParameterValue * Parameter) const;
 
 	/** Returns true if the parameter is in the visible expressions list */
 	bool IsVisibleExpression(class UDEditorParameterValue* Parameter);
@@ -92,5 +96,8 @@ private:
 
 	/** Delegate to call to determine if hidden parameters should be shown */
 	FGetShowHiddenParameters ShowHiddenDelegate;
+
+	/** Associated FMaterialInstance utilities */
+	TWeakPtr<class IPropertyUtilities> PropertyUtilities;
 };
 

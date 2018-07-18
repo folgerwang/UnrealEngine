@@ -37,8 +37,8 @@
 #include "SFilePathBlock.h"
 #include "Interfaces/IProjectManager.h"
 #include "ProjectDescriptor.h"
-#include "IMainFrameModule.h"
-#include "IProjectManager.h"
+#include "Interfaces/IMainFrameModule.h"
+#include "Interfaces/IProjectManager.h"
 #include "GameProjectGenerationModule.h"
 #include "DefaultPluginWizardDefinition.h"
 #include "UnrealEdMisc.h"
@@ -743,7 +743,7 @@ FReply SNewPluginWizard::OnCreatePluginClicked()
 	if (bSucceeded && bHasModules)
 	{
 		FString ProjectFileName = FPaths::GetProjectFilePath();
-		FString Arguments = FString::Printf(TEXT("%sEditor %s %s -EditorRecompile -Module=%s -Project=\"%s\" -Plugin=\"%s\" -Progress -NoHotReloadFromIDE"), *FPaths::GetBaseFilename(ProjectFileName), FModuleManager::Get().GetUBTConfiguration(), FPlatformMisc::GetUBTPlatform(), *PluginModuleName, *ProjectFileName, *UPluginFilePath);
+		FString Arguments = FString::Printf(TEXT("%s %s -TargetType=Editor -Module=%s -EnablePlugin=\"%s\" -Project=\"%s\" -Progress -NoHotReloadFromIDE"), FModuleManager::Get().GetUBTConfiguration(), FPlatformMisc::GetUBTPlatform(), *AutoPluginName, *PluginModuleName, *ProjectFileName);
 		if (!FDesktopPlatformModule::Get()->RunUnrealBuildTool(LOCTEXT("Compiling", "Compiling..."), FPaths::RootDir(), Arguments, GWarn))
 		{
 			PopErrorNotification(LOCTEXT("FailedToCompile", "Failed to compile source code."));
@@ -899,17 +899,8 @@ bool SNewPluginWizard::WritePluginDescriptor(const FString& PluginModuleName, co
 
 void SNewPluginWizard::PopErrorNotification(const FText& ErrorMessage)
 {
-	UE_LOG(LogPluginWizard, Log, TEXT("%s"), *ErrorMessage.ToString());
-
-	// Create and display a notification about the failure
-	FNotificationInfo Info(ErrorMessage);
-	Info.ExpireDuration = 2.0f;
-
-	TSharedPtr<SNotificationItem> Notification = FSlateNotificationManager::Get().AddNotification(Info);
-	if (Notification.IsValid())
-	{
-		Notification->SetCompletionState(SNotificationItem::CS_Fail);
-	}
+	FText Title = LOCTEXT("UnableToCreatePlugin", "Unable to create plugin");
+	FMessageDialog::Open(EAppMsgType::Ok, ErrorMessage, &Title);
 }
 
 void SNewPluginWizard::DeletePluginDirectory(const FString& InPath)

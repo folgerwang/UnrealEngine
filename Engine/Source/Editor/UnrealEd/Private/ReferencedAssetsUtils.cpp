@@ -206,11 +206,11 @@ FFindAssetsArchive::FFindAssetsArchive(
 FArchive& FFindAssetsArchive::operator<<(UObject*& Obj)
 {
 	// Don't check null references or objects already visited
-	if ( Obj != NULL &&
+	if (Obj != NULL &&
 
 		// if we wish to filter out assets referenced through script, we need to ignore
 		// all class objects, not just the UObject::Class reference
-		(!ArIgnoreClassRef || (Cast<UClass>(Obj) == NULL)) )
+		(!ArIgnoreClassRef || (Cast<UClass>(Obj) == NULL)))
 	{
 		bool bUnvisited = Obj->HasAnyMarks(OBJECTMARK_TagExp);
 
@@ -275,7 +275,7 @@ FArchive& FFindAssetsArchive::operator<<(UObject*& Obj)
 			if ( bRecurse && ( MaxRecursionDepth == 0 || CurrentDepth < MaxRecursionDepth ) )
 			{
 				CurrentDepth++;
-
+				CurrentObject = Obj;
 				// Now recursively search this object for more references
 				if (bUnvisited)
 				{

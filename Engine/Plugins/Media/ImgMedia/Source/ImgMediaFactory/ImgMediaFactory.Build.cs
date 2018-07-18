@@ -31,6 +31,7 @@ namespace UnrealBuildTool.Rules
 				new string[] {
 					"Core",
 					"CoreUObject",
+					"TimeManagement",
 				});
 
 			if (Target.Type == TargetRules.TargetType.Editor)

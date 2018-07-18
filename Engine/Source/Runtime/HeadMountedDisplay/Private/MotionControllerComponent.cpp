@@ -14,9 +14,10 @@
 #include "IXRSystemAssets.h"
 #include "Components/StaticMeshComponent.h"
 #include "MotionDelayBuffer.h"
-#include "VRObjectVersion.h"
+#include "UObject/VRObjectVersion.h"
 #include "UObject/UObjectGlobals.h" // for FindObject<>
 #include "XRMotionControllerBase.h"
+#include "IXRTrackingSystem.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogMotionControllerComponent, Log, All);
 
@@ -89,6 +90,13 @@ void UMotionControllerComponent::BeginDestroy()
 
 		ViewExtension.Reset();
 	}
+}
+
+void UMotionControllerComponent::CreateRenderState_Concurrent()
+{
+	Super::CreateRenderState_Concurrent();
+	RenderThreadRelativeTransform = GetRelativeTransform();
+	RenderThreadComponentScale = GetComponentScale();
 }
 
 void UMotionControllerComponent::SendRenderTransform_Concurrent()
@@ -191,7 +199,11 @@ void UMotionControllerComponent::SetTrackingSource(const EControllerHand NewSour
 {
 	if (LegacyMotionSources::GetSourceNameForHand(NewSource, MotionSource))
 	{
-		FMotionDelayService::RegisterDelayTarget(this, PlayerIndex, MotionSource);
+		UWorld* MyWorld = GetWorld();
+		if (MyWorld && MyWorld->IsGameWorld() && HasBeenInitialized())
+		{
+			FMotionDelayService::RegisterDelayTarget(this, PlayerIndex, MotionSource);
+		}
 	}
 }
 
@@ -207,14 +219,24 @@ EControllerHand UMotionControllerComponent::GetTrackingSource() const
 void UMotionControllerComponent::SetTrackingMotionSource(const FName NewSource)
 {
 	MotionSource = NewSource;
-	FMotionDelayService::RegisterDelayTarget(this, PlayerIndex, NewSource);
+
+	UWorld* MyWorld = GetWorld();
+	if (MyWorld && MyWorld->IsGameWorld() && HasBeenInitialized())
+	{
+		FMotionDelayService::RegisterDelayTarget(this, PlayerIndex, NewSource);
+	}
 }
 
 //=============================================================================
 void UMotionControllerComponent::SetAssociatedPlayerIndex(const int32 NewPlayer)
 {
 	PlayerIndex = NewPlayer;
-	FMotionDelayService::RegisterDelayTarget(this, NewPlayer, MotionSource);
+
+	UWorld* MyWorld = GetWorld();
+	if (MyWorld && MyWorld->IsGameWorld() && HasBeenInitialized())
+	{
+		FMotionDelayService::RegisterDelayTarget(this, NewPlayer, MotionSource);
+	}
 }
 
 void UMotionControllerComponent::Serialize(FArchive& Ar)
@@ -276,11 +298,8 @@ void UMotionControllerComponent::InitializeComponent()
 {
 	Super::InitializeComponent();
 
-#if WITH_EDITORONLY_DATA
-	UWorld* InstWorld = GetWorld();
-	const bool bIsGameInst = InstWorld && InstWorld->WorldType != EWorldType::Editor && InstWorld->WorldType != EWorldType::EditorPreview;
-	if (bIsGameInst)
-#endif
+	UWorld* MyWorld = GetWorld();
+	if (MyWorld && MyWorld->IsGameWorld())
 	{
 		FMotionDelayService::RegisterDelayTarget(this, PlayerIndex, MotionSource);
 	}
@@ -364,12 +383,21 @@ void UMotionControllerComponent::RefreshDisplayComponent(const bool bForceDestro
 						continue;
 					}
 
-					EControllerHand ControllerHandIndex;
-					if (!FXRMotionControllerBase::GetHandEnumForSourceName(MotionSource, ControllerHandIndex))
+					int32 DeviceId = INDEX_NONE;
+					if (MotionSource == FXRMotionControllerBase::HMDSourceId)
 					{
-						break;
+						DeviceId = IXRTrackingSystem::HMDDeviceId;
 					}
-					const int32 DeviceId = AssetSys->GetDeviceId(ControllerHandIndex);
+					else
+					{
+						EControllerHand ControllerHandIndex;
+						if (!FXRMotionControllerBase::GetHandEnumForSourceName(MotionSource, ControllerHandIndex))
+						{
+							break;
+						}
+						DeviceId = AssetSys->GetDeviceId(ControllerHandIndex);
+					}
+
 					if (DisplayComponent && DisplayDeviceId.IsOwnedBy(AssetSys) && DisplayDeviceId.DeviceId == DeviceId)
 					{
 						// assume that the current DisplayComponent is the same one we'd get back, so don't recreate it
@@ -377,12 +405,24 @@ void UMotionControllerComponent::RefreshDisplayComponent(const bool bForceDestro
 						break;
 					}
 
-					NewDisplayComponent = AssetSys->CreateRenderComponent(DeviceId, GetOwner(), SubObjFlags);
+					// needs to be set before CreateRenderComponent() since the LoadComplete callback may be triggered before it returns (for syncrounous loads)
+					DisplayModelLoadState = EModelLoadStatus::Pending;
+					FXRComponentLoadComplete LoadCompleteDelegate = FXRComponentLoadComplete::CreateUObject(this, &UMotionControllerComponent::OnDisplayModelLoaded);
+					
+					NewDisplayComponent = AssetSys->CreateRenderComponent(DeviceId, GetOwner(), SubObjFlags, /*bForceSynchronous=*/false, LoadCompleteDelegate);
 					if (NewDisplayComponent != nullptr)
 					{
+						if (DisplayModelLoadState != EModelLoadStatus::Complete)
+						{
+							DisplayModelLoadState = EModelLoadStatus::InProgress;
+						}
 						DestroyDisplayComponent();
 						DisplayDeviceId = FXRDeviceId(AssetSys, DeviceId);
 						break;
+					}
+					else
+					{
+						DisplayModelLoadState = EModelLoadStatus::Unloaded;
 					}
 				}
 			}
@@ -408,9 +448,9 @@ void UMotionControllerComponent::RefreshDisplayComponent(const bool bForceDestro
 
 			if (DisplayComponent)
 			{
-				for (int32 MatIndex = 0; MatIndex < DisplayMeshMaterialOverrides.Num(); ++MatIndex)
+				if (DisplayModelLoadState != EModelLoadStatus::InProgress)
 				{
-					DisplayComponent->SetMaterial(MatIndex, DisplayMeshMaterialOverrides[MatIndex]);
+					OnDisplayModelLoaded(DisplayComponent);
 				}
 
 				DisplayComponent->SetHiddenInGame(bHiddenInGame);
@@ -457,6 +497,20 @@ bool UMotionControllerComponent::PollControllerState(FVector& Position, FRotator
 				return true;
 			}
 		}
+
+		if (MotionSource == FXRMotionControllerBase::HMDSourceId)
+		{
+			IXRTrackingSystem* TrackingSys = GEngine->XRSystem.Get();
+			if (TrackingSys)
+			{
+				FQuat OrientationQuat;
+				if (TrackingSys->GetCurrentPose(IXRTrackingSystem::HMDDeviceId, OrientationQuat, Position))
+				{
+					Orientation = OrientationQuat.Rotator();
+					return true;
+				}
+			}
+		}
 	}
 	return false;
 }
@@ -476,7 +530,7 @@ void UMotionControllerComponent::FViewExtension::BeginRenderViewFamily(FSceneVie
 	}
 
 	// Set up the late update state for the controller component
-	LateUpdate.Setup(MotionControllerComponent->CalcNewComponentToWorld(FTransform()), MotionControllerComponent);
+	LateUpdate.Setup(MotionControllerComponent->CalcNewComponentToWorld(FTransform()), MotionControllerComponent, false);
 }
 
 //=============================================================================
@@ -552,4 +606,21 @@ float UMotionControllerComponent::GetParameterValue(FName InName, bool& bValueFo
 	}
 	bValueFound = false;
 	return 0.f;
+}
+
+
+void UMotionControllerComponent::OnDisplayModelLoaded(UPrimitiveComponent* InDisplayComponent)
+{
+	if (InDisplayComponent == DisplayComponent || DisplayModelLoadState == EModelLoadStatus::Pending)
+	{
+		if (InDisplayComponent)
+		{
+			const int32 MatCount = FMath::Min(InDisplayComponent->GetNumMaterials(), DisplayMeshMaterialOverrides.Num());
+			for (int32 MatIndex = 0; MatIndex < MatCount; ++MatIndex)
+			{
+				InDisplayComponent->SetMaterial(MatIndex, DisplayMeshMaterialOverrides[MatIndex]);
+			}
+		}
+		DisplayModelLoadState = EModelLoadStatus::Complete;
+	}	
 }

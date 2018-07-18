@@ -14,10 +14,14 @@
 #include "Mac/MacPlatformInput.h"
 #elif PLATFORM_IOS
 #include "IOS/IOSPlatformInput.h"
+#elif PLATFORM_LUMIN
+#include "Lumin/LuminPlatformInput.h"
 #elif PLATFORM_ANDROID
 #include "Android/AndroidPlatformInput.h"
 #elif PLATFORM_HTML5
 #include "HTML5/HTML5PlatformInput.h"
+#elif PLATFORM_QUAIL
+#include "Quail/QuailPlatformInput.h"
 #elif PLATFORM_LINUX
 #include "Linux/LinuxPlatformInput.h"
 #elif PLATFORM_SWITCH

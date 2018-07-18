@@ -26,7 +26,7 @@ void MainCS(
 			// we don't have to scale down as we normalize anyway
 			TangentZ = normalize(float3(IntermediateAccumBufferUAV[Index + 0], IntermediateAccumBufferUAV[Index + 1], IntermediateAccumBufferUAV[Index + 2]));
 			TangentX = normalize(float3(IntermediateAccumBufferUAV[Index + 3], IntermediateAccumBufferUAV[Index + 4], IntermediateAccumBufferUAV[Index + 5]));
-			
+
 #if ORTHOGONALIZE
 			// todo: can be optimized
 			// derive the new tangent by orthonormalizing the new normal against
@@ -46,7 +46,7 @@ void MainCS(
 		uint VertexIndex = DispatchThreadId;
 		uint Offset = VertexIndex + SkinCacheStart;
 
-		TangentBufferUAV[2 * Offset + GPUSKIN_RWBUFFER_OFFSET_TANGENT_X] = float4((TangentX * 0.5) + 0.5, 0.0f);
-		TangentBufferUAV[2 * Offset + GPUSKIN_RWBUFFER_OFFSET_TANGENT_Z] = float4((TangentZ * 0.5) + 0.5, Orientation);
+		TangentBufferUAV[2 * Offset + GPUSKIN_RWBUFFER_OFFSET_TANGENT_X] = TangentUnbias_SkinCache(float4(TangentX, 0.0f));
+		TangentBufferUAV[2 * Offset + GPUSKIN_RWBUFFER_OFFSET_TANGENT_Z] = TangentUnbias_SkinCache(float4(TangentZ, Orientation));
 	}
 }

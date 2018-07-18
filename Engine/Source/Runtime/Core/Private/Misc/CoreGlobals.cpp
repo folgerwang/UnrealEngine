@@ -142,7 +142,6 @@ bool					GIsSlowTask						= false;					/* Whether there is a slow task in progre
 bool					GSlowTaskOccurred				= false;					/* Whether a slow task began last tick*/
 bool					GIsRequestingExit				= false;					/* Indicates that MainLoop() should be exited at the end of the current iteration */
 /** Archive for serializing arbitrary data to and from memory												*/
-FReloadObjectArc*		GMemoryArchive					= NULL;
 bool					GAreScreenMessagesEnabled		= true;						/* Whether onscreen warnings/messages are enabled */
 bool					GScreenMessagesRestoreState		= false;					/* Used to restore state after a screenshot */
 int32					GIsDumpingMovie					= 0;						/* Whether we are dumping screenshots (!= 0), exposed as console variable r.DumpingMovie */
@@ -174,7 +173,11 @@ float					GNearClippingPlane				= 10.0f;				/* Near clipping plane */
 
 bool					GExitPurge						= false;
 
-FFixedUObjectArray* GCoreObjectArrayForDebugVisualizers = nullptr;
+FChunkedFixedUObjectArray* GCoreObjectArrayForDebugVisualizers = nullptr;
+#if PLATFORM_UNIX
+FNameEntry*** CORE_API GFNameTableForDebuggerVisualizers_MT = FName::GetNameTableForDebuggerVisualizers_MT();
+FChunkedFixedUObjectArray*& CORE_API GObjectArrayForDebugVisualizers = GCoreObjectArrayForDebugVisualizers;
+#endif
 
 /** Game name, used for base game directory and ini among other things										*/
 #if (!IS_MONOLITHIC && !IS_PROGRAM)
@@ -209,6 +212,7 @@ static bool IsAsyncLoadingCoreInternal()
 bool (*IsAsyncLoading)() = &IsAsyncLoadingCoreInternal;
 void (*SuspendAsyncLoading)() = &appNoop;
 void (*ResumeAsyncLoading)() = &appNoop;
+bool (*IsAsyncLoadingSuspended)() = &IsAsyncLoadingCoreInternal;
 bool (*IsAsyncLoadingMultithreaded)() = &IsAsyncLoadingCoreInternal;
 void (*SuspendTextureStreamingRenderTasks)() = &appNoop;
 void (*ResumeTextureStreamingRenderTasks)() = &appNoop;
@@ -233,8 +237,6 @@ FString					GSystemStartTime;
 bool					GIsInitialLoad					= true;
 /* Whether we are using the event driven loader */
 bool					GEventDrivenLoaderEnabled = false;
-//@todoio put this in some kind of API
-bool					GPakCache_AcceptPrecacheRequests = true;
 
 /** Steadily increasing frame counter.																		*/
 TSAN_ATOMIC(uint64)		GFrameCounter(0);
@@ -246,7 +248,7 @@ uint32					GFrameNumberRenderThread		= 1;
 #if !(UE_BUILD_SHIPPING && WITH_EDITOR)
 // We cannot count on this variable to be accurate in a shipped game, so make sure no code tries to use it
 /** Whether we are the first instance of the game running.													*/
-#if !PLATFORM_LINUX
+#if !PLATFORM_UNIX
 bool					GIsFirstInstance				= true;
 #endif
 #endif
@@ -276,7 +278,8 @@ FName					GCurrentTraceName				= NAME_None;
 ELogTimes::Type			GPrintLogTimes					= ELogTimes::None;
 /** How to print the category in log output. */
 bool					GPrintLogCategory = true;
-
+/** How to print the verbosity in log output. */
+bool					GPrintLogVerbosity = true;
 
 #if USE_HITCH_DETECTION
 bool				GHitchDetected = false;

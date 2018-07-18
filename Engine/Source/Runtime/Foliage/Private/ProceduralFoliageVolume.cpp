@@ -18,7 +18,7 @@ AProceduralFoliageVolume::AProceduralFoliageVolume(const FObjectInitializer& Obj
 
 		// This is important because the volume overlaps with all procedural foliage
 		// That means during streaming we'll get a huge hitch for UpdateOverlaps
-		MyBrushComponent->bGenerateOverlapEvents = false;
+		MyBrushComponent->SetGenerateOverlapEvents(false);
 	}
 }
 

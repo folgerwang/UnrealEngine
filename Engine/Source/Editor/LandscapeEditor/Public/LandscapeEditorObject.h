@@ -108,10 +108,10 @@ enum class ELandscapeConvertMode : int8
 {
 	Invalid = -1 UMETA(Hidden),
 
-	/** Given the new component size, the edges of the landscape will be expanded as necessary until its overall size is a whole number of landscape components. */
+	/** Will round up the number of components for the new world size, which might expand the world size compared to previous settings*/
 	Expand = 0,
 
-	/** Given the new component size, the edges of the landscape will be trimmed until its overall size is a whole number of landscape components. */
+	/** Will floor the number of components for the new world size, which might reduce the world size compared to previous settings*/
 	Clip = 1,
 
 	/** The landscape will have the same overall size in the world, and have the same number of components. Existing landscape geometry and layer data will be resampled to match the new resolution. */
@@ -603,7 +603,6 @@ public:
 
 	// Copy/Paste
 	void SetPasteMode(ELandscapeToolPasteMode InPasteMode);
-	void GuessGizmoImportSize();
 
 	// Alpha/Pattern Brush
 	bool SetAlphaTexture(UTexture2D* InTexture, EColorChannel::Type InTextureChannel);

@@ -4,8 +4,8 @@
 	ApplePlatformStackWalk.mm: Apple implementations of stack walk functions
 =============================================================================*/
 
-#include "ApplePlatformStackWalk.h"
-#include "ApplePlatformSymbolication.h"
+#include "Apple/ApplePlatformStackWalk.h"
+#include "Apple/ApplePlatformSymbolication.h"
 #include "Containers/StringConv.h"
 #include <execinfo.h>
 #include <dlfcn.h>
@@ -84,6 +84,9 @@ int32 GetModuleTimeStamp( const struct mach_header* Header )
 
 static void AsyncSafeProgramCounterToSymbolInfo( uint64 ProgramCounter, FProgramCounterSymbolInfo& out_SymbolInfo )
 {
+	// Store the PC into the info structure
+	out_SymbolInfo.ProgramCounter = ProgramCounter;
+	
 	Dl_info DylibInfo;
 	int32 Result = dladdr((const void*)ProgramCounter, &DylibInfo);
 	if (Result == 0)

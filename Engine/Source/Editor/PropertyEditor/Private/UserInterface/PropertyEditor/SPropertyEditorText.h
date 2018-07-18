@@ -34,8 +34,6 @@ public:
 
 	FReply OnFocusReceived( const FGeometry& MyGeometry, const FFocusEvent& InFocusEvent ) override;
 
-	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
-
 private:
 
 	void OnTextCommitted( const FText& NewText, ETextCommit::Type CommitInfo );
@@ -63,8 +61,6 @@ private:
 
 	/** Widget used for the single line version of the text property */
 	TSharedPtr<SEditableTextBox> SingleLineWidget;
-
-	TOptional< float > PreviousHeight;
 
 	/** Cached flag as we would like multi-line text widgets to be slightly larger */
 	bool bIsMultiLine;

@@ -17,6 +17,7 @@
 #include "K2Node_Self.h"
 #include "K2Node_TemporaryVariable.h"
 #include "Kismet2/BlueprintEditorUtils.h"
+#include "Engine/MemberReference.h"
 
 #include "KismetCompiler.h"
 #include "BlueprintNodeSpawner.h"
@@ -30,6 +31,7 @@ UK2Node_BaseAsyncTask::UK2Node_BaseAsyncTask(const FObjectInitializer& ObjectIni
 	, ProxyFactoryClass(nullptr)
 	, ProxyClass(nullptr)
 	, ProxyActivateFunctionName(NAME_None)
+	, bPinTooltipsValid(false)
 {
 }
 
@@ -63,6 +65,8 @@ bool UK2Node_BaseAsyncTask::IsCompatibleWithGraph(const UEdGraph* TargetGraph) c
 
 void UK2Node_BaseAsyncTask::AllocateDefaultPins()
 {
+	InvalidatePinTooltips();
+
 	const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
 
 	CreatePin(EGPD_Input, UEdGraphSchema_K2::PC_Exec, UEdGraphSchema_K2::PN_Execute);
@@ -83,6 +87,24 @@ void UK2Node_BaseAsyncTask::AllocateDefaultPins()
 	if (bExposeProxy)
 	{
 		CreatePin(EGPD_Output, UEdGraphSchema_K2::PC_Object, ProxyClass, FBaseAsyncTaskHelper::GetAsyncTaskProxyName());
+	}
+
+	UFunction* Function = GetFactoryFunction();
+	if (!bHideThen && Function)
+	{
+		for (TFieldIterator<UProperty> PropIt(Function); PropIt && (PropIt->PropertyFlags & CPF_Parm); ++PropIt)
+		{
+			UProperty* Param = *PropIt;
+			// invert the check for function inputs (below) and exclude the factory func's return param - the assumption is
+			// that the factory method will be returning the proxy object, and that other outputs should be forwarded along 
+			// with the 'then' pin
+			const bool bIsFunctionOutput = Param->HasAnyPropertyFlags(CPF_OutParm) && !Param->HasAnyPropertyFlags(CPF_ReferenceParm) && !Param->HasAnyPropertyFlags(CPF_ReturnParm);
+			if (bIsFunctionOutput)
+			{
+				UEdGraphPin* Pin = CreatePin(EGPD_Output, NAME_None, Param->GetFName());
+				K2Schema->ConvertPropertyToPinType(Param, /*out*/ Pin->PinType);
+			}
+		}
 	}
 
 	UFunction* DelegateSignatureFunction = nullptr;
@@ -113,7 +135,6 @@ void UK2Node_BaseAsyncTask::AllocateDefaultPins()
 	}
 
 	bool bAllPinsGood = true;
-	UFunction* Function = ProxyFactoryClass ? ProxyFactoryClass->FindFunctionByName(ProxyFactoryFunctionName) : nullptr;
 	if (Function)
 	{
 		TSet<FName> PinsToHide;
@@ -327,15 +348,30 @@ void UK2Node_BaseAsyncTask::ExpandNode(class FKismetCompilerContext& CompilerCon
 
 	// GATHER OUTPUT PARAMETERS AND PAIR THEM WITH LOCAL VARIABLES
 	TArray<FBaseAsyncTaskHelper::FOutputPinAndLocalVariable> VariableOutputs;
+	bool bPassedFactoryOutputs = false;
 	for (UEdGraphPin* CurrentPin : Pins)
 	{
 		if ((OutputAsyncTaskProxy != CurrentPin) && FBaseAsyncTaskHelper::ValidDataPin(CurrentPin, EGPD_Output))
 		{
-			const FEdGraphPinType& PinType = CurrentPin->PinType;
-			UK2Node_TemporaryVariable* TempVarOutput = CompilerContext.SpawnInternalVariable(
-				this, PinType.PinCategory, PinType.PinSubCategory, PinType.PinSubCategoryObject.Get(), PinType.ContainerType, PinType.PinValueType);
-			bIsErrorFree &= TempVarOutput->GetVariablePin() && CompilerContext.MovePinLinksToIntermediate(*CurrentPin, *TempVarOutput->GetVariablePin()).CanSafeConnect();
-			VariableOutputs.Add(FBaseAsyncTaskHelper::FOutputPinAndLocalVariable(CurrentPin, TempVarOutput));
+			if (!bPassedFactoryOutputs)
+			{
+				UEdGraphPin* DestPin = CallCreateProxyObjectNode->FindPin(CurrentPin->PinName);
+				bIsErrorFree &= DestPin && CompilerContext.MovePinLinksToIntermediate(*CurrentPin, *DestPin).CanSafeConnect();
+			}
+			else
+			{
+				const FEdGraphPinType& PinType = CurrentPin->PinType;
+				UK2Node_TemporaryVariable* TempVarOutput = CompilerContext.SpawnInternalVariable(
+					this, PinType.PinCategory, PinType.PinSubCategory, PinType.PinSubCategoryObject.Get(), PinType.ContainerType, PinType.PinValueType);
+				bIsErrorFree &= TempVarOutput->GetVariablePin() && CompilerContext.MovePinLinksToIntermediate(*CurrentPin, *TempVarOutput->GetVariablePin()).CanSafeConnect();
+				VariableOutputs.Add(FBaseAsyncTaskHelper::FOutputPinAndLocalVariable(CurrentPin, TempVarOutput));
+			}
+		}
+		else if (!bPassedFactoryOutputs && CurrentPin && CurrentPin->Direction == EGPD_Output)
+		{
+			// the first exec that isn't the node's then pin is the start of the asyc delegate pins
+			// once we hit this point, we've iterated beyond all outputs for the factory function
+			bPassedFactoryOutputs = (CurrentPin->PinType.PinCategory == UEdGraphSchema_K2::PC_Exec) && (CurrentPin->PinName != UEdGraphSchema_K2::PN_Then);
 		}
 	}
 
@@ -468,12 +504,15 @@ UFunction* UK2Node_BaseAsyncTask::GetFactoryFunction() const
 		return nullptr;
 	}
 	
-	UFunction* FactoryFunction = ProxyFactoryClass->FindFunctionByName(ProxyFactoryFunctionName);
+	FMemberReference FunctionReference;
+	FunctionReference.SetExternalMember(ProxyFactoryFunctionName, ProxyFactoryClass);
+
+	UFunction* FactoryFunction = FunctionReference.ResolveMember<UFunction>(GetBlueprint());
 	
 	if (FactoryFunction == nullptr)
 	{
-		UE_LOG(LogBlueprint, Error, TEXT("FactoryFunction %s null in %s. Was a class deleted or saved on a non promoted build?"), *ProxyFactoryFunctionName.ToString(), *GetFullName());
-		return nullptr;
+		FactoryFunction = ProxyFactoryClass->FindFunctionByName(ProxyFactoryFunctionName);
+		UE_CLOG(FactoryFunction == nullptr, LogBlueprint, Error, TEXT("FactoryFunction %s null in %s. Was a class deleted or saved on a non promoted build?"), *ProxyFactoryFunctionName.ToString(), *GetFullName());
 	}
 
 	return FactoryFunction;
@@ -582,6 +621,49 @@ UK2Node::ERedirectType UK2Node_BaseAsyncTask::DoPinsMatchForReconstruction(const
 	}
 
 	return Super::DoPinsMatchForReconstruction(NewPin, NewPinIndex, OldPin, OldPinIndex);
+}
+
+void UK2Node_BaseAsyncTask::GeneratePinTooltip(UEdGraphPin& Pin) const
+{
+	ensure(Pin.GetOwningNode() == this);
+
+	UEdGraphSchema const* Schema = GetSchema();
+	check(Schema);
+	UEdGraphSchema_K2 const* const K2Schema = Cast<const UEdGraphSchema_K2>(Schema);
+
+	if (K2Schema == nullptr)
+	{
+		Schema->ConstructBasicPinTooltip(Pin, FText::GetEmpty(), Pin.PinToolTip);
+		return;
+	}
+
+	// get the class function object associated with this node
+	// Slight change from UK2Node_CallFunction (where this code is copied from)
+	// We're getting the Factory function instead of GetTargetFunction
+	UFunction* Function = GetFactoryFunction(); 
+	if (Function == nullptr)
+	{
+		Schema->ConstructBasicPinTooltip(Pin, FText::GetEmpty(), Pin.PinToolTip);
+		return;
+	}
+
+	UK2Node_CallFunction::GeneratePinTooltipFromFunction(Pin, Function);
+}
+
+void UK2Node_BaseAsyncTask::GetPinHoverText(const UEdGraphPin& Pin, FString& HoverTextOut) const
+{
+	if (!bPinTooltipsValid)
+	{
+		for (UEdGraphPin* P : Pins)
+		{
+			P->PinToolTip.Reset();
+			GeneratePinTooltip(*P);
+		}
+
+		bPinTooltipsValid = true;
+	}
+
+	return UK2Node::GetPinHoverText(Pin, HoverTextOut);
 }
 
 #undef LOCTEXT_NAMESPACE

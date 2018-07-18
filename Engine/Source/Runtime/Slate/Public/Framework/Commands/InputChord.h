@@ -53,7 +53,8 @@ struct SLATE_API FInputChord
 	ERelationshipType GetRelationship(const FInputChord& OtherChord) const;
 
 	FInputChord()
-		: bShift(false)
+		: Key(EKeys::Invalid)
+		, bShift(false)
 		, bCtrl(false)
 		, bAlt(false)
 		, bCmd(false)

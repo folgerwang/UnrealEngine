@@ -28,6 +28,8 @@ namespace EOnlineKeyValuePairDataType
 		Blob,
 		/** bool data (1 byte) */
 		Bool,
+		/** Serialized json text */
+		Json,
 		MAX
 	};
 
@@ -56,6 +58,8 @@ namespace EOnlineKeyValuePairDataType
 			return TEXT("Blob");
 		case Bool:
 			return TEXT("Bool");
+		case Json:
+			return TEXT("Json");
 		default:
 			return TEXT("");
 		}		
@@ -254,6 +258,20 @@ public:
 	void SetValue(uint64 InData);
 
 	/**
+	* Copies the data and sets the type
+	*
+	* @param InData the new data to assign
+	*/
+	void SetValue(const TSharedRef<class FJsonObject>& InData);
+
+	/**
+	* Copies the data and sets the type
+	*
+	* @param InData the new data to assign
+	*/
+	void SetJsonValueFromString(const FString& InData);
+
+	/**
 	 * Copies the data after verifying the type
 	 *
 	 * @param OutData out value that receives the copied data
@@ -326,6 +344,13 @@ public:
 	void GetValue(double& OutData) const;
 
 	/**
+	* Copies the data after verifying the type
+	*
+	* @param OutData out value that receives the copied data
+	*/
+	void GetValue(TSharedPtr<class FJsonObject>& OutData) const;
+
+	/**
 	 * Increments the value by the specified amount
 	 * 
 	 * @param IncBy the amount to increment by
@@ -393,6 +418,24 @@ public:
 	 * @return true if conversion was successful
 	 */
 	bool FromJson(const TSharedRef<class FJsonObject>& JsonObject);
+
+	/**
+	* Insert variant data into json object
+	*
+	* @param JsonObject json object to insert data into
+	* @param Name field name for value. This will have a type suffix appended onto it that is used when converting back to variant data
+	*/
+	void AddToJsonObject(const TSharedRef<FJsonObject>& JsonObject, const FString& Name) const;
+
+	/**
+	* Convert json object to variant data from Name_
+	*
+	* @param Name name of json field that includes the type suffix
+	* @param JsonValue json value to convert from
+	* @param OutName returns the name with the type suffix stripped
+	* @return true if conversion was successful
+	*/
+	bool FromJsonValue(const FString& Name, const TSharedRef<class FJsonValue>& JsonValue, FString& OutName);
 
 	/**
 	 * Comparison of two settings data classes

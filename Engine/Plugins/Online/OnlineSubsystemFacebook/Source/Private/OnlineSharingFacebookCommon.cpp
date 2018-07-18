@@ -132,6 +132,8 @@ FOnlineSharingFacebookCommon::FOnlineSharingFacebookCommon(FOnlineSubsystemFaceb
 		UE_LOG(LogOnline, Warning, TEXT("Missing PermissionsURL= in [OnlineSubsystemFacebook.OnlineSharingFacebook] of DefaultEngine.ini"));
 	}
 
+	PermissionsURL.ReplaceInline(TEXT("`ver"), *InSubsystem->GetAPIVer());
+
 	CurrentPermissions.Setup();
 
 	IOnlineIdentityPtr IdentityInt = Subsystem->GetIdentityInterface();

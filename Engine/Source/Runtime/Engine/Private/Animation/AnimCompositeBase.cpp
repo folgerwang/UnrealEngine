@@ -682,7 +682,7 @@ bool FAnimTrack::IsValidToAdd(const UAnimSequenceBase* SequenceBase) const
 		{
 			UE_LOG(LogAnimation, Warning, TEXT("Remove Empty Sequence (%s)"), *SequenceBase->GetFullName());
 		}
-		else if (!SequenceBase->CanBeUsedInMontage())
+		else if (!SequenceBase->CanBeUsedInComposition())
 		{
 			UE_LOG(LogAnimation, Warning, TEXT("Remove Invalid Sequence (%s)"), *SequenceBase->GetFullName());
 		}

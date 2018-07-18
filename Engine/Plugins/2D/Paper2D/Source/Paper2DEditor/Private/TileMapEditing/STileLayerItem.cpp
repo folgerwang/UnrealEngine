@@ -76,7 +76,7 @@ FText STileLayerItem::GetLayerDisplayName() const
 
 void STileLayerItem::OnLayerNameCommitted(const FText& NewText, ETextCommit::Type CommitInfo)
 {
-	const FScopedTransaction Transaction( LOCTEXT("TileMapRenameLayer", "Rename Layer") );
+	const FScopedTransaction Transaction( LOCTEXT("TileMapRenameLayerTransaction", "Rename Layer") );
 	UPaperTileLayer* MyLayer = GetMyLayer();
 	MyLayer->SetFlags(RF_Transactional);
 	MyLayer->Modify();
@@ -85,7 +85,7 @@ void STileLayerItem::OnLayerNameCommitted(const FText& NewText, ETextCommit::Typ
 
 FReply STileLayerItem::OnToggleVisibility()
 {
-	const FScopedTransaction Transaction( LOCTEXT("ToggleVisibility", "Toggle Layer Visibility") );
+	const FScopedTransaction Transaction( LOCTEXT("ToggleVisibilityTransaction", "Toggle Layer Visibility") );
 	UPaperTileLayer* MyLayer = GetMyLayer();
 	MyLayer->SetFlags(RF_Transactional);
 	MyLayer->Modify();

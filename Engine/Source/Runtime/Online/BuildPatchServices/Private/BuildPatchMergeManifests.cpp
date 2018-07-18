@@ -1,13 +1,14 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "BuildPatchMergeManifests.h"
-#include "Misc/FileHelper.h"
-#include "Misc/Paths.h"
 #include "HAL/ThreadSafeBool.h"
-#include "Misc/Guid.h"
-#include "BuildPatchManifest.h"
 #include "Async/Future.h"
 #include "Async/Async.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+#include "Misc/OutputDeviceRedirector.h"
+#include "Misc/Guid.h"
+#include "BuildPatchManifest.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogMergeManifests, Log, All);
 DEFINE_LOG_CATEGORY(LogMergeManifests);
@@ -27,13 +28,13 @@ namespace MergeHelpers
 		return FBuildPatchAppManifestPtr();
 	}
 
-	bool CopyFileDataFromManifestToArray(const TSet<FString>& Filenames, const FBuildPatchAppManifestPtr& Source, TArray<FFileManifestData>& DestArray)
+	bool CopyFileDataFromManifestToArray(const TSet<FString>& Filenames, const FBuildPatchAppManifestPtr& Source, TArray<FFileManifest>& DestArray)
 	{
 		bool bSuccess = true;
 		for (const FString& Filename : Filenames)
 		{
 			check(Source.IsValid());
-			const FFileManifestData* FileManifest = Source->GetFileManifest(Filename);
+			const FFileManifest* FileManifest = Source->GetFileManifest(Filename);
 			if (FileManifest == nullptr)
 			{
 				UE_LOG(LogMergeManifests, Error, TEXT("Could not find file in %s %s: %s"), *Source->GetAppName(), *Source->GetVersionString(), *Filename);
@@ -172,16 +173,16 @@ bool FBuildMergeManifests::MergeManifests(const FString& ManifestFilePathA, cons
 
 	// Fill out the chunk list in order of reference
 	TSet<FGuid> ReferencedChunks;
-	for (const FFileManifestData& FileManifest: MergedManifest.FileManifestList)
+	for (const FFileManifest& FileManifest: MergedManifest.FileManifestList)
 	{
-		for (const FChunkPartData& FileChunkPart : FileManifest.FileChunkParts)
+		for (const FChunkPart& FileChunkPart : FileManifest.FileChunkParts)
 		{
 			if (ReferencedChunks.Contains(FileChunkPart.Guid) == false)
 			{
 				ReferencedChunks.Add(FileChunkPart.Guid);
 
 				// Find the chunk info
-				FChunkInfoData** ChunkInfo = ManifestB->ChunkInfoLookup.Find(FileChunkPart.Guid);
+				FChunkInfo** ChunkInfo = ManifestB->ChunkInfoLookup.Find(FileChunkPart.Guid);
 				if (ChunkInfo == nullptr)
 				{
 					ChunkInfo = ManifestA->ChunkInfoLookup.Find(FileChunkPart.Guid);

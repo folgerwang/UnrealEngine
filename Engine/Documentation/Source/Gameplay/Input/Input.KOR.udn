@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3413921
+﻿INTSourceChangelist:3810557
 Availability: Public
 Title:입력
 Crumbs:%ROOT%
@@ -29,20 +29,9 @@ PlayerInput 은 PlayerController 클래스 안에서 플레이어 입력을 관�
 PlayerInput 안에는 구조체가 둘 정의됩니다. 먼저 FInputActionKeyMapping 으로 ActionMapping 을 정의합니다. 다른 하나는 FInputAxisKeyMapping 으로 AxisMapping 을 정의합니다.
 ActionMapping 과 AxisMapping 양쪽에 사용된 하드웨어 입력 정의는 InputCoreTypes 에 설정됩니다.
 
-[EXCERPT:ActionMapping]
-$ ActionMappings : 별개의 버튼이나 키 입력을 나중에 이벤트 주도형 동작에 바인딩되는 "친근한 이름" 으로 매핑시킵니다. 최종적 효과는 키, 마우스 버튼, 키패드 버튼을 누르(거나 떼)면 
-바로 일정한 게임 동작을 발동시키는 것입니다.
-[/EXCERPT:ActionMapping]
+[INCLUDE:#actionmapping]
 
-[EXCERPT:AxisMapping]
-$ AxisMappings : 키보드, 콘트롤러, 마우스 입력을 나중에 이동과 같은 연속성 게임 동작에 바인딩되는 "친근한 이름"으로 매핑시킵니다. AxisMappings 에 매핑된 입력은 그 입력값이 현재 0 일지라도 
-연속적으로 폴링됩니다. 이로써 ActionMappings 의 입력으로 발동되는 비연속성 게임 이벤트보다는, 이동이나 기타 게임 동작의 부드러운 전환이 가능합니다.
-
-	[REGION:tip]
-	콘트롤러 조이스틱과 같은 하드웨어 축은, 1 (눌림)과 0 (눌리지 않음) 식의 끊어지는 입력 보다는 이어지는 입력을 제공합니다. 즉 조금씩 살살 또는 크게 많이 움직일 수 있으며, 
-	캐릭터의 이동도 그에 따라 달라질 수 있습니다. 이러한 입력 방법이 규모가 다른 이동 입력량을 내는 데 이상적이기는 하지만, AxisMappings 은 WASD 나 상하좌우 처럼 흔히 쓰이는 이동 키를 연속적으로 폴링되는 게임 동작에 매핑시킬 수 있습니다.
-	[/REGION:tip]
-[/EXCERPT:AxisMapping]
+[INCLUDE:#axismapping]
 
 ### 입력 매핑 설정
 
@@ -66,6 +55,23 @@ $ AxisMappings : 키보드, 콘트롤러, 마우스 입력을 나중에 이동�
 **AxisMappings 추가 또는 편집:**
 ![](AxisMappings.png)
 [/EXCERPT:PlayerInput]
+
+[COMMENT:none]
+[EXCERPT:ActionMapping]
+$ ActionMappings : 별개의 버튼이나 키 입력을 나중에 이벤트 주도형 동작에 바인딩되는 "친근한 이름" 으로 매핑시킵니다. 최종적 효과는 키, 마우스 버튼, 키패드 버튼을 누르(거나 떼)면 
+바로 일정한 게임 동작을 발동시키는 것입니다.
+[/EXCERPT:ActionMapping]
+
+[EXCERPT:AxisMapping]
+$ AxisMappings : 키보드, 콘트롤러, 마우스 입력을 나중에 이동과 같은 연속성 게임 동작에 바인딩되는 "친근한 이름"으로 매핑시킵니다. AxisMappings 에 매핑된 입력은 그 입력값이 현재 0 일지라도 
+연속적으로 폴링됩니다. 이로써 ActionMappings 의 입력으로 발동되는 비연속성 게임 이벤트보다는, 이동이나 기타 게임 동작의 부드러운 전환이 가능합니다.
+
+	[REGION:tip]
+	콘트롤러 조이스틱과 같은 하드웨어 축은, 1 (눌림)과 0 (눌리지 않음) 식의 끊어지는 입력 보다는 이어지는 입력을 제공합니다. 즉 조금씩 살살 또는 크게 많이 움직일 수 있으며, 
+	캐릭터의 이동도 그에 따라 달라질 수 있습니다. 이러한 입력 방법이 규모가 다른 이동 입력량을 내는 데 이상적이기는 하지만, AxisMappings 은 WASD 나 상하좌우 처럼 흔히 쓰이는 이동 키를 연속적으로 폴링되는 게임 동작에 매핑시킬 수 있습니다.
+	[/REGION:tip]
+[/EXCERPT:AxisMapping]
+[/COMMENT]
 
 ## InputComponent
 InputComponent 는 필요에 따라 다른 액터나 레벨 스크립트에서 설정할 수도 있지만, 폰과 콘트롤러에서 가장 많이 볼 수 있습니다. InputComponent 는 프로젝트의 AxisMappings 와 ActionMappings 를 

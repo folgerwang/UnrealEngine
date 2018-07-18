@@ -2,7 +2,7 @@
 
 #include "AppleMovieStreamer.h"
 
-#include "RenderingCommon.h"
+#include "Rendering/RenderingCommon.h"
 #include "Slate/SlateTextures.h"
 #include "MoviePlayer.h"
 #include "Misc/CommandLine.h"
@@ -121,7 +121,7 @@ bool FAVPlayerMovieStreamer::Init(const TArray<FString>& MoviePaths, TEnumAsByte
 	// 
 	// Initializes the streamer for audio and video playback of the given path(s).
 	// NOTE: If multiple paths are provided, it is expect that they be played back seamlessly.
-	UE_LOG(LogMoviePlayer, Warning, TEXT("FAVMoviePlayer init. Path count = %d..."), MoviePaths.Num());
+	UE_LOG(LogMoviePlayer, Log, TEXT("FAVMoviePlayer init. Path count = %d..."), MoviePaths.Num());
 
 	// Add the given paths to the movie queue
 	MovieQueue.Append(MoviePaths);

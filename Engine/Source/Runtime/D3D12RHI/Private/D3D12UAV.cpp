@@ -19,7 +19,7 @@ inline FD3D12UnorderedAccessView* CreateUAV(D3D12_UNORDERED_ACCESS_VIEW_DESC& De
 
 		if (bNeedsCounterResource)
 		{
-			const GPUNodeMask Node = Device->GetNodeMask();
+			const FRHIGPUMask Node = Device->GetGPUMask();
 			Device->GetParentAdapter()->CreateBuffer(D3D12_HEAP_TYPE_DEFAULT, Node, Node, 4, &CounterResource, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
 		}
 
@@ -164,9 +164,48 @@ FUnorderedAccessViewRHIRef FD3D12DynamicRHI::RHICreateUnorderedAccessView(FVerte
 	return CreateUAV(UAVDesc, VertexBuffer, false);
 }
 
+FUnorderedAccessViewRHIRef FD3D12DynamicRHI::RHICreateUnorderedAccessView(FIndexBufferRHIParamRef IndexBufferRHI, uint8 Format)
+{
+	FD3D12IndexBuffer* IndexBuffer = FD3D12DynamicRHI::ResourceCast(IndexBufferRHI);
+	FD3D12ResourceLocation& Location = IndexBuffer->ResourceLocation;
+
+	const D3D12_RESOURCE_DESC& BufferDesc = Location.GetResource()->GetDesc();
+	const uint64 effectiveBufferSize = Location.GetSize();
+
+	const uint32 BufferUsage = IndexBuffer->GetUsage();
+	const bool bByteAccessBuffer = (BufferUsage & BUF_ByteAddressBuffer) != 0;
+
+	D3D12_UNORDERED_ACCESS_VIEW_DESC UAVDesc = {};
+	UAVDesc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
+	UAVDesc.Format = FindUnorderedAccessDXGIFormat((DXGI_FORMAT)GPixelFormats[Format].PlatformFormat);
+	UAVDesc.Buffer.FirstElement = Location.GetOffsetFromBaseOfResource();
+
+	UAVDesc.Buffer.NumElements = effectiveBufferSize / GPixelFormats[Format].BlockBytes;
+	UAVDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE;
+	UAVDesc.Buffer.CounterOffsetInBytes = 0;
+	UAVDesc.Buffer.StructureByteStride = 0;
+
+	if (bByteAccessBuffer)
+	{
+		UAVDesc.Buffer.Flags |= D3D12_BUFFER_UAV_FLAG_RAW;
+		UAVDesc.Format = DXGI_FORMAT_R32_TYPELESS;
+		UAVDesc.Buffer.NumElements = effectiveBufferSize / 4;
+		UAVDesc.Buffer.FirstElement /= 4;
+	}
+
+	else
+	{
+		UAVDesc.Buffer.NumElements = effectiveBufferSize / GPixelFormats[Format].BlockBytes;
+		UAVDesc.Buffer.FirstElement /= GPixelFormats[Format].BlockBytes;
+	}
+
+	return CreateUAV(UAVDesc, IndexBuffer, false);
+}
+
 void FD3D12CommandContext::RHIClearTinyUAV(FUnorderedAccessViewRHIParamRef UnorderedAccessViewRHI, const uint32* Values)
 {
-	FD3D12UnorderedAccessView*  UnorderedAccessView = FD3D12DynamicRHI::ResourceCast(UnorderedAccessViewRHI);
+	FD3D12UnorderedAccessView* UnorderedAccessView = RetrieveObject<FD3D12UnorderedAccessView>(UnorderedAccessViewRHI);
+
 
 	// Check if the view heap is full and needs to rollover.
 	if (!StateCache.GetDescriptorCache()->GetCurrentViewHeap()->CanReserveSlots(1))

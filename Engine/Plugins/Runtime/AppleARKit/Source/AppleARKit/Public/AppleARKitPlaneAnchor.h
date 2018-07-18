@@ -3,11 +3,12 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "AppleARKitAvailability.h"
 
 // ARKit
-#if ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
-#import <ARKit/ARKit.h>
-#endif // ARKIT_SUPPORT
+#if SUPPORTS_ARKIT_1_0
+	#import <ARKit/ARKit.h>
+#endif
 
 // AppleARKit
 #include "AppleARKitAnchor.h"
@@ -35,11 +36,11 @@ public:
 	UFUNCTION( BlueprintPure, Category = "AppleARKitPlaneAnchor")
 	FTransform GetTransformToCenter() const;
 
-#if ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
+#if SUPPORTS_ARKIT_1_0
 
 	virtual void Update_DelegateThread( ARAnchor* Anchor ) override;
 
-#endif // ARKIT_SUPPORT
+#endif
 
 private:
 

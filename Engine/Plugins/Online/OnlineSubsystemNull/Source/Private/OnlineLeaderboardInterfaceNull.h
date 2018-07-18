@@ -8,6 +8,7 @@
 #include "OnlineStats.h"
 #include "Interfaces/OnlineLeaderboardInterface.h"
 #include "OnlineSubsystemNullPackage.h"
+#include "OnlineSubsystemNullTypes.h"
 
 class FOnlineSubsystemNull;
 
@@ -33,7 +34,7 @@ private:
 			if (Row == NULL)
 			{
 				// cannot have a better nickname here
-				FOnlineStatsRow NewRow(UserId.ToString(), MakeShareable(new FUniqueNetIdString(UserId)));
+				FOnlineStatsRow NewRow(UserId.ToString(), MakeShareable(new FUniqueNetIdNull(UserId)));
 				NewRow.Rank = -1;
 				Rows.Add(NewRow);
 			}

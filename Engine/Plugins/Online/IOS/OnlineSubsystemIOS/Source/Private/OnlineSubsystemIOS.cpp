@@ -142,7 +142,7 @@ IOnlineTurnBasedPtr FOnlineSubsystemIOS::GetTurnBasedInterface() const
 bool FOnlineSubsystemIOS::Init() 
 {
 	bool bSuccessfullyStartedUp = true;
-	UE_LOG(LogOnline, Display, TEXT("FOnlineSubsystemIOS::Init()"));
+	UE_LOG(LogOnline, VeryVerbose, TEXT("FOnlineSubsystemIOS::Init()"));
 	
 	bool bIsGameCenterSupported = ([IOSAppDelegate GetDelegate].OSVersion >= 4.1f);
 	if( !bIsGameCenterSupported )
@@ -245,7 +245,7 @@ FText FOnlineSubsystemIOS::GetOnlineServiceName() const
 bool FOnlineSubsystemIOS::Shutdown() 
 {
 	bool bSuccessfullyShutdown = true;
-	UE_LOG(LogOnline, Display, TEXT("FOnlineSubsystemIOS::Shutdown()"));
+	UE_LOG(LogOnline, VeryVerbose, TEXT("FOnlineSubsystemIOS::Shutdown()"));
 
 	bSuccessfullyShutdown = FOnlineSubsystemImpl::Shutdown();
 	

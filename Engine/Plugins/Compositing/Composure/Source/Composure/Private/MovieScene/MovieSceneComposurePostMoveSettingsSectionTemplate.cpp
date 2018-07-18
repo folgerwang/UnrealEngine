@@ -1,8 +1,8 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneComposurePostMoveSettingsSectionTemplate.h"
-#include "MovieSceneComposurePostMoveSettingsTrack.h"
-#include "MovieSceneComposurePostMoveSettingsSection.h"
+#include "MovieScene/MovieSceneComposurePostMoveSettingsTrack.h"
+#include "MovieScene/MovieSceneComposurePostMoveSettingsSection.h"
 #include "ComposurePostMoves.h"
 
 template<>
@@ -16,28 +16,29 @@ FMovieSceneComposurePostMoveSettingsSectionTemplate::FMovieSceneComposurePostMov
 	: FMovieScenePropertySectionTemplate(Track.GetPropertyName(), Track.GetPropertyPath())
 	, BlendType(Section.GetBlendType().Get())
 {
-	Pivot[0] = Section.GetCurve(EComposurePostMoveSettingsChannel::Pivot, EComposurePostMoveSettingsAxis::X);
-	Pivot[1] = Section.GetCurve(EComposurePostMoveSettingsChannel::Pivot, EComposurePostMoveSettingsAxis::Y);
+	Pivot[0] = Section.Pivot[0];
+	Pivot[1] = Section.Pivot[1];
 
-	Translation[0] = Section.GetCurve(EComposurePostMoveSettingsChannel::Translation, EComposurePostMoveSettingsAxis::X);
-	Translation[1] = Section.GetCurve(EComposurePostMoveSettingsChannel::Translation, EComposurePostMoveSettingsAxis::Y);
+	Translation[0] = Section.Translation[0];
+	Translation[1] = Section.Translation[1];
 
-	RotationAngle = Section.GetCurve(EComposurePostMoveSettingsChannel::RotationAngle, EComposurePostMoveSettingsAxis::None);
+	RotationAngle = Section.RotationAngle;
 
-	Scale = Section.GetCurve(EComposurePostMoveSettingsChannel::Scale, EComposurePostMoveSettingsAxis::None);
+	Scale = Section.Scale;
 }
 
 void FMovieSceneComposurePostMoveSettingsSectionTemplate::Evaluate(const FMovieSceneEvaluationOperand& Operand, const FMovieSceneContext& Context, const FPersistentEvaluationData& PersistentData, FMovieSceneExecutionTokens& ExecutionTokens) const
 {
-	const float Time = Context.GetTime();
+	const FFrameTime Time = Context.GetTime();
 	MovieScene::TMultiChannelValue<float, 6> AnimatedData;
 
 	// Only activate channels if the curve has data associated with it
-	auto EvalChannel = [&AnimatedData, Time](uint8 ChanneIndex, const FRichCurve& Curve)
+	auto EvalChannel = [&AnimatedData, Time](uint8 ChanneIndex, const FMovieSceneFloatChannel& Channel)
 	{
-		if (Curve.HasAnyData())
+		float Value = 0.f;
+		if (Channel.Evaluate(Time, Value))
 		{
-			AnimatedData.Set(ChanneIndex, Curve.Eval(Time));
+			AnimatedData.Set(ChanneIndex, Value);
 		}
 	};
 

@@ -43,7 +43,7 @@ public:
 	/** Called after an undo is performed to give child widgets a chance to refresh. */
 	DECLARE_MULTICAST_DELEGATE( FOnPostUndoMulticaster );
 
-	// Post undo 
+	// Post undo
 	typedef FOnPostUndoMulticaster::FDelegate FOnPostUndo;
 
 	/** Retrieves the current static mesh displayed in the Static Mesh Editor. */
@@ -55,8 +55,8 @@ public:
 	/** Retrieves the currently selected socket from the Socket Manager. */
 	virtual UStaticMeshSocket* GetSelectedSocket() const = 0;
 
-	/** 
-	 *	Set the currently selected socket in the Socket Manager. 
+	/**
+	 *	Set the currently selected socket in the Socket Manager.
 	 *
 	 *	@param	InSelectedSocket			The selected socket to pass on to the Socket Manager.
 	 */
@@ -68,7 +68,7 @@ public:
 	/** Requests to rename selected socket */
 	virtual void RequestRenameSelectedSocket() = 0;
 
-	/** 
+	/**
 	 *  Checks to see if the prim data is valid compared with the static mesh
 	 *
 	 *  @param  InPrimData			The data to check
@@ -78,7 +78,7 @@ public:
 	/** Checks to see if any prims are selected */
 	virtual bool HasSelectedPrims() const = 0;
 
-	/** 
+	/**
 	 *  Adds primitive information to the selected prims list
 	 *
 	 *  @param  InPrimData			The data to add
@@ -86,7 +86,7 @@ public:
 	 */
 	virtual void AddSelectedPrim(const FPrimData& InPrimData, bool bClearSelection) = 0;
 
-	/** 
+	/**
 	 *  Removes primitive information to the selected prims list
 	 *
 	 *  @param  InPrimData			The data to remove
@@ -96,7 +96,7 @@ public:
 	/** Removes all invalid primitives from the list */
 	virtual void RemoveInvalidPrims() = 0;
 
-	/** 
+	/**
 	 *  Checks to see if the parsed primitive data is selected
 	 *
 	 *  @param  InPrimData			The data to compare
@@ -167,23 +167,23 @@ public:
 	 */
 	virtual void SetPrimTransform(const FPrimData& InPrimData, const FTransform& InPrimTransform) const = 0;
 
-	/** 
-	 *  Retrieves the number of triangles in the current static mesh or it's forced LOD. 
+	/**
+	 *  Retrieves the number of triangles in the current static mesh or it's forced LOD.
 	 *
 	 *  @param  LODLevel			The desired LOD to retrieve the number of triangles for.
 	 *	@returns					The number of triangles for the specified LOD level.
 	 */
 	virtual int32 GetNumTriangles(int32 LODLevel = 0) const = 0;
 
-	/** 
-	 *  Retrieves the number of vertices in the current static mesh or it's forced LOD. 
+	/**
+	 *  Retrieves the number of vertices in the current static mesh or it's forced LOD.
 	 *
-	 *  @param  LODLevel			The desired LOD to retrieve the number of vertices for.	 
+	 *  @param  LODLevel			The desired LOD to retrieve the number of vertices for.
 	 *	@returns					The number of vertices for the specified LOD level.
 	 */
 	virtual int32 GetNumVertices(int32 LODLevel = 0) const = 0;
 
-	/** 
+	/**
 	 *  Retrieves the number of UV channels available.
 	 *
 	 *  @param  LODLevel			The desired LOD to retrieve the number of UV channels for.
@@ -199,6 +199,17 @@ public:
 
 	/** Retrieves the current LOD index */
 	virtual int32 GetCurrentLODIndex() = 0;
+
+	/* Retrieve editor custom data. Return INDEX_NONE if the key is invalid */
+	virtual int32 GetCustomData(const int32 Key) const { return INDEX_NONE; }
+	
+	/*
+	 * Store the custom data using the key.
+	 * Remark:
+	 * The custom data memory should be clear when the editor is close by the user, this is not persistent data.
+	 * Currently we use it to store the state of the editor UI to restore it properly when a refresh happen.
+	 */
+	virtual void SetCustomData(const int32 Key, const int32 CustomData) {}
 
 	/** Refreshes the Static Mesh Editor's viewport. */
 	virtual void RefreshViewport() = 0;
@@ -235,6 +246,9 @@ public:
 
 	/* Broadcast when selected LOD changes */
 	virtual void BroadcastOnSelectedLODChanged() = 0;
+
+	/** Get the Static Mesh Editor's the viewport client */
+	virtual class FEditorViewportClient& GetViewportClient() = 0;
 };
 
 

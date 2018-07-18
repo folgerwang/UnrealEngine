@@ -103,6 +103,8 @@ void UAnimGraphNode_PoseByName::SetAnimationAsset(UAnimationAsset* Asset)
 
 void UAnimGraphNode_PoseByName::ValidateAnimNodeDuringCompilation(class USkeleton* ForSkeleton, class FCompilerResultsLog& MessageLog)
 {
+	Super::ValidateAnimNodeDuringCompilation(ForSkeleton, MessageLog);
+
 	UPoseAsset* PoseAssetToCheck = Node.PoseAsset;
 	UEdGraphPin* PoseAssetPin = FindPin(GET_MEMBER_NAME_STRING_CHECKED(FAnimNode_PoseByName, PoseAsset));
 	if (PoseAssetPin != nullptr && PoseAssetToCheck == nullptr)

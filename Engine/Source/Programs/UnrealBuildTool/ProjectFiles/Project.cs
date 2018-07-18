@@ -12,23 +12,6 @@ using Tools.DotNETCommon;
 
 namespace UnrealBuildTool
 {
-	interface IntelliSenseGatherer
-	{
-		/// <summary>
-		/// Adds all of the specified preprocessor definitions to this VCProject's list of preprocessor definitions for all modules in the project
-		/// </summary>
-		/// <param name="NewPreprocessorDefinitions">List of preprocessor definitons to add</param>
-		void AddIntelliSensePreprocessorDefinitions(List<string> NewPreprocessorDefinitions);
-
-		/// <summary>
-		/// Adds all of the specified include paths to this VCProject's list of include paths for all modules in the project
-		/// </summary>
-		/// <param name="NewIncludePaths">List of include paths to add</param>
-		/// <param name="bAddingSystemIncludes">Are the include paths to add system include paths</param>
-		void AddInteliiSenseIncludePaths(HashSet<string> NewIncludePaths, bool bAddingSystemIncludes);
-	}
-
-
 	/// <summary>
 	/// A single target within a project.  A project may have any number of targets within it, which are basically compilable projects
 	/// in themselves that the project wraps up.
@@ -92,7 +75,7 @@ namespace UnrealBuildTool
 		public readonly string ProjectPath;
 	}
 
-	abstract class ProjectFile : IntelliSenseGatherer
+	abstract class ProjectFile
 	{
 		/// <summary>
 		/// Represents a single source file (or other type of file) in a project
@@ -335,32 +318,18 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="NewIncludePaths">List of include paths to add</param>
 		/// <param name="bAddingSystemIncludes"></param>
-		public void AddInteliiSenseIncludePaths(HashSet<string> NewIncludePaths, bool bAddingSystemIncludes)
+		public void AddInteliiSenseIncludePaths(HashSet<DirectoryReference> NewIncludePaths, bool bAddingSystemIncludes)
 		{
 			if (ProjectFileGenerator.OnlyGenerateIntelliSenseDataForProject == null ||
 				ProjectFileGenerator.OnlyGenerateIntelliSenseDataForProject == this)
 			{
-				foreach (string CurPath in NewIncludePaths)
+				foreach (DirectoryReference CurPath in NewIncludePaths)
 				{
-					if (bAddingSystemIncludes ? KnownIntelliSenseSystemIncludeSearchPaths.Add(CurPath) : KnownIntelliSenseIncludeSearchPaths.Add(CurPath))
+					if (bAddingSystemIncludes ? KnownIntelliSenseSystemIncludeSearchPaths.Add(CurPath.FullName) : KnownIntelliSenseIncludeSearchPaths.Add(CurPath.FullName))
 					{
-						string PathRelativeToProjectFile;
-
-						// If the include string is an environment variable (e.g. $(DXSDK_DIR)), then we never want to
-						// give it a relative path
-						if (CurPath.StartsWith("$("))
-						{
-							PathRelativeToProjectFile = CurPath;
-						}
-						else
-						{
-							// Incoming include paths are relative to the solution directory, but we need these paths to be
-							// relative to the project file's directory
-							PathRelativeToProjectFile = NormalizeProjectPath(CurPath);
-						}
-
-						// Trim any trailing slash
-						PathRelativeToProjectFile = PathRelativeToProjectFile.TrimEnd('/', '\\');
+						// Incoming include paths are relative to the solution directory, but we need these paths to be
+						// relative to the project file's directory
+						string PathRelativeToProjectFile = NormalizeProjectPath(CurPath);
 
 						// Make sure that it doesn't exist already
 						bool AlreadyExists = false;

@@ -6,6 +6,7 @@
 
 #include "D3D11RHIPrivate.h"
 #include "RenderCore.h"
+#include "Engine/RendererSettings.h"
 
 #ifndef D3D11_WITH_DWMAPI
 #if WINVER > 0x502		// Windows XP doesn't support DWM
@@ -16,7 +17,7 @@
 #endif
 
 #if D3D11_WITH_DWMAPI
-	#include "AllowWindowsPlatformTypes.h"
+	#include "Windows/AllowWindowsPlatformTypes.h"
 		#include <dwmapi.h>
 #endif	//D3D11_WITH_DWMAPI
 
@@ -452,11 +453,6 @@ bool FD3D11Viewport::Present(bool bLockToVsync)
 		if ( (!!bSwapChainFullscreenState)  != bIsFullscreen )
 		{
 			bIsValid = false;
-			
-			// Minimize the window.
-			// use SW_FORCEMINIMIZE if the messaging thread is likely to be blocked for a sizeable period.
-			// SW_FORCEMINIMIZE also prevents the minimize animation from playing.
-			::ShowWindow(WindowHandle,SW_MINIMIZE);
 		}
 	}
 
@@ -495,7 +491,8 @@ FViewportRHIRef FD3D11DynamicRHI::RHICreateViewport(void* WindowHandle,uint32 Si
 	// Use a default pixel format if none was specified	
 	if (PreferredPixelFormat == EPixelFormat::PF_Unknown)
 	{
-		PreferredPixelFormat = EPixelFormat::PF_R8G8B8A8;
+		static const auto CVarDefaultBackBufferPixelFormat = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.DefaultBackBufferPixelFormat"));
+		PreferredPixelFormat = EDefaultBackBufferPixelFormat::Convert2PixelFormat(EDefaultBackBufferPixelFormat::FromInt(CVarDefaultBackBufferPixelFormat->GetValueOnGameThread()));
 	}
 
 	return new FD3D11Viewport(this,(HWND)WindowHandle,SizeX,SizeY,bIsFullscreen,PreferredPixelFormat);
@@ -511,16 +508,16 @@ void FD3D11DynamicRHI::RHIResizeViewport(FViewportRHIParamRef ViewportRHI,uint32
 
 void FD3D11DynamicRHI::RHIResizeViewport(FViewportRHIParamRef ViewportRHI, uint32 SizeX, uint32 SizeY, bool bIsFullscreen, EPixelFormat PreferredPixelFormat)
 {
-	FD3D11Viewport* Viewport = ResourceCast(ViewportRHI);
-
 	check(IsInGameThread());
 
 	// Use a default pixel format if none was specified	
 	if (PreferredPixelFormat == EPixelFormat::PF_Unknown)
 	{
-		PreferredPixelFormat = EPixelFormat::PF_R8G8B8A8;
+		static const auto CVarDefaultBackBufferPixelFormat = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.DefaultBackBufferPixelFormat"));
+		PreferredPixelFormat = EDefaultBackBufferPixelFormat::Convert2PixelFormat(EDefaultBackBufferPixelFormat::FromInt(CVarDefaultBackBufferPixelFormat->GetValueOnGameThread()));
 	}
 
+	FD3D11Viewport* Viewport = ResourceCast(ViewportRHI);
 	Viewport->Resize(SizeX, SizeY, bIsFullscreen, PreferredPixelFormat);
 }
 
@@ -604,7 +601,7 @@ void FD3D11DynamicRHI::RHIEndDrawingViewport(FViewportRHIParamRef ViewportRHI,bo
 	bool bNativelyPresented = Viewport->Present(bLockToVsync);
 
 	// Don't wait on the GPU when using SLI, let the driver determine how many frames behind the GPU should be allowed to get
-	if (GNumActiveGPUsForRendering == 1)
+	if (GNumAlternateFrameRenderingGroups == 1)
 	{
 		if (bNativelyPresented)
 		{ 
@@ -653,5 +650,5 @@ FTexture2DRHIRef FD3D11DynamicRHI::RHIGetViewportBackBuffer(FViewportRHIParamRef
 }
 
 #if D3D11_WITH_DWMAPI
-	#include "HideWindowsPlatformTypes.h"
+	#include "Windows/HideWindowsPlatformTypes.h"
 #endif	//D3D11_WITH_DWMAPI

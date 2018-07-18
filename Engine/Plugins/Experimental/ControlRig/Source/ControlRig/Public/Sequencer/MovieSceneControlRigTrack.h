@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
-#include "MovieSceneSubTrack.h"
+#include "Tracks/MovieSceneSubTrack.h"
 #include "MovieSceneControlRigTrack.generated.h"
 
 class UControlRigSequence;
@@ -21,7 +21,7 @@ class UMovieSceneControlRigTrack
 public:
 
 	/** Adds a new animation to this track */
-	virtual void AddNewControlRig(float KeyTime, UControlRigSequence* InSequence);
+	virtual void AddNewControlRig(FFrameNumber KeyTime, UControlRigSequence* InSequence);
 
 public:
 

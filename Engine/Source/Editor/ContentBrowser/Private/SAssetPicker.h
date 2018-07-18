@@ -117,6 +117,8 @@ private:
 	/** Saves settings for this asset picker if SaveSettingsName was set */
 	void SaveSettings() const;
 
+	void HandleSearchSettingsChanged();
+
 private:
 
 	/** The list of FrontendFilters currently applied to the asset view */

@@ -4,7 +4,7 @@
 
 #include "SGraphPin.h"
 #include "NiagaraNode.h"
-#include "SInlineEditableTextBlock.h"
+#include "Widgets/Text/SInlineEditableTextBlock.h"
 
 /** A graph pin widget for allowing a pin to have an editable name for a pin. */
 template< class BaseClass >
@@ -48,10 +48,21 @@ protected:
 
 	void OnTextCommitted(const FText& InText, ETextCommit::Type InCommitType)
 	{
-		UNiagaraNode* ParentNode = Cast<UNiagaraNode>(this->GraphPinObj->GetOwningNode());
-		if (ParentNode != nullptr)
+		if (this->GraphPinObj->PinName.ToString() != InText.ToString())
 		{
-			ParentNode->CommitEditablePinName(InText, this->GraphPinObj);
+			UNiagaraNode* ParentNode = Cast<UNiagaraNode>(this->GraphPinObj->GetOwningNode());
+			if (ParentNode != nullptr)
+			{
+				ParentNode->CommitEditablePinName(InText, this->GraphPinObj);
+			}
+		}
+		else
+		{
+			UNiagaraNode* ParentNode = Cast<UNiagaraNode>(this->GraphPinObj->GetOwningNode());
+			if (ParentNode != nullptr)
+			{
+				ParentNode->CancelEditablePinName(InText, this->GraphPinObj);
+			}
 		}
 	}
 

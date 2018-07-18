@@ -73,4 +73,6 @@ public:
 		Empty();
 		Parameters = InParameters.Parameters;
 	}
+
+	NIAGARA_API void DumpParameters();
 };

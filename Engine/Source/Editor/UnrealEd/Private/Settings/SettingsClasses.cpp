@@ -6,8 +6,8 @@
 #include "Modules/ModuleManager.h"
 #include "Misc/PackageName.h"
 #include "InputCoreTypes.h"
-#include "EditorStyleSettings.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "Classes/EditorStyleSettings.h"
+#include "AI/NavigationSystemBase.h"
 #include "Model.h"
 #include "ISourceControlModule.h"
 #include "Settings/ContentBrowserSettings.h"
@@ -30,9 +30,11 @@
 #include "AutoReimport/AutoReimportUtilities.h"
 #include "Misc/ConfigCacheIni.h" // for FConfigCacheIni::GetString()
 #include "SourceCodeNavigation.h"
-#include "IProjectManager.h"
+#include "Interfaces/IProjectManager.h"
 #include "ProjectDescriptor.h"
 #include "Settings/SkeletalMeshEditorSettings.h"
+#include "DeviceProfiles/DeviceProfile.h"
+#include "DeviceProfiles/DeviceProfileManager.h"
 
 #define LOCTEXT_NAMESPACE "SettingsClasses"
 
@@ -355,7 +357,7 @@ void ULevelEditorMiscSettings::PostEditChangeProperty( struct FPropertyChangedEv
 	if (Name == FName(TEXT("bNavigationAutoUpdate")))
 	{
 		FWorldContext &EditorContext = GEditor->GetEditorWorldContext();
-		UNavigationSystem::SetNavigationAutoUpdateEnabled(bNavigationAutoUpdate, EditorContext.World()->GetNavigationSystem());
+		FNavigationSystem::SetNavigationAutoUpdateEnabled(bNavigationAutoUpdate, EditorContext.World()->GetNavigationSystem());
 	}
 
 	if (!FUnrealEdMisc::Get().IsDeletePreferences())
@@ -383,7 +385,6 @@ ULevelEditorPlaySettings::ULevelEditorPlaySettings( const FObjectInitializer& Ob
 	LaunchConfiguration = EPlayOnLaunchConfiguration::LaunchConfig_Default;
 	bAutoCompileBlueprintsOnLaunch = true;
 	CenterNewWindow = true;
-	CenterStandaloneWindow = true;
 
 	bBindSequencerToPIE = false;
 	bBindSequencerToSimulate = true;
@@ -397,7 +398,195 @@ void ULevelEditorPlaySettings::PostEditChangeProperty(struct FPropertyChangedEve
 		BuildGameBeforeLaunch = EPlayOnBuildMode::PlayOnBuild_Never;
 	}
 
+	if (PropertyChangedEvent.Property && PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(ULevelEditorPlaySettings, bOnlyLoadVisibleLevelsInPIE))
+	{
+		for (TObjectIterator<UWorld> WorldIt; WorldIt; ++WorldIt)
+		{
+			WorldIt->PopulateStreamingLevelsToConsider();
+		}
+	}
+
 	Super::PostEditChangeProperty(PropertyChangedEvent);
+}
+
+void ULevelEditorPlaySettings::PostInitProperties()
+{
+	Super::PostInitProperties();
+
+	NewWindowWidth = FMath::Max(0, NewWindowWidth);
+	NewWindowHeight = FMath::Max(0, NewWindowHeight);
+}
+
+FMargin ULevelEditorPlaySettings::CalculateCustomUnsafeZones(TArray<FVector2D>& CustomSafeZoneStarts, TArray<FVector2D>& CustomSafeZoneDimensions, FString& DeviceType, FVector2D PreviewSize)
+{
+	int32 PreviewHeight = PreviewSize.Y;
+	int32 PreviewWidth = PreviewSize.X;
+	bool bPreviewIsPortrait = PreviewHeight > PreviewWidth;
+	FMargin CustomSafeZoneOverride = FMargin();
+	CustomSafeZoneStarts.Empty();
+	CustomSafeZoneDimensions.Empty();
+	UDeviceProfile* DeviceProfile = UDeviceProfileManager::Get().FindProfile(DeviceType, false);
+	if (DeviceProfile)
+	{
+		FString CVarUnsafeZonesString;
+		if (DeviceProfile->GetConsolidatedCVarValue(TEXT("r.CustomUnsafeZones"), CVarUnsafeZonesString))
+		{
+			TArray<FString> UnsafeZones;
+			CVarUnsafeZonesString.ParseIntoArray(UnsafeZones, TEXT(";"), true);
+			for (FString UnsafeZone : UnsafeZones)
+			{
+				FString Orientation;
+				FString FixedState;
+				FString TempString;
+				FVector2D Start;
+				FVector2D Dimensions;
+				bool bAdjustsToDeviceRotation = false;
+				UnsafeZone.Split(TEXT("("), &TempString, &UnsafeZone);
+				Orientation = UnsafeZone.Left(1);
+				UnsafeZone.Split(TEXT("["), &TempString, &UnsafeZone);
+				if (TempString.Contains(TEXT("free")))
+				{
+					bAdjustsToDeviceRotation = true;
+				}
+
+				UnsafeZone.Split(TEXT(","), &TempString, &UnsafeZone);
+				Start.X = FCString::Atof(*TempString);
+				UnsafeZone.Split(TEXT("]"), &TempString, &UnsafeZone);
+				Start.Y = FCString::Atof(*TempString);
+				UnsafeZone.Split(TEXT("["), &TempString, &UnsafeZone);
+				UnsafeZone.Split(TEXT(","), &TempString, &UnsafeZone);
+				Dimensions.X = FCString::Atof(*TempString);
+				Dimensions.Y = FCString::Atof(*UnsafeZone);
+
+				bool bShouldScale = false;
+				float CVarMobileContentScaleFactor = FCString::Atof(*DeviceProfile->GetCVarValue(TEXT("r.MobileContentScaleFactor")));
+				if (CVarMobileContentScaleFactor != 0)
+				{
+					bShouldScale = true;
+				}
+				else
+				{
+					if (DeviceProfile->GetConsolidatedCVarValue(TEXT("r.MobileContentScaleFactor"), CVarMobileContentScaleFactor, true))
+					{
+						bShouldScale = true;
+					}
+				}
+				if (bShouldScale)
+				{
+					Start *= CVarMobileContentScaleFactor;
+					Dimensions *= CVarMobileContentScaleFactor;
+				}
+
+				if (!bAdjustsToDeviceRotation && ((Orientation.Contains(TEXT("L")) && bPreviewIsPortrait) ||
+					(Orientation.Contains(TEXT("P")) && !bPreviewIsPortrait)))
+				{
+					float Placeholder = Start.X;
+					Start.X = Start.Y;
+					Start.Y = Placeholder;
+
+					Placeholder = Dimensions.X;
+					Dimensions.X = Dimensions.Y;
+					Dimensions.Y = Placeholder;
+				}
+
+				if (Start.X < 0)
+				{
+					Start.X += PreviewWidth;
+				}
+				if (Start.Y < 0)
+				{
+					Start.Y += PreviewHeight;
+				}
+
+				// Remove any overdraw if this is an unsafe zone that could adjust with device rotation
+				if (bAdjustsToDeviceRotation)
+				{
+					if (Dimensions.X + Start.X > PreviewWidth)
+					{
+						Dimensions.X = PreviewWidth - Start.X;
+					}
+					if (Dimensions.Y + Start.Y > PreviewHeight)
+					{
+						Dimensions.Y = PreviewHeight - Start.Y;
+					}
+				}
+
+				CustomSafeZoneStarts.Add(Start);
+				CustomSafeZoneDimensions.Add(Dimensions);
+
+				if (Start.X + Dimensions.X == PreviewWidth && !FMath::IsNearlyZero(Start.X))
+				{
+					CustomSafeZoneOverride.Right = FMath::Max(CustomSafeZoneOverride.Right, Dimensions.X);
+				}
+				else if (Start.X == 0.0f && Start.X + Dimensions.X != PreviewWidth)
+				{
+					CustomSafeZoneOverride.Left = FMath::Max(CustomSafeZoneOverride.Left, Dimensions.X);
+				}
+				if (Start.Y + Dimensions.Y == PreviewHeight && !FMath::IsNearlyZero(Start.Y))
+				{
+					CustomSafeZoneOverride.Bottom = FMath::Max(CustomSafeZoneOverride.Bottom, Dimensions.Y);
+				}
+				else if (Start.Y == 0.0f && Start.Y + Dimensions.Y != PreviewHeight)
+				{
+					CustomSafeZoneOverride.Top = FMath::Max(CustomSafeZoneOverride.Top, Dimensions.Y);
+				}
+			}
+		}
+	}
+	return CustomSafeZoneOverride;
+}
+
+FMargin ULevelEditorPlaySettings::FlipCustomUnsafeZones(TArray<FVector2D>& CustomSafeZoneStarts, TArray<FVector2D>& CustomSafeZoneDimensions, FString& DeviceType, FVector2D PreviewSize)
+{
+	FMargin CustomSafeZoneOverride = CalculateCustomUnsafeZones(CustomSafeZoneStarts, CustomSafeZoneDimensions, DeviceType, PreviewSize);
+	for (FVector2D& CustomSafeZoneStart : CustomSafeZoneStarts)
+	{
+		CustomSafeZoneStart.X = PreviewSize.X - CustomSafeZoneStart.X;
+	}
+	for (FVector2D& CustomSafeZoneDimension : CustomSafeZoneDimensions)
+	{
+		CustomSafeZoneDimension.X *= -1.0f;
+	}
+	float Placeholder = CustomSafeZoneOverride.Left;
+	CustomSafeZoneOverride.Left = CustomSafeZoneOverride.Right;
+	CustomSafeZoneOverride.Right = Placeholder;
+	return CustomSafeZoneOverride;
+}
+
+void ULevelEditorPlaySettings::RescaleForMobilePreview(UDeviceProfile* DeviceProfile, int32 &PreviewWidth, int32 &PreviewHeight, float &ScaleFactor)
+{
+	bool bShouldScale = false;
+	float CVarMobileContentScaleFactor = FCString::Atof(*DeviceProfile->GetCVarValue(TEXT("r.MobileContentScaleFactor")));
+	if (CVarMobileContentScaleFactor != 0)
+	{
+		bShouldScale = true;
+	}
+	else
+	{
+		if (DeviceProfile->GetConsolidatedCVarValue(TEXT("r.MobileContentScaleFactor"), CVarMobileContentScaleFactor, true))
+		{
+			bShouldScale = true;
+		}
+	}
+	if (bShouldScale)
+	{
+		if (DeviceProfile->DeviceType == TEXT("Android"))
+		{
+			if (PreviewHeight > PreviewWidth)
+			{
+				PreviewHeight = 1280;
+				PreviewWidth = 720;
+			}
+			else
+			{
+				PreviewHeight = 720;
+				PreviewWidth = 1280;
+			}
+		}
+		PreviewWidth *= CVarMobileContentScaleFactor;
+		PreviewHeight *= CVarMobileContentScaleFactor;
+		ScaleFactor = CVarMobileContentScaleFactor;
+	}
 }
 
 /* ULevelEditorViewportSettings interface
@@ -550,9 +739,30 @@ void UProjectPackagingSettings::PostInitProperties()
 	// Cache the current set of Blueprint assets selected for nativization.
 	CachedNativizeBlueprintAssets = NativizeBlueprintAssets;
 
+	FixCookingPaths();
+
 	Super::PostInitProperties();
 }
 
+void UProjectPackagingSettings::FixCookingPaths()
+{
+	// Fix AlwaysCook/NeverCook paths to use content root
+	for (FDirectoryPath& PathToFix : DirectoriesToAlwaysCook)
+	{
+		if (!PathToFix.Path.IsEmpty() && !PathToFix.Path.StartsWith(TEXT("/"), ESearchCase::CaseSensitive))
+		{
+			PathToFix.Path = FString::Printf(TEXT("/Game/%s"), *PathToFix.Path);
+		}
+	}
+
+	for (FDirectoryPath& PathToFix : DirectoriesToNeverCook)
+	{
+		if (!PathToFix.Path.IsEmpty() && !PathToFix.Path.StartsWith(TEXT("/"), ESearchCase::CaseSensitive))
+		{
+			PathToFix.Path = FString::Printf(TEXT("/Game/%s"), *PathToFix.Path);
+		}
+	}
+}
 
 void UProjectPackagingSettings::PostEditChangeProperty( FPropertyChangedEvent& PropertyChangedEvent )
 {
@@ -562,15 +772,10 @@ void UProjectPackagingSettings::PostEditChangeProperty( FPropertyChangedEvent& P
 		? PropertyChangedEvent.MemberProperty->GetFName()
 		: NAME_None;
 
-	if (Name == FName((TEXT("DirectoriesToAlwaysCook"))))
+	if (Name == FName(TEXT("DirectoriesToAlwaysCook")) || Name == FName(TEXT("DirectoriesToNeverCook")) || Name == NAME_None)
 	{
-		// fix up paths
-		for(int32 PathIndex = 0; PathIndex < DirectoriesToAlwaysCook.Num(); PathIndex++)
-		{
-			FString Path = DirectoriesToAlwaysCook[PathIndex].Path;
-			FPaths::MakePathRelativeTo(Path, FPlatformProcess::BaseDir());
-			DirectoriesToAlwaysCook[PathIndex].Path = Path;
-		}
+		// We need to fix paths for no name updates to catch the reloadconfig call
+		FixCookingPaths();
 	}
 	else if (Name == FName((TEXT("StagingDirectory"))))
 	{

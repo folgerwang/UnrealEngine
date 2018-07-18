@@ -831,10 +831,10 @@ bool TCString<WIDECHAR>::IsPureAnsi(const WIDECHAR* Str)
 	{
 		if( *Str>0x7f )
 		{
-			return 0;
+			return false;
 		}
 	}
-	return 1;
+	return true;
 }
 
 

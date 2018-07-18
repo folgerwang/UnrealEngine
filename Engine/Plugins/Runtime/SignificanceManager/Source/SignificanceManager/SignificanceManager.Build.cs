@@ -6,8 +6,6 @@ public class SignificanceManager : ModuleRules
 {
 	public SignificanceManager(ReadOnlyTargetRules Target) : base(Target)
 	{
-		PublicIncludePaths.Add("SignificanceManager/Public");
-
 		PrivateDependencyModuleNames.AddRange(
 			new string[] {
 				"Core",

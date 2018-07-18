@@ -15,8 +15,8 @@
 #include "Shader.h"
 #include "Misc/EngineVersion.h"
 #include "PipelineStateCache.h"
-#include "ScopeRWLock.h"
-#include "CoreDelegates.h"
+#include "Misc/ScopeRWLock.h"
+#include "Misc/CoreDelegates.h"
 
 DECLARE_STATS_GROUP(TEXT("Shader Cache"),STATGROUP_ShaderCache, STATCAT_Advanced);
 DECLARE_DWORD_ACCUMULATOR_STAT(TEXT("Num Shaders Cached"),STATGROUP_NumShadersCached,STATGROUP_ShaderCache);
@@ -36,7 +36,7 @@ const FGuid FShaderCacheCustomVersion::GameKey(0x03D4EB48, 0xB50B4CC3, 0xA598DE4
 FCustomVersionRegistration GRegisterShaderCacheVersion(FShaderCacheCustomVersion::Key, FShaderCacheCustomVersion::Latest, TEXT("ShaderCacheVersion"));
 FCustomVersionRegistration GRegisterShaderCacheGameVersion(FShaderCacheCustomVersion::GameKey, (int32)FEngineVersion::Current().GetChangelist(), TEXT("ShaderCacheGameVersion"));
 
-#define SHADER_CACHE_ENABLED (0)
+#define SHADER_CACHE_ENABLED 0
 
 static const ECompressionFlags ShaderCacheCompressionFlag = ECompressionFlags::COMPRESS_ZLIB;
 
@@ -49,7 +49,7 @@ FAutoConsoleVariableRef FShaderCache::CVarUseShaderCaching(
 														   ECVF_ReadOnly|ECVF_RenderThreadSafe
 														   );
 
-int32 FShaderCache::bUseUserShaderCache = 1;
+int32 FShaderCache::bUseUserShaderCache = 0;
 FAutoConsoleVariableRef FShaderCache::CVarUseUserShaderCache(
 	TEXT("r.UseUserShaderCache"),
 	bUseUserShaderCache,
@@ -199,6 +199,9 @@ public:
 	
 	FComputeShaderRHIRef CreateComputeShader(const FSHAHash& Hash) override final;
 	
+	virtual bool RequestEntry(const FSHAHash& Hash, FArchive* Ar) override final;
+	virtual bool ContainsEntry(const FSHAHash& Hash) override final;
+	
 	FName GetFormat( void ) const;
 	
 	//Archive override add Shader
@@ -266,7 +269,7 @@ private:
 };
 
 FShaderCacheLibrary::FShaderCacheLibrary(EShaderPlatform InPlatform, FString Name)
-: FShaderFactoryInterface(InPlatform)
+: FShaderFactoryInterface(InPlatform, Name)
 , FileName(Name)
 {
 }
@@ -501,6 +504,18 @@ FComputeShaderRHIRef FShaderCacheLibrary::CreateComputeShader(const FSHAHash& Ha
 	return Shader;
 }
 
+bool FShaderCacheLibrary::RequestEntry(const FSHAHash& Hash, FArchive* Ar)
+{
+	// FShaderCache is deprecated - so it doesn't need to work with other systems anymore
+	return false;
+}
+
+bool FShaderCacheLibrary::ContainsEntry(const FSHAHash& Hash)
+{
+	// FShaderCache is deprecated - so it doesn't need to work with other systems anymore
+	return false;
+}
+
 FName FShaderCacheLibrary::GetFormat( void ) const
 {
 	return LegacyShaderPlatformToShaderFormat(Platform);
@@ -719,14 +734,12 @@ FShaderCache::FShaderCache(uint32 InOptions, EShaderPlatform InShaderPlatform)
 	// We expect the RHI to be created at this point
 	CurrentShaderPlatformCache.ShaderPlatform = CurrentPlatform;
 
-	if (IsMobilePlatform(CurrentPlatform))
-	{
-		// Make sure this is disabled on mobile
-		// Mobile only needs FShaderCache::bUseShaderCaching
-		FShaderCache::bUseShaderPredraw = 0;
-		FShaderCache::bUseShaderDrawLog = 0;
-	}
-		
+    const bool bOverridesShaderDrawLog = FParse::Param( FCommandLine::Get(), TEXT( "UseShaderDrawLog" ) );
+    if (bOverridesShaderDrawLog)
+    {
+        FShaderCache::bUseShaderDrawLog = 1;
+    }
+
 	DefaultCacheState = InternalCreateOrFindCacheStateForContext(GDynamicRHI->RHIGetDefaultContext());
 			
 	// Try to load user cache, making sure that if we fail version test we still try game-content version.
@@ -792,7 +805,10 @@ void FShaderCache::InitShaderCache(uint32 Options, EShaderPlatform InShaderPlatf
 		GameVersion = (int32)FEngineVersion::Current().GetChangelist();
 	}
 	
-	if(bUseShaderCaching)
+	// Don't use FShaderCache if the newer FShaderPipelineCache is enabled.
+	static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.ShaderPipelineCache.Enabled"));
+	bool bUsePipelineCacheInstead = (CVar && CVar->GetValueOnAnyThread() != 0);
+	if(!bUsePipelineCacheInstead && bUseShaderCaching)
 	{
 		Cache = new FShaderCache(Options, InShaderPlatform);
 	}
@@ -1256,7 +1272,7 @@ void FShaderCache::InternalLogShader(EShaderPlatform Platform, EShaderFrequency 
 
 			if (!(Cache->Options & SCO_NoShaderPreload) && bSubmit)
 			{
-				if (Code.Num() != UncompressedSize && RHISupportsShaderCompression(ShaderCache->CurrentPlatform))
+				if (Code.Num() && Code.Num() != UncompressedSize && RHISupportsShaderCompression(ShaderCache->CurrentPlatform))
 				{
 					TArray<uint8> UncompressedCode;
 					FShaderCacheHelperUncompressCode(UncompressedSize, Code, UncompressedCode);

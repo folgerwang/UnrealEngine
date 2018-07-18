@@ -3,6 +3,10 @@
 #include "Kismet/DataTableFunctionLibrary.h"
 #include "Engine/CurveTable.h"
 
+#if WITH_EDITOR
+#include "Misc/FileHelper.h"
+#endif //WITH_EDITOR
+
 UDataTableFunctionLibrary::UDataTableFunctionLibrary(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
@@ -77,3 +81,98 @@ void UDataTableFunctionLibrary::GetDataTableRowNames(UDataTable* Table, TArray<F
 		OutRowNames.Empty();
 	}
 }
+
+
+#if WITH_EDITOR
+bool UDataTableFunctionLibrary::FillDataTableFromCSVString(UDataTable* DataTable, const FString& InString)
+{
+	if (!DataTable)
+	{
+		UE_LOG(LogDataTable, Error, TEXT("Can't fill an invalid DataTable."));
+		return false;
+	}
+
+	bool bResult = true;
+	if (InString.Len() == 0)
+	{
+		DataTable->EmptyTable();
+	}
+	else
+	{
+		TArray<FString> Errors = DataTable->CreateTableFromCSVString(InString);
+		if (Errors.Num())
+		{
+			for (const FString& Error : Errors)
+			{
+				UE_LOG(LogDataTable, Warning, TEXT("%s"), *Error);
+			}
+		}
+		bResult = Errors.Num() == 0;
+	}
+	return bResult;
+}
+
+bool UDataTableFunctionLibrary::FillDataTableFromCSVFile(UDataTable* DataTable, const FString& InFilePath)
+{
+	if (!DataTable)
+	{
+		UE_LOG(LogDataTable, Error, TEXT("Can't fill an invalid DataTable."));
+		return false;
+	}
+
+	FString Data;
+	if (!FFileHelper::LoadFileToString(Data, *InFilePath))
+	{
+		UE_LOG(LogDataTable, Error, TEXT("Can't load the file '%s'."), *InFilePath);
+		return false;
+	}
+
+	return FillDataTableFromCSVString(DataTable, Data);
+}
+
+bool UDataTableFunctionLibrary::FillDataTableFromJSONString(UDataTable* DataTable, const FString& InString)
+{
+	if (!DataTable)
+	{
+		UE_LOG(LogDataTable, Error, TEXT("Can't fill an invalid DataTable."));
+		return false;
+	}
+
+	bool bResult = true;
+	if (InString.Len() == 0)
+	{
+		DataTable->EmptyTable();
+	}
+	else
+	{
+		TArray<FString> Errors = DataTable->CreateTableFromJSONString(InString);
+		if (Errors.Num())
+		{
+			for (const FString& Error : Errors)
+			{
+				UE_LOG(LogDataTable, Warning, TEXT("%s"), *Error);
+			}
+		}
+		bResult = Errors.Num() == 0;
+	}
+	return bResult;
+}
+
+bool UDataTableFunctionLibrary::FillDataTableFromJSONFile(UDataTable* DataTable, const FString& InFilePath)
+{
+	if (!DataTable)
+	{
+		UE_LOG(LogDataTable, Error, TEXT("Can't fill an invalid DataTable."));
+		return false;
+	}
+
+	FString Data;
+	if (!FFileHelper::LoadFileToString(Data, *InFilePath))
+	{
+		UE_LOG(LogDataTable, Error, TEXT("Can't load the file '%s'."), *InFilePath);
+		return false;
+	}
+
+	return FillDataTableFromJSONString(DataTable, Data);
+}
+#endif //WITH_EDITOR

@@ -8,7 +8,6 @@ namespace UnrealBuildTool.Rules
 		{
 			PrivateIncludePaths.AddRange(
 				new string[] {
-					"FX/Composure/Private",
                     "../../../../Source/Runtime/Engine/",
 				}
 				);
@@ -20,7 +19,8 @@ namespace UnrealBuildTool.Rules
                     "CoreUObject",
                     "Engine",
 					"MovieScene",
-					"MovieSceneTracks"
+					"MovieSceneTracks",
+					"TimeManagement"
 				}
 				);
             

@@ -73,6 +73,24 @@ class MOVIESCENE_API UMovieSceneFolder : public UObject
 	{
 		FolderColor = InFolderColor;
 	}
+
+	/**
+	 * Get this folder's desired sorting order 
+	 */
+	int32 GetSortingOrder() const
+	{
+		return SortingOrder;
+	}
+
+	/**
+	 * Set this folder's desired sorting order.
+	 *
+	 * @param InSortingOrder The higher the value the further down the list the folder will be.
+	 */
+	void SetSortingOrder(const int32 InSortingOrder)
+	{
+		SortingOrder = InSortingOrder;
+	}
 #endif
 
 private:
@@ -96,6 +114,10 @@ private:
 	/** This folder's color */
 	UPROPERTY(EditAnywhere, Category=General, DisplayName=Color)
 	FColor FolderColor;
+
+	/** This folder's desired sorting order */
+	UPROPERTY()
+	int32 SortingOrder;
 #endif
 
 	/** The guids for the object bindings contained by this folder. */

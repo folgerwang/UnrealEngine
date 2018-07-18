@@ -6,14 +6,11 @@ Description: The contents of all introductory tutorials for Unreal Engine 4
 [EXCERPT:Stage1]
 ##Installing Visual Studio
 
-It appears that Visual Studio 2015 is not installed. 
+It appears that Visual Studio 2017 is not installed. 
 
-Installing Visual Studio 2015 will allow you to view Unreal header files, as well as create and compile your own code projects.
-
-You can install Visual Studio 2015 Community from Microsoft for free using the following link:
+Installing Visual Studio 2017 will allow you to view Unreal header files, as well as create and compile your own code projects.
 
 
-
-[Download Visual Studio 2015](http://go.microsoft.com/fwlink/?LinkId=532606)
+[Download Visual Studio 2017](https://www.visualstudio.com/)
 
 [/EXCERPT:Stage1]

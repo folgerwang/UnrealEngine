@@ -1,5 +1,4 @@
-﻿INTSourceChangelist:3317178
-Availability:Docs
+﻿Availability:Public
 Title:特別なノード グループ
 Crumbs: %ROOT%, Engine, Engine/Blueprints
 Description:このガイドでは、ブループリントの様々な箇所とブループリント グラフ内で使用できるノードについて学習することができるソースです。
@@ -8,48 +7,11 @@ parent:Engine/Blueprints
 order:3
 type:reference
 tags:Blueprints
+topic-image:Engine\Blueprints\UserGuide\using_interface_topic.png
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Blueprints/UserGuide:title%](Engine\Blueprints\UserGuide\using_interface_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/reference_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Blueprints/UserGuide:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Blueprints/UserGuide:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Blueprints/UserGuide]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Blueprints/UserGuide:title%](Engine\Blueprints\UserGuide\using_interface_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/reference_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Blueprints/UserGuide:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Blueprints/UserGuide:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Blueprints/UserGuide]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+[DIR(output:"topiccompact" parent:"Engine/Blueprints/Scripting" org:"flat")]
 
-[REGION:topics third]
-
+[COMMENT:none]
 
 %Engine/Blueprints/UserGuide/Events:topiccompact%
 %Engine/Blueprints/UserGuide/FlowControl:topiccompact%
@@ -60,105 +22,8 @@ tags:Blueprints
 %Engine/Blueprints/UserGuide/RandomStreams:topiccompact%
 %Engine/Blueprints/UserGuide/PatchingNodes:topiccompact%
 
-
-[/REGION]
-
-[COMMENT:none]
-
-[INCLUDE:Engine\Blueprints#intro]
-
-このページでは、様々なタイプのブループリント、グラフ タイプ、ブループリント エレメント (変数、コンポーネントおよびグラフなど)、通信方法、ブループリント間での情報の渡し方、ブループリントの作成時に操作することになる各種グラフ ノードの分類の概要を紹介します。 
-
-## ブループリントの種類
-
-[REGION:buttonlist]
-
-		[REGION:topics fourth]
-		[INCLUDE:#topics]
-		[/REGION]
-	
-[/REGION]
-
-<!--
-[EXCERPT:Topics]
-%Engine/Blueprints\UserGuide\Types\ClassBlueprint:topiccompact%
-%Engine/Blueprints\UserGuide\Types\LevelBlueprint:topiccompact%
-%Engine/Blueprints\UserGuide\Types\Interface:topiccompact%
-%Engine/Blueprints\UserGuide\Types\MacroLibrary:topiccompact%
-[/EXCERPT:Topics]
-
 [/COMMENT]
 
-## ブループリントのグラフの種類
-
-[REGION:buttonlist]
-
-		[REGION:topics fourth]
-		[INCLUDE:#topics_graph]
-		[/REGION]
-	
-[/REGION]
-
-[COMMENT:none]
-
-[EXCERPT:Topics_Graph]
-%Engine/Blueprints/UserGuide/EventGraph:topiccompact%
-%Engine/Blueprints/UserGuide/UserConstructionScript:topiccompact%
-%Engine/Blueprints/UserGuide/Functions:topiccompact%
-%Engine/Blueprints/UserGuide/Macros:topiccompact%
-[/EXCERPT:Topics_Graph]
-
-[/COMMENT]
-
-[COMMENT:none]
-
-## ブループリントのモード
-
-[REGION:buttonlist]
-
-		[REGION:topics fourth]
-		[INCLUDE:#topics_elements]
-		[/REGION]
-	
-[/REGION]
-
-[/COMMENT]
-
-[COMMENT:none]
-
-[EXCERPT:topics_elements]
-%Engine\Blueprints\Editor\Modes\Defaults:topiccompact%
-%Engine\Blueprints\Editor\Modes\Components:topiccompact%
-%Engine\Blueprints\Editor\Modes\GraphPanel:topiccompact%
-[/EXCERPT:topics_elements]
-
-[/COMMENT]
-
-## ブループリントの通信方法
-
-[REGION:buttonlist]
-
-		[REGION:topics fourth]
-		[INCLUDE:#topics_communication]
-		[/REGION]
-	
-[/REGION]
-
-[COMMENT:none]
-
-[EXCERPT:topics_communication]
-%Engine\Blueprints\UserGuide\BlueprintCommsUsage:topiccompact%
-%Engine/Blueprints\UserGuide\BlueprintComms:topiccompact%
-%Engine\Blueprints\UserGuide\Types\Interface\UsingInterfaces:topiccompact%
-%Engine\Blueprints\UserGuide\EventDispatcher\CreatingEvents\:topiccompact%
-[/EXCERPT:topics_communication]
-
-[/COMMENT]
-
-
-##Graph ノード
-
--->
 
 
 

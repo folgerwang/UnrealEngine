@@ -9,6 +9,9 @@
 #include "GenericPlatform/GenericPlatformHttp.h"
 #include "ProfilingDebugging/ScopedTimers.h"
 #include "HAL/LowLevelMemTracker.h"
+#include "Engine/World.h"
+#include "UnrealEngine.h"
+#include "Engine/LocalPlayer.h"
 
 DEFINE_LOG_CATEGORY_STATIC( LogHttpReplay, Log, All );
 
@@ -22,6 +25,25 @@ DECLARE_CYCLE_STAT( TEXT( "Http replay decompress time" ), STAT_HttpReplay_Decom
 static TAutoConsoleVariable<FString> CVarMetaFilterOverride( TEXT( "httpReplay.MetaFilterOverride" ), TEXT( "" ), TEXT( "" ) );
 static TAutoConsoleVariable<float> CVarChunkUploadDelayInSeconds( TEXT( "httpReplay.ChunkUploadDelayInSeconds" ), 10.0f, TEXT( "" ) );
 static TAutoConsoleVariable<int> CVarMaxCacheSize( TEXT( "httpReplay.MaxCacheSize" ), 1024 * 1024 * 10, TEXT( "" ) );		// 10 MB cache by default
+
+static const FString GetUserStringFromUserIndex(const int32 UserIndex)
+{
+	if (UserIndex != INDEX_NONE)
+	{
+		if (UWorld* World = GWorld.GetReference())
+		{
+			if (GEngine != nullptr)
+			{
+				if (ULocalPlayer* LocalPlayer = GEngine->GetLocalPlayerFromControllerId(World, UserIndex))
+				{
+					return LocalPlayer->GetPreferredUniqueNetId().ToString();
+				}
+			}
+		}
+	}
+
+	return FString();
+}
 
 class FNetworkReplayListItem : public FJsonSerializable
 {
@@ -114,6 +136,7 @@ public:
 	FString Viewer;
 	int32 Time;
 	int32 NumChunks;
+	FString Metadata;
 
 	// FJsonSerializable
 	BEGIN_JSON_SERIALIZER
@@ -121,6 +144,7 @@ public:
 		JSON_SERIALIZE("numChunks", NumChunks);
 		JSON_SERIALIZE("time", Time);
 		JSON_SERIALIZE("viewerId", Viewer);
+		JSON_SERIALIZE("meta", Metadata);
 	END_JSON_SERIALIZER
 };
 
@@ -167,7 +191,7 @@ int64 FHttpStreamFArchive::TotalSize()
 
 void FHttpStreamFArchive::Seek( int64 InPos ) 
 {
-	check( InPos < Buffer.Num() );
+	check( InPos <= Buffer.Num() );
 
 	Pos = InPos;
 }
@@ -200,29 +224,58 @@ FHttpNetworkReplayStreamer::FHttpNetworkReplayStreamer() :
 	GConfig->GetString( TEXT( "HttpNetworkReplayStreaming" ), TEXT( "ServerURL" ), ServerURL, GEngineIni );
 }
 
-void FHttpNetworkReplayStreamer::StartStreaming( const FString& CustomName, const FString& FriendlyName, const TArray< FString >& UserNames, bool bRecord, const FNetworkReplayVersion& InReplayVersion, const FOnStreamReadyDelegate& Delegate )
+void FHttpNetworkReplayStreamer::StartStreaming(const FString& CustomName, const FString& FriendlyName, const TArray< int32 >& UserIndices, bool bRecord, const FNetworkReplayVersion& InReplayVersion, const FStartStreamingCallback& Delegate)
 {
+	TArray<FString> UserStrings;
+	for (int32 UserIndex : UserIndices)
+	{
+		FString UserString(GetUserStringFromUserIndex(UserIndex));
+		if (!UserString.IsEmpty())
+		{
+			UserStrings.Add(MoveTemp(UserString));
+		}
+	}
+
+	StartStreaming(CustomName, FriendlyName, UserStrings, bRecord, InReplayVersion, Delegate);
+}
+
+FString FHttpNetworkReplayStreamer::GetRecordingMetadata() const
+{
+	FString MetaString;
+	FParse::Value( FCommandLine::Get(), TEXT( "ReplayMeta=" ), MetaString );
+	return MetaString;
+}
+
+void FHttpNetworkReplayStreamer::StartStreaming( const FString& CustomName, const FString& FriendlyName, const TArray< FString >& UserNames, bool bRecord, const FNetworkReplayVersion& InReplayVersion, const FStartStreamingCallback& Delegate )
+{
+	FStartStreamingResult StreamingResult;
+	StreamingResult.bRecording = bRecord;
+
 	if ( !SessionName.IsEmpty() )
 	{
 		UE_LOG( LogHttpReplay, Warning, TEXT( "FHttpNetworkReplayStreamer::StartStreaming. SessionName already set." ) );
+		Delegate.ExecuteIfBound(StreamingResult);
 		return;
 	}
 
 	if ( IsStreaming() )
 	{
 		UE_LOG( LogHttpReplay, Warning, TEXT( "FHttpNetworkReplayStreamer::StartStreaming. IsStreaming == true." ) );
+		Delegate.ExecuteIfBound(StreamingResult);
 		return;
 	}
 
 	if ( ServerURL.IsEmpty() )
 	{
 		UE_LOG( LogHttpReplay, Warning, TEXT( "FHttpNetworkReplayStreamer::StartStreaming. ServerURL is empty, aborting." ) );
+		Delegate.ExecuteIfBound(StreamingResult);
 		return;
 	}
 
 	if ( IsHttpRequestInFlight() )
 	{
 		UE_LOG( LogHttpReplay, Warning, TEXT( "FHttpNetworkReplayStreamer::StartStreaming. IsHttpRequestInFlight == true." ) );
+		Delegate.ExecuteIfBound(StreamingResult);
 		return;
 	}
 
@@ -232,15 +285,15 @@ void FHttpNetworkReplayStreamer::StartStreaming( const FString& CustomName, cons
 	StartStreamingDelegate = Delegate;
 
 	// Setup the archives
-	StreamArchive.ArIsLoading		= !bRecord;
-	StreamArchive.ArIsSaving		= !StreamArchive.ArIsLoading;
+	StreamArchive.SetIsLoading(!bRecord);
+	StreamArchive.SetIsSaving(bRecord);
 	StreamArchive.bAtEndOfReplay	= false;
 
-	HeaderArchive.ArIsLoading		= StreamArchive.ArIsLoading;
-	HeaderArchive.ArIsSaving		= StreamArchive.ArIsSaving;
+	HeaderArchive.SetIsLoading(!bRecord);
+	HeaderArchive.SetIsSaving(bRecord);
 
-	CheckpointArchive.ArIsLoading	= StreamArchive.ArIsLoading;
-	CheckpointArchive.ArIsSaving	= StreamArchive.ArIsSaving;
+	CheckpointArchive.SetIsLoading(!bRecord);
+	CheckpointArchive.SetIsSaving(bRecord);
 
 	LastChunkTime = FPlatformTime::Seconds();
 
@@ -288,7 +341,7 @@ void FHttpNetworkReplayStreamer::StartStreaming( const FString& CustomName, cons
 		AddRequestToQueue( EQueuedHttpRequestType::StartDownloading, HttpRequest );
 
 		// Download the header (will add to queue)
-		DownloadHeader();
+		DownloadHeader(FDownloadHeaderCallback());
 
 		// Download the first set of checkpoints (will add to queue)
 		EnumerateCheckpoints();
@@ -313,9 +366,8 @@ void FHttpNetworkReplayStreamer::StartStreaming( const FString& CustomName, cons
 			URL = FString::Printf( TEXT( "%sreplay?app=%s&version=%u&cl=%u&friendlyName=%s" ), *ServerURL, *ReplayVersion.AppString, ReplayVersion.NetworkVersion, ReplayVersion.Changelist, *FGenericPlatformHttp::UrlEncode( FriendlyName ) );
 		}
 
-		FString MetaString;
-
-		if ( FParse::Value( FCommandLine::Get(), TEXT( "ReplayMeta=" ), MetaString ) && !MetaString.IsEmpty() )
+		FString MetaString = GetRecordingMetadata();
+		if ( !MetaString.IsEmpty() )
 		{
 			URL += FString::Printf( TEXT( "&meta=%s" ), *FGenericPlatformHttp::UrlEncode( MetaString ) );
 		}
@@ -530,7 +582,7 @@ void FHttpNetworkReplayStreamer::StopStreaming()
 
 void FHttpNetworkReplayStreamer::UploadHeader()
 {
-	check( StreamArchive.ArIsSaving );
+	check( StreamArchive.IsSaving() );
 
 	if ( SessionName.IsEmpty() )
 	{
@@ -574,9 +626,37 @@ void FHttpNetworkReplayStreamer::UploadHeader()
 	LastChunkTime = FPlatformTime::Seconds();
 }
 
+bool FHttpNetworkReplayStreamer::CompressRequest(FHttpRequestPtr HttpRequest, const TArray<uint8>& RequestBuffer) const
+{
+	if ( SupportsCompression() )
+	{
+		SCOPE_CYCLE_COUNTER( STAT_HttpReplay_CompressTime );
+
+		const double StartTime = FPlatformTime::Seconds();
+		FHttpStreamFArchive Compressed;
+
+		if ( !CompressBuffer( RequestBuffer, Compressed ) )
+		{
+			return false;
+		}
+
+		const double EndTime = FPlatformTime::Seconds();
+
+		UE_LOG( LogHttpReplay, VeryVerbose, TEXT( "Compressed request. Original: %i, Compressed: %i, Time: %2.2f MS" ), StreamArchive.Buffer.Num(), Compressed.Buffer.Num(), ( EndTime - StartTime ) * 1000.0f );
+
+		HttpRequest->SetContent( Compressed.Buffer );
+	}
+	else
+	{
+		HttpRequest->SetContent( RequestBuffer );
+	}
+
+	return true;
+}
+
 void FHttpNetworkReplayStreamer::FlushStream()
 {
-	check( StreamArchive.ArIsSaving );
+	check( StreamArchive.IsSaving() );
 
 	if ( SessionName.IsEmpty() )
 	{
@@ -599,32 +679,13 @@ void FHttpNetworkReplayStreamer::FlushStream()
 
 	HttpRequest->OnProcessRequestComplete().BindRaw( this, &FHttpNetworkReplayStreamer::HttpUploadStreamFinished );
 
-	if ( SupportsCompression() )
+	if (!CompressRequest(HttpRequest, StreamArchive.Buffer))
 	{
-		SCOPE_CYCLE_COUNTER( STAT_HttpReplay_CompressTime );
-
-		const double StartTime = FPlatformTime::Seconds();
-		FHttpStreamFArchive Compressed;
-
-		if ( !CompressBuffer( StreamArchive.Buffer, Compressed ) )
-		{
-			SetLastError( ENetworkReplayError::ServiceUnavailable );
-			return;
-		}
-
-		const double EndTime = FPlatformTime::Seconds();
-
-		UE_LOG( LogHttpReplay, VeryVerbose, TEXT( "Compressed stream. Original: %i, Compressed: %i, Time: %2.2f MS" ), StreamArchive.Buffer.Num(), Compressed.Buffer.Num(), ( EndTime - StartTime ) * 1000.0f );
-
-		HttpRequest->SetContent( Compressed.Buffer );
-
-		TotalUploadBytes += Compressed.Buffer.Num();
+		SetLastError( ENetworkReplayError::ServiceUnavailable );
+		return;
 	}
-	else
-	{
-		HttpRequest->SetContent( StreamArchive.Buffer );
-		TotalUploadBytes += StreamArchive.Buffer.Num();
-	}
+
+	TotalUploadBytes += HttpRequest->GetContentLength();
 
 	HttpRequest->SetURL( FString::Printf( TEXT( "%sreplay/%s/file/stream.%i?numChunks=%i&time=%i&mTime1=%i&mTime2=%i&absSize=%i" ), *ServerURL, *SessionName, StreamChunkIndex, StreamChunkIndex + 1, TotalDemoTimeInMS, StreamTimeRangeStart, StreamTimeRangeEnd, TotalUploadBytes ) );
 	HttpRequest->SetVerb( TEXT( "POST" ) );
@@ -709,28 +770,36 @@ bool FQueuedGotoFakeCheckpoint::PreProcess( FHttpNetworkReplayStreamer* Streamer
 	// Reset chunk index
 	Streamer->StreamChunkIndex		= 0;
 
-	Streamer->GotoCheckpointDelegate.ExecuteIfBound( true, Streamer->LastGotoTimeInMS );
-	Streamer->GotoCheckpointDelegate = FOnCheckpointReadyDelegate();
+	FGotoCallback& GotoCheckpointDelegate = Streamer->GotoCheckpointDelegate;
+	if (GotoCheckpointDelegate.IsBound())
+	{
+		FGotoResult Result;
+		Result.Result = EStreamingOperationResult::Success;
+		Result.ExtraTimeMS = Streamer->LastGotoTimeInMS;
+
+		GotoCheckpointDelegate.Execute( Result );
+		GotoCheckpointDelegate = FGotoCallback();
+	}	
 
 	Streamer->LastGotoTimeInMS = -1;
 
 	return true;
 }
 
-void FHttpNetworkReplayStreamer::GotoCheckpointIndex( const int32 CheckpointIndex, const FOnCheckpointReadyDelegate& Delegate )
+void FHttpNetworkReplayStreamer::GotoCheckpointIndex( const int32 CheckpointIndex, const FGotoCallback& Delegate )
 {
 	if ( GotoCheckpointDelegate.IsBound() || DownloadCheckpointIndex != -1 )
 	{
 		// If we're currently going to a checkpoint now, ignore this request
 		UE_LOG( LogHttpReplay, Warning, TEXT( "FHttpNetworkReplayStreamer::GotoCheckpointIndex. Busy processing another checkpoint." ) );
-		Delegate.ExecuteIfBound( false, -1 );
+		Delegate.ExecuteIfBound(FGotoResult());
 		return;
 	}
 
 	if ( ServerURL.IsEmpty() )
 	{
 		UE_LOG( LogHttpReplay, Warning, TEXT( "FHttpNetworkReplayStreamer::GotoCheckpointIndex. ServerURL is empty, aborting." ) );
-		Delegate.ExecuteIfBound( false, -1 );
+		Delegate.ExecuteIfBound(FGotoResult());
 		return;
 	}
 
@@ -748,7 +817,7 @@ void FHttpNetworkReplayStreamer::GotoCheckpointIndex( const int32 CheckpointInde
 	if ( !CheckpointList.ReplayEvents.IsValidIndex( CheckpointIndex ) )
 	{
 		UE_LOG( LogHttpReplay, Warning, TEXT( "FHttpNetworkReplayStreamer::GotoCheckpointIndex. Invalid checkpoint index." ) );
-		Delegate.ExecuteIfBound( false, -1 );
+		Delegate.ExecuteIfBound(FGotoResult());
 		return;
 	}
 
@@ -766,11 +835,12 @@ void FHttpNetworkReplayStreamer::GotoCheckpointIndex( const int32 CheckpointInde
 	AddRequestToQueue( EQueuedHttpRequestType::DownloadingCheckpoint, HttpRequest );
 }
 
-void FHttpNetworkReplayStreamer::SearchEvents(const FString& EventGroup, const FOnEnumerateStreamsComplete& Delegate)
+void FHttpNetworkReplayStreamer::SearchEvents(const FString& EventGroup, const FSearchEventsCallback& Delegate)
 {
 	if ( ServerURL.IsEmpty() )
 	{
 		UE_LOG( LogHttpReplay, Warning, TEXT( "FHttpNetworkReplayStreamer::SearchEvents. ServerURL is empty, aborting." ) );
+		Delegate.Execute(FSearchEventsResult());
 		return;
 	}
 
@@ -779,16 +849,40 @@ void FHttpNetworkReplayStreamer::SearchEvents(const FString& EventGroup, const F
 	HttpRequest->SetURL(FString::Printf(TEXT("%sevent?group=%s"), *ServerURL, *EventGroup));
 	HttpRequest->SetVerb(TEXT("GET"));
 
-	HttpRequest->OnProcessRequestComplete().BindRaw(this, &FHttpNetworkReplayStreamer::HttpEnumerateSessionsFinished, Delegate);
+	FEnumerateStreamsCallback WrappedDelegate = FEnumerateStreamsCallback::CreateLambda([Delegate](const FEnumerateStreamsResult& Result)
+	{
+		if (Delegate.IsBound())
+		{
+			FSearchEventsResult NewResult;
+			NewResult.Result = Result.Result;
+			NewResult.CorruptedStreams = Result.CorruptedStreams;
+			NewResult.FoundStreams = Result.FoundStreams;
+			Delegate.Execute(NewResult);
+		}
+	});
+
+	HttpRequest->OnProcessRequestComplete().BindRaw(this, &FHttpNetworkReplayStreamer::HttpEnumerateSessionsFinished, WrappedDelegate);
 
 	AddRequestToQueue(EQueuedHttpRequestType::EnumeratingSessions, HttpRequest);
 }
 
-void FHttpNetworkReplayStreamer::RequestEventData(const FString& EventID, const FOnRequestEventDataComplete& Delegate)
+void FHttpNetworkReplayStreamer::RequestEventData(const FString& ReplayName, const FString& EventID, const int32 UserIndex, const FRequestEventDataCallback& Delegate)
+{
+	RequestEventData(ReplayName, EventID, Delegate);
+}
+
+void FHttpNetworkReplayStreamer::RequestEventData(const FString& ReplayName, const FString& EventID, const FRequestEventDataCallback& Delegate)
+{
+	UE_LOG(LogHttpReplay, Verbose, TEXT("FHttpNetworkReplayStreamer::RequestEventData: Ignoring explicit ReplayName."));
+	RequestEventData(EventID, Delegate);
+}
+
+void FHttpNetworkReplayStreamer::RequestEventData(const FString& EventID, const FRequestEventDataCallback& Delegate)
 {
 	if ( ServerURL.IsEmpty() )
 	{
 		UE_LOG( LogHttpReplay, Warning, TEXT( "FHttpNetworkReplayStreamer::RequestEventData. ServerURL is empty, aborting." ) );
+		Delegate.Execute(FRequestEventDataResult());
 		return;
 	}
 
@@ -803,32 +897,35 @@ void FHttpNetworkReplayStreamer::RequestEventData(const FString& EventID, const 
 	AddRequestToQueue(EQueuedHttpRequestType::RequestEventData, HttpRequest);
 }
 
-void FHttpNetworkReplayStreamer::HttpRequestEventDataFinished(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded, FOnRequestEventDataComplete RequestEventDataCompleteDelegate)
+void FHttpNetworkReplayStreamer::HttpRequestEventDataFinished(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded, FRequestEventDataCallback RequestEventDataCompleteDelegate)
 {
 	RequestFinished(StreamerState, EQueuedHttpRequestType::RequestEventData, HttpRequest);
 
+	FRequestEventDataResult Result;
 	if (bSucceeded && HttpResponse->GetResponseCode() == EHttpResponseCodes::Ok)
 	{
-		RequestEventDataCompleteDelegate.ExecuteIfBound(HttpResponse->GetContent(), true);
 		UE_LOG(LogHttpReplay, Verbose, TEXT("FHttpNetworkReplayStreamer::HttpRequestEventDataFinished."));
+
+		Result.ReplayEventListItem = HttpResponse->GetContent();
+		Result.Result = EStreamingOperationResult::Success;
 	}
 	else
 	{
 		// FAIL
 		UE_LOG(LogHttpReplay, Error, TEXT("FHttpNetworkReplayStreamer::HttpRequestEventDataFinished. FAILED, Response code: %d"), HttpResponse.IsValid() ? HttpResponse->GetResponseCode() : 0);
-
-		RequestEventDataCompleteDelegate.ExecuteIfBound(TArray<uint8>(), false);
 	}
+
+	RequestEventDataCompleteDelegate.ExecuteIfBound(Result);
 }
 
-void FHttpNetworkReplayStreamer::GotoTimeInMS( const uint32 TimeInMS, const FOnCheckpointReadyDelegate& Delegate )
+void FHttpNetworkReplayStreamer::GotoTimeInMS( const uint32 TimeInMS, const FGotoCallback& Delegate )
 {
 	if ( LastGotoTimeInMS != -1 || DownloadCheckpointIndex != -1 )
 	{
 		// If we're processing requests, be on the safe side and cancel the scrub
 		// FIXME: We can cancel the in-flight requests as well
 		UE_LOG( LogHttpReplay, Log, TEXT( "FHttpNetworkReplayStreamer::GotoTimeInMS. Busy processing pending requests." ) );
-		Delegate.ExecuteIfBound( false, -1 );
+		Delegate.ExecuteIfBound( FGotoResult() );
 		return;
 	}
 
@@ -836,7 +933,7 @@ void FHttpNetworkReplayStreamer::GotoTimeInMS( const uint32 TimeInMS, const FOnC
 	{
 		// If we're currently going to a checkpoint now, ignore this request
 		UE_LOG( LogHttpReplay, Warning, TEXT( "FHttpNetworkReplayStreamer::GotoTimeInMS. Busy processing another checkpoint." ) );
-		Delegate.ExecuteIfBound( false, -1 );
+		Delegate.ExecuteIfBound( FGotoResult() );
 		return;
 	}
 
@@ -896,25 +993,10 @@ void FHttpNetworkReplayStreamer::FlushCheckpointInternal( uint32 TimeInMS )
 		HttpRequest->SetVerb(TEXT("POST"));
 		HttpRequest->SetHeader(TEXT("Content-Type"), TEXT("application/octet-stream"));
 
-		if (SupportsCompression())
+		if (!CompressRequest(HttpRequest, CheckpointArchive.Buffer))
 		{
-			SCOPE_CYCLE_COUNTER(STAT_HttpReplay_CompressTime);
-
-			const double StartTime = FPlatformTime::Seconds();
-			FHttpStreamFArchive Compressed;
-			if (!CompressBuffer(CheckpointArchive.Buffer, Compressed))
-			{
-				SetLastError(ENetworkReplayError::ServiceUnavailable);
-				return;
-			}
-			const double EndTime = FPlatformTime::Seconds();
-			HttpRequest->SetContent(Compressed.Buffer);
-
-			UE_LOG(LogHttpReplay, VeryVerbose, TEXT("Compressed checkpoint. Original: %i, Compressed: %i, Time: %2.2f MS"), CheckpointArchive.Buffer.Num(), Compressed.Buffer.Num(), (EndTime - StartTime) * 1000.0f);
-		}
-		else
-		{
-			HttpRequest->SetContent(CheckpointArchive.Buffer);
+			SetLastError(ENetworkReplayError::ServiceUnavailable);
+			return;
 		}
 
 		AddRequestToQueue(EQueuedHttpRequestType::UploadingCheckpoint, HttpRequest, 2, 2.0f);
@@ -1006,7 +1088,7 @@ void FHttpNetworkReplayStreamer::AddEvent( const uint32 TimeInMS, const FString&
 	AddOrUpdateEvent( TEXT( "" ), TimeInMS, Group, Meta, Data );
 }
 
-void FHttpNetworkReplayStreamer::DownloadHeader(const FOnDownloadHeaderComplete& Delegate /*= FOnDownloadHeaderComplete()*/)
+void FHttpNetworkReplayStreamer::DownloadHeader(const FDownloadHeaderCallback& Delegate)
 {
 	// Download header first
 	TSharedRef<IHttpRequest> HttpRequest = FHttpModule::Get().CreateRequest();
@@ -1140,11 +1222,17 @@ void FHttpNetworkReplayStreamer::ConditionallyDownloadNextChunk()
 	LastChunkTime = FPlatformTime::Seconds();
 }
 
-void FHttpNetworkReplayStreamer::KeepReplay( const FString& ReplayName, const bool bKeep )
+void FHttpNetworkReplayStreamer::KeepReplay(const FString& ReplayName, const bool bKeep, const int32 UserIndex, const FKeepReplayCallback& Delegate)
+{
+	KeepReplay(ReplayName, bKeep, Delegate);
+}
+
+void FHttpNetworkReplayStreamer::KeepReplay( const FString& ReplayName, const bool bKeep, const FKeepReplayCallback& Delegate )
 {
 	if ( ServerURL.IsEmpty() )
 	{
 		UE_LOG( LogHttpReplay, Warning, TEXT( "FHttpNetworkReplayStreamer::KeepReplay. ServerURL is empty, aborting." ) );
+		Delegate.ExecuteIfBound(FKeepReplayResult());
 		return;
 	}
 
@@ -1163,19 +1251,53 @@ void FHttpNetworkReplayStreamer::KeepReplay( const FString& ReplayName, const bo
 	HttpRequest->SetVerb( TEXT( "POST" ) );
 	HttpRequest->SetHeader( TEXT( "Content-Type" ), TEXT( "application/json" ) );
 
-	HttpRequest->OnProcessRequestComplete().BindRaw( this, &FHttpNetworkReplayStreamer::KeepReplayFinished );
+	HttpRequest->OnProcessRequestComplete().BindRaw( this, &FHttpNetworkReplayStreamer::KeepReplayFinished, Delegate, ReplayName );
 
 	AddRequestToQueue( EQueuedHttpRequestType::KeepReplay, HttpRequest );
 }
 
-void FHttpNetworkReplayStreamer::KeepReplayFinished( FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded )
+void FHttpNetworkReplayStreamer::RenameReplayFriendlyName(const FString& ReplayName, const FString& NewFriendlyName, const int32 UserIndex, const FRenameReplayCallback& Delegate)
+{
+	RenameReplayFriendlyName(ReplayName, NewFriendlyName, Delegate);
+}
+
+void FHttpNetworkReplayStreamer::RenameReplayFriendlyName(const FString& ReplayName, const FString& NewFriendlyName, const FRenameReplayCallback& Delegate)
+{
+	UE_LOG(LogHttpReplay, Log, TEXT("FHttpNetworkReplayStreamer::RenameReplayFriendlyName is currently unsupported."));
+	FRenameReplayResult Result;
+	Result.Result = EStreamingOperationResult::Unsupported;
+	Delegate.Execute(Result);
+}
+
+void FHttpNetworkReplayStreamer::RenameReplay(const FString& ReplayName, const FString& NewReplayName, const int32 UserIndex, const FRenameReplayCallback& Delegate)
+{
+	RenameReplay(ReplayName, NewReplayName, Delegate);
+}
+
+void FHttpNetworkReplayStreamer::RenameReplay(const FString& ReplayName, const FString& NewReplayName, const FRenameReplayCallback& Delegate)
+{
+	UE_LOG(LogHttpReplay, Log, TEXT("FHttpNetworkReplayStreamer::RenameReplay is currently unsupported."));
+	FRenameReplayResult Result;
+	Result.Result = EStreamingOperationResult::Unsupported;
+	Delegate.Execute(Result);
+}
+
+void FHttpNetworkReplayStreamer::KeepReplayFinished( FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded, FKeepReplayCallback Delegate, FString ReplayName )
 {
 	RequestFinished( StreamerState, EQueuedHttpRequestType::KeepReplay, HttpRequest );
 
+	FKeepReplayResult Result;
 	if ( !bSucceeded || HttpResponse->GetResponseCode() != EHttpResponseCodes::NoContent )
 	{
 		UE_LOG( LogHttpReplay, Error, TEXT( "FHttpNetworkReplayStreamer::KeepReplayFinished. FAILED, Response code: %d" ), HttpResponse.IsValid() ? HttpResponse->GetResponseCode() : 0 );
 	}
+	else
+	{
+		Result.Result = EStreamingOperationResult::Success;
+		Result.NewReplayName = ReplayName;
+	}
+
+	Delegate.Execute(Result);
 }
 
 void FHttpNetworkReplayStreamer::RefreshViewer( const bool bFinal )
@@ -1340,23 +1462,35 @@ bool FHttpNetworkReplayStreamer::IsLoadingCheckpoint() const
 	return GotoCheckpointDelegate.IsBound();
 }
 
-void FHttpNetworkReplayStreamer::DeleteFinishedStream( const FString& StreamName, const FOnDeleteFinishedStreamComplete& Delegate ) const
+void FHttpNetworkReplayStreamer::DeleteFinishedStream(const FString& StreamName, const int32 UserIndex, const FDeleteFinishedStreamCallback& Delegate)
 {
-	// Stubbed!
-	Delegate.ExecuteIfBound(false);
+	DeleteFinishedStream(StreamName, Delegate);
 }
 
-void FHttpNetworkReplayStreamer::EnumerateStreams( const FNetworkReplayVersion& InReplayVersion, const FString& UserString, const FString& MetaString, const FOnEnumerateStreamsComplete& Delegate )
+void FHttpNetworkReplayStreamer::DeleteFinishedStream( const FString& StreamName, const FDeleteFinishedStreamCallback& Delegate )
+{
+	UE_LOG(LogHttpReplay, Log, TEXT("FHttpNetworkReplayStreamer::DeleteFinishedStream is currently unsupported."));
+	FDeleteFinishedStreamResult Result;
+	Result.Result = EStreamingOperationResult::Unsupported;
+	Delegate.ExecuteIfBound(Result);
+}
+
+void FHttpNetworkReplayStreamer::EnumerateStreams( const FNetworkReplayVersion& InReplayVersion, const int32 UserIndex, const FString& MetaString, const TArray< FString >& ExtraParms, const FEnumerateStreamsCallback& Delegate )
+{
+	EnumerateStreams( InReplayVersion, GetUserStringFromUserIndex(UserIndex), MetaString, ExtraParms, Delegate );
+}
+
+void FHttpNetworkReplayStreamer::EnumerateStreams( const FNetworkReplayVersion& InReplayVersion, const FString& UserString, const FString& MetaString, const FEnumerateStreamsCallback& Delegate )
 {
 	EnumerateStreams( InReplayVersion, UserString, MetaString, TArray< FString >(), Delegate );
 }
 
-void FHttpNetworkReplayStreamer::EnumerateStreams( const FNetworkReplayVersion& InReplayVersion, const FString& UserString, const FString& MetaString, const TArray< FString >& ExtraParms, const FOnEnumerateStreamsComplete& Delegate )
+void FHttpNetworkReplayStreamer::EnumerateStreams( const FNetworkReplayVersion& InReplayVersion, const FString& UserString, const FString& MetaString, const TArray< FString >& ExtraParms, const FEnumerateStreamsCallback& Delegate )
 {
 	if ( ServerURL.IsEmpty() )
 	{
 		UE_LOG( LogHttpReplay, Warning, TEXT( "FHttpNetworkReplayStreamer::EnumerateStreams. ServerURL is empty, aborting." ) );
-		Delegate.ExecuteIfBound( TArray<FNetworkReplayStreamInfo>() );
+		Delegate.ExecuteIfBound( FEnumerateStreamsResult() );
 		return;
 	}
 
@@ -1405,12 +1539,17 @@ void FHttpNetworkReplayStreamer::EnumerateStreams( const FNetworkReplayVersion& 
 	AddRequestToQueue( EQueuedHttpRequestType::EnumeratingSessions, HttpRequest );
 }
 
-void FHttpNetworkReplayStreamer::EnumerateRecentStreams( const FNetworkReplayVersion& InReplayVersion, const FString& InRecentViewer, const FOnEnumerateStreamsComplete& Delegate )
+void FHttpNetworkReplayStreamer::EnumerateRecentStreams( const FNetworkReplayVersion& InReplayVersion, const int32 UserIndex, const FEnumerateStreamsCallback& Delegate )
+{
+	EnumerateRecentStreams( InReplayVersion, GetUserStringFromUserIndex(UserIndex), Delegate );
+}
+
+void FHttpNetworkReplayStreamer::EnumerateRecentStreams( const FNetworkReplayVersion& InReplayVersion, const FString& InRecentViewer, const FEnumerateStreamsCallback& Delegate )
 {
 	if ( ServerURL.IsEmpty() )
 	{
 		UE_LOG( LogHttpReplay, Warning, TEXT( "FHttpNetworkReplayStreamer::EnumerateRecentStreams. ServerURL is empty, aborting." ) );
-		Delegate.ExecuteIfBound( TArray<FNetworkReplayStreamInfo>() );
+		Delegate.ExecuteIfBound( FEnumerateStreamsResult() );
 		return;
 	}
 
@@ -1513,17 +1652,22 @@ void FHttpNetworkReplayStreamer::ConditionallyEnumerateCheckpoints()
 	}
 };
 
-void FHttpNetworkReplayStreamer::EnumerateEvents(const FString& Group, const FEnumerateEventsCompleteDelegate& EnumerationCompleteDelegate)
+void FHttpNetworkReplayStreamer::EnumerateEvents(const FString& ReplayName, const FString& Group, const int32 UserIndex, const FEnumerateEventsCallback& Delegate)
 {
-	EnumerateEvents( SessionName, Group, EnumerationCompleteDelegate );
+	EnumerateEvents(ReplayName, Group, Delegate);
 }
 
-void FHttpNetworkReplayStreamer::EnumerateEvents( const FString& ReplayName, const FString& Group, const FEnumerateEventsCompleteDelegate& EnumerationCompleteDelegate )
+void FHttpNetworkReplayStreamer::EnumerateEvents(const FString& Group, const FEnumerateEventsCallback& Delegate)
+{
+	EnumerateEvents(SessionName, Group, Delegate);
+}
+
+void FHttpNetworkReplayStreamer::EnumerateEvents(const FString& ReplayName, const FString& Group, const FEnumerateEventsCallback& EnumerationCompleteDelegate)
 {
 	if ( ServerURL.IsEmpty() )
 	{
 		UE_LOG( LogHttpReplay, Warning, TEXT( "FHttpNetworkReplayStreamer::EnumerateRecentStreams. ServerURL is empty, aborting." ) );
-		EnumerationCompleteDelegate.ExecuteIfBound(FReplayEventList(), false);
+		EnumerationCompleteDelegate.ExecuteIfBound(FEnumerateEventsResult());
 		return;
 	}
 
@@ -1607,8 +1751,8 @@ void FHttpNetworkReplayStreamer::HttpStopUploadingFinished( FHttpRequestPtr Http
 		SetLastError( ENetworkReplayError::ServiceUnavailable );
 	}
 
-	StreamArchive.ArIsLoading = false;
-	StreamArchive.ArIsSaving = false;
+	StreamArchive.SetIsLoading(false);
+	StreamArchive.SetIsSaving(false);
 	StreamArchive.Buffer.Empty();
 	StreamArchive.Pos = 0;
 	StreamChunkIndex = 0;
@@ -1620,6 +1764,9 @@ void FHttpNetworkReplayStreamer::HttpHeaderUploadFinished( FHttpRequestPtr HttpR
 	TSharedPtr< FQueuedHttpRequest > SavedFlightHttpRequest = InFlightHttpRequest;
 
 	RequestFinished( EStreamerState::StreamingUp, EQueuedHttpRequestType::UploadingHeader, HttpRequest );
+
+	FStartStreamingResult Result;
+	Result.bRecording = true;
 	
 	if ( bSucceeded && HttpResponse->GetResponseCode() == EHttpResponseCodes::NoContent )
 	{
@@ -1629,8 +1776,7 @@ void FHttpNetworkReplayStreamer::HttpHeaderUploadFinished( FHttpRequestPtr HttpR
 		}
 
 		UE_LOG( LogHttpReplay, Verbose, TEXT( "FHttpNetworkReplayStreamer::HttpHeaderUploadFinished. TotalUploadBytes: %i" ), TotalUploadBytes );
-
-		StartStreamingDelegate.ExecuteIfBound( true, true );
+		Result.Result = EStreamingOperationResult::Success;
 	}
 	else
 	{
@@ -1640,12 +1786,11 @@ void FHttpNetworkReplayStreamer::HttpHeaderUploadFinished( FHttpRequestPtr HttpR
 		}
 
 		UE_LOG( LogHttpReplay, Error, TEXT( "FHttpNetworkReplayStreamer::HttpHeaderUploadFinished. FAILED, %s" ), *BuildRequestErrorString( HttpRequest, HttpResponse ) );
-		StartStreamingDelegate.ExecuteIfBound( false, true );
 		SetLastError( ENetworkReplayError::ServiceUnavailable );
 	}
 
-	// Reset delegate
-	StartStreamingDelegate = FOnStreamReadyDelegate();
+	StartStreamingDelegate.ExecuteIfBound(Result);
+	StartStreamingDelegate = FStartStreamingCallback();
 }
 
 void FHttpNetworkReplayStreamer::HttpUploadStreamFinished( FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded )
@@ -1738,6 +1883,7 @@ void FHttpNetworkReplayStreamer::HttpStartDownloadingFinished( FHttpRequestPtr H
 		ViewerName = StartDownloadingResponse.Viewer;
 
 		bStreamIsLive = State == TEXT( "Live" );
+		StreamMetadata = StartDownloadingResponse.Metadata;
 
 		NumTotalStreamChunks = StartDownloadingResponse.NumChunks;
 		TotalDemoTimeInMS = StartDownloadingResponse.Time;
@@ -1748,10 +1894,10 @@ void FHttpNetworkReplayStreamer::HttpStartDownloadingFinished( FHttpRequestPtr H
 		{			
 			UE_LOG( LogHttpReplay, Warning, TEXT( "FHttpNetworkReplayStreamer::HttpStartDownloadingFinished. NO CHUNKS" ) );
 
-			StartStreamingDelegate.ExecuteIfBound( false, false );
+			StartStreamingDelegate.ExecuteIfBound(FStartStreamingResult());
 
 			// Reset delegate
-			StartStreamingDelegate = FOnStreamReadyDelegate();
+			StartStreamingDelegate = FStartStreamingCallback();
 
 			SetLastError( ENetworkReplayError::ServiceUnavailable );
 		}
@@ -1760,24 +1906,25 @@ void FHttpNetworkReplayStreamer::HttpStartDownloadingFinished( FHttpRequestPtr H
 	{
 		UE_LOG( LogHttpReplay, Error, TEXT( "FHttpNetworkReplayStreamer::HttpStartDownloadingFinished. FAILED, %s" ), *BuildRequestErrorString( HttpRequest, HttpResponse ) );
 
-		StartStreamingDelegate.ExecuteIfBound( false, false );
+		StartStreamingDelegate.ExecuteIfBound(FStartStreamingResult());
 
 		// Reset delegate
-		StartStreamingDelegate = FOnStreamReadyDelegate();
+		StartStreamingDelegate = FStartStreamingCallback();
 
 		SetLastError( ENetworkReplayError::ServiceUnavailable );
 	}
 }
 
-void FHttpNetworkReplayStreamer::HttpDownloadHeaderFinished( FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded, FOnDownloadHeaderComplete Delegate)
+void FHttpNetworkReplayStreamer::HttpDownloadHeaderFinished( FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded, FDownloadHeaderCallback Delegate)
 {
 	RequestFinished( EStreamerState::StreamingDown, EQueuedHttpRequestType::DownloadingHeader, HttpRequest );
 
 	check( StreamArchive.IsLoading() );
 
-	bool bWasRequestSuccessful = bSucceeded && HttpResponse->GetResponseCode() == EHttpResponseCodes::Ok;
-	if ( bWasRequestSuccessful )
+	FDownloadHeaderResult Result;
+	if ( bSucceeded && HttpResponse->GetResponseCode() == EHttpResponseCodes::Ok )
 	{
+		Result.Result = EStreamingOperationResult::Success;
 		HeaderArchive.Buffer.Append( HttpResponse->GetContent() );
 
 		UE_LOG( LogHttpReplay, Log, TEXT( "FHttpNetworkReplayStreamer::HttpDownloadHeaderFinished. Size: %i" ), HeaderArchive.Buffer.Num() );
@@ -1788,15 +1935,42 @@ void FHttpNetworkReplayStreamer::HttpDownloadHeaderFinished( FHttpRequestPtr Htt
 		UE_LOG( LogHttpReplay, Error, TEXT( "FHttpNetworkReplayStreamer::HttpDownloadHeaderFinished. FAILED, %s" ), *BuildRequestErrorString( HttpRequest, HttpResponse ) );
 
 		StreamArchive.Buffer.Empty();
-		StartStreamingDelegate.ExecuteIfBound( false, false );
+		StartStreamingDelegate.ExecuteIfBound(FStartStreamingResult());
 
 		// Reset delegate
-		StartStreamingDelegate = FOnStreamReadyDelegate();
+		StartStreamingDelegate = FStartStreamingCallback();
 
 		SetLastError( ENetworkReplayError::ServiceUnavailable );
 	}
 
-	Delegate.ExecuteIfBound(bWasRequestSuccessful);
+	Delegate.ExecuteIfBound(Result);
+}
+
+bool FHttpNetworkReplayStreamer::DecompressResponse(FHttpResponsePtr HttpResponse, TArray<uint8>& ResultBuffer) const
+{
+	if ( SupportsCompression() )
+	{
+		SCOPE_CYCLE_COUNTER( STAT_HttpReplay_DecompressTime );
+
+		FHttpStreamFArchive Compressed;
+		Compressed.Buffer = HttpResponse->GetContent();
+
+		TArray< uint8 > Uncompressed;
+		if ( !DecompressBuffer( Compressed, Uncompressed ) )
+		{
+			ResultBuffer.Empty();
+			UE_LOG( LogHttpReplay, Error, TEXT( "FHttpNetworkReplayStreamer::DecompressResponse. DecompressBuffer FAILED." ) );
+			return false;
+		}
+
+		ResultBuffer.Append(Uncompressed);
+	}
+	else
+	{
+		ResultBuffer.Append(HttpResponse->GetContent());
+	}
+
+	return true;
 }
 
 void FHttpNetworkReplayStreamer::HttpDownloadFinished( FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded, int32 RequestedStreamChunkIndex, bool bStreamWasLive )
@@ -1861,28 +2035,11 @@ void FHttpNetworkReplayStreamer::HttpDownloadFinished( FHttpRequestPtr HttpReque
 
 				// Add response to response cache
 				AddResponseToCache( HttpRequest, HttpResponse );
-
-				if ( SupportsCompression() )
+				
+				if (!DecompressResponse(HttpResponse, StreamArchive.Buffer))
 				{
-					SCOPE_CYCLE_COUNTER( STAT_HttpReplay_DecompressTime );
-
-					FHttpStreamFArchive Compressed;
-					Compressed.Buffer = HttpResponse->GetContent();
-					TArray< uint8 > Uncompressed;
-
-					if ( !DecompressBuffer( Compressed, Uncompressed ) )
-					{
-						StreamArchive.Buffer.Empty();
-						UE_LOG( LogHttpReplay, Error, TEXT( "FHttpNetworkReplayStreamer::HttpDownloadFinished. DecompressBuffer FAILED." ) );
-						SetLastError( ENetworkReplayError::ServiceUnavailable );
-						return;
-					}
-
-					StreamArchive.Buffer.Append( Uncompressed );
-				}
-				else
-				{
-					StreamArchive.Buffer.Append( HttpResponse->GetContent() );
+					SetLastError( ENetworkReplayError::ServiceUnavailable );
+					return;
 				}
 
 				StreamChunkIndex++;
@@ -1941,7 +2098,8 @@ void FHttpNetworkReplayStreamer::HttpDownloadCheckpointFinished( FHttpRequestPtr
 	// But for now, this is a safe change, and can co-exist with the more proper fix
 	if ( bStopStreamingCalled )
 	{
-		GotoCheckpointDelegate	= FOnCheckpointReadyDelegate();
+		GotoCheckpointDelegate.ExecuteIfBound(FGotoResult());
+		GotoCheckpointDelegate	= FGotoCallback();
 		DownloadCheckpointIndex = -1;
 		LastGotoTimeInMS		= -1;
 		return;
@@ -1952,35 +2110,24 @@ void FHttpNetworkReplayStreamer::HttpDownloadCheckpointFinished( FHttpRequestPtr
 		if ( HttpResponse->GetContent().Num() == 0 )
 		{
 			UE_LOG( LogHttpReplay, Warning, TEXT( "FHttpNetworkReplayStreamer::HttpDownloadCheckpointFinished. Checkpoint empty." ) );
-			GotoCheckpointDelegate.ExecuteIfBound( false, -1 );
-			GotoCheckpointDelegate = FOnCheckpointReadyDelegate();
+			GotoCheckpointDelegate.ExecuteIfBound(FGotoResult());
+			GotoCheckpointDelegate = FGotoCallback();
 			return;
 		}
 
 		// Add response to response cache
 		AddResponseToCache( HttpRequest, HttpResponse );
 
+		CheckpointArchive.Buffer.Empty();
+
 		// Get the checkpoint data
-		if ( SupportsCompression() )
+		if (!DecompressResponse(HttpResponse, CheckpointArchive.Buffer))
 		{
-			SCOPE_CYCLE_COUNTER( STAT_HttpReplay_DecompressTime );
-
-			FHttpStreamFArchive Compressed;
-			Compressed.Buffer = HttpResponse->GetContent();
-
-			if ( !DecompressBuffer( Compressed, CheckpointArchive.Buffer ) )
-			{
-				UE_LOG( LogHttpReplay, Error, TEXT( "FHttpNetworkReplayStreamer::HttpDownloadCheckpointFinished. DecompressBuffer FAILED." ) );
-				GotoCheckpointDelegate.ExecuteIfBound( false, -1 );
-				GotoCheckpointDelegate	= FOnCheckpointReadyDelegate();
-				DownloadCheckpointIndex = -1;
-				LastGotoTimeInMS		= -1;
-				return;
-			}
-		}
-		else
-		{
-			CheckpointArchive.Buffer = HttpResponse->GetContent();
+			GotoCheckpointDelegate.ExecuteIfBound(FGotoResult());
+			GotoCheckpointDelegate	= FGotoCallback();
+			DownloadCheckpointIndex = -1;
+			LastGotoTimeInMS		= -1;
+			return;
 		}
 
 		CheckpointArchive.Pos = 0;
@@ -2020,7 +2167,10 @@ void FHttpNetworkReplayStreamer::HttpDownloadCheckpointFinished( FHttpRequestPtr
 		}
 
 		// Notify game code of success
-		GotoCheckpointDelegate.ExecuteIfBound( true, LastGotoTimeInMS );
+		FGotoResult Result;
+		Result.Result = EStreamingOperationResult::Success;
+		Result.ExtraTimeMS = LastGotoTimeInMS;
+		GotoCheckpointDelegate.ExecuteIfBound(Result);
 
 		UE_LOG( LogHttpReplay, Verbose, TEXT( "FHttpNetworkReplayStreamer::HttpDownloadCheckpointFinished. SUCCESS. StreamChunkIndex: %i" ), StreamChunkIndex );
 	}
@@ -2028,11 +2178,11 @@ void FHttpNetworkReplayStreamer::HttpDownloadCheckpointFinished( FHttpRequestPtr
 	{
 		// Oops, something went wrong, notify game code of failure
 		UE_LOG( LogHttpReplay, Error, TEXT( "FHttpNetworkReplayStreamer::HttpDownloadCheckpointFinished. FAILED, %s" ), *BuildRequestErrorString( HttpRequest, HttpResponse ) );
-		GotoCheckpointDelegate.ExecuteIfBound( false, -1 );
+		GotoCheckpointDelegate.ExecuteIfBound(FGotoResult());
 	}
 
 	// Reset things
-	GotoCheckpointDelegate	= FOnCheckpointReadyDelegate();
+	GotoCheckpointDelegate	= FGotoCallback();
 	DownloadCheckpointIndex = -1;
 	LastGotoTimeInMS		= -1;
 }
@@ -2064,7 +2214,7 @@ void FHttpNetworkReplayStreamer::HttpRefreshViewerFinished( FHttpRequestPtr Http
 	}
 }
 
-void FHttpNetworkReplayStreamer::HttpEnumerateSessionsFinished( FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded, FOnEnumerateStreamsComplete Delegate )
+void FHttpNetworkReplayStreamer::HttpEnumerateSessionsFinished( FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded, FEnumerateStreamsCallback Delegate )
 {
 	check( InFlightHttpRequest.IsValid() );
 	check( InFlightHttpRequest->Request == HttpRequest );
@@ -2072,6 +2222,7 @@ void FHttpNetworkReplayStreamer::HttpEnumerateSessionsFinished( FHttpRequestPtr 
 
 	InFlightHttpRequest = NULL;
 
+	FEnumerateStreamsResult Result;
 	if ( bSucceeded && HttpResponse->GetResponseCode() == EHttpResponseCodes::Ok )
 	{		
 		UE_LOG( LogHttpReplay, Verbose, TEXT( "FHttpNetworkReplayStreamer::HttpEnumerateSessionsFinished." ) );
@@ -2084,39 +2235,42 @@ void FHttpNetworkReplayStreamer::HttpEnumerateSessionsFinished( FHttpRequestPtr 
 		if ( !ReplayList.FromJson( JsonString ) )
 		{
 			UE_LOG( LogHttpReplay, Warning, TEXT( "FHttpNetworkReplayStreamer::HttpEnumerateSessionsFinished. FromJson FAILED" ) );
-			Delegate.ExecuteIfBound( TArray<FNetworkReplayStreamInfo>() );		// FIXME: Notify failure here
-			return;
 		}
-
-		for ( int32 i = 0; i < ReplayList.Replays.Num(); i++ )
+		else
 		{
-			FNetworkReplayStreamInfo NewStream;
+			Result.Result = EStreamingOperationResult::Success;
+			for (int32 i = 0; i < ReplayList.Replays.Num(); i++)
+			{
+				FNetworkReplayStreamInfo NewStream;
 
-			NewStream.Name			= ReplayList.Replays[i].SessionName;
-			NewStream.FriendlyName	= ReplayList.Replays[i].FriendlyName;
-			NewStream.Timestamp		= ReplayList.Replays[i].Timestamp;
-			NewStream.SizeInBytes	= ReplayList.Replays[i].SizeInBytes;
-			NewStream.LengthInMS	= ReplayList.Replays[i].DemoTimeInMs;
-			NewStream.NumViewers	= ReplayList.Replays[i].NumViewers;
-			NewStream.bIsLive		= ReplayList.Replays[i].bIsLive;
-			NewStream.Changelist	= ReplayList.Replays[i].Changelist;
-			NewStream.bShouldKeep	= ReplayList.Replays[i].bShouldKeep;
+				NewStream.Name = ReplayList.Replays[i].SessionName;
+				NewStream.FriendlyName = ReplayList.Replays[i].FriendlyName;
+				NewStream.Timestamp = ReplayList.Replays[i].Timestamp;
+				NewStream.SizeInBytes = ReplayList.Replays[i].SizeInBytes;
+				NewStream.LengthInMS = ReplayList.Replays[i].DemoTimeInMs;
+				NewStream.NumViewers = ReplayList.Replays[i].NumViewers;
+				NewStream.bIsLive = ReplayList.Replays[i].bIsLive;
+				NewStream.Changelist = ReplayList.Replays[i].Changelist;
+				NewStream.bShouldKeep = ReplayList.Replays[i].bShouldKeep;
 
-			Streams.Add( NewStream );
+				Result.FoundStreams.Add(NewStream);
+			}
 		}
-
-		Delegate.ExecuteIfBound( Streams );
 	}
 	else
 	{
 		UE_LOG( LogHttpReplay, Warning, TEXT( "FHttpNetworkReplayStreamer::HttpEnumerateSessionsFinished. FAILED, %s" ), *BuildRequestErrorString( HttpRequest, HttpResponse ) );
-		Delegate.ExecuteIfBound( TArray<FNetworkReplayStreamInfo>() );		// FIXME: Notify failure here
 	}
+
+	Delegate.Execute(Result);
 }
 
 void FHttpNetworkReplayStreamer::HttpEnumerateCheckpointsFinished( FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded )
 {
 	RequestFinished( EStreamerState::StreamingDown, EQueuedHttpRequestType::EnumeratingCheckpoints, HttpRequest );
+
+	FStartStreamingResult Result;
+	Result.bRecording = false;
 
 	if ( bSucceeded && HttpResponse->GetResponseCode() == EHttpResponseCodes::Ok )
 	{		
@@ -2129,76 +2283,62 @@ void FHttpNetworkReplayStreamer::HttpEnumerateCheckpointsFinished( FHttpRequestP
 		if ( !CheckpointList.FromJson( JsonString ) )
 		{
 			UE_LOG( LogHttpReplay, Warning, TEXT( "FHttpNetworkReplayStreamer::HttpEnumerateCheckpointsFinished. FromJson FAILED" ) );
-
-			StartStreamingDelegate.ExecuteIfBound( false, false );
-
-			// Reset delegate
-			StartStreamingDelegate = FOnStreamReadyDelegate();
 			SetLastError( ENetworkReplayError::ServiceUnavailable );
-			return;
 		}
-
-		// Sort checkpoints by time
-		struct FCompareCheckpointTime
+		else
 		{
-			FORCEINLINE bool operator()(const FReplayEventListItem & A, const FReplayEventListItem & B) const
+			// Sort checkpoints by time
+			struct FCompareCheckpointTime
 			{
-				return A.Time1 < B.Time1;
-			}
-		};
+				FORCEINLINE bool operator()(const FReplayEventListItem & A, const FReplayEventListItem & B) const
+				{
+					return A.Time1 < B.Time1;
+				}
+			};
 
-		Sort( CheckpointList.ReplayEvents.GetData(), CheckpointList.ReplayEvents.Num(), FCompareCheckpointTime() );
+			Sort( CheckpointList.ReplayEvents.GetData(), CheckpointList.ReplayEvents.Num(), FCompareCheckpointTime() );
 
-		StartStreamingDelegate.ExecuteIfBound( true, false );
+			Result.Result = EStreamingOperationResult::Success;
+		}	
 	}
 	else
 	{
 		UE_LOG( LogHttpReplay, Warning, TEXT( "FHttpNetworkReplayStreamer::HttpEnumerateCheckpointsFinished. FAILED, %s" ), *BuildRequestErrorString( HttpRequest, HttpResponse ) );
-		StartStreamingDelegate.ExecuteIfBound( false, false );
-
-		// Reset delegate
-		StartStreamingDelegate = FOnStreamReadyDelegate();
-
 		SetLastError( ENetworkReplayError::ServiceUnavailable );
 	}
-
-	// Reset delegate
-	StartStreamingDelegate = FOnStreamReadyDelegate();
+	
+	StartStreamingDelegate.ExecuteIfBound(Result);
+	StartStreamingDelegate = FStartStreamingCallback();
 }
 
-void FHttpNetworkReplayStreamer::HttpEnumerateEventsFinished(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded, FEnumerateEventsCompleteDelegate EnumerateEventsDelegate)
+void FHttpNetworkReplayStreamer::HttpEnumerateEventsFinished(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded, FEnumerateEventsCallback Delegate)
 {
 	RequestFinished(StreamerState, EQueuedHttpRequestType::EnumeratingCustomEvent, HttpRequest);
+
+	FEnumerateEventsResult Result;
 
 	if (bSucceeded && HttpResponse->GetResponseCode() == EHttpResponseCodes::Ok)
 	{
 		FReplayEventList EventList;
 		FString JsonString = HttpResponse->GetContentAsString();
-		if (!EventList.FromJson(JsonString))
+		if (Result.ReplayEventList.FromJson(JsonString))
+		{
+			UE_LOG(LogHttpReplay, Verbose, TEXT("FHttpNetworkReplayStreamer::HttpEnumerateEventsFinished. %s"), *JsonString);
+			Result.Result = EStreamingOperationResult::Success;
+		}
+		else
 		{
 			UE_LOG(LogHttpReplay, Warning, TEXT("FHttpNetworkReplayStreamer::HttpEnumerateEventsFinished. FromJson FAILED"));
-
-			EnumerateEventsDelegate.ExecuteIfBound(FReplayEventList(), false);
-
-			// Reset delegate
-			EnumerateEventsDelegate = FEnumerateEventsCompleteDelegate();
-
 			SetLastError(ENetworkReplayError::ServiceUnavailable);
-
-			return;
 		}
-
-		UE_LOG(LogHttpReplay, Verbose, TEXT("FHttpNetworkReplayStreamer::HttpEnumerateEventsFinished. %s"), *JsonString);
-		EnumerateEventsDelegate.ExecuteIfBound(EventList, true);
 	}
 	else
 	{
 		UE_LOG( LogHttpReplay, Warning, TEXT( "FHttpNetworkReplayStreamer::HttpEnumerateEventsFinished. FAILED, %s" ), *BuildRequestErrorString( HttpRequest, HttpResponse ) );
-		
-		EnumerateEventsDelegate.ExecuteIfBound(FReplayEventList(), false);
-		
 		SetLastError(ENetworkReplayError::ServiceUnavailable);
 	}
+	
+	Delegate.ExecuteIfBound(Result);
 }
 
 void FHttpNetworkReplayStreamer::HttpAddUserFinished(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded)

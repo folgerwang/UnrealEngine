@@ -12,6 +12,10 @@ class IPlatformChunkInstall;
 class IPlatformCompression;
 struct FGenericCrashContext;
 struct FGenericMemoryWarningContext;
+struct FChunkTagID;
+
+template <typename FuncType>
+class TFunction;
 
 namespace EBuildConfigurations
 {
@@ -210,6 +214,41 @@ struct CORE_API FSHA256Signature
 	/** Generates a hex string of the signature */
 	FString ToString() const;
 };
+
+enum class EMobileHapticsType : uint8
+{
+	// these are IOS UIFeedbackGenerator types
+	FeedbackSuccess,
+	FeedbackWarning,
+	FeedbackError,
+	SelectionChanged,
+	ImpactLight,
+	ImpactMedium,
+	ImpactHeavy,
+};
+
+enum class ENetworkConnectionType : uint8
+{
+    /**
+     * Enumerates the network connection types
+     */
+    Unknown,
+    None,
+    AirplaneMode,
+    Cell,
+    WiFi,
+	WiMAX,
+	Bluetooth,
+	Ethernet,
+};
+
+/**
+ * Returns the string representation of the specified ENetworkConnection value.
+ *
+ * @param Target The value to get the string for.
+ * @return The string representation.
+ */
+CORE_API const TCHAR* LexToString( ENetworkConnectionType Target );
 
 /**
 * Generic implementation for most platforms
@@ -459,15 +498,24 @@ struct CORE_API FGenericPlatformMisc
 public:
 
 	/**
-	 * Platform specific function for adding a named event that can be viewed in PIX
+	 * Platform specific function for adding a named event that can be viewed in external tool
 	 */
 	static void BeginNamedEvent(const struct FColor& Color, const TCHAR* Text);
 	static void BeginNamedEvent(const struct FColor& Color, const ANSICHAR* Text);
 
 	/**
-	 * Platform specific function for closing a named event that can be viewed in PIX
+	 * Platform specific function for closing a named event that can be viewed in external tool
 	 */
 	static void EndNamedEvent();
+
+	/** Platform specific function for adding a named custom stat that can be viewed in external tool */
+	static void CustomNamedStat(const TCHAR* Text, float Value, const TCHAR* Graph, const TCHAR* Unit) {}
+	static void CustomNamedStat(const ANSICHAR* Text, float Value, const ANSICHAR* Graph, const ANSICHAR* Unit) {}
+
+	/** Indicates the start of a frame for named events */
+	FORCEINLINE static void BeginNamedEventFrame()
+	{
+	}
 
     /**
 	* Platform specific function for initializing storage of tagged memory buffers
@@ -630,15 +678,11 @@ public:
 	static const TCHAR* GetDefaultPathSeparator();
 
 	/**
-	 * Checks if platform wants to allow a rendering thread on current device (note: does not imply it will, only if okay given other criteria met)
+	 * Checks if platform wants to use a rendering thread on current device
 	 *
 	 * @return true if allowed, false if shouldn't use a separate rendering thread
 	 */
-	static bool AllowRenderThread()
-	{
-		// allow if not overridden
-		return true;
-	}
+	static bool UseRenderThread();
 
 	/**
 	* Checks if platform wants to allow an audio thread on current device (note: does not imply it will, only if okay given other criteria met)
@@ -717,6 +761,16 @@ public:
 	*	Return the CloudDir.  CloudDir can be per-user.
 	*/
 	static FString CloudDir();
+
+	/**
+	*	Return true if the PersistentDownloadDir is available.
+	*	On some platforms, a writable directory might not be available by default.
+	*	Using this function allows handling that case early.
+	*/
+	static bool HasProjectPersistentDownloadDir()
+	{
+		return true;
+	}
 
 	/**
 	*	Return the GamePersistentDownloadDir.  
@@ -870,6 +924,18 @@ public:
 		return -1;
 	}
 
+	FORCEINLINE static void SetBrightness(float bBright) { } 
+	FORCEINLINE static float GetBrightness() { return 1.0f; }
+    FORCEINLINE static void ResetBrightness() { } // resets brightness to brightness application started with
+    FORCEINLINE static bool SupportsBrightness() { return false; }
+
+	/**
+	 * Returns the current device temperature level.
+	 * Level is a relative value that is platform dependent. Lower is cooler, higher is warmer.
+	 * Level of -1 means Unimplemented.
+	 */
+	static float GetDeviceTemperatureLevel();
+
 	/** 
 	 * Allows a game/program/etc to control the game directory in a special place (for instance, monolithic programs that don't have .uprojects)
 	 */
@@ -897,6 +963,17 @@ public:
 		return PLATFORM_HAS_TOUCH_MAIN_SCREEN;
 	}
 
+	/** 
+	 * Returns whether this is a 'stereo only' platform. In general, stereo only platforms will not 
+	 * support on-screen touch input nor require virtual joysticks (though you should use those query 
+	 * functions to verify). The screen is always used for stereo output, and isn't a mode that is 
+	 * enabled/disabled.
+	 */
+	static bool IsStandaloneStereoOnlyDevice()
+	{
+		return false;
+	}
+
 	/*
 	 * Returns whether the volume buttons are handled by the system
 	 */
@@ -922,6 +999,14 @@ public:
 		return false;
 	}
 
+    /**
+     * Returns whether WiFi connection is currently active
+     */
+    static ENetworkConnectionType GetNetworkConnectionType()
+    {
+        return ENetworkConnectionType::Unknown;
+    }
+    
 	/**
 	 * Returns whether the platform has variable hardware (configurable/upgradeable system).
 	 */
@@ -1050,16 +1135,46 @@ public:
 	 * looks on disk the first time for special files, so it is non-instant.
 	 */
 	static const TArray<FString>& GetConfidentialPlatforms();
-
 	
 	/**
-	 * Returns true if the platform allows network traffic for anonymous end user usage data
+	 * For mobile devices, this will crank up a haptic engine for the specified type to be played later with TriggerMobileHaptics
+	 * If this is called again before Release, it will switch to this type
 	 */
-	static bool AllowSendAnonymousGameUsageDataToEpic()
+	static void PrepareMobileHaptics(EMobileHapticsType Type)
 	{
-		return true;
 	}
 
+	/**
+	 * For mobile devices, this will kick the haptic type that was set in PrepareMobileHaptics. It can be called multiple times
+	 * with only a single call to Prepare
+	 */
+	static void TriggerMobileHaptics()
+	{
+	}
+
+	/**
+	 * For mobile devices, this will shutdown the haptics, allowing system to put it to reset as needed
+	 */
+	static void ReleaseMobileHaptics()
+	{
+	}
+
+	/**
+	 * Perform a mobile-style sharing of a URL. Will use native UI to display sharing target
+	 */
+	static void ShareURL(const FString& URL, const FText& Description, int32 LocationHintX, int32 LocationHintY)
+	{
+	}
+
+	static bool SupportsDeviceCheckToken()
+	{
+		return false;
+	}
+
+	static void RequestDeviceCheckToken(TFunction<void(const TArray<uint8>&)> QueryCompleteFunc);
+
+	static TArray<FChunkTagID> GetOnDemandChunkTagIDs();
+	
 #if !UE_BUILD_SHIPPING
 	/** 
 	 * Returns any platform specific warning messages we want printed on screen

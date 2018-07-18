@@ -10,16 +10,16 @@
 #if WITH_PYTHON
 
 template <typename WrapperType>
-void InitializeAndRegisterMathType(PyObject* PyModule, PyTypeObject* InPyType, FPyConstantDef* InPyConstants, const TFunctionRef<void(TArray<PyGenUtil::FGeneratedWrappedMethodParameter>&)>& InBuildInitParamsFunc)
+void InitializeAndRegisterMathType(PyObject* PyModule, PyTypeObject* InPyType, FPyConstantDef* InPyConstants, const TFunctionRef<void(const UScriptStruct*, TArray<PyGenUtil::FGeneratedWrappedMethodParameter>&)>& InBuildInitParamsFunc)
 {
 	typedef typename WrapperType::WrappedType WrappedType;
 
 	if (PyType_Ready(InPyType) == 0)
 	{
-		static TPyWrapperInlineStructMetaData<WrappedType> MetaData;
+		static FPyWrapperStructMetaData MetaData;
 		MetaData.Struct = TBaseStructure<WrappedType>::Get();
-		InBuildInitParamsFunc(MetaData.InitParams);
-		TPyWrapperInlineStructMetaData<WrappedType>::SetMetaData(InPyType, &MetaData);
+		InBuildInitParamsFunc(MetaData.Struct, MetaData.InitParams);
+		FPyWrapperStructMetaData::SetMetaData(InPyType, &MetaData);
 
 		if (InPyConstants)
 		{
@@ -37,10 +37,10 @@ void InitializePyWrapperVector(PyObject* PyModule)
 {
 	struct FConstants
 	{
-		static PyObject* VectorGetter(const void* InValuePtr)
+		static PyObject* VectorGetter(PyTypeObject* InType, const void* InValuePtr)
 		{
 			const FVector* VectorPtr = static_cast<const FVector*>(InValuePtr);
-			return PyConversion::PythonizeStruct(*VectorPtr);
+			return PyConversion::PythonizeStructInstance(*VectorPtr);
 		}
 	};
 
@@ -53,11 +53,11 @@ void InitializePyWrapperVector(PyObject* PyModule)
 		{ nullptr, nullptr, nullptr, nullptr }
 	};
 	
-	InitializeAndRegisterMathType<FPyWrapperVector>(PyModule, &PyWrapperVectorType, PyConstants, [](TArray<PyGenUtil::FGeneratedWrappedMethodParameter>& OutInitParams)
+	InitializeAndRegisterMathType<FPyWrapperVector>(PyModule, &PyWrapperVectorType, PyConstants, [](const UScriptStruct* InStruct, TArray<PyGenUtil::FGeneratedWrappedMethodParameter>& OutInitParams)
 	{
-		PyGenUtil::AddStructInitParam(TEXT("X"), TEXT("x"), OutInitParams);
-		PyGenUtil::AddStructInitParam(TEXT("Y"), TEXT("y"), OutInitParams);
-		PyGenUtil::AddStructInitParam(TEXT("Z"), TEXT("z"), OutInitParams);
+		PyGenUtil::AddStructInitParam(InStruct->FindPropertyByName(TEXT("X")), TEXT("x"), OutInitParams);
+		PyGenUtil::AddStructInitParam(InStruct->FindPropertyByName(TEXT("Y")), TEXT("y"), OutInitParams);
+		PyGenUtil::AddStructInitParam(InStruct->FindPropertyByName(TEXT("Z")), TEXT("z"), OutInitParams);
 	});
 }
 
@@ -65,10 +65,10 @@ void InitializePyWrapperVector2D(PyObject* PyModule)
 {
 	struct FConstants
 	{
-		static PyObject* Vector2DGetter(const void* InValuePtr)
+		static PyObject* Vector2DGetter(PyTypeObject* InType, const void* InValuePtr)
 		{
 			const FVector2D* Vector2DPtr = static_cast<const FVector2D*>(InValuePtr);
-			return PyConversion::PythonizeStruct(*Vector2DPtr);
+			return PyConversion::PythonizeStructInstance(*Vector2DPtr);
 		}
 	};
 
@@ -78,21 +78,21 @@ void InitializePyWrapperVector2D(PyObject* PyModule)
 		{ nullptr, nullptr, nullptr, nullptr }
 	};
 
-	InitializeAndRegisterMathType<FPyWrapperVector2D>(PyModule, &PyWrapperVector2DType, PyConstants, [](TArray<PyGenUtil::FGeneratedWrappedMethodParameter>& OutInitParams)
+	InitializeAndRegisterMathType<FPyWrapperVector2D>(PyModule, &PyWrapperVector2DType, PyConstants, [](const UScriptStruct* InStruct, TArray<PyGenUtil::FGeneratedWrappedMethodParameter>& OutInitParams)
 	{
-		PyGenUtil::AddStructInitParam(TEXT("X"), TEXT("x"), OutInitParams);
-		PyGenUtil::AddStructInitParam(TEXT("Y"), TEXT("y"), OutInitParams);
+		PyGenUtil::AddStructInitParam(InStruct->FindPropertyByName(TEXT("X")), TEXT("x"), OutInitParams);
+		PyGenUtil::AddStructInitParam(InStruct->FindPropertyByName(TEXT("Y")), TEXT("y"), OutInitParams);
 	});
 }
 
 void InitializePyWrapperVector4(PyObject* PyModule)
 {
-	InitializeAndRegisterMathType<FPyWrapperVector4>(PyModule, &PyWrapperVector4Type, nullptr, [](TArray<PyGenUtil::FGeneratedWrappedMethodParameter>& OutInitParams)
+	InitializeAndRegisterMathType<FPyWrapperVector4>(PyModule, &PyWrapperVector4Type, nullptr, [](const UScriptStruct* InStruct, TArray<PyGenUtil::FGeneratedWrappedMethodParameter>& OutInitParams)
 	{
-		PyGenUtil::AddStructInitParam(TEXT("X"), TEXT("x"), OutInitParams);
-		PyGenUtil::AddStructInitParam(TEXT("Y"), TEXT("y"), OutInitParams);
-		PyGenUtil::AddStructInitParam(TEXT("Z"), TEXT("z"), OutInitParams);
-		PyGenUtil::AddStructInitParam(TEXT("W"), TEXT("w"), OutInitParams);
+		PyGenUtil::AddStructInitParam(InStruct->FindPropertyByName(TEXT("X")), TEXT("x"), OutInitParams);
+		PyGenUtil::AddStructInitParam(InStruct->FindPropertyByName(TEXT("Y")), TEXT("y"), OutInitParams);
+		PyGenUtil::AddStructInitParam(InStruct->FindPropertyByName(TEXT("Z")), TEXT("z"), OutInitParams);
+		PyGenUtil::AddStructInitParam(InStruct->FindPropertyByName(TEXT("W")), TEXT("w"), OutInitParams);
 	});
 }
 
@@ -100,10 +100,10 @@ void InitializePyWrapperQuat(PyObject* PyModule)
 {
 	struct FConstants
 	{
-		static PyObject* QuatGetter(const void* InValuePtr)
+		static PyObject* QuatGetter(PyTypeObject* InType, const void* InValuePtr)
 		{
 			const FQuat* QuatPtr = static_cast<const FQuat*>(InValuePtr);
-			return PyConversion::PythonizeStruct(*QuatPtr);
+			return PyConversion::PythonizeStructInstance(*QuatPtr);
 		}
 	};
 
@@ -112,12 +112,12 @@ void InitializePyWrapperQuat(PyObject* PyModule)
 		{ nullptr, nullptr, nullptr, nullptr }
 	};
 
-	InitializeAndRegisterMathType<FPyWrapperQuat>(PyModule, &PyWrapperQuatType, PyConstants, [](TArray<PyGenUtil::FGeneratedWrappedMethodParameter>& OutInitParams)
+	InitializeAndRegisterMathType<FPyWrapperQuat>(PyModule, &PyWrapperQuatType, PyConstants, [](const UScriptStruct* InStruct, TArray<PyGenUtil::FGeneratedWrappedMethodParameter>& OutInitParams)
 	{
-		PyGenUtil::AddStructInitParam(TEXT("X"), TEXT("x"), OutInitParams);
-		PyGenUtil::AddStructInitParam(TEXT("Y"), TEXT("y"), OutInitParams);
-		PyGenUtil::AddStructInitParam(TEXT("Z"), TEXT("z"), OutInitParams);
-		PyGenUtil::AddStructInitParam(TEXT("W"), TEXT("w"), OutInitParams);
+		PyGenUtil::AddStructInitParam(InStruct->FindPropertyByName(TEXT("X")), TEXT("x"), OutInitParams);
+		PyGenUtil::AddStructInitParam(InStruct->FindPropertyByName(TEXT("Y")), TEXT("y"), OutInitParams);
+		PyGenUtil::AddStructInitParam(InStruct->FindPropertyByName(TEXT("Z")), TEXT("z"), OutInitParams);
+		PyGenUtil::AddStructInitParam(InStruct->FindPropertyByName(TEXT("W")), TEXT("w"), OutInitParams);
 	});
 }
 
@@ -125,10 +125,10 @@ void InitializePyWrapperLinearColor(PyObject* PyModule)
 {
 	struct FConstants
 	{
-		static PyObject* LinearColorGetter(const void* InValuePtr)
+		static PyObject* LinearColorGetter(PyTypeObject* InType, const void* InValuePtr)
 		{
 			const FLinearColor* LinearColorPtr = static_cast<const FLinearColor*>(InValuePtr);
-			return PyConversion::PythonizeStruct(*LinearColorPtr);
+			return PyConversion::PythonizeStructInstance(*LinearColorPtr);
 		}
 	};
 
@@ -144,22 +144,29 @@ void InitializePyWrapperLinearColor(PyObject* PyModule)
 		{ nullptr, nullptr, nullptr, nullptr }
 	};
 
-	InitializeAndRegisterMathType<FPyWrapperLinearColor>(PyModule, &PyWrapperLinearColorType, PyConstants, [](TArray<PyGenUtil::FGeneratedWrappedMethodParameter>& OutInitParams)
+	InitializeAndRegisterMathType<FPyWrapperLinearColor>(PyModule, &PyWrapperLinearColorType, PyConstants, [](const UScriptStruct* InStruct, TArray<PyGenUtil::FGeneratedWrappedMethodParameter>& OutInitParams)
 	{
-		PyGenUtil::AddStructInitParam(TEXT("R"), TEXT("r"), OutInitParams);
-		PyGenUtil::AddStructInitParam(TEXT("G"), TEXT("g"), OutInitParams);
-		PyGenUtil::AddStructInitParam(TEXT("B"), TEXT("b"), OutInitParams);
-		PyGenUtil::AddStructInitParam(TEXT("A"), TEXT("a"), OutInitParams);
+		PyGenUtil::AddStructInitParam(InStruct->FindPropertyByName(TEXT("R")), TEXT("r"), OutInitParams);
+		PyGenUtil::AddStructInitParam(InStruct->FindPropertyByName(TEXT("G")), TEXT("g"), OutInitParams);
+		PyGenUtil::AddStructInitParam(InStruct->FindPropertyByName(TEXT("B")), TEXT("b"), OutInitParams);
+		PyGenUtil::AddStructInitParam(InStruct->FindPropertyByName(TEXT("A")), TEXT("a"), OutInitParams);
 	});
 }
 
-void InitializePyWrapperMath(PyObject* PyModule)
+void InitializePyWrapperMath(PyGenUtil::FNativePythonModule& ModuleInfo)
 {
-	InitializePyWrapperVector(PyModule);
-	InitializePyWrapperVector2D(PyModule);
-	InitializePyWrapperVector4(PyModule);
-	InitializePyWrapperQuat(PyModule);
-	InitializePyWrapperLinearColor(PyModule);
+	FPyWrapperTypeRegistry::Get().RegisterInlineStructFactory(MakeShared<TPyWrapperInlineStructFactory<FVector>>());
+	FPyWrapperTypeRegistry::Get().RegisterInlineStructFactory(MakeShared<TPyWrapperInlineStructFactory<FVector2D>>());
+	FPyWrapperTypeRegistry::Get().RegisterInlineStructFactory(MakeShared<TPyWrapperInlineStructFactory<FVector4>>());
+	FPyWrapperTypeRegistry::Get().RegisterInlineStructFactory(MakeShared<TPyWrapperInlineStructFactory<FQuat>>());
+	FPyWrapperTypeRegistry::Get().RegisterInlineStructFactory(MakeShared<TPyWrapperInlineStructFactory<FLinearColor>>());
+	// todo: should register our other math types as inline too
+
+	InitializePyWrapperVector(ModuleInfo.PyModule);
+	InitializePyWrapperVector2D(ModuleInfo.PyModule);
+	InitializePyWrapperVector4(ModuleInfo.PyModule);
+	InitializePyWrapperQuat(ModuleInfo.PyModule);
+	InitializePyWrapperLinearColor(ModuleInfo.PyModule);
 }
 
 /** Macro used to manage the boilerplate for calling a single parameter method of a type via Python */
@@ -248,7 +255,7 @@ bool StructStructOp_ReturnStruct(PyTypeObject* InStructType, WrapperType* InLHS,
 	}
 
 	WrappedType Result = OpType::template Apply<WrappedType, WrappedType, WrappedType>(WrapperType::GetTypedStruct(InLHS), WrapperType::GetTypedStruct(RHS));
-	return PyConversion::PythonizeStruct(Result, OutResult);
+	return PyConversion::PythonizeStructInstance(Result, OutResult).Succeeded();
 }
 
 /** Struct(op=)Struct -> Struct */
@@ -285,7 +292,7 @@ bool StructStructOp_ReturnIntrinsic(PyTypeObject* InStructType, WrapperType* InL
 	}
 
 	IntrinsicType Result = OpType::template Apply<IntrinsicType, WrappedType, WrappedType>(WrapperType::GetTypedStruct(InLHS), WrapperType::GetTypedStruct(RHS));
-	return PyConversion::Pythonize(Result, OutResult);
+	return PyConversion::Pythonize(Result, OutResult).Succeeded();
 }
 
 /** Struct(op)Intrinsic -> Struct */
@@ -301,7 +308,7 @@ bool StructIntrinsicOp_ReturnStruct(PyTypeObject* InStructType, WrapperType* InL
 	}
 
 	WrappedType Result = OpType::template Apply<WrappedType, WrappedType, IntrinsicType>(WrapperType::GetTypedStruct(InLHS), RHS);
-	return PyConversion::PythonizeStruct(Result, OutResult);
+	return PyConversion::PythonizeStructInstance(Result, OutResult).Succeeded();
 }
 
 /** Struct(op=)Intrinsic -> Struct */
@@ -469,7 +476,7 @@ PyTypeObject InitializePyWrapperMathType_Common(const char* InTypeName, const ch
 				return SuperResult;
 			}
 
-			return FPyWrapperStruct::SetPropertyValues(InSelf, InArgs, InKwds);
+			return FPyWrapperStruct::MakeStruct(InSelf, InArgs, InKwds);
 		}
 	};
 
@@ -512,7 +519,7 @@ PyTypeObject InitializePyWrapperMathType_Vector()
 			}
 
 			FVector Other;
-			if (!PyConversion::NativizeStruct(PyVectorObj, Other))
+			if (!PyConversion::NativizeStructInstance(PyVectorObj, Other))
 			{
 				PyUtil::SetPythonError(PyExc_TypeError, InSelf, *FString::Printf(TEXT("Failed to convert 'vector' (%s) to 'Vector'"), *PyUtil::GetFriendlyTypename(PyVectorObj)));
 				return nullptr;
@@ -570,7 +577,7 @@ PyTypeObject InitializePyWrapperMathType_Vector()
 			}
 
 			FVector Other;
-			if (!PyConversion::NativizeStruct(PyVectorObj, Other))
+			if (!PyConversion::NativizeStructInstance(PyVectorObj, Other))
 			{
 				PyUtil::SetPythonError(PyExc_TypeError, InSelf, *FString::Printf(TEXT("Failed to convert 'vector' (%s) to 'Vector'"), *PyUtil::GetFriendlyTypename(PyVectorObj)));
 				return nullptr;
@@ -599,7 +606,7 @@ PyTypeObject InitializePyWrapperMathType_Vector()
 			}
 
 			FVector Vector;
-			if (!PyConversion::NativizeStruct(PyVectorObj, Vector))
+			if (!PyConversion::NativizeStructInstance(PyVectorObj, Vector))
 			{
 				PyUtil::SetPythonError(PyExc_TypeError, InSelf, *FString::Printf(TEXT("Failed to convert 'vector' (%s) to 'Vector'"), *PyUtil::GetFriendlyTypename(PyVectorObj)));
 				return nullptr;
@@ -642,7 +649,7 @@ PyTypeObject InitializePyWrapperMathType_Vector()
 			}
 
 			const FVector Result = FPyWrapperVector::GetTypedStruct(InSelf).GetClampedToSize(Min, Max);
-			return PyConversion::PythonizeStruct(Result);
+			return PyConversion::PythonizeStructInstance(Result);
 		}
 
 		static PyObject* GetClampedToSize2D(FPyWrapperVector* InSelf, PyObject* InArgs, PyObject* InKwds)
@@ -671,7 +678,7 @@ PyTypeObject InitializePyWrapperMathType_Vector()
 			}
 
 			const FVector Result = FPyWrapperVector::GetTypedStruct(InSelf).GetClampedToSize2D(Min, Max);
-			return PyConversion::PythonizeStruct(Result);
+			return PyConversion::PythonizeStructInstance(Result);
 		}
 
 		static PyObject* RotateAngleAxis(FPyWrapperVector* InSelf, PyObject* InArgs, PyObject* InKwds)
@@ -693,51 +700,51 @@ PyTypeObject InitializePyWrapperMathType_Vector()
 			}
 
 			FVector Axis;
-			if (!PyConversion::NativizeStruct(PyAxisObj, Axis))
+			if (!PyConversion::NativizeStructInstance(PyAxisObj, Axis))
 			{
 				PyUtil::SetPythonError(PyExc_TypeError, InSelf, *FString::Printf(TEXT("Failed to convert 'max' (%s) to 'Vector'"), *PyUtil::GetFriendlyTypename(PyAxisObj)));
 				return nullptr;
 			}
 
 			const FVector Result = FPyWrapperVector::GetTypedStruct(InSelf).RotateAngleAxis(AngleDeg, Axis);
-			return PyConversion::PythonizeStruct(Result);
+			return PyConversion::PythonizeStructInstance(Result);
 		}
 
 		static PyObject* ToDegrees(FPyWrapperVector* InSelf, PyObject* InArgs, PyObject* InKwds)
 		{
 			const FVector Result = FVector::RadiansToDegrees(FPyWrapperVector::GetTypedStruct(InSelf));
-			return PyConversion::PythonizeStruct(Result);
+			return PyConversion::PythonizeStructInstance(Result);
 		}
 
 		static PyObject* ToRadians(FPyWrapperVector* InSelf, PyObject* InArgs, PyObject* InKwds)
 		{
 			const FVector Result = FVector::DegreesToRadians(FPyWrapperVector::GetTypedStruct(InSelf));
-			return PyConversion::PythonizeStruct(Result);
+			return PyConversion::PythonizeStructInstance(Result);
 		}
 
 		PYMATH_METHOD_ONE_PARAM(FPyWrapperVector, AllComponentsEqual, "|O:all_components_equal", float, "float", "tolerance", KINDA_SMALL_NUMBER, PyConversion::Nativize, PyConversion::Pythonize);
-		PYMATH_METHOD_ONE_PARAM(FPyWrapperVector, ComponentMin, "O:component_min", FVector, "Vector", "vector", FVector(), PyConversion::NativizeStruct, PyConversion::PythonizeStruct);
-		PYMATH_METHOD_ONE_PARAM(FPyWrapperVector, ComponentMax, "O:component_max", FVector, "Vector", "vector", FVector(), PyConversion::NativizeStruct, PyConversion::PythonizeStruct);
+		PYMATH_METHOD_ONE_PARAM(FPyWrapperVector, ComponentMin, "O:component_min", FVector, "Vector", "vector", FVector(), PyConversion::NativizeStructInstance, PyConversion::PythonizeStructInstance);
+		PYMATH_METHOD_ONE_PARAM(FPyWrapperVector, ComponentMax, "O:component_max", FVector, "Vector", "vector", FVector(), PyConversion::NativizeStructInstance, PyConversion::PythonizeStructInstance);
 		PYMATH_METHOD_ONE_PARAM(FPyWrapperVector, IsNearlyZero, "|O:is_nearly_zero", float, "float", "tolerance", KINDA_SMALL_NUMBER, PyConversion::Nativize, PyConversion::Pythonize);
 		PYMATH_METHOD_ONE_PARAM(FPyWrapperVector, IsUniform, "|O:is_uniform", float, "float", "tolerance", KINDA_SMALL_NUMBER, PyConversion::Nativize, PyConversion::Pythonize);
 		PYMATH_METHOD_ONE_PARAM(FPyWrapperVector, IsUnit, "|O:is_unit", float, "float", "tolerance", KINDA_SMALL_NUMBER, PyConversion::Nativize, PyConversion::Pythonize);
 		PYMATH_METHOD_ONE_PARAM(FPyWrapperVector, Normalize, "|O:normalize", float, "float", "tolerance", SMALL_NUMBER, PyConversion::Nativize, PyConversion::Pythonize);
-		PYMATH_METHOD_ONE_PARAM(FPyWrapperVector, GetSafeNormal, "|O:get_safe_normal", float, "float", "tolerance", SMALL_NUMBER, PyConversion::Nativize, PyConversion::PythonizeStruct);
-		PYMATH_METHOD_ONE_PARAM(FPyWrapperVector, GetSafeNormal2D, "|O:get_safe_normal_2d", float, "float", "tolerance", SMALL_NUMBER, PyConversion::Nativize, PyConversion::PythonizeStruct);
-		PYMATH_METHOD_ONE_PARAM(FPyWrapperVector, GridSnap, "O:grid_snap", float, "float", "grid_size", 0.0f, PyConversion::Nativize, PyConversion::PythonizeStruct);
-		PYMATH_METHOD_ONE_PARAM(FPyWrapperVector, BoundToCube, "O:bound_to_cube", float, "float", "radius", 0.0f, PyConversion::Nativize, PyConversion::PythonizeStruct);
-		PYMATH_METHOD_ONE_PARAM(FPyWrapperVector, GetClampedToMaxSize, "O:get_clamped_to_max_size", float, "float", "max_size", 0.0f, PyConversion::Nativize, PyConversion::PythonizeStruct);
-		PYMATH_METHOD_ONE_PARAM(FPyWrapperVector, GetClampedToMaxSize2D, "O:get_clamped_to_max_size_2d", float, "float", "max_size", 0.0f, PyConversion::Nativize, PyConversion::PythonizeStruct);
-		PYMATH_METHOD_ONE_PARAM(FPyWrapperVector, MirrorByVector, "O:mirror_by_vector", FVector, "Vector", "mirror_normal", FVector(), PyConversion::NativizeStruct, PyConversion::PythonizeStruct);
-		PYMATH_METHOD_ONE_PARAM(FPyWrapperVector, MirrorByPlane, "O:mirror_by_plane", FPlane, "Plane", "plane", FPlane(), PyConversion::NativizeStruct, PyConversion::PythonizeStruct);
-		PYMATH_METHOD_ONE_PARAM(FPyWrapperVector, ProjectOnTo, "O:project_on_to", FVector, "Vector", "vector", FVector(), PyConversion::NativizeStruct, PyConversion::PythonizeStruct);
-		PYMATH_METHOD_ONE_PARAM(FPyWrapperVector, ProjectOnToNormal, "O:project_on_to_normal", FVector, "Vector", "normal", FVector(), PyConversion::NativizeStruct, PyConversion::PythonizeStruct);
-		PYMATH_METHOD_ONE_PARAM(FPyWrapperVector, CosineAngle2D, "O:cosine_angle_2d", FVector, "Vector", "vector", FVector(), PyConversion::NativizeStruct, PyConversion::Pythonize);
+		PYMATH_METHOD_ONE_PARAM(FPyWrapperVector, GetSafeNormal, "|O:get_safe_normal", float, "float", "tolerance", SMALL_NUMBER, PyConversion::Nativize, PyConversion::PythonizeStructInstance);
+		PYMATH_METHOD_ONE_PARAM(FPyWrapperVector, GetSafeNormal2D, "|O:get_safe_normal_2d", float, "float", "tolerance", SMALL_NUMBER, PyConversion::Nativize, PyConversion::PythonizeStructInstance);
+		PYMATH_METHOD_ONE_PARAM(FPyWrapperVector, GridSnap, "O:grid_snap", float, "float", "grid_size", 0.0f, PyConversion::Nativize, PyConversion::PythonizeStructInstance);
+		PYMATH_METHOD_ONE_PARAM(FPyWrapperVector, BoundToCube, "O:bound_to_cube", float, "float", "radius", 0.0f, PyConversion::Nativize, PyConversion::PythonizeStructInstance);
+		PYMATH_METHOD_ONE_PARAM(FPyWrapperVector, GetClampedToMaxSize, "O:get_clamped_to_max_size", float, "float", "max_size", 0.0f, PyConversion::Nativize, PyConversion::PythonizeStructInstance);
+		PYMATH_METHOD_ONE_PARAM(FPyWrapperVector, GetClampedToMaxSize2D, "O:get_clamped_to_max_size_2d", float, "float", "max_size", 0.0f, PyConversion::Nativize, PyConversion::PythonizeStructInstance);
+		PYMATH_METHOD_ONE_PARAM(FPyWrapperVector, MirrorByVector, "O:mirror_by_vector", FVector, "Vector", "mirror_normal", FVector(), PyConversion::NativizeStructInstance, PyConversion::PythonizeStructInstance);
+		PYMATH_METHOD_ONE_PARAM(FPyWrapperVector, MirrorByPlane, "O:mirror_by_plane", FPlane, "Plane", "plane", FPlane(), PyConversion::NativizeStructInstance, PyConversion::PythonizeStructInstance);
+		PYMATH_METHOD_ONE_PARAM(FPyWrapperVector, ProjectOnTo, "O:project_on_to", FVector, "Vector", "vector", FVector(), PyConversion::NativizeStructInstance, PyConversion::PythonizeStructInstance);
+		PYMATH_METHOD_ONE_PARAM(FPyWrapperVector, ProjectOnToNormal, "O:project_on_to_normal", FVector, "Vector", "normal", FVector(), PyConversion::NativizeStructInstance, PyConversion::PythonizeStructInstance);
+		PYMATH_METHOD_ONE_PARAM(FPyWrapperVector, CosineAngle2D, "O:cosine_angle_2d", FVector, "Vector", "vector", FVector(), PyConversion::NativizeStructInstance, PyConversion::Pythonize);
 
-		PYMATH_SFUNC_ONE_PARAM(FPyWrapperVector, Dist, "O:dist", FVector, "Vector", "other", FVector(), PyConversion::NativizeStruct, PyConversion::Pythonize);
-		PYMATH_SFUNC_ONE_PARAM(FPyWrapperVector, Dist2D, "O:dist_2d", FVector, "Vector", "other", FVector(), PyConversion::NativizeStruct, PyConversion::Pythonize);
-		PYMATH_SFUNC_ONE_PARAM(FPyWrapperVector, DistSquared, "O:dist_squared", FVector, "Vector", "other", FVector(), PyConversion::NativizeStruct, PyConversion::Pythonize);
-		PYMATH_SFUNC_ONE_PARAM(FPyWrapperVector, DistSquared2D, "O:dist_squared_2d", FVector, "Vector", "other", FVector(), PyConversion::NativizeStruct, PyConversion::Pythonize);
+		PYMATH_SFUNC_ONE_PARAM(FPyWrapperVector, Dist, "O:dist", FVector, "Vector", "other", FVector(), PyConversion::NativizeStructInstance, PyConversion::Pythonize);
+		PYMATH_SFUNC_ONE_PARAM(FPyWrapperVector, Dist2D, "O:dist_2d", FVector, "Vector", "other", FVector(), PyConversion::NativizeStructInstance, PyConversion::Pythonize);
+		PYMATH_SFUNC_ONE_PARAM(FPyWrapperVector, DistSquared, "O:dist_squared", FVector, "Vector", "other", FVector(), PyConversion::NativizeStructInstance, PyConversion::Pythonize);
+		PYMATH_SFUNC_ONE_PARAM(FPyWrapperVector, DistSquared2D, "O:dist_squared_2d", FVector, "Vector", "other", FVector(), PyConversion::NativizeStructInstance, PyConversion::Pythonize);
 	};
 
 	static PyMethodDef PyMethods[] = {
@@ -849,7 +856,7 @@ PyTypeObject InitializePyWrapperMathType_Vector2D()
 			}
 
 			FVector2D Other;
-			if (!PyConversion::NativizeStruct(PyVectorObj, Other))
+			if (!PyConversion::NativizeStructInstance(PyVectorObj, Other))
 			{
 				PyUtil::SetPythonError(PyExc_TypeError, InSelf, *FString::Printf(TEXT("Failed to convert 'vector' (%s) to 'Vector2D'"), *PyUtil::GetFriendlyTypename(PyVectorObj)));
 				return nullptr;
@@ -899,7 +906,7 @@ PyTypeObject InitializePyWrapperMathType_Vector2D()
 			}
 
 			FVector2D Other;
-			if (!PyConversion::NativizeStruct(PyVectorObj, Other))
+			if (!PyConversion::NativizeStructInstance(PyVectorObj, Other))
 			{
 				PyUtil::SetPythonError(PyExc_TypeError, InSelf, *FString::Printf(TEXT("Failed to convert 'vector' (%s) to 'Vector2D'"), *PyUtil::GetFriendlyTypename(PyVectorObj)));
 				return nullptr;
@@ -963,15 +970,15 @@ PyTypeObject InitializePyWrapperMathType_Vector2D()
 			}
 
 			const FVector2D Result = FPyWrapperVector2D::GetTypedStruct(InSelf).ClampAxes(Min, Max);
-			return PyConversion::PythonizeStruct(Result);
+			return PyConversion::PythonizeStructInstance(Result);
 		}
 
 		PYMATH_METHOD_ONE_PARAM(FPyWrapperVector2D, IsNearlyZero, "|O:is_nearly_zero", float, "float", "tolerance", KINDA_SMALL_NUMBER, PyConversion::Nativize, PyConversion::Pythonize);
-		PYMATH_METHOD_ONE_PARAM(FPyWrapperVector2D, GetSafeNormal, "|O:get_safe_normal", float, "float", "tolerance", SMALL_NUMBER, PyConversion::Nativize, PyConversion::PythonizeStruct);
-		PYMATH_METHOD_ONE_PARAM(FPyWrapperVector2D, GetRotated, "O:get_rotated", float, "float", "angle_deg", 0.0f, PyConversion::Nativize, PyConversion::PythonizeStruct);
+		PYMATH_METHOD_ONE_PARAM(FPyWrapperVector2D, GetSafeNormal, "|O:get_safe_normal", float, "float", "tolerance", SMALL_NUMBER, PyConversion::Nativize, PyConversion::PythonizeStructInstance);
+		PYMATH_METHOD_ONE_PARAM(FPyWrapperVector2D, GetRotated, "O:get_rotated", float, "float", "angle_deg", 0.0f, PyConversion::Nativize, PyConversion::PythonizeStructInstance);
 
-		PYMATH_SFUNC_ONE_PARAM(FPyWrapperVector2D, Distance, "O:dist", FVector2D, "Vector2D", "other", FVector2D(), PyConversion::NativizeStruct, PyConversion::Pythonize);
-		PYMATH_SFUNC_ONE_PARAM(FPyWrapperVector2D, DistSquared, "O:dist_squared", FVector2D, "Vector2D", "other", FVector2D(), PyConversion::NativizeStruct, PyConversion::Pythonize);
+		PYMATH_SFUNC_ONE_PARAM(FPyWrapperVector2D, Distance, "O:dist", FVector2D, "Vector2D", "other", FVector2D(), PyConversion::NativizeStructInstance, PyConversion::Pythonize);
+		PYMATH_SFUNC_ONE_PARAM(FPyWrapperVector2D, DistSquared, "O:dist_squared", FVector2D, "Vector2D", "other", FVector2D(), PyConversion::NativizeStructInstance, PyConversion::Pythonize);
 	};
 
 	static PyMethodDef PyMethods[] = {
@@ -1049,7 +1056,7 @@ PyTypeObject InitializePyWrapperMathType_Vector4()
 			}
 
 			FVector4 Other;
-			if (!PyConversion::NativizeStruct(PyVectorObj, Other))
+			if (!PyConversion::NativizeStructInstance(PyVectorObj, Other))
 			{
 				PyUtil::SetPythonError(PyExc_TypeError, InSelf, *FString::Printf(TEXT("Failed to convert 'vector' (%s) to 'Vector4'"), *PyUtil::GetFriendlyTypename(PyVectorObj)));
 				return nullptr;
@@ -1115,7 +1122,7 @@ PyTypeObject InitializePyWrapperMathType_Vector4()
 			}
 
 			FVector4 Other;
-			if (!PyConversion::NativizeStruct(PyVectorObj, Other))
+			if (!PyConversion::NativizeStructInstance(PyVectorObj, Other))
 			{
 				PyUtil::SetPythonError(PyExc_TypeError, InSelf, *FString::Printf(TEXT("Failed to convert 'vector' (%s) to 'Vector4'"), *PyUtil::GetFriendlyTypename(PyVectorObj)));
 				return nullptr;
@@ -1134,8 +1141,8 @@ PyTypeObject InitializePyWrapperMathType_Vector4()
 
 		PYMATH_METHOD_ONE_PARAM(FPyWrapperVector4, IsNearlyZero3, "|O:is_nearly_zero3", float, "float", "tolerance", KINDA_SMALL_NUMBER, PyConversion::Nativize, PyConversion::Pythonize);
 		PYMATH_METHOD_ONE_PARAM(FPyWrapperVector4, IsUnit3, "|O:is_unit3", float, "float", "tolerance", KINDA_SMALL_NUMBER, PyConversion::Nativize, PyConversion::Pythonize);
-		PYMATH_METHOD_ONE_PARAM(FPyWrapperVector4, GetSafeNormal, "|O:get_safe_normal", float, "float", "tolerance", SMALL_NUMBER, PyConversion::Nativize, PyConversion::PythonizeStruct);
-		PYMATH_METHOD_ONE_PARAM(FPyWrapperVector4, Reflect3, "O:reflect3", FVector4, "Vector4", "normal", FVector4(), PyConversion::NativizeStruct, PyConversion::PythonizeStruct);
+		PYMATH_METHOD_ONE_PARAM(FPyWrapperVector4, GetSafeNormal, "|O:get_safe_normal", float, "float", "tolerance", SMALL_NUMBER, PyConversion::Nativize, PyConversion::PythonizeStructInstance);
+		PYMATH_METHOD_ONE_PARAM(FPyWrapperVector4, Reflect3, "O:reflect3", FVector4, "Vector4", "normal", FVector4(), PyConversion::NativizeStructInstance, PyConversion::PythonizeStructInstance);
 	};
 
 	static PyMethodDef PyMethods[] = {
@@ -1211,7 +1218,7 @@ PyTypeObject InitializePyWrapperMathType_Quat()
 			}
 
 			FQuat Other;
-			if (!PyConversion::NativizeStruct(PyQuatObj, Other))
+			if (!PyConversion::NativizeStructInstance(PyQuatObj, Other))
 			{
 				PyUtil::SetPythonError(PyExc_TypeError, InSelf, *FString::Printf(TEXT("Failed to convert 'quat' (%s) to 'Quat'"), *PyUtil::GetFriendlyTypename(PyQuatObj)));
 				return nullptr;
@@ -1275,7 +1282,7 @@ PyTypeObject InitializePyWrapperMathType_Quat()
 			}
 
 			FVector Euler;
-			if (!PyConversion::NativizeStruct(PyVectorObj, Euler))
+			if (!PyConversion::NativizeStructInstance(PyVectorObj, Euler))
 			{
 				PyUtil::SetPythonError(PyExc_TypeError, InSelf, *FString::Printf(TEXT("Failed to convert 'euler' (%s) to 'Vector'"), *PyUtil::GetFriendlyTypename(PyVectorObj)));
 				return nullptr;
@@ -1297,7 +1304,7 @@ PyTypeObject InitializePyWrapperMathType_Quat()
 			}
 
 			FQuat Other;
-			if (!PyConversion::NativizeStruct(PyQuatObj, Other))
+			if (!PyConversion::NativizeStructInstance(PyQuatObj, Other))
 			{
 				PyUtil::SetPythonError(PyExc_TypeError, InSelf, *FString::Printf(TEXT("Failed to convert 'quat' (%s) to 'Quat'"), *PyUtil::GetFriendlyTypename(PyQuatObj)));
 				return nullptr;
@@ -1346,7 +1353,7 @@ PyTypeObject InitializePyWrapperMathType_Quat()
 			}
 
 			FQuat Quat;
-			if (!PyConversion::NativizeStruct(PyQuatObj, Quat))
+			if (!PyConversion::NativizeStructInstance(PyQuatObj, Quat))
 			{
 				PyUtil::SetPythonError(PyExc_TypeError, InSelf, *FString::Printf(TEXT("Failed to convert 'quat' (%s) to 'Quat'"), *PyUtil::GetFriendlyTypename(PyQuatObj)));
 				return nullptr;
@@ -1357,10 +1364,10 @@ PyTypeObject InitializePyWrapperMathType_Quat()
 		}
 
 		PYMATH_METHOD_ONE_PARAM(FPyWrapperQuat, IsIdentity, "|O:is_identity", float, "float", "tolerance", SMALL_NUMBER, PyConversion::Nativize, PyConversion::Pythonize);
-		PYMATH_METHOD_ONE_PARAM(FPyWrapperQuat, GetNormalized, "|O:get_normalized", float, "float", "tolerance", SMALL_NUMBER, PyConversion::Nativize, PyConversion::PythonizeStruct);
-		PYMATH_METHOD_ONE_PARAM(FPyWrapperQuat, RotateVector, "O:rotate_vector", FVector, "Vector", "vector", FVector(), PyConversion::NativizeStruct, PyConversion::PythonizeStruct);
-		PYMATH_METHOD_ONE_PARAM(FPyWrapperQuat, UnrotateVector, "O:unrotate_vector", FVector, "Vector", "vector", FVector(), PyConversion::NativizeStruct, PyConversion::PythonizeStruct);
-		PYMATH_METHOD_ONE_PARAM(FPyWrapperQuat, AngularDistance, "O:angular_distance", FQuat, "Quat", "quat", FQuat(), PyConversion::NativizeStruct, PyConversion::Pythonize);
+		PYMATH_METHOD_ONE_PARAM(FPyWrapperQuat, GetNormalized, "|O:get_normalized", float, "float", "tolerance", SMALL_NUMBER, PyConversion::Nativize, PyConversion::PythonizeStructInstance);
+		PYMATH_METHOD_ONE_PARAM(FPyWrapperQuat, RotateVector, "O:rotate_vector", FVector, "Vector", "vector", FVector(), PyConversion::NativizeStructInstance, PyConversion::PythonizeStructInstance);
+		PYMATH_METHOD_ONE_PARAM(FPyWrapperQuat, UnrotateVector, "O:unrotate_vector", FVector, "Vector", "vector", FVector(), PyConversion::NativizeStructInstance, PyConversion::PythonizeStructInstance);
+		PYMATH_METHOD_ONE_PARAM(FPyWrapperQuat, AngularDistance, "O:angular_distance", FQuat, "Quat", "quat", FQuat(), PyConversion::NativizeStructInstance, PyConversion::Pythonize);
 	};
 
 	static PyMethodDef PyMethods[] = {
@@ -1447,7 +1454,7 @@ PyTypeObject InitializePyWrapperMathType_LinearColor()
 			}
 
 			FLinearColor Other;
-			if (!PyConversion::NativizeStruct(PyLinearColorObj, Other))
+			if (!PyConversion::NativizeStructInstance(PyLinearColorObj, Other))
 			{
 				PyUtil::SetPythonError(PyExc_TypeError, InSelf, *FString::Printf(TEXT("Failed to convert 'linear_color' (%s) to 'LinearColor'"), *PyUtil::GetFriendlyTypename(PyLinearColorObj)));
 				return nullptr;
@@ -1547,7 +1554,7 @@ PyTypeObject InitializePyWrapperMathType_LinearColor()
 			}
 
 			FColor Color;
-			if (!PyConversion::NativizeStruct(PyColorObj, Color))
+			if (!PyConversion::NativizeStructInstance(PyColorObj, Color))
 			{
 				PyUtil::SetPythonError(PyExc_TypeError, InSelf, *FString::Printf(TEXT("Failed to convert 'color' (%s) to 'Color'"), *PyUtil::GetFriendlyTypename(PyColorObj)));
 				return nullptr;
@@ -1567,7 +1574,7 @@ PyTypeObject InitializePyWrapperMathType_LinearColor()
 			}
 
 			FColor Color;
-			if (!PyConversion::NativizeStruct(PyColorObj, Color))
+			if (!PyConversion::NativizeStructInstance(PyColorObj, Color))
 			{
 				PyUtil::SetPythonError(PyExc_TypeError, InSelf, *FString::Printf(TEXT("Failed to convert 'color' (%s) to 'Color'"), *PyUtil::GetFriendlyTypename(PyColorObj)));
 				return nullptr;
@@ -1609,7 +1616,7 @@ PyTypeObject InitializePyWrapperMathType_LinearColor()
 			}
 
 			FLinearColor Other;
-			if (!PyConversion::NativizeStruct(PyLinearColorObj, Other))
+			if (!PyConversion::NativizeStructInstance(PyLinearColorObj, Other))
 			{
 				PyUtil::SetPythonError(PyExc_TypeError, InSelf, *FString::Printf(TEXT("Failed to convert 'linear_color' (%s) to 'LinearColor'"), *PyUtil::GetFriendlyTypename(PyLinearColorObj)));
 				return nullptr;
@@ -1626,11 +1633,11 @@ PyTypeObject InitializePyWrapperMathType_LinearColor()
 			return PyConversion::Pythonize(bResult);
 		}
 
-		PYMATH_METHOD_ONE_PARAM(FPyWrapperLinearColor, ToFColor, "O:to_color", bool, "bool", "is_srgb", false, PyConversion::Nativize, PyConversion::PythonizeStruct);
-		PYMATH_METHOD_ONE_PARAM(FPyWrapperLinearColor, Desaturate, "O:desaturate", float, "float", "desaturation", 0.0f, PyConversion::Nativize, PyConversion::PythonizeStruct);
-		PYMATH_METHOD_ONE_PARAM(FPyWrapperLinearColor, CopyWithNewOpacity, "O:copy_with_new_opacity", float, "float", "opacicty", 0.0f, PyConversion::Nativize, PyConversion::PythonizeStruct);
+		PYMATH_METHOD_ONE_PARAM(FPyWrapperLinearColor, ToFColor, "O:to_color", bool, "bool", "is_srgb", false, PyConversion::Nativize, PyConversion::PythonizeStructInstance);
+		PYMATH_METHOD_ONE_PARAM(FPyWrapperLinearColor, Desaturate, "O:desaturate", float, "float", "desaturation", 0.0f, PyConversion::Nativize, PyConversion::PythonizeStructInstance);
+		PYMATH_METHOD_ONE_PARAM(FPyWrapperLinearColor, CopyWithNewOpacity, "O:copy_with_new_opacity", float, "float", "opacicty", 0.0f, PyConversion::Nativize, PyConversion::PythonizeStructInstance);
 
-		PYMATH_SFUNC_ONE_PARAM(FPyWrapperLinearColor, Dist, "O:dist", FLinearColor, "LinearColor", "other", FLinearColor(), PyConversion::NativizeStruct, PyConversion::Pythonize);
+		PYMATH_SFUNC_ONE_PARAM(FPyWrapperLinearColor, Dist, "O:dist", FLinearColor, "LinearColor", "other", FLinearColor(), PyConversion::NativizeStructInstance, PyConversion::Pythonize);
 	};
 
 	static PyMethodDef PyMethods[] = {

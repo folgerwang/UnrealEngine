@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3579346
+﻿INTSourceChangelist:3808342
 Availability:Public
 TItle:NVIDIA Ansel コンソール変数のリファレンス
 Description:NVIDIA Ansel Photography プラグインで利用できるコンフィギュレーション変数のリファレンス
@@ -22,4 +22,4 @@ topic-image:Console_Topic.png
 | `r.Photography.TranslationSpeed` | 100.0 | ローミングする撮影カメラを移動させる通常速度 (アンリアル単位 / 秒)。 |
 | `r.Photography.AutoPostprocess` | 1 | 1 の場合、撮影システムは撮影セッション / キャプチャ中に、撮影結果を劣化させるといわれる HUD、字幕、一部の標準ポストプロセス エフェクトを自動的に無効にしようとします。PlayerCameraManager Blueprint コールバックから、すべてのポストプロセスの微調整を管理するには、 0 に設定します。[REGION:note]AutoPostprocess 値に関係なくブループリントのコールバックが呼び出されます。[/REGION] |
 | `r.Photography.AutoPause` | 1 | 1 の場合、撮影システムは撮影モードの間レベルを確実に一時停止させようとします。PlayerCameraManager Blueprint コールバックから、手動で一時停止、一時停止解除するには、 0 に設定します。[REGION:note]AutoPause 値に関係なくブループリントのコールバックが呼び出されます。[/REGION] |
-| `r.Photography.PersistEffects` | 0 | 1 の場合、撮影モードで有効になったカスタムのポストプロセス エフェクトが撮影セッションの終了後、そのままゲームに適用されます。この値に対する変更は、次の撮影セッションが開始するまで適用されない場合があります。 |
+

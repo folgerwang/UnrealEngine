@@ -58,6 +58,10 @@ public:
 	UPROPERTY(EditAnywhere, Category=Behavior, AdvancedDisplay)
 	bool AllowContextMenu;
 	
+	/** Additional options to be used by the virtual keyboard summoned from this widget */
+	UPROPERTY(EditAnywhere, Category=Behavior, AdvancedDisplay)
+	FVirtualKeyboardOptions VirtualKeyboardOptions;
+
 	/** What action should be taken when the virtual keyboard is dismissed? */
 	UPROPERTY(EditAnywhere, Category=Behavior, AdvancedDisplay)
 	EVirtualKeyboardDismissAction VirtualKeyboardDismissAction;

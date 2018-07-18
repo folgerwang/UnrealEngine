@@ -77,7 +77,7 @@ public:
 	/**
 	* The gesture state.
 	* Recognized movements occur over time and have a beginning, a middle, and an end.
-	* The ‘state‘ attribute reports where in that sequence this Gesture object falls.
+	* The 'state' attribute reports where in that sequence this Gesture object falls.
 	*/
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Leap Gesture")
 	TEnumAsByte<LeapGestureState> State;

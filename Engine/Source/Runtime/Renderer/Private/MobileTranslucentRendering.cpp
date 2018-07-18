@@ -36,18 +36,18 @@ class FMobileCopySceneAlphaPS : public FGlobalShader
 	DECLARE_SHADER_TYPE(FMobileCopySceneAlphaPS,Global);
 public:
 
-	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters) { return true; }
+	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters) { return IsMobilePlatform(Parameters.Platform); }
 
 	FMobileCopySceneAlphaPS(const ShaderMetaType::CompiledShaderInitializerType& Initializer):
 		FGlobalShader(Initializer)
 	{
-		SceneTextureParameters.Bind(Initializer.ParameterMap);
+		SceneTextureParameters.Bind(Initializer);
 	}
 	FMobileCopySceneAlphaPS() {}
 
 	void SetParameters(FRHICommandList& RHICmdList, const FSceneView& View)
 	{
-		SceneTextureParameters.Set(RHICmdList, GetPixelShader(), View);
+		SceneTextureParameters.Set(RHICmdList, GetPixelShader(), View.FeatureLevel, ESceneTextureSetupMode::All);
 	}
 
 	virtual bool Serialize(FArchive& Ar) override
@@ -68,7 +68,7 @@ void FMobileSceneRenderer::CopySceneAlpha(FRHICommandListImmediate& RHICmdList, 
 	SCOPED_DRAW_EVENTF(RHICmdList, EventCopy, TEXT("CopySceneAlpha"));
 	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
 
-	RHICmdList.CopyToResolveTarget(SceneContext.GetSceneColorSurface(), SceneContext.GetSceneColorTexture(), true, FResolveRect(0, 0, FamilySize.X, FamilySize.Y));
+	RHICmdList.CopyToResolveTarget(SceneContext.GetSceneColorSurface(), SceneContext.GetSceneColorTexture(), FResolveRect(0, 0, FamilySize.X, FamilySize.Y));
 
 	SceneContext.BeginRenderingSceneAlphaCopy(RHICmdList);
 
@@ -158,10 +158,9 @@ public:
 	}
 
 	/** Draws the translucent mesh with a specific light-map type, and fog volume type */
-	template<int32 NumDynamicPointLights>
 	void Process(
 		FRHICommandList& RHICmdList, 
-		const FProcessBasePassMeshParameters& Parameters,
+		const FMobileProcessBasePassMeshParameters& Parameters,
 		const FUniformLightMapPolicy& LightMapPolicy,
 		const typename FUniformLightMapPolicy::ElementDataType& LightMapElementData
 		)
@@ -169,13 +168,13 @@ public:
 		const bool bIsLitMaterial = Parameters.ShadingModel != MSM_Unlit;
 		const FScene* Scene = Parameters.PrimitiveSceneProxy ? Parameters.PrimitiveSceneProxy->GetPrimitiveSceneInfo()->Scene : NULL;
 
-		TMobileBasePassDrawingPolicy<FUniformLightMapPolicy, NumDynamicPointLights> DrawingPolicy(
+		TMobileBasePassDrawingPolicy<FUniformLightMapPolicy> DrawingPolicy(
 			Parameters.Mesh.VertexFactory,
 			Parameters.Mesh.MaterialRenderProxy,
 			*Parameters.Material,
 			LightMapPolicy,
+			Parameters.NumMovablePointLights,
 			Parameters.BlendMode,
-			Parameters.TextureMode,
 			Parameters.ShadingModel != MSM_Unlit && Scene && Scene->ShouldRenderSkylightInBasePass(Parameters.BlendMode),
 			ComputeMeshOverrideSettings(Parameters.Mesh),
 			View.Family->GetDebugViewShaderMode(),
@@ -184,13 +183,7 @@ public:
 
 		DrawingPolicy.SetupPipelineState(DrawRenderState, View);
 		CommitGraphicsPipelineState(RHICmdList, DrawingPolicy, DrawRenderState, DrawingPolicy.GetBoundShaderStateInput(View.GetFeatureLevel()));
-		DrawingPolicy.SetSharedState(RHICmdList, DrawRenderState, &View, typename TMobileBasePassDrawingPolicy<FUniformLightMapPolicy, NumDynamicPointLights>::ContextDataType());
-
-		if (Parameters.bUseMobileMultiViewMask)
-		{
-			// Mask opposite view
-			DrawingPolicy.SetMobileMultiViewMask(RHICmdList, (View.StereoPass == EStereoscopicPass::eSSP_LEFT_EYE) ? 1 : 0);
-		}
+		DrawingPolicy.SetSharedState(RHICmdList, DrawRenderState, &View, typename TMobileBasePassDrawingPolicy<FUniformLightMapPolicy>::ContextDataType());
 
 		for (int32 BatchElementIndex = 0; BatchElementIndex<Parameters.Mesh.Elements.Num(); BatchElementIndex++)
 		{
@@ -204,8 +197,8 @@ public:
 				Parameters.Mesh,
 				BatchElementIndex,
 				DrawRenderState,
-				typename TMobileBasePassDrawingPolicy<FUniformLightMapPolicy, NumDynamicPointLights>::ElementDataType(LightMapElementData),
-				typename TMobileBasePassDrawingPolicy<FUniformLightMapPolicy, NumDynamicPointLights>::ContextDataType()
+				typename TMobileBasePassDrawingPolicy<FUniformLightMapPolicy>::ElementDataType(LightMapElementData),
+				typename TMobileBasePassDrawingPolicy<FUniformLightMapPolicy>::ContextDataType()
 				);
 			DrawingPolicy.DrawMesh(RHICmdList, View, Parameters.Mesh, BatchElementIndex);
 		}
@@ -244,17 +237,15 @@ bool FMobileTranslucencyDrawingPolicyFactory::DrawDynamicMesh(
 			DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
 		}
 
-		ProcessMobileBasePassMesh<FDrawMobileTranslucentMeshAction, 0>(
+		ProcessMobileBasePassMesh<FDrawMobileTranslucentMeshAction>(
 			RHICmdList,
-			FProcessBasePassMeshParameters(
+			FMobileProcessBasePassMeshParameters(
 				Mesh,
 				Material,
 				PrimitiveSceneProxy,
 				true,
-				DrawingContext.TextureMode,
 				FeatureLevel, 
-				false, // ISR disabled for mobile
-				View.bIsMobileMultiViewEnabled
+				false // ISR disabled for mobile
 				),
 			FDrawMobileTranslucentMeshAction(
 				RHICmdList,
@@ -336,24 +327,32 @@ void FMobileSceneRenderer::RenderTranslucency(FRHICommandListImmediate& RHICmdLi
 			SCOPED_CONDITIONAL_DRAW_EVENTF(RHICmdList, EventView, Views.Num() > 1, TEXT("View%d"), ViewIndex);
 			
 			const FViewInfo& View = *PassViews[ViewIndex];
-			FDrawingPolicyRenderState DrawRenderState(View);
+			if (!View.ShouldRenderView())
+			{
+				continue;
+			}
+
+			TUniformBufferRef<FMobileBasePassUniformParameters> BasePassUniformBuffer;
+			CreateMobileBasePassUniformBuffer(RHICmdList, View, true, BasePassUniformBuffer);
+
+			FDrawingPolicyRenderState DrawRenderState(View, BasePassUniformBuffer);
 
 			if (!bGammaSpace)
 			{
-				FSceneRenderTargets::Get(RHICmdList).BeginRenderingTranslucency(RHICmdList, View, false);
+				FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
+				// Use begin rendering scene color with FExclusiveDepthStencil::DepthRead_StencilRead to avoid starting a new render pass on vulkan.
+				SceneContext.BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthRead_StencilRead);
 			}
-			else
-			{
-				// Mobile multi-view is not side by side stereo
-				const FViewInfo& TranslucentViewport = (View.bIsMobileMultiViewEnabled) ? Views[0] : View;
-				RHICmdList.SetViewport(TranslucentViewport.ViewRect.Min.X, TranslucentViewport.ViewRect.Min.Y, 0.0f, TranslucentViewport.ViewRect.Max.X, TranslucentViewport.ViewRect.Max.Y, 1.0f);
-			}
+
+			// Mobile multi-view is not side by side stereo
+			const FViewInfo& TranslucentViewport = (View.bIsMobileMultiViewEnabled) ? Views[0] : View;
+			RHICmdList.SetViewport(TranslucentViewport.ViewRect.Min.X, TranslucentViewport.ViewRect.Min.Y, 0.0f, TranslucentViewport.ViewRect.Max.X, TranslucentViewport.ViewRect.Max.Y, 1.0f);
 
 			// Enable depth test, disable depth writes.
 			DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<false, CF_DepthNearOrEqual>::GetRHI());
 
 			// Draw only translucent prims that don't read from scene color
-			FMobileTranslucencyDrawingPolicyFactory::ContextType DrawingContext(ESceneRenderTargetsMode::SetTextures, TranslucencyPass);
+			FMobileTranslucencyDrawingPolicyFactory::ContextType DrawingContext(TranslucencyPass);
 			View.TranslucentPrimSet.DrawPrimitivesForMobile<FMobileTranslucencyDrawingPolicyFactory>(RHICmdList, View, DrawRenderState, DrawingContext);
 			
 			View.SimpleElementCollector.DrawBatchedElements(RHICmdList, DrawRenderState, View, EBlendModeFilter::Translucent);
@@ -382,6 +381,7 @@ protected:
 	FOpacityOnlyVS(const FMeshMaterialShaderType::CompiledShaderInitializerType& Initializer) :
 		FMeshMaterialShader(Initializer)
 	{
+		PassUniformBuffer.Bind(Initializer.ParameterMap, FMobileSceneTextureUniformParameters::StaticStruct.GetShaderVariableName());
 	}
 
 public:
@@ -393,6 +393,7 @@ public:
 
 	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
 	{
+		FMeshMaterialShader::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
 		OutEnvironment.SetDefine(TEXT("OUTPUT_GAMMA_SPACE"), IsMobileHDR() == false);
 	}
 
@@ -406,10 +407,11 @@ public:
 		FRHICommandList& RHICmdList,
 		const FMaterialRenderProxy* MaterialRenderProxy,
 		const FMaterial& MaterialResource,
-		const FSceneView& View
-	)
+		const FSceneView& View, 
+		const FDrawingPolicyRenderState& DrawRenderState)
 	{
-		FMeshMaterialShader::SetParameters(RHICmdList, GetVertexShader(), MaterialRenderProxy, MaterialResource, View, View.ViewUniformBuffer, ESceneRenderTargetsMode::DontSet);
+
+		FMeshMaterialShader::SetParameters(RHICmdList, GetVertexShader(), MaterialRenderProxy, MaterialResource, View, DrawRenderState.GetViewUniformBuffer(), DrawRenderState.GetPassUniformBuffer());
 	}
 
 	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory, const FSceneView& View, const FPrimitiveSceneProxy* Proxy, const FMeshBatchElement& BatchElement, const FDrawingPolicyRenderState& DrawRenderState)
@@ -435,19 +437,21 @@ public:
 
 	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
 	{
+		FMeshMaterialShader::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
 		OutEnvironment.SetDefine(TEXT("MOBILE_FORCE_DEPTH_TEXTURE_READS"), 1u);
 	}
 
 	FOpacityOnlyPS(const ShaderMetaType::CompiledShaderInitializerType& Initializer) :
 		FMeshMaterialShader(Initializer)
 	{
+		PassUniformBuffer.Bind(Initializer.ParameterMap, FMobileSceneTextureUniformParameters::StaticStruct.GetShaderVariableName());
 	}
 
 	FOpacityOnlyPS() {}
 
-	void SetParameters(FRHICommandList& RHICmdList, const FMaterialRenderProxy* MaterialRenderProxy, const FMaterial& MaterialResource, const FSceneView* View)
+	void SetParameters(FRHICommandList& RHICmdList, const FMaterialRenderProxy* MaterialRenderProxy, const FMaterial& MaterialResource, const FSceneView* View, const FDrawingPolicyRenderState& DrawRenderState)
 	{
-		FMeshMaterialShader::SetParameters(RHICmdList, GetPixelShader(), MaterialRenderProxy, MaterialResource, *View, View->ViewUniformBuffer, ESceneRenderTargetsMode::DontSet);
+		FMeshMaterialShader::SetParameters(RHICmdList, GetPixelShader(), MaterialRenderProxy, MaterialResource, *View, DrawRenderState.GetViewUniformBuffer(), DrawRenderState.GetPassUniformBuffer());
 	}
 
 	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory, const FSceneView& View, const FPrimitiveSceneProxy* Proxy, const FMeshBatchElement& BatchElement, const FDrawingPolicyRenderState& DrawRenderState)
@@ -513,8 +517,8 @@ public:
 
 	void SetSharedState(FRHICommandList& RHICmdList, const FDrawingPolicyRenderState& DrawRenderState, const FSceneView* View, const FMobileOpacityDrawingPolicy::ContextDataType PolicyContext) const
 	{
-		VertexShader->SetParameters(RHICmdList, MaterialRenderProxy, *MaterialResource, *View);
-		PixelShader->SetParameters(RHICmdList, MaterialRenderProxy, *MaterialResource, View);
+		VertexShader->SetParameters(RHICmdList, MaterialRenderProxy, *MaterialResource, *View, DrawRenderState);
+		PixelShader->SetParameters(RHICmdList, MaterialRenderProxy, *MaterialResource, View, DrawRenderState);
 
 		// Set the shared mesh resources.
 		FMeshDrawingPolicy::SetSharedState(RHICmdList, DrawRenderState, View, PolicyContext);
@@ -678,7 +682,7 @@ bool FMobileSceneRenderer::RenderInverseOpacity(FRHICommandListImmediate& RHICmd
 		{
 			if (!bGammaSpace)
 			{
-				FSceneRenderTargets::Get(RHICmdList).BeginRenderingTranslucency(RHICmdList, View);
+				FSceneRenderTargets::Get(RHICmdList).BeginRenderingTranslucency(RHICmdList, View, *this);
 			}
 			else
 			{
@@ -687,7 +691,12 @@ bool FMobileSceneRenderer::RenderInverseOpacity(FRHICommandListImmediate& RHICmd
 				RHICmdList.SetViewport(TranslucentViewport.ViewRect.Min.X, TranslucentViewport.ViewRect.Min.Y, 0.0f, TranslucentViewport.ViewRect.Max.X, TranslucentViewport.ViewRect.Max.Y, 1.0f);
 			}
 
-			FDrawingPolicyRenderState DrawRenderState(View);
+			FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
+			FMobileSceneTextureUniformParameters PassParameters;
+			SetupMobileSceneTextureUniformParameters(SceneContext, View.FeatureLevel, true, PassParameters);
+			TUniformBufferRef<FMobileSceneTextureUniformParameters> PassUniformBuffer = TUniformBufferRef<FMobileSceneTextureUniformParameters>::CreateUniformBufferImmediate(PassParameters, UniformBuffer_SingleFrame);
+
+			FDrawingPolicyRenderState DrawRenderState(View, PassUniformBuffer);
 			// Enable depth test, disable depth writes.
 			DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<false, CF_DepthNearOrEqual>::GetRHI());
 			DrawRenderState.SetBlendState(TStaticBlendState<CW_ALPHA, BO_Add, BF_DestColor, BF_Zero, BO_Add, BF_Zero, BF_InverseSourceAlpha>::GetRHI());

@@ -1,48 +1,10 @@
-﻿INTSourceChangelist:2954984
+﻿INTSourceChangelist:3810557
 Availability:Public
 Title:スポットライト
 Crumbs: %ROOT%, Engine, Engine/Rendering/LightingAndShadows, Engine/Rendering/LightingAndShadows/LightTypes
 Description:スポットライトの基礎
 Version:4.9
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Rendering/LightingAndShadows/LightTypes/Spot:title%](SpotLight_Topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Rendering/LightingAndShadows/LightTypes/Spot:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Rendering/LightingAndShadows/LightTypes/Spot:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/LightingAndShadows/LightTypes/Spot]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Rendering/LightingAndShadows/LightTypes/Spot:title%](SpotLight_Topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Rendering/LightingAndShadows/LightTypes/Spot:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Rendering/LightingAndShadows/LightTypes/Spot:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/LightingAndShadows/LightTypes/Spot]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:SpotLight_Topic.png
 
 [REGION:fullwidth raw]
 ![](Spotlight_Header.png)
@@ -56,28 +18,10 @@ Version:4.9
 
 他のライトと同様に、スポットライトには次の 3 つの可動設定のいずれかを設定できます。 
 
-
-
-[OBJECT:topiclistnotitle]
-	[PARAM:icon]
-	![](Spotlight_Stationary.png)(w:150 convert:false)
-	[/PARAM]
-	[PARAM:description]
-	**Static (静的)** - (左の画像) ゲーム中のライトの変更が不可能です。これは、最速のレンダリング方法であり、焼き付けたライティングを可能にします。
-
-	**Stationary (固定)** - (同じく左の画像) ライトは Lightmass で焼き付けられた静的ジオメトリからのシャドウイングと反射光のみを持ちます。この設定により、ゲーム中にライトのカラーと強度を変更することが可能となりますが、移動および部分的なライトの焼付けはできません。 
-	[/PARAM]
-[/OBJECT]
+* **Static (静的)** - (左の画像) ゲーム中のライトの変更が不可能です。これは、最速のレンダリング方法であり、焼き付けたライティングを可能にします。
+* **Stationary (固定)** - (同じく左の画像) ライトは Lightmass で焼き付けられた静的ジオメトリからのシャドウイングと反射光のみを持ちます。この設定により、ゲーム中にライトのカラーと強度を変更することが可能となりますが、移動および部分的なライトの焼付けはできません。 
+* **Moveable (可動)** - (左の図) ライトは完全に動的であり、動的シャドウイングが可能です。レンダリングは最も遅くなりますが、ゲームプレイ中は一番柔軟性があります。 
 [/EXCERPT:Intro]
-
-[OBJECT:topiclistnotitle]
-	[PARAM:icon]
-		![](Spotlight_Movable.png)(w:150 convert:false)
-	[/PARAM]
-	[PARAM:description]
-	**Moveable (可動)** - (左の図) ライトは完全に動的であり、動的シャドウイングが可能です。レンダリングは最も遅くなりますが、ゲームプレイ中は一番柔軟性があります。 
-	[/PARAM]
-[/OBJECT]
 
 以下はレベルに配置された **スポットライト** の 2 つの例であり、ライトの半径とコーン エフェクタを決定する方法を示します。
 
@@ -101,11 +45,11 @@ Version:4.9
 ### Light
 プロパティ | 説明 |
 | -------- | ----------- |
-| **Intensity** | ライトが放つエネルギーの合計です。 |
-| **Light Color** | ライトが放つ色です。 |
+| **Intensity** | ライトが放出するエネルギーの合計です。 |
+| **Light Color** | ライトが放出する色です。 |
 | **Inner Cone Angle** | スポットライトの内側のアングルの度数を設定します。 |
 **Inner Cone Angle** |  スポットライトの外側のアングルの度数を設定します。  |
-| **Attenuation Radius** | ライトの目に見える影響を結合します。|
+| **Attenuation Radius** | 表示されたライトの影響を結合します。|
 | **Source Radius** | 光源の球体の半径です。 |
 | **Source Length** | 光源の球体の長さです。 |
 | **Affects World** | ライトを完全に無効にします。ランタイム時に設定することはできません。ランタイム時にライトの効果を無効にするには、Visibility プロパティを変更します。 |
@@ -114,9 +58,9 @@ Version:4.9
 | **Use Inverse Squared Falloff** | AttenuationRadius がライトの効果だけをクランプする場合、物理ベースの逆二乗ディスタンス フォールオフを使うかどうかを設定します。 |
 | **Light Falloff Exponent** | UseInverseSquaredFalloff が無効の場合、ライトの放射状フォールオフを制御します。 |
 | **Min Roughness** | ライトに有効なラフネス (粗さ) の最低値です。スペキュラ ハイライトをソフトにする際に使用します。 |
-| **Shadow Bias** | ライトが作成するシャドウの精度を制御します。 |
-| **Shadow Filter Sharpen** | ライトのシャドウ フィルタリングをシャープにする度合いです。 |
-| **Cast Translucent Shadows** | ライトに透過オブジェクトを通過して動的シャドウをキャストさせるか否かを設定します。 |
+| **Shadow Bias** | ライトからのシャドウの精度を調節します。 |
+| **Shadow Filter Sharpen** | ライトに対するシャドウ フィルタリングのを鮮明さを調節します。 |
+| **Cast Translucent Shadows** | ライトに透過オブジェクトを通過する動的シャドウをキャストさせるかどうかを設定します。 |
 | **Affect Dynamic Indirect Lighting** | ライトを Light Propagation Volume に入れるかどうかを設定します。.|
 | **Cast Static Shadows**| ライトに静的シャドウをキャストさせるか否かを設定します。 |
 | **Cast Dynamic Shadows** | ライトに動的シャドウをキャストさせるか否かを設定します。 |
@@ -126,14 +70,14 @@ Version:4.9
 ### Light Profiles
 プロパティ | 説明 |
 | -------- | ----------- |
-| **IES Texture** | ライトプロファイルに使用した IES 「テクスチャ」です。アンリアルでは IES ファイルは ASCII ファイルで格納し、テクスチャを表現します。これらは画像ファイルではありません。 |
-| **Use IES Brightness** | _false_ の場合、ライトの生成量を決定するためにライトの Brightness (輝度) を使用します。_true_ の場合、ルーメン単位の IES ファイルの輝度を使用します (アンリアルのライトのデフォルト値よりもはるかに大きな数値です)。 |
-| **IES Brightness Scale** | シーンを大幅に超えることもあるため、IES 輝度の寄与をスケーリングします。 |
+| **IES Texture** | ライトプロファイルに使用した IES "テクスチャ" です。アンリアルではテクスチャとされますが、IES ファイルは画像ファイルではなく ASCII です。 |
+| **Use IES Brightness** | _false_ の場合、ライトの生成量を決定するためにライトの Brightness (輝度) を使用します。_true_ の場合、iIES ファイルの輝度をルーメンで (アンリアルのライトのデフォルト値よりもかなり大きい) を使用します。 |
+| **IES Brightness Scale** | シーンを大幅に超えることもあるため、IES 輝度をスケーリングします。 |
 
 ### Lightmass
 プロパティ | 説明 |
 | -------- | ----------- |
-| **Indirect Lighting Saturation** | 値 0 はライトマスのライトを完全に減じます。値 1 が何も変化しない状態です。 |
+| **Indirect Lighting Saturation** | 値 0 はライトマスのライトの彩度を完全に落とします。値 1 が何も変化しない状態です。 |
 | **Shadow Exponent** | シャドウ暗部のフォールオフを制御します。 |
 
 
@@ -142,5 +86,5 @@ Version:4.9
 | -------- | ----------- |
 | **Light Function Material** | ライトに適用するライト関数マテリアルです。 |
 | **Light Function Scale** | ライト関数のプロジェクションをスケーリングします。 |
-| **Light Function Fade Distance** | ライト関数が Disabled Brightness の値で完全に弱まる距離です。 |
-| **Disabled Brightness** | ライト関数が指定されていながら無効になっている時、ライトに適用する輝度係数です。仮に上記のプロパティをあげるなら Light Function Fade Distance です。 |
+| **Light Function Fade Distance** | ライト関数が Disabled Brightness の値に対して完全に弱まる距離です。 |
+| **Disabled Brightness** | 指定されたライト関数が無効になっている時に、上のプロパティ Light Function Fade Distance からライトに適用する輝度係数です。 |

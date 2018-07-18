@@ -2,10 +2,10 @@
 
 #include "SlateViewerApp.h"
 #include "RequiredProgramMainCPPInclude.h"
-#include "STestSuite.h"
+#include "Widgets/Testing/STestSuite.h"
 #include "ISourceCodeAccessModule.h"
-#include "SPerfSuite.h"
-#include "SDockTab.h"
+#include "Widgets/Testing/SPerfSuite.h"
+#include "Widgets/Docking/SDockTab.h"
 #include "SWebBrowser.h"
 #include "Framework/Application/SlateApplication.h"
 #include "IWebBrowserWindow.h"
@@ -81,8 +81,11 @@ int RunSlateViewer( const TCHAR* CommandLine )
 		FSlateApplication::Get().Tick();		
 		FPlatformProcess::Sleep(0);
 	}
-	FModuleManager::Get().UnloadModulesAtShutdown();
+
+	FCoreDelegates::OnExit.Broadcast();
 	FSlateApplication::Shutdown();
+	FModuleManager::Get().UnloadModulesAtShutdown();
+
 
 	return 0;
 }

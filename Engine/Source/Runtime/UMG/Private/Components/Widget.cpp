@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Components/Widget.h"
-#include "ConfigCacheIni.h"
+#include "Misc/ConfigCacheIni.h"
 #include "CoreGlobals.h"
 #include "Widgets/SNullWidget.h"
 #include "Types/NavigationMetaData.h"
@@ -23,10 +23,12 @@
 #include "Blueprint/WidgetTree.h"
 #include "UMGStyle.h"
 #include "Types/ReflectionMetadata.h"
-#include "PropertyLocalizationDataGathering.h"
+#include "Serialization/PropertyLocalizationDataGathering.h"
 #include "HAL/LowLevelMemTracker.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
+
+DECLARE_DWORD_ACCUMULATOR_STAT(TEXT("Total Created UWidgets"), STAT_SlateUTotalWidgets, STATGROUP_SlateMemory);
 
 /**
 * Interface for tool tips.
@@ -162,6 +164,8 @@ UWidget::UWidget(const FObjectInitializer& ObjectInitializer)
 #if WITH_EDITORONLY_DATA
 	{ static const FAutoRegisterLocalizationDataGatheringCallback AutomaticRegistrationOfLocalizationGatherer(UWidget::StaticClass(), &GatherWidgetForLocalization); }
 #endif
+
+	INC_DWORD_STAT(STAT_SlateUTotalWidgets);
 }
 
 void UWidget::SetRenderTransform(FWidgetTransform Transform)
@@ -418,6 +422,17 @@ bool UWidget::HasMouseCapture() const
 	return false;
 }
 
+bool UWidget::HasMouseCaptureByUser(int32 UserIndex, int32 PointerIndex) const
+{
+	TSharedPtr<SWidget> SafeWidget = GetCachedWidget();
+	if (SafeWidget.IsValid())
+	{
+		return SafeWidget->HasMouseCaptureByUser(UserIndex, PointerIndex >= 0 ? PointerIndex : TOptional<int32>());
+	}
+
+	return false;
+}
+
 void UWidget::SetKeyboardFocus()
 {
 	TSharedPtr<SWidget> SafeWidget = GetCachedWidget();
@@ -643,21 +658,24 @@ UPanelWidget* UWidget::GetParent() const
 
 void UWidget::RemoveFromParent()
 {
-	UPanelWidget* CurrentParent = GetParent();
-	if ( CurrentParent )
+	if (!HasAnyFlags(RF_BeginDestroyed))
 	{
-		CurrentParent->RemoveChild(this);
-	}
-	else
-	{
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-		if ( GetCachedWidget().IsValid() )
+		UPanelWidget* CurrentParent = GetParent();
+		if (CurrentParent)
 		{
-			FText WarningMessage = FText::Format(LOCTEXT("RemoveFromParentWithNoParent", "UWidget::RemoveFromParent() called on '{0}' which has no UMG parent (if it was added directly to a native Slate widget via TakeWidget() then it must be removed explicitly rather than via RemoveFromParent())"), FText::AsCultureInvariant(GetPathName()));
-			// @todo: nickd - we need to switch this back to a warning in engine, but info for games
-			FMessageLog("PIE").Info(WarningMessage);
+			CurrentParent->RemoveChild(this);
 		}
+		else
+		{
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+			if (GetCachedWidget().IsValid() && !IsDesignTime())
+			{
+				FText WarningMessage = FText::Format(LOCTEXT("RemoveFromParentWithNoParent", "UWidget::RemoveFromParent() called on '{0}' which has no UMG parent (if it was added directly to a native Slate widget via TakeWidget() then it must be removed explicitly rather than via RemoveFromParent())"), FText::AsCultureInvariant(GetPathName()));
+				// @todo: nickd - we need to switch this back to a warning in engine, but info for games
+				FMessageLog("PIE").Info(WarningMessage);
+			}
 #endif
+		}
 	}
 }
 
@@ -785,6 +803,12 @@ TSharedPtr<SWidget> UWidget::GetCachedWidget() const
 	return MyWidget.Pin();
 }
 
+bool UWidget::IsConstructed() const
+{
+	const TSharedPtr<SWidget>& SafeWidget = GetCachedWidget();
+	return SafeWidget.IsValid();
+}
+
 #if WITH_EDITOR
 
 TSharedRef<SWidget> UWidget::RebuildDesignWidget(TSharedRef<SWidget> Content)
@@ -817,14 +841,21 @@ TSharedRef<SWidget> UWidget::CreateDesignerOutline(TSharedRef<SWidget> Content) 
 
 APlayerController* UWidget::GetOwningPlayer() const
 {
-	if ( UWidgetTree* WidgetTree = Cast<UWidgetTree>(GetOuter()) )
+	UWidgetTree* WidgetTree = Cast<UWidgetTree>(GetOuter());
+	if (UUserWidget* UserWidget = WidgetTree ? Cast<UUserWidget>(WidgetTree->GetOuter()) : nullptr)
 	{
-		if ( UUserWidget* UserWidget = Cast<UUserWidget>(WidgetTree->GetOuter()) )
-		{
-			return UserWidget->GetOwningPlayer();
-		}
+		return UserWidget->GetOwningPlayer();
 	}
+	return nullptr;
+}
 
+ULocalPlayer* UWidget::GetOwningLocalPlayer() const
+{
+	UWidgetTree* WidgetTree = Cast<UWidgetTree>(GetOuter());
+	if (UUserWidget* UserWidget = WidgetTree ? Cast<UUserWidget>(WidgetTree->GetOuter()) : nullptr)
+	{
+		return UserWidget->GetOwningLocalPlayer();
+	}
 	return nullptr;
 }
 
@@ -1046,6 +1077,10 @@ void UWidget::SynchronizeProperties()
 
 	SafeWidget->SetRenderOpacity(RenderOpacity);
 
+#if !UE_BUILD_SHIPPING
+	SafeWidget->SetTag(GetFName());
+#endif
+
 	UpdateRenderTransform();
 	SafeWidget->SetRenderTransformPivot(RenderTransformPivot);
 
@@ -1114,6 +1149,12 @@ UWorld* UWidget::GetWorld() const
 	}
 
 	return nullptr;
+}
+
+void UWidget::FinishDestroy()
+{
+	Super::FinishDestroy();
+	DEC_DWORD_STAT(STAT_SlateUTotalWidgets);
 }
 
 EVisibility UWidget::ConvertSerializedVisibilityToRuntime(ESlateVisibility Input)

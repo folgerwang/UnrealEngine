@@ -6,8 +6,9 @@
 #include "Stats/Stats.h"
 #include "UObject/ObjectMacros.h"
 #include "Templates/SubclassOf.h"
-#include "AI/Navigation/NavFilters/NavigationQueryFilter.h"
+#include "NavFilters/NavigationQueryFilter.h"
 #include "AI/Navigation/NavigationTypes.h"
+#include "NavigationSystemTypes.h"
 #include "GameFramework/Actor.h"
 #include "AITypes.generated.h"
 

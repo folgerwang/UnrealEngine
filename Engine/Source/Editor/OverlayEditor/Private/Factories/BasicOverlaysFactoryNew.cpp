@@ -34,5 +34,5 @@ uint32 UBasicOverlaysFactoryNew::GetMenuCategories() const
 
 bool UBasicOverlaysFactoryNew::ShouldShowInNewMenu() const
 {
-	return true;
+	return false;// true;
 }

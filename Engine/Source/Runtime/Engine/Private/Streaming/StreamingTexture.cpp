@@ -7,6 +7,7 @@ StreamingTexture.cpp: Definitions of classes used for texture.
 #include "Streaming/StreamingTexture.h"
 #include "Misc/App.h"
 #include "Streaming/StreamingManagerTexture.h"
+#include "HAL/FileManager.h"
 
 FStreamingTexture::FStreamingTexture(UTexture2D* InTexture, const int32 NumStreamedMips[TEXTUREGROUP_MAX], const FTextureStreamingSettings& Settings)
 : Texture(InTexture)
@@ -14,7 +15,12 @@ FStreamingTexture::FStreamingTexture(UTexture2D* InTexture, const int32 NumStrea
 	UpdateStaticData(Settings);
 	UpdateDynamicData(NumStreamedMips, Settings, false);
 
-	InstanceRemovedTimestamp = -FLT_MAX;
+	if ( Texture )
+	{
+		UpdateOptionalMipsState_Async();
+	}
+
+	InstanceRemovedTimestamp = FApp::GetCurrentTime();
 	DynamicBoostFactor = 1.f;
 
 	bHasUpdatePending = InTexture && InTexture->bHasStreamingUpdatePending;
@@ -33,6 +39,8 @@ FStreamingTexture::FStreamingTexture(UTexture2D* InTexture, const int32 NumStrea
 
 void FStreamingTexture::UpdateStaticData(const FTextureStreamingSettings& Settings)
 {
+
+	OptionalBulkDataFilename = TEXT("");
 	if (Texture)
 	{
 		LODGroup = (TextureGroup)Texture->LODGroup;
@@ -44,9 +52,19 @@ void FStreamingTexture::UpdateStaticData(const FTextureStreamingSettings& Settin
 		bIsCharacterTexture = (LODGroup == TEXTUREGROUP_Character || LODGroup == TEXTUREGROUP_CharacterSpecular || LODGroup == TEXTUREGROUP_CharacterNormalMap);
 		bIsTerrainTexture = (LODGroup == TEXTUREGROUP_Terrain_Heightmap || LODGroup == TEXTUREGROUP_Terrain_Weightmap);
 
+		NumNonOptionalMips = MipCount - Texture->CalcNumOptionalMips();
+		OptionalMipsState = EOptionalMipsState::NotCached;
+
 		for (int32 MipIndex=0; MipIndex < MAX_TEXTURE_MIP_COUNT; ++MipIndex)
 		{
 			TextureSizes[MipIndex] = Texture->CalcTextureMemorySize(FMath::Min(MipIndex + 1, MipCount));
+		}
+		const FString* PtrBulkDataFilename = nullptr;
+		const int32 OptionalMipCount = MipCount - NumNonOptionalMips;
+		const int32 OptionalMipIndex = OptionalMipCount - 1; // just here so it's clear why this -1 is here
+		if (Texture->GetMipDataFilename(OptionalMipIndex, PtrBulkDataFilename))
+		{
+			OptionalBulkDataFilename = *PtrBulkDataFilename;
 		}
 	}
 	else
@@ -56,6 +74,8 @@ void FStreamingTexture::UpdateStaticData(const FTextureStreamingSettings& Settin
 		MipCount = 0;
 		BudgetMipBias = 0;
 		BoostFactor = 1.f;
+		NumNonOptionalMips = MipCount;
+		OptionalMipsState = EOptionalMipsState::NotCached;
 
 		bIsCharacterTexture = false;
 		bIsTerrainTexture = false;
@@ -63,6 +83,24 @@ void FStreamingTexture::UpdateStaticData(const FTextureStreamingSettings& Settin
 		for (int32 MipIndex=0; MipIndex < MAX_TEXTURE_MIP_COUNT; ++MipIndex)
 		{
 			TextureSizes[MipIndex] = 0;
+		}
+	}
+}
+
+void FStreamingTexture::UpdateOptionalMipsState_Async()
+{
+	if (!Texture) return;
+
+	if (NumNonOptionalMips == ResidentMips && NumNonOptionalMips < MipCount)
+	{
+		if (OptionalMipsState == EOptionalMipsState::NotCached)
+		{
+			OptionalMipsState = EOptionalMipsState::NoOptionalMips;
+			check(OptionalBulkDataFilename != TEXT(""));
+			if (IFileManager::Get().FileExists(*OptionalBulkDataFilename))
+			{
+				OptionalMipsState = EOptionalMipsState::HasOptionalMips;
+			}
 		}
 	}
 }
@@ -99,7 +137,23 @@ void FStreamingTexture::UpdateDynamicData(const int32 NumStreamedMips[TEXTUREGRO
 		}
 
 		// The max mip count is affected by the texture bias and cinematic bias settings.
-		MaxAllowedMips = FMath::Clamp<int32>(FMath::Min<int32>(MipCount - LODBias, GMaxTextureMipCount), NumNonStreamingMips, MipCount);
+		// don't set MaxAllowdMips more then once as it could be read by async texture task
+		int32 TempMaxAllowedMips = FMath::Clamp<int32>(FMath::Min<int32>(MipCount - LODBias, GMaxTextureMipCount), NumNonStreamingMips, MipCount);
+
+		if (NumNonOptionalMips < MipCount)
+		{
+			if (NumNonOptionalMips > ResidentMips) // we have loaded the non optional mips so we can now try to load the optional mips
+			{
+				TempMaxAllowedMips = FMath::Min(TempMaxAllowedMips, NumNonOptionalMips);
+			}
+			else if (OptionalMipsState != EOptionalMipsState::HasOptionalMips)  // we don't have the optional mips file or we haven't yet checked if it exists (file check happens on the async texture streaming thread)
+			{
+				TempMaxAllowedMips = FMath::Min(TempMaxAllowedMips, NumNonOptionalMips);
+			}
+		}
+
+		MaxAllowedMips = TempMaxAllowedMips;
+		
 
 		if (NumStreamedMips[LODGroup] > 0)
 		{
@@ -120,6 +174,8 @@ void FStreamingTexture::UpdateDynamicData(const int32 NumStreamedMips[TEXTUREGRO
 		RequestedMips = 0;
 		MinAllowedMips = 0;
 		MaxAllowedMips = 0;
+		NumNonOptionalMips = 0;
+		OptionalMipsState = EOptionalMipsState::NotCached;
 		LastRenderTime = FLT_MAX;	
 	}
 }
@@ -332,18 +388,47 @@ void FStreamingTexture::CancelPendingMipChangeRequest()
 
 void FStreamingTexture::StreamWantedMips(FStreamingManagerTexture& Manager)
 {
-	if (Texture && WantedMips != ResidentMips)
+	StreamWantedMips_Internal(Manager, false);
+}
+
+void FStreamingTexture::CacheStreamingMetaData()
+{
+	bCachedForceFullyLoadHeuristic = bForceFullyLoadHeuristic;
+	CachedWantedMips = WantedMips;
+	CachedVisibleWantedMips = VisibleWantedMips;
+}
+
+void FStreamingTexture::StreamWantedMipsUsingCachedData(FStreamingManagerTexture& Manager)
+{
+	StreamWantedMips_Internal(Manager, true);
+}
+
+void FStreamingTexture::StreamWantedMips_Internal(FStreamingManagerTexture& Manager, bool bUseCachedData)
+{
+	int32 LocalWantedMips = bUseCachedData ? CachedWantedMips : WantedMips;
+	const int32 LocalVisibleWantedMips = bUseCachedData ? CachedVisibleWantedMips : VisibleWantedMips;
+	const uint32 bLocalForceFullyLoadHeuristic = bUseCachedData ? bCachedForceFullyLoadHeuristic : bForceFullyLoadHeuristic;
+
+	const bool bRequestedOptionalMips =  LocalWantedMips > NumNonOptionalMips;
+
+	if ( bRequestedOptionalMips )
 	{
-		const bool bShouldPrioritizeAsyncIORequest = (bForceFullyLoadHeuristic || bIsTerrainTexture || bIsCharacterTexture) && WantedMips <= VisibleWantedMips;
-		if (WantedMips < ResidentMips)
+		check( OptionalMipsState == EOptionalMipsState::HasOptionalMips );
+	}
+
+	if (Texture && LocalWantedMips != ResidentMips)
+	{
+		const bool bShouldPrioritizeAsyncIORequest = (bLocalForceFullyLoadHeuristic || bIsTerrainTexture || bIsCharacterTexture)
+			&& LocalWantedMips <= LocalVisibleWantedMips;
+		if (LocalWantedMips < ResidentMips)
 		{
-			Texture->StreamOut(WantedMips);
+			Texture->StreamOut(LocalWantedMips);
 		}
 		else // WantedMips > ResidentMips
 		{
-			Texture->StreamIn(WantedMips, bShouldPrioritizeAsyncIORequest);
+			Texture->StreamIn(LocalWantedMips, bShouldPrioritizeAsyncIORequest);
 		}
 		UpdateStreamingStatus(false);
-		TrackTextureEvent( this, Texture, bForceFullyLoadHeuristic != 0, &Manager );
+		TrackTextureEvent(this, Texture, bLocalForceFullyLoadHeuristic != 0, &Manager);
 	}
 }

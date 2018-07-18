@@ -6,12 +6,12 @@
 #include "XmppStrophe/StropheError.h"
 #include "XmppStrophe/XmppConnectionStrophe.h"
 #include "XmppLog.h"
+#include "HAL/PlatformProcess.h"
 
 #if WITH_XMPP_STROPHE
 
 THIRD_PARTY_INCLUDES_START
 #include "strophe.h"
-#include "src/common.h"
 THIRD_PARTY_INCLUDES_END
 
 int StropheStanzaEventHandler(xmpp_conn_t* const UnusedPtr, xmpp_stanza_t* const EventStanza, void* const VoidConnectionPtr)
@@ -41,20 +41,20 @@ void StropheConnectionEventHandler(xmpp_conn_t* const UnusedPtr,
 	check(VoidConnectionPtr != nullptr);
 	FXmppConnectionStrophe* const ConnectionPtr = static_cast<FXmppConnectionStrophe* const>(VoidConnectionPtr);
 
-	FStropheConnectionEvent Event = FStropheConnectionEvent::Fail;
+	EStropheConnectionEvent Event = EStropheConnectionEvent::Fail;
 	switch (ConnectionEvent)
 	{
 	case XMPP_CONN_CONNECT:
-		Event = FStropheConnectionEvent::Connect;
+		Event = EStropheConnectionEvent::Connect;
 		break;
 	case XMPP_CONN_RAW_CONNECT:
-		Event = FStropheConnectionEvent::RawConnect;
+		Event = EStropheConnectionEvent::RawConnect;
 		break;
 	case XMPP_CONN_DISCONNECT:
-		Event = FStropheConnectionEvent::Disconnect;
+		Event = EStropheConnectionEvent::Disconnect;
 		break;
 	case XMPP_CONN_FAIL:
-		Event = FStropheConnectionEvent::Fail;
+		Event = EStropheConnectionEvent::Fail;
 		break;
 	}
 
@@ -151,7 +151,7 @@ void FStropheConnection::Disconnect()
 
 bool FStropheConnection::SendStanza(const FStropheStanza& Stanza)
 {
-	if (GetConnectionState() != FStropheConnectionState::Connected)
+	if (GetConnectionState() != EStropheConnectionState::Connected)
 	{
 		return false;
 	}
@@ -163,13 +163,13 @@ bool FStropheConnection::SendStanza(const FStropheStanza& Stanza)
 void FStropheConnection::XmppThreadTick()
 {
 	constexpr const int32 DefaultTimeoutMs = 5;
-	constexpr const int32 DefaultTimeBetweenPolls = 5;
+	constexpr const float DefaultTimeBetweenPollsSec = 0.005f;
 
 	// Will process any data queued for send/receive and return. Will wait up to DefaultTimeoutMs if the socket is blocked.
 	xmpp_run_once(Context.GetContextPtr(), DefaultTimeoutMs);
 
 	// Since xmpp_run_once will not wait if the socket is not blocked, add a sleep between polls to avoid monopolizing the CPU
-	Sleep(DefaultTimeBetweenPolls);
+	FPlatformProcess::Sleep(DefaultTimeBetweenPollsSec);
 }
 
 void FStropheConnection::RegisterStropheHandler(FXmppConnectionStrophe& ConnectionManager)
@@ -182,20 +182,23 @@ void FStropheConnection::RemoveStropheHandler()
 	xmpp_handler_delete(XmppConnectionPtr, StropheStanzaEventHandler);
 }
 
-FStropheConnectionState FStropheConnection::GetConnectionState() const
+EStropheConnectionState FStropheConnection::GetConnectionState() const
 {
-	switch (XmppConnectionPtr->state)
+	if (xmpp_conn_is_connected(XmppConnectionPtr) != 0)
 	{
-	case XMPP_STATE_DISCONNECTED:
-		return FStropheConnectionState::Disconnected;
-	case XMPP_STATE_CONNECTING:
-		return FStropheConnectionState::Connecting;
-	case XMPP_STATE_CONNECTED:
-		return FStropheConnectionState::Connected;
+		return EStropheConnectionState::Connected;
+	}
+	else if (xmpp_conn_is_disconnected(XmppConnectionPtr) != 0)
+	{
+		return EStropheConnectionState::Disconnected;
+	}
+	else if (xmpp_conn_is_connecting(XmppConnectionPtr) != 0)
+	{
+		return EStropheConnectionState::Connecting;
 	}
 
 	checkf(false, TEXT("Missing libstrophe xmpp connection state"));
-	return FStropheConnectionState::Unknown;
+	return EStropheConnectionState::Unknown;
 }
 
 #endif

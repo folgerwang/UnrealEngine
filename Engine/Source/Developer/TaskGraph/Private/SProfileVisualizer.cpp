@@ -15,11 +15,11 @@
 #include "SBarVisualizer.h"
 #include "SEventsTree.h"
 #include "STaskGraph.h"
-#include "SButton.h"
-#include "STextBlock.h"
-#include "App.h"
-#include "EngineVersion.h"
-#include "FileManager.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Misc/App.h"
+#include "Misc/EngineVersion.h"
+#include "HAL/FileManager.h"
 #include "Framework/Notifications/NotificationManager.h"
 #include "Widgets/Notifications/SNotificationList.h"
 
@@ -27,7 +27,7 @@
 #include "DesktopPlatformModule.h"
 #endif
 
-#include "GenericCommands.h"
+#include "Framework/Commands/GenericCommands.h"
 	
 void SProfileVisualizer::Construct(const FArguments& InArgs)
 {
@@ -239,7 +239,7 @@ FReply SProfileVisualizer::OnSaveClicked()
 	}
 	else
 	{
-		Message = NSLOCTEXT("TaskGraph", "ExportMessage", "Could not write profile data to file");
+		Message = NSLOCTEXT("TaskGraph", "FailedExportMessage", "Could not write profile data to file");
 	}
 
 	struct Local

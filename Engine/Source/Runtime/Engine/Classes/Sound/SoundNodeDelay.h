@@ -31,7 +31,8 @@ class USoundNodeDelay : public USoundNode
 public:
 	//~ Begin USoundNode Interface. 
 	virtual void ParseNodes( FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanceHash, FActiveSound& ActiveSound, const FSoundParseParameters& ParseParams, TArray<FWaveInstance*>& WaveInstances ) override;
-	virtual float GetDuration( void ) override;
+	virtual float GetDuration() override;
+	virtual bool HasDelayNode() const override { return true; }
 	//~ End USoundNode Interface. 
 };
 

@@ -10,38 +10,42 @@
 	"CreatedByURL" : "http://epicgames.com",
 	"EnabledByDefault" : false,
 
-    "Modules": [
-        {
-            "Name": "Qos",
-            "Type": "Runtime"
-        },
-        {
-            "Name": "Party",
-            "Type": "Runtime"
-        },
-        {
-            "Name": "Lobby",
-            "Type": "Runtime"
-        },
-        {
-            "Name": "Hotfix",
-            "Type": "Runtime"
-        },
-        {
-            "Name": "Rejoin",
-            "Type": "Runtime"
-        },
+	"Modules": [
+		{
+			"Name": "Qos",
+			"Type": "Runtime"
+		},
+		{
+			"Name": "Party",
+			"Type": "Runtime"
+		},
+		{
+			"Name": "Lobby",
+			"Type": "Runtime"
+		},
+		{
+			"Name": "Hotfix",
+			"Type": "Runtime"
+		},
+		{
+			"Name": "Rejoin",
+			"Type": "Runtime"
+		},
+		{
+			"Name": "PlayTimeLimit",
+			"Type": "Runtime"
+		},
 		{
 			"Name": "LoginFlow",
-			"Type":  "Runtime"
+			"Type":  "ClientOnly"
 		}
-    ],
-    "LocalizationTargets": [
-        {
-            "Name": "OnlineFramework",
-            "LoadingPolicy": "Always"
-        }
-    ],
+	],
+	"LocalizationTargets": [
+		{
+			"Name": "OnlineFramework",
+			"LoadingPolicy": "Always"
+		}
+	],
 	"Plugins": [
 		{
 			"Name": "OnlineSubsystem",

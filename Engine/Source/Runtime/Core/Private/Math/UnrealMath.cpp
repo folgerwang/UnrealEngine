@@ -8,7 +8,6 @@
 #include "Stats/Stats.h"
 #include "Math/RandomStream.h"
 #include "UObject/PropertyPortFlags.h"
-
 DEFINE_LOG_CATEGORY(LogUnrealMath);
 
 /**
@@ -75,9 +74,19 @@ bool FRotator::NetSerialize(FArchive& Ar, class UPackageMap* Map, bool& bOutSucc
 
 void FRotator::SerializeCompressed( FArchive& Ar )
 {
-	uint8 BytePitch = FRotator::CompressAxisToByte(Pitch);
-	uint8 ByteYaw = FRotator::CompressAxisToByte(Yaw);
-	uint8 ByteRoll = FRotator::CompressAxisToByte(Roll);
+	const bool bArLoading = Ar.IsLoading();
+	
+	uint8 BytePitch = 0;
+	uint8 ByteYaw = 0;
+	uint8 ByteRoll = 0;
+	
+	// If saving, we need to compress before writing. If loading we'll just serialize in the data so no need to compress.
+	if( !bArLoading )
+	{
+		BytePitch = FRotator::CompressAxisToByte(Pitch);
+		ByteYaw = FRotator::CompressAxisToByte(Yaw);
+		ByteRoll = FRotator::CompressAxisToByte(Roll);
+	}
 
 	uint8 B = (BytePitch!=0);
 	Ar.SerializeBits( &B, 1 );
@@ -112,7 +121,7 @@ void FRotator::SerializeCompressed( FArchive& Ar )
 		ByteRoll = 0;
 	}
 	
-	if( Ar.IsLoading() )
+	if( bArLoading )
 	{
 		Pitch = FRotator::DecompressAxisFromByte(BytePitch);
 		Yaw	= FRotator::DecompressAxisFromByte(ByteYaw);
@@ -122,9 +131,19 @@ void FRotator::SerializeCompressed( FArchive& Ar )
 
 void FRotator::SerializeCompressedShort( FArchive& Ar )
 {
-	uint16 ShortPitch = FRotator::CompressAxisToShort(Pitch);
-	uint16 ShortYaw = FRotator::CompressAxisToShort(Yaw);
-	uint16 ShortRoll = FRotator::CompressAxisToShort(Roll);
+	const bool bArLoading = Ar.IsLoading();
+
+	uint16 ShortPitch = 0;
+	uint16 ShortYaw = 0;
+	uint16 ShortRoll = 0;
+
+	// If saving, we need to compress before writing. If loading we'll just serialize in the data so no need to compress.
+	if( !bArLoading )
+	{
+		ShortPitch = FRotator::CompressAxisToShort(Pitch);
+		ShortYaw = FRotator::CompressAxisToShort(Yaw);
+		ShortRoll = FRotator::CompressAxisToShort(Roll);
+	}
 
 	uint8 B = (ShortPitch!=0);
 	Ar.SerializeBits( &B, 1 );
@@ -159,7 +178,7 @@ void FRotator::SerializeCompressedShort( FArchive& Ar )
 		ShortRoll = 0;
 	}
 
-	if( Ar.IsLoading() )
+	if( bArLoading )
 	{
 		Pitch = FRotator::DecompressAxisFromShort(ShortPitch);
 		Yaw	= FRotator::DecompressAxisFromShort(ShortYaw);
@@ -373,7 +392,7 @@ FRotator FRotator::GetInverse() const
 
 FQuat FRotator::Quaternion() const
 {
-	SCOPE_CYCLE_COUNTER(STAT_MathConvertRotatorToQuat);
+	//SCOPE_CYCLE_COUNTER(STAT_MathConvertRotatorToQuat);
 
 	DiagnosticCheckNaN();
 
@@ -1948,7 +1967,7 @@ FVector FMath::ComputeBaryCentric2D(const FVector& Point, const FVector& A, cons
 	// Check the size of the triangle is reasonable (TriNorm.Size() will be twice the triangle area)
 	if(TriNorm.SizeSquared() <= SMALL_NUMBER)
 	{
-		ensureMsgf(false, TEXT("Small triangle detected in FMath::ComputeBaryCentric2D(), can't compute valid barycentric coordinate."));
+		UE_LOG(LogUnrealMath, Warning, TEXT("Small triangle detected in FMath::ComputeBaryCentric2D(), can't compute valid barycentric coordinate."));
 		return FVector(0.0f, 0.0f, 0.0f);
 	}
 
@@ -2434,6 +2453,44 @@ CORE_API FLinearColor FMath::CInterpTo(const FLinearColor& Current, const FLinea
 	return Current + DeltaMove;
 }
 
+CORE_API FQuat FMath::QInterpConstantTo(const FQuat& Current, const FQuat& Target, float DeltaTime, float InterpSpeed)
+{
+	// If no interp speed, jump to target value
+	if (InterpSpeed <= 0.f)
+	{
+		return Target;
+	}
+
+	// If the values are nearly equal, just return Target and assume we have reached our destination.
+	if (Current.Equals(Target))
+	{
+		return Target;
+	}
+
+	float DeltaInterpSpeed = FMath::Clamp(DeltaTime * InterpSpeed, 0.f, 1.f);
+	float AngularDistance = FMath::Max(SMALL_NUMBER, Target.AngularDistance(Current));
+	float Alpha = FMath::Clamp(DeltaInterpSpeed / AngularDistance, 0.f, 1.f);
+
+	return FQuat::Slerp(Current, Target, Alpha);
+}
+
+CORE_API FQuat FMath::QInterpTo(const FQuat& Current, const FQuat& Target, float DeltaTime, float InterpSpeed)
+{
+	// If no interp speed, jump to target value
+	if (InterpSpeed <= 0.f)
+	{
+		return Target;
+	}
+
+	// If the values are nearly equal, just return Target and assume we have reached our destination.
+	if (Current.Equals(Target))
+	{
+		return Target;
+	}
+
+	return FQuat::Slerp(Current, Target, FMath::Clamp(InterpSpeed * DeltaTime, 0.f, 1.f));
+}
+
 CORE_API float ClampFloatTangent( float PrevPointVal, float PrevTime, float CurPointVal, float CurTime, float NextPointVal, float NextTime )
 {
 	const float PrevToNextTimeDiff = FMath::Max< double >( KINDA_SMALL_NUMBER, NextTime - PrevTime );
@@ -2791,16 +2848,9 @@ FString FMath::FormatIntToHumanReadable(int32 Val)
 	FString Src = *FString::Printf(TEXT("%i"), Val);
 	FString Dst;
 
-	if (Val > 999)
+	while (Src.Len() > 3 && Src[Src.Len() - 4] != TEXT('-'))
 	{
-		Dst = FString::Printf(TEXT(",%s"), *Src.Mid(Src.Len() - 3, 3));
-		Src = Src.Left(Src.Len() - 3);
-
-	}
-
-	if (Val > 999999)
-	{
-		Dst = FString::Printf(TEXT(",%s%s"), *Src.Mid(Src.Len() - 3, 3), *Dst);
+		Dst = FString::Printf(TEXT(",%s%s"), *Src.Right(3), *Dst);
 		Src = Src.Left(Src.Len() - 3);
 	}
 

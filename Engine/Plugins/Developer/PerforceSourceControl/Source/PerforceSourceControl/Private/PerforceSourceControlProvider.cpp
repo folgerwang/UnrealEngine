@@ -18,6 +18,8 @@
 #include "SPerforceSourceControlSettings.h"
 #include "Logging/MessageLog.h"
 #include "ScopedSourceControlProgress.h"
+#include "SourceControlHelpers.h"
+#include "SourceControlOperations.h"
 
 static FName ProviderName("Perforce");
 
@@ -142,7 +144,7 @@ void FPerforceSourceControlProvider::ParseCommandLineSettings(bool bForceConnect
 		P4Settings.SetHostOverride(HostOverrideName);
 		P4Settings.SetChangelistNumber(Changelist);
 	}
-	
+
 	if (bForceConnection)
 	{
 		FPerforceConnectionInfo ConnectionInfo = P4Settings.GetConnectionInfo();
@@ -152,9 +154,8 @@ void FPerforceSourceControlProvider::ParseCommandLineSettings(bool bForceConnect
 			P4Settings.SetUserName(UserName);
 			P4Settings.SetWorkspace(ClientSpecName);
 			P4Settings.SetHostOverride(HostOverrideName);
+			bServerAvailable = true;
 		}
-
-		bServerAvailable = true;
 	}
 
 	//Save off settings so this doesn't happen every time
@@ -169,9 +170,9 @@ void FPerforceSourceControlProvider::GetWorkspaceList(const FPerforceConnectionI
 	Connection.GetWorkspaceList(InConnectionInfo, FOnIsCancelled(), OutWorkspaceList, OutErrorMessages);
 }
 
-const FString& FPerforceSourceControlProvider::GetTicket() const 
-{ 
-	return Ticket; 
+const FString& FPerforceSourceControlProvider::GetTicket() const
+{
+	return Ticket;
 }
 
 const FName& FPerforceSourceControlProvider::GetName() const
@@ -246,6 +247,8 @@ ECommandResult::Type FPerforceSourceControlProvider::Execute( const TSharedRef<I
 {
 	if(!IsEnabled())
 	{
+		// Note that IsEnabled() always returns true so unless it is changed, this code will never be executed
+		InOperationCompleteDelegate.ExecuteIfBound(InOperation, ECommandResult::Failed);
 		return ECommandResult::Failed;
 	}
 
@@ -259,7 +262,12 @@ ECommandResult::Type FPerforceSourceControlProvider::Execute( const TSharedRef<I
 		FFormatNamedArguments Arguments;
 		Arguments.Add( TEXT("OperationName"), FText::FromName(InOperation->GetName()) );
 		Arguments.Add( TEXT("ProviderName"), FText::FromName(GetName()) );
-		FMessageLog("SourceControl").Error(FText::Format(LOCTEXT("UnsupportedOperation", "Operation '{OperationName}' not supported by source control provider '{ProviderName}'"), Arguments));
+		FText Message = FText::Format(LOCTEXT("UnsupportedOperation", "Operation '{OperationName}' not supported by source control provider '{ProviderName}'"), Arguments);
+
+		FMessageLog("SourceControl").Error(Message);
+		InOperation->AddErrorMessge(Message);
+
+		InOperationCompleteDelegate.ExecuteIfBound(InOperation, ECommandResult::Failed);
 		return ECommandResult::Failed;
 	}
 
@@ -269,6 +277,8 @@ ECommandResult::Type FPerforceSourceControlProvider::Execute( const TSharedRef<I
 		FPerforceSourceControlCommand* Command = new FPerforceSourceControlCommand(InOperation, Worker.ToSharedRef());
 		Command->bAutoDelete = false;
 		Command->Files = AbsoluteFiles;
+		Command->StatusBranchNames = StatusBranchNames;
+		Command->ContentRoot = ContentRoot;
 		Command->OperationCompleteDelegate = InOperationCompleteDelegate;
 		return ExecuteSynchronousCommand(*Command, InOperation->GetInProgressString(), true);
 	}
@@ -277,6 +287,8 @@ ECommandResult::Type FPerforceSourceControlProvider::Execute( const TSharedRef<I
 		FPerforceSourceControlCommand* Command = new FPerforceSourceControlCommand(InOperation, Worker.ToSharedRef());
 		Command->bAutoDelete = true;
 		Command->Files = AbsoluteFiles;
+		Command->StatusBranchNames = StatusBranchNames;
+		Command->ContentRoot = ContentRoot;
 		Command->OperationCompleteDelegate = InOperationCompleteDelegate;
 		return IssueCommand(*Command, false);
 	}
@@ -331,19 +343,19 @@ void FPerforceSourceControlProvider::OutputCommandMessages(const FPerforceSource
 {
 	FMessageLog SourceControlLog("SourceControl");
 
-	for (int32 ErrorIndex = 0; ErrorIndex < InCommand.ErrorMessages.Num(); ++ErrorIndex)
+	for (int32 ErrorIndex = 0; ErrorIndex < InCommand.ResultInfo.ErrorMessages.Num(); ++ErrorIndex)
 	{
-		SourceControlLog.Error(InCommand.ErrorMessages[ErrorIndex]);
+		SourceControlLog.Error(InCommand.ResultInfo.ErrorMessages[ErrorIndex]);
 	}
 
-	for (int32 InfoIndex = 0; InfoIndex < InCommand.InfoMessages.Num(); ++InfoIndex)
+	for (int32 InfoIndex = 0; InfoIndex < InCommand.ResultInfo.InfoMessages.Num(); ++InfoIndex)
 	{
-		SourceControlLog.Info(InCommand.InfoMessages[InfoIndex]);
+		SourceControlLog.Info(InCommand.ResultInfo.InfoMessages[InfoIndex]);
 	}
 }
 
 void FPerforceSourceControlProvider::Tick()
-{	
+{
 	bool bStatesUpdated = false;
 	for (int32 CommandIndex = 0; CommandIndex < CommandQueue.Num(); ++CommandIndex)
 	{
@@ -366,17 +378,7 @@ void FPerforceSourceControlProvider::Tick()
 			// have been called. Otherwise, now we have to call it.
 			if (!Command.bCancelledWhileTryingToConnect)
 			{
-				// run the completion delegate if we have one bound
-				ECommandResult::Type Result = ECommandResult::Failed;
-				if (Command.bCancelled)
-				{
-					Result = ECommandResult::Cancelled;
-				}
-				else if (Command.bCommandSuccessful)
-				{
-					Result = ECommandResult::Succeeded;
-				}
-				Command.OperationCompleteDelegate.ExecuteIfBound(Command.Operation, Result);
+				Command.ReturnResults();
 			}
 
 			//commands that are left in the array during a tick need to be deleted
@@ -386,7 +388,7 @@ void FPerforceSourceControlProvider::Tick()
 				delete &Command;
 			}
 
-			// only do one command per tick loop, as we dont want concurrent modification 
+			// only do one command per tick loop, as we dont want concurrent modification
 			// of the command queue (which can happen in the completion delegate)
 			break;
 		}
@@ -400,9 +402,7 @@ void FPerforceSourceControlProvider::Tick()
 			// when its (still running) thread finally finishes
 			Command.bAutoDelete = true;
 
-			// run the completion delegate if we have one bound
-			Command.OperationCompleteDelegate.ExecuteIfBound(Command.Operation, ECommandResult::Cancelled);
-
+			Command.ReturnResults();
 			break;
 		}
 	}
@@ -473,7 +473,7 @@ TSharedPtr<IPerforceSourceControlWorker, ESPMode::ThreadSafe> FPerforceSourceCon
 	{
 		return Operation->Execute();
 	}
-		
+
 	return NULL;
 }
 
@@ -540,7 +540,8 @@ ECommandResult::Type FPerforceSourceControlProvider::IssueCommand(FPerforceSourc
 {
 	if ( !bSynchronous && GThreadPool != NULL )
 	{
-		// Queue this to our worker thread(s) for resolving
+		// Queue this to our worker thread(s) for resolving.
+		// When asynchronous, any callback gets called from Tick().
 		GThreadPool->AddQueuedWork(&InCommand);
 		CommandQueue.Add(&InCommand);
 		return ECommandResult::Succeeded;
@@ -553,12 +554,73 @@ ECommandResult::Type FPerforceSourceControlProvider::IssueCommand(FPerforceSourc
 
 		OutputCommandMessages(InCommand);
 
-		// Callback now if present. When asynchronous, this callback gets called from Tick().
-		ECommandResult::Type Result = InCommand.bCommandSuccessful ? ECommandResult::Succeeded : ECommandResult::Failed;
-		InCommand.OperationCompleteDelegate.ExecuteIfBound(InCommand.Operation, Result);
-
-		return Result;
+		return InCommand.ReturnResults();
 	}
+}
+
+bool FPerforceSourceControlProvider::QueryStateBranchConfig(const FString& ConfigSrc, const FString& ConfigDest)
+{
+
+	if (ConfigSrc.Len() == 0 || ConfigDest.Len() == 0)
+	{
+		return false;
+	}
+
+	// Request branch configuration from depot
+	FPerforceSourceControlModule& PerforceSourceControl = FModuleManager::LoadModuleChecked<FPerforceSourceControlModule>("PerforceSourceControl");
+	FScopedPerforceConnection ScopedConnection(EConcurrency::Synchronous, PerforceSourceControl.AccessSettings().GetConnectionInfo());
+	if (ScopedConnection.IsValid())
+	{
+		FPerforceConnection& Connection = ScopedConnection.GetConnection();
+		FP4RecordSet Records;
+		TArray<FString> Parameters;
+		TArray<FText> ErrorMessages;
+		Parameters.Add(TEXT("-o"));
+		Parameters.Add(*ConfigDest);
+		Parameters.Add(*ConfigSrc);
+
+		FText GeneralErrorMessage = LOCTEXT("StatusBranchConfigGeneralFailure", "Unable to retrieve status branch configuration from depot");
+
+		bool bConnectionDropped = false;
+		if (Connection.RunCommand(TEXT("print"), Parameters, Records, ErrorMessages, FOnIsCancelled(), bConnectionDropped))
+		{
+			if (Records.Num() < 1 || Records[0][TEXT("depotFile")] != ConfigSrc)
+			{
+				FMessageLog("SourceControl").Error(GeneralErrorMessage);
+				return false;
+			}
+		}
+		else
+		{
+			FMessageLog("SourceControl").Error(GeneralErrorMessage);
+
+			// output specific errors if any
+			for (int32 ErrorIndex = 0; ErrorIndex < ErrorMessages.Num(); ++ErrorIndex)
+			{
+				FMessageLog("SourceControl").Error(ErrorMessages[ErrorIndex]);
+			}
+
+			return false;
+		}
+	}
+	else
+	{
+		FMessageLog("SourceControl").Error(LOCTEXT("StatusBranchConfigNoConnection", "Unable to retrieve status branch configuration from depot, no connection"));
+		return false;
+	}
+
+	return true;
+}
+
+void FPerforceSourceControlProvider::RegisterStateBranches(const TArray<FString>& BranchNames, const FString& ContentRootIn)
+{
+	StatusBranchNames = BranchNames;
+	ContentRoot = ContentRootIn;
+}
+
+int32 FPerforceSourceControlProvider::GetStateBranchIndex(const FString& BranchName) const
+{
+	return StatusBranchNames.IndexOfByKey(BranchName);
 }
 
 #undef LOCTEXT_NAMESPACE

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3455346
+﻿INTSourceChangelist:3809606
 Availability:Public
 Title:メッシュ デカールの概要
 Description:アンリアル エンジン 4 のメッシュ デカール機能の概要を説明します。 
@@ -7,7 +7,7 @@ parent:Engine/Rendering/Materials
 Related:Engine/Rendering/Materials/howto/MeshDecals
 order:14
 type:overview
-version:4.15
+Version:4.15
 Topic-image:MeshDecalTopic.png
 tags:Materials
 tags:Decals
@@ -19,14 +19,6 @@ tags:Decals
 投影先のサーフェスと一致しない時にシアおよび変形が生じる平面サーフェイス ディティールにほぼ限定されます。メッシュ デカールは、シンプルなプロジェクションを追わずに 
 エッジの周囲をラップするジオメトリやスプライン メッシュと一緒に使用し、 
 キャラクターの外見を美しくします。 
-
-[COMMENT:none]
--
-<div align= "center">
-![](MeshDecalVsMasked.png)(w:700)
-</div>
--
-[/COMMENT]
 
 ## メッシュ デカールとマスク付きマテリアルの比較
 
@@ -57,14 +49,11 @@ tags:Decals
 デカール ジオメトリは下層のサーフェスには合わせますが、そこまでぴったり一致する必要はありません。さらに、デカールの境界をぼかすジオメトリを少し使うと、
 マスク付きマテリアルでは実現できないデカール用の柔らかいトランジションを作成することができます。 
 
-
-<div align= "left">
 [REGION:imagetable]
 | ![](MeshDecalAuthoring.png)(h:450) | ![](MeshDecalAuthoringComposite.png)(h:450) |
 | --- | --- |
 | 基本メッシュとデカール ジオメトリ (個々) | 合成したメッシュ |
 [/REGION]
-</div>
 
 ジオメトリには深度バッファ精度に限度があるため、
 メッシュ デカールでの LOD あるいは長距離表示は難しいということも覚えておくと良いでしょう。ただしほとんどの場合は、メッシュを変更すれば解決しますし、 

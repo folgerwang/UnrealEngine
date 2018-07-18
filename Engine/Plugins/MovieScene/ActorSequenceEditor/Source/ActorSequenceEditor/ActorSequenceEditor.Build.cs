@@ -21,6 +21,7 @@ public class ActorSequenceEditor : ModuleRules
 				"Slate",
 				"SlateCore",
 				"UnrealEd",
+				"TimeManagement"
 			}
 		);
 

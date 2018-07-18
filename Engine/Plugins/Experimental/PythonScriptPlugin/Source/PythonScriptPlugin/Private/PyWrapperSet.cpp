@@ -139,15 +139,13 @@ struct FPyWrapperSetIterator
 	}
 };
 
-void InitializePyWrapperSet(PyObject* PyModule)
+void InitializePyWrapperSet(PyGenUtil::FNativePythonModule& ModuleInfo)
 {
 	if (PyType_Ready(&PyWrapperSetType) == 0)
 	{
 		static FPyWrapperSetMetaData MetaData;
 		FPyWrapperSetMetaData::SetMetaData(&PyWrapperSetType, &MetaData);
-
-		Py_INCREF(&PyWrapperSetType);
-		PyModule_AddObject(PyModule, PyWrapperSetType.tp_name, (PyObject*)&PyWrapperSetType);
+		ModuleInfo.AddType(&PyWrapperSetType);
 	}
 
 	PyType_Ready(&PyWrapperSetIteratorType);
@@ -327,10 +325,14 @@ bool FPyWrapperSet::ValidateInternalState(FPyWrapperSet* InSelf)
 	return true;
 }
 
-FPyWrapperSet* FPyWrapperSet::CastPyObject(PyObject* InPyObject)
+FPyWrapperSet* FPyWrapperSet::CastPyObject(PyObject* InPyObject, FPyConversionResult* OutCastResult)
 {
+	SetOptionalPyConversionResult(FPyConversionResult::Failure(), OutCastResult);
+
 	if (PyObject_IsInstance(InPyObject, (PyObject*)&PyWrapperSetType) == 1)
 	{
+		SetOptionalPyConversionResult(FPyConversionResult::Success(), OutCastResult);
+
 		Py_INCREF(InPyObject);
 		return (FPyWrapperSet*)InPyObject;
 	}
@@ -338,8 +340,10 @@ FPyWrapperSet* FPyWrapperSet::CastPyObject(PyObject* InPyObject)
 	return nullptr;
 }
 
-FPyWrapperSet* FPyWrapperSet::CastPyObject(PyObject* InPyObject, PyTypeObject* InType, const PyUtil::FPropertyDef& InElementDef)
+FPyWrapperSet* FPyWrapperSet::CastPyObject(PyObject* InPyObject, PyTypeObject* InType, const PyUtil::FPropertyDef& InElementDef, FPyConversionResult* OutCastResult)
 {
+	SetOptionalPyConversionResult(FPyConversionResult::Failure(), OutCastResult);
+
 	if (PyObject_IsInstance(InPyObject, (PyObject*)InType) == 1 && (InType == &PyWrapperSetType || PyObject_IsInstance(InPyObject, (PyObject*)&PyWrapperSetType) == 1))
 	{
 		FPyWrapperSet* Self = (FPyWrapperSet*)InPyObject;
@@ -352,6 +356,8 @@ FPyWrapperSet* FPyWrapperSet::CastPyObject(PyObject* InPyObject, PyTypeObject* I
 		const PyUtil::FPropertyDef SelfElementPropDef = Self->SetProp->ElementProp;
 		if (SelfElementPropDef == InElementDef)
 		{
+			SetOptionalPyConversionResult(FPyConversionResult::Success(), OutCastResult);
+
 			Py_INCREF(Self);
 			return Self;
 		}
@@ -397,6 +403,7 @@ FPyWrapperSet* FPyWrapperSet::CastPyObject(PyObject* InPyObject, PyTypeObject* I
 			NewScriptSetHelper.Rehash();
 		}
 
+		SetOptionalPyConversionResult(FPyConversionResult::SuccessWithCoercion(), OutCastResult);
 		return NewSet.Release();
 	}
 
@@ -432,6 +439,8 @@ FPyWrapperSet* FPyWrapperSet::CastPyObject(PyObject* InPyObject, PyTypeObject* I
 				}
 
 				NewScriptSetHelper.Rehash();
+
+				SetOptionalPyConversionResult(FPyConversionResult::SuccessWithCoercion(), OutCastResult);
 				return NewSet.Release();
 			}
 		}
@@ -1458,22 +1467,22 @@ PyTypeObject InitializePyWrapperSetType()
 	};
 
 	static PyMethodDef PyMethods[] = {
-		{ "cast", PyCFunctionCast(&FMethods::Cast), METH_VARARGS | METH_KEYWORDS | METH_CLASS, "X.cast(type, obj) -> TSet -- cast the given object to this Unreal set type" },
-		{ "__copy__", PyCFunctionCast(&FMethods::Copy), METH_NOARGS, "x.__copy__() -> TSet -- copy this Unreal set" },
-		{ "copy", PyCFunctionCast(&FMethods::Copy), METH_NOARGS, "x.copy() -> TSet -- copy this Unreal set" },
-		{ "add", PyCFunctionCast(&FMethods::Add), METH_VARARGS, "x.add(value) -- add the given value to this Unreal set if not already present" },
-		{ "discard", PyCFunctionCast(&FMethods::Discard), METH_VARARGS, "x.discard(value) -- remove the given value from this Unreal set, or do nothing if not present" },
-		{ "remove", PyCFunctionCast(&FMethods::Remove), METH_VARARGS, "x.remove(value) -- remove the given value from this Unreal set, or raise KeyError if not present" },
+		{ "cast", PyCFunctionCast(&FMethods::Cast), METH_VARARGS | METH_KEYWORDS | METH_CLASS, "X.cast(type, obj) -> Set -- cast the given object to this Unreal set type" },
+		{ "__copy__", PyCFunctionCast(&FMethods::Copy), METH_NOARGS, "x.__copy__() -> Set -- copy this Unreal set" },
+		{ "copy", PyCFunctionCast(&FMethods::Copy), METH_NOARGS, "x.copy() -> Set -- copy this Unreal set" },
+		{ "add", PyCFunctionCast(&FMethods::Add), METH_VARARGS, "x.add(value) -> None -- add the given value to this Unreal set if not already present" },
+		{ "discard", PyCFunctionCast(&FMethods::Discard), METH_VARARGS, "x.discard(value) -> None -- remove the given value from this Unreal set, or do nothing if not present" },
+		{ "remove", PyCFunctionCast(&FMethods::Remove), METH_VARARGS, "x.remove(value) -> None -- remove the given value from this Unreal set, or raise KeyError if not present" },
 		{ "pop", PyCFunctionCast(&FMethods::Pop), METH_NOARGS, "x.pop() -> value -- remove and return an arbitrary value from this Unreal set, or raise KeyError if the set is empty" },
-		{ "clear", PyCFunctionCast(&FMethods::Clear), METH_NOARGS, "x.clear() -- remove all values from this Unreal set" },
-		{ "difference", PyCFunctionCast(&FMethods::Difference), METH_VARARGS, "x.difference(...) -> TSet -- return the difference between this Unreal set and the other iterables passed for comparison (ie, all values that are in this set but not the others)" },
-		{ "difference_update", PyCFunctionCast(&FMethods::DifferenceUpdate), METH_VARARGS, "x.difference_update(...) -- make this set the difference between this Unreal set and the other iterables passed for comparison (ie, all values that are in this set but not the others)" },
-		{ "intersection", PyCFunctionCast(&FMethods::Intersection), METH_VARARGS, "x.intersection(...) -> TSet -- return the intersection between this Unreal set and the other iterables passed for comparison (ie, values that are common to all of the sets)" },
-		{ "intersection_update", PyCFunctionCast(&FMethods::IntersectionUpdate), METH_VARARGS, "x.intersection_update(...) -- make this set the intersection between this Unreal set and the other iterables passed for comparison (ie, values that are common to all of the sets)" },
-		{ "symmetric_difference", PyCFunctionCast(&FMethods::SymmetricDifference), METH_VARARGS, "x.symmetric_difference(other) -> TSet -- return the symmetric difference between this Unreal set and another (ie, values that are in exactly one of the sets)" },
-		{ "symmetric_difference_update", PyCFunctionCast(&FMethods::SymmetricDifferenceUpdate), METH_VARARGS, "x.symmetric_difference_update(other) -- make this set the symmetric difference between this Unreal set and another (ie, values that are in exactly one of the sets)" },
-		{ "union", PyCFunctionCast(&FMethods::Union), METH_VARARGS, "x.union(...) -> TSet -- return the union between this Unreal set and the other iterables passed for comparison (ie, values that are in any set)" },
-		{ "update", PyCFunctionCast(&FMethods::Update), METH_VARARGS, "x.update(...) -- make this set the union between this Unreal set and the other iterables passed for comparison (ie, values that are in any set)" },
+		{ "clear", PyCFunctionCast(&FMethods::Clear), METH_NOARGS, "x.clear() -> None -- remove all values from this Unreal set" },
+		{ "difference", PyCFunctionCast(&FMethods::Difference), METH_VARARGS, "x.difference(...) -> Set -- return the difference between this Unreal set and the other iterables passed for comparison (ie, all values that are in this set but not the others)" },
+		{ "difference_update", PyCFunctionCast(&FMethods::DifferenceUpdate), METH_VARARGS, "x.difference_update(...) -> None -- make this set the difference between this Unreal set and the other iterables passed for comparison (ie, all values that are in this set but not the others)" },
+		{ "intersection", PyCFunctionCast(&FMethods::Intersection), METH_VARARGS, "x.intersection(...) -> Set -- return the intersection between this Unreal set and the other iterables passed for comparison (ie, values that are common to all of the sets)" },
+		{ "intersection_update", PyCFunctionCast(&FMethods::IntersectionUpdate), METH_VARARGS, "x.intersection_update(...) -> None -- make this set the intersection between this Unreal set and the other iterables passed for comparison (ie, values that are common to all of the sets)" },
+		{ "symmetric_difference", PyCFunctionCast(&FMethods::SymmetricDifference), METH_VARARGS, "x.symmetric_difference(other) -> Set -- return the symmetric difference between this Unreal set and another (ie, values that are in exactly one of the sets)" },
+		{ "symmetric_difference_update", PyCFunctionCast(&FMethods::SymmetricDifferenceUpdate), METH_VARARGS, "x.symmetric_difference_update(other) -> None -- make this set the symmetric difference between this Unreal set and another (ie, values that are in exactly one of the sets)" },
+		{ "union", PyCFunctionCast(&FMethods::Union), METH_VARARGS, "x.union(...) -> Set -- return the union between this Unreal set and the other iterables passed for comparison (ie, values that are in any set)" },
+		{ "update", PyCFunctionCast(&FMethods::Update), METH_VARARGS, "x.update(...) -> None -- make this set the union between this Unreal set and the other iterables passed for comparison (ie, values that are in any set)" },
 		{ "isdisjoint", PyCFunctionCast(&FMethods::IsDisjoint), METH_VARARGS, "x.isdisjoint(other) -> bool -- return True if there is a null intersection between this Unreal set and another" },
 		{ "issubset", PyCFunctionCast(&FMethods::IsSubset), METH_VARARGS, "x.issubset(other) -> bool -- return True if another set contains this Unreal set" },
 		{ "issuperset", PyCFunctionCast(&FMethods::IsSuperset), METH_VARARGS, "x.issuperset(other) -> bool -- return True if this Unreal set contains another" },
@@ -1586,17 +1595,14 @@ PyTypeObject InitializePyWrapperSetIteratorType()
 PyTypeObject PyWrapperSetType = InitializePyWrapperSetType();
 PyTypeObject PyWrapperSetIteratorType = InitializePyWrapperSetIteratorType();
 
-FPyWrapperSetMetaData::FPyWrapperSetMetaData()
+void FPyWrapperSetMetaData::AddReferencedObjects(FPyWrapperBase* Instance, FReferenceCollector& Collector)
 {
-	AddReferencedObjects = [](FPyWrapperBase* Self, FReferenceCollector& Collector)
+	FPyWrapperSet* Self = static_cast<FPyWrapperSet*>(Instance);
+	if (Self->SetProp && Self->SetInstance && !Self->OwnerContext.HasOwner())
 	{
-		FPyWrapperSet* SetSelf = static_cast<FPyWrapperSet*>(Self);
-		if (SetSelf->SetProp && SetSelf->SetInstance && !SetSelf->OwnerContext.HasOwner())
-		{
-			Collector.AddReferencedObject(SetSelf->SetProp);
-			FPyReferenceCollector::AddReferencedObjectsFromProperty(Collector, SetSelf->SetProp, SetSelf->SetInstance);
-		}
-	};
+		Collector.AddReferencedObject(Self->SetProp);
+		FPyReferenceCollector::AddReferencedObjectsFromProperty(Collector, Self->SetProp, Self->SetInstance);
+	}
 }
 
 #endif	// WITH_PYTHON

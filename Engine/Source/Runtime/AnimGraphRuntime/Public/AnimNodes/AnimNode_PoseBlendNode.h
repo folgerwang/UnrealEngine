@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
-#include "AnimNode_PoseHandler.h"
+#include "AnimNodes/AnimNode_PoseHandler.h"
 #include "AlphaBlend.h"
 #include "AnimNode_PoseBlendNode.generated.h"
 

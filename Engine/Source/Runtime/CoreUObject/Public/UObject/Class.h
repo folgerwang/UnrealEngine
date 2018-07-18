@@ -221,7 +221,7 @@ class COREUOBJECT_API UStruct : public UField
 
 	// Variables.
 protected:
-	friend COREUOBJECT_API UClass* Z_Construct_UClass_UStruct();
+	friend struct Z_Construct_UClass_UStruct_Statics;
 private:
 	/** Struct this inherits from, may be null */
 	UStruct* SuperStruct;
@@ -499,11 +499,14 @@ enum EStructFlags
 	/** If set, this struct will be have PostScriptConstruct called on it after a temporary object is constructed in a running blueprint */
 	STRUCT_PostScriptConstruct     = 0x00200000,
 
+	/** If set, this struct can share net serialization state across connections */
+	STRUCT_NetSharedSerialization = 0x00400000,
+
 	/** Struct flags that are automatically inherited */
 	STRUCT_Inherit				= STRUCT_HasInstancedReference|STRUCT_Atomic,
 
 	/** Flags that are always computed, never loaded or done with code generation */
-	STRUCT_ComputedFlags		= STRUCT_NetDeltaSerializeNative | STRUCT_NetSerializeNative | STRUCT_SerializeNative | STRUCT_PostSerializeNative | STRUCT_CopyNative | STRUCT_IsPlainOldData | STRUCT_NoDestructor | STRUCT_ZeroConstructor | STRUCT_IdenticalNative | STRUCT_AddStructReferencedObjects | STRUCT_ExportTextItemNative | STRUCT_ImportTextItemNative | STRUCT_SerializeFromMismatchedTag | STRUCT_PostScriptConstruct
+	STRUCT_ComputedFlags		= STRUCT_NetDeltaSerializeNative | STRUCT_NetSerializeNative | STRUCT_SerializeNative | STRUCT_PostSerializeNative | STRUCT_CopyNative | STRUCT_IsPlainOldData | STRUCT_NoDestructor | STRUCT_ZeroConstructor | STRUCT_IdenticalNative | STRUCT_AddStructReferencedObjects | STRUCT_ExportTextItemNative | STRUCT_ImportTextItemNative | STRUCT_SerializeFromMismatchedTag | STRUCT_PostScriptConstruct | STRUCT_NetSharedSerialization
 };
 
 
@@ -528,6 +531,7 @@ struct TStructOpsTypeTraitsBase2
 		WithNetDeltaSerializer         = false,                         // struct has a NetDeltaSerialize function for serializing differences in state from a previous NetSerialize operation.
 		WithSerializeFromMismatchedTag = false,                         // struct has a SerializeFromMismatchedTag function for converting from other property tags.
 		WithPostScriptConstruct        = false,							// struct has a PostScriptConstruct function which is called after it is constructed in blueprints
+		WithNetSharedSerialization     = false,                         // struct has a NetSerialize function that does not require the package map to serialize its state.
 	};
 };
 
@@ -839,6 +843,9 @@ public:
 
 		/** return true if this struct can net serialize **/
 		virtual bool HasNetSerializer() = 0;
+		
+		/** return true if this can share net serialization across connections */
+		virtual bool HasNetSharedSerialization() = 0;
 		/** 
 		 * Net serialize this structure 
 		 * @return true if the struct was serialized, otherwise it will fall back to ordinary script struct net serialization
@@ -917,7 +924,7 @@ public:
 		virtual uint32 GetTypeHash(const void* Src) = 0;
 
 		/** Returns property flag values that can be computed at compile time */
-		virtual uint64 GetComputedPropertyFlags() const = 0;
+		virtual EPropertyFlags GetComputedPropertyFlags() const = 0;
 
 		/** return true if this struct is abstract **/
 		virtual bool IsAbstract() const = 0;
@@ -985,6 +992,10 @@ public:
 		virtual bool HasNetSerializer() override
 		{
 			return TTraits::WithNetSerializer;
+		}
+		virtual bool HasNetSharedSerialization() override
+		{
+			return TTraits::WithNetSharedSerialization;
 		}
 		virtual bool HasNetDeltaSerializer() override
 		{
@@ -1073,13 +1084,13 @@ public:
 			ensure(HasGetTypeHash());
 			return GetTypeHashOrNot((const CPPSTRUCT*)Src);
 		}
-		virtual uint64 GetComputedPropertyFlags() const override
+		virtual EPropertyFlags GetComputedPropertyFlags() const override
 		{
 			return 
-				(TIsPODType<CPPSTRUCT>::Value ? CPF_IsPlainOldData : 0) 
-				| (TIsTriviallyDestructible<CPPSTRUCT>::Value ? CPF_NoDestructor : 0) 
-				| (TIsZeroConstructType<CPPSTRUCT>::Value ? CPF_ZeroConstructor : 0)
-				| (THasGetTypeHash<CPPSTRUCT>::Value ? CPF_HasGetValueTypeHash : 0);;
+				  (TIsPODType<CPPSTRUCT>::Value ? CPF_IsPlainOldData : CPF_None)
+				| (TIsTriviallyDestructible<CPPSTRUCT>::Value ? CPF_NoDestructor : CPF_None)
+				| (TIsZeroConstructType<CPPSTRUCT>::Value ? CPF_ZeroConstructor : CPF_None)
+				| (THasGetTypeHash<CPPSTRUCT>::Value ? CPF_HasGetValueTypeHash : CPF_None);
 		}
 		bool IsAbstract() const override
 		{
@@ -1371,6 +1382,7 @@ public:
 
 	// UObject interface.
 	virtual void Serialize( FArchive& Ar ) override;
+	virtual void PostLoad() override;
 
 	// UField interface.
 	virtual void Bind() override;
@@ -2052,7 +2064,7 @@ class COREUOBJECT_API UClass : public UStruct
 #endif
 {
 	DECLARE_CASTED_CLASS_INTRINSIC_NO_CTOR(UClass, UStruct, 0, TEXT("/Script/CoreUObject"), CASTCLASS_UClass, NO_API)
-	DECLARE_WITHIN(UPackage)
+	DECLARE_WITHIN_UPACKAGE()
 
 public:
 #if UCLASS_FAST_ISA_IMPL == UCLASS_ISA_INDEXTREE
@@ -2137,6 +2149,13 @@ public:
 
 	/** Assemble reference token streams for all classes if they haven't had it assembled already */
 	static void AssembleReferenceTokenStreams();
+
+#if WITH_EDITOR
+	void GenerateFunctionList(TArray<FName>& OutArray) const 
+	{ 
+		FuncMap.GenerateKeyArray(OutArray); 
+	}
+#endif // WITH_EDITOR
 
 private:
 #if WITH_EDITOR
@@ -2619,11 +2638,18 @@ public:
 
 	/**
 	 * Initializes the ClassReps and NetFields arrays used by replication.
-	 * For classes that are loaded, this needs to happen in PostLoad to
-	 * ensure all replicated UFunctions have been serialized. For native classes,
-	 * this should happen in Link. Also needs to happen after blueprint compiliation.
+	 * This happens lazily based on the CLASS_ReplicationDataIsSetUp flag,
+	 * and will generally occur in Link or PostLoad. It's possible that replicated UFunctions
+	 * will load after their owning class, so UFunction::PostLoad will clear the flag on its owning class
+	 * to force lazy initialization next time the data is needed.
+	 * Also happens after blueprint compiliation.
 	 */
 	void SetUpRuntimeReplicationData();
+
+	/**
+	 * Helper function for determining if the given class is compatible with structured archive serialization
+	 */
+	static bool IsSafeToSerializeToStructuredArchives(UClass* InClass);
 
 private:
 	#if UCLASS_FAST_ISA_IMPL == UCLASS_ISA_INDEXTREE
@@ -2686,7 +2712,7 @@ protected:
 class COREUOBJECT_API UDynamicClass : public UClass
 {
 	DECLARE_CASTED_CLASS_INTRINSIC_NO_CTOR(UDynamicClass, UClass, 0, TEXT("/Script/CoreUObject"), CASTCLASS_None, NO_API)
-	DECLARE_WITHIN(UPackage)
+	DECLARE_WITHIN_UPACKAGE()
 
 public:
 
@@ -3188,3 +3214,14 @@ template<> struct TBaseStructure<FPrimaryAssetId>
 	COREUOBJECT_API static UScriptStruct* Get();
 };
 
+struct FDateTime;
+template<> struct TBaseStructure<FDateTime>
+{
+	COREUOBJECT_API static UScriptStruct* Get();
+};
+
+struct FPolyglotTextData;
+template<> struct TBaseStructure<FPolyglotTextData>
+{
+	COREUOBJECT_API static UScriptStruct* Get();
+};

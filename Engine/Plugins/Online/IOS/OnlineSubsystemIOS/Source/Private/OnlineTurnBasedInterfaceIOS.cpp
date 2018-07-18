@@ -3,11 +3,11 @@
 #include "OnlineSubsystemIOSPrivatePCH.h"
 #include "OnlineTurnBasedInterfaceIOS.h"
 #include "TurnBasedEventListener.h"
-#include "OnlineIdentityInterface.h"
+#include "Interfaces/OnlineIdentityInterface.h"
 #include "OnlineSubsystem.h"
 #include "OnlineAsyncTaskManager.h"
-#include "RepLayout.h"
-#include "TurnBasedMatchInterface.h"
+#include "Net/RepLayout.h"
+#include "Interfaces/TurnBasedMatchInterface.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogTurnBasedInterfaceIOS, Verbose, All);
 

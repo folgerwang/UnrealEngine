@@ -6,25 +6,9 @@
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
 #include "UObject/Object.h"
-#include "Public/Styling/SlateBrush.h"
+#include "Styling/SlateBrush.h"
+#include "Rendering/RenderingCommon.h"
 #include "EditorStyleSettings.generated.h"
-
-/**
- * Enumerates color vision deficiency types.
- */
-UENUM()
-enum EColorVisionDeficiency
-{
-	CVD_NormalVision UMETA(DisplayName="Normal Vision"),
-	CVD_Deuteranomly UMETA(DisplayName="Deuteranomly (6% of males, 0.4% of females)"),
-	CVD_Deuteranopia UMETA(DisplayName="Deuteranopia (1% of males)"),
-	CVD_Protanomly UMETA(DisplayName="Protanomly (1% of males, 0.01% of females)"),
-	CVD_Protanopia UMETA(DisplayName="Protanopia (1% of males)"),
-	CVD_Tritanomaly UMETA(DisplayName="Tritanomaly (0.01% of males and females)"),
-	CVD_Tritanopia UMETA(DisplayName="Tritanopia (1% of males and females)"),
-	CVD_Achromatopsia UMETA(DisplayName="Achromatopsia (Extremely Rare)"),
-};
-
 
 UENUM()
 enum class EAssetEditorOpenLocation : uint8
@@ -64,6 +48,21 @@ public:
 	UPROPERTY(EditAnywhere, Category=UserInterface, meta = (ConfigRestartRequired = true, DisplayName="Enable High DPI Support"))
 	bool bEnableHighDPIAwareness;
 
+	/** Applies a color vision deficiency filter to the entire editor */
+	UPROPERTY(EditAnywhere, config, Category = "Accessibility")
+	EColorVisionDeficiency ColorVisionDeficiencyPreviewType;
+
+	UPROPERTY(EditAnywhere, config, Category = "Accessibility", meta=(ClampMin=0, ClampMax=10))
+	int32 ColorVisionDeficiencySeverity;
+
+	/** Shifts the color spectrum to the visible range based on the current ColorVisionDeficiencyPreviewType */
+	UPROPERTY(EditAnywhere, config, Category = "Accessibility")
+	bool bColorVisionDeficiencyCorrection;
+
+	/** If you're correcting the color deficiency, you can use this to visualize what the correction looks like with the deficiency. */
+	UPROPERTY(EditAnywhere, config, Category = "Accessibility")
+	bool bColorVisionDeficiencyCorrectionPreviewWithDeficiency;
+
 	/** The color used to represent selection */
 	UPROPERTY(EditAnywhere, config, Category=Colors, meta=(DisplayName="Selection Color"))
 	FLinearColor SelectionColor;
@@ -79,10 +78,6 @@ public:
 	/** The color used to represent keyboard input selection focus */
 	UPROPERTY(EditAnywhere, config, Category=Colors, meta=(DisplayName="Keyboard Focus Color"), AdvancedDisplay)
 	FLinearColor KeyboardFocusColor;
-
-	/** Applies a color vision deficiency filter to the entire editor */
-	UPROPERTY(EditAnywhere, config, Category=Colors)
-	TEnumAsByte<EColorVisionDeficiency> ColorVisionDeficiencyPreviewType;
 
 	/** The color used to tint the editor window backgrounds */
 	UPROPERTY(EditAnywhere, config, Category=Colors)

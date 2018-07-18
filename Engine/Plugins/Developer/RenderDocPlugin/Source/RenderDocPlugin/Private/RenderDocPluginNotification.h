@@ -4,7 +4,7 @@
 
 #if WITH_EDITOR
 
-#include "NotificationManager.h"
+#include "Framework/Notifications/NotificationManager.h"
 #include "TickableEditorObject.h"
 
 class FRenderDocPluginNotification : public FTickableEditorObject

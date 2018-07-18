@@ -1,18 +1,18 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "PIEPreviewDeviceProfileSelectorModule.h"
-#include "FileHelper.h"
-#include "JsonObject.h"
-#include "JsonReader.h"
-#include "JsonSerializer.h"
+#include "Misc/FileHelper.h"
+#include "Dom/JsonObject.h"
+#include "Serialization/JsonReader.h"
+#include "Serialization/JsonSerializer.h"
 #include "PIEPreviewDeviceSpecification.h"
 #include "JsonObjectConverter.h"
 #include "MaterialShaderQualitySettings.h"
 #include "RHI.h"
-#include "TabManager.h"
+#include "Framework/Docking/TabManager.h"
 #include "CoreGlobals.h"
-#include "ModuleManager.h"
-#include "ConfigCacheIni.h"
+#include "Modules/ModuleManager.h"
+#include "Misc/ConfigCacheIni.h"
 #include "Internationalization/Culture.h"
 #include "PIEPreviewWindowStyle.h"
 
@@ -57,6 +57,7 @@ void FPIEPreviewDeviceModule::InitPreviewDevice()
 					TMap<FString, FString> DeviceParameters;
 					DeviceParameters.Add("GPUFamily", AndroidProperties.GPUFamily);
 					DeviceParameters.Add("GLVersion", AndroidProperties.GLVersion);
+					DeviceParameters.Add("VulkanAvailable", AndroidProperties.VulkanAvailable ? "true" : "false");
 					DeviceParameters.Add("VulkanVersion", AndroidProperties.VulkanVersion);
 					DeviceParameters.Add("AndroidVersion", AndroidProperties.AndroidVersion);
 					DeviceParameters.Add("DeviceMake", AndroidProperties.DeviceMake);

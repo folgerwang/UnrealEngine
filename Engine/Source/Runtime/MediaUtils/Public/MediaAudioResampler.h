@@ -30,13 +30,14 @@ public:
 	 * Generate the next frame of audio.
 	 *
 	 * @param Output The output sample buffer (will be incremented by the number of sample values written).
+	 * @param OutTime The time of the first output frame that was returned.
 	 * @param FramesRequested The maximum number of frames to get.
 	 * @param Rate The current play rate.
 	 * @param Time The current play time.
 	 * @param SampleSource The object that provides more audio samples if needed.
 	 * @return The actual number of frames returned.
 	 */
-	uint32 Generate(float* Output, const uint32 FramesRequested, float Rate, FTimespan Time, FMediaAudioSampleSource& SampleSource);
+	uint32 Generate(float* Output, FTimespan& OutTime, const uint32 FramesRequested, float Rate, FTimespan Time, FMediaAudioSampleSource& SampleSource);
 
 	/**
 	 * Initialize the resampler.

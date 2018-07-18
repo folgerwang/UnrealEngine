@@ -31,6 +31,11 @@ public: // UStruct -> JSON
 	DECLARE_DELEGATE_RetVal_TwoParams(TSharedPtr<FJsonValue>, CustomExportCallback, UProperty* /* Property */, const void* /* Value */);
 
 	/**
+	 * Utility Export Callback for having object properties expanded to full Json.
+	 */
+	static TSharedPtr<FJsonValue> ObjectJsonCallback(UProperty* Property , const void* Value);
+
+	/**
 	 * Templated version of UStructToJsonObject to try and make most of the params. Also serves as an example use case
 	 *
 	 * @param InStruct The UStruct instance to read from
@@ -187,7 +192,7 @@ public: // JSON -> UStruct
 	 *
 	 * @param JsonAttributes Json Object to copy data out of
 	 * @param StructDefinition UStruct definition that is looked over for properties
-	 * @param Struct The UStruct instance to copy in to
+	 * @param OutStruct The UStruct instance to copy in to
 	 * @param CheckFlags Only convert properties that match at least one of these flags. If 0 check all properties.
 	 * @param SkipFlags Skip properties that match any of these flags
 	 *

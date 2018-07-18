@@ -18,18 +18,24 @@
 #include "Binding/PropertyBinding.h"
 #include "Blueprint/WidgetTree.h"
 #include "Blueprint/WidgetBlueprintGeneratedClass.h"
-#include "PropertyTag.h"
+#include "UObject/PropertyTag.h"
 #include "WidgetBlueprint.h"
 #include "WidgetBlueprintCompiler.h"
-#include "PropertyBinding.h"
+#include "Binding/PropertyBinding.h"
 #include "Engine/UserDefinedStruct.h"
 #include "UObject/EditorObjectVersion.h"
-#include "Classes/WidgetGraphSchema.h"
+#include "WidgetGraphSchema.h"
 #include "WidgetBlueprintCompiler.h"
+#include "UMGEditorProjectSettings.h"
 
 #if WITH_EDITOR
 #include "Interfaces/ITargetPlatform.h"
+#include "Modules/ModuleManager.h"
 #endif
+#include "Kismet2/BlueprintEditorUtils.h"
+#include "K2Node_CallFunction.h"
+#include "K2Node_MacroInstance.h"
+#include "K2Node_Composite.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 
@@ -424,8 +430,14 @@ bool FDelegateEditorBinding::IsBindingValid(UClass* BlueprintGeneratedClass, UWi
 				FText ValidationError;
 				if ( SourcePath.Validate(DelegateProperty, ValidationError) == false )
 				{
-					FText const ErrorFormat = LOCTEXT("BindingError", "Binding: Property '@@' on Widget '@@': %s");
-					MessageLog.Error(*FString::Printf(*ErrorFormat.ToString(), *ValidationError.ToString()), DelegateProperty, TargetWidget);
+					MessageLog.Error(
+						*FText::Format(
+							LOCTEXT("BindingErrorFmt", "Binding: Property '@@' on Widget '@@': {0}"),
+							ValidationError
+						).ToString(),
+						DelegateProperty,
+						TargetWidget
+					);
 
 					return false;
 				}
@@ -513,6 +525,8 @@ bool FWidgetAnimation_DEPRECATED::SerializeFromMismatchedTag(struct FPropertyTag
 
 UWidgetBlueprint::UWidgetBlueprint(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
+	, TickFrequency(EWidgetTickFrequency::Auto)
+	, SupportDynamicCreation(EWidgetSupportsDynamicCreation::Default)
 {
 	WidgetTree = CreateDefaultSubobject<UWidgetTree>(TEXT("WidgetTree"));
 	WidgetTree->SetFlags(RF_Transactional);
@@ -534,6 +548,15 @@ void UWidgetBlueprint::ReplaceDeprecatedNodes()
 
 	Super::ReplaceDeprecatedNodes();
 }
+
+#if WITH_EDITORONLY_DATA
+void UWidgetBlueprint::PreSave(const class ITargetPlatform* TargetPlatform)
+{
+	Super::PreSave(TargetPlatform);
+
+	PropertyBindings = Bindings.Num();
+}
+#endif // WITH_EDITORONLY_DATA
 
 void UWidgetBlueprint::Serialize(FArchive& Ar)
 {
@@ -598,6 +621,8 @@ void UWidgetBlueprint::PostLoad()
 			Graph->Schema = UWidgetGraphSchema::StaticClass();
 		}
 	}
+
+	PropertyBindings = Bindings.Num();
 }
 
 void UWidgetBlueprint::PostDuplicate(bool bDuplicateForPIE)
@@ -795,4 +820,168 @@ void UWidgetBlueprint::ForEachSourceWidgetImpl (TFunctionRef<void(UWidget*)> Fn)
 	);
 }
 
+static bool HasLatentActions(UEdGraph* Graph)
+{
+	for (const UEdGraphNode* Node : Graph->Nodes)
+	{
+		if (const UK2Node_CallFunction* CallFunctionNode = Cast<UK2Node_CallFunction>(Node))
+		{
+			// Check any function call nodes to see if they are latent.
+			UFunction* TargetFunction = CallFunctionNode->GetTargetFunction();
+			if (TargetFunction && TargetFunction->HasMetaData(FBlueprintMetadata::MD_Latent))
+			{
+				return true;
+			}
+		}
+
+		else if (const UK2Node_MacroInstance* MacroInstanceNode = Cast<UK2Node_MacroInstance>(Node))
+		{
+			// Any macro graphs that haven't already been checked need to be checked for latent function calls
+			//if (InspectedGraphList.Find(MacroInstanceNode->GetMacroGraph()) == INDEX_NONE)
+			{
+				if (HasLatentActions(MacroInstanceNode->GetMacroGraph()))
+				{
+					return true;
+				}
+			}
+		}
+		else if (const UK2Node_Composite* CompositeNode = Cast<UK2Node_Composite>(Node))
+		{
+			// Any collapsed graphs that haven't already been checked need to be checked for latent function calls
+			//if (InspectedGraphList.Find(CompositeNode->BoundGraph) == INDEX_NONE)
+			{
+				if (HasLatentActions(CompositeNode->BoundGraph))
+				{
+					return true;
+				}
+			}
+		}
+	}
+
+	return false;
+}
+
+void UWidgetBlueprint::UpdateTickabilityStats(bool& OutHasLatentActions, bool& OutHasAnimations, bool& OutClassRequiresNativeTick)
+{
+	if (GeneratedClass && GeneratedClass->ClassConstructor)
+	{
+		UWidgetBlueprintGeneratedClass* WidgetBPGeneratedClass = CastChecked<UWidgetBlueprintGeneratedClass>(GeneratedClass);
+		UUserWidget* DefaultWidget = WidgetBPGeneratedClass->GetDefaultObject<UUserWidget>();
+
+		TArray<UBlueprint*> BlueprintParents;
+		UBlueprint::GetBlueprintHierarchyFromClass(WidgetBPGeneratedClass, BlueprintParents);
+
+		bool bHasLatentActions = false;
+		bool bHasAnimations = false;
+		const bool bHasScriptImplementedTick = DefaultWidget->bHasScriptImplementedTick;
+
+		for (UBlueprint* Blueprint : BlueprintParents)
+		{
+			UWidgetBlueprint* WidgetBP = Cast<UWidgetBlueprint>(Blueprint);
+			if (WidgetBP)
+			{
+				bHasAnimations |= WidgetBP->Animations.Num() > 0;
+
+				if (!bHasLatentActions)
+				{
+					TArray<UEdGraph*> AllGraphs;
+					WidgetBP->GetAllGraphs(AllGraphs);
+
+					for (UEdGraph* Graph : AllGraphs)
+					{
+						if (HasLatentActions(Graph))
+						{
+							bHasLatentActions = true;
+							break;
+						}
+					}
+				}
+			}
+		}
+
+		UClass* NativeParent = FBlueprintEditorUtils::GetNativeParent(this);
+		static const FName DisableNativeTickMetaTag("DisableNativeTick");
+		const bool bClassRequiresNativeTick = !NativeParent->HasMetaData(DisableNativeTickMetaTag);
+
+		TickFrequency = DefaultWidget->GetDesiredTickFrequency();
+		TickPredictionReason = TEXT("");
+		TickPrediction = EWidgetCompileTimeTickPrediction::WontTick;
+		switch (TickFrequency)
+		{
+		case EWidgetTickFrequency::Never:
+			TickPrediction = EWidgetCompileTimeTickPrediction::WontTick;
+			break;
+		case EWidgetTickFrequency::Auto:
+		{
+			TArray<FString> Reasons;
+			if (bHasScriptImplementedTick)
+			{
+				Reasons.Add(TEXT("Script"));
+			}
+
+			if (bClassRequiresNativeTick)
+			{
+				Reasons.Add(TEXT("Native"));
+			}
+
+			if (bHasAnimations)
+			{
+				Reasons.Add(TEXT("Anim"));
+			}
+
+			if (bHasLatentActions)
+			{
+				Reasons.Add(TEXT("Latent"));
+			}
+
+			for (int32 ReasonIdx = 0; ReasonIdx < Reasons.Num(); ++ReasonIdx)
+			{
+				TickPredictionReason += Reasons[ReasonIdx];
+				if (ReasonIdx != Reasons.Num() - 1)
+				{
+					TickPredictionReason.AppendChar('|');
+				}
+			}
+
+			if (bHasScriptImplementedTick || bClassRequiresNativeTick)
+			{
+				// Widget has an implemented tick or the generated class is not a direct child of UUserWidget (means it could have a native tick) then it will definitely tick
+				TickPrediction = EWidgetCompileTimeTickPrediction::WillTick;
+			}
+			else if (bHasAnimations || bHasLatentActions)
+			{
+				// Widget has latent actions or animations and will tick if these are triggered
+				TickPrediction = EWidgetCompileTimeTickPrediction::OnDemand;
+			}
+		}
+		break;
+		}
+
+		OutHasLatentActions = bHasLatentActions;
+		OutHasAnimations = bHasAnimations;
+		OutClassRequiresNativeTick = bClassRequiresNativeTick;
+	}
+}
+
+bool UWidgetBlueprint::WidgetSupportsDynamicCreation() const
+{
+	switch (SupportDynamicCreation)
+	{
+	case EWidgetSupportsDynamicCreation::Yes:
+		return true;
+	case EWidgetSupportsDynamicCreation::No:
+		return false;
+	case EWidgetSupportsDynamicCreation::Default:
+	default:
+		return GetDefault<UUMGEditorProjectSettings>()->bWidgetSupportsDynamicCreation;
+	}
+}
+
+#if WITH_EDITOR
+void UWidgetBlueprint::LoadModulesRequiredForCompilation()
+{
+	static const FName ModuleName(TEXT("UMGEditor"));
+	FModuleManager::Get().LoadModule(ModuleName);
+}
+#endif // WITH_EDITOR
 #undef LOCTEXT_NAMESPACE 

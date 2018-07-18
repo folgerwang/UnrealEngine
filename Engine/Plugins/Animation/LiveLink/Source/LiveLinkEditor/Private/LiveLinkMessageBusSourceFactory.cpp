@@ -1,7 +1,8 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 #include "LiveLinkMessageBusSourceFactory.h"
 #include "LiveLinkMessageBusSource.h"
 #include "LiveLinkMessageBusSourceEditor.h"
+#include "LiveLinkMessageBusFinder.h"
 
 #define LOCTEXT_NAMESPACE "LiveLinkMessageBusSourceFactory"
 
@@ -34,7 +35,7 @@ TSharedPtr<ILiveLinkSource> ULiveLinkMessageBusSourceFactory::OnSourceCreationPa
 		FProviderPollResultPtr Result = ActiveSourceEditor->GetSelectedSource();
 		if(Result.IsValid())
 		{
-			NewSource = MakeShareable( new FLiveLinkMessageBusSource(FText::FromString(Result->Name), FText::FromString(Result->MachineName), Result->Address));
+			NewSource = MakeShared<FLiveLinkMessageBusSource>(FText::FromString(Result->Name), FText::FromString(Result->MachineName), Result->Address);
 		}
 	}
 	ActiveSourceEditor = nullptr;

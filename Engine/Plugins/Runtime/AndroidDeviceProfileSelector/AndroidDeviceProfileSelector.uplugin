@@ -27,7 +27,8 @@
 			"LoadingPhase" : "PostConfigInit",
 			"WhitelistPlatforms" :
 			[
-				"Android"
+				"Android",
+				"Lumin"
 			]
 		}
 	]

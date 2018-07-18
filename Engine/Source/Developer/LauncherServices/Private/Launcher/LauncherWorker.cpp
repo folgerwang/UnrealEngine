@@ -139,6 +139,12 @@ uint32 FLauncherWorker::Run( )
 		LaunchCompleted.Broadcast(TaskChain->Succeeded(), FPlatformTime::Seconds() - LaunchStartTime, TaskChain->ReturnCode());
 	}
 
+	//delete the application@device dictionary
+	CachedDevicePackagePair.Empty();
+
+	//stop looking for disconnected devices
+	DisableDeviceDiscoveryListener();
+
 	return 0;
 }
 
@@ -157,6 +163,7 @@ void FLauncherWorker::Cancel( )
 	if (Status == ELauncherWorkerStatus::Busy)
 	{
 		Status = ELauncherWorkerStatus::Canceling;
+		TerminateLaunchedProcess();
 	}
 }
 
@@ -208,6 +215,11 @@ void FLauncherWorker::OnTaskStarted(const FString& TaskName)
 {
 	StageStartTime = FPlatformTime::Seconds();
 	StageStarted.Broadcast(TaskName);
+	// look for disconnected devices only after displaying "Running on..."
+	if(TaskName.Contains(TEXT("Run Task")))
+	{
+		EnableDeviceDiscoveryListener();
+	}
 }
 
 
@@ -297,62 +309,63 @@ FString FLauncherWorker::CreateUATCommand( const ILauncherProfileRef& InProfile,
 		// Platform info for the given platform
 		const PlatformInfo::FPlatformInfo* PlatformInfo = PlatformInfo::FindPlatformInfo(FName(*InPlatforms[PlatformIndex]));
 
-		// switch server and no editor platforms to the proper type
-		if (PlatformInfo->TargetPlatformName == FName("LinuxServer"))
+		if (ensure(PlatformInfo))
 		{
-			ServerPlatforms += TEXT("+Linux");
-		}
-		else if (PlatformInfo->TargetPlatformName == FName("WindowsServer"))
-		{
-			ServerPlatforms += TEXT("+Win64");
-		}
-		else if (PlatformInfo->TargetPlatformName == FName("MacServer"))
-		{
-			ServerPlatforms += TEXT("+Mac");
-		}
-		else if (PlatformInfo->TargetPlatformName == FName("LinuxNoEditor") || PlatformInfo->TargetPlatformName == FName("LinuxClient"))
-		{
-			Platforms += TEXT("+Linux");
-		}
-		else if (PlatformInfo->TargetPlatformName == FName("WindowsNoEditor") || PlatformInfo->TargetPlatformName == FName("Windows") || PlatformInfo->TargetPlatformName == FName("WindowsClient"))
-		{
-			Platforms += TEXT("+Win64");
-		}
-		else if (PlatformInfo->TargetPlatformName == FName("MacNoEditor") || PlatformInfo->TargetPlatformName == FName("MacClient"))
-		{
-			Platforms += TEXT("+Mac");
-		}
-		else
-		{
-			Platforms += TEXT("+");
-			Platforms += PlatformInfo->TargetPlatformName.ToString();
-		}
-
-		// Append any extra UAT flags specified for this platform flavor
-		if (!PlatformInfo->UATCommandLine.IsEmpty())
-		{
-			FString OptionalUATCommandLine = PlatformInfo->UATCommandLine;
-			
-			FString OptionalTargetPlatform;
-			if (FParse::Value(*OptionalUATCommandLine, TEXT("-targetplatform="), OptionalTargetPlatform))
+			// switch server and no editor platforms to the proper type
+			if (PlatformInfo->TargetPlatformName == FName("LinuxServer"))
 			{
-				OptionalTargetPlatforms.Add(OptionalTargetPlatform);
-				OptionalUATCommandLine.ReplaceInline(*(TEXT("-targetplatform=") + OptionalTargetPlatform), TEXT(""));
+				ServerPlatforms += TEXT("+Linux");
+			}
+			else if (PlatformInfo->TargetPlatformName == FName("WindowsServer"))
+			{
+				ServerPlatforms += TEXT("+Win64");
+			}
+			else if (PlatformInfo->TargetPlatformName == FName("MacServer"))
+			{
+				ServerPlatforms += TEXT("+Mac");
+			}
+			else if (PlatformInfo->TargetPlatformName == FName("LinuxNoEditor") || PlatformInfo->TargetPlatformName == FName("LinuxClient"))
+			{
+				Platforms += TEXT("+Linux");
+			}
+			else if (PlatformInfo->TargetPlatformName == FName("WindowsNoEditor") || PlatformInfo->TargetPlatformName == FName("Windows") || PlatformInfo->TargetPlatformName == FName("WindowsClient"))
+			{
+				Platforms += TEXT("+Win64");
+			}
+			else if (PlatformInfo->TargetPlatformName == FName("MacNoEditor") || PlatformInfo->TargetPlatformName == FName("MacClient"))
+			{
+				Platforms += TEXT("+Mac");
+			}
+			else
+			{
+				Platforms += TEXT("+");
+				Platforms += PlatformInfo->TargetPlatformName.ToString();
 			}
 
-			FString OptionalCookFlavor;
-			if (FParse::Value(*OptionalUATCommandLine, TEXT("-cookflavor="), OptionalCookFlavor))
+			// Append any extra UAT flags specified for this platform flavor
+			if (!PlatformInfo->UATCommandLine.IsEmpty())
 			{
-				OptionalCookFlavors.Add(OptionalCookFlavor);
-				OptionalUATCommandLine.ReplaceInline(*(TEXT("-cookflavor=") + OptionalCookFlavor), TEXT(""));
+				FString OptionalUATCommandLine = PlatformInfo->UATCommandLine;
+
+				FString OptionalTargetPlatform;
+				if (FParse::Value(*OptionalUATCommandLine, TEXT("-targetplatform="), OptionalTargetPlatform))
+				{
+					OptionalTargetPlatforms.Add(OptionalTargetPlatform);
+					OptionalUATCommandLine.ReplaceInline(*(TEXT("-targetplatform=") + OptionalTargetPlatform), TEXT(""));
+				}
+
+				FString OptionalCookFlavor;
+				if (FParse::Value(*OptionalUATCommandLine, TEXT("-cookflavor="), OptionalCookFlavor))
+				{
+					OptionalCookFlavors.Add(OptionalCookFlavor);
+					OptionalUATCommandLine.ReplaceInline(*(TEXT("-cookflavor=") + OptionalCookFlavor), TEXT(""));
+				}
+
+				OptionalParams += TEXT(" ");
+				OptionalParams += OptionalUATCommandLine;
 			}
-			
-			OptionalParams += TEXT(" ");
-			OptionalParams += OptionalUATCommandLine;
+			bUATClosesAfterLaunch |= PlatformInfo->bUATClosesAfterLaunch;
 		}
-
-		bUATClosesAfterLaunch |= PlatformInfo->bUATClosesAfterLaunch;
-
 	}
 	if (ServerPlatforms.Len() > 0)
 	{
@@ -438,15 +451,23 @@ FString FLauncherWorker::CreateUATCommand( const ILauncherProfileRef& InProfile,
 	}
 #endif	// WITH_EDITOR
 
+	// to reduce UE4CommandLine.txt churn (timestamp causing extra work), for LaunchOn (ie iterative deploy) we use a single session guid
+	if (InProfile->GetDeploymentMode() == ELauncherProfileDeploymentModes::CopyToDevice && Profile->IsDeployingIncrementally())
+	{
+		static FGuid StaticGuid(FGuid::NewGuid());
+		SessionId = StaticGuid;
+	}
+
 	// additional commands to be sent to the commandline
 	FString SessionName = InProfile->GetName().Replace(TEXT("\'"), TEXT("_")).Replace(TEXT("\'"), TEXT("_"));
 	FString SessionOwner = FString(FPlatformProcess::UserName(false)).Replace(TEXT("\'"), TEXT("_")).Replace(TEXT("\'"), TEXT("_"));;
-	FString AdditionalCommandLine = FString::Printf(TEXT(" -addcmdline=\"-SessionId=%s -SessionOwner='%s' -SessionName='%s'%s%s\""),
+	FString AdditionalCommandLine = FString::Printf(TEXT(" -addcmdline=\"-SessionId=%s -SessionOwner='%s' -SessionName='%s'%s%s %s\""),
 		*SessionId.ToString(),
 		*SessionOwner,
 		*SessionName,
 		*RoleCommands,
-		*LocalizationCommands);
+		*LocalizationCommands,
+		*InProfile->GetAdditionalCommandLineParameters());
 
 	// map list
 	FString MapList = TEXT("");
@@ -514,8 +535,15 @@ FString FLauncherWorker::CreateUATCommand( const ILauncherProfileRef& InProfile,
 			FString additionalOptions = InProfile->GetCookOptions();
 			if (!additionalOptions.IsEmpty())
 			{
-				UATCommand += TEXT(" ");
+				UATCommand += TEXT(" -additionalcookeroptions=\"");
 				UATCommand += additionalOptions;
+                UATCommand += "\"";
+			}
+
+			if (FParse::Param(FCommandLine::Get(), TEXT("fastcook")))
+			{
+				// if our editor has nomcp then pass it through the launched game
+				UATCommand += TEXT(" -fastcook");
 			}
 
 			if (InProfile->IsPackingWithUnrealPak())
@@ -651,7 +679,7 @@ FString FLauncherWorker::CreateUATCommand( const ILauncherProfileRef& InProfile,
 
 	if ( InProfile->IsIterateSharedCookedBuild() )
 	{
-		UATCommand += TEXT(" -iteratesharedcookedbuild");
+		UATCommand += TEXT(" -iteratesharedcookedbuild=usesyncedbuild");
 	}
 
 	if (InProfile->GetSkipCookingEditorContent())
@@ -695,6 +723,17 @@ FString FLauncherWorker::CreateUATCommand( const ILauncherProfileRef& InProfile,
 				if (Profile->IsDeployingIncrementally())
 				{
 					UATCommand += " -iterativedeploy";
+					// @todo Lumin hack maybe? Can we always skip the automation script compiling here when going for fast-as-possible?
+					// we will always compile the automation scripts once, then we stop due to time waste
+					static bool bHasCompiledOnce = false;
+					if (bHasCompiledOnce)
+					{
+						UATCommand += " -nocompile";
+					}
+					else
+					{
+						bHasCompiledOnce = true;
+					}
 				}
 			}
 		case ELauncherProfileDeploymentModes::FileServer:
@@ -889,6 +928,7 @@ void FLauncherWorker::CreateAndExecuteTasks( const ILauncherProfileRef& InProfil
 				: FLauncherTask(InName, InDesc, 0, 0)
 				, CommandText(InCommandEnd)
 				, ProcessHandle(InProcessHandle)
+				, LauncherWorker(InWorker)
 			{
 				EndTextFound = false;
 				InWorker->OnOutputReceived().AddRaw(this, &FLauncherWaitTask::HandleOutputReceived);
@@ -916,12 +956,24 @@ void FLauncherWorker::CreateAndExecuteTasks( const ILauncherProfileRef& InProfil
 			void HandleOutputReceived(const FString& InMessage)
 			{
 				EndTextFound |= InMessage.Contains(CommandText);
+				const FString DevicePackagePairMessagePrefix = "Running Package@Device:";
+				if (InMessage.StartsWith(DevicePackagePairMessagePrefix))
+				{
+					FString DevicePackagePairMessage = InMessage;
+					DevicePackagePairMessage.RemoveFromStart(DevicePackagePairMessagePrefix);
+					TArray<FString> DevicePackagePair;
+					if (DevicePackagePairMessage.ParseIntoArray(DevicePackagePair, TEXT("@"), true) == 2)
+					{
+						LauncherWorker->AddDevicePackagePair(DevicePackagePair[1], DevicePackagePair[0]);
+					}
+				}
 			}
 
 		private:
 			FString CommandText;
 			FProcHandle& ProcessHandle;
 			bool EndTextFound;
+			ILauncherWorker* LauncherWorker;
 		};			
 
 		TSharedPtr<FLauncherTask> WaitTask = MakeShareable(new FLauncherWaitTask(Commands[Index].EndText, Commands[Index].Name, Commands[Index].Desc, ProcHandle, this));
@@ -938,6 +990,90 @@ void FLauncherWorker::CreateAndExecuteTasks( const ILauncherProfileRef& InProfil
 	ChainState.SessionId = FGuid::NewGuid();
 
 	TaskChain->Execute(ChainState);
+}
+
+/** Callback for when a device proxy has been removed from the device proxy manager. */
+void FLauncherWorker::HandleDeviceProxyManagerProxyRemoved(const TSharedRef<ITargetDeviceProxy>& RemovedProxy)
+{
+	FString TargetDeviceId = RemovedProxy->GetTargetDeviceId(NAME_None);
+	
+	// determine deployment devices
+	ILauncherDeviceGroupPtr DeviceGroup = Profile->GetDeployedDeviceGroup();
+
+	if (DeviceGroup.IsValid() && DeviceGroup->GetNumDevices() > 0)
+	{
+		// remove disconnected device from the list
+		DeviceGroup->RemoveDevice(TargetDeviceId);
+		if (DeviceGroup->GetNumDevices() == 0)
+		{
+			// this was the last device running, stop working
+			Stop();
+		}
+	}
+}
+
+// start looking for disconnected devices
+void FLauncherWorker::EnableDeviceDiscoveryListener()
+{
+	if (!OnProxyRemovedDelegateHandle.IsValid())
+	{
+		OnProxyRemovedDelegateHandle = DeviceProxyManager->OnProxyRemoved().AddRaw(this, &FLauncherWorker::HandleDeviceProxyManagerProxyRemoved);
+	}
+}
+
+// stop looking for disconnected devices
+void FLauncherWorker::DisableDeviceDiscoveryListener()
+{
+	if (OnProxyRemovedDelegateHandle.IsValid())
+	{
+		DeviceProxyManager->OnProxyRemoved().Remove(OnProxyRemovedDelegateHandle);
+		OnProxyRemovedDelegateHandle.Reset();
+	}
+
+}
+
+//Cancel the currently running application on all devices
+bool FLauncherWorker::TerminateLaunchedProcess()
+{
+	// determine deployment devices
+	ILauncherDeviceGroupPtr DeviceGroup = Profile->GetDeployedDeviceGroup();
+	FName Variant = NAME_None;
+
+	// device list
+	FString DeviceNamesParam = TEXT("");
+	if (DeviceGroup.IsValid())
+	{
+		const TArray<FString>& Devices = DeviceGroup->GetDeviceIDs();
+		// cancel the app onr each device
+		for (int32 DeviceIndex = 0; DeviceIndex < Devices.Num(); ++DeviceIndex)
+		{
+			const FString& DeviceId = Devices[DeviceIndex];
+
+			TSharedPtr<ITargetDeviceProxy> DeviceProxy = DeviceProxyManager->FindProxyDeviceForTargetDevice(DeviceId);
+			if (DeviceProxy.IsValid())
+			{
+				FName TargetDeviceVariant = DeviceProxy->GetTargetDeviceVariant(DeviceId);
+
+				FString TargetDeviceId = DeviceId;
+				
+				// remove the variant prefix (eg. Android_ETC@deviceId)
+				int32 InPos = TargetDeviceId.Find("@");
+				if (InPos > 0) 
+				{ 
+					TargetDeviceId = TargetDeviceId.Right(TargetDeviceId.Len() -  InPos - 1);
+
+				}
+
+				// try to find the corresponding app id
+				if (CachedDevicePackagePair.Contains(TargetDeviceId))
+				{
+					DeviceProxy->TerminateLaunchedProcess(TargetDeviceVariant, CachedDevicePackagePair[TargetDeviceId]);
+				}
+			}
+		}
+	}
+
+	return true;
 }
 
 #undef LOCTEXT_NAMESPACE

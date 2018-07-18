@@ -1,28 +1,16 @@
-﻿INTSourceChangelist:2725415
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:4 - コードをテストする
 Crumbs:%ROOT%, Programming, Programming/QuickStart
 Description:テスト オブジェクトをレベルに作成する
 SkillLevel:Beginner
 Version:4.9
+parent:Programming/QuickStart
+order:4
+type:quick start
+type:multi-step
 
-[VAR:Steps]
-[OBJECT:Navigation]
-	[PARAM:previous]
-		[前のステップ](Programming\QuickStart\3 "%Programming\QuickStart\3:title%")
-	[/PARAM]
-	[PARAM:current]
-	[/PARAM]
-	[PARAM:home]
-		[クイックスタートのホーム](Programming)
-	[/PARAM]
-	[PARAM:next]
-		[次のステップ](Programming\QuickStart\5 "%Programming\QuickStart\5:title%")
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-
+[NAV]
 
 1. **アンリアル エディタ** の **コンテンツ ブラウザ** から「C++ Classes」という名前のフォルダを展開します。そのフォルダ内の「QuickStart」フォルダの中に、**Actor** クラスの **FloatingActor** が入っています。
 
@@ -44,74 +32,69 @@ Version:4.9
 
 	[![](MovingCone.png)](MovingCone.png)
 
-[OBJECT:Section]
-    [PARAMLITERAL:id]
-    code
-    [/PARAMLITERAL]
-    [PARAM:heading]
-    完成コード
-    [/PARAM]
-    [PARAM:content]
-		**FloatingActor.h**
-			// Copyright 1998-2018 Epic Games, Inc.All Rights Reserved.
+## 完成コード
+   
+**FloatingActor.h**
+	// Copyright 1998-2017 Epic Games, Inc.All Rights Reserved.
 
-			#pragma once
+	#pragma once
 
-			#include "GameFramework/Actor.h"
-			#include "FloatingActor.generated.h"
+	#include "GameFramework/Actor.h"
+	#include "FloatingActor.generated.h"
 
-			UCLASS()
-			class QUICKSTART_API AFloatingActor : public AActor
-			{
-				GENERATED_BODY()
+	UCLASS()
+	class QUICKSTART_API AFloatingActor : public AActor
+	{
+		GENERATED_BODY()
 
-			public:
-				// Sets default values for this actor's properties
-				AFloatingActor();
+	public:
+		// Sets default values for this actor's properties (このアクタのプロパティのデフォルト値を設定)
+		AFloatingActor();
 
-				// Called when the game starts or when spawned
-				virtual void BeginPlay() override;
+	protected:
+		// Called when the game starts or when spawned (ゲーム開始時またはスポーン時に呼び出されます)
+		virtual void BeginPlay() override;
 
-				// Called every frame
-				virtual void Tick( float DeltaSeconds ) override;
+	public:
+		// Called every frame (フレーム毎に呼び出されます)
+		virtual void Tick( float DeltaSeconds ) override;
 
-				float RunningTime;
-			};
+		float RunningTime;
+	};
 
-		**FloatingActor.cpp**
-			// Copyright 1998-2018 Epic Games, Inc.All Rights Reserved.
+**FloatingActor.cpp**
 
-			#include "QuickStart.h"
-			#include "FloatingActor.h"
+	// Copyright 1998-2017 Epic Games, Inc.All Rights Reserved.
 
-			// Sets default values
-			AFloatingActor::AFloatingActor()
-			{
- 				// Set this actor to call Tick() every frame.You can turn this off to improve performance if you don't need it.
-				PrimaryActorTick.bCanEverTick = true;
+	#include "QuickStart.h"
+	#include "FloatingActor.h"
 
-			}
+	// Sets default values (デフォルト値を設定) 
+	AFloatingActor::AFloatingActor()
+	{
+ 		// Set this actor to call Tick() every frame. (フレーム毎に Tick() を呼び出すようにこのアクタを設定) You can turn this off to improve performance if you don't need it. (必要がなければパフォーマンスを向上させるためにオフにすることができます) 
+		PrimaryActorTick.bCanEverTick = true;
 
-			// Called when the game starts or when spawned
-			void AFloatingActor::BeginPlay()
-			{
-				Super::BeginPlay();
+	}
 
-			}
+	// Called when the game starts or when spawned (ゲーム開始時またはスポーン時に呼び出されます)
+	void AFloatingActor::BeginPlay()
+	{
+		Super::BeginPlay();
 
-			// Called every frame
-			void AFloatingActor::Tick( float DeltaTime )
-			{
-				Super::Tick( DeltaTime );
+	}
 
-				FVector NewLocation = GetActorLocation();
-				float DeltaHeight = (FMath::Sin(RunningTime + DeltaTime) - FMath::Sin(RunningTime));
-				NewLocation.Z += DeltaHeight * 20.0f;       //Scale our height by a factor of 20
-				RunningTime += DeltaTime;
-				SetActorLocation(NewLocation);
-			}
+	// Called every frame (フレーム毎に呼び出されます)
+	void AFloatingActor::Tick( float DeltaTime )
+	{
+		Super::Tick( DeltaTime );
 
-    [/PARAM]
-[/OBJECT]
+		FVector NewLocation = GetActorLocation();
+		float DeltaHeight = (FMath::Sin(RunningTime + DeltaTime) - FMath::Sin(RunningTime));
+		NewLocation.Z += DeltaHeight * 20.0f;       //Scale our height by a factor of 20
+		RunningTime += DeltaTime;
+		SetActorLocation(NewLocation);
+	}
 
 
+[NAV]

@@ -21,6 +21,7 @@ public:
 	{ }
 
 public:
+	~FSlateDrawBuffer();
 
 	/** Removes all data from the buffer. */
 	void ClearBuffer();
@@ -35,10 +36,13 @@ public:
 	 */
 	FSlateWindowElementList& AddWindowElementList(TSharedRef<SWindow> ForWindow);
 
+	/** Removes any window from the draw buffer that's not in this list or whose window has become invalid. */
+	void RemoveUnusedWindowElement(const TArray<TSharedRef<SWindow>>& AllWindows);
+
 	/**
 	 * Gets all window element lists in this buffer.
 	 */
-	TArray< TSharedPtr<FSlateWindowElementList> >& GetWindowElementLists()
+	const TArray< TSharedRef<FSlateWindowElementList> >& GetWindowElementLists()
 	{
 		return WindowElementLists;
 	}
@@ -61,11 +65,11 @@ public:
 protected:
 
 	// List of window element lists.
-	TArray< TSharedPtr<FSlateWindowElementList> > WindowElementLists;
+	TArray< TSharedRef<FSlateWindowElementList> > WindowElementLists;
 
 	// List of window element lists that we store from the previous frame 
 	// that we restore if they're requested again.
-	TArray< TSharedPtr<FSlateWindowElementList> > WindowElementListsPool;
+	TArray< TSharedRef<FSlateWindowElementList> > WindowElementListsPool;
 
 	// 1 if this buffer is locked, 0 otherwise.
 	volatile int32 Locked;

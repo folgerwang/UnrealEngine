@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3275206
+﻿INTSourceChangelist:3807090
 Availability: Public
 Title: 컨택트 섀도
 Crumbs: 
@@ -77,7 +77,7 @@ topic-image:ContactShadow_Topic.png
 1.	새로 만든 포인트 라이트 컴포넌트의 **디테일** 패널에서 **Light** 섹션의 확장 화살표를 클릭하여 펼칩니다.
 
 	[REGION:lightbox]
-	[![](CastShadows_Step2.png)(w:360 h:640)](CastShadows_Step2.png)
+	[![](CastShadows_Step2.png)(w:360)](CastShadows_Step2.png)
 	[/REGION]
 
 	[REGION:caption]
@@ -87,7 +87,7 @@ topic-image:ContactShadow_Topic.png
 1.	컨택트 섀도를 켜려면, **Contact Shadow Length** (컨택트 섀도 길이) 값을 0 보다 큰 값으로 설정합니다.
 
 	[REGION:lightbox]
-	[![](CastShadows_Step3.png)(w:360 h:640)](CastShadows_Step3.png)
+	[![](CastShadows_Step3.png)(w:360)](CastShadows_Step3.png)
 	[/REGION]
 
 	[REGION:caption]

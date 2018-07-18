@@ -22,7 +22,7 @@ ANavigationObjectBase::ANavigationObjectBase(const FObjectInitializer& ObjectIni
 	CapsuleComponent->InitCapsuleSize(50.0f, 50.0f);
 	CapsuleComponent->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
 	CapsuleComponent->bShouldCollideWhenPlacing = true;
-	CapsuleComponent->bShouldUpdatePhysicsVolume = true;
+	CapsuleComponent->SetShouldUpdatePhysicsVolume(true);
 	CapsuleComponent->Mobility = EComponentMobility::Static;
 	RootComponent = CapsuleComponent;
 	bCollideWhenPlacing = true;

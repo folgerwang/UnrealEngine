@@ -58,7 +58,10 @@ protected:
 
 public:	
 	FAnimNode_BlendListBase()
-		: LastActiveChildIndex(0)
+		: BlendType(EAlphaBlendOption::Linear)
+		, CustomBlendCurve(nullptr)
+		, BlendProfile(nullptr)
+		, LastActiveChildIndex(0)
 		, bResetChildOnActivation(false)
 	{
 		BlendWeights.Empty();

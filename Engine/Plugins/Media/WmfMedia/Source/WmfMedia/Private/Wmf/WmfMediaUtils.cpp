@@ -14,7 +14,7 @@
 
 #include "WmfMediaByteStream.h"
 
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 
 #define WMFMEDIA_FRAMERATELUT_SIZE 9
 
@@ -487,8 +487,7 @@ namespace WmfMedia
 			{
 				if (IsVideoDevice /*&& !FWindowsPlatformMisc::VerifyWindowsVersion(6, 2)*/ /*Win8*/)
 				{
-					UE_LOG(LogWmfMedia, Warning, TEXT("Your Windows version is %s"), *FPlatformMisc::GetOSVersion());
-					UE_LOG(LogWmfMedia, Warning, TEXT("H264 video type requires Windows 8 or newer"));
+					UE_LOG(LogWmfMedia, Warning, TEXT("H264 video type requires Windows 8 or newer (your version is %s)"), *FPlatformMisc::GetOSVersion());
 					return NULL;
 				}
 			}
@@ -497,15 +496,13 @@ namespace WmfMedia
 			{
 				if (!FWindowsPlatformMisc::VerifyWindowsVersion(10, 0) /*Win10*/)
 				{
-					UE_LOG(LogWmfMedia, Warning, TEXT("Your Windows version is %s"), *FPlatformMisc::GetOSVersion());
-
 					if (!FWindowsPlatformMisc::VerifyWindowsVersion(6, 2) /*Win8*/)
 					{
-						UE_LOG(LogWmfMedia, Warning, TEXT("HEVC video type requires Windows 10 or newer"));
+						UE_LOG(LogWmfMedia, Warning, TEXT("HEVC video type requires Windows 10 or newer (your version is %s)"), *FPlatformMisc::GetOSVersion());
 						return NULL;
 					}
 
-					UE_LOG(LogWmfMedia, Warning, TEXT("HEVC video type requires Windows 10 or newer (game must be manifested for Windows 10)"));
+					UE_LOG(LogWmfMedia, Warning, TEXT("HEVC video type requires Windows 10 or newer (your version is %s), and game must be manifested for Windows 10"), *FPlatformMisc::GetOSVersion());
 				}
 			}
 
@@ -1799,6 +1796,6 @@ namespace WmfMedia
 }
 
 
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 #endif //WMFMEDIA_SUPPORTED_PLATFORM

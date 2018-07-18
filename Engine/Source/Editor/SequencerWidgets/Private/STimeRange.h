@@ -7,6 +7,7 @@
 #include "Widgets/DeclarativeSyntaxSupport.h"
 #include "Widgets/Input/NumericTypeInterface.h"
 #include "ITimeSlider.h"
+#include "Misc/QualifiedFrameTime.h"
 
 class STimeRange : public ITimeSlider
 {
@@ -14,8 +15,6 @@ public:
 	SLATE_BEGIN_ARGS(STimeRange)
 		: _ShowWorkingRange(true), _ShowViewRange(false), _ShowPlaybackRange(false)
 	{}
-		/* If we should show frame numbers on the timeline */
-		SLATE_ARGUMENT( TAttribute<bool>, ShowFrameNumbers )
 		/** Whether to show the working range */
 		SLATE_ARGUMENT( bool, ShowWorkingRange )
 		/** Whether to show the view range */
@@ -31,59 +30,55 @@ public:
 	 * 
 	 * @param InArgs   A declaration from which to construct the widget
 	 */
-	void Construct( const FArguments& InArgs, TSharedRef<ITimeSliderController> InTimeSliderController, TSharedRef<INumericTypeInterface<float>> NumericTypeInterface );
+	void Construct( const FArguments& InArgs, TSharedRef<ITimeSliderController> InTimeSliderController, TSharedRef<INumericTypeInterface<double>> NumericTypeInterface );
+
+protected:
+	double GetSpinboxDelta() const;
 	
 protected:
 
-	float PlayStartTime() const;
-	float PlayEndTime() const;
+	double PlayStartTime() const;
+	double PlayEndTime() const;
 
-	TOptional<float> MinPlayStartTime() const;
-	TOptional<float> MaxPlayStartTime() const;
-	TOptional<float> MinPlayEndTime() const;
-	TOptional<float> MaxPlayEndTime() const;
+	TOptional<double> MinPlayStartTime() const;
+	TOptional<double> MaxPlayStartTime() const;
+	TOptional<double> MinPlayEndTime() const;
+	TOptional<double> MaxPlayEndTime() const;
 
-	void OnPlayStartTimeCommitted(float NewValue, ETextCommit::Type InTextCommit);
-	void OnPlayEndTimeCommitted(float NewValue, ETextCommit::Type InTextCommit);
+	void OnPlayStartTimeCommitted(double NewValue, ETextCommit::Type InTextCommit);
+	void OnPlayEndTimeCommitted(double NewValue, ETextCommit::Type InTextCommit);
 
-	void OnPlayStartTimeChanged(float NewValue);
-	void OnPlayEndTimeChanged(float NewValue);
-
-	FText PlayStartTimeTooltip() const;
-	FText PlayEndTimeTooltip() const;
+	void OnPlayStartTimeChanged(double NewValue);
+	void OnPlayEndTimeChanged(double NewValue);
 
 protected:
 
-	float ViewStartTime() const;
-	float ViewEndTime() const;
+	double ViewStartTime() const;
+	double ViewEndTime() const;
+	
+	TOptional<double> MaxViewStartTime() const;
+	TOptional<double> MinViewEndTime() const;
 
-	TOptional<float> MaxViewStartTime() const;
-	TOptional<float> MinViewEndTime() const;
+	void OnViewStartTimeCommitted(double NewValue, ETextCommit::Type InTextCommit);
+	void OnViewEndTimeCommitted(double NewValue, ETextCommit::Type InTextCommit);
 
-	void OnViewStartTimeCommitted(float NewValue, ETextCommit::Type InTextCommit);
-	void OnViewEndTimeCommitted(float NewValue, ETextCommit::Type InTextCommit);
-
-	void OnViewStartTimeChanged(float NewValue);
-	void OnViewEndTimeChanged(float NewValue);
-
-	FText ViewStartTimeTooltip() const;
-	FText ViewEndTimeTooltip() const;
+	void OnViewStartTimeChanged(double NewValue);
+	void OnViewEndTimeChanged(double NewValue);
 
 protected:
 
-	float WorkingStartTime() const;
-	float WorkingEndTime() const;
+	double WorkingStartTime() const;
+	double WorkingEndTime() const;
 
-	TOptional<float> MaxWorkingStartTime() const;
-	TOptional<float> MinWorkingEndTime() const;
+	TOptional<double> MaxWorkingStartTime() const;
+	TOptional<double> MinWorkingEndTime() const;
 
-	void OnWorkingStartTimeCommitted(float NewValue, ETextCommit::Type InTextCommit);
-	void OnWorkingEndTimeCommitted(float NewValue, ETextCommit::Type InTextCommit);
+	void OnWorkingStartTimeCommitted(double NewValue, ETextCommit::Type InTextCommit);
+	void OnWorkingEndTimeCommitted(double NewValue, ETextCommit::Type InTextCommit);
 
-	void OnWorkingStartTimeChanged(float NewValue);
-	void OnWorkingEndTimeChanged(float NewValue);
+	void OnWorkingStartTimeChanged(double NewValue);
+	void OnWorkingEndTimeChanged(double NewValue);
 
 private:
 	TSharedPtr<ITimeSliderController> TimeSliderController;
-	TAttribute<bool> ShowFrameNumbers;
 };

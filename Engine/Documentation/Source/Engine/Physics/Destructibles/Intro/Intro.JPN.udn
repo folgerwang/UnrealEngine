@@ -1,28 +1,8 @@
-﻿INTSourceChangelist:2223412
+﻿INTSourceChangelist:3782314
 Availability:Docs
-Title: Destructible アクタの入門
+Title:Destructible アクタの入門
 Crumbs: %ROOT%, Engine
-Description: Destructible アクタの基本
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Physics/Destructibles/Intro:title%](Engine/Physics/physics_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/physics_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Physics/Destructibles/Intro:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Physics/Destructibles/Intro:description%
-	[/PARAM]
-	[PARAMLITERAL:path]
-		Engine/Physics/Destructibles/Intro
-	[/PARAMLITERAL]
-[/OBJECT]
-[/VAR]
+Description:Destructible  アクタの基本
 
 [REGION:banner]
 ![Physics](Engine/Physics/physics_landing_banner.png)

@@ -489,7 +489,7 @@ void UAnimationBlueprintLibrary::GetAnimationNotifyEventNames(const UAnimSequenc
 	}	
 }
 
-UAnimNotify* UAnimationBlueprintLibrary::AddAnimationNotifyEvent(UAnimSequence* AnimationSequence, FName NotifyTrackName, float StartTime, float Duration, TSubclassOf<UAnimNotifyState> NotifyClass)
+UAnimNotify* UAnimationBlueprintLibrary::AddAnimationNotifyEvent(UAnimSequence* AnimationSequence, FName NotifyTrackName, float StartTime, float Duration, TSubclassOf<UObject> NotifyClass)
 {
 	UAnimNotify* Notify = nullptr;
 	if (AnimationSequence)
@@ -520,7 +520,7 @@ UAnimNotify* UAnimationBlueprintLibrary::AddAnimationNotifyEvent(UAnimSequence* 
 					NewEvent.SetDuration(Duration);
 					NewEvent.EndLink.Link(AnimationSequence, NewEvent.EndLink.GetTime());
 				}
-				else
+				else if(NewEvent.Notify)
 				{
 					NewEvent.NotifyName = FName(*NewEvent.Notify->GetNotifyName());
 				}
@@ -610,6 +610,108 @@ void UAnimationBlueprintLibrary::AddAnimationNotifyEventObject(UAnimSequence* An
 		UE_LOG(LogAnimationBlueprintLibrary, Warning, TEXT("Invalid Animation Sequence for AddAnimationNotifyEventObject"));
 	}
 	
+}
+
+static void ReplaceAnimNotifies_Helper(UAnimSequenceBase* AnimationSequence, UClass* OldNotifyClass, UClass* NewNotifyClass, FOnNotifyReplaced OnNotifyReplaced, FOnNotifyStateReplaced OnNotifyStateReplaced)
+{
+	if (AnimationSequence)
+	{
+		if (OldNotifyClass != nullptr && NewNotifyClass != nullptr)
+		{
+			bool bModified = false;
+			for(int32 NotifyIndex = 0; NotifyIndex < AnimationSequence->Notifies.Num(); ++NotifyIndex)
+			{
+				FAnimNotifyEvent& NotifyEvent = AnimationSequence->Notifies[NotifyIndex];
+
+				if ((NotifyEvent.Notify && NotifyEvent.Notify->GetClass() == OldNotifyClass) || 
+					(NotifyEvent.NotifyStateClass && NotifyEvent.NotifyStateClass->GetClass() == OldNotifyClass))
+				{
+
+					bModified = true;
+
+					// Copy relevant data from the old notify
+					float StartTime = NotifyEvent.GetTime();
+					float Length = NotifyEvent.GetDuration();
+					int32 TargetTrackIndex = NotifyEvent.TrackIndex;
+					float TriggerTimeOffset = NotifyEvent.TriggerTimeOffset;
+					float EndTriggerTimeOffset = NotifyEvent.EndTriggerTimeOffset;
+					int32 SlotIndex = NotifyEvent.GetSlotIndex();
+					int32 EndSlotIndex = NotifyEvent.EndLink.GetSlotIndex();
+					int32 SegmentIndex = NotifyEvent.GetSegmentIndex();
+					int32 EndSegmentIndex = NotifyEvent.GetSegmentIndex();
+					EAnimLinkMethod::Type LinkMethod = NotifyEvent.GetLinkMethod();
+					EAnimLinkMethod::Type EndLinkMethod = NotifyEvent.EndLink.GetLinkMethod();
+					UAnimNotify* OldNotify = NotifyEvent.Notify;
+					UAnimNotifyState* OldNotifyState = NotifyEvent.NotifyStateClass;
+
+					// Remove old notify
+					AnimationSequence->Notifies.RemoveAt(NotifyIndex, 1, false);
+
+					// Add new notify in old notifies place
+					AnimationSequence->Notifies.InsertDefaulted(NotifyIndex);
+					FAnimNotifyEvent& NewEvent = AnimationSequence->Notifies[NotifyIndex];
+
+					// Setup new notify
+					NewEvent.NotifyName = NAME_None;
+					NewEvent.Link(AnimationSequence, StartTime);
+					NewEvent.TriggerTimeOffset = TriggerTimeOffset;
+					NewEvent.TrackIndex = TargetTrackIndex;
+					NewEvent.ChangeSlotIndex(SlotIndex);
+					NewEvent.SetSegmentIndex(SegmentIndex);
+					NewEvent.ChangeLinkMethod(LinkMethod);
+
+					UObject* AnimNotifyClass = NewObject<UObject>(AnimationSequence, NewNotifyClass, NAME_None, RF_Transactional);
+					NewEvent.NotifyStateClass = Cast<UAnimNotifyState>(AnimNotifyClass);
+					NewEvent.Notify = Cast<UAnimNotify>(AnimNotifyClass);
+
+					// Setup name and duration for new event
+					if (NewEvent.NotifyStateClass)
+					{
+						NewEvent.NotifyName = FName(*NewEvent.NotifyStateClass->GetNotifyName());
+						NewEvent.EndTriggerTimeOffset = EndTriggerTimeOffset;
+						NewEvent.EndLink.ChangeSlotIndex(EndSlotIndex);
+						NewEvent.EndLink.SetSegmentIndex(EndSegmentIndex);
+						NewEvent.EndLink.ChangeLinkMethod(EndLinkMethod);
+
+						OnNotifyStateReplaced.ExecuteIfBound(OldNotifyState, NewEvent.NotifyStateClass);
+					}
+					else if(NewEvent.Notify)
+					{
+						NewEvent.NotifyName = FName(*NewEvent.Notify->GetNotifyName());
+
+						OnNotifyReplaced.ExecuteIfBound(OldNotify, NewEvent.Notify);
+					}
+
+					NewEvent.Update();
+				}
+			}
+
+			if(bModified)
+			{
+				// Refresh all cached data
+				AnimationSequence->MarkPackageDirty();
+				AnimationSequence->RefreshCacheData();
+			}
+		}
+		else
+		{
+			UE_LOG(LogAnimationBlueprintLibrary, Warning, TEXT("Invalid Notify Class for ReplaceAnimNotifies"));
+		}
+	}
+	else
+	{
+		UE_LOG(LogAnimationBlueprintLibrary, Warning, TEXT("Invalid Animation Sequence for ReplaceAnimNotifies"));
+	}
+}
+
+void UAnimationBlueprintLibrary::ReplaceAnimNotifyStates(UAnimSequenceBase* AnimationSequence, TSubclassOf<UAnimNotifyState> OldNotifyClass, TSubclassOf<UAnimNotifyState> NewNotifyClass, FOnNotifyStateReplaced OnNotifyStateReplaced)
+{
+	ReplaceAnimNotifies_Helper(AnimationSequence, OldNotifyClass.Get(), NewNotifyClass.Get(), FOnNotifyReplaced(), OnNotifyStateReplaced);
+}
+
+void UAnimationBlueprintLibrary::ReplaceAnimNotifies(UAnimSequenceBase* AnimationSequence, TSubclassOf<UAnimNotify> OldNotifyClass, TSubclassOf<UAnimNotify> NewNotifyClass, FOnNotifyReplaced OnNotifyReplaced)
+{
+	ReplaceAnimNotifies_Helper(AnimationSequence, OldNotifyClass.Get(), NewNotifyClass.Get(), OnNotifyReplaced, FOnNotifyStateReplaced());
 }
 
 int32 UAnimationBlueprintLibrary::RemoveAnimationNotifyEventsByName(UAnimSequence* AnimationSequence, FName NotifyName)
@@ -801,6 +903,11 @@ const FAnimNotifyTrack& UAnimationBlueprintLibrary::GetNotifyTrackByName(const U
 	const int32 TrackIndex = GetTrackIndexForAnimationNotifyTrackName(AnimationSequence, NotifyTrackName);
 	checkf(TrackIndex != INDEX_NONE, TEXT("Notify Track %s does not exist on %s"), *NotifyTrackName.ToString(), *AnimationSequence->GetName());
 	return AnimationSequence->AnimNotifyTracks[TrackIndex];
+}
+
+float UAnimationBlueprintLibrary::GetAnimNotifyEventTriggerTime(const FAnimNotifyEvent& NotifyEvent)
+{
+	return NotifyEvent.GetTriggerTime();
 }
 
 void UAnimationBlueprintLibrary::GetAnimationSyncMarkersForTrack(const UAnimSequence* AnimationSequence, FName NotifyTrackName, TArray<FAnimSyncMarker>& Markers)
@@ -1482,15 +1589,17 @@ void UAnimationBlueprintLibrary::GetBonePoseForFrame(const UAnimSequence* Animat
 	}
 }
 
-void UAnimationBlueprintLibrary::GetBonePosesForTime(const UAnimSequence* AnimationSequence, TArray<FName> BoneNames, float Time, bool bExtractRootMotion, TArray<FTransform>& Poses)
+void UAnimationBlueprintLibrary::GetBonePosesForTime(const UAnimSequence* AnimationSequence, TArray<FName> BoneNames, float Time, bool bExtractRootMotion, TArray<FTransform>& Poses, const USkeletalMesh* PreviewMesh /*= nullptr*/)
 {
 	Poses.Empty(BoneNames.Num());
-	if (AnimationSequence)
+	if (AnimationSequence && AnimationSequence->GetSkeleton())
 	{
 		Poses.AddDefaulted(BoneNames.Num());
 
 		// Need this for FCompactPose
 		FMemMark Mark(FMemStack::Get());
+
+		const FReferenceSkeleton& RefSkeleton = (PreviewMesh)? PreviewMesh->RefSkeleton : AnimationSequence->GetSkeleton()->GetReferenceSkeleton();
 
 		if (IsValidTimeInternal(AnimationSequence, Time))
 		{
@@ -1507,8 +1616,18 @@ void UAnimationBlueprintLibrary::GetBonePosesForTime(const UAnimSequence* Animat
 					}
 					else
 					{
-						UE_LOG(LogAnimationBlueprintLibrary, Warning, TEXT("Invalid bone name %s for Animation Sequence %s supplied for GetBonePosesForTime"), *BoneName.ToString(), *AnimationSequence->GetName());
-						Transform = FTransform::Identity;
+						
+						// otherwise, get ref pose if exists
+						const int32 BoneIndex = RefSkeleton.FindBoneIndex(BoneName);
+						if (BoneIndex != INDEX_NONE)
+						{
+							Transform = RefSkeleton.GetRefBonePose()[BoneIndex];
+						}
+						else
+						{
+							UE_LOG(LogAnimationBlueprintLibrary, Warning, TEXT("Invalid bone name %s for Animation Sequence %s supplied for GetBonePosesForTime"), *BoneName.ToString(), *AnimationSequence->GetName());
+							Transform = FTransform::Identity;
+						}
 					}
 				}
 			}
@@ -1528,12 +1647,12 @@ void UAnimationBlueprintLibrary::GetBonePosesForTime(const UAnimSequence* Animat
 	}
 }
 
-void UAnimationBlueprintLibrary::GetBonePosesForFrame(const UAnimSequence* AnimationSequence, TArray<FName> BoneNames, int32 Frame, bool bExtractRootMotion, TArray<FTransform>& Poses)
+void UAnimationBlueprintLibrary::GetBonePosesForFrame(const UAnimSequence* AnimationSequence, TArray<FName> BoneNames, int32 Frame, bool bExtractRootMotion, TArray<FTransform>& Poses, const USkeletalMesh* PreviewMesh /*= nullptr*/)
 {
 	Poses.Empty(BoneNames.Num());
 	if (AnimationSequence)
 	{
-		GetBonePosesForTime(AnimationSequence, BoneNames, GetTimeAtFrameInternal(AnimationSequence, Frame), bExtractRootMotion, Poses);
+		GetBonePosesForTime(AnimationSequence, BoneNames, GetTimeAtFrameInternal(AnimationSequence, Frame), bExtractRootMotion, Poses, PreviewMesh);
 	}
 	else
 	{

@@ -220,7 +220,7 @@ FbxNode* FFbxExporter::CreateMesh(const USkeletalMesh* SkelMesh, const TCHAR* Me
 		}
 	}
 
-	if (ExportOptions->VertexColor)
+	if (GetExportOptions()->VertexColor)
 	{
 		// Create and fill in the vertex color data source.
 		FbxLayerElementVertexColor* VertexColor = FbxLayerElementVertexColor::Create(Mesh, "");
@@ -480,20 +480,27 @@ FbxNode* FFbxExporter::ExportSkeletalMeshToFbx(const USkeletalMesh* SkelMesh, co
 	}
 	else
 	{
+		//Create a temporary node attach to the scene root.
+		//This will allow us to do the binding without the scene transform (non uniform scale is not supported when binding the skeleton)
+		//We then detach from the temp node and attach to the parent and remove the temp node
+		FString FbxNodeName = FGuid::NewGuid().ToString(EGuidFormats::Digits);
+		FbxNode* TmpNodeNoTransform = FbxNode::Create(Scene, TCHAR_TO_UTF8(*FbxNodeName));
+		Scene->GetRootNode()->AddChild(TmpNodeNoTransform);
+
 		TArray<FbxNode*> BoneNodes;
 
 		// Add the skeleton to the scene
 		FbxNode* SkeletonRootNode = CreateSkeleton(SkelMesh, BoneNodes);
 		if(SkeletonRootNode)
 		{
-			ActorRootNode->AddChild(SkeletonRootNode);
+			TmpNodeNoTransform->AddChild(SkeletonRootNode);
 		}
 
 		// Add the mesh
 		FbxNode* MeshRootNode = CreateMesh(SkelMesh, MeshName);
 		if(MeshRootNode)
 		{
-			ActorRootNode->AddChild(MeshRootNode);
+			TmpNodeNoTransform->AddChild(MeshRootNode);
 		}
 
 		if(SkeletonRootNode && MeshRootNode)
@@ -505,6 +512,19 @@ FbxNode* FFbxExporter::ExportSkeletalMeshToFbx(const USkeletalMesh* SkelMesh, co
 			CreateBindPose(MeshRootNode);
 		}
 
+		if (SkeletonRootNode)
+		{
+			TmpNodeNoTransform->RemoveChild(SkeletonRootNode);
+			ActorRootNode->AddChild(SkeletonRootNode);
+		}
+		if (MeshRootNode)
+		{
+			TmpNodeNoTransform->RemoveChild(MeshRootNode);
+			ActorRootNode->AddChild(MeshRootNode);
+		}
+
+		Scene->GetRootNode()->RemoveChild(TmpNodeNoTransform);
+		Scene->RemoveNode(TmpNodeNoTransform);
 		return SkeletonRootNode;
 	}
 

@@ -64,7 +64,11 @@ void FLiveLinkMessageBusSource::HandleClearSubject(const FLiveLinkClearSubject& 
 
 bool FLiveLinkMessageBusSource::RequestSourceShutdown()
 {
-	FHeartbeatManager::Get()->RemoveSource(this);
+	FHeartbeatManager* HeartbeatManager = FHeartbeatManager::Get();
+	if (HeartbeatManager->IsRunning())
+	{
+		HeartbeatManager->RemoveSource(this);
+	}
 	FMessageEndpoint::SafeRelease(MessageEndpoint);
 	return true;
 }

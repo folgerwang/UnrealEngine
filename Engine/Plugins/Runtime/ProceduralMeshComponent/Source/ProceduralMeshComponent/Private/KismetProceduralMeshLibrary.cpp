@@ -381,7 +381,8 @@ void UKismetProceduralMeshLibrary::GetSectionFromStaticMesh(UStaticMesh* InMesh,
 				->AddToken(FUObjectToken::Create(InMesh))
 				->AddToken(FTextToken::Create(LOCTEXT("GetSectionFromStaticMeshEnd", "but 'Allow CPU Access' is not enabled. This is required for converting StaticMesh to ProceduralMeshComponent in cooked builds.")));
 		}
-		else if (InMesh->RenderData != nullptr && InMesh->RenderData->LODResources.IsValidIndex(LODIndex))
+
+		if (InMesh->RenderData != nullptr && InMesh->RenderData->LODResources.IsValidIndex(LODIndex))
 		{
 			const FStaticMeshLODResources& LOD = InMesh->RenderData->LODResources[LODIndex];
 			if (LOD.Sections.IsValidIndex(SectionIndex))
@@ -434,6 +435,9 @@ void UKismetProceduralMeshLibrary::CopyProceduralMeshFromStaticMeshComponent(USt
 			TArray<int32> Triangles;
 			TArray<FVector> Normals;
 			TArray<FVector2D> UVs;
+			TArray<FVector2D> UVs1;
+			TArray<FVector2D> UVs2;
+			TArray<FVector2D> UVs3;
 			TArray<FProcMeshTangent> Tangents;
 
 			// Get geom data from static mesh
@@ -441,7 +445,7 @@ void UKismetProceduralMeshLibrary::CopyProceduralMeshFromStaticMeshComponent(USt
 
 			// Create section using data
 			TArray<FLinearColor> DummyColors;
-			ProcMeshComponent->CreateMeshSection_LinearColor(SectionIndex, Vertices, Triangles, Normals, UVs, DummyColors, Tangents, bCreateCollision);
+			ProcMeshComponent->CreateMeshSection_LinearColor(SectionIndex, Vertices, Triangles, Normals, UVs, UVs1, UVs2, UVs3, DummyColors, Tangents, bCreateCollision);
 		}
 
 		//// SIMPLE COLLISION

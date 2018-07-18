@@ -34,9 +34,29 @@ FD3D12IndexBuffer::~FD3D12IndexBuffer()
 	UpdateBufferStats(&ResourceLocation, false, D3D12_BUFFER_TYPE_INDEX);
 }
 
-void FD3D12IndexBuffer::Rename(FD3D12ResourceLocation& NewResource)
+void FD3D12IndexBuffer::Rename(FD3D12ResourceLocation& NewLocation)
 {
-	FD3D12ResourceLocation::TransferOwnership(ResourceLocation, NewResource);
+	FD3D12ResourceLocation::TransferOwnership(ResourceLocation, NewLocation);
+}
+
+void FD3D12IndexBuffer::RenameLDAChain(FD3D12ResourceLocation& NewLocation)
+{
+	// Dynamic buffers use cross-node resources.
+	ensure(GetUsage() & BUF_AnyDynamic);
+	Rename(NewLocation);
+
+	if (GNumExplicitGPUsForRendering > 1)
+	{
+		// This currently crashes at exit time because NewLocation isn't tracked in the right allocator.
+		ensure(IsHeadLink());
+		ensure(GetParentDevice() == NewLocation.GetParentDevice());
+
+		// Update all of the resources in the LDA chain to reference this cross-node resource
+		for (FD3D12IndexBuffer* NextBuffer = GetNextObject(); NextBuffer; NextBuffer = NextBuffer->GetNextObject())
+		{
+			FD3D12ResourceLocation::ReferenceNode(NextBuffer->GetParentDevice(), NextBuffer->ResourceLocation, ResourceLocation);
+		}
+	}
 }
 
 FIndexBufferRHIRef FD3D12DynamicRHI::RHICreateIndexBuffer(uint32 Stride, uint32 Size, uint32 InUsage, FRHIResourceCreateInfo& CreateInfo)

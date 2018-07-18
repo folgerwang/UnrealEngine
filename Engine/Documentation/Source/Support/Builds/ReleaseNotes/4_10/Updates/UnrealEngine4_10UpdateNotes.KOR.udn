@@ -28,7 +28,7 @@ Github: [https://github.com/EpicGames/UnrealEngine/releases/tag/4.10.1-release](
 
 *  UE-23371	[CrashReport] UE4Editor_GraphEditor!FNodeFactory::CreateNodeWidget() nodefactory.cpp:91
 
-*  UE-23372	[CrashReport] FiB 데이터에 대한 블루프린트 인덱스가 다음 유발: KERNELBASE!<Unknown>
+*  UE-23372	[CrashReport] Indexing Blueprints for FiB data causes: KERNELBASE!<Unknown>
 
 *  UE-23230	iOS 최소 지원 버전 > 6.1 = 리더보드 쓰기 시 크래시
 
@@ -138,19 +138,19 @@ Github: [https://github.com/EpicGames/UnrealEngine/tree/4.10.3-release](https://
 
 *  UE-13030	서브 레벨 로드 관련 크래시 - UEngine::LoadMap()
 
-*  UE-22075	노드가 같은 이름을 사용할 때 컴파일 시 크래시 - FPersistentFrameCollectorArchive::operator<<()
+*  UE-22075	Crash on compile when nodes use same name - FPersistentFrameCollectorArchive::operator<<()
 
 *  UE-22696	FBX2016 으로 익스포트한 특정 스켈레탈 FBX 임포트 시 크래시
 
 *  UE-22921	보더 아리 다수의 액터를 부모로 삼을 때 에디터 크래시
 
-*  UE-23373	일부 애니메이션을 열 때 크래시 - TSharedMapView<FName,FString>::Find()
+*  UE-23373	Crash occurs opening some animations - TSharedMapView<FName,FString>::Find()
 
 *  UE-23785	UE4Editor_Core!FSlowTask::GetCurrentMessage() 크래시
 
 *  UE-24169	PlayerInput.cpp - UPlayerInput::ProcessInputStack() 크래시
 
-*  UE-24443	애셋 이주 시 잠재적 크래시 - FGenericPlatformString::LogBogusChars<wchar_t,char>()
+*  UE-24443	Potential Crash When Migrating Assets - FGenericPlatformString::LogBogusChars<wchar_t,char>()
 
 *  UE-26315	UE4Editor_Engine!UActorComponent::BeginPlay() 크래시
 

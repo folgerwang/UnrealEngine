@@ -82,8 +82,9 @@ public:
 	 * @param ResolutionX	[in/out] Width of the game window, in pixels
 	 * @param ResolutionY	[in/out] Height of the game window, in pixels
 	 * @param WindowMode	[in/out] What window mode the game should be in
+	 * @param bUseWorkArea	[in] Should we find a resolution that fits within the desktop work area for the windowed mode instead of monitor's full resolution
 	 */
-	static void DetermineGameWindowResolution( int32& ResolutionX, int32& ResolutionY, EWindowMode::Type& WindowMode );
+	static void DetermineGameWindowResolution( int32& ResolutionX, int32& ResolutionY, EWindowMode::Type& WindowMode, bool bUseWorkAreaForWindowed = false );
 
 	/**
 	 * Changes the game window to use the game viewport instead of any loading screen
@@ -106,6 +107,8 @@ public:
 	 * @param	bShouldPresent	Whether we want this frame to be presented
 	 */
 	virtual void RedrawViewports( bool bShouldPresent = true ) override;
+
+	void OnViewportResized(FViewport* Viewport, uint32 Unused);
 
 public:
 

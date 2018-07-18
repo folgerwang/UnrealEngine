@@ -4,8 +4,8 @@
 	MacPlatformProcess.mm: Mac implementations of Process functions
 =============================================================================*/
 
-#include "MacPlatformProcess.h"
-#include "ApplePlatformRunnableThread.h"
+#include "Mac/MacPlatformProcess.h"
+#include "Apple/ApplePlatformRunnableThread.h"
 #include "Misc/App.h"
 #include "Misc/Paths.h"
 #include "HAL/FileManager.h"
@@ -130,79 +130,6 @@ void* FMacPlatformProcess::GetDllExport( void* DllHandle, const TCHAR* ProcName 
 	check(DllHandle);
 	check(ProcName);
 	return dlsym( DllHandle, TCHAR_TO_ANSI(ProcName) );
-}
-
-int32 FMacPlatformProcess::GetDllApiVersion( const TCHAR* Filename )
-{
-	check(Filename);
-
-	uint32 CurrentVersion = 0;
-		
-	CFStringRef CFStr = FPlatformString::TCHARToCFString(Filename);
-		
-	NSString* Path = (NSString*)CFStr;
-		
-	if([Path isAbsolutePath] == NO)
-	{
-		NSString* CurDir = [[NSFileManager defaultManager] currentDirectoryPath];
-		NSString* FullPath = [NSString stringWithFormat:@"%@/%@", CurDir, Path];
-		Path = [FullPath stringByResolvingSymlinksInPath];
-	}
-		
-	if([[NSFileManager defaultManager] fileExistsAtPath:Path] == NO)
-	{
-		Path = [[[[NSBundle mainBundle] executablePath] stringByDeletingLastPathComponent] stringByAppendingPathComponent: [Path lastPathComponent]];
-	}
-		
-	BOOL bIsDirectory = NO;
-		
-	int32 File = -1;
-		
-	if([[NSFileManager defaultManager] fileExistsAtPath:Path isDirectory:&bIsDirectory] && bIsDirectory == YES && [[NSWorkspace sharedWorkspace] isFilePackageAtPath:Path])
-	{
-		// Try inside the bundle's MacOS folder
-		NSString *FullPath = [[[[NSBundle mainBundle] executablePath] stringByDeletingLastPathComponent] stringByAppendingPathComponent:[Path lastPathComponent]];
-		File = open([FullPath fileSystemRepresentation], O_RDONLY);
-	}
-	else
-	{
-		File = open([Path fileSystemRepresentation], O_RDONLY);
-	}
-		
-	CFRelease(CFStr);
-		
-	if(File <= -1)
-	{
-		return -1;
-	}
-
-	struct mach_header_64 Header;
-	ssize_t Bytes = read( File, &Header, sizeof( Header ) );
-	if( Bytes == sizeof( Header ) && Header.filetype == MH_DYLIB )
-	{
-		struct load_command* Commands = ( struct load_command* )FMemory::Malloc( Header.sizeofcmds );
-		Bytes = read( File, Commands, Header.sizeofcmds );
-
-		if( Bytes == Header.sizeofcmds )
-		{
-			struct load_command* Command = Commands;
-			for( int32 Index = 0; Index < Header.ncmds; Index++ )
-			{
-				if( Command->cmd == LC_ID_DYLIB )
-				{
-					CurrentVersion = ( ( struct dylib_command* )Command )->dylib.current_version;
-					break;
-				}
-
-				Command = ( struct load_command* )( ( uint8* )Command + Command->cmdsize );
-			}
-		}
-
-		FMemory::Free( Commands );
-	}
-	close(File);
-
-	return ((CurrentVersion & 0xff) + ((CurrentVersion >> 8) & 0xff) * 100 + ((CurrentVersion >> 16) & 0xffff) * 10000);
 }
 
 bool FMacPlatformProcess::CanLaunchURL(const TCHAR* URL)
@@ -425,7 +352,9 @@ bool FMacPlatformProcess::ExecProcess( const TCHAR* URL, const TCHAR* Params, in
 		
 		NSAutoReadPipe* StdErrPipe = [[NSAutoReadPipe new] autorelease];
 		[ProcessHandle setStandardError: (id)[StdErrPipe Pipe]];
-		
+
+		id<NSObject> Activity = [[NSProcessInfo processInfo] beginActivityWithOptions:NSActivityUserInitiated reason:@"ExecProcess"];
+
 		@try
 		{
 			[ProcessHandle launch];
@@ -446,7 +375,12 @@ bool FMacPlatformProcess::ExecProcess( const TCHAR* URL, const TCHAR* Params, in
 			{
 				[StdErrPipe copyPipeData: *OutStdErr];
 			}
-			
+
+			if (Activity)
+			{
+				[[NSProcessInfo processInfo] endActivity:Activity];
+			}
+
 			return true;
 		}
 		@catch (NSException* Exc)
@@ -459,6 +393,12 @@ bool FMacPlatformProcess::ExecProcess( const TCHAR* URL, const TCHAR* Params, in
 			{
 				*OutStdErr = FString([Exc reason]);
 			}
+
+			if (Activity)
+			{
+				[[NSProcessInfo processInfo] endActivity:Activity];
+			}
+
 			return false;
 		}
 	}
@@ -625,7 +565,14 @@ FProcHandle FMacPlatformProcess::CreateProc( const TCHAR* URL, const TCHAR* Parm
 		*OutProcessID = ProcessHandle ? [ProcessHandle processIdentifier] : 0;
 	}
 
-	return FProcHandle(ProcessHandle);
+	FProcHandle Handle(ProcessHandle);
+	if(ProcessHandle)
+	{
+		Handle.Activity = [[NSProcessInfo processInfo] beginActivityWithOptions:NSActivityUserInitiated reason:@"CreateProc"];
+		[Handle.Activity retain];
+	}
+
+	return Handle;
 }
 
 FProcHandle FMacPlatformProcess::OpenProcess(uint32 ProcessID)
@@ -653,6 +600,11 @@ void FMacPlatformProcess::WaitForProc( FProcHandle& ProcessHandle )
 void FMacPlatformProcess::CloseProc( FProcHandle & ProcessHandle )
 {
 	SCOPED_AUTORELEASE_POOL;
+	if (ProcessHandle.Activity)
+	{
+		[[NSProcessInfo processInfo] endActivity:ProcessHandle.Activity];
+		[ProcessHandle.Activity release];
+	}
 	[(NSTask*)ProcessHandle.Get() release];
 	ProcessHandle.Reset();
 }

@@ -188,7 +188,7 @@ Related:Engine/Animation/AnimBlueprints/AnimGraph
 |---|---|
 |**All Animations**| すべての通知イベントが発行します。 |
 |**Highest Weighted Animation**| 一番高いウェイトのアニメーションからのみ通知イベントが発行します。  |
-|**None**| - どのアニメーションからも通知イベントは発行しません。  |
+|**None**| どのアニメーションからも通知イベントは発行しません。  |
 
 ### Meta Data
 

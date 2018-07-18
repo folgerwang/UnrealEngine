@@ -1,0 +1,409 @@
+/*******************
+ *                 *
+ *   LOMINO FONT   *
+ *                 *
+ *******************/
+
+ @font-face {
+  font-family: 'LominoSubset';
+  src: url('https://magicleap.com/assets/fonts/lomino/lomino-regular-subset.woff2') format('woff2'),
+  url('https://magicleap.com/assets/fonts/lomino/lomino-regular-subset.woff') format('woff');
+  font-weight: 400;
+  font-style: normal;
+  unicode-range: U+65-U+90, U+97-122;
+}
+
+@font-face {
+  font-family: Lomino;
+  src: url('https://magicleap.com/assets/fonts/lomino/lomino-light.woff2') format('woff2'),
+url('https://magicleap.com/assets/fonts/lomino/lomino-light.woff') format('woff');
+  font-weight: 300;
+  font-style: normal;
+}
+
+
+@font-face {
+  font-family: Lomino;
+  src: url('https://magicleap.com/assets/fonts/lomino/lomino-light-italic.woff2') format('woff2'),
+url('https://magicleap.com/assets/fonts/lomino/lomino-light-italic.woff') format('woff');
+  font-weight: 300;
+  font-style: italic;
+}
+
+
+@font-face {
+  font-family: Lomino;
+  src: url('https://magicleap.com/assets/fonts/lomino/lomino-regular.woff2') format('woff2'),
+url('https://magicleap.com/assets/fonts/lomino/lomino-regular.woff') format('woff');
+  font-weight: 400;
+  font-style: normal;
+}
+
+
+@font-face {
+  font-family: Lomino;
+  src: url('https://magicleap.com/assets/fonts/lomino/lomino-regular-italic.woff2') format('woff2'),
+url('https://magicleap.com/assets/fonts/lomino/lomino-regular-italic.woff') format('woff');
+  font-weight: 400;
+  font-style: italic;
+}
+
+
+@font-face {
+  font-family: Lomino;
+  src: url('https://magicleap.com/assets/fonts/lomino/lomino-medium.woff2') format('woff2'),
+url('https://magicleap.com/assets/fonts/lomino/lomino-medium.woff') format('woff');
+  font-weight: 500;
+  font-style: normal;
+}
+
+
+@font-face {
+  font-family: Lomino;
+  src: url('https://magicleap.com/assets/fonts/lomino/lomino-medium-italic.woff2') format('woff2'),
+url('https://magicleap.com/assets/fonts/lomino/lomino-medium-italic.woff') format('woff');
+  font-weight: 500;
+  font-style: italic;
+}
+
+
+@font-face {
+  font-family: Lomino;
+  src: url('https://magicleap.com/assets/fonts/lomino/lomino-bold.woff2') format('woff2'),
+url('https://magicleap.com/assets/fonts/lomino/lomino-bold.woff') format('woff');
+  font-weight: 600;
+  font-style: normal;
+}
+
+
+@font-face {
+  font-family: Lomino;
+  src: url('https://magicleap.com/assets/fonts/lomino/lomino-bold-italic.woff2') format('woff2'),
+url('https://magicleap.com/assets/fonts/lomino/lomino-bold-italic.woff') format('woff');
+  font-weight: 600;
+  font-style: italic;
+}
+
+
+@font-face {
+  font-family: Lomino;
+  src: url('https://magicleap.com/assets/fonts/lomino/lomino-extrabold.woff2') format('woff2'),
+url('https://magicleap.com/assets/fonts/lomino/lomino-extrabold.woff') format('woff');
+  font-weight: 800;
+  font-style: normal;
+}
+
+
+@font-face {
+  font-family: Lomino;
+  src: url('https://magicleap.com/assets/fonts/lomino/lomino-extrabold-italic.woff2') format('woff2'),
+url('https://magicleap.com/assets/fonts/lomino/lomino-extrabold-italic.woff') format('woff');
+  font-weight: 800;
+  font-style: italic;
+}
+
+
+/***************
+ *             *
+ *   GENERAL   *
+ *             *
+ ***************/
+
+body {
+  font-family: "Lomino", sans-serif;
+  font-size: 14px;
+  color: #4A4A4A;
+  padding: 0;
+  margin: 0 auto;
+}
+
+a {
+  color: #F12742;
+  text-decoration: none;
+  transition: color 0.3s ease;
+}
+
+a:hover {
+  color: #F12742;
+  text-decoration: none;
+}
+
+#top,
+#splitbar,
+.ui-resizable-handle,
+#nav-sync,
+.navpath,
+.summary {
+  display: none !important;
+}
+
+dl {
+  margin-bottom: 0;
+  margin-top: 0;
+}
+
+dl + dl {
+  margin-bottom: 28px;
+}
+
+dt {
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+dd {
+  margin-left: 0;
+}
+
+
+/***************
+ *             *
+ *   SIDENAV   *
+ *             *
+ ***************/
+
+#side-nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 30%;
+  height: calc(100vh - 48px) !important;
+  padding: 0 0 48px;
+  background: #F8F8F8;
+}
+
+#nav-tree {
+  display: block;
+  float: right;
+  width: 100%;
+  max-width: 300px;
+  margin-top: 48px;
+  background: none;
+}
+
+#nav-tree-contents {
+  margin: 0;
+}
+
+#nav-tree-contents > ul > li > .item {
+  display: none;
+}
+
+#nav-tree-contents .children_ul .children_ul {
+  padding-left: 16px;
+}
+
+#nav-tree-contents .children_ul .item {
+  position: relative;
+  background: none;
+}
+
+#nav-tree-contents .children_ul .item .label {
+  font-size: 14px;
+  line-height: 1;
+}
+
+#nav-tree-contents .children_ul .item.selected {
+  background: #FFFFFF;
+}
+
+#nav-tree-contents .children_ul .item.selected:after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 4px;
+  height: 100%;
+  background: #F12742;
+}
+
+#nav-tree-contents .children_ul .item > a:first-child img {
+  /* display: none; */
+
+  position: relative;
+  width: 10px;
+  height: 16px;
+  margin: 0;
+  padding: 0 !important;
+  filter: brightness(0);
+}
+
+#nav-tree-contents .children_ul .item > a {
+  position: relative;
+}
+
+#nav-tree-contents .children_ul[style*="display:none"] ~ .item a:before {
+  content: '';
+  position: absolute;
+  width: 0;
+  height: 0;
+  top: 6px;
+  left: -4px;
+  border: 4px solid transparent;
+  border-top-color: #4A4A4A;
+}
+
+#nav-tree-contents .children_ul .item > span:first-child {
+  display: none !important;
+}
+
+#nav-tree-contents .children_ul .item > a:first-child {
+  position: absolute;
+  top: 8px;
+  left: 12px;
+}
+
+#nav-tree-contents .children_ul .item .label a,
+#nav-tree-contents .children_ul .item.selected .label a {
+  display: block;
+  color: #4A4A4A;
+  padding: 8px 16px 8px 28px;
+  text-shadow: none;
+  text-decoration: none;
+}
+
+#nav-tree-contents .children_ul .item .label a:hover,
+#nav-tree-contents .children_ul .item.selected .label a:hover {
+  color: #F12742;
+}
+
+#nav-tree-contents .children_ul .item.selected .label a {
+  color: #4A4A4A;
+  font-weight: bold;
+}
+
+
+/****************
+ *             *
+ *   CONTENT   *
+ *             *
+ ****************/
+
+#doc-content {
+  width: calc(70% - 48px);
+  height: calc(100vh - 48px) !important;
+  padding-top: 48px;
+  padding-left: 48px;
+  margin: 0 0 0 30% !important;
+}
+
+.headertitle .title,
+h1 {
+  font-size: 30px;
+  line-height: 38px;
+  font-weight: 600;
+  margin: 0 0 16px;
+}
+
+h2 {
+  font-size: 22px;
+  line-height: 30px;
+  font-weight: 600;
+  margin: 48px 0 16px;
+}
+
+.heading h2.groupheader {
+  font-size: 16px;
+  line-height: 1;
+  margin: 0;
+}
+
+hr {
+  height: 1px;
+  margin: 16px 0 0;
+  border: none;
+  border-top: 2px dotted #E6E6E6;
+}
+
+.contents {
+  margin-bottom: 48px;
+}
+
+.memitem {
+  padding: 28px 0;
+  margin: 0;
+  border-bottom: 2px dotted #E6E6E6;
+}
+
+.paramname {
+  font-weight: 500;
+}
+
+
+/**************
+ *            *
+ *   TABLES   *
+ *            *
+ **************/
+
+.contents div.code-table-wrapper {
+  overflow: hidden;
+  overflow-x: auto;
+  padding: 16px;
+  margin: 0;
+  background: #F8F8F8;
+  border-radius: 4px;
+}
+
+.contents table.memname,
+.contents table.mlabels {
+  font-family: monospace;
+}
+
+.contents table.memname a,
+.contents table.memname a:hover,
+.contents table.memname a:active,
+.contents table.memname a:focus,
+.contents table.mlabels a,
+.contents table.mlabels a:hover,
+.contents table.mlabels a:active,
+.contents table.mlabels a:focus {
+  text-decoration: underline;
+}
+
+.contents table.memname a:hover,
+.contents table.mlabels a:hover {
+  text-decoration: none;
+}
+
+.contents div.table-wrapper {
+  overflow: hidden;
+  overflow-x: auto;
+  margin: 16px 0 48px;
+  border: 1px solid #E6E6E6;
+  border-radius: 4px;
+}
+
+.contents table:not(.memname):not(.mlabels) {
+  width: 100%;
+  min-width: 400px;
+  border-style: hidden;
+  border-collapse: collapse;
+  border-spacing: 0;
+}
+
+.contents table:not(.memname):not(.mlabels) tr th,
+.contents table:not(.memname):not(.mlabels) tr td {
+  padding: 8px 16px;
+  background-color: #FFFFFF;
+  border: 1px solid #E6E6E6;
+}
+
+.contents table:not(.memname):not(.mlabels) tr:nth-child(even) th,
+.contents table:not(.memname):not(.mlabels) tr:nth-child(even) td {
+  background-color: #F8F8F8;
+}
+
+.contents table:not(.memname):not(.mlabels) tr.heading td,
+.contents table:not(.memname):not(.mlabels) tr td.memSeparator {
+  background: none;
+}
+
+.contents table:not(.memname):not(.mlabels) tr td.memSeparator {
+  padding: 0;
+}
+
+.contents table:not(.memname):not(.mlabels) img[alt="o"],
+.contents table:not(.memname):not(.mlabels) img[alt="\\"] {
+  display: none;
+}

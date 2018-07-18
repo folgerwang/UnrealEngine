@@ -10,7 +10,7 @@
 
 #include "INetcodeUnitTest.h"
 #include "NUTUtil.h"
-#include "NUTUtilNet.h"
+#include "Net/NUTUtilNet.h"
 #include "NUTUtilDebug.h"
 #include "NUTUtilReflection.h"
 #include "UnitTestEnvironment.h"

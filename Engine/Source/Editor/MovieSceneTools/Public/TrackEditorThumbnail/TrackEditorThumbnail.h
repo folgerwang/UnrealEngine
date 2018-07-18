@@ -9,6 +9,7 @@
 #include "Rendering/RenderingCommon.h"
 #include "MovieSceneToolsUserSettings.h"
 #include "RHI.h"
+#include "Misc/FrameTime.h"
 
 class FLevelEditorViewportClient;
 class FSceneViewport;
@@ -30,7 +31,7 @@ class MOVIESCENETOOLS_API FTrackEditorThumbnail
 public:
 
 	/** Create and initialize a new instance. */
-	FTrackEditorThumbnail(const FOnThumbnailDraw& InOnDraw, const FIntPoint& InSize, TRange<float> InTimeRange, float InPosition);
+	FTrackEditorThumbnail(const FOnThumbnailDraw& InOnDraw, const FIntPoint& InSize, TRange<double> InTimeRange, double InPosition);
 
 	/** Virtual destructor. */
 	virtual ~FTrackEditorThumbnail();
@@ -54,10 +55,10 @@ public:
 	float GetFadeInCurve() const;
 
 	/** Get the full time-range that this thumbnail occupies */
-	const TRange<float> GetTimeRange() const { return TimeRange; }
+	const TRange<double> GetTimeRange() const { return TimeRange; }
 
 	/** Get the time at which this thumbnail should be drawn */
-	float GetEvalPosition() const { return Position; }
+	double GetEvalPosition() const { return Position; }
 
 public:
 
@@ -92,10 +93,10 @@ private:
 	FSlateTexture2DRHIRef* Texture;
 
 	/** Where in time this thumbnail is a rendering of. */
-	TRange<float> TimeRange;
+	TRange<double> TimeRange;
 
 	/** The position we should actually render (within the above time range). */
-	float Position;
+	double Position;
 
 	/** Fade curve to display while the thumbnail is redrawing. */
 	FCurveSequence FadeInCurve;
@@ -121,7 +122,7 @@ struct ICustomThumbnailClient
 /** Cache data */
 struct FThumbnailCacheData
 {
-	FThumbnailCacheData() : VisibleRange(0.f), TimeRange(0.f), AllottedSize(0,0), DesiredSize(0, 0), Quality(EThumbnailQuality::Normal) {}
+	FThumbnailCacheData() : VisibleRange(0), TimeRange(0), AllottedSize(0,0), DesiredSize(0, 0), Quality(EThumbnailQuality::Normal) {}
 
 	bool operator==(const FThumbnailCacheData& RHS) const
 	{
@@ -146,9 +147,9 @@ struct FThumbnailCacheData
 	}
 
 	/** The visible range of our thumbnails we can see on the UI */
-	TRange<float> VisibleRange;
+	TRange<double> VisibleRange;
 	/** The total range to generate thumbnails for */
-	TRange<float> TimeRange;
+	TRange<double> TimeRange;
 	/** Physical size of the thumbnail area */
 	FIntPoint AllottedSize;
 	/** Desired frame size constraint */
@@ -156,7 +157,7 @@ struct FThumbnailCacheData
 	/** Thumbnail quality */
 	EThumbnailQuality Quality;
 	/** Set when we want to render a single reference frame */
-	TOptional<float> SingleReferenceFrame;
+	TOptional<double> SingleReferenceFrame;
 };
 
 class MOVIESCENETOOLS_API FTrackEditorThumbnailCache
@@ -169,10 +170,10 @@ public:
 
 	void ForceRedraw() { bForceRedraw = true; }
 
-	void SetSingleReferenceFrame(TOptional<float> InReferenceFrame);
-	TOptional<float> GetSingleReferenceFrame() const { return CurrentCache.SingleReferenceFrame; }
+	void SetSingleReferenceFrame(TOptional<double> InReferenceFrame);
+	TOptional<double> GetSingleReferenceFrame() const { return CurrentCache.SingleReferenceFrame; }
 
-	void Update(const TRange<float>& NewRange, const TRange<float>& VisibleRange, const FIntPoint& AllottedSize, const FIntPoint& InDesiredSize, EThumbnailQuality InQuality, double InCurrentTime);
+	void Update(const TRange<double>& NewRange, const TRange<double>& VisibleRange, const FIntPoint& AllottedSize, const FIntPoint& InDesiredSize, EThumbnailQuality InQuality, double InCurrentTime);
 
 	void Revalidate(double InCurrentTime);
 
@@ -197,9 +198,9 @@ protected:
 
 	void UpdateFilledThumbnails();
 
-	void GenerateFront(const TRange<float>& Boundary);
+	void GenerateFront(const TRange<double>& Boundary);
 
-	void GenerateBack(const TRange<float>& Boundary);
+	void GenerateBack(const TRange<double>& Boundary);
 
 	void SetupViewportEngineFlags();
 

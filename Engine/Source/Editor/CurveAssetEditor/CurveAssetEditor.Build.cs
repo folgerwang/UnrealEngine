@@ -13,6 +13,7 @@ public class CurveAssetEditor : ModuleRules
 			new string[] {
 				"Core",
 				"CoreUObject",
+				"CurveEditor",
 				"Engine",
 				"Slate",
 				"SlateCore",

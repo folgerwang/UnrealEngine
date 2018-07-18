@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "CriticalSection.h"
+#include "HAL/CriticalSection.h"
 #include "Math/BoxSphereBounds.h"
 #include "ClothingSimulationInterface.h"
 

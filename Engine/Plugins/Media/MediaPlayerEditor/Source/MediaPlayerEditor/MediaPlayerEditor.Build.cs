@@ -29,6 +29,7 @@ public class MediaPlayerEditor : ModuleRules
 		PrivateDependencyModuleNames.AddRange(
 			new string[] {
 				"AudioMixer",
+				"ComponentVisualizers",
 				"ContentBrowser",
 				"Core",
 				"CoreUObject",

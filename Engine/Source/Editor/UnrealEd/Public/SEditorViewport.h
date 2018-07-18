@@ -95,6 +95,7 @@ protected:
 	/** Called to know whether the fixed EV100 slider is enabled. */
 	bool IsFixedEV100Enabled() const;
 
+
 	virtual TSharedRef<FEditorViewportClient> MakeEditorViewportClient() = 0;
 
 	// Implement this to add a viewport toolbar to the inside top of the viewport

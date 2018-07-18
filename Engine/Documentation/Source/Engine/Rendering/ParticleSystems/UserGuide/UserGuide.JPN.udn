@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3481084
+﻿INTSourceChangelist:3750407
 Availability:Public
 Title:パーティクル システム ユーザーガイド
 Crumbs: %ROOT%, Engine, Engine/Rendering/ParticleSystems
@@ -15,26 +15,13 @@ topic-image:ParticleSystemUserGuide_topic.png
 
 ## パーティクル システムの作成
 
-![](new1.png)(w:450) ![](new2.png)(w:450)
-
-[OBJECT:topiclistnotitle]
-	[PARAM:icon]
-		![](renameIt.png)(convert:false)
-	[/PARAM]
-	[PARAM:description]
-		[INCLUDE:#blank]
-	[/PARAM]
-[/OBJECT]
-
 **パーティクル システム** を作成するには、**コンテンツ ブラウザ** 上の **[Add New (新規追加)]** ボタンを **クリック** し **[Particle System]** を選択、あるいは **コンテンツ ブラウザ** の **[Asset View (アセットビュー)]** を **右クリック** し、コンテキスト メニューを使って [Particle System] を選択します。
+
+![](new1.png)(w:450) ![](new2.png)(w:450)
 
 作成された新規パーティクル システムの名前は、新しい名前を入力できるようにハイライトされています。新しい名前を入力するか、別の部分をクリックすると、パーティクル システムのアイコンは [No Image] サムネイルで更新されます。アンリアル エンジン 4 のパーティクル エディタであるカスケードから、サムネイルの作成が可能になります。
 
-[EXCERPT:blank]
-
-[/EXCERPT:blank]
-
-
+![](renameIt.png)(convert:false)
 
 ## パーティクル システムの編集
 

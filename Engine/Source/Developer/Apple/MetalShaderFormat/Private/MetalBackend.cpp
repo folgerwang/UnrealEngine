@@ -1,5 +1,5 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
-// .
+// ...
 
 #include "MetalBackend.h"
 #include "MetalShaderFormat.h"
@@ -1164,6 +1164,11 @@ protected:
 							buffer,
 							" [[ buffer(%d) ]]", BufferIndex
 							);
+						
+						if (!bNeedsPointer)
+						{
+							Backend.ConstantBuffers |= 1 << BufferIndex;
+						}
 					}
 				}
 				else if (IsMain && var->mode == ir_var_in)
@@ -1522,7 +1527,7 @@ protected:
 										break;
 									}
 								}
-								ralloc_asprintf_append(buffer, "struct RealDSStageIn\n{\n%s\tpatch_control_point<PatchControlPointOut> patchControlPoints;\n};\n", hasFDSStageIn ? "\tFDSStageIn dsStageIn;\n" : "");
+								ralloc_asprintf_append(buffer, "struct RealDSStageIn\n{\n%s\tpatch_control_point<PatchControlPointOut_%u> patchControlPoints;\n};\n", hasFDSStageIn ? "\tFDSStageIn dsStageIn;\n" : "", Backend.PatchControlPointStructHash);
 							}
 
 							const char *domainString = NULL;
@@ -1849,13 +1854,27 @@ protected:
 	{
 		check(scope_depth > 0);
 		bool bNeedsClosingParenthesis = true;
-		if (tex->op == ir_txs)
+		bool bDepthTypeExpand = tex->sampler->type->sampler_shadow && !tex->shadow_comparitor;
+		switch (tex->op)
 		{
-			ralloc_asprintf_append(buffer, "int2((int)");
+			case ir_tex:
+			case ir_txl:
+			case ir_txb:
+			case ir_txd:
+				if (bDepthTypeExpand)
+				{
+					print_type_pre(tex->type);
+					ralloc_asprintf_append(buffer, "(");
+				}
+				break;
+			case ir_txs:
+				ralloc_asprintf_append(buffer, "int2((int)");
+				break;
+			default:
+				break;
 		}
 
 		bool bTexCubeArray = tex->sampler->type->sampler_array && (tex->sampler->type->sampler_dimensionality == GLSL_SAMPLER_DIM_CUBE);
-		
 		if (tex->op != ir_txf)
 		{
 			if (bTexCubeArray)
@@ -2008,6 +2027,11 @@ protected:
 			{
 				ralloc_asprintf_append(buffer, ", ");
 				tex->offset->accept(this);
+			}
+			
+			if (bDepthTypeExpand)
+			{
+				ralloc_asprintf_append(buffer, ")");
 			}
 		}
 			break;
@@ -4197,6 +4221,15 @@ public:
 		{
 			ralloc_asprintf_append(buffer, "#define __METAL_MANUAL_TEXTURE_METADATA__ 1\n");
 		}
+		
+		if (Backend.bIsDesktop == EMetalGPUSemanticsImmediateDesktop)
+		{
+			ralloc_asprintf_append(buffer, "#define __METAL_USE_TEXTURE_CUBE_ARRAY__ 1\n");
+		}
+		else
+		{
+			ralloc_asprintf_append(buffer, "#define __METAL_USE_TEXTURE_CUBE_ARRAY__ 0\n");
+		}
         
         buffer = 0;
 
@@ -4219,13 +4252,23 @@ char* FMetalCodeBackend::GenerateCode(exec_list* ir, _mesa_glsl_parse_state* sta
 {
 	// We'll need this Buffers info for the [[buffer()]] index
 	FBuffers Buffers;
+	
+	Buffers.MaxTextures = bIsDesktop != EMetalGPUSemanticsImmediateDesktop ? 31 : 128;
+	
 	FGenerateMetalVisitor visitor(*this, state, state->target, Buffers);
 
 	// At this point, all inputs and outputs are global uniforms, no structures.
 
 	// Promotes all inputs from half to float to avoid stage_in issues
 	PromoteInputsAndOutputsGlobalHalfToFloat(ir, state, Frequency);
-
+	
+	// For non-mobile shaders we need to support non-zero base-instance and base-vertex, which only works from Metal 1.1 on AMD/Intel/NV/Apple A9 and above
+	if (Version > 0 && bIsDesktop != EMetalGPUSemanticsMobile)
+	{
+		// After stage_in type changes - add extra system for base instance / vertex
+		FixupMetalBaseOffsets(ir, state, Frequency);
+	}
+	
 	// Move all inputs & outputs to structs for Metal
 	PackInputsAndOutputs(ir, state, Frequency, visitor.input_variables);
 	
@@ -5340,7 +5383,10 @@ bool FMetalCodeBackend::GenerateMain(EHlslShaderFrequency Frequency, const char*
 								Variable->name = ralloc_asprintf(ParseState, "OUT_ATTRIBUTE%d_%s", onAttribute, Variable->name);
 								Member.name = ralloc_strdup(ParseState, Variable->name);
                                 Member.semantic = ralloc_strdup(ParseState, Variable->semantic ? Variable->semantic : Variable->name);
-                                check(!Variable->type->is_array() && !Variable->type->is_record() && !Variable->type->is_matrix());
+
+								PatchControlPointStructHash = HashCombine(HashCombine(GetTypeHash(Variable->name), GetTypeHash(Variable->type)), PatchControlPointStructHash);
+
+								check(!Variable->type->is_array() && !Variable->type->is_record() && !Variable->type->is_matrix());
                                 FMetalAttribute Attr;
                                 Attr.Index = onAttribute;
                                 check((uint8)Variable->type->base_type < (uint8)EMetalComponentType::Max);
@@ -5368,7 +5414,7 @@ bool FMetalCodeBackend::GenerateMain(EHlslShaderFrequency Frequency, const char*
 
 				if (HSOutMembers.Num())
 				{
-					auto Type = glsl_type::get_record_instance(&HSOutMembers[0], (unsigned int)HSOutMembers.Num(), "PatchControlPointOut");
+					auto Type = glsl_type::get_record_instance(&HSOutMembers[0], (unsigned int)HSOutMembers.Num(), ralloc_asprintf(ParseState, "PatchControlPointOut_%u", PatchControlPointStructHash));
 					ParseState->AddUserStruct(Type);
 					OutputType = glsl_type::get_array_instance(Type, 1000); // the size is meaningless
 
@@ -5849,6 +5895,7 @@ FMetalCodeBackend::FMetalCodeBackend(FMetalTessellationOutputs& TessOutputAttrib
 	InvariantBuffers(0),
 	TypedBuffers(0),
     TypedUAVs(0),
+	ConstantBuffers(0),
 	bExplicitDepthWrites(false)
 {
     Version = InVersion;
@@ -5860,8 +5907,12 @@ FMetalCodeBackend::FMetalCodeBackend(FMetalTessellationOutputs& TessOutputAttrib
 	bAllowFastIntriniscs = bInAllFastIntriniscs;
 	bForceInvariance = bInForceInvariance;
 	
+	PatchControlPointStructHash = 0;
+	
 	// For now only 31 typed-buffer slots are supported
 	TypedBufferFormats.SetNumZeroed(31);
+
+	PatchControlPointStructHash = 0;
 }
 
 void FMetalLanguageSpec::SetupLanguageIntrinsics(_mesa_glsl_parse_state* State, exec_list* ir)

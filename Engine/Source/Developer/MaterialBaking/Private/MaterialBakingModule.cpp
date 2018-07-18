@@ -16,7 +16,7 @@
 #include "Async/ParallelFor.h"
 
 #if WITH_EDITOR
-#include "FileHelper.h"
+#include "Misc/FileHelper.h"
 #endif
 
 IMPLEMENT_MODULE(FMaterialBakingModule, MaterialBaking);
@@ -72,13 +72,17 @@ void FMaterialBakingModule::StartupModule()
 void FMaterialBakingModule::ShutdownModule()
 {
 	// Urnegister customization and callback
-	FPropertyEditorModule& Module = FModuleManager::Get().LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
-	Module.UnregisterCustomPropertyTypeLayout(TEXT("PropertyEntry"));
+	FPropertyEditorModule* PropertyEditorModule = FModuleManager::GetModulePtr<FPropertyEditorModule>("PropertyEditor");
+
+	if (PropertyEditorModule)
+	{
+		PropertyEditorModule->UnregisterCustomPropertyTypeLayout(TEXT("PropertyEntry"));
+	}
 	FCoreUObjectDelegates::OnObjectModified.RemoveAll(this);
 }
 
 void FMaterialBakingModule::BakeMaterials(const TArray<FMaterialData*>& MaterialSettings, const TArray<FMeshData*>& MeshSettings, TArray<FBakeOutput>& Output)
-{
+{	
 	checkf(MaterialSettings.Num() == MeshSettings.Num(), TEXT("Number of material settings does not match that of MeshSettings"));
 	const int32 NumMaterials = MaterialSettings.Num();
 	const bool bSaveIntermediateTextures = CVarSaveIntermediateTextures.GetValueOnAnyThread() == 1;
@@ -143,7 +147,7 @@ void FMaterialBakingModule::BakeMaterials(const TArray<FMaterialData*>& Material
 
 			FMeshMaterialRenderItem RenderItem(CurrentMaterialSettings, CurrentMeshSettings, MaterialPropertiesToBakeOut[0]);
 			FCanvas::FCanvasSortElement& SortElement = Canvas.GetSortElement(Canvas.TopDepthSortKey());
-
+			
 			for (int32 PropertyIndex = 0; PropertyIndex < NumPropertiesToRender; ++PropertyIndex)
 			{
 				const EMaterialProperty Property = MaterialPropertiesToBakeOut[PropertyIndex];
@@ -173,6 +177,17 @@ void FMaterialBakingModule::BakeMaterials(const TArray<FMaterialData*>& Material
 						Canvas.SetBaseTransform(Canvas.CalcBaseTransform2D(RenderTarget->GetSurfaceWidth(), RenderTarget->GetSurfaceHeight()));
 						PreviousRenderTarget = RenderTarget;
 					}
+					
+					// TODO find out why this is required
+					static bool bDoubleFlush = false;
+					if (IsRunningCommandlet() && !bDoubleFlush)
+					{
+						Canvas.Clear(RenderTarget->ClearColor);
+						SortElement.RenderBatchArray.Add(&RenderItem);
+						Canvas.Flush_GameThread();
+						FlushRenderingCommands();
+						bDoubleFlush = true;
+					}
 
 					// Clear canvas before rendering
 					Canvas.Clear(RenderTarget->ClearColor);
@@ -185,7 +200,11 @@ void FMaterialBakingModule::BakeMaterials(const TArray<FMaterialData*>& Material
 
 					SortElement.RenderBatchArray.Empty();
 					ReadTextureOutput(RenderTargetResource, Property, CurrentOutput);
-					FMaterialBakingHelpers::PerformUVBorderSmear(CurrentOutput.PropertyData[Property], RenderTarget->GetSurfaceWidth(), RenderTarget->GetSurfaceHeight(), Property == MP_Normal);
+
+					if(CurrentMaterialSettings->bPerformBorderSmear)
+					{
+						FMaterialBakingHelpers::PerformUVBorderSmear(CurrentOutput.PropertyData[Property], RenderTarget->GetSurfaceWidth(), RenderTarget->GetSurfaceHeight());
+					}
 #if WITH_EDITOR
 					// If saving intermediates is turned on
 					if (bSaveIntermediateTextures)
@@ -333,6 +352,7 @@ void FMaterialBakingModule::ReadTextureOutput(FTextureRenderTargetResource* Rend
 		}();
 
 		float* MaxValue = new float[NumThreads];
+		FMemory::Memset(MaxValue, 0, NumThreads * sizeof(MaxValue[0]));
 		const int32 LinesPerThread = FMath::CeilToInt((float)OutputSize.Y / (float)NumThreads);
 
 		// Find maximum float value across texture

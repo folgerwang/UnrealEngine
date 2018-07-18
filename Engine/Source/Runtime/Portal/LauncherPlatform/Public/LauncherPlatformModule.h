@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "ILauncherPlatform.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogLauncherPlatform, Log, All);

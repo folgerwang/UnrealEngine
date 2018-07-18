@@ -11,7 +11,7 @@
 #include "HAL/ThreadSafeCounter.h"
 
 #if PLATFORM_WINDOWS
-#	include "AllowWindowsPlatformTypes.h"
+#	include "Windows/AllowWindowsPlatformTypes.h"
 #endif
 
 THIRD_PARTY_INCLUDES_START
@@ -19,7 +19,7 @@ THIRD_PARTY_INCLUDES_START
 THIRD_PARTY_INCLUDES_END
 
 #if PLATFORM_WINDOWS
-#	include "HideWindowsPlatformTypes.h"
+#	include "Windows/HideWindowsPlatformTypes.h"
 #endif
 
 class FRunnableThread;
@@ -42,12 +42,12 @@ public:
 	 */
 	void StartProcessingWebSocket(FLwsWebSocket* Socket);
 
-private:
-
 	// IWebSocketsManager
 	virtual void InitWebSockets(TArrayView<const FString> Protocols) override;
 	virtual void ShutdownWebSockets() override;
 	virtual TSharedRef<IWebSocket> CreateWebSocket(const FString& Url, const TArray<FString>& Protocols, const TMap<FString, FString>& UpgradeHeaders) override;
+
+private:
 
 	//~ Begin FRunnable Interface
 	virtual bool Init() override;
@@ -73,6 +73,10 @@ private:
 	/** Callback on events for a libwebsockets connection */
 	int CallbackWrapper(lws* Connection, lws_callback_reasons Reason, void* UserData, void* Data, size_t Length);
 
+#if WITH_SSL
+	/** OpenSSL context */
+	SSL_CTX* SslContext;
+#endif
 	/** libwebsockets context */
 	lws_context* LwsContext;
 	/** array of protocols that we have registered with libwebsockets */

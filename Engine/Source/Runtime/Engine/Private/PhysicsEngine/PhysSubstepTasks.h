@@ -89,6 +89,17 @@ struct FKinematicTarget
 	FTransform OriginalTM;
 };
 
+/** Kinematic target struct to use when lock is assumed */
+struct FKinematicTarget_AssumesLocked : public FKinematicTarget
+{
+	FKinematicTarget_AssumesLocked(FBodyInstance* Body, const FTransform& TM)
+	{
+		BodyInstance = Body;
+		TargetTM = TM;
+		OriginalTM = Body->GetUnrealWorldTransform_AssumesLocked(true, true);
+	}
+};
+
 /** Holds information about requested force */
 struct FForceTarget
 {
@@ -202,6 +213,9 @@ private:
 	float StepScale;
 	float TotalSubTime;
 	uint32 CurrentSubStep;
+	int32 SubstepCallbackGuard;
+	friend struct FSubstepCallbackGuard;
+
 	FGraphEventRef CompletionEvent;
 
 	FPhysScene* PhysScene;

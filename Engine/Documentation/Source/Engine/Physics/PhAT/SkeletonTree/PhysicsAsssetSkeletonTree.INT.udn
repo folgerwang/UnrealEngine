@@ -117,7 +117,7 @@ When right-clicking on a Body, you will see the following context menu:
 | **Enable Collision All** | Enable collision between the currently selected bodies and all bodies. |
 | **Disable Collision** | Disable collision between the currently selected bodies. |
 | **Disable Collision All** | Disable collision between the currently selected bodies and all bodies. |
-| %spacer2% ||
+
 [/EXCERPT:collisionbody]
 
 -
@@ -172,7 +172,7 @@ When right-clicking on a Constraint, you will see the following context menu:
 | **Cycle Active Constraint** | Cycles whether each constraint axis is active in isolation. |
 | **Lock Swing** | Set swing 1 or 2 to be locked or limited. |
 | **Lock Twist** | Set twist to be locked or limited. |
-| %spacer2% ||
+
 [/EXCERPT:constraint]
 
 [EXCERPT:convert]

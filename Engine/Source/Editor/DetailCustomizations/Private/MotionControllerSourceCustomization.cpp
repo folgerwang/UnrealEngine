@@ -2,11 +2,11 @@
 
 #include "MotionControllerSourceCustomization.h"
 #include "PropertyHandle.h"
-#include "SlateApplication.h"
+#include "Framework/Application/SlateApplication.h"
 #include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "Features/IModularFeatures.h"
 #include "IMotionController.h"
-#include "SComboBox.h"
+#include "Widgets/Input/SComboBox.h"
 #include "Widgets/Input/SEditableTextBox.h"
 
 void SMotionSourceWidget::Construct(const FArguments& InArgs)

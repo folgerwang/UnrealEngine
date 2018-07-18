@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3810557
 Availability: Public
 Title:랜드스케이프 머티리얼
 Crumbs: %ROOT%, Engine, Engine/Landscape
@@ -70,7 +70,7 @@ topic-image:landscape_materials_topic.png
 
 
 레이어 블렌드 모드 특정 조합을 사용할 때, 랜드스케이프 다른 레이어가 만나는 부분이 전부 검정색 점으로 보일 수가 있습니다. 이 문제는 특히나 여러 랜드스케이프 레이어에 **LB_HeightBlend** 모드를 사용할 때 많이 발생하는데요. **LB_HeightBlend** 는 지정된 높이 값을 사용하는 레이어에 대한 블렌드 인수, 또는 웨이트를 변조시키는 방식으로 작동합니다. 한 지역에 칠해진 레이어가 여럿 있고 그 전부가 LB_HeightBlend 로 설정된 경우, 특정 지역에 칠해진 모든 레이어가 동시에 높이 값이 0 일 수가 있으므로, 각 레이어에 바람직한 블렌드 인수는 0 이 됩니다. 명시적이든 묵시적이든 순서가 없기 때문에, 해당 영역에 공헌도가 있는 레이어가 없으니 결과는 검정 점이 됩니다. 노멀 맵을 블렌딩하는 경우라면 상황은 더욱 나빠집니다. (0,0,0), 즉 유효하지도 않은 노멀 값이 나와 라이팅과 렌더링 문제를 일으킬 것이기 때문입니다. 이 문제를 해결하려면, 다음 예제에서처럼 레이어 중 하나에 LB_AlphaBlend 를 사용하면 됩니다.
-![LB_HeightBlend Problem](HeightBlendProblem.jpg)(w:800 h:238)
+![LB_HeightBlend Problem](HeightBlendProblem.jpg)(w:800)
 
 왼쪽 이미지에서는 모든 레이어가 LB_HeightBlend 라 일부 지역이 까맣게 나옵니다. 오른쪽에서는 빨강 "1" 레이어를 LB_AlphaBlend 로 바꿔 문제를 해결했습니다.
 
@@ -188,8 +188,10 @@ LandscapeVisibilityMask (랜드스케이프 표시여부 마스크) 노드는 �
 
 1. **디테일** 패널에서 **Parameter Name** 을 레이어에 대한 설명이 되는 이름, 예를 들면 "Rock" 정도로 지어줍니다.
 
-	![Layer Name](Landscape_Mat_ParamName.png)<br/>
-	**Parameter Name** 을 입력하면, 노드 자체적으로 업데이트될 것입니다.<br/>
+	![Layer Name](Landscape_Mat_ParamName.png)
+
+	**Parameter Name** 을 입력하면, 노드 자체적으로 업데이트될 것입니다.
+
 	![](Landscape_Layer_Weight_Named_Layer.png)
 
 1. 머티리얼에 넣고자 하는 각 레이어마다 LandscapeLayerWeight 노드를 추가해 줍니다. 이 예제에서는 그냥 **LandscapeLayerWeight** 노드를 두 개 사용하겠습니다.
@@ -294,14 +296,6 @@ Landscape **Layer Blend** 머티리얼 노드에는 세 가지 블렌드 모드 
 
 	![](Landscape_BaseNodeOpacity.png)
 
-	[COMMENT:none]
-
-	[REGION:tip]
-	랜드스케이프 홀에 별도의 머티리얼을 사용한다면, 베이스 컬러 슬롯에 텍스처를 물려줬는지 확인하기도 해야 하는데, 그러지 않으면 랜드스케이프 일부를 보이지 않게 만들려 할 때 까맣게 변해버릴 수 있기 때문입니다.
-	[/REGION]
-	
-[/COMMENT]
-
 1. 다음, 머티리얼 그래프에 **LandscapeVisibilityMask** 를 검색 추가한 다음 그 출력을 **오파시티 마스크** 입력에 연결합니다.
 
 	![](Landscape_VisibilityMaskNode.png)
@@ -363,9 +357,9 @@ Landscape **Layer Blend** 머티리얼 노드에는 세 가지 블렌드 모드 
 
 [COMMENT:none]
 
-![Landscape_Material_Default.png](Landscape_Material_Default.png)(w:900 h:327)
+![Landscape_Material_Default.png](Landscape_Material_Default.png)(w:900)
 
-![Landscape_Material_Viewport.png](Landscape_Material_Viewport.png)(w:900 h:327)
+![Landscape_Material_Viewport.png](Landscape_Material_Viewport.png)(w:900)
 
 [/COMMENT]
 

@@ -21,6 +21,11 @@
 class SLATECORE_API FChildren
 {
 public:
+	FChildren(SWidget* InOwner)
+		: Owner(InOwner)
+	{
+	}
+
 	/** @return the number of children */
 	virtual int32 Num() const = 0;
 	/** @return pointer to the Widget at the specified Index. */
@@ -35,6 +40,9 @@ protected:
 
 protected:
 	virtual ~FChildren(){}
+
+protected:
+	SWidget* Owner;
 };
 
 
@@ -45,6 +53,10 @@ protected:
 class SLATECORE_API FNoChildren : public FChildren
 {
 public:
+	FNoChildren()
+		: FChildren(nullptr)
+	{}
+
 	virtual int32 Num() const override { return 0; }
 	
 	virtual TSharedRef<SWidget> GetChildAt( int32 ) override
@@ -71,8 +83,6 @@ private:
 		static FSlotBase NullSlot;
 		return NullSlot;
 	}
-
-
 };
 
 /**
@@ -82,7 +92,12 @@ template <typename MixedIntoType>
 class TSupportsOneChildMixin : public FChildren, public TSlotBase<MixedIntoType>
 {
 public:
-	TSupportsOneChildMixin():TSlotBase<MixedIntoType>(){}
+	TSupportsOneChildMixin(SWidget* InOwner)
+		: FChildren(InOwner)
+		, TSlotBase<MixedIntoType>()
+	{
+		this->RawParentPtr = InOwner;
+	}
 
 	virtual int32 Num() const override { return 1; }
 	virtual TSharedRef<SWidget> GetChildAt( int32 ChildIndex ) override { check(ChildIndex == 0); return FSlotBase::GetWidget(); }
@@ -100,8 +115,9 @@ template <typename ChildType>
 class TWeakChild : public FChildren
 {
 public:
-	TWeakChild()
-	: WidgetPtr()
+	TWeakChild(SWidget* InOwner)
+		: FChildren(InOwner)
+		, WidgetPtr()
 	{
 	}
 
@@ -116,6 +132,19 @@ public:
 	void AttachWidget(const TSharedPtr<SWidget>& InWidget)
 	{
 		WidgetPtr = InWidget;
+		if (Owner) 
+		{ 
+			Owner->InvalidatePrepass();
+		}
+#if SLATE_PARENT_POINTERS
+		if (Owner)
+		{
+			if (InWidget.IsValid() && InWidget != SNullWidget::NullWidget)
+			{
+				InWidget->AssignParentWidget(Owner->AsShared());
+			}
+		}
+#endif
 	}
 
 	TSharedRef<SWidget> GetWidget() const
@@ -190,8 +219,8 @@ public:
 class SLATECORE_API FSimpleSlot : public TSupportsOneChildMixin<FSimpleSlot>, public TSupportsContentAlignmentMixin<FSimpleSlot>, public TSupportsContentPaddingMixin<FSimpleSlot>
 {
 public:
-	FSimpleSlot()
-	: TSupportsOneChildMixin<FSimpleSlot>()
+	FSimpleSlot(SWidget* InParent)
+	: TSupportsOneChildMixin<FSimpleSlot>(InParent)
 	, TSupportsContentAlignmentMixin<FSimpleSlot>(HAlign_Fill, VAlign_Fill)
 	{
 	}
@@ -213,8 +242,9 @@ private:
 	}
 
 public:
-	TPanelChildren()
-		: bEmptying(false)
+	TPanelChildren(SWidget* InOwner)
+		: FChildren(InOwner)
+		, bEmptying(false)
 	{
 	}
 	
@@ -240,6 +270,11 @@ public:
 			return INDEX_NONE;
 		}
 
+		if (Owner)
+		{
+			Slot->AttachWidgetParent(Owner);
+		}
+
 		return TIndirectArray< SlotType >::Add(Slot);
 	}
 
@@ -256,16 +291,21 @@ public:
 		if ( !bEmptying )
 		{
 			TGuardValue<bool> GuardEmptying(bEmptying, true);
-
 			TIndirectArray< SlotType >::Empty();
 		}
 	}
 
-	void Insert(SlotType* Item, int32 Index)
+	void Insert(SlotType* Slot, int32 Index)
 	{
-		if(!bEmptying)
+		if (!bEmptying)
 		{
-			TIndirectArray< SlotType >::Insert(Item, Index);
+			// Don't do parent manipulation if this panel has no owner.
+			if (Owner)
+			{
+				Slot->AttachWidgetParent(Owner);
+			}
+
+			TIndirectArray< SlotType >::Insert(Slot, Index);
 		}
 	}
 
@@ -297,8 +337,7 @@ public:
 	}
 
 	const SlotType& operator[](int32 Index) const { return TIndirectArray< SlotType >::operator[](Index); }
-
-	SlotType& operator[](int32 Index) { return TIndirectArray< SlotType >::operator[](Index ); }
+	SlotType& operator[](int32 Index) { return TIndirectArray< SlotType >::operator[](Index); }
 
 	template <class PREDICATE_CLASS>
 	void Sort( const PREDICATE_CLASS& Predicate )
@@ -334,7 +373,9 @@ private:
 	}
 
 public:
-	TSlotlessChildren()
+	TSlotlessChildren(SWidget* InOwner, bool InbChangesInvalidatePrepass = true)
+		: FChildren(InOwner)
+		, bChangesInvalidatePrepass(InbChangesInvalidatePrepass)
 	{
 	}
 
@@ -355,27 +396,79 @@ public:
 
 	int32 Add( const TSharedRef<ChildType>& Child )
 	{
+		if (Owner && bChangesInvalidatePrepass)
+		{ 
+			Owner->InvalidatePrepass(); 
+		}
+
+#if SLATE_PARENT_POINTERS
+		if (Owner)
+		{
+			if (Child != SNullWidget::NullWidget)
+			{
+				Child->AssignParentWidget(Owner->AsShared());
+			}
+		}
+#endif
 		return TArray< TSharedRef<ChildType> >::Add(Child);
 	}
 
 	void Empty()
 	{
+#if SLATE_PARENT_POINTERS
+		for (int ChildIndex = 0; ChildIndex < TArray< TSharedRef<ChildType> >::Num(); ChildIndex++)
+		{
+			TSharedRef<SWidget> Child = GetChildAt(ChildIndex);
+			if (Child != SNullWidget::NullWidget)
+			{
+				Child->ConditionallyDetatchParentWidget(Owner);
+			}
+		}
+#endif
+
 		TArray< TSharedRef<ChildType> >::Empty();
 	}
 
 	void Insert(const TSharedRef<ChildType>& Child, int32 Index)
 	{
+		if (Owner && bChangesInvalidatePrepass) 
+		{ 
+			Owner->InvalidatePrepass();
+		}
+#if SLATE_PARENT_POINTERS
+		if (Owner)
+		{
+			if (Child != SNullWidget::NullWidget)
+			{
+				Child->AssignParentWidget(Owner->AsShared());
+			}
+		}
+#endif
 		TArray< TSharedRef<ChildType> >::Insert(Child, Index);
 	}
 
 	int32 Remove( const TSharedRef<ChildType>& Child )
 	{
+#if SLATE_PARENT_POINTERS
+		if (Child != SNullWidget::NullWidget)
+		{
+			Child->ConditionallyDetatchParentWidget(Owner);
+		}
+#endif
 		const int32 NumFoundAndRemoved = TArray< TSharedRef<ChildType> >::Remove( Child );
 		return NumFoundAndRemoved;
 	}
 
 	void RemoveAt( int32 Index )
 	{
+#if SLATE_PARENT_POINTERS
+		TSharedRef<SWidget> Child = GetChildAt(Index);
+		if (Child != SNullWidget::NullWidget)
+		{
+			Child->ConditionallyDetatchParentWidget(Owner);
+		}
+#endif
+
 		TArray< TSharedRef<ChildType> >::RemoveAt( Index );
 	}
 
@@ -404,4 +497,7 @@ public:
 	{
 		TIndirectArray< ChildType >::Swap(IndexA, IndexB);
 	}
+
+private:
+	bool bChangesInvalidatePrepass;
 };

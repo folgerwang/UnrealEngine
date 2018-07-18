@@ -10,6 +10,7 @@
 #include "VulkanContext.h"
 #include "Misc/Paths.h"
 #include "HAL/FileManager.h"
+#include "Misc/FileHelper.h"
 #include "VulkanPlatform.h"
 
 TAutoConsoleVariable<int32> GRHIAllowAsyncComputeCvar(
@@ -26,6 +27,87 @@ TAutoConsoleVariable<int32> GAllowPresentOnComputeQueue(
 	TEXT("1 to allow presenting on the compute queue if available")
 );
 
+
+static void EnableDrawMarkers()
+{
+	static IConsoleVariable* ShowMaterialDrawEventVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.ShowMaterialDrawEvents"));
+
+	const bool bDrawEvents = GetEmitDrawEvents() != 0;
+	const bool bMaterialDrawEvents = ShowMaterialDrawEventVar ? ShowMaterialDrawEventVar->GetInt() != 0 : false;
+
+	UE_LOG(LogRHI, Display, TEXT("Setting GPU Capture Options: 1"));
+	if (!bDrawEvents)
+	{
+		UE_LOG(LogRHI, Display, TEXT("Toggling draw events: 1"));
+		SetEmitDrawEvents(true);
+	}
+	if (!bMaterialDrawEvents && ShowMaterialDrawEventVar)
+	{
+		UE_LOG(LogRHI, Display, TEXT("Toggling showmaterialdrawevents: 1"));
+		ShowMaterialDrawEventVar->Set(-1);
+	}
+}
+
+#if VULKAN_SUPPORTS_VALIDATION_CACHE
+static void LoadValidationCache(VkDevice Device, VkValidationCacheEXT& OutValidationCache)
+{
+	VkValidationCacheCreateInfoEXT ValidationCreateInfo;
+	ZeroVulkanStruct(ValidationCreateInfo, VK_STRUCTURE_TYPE_VALIDATION_CACHE_CREATE_INFO_EXT);
+	TArray<uint8> InData;
+
+	const FString& CacheFilename = VulkanRHI::GetValidationCacheFilename();
+	UE_LOG(LogVulkanRHI, Display, TEXT("Trying validation cache file %s"), *CacheFilename);
+	if (FFileHelper::LoadFileToArray(InData, *CacheFilename, FILEREAD_Silent) && InData.Num() > 0)
+	{
+		// The code below supports SDK 1.0.65 Vulkan spec, which contains the following table:
+		//
+		// Offset	 Size            Meaning
+		// ------    ------------    ------------------------------------------------------------------
+		//      0               4    length in bytes of the entire validation cache header written as a
+		//                           stream of bytes, with the least significant byte first
+		//      4               4    a VkValidationCacheHeaderVersionEXT value written as a stream of
+		//                           bytes, with the least significant byte first
+		//      8    VK_UUID_SIZE    a layer commit ID expressed as a UUID, which uniquely identifies
+		//                           the version of the validation layers used to generate these
+		//                           validation results
+		int32* DataPtr = (int32*)InData.GetData();
+		if (*DataPtr > 0)
+		{
+			++DataPtr;
+			int32 Version = *DataPtr++;
+			if (Version == VK_PIPELINE_CACHE_HEADER_VERSION_ONE)
+			{
+				DataPtr += VK_UUID_SIZE / sizeof(int32);
+			}
+			else
+			{
+				UE_LOG(LogVulkanRHI, Warning, TEXT("Bad validation cache file %s, version=%d, expected %d"), *CacheFilename, Version, VK_PIPELINE_CACHE_HEADER_VERSION_ONE);
+				InData.Reset(0);
+			}
+		}
+		else
+		{
+			UE_LOG(LogVulkanRHI, Warning, TEXT("Bad validation cache file %s, header size=%d"), *CacheFilename, *DataPtr);
+			InData.Reset(0);
+		}
+	}
+
+	ValidationCreateInfo.initialDataSize = InData.Num();
+	ValidationCreateInfo.pInitialData = InData.Num() > 0 ? InData.GetData() : nullptr;
+	//ValidationCreateInfo.flags = 0;
+	PFN_vkCreateValidationCacheEXT vkCreateValidationCache = (PFN_vkCreateValidationCacheEXT)(void*)VulkanRHI::vkGetDeviceProcAddr(Device, "vkCreateValidationCacheEXT");
+	if (vkCreateValidationCache)
+	{
+		VkResult Result = vkCreateValidationCache(Device, &ValidationCreateInfo, VulkanRHI::GetMemoryAllocator(nullptr), &OutValidationCache);
+		if (Result != VK_SUCCESS)
+		{
+			UE_LOG(LogVulkanRHI, Warning, TEXT("Failed to create Vulkan validation cache, VkResult=%d"), Result);
+		}
+	}
+}
+#endif
+
+
 FVulkanDevice::FVulkanDevice(VkPhysicalDevice InGpu)
 	: Gpu(InGpu)
 	, Device(VK_NULL_HANDLE)
@@ -40,11 +122,6 @@ FVulkanDevice::FVulkanDevice(VkPhysicalDevice InGpu)
 	, PresentQueue(nullptr)
 	, ImmediateContext(nullptr)
 	, ComputeContext(nullptr)
-#if VULKAN_ENABLE_DRAW_MARKERS
-	, CmdDbgMarkerBegin(nullptr)
-	, CmdDbgMarkerEnd(nullptr)
-	, DebugMarkerSetObjectName(nullptr)
-#endif
 	, PipelineStateCache(nullptr)
 {
 	FMemory::Memzero(GpuProps);
@@ -71,13 +148,12 @@ void FVulkanDevice::CreateDevice()
 
 	// Setup extension and layer info
 	VkDeviceCreateInfo DeviceInfo;
-	FMemory::Memzero(DeviceInfo);
-	DeviceInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+	ZeroVulkanStruct(DeviceInfo, VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO);
 
 	bool bDebugMarkersFound = false;
 	TArray<const ANSICHAR*> DeviceExtensions;
 	TArray<const ANSICHAR*> ValidationLayers;
-	GetDeviceExtensions(DeviceExtensions, ValidationLayers, bDebugMarkersFound);
+	GetDeviceExtensionsAndLayers(DeviceExtensions, ValidationLayers, bDebugMarkersFound);
 
 	ParseOptionalDeviceExtensions(DeviceExtensions);
 
@@ -114,7 +190,7 @@ void FVulkanDevice::CreateDevice()
 
 		if ((CurrProps.queueFlags & VK_QUEUE_COMPUTE_BIT) == VK_QUEUE_COMPUTE_BIT)
 		{
-			if (ComputeQueueFamilyIndex == -1 && 
+			if (ComputeQueueFamilyIndex == -1 &&
 				(GRHIAllowAsyncComputeCvar.GetValueOnAnyThread() != 0 || GAllowPresentOnComputeQueue.GetValueOnAnyThread() != 0) && GfxQueueFamilyIndex != FamilyIndex)
 			{
 				ComputeQueueFamilyIndex = FamilyIndex;
@@ -189,38 +265,89 @@ void FVulkanDevice::CreateDevice()
 	DeviceInfo.queueCreateInfoCount = QueueFamilyInfos.Num();
 	DeviceInfo.pQueueCreateInfos = QueueFamilyInfos.GetData();
 
-	DeviceInfo.pEnabledFeatures = &Features;
+	VkPhysicalDeviceFeatures EnabledFeatures;
+	FVulkanPlatform::RestrictEnabledPhysicalDeviceFeatures(Features, EnabledFeatures);
+	DeviceInfo.pEnabledFeatures = &EnabledFeatures;
 
 	// Create the device
 	VERIFYVULKANRESULT(VulkanRHI::vkCreateDevice(Gpu, &DeviceInfo, nullptr, &Device));
 
 	// Create Graphics Queue, here we submit command buffers for execution
-	GfxQueue = new FVulkanQueue(this, GfxQueueFamilyIndex, 0);
+	GfxQueue = new FVulkanQueue(this, GfxQueueFamilyIndex);
 	if (ComputeQueueFamilyIndex == -1)
 	{
 		// If we didn't find a dedicated Queue, use the default one
 		ComputeQueueFamilyIndex = GfxQueueFamilyIndex;
 	}
-	ComputeQueue = new FVulkanQueue(this, ComputeQueueFamilyIndex, 0);
+	else
+	{
+		// Dedicated queue
+		if (GRHIAllowAsyncComputeCvar.GetValueOnAnyThread() != 0)
+		{
+			bAsyncComputeQueue = true;
+		}
+	}
+	ComputeQueue = new FVulkanQueue(this, ComputeQueueFamilyIndex);
 	if (TransferQueueFamilyIndex == -1)
 	{
 		// If we didn't find a dedicated Queue, use the default one
 		TransferQueueFamilyIndex = ComputeQueueFamilyIndex;
 	}
-	TransferQueue = new FVulkanQueue(this, TransferQueueFamilyIndex, 0);
+	TransferQueue = new FVulkanQueue(this, TransferQueueFamilyIndex);
 
 #if VULKAN_ENABLE_DRAW_MARKERS
+#if 0//VULKAN_SUPPORTS_DEBUG_UTILS
+	FVulkanDynamicRHI* RHI = (FVulkanDynamicRHI*)GDynamicRHI;
+	if (RHI->SupportsDebugUtilsExt() && GRenderDocFound)
+	{
+		DebugMarkers.CmdBeginDebugLabel = (PFN_vkCmdBeginDebugUtilsLabelEXT)(void*)VulkanRHI::vkGetInstanceProcAddr(RHI->GetInstance(), "vkCmdBeginDebugUtilsLabelEXT");
+		DebugMarkers.CmdEndDebugLabel = (PFN_vkCmdEndDebugUtilsLabelEXT)(void*)VulkanRHI::vkGetInstanceProcAddr(RHI->GetInstance(), "vkCmdEndDebugUtilsLabelEXT");
+		DebugMarkers.SetDebugName = (PFN_vkSetDebugUtilsObjectNameEXT)(void*)VulkanRHI::vkGetInstanceProcAddr(RHI->GetInstance(), "vkSetDebugUtilsObjectNameEXT");
+		if (DebugMarkers.CmdBeginDebugLabel && DebugMarkers.CmdEndDebugLabel && DebugMarkers.SetDebugName)
+		{
+			bDebugMarkersFound = true;
+		}
+	}
+	else
+#endif	// VULKAN_SUPPORTS_DEBUG_UTILS
+	if (bDebugMarkersFound || FVulkanPlatform::ForceEnableDebugMarkers())
+	{
+		DebugMarkers.CmdBegin = (PFN_vkCmdDebugMarkerBeginEXT)(void*)VulkanRHI::vkGetDeviceProcAddr(Device, "vkCmdDebugMarkerBeginEXT");
+		DebugMarkers.CmdEnd = (PFN_vkCmdDebugMarkerEndEXT)(void*)VulkanRHI::vkGetDeviceProcAddr(Device, "vkCmdDebugMarkerEndEXT");
+		DebugMarkers.CmdSetObjectName = (PFN_vkDebugMarkerSetObjectNameEXT)(void*)VulkanRHI::vkGetDeviceProcAddr(Device, "vkDebugMarkerSetObjectNameEXT");
+
+		if (DebugMarkers.CmdBegin && DebugMarkers.CmdEnd && DebugMarkers.CmdSetObjectName)
+		{
+			bDebugMarkersFound = true;
+		}
+
+		if (!DebugMarkers.CmdBegin || !DebugMarkers.CmdEnd || !DebugMarkers.CmdSetObjectName)
+		{
+			UE_LOG(LogVulkanRHI, Warning, TEXT("Extension found, but entry points for vkCmdDebugMarker(Begin|End)EXT NOT found!"));
+			bDebugMarkersFound = false;
+			DebugMarkers.CmdBegin = nullptr;
+			DebugMarkers.CmdEnd = nullptr;
+			DebugMarkers.CmdSetObjectName = nullptr;
+		}
+	}
+	else
+	{
+		if (DebugMarkers.CmdBegin && DebugMarkers.CmdEnd && DebugMarkers.CmdSetObjectName)
+		{
+			UE_LOG(LogVulkanRHI, Warning, TEXT("Extension not found, but entry points for vkCmdDebugMarker(Begin|End)EXT found!"));
+			bDebugMarkersFound = true;
+		}
+	}
+
 	if (bDebugMarkersFound)
 	{
-		CmdDbgMarkerBegin = (PFN_vkCmdDebugMarkerBeginEXT)(void*)VulkanRHI::vkGetDeviceProcAddr(Device, "vkCmdDebugMarkerBeginEXT");
-		CmdDbgMarkerEnd = (PFN_vkCmdDebugMarkerEndEXT)(void*)VulkanRHI::vkGetDeviceProcAddr(Device, "vkCmdDebugMarkerEndEXT");
-		DebugMarkerSetObjectName = (PFN_vkDebugMarkerSetObjectNameEXT)(void*)VulkanRHI::vkGetDeviceProcAddr(Device, "vkDebugMarkerSetObjectNameEXT");
-
 		// We're running under RenderDoc or other trace tool, so enable capturing mode
-		GDynamicRHI->EnableIdealGPUCaptureOptions(true);
+		EnableDrawMarkers();
 	}
-#elif VULKAN_ENABLE_DUMP_LAYER
-	GDynamicRHI->EnableIdealGPUCaptureOptions(true);
+#endif
+
+#if VULKAN_ENABLE_DUMP_LAYER
+	EnableDrawMarkers();
 #endif
 }
 
@@ -478,7 +605,7 @@ void FVulkanDevice::MapFormatSupport(EPixelFormat UEFormat, VkFormat VulkanForma
 	FormatInfo.PlatformFormat = VulkanFormat;
 	FormatInfo.Supported = IsFormatSupported(VulkanFormat);
 
-	if(!FormatInfo.Supported)
+	if (!FormatInfo.Supported)
 	{
 		UE_LOG(LogVulkanRHI, Warning, TEXT("EPixelFormat(%d) is not supported with Vk format %d"), (int32)UEFormat, (int32)VulkanFormat);
 	}
@@ -506,23 +633,17 @@ bool FVulkanDevice::QueryGPU(int32 DeviceIndex)
 {
 	bool bDiscrete = false;
 
+	VulkanRHI::vkGetPhysicalDeviceProperties(Gpu, &GpuProps);
 #if VULKAN_ENABLE_DESKTOP_HMD_SUPPORT
 	if (GetOptionalExtensions().HasKHRGetPhysicalDeviceProperties2)
 	{
 		VkPhysicalDeviceProperties2KHR GpuProps2;
-		GpuProps2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2_KHR;
+		ZeroVulkanStruct(GpuProps2, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2_KHR);
 		GpuProps2.pNext = &GpuIdProps;
-		GpuIdProps.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ID_PROPERTIES_KHR;
-		GpuIdProps.pNext = nullptr;
+		ZeroVulkanStruct(GpuIdProps, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ID_PROPERTIES_KHR);
 		VulkanRHI::vkGetPhysicalDeviceProperties2KHR(Gpu, &GpuProps2);
-		FMemory::Memcpy(GpuProps, GpuProps2.properties);
 	}
-	else
 #endif
-	{
-		VulkanRHI::vkGetPhysicalDeviceProperties(Gpu, &GpuProps);
-	}
-
 	auto GetDeviceTypeString = [&]()
 	{
 		FString Info;
@@ -551,10 +672,10 @@ bool FVulkanDevice::QueryGPU(int32 DeviceIndex)
 		return Info;
 	};
 
-	UE_LOG(LogVulkanRHI, Display, TEXT("Initializing Device %d"), DeviceIndex);
-	UE_LOG(LogVulkanRHI, Display, TEXT("API 0x%x Driver 0x%x VendorId 0x%x"), GpuProps.apiVersion, GpuProps.driverVersion, GpuProps.vendorID);
-	UE_LOG(LogVulkanRHI, Display, TEXT("Name %s Device 0x%x Type %s"), ANSI_TO_TCHAR(GpuProps.deviceName), GpuProps.deviceID, *GetDeviceTypeString());
-	UE_LOG(LogVulkanRHI, Display, TEXT("Max Descriptor Sets Bound %d Timestamps %d"), GpuProps.limits.maxBoundDescriptorSets, GpuProps.limits.timestampComputeAndGraphics);
+	UE_LOG(LogVulkanRHI, Display, TEXT("Initializing Device %d: %s"), DeviceIndex, ANSI_TO_TCHAR(GpuProps.deviceName));
+	UE_LOG(LogVulkanRHI, Display, TEXT("- API 0x%x Driver 0x%x VendorId 0x%x"), GpuProps.apiVersion, GpuProps.driverVersion, GpuProps.vendorID);
+	UE_LOG(LogVulkanRHI, Display, TEXT("- DeviceID 0x%x Type %s"), GpuProps.deviceID, *GetDeviceTypeString());
+	UE_LOG(LogVulkanRHI, Display, TEXT("- Max Descriptor Sets Bound %d Timestamps %d"), GpuProps.limits.maxBoundDescriptorSets, GpuProps.limits.timestampComputeAndGraphics);
 
 	uint32 QueueCount = 0;
 	VulkanRHI::vkGetPhysicalDeviceQueueFamilyProperties(Gpu, &QueueCount, nullptr);
@@ -571,7 +692,7 @@ void FVulkanDevice::InitGPU(int32 DeviceIndex)
 	// Query features
 	VulkanRHI::vkGetPhysicalDeviceFeatures(Gpu, &Features);
 
-	UE_LOG(LogVulkanRHI, Display, TEXT("Geometry %d Tessellation %d"), Features.geometryShader, Features.tessellationShader);
+	UE_LOG(LogVulkanRHI, Display, TEXT("Using Device %d: Geometry %d Tessellation %d"), DeviceIndex, Features.geometryShader, Features.tessellationShader);
 
 	CreateDevice();
 
@@ -585,11 +706,35 @@ void FVulkanDevice::InitGPU(int32 DeviceIndex)
 
 	StagingManager.Init(this);
 
+#if VULKAN_SUPPORTS_AMD_BUFFER_MARKER
+	if (GGPUCrashDebuggingEnabled && OptionalDeviceExtensions.HasAMDBufferMarker)
+	{
+		VkBufferCreateInfo CreateInfo;
+		ZeroVulkanStruct(CreateInfo, VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO);
+		CreateInfo.size = GMaxCrashBufferEntries * sizeof(uint32_t);
+		CreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+		VERIFYVULKANRESULT(VulkanRHI::vkCreateBuffer(Device, &CreateInfo, nullptr, &CrashMarker.Buffer));
+
+		VkMemoryRequirements MemReq;
+		FMemory::Memzero(MemReq);
+		VulkanRHI::vkGetBufferMemoryRequirements(Device, CrashMarker.Buffer, &MemReq);
+
+		CrashMarker.Allocation = MemoryManager.Alloc(false, CreateInfo.size, MemReq.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+			VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, nullptr, __FILE__, __LINE__);
+
+		uint32* Entry = (uint32*)CrashMarker.Allocation->Map(VK_WHOLE_SIZE, 0);
+		check(Entry);
+		// Start with 0 entries
+		*Entry = 0;
+		VERIFYVULKANRESULT(VulkanRHI::vkBindBufferMemory(Device, CrashMarker.Buffer, CrashMarker.Allocation->GetHandle(), 0));
+	}
+#endif
+
 #if VULKAN_USE_DESCRIPTOR_POOL_MANAGER
 	DescriptorPoolsManager = new FVulkanDescriptorPoolsManager();
 	DescriptorPoolsManager->Init(this);
 #endif
-	PipelineStateCache = new FVulkanPipelineStateCache(this);
+	PipelineStateCache = new FVulkanPipelineStateCacheManager(this);
 
 	TArray<FString> CacheFilenames;
 	FString StagedCacheDirectory = FPaths::ProjectDir() / TEXT("Build") / TEXT("ShaderCaches") / FPlatformProperties::IniPlatformName();
@@ -606,11 +751,12 @@ void FVulkanDevice::InitGPU(int32 DeviceIndex)
 	// always look in the saved directory (for the cache from previous run that wasn't moved over to stage directory)
 	CacheFilenames.Add(VulkanRHI::GetPipelineCacheFilename());
 
-	ImmediateContext = new FVulkanCommandListContext((FVulkanDynamicRHI*)GDynamicRHI, this, GfxQueue, true);
+	ImmediateContext = new FVulkanCommandListContextImmediate((FVulkanDynamicRHI*)GDynamicRHI, this, GfxQueue);
 
 	if (GfxQueue->GetFamilyIndex() != ComputeQueue->GetFamilyIndex() && GRHIAllowAsyncComputeCvar.GetValueOnAnyThread() != 0)
 	{
-		ComputeContext = new FVulkanCommandListContext((FVulkanDynamicRHI*)GDynamicRHI, this, ComputeQueue, true);
+		ComputeContext = new FVulkanCommandListContextImmediate((FVulkanDynamicRHI*)GDynamicRHI, this, ComputeQueue);
+		GEnableAsyncCompute = true;
 	}
 	else
 	{
@@ -623,22 +769,36 @@ void FVulkanDevice::InitGPU(int32 DeviceIndex)
 		int32 Num = FTaskGraphInterface::Get().GetNumWorkerThreads();
 		for (int32 Index = 0; Index < Num; Index++)
 		{
-			FVulkanCommandListContext* CmdContext = new FVulkanCommandListContext((FVulkanDynamicRHI*)GDynamicRHI, this, GfxQueue, false);
+			FVulkanCommandListContext* CmdContext = new FVulkanCommandListContext((FVulkanDynamicRHI*)GDynamicRHI, this, GfxQueue, ImmediateContext);
 			CommandContexts.Add(CmdContext);
 		}
 	}
+
+#if VULKAN_SUPPORTS_VALIDATION_CACHE
+	if (OptionalDeviceExtensions.HasEXTValidationCache)
+	{
+		LoadValidationCache(Device, ValidationCache);
+	}
+#endif
 
 	PipelineStateCache->InitAndLoad(CacheFilenames);
 
 	// Setup default resource
 	{
 		FSamplerStateInitializerRHI Default(SF_Point);
-		DefaultSampler = new FVulkanSamplerState(Default, *this);
+		DefaultSampler = ResourceCast(RHICreateSamplerState(Default).GetReference());
 
 		FRHIResourceCreateInfo CreateInfo;
 		DefaultImage = new FVulkanSurface(*this, VK_IMAGE_VIEW_TYPE_2D, PF_B8G8R8A8, 1, 1, 1, false, 0, 1, 1, TexCreate_RenderTargetable | TexCreate_ShaderResource, CreateInfo);
 		DefaultImageView = FVulkanTextureView::StaticCreate(*this, DefaultImage->Image, VK_IMAGE_VIEW_TYPE_2D, DefaultImage->GetFullAspectMask(), PF_B8G8R8A8, VK_FORMAT_B8G8R8A8_UNORM, 0, 1, 0, 1);
 	}
+
+#if VULKAN_USE_NEW_QUERIES
+	const auto* NumBufferedQueriesVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.NumBufferedOcclusionQueries"));
+	int32 NumOcclusionQueryPools = (NumBufferedQueriesVar ? NumBufferedQueriesVar->GetValueOnAnyThread() : 3);
+	// Plus 2 for syncing purposes
+	OcclusionQueryPools.AddZeroed(32);
+#endif
 }
 
 void FVulkanDevice::PrepareForDestroy()
@@ -648,6 +808,17 @@ void FVulkanDevice::PrepareForDestroy()
 
 void FVulkanDevice::Destroy()
 {
+#if VULKAN_SUPPORTS_VALIDATION_CACHE
+	if (ValidationCache != VK_NULL_HANDLE)
+	{
+		PFN_vkDestroyValidationCacheEXT vkDestroyValidationCache = (PFN_vkDestroyValidationCacheEXT)(void*)VulkanRHI::vkGetDeviceProcAddr(Device, "vkDestroyValidationCacheEXT");
+		if (vkDestroyValidationCache)
+		{
+			vkDestroyValidationCache(Device, ValidationCache, VulkanRHI::GetMemoryAllocator(nullptr));
+		}
+	}
+#endif
+
 	VulkanRHI::vkDestroyImageView(GetInstanceHandle(), DefaultImageView, nullptr);
 	DefaultImageView = VK_NULL_HANDLE;
 
@@ -656,11 +827,17 @@ void FVulkanDevice::Destroy()
 	DescriptorPoolsManager = nullptr;
 #endif
 
-	delete DefaultSampler;
+	// No need to delete as it's stored in SamplerMap
 	DefaultSampler = nullptr;
 
 	delete DefaultImage;
 	DefaultImage = nullptr;
+
+	for (int32 Index = CommandContexts.Num() - 1; Index >= 0; --Index)
+	{
+		delete CommandContexts[Index];
+	}
+	CommandContexts.Reset();
 
 	if (ComputeContext != ImmediateContext)
 	{
@@ -671,23 +848,44 @@ void FVulkanDevice::Destroy()
 	delete ImmediateContext;
 	ImmediateContext = nullptr;
 
-	for (FOLDVulkanQueryPool* QueryPool : OcclusionQueryPools)
+#if VULKAN_USE_NEW_QUERIES
+	for (FVulkanOcclusionQueryPool* Pool : OcclusionQueryPools)
+	{
+		delete Pool;
+	}
+
+	delete TimestampQueryPool;
+#else
+	for (FVulkanQueryPool* QueryPool : OcclusionQueryPools)
 	{
 		QueryPool->Destroy();
 		delete QueryPool;
 	}
 
-	for (FOLDVulkanQueryPool* QueryPool : TimestampQueryPools)
+	for (FVulkanQueryPool* QueryPool : TimestampQueryPools)
 	{
 		QueryPool->Destroy();
 		delete QueryPool;
 	}
 	TimestampQueryPools.SetNum(0, false);
+#endif
 	OcclusionQueryPools.SetNum(0, false);
 
 	delete PipelineStateCache;
 	PipelineStateCache = nullptr;
 	StagingManager.Deinit();
+
+
+#if VULKAN_SUPPORTS_AMD_BUFFER_MARKER
+	if (GGPUCrashDebuggingEnabled && OptionalDeviceExtensions.HasAMDBufferMarker)
+	{
+		CrashMarker.Allocation->Unmap();
+		VulkanRHI::vkDestroyBuffer(Device, CrashMarker.Buffer, nullptr);
+		CrashMarker.Buffer = VK_NULL_HANDLE;
+
+		MemoryManager.Free(CrashMarker.Allocation);
+	}
+#endif
 
 	ResourceHeapManager.Deinit();
 
@@ -774,17 +972,17 @@ void FVulkanDevice::SubmitCommands(FVulkanCommandListContext* Context)
 	FVulkanCommandBufferManager* CmdMgr = Context->GetCommandBufferManager();
 	if (CmdMgr->HasPendingUploadCmdBuffer())
 	{
-		CmdMgr->SubmitUploadCmdBuffer(true);
+		CmdMgr->SubmitUploadCmdBuffer();
 	}
 	if (CmdMgr->HasPendingActiveCmdBuffer())
 	{
 		//#todo-rco: If we get real render passes then this is not needed
-		if (Context->TransitionState.CurrentRenderPass)
+		if (Context->TransitionAndLayoutManager.CurrentRenderPass)
 		{
-			Context->TransitionState.EndRenderPass(CmdMgr->GetActiveCmdBuffer());
+			Context->TransitionAndLayoutManager.EndEmulatedRenderPass(CmdMgr->GetActiveCmdBuffer());
 		}
 
-		CmdMgr->SubmitActiveCmdBuffer(true);
+		CmdMgr->SubmitActiveCmdBuffer();
 	}
 	CmdMgr->PrepareForNewActiveCommandBuffer();
 }
@@ -801,7 +999,7 @@ void FVulkanDevice::SubmitCommandsAndFlushGPU()
 	//#todo-rco: Process other contexts first!
 }
 
-void FVulkanDevice::NotifyDeletedGfxPipeline(class FVulkanGraphicsPipelineState* Pipeline)
+void FVulkanDevice::NotifyDeletedGfxPipeline(class FVulkanRHIGraphicsPipelineState* Pipeline)
 {
 	if (ComputeContext != ImmediateContext)
 	{
@@ -833,6 +1031,10 @@ static FCriticalSection GContextCS;
 FVulkanCommandListContext* FVulkanDevice::AcquireDeferredContext()
 {
 	FScopeLock Lock(&GContextCS);
+	if (CommandContexts.Num() == 0)
+	{
+		return new FVulkanCommandListContext((FVulkanDynamicRHI*)GDynamicRHI, this, GfxQueue, ImmediateContext);
+	}
 	return CommandContexts.Pop(false);
 }
 

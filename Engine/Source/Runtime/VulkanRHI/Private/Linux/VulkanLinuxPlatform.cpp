@@ -1,6 +1,5 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "CoreMinimal.h"
 #include "VulkanLinuxPlatform.h"
 #include "../VulkanRHIPrivate.h"
 #include <dlfcn.h>
@@ -46,8 +45,15 @@ bool FVulkanLinuxPlatform::LoadVulkanLibrary()
 		return false;
 	}
 
-	ENUM_VK_ENTRYPOINTS_OPTIONAL(GET_VK_ENTRYPOINTS);
-	//ENUM_VK_ENTRYPOINTS_OPTIONAL(CHECK_VK_ENTRYPOINTS);
+	ENUM_VK_ENTRYPOINTS_OPTIONAL_BASE(GET_VK_ENTRYPOINTS);
+#if UE_BUILD_DEBUG
+	ENUM_VK_ENTRYPOINTS_OPTIONAL_BASE(CHECK_VK_ENTRYPOINTS);
+#endif
+
+	ENUM_VK_ENTRYPOINTS_PLATFORM_BASE(GET_VK_ENTRYPOINTS);
+	ENUM_VK_ENTRYPOINTS_PLATFORM_BASE(CHECK_VK_ENTRYPOINTS);
+
+#undef GET_VK_ENTRYPOINTS
 
 	return true;
 }
@@ -61,7 +67,20 @@ bool FVulkanLinuxPlatform::LoadVulkanInstanceFunctions(VkInstance inInstance)
 	ENUM_VK_ENTRYPOINTS_INSTANCE(GETINSTANCE_VK_ENTRYPOINTS);
 	ENUM_VK_ENTRYPOINTS_INSTANCE(CHECK_VK_ENTRYPOINTS);
 
-	return bFoundAllEntryPoints;
+	if (!bFoundAllEntryPoints)
+	{
+		return false;
+	}
+	ENUM_VK_ENTRYPOINTS_OPTIONAL_INSTANCE(GETINSTANCE_VK_ENTRYPOINTS);
+#if UE_BUILD_DEBUG
+	ENUM_VK_ENTRYPOINTS_OPTIONAL_INSTANCE(CHECK_VK_ENTRYPOINTS);
+#endif
+
+	ENUM_VK_ENTRYPOINTS_PLATFORM_INSTANCE(GETINSTANCE_VK_ENTRYPOINTS);
+	ENUM_VK_ENTRYPOINTS_PLATFORM_INSTANCE(CHECK_VK_ENTRYPOINTS);
+#undef GET_VK_ENTRYPOINTS
+
+	return true;
 }
 
 void FVulkanLinuxPlatform::FreeVulkanLibrary()
@@ -97,7 +116,10 @@ void FVulkanLinuxPlatform::GetInstanceExtensions(TArray<const ANSICHAR*>& OutExt
 
 void FVulkanLinuxPlatform::GetDeviceExtensions(TArray<const ANSICHAR*>& OutExtensions)
 {
-	// Nothing here!
+#if VULKAN_SUPPORTS_DEDICATED_ALLOCATION
+	OutExtensions.Add(VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME);
+	OutExtensions.Add(VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME);
+#endif
 }
 
 void FVulkanLinuxPlatform::CreateSurface(void* WindowHandle, VkInstance Instance, VkSurfaceKHR* OutSurface)

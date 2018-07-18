@@ -39,7 +39,7 @@ public:
 	/**
 	 * Adds Null Unique Id to the buffer
 	 */
-	friend inline FNboSerializeToBufferNull& operator<<(FNboSerializeToBufferNull& Ar, const FUniqueNetIdString& UniqueId)
+	friend inline FNboSerializeToBufferNull& operator<<(FNboSerializeToBufferNull& Ar, const FUniqueNetIdNull& UniqueId)
 	{
 		Ar << UniqueId.UniqueNetIdStr;
 		return Ar;
@@ -75,7 +75,7 @@ public:
 	/**
 	 * Reads Null Unique Id from the buffer
 	 */
-	friend inline FNboSerializeFromBufferNull& operator>>(FNboSerializeFromBufferNull& Ar, FUniqueNetIdString& UniqueId)
+	friend inline FNboSerializeFromBufferNull& operator>>(FNboSerializeFromBufferNull& Ar, FUniqueNetIdNull& UniqueId)
 	{
 		Ar >> UniqueId.UniqueNetIdStr;
 		return Ar;

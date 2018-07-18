@@ -10,7 +10,7 @@
 #include "Widgets/SPanel.h"
 #include "Widgets/SBoxPanel.h"
 #include "Styling/SlateTypes.h"
-#include "Input/SButton.h"
+#include "Widgets/Input/SButton.h"
 
 
 class FArrangedChildren;
@@ -28,8 +28,8 @@ public:
 	class SLATE_API FSlot : public TSupportsOneChildMixin<FSlot>, public TSupportsContentAlignmentMixin<FSlot>, public TSupportsContentPaddingMixin<FSlot>
 	{
 		public:
-			FSlot()
-			: TSupportsOneChildMixin<FSlot>()
+			FSlot(SWidget* InOwner)
+			: TSupportsOneChildMixin<FSlot>(InOwner)
 			, TSupportsContentAlignmentMixin<FSlot>(HAlign_Fill, VAlign_Fill)
 			{ }
 	};
@@ -53,8 +53,8 @@ public:
 		/** The widget content presented by the SWindowTitleBarArea */
 		SLATE_DEFAULT_SLOT( FArguments, Content )
 
-		/** Called when the the title bar area is double clicked */
-		SLATE_EVENT( FSimpleDelegate, OnDoubleClick )
+		/** Called when the maximize/restore button or double click needs to toggle fullscreen. We don't have access to GEngine in SWindowTitleBarArea, so the GameLayerManager or UMG widget will handle this. */
+		SLATE_EVENT( FSimpleDelegate, RequestToggleFullscreen )
 
 	SLATE_END_ARGS()
 
@@ -88,12 +88,27 @@ public:
 		GameWindow = Window;
 	}
 
-	void SetOnDoubleClickCallback(FSimpleDelegate InOnDoubleClick)
+	void SetRequestToggleFullscreenCallback(FSimpleDelegate InRequestToggleFullscreen)
 	{
-		OnDoubleClick = InOnDoubleClick;
+		RequestToggleFullscreen = InRequestToggleFullscreen;
 	}
 
-	void SetCustomStyleForWindowButtons(const FButtonStyle& InMinimizeButtonStyle, const FButtonStyle& InMaximizeButtonStyle, const FButtonStyle& InRestoreButtonStyle, const FButtonStyle& InCloseButtonStyle)
+	static void SetOnCloseButtonClickedDelegate(FSimpleDelegate InOnCloseCuttonClicked)
+	{
+		OnCloseButtonClicked = InOnCloseCuttonClicked;
+	}
+
+	static void SetIsCloseButtonActive(bool bIsAcive)
+	{
+		bIsCloseButtonActive = bIsAcive;
+	}
+
+	void SetWindowButtonsVisibility(bool bIsVisible)
+	{
+		WindowButtonsBox->SetVisibility(bIsVisible && PLATFORM_DESKTOP ? EVisibility::Visible : EVisibility::Collapsed);
+	}
+
+	static void SetCustomStyleForWindowButtons(const FButtonStyle& InMinimizeButtonStyle, const FButtonStyle& InMaximizeButtonStyle, const FButtonStyle& InRestoreButtonStyle, const FButtonStyle& InCloseButtonStyle)
 	{
 		MinimizeButtonStyle = InMinimizeButtonStyle;
 		MaximizeButtonStyle = InMaximizeButtonStyle;
@@ -108,12 +123,15 @@ protected:
 private:
 
 	TSharedPtr<SWindow> GameWindow;
-	FSimpleDelegate OnDoubleClick;
+	FSimpleDelegate RequestToggleFullscreen;
 
-	FButtonStyle MinimizeButtonStyle;
-	FButtonStyle MaximizeButtonStyle;
-	FButtonStyle RestoreButtonStyle;
-	FButtonStyle CloseButtonStyle;
+	static FSimpleDelegate OnCloseButtonClicked;
+	static bool bIsCloseButtonActive;
+
+	static FButtonStyle MinimizeButtonStyle;
+	static FButtonStyle MaximizeButtonStyle;
+	static FButtonStyle RestoreButtonStyle;
+	static FButtonStyle CloseButtonStyle;
 
 	bool bIsMinimizeButtonEnabled;
 	bool bIsMaximizeRestoreButtonEnabled;

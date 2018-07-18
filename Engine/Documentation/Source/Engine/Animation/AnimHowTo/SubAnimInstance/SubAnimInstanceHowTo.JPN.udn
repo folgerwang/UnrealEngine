@@ -68,7 +68,7 @@ tags:Skeletal Controls
 
 1. **FABRIK** ノードの **Alpha** ピン上で **右クリック** し、**Effect Alpha** という名前で **変数化** します。 
 
-	![](SubAnimBP05.png)
+	![](SubAnimBP05b.png)
 
 1. 以下のようにノードのネットワークを再作成します (**Local to Component** と **Component to Local** のノードが自動的に作成されます)。 
 
@@ -83,6 +83,7 @@ tags:Skeletal Controls
 1. **AnimGraph** で、**右クリック** し、**Sub Anim Instance** ノードを追加します。 
 
 	![](SubAnimBP07.png)
+
 	これは作成した Animation ブループリントにアクセスするために使用するノードです。
 
 1. **Sub Anim Instance** ノードの **[Details]** パネルで、**Instance Class** を **AltAnimBP** に設定します。 

@@ -5,7 +5,7 @@
 #include "NiagaraTypes.h"
 #include "NiagaraEditorStyle.h"
 
-#include "SSpinBox.h"
+#include "Widgets/Input/SSpinBox.h"
 
 class SNiagaraFloatParameterEditor : public SNiagaraParameterEditor
 {
@@ -15,27 +15,25 @@ public:
 
 	void Construct(const FArguments& InArgs)
 	{
+		SNiagaraParameterEditor::Construct(SNiagaraParameterEditor::FArguments()
+			.MinimumDesiredWidth(DefaultInputSize)
+			.MaximumDesiredWidth(DefaultInputSize));
+
 		ChildSlot
 		[
-			SNew(SHorizontalBox)
-			+ SHorizontalBox::Slot()
-			.AutoWidth()
-			[
-				SNew(SSpinBox<float>)
-				.Style(FNiagaraEditorStyle::Get(), "NiagaraEditor.ParameterSpinBox")
-				.Font(FNiagaraEditorStyle::Get().GetFontStyle("NiagaraEditor.ParameterFont"))
-				.MinValue(TOptional<float>())
-				.MaxValue(TOptional<float>())
-				.MaxSliderValue(TOptional<float>())
-				.MinSliderValue(TOptional<float>())
-				.Delta(0.0f)
-				.Value(this, &SNiagaraFloatParameterEditor::GetValue)
-				.OnValueChanged(this, &SNiagaraFloatParameterEditor::ValueChanged)
-				.OnValueCommitted(this, &SNiagaraFloatParameterEditor::ValueCommitted)
-				.OnBeginSliderMovement(this, &SNiagaraFloatParameterEditor::BeginSliderMovement)
-				.OnEndSliderMovement(this, &SNiagaraFloatParameterEditor::EndSliderMovement)
-				.MinDesiredWidth(100)
-			]
+			SNew(SSpinBox<float>)
+			.Style(FNiagaraEditorStyle::Get(), "NiagaraEditor.ParameterSpinBox")
+			.Font(FNiagaraEditorStyle::Get().GetFontStyle("NiagaraEditor.ParameterFont"))
+			.MinValue(TOptional<float>())
+			.MaxValue(TOptional<float>())
+			.MaxSliderValue(TOptional<float>())
+			.MinSliderValue(TOptional<float>())
+			.Delta(0.0f)
+			.Value(this, &SNiagaraFloatParameterEditor::GetValue)
+			.OnValueChanged(this, &SNiagaraFloatParameterEditor::ValueChanged)
+			.OnValueCommitted(this, &SNiagaraFloatParameterEditor::ValueCommitted)
+			.OnBeginSliderMovement(this, &SNiagaraFloatParameterEditor::BeginSliderMovement)
+			.OnEndSliderMovement(this, &SNiagaraFloatParameterEditor::EndSliderMovement)
 		];
 	}
 
@@ -98,13 +96,13 @@ bool FNiagaraEditorFloatTypeUtilities::CanHandlePinDefaults() const
 FString FNiagaraEditorFloatTypeUtilities::GetPinDefaultStringFromValue(const FNiagaraVariable& AllocatedVariable) const
 {
 	checkf(AllocatedVariable.IsDataAllocated(), TEXT("Can not generate a default value string for an unallocated variable."));
-	return Lex::ToString(AllocatedVariable.GetValue<FNiagaraFloat>().Value);
+	return LexToString(AllocatedVariable.GetValue<FNiagaraFloat>().Value);
 }
 
 bool FNiagaraEditorFloatTypeUtilities::SetValueFromPinDefaultString(const FString& StringValue, FNiagaraVariable& Variable) const
 {
 	FNiagaraFloat FloatValue;
-	if (Lex::TryParseString(FloatValue.Value, *StringValue))
+	if (LexTryParseString(FloatValue.Value, *StringValue))
 	{
 		Variable.SetValue<FNiagaraFloat>(FloatValue);
 		return true;

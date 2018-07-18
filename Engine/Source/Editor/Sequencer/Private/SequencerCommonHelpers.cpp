@@ -5,7 +5,6 @@
 #include "DisplayNodes/SequencerSectionKeyAreaNode.h"
 #include "DisplayNodes/SequencerTrackNode.h"
 #include "SSequencer.h"
-#include "GroupedKeyArea.h"
 #include "ISequencerHotspot.h"
 #include "SSequencerTreeView.h"
 #include "VirtualTrackArea.h"
@@ -51,9 +50,9 @@ void SequencerHelpers::GetAllKeyAreas(TSharedPtr<FSequencerDisplayNode> DisplayN
 	}
 }
 
-int32 SequencerHelpers::GetSectionFromTime(TArrayView<UMovieSceneSection* const> InSections, float Time)
+int32 SequencerHelpers::GetSectionFromTime(TArrayView<UMovieSceneSection* const> InSections, FFrameNumber Time)
 {
-	float ClosestLowerBound = TNumericLimits<float>::Max();
+	FFrameNumber ClosestLowerBound = TNumericLimits<int32>::Max();
 	TOptional<int32> MaxOverlapPriority, MaxProximalPriority;
 
 	int32 MostRelevantIndex = INDEX_NONE;
@@ -64,7 +63,7 @@ int32 SequencerHelpers::GetSectionFromTime(TArrayView<UMovieSceneSection* const>
 		if (Section)
 		{
 			const int32 ThisSectionPriority = Section->GetOverlapPriority();
-			TRange<float> SectionRange = Section->IsInfinite() ? TRange<float>::All() : Section->GetRange();
+			TRange<FFrameNumber> SectionRange = Section->GetRange();
 
 			// If the specified time is within the section bounds
 			if (SectionRange.Contains(Time))
@@ -76,9 +75,9 @@ int32 SequencerHelpers::GetSectionFromTime(TArrayView<UMovieSceneSection* const>
 				}
 			}
 			// Check for nearby sections if there is nothing overlapping
-			else if (!MaxOverlapPriority.IsSet())
+			else if (!MaxOverlapPriority.IsSet() && SectionRange.HasLowerBound())
 			{
-				const float LowerBoundValue = SectionRange.GetLowerBoundValue();
+				const FFrameNumber LowerBoundValue = SectionRange.GetLowerBoundValue();
 				// If this section exists beyond the current time, we can choose it if its closest to the time
 				if (LowerBoundValue >= Time)
 				{
@@ -176,24 +175,6 @@ bool SequencerHelpers::FindObjectBindingNode(TSharedRef<FSequencerDisplayNode> D
 	return false;
 }
 
-int32 SequencerHelpers::TimeToFrame(float Time, float FrameRate)
-{
-	float Frame = Time * FrameRate;
-	return FMath::RoundToInt(Frame);
-}
-
-float SequencerHelpers::FrameToTime(int32 Frame, float FrameRate)
-{
-	return Frame / FrameRate;
-}
-
-float SequencerHelpers::SnapTimeToInterval(float InTime, float InFrameRate)
-{
-	return InFrameRate > 0
-		? FMath::RoundToInt( InTime / InFrameRate ) * InFrameRate
-		: InTime;
-}
-
 bool IsSectionSelectedInNode(FSequencer& Sequencer, TSharedRef<FSequencerDisplayNode> InNode)
 {
 	if (InNode->GetType() == ESequencerNode::Track)
@@ -213,33 +194,17 @@ bool IsSectionSelectedInNode(FSequencer& Sequencer, TSharedRef<FSequencerDisplay
 
 bool AreKeysSelectedInNode(FSequencer& Sequencer, TSharedRef<FSequencerDisplayNode> InNode)
 {
-	TSharedRef<FSequencerTrackNode> TrackNode = StaticCastSharedRef<FSequencerTrackNode>(InNode);
-
 	TSet<TSharedPtr<IKeyArea>> KeyAreas;
 	SequencerHelpers::GetAllKeyAreas(InNode, KeyAreas);
-	for (auto KeyArea : KeyAreas)
+
+	for (const FSequencerSelectedKey& Key : Sequencer.GetSelection().GetSelectedKeys())
 	{
-		for (auto KeyHandle : KeyArea->GetUnsortedKeyHandles())
+		if (KeyAreas.Contains(Key.KeyArea))
 		{
-			FSequencerSelectedKey TestKey(*KeyArea->GetOwningSection(), KeyArea, KeyHandle);
-			if (Sequencer.GetSelection().IsSelected(TestKey))
-			{
-				return true;
-			}
+			return true;
 		}
 	}
 
-	for (TSharedRef<FGroupedKeyArea> KeyGrouping : InNode->GetKeyGroupings())
-	{
-		for (auto KeyHandle : KeyGrouping->GetUnsortedKeyHandles())
-		{
-			FSequencerSelectedKey TestKey(*KeyGrouping->GetOwningSection(), KeyGrouping, KeyHandle);
-			if (Sequencer.GetSelection().IsSelected(TestKey))
-			{
-				return true;
-			}
-		}
-	}
 	return false;
 }
 
@@ -334,11 +299,18 @@ void SequencerHelpers::PerformDefaultSelection(FSequencer& Sequencer, const FPoi
 	{
 		if (Hotspot->GetType() == ESequencerHotspot::Key)
 		{
-			FSequencerSelectedKey Key = static_cast<FKeyHotspot*>(Hotspot.Get())->Key;
-			if (!Selection.IsSelected(Key))
+			bool bHasClearedSelection = false;
+			for (const FSequencerSelectedKey& Key : static_cast<FKeyHotspot*>(Hotspot.Get())->Keys)
 			{
-				ConditionallyClearSelection();
-				Selection.AddToSelection(Key);
+				if (!Selection.IsSelected(Key))
+				{
+					if (!bHasClearedSelection)
+					{
+						ConditionallyClearSelection();
+						bHasClearedSelection = true;
+					}
+					Selection.AddToSelection(Key);
+				}
 			}
 		}
 		else if (Hotspot->GetType() == ESequencerHotspot::Section || Hotspot->GetType() == ESequencerHotspot::EasingArea)
@@ -381,14 +353,16 @@ void SequencerHelpers::PerformDefaultSelection(FSequencer& Sequencer, const FPoi
 		
 	if (Hotspot->GetType() == ESequencerHotspot::Key)
 	{
-		FSequencerSelectedKey Key = static_cast<FKeyHotspot*>(Hotspot.Get())->Key;
-		if (bForceSelect || !Selection.IsSelected(Key))
+		for (const FSequencerSelectedKey& Key : static_cast<FKeyHotspot*>(Hotspot.Get())->Keys)
 		{
-			Selection.AddToSelection(Key);
-		}
-		else
-		{
-			Selection.RemoveFromSelection(Key);
+			if (bForceSelect || !Selection.IsSelected(Key))
+			{
+				Selection.AddToSelection(Key);
+			}
+			else
+			{
+				Selection.RemoveFromSelection(Key);
+			}
 		}
 	}
 	else if (Hotspot->GetType() == ESequencerHotspot::Section || Hotspot->GetType() == ESequencerHotspot::EasingArea)
@@ -396,7 +370,7 @@ void SequencerHelpers::PerformDefaultSelection(FSequencer& Sequencer, const FPoi
 		UMovieSceneSection* Section = static_cast<FSectionHotspot*>(Hotspot.Get())->Section.GetSectionObject();
 
 		// Never allow infinite sections to be selected through normal click (they're only selectable through right click)
-		if (!Section->IsInfinite())
+		if (Section->GetRange() != TRange<FFrameNumber>::All())
 		{
 			if (bForceSelect || !Selection.IsSelected(Section))
 			{
@@ -428,7 +402,7 @@ TSharedPtr<SWidget> SequencerHelpers::SummonContextMenu(FSequencer& Sequencer, c
 
 	// Attempt to paste into either the current node selection, or the clicked on track
 	TSharedRef<SSequencer> SequencerWidget = StaticCastSharedRef<SSequencer>(Sequencer.GetSequencerWidget());
-	const float PasteAtTime = Sequencer.GetLocalTime();
+	const FFrameNumber PasteAtTime = Sequencer.GetLocalTime().Time.FrameNumber;
 
 	const bool bShouldCloseWindowAfterMenuSelection = true;
 	FMenuBuilder MenuBuilder(bShouldCloseWindowAfterMenuSelection, Sequencer.GetCommandBindings());

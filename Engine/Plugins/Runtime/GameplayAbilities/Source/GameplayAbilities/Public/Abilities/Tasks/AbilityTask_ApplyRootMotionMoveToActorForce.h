@@ -4,9 +4,9 @@
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
 #include "Abilities/Tasks/AbilityTask.h"
-#include "AbilityTask_ApplyRootMotion_Base.h"
+#include "Abilities/Tasks/AbilityTask_ApplyRootMotion_Base.h"
 #include "Abilities/GameplayAbilityTargetTypes.h"
-#include "IDelegateInstance.h"
+#include "Delegates/IDelegateInstance.h"
 #include "AbilityTask_ApplyRootMotionMoveToActorForce.generated.h"
 
 class UCharacterMovementComponent;

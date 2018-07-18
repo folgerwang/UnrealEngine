@@ -39,7 +39,7 @@ class AUDIOMIXER_API USynthSound : public USoundWaveProcedural
 
 	/** Begin USoundWave */
 	virtual void OnBeginGenerate() override;
-	virtual bool OnGeneratePCMAudio(TArray<uint8>& OutAudio, int32 NumSamples) override;
+	virtual int32 OnGeneratePCMAudio(TArray<uint8>& OutAudio, int32 NumSamples) override;
 	virtual void OnEndGenerate() override;
 	virtual Audio::EAudioMixerStreamDataFormat::Type GetGeneratedPCMDataFormat() const override;
 	/** End USoundWave */
@@ -154,6 +154,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sound)
 	uint8 bIsUISound : 1;
 
+	/** Whether or not this synth is playing as a preview sound */
+	UPROPERTY()
+	uint8 bIsPreviewSound : 1;
+
 	/** Call if creating this synth component not via an actor component in BP, but in code or some other location. Optionally override the sample rate of the sound wave, otherwise it uses the audio device's sample rate. */
 	void Initialize(int32 SampleRateOverride = INDEX_NONE);
 
@@ -200,10 +204,11 @@ protected:
 	virtual void OnEndGenerate() {}
 
 	// Called when more audio is needed to be generated
-	virtual void OnGenerateAudio(float* OutAudio, int32 NumSamples) PURE_VIRTUAL(USynthComponent::OnGenerateAudio,);
+	virtual int32 OnGenerateAudio(float* OutAudio, int32 NumSamples) PURE_VIRTUAL(USynthComponent::OnGenerateAudio, return 0; );
 
 	// Called by procedural sound wave
-	void OnGeneratePCMAudio(float* GeneratedPCMData, int32 NumSamples);
+	// Returns the number of samples actually generated
+	int32 OnGeneratePCMAudio(float* GeneratedPCMData, int32 NumSamples);
 
 	// Gets the audio device associated with this synth component
 	FAudioDevice* GetAudioDevice() { return AudioComponent ? AudioComponent->GetAudioDevice() : nullptr; }

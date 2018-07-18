@@ -30,6 +30,8 @@ class ENGINE_API AGameStateBase : public AInfo
 {
 	GENERATED_UCLASS_BODY()
 
+public:
+
 	//~=============================================================================
 	// General accessors and variables
 

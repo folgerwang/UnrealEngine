@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
 #include "UObject/Object.h"
-#include "Guid.h"
+#include "Misc/Guid.h"
 #include "NiagaraModule.h"
 #include "NiagaraEmitterHandle.generated.h"
 

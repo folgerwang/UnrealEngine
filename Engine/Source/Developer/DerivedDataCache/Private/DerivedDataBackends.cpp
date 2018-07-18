@@ -579,7 +579,7 @@ public:
 			}
 			else
 			{
-				UE_LOG( LogDerivedDataCache, Warning, TEXT("%s data cache path was not usable, will not use it."), NodeName );
+				UE_LOG( LogDerivedDataCache, Warning, TEXT("%s data cache path (%s) was not usable, will not use it."), NodeName, *Path );
 			}
 		}
 

@@ -26,9 +26,10 @@ public class IOSPlatformEditor : ModuleRules
 				"TargetPlatform",
 				"MaterialShaderQualitySettings",
 				"RenderCore",
-                "AudioSettingsEditor"
+                "AudioSettingsEditor",
+                "GameProjectGeneration"
             }
-		);
+        );
 
 		PrivateIncludePathModuleNames.AddRange(
 			new string[] {
@@ -36,14 +37,5 @@ public class IOSPlatformEditor : ModuleRules
 				"Settings",
 			}
 		);
-
-		DynamicallyLoadedModuleNames.AddRange(
-			new string[] {
-				"GameProjectGeneration",
-				}
-		);
-
-        // this is listed above, so it isn't really dynamically loaded, this just marks it as being platform specific.
-		PlatformSpecificDynamicallyLoadedModuleNames.Add("IOSRuntimeSettings");
 	}
 }

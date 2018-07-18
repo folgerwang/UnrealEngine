@@ -2,6 +2,7 @@
 
 #include "MeshMergeDataTracker.h"
 #include "MeshMergeHelpers.h"
+#include "Misc/Crc.h"
 
 FMeshMergeDataTracker::FMeshMergeDataTracker()
 	: AvailableLightMapUVChannel(INDEX_NONE), SummedLightMapPixels(0)
@@ -10,10 +11,10 @@ FMeshMergeDataTracker::FMeshMergeDataTracker()
 	FMemory::Memzero(bOcuppiedUVChannels);
 }
 
-FRawMesh& FMeshMergeDataTracker::AddAndRetrieveRawMesh(int32 MeshIndex, int32 LODIndex)
+FRawMesh& FMeshMergeDataTracker::AddAndRetrieveRawMesh(int32 MeshIndex, int32 LODIndex, UStaticMesh* InMesh)
 {
-	checkf(!RawMeshLODs.Contains(FMeshLODKey(MeshIndex, LODIndex)), TEXT("Raw Mesh already added for this key"));
-	return RawMeshLODs.Add(FMeshLODKey(MeshIndex, LODIndex));
+	checkf(!RawMeshLODs.Contains(FMeshLODKey(MeshIndex, LODIndex, InMesh)), TEXT("Raw Mesh already added for this key"));
+	return RawMeshLODs.Add(FMeshLODKey(MeshIndex, LODIndex, InMesh));
 }
 
 void FMeshMergeDataTracker::RemoveRawMesh(int32 MeshIndex, int32 LODIndex)
@@ -112,11 +113,36 @@ bool FMeshMergeDataTracker::DoesLODContainVertexColors(int32 LODIndex) const
 	return bWithVertexColors[LODIndex];
 }
 
+bool FMeshMergeDataTracker::DoesAnyLODContainVertexColors() const
+{
+	for(int32 LODIndex = 0; LODIndex < MAX_STATIC_MESH_LODS; ++LODIndex)
+	{
+		if(bWithVertexColors[LODIndex])
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
 bool FMeshMergeDataTracker::DoesUVChannelContainData(int32 UVChannel, int32 LODIndex) const
 {
 	checkf(FMath::IsWithinInclusive(LODIndex, 0, MAX_STATIC_MESH_LODS - 1), TEXT("Invalid LOD index"));
 	checkf(FMath::IsWithinInclusive(UVChannel, 0, MAX_MESH_TEXTURE_COORDS - 1), TEXT("Invalid UV channel index"));
 	return bOcuppiedUVChannels[LODIndex][UVChannel];
+}
+
+bool FMeshMergeDataTracker::DoesUVChannelContainData(int32 UVChannel) const
+{
+	checkf(FMath::IsWithinInclusive(UVChannel, 0, MAX_MESH_TEXTURE_COORDS - 1), TEXT("Invalid UV channel index"));
+	for(int32 LODIndex = 0; LODIndex < MAX_STATIC_MESH_LODS; LODIndex++)
+	{
+		if(bOcuppiedUVChannels[LODIndex][UVChannel])
+		{
+			return true;
+		}
+	}
+	return false;
 }
 
 bool FMeshMergeDataTracker::DoesMeshLODRequireUniqueUVs(FMeshLODKey Key)
@@ -128,6 +154,17 @@ bool FMeshMergeDataTracker::DoesMeshLODRequireUniqueUVs(FMeshLODKey Key)
 int32 FMeshMergeDataTracker::GetAvailableLightMapUVChannel() const
 {
 	return AvailableLightMapUVChannel;
+}
+
+void FMeshMergeDataTracker::AddComponentToWedgeMapping(int32 MeshIndex, int32 LODIndex, uint32 WedgeIndex)
+{
+	ComponentToWedgeOffsets.Add(FMeshLODKey(MeshIndex, LODIndex), WedgeIndex);
+}
+
+uint32 FMeshMergeDataTracker::GetComponentToWedgeMappng(int32 MeshIndex, int32 LODIndex) const
+{
+	const uint32* MappingPtr = ComponentToWedgeOffsets.Find(FMeshLODKey(MeshIndex, LODIndex));
+	return MappingPtr ? *MappingPtr : INDEX_NONE;
 }
 
 FRawMesh* FMeshMergeDataTracker::GetRawMeshPtr(int32 MeshIndex, int32 LODIndex)
@@ -203,11 +240,17 @@ void FMeshMergeDataTracker::ProcessRawMeshes()
 	FMemory::Memset(bPotentialLODLightmapUVChannels, 1);
 
 	// Retrieve information in regards to occupied UV channels whether or not a mesh contains vertex colors, and if 
-	for (const TPair<FMeshLODKey, FRawMesh>& MeshPair : RawMeshLODs)
+	for (TPair<FMeshLODKey, FRawMesh>& MeshPair : RawMeshLODs)
 	{
-		const FMeshLODKey& Key = MeshPair.Key;
+		FMeshLODKey& Key = MeshPair.Key;
 		const int32 LODIndex = Key.GetLODIndex();
 		const FRawMesh& RawMesh = MeshPair.Value;
+
+		// hash vertex color buffer so we can see if instances have unique vertex data
+		if(RawMesh.WedgeColors.Num() > 0)
+		{
+			Key.SetVertexColorHash(FCrc::MemCrc32(RawMesh.WedgeColors.GetData(), RawMesh.WedgeColors.Num() * sizeof(FColor)));
+		}
 
 		const int32 LightmapChannelIdx = LightmapChannelLODs.FindRef(Key);
 		bool bNeedsVertexData = false;

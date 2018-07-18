@@ -464,9 +464,27 @@ public:
 		return Ar << Box.Min << Box.Max << Box.IsValid;
 	}
 
+	/**
+	 * Serializes the bounding box.
+	 *
+	 * @param Slot The structured archive slot to serialize into.
+	 * @param Box The box to serialize.
+	 */
+	friend void operator<<(FStructuredArchive::FSlot Slot, FBox& Box)
+	{
+		FStructuredArchive::FRecord Record = Slot.EnterRecord();
+		Record << NAMED_ITEM("Min", Box.Min) << NAMED_ITEM("Max", Box.Max) << NAMED_ITEM("IsValid", Box.IsValid);
+	}
+
 	bool Serialize( FArchive& Ar )
 	{
 		Ar << *this;
+		return true;
+	}
+
+	bool Serialize( FStructuredArchive::FSlot Slot )
+	{
+		Slot << *this;
 		return true;
 	}
 };
@@ -626,10 +644,10 @@ inline bool FMath::LineBoxIntersection
 	const FBox& Box, 
 	const FVector& Start, 
 	const FVector& End, 
-	const FVector& Direction
+	const FVector& StartToEnd
 	)
 {
-	return LineBoxIntersection(Box, Start, End, Direction, Direction.Reciprocal());
+	return LineBoxIntersection(Box, Start, End, StartToEnd, StartToEnd.Reciprocal());
 }
 
 inline bool FMath::LineBoxIntersection
@@ -637,8 +655,8 @@ inline bool FMath::LineBoxIntersection
 	const FBox&		Box,
 	const FVector&	Start,
 	const FVector&	End,
-	const FVector&	Direction,
-	const FVector&	OneOverDirection
+	const FVector&	StartToEnd,
+	const FVector&	OneOverStartToEnd
 	)
 {
 	FVector	Time;
@@ -649,7 +667,7 @@ inline bool FMath::LineBoxIntersection
 		bStartIsOutside = true;
 		if(End.X >= Box.Min.X)
 		{
-			Time.X = (Box.Min.X - Start.X) * OneOverDirection.X;
+			Time.X = (Box.Min.X - Start.X) * OneOverStartToEnd.X;
 		}
 		else
 		{
@@ -661,7 +679,7 @@ inline bool FMath::LineBoxIntersection
 		bStartIsOutside = true;
 		if(End.X <= Box.Max.X)
 		{
-			Time.X = (Box.Max.X - Start.X) * OneOverDirection.X;
+			Time.X = (Box.Max.X - Start.X) * OneOverStartToEnd.X;
 		}
 		else
 		{
@@ -678,7 +696,7 @@ inline bool FMath::LineBoxIntersection
 		bStartIsOutside = true;
 		if(End.Y >= Box.Min.Y)
 		{
-			Time.Y = (Box.Min.Y - Start.Y) * OneOverDirection.Y;
+			Time.Y = (Box.Min.Y - Start.Y) * OneOverStartToEnd.Y;
 		}
 		else
 		{
@@ -690,7 +708,7 @@ inline bool FMath::LineBoxIntersection
 		bStartIsOutside = true;
 		if(End.Y <= Box.Max.Y)
 		{
-			Time.Y = (Box.Max.Y - Start.Y) * OneOverDirection.Y;
+			Time.Y = (Box.Max.Y - Start.Y) * OneOverStartToEnd.Y;
 		}
 		else
 		{
@@ -707,7 +725,7 @@ inline bool FMath::LineBoxIntersection
 		bStartIsOutside = true;
 		if(End.Z >= Box.Min.Z)
 		{
-			Time.Z = (Box.Min.Z - Start.Z) * OneOverDirection.Z;
+			Time.Z = (Box.Min.Z - Start.Z) * OneOverStartToEnd.Z;
 		}
 		else
 		{
@@ -719,7 +737,7 @@ inline bool FMath::LineBoxIntersection
 		bStartIsOutside = true;
 		if(End.Z <= Box.Max.Z)
 		{
-			Time.Z = (Box.Max.Z - Start.Z) * OneOverDirection.Z;
+			Time.Z = (Box.Max.Z - Start.Z) * OneOverStartToEnd.Z;
 		}
 		else
 		{
@@ -737,7 +755,7 @@ inline bool FMath::LineBoxIntersection
 
 		if(MaxTime >= 0.0f && MaxTime <= 1.0f)
 		{
-			const FVector Hit = Start + Direction * MaxTime;
+			const FVector Hit = Start + StartToEnd * MaxTime;
 			const float BOX_SIDE_THRESHOLD = 0.1f;
 			if(	Hit.X > Box.Min.X - BOX_SIDE_THRESHOLD && Hit.X < Box.Max.X + BOX_SIDE_THRESHOLD &&
 				Hit.Y > Box.Min.Y - BOX_SIDE_THRESHOLD && Hit.Y < Box.Max.Y + BOX_SIDE_THRESHOLD &&

@@ -19,7 +19,4 @@ public:
 	/** UMovieSceneTrack interface */
 	virtual UMovieSceneSection* CreateNewSection() override;
 	virtual FMovieSceneEvalTemplatePtr CreateTemplateForSection(const UMovieSceneSection& InSection) const override;
-
-	DEPRECATED(4.15, "Direct evaluation of float tracks is no longer supported. Please create an evaluation template (see FMovieSceneFloatPropertySectionTemplate).")
-	virtual bool Eval( float Position, float LastPosition, float& InOutFloat ) const;
 };

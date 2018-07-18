@@ -1,10 +1,14 @@
-﻿INTSourceChangelist:3062259
+﻿INTSourceChangelist:3750353
 Availability:Public
 Title:メッシュのペイント
 Crumbs:%ROOT%, Engine, Engine/UI/LevelEditor/Modes/MeshPaintMode/VertexColor
 Description:Mesh Paint モードを使用したメッシュのペイント手順の概要を説明します。
 Version:4.13
+parent:Engine/UI/LevelEditor/Modes/MeshPaintMode/VertexColor
+type:how-to
+order:2
 SkillLevel:Intermediate
+topic-image:PaintStroke_Green.png
 
 [EXCERPT:Intro]
 メッシュのペイントは簡単です！まず覚えておいていただきたいのは、選択したメッシュだけにペイントできるということです。特定のオブジェクトだけにペイントを制限するのに便利であり、必要に応じて複数の _Mesh アクタ_ を選択してペイントすることもできます。

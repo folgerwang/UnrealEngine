@@ -4,7 +4,7 @@
 
 #include "Animation/MovieSceneMarginSection.h"
 #include "Tracks/MovieScenePropertyTrack.h"
-#include "MovieSceneEvaluation.h"
+#include "Evaluation/MovieSceneEvaluation.h"
 
 template<> FMovieSceneAnimTypeID GetBlendingDataType<FMargin>()
 {
@@ -14,37 +14,38 @@ template<> FMovieSceneAnimTypeID GetBlendingDataType<FMargin>()
 
 FMovieSceneMarginSectionTemplate::FMovieSceneMarginSectionTemplate(const UMovieSceneMarginSection& Section, const UMovieScenePropertyTrack& Track)
 	: FMovieScenePropertySectionTemplate(Track.GetPropertyName(), Track.GetPropertyPath())
-	, TopCurve(Section.GetTopCurve())
-	, LeftCurve(Section.GetLeftCurve())
-	, RightCurve(Section.GetRightCurve())
-	, BottomCurve(Section.GetBottomCurve())
+	, TopCurve(Section.TopCurve)
+	, LeftCurve(Section.LeftCurve)
+	, RightCurve(Section.RightCurve)
+	, BottomCurve(Section.BottomCurve)
 	, BlendType(Section.GetBlendType().Get())
 {
 }
 
 void FMovieSceneMarginSectionTemplate::Evaluate(const FMovieSceneEvaluationOperand& Operand, const FMovieSceneContext& Context, const FPersistentEvaluationData& PersistentData, FMovieSceneExecutionTokens& ExecutionTokens) const
 {
-	const float Time = Context.GetTime();
+	const FFrameTime Time = Context.GetTime();
 	MovieScene::TMultiChannelValue<float, 4> AnimatedData;
 
-	if (LeftCurve.HasAnyData())
+	float Value = 0.f;
+	if (LeftCurve.Evaluate(Time, Value))
 	{
-		AnimatedData.Set(0, LeftCurve.Eval(Time));
+		AnimatedData.Set(0, Value);
 	}
 
-	if (TopCurve.HasAnyData())
+	if (TopCurve.Evaluate(Time, Value))
 	{
-		AnimatedData.Set(1, TopCurve.Eval(Time));
+		AnimatedData.Set(1, Value);
 	}
 
-	if (RightCurve.HasAnyData())
+	if (RightCurve.Evaluate(Time, Value))
 	{
-		AnimatedData.Set(2, RightCurve.Eval(Time));
+		AnimatedData.Set(2, Value);
 	}
 
-	if (BottomCurve.HasAnyData())
+	if (BottomCurve.Evaluate(Time, Value))
 	{
-		AnimatedData.Set(3, BottomCurve.Eval(Time));
+		AnimatedData.Set(3, Value);
 	}
 
 	if (!AnimatedData.IsEmpty())

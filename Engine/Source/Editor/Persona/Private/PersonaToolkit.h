@@ -21,6 +21,7 @@ public:
 	virtual ~FPersonaToolkit() {}
 
 	/** Initialize from a various sources */
+	void Initialize(UObject* InAsset);
 	void Initialize(USkeleton* InSkeleton);
 	void Initialize(UAnimationAsset* InAnimationAsset);
 	void Initialize(USkeletalMesh* InSkeletalMesh);
@@ -42,6 +43,8 @@ public:
 	virtual class TSharedRef<IPersonaPreviewScene> GetPreviewScene() const override;
 	virtual class USkeletalMesh* GetPreviewMesh() const override;
 	virtual void SetPreviewMesh(class USkeletalMesh* InSkeletalMesh, bool bSetPreviewMeshInAsset = true) override;
+	virtual int32 GetCustomData(const int32 Key) const override;
+	virtual void SetCustomData(const int32 Key, const int32 CustomData) override;
 	virtual FName GetContext() const override;
 
 private:
@@ -62,6 +65,12 @@ private:
 
 	/** the physics asset we are editing */
 	UPhysicsAsset* PhysicsAsset;
+
+	/** The generic asset we are editing */
+	UObject* Asset;
+
+	/** Allow custom data for this editor */
+	TMap<int32, int32> CustomEditorData;
 
 	/** Preview scene for the editor */
 	TSharedPtr<FAnimationEditorPreviewScene> PreviewScene;

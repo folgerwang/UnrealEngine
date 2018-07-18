@@ -6,10 +6,6 @@ public class AlembicImporter : ModuleRules
 {
     public AlembicImporter(ReadOnlyTargetRules Target) : base(Target)
 	{
-        PrivateIncludePaths.Add("AlembicImporter/Private");
-        PublicIncludePaths.Add("AlembicImporter/Public");
-        PublicIncludePaths.Add("AlembicImporter/Classes");
-
         PublicDependencyModuleNames.AddRange(
 			new string[] {
 				"Core",

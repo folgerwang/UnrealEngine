@@ -11,9 +11,9 @@
 class Error;
 class FConfigCacheIni;
 class FFixedUObjectArray;
+class FChunkedFixedUObjectArray;
 class FOutputDeviceConsole;
 class FOutputDeviceRedirector;
-class FReloadObjectArc;
 class ITransaction;
 
 CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogHAL, Log, All);
@@ -25,6 +25,7 @@ CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogPS4, Log, All);
 CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogXboxOne, Log, All);
 CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogWindows, Log, All);
 CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogSwitch, Log, All);
+CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogQuail, Log, All);
 CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogSerialization, Log, All);
 CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogUnrealMath, Log, All);
 CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogUnrealMatrix, Log, All);
@@ -203,9 +204,6 @@ extern CORE_API bool GSlowTaskOccurred;
 extern CORE_API bool GIsGuarded;
 extern CORE_API bool GIsRequestingExit;
 
-/** Archive for serializing arbitrary data to and from memory						*/
-extern CORE_API FReloadObjectArc* GMemoryArchive;
-
 /**
 *	Global value indicating on-screen warnings/message should be displayed.
 *	Disabled via console command "DISABLEALLSCREENMESSAGES"
@@ -259,6 +257,9 @@ extern CORE_API void (*SuspendAsyncLoading)();
 /** Resumes async package loading. */
 extern CORE_API void (*ResumeAsyncLoading)();
 
+/** Suspends async package loading. */
+extern CORE_API bool (*IsAsyncLoadingSuspended)();
+
 /** Returns true if async loading is using the async loading thread */
 extern CORE_API bool(*IsAsyncLoadingMultithreaded)();
 
@@ -297,9 +298,6 @@ extern CORE_API bool GIsInitialLoad;
 /* Whether we are using the event driven loader */
 extern CORE_API bool GEventDrivenLoaderEnabled;
 
-//@todoio put this in some kind of API
-extern CORE_API bool GPakCache_AcceptPrecacheRequests;
-
 /** true when we are retrieving VTablePtr from UClass */
 extern CORE_API bool GIsRetrievingVTablePtr;
 
@@ -318,7 +316,7 @@ extern CORE_API uint32 GFrameNumberRenderThread;
 #if !(UE_BUILD_SHIPPING && WITH_EDITOR)
 // We cannot count on this variable to be accurate in a shipped game, so make sure no code tries to use it
 /** Whether we are the first instance of the game running. */
-#if PLATFORM_LINUX
+#if PLATFORM_UNIX
 #define GIsFirstInstance FPlatformProcess::IsFirstInstance()
 #else
 extern CORE_API bool GIsFirstInstance;
@@ -358,6 +356,9 @@ extern CORE_API ELogTimes::Type GPrintLogTimes;
 
 /** How to print the category in log output. */
 extern CORE_API bool GPrintLogCategory;
+
+/** How to print the verbosity in log output. */
+extern CORE_API bool GPrintLogVerbosity;
 
 #if USE_HITCH_DETECTION
 /** Used by the lightweight stats and FGameThreadHitchHeartBeat to print a stat stack for hitches in shipping builds. */
@@ -479,5 +480,5 @@ void CORE_API SetEmitDrawEvents(bool EmitDrawEvents);
 void CORE_API EnableEmitDrawEventsOnlyOnCommandlist();
 
 /** Array to help visualize weak pointers in the debugger */
-class FFixedUObjectArray;
-extern CORE_API FFixedUObjectArray* GCoreObjectArrayForDebugVisualizers;
+class FChunkedFixedUObjectArray;
+extern CORE_API FChunkedFixedUObjectArray* GCoreObjectArrayForDebugVisualizers;

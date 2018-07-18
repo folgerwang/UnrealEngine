@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3112291
+﻿INTSourceChangelist:3807090
 Availability:Public
 Title:アンリアル エンジン 4.13 リリースノート
 Crumbs:%ROOT%, Engine
@@ -49,7 +49,7 @@ VR 中でレベルをビルドしたい場合は、アンリアルの **VR エ�
 
 シーケンサーに [Siggraph Real-Time Live! 2016](https://www.unrealengine.com/blog/unreal-engine-4-powers-real-time-cinematography-at-siggraph) で紹介したライブ録画の改善点が更新されています。
 
-![image alt text](image_1.jpg)(h:674 w:929 convert:false)
+![image alt text](image_1.jpg)(w:929 convert:false)
 
 シーケンス レコーダーは、すべてのアニメーション、オーディオ、エフェクトをシーケンサーで編集可能なスタンドアローン アセットにインクルードしながら、ゲームプレイのライブ キャプチャを可能にします。今回のリリースで追加された新機能は以下のとおりです。
 
@@ -65,7 +65,7 @@ VR 中でレベルをビルドしたい場合は、アンリアルの **VR エ�
 
 移動しないポイント ライトまたはスポット ライトに対して、シャドウ マップを格納して次のフレームに再利用することができます。この機能は自動処理で、背景が通常は動かないゲームでは、シャドウ キャスティング ムーバブル ポイントライトとスポットライトの効率を上げます。
 
-![image alt text](image_2.jpg)(h:541 w:929 convert:false)
+![image alt text](image_2.jpg)(w:929 convert:false)
 
 上の画像は 33 個の動的シャドウ キャスティング ポイントライトが最小限のオーバーヘッドで表示されています。
 
@@ -97,15 +97,15 @@ VR 中でレベルをビルドしたい場合は、アンリアルの **VR エ�
 
 ノイズ マテリアル ノードで利用できる Voronoi ノイズ オプションを追加しました。Voronoi ノイズは Worley または Cellular ノイズとも呼ばれ、プロシージャルなマテリアル生成に便利な場合があります。 
 
-![image alt text](image_3.jpg)(h:333 w:624 convert:false)
+![image alt text](image_3.jpg)(w:624 convert:false)
 
 Voronoi ノイズは、以下の像で分かるように、大理石などお馴染みの物理マテリアルにパターンを生成するために使用します。
 
-![image alt text](image_4.jpg)(h:377 w:624 convert:false)
+![image alt text](image_4.jpg)(w:624 convert:false)
 
 この例では、「グラディエント マッピング」という技術と Voronoi ノイズを併用して、大理石のような外見を実現しました。
 
-![image alt text](image_5.jpg)(h:233 w:929 convert:false)
+![image alt text](image_5.jpg)(w:929 convert:false)
 
 左から右の順に
 
@@ -139,15 +139,15 @@ Voronoi ノイズは 4 段階の品質レベルがあります。レベルが高
 
 新機能の **Draw Material to Render Target** は、マテリアルの **Emissive Color** 入力でレンダー ターゲット先を塗りつぶすクワッドを描画します。
 
-![image alt text](image_8.jpg)(h:149 w:661 convert:false)
+![image alt text](image_8.jpg)(w:661 convert:false)
 
 ゲームを開始すると、**Begin Play** が呼び出され、レンダー ターゲットが青で塗りつぶされます。レンダー ターゲットを右クリックして、圧縮できるように静的テクスチャとして保存します。  
 
-![image alt text](image_9.jpg)(h:164 w:500 convert:false)
+![image alt text](image_9.jpg)(w:500 convert:false)
 
 レンダー ターゲットをさらに細かく描画する場合は、 **Begin Draw Canvas to Render Target ** と **End Draw Canvas to Render Target** を使用します。これらを使うと、キャンバス オブジェクトフォント描画メソッドだけでなく、レンダー ターゲットの複数のサブセットを効率的に描画することができます。
 
-![image alt text](image_10.jpg)(h:517 w:896 convert:false)
+![image alt text](image_10.jpg)(w:896 convert:false)
 
 ブループリントからオフスクリーンのレンダリングが可能になったので、グラフィック プログラマーの助けを借りずに多くのレンダリング機能をすぐに実行することができます。ピクセル シェーダー処理で大きいレンダー ターゲットへのたくさんのパスを使って、GPU も保管しやすくなりました。これらの描画コールは、(WorldTick イベント配下の) デバッグ コンソールに 'ProfileGPU' と入力すると表示されます
 
@@ -181,7 +181,7 @@ Alembic キャッシュをいくつかの方法でインポートできます。
 
 スタティックメッシュとスケルタルメッシュのプレビューに使用するシーンの設定機能が追加されました。 
 
-![image alt text](image_12.jpg)(h:232 w:929 convert:false)
+![image alt text](image_12.jpg)(w:929 convert:false)
 
 [Preview Scene Settings (プレビュー シーン設定)] パネルがスタティックメッシュ エディタとスケルタルメッシュ エディタに追加されました。ここで、複数のプロファイル (シーン) を設定してメッシュをプレビューすることができ、プロファイルで以下の変更が可能になります。
 
@@ -191,7 +191,7 @@ Alembic キャッシュをいくつかの方法でインポートできます。
 
 * ポストプロセス設定 (ポストプロセス ボリュームと同じ)
 
-![image alt text](image_13.jpg)(h:494 w:766 convert:false)
+![image alt text](image_13.jpg)(w:766 convert:false)
 
 ショーケース機能も幾つか追加しました。
 
@@ -205,11 +205,11 @@ Alembic キャッシュをいくつかの方法でインポートできます。
 
 スタティックメッシュの上に効率的にマテリアルを衝撃で平らにして、効果的に異なるマテリアルを互い違いに滑らかに重ねることができる機能です。独自のトポグラフィとマテリアルを使って、下層のジオメトリのプロファイルの上に置かれている 2 つ目のメッシュだと考えてください。 
 
-![image alt text](image_14.jpg)(h:326 w:428 convert:false)
+![image alt text](image_14.jpg)(w:428 convert:false)
 
 上の画像の柱は、下画像のワイヤーフレームで示したように細かく分割した単一のメッシュで基本メッシュをオーバーレイ表示して作成しました。左側の柱はメッシュ デカールを使うことで、カラー、法線、ラフネスのスムーズなブレンドが可能です。右側の柱は、比較のためにマテリアルをマスクしています。  
 
-![image alt text](image_15.jpg)(h:220 w:165 convert:false)![image alt text](image_16.jpg)(h:220 w:169 convert:false)
+![image alt text](image_15.jpg)(w:165 convert:false)![image alt text](image_16.jpg)(h:220 w:169 convert:false)
 
 ディファード デカールとは違ってプロジェクションが一切含まれていないので、マテリアルにサーフェイス オフセットを含むためには、下層のサーフェイスとしっかり転結した典型的なデカール メッシュが必要な場合があります。メッシュ デカール ジオメトリが LOD メッシュを貫通する LOD がある場合は注意してください。
 
@@ -255,7 +255,7 @@ Custom Post-Process マテリアルがモバイル デバイスで利用でき�
 
 ライティング チャネルがモバイル レンダラで利用できるようになりました！これにより、ライトを指定して、好きなオブジェクトだけに効果を与えることができます。シネマティックスでの高度なライティング リグに最適です。
 
-![image alt text](image_21.jpg)(h:224 w:793 convert:false)
+![image alt text](image_21.jpg)(w:793 convert:false)
 
 * 複数の指向性ライトが様々なチャネルでサポートされます。
 
@@ -269,7 +269,7 @@ Custom Post-Process マテリアルがモバイル デバイスで利用でき�
 
 Mac Metal で Shader Model 5 サポートがデフォルトで有効になりました。これにより、アンリアル エンジン 4 で利用できる Mac OS X 10.11.6 の Metal 機能がすべて使用できるようになりました。 
 
-![image alt text](image_22.jpg)(h:521 w:925 convert:false)
+![image alt text](image_22.jpg)(w:925 convert:false)
 
 * レンダー コマンド ディスパッチを平行して行うために、RHI スレッドと平行移動機能を実装します。
 
@@ -349,7 +349,7 @@ VR エディタを使って、テクスチャとメッシュ頂点上にペイ�
 
 VR エディタのトランスフォーム ギズモのユーザビリティが改善され、新機能が追加されました！
 
-![image alt text](image_30.jpg)(h:442 w:466 convert:false)
+![image alt text](image_30.jpg)(w:466 convert:false)
 
 オブジェクトの移動と回転がより自然に近くなり、VR でオブジェクトを均一にスケールしたり、単一の 2D プレーンに平行に移動することができるようになりました。今後も引き続き VR ギズモを改善していきます。
 
@@ -357,13 +357,13 @@ VR エディタのトランスフォーム ギズモのユーザビリティが�
 
 クイックメニューから懐中電灯をコントローラに追加することができます。シーンの暗い部分を照らしたり、ライトがどのように他のマテリアルとインタラクトしているかを確認できます。
 
-![image alt text](image_31.jpg)(h:333 w:466 convert:false)
+![image alt text](image_31.jpg)(w:466 convert:false)
 
 ## 新規：VR エディタからスクリーンショットを撮る
 
 VR で直接スクリーンショットが撮れるようになりました！
 
-![image alt text](image_32.jpg)(h:392 w:604 convert:false)
+![image alt text](image_32.jpg)(w:604 convert:false)
 
 ## 新規：VR 編集モードの自動切り替え
 
@@ -375,21 +375,21 @@ VR エディタが有効の間は VR ボタンやエスケープを手で操作�
 
 [Editor Settings (エディタ設定)] の [Experimental (体験版)] セクションの VR の設定で、好みに応じて自動切り替えのオンオフができます。
 
-![image alt text](image_34.jpg)(h:84 w:384 convert:false)
+![image alt text](image_34.jpg)(w:384 convert:false)
 
 ## 新規：シーケンサーのインポート / エクスポート
 
 シーケンサーで、ノンリニア編集パッケージとの相互変換のため CMX EDL ファイルのインポート / エクスポートが可能になりました。 
 
 [REGION:raw]
-![image alt text](image_35.jpg)(h:529 w:869 convert:false)
+![image alt text](image_35.jpg)(w:869 convert:false)
 [/REGION]
 
 上の画像は Adobe Premiere Pro へエクスポートされたシーケンスのスクリーンショットです。シーケンスの各ショットは、EDL ファイルで参照される別々の動画ファイルへ書き出されます。Premiere でのシーケンス処理の変更はすべて UE4 のシーケンスへインポートされます。
 
 OpenEXR ファイルで HDR データをエクスポートするシーケンサーの機能が拡張され、ユーザーはHDR データをエンコードするために使う色域が選択できるようになりました。 
 
-![image alt text](image_36.jpg)(h:220 w:492 convert:false)
+![image alt text](image_36.jpg)(w:492 convert:false)
 
 シーケンサーが FBX アニメーションをオブジェクトやトラックに直接インポートできるようになりました。アニメートされたトラックも FBX へエクスポートすることができます！
 
@@ -398,7 +398,7 @@ OpenEXR ファイルで HDR データをエクスポートするシーケンサ�
 動画シーケンスのレンダリング時に、エクスポートするイメージに「Burn-in」を設定することができるようになりました。ショットの識別とトラックに非常に便利です。
 
 [REGION:raw]
-![image alt text](image_37.jpg)(h:458 w:865 convert:false)
+![image alt text](image_37.jpg)(w:865 convert:false)
 [/REGION]
 
 ## 新規：メディア フレームワークの大改修
@@ -519,11 +519,11 @@ FACS (Facial Action Coding System) または viseme (形素) カーブがポー�
 
 ポーズは通常のアニメーション カーブで操作されます。アニメーションの中にある限り、カーブを確認することができます。ペルソナでは、ポーズをカーブからプレビューするには、現在の [Preview Pose Asset] を設定する必要があります。 
 
-![image alt text](image_42.jpg)(h:152 w:348 convert:false)
+![image alt text](image_42.jpg)(w:348 convert:false)
 
 AnimGraph では、Pose Blender ノード (Pose By Name) を使って入力カーブに基づいたポーズを出力することができます。 
 
-![image alt text](image_43.jpg)(h:146 w:422 convert:false)
+![image alt text](image_43.jpg)(w:422 convert:false)
 
 このシステムをサポートするために付加的なブレンドでスケールを処理する方法を改善しました。今後は、ポーズ アセットとモーフ ターゲットの操作に使われるその他のアセット (サウンドウェーブなど) でもカーブをサポートしたいと思っています。
 
@@ -551,7 +551,7 @@ AnimGraph では、Pose Blender ノード (Pose By Name) を使って入力カ�
 
 シーン キャプチャが改善されました。新しい ‘Blueprint Drawing to Render Targets’ 機能を使えばもっと便利になります！
 
-![image alt text](image_46.jpg)(h:173 w:929 convert:false)
+![image alt text](image_46.jpg)(w:929 convert:false)
 
 * 正投影がサポートされます。
 
@@ -563,7 +563,7 @@ AnimGraph では、Pose Blender ノード (Pose By Name) を使って入力カ�
 
 * シーン キャプチャへのレンダリング対象を簡単に制御する ‘Hidden Actors’ と ‘Show Only Actors’ 配列が追加されました。
 
-![image alt text](image_47.jpg)(h:312 w:364 convert:false)
+![image alt text](image_47.jpg)(w:364 convert:false)
 
 メッシュを可視性のある形状で正投影のシーン キャプチャにレンダリングして、 Draw Material To Render Target で画像処理することで、戦場の煙などのゲーム特有のエフェクトを実現できます。
 
@@ -571,7 +571,7 @@ AnimGraph では、Pose Blender ノード (Pose By Name) を使って入力カ�
 
 頂点法線を参照とし利用して、各ピクセル法線の頂点法線との差異から屈折オフセットを計算する "Pixel Normal Offset" 屈折モードが追加されました。非物理屈折ですが、フラットな水面での屈折に使用できます。
 
-![image alt text](image_48.jpg)(h:153 w:929 convert:false)
+![image alt text](image_48.jpg)(w:929 convert:false)
 
 左: 屈折なしのシンプルなシーン
 
@@ -579,13 +579,13 @@ AnimGraph では、Pose Blender ノード (Pose By Name) を使って入力カ�
 
 右：法線マップの差に基づいて変形するピクセル ノーマル オフセット屈折メソッド
 
-![image alt text](image_49.jpg)(h:78 w:344 convert:false)
+![image alt text](image_49.jpg)(w:344 convert:false)
 
 ## 新規：ライン トレースからのテクスチャ座標
 
 ライン トレースからのテクスチャ座標 (UV) 情報をサポートするためのプロジェクト設定を追加しました。 
 
-![image alt text](image_50.jpg)(h:330 w:297 convert:false)
+![image alt text](image_50.jpg)(w:297 convert:false)
 
 このオプションは [Project Settings (プロジェクト設定)] -> [Physics (物理)] -> [Optimizations (最適化)] にあります。このオプションを有効にすると、‘Find Collision UV’ 関数を使って Hit Result を受け取り、影響ポイントで任意の UV チャネルに対する UV 情報を検索します。UV 情報のコピーは CPU メモリに格納されるため、この機能を有効にするとその分メモリを使います。
 
@@ -595,7 +595,7 @@ AnimGraph では、Pose Blender ノード (Pose By Name) を使って入力カ�
 
 標準のスプライン ビジュアライザー編集機能を使って、Spline コンポーネント ポイントをブループリント エディタに設定することが可能になります。一度配置されるとインスタンス レベルごとにオーバーライドが可能ですが、ブループリントの新規インスタンスがこれらのデフォルトで作成されます。
 
-![image alt text](image_51.jpg)(h:445 w:929 convert:false)
+![image alt text](image_51.jpg)(w:929 convert:false)
 
 スプライン ビジュアライザーにて "Reset to Default" コンテキスト アクション使用で、インスタンスはブループリントのデフォルト設定に戻ります。ブループリントのデフォルトに対して行われた変更はすべて、スプライン ポイントがその後編集されていないインスタンスに継承されます。
 
@@ -607,7 +607,7 @@ AnimGraph では、Pose Blender ノード (Pose By Name) を使って入力カ�
 
 これまではスプライン ポイントを正確に配置し、スケール、ロール、タンジェントをそれらに割り当てることができませんでした。これらのプロパティが、選択したスプライン ポイントの詳細パネルに表示されるようになります。
 
-![image alt text](image_53.jpg)(h:190 w:449 convert:false)
+![image alt text](image_53.jpg)(w:449 convert:false)
 
 **新規のスプライン ポイント プロパティ**
 
@@ -615,11 +615,11 @@ AnimGraph では、Pose Blender ノード (Pose By Name) を使って入力カ�
 
 スプライン ビジュアライザーには、Spline コンポーネントの詳細のコンテキスト メニューの中に、タンジェントの出入りがロックされずに別々に編集できるオプションがあります。
 
-![image alt text](image_54.jpg)(h:220 w:190 convert:false)
+![image alt text](image_54.jpg)(w:190 convert:false)
 
 ポイントごとに任意の入力キーを設定が可能になったので、クローズしたスプラインに対しても Loop Position の入力キーの指定が可能になります。
 
-![image alt text](image_55.jpg)(h:192 w:454 convert:false)
+![image alt text](image_55.jpg)(w:454 convert:false)
 
 入力キーまたはループ位置の指定がない場合は、デフォルトの開始位置は 0.0 になり、ポイントごとに 1.0 ずつ増えていきます。
 
@@ -627,23 +627,23 @@ AnimGraph では、Pose Blender ノード (Pose By Name) を使って入力カ�
 
 ブループリント コンストラクション スクリプトでプロシージャルにスプラインをビルドした方が好ましい場合があります。これまでは、スプライン ポイントで毎回演算することによりスプラインがリビルドされていましたが、最適化の目的で、スプライン ポイント演算の後にスプラインをリビルドすべきか指定できるようになります。Update Spline ノードもちゃんとあります。
 
-![image alt text](image_56.jpg)(h:413 w:918 convert:false)
+![image alt text](image_56.jpg)(w:918 convert:false)
 
 **コンストラクション スクリプトへの入力スプライン ポイント**
 
 スプライン ビジュアライザーでスプラインを手作業で編集し、その後でブループリント コンストラクション スクリプトを使って仕上げる方が便利が場合があります。すべての編集済みポイントを球体のサーフェスにロックしている、以下のような状態がその例です。
 
-![image alt text](image_57.jpg)(h:456 w:929 convert:false)
+![image alt text](image_57.jpg)(w:929 convert:false)
 
 使用するには、"Input Spline Points to Construction Script" プロパティにチェックを入れます。
 
-![image alt text](image_58.jpg)(h:196 w:452 convert:false)
+![image alt text](image_58.jpg)(w:452 convert:false)
 
 ## 新規：Sub Animation ブループリント
 
 Animation ブループリントの ‘Sub Anim Instance’ ノードを使って、アニメーション ロジックを共有し、他の Sub Animation ブループリントへの参照が可能になります。このノードを使うと、大きい Animation ブループリントを [移動] と [物理] というように、別々のアセットに分割することもできます。 
 
-![image alt text](image_59.jpg)(h:149 w:644 convert:false)
+![image alt text](image_59.jpg)(w:644 convert:false)
 
 Sub ブループリントのメンバ変数は、入力ピンとしてノードに表示されます。Sub Animation ブループリントは、外部の Animation ブループリントと同じスケルトンを使用しなければなりません。
 
@@ -651,7 +651,7 @@ Sub ブループリントのメンバ変数は、入力ピンとしてノード�
 
 ペルソナから [Skeleton Curve] タブを取り除き、改善された [Animation Curves] タブへその機能を移しました。カーブ名の変更、カーブの削除、カーブ データのプレビューができます。 
 
-![image alt text](image_60.jpg)(h:381 w:622 convert:false)
+![image alt text](image_60.jpg)(w:622 convert:false)
 
 現在のスケルトンに属しているすべてのカーブ、もしくは現在アクティブなカーブをプレビュー アセットで確認できます。アクティブなカーブだけを確認したい場合は、カーブの種類を指定したフィルタ表示も可能です。デフォルト カーブ名はデフォルトでは「属性」になっているので、アニメーション カーブはすべてデフォルトは属性カーブとなります。ご注意ください。 
 
@@ -661,7 +661,7 @@ Sub ブループリントのメンバ変数は、入力ピンとしてノード�
 
 Paper2D スプライトを UMG とスレート ウィジェット用のブラシ入力として使えるようになります。スプライト シートとして開発された UI アートをユーザーが参照できるようにしただけでなく、描画コールをあまり行えないプラットフォームでより効率の良いウィジェットのレンダリングが可能になります。レンダリング時にべて同じレイヤーを共有しているのであれば、同じテクスチャ アトラスを構成しているスプライトはスレートと一緒にバッチ処理することができます。
 
-![image alt text](image_61.jpg)(h:257 w:460 convert:false)![image alt text](image_62.jpg)(h:258 w:460 convert:false)
+![image alt text](image_61.jpg)(w:460 convert:false)![image alt text](image_62.jpg)(h:258 w:460 convert:false)
 
 ## 新規：インスタンス化ステレオ レンダリングをVR 用に最適化する
 
@@ -671,7 +671,7 @@ Paper2D スプライトを UMG とスレート ウィジェット用のブラシ
 
 プロジェクトが Shader Model 5 レベルのハードウェアの GPU でモーフ ターゲットを計算できるようになります。CPU に負担をかけずにこのような演算の実施が可能になります。
 
-![image alt text](image_63.jpg)(h:194 w:520 convert:false)
+![image alt text](image_63.jpg)(w:520 convert:false)
 
 ## 新規：ランドスケープ シェーダー メモリの最適化
 
@@ -691,7 +691,7 @@ Combined Static に最適化が追加され、CSM シャドウ モードが 4.12
 
 その後で、すべてのデバイス上で自動化テストを起動し、[Session Fronted] ウィンドウ で結果を確認します。
 
-![image alt text](image_64.jpg)(h:542 w:838 convert:false)
+![image alt text](image_64.jpg)(w:838 convert:false)
 
 ## 新規：OpenGL ES 3.1 (Android)
 
@@ -699,13 +699,13 @@ UE4 は長い間 Android の OpenGL ES 3.0 と 3.1 機能の多くをサポー�
 
 同じプロジェクトに ES 2.0 と ES 3.1 の両方のシェーダーのパッケージ化も選択可能になり、デバイスは性能に応じて最も良いシェーダー プラットフォームを選択します。 
 
-![image alt text](image_65.jpg)(h:220 w:582 convert:false)
+![image alt text](image_65.jpg)(w:582 convert:false)
 
 ## 新規：モバイル パッケージング ウィザード 
 
 コンテンツなしの最小限の app を App Store にアップロードし、残りのコンテンツを Cloud からダウンロードするモバイル用のパッケージ化をサポートする、モバイル パッケージング ウィザードを追加しました。
 
-![image alt text](image_66.jpg)(h:484 w:800 convert:false)
+![image alt text](image_66.jpg)(w:800 convert:false)
 
 * これは、定期的に DLS アップデートのある大規模なゲームで一般的なパッケージング方法です。
 
@@ -717,7 +717,7 @@ UE4 は長い間 Android の OpenGL ES 3.0 と 3.1 機能の多くをサポー�
 
 マテリアルをモバイル デバイスで使用する場合、ピクセル シェーダーで最大精度を使用するオプションがつきました。例えば、マテリアルが演算処理でワールド座標を使う場合に役立ちます。
 
-![image alt text](image_67.jpg)(h:92 w:260 convert:false)
+![image alt text](image_67.jpg)(w:260 convert:false)
 
 ## 新規：バイナリ シェーダー キャッシュ (Android)
 
@@ -761,9 +761,9 @@ UE4 は長い間 Android の OpenGL ES 3.0 と 3.1 機能の多くをサポー�
 
 これらの value 型をブループリントに設定する機能が、"Format Text" ノードのワイルドカード ピンで表示されます。
 
-![image alt text](image_68.jpg)(h:166 w:564 convert:false)
+![image alt text](image_68.jpg)(w:564 convert:false)
 
-![image alt text](image_69.jpg)(h:168 w:820 convert:false)
+![image alt text](image_69.jpg)(w:820 convert:false)
 
 FText::Format(...) への複数のコールに再利用する場合は、フォーマット パターンのプリコンパイルも可能です。FTextFormat インスタンスを作成および格納し、FText::Format(...) へパターンとしてパスします。
 
@@ -785,7 +785,7 @@ FText::Format(...) への複数のコールに再利用する場合は、フォ�
 
 BuildGraph スクリプトを使って、ビルド自動化のための UE4 ビルド コマンドのカスタム シーケンスを作成することができます。グラフは MSBuild、ANT、NAnt のようなシンタックスを使った XML スクリプトで宣言され、*タスク* から成る従属 *ノード* のネットワークで構成されます。 
 
-![image alt text](image_70.jpg)(h:382 w:677 convert:false)
+![image alt text](image_70.jpg)(w:677 convert:false)
 
 Engine/Build/Graph/Examples/…で BuildGraph のサンプルをご覧いただけます。
 

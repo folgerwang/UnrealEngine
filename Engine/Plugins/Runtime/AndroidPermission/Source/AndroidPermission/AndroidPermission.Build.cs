@@ -10,7 +10,6 @@ public class AndroidPermission : ModuleRules
 		
 		PublicIncludePaths.AddRange(
 			new string[] {
-				"AndroidPermission/Public",
 				"Runtime/Launch/Public"
 			}
 			);

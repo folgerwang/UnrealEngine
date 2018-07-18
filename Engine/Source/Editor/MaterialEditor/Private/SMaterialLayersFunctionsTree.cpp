@@ -11,7 +11,7 @@
 #include "MaterialEditor/MaterialEditorInstanceConstant.h"
 #include "Materials/Material.h"
 #include "PropertyHandle.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "PropertyEditorModule.h"
 #include "ISinglePropertyView.h"
 #include "Materials/MaterialInstanceConstant.h"
@@ -19,623 +19,901 @@
 #include "PropertyCustomizationHelpers.h"
 #include "ScopedTransaction.h"
 #include "IPropertyRowGenerator.h"
-#include "STreeView.h"
+#include "Widgets/Views/STreeView.h"
 #include "IDetailTreeNode.h"
 #include "AssetThumbnail.h"
 #include "MaterialEditorInstanceDetailCustomization.h"
 #include "MaterialPropertyHelpers.h"
 #include "DetailWidgetRow.h"
-#include "SCheckBox.h"
+#include "Widgets/Input/SCheckBox.h"
 #include "EditorSupportDelegates.h"
-#include "SImage.h"
+#include "Widgets/Images/SImage.h"
 #include "MaterialEditor/MaterialEditorPreviewParameters.h"
-#include "SButton.h"
-#include "SInlineEditableTextBlock.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Text/SInlineEditableTextBlock.h"
 #include "Materials/MaterialFunctionInstance.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Toolkits/AssetEditorManager.h"
+#include "Widgets/Input/SEditableTextBox.h"
+#include "Curves/CurveLinearColor.h"
+#include "Curves/CurveLinearColorAtlas.h"
 
 
 #define LOCTEXT_NAMESPACE "MaterialLayerCustomization"
 
-class SMaterialLayersFunctionsInstanceTreeItem : public STableRow< TSharedPtr<FStackSortedData> >
+FString SMaterialLayersFunctionsInstanceTreeItem::GetCurvePath(UDEditorScalarParameterValue* Parameter) const
 {
-public:
+	FString Path = Parameter->AtlasData.Curve->GetPathName();
+	return Path;
+}
 
-	SLATE_BEGIN_ARGS(SMaterialLayersFunctionsInstanceTreeItem)
-		: _StackParameterData(nullptr),
-		 _MaterialEditorInstance(nullptr)
-	{}
-
-	/** The item content. */
-	SLATE_ARGUMENT(TSharedPtr<FStackSortedData>, StackParameterData)
-	SLATE_ARGUMENT(UMaterialEditorInstanceConstant*, MaterialEditorInstance)
-	SLATE_ARGUMENT(SMaterialLayersFunctionsInstanceTree*, InTree)
-	SLATE_END_ARGS()
-
-	FMaterialTreeColumnSizeData ColumnSizeData;
-
-	void RefreshOnRowChange(const FAssetData& AssetData, SMaterialLayersFunctionsInstanceTree* InTree)
+const FSlateBrush* SMaterialLayersFunctionsInstanceTreeItem::GetBorderImage() const
+{
+	if (StackParameterData->StackDataType == EStackDataType::Stack)
 	{
-		if (SMaterialLayersFunctionsInstanceWrapper* Wrapper = InTree->GetWrapper())
+		if (bIsBeingDragged)
 		{
-			if (Wrapper->OnLayerPropertyChanged.IsBound())
+			return FEditorStyle::GetBrush("MaterialInstanceEditor.StackBodyDragged");
+		}
+		else if (bIsHoveredDragTarget)
+		{
+			return FEditorStyle::GetBrush("MaterialInstanceEditor.StackBody_Highlighted");
+		}
+		else
+		{
+			return FEditorStyle::GetBrush("MaterialInstanceEditor.StackHeader");
+		}
+	}
+	else
+	{
+		if (bIsHoveredDragTarget)
+		{
+			return FEditorStyle::GetBrush("MaterialInstanceEditor.StackBody_Highlighted");
+		}
+		else
+		{
+			return FEditorStyle::GetBrush("MaterialInstanceEditor.StackBody");
+		}
+	}
+}
+
+void SMaterialLayersFunctionsInstanceTreeItem::RefreshOnRowChange(const FAssetData& AssetData, SMaterialLayersFunctionsInstanceTree* InTree)
+{
+	if (SMaterialLayersFunctionsInstanceWrapper* Wrapper = InTree->GetWrapper())
+	{
+		if (Wrapper->OnLayerPropertyChanged.IsBound())
+		{
+			Wrapper->OnLayerPropertyChanged.Execute();
+		}
+		else
+		{
+			InTree->CreateGroupsWidget();
+		}
+	}
+}
+
+bool SMaterialLayersFunctionsInstanceTreeItem::GetFilterState(SMaterialLayersFunctionsInstanceTree* InTree, TSharedPtr<FStackSortedData> InStackData) const
+{
+	if (InStackData->ParameterInfo.Association == EMaterialParameterAssociation::LayerParameter)
+	{
+		return InTree->FunctionInstance->RestrictToLayerRelatives[InStackData->ParameterInfo.Index];
+	}
+	if (InStackData->ParameterInfo.Association == EMaterialParameterAssociation::BlendParameter)
+	{
+		return InTree->FunctionInstance->RestrictToBlendRelatives[InStackData->ParameterInfo.Index];
+	}
+	return false;
+}
+
+void SMaterialLayersFunctionsInstanceTreeItem::FilterClicked(const ECheckBoxState NewCheckedState, SMaterialLayersFunctionsInstanceTree* InTree, TSharedPtr<FStackSortedData> InStackData)
+{
+	if (InStackData->ParameterInfo.Association == EMaterialParameterAssociation::LayerParameter)
+	{
+		InTree->FunctionInstance->RestrictToLayerRelatives[InStackData->ParameterInfo.Index] = !InTree->FunctionInstance->RestrictToLayerRelatives[InStackData->ParameterInfo.Index];
+	}
+	if (InStackData->ParameterInfo.Association == EMaterialParameterAssociation::BlendParameter)
+	{
+		InTree->FunctionInstance->RestrictToBlendRelatives[InStackData->ParameterInfo.Index] = !InTree->FunctionInstance->RestrictToBlendRelatives[InStackData->ParameterInfo.Index];
+	}
+}
+
+ECheckBoxState SMaterialLayersFunctionsInstanceTreeItem::GetFilterChecked(SMaterialLayersFunctionsInstanceTree* InTree, TSharedPtr<FStackSortedData> InStackData) const
+{
+	return GetFilterState(InTree, InStackData) ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+}
+
+FText SMaterialLayersFunctionsInstanceTreeItem::GetLayerName(SMaterialLayersFunctionsInstanceTree* InTree, int32 Counter) const
+{
+	return InTree->FunctionInstance->GetLayerName(Counter);
+}
+
+void SMaterialLayersFunctionsInstanceTreeItem::OnNameChanged(const FText& InText, ETextCommit::Type CommitInfo, SMaterialLayersFunctionsInstanceTree* InTree, int32 Counter)
+{
+	const FScopedTransaction Transaction(LOCTEXT("RenamedSection", "Renamed layer and blend section"));
+	InTree->FunctionInstanceHandle->NotifyPreChange();
+	InTree->FunctionInstance->LayerNames[Counter] = InText;
+	InTree->MaterialEditorInstance->CopyToSourceInstance(false);
+	InTree->FunctionInstanceHandle->NotifyPostChange();
+}
+
+
+int32 GetNewParamIndex(EMaterialParameterAssociation InAssociation, int32 InIndex, int32 OriginalIndex, int32 NewIndex, int32 OriginalBlendIndex, int32 NewBlendIndex)
+{
+	int32 ParamIndex = InIndex;
+	int32 OriginalIndexToUse;
+	int32 NewIndexToUse;
+	if (InAssociation == EMaterialParameterAssociation::LayerParameter)
+	{
+		OriginalIndexToUse = OriginalIndex;
+		NewIndexToUse = NewIndex;
+	}
+	else if (InAssociation == EMaterialParameterAssociation::BlendParameter)
+	{
+		OriginalIndexToUse = OriginalBlendIndex;
+		NewIndexToUse = NewBlendIndex;
+	}
+	else
+	{
+		return ParamIndex;
+	}
+
+	if (NewIndexToUse < OriginalIndexToUse)
+	{
+		if (InIndex == OriginalIndexToUse)
+		{
+			ParamIndex = NewIndexToUse;
+		}
+		else if (InIndex >= NewIndexToUse && InIndex < OriginalIndexToUse)
+		{
+			ParamIndex++;
+		}
+	}
+	else if (NewIndexToUse > OriginalIndexToUse)
+	{
+		if (InIndex == OriginalIndexToUse)
+		{
+			ParamIndex = NewIndexToUse;
+		}
+		else if (InIndex <= NewIndexToUse && InIndex > OriginalIndexToUse)
+		{
+			ParamIndex--;
+		}
+	}
+
+	return ParamIndex;
+}
+
+FReply SMaterialLayersFunctionsInstanceTreeItem::OnLayerDrop(const FDragDropEvent& DragDropEvent)
+{
+	if (!bIsHoveredDragTarget)
+	{
+		return FReply::Unhandled();
+	}
+	FScopedTransaction Transaction(NSLOCTEXT("UnrealEd", "MoveLayer", "Move Layer"));
+	Tree->FunctionInstanceHandle->NotifyPreChange();
+	bIsHoveredDragTarget = false;
+	TSharedPtr<FLayerDragDropOp> ArrayDropOp = DragDropEvent.GetOperationAs< FLayerDragDropOp >();
+	TSharedPtr<SMaterialLayersFunctionsInstanceTreeItem> LayerPtr = nullptr;
+	if (ArrayDropOp.IsValid() && ArrayDropOp->OwningStack.IsValid())
+	{
+		LayerPtr = ArrayDropOp->OwningStack.Pin();
+		LayerPtr->bIsBeingDragged = false;
+	}
+	if (!LayerPtr.IsValid())
+	{
+		return FReply::Unhandled();
+	}
+	TSharedPtr<FStackSortedData> SwappingPropertyData = LayerPtr->StackParameterData;
+	TSharedPtr<FStackSortedData> SwappablePropertyData = StackParameterData;
+	if (SwappingPropertyData.IsValid() && SwappablePropertyData.IsValid())
+	{
+		if (SwappingPropertyData != SwappablePropertyData)
+		{
+			int32 OriginalIndex = SwappingPropertyData->ParameterInfo.Index;
+			int32 NewIndex = SwappablePropertyData->ParameterInfo.Index;
+			int32 OriginalBlendIndex = SwappingPropertyData->ParameterInfo.Index - 1;
+			int32 NewBlendIndex = SwappablePropertyData->ParameterInfo.Index;
+			if (SwappablePropertyData->ParameterInfo.Association == EMaterialParameterAssociation::BlendParameter)
 			{
-				Wrapper->OnLayerPropertyChanged.Execute();
+				NewIndex++;
 			}
-			else
+
+			if (SwappablePropertyData->ParameterInfo.Association != EMaterialParameterAssociation::BlendParameter)
 			{
-				InTree->CreateGroupsWidget();
+				NewBlendIndex--;
+			}
+
+
+			for (int32 ParamIt = 0; ParamIt < Tree->MaterialEditorInstance->SourceInstance->ScalarParameterValues.Num(); ParamIt++)
+			{
+				FScalarParameterValue* Param = &Tree->MaterialEditorInstance->SourceInstance->ScalarParameterValues[ParamIt];
+				Param->ParameterInfo.Index = GetNewParamIndex(Param->ParameterInfo.Association, Param->ParameterInfo.Index, OriginalIndex, NewIndex, OriginalBlendIndex, NewBlendIndex);
+			}
+
+			for (int32 ParamIt = 0; ParamIt < Tree->MaterialEditorInstance->SourceInstance->VectorParameterValues.Num(); ParamIt++)
+			{
+				FVectorParameterValue* Param = &Tree->MaterialEditorInstance->SourceInstance->VectorParameterValues[ParamIt];
+				Param->ParameterInfo.Index = GetNewParamIndex(Param->ParameterInfo.Association, Param->ParameterInfo.Index, OriginalIndex, NewIndex, OriginalBlendIndex, NewBlendIndex);
+			}
+
+			for (int32 ParamIt = 0; ParamIt < Tree->MaterialEditorInstance->SourceInstance->TextureParameterValues.Num(); ParamIt++)
+			{
+				FTextureParameterValue* Param = &Tree->MaterialEditorInstance->SourceInstance->TextureParameterValues[ParamIt];
+				Param->ParameterInfo.Index = GetNewParamIndex(Param->ParameterInfo.Association, Param->ParameterInfo.Index, OriginalIndex, NewIndex, OriginalBlendIndex, NewBlendIndex);
+			}
+
+			for (int32 ParamIt = 0; ParamIt < Tree->MaterialEditorInstance->SourceInstance->FontParameterValues.Num(); ParamIt++)
+			{
+				FFontParameterValue* Param = &Tree->MaterialEditorInstance->SourceInstance->FontParameterValues[ParamIt];
+				Param->ParameterInfo.Index = GetNewParamIndex(Param->ParameterInfo.Association, Param->ParameterInfo.Index, OriginalIndex, NewIndex, OriginalBlendIndex, NewBlendIndex);
+			}
+
+
+			if (NewIndex > OriginalIndex)
+			{
+				NewIndex += 1;
+			}
+			if (NewBlendIndex > OriginalBlendIndex)
+			{
+				NewBlendIndex += 1;
+			}
+			TSharedPtr<IPropertyHandle> ParentHandle = Tree->FunctionInstanceHandle;
+			TSharedPtr<IPropertyHandleArray> LayerHandle = ParentHandle->GetChildHandle("Layers")->AsArray();
+			TSharedPtr<IPropertyHandleArray> BlendHandle = ParentHandle->GetChildHandle("Blends")->AsArray();
+			TSharedPtr<IPropertyHandleArray> LayerNameHandle = ParentHandle->GetChildHandle("LayerNames")->AsArray();
+			TSharedPtr<IPropertyHandleArray> LayerFilterHandle = ParentHandle->GetChildHandle("RestrictToLayerRelatives")->AsArray();
+			TSharedPtr<IPropertyHandleArray> BlendFilterHandle = ParentHandle->GetChildHandle("RestrictToBlendRelatives")->AsArray();
+			TSharedPtr<IPropertyHandleArray> LayerStateHandle = ParentHandle->GetChildHandle("LayerStates")->AsArray();
+
+			if (LayerHandle.IsValid() && BlendHandle.IsValid())
+			{
+				// Need to save the moving and target expansion states before swapping
+				bool bOriginalSwappableExpansion = IsItemExpanded();
+				bool bOriginalSwappingExpansion = LayerPtr->IsItemExpanded();
+				LayerHandle->MoveElementTo(OriginalIndex, NewIndex);
+				LayerNameHandle->MoveElementTo(OriginalIndex, NewIndex);
+				LayerFilterHandle->MoveElementTo(OriginalIndex, NewIndex);
+				LayerStateHandle->MoveElementTo(OriginalIndex, NewIndex);
+				BlendHandle->MoveElementTo(OriginalBlendIndex, NewBlendIndex);
+				BlendFilterHandle->MoveElementTo(OriginalBlendIndex, NewBlendIndex);
+				Tree->FunctionInstance->UpdateStaticPermutationString();
+				Tree->OnExpansionChanged(SwappablePropertyData, bOriginalSwappingExpansion);
+				Tree->OnExpansionChanged(SwappingPropertyData, bOriginalSwappableExpansion);
+				Tree->FunctionInstanceHandle->NotifyPostChange();
+				Tree->CreateGroupsWidget();
+				Tree->RequestTreeRefresh();
+				Tree->SetParentsExpansionState();
 			}
 		}
 	}
 
-	bool GetFilterState(SMaterialLayersFunctionsInstanceTree* InTree, TSharedPtr<FStackSortedData> InStackData) const
-	{
-		if (InStackData->ParameterInfo.Association == EMaterialParameterAssociation::LayerParameter)
-		{
-			return InTree->FunctionInstance->RestrictToLayerRelatives[InStackData->ParameterInfo.Index];
-		}
-		if (InStackData->ParameterInfo.Association == EMaterialParameterAssociation::BlendParameter)
-		{
-			return InTree->FunctionInstance->RestrictToBlendRelatives[InStackData->ParameterInfo.Index];
-		}
-		return false;
-	}
+	return FReply::Handled();
+}
 
-	void FilterClicked(const ECheckBoxState NewCheckedState, SMaterialLayersFunctionsInstanceTree* InTree, TSharedPtr<FStackSortedData> InStackData)
-	{
-		if (InStackData->ParameterInfo.Association == EMaterialParameterAssociation::LayerParameter)
-		{
-			InTree->FunctionInstance->RestrictToLayerRelatives[InStackData->ParameterInfo.Index] = !InTree->FunctionInstance->RestrictToLayerRelatives[InStackData->ParameterInfo.Index];
-		}
-		if (InStackData->ParameterInfo.Association == EMaterialParameterAssociation::BlendParameter)
-		{
-			InTree->FunctionInstance->RestrictToBlendRelatives[InStackData->ParameterInfo.Index] = !InTree->FunctionInstance->RestrictToBlendRelatives[InStackData->ParameterInfo.Index];
-		}
-	}
 
-	ECheckBoxState GetFilterChecked(SMaterialLayersFunctionsInstanceTree* InTree, TSharedPtr<FStackSortedData> InStackData) const
-	{
-		return GetFilterState(InTree, InStackData) ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
-	}
+void SMaterialLayersFunctionsInstanceTreeItem::Construct(const FArguments& InArgs, const TSharedRef<STableViewBase>& InOwnerTableView)
+{
+	StackParameterData = InArgs._StackParameterData;
+	MaterialEditorInstance = InArgs._MaterialEditorInstance;
+	Tree = InArgs._InTree;
+	ColumnSizeData.LeftColumnWidth = TAttribute<float>(Tree, &SMaterialLayersFunctionsInstanceTree::OnGetLeftColumnWidth);
+	ColumnSizeData.RightColumnWidth = TAttribute<float>(Tree, &SMaterialLayersFunctionsInstanceTree::OnGetRightColumnWidth);
+	ColumnSizeData.OnWidthChanged = SSplitter::FOnSlotResized::CreateSP(Tree, &SMaterialLayersFunctionsInstanceTree::OnSetColumnWidth);
 
-	FText GetLayerName(SMaterialLayersFunctionsInstanceTree* InTree, int32 Counter) const
-	{
-		return InTree->FunctionInstance->GetLayerName(Counter);
-	}
-
-	void OnNameChanged(const FText& InText, ETextCommit::Type CommitInfo, SMaterialLayersFunctionsInstanceTree* InTree, int32 Counter)
-	{
-		const FScopedTransaction Transaction(LOCTEXT("RenamedSection", "Renamed layer and blend section"));
-		InTree->FunctionInstanceHandle->NotifyPreChange();
-		InTree->FunctionInstance->LayerNames[Counter] = InText;
-		InTree->FunctionInstanceHandle->NotifyPostChange();
-	};
-
-	/**
-	* Construct the widget
-	*
-	* @param InArgs   A declaration from which to construct the widget
-	*/
-	void Construct(const FArguments& InArgs, const TSharedRef<STableViewBase>& InOwnerTableView)
-	{
-		StackParameterData = InArgs._StackParameterData;
-		MaterialEditorInstance = InArgs._MaterialEditorInstance;
-		SMaterialLayersFunctionsInstanceTree* Tree = InArgs._InTree;
-		ColumnSizeData.LeftColumnWidth = TAttribute<float>(Tree, &SMaterialLayersFunctionsInstanceTree::OnGetLeftColumnWidth);
-		ColumnSizeData.RightColumnWidth = TAttribute<float>(Tree, &SMaterialLayersFunctionsInstanceTree::OnGetRightColumnWidth);
-		ColumnSizeData.OnWidthChanged = SSplitter::FOnSlotResized::CreateSP(Tree, &SMaterialLayersFunctionsInstanceTree::OnSetColumnWidth);
-
-		TSharedRef<SWidget> LeftSideWidget = SNullWidget::NullWidget;
-		TSharedRef<SWidget> RightSideWidget = SNullWidget::NullWidget;
-		FText NameOverride;
-		TSharedRef<SVerticalBox> WrapperWidget = SNew(SVerticalBox);
+	TSharedRef<SWidget> LeftSideWidget = SNullWidget::NullWidget;
+	TSharedRef<SWidget> RightSideWidget = SNullWidget::NullWidget;
+	FText NameOverride;
+	TSharedRef<SVerticalBox> WrapperWidget = SNew(SVerticalBox);
 
 // STACK --------------------------------------------------
-		if (StackParameterData->StackDataType == EStackDataType::Stack)
+	if (StackParameterData->StackDataType == EStackDataType::Stack)
+	{
+		WrapperWidget->AddSlot()
+			.Padding(3.0f)
+			.AutoHeight()
+			[
+				SNullWidget::NullWidget
+			];
+#if WITH_EDITOR
+		NameOverride = Tree->FunctionInstance->GetLayerName(StackParameterData->ParameterInfo.Index);
+#endif
+		TSharedRef<SHorizontalBox> HeaderRowWidget = SNew(SHorizontalBox);
+
+		if (StackParameterData->ParameterInfo.Index != 0)
 		{
-			WrapperWidget->AddSlot()
-				.Padding(3.0f)
-				.AutoHeight()
+			TAttribute<bool>::FGetter IsEnabledGetter = TAttribute<bool>::FGetter::CreateSP(InArgs._InTree, &SMaterialLayersFunctionsInstanceTree::IsLayerVisible, StackParameterData->ParameterInfo.Index);
+			TAttribute<bool> IsEnabledAttribute = TAttribute<bool>::Create(IsEnabledGetter);
+
+			FOnClicked VisibilityClickedDelegate = FOnClicked::CreateSP(InArgs._InTree, &SMaterialLayersFunctionsInstanceTree::ToggleLayerVisibility, StackParameterData->ParameterInfo.Index);
+
+			HeaderRowWidget->AddSlot()
+				.AutoWidth()
+				.VAlign(VAlign_Center)
+				[
+					PropertyCustomizationHelpers::MakeVisibilityButton(VisibilityClickedDelegate, FText(), IsEnabledAttribute)
+				];
+		}
+		const float ThumbnailSize = 24.0f;
+		TArray<TSharedPtr<FStackSortedData>> AssetChildren = StackParameterData->Children;
+		if (AssetChildren.Num() > 0)
+		{
+			HeaderRowWidget->AddSlot()
+				.HAlign(HAlign_Center)
+				.VAlign(VAlign_Center)
+				.Padding(2.5f, 0)
+				.AutoWidth()
 				[
 					SNullWidget::NullWidget
 				];
-#if WITH_EDITOR
-			NameOverride = Tree->FunctionInstance->GetLayerName(StackParameterData->ParameterInfo.Index);
-#endif
-			TSharedRef<SHorizontalBox> HeaderRowWidget = SNew(SHorizontalBox);
-
-			if (StackParameterData->ParameterInfo.Index != 0)
+		}
+		for (TSharedPtr<FStackSortedData> AssetChild : AssetChildren)
+		{
+			TSharedPtr<SBox> ThumbnailBox;
+			UObject* AssetObject;
+			AssetChild->ParameterHandle->GetValue(AssetObject);
+			int32 PreviewIndex = INDEX_NONE;
+			int32 ThumbnailIndex = INDEX_NONE;
+			EMaterialParameterAssociation PreviewAssociation = EMaterialParameterAssociation::GlobalParameter;
+			if (AssetObject)
 			{
-				TAttribute<bool>::FGetter IsEnabledGetter = TAttribute<bool>::FGetter::CreateSP(InArgs._InTree, &SMaterialLayersFunctionsInstanceTree::IsLayerVisible, StackParameterData->ParameterInfo.Index);
-				TAttribute<bool> IsEnabledAttribute = TAttribute<bool>::Create(IsEnabledGetter);
-
-				FOnClicked VisibilityClickedDelegate = FOnClicked::CreateSP(InArgs._InTree, &SMaterialLayersFunctionsInstanceTree::ToggleLayerVisibility, StackParameterData->ParameterInfo.Index);
-
-				HeaderRowWidget->AddSlot()
-					.AutoWidth()
-					.VAlign(VAlign_Center)
-					[
-						PropertyCustomizationHelpers::MakeVisibilityButton(VisibilityClickedDelegate, FText(), IsEnabledAttribute)
-					];
-			}
-			const float ThumbnailSize = 24.0f;
-			TArray<TSharedPtr<FStackSortedData>> AssetChildren = StackParameterData->Children;
-			if (AssetChildren.Num() > 0)
-			{
-				HeaderRowWidget->AddSlot()
-					.HAlign(HAlign_Center)
-					.VAlign(VAlign_Center)
-					.Padding(2.5f, 0)
-					.AutoWidth()
-					[
-						SNullWidget::NullWidget
-					];
-			}
-			for (TSharedPtr<FStackSortedData> AssetChild : AssetChildren)
-			{
-				TSharedPtr<SBox> ThumbnailBox;
-				UObject* AssetObject;
-				AssetChild->ParameterHandle->GetValue(AssetObject);
-				int32 PreviewIndex = INDEX_NONE;
-				int32 ThumbnailIndex = INDEX_NONE;
-				EMaterialParameterAssociation PreviewAssociation = EMaterialParameterAssociation::GlobalParameter;
-				if (AssetObject)
+				if (Cast<UMaterialFunctionInterface>(AssetObject)->GetMaterialFunctionUsage() == EMaterialFunctionUsage::MaterialLayer)
 				{
-					if (Cast<UMaterialFunctionInterface>(AssetObject)->GetMaterialFunctionUsage() == EMaterialFunctionUsage::MaterialLayer)
-					{
-						PreviewIndex = StackParameterData->ParameterInfo.Index;
-						PreviewAssociation = EMaterialParameterAssociation::LayerParameter;
-						Tree->UpdateThumbnailMaterial(PreviewAssociation, PreviewIndex);
-						ThumbnailIndex = PreviewIndex;
-					}
-					if (Cast<UMaterialFunctionInterface>(AssetObject)->GetMaterialFunctionUsage() == EMaterialFunctionUsage::MaterialLayerBlend)
-					{
-						PreviewIndex = StackParameterData->ParameterInfo.Index;
-						PreviewAssociation = EMaterialParameterAssociation::BlendParameter;
-						Tree->UpdateThumbnailMaterial(PreviewAssociation, PreviewIndex, true);
-						ThumbnailIndex = PreviewIndex - 1;
-					}
+					PreviewIndex = StackParameterData->ParameterInfo.Index;
+					PreviewAssociation = EMaterialParameterAssociation::LayerParameter;
+					Tree->UpdateThumbnailMaterial(PreviewAssociation, PreviewIndex);
+					ThumbnailIndex = PreviewIndex;
 				}
-				HeaderRowWidget->AddSlot()
-					.AutoWidth()
-					.HAlign(HAlign_Center)
-					.VAlign(VAlign_Center)
-					.Padding(4.0f)
-					.MaxWidth(ThumbnailSize)
-					[
-						SAssignNew(ThumbnailBox, SBox)
-						[
-							Tree->CreateThumbnailWidget(PreviewAssociation, ThumbnailIndex, ThumbnailSize)
-						]
-					];
-				ThumbnailBox->SetMaxDesiredHeight(ThumbnailSize);
-				ThumbnailBox->SetMinDesiredHeight(ThumbnailSize);
-				ThumbnailBox->SetMinDesiredWidth(ThumbnailSize);
-				ThumbnailBox->SetMaxDesiredWidth(ThumbnailSize);
+				if (Cast<UMaterialFunctionInterface>(AssetObject)->GetMaterialFunctionUsage() == EMaterialFunctionUsage::MaterialLayerBlend)
+				{
+					PreviewIndex = StackParameterData->ParameterInfo.Index;
+					PreviewAssociation = EMaterialParameterAssociation::BlendParameter;
+					Tree->UpdateThumbnailMaterial(PreviewAssociation, PreviewIndex, true);
+					ThumbnailIndex = PreviewIndex - 1;
+				}
 			}
+			HeaderRowWidget->AddSlot()
+				.AutoWidth()
+				.HAlign(HAlign_Center)
+				.VAlign(VAlign_Center)
+				.Padding(4.0f)
+				.MaxWidth(ThumbnailSize)
+				[
+					SAssignNew(ThumbnailBox, SBox)
+					[
+						Tree->CreateThumbnailWidget(PreviewAssociation, ThumbnailIndex, ThumbnailSize)
+					]
+				];
+			ThumbnailBox->SetMaxDesiredHeight(ThumbnailSize);
+			ThumbnailBox->SetMinDesiredHeight(ThumbnailSize);
+			ThumbnailBox->SetMinDesiredWidth(ThumbnailSize);
+			ThumbnailBox->SetMaxDesiredWidth(ThumbnailSize);
+		}
 
 		
 
-			if (StackParameterData->ParameterInfo.Index != 0)
-			{
-				HeaderRowWidget->AddSlot()
-					.VAlign(VAlign_Center)
-					.AutoWidth()
-					.Padding(5.0f)
-					[
-						SNew(SInlineEditableTextBlock)
-						.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(this, &SMaterialLayersFunctionsInstanceTreeItem::GetLayerName, InArgs._InTree, StackParameterData->ParameterInfo.Index)))
-						.OnTextCommitted(FOnTextCommitted::CreateSP(this, &SMaterialLayersFunctionsInstanceTreeItem::OnNameChanged, InArgs._InTree, StackParameterData->ParameterInfo.Index))
-						.Font(FEditorStyle::GetFontStyle(TEXT("MaterialEditor.Layers.EditableFontImportant")))
-					];
-				HeaderRowWidget->AddSlot()
-					.FillWidth(1.0f)
-					.VAlign(VAlign_Center)
-					[
-						SNullWidget::NullWidget
-					];
-				HeaderRowWidget->AddSlot()
-					.AutoWidth()
-					.VAlign(VAlign_Center)
-					.Padding(0.0f, 0.0f, 5.0f, 0.0f)
-					[
-						PropertyCustomizationHelpers::MakeClearButton(FSimpleDelegate::CreateSP(InArgs._InTree, &SMaterialLayersFunctionsInstanceTree::RemoveLayer, StackParameterData->ParameterInfo.Index))
-					];
-			}
-			else
-			{
-				HeaderRowWidget->AddSlot()
-					.VAlign(VAlign_Center)
-					.AutoWidth()
-					.Padding(5.0f)
-					[
-						SNew(STextBlock)
-						.Text(NameOverride)
-						.TextStyle(FEditorStyle::Get(), "NormalText.Important")
-					];
-			}
-			LeftSideWidget = HeaderRowWidget;
+		if (StackParameterData->ParameterInfo.Index != 0)
+		{
+			HeaderRowWidget->AddSlot()
+				.VAlign(VAlign_Center)
+				.AutoWidth()
+				.Padding(5.0f)
+				[
+					SNew(SEditableTextBox)
+					.BackgroundColor(FLinearColor(0.045f, 0.045f, 0.045f, 1.0f))
+					.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(this, &SMaterialLayersFunctionsInstanceTreeItem::GetLayerName, InArgs._InTree, StackParameterData->ParameterInfo.Index)))
+					.OnTextCommitted(FOnTextCommitted::CreateSP(this, &SMaterialLayersFunctionsInstanceTreeItem::OnNameChanged, InArgs._InTree, StackParameterData->ParameterInfo.Index))
+					.Font(FEditorStyle::GetFontStyle(TEXT("MaterialEditor.Layers.EditableFontImportant")))
+					.ForegroundColor(FLinearColor::White)
+				];
+			HeaderRowWidget->AddSlot()
+				.FillWidth(1.0f)
+				.VAlign(VAlign_Center)
+				[
+					SNullWidget::NullWidget
+				];
+			HeaderRowWidget->AddSlot()
+				.AutoWidth()
+				.VAlign(VAlign_Center)
+				.Padding(0.0f, 0.0f, 5.0f, 0.0f)
+				[
+					PropertyCustomizationHelpers::MakeClearButton(FSimpleDelegate::CreateSP(InArgs._InTree, &SMaterialLayersFunctionsInstanceTree::RemoveLayer, StackParameterData->ParameterInfo.Index))
+				];
 		}
+		else
+		{
+			HeaderRowWidget->AddSlot()
+				.VAlign(VAlign_Center)
+				.AutoWidth()
+				.Padding(5.0f)
+				[
+					SNew(STextBlock)
+					.Text(NameOverride)
+					.TextStyle(FEditorStyle::Get(), "NormalText.Important")
+				];
+		}
+		LeftSideWidget = HeaderRowWidget;
+	}
 // END STACK
 
 // GROUP --------------------------------------------------
-		if (StackParameterData->StackDataType == EStackDataType::Group)
-		{
-			NameOverride = FText::FromName(StackParameterData->Group.GroupName);
-			LeftSideWidget = SNew(STextBlock)
-				.Text(NameOverride)
-				.TextStyle(FEditorStyle::Get(), "TinyText");
-			const int32 LayerStateIndex = StackParameterData->ParameterInfo.Association == EMaterialParameterAssociation::BlendParameter ? StackParameterData->ParameterInfo.Index + 1 : StackParameterData->ParameterInfo.Index;
-			LeftSideWidget->SetEnabled(InArgs._InTree->FunctionInstance->LayerStates[LayerStateIndex]);
-			RightSideWidget->SetEnabled(InArgs._InTree->FunctionInstance->LayerStates[LayerStateIndex]);
-		}
+	if (StackParameterData->StackDataType == EStackDataType::Group)
+	{
+		NameOverride = FText::FromName(StackParameterData->Group.GroupName);
+		LeftSideWidget = SNew(STextBlock)
+			.Text(NameOverride)
+			.TextStyle(FEditorStyle::Get(), "TinyText");
+		const int32 LayerStateIndex = StackParameterData->ParameterInfo.Association == EMaterialParameterAssociation::BlendParameter ? StackParameterData->ParameterInfo.Index + 1 : StackParameterData->ParameterInfo.Index;
+		LeftSideWidget->SetEnabled(InArgs._InTree->FunctionInstance->LayerStates[LayerStateIndex]);
+		RightSideWidget->SetEnabled(InArgs._InTree->FunctionInstance->LayerStates[LayerStateIndex]);
+	}
 // END GROUP
 
 // ASSET --------------------------------------------------
-		if (StackParameterData->StackDataType == EStackDataType::Asset)
+	if (StackParameterData->StackDataType == EStackDataType::Asset)
+	{
+		FOnSetObject ObjectChanged = FOnSetObject::CreateSP(this, &SMaterialLayersFunctionsInstanceTreeItem::RefreshOnRowChange, Tree);
+		StackParameterData->ParameterHandle->GetProperty()->SetMetaData(FName(TEXT("DisplayThumbnail")), TEXT("true"));
+		FIntPoint ThumbnailOverride;
+		if (StackParameterData->ParameterInfo.Association == EMaterialParameterAssociation::LayerParameter)
 		{
-			FOnSetObject ObjectChanged = FOnSetObject::CreateSP(this, &SMaterialLayersFunctionsInstanceTreeItem::RefreshOnRowChange, Tree);
-			StackParameterData->ParameterHandle->GetProperty()->SetMetaData(FName(TEXT("DisplayThumbnail")), TEXT("true"));
-			FIntPoint ThumbnailOverride;
-			if (StackParameterData->ParameterInfo.Association == EMaterialParameterAssociation::LayerParameter)
-			{
-				NameOverride = FMaterialPropertyHelpers::LayerID;
-				ThumbnailOverride = FIntPoint(64, 64);
-			}
-			else if (StackParameterData->ParameterInfo.Association == EMaterialParameterAssociation::BlendParameter)
-			{
-				NameOverride = FMaterialPropertyHelpers::BlendID;
-				ThumbnailOverride = FIntPoint(32, 32);
-			}
+			NameOverride = FMaterialPropertyHelpers::LayerID;
+			ThumbnailOverride = FIntPoint(64, 64);
+		}
+		else if (StackParameterData->ParameterInfo.Association == EMaterialParameterAssociation::BlendParameter)
+		{
+			NameOverride = FMaterialPropertyHelpers::BlendID;
+			ThumbnailOverride = FIntPoint(32, 32);
+		}
 
 
-			TAttribute<bool> IsParamEnabled = TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateStatic(&FMaterialPropertyHelpers::IsOverriddenExpression, StackParameterData->Parameter));
-			FIsResetToDefaultVisible IsAssetResetVisible = FIsResetToDefaultVisible::CreateStatic(&FMaterialPropertyHelpers::ShouldLayerAssetShowResetToDefault, StackParameterData, MaterialEditorInstance->Parent);
-			FResetToDefaultHandler ResetAssetHandler = FResetToDefaultHandler::CreateSP(InArgs._InTree, &SMaterialLayersFunctionsInstanceTree::ResetAssetToDefault, StackParameterData);
-			FResetToDefaultOverride ResetAssetOverride = FResetToDefaultOverride::Create(IsAssetResetVisible, ResetAssetHandler);
+		TAttribute<bool> IsParamEnabled = TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateStatic(&FMaterialPropertyHelpers::IsOverriddenExpression, StackParameterData->Parameter));
+		FIsResetToDefaultVisible IsAssetResetVisible = FIsResetToDefaultVisible::CreateStatic(&FMaterialPropertyHelpers::ShouldLayerAssetShowResetToDefault, StackParameterData, MaterialEditorInstance->Parent);
+		FResetToDefaultHandler ResetAssetHandler = FResetToDefaultHandler::CreateSP(InArgs._InTree, &SMaterialLayersFunctionsInstanceTree::ResetAssetToDefault, StackParameterData);
+		FResetToDefaultOverride ResetAssetOverride = FResetToDefaultOverride::Create(IsAssetResetVisible, ResetAssetHandler);
 
-			IDetailTreeNode& Node = *StackParameterData->ParameterNode;
-			FNodeWidgets NodeWidgets = Node.CreateNodeWidgets();
+		IDetailTreeNode& Node = *StackParameterData->ParameterNode;
+		FNodeWidgets NodeWidgets = Node.CreateNodeWidgets();
 
-			LeftSideWidget = StackParameterData->ParameterHandle->CreatePropertyNameWidget(NameOverride);
+		LeftSideWidget = StackParameterData->ParameterHandle->CreatePropertyNameWidget(NameOverride);
 
-			StackParameterData->ParameterHandle->MarkResetToDefaultCustomized(false);
+		StackParameterData->ParameterHandle->MarkResetToDefaultCustomized(false);
 
-			EMaterialParameterAssociation InAssociation = StackParameterData->ParameterInfo.Association;
+		EMaterialParameterAssociation InAssociation = StackParameterData->ParameterInfo.Association;
 
-			FOnShouldFilterAsset AssetFilter = FOnShouldFilterAsset::CreateStatic(&FMaterialPropertyHelpers::FilterLayerAssets, Tree->FunctionInstance, InAssociation, StackParameterData->ParameterInfo.Index);
+		FOnShouldFilterAsset AssetFilter = FOnShouldFilterAsset::CreateStatic(&FMaterialPropertyHelpers::FilterLayerAssets, Tree->FunctionInstance, InAssociation, StackParameterData->ParameterInfo.Index);
 
-			FOnSetObject AssetChanged = FOnSetObject::CreateSP(Tree, &SMaterialLayersFunctionsInstanceTree::RefreshOnAssetChange, StackParameterData->ParameterInfo.Index, InAssociation);
+		FOnSetObject AssetChanged = FOnSetObject::CreateSP(Tree, &SMaterialLayersFunctionsInstanceTree::RefreshOnAssetChange, StackParameterData->ParameterInfo.Index, InAssociation);
 
-			FOnClicked OnChildButtonClicked;
-			FOnClicked OnSiblingButtonClicked;
-			UMaterialFunctionInterface* LocalFunction = nullptr;
-			TSharedPtr<SBox> ThumbnailBox;
+		FOnClicked OnChildButtonClicked;
+		FOnClicked OnSiblingButtonClicked;
+		UMaterialFunctionInterface* LocalFunction = nullptr;
+		TSharedPtr<SBox> ThumbnailBox;
 
-			if (StackParameterData->ParameterInfo.Association == EMaterialParameterAssociation::LayerParameter)
-			{
-				LocalFunction = Tree->FunctionInstance->Layers[StackParameterData->ParameterInfo.Index];
-			}
-			else if (StackParameterData->ParameterInfo.Association == EMaterialParameterAssociation::BlendParameter)
-			{
-				LocalFunction = Tree->FunctionInstance->Blends[StackParameterData->ParameterInfo.Index];
-			}
+		if (StackParameterData->ParameterInfo.Association == EMaterialParameterAssociation::LayerParameter)
+		{
+			LocalFunction = Tree->FunctionInstance->Layers[StackParameterData->ParameterInfo.Index];
+		}
+		else if (StackParameterData->ParameterInfo.Association == EMaterialParameterAssociation::BlendParameter)
+		{
+			LocalFunction = Tree->FunctionInstance->Blends[StackParameterData->ParameterInfo.Index];
+		}
 
-			OnChildButtonClicked = FOnClicked::CreateStatic(&FMaterialPropertyHelpers::OnClickedSaveNewLayerInstance,
-				ImplicitConv<UMaterialFunctionInterface*>(LocalFunction), StackParameterData);
+		OnChildButtonClicked = FOnClicked::CreateStatic(&FMaterialPropertyHelpers::OnClickedSaveNewLayerInstance,
+			ImplicitConv<UMaterialFunctionInterface*>(LocalFunction), StackParameterData);
 
-			TSharedPtr<SHorizontalBox> SaveInstanceBox;
+		TSharedPtr<SHorizontalBox> SaveInstanceBox;
 
-			RightSideWidget = SNew(SVerticalBox)
-				+SVerticalBox::Slot()
-				[
-					SNew(SHorizontalBox)
-					+SHorizontalBox::Slot()
-					.AutoWidth()
-					.HAlign(HAlign_Center)
-					.VAlign(VAlign_Center)
-					.Padding(4.0f)
-					.MaxWidth(ThumbnailOverride.X)
-					[
-						SAssignNew(ThumbnailBox, SBox)
-						[
-							Tree->CreateThumbnailWidget(StackParameterData->ParameterInfo.Association, StackParameterData->ParameterInfo.Index, ThumbnailOverride.X)
-						]
-					]
-					+ SHorizontalBox::Slot()
-					.FillWidth(1.0)
-					[
-						SNew(SObjectPropertyEntryBox)
-						.AllowedClass(UMaterialFunctionInterface::StaticClass())
-						.ObjectPath(this, &SMaterialLayersFunctionsInstanceTreeItem::GetInstancePath, Tree)
-						.OnShouldFilterAsset(AssetFilter)
-						.OnObjectChanged(AssetChanged)
-						.CustomResetToDefault(ResetAssetOverride)
-						.DisplayCompactSize(true)
-						.NewAssetFactories(FMaterialPropertyHelpers::GetAssetFactories(InAssociation))
-					]
-					+ SHorizontalBox::Slot()
-					.Padding(0.0f, 2.0f, 0.0f, 0.0f)
-					.AutoWidth()
-					.VAlign(VAlign_Center)
-					[
-						SNew(SCheckBox)
-						.Type(ESlateCheckBoxType::ToggleButton)
-						.Style(&FCoreStyle::Get().GetWidgetStyle< FCheckBoxStyle >("ToggleButtonCheckbox"))
-						.OnCheckStateChanged(this, &SMaterialLayersFunctionsInstanceTreeItem::FilterClicked, InArgs._InTree, StackParameterData)
-						.IsChecked(this, &SMaterialLayersFunctionsInstanceTreeItem::GetFilterChecked, InArgs._InTree, StackParameterData)
-						.ToolTipText(LOCTEXT("FilterLayerAssets", "Filter asset picker to only show related layers or blends. \nStaying within the inheritance hierarchy can improve instruction count."))
-						.Content()
-						[
-							SNew(STextBlock)
-							.TextStyle(FEditorStyle::Get(), "ContentBrowser.TopBar.Font")
-							.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.10"))
-							.Text(FText::FromString(FString(TEXT("\xf0b0"))) /*fa-filter*/)
-						]
-					]
-				]
-				+ SVerticalBox::Slot()
-				.AutoHeight()
-				[
-					SAssignNew(SaveInstanceBox, SHorizontalBox)
-					+ SHorizontalBox::Slot()
-					.AutoWidth()
-					.FillWidth(1.0)
-					[
-						SNullWidget::NullWidget
-					]
-				]
-			;
-			ThumbnailBox->SetMaxDesiredHeight(ThumbnailOverride.Y);
-			ThumbnailBox->SetMinDesiredHeight(ThumbnailOverride.Y);
-			ThumbnailBox->SetMinDesiredWidth(ThumbnailOverride.X);
-			ThumbnailBox->SetMaxDesiredWidth(ThumbnailOverride.X);
-
-			SaveInstanceBox->AddSlot()
+		RightSideWidget = SNew(SVerticalBox)
+			+SVerticalBox::Slot()
+			[
+				SNew(SHorizontalBox)
+				+SHorizontalBox::Slot()
 				.AutoWidth()
-				.Padding(2.0f)
+				.HAlign(HAlign_Center)
+				.VAlign(VAlign_Center)
+				.Padding(4.0f)
+				.MaxWidth(ThumbnailOverride.X)
 				[
-					SNew(SButton)
-					.ButtonStyle(FEditorStyle::Get(), "FlatButton.Dark")
-					.HAlign(HAlign_Center)
-					.OnClicked(OnChildButtonClicked)
-					.ToolTipText(LOCTEXT("SaveToChildInstance", "Save To Child Instance"))
+					SAssignNew(ThumbnailBox, SBox)
+					[
+						Tree->CreateThumbnailWidget(StackParameterData->ParameterInfo.Association, StackParameterData->ParameterInfo.Index, ThumbnailOverride.X)
+					]
+				]
+				+ SHorizontalBox::Slot()
+				.FillWidth(1.0)
+				[
+					SNew(SObjectPropertyEntryBox)
+					.AllowedClass(UMaterialFunctionInterface::StaticClass())
+					.ObjectPath(this, &SMaterialLayersFunctionsInstanceTreeItem::GetInstancePath, Tree)
+					.OnShouldFilterAsset(AssetFilter)
+					.OnObjectChanged(AssetChanged)
+					.CustomResetToDefault(ResetAssetOverride)
+					.DisplayCompactSize(true)
+					.NewAssetFactories(FMaterialPropertyHelpers::GetAssetFactories(InAssociation))
+				]
+				+ SHorizontalBox::Slot()
+				.Padding(0.0f, 2.0f, 0.0f, 0.0f)
+				.AutoWidth()
+				.VAlign(VAlign_Center)
+				[
+					SNew(SCheckBox)
+					.Type(ESlateCheckBoxType::ToggleButton)
+					.Style(&FCoreStyle::Get().GetWidgetStyle< FCheckBoxStyle >("ToggleButtonCheckbox"))
+					.OnCheckStateChanged(this, &SMaterialLayersFunctionsInstanceTreeItem::FilterClicked, InArgs._InTree, StackParameterData)
+					.IsChecked(this, &SMaterialLayersFunctionsInstanceTreeItem::GetFilterChecked, InArgs._InTree, StackParameterData)
+					.ToolTipText(LOCTEXT("FilterLayerAssets", "Filter asset picker to only show related layers or blends. \nStaying within the inheritance hierarchy can improve instruction count."))
 					.Content()
 					[
-						SNew(SHorizontalBox)
-						+ SHorizontalBox::Slot()
-						.AutoWidth()
-						[
-							SNew(STextBlock)
-							.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.10"))
-							.TextStyle(FEditorStyle::Get(), "NormalText.Important")
-							.Text(FText::FromString(FString(TEXT("\xf0c7 \xf149"))) /*fa-filter*/)
-						]
-						+ SHorizontalBox::Slot()
-						.AutoWidth()
-						[
-							SNew(STextBlock)
-							.TextStyle(FEditorStyle::Get(), "NormalText.Important")
-							.Text(FText::FromString(FString(TEXT(" Save Child"))) /*fa-filter*/)
-						]
+						SNew(STextBlock)
+						.TextStyle(FEditorStyle::Get(), "ContentBrowser.TopBar.Font")
+						.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.10"))
+						.Text(FText::FromString(FString(TEXT("\xf0b0"))) /*fa-filter*/)
 					]
-				];
+				]
+			]
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			[
+				SAssignNew(SaveInstanceBox, SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				.FillWidth(1.0)
+				[
+					SNullWidget::NullWidget
+				]
+			]
+		;
+		ThumbnailBox->SetMaxDesiredHeight(ThumbnailOverride.Y);
+		ThumbnailBox->SetMinDesiredHeight(ThumbnailOverride.Y);
+		ThumbnailBox->SetMinDesiredWidth(ThumbnailOverride.X);
+		ThumbnailBox->SetMaxDesiredWidth(ThumbnailOverride.X);
+
+		SaveInstanceBox->AddSlot()
+			.AutoWidth()
+			.Padding(2.0f)
+			[
+				SNew(SButton)
+				.ButtonStyle(FEditorStyle::Get(), "FlatButton.Dark")
+				.HAlign(HAlign_Center)
+				.OnClicked(OnChildButtonClicked)
+				.ToolTipText(LOCTEXT("SaveToChildInstance", "Save To Child Instance"))
+				.Content()
+				[
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
+					[
+						SNew(STextBlock)
+						.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.10"))
+						.TextStyle(FEditorStyle::Get(), "NormalText.Important")
+						.Text(FText::FromString(FString(TEXT("\xf0c7 \xf149"))) /*fa-filter*/)
+					]
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
+					[
+						SNew(STextBlock)
+						.TextStyle(FEditorStyle::Get(), "NormalText.Important")
+						.Text(FText::FromString(FString(TEXT(" Save Child"))) /*fa-filter*/)
+					]
+				]
+			];
 			
-			const int32 LayerStateIndex = InAssociation == EMaterialParameterAssociation::BlendParameter ? StackParameterData->ParameterInfo.Index + 1 : StackParameterData->ParameterInfo.Index;
-			const bool bEnabled = FMaterialPropertyHelpers::IsOverriddenExpression(StackParameterData->Parameter) && InArgs._InTree->FunctionInstance->LayerStates[LayerStateIndex];
-			LeftSideWidget->SetEnabled(InArgs._InTree->FunctionInstance->LayerStates[LayerStateIndex]);
-			RightSideWidget->SetEnabled(bEnabled);
+		const int32 LayerStateIndex = InAssociation == EMaterialParameterAssociation::BlendParameter ? StackParameterData->ParameterInfo.Index + 1 : StackParameterData->ParameterInfo.Index;
+		const bool bEnabled = FMaterialPropertyHelpers::IsOverriddenExpression(StackParameterData->Parameter) && InArgs._InTree->FunctionInstance->LayerStates[LayerStateIndex];
+		LeftSideWidget->SetEnabled(InArgs._InTree->FunctionInstance->LayerStates[LayerStateIndex]);
+		RightSideWidget->SetEnabled(bEnabled);
 
 
-		}
+	}
 // END ASSET
 
 // PROPERTY ----------------------------------------------
-		if (StackParameterData->StackDataType == EStackDataType::Property)
+	if (StackParameterData->StackDataType == EStackDataType::Property)
+	{
+
+		UDEditorStaticComponentMaskParameterValue* CompMaskParam = Cast<UDEditorStaticComponentMaskParameterValue>(StackParameterData->Parameter);
+		UDEditorVectorParameterValue* VectorParam = Cast<UDEditorVectorParameterValue>(StackParameterData->Parameter);
+		UDEditorScalarParameterValue* ScalarParam = Cast<UDEditorScalarParameterValue>(StackParameterData->Parameter);
+
+		TAttribute<bool> IsParamEnabled = TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateStatic(&FMaterialPropertyHelpers::IsOverriddenExpression, StackParameterData->Parameter));
+		NameOverride = FText::FromName(StackParameterData->Parameter->ParameterInfo.Name);
+		FIsResetToDefaultVisible IsResetVisible = FIsResetToDefaultVisible::CreateStatic(&FMaterialPropertyHelpers::ShouldShowResetToDefault, StackParameterData->Parameter, MaterialEditorInstance);
+		FResetToDefaultHandler ResetHandler = FResetToDefaultHandler::CreateStatic(&FMaterialPropertyHelpers::ResetToDefault, StackParameterData->Parameter, MaterialEditorInstance);
+		FResetToDefaultOverride ResetOverride = FResetToDefaultOverride::Create(IsResetVisible, ResetHandler);
+		
+		if (ScalarParam && ScalarParam->AtlasData.bIsUsedAsAtlasPosition)
 		{
-			TAttribute<bool> IsParamEnabled = TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateStatic(&FMaterialPropertyHelpers::IsOverriddenExpression, StackParameterData->Parameter));
-			NameOverride = FText::FromName(StackParameterData->Parameter->ParameterInfo.Name);
-			FIsResetToDefaultVisible IsResetVisible = FIsResetToDefaultVisible::CreateStatic(&FMaterialPropertyHelpers::ShouldShowResetToDefault, StackParameterData->Parameter, MaterialEditorInstance);
-			FResetToDefaultHandler ResetHandler = FResetToDefaultHandler::CreateStatic(&FMaterialPropertyHelpers::ResetToDefault, StackParameterData->Parameter, MaterialEditorInstance);
-			FResetToDefaultOverride ResetOverride = FResetToDefaultOverride::Create(IsResetVisible, ResetHandler);
-			
-			IDetailTreeNode& Node = *StackParameterData->ParameterNode;
-			TSharedPtr<IDetailPropertyRow> GeneratedRow = StaticCastSharedPtr<IDetailPropertyRow>(Node.GetRow());
-			IDetailPropertyRow& Row = *GeneratedRow.Get();
-			Row
-				.DisplayName(NameOverride)
-				.OverrideResetToDefault(ResetOverride)
-				.EditCondition(IsParamEnabled, FOnBooleanValueChanged::CreateStatic(&FMaterialPropertyHelpers::OnOverrideParameter, StackParameterData->Parameter, MaterialEditorInstance));
+			IsResetVisible = FIsResetToDefaultVisible::CreateStatic(&FMaterialPropertyHelpers::ShouldShowResetToDefault, StackParameterData->Parameter, MaterialEditorInstance);
+			ResetHandler = FResetToDefaultHandler::CreateStatic(&FMaterialPropertyHelpers::ResetCurveToDefault, StackParameterData->Parameter, MaterialEditorInstance);
+			ResetOverride = FResetToDefaultOverride::Create(IsResetVisible, ResetHandler);
+		}
 
+		IDetailTreeNode& Node = *StackParameterData->ParameterNode;
+		TSharedPtr<IDetailPropertyRow> GeneratedRow = StaticCastSharedPtr<IDetailPropertyRow>(Node.GetRow());
+		IDetailPropertyRow& Row = *GeneratedRow.Get();
+		Row
+			.DisplayName(NameOverride)
+			.OverrideResetToDefault(ResetOverride)
+			.EditCondition(IsParamEnabled, FOnBooleanValueChanged::CreateStatic(&FMaterialPropertyHelpers::OnOverrideParameter, StackParameterData->Parameter, MaterialEditorInstance));
 
-			UDEditorStaticComponentMaskParameterValue* CompMaskParam = Cast<UDEditorStaticComponentMaskParameterValue>(StackParameterData->Parameter);
-			UDEditorVectorParameterValue* VectorParam = Cast<UDEditorVectorParameterValue>(StackParameterData->Parameter);
+		if (VectorParam && VectorParam->bIsUsedAsChannelMask)
+		{
+			FOnGetPropertyComboBoxStrings GetMaskStrings = FOnGetPropertyComboBoxStrings::CreateStatic(&FMaterialPropertyHelpers::GetVectorChannelMaskComboBoxStrings);
+			FOnGetPropertyComboBoxValue GetMaskValue = FOnGetPropertyComboBoxValue::CreateStatic(&FMaterialPropertyHelpers::GetVectorChannelMaskValue, StackParameterData->Parameter);
+			FOnPropertyComboBoxValueSelected SetMaskValue = FOnPropertyComboBoxValueSelected::CreateStatic(&FMaterialPropertyHelpers::SetVectorChannelMaskValue, StackParameterData->ParameterNode->CreatePropertyHandle(), StackParameterData->Parameter, (UObject*)MaterialEditorInstance);
 
-			if (VectorParam && VectorParam->bIsUsedAsChannelMask)
-			{
-				FOnGetPropertyComboBoxStrings GetMaskStrings = FOnGetPropertyComboBoxStrings::CreateStatic(&FMaterialPropertyHelpers::GetVectorChannelMaskComboBoxStrings);
-				FOnGetPropertyComboBoxValue GetMaskValue = FOnGetPropertyComboBoxValue::CreateStatic(&FMaterialPropertyHelpers::GetVectorChannelMaskValue, StackParameterData->Parameter);
-				FOnPropertyComboBoxValueSelected SetMaskValue = FOnPropertyComboBoxValueSelected::CreateStatic(&FMaterialPropertyHelpers::SetVectorChannelMaskValue, StackParameterData->ParameterNode->CreatePropertyHandle(), StackParameterData->Parameter, (UObject*)MaterialEditorInstance);
+			FDetailWidgetRow& CustomWidget = Row.CustomWidget();
+			CustomWidget
+			.FilterString(NameOverride)
+			.NameContent()
+			[
+				SNew(STextBlock)
+				.Text(NameOverride)
+				.ToolTipText(FMaterialPropertyHelpers::GetParameterExpressionDescription(StackParameterData->Parameter, MaterialEditorInstance))
+				.Font(FEditorStyle::GetFontStyle(TEXT("PropertyWindow.NormalFont")))
+			]
+			.ValueContent()
+			.MaxDesiredWidth(200.0f)
+			[
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.FillWidth(1.0f)
+				[
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot()
+					.HAlign(HAlign_Left)
+					.AutoWidth()
+					[
+						PropertyCustomizationHelpers::MakePropertyComboBox(StackParameterData->ParameterNode->CreatePropertyHandle(), GetMaskStrings, GetMaskValue, SetMaskValue)
+					]
+				]
+			];
+		}
+		else if (ScalarParam && ScalarParam->AtlasData.bIsUsedAsAtlasPosition)
+		{
+			const FText ParameterName = FText::FromName(StackParameterData->Parameter->ParameterInfo.Name);
 
-				FDetailWidgetRow& CustomWidget = Row.CustomWidget();
-				CustomWidget
-				.FilterString(NameOverride)
+			FDetailWidgetRow& CustomWidget = Row.CustomWidget();
+			CustomWidget
+				.FilterString(ParameterName)
 				.NameContent()
+				[
+					SNew(STextBlock)
+					.Text(ParameterName)
+					.ToolTipText(FMaterialPropertyHelpers::GetParameterExpressionDescription(StackParameterData->Parameter, MaterialEditorInstance))
+					.Font(FEditorStyle::GetFontStyle(TEXT("PropertyWindow.NormalFont")))
+				]
+				.ValueContent()
+				.HAlign(HAlign_Fill)
+				.MaxDesiredWidth(400.0f)
+				[
+					SNew(SObjectPropertyEntryBox)
+					.ObjectPath(this, &SMaterialLayersFunctionsInstanceTreeItem::GetCurvePath, ScalarParam)
+					.AllowedClass(UCurveLinearColor::StaticClass())
+					.NewAssetFactories(TArray<UFactory*>())
+					.DisplayThumbnail(true)
+					.ThumbnailPool(InArgs._InTree->GetTreeThumbnailPool())
+					.OnShouldSetAsset(FOnShouldSetAsset::CreateStatic(&FMaterialPropertyHelpers::OnShouldSetCurveAsset, ScalarParam->AtlasData.Atlas))
+					.OnObjectChanged(FOnSetObject::CreateStatic(&FMaterialPropertyHelpers::SetPositionFromCurveAsset, ScalarParam->AtlasData.Atlas, ScalarParam, StackParameterData->ParameterHandle, (UObject*)MaterialEditorInstance))
+					.DisplayCompactSize(true)
+				];
+			
+		}
+		else if (!CompMaskParam)
+		{
+			FNodeWidgets StoredNodeWidgets = Node.CreateNodeWidgets();
+			TSharedRef<SWidget> StoredRightSideWidget = StoredNodeWidgets.ValueWidget.ToSharedRef();
+			FDetailWidgetRow& CustomWidget = Row.CustomWidget();
+			CustomWidget
+			.FilterString(NameOverride)
+			.NameContent()
+			[
+				SNew(SHorizontalBox)
+				+SHorizontalBox::Slot()
+				.VAlign(VAlign_Center)
 				[
 					SNew(STextBlock)
 					.Text(NameOverride)
 					.ToolTipText(FMaterialPropertyHelpers::GetParameterExpressionDescription(StackParameterData->Parameter, MaterialEditorInstance))
 					.Font(FEditorStyle::GetFontStyle(TEXT("PropertyWindow.NormalFont")))
 				]
-				.ValueContent()
-				.MaxDesiredWidth(200.0f)
-				[
-					SNew(SHorizontalBox)
-					+ SHorizontalBox::Slot()
-					.FillWidth(1.0f)
-					[
-						SNew(SHorizontalBox)
-						+ SHorizontalBox::Slot()
-						.HAlign(HAlign_Left)
-						.AutoWidth()
-						[
-							PropertyCustomizationHelpers::MakePropertyComboBox(StackParameterData->ParameterNode->CreatePropertyHandle(), GetMaskStrings, GetMaskValue, SetMaskValue)
-						]
-					]
-				];
-			}
-			else if (!CompMaskParam)
-			{
-				FNodeWidgets StoredNodeWidgets = Node.CreateNodeWidgets();
-				TSharedRef<SWidget> StoredRightSideWidget = StoredNodeWidgets.ValueWidget.ToSharedRef();
-				FDetailWidgetRow& CustomWidget = Row.CustomWidget();
-				CustomWidget
-				.FilterString(NameOverride)
-				.NameContent()
-				[
-					SNew(SHorizontalBox)
-					+SHorizontalBox::Slot()
-					.VAlign(VAlign_Center)
-					[
-						SNew(STextBlock)
-						.Text(NameOverride)
-						.ToolTipText(FMaterialPropertyHelpers::GetParameterExpressionDescription(StackParameterData->Parameter, MaterialEditorInstance))
-						.Font(FEditorStyle::GetFontStyle(TEXT("PropertyWindow.NormalFont")))
-					]
-				]
-				.ValueContent()
-				[
-					StoredRightSideWidget
-				];
+			]
+			.ValueContent()
+			[
+				StoredRightSideWidget
+			];
 
-			}
-			else
-			{
-				TSharedPtr<IPropertyHandle> RMaskProperty = StackParameterData->ParameterNode->CreatePropertyHandle()->GetChildHandle("R");
-				TSharedPtr<IPropertyHandle> GMaskProperty = StackParameterData->ParameterNode->CreatePropertyHandle()->GetChildHandle("G");
-				TSharedPtr<IPropertyHandle> BMaskProperty = StackParameterData->ParameterNode->CreatePropertyHandle()->GetChildHandle("B");
-				TSharedPtr<IPropertyHandle> AMaskProperty = StackParameterData->ParameterNode->CreatePropertyHandle()->GetChildHandle("A");
-				FDetailWidgetRow& CustomWidget = Row.CustomWidget();
-				CustomWidget
-				.FilterString(NameOverride)
-				.NameContent()
-				[
-					SNew(SHorizontalBox)
-					+ SHorizontalBox::Slot()
-					.VAlign(VAlign_Center)
-					[
-						SNew(STextBlock)
-						.Text(NameOverride)
-						.ToolTipText(FMaterialPropertyHelpers::GetParameterExpressionDescription(StackParameterData->Parameter, MaterialEditorInstance))
-						.Font(FEditorStyle::GetFontStyle(TEXT("PropertyWindow.NormalFont")))
-					]
-				]
-				.ValueContent()
-				.MaxDesiredWidth(200.0f)
-				[
-					SNew(SHorizontalBox)
-					+ SHorizontalBox::Slot()
-					.FillWidth(1.0f)
-					[
-						SNew(SHorizontalBox)
-						+ SHorizontalBox::Slot()
-						.HAlign(HAlign_Left)
-						.AutoWidth()
-						[
-							RMaskProperty->CreatePropertyNameWidget(FText::GetEmpty(), FText::GetEmpty(), false)
-						]
-						+ SHorizontalBox::Slot()
-						.HAlign(HAlign_Left)
-						.AutoWidth()
-						[
-							RMaskProperty->CreatePropertyValueWidget()
-						]
-						+ SHorizontalBox::Slot()
-						.HAlign(HAlign_Left)
-						.Padding(FMargin(10.0f, 0.0f, 0.0f, 0.0f))
-						.AutoWidth()
-						[
-							GMaskProperty->CreatePropertyNameWidget(FText::GetEmpty(), FText::GetEmpty(), false)
-						]
-						+ SHorizontalBox::Slot()
-						.HAlign(HAlign_Left)
-						.AutoWidth()
-						[
-							GMaskProperty->CreatePropertyValueWidget()
-						]
-						+ SHorizontalBox::Slot()
-						.HAlign(HAlign_Left)
-						.Padding(FMargin(10.0f, 0.0f, 0.0f, 0.0f))
-						.AutoWidth()
-						[
-							BMaskProperty->CreatePropertyNameWidget(FText::GetEmpty(), FText::GetEmpty(), false)
-						]
-						+ SHorizontalBox::Slot()
-						.HAlign(HAlign_Left)
-						.AutoWidth()
-						[
-							BMaskProperty->CreatePropertyValueWidget()
-						]
-						+ SHorizontalBox::Slot()
-						.HAlign(HAlign_Left)
-						.Padding(FMargin(10.0f, 0.0f, 0.0f, 0.0f))
-						.AutoWidth()
-						[
-							AMaskProperty->CreatePropertyNameWidget(FText::GetEmpty(), FText::GetEmpty(), false)
-						]
-						+ SHorizontalBox::Slot()
-						.HAlign(HAlign_Left)
-						.AutoWidth()
-						[
-							AMaskProperty->CreatePropertyValueWidget()
-						]
-					]	
-				];
-			}
-
-			FNodeWidgets NodeWidgets = Node.CreateNodeWidgets();
-			LeftSideWidget = NodeWidgets.NameWidget.ToSharedRef();
-			RightSideWidget = NodeWidgets.ValueWidget.ToSharedRef();
-
-			StackParameterData->ParameterNode->CreatePropertyHandle()->SetOnPropertyValueChanged(FSimpleDelegate::CreateSP(Tree, &SMaterialLayersFunctionsInstanceTree::UpdateThumbnailMaterial, StackParameterData->ParameterInfo.Association, StackParameterData->ParameterInfo.Index, false));
-			StackParameterData->ParameterNode->CreatePropertyHandle()->SetOnChildPropertyValueChanged(FSimpleDelegate::CreateSP(Tree, &SMaterialLayersFunctionsInstanceTree::UpdateThumbnailMaterial, StackParameterData->ParameterInfo.Association, StackParameterData->ParameterInfo.Index, false));
-
-			const int32 LayerStateIndex = StackParameterData->ParameterInfo.Association == EMaterialParameterAssociation::BlendParameter ? StackParameterData->ParameterInfo.Index + 1 : StackParameterData->ParameterInfo.Index;
-			const bool bEnabled = FMaterialPropertyHelpers::IsOverriddenExpression(StackParameterData->Parameter) && Tree->FunctionInstance->LayerStates[LayerStateIndex];
-			LeftSideWidget->SetEnabled(InArgs._InTree->FunctionInstance->LayerStates[LayerStateIndex]);
-			RightSideWidget->SetEnabled(bEnabled);
 		}
+		else
+		{
+			TSharedPtr<IPropertyHandle> RMaskProperty = StackParameterData->ParameterNode->CreatePropertyHandle()->GetChildHandle("R");
+			TSharedPtr<IPropertyHandle> GMaskProperty = StackParameterData->ParameterNode->CreatePropertyHandle()->GetChildHandle("G");
+			TSharedPtr<IPropertyHandle> BMaskProperty = StackParameterData->ParameterNode->CreatePropertyHandle()->GetChildHandle("B");
+			TSharedPtr<IPropertyHandle> AMaskProperty = StackParameterData->ParameterNode->CreatePropertyHandle()->GetChildHandle("A");
+			FDetailWidgetRow& CustomWidget = Row.CustomWidget();
+			CustomWidget
+			.FilterString(NameOverride)
+			.NameContent()
+			[
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.VAlign(VAlign_Center)
+				[
+					SNew(STextBlock)
+					.Text(NameOverride)
+					.ToolTipText(FMaterialPropertyHelpers::GetParameterExpressionDescription(StackParameterData->Parameter, MaterialEditorInstance))
+					.Font(FEditorStyle::GetFontStyle(TEXT("PropertyWindow.NormalFont")))
+				]
+			]
+			.ValueContent()
+			.MaxDesiredWidth(200.0f)
+			[
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.FillWidth(1.0f)
+				[
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot()
+					.HAlign(HAlign_Left)
+					.AutoWidth()
+					[
+						RMaskProperty->CreatePropertyNameWidget(FText::GetEmpty(), FText::GetEmpty(), false)
+					]
+					+ SHorizontalBox::Slot()
+					.HAlign(HAlign_Left)
+					.AutoWidth()
+					[
+						RMaskProperty->CreatePropertyValueWidget()
+					]
+					+ SHorizontalBox::Slot()
+					.HAlign(HAlign_Left)
+					.Padding(FMargin(10.0f, 0.0f, 0.0f, 0.0f))
+					.AutoWidth()
+					[
+						GMaskProperty->CreatePropertyNameWidget(FText::GetEmpty(), FText::GetEmpty(), false)
+					]
+					+ SHorizontalBox::Slot()
+					.HAlign(HAlign_Left)
+					.AutoWidth()
+					[
+						GMaskProperty->CreatePropertyValueWidget()
+					]
+					+ SHorizontalBox::Slot()
+					.HAlign(HAlign_Left)
+					.Padding(FMargin(10.0f, 0.0f, 0.0f, 0.0f))
+					.AutoWidth()
+					[
+						BMaskProperty->CreatePropertyNameWidget(FText::GetEmpty(), FText::GetEmpty(), false)
+					]
+					+ SHorizontalBox::Slot()
+					.HAlign(HAlign_Left)
+					.AutoWidth()
+					[
+						BMaskProperty->CreatePropertyValueWidget()
+					]
+					+ SHorizontalBox::Slot()
+					.HAlign(HAlign_Left)
+					.Padding(FMargin(10.0f, 0.0f, 0.0f, 0.0f))
+					.AutoWidth()
+					[
+						AMaskProperty->CreatePropertyNameWidget(FText::GetEmpty(), FText::GetEmpty(), false)
+					]
+					+ SHorizontalBox::Slot()
+					.HAlign(HAlign_Left)
+					.AutoWidth()
+					[
+						AMaskProperty->CreatePropertyValueWidget()
+					]
+				]	
+			];
+		}
+
+		FNodeWidgets NodeWidgets = Node.CreateNodeWidgets();
+		LeftSideWidget = NodeWidgets.NameWidget.ToSharedRef();
+		RightSideWidget = NodeWidgets.ValueWidget.ToSharedRef();
+
+		StackParameterData->ParameterNode->CreatePropertyHandle()->SetOnPropertyValueChanged(FSimpleDelegate::CreateSP(Tree, &SMaterialLayersFunctionsInstanceTree::UpdateThumbnailMaterial, StackParameterData->ParameterInfo.Association, StackParameterData->ParameterInfo.Index, false));
+		StackParameterData->ParameterNode->CreatePropertyHandle()->SetOnChildPropertyValueChanged(FSimpleDelegate::CreateSP(Tree, &SMaterialLayersFunctionsInstanceTree::UpdateThumbnailMaterial, StackParameterData->ParameterInfo.Association, StackParameterData->ParameterInfo.Index, false));
+
+		const int32 LayerStateIndex = StackParameterData->ParameterInfo.Association == EMaterialParameterAssociation::BlendParameter ? StackParameterData->ParameterInfo.Index + 1 : StackParameterData->ParameterInfo.Index;
+		const bool bEnabled = FMaterialPropertyHelpers::IsOverriddenExpression(StackParameterData->Parameter) && Tree->FunctionInstance->LayerStates[LayerStateIndex];
+		LeftSideWidget->SetEnabled(InArgs._InTree->FunctionInstance->LayerStates[LayerStateIndex]);
+		RightSideWidget->SetEnabled(bEnabled);
+	}
 // END PROPERTY
 
 // PROPERTY CHILD ----------------------------------------
-		if (StackParameterData->StackDataType == EStackDataType::PropertyChild)
-		{
-			FNodeWidgets NodeWidgets = StackParameterData->ParameterNode->CreateNodeWidgets();
-			LeftSideWidget = NodeWidgets.NameWidget.ToSharedRef();
-			RightSideWidget = NodeWidgets.ValueWidget.ToSharedRef();
+	if (StackParameterData->StackDataType == EStackDataType::PropertyChild)
+	{
+		FNodeWidgets NodeWidgets = StackParameterData->ParameterNode->CreateNodeWidgets();
+		LeftSideWidget = NodeWidgets.NameWidget.ToSharedRef();
+		RightSideWidget = NodeWidgets.ValueWidget.ToSharedRef();
 
-			const int32 LayerStateIndex = StackParameterData->ParameterInfo.Association == EMaterialParameterAssociation::BlendParameter ? StackParameterData->ParameterInfo.Index + 1 : StackParameterData->ParameterInfo.Index;
-			const bool bEnabled = FMaterialPropertyHelpers::IsOverriddenExpression(StackParameterData->Parameter) && Tree->FunctionInstance->LayerStates[LayerStateIndex];
-			LeftSideWidget->SetEnabled(InArgs._InTree->FunctionInstance->LayerStates[LayerStateIndex]);
-			RightSideWidget->SetEnabled(bEnabled);
-		}
+		const int32 LayerStateIndex = StackParameterData->ParameterInfo.Association == EMaterialParameterAssociation::BlendParameter ? StackParameterData->ParameterInfo.Index + 1 : StackParameterData->ParameterInfo.Index;
+		const bool bEnabled = FMaterialPropertyHelpers::IsOverriddenExpression(StackParameterData->Parameter) && Tree->FunctionInstance->LayerStates[LayerStateIndex];
+		LeftSideWidget->SetEnabled(InArgs._InTree->FunctionInstance->LayerStates[LayerStateIndex]);
+		RightSideWidget->SetEnabled(bEnabled);
+	}
 // END PROPERTY CHILD
 
 // FINAL WRAPPER
-		if (StackParameterData->StackDataType == EStackDataType::Stack)
-		{
-			WrapperWidget->AddSlot()
-				.AutoHeight()
+	if (StackParameterData->StackDataType == EStackDataType::Stack)
+	{
+		TSharedPtr<SHorizontalBox> FinalStack;
+		WrapperWidget->AddSlot()
+			.AutoHeight()
+			[
+				SNew(SBorder)
+				.BorderImage(this, &SMaterialLayersFunctionsInstanceTreeItem::GetBorderImage)
+				.Padding(0.0f)
 				[
-					SNew(SBorder)
-					.BorderImage(FEditorStyle::GetBrush("MaterialInstanceEditor.StackHeader"))
-					.Padding(0.0f)
+					SAssignNew(FinalStack, SHorizontalBox)
+				]
+			];
+		if (StackParameterData->ParameterInfo.Index != 0)
+		{
+			FinalStack->AddSlot()
+				.HAlign(HAlign_Center)
+				.VAlign(VAlign_Center)
+				.Padding(2.5f, 0)
+				.AutoWidth()
+				[
+					FMaterialPropertyHelpers::MakeStackReorderHandle(SharedThis(this))
+				];
+		}
+		FinalStack->AddSlot()
+			.AutoWidth()
+			.VAlign(VAlign_Center)
+			.Padding(FMargin(2.0f))
+			[
+				SNew(SExpanderArrow, SharedThis(this))
+			];
+		FinalStack->AddSlot()
+			.Padding(FMargin(2.0f))
+			.VAlign(VAlign_Center)
+			[
+				LeftSideWidget
+			];
+	}
+	else
+	{
+		FSlateBrush* StackBrush;
+		switch (StackParameterData->ParameterInfo.Association)
+		{
+		case EMaterialParameterAssociation::LayerParameter:
+		{
+			StackBrush = const_cast<FSlateBrush*>(FEditorStyle::GetBrush("MaterialInstanceEditor.StackBody"));
+			break;
+		}
+		case EMaterialParameterAssociation::BlendParameter:
+		{
+			StackBrush = const_cast<FSlateBrush*>(FEditorStyle::GetBrush("MaterialInstanceEditor.StackBodyBlend"));
+			break;
+		}
+		default:
+			break;
+		}
+		WrapperWidget->AddSlot()
+			.AutoHeight()
+			[
+				SNew(SBorder)
+				.BorderImage(this, &SMaterialLayersFunctionsInstanceTreeItem::GetBorderImage)
+				.Padding(0.0f)
+				[
+					SNew(SSplitter)
+					.Style(FEditorStyle::Get(), "DetailsView.Splitter")
+					.PhysicalSplitterHandleSize(1.0f)
+					.HitDetectionSplitterHandleSize(5.0f)
+					+ SSplitter::Slot()
+					.Value(ColumnSizeData.LeftColumnWidth)
+					.OnSlotResized(ColumnSizeData.OnWidthChanged)
+					.Value(0.25f)
 					[
 						SNew(SHorizontalBox)
 						+ SHorizontalBox::Slot()
 						.AutoWidth()
 						.VAlign(VAlign_Center)
-						.Padding(FMargin(2.0f))
+						.Padding(FMargin(3.0f))
 						[
 							SNew(SExpanderArrow, SharedThis(this))
 						]
@@ -646,110 +924,56 @@ public:
 							LeftSideWidget
 						]
 					]
-				];
-		}
-		else
-		{
-			FSlateBrush* StackBrush;
-			switch (StackParameterData->ParameterInfo.Association)
-			{
-			case EMaterialParameterAssociation::LayerParameter:
-			{
-				StackBrush = const_cast<FSlateBrush*>(FEditorStyle::GetBrush("MaterialInstanceEditor.StackBody"));
-				break;
-			}
-			case EMaterialParameterAssociation::BlendParameter:
-			{
-				StackBrush = const_cast<FSlateBrush*>(FEditorStyle::GetBrush("MaterialInstanceEditor.StackBodyBlend"));
-				break;
-			}
-			default:
-				break;
-			}
-			WrapperWidget->AddSlot()
-				.AutoHeight()
-				[
-					SNew(SBorder)
-					.BorderImage(StackBrush)
-					.Padding(0.0f)
+					+ SSplitter::Slot()
+					.Value(ColumnSizeData.RightColumnWidth)
+					.OnSlotResized(ColumnSizeData.OnWidthChanged)
 					[
-						SNew(SSplitter)
-						.Style(FEditorStyle::Get(), "DetailsView.Splitter")
-						.PhysicalSplitterHandleSize(1.0f)
-						.HitDetectionSplitterHandleSize(5.0f)
-						+ SSplitter::Slot()
-						.Value(ColumnSizeData.LeftColumnWidth)
-						.OnSlotResized(ColumnSizeData.OnWidthChanged)
-						.Value(0.25f)
+						SNew(SHorizontalBox)
+						+ SHorizontalBox::Slot()
+						.MaxWidth(350.0f)
+						.Padding(FMargin(5.0f, 2.0f, 0.0f, 2.0f))
 						[
-							SNew(SHorizontalBox)
-							+ SHorizontalBox::Slot()
-							.AutoWidth()
-							.VAlign(VAlign_Center)
-							.Padding(FMargin(3.0f))
-							[
-								SNew(SExpanderArrow, SharedThis(this))
-							]
-							+ SHorizontalBox::Slot()
-							.Padding(FMargin(2.0f))
-							.VAlign(VAlign_Center)
-							[
-								LeftSideWidget
-							]
-						]
-						+ SSplitter::Slot()
-						.Value(ColumnSizeData.RightColumnWidth)
-						.OnSlotResized(ColumnSizeData.OnWidthChanged)
-						[
-							SNew(SHorizontalBox)
-							+ SHorizontalBox::Slot()
-							.MaxWidth(350.0f)
-							.Padding(FMargin(5.0f, 2.0f, 0.0f, 2.0f))
-							[
-								RightSideWidget
-							]
+							RightSideWidget
 						]
 					]
-				];
-		}
-	
-
-		this->ChildSlot
-			[
-				WrapperWidget
+				]
 			];
-
-		STableRow< TSharedPtr<FStackSortedData> >::ConstructInternal(
-			STableRow::FArguments()
-			.Style(FEditorStyle::Get(), "DetailsView.TreeView.TableRow")
-			.ShowSelection(false),
-			InOwnerTableView
-		);
 	}
 
-	// Disable double-click expansion
-	virtual FReply OnMouseButtonDoubleClick(const FGeometry& InMyGeometry, const FPointerEvent& InMouseEvent) override { return FReply::Handled(); };
 
-	/** The node info to build the tree view row from. */
-	TSharedPtr<FStackSortedData> StackParameterData;
+	this->ChildSlot
+		[
+			WrapperWidget
+		];
 
-	UMaterialEditorInstanceConstant* MaterialEditorInstance;
+	FOnTableRowDragEnter LayerDragDelegate = FOnTableRowDragEnter::CreateSP(this, &SMaterialLayersFunctionsInstanceTreeItem::OnLayerDragEnter);
+	FOnTableRowDragLeave LayerDragLeaveDelegate = FOnTableRowDragLeave::CreateSP(this, &SMaterialLayersFunctionsInstanceTreeItem::OnLayerDragLeave);
+	FOnTableRowDrop LayerDropDelegate = FOnTableRowDrop::CreateSP(this, &SMaterialLayersFunctionsInstanceTreeItem::OnLayerDrop);
 
-	FString GetInstancePath(SMaterialLayersFunctionsInstanceTree* InTree) const
+	STableRow< TSharedPtr<FStackSortedData> >::ConstructInternal(
+		STableRow::FArguments()
+		.Style(FEditorStyle::Get(), "DetailsView.TreeView.TableRow")
+		.ShowSelection(false)
+		.OnDragEnter(LayerDragDelegate)
+		.OnDragLeave(LayerDragLeaveDelegate)
+		.OnDrop(LayerDropDelegate),
+		InOwnerTableView
+	);
+}
+
+FString SMaterialLayersFunctionsInstanceTreeItem::GetInstancePath(SMaterialLayersFunctionsInstanceTree* InTree) const
+{
+	FString InstancePath;
+	if (StackParameterData->ParameterInfo.Association == EMaterialParameterAssociation::BlendParameter && InTree->FunctionInstance->Blends.IsValidIndex(StackParameterData->ParameterInfo.Index))
 	{
-		FString InstancePath;
-		if (StackParameterData->ParameterInfo.Association == EMaterialParameterAssociation::BlendParameter && InTree->FunctionInstance->Blends.IsValidIndex(StackParameterData->ParameterInfo.Index))
-		{
-			InstancePath = InTree->FunctionInstance->Blends[StackParameterData->ParameterInfo.Index]->GetPathName();
-		}
-		else if (StackParameterData->ParameterInfo.Association == EMaterialParameterAssociation::LayerParameter && InTree->FunctionInstance->Layers.IsValidIndex(StackParameterData->ParameterInfo.Index))
-		{
-			InstancePath = InTree->FunctionInstance->Layers[StackParameterData->ParameterInfo.Index]->GetPathName();
-		}
-		return InstancePath;
+		InstancePath = InTree->FunctionInstance->Blends[StackParameterData->ParameterInfo.Index]->GetPathName();
 	}
-};
-
+	else if (StackParameterData->ParameterInfo.Association == EMaterialParameterAssociation::LayerParameter && InTree->FunctionInstance->Layers.IsValidIndex(StackParameterData->ParameterInfo.Index))
+	{
+		InstancePath = InTree->FunctionInstance->Layers[StackParameterData->ParameterInfo.Index]->GetPathName();
+	}
+	return InstancePath;
+}
 
 void SMaterialLayersFunctionsInstanceTree::Construct(const FArguments& InArgs)
 {
@@ -885,12 +1109,40 @@ void SMaterialLayersFunctionsInstanceTree::RemoveLayer(int32 Index)
 
 FReply SMaterialLayersFunctionsInstanceTree::ToggleLayerVisibility(int32 Index)
 {
-	const FScopedTransaction Transaction(LOCTEXT("ToggleLayerAndBlendVisibility", "Toggles visibility for a blended layer"));
-	FunctionInstanceHandle->NotifyPreChange();
-	FunctionInstance->ToggleBlendedLayerVisibility(Index);
-	FunctionInstanceHandle->NotifyPostChange();
-	CreateGroupsWidget();
-	return FReply::Handled();
+	if (!FSlateApplication::Get().GetModifierKeys().AreModifersDown(EModifierKey::Alt))
+	{
+		bLayerIsolated = false;
+		const FScopedTransaction Transaction(LOCTEXT("ToggleLayerAndBlendVisibility", "Toggles visibility for a blended layer"));
+		FunctionInstanceHandle->NotifyPreChange();
+		FunctionInstance->ToggleBlendedLayerVisibility(Index);
+		FunctionInstanceHandle->NotifyPostChange();
+		CreateGroupsWidget();
+		return FReply::Handled();
+	}
+	else
+	{
+		const FScopedTransaction Transaction(LOCTEXT("ToggleLayerAndBlendVisibility", "Toggles visibility for a blended layer"));
+		FunctionInstanceHandle->NotifyPreChange();
+		if (FunctionInstance->GetLayerVisibility(Index) == false)
+		{
+			// Reset if clicking on a disabled layer
+			FunctionInstance->SetBlendedLayerVisibility(Index, true);
+			bLayerIsolated = false;
+		}
+		for (int32 LayerIt = 1; LayerIt < FunctionInstance->LayerStates.Num(); LayerIt++)
+		{
+			if (LayerIt != Index)
+			{
+				FunctionInstance->SetBlendedLayerVisibility(LayerIt, bLayerIsolated);
+			}
+		}
+
+		bLayerIsolated = !bLayerIsolated;
+		FunctionInstanceHandle->NotifyPostChange();
+		CreateGroupsWidget();
+		return FReply::Handled();
+	}
+
 }
 
 TSharedPtr<class FAssetThumbnailPool> SMaterialLayersFunctionsInstanceTree::GetTreeThumbnailPool()
@@ -986,14 +1238,14 @@ void SMaterialLayersFunctionsInstanceTree::CreateGroupsWidget()
 					MaterialEditorInstance->StoredBlendPreviews.AddDefaulted(BlendChildren);
 				}
 					
-				TSharedPtr<FStackSortedData> StackProperty(new FStackSortedData());
+				TSharedRef<FStackSortedData> StackProperty = MakeShared<FStackSortedData>();
 				StackProperty->StackDataType = EStackDataType::Stack;
 				StackProperty->Parameter = Parameter;
 				StackProperty->ParameterInfo.Index = LayerChildren - 1;
 				StackProperty->NodeKey = FString::FromInt(StackProperty->ParameterInfo.Index);
 
 
-				TSharedPtr<FStackSortedData> ChildProperty(new FStackSortedData());
+				TSharedRef<FStackSortedData> ChildProperty = MakeShared<FStackSortedData>();
 				ChildProperty->StackDataType = EStackDataType::Asset;
 				ChildProperty->Parameter = Parameter;
 				ChildProperty->ParameterHandle = LayerHandle->AsArray()->GetElement(LayerChildren - 1);
@@ -1010,7 +1262,7 @@ void SMaterialLayersFunctionsInstanceTree::CreateGroupsWidget()
 					{
 						MaterialEditorInstance->StoredLayerPreviews[LayerChildren - 1] = (NewObject<UMaterialInstanceConstant>(MaterialEditorInstance, NAME_None));
 					}
-					UMaterialInterface* EditedMaterial = Cast<UMaterialInterface>(Cast<UMaterialFunctionInterface>(AssetObject)->GetPreviewMaterial());
+					UMaterialInterface* EditedMaterial = Cast<UMaterialFunctionInterface>(AssetObject)->GetPreviewMaterial();
 					if (MaterialEditorInstance->StoredLayerPreviews[LayerChildren - 1] && MaterialEditorInstance->StoredLayerPreviews[LayerChildren - 1]->Parent != EditedMaterial)
 					{
 						MaterialEditorInstance->StoredLayerPreviews[LayerChildren - 1]->SetParentEditorOnly(EditedMaterial);
@@ -1024,7 +1276,7 @@ void SMaterialLayersFunctionsInstanceTree::CreateGroupsWidget()
 				{
 					for (int32 Counter = BlendChildren - 1; Counter >= 0; Counter--)
 					{
-						ChildProperty = MakeShareable(new FStackSortedData());
+						ChildProperty = MakeShared<FStackSortedData>();
 						ChildProperty->StackDataType = EStackDataType::Asset;
 						ChildProperty->Parameter = Parameter;
 						ChildProperty->ParameterHandle = BlendHandle->AsArray()->GetElement(Counter);	
@@ -1039,7 +1291,7 @@ void SMaterialLayersFunctionsInstanceTree::CreateGroupsWidget()
 							{
 								MaterialEditorInstance->StoredBlendPreviews[Counter] = (NewObject<UMaterialInstanceConstant>(MaterialEditorInstance, NAME_None));
 							}
-							UMaterialInterface* EditedMaterial = Cast<UMaterialInterface>(Cast<UMaterialFunctionInterface>(AssetObject)->GetPreviewMaterial());
+							UMaterialInterface* EditedMaterial = Cast<UMaterialFunctionInterface>(AssetObject)->GetPreviewMaterial();
 							if (MaterialEditorInstance->StoredBlendPreviews[Counter] && MaterialEditorInstance->StoredBlendPreviews[Counter]->Parent != EditedMaterial)
 							{
 								MaterialEditorInstance->StoredBlendPreviews[Counter]->SetParentEditorOnly(EditedMaterial);
@@ -1047,14 +1299,14 @@ void SMaterialLayersFunctionsInstanceTree::CreateGroupsWidget()
 						}
 						LayerProperties.Last()->Children.Add(ChildProperty);
 							
-						StackProperty = MakeShareable(new FStackSortedData());
+						StackProperty = MakeShared<FStackSortedData>();
 						StackProperty->StackDataType = EStackDataType::Stack;
 						StackProperty->Parameter = Parameter;
 						StackProperty->ParameterInfo.Index = Counter;
 						StackProperty->NodeKey = FString::FromInt(StackProperty->ParameterInfo.Index);
 						LayerProperties.Add(StackProperty);
 
-						ChildProperty = MakeShareable(new FStackSortedData());
+						ChildProperty = MakeShared<FStackSortedData>();
 						ChildProperty->StackDataType = EStackDataType::Asset;
 						ChildProperty->Parameter = Parameter;
 						ChildProperty->ParameterHandle = LayerHandle->AsArray()->GetElement(Counter);
@@ -1069,7 +1321,7 @@ void SMaterialLayersFunctionsInstanceTree::CreateGroupsWidget()
 							{
 								MaterialEditorInstance->StoredLayerPreviews[Counter] = (NewObject<UMaterialInstanceConstant>(MaterialEditorInstance, NAME_None));
 							}
-							UMaterialInterface* EditedMaterial = Cast<UMaterialInterface>(Cast<UMaterialFunctionInterface>(AssetObject)->GetPreviewMaterial());
+							UMaterialInterface* EditedMaterial = Cast<UMaterialFunctionInterface>(AssetObject)->GetPreviewMaterial();
 							if (MaterialEditorInstance->StoredLayerPreviews[Counter] && MaterialEditorInstance->StoredLayerPreviews[Counter]->Parent != EditedMaterial)
 							{
 								MaterialEditorInstance->StoredLayerPreviews[Counter]->SetParentEditorOnly(EditedMaterial);
@@ -1128,7 +1380,9 @@ TSharedRef<SWidget> SMaterialLayersFunctionsInstanceTree::CreateThumbnailWidget(
 		ThumbnailObject = MaterialEditorInstance->StoredBlendPreviews[InIndex];
 	}
 	const TSharedPtr<FAssetThumbnail> AssetThumbnail = MakeShareable(new FAssetThumbnail(ThumbnailObject, InThumbnailSize, InThumbnailSize, GetTreeThumbnailPool()));
-	return AssetThumbnail->MakeThumbnailWidget();
+	TSharedRef<SWidget> ThumbnailWidget = AssetThumbnail->MakeThumbnailWidget();
+	ThumbnailWidget->SetOnMouseDoubleClick(FPointerEventHandler::CreateSP(this, &SMaterialLayersFunctionsInstanceTree::OnThumbnailDoubleClick, InAssociation, InIndex));
+	return ThumbnailWidget;
 }
 
 void SMaterialLayersFunctionsInstanceTree::UpdateThumbnailMaterial(TEnumAsByte<EMaterialParameterAssociation> InAssociation, int32 InIndex, bool bAlterBlendIndex)
@@ -1177,8 +1431,27 @@ void SMaterialLayersFunctionsInstanceTree::UpdateThumbnailMaterial(TEnumAsByte<E
 	}
 	if (MaterialToUpdate != nullptr)
 	{
-		FMaterialPropertyHelpers::TransitionAndCopyParameters(MaterialToUpdate, ParameterGroups);
+		FMaterialPropertyHelpers::TransitionAndCopyParameters(MaterialToUpdate, ParameterGroups, true);
 	}
+}
+
+FReply SMaterialLayersFunctionsInstanceTree::OnThumbnailDoubleClick(const FGeometry& Geometry, const FPointerEvent& MouseEvent, EMaterialParameterAssociation InAssociation, int32 InIndex)
+{
+	UMaterialFunctionInterface* AssetToOpen = nullptr;
+	if (InAssociation == EMaterialParameterAssociation::BlendParameter)
+	{
+		AssetToOpen = FunctionInstance->Blends[InIndex];
+	}
+	else if (InAssociation == EMaterialParameterAssociation::LayerParameter)
+	{
+		AssetToOpen = FunctionInstance->Layers[InIndex];
+	}
+	if (AssetToOpen != nullptr)
+	{
+		FAssetEditorManager::Get().OpenEditorForAsset(AssetToOpen);
+		return FReply::Handled();
+	}
+	return FReply::Unhandled();
 }
 
 void SMaterialLayersFunctionsInstanceTree::ShowSubParameters(TSharedPtr<FStackSortedData> ParentParameter)
@@ -1256,8 +1529,8 @@ void SMaterialLayersFunctionsInstanceWrapper::Refresh()
 	TSharedPtr<SHorizontalBox> HeaderBox;
 	NestedTree->CreateGroupsWidget();
 	LayerParameter = NestedTree->FunctionParameter;
-	FOnClicked 	OnChildButtonClicked = FOnClicked::CreateStatic(&FMaterialPropertyHelpers::OnClickedSaveNewMaterialInstance, Cast<UMaterialInterface>(MaterialEditorInstance->SourceInstance), Cast<UObject>(MaterialEditorInstance));
-	FOnClicked	OnSiblingButtonClicked = FOnClicked::CreateStatic(&FMaterialPropertyHelpers::OnClickedSaveNewMaterialInstance, MaterialEditorInstance->SourceInstance->Parent, Cast<UObject>(MaterialEditorInstance));
+	FOnClicked 	OnChildButtonClicked = FOnClicked::CreateStatic(&FMaterialPropertyHelpers::OnClickedSaveNewMaterialInstance, ImplicitConv<UMaterialInterface*>(MaterialEditorInstance->SourceInstance), ImplicitConv<UObject*>(MaterialEditorInstance));
+	FOnClicked	OnSiblingButtonClicked = FOnClicked::CreateStatic(&FMaterialPropertyHelpers::OnClickedSaveNewMaterialInstance, MaterialEditorInstance->SourceInstance->Parent, ImplicitConv<UObject*>(MaterialEditorInstance));
 
 	if (LayerParameter != nullptr)
 	{
@@ -1424,6 +1697,9 @@ public:
 	*
 	* @param InArgs   A declaration from which to construct the widget
 	*/
+	FString GetCurvePath(UDEditorScalarParameterValue* Parameter) const;
+
+
 	void Construct(const FArguments& InArgs, const TSharedRef<STableViewBase>& InOwnerTableView)
 	{
 		// todo: add tooltips
@@ -1567,6 +1843,7 @@ public:
 
 			UDEditorStaticComponentMaskParameterValue* CompMaskParam = Cast<UDEditorStaticComponentMaskParameterValue>(StackParameterData->Parameter);
 			UDEditorVectorParameterValue* VectorParam = Cast<UDEditorVectorParameterValue>(StackParameterData->Parameter);
+			UDEditorScalarParameterValue* ScalarParam = Cast<UDEditorScalarParameterValue>(StackParameterData->Parameter);
 
 			if (VectorParam && VectorParam->bIsUsedAsChannelMask)
 			{
@@ -1600,6 +1877,39 @@ public:
 						]
 					]
 				];
+			}
+			if (ScalarParam && ScalarParam->AtlasData.bIsUsedAsAtlasPosition)
+			{
+
+				TAttribute<bool> IsParamEnabled = TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateStatic(&FMaterialPropertyHelpers::IsOverriddenExpression, StackParameterData->Parameter));
+
+				const FText ParameterName = FText::FromName(StackParameterData->Parameter->ParameterInfo.Name);
+
+				FDetailWidgetRow& CustomWidget = Row.CustomWidget();
+				CustomWidget
+					.FilterString(ParameterName)
+					.NameContent()
+					[
+						SNew(STextBlock)
+						.Text(ParameterName)
+						.ToolTipText(FMaterialPropertyHelpers::GetParameterExpressionDescription(StackParameterData->Parameter, MaterialEditorInstance))
+						.Font(FEditorStyle::GetFontStyle(TEXT("PropertyWindow.NormalFont")))
+					]
+					.ValueContent()
+					.HAlign(HAlign_Fill)
+					.MaxDesiredWidth(400.0f)
+					[
+						SNew(SObjectPropertyEntryBox)
+						.ObjectPath(this, &SMaterialLayersFunctionsMaterialTreeItem::GetCurvePath, ScalarParam)
+						.AllowedClass(UCurveLinearColor::StaticClass())
+						.NewAssetFactories(TArray<UFactory*>())
+						.DisplayThumbnail(true)
+						.ThumbnailPool(InArgs._InTree->GetTreeThumbnailPool())
+						.OnShouldSetAsset(FOnShouldSetAsset::CreateStatic(&FMaterialPropertyHelpers::OnShouldSetCurveAsset, ScalarParam->AtlasData.Atlas))
+						.OnObjectChanged(FOnSetObject::CreateStatic(&FMaterialPropertyHelpers::SetPositionFromCurveAsset, ScalarParam->AtlasData.Atlas, ScalarParam, StackParameterData->ParameterHandle, (UObject*)MaterialEditorInstance))
+						.DisplayCompactSize(true)
+					];
+
 			}
 			else if (!CompMaskParam)
 			{
@@ -1855,12 +2165,18 @@ public:
 	UMaterialEditorPreviewParameters* MaterialEditorInstance;
 };
 
+FString SMaterialLayersFunctionsMaterialTreeItem::GetCurvePath(UDEditorScalarParameterValue* Parameter) const
+{
+	FString Path = Parameter->AtlasData.Curve->GetPathName();
+	return Path;
+}
+
 void SMaterialLayersFunctionsMaterialWrapper::Refresh()
 {
 	LayerParameter = nullptr;
 	NestedTree->CreateGroupsWidget();
 	LayerParameter = NestedTree->FunctionParameter;
-	FOnClicked 	OnChildButtonClicked = FOnClicked::CreateStatic(&FMaterialPropertyHelpers::OnClickedSaveNewMaterialInstance, Cast<UMaterialInterface>(MaterialEditorInstance->OriginalMaterial), Cast<UObject>(MaterialEditorInstance));
+	FOnClicked 	OnChildButtonClicked = FOnClicked::CreateStatic(&FMaterialPropertyHelpers::OnClickedSaveNewMaterialInstance, ImplicitConv<UMaterialInterface*>(MaterialEditorInstance->OriginalMaterial), ImplicitConv<UObject*>(MaterialEditorInstance));
 
 	if (LayerParameter != nullptr)
 	{
@@ -2278,6 +2594,7 @@ void SMaterialLayersFunctionsMaterialTree::ShowSubParameters(TSharedPtr<FStackSo
 		}
 	}
 }
+
 
 
 #undef LOCTEXT_NAMESPACE

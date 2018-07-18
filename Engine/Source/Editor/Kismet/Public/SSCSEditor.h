@@ -404,7 +404,7 @@ public:
 	*
 	* @param InComponentTemplate The component template represented by this object.
 	*/
-	FSCSEditorTreeNodeInstanceAddedComponent(AActor* Owner, FName InComponentName);
+	FSCSEditorTreeNodeInstanceAddedComponent(AActor* Owner, UActorComponent* InComponentTemplate);
 
 	// FSCSEditorTreeNode public interface
 	virtual bool IsNative() const override { return false; }
@@ -1030,7 +1030,13 @@ protected:
 	FSCSEditorTreeNodePtrType AddTreeNode(USCS_Node* InSCSNode, FSCSEditorTreeNodePtrType InParentNodePtr, const bool bIsInheritedSCS);
 
 	/** Helper method to add a tree node for the given scene component */
-	FSCSEditorTreeNodePtrType AddTreeNodeFromComponent(USceneComponent* InSceneComponent);
+	FSCSEditorTreeNodePtrType AddTreeNodeFromComponent(USceneComponent* InSceneComponent, FSCSEditorTreeNodePtrType InParentTreeNode = FSCSEditorTreeNodePtrType());
+	
+	/** Helper method to recursively add tree nodes for an already-attached instanced scene component hierarchy */
+	void AddInstancedTreeNodesRecursive(USceneComponent* Component, FSCSEditorTreeNodePtrType TreeNode, TSet<UActorComponent*>& ComponentsToAdd);
+
+	/** Helper method to determine whether or not an instanced actor component should be added to the tree */
+	bool ShouldAddInstancedActorComponent(UActorComponent* ActorComp, USceneComponent* ParentSceneComp = nullptr) const;
 
 	/** Helper method to recursively find a tree node for the given SCS node starting at the given tree node */
 	FSCSEditorTreeNodePtrType FindTreeNode(const USCS_Node* InSCSNode, FSCSEditorTreeNodePtrType InStartNodePtr = FSCSEditorTreeNodePtrType()) const;

@@ -1,6 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "TaggedBinaryArchiveOutputFormatter.h"
+#include "Serialization/Formatters/TaggedBinaryArchiveOutputFormatter.h"
 
 #if WITH_TEXT_ARCHIVE_SUPPORT
 
@@ -10,7 +10,7 @@ FTaggedBinaryArchiveOutputFormatter::FTaggedBinaryArchiveOutputFormatter(FArchiv
 	, StartOffset(Inner.Tell())
 	, NextRecordIdx(0)
 {
-	Inner.ArIsTextFormat = true;
+	Inner.SetIsTextFormat(true);
 
 	int64 NamesOffset = 0;
 	Inner << NamesOffset;

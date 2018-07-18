@@ -6,7 +6,7 @@
 #include "Interfaces/IAudioFormat.h"
 #include "ContentStreaming.h"
 #if PLATFORM_WINDOWS
-#include "WindowsHWrapper.h"
+#include "Windows/WindowsHWrapper.h"
 #endif
 
 #if WITH_OGGVORBIS

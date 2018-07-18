@@ -132,13 +132,13 @@ bool FALAudioDevice::InitializeHardware( void )
 	UE_LOG(LogALAudio, Log, TEXT("ALAudio device opened : %s"), StringCast<TCHAR>(static_cast<const ANSICHAR*>(OpenedDeviceName)).Get());
 
 	// Create a context
+#if PLATFORM_LINUX
 	int Caps[] =
 	{
 		ALC_FREQUENCY, 44100,
 		ALC_STEREO_SOURCES, 4,
 		0, 0
 	};
-#if PLATFORM_LINUX
 	SoundContext = alcCreateContext( HardwareDevice, Caps );
 #elif PLATFORM_HTML5
 	SoundContext = alcCreateContext( HardwareDevice, 0 );
@@ -164,7 +164,7 @@ bool FALAudioDevice::InitializeHardware( void )
 	UE_LOG(LogALAudio, Log, TEXT("AL_EXTENSIONS  : %s"), StringCast<TCHAR>(static_cast<const ANSICHAR*>(alGetString(AL_EXTENSIONS))).Get());
 
 	// Get the enums for multichannel support
-#if !PLATFORM_HTML5
+#if PLATFORM_LINUX
 	Surround40Format = alGetEnumValue( "AL_FORMAT_QUAD16" );
 	Surround51Format = alGetEnumValue( "AL_FORMAT_51CHN16" );
 	Surround61Format = alGetEnumValue( "AL_FORMAT_61CHN16" );
@@ -241,7 +241,7 @@ ALuint FALAudioDevice::GetInternalFormat( int NumChannels )
 	case 2:
 		InternalFormat = AL_FORMAT_STEREO16;
 		break;
-#if !PLATFORM_HTML5
+#if PLATFORM_LINUX
 	case 4:
 		InternalFormat = Surround40Format;
 		break;

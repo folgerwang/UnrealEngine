@@ -16,7 +16,7 @@
 #include "GameFramework/Actor.h"
 #include "Modules/ModuleManager.h"
 #include "AutomationStaticMeshComponentAdapter.h"
-#include "Containers/Algo/Transform.h"
+#include "Algo/Transform.h"
 #include "Materials/Material.h"
 
 void UEditorTestsUtilityLibrary::BakeMaterialsForComponent(UStaticMeshComponent* InStaticMeshComponent, const UMaterialOptions* MaterialOptions, const UMaterialMergeOptions* MaterialMergeOptions)
@@ -80,7 +80,7 @@ void UEditorTestsUtilityLibrary::MergeStaticMeshComponents(TArray<UStaticMeshCom
 
 		TArray<UObject*> Output;
 		FVector OutPosition;
-		MeshMergeUtilities.MergeComponentsToStaticMesh(PrimCompsToMerge, World, MergeSettings, GetTransientPackage(), InStaticMeshComponents[0]->GetStaticMesh()->GetName(), Output, OutPosition, 1.0f, false);
+		MeshMergeUtilities.MergeComponentsToStaticMesh(PrimCompsToMerge, World, MergeSettings, nullptr, GetTransientPackage(), InStaticMeshComponents[0]->GetStaticMesh()->GetName(), Output, OutPosition, 1.0f, false);
 		
 		UObject** MaterialPtr = Output.FindByPredicate([](UObject* Object) { return Object->IsA<UMaterial>(); });
 		if (MaterialPtr)

@@ -2,7 +2,7 @@
 
 #include "SPhysicsAssetGraph.h"
 #include "GraphEditor.h"
-#include "GlobalEditorCommonCommands.h"
+#include "Toolkits/GlobalEditorCommonCommands.h"
 
 #include "Editor/UnrealEd/Public/ObjectTools.h"
 #include "Engine/Selection.h"
@@ -18,12 +18,12 @@
 #include "ISkeletonTreeItem.h"
 #include "PhysicsAssetEditor.h"
 #include "ISkeletonEditorModule.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "SkeletonTreePhysicsBodyItem.h"
 #include "PhysicsAssetEditorSkeletonTreeBuilder.h"
 #include "IPersonaToolkit.h"
-#include "SlateApplication.h"
-#include "MultiBoxBuilder.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
 
 #define LOCTEXT_NAMESPACE "PhysicsAssetGraph"
 

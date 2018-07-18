@@ -29,50 +29,47 @@
 	#include "PhysicsEngine/PhysXSupport.h"
 #endif // WITH_PHYSX
 
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #if WITH_PHYSX
-	#include "IPhysXCookingModule.h"
-	#include "IPhysXCooking.h"
+	#include "Physics/IPhysXCookingModule.h"
+	#include "Physics/IPhysXCooking.h"
 #endif
 
 #include "PhysicsEngine/PhysDerivedData.h"
 #include "PhysicalMaterials/PhysicalMaterial.h"
 #include "ProfilingDebugging/CookStats.h"
-#include "AnimPhysObjectVersion.h"
+#include "UObject/AnimPhysObjectVersion.h"
 
 /** Helper for enum output... */
 #ifndef CASE_ENUM_TO_TEXT
 #define CASE_ENUM_TO_TEXT(txt) case txt: return TEXT(#txt);
 #endif
 
-namespace Lex
+const TCHAR* LexToString(ECollisionTraceFlag Enum)
 {
-	const TCHAR* ToString(ECollisionTraceFlag Enum)
+	switch (Enum)
 	{
-		switch (Enum)
-		{
-			FOREACH_ENUM_ECOLLISIONTRACEFLAG(CASE_ENUM_TO_TEXT)
-		}
-		return TEXT("<Unknown ECollisionTraceFlag>");
+		FOREACH_ENUM_ECOLLISIONTRACEFLAG(CASE_ENUM_TO_TEXT)
 	}
+	return TEXT("<Unknown ECollisionTraceFlag>");
+}
 
-	const TCHAR* ToString(EPhysicsType Enum)
+const TCHAR* LexToString(EPhysicsType Enum)
+{
+	switch (Enum)
 	{
-		switch (Enum)
-		{
-			FOREACH_ENUM_EPHYSICSTYPE(CASE_ENUM_TO_TEXT)
-		}
-		return TEXT("<Unknown EPhysicsType>");
+		FOREACH_ENUM_EPHYSICSTYPE(CASE_ENUM_TO_TEXT)
 	}
+	return TEXT("<Unknown EPhysicsType>");
+}
 
-	const TCHAR* ToString(EBodyCollisionResponse::Type Enum)
+const TCHAR* LexToString(EBodyCollisionResponse::Type Enum)
+{
+	switch (Enum)
 	{
-		switch (Enum)
-		{
-			FOREACH_ENUM_EBODYCOLLISIONRESPONSE(CASE_ENUM_TO_TEXT)
-		}
-		return TEXT("<Unknown EBodyCollisionResponse>");
+		FOREACH_ENUM_EBODYCOLLISIONRESPONSE(CASE_ENUM_TO_TEXT)
 	}
+	return TEXT("<Unknown EBodyCollisionResponse>");
 }
 
 
@@ -174,6 +171,7 @@ UBodySetup::UBodySetup(const FObjectInitializer& ObjectInitializer)
 	bConsiderForBounds = true;
 	bMeshCollideAll = false;
 	CollisionTraceFlag = CTF_UseDefault;
+	bFailedToCreatePhysicsMeshes = false;
 	bHasCookedCollisionData = true;
 	bNeverNeedsCookedCollisionData = false;
 	bGenerateMirroredCollision = true;
@@ -471,9 +469,16 @@ void UBodySetup::CreatePhysicsMeshes()
 				}
 				else
 				{
-					CookHelper.CreatePhysicsMeshes_Concurrent();
-					FinishCreatingPhysicsMeshes(CookHelper.OutNonMirroredConvexMeshes, CookHelper.OutMirroredConvexMeshes, CookHelper.OutTriangleMeshes);
-					bClearMeshes = false;
+                    if (CookHelper.CreatePhysicsMeshes_Concurrent())
+                    {
+					    FinishCreatingPhysicsMeshes(CookHelper.OutNonMirroredConvexMeshes, CookHelper.OutMirroredConvexMeshes, CookHelper.OutTriangleMeshes);
+					    bClearMeshes = false;
+                        bFailedToCreatePhysicsMeshes = false;
+                    }
+                    else
+                    {
+                        bFailedToCreatePhysicsMeshes = true;
+                    }
 				}
 			}
 		}
@@ -526,9 +531,11 @@ void UBodySetup::FinishCreatingPhysicsMeshes(const TArray<PxConvexMesh*>& Convex
 
 	for (PxTriangleMesh* TriMesh : CookedTriMeshes)
 	{
-		check(TriMesh);
-		TriMeshes.Add(TriMesh);
-		FPhysxSharedData::Get().Add(TriMesh, FullName);
+		if(TriMesh)
+		{
+			TriMeshes.Add(TriMesh);
+			FPhysxSharedData::Get().Add(TriMesh, FullName);
+		}
 	}
 
 	// Clear the cooked data
@@ -751,7 +758,7 @@ FBodySetupShapeIterator::FBodySetupShapeIterator(const UBodySetup& InBodySetup, 
 }
 
 template <typename ElemType, typename GeomType>
-void FBodySetupShapeIterator::ForEachShape(const TArray<ElemType>& Elements, TFunctionRef<void(const ElemType& Elem, const GeomType& Geom, const PxTransform& LocalPose, float ContactOffset)> VisitorFunc) const
+void FBodySetupShapeIterator::ForEachShape(const TArray<ElemType>& Elements, TFunctionRef<void(const ElemType& Elem, const GeomType& Geom, const PxTransform& LocalPose, float ContactOffset, float RestOffset)> VisitorFunc) const
 {
 	for (int32 ElemIdx = 0; ElemIdx < Elements.Num(); ElemIdx++)
 	{
@@ -761,8 +768,9 @@ void FBodySetupShapeIterator::ForEachShape(const TArray<ElemType>& Elements, TFu
 
 		if(PopulatePhysXGeometryAndTransform(Elem, Geom, PLocalPose))
 		{
-			const float ContactOffset = ComputeContactOffset(Geom);
-			VisitorFunc(Elem, Geom, PLocalPose, ContactOffset);
+			const float RestOffset = ComputeRestOffset(Elem);
+			const float ContactOffset = FMath::Max(ComputeContactOffset(Geom), RestOffset + 1.f);	//make sure contact offset is always at least rest offset + 1 cm
+			VisitorFunc(Elem, Geom, PLocalPose, ContactOffset, RestOffset);
 		}
 		else
 		{
@@ -797,6 +805,16 @@ template <> float FBodySetupShapeIterator::ComputeContactOffset(const PxSphereGe
 template <> FString FBodySetupShapeIterator::GetDebugName<FKSphereElem>()  const
 {
 	return TEXT("Sphere");
+}
+
+template <typename ElemType> float FBodySetupShapeIterator::ComputeRestOffset(const ElemType& Elem) const
+{
+	return Elem.RestOffset;
+}
+
+template <> float FBodySetupShapeIterator::ComputeRestOffset(physx::PxTriangleMesh* const&) const
+{
+	return 0.f;
 }
 
 /////////////////// Box elements //////////////////////////////
@@ -983,7 +1001,7 @@ void UBodySetup::AddShapesToRigidActor_AssumesLocked(FBodyInstance* OwningInstan
 		Scale3D = FVector(0.1f);
 	}
 
-	auto AttachShape_AssumesLocked = [bShapeSharing, NewShapes, PDestActor, ComplexMaterials, SimpleMaterial, SceneType, &ShapeData] (const PxGeometry& PGeom, const PxTransform& PLocalPose, const float ContactOffset, const FPhysxUserData* ShapeElemUserData, PxShapeFlags PShapeFlags)
+	auto AttachShape_AssumesLocked = [bShapeSharing, NewShapes, PDestActor, ComplexMaterials, SimpleMaterial, SceneType, &ShapeData] (const PxGeometry& PGeom, const PxTransform& PLocalPose, const float ContactOffset, const float RestOffset, const FPhysxUserData* ShapeElemUserData, PxShapeFlags PShapeFlags)
 	{
 		const PxMaterial* PMaterial = GetDefaultPhysMaterial();
 		PxShape* PNewShape = GPhysXSDK->createShape(PGeom, *PMaterial, !bShapeSharing, PShapeFlags);
@@ -999,6 +1017,7 @@ void UBodySetup::AddShapesToRigidActor_AssumesLocked(FBodyInstance* OwningInstan
 			}
 
 			PNewShape->setContactOffset(ContactOffset);
+			PNewShape->setRestOffset(RestOffset);
 
 			const bool bSyncFlags = bShapeSharing || SceneType == PST_Sync;
 			const FShapeFilterData& Filters = ShapeData.FilterData;
@@ -1016,15 +1035,15 @@ void UBodySetup::AddShapesToRigidActor_AssumesLocked(FBodyInstance* OwningInstan
 		return PNewShape;
 	};
 
-	auto IterateSimpleShapes = [AttachShape_AssumesLocked](const FKShapeElem& Elem, const PxGeometry& Geom, const PxTransform& PLocalPose, float ContactOffset)
+	auto IterateSimpleShapes = [AttachShape_AssumesLocked](const FKShapeElem& Elem, const PxGeometry& Geom, const PxTransform& PLocalPose, float ContactOffset, float RestOffset)
 	{
-		AttachShape_AssumesLocked(Geom, PLocalPose, ContactOffset, Elem.GetUserData(), PxShapeFlag::eVISUALIZATION | PxShapeFlag::eSCENE_QUERY_SHAPE | PxShapeFlag::eSIMULATION_SHAPE);
+		AttachShape_AssumesLocked(Geom, PLocalPose, ContactOffset, RestOffset, Elem.GetUserData(), PxShapeFlag::eVISUALIZATION | PxShapeFlag::eSCENE_QUERY_SHAPE | PxShapeFlag::eSIMULATION_SHAPE);
 	};
 
-	auto IterateTrimeshes = [AttachShape_AssumesLocked](PxTriangleMesh*, const PxGeometry& Geom, const PxTransform& PLocalPose, float ContactOffset)
+	auto IterateTrimeshes = [AttachShape_AssumesLocked](PxTriangleMesh*, const PxGeometry& Geom, const PxTransform& PLocalPose, float ContactOffset, float RestOffset)
 	{
 		// Create without 'sim shape' flag, problematic if it's kinematic, and it gets set later anyway.
-		if (!AttachShape_AssumesLocked(Geom, PLocalPose, ContactOffset, nullptr, PxShapeFlag::eSCENE_QUERY_SHAPE | PxShapeFlag::eVISUALIZATION))
+		if (!AttachShape_AssumesLocked(Geom, PLocalPose, ContactOffset, RestOffset, nullptr, PxShapeFlag::eSCENE_QUERY_SHAPE | PxShapeFlag::eVISUALIZATION))
 		{
 			UE_LOG(LogPhysics, Log, TEXT("Can't create new mesh shape in AddShapesToRigidActor"));
 		}
@@ -1675,6 +1694,8 @@ int32 FKAggregateGeom::GetElementCount(EAggCollisionShape::Type Type) const
 		return SphylElems.Num();
 	case EAggCollisionShape::Sphere:
 		return SphereElems.Num();
+	case EAggCollisionShape::TaperedCapsule:
+		return TaperedCapsuleElems.Num();
 	default:
 		return 0;
 	}
@@ -2025,6 +2046,62 @@ float FKSphylElem::GetClosestPointAndNormal(const FVector& WorldPosition, const 
 	return bIsOutside ? DistToEdge : 0.f;
 }
 
+void FKTaperedCapsuleElem::ScaleElem(FVector DeltaSize, float MinSize)
+{
+	float DeltaRadius0 = DeltaSize.X;
+	float DeltaRadius1 = DeltaSize.Y;
+
+	float DeltaHeight = DeltaSize.Z;
+	float radius0 = FMath::Max(Radius0 + DeltaRadius0, MinSize);
+	float radius1 = FMath::Max(Radius1 + DeltaRadius1, MinSize);
+	float length = Length + DeltaHeight;
+
+	length += ((Radius1 - radius1) + (Radius0 - radius0)) * 0.5f;
+	length = FMath::Max(0.f, length);
+
+	Radius0 = radius0;
+	Radius1 = radius1;
+	Length = length;
+}
+
+FKTaperedCapsuleElem FKTaperedCapsuleElem::GetFinalScaled(const FVector& Scale3D, const FTransform& RelativeTM) const
+{
+	FKTaperedCapsuleElem ScaledTaperedCapsuleElem = *this;
+
+	float MinScale, MinScaleAbs;
+	FVector Scale3DAbs;
+
+	SetupNonUniformHelper(Scale3D * RelativeTM.GetScale3D(), MinScale, MinScaleAbs, Scale3DAbs);
+
+	GetScaledRadii(Scale3DAbs, ScaledTaperedCapsuleElem.Radius0, ScaledTaperedCapsuleElem.Radius1);
+	ScaledTaperedCapsuleElem.Length = GetScaledCylinderLength(Scale3DAbs);
+
+	FVector LocalOrigin = RelativeTM.TransformPosition(Center) * Scale3D;
+	ScaledTaperedCapsuleElem.Center = LocalOrigin;
+	ScaledTaperedCapsuleElem.Rotation = FRotator(RelativeTM.GetRotation() * FQuat(ScaledTaperedCapsuleElem.Rotation));
+
+	return ScaledTaperedCapsuleElem;
+}
+
+void FKTaperedCapsuleElem::GetScaledRadii(const FVector& Scale3D, float& OutRadius0, float& OutRadius1) const
+{
+	const FVector Scale3DAbs = Scale3D.GetAbs();
+	const float RadiusScale = FMath::Max(Scale3DAbs.X, Scale3DAbs.Y);
+	OutRadius0 = FMath::Clamp(Radius0 * RadiusScale, 0.1f, GetScaledHalfLength(Scale3DAbs));
+	OutRadius1 = FMath::Clamp(Radius1 * RadiusScale, 0.1f, GetScaledHalfLength(Scale3DAbs));
+}
+
+float FKTaperedCapsuleElem::GetScaledCylinderLength(const FVector& Scale3D) const
+{
+	float ScaledRadius0, ScaledRadius1;
+	GetScaledRadii(Scale3D, ScaledRadius0, ScaledRadius1);
+	return FMath::Max(0.1f, ((GetScaledHalfLength(Scale3D) * 2.0f) - (ScaledRadius0 + ScaledRadius1)));
+}
+
+float FKTaperedCapsuleElem::GetScaledHalfLength(const FVector& Scale3D) const
+{
+	return FMath::Max((Length + Radius0 + Radius1) * FMath::Abs(Scale3D.Z) * 0.5f, 0.1f);
+}
 
 class UPhysicalMaterial* UBodySetup::GetPhysMaterial() const
 {
@@ -2106,11 +2183,11 @@ TEnumAsByte<enum ECollisionTraceFlag> UBodySetup::GetCollisionTraceFlag() const
 
 /// @cond DOXYGEN_WARNINGS
 
-template void FBodySetupShapeIterator::ForEachShape(const TArray<FKSphereElem>&, TFunctionRef<void(const FKSphereElem&, const physx::PxSphereGeometry&, const physx::PxTransform&, float)>) const;
-template void FBodySetupShapeIterator::ForEachShape(const TArray<FKBoxElem>&, TFunctionRef<void(const FKBoxElem&, const physx::PxBoxGeometry&, const physx::PxTransform&, float)>) const;
-template void FBodySetupShapeIterator::ForEachShape(const TArray<FKSphylElem>&, TFunctionRef<void(const FKSphylElem&, const physx::PxCapsuleGeometry&, const physx::PxTransform&, float)>) const;
-template void FBodySetupShapeIterator::ForEachShape(const TArray<FKConvexElem>&, TFunctionRef<void(const FKConvexElem&, const physx::PxConvexMeshGeometry&, const physx::PxTransform&, float)>) const;
-template void FBodySetupShapeIterator::ForEachShape(const TArray<physx::PxTriangleMesh*>&, TFunctionRef<void(physx::PxTriangleMesh* const &, const physx::PxTriangleMeshGeometry&, const physx::PxTransform&, float)>) const;
+template void FBodySetupShapeIterator::ForEachShape(const TArray<FKSphereElem>&, TFunctionRef<void(const FKSphereElem&, const physx::PxSphereGeometry&, const physx::PxTransform&, float, float)>) const;
+template void FBodySetupShapeIterator::ForEachShape(const TArray<FKBoxElem>&, TFunctionRef<void(const FKBoxElem&, const physx::PxBoxGeometry&, const physx::PxTransform&, float, float)>) const;
+template void FBodySetupShapeIterator::ForEachShape(const TArray<FKSphylElem>&, TFunctionRef<void(const FKSphylElem&, const physx::PxCapsuleGeometry&, const physx::PxTransform&, float, float)>) const;
+template void FBodySetupShapeIterator::ForEachShape(const TArray<FKConvexElem>&, TFunctionRef<void(const FKConvexElem&, const physx::PxConvexMeshGeometry&, const physx::PxTransform&, float, float)>) const;
+template void FBodySetupShapeIterator::ForEachShape(const TArray<physx::PxTriangleMesh*>&, TFunctionRef<void(physx::PxTriangleMesh* const &, const physx::PxTriangleMeshGeometry&, const physx::PxTransform&, float, float)>) const;
 
 /// @endcond
 

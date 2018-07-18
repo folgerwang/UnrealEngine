@@ -2,16 +2,16 @@
 
 #pragma once
  
-#include "OnlineIdentityInterface.h"
-#include "OnlineSharingInterface.h"
+#include "Interfaces/OnlineIdentityInterface.h"
+#include "Interfaces/OnlineSharingInterface.h"
 #include "OnlineSubsystemFacebookPackage.h"
-#include "IHttpRequest.h"
+#include "Interfaces/IHttpRequest.h"
 
 class FOnlineSubsystemFacebook;
 class FUserOnlineAccountFacebookCommon;
 
+#define AUTH_TYPE_FACEBOOK TEXT("facebook")
 #define FB_AUTH_EXPIRED_CREDS TEXT("com.epicgames.fb.oauth.expiredcreds");
-#define FB_AUTH_CANCELED	  TEXT("com.epicgames.login.canceled");
 
 /**
  * Delegate fired after a Facebook profile request has been completed

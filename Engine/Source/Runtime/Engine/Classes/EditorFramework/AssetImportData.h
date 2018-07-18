@@ -103,19 +103,28 @@ public:
 	void UpdateFilenameOnly(const FString& InPath, int32 Index);
 
 	/** Helper function to return the first filename stored in this data. The resulting filename will be absolute (ie, not relative to the asset).  */
+#if WITH_EDITOR
+	UFUNCTION(BlueprintCallable, meta=(DisplayName="GetFirstFilename", ScriptName="GetFirstFilename"), Category="AssetImportData")
+	FString K2_GetFirstFilename() const;
+#endif
 	FString GetFirstFilename() const;
 
 	/** Const access to the source file data */
 	const FAssetImportInfo& GetSourceData() const { return SourceData; }
 
 	/** Extract all the (resolved) filenames from this data  */
-	void ExtractFilenames(TArray<FString>& AbsoluteFilenames) const;
-
-	/** Extract all the (resolved) filenames from this data  */
+#if WITH_EDITOR
+	UFUNCTION(BlueprintCallable, meta=(DisplayName="ExtractFilenames", ScriptName="ExtractFilenames"), Category="AssetImportData")
+	TArray<FString> K2_ExtractFilenames() const;
+#endif
 	TArray<FString> ExtractFilenames() const;
+	void ExtractFilenames(TArray<FString>& AbsoluteFilenames) const;
 
 	/** Resolve a filename that is relative to either the specified package, BaseDir() or absolute */
 	static FString ResolveImportFilename(const FString& InRelativePath, const UPackage* Outermost);
+
+	/** Convert an absolute import path so that it's relative to either this object's package, BaseDir() or leave it absolute */
+	static FString SanitizeImportFilename(const FString& InPath, const UPackage* Outermost);
 
 	virtual void PostLoad() override;
 

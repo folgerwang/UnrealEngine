@@ -49,18 +49,6 @@ bool UMovieSceneParticleParameterTrack::IsEmpty() const
 	return Sections.Num() == 0;
 }
 
-TRange<float> UMovieSceneParticleParameterTrack::GetSectionBoundaries() const
-{
-	TArray< TRange<float> > Bounds;
-
-	for ( int32 SectionIndex = 0; SectionIndex < Sections.Num(); ++SectionIndex )
-	{
-		Bounds.Add( Sections[SectionIndex]->GetRange() );
-	}
-
-	return TRange<float>::Hull( Bounds );
-}
-
 const TArray<UMovieSceneSection*>& UMovieSceneParticleParameterTrack::GetAllSections() const
 {
 	return Sections;
@@ -75,40 +63,37 @@ FText UMovieSceneParticleParameterTrack::GetDefaultDisplayName() const
 #endif
 
 
-void UMovieSceneParticleParameterTrack::AddScalarParameterKey( FName ParameterName, float Time, float Value )
+void UMovieSceneParticleParameterTrack::AddScalarParameterKey( FName ParameterName, FFrameNumber Time, float Value )
 {
 	UMovieSceneParameterSection* NearestSection = Cast<UMovieSceneParameterSection>(MovieSceneHelpers::FindNearestSectionAtTime(Sections, Time));
 	if ( NearestSection == nullptr )
 	{
 		NearestSection = Cast<UMovieSceneParameterSection>(CreateNewSection());
-		NearestSection->SetStartTime( Time );
-		NearestSection->SetEndTime( Time );
+		NearestSection->SetRange(TRange<FFrameNumber>::Inclusive(Time, Time));
 		Sections.Add( NearestSection );
 	}
 	NearestSection->AddScalarParameterKey(ParameterName, Time, Value);
 }
 
-void UMovieSceneParticleParameterTrack::AddVectorParameterKey( FName ParameterName, float Time, FVector Value )
+void UMovieSceneParticleParameterTrack::AddVectorParameterKey( FName ParameterName, FFrameNumber Time, FVector Value )
 {
 	UMovieSceneParameterSection* NearestSection = Cast<UMovieSceneParameterSection>( MovieSceneHelpers::FindNearestSectionAtTime( Sections, Time ) );
 	if ( NearestSection == nullptr )
 	{
 		NearestSection = Cast<UMovieSceneParameterSection>( CreateNewSection() );
-		NearestSection->SetStartTime( Time );
-		NearestSection->SetEndTime( Time );
+		NearestSection->SetRange(TRange<FFrameNumber>::Inclusive(Time, Time));
 		Sections.Add( NearestSection );
 	}
 	NearestSection->AddVectorParameterKey( ParameterName, Time, Value );
 }
 
-void UMovieSceneParticleParameterTrack::AddColorParameterKey( FName ParameterName, float Time, FLinearColor Value )
+void UMovieSceneParticleParameterTrack::AddColorParameterKey( FName ParameterName, FFrameNumber Time, FLinearColor Value )
 {
 	UMovieSceneParameterSection* NearestSection = Cast<UMovieSceneParameterSection>( MovieSceneHelpers::FindNearestSectionAtTime( Sections, Time ) );
 	if ( NearestSection == nullptr )
 	{
 		NearestSection = Cast<UMovieSceneParameterSection>( CreateNewSection() );
-		NearestSection->SetStartTime( Time );
-		NearestSection->SetEndTime( Time );
+		NearestSection->SetRange(TRange<FFrameNumber>::Inclusive(Time, Time));
 		Sections.Add( NearestSection );
 	}
 	NearestSection->AddColorParameterKey( ParameterName, Time, Value );

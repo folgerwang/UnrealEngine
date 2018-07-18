@@ -220,6 +220,13 @@ bool CheckVirtualShaderFilePath(const FString& VirtualFilePath, TArray<FShaderCo
 		bSuccess = false;
 	}
 
+	if (VirtualFilePath.Contains(TEXT("..")))
+	{
+		FString Error = FString::Printf(TEXT("Virtual shader source file name \"%s\" should have relative directories (\"../\") collapsed."), *VirtualFilePath);
+		ReportVirtualShaderFilePathError(CompileErrors, Error);
+		bSuccess = false;
+	}
+
 	if (VirtualFilePath.Contains(TEXT("\\")))
 	{
 		FString Error = FString::Printf(TEXT("Backslashes are not permitted in virtual shader source file name \"%s\""), *VirtualFilePath);
@@ -540,6 +547,9 @@ static void GetShaderIncludes(const TCHAR* EntryPointVirtualFilePath, const TCHA
 					if (!ExtractedIncludeFilename.StartsWith(TEXT("/")))
 					{
 						ExtractedIncludeFilename = FPaths::GetPath(VirtualFilePath) / ExtractedIncludeFilename;
+
+						// Collapse any relative directories to allow #include "../MyFile.ush"
+						FPaths::CollapseRelativeDirectories(ExtractedIncludeFilename);
 					}
 
 					//CRC the template, not the filled out version so that this shader's CRC will be independent of which material references it.
@@ -554,10 +564,6 @@ static void GetShaderIncludes(const TCHAR* EntryPointVirtualFilePath, const TCHA
 					// Check virtual.
 					bIgnoreInclude |= !CheckVirtualShaderFilePath(ExtractedIncludeFilename);
 			
-					// Ignore Niagara generated shader code
-					bIgnoreInclude |= (ExtractedIncludeFilename == TEXT("/Engine/Private/NiagaraEmitterInstance.usf"));
-					bIgnoreInclude |= (ExtractedIncludeFilename == TEXT("/Engine/Private/NiagaraSimulation.usf"));
-
 					// Some headers aren't required to be found (platforms that the user doesn't have access to)
 					// @todo: Is there some way to generalize this"
 					const bool bIsOptionalInclude = (ExtractedIncludeFilename == TEXT("/Engine/Public/PS4/PS4Common.ush") 
@@ -743,11 +749,15 @@ void BuildShaderFileToUniformBufferMap(TMap<FString, TArray<const TCHAR*> >& Sha
 		struct FShaderVariable
 		{
 			FShaderVariable(const TCHAR* ShaderVariable) :
-				OriginalShaderVariable(ShaderVariable), SearchKey(FString(ShaderVariable).ToUpper() + TEXT("."))
-			{
-			}
+				OriginalShaderVariable(ShaderVariable), 
+				SearchKey(FString(ShaderVariable).ToUpper() + TEXT(".")),
+				// MCPP inserts a space after a #define replacement, make sure we detect the uniform buffer reference
+				SearchKeyWithSpace(FString(ShaderVariable).ToUpper() + TEXT(" ."))
+			{}
+
 			const TCHAR* OriginalShaderVariable;
 			FString SearchKey;
+			FString SearchKeyWithSpace;
 		};
 		// Cache each UB
 		TArray<FShaderVariable> SearchKeys;
@@ -772,7 +782,8 @@ void BuildShaderFileToUniformBufferMap(TMap<FString, TArray<const TCHAR*> >& Sha
 			for (int32 SearchKeyIndex = 0; SearchKeyIndex < SearchKeys.Num(); ++SearchKeyIndex)
 			{
 				// Searching for the uniform buffer shader variable being accessed with '.'
-				if (ShaderFileContents.Contains(SearchKeys[SearchKeyIndex].SearchKey, ESearchCase::CaseSensitive))
+				if (ShaderFileContents.Contains(SearchKeys[SearchKeyIndex].SearchKey, ESearchCase::CaseSensitive)
+					|| ShaderFileContents.Contains(SearchKeys[SearchKeyIndex].SearchKeyWithSpace, ESearchCase::CaseSensitive))
 				{
 					ReferencedUniformBuffers.AddUnique(SearchKeys[SearchKeyIndex].OriginalShaderVariable);
 				}

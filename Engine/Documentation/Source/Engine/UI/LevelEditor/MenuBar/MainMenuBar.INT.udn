@@ -116,7 +116,7 @@ mac
 %commonwindowmenu%
 
 [VAR:CommonWindowMenu]
-| [REGION:tablesection]** **[/REGION] ||
+| [REGION:tablesection] [/REGION] ||
 | **Content Browser** | Opens any of up to 4 separate [**Content Browsers**](Engine/Content/Browser) for working with content assets. |
 | **Developer Tools** | Provides access to various **[](Engine\Tools\DevTools)** that are useful for programmers working with the engine and editor. |
 | **Blueprint Debugger** | Opens the **[](Engine/Blueprints/UserGuide/Debugging)** panel. |

@@ -157,7 +157,7 @@ FReply SEyeDropperButton::OnMouseMove(const FGeometry& MyGeometry, const FPointe
 	return SButton::OnMouseMove(MyGeometry, MouseEvent);
 }
 
-void SEyeDropperButton::OnMouseCaptureLost()
+void SEyeDropperButton::OnMouseCaptureLost(const FCaptureLostEvent& CaptureLostEvent)
 {
 	if (bWasClickActivated && bWasLeft && !bWasReEntered)
 	{

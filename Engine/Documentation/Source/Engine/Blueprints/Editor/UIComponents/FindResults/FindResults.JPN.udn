@@ -1,12 +1,13 @@
-﻿INTSourceChangelist:2683262
+﻿INTSourceChangelist:3244370
 Availability:Public
-Title:Find Result （検索結果） パネル
+Title:検索結果を表示するパネル
 Crumbs: %ROOT%, Engine, Engine/Blueprints, Engine/Blueprints/Editor, Engine/Blueprints/Editor/UIBreakdowns/LevelBPUI
 Description:ブループリント エディタ内を検索するツールであるパネルを使って、様々なオブジェクトの検索ができます。
 version:4.9
+tags:Blueprints
 
 
-[Find Results (検索結果)] パネルはブループリント エディタ内の強力な検索ツールであり、以下の条件に基づき様々なオブジェクトを見つけることができます。
+**[Find Results (検索結果)]** パネルはブループリント エディタ内の強力な検索ツールであり、以下の条件に基づき様々なオブジェクトを見つけることができます。
 
 * ノード名
 * ピン名
@@ -32,4 +33,4 @@ version:4.9
 1. **検索フィルタ** - 検索対象を入力する場所です。
 1. **プロパティ値** - 結果の中央に明示的に設定されたプロパティ値が括弧内に表示されます。
 1. **コメント** - 存在する場合は、Node コメントがパネルの右側に黄色いテキストで表示されます。
-1. **Find in Current Blueprint Only (このブループリント内のみ検索)** - 有効時は、検索対象は使用しているブループリント内に制限されます。無効時は、検索はプロジェクト内のすべてのブループリントを対象にします。
+1. **[Find in Current Blueprint Only (このブループリント内のみ検索)]** - 有効時は、検索対象は使用しているブループリント内に制限されます。無効時は、検索はプロジェクト内のすべてのブループリントを対象にします。

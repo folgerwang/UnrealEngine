@@ -31,9 +31,7 @@ class UMaterialExpressionStaticSwitch : public UMaterialExpression
 #if WITH_EDITOR
 	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex) override;
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
-#endif // WITH_EDITOR
 	virtual FName GetInputName(int32 InputIndex) const override;
-#if WITH_EDITOR
 	virtual bool IsResultMaterialAttributes(int32 OutputIndex) override;
 	virtual uint32 GetInputType(int32 InputIndex) override;
 	virtual uint32 GetOutputType(int32 OutputIndex) override {return MCT_Unknown;}

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2683818
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:2.大気と指向性のライティング
 Crumbs:%ROOT%, GettingStarted, Engine\Rendering\LightingAndShadows\QuickStart
@@ -15,7 +15,7 @@ SkillLevel:Beginner
 	[PARAM:current]
 	[/PARAM]
 	[PARAM:home]
-		[ライティング クイックスタート ガイド](Engine/Rendering/LightingAndShadows/QuickStart)
+		[クイックスタート ホーム](Engine/Rendering/LightingAndShadows/QuickStart)
 	[/PARAM]
 	[PARAM:next]
 		[次のステップ](Engine/Rendering/LightingAndShadows/QuickStart/3 "%Engine/Rendering/LightingAndShadows/QuickStart/3:title%")
@@ -31,7 +31,7 @@ SkillLevel:Beginner
 
 	![](step2_1.png)
 
-1. **Visual Effects** の **[Modes]** メニューで、**[Atmospheric Fog]** をレベル ビューポートにドラッグします。 
+1. **Visual Effects** の **[Modes]** メニューで、 **[Atmospheric Fog]** をレベル ビューポートにドラッグします。 
 
 	![](step2_2.png)
 
@@ -67,11 +67,11 @@ SkillLevel:Beginner
 
 	1 日の様々な時間帯の間で簡単に切り替えができるように、レベル内のライトは太陽の位置によって変わります。 
 
-今、デフォルトはこのようになっています。
+今、デフォルトはこのようになっています。 
 
 ![](step2_9.png)
 
-**Directional Light** の設定を変更して、夕陽に温かみを出してみましょう。 
+ **Directional Light** の設定を変更して、夕陽に温かみを出してみましょう。 
 
 1. **Directional Light** の **[Details (詳細)]** パネルで、**[Light Color]** バーをクリックすると、**カラーピッカー** が表示されます。 
 
@@ -107,9 +107,4 @@ SkillLevel:Beginner
 	各種 **Directional Light** の設定詳細は [](Engine/Rendering/LightingAndShadows/LightTypes/Directional) をご覧ください。 
 [/REGION]
 
-**次のステップ** では、大気のライトを設定して、アパート内に光を当てて暗い部分を照らしていきます。 
-
-
-
-
-
+**次のステップ** では、大気ライトを設定して、アパート内に光を当てて暗い部分を照らしていきます。 

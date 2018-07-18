@@ -35,7 +35,7 @@ public:
 	FNiagaraDynamicDataBase *GenerateVertexData(const FNiagaraSceneProxy* Proxy, FNiagaraDataSet &Data, const ENiagaraSimTarget Target) override;
 
 	void AddRibbonVert(TArray<FNiagaraRibbonVertex>& RenderData, FVector ParticlePos, FVector2D UV1, FVector2D UV2,
-		const FLinearColor &Color, const float Age, const float Rotation, const float Size, const FVector NormDir, const FVector CustomFacing)
+		const FLinearColor &Color, const float Rotation, const float Size, const FVector NormDir, const FVector CustomFacing)
 	{
 		FNiagaraRibbonVertex NewVertex;
 		NewVertex.Position = ParticlePos;
@@ -43,12 +43,11 @@ public:
 		NewVertex.Color = Color;
 		NewVertex.Size = Size;
 		NewVertex.Rotation = Rotation;
-		NewVertex.Tex_U = UV1.X * Properties->UV0Scale.X;
-		NewVertex.Tex_V = UV1.Y * Properties->UV0Scale.Y;
-		NewVertex.Tex_U2 = UV2.X * Properties->UV1Scale.X;
-		NewVertex.Tex_V2 = UV2.Y * Properties->UV1Scale.Y;
+		NewVertex.Tex_U = UV1.X;
+		NewVertex.Tex_V = UV1.Y;
+		NewVertex.Tex_U2 = UV2.X;
+		NewVertex.Tex_V2 = UV2.Y;
 		NewVertex.CustomFacingVector = CustomFacing;
-		//NewVertex.NormalizedAge = Age;
 		RenderData.Add(NewVertex);
 	}
 
@@ -75,11 +74,19 @@ public:
 
 	UClass *GetPropertiesClass() override { return UNiagaraRibbonRendererProperties::StaticClass(); }
 	void SetRendererProperties(UNiagaraRendererProperties *Props) override { Properties = Cast<UNiagaraRibbonRendererProperties>(Props); }
+	virtual UNiagaraRendererProperties* GetRendererProperties() const override {
+		return Properties;
+	}
 
 private:
 	class FNiagaraRibbonVertexFactory *VertexFactory;
 	UNiagaraRibbonRendererProperties *Properties;
 	mutable TUniformBuffer<FPrimitiveUniformShaderParameters> WorldSpacePrimitiveUniformBuffer;
+	int32 PositionDataOffset;
+	int32 WidthDataOffset;
+	int32 TwistDataOffset;
+	int32 ColorDataOffset;
+	int32 LastSyncedId;
 };
 
 

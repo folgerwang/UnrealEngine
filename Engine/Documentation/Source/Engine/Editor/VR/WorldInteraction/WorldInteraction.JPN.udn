@@ -1,4 +1,5 @@
-﻿Title:VR モードでワールドをナビゲートする
+﻿INTSourceChangelist:3746172
+Title:VR モードでワールドをナビゲートする
 Description:VR モードでの作業時にワールドをナビゲートする方法
 Crumbs:
 Availability: public
@@ -7,48 +8,19 @@ type:how-to
 order:3
 tags:VR
 tags:Level Editing
-version:4.11
+version:4.17
 skilllevel: intermediate
+topic-image:movement_grid.png
+prereq:Engine/Editor/VR/ActivateVRMode
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Editor/VR/WorldInteraction:title%](Engine/Editor/VR/WorldInteraction/worldinteraction.png)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Editor/VR/WorldInteraction:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Editor/VR/WorldInteraction]
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Editor/VR/WorldInteraction:description%
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Editor/VR/WorldInteraction:title%](Engine/Editor/VR/WorldInteraction/worldinteraction.png)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Editor/VR/WorldInteraction:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Editor/VR/WorldInteraction]
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Editor/VR/WorldInteraction:description%
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+[TOC(start:1 end:4)]
 
 [EXCERPT:main]
 
 ## ワールドの移動
 
-VR エディタでワールドを移動させるためには、2 台のコントローラのサイド ボタンのいずれかを長押しして移動モードを有効にする必要があります。サイド ボタンを押して、ワールド内にグリッド パターンがオーバーレイ表示されれば、移動モードが有効になった合図です。
+VR Mode でワールドを移動させるためには、2 台のコントローラのサイド ボタンのいずれかを長押しして移動モードを有効にする必要があります。サイド ボタンを押して、ワールド内にグリッド パターンがオーバーレイ表示されれば、移動モードが有効になった合図です。
 
 ![](movement_grid.png)(w:640)
 
@@ -62,11 +34,11 @@ VR エディタでワールドを移動させるためには、2 台のコント
 
 1. テレポートしたいワールド内のアクタにコントロールの照準を合わせます。
 
-	![](teleport_aim.png)(h:320)
+    ![](teleport_aim.png)(h:320)
 
 1. コントローラのトリガーを引くと、アクタがテレポートします。
 
-	![](teleport_move.png)(h:320)
+    ![](teleport_move.png)(h:320)
 
 ## ワールドの回転
 
@@ -74,7 +46,7 @@ VR エディタでワールドを移動させるためには、2 台のコント
 
 1. 両方のコントローラを互いに動かすと、まるで手でつかんで回転させているかのようにワールドが回転します。
 
-	![](rotate_world.png)
+    ![](rotate_world.png)
 
 
 ## ワールドのスケール

@@ -187,7 +187,7 @@ void SGameProjectDialog::Construct( const FArguments& InArgs )
 	{
 		ShowProjectBrowser();
 	}
-	else if (ActiveTab == NewProjectTab)
+	else if (ActiveTab == NewProjectTab) //-V547
 	{
 		ShowNewProjectTab();
 	}

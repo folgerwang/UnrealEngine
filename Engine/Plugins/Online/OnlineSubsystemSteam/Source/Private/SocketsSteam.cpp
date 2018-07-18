@@ -53,13 +53,6 @@ bool FSocketSteam::Listen(int32 MaxBacklog)
 	return false;
 }
 
-/**
- * Queries the socket to determine if there is a pending connection
- *
- * @param bHasPendingConnection out parameter indicating whether a connection is pending or not
- *
- * @return true if successful, false otherwise
- */
 bool FSocketSteam::WaitForPendingConnection(bool& bHasPendingConnection, const FTimespan& WaitTime)
 {
 	/** Not supported - connectionless (UDP) only */

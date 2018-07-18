@@ -1,10 +1,12 @@
-﻿INTSourceChangelist:2856296
+﻿INTSourceChangelist:3807090
 Availability:Public
 Title:マテリアル インスタンス エディタ ユーザーガイド
 Crumbs: %ROOT%, Engine, Engine/Rendering/Materials, Engine/Rendering/Materials/MaterialInstances
 Description:MaterialInstanceConstants を修正するためにマテリアル インスタンス エディタを使用するためのガイド
 Version:4.9
-SkillLevel:Intermediate
+Skilllevel:Intermediate
+tags:Materials
+
 [TOC(start:2)]
 
 マテリアル インスタンス エディタは、マテリアル インスタンスのパラメータを修正するために使用します。 
@@ -15,7 +17,7 @@ SkillLevel:Intermediate
 ## マテリアル インスタンス エディタを開く
 
 マテリアル インスタンス エディタを開くには、いずれかの Material Instance アセットを **ダブルクリック** 、 
-もしくは **コンテンツ ブラウザ** の Material Instance アセットのコンテクスト メニューを **右クリック** します。いずれかの操作をすると、マテリアル インスタンス エディタで特定のマテリアル インスタンスが編集のために開きます。または、アクタ上で **右クリック** し、**[Materials (マテリアル)]** メニューの **[Material Name (マテリアル名)]** サブメニューから **[Edit Material Instance (マテリアル インスタンスを編集)]** を選択しても 
+ **コンテンツ ブラウザ** で探します。いずれかの操作をすると、マテリアル インスタンス エディタで特定のマテリアル インスタンスが編集のために開きます。または、アクタ上で **右クリック** し、**[Materials (マテリアル)]** メニューの **[Material Name (マテリアル名)]** サブメニューから **[Edit Material Instance (マテリアル インスタンスを編集)]** を選択しても 
 または、アクタ上で **右クリック** し、**[Materials]** メニューの **[Material Name (マテリアル名)]** サブメニューから **[Edit Material Instance (マテリアル インスタンスを編集)]** を選択しても、マテリアル インスタンス エディタを開くことができます。
 
 
@@ -24,7 +26,7 @@ SkillLevel:Intermediate
 
 マテリアル インスタンス エディタは以下の領域で構成されています。
 
-![materialinstanceeditor.png](materialinstanceeditor.png)(w:900 h:662)
+![materialinstanceeditor.png](materialinstanceeditor.png)(w:900)
 
 
 1. [ツールバー](#ツールバー) - アセットを保存し、コンテンツ ブラウザに入れて、レンダリング統計情報を表示することができます。

@@ -92,7 +92,7 @@ Variable (변수)는 변수 이름이 들어간 둥근 박스로 표시됩니다
 | 옵션 | 설명 |
 |----------------------|----------------------|
 | **Variable Name** | 변수 이름 - 변수의 이름입니다. |
-| **Variable Type** | 변수 유형 - 드롭다운 메뉴를 통해 [변수 유형](Engine/Blueprints/UserGuide/Variables) 을 설정하고, 변수가 [배열](Engine/Blueprints/BP_HowTo/WorkingWithArrays) 인지를 결정합니다. |
+| **Variable Type** | 변수 유형 - 드롭다운 메뉴를 통해 [변수 유형](Engine/Blueprints/UserGuide/Variables) 을 설정하고, 변수가 [배열](Engine/Blueprints/BP_HowTo/WorkingWithArrays) 인지를 알아냅니다. |
 | **Editable** | 편집가능 - 블루프린트 인스턴스에서 변수를 공개적으로 편집할 수 있는지 입니다.|
 | **Tooltip** | 툴팁 - 이 변수에 대한 추가 정보로, 변수 위에 커서가 있을 때 표시됩니다. |
 | **Expose on Spawn** | 스폰시 노출 - 블루프린트 스폰시 변수를 핀으로 노출시킬지 입니다. |

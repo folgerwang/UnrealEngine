@@ -4,6 +4,7 @@
 #include "Templates/SubclassOf.h"
 #include "AISystem.h"
 #include "VisualLogger/VisualLogger.h"
+#include "GameFramework/WorldSettings.h"
 
 #if WITH_EDITOR
 #include "Developer/AssetTools/Public/IAssetTools.h"
@@ -50,6 +51,7 @@ IMPLEMENT_MODULE(FAIModule, AIModule)
 
 void FAIModule::StartupModule()
 { 
+	FModuleManager::LoadModulePtr< IModuleInterface >("NavigationSystem");
 #if WITH_EDITOR 
 	FModuleManager::LoadModulePtr< IModuleInterface >("AITestSuite");
 
@@ -106,8 +108,30 @@ UAISystemBase* FAIModule::CreateAISystemInstance(UWorld* World)
 {
 	UE_LOG(LogAIModule, Log, TEXT("Creating AISystem for world %s"), *GetNameSafe(World));
 	
-	TSubclassOf<UAISystemBase> AISystemClass = LoadClass<UAISystemBase>(NULL, *UAISystem::GetAISystemClassName().ToString(), NULL, LOAD_None, NULL);
-	return NewObject<UAISystemBase>(World, AISystemClass);
+	FSoftClassPath AISystemClassName = UAISystemBase::GetAISystemClassName();
+
+	if (World)
+	{
+		AWorldSettings* WorldSettings = World->GetWorldSettings();
+		if (WorldSettings)
+		{
+			AISystemClassName = WorldSettings->GetAISystemClassName();
+		}
+	}
+
+	UAISystemBase* AISystemInstance = nullptr;
+	if (AISystemClassName.IsValid())
+	{
+		TSubclassOf<UAISystemBase> AISystemClass = LoadClass<UAISystemBase>(nullptr, *AISystemClassName.ToString(), nullptr, LOAD_None, nullptr);
+
+		AISystemInstance = AISystemClass ? NewObject<UAISystemBase>(World, AISystemClass) : nullptr;
+		if (AISystemInstance == nullptr)
+		{
+			UE_LOG(LogAIModule, Error, TEXT("Failed to create AISystem instance of class %s!"), *AISystemClassName.ToString());
+		}
+	}
+
+	return AISystemInstance;
 }
 
 #undef LOCTEXT_NAMESPACE

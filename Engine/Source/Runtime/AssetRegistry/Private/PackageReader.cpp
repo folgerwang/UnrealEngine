@@ -13,8 +13,8 @@ FPackageReader::FPackageReader()
 {
 	Loader = nullptr;
 	PackageFileSize = 0;
-	ArIsLoading		= true;
-	ArIsPersistent	= true;
+	this->SetIsLoading(true);
+	this->SetIsPersistent(true);
 }
 
 FPackageReader::~FPackageReader()

@@ -21,6 +21,19 @@ class SErrorText;
 class STextBlock;
 class SThemeColorBlocksBar;
 
+struct FColorInfo
+{
+	TSharedPtr<FLinearColor> Color;
+
+	FText Label;
+
+	FColorInfo(TSharedPtr<FLinearColor> InColor)
+	{
+		Color = InColor;
+		Label = FText();
+	}
+};
+
 /**
  * A Color Theme is a name and an array of Colors.
  * It also holds and array of refresh callbacks which it calls every time it changes at all.
@@ -29,25 +42,23 @@ class FColorTheme
 {
 public:
 
-	FColorTheme(const FString& InName = TEXT(""), const TArray< TSharedPtr<FLinearColor> >& InColors = TArray< TSharedPtr<FLinearColor> >());
+	FColorTheme(const FString& InName = TEXT(""), const TArray< TSharedPtr<FColorInfo> >& InColors = TArray< TSharedPtr<FColorInfo> >());
 
 	/** Get a list of all the colors in the theme */
-	const TArray< TSharedPtr<FLinearColor> >& GetColors() const
+	const TArray< TSharedPtr<FColorInfo> >& GetColors() const
 	{
 		return Colors;
 	}
 
 	/** Insert a color at a specific point in the list and broadcast change */
 	void InsertNewColor(TSharedPtr<FLinearColor> InColor, int32 InsertPosition);
+	void InsertNewColor(TSharedPtr<FColorInfo> InColor, int32 InsertPosition);
 
 	/** Check to see if a color is already present in the list */
 	int32 FindApproxColor(const FLinearColor& InColor, float Tolerance = KINDA_SMALL_NUMBER) const;
 
 	/** Remove all colors from the list, broadcast change */
 	void RemoveAll();
-
-	/** Remove color at index from the list, broadcast change */
-	void RemoveColor(int32 ColorIndex);
 
 	/** Remove specific color from the list, broadcast change */
 	int32 RemoveColor(const TSharedPtr<FLinearColor> InColor);
@@ -62,7 +73,7 @@ public:
 
 private:
 
-	TArray< TSharedPtr<FLinearColor> > Colors;
+	TArray< TSharedPtr<FColorInfo> > Colors;
 
 	FRefreshEvent RefreshEvent;
 };
@@ -135,6 +146,7 @@ public:
 
 	SLATE_BEGIN_ARGS(SThemeColorBlock)
 		: _Color()
+		, _ColorInfo()
 		, _OnSelectColor()
 		, _Parent()
 		, _ShowTrashCallback()
@@ -145,6 +157,9 @@ public:
 
 		/** A pointer to the color this block uses */
 		SLATE_ATTRIBUTE(TSharedPtr<FLinearColor>, Color)
+
+		/** The info for the color this block uses */
+		SLATE_ATTRIBUTE(TSharedPtr<FColorInfo>, ColorInfo)
 		
 		/** Event called when this block is clicked */
 		SLATE_EVENT(FOnLinearColorValueChanged, OnSelectColor)
@@ -172,8 +187,11 @@ public:
 	 */
 	void Construct(const FArguments& InArgs );
 	
+	
 private:
-
+	void OnColorBlockRename();
+	FText GetLabel() const;
+	void SetLabel(const FText& NewColorLabel, ETextCommit::Type CommitInfo);
 	virtual FReply OnMouseButtonDown( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
 	virtual FReply OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
 	virtual FReply OnDragDetected( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
@@ -201,8 +219,13 @@ private:
 	bool OnReadShowBackgroundForAlpha() const;
 	EVisibility OnGetAlphaVisibility() const;
 
+	EVisibility OnGetLabelVisibility() const;
+
 	/** A pointer to the color this block uses */
 	TWeakPtr<FLinearColor> ColorPtr;
+
+	/** The info for this color block */
+	TSharedPtr<FColorInfo> ColorInfo;
 	
 	/** A pointer to the theme color blocks bar that is this block's origin */
 	TWeakPtr<SThemeColorBlocksBar> ParentPtr;
@@ -579,7 +602,7 @@ private:
 	/** Makes the passed theme name unique so it doesn't clash with pre-existing themes */
 	static FString MakeUniqueThemeName(const FString& ThemeName);
 	/** Creates a new theme, ensuring the name is unique */
-	static TSharedPtr<FColorTheme> NewColorTheme(const FString& ThemeName, const TArray< TSharedPtr<FLinearColor> >& ThemeColors = TArray< TSharedPtr<FLinearColor> >());
+	static TSharedPtr<FColorTheme> NewColorTheme(const FString& ThemeName, const TArray< TSharedPtr<FColorInfo> >& ThemeColors = TArray< TSharedPtr<FColorInfo> >());
 	
 	/** A list of all the color themes for the list view to use */
 	TSharedPtr< SListView <TSharedPtr <FColorTheme> > > ColorThemeList;

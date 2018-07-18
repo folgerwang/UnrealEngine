@@ -15,7 +15,7 @@
 #include "DetailWidgetRow.h"
 #include "IPropertyTypeCustomization.h"
 #include "IPropertyUtilities.h"
-#include "NotifyHook.h"
+#include "Misc/NotifyHook.h"
 
 #define LOCTEXT_NAMESPACE "GameplayTagQueryCustomization"
 

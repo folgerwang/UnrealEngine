@@ -112,6 +112,7 @@ USceneCapturer::USceneCapturer(FVTableHelper& Helper)
     , ForcedInitialYaw(FRotator::ClampAxis(FStereoPanoramaManager::ForcedInitialYaw->GetFloat()))
     , OutputDir(FStereoPanoramaManager::OutputDir->GetString().IsEmpty() ? FPaths::ProjectSavedDir() / TEXT("StereoPanorama") : FStereoPanoramaManager::OutputDir->GetString())
     , dbgDisableOffsetRotation(FStereoPanoramaManager::FadeStereoToZeroAtSides->GetInt() != 0)
+	, UseCameraRotation(FStereoPanoramaManager::UseCameraRotation->GetInt())
 {}
 
 USceneCapturer::USceneCapturer()
@@ -133,6 +134,7 @@ USceneCapturer::USceneCapturer()
     , ForcedInitialYaw( FRotator::ClampAxis(FStereoPanoramaManager::ForcedInitialYaw->GetFloat()) )
     , OutputDir( FStereoPanoramaManager::OutputDir->GetString().IsEmpty() ? FPaths::ProjectSavedDir() / TEXT("StereoPanorama") : FStereoPanoramaManager::OutputDir->GetString() )
     , dbgDisableOffsetRotation( FStereoPanoramaManager::FadeStereoToZeroAtSides->GetInt() != 0 )
+	, UseCameraRotation(FStereoPanoramaManager::UseCameraRotation->GetInt())
 {
     //NOTE: ikrimae: Keeping the old sampling mechanism just until we're sure the new way is always better
     dbgMatchCaptureSliceFovToAtlasSliceFov = false;
@@ -227,17 +229,30 @@ USceneCapturer::USceneCapturer()
     //TODO: ikrimae: Ensure that r.SceneRenderTargetResizeMethod=2
     FSystemResolution::RequestResolutionChange(CaptureWidth, CaptureHeight, EWindowMode::Windowed);
 
-
+	// Creating CaptureSceneComponent to use it as parent scene component.
+	// This scene component will hold same world location from camera.
+	// Camera rotation will be used following UseCameraRotation settings.
+	// Then, angular step turn will be applied to capture components locally to simplify calculation step that finding proper rotation.
+	CaptureSceneComponent = CreateDefaultSubobject<USceneComponent>(TEXT("CaptureSceneComponent"));
+	CaptureSceneComponent->AddToRoot();
 
 	for( int CaptureIndex = 0; CaptureIndex < FStereoPanoramaManager::ConcurrentCaptures->GetInt(); CaptureIndex++ )
 	{
 		FString LeftCounter = FString::Printf( TEXT( "LeftEyeCaptureComponent_%04d" ), CaptureIndex );
 		USceneCaptureComponent2D* LeftEyeCaptureComponent = CreateDefaultSubobject<USceneCaptureComponent2D>( *LeftCounter );
+		// Attaching LeftEyeCaptureComponent to CaptureSceneComponent, Turning off tick.
+		LeftEyeCaptureComponent->bTickInEditor = false;
+		LeftEyeCaptureComponent->SetComponentTickEnabled(false);
+		LeftEyeCaptureComponent->AttachToComponent(CaptureSceneComponent, FAttachmentTransformRules::KeepRelativeTransform);
 		InitCaptureComponent( LeftEyeCaptureComponent, captureHFov, captureVFov, EStereoscopicPass::eSSP_LEFT_EYE );
 		LeftEyeCaptureComponents.Add( LeftEyeCaptureComponent );
 
 		FString RightCounter = FString::Printf( TEXT( "RightEyeCaptureComponent_%04d" ), CaptureIndex );
 		USceneCaptureComponent2D* RightEyeCaptureComponent = CreateDefaultSubobject<USceneCaptureComponent2D>( *RightCounter );
+		// Attaching LeftEyeCaptureComponent to CaptureSceneComponent, Turning off tick.
+		RightEyeCaptureComponent->bTickInEditor = false;
+		RightEyeCaptureComponent->SetComponentTickEnabled(false);
+		RightEyeCaptureComponent->AttachToComponent(CaptureSceneComponent, FAttachmentTransformRules::KeepRelativeTransform);
 		InitCaptureComponent( RightEyeCaptureComponent, captureHFov, captureVFov, EStereoscopicPass::eSSP_RIGHT_EYE );
 		RightEyeCaptureComponents.Add( RightEyeCaptureComponent );
 	}
@@ -251,12 +266,10 @@ USceneCapturer::USceneCapturer()
 
 UWorld* USceneCapturer::GetTickableGameObjectWorld() const 
 {
-	if (LeftEyeCaptureComponents.Num() > 0)
+	// Check SceneCapturer have CaptureComponents and parent scene component is not marked as pending kill.
+	if (LeftEyeCaptureComponents.Num() > 0 && !CaptureSceneComponent->IsPendingKill())
 	{
-		if (LeftEyeCaptureComponents[0])
-		{
-			return LeftEyeCaptureComponents[0]->GetWorld();
-		}
+		return CaptureSceneComponent->GetWorld();
 	}
 
 	return nullptr;
@@ -287,11 +300,11 @@ void USceneCapturer::Reset()
 	UnprojectedRightEyeAtlas.Empty();
 }
 
+
 void USceneCapturer::SetPositionAndRotation( int32 CurrentHorizontalStep, int32 CurrentVerticalStep, int32 CaptureIndex )
 {
-	FRotator Rotation = StartRotation;
-	Rotation.Yaw += CurrentHorizontalStep * hAngIncrement;
-	Rotation.Pitch -= CurrentVerticalStep * vAngIncrement;
+	// Using FRotator Rotation to hold local rotation.
+	FRotator Rotation = FRotator(90.0f - 1.0f * CurrentVerticalStep * vAngIncrement, 180.0f + CurrentHorizontalStep * hAngIncrement, 0);
 
     Rotation = Rotation.Clamp();
 
@@ -322,9 +335,12 @@ void USceneCapturer::SetPositionAndRotation( int32 CurrentHorizontalStep, int32 
         Offset = Rotation.RotateVector(Offset);
     }
 
-	LeftEyeCaptureComponents[CaptureIndex]->SetWorldLocationAndRotation( StartLocation - Offset, Rotation );
+	// Applying local offsets.
+	// Rotation will be used as local rotation to make it regardless of World Rotation.
+	// Local location will be used to set eye offset.
+	LeftEyeCaptureComponents[CaptureIndex]->SetRelativeLocationAndRotation( -1.0f * Offset, Rotation );
     LeftEyeCaptureComponents[CaptureIndex]->CaptureSceneDeferred();
-	RightEyeCaptureComponents[CaptureIndex]->SetWorldLocationAndRotation( StartLocation + Offset, Rotation );
+	RightEyeCaptureComponents[CaptureIndex]->SetRelativeLocationAndRotation( 1.0f * Offset, Rotation );
     RightEyeCaptureComponents[CaptureIndex]->CaptureSceneDeferred();
 }
 
@@ -779,6 +795,13 @@ void USceneCapturer::Tick( float DeltaTime )
         else if (CaptureStep == ECaptureStep::Pause)
         {
             FlushRenderingCommands();
+			
+			// To prevent following process when tick at the time of PIE ends and CaptureGameMode is no longer valid.
+			if (!CaptureGameMode)
+			{
+				return;
+			}
+
             CaptureGameMode->SetPause(CapturePlayerController);
             //GPauseRenderingRealtimeClock = true;
             CaptureStep = ECaptureStep::SetStartPosition;
@@ -797,11 +820,18 @@ void USceneCapturer::Tick( float DeltaTime )
             
             FRotator Rotation;
             CapturePlayerController->GetPlayerViewPoint(StartLocation, Rotation);
-            
-            Rotation.Roll = 0.0f;
+            // Gathering selected axis information from UseCameraRotation and saving it to FRotator Rotation.
+			Rotation = FRotator(
+				(UseCameraRotation & 1) ? Rotation.Pitch : 0.0f
+				, (UseCameraRotation & 2) ? Rotation.Yaw : 0.0f
+				, (UseCameraRotation & 4) ? Rotation.Roll : 0.0f
+			);
             Rotation.Yaw = (bOverrideInitialYaw) ? ForcedInitialYaw : Rotation.Yaw;
-            Rotation.Pitch = 90.0f;
             StartRotation = Rotation;
+
+			// Set Designated Rotation and Location for CaptureSceneComponent, using it as parent scene component for capturecomponents.
+			CaptureSceneComponent->SetWorldLocationAndRotation(StartLocation, Rotation);
+
             CaptureStep = ECaptureStep::SetPosition;
             FlushRenderingCommands();
         }

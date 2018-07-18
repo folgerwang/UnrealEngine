@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "GenericPlatformProperties.h"
+#include "GenericPlatform/GenericPlatformProperties.h"
 
 
 /**

@@ -1,44 +1,11 @@
-﻿INTSourceChangelist:2683782
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:ライティング クイックスタート ガイド
 Crumbs:%ROOT%, GettingStarted
-Description:様々な種類のライトの技術の操作ガイド。小さなアパートを作成してライトを照らしてみよう。
+Description:このガイドでは、様々な種類のライトの技術を使って、小さなアパートを作成してライトを照らします。 
 SkillLevel:Beginner
 Version:4.9
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine\Rendering\LightingAndShadows\QuickStart:title%](Engine\Rendering\LightingAndShadows\QuickStart\LQS_Topic.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Rendering\LightingAndShadows\QuickStart:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine\Rendering\LightingAndShadows\QuickStart]
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Rendering\LightingAndShadows\QuickStart:description%
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine\Rendering\LightingAndShadows\QuickStart:title%](Engine\Rendering\LightingAndShadows\QuickStart\LQS_Topic.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Rendering\LightingAndShadows\QuickStart:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine\Rendering\LightingAndShadows\QuickStart]
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Rendering\LightingAndShadows\QuickStart:description%
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:LQS_Topic.png
 
 
 ![](Engine\Rendering\LightingAndShadows\QuickStart\5\litRoom.png)(w:940)
@@ -51,15 +18,13 @@ Version:4.9
 ## ステップ
 
 [REGION:buttonlist]
-
-	* [](Engine\Rendering\LightingAndShadows\QuickStart\1 "%Engine\Rendering\LightingAndShadows\QuickStart\1:description%")
-	* [](Engine\Rendering\LightingAndShadows\QuickStart\2 "%Engine\Rendering\LightingAndShadows\QuickStart\2:description%")
-	* [](Engine\Rendering\LightingAndShadows\QuickStart\3 "%Engine\Rendering\LightingAndShadows\QuickStart\3:description%")
-	* [](Engine\Rendering\LightingAndShadows\QuickStart\4 "%Engine\Rendering\LightingAndShadows\QuickStart\4:description%")
-	* [](Engine\Rendering\LightingAndShadows\QuickStart\5 "%Engine\Rendering\LightingAndShadows\QuickStart\5:description%")
-	* [](Engine\Rendering\LightingAndShadows\QuickStart\6 "%Engine\Rendering\LightingAndShadows\QuickStart\6:description%")
-	* [](Engine\Rendering\LightingAndShadows\QuickStart\7 "%Engine\Rendering\LightingAndShadows\QuickStart\7:description%")
-	
+* [](Engine\Rendering\LightingAndShadows\QuickStart\1 "%Engine\Rendering\LightingAndShadows\QuickStart\1:description%")
+* [](Engine\Rendering\LightingAndShadows\QuickStart\2 "%Engine\Rendering\LightingAndShadows\QuickStart\2:description%")
+* [](Engine\Rendering\LightingAndShadows\QuickStart\3 "%Engine\Rendering\LightingAndShadows\QuickStart\3:description%")
+* [](Engine\Rendering\LightingAndShadows\QuickStart\4 "%Engine\Rendering\LightingAndShadows\QuickStart\4:description%")
+* [](Engine\Rendering\LightingAndShadows\QuickStart\5 "%Engine\Rendering\LightingAndShadows\QuickStart\5:description%")
+* [](Engine\Rendering\LightingAndShadows\QuickStart\6 "%Engine\Rendering\LightingAndShadows\QuickStart\6:description%")
+* [](Engine\Rendering\LightingAndShadows\QuickStart\7 "%Engine\Rendering\LightingAndShadows\QuickStart\7:description%")
 [/REGION]
 
 

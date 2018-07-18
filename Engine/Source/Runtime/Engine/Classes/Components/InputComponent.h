@@ -9,6 +9,8 @@
 #include "Framework/Commands/InputChord.h"
 #include "InputComponent.generated.h"
 
+class UPlayerInput;
+
 /** Utility delegate class to allow binding to either a C++ function or a blueprint script delegate */
 template<class DelegateType, class DynamicDelegateType>
 struct TInputUnifiedDelegate
@@ -91,10 +93,10 @@ protected:
 struct FInputBinding
 {
 	/** Whether the binding should consume the input or allow it to pass to another component */
-	uint32 bConsumeInput:1;
+	uint8 bConsumeInput:1;
 
 	/** Whether the binding should execute while paused */
-	uint32 bExecuteWhenPaused:1;
+	uint8 bExecuteWhenPaused:1;
 
 	FInputBinding()
 		: bConsumeInput(true)
@@ -109,31 +111,42 @@ DECLARE_DYNAMIC_DELEGATE_OneParam( FInputActionHandlerDynamicSignature, FKey, Ke
 
 struct FInputActionUnifiedDelegate
 {
-	FInputActionUnifiedDelegate() {};
-	FInputActionUnifiedDelegate(FInputActionHandlerSignature const& D) : FuncDelegate(D) {};
-	FInputActionUnifiedDelegate(FInputActionHandlerWithKeySignature const& D) : FuncDelegateWithKey(D) {};
-	FInputActionUnifiedDelegate(FInputActionHandlerDynamicSignature const& D) : FuncDynDelegate(D) {};
+	FInputActionUnifiedDelegate() : BoundDelegateType(EBoundDelegate::Unbound) {};
+	FInputActionUnifiedDelegate(FInputActionHandlerSignature const& D) : FuncDelegate(D), BoundDelegateType(EBoundDelegate::Delegate) {};
+	FInputActionUnifiedDelegate(FInputActionHandlerWithKeySignature const& D) : FuncDelegateWithKey(D), BoundDelegateType(EBoundDelegate::DelegateWithKey) {};
+	FInputActionUnifiedDelegate(FInputActionHandlerDynamicSignature const& D) : FuncDynDelegate(D), BoundDelegateType(EBoundDelegate::DynamicDelegate) {};
 
 	/** Returns if either the native or dynamic delegate is bound */
 	inline bool IsBound() const
 	{
-		return ( FuncDelegate.IsBound() || FuncDelegateWithKey.IsBound() || FuncDynDelegate.IsBound() );
+		switch (BoundDelegateType)
+		{
+		case EBoundDelegate::Delegate:
+			return FuncDelegate.IsBound();
+
+		case EBoundDelegate::DelegateWithKey:
+			return FuncDelegateWithKey.IsBound();
+
+		case EBoundDelegate::DynamicDelegate:
+			return FuncDynDelegate.IsBound();
+		}
+
+		return false;
 	}
 
 	/** Returns if either the native or dynamic delegate is bound to an object */
 	inline bool IsBoundToObject(void const* Object) const
 	{
-		if (FuncDelegate.IsBound())
+		switch (BoundDelegateType)
 		{
-			return FuncDelegate.IsBoundToObject(Object);
-		}
-		else if (FuncDelegateWithKey.IsBound())
-		{
-			return FuncDelegateWithKey.IsBoundToObject(Object);
-		}
-		else if (FuncDynDelegate.IsBound())
-		{
-			return FuncDynDelegate.IsBoundToObject(Object);
+		case EBoundDelegate::Delegate:
+			return (FuncDelegate.IsBound() && FuncDelegate.IsBoundToObject(Object));
+
+		case EBoundDelegate::DelegateWithKey:
+			return (FuncDelegateWithKey.IsBound() && FuncDelegateWithKey.IsBoundToObject(Object));
+
+		case EBoundDelegate::DynamicDelegate:
+			return (FuncDynDelegate.IsBound() && FuncDynDelegate.IsBoundToObject(Object));
 		}
 
 		return false;
@@ -143,122 +156,164 @@ struct FInputActionUnifiedDelegate
 	template< class UserClass >
 	inline void BindDelegate(UserClass* Object, typename FInputActionHandlerSignature::template TUObjectMethodDelegate< UserClass >::FMethodPtr Func)
 	{
-		FuncDynDelegate.Unbind();
-		FuncDelegateWithKey.Unbind();
+		Unbind();
+		BoundDelegateType = EBoundDelegate::Delegate;
 		FuncDelegate.BindUObject(Object, Func);
 	}
 
 	template< class UserClass >
 	inline void BindDelegate(UserClass* Object, typename FInputActionHandlerWithKeySignature::template TUObjectMethodDelegate< UserClass >::FMethodPtr Func)
 	{
-		FuncDynDelegate.Unbind();
-		FuncDelegate.Unbind();
+		Unbind();
+		BoundDelegateType = EBoundDelegate::DelegateWithKey;
 		FuncDelegateWithKey.BindUObject(Object, Func);
 	}
 
 	template< class DelegateType, class UserClass, typename... VarTypes >
 	inline void BindDelegate(UserClass* Object, typename DelegateType::template TUObjectMethodDelegate< UserClass >::FMethodPtr Func, VarTypes... Vars)
 	{
-		FuncDynDelegate.Unbind();
-		FuncDelegateWithKey.Unbind();
+		Unbind();
+		BoundDelegateType = EBoundDelegate::Delegate;
 		FuncDelegate.BindUObject(Object, Func, Vars...);
 	}
 
 	/** Binds a dynamic delegate and unbinds any bound native delegate */
 	inline void BindDelegate(UObject* Object, const FName FuncName)
 	{
-		FuncDelegate.Unbind();
-		FuncDelegateWithKey.Unbind();
+		Unbind();
+		BoundDelegateType = EBoundDelegate::DynamicDelegate;
 		FuncDynDelegate.BindUFunction(Object, FuncName);
 	}
 
 	/** Returns a reference to the native delegate and unbinds any bound dynamic delegate */
 	FInputActionHandlerSignature& GetDelegateForManualSet()
 	{
-		FuncDynDelegate.Unbind();
-		FuncDelegateWithKey.Unbind();
+		Unbind();
+		BoundDelegateType = EBoundDelegate::Delegate;
 		return FuncDelegate;
 	}
 
 	/** Returns a reference to the native delegate and unbinds any bound dynamic delegate */
 	FInputActionHandlerWithKeySignature& GetDelegateWithKeyForManualSet()
 	{
-		FuncDynDelegate.Unbind();
-		FuncDelegate.Unbind();
+		Unbind();
+		BoundDelegateType = EBoundDelegate::DelegateWithKey;
 		return FuncDelegateWithKey;
 	}
 
 	/** Unbinds any bound delegates */
 	inline void Unbind()
 	{
-		FuncDelegate.Unbind();
-		FuncDelegateWithKey.Unbind();
-		FuncDynDelegate.Unbind();
+		switch(BoundDelegateType)
+		{
+		case EBoundDelegate::Delegate:
+			FuncDelegate.Unbind();
+			break;
+
+		case EBoundDelegate::DelegateWithKey:
+			FuncDelegateWithKey.Unbind();
+			break;
+
+		case EBoundDelegate::DynamicDelegate:
+			FuncDynDelegate.Unbind();
+			break;
+		}
+		BoundDelegateType = EBoundDelegate::Unbound;
 	}
 
 	/** Execute function for the action unified delegate. */
 	inline void Execute(const FKey Key) const
 	{
-		if (FuncDelegate.IsBound())
+		switch(BoundDelegateType)
 		{
-			FuncDelegate.Execute();
-		}
-		else if (FuncDelegateWithKey.IsBound())
-		{
-			FuncDelegateWithKey.Execute(Key);
-		}
-		else if (FuncDynDelegate.IsBound())
-		{
-			FuncDynDelegate.Execute(Key);
+		case EBoundDelegate::Delegate:
+			if (FuncDelegate.IsBound())
+			{
+				FuncDelegate.Execute();
+			}
+			break;
+
+		case EBoundDelegate::DelegateWithKey:
+			if (FuncDelegateWithKey.IsBound())
+			{
+				FuncDelegateWithKey.Execute(Key);
+			}
+			break;
+
+		case EBoundDelegate::DynamicDelegate:
+			if (FuncDynDelegate.IsBound())
+			{
+				FuncDynDelegate.Execute(Key);
+			}
+			break;
 		}
 	}
-protected:
+private:
 	/** Holds the delegate to call. */
 	FInputActionHandlerSignature FuncDelegate;
 	/** Holds the delegate that wants to know the key to call. */
 	FInputActionHandlerWithKeySignature FuncDelegateWithKey;
 	/** Holds the dynamic delegate to call. */
 	FInputActionHandlerDynamicSignature FuncDynDelegate;
+
+	enum class EBoundDelegate : uint8
+	{
+		Unbound,
+		Delegate,
+		DelegateWithKey,
+		DynamicDelegate
+	};
+
+	EBoundDelegate BoundDelegateType;
 };
 
 /** Binds a delegate to an action. */
 struct FInputActionBinding : public FInputBinding
 {
-	/** Friendly name of action, e.g "jump" */
-	FName ActionName;
+private:
+	/** Whether the binding is part of a paired (both pressed and released events bound) action */
+	uint8 bPaired:1;
 
+public:
 	/** Key event to bind it to, e.g. pressed, released, double click */
 	TEnumAsByte<EInputEvent> KeyEvent;
 
-	/** Whether the binding is part of a paired (both pressed and released events bound) action */
-	uint32 bPaired:1;
+private:
+	/** Friendly name of action, e.g "jump" */
+	FName ActionName;
 
+public:
 	/** The delegate bound to the action */
 	FInputActionUnifiedDelegate ActionDelegate;
 
 	FInputActionBinding()
 		: FInputBinding()
-		, ActionName(NAME_None)
-		, KeyEvent(EInputEvent::IE_Pressed)
 		, bPaired(false)
+		, KeyEvent(EInputEvent::IE_Pressed)
+		, ActionName(NAME_None)
 	{ }
 
-	FInputActionBinding(const FName InActionName, const enum EInputEvent InKeyEvent)
+	FInputActionBinding(const FName InActionName, const  EInputEvent InKeyEvent)
 		: FInputBinding()
-		, ActionName(InActionName)
-		, KeyEvent(InKeyEvent)
 		, bPaired(false)
+		, KeyEvent(InKeyEvent)
+		, ActionName(InActionName)
 	{ }
+
+	FName GetActionName() const { return ActionName; }
+	bool IsPaired() const { return bPaired; }
+
+	friend class UInputComponent;
 };
 
 /** Binds a delegate to a key chord. */
 struct FInputKeyBinding : public FInputBinding
 {
-	/** Input Chord to bind to */
-	FInputChord Chord;
-
 	/** Key event to bind it to (e.g. pressed, released, double click) */
 	TEnumAsByte<EInputEvent> KeyEvent;
+
+	/** Input Chord to bind to */
+	FInputChord Chord;
 
 	/** The delegate bound to the key chord */
 	FInputActionUnifiedDelegate KeyDelegate;
@@ -268,10 +323,10 @@ struct FInputKeyBinding : public FInputBinding
 		, KeyEvent(EInputEvent::IE_Pressed)
 	{ }
 
-	FInputKeyBinding(const FInputChord InChord, const enum EInputEvent InKeyEvent)
+	FInputKeyBinding(const FInputChord InChord, const EInputEvent InKeyEvent)
 		: FInputBinding()
-		, Chord(InChord)
 		, KeyEvent(InKeyEvent)
+		, Chord(InChord)
 	{ }
 };
 
@@ -385,6 +440,12 @@ struct FInputAxisBinding : public FInputBinding
 /** Binds a delegate to a raw float axis mapping. */
 struct FInputAxisKeyBinding : public FInputBinding
 {
+	/** 
+	* The value of the axis as calculated during the most recent UPlayerInput::ProcessInputStack
+	* if the InputComponent containing the binding was in the stack, otherwise the value will be 0.
+	*/
+	float AxisValue;
+
 	/** The axis being bound to. */
 	FKey AxisKey;
 
@@ -395,12 +456,6 @@ struct FInputAxisKeyBinding : public FInputBinding
 	 */
 	FInputAxisUnifiedDelegate AxisDelegate;
 
-	/** 
-	 * The value of the axis as calculated during the most recent UPlayerInput::ProcessInputStack
-	 * if the InputComponent containing the binding was in the stack, otherwise the value will be 0.
-	 */
-	float AxisValue;
-
 	FInputAxisKeyBinding()
 		: FInputBinding()
 		, AxisValue(0.f)
@@ -408,8 +463,8 @@ struct FInputAxisKeyBinding : public FInputBinding
 
 	FInputAxisKeyBinding(const FKey InAxisKey)
 		: FInputBinding()
-		, AxisKey(InAxisKey)
 		, AxisValue(0.f)
+		, AxisKey(InAxisKey)
 	{
 		ensure(AxisKey.IsFloatAxis());
 	}
@@ -443,6 +498,12 @@ struct FInputVectorAxisUnifiedDelegate : public TInputUnifiedDelegate<FInputVect
 /** Binds a delegate to a raw vector axis mapping. */
 struct FInputVectorAxisBinding : public FInputBinding
 {
+	/** 
+	* The value of the axis as calculated during the most recent UPlayerInput::ProcessInputStack
+	* if the InputComponent containing the binding was in the stack, otherwise the value will be (0,0,0).
+	*/
+	FVector AxisValue;
+
 	/** The axis being bound to. */
 	FKey AxisKey;
 
@@ -452,12 +513,6 @@ struct FInputVectorAxisBinding : public FInputBinding
 	 * regardless of whether the value is non-zero or has changed.
 	 */
 	FInputVectorAxisUnifiedDelegate AxisDelegate;
-
-	/** 
-	 * The value of the axis as calculated during the most recent UPlayerInput::ProcessInputStack
-	 * if the InputComponent containing the binding was in the stack, otherwise the value will be (0,0,0).
-	 */
-	FVector AxisValue;
 
 	FInputVectorAxisBinding()
 		: FInputBinding()
@@ -501,14 +556,14 @@ struct FInputGestureUnifiedDelegate : public TInputUnifiedDelegate<FInputGesture
 /** Binds a gesture to a function. */
 struct FInputGestureBinding : public FInputBinding
 {
+	/** Value parameter, meaning is dependent on the gesture. */
+	float GestureValue;
+
 	/** The gesture being bound to. */
 	FKey GestureKey;
 
 	/** The delegate bound to the gesture events */
 	FInputGestureUnifiedDelegate GestureDelegate;
-
-	/** Value parameter, meaning is dependent on the gesture. */
-	float GestureValue;
 
 	FInputGestureBinding()
 		: FInputBinding()
@@ -517,8 +572,8 @@ struct FInputGestureBinding : public FInputBinding
 
 	FInputGestureBinding(const FKey InGestureKey)
 		: FInputBinding()
-		, GestureKey(InGestureKey)
 		, GestureValue(0.f)
+		, GestureKey(InGestureKey)
 	{ }
 };
 
@@ -535,6 +590,33 @@ namespace EControllerAnalogStick
 	};
 }
 
+/**
+* Struct that exists to store runtime cache to make key to action lookups faster.
+*/
+USTRUCT()
+struct FCachedKeyToActionInfo
+{
+	GENERATED_BODY()
+
+	/** Which PlayerInput object this has been built for */
+	UPROPERTY()
+	UPlayerInput* PlayerInput;
+
+	/** What index of the player input's key mappings was the map built for. */
+	uint32 KeyMapBuiltForIndex;
+
+	/** Reverse lookup map to speed up evaluation of action bindings. Will be rebuilt via ConditionalBuildKeyMap when action bindings or key mappings are changed. */
+	TMap<FKey, TArray<TSharedPtr<FInputActionBinding>>> KeyToActionMap;
+
+	/** Keep the AnyKey to action map separately as we don't want to have query the map to find it every time. */
+	TArray<TSharedPtr<FInputActionBinding>> AnyKeyToActionMap;
+
+	FCachedKeyToActionInfo()
+		: PlayerInput(nullptr)
+		, KeyMapBuiltForIndex(0)
+	{
+	}
+};
 
 /**
  * Implement an Actor component for input bindings.
@@ -552,30 +634,38 @@ class ENGINE_API UInputComponent
 	GENERATED_UCLASS_BODY()
 
 	/** The collection of key bindings. */
-	TArray<struct FInputKeyBinding> KeyBindings;
+	TArray<FInputKeyBinding> KeyBindings;
 
 	/** The collection of touch bindings. */
-	TArray<struct FInputTouchBinding> TouchBindings;
+	TArray<FInputTouchBinding> TouchBindings;
 
 	/** The collection of axis bindings. */
-	TArray<struct FInputAxisBinding> AxisBindings;
+	TArray<FInputAxisBinding> AxisBindings;
 
 	/** The collection of axis key bindings. */
-	TArray<struct FInputAxisKeyBinding> AxisKeyBindings;
+	TArray<FInputAxisKeyBinding> AxisKeyBindings;
 
 	/** The collection of vector axis bindings. */
-	TArray<struct FInputVectorAxisBinding> VectorAxisBindings;
+	TArray<FInputVectorAxisBinding> VectorAxisBindings;
 
 	/** The collection of gesture bindings. */
-	TArray<struct FInputGestureBinding> GestureBindings;
+	TArray<FInputGestureBinding> GestureBindings;
 
+private:
+	/** Holds the collection of action bindings. */
+	TArray<TSharedPtr<FInputActionBinding>> ActionBindings;
+
+	UPROPERTY(Transient, DuplicateTransient)
+	TArray<FCachedKeyToActionInfo> CachedKeyToActionInfo;
+
+public:
 	/** The priority of this input component when pushed in to the stack. */
 	int32 Priority;
 
 	/** Whether any components lower on the input stack should be allowed to receive input. */
-	uint32 bBlockInput:1;
+	uint8 bBlockInput:1;
 
-public:
+	void ConditionalBuildKeyMap(UPlayerInput* PlayerInput);
 
 	/**
 	 * Gets the current value of the axis with the specified name.
@@ -609,7 +699,8 @@ public:
 	 *
 	 * @return true if any bindings are set, false otherwise.
 	 */
-	bool HasBindings( ) const;
+	bool HasBindings() const;
+
 
 	/**
 	 * Adds the specified action binding.
@@ -633,7 +724,7 @@ public:
 	 * @param BindingIndex The index of the binding to get.
 	 * @see AddActionBinding, ClearActionBindings, GetNumActionBindings, RemoveActionBinding
 	 */
-	FInputActionBinding& GetActionBinding(const int32 BindingIndex) { return ActionBindings[BindingIndex]; }
+	FInputActionBinding& GetActionBinding(const int32 BindingIndex) const { return *ActionBindings[BindingIndex].Get(); }
 
 	/**
 	 * Gets the number of action bindings.
@@ -653,8 +744,6 @@ public:
 
 	/** Clears all cached binding values. */
 	void ClearBindingValues();
-
-public:
 
 	/**
 	 * Binds a delegate function to an Action defined in the project settings.
@@ -818,6 +907,11 @@ public:
 
 private:
 
+	/** Retrieves the actions bound to the input component which are triggered by a given key. Requires that the internal key map has already been built. */
+	void GetActionsBoundToKey(UPlayerInput* PlayerInput, FKey Key, TArray<TSharedPtr<FInputActionBinding>>& Actions) const;
+
+	friend struct FGetActionsBoundToKey;
+
 	/** Returns true if the given key/button is pressed on the input of the controller (if present) */
 	UFUNCTION(BlueprintCallable, meta=(DeprecatedFunction, DeprecationMessage="Use PlayerController.IsInputKeyDown instead."))
 	bool IsControllerKeyDown(FKey Key) const;
@@ -853,9 +947,15 @@ private:
 	/** Retrieves the X and Y displacement of the given analog stick.  For WhickStick, 0 = left, 1 = right. */
 	UFUNCTION(BlueprintCallable, meta=(DeprecatedFunction, DeprecationMessage="Use PlayerController.GetInputAnalogStickState instead."))
 	void GetControllerAnalogStickState(EControllerAnalogStick::Type WhichStick, float& StickX, float& StickY) const;
+};
 
+struct FGetActionsBoundToKey
+{
 private:
+	static void Get(UInputComponent* InputComponent, UPlayerInput* PlayerInput, FKey Key, TArray<TSharedPtr<FInputActionBinding>>& Actions)
+	{
+		InputComponent->GetActionsBoundToKey(PlayerInput, Key, Actions);
+	}
 
-	/** Holds the collection of action bindings. */
-	TArray<struct FInputActionBinding> ActionBindings;
+	friend UPlayerInput;
 };

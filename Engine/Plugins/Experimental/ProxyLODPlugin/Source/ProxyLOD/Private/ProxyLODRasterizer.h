@@ -3,8 +3,8 @@
 #pragma once
 
 // UE 
-#include "Vector.h"
-#include "UnrealMathUtility.h" // ComputeBaryCentric2D
+#include "Math/Vector.h"
+#include "Math/UnrealMathUtility.h" // ComputeBaryCentric2D
 
 // std
 #include <limits>

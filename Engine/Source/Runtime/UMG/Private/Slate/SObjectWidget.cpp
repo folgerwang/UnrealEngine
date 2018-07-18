@@ -2,6 +2,7 @@
 
 #include "Slate/SObjectWidget.h"
 
+#include "UMGPrivate.h"
 #include "Blueprint/WidgetLayoutLibrary.h"
 #include "Slate/UMGDragDropOp.h"
 #include "SlateGlobals.h"
@@ -14,10 +15,33 @@ void SObjectWidget::Construct(const FArguments& InArgs, UUserWidget* InWidgetObj
 	[
 		InArgs._Content.Widget
 	];
+
+	// The user widget will tell us if we can tick but default to false for now
+	bCanTick = false;
+
+	if (WidgetObject)
+	{
+#if SLATE_VERBOSE_NAMED_EVENTS
+		DebugName = WidgetObject->GetFullName();
+		DebugPaintEventName = DebugName + TEXT("_Paint");
+		DebugTickEventName = DebugName + TEXT("_Tick");
+#endif
+		WidgetObject->UpdateCanTick();
+	}
+
 }
 
 SObjectWidget::~SObjectWidget(void)
 {
+#if SLATE_VERBOSE_NAMED_EVENTS
+	// This can happen during blueprint compiling, so just ignore it if it happens then, this is really only a concern
+	// in a running game.
+	if (!GCompilingBlueprint)
+	{
+		ensureMsgf(!IsGarbageCollecting(), TEXT("SObjectWidget for '%s' destroyed while collecting garbage.  This can lead to multiple GCs being required to cleanup the object.  Possible causes might be,\n1) ReleaseSlateResources not being implemented for the owner of this pointer.\n2) You may just be holding onto some slate pointers on an actor that don't get reset until the actor is Garbage Collected.  You should avoid doing this, and instead reset those references when the actor is Destroyed."), *DebugName);
+	}
+#endif
+
 	ResetWidget();
 }
 
@@ -38,6 +62,11 @@ void SObjectWidget::ResetWidget()
 		WidgetObject->ReleaseSlateResources(bReleaseChildren);
 
 		WidgetObject = nullptr;
+
+#if SLATE_VERBOSE_NAMED_EVENTS
+		DebugTickEventName = TEXT("");
+		DebugPaintEventName = TEXT("");
+#endif
 	}
 
 	// Remove slate widget from our container
@@ -45,6 +74,11 @@ void SObjectWidget::ResetWidget()
 	[
 		SNullWidget::NullWidget
 	];
+}
+
+FString SObjectWidget::GetReferencerName() const
+{
+	return FString("SObjectWidget( ") + WidgetObject->GetName() + FString(" )");
 }
 
 void SObjectWidget::AddReferencedObjects(FReferenceCollector& Collector)
@@ -59,6 +93,10 @@ void SObjectWidget::SetPadding(const TAttribute<FMargin>& InMargin)
 
 void SObjectWidget::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
+#if SLATE_VERBOSE_NAMED_EVENTS
+	SCOPED_NAMED_EVENT_FSTRING(DebugTickEventName, FColor::Turquoise);
+#endif
+
 #if WITH_VERY_VERBOSE_SLATE_STATS
 	FScopeCycleCounterUObject NativeFunctionScope(WidgetObject);
 #endif
@@ -71,6 +109,10 @@ void SObjectWidget::Tick( const FGeometry& AllottedGeometry, const double InCurr
 
 int32 SObjectWidget::OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyCullingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const
 {
+#if SLATE_VERBOSE_NAMED_EVENTS
+	SCOPED_NAMED_EVENT_FSTRING(DebugPaintEventName, FColor::Silver);
+#endif
+
 #if WITH_VERY_VERBOSE_SLATE_STATS
 	FScopeCycleCounterUObject NativeFunctionScope(WidgetObject);
 #endif
@@ -79,10 +121,7 @@ int32 SObjectWidget::OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGe
 
 	if ( CanRouteEvent() )
 	{
-		FPaintContext Context(AllottedGeometry, MyCullingRect, OutDrawElements, MaxLayer, InWidgetStyle, bParentEnabled);
-		WidgetObject->NativePaint(Context);
-
-		return FMath::Max(MaxLayer, Context.MaxLayer);
+		return WidgetObject->NativePaint(Args, AllottedGeometry, MyCullingRect, OutDrawElements, MaxLayer, InWidgetStyle, bParentEnabled);
 	}
 	
 	return MaxLayer;
@@ -318,7 +357,7 @@ FReply SObjectWidget::OnDragDetected(const FGeometry& MyGeometry, const FPointer
 
 			float DPIScale = UWidgetLayoutLibrary::GetViewportScale(WidgetObject);
 
-			TSharedRef<FUMGDragDropOp> DragDropOp = FUMGDragDropOp::New(Operation, ScreenCursorPos, ScreenDrageePosition, DPIScale, SharedThis(this));
+			TSharedRef<FUMGDragDropOp> DragDropOp = FUMGDragDropOp::New(Operation, PointerEvent.GetPointerIndex(), ScreenCursorPos, ScreenDrageePosition, DPIScale, SharedThis(this));
 
 			return FReply::Handled().BeginDragDrop(DragDropOp);
 		}
@@ -463,12 +502,12 @@ FNavigationReply SObjectWidget::OnNavigation(const FGeometry& MyGeometry, const 
 	return Reply;
 }
 
-void SObjectWidget::OnMouseCaptureLost()
+void SObjectWidget::OnMouseCaptureLost(const FCaptureLostEvent& CaptureLostEvent)
 {
-	SCompoundWidget::OnMouseCaptureLost();
+	SCompoundWidget::OnMouseCaptureLost(CaptureLostEvent);
 
 	if ( CanRouteEvent() )
 	{
-		return WidgetObject->NativeOnMouseCaptureLost();
+		return WidgetObject->NativeOnMouseCaptureLost(CaptureLostEvent);
 	}
 }

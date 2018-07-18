@@ -7,7 +7,7 @@
  *****************************************************************************/
 
 UImgMediaSettings::UImgMediaSettings()
-	: DefaultFps(24.0f)
+	: DefaultFrameRate(24, 1)
 	, CacheBehindPercentage(25)
 	, CacheSizeGB(1.0f)
 	, CacheThreads(8)

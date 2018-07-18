@@ -4,7 +4,7 @@
 #include "Layout/LayoutUtils.h"
 
 SWrapBox::SWrapBox()
-: Slots()
+: Slots(this)
 {
 }
 

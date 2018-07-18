@@ -14,7 +14,8 @@
 #include "Preferences/PersonaOptions.h"
 #include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "Framework/Application/SlateApplication.h"
-#include "Containers/Algo/Transform.h"
+#include "Algo/Transform.h"
+#include "IPersonaToolkit.h"
 
 #define LOCTEXT_NAMESPACE "AssetTypeActions"
 
@@ -179,10 +180,13 @@ void FAssetTypeActions_AnimationAsset::OpenAnimAssetEditor(const TArray<UObject*
 							{
 								// Change the current anim to this one
 								IAnimationEditor* AnimEditor = static_cast<IAnimationEditor*>(ExistingEditor);
-								AnimEditor->SetAnimationAsset(AnimAsset);
-								AnimEditor->FocusWindow();
-								bFoundEditor = true;
-								break;
+								if(AnimEditor->GetPersonaToolkit()->GetSkeleton() == AnimAsset->GetSkeleton())
+								{
+									AnimEditor->SetAnimationAsset(AnimAsset);
+									AnimEditor->FocusWindow();
+									bFoundEditor = true;
+									break;
+								}
 							}
 						}
 					}

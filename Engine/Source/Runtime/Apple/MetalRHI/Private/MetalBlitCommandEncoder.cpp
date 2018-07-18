@@ -10,89 +10,98 @@
 #include "MetalCommandBuffer.h"
 #include "MetalFence.h"
 
+#if MTLPP_CONFIG_VALIDATE && METAL_DEBUG_OPTIONS
 extern int32 GMetalRuntimeDebugLevel;
+
+@interface FMetalDebugBlitCommandEncoder : FMetalDebugCommandEncoder
+{
+	@public
+	id<MTLBlitCommandEncoder> Inner;
+	FMetalCommandBufferDebugging Buffer;
+}
+/** Initialise the wrapper with the provided command-buffer. */
+-(id)initWithEncoder:(id<MTLBlitCommandEncoder>)Encoder andCommandBuffer:(FMetalCommandBufferDebugging const&)Buffer;
+
+@end
 
 @implementation FMetalDebugBlitCommandEncoder
 
-@synthesize Inner;
-@synthesize Buffer;
-
 APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMetalDebugBlitCommandEncoder)
 
--(id)initWithEncoder:(id<MTLBlitCommandEncoder>)Encoder andCommandBuffer:(FMetalDebugCommandBuffer*)SourceBuffer
+-(id)initWithEncoder:(id<MTLBlitCommandEncoder>)Encoder andCommandBuffer:(FMetalCommandBufferDebugging const&)SourceBuffer
 {
 	id Self = [super init];
 	if (Self)
 	{
-        Inner = [Encoder retain];
-		Buffer = [SourceBuffer retain];
+        Inner = Encoder;
+		Buffer = SourceBuffer;
 	}
 	return Self;
 }
 
 -(void)dealloc
 {
-	[Inner release];
-	[Buffer release];
 	[super dealloc];
 }
 
--(id <MTLDevice>) device
+@end
+
+FMetalBlitCommandEncoderDebugging::FMetalBlitCommandEncoderDebugging()
 {
-	return Inner.device;
+	
+}
+FMetalBlitCommandEncoderDebugging::FMetalBlitCommandEncoderDebugging(mtlpp::BlitCommandEncoder& Encoder, FMetalCommandBufferDebugging& Buffer)
+: FMetalCommandEncoderDebugging((FMetalDebugCommandEncoder*)[[FMetalDebugBlitCommandEncoder alloc] initWithEncoder:Encoder.GetPtr() andCommandBuffer:Buffer])
+{
+	Buffer.BeginBlitCommandEncoder([NSString stringWithFormat:@"Blit: %@", Encoder.GetLabel().GetPtr()]);
+	Encoder.SetAssociatedObject((void const*)&FMetalBlitCommandEncoderDebugging::Get, (FMetalCommandEncoderDebugging const&)*this);
+}
+FMetalBlitCommandEncoderDebugging::FMetalBlitCommandEncoderDebugging(FMetalDebugCommandEncoder* handle)
+: FMetalCommandEncoderDebugging((FMetalDebugCommandEncoder*)handle)
+{
+	
 }
 
--(NSString *)label
+FMetalBlitCommandEncoderDebugging FMetalBlitCommandEncoderDebugging::Get(mtlpp::BlitCommandEncoder& Encoder)
 {
-	return Inner.label;
+	return Encoder.GetAssociatedObject<FMetalBlitCommandEncoderDebugging>((void const*)&FMetalBlitCommandEncoderDebugging::Get);
 }
 
--(void)setLabel:(NSString *)Text
+void FMetalBlitCommandEncoderDebugging::InsertDebugSignpost(ns::String const& Label)
 {
-	Inner.label = Text;
+	((FMetalDebugBlitCommandEncoder*)m_ptr)->Buffer.InsertDebugSignpost(Label);
+}
+void FMetalBlitCommandEncoderDebugging::PushDebugGroup(ns::String const& Group)
+{
+	((FMetalDebugBlitCommandEncoder*)m_ptr)->Buffer.PushDebugGroup(Group);
+}
+void FMetalBlitCommandEncoderDebugging::PopDebugGroup()
+{
+	((FMetalDebugBlitCommandEncoder*)m_ptr)->Buffer.PopDebugGroup();
 }
 
-- (void)endEncoding
+void FMetalBlitCommandEncoderDebugging::EndEncoder()
 {
-    [Buffer endCommandEncoder];
-    [Inner endEncoding];
-}
-
-- (void)insertDebugSignpost:(NSString *)string
-{
-    [Buffer insertDebugSignpost:string];
-    [Inner insertDebugSignpost:string];
-}
-
-- (void)pushDebugGroup:(NSString *)string
-{
-    [Buffer pushDebugGroup:string];
-    [Inner pushDebugGroup:string];
-}
-
-- (void)popDebugGroup
-{
-    [Buffer popDebugGroup];
-    [Inner popDebugGroup];
+	((FMetalDebugBlitCommandEncoder*)m_ptr)->Buffer.EndCommandEncoder();
 }
 
 #if PLATFORM_MAC
-- (void)synchronizeResource:(id<MTLResource>)resource
+void FMetalBlitCommandEncoderDebugging::Synchronize(mtlpp::Resource const& resource)
 {
 #if METAL_DEBUG_OPTIONS
-	switch(Buffer->DebugLevel)
+	switch(((FMetalDebugBlitCommandEncoder*)m_ptr)->Buffer.GetPtr()->DebugLevel)
 	{
 		case EMetalDebugLevelConditionalSubmit:
 		case EMetalDebugLevelWaitForComplete:
 		case EMetalDebugLevelLogOperations:
 		{
-			[Buffer blit:[NSString stringWithFormat:@"%s", __PRETTY_FUNCTION__]];
+			((FMetalDebugBlitCommandEncoder*)m_ptr)->Buffer.Blit([NSString stringWithFormat:@"%s", __PRETTY_FUNCTION__]);
 		}
 		case EMetalDebugLevelValidation:
 		case EMetalDebugLevelResetOnBind:
 		case EMetalDebugLevelTrackResources:
 		{
-			[Buffer trackResource:resource];
+			((FMetalDebugBlitCommandEncoder*)m_ptr)->Buffer.TrackResource(resource);
 		}
 		default:
 		{
@@ -100,25 +109,24 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMetalDebugBlitCommandEncoder)
 		}
 	}
 #endif
-    [Inner synchronizeResource:(id<MTLResource>)resource];
 }
 
-- (void)synchronizeTexture:(id<MTLTexture>)texture slice:(NSUInteger)slice level:(NSUInteger)level
+void FMetalBlitCommandEncoderDebugging::Synchronize(FMetalTexture const& texture, NSUInteger slice, NSUInteger level)
 {
 #if METAL_DEBUG_OPTIONS
-	switch(Buffer->DebugLevel)
+	switch(((FMetalDebugBlitCommandEncoder*)m_ptr)->Buffer.GetPtr()->DebugLevel)
 	{
 		case EMetalDebugLevelConditionalSubmit:
 		case EMetalDebugLevelWaitForComplete:
 		case EMetalDebugLevelLogOperations:
 		{
-			[Buffer blit:[NSString stringWithFormat:@"%s", __PRETTY_FUNCTION__]];
+			((FMetalDebugBlitCommandEncoder*)m_ptr)->Buffer.Blit([NSString stringWithFormat:@"%s", __PRETTY_FUNCTION__]);
 		}
 		case EMetalDebugLevelValidation:
 		case EMetalDebugLevelResetOnBind:
 		case EMetalDebugLevelTrackResources:
 		{
-			[Buffer trackResource:texture];
+			((FMetalDebugBlitCommandEncoder*)m_ptr)->Buffer.TrackResource(texture);
 		}
 		default:
 		{
@@ -126,27 +134,26 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMetalDebugBlitCommandEncoder)
 		}
 	}
 #endif
-    [Inner synchronizeTexture:(id<MTLTexture>)texture slice:(NSUInteger)slice level:(NSUInteger)level];
 }
 #endif
 
-- (void)copyFromTexture:(id<MTLTexture>)sourceTexture sourceSlice:(NSUInteger)sourceSlice sourceLevel:(NSUInteger)sourceLevel sourceOrigin:(MTLOrigin)sourceOrigin sourceSize:(MTLSize)sourceSize toTexture:(id<MTLTexture>)destinationTexture destinationSlice:(NSUInteger)destinationSlice destinationLevel:(NSUInteger)destinationLevel destinationOrigin:(MTLOrigin)destinationOrigin
+void FMetalBlitCommandEncoderDebugging::Copy(FMetalTexture const& sourceTexture, NSUInteger sourceSlice, NSUInteger sourceLevel, mtlpp::Origin const& sourceOrigin, mtlpp::Size const& sourceSize, FMetalTexture const& destinationTexture, NSUInteger destinationSlice, NSUInteger destinationLevel, mtlpp::Origin const& destinationOrigin)
 {
 #if METAL_DEBUG_OPTIONS
-	switch(Buffer->DebugLevel)
+	switch(((FMetalDebugBlitCommandEncoder*)m_ptr)->Buffer.GetPtr()->DebugLevel)
 	{
 		case EMetalDebugLevelConditionalSubmit:
 		case EMetalDebugLevelWaitForComplete:
 		case EMetalDebugLevelLogOperations:
 		{
-			[Buffer blit:[NSString stringWithFormat:@"%s", __PRETTY_FUNCTION__]];
+			((FMetalDebugBlitCommandEncoder*)m_ptr)->Buffer.Blit([NSString stringWithFormat:@"%s", __PRETTY_FUNCTION__]);
 		}
 		case EMetalDebugLevelValidation:
 		case EMetalDebugLevelResetOnBind:
 		case EMetalDebugLevelTrackResources:
 		{
-			[Buffer trackResource:sourceTexture];
-			[Buffer trackResource:destinationTexture];
+			((FMetalDebugBlitCommandEncoder*)m_ptr)->Buffer.TrackResource(sourceTexture);
+			((FMetalDebugBlitCommandEncoder*)m_ptr)->Buffer.TrackResource(destinationTexture);
 		}
 		default:
 		{
@@ -154,27 +161,25 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMetalDebugBlitCommandEncoder)
 		}
 	}
 #endif
-    
-    [Inner copyFromTexture:(id<MTLTexture>)sourceTexture sourceSlice:(NSUInteger)sourceSlice sourceLevel:(NSUInteger)sourceLevel sourceOrigin:(MTLOrigin)sourceOrigin sourceSize:(MTLSize)sourceSize toTexture:(id<MTLTexture>)destinationTexture destinationSlice:(NSUInteger)destinationSlice destinationLevel:(NSUInteger)destinationLevel destinationOrigin:(MTLOrigin)destinationOrigin];
 }
 
-- (void)copyFromBuffer:(id<MTLBuffer>)sourceBuffer sourceOffset:(NSUInteger)sourceOffset sourceBytesPerRow:(NSUInteger)sourceBytesPerRow sourceBytesPerImage:(NSUInteger)sourceBytesPerImage sourceSize:(MTLSize)sourceSize toTexture:(id<MTLTexture>)destinationTexture destinationSlice:(NSUInteger)destinationSlice destinationLevel:(NSUInteger)destinationLevel destinationOrigin:(MTLOrigin)destinationOrigin
+void FMetalBlitCommandEncoderDebugging::Copy(FMetalBuffer const& sourceBuffer, NSUInteger sourceOffset, NSUInteger sourceBytesPerRow, NSUInteger sourceBytesPerImage, mtlpp::Size const& sourceSize, FMetalTexture const& destinationTexture, NSUInteger destinationSlice, NSUInteger destinationLevel, mtlpp::Origin const& destinationOrigin)
 {
 #if METAL_DEBUG_OPTIONS
-	switch(Buffer->DebugLevel)
+	switch(((FMetalDebugBlitCommandEncoder*)m_ptr)->Buffer.GetPtr()->DebugLevel)
 	{
 		case EMetalDebugLevelConditionalSubmit:
 		case EMetalDebugLevelWaitForComplete:
 		case EMetalDebugLevelLogOperations:
 		{
-			[Buffer blit:[NSString stringWithFormat:@"%s", __PRETTY_FUNCTION__]];
+			((FMetalDebugBlitCommandEncoder*)m_ptr)->Buffer.Blit([NSString stringWithFormat:@"%s", __PRETTY_FUNCTION__]);
 		}
 		case EMetalDebugLevelValidation:
 		case EMetalDebugLevelResetOnBind:
 		case EMetalDebugLevelTrackResources:
 		{
-			[Buffer trackResource:sourceBuffer];
-			[Buffer trackResource:destinationTexture];
+			((FMetalDebugBlitCommandEncoder*)m_ptr)->Buffer.TrackResource(sourceBuffer);
+			((FMetalDebugBlitCommandEncoder*)m_ptr)->Buffer.TrackResource(destinationTexture);
 		}
 		default:
 		{
@@ -182,27 +187,25 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMetalDebugBlitCommandEncoder)
 		}
 	}
 #endif
-    
-    [Inner copyFromBuffer:(id<MTLBuffer>)sourceBuffer sourceOffset:(NSUInteger)sourceOffset sourceBytesPerRow:(NSUInteger)sourceBytesPerRow sourceBytesPerImage:(NSUInteger)sourceBytesPerImage sourceSize:(MTLSize)sourceSize toTexture:(id<MTLTexture>)destinationTexture destinationSlice:(NSUInteger)destinationSlice destinationLevel:(NSUInteger)destinationLevel destinationOrigin:(MTLOrigin)destinationOrigin];
 }
 
-- (void)copyFromBuffer:(id<MTLBuffer>)sourceBuffer sourceOffset:(NSUInteger)sourceOffset sourceBytesPerRow:(NSUInteger)sourceBytesPerRow sourceBytesPerImage:(NSUInteger)sourceBytesPerImage sourceSize:(MTLSize)sourceSize toTexture:(id<MTLTexture>)destinationTexture destinationSlice:(NSUInteger)destinationSlice destinationLevel:(NSUInteger)destinationLevel destinationOrigin:(MTLOrigin)destinationOrigin options:(MTLBlitOption)options
+void FMetalBlitCommandEncoderDebugging::Copy(FMetalBuffer const& sourceBuffer, NSUInteger sourceOffset, NSUInteger sourceBytesPerRow, NSUInteger sourceBytesPerImage, mtlpp::Size const& sourceSize, FMetalTexture const& destinationTexture, NSUInteger destinationSlice, NSUInteger destinationLevel, mtlpp::Origin const& destinationOrigin, mtlpp::BlitOption options)
 {
 #if METAL_DEBUG_OPTIONS
-	switch(Buffer->DebugLevel)
+	switch(((FMetalDebugBlitCommandEncoder*)m_ptr)->Buffer.GetPtr()->DebugLevel)
 	{
 		case EMetalDebugLevelConditionalSubmit:
 		case EMetalDebugLevelWaitForComplete:
 		case EMetalDebugLevelLogOperations:
 		{
-			[Buffer blit:[NSString stringWithFormat:@"%s", __PRETTY_FUNCTION__]];
+			((FMetalDebugBlitCommandEncoder*)m_ptr)->Buffer.Blit([NSString stringWithFormat:@"%s", __PRETTY_FUNCTION__]);
 		}
 		case EMetalDebugLevelValidation:
 		case EMetalDebugLevelResetOnBind:
 		case EMetalDebugLevelTrackResources:
 		{
-			[Buffer trackResource:sourceBuffer];
-			[Buffer trackResource:destinationTexture];
+			((FMetalDebugBlitCommandEncoder*)m_ptr)->Buffer.TrackResource(sourceBuffer);
+			((FMetalDebugBlitCommandEncoder*)m_ptr)->Buffer.TrackResource(destinationTexture);
 		}
 		default:
 		{
@@ -210,27 +213,25 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMetalDebugBlitCommandEncoder)
 		}
 	}
 #endif
-    
-    [Inner copyFromBuffer:(id<MTLBuffer>)sourceBuffer sourceOffset:(NSUInteger)sourceOffset sourceBytesPerRow:(NSUInteger)sourceBytesPerRow sourceBytesPerImage:(NSUInteger)sourceBytesPerImage sourceSize:(MTLSize)sourceSize toTexture:(id<MTLTexture>)destinationTexture destinationSlice:(NSUInteger)destinationSlice destinationLevel:(NSUInteger)destinationLevel destinationOrigin:(MTLOrigin)destinationOrigin options:(MTLBlitOption)options];
 }
 
-- (void)copyFromTexture:(id<MTLTexture>)sourceTexture sourceSlice:(NSUInteger)sourceSlice sourceLevel:(NSUInteger)sourceLevel sourceOrigin:(MTLOrigin)sourceOrigin sourceSize:(MTLSize)sourceSize toBuffer:(id<MTLBuffer>)destinationBuffer destinationOffset:(NSUInteger)destinationOffset destinationBytesPerRow:(NSUInteger)destinationBytesPerRow destinationBytesPerImage:(NSUInteger)destinationBytesPerImage
+void FMetalBlitCommandEncoderDebugging::Copy(FMetalTexture const& sourceTexture, NSUInteger sourceSlice, NSUInteger sourceLevel, mtlpp::Origin const& sourceOrigin, mtlpp::Size const& sourceSize, FMetalBuffer const& destinationBuffer, NSUInteger destinationOffset, NSUInteger destinationBytesPerRow, NSUInteger destinationBytesPerImage)
 {
 #if METAL_DEBUG_OPTIONS
-	switch(Buffer->DebugLevel)
+	switch(((FMetalDebugBlitCommandEncoder*)m_ptr)->Buffer.GetPtr()->DebugLevel)
 	{
 		case EMetalDebugLevelConditionalSubmit:
 		case EMetalDebugLevelWaitForComplete:
 		case EMetalDebugLevelLogOperations:
 		{
-			[Buffer blit:[NSString stringWithFormat:@"%s", __PRETTY_FUNCTION__]];
+			((FMetalDebugBlitCommandEncoder*)m_ptr)->Buffer.Blit([NSString stringWithFormat:@"%s", __PRETTY_FUNCTION__]);
 		}
 		case EMetalDebugLevelValidation:
 		case EMetalDebugLevelResetOnBind:
 		case EMetalDebugLevelTrackResources:
 		{
-			[Buffer trackResource:sourceTexture];
-			[Buffer trackResource:destinationBuffer];
+			((FMetalDebugBlitCommandEncoder*)m_ptr)->Buffer.TrackResource(sourceTexture);
+			((FMetalDebugBlitCommandEncoder*)m_ptr)->Buffer.TrackResource(destinationBuffer);
 		}
 		default:
 		{
@@ -238,27 +239,25 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMetalDebugBlitCommandEncoder)
 		}
 	}
 #endif
-    
-    [Inner copyFromTexture:(id<MTLTexture>)sourceTexture sourceSlice:(NSUInteger)sourceSlice sourceLevel:(NSUInteger)sourceLevel sourceOrigin:(MTLOrigin)sourceOrigin sourceSize:(MTLSize)sourceSize toBuffer:(id<MTLBuffer>)destinationBuffer destinationOffset:(NSUInteger)destinationOffset destinationBytesPerRow:(NSUInteger)destinationBytesPerRow destinationBytesPerImage:(NSUInteger)destinationBytesPerImage];
 }
 
-- (void)copyFromTexture:(id<MTLTexture>)sourceTexture sourceSlice:(NSUInteger)sourceSlice sourceLevel:(NSUInteger)sourceLevel sourceOrigin:(MTLOrigin)sourceOrigin sourceSize:(MTLSize)sourceSize toBuffer:(id<MTLBuffer>)destinationBuffer destinationOffset:(NSUInteger)destinationOffset destinationBytesPerRow:(NSUInteger)destinationBytesPerRow destinationBytesPerImage:(NSUInteger)destinationBytesPerImage options:(MTLBlitOption)options
+void FMetalBlitCommandEncoderDebugging::Copy(FMetalTexture const& sourceTexture, NSUInteger sourceSlice, NSUInteger sourceLevel, mtlpp::Origin const& sourceOrigin, mtlpp::Size const& sourceSize, FMetalBuffer const& destinationBuffer, NSUInteger destinationOffset, NSUInteger destinationBytesPerRow, NSUInteger destinationBytesPerImage, mtlpp::BlitOption options)
 {
 #if METAL_DEBUG_OPTIONS
-	switch(Buffer->DebugLevel)
+	switch(((FMetalDebugBlitCommandEncoder*)m_ptr)->Buffer.GetPtr()->DebugLevel)
 	{
 		case EMetalDebugLevelConditionalSubmit:
 		case EMetalDebugLevelWaitForComplete:
 		case EMetalDebugLevelLogOperations:
 		{
-			[Buffer blit:[NSString stringWithFormat:@"%s", __PRETTY_FUNCTION__]];
+			((FMetalDebugBlitCommandEncoder*)m_ptr)->Buffer.Blit([NSString stringWithFormat:@"%s", __PRETTY_FUNCTION__]);
 		}
 		case EMetalDebugLevelValidation:
 		case EMetalDebugLevelResetOnBind:
 		case EMetalDebugLevelTrackResources:
 		{
-			[Buffer trackResource:sourceTexture];
-			[Buffer trackResource:destinationBuffer];
+			((FMetalDebugBlitCommandEncoder*)m_ptr)->Buffer.TrackResource(sourceTexture);
+			((FMetalDebugBlitCommandEncoder*)m_ptr)->Buffer.TrackResource(destinationBuffer);
 		}
 		default:
 		{
@@ -266,26 +265,24 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMetalDebugBlitCommandEncoder)
 		}
 	}
 #endif
-    
-    [Inner copyFromTexture:(id<MTLTexture>)sourceTexture sourceSlice:(NSUInteger)sourceSlice sourceLevel:(NSUInteger)sourceLevel sourceOrigin:(MTLOrigin)sourceOrigin sourceSize:(MTLSize)sourceSize toBuffer:(id<MTLBuffer>)destinationBuffer destinationOffset:(NSUInteger)destinationOffset destinationBytesPerRow:(NSUInteger)destinationBytesPerRow destinationBytesPerImage:(NSUInteger)destinationBytesPerImage options:(MTLBlitOption)options];
 }
 
-- (void)generateMipmapsForTexture:(id<MTLTexture>)texture
+void FMetalBlitCommandEncoderDebugging::GenerateMipmaps(FMetalTexture const& texture)
 {
 #if METAL_DEBUG_OPTIONS
-	switch(Buffer->DebugLevel)
+	switch(((FMetalDebugBlitCommandEncoder*)m_ptr)->Buffer.GetPtr()->DebugLevel)
 	{
 		case EMetalDebugLevelConditionalSubmit:
 		case EMetalDebugLevelWaitForComplete:
 		case EMetalDebugLevelLogOperations:
 		{
-			[Buffer blit:[NSString stringWithFormat:@"%s", __PRETTY_FUNCTION__]];
+			((FMetalDebugBlitCommandEncoder*)m_ptr)->Buffer.Blit([NSString stringWithFormat:@"%s", __PRETTY_FUNCTION__]);
 		}
 		case EMetalDebugLevelValidation:
 		case EMetalDebugLevelResetOnBind:
 		case EMetalDebugLevelTrackResources:
 		{
-			[Buffer trackResource:texture];
+			((FMetalDebugBlitCommandEncoder*)m_ptr)->Buffer.TrackResource(texture);
 		}
 		default:
 		{
@@ -293,25 +290,24 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMetalDebugBlitCommandEncoder)
 		}
 	}
 #endif
-    [Inner generateMipmapsForTexture:(id<MTLTexture>)texture];
 }
 
-- (void)fillBuffer:(id <MTLBuffer>)buffer range:(NSRange)range value:(uint8_t)value
+void FMetalBlitCommandEncoderDebugging::Fill(FMetalBuffer const& buffer, ns::Range const& range, uint8_t value)
 {
 #if METAL_DEBUG_OPTIONS
-	switch(Buffer->DebugLevel)
+	switch(((FMetalDebugBlitCommandEncoder*)m_ptr)->Buffer.GetPtr()->DebugLevel)
 	{
 		case EMetalDebugLevelConditionalSubmit:
 		case EMetalDebugLevelWaitForComplete:
 		case EMetalDebugLevelLogOperations:
 		{
-			[Buffer blit:[NSString stringWithFormat:@"%s", __PRETTY_FUNCTION__]];
+			((FMetalDebugBlitCommandEncoder*)m_ptr)->Buffer.Blit([NSString stringWithFormat:@"%s", __PRETTY_FUNCTION__]);
 		}
 		case EMetalDebugLevelValidation:
 		case EMetalDebugLevelResetOnBind:
 		case EMetalDebugLevelTrackResources:
 		{
-			[Buffer trackResource:buffer];
+			((FMetalDebugBlitCommandEncoder*)m_ptr)->Buffer.TrackResource(buffer);
 		}
 		default:
 		{
@@ -319,26 +315,25 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMetalDebugBlitCommandEncoder)
 		}
 	}
 #endif
-    [Inner fillBuffer:(id <MTLBuffer>)buffer range:(NSRange)range value:(uint8_t)value];
 }
 
-- (void)copyFromBuffer:(id <MTLBuffer>)sourceBuffer sourceOffset:(NSUInteger)sourceOffset toBuffer:(id <MTLBuffer>)destinationBuffer destinationOffset:(NSUInteger)destinationOffset size:(NSUInteger)size
+void FMetalBlitCommandEncoderDebugging::Copy(FMetalBuffer const& sourceBuffer, NSUInteger sourceOffset, FMetalBuffer const& destinationBuffer, NSUInteger destinationOffset, NSUInteger size)
 {
 #if METAL_DEBUG_OPTIONS
-	switch(Buffer->DebugLevel)
+	switch(((FMetalDebugBlitCommandEncoder*)m_ptr)->Buffer.GetPtr()->DebugLevel)
 	{
 		case EMetalDebugLevelConditionalSubmit:
 		case EMetalDebugLevelWaitForComplete:
 		case EMetalDebugLevelLogOperations:
 		{
-			[Buffer blit:[NSString stringWithFormat:@"%s", __PRETTY_FUNCTION__]];
+			((FMetalDebugBlitCommandEncoder*)m_ptr)->Buffer.Blit([NSString stringWithFormat:@"%s", __PRETTY_FUNCTION__]);
 		}
 		case EMetalDebugLevelValidation:
 		case EMetalDebugLevelResetOnBind:
 		case EMetalDebugLevelTrackResources:
 		{
-			[Buffer trackResource:sourceBuffer];
-			[Buffer trackResource:destinationBuffer];
+			((FMetalDebugBlitCommandEncoder*)m_ptr)->Buffer.TrackResource(sourceBuffer);
+			((FMetalDebugBlitCommandEncoder*)m_ptr)->Buffer.TrackResource(destinationBuffer);
 		}
 		default:
 		{
@@ -346,77 +341,6 @@ APPLE_PLATFORM_OBJECT_ALLOC_OVERRIDES(FMetalDebugBlitCommandEncoder)
 		}
 	}
 #endif
-    [Inner copyFromBuffer:(id <MTLBuffer>)sourceBuffer sourceOffset:(NSUInteger)sourceOffset toBuffer:(id <MTLBuffer>)destinationBuffer destinationOffset:(NSUInteger)destinationOffset size:(NSUInteger)size];
 }
 
-#if METAL_SUPPORTS_HEAPS
-- (void)updateFence:(id <MTLFence>)fence
-{
-#if METAL_DEBUG_OPTIONS
-	if (fence && (EMetalDebugLevel)GMetalRuntimeDebugLevel >= EMetalDebugLevelValidation)
-	{
-		[self addUpdateFence:fence];
-        if (((FMetalDebugFence*)fence).Inner)
-        {
-            [Inner updateFence:((FMetalDebugFence*)fence).Inner];
-        }
-	}
-	else
-#endif
-	{
-		[Inner updateFence:(id <MTLFence>)fence];
-	}
-}
-
-- (void)waitForFence:(id <MTLFence>)fence
-{
-#if METAL_DEBUG_OPTIONS
-	if (fence && (EMetalDebugLevel)GMetalRuntimeDebugLevel >= EMetalDebugLevelValidation)
-	{
-		[self addWaitFence:fence];
-        if (((FMetalDebugFence*)fence).Inner)
-        {
-            [Inner waitForFence:((FMetalDebugFence*)fence).Inner];
-        }
-	}
-	else
-#endif
-	{
-		[Inner waitForFence:(id <MTLFence>)fence];
-	}
-}
-#endif
-
--(NSString*) description
-{
-	return [Inner description];
-}
-
--(NSString*) debugDescription
-{
-	return [Inner debugDescription];
-}
-
--(id<MTLCommandEncoder>)commandEncoder
-{
-	return self;
-}
-
-@end
-
-#if !METAL_SUPPORTS_HEAPS
-@implementation FMetalDebugBlitCommandEncoder (MTLBlitCommandEncoderExtensions)
--(void) updateFence:(id <MTLFence>)fence
-{
-#if METAL_DEBUG_OPTIONS
-	[self addUpdateFence:fence];
-#endif
-}
--(void) waitForFence:(id <MTLFence>)fence
-{
-#if METAL_DEBUG_OPTIONS
-	[self addWaitFence:fence];
-#endif
-}
-@end
 #endif

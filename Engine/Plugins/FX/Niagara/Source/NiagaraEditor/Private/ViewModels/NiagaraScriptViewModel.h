@@ -4,9 +4,9 @@
 
 #include "NiagaraParameterEditMode.h"
 #include "INiagaraCompiler.h"
-#include "TNiagaraViewModelManager.h"
+#include "ViewModels/TNiagaraViewModelManager.h"
 #include "EditorUndoClient.h"
-#include "NotifyHook.h"
+#include "Misc/NotifyHook.h"
 
 class UNiagaraScript;
 class UNiagaraScriptSource;
@@ -41,6 +41,9 @@ public:
 	/** Gets the view model for the metadata collection. */
 	TSharedRef<FNiagaraMetaDataCollectionViewModel> GetMetadataCollectionViewModel();
 
+	/** Refreshes the metadata collection */
+	void RefreshMetadataCollection();
+
 	TSharedRef<INiagaraParameterCollectionViewModel> GetInputParameterMapViewModel();
 	TSharedRef<INiagaraParameterCollectionViewModel> GetOutputParameterMapViewModel();
 
@@ -53,7 +56,7 @@ public:
 		const TArray<UNiagaraScript*>& InCompileSources);
 
 	/** Compiles a script that isn't part of an emitter or System. */
-	void CompileStandaloneScript(bool bForce);
+	void CompileStandaloneScript();
 
 	/** Get the latest status of this view-model's script compilation.*/
 	ENiagaraScriptCompileStatus GetLatestCompileStatus();
@@ -65,18 +68,11 @@ public:
 	virtual void PostUndo(bool bSuccess) override;
 	virtual void PostRedo(bool bSuccess) override { PostUndo(bSuccess); }
 
-	bool GetScriptDirty() const { return bNeedsSave; }
-
-	void SetScriptDirty(bool InNeedsSave) { bNeedsSave = InNeedsSave; }
-
 	UNiagaraScript* GetContainerScript(ENiagaraScriptUsage InUsage, FGuid InUsageId = FGuid());
 	UNiagaraScript* GetScript(ENiagaraScriptUsage InUsage, FGuid InUsageId = FGuid());
 
 	ENiagaraScriptCompileStatus GetScriptCompileStatus(ENiagaraScriptUsage InUsage, FGuid InUsageId) const;
 	FText GetScriptErrors(ENiagaraScriptUsage InUsage, FGuid InUsageId) const;
-
-	/** Updates the compiled versions of data interfaces from changes to their source. */
-	void UpdateCompiledDataInterfaces(UNiagaraDataInterface* ChangedDataInterface);
 
 	/** If this is editing a standalone script, returns the script being edited.*/
 	UNiagaraScript* GetStandaloneScript();
@@ -89,10 +85,7 @@ private:
 	void InputViewModelSelectionChanged();
 
 	/** Marks this script view model as dirty and marks the scripts as needing synchrnozation. */
-	void MarkAllDirty();
-
-    /** Handle the graph being changed by the UI notifications to see if we need to mark as needing recompile.*/
-	void OnGraphChanged(const struct FEdGraphEditAction& InAction);
+	void MarkAllDirty(FString Reason);
 
 	void SetScripts(UNiagaraScriptSource* InScriptSource, TArray<UNiagaraScript*>& InScripts);
 
@@ -105,6 +98,8 @@ private:
 protected:
 	/** The script which provides the data for this view model. */
 	TArray<TWeakObjectPtr<UNiagaraScript>> Scripts;
+
+	void OnVMScriptCompiled(UNiagaraScript* InScript);
 
 	TWeakObjectPtr<UNiagaraScriptSource> Source;
 
@@ -128,9 +123,6 @@ protected:
 	
 	/** The handle to the graph changed delegate needed for removing. */
 	FDelegateHandle OnGraphChangedHandle;
-
-	/** An edit has been made since the last save.*/
-	bool bNeedsSave;
 
 	TArray<TNiagaraViewModelManager<UNiagaraScript, FNiagaraScriptViewModel>::Handle> RegisteredHandles;
 

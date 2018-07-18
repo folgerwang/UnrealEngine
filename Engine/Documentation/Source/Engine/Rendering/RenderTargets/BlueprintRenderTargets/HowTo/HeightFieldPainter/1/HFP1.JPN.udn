@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3259022
+﻿INTSourceChangelist:3782314
 availability:Public
 title:1.プロジェクト設定
 description:高さマップ ペインタを作成するためのプロジェクト設定の説明
@@ -73,7 +73,7 @@ checkpoint: animpropertyblend
 	![](Engine\Rendering\RenderTargets\BlueprintRenderTargets\HowTo\HeightFieldPainter\HFP_PS_07.png)
 
 	[region:note]
-	クロスヘアが画面上にない場合、**Draw Material** ノード上の **Material** 入力が Material 入力への何かしら入力になっているかを確認してください。
+	クロスヘアが画面上にない場合、**Draw Material** ノード上の**Material** 入力が Material 入力への何かしら入力になっているかを確認してください。
 
 	![](Engine\Rendering\RenderTargets\BlueprintRenderTargets\HowTo\HeightFieldPainter\HFP_PS_08.png)
 	[/region]

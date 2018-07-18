@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3809606
 Availability:Docs
 Crumbs: %ROOT%, Engine, Engine/Animation
 Title:AnimGraph Pose ノード
@@ -127,7 +127,7 @@ Animation ブループリントの AnimGraph 内には、サンプル ポーズ�
 | **Type** | [INCLUDE:Engine\Animation\AnimPose\AnimBPPoseNodes\#typetable] | 
 | **Twist Axis** | **Type** が **SwingOnly** (X、 Y、または Z) に設定されている場合に使用する軸です。 | 
 
-[COMMENT]
+[COMMENT:none]
 
 [EXCERPT:typetable]
 | オプション | 説明 |

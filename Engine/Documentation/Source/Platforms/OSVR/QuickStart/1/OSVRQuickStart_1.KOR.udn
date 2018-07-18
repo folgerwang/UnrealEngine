@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3108692
+﻿INTSourceChangelist:3807090
 Availability:Docs
 Title:1. OSVR 필수 요구사항
 Crumbs:%ROOT%, Platforms/OSVR
@@ -23,7 +23,7 @@ tags:OSVR
 1. OSVR Developer 페이지에서 **OSVR Runtime for Windows** 옵션을 찾은 뒤 **Download** 를 클릭하여 OSVR Windows 드라이버를 다운로드합니다.
 
 	[REGION:lightbox]
-	[![](OSVR_Driver_Download.png)(w:640 h:336)](OSVR_Driver_Download.png)
+	[![](OSVR_Driver_Download.png)(w:640)](OSVR_Driver_Download.png)
 	[/REGION]
 	
 	[REGION:caption]
@@ -35,7 +35,7 @@ tags:OSVR
 1. 설치가 완료되면 OSVR 폴더에서 **osvr_server.exe** 를 찾아 더블클릭하여 실행시킵니다.
 
 	[REGION:lightbox]
-	[![](OSVR_Server_Location.png)(w:407 h:293)](OSVR_Server_Location.png)
+	[![](OSVR_Server_Location.png)(w:407)](OSVR_Server_Location.png)
 	[/REGION]
 	
 	[REGION:caption]

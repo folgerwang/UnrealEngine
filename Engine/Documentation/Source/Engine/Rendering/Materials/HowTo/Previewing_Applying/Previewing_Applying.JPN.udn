@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2731779
+﻿INTSourceChangelist:3242329
 Availability:Public
 Title:マテリアル エディタ - マテリアルのプレビューと適用の方法
 Crumbs: %ROOT%, Engine, Engine/Rendering/Materials, Engine/Rendering/Materials/HowTo
@@ -10,6 +10,7 @@ Related:Engine/Rendering/Materials/IntroductionToMaterials
 Related:Engine/Rendering/Materials/MaterialProperties
 Version:4.9
 SkillLevel:Beginner
+tags:Materials
 
 [TOC(start:2 end:3)]
 

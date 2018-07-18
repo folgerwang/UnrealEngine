@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "OnlineSubsystemOculus.h"
-#include "OnlineSessionInterface.h"
+#include "Interfaces/OnlineSessionInterface.h"
 #include "OnlineSubsystemOculusTypes.h"
 #include "OnlineSubsystemOculusPackage.h"
 
@@ -116,6 +116,7 @@ public:
 	virtual int32 GetNumSessions() override;
 	virtual void DumpSessionState() override;
 
+	virtual TSharedPtr<const FUniqueNetId> CreateSessionIdFromString(const FString& SessionIdStr) override;
 	FNamedOnlineSession* GetNamedSession(FName SessionName) override;
 	virtual void RemoveNamedSession(FName SessionName) override;
 	virtual EOnlineSessionState::Type GetSessionState(FName SessionName) const override;

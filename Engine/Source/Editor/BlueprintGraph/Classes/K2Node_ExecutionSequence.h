@@ -8,10 +8,11 @@
 #include "Textures/SlateIcon.h"
 #include "K2Node.h"
 #include "K2Node_AddPinInterface.h"
+#include "EdGraph/EdGraphPin.h"
+
 #include "K2Node_ExecutionSequence.generated.h"
 
 class FBlueprintActionDatabaseRegistrar;
-class UEdGraphPin;
 
 UCLASS(MinimalAPI)
 class UK2Node_ExecutionSequence : public UK2Node, public IK2Node_AddPinInterface
@@ -31,6 +32,7 @@ class UK2Node_ExecutionSequence : public UK2Node, public IK2Node_AddPinInterface
 	virtual class FNodeHandlingFunctor* CreateNodeHandler(class FKismetCompilerContext& CompilerContext) const override;
 	virtual void GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const override;
 	virtual FText GetMenuCategory() const override;
+	virtual bool CanEverInsertExecutionPin() const override { return true; }
 	virtual bool CanEverRemoveExecutionPin() const override { return true; }
 	//~ End UK2Node Interface
 
@@ -48,6 +50,13 @@ class UK2Node_ExecutionSequence : public UK2Node, public IK2Node_AddPinInterface
 	 */
 	DEPRECATED(4.17, "Use AddInputPin instead.")
 	BLUEPRINTGRAPH_API void AddPinToExecutionNode() { AddInputPin(); }
+
+	/**
+	 * Inserts a new execution pin, before the specified execution pin, into an execution node
+	 *
+	 * @param	PinToInsertBefore	The pin to insert a new pin before on the node
+	 */
+	BLUEPRINTGRAPH_API void InsertPinIntoExecutionNode(UEdGraphPin* PinToInsertBefore, EPinInsertPosition Position);
 
 	/**
 	 * Removes the specified execution pin from an execution node

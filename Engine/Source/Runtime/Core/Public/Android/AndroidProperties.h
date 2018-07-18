@@ -61,16 +61,12 @@ struct FAndroidPlatformProperties
 
 	static FORCEINLINE bool SupportsHighQualityLightmaps()
 	{
-#if PLATFORM_ANDROIDESDEFERRED
-		return true;
-#else
-		return false;
-#endif
+		return true; // always true because of Vulkan
 	}
 
 	static FORCEINLINE bool SupportsLowQualityLightmaps()
 	{
-#if PLATFORM_ANDROIDESDEFERRED
+#if PLATFORM_ANDROIDESDEFERRED || PLATFORM_ANDROIDGL4
 		return false;
 #else
 		return true;
@@ -115,69 +111,5 @@ struct FAndroidPlatformProperties
 	static FORCEINLINE bool SupportsAudioStreaming()
 	{
 		return true;
-	}
-};
-
-struct FAndroid_PVRTCPlatformProperties : public FAndroidPlatformProperties
-{
-	static FORCEINLINE const char* PlatformName()
-	{
-		return "Android_PVRTC";
-	}
-};
-
-struct FAndroid_ATCPlatformProperties : public FAndroidPlatformProperties
-{
-	static FORCEINLINE const char* PlatformName()
-	{
-		return "Android_ATC";
-	}
-};
-
-struct FAndroid_DXTPlatformProperties : public FAndroidPlatformProperties
-{
-	static FORCEINLINE const char* PlatformName()
-	{
-		return "Android_DXT";
-	}
-};
-
-struct FAndroid_ETC1PlatformProperties : public FAndroidPlatformProperties
-{
-	static FORCEINLINE const char* PlatformName()
-	{
-		return "Android_ETC1";
-	}
-};
-
-struct FAndroid_ETC2PlatformProperties : public FAndroidPlatformProperties
-{
-	static FORCEINLINE const char* PlatformName()
-	{
-		return "Android_ETC2";
-	}
-};
-
-struct FAndroid_ETC1aPlatformProperties : public FAndroidPlatformProperties
-{
-	static FORCEINLINE const char* PlatformName()
-	{
-		return "Android_ETC1a";
-	}
-};
-
-struct FAndroid_ASTCPlatformProperties : public FAndroidPlatformProperties
-{
-	static FORCEINLINE const char* PlatformName()
-	{
-		return "Android_ASTC";
-	}
-};
-
-struct FAndroid_MultiPlatformProperties : public FAndroidPlatformProperties
-{
-	static FORCEINLINE const char* PlatformName()
-	{
-		return "Android_Multi";
 	}
 };

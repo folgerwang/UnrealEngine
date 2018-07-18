@@ -41,11 +41,13 @@ public:
 	 * Send a message to a user via xmpp service
 	 *
 	 * @param RecipientId user to send message to (must be online)
-	 * @param Message message data to send
+	 * @param Type message type
+	 * @param Payload message data to send
 	 *
 	 * @return true if successfully sent
 	 */
-	virtual bool SendMessage(const FString& RecipientId, const FXmppMessage& Message) = 0;
+	virtual bool SendMessage(const FXmppUserJid& RecipientId, const FString& Type, const FString& Payload, bool bPayloadIsSerializedJson = false) = 0;
+	virtual bool SendMessage(const FXmppUserJid& RecipientId, const FString& Type, const TSharedRef<class FJsonObject>& Payload) = 0;
 
 	/**
 	 * Delegate callback for when a new message is received

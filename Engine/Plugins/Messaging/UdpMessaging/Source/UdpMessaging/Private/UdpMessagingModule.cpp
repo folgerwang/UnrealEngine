@@ -442,12 +442,6 @@ protected:
 			return false;
 		}
 
-		// single thread support not implemented yet
-		if (!FPlatformProcess::SupportsMultithreading())
-		{
-			return false;
-		}
-
 		// always allow in standalone Slate applications
 		if (!FApp::IsGame() && !IsRunningCommandlet())
 		{

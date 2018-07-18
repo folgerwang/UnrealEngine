@@ -33,11 +33,11 @@ prereq:Engine/Blueprints/TechnicalGuide/NativizingBlueprints
 손수 작성한 코드와 네이티브화된 코드 사이 협동의 안정성과 효율성을 높이는 데 알아두면 좋을 제약 사항이 몇 가지 있습니다.
 지원되지 않는 구현은 다음과 같습니다:
 
-- `BlueprintPure` 또는 `BlueprintCallable` 로 마킹된 Private 및 Protected 함수
-- `noexport` 구조체 및 클래스
-- `BlueprintVisible` 또는 `Editable` 태그가 붙은 비트필드 변수
-- Private 비트필드 변수
-- `UBlueprintGeneratedClass`, `UUserDefinedStruct`, `UUserDefinedEnum` 변수 (또는 이 변수를 기반으로 한 유형)
+* `BlueprintPure` 또는 `BlueprintCallable` 로 마킹된 Private 및 Protected 함수
+* `noexport` 구조체 및 클래스
+* `BlueprintVisible` 또는 `Editable` 태그가 붙은 비트필드 변수
+* Private 비트필드 변수
+* `UBlueprintGeneratedClass`, `UUserDefinedStruct`, `UUserDefinedEnum` 변수 (또는 이 변수를 기반으로 한 유형)
 
 ## 기술적 세부사항
 
@@ -47,8 +47,8 @@ prereq:Engine/Blueprints/TechnicalGuide/NativizingBlueprints
 
 블루프린트 네이티브화 프로세스가 내부적으로 어떻게 작동되는지 궁금하신 분들은, 다음 모듈을 살펴보시기 바랍니다:
 
-`BlueprintCompilerCppBackend` 모듈(이 있는 위치는 `Engine\Source\Developer\BlueprintCompilerCppBackend\`) 은 블루프린트 문법 트리를 C++ 로 변환합니다.
-`BlueprintNativeCodeGen` 모듈(이 있는 위치는 `Engine\Source\Developer\BlueprintNativeCodeGen\`) 은 쿠킹과 패키징 도중 여러가지 마법같은 작업을 합니다.
+* `BlueprintCompilerCppBackend` 모듈(이 있는 위치는 `Engine\Source\Developer\BlueprintCompilerCppBackend\`) 은 블루프린트 문법 트리를 C++ 로 변환합니다.
+* `BlueprintNativeCodeGen` 모듈(이 있는 위치는 `Engine\Source\Developer\BlueprintNativeCodeGen\`) 은 쿠킹과 패키징 도중 여러가지 마법같은 작업을 합니다.
 
 [PUBLISH:Licensee]
 

@@ -27,7 +27,7 @@ public:
 	virtual ~FMovieScene3DAttachSectionRecorder() {}
 
 	virtual void CreateSection(UObject* InObjectToRecord, class UMovieScene* InMovieScene, const FGuid& Guid, float Time) override;
-	virtual void FinalizeSection() override;
+	virtual void FinalizeSection(float CurrentTime) override;
 	virtual void Record(float CurrentTime) override;
 	virtual void InvalidateObjectToRecord() override
 	{
@@ -56,4 +56,7 @@ private:
 
 	/** Identifier of the object we are recording */
 	FGuid ObjectGuid;
+
+	/** The timecode source at the beginning of recording */
+	FMovieSceneTimecodeSource TimecodeSource;
 };

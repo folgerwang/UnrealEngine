@@ -73,8 +73,8 @@ Pose Driver ノードを **Animation ブループリント** に追加するに�
 
 	![](BlankDetails.png)
 
-	## Pose Targets
-
+	
+## Pose Targets
 
 Pose Targets では、Pose アセットからポーズを、またはPose Driver ノードで操作するカーブを指定します。 
 

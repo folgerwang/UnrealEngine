@@ -2,7 +2,7 @@
 
 #include "OnlineSessionInterfaceOculus.h"
 #include "OnlineSubsystemOculusPrivate.h"
-#include "OnlineIdentityInterface.h"
+#include "Interfaces/OnlineIdentityInterface.h"
 #include "OnlineFriendsInterfaceOculus.h"
 #include "OnlineSubsystemOculus.h"
 #include "OnlineSessionSettings.h"
@@ -1204,6 +1204,13 @@ void FOnlineSessionOculus::UnregisterLocalPlayer(const FUniqueNetId& PlayerId, F
 {
 	/* NOT USED */
 	Delegate.ExecuteIfBound(PlayerId, false);
+}
+
+TSharedPtr<const FUniqueNetId> FOnlineSessionOculus::CreateSessionIdFromString(const FString& SessionIdStr)
+{
+	/* NYI */
+	TSharedPtr<const FUniqueNetId> SessionId;
+	return SessionId;
 }
 
 FNamedOnlineSession* FOnlineSessionOculus::GetNamedSession(FName SessionName)

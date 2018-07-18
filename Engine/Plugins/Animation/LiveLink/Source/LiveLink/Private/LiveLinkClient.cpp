@@ -1,11 +1,11 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "LiveLinkClient.h"
-#include "ScopeLock.h"
-#include "UObjectHash.h"
+#include "Misc/ScopeLock.h"
+#include "UObject/UObjectHash.h"
 #include "LiveLinkSourceFactory.h"
-#include "Guid.h"
-#include "Package.h"
+#include "Misc/Guid.h"
+#include "UObject/Package.h"
 
 DEFINE_LOG_CATEGORY(LogLiveLink);
 
@@ -402,6 +402,8 @@ void FLiveLinkClient::AddSource(TSharedPtr<ILiveLinkSource> InSource)
 	
 	InSource->ReceiveClient(this, SourceGuids.Last());
 	InSource->InitializeSettings(NewSettings);
+
+	OnLiveLinkSourcesChanged.Broadcast();
 }
 
 void FLiveLinkClient::AddVirtualSubjectSource()
@@ -424,6 +426,18 @@ void FLiveLinkClient::RemoveSource(FGuid InEntryGuid)
 {
 	LastValidationCheck = 0.0; //Force validation check next frame
 	int32 SourceIdx = GetSourceIndexForGUID(InEntryGuid);
+	if (SourceIdx != INDEX_NONE)
+	{
+		SourcesToRemove.Add(Sources[SourceIdx]);
+		RemoveSourceInternal(SourceIdx);
+		OnLiveLinkSourcesChanged.Broadcast();
+	}
+}
+
+void FLiveLinkClient::RemoveSource(TSharedPtr<ILiveLinkSource> InSource)
+{
+	LastValidationCheck = 0.0; //Force validation check next frame
+	int32 SourceIdx = GetSourceIndexForPointer(InSource);
 	if (SourceIdx != INDEX_NONE)
 	{
 		SourcesToRemove.Add(Sources[SourceIdx]);
@@ -506,6 +520,31 @@ TArray<FLiveLinkSubjectKey> FLiveLinkClient::GetSubjects()
 	}
 
 	return SubjectEntries;
+}
+
+void FLiveLinkClient::GetSubjectNames(TArray<FName>& SubjectNames)
+{
+	SubjectNames.Reset();
+	{
+		FScopeLock Lock(&SubjectDataAccessCriticalSection);
+
+		SubjectNames.Reserve(LiveSubjectData.Num() + VirtualSubjects.Num());
+
+		for (const TPair<FName, FLiveLinkSubject>& LiveSubject : LiveSubjectData)
+		{
+			SubjectNames.Emplace(LiveSubject.Key);
+		}
+	}
+
+	for (TPair<FName, FLiveLinkVirtualSubject>& VirtualSubject : VirtualSubjects)
+	{
+		SubjectNames.Emplace(VirtualSubject.Key);
+	}
+}
+
+int32 FLiveLinkClient::GetSourceIndexForPointer(TSharedPtr<ILiveLinkSource> InSource) const
+{
+	return Sources.IndexOfByKey(InSource);
 }
 
 int32 FLiveLinkClient::GetSourceIndexForGUID(FGuid InEntryGuid) const

@@ -1,6 +1,5 @@
-﻿INTSourceChangelist:2685194
-Availability:Public
-Title:6. Light Profile（ライト プロファイル）の使用方法
+﻿Availability:Public
+Title:6.Light Profile（ライト プロファイル）の使用方法
 Crumbs:%ROOT%, GettingStarted, Engine\Rendering\LightingAndShadows\QuickStart
 Description:このステップでは、ライト プロファイルを使って、もう少し詳細なライトを作成します。 
 SkillLevel:Beginner

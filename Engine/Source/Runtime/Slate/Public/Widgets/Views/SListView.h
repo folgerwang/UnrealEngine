@@ -80,6 +80,7 @@ public:
 		, _WheelScrollMultiplier(GetGlobalScrollAmount())
 		, _HandleGamepadEvents( true )
 		, _HandleDirectionalNavigation( true )
+		, _IsFocusable(true)
 		, _OnItemToString_Debug()
 		, _OnEnteredBadState()
 		{
@@ -127,6 +128,8 @@ public:
 
 		SLATE_ARGUMENT( bool, HandleDirectionalNavigation );
 
+		SLATE_ATTRIBUTE( bool, IsFocusable )
+
 		/** Assign this to get more diagnostics from the list view. */
 		SLATE_EVENT(FOnItemToString_Debug, OnItemToString_Debug)
 
@@ -160,6 +163,7 @@ public:
 		this->WheelScrollMultiplier = InArgs._WheelScrollMultiplier;
 		this->bHandleGamepadEvents = InArgs._HandleGamepadEvents;
 		this->bHandleDirectionalNavigation = InArgs._HandleDirectionalNavigation;
+		this->IsFocusable = InArgs._IsFocusable;
 
 		this->OnItemToString_Debug =
 			InArgs._OnItemToString_Debug.IsBound()
@@ -214,11 +218,17 @@ public:
 		, ItemToScrollIntoView( NullableItemType(nullptr) )
 		, UserRequestingScrollIntoView( 0 )
 		, ItemToNotifyWhenInView( NullableItemType(nullptr) ) 
+		, IsFocusable(true)
 	{ }
 
 public:
 
 	// SWidget overrides
+
+	virtual bool SupportsKeyboardFocus() const override
+	{
+		return IsFocusable.Get();
+	}
 
 	virtual FReply OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent ) override
 	{
@@ -352,7 +362,10 @@ public:
 				}
 			}
 
-			return (bWasHandled ? FReply::Handled() : FReply::Unhandled());
+			if (bWasHandled)
+			{
+				return FReply::Handled();
+			}
 		}
 
 		return STableViewBase::OnKeyDown(MyGeometry, InKeyEvent);
@@ -461,17 +474,10 @@ private:
 		 * @param Item  The item for which to find the widget.
 		 * @return A pointer to the corresponding widget if it exists; otherwise nullptr.
 		 */
-		TSharedPtr<ITableRow> GetWidgetForItem( const ItemType& Item )
+		TSharedPtr<ITableRow> GetWidgetForItem( const ItemType& Item ) const
 		{
-			TSharedRef<ITableRow>* LookupResult = ItemToWidgetMap.Find( Item );
-			if ( LookupResult != nullptr )
-			{
-				return *LookupResult;
-			}
-			else
-			{
-				return TSharedPtr<ITableRow>(nullptr);
-			}
+			const TSharedRef<ITableRow>* LookupResult = ItemToWidgetMap.Find(Item);
+			return LookupResult ? TSharedPtr<ITableRow>(*LookupResult) : TSharedPtr<ITableRow>(nullptr);
 		}
 
 		/**
@@ -488,7 +494,10 @@ private:
 			{
 				// It's a newly generated item!
 				ItemToWidgetMap.Add( InItem, InGeneratedWidget );
-				WidgetMapToItem.Add( &InGeneratedWidget.Get(), InItem );		
+				WidgetMapToItem.Add( &InGeneratedWidget.Get(), InItem );
+
+				// Now that the item-widget association is established, the generated row can fully initialize itself
+				InGeneratedWidget->InitializeRow();
 			}
 
 			// We should not clean up this item's widgets because it is in view.
@@ -515,50 +524,37 @@ private:
 		 */
 		void OnEndGenerationPass()
 		{
-			ensureMsgf( OwnerList, TEXT( "OwnerList is null, something is wrong." ) );
-
-			for( int32 ItemIndex = 0; ItemIndex < ItemsToBeCleanedUp.Num(); ++ItemIndex )
-			{
-				ItemType ItemToBeCleanedUp = ItemsToBeCleanedUp[ItemIndex];
-				const TSharedRef<ITableRow>* FindResult = ItemToWidgetMap.Find( ItemToBeCleanedUp );
-				if ( FindResult != nullptr )
-				{
-					const TSharedRef<ITableRow> WidgetToCleanUp = *FindResult;
-					ItemToWidgetMap.Remove( ItemToBeCleanedUp );
-					WidgetMapToItem.Remove( &WidgetToCleanUp.Get() );
-
-					// broadcast here
-					if ( OwnerList )
-					{
-						OwnerList->OnRowReleased.ExecuteIfBound( WidgetToCleanUp );
-					}
-				}				
-			}
-
+			ProcessItemCleanUp();
 			ValidateWidgetGeneration();
-
-			ItemsToBeCleanedUp.Reset();
 		}
 
-		/**
-		 * Clear everything so widgets will be regenerated
-		*/
+		/** Clear everything so widgets will be regenerated */
 		void Clear()
 		{
-			// Clean up all the previously generated items			
 			ItemsToBeCleanedUp = ItemsWithGeneratedWidgets;
 			ItemsWithGeneratedWidgets.Empty();
+			ProcessItemCleanUp();
+		}
 
-			for( int32 ItemIndex = 0; ItemIndex < ItemsToBeCleanedUp.Num(); ++ItemIndex )
+		void ProcessItemCleanUp()
+		{
+			
+			for (int32 ItemIndex = 0; ItemIndex < ItemsToBeCleanedUp.Num(); ++ItemIndex)
 			{
 				ItemType ItemToBeCleanedUp = ItemsToBeCleanedUp[ItemIndex];
-				const TSharedRef<ITableRow>* FindResult = ItemToWidgetMap.Find( ItemToBeCleanedUp );
-				if ( FindResult != nullptr )
+				const TSharedRef<ITableRow>* FindResult = ItemToWidgetMap.Find(ItemToBeCleanedUp);
+				if (FindResult != nullptr)
 				{
 					const TSharedRef<ITableRow> WidgetToCleanUp = *FindResult;
-					ItemToWidgetMap.Remove( ItemToBeCleanedUp );
-					WidgetMapToItem.Remove( &WidgetToCleanUp.Get() );
-				}				
+					ItemToWidgetMap.Remove(ItemToBeCleanedUp);
+					WidgetMapToItem.Remove(&WidgetToCleanUp.Get());
+
+					if (ensureMsgf(OwnerList, TEXT("OwnerList is null, something is wrong.")))
+					{
+						WidgetToCleanUp->ResetRow();
+						OwnerList->OnRowReleased.ExecuteIfBound(WidgetToCleanUp);
+					}
+				}
 			}
 
 			ItemsToBeCleanedUp.Reset();
@@ -782,6 +778,16 @@ public:
 	{
 		// List View items are not indented
 		return 0;
+	}
+
+	virtual const TBitArray<>& Private_GetWiresNeededByDepth( int32 ItemIndexInList ) const override
+	{
+		return TableViewHelpers::GetEmptyBitArray();
+	}
+
+	virtual bool Private_IsLastChild(int32 ItemIndexInList) const override
+	{
+		return false;
 	}
 
 	virtual ESelectionMode::Type Private_GetSelectionMode() const override
@@ -1069,6 +1075,22 @@ public:
 	}
 
 	/**
+	 * Establishes a wholly new list of items being observed by the list.
+	 * Wipes all existing state and requests and will fully rebuild on the next tick.
+	 */
+	void SetListItemsSource(const TArray<ItemType>& InListItemsSource)
+	{
+		if (ItemsSource != &InListItemsSource)
+		{
+			Private_ClearSelection();
+			CancelScrollIntoView();
+			ClearWidgets();
+			RebuildList();
+			ItemsSource = &InListItemsSource;
+		}
+	}
+
+	/**
 	 * Given a Widget, find the corresponding data item.
 	 * 
 	 * @param WidgetToFind  An widget generated by the list view for some data item.
@@ -1144,8 +1166,7 @@ public:
 		return SelectedItems.Num();
 	}
 
-	/** Deletes all items and rebuilds the list */
-	void RebuildList()
+	virtual void RebuildList() override
 	{
 		WidgetGenerator.Clear();
 		RequestListRefresh();
@@ -1184,7 +1205,7 @@ public:
 	 *
 	 * @return true if the item is visible, false otherwise.
 	 */
-	bool IsItemVisible( ItemType Item )
+	bool IsItemVisible( ItemType Item ) const
 	{
 		return WidgetGenerator.GetWidgetForItem(Item).IsValid();
 	}
@@ -1194,20 +1215,44 @@ public:
 	 *
 	 * @param ItemToView  The item to scroll into view on next tick.
 	 */
-	void RequestScrollIntoView( ItemType ItemToView, const uint32 UserIndex = 0, const bool NavigateOnScrollIntoView = false)
+	void RequestScrollIntoView( ItemType ItemToView, const uint32 UserIndex = 0)
 	{
 		ItemToScrollIntoView = ItemToView; 
 		UserRequestingScrollIntoView = UserIndex;
-		bNavigateOnScrollIntoView = NavigateOnScrollIntoView;
-		RequestListRefresh();
+		RequestLayoutRefresh();
+	}
+
+	DEPRECATED(4.20, "RequestScrollIntoView no longer takes parameter bNavigateOnScrollIntoView. Call RequestNavigateToItem instead of RequestScrollIntoView if navigation is required.")
+	void RequestScrollIntoView(ItemType ItemToView, const uint32 UserIndex, const bool NavigateOnScrollIntoView)
+	{
+		if (bNavigateOnScrollIntoView)
+		{
+			RequestNavigateToItem(ItemToView, UserIndex);
+		}
+		else
+		{
+			RequestScrollIntoView(ItemToView, UserIndex);
+		}
 	}
 
 	/**
-	 * Cancels a previous request to scroll and item into view.
+	 * Navigate to a specific item, scrolling it into view if needed. If the item is not found, fails silently.
+	 *
+	 * @param Item The item to navigate to on the next tick.
+	 */
+	void RequestNavigateToItem(ItemType Item, const uint32 UserIndex = 0)
+	{
+		bNavigateOnScrollIntoView = true;
+		RequestScrollIntoView(Item, UserIndex);
+	}
+
+	/**
+	 * Cancels a previous request to scroll an item into view (cancels navigation requests as well).
 	 */
 	void CancelScrollIntoView()
 	{
 		UserRequestingScrollIntoView = 0;
+		bNavigateOnScrollIntoView = false;
 		TListTypeTraits<ItemType>::ResetPtr(ItemToScrollIntoView);
 	}
 
@@ -1335,7 +1380,7 @@ protected:
 					SetScrollOffset( NewScrollOffset );
 				}
 
-				RequestListRefresh();
+				RequestLayoutRefresh();
 
 				ItemToNotifyWhenInView = ItemToScrollIntoView;
 			}
@@ -1356,6 +1401,7 @@ protected:
 			
 			if (bNavigateOnScrollIntoView && Widget.IsValid())
 			{
+				SelectorItem = NonNullItemToNotifyWhenInView;
 				NavigateToWidget(UserRequestingScrollIntoView, Widget->AsWidget());
 			}
 			bNavigateOnScrollIntoView = false;
@@ -1394,7 +1440,7 @@ protected:
 			const float ActuallyScrolledBy = Overscroll.ScrollBy(MyGeometry, UnclampedScrollDelta);
 			if (ActuallyScrolledBy != 0.0f)
 			{
-				this->RequestListRefresh();
+				this->RequestLayoutRefresh();
 			}
 			return ActuallyScrolledBy;
 		}
@@ -1550,7 +1596,7 @@ protected:
 
 			// Always request scroll into view, otherwise partially visible items will be selected.
 			TSharedPtr<ITableRow> WidgetForItem = this->WidgetGenerator.GetWidgetForItem(ItemToSelect);
-			this->RequestScrollIntoView(ItemToSelect, InInputEvent.GetUserIndex(), true); 
+			RequestNavigateToItem(ItemToSelect, InInputEvent.GetUserIndex()); 
 		}
 	}
 
@@ -1604,6 +1650,9 @@ protected:
 	/** Called when the user double-clicks on an element in the list view with the left mouse button */
 	FOnMouseButtonDoubleClick OnDoubleClick;
 
+	/** True when the list view supports keyboard focus */
+	TAttribute<bool> IsFocusable;
+
 	/** If true, the selection will be cleared if the user clicks in empty space (not on an item) */
 	bool bClearSelectionOnClick;
 
@@ -1615,7 +1664,7 @@ protected:
 
 private:
 
-	bool bNavigateOnScrollIntoView;
+	bool bNavigateOnScrollIntoView = false;
 
 	struct FGenerationPassGuard
 	{

@@ -32,10 +32,10 @@ public:
 protected:
 	FVulkanDevice* Device;
 	VkPipeline Pipeline;
-	FVulkanLayout* Layout; /*owned by FVulkanPipelineStateCache, do not delete yourself !*/
+	FVulkanLayout* Layout; /*owned by FVulkanPipelineStateCacheManager, do not delete yourself !*/
 
-	friend class FVulkanPipelineStateCache;
-	friend class FVulkanGraphicsPipelineState;
+	friend class FVulkanPipelineStateCacheManager;
+	friend class FVulkanRHIGraphicsPipelineState;
 };
 
 class FVulkanComputePipeline : public FVulkanPipeline, public FRHIComputePipelineState
@@ -62,7 +62,7 @@ public:
 protected:
 	FVulkanComputeShader* ComputeShader;
 
-	friend class FVulkanPipelineStateCache;
+	friend class FVulkanPipelineStateCacheManager;
 };
 
 class FVulkanGfxPipeline : public FVulkanPipeline, public FRHIResource
@@ -93,29 +93,30 @@ private:
 	FVulkanVertexInputStateInfo VertexInputState;
 };
 
-class FVulkanGraphicsPipelineState : public FRHIGraphicsPipelineState
+class FVulkanRHIGraphicsPipelineState : public FRHIGraphicsPipelineState
 {
 public:
-	FVulkanGraphicsPipelineState(const FGraphicsPipelineStateInitializer& Initializer, FVulkanGfxPipeline* InPipeline)
+	FVulkanRHIGraphicsPipelineState(const FGraphicsPipelineStateInitializer& Initializer, FVulkanGfxPipeline* InPipeline)
 		: PipelineStateInitializer(Initializer), Pipeline(InPipeline)
 	{}
 
-	~FVulkanGraphicsPipelineState();
+	~FVulkanRHIGraphicsPipelineState();
 
 	FGraphicsPipelineStateInitializer PipelineStateInitializer;
 	TRefCountPtr<FVulkanGfxPipeline> Pipeline;
 };
 
-class FVulkanPipelineStateCache
+class FVulkanPipelineStateCacheManager
 {
 public:
-	inline FVulkanGraphicsPipelineState* FindInRuntimeCache(const FGraphicsPipelineStateInitializer& Initializer, uint32& OutHash)
+	inline FVulkanRHIGraphicsPipelineState* FindInRuntimeCache(const FGraphicsPipelineStateInitializer& Initializer, uint32& OutHash)
 	{
+		//#todo-rco: Improve hash: Don't use BSS pointers; skip load/store actions?? etc
 		OutHash = FCrc::MemCrc32(&Initializer, sizeof(Initializer));
 		
 		{
 			FScopeLock Lock(&InitializerToPipelineMapCS);
-			FVulkanGraphicsPipelineState** Found = InitializerToPipelineMap.Find(OutHash);
+			FVulkanRHIGraphicsPipelineState** Found = InitializerToPipelineMap.Find(OutHash);
 			if (Found)
 			{
 				return *Found;
@@ -129,17 +130,17 @@ public:
 
 	// Array of potential cache locations; first entries have highest priority. Only one cache file is loaded. If unsuccessful, tries next entry in the array.
 	void InitAndLoad(const TArray<FString>& CacheFilenames);
-	void Save(FString& CacheFilename);
+	void Save(const FString& CacheFilename);
 
-	FVulkanPipelineStateCache(FVulkanDevice* InParent);
-	~FVulkanPipelineStateCache();
+	FVulkanPipelineStateCacheManager(FVulkanDevice* InParent);
+	~FVulkanPipelineStateCacheManager();
 
 	void RebuildCache();
 
 	enum
 	{
 		// Bump every time serialization changes
-		VERSION = 16,
+		VERSION = 19,
 	};
 
 	struct FDescriptorSetLayoutBinding
@@ -164,22 +165,20 @@ public:
 	// Shader microcode is shared between pipeline entries so keep a cache around to prevent duplicated storage
 	struct FShaderUCodeCache
 	{
-		using TCodeHandle = TArray<uint8>;
-		using TDataMap = TMap<FSHAHash, TCodeHandle>;
-		TDataMap Data;
+		typedef TMap<FSHAHash, TArray<uint32>> THashToMicrocode;
+		THashToMicrocode	Data;
 
-		TCodeHandle* Add(const FSHAHash& Hash, const FVulkanShader* Shader)
+		TArray<uint32>* Add(const FSHAHash& Hash, const FVulkanShader* Shader)
 		{
-			check(Shader->CodeSize != 0);
+			check(Shader->Spirv.Num() != 0);
 
-			TCodeHandle& Code = Data.Add(Hash);
-			Code.AddUninitialized(Shader->CodeSize);
-			FMemory::Memcpy(Code.GetData(), Shader->Code, Shader->CodeSize);
+			TArray<uint32>& Code = Data.Add(Hash);
+			Code = Shader->Spirv;
 
 			return &Data[Hash];
 		}
 
-		TCodeHandle* Get(const FSHAHash& Hash)
+		TArray<uint32>* Get(const FSHAHash& Hash)
 		{
 			return Data.Find(Hash);
 		}
@@ -287,6 +286,7 @@ public:
 			bool bDepthTestEnable;
 			bool bDepthWriteEnable;
 			bool bStencilTestEnable;
+			bool bDepthBoundsTestEnable;
 			uint8 FrontFailOp;
 			uint8 FrontPassOp;
 			uint8 FrontDepthFailOp;
@@ -310,6 +310,7 @@ public:
 				return DepthCompareOp == In.DepthCompareOp &&
 					bDepthTestEnable == In.bDepthTestEnable &&
 					bDepthWriteEnable == In.bDepthWriteEnable &&
+					bDepthBoundsTestEnable == In.bDepthBoundsTestEnable &&
 					bStencilTestEnable == In.bStencilTestEnable &&
 					FrontFailOp == In.FrontFailOp &&
 					FrontPassOp == In.FrontPassOp &&
@@ -329,8 +330,8 @@ public:
 		};
 		FDepthStencil DepthStencil;
 
-		FShaderUCodeCache::TCodeHandle* ShaderMicrocodes[SF_Compute];
-		FSHAHash ShaderHashes[SF_Compute];
+		TArray<uint32>* ShaderMicrocodes[DescriptorSet::NumGfxStages];
+		FSHAHash ShaderHashes[DescriptorSet::NumGfxStages];
 
 		struct FRenderTargets
 		{
@@ -427,7 +428,7 @@ public:
 		~FGfxPipelineEntry();
 
 		// Vulkan Runtime Data/Objects
-		VkShaderModule ShaderModules[SF_Compute];
+		VkShaderModule ShaderModules[DescriptorSet::NumGfxStages];
 		const FVulkanRenderPass* RenderPass;
 		FVulkanLayout* Layout;
 
@@ -515,7 +516,7 @@ public:
 
 		bool bLoaded;
 
-		FShaderUCodeCache::TCodeHandle* ShaderMicrocode;
+		TArray<uint32>* ShaderMicrocode;
 		FSHAHash ShaderHash;
 		TArray<TArray<FDescriptorSetLayoutBinding>> DescriptorSetLayoutBindings;
 
@@ -539,7 +540,7 @@ private:
 	FVulkanDevice* Device;
 
 	// Key is a hash of the PSO, which is based off shader pointers
-	TMap<uint32, FVulkanGraphicsPipelineState*> InitializerToPipelineMap;
+	TMap<uint32, FVulkanRHIGraphicsPipelineState*> InitializerToPipelineMap;
 	FCriticalSection InitializerToPipelineMapCS;
 
 	TMap<FVulkanComputeShader*, FVulkanComputePipeline*> ComputeShaderToPipelineMap;
@@ -554,17 +555,20 @@ private:
 
 	FShaderUCodeCache ShaderCache;
 
-	FVulkanGraphicsPipelineState* CreateAndAdd(const FGraphicsPipelineStateInitializer& PSOInitializer, uint32 PSOInitializerHash, FGfxPipelineEntry* GfxEntry);
+	FVulkanRHIGraphicsPipelineState* CreateAndAdd(const FGraphicsPipelineStateInitializer& PSOInitializer, uint32 PSOInitializerHash, FGfxPipelineEntry* GfxEntry);
 	void CreateGfxPipelineFromEntry(const FGfxPipelineEntry* GfxEntry, FVulkanGfxPipeline* Pipeline);
 	FGfxPipelineEntry* CreateGfxEntry(const FGraphicsPipelineStateInitializer& PSOInitializer);
 	void CreatGfxEntryRuntimeObjects(FGfxPipelineEntry* GfxEntry);
 	void Load(const TArray<FString>& CacheFilenames);
 	void DestroyCache();
 
+	FVulkanLayout* GetOrGenerateGfxLayout(const FGraphicsPipelineStateInitializer& PSOInitializer, FVulkanShader** OutShaders, FVulkanVertexInputStateInfo& OutVertexInputState);
+
+
 	struct FShaderHashes
 	{
 		uint32 Hash;
-		FSHAHash Stages[SF_Compute];
+		FSHAHash Stages[DescriptorSet::NumGfxStages];
 
 		FShaderHashes();
 		FShaderHashes(const FGraphicsPipelineStateInitializer& PSOInitializer);
@@ -582,7 +586,7 @@ private:
 
 		friend inline bool operator == (const FShaderHashes& A, const FShaderHashes& B)
 		{
-			for (int32 Index = 0; Index < SF_Compute; ++Index)
+			for (int32 Index = 0; Index < DescriptorSet::NumGfxStages; ++Index)
 			{
 				if (A.Stages[Index] != B.Stages[Index])
 				{
@@ -601,7 +605,7 @@ private:
 	TMap<FVulkanDescriptorSetsLayoutInfo, FVulkanLayout*> LayoutMap;
 	FCriticalSection LayoutMapCS;
 
-	FVulkanGraphicsPipelineState* FindInLoadedLibrary(const FGraphicsPipelineStateInitializer& PSOInitializer, uint32 PSOInitializerHash, const FShaderHashes& ShaderHashes, FGfxPipelineEntry*& outGfxEntry);
+	FVulkanRHIGraphicsPipelineState* FindInLoadedLibrary(const FGraphicsPipelineStateInitializer& PSOInitializer, uint32 PSOInitializerHash, const FShaderHashes& ShaderHashes, FGfxPipelineEntry*& outGfxEntry);
 	
 	friend class FVulkanDynamicRHI;
 
@@ -622,8 +626,7 @@ private:
 			int32 UncompressedSize = 0; // 0 == file is uncompressed
 		} Header;
 
-		TArray<uint8> DeviceCache;
-		FShaderUCodeCache::TDataMap* ShaderCache = nullptr;
+		FShaderUCodeCache::THashToMicrocode* ShaderCache = nullptr;
 
 		TArray<FGfxPipelineEntry*> GfxPipelineEntries;		
 
@@ -631,7 +634,7 @@ private:
 
 		void Save(FArchive& Ar);
 		bool Load(FArchive& Ar, const TCHAR* Filename);
-		bool BinaryCacheMatches(FVulkanDevice* InDevice);
+		static bool BinaryCacheMatches(FVulkanDevice* InDevice, const TArray<uint8>& DeviceCache);
 
 		static const ECompressionFlags CompressionFlags = (ECompressionFlags)(COMPRESS_ZLIB | COMPRESS_BiasSpeed);
 	};
@@ -646,5 +649,5 @@ struct TVulkanResourceTraits<class FRHIComputePipelineState>
 template<>
 struct TVulkanResourceTraits<FRHIGraphicsPipelineState>
 {
-	typedef FVulkanGraphicsPipelineState TConcreteType;
+	typedef FVulkanRHIGraphicsPipelineState TConcreteType;
 };

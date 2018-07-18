@@ -223,6 +223,7 @@ static void UseOriginal(const FImage& InImage, FCompressedImage2D& OutCompressed
 	// Fill out the output information
 	OutCompressedImage.SizeX = Image.SizeX;
 	OutCompressedImage.SizeY = Image.SizeY;
+	OutCompressedImage.SizeZ = 1;
 	OutCompressedImage.PixelFormat = CompressedPixelFormat;
 	
 	// Output Data
@@ -367,6 +368,7 @@ class FTextureFormatPVR : public ITextureFormat
 		{
 			OutCompressedImage.SizeX = FinalSquareSize;
 			OutCompressedImage.SizeY = FinalSquareSize;
+			OutCompressedImage.SizeZ = BuildSettings.bVolume ? InImage.NumSlices : 1;
 			OutCompressedImage.PixelFormat = CompressedPixelFormat;
 		}
 

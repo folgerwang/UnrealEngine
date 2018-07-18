@@ -1,5 +1,4 @@
-﻿INTSourceChangelist:3244370
-Availability:Public
+﻿Availability:Public
 Title:5.岩を破壊する 
 Crumbs: %ROOT%, Engine, Engine/Blueprints, Engine/Blueprints/HowTo
 Description:OnHit に結合されている Bind Event を使って、ヒットすると岩が破壊するようにしてみましょう。

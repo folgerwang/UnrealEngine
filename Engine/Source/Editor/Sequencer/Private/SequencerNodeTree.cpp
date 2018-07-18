@@ -16,6 +16,8 @@
 #include "SequencerSectionLayoutBuilder.h"
 #include "ISequencerTrackEditor.h"
 #include "DisplayNodes/SequencerSpacerNode.h"
+#include "Widgets/Views/STableRow.h"
+#include "SequencerNodeSortingMethods.h"
 
 void FSequencerNodeTree::Empty()
 {
@@ -28,73 +30,25 @@ void FSequencerNodeTree::Empty()
 }
 
 
-int32 NodeTypeToFolderSortId(ESequencerNode::Type NodeType)
+void FSequencerNodeTree::AddObjectBindingAndTracks(const FMovieSceneBinding& Binding, TMap<FGuid, const FMovieSceneBinding*>& GuidToBindingMap, TArray< TSharedRef<FSequencerObjectBindingNode> >& OutNodeList)
 {
-	switch ( NodeType )
+	TSharedRef<FSequencerObjectBindingNode> ObjectBindingNode = AddObjectBinding( Binding.GetName(), Binding.GetObjectGuid(), GuidToBindingMap, OutNodeList );
+
+	for( UMovieSceneTrack* Track : Binding.GetTracks() )
 	{
-	case ESequencerNode::Folder:
-		return 0;
-	case ESequencerNode::Track:
-		return 1;
-	case ESequencerNode::Object:
-		return 2;
-	default:
-		return 3;
+		if (!Sequencer.IsTrackVisible(Track))
+		{
+			continue;
+		}
+
+		// Create the new track node
+		TSharedRef<FSequencerTrackNode> TrackNode = MakeShared<FSequencerTrackNode>(*Track, *FindOrAddTypeEditor(*Track), false, nullptr, *this);
+
+		// Make the sub tracks and section interfaces for this node, and add it to the object binding node
+		// Note: MakeSubTracksAndSectionInterfaces may return a new parent node
+		ObjectBindingNode->AddTrackNode(MakeSubTracksAndSectionInterfaces(TrackNode, ObjectBindingNode->GetObjectBinding()));
 	}
 }
-
-
-int32 NodeTypeToObjectSortId( ESequencerNode::Type NodeType )
-{
-	switch ( NodeType )
-	{
-	case ESequencerNode::Object:
-		return 0;
-	case ESequencerNode::Track:
-		return 1;
-	default:
-		return 2;
-	}
-}
-
-
-struct FDisplayNodeSorter
-{
-	bool operator()( const TSharedRef<FSequencerDisplayNode>& A, const TSharedRef<FSequencerDisplayNode>& B ) const
-	{
-		TSharedPtr<FSequencerDisplayNode> ParentNode = A->GetParent();
-		
-		// If the nodes are root nodes, or in folders and they are the same type, sort by name.
-		if ( (ParentNode.IsValid() == false || ParentNode->GetType() == ESequencerNode::Folder) && A->GetType() == B->GetType() )
-		{
-			return A->GetDisplayName().ToString() < B->GetDisplayName().ToString();
-		}
-
-		int32 SortIdA;
-		int32 SortIdB;
-
-		// Otherwise if they are root nodes or in folders use the folder sort id.
-		if ( ParentNode.IsValid() == false || ParentNode->GetType() == ESequencerNode::Folder )
-		{
-			SortIdA = NodeTypeToFolderSortId( A->GetType() );
-			SortIdB = NodeTypeToFolderSortId( B->GetType() );
-		}
-		// Otherwise if they are in an object node use the object node sort id.
-		else if ( ParentNode->GetType() == ESequencerNode::Object )
-		{
-			SortIdA = NodeTypeToObjectSortId( A->GetType() );
-			SortIdB = NodeTypeToObjectSortId( B->GetType() );
-		}
-		// Otherwise they are equal, and in a stable sort shouldn't change position.
-		else
-		{
-			SortIdA = 0;
-			SortIdB = 0;
-		}
-
-		return SortIdA < SortIdB;
-	}
-};
 
 
 void FSequencerNodeTree::Update()
@@ -139,24 +93,17 @@ void FSequencerNodeTree::Update()
 			continue;
 		}
 
-		TSharedRef<FSequencerObjectBindingNode> ObjectBindingNode = AddObjectBinding( Binding.GetName(), Binding.GetObjectGuid(), GuidToBindingMap, ObjectNodes );
-
-		for( UMovieSceneTrack* Track : Binding.GetTracks() )
-		{
-			if (!Sequencer.IsTrackVisible(Track))
-			{
-				continue;
-			}
-
-			// Create the new track node
-			TSharedRef<FSequencerTrackNode> TrackNode = MakeShared<FSequencerTrackNode>(*Track, *FindOrAddTypeEditor(*Track), false, nullptr, *this);
-
-			// Make the sub tracks and section interfaces for this node, and add it to the object binding node
-			// Note: MakeSubTracksAndSectionInterfaces may return a new parent node
-			ObjectBindingNode->AddTrackNode(MakeSubTracksAndSectionInterfaces(TrackNode, ObjectBindingNode->GetObjectBinding()));
-		}
+		AddObjectBindingAndTracks(Binding, GuidToBindingMap, ObjectNodes);
 	}
 
+	// If no bindings were added (presumably because of visibility) but there are bindings, add all regardless of visibility
+	if (!ObjectNodes.Num())
+	{
+		for( const FMovieSceneBinding& Binding : Bindings )
+		{
+			AddObjectBindingAndTracks(Binding, GuidToBindingMap, ObjectNodes);
+		}
+	}
 
 	// Cinematic shot track always comes first
 	if (CinematicShotTrack)
@@ -175,36 +122,62 @@ void FSequencerNodeTree::Update()
 	}
 
 	// Add all other nodes after the camera cut track
-	TArray<TSharedRef<FSequencerDisplayNode>> FolderAndObjectNodes;
+	TArray<TSharedRef<FSequencerDisplayNode>> FolderAndObjectAndTrackNodes;
 	TArray<TSharedRef<FSequencerDisplayNode>> MasterTrackNodesNotInFolders;
-	CreateAndPopulateFolderNodes( MasterTrackNodes, ObjectNodes, MovieScene->GetRootFolders(), FolderAndObjectNodes, MasterTrackNodesNotInFolders );
-	
-	// Add all other master tracks after the camera cut track
-	MasterTrackNodesNotInFolders.Sort(FDisplayNodeSorter());
-	for ( TSharedRef<FSequencerDisplayNode> Node : MasterTrackNodesNotInFolders)
+	CreateAndPopulateFolderNodes( MasterTrackNodes, ObjectNodes, MovieScene->GetRootFolders(), FolderAndObjectAndTrackNodes, MasterTrackNodesNotInFolders );
+
+	// Merge the two lists together before sorting them together.
+	FolderAndObjectAndTrackNodes.Append(MasterTrackNodesNotInFolders);
+
+	// Now sort the folders, tracks and objects together based on sorting order.
+	FolderAndObjectAndTrackNodes.Sort(FDisplayNodeSortingOrderSorter());
+
+	for (TSharedRef<FSequencerDisplayNode> Node : FolderAndObjectAndTrackNodes)
 	{
-		Node->SortChildNodes(FDisplayNodeSorter());
+		// Recursively sort the children of these tracks
+		Node->SortChildNodes(FDisplayNodeSortingOrderSorter());
 	}
 
-	RootNodes.Append( MasterTrackNodesNotInFolders );
-
-	// Sort the created nodes.
-	FolderAndObjectNodes.Sort(FDisplayNodeSorter());
-	for ( TSharedRef<FSequencerDisplayNode> Node : FolderAndObjectNodes )
+	// Now that we've sorted the children we normalize their sorting index. This doesn't call Modify (as we're not part of a transaction) but modifies the
+	// in-memory sorting index of the backing data structures. This means the next time the tree is refreshed, the existing nodes will keep their sort
+	// and any new nodes will get pushed to the end again. When an asset is saved it'll write the sorting index to the asset and the next time it is loaded
+	// the Sort function will keep them in the same order even if they exist in a different order within the owning data structures.
+	for (int32 i = 0; i < FolderAndObjectAndTrackNodes.Num(); i++)
 	{
-		Node->SortChildNodes(FDisplayNodeSorter());
+		FolderAndObjectAndTrackNodes[i]->SetSortingOrder(i);
+		FolderAndObjectAndTrackNodes[i]->Traverse_ParentFirst([](FSequencerDisplayNode& TraversalNode)
+		{
+			int32 ChildIndex = 0;
+			for (uint32 k = 0; k < TraversalNode.GetNumChildren(); k++)
+			{
+				// Sometimes a node can have multiple display node children because the sections within a row
+				// have been re-arranged into an overlapping state. These rows are backed by the same data structure
+				// as their parents, so we skip them instead of incrementing the parent's sorting order.
+				if (TraversalNode.GetChildNodes()[k]->GetType() == ESequencerNode::Track)
+				{
+					TSharedRef<FSequencerTrackNode> FolderNode = StaticCastSharedRef<FSequencerTrackNode>(TraversalNode.GetChildNodes()[k]);
+					if (FolderNode->GetSubTrackMode() == FSequencerTrackNode::ESubTrackMode::SubTrack)
+					{
+						continue;
+					}
+				}
+
+				TraversalNode.GetChildNodes()[k]->SetSortingOrder(ChildIndex);
+				ChildIndex++;
+			}
+			return true;
+		}, true);
 	}
 
-	RootNodes.Append( FolderAndObjectNodes );
-
+	RootNodes.Append(FolderAndObjectAndTrackNodes);
 	RootNodes.Reserve((RootNodes.Num()-1)*2);
 	for (int32 Index = 1; Index < RootNodes.Num(); Index += 2)
 	{
-		RootNodes.Insert(MakeShareable(new FSequencerSpacerNode(1.f, nullptr, *this)), Index);
+		RootNodes.Insert(MakeShareable(new FSequencerSpacerNode(1.f, nullptr, *this, false)), Index);
 	}
 
 	// Always make space at the end of the tree
-	RootNodes.Add(MakeShared<FSequencerSpacerNode>(20.f, nullptr, *this));
+	RootNodes.Add(MakeShared<FSequencerSpacerNode>(20.f, nullptr, *this, true));
 
 	// Set up virtual offsets, expansion states, and tints
 	float VerticalOffset = 0.f;
@@ -455,6 +428,106 @@ void FSequencerNodeTree::CreateAndPopulateFolderNodes(
 	}
 }
 
+void FSequencerNodeTree::MoveDisplayNodeToRoot(TSharedRef<FSequencerDisplayNode>& Node)
+{
+	// Objects that exist at the root level in a sequence are just removed from the folder they reside in.
+	// When the treeview is refreshed this will cause the regenerated nodes to show up at the root level.
+	TSharedPtr<FSequencerDisplayNode> ParentSeqNode = Node->GetParent();
+	switch (Node->GetType())
+	{
+		case ESequencerNode::Folder:
+		{
+			TSharedRef<FSequencerFolderNode> FolderNode = StaticCastSharedRef<FSequencerFolderNode>(Node);
+			UMovieScene* FocusedMovieScene = GetSequencer().GetFocusedMovieSceneSequence()->GetMovieScene();
+
+			if (ParentSeqNode.IsValid())
+			{
+				checkf(ParentSeqNode->GetType() == ESequencerNode::Folder, TEXT("Can not remove from unsupported parent node."));
+				TSharedPtr<FSequencerFolderNode> ParentFolder = StaticCastSharedPtr<FSequencerFolderNode>(ParentSeqNode);
+				ParentFolder->GetFolder().Modify();
+				ParentFolder->GetFolder().RemoveChildFolder(&FolderNode->GetFolder());
+			}
+			else
+			{
+				FocusedMovieScene->GetRootFolders().Remove(&FolderNode->GetFolder());
+			}
+
+			FocusedMovieScene->GetRootFolders().Add(&FolderNode->GetFolder());
+			break;
+		}
+		case ESequencerNode::Track:
+		{
+			TSharedRef<FSequencerTrackNode> DraggedTrackNode = StaticCastSharedRef<FSequencerTrackNode>(Node);
+			UMovieScene* FocusedMovieScene = GetSequencer().GetFocusedMovieSceneSequence()->GetMovieScene();
+
+			if (ParentSeqNode.IsValid())
+			{
+				checkf(ParentSeqNode->GetType() == ESequencerNode::Folder, TEXT("Can not remove from unsupported parent node."));
+				TSharedPtr<FSequencerFolderNode> ParentFolder = StaticCastSharedPtr<FSequencerFolderNode>(ParentSeqNode);
+				ParentFolder->GetFolder().Modify();
+				ParentFolder->GetFolder().RemoveChildMasterTrack(DraggedTrackNode->GetTrack());
+			}
+			break;
+		}
+		case ESequencerNode::Object:
+		{
+			TSharedRef<FSequencerObjectBindingNode> DraggedObjectBindingNode = StaticCastSharedRef<FSequencerObjectBindingNode>(Node);
+			UMovieScene* FocusedMovieScene = GetSequencer().GetFocusedMovieSceneSequence()->GetMovieScene();
+
+			if (ParentSeqNode.IsValid())
+			{
+				checkf(ParentSeqNode->GetType() == ESequencerNode::Folder, TEXT("Can not remove from unsupported parent node."));
+				TSharedPtr<FSequencerFolderNode> ParentFolder = StaticCastSharedPtr<FSequencerFolderNode>(ParentSeqNode);
+				ParentFolder->GetFolder().Modify();
+				ParentFolder->GetFolder().RemoveChildObjectBinding(DraggedObjectBindingNode->GetObjectBinding());
+			}
+			break;
+		}
+	}
+
+	// Clear the node's parent so that subsequent calls for GetNodePath correctly indicate that they no longer have a parent.
+	Node->ClearParent();
+
+	// Our children have changed parents which means that on subsequent creation they will retrieve their expansion state
+	// from the map using their new path. If the new path already exists the object goes to the state stored at that path.
+	// If the new path does not exist, the object returns to default state and not what is currently displayed. Either way 
+	// causes unexpected user behavior as nodes appear to randomly change expansion state as they are moved around the sequencer.
+
+	// To solve this, we update a node's parent when the node is moved, and then we update their expansion state here
+	// while we still have the current expansion state and the new node path. When the UI is regenerated on the subsequent
+	// refresh call, it will now retrieve the state the node was just in, instead of the state the node was in the last time it
+	// was in that location. This is done recursively as children store absolute paths so they need to be updated too.
+	Node->Traverse_ParentFirst([](FSequencerDisplayNode& TraversalNode)
+	{
+		TraversalNode.GetParentTree().SaveExpansionState(TraversalNode, TraversalNode.IsExpanded());
+		return true;
+	}, true);
+}
+
+void FSequencerNodeTree::SortAllNodesAndDescendants()
+{
+	// Sort the root first
+	SortAndSetSortingOrder(RootNodes, RootNodes, TOptional<EItemDropZone>(), FDisplayNodeCategoricalSorter(), nullptr);
+	
+	// Recursively sort our children looking for folders.
+	TArray<TSharedRef<FSequencerDisplayNode>> ChildNodes = GetRootNodes();
+	for (TSharedRef<FSequencerDisplayNode> Child : ChildNodes)
+	{
+		Child->Traverse_ParentFirst([&](FSequencerDisplayNode& Node)
+		{
+			// Folders are the only type of node that can have children that we can sort, so there is no need
+			// to follow the traversal all the way down.
+			if (Node.GetType() != ESequencerNode::Folder)
+				return false;
+	
+			SortAndSetSortingOrder(Node.GetChildNodes(), Node.GetChildNodes(), TOptional<EItemDropZone>(), FDisplayNodeCategoricalSorter(), nullptr);
+			return true;
+		}, true);
+	}
+
+	// Refresh the tree so that our changes are visible.
+	GetSequencer().RefreshTree();
+}
 
 void FSequencerNodeTree::SaveExpansionState(const FSequencerDisplayNode& Node, bool bExpanded)
 {	

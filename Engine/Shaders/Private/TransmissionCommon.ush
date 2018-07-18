@@ -1,0 +1,56 @@
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
+/*=========================================================================
+	TransmissionCommon.ush: Subsurface scattering transmission utilities.
+=========================================================================*/
+
+#include "SubsurfaceProfileCommon.ush"
+
+SamplerState TransmissionProfilesLinearSampler;
+
+struct FTransmissionProfileParams
+{
+	float ExtinctionScale;
+	float NormalScale;
+	float ScatteringDistribution;
+	float OneOverIOR;
+};
+
+FTransmissionProfileParams GetTransmissionProfileParams(FGBufferData GBufferData)
+{
+	FTransmissionProfileParams Result;
+
+	// 0..255, which SubSurface profile to pick
+	uint SubsurfaceProfileInt = ExtractSubsurfaceProfileInt(GBufferData);
+
+	//X:ExtinctionScale, Y:Normal Scale, Z:ScatteringDistribution, W:OneOverIOR
+	float4 Data = SSProfilesTexture.Load(int3(SSSS_TRANSMISSION_OFFSET, SubsurfaceProfileInt, 0));
+
+	Result.ExtinctionScale = Data.x;
+	Result.NormalScale = Data.y;
+	Result.ScatteringDistribution = Data.z;
+	Result.OneOverIOR = Data.w;
+
+	return Result;
+}
+
+float4 GetTransmissionProfile(FGBufferData GBufferData, float Thickness)
+{
+	// 0..255, which SubSurface profile to pick
+	uint SubsurfaceProfileInt = ExtractSubsurfaceProfileInt(GBufferData);
+	float3 TextureSize;
+	SSProfilesTexture.GetDimensions(0, TextureSize.x, TextureSize.y,TextureSize.z); // TODO: it's slightly faster to pass texture dimensions through a constant buffer
+	float2 uv = float2((SSSS_TRANSMISSION_PROFILE_OFFSET + Thickness / SSSS_MAX_TRANSMISSION_PROFILE_DISTANCE * (SSSS_TRANSMISSION_PROFILE_SIZE-1) + 0.5f), SubsurfaceProfileInt + 0.5f) / (TextureSize.xy);
+	return Texture2DSampleLevel(SSProfilesTexture, TransmissionProfilesLinearSampler, uv, 0);
+}
+
+float EncodeThickness(float Thickness)
+{
+	return 1 - Thickness;
+}
+
+float DecodeThickness(float Thickness)
+{
+	return 1 - Thickness;
+}
+

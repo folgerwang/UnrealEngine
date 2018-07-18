@@ -43,6 +43,11 @@ void FSlateNullRenderer::OnWindowDestroyed( const TSharedRef<SWindow>& InWindow 
 
 void FSlateNullRenderer::DrawWindows( FSlateDrawBuffer& WindowDrawBuffer )
 {
+	// Must call PostDraw to clean up resources built in FSlateWindowElementList.
+	for (const TSharedRef<FSlateWindowElementList>& ElementList : WindowDrawBuffer.GetWindowElementLists())
+	{
+		ElementList->PostDraw_NonParallelRenderer();
+	}
 }
 
 FIntPoint FSlateNullRenderer::GenerateDynamicImageResource(const FName InTextureName)
@@ -89,6 +94,11 @@ void FSlateNullRenderer::ReleaseUpdatableTexture(FSlateUpdatableTexture* Texture
 
 void FSlateNullRenderer::RequestResize( const TSharedPtr<SWindow>& Window, uint32 NewWidth, uint32 NewHeight )
 {
+}
+
+FCriticalSection* FSlateNullRenderer::GetResourceCriticalSection()
+{
+	return &ResourceCriticalSection;
 }
 
 int32 FSlateNullRenderer::RegisterCurrentScene(FSceneInterface* Scene) 

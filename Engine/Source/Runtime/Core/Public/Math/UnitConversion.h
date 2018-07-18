@@ -196,20 +196,17 @@ bool operator==(const FNumericUnit<NumericType>& LHS, const FNumericUnit<OtherTy
 template<typename NumericType, typename OtherType>
 bool operator!=(const FNumericUnit<NumericType>& LHS, const FNumericUnit<OtherType>& RHS);
 
-namespace Lex
-{
-	template<typename T>
-	FString ToString(const FNumericUnit<T>& NumericUnit);
+template<typename T>
+FString LexToString(const FNumericUnit<T>& NumericUnit);
 
-	template<typename T>
-	FString ToSanitizedString(const FNumericUnit<T>& NumericUnit);
+template<typename T>
+FString LexToSanitizedString(const FNumericUnit<T>& NumericUnit);
 
-	template<typename T>
-	void FromString(FNumericUnit<T>& OutValue, const TCHAR* String);
+template<typename T>
+void LexFromString(FNumericUnit<T>& OutValue, const TCHAR* String);
 	
-	template<typename T>
-	bool TryParseString(FNumericUnit<T>& OutValue, const TCHAR* String);
-}
+template<typename T>
+bool LexTryParseString(FNumericUnit<T>& OutValue, const TCHAR* String);
 
 
 // Include template definitions

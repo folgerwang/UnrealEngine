@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2945303
+﻿INTSourceChangelist:3782314
 Title:Using Google Play サービスのリーダーボードの使用方法
 Description:ゲームでリーダーボードを使用する
 Crumbs:
@@ -7,41 +7,8 @@ version:4.10
 Parent:Platforms/Android
 tags:Mobile
 tags:Android
-type:howto
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Platforms/Android/Leaderboards:title%](Platforms/Mobile/Leaderboards/topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Platforms/Android/Leaderboards:title%
-	[/PARAM]
-	[PARAM:description]
-		%Platforms/Android/Leaderboards:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Platforms/Android/Leaderboards]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Platforms/Android/Leaderboards:title%](Platforms/Mobile/Leaderboards/topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Platforms/Android/Leaderboards:title%
-	[/PARAM]
-	[PARAM:description]
-		%Platforms/Android/Leaderboards:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Platforms/Android/Leaderboards]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+type:how-to
+topic-image:topic.png
 
 ![](Platforms\Mobile\Leaderboards\androidLeaderboard.png)(w:320 convert:false)
 
@@ -49,7 +16,7 @@ type:howto
 
 お持ちのアプリケーションに Google Play ゲームサービスを設定する方法は、[Leaderboards | Play Games Services | Google Developers](https://developers.google.com/games/services/common/concepts/leaderboards) をご覧ください。
 
-以下は、アンリアル プロジェクト用のステップです。
+以下は、アンリアル プロジェクト用の設定方法です。
 
 1. **アンリアル エディタ** の **[Edit (編集)]** メニューで、**[Project Settings (プロジェクト設定)]** を選択してプロジェクトの設定オプションを表示します。
 

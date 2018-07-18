@@ -7,12 +7,9 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "UObject/ObjectMacros.h"
-#include "UObject/Object.h"
 #include "Misc/Guid.h"
 #include "Interfaces/IBuildManifest.h"
 #include "Data/ChunkData.h"
-#include "BuildPatchManifest.generated.h"
 
 class FBuildPatchAppManifest;
 class FBuildPatchCustomField;
@@ -99,7 +96,6 @@ namespace EBuildPatchAppManifestVersion
 /**
  * An enum type to describe the format that manifest data is stored
  */
-UENUM()
 namespace EManifestFileHeader
 {
 	enum Type
@@ -114,210 +110,75 @@ namespace EManifestFileHeader
 }
 
 /**
- * A data structure that hold a manifests custom field. This is a key value pair of strings
- */
-USTRUCT()
-struct FCustomFieldData
-{
-public:
-	GENERATED_USTRUCT_BODY()
-	FCustomFieldData();
-	FCustomFieldData(const FString& Key, const FString& Value);
-
-public:
-	UPROPERTY()
-	FString Key;
-
-	UPROPERTY()
-	FString Value;
-};
-
-/**
- * A UStruct wrapping SHA1 hash data for serialization
- */
-USTRUCT()
-struct FSHAHashData
-{
-	GENERATED_USTRUCT_BODY()
-
-	UPROPERTY()
-	uint8 Hash[FSHA1::DigestSize];
-
-	FSHAHashData();
-	FString ToString() const;
-	bool IsZero() const;
-
-	friend bool operator==(const FSHAHashData& X, const FSHAHashData& Y)
-	{
-		return FMemory::Memcmp(X.Hash, Y.Hash, FSHA1::DigestSize) == 0;
-	}
-
-	friend bool operator==(const FSHAHashData& X, const FSHAHash& Y)
-	{
-		return FMemory::Memcmp(X.Hash, Y.Hash, FSHA1::DigestSize) == 0;
-	}
-
-	friend bool operator!=(const FSHAHashData& X, const FSHAHashData& Y)
-	{
-		return FMemory::Memcmp(X.Hash, Y.Hash, FSHA1::DigestSize) != 0;
-	}
-
-	friend bool operator!=(const FSHAHashData& X, const FSHAHash& Y)
-	{
-		return FMemory::Memcmp(X.Hash, Y.Hash, FSHA1::DigestSize) != 0;
-	}
-};
-
-static_assert(FSHA1::DigestSize == 20, "If this changes a lot of stuff here will break!");
-
-/**
  * A data structure describing a chunk file
  */
-USTRUCT()
-struct FChunkInfoData
+struct FChunkInfo
 {
 public:
-	GENERATED_USTRUCT_BODY()
-	FChunkInfoData();
+	FChunkInfo();
 
 public:
-	UPROPERTY()
 	FGuid Guid;
 
-	UPROPERTY()
 	uint64 Hash;
 
-	UPROPERTY()
-	FSHAHashData ShaHash;
+	FSHAHash ShaHash;
 
-	UPROPERTY()
 	int64 FileSize;
 
-	UPROPERTY()
 	uint8 GroupNumber;
 };
 
 /**
  * A data structure describing the part of a chunk used to construct a file
  */
-USTRUCT()
-struct FChunkPartData
+struct FChunkPart
 {
 public:
-	GENERATED_USTRUCT_BODY()
-	FChunkPartData();
+	FChunkPart();
 
 public:
 	// The GUID of the chunk containing this part
-	UPROPERTY()
 	FGuid Guid;
 
 	// The offset of the first byte into the chunk
-	UPROPERTY()
 	uint32 Offset;
 
 	// The size of this part
-	UPROPERTY()
 	uint32 Size;
 };
 
 /**
  * A data structure that describes a file's construction information
  */
-USTRUCT()
-struct FFileManifestData
+struct FFileManifest
 {
 public:
-	GENERATED_USTRUCT_BODY()
-	FFileManifestData();
+	FFileManifest();
 
 	void Init();
 	int64 GetFileSize() const;
-	bool operator<(const FFileManifestData& Other) const;
+	bool operator<(const FFileManifest& Other) const;
 
 public:
-	UPROPERTY()
 	FString Filename;
 
-	UPROPERTY()
-	FSHAHashData FileHash;
+	FSHAHash FileHash;
 
-	UPROPERTY()
-	TArray<FChunkPartData> FileChunkParts;
+	TArray<FChunkPart> FileChunkParts;
 
-	UPROPERTY()
 	TArray<FString> InstallTags;
 
-	UPROPERTY()
 	bool bIsUnixExecutable;
 
-	UPROPERTY()
 	FString SymlinkTarget;
 
-	UPROPERTY()
 	bool bIsReadOnly;
 
-	UPROPERTY()
 	bool bIsCompressed;
 
 private:
 	int64 FileSize;
-};
-
-/**
- * This is the manifest UObject where all manifest data is stored
- */
-UCLASS()
-class UBuildPatchManifest : public UObject
-{
-public:
-	GENERATED_UCLASS_BODY()
-	~UBuildPatchManifest();
-
-	void Clear();
-
-public:
-	UPROPERTY()
-	uint8 ManifestFileVersion;
-
-	UPROPERTY()
-	bool bIsFileData;
-
-	UPROPERTY()
-	uint32 AppID;
-
-	UPROPERTY()
-	FString AppName;
-
-	UPROPERTY()
-	FString BuildVersion;
-
-	UPROPERTY()
-	FString LaunchExe;
-
-	UPROPERTY()
-	FString LaunchCommand;
-
-	UPROPERTY()
-	TSet<FString> PrereqIds;
-
-	UPROPERTY()
-	FString PrereqName;
-
-	UPROPERTY()
-	FString PrereqPath;
-
-	UPROPERTY()
-	FString PrereqArgs;
-
-	UPROPERTY()
-	TArray<FFileManifestData> FileManifestList;
-
-	UPROPERTY()
-	TArray<FChunkInfoData> ChunkList;
-
-	UPROPERTY()
-	TArray<FCustomFieldData> CustomFields;
 };
 
 /**
@@ -336,7 +197,7 @@ public:
 	uint32 HeaderSize;
 	uint32 DataSize;
 	uint32 CompressedSize;
-	FSHAHashData SHAHash;
+	FSHAHash SHAHash;
 	uint8 StoredAs;
 };
 
@@ -390,8 +251,8 @@ public:
 	FString Filename;
 	// The offset into the file of this piece
 	uint64 FileOffset;
-	// The FChunkPartData that can be salvaged from this file
-	FChunkPartData ChunkPart;
+	// The FChunkPart that can be salvaged from this file
+	FChunkPart ChunkPart;
 };
 
 // Required to allow private access to manifest builder for now..
@@ -414,7 +275,9 @@ class FBuildPatchAppManifest
 	friend class BuildPatchServices::FManifestBuilder;
 	friend class FBuildMergeManifests;
 	friend class FBuildDiffManifests;
+	friend class FManifestUObject;
 public:
+	typedef TPair<FString, FString> FCustomField;
 
 	/**
 	 * Default constructor
@@ -585,7 +448,7 @@ public:
 	 * @param Filename	The filename.
 	 * @return	The file manifest, or invalid ptr
 	 */
-	virtual const FFileManifestData* GetFileManifest(const FString& Filename) const;
+	virtual const FFileManifest* GetFileManifest(const FString& Filename) const;
 
 	/**
 	 * Gets whether this manifest is made up of file data instead of chunk data
@@ -607,7 +470,7 @@ public:
 	 * @param OutHash		OUT		Receives the hash value if found
 	 * @return	true if we had the hash for this chunk
 	 */
-	virtual bool GetChunkShaHash(const FGuid& ChunkGuid, FSHAHashData& OutHash) const;
+	virtual bool GetChunkShaHash(const FGuid& ChunkGuid, FSHAHash& OutHash) const;
 
 	/**
 	 * Gets the file hash for given file data
@@ -615,7 +478,7 @@ public:
 	 * @param OutHash		OUT		Receives the hash value if found
 	 * @return	true if we had the hash for this file
 	 */
-	virtual bool GetFileHash(const FGuid& FileGuid, FSHAHashData& OutHash) const; // DEPRECATE ME
+	virtual bool GetFileHash(const FGuid& FileGuid, FSHAHash& OutHash) const; // DEPRECATE ME
 
 	/**
 	 * Gets the file hash for a given file
@@ -623,7 +486,7 @@ public:
 	 * @param OutHash		OUT		Receives the hash value if found
 	 * @return	true if we had the hash for this file
 	 */
-	virtual bool GetFileHash(const FString& Filename, FSHAHashData& OutHash) const;
+	virtual bool GetFileHash(const FString& Filename, FSHAHash& OutHash) const;
 
 	/**
 	 * Gets the file hash for given file data. Valid for non-chunked manifest
@@ -668,9 +531,6 @@ public:
 	virtual bool HasFileAttributes() const;
 
 private:
-
-	bool Serialize(FArchive& Ar);
-
 	/**
 	 * Destroys any memory we have allocated and clears out ready for generation of a new manifest
 	 */
@@ -682,7 +542,6 @@ private:
 	void InitLookups();
 
 private:
-
 	/** Holds the actual manifest data. Some other variables point to the memory held by these objects */
 	uint8 ManifestFileVersion;
 	bool bIsFileData;
@@ -695,19 +554,19 @@ private:
 	FString PrereqName;
 	FString PrereqPath;
 	FString PrereqArgs;
-	TArray<FFileManifestData> FileManifestList;
-	TArray<FChunkInfoData> ChunkList;
-	TArray<FCustomFieldData> CustomFields;
+	TArray<FFileManifest> FileManifestList;
+	TArray<FChunkInfo> ChunkList;
+	TArray<FCustomField> CustomFields;
 
 	/** Holds the handle to our PreExit delegate */
 	FDelegateHandle OnPreExitHandle;
 
 	/** Some lookups to optimize data access */
 	TMap<FGuid, FString*> FileNameLookup;
-	TMap<FString, FFileManifestData*> FileManifestLookup;
-	TMap<FString, TArray<FFileManifestData*>> TaggedFilesLookup;
-	TMap<FGuid, FChunkInfoData*> ChunkInfoLookup;
-	TMap<FString, FCustomFieldData*> CustomFieldLookup;
+	TMap<FString, FFileManifest*> FileManifestLookup;
+	TMap<FString, TArray<FFileManifest*>> TaggedFilesLookup;
+	TMap<FGuid, FChunkInfo*> ChunkInfoLookup;
+	TMap<FString, FCustomField*> CustomFieldLookup;
 
 	/** Holds the total build size in bytes */
 	int64 TotalBuildSize;

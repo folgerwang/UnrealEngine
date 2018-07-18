@@ -33,23 +33,45 @@ void FLocalVertexFactoryShaderParameters::Bind(const FShaderParameterMap& Parame
 {
 	LODParameter.Bind(ParameterMap, TEXT("SpeedTreeLODInfo"));
 	bAnySpeedTreeParamIsBound = LODParameter.IsBound() || ParameterMap.ContainsParameterAllocation(TEXT("SpeedTreeData"));
-
-	VertexFetch_VertexFetchParameters.Bind(ParameterMap, TEXT("VertexFetch_Parameters"));
-	VertexFetch_PositionBufferParameter.Bind(ParameterMap, TEXT("VertexFetch_PositionBuffer"));
-	VertexFetch_TexCoordBufferParameter.Bind(ParameterMap, TEXT("VertexFetch_TexCoordBuffer"));
-	VertexFetch_PackedTangentsBufferParameter.Bind(ParameterMap, TEXT("VertexFetch_PackedTangentsBuffer"));
-	VertexFetch_ColorComponentsBufferParameter.Bind(ParameterMap, TEXT("VertexFetch_ColorComponentsBuffer"));
 }
 
 void FLocalVertexFactoryShaderParameters::Serialize(FArchive& Ar)
 {
 	Ar << bAnySpeedTreeParamIsBound;
 	Ar << LODParameter;
-	Ar << VertexFetch_VertexFetchParameters;
-	Ar << VertexFetch_PositionBufferParameter;
-	Ar << VertexFetch_TexCoordBufferParameter;
-	Ar << VertexFetch_PackedTangentsBufferParameter;
-	Ar << VertexFetch_ColorComponentsBufferParameter;
+}
+
+IMPLEMENT_UNIFORM_BUFFER_STRUCT(FLocalVertexFactoryUniformShaderParameters, TEXT("LocalVF"));
+
+TUniformBufferRef<FLocalVertexFactoryUniformShaderParameters> CreateLocalVFUniformBuffer(const FLocalVertexFactory* LocalVertexFactory, FColorVertexBuffer* OverrideColorVertexBuffer)
+{
+	FLocalVertexFactoryUniformShaderParameters UniformParameters;
+
+	UniformParameters.VertexFetch_PackedTangentsBuffer = LocalVertexFactory->GetTangentsSRV();
+	UniformParameters.VertexFetch_TexCoordBuffer = LocalVertexFactory->GetTextureCoordinatesSRV();
+
+	int ColorIndexMask = 0;
+	if (OverrideColorVertexBuffer)
+	{
+		UniformParameters.VertexFetch_ColorComponentsBuffer = OverrideColorVertexBuffer->GetColorComponentsSRV();
+		ColorIndexMask = OverrideColorVertexBuffer->GetNumVertices() > 1 ? ~0 : 0;
+	}
+	else
+	{
+		UniformParameters.VertexFetch_ColorComponentsBuffer = LocalVertexFactory->GetColorComponentsSRV();
+		ColorIndexMask = (int32)LocalVertexFactory->GetColorIndexMask();
+	}
+
+	if (!UniformParameters.VertexFetch_ColorComponentsBuffer)
+	{
+		UniformParameters.VertexFetch_ColorComponentsBuffer = GNullColorVertexBuffer.VertexBufferSRV;
+	}
+
+	const int NumTexCoords = LocalVertexFactory->GetNumTexcoords();
+	const int LightMapCoordinateIndex = LocalVertexFactory->GetLightMapCoordinateIndex();
+	UniformParameters.VertexFetch_Parameters = {ColorIndexMask, NumTexCoords, LightMapCoordinateIndex};
+
+	return TUniformBufferRef<FLocalVertexFactoryUniformShaderParameters>::CreateUniformBufferImmediate(UniformParameters, UniformBuffer_MultiFrame);
 }
 
 void FLocalVertexFactoryShaderParameters::SetMesh(FRHICommandList& RHICmdList, FShader* Shader, const FVertexFactory* VertexFactory, const FSceneView& View, const FMeshBatchElement& BatchElement, uint32 DataFlags) const
@@ -57,31 +79,17 @@ void FLocalVertexFactoryShaderParameters::SetMesh(FRHICommandList& RHICmdList, F
 	const auto* LocalVertexFactory = static_cast<const FLocalVertexFactory*>(VertexFactory);
 	
 	FVertexShaderRHIParamRef VS = Shader->GetVertexShader();
-	if (LocalVertexFactory->SupportsManualVertexFetch(View.GetShaderPlatform()))
+	if (LocalVertexFactory->SupportsManualVertexFetch(View.GetFeatureLevel()))
 	{
-		SetSRVParameter(RHICmdList, VS, VertexFetch_PositionBufferParameter, LocalVertexFactory->GetPositionsSRV());
-		SetSRVParameter(RHICmdList, VS, VertexFetch_PackedTangentsBufferParameter, LocalVertexFactory->GetTangentsSRV());
-		SetSRVParameter(RHICmdList, VS, VertexFetch_TexCoordBufferParameter, LocalVertexFactory->GetTextureCoordinatesSRV());
+		FUniformBufferRHIParamRef VertexFactoryUniformBuffer = static_cast<FUniformBufferRHIParamRef>(BatchElement.VertexFactoryUserData);
 
-		int ColorIndexMask = 0;
-		if (BatchElement.bUserDataIsColorVertexBuffer)
+		if (!VertexFactoryUniformBuffer)
 		{
-			FColorVertexBuffer* OverrideColorVertexBuffer = (FColorVertexBuffer*)BatchElement.UserData;
-			check(OverrideColorVertexBuffer);
-
-			SetSRVParameter(RHICmdList, VS, VertexFetch_ColorComponentsBufferParameter, OverrideColorVertexBuffer->GetColorComponentsSRV());
-			ColorIndexMask = OverrideColorVertexBuffer->GetNumVertices() > 1 ? ~0 : 0;
-		}
-		else
-		{
-			SetSRVParameter(RHICmdList, VS, VertexFetch_ColorComponentsBufferParameter, LocalVertexFactory->GetColorComponentsSRV());
-			ColorIndexMask = (int)LocalVertexFactory->GetColorIndexMask();
+			// No batch element override
+			VertexFactoryUniformBuffer = LocalVertexFactory->GetUniformBuffer();
 		}
 
-		const int NumTexCoords = LocalVertexFactory->GetNumTexcoords();
-		const int LightMapCoordinateIndex = LocalVertexFactory->GetLightMapCoordinateIndex();
-		FIntVector Parameters = { ColorIndexMask, NumTexCoords, LightMapCoordinateIndex };
-		SetShaderValue(RHICmdList, VS, VertexFetch_VertexFetchParameters, Parameters);
+		SetUniformBufferParameter(RHICmdList, VS, Shader->GetUniformBufferParameter<FLocalVertexFactoryUniformShaderParameters>(), VertexFactoryUniformBuffer);
 	}
 
 	if (BatchElement.bUserDataIsColorVertexBuffer)
@@ -89,7 +97,7 @@ void FLocalVertexFactoryShaderParameters::SetMesh(FRHICommandList& RHICmdList, F
 		FColorVertexBuffer* OverrideColorVertexBuffer = (FColorVertexBuffer*)BatchElement.UserData;
 		check(OverrideColorVertexBuffer);
 
-		if (!LocalVertexFactory->SupportsManualVertexFetch(View.GetShaderPlatform()))
+		if (!LocalVertexFactory->SupportsManualVertexFetch(View.GetFeatureLevel()))
 		{
 			LocalVertexFactory->SetColorOverrideStream(RHICmdList, OverrideColorVertexBuffer);
 		}	
@@ -242,8 +250,12 @@ void FLocalVertexFactory::InitRHI()
 	check(Streams.Num() > 0);
 
 	InitDeclaration(Elements);
-
 	check(IsValidRef(GetDeclaration()));
+
+	if (RHISupportsManualVertexFetch(GMaxRHIShaderPlatform))
+	{
+		UniformBuffer = CreateLocalVFUniformBuffer(this, nullptr);
+	}
 }
 
 FVertexFactoryShaderParameters* FLocalVertexFactory::ConstructShaderParameters(EShaderFrequency ShaderFrequency)

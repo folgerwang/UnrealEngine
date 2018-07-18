@@ -27,9 +27,11 @@
 #include "GenericPlatform/GenericPlatformCrashContext.h"
 #include "GenericPlatform/GenericPlatformDriver.h"
 #include "ProfilingDebugging/ExternalProfiler.h"
+#include "HAL/LowLevelMemTracker.h"
+#include "Templates/Function.h"
 
 #include "Misc/UProjectInfo.h"
-#include "Culture.h"
+#include "Internationalization/Culture.h"
 
 #if UE_ENABLE_ICU
 	THIRD_PARTY_INCLUDES_START
@@ -178,6 +180,39 @@ FString FSHA256Signature::ToString() const
 	}
 	return LocalHashStr;
 }
+
+/* ENetworkConnectionType interface
+ *****************************************************************************/
+
+    const TCHAR* LexToString( ENetworkConnectionType Target )
+    {
+        switch (Target)
+        {
+            case ENetworkConnectionType::None:
+                return TEXT("None");
+                
+            case ENetworkConnectionType::AirplaneMode:
+                return TEXT("AirplaneMode");
+                
+            case ENetworkConnectionType::Cell:
+                return TEXT("Cell");
+                
+            case ENetworkConnectionType::WiFi:
+                return TEXT("WiFi");
+                
+            case ENetworkConnectionType::Ethernet:
+                return TEXT("Ethernet");
+                
+			case ENetworkConnectionType::Bluetooth:
+				return TEXT("Bluetooth");
+
+			case ENetworkConnectionType::WiMAX:
+				return TEXT("WiMAX");
+
+			default:
+                return TEXT("Unknown");
+        }
+    }
 
 /* FGenericPlatformMisc interface
  *****************************************************************************/
@@ -359,17 +394,19 @@ void FGenericPlatformMisc::RaiseException(uint32 ExceptionCode)
 
 void FGenericPlatformMisc::BeginNamedEvent(const struct FColor& Color, const ANSICHAR* Text)
 {
+#if UE_EXTERNAL_PROFILING_ENABLED
 	//If there's an external profiler attached, trigger its scoped event.
 	FExternalProfiler* CurrentProfiler = FActiveExternalProfilerBase::GetActiveProfiler();
-
 	if (CurrentProfiler != NULL)
 	{
 		CurrentProfiler->StartScopedEvent(ANSI_TO_TCHAR(Text));
 	}
+#endif
 }
 
 void FGenericPlatformMisc::BeginNamedEvent(const struct FColor& Color, const TCHAR* Text)
 {
+#if UE_EXTERNAL_PROFILING_ENABLED
 	//If there's an external profiler attached, trigger its scoped event.
 	FExternalProfiler* CurrentProfiler = FActiveExternalProfilerBase::GetActiveProfiler();
 
@@ -377,10 +414,12 @@ void FGenericPlatformMisc::BeginNamedEvent(const struct FColor& Color, const TCH
 	{
 		CurrentProfiler->StartScopedEvent(Text);
 	}
+#endif
 }
 
 void FGenericPlatformMisc::EndNamedEvent()
 {
+#if UE_EXTERNAL_PROFILING_ENABLED
 	//If there's an external profiler attached, trigger its scoped event.
 	FExternalProfiler* CurrentProfiler = FActiveExternalProfilerBase::GetActiveProfiler();
 
@@ -388,6 +427,7 @@ void FGenericPlatformMisc::EndNamedEvent()
 	{
 		CurrentProfiler->EndScopedEvent();
 	}
+#endif
 }
 
 bool FGenericPlatformMisc::SetStoredValue(const FString& InStoreId, const FString& InSectionName, const FString& InKeyName, const FString& InValue)
@@ -480,7 +520,9 @@ void FGenericPlatformMisc::SetUTF8Output()
 
 void FGenericPlatformMisc::LocalPrint( const TCHAR* Str )
 {
-#if PLATFORM_USE_LS_SPEC_FOR_WIDECHAR
+#if PLATFORM_TCHAR_IS_CHAR16
+	printf("%s", TCHAR_TO_UTF8(Str));
+#elif PLATFORM_USE_LS_SPEC_FOR_WIDECHAR
 	printf("%ls", Str);
 #else
 	wprintf(TEXT("%s"), Str);
@@ -552,15 +594,37 @@ void FGenericPlatformMisc:: ClipboardPaste(class FString& Dest)
 
 void FGenericPlatformMisc::CreateGuid(FGuid& Guid)
 {
+	QUICK_SCOPE_CYCLE_COUNTER(STAT_FGenericPlatformMisc_CreateGuid);
+
 	static uint16 IncrementCounter = 0; 
 
-	int32 Year = 0, Month = 0, DayOfWeek = 0, Day = 0, Hour = 0, Min = 0, Sec = 0, MSec = 0; // Use real time for baseline uniqueness
+	static FDateTime InitialDateTime;
+	static uint64 InitialCycleCounter;
+
+	FDateTime EstimatedCurrentDateTime;
+
+	if (IncrementCounter == 0)
+	{
+		// Hack: First Guid can be created prior to FPlatformTime::InitTiming(), so do it here.
+		FPlatformTime::InitTiming();
+
+		// uses FPlatformTime::SystemTime()
+		InitialDateTime = FDateTime::Now();
+		InitialCycleCounter = FPlatformTime::Cycles64();
+		
+		EstimatedCurrentDateTime = InitialDateTime;
+	}
+	else
+	{
+		FTimespan ElapsedTime = FTimespan::FromSeconds(FPlatformTime::ToSeconds64(FPlatformTime::Cycles64() - InitialCycleCounter));
+		
+		EstimatedCurrentDateTime = InitialDateTime + ElapsedTime;
+	}
+
 	uint32 SequentialBits = static_cast<uint32>(IncrementCounter++); // Add sequential bits to ensure sequentially generated guids are unique even if Cycles is wrong
 	uint32 RandBits = FMath::Rand() & 0xFFFF; // Add randomness to improve uniqueness across machines
 
-	FPlatformTime::SystemTime(Year, Month, DayOfWeek, Day, Hour, Min, Sec, MSec);
-
-	Guid = FGuid(RandBits | (SequentialBits << 16), Day | (Hour << 8) | (Month << 16) | (Sec << 24), MSec | (Min << 16), Year ^ FPlatformTime::Cycles());
+	Guid = FGuid(RandBits | (SequentialBits << 16), EstimatedCurrentDateTime.GetTicks() >> 32, EstimatedCurrentDateTime.GetTicks() & 0xffffffff, FPlatformTime::Cycles());
 }
 
 EAppReturnType::Type FGenericPlatformMisc::MessageBoxExt( EAppMsgType::Type MsgType, const TCHAR* Text, const TCHAR* Caption )
@@ -877,9 +941,53 @@ const TCHAR* FGenericPlatformMisc::GetDefaultDeviceProfileName()
 	return TEXT("Default");
 }
 
+float FGenericPlatformMisc::GetDeviceTemperatureLevel()
+{
+	return -1.0f;
+}
+
 void FGenericPlatformMisc::SetOverrideProjectDir(const FString& InOverrideDir)
 {
 	OverrideProjectDir = InOverrideDir;
+}
+
+bool FGenericPlatformMisc::UseRenderThread()
+{
+	// look for disabling commandline options (-onethread is old-school, here for compatibility with people's brains)
+	if (FParse::Param(FCommandLine::Get(), TEXT("norenderthread")) || FParse::Param(FCommandLine::Get(), TEXT("onethread")))
+	{
+		return false;
+	}
+
+	// single core devices shouldn't use it (unless that platform overrides this function - maybe RT could be required?)
+	if (FPlatformMisc::NumberOfCoresIncludingHyperthreads() < 2)
+	{
+		return false;
+	}
+
+	// if the platform doesn't allow threading at all, we really can't use it
+	if (FPlatformProcess::SupportsMultithreading() == false)
+	{
+		return false;
+	}
+
+	// dedicated servers should not use a rendering thread
+	if (IsRunningDedicatedServer())
+	{
+		return false;
+	}
+
+
+#if ENABLE_LOW_LEVEL_MEM_TRACKER
+	// disable rendering thread when LLM wants to so that memory is attributer better
+	if (FLowLevelMemTracker::Get().ShouldReduceThreads())
+	{
+		return false;
+	}
+#endif
+
+	// allow if not overridden
+	return true;
 }
 
 bool FGenericPlatformMisc::AllowThreadHeartBeat()
@@ -1082,27 +1190,12 @@ void FGenericPlatformMisc::UnregisterForRemoteNotifications()
 	// not implemented by default
 }
 
-const TArray<FString>& FGenericPlatformMisc::GetConfidentialPlatforms()
+void FGenericPlatformMisc::RequestDeviceCheckToken(TFunction<void(const TArray<uint8>&)> QueryCompleteFunc)
 {
-	static bool bHasSearchedForPlatforms = false;
-	static TArray<FString> FoundPlatforms;
+	// not implemented by default
+}
 
-	// look on disk for special files
-	if (bHasSearchedForPlatforms == false)
-	{
-		// look for the special files in any congfig subdirectories
-		IFileManager::Get().FindFilesRecursive(FoundPlatforms, *FPaths::EngineConfigDir(), TEXT("ConfidentialPlatform.ini"), true, false);
-
-		// fix up the paths
-		for (int32 PlatformIndex = 0; PlatformIndex < FoundPlatforms.Num(); PlatformIndex++)
-		{
-			// pull the directory name out
-			FoundPlatforms[PlatformIndex] = FPaths::GetCleanFilename(FPaths::GetPath(FoundPlatforms[PlatformIndex]));
-		}
-
-		bHasSearchedForPlatforms = true;
-	}
-
-	// return whatever we have already found
-	return FoundPlatforms;
+TArray<FChunkTagID> FGenericPlatformMisc::GetOnDemandChunkTagIDs()
+{
+	return TArray<FChunkTagID>();
 }

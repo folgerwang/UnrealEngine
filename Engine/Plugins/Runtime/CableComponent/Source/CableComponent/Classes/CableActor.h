@@ -9,7 +9,7 @@
 
 /** An actor that renders a simulated cable */
 UCLASS(hidecategories=(Input,Replication), showcategories=("Input|MouseInput", "Input|TouchInput"))
-class ACableActor : public AActor
+class CABLECOMPONENT_API ACableActor : public AActor
 {
 	GENERATED_UCLASS_BODY()
 

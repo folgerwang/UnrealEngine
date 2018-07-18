@@ -176,7 +176,7 @@ void UHapticFeedbackEffect_SoundWave::PrepareSoundWaveBuffer()
 	AD->Precache(SoundWave, true, false);
 	SoundWave->InitAudioResource(AD->GetRuntimeFormat(SoundWave));
 	uint8* PCMData = SoundWave->RawPCMData;
-	int32 SampleRate = SoundWave->SampleRate;
+	int32 SampleRate = SoundWave->GetSampleRateForCurrentPlatform();
 	int TargetFrequency = 320;
 	int TargetBufferSize = (SoundWave->RawPCMDataSize * TargetFrequency) / (SampleRate * 2) + 1; //2 because we're only using half of the 16bit source PCM buffer
 	HapticBuffer.BufferLength = TargetBufferSize;

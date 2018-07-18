@@ -32,6 +32,7 @@
 
 FAndroidCameraPlayer::FAndroidCameraPlayer(IMediaEventSink& InEventSink)
 	: CurrentState(EMediaState::Closed)
+	, CurrentTime(FTimespan::Zero())
 	, bLooping(false)
 	, EventSink(InEventSink)
 #if WITH_ENGINE
@@ -117,6 +118,7 @@ void FAndroidCameraPlayer::Close()
 	}
 
 	CurrentState = EMediaState::Closed;
+	CurrentTime = FTimespan::Zero();
 
 	bLooping = false;
 
@@ -246,7 +248,7 @@ bool FAndroidCameraPlayer::Open(const FString& Url, const IMediaOptions* /*Optio
 	}
 
 	// prepare media
-	MediaUrl = Url;
+	MediaUrl = JavaCameraPlayer->GetDataSource();
 
 #if ANDROIDCAMERAPLAYER_USE_PREPAREASYNC
 	if (!JavaCameraPlayer->PrepareAsync())
@@ -284,6 +286,191 @@ void FAndroidCameraPlayer::SetGuid(const FGuid& Guid)
 	#endif
 }
 
+// ==============================================================
+// Used by TickFetch
+
+static void DoUpdateExternalCameraSampleExecute(TWeakPtr<FJavaAndroidCameraPlayer, ESPMode::ThreadSafe> JavaCameraPlayerPtr, FGuid PlayerGuid)
+{
+	auto PinnedJavaCameraPlayer = JavaCameraPlayerPtr.Pin();
+
+	if (!PinnedJavaCameraPlayer.IsValid())
+	{
+		return;
+	}
+
+	FTextureRHIRef VideoTexture = PinnedJavaCameraPlayer->GetVideoTexture();
+	if (VideoTexture == nullptr)
+	{
+		FRHIResourceCreateInfo CreateInfo;
+		VideoTexture = GDynamicRHI->RHICreateTextureExternal2D(1, 1, PF_R8G8B8A8, 1, 1, 0, CreateInfo);
+		PinnedJavaCameraPlayer->SetVideoTexture(VideoTexture);
+
+		if (VideoTexture == nullptr)
+		{
+			UE_LOG(LogAndroidCamera, Warning, TEXT("CreateTextureExternal2D failed!"));
+			return;
+		}
+
+		PinnedJavaCameraPlayer->SetVideoTextureValid(false);
+
+#if ANDROIDCAMERAPLAYER_USE_NATIVELOGGING
+		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Fetch RT: Created VideoTexture: %d - %s"), *reinterpret_cast<int32*>(VideoTexture->GetNativeResource()), *PlayerGuid.ToString());
+#endif
+	}
+
+	int32 TextureId = *reinterpret_cast<int32*>(VideoTexture->GetNativeResource());
+	int32 CurrentFramePosition = 0;
+	bool bRegionChanged = false;
+	if (PinnedJavaCameraPlayer->UpdateVideoFrame(TextureId, &CurrentFramePosition, &bRegionChanged))
+	{
+#if ANDROIDCAMERAPLAYER_USE_NATIVELOGGING
+//		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Fetch RT: %d - %s"), CurrentFramePosition, *PlayerGuid.ToString());
+#endif
+
+		// if region changed, need to reregister UV scale/offset
+		if (bRegionChanged)
+		{
+			PinnedJavaCameraPlayer->SetVideoTextureValid(false);
+		}
+	}
+}
+
+struct FRHICommandUpdateExternalCameraSample final : public FRHICommand<FRHICommandUpdateExternalCameraSample>
+{
+	TWeakPtr<FJavaAndroidCameraPlayer, ESPMode::ThreadSafe> JavaCameraPlayerPtr;
+	FGuid PlayerGuid;
+
+	FORCEINLINE_DEBUGGABLE FRHICommandUpdateExternalCameraSample(TWeakPtr<FJavaAndroidCameraPlayer, ESPMode::ThreadSafe> InJavaCameraPlayerPtr, FGuid InPlayerGuid)
+		: JavaCameraPlayerPtr(InJavaCameraPlayerPtr)
+		, PlayerGuid(InPlayerGuid)
+	{
+	}
+	void Execute(FRHICommandListBase& CmdList)
+	{
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_FRHICommandUpdateExternalCameraSample_Execute);
+		DoUpdateExternalCameraSampleExecute(JavaCameraPlayerPtr, PlayerGuid);
+	}
+};
+
+static void DoUpdateTextureCameraSampleExecute(TWeakPtr<FJavaAndroidCameraPlayer, ESPMode::ThreadSafe> JavaCameraPlayerPtr, TWeakPtr<FMediaSamples, ESPMode::ThreadSafe> SamplesPtr,
+	TSharedRef<FAndroidCameraTextureSample, ESPMode::ThreadSafe> VideoSample, FTimespan SampleTime)
+{
+	auto PinnedJavaCameraPlayer = JavaCameraPlayerPtr.Pin();
+	auto PinnedSamples = SamplesPtr.Pin();
+
+	if (!PinnedJavaCameraPlayer.IsValid() || !PinnedSamples.IsValid())
+	{
+		return;
+	}
+
+	// write frame into texture
+	FRHITexture2D* Texture = VideoSample->InitializeTexture(SampleTime);
+
+	if (Texture != nullptr)
+	{
+		int32 Resource = *reinterpret_cast<int32*>(Texture->GetNativeResource());
+		if (!PinnedJavaCameraPlayer->GetVideoLastFrame(Resource))
+		{
+			return;
+		}
+	}
+
+	PinnedSamples->AddVideo(VideoSample);
+
+	FVector4 ScaleRotation = PinnedJavaCameraPlayer->GetScaleRotation();
+	FVector4 Offset = PinnedJavaCameraPlayer->GetOffset();
+	VideoSample->SetScaleRotationOffset(ScaleRotation, Offset);
+}
+
+struct FRHICommandUpdateTextureCameraSample final : public FRHICommand<FRHICommandUpdateTextureCameraSample>
+{
+	TWeakPtr<FJavaAndroidCameraPlayer, ESPMode::ThreadSafe> JavaCameraPlayerPtr;
+	TWeakPtr<FMediaSamples, ESPMode::ThreadSafe> SamplesPtr;
+	TSharedRef<FAndroidCameraTextureSample, ESPMode::ThreadSafe> VideoSample;
+	FTimespan SampleTime;
+
+	FORCEINLINE_DEBUGGABLE FRHICommandUpdateTextureCameraSample(TWeakPtr<FJavaAndroidCameraPlayer, ESPMode::ThreadSafe> InJavaCameraPlayerPtr, TWeakPtr<FMediaSamples, ESPMode::ThreadSafe> InSamplesPtr,
+		TSharedRef<FAndroidCameraTextureSample, ESPMode::ThreadSafe> InVideoSample, FTimespan InSampleTime)
+		: JavaCameraPlayerPtr(InJavaCameraPlayerPtr)
+		, SamplesPtr(InSamplesPtr)
+		, VideoSample(InVideoSample)
+		, SampleTime(InSampleTime)
+	{
+	}
+	void Execute(FRHICommandListBase& CmdList)
+	{
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_FRHICommandUpdateTextureCameraSample_Execute);
+		DoUpdateTextureCameraSampleExecute(JavaCameraPlayerPtr, SamplesPtr, VideoSample, SampleTime);
+	}
+};
+
+static void DoUpdateBufferCameraSampleExecute(TWeakPtr<FJavaAndroidCameraPlayer, ESPMode::ThreadSafe> JavaCameraPlayerPtr, TWeakPtr<FMediaSamples, ESPMode::ThreadSafe> SamplesPtr,
+	TSharedRef<FAndroidCameraTextureSample, ESPMode::ThreadSafe> VideoSample, int32 SampleCount, FTimespan SampleTime)
+{
+	auto PinnedJavaCameraPlayer = JavaCameraPlayerPtr.Pin();
+	auto PinnedSamples = SamplesPtr.Pin();
+
+	if (!PinnedJavaCameraPlayer.IsValid() || !PinnedSamples.IsValid())
+	{
+		return;
+	}
+
+	int32 CurrentFramePosition = 0;
+	bool bRegionChanged = false;
+
+	// write frame into buffer
+	void* Buffer = nullptr;
+	int64 BufferCount = 0;
+
+	if (!PinnedJavaCameraPlayer->GetVideoLastFrameData(Buffer, BufferCount, &CurrentFramePosition, &bRegionChanged))
+	{
+		return;
+	}
+
+	if (BufferCount != SampleCount)
+	{
+		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("FAndroidCameraPlayer::Fetch: Sample count mismatch (Buffer=%d, Available=%d"), SampleCount, BufferCount);
+	}
+	check(SampleCount <= BufferCount);
+
+	if (PinnedJavaCameraPlayer->IsActive())
+	{
+		// must make a copy (buffer is owned by Java, not us!)
+		VideoSample->InitializeBuffer(Buffer, SampleTime, true);
+
+		FVector4 ScaleRotation = PinnedJavaCameraPlayer->GetScaleRotation();
+		FVector4 Offset = PinnedJavaCameraPlayer->GetOffset();
+		VideoSample->SetScaleRotationOffset(ScaleRotation, Offset);
+
+		PinnedSamples->AddVideo(VideoSample);
+	}
+}
+
+struct FRHICommandUpdateBufferCameraSample final : public FRHICommand<FRHICommandUpdateBufferCameraSample>
+{
+	TWeakPtr<FJavaAndroidCameraPlayer, ESPMode::ThreadSafe> JavaCameraPlayerPtr;
+	TWeakPtr<FMediaSamples, ESPMode::ThreadSafe> SamplesPtr;
+	TSharedRef<FAndroidCameraTextureSample, ESPMode::ThreadSafe> VideoSample;
+	int32 SampleCount;
+	FTimespan SampleTime;
+
+	FORCEINLINE_DEBUGGABLE FRHICommandUpdateBufferCameraSample(TWeakPtr<FJavaAndroidCameraPlayer, ESPMode::ThreadSafe> InJavaCameraPlayerPtr, TWeakPtr<FMediaSamples, ESPMode::ThreadSafe> InSamplesPtr,
+		TSharedRef<FAndroidCameraTextureSample, ESPMode::ThreadSafe> InVideoSample, int32 InSampleCount, FTimespan InSampleTime)
+		: JavaCameraPlayerPtr(InJavaCameraPlayerPtr)
+		, SamplesPtr(InSamplesPtr)
+		, VideoSample(InVideoSample)
+		, SampleCount(InSampleCount)
+		, SampleTime(InSampleTime)
+	{
+	}
+	void Execute(FRHICommandListBase& CmdList)
+	{
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_FRHICommandUpdateBufferCameraSample_Execute);
+		DoUpdateBufferCameraSampleExecute(JavaCameraPlayerPtr, SamplesPtr, VideoSample, SampleCount, SampleTime);
+	}
+};
+
+// ==============================================================
 
 void FAndroidCameraPlayer::TickFetch(FTimespan DeltaTime, FTimespan Timecode)
 {
@@ -329,8 +516,9 @@ void FAndroidCameraPlayer::TickFetch(FTimespan DeltaTime, FTimespan Timecode)
 			TWeakPtr<FMediaSamples, ESPMode::ThreadSafe> SamplesPtr;
 			TSharedRef<FAndroidCameraTextureSample, ESPMode::ThreadSafe> VideoSample;
 			int32 SampleCount;
+			FTimespan SampleTime;
 		}
-		WriteVideoSampleParams = { JavaCameraPlayer, Samples, VideoSample, (int32)(VideoTrack.Dimensions.X * VideoTrack.Dimensions.Y * sizeof(int32)) };
+		WriteVideoSampleParams = { JavaCameraPlayer, Samples, VideoSample, (int32)(VideoTrack.Dimensions.X * VideoTrack.Dimensions.Y * sizeof(int32)), CurrentTime };
 
 		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(AndroidCameraPlayerWriteVideoSample,
 			FWriteVideoSampleParams, Params, WriteVideoSampleParams,
@@ -348,23 +536,23 @@ void FAndroidCameraPlayer::TickFetch(FTimespan DeltaTime, FTimespan Timecode)
 
 				// write frame into buffer
 				void* Buffer = nullptr;
-				int64 SampleCount = 0;
+				int64 BufferCount = 0;
 
-				if (!PinnedJavaCameraPlayer->GetVideoLastFrameData(Buffer, SampleCount, &CurrentFramePosition, &bRegionChanged))
+				if (!PinnedJavaCameraPlayer->GetVideoLastFrameData(Buffer, BufferCount, &CurrentFramePosition, &bRegionChanged))
 				{
 					return;
 				}
 
-				if (SampleCount != Params.SampleCount)
+				if (BufferCount != Params.SampleCount)
 				{
-					FPlatformMisc::LowLevelOutputDebugStringf(TEXT("FAndroidCameraPlayer::Fetch: Sample count mismatch (Buffer=%d, Available=%d)"), Params.SampleCount, SampleCount);
+					FPlatformMisc::LowLevelOutputDebugStringf(TEXT("FAndroidCameraPlayer::Fetch: Sample count mismatch (Buffer=%d, Available=%d)"), Params.SampleCount, BufferCount);
 				}
-				check(Params.SampleCount <= SampleCount);
+				check(Params.SampleCount <= BufferCount);
 
 				if (PinnedJavaCameraPlayer->IsActive())
 				{
 					// must make a copy (buffer is owned by Java, not us!)
-					Params.VideoSample->InitializeBuffer(Buffer, FTimespan::FromMilliseconds(CurrentFramePosition), true);
+					Params.VideoSample->InitializeBuffer(Buffer, Params.SampleTime, true);
 
 					FVector4 ScaleRotation = PinnedJavaCameraPlayer->GetScaleRotation();
 					FVector4 Offset = PinnedJavaCameraPlayer->GetOffset();
@@ -387,6 +575,16 @@ void FAndroidCameraPlayer::TickFetch(FTimespan DeltaTime, FTimespan Timecode)
 		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(AndroidCameraPlayerWriteVideoSample,
 			FWriteVideoSampleParams, Params, WriteVideoSampleParams,
 			{
+				if (IsRunningRHIInSeparateThread())
+				{
+					new (RHICmdList.AllocCommand<FRHICommandUpdateExternalCameraSample>()) FRHICommandUpdateExternalCameraSample(Params.JavaCameraPlayerPtr, Params.PlayerGuid);
+					RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread);
+				}
+				else
+				{
+					DoUpdateExternalCameraSampleExecute(Params.JavaCameraPlayerPtr, Params.PlayerGuid);
+				}
+
 				auto PinnedJavaCameraPlayer = Params.JavaCameraPlayerPtr.Pin();
 
 				if (!PinnedJavaCameraPlayer.IsValid())
@@ -395,48 +593,13 @@ void FAndroidCameraPlayer::TickFetch(FTimespan DeltaTime, FTimespan Timecode)
 				}
 
 				FTextureRHIRef VideoTexture = PinnedJavaCameraPlayer->GetVideoTexture();
-				if (VideoTexture == nullptr)
-				{
-					FRHIResourceCreateInfo CreateInfo;
-					VideoTexture = RHICmdList.CreateTextureExternal2D(1, 1, PF_R8G8B8A8, 1, 1, 0, CreateInfo);
-					PinnedJavaCameraPlayer->SetVideoTexture(VideoTexture);
-
-					if (VideoTexture == nullptr)
-					{
-						UE_LOG(LogAndroidCamera, Warning, TEXT("CreateTextureExternal2D failed!"));
-						return;
-					}
-
-					PinnedJavaCameraPlayer->SetVideoTextureValid(false);
-
-					#if ANDROIDCAMERAPLAYER_USE_NATIVELOGGING
-						FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Fetch RT: Created VideoTexture: %d - %s"), *reinterpret_cast<int32*>(VideoTexture->GetNativeResource()), *Params.PlayerGuid.ToString());
-					#endif
-				}
-
-				int32 TextureId = *reinterpret_cast<int32*>(VideoTexture->GetNativeResource());
-				int32 CurrentFramePosition = 0;
-				bool bRegionChanged = false;
-				if (PinnedJavaCameraPlayer->UpdateVideoFrame(TextureId, &CurrentFramePosition, &bRegionChanged))
-				{
-					#if ANDROIDCAMERAPLAYER_USE_NATIVELOGGING
-//						FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Fetch RT: %d - %s"), CurrentFramePosition, *Params.PlayerGuid.ToString());
-					#endif
-
-					// if region changed, need to reregister UV scale/offset
-					if (bRegionChanged)
-					{
-						PinnedJavaCameraPlayer->SetVideoTextureValid(false);
-					}
-				}
-
-				if (!PinnedJavaCameraPlayer->IsVideoTextureValid())
+				if (VideoTexture != nullptr && !PinnedJavaCameraPlayer->IsVideoTextureValid())
 				{
 					FVector4 ScaleRotation = PinnedJavaCameraPlayer->GetScaleRotation();
 					FVector4 Offset = PinnedJavaCameraPlayer->GetOffset();
 
 					#if ANDROIDCAMERAPLAYER_USE_NATIVELOGGING
-						if (bRegionChanged)
+						//if (bRegionChanged)
 						{
 							FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Fetch RT: New UV Scale/Offset = {%f, %f}, {%f, %f}  + {%f, %f} - %s"),
 													ScaleRotation.X, ScaleRotation.Y, ScaleRotation.Z, ScaleRotation.W,
@@ -467,48 +630,29 @@ void FAndroidCameraPlayer::TickFetch(FTimespan DeltaTime, FTimespan Timecode)
 		}
 
 		// populate & add sample (on render thread)
-		const auto Settings = GetDefault<UAndroidCameraSettings>();
+		//const auto Settings = GetDefault<UAndroidCameraSettings>();
 
 		struct FWriteVideoSampleParams
 		{
 			TWeakPtr<FJavaAndroidCameraPlayer, ESPMode::ThreadSafe> JavaCameraPlayerPtr;
 			TWeakPtr<FMediaSamples, ESPMode::ThreadSafe> SamplesPtr;
 			TSharedRef<FAndroidCameraTextureSample, ESPMode::ThreadSafe> VideoSample;
-			int32 SampleCount;
+			FTimespan SampleTime;
 		}
-		WriteVideoSampleParams = { JavaCameraPlayer, Samples, VideoSample, (int32)(VideoTrack.Dimensions.X * VideoTrack.Dimensions.Y * sizeof(int32)) };
+		WriteVideoSampleParams = { JavaCameraPlayer, Samples, VideoSample, CurrentTime };
 
 		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(AndroidCameraPlayerWriteVideoSample,
 			FWriteVideoSampleParams, Params, WriteVideoSampleParams,
 			{
-				auto PinnedJavaCameraPlayer = Params.JavaCameraPlayerPtr.Pin();
-				auto PinnedSamples = Params.SamplesPtr.Pin();
-
-				if (!PinnedJavaCameraPlayer.IsValid() || !PinnedSamples.IsValid())
+				if (IsRunningRHIInSeparateThread())
 				{
-					return;
+					new (RHICmdList.AllocCommand<FRHICommandUpdateTextureCameraSample>()) FRHICommandUpdateTextureCameraSample(Params.JavaCameraPlayerPtr, Params.SamplesPtr, Params.VideoSample, Params.SampleTime);
+					RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread);
 				}
-
-				const int32 CurrentFramePosition = PinnedJavaCameraPlayer->GetCurrentPosition();
-				const FTimespan Time = FTimespan::FromMilliseconds(CurrentFramePosition);
-
-				// write frame into texture
-				FRHITexture2D* Texture = Params.VideoSample->InitializeTexture(Time);
-
-				if (Texture != nullptr)
+				else
 				{
-					int32 Resource = *reinterpret_cast<int32*>(Texture->GetNativeResource());
-					if (!PinnedJavaCameraPlayer->GetVideoLastFrame(Resource))
-					{
-						return;
-					}
+					DoUpdateTextureCameraSampleExecute(Params.JavaCameraPlayerPtr, Params.SamplesPtr, Params.VideoSample, Params.SampleTime);
 				}
-
-				PinnedSamples->AddVideo(Params.VideoSample);
-
-				FVector4 ScaleRotation = PinnedJavaCameraPlayer->GetScaleRotation();
-				FVector4 Offset = PinnedJavaCameraPlayer->GetOffset();
-				Params.VideoSample->SetScaleRotationOffset(ScaleRotation, Offset);
 			});
 	}
 
@@ -531,49 +675,22 @@ void FAndroidCameraPlayer::TickFetch(FTimespan DeltaTime, FTimespan Timecode)
 		TWeakPtr<FJavaAndroidCameraPlayer, ESPMode::ThreadSafe> JavaCameraPlayerPtr;
 		TWeakPtr<FMediaSamples, ESPMode::ThreadSafe> SamplesPtr;
 		TSharedRef<FAndroidCameraTextureSample, ESPMode::ThreadSafe> VideoSample;
-		bool Cacheable;
+		int32 SampleCount;
+		FTimespan SampleTime;
 	}
-	WriteVideoSampleParams = { JavaCameraPlayer, Samples, VideoSample, Settings->CacheableVideoSampleBuffers };
+	WriteVideoSampleParams = { JavaCameraPlayer, Samples, VideoSample, (int32)(VideoTrack.Dimensions.X * VideoTrack.Dimensions.Y * sizeof(int32)), CurrentTime };
 
 	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(AndroidCameraPlayerWriteVideoSample,
 		FWriteVideoSampleParams, Params, WriteVideoSampleParams,
 		{
-			auto PinnedJavaCameraPlayer = Params.JavaCameraPlayerPtr.Pin();
-			auto PinnedSamples = Params.SamplesPtr.Pin();
-
-			if (!PinnedJavaCameraPlayer.IsValid() || !PinnedSamples.IsValid())
+			if (IsRunningRHIInSeparateThread())
 			{
-				return;
+				new (RHICmdList.AllocCommand<FRHICommandUpdateBufferCameraSample>()) FRHICommandUpdateBufferCameraSample(Params.JavaCameraPlayerPtr, Params.SamplesPtr, Params.VideoSample, Params.SampleCount, Params.SampleTime);
+				RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread);
 			}
-
-			int32 CurrentFramePosition = 0;
-			bool bRegionChanged = false;
-
-			// write frame into buffer
-			void* Buffer = nullptr;
-			int64 SampleCount = 0;
-
-			if (!PinnedJavaCameraPlayer->GetVideoLastFrameData(Buffer, SampleCount, &CurrentFramePosition, &bRegionChanged))
+			else
 			{
-				return;
-			}
-
-			if (SampleCount != Params.SampleCount)
-			{
-				FPlatformMisc::LowLevelOutputDebugStringf(TEXT("FAndroidCameraPlayer::Fetch: Sample count mismatch (Buffer=%d, Available=%d"), Params.SampleCount, SampleCount);
-			}
-			check(Params.SampleCount <= SampleCount);
-
-			if (PinnedJavaCameraPlayer->IsActive())
-			{
-				// must make a copy (buffer is owned by Java, not us!)
-				Params.VideoSample->InitializeBuffer(Buffer, FTimespan::FromMilliseconds(CurrentFramePosition), true);
-
-				FVector4 ScaleRotation = PinnedJavaCameraPlayer->GetScaleRotation();
-				FVector4 Offset = PinnedJavaCameraPlayer->GetOffset();
-				Params.VideoSample->SetScaleRotationOffset(ScaleRotation, Offset);
-
-				PinnedSamples->AddVideo(Params.VideoSample);
+				DoUpdateBufferCameraSampleExecute(Params.JavaCameraPlayerPtr, Params.SamplesPtr, Params.VideoSample, Params.SampleCount, Params.SampleTime);
 			}
 		});
 #endif //WITH_ENGINE
@@ -620,6 +737,9 @@ void FAndroidCameraPlayer::TickInput(FTimespan DeltaTime, FTimespan Timecode)
 	{
 		return;
 	}
+
+	// advance time if not paused
+	CurrentTime += DeltaTime * GetRate();
 
 	// register delegate if not registered
 	if (!ResumeHandle.IsValid())
@@ -753,6 +873,22 @@ bool FAndroidCameraPlayer::InitializePlayer()
 	{
 		JavaCameraPlayer->SetVideoEnabled(false);
 		SelectedVideoTrack = INDEX_NONE;
+	}
+
+	// set to best matching format for the selected track
+	int32 NumFormats = VideoTracks[SelectedVideoTrack].Formats.Num();
+	int32 NewWidth = JavaCameraPlayer->GetVideoWidth();
+	int32 NewHeight = JavaCameraPlayer->GetVideoHeight();
+	int32 NewFPS = JavaCameraPlayer->GetFrameRate();
+	for (int32 FormatIndex = 0; FormatIndex < NumFormats; FormatIndex++)
+	{
+		const FJavaAndroidCameraPlayer::FVideoFormat& Format = VideoTracks[SelectedVideoTrack].Formats[FormatIndex];
+
+		if (Format.Dimensions.X == NewWidth && Format.Dimensions.Y == NewHeight && Format.FrameRate == NewFPS)
+		{
+			VideoTracks[SelectedVideoTrack].Format = FormatIndex;
+			break;
+		}
 	}
 
 	CurrentState = EMediaState::Stopped;
@@ -1072,7 +1208,7 @@ bool FAndroidCameraPlayer::SelectTrack(EMediaTrackType TrackType, int32 TrackInd
 
 				// selecting track picks new resolution and framerate
 				// restart with new framerate if open
-				if (CurrentState == EMediaState::Playing || CurrentState == EMediaState::Paused)
+				if (CurrentState == EMediaState::Playing || CurrentState == EMediaState::Paused || CurrentState == EMediaState::Stopped)
 				{
 					float OldRate = GetRate();
 
@@ -1084,7 +1220,11 @@ bool FAndroidCameraPlayer::SelectTrack(EMediaTrackType TrackType, int32 TrackInd
 					bOpenWithoutEvents = true;
 					Open(NewUrl, nullptr);
 					bOpenWithoutEvents = false;
-					SetRate(OldRate);
+
+					if (CurrentState != EMediaState::Stopped)
+					{
+						SetRate(OldRate);
+					}
 				}
 
 				UE_LOG(LogAndroidCamera, VeryVerbose, TEXT("Player %p: Enabling video"), this, TrackIndex);
@@ -1122,7 +1262,7 @@ bool FAndroidCameraPlayer::SetTrackFormat(EMediaTrackType TrackType, int32 Track
 			VideoTracks[TrackIndex].Format = FormatIndex;
 
 			// restart with new resolution and framerate if open
-			if (CurrentState == EMediaState::Playing || CurrentState == EMediaState::Paused)
+			if (CurrentState == EMediaState::Playing || CurrentState == EMediaState::Paused || CurrentState == EMediaState::Stopped)
 			{
 				float OldRate = GetRate();
 
@@ -1133,7 +1273,11 @@ bool FAndroidCameraPlayer::SetTrackFormat(EMediaTrackType TrackType, int32 Track
 				bOpenWithoutEvents = true;
 				Open(NewUrl, nullptr);
 				bOpenWithoutEvents = false;
-				SetRate(OldRate);
+
+				if (CurrentState != EMediaState::Stopped)
+				{
+					SetRate(OldRate);
+				}
 			}
 		}
 		else
@@ -1232,7 +1376,7 @@ FTimespan FAndroidCameraPlayer::GetDuration() const
 		return FTimespan::Zero();
 	}
 
-	return FTimespan::FromMilliseconds(JavaCameraPlayer->GetDuration());
+	return FTimespan::MaxValue();
 }
 
 
@@ -1272,7 +1416,7 @@ FTimespan FAndroidCameraPlayer::GetTime() const
 		return FTimespan::Zero();
 	}
 
-	return FTimespan::FromMilliseconds(JavaCameraPlayer->GetCurrentPosition());
+	return CurrentTime;
 }
 
 

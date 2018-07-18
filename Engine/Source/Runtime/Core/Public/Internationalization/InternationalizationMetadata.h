@@ -172,14 +172,15 @@ public:
 };
 
 CORE_API FArchive& operator<<(FArchive& Archive, FLocMetadataObject& Object);
+CORE_API void operator<<(FStructuredArchive::FSlot Slot, FLocMetadataObject& Object);
 
 /** A LocMetadata String Value. */
 class CORE_API FLocMetadataValueString : public FLocMetadataValue
 {
 public:
 	FLocMetadataValueString(const FString& InString) : Value(InString) {}
-	FLocMetadataValueString(FArchive& Archive);
-	static void Serialize(FLocMetadataValueString& Value, FArchive& Archive);
+	FLocMetadataValueString(FStructuredArchive::FSlot Slot);
+	static void Serialize(FLocMetadataValueString& Value, FStructuredArchive::FSlot Slot);
 
 	virtual FString AsString() override {return Value;}
 
@@ -206,8 +207,8 @@ class CORE_API FLocMetadataValueBoolean : public FLocMetadataValue
 {
 public:
 	FLocMetadataValueBoolean(bool InBool) : Value(InBool) {}
-	FLocMetadataValueBoolean(FArchive& Archive);
-	static void Serialize(FLocMetadataValueBoolean& Value, FArchive& Archive);
+	FLocMetadataValueBoolean(FStructuredArchive::FSlot Slot);
+	static void Serialize(FLocMetadataValueBoolean& Value, FStructuredArchive::FSlot Slot);
 
 	virtual bool AsBool() override {return Value;}
 
@@ -231,8 +232,8 @@ class CORE_API FLocMetadataValueArray : public FLocMetadataValue
 {
 public:
 	FLocMetadataValueArray(const TArray< TSharedPtr<FLocMetadataValue> >& InArray) : Value(InArray) {}
-	FLocMetadataValueArray(FArchive& Archive);
-	static void Serialize(FLocMetadataValueArray& Value, FArchive& Archive);
+	FLocMetadataValueArray(FStructuredArchive::FSlot Slot);
+	static void Serialize(FLocMetadataValueArray& Value, FStructuredArchive::FSlot Slot);
 
 	virtual TArray< TSharedPtr<FLocMetadataValue> > AsArray() override {return Value;}
 
@@ -256,8 +257,8 @@ class CORE_API FLocMetadataValueObject : public FLocMetadataValue
 {
 public:
 	FLocMetadataValueObject(TSharedPtr<FLocMetadataObject> InObject) : Value(InObject) {}
-	FLocMetadataValueObject(FArchive& Archive);
-	static void Serialize(FLocMetadataValueObject& Value, FArchive& Archive);
+	FLocMetadataValueObject(FStructuredArchive::FSlot Slot);
+	static void Serialize(FLocMetadataValueObject& Value, FStructuredArchive::FSlot Slot);
 
 	virtual TSharedPtr<FLocMetadataObject> AsObject() override {return Value;}
 

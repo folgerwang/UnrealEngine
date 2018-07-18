@@ -12,7 +12,7 @@ using Tools.DotNETCommon;
 
 namespace UnrealBuildTool
 {
-    /* UnrealPluginLanguage (UPL) is a simple XML-based language for manipulating XML and returning
+	/* UnrealPluginLanguage (UPL) is a simple XML-based language for manipulating XML and returning
 	 * strings.  It contains an <init> section which is evaluated once per architecture before any
 	 * other sections.  The state is maintained and carried forward to the next section evaluated
 	 * so the order the sections are executed matters.
@@ -189,7 +189,7 @@ namespace UnrealBuildTool
 	 *	
 	 * is the equivalent of:
 	 * 
-	 *	<if condition="$B(Distribution)">
+	 *	<if condition="Distribution">
 	 *		<!-- do stuff -->
 	 *	</if>
 	 * 
@@ -274,8 +274,9 @@ namespace UnrealBuildTool
 	 *	<addElement tag="" name=""/>
 	 *	<addElements tag=""> body </addElements>
 	 *	<removeElement tag=""/>
-	 *	<setStringFromTag result="" tag="" name=""/>
+	 *	<setStringFromTag result="" tag=""/>
 	 *	<setStringFromAttribute result="" tag="" name=""/>
+	 *	<setStringFromTagText result="" tag=""/>
 	 *	<addAttribute tag="" name="" value=""/>
 	 *	<removeAttribute tag="" name=""/>
 	 *	<loopElements tag=""> instructions </loopElements>
@@ -299,8 +300,10 @@ namespace UnrealBuildTool
 	 *	
 	 * Finally, these nodes allow copying of files useful for staging jar and so files:
 	 * 
-	 *	<copyFile src="" dst=""/>
-	 *	<copyDir src="" dst=""/>
+	 *	<copyFile src="" dst="" force=""/>
+	 *	<copyDir src="" dst="" force=""/>
+	 *
+	 * If force is false the file(s) are replaced only if length or timestamp don't match.  Default is true.
 	 *	
 	 * The following should be used as the base for the src and dst paths:
 	 * 
@@ -339,6 +342,9 @@ namespace UnrealBuildTool
 	 * 	<!-- optional base build.gradle additions -->
 	 * 	<baseBuildGradleAdditions>  </baseBuildGradleAdditions>
 	 *
+	 *	<!-- optional base build.gradle buildscript additions -->
+	 *	<buildscriptGradleAdditions>  </buildscriptGradleAdditions>
+	 *	
 	 * 	<!-- optional app build.gradle additions -->
 	 * 	<buildGradleAdditions>  </buildGradleAdditions>
 	 * 	
@@ -350,6 +356,18 @@ namespace UnrealBuildTool
 	 * 	
 	 * 	<!-- optional files or directories to copy or delete from Intermediate/Android/APK after ndk-build -->
 	 * 	<resourceCopies> </resourceCopies>
+	 * 	
+	 * 	<!-- optional files or directories to copy or delete from Intermediate/Android/APK before Gradle -->
+	 * 	<gradleCopies> </gradleCopies>
+	 * 	
+	 * 	<!-- optional properties to add to gradle.properties -->
+	 * 	<gradleProperties> </gradleProperties>
+	 *
+ 	 * 	<!-- optional parameters to add to Gradle commandline (prefix with a space or will run into previous parameter(s)) -->
+	 * 	<gradleParameters> </gradleParameters>
+	 *
+	 *  <!-- optional minimum SDK API level required -->
+	 *  <minimumSDKAPI> </minimumSDKAPI>
 	 * 	
 	 * 	<!-- optional additions to the GameActivity imports in GameActivity.java -->
 	 * 	<gameActivityImportAdditions> </gameActivityImportAdditions>
@@ -439,7 +457,7 @@ namespace UnrealBuildTool
 	 * 
 	 */
 
-    class UnrealPluginLanguage
+	class UnrealPluginLanguage
 	{
 		/** The merged XML program to run */
 		private XDocument XDoc;
@@ -476,8 +494,14 @@ namespace UnrealBuildTool
 				StringVariables = new Dictionary<string, string>();
 				ElementVariables = new Dictionary<string, XElement>();
 
+				if (PluginDir == null || PluginDir == "")
+				{
+					PluginDir = ".";
+				}
+				StringVariables["PluginDir"] = PluginDir.Replace("\\", "/");
+				StringVariables["AbsPluginDir"] = Path.GetFullPath(PluginDir).Replace("\\", "/");
+
 				StringVariables["Architecture"] = Architecture;
-				StringVariables["PluginDir"] = PluginDir;
 
 				bTrace = false;
 			}
@@ -505,7 +529,7 @@ namespace UnrealBuildTool
 			foreach (string Basename in InXMLFiles)
 			{
 				string Filename = Path.Combine(PathPrefix, Basename.Replace("\\", "/"));
-				Log.TraceInformation("\nUPL: {0}", Filename);
+				Log.TraceInformation("UPL: {0}", Filename);
 				if (File.Exists(Filename))
 				{
 					string PluginDir = Path.GetDirectoryName(Filename);
@@ -552,20 +576,20 @@ namespace UnrealBuildTool
 			}
 
 			// merge in the nodes
-			foreach (var Element in MergeDoc.Root.Elements())
+			foreach (XElement Element in MergeDoc.Root.Elements())
 			{
-				var Parent = XDoc.Root.Element(Element.Name);
+				XElement Parent = XDoc.Root.Element(Element.Name);
 				if (Parent != null)
 				{
-					var Entry = new XElement("Context", new XAttribute("index", ContextIndex.ToString()));
+					XElement Entry = new XElement("Context", new XAttribute("index", ContextIndex.ToString()));
 					Entry.Add(Element.Elements());
 					Parent.Add(Entry);
 				}
 				else
 				{
-					var Entry = new XElement("Context", new XAttribute("index", ContextIndex.ToString()));
+					XElement Entry = new XElement("Context", new XAttribute("index", ContextIndex.ToString()));
 					Entry.Add(Element.Elements());
-					var Base = new XElement(Element.Name);
+					XElement Base = new XElement(Element.Name);
 					Base.Add(Entry);
 					XDoc.Root.Add(Base);
 				}
@@ -585,19 +609,19 @@ namespace UnrealBuildTool
 		private string DumpContext(UPLContext Context)
 		{
 			StringBuilder Text = new StringBuilder();
-			foreach (var Variable in Context.BoolVariables)
+			foreach (KeyValuePair<string, bool> Variable in Context.BoolVariables)
 			{
 				Text.AppendLine(string.Format("\tbool {0} = {1}", Variable.Key, Variable.Value.ToString().ToLower()));
 			}
-			foreach (var Variable in Context.IntVariables)
+			foreach (KeyValuePair<string, int> Variable in Context.IntVariables)
 			{
 				Text.AppendLine(string.Format("\tint {0} = {1}", Variable.Key, Variable.Value));
 			}
-			foreach (var Variable in Context.StringVariables)
+			foreach (KeyValuePair<string, string> Variable in Context.StringVariables)
 			{
 				Text.AppendLine(string.Format("\tstring {0} = {1}", Variable.Key, Variable.Value));
 			}
-			foreach (var Variable in Context.ElementVariables)
+			foreach (KeyValuePair<string, XElement> Variable in Context.ElementVariables)
 			{
 				Text.AppendLine(string.Format("\telement {0} = {1}", Variable.Key, Variable.Value));
 			}
@@ -607,7 +631,7 @@ namespace UnrealBuildTool
 		public string DumpVariables()
 		{
 			string Result = "Global Context:\n" + DumpContext(GlobalContext);
-			foreach (var Context in Contexts)
+			foreach (KeyValuePair<string, UPLContext> Context in Contexts)
 			{
 				Result += "Context " + Context.Key + ": " + Context.Value.StringVariables["PluginDir"] + "\n" + DumpContext(Context.Value);
 			}
@@ -741,7 +765,7 @@ namespace UnrealBuildTool
 		private string TraceNodeString(XElement Node)
 		{
 			string Result = Node.Name.ToString();
-			foreach (var Attrib in Node.Attributes())
+			foreach (XAttribute Attrib in Node.Attributes())
 			{
 				Result += " " + Attrib.ToString();
 			}
@@ -816,7 +840,41 @@ namespace UnrealBuildTool
 			return config;
 		}
 
-		private static void CopyFileDirectory(string SourceDir, string DestDir)
+		private static bool FilesAreDifferent(string SourceFilename, string DestFilename)
+		{
+			// source must exist
+			FileInfo SourceInfo = new FileInfo(SourceFilename);
+			if (!SourceInfo.Exists)
+			{
+				Log.TraceInformation("File {0} does not exist", SourceFilename);
+				return false;
+			}
+
+			// different if destination doesn't exist
+			FileInfo DestInfo = new FileInfo(DestFilename);
+			if (!DestInfo.Exists)
+			{
+				return true;
+			}
+
+			// file lengths differ?
+			if (SourceInfo.Length != DestInfo.Length)
+			{
+				return true;
+			}
+
+			// validate timestamps
+			TimeSpan Diff = DestInfo.LastWriteTimeUtc - SourceInfo.LastWriteTimeUtc;
+			if (Diff.TotalSeconds < -1 || Diff.TotalSeconds > 1)
+			{
+				return true;
+			}
+
+			// could check actual bytes just to be sure, but good enough
+			return false;
+		}
+
+		private static void CopyFileDirectory(string SourceDir, string DestDir, bool bForce = false)
 		{
 			if (!Directory.Exists(SourceDir))
 			{
@@ -828,23 +886,29 @@ namespace UnrealBuildTool
 			{
 				// make the dst filename with the same structure as it was in SourceDir
 				string DestFilename = Path.Combine(DestDir, Utils.MakePathRelativeTo(Filename, SourceDir));
-				if (File.Exists(DestFilename))
+
+				if (bForce || FilesAreDifferent(Filename, DestFilename))
 				{
-					File.Delete(DestFilename);
+					if (File.Exists(DestFilename))
+					{
+						File.SetAttributes(DestFilename, FileAttributes.Normal);
+						File.Delete(DestFilename);
+					}
+
+					// make the subdirectory if needed
+					string DestSubdir = Path.GetDirectoryName(DestFilename);
+					if (!Directory.Exists(DestSubdir))
+					{
+						Directory.CreateDirectory(DestSubdir);
+					}
+
+					File.Copy(Filename, DestFilename);
+
+					// remove any read only flags and keep timestamp
+					FileInfo DestFileInfo = new FileInfo(DestFilename);
+					DestFileInfo.Attributes = DestFileInfo.Attributes & ~FileAttributes.ReadOnly;
+					File.SetLastWriteTimeUtc(DestFilename, File.GetLastWriteTimeUtc(Filename));
 				}
-
-				// make the subdirectory if needed
-				string DestSubdir = Path.GetDirectoryName(DestFilename);
-				if (!Directory.Exists(DestSubdir))
-				{
-					Directory.CreateDirectory(DestSubdir);
-				}
-
-				File.Copy(Filename, DestFilename);
-
-				// remove any read only flags
-				FileInfo DestFileInfo = new FileInfo(DestFilename);
-				DestFileInfo.Attributes = DestFileInfo.Attributes & ~FileAttributes.ReadOnly;
 			}
 		}
 
@@ -861,6 +925,7 @@ namespace UnrealBuildTool
 			string[] Files = Directory.GetFiles(BaseDir, Mask, SearchOption.TopDirectoryOnly);
 			foreach (string Filename in Files)
 			{
+				File.SetAttributes(Filename, FileAttributes.Normal);
 				File.Delete(Filename);
 				Log.TraceInformation("\nDeleted file {0}", Filename);
 			}
@@ -921,7 +986,7 @@ namespace UnrealBuildTool
 		{
 			if (Source.HasElements)
 			{
-				foreach (var Index in Source.Elements())
+				foreach (XElement Index in Source.Elements())
 				{
 //					if (Target.Element(Index.Name) == null)
 					{
@@ -939,11 +1004,11 @@ namespace UnrealBuildTool
 		public string ProcessPluginNode(string Architecture, string NodeName, string Input, ref XDocument XMLWork)
 		{
 			// add all instructions to execution list
-			var ExecutionStack = new Stack<XElement>();
-			var StartNode = XDoc.Root.Element(NodeName);
+			Stack<XElement> ExecutionStack = new Stack<XElement>();
+			XElement StartNode = XDoc.Root.Element(NodeName);
 			if (StartNode != null)
 			{
-				foreach (var Instruction in StartNode.Elements().Reverse())
+				foreach (XElement Instruction in StartNode.Elements().Reverse())
 				{
 					ExecutionStack.Push(Instruction);
 				}
@@ -954,19 +1019,19 @@ namespace UnrealBuildTool
 				return Input;
 			}
 
-			var ContextStack = new Stack<UPLContext>();
+			Stack<UPLContext> ContextStack = new Stack<UPLContext>();
 			UPLContext CurrentContext = GlobalContext;
 
 			// update Output in global context
 			GlobalContext.StringVariables["Output"] = Input;
 
-			var ElementStack = new Stack<XElement>();
+			Stack<XElement> ElementStack = new Stack<XElement>();
 			XElement CurrentElement = XMLWork.Elements().First();
 
 			// run the instructions
 			while (ExecutionStack.Count > 0)
 			{
-				var Node = ExecutionStack.Pop();
+				XElement Node = ExecutionStack.Pop();
 				if (bGlobalTrace || CurrentContext.bTrace)
 				{
 					Log.TraceInformation("Execute: '{0}'", TraceNodeString(Node));
@@ -1003,7 +1068,7 @@ namespace UnrealBuildTool
 							string index = GetAttribute(CurrentContext, Node, "index");
 							CurrentContext = Contexts[Architecture + "_" + index];
 							ExecutionStack.Push(new XElement("PopContext"));
-							foreach (var instruction in Node.Elements().Reverse())
+							foreach (XElement instruction in Node.Elements().Reverse())
 							{
 								ExecutionStack.Push(instruction);
 							}
@@ -1032,7 +1097,7 @@ namespace UnrealBuildTool
 							string arch = GetAttribute(CurrentContext, Node, "arch");
 							if (arch != null && arch.Equals(Architecture))
 							{
-								foreach (var instruction in Node.Elements().Reverse())
+								foreach (XElement instruction in Node.Elements().Reverse())
 								{
 									ExecutionStack.Push(instruction);
 								}
@@ -1047,7 +1112,7 @@ namespace UnrealBuildTool
 							{
 								if (Result)
 								{
-									foreach (var Instruction in Node.Elements().Reverse())
+									foreach (XElement Instruction in Node.Elements().Reverse())
 									{
 										ExecutionStack.Push(Instruction);
 									}
@@ -1061,10 +1126,10 @@ namespace UnrealBuildTool
 							bool Result;
 							if (GetCondition(CurrentContext, Node, GetAttribute(CurrentContext, Node, "condition"), out Result))
 							{
-								var ResultNode = Node.Element(Result ? "true" : "false");
+								XElement ResultNode = Node.Element(Result ? "true" : "false");
 								if (ResultNode != null)
 								{
-									foreach (var Instruction in ResultNode.Elements().Reverse())
+									foreach (XElement Instruction in ResultNode.Elements().Reverse())
 									{
 										ExecutionStack.Push(Instruction);
 									}
@@ -1080,11 +1145,11 @@ namespace UnrealBuildTool
 							{
 								if (Result)
 								{
-									var ResultNode = Node.Elements();
+									IEnumerable<XElement> ResultNode = Node.Elements();
 									if (ResultNode != null)
 									{
 										ExecutionStack.Push(Node);
-										foreach (var Instruction in ResultNode.Reverse())
+										foreach (XElement Instruction in ResultNode.Reverse())
 										{
 											ExecutionStack.Push(Instruction);
 										}
@@ -1147,10 +1212,10 @@ namespace UnrealBuildTool
 							string Tag = GetAttribute(CurrentContext, Node, "tag");
 							ElementStack.Push(CurrentElement);
 							ExecutionStack.Push(new XElement("PopElement"));
-							var WorkList = (Tag == "$") ? CurrentElement.Elements().Reverse() : CurrentElement.Descendants(Tag).Reverse();
-							foreach (var WorkNode in WorkList)
+							IEnumerable<XElement> WorkList = (Tag == "$") ? CurrentElement.Elements().Reverse() : CurrentElement.Descendants(Tag).Reverse();
+							foreach (XElement WorkNode in WorkList)
 							{
-								foreach (var Instruction in Node.Elements().Reverse())
+								foreach (XElement Instruction in Node.Elements().Reverse())
 								{
 									ExecutionStack.Push(Instruction);
 								}
@@ -1189,7 +1254,7 @@ namespace UnrealBuildTool
 									{
 										AddAttribute(CurrentElement, Name, Value);
 									}
-									foreach (var WorkNode in CurrentElement.Descendants(Tag))
+									foreach (XElement WorkNode in CurrentElement.Descendants(Tag))
 									{
 										AddAttribute(WorkNode, Name, Value);
 									}
@@ -1226,7 +1291,7 @@ namespace UnrealBuildTool
 									{
 										RemoveAttribute(CurrentElement, Name);
 									}
-									foreach (var WorkNode in CurrentElement.Descendants(Tag))
+									foreach (XElement WorkNode in CurrentElement.Descendants(Tag))
 									{
 										RemoveAttribute(WorkNode, Name);
 									}
@@ -1242,7 +1307,7 @@ namespace UnrealBuildTool
 							{
 								// make sure it isn't already added
 								bool bFound = false;
-								foreach (var Element in XMLWork.Descendants("uses-permission"))
+								foreach (XElement Element in XMLWork.Descendants("uses-permission"))
 								{
 									XAttribute Attribute = Element.Attribute(XMLNameSpace + "name");
 									if (Attribute != null)
@@ -1259,8 +1324,8 @@ namespace UnrealBuildTool
 								if (!bFound)
 								{
 									// Get the attributes and apply any variable expansion needed
-									var AttributeList = Node.Attributes().ToList();
-									foreach (var Attribute in AttributeList)
+									List<XAttribute> AttributeList = Node.Attributes().ToList();
+									foreach (XAttribute Attribute in AttributeList)
 									{
 										string NewValue = ExpandVariables(CurrentContext, Attribute.Value);
 										Attribute.SetValue(NewValue);
@@ -1277,7 +1342,7 @@ namespace UnrealBuildTool
 							string Name = GetAttributeWithNamespace(CurrentContext, Node, XMLNameSpace, "name");
 							if (Name != null)
 							{
-								foreach (var Element in XMLWork.Descendants("uses-permission"))
+								foreach (XElement Element in XMLWork.Descendants("uses-permission"))
 								{
 									XAttribute Attribute = Element.Attribute(XMLNameSpace + "name");
 									if (Attribute != null)
@@ -1300,7 +1365,7 @@ namespace UnrealBuildTool
 							{
 								// make sure it isn't already added
 								bool bFound = false;
-								foreach (var Element in XMLWork.Descendants("uses-feature"))
+								foreach (XElement Element in XMLWork.Descendants("uses-feature"))
 								{
 									XAttribute Attribute = Element.Attribute(XMLNameSpace + "name");
 									if (Attribute != null)
@@ -1317,8 +1382,8 @@ namespace UnrealBuildTool
 								if (!bFound)
 								{
 									// Get the attributes and apply any variable expansion needed
-									var AttributeList = Node.Attributes().ToList();
-									foreach (var Attribute in AttributeList)
+									List<XAttribute> AttributeList = Node.Attributes().ToList();
+									foreach (XAttribute Attribute in AttributeList)
 									{
 										string NewValue = ExpandVariables(CurrentContext, Attribute.Value);
 										Attribute.SetValue(NewValue);
@@ -1335,7 +1400,7 @@ namespace UnrealBuildTool
 							string Name = GetAttributeWithNamespace(CurrentContext, Node, XMLNameSpace, "name");
 							if (Name != null)
 							{
-								foreach (var Element in XMLWork.Descendants("uses-feature"))
+								foreach (XElement Element in XMLWork.Descendants("uses-feature"))
 								{
 									XAttribute Attribute = Element.Attribute(XMLNameSpace + "name");
 									if (Attribute != null)
@@ -1358,7 +1423,7 @@ namespace UnrealBuildTool
 							{
 								// make sure it isn't already added
 								bool bFound = false;
-								foreach (var Element in XMLWork.Descendants("uses-library"))
+								foreach (XElement Element in XMLWork.Descendants("uses-library"))
 								{
 									XAttribute Attribute = Element.Attribute(XMLNameSpace + "name");
 									if (Attribute != null)
@@ -1375,8 +1440,8 @@ namespace UnrealBuildTool
 								if (!bFound)
 								{
 									// Get the attributes and apply any variable expansion needed
-									var AttributeList = Node.Attributes().ToList();
-									foreach (var Attribute in AttributeList)
+									List<XAttribute> AttributeList = Node.Attributes().ToList();
+									foreach (XAttribute Attribute in AttributeList)
 									{
 										string NewValue = ExpandVariables(CurrentContext, Attribute.Value);
 										Attribute.SetValue(NewValue);
@@ -1393,7 +1458,7 @@ namespace UnrealBuildTool
 							string Name = GetAttributeWithNamespace(CurrentContext, Node, XMLNameSpace, "name");
 							if (Name != null)
 							{
-								foreach (var Element in XMLWork.Descendants("uses-library"))
+								foreach (XElement Element in XMLWork.Descendants("uses-library"))
 								{
 									XAttribute Attribute = Element.Attribute(XMLNameSpace + "name");
 									if (Attribute != null)
@@ -1424,7 +1489,7 @@ namespace UnrealBuildTool
 								else
 								{
 									// use a list since Remove() may modify it
-									foreach (var Element in XMLWork.Descendants(Tag).ToList())
+									foreach (XElement Element in XMLWork.Descendants(Tag).ToList())
 									{
 										Element.Remove();
 										if (bOnce)
@@ -1478,7 +1543,7 @@ namespace UnrealBuildTool
 
 									// make sure we don't recurse forever if Tag is in Element
 									List<XElement> AddSet = new List<XElement>();
-									foreach (var WorkNode in CurrentElement.Descendants(Tag))
+									foreach (XElement WorkNode in CurrentElement.Descendants(Tag))
 									{
 										AddSet.Add(WorkNode);
 										if (bOnce)
@@ -1486,7 +1551,7 @@ namespace UnrealBuildTool
 											break;
 										}
 									}
-									foreach (var WorkNode in AddSet)
+									foreach (XElement WorkNode in AddSet)
 									{
 										WorkNode.Add(new XElement(Element));
 									}
@@ -1526,7 +1591,7 @@ namespace UnrealBuildTool
 
 									// make sure we don't recurse forever if Tag is in Node
 									List<XElement> AddSet = new List<XElement>();
-									foreach (var WorkNode in CurrentElement.Descendants(Tag))
+									foreach (XElement WorkNode in CurrentElement.Descendants(Tag))
 									{
 										AddSet.Add(WorkNode);
 										if (bOnce)
@@ -1534,7 +1599,7 @@ namespace UnrealBuildTool
 											break;
 										}
 									}
-									foreach (var WorkNode in AddSet)
+									foreach (XElement WorkNode in AddSet)
 									{
 										AddElements(WorkNode, Node);
 									}
@@ -1547,7 +1612,7 @@ namespace UnrealBuildTool
 						{
 							if (Node.HasElements)
 							{
-								foreach (var Element in Node.Elements())
+								foreach (XElement Element in Node.Elements())
 								{
 									string Value = Element.ToString().Replace(" " + XMLRootDefinition + " ", "");
 									GlobalContext.StringVariables["Output"] += Value + "\n";
@@ -1612,27 +1677,32 @@ namespace UnrealBuildTool
 						{
 							string Src = GetAttribute(CurrentContext, Node, "src");
 							string Dst = GetAttribute(CurrentContext, Node, "dst");
+							bool bForce = StringToBool(GetAttribute(CurrentContext, Node, "once", true, false, "true"));
 							if (Src != null && Dst != null)
 							{
 								if (File.Exists(Src))
 								{
 									// check to see if newer than last time we copied
-									bool bFileExists = File.Exists(Dst);
-									TimeSpan Diff = File.GetLastWriteTimeUtc(Dst) - File.GetLastWriteTimeUtc(Src);
-									if (!bFileExists || Diff.TotalSeconds < -1 || Diff.TotalSeconds > 1)
+									if (bForce || FilesAreDifferent(Src, Dst))
 									{
-										if (bFileExists)
+										if (File.Exists(Dst))
 										{
+											File.SetAttributes(Dst, FileAttributes.Normal);
 											File.Delete(Dst);
 										}
 										Directory.CreateDirectory(Path.GetDirectoryName(Dst));
 										File.Copy(Src, Dst, true);
 										Log.TraceInformation("\nFile {0} copied to {1}", Src, Dst);
 
-										// remove any read only flags
+										// remove any read only flags and keep timestamp
 										FileInfo DestFileInfo = new FileInfo(Dst);
 										DestFileInfo.Attributes = DestFileInfo.Attributes & ~FileAttributes.ReadOnly;
+										File.SetLastWriteTimeUtc(Dst, File.GetLastWriteTimeUtc(Src));
 									}
+								}
+								else
+								{
+									Log.TraceInformation("\nFile {0} does not exist, not copied!", Src);
 								}
 							}
 						}
@@ -1642,10 +1712,11 @@ namespace UnrealBuildTool
 						{
 							string Src = GetAttribute(CurrentContext, Node, "src");
 							string Dst = GetAttribute(CurrentContext, Node, "dst");
+							bool bForce = StringToBool(GetAttribute(CurrentContext, Node, "once", true, false, "true"));
 							if (Src != null && Dst != null)
 							{
-								CopyFileDirectory(Src, Dst);
-								Log.TraceInformation("\nDirectory {0} copied to {1}", Src, Dst);
+								CopyFileDirectory(Src, Dst, bForce);
+								Log.TraceInformation("\nDirectory {0} copied to {1}", Src, Dst, bForce);
 							}
 						}
 						break;
@@ -2143,6 +2214,39 @@ namespace UnrealBuildTool
 						}
 						break;
 
+					case "setStringFromTagText":
+						{
+							string Result = GetAttribute(CurrentContext, Node, "result");
+							string Tag = GetAttribute(CurrentContext, Node, "tag", true, false, "$");
+							if (Result != null)
+							{
+								XElement Element = CurrentElement;
+								if (Tag.StartsWith("$"))
+								{
+									if (Tag.Length > 1)
+									{
+										if (!CurrentContext.ElementVariables.TryGetValue(Tag.Substring(1), out Element))
+										{
+											if (!GlobalContext.ElementVariables.TryGetValue(Tag.Substring(1), out Element))
+											{
+												Log.TraceWarning("\nMissing element variable '{0}' in '{1}' (skipping instruction)", Tag, TraceNodeString(Node));
+												continue;
+											}
+										}
+									}
+								}
+
+								if (Element.Value == null)
+								{
+									Log.TraceWarning("\nExpected text in element '{0}' in '{1}' but found none (skipping instruction)", Element.Name.ToString(), TraceNodeString(Node));
+									continue;
+								}
+
+								CurrentContext.StringVariables[Result] = Element.Value;
+							}
+						}
+						break;
+
 					case "setStringFromProperty":
 						{
 							string Result = GetAttribute(CurrentContext, Node, "result");
@@ -2286,10 +2390,28 @@ namespace UnrealBuildTool
 		public void Init(List<string> Architectures, bool bDistribution, string EngineDirectory, string BuildDirectory, string ProjectDirectory, string Configuration)
 		{
 			GlobalContext.BoolVariables["Distribution"] = bDistribution;
-			GlobalContext.StringVariables["EngineDir"] = EngineDirectory;
-			GlobalContext.StringVariables["BuildDir"] = BuildDirectory;
-			GlobalContext.StringVariables["ProjectDir"] = ProjectDirectory;
 			GlobalContext.StringVariables["Configuration"] = Configuration;
+
+			GlobalContext.StringVariables["EngineDir"] = EngineDirectory.Replace("\\", "/");
+			GlobalContext.StringVariables["BuildDir"] = BuildDirectory.Replace("\\", "/");
+			GlobalContext.StringVariables["ProjectDir"] = ProjectDirectory.Replace("\\", "/");
+
+			if (GlobalContext.StringVariables["EngineDir"].Length < 1)
+			{
+				GlobalContext.StringVariables["EngineDir"] = "./";
+			}
+			if (GlobalContext.StringVariables["BuildDir"].Length < 1)
+			{
+				GlobalContext.StringVariables["BuildDir"] = "./";
+			}
+			if (GlobalContext.StringVariables["ProjectDir"].Length < 1)
+			{
+				GlobalContext.StringVariables["ProjectDir"] = "./";
+			}
+
+			GlobalContext.StringVariables["AbsEngineDir"] = Path.GetFullPath(GlobalContext.StringVariables["EngineDir"]).Replace("\\", "/");
+			GlobalContext.StringVariables["AbsBuildDir"] = Path.GetFullPath(GlobalContext.StringVariables["BuildDir"]).Replace("\\", "/");
+			GlobalContext.StringVariables["AbsProjectDir"] = Path.GetFullPath(GlobalContext.StringVariables["ProjectDir"]).Replace("\\", "/");
 
 			foreach (string Arch in Architectures)
 			{
@@ -2426,7 +2548,7 @@ namespace UnrealBuildTool
 			public IniSection(IniSection Other)
 				: this()
 			{
-				foreach (var Pair in Other)
+				foreach (KeyValuePair<string, IniValues> Pair in Other)
 				{
 					Add(Pair.Key, new IniValues(Pair.Value));
 				}
@@ -2527,14 +2649,14 @@ namespace UnrealBuildTool
 
 			if (BaseCache != null)
 			{
-				foreach (var Pair in BaseCache.Sections)
+				foreach (KeyValuePair<string, IniSection> Pair in BaseCache.Sections)
 				{
 					Sections.Add(Pair.Key, new IniSection(Pair.Value));
 				}
 			}
 			if (EngineOnly)
 			{
-				foreach (var IniFileName in EnumerateEngineIniFileNames(EngineDirectory, BaseIniName))
+				foreach (FileReference IniFileName in EnumerateEngineIniFileNames(EngineDirectory, BaseIniName))
 				{
 					if (FileReference.Exists(IniFileName))
 					{
@@ -2544,7 +2666,7 @@ namespace UnrealBuildTool
 			}
 			else
 			{
-				foreach (var IniFileName in EnumerateCrossPlatformIniFileNames(ProjectDirectory, EngineDirectory, Platform, BaseIniName, BaseCache != null))
+				foreach (FileReference IniFileName in EnumerateCrossPlatformIniFileNames(ProjectDirectory, EngineDirectory, Platform, BaseIniName, BaseCache != null))
 				{
 					if (FileReference.Exists(IniFileName))
 					{
@@ -2572,7 +2694,7 @@ namespace UnrealBuildTool
 		private bool GetList(string SectionName, string Key, out IniValues Value)
 		{
 			bool Result = false;
-			var Section = FindSection(SectionName);
+			IniSection Section = FindSection(SectionName);
 			Value = null;
 			if (Section != null)
 			{
@@ -2851,7 +2973,7 @@ namespace UnrealBuildTool
 				}
 				catch (Exception ex)
 				{
-					Console.WriteLine("Error reading ini file: " + Filename + " Exception: " + ex.Message);
+					Log.TraceInformation("Error reading ini file: " + Filename + " Exception: " + ex.Message);
 				}
 			}
 			else
@@ -2863,16 +2985,16 @@ namespace UnrealBuildTool
 				IniSection CurrentSection = null;
 
 				// Line Index for exceptions
-				var LineIndex = 1;
-				var bMultiLine = false;
-				var SingleValue = "";
-				var Key = "";
-				var LastAction = ParseAction.None;
+				int LineIndex = 1;
+				bool bMultiLine = false;
+				string SingleValue = "";
+				string  Key = "";
+				ParseAction LastAction = ParseAction.None;
 
 				// Parse each line
-				foreach (var Line in IniLines)
+				foreach (string Line in IniLines)
 				{
-					var TrimmedLine = Line.Trim();
+					string TrimmedLine = Line.Trim();
 					// Multiline value support
 					bool bWasMultiLine = bMultiLine;
 					bMultiLine = TrimmedLine.EndsWith("\\");
@@ -2943,7 +3065,7 @@ namespace UnrealBuildTool
 				// run each command
 				for (int Idx = 0; Idx < Commands.Count; ++Idx)
 				{
-					var Command = Commands[Idx];
+					Command Command = Commands[Idx];
 					if (Command is SectionCommand)
 					{
 						CurrentSection = FindOrAddSection((Command as SectionCommand).TrimmedLine, (Command as SectionCommand).Filename, (Command as SectionCommand).LineIndex);
@@ -2961,7 +3083,7 @@ namespace UnrealBuildTool
 		/// </summary>
 		private static void ParseKeyValuePair(string TrimmedLine, FileReference Filename, int LineIndex, out string Key, out string Value)
 		{
-			var AssignIndex = TrimmedLine.IndexOf('=');
+			int AssignIndex = TrimmedLine.IndexOf('=');
 			if (AssignIndex < 0)
 			{
 				throw new IniParsingException("Failed to find value when parsing {0}, line {1}: {2}", Filename, LineIndex, TrimmedLine);
@@ -2975,7 +3097,7 @@ namespace UnrealBuildTool
 			if (Value.StartsWith("\""))
 			{
 				// Remove quotes
-				var QuoteEnd = Value.LastIndexOf('\"');
+				int QuoteEnd = Value.LastIndexOf('\"');
 				if (QuoteEnd == 0)
 				{
 					throw new IniParsingException("Mismatched quotes when parsing {0}, line {1}: {2}", Filename, LineIndex, TrimmedLine);
@@ -3020,7 +3142,7 @@ namespace UnrealBuildTool
 						IniValues Value;
 						if (CurrentSection.TryGetValue(Key, out Value))
 						{
-							var ExistingIndex = Value.FindIndex(X => (String.Compare(SingleValue, X, true) == 0));
+							int ExistingIndex = Value.FindIndex(X => (String.Compare(SingleValue, X, true) == 0));
 							if (ExistingIndex >= 0)
 							{
 								Value.RemoveAt(ExistingIndex);
@@ -3036,12 +3158,12 @@ namespace UnrealBuildTool
 		/// </summary>
 		private IniSection FindOrAddSection(string TrimmedLine, FileReference Filename, int LineIndex)
 		{
-			var SectionEndIndex = TrimmedLine.IndexOf(']');
+			int SectionEndIndex = TrimmedLine.IndexOf(']');
 			if (SectionEndIndex != (TrimmedLine.Length - 1))
 			{
 				throw new IniParsingException("Mismatched brackets when parsing section name in {0}, line {1}: {2}", Filename, LineIndex, TrimmedLine);
 			}
-			var SectionName = TrimmedLine.Substring(1, TrimmedLine.Length - 2);
+			string SectionName = TrimmedLine.Substring(1, TrimmedLine.Length - 2);
 			if (String.IsNullOrEmpty(SectionName))
 			{
 				throw new IniParsingException("Empty section name when parsing {0}, line {1}: {2}", Filename, LineIndex, TrimmedLine);

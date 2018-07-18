@@ -6,7 +6,6 @@ D3D12CommandList.h: Implementation of D3D12 Command List functions
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Misc/ScopeLock.h"
 
 class FD3D12Device;
 
@@ -242,6 +241,9 @@ private:
 		FD3D12CommandContext*					CurrentOwningContext;
 		const D3D12_COMMAND_LIST_TYPE			CommandListType;
 		TRefCountPtr<ID3D12GraphicsCommandList>	CommandList;		// Raw D3D command list pointer
+#if PLATFORM_WINDOWS
+		TRefCountPtr<ID3D12GraphicsCommandList1> CommandList1;
+#endif
 		FD3D12CommandAllocator*					CurrentCommandAllocator;	// Command allocator currently being used for recording the command list
 		uint64									CurrentGeneration;
 		uint64									LastCompleteGeneration;
@@ -389,6 +391,14 @@ public:
 		return reinterpret_cast<ID3D12GraphicsCommandList*>(CommandListData->CommandList.GetReference());
 	}
 
+#if PLATFORM_WINDOWS
+	ID3D12GraphicsCommandList1* GraphicsCommandList1() const
+	{
+		check(CommandListData && (CommandListData->CommandListType == D3D12_COMMAND_LIST_TYPE_DIRECT || CommandListData->CommandListType == D3D12_COMMAND_LIST_TYPE_COMPUTE));
+		return CommandListData->CommandList1.GetReference();
+	}
+#endif
+
 	uint64 CurrentGeneration() const
 	{
 		check(CommandListData);
@@ -415,8 +425,14 @@ public:
 
 	bool IsComplete(uint64 Generation) const
 	{
-		check(CommandListData);
-		return CommandListData->IsComplete(Generation);
+		if (CommandListData) // Can be null with mGPU
+		{
+			return CommandListData->IsComplete(Generation);
+		}
+		else
+		{
+			return true;
+		}
 	}
 
 	void WaitForCompletion(uint64 Generation) const
@@ -525,6 +541,11 @@ public:
 #if DEBUG_RESOURCE_STATES
 		::LogResourceBarriers(CommandListData->ResourceBarriers.Num(), CommandListData->ResourceBarriers.GetData(), CommandList());
 #endif
+	}
+
+	FORCEINLINE uint32 GetGPUIndex() const 
+	{
+		return CommandListData ? CommandListData->GetGPUIndex() : 0;
 	}
 
 private:

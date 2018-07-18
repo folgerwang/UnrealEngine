@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3725599
+﻿INTSourceChangelist:3750348
 Availability:Public
 Crumbs: %ROOT%
 Title:4 - TV ブループリントの設定 - コンストラクション スクリプト
@@ -6,7 +6,8 @@ Description:このステップでは、コンストラクション スクリプ�
 SkillLevel:Beginner
 Version:4.18
 checkpoint: mediaframeworkqs
-parent:Engine\MediaFramework\QuickStart
+parent:Engine/MediaFramework/QuickStart
+type:quick start
 type:multi-step
 order:4
 tags:Media Framework
@@ -14,7 +15,7 @@ tags:Blueprints
  
 [NAV]
 
-TV ブループリントのコンポーネントの定義が完了しました。このステップでは [コンストラクション スクリプト](Engine/Blueprints/UserGuide/UserConstructionScript) を設定して、レベル内に配置した時に TV のコンテンツを変更できるようにします。
+TV ブループリントのコンポーネントの定義が完了しました。[コンストラクション スクリプト](Engine/Blueprints/UserGuide/UserConstructionScript) を設定して、レベル内に配置した時に TV のコンテンツを変更できるようにします。
 
 ## ステップ
 
@@ -78,7 +79,7 @@ TV ブループリントのコンポーネントの定義が完了しました�
 
 	![](Construct_11.png)
 
-	ここでは、Texture を使うように Default Value を定義し、[Instance Editable] を有効にすることで、このブループリントの各インスタンスに対して値を変更できるようにします。 
+	ここでは、Texture を使うように Default Value を定義し、**[Instance Editable]** を有効にすることで、このブループリントの各インスタンスに対して値を変更できるようにします。 
 
 	[REGION:note]
 	**Media Texture** の [Default Value] を設定するために、メイン ツールバーから **[Compile]** ボタンをクリックする必要があるかもしれません。 

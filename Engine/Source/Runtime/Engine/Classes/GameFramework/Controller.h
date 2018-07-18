@@ -14,10 +14,10 @@ class APawn;
 class APlayerState;
 class FDebugDisplayInfo;
 class UDamageType;
-class UPathFollowingComponent;
 
 UDELEGATE(BlueprintAuthorityOnly)
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_FourParams( FInstigatedAnyDamageSignature, float, Damage, const UDamageType*, DamageType, AActor*, DamagedActor, AActor*, DamageCauser );
+DECLARE_MULTICAST_DELEGATE_OneParam(FPawnChangedSignature, APawn* /*NewPawn*/);
 
 /**
  * Controllers are non-physical actors that can possess a Pawn to control
@@ -80,6 +80,8 @@ private:
 	USceneComponent* TransformComponent;
 
 protected:
+	FPawnChangedSignature OnNewPawn;
+
 	/** The control rotation of the Controller. See GetControlRotation. */
 	UPROPERTY()
 	FRotator ControlRotation;
@@ -187,6 +189,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category=Pawn, meta=(DisplayName="Get Controlled Pawn", ScriptName="GetControlledPawn"))
 	APawn* K2_GetPawn() const;
 
+	FPawnChangedSignature GetOnNewPawnNotifier() { return OnNewPawn; }
+
+public:
+
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 	//~ Begin AActor Interface
@@ -289,14 +295,9 @@ public:
 	virtual void GetMoveGoalReachTest(const AActor* MovingActor, const FVector& MoveOffset, FVector& GoalOffset, float& GoalRadius, float& GoalHalfHeight) const override;
 	virtual bool ShouldPostponePathUpdates() const override;
 	virtual bool IsFollowingAPath() const override;
+	virtual IPathFollowingAgentInterface* GetPathFollowingAgent() const override;
 	//~ End INavAgentInterface Interface
-
-	/** Prepares path following component */
-	virtual void InitNavigationControl(UPathFollowingComponent*& PathFollowingComp);
-
-	/** If controller has any navigation-related components then this function makes them update their cached data */
-	virtual void UpdateNavigationComponents();
-
+	
 	/** Aborts the move the controller is currently performing */
 	UFUNCTION(BlueprintCallable, Category="AI|Navigation")
 	virtual void StopMovement();
@@ -352,6 +353,20 @@ protected:
 private:
 	// Hidden functions that don't make sense to use on this class.
 	HIDE_ACTOR_TRANSFORM_FUNCTIONS();
+
+public:
+
+	/** prepares path following component */
+	DEPRECATED(4.20, "InitNavigationControl is depracated. The function lost its meaning due to better Engine-AIModule code separation")
+	virtual void InitNavigationControl(UObject*& PathFollowingComp) {}
+
+	/** If controller has any navigation-related components then this function
+	 *	makes them update their cached data 
+	 *	DEPRECATED: this functionality has been taken over by PathFollowingComponent 
+	 *		by observing newly possessed pawns (via OnNewPawn)
+	 */
+	DEPRECATED(4.20, "UpdateNavigationComponents is depracated. The function lost its meaning due to better Engine-AIModule code separation.")
+	virtual void UpdateNavigationComponents() {}
 };
 
 

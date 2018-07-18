@@ -19,7 +19,7 @@ class FWindData;
 class FWindSourceSceneProxy;
 
 /** Component that provides a directional wind source. Only affects SpeedTree assets. */
-UCLASS(collapsecategories, hidecategories=(Object, Mobility), editinlinenew)
+UCLASS(MinimalAPI,collapsecategories, hidecategories=(Object, Mobility), editinlinenew)
 class UWindDirectionalSourceComponent : public USceneComponent
 {
 	GENERATED_UCLASS_BODY()

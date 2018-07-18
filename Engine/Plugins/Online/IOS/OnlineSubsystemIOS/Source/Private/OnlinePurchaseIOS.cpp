@@ -62,8 +62,8 @@ void FOnlinePurchaseIOS::InitStoreKit(FStoreKitHelperV2* InStoreKit)
 
 bool FOnlinePurchaseIOS::IsAllowedToPurchase(const FUniqueNetId& UserId)
 {
-	UE_LOG(LogOnline, Verbose, TEXT("FOnlinePurchaseIOS::IsAllowedToPurchase"));
 	bool bCanMakePurchases = [SKPaymentQueue canMakePayments];
+	UE_LOG(LogOnline, Verbose, TEXT("FOnlinePurchaseIOS::IsAllowedToPurchase %s"), *LexToString(bCanMakePurchases));
 	return bCanMakePurchases;
 }
 

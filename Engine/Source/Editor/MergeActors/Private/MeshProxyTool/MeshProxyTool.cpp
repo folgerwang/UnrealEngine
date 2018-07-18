@@ -35,7 +35,7 @@ TSharedRef<SWidget> FMeshProxyTool::GetWidget()
 	return ProxyDialog.ToSharedRef();
 }
 
-FText  FMeshProxyTool::GetTooltipText() const
+FText FMeshProxyTool::GetTooltipText() const
 {
 	return LOCTEXT("MeshProxyToolTooltip", "Harvest geometry from selected actors and merge them into single mesh.");
 }
@@ -162,7 +162,7 @@ bool FMeshProxyTool::CanMerge() const
 
 FText FThirdPartyMeshProxyTool::GetTooltipText() const
 {
-	return LOCTEXT("MeshProxyToolTooltip", "Harvest geometry selected meshes and merge and and simplify them as a single mesh.");
+	return LOCTEXT("ThirdPartyMeshProxyToolTooltip", "Harvest geometry selected meshes and merge and and simplify them as a single mesh.");
 }
 
 

@@ -117,40 +117,6 @@ uint32 GetShadowQuality()
 	return FMath::Clamp(Ret, 0, 5);
 }
 
-float GetLightFadeFactor(const FSceneView& View, const FLightSceneProxy* Proxy)
-{
-	// Distance fade
-	FSphere Bounds = Proxy->GetBoundingSphere();
-
-	const float DistanceSquared = (Bounds.Center - View.ViewMatrices.GetViewOrigin()).SizeSquared();
-	extern float GMinScreenRadiusForLights;
-	float SizeFade = FMath::Square(FMath::Min(0.0002f, GMinScreenRadiusForLights / Bounds.W) * View.LODDistanceFactor) * DistanceSquared;
-	SizeFade = FMath::Clamp(6.0f - 6.0f * SizeFade, 0.0f, 1.0f);
-
-	extern float GLightMaxDrawDistanceScale;
-	float MaxDist = Proxy->GetMaxDrawDistance() * GLightMaxDrawDistanceScale;
-	float Range = Proxy->GetFadeRange();
-	float DistanceFade = MaxDist ? (MaxDist - FMath::Sqrt(DistanceSquared)) / Range : 1.0f;
-	DistanceFade = FMath::Clamp(DistanceFade, 0.0f, 1.0f);
-	return SizeFade * DistanceFade;
-}
-
-/** The stencil sphere vertex buffer. */
-TGlobalResource<StencilingGeometry::TStencilSphereVertexBuffer<18, 12, FVector4> > StencilingGeometry::GStencilSphereVertexBuffer;
-TGlobalResource<StencilingGeometry::TStencilSphereVertexBuffer<18, 12, FVector> > StencilingGeometry::GStencilSphereVectorBuffer;
-
-/** The stencil sphere index buffer. */
-TGlobalResource<StencilingGeometry::TStencilSphereIndexBuffer<18, 12> > StencilingGeometry::GStencilSphereIndexBuffer;
-
-TGlobalResource<StencilingGeometry::TStencilSphereVertexBuffer<4, 4, FVector4> > StencilingGeometry::GLowPolyStencilSphereVertexBuffer;
-TGlobalResource<StencilingGeometry::TStencilSphereIndexBuffer<4, 4> > StencilingGeometry::GLowPolyStencilSphereIndexBuffer;
-
-/** The (dummy) stencil cone vertex buffer. */
-TGlobalResource<StencilingGeometry::FStencilConeVertexBuffer> StencilingGeometry::GStencilConeVertexBuffer;
-
-/** The stencil cone index buffer. */
-TGlobalResource<StencilingGeometry::FStencilConeIndexBuffer> StencilingGeometry::GStencilConeIndexBuffer;
-
 /*-----------------------------------------------------------------------------
 	FShadowVolumeBoundProjectionVS
 -----------------------------------------------------------------------------*/
@@ -185,23 +151,36 @@ IMPLEMENT_SHADER_TYPE(,FShadowVolumeBoundProjectionVS,TEXT("/Engine/Private/Shad
  * Implementations for TShadowProjectionPS.  
  */
 #if !UE_BUILD_DOCS
-#define IMPLEMENT_SHADOW_PROJECTION_PIXEL_SHADER(Quality,UseFadePlane) \
-	typedef TShadowProjectionPS<Quality, UseFadePlane> FShadowProjectionPS##Quality##UseFadePlane; \
-	IMPLEMENT_SHADER_TYPE(template<>,FShadowProjectionPS##Quality##UseFadePlane,TEXT("/Engine/Private/ShadowProjectionPixelShader.usf"),TEXT("Main"),SF_Pixel);
+#define IMPLEMENT_SHADOW_PROJECTION_PIXEL_SHADER(Quality,UseFadePlane,UseTransmission) \
+	typedef TShadowProjectionPS<Quality, UseFadePlane, false, UseTransmission> FShadowProjectionPS##Quality##UseFadePlane##UseTransmission; \
+	IMPLEMENT_SHADER_TYPE(template<>,FShadowProjectionPS##Quality##UseFadePlane##UseTransmission,TEXT("/Engine/Private/ShadowProjectionPixelShader.usf"),TEXT("Main"),SF_Pixel);
 
 // Projection shaders without the distance fade, with different quality levels.
-IMPLEMENT_SHADOW_PROJECTION_PIXEL_SHADER(1,false);
-IMPLEMENT_SHADOW_PROJECTION_PIXEL_SHADER(2,false);
-IMPLEMENT_SHADOW_PROJECTION_PIXEL_SHADER(3,false);
-IMPLEMENT_SHADOW_PROJECTION_PIXEL_SHADER(4,false);
-IMPLEMENT_SHADOW_PROJECTION_PIXEL_SHADER(5,false);
+IMPLEMENT_SHADOW_PROJECTION_PIXEL_SHADER(1,false,false);
+IMPLEMENT_SHADOW_PROJECTION_PIXEL_SHADER(2,false,false);
+IMPLEMENT_SHADOW_PROJECTION_PIXEL_SHADER(3,false,false);
+IMPLEMENT_SHADOW_PROJECTION_PIXEL_SHADER(4,false,false);
+IMPLEMENT_SHADOW_PROJECTION_PIXEL_SHADER(5,false,false);
+
+IMPLEMENT_SHADOW_PROJECTION_PIXEL_SHADER(1,false,true);
+IMPLEMENT_SHADOW_PROJECTION_PIXEL_SHADER(2,false,true);
+IMPLEMENT_SHADOW_PROJECTION_PIXEL_SHADER(3,false,true);
+IMPLEMENT_SHADOW_PROJECTION_PIXEL_SHADER(4,false,true);
+IMPLEMENT_SHADOW_PROJECTION_PIXEL_SHADER(5,false,true);
 
 // Projection shaders with the distance fade, with different quality levels.
-IMPLEMENT_SHADOW_PROJECTION_PIXEL_SHADER(1,true);
-IMPLEMENT_SHADOW_PROJECTION_PIXEL_SHADER(2,true);
-IMPLEMENT_SHADOW_PROJECTION_PIXEL_SHADER(3,true);
-IMPLEMENT_SHADOW_PROJECTION_PIXEL_SHADER(4,true);
-IMPLEMENT_SHADOW_PROJECTION_PIXEL_SHADER(5,true);
+IMPLEMENT_SHADOW_PROJECTION_PIXEL_SHADER(1,true,false);
+IMPLEMENT_SHADOW_PROJECTION_PIXEL_SHADER(2,true,false);
+IMPLEMENT_SHADOW_PROJECTION_PIXEL_SHADER(3,true,false);
+IMPLEMENT_SHADOW_PROJECTION_PIXEL_SHADER(4,true,false);
+IMPLEMENT_SHADOW_PROJECTION_PIXEL_SHADER(5,true,false);
+
+IMPLEMENT_SHADOW_PROJECTION_PIXEL_SHADER(1,true,true);
+IMPLEMENT_SHADOW_PROJECTION_PIXEL_SHADER(2,true,true);
+IMPLEMENT_SHADOW_PROJECTION_PIXEL_SHADER(3,true,true);
+IMPLEMENT_SHADOW_PROJECTION_PIXEL_SHADER(4,true,true);
+IMPLEMENT_SHADOW_PROJECTION_PIXEL_SHADER(5,true,true);
+
 
 #undef IMPLEMENT_SHADOW_PROJECTION_PIXEL_SHADER
 #endif
@@ -221,11 +200,21 @@ IMPLEMENT_SHADER_TYPE(template<>,TShadowProjectionFromTranslucencyPS<4>,TEXT("/E
 IMPLEMENT_SHADER_TYPE(template<>,TShadowProjectionFromTranslucencyPS<5>,TEXT("/Engine/Private/ShadowProjectionPixelShader.usf"),TEXT("Main"),SF_Pixel);
 
 // Implement a pixel shader for rendering one pass point light shadows with different quality levels
-IMPLEMENT_SHADER_TYPE(template<>,TOnePassPointShadowProjectionPS<1>,TEXT("/Engine/Private/ShadowProjectionPixelShader.usf"),TEXT("MainOnePassPointLightPS"),SF_Pixel);
-IMPLEMENT_SHADER_TYPE(template<>,TOnePassPointShadowProjectionPS<2>,TEXT("/Engine/Private/ShadowProjectionPixelShader.usf"),TEXT("MainOnePassPointLightPS"),SF_Pixel);
-IMPLEMENT_SHADER_TYPE(template<>,TOnePassPointShadowProjectionPS<3>,TEXT("/Engine/Private/ShadowProjectionPixelShader.usf"),TEXT("MainOnePassPointLightPS"),SF_Pixel);
-IMPLEMENT_SHADER_TYPE(template<>,TOnePassPointShadowProjectionPS<4>,TEXT("/Engine/Private/ShadowProjectionPixelShader.usf"),TEXT("MainOnePassPointLightPS"),SF_Pixel);
-IMPLEMENT_SHADER_TYPE(template<>, TOnePassPointShadowProjectionPS<5>, TEXT("/Engine/Private/ShadowProjectionPixelShader.usf"), TEXT("MainOnePassPointLightPS"), SF_Pixel);
+#define IMPLEMENT_ONEPASS_POINT_SHADOW_PROJECTION_PIXEL_SHADER(Quality,UseTransmission) \
+	typedef TOnePassPointShadowProjectionPS<Quality,  UseTransmission> FOnePassPointShadowProjectionPS##Quality##UseTransmission; \
+	IMPLEMENT_SHADER_TYPE(template<>,FOnePassPointShadowProjectionPS##Quality##UseTransmission,TEXT("/Engine/Private/ShadowProjectionPixelShader.usf"),TEXT("MainOnePassPointLightPS"),SF_Pixel);
+
+IMPLEMENT_ONEPASS_POINT_SHADOW_PROJECTION_PIXEL_SHADER(1, false);
+IMPLEMENT_ONEPASS_POINT_SHADOW_PROJECTION_PIXEL_SHADER(2, false);
+IMPLEMENT_ONEPASS_POINT_SHADOW_PROJECTION_PIXEL_SHADER(3, false);
+IMPLEMENT_ONEPASS_POINT_SHADOW_PROJECTION_PIXEL_SHADER(4, false);
+IMPLEMENT_ONEPASS_POINT_SHADOW_PROJECTION_PIXEL_SHADER(5, false);
+
+IMPLEMENT_ONEPASS_POINT_SHADOW_PROJECTION_PIXEL_SHADER(1, true);
+IMPLEMENT_ONEPASS_POINT_SHADOW_PROJECTION_PIXEL_SHADER(2, true);
+IMPLEMENT_ONEPASS_POINT_SHADOW_PROJECTION_PIXEL_SHADER(3, true);
+IMPLEMENT_ONEPASS_POINT_SHADOW_PROJECTION_PIXEL_SHADER(4, true);
+IMPLEMENT_ONEPASS_POINT_SHADOW_PROJECTION_PIXEL_SHADER(5, true);
 
 // Implements a pixel shader for directional light PCSS.
 #define IMPLEMENT_SHADOW_PROJECTION_PIXEL_SHADER(Quality,UseFadePlane) \
@@ -242,31 +231,6 @@ IMPLEMENT_SHADOW_PROJECTION_PIXEL_SHADER(5,true);
 IMPLEMENT_SHADOW_PROJECTION_PIXEL_SHADER(5, false);
 IMPLEMENT_SHADOW_PROJECTION_PIXEL_SHADER(5, true);
 #undef IMPLEMENT_SHADOW_PROJECTION_PIXEL_SHADER
-
-void StencilingGeometry::DrawSphere(FRHICommandList& RHICmdList)
-{
-	RHICmdList.SetStreamSource(0, StencilingGeometry::GStencilSphereVertexBuffer.VertexBufferRHI, 0);
-	RHICmdList.DrawIndexedPrimitive(StencilingGeometry::GStencilSphereIndexBuffer.IndexBufferRHI, PT_TriangleList, 0, 0,
-		StencilingGeometry::GStencilSphereVertexBuffer.GetVertexCount(), 0, 
-		StencilingGeometry::GStencilSphereIndexBuffer.GetIndexCount() / 3, 1);
-}
-		
-void StencilingGeometry::DrawVectorSphere(FRHICommandList& RHICmdList)
-{
-	RHICmdList.SetStreamSource(0, StencilingGeometry::GStencilSphereVectorBuffer.VertexBufferRHI, 0);
-	RHICmdList.DrawIndexedPrimitive(StencilingGeometry::GStencilSphereIndexBuffer.IndexBufferRHI, PT_TriangleList, 0, 0,
-									StencilingGeometry::GStencilSphereVectorBuffer.GetVertexCount(), 0,
-									StencilingGeometry::GStencilSphereIndexBuffer.GetIndexCount() / 3, 1);
-}
-
-void StencilingGeometry::DrawCone(FRHICommandList& RHICmdList)
-{
-	// No Stream Source needed since it will generate vertices on the fly
-	RHICmdList.SetStreamSource(0, StencilingGeometry::GStencilConeVertexBuffer.VertexBufferRHI, 0);
-
-	RHICmdList.DrawIndexedPrimitive(StencilingGeometry::GStencilConeIndexBuffer.IndexBufferRHI, PT_TriangleList, 0, 0,
-		FStencilConeIndexBuffer::NumVerts, 0, StencilingGeometry::GStencilConeIndexBuffer.GetIndexCount() / 3, 1);
-}
 
 static void GetShadowProjectionShaders(
 	int32 Quality, const FViewInfo& View, const FProjectedShadowInfo* ShadowInfo, bool bMobileModulatedProjections,
@@ -303,28 +267,60 @@ static void GetShadowProjectionShaders(
 		}
 		else if (ShadowInfo->CascadeSettings.FadePlaneLength > 0)
 		{
-			switch (Quality)
+			if (ShadowInfo->bTransmission)
 			{
-			case 1: *OutShadowProjPS = View.ShaderMap->GetShader<TShadowProjectionPS<1, true> >(); break;
-			case 2: *OutShadowProjPS = View.ShaderMap->GetShader<TShadowProjectionPS<2, true> >(); break;
-			case 3: *OutShadowProjPS = View.ShaderMap->GetShader<TShadowProjectionPS<3, true> >(); break;
-			case 4: *OutShadowProjPS = View.ShaderMap->GetShader<TShadowProjectionPS<4, true> >(); break;
-			case 5: *OutShadowProjPS = View.ShaderMap->GetShader<TShadowProjectionPS<5, true> >(); break;
-			default:
-				check(0);
+				switch (Quality)
+				{
+				case 1: *OutShadowProjPS = View.ShaderMap->GetShader<TShadowProjectionPS<1, true, false, true> >(); break;
+				case 2: *OutShadowProjPS = View.ShaderMap->GetShader<TShadowProjectionPS<2, true, false, true> >(); break;
+				case 3: *OutShadowProjPS = View.ShaderMap->GetShader<TShadowProjectionPS<3, true, false, true> >(); break;
+				case 4: *OutShadowProjPS = View.ShaderMap->GetShader<TShadowProjectionPS<4, true, false, true> >(); break;
+				case 5: *OutShadowProjPS = View.ShaderMap->GetShader<TShadowProjectionPS<5, true, false, true> >(); break;
+				default:
+					check(0);
+				}
+			}
+			else
+			{
+				switch (Quality)
+				{
+				case 1: *OutShadowProjPS = View.ShaderMap->GetShader<TShadowProjectionPS<1, true> >(); break;
+				case 2: *OutShadowProjPS = View.ShaderMap->GetShader<TShadowProjectionPS<2, true> >(); break;
+				case 3: *OutShadowProjPS = View.ShaderMap->GetShader<TShadowProjectionPS<3, true> >(); break;
+				case 4: *OutShadowProjPS = View.ShaderMap->GetShader<TShadowProjectionPS<4, true> >(); break;
+				case 5: *OutShadowProjPS = View.ShaderMap->GetShader<TShadowProjectionPS<5, true> >(); break;
+				default:
+					check(0);
+				}
 			}
 		}
 		else
 		{
-			switch (Quality)
+			if (ShadowInfo->bTransmission)
 			{
-			case 1: *OutShadowProjPS = View.ShaderMap->GetShader<TShadowProjectionPS<1, false> >(); break;
-			case 2: *OutShadowProjPS = View.ShaderMap->GetShader<TShadowProjectionPS<2, false> >(); break;
-			case 3: *OutShadowProjPS = View.ShaderMap->GetShader<TShadowProjectionPS<3, false> >(); break;
-			case 4: *OutShadowProjPS = View.ShaderMap->GetShader<TShadowProjectionPS<4, false> >(); break;
-			case 5: *OutShadowProjPS = View.ShaderMap->GetShader<TShadowProjectionPS<5, false> >(); break;
-			default:
-				check(0);
+				switch (Quality)
+				{
+				case 1: *OutShadowProjPS = View.ShaderMap->GetShader<TShadowProjectionPS<1, false, false, true> >(); break;
+				case 2: *OutShadowProjPS = View.ShaderMap->GetShader<TShadowProjectionPS<2, false, false, true> >(); break;
+				case 3: *OutShadowProjPS = View.ShaderMap->GetShader<TShadowProjectionPS<3, false, false, true> >(); break;
+				case 4: *OutShadowProjPS = View.ShaderMap->GetShader<TShadowProjectionPS<4, false, false, true> >(); break;
+				case 5: *OutShadowProjPS = View.ShaderMap->GetShader<TShadowProjectionPS<5, false, false, true> >(); break;
+				default:
+					check(0);
+				}
+			}
+			else
+			{ 
+				switch (Quality)
+				{
+				case 1: *OutShadowProjPS = View.ShaderMap->GetShader<TShadowProjectionPS<1, false> >(); break;
+				case 2: *OutShadowProjPS = View.ShaderMap->GetShader<TShadowProjectionPS<2, false> >(); break;
+				case 3: *OutShadowProjPS = View.ShaderMap->GetShader<TShadowProjectionPS<3, false> >(); break;
+				case 4: *OutShadowProjPS = View.ShaderMap->GetShader<TShadowProjectionPS<4, false> >(); break;
+				case 5: *OutShadowProjPS = View.ShaderMap->GetShader<TShadowProjectionPS<5, false> >(); break;
+				default:
+					check(0);
+				}
 			}
 		}
 	}
@@ -341,6 +337,19 @@ static void GetShadowProjectionShaders(
 			case 3: *OutShadowProjPS = View.ShaderMap->GetShader<TModulatedShadowProjection<3> >(); break;
 			case 4: *OutShadowProjPS = View.ShaderMap->GetShader<TModulatedShadowProjection<4> >(); break;
 			case 5: *OutShadowProjPS = View.ShaderMap->GetShader<TModulatedShadowProjection<5> >(); break;
+			default:
+				check(0);
+			}
+		}
+		else if (ShadowInfo->bTransmission)
+		{
+			switch (Quality)
+			{
+			case 1: *OutShadowProjPS = View.ShaderMap->GetShader<TShadowProjectionPS<1, false, false, true> >(); break;
+			case 2: *OutShadowProjPS = View.ShaderMap->GetShader<TShadowProjectionPS<2, false, false, true> >(); break;
+			case 3: *OutShadowProjPS = View.ShaderMap->GetShader<TShadowProjectionPS<3, false, false, true> >(); break;
+			case 4: *OutShadowProjPS = View.ShaderMap->GetShader<TShadowProjectionPS<4, false, false, true> >(); break;
+			case 5: *OutShadowProjPS = View.ShaderMap->GetShader<TShadowProjectionPS<5, false, false, true> >(); break;
 			default:
 				check(0);
 			}
@@ -544,7 +553,7 @@ void FProjectedShadowInfo::SetupFrustumForProjection(const FViewInfo* View, TArr
 		const FPlane Front(FrontTopRight, FrontTopLeft, FrontBottomLeft);
 		const float FrontDistance = Front.PlaneDot(ShadowViewOrigin);
 
-        const FPlane Right(BackBottomRight, BackTopRight, FrontTopRight);
+		const FPlane Right(BackBottomRight, BackTopRight, FrontTopRight);
 		const float RightDistance = Right.PlaneDot(ShadowViewOrigin);
 
 		const FPlane Back(BackTopLeft, BackTopRight, BackBottomRight);
@@ -880,10 +889,9 @@ void FProjectedShadowInfo::RenderProjection(FRHICommandListImmediate& RHICmdList
 	// solid rasterization w/ back-face culling.
 	GraphicsPSOInit.RasterizerState = (View->bReverseCulling || IsWholeSceneDirectionalShadow()) ? TStaticRasterizerState<FM_Solid,CM_CCW>::GetRHI() : TStaticRasterizerState<FM_Solid,CM_CW>::GetRHI();
 
+	GraphicsPSOInit.bDepthBounds = bDepthBoundsTestEnabled;
 	if (bDepthBoundsTestEnabled)
 	{
-		EnableDepthBoundsTest(RHICmdList, CascadeSettings.SplitNear, CascadeSettings.SplitFar, View->ViewMatrices.GetProjectionMatrix());
-
 		// no depth test or writes
 		GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
 	}
@@ -961,8 +969,13 @@ void FProjectedShadowInfo::RenderProjection(FRHICommandListImmediate& RHICmdList
 		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(ShadowProjPS);
 
 		SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
-        
-        RHICmdList.SetStencilRef(0);
+
+		if (bDepthBoundsTestEnabled)
+		{
+			SetDepthBoundsTest(RHICmdList, CascadeSettings.SplitNear, CascadeSettings.SplitFar, View->ViewMatrices.GetProjectionMatrix());
+		}
+
+		RHICmdList.SetStencilRef(0);
 
 		ShadowProjVS->SetParameters(RHICmdList, *View, this);
 		ShadowProjPS->SetParameters(RHICmdList, ViewIndex, *View, this);
@@ -986,11 +999,7 @@ void FProjectedShadowInfo::RenderProjection(FRHICommandListImmediate& RHICmdList
 		DrawIndexedPrimitiveUP(RHICmdList, PT_TriangleList, 0, 8, 12, GCubeIndices, sizeof(uint16), FrustumVertices.GetData(), sizeof(FVector4));
 	}
 
-	if (bDepthBoundsTestEnabled)
-	{
-		DisableDepthBoundsTest(RHICmdList);
-	}
-	else
+	if (!bDepthBoundsTestEnabled)
 	{
 		// Clear the stencil buffer to 0.
 		if (!GStencilOptimization)
@@ -1491,7 +1500,7 @@ bool FDeferredShadingSceneRenderer::RenderShadowProjections(FRHICommandListImmed
 
 void FMobileSceneRenderer::RenderModulatedShadowProjections(FRHICommandListImmediate& RHICmdList)
 {
-	if (IsSimpleForwardShadingEnabled(GetFeatureLevelShaderPlatform(FeatureLevel)) || !ViewFamily.EngineShowFlags.DynamicShadows || !IsMobileHDR())
+	if (IsSimpleForwardShadingEnabled(GetFeatureLevelShaderPlatform(FeatureLevel)) || !ViewFamily.EngineShowFlags.DynamicShadows || (!IsMobileHDR() && !IsHTML5Platform()))
 	{
 		return;
 	}

@@ -1,8 +1,8 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
-#include "SColorGradingPicker.h"
-#include "SColorGradingWheel.h"
-#include "SNumericEntryBox.h"
-#include "SBox.h"
+#include "Widgets/Colors/SColorGradingPicker.h"
+#include "Widgets/Colors/SColorGradingWheel.h"
+#include "Widgets/Input/SNumericEntryBox.h"
+#include "Widgets/Layout/SBox.h"
 
 
 #define LOCTEXT_NAMESPACE "ColorGradingWheel"
@@ -47,6 +47,8 @@ void SColorGradingPicker::Construct( const FArguments& InArgs )
 	
 	ExternalBeginSliderMovementDelegate = InArgs._OnBeginSliderMovement;
 	ExternalEndSliderMovementDelegate = InArgs._OnEndSliderMovement;
+	ExternalBeginMouseCaptureDelegate = InArgs._OnBeginMouseCapture;
+	ExternalEndMouseCaptureDelegate = InArgs._OnEndMouseCapture;
 
 	ChildSlot
 	[
@@ -67,7 +69,8 @@ void SColorGradingPicker::Construct( const FArguments& InArgs )
 					.DesiredWheelSize(125)
 					.ExponentDisplacement(ColorGradingWheelExponent)
 					.OnValueChanged(this, &SColorGradingPicker::HandleCurrentColorValueChanged, false)
-					.OnMouseCaptureEnd(this, &SColorGradingPicker::HandleCurrentColorValueChanged, true)
+					.OnMouseCaptureBegin(this, &SColorGradingPicker::HandleColorWheelMouseCaptureBegin)
+					.OnMouseCaptureEnd(this, &SColorGradingPicker::HandleColorWheelMouseCaptureEnd)
 				]
 			]
 		+ SVerticalBox::Slot()
@@ -102,6 +105,19 @@ bool SColorGradingPicker::IsEntryBoxEnabled() const
 	return OnGetMainValue() != TOptional<float>();
 }
 
+void SColorGradingPicker::HandleColorWheelMouseCaptureBegin(const FLinearColor& InValue)
+{
+	bIsMouseDragging = true;
+	ExternalBeginMouseCaptureDelegate.ExecuteIfBound();
+}
+
+void SColorGradingPicker::HandleColorWheelMouseCaptureEnd(const FLinearColor& InValue)
+{
+	bIsMouseDragging = false;
+	HandleCurrentColorValueChanged(InValue, false);
+	ExternalEndMouseCaptureDelegate.ExecuteIfBound();
+}
+
 void SColorGradingPicker::OnBeginSliderMovement()
 {
 	ExternalBeginSliderMovementDelegate.ExecuteIfBound();
@@ -133,14 +149,9 @@ void SColorGradingPicker::OnEndSliderMovement(float NewValue)
 	StartDragRatio.Y = 1.0f;
 	StartDragRatio.Z = 1.0f;
 
-	OnMainValueChanged(NewValue, true);
+	OnMainValueChanged(NewValue, false);
 
 	ExternalEndSliderMovementDelegate.ExecuteIfBound();
-}
-
-void SColorGradingPicker::HandleColorWheelMouseCaptureEnd()
-{
-
 }
 
 void SColorGradingPicker::AdjustRatioValue(FVector4 &NewValue)

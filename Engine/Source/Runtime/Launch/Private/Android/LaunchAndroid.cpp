@@ -1,23 +1,26 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreMinimal.h"
+#if USE_ANDROID_LAUNCH
 #include "Misc/App.h"
 #include "Misc/OutputDeviceError.h"
 #include "LaunchEngineLoop.h"
 #include <string.h>
-#include <jni.h>
 #include <pthread.h>
-#include "AndroidJNI.h"
-#include "AndroidEventManager.h"
-#include "AndroidInputInterface.h"
+#include "Android/AndroidJNI.h"
+#include "Android/AndroidEventManager.h"
+#include "Android/AndroidInputInterface.h"
+#include <android/asset_manager.h>
+#include <android/asset_manager_jni.h>
 #include <android/log.h>
+#include <cpu-features.h>
 #include <android_native_app_glue.h>
 #include <cstdio>
 #include <sys/resource.h>
 #include <dlfcn.h>
-#include "AndroidWindow.h"
-#include "AndroidApplication.h"
-#include "PlatformApplicationMisc.h"
+#include "Android/AndroidWindow.h"
+#include "Android/AndroidApplication.h"
+#include "HAL/PlatformApplicationMisc.h"
 #include "IHeadMountedDisplayModule.h"
 #include "ISessionServicesModule.h"
 #include "ISessionService.h"
@@ -27,7 +30,10 @@
 #include "HAL/PlatformInput.h"
 #include "Modules/ModuleManager.h"
 #include "IMessagingModule.h"
-#include "AndroidStats.h"
+#include "Android/AndroidStats.h"
+#include "MoviePlayer.h"
+#include <jni.h>
+#include <android/sensor.h>
 
 // Function pointer for retrieving joystick events
 // Function has been part of the OS since Honeycomb, but only appeared in the
@@ -36,12 +42,18 @@
 typedef float(*GetAxesType)(const AInputEvent*, int32_t axis, size_t pointer_index);
 static GetAxesType GetAxes = NULL;
 
+// Define missing events for earlier NDKs
+#if PLATFORM_ANDROID_NDK_VERSION < 140200
+#define AMOTION_EVENT_AXIS_RELATIVE_X 27
+#define AMOTION_EVENT_AXIS_RELATIVE_Y 28
+#endif
+
 // List of default axes to query for each controller
 // Ideal solution is to call out to Java and enumerate the list of axes.
 static const int32_t AxisList[] =
 {
 	AMOTION_EVENT_AXIS_X,
-    AMOTION_EVENT_AXIS_Y,
+	AMOTION_EVENT_AXIS_Y,
 	AMOTION_EVENT_AXIS_Z,
 	AMOTION_EVENT_AXIS_RX,
 	AMOTION_EVENT_AXIS_RY,
@@ -93,10 +105,29 @@ extern "C"
 	void *__dso_handle;
 }
 
+int32 GAndroidEnableMouse = 0;
+static FAutoConsoleVariableRef CVarEnableMouse(
+	TEXT("Android.EnableMouse"),
+	GAndroidEnableMouse,
+	TEXT("Whether mouse support is enabled on Android.\n")
+	TEXT(" 0: disabled (default)\n")
+	TEXT(" 1: enabled"),
+	ECVF_ReadOnly);
+
+int32 GAndroidEnableHardwareKeyboard = 0;
+static FAutoConsoleVariableRef CVarEnableHWKeyboard(
+	TEXT("Android.EnableHardwareKeyboard"),
+	GAndroidEnableHardwareKeyboard,
+	TEXT("Whether hardware keyboard support is enabled on Android.\n")
+	TEXT(" 0: disabled (default)\n")
+	TEXT(" 1: enabled"),
+	ECVF_ReadOnly);
+
 extern void AndroidThunkCpp_InitHMDs();
 extern void AndroidThunkCpp_ShowConsoleWindow();
 extern bool AndroidThunkCpp_VirtualInputIgnoreClick(int, int);
 extern bool AndroidThunkCpp_IsVirtuaKeyboardShown();
+extern void AndroidThunkCpp_RestartApplication();
 
 // Base path for file accesses
 extern FString GFilePathBase;
@@ -185,12 +216,38 @@ void InitHMDs()
 	}
 }
 
+extern AAssetManager * AndroidThunkCpp_GetAssetManager();
+
 static void InitCommandLine()
 {
 	static const uint32 CMD_LINE_MAX = 16384u;
 
 	// initialize the command line to an empty string
 	FCommandLine::Set(TEXT(""));
+
+	AAssetManager* AssetMgr = AndroidThunkCpp_GetAssetManager();
+	AAsset* asset = AAssetManager_open(AssetMgr, TCHAR_TO_UTF8(TEXT("UE4CommandLine.txt")), AASSET_MODE_BUFFER);
+	if (nullptr != asset)
+	{
+		const void* FileContents = AAsset_getBuffer(asset);
+		int32 FileLength = AAsset_getLength(asset);
+
+		char CommandLine[CMD_LINE_MAX];
+		FileLength = (FileLength < CMD_LINE_MAX - 1) ? FileLength : CMD_LINE_MAX - 1;
+		memcpy(CommandLine, FileContents, FileLength);
+		CommandLine[FileLength] = '\0';
+
+		AAsset_close(asset);
+
+		// chop off trailing spaces
+		while (*CommandLine && isspace(CommandLine[strlen(CommandLine) - 1]))
+		{
+			CommandLine[strlen(CommandLine) - 1] = 0;
+		}
+
+		FCommandLine::Append(UTF8_TO_TCHAR(CommandLine));
+		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("APK Commandline: %s"), FCommandLine::Get());
+	}
 
 	// read in the command line text file from the sdcard if it exists
 	FString CommandLineFilePath = GFilePathBase + FString("/UE4Game/") + (!FApp::IsProjectNameEmpty() ? FApp::GetProjectName() : FPlatformProcess::ExecutableName()) + FString("/UE4CommandLine.txt");
@@ -215,7 +272,11 @@ static void InitCommandLine()
 			CommandLine[strlen(CommandLine) - 1] = 0;
 		}
 
+		// initialize the command line to an empty string
+		FCommandLine::Set(TEXT(""));
+
 		FCommandLine::Append(UTF8_TO_TCHAR(CommandLine));
+		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Override Commandline: %s"), FCommandLine::Get());
 	}
 }
 
@@ -224,7 +285,7 @@ extern void AndroidThunkCpp_DismissSplashScreen();
 //Main function called from the android entry point
 int32 AndroidMain(struct android_app* state)
 {
-	FPlatformMisc::LowLevelOutputDebugString(L"Entered AndroidMain()");
+	FPlatformMisc::LowLevelOutputDebugString(TEXT("Entered AndroidMain()\n"));
 
 	// Force the first call to GetJavaEnv() to happen on the game thread, allowing subsequent calls to occur on any thread
 	FAndroidApplication::GetJavaEnv();
@@ -299,7 +360,7 @@ int32 AndroidMain(struct android_app* state)
 	FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Final commandline: %s\n"), FCommandLine::Get());
 
 	EventHandlerEvent = FPlatformProcess::GetSynchEventFromPool(false);
-	FPlatformMisc::LowLevelOutputDebugString(L"Created sync event");
+	FPlatformMisc::LowLevelOutputDebugString(TEXT("Created sync event\n"));
 	FAppEventManager::GetInstance()->SetEventHandlerEvent(EventHandlerEvent);
 
 	// ready for onCreate to complete
@@ -310,8 +371,21 @@ int32 AndroidMain(struct android_app* state)
 	// OBBs and APK are found.
 	IPlatformFile::GetPlatformPhysical().Initialize(nullptr, FCommandLine::Get());
 
+	//wait for re-creating the native window, if previously destroyed by onStop()
+	while (FAndroidWindow::GetHardwareWindow() == nullptr)
+	{
+		FPlatformProcess::Sleep(0.01f);
+		FPlatformMisc::MemoryBarrier();
+	}
+
 	// initialize the engine
-	GEngineLoop.PreInit(0, NULL, FCommandLine::Get());
+	int32 PreInitResult = GEngineLoop.PreInit(0, NULL, FCommandLine::Get());
+
+	if (PreInitResult != 0)
+	{
+		checkf(false, TEXT("Engine Preinit Failed"));
+		return PreInitResult;
+	}
 
 	// initialize HMDs
 	InitHMDs();
@@ -379,7 +453,98 @@ int32 AndroidMain(struct android_app* state)
 	return 0;
 }
 
+// this is a prototype currently unused, left here for possible future use
+#if !defined(WITH_Android_Choreographer)
+#define WITH_Android_Choreographer (0)
+#endif
 
+#if WITH_Android_Choreographer
+
+struct AChoreographer;
+struct FChoreographer
+{
+	typedef void(*AChoreographer_frameCallback)(long frameTimeNanos, void* data);
+	typedef AChoreographer* (*func_AChoreographer_getInstance)();
+	typedef void(*func_AChoreographer_postFrameCallback)(
+		AChoreographer* choreographer, AChoreographer_frameCallback callback,
+		void* data);
+
+	func_AChoreographer_getInstance AChoreographer_getInstance_ = nullptr;
+	func_AChoreographer_postFrameCallback AChoreographer_postFrameCallback_ = nullptr;
+
+	FCriticalSection ChoreographerSetupLock;
+
+	TFunction<void(int64)> Callback;
+
+	int64 FrameCounterInc = 0;
+
+	void SetupChoreographer()
+	{
+		FScopeLock Lock(&ChoreographerSetupLock);
+		check(!AChoreographer_getInstance_);
+		if (!AChoreographer_getInstance_)
+		{
+			void* lib = dlopen("libandroid.so", RTLD_NOW | RTLD_LOCAL);
+			if (lib != nullptr)
+			{
+				// Retrieve function pointers from shared object.
+				AChoreographer_getInstance_ =
+					reinterpret_cast<func_AChoreographer_getInstance>(
+						dlsym(lib, "AChoreographer_getInstance"));
+				AChoreographer_postFrameCallback_ =
+					reinterpret_cast<func_AChoreographer_postFrameCallback>(
+						dlsym(lib, "AChoreographer_postFrameCallback"));
+			}
+
+			if (!AChoreographer_getInstance_ || !AChoreographer_postFrameCallback_)
+			{
+				UE_LOG(LogAndroid, Fatal, TEXT("Failed to set up Choreographer"));
+			}
+			SetCallback();
+		}
+	}
+	void SetupCallback(TFunction<void(int64)> InCallback)
+	{
+		FScopeLock Lock(&ChoreographerSetupLock);
+		check(AChoreographer_getInstance_);
+		Callback = InCallback;
+	}
+
+	void SetCallback();
+	void DoCallback(int64 InFrameCounter)
+	{
+		FScopeLock Lock(&ChoreographerSetupLock);
+		// Post next callback for self.
+		FrameCounterInc++;
+		SetCallback();
+		if (Callback)
+		{
+			//Callback(FrameCounterInc);
+			Callback(InFrameCounter);
+		}
+	}
+};
+FChoreographer TheChoreographer;
+
+void StartChoreographer(TFunction<void(int64)> Callback)
+{
+	TheChoreographer.SetupCallback(Callback);
+}
+
+
+static void choreographer_callback(long frameTimeNanos, void* data)
+{
+	TheChoreographer.DoCallback((frameTimeNanos * 60 + 500000000) / 1000000000);
+}
+
+void FChoreographer::SetCallback()
+{
+	AChoreographer* choreographer = AChoreographer_getInstance_();
+	UE_CLOG(!choreographer, LogAndroid, Fatal, TEXT("Choreographer was null."));
+	AChoreographer_postFrameCallback_(choreographer, choreographer_callback, nullptr);
+}
+
+#endif
 
 static void* AndroidEventThreadWorker( void* param )
 {
@@ -387,26 +552,30 @@ static void* AndroidEventThreadWorker( void* param )
 
 	FPlatformProcess::SetThreadAffinityMask(FPlatformAffinity::GetMainGameMask());
 
-	FPlatformMisc::LowLevelOutputDebugString(L"Entering event processing thread engine entry point");
+	FPlatformMisc::LowLevelOutputDebugString(TEXT("Entering event processing thread engine entry point"));
 
 	ALooper* looper = ALooper_prepare(ALOOPER_PREPARE_ALLOW_NON_CALLBACKS);
 	ALooper_addFd(looper, state->msgread, LOOPER_ID_MAIN, ALOOPER_EVENT_INPUT, NULL,
 		&state->cmdPollSource);
 	state->looper = looper;
 
-	FPlatformMisc::LowLevelOutputDebugString(L"Prepared looper for event thread");
+	FPlatformMisc::LowLevelOutputDebugString(TEXT("Prepared looper for event thread"));
 
 	//Assign the callbacks
 	state->onAppCmd = OnAppCommandCB;
 	state->onInputEvent = HandleInputCB;
 
-	FPlatformMisc::LowLevelOutputDebugString(L"Passed callback initialization");
-	FPlatformMisc::LowLevelOutputDebugString(L"Passed sensor initialization");
+	FPlatformMisc::LowLevelOutputDebugString(TEXT("Passed callback initialization"));
+	FPlatformMisc::LowLevelOutputDebugString(TEXT("Passed sensor initialization"));
+
+#if WITH_Android_Choreographer
+	TheChoreographer.SetupChoreographer();
+#endif
 
 	//continue to process events until the engine is shutting down
 	while (!GIsRequestingExit)
 	{
-//		FPlatformMisc::LowLevelOutputDebugString(L"AndroidEventThreadWorker");
+//		FPlatformMisc::LowLevelOutputDebugString(TEXT("AndroidEventThreadWorker"));
 
 		AndroidProcessEvents(state);
 
@@ -442,7 +611,7 @@ struct android_app* GNativeAndroidApp = NULL;
 
 void android_main(struct android_app* state)
 {
-	FPlatformMisc::LowLevelOutputDebugString(L"Entering native app glue main function");
+	FPlatformMisc::LowLevelOutputDebugString(TEXT("Entering native app glue main function"));
 	
 	GNativeAndroidApp = state;
 	check(GNativeAndroidApp);
@@ -452,7 +621,7 @@ void android_main(struct android_app* state)
 	pthread_attr_setdetachstate(&otherAttr, PTHREAD_CREATE_DETACHED);
 	pthread_create(&G_AndroidEventThread, &otherAttr, AndroidEventThreadWorker, state);
 
-	FPlatformMisc::LowLevelOutputDebugString(L"Created event thread");
+	FPlatformMisc::LowLevelOutputDebugString(TEXT("Created event thread"));
 
 	// Make sure glue isn't stripped. (not needed in ndk-15)
 #if PLATFORM_ANDROID_NDK_VERSION < 150000
@@ -468,11 +637,83 @@ extern bool GAndroidGPUInfoReady;
 //Called from the event process thread
 static int32_t HandleInputCB(struct android_app* app, AInputEvent* event)
 {
-//	FPlatformMisc::LowLevelOutputDebugStringf(L"INPUT - type: %x, action: %x, source: %x, keycode: %x, buttons: %x", AInputEvent_getType(event), 
+//	FPlatformMisc::LowLevelOutputDebugStringf(TEXT("INPUT - type: %x, action: %x, source: %x, keycode: %x, buttons: %x"), AInputEvent_getType(event), 
 //		AMotionEvent_getAction(event), AInputEvent_getSource(event), AKeyEvent_getKeyCode(event), AMotionEvent_getButtonState(event));
 
 	int32 EventType = AInputEvent_getType(event);
 	int32 EventSource = AInputEvent_getSource(event);
+
+	if ((EventSource & AINPUT_SOURCE_MOUSE) == AINPUT_SOURCE_MOUSE)
+	{
+		static int32 previousButtonState = 0;
+
+		if (!GAndroidEnableMouse)
+		{
+			// this will block event
+			return 1;
+		}
+
+		int32 action = AMotionEvent_getAction(event);
+		int32 actionType = action & AMOTION_EVENT_ACTION_MASK;
+		int32 device = AInputEvent_getDeviceId(event);
+		int32 buttonState = AMotionEvent_getButtonState(event);
+
+//		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("-- EVENT: %d, device: %d, action: %x, actionType: %x, buttonState: %x"), EventType, device, action, actionType, buttonState);
+
+		if (actionType == AMOTION_EVENT_ACTION_DOWN || actionType == AMOTION_EVENT_ACTION_UP)
+		{
+			bool bDown = (actionType == AMOTION_EVENT_ACTION_DOWN);
+			if (!bDown)
+			{
+				buttonState = previousButtonState;
+			}
+			if (buttonState & AMOTION_EVENT_BUTTON_PRIMARY)
+			{
+//				FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Mouse button 0: %d"), bDown ? 1 : 0);
+				FAndroidInputInterface::MouseButtonEvent(device, 0, bDown);
+			}
+			if (buttonState & AMOTION_EVENT_BUTTON_SECONDARY)
+			{
+//				FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Mouse button 1: %d"), bDown ? 1 : 0);
+				FAndroidInputInterface::MouseButtonEvent(device, 0, bDown);
+			}
+			if (buttonState & AMOTION_EVENT_BUTTON_TERTIARY)
+			{
+//				FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Mouse button 2: %d"), bDown ? 1 : 0);
+				FAndroidInputInterface::MouseButtonEvent(device, 0, bDown);
+			}
+			previousButtonState = buttonState;
+			return 1;
+		}
+
+		if (actionType == AMOTION_EVENT_ACTION_SCROLL)
+		{
+			if (GetAxes)
+			{
+				float WheelDelta = GetAxes(event, AMOTION_EVENT_AXIS_VSCROLL, 0);
+
+				FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Mouse scroll: %f"), WheelDelta);
+				FAndroidInputInterface::MouseWheelEvent(device, WheelDelta);
+			}
+			return 1;
+		}
+
+		if (GetAxes && (actionType == AMOTION_EVENT_ACTION_MOVE || actionType == AMOTION_EVENT_ACTION_HOVER_MOVE))
+		{
+			float XAbsolute = GetAxes(event, AMOTION_EVENT_AXIS_X, 0);
+			float YAbsolute = GetAxes(event, AMOTION_EVENT_AXIS_Y, 0);
+			float XRelative = GetAxes(event, AMOTION_EVENT_AXIS_RELATIVE_X, 0);
+			float YRelative = GetAxes(event, AMOTION_EVENT_AXIS_RELATIVE_Y, 0);
+
+			if (XRelative != 0.0f || YRelative != 0.0f)
+			{
+				FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Mouse absolute: (%f, %f), relative (%f, %f)"), XAbsolute, YAbsolute, XRelative, YRelative);
+				FAndroidInputInterface::MouseMoveEvent(device, XAbsolute, YAbsolute, XRelative, YRelative);
+			}
+		}
+
+		return 1;
+	}
 
 	if (EventType == AINPUT_EVENT_TYPE_MOTION)
 	{
@@ -647,8 +888,10 @@ static int32_t HandleInputCB(struct android_app* app, AInputEvent* event)
 	if (EventType == AINPUT_EVENT_TYPE_KEY)
 	{
 		int keyCode = AKeyEvent_getKeyCode(event);
+		int keyFlags = AKeyEvent_getFlags(event);
+		bool bSoftKey = (keyFlags & AKEY_EVENT_FLAG_SOFT_KEYBOARD) != 0;
 
-		FPlatformMisc::LowLevelOutputDebugStringf(L"Received keycode: %d", keyCode);
+		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Received keycode: %d, softkey: %d"), keyCode, bSoftKey ? 1 : 0);
 
 		//Trap codes handled as possible gamepad events
 		if (ValidGamepadKeyCodes.Contains(keyCode))
@@ -663,11 +906,11 @@ static int32_t HandleInputCB(struct android_app* app, AInputEvent* event)
 			}
 			bool down = AKeyEvent_getAction(event) != AKEY_EVENT_ACTION_UP;
 			FAndroidInputInterface::JoystickButtonEvent(device, keyCode, down);
-			FPlatformMisc::LowLevelOutputDebugStringf(L"Received gamepad button: %d", keyCode);
+			FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Received gamepad button: %d"), keyCode);
 		}
 		else
 		{
-			FPlatformMisc::LowLevelOutputDebugStringf(L"Received key event: %d", keyCode);
+			FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Received key event: %d"), keyCode);
 
 			// only handle mapped key codes
 			if (!MappedKeyCodes.Contains(keyCode))
@@ -675,14 +918,17 @@ static int32_t HandleInputCB(struct android_app* app, AInputEvent* event)
 				return 0;
 			}
 
-			FDeferredAndroidMessage Message;
+			if (bSoftKey || GAndroidEnableHardwareKeyboard)
+			{
+				FDeferredAndroidMessage Message;
 
-			Message.messageType = AKeyEvent_getAction(event) == AKEY_EVENT_ACTION_UP ? MessageType_KeyUp : MessageType_KeyDown; 
-			Message.KeyEventData.unichar = keyCode;
-			Message.KeyEventData.keyId = keyCode;
-			Message.KeyEventData.modifier = AKeyEvent_getMetaState(event);
-			Message.KeyEventData.isRepeat = AKeyEvent_getAction(event) == AKEY_EVENT_ACTION_MULTIPLE;
-			FAndroidInputInterface::DeferMessage(Message);
+				Message.messageType = AKeyEvent_getAction(event) == AKEY_EVENT_ACTION_UP ? MessageType_KeyUp : MessageType_KeyDown;
+				Message.KeyEventData.unichar = keyCode;
+				Message.KeyEventData.keyId = keyCode;
+				Message.KeyEventData.modifier = AKeyEvent_getMetaState(event);
+				Message.KeyEventData.isRepeat = AKeyEvent_getAction(event) == AKEY_EVENT_ACTION_MULTIPLE;
+				FAndroidInputInterface::DeferMessage(Message);
+			}
 
 			// allow event to be generated for volume up and down, but conditionally allow system to handle it, too
 			if (keyCode == AKEYCODE_VOLUME_UP || keyCode == AKEYCODE_VOLUME_DOWN)
@@ -700,11 +946,17 @@ static int32_t HandleInputCB(struct android_app* app, AInputEvent* event)
 	return 0;
 }
 
+static bool bShouldRestartFromInterrupt = false;
+static bool IsStartupMoviePlaying()
+{
+	return GEngine && GEngine->IsInitialized() && GetMoviePlayer() && GetMoviePlayer()->IsStartupMoviePlaying();
+}
+
 //Called from the event process thread
 static void OnAppCommandCB(struct android_app* app, int32_t cmd)
 {
 	bool bNeedToSync = false;
-	//FPlatformMisc::LowLevelOutputDebugStringf(L"OnAppCommandCB cmd: %u, tid = %d", cmd, gettid());
+	//FPlatformMisc::LowLevelOutputDebugStringf(TEXT("OnAppCommandCB cmd: %u, tid = %d"), cmd, gettid());
 
 	switch (cmd)
 	{
@@ -828,9 +1080,16 @@ static void OnAppCommandCB(struct android_app* app, int32_t cmd)
 		 */
 		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Case APP_CMD_RESUME"));
 		UE_LOG(LogAndroid, Log, TEXT("Case APP_CMD_RESUME"));
-
 		FAppEventManager::GetInstance()->EnqueueAppEvent(APP_EVENT_STATE_ON_RESUME);
 
+		/*
+		* On the initial loading the restart method must be called immediately
+		* in order to restart the app if the startup movie was playing
+		*/
+		if (bShouldRestartFromInterrupt)
+		{
+			AndroidThunkCpp_RestartApplication();
+		}
 		break;
 	case APP_CMD_PAUSE:
 		/**
@@ -839,6 +1098,16 @@ static void OnAppCommandCB(struct android_app* app, int32_t cmd)
 		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Case APP_CMD_PAUSE"));
 		UE_LOG(LogAndroid, Log, TEXT("Case APP_CMD_PAUSE"));
 		FAppEventManager::GetInstance()->EnqueueAppEvent(APP_EVENT_STATE_ON_PAUSE);
+
+		/*
+		 * On the initial loading the pause method must be called immediately
+		 * in order to stop the startup movie's sound
+		*/
+		if (IsStartupMoviePlaying())
+		{
+			bShouldRestartFromInterrupt = true;
+			GetMoviePlayer()->ForceCompletion();
+		}
 
 		bNeedToSync = true;
 		break;
@@ -869,10 +1138,30 @@ static void OnAppCommandCB(struct android_app* app, int32_t cmd)
 	{
 		FAppEventManager::GetInstance()->WaitForEmptyQueue();
 	}
-	//FPlatformMisc::LowLevelOutputDebugStringf(L"#### END OF OnAppCommandCB cmd: %u, tid = %d", cmd, gettid());
+	//FPlatformMisc::LowLevelOutputDebugStringf(TEXT("#### END OF OnAppCommandCB cmd: %u, tid = %d"), cmd, gettid());
 }
 
 //Native-defined functions
+
+JNI_METHOD jint Java_com_epicgames_ue4_GameActivity_nativeGetCPUFamily(JNIEnv* jenv, jobject thiz)
+{
+	return (jint)android_getCpuFamily();
+}
+
+JNI_METHOD jboolean Java_com_epicgames_ue4_GameActivity_nativeSupportsNEON(JNIEnv* jenv, jobject thiz)
+{
+	AndroidCpuFamily Family = android_getCpuFamily();
+
+	if (Family == ANDROID_CPU_FAMILY_ARM64)
+	{
+		return JNI_TRUE;
+	}
+	if (Family == ANDROID_CPU_FAMILY_ARM)
+	{
+		return ((android_getCpuFeatures() & ANDROID_CPU_ARM_FEATURE_NEON) != 0) ? JNI_TRUE : JNI_FALSE;
+	}
+	return JNI_FALSE;
+}
 
 //This function is declared in the Java-defined class, GameActivity.java: "public native void nativeOnConfigurationChanged(boolean bPortrait);
 JNI_METHOD void Java_com_epicgames_ue4_GameActivity_nativeOnConfigurationChanged(JNIEnv* jenv, jobject thiz, jboolean bPortrait)
@@ -934,3 +1223,5 @@ bool WaitForAndroidLoseFocusEvent(double TimeoutSeconds)
 {
 	return FAppEventManager::GetInstance()->WaitForEventInQueue(EAppEventState::APP_EVENT_STATE_WINDOW_LOST_FOCUS, TimeoutSeconds);
 }
+
+#endif

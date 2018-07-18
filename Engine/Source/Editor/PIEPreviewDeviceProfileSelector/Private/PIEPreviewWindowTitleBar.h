@@ -4,7 +4,7 @@
 
 #if WITH_EDITOR
 
-#include "SWindowTitleBar.h"
+#include "Framework/Application/SWindowTitleBar.h"
 #include "PIEPreviewWindowStyle.h"
 #include "PIEPreviewWindowCoreStyle.h"
 

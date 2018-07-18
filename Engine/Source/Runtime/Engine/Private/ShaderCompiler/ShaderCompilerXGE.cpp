@@ -76,7 +76,7 @@ namespace XGEShaderCompilerVariables
 			{
 				XGEShaderCompilerVariables::Enabled = 1;
 			}
-			if (FParse::Param(FCommandLine::Get(), TEXT("noxgeshadercompile")))
+			if (FParse::Param(FCommandLine::Get(), TEXT("noxgeshadercompile")) || FParse::Param(FCommandLine::Get(), TEXT("noshaderworker")))
 			{
 				XGEShaderCompilerVariables::Enabled = 0;
 			}
@@ -704,10 +704,45 @@ FShaderCompileXGEThreadRunnable_InterceptionInterface::~FShaderCompileXGEThreadR
 {
 }
 
+void FShaderCompileXGEThreadRunnable_InterceptionInterface::DispatchShaderCompileJobsBatch(TArray<FShaderCommonCompileJob*>& JobsToSerialize)
+{
+#if WITH_XGE_CONTROLLER
+	FString InputFilePath = IXGEController::Get().CreateUniqueFilePath();
+	FString OutputFilePath = IXGEController::Get().CreateUniqueFilePath();
+
+	FString WorkingDirectory = FPaths::GetPath(InputFilePath);
+	FString InputFileName = FPaths::GetCleanFilename(InputFilePath);
+	FString OutputFileName = FPaths::GetCleanFilename(OutputFilePath);
+
+	FString WorkerParameters = FString::Printf(TEXT("\"%s/\" %d 0 \"%s\" \"%s\" -xge_int %s"),
+		*WorkingDirectory,
+		Manager->ProcessId,
+		*InputFileName,
+		*OutputFileName,
+		*FCommandLine::GetSubprocessCommandline());
+
+	// Serialize the jobs to the input file
+	FArchive* InputFileAr = IFileManager::Get().CreateFileWriter(*InputFilePath, FILEWRITE_EvenIfReadOnly | FILEWRITE_NoFail);
+	FShaderCompileUtilities::DoWriteTasks(JobsToSerialize, *InputFileAr);
+	delete InputFileAr;
+
+	// Kick off the job
+	NumDispatchedJobs += JobsToSerialize.Num();
+
+	DispatchedTasks.Add(
+		new FXGEShaderCompilerTask(
+			IXGEController::Get().EnqueueTask(Manager->ShaderCompileWorkerName, WorkerParameters),
+			MoveTemp(JobsToSerialize),
+			MoveTemp(InputFilePath),
+			MoveTemp(OutputFilePath)
+		)
+	);
+#endif
+}
+
 int32 FShaderCompileXGEThreadRunnable_InterceptionInterface::CompilingLoop()
 {
 #if WITH_XGE_CONTROLLER
-
 	TArray<FShaderCommonCompileJob*> PendingJobs;
 
 	// Try to prepare more shader jobs.
@@ -719,12 +754,7 @@ int32 FShaderCompileXGEThreadRunnable_InterceptionInterface::CompilingLoop()
 		int32 NumNewJobs = Manager->CompileQueue.Num();
 		if (NumNewJobs > 0)
 		{
-			for (int32 SrcJobIndex = 0; SrcJobIndex < NumNewJobs; ++SrcJobIndex)
-			{
-				PendingJobs.Add(Manager->CompileQueue[SrcJobIndex]);
-			}
-
-			Manager->CompileQueue.RemoveAt(0, NumNewJobs);
+			Swap(PendingJobs, Manager->CompileQueue);
 		}
 	}
 
@@ -734,46 +764,95 @@ int32 FShaderCompileXGEThreadRunnable_InterceptionInterface::CompilingLoop()
 		const uint32 JobsPerBatch = FMath::Max(1, FMath::FloorToInt(FMath::LogX(2, PendingJobs.Num() + NumDispatchedJobs)));
 		UE_LOG(LogShaderCompilers, Verbose, TEXT("Current jobs: %d, Batch size: %d, Num Already Dispatched: %d"), PendingJobs.Num(), JobsPerBatch, NumDispatchedJobs);
 
-		for (auto JobsIter = PendingJobs.CreateIterator(); JobsIter; )
+
+		struct FJobBatch
 		{
-			TArray<FShaderCommonCompileJob*> JobsToSerialize;
+			TArray<FShaderCommonCompileJob*> Jobs;
+			TSet<const FShaderType*> UniquePointers;
 
-			for (uint32 NumThisBatch = 0; NumThisBatch < JobsPerBatch && JobsIter; ++JobsIter, ++NumThisBatch)
-				JobsToSerialize.Add(*JobsIter);
-
-			if (JobsToSerialize.Num())
+			bool operator == (const FJobBatch& B) const
 			{
-				FString InputFilePath = IXGEController::Get().CreateUniqueFilePath();
-				FString OutputFilePath = IXGEController::Get().CreateUniqueFilePath();
-
-				FString WorkingDirectory = FPaths::GetPath(InputFilePath);
-				FString InputFileName = FPaths::GetCleanFilename(InputFilePath);
-				FString OutputFileName = FPaths::GetCleanFilename(OutputFilePath);
-
-				FString WorkerParameters = FString::Printf(TEXT("\"%s/\" %d 0 \"%s\" \"%s\" -xge_int %s"),
-					*WorkingDirectory,
-					Manager->ProcessId,
-					*InputFileName,
-					*OutputFileName,
-					*FCommandLine::GetSubprocessCommandline());
-
-				// Serialize the jobs to the input file
-				FArchive* InputFileAr = IFileManager::Get().CreateFileWriter(*InputFilePath, FILEWRITE_EvenIfReadOnly | FILEWRITE_NoFail);
-				FShaderCompileUtilities::DoWriteTasks(JobsToSerialize, *InputFileAr);
-				delete InputFileAr;
-
-				// Kick off the job
-				NumDispatchedJobs += JobsToSerialize.Num();
-
-				DispatchedTasks.Add(
-					new FXGEShaderCompilerTask(
-						IXGEController::Get().EnqueueTask(Manager->ShaderCompileWorkerName, WorkerParameters),
-						MoveTemp(JobsToSerialize),
-						MoveTemp(InputFilePath),
-						MoveTemp(OutputFilePath)
-					)
-				);
+				return Jobs == B.Jobs;
 			}
+		};
+
+
+		// Different batches.
+		TArray<FJobBatch> JobBatches;
+
+		
+		for (int32 i = 0; i < PendingJobs.Num(); i++)
+		{
+			// Randomize the shader compile jobs a little.
+			{
+				int32 PickedUpIndex = FMath::RandRange(i, PendingJobs.Num() - 1);
+				if (i != PickedUpIndex)
+				{
+					Swap(PendingJobs[i], PendingJobs[PickedUpIndex]);
+				}
+			}
+
+			// Avoid to have multiple of permutation of same global shader in same batch, to avoid pending on long shader compilation
+			// of batches that tries to compile permutation of a global shader type that is giving a hard time to the shader compiler.
+			const FShaderType* OptionalUniqueShaderType = nullptr;
+			if (FShaderCompileJob* ShaderCompileJob = PendingJobs[i]->GetSingleShaderJob())
+			{
+				if (ShaderCompileJob->ShaderType->GetGlobalShaderType())
+				{
+					OptionalUniqueShaderType = ShaderCompileJob->ShaderType;
+				}
+			}
+
+			// Find a batch this compile job can be packed with.
+			FJobBatch* SelectedJobBatch = nullptr;
+			{
+				if (JobBatches.Num() == 0)
+				{
+					SelectedJobBatch = &JobBatches[JobBatches.Emplace()];
+				}
+				else if (OptionalUniqueShaderType)
+				{
+					for (FJobBatch& PendingJobBatch : JobBatches)
+					{
+						if (!PendingJobBatch.UniquePointers.Contains(OptionalUniqueShaderType))
+						{
+							SelectedJobBatch = &PendingJobBatch;
+							break;
+						}
+					}
+
+					if (!SelectedJobBatch)
+					{
+						SelectedJobBatch = &JobBatches[JobBatches.Emplace()];
+					}
+				}
+				else
+				{
+					SelectedJobBatch = &JobBatches[0];
+				}
+			}
+
+			// Assign compile job to job batch.
+			{
+				SelectedJobBatch->Jobs.Add(PendingJobs[i]);
+				if (OptionalUniqueShaderType)
+				{
+					SelectedJobBatch->UniquePointers.Add(OptionalUniqueShaderType);
+				}
+			}
+
+			// Kick off compile job batch.
+			if (SelectedJobBatch->Jobs.Num() == JobsPerBatch)
+			{
+				DispatchShaderCompileJobsBatch(SelectedJobBatch->Jobs);
+				JobBatches.RemoveSingleSwap(*SelectedJobBatch);
+			}
+		}
+
+		// Kick off remaining compile job batches.
+		for (FJobBatch& PendingJobBatch : JobBatches)
+		{
+			DispatchShaderCompileJobsBatch(PendingJobBatch.Jobs);
 		}
 	}
 
@@ -781,13 +860,17 @@ int32 FShaderCompileXGEThreadRunnable_InterceptionInterface::CompilingLoop()
 	{
 		FXGEShaderCompilerTask* Task = *Iter;
 		if (!Task->Future.IsReady())
+		{
 			continue;
+		}
 
 		FXGETaskResult Result = Task->Future.Get();
 		NumDispatchedJobs -= Task->ShaderJobs.Num();
 
 		if (Result.ReturnCode != 0)
+		{
 			UE_LOG(LogShaderCompilers, Error, TEXT("Shader compiler returned a non-zero error code (%d)."), Result.ReturnCode);
+		}
 
 		if (Result.bCompleted)
 		{
@@ -818,8 +901,14 @@ int32 FShaderCompileXGEThreadRunnable_InterceptionInterface::CompilingLoop()
 		}
 
 		// Delete input and output files, if they exist.
-		while (!IFileManager::Get().Delete(*Task->InputFilePath, false, true, true)) FPlatformProcess::Sleep(0.01f);
-		while (!IFileManager::Get().Delete(*Task->OutputFilePath, false, true, true)) FPlatformProcess::Sleep(0.01f);
+		while (!IFileManager::Get().Delete(*Task->InputFilePath, false, true, true))
+		{
+			FPlatformProcess::Sleep(0.01f);
+		}
+		while (!IFileManager::Get().Delete(*Task->OutputFilePath, false, true, true))
+		{
+			FPlatformProcess::Sleep(0.01f);
+		}
 
 		Iter.RemoveCurrent();
 		delete Task;

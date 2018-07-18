@@ -10,7 +10,7 @@
 #include "EdGraph/EdGraphPin.h"
 #include "UObject/StructOnScope.h"
 #include "EditorUndoClient.h"
-#include "StructureEditorUtils.h"
+#include "Kismet2/StructureEditorUtils.h"
 #include "UserDefinedStructEditorData.generated.h"
 
 class ITransactionObjectAnnotation;

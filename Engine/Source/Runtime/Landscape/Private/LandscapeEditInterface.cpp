@@ -21,7 +21,7 @@ LandscapeEditInterface.cpp: Landscape editing interface
 #include "LandscapeEdit.h"
 #include "LandscapeRender.h"
 #include "ComponentReregisterContext.h"
-#include "Containers/Algo/Transform.h"
+#include "Algo/Transform.h"
 
 // Channel remapping
 extern const size_t ChannelOffsets[4] = {STRUCT_OFFSET(FColor,R), STRUCT_OFFSET(FColor,G), STRUCT_OFFSET(FColor,B), STRUCT_OFFSET(FColor,A)};
@@ -2778,11 +2778,10 @@ void FLandscapeEditDataInterface::SetAlphaData(ULandscapeLayerInfoObject* const 
 									// Adjust other layers' weights accordingly
 									for (int32 LayerIdx = 0; LayerIdx < Component->WeightmapLayerAllocations.Num(); LayerIdx++)
 									{
-										const uint8 ExistingWeight = LayerDataPtrs[LayerIdx][TexDataIndex];
 										// Exclude bNoWeightBlend layers
 										if (LayerIdx != UpdateLayerIdx && LayerNoWeightBlends[LayerIdx] == false)
 										{
-											OtherLayerWeightSum += ExistingWeight;
+											OtherLayerWeightSum += LayerDataPtrs.IsValidIndex(LayerIdx) ? LayerDataPtrs[LayerIdx][TexDataIndex] : 0;
 										}
 									}
 

@@ -7,16 +7,7 @@
 //-----------------------------------------------------------------------------
 #include "D3D12RHIPrivate.h"
 
-
-int32 FDiskCacheInterface::GEnablePSOCache = 1;
-FAutoConsoleVariableRef FDiskCacheInterface::CVarEnablePSOCache(
-	TEXT("D3D12.EnablePSOCache"),
-	FDiskCacheInterface::GEnablePSOCache,
-	TEXT("Enables a disk cache for PipelineState Objects."),
-	ECVF_RenderThreadSafe | ECVF_ReadOnly
-	);
-
-void FDiskCacheInterface::Init(FString &filename)
+void FDiskCacheInterface::Init(FString &filename, bool bEnable)
 {
 	mFileStart = nullptr;
 	mFile = 0;
@@ -25,11 +16,13 @@ void FDiskCacheInterface::Init(FString &filename)
 	mCurrentFileMapSize = 0;
 	mCurrentOffset = 0;
 	mInErrorState = false;
+	mEnableDiskCache = bEnable;
 
 	mFileName = filename;
 	mCacheExists = true;
-	if (!GEnablePSOCache)
+	if (!mEnableDiskCache)
 	{
+		mInErrorState = true;
 		mCacheExists = false;
 	}
 	else
@@ -55,11 +48,10 @@ void FDiskCacheInterface::Init(FString &filename)
 	if (fileFound && mFileStart)
 	{
 		mHeader = *(FDiskCacheHeader*)mFileStart;
-		if (mHeader.mHeaderVersion != mCurrentHeaderVersion || (!mHeader.mUsesAPILibraries && FD3D12PipelineStateCache::bUseAPILibaries))
+		if (mHeader.mHeaderVersion != mCurrentHeaderVersion)
 		{
 			UE_LOG(LogD3D12RHI, Warning, TEXT("Disk cache is stale. Disk Cache version: %d App version: %d"), mHeader.mHeaderVersion, mCurrentHeaderVersion);
-			ClearDiskCache();
-			Init(filename);
+			ClearAndReinitialize();
 		}
 	}
 	else
@@ -67,13 +59,12 @@ void FDiskCacheInterface::Init(FString &filename)
 		mHeader.mHeaderVersion = mCurrentHeaderVersion;
 		mHeader.mNumPsos = 0;
 		mHeader.mSizeInBytes = 0;
-		mHeader.mUsesAPILibraries = FD3D12PipelineStateCache::bUseAPILibaries;
 	}
 }
 
 void FDiskCacheInterface::GrowMapping(SIZE_T size, bool firstrun)
 {
-	if (!GEnablePSOCache || mInErrorState)
+	if (IsInErrorState())
 	{
 		return;
 	}
@@ -222,7 +213,6 @@ void FDiskCacheInterface::Reset(RESET_TYPE type)
 void FDiskCacheInterface::Close(uint32 numberOfPSOs)
 {
 	mHeader.mNumPsos = numberOfPSOs;
-	mHeader.mUsesAPILibraries = FD3D12PipelineStateCache::bUseAPILibaries;
 
 	check(mCurrentOffset >= sizeof(FDiskCacheHeader));
 	mHeader.mSizeInBytes = mCurrentOffset - sizeof(FDiskCacheHeader);
@@ -252,9 +242,8 @@ void FDiskCacheInterface::ClearDiskCache()
 	mInErrorState = true;
 	mHeader.mHeaderVersion = mCurrentHeaderVersion;
 	mHeader.mNumPsos = 0;
-	mHeader.mUsesAPILibraries = FD3D12PipelineStateCache::bUseAPILibaries;
 
-	if (!GEnablePSOCache)
+	if (!mEnableDiskCache)
 	{
 		return;
 	}
@@ -282,7 +271,6 @@ void FDiskCacheInterface::ClearDiskCache()
 void FDiskCacheInterface::Flush(uint32 numberOfPSOs)
 {
 	mHeader.mNumPsos = numberOfPSOs;
-	mHeader.mUsesAPILibraries = FD3D12PipelineStateCache::bUseAPILibaries;
 
 	check(mCurrentOffset >= sizeof(FDiskCacheHeader));
 	mHeader.mSizeInBytes = mCurrentOffset - sizeof(FDiskCacheHeader);

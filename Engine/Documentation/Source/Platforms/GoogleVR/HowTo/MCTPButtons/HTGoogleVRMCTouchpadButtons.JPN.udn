@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3665412
+﻿INTSourceChangelist:3782314
 Availability:Public
 Crumbs: %ROOT%
 Title:Google Daydream のタッチパッド ボタンの使用方法
@@ -6,13 +6,15 @@ Description:Google Daydream モーション コントローラーのタッチパ
 Type: how-to
 SkillLevel:Intermediate
 Version:4.17
-Parent:Platforms/GoogleVR/HowTo
+Parent:Platforms/GoogleVR
 Order:2
 Tags:GoogleVR
 topic-image:Platforms\GoogleVR\HowTo\HT_GoogleVR_Camera_Setup_Topic_Image.png
 prereq:Platforms\GoogleVR\QuickStart
 prereq:Platforms\GoogleVR\HowTo\CameraSetup
 prereq:Platforms\GoogleVR\HowTo\MotionController
+
+![](HTGVRTouchpad_Hero_Image.png)
 
 **Google Daydream モーション コントローラー** (MC) には、UE4 での多様な入力タスクの処理を設定するボタンが **タッチパッド** 上に付いています。この操作ガイドでは、タッチパッドのセットアップおよび使用方法について説明します。
 
@@ -21,7 +23,9 @@ prereq:Platforms\GoogleVR\HowTo\MotionController
 [/region]
 
 
-## GoogleVR モーション コントローラのタッチパッド ボタンを設定する
+## ステップ
+
+Google Daydream モーション コントローラ タッチパッドの使い方を説明します。
 
 1. まず最初に Player Pawn ブループリントを開いて **[Component]** タブで **「FaceButtonPressed」** という名前の **Text Render** コンポーネントを追加します。この画像のように必ず **Motion Controller** コンポーネントが親になるようにします。
 
@@ -137,26 +141,28 @@ prereq:Platforms\GoogleVR\HowTo\MotionController
     [REGION:caption]
     クリックしてフルサイズで表示
     [/REGION]
-    
-1. ブループリントをコンパイルおよび保存したら、[Launch On] ボタンを使ってプロジェクトをスマートフォンへデプロイして起動します。プロジェクトがスマートフォンへデプロイされたら、スマートフォンを GoogleVR HMD に乗せて Daydream モーション コントローラーを持ちます。タッチパッドの基本方位のどれを押しても、以下のビデオのように表示されます。
+  
+## 最終結果
 
-    [OBJECT:EmbeddedVideo]
-        [PARAMLITERAL:videoid]
-        ATwfS1e7FG4
-        [/PARAMLITERAL]
-        [PARAMLITERAL:width]
-        100
-        [/PARAMLITERAL]
-        [PARAMLITERAL:height]
-        56.25
-        [/PARAMLITERAL]
-        [PARAMLITERAL:units]
-        %
-        [/PARAMLITERAL]
-        [PARAMLITERAL:type]
-        simple
-        [/PARAMLITERAL]
-    [/OBJECT]
+ブループリントをコンパイルおよび保存したら、[Launch On] ボタンを使ってプロジェクトをスマートフォンへデプロイして起動します。プロジェクトがスマートフォンへデプロイされたら、スマートフォンを GoogleVR HMD に乗せて Daydream モーション コントローラーを持ちます。タッチパッドの基本方位のどれを押しても、以下のビデオのように表示されます。
+
+[OBJECT:EmbeddedVideo]
+    [PARAMLITERAL:videoid]
+    ATwfS1e7FG4
+    [/PARAMLITERAL]
+    [PARAMLITERAL:width]
+    100
+    [/PARAMLITERAL]
+    [PARAMLITERAL:height]
+    56.25
+    [/PARAMLITERAL]
+    [PARAMLITERAL:units]
+    %
+    [/PARAMLITERAL]
+    [PARAMLITERAL:type]
+    simple
+    [/PARAMLITERAL]
+[/OBJECT]
 
 ## アンリアル エンジン プロジェクトをダウンロードする
 

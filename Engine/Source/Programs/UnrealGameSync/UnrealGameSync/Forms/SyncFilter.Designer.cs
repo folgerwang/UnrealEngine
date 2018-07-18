@@ -92,11 +92,11 @@ namespace UnrealGameSync
 			this.label1.AutoSize = true;
 			this.label1.Location = new System.Drawing.Point(14, 16);
 			this.label1.Name = "label1";
-			this.label1.Size = new System.Drawing.Size(853, 15);
+			this.label1.Size = new System.Drawing.Size(917, 15);
 			this.label1.TabIndex = 4;
 			this.label1.Text = "Files synced from Perforce may be filtered by a custom stream view, and list of p" +
-    "redefined categories. Excluded files that already exist locally will not be remo" +
-    "ved.";
+    "redefined categories.  Settings for the current workspace override defaults for " +
+    "all workspaces.";
 			// 
 			// TabControl
 			// 
@@ -185,6 +185,7 @@ namespace UnrealGameSync
 			this.MinimizeBox = false;
 			this.MinimumSize = new System.Drawing.Size(674, 340);
 			this.Name = "SyncFilter";
+			this.ShowInTaskbar = false;
 			this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
 			this.Text = "Sync Filter";
 			this.TabControl.ResumeLayout(false);

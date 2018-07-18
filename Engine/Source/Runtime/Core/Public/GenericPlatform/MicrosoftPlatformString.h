@@ -4,7 +4,7 @@
 
 #include "Misc/Char.h"
 #include "GenericPlatform/GenericPlatformString.h"
-#include "GenericPlatformStricmp.h"
+#include "GenericPlatform/GenericPlatformStricmp.h"
 
 /**
 * Microsoft specific implementation 
@@ -318,13 +318,6 @@ struct FMicrosoftPlatformString : public FGenericPlatformString
 	{
 		return _tcslen( (const WIDECHAR*)String );
 	}
-
-	static const ANSICHAR* GetEncodingName()
-	{
-		return "UTF-16LE";
-	}
-
-	static const bool IsUnicodeEncoded = true;
 };
 
 #if !USE_SECURE_CRT

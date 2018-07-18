@@ -274,9 +274,6 @@ public:
 	virtual void InitRHI();
 	virtual void ReleaseRHI();
 
-	// FDeferredCleanupInterface implementation.
-	virtual void FinishCleanup();
-
 	/** Finds a matching shader resource in memory if possible. */
 	SHADERCORE_API static FShaderResource* FindShaderResourceById(const FShaderResourceId& Id);
 
@@ -296,6 +293,12 @@ public:
 	{
 		UncompressCode(OutCode);
 	}
+
+	/**
+	* Passes back a zeroed out hash to serialize when saving out cooked data.
+	* The goal here is to ensure that source hash changes do not cause widespread binary differences in cooked data, resulting in bloated patch diffs.
+	*/
+	SHADERCORE_API static FSHAHash &FilterShaderSourceHashForSerialization(const FArchive& Ar, FSHAHash &HashToSerialize);
 
 private:
 	// compression functions
@@ -391,7 +394,8 @@ public:
 		uint8 Token = InValue;
 
 		// Anything that does not fit in 4 bits needs to go into FullLengths, with a special token value of 0
-		if (InValue > 7)
+		// InValue == 0 also should go into FullLengths, because its Token value is also 0
+		if (InValue > 7 || InValue == 0)
 		{
 			Token = 0;
 			FullLengths.Add(InValue);
@@ -684,6 +688,8 @@ public:
 	inline FShaderType* GetType() const { return Type; }
 	inline int32 GetPermutationId() const { return PermutationId; }
 	inline uint32 GetNumInstructions() const { return Resource->NumInstructions; }
+	inline void SetNumInstructions(uint32 Num) { Resource->NumInstructions = Num; }
+
 	inline uint32 GetNumTextureSamplers() const { return Resource->NumTextureSamplers; }
 	inline const TArray<uint8>& GetCode() const { return Resource->Code; }
 	inline const FShaderTarget GetTarget() const { return Target; }
@@ -725,9 +731,6 @@ public:
 	/** Called from the main thread to register and set the serialized resource */
 	void RegisterSerializedResource();
 
-	// FDeferredCleanupInterface implementation.
-	virtual void FinishCleanup();
-
 	/** Implement for geometry shaders that want to use stream out. */
 	static void GetStreamOutElements(FStreamOutElementList& ElementList, TArray<uint32>& StreamStrides, int32& RasterizedStream) {}
 
@@ -740,7 +743,7 @@ public:
 	template<typename UniformBufferStructType>
 	FORCEINLINE_DEBUGGABLE const TShaderUniformBufferParameter<UniformBufferStructType>& GetUniformBufferParameter() const
 	{
-		FUniformBufferStruct* SearchStruct = &UniformBufferStructType::StaticStruct;
+		const FUniformBufferStruct* SearchStruct = &UniformBufferStructType::StaticStruct;
 		int32 FoundIndex = INDEX_NONE;
 
 		for (int32 StructIndex = 0, Count = UniformBufferParameterStructs.Num(); StructIndex < Count; StructIndex++)
@@ -770,7 +773,7 @@ public:
 	}
 
 	/** Finds an automatically bound uniform buffer matching the given uniform buffer struct if one exists, or returns an unbound parameter. */
-	const FShaderUniformBufferParameter& GetUniformBufferParameter(FUniformBufferStruct* SearchStruct) const
+	const FShaderUniformBufferParameter& GetUniformBufferParameter(const FUniformBufferStruct* SearchStruct) const
 	{
 		int32 FoundIndex = INDEX_NONE;
 
@@ -814,6 +817,8 @@ public:
 		SerializedResource = nullptr;
 	}
 
+	void DumpDebugInfo();
+	void SaveShaderStableKeys(EShaderPlatform TargetShaderPlatform, const struct FStableShaderKeyAndValue& SaveKeyVal);
 
 protected:
 
@@ -1034,11 +1039,7 @@ public:
 	{
 		ReferencedUniformBufferStructsCache.Empty();
 		GenerateReferencedUniformBuffers(SourceFilename, Name, ShaderFileToUniformBufferVariables, ReferencedUniformBufferStructsCache);
-
-		for (int32 Platform = 0; Platform < SP_NumPlatforms; Platform++)
-		{
-			bCachedUniformBufferStructDeclarations[Platform] = false;
-		}
+		bCachedUniformBufferStructDeclarations = false;
 	}
 
 	void AddToShaderIdMap(FShaderId Id, FShader* Shader)
@@ -1063,6 +1064,9 @@ public:
 		(*GetStreamOutElementsRef)(ElementList, StreamStrides, RasterizedStream);
 	}
 
+	void DumpDebugInfo();
+	void SaveShaderStableKeys(EShaderPlatform TargetShaderPlatform);
+	void GetShaderStableKeyParts(FStableShaderKeyAndValue& SaveKeyVal);
 private:
 	EShaderTypeForDynamicCast ShaderTypeForDynamicCast;
 	uint32 HashIndex;
@@ -1084,15 +1088,6 @@ private:
 	// DumpShaderStats needs to access ShaderIdMap.
 	friend void SHADERCORE_API DumpShaderStats( EShaderPlatform Platform, EShaderFrequency Frequency );
 
-	/** 
-	 * Cache of referenced uniform buffer includes.  
-	 * These are derived from source files so they need to be flushed when editing and recompiling shaders on the fly. 
-	 * FShaderType::Initialize will add an entry for each referenced uniform buffer, but the declarations are added on demand as shaders are compiled.
-	 */
-	TMap<const TCHAR*, FCachedUniformBufferDeclaration> ReferencedUniformBufferStructsCache;
-
-	/** Tracks what platforms ReferencedUniformBufferStructsCache has had declarations cached for. */
-	bool bCachedUniformBufferStructDeclarations[SP_NumPlatforms];
 
 	/** 
 	 * Stores a history of serialization sizes for this shader type. 
@@ -1102,6 +1097,18 @@ private:
 
 	/** Tracks whether serialization history for all shader types has been initialized. */
 	static bool bInitializedSerializationHistory;
+
+protected:
+	/** Tracks what platforms ReferencedUniformBufferStructsCache has had declarations cached for. */
+	bool bCachedUniformBufferStructDeclarations;
+
+	/**
+	* Cache of referenced uniform buffer includes.
+	* These are derived from source files so they need to be flushed when editing and recompiling shaders on the fly.
+	* FShaderType::Initialize will add an entry for each referenced uniform buffer, but the declarations are added on demand as shaders are compiled.
+	*/
+	TMap<const TCHAR*, FCachedUniformBufferDeclaration> ReferencedUniformBufferStructsCache;
+
 };
 
 /**
@@ -1140,6 +1147,7 @@ private:
 		ShaderClass::ConstructCompiledInstance, \
 		ShaderClass::ModifyCompilationEnvironment, \
 		ShaderClass::ShouldCompilePermutation, \
+		ShaderClass::ValidateCompiledResult, \
 		ShaderClass::GetStreamOutElements \
 		);
 
@@ -1156,6 +1164,7 @@ private:
 		ShaderClass::ConstructCompiledInstance, \
 		ShaderClass::ModifyCompilationEnvironment, \
 		ShaderClass::ShouldCompilePermutation, \
+		ShaderClass::ValidateCompiledResult, \
 		ShaderClass::GetStreamOutElements \
 		);
 
@@ -1172,6 +1181,7 @@ private:
 	ShaderClass::ConstructCompiledInstance, \
 	ShaderClass::ModifyCompilationEnvironment, \
 	ShaderClass::ShouldCompilePermutation, \
+	ShaderClass::ValidateCompiledResult, \
 	ShaderClass::GetStreamOutElements \
 	);
 
@@ -1188,6 +1198,7 @@ private:
 	ShaderClass::ConstructCompiledInstance, \
 	ShaderClass::ModifyCompilationEnvironment, \
 	ShaderClass::ShouldCompilePermutation, \
+	ShaderClass::ValidateCompiledResult, \
 	ShaderClass::GetStreamOutElements \
 	);
 #endif
@@ -1324,7 +1335,7 @@ public:
 		Ar.UsingCustomVersion(FRenderingObjectVersion::GUID);
 
 		Ar << Ref.ShaderType;
-		Ar << Ref.SourceHash;
+		Ar << FShaderResource::FilterShaderSourceHashForSerialization(Ar, Ref.SourceHash);
 
 		if (Ar.CustomVer(FRenderingObjectVersion::GUID) >= FRenderingObjectVersion::ShaderPermutationId)
 		{
@@ -1357,7 +1368,7 @@ public:
 	friend FArchive& operator<<(FArchive& Ar, class FShaderPipelineTypeDependency& Ref)
 	{
 		Ar << Ref.ShaderPipelineType;
-		Ar << Ref.StagesSourceHash;
+		Ar << FShaderResource::FilterShaderSourceHashForSerialization(Ar, Ref.StagesSourceHash);
 		return Ar;
 	}
 
@@ -1578,6 +1589,22 @@ public:
 
 	using FShaderPrimaryKey = TShaderTypePermutation<FShaderType>;
 
+	/** Used to compare two shader types by name. */
+	class FCompareShaderPrimaryKey
+	{
+	public:
+		FORCEINLINE bool operator()(const FShaderPrimaryKey& A, const FShaderPrimaryKey& B) const
+		{
+			int32 AL = FCString::Strlen(A.Type->GetName());
+			int32 BL = FCString::Strlen(B.Type->GetName());
+			if (AL == BL)
+			{
+				return FCString::Strncmp(A.Type->GetName(), B.Type->GetName(), AL) > 0 || A.PermutationId > B.PermutationId;
+			}
+			return AL > BL;
+		}
+	};
+
 	/** Default constructor. */
 	TShaderMap(EShaderPlatform InPlatform)
 		: Platform(InPlatform)
@@ -1657,11 +1684,24 @@ public:
 	void GetShaderList(TMap<FShaderId, FShader*>& OutShaders) const
 	{
 		check(bHasBeenRegistered);
-		for(TMap<FShaderPrimaryKey,TRefCountPtr<FShader> >::TConstIterator ShaderIt(Shaders);ShaderIt;++ShaderIt)
+		for (typename TMap<FShaderPrimaryKey, TRefCountPtr<FShader>>::TConstIterator ShaderIt(Shaders); ShaderIt; ++ShaderIt)
 		{
-			if(ShaderIt.Value())
+			if (ShaderIt.Value())
 			{
-				OutShaders.Add(ShaderIt.Value()->GetId(),ShaderIt.Value());
+				OutShaders.Add(ShaderIt.Value()->GetId(), ShaderIt.Value());
+			}
+		}
+	}
+
+	/** Builds a list of the shaders in a shader map. Key is FShaderType::TypeName */
+	void GetShaderList(TMap<FName, FShader*>& OutShaders) const
+	{
+		check(bHasBeenRegistered);
+		for (TMap<FShaderPrimaryKey, TRefCountPtr<FShader> >::TConstIterator ShaderIt(Shaders); ShaderIt; ++ShaderIt)
+		{
+			if (ShaderIt.Value())
+			{
+				OutShaders.Add(ShaderIt.Value()->GetType()->GetFName(), ShaderIt.Value());
 			}
 		}
 	}
@@ -1712,7 +1752,7 @@ public:
 
 	inline void SerializeShaderForSaving(FShader* CurrentShader, FArchive& Ar, bool bHandleShaderKeyChanges, bool bInlineShaderResource)
 	{
-		int32 SkipOffset = Ar.Tell();
+		int64 SkipOffset = Ar.Tell();
 
 		{
 #if WITH_EDITOR
@@ -1731,7 +1771,7 @@ public:
 		CurrentShader->SerializeBase(Ar, bInlineShaderResource);
 
 		// Get the offset to the end of the shader's serialized data
-		int32 EndOffset = Ar.Tell();
+		int64 EndOffset = Ar.Tell();
 		// Seek back to the placeholder and write the end offset
 		// This allows us to skip over the shader's serialized data at load time without knowing how to deserialize it
 		// Which can happen with shaders that were available at cook time, but not on the target platform (shaders in editor module for example)
@@ -1742,7 +1782,7 @@ public:
 
 	inline FShader* SerializeShaderForLoad(FShaderType* Type, FArchive& Ar, bool bHandleShaderKeyChanges, bool bInlineShaderResource)
 	{
-		int32 EndOffset = 0;
+		int64 EndOffset = 0;
 		Ar << EndOffset;
 
 		FSelfContainedShaderId SelfContainedKey;
@@ -1785,16 +1825,17 @@ public:
 
 			// Sort the shaders by type name before saving, to make sure the saved result is binary equivalent to what is generated on other machines, 
 			// Which is a requirement of the Derived Data Cache.
-			auto SortedShaders = Shaders;
-			SortedShaders.KeySort(TCompareShaderTypePermutation<FShaderType>());
+			TArray<FShaderPrimaryKey> SortedShaderKeys;
+			Shaders.GenerateKeyArray(SortedShaderKeys);
+			SortedShaderKeys.Sort(FCompareShaderPrimaryKey());
 
-			for (typename TMap<FShaderPrimaryKey, TRefCountPtr<FShader> >::TIterator ShaderIt(SortedShaders); ShaderIt; ++ShaderIt)
+			for (FShaderPrimaryKey Key : SortedShaderKeys)
 			{
-				FShader* CurrentShader = ShaderIt.Value();
-				FShaderType* Type = ShaderIt.Key().Type;
+				FShaderType* Type = Key.Type;
 				check(Type);
 				checkSlow(FName(Type->GetName()) != NAME_None);
 				Ar << Type;
+				FShader* CurrentShader = Shaders.FindChecked(Key);
 				SerializeShaderForSaving(CurrentShader, Ar, bHandleShaderKeyChanges, bInlineShaderResource);
 			}
 

@@ -508,7 +508,7 @@ TArray<FString> UCurveTable::CreateTableFromJSONString(const FString& InString, 
 
 			// Make sure we have a valid float key
 			float EntryKey = 0.0f;
-			if (!Lex::TryParseString(EntryKey, *ParsedTableRowEntry.Key))
+			if (!LexTryParseString(EntryKey, *ParsedTableRowEntry.Key))
 			{
 				OutProblems.Add(FString::Printf(TEXT("Key '%s' on row '%s' is not a float and cannot be parsed."), *ParsedTableRowEntry.Key, *RowName.ToString()));
 				continue;

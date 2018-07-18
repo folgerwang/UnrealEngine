@@ -7,12 +7,13 @@
 #include "UObject/ObjectMacros.h"
 #include "UObject/UObjectBaseUtility.h"
 #include "ProfilingDebugging/ResourceSize.h"
-#include "PrimaryAssetId.h"
+#include "UObject/PrimaryAssetId.h"
 
 class FConfigCacheIni;
 class FEditPropertyChain;
 class ITargetPlatform;
 class ITransactionObjectAnnotation;
+class FTransactionObjectEvent;
 struct FFrame;
 struct FObjectInstancingGraph;
 struct FPropertyChangedChainEvent;
@@ -35,7 +36,7 @@ namespace ECastCheckedType
 class COREUOBJECT_API UObject : public UObjectBaseUtility
 {
 	// Declarations.
-	DECLARE_CLASS(UObject,UObject,CLASS_Abstract|CLASS_NoExport|CLASS_Intrinsic,CASTCLASS_None,TEXT("/Script/CoreUObject"),NO_API)
+	DECLARE_CLASS(UObject,UObject,CLASS_Abstract|CLASS_NoExport|CLASS_Intrinsic|CLASS_MatchedSerializers,CASTCLASS_None,TEXT("/Script/CoreUObject"),NO_API)
 	DEFINE_DEFAULT_OBJECT_INITIALIZER_CONSTRUCTOR_CALL(UObject)
 	static UObject* __VTableCtorCaller(FVTableHelper& Helper)
 	{
@@ -256,7 +257,8 @@ public:
 	virtual void FinishDestroy();
 
 	/** UObject serializer. */
-	virtual void Serialize( FArchive& Ar );
+	virtual void Serialize(FArchive& Ar);
+	virtual void Serialize(FStructuredArchive::FRecord Record);
 
 	virtual void ShutdownAfterError() {}
 
@@ -325,13 +327,21 @@ public:
 	virtual void PostEditUndo(TSharedPtr<ITransactionObjectAnnotation> TransactionAnnotation);
 
 	/**
+	 * Called after the object has been transacted in some way.
+	 * TransactionEvent describes what actually happened.
+	 * @note Unlike PostEditUndo (which is called for any object in the transaction), this is only called on objects that are actually changed by the transaction.
+	 */
+	virtual void PostTransacted(const FTransactionObjectEvent& TransactionEvent);
+
+private:
+	/**
 	 * Test the selection state of a UObject
 	 *
 	 * @return		true if the object is selected, false otherwise.
 	 * @todo UE4 this doesn't belong here, but it doesn't belong anywhere else any better
 	 */
-private:
 	virtual bool IsSelectedInEditor() const;
+
 public:
 #endif // WITH_EDITOR
 
@@ -364,6 +374,14 @@ public:
 	 * @return	true if this object should be loaded on servers
 	 */
 	virtual bool NeedsLoadForServer() const;
+
+	/**
+	 * Called during saving to determine the load flags to save with the object.
+	 * If false, this object will be discarded on the target platform
+	 *
+	 * @return	true if this object should be loaded on the target platform
+	 */
+	virtual bool NeedsLoadForTargetPlatform(const class ITargetPlatform* TargetPlatform) const;
 
 	/**
 	 * Called during saving to determine the load flags to save with the object.
@@ -661,6 +679,10 @@ public:
 
 	/** Gathers a collection of asset registry tag metadata */
 	virtual void GetAssetRegistryTagMetadata(TMap<FName, FAssetRegistryTagMetadata>& OutMetadata) const;
+
+	/** The metadata tags to be transferred from the UMetaData to the Asset Registry */
+	static TSet<FName>& GetMetaDataTagsForAssetRegistry();
+
 #endif
 
 	/** Returns true if this object is considered an asset. */
@@ -738,9 +760,7 @@ public:
 
 #if WITH_EDITOR
 	/**
-	 * Serializes all objects which have this object as their archetype into GMemoryArchive, then recursively calls this function
-	 * on each of those objects until the full list has been processed.
-	 * Called when a property value is about to be modified in an archetype object. 
+	 * Calls PreEditChange on all instances based on an archetype in AffectedObjects. Recurses on any instances.
 	 *
 	 * @param	AffectedObjects		the array of objects which have this object in their ObjectArchetype chain and will be affected by the change.
 	 *								Objects which have this object as their direct ObjectArchetype are removed from the list once they're processed.
@@ -748,8 +768,7 @@ public:
 	void PropagatePreEditChange( TArray<UObject*>& AffectedObjects, FEditPropertyChain& PropertyAboutToChange );
 
 	/**
-	 * De-serializes all objects which have this object as their archetype from the GMemoryArchive, then recursively calls this function
-	 * on each of those objects until the full list has been processed.
+	 * Calls PostEditChange on all instances based on an archetype in AffectedObjects. Recurses on any instances.
 	 *
 	 * @param	AffectedObjects		the array of objects which have this object in their ObjectArchetype chain and will be affected by the change.
 	 *								Objects which have this object as their direct ObjectArchetype are removed from the list once they're processed.
@@ -986,10 +1005,7 @@ public:
 	 * 
 	 * @return the archetype for this object
 	 */
-	UObject* GetArchetype() const
-	{
-		return GetArchetypeFromRequiredInfo(GetClass(), GetOuter(), GetFName(), GetFlags());
-	}
+	UObject* GetArchetype() const;
 
 	/**
 	 * Builds a list of objects which have this object in their archetype chain.

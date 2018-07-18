@@ -14,6 +14,8 @@ class ALevelSequenceActor;
 class ISequenceAudioRecorder;
 class UCanvas;
 class UTexture;
+class ASequenceRecorderGroup;
+class USequenceRecorderActorGroup;
 
 struct FSequenceRecorder
 {
@@ -61,6 +63,10 @@ public:
 
 	void AddNewQueuedRecordingsForSelectedActors();
 
+	void AddNewQueuedRecordingForCurrentPlayer();
+
+	bool CanAddNewQueuedRecordingForCurrentPlayer() const;
+
 	class UActorRecording* AddNewQueuedRecording(AActor* Actor = nullptr, UAnimSequence* AnimSequence = nullptr, float Length = 0.0f);
 
 	void RemoveQueuedRecording(AActor* Actor);
@@ -77,7 +83,7 @@ public:
 
 	void ResetQueuedRecordingsDirty() { bQueuedRecordingsDirty = false; }
 
-	bool IsRecording() const { return CurrentSequence.IsValid(); }
+	bool IsRecording() const;
 
 	/** Draw the countdown to the screen */
 	void DrawDebug(UCanvas* InCanvas, APlayerController* InPlayerController);
@@ -87,6 +93,23 @@ public:
 
 	/** Handle actors being de-spawned */
 	void HandleActorDespawned(AActor* Actor);
+
+	TWeakObjectPtr<USequenceRecorderActorGroup> GetCurrentRecordingGroup() const
+	{
+		return CurrentRecorderGroup;
+	}
+
+	TWeakObjectPtr<ASequenceRecorderGroup> GetRecordingGroupActor();
+
+	TWeakObjectPtr<USequenceRecorderActorGroup> AddRecordingGroup();
+	void RemoveCurrentRecordingGroup();
+	TWeakObjectPtr<USequenceRecorderActorGroup> DuplicateRecordingGroup();
+	TWeakObjectPtr<USequenceRecorderActorGroup> LoadRecordingGroup(const FName Name);
+
+	TArray<FName> GetRecordingGroupNames() const;
+
+	FString GetSequenceRecordingBasePath() const;
+	FString GetSequenceRecordingName() const;
 
 	/** Get the built-in animation factory (as this uses special case handling) */
 	const FMovieSceneAnimationSectionRecorderFactory& GetAnimationRecorderFactory() const
@@ -106,11 +129,17 @@ public:
 	/** Refresh the name of the next sequence we will be recording */
 	void RefreshNextSequence();
 
+	/** Force refresh the name of the next sequence, disregard the current sequence name */
+	void ForceRefreshNextSequence();
+
 	/** Multicast delegate fired when recording is started */
 	FOnRecordingStarted OnRecordingStartedDelegate;
 
 	/** Multicast delegate fired when recording has finished */
 	FOnRecordingFinished OnRecordingFinishedDelegate;
+
+	/** Multicast delegate fired when a recording group has been added */
+	FOnRecordingGroupAdded OnRecordingGroupAddedDelegate;
 
 private:
 	/** Starts recording a sequence, possibly delayed */
@@ -122,8 +151,11 @@ private:
 	/** Handle exiting cleanly from PIE */
 	void HandleEndPIE(bool bSimulating);
 
-	/** Keep sequence range up to date with sections that are being recorded */
-	void UpdateSequencePlaybackRange();
+	/** Set immersive mode and store whether viewports were immersive */
+	void SetImmersive();
+
+	/** Restore immersive mode to stored value */
+	void RestoreImmersive();
 
 private:
 	/** Constructor, private - use Get() function */
@@ -134,6 +166,12 @@ private:
 
 	/** World we are recording a replay for, if any */
 	TLazyObjectPtr<class UWorld> CurrentReplayWorld;
+
+	/** Recorder Group that our actor recordings go into.  */
+	TWeakObjectPtr<USequenceRecorderActorGroup> CurrentRecorderGroup;
+
+	/** Cached actor for this level who holds the recording group. */
+	TWeakObjectPtr<ASequenceRecorderGroup> CachedRecordingActor;
 
 	TArray<class UActorRecording*> QueuedRecordings;
 

@@ -13,8 +13,6 @@ namespace UnrealBuildTool.Rules
 
 			PrivateIncludePaths.AddRange(
 				new string[] {
-                    "MainFrame",
-					"Editor/SpeedTreeImporter/Private",
 				}
 				);
 

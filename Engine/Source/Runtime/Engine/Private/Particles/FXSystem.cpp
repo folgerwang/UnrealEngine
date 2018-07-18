@@ -12,6 +12,7 @@
 #include "Particles/ParticleCurveTexture.h"
 #include "VectorField/VectorField.h"
 #include "Components/VectorFieldComponent.h"
+#include "SceneUtils.h"
 
 /*-----------------------------------------------------------------------------
 	External FX system interface.
@@ -343,13 +344,14 @@ void FFXSystem::PreRender(FRHICommandListImmediate& RHICmdList, const FGlobalDis
 {
 	if (RHISupportsGPUParticles())
 	{
+		SCOPED_DRAW_EVENT(RHICmdList, GPUParticles_PreRender);
 		UpdateMultiGPUResources(RHICmdList);
 
 		RHICmdList.SetCurrentStat(GET_STATID(STAT_CLM_FXPreRender_Prepare));
 		PrepareGPUSimulation(RHICmdList);
 
 		RHICmdList.SetCurrentStat(GET_STATID(STAT_CLM_FXPreRender_Simulate));
-		SimulateGPUParticles(RHICmdList, EParticleSimulatePhase::Main, NULL, NULL, FTexture2DRHIParamRef(), FTexture2DRHIParamRef());
+		SimulateGPUParticles(RHICmdList, EParticleSimulatePhase::Main, nullptr, nullptr, nullptr, FUniformBufferRHIParamRef());
 
 		RHICmdList.SetCurrentStat(GET_STATID(STAT_CLM_FXPreRender_Finalize));
 		FinalizeGPUSimulation(RHICmdList);
@@ -360,7 +362,7 @@ void FFXSystem::PreRender(FRHICommandListImmediate& RHICmdList, const FGlobalDis
 			PrepareGPUSimulation(RHICmdList);
 
 			RHICmdList.SetCurrentStat(GET_STATID(STAT_CLM_FXPreRender_SimulateCDF));
-			SimulateGPUParticles(RHICmdList, EParticleSimulatePhase::CollisionDistanceField, NULL, GlobalDistanceFieldParameterData, FTexture2DRHIParamRef(), FTexture2DRHIParamRef());
+			SimulateGPUParticles(RHICmdList, EParticleSimulatePhase::CollisionDistanceField, nullptr, GlobalDistanceFieldParameterData, nullptr, FUniformBufferRHIParamRef());
 			//particles rendered during basepass may need to read pos/velocity buffers.  must finalize unless we know for sure that nothingin base pass will read.
 			RHICmdList.SetCurrentStat(GET_STATID(STAT_CLM_FXPreRender_FinalizeCDF));
 			FinalizeGPUSimulation(RHICmdList);
@@ -368,15 +370,20 @@ void FFXSystem::PreRender(FRHICommandListImmediate& RHICmdList, const FGlobalDis
     }
 }
 
-void FFXSystem::PostRenderOpaque(FRHICommandListImmediate& RHICmdList, const FUniformBufferRHIParamRef ViewUniformBuffer, FTexture2DRHIParamRef SceneDepthTexture, FTexture2DRHIParamRef GBufferATexture)
+void FFXSystem::PostRenderOpaque(
+	FRHICommandListImmediate& RHICmdList, 
+	const FUniformBufferRHIParamRef ViewUniformBuffer, 
+	const FUniformBufferStruct* SceneTexturesUniformBufferStruct,
+	FUniformBufferRHIParamRef SceneTexturesUniformBuffer)
 {
 	if (RHISupportsGPUParticles() && IsParticleCollisionModeSupported(GetShaderPlatform(), PCM_DepthBuffer))
 	{
-		PrepareGPUSimulation(RHICmdList, SceneDepthTexture);
+		SCOPED_DRAW_EVENT(RHICmdList, GPUParticles_PostRenderOpaque);
+		PrepareGPUSimulation(RHICmdList);
 		
-		SimulateGPUParticles(RHICmdList, EParticleSimulatePhase::CollisionDepthBuffer, ViewUniformBuffer, NULL, SceneDepthTexture, GBufferATexture);
+		SimulateGPUParticles(RHICmdList, EParticleSimulatePhase::CollisionDepthBuffer, ViewUniformBuffer, NULL, SceneTexturesUniformBufferStruct, SceneTexturesUniformBuffer);
 		
-		FinalizeGPUSimulation(RHICmdList, SceneDepthTexture);
+		FinalizeGPUSimulation(RHICmdList);
 
 		SortGPUParticles(RHICmdList);		
 	}

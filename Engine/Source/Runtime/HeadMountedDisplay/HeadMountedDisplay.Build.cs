@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -31,7 +31,8 @@ public class HeadMountedDisplay : ModuleRules
                 "ShaderCore",
                 "RenderCore",
                 "UtilityShaders",
-                "Analytics"
+                "Analytics",
+                "EngineSettings",
             }
         );
 

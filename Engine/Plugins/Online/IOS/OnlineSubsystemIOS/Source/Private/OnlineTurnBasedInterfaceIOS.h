@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "OnlineTurnBasedInterface.h"
+#include "Interfaces/OnlineTurnBasedInterface.h"
 #include "TurnBasedMatchmakerIOS.h"
 #import <GameKit/GameKit.h>
 

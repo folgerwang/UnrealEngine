@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "Platform.h"
+#include "HAL/Platform.h"
 
 COMPILE_WARNING("This file has been moved to HeadMountedDisplay/Public/HeadMountedDisplayFunctionLibrary.h. Some types were moved to HeadMountedDisplay/Public/HeadMountedDisplayTypes.h.  Replace all #include \"Kismet\\HeadMountedDisplayFunctionLibrary.h\" with: #include \"HeadMountedDisplayFunctionLibrary.h\" or #include \"HeadMountedDisplayTypes.h\".")
 

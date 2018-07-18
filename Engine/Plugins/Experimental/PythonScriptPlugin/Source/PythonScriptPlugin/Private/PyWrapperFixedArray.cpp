@@ -102,15 +102,13 @@ struct FPyWrapperFixedArrayIterator
 	}
 };
 
-void InitializePyWrapperFixedArray(PyObject* PyModule)
+void InitializePyWrapperFixedArray(PyGenUtil::FNativePythonModule& ModuleInfo)
 {
 	if (PyType_Ready(&PyWrapperFixedArrayType) == 0)
 	{
 		static FPyWrapperFixedArrayMetaData MetaData;
 		FPyWrapperFixedArrayMetaData::SetMetaData(&PyWrapperFixedArrayType, &MetaData);
-
-		Py_INCREF(&PyWrapperFixedArrayType);
-		PyModule_AddObject(PyModule, PyWrapperFixedArrayType.tp_name, (PyObject*)&PyWrapperFixedArrayType);
+		ModuleInfo.AddType(&PyWrapperFixedArrayType);
 	}
 
 	PyType_Ready(&PyWrapperFixedArrayIteratorType);
@@ -259,10 +257,14 @@ bool FPyWrapperFixedArray::ValidateInternalState(FPyWrapperFixedArray* InSelf)
 	return true;
 }
 
-FPyWrapperFixedArray* FPyWrapperFixedArray::CastPyObject(PyObject* InPyObject)
+FPyWrapperFixedArray* FPyWrapperFixedArray::CastPyObject(PyObject* InPyObject, FPyConversionResult* OutCastResult)
 {
+	SetOptionalPyConversionResult(FPyConversionResult::Failure(), OutCastResult);
+
 	if (PyObject_IsInstance(InPyObject, (PyObject*)&PyWrapperFixedArrayType) == 1)
 	{
+		SetOptionalPyConversionResult(FPyConversionResult::Success(), OutCastResult);
+
 		Py_INCREF(InPyObject);
 		return (FPyWrapperFixedArray*)InPyObject;
 	}
@@ -270,8 +272,10 @@ FPyWrapperFixedArray* FPyWrapperFixedArray::CastPyObject(PyObject* InPyObject)
 	return nullptr;
 }
 
-FPyWrapperFixedArray* FPyWrapperFixedArray::CastPyObject(PyObject* InPyObject, PyTypeObject* InType, const PyUtil::FPropertyDef& InPropDef)
+FPyWrapperFixedArray* FPyWrapperFixedArray::CastPyObject(PyObject* InPyObject, PyTypeObject* InType, const PyUtil::FPropertyDef& InPropDef, FPyConversionResult* OutCastResult)
 {
+	SetOptionalPyConversionResult(FPyConversionResult::Failure(), OutCastResult);
+
 	if (PyObject_IsInstance(InPyObject, (PyObject*)InType) == 1 && (InType == &PyWrapperFixedArrayType || PyObject_IsInstance(InPyObject, (PyObject*)&PyWrapperFixedArrayType) == 1))
 	{
 		FPyWrapperFixedArray* Self = (FPyWrapperFixedArray*)InPyObject;
@@ -283,6 +287,8 @@ FPyWrapperFixedArray* FPyWrapperFixedArray::CastPyObject(PyObject* InPyObject, P
 		const PyUtil::FPropertyDef SelfPropDef = Self->ArrayProp;
 		if (SelfPropDef == InPropDef)
 		{
+			SetOptionalPyConversionResult(FPyConversionResult::Success(), OutCastResult);
+
 			Py_INCREF(Self);
 			return Self;
 		}
@@ -311,6 +317,7 @@ FPyWrapperFixedArray* FPyWrapperFixedArray::CastPyObject(PyObject* InPyObject, P
 			}
 		}
 
+		SetOptionalPyConversionResult(FPyConversionResult::SuccessWithCoercion(), OutCastResult);
 		return NewArray.Release();
 	}
 
@@ -343,6 +350,7 @@ FPyWrapperFixedArray* FPyWrapperFixedArray::CastPyObject(PyObject* InPyObject, P
 					}
 				}
 
+				SetOptionalPyConversionResult(FPyConversionResult::SuccessWithCoercion(), OutCastResult);
 				return NewArray.Release();
 			}
 		}
@@ -378,15 +386,16 @@ PyObject* FPyWrapperFixedArray::GetItem(FPyWrapperFixedArray* InSelf, Py_ssize_t
 		return nullptr;
 	}
 
-	if (PyUtil::ValidateContainerIndexParam(InIndex, InSelf->ArrayProp->ArrayDim, InSelf->ArrayProp, *PyUtil::GetErrorContext(InSelf)) != 0)
+	const Py_ssize_t ResolvedIndex = PyUtil::ResolveContainerIndexParam(InIndex, InSelf->ArrayProp->ArrayDim);
+	if (PyUtil::ValidateContainerIndexParam(ResolvedIndex, InSelf->ArrayProp->ArrayDim, InSelf->ArrayProp, *PyUtil::GetErrorContext(InSelf)) != 0)
 	{
 		return nullptr;
 	}
 
 	PyObject* PyItemObj = nullptr;
-	if (!PyConversion::PythonizeProperty_Direct(InSelf->ArrayProp, GetItemPtr(InSelf, InIndex), PyItemObj))
+	if (!PyConversion::PythonizeProperty_Direct(InSelf->ArrayProp, GetItemPtr(InSelf, ResolvedIndex), PyItemObj))
 	{
-		PyUtil::SetPythonError(PyExc_TypeError, InSelf, *FString::Printf(TEXT("Failed to convert property '%s' (%s) at index %d"), *InSelf->ArrayProp->GetName(), *InSelf->ArrayProp->GetClass()->GetName(), InIndex));
+		PyUtil::SetPythonError(PyExc_TypeError, InSelf, *FString::Printf(TEXT("Failed to convert property '%s' (%s) at index %d"), *InSelf->ArrayProp->GetName(), *InSelf->ArrayProp->GetClass()->GetName(), ResolvedIndex));
 		return nullptr;
 	}
 	return PyItemObj;
@@ -399,15 +408,16 @@ int FPyWrapperFixedArray::SetItem(FPyWrapperFixedArray* InSelf, Py_ssize_t InInd
 		return -1;
 	}
 
-	const int ValidateIndexResult = PyUtil::ValidateContainerIndexParam(InIndex, InSelf->ArrayProp->ArrayDim, InSelf->ArrayProp, *PyUtil::GetErrorContext(InSelf));
+	const Py_ssize_t ResolvedIndex = PyUtil::ResolveContainerIndexParam(InIndex, InSelf->ArrayProp->ArrayDim);
+	const int ValidateIndexResult = PyUtil::ValidateContainerIndexParam(ResolvedIndex, InSelf->ArrayProp->ArrayDim, InSelf->ArrayProp, *PyUtil::GetErrorContext(InSelf));
 	if (ValidateIndexResult != 0)
 	{
 		return ValidateIndexResult;
 	}
 
-	if (!PyConversion::NativizeProperty_Direct(InValue, InSelf->ArrayProp, GetItemPtr(InSelf, InIndex)))
+	if (!PyConversion::NativizeProperty_Direct(InValue, InSelf->ArrayProp, GetItemPtr(InSelf, ResolvedIndex)))
 	{
-		PyUtil::SetPythonError(PyExc_TypeError, InSelf, *FString::Printf(TEXT("Failed to convert property '%s' (%s) at index %d"), *InSelf->ArrayProp->GetName(), *InSelf->ArrayProp->GetClass()->GetName(), InIndex));
+		PyUtil::SetPythonError(PyExc_TypeError, InSelf, *FString::Printf(TEXT("Failed to convert property '%s' (%s) at index %d"), *InSelf->ArrayProp->GetName(), *InSelf->ArrayProp->GetClass()->GetName(), ResolvedIndex));
 		return -1;
 	}
 
@@ -680,7 +690,9 @@ PyTypeObject InitializePyWrapperFixedArrayType()
 				return nullptr;
 			}
 
-			const Py_ssize_t SliceLen = InSliceStop - InSliceStart;
+			const Py_ssize_t ResolvedSliceStart = PyUtil::ResolveContainerIndexParam(InSliceStart, InSelf->ArrayProp->ArrayDim);
+			const Py_ssize_t ResolvedSliceStop = PyUtil::ResolveContainerIndexParam(InSliceStop, InSelf->ArrayProp->ArrayDim);
+			const Py_ssize_t SliceLen = ResolvedSliceStop - ResolvedSliceStart;
 			if (SliceLen <= 0)
 			{
 				PyUtil::SetPythonError(PyExc_Exception, InSelf, TEXT("Slice length must be greater than zero"));
@@ -694,9 +706,9 @@ PyTypeObject InitializePyWrapperFixedArrayType()
 				return nullptr;
 			}
 
-			for (Py_ssize_t ArrIndex = InSliceStart; ArrIndex < InSliceStop; ++ArrIndex)
+			for (Py_ssize_t ArrIndex = ResolvedSliceStart; ArrIndex < ResolvedSliceStop; ++ArrIndex)
 			{
-				InSelf->ArrayProp->CopySingleValue(FPyWrapperFixedArray::GetItemPtr(NewArray, ArrIndex - InSliceStart), FPyWrapperFixedArray::GetItemPtr(InSelf, ArrIndex));
+				InSelf->ArrayProp->CopySingleValue(FPyWrapperFixedArray::GetItemPtr(NewArray, ArrIndex - ResolvedSliceStart), FPyWrapperFixedArray::GetItemPtr(InSelf, ArrIndex));
 			}
 			return (PyObject*)NewArray.Release();
 		}
@@ -783,9 +795,9 @@ PyTypeObject InitializePyWrapperFixedArrayType()
 	};
 
 	static PyMethodDef PyMethods[] = {
-		{ "cast", PyCFunctionCast(&FMethods::Cast), METH_VARARGS | METH_KEYWORDS | METH_CLASS, "X.cast(type, obj) -> TFixedArray -- cast the given object to this Unreal fixed-array type" },
-		{ "__copy__", PyCFunctionCast(&FMethods::Copy), METH_NOARGS, "x.__copy__() -> TFixedArray -- copy this Unreal fixed-array" },
-		{ "copy", PyCFunctionCast(&FMethods::Copy), METH_NOARGS, "x.copy() -> TFixedArray -- copy this Unreal fixed-array" },
+		{ "cast", PyCFunctionCast(&FMethods::Cast), METH_VARARGS | METH_KEYWORDS | METH_CLASS, "X.cast(type, obj) -> FixedArray -- cast the given object to this Unreal fixed-array type" },
+		{ "__copy__", PyCFunctionCast(&FMethods::Copy), METH_NOARGS, "x.__copy__() -> FixedArray -- copy this Unreal fixed-array" },
+		{ "copy", PyCFunctionCast(&FMethods::Copy), METH_NOARGS, "x.copy() -> FixedArray -- copy this Unreal fixed-array" },
 		{ nullptr, nullptr, 0, nullptr }
 	};
 
@@ -889,17 +901,14 @@ PyTypeObject InitializePyWrapperFixedArrayIteratorType()
 PyTypeObject PyWrapperFixedArrayType = InitializePyWrapperFixedArrayType();
 PyTypeObject PyWrapperFixedArrayIteratorType = InitializePyWrapperFixedArrayIteratorType();
 
-FPyWrapperFixedArrayMetaData::FPyWrapperFixedArrayMetaData()
+void FPyWrapperFixedArrayMetaData::AddReferencedObjects(FPyWrapperBase* Instance, FReferenceCollector& Collector)
 {
-	AddReferencedObjects = [](FPyWrapperBase* Self, FReferenceCollector& Collector)
+	FPyWrapperFixedArray* Self = static_cast<FPyWrapperFixedArray*>(Instance);
+	if (Self->ArrayProp && Self->ArrayInstance && !Self->OwnerContext.HasOwner())
 	{
-		FPyWrapperFixedArray* FixedArraySelf = static_cast<FPyWrapperFixedArray*>(Self);
-		if (FixedArraySelf->ArrayProp && FixedArraySelf->ArrayInstance && !FixedArraySelf->OwnerContext.HasOwner())
-		{
-			Collector.AddReferencedObject(FixedArraySelf->ArrayProp);
-			FPyReferenceCollector::AddReferencedObjectsFromProperty(Collector, FixedArraySelf->ArrayProp, FixedArraySelf->ArrayInstance);
-		}
-	};
+		Collector.AddReferencedObject(Self->ArrayProp);
+		FPyReferenceCollector::AddReferencedObjectsFromProperty(Collector, Self->ArrayProp, Self->ArrayInstance);
+	}
 }
 
 #endif	// WITH_PYTHON

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3579346
+﻿INTSourceChangelist:3808342
 Availability:Public
 TItle:NVIDIA Ansel プラグインの概要
 Description:ゲームの拡張画像をキャプチャーし、共有するための NVIDIA の Ansel のインゲームのフォトグラフィー ツールの UE4 への統合の概要です。
@@ -115,6 +115,3 @@ Ansel には以下のキャプチャー タイプがあります。
 
 デフォルトの Ansel プラグインのコンフィギュレーションを使用すると、通常のプロジェクトで問題なく機能しますが、ゲームのニーズに合わせて設定し、ゲーム ロジックに統合させると最高レベルのプレイヤー体験を実現することができます。利用可能なオプションとロジックのフックについては、[](Engine/Plugins/Ansel/Reference/ConsoleVariables) と [](Engine/Plugins/Ansel/Reference/BlueprintAPI) をご覧ください。
 
-## Ansel photography でゲームをパブリッシュする
-
-ゲームを制作している方々は、[NVIDIA の Ansel チーム](mailto:ansel@nvidia.com) に連絡をとって制作するタイトルの全プレイヤーが Ansel を使用できるように調整してください。

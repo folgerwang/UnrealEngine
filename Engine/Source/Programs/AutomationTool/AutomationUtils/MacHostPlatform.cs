@@ -27,14 +27,14 @@ namespace AutomationTool
 			int CmdExeIndex = UE4Exe.IndexOf("-Cmd.exe");
 			if (CmdExeIndex != -1)
 			{
-				UE4Exe = UE4Exe.Substring (0, CmdExeIndex);
+				UE4Exe = UE4Exe.Substring(0, CmdExeIndex);
 			}
 			else
 			{
-				CmdExeIndex = UE4Exe.IndexOf (".exe");
+				CmdExeIndex = UE4Exe.IndexOf(".exe");
 				if (CmdExeIndex != -1)
 				{
-					UE4Exe = UE4Exe.Substring (0, CmdExeIndex);
+					UE4Exe = UE4Exe.Substring(0, CmdExeIndex);
 				}
 			}
 			int AppNameIndex = CommandUtils.CmdEnv.LocalRoot.IndexOf("/" + UE4Exe + ".app/Contents/");
@@ -79,10 +79,10 @@ namespace AutomationTool
 			if (AppName == "mono")
 			{
 				// Enable case-insensitive mode for Mono
-                if (!NewProcess.StartInfo.EnvironmentVariables.ContainsKey("MONO_IOMAP"))
-                {
-                    NewProcess.StartInfo.EnvironmentVariables.Add("MONO_IOMAP", "case");
-                }
+				if (!NewProcess.StartInfo.EnvironmentVariables.ContainsKey("MONO_IOMAP"))
+				{
+					NewProcess.StartInfo.EnvironmentVariables.Add("MONO_IOMAP", "case");
+				}
 			}
 			return NewProcess;
 		}
@@ -107,7 +107,7 @@ namespace AutomationTool
 					AppName = AppName.Replace("-Cmd.exe", "");
 					AppName = AppName.Replace(".exe", "");
 					string AppFilename = Path.GetFileName(AppName);
-					if (!CommandUtils.FileExists(AppName))
+					if (!CommandUtils.FileExists(AppName) && AppName.IndexOf("/Contents/MacOS/") == -1)
 					{
 						AppName = AppName + ".app/Contents/MacOS/" + AppFilename;
 					}
@@ -130,16 +130,11 @@ namespace AutomationTool
 		public override bool IsScriptModuleSupported(string ModuleName)
 		{
 			// @todo: add more unsupported modules here
-			if (ModuleName.StartsWith("Gauntlet", StringComparison.OrdinalIgnoreCase))
+			if (ModuleName.StartsWith("GauntletExtras", StringComparison.OrdinalIgnoreCase))
 			{
 				return false;
 			}
 			return true;
-		}
-
-		public override string UBTProjectName
-		{
-			get { return "UnrealBuildTool"; }
 		}
 
 		public override UnrealTargetPlatform HostEditorPlatform

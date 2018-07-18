@@ -2,7 +2,6 @@
 
 #include "TrackEditors/PropertyTrackEditors/ActorReferencePropertyTrackEditor.h"
 #include "GameFramework/Actor.h"
-#include "Sections/ActorReferencePropertySection.h"
 
 
 TSharedRef<ISequencerTrackEditor> FActorReferencePropertyTrackEditor::CreateTrackEditor( TSharedRef<ISequencer> OwningSequencer )
@@ -10,25 +9,17 @@ TSharedRef<ISequencerTrackEditor> FActorReferencePropertyTrackEditor::CreateTrac
 	return MakeShareable(new FActorReferencePropertyTrackEditor(OwningSequencer));
 }
 
-
-TSharedRef<ISequencerSection> FActorReferencePropertyTrackEditor::MakeSectionInterface(UMovieSceneSection& SectionObject, UMovieSceneTrack& Track, FGuid ObjectBinding)
+void FActorReferencePropertyTrackEditor::GenerateKeysFromPropertyChanged( const FPropertyChangedParams& PropertyChangedParams, FGeneratedTrackKeys& OutGeneratedKeys )
 {
-	UMovieScenePropertyTrack* PropertyTrack = Cast<UMovieScenePropertyTrack>(&Track);
-	checkf(PropertyTrack != nullptr, TEXT("Incompatible track in FActorReferencePropertyTrackEditor"));
-	return MakeShareable(new FActorReferencePropertySection(GetSequencer().Get(), ObjectBinding, PropertyTrack->GetPropertyName(), PropertyTrack->GetPropertyPath(), SectionObject, Track.GetDisplayName()));
-}
-
-
-void FActorReferencePropertyTrackEditor::GenerateKeysFromPropertyChanged( const FPropertyChangedParams& PropertyChangedParams, TArray<FGuid>& NewGeneratedKeys, TArray<FGuid>& DefaultGeneratedKeys )
-{
-
 	AActor* NewReferencedActor = PropertyChangedParams.GetPropertyValue<AActor*>();
 	if ( NewReferencedActor != nullptr )
 	{
 		FGuid ActorGuid = GetSequencer()->GetHandleToObject( NewReferencedActor );
 		if ( ActorGuid.IsValid() )
 		{
-			NewGeneratedKeys.Add( ActorGuid );
+			FMovieSceneActorReferenceKey NewKey;
+			NewKey.Object = FMovieSceneObjectBindingID(ActorGuid, MovieSceneSequenceID::Root, EMovieSceneObjectBindingSpace::Local);
+			OutGeneratedKeys.Add(FMovieSceneChannelValueSetter::Create<FMovieSceneActorReferenceData>(0, NewKey, true));
 		}
 	}
 }

@@ -28,5 +28,5 @@ MONOLITHIC_HEADER_BOILERPLATE()
 /* Classes
  *****************************************************************************/
 
-#include "EditorStyleSettings.h"
+#include "Classes/EditorStyleSettings.h"
 #include "EditorFontGlyphs.h"

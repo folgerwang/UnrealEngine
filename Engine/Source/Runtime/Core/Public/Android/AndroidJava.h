@@ -3,6 +3,9 @@
 #pragma once
 
 #include "CoreMinimal.h"
+
+#if USE_ANDROID_JNI
+
 #include <jni.h>
 
 /*
@@ -69,3 +72,5 @@ int64 FJavaClassObject::CallMethod<int64>(FJavaClassMethod Method, ...);
 
 template<>
 FString FJavaClassObject::CallMethod<FString>(FJavaClassMethod Method, ...);
+
+#endif

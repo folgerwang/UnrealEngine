@@ -34,11 +34,9 @@ FText UK2Node_Message::GetNodeTitle(ENodeTitleType::Type TitleType) const
 			}
 			else
 			{
-				FFormatNamedArguments Args;
-				Args.Add(TEXT("NodeName"), NodeNameText);
-				Args.Add(TEXT("OuterClassName"), FText::FromString(Function->GetOuterUClass()->GetName()));
+				// For consistency, use the function call node title format
+				FText NodeTitle = Super::GetNodeTitle(TitleType);
 
-				FText NodeTitle = FText::Format(NSLOCTEXT("K2Node", "CallInterfaceContext", "{NodeName}\nUsing Interface {OuterClassName}"), Args);
 				// FText::Format() is slow, so we cache this to save on performance
 				CachedNodeTitles.SetCachedTitle(TitleType, NodeTitle, this);
 			}

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3108692
+﻿INTSourceChangelist:3782314
 Title:モバイル パフォーマンスのヒントとコツ
 Description:サポートされたモバイル デバイスで最適なパフォーマンスを提供する Unreal Match 3 ゲームの最適化と技術
 Crumbs:%ROOT%, Platforms, Platforms/Mobile
@@ -9,40 +9,7 @@ parent:Platforms/Mobile
 order:6
 type:overview
 tags:mobile
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Platforms/Mobile/Performance/TipsAndTricks:title%](Platforms/Mobile/Performance/TipsAndTricks/perf_topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Platforms/Mobile/Performance/TipsAndTricks:title%
-	[/PARAM]
-	[PARAM:description]
-		%Platforms/Mobile/Performance/TipsAndTricks:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Platforms/Mobile/Performance/TipsAndTricks]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Platforms/Mobile/Ads:title%](Platforms/Mobile/Performance/TipsAndTricks/perf_topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Platforms/Mobile/Performance/TipsAndTricks:title%
-	[/PARAM]
-	[PARAM:description]
-		%Platforms/Mobile/Performance/TipsAndTricks:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Platforms/Mobile/Performance/TipsAndTricks]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:perf_topic.png
 
 このガイドラインは、サポートされたモバイル デバイス上で再生された時にパフォーマンスが最適になるように、Unreal Match 3 ゲームに採用された最適化と技術を説明します。
 

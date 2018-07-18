@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2735597
+﻿INTSourceChangelist:3242329
 Availability:Public
 title:数学
 Crumbs: %ROOT%, Engine, Engine/Rendering/Materials,  Engine/Rendering/Materials/Functions
 Description:Pi（π） の計算やベクターコンポーネントの追加など事前設定された数学関数
 Version:4.9
+tags:Materials
 
 [TOC (start:2 end:3)]
 

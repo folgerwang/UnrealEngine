@@ -322,10 +322,10 @@ struct FAndroidESDeferredOpenGL : public FOpenGLESDeferred
 			case GL_RGB_INTEGER:
 			case GL_RGBA_INTEGER:
 				bValidFormat = false;
-			break;
+				break;
 		}
 
-		if( glTexStorage2D != NULL && bValidFormat )
+		if (glTexStorage2D != nullptr && bValidFormat)
 		{
 			glTexStorage2D(Target, Levels, InternalFormat, Width, Height);
 			return true;

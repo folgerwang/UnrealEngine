@@ -226,7 +226,7 @@ void FSkeletalMeshObjectCPUSkin::CacheVertices(int32 LODIndex, bool bForce) cons
 		for (int i = 0; i < CachedFinalVertices.Num(); i++)
 		{
 			MeshLOD.PositionVertexBuffer.VertexPosition(i) = CachedFinalVertices[i].Position;
-			MeshLOD.StaticMeshVertexBuffer.SetVertexTangents(i, CachedFinalVertices[i].TangentX, CachedFinalVertices[i].GetTangentY(), CachedFinalVertices[i].TangentZ);
+			MeshLOD.StaticMeshVertexBuffer.SetVertexTangents(i, CachedFinalVertices[i].TangentX.ToFVector(), CachedFinalVertices[i].GetTangentY(), CachedFinalVertices[i].TangentZ.ToFVector());
 			MeshLOD.StaticMeshVertexBuffer.SetVertexUV(i, 0, FVector2D(CachedFinalVertices[i].U, CachedFinalVertices[i].V));
 		}
 
@@ -369,8 +369,8 @@ void FSkeletalMeshObjectCPUSkin::DrawVertexElements(FPrimitiveDrawInterface* PDI
 
 		const FVector WorldPos = ToWorldSpace.TransformPosition( Vert.Position );
 
-		const FVector Normal = Vert.TangentZ;
-		const FVector Tangent = Vert.TangentX;
+		const FVector Normal = Vert.TangentZ.ToFVector();
+		const FVector Tangent = Vert.TangentX.ToFVector();
 		const FVector Binormal = FVector(Normal) ^ FVector(Tangent);
 
 		const float Len = 1.0f;
@@ -490,8 +490,8 @@ FORCEINLINE void RebuildTangentBasis( VertexType& DestVertex )
 {
 	// derive the new tangent by orthonormalizing the new normal against
 	// the base tangent vector (assuming these are normalized)
-	FVector Tangent = DestVertex.TangentX;
-	FVector Normal = DestVertex.TangentZ;
+	FVector Tangent = DestVertex.TangentX.ToFVector();
+	FVector Normal = DestVertex.TangentZ.ToFVector();
 	Tangent = Tangent - ((Tangent | Normal) * Normal);
 	Tangent.Normalize();
 	DestVertex.TangentX = Tangent;
@@ -507,9 +507,9 @@ FORCEINLINE void ApplyMorphBlend( VertexType& DestVertex, const FMorphTargetDelt
 	DestVertex.Position += SrcMorph.PositionDelta * Weight;
 
 	// Save W before = operator. That overwrites W to be 127.
-	uint8 W = DestVertex.TangentZ.Vector.W;
+	int8 W = DestVertex.TangentZ.Vector.W;
 
-	FVector TanZ = DestVertex.TangentZ;
+	FVector TanZ = DestVertex.TangentZ.ToFVector();
 
 	// add normal offset. can only apply normal deltas up to a weight of 1
 	DestVertex.TangentZ = FVector(TanZ + SrcMorph.TangentZDelta * FMath::Min(Weight,1.0f)).GetUnsafeNormal();
@@ -555,16 +555,6 @@ FORCEINLINE void UpdateMorphedVertex( VertexType& MorphedVertex, const VertexTyp
 MSVC_PRAGMA(warning(push))
 MSVC_PRAGMA(warning(disable : 4730)) //mixing _m64 and floating point expressions may result in incorrect code
 
-
-const VectorRegister		VECTOR_PACK_127_5		= DECLARE_VECTOR_REGISTER(127.5f, 127.5f, 127.5f, 0.f);
-const VectorRegister		VECTOR4_PACK_127_5		= DECLARE_VECTOR_REGISTER(127.5f, 127.5f, 127.5f, 127.5f);
-
-const VectorRegister		VECTOR_INV_127_5		= DECLARE_VECTOR_REGISTER(1.f / 127.5f, 1.f / 127.5f, 1.f / 127.5f, 0.f);
-const VectorRegister		VECTOR4_INV_127_5		= DECLARE_VECTOR_REGISTER(1.f / 127.5f, 1.f / 127.5f, 1.f / 127.5f, 1.f / 127.5f);
-
-const VectorRegister		VECTOR_UNPACK_MINUS_1	= DECLARE_VECTOR_REGISTER(-1.f, -1.f, -1.f, 0.f);
-const VectorRegister		VECTOR4_UNPACK_MINUS_1	= DECLARE_VECTOR_REGISTER(-1.f, -1.f, -1.f, -1.f);
-
 const VectorRegister		VECTOR_0001				= DECLARE_VECTOR_REGISTER(0.f, 0.f, 0.f, 1.f);
 
 #define FIXED_VERTEX_INDEX 0xFFFF
@@ -581,7 +571,6 @@ static void SkinVertexSection(
 	uint32 NumValidMorphs, 
 	int32 &CurBaseVertIdx, 
 	int32 LODIndex, 
-	int32 RigidInfluenceIndex, 
 	const FMatrix* RESTRICT ReferenceToLocal, 
 	const FClothSimulData* ClothSimData, 
 	float ClothBlendWeight, 
@@ -610,8 +599,8 @@ static void SkinVertexSection(
 			FPlatformMisc::Prefetch(&VertexPosition, PLATFORM_CACHE_LINE_SIZE);	// Prefetch next vertices
 			
 			SrcSoftVertex.Position = VertexPosition;
-			SrcSoftVertex.TangentX = LOD.StaticVertexBuffers.StaticMeshVertexBuffer.VertexTangentX_Typed<EStaticMeshVertexTangentBasisType::Default>(VertexBufferIndex);
-			SrcSoftVertex.TangentZ = LOD.StaticVertexBuffers.StaticMeshVertexBuffer.VertexTangentZ_Typed<EStaticMeshVertexTangentBasisType::Default>(VertexBufferIndex);
+			SrcSoftVertex.TangentX = LOD.StaticVertexBuffers.StaticMeshVertexBuffer.VertexTangentX(VertexBufferIndex);
+			SrcSoftVertex.TangentZ = LOD.StaticVertexBuffers.StaticMeshVertexBuffer.VertexTangentZ(VertexBufferIndex);
 			for (uint32 j = 0; j < VertexType::NumTexCoords; j++)
 			{
 				SrcSoftVertex.UVs[j] = LOD.StaticVertexBuffers.StaticMeshVertexBuffer.GetVertexUV_Typed<VertexType::StaticMeshVertexUVType>(VertexBufferIndex, j);
@@ -761,12 +750,22 @@ static void SkinVertexSection(
 				{
 					FORCEINLINE static FVector GetClothSimulPosition(const FClothSimulData& InClothSimData, int32 InIndex)
 					{
-						return FVector(InClothSimData.Transform.TransformPosition(InClothSimData.Positions[InIndex]));
+						if (InClothSimData.Positions.IsValidIndex(InIndex))
+						{
+							return FVector(InClothSimData.Transform.TransformPosition(InClothSimData.Positions[InIndex]));
+						}
+
+						return FVector::ZeroVector;
 					}
 
 					FORCEINLINE static FVector GetClothSimulNormal(const FClothSimulData& InClothSimData, int32 InIndex)
 					{
-						return FVector(InClothSimData.Transform.TransformVector(InClothSimData.Normals[InIndex]));
+						if (InClothSimData.Normals.IsValidIndex(InIndex))
+						{
+							return FVector(InClothSimData.Transform.TransformVector(InClothSimData.Normals[InIndex]));
+						}
+
+						return FVector(0, 0, 1);
 					}
 
 					FORCEINLINE static FVector ClothingPosition(const FMeshToMeshVertData& InClothVertData, const FClothSimulData& InClothSimData)
@@ -818,8 +817,8 @@ static void SkinVertexSection(
 				ClothCPU::ClothingTangents(*ClothVertData, *ClothSimData, SimulatedPositionWorld, WorldToLocal, TangentX, TangentZ);
 
 				// Lerp between skinned and simulated tangents
-				FVector SkinnedTangentX = DestVertex->TangentX;
-				FVector4 SkinnedTangentZ = DestVertex->TangentZ;
+				FVector SkinnedTangentX = DestVertex->TangentX.ToFVector();
+				FVector4 SkinnedTangentZ = DestVertex->TangentZ.ToFVector4();
 				DestVertex->TangentX = (TangentX * ClothBlendWeight) + (SkinnedTangentX * (1.0f - ClothBlendWeight));
 				DestVertex->TangentZ = FVector4((TangentZ * ClothBlendWeight) + (SkinnedTangentZ * (1.0f - ClothBlendWeight)), SkinnedTangentZ.W);
 			}
@@ -846,7 +845,6 @@ static void SkinVertexSection(
 	uint32 NumValidMorphs, 
 	int32 &CurBaseVertIdx, 
 	int32 LODIndex, 
-	int32 RigidInfluenceIndex, 
 	const FMatrix* RESTRICT ReferenceToLocal, 
 	const FClothSimulData* ClothSimData, 
 	float ClothBlendWeight, 
@@ -854,14 +852,14 @@ static void SkinVertexSection(
 {
 	switch (Section.MaxBoneInfluences)
 	{
-		case 1: SkinVertexSection<bExtraBoneInfluences, 1, VertexType>(DestVertex, MorphEvalInfos, MorphWeights, Section, LOD, WeightBuffer, VertexBufferBaseIndex, NumValidMorphs, CurBaseVertIdx, LODIndex, RigidInfluenceIndex, ReferenceToLocal, ClothSimData, ClothBlendWeight, WorldToLocal); break;
-		case 2: SkinVertexSection<bExtraBoneInfluences, 2, VertexType>(DestVertex, MorphEvalInfos, MorphWeights, Section, LOD, WeightBuffer, VertexBufferBaseIndex, NumValidMorphs, CurBaseVertIdx, LODIndex, RigidInfluenceIndex, ReferenceToLocal, ClothSimData, ClothBlendWeight, WorldToLocal); break;
-		case 3: SkinVertexSection<bExtraBoneInfluences, 3, VertexType>(DestVertex, MorphEvalInfos, MorphWeights, Section, LOD, WeightBuffer, VertexBufferBaseIndex, NumValidMorphs, CurBaseVertIdx, LODIndex, RigidInfluenceIndex, ReferenceToLocal, ClothSimData, ClothBlendWeight, WorldToLocal); break;
-		case 4: SkinVertexSection<bExtraBoneInfluences, 4, VertexType>(DestVertex, MorphEvalInfos, MorphWeights, Section, LOD, WeightBuffer, VertexBufferBaseIndex, NumValidMorphs, CurBaseVertIdx, LODIndex, RigidInfluenceIndex, ReferenceToLocal, ClothSimData, ClothBlendWeight, WorldToLocal); break;
-		case 5: SkinVertexSection<bExtraBoneInfluences, 5, VertexType>(DestVertex, MorphEvalInfos, MorphWeights, Section, LOD, WeightBuffer, VertexBufferBaseIndex, NumValidMorphs, CurBaseVertIdx, LODIndex, RigidInfluenceIndex, ReferenceToLocal, ClothSimData, ClothBlendWeight, WorldToLocal); break;
-		case 6: SkinVertexSection<bExtraBoneInfluences, 6, VertexType>(DestVertex, MorphEvalInfos, MorphWeights, Section, LOD, WeightBuffer, VertexBufferBaseIndex, NumValidMorphs, CurBaseVertIdx, LODIndex, RigidInfluenceIndex, ReferenceToLocal, ClothSimData, ClothBlendWeight, WorldToLocal); break;
-		case 7: SkinVertexSection<bExtraBoneInfluences, 7, VertexType>(DestVertex, MorphEvalInfos, MorphWeights, Section, LOD, WeightBuffer, VertexBufferBaseIndex, NumValidMorphs, CurBaseVertIdx, LODIndex, RigidInfluenceIndex, ReferenceToLocal, ClothSimData, ClothBlendWeight, WorldToLocal); break;
-		case 8: SkinVertexSection<bExtraBoneInfluences, 8, VertexType>(DestVertex, MorphEvalInfos, MorphWeights, Section, LOD, WeightBuffer, VertexBufferBaseIndex, NumValidMorphs, CurBaseVertIdx, LODIndex, RigidInfluenceIndex, ReferenceToLocal, ClothSimData, ClothBlendWeight, WorldToLocal); break;
+		case 1: SkinVertexSection<bExtraBoneInfluences, 1, VertexType>(DestVertex, MorphEvalInfos, MorphWeights, Section, LOD, WeightBuffer, VertexBufferBaseIndex, NumValidMorphs, CurBaseVertIdx, LODIndex, ReferenceToLocal, ClothSimData, ClothBlendWeight, WorldToLocal); break;
+		case 2: SkinVertexSection<bExtraBoneInfluences, 2, VertexType>(DestVertex, MorphEvalInfos, MorphWeights, Section, LOD, WeightBuffer, VertexBufferBaseIndex, NumValidMorphs, CurBaseVertIdx, LODIndex, ReferenceToLocal, ClothSimData, ClothBlendWeight, WorldToLocal); break;
+		case 3: SkinVertexSection<bExtraBoneInfluences, 3, VertexType>(DestVertex, MorphEvalInfos, MorphWeights, Section, LOD, WeightBuffer, VertexBufferBaseIndex, NumValidMorphs, CurBaseVertIdx, LODIndex, ReferenceToLocal, ClothSimData, ClothBlendWeight, WorldToLocal); break;
+		case 4: SkinVertexSection<bExtraBoneInfluences, 4, VertexType>(DestVertex, MorphEvalInfos, MorphWeights, Section, LOD, WeightBuffer, VertexBufferBaseIndex, NumValidMorphs, CurBaseVertIdx, LODIndex, ReferenceToLocal, ClothSimData, ClothBlendWeight, WorldToLocal); break;
+		case 5: SkinVertexSection<bExtraBoneInfluences, 5, VertexType>(DestVertex, MorphEvalInfos, MorphWeights, Section, LOD, WeightBuffer, VertexBufferBaseIndex, NumValidMorphs, CurBaseVertIdx, LODIndex, ReferenceToLocal, ClothSimData, ClothBlendWeight, WorldToLocal); break;
+		case 6: SkinVertexSection<bExtraBoneInfluences, 6, VertexType>(DestVertex, MorphEvalInfos, MorphWeights, Section, LOD, WeightBuffer, VertexBufferBaseIndex, NumValidMorphs, CurBaseVertIdx, LODIndex, ReferenceToLocal, ClothSimData, ClothBlendWeight, WorldToLocal); break;
+		case 7: SkinVertexSection<bExtraBoneInfluences, 7, VertexType>(DestVertex, MorphEvalInfos, MorphWeights, Section, LOD, WeightBuffer, VertexBufferBaseIndex, NumValidMorphs, CurBaseVertIdx, LODIndex, ReferenceToLocal, ClothSimData, ClothBlendWeight, WorldToLocal); break;
+		case 8: SkinVertexSection<bExtraBoneInfluences, 8, VertexType>(DestVertex, MorphEvalInfos, MorphWeights, Section, LOD, WeightBuffer, VertexBufferBaseIndex, NumValidMorphs, CurBaseVertIdx, LODIndex, ReferenceToLocal, ClothSimData, ClothBlendWeight, WorldToLocal); break;
 		default: check(0);
 	}
 }
@@ -897,7 +895,6 @@ static void SkinVertices(
 
 	int32 CurBaseVertIdx = 0;
 
-	const int32 RigidInfluenceIndex = SkinningTools::GetRigidInfluenceIndex();
 	int32 VertexBufferBaseIndex=0;
 
 	for(int32 SectionIndex= 0;SectionIndex< LOD.RenderSections.Num();SectionIndex++)
@@ -908,11 +905,11 @@ static void SkinVertices(
 
 		if (LOD.DoesVertexBufferHaveExtraBoneInfluences())
 		{
-			SkinVertexSection<true, VertexType>(DestVertex, MorphEvalInfos, MorphTargetWeights, Section, LOD, WeightBuffer, VertexBufferBaseIndex, NumValidMorphs, CurBaseVertIdx, LODIndex, RigidInfluenceIndex, ReferenceToLocal, ClothSimData, ClothBlendWeight, WorldToLocal);
+			SkinVertexSection<true, VertexType>(DestVertex, MorphEvalInfos, MorphTargetWeights, Section, LOD, WeightBuffer, VertexBufferBaseIndex, NumValidMorphs, CurBaseVertIdx, LODIndex, ReferenceToLocal, ClothSimData, ClothBlendWeight, WorldToLocal);
 		}
 		else
 		{
-			SkinVertexSection<false, VertexType>(DestVertex, MorphEvalInfos, MorphTargetWeights, Section, LOD, WeightBuffer, VertexBufferBaseIndex, NumValidMorphs, CurBaseVertIdx, LODIndex, RigidInfluenceIndex, ReferenceToLocal, ClothSimData, ClothBlendWeight, WorldToLocal);
+			SkinVertexSection<false, VertexType>(DestVertex, MorphEvalInfos, MorphTargetWeights, Section, LOD, WeightBuffer, VertexBufferBaseIndex, NumValidMorphs, CurBaseVertIdx, LODIndex, ReferenceToLocal, ClothSimData, ClothBlendWeight, WorldToLocal);
 		}
 	}
 
@@ -945,8 +942,6 @@ template <bool bExtraBoneInfluencesT>
 static FORCEINLINE void CalculateSectionBoneWeights(FFinalSkinVertex*& DestVertex, FSkinWeightVertexBuffer& SkinWeightVertexBuffer, FSkelMeshRenderSection& Section, const TArray<int32>& BonesOfInterest)
 {
 	const float INV255 = 1.f/255.f;
-
-	const int32 RigidInfluenceIndex = SkinningTools::GetRigidInfluenceIndex();
 
 	int32 VertexBufferBaseIndex = 0;
 
@@ -986,8 +981,6 @@ static FORCEINLINE void CalculateSectionBoneWeights(FFinalSkinVertex*& DestVerte
 static void CalculateBoneWeights(FFinalSkinVertex* DestVertex, FSkeletalMeshLODRenderData& LOD, FSkinWeightVertexBuffer& WeightBuffer, TArray<int32> InBonesOfInterest)
 {
 	const float INV255 = 1.f/255.f;
-
-	const int32 RigidInfluenceIndex = SkinningTools::GetRigidInfluenceIndex();
 
 	int32 VertexBufferBaseIndex = 0;
 

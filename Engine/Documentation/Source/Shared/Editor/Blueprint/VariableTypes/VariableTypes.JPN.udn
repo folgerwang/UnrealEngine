@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2591123
+﻿INTSourceChangelist:3780178
 Availability:NoPublish
 Title:変数タイプ
 Crumbs:
@@ -61,7 +61,7 @@ Engine/Blueprints/UserGuide/Variables
 [/EXCERPT:Rotator]
 
 [EXCERPT:Transform]
-変換は移動を含む 3 次元アフィン変換で、平行移動、回転移動と 3D スケーリングを示します。
+Transform (トランスフォーム) は移動を含む 3 次元アフィン変換で、平行移動、回転移動と 3D スケーリングを示します。
 [VAR:ToolTipFullLink]
 Engine/Blueprints/UserGuide/Variables
 [/VAR]
@@ -70,3 +70,27 @@ Engine/Blueprints/UserGuide/Variables
 [EXCERPT:Array]
 配列は連続的に並べたデータ形式です。あらゆる種類の変数の配列を持つことができます。配列は 1 つ以上の要素が必要な時に実用的です。インデックスを使用すると、配列入力へアクセスが可能となります。
 [/EXCERPT:Array]
+
+[EXCERPT:Object]
+Hard asset reference.The referenced asset will be:
+- Loaded if this asset is. 
+- Cooked if this asset is.
+[/EXCERPT:Object]
+
+[EXCERPT:Class]
+Hard class reference.The referenced class will be:
+- Loaded if this asset is. 
+- Cooked if this asset is.
+[/EXCERPT:Class]
+
+[EXCERPT:SoftObject]
+Soft asset reference.The referenced asset will be:
+- Not automatically loaded when this asset is.
+- Cooked if this asset is.
+[/EXCERPT:SoftObject]
+
+[EXCERPT:SoftClass]
+Soft class reference.The referenced class will be:
+- Not automatically loaded when this asset is.
+- Cooked if this asset is.
+[/EXCERPT:SoftClass]

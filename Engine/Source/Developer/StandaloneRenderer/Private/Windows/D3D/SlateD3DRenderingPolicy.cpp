@@ -4,7 +4,7 @@
 #include "Windows/D3D/SlateD3DRenderer.h"
 #include "Windows/D3D/SlateD3DTextureManager.h"
 #include "Windows/D3D/SlateD3DTextures.h"
-#include "SlateStats.h"
+#include "Stats/SlateStats.h"
 #include "Layout/Clipping.h"
 
 SLATE_DECLARE_CYCLE_COUNTER(GSlateResizeRenderBuffers, "Resize Render Buffers");
@@ -228,7 +228,7 @@ void FSlateD3D11RenderingPolicy::UpdateVertexAndIndexBuffers( FSlateBatchData& I
 	}
 }
 
-void FSlateD3D11RenderingPolicy::DrawElements( const FMatrix& ViewProjectionMatrix, const TArray<FSlateRenderBatch>& RenderBatches, const TArray<FSlateClippingState> RenderClipStates )
+void FSlateD3D11RenderingPolicy::DrawElements( const FMatrix& ViewProjectionMatrix, const TArray<FSlateRenderBatch>& RenderBatches )
 {
 	VertexShader->BindShader();
 
@@ -247,10 +247,9 @@ void FSlateD3D11RenderingPolicy::DrawElements( const FMatrix& ViewProjectionMatr
 
 	VertexShader->SetViewProjection( ViewProjectionMatrix );
 
-
 	PixelShader->BindShader();
 
-	int32 LastClippingIndex = -1;
+	TOptional<FSlateClippingState> LastClippingState;
 
 	for( int32 BatchIndex = 0; BatchIndex < RenderBatches.Num(); ++BatchIndex )
 	{
@@ -280,13 +279,13 @@ void FSlateD3D11RenderingPolicy::DrawElements( const FMatrix& ViewProjectionMatr
 			GD3DDeviceContext->RSSetState( WireframeRasterState );
 		}
 		
-		if (RenderBatch.ClippingIndex != LastClippingIndex)
+		if (RenderBatch.ClippingState != LastClippingState)
 		{
-			LastClippingIndex = RenderBatch.ClippingIndex;
+			LastClippingState = RenderBatch.ClippingState;
 
-			if (RenderBatch.ClippingIndex != -1)
+			if (RenderBatch.ClippingState.IsSet())
 			{
-				const FSlateClippingState& ClipState = RenderClipStates[RenderBatch.ClippingIndex];
+				const FSlateClippingState& ClipState = RenderBatch.ClippingState.GetValue();
 				if (ClipState.ScissorRect.IsSet())
 				{
 					const FSlateClippingZone& ScissorRect = ClipState.ScissorRect.GetValue();

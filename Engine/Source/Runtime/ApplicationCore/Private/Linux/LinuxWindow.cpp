@@ -1,6 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Linux/LinuxWindow.h"
+
 #include "HAL/FileManager.h"
 #include "Misc/Paths.h"
 #include "Internationalization/Text.h"
@@ -9,7 +10,7 @@
 #include "Misc/App.h"
 #include "Linux/LinuxApplication.h"
 #include "Linux/LinuxPlatformApplicationMisc.h"
-#include "Internationalization.h" // LOCTEXT
+#include "Internationalization/Internationalization.h" // LOCTEXT
 
 #define LOCTEXT_NAMESPACE "LinuxWindow"
 
@@ -248,7 +249,7 @@ void FLinuxWindow::Initialize( FLinuxApplication* const Application, const TShar
 		}
 		else
 		{
-			ErrorMessage = FString::Printf(*LOCTEXT("SDLWindowCreationFailedLinux", "Window creation failed (SDL error: '%s'')").ToString(), UTF8_TO_TCHAR(SDL_GetError()));
+			ErrorMessage = FText::Format(LOCTEXT("SDLWindowCreationFailedLinuxFmt", "Window creation failed (SDL error: '{0}'')"), FText::FromString(UTF8_TO_TCHAR(SDL_GetError()))).ToString();
 			FPlatformMisc::MessageBoxExt(EAppMsgType::Ok, *ErrorMessage,
 										 *LOCTEXT("SDLWindowCreationFailedLinuxTitle", "Unable to create an SDL window.").ToString());
 		}
@@ -423,9 +424,10 @@ void FLinuxWindow::Destroy()
 	OwningApplication->RemoveEventWindow( HWnd );
 	OwningApplication->RemoveNotificationWindow( HWnd );
 
-	// We cannot destroy the window right now as it may be accessed by render thread, since Slate queued it for drawing earlier.
-	// To make sure no window gets destroyed while we're blitting into it, defer destroying the window to the app.
-	OwningApplication->DestroyNativeWindow(HWnd);
+	UE_LOG(LogLinuxWindow, Verbose, TEXT("Destroying SDL Window '%p'\n"), HWnd);
+
+	SDL_DestroyWindow( HWnd );
+	HWnd = nullptr;
 }
 
 /** Native window should implement this function by performing the equivalent of the Win32 minimize-to-taskbar operation */
@@ -830,3 +832,4 @@ void FLinuxWindow::CacheNativeProperties()
 }
 
 #undef LOCTEXT_NAMESPACE
+

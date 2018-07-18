@@ -3,7 +3,7 @@
 #pragma once
 
 #include "PackageTools.h"
-#include "PackageName.h"
+#include "Misc/PackageName.h"
 #include "ObjectTools.h"
 #include "AssetToolsModule.h"
 

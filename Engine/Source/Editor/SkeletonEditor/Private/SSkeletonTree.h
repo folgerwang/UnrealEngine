@@ -22,9 +22,9 @@
 #include "ISkeletonTreeBuilder.h"
 #include "ISkeletonTreeItem.h"
 #include "SkeletonTreeBuilder.h"
-#include "SSearchBox.h"
+#include "Widgets/Input/SSearchBox.h"
 #include "EditorUndoClient.h"
-#include "GCObject.h"
+#include "UObject/GCObject.h"
 
 class FMenuBuilder;
 class FSkeletonTreeAttachedAssetItem;
@@ -58,9 +58,7 @@ public:
 	SLATE_END_ARGS()
 public:
 	SSkeletonTree()
-		: bSelectingSocket(false)
-		, bSelectingBone(false)
-		
+		: bSelecting(false)
 	{}
 
 	~SSkeletonTree();
@@ -144,6 +142,9 @@ public:
 
 	/** Called when the preview mesh is changed - simply rebuilds the skeleton tree for the new mesh */
 	void OnLODSwitched();
+
+	/** Called when the preview mesh is changed */
+	void OnPreviewMeshChanged(USkeletalMesh* InOldSkeletalMesh, USkeletalMesh* InNewSkeletalMesh);
 
 	/** Get the name of the currently selected blend profile */
 	FName GetSelectedBlendProfileName() const;
@@ -304,6 +305,16 @@ private:
 	{
 		return GetEditableSkeletonInternal()->GetSkeleton().GetReferenceSkeleton();
 	}
+
+	/** Handle bone selection changing externally */
+	void HandleSelectedBoneChanged(const FName& InBoneName);
+
+	/** Handle socket selection changing externally */
+	void HandleSelectedSocketChanged(const FSelectedSocketInfo& InSocketInfo);
+
+	/** Handle external deselection event */
+	void HandleDeselectAll();
+
 private:
 	/** Pointer back to the skeleton tree that owns us */
 	TWeakPtr<FEditableSkeleton> EditableSkeleton;
@@ -361,10 +372,8 @@ private:
 	DEPRECATED(4.17, "Please use OnSelectionChangedMulticast")
 	FOnObjectSelectedMulticast OnObjectSelectedMulticast;
 
-	/** Selection recursion guard flags */
-	bool bSelectingSocket;
-	bool bSelectingBone;
-	bool bDeselectingAll;
+	/** Selection recursion guard flag */
+	bool bSelecting;
 
 	/** Hold onto the filter combo button to set its foreground color */
 	TSharedPtr<SComboButton> FilterComboButton;

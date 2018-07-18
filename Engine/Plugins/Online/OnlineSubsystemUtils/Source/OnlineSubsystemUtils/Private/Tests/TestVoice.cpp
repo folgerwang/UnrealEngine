@@ -223,6 +223,8 @@ void FTestVoice::GenerateData(USoundWaveProcedural* InProceduralWave, int32 Samp
 
 bool FTestVoice::Tick(float DeltaTime)
 {
+    QUICK_SCOPE_CYCLE_COUNTER(STAT_FTestVoice_Tick);
+
 	if (VoiceCapture.IsValid())
 	{
 		if (!IsRunningDedicatedServer() && VoiceComp == nullptr)

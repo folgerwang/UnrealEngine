@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreTypes.h"
-#include "Text.h"
+#include "Internationalization/Text.h"
 
 /**
  * Utility for performing low-level localized chronological formats.

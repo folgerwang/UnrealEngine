@@ -9,7 +9,7 @@ public class WebBrowser : ModuleRules
 	{
 		PublicIncludePaths.Add("Runtime/WebBrowser/Public");
 		PrivateIncludePaths.Add("Runtime/WebBrowser/Private");
-        PrivateDependencyModuleNames.AddRange(
+		PrivateDependencyModuleNames.AddRange(
 			new string[]
 			{
 				"Core",
@@ -20,13 +20,15 @@ public class WebBrowser : ModuleRules
 				"Slate",
 				"SlateCore",
 				"Serialization",
-            }
-        );
+			}
+		);
 
-        if (Target.Platform == UnrealTargetPlatform.Android)
+		if (Target.Platform == UnrealTargetPlatform.Android ||
+            Target.Platform == UnrealTargetPlatform.IOS ||
+            Target.Platform == UnrealTargetPlatform.TVOS)
 		{
-			// We need these on Android for external texture support
-			PrivateDependencyModuleNames.AddRange(
+            // We need these on mobile for external texture support
+            PrivateDependencyModuleNames.AddRange(
 				new string[]
 				{
 					"WebBrowserTexture",

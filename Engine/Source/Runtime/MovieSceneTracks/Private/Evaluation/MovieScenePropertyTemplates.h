@@ -4,14 +4,16 @@
 
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
-#include "Curves/RichCurve.h"
 #include "Evaluation/MovieSceneEvalTemplate.h"
 #include "Evaluation/MovieScenePropertyTemplate.h"
-#include "Curves/IntegralCurve.h"
-#include "Curves/StringCurve.h"
-#include "Templates/UnrealTypeTraits.h"
-#include "MovieScene3DTransformTemplate.h"
-#include "MovieSceneBlendType.h"
+#include "Sections/MovieSceneStringSection.h"
+#include "Evaluation/MovieScene3DTransformTemplate.h"
+#include "Evaluation/Blending/MovieSceneBlendType.h"
+#include "Channels/MovieSceneBoolChannel.h"
+#include "Channels/MovieSceneByteChannel.h"
+#include "Channels/MovieSceneIntegerChannel.h"
+#include "Channels/MovieSceneFloatChannel.h"
+#include "EulerTransform.h"
 #include "MovieScenePropertyTemplates.generated.h"
 
 class UMovieSceneBoolSection;
@@ -19,7 +21,6 @@ class UMovieSceneByteSection;
 class UMovieSceneFloatSection;
 class UMovieSceneIntegerSection;
 class UMovieScenePropertyTrack;
-class UMovieSceneStringSection;
 class UMovieSceneVectorSection;
 class UMovieSceneEnumSection;
 class UMovieScene3DTransformSection;
@@ -40,7 +41,7 @@ protected:
 	virtual void Evaluate(const FMovieSceneEvaluationOperand& Operand, const FMovieSceneContext& Context, const FPersistentEvaluationData& PersistentData, FMovieSceneExecutionTokens& ExecutionTokens) const override;
 
 	UPROPERTY()
-	FIntegralCurve BoolCurve;
+	FMovieSceneBoolChannel BoolCurve;
 };
 
 USTRUCT()
@@ -48,7 +49,7 @@ struct FMovieSceneFloatPropertySectionTemplate : public FMovieScenePropertySecti
 {
 	GENERATED_BODY()
 	
-	FMovieSceneFloatPropertySectionTemplate(){}
+	FMovieSceneFloatPropertySectionTemplate() : BlendType((EMovieSceneBlendType)0) {}
 	FMovieSceneFloatPropertySectionTemplate(const UMovieSceneFloatSection& Section, const UMovieScenePropertyTrack& Track);
 
 protected:
@@ -57,7 +58,7 @@ protected:
 	virtual void Evaluate(const FMovieSceneEvaluationOperand& Operand, const FMovieSceneContext& Context, const FPersistentEvaluationData& PersistentData, FMovieSceneExecutionTokens& ExecutionTokens) const override;
 
 	UPROPERTY()
-	FRichCurve FloatCurve;
+	FMovieSceneFloatChannel FloatFunction;
 
 	UPROPERTY()
 	EMovieSceneBlendType BlendType;
@@ -78,7 +79,7 @@ protected:
 	virtual void Evaluate(const FMovieSceneEvaluationOperand& Operand, const FMovieSceneContext& Context, const FPersistentEvaluationData& PersistentData, FMovieSceneExecutionTokens& ExecutionTokens) const override;
 
 	UPROPERTY()
-	FIntegralCurve ByteCurve;
+	FMovieSceneByteChannel ByteCurve;
 };
 
 USTRUCT()
@@ -96,7 +97,7 @@ protected:
 	virtual void Evaluate(const FMovieSceneEvaluationOperand& Operand, const FMovieSceneContext& Context, const FPersistentEvaluationData& PersistentData, FMovieSceneExecutionTokens& ExecutionTokens) const override;
 
 	UPROPERTY()
-	FIntegralCurve EnumCurve;
+	FMovieSceneByteChannel EnumCurve;
 };
 
 USTRUCT()
@@ -104,7 +105,7 @@ struct FMovieSceneIntegerPropertySectionTemplate : public FMovieScenePropertySec
 {
 	GENERATED_BODY()
 	
-	FMovieSceneIntegerPropertySectionTemplate(){}
+	FMovieSceneIntegerPropertySectionTemplate() : BlendType((EMovieSceneBlendType)0) {}
 	FMovieSceneIntegerPropertySectionTemplate(const UMovieSceneIntegerSection& Section, const UMovieScenePropertyTrack& Track);
 
 protected:
@@ -113,7 +114,7 @@ protected:
 	virtual void Evaluate(const FMovieSceneEvaluationOperand& Operand, const FMovieSceneContext& Context, const FPersistentEvaluationData& PersistentData, FMovieSceneExecutionTokens& ExecutionTokens) const override;
 
 	UPROPERTY()
-	FIntegralCurve IntegerCurve;
+	FMovieSceneIntegerChannel IntegerCurve;
 
 	UPROPERTY()
 	EMovieSceneBlendType BlendType;
@@ -134,7 +135,7 @@ protected:
 	virtual void Evaluate(const FMovieSceneEvaluationOperand& Operand, const FMovieSceneContext& Context, const FPersistentEvaluationData& PersistentData, FMovieSceneExecutionTokens& ExecutionTokens) const override;
 
 	UPROPERTY()
-	FStringCurve StringCurve;
+	FMovieSceneStringChannel StringCurve;
 };
 
 Expose_TNameOf(FVector2D);
@@ -146,7 +147,7 @@ struct FMovieSceneVectorPropertySectionTemplate : public FMovieScenePropertySect
 {
 	GENERATED_BODY()
 	
-	FMovieSceneVectorPropertySectionTemplate(){}
+	FMovieSceneVectorPropertySectionTemplate() : NumChannelsUsed(0), BlendType((EMovieSceneBlendType)0) {}
 	FMovieSceneVectorPropertySectionTemplate(const UMovieSceneVectorSection& Section, const UMovieScenePropertyTrack& Track);
 
 protected:
@@ -155,7 +156,7 @@ protected:
 	virtual void Evaluate(const FMovieSceneEvaluationOperand& Operand, const FMovieSceneContext& Context, const FPersistentEvaluationData& PersistentData, FMovieSceneExecutionTokens& ExecutionTokens) const override;
 
 	UPROPERTY()
-	FRichCurve ComponentCurves[4];
+	FMovieSceneFloatChannel ComponentCurves[4];
 
 	UPROPERTY()
 	int32 NumChannelsUsed;
@@ -173,6 +174,25 @@ struct FMovieSceneTransformPropertySectionTemplate : public FMovieScenePropertyS
 
 	FMovieSceneTransformPropertySectionTemplate(){}
 	FMovieSceneTransformPropertySectionTemplate(const UMovieScene3DTransformSection& Section, const UMovieScenePropertyTrack& Track);
+
+protected:
+
+	virtual UScriptStruct& GetScriptStructImpl() const override { return *StaticStruct(); }
+	virtual void Evaluate(const FMovieSceneEvaluationOperand& Operand, const FMovieSceneContext& Context, const FPersistentEvaluationData& PersistentData, FMovieSceneExecutionTokens& ExecutionTokens) const override;
+
+	UPROPERTY()
+	FMovieScene3DTransformTemplateData TemplateData;
+};
+
+Expose_TNameOf(FEulerTransform);
+
+USTRUCT()
+struct FMovieSceneEulerTransformPropertySectionTemplate : public FMovieScenePropertySectionTemplate
+{
+	GENERATED_BODY()
+
+	FMovieSceneEulerTransformPropertySectionTemplate(){}
+	FMovieSceneEulerTransformPropertySectionTemplate(const UMovieScene3DTransformSection& Section, const UMovieScenePropertyTrack& Track);
 
 protected:
 

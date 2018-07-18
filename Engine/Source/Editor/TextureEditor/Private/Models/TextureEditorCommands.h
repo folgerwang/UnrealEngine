@@ -56,6 +56,14 @@ public:
 	/** Sets the solid color background */
 	TSharedPtr<FUICommandInfo> SolidBackground;
 
+// Begin - Volume Texture Specifics
+	/** For volume texture, shows each depth slice side by side */
+	TSharedPtr<FUICommandInfo> DepthSlices;
+
+	/** For volume texture, shows a trace into the volume */
+	TSharedPtr<FUICommandInfo> TraceIntoVolume;
+// End - Volume Texture Specifics
+
 	/** If enabled, a border is drawn around the texture */
 	TSharedPtr<FUICommandInfo> TextureBorder;
 

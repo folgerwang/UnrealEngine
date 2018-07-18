@@ -40,7 +40,8 @@ enum ELauncherVersion
 	LAUNCHERSERVICES_ADDARCHIVE = 23,
 	LAUNCHERSERVICES_ADDEDENCRYPTINIFILES = 24,
 	LAUNCHERSERVICES_ADDEDMULTILEVELPATCHING = 25,
-	
+	LAUNCHERSERVICES_ADDEDADDITIONALCOMMANDLINE = 26,
+
 	//ADD NEW STUFF HERE
 
 
@@ -665,6 +666,11 @@ public:
 		return BuildUAT;
 	}
 
+	virtual FString GetAdditionalCommandLineParameters() const override
+	{
+		return AdditionalCommandLineParameters;
+	}
+
 	virtual bool IsCookingIncrementally( ) const override
 	{
 		if ( CookMode != ELauncherProfileCookModes::DoNotCook )
@@ -1047,6 +1053,7 @@ public:
 		Writer.WriteValue("HttpChunkDataReleaseName", HttpChunkDataReleaseName);
 		Writer.WriteValue("Archive", bArchive);
 		Writer.WriteValue("ArchiveDirectory", ArchiveDir);
+		Writer.WriteValue("AdditionalCommandLineParameters", AdditionalCommandLineParameters);
 
 		// serialize the default launch role
 		DefaultLaunchRole->Save(Writer, TEXT("DefaultRole"));
@@ -1467,15 +1474,18 @@ public:
 		FString Right;
 		while (CommandLine.Split(TEXT(" "), &Left, &Right))
 		{
-			FString Key;
-			FString Value;
-			if (!Left.Split(TEXT("="), &Key, &Value))
+			if(Left.Len() > 0)
 			{
-				Key = Left;
-				Value = TEXT("true");
+				FString Key;
+				FString Value;
+				if (!Left.Split(TEXT("="), &Key, &Value))
+				{
+					Key = Left;
+					Value = TEXT("true");
+				}
+				Key.RemoveFromStart(TEXT("-"));
+				RoleCommands.Add(Key, Value);
 			}
-			Key.RemoveFromStart(TEXT("-"));
-			RoleCommands.Add(Key, Value);
 			CommandLine = Right;
 		}
 		if (CommandLine.Len() > 0)
@@ -1537,6 +1547,10 @@ public:
 		{
 			// Platform info for the given platform
 			const PlatformInfo::FPlatformInfo* PlatformInfo = PlatformInfo::FindPlatformInfo(FName(*InPlatforms[PlatformIndex]));
+			if (PlatformInfo == nullptr)
+			{
+				return false;
+			}
 
 			// switch server and no editor platforms to the proper type
 			if (PlatformInfo->TargetPlatformName == FName("LinuxServer"))
@@ -1693,6 +1707,15 @@ public:
 			ArchiveDir = TEXT("");
 		}
 
+		if (Version >= LAUNCHERSERVICES_ADDEDADDITIONALCOMMANDLINE)
+		{
+			AdditionalCommandLineParameters = Object.GetStringField("AdditionalCommandLineParameters");
+		}
+		else
+		{
+			AdditionalCommandLineParameters = TEXT("");
+		}
+
 		// load the default launch role
 		TSharedPtr<FJsonObject> Role = Object.GetObjectField("DefaultRole");
 		DefaultLaunchRole->Load(*(Role.Get()));
@@ -1726,6 +1749,7 @@ public:
 	virtual void SetDefaults( ) override
 	{
 		ProjectSpecified = false;
+		AdditionalCommandLineParameters = FString();
 
 		// default project settings
 		if (FPaths::IsProjectFilePathSet())
@@ -1861,6 +1885,16 @@ public:
 		if (BuildUAT != Build)
 		{
 			BuildUAT = Build;
+
+			Validate();
+		}
+	}
+
+	virtual void SetAdditionalCommandLineParameters(const FString& Params) override
+	{
+		if (AdditionalCommandLineParameters != Params)
+		{
+			AdditionalCommandLineParameters = Params;
 
 			Validate();
 		}
@@ -2700,6 +2734,9 @@ private:
 
 	// Profile is for an internal project
 	bool bNotForLicensees;
+
+	// Additional command line parameters to set for the application when it launches
+	FString AdditionalCommandLineParameters;
 
 private:
 

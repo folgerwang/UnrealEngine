@@ -1,52 +1,9 @@
-﻿INTSourceChangelist:2704484
-Availability:Public
+﻿Availability:Public
 Title:拡張性とデベロッパー
 Crumbs: %ROOT%, Engine, Engine/Performance, Engine/Performance/Scalability
 Description:Desc
 version:4.9
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Performance/Scalability/ScalabilityAndYou:title%](Engine/Rendering/rendering_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Performance/Scalability/ScalabilityAndYou:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Performance/Scalability/ScalabilityAndYou:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Performance/Scalability/ScalabilityAndYou]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Performance/Scalability/ScalabilityAndYou:title%](Engine/Rendering/rendering_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Performance/Scalability/ScalabilityAndYou:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Performance/Scalability/ScalabilityAndYou:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Performance/Scalability/ScalabilityAndYou]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[REGION:banner]
-
-[/REGION]
 
 [TOC(start:2)]
 
@@ -55,15 +12,15 @@ version:4.9
 
 そこで拡張性オプションが関わってきます。しかし、微調整を必要とする以前に、作成しているアプリケーションが各自が選んだ最低限の仕様で実行するようにするために各デベロッパーが行えることはたくさんあります。
 
-##全般
+## 全般
 
 以下のように様々なマシンには、様々な性能 / メモリ / 品質の特徴があります。
 
 * ハード ドライブのサイズ / レイテンシー / 帯域幅
 * メイン メモリのサイズ / レイテンシー / 帯域幅、64 ビットではなく 32 ビットを実行すると、さらに制約があります。
 * CPU ( 1 つ以上のメイン プロセッサ、ハイパースレッディング、SSE 機能、分岐予測) 
-*GPU ( メモリ、マルチ GPU、帯域幅、機能、共有メモリ)
-*解像度 (最近のノートブックは高解像度表示ですが、GPU の処理速度は遅くなっています)
+* GPU ( メモリ、マルチ GPU、帯域幅、機能、共有メモリ)
+* 解像度 (最近のノートブックは高解像度表示ですが、GPU の処理速度は遅くなっています)
 
 
 一般的にグラフィックスは、ゲームプレイにあまり影響を与えずにスケーリングする一番簡単な方法です。プレイヤーは一般的に拡張性の考えを受け入れるものの積極的にオプション メニューに進み適切に調整する人はごくわずかです。オプション画面は多くの場合、オプション数の多さと、わかりづらい名称で威圧感を与えます。主観的な多くの決定をプレイヤーが制御できるようにするオプションもありますが、以下のようなトレードオフがあります。
@@ -101,7 +58,7 @@ version:4.9
 
 ## QA
 
-拡張性の幅が広ければ、 QA の時間は長くなります。以下のいくつかのグッドプラクティスが助けになるでしょう。 
+拡張性の幅が広ければ、 QA の時間は長くなります。役立つグッドプラクティスを紹介します。 
 
 * 低スペック、推奨スペック、高スペックを文書化します。
 * 幅広いマトリックス (低 / 中 / 高 の GPU、低 / 高 の CPU、低/高のメモリ) でテストを行います
@@ -116,7 +73,7 @@ version:4.9
 * 一部のノートブックには複数の GPU があります (例、Intel HD グラフィックス 4000 はバッテリを節約するため、NVIDIA 580m はパフォーマンスのため) 。デフォルトでより高速な GPU で実行したいでしょうが、両方でテストするのが最適です (これを変更するにはドライバの設定を使用します)。 バッテリで実行する場合、より遅いものを選ぶか、ランタイムに切り替えることさえあります。
 
 
-##プログラマー
+## プログラマー
 
 プレイヤーはプレイヤーのシャドウを先に見るか、より高いフレームレートを持つことで応答時間を速めるメリットがあります。与えられた拡張性設定内に留まることは、不正ではありませんが、拡張性設定の中には不正目的で乱用されうるものがあります。コンソール変数は拡張性のために必要なものよりも幅広い範囲の値を提供することがあり、コンソール変数の設定を組み合わせたものが問題につながる場合があります。マルチプレイヤー ゲームの中には、サーバーの管理者が問題のある設定をオーバーライドし、プレイヤー全員に均等な機会を与えることで、この問題に対処しているものがあります。
 
@@ -133,7 +90,7 @@ version:4.9
 * ほとんどのプレイヤーはオプション メニューを決して使用しないため、優れた "auto" 機能が重要になります。この機能を適切に得るには、多くのイタレーションとテストが必要です。
 * 拡張性の範囲が狭いほど開発は簡単になります(悪い例、ハイエンド PC からローエンドのモバイル)。
 * 一番下から 2 つめに低い低スペック マシンを用意すると、あらゆる面 (コード、デザイン、アート) で役立つことがあります。タスクの均衡をとる場合、より多くの拡張性を生み出すよりも最適化する方が良い場合があります。
-* パフォーマンスは拡張性の一部ですが、安定性にも影響を及ぼす場合があります。例： 低スペックでメモリが不足したら、高解像度のテクスチャ オプションをグレイアウトすることが最適な場合があります。
+* パフォーマンスは拡張性の一部ですが、安定性にも影響を及ぼす場合があります。例:低スペックでメモリが不足したら、高解像度のテクスチャ オプションをグレイアウトすることが最適な場合があります。
 * ローエンドの拡張性は、より多くのプレイヤーがゲームでプレイできることを意味します。ハイエンドの拡張性は、特にスクリーンショットとテストでゲームの見栄えがよくなることを意味します。
 
 

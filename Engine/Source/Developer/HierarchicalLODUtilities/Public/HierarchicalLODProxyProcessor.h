@@ -8,8 +8,10 @@
 #include "GameFramework/WorldSettings.h"
 #include "MeshUtilities.h"
 #include "IMeshReductionInterfaces.h"
+#include "UObject/StrongObjectPtr.h"
 
 class ALODActor;
+class UHLODProxy;
 
 class HIERARCHICALLODUTILITIES_API FHierarchicalLODProxyProcessor : public FTickerObjectBase
 {
@@ -24,10 +26,11 @@ public:
 	/**
 	* AddProxyJob
 	* @param InLODActor - LODActor for which the mesh will be generated
+	* @param InProxy - The proxy mesh used to store the mesh
 	* @param LODSetup - Simplification settings structure
 	* @return FGuid - Guid for the job
 	*/
-	FGuid AddProxyJob(ALODActor* InLODActor, const FHierarchicalSimplification& LODSetup);
+	FGuid AddProxyJob(ALODActor* InLODActor, UHLODProxy* InProxy, const FHierarchicalSimplification& LODSetup);
 	
 	/** Callback function used for processing finished mesh generation jobs	
 	* @param InGuid - Guid of the finished job
@@ -54,8 +57,10 @@ protected:
 	{
 		/** LODActor instance for which a proxy is generated */
 		ALODActor* LODActor;
+		/** Proxy mesh where the rendering data is stored */
+		UHLODProxy* Proxy;
 		/** Array with resulting asset objects from proxy generation (StaticMesh/Materials/Textures) */
-		TArray<class UObject*> AssetObjects;
+		TArray<TStrongObjectPtr<UObject>> AssetObjects;
 		/** HLOD settings structure used for creating the proxy */
 		FHierarchicalSimplification LODSetup;
 	};

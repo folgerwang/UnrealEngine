@@ -35,6 +35,10 @@ public:
 #endif // WITH_EDITOR
 	//~ End UObject interface
 
+#if WITH_EDITORONLY_DATA
+	ENGINE_API void CacheSubFaces();
+#endif // WITH_EDITORONLY_DATA
+
 	//~ Begin IFontFaceInterface Interface
 #if WITH_EDITORONLY_DATA
 	virtual void InitializeFromBulkData(const FString& InFilename, const EFontHinting InHinting, const void* InBulkDataPtr, const int32 InBulkDataSizeBytes) override;
@@ -63,12 +67,16 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=FontFace, AdvancedDisplay)
 	EFontLayoutMethod LayoutMethod;
 
-	/** The data associated with the font face. This should always be filled in providing the source filename is valid. */
+	/** The data associated with the font face. This should always be filled in providing the source filename is valid. CacheSubFaces should be called after manually changing this property. */
 	FFontFaceDataRef FontFaceData;
 
 #if WITH_EDITORONLY_DATA
 	/** The data associated with the font face. This should always be filled in providing the source filename is valid. */
 	UPROPERTY()
 	TArray<uint8> FontFaceData_DEPRECATED;
+
+	/** Transient cache of the sub-faces available within this face */
+	UPROPERTY(VisibleAnywhere, Transient, Category=FontFace, AdvancedDisplay)
+	TArray<FString> SubFaces;
 #endif // WITH_EDITORONLY_DATA
 };

@@ -25,6 +25,12 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <returns>The targeted GPU architectures</returns>
 		List<string> GetAllGPUArchitectures();
+
+		/// <summary>
+		/// Finds the list of supported GPU architectures
+		/// </summary>
+		/// <returns>The targeted GPU architectures</returns>
+		int GetNdkApiLevelInt(int MinNDK);
 	}
 
 	/// <summary>
@@ -35,9 +41,8 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// 
 		/// </summary>
-		/// <param name="bDisallowPackagingDataInApk"></param>
 		/// <returns></returns>
-		bool PackageDataInsideApk(bool bDisallowPackagingDataInApk);
+		bool GetPackageDataInsideApk();
 
 		/// <summary>
 		/// 
@@ -80,10 +85,11 @@ namespace UnrealBuildTool
 		/// 
 		/// </summary>
 		/// <param name="ProjectFile"></param>
+		/// <param name="InForcePackageData"></param>
 		/// <returns></returns>
-		public static IAndroidDeploy CreateDeploymentHandler(FileReference ProjectFile)
+		public static IAndroidDeploy CreateDeploymentHandler(FileReference ProjectFile, bool InForcePackageData)
 		{
-			return new UEDeployAndroid(ProjectFile);
+			return new UEDeployAndroid(ProjectFile, InForcePackageData);
 		}
 
 		/// <summary>

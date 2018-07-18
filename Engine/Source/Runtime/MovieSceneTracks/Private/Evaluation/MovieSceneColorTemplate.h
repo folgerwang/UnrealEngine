@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
-#include "Curves/RichCurve.h"
+#include "Channels/MovieSceneFloatChannel.h"
 #include "Evaluation/MovieSceneEvalTemplate.h"
 #include "Evaluation/MovieScenePropertyTemplate.h"
 
@@ -18,12 +18,12 @@ struct FMovieSceneColorSectionTemplate : public FMovieScenePropertySectionTempla
 {
 	GENERATED_BODY()
 	
-	FMovieSceneColorSectionTemplate() {}
+	FMovieSceneColorSectionTemplate() : BlendType((EMovieSceneBlendType)0) {}
 	FMovieSceneColorSectionTemplate(const UMovieSceneColorSection& Section, const UMovieSceneColorTrack& Track);
 
 	/** Curve data as RGBA */
 	UPROPERTY()
-	FRichCurve Curves[4];
+	FMovieSceneFloatChannel Curves[4];
 
 	UPROPERTY()
 	EMovieSceneBlendType BlendType;

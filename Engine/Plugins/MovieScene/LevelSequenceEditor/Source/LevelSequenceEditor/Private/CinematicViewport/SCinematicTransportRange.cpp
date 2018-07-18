@@ -2,7 +2,7 @@
 
 #include "CinematicViewport/SCinematicTransportRange.h"
 #include "Rendering/DrawElements.h"
-#include "ISequencerKeyCollection.h"
+#include "SequencerKeyCollection.h"
 #include "MovieSceneSequence.h"
 #include "EditorStyleSet.h"
 #include "Styles/LevelSequenceEditorStyle.h"
@@ -11,7 +11,6 @@
 #include "CommonMovieSceneTools.h"
 
 #define LOCTEXT_NAMESPACE "SCinematicTransportRange"
-
 
 void SCinematicTransportRange::Construct(const FArguments& InArgs)
 {
@@ -79,14 +78,15 @@ void SCinematicTransportRange::SetTime(const FGeometry& MyGeometry, const FPoint
 	{
 		float Lerp = MyGeometry.AbsoluteToLocal(MouseEvent.GetScreenSpacePosition()).X / MyGeometry.GetLocalSize().X;
 		Lerp = FMath::Clamp(Lerp, 0.f, 1.f);
-		
-		const TRange<float> WorkingRange = Sequencer->GetFocusedMovieSceneSequence()->GetMovieScene()->GetEditorData().WorkingRange;
-		
-		Sequencer->SetLocalTime(WorkingRange.GetLowerBoundValue() + WorkingRange.Size<float>()*Lerp, ESnapTimeMode::STM_All);
+
+		FMovieSceneEditorData& EditorData = Sequencer->GetFocusedMovieSceneSequence()->GetMovieScene()->GetEditorData();
+		double NewTimeSeconds = EditorData.WorkStart + (EditorData.WorkEnd - EditorData.WorkStart) * Lerp;
+
+		Sequencer->SetLocalTime(NewTimeSeconds * Sequencer->GetFocusedTickResolution(), ESnapTimeMode::STM_All);
 	}
 }
 
-void SCinematicTransportRange::OnMouseCaptureLost()
+void SCinematicTransportRange::OnMouseCaptureLost(const FCaptureLostEvent& CaptureLostEvent)
 {
 	bDraggingTime = false;
 }
@@ -96,11 +96,11 @@ void SCinematicTransportRange::Tick(const FGeometry& AllottedGeometry, const dou
 	ISequencer* Sequencer = GetSequencer();
 	if (Sequencer)
 	{
-		TRange<float> WorkingRange = Sequencer->GetFocusedMovieSceneSequence()->GetMovieScene()->GetEditorData().WorkingRange;
+		TRange<double> WorkingRange = Sequencer->GetFocusedMovieSceneSequence()->GetMovieScene()->GetEditorData().GetWorkingRange();
 
 		// Anything within 3 pixel's worth of time is a duplicate as far as we're concerned
-		FTimeToPixel TimeToPixelConverter(AllottedGeometry, WorkingRange);
-		const float DuplicateThreshold = (TimeToPixelConverter.PixelToTime(3.f) - TimeToPixelConverter.PixelToTime(0.f));
+		FTimeToPixel TimeToPixelConverter(AllottedGeometry, WorkingRange, Sequencer->GetFocusedTickResolution());
+		const float DuplicateThreshold = (TimeToPixelConverter.PixelToSeconds(3.f) - TimeToPixelConverter.PixelToSeconds(0.f));
 
 		Sequencer->GetKeysFromSelection(ActiveKeyCollection, DuplicateThreshold);
 	}
@@ -119,10 +119,11 @@ int32 SCinematicTransportRange::OnPaint(const FPaintArgs& Args, const FGeometry&
 	static const float TrackOffsetY = 6.f;
 	const float TrackHeight = AllottedGeometry.GetLocalSize().Y - TrackOffsetY;
 
-	TRange<float> WorkingRange = Sequencer->GetFocusedMovieSceneSequence()->GetMovieScene()->GetEditorData().WorkingRange;
-	TRange<float> PlaybackRange = Sequencer->GetFocusedMovieSceneSequence()->GetMovieScene()->GetPlaybackRange();
+	FFrameRate           TickResolution  = Sequencer->GetFocusedTickResolution();
+	TRange<double>       WorkingRange    = Sequencer->GetFocusedMovieSceneSequence()->GetMovieScene()->GetEditorData().GetWorkingRange();
+	TRange<FFrameNumber> PlaybackRange   = Sequencer->GetFocusedMovieSceneSequence()->GetMovieScene()->GetPlaybackRange();
 
-	const float TimePerPixel = WorkingRange.Size<float>() / AllottedGeometry.GetLocalSize().X;
+	const FFrameTime FramesPerPixel = (WorkingRange.Size<double>() / AllottedGeometry.GetLocalSize().X) * TickResolution;
 
 	FColor DarkGray(40, 40, 40);
 	FColor MidGray(80, 80, 80);
@@ -140,8 +141,8 @@ int32 SCinematicTransportRange::OnPaint(const FPaintArgs& Args, const FGeometry&
 	
 	const float FullRange = WorkingRange.Size<float>();
 
-	const float PlaybackStartLerp	= (PlaybackRange.GetLowerBoundValue() - WorkingRange.GetLowerBoundValue()) / FullRange;
-	const float PlaybackEndLerp		= (PlaybackRange.GetUpperBoundValue() - WorkingRange.GetLowerBoundValue()) / FullRange;
+	const float PlaybackStartLerp	= (PlaybackRange.GetLowerBoundValue()/TickResolution - WorkingRange.GetLowerBoundValue()) / FullRange;
+	const float PlaybackEndLerp		= (PlaybackRange.GetUpperBoundValue()/TickResolution - WorkingRange.GetLowerBoundValue()) / FullRange;
 
 	// Draw the playback range
 	FSlateDrawElement::MakeBox(
@@ -153,8 +154,8 @@ int32 SCinematicTransportRange::OnPaint(const FPaintArgs& Args, const FGeometry&
 		FLinearColor(MidGray)
 	);
 
-	const float CurrentTime = Sequencer->GetLocalTime();
-	const float ProgressLerp = (CurrentTime - WorkingRange.GetLowerBoundValue()) / FullRange;
+	const FQualifiedFrameTime CurrentTime = Sequencer->GetLocalTime();
+	const float ProgressLerp = (CurrentTime.AsSeconds() - WorkingRange.GetLowerBoundValue()) / FullRange;
 
 	// Draw the playback progress
 	if (ProgressLerp > PlaybackStartLerp)
@@ -184,19 +185,19 @@ int32 SCinematicTransportRange::OnPaint(const FPaintArgs& Args, const FGeometry&
 			const float BrushOffsetY = TrackOffsetY + TrackHeight * .5f - BrushHeight * .5f;
 			const FSlateBrush* KeyBrush = FLevelSequenceEditorStyle::Get()->GetBrush("LevelSequenceEditor.CinematicViewportTransportRangeKey");
 
-			ActiveKeyCollection->IterateKeys([&](float Time){
-				if (Time < WorkingRange.GetLowerBoundValue() || Time > WorkingRange.GetUpperBoundValue())
-				{
-					// continue iteration
-					return true;
-				}
+			TRange<FFrameNumber> VisibleFrameRange(
+				(WorkingRange.GetLowerBoundValue() * TickResolution).FloorToFrame(), 
+				(WorkingRange.GetUpperBoundValue() * TickResolution).CeilToFrame()
+				);
 
-				if (FMath::IsNearlyEqual(CurrentTime, Time, TimePerPixel*.5f))
+			for (FFrameNumber Time : ActiveKeyCollection->GetKeysInRange(VisibleFrameRange))
+			{
+				if (FMath::Abs(CurrentTime.Time - Time) < FramesPerPixel/2)
 				{
 					bPlayMarkerOnKey = true;
 				}
 
-				float Lerp = (Time - WorkingRange.GetLowerBoundValue()) / FullRange;
+				float Lerp = (Time/TickResolution - WorkingRange.GetLowerBoundValue()) / FullRange;
 
 				FSlateDrawElement::MakeBox(
 					OutDrawElements,
@@ -209,10 +210,7 @@ int32 SCinematicTransportRange::OnPaint(const FPaintArgs& Args, const FGeometry&
 					DrawEffects,
 					KeyFrameColor
 				);
-
-				// continue iteration
-				return true;
-			});
+			}
 		}
 	}
 

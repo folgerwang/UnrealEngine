@@ -28,10 +28,10 @@ class UMaterialExpressionFontSample : public UMaterialExpression
 #if WITH_EDITOR
 	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex) override;
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
-#endif
+	virtual bool MatchesSearchQuery(const TCHAR* SearchQuery) override;
 	virtual int32 GetWidth() const override;
 	virtual int32 GetLabelPadding() override { return 8; }
-	virtual bool MatchesSearchQuery( const TCHAR* SearchQuery ) override;
+#endif
 
 	/** 
 	 * Callback to get any texture reference this expression emits.
@@ -39,6 +39,8 @@ class UMaterialExpressionFontSample : public UMaterialExpression
 	 * Any UMaterialExpression whose compilation creates a texture uniform expression (eg Compiler->Texture, Compiler->TextureParameter) must implement this.
 	 */
 	virtual UTexture* GetReferencedTexture() override;
+
+	virtual bool CanReferenceTexture() const override { return true; }
 	//~ End UMaterialExpression Interface
 };
 

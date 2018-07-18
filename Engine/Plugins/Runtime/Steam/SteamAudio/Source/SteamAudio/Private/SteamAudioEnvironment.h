@@ -11,39 +11,64 @@
 
 namespace SteamAudio
 {
-	/************************************************************************/
-	/* FEnvironment                                                         */
-	/* This class handles an instance of the Steam Audio environment,       */
-	/* as well as the environmental renderer used by the audio plugins.     */
-	/************************************************************************/
+	/**
+	 * Maps from UE4 FName identifiers stored on AudioComponents to a unique integer for the Phonon API.
+	 * The expected number of baked sources for a given scene is quite low (< 1k usually), so this simply
+	 * maps to random integers in (0, INT_MAX).
+	 */
+	class STEAMAUDIO_API FIdentifierMap
+	{
+	public:
+		bool ContainsKey(const FString& Key) const;
+		bool ContainsValue(const int32 Value) const;
+		int32 Add(const FString& Identifier);
+		void Add(const TPair<FString, int32>& Pair);
+		int32 Get(const FString& Identifier) const;
+		FString ToString() const;
+		void FromString(const FString& MappingString);
+		void Empty();
+
+	private:
+		TArray<TPair<FString, int32>> IdentifierMapping;
+	};
+
+	bool STEAMAUDIO_API LoadBakedIdentifierMapFromDisk(UWorld* World, FIdentifierMap& BakedIdentifierMap);
+	bool STEAMAUDIO_API SaveBakedIdentifierMapToDisk(UWorld* World, const FIdentifierMap& BakedIdentifierMap);
+
+	/**
+	 * Handles an instance of the Steam Audio environment and the environmental renderer used by the audio plugins.
+	 */
 	class FEnvironment
 	{
 	public:
 		FEnvironment();
 		~FEnvironment();
 
-		IPLhandle Initialize(UWorld* World, FAudioDevice* InAudioDevice);
+		bool Initialize(UWorld* World, FAudioDevice* InAudioDevice);
 		void Shutdown();
 
-		IPLhandle GetSceneHandle() { return PhononScene; };
-
-		IPLhandle GetEnvironmentHandle() { return PhononEnvironment; };
-
-		IPLhandle GetEnvironmentalRendererHandle() { return EnvironmentalRenderer; };
-
-		FCriticalSection* GetEnvironmentCriticalSection() { return &EnvironmentCriticalSection; };
+		IPLhandle GetScene() const { return PhononScene; };
+		IPLhandle GetEnvironment() const { return PhononEnvironment; };
+		IPLhandle GetEnvironmentalRenderer() const { return EnvironmentalRenderer; }
+		const IPLSimulationSettings& GetSimulationSettings() const { return SimulationSettings; }
+		const IPLRenderingSettings& GetRenderingSettings() const { return RenderingSettings; }
+		const FIdentifierMap& GetBakedIdentifierMap() const { return BakedIdentifierMap; }
+		FCriticalSection* GetEnvironmentCriticalSectionHandle() { return &EnvironmentCriticalSection; };
 
 	private:
 		FCriticalSection EnvironmentCriticalSection;
+
 		IPLhandle ComputeDevice;
 		IPLhandle PhononScene;
-		FPhononSceneInfo PhononSceneInfo;
 		IPLhandle PhononEnvironment;
 		IPLhandle EnvironmentalRenderer;
 		IPLhandle ProbeManager;
 		TArray<IPLhandle> ProbeBatches;
+
 		IPLSimulationSettings SimulationSettings;
 		IPLRenderingSettings RenderingSettings;
-		IPLAudioFormat EnvironmentalOutputAudioFormat;
+
+		FPhononSceneInfo PhononSceneInfo;
+		FIdentifierMap BakedIdentifierMap;
 	};
 }

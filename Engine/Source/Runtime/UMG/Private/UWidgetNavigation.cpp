@@ -15,6 +15,7 @@ void FWidgetNavigationData::Resolve(UUserWidget* InInstance, UWidgetTree* Widget
 		Widget = WidgetTree->FindWidget(WidgetToFocus);
 		break;
 	case EUINavigationRule::Custom:
+	case EUINavigationRule::CustomBoundary:
 		CustomDelegate.BindUFunction(InInstance, WidgetToFocus);
 		break;
 	}
@@ -129,11 +130,12 @@ void UWidgetNavigation::UpdateMetaDataEntry(TSharedRef<FNavigationMetaData> Meta
 		}
 		break;
 	case EUINavigationRule::Custom:
+	case EUINavigationRule::CustomBoundary:
 		if (NavData.CustomDelegate.IsBound())
 		{
 			FCustomWidgetNavigationDelegate CustomDelegate = NavData.CustomDelegate;
-			MetaData->SetNavigationCustom(Nav, FNavigationDelegate::CreateLambda([CustomDelegate](EUINavigation UINav) {
-				UWidget* CustomWidget = CustomDelegate.Execute(UINav);
+			MetaData->SetNavigationCustom(Nav, NavData.Rule, FNavigationDelegate::CreateLambda([CustomDelegate](EUINavigation CustomNav) {
+				UWidget* CustomWidget = CustomDelegate.Execute(CustomNav);
 				if (CustomWidget)
 				{
 					return CustomWidget->GetCachedWidget();

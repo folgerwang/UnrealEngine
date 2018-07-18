@@ -261,8 +261,8 @@ Order:-6
 * PlayerController input component is no longer created in the constructor.Bindings should be done, similar to Pawn, in the virtual function SetupInputComponent.
 * `PlayerController.GetInputAnalogStickState` now returns game value (after invert and dead zones have been applied) instead of the raw hardware value.
 * ConsumeInput removed from `BIND_` macros.To set `InputAction`/`InputAxis` properties from code after binding the macro can do something similar to:
-		BIND_ACTION(InputComponent, "Fire", IE_Pressed, &AQAPlayerController::OnTriggerPressed);
 
+		BIND_ACTION(InputComponent, "Fire", IE_Pressed, &AQAPlayerController::OnTriggerPressed);
 		InputComponent->ActionBindings.Last().bConsumeInput = false;
 
 * `MaxDrawDistanceScale` system setting has been replaced by new `r.ViewDistanceScale` console variable.
@@ -296,8 +296,8 @@ Order:-6
 	* This was a blocking call for WinInet and not necessary since async request would fail anyway without a connection
 * Http module has a flag to disable actually making http requests and just calls completion delegates instead
 	* In `DefaultEngine.ini`:
-		[Http]
 
+		[Http]
 			bEnableHttp=false
 
 * Http WinInet implementation always downloads from server instead of relying on cached data via INTERNET_FLAG_RELOAD

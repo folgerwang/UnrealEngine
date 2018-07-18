@@ -299,7 +299,7 @@ UPaperTileLayer* STileLayerList::AddLayer(int32 InsertionIndex)
 
 	if (UPaperTileMap* TileMap = TileMapPtr.Get())
 	{
-		const FScopedTransaction Transaction(LOCTEXT("TileMapAddLayer", "Add New Layer"));
+		const FScopedTransaction Transaction(LOCTEXT("TileMapAddLayerTransaction", "Add New Layer"));
 		TileMap->SetFlags(RF_Transactional);
 		TileMap->Modify();
 
@@ -320,7 +320,7 @@ void STileLayerList::ChangeLayerOrdering(int32 OldIndex, int32 NewIndex)
 	{
 		if (TileMap->TileLayers.IsValidIndex(OldIndex) && TileMap->TileLayers.IsValidIndex(NewIndex))
 		{
-			const FScopedTransaction Transaction(LOCTEXT("TileMapReorderLayer", "Reorder Layer"));
+			const FScopedTransaction Transaction(LOCTEXT("TileMapReorderLayerTransaction", "Reorder Layer"));
 			TileMap->SetFlags(RF_Transactional);
 			TileMap->Modify();
 
@@ -393,7 +393,7 @@ void STileLayerList::DeleteLayer()
 {
 	if (UPaperTileMap* TileMap = TileMapPtr.Get())
 	{
-		const FScopedTransaction Transaction(LOCTEXT("TileMapDeleteLayer", "Delete Layer"));
+		const FScopedTransaction Transaction(LOCTEXT("TileMapDeleteLayerTransaction", "Delete Layer"));
 		TileMap->SetFlags(RF_Transactional);
 		TileMap->Modify();
 
@@ -430,7 +430,7 @@ void STileLayerList::DuplicateLayer()
 		const int32 DuplicateIndex = GetSelectionIndex();
 		if (DuplicateIndex != INDEX_NONE)
 		{
-			const FScopedTransaction Transaction(LOCTEXT("TileMapDuplicateLayer", "Duplicate Layer"));
+			const FScopedTransaction Transaction(LOCTEXT("TileMapDuplicateLayerTransaction", "Duplicate Layer"));
 			TileMap->SetFlags(RF_Transactional);
 			TileMap->Modify();
 
@@ -454,7 +454,7 @@ void STileLayerList::MergeLayerDown()
 		const int32 TargetIndex = SourceIndex + 1;
 		if ((SourceIndex != INDEX_NONE) && (TargetIndex != INDEX_NONE))
 		{
-			const FScopedTransaction Transaction(LOCTEXT("TileMapMergeLayerDown", "Merge Layer Down"));
+			const FScopedTransaction Transaction(LOCTEXT("TileMapMergeLayerDownTransaction", "Merge Layer Down"));
 			TileMap->SetFlags(RF_Transactional);
 			TileMap->Modify();
 
@@ -522,7 +522,7 @@ void STileLayerList::CutLayer()
 
 	if (UPaperTileMap* TileMap = TileMapPtr.Get())
 	{
-		const FScopedTransaction Transaction(LOCTEXT("TileMapCutLayer", "Cut Layer"));
+		const FScopedTransaction Transaction(LOCTEXT("TileMapCutLayerTransaction", "Cut Layer"));
 		TileMap->SetFlags(RF_Transactional);
 		TileMap->Modify();
 
@@ -552,7 +552,7 @@ void STileLayerList::PasteLayerAbove()
 
 		if (!ClipboardContent.IsEmpty())
 		{
-			const FScopedTransaction Transaction(LOCTEXT("TileMapPasteLayer", "Paste Layer"));
+			const FScopedTransaction Transaction(LOCTEXT("TileMapPasteLayerTransaction", "Paste Layer"));
 			TileMap->SetFlags(RF_Transactional);
 			TileMap->Modify();
 

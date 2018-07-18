@@ -15,22 +15,17 @@ class DUMMYMESHRECONSTRUCTOR_API UDummyMeshReconstructor : public UMeshReconstru
 
 public:
 	//~ UMeshReconstructorBase
-	UFUNCTION(BlueprintCallable, Category="Mesh Reconstruction")
 	virtual void StartReconstruction() override;
 	
-	UFUNCTION(BlueprintCallable, Category="Mesh Reconstruction")
 	virtual void StopReconstruction() override;
 	
-	UFUNCTION(BlueprintCallable, Category="Mesh Reconstruction")
 	virtual void PauseReconstruction() override;
 	
-	UFUNCTION(BlueprintCallable, Category="Mesh Reconstruction")
 	virtual bool IsReconstructionStarted() const override;
 	
-	UFUNCTION(BlueprintCallable, Category="Mesh Reconstruction")
 	virtual bool IsReconstructionPaused() const override;
 
-	virtual FMRMeshConfiguration ConnectMRMesh(UMRMeshComponent* Mesh) override;
+	virtual void ConnectMRMesh(UMRMeshComponent* Mesh) override;
 
 	virtual void DisconnectMRMesh() override;
 	//~ UMeshReconstructorBase

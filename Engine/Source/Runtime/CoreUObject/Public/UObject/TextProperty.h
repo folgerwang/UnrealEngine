@@ -18,18 +18,18 @@ public:
 	typedef UTextProperty_Super::TTypeFundamentals TTypeFundamentals;
 	typedef TTypeFundamentals::TCppType TCppType;
 
-	UTextProperty(ECppProperty, int32 InOffset, uint64 InFlags)
+	UTextProperty(ECppProperty, int32 InOffset, EPropertyFlags InFlags)
 		: TProperty(FObjectInitializer::Get(), EC_CppProperty, InOffset, InFlags)
 	{
 	}
 
-	UTextProperty( const FObjectInitializer& ObjectInitializer, ECppProperty, int32 InOffset, uint64 InFlags )
+	UTextProperty( const FObjectInitializer& ObjectInitializer, ECppProperty, int32 InOffset, EPropertyFlags InFlags )
 		:	TProperty( ObjectInitializer, EC_CppProperty, InOffset, InFlags)
 	{
 	}
 
 	// UProperty interface
-	virtual bool ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct, bool& bOutAdvanceProperty) override;
+	virtual EConvertFromTypeResult ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct) override;
 	virtual bool Identical( const void* A, const void* B, uint32 PortFlags ) const override;
 	virtual void SerializeItem( FArchive& Ar, void* Value, void const* Defaults ) const override;
 	virtual void ExportTextItem( FString& ValueStr, const void* PropertyValue, const void* DefaultValue, UObject* Parent, int32 PortFlags, UObject* ExportRootScope ) const override;

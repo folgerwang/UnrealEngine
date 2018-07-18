@@ -8,7 +8,6 @@ namespace UnrealBuildTool.Rules
 		{
 			PublicIncludePaths.AddRange(
 				new string[] {
-          "AnimDistanceMatching/Public",
 					// ... add public include paths required here ...
 				}
 				);

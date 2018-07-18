@@ -8,9 +8,7 @@
 #include "Engine/NetConnection.h"
 #include "Engine/ControlChannel.h"
 
-static const int32 MAX_BUNCH_SIZE = 1024 * 1024; 
-
-
+const int32 MAX_BUNCH_SIZE = 1024 * 1024; 
 
 
 /*-----------------------------------------------------------------------------
@@ -33,14 +31,16 @@ FInBunch::FInBunch( UNetConnection* InConnection, uint8* Src, int64 CountBits )
 ,	bPartialInitial ( 0 )
 ,	bPartialFinal ( 0 )
 ,	bHasPackageMapExports ( 0 )
+,	bHasMustBeMappedGUIDs ( 0 )
+,	bIgnoreRPCs ( 0 )
 {
 	check(Connection);
 	// Match the byte swapping settings of the connection
 	SetByteSwapping(Connection->bNeedsByteSwapping);
 
 	// Copy network version info
-	ArEngineNetVer = InConnection->EngineNetworkProtocolVersion;
-	ArGameNetVer = InConnection->GameNetworkProtocolVersion;
+	this->SetEngineNetVer(InConnection->EngineNetworkProtocolVersion);
+	this->SetGameNetVer(InConnection->GameNetworkProtocolVersion);
 
 	// Crash protection: the max string size serializable on this archive 
 	ArMaxSerializeSize = MAX_STRING_SERIALIZE_SIZE;
@@ -50,11 +50,29 @@ FInBunch::FInBunch( UNetConnection* InConnection, uint8* Src, int64 CountBits )
 FInBunch::FInBunch( FInBunch &InBunch, bool CopyBuffer )
 {
 	// Copy fields
-	FMemory::Memcpy(&PacketId,&InBunch.PacketId,sizeof(FInBunch) - sizeof(FNetBitReader));
+//	FMemory::Memcpy(&PacketId,&InBunch.PacketId,sizeof(FInBunch) - sizeof(FNetBitReader));
+
+	// This is portable
+	PacketId =	InBunch.PacketId;
+	Next =	InBunch.Next;
+	Connection = InBunch.Connection;
+	ChIndex = InBunch.ChIndex;
+	ChType = InBunch.ChType;
+	ChSequence = InBunch.ChSequence;
+	bOpen =	InBunch.bOpen;
+	bDormant = InBunch.bDormant;
+	bIsReplicationPaused = InBunch.bIsReplicationPaused;
+	bReliable =	InBunch.bReliable;
+	bPartial = InBunch.bPartial;
+	bPartialInitial = InBunch.bPartialInitial;
+	bPartialFinal =	InBunch.bPartialFinal;
+	bHasPackageMapExports = InBunch.bHasPackageMapExports;
+	bHasMustBeMappedGUIDs =	InBunch.bHasMustBeMappedGUIDs;
+	bIgnoreRPCs = InBunch.bIgnoreRPCs;
 
 	// Copy network version info
-	ArEngineNetVer = InBunch.ArEngineNetVer;
-	ArGameNetVer = InBunch.ArGameNetVer;
+	this->SetEngineNetVer(InBunch.EngineNetVer());
+	this->SetGameNetVer(InBunch.GameNetVer());
 
 	PackageMap = InBunch.PackageMap;
 	

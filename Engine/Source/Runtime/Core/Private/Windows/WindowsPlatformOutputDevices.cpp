@@ -17,7 +17,7 @@
 #include "Misc/CoreDelegates.h"
 #include "Misc/App.h"
 #include "HAL/FeedbackContextAnsi.h"
-#include "WindowsEventLogOutputDevice.h"
+#include "Windows/WindowsEventLogOutputDevice.h"
 #include "HAL/ThreadHeartBeat.h"
 
 //////////////////////////////////

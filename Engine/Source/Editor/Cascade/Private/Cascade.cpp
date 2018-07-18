@@ -806,7 +806,7 @@ void FCascade::SetSelectedModule(UParticleEmitter* NewSelectedEmitter, UParticle
 		{
 			if (LODLevel != NULL)
 			{
-				if (bReadOnly == false)
+				if (bReadOnly == false) //-V547
 				{
 					if (LODLevel->Level != CurrLODIndex)
 					{
@@ -822,7 +822,7 @@ void FCascade::SetSelectedModule(UParticleEmitter* NewSelectedEmitter, UParticle
 		}
 		else
 		{
-			if (bReadOnly == false)
+			if (bReadOnly == false) //-V547
 			{
 				// Only allowing editing the SelectedEmitter 
 				// properties when at the highest LOD level.

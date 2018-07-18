@@ -129,6 +129,7 @@ REGISTER_NAME(250,BSP)
 REGISTER_NAME(251,EditorSettings)
 REGISTER_NAME(252,AudioThread)
 REGISTER_NAME(253,ID)
+REGISTER_NAME(254,UserDefinedEnum)
 
 // Online
 REGISTER_NAME(280,DGram)
@@ -189,3 +190,4 @@ REGISTER_NAME(500,PerformanceCapture)
 // Special config names - not required to be consistent for network replication
 REGISTER_NAME(600,EditorLayout)
 REGISTER_NAME(601,EditorKeyBindings)
+REGISTER_NAME(602,GameUserSettings)

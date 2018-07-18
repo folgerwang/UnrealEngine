@@ -519,8 +519,8 @@ enum EMovementMode
 
 	/** 
 	 * Simplified walking on navigation data (e.g. navmesh). 
-	 * If bGenerateOverlapEvents is true, then we will perform sweeps with each navmesh move.
-	 * If bGenerateOverlapEvents is false then movement is cheaper but characters can overlap other objects without some extra process to repel/resolve their collisions.
+	 * If GetGenerateOverlapEvents() is true, then we will perform sweeps with each navmesh move.
+	 * If GetGenerateOverlapEvents() is false then movement is cheaper but characters can overlap other objects without some extra process to repel/resolve their collisions.
 	 */
 	MOVE_NavWalking	UMETA(DisplayName="Navmesh Walking"),
 
@@ -814,6 +814,9 @@ namespace EWorldType
 
 		/** A preview world for a game */
 		GamePreview,
+
+		/** A minimal RPC world for a game */
+		GameRPC,
 
 		/** An editor world that was loaded but not currently being edited in the level editor */
 		Inactive
@@ -1188,42 +1191,73 @@ struct FRigidBodyErrorCorrection
 {
 	GENERATED_USTRUCT_BODY()
 
-	/** max squared position difference to perform velocity adjustment */
-	UPROPERTY()
-	float LinearDeltaThresholdSq;
+	/** Value between 0 and 1 which indicates how much velocity
+		and ping based correction to use */
+	UPROPERTY(EditAnywhere, Category = "Replication")
+	float PingExtrapolation;
 
-	/** strength of snapping to desired linear velocity */
-	UPROPERTY()
-	float LinearInterpAlpha;
+	/** Error per centimeter */
+	UPROPERTY(EditAnywhere, Category = "Replication")
+	float ErrorPerLinearDifference;
 
-	/** inverted duration after which linear velocity adjustment will fix error */
-	UPROPERTY()
-	float LinearRecipFixTime;
+	/** Error per degree */
+	UPROPERTY(EditAnywhere, Category = "Replication")
+	float ErrorPerAngularDifference;
 
-	/** max squared angle difference (in radians) to perform velocity adjustment */
-	UPROPERTY()
-	float AngularDeltaThreshold;
+	/** Maximum allowable error for a state to be considered "resolved" */
+	UPROPERTY(EditAnywhere, Category = "Replication")
+	float MaxRestoredStateError;
 
-	/** strength of snapping to desired angular velocity */
-	UPROPERTY()
-	float AngularInterpAlpha;
+	/** How much to directly lerp to the correct position. Generally
+		this should be very low, if not zero. A higher value will
+		increase precision along with jerkiness. */
+	UPROPERTY(EditAnywhere, Category = "Replication")
+	float PositionLerp;
 
-	/** inverted duration after which angular velocity adjustment will fix error */
-	UPROPERTY()
-	float AngularRecipFixTime;
+	/** How much to directly lerp to the correct angle. */
+	UPROPERTY(EditAnywhere, Category = "Replication")
+	float AngleLerp;
 
-	/** min squared body speed to perform velocity adjustment */
-	UPROPERTY()
-	float BodySpeedThresholdSq;
+	/** This is the coefficient `k` in the differential equation:
+		dx/dt = k ( x_target(t) - x(t) ), which is used to update
+		the velocity in a replication step. */
+	UPROPERTY(EditAnywhere, Category = "Replication")
+	float LinearVelocityCoefficient;
+
+	/** This is the angular analog to LinearVelocityCoefficient. */
+	UPROPERTY(EditAnywhere, Category = "Replication")
+	float AngularVelocityCoefficient;
+
+	/** Number of seconds to remain in a heuristically
+		unresolveable state before hard snapping. */
+	UPROPERTY(EditAnywhere, Category = "Replication")
+	float ErrorAccumulationSeconds;
+
+	/** If the body has moved less than the square root of
+		this amount towards a resolved state in the previous
+		frame, then error may accumulate towards a hard snap. */
+	UPROPERTY(EditAnywhere, Category = "Replication")
+	float ErrorAccumulationDistanceSq;
+
+	/** If the previous error projected onto the current error
+		is greater than this value (indicating "similarity"
+		between states), then error may accumulate towards a
+		hard snap. */
+	UPROPERTY(EditAnywhere, Category = "Replication")
+	float ErrorAccumulationSimilarity;
 
 	FRigidBodyErrorCorrection()
-		: LinearDeltaThresholdSq(5.0f)
-		, LinearInterpAlpha(0.2f)
-		, LinearRecipFixTime(1.0f)
-		, AngularDeltaThreshold(0.2f * PI)
-		, AngularInterpAlpha(0.1f)
-		, AngularRecipFixTime(1.0f)
-		, BodySpeedThresholdSq(0.2f)
+		: PingExtrapolation(0.1f)
+		, ErrorPerLinearDifference(1.0f)
+		, ErrorPerAngularDifference(1.0f)
+		, MaxRestoredStateError(1.0f)
+		, PositionLerp(0.0f)
+		, AngleLerp(0.4f)
+		, LinearVelocityCoefficient(100.0f)
+		, AngularVelocityCoefficient(10.0f)
+		, ErrorAccumulationSeconds(0.5f)
+		, ErrorAccumulationDistanceSq(15.0f)
+		, ErrorAccumulationSimilarity(100.0f)
 	{ }
 };
 
@@ -1771,6 +1805,7 @@ struct FSwarmDebugOptions
 	FSwarmDebugOptions()
 		: bDistributionEnabled(true)
 		, bForceContentExport(false)
+		, bInitialized(false)
 	{
 	}
 
@@ -2094,12 +2129,17 @@ struct TStructOpsTypeTraits<FHitResult> : public TStructOpsTypeTraitsBase2<FHitR
 
 
 /** Whether to teleport physics body or not */
+UENUM()
 enum class ETeleportType : uint8
 {
 	/** Do not teleport physics body. This means velocity will reflect the movement between initial and final position, and collisions along the way will occur */
 	None,
+
 	/** Teleport physics body so that velocity remains the same and no collision occurs */
-	TeleportPhysics
+	TeleportPhysics,
+
+	/** Teleport physics body and reset physics state completely */
+	ResetPhysics,
 };
 
 FORCEINLINE ETeleportType TeleportFlagToEnum(bool bTeleport) { return bTeleport ? ETeleportType::TeleportPhysics : ETeleportType::None; }
@@ -2630,7 +2670,7 @@ struct ENGINE_API FPointDamageEvent : public FDamageEvent
 	UPROPERTY()
 	struct FHitResult HitInfo;
 
-	FPointDamageEvent() : HitInfo() {}
+	FPointDamageEvent() : Damage(0.0f), HitInfo() {}
 	FPointDamageEvent(float InDamage, struct FHitResult const& InHitInfo, FVector const& InShotDirection, TSubclassOf<class UDamageType> InDamageTypeClass)
 		: FDamageEvent(InDamageTypeClass), Damage(InDamage), ShotDirection(InShotDirection), HitInfo(InHitInfo)
 	{}
@@ -3251,6 +3291,7 @@ struct TStructOpsTypeTraits<FRepMovement> : public TStructOpsTypeTraitsBase2<FRe
 	enum 
 	{
 		WithNetSerializer = true,
+		WithNetSharedSerialization = true,
 	};
 };
 
@@ -3272,6 +3313,8 @@ struct FReplicationFlags
 			uint32 bRepPhysics:1;
 			/** True if this actor is replicating on a replay connection. */
 			uint32 bReplay:1;
+			/** True if this actor's RPCs should be ignored. */
+			uint32 bIgnoreRPCs:1;
 		};
 
 		uint32	Value;
@@ -3394,7 +3437,7 @@ enum EPhysicalSurface
 
 
 /** Describes how often this component is allowed to move. */
-UENUM()
+UENUM(BlueprintType)
 namespace EComponentMobility
 {
 	enum Type

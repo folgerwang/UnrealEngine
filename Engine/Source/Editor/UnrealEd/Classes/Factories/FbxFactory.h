@@ -17,6 +17,9 @@ class UNREALED_API UFbxFactory : public UFactory
 	UPROPERTY()
 	class UFbxImportUI* ImportUI;
 
+	/** Prevent garbage collection of original when overriding ImportUI property */
+	UPROPERTY()
+	class UFbxImportUI* OriginalImportUI;
 
 	/**  Set import batch **/
 	void EnableShowOption() { bShowOption = true; }
@@ -31,7 +34,7 @@ class UNREALED_API UFbxFactory : public UFactory
 	//~ Begin UFactory Interface
 	virtual bool DoesSupportClass(UClass * Class) override;
 	virtual UClass* ResolveSupportedClass() override;
-	virtual UObject* FactoryCreateBinary(UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, UObject* Context, const TCHAR* Type, const uint8*& Buffer, const uint8* BufferEnd, FFeedbackContext* Warn, bool& bOutOperationCanceled) override;
+	virtual UObject* FactoryCreateFile(UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, const FString& Filename, const TCHAR* Parms, FFeedbackContext* Warn, bool& bOutOperationCanceled);
 	virtual bool FactoryCanImport(const FString& Filename) override;
 	virtual IImportSettingsParser* GetImportSettingsParser() override;
 

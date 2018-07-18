@@ -69,8 +69,20 @@ public:
 	virtual void LocateBoundObjects(const FGuid& ObjectId, UObject* Context, TArray<UObject*, TInlineAllocator<1>>& OutObjects) const override;
 	// ~UMovieSceneAnimation overrides
 
+	//~ Begin UObject Interface. 
+	virtual bool IsPostLoadThreadSafe() const override;
+	//~ End UObject Interface
+
 	/** Get Animation bindings of the animation */
 	const TArray<FWidgetAnimationBinding>& GetBindings() const { return AnimationBindings; }
+
+	/** Whether to finish evaluation on stop */
+	bool GetLegacyFinishOnStop() const { return bLegacyFinishOnStop; }
+
+protected:
+
+	/** Called after this object has been deserialized */
+	virtual void PostLoad() override;
 
 public:
 
@@ -81,4 +93,10 @@ public:
 	/**  */
 	UPROPERTY()
 	TArray<FWidgetAnimationBinding> AnimationBindings;
+
+private:
+
+	/** Whether to finish evaluation on stop. This legacy value is to preserve existing asset behavior to NOT finish on stop since content was created with this bug. If this is removed, evaluation should always finish on stop. */
+	UPROPERTY()
+	bool bLegacyFinishOnStop;
 };

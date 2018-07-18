@@ -141,6 +141,8 @@ private:
 	/** Handles the context menu opening when right clicking on the tree view. */
 	TSharedPtr<SWidget> OnContextMenuOpening();
 
+	void SetItemExpansionRecursive(FDisplayNodeRef InItem, bool bIsExpanded);
+
 	FOnGetContextMenuContent OnGetContextMenuContent;
 
 public:

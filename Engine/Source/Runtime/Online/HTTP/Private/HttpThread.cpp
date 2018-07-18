@@ -5,7 +5,6 @@
 #include "HAL/PlatformTime.h"
 #include "HAL/PlatformProcess.h"
 #include "HAL/RunnableThread.h"
-#include "Misc/ScopeLock.h"
 #include "HttpModule.h"
 #include "Http.h"
 
@@ -44,21 +43,22 @@ void FHttpThread::StopThread()
 
 void FHttpThread::AddRequest(IHttpThreadedRequest* Request)
 {
-	FScopeLock ScopeLock(&RequestArraysLock);
-	PendingThreadedRequests.Add(Request);
+	PendingThreadedRequests.Enqueue(Request);
 }
 
 void FHttpThread::CancelRequest(IHttpThreadedRequest* Request)
 {
-	FScopeLock ScopeLock(&RequestArraysLock);
-	CancelledThreadedRequests.Add(Request);
+	CancelledThreadedRequests.Enqueue(Request);
 }
 
 void FHttpThread::GetCompletedRequests(TArray<IHttpThreadedRequest*>& OutCompletedRequests)
 {
-	FScopeLock ScopeLock(&RequestArraysLock);
-	OutCompletedRequests = CompletedThreadedRequests;
-	CompletedThreadedRequests.Reset();
+	check(IsInGameThread());
+	IHttpThreadedRequest* Request = nullptr;
+	while (CompletedThreadedRequests.Dequeue(Request))
+	{
+		OutCompletedRequests.Add(Request);
+	}
 }
 
 bool FHttpThread::Init()
@@ -69,6 +69,7 @@ bool FHttpThread::Init()
 
 uint32 FHttpThread::Run()
 {
+	// Arrays declared outside of loop to re-use memory
 	TArray<IHttpThreadedRequest*> RequestsToCancel;
 	TArray<IHttpThreadedRequest*> RequestsToStart;
 	TArray<IHttpThreadedRequest*> RequestsToComplete;
@@ -134,13 +135,19 @@ void FHttpThread::Process(TArray<IHttpThreadedRequest*>& RequestsToCancel, TArra
 {
 	// cache all cancelled and pending requests
 	{
-		FScopeLock ScopeLock(&RequestArraysLock);
+		IHttpThreadedRequest* Request = nullptr;
 
-		RequestsToCancel = CancelledThreadedRequests;
-		CancelledThreadedRequests.Reset();
+		RequestsToCancel.Reset();
+		while (CancelledThreadedRequests.Dequeue(Request))
+		{
+			RequestsToCancel.Add(Request);
+		}
 
-		RequestsToStart = PendingThreadedRequests;
-		PendingThreadedRequests.Reset();
+		RequestsToStart.Reset();
+		while (PendingThreadedRequests.Dequeue(Request))
+		{
+			RequestsToStart.Add(Request);
+		}
 	}
 
 	// Cancel any pending cancel requests
@@ -200,11 +207,7 @@ void FHttpThread::Process(TArray<IHttpThreadedRequest*>& RequestsToCancel, TArra
 		for (IHttpThreadedRequest* Request : RequestsToComplete)
 		{
 			CompleteThreadedRequest(Request);
-		}
-
-		{
-			FScopeLock ScopeLock(&RequestArraysLock);
-			CompletedThreadedRequests.Append(RequestsToComplete);
+			CompletedThreadedRequests.Enqueue(Request);
 		}
 		RequestsToComplete.Reset();
 	}

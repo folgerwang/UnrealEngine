@@ -14,12 +14,14 @@
 		explicit FArchiveFieldName(const TCHAR* InName) : Name(InName){ }
 	};
 
-	#define FIELD_NAME(x) FArchiveFieldName(TEXT(x))
+	#define FIELD_NAME_TEXT(x) FArchiveFieldName(TEXT(x))
+	#define FIELD_NAME(x) FArchiveFieldName(x)
 #else
 	struct FArchiveFieldName
 	{
 	};
 
+	#define FIELD_NAME_TEXT(x) FArchiveFieldName()
 	#define FIELD_NAME(x) FArchiveFieldName()
 #endif
 
@@ -59,8 +61,11 @@ class CORE_API FStructuredArchiveFormatter
 {
 public:
 	virtual ~FStructuredArchiveFormatter();
+
+	virtual bool RequiresStructuralMetadata() const;
 	
 	virtual FArchive& GetUnderlyingArchive() = 0;
+	virtual FStructuredArchiveFormatter* CreateSubtreeReader() { return this; }
 
 	virtual void EnterRecord() = 0;
 	virtual void LeaveRecord() = 0;

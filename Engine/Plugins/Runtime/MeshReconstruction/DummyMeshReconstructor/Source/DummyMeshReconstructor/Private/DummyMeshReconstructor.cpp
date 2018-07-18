@@ -2,13 +2,13 @@
 
 #include "DummyMeshReconstructor.h"
 
-#include "Runnable.h"
-#include "PlatformProcess.h"
-#include "RunnableThread.h"
-#include "ThreadSafeBool.h"
+#include "HAL/Runnable.h"
+#include "HAL/PlatformProcess.h"
+#include "HAL/RunnableThread.h"
+#include "HAL/ThreadSafeBool.h"
 #include "MRMeshComponent.h"
 #include "DynamicMeshBuilder.h"
-#include "Queue.h"
+#include "Containers/Queue.h"
 
 static const FVector BRICK_SIZE(256.0f, 256.0f, 256.0f);
 static const int32 BRICK_COORD_RANDMAX = 8;
@@ -89,15 +89,15 @@ private:
 					{
 						TargetMRMesh->SendBrickData(IMRMesh::FSendBrickDataArgs
 						{
-							Payload.BrickCoords,
+							nullptr,
+							Payload.BrickId,
 							Payload.PositionData,
-							//Payload.UVData,
-							//Payload.TangentXData,
-							//Payload.TangentZData,
+							Payload.UVData,
+							Payload.Tangents,
 							Payload.ColorData,
 							Payload.Indices
 						});
-					}				
+					}
 					bResendAllData.AtomicSet(false);
 				}
 
@@ -107,11 +107,11 @@ private:
 					const int32 NewPayloadIndex = NewRandomPayload();
 					TargetMRMesh->SendBrickData(IMRMesh::FSendBrickDataArgs
 					{
-						ReconstructedGeometry[NewPayloadIndex].BrickCoords,
+						nullptr,
+						ReconstructedGeometry[NewPayloadIndex].BrickId,
 						ReconstructedGeometry[NewPayloadIndex].PositionData,
-						//ReconstructedGeometry[NewPayloadIndex].UVData,
-						//ReconstructedGeometry[NewPayloadIndex].TangentXData,
-						//ReconstructedGeometry[NewPayloadIndex].TangentZData,
+						ReconstructedGeometry[NewPayloadIndex].UVData,
+						ReconstructedGeometry[NewPayloadIndex].Tangents,
 						ReconstructedGeometry[NewPayloadIndex].ColorData,
 						ReconstructedGeometry[NewPayloadIndex].Indices
 					});
@@ -139,11 +139,11 @@ private:
 
 	struct FPayload
 	{
+		IMRMesh::FBrickId BrickId;
 		FIntVector BrickCoords;
 		TArray<FVector> PositionData;
-		//TArray<FVector2D> UVData;
-		//TArray<FPackedNormal> TangentXData;
-		//TArray<FPackedNormal> TangentZData;
+		TArray<FVector2D> UVData;
+		TArray<FPackedNormal> Tangents;
 		TArray<FColor> ColorData;
 		TArray<uint32> Indices;
 	};
@@ -159,6 +159,8 @@ private:
 		const int32 NumTris = NumBoxes * 6 * 2; // 2 tris per box face
 		const int32 NumVertIndices = 3 * NumTris;
 
+		static IMRMesh::FBrickId NextBrickId = 0;
+		const IMRMesh::FBrickId BrickId = ++NextBrickId;
 		
 		const FIntVector BrickCoords(
 			FMath::FloorToInt(FMath::RandRange(0, BRICK_COORD_RANDMAX)),
@@ -174,11 +176,11 @@ private:
 		//
 		ReconstructedGeometry.AddDefaulted(1);
 		FPayload& NewPayload = ReconstructedGeometry.Last();
+		NewPayload.BrickId = BrickId;
 		NewPayload.BrickCoords = BrickCoords;
 		NewPayload.PositionData.Reserve(NumUniqueVerts);
-		//NewPayload.UVData.Reserve(NumUniqueVerts);
-		//NewPayload.TangentXData.Reserve(NumUniqueVerts);
-		//NewPayload.TangentZData.Reserve(NumUniqueVerts);
+		NewPayload.UVData.Reserve(NumUniqueVerts);
+		NewPayload.Tangents.Reserve(NumUniqueVerts);
 		NewPayload.ColorData.Reserve(NumUniqueVerts);
 		NewPayload.Indices.Reserve(NumVertIndices);	
 
@@ -202,36 +204,36 @@ private:
 			NewPayloadIn.PositionData.Emplace(FVector(Origin.X - Extents.X, Origin.Y - Extents.Y, Origin.Z - Extents.Z));  // IndexOffset+7
 			NewPayloadIn.ColorData.Emplace(FColor::MakeRandomColor());
 
-			//NewPayloadIn.UVData.Emplace(FVector2D(0,0));
-			//NewPayloadIn.TangentXData.Emplace(FPackedNormal(1, 0, 0, 1));
+			NewPayloadIn.UVData.Emplace(FVector2D(0, 0));
+			NewPayloadIn.Tangents.Emplace(FPackedNormal(FVector4(1, 0, 0, 1)));
 			//NewPayloadIn.TangentZData.Emplace(FPackedNormal(0, 0, 1, 1));
 
-			//NewPayloadIn.UVData.Emplace(FVector2D(0,1));
-			//NewPayloadIn.TangentXData.Emplace(FPackedNormal(1, 0, 0, 1));
+			NewPayloadIn.UVData.Emplace(FVector2D(0, 1));
+			NewPayloadIn.Tangents.Emplace(FPackedNormal(FVector4(1, 0, 0, 1)));
 			//NewPayloadIn.TangentZData.Emplace(FPackedNormal(0, 0, 1, 1));
 
-			//NewPayloadIn.UVData.Emplace(FVector2D(1,0));
-			//NewPayloadIn.TangentXData.Emplace(FPackedNormal(1, 0, 0, 1));
+			NewPayloadIn.UVData.Emplace(FVector2D(1,0));
+			NewPayloadIn.Tangents.Emplace(FPackedNormal(FVector4(1, 0, 0, 1)));
 			//NewPayloadIn.TangentZData.Emplace(FPackedNormal(0, 0, 1, 1));
 
-			//NewPayloadIn.UVData.Emplace(FVector2D(1,1));
-			//NewPayloadIn.TangentXData.Emplace(FPackedNormal(1, 0, 0, 1));
+			NewPayloadIn.UVData.Emplace(FVector2D(1, 1));
+			NewPayloadIn.Tangents.Emplace(FPackedNormal(FVector4(1, 0, 0, 1)));
 			//NewPayloadIn.TangentZData.Emplace(FPackedNormal(0, 0, 1, 1));
 
-			//NewPayloadIn.UVData.Emplace(FVector2D(0,0));
-			//NewPayloadIn.TangentXData.Emplace(FPackedNormal(1, 0, 0, 1));
+			NewPayloadIn.UVData.Emplace(FVector2D(0,0));
+			NewPayloadIn.Tangents.Emplace(FPackedNormal(FVector4(1, 0, 0, 1)));
 			//NewPayloadIn.TangentZData.Emplace(FPackedNormal(0, 0, 1, 1));
 
-			//NewPayloadIn.UVData.Emplace(FVector2D(0,1));
-			//NewPayloadIn.TangentXData.Emplace(FPackedNormal(1, 0, 0, 1));
+			NewPayloadIn.UVData.Emplace(FVector2D(0,1));
+			NewPayloadIn.Tangents.Emplace(FPackedNormal(FVector4(1, 0, 0, 1)));
 			//NewPayloadIn.TangentZData.Emplace(FPackedNormal(0, 0, 1, 1));
 
-			//NewPayloadIn.UVData.Emplace(FVector2D(1,0));
-			//NewPayloadIn.TangentXData.Emplace(FPackedNormal(1, 0, 0, 1));
+			NewPayloadIn.UVData.Emplace(FVector2D(1, 0));
+			NewPayloadIn.Tangents.Emplace(FPackedNormal(FVector4(1, 0, 0, 1)));
 			//NewPayloadIn.TangentZData.Emplace(FPackedNormal(0, 0, 1, 1));
 
-			//NewPayloadIn.UVData.Emplace(FVector2D(1,1));
-			//NewPayloadIn.TangentXData.Emplace(FPackedNormal(1, 0, 0, 1));
+			NewPayloadIn.UVData.Emplace(FVector2D(1,1));
+			NewPayloadIn.Tangents.Emplace(FPackedNormal(FVector4(1, 0, 0, 1)));
 			//NewPayloadIn.TangentZData.Emplace(FPackedNormal(0, 0, 1, 1));
 
 
@@ -338,11 +340,10 @@ bool UDummyMeshReconstructor::IsReconstructionPaused() const
 	return ReconstructorImpl.IsValid() && !ReconstructorImpl->IsRunning();
 }
 
-FMRMeshConfiguration UDummyMeshReconstructor::ConnectMRMesh(UMRMeshComponent* Mesh)
+void UDummyMeshReconstructor::ConnectMRMesh(UMRMeshComponent* Mesh)
 {
 	EnsureImplExists();
 	ReconstructorImpl->SetTargetMRMesh(Mesh);
-	return FMRMeshConfiguration();
 }
 
 void UDummyMeshReconstructor::DisconnectMRMesh()

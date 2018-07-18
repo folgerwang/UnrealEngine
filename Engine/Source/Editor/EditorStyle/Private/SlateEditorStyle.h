@@ -9,7 +9,7 @@
 #include "Styling/SlateStyle.h"
 #include "Styling/SlateTypes.h"
 #include "EditorStyleSet.h"
-#include "EditorStyleSettings.h"
+#include "Classes/EditorStyleSettings.h"
 #include "ISettingsModule.h"
 
 struct FPropertyChangedEvent;

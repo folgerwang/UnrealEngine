@@ -53,8 +53,8 @@ topic-image:Engine/Physics/physics_topic.png
 1. **[Delete (削除)]** キーを押します。
 
 	![](Shared\PhAT\PhAT_DelBone.png)
-	## 物理マテリアル
 
+## 物理マテリアル
 
 物理アセットの物理ボディには、それぞれ物理マテリアルを割り当てることができます。物理マテリアルを単一の物理ボディに適用するには、以下の操作を行います。
 

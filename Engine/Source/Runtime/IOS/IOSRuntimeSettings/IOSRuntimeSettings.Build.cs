@@ -8,12 +8,14 @@ public class IOSRuntimeSettings : ModuleRules
 	{
 		BinariesSubFolder = "IOS";
 
-		PrivateDependencyModuleNames.AddRange(
+        PublicDependencyModuleNames.Add("AudioPlatformConfiguration");
+
+        PrivateDependencyModuleNames.AddRange(
 			new string[]
 			{
 				"Core",
 				"CoreUObject"
-			}
+            }
 		);
 	}
 }

@@ -18,7 +18,7 @@
 
 struct FMovieSceneCaptureSettings;
 
-UCLASS(config=EditorPerProjectUserSettings, DisplayName="Image Encoding")
+UCLASS(DisplayName="Image Encoding")
 class MOVIESCENECAPTURE_API UBmpImageCaptureSettings : public UMovieSceneCaptureProtocolSettings
 {
 public:

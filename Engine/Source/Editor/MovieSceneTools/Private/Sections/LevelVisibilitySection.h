@@ -29,7 +29,6 @@ public:
 	virtual UMovieSceneSection* GetSectionObject() override;
 	virtual TSharedRef<SWidget> GenerateSectionWidget() override;
 	virtual int32 OnPaintSection( FSequencerSectionPainter& InPainter ) const override;
-	virtual void GenerateSectionLayout( ISectionLayoutBuilder& LayoutBuilder ) const override { }
 
 private:
 

@@ -17,6 +17,7 @@
 #include "Containers/SparseArray.h"
 #include "Templates/AreTypesEqual.h"
 #include "Templates/Decay.h"
+#include "Serialization/StructuredArchive.h"
 
 /**
  * The base KeyFuncs type with some useful definitions for all KeyFuncs; meant to be derived from instead of used directly.
@@ -175,6 +176,12 @@ public:
 	{
 		return Ar << Element.Value;
 	}
+
+	/** Structured archive serializer. */
+ 	FORCEINLINE friend void operator<<(FStructuredArchive::FSlot Slot, TSetElement& Element)
+ 	{
+ 		Slot << Element.Value;
+ 	}
 
 	// Comparison operators
 	FORCEINLINE bool operator==(const TSetElement& Other) const
@@ -419,6 +426,7 @@ public:
 
 	/** 
 	 * Helper function to return the amount of memory allocated by this container 
+	 * Only returns the size of allocations made directly by the container, not the elements themselves.
 	 * @return number of bytes allocated by this container
 	 */
 	FORCEINLINE uint32 GetAllocatedSize( void ) const
@@ -751,6 +759,22 @@ public:
 
 		return Ar;
 	}
+
+	/** Structured archive serializer. */
+ 	friend void operator<<(FStructuredArchive::FSlot Slot, TSet& Set)
+ 	{
+		Slot << Set.Elements;
+
+		if (Slot.GetUnderlyingArchive().IsLoading())
+		{
+			// Free the old hash.
+			Set.Hash.ResizeAllocation(0, 0, sizeof(FSetElementId));
+			Set.HashSize = 0;
+
+			// Hash the newly loaded elements.
+			Set.ConditionalRehash(Set.Elements.Num());
+		}
+ 	}
 
 	/**
 	 * Describes the set's contents through an output device.

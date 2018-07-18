@@ -408,7 +408,7 @@ void AOnlineBeaconClient::FinalizeEncryptedConnection(const FEncryptionKeyRespon
 			}
 			else
 			{
-				FString ResponseStr(Lex::ToString(Response.Response));
+				FString ResponseStr(LexToString(Response.Response));
 				UE_LOG(LogBeacon, Warning, TEXT("AOnlineBeaconClient::FinalizeEncryptedConnection: encryption failure [%s] %s"), *ResponseStr, *Response.ErrorMsg);
 				OnFailure();
 			}

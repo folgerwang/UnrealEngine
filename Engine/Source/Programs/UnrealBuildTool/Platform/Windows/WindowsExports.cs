@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -24,10 +24,10 @@ namespace UnrealBuildTool
 		/// <param name="InExecutablePaths"></param>
 		/// <param name="EngineDirectory"></param>
 		/// <returns></returns>
-		public static bool PrepForUATPackageOrDeploy(FileReference ProjectFile, string ProjectName, DirectoryReference ProjectDirectory, List<UnrealTargetConfiguration> InTargetConfigurations, List<FileReference> InExecutablePaths, DirectoryReference EngineDirectory)
+		public static bool SetApplicationIcon(FileReference ProjectFile, string ProjectName, DirectoryReference ProjectDirectory, List<UnrealTargetConfiguration> InTargetConfigurations, List<FileReference> InExecutablePaths, DirectoryReference EngineDirectory)
 		{
 	        BaseWindowsDeploy Deploy = new BaseWindowsDeploy();
-            return Deploy.PrepForUATPackageOrDeploy(ProjectFile, ProjectName, ProjectDirectory.FullName, InTargetConfigurations, InExecutablePaths.Select(x => x.FullName).ToList(), EngineDirectory.FullName);
+            return Deploy.SetApplicationIcon(ProjectFile, ProjectName, ProjectDirectory.FullName, InTargetConfigurations, InExecutablePaths.Select(x => x.FullName).ToList(), EngineDirectory.FullName);
 		}
 
 		/// <summary>
@@ -47,7 +47,7 @@ namespace UnrealBuildTool
 		/// <returns>Path to MSBuild.exe</returns>
 		public static string GetMSBuildToolPath()
 		{
-			return VCEnvironment.GetMSBuildToolPath();
+			return WindowsPlatform.GetMsBuildToolPath().FullName;
 		}
 	}
 }

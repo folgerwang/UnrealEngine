@@ -3,6 +3,7 @@
 #pragma once 
 
 #include "CoreMinimal.h"
+#include "Internationalization/TextLocalizationResourceId.h"
 
 class FLocTextHelper;
 class FTextLocalizationMetaDataResource;
@@ -20,7 +21,7 @@ public:
 	/**
 	 * Given a loc text helper, generate a compiled LocRes resource for the given culture.
 	 */
-	LOCALIZATION_API static bool GenerateLocRes(const FLocTextHelper& InLocTextHelper, const FString& InCultureToGenerate, const bool bSkipSourceCheck, const FString& InLocResID, FTextLocalizationResource& OutLocRes);
+	LOCALIZATION_API static bool GenerateLocRes(const FLocTextHelper& InLocTextHelper, const FString& InCultureToGenerate, const bool bSkipSourceCheck, const FTextLocalizationResourceId& InLocResID, FTextLocalizationResource& OutLocRes);
 
 	/**
 	 * Given a config file, generate a compiled LocRes resource for the active culture and use it to update the live-entries in the localization manager.

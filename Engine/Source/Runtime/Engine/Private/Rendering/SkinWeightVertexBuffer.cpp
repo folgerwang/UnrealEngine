@@ -3,6 +3,7 @@
 #include "Rendering/SkinWeightVertexBuffer.h"
 #include "EngineUtils.h"
 #include "Rendering/SkeletalMeshLODModel.h"
+#include "RenderUtils.h"
 
 ///
 
@@ -135,7 +136,7 @@ void FSkinWeightVertexBuffer::InitRHI()
 		// BUF_ShaderResource is needed for support of the SkinCache (we could make is dependent on GEnableGPUSkinCacheShaders or are there other users?)
 		VertexBufferRHI = RHICreateVertexBuffer(ResourceArray->GetResourceDataSize(), BUF_Static | BUF_ShaderResource, CreateInfo);
 
-		if (GSupportsResourceView)
+		if (GSupportsResourceView && GPixelFormats[PF_R32_UINT].Supported)
 		{
 			SRVValue = RHICreateShaderResourceView(VertexBufferRHI, 4, PF_R32_UINT);
 		}

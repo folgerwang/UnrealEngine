@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2730197
-Availability:Public
+﻿Availability:Public
 Title:FText
 Crumbs:%ROOT%, Programming, Programming/UnrealArchitecture/Reference, Programming/UnrealArchitecture/Reference/Properties, Programming/UnrealArchitecture/StringHandling
 Description:
 Version:4.9
+Related:Gameplay/Localization
+Related:Gameplay/Localization/Formatting
 
 
 
@@ -81,7 +82,7 @@ Fname 文字列から数値変数への変換はありません。
 
 float や int 変数を FText を使って **FText::AsNumber()** へ換することができます。現在のカルチャーでパスされた数を表す FText を作成する関数です。
 
-例：
+例:
 
 	FText::AsNumber( CurrentHealth )
 
@@ -98,39 +99,10 @@ float や int 変数を FText を使って **FText::AsNumber()** へ換するこ
 **FText::EqualTo()** または **FText::EqualToCaseIgnored()** を使い、結果を true または false で受け取り、 2 つの FText の比較ができます。**FText::CompareTo()** または **FText::CompareToCaseIgnored()** で文字列を比較すると、 
 整数値が返されます。   
   
-現在のところ FText は、FStrings のように単純な序数の比較でなないため、比較操作用のこういった演算子をエクスポーズしません。操作の負荷がわかるように、 
+現在のところ FText は、FStrings のように単純な序数の比較でなないため、比較操作用のこういった演算子を公開しません。操作の負荷がわかるように、 
 通常の演算子を敢えて使わないことにします。 
 
-## FText のフォーマット化
-  
-**FText::Format()** 関数を使って、異なる FText を一緒に連結させて FText 変数へ保存することもできます。 
-  
-	FText::Format( LOCTEXT( "HelloMessageFormat",  "Hello {0}," ), PlayerName ) 
-  
-現在のところ、 Format 関数は FText のみをパラメータとして受け取ります。
 
-FText::Format は、順序付きと名前付きの、2 種類のフォーマット用の引数をサポートしています。
-
-### 順序付き引数
- 
-* Arguments = {0}, {1}, {2}, など 
-* 波括弧はフォーマット引数の始めと終わりを表し、数字はパスされたパラメータを示します。
-
-		FText::Format( LOCTEXT( "HealthFormatStr",  "{0} / {1}" ), FText::AsNumber( CurrentHealth ), FText::AsNumber( MaxHealth )  ) 
-
-### 名前付き引数 
-
-* Arguments = {Name}, {ID}, {Health}, etc... 
-* 波括弧はフォーマット引数の始めと終わりを表し、括弧で囲んだテキストは、パスされた FFormatNamedArgs コレクションに存在する引数名です。
-
-		FFormatNamedArguments Arguments;
-		Arguments.Add(TEXT("CurrentHealth"), FText::AsNumber( CurrentHealth ));
-		EditorErrors.Error(FText::Format(LOCTEXT("ExampleFText", "You currently have {CurrentHealth} health left."), Arguments ) );
-
-
-[PUBLISH:Licensee]
-TextTest.cpp で、有効なカルチャを意識したフォーマット、比較、ソートの方法を紹介しています。
-[/PUBLISH:Licensee]
 
 ## HUD の FText
 
@@ -159,13 +131,4 @@ HUD クラスの DrawText() 関数内、もしくは **DrawHUD()** で始まる�
 
 ブループリントは Text リテラルをサポートしています。Text 値の入力ピンはノードへの値の代入をサポートし、これらの文字列が集められてローカリゼーションを行います。
 
-**FText::Format** もブループリントで利用できます。Format テキストは、リテラルあるいはピン接続が可能です。リテラルとして使用すると、フォーマットのために引数が自動生成されます。リテラル "There are {number} days until {day}." を入力すると 
- **Number** ピンと **Day** ピンが自動的にノードに追加されます。これらのピンはリテラルとして、または変数から入力することが可能です。 
-テキストは引数をピンに接続している値に置き換えます。 
 
-Format ピンが接続されると、Format は変数なので解読はできません。この場合、ピンを自分で追加し、可能性のある引数に因んだ名前を付けます。このように、 
-Format Text ノーの使用設定は、複数の可能性に対して行うことができます。引数が Format 変数の引数に一致すると、与えられた情報を利用します。
-
-ピンの名前は **[Details (詳細)]** パネルで変更、追加、削除することができます。
-
- 

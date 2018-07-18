@@ -9,7 +9,6 @@ public class AESHandlerComponent : ModuleRules
 	{
 		PrivateIncludePaths.AddRange(
 			new string[] {
-				"AESHandlerComponent/Private",
 			}
 			);
 
@@ -35,6 +34,15 @@ public class AESHandlerComponent : ModuleRules
 				new string[]
 				{
 					"PlatformCryptoBCrypt",
+				}
+				);
+		}
+		else if (Target.Platform == UnrealTargetPlatform.Switch)
+		{
+			PublicDependencyModuleNames.AddRange(
+				new string[]
+				{
+					"PlatformCryptoSwitch",
 				}
 				);
 		}

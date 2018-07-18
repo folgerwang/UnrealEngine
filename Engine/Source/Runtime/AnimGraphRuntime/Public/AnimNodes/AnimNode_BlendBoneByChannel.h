@@ -85,6 +85,8 @@ public:
 	FAnimNode_BlendBoneByChannel()
 		: Alpha(0.0f)
 		, TransformsSpace(EBoneControlSpace::BCS_BoneSpace)
+		, InternalBlendAlpha(0.0f)
+		, bBIsRelevant(false)
 	{
 	}
 

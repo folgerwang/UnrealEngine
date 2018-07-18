@@ -123,9 +123,16 @@ bool FSlateOpenGLTextureManager::LoadTexture( const FSlateBrush& InBrush, uint32
 	TArray<uint8> Buffer;
 	if( FFileHelper::LoadFileToArray( Buffer, *ResourcePath ) )
 	{
-		// We assume all resources are png for now.
 		IImageWrapperModule& ImageWrapperModule = FModuleManager::LoadModuleChecked<IImageWrapperModule>( FName("ImageWrapper") );
-		TSharedPtr<IImageWrapper> ImageWrapper = ImageWrapperModule.CreateImageWrapper( EImageFormat::PNG );
+
+		//Try and determine format, if that fails assume PNG
+		EImageFormat ImageFormat = ImageWrapperModule.DetectImageFormat(Buffer.GetData(), Buffer.Num());
+		if (ImageFormat == EImageFormat::Invalid)
+		{
+			ImageFormat = EImageFormat::PNG;
+		}
+		TSharedPtr<IImageWrapper> ImageWrapper = ImageWrapperModule.CreateImageWrapper(ImageFormat);
+
 		if ( ImageWrapper.IsValid() && ImageWrapper->SetCompressed( Buffer.GetData(), Buffer.Num() ) )
 		{
 			// Determine the block size.  This is bytes per pixel

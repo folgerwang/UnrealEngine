@@ -6,8 +6,8 @@
 #include "IPersonaPreviewScene.h"
 #include "EditorStyleSet.h"
 #include "Widgets/Images/SImage.h"
-#include "SInlineEditableTextBlock.h"
-#include "UnrealString.h"
+#include "Widgets/Text/SInlineEditableTextBlock.h"
+#include "Containers/UnrealString.h"
 #include "Animation/DebugSkelMeshComponent.h"
 #include "UObject/Package.h"
 

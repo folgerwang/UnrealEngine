@@ -25,6 +25,14 @@ private:
 	 */
 	FName DefaultPlatformService;
 
+	/**
+	 * Name of the online service associated with the native platform
+	 * Specified in Base<Platform>Engine.ini
+	 *	[OnlineSubsystem]
+	 *	NativePlatformService
+	 */
+	FName NativePlatformService;
+
 	/** Existing instances of any online subsystems created <PlatformName:InstanceName> */
 	TMap<FName, class IOnlineFactory*> OnlineFactories;
 
@@ -51,6 +59,11 @@ private:
 	 * @return Properly formatted key name for accessing the online subsystem in the TMap
 	 */
 	FName ParseOnlineSubsystemName(const FName& FullName, FName& SubsystemName, FName& InstanceName) const;
+
+	/**
+	 * Attempt to load the default subsystem specified in the configuration file
+	 */
+	bool TryLoadSubsystemAndSetDefault(FName ModuleName);
 
 	/**
 	 * Attempt to load the default subsystem specified in the configuration file
@@ -83,7 +96,16 @@ public:
 	 *
 	 * @return Requested online subsystem, or NULL if that subsystem was unable to load or doesn't exist
 	 */
-	virtual class IOnlineSubsystem* GetOnlineSubsystem(const FName InSubsystemName = NAME_None);
+	virtual IOnlineSubsystem* GetOnlineSubsystem(const FName InSubsystemName = NAME_None);
+
+	/** 
+	 * Get the online subsystem native to the current hardware
+	 *
+	 * @param bAutoLoad - load the module if not already loaded
+	 *
+	 * @return pointer to the appropriate online subsystem
+	 */
+	virtual IOnlineSubsystem* GetNativeSubsystem(bool bAutoLoad);
 
 	/**
 	 * Destroys an online subsystem created internally via access with GetOnlineSubsystem
@@ -123,6 +145,14 @@ public:
 	virtual void UnregisterPlatformService(const FName FactoryName);
 
 	/**
+	 * Enumerate all loaded online subsystems
+	 *
+	 * @param EnumCb functor to call for each online subsystem
+	 */
+	typedef TFunction<void(IOnlineSubsystem*)> FEnumerateOnlineSubsystemCb;
+	void ONLINESUBSYSTEM_API EnumerateOnlineSubsystems(FEnumerateOnlineSubsystemCb& EnumCb);
+
+	/**
 	 * Shutdown the current default subsystem (may be the fallback) and attempt to reload the one 
 	 * specified in the configuration file
 	 *
@@ -130,7 +160,6 @@ public:
 	 * in unexpected crashes/behavior
 	 */
 	void ReloadDefaultSubsystem();
-
 
 	// IModuleInterface
 

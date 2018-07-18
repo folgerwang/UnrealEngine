@@ -5,7 +5,7 @@
 #include "OnlineSubsystemFacebookTypes.h"
 #include "OnlineJsonSerializer.h"
 #include "OnlineSubsystemFacebookPackage.h"
-#include "IHttpRequest.h"
+#include "Interfaces/IHttpRequest.h"
 
 /** Details about the logged in user */
 #define ME_FIELD_ID "id"
@@ -39,7 +39,7 @@ public:
 	// FUserOnlineAccountFacebookCommon
 
 	explicit FUserOnlineAccountFacebookCommon(const FString& InUserId = FString(), const FString& InAuthTicket = FString())
-		: UserIdPtr(new FUniqueNetIdString(InUserId))
+		: UserIdPtr(new FUniqueNetIdFacebook(InUserId))
 		, UserId(InUserId)
 		, AuthTicket(InAuthTicket)
 	{
@@ -97,11 +97,6 @@ protected:
 		return false;
 	}
 
-	void AddUserAttributes(const TSharedPtr<FJsonObject>& JsonUser);
-
-	/** Any addition account data associated with the user */
-	FJsonSerializableKeyValueMap AccountData;
-
 	/** User Id represented as a FUniqueNetId */
 	TSharedRef<const FUniqueNetId> UserIdPtr;
 	/** Id associated with the user account provided by the online service during registration */
@@ -116,6 +111,8 @@ protected:
 	FUserOnlineFacebookPicture Picture;
 	/** Ticket which is provided to user once authenticated by the online service */
 	FString AuthTicket;
+	/** Any addition account data associated with the user */
+	FJsonSerializableKeyValueMap AccountData;
 
 private:
 
@@ -127,6 +124,7 @@ private:
 		ONLINE_JSON_SERIALIZE(ME_FIELD_FIRSTNAME, FirstName);
 		ONLINE_JSON_SERIALIZE(ME_FIELD_LASTNAME, LastName);
 		ONLINE_JSON_SERIALIZE_OBJECT_SERIALIZABLE(ME_FIELD_PICTURE, Picture);
+		ONLINE_JSON_SERIALIZE_SIMPLE_COPY(AccountData);
 	END_ONLINE_JSON_SERIALIZER
 
 	/** Allow the FB identity to fill in our private members from it's callbacks */

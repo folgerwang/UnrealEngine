@@ -10,7 +10,9 @@
 #if WITH_ENGINE
 	#include "Sound/SoundWave.h"
 	#include "TextureResource.h"
+	#include "Engine/VolumeTexture.h"
 	#include "StaticMeshResources.h"
+	#include "RHI.h"
 #endif // WITH_ENGINE
 
 #define LOCTEXT_NAMESPACE "TGenericWindowsTargetPlatform"
@@ -36,29 +38,61 @@ public:
 		LocalDevice = MakeShareable(new TLocalPcTargetDevice<PLATFORM_64BITS>(*this));
 #endif
 		
-		#if WITH_ENGINE
-			FConfigCacheIni::LoadLocalIniFile(EngineSettings, TEXT("Engine"), true, *this->PlatformName());
-			TextureLODSettings = nullptr; // These are registered by the device profile system.
-			StaticMeshLODSettings.Initialize(EngineSettings);
+	#if WITH_ENGINE
+		FConfigCacheIni::LoadLocalIniFile(EngineSettings, TEXT("Engine"), true, *this->PlatformName());
+		TextureLODSettings = nullptr; // These are registered by the device profile system.
+		StaticMeshLODSettings.Initialize(EngineSettings);
 
 
-			// Get the Target RHIs for this platform, we do not always want all those that are supported.
-			TArray<FName> TargetedShaderFormats;
-			GetAllTargetedShaderFormats(TargetedShaderFormats);
+		// Get the Target RHIs for this platform, we do not always want all those that are supported.
+		TArray<FName> TargetedShaderFormats;
+		GetAllTargetedShaderFormats(TargetedShaderFormats);
+
+		static FName NAME_PCD3D_SM5(TEXT("PCD3D_SM5"));
+		static FName NAME_PCD3D_SM4(TEXT("PCD3D_SM4"));
+		static FName NAME_VULKAN_SM5(TEXT("SF_VULKAN_SM5"));
+
+		bSupportDX11TextureFormats = true;
+		bSupportCompressedVolumeTexture = true;
+
+		for (FName TargetedShaderFormat : TargetedShaderFormats)
+		{
+			EShaderPlatform ShaderPlatform = SP_NumPlatforms;
+			// Can't use ShaderFormatToLegacyShaderPlatform() because of link dependency
+			{
+				if (TargetedShaderFormat == NAME_PCD3D_SM5)
+				{
+					ShaderPlatform = SP_PCD3D_SM5;
+				}
+				else if (TargetedShaderFormat == NAME_PCD3D_SM4)
+				{
+					ShaderPlatform = SP_PCD3D_SM4;
+				}
+				else if (TargetedShaderFormat == NAME_VULKAN_SM5)
+				{
+					ShaderPlatform = SP_VULKAN_SM5;
+				}
+			}
 
 			// If we're targeting only DX11 we can use DX11 texture formats. Otherwise we'd have to compress fallbacks and increase the size of cooked content significantly.
-			static FName NAME_PCD3D_SM5(TEXT("PCD3D_SM5"));
-			bSupportDX11TextureFormats = TargetedShaderFormats.Num() == 1
-				&& TargetedShaderFormats[0] == NAME_PCD3D_SM5;
+			if (ShaderPlatform != SP_PCD3D_SM5 && ShaderPlatform != SP_VULKAN_SM5)
+			{
+				bSupportDX11TextureFormats = false;
+			}
+			if (!UVolumeTexture::ShaderPlatformSupportsCompression(ShaderPlatform))
+			{
+				bSupportCompressedVolumeTexture = false;
+			}
+		}
 
-			// If we are targeting ES 2.0/3.1, we also must cook encoded HDR reflection captures
-			static FName NAME_SF_VULKAN_ES31(TEXT("SF_VULKAN_ES31"));
-			static FName NAME_OPENGL_150_ES2(TEXT("GLSL_150_ES2"));
-			static FName NAME_OPENGL_150_ES3_1(TEXT("GLSL_150_ES31"));
-			bRequiresEncodedHDRReflectionCaptures =	TargetedShaderFormats.Contains(NAME_SF_VULKAN_ES31) 
+		// If we are targeting ES 2.0/3.1, we also must cook encoded HDR reflection captures
+		static FName NAME_SF_VULKAN_ES31(TEXT("SF_VULKAN_ES31"));
+		static FName NAME_OPENGL_150_ES2(TEXT("GLSL_150_ES2"));
+		static FName NAME_OPENGL_150_ES3_1(TEXT("GLSL_150_ES31"));
+		bRequiresEncodedHDRReflectionCaptures =	TargetedShaderFormats.Contains(NAME_SF_VULKAN_ES31) 
 												 || TargetedShaderFormats.Contains(NAME_OPENGL_150_ES2) 
 												 || TargetedShaderFormats.Contains(NAME_OPENGL_150_ES3_1);
-		#endif
+	#endif
 	}
 
 public:
@@ -125,6 +159,31 @@ public:
 			return IS_CLIENT_ONLY;
 		}
 
+		if (Feature == ETargetPlatformFeatures::MobileRendering)
+		{
+			static bool bCachedSupportsMobileRendering = false;
+#if WITH_ENGINE
+			static bool bHasCachedValue = false;
+			if (!bHasCachedValue)
+			{
+				TArray<FName> TargetedShaderFormats;
+				GetAllTargetedShaderFormats(TargetedShaderFormats);
+
+				for (const FName& Format : TargetedShaderFormats)
+				{
+					if (IsMobilePlatform(ShaderFormatToLegacyShaderPlatform(Format)))
+					{
+						bCachedSupportsMobileRendering = true;
+						break;
+					}
+				}
+				bHasCachedValue = true;
+			}
+#endif
+
+			return bCachedSupportsMobileRendering;
+		}
+
 		return TSuper::SupportsFeature(Feature);
 	}
 
@@ -158,6 +217,8 @@ public:
 			static FName NAME_OPENGL_150_ES2(TEXT("GLSL_150_ES2"));
 			static FName NAME_OPENGL_150_ES3_1(TEXT("GLSL_150_ES31"));
 			static FName NAME_VULKAN_SM5(TEXT("SF_VULKAN_SM5"));
+			static FName NAME_PCD3D_ES3_1(TEXT("PCD3D_ES31"));
+			static FName NAME_PCD3D_ES2(TEXT("PCD3D_ES2"));
 
 			OutFormats.AddUnique(NAME_PCD3D_SM5);
 			OutFormats.AddUnique(NAME_PCD3D_SM4);
@@ -167,6 +228,8 @@ public:
 			OutFormats.AddUnique(NAME_OPENGL_150_ES2);
 			OutFormats.AddUnique(NAME_OPENGL_150_ES3_1);
 			OutFormats.AddUnique(NAME_VULKAN_SM5);
+			OutFormats.AddUnique(NAME_PCD3D_ES3_1);
+			OutFormats.AddUnique(NAME_PCD3D_ES2);
 		}
 	}
 
@@ -203,7 +266,7 @@ public:
 	{
 		if (!IS_DEDICATED_SERVER)
 		{
-			FName TextureFormatName = GetDefaultTextureFormatName(this, InTexture, EngineSettings, bSupportDX11TextureFormats);
+			FName TextureFormatName = GetDefaultTextureFormatName(this, InTexture, EngineSettings, bSupportDX11TextureFormats, bSupportCompressedVolumeTexture);
 			OutFormats.Add(TextureFormatName);
 		}
 	}
@@ -245,6 +308,11 @@ public:
 		static FName NAME_OPUS(TEXT("OPUS"));
 		OutFormats.Add(NAME_OGG);
 		OutFormats.Add(NAME_OPUS);
+	}
+
+	virtual FPlatformAudioCookOverrides* GetAudioCompressionSettings() const override
+	{
+		return nullptr;
 	}
 
 #endif //WITH_ENGINE
@@ -318,6 +386,9 @@ private:
 
 	// True if the project requires encoded HDR reflection captures
 	bool bRequiresEncodedHDRReflectionCaptures;
+
+	// True if the project supports only compressed volume texture formats.
+	bool bSupportCompressedVolumeTexture;
 #endif // WITH_ENGINE
 
 private:

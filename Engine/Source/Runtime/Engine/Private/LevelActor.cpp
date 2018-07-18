@@ -20,7 +20,7 @@
 #include "WorldCollision.h"
 #include "Engine/World.h"
 #include "Components/PrimitiveComponent.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "AI/NavigationSystemBase.h"
 #include "Engine/Brush.h"
 #include "UObject/LinkerLoad.h"
 #include "UObject/CoreOnline.h"
@@ -447,9 +447,6 @@ AActor* UWorld::SpawnActor( UClass* Class, FTransform const* UserTransformPtr, c
 	LevelToSpawnIn->Actors.Add( Actor );
 	LevelToSpawnIn->ActorsForGC.Add(Actor);
 
-	// Add this newly spawned actor to the network actor list
-	AddNetworkActor( Actor );
-
 #if PERF_SHOW_MULTI_PAWN_SPAWN_FRAMES
 	if( Cast<APawn>(Actor) )
 	{
@@ -485,6 +482,9 @@ AActor* UWorld::SpawnActor( UClass* Class, FTransform const* UserTransformPtr, c
 	}
 #endif
 
+	// Add this newly spawned actor to the network actor list. Do this after PostSpawnInitialize so that actor has "finished" spawning.
+	AddNetworkActor( Actor );
+
 	return Actor;
 }
 
@@ -505,7 +505,7 @@ ABrush* UWorld::SpawnBrush()
  */
 bool UWorld::EditorDestroyActor( AActor* ThisActor, bool bShouldModifyLevel )
 {
-	UNavigationSystem::OnActorUnregistered(ThisActor);
+	FNavigationSystem::OnActorUnregistered(*ThisActor);
 
 	bool bReturnValue = DestroyActor( ThisActor, false, bShouldModifyLevel );
 	ThisActor->GetWorld()->BroadcastLevelsChanged();
@@ -566,6 +566,12 @@ bool UWorld::DestroyActor( AActor* ThisActor, bool bNetForce, bool bShouldModify
 			// Network actor short circuited the destroy (network will cleanup properly)
 			// Don't destroy PlayerControllers and BeaconClients
 			return false;
+		}
+
+		if (ThisActor->IsActorBeginningPlay())
+		{
+			FSetActorWantsDestroyDuringBeginPlay SetActorWantsDestroyDuringBeginPlay(ThisActor);
+			return true; // while we didn't actually destroy it now, we are going to, so tell the calling code it succeeded
 		}
 	}
 	else
@@ -636,6 +642,12 @@ bool UWorld::DestroyActor( AActor* ThisActor, bool bNetForce, bool bShouldModify
 	if( ThisActor->GetOwner() )
 	{
 		ThisActor->SetOwner(NULL);
+	}
+
+	ULevel* const ActorLevel = ThisActor->GetLevel();
+	if (ActorLevel)
+	{
+		ActorLevel->CreateReplicatedDestructionInfo(ThisActor);
 	}
 
 	// Notify net drivers that this guy has been destroyed.
@@ -747,7 +759,7 @@ APlayerController* UWorld::SpawnPlayActor(UPlayer* NewPlayer, ENetRole RemoteRol
 	Level actor moving/placing.
 -----------------------------------------------------------------------------*/
 
-bool UWorld::FindTeleportSpot(AActor* TestActor, FVector& TestLocation, FRotator TestRotation)
+bool UWorld::FindTeleportSpot(const AActor* TestActor, FVector& TestLocation, FRotator TestRotation)
 {
 	if( !TestActor || !TestActor->GetRootComponent() )
 	{
@@ -995,7 +1007,7 @@ static FVector CombineAdjustments(FVector CurrentAdjustment, FVector AdjustmentT
 }
 
 // perf note: this is faster if ProposedAdjustment is null, since it can early out on first penetration
-bool UWorld::EncroachingBlockingGeometry(AActor* TestActor, FVector TestLocation, FRotator TestRotation, FVector* ProposedAdjustment)
+bool UWorld::EncroachingBlockingGeometry(const AActor* TestActor, FVector TestLocation, FRotator TestRotation, FVector* ProposedAdjustment)
 {
 	if (TestActor == nullptr)
 	{
@@ -1120,7 +1132,7 @@ bool UWorld::EncroachingBlockingGeometry(AActor* TestActor, FVector TestLocation
 }
 
 
-void UWorld::LoadSecondaryLevels(bool bForce, TSet<FString>* CookedPackages)
+void UWorld::LoadSecondaryLevels(bool bForce, TSet<FName>* FilenamesToSkip)
 {
 	check( GIsEditor );
 
@@ -1135,16 +1147,15 @@ void UWorld::LoadSecondaryLevels(bool bForce, TSet<FString>* CookedPackages)
 			ULevelStreaming* const StreamingLevel = StreamingLevels[LevelIndex];
 			if( StreamingLevel )
 			{
-				bool bAlreadyCooked = false;
+				bool bSkipFile = false;
 				// If we are cooking don't cook sub levels multiple times if they've already been cooked
 				FString PackageFilename;
 				const FString StreamingLevelWorldAssetPackageName = StreamingLevel->GetWorldAssetPackageName();
-				if (CookedPackages)
+				if (FilenamesToSkip)
 				{
 					if (FPackageName::DoesPackageExist(StreamingLevelWorldAssetPackageName, NULL, &PackageFilename))
 					{
-						PackageFilename = FPaths::ConvertRelativePathToFull(PackageFilename);
-						bAlreadyCooked |= CookedPackages->Contains( PackageFilename );
+						bSkipFile |= FilenamesToSkip->Contains( FName(*PackageFilename) );
 					}
 				}
 
@@ -1157,59 +1168,98 @@ void UWorld::LoadSecondaryLevels(bool bForce, TSet<FString>* CookedPackages)
 					bAlreadyLoaded = true;
 				}
 
-				if ( !bAlreadyCooked && !bAlreadyLoaded )
+				if ( !bSkipFile )
 				{
-					bool bLoadedLevelPackage = false;
-					const FName StreamingLevelWorldAssetPackageFName = StreamingLevel->GetWorldAssetPackageFName();
-					// Load the package and find the world object.
-					if( FPackageName::IsShortPackageName(StreamingLevelWorldAssetPackageFName) == false )
+					if ( !bAlreadyLoaded )
 					{
-						ULevel::StreamedLevelsOwningWorld.Add(StreamingLevelWorldAssetPackageFName, this);
-						LevelPackage = LoadPackage( NULL, *StreamingLevelWorldAssetPackageName, LOAD_None );
-						ULevel::StreamedLevelsOwningWorld.Remove(StreamingLevelWorldAssetPackageFName);
-
-						if( LevelPackage )
+						bool bLoadedLevelPackage = false;
+						const FName StreamingLevelWorldAssetPackageFName = StreamingLevel->GetWorldAssetPackageFName();
+						// Load the package and find the world object.
+						if( FPackageName::IsShortPackageName(StreamingLevelWorldAssetPackageFName) == false )
 						{
-							bLoadedLevelPackage = true;
+							ULevel::StreamedLevelsOwningWorld.Add(StreamingLevelWorldAssetPackageFName, this);
+							LevelPackage = LoadPackage( NULL, *StreamingLevelWorldAssetPackageName, LOAD_None );
+							ULevel::StreamedLevelsOwningWorld.Remove(StreamingLevelWorldAssetPackageFName);
 
-							// Find the world object in the loaded package.
-							UWorld* LoadedWorld	= UWorld::FindWorldInPackage(LevelPackage);
-							// If the world was not found, it could be a redirector to a world. If so, follow it to the destination world.
-							if (!LoadedWorld)
+							if( LevelPackage )
 							{
-								LoadedWorld = UWorld::FollowWorldRedirectorInPackage(LevelPackage);
+								bLoadedLevelPackage = true;
+
+								// Find the world object in the loaded package.
+								UWorld* LoadedWorld	= UWorld::FindWorldInPackage(LevelPackage);
+								// If the world was not found, it could be a redirector to a world. If so, follow it to the destination world.
+								if (!LoadedWorld)
+								{
+									LoadedWorld = UWorld::FollowWorldRedirectorInPackage(LevelPackage);
+								}
+								check(LoadedWorld);
+
+								if ( !LevelPackage->IsFullyLoaded() )
+								{
+									// LoadedWorld won't be serialized as there's a BeginLoad on the stack so we manually serialize it here.
+									check( LoadedWorld->GetLinker() );
+									LoadedWorld->GetLinker()->Preload( LoadedWorld );
+								}
+
+
+								// Keep reference to prevent garbage collection.
+								check( LoadedWorld->PersistentLevel );
+
+								LoadedWorld->PersistentLevel->HandleLegacyMapBuildData();
+
+								ULevel* NewLoadedLevel = LoadedWorld->PersistentLevel;
+								NewLoadedLevel->OwningWorld = this;
+
+								FStreamingLevelPrivateAccessor::SetLoadedLevel(StreamingLevel, NewLoadedLevel);
 							}
-							check(LoadedWorld);
+						}
+						else
+						{
+							UE_LOG(LogSpawn, Warning, TEXT("Streaming level uses short package name (%s). Level will not be loaded."), *StreamingLevelWorldAssetPackageName);
+						}
 
-							if ( !LevelPackage->IsFullyLoaded() )
-							{
-								// LoadedWorld won't be serialized as there's a BeginLoad on the stack so we manually serialize it here.
-								check( LoadedWorld->GetLinker() );
-								LoadedWorld->GetLinker()->Preload( LoadedWorld );
-							}
-
-
-							// Keep reference to prevent garbage collection.
-							check( LoadedWorld->PersistentLevel );
-
-							LoadedWorld->PersistentLevel->HandleLegacyMapBuildData();
-
-							ULevel* NewLoadedLevel = LoadedWorld->PersistentLevel;
-							NewLoadedLevel->OwningWorld = this;
-
-							StreamingLevel->SetLoadedLevel(NewLoadedLevel);
+						// Remove this level object if the file couldn't be found.
+						if ( !bLoadedLevelPackage )
+						{
+							RemoveStreamingLevelAt(LevelIndex--);
+							MarkPackageDirty();
 						}
 					}
 					else
 					{
-						UE_LOG(LogSpawn, Warning, TEXT("Streaming level uses short package name (%s). Level will not be loaded."), *StreamingLevelWorldAssetPackageName);
-					}
-
-					// Remove this level object if the file couldn't be found.
-					if ( !bLoadedLevelPackage )
-					{		
-						StreamingLevels.RemoveAt( LevelIndex-- );
-						MarkPackageDirty();
+						UWorld* LoadedWorld = UWorld::FindWorldInPackage(LevelPackage);
+						// If the world was not found, it could be a redirector to a world. If so, follow it to the destination world.
+						if (!LoadedWorld)
+						{
+							LoadedWorld = UWorld::FollowWorldRedirectorInPackage(LevelPackage);
+						}
+						if (LoadedWorld)
+						{
+							if (ULevel* WorldLevel = LoadedWorld->PersistentLevel)
+							{
+								ULevel* LoadedLevel = StreamingLevel->GetLoadedLevel();
+								if (!LoadedLevel)
+								{
+									FStreamingLevelPrivateAccessor::SetLoadedLevel(StreamingLevel, WorldLevel);
+									if (WorldLevel->OwningWorld != this)
+									{
+										WorldLevel->OwningWorld = this;
+									}
+								}
+								else if (LoadedLevel != WorldLevel)
+								{
+									UE_LOG(LogSpawn, Warning, TEXT("Streaming level already has a loaded level, but it differs from the one in the associated package (%s)."), *StreamingLevelWorldAssetPackageName);
+								}
+							}
+							else
+							{
+								UE_LOG(LogSpawn, Warning, TEXT("Streaming level already has a loaded level, but the world in the associated package (%s) does not have its persistent level set."), *StreamingLevelWorldAssetPackageName);
+							}
+						}
+						else
+						{
+							UE_LOG(LogSpawn, Warning, TEXT("Streaming level already has a loaded level, but the associated package (%s) seems to contain no world."), *StreamingLevelWorldAssetPackageName);
+						}
 					}
 				}
 			}
@@ -1221,11 +1271,10 @@ void UWorld::LoadSecondaryLevels(bool bForce, TSet<FString>* CookedPackages)
 ULevelStreaming* UWorld::GetLevelStreamingForPackageName(FName InPackageName)
 {
 	// iterate over each level streaming object
-	for( int32 LevelIndex=0; LevelIndex<StreamingLevels.Num(); LevelIndex++ )
+	for (ULevelStreaming* LevelStreaming : StreamingLevels)
 	{
-		ULevelStreaming* LevelStreaming = StreamingLevels[LevelIndex];
 		// see if name matches
-		if(LevelStreaming && LevelStreaming->GetWorldAssetPackageFName() == InPackageName)
+		if (LevelStreaming && LevelStreaming->GetWorldAssetPackageFName() == InPackageName)
 		{
 			// it doesn't, return this one
 			return LevelStreaming;
@@ -1233,7 +1282,7 @@ ULevelStreaming* UWorld::GetLevelStreamingForPackageName(FName InPackageName)
 	}
 
 	// failed to find one
-	return NULL;
+	return nullptr;
 }
 
 #if WITH_EDITOR
@@ -1248,15 +1297,15 @@ void UWorld::RefreshStreamingLevels( const TArray<class ULevelStreaming*>& InLev
 		FlushLevelStreaming();
 
 		// Remove all currently visible levels.
-		for( int32 LevelIndex=0; LevelIndex<InLevelsToRefresh.Num(); LevelIndex++ )
+		for (ULevelStreaming* StreamingLevel : InLevelsToRefresh)
 		{
-			ULevelStreaming* StreamingLevel = InLevelsToRefresh[LevelIndex];
 			ULevel* LoadedLevel = StreamingLevel ? StreamingLevel->GetLoadedLevel() : nullptr;
 
-			if( LoadedLevel &&
-				LoadedLevel->bIsVisible )
+			if( LoadedLevel && LoadedLevel->bIsVisible )
 			{
 				RemoveFromWorld( LoadedLevel );
+				FStreamingLevelPrivateAccessor::OnLevelAdded(StreamingLevel); // Sketchy way to get the CurrentState correctly set to LoadedNotVisible
+				StreamingLevelsToConsider.Add(StreamingLevel); // Need to ensure this level is reconsidered during the flush to get it made visible again
 			}
 		}
 

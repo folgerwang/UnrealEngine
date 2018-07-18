@@ -7,6 +7,8 @@
 #include "SourceControlOperations.h"
 #include "ISourceControlRevision.h"
 #include "SourceControlWindows.h"
+#include "SourceControlHelpers.h"
+#include "ISourceControlModule.h"
 #include "Modules/ModuleManager.h"
 #include "UObject/Object.h"
 #include "UObject/Package.h"
@@ -41,7 +43,6 @@
 #include "Widgets/Views/STreeView.h"
 #include "Framework/Docking/TabManager.h"
 #include "EditorStyleSet.h"
-#include "ISourceControlModule.h"
 
 #include "IAssetTools.h"
 #include "IAssetTypeActions.h"
@@ -655,14 +656,14 @@ public:
 
 		const bool bUsesChangelists = ISourceControlModule::Get().GetProvider().UsesChangelists();
 
-		HeaderRow->AddColumn(SHeaderRow::FColumn::FArguments().ColumnId("Revision") .DefaultLabel(NSLOCTEXT("SourceControl.HistoryPanel.Header", "Revision", "Revision"))	.FillWidth(bUsesChangelists ? 100 : 250));
+		HeaderRow->AddColumn(SHeaderRow::FColumn::FArguments().ColumnId("Revision") .DefaultLabel(NSLOCTEXT("SourceControl.HistoryPanel.Header", "Revision", "Revision"))	.FillWidth(bUsesChangelists ? 100 : 200));
 		if(bUsesChangelists)
 		{
-			HeaderRow->AddColumn(SHeaderRow::FColumn::FArguments().ColumnId("Changelist") .DefaultLabel(NSLOCTEXT("SourceControl.HistoryPanel.Header", "Changelist", "ChangeList"))	.FillWidth(150));
+			HeaderRow->AddColumn(SHeaderRow::FColumn::FArguments().ColumnId("Changelist") .DefaultLabel(NSLOCTEXT("SourceControl.HistoryPanel.Header", "Changelist", "ChangeList"))	.FillWidth(100));
 		}
 		HeaderRow->AddColumn(SHeaderRow::FColumn::FArguments().ColumnId("Date") .DefaultLabel(NSLOCTEXT("SourceControl.HistoryPanel.Header", "Date", "Date Submitted"))			.FillWidth(250));
 		HeaderRow->AddColumn(SHeaderRow::FColumn::FArguments().ColumnId("UserName") .DefaultLabel(NSLOCTEXT("SourceControl.HistoryPanel.Header", "UserName", "Submitted By"))		.FillWidth(200));
-		HeaderRow->AddColumn(SHeaderRow::FColumn::FArguments().ColumnId("Description") .DefaultLabel(NSLOCTEXT("SourceControl.HistoryPanel.Header", "Description", "Description"))	.FillWidth(300));
+		HeaderRow->AddColumn(SHeaderRow::FColumn::FArguments().ColumnId("Description") .DefaultLabel(NSLOCTEXT("SourceControl.HistoryPanel.Header", "Description", "Description"))	.FillWidth(650));
 
 		ChildSlot
 		[
@@ -1435,13 +1436,41 @@ void FSourceControlWindows::DisplayRevisionHistory( const TArray<FString>& InPac
 	if(SourceControlProvider.Execute(UpdateStatusOperation, PackageFilenames))
 	{
 		TArray< FSourceControlStateRef > SourceControlStates;
-		SourceControlProvider.GetState(PackageFilenames, SourceControlStates, EStateCacheUsage::Use);
+		for(const FString& PackageFilename : PackageFilenames)
+		{
+			TArray<FString> RevisionName;
+			RevisionName.Add(PackageFilename);
+
+			while(RevisionName.Num() != 0)
+			{
+				int32 InitialNum = SourceControlStates.Num();
+				SourceControlProvider.GetState(RevisionName, SourceControlStates, EStateCacheUsage::Use);
+				int32 NewNum = SourceControlStates.Num();
+				ensure(NewNum >= InitialNum);
+				
+				RevisionName.Empty();
+				// check to see if origin of this file is a branch, append the history from the branch point:
+				if(NewNum > InitialNum)
+				{
+					int32 HistorySize = SourceControlStates.Last()->GetHistorySize();
+					if( HistorySize > 0 )
+					{
+						TSharedPtr<class ISourceControlRevision, ESPMode::ThreadSafe> InitialHistory = SourceControlStates.Last()->GetHistoryItem(HistorySize - 1);
+						TSharedPtr<ISourceControlRevision, ESPMode::ThreadSafe> BranchSource = InitialHistory->GetBranchSource();
+						if( BranchSource.IsValid() )
+						{
+							RevisionName.Add(BranchSource->GetFilename());
+						}
+					}
+				}
+			}
+		}
 
 		TSharedRef<SWindow> NewWindow = SNew(SWindow)
 			.Title( NSLOCTEXT("SourceControl.HistoryWindow", "Title", "File History") )
 			.SizingRule(ESizingRule::UserSized)
 			.AutoCenter(EAutoCenter::PreferredWorkArea)
-			.ClientSize(FVector2D(700, 400));
+			.ClientSize(FVector2D(1000, 400));
 
 		TSharedRef<SSourceControlHistoryWidget> SourceControlWidget = 
 			SNew(SSourceControlHistoryWidget)

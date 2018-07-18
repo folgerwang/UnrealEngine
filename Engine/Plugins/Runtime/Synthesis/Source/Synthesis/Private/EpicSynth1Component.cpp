@@ -605,7 +605,7 @@ bool UModularSynthComponent::Init(int32& SampleRate)
 	return true;
 }
 
-void UModularSynthComponent::OnGenerateAudio(float* OutAudio, int32 NumSamples)
+int32 UModularSynthComponent::OnGenerateAudio(float* OutAudio, int32 NumSamples)
 {
 	const int32 NumFrames = NumSamples / NumChannels;
 
@@ -620,5 +620,5 @@ void UModularSynthComponent::OnGenerateAudio(float* OutAudio, int32 NumSamples)
 		OutAudio[SampleIndex++] = LeftSample;
 		OutAudio[SampleIndex++] = RightSample;
 	}
-
+	return NumSamples;
 }

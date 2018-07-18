@@ -106,6 +106,7 @@ public:
 
 protected:
 	//~ Begin UActorComponent Interface.
+	virtual void CreateRenderState_Concurrent() override;
 	virtual void SendRenderTransform_Concurrent() override;
 	//~ End UActorComponent Interface.
 
@@ -160,10 +161,22 @@ private:
 		UMotionControllerComponent* MotionControllerComponent;
 		FLateUpdateManager LateUpdate;
 	};
-	TSharedPtr< FViewExtension, ESPMode::ThreadSafe > ViewExtension;
+	TSharedPtr< FViewExtension, ESPMode::ThreadSafe > ViewExtension;	
  
 	UPROPERTY(Transient, BlueprintReadOnly, Category=Visualization, meta=(AllowPrivateAccess="true"))
 	UPrimitiveComponent* DisplayComponent;
+
+	/** Callback for asynchronous display model loads (to set materials, etc.) */
+	void OnDisplayModelLoaded(UPrimitiveComponent* DisplayComponent);
+
+	enum class EModelLoadStatus : uint8
+	{
+		Unloaded,
+		Pending,
+		InProgress,
+		Complete
+	};
+	EModelLoadStatus DisplayModelLoadState = EModelLoadStatus::Unloaded;
 
 	FXRDeviceId DisplayDeviceId;
 #if WITH_EDITOR

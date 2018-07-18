@@ -7,12 +7,12 @@
 #include "ProfilingDebugging/ExternalProfiler.h"
 #include "Features/IModularFeatures.h"
 #include "Templates/ScopedPointer.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 #include "Apple/ApplePlatformDebugEvents.h"
 #include "Misc/Paths.h"
 #include "HAL/FileManager.h"
 
-#if APPLE_PROFILING_ENABLED
+#if APPLE_PROFILING_ENABLED && UE_EXTERNAL_PROFILING_ENABLED
 
 /**
  * Instruments implementation of FExternalProfiler
@@ -113,4 +113,4 @@ namespace InstrumentsProfiler
 	static FAtModuleInit AtModuleInit;
 }
 
-#endif
+#endif	// APPLE_PROFILING_ENABLED && UE_EXTERNAL_PROFILING_ENABLED

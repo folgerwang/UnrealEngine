@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreTypes.h"
+#include "Misc/FrameRate.h"
 #include "Math/IntPoint.h"
 
 class FString;
@@ -28,7 +29,7 @@ public:
 
 	const TCHAR* GetCompressionName() const;
 	FIntPoint GetDataWindow() const;
-	double GetFramesPerSecond(double DefaultValue) const;
+	FFrameRate GetFrameRate(const FFrameRate& DefaultValue) const;
 	int32 GetUncompressedSize() const;
 	bool IsComplete() const;
 	void ReadPixels(int32 StartY, int32 EndY);

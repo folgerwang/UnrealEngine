@@ -9,14 +9,58 @@
 #include "NiagaraParameterCollection.h"
 #include "NiagaraSystemInstance.h"
 #include "Scalability.h"
-#include "ConfigCacheIni.h"
+#include "Misc/ConfigCacheIni.h"
 #include "NiagaraDataInterfaceSkeletalMesh.h"
+#include "EngineModule.h"
+
+TGlobalResource<FNiagaraViewDataMgr> GNiagaraViewDataManager;
+
+FNiagaraViewDataMgr::FNiagaraViewDataMgr() 
+	: FRenderResource()
+	, SceneDepthTexture(nullptr)
+	, SceneNormalTexture(nullptr)
+	, ViewUniformBuffer(nullptr)
+{
+
+}
+
+void FNiagaraViewDataMgr::Init()
+{
+	IRendererModule& RendererModule = GetRendererModule();
+	GNiagaraViewDataManager.PostOpaqueDelegate.BindRaw(&GNiagaraViewDataManager, &FNiagaraViewDataMgr::PostOpaqueRender);
+	RendererModule.RegisterPostOpaqueRenderDelegate(GNiagaraViewDataManager.PostOpaqueDelegate);
+}
+
+void FNiagaraViewDataMgr::Shutdown()
+{
+	GNiagaraViewDataManager.ReleaseDynamicRHI();
+}
+
+void FNiagaraViewDataMgr::InitDynamicRHI()
+{
+
+}
+
+void FNiagaraViewDataMgr::ReleaseDynamicRHI()
+{
+	SceneDepthTexture = nullptr;
+	SceneNormalTexture = nullptr;
+	ViewUniformBuffer = nullptr;
+	SceneTexturesUniformParams.SafeRelease();
+}
+
+FNiagaraWorldManager::FNiagaraWorldManager(UWorld* InWorld)
+	: World(InWorld)
+	, CachedEffectsQuality(INDEX_NONE)
+{
+}
+
 
 
 FNiagaraWorldManager* FNiagaraWorldManager::Get(UWorld* World)
 {
-	INiagaraModule& NiagaraModule = FModuleManager::LoadModuleChecked<INiagaraModule>("Niagara");
-	return NiagaraModule.GetWorldManager(World);
+	//INiagaraModule& NiagaraModule = FModuleManager::LoadModuleChecked<INiagaraModule>("Niagara");
+	return INiagaraModule::GetWorldManager(World);
 }
 
 void FNiagaraWorldManager::AddReferencedObjects(FReferenceCollector& Collector)

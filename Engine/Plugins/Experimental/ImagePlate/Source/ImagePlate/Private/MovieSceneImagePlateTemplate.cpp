@@ -2,7 +2,7 @@
 
 #include "MovieSceneImagePlateTemplate.h"
 
-#include "Package.h"
+#include "UObject/Package.h"
 #include "UObject/GCObject.h"
 
 #include "MovieSceneImagePlateTrack.h"
@@ -141,7 +141,7 @@ FMovieSceneImagePlateSectionTemplate::FMovieSceneImagePlateSectionTemplate(const
 	: PropertyData(InTrack.GetPropertyName(), InTrack.GetPropertyPath(), NAME_None, "OnRenderTextureChanged")
 {
 	Params.FileSequence = InSection.FileSequence;
-	Params.SectionStartTime = InSection.GetStartTime();
+	Params.SectionStartTime = InSection.GetInclusiveStartFrame();
 	Params.bReuseExistingTexture = InSection.bReuseExistingTexture;
 }
 
@@ -163,12 +163,14 @@ void FMovieSceneImagePlateSectionTemplate::Evaluate(const FMovieSceneEvaluationO
 
 	if (Context.IsPreRoll())
 	{
-		const float ImageSequenceTime = (Context.HasPreRollEndTime() ? Context.GetPreRollEndTime() - Params.SectionStartTime : 0.f);
+		const float ImageSequenceTime = 
+			Context.HasPreRollEndTime() ? FFrameTime::FromDecimal((FFrameTime(Context.GetPreRollEndFrame()) - FFrameTime(Params.SectionStartTime)).AsDecimal()) / Context.GetFrameRate() : 0.f;
 		ExecutionTokens.Add(FImagePlatePreRollExecutionToken(ImageSequenceTime));
 	}
 	else
 	{
-		const float ImageSequenceTime = Context.GetTime() - Params.SectionStartTime;
+		const float ImageSequenceTime = 
+			FFrameTime::FromDecimal((Context.GetTime() - FFrameTime(Params.SectionStartTime)).AsDecimal()) / Context.GetFrameRate();
 		ExecutionTokens.Add(FImagePlateExecutionToken(ImageSequenceTime, Params.bReuseExistingTexture));
 	}
 }

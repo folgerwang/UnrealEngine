@@ -15,6 +15,7 @@
 #include "UObject/CoreOnline.h"
 #include "SceneTypes.h"
 #include "Engine/Player.h"
+#include "GameFramework/OnlineReplStructs.h"
 #include "LocalPlayer.generated.h"
 
 
@@ -159,11 +160,13 @@ class ENGINE_API ULocalPlayer : public UPlayer
 {
 	GENERATED_UCLASS_BODY()
 
+public:
+
 	/** DO NOT USE. This constructor is for internal usage only for hot-reload purposes. */
 	ULocalPlayer(FVTableHelper& Helper) : Super(Helper), SlateOperations(FReply::Unhandled()) {}
 
 	/** The FUniqueNetId which this player is associated with. */
-	TSharedPtr<const FUniqueNetId> CachedUniqueNetId;
+	FUniqueNetIdRepl CachedUniqueNetId;
 
 	/** The master viewport containing this player's view. */
 	UPROPERTY()
@@ -365,14 +368,14 @@ public:
 	 *
 	 * @return unique Id associated with this player
 	 */
-	TSharedPtr<const FUniqueNetId> GetUniqueNetIdFromCachedControllerId() const;
+	FUniqueNetIdRepl GetUniqueNetIdFromCachedControllerId() const;
 
 	/** 
 	 * Retrieves this player's unique net ID that was previously cached
 	 *
 	 * @return unique Id associated with this player
 	 */
-	TSharedPtr<const FUniqueNetId> GetCachedUniqueNetId() const;
+	FUniqueNetIdRepl GetCachedUniqueNetId() const;
 
 	/** Sets the players current cached unique net id */
 	void SetCachedUniqueNetId(TSharedPtr<const FUniqueNetId> NewUniqueNetId);
@@ -382,7 +385,7 @@ public:
 	 *
 	 * @return unique Id associated with this player
 	 */
-	TSharedPtr<const FUniqueNetId> GetPreferredUniqueNetId() const;
+	FUniqueNetIdRepl GetPreferredUniqueNetId() const;
 
 	/** Returns true if the cached unique net id, is the one assigned to the controller id from the OSS */
 	bool IsCachedUniqueNetIdPairedWithControllerId() const;

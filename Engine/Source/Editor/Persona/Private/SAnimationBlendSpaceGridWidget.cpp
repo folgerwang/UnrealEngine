@@ -26,7 +26,7 @@
 #include "Customization/BlendSampleDetails.h"
 #include "AssetData.h"
 #include "DragAndDrop/AssetDragDropOp.h"
-#include "EditorStyleSettings.h"
+#include "Classes/EditorStyleSettings.h"
 
 #include "Widgets/Input/SButton.h"
 #include "Fonts/FontMeasure.h"
@@ -75,6 +75,7 @@ void SBlendSpaceGridWidget::Construct(const FArguments& InArgs)
 	InvalidColor = FEditorStyle::GetSlateColor("BlendSpaceKey.Invalid");
 	DropKeyColor = FEditorStyle::GetSlateColor("BlendSpaceKey.Drop");
 	PreviewKeyColor = FEditorStyle::GetSlateColor("BlendSpaceKey.Preview");
+	UnSnappedColor = FEditorStyle::GetSlateColor("BlendSpaceKey.UnSnapped");
 	GridLinesColor = GetDefault<UEditorStyleSettings>()->RegularColor;
 	GridOutlineColor = GetDefault<UEditorStyleSettings>()->RuleColor;
 
@@ -375,8 +376,14 @@ void SBlendSpaceGridWidget::PaintSampleKeys(const FGeometry& AllottedGeometry, c
 		{
 			DrawColor = HighlightKeyColor.GetSpecifiedColor();
 		}
-
-		DrawColor = Sample.bIsValid ? DrawColor : InvalidColor.GetSpecifiedColor();
+		else if(!Sample.bIsValid)
+		{
+			DrawColor = InvalidColor.GetSpecifiedColor();
+		}
+		else
+		{
+			DrawColor = Sample.bSnapToGrid ? DrawColor : UnSnappedColor.GetSpecifiedColor();
+		}
 
 		const FVector2D GridPosition = SampleValueToGridPosition(Sample.SampleValue) - (KeySize * 0.5f);
 		FSlateDrawElement::MakeBox( OutDrawElements, DrawLayerId + 1, AllottedGeometry.ToPaintGeometry(GridPosition, KeySize), KeyBrush, ESlateDrawEffect::None, DrawColor );
@@ -744,7 +751,7 @@ FReply SBlendSpaceGridWidget::ProcessClick(const FGeometry& MyGeometry, const FP
 				const FVector2D MousePosition = MouseEvent.GetScreenSpacePosition();
 				// This is of a fixed size atm since MenuContent->GetDesiredSize() will not take the detail customization into account and return an incorrect (small) size
 				const FVector2D ExpectedSize(300, 100);				
-				const FVector2D MenuPosition = FSlateApplication::Get().CalculatePopupWindowPosition(FSlateRect(MousePosition.X, MousePosition.Y, MousePosition.X, MousePosition.Y), ExpectedSize);
+				const FVector2D MenuPosition = FSlateApplication::Get().CalculatePopupWindowPosition(FSlateRect(MousePosition.X, MousePosition.Y, MousePosition.X, MousePosition.Y), ExpectedSize, false);
 
 				FSlateApplication::Get().PushMenu(
 					AsShared(),
@@ -1268,15 +1275,23 @@ void SBlendSpaceGridWidget::OnInputBoxValueChanged(const float NewValue, const i
 		FVector SampleValue = Sample.SampleValue;
 
 		// Calculate snapped value
-		const float MinOffset = NewValue - SampleValueMin[ParameterIndex];
-		float GridSteps = MinOffset / SampleGridDelta[ParameterIndex];
-		int32 FlooredSteps = FMath::FloorToInt(GridSteps);
-		GridSteps -= FlooredSteps;
-		FlooredSteps = (GridSteps > .5f) ? FlooredSteps + 1 : FlooredSteps;
+		if(Sample.bSnapToGrid)
+		{
+			const float MinOffset = NewValue - SampleValueMin[ParameterIndex];
+			float GridSteps = MinOffset / SampleGridDelta[ParameterIndex];
+			int32 FlooredSteps = FMath::FloorToInt(GridSteps);
+			GridSteps -= FlooredSteps;
+			FlooredSteps = (GridSteps > .5f) ? FlooredSteps + 1 : FlooredSteps;
 
-		// Temporary snap this value to closest point on grid (since the spin box delta does not provide the desired functionality)
-		SampleValue[ParameterIndex] = SampleValueMin[ParameterIndex] + (FlooredSteps * SampleGridDelta[ParameterIndex]);
-		OnSampleMoved.ExecuteIfBound(SelectedSampleIndex, SampleValue, bIsInteractive);
+			// Temporary snap this value to closest point on grid (since the spin box delta does not provide the desired functionality)
+			SampleValue[ParameterIndex] = SampleValueMin[ParameterIndex] + (FlooredSteps * SampleGridDelta[ParameterIndex]);
+		}
+		else
+		{
+			SampleValue[ParameterIndex] = NewValue;
+		}
+
+		OnSampleMoved.ExecuteIfBound(SelectedSampleIndex, SampleValue, bIsInteractive, Sample.bSnapToGrid);
 	}
 }
 
@@ -1480,12 +1495,27 @@ void SBlendSpaceGridWidget::Tick(const FGeometry& AllottedGeometry, const double
 	{
 		// If we are dragging a sample, find out whether or not it has actually moved to a different grid position since the last tick and update the blend space accordingly
 		const FBlendSample& BlendSample = BlendSpace->GetBlendSample(DraggedSampleIndex);
-		const FVector SampleValue = SnapToClosestSamplePoint(LocalMousePosition);
+
+		FVector SampleValue;
+		bool bSnap;
+		if(FSlateApplication::Get().GetModifierKeys().IsAltDown() || !BlendSample.bSnapToGrid)
+		{
+			const FVector2D GridPosition(FMath::Clamp(LocalMousePosition.X, CachedGridRectangle.Left, CachedGridRectangle.Right),
+										 FMath::Clamp(LocalMousePosition.Y, CachedGridRectangle.Top, CachedGridRectangle.Bottom));
+ 
+			SampleValue = GridPositionToSampleValue(GridPosition);
+			bSnap = false;
+		}
+		else
+		{
+			SampleValue = SnapToClosestSamplePoint(LocalMousePosition);
+			bSnap = true;
+		} 
 
 		if (SampleValue != LastDragPosition)
 		{
 			LastDragPosition = SampleValue;
-			OnSampleMoved.ExecuteIfBound(DraggedSampleIndex, SampleValue, false);
+			OnSampleMoved.ExecuteIfBound(DraggedSampleIndex, SampleValue, false, bSnap);
 		}
 	}
 	else if (DragState == EDragState::DragDrop || DragState == EDragState::InvalidDragDrop || DragState == EDragState::DragDropOverride)

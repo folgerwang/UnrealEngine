@@ -1628,6 +1628,7 @@ dtStatus dtNavMeshQuery::findPath(dtPolyRef startRef, dtPolyRef endRef,
 	// Store path
 	float prevCost = 0.0f;
 	node = prev;
+	check(node);
 	do
 	{
 		result.addItem(node->id, node->cost - prevCost, 0, 0);
@@ -2088,6 +2089,7 @@ dtStatus dtNavMeshQuery::finalizeSlicedFindPath(dtPolyRef* path, int* pathCount,
 		
 		// Store path
 		node = prev;
+		check(node);
 		do
 		{
 			path[n++] = node->id;
@@ -2166,6 +2168,7 @@ dtStatus dtNavMeshQuery::finalizeSlicedFindPathPartial(const dtPolyRef* existing
 		
 		// Store path
 		node = prev;
+		check(node);
 		do
 		{
 			path[n++] = node->id;
@@ -2746,6 +2749,7 @@ dtStatus dtNavMeshQuery::moveAlongSurface(dtPolyRef startRef, const float* start
 		
 		// Store result
 		node = prev;
+		check(node);
 		do
 		{
 			visited[n++] = node->id;

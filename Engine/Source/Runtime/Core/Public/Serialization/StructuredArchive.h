@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreTypes.h"
-#include "StructuredArchiveFormatter.h"
+#include "Serialization/StructuredArchiveFormatter.h"
 #include "Formatters/BinaryArchiveFormatter.h"
 #include "Misc/Optional.h"
 #include "Containers/Array.h"
@@ -137,6 +137,7 @@ public:
 
 	private:
 		friend FStructuredArchive;
+		friend class FStructuredArchiveChildReader;
 
 		FStructuredArchive& Ar;
 #if WITH_TEXT_ARCHIVE_SUPPORT
@@ -325,12 +326,20 @@ public:
 	};
 
 private:
+
+	friend class FStructuredArchiveChildReader;
+
 	/**
 	* Reference to the formatter that actually writes out the data to the underlying archive
 	*/
 	FArchiveFormatterType& Formatter;
 
 #if WITH_TEXT_ARCHIVE_SUPPORT
+	/**
+	 * Whether the formatter requires structural metadata. This allows optimizing the path for binary archives in editor builds.
+	 */
+	const bool bRequiresStructuralMetadata;
+
 	enum class EElementType : unsigned char
 	{
 		Root,
@@ -375,7 +384,7 @@ private:
 	 * Tracks the current stack of objects being written. Used by SetScope() to ensure that scopes are always closed correctly in the underlying formatter,
 	 * and to make sure that the archive is always written in a forwards-only way (ie. writing to an element id that is not in scope will assert)
 	 */
-	TArray<FElement> CurrentScope;
+	TArray<FElement, TNonRelocatableInlineAllocator<32>> CurrentScope;
 
 #if DO_GUARD_SLOW
 	/**
@@ -430,7 +439,43 @@ FORCEINLINE_DEBUGGABLE void operator<<(FStructuredArchive::FSlot Slot, TArray<ui
 	Slot.Serialize(InArray);
 }
 
+/**
+ * FStructuredArchiveChildReader
+ *
+ * Utility class for easily creating a structured archive that covers the data hierarchy underneath
+ * the given slot
+ *
+ * Allows serialization code to get an archive instance for the current location, so that it can return to it
+ * later on after the master archive has potentially moved on into a different location in the file.
+ */
+class CORE_API FStructuredArchiveChildReader
+{
+public:
+
+	FStructuredArchiveChildReader(FStructuredArchive::FSlot InSlot);
+	~FStructuredArchiveChildReader();
+
+	FORCEINLINE FStructuredArchive::FSlot GetRoot() { return Root.GetValue(); }
+
+private:
+
+	FStructuredArchiveFormatter* OwnedFormatter;
+	FStructuredArchive* Archive;
+	TOptional<FStructuredArchive::FSlot> Root;
+};
+
 #if !WITH_TEXT_ARCHIVE_SUPPORT
+	FORCEINLINE FStructuredArchiveChildReader::FStructuredArchiveChildReader(FStructuredArchive::FSlot InSlot)
+		: OwnedFormatter(nullptr)
+		, Archive(nullptr)
+	{
+		Archive = new FStructuredArchive(InSlot.Ar.Formatter);
+		Root.Emplace(Archive->Open());
+	}
+
+	FORCEINLINE FStructuredArchiveChildReader::~FStructuredArchiveChildReader()
+	{
+	}
 
 	//////////// FStructuredArchive ////////////
 

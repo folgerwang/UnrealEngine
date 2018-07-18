@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2680801
+﻿INTSourceChangelist:3244370
 Availability:Public
 Title:ノードを配置する
 Crumbs: %ROOT%, Engine, Engine\Blueprints, Engine\Blueprints\BP_HowTo
@@ -9,9 +9,9 @@ Related:Engine/Blueprints/UserGuide
 version:4.9
 skilllevel:Beginner
 parent:Engine/Blueprints/BP_HowTo
-type:howto
+type:how-to
 order:2
-
+tags:Blueprints
 
 このページでは、ブループリントでグラフにノードを配置する方法について学習します。 
 
@@ -58,7 +58,7 @@ order:2
 
 ![](RightClick2.png)
 
-以下のように、**[Context Sensitive (状況にあわせた表示)]** がオンの状態で **右クリック** して **Animation** を検索するとフィルタリングされたリストが表示されます。 
+以下のように、**[Context Sensitive]** がオンの状態で **右クリック** して **Animation** を検索するとフィルタリングされたリストが表示されます。 
 
 ![](RightClick3.png)(w:440)
 

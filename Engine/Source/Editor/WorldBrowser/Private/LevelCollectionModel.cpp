@@ -11,6 +11,7 @@
 #include "ISourceControlOperation.h"
 #include "SourceControlOperations.h"
 #include "ISourceControlModule.h"
+#include "SourceControlHelpers.h"
 #include "Settings/EditorLoadingSavingSettings.h"
 #include "Engine/Selection.h"
 #include "EditorModeManager.h"
@@ -283,7 +284,7 @@ void FLevelCollectionModel::Tick( float DeltaTime )
 		}
 
 		// Traverse streaming levels and update simulation status for corresponding level models
-		for (ULevelStreaming* StreamingLevel : GetSimulationWorld()->StreamingLevels)
+		for (ULevelStreaming* StreamingLevel : GetSimulationWorld()->GetStreamingLevels())
 		{
 			// Rebuild the original NonPrefixedPackageName so we can find it
 			const FString PrefixedPackageName = StreamingLevel->GetWorldAssetPackageName();
@@ -647,14 +648,13 @@ void FLevelCollectionModel::UnloadLevels(const FLevelModelList& InLevelList)
 				FName LevelPackageName = LevelModel->GetLongPackageName();
 				auto Predicate = [&](ULevelStreaming* StreamingLevel) 
 				{
-					return (StreamingLevel->GetWorldAssetPackageFName() == LevelPackageName && StreamingLevel->HasAnyFlags(RF_Transient));
+					return (StreamingLevel && StreamingLevel->GetWorldAssetPackageFName() == LevelPackageName && StreamingLevel->HasAnyFlags(RF_Transient));
 				};
 				
-				int32 Index = ThisWorld->StreamingLevels.IndexOfByPredicate(Predicate);
-				if (Index != INDEX_NONE)
+				if (ULevelStreaming*const* StreamingLevel = ThisWorld->GetStreamingLevels().FindByPredicate(Predicate))
 				{
-					ThisWorld->StreamingLevels[Index]->MarkPendingKill();
-					ThisWorld->StreamingLevels.RemoveAt(Index);
+					(*StreamingLevel)->MarkPendingKill();
+					ThisWorld->RemoveStreamingLevel(*StreamingLevel);
 				}
 			}
 			

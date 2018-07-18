@@ -93,7 +93,18 @@ public:
 	/** Redirect from /game/assetpath to /game/assetpathnew */
 	UPROPERTY(config, EditAnywhere, Category = "Redirects")
 	TArray<FAssetManagerRedirect> AssetPathRedirects;
+
+	/** The metadata tags to be transferred to the Asset Registry. */
+	UPROPERTY(config, EditAnywhere, AdvancedDisplay, Category = "Asset Registry", DisplayName = "Metadata Tags For Asset Registry")
+	TSet<FName> MetaDataTagsForAssetRegistry;
+
 #if WITH_EDITOR
+	virtual void PostInitProperties() override;
+	virtual void PreEditChange(UProperty* PropertyAboutToChange) override;
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+
+private:
+	void ApplyMetaDataTagsSettings();
+	void ClearMetaDataTagsSettings();
 #endif
 };

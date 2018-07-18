@@ -34,8 +34,10 @@
 #include "UObject/StructScriptLoader.h"
 #include "UObject/PropertyHelper.h"
 #include "UObject/CoreRedirects.h"
+#include "Internationalization/PolyglotTextData.h"
 #include "Serialization/ArchiveScriptReferenceCollector.h"
 #include "UObject/FrameworkObjectVersion.h"
+#include "UObject/GarbageCollection.h"
 
 // This flag enables some expensive class tree validation that is meant to catch mutations of 
 // the class tree outside of SetSuperStruct. It has been disabled because loading blueprints 
@@ -932,9 +934,9 @@ void UStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* Defa
 				{
 					Property = Property->PropertyLinkNext;
 				}
-				bAdvanceProperty = false;
-				RemainingArrayDim	= Property ? Property->ArrayDim : 0;
+				RemainingArrayDim = Property ? Property->ArrayDim : 0;
 			}
+			bAdvanceProperty = false;
 			
 			// Optionally resolve properties using Guid Property tags in non cooked builds that support it.
 			if (bArePropertyGuidsAvailable && Tag.HasPropertyGuid)
@@ -1054,50 +1056,48 @@ void UStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* Defa
 			// check for valid array index
 			else if( Tag.ArrayIndex >= Property->ArrayDim || Tag.ArrayIndex < 0 )
 			{
-				UE_LOG(LogClass, Warning, TEXT("Array bound exceeded (var %s=%d, exceeds %s [0-%d] in package:  %s"), 
+				UE_LOG(LogClass, Warning, TEXT("Array bound exceeded (var %s=%d, exceeds %s [0-%d] in package:  %s"),
 					*Tag.Name.ToString(), Tag.ArrayIndex, *GetName(), Property->ArrayDim-1, *Ar.GetArchiveName());
 			}
-
 			else if( !Property->ShouldSerializeValue(Ar) )
 			{
 				UE_CLOG((Ar.IsPersistent() && FPlatformProperties::RequiresCookedData()), LogClass, Warning, TEXT("Skipping saved property %s of %s since it is no longer serializable for asset:  %s. (Maybe resave asset?)"), *Tag.Name.ToString(), *GetName(), *Ar.GetArchiveName() );
 			}
-
-			else if (Property->ConvertFromType(Tag, Ar, Data, DefaultsStruct, bAdvanceProperty))
-			{
-				if (bAdvanceProperty)
-				{
-					continue;
-				}
-			}
-
-			else if (Tag.Type != PropID)
-			{
-				UE_LOG(LogClass, Warning, TEXT("Type mismatch in %s of %s - Previous (%s) Current(%s) for package:  %s"), *Tag.Name.ToString(), *GetName(), *Tag.Type.ToString(), *PropID.ToString(), *Ar.GetArchiveName() );
-			}
 			else
 			{
-				uint8* DestAddress = Property->ContainerPtrToValuePtr<uint8>(Data, Tag.ArrayIndex);  
-				uint8* DefaultsFromParent = Property->ContainerPtrToValuePtrForDefaults<uint8>(DefaultsStruct, Defaults, Tag.ArrayIndex);
-
-				// This property is ok.			
-				Tag.SerializeTaggedProperty(Ar, Property, DestAddress, DefaultsFromParent);
-
-				bAdvanceProperty = true;
-				if (!Ar.IsCriticalError())
+				switch (Property->ConvertFromType(Tag, Ar, Data, DefaultsStruct))
 				{
-					continue;
+					case EConvertFromTypeResult::Converted:
+						bAdvanceProperty = true;
+						break;
+
+					case EConvertFromTypeResult::UseSerializeItem:
+						if (Tag.Type != PropID)
+						{
+							UE_LOG(LogClass, Warning, TEXT("Type mismatch in %s of %s - Previous (%s) Current(%s) for package:  %s"), *Tag.Name.ToString(), *GetName(), *Tag.Type.ToString(), *PropID.ToString(), *Ar.GetArchiveName() );
+						}
+						else
+						{
+							uint8* DestAddress = Property->ContainerPtrToValuePtr<uint8>(Data, Tag.ArrayIndex);
+							uint8* DefaultsFromParent = Property->ContainerPtrToValuePtrForDefaults<uint8>(DefaultsStruct, Defaults, Tag.ArrayIndex);
+
+							// This property is ok.
+							Tag.SerializeTaggedProperty(Ar, Property, DestAddress, DefaultsFromParent);
+							bAdvanceProperty = !Ar.IsCriticalError();
+						}
+						break;
+
+					case EConvertFromTypeResult::CannotConvert:
+						break;
+
+					default:
+						check(false);
 				}
 			}
 
-			bAdvanceProperty = false;
-
-			// Skip unknown or bad property.
-			const int64 RemainingSize = Tag.Size - (Ar.Tell() - StartOfProperty);
-			uint8 B;
-			for( int64 i=0; i<RemainingSize; i++ )
+			if (!bAdvanceProperty)
 			{
-				Ar << B;
+				Ar.Seek(StartOfProperty + Tag.Size);
 			}
 		}
 	}
@@ -1498,7 +1498,7 @@ EExprToken UStruct::SerializeExpr( int32& iCode, FArchive& Ar )
 {
 #define SERIALIZEEXPR_INC
 #define SERIALIZEEXPR_AUTO_UNDEF_XFER_MACROS
-#include "ScriptSerialization.h"
+#include "UObject/ScriptSerialization.h"
 	return Expr;
 #undef SERIALIZEEXPR_INC
 #undef SERIALIZEEXPR_AUTO_UNDEF_XFER_MACROS
@@ -1917,6 +1917,12 @@ void UScriptStruct::PrepareCppStructOps()
 	{
 		UE_LOG(LogClass, Verbose, TEXT("Native struct %s has a custom net serializer."),*GetName());
 		StructFlags = EStructFlags(StructFlags | STRUCT_NetSerializeNative);
+
+		if (CppStructOps->HasNetSharedSerialization())
+		{
+			UE_LOG(LogClass, Verbose, TEXT("Native struct %s can share net serialization."),*GetName());
+			StructFlags = EStructFlags(StructFlags | STRUCT_NetSharedSerialization);
+		}
 	}
 	if (CppStructOps->HasNetDeltaSerializer())
 	{
@@ -2153,7 +2159,7 @@ const TCHAR* UScriptStruct::ImportText(const TCHAR* InBuffer, void* Value, UObje
 	}
 	else
 	{
-		ErrorText->Logf(TEXT("%sImportText (%s): Missing opening parenthesis: %s"), ErrorCount++ > 0 ? LINE_TERMINATOR : TEXT(""), *StructName, InBuffer);
+		ErrorText->Logf(TEXT("%sImportText (%s): Missing opening parenthesis: %s"), ErrorCount++ > 0 ? LINE_TERMINATOR : TEXT(""), *StructName, InBuffer); //-V547
 		return nullptr;
 	}
 	return Buffer;
@@ -2519,6 +2525,153 @@ FString UScriptStruct::GetStructCPPName() const
 {
 	return FString::Printf(TEXT("F%s"), *GetName());
 }
+
+#if !(UE_BUILD_TEST || UE_BUILD_SHIPPING)
+
+struct FScriptStructTestWrapper
+{
+public:
+	FScriptStructTestWrapper(UScriptStruct* InStruct, uint8 InitValue = 0xFD)
+		: ScriptStruct(InStruct)
+		, TempBuffer(nullptr)
+	{
+		if (ScriptStruct->IsNative())
+		{
+			UScriptStruct::ICppStructOps* StructOps = ScriptStruct->GetCppStructOps();
+
+			// Make one
+			if ((StructOps != nullptr) && StructOps->HasZeroConstructor())
+			{
+				// These structs have basically promised to be used safely, not going to audit them
+			}
+			else
+			{
+				// Allocate space for the struct
+				const int32 RequiredAllocSize = ScriptStruct->GetStructureSize();
+				TempBuffer = (uint8*)FMemory::Malloc(RequiredAllocSize, ScriptStruct->GetMinAlignment());
+
+				// The following section is a partial duplication of ScriptStruct->InitializeStruct, except we initialize with 0xFD instead of 0x00
+				FMemory::Memset(TempBuffer, InitValue, RequiredAllocSize);
+
+				int32 InitializedSize = 0;
+				if (StructOps != nullptr)
+				{
+					StructOps->Construct(TempBuffer);
+					InitializedSize = StructOps->GetSize();
+				}
+
+				if (ScriptStruct->PropertiesSize > InitializedSize)
+				{
+					bool bHitBase = false;
+					for (UProperty* Property = ScriptStruct->PropertyLink; Property && !bHitBase; Property = Property->PropertyLinkNext)
+					{
+						if (!Property->IsInContainer(InitializedSize))
+						{
+							Property->InitializeValue_InContainer(TempBuffer);
+						}
+						else
+						{
+							bHitBase = true;
+						}
+					}
+				}
+
+				if (ScriptStruct->StructFlags & STRUCT_PostScriptConstruct)
+				{
+					check(StructOps);
+					StructOps->PostScriptConstruct(TempBuffer);
+				}
+			}
+		}
+	}
+
+	~FScriptStructTestWrapper()
+	{
+		if (TempBuffer != nullptr)
+		{
+			// Destroy it
+			ScriptStruct->DestroyStruct(TempBuffer);
+			FMemory::Free(TempBuffer);
+		}
+	}
+
+	static bool CanRunTests(UScriptStruct* Struct)
+	{
+		return (Struct != nullptr) && Struct->IsNative() && (!Struct->GetCppStructOps() || !Struct->GetCppStructOps()->HasZeroConstructor());
+	}
+
+	uint8* GetData() { return TempBuffer; }
+private:
+	UScriptStruct* ScriptStruct;
+	uint8* TempBuffer;
+};
+
+void AttemptToFindUninitializedScriptStructPointers()
+{
+	for (TObjectIterator<UScriptStruct> ScriptIt; ScriptIt; ++ScriptIt)
+	{
+		UScriptStruct* ScriptStruct = *ScriptIt;
+		if (FScriptStructTestWrapper::CanRunTests(ScriptStruct))
+		{
+			FScriptStructTestWrapper WrapperFF(ScriptStruct, 0xFF);
+			FScriptStructTestWrapper Wrapper00(ScriptStruct, 0x00);
+			FScriptStructTestWrapper WrapperAA(ScriptStruct, 0xAA);
+			FScriptStructTestWrapper Wrapper55(ScriptStruct, 0x55);
+
+			const void* BadPointer = (void*)0xFFFFFFFFFFFFFFFFull;
+			
+			for (const UProperty* Property : TFieldRange<UProperty>(ScriptStruct, EFieldIteratorFlags::ExcludeSuper))
+			{
+				if (const UObjectPropertyBase* ObjectProperty = Cast<const UObjectPropertyBase>(Property))
+				{
+					// Check any reflected pointer properties to make sure they got initialized
+					const UObject* PropValue = ObjectProperty->GetObjectPropertyValue_InContainer(WrapperFF.GetData());
+					if (PropValue == BadPointer)
+					{
+						UE_LOG(LogClass, Warning, TEXT("%s%s::%s is not initialized properly"), ScriptStruct->GetPrefixCPP(), *ScriptStruct->GetName(), *Property->GetNameCPP());
+					}
+				}
+				else if (const UBoolProperty* BoolProperty = Cast<const UBoolProperty>(Property))
+				{
+					// Check for uninitialized boolean properties (done separately to deal with byte-wide booleans that would evaluate to true with either 0x55 or 0xAA)
+					const bool Value0 = BoolProperty->GetPropertyValue_InContainer(Wrapper00.GetData());
+					const bool Value1 = BoolProperty->GetPropertyValue_InContainer(WrapperFF.GetData());
+
+					if (Value0 != Value1)
+					{
+						UE_LOG(LogClass, Warning, TEXT("%s%s::%s is not initialized properly"), ScriptStruct->GetPrefixCPP(), *ScriptStruct->GetName(), *Property->GetNameCPP());
+					}
+				}
+				else if (Property->IsA(UNameProperty::StaticClass()))
+				{
+					// Skip some other types that will crash in equality with garbage data
+					//@TODO: Shouldn't need to skip FName, it's got a default ctor that initializes correctly...
+				}
+				else
+				{
+					// Catch all remaining properties
+					if (!Property->Identical_InContainer(WrapperAA.GetData(), Wrapper55.GetData()))
+					{
+						UE_LOG(LogClass, Warning, TEXT("%s%s::%s is not initialized properly"), ScriptStruct->GetPrefixCPP(), *ScriptStruct->GetName(), *Property->GetNameCPP());
+					}
+				}
+			}
+		}
+	}
+}
+
+#include "HAL/IConsoleManager.h"
+
+FAutoConsoleCommandWithWorldAndArgs GCmdListBadScriptStructs(
+	TEXT("CoreUObject.AttemptToFindUninitializedScriptStructMembers"),
+	TEXT("Finds USTRUCT() structs that fail to initialize reflected member variables"),
+	FConsoleCommandWithWorldAndArgsDelegate::CreateStatic(
+		[](const TArray<FString>& Params, UWorld* World)
+{
+	AttemptToFindUninitializedScriptStructPointers();
+}));
+
+#endif
 
 IMPLEMENT_CORE_INTRINSIC_CLASS(UScriptStruct, UStruct,
 	{
@@ -3026,6 +3179,7 @@ void UClass::PostLoad()
 
 	if (!HasAnyClassFlags(CLASS_Native))
 	{
+		ClassFlags &= ~CLASS_ReplicationDataIsSetUp;
 		SetUpRuntimeReplicationData();
 	}
 }
@@ -3069,11 +3223,12 @@ void UClass::Link(FArchive& Ar, bool bRelinkExistingProperties)
 
 void UClass::SetUpRuntimeReplicationData()
 {
-	if (PropertyLink != NULL)
+	if (!HasAnyClassFlags(CLASS_ReplicationDataIsSetUp) && PropertyLink != NULL)
 	{
 		NetFields.Empty();
 		if (UClass* SuperClass = GetSuperClass())
 		{
+			SuperClass->SetUpRuntimeReplicationData();
 			ClassReps = SuperClass->ClassReps;
 		}
 		else
@@ -3147,7 +3302,25 @@ void UClass::SetUpRuntimeReplicationData()
 			}
 		};
 		Sort(NetFields.GetData(), NetFields.Num(), FCompareUFieldNames());
+
+		ClassFlags |= CLASS_ReplicationDataIsSetUp;
 	}
+}
+
+/**
+* Helper function for determining if the given class is compatible with structured archive serialization
+*/
+bool UClass::IsSafeToSerializeToStructuredArchives(UClass* InClass)
+{
+	while (InClass)
+	{
+		if (!InClass->HasAnyClassFlags(CLASS_MatchedSerializers))
+		{
+			return false;
+		}
+		InClass = InClass->GetSuperClass();
+	}
+	return true;
 }
 
 #if UCLASS_FAST_ISA_IMPL == UCLASS_ISA_INDEXTREE
@@ -3783,7 +3956,7 @@ void UClass::PurgeClass(bool bRecompilingOnLoad)
 	ClassConstructor = nullptr;
 	ClassVTableHelperCtorCaller = nullptr;
 	ClassFlags = CLASS_None;
-	ClassCastFlags = 0;
+	ClassCastFlags = CASTCLASS_None;
 	ClassUnique = 0;
 	ClassReps.Empty();
 	NetFields.Empty();
@@ -3878,7 +4051,7 @@ UClass::UClass(const FObjectInitializer& ObjectInitializer)
 ,	ClassUnique(0)
 ,	bCooked(false)
 ,	ClassFlags(CLASS_None)
-,	ClassCastFlags(0)
+,	ClassCastFlags(CASTCLASS_None)
 ,	ClassWithin( UObject::StaticClass() )
 ,	ClassGeneratedBy(nullptr)
 ,	ClassDefaultObject(nullptr)
@@ -3896,7 +4069,7 @@ UClass::UClass(const FObjectInitializer& ObjectInitializer, UClass* InBaseClass)
 ,	ClassUnique(0)
 ,	bCooked(false)
 ,	ClassFlags(CLASS_None)
-,	ClassCastFlags(0)
+,	ClassCastFlags(CASTCLASS_None)
 ,	ClassWithin(UObject::StaticClass())
 ,	ClassGeneratedBy(nullptr)
 ,	ClassDefaultObject(nullptr)
@@ -4256,6 +4429,10 @@ const FString UClass::GetConfigName() const
 		UE_LOG(LogClass, Fatal,TEXT("UObject::GetConfigName() called on class with config name 'None'. Class flags = 0x%08X"), (uint32)ClassFlags );
 		return TEXT("");
 	}
+	else if (ClassConfigName == NAME_GameUserSettings)
+	{
+		return GGameUserSettingsIni;
+	}
 	else
 	{
 		// generate the class ini name, and make sure it's up to date
@@ -4356,7 +4533,7 @@ void UClass::PrependStreamWithSuperClass(UClass& SuperClass)
 {
 	ReferenceTokenStream.PrependStream(SuperClass.ReferenceTokenStream);
 
-#if !(UE_BUILD_TEST || UE_BUILD_SHIPPING)
+#if ENABLE_GC_OBJECT_CHECKS
 	DebugTokenMap.PrependWithSuperClass(SuperClass);
 #endif
 }
@@ -4602,6 +4779,17 @@ void UFunction::Serialize( FArchive& Ar )
 	}
 }
 
+void UFunction::PostLoad()
+{
+	Super::PostLoad();
+
+	UClass* const OwningClass = GetOuterUClass();
+	if (OwningClass && HasAnyFunctionFlags(FUNC_Net))
+	{
+		OwningClass->ClassFlags &= ~CLASS_ReplicationDataIsSetUp;
+	}
+}
+
 UProperty* UFunction::GetReturnProperty() const
 {
 	for( TFieldIterator<UProperty> It(this); It && (It->PropertyFlags & CPF_Parm); ++It )
@@ -4783,10 +4971,19 @@ bool UFunction::IsSignatureCompatibleWith(const UFunction* OtherFunction, uint64
 	return !(IteratorB && (IteratorB->PropertyFlags & CPF_Parm));
 }
 
-static UScriptStruct* StaticGetBaseStructureInternal(const TCHAR* Name)
+static UScriptStruct* StaticGetBaseStructureInternal(FName Name)
 {
-	static auto* CoreUObjectPkg = FindObjectChecked<UPackage>(nullptr, TEXT("/Script/CoreUObject"));
-	return FindObjectChecked<UScriptStruct>(CoreUObjectPkg, Name);
+	static UPackage* CoreUObjectPkg = FindObjectChecked<UPackage>(nullptr, TEXT("/Script/CoreUObject"));
+
+	UScriptStruct* Result = (UScriptStruct*)StaticFindObjectFastInternal(UScriptStruct::StaticClass(), CoreUObjectPkg, Name, false, false, RF_NoFlags, EInternalObjectFlags::None);
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	if (!Result)
+	{
+		UE_LOG(LogClass, Fatal, TEXT("Failed to find native struct '%s.%s'"), *CoreUObjectPkg->GetName(), *Name.ToString());
+	}
+#endif
+	return Result;
 }
 
 UScriptStruct* TBaseStructure<FRotator>::Get()
@@ -4924,6 +5121,18 @@ UScriptStruct* TBaseStructure<FPrimaryAssetType>::Get()
 UScriptStruct* TBaseStructure<FPrimaryAssetId>::Get()
 {
 	static auto ScriptStruct = StaticGetBaseStructureInternal(TEXT("PrimaryAssetId"));
+	return ScriptStruct;
+}
+
+UScriptStruct* TBaseStructure<FPolyglotTextData>::Get()
+{
+	static auto ScriptStruct = StaticGetBaseStructureInternal(TEXT("PolyglotTextData"));
+	return ScriptStruct;
+}
+
+UScriptStruct* TBaseStructure<FDateTime>::Get()
+{
+	static auto ScriptStruct = StaticGetBaseStructureInternal(TEXT("DateTime"));
 	return ScriptStruct;
 }
 

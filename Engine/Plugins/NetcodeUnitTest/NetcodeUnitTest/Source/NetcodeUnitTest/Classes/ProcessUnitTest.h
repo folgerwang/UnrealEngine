@@ -104,6 +104,9 @@ struct FUnitTestProcess
 	/** The log output color to use in the slate log window */
 	FSlateColor SlateLogColor;
 
+	/** Whether or not to strip Error logs for this process (e.g. for unit test servers, when we expect to crash) */
+	bool bStripErrorLogs;
+
 
 	/** If this process is outputting an error log, this is the current stage of error parsing (or ELS_NoError if not parsing) */
 	EErrorLogStage ErrorLogStage;
@@ -126,6 +129,7 @@ struct FUnitTestProcess
 		, LogPrefix(TEXT(""))
 		, MainLogColor(COLOR_NONE)
 		, SlateLogColor(FSlateColor::UseForeground())
+		, bStripErrorLogs(false)
 		, ErrorLogStage(EErrorLogStage::ELS_NoError)
 		, ErrorText()
 	{

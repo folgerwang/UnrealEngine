@@ -2,10 +2,7 @@
 
 #pragma once
 
-#include "Range.h"
-#include "UnrealString.h"
+#include "Math/Range.h"
+#include "Containers/UnrealString.h"
 
-namespace Lex
-{
-	MOVIESCENE_API FString ToString(const TRange<float>& InRange);
-}
+MOVIESCENE_API FString LexToString(const TRange<FFrameNumber>& InRange);

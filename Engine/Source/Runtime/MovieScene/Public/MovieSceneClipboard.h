@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "MovieSceneTrack.h"
-#include "InlineValue.h"
+#include "Misc/InlineValue.h"
 
 #if WITH_EDITOR
 
@@ -32,7 +32,7 @@ class MOVIESCENE_API FMovieSceneClipboardKey
 public:
 	/** Templated constructor accepting a specific value type */
 	template<typename T>
-	FMovieSceneClipboardKey(float InTime, T InValue)
+	FMovieSceneClipboardKey(FFrameNumber InTime, T InValue)
 		: Time(InTime)
 		, Data(TKey<T>(MoveTemp(InValue)))
 	{
@@ -43,10 +43,10 @@ public:
 	FMovieSceneClipboardKey& operator=(const FMovieSceneClipboardKey& In);
 
 	/** Get the time at which this key is defined */
-	float GetTime() const;
+	FFrameNumber GetTime() const;
 
 	/** Set the time at which this key is defined */
-	void SetTime(float InTime);
+	void SetTime(FFrameNumber InTime);
 
 	/**
 	 * Get the value of this key as the specified type.
@@ -141,7 +141,7 @@ private:
 	};
 
 	/** The time that this key is defined at */
-	float Time;
+	FFrameNumber Time;
 
 	/** Type-erased bytes containing the key's value */
 	TInlineValue<IKey, 64> Data;
@@ -202,7 +202,7 @@ public:
 
 	/** Add a key of the specified type to this track. KeyType must match the type this track was constructed with */
 	template<typename KeyType>
-	void AddKey(float Time, KeyType Value)
+	void AddKey(FFrameNumber Time, KeyType Value)
 	{
 		checkf(IsKeyOfType<KeyType>(), TEXT("Unable to add a key of a different value type to the track"));
 		Keys.Add(FMovieSceneClipboardKey(Time, MoveTemp(Value)));
@@ -258,15 +258,18 @@ private:
 struct FMovieSceneClipboardEnvironment
 {
 	FMovieSceneClipboardEnvironment()
-		: CardinalTime(0.f)
+		: CardinalTime(0)
 		, DateTime(FDateTime::UtcNow())
 	{}
 
-	/** The cardinal time for a copy-paste operation. Keys are copied with absolute time values */
-	float CardinalTime;
+	/** The cardinal time for a copy-paste operation. */
+	FFrameTime CardinalTime;
 
 	/** The date/time at which the copy operation was performed */
 	FDateTime DateTime;
+
+	/** The tick resolution within which all clipboard data is stored */
+	FFrameRate TickResolution;
 };
 
 /** A clipboard representing serializable copied data for a movie scene */
@@ -312,7 +315,7 @@ class MOVIESCENE_API FMovieSceneClipboardBuilder
 public:
 
 	/** Generate a clipboard for the current state of this builder, resetting the builder back to its default state */
-	FMovieSceneClipboard Commit(TOptional<float> CopyRelativeTo);
+	FMovieSceneClipboard Commit(TOptional<FFrameNumber> CopyRelativeTo);
 
 	/**
 	 * Find or add a key track. Key tracks are group primarily by MovieSceneTrack instance, then by name

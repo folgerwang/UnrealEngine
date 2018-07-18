@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3692813
+﻿INTSourceChangelist:3750348
 Availability:Public
 Crumbs: %ROOT%
 Title:3 - TV ブループリントの設定 - コンポーネント
@@ -6,7 +6,8 @@ Description:TV ブループリントを作成し、コンポーネントを設�
 SkillLevel:Beginner
 Version:4.18
 checkpoint: mediaframeworkqs
-parent:Engine\MediaFramework\QuickStart
+parent:Engine/MediaFramework/QuickStart
+type:quick start
 type:multi-step
 order:3
 tags:Media Framework
@@ -14,7 +15,8 @@ tags:Blueprints
  
 [NAV]
 
-前のステップでは、映像の再生に使用するメディア テクスチャとマテリアルを設定しました。次のステップでは、[](Engine/Blueprints) (Unreal Engine's visual node-based scripting system) を使ってプレイヤーが指定した映像コンテンツにアクセスしてオンオフができるインタラクティブな TV ブループリントを作成します。このステップではインタラクティブなテレビを構成する **コンポーネント** を追加します。
+前のステップでは、映像の再生に使用するメディア テクスチャとマテリアルを設定しました。 
+次のステップでは、[](Engine/Blueprints) (Unreal Engine's visual node-based scripting system) を使ってプレイヤーが指定した映像コンテンツにアクセスしてオンオフができるインタラクティブな TV ブループリントを作成します。このステップではインタラクティブなテレビを構成する **コンポーネント** を追加します。
 
 ## ステップ
 
@@ -32,7 +34,8 @@ tags:Blueprints
 
 	![](Blueprint_03.png)
 
-	[コンポーネント](Programming/UnrealArchitecture/Actors/Components) はアクタにアタッチ可能なサブ オブジェクトです。このケースでは、TV を表現する **スタティックメッシュ**、プレイヤーが TV をオン / オフする範囲にいることを伝える **Box Collision**、Media Player と紐づいているオーディオをプレイする **Media Sound** が必要です。
+	[コンポーネント](Programming/UnrealArchitecture/Actors/Components) は、アクタ 内のサブオブジェクトとして使用するように設計された特殊なオブジェクトです。 
+	このケースでは、TV を表現する **スタティックメッシュ**、プレイヤーが TV をオン / オフする範囲にいることを伝える **Box Collision**、Media Player と紐づいているオーディオをプレイする **Media Sound** が必要です。
 
 1. **Static Mesh** に **「TV_Mesh」** と名前を付けます。**[Details]** パネルで **[Static Mesh]** 入力フィールドに **[SM_TV]** と設定します。 
 
@@ -42,7 +45,7 @@ tags:Blueprints
 
 	![](Blueprint_05.png)
 
-	ビューポートで [Transform ツール](GettingStarted/HowTo/ManipulatingActors) とウィジェットを使ってボックスを **Translate (W)**、**Rotate (E)**、**Scale (R)** させることができます。
+	ビューポートで [Transform ツール](GettingStarted/HowTo/ManipulatingActors) とウィジェットを使ってボックスを **Translate (W-key)**、**Rotate (E-key)**、**Scale (R-key)** させることができます。
 
 1.	**[+Add Component]** ボタンをクリックして **Media Sound** コンポーネントを追加します。 
 
@@ -58,7 +61,7 @@ tags:Blueprints
 
 
 
-	## 最終結果
+## 最終結果
 
 TV ブループリントに各コンポーネントを設定しました。次のステップでは、TV ブループリントでカスタマイズ可能なオプションをいくつか定義します。これにより、エディタの中でどの Media Texture と Media Sound をレベルの TV に関連づけるのか定義し、インスタンスごとにそれらを変更できるようになります (同じ TV ブループリントがそれぞれ異なるコンテンツをプレイできるようになります)。 
 

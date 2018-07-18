@@ -25,26 +25,19 @@
 
 #define LOCTEXT_NAMESPACE "FCameraShakeTrackEditor"
 
-static const FName ParentClassTagName(TEXT("ParentClass"));
 static const FString CameraShakeClassPath(TEXT("Class'/Script/Engine.CameraShake'"));
 
 
-class FCameraShakeSection : public ISequencerSection
+class FCameraShakeSection : public FSequencerSection
 {
 public:
 	FCameraShakeSection(UMovieSceneSection& InSection)
-		: Section(InSection)
+		: FSequencerSection(InSection)
 	{ }
-
-	/** ISequencerSection interface */
-	virtual UMovieSceneSection* GetSectionObject() override
-	{
-		return &Section;
-	}
 
 	virtual FText GetSectionTitle() const override
 	{
-		UMovieSceneCameraShakeSection const* const ShakeSection = Cast<UMovieSceneCameraShakeSection>(&Section);
+		UMovieSceneCameraShakeSection const* const ShakeSection = Cast<UMovieSceneCameraShakeSection>(WeakSection.Get());
 		UClass const* const Shake = ShakeSection ? ShakeSection->ShakeData.ShakeClass : nullptr;
 		if (Shake)
 		{
@@ -52,22 +45,6 @@ public:
 		}
 		return LOCTEXT("NoCameraShakeSection", "No Camera Shake");
 	}
-
-	virtual void GenerateSectionLayout(class ISectionLayoutBuilder& LayoutBuilder) const override
-	{
-// 		UMovieSceneCameraShakeSection* PathSection = Cast<UMovieSceneCameraShakeSection>(&Section);
-// 		LayoutBuilder.AddKeyArea("Timing", LOCTEXT("TimingArea", "Timing"), MakeShareable( new FFloatCurveKeyArea ( &PathSection->GetTimingCurve( ), PathSection ) ) );
-	}
-
-	virtual int32 OnPaintSection(FSequencerSectionPainter& InPainter) const override
-	{
-		return InPainter.PaintSectionBackground();
-	}
-
-private:
-
-	/** The section we are visualizing */
-	UMovieSceneSection& Section;
 };
 
 
@@ -135,6 +112,9 @@ bool FCameraShakeTrackEditor::HandleAssetAdded(UObject* Asset, const FGuid& Targ
 			{
 				OutObjects.Add(Object);
 			}
+
+			const FScopedTransaction Transaction(LOCTEXT("AddCameraShake_Transaction", "Add Camera Shake"));
+			
 			AnimatablePropertyChanged(FOnKeyProperty::CreateRaw(this, &FCameraShakeTrackEditor::AddKeyInternal, OutObjects, ShakeClass));
 
 			return true;
@@ -160,10 +140,7 @@ void FCameraShakeTrackEditor::BuildObjectBindingTrackMenu(FMenuBuilder& MenuBuil
 		{
 			FARFilter Filter;
 			Filter.ClassNames.Add(UBlueprint::StaticClass()->GetFName());
-
-			TMultiMap<FName, FString> TagsAndValuesFilter;
-			TagsAndValuesFilter.Add(ParentClassTagName, CameraShakeClassPath);
-			Filter.TagsAndValues = TagsAndValuesFilter;
+			Filter.TagsAndValues.Add(FBlueprintTags::ParentClassPath, CameraShakeClassPath);
 
 			AssetRegistryModule.Get().GetAssets(Filter, AssetDataList);
 		}
@@ -190,10 +167,11 @@ void FCameraShakeTrackEditor::AddCameraShakeSubMenu(FMenuBuilder& MenuBuilder, F
 	FAssetPickerConfig AssetPickerConfig;
 	{
 		AssetPickerConfig.OnAssetSelected = FOnAssetSelected::CreateRaw(this, &FCameraShakeTrackEditor::OnCameraShakeAssetSelected, ObjectBinding);
+		AssetPickerConfig.OnAssetEnterPressed = FOnAssetEnterPressed::CreateRaw(this, &FCameraShakeTrackEditor::OnCameraShakeAssetEnterPressed, ObjectBinding);
 		AssetPickerConfig.bAllowNullSelection = false;
 		AssetPickerConfig.InitialAssetViewType = EAssetViewType::List;
 		AssetPickerConfig.Filter.ClassNames.Add(UBlueprint::StaticClass()->GetFName());
-		AssetPickerConfig.Filter.TagsAndValues.Add(ParentClassTagName, CameraShakeClassPath);
+		AssetPickerConfig.Filter.TagsAndValues.Add(FBlueprintTags::ParentClassPath, CameraShakeClassPath);
 	}
 
 	FContentBrowserModule& ContentBrowserModule = FModuleManager::Get().LoadModuleChecked<FContentBrowserModule>(TEXT("ContentBrowser"));
@@ -242,7 +220,7 @@ void FCameraShakeTrackEditor::OnCameraShakeAssetSelected(const FAssetData& Asset
 }
 
 
-FKeyPropertyResult FCameraShakeTrackEditor::AddKeyInternal(float KeyTime, const TArray<TWeakObjectPtr<UObject>> Objects, TSubclassOf<UCameraShake> ShakeClass)
+FKeyPropertyResult FCameraShakeTrackEditor::AddKeyInternal(FFrameNumber KeyTime, const TArray<TWeakObjectPtr<UObject>> Objects, TSubclassOf<UCameraShake> ShakeClass)
 {
 	FKeyPropertyResult KeyPropertyResult;
 
@@ -261,14 +239,27 @@ FKeyPropertyResult FCameraShakeTrackEditor::AddKeyInternal(float KeyTime, const 
 
 			if (ensure(Track))
 			{
-				Cast<UMovieSceneCameraShakeTrack>(Track)->AddNewCameraShake(KeyTime, ShakeClass);
+				UMovieSceneSection* NewSection = Cast<UMovieSceneCameraShakeTrack>(Track)->AddNewCameraShake(KeyTime, ShakeClass);
 				KeyPropertyResult.bTrackModified = true;
+				
+				GetSequencer()->EmptySelection();
+				GetSequencer()->SelectSection(NewSection);
+				GetSequencer()->ThrobSectionSelection();
 			}
 		}
 	}
 
 	return KeyPropertyResult;
 }
+
+void FCameraShakeTrackEditor::OnCameraShakeAssetEnterPressed(const TArray<FAssetData>& AssetData, FGuid ObjectBinding)
+{
+	if (AssetData.Num() > 0)
+	{
+		OnCameraShakeAssetSelected(AssetData[0].GetAsset(), ObjectBinding);
+	}
+}
+
 
 UCameraComponent* FCameraShakeTrackEditor::AcquireCameraComponentFromObjectGuid(const FGuid& Guid)
 {

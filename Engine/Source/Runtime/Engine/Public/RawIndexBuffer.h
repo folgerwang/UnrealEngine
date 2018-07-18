@@ -128,6 +128,27 @@ public:
 	FRawStaticIndexBuffer(bool InNeedsCPUAccess=false);
 
 	/**
+	 * Sets a single index value.  Consider using SetIndices() instead if you're setting a lot of indices.
+	 * @param	At	The index of the index to set
+	 * @param	NewIndexValue	The index value
+	 */
+	ENGINE_API inline void SetIndex( const uint32 At, const uint32 NewIndexValue )
+	{
+		check( At >= 0 && At < (uint32)IndexStorage.Num() );
+
+		if( b32Bit )
+		{
+			uint32* Indices32Bit = (uint32*)IndexStorage.GetData();
+			Indices32Bit[ At ] = NewIndexValue;
+		}
+		else
+		{
+			uint16* Indices16Bit = (uint16*)IndexStorage.GetData();
+			Indices16Bit[ At ] = (uint16)NewIndexValue;
+		}
+	}
+
+	/**
 	 * Set the indices stored within this buffer.
 	 * @param InIndices		The new indices to copy in to the buffer.
 	 * @param DesiredStride	The desired stride (16 or 32 bits).
@@ -135,11 +156,60 @@ public:
 	ENGINE_API void SetIndices(const TArray<uint32>& InIndices, EIndexBufferStride::Type DesiredStride);
 
 	/**
+	 * Insert indices at the given position in the buffer
+	 * @param	At					Index to insert at
+	 * @param	IndicesToAppend		Pointer to the array of indices to insert
+	 * @param	NumIndicesToAppend	How many indices are in the IndicesToAppend array
+	 */
+	ENGINE_API void InsertIndices( const uint32 At, const uint32* IndicesToAppend, const uint32 NumIndicesToAppend );
+
+	/**
+	 * Append indices to the end of the buffer
+	 * @param	IndicesToAppend		Pointer to the array of indices to add to the end
+	 * @param	NumIndicesToAppend	How many indices are in the IndicesToAppend array
+	 */
+	ENGINE_API void AppendIndices( const uint32* IndicesToAppend, const uint32 NumIndicesToAppend );
+
+	/** @return Gets a specific index value */
+	ENGINE_API inline uint32 GetIndex( const uint32 At ) const
+	{
+		check( At >= 0 && At < (uint32)IndexStorage.Num() );
+		uint32 IndexValue;
+		if( b32Bit )
+		{
+			const uint32* SrcIndices32Bit = (const uint32*)IndexStorage.GetData();
+			IndexValue = SrcIndices32Bit[ At ];
+		}
+		else
+		{
+			const uint16* SrcIndices16Bit = (const uint16*)IndexStorage.GetData();
+			IndexValue = SrcIndices16Bit[ At ];
+		}
+
+		return IndexValue;
+	}
+
+
+	/**
+	 * Removes indices from the buffer
+	 *
+	 * @param	At	The index of the first index to remove
+	 * @param	NumIndicesToRemove	How many indices to remove
+	 */
+	ENGINE_API void RemoveIndicesAt( const uint32 At, const uint32 NumIndicesToRemove );
+
+	/**
 	 * Retrieve a copy of the indices in this buffer. Only valid if created with
 	 * NeedsCPUAccess set to true or the resource has not yet been initialized.
 	 * @param OutIndices	Array in which to store the copy of the indices.
 	 */
 	ENGINE_API void GetCopy(TArray<uint32>& OutIndices) const;
+
+	/**
+	 * Get the direct read access to index data 
+	 * Only valid if NeedsCPUAccess = true and indices are 16 bit
+	 */
+	ENGINE_API const uint16* AccessStream16() const;
 
 	/**
 	 * Retrieves an array view in to the index buffer. The array view allows code
@@ -174,6 +244,12 @@ public:
 	 */
 	void Serialize(FArchive& Ar, bool bNeedsCPUAccess);
 
+    /**
+     * Discard
+     * discards the serialized data when it is not needed
+     */
+    void Discard();
+    
 	// FRenderResource interface.
 	virtual void InitRHI() override;
 

@@ -1,6 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "AnimBone.h"
+#include "AnimBody/AnimBone.h"
 #include "LeapInterfaceUtility.h"
 
 UAnimBone::UAnimBone(const class FObjectInitializer& Init)

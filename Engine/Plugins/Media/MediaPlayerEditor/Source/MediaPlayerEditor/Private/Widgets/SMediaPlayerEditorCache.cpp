@@ -75,7 +75,8 @@ int32 SMediaPlayerEditorCache::OnPaint(const FPaintArgs& Args, const FGeometry& 
 
 void SMediaPlayerEditorCache::DrawPlayerPosition(FTimespan Time, const FGeometry& AllottedGeometry, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, const FLinearColor& Color) const
 {
-	const FSlateBrush* GenericBrush = FCoreStyle::Get().GetBrush("GenericWhiteBox");
+	static const FSlateBrush* GenericBrush = FCoreStyle::Get().GetBrush("GenericWhiteBox");
+
 	const FTimespan Duration = MediaPlayer->GetDuration();
 	const float MarkerSize = PositionMarkerSize.Get();
 
@@ -119,7 +120,8 @@ void SMediaPlayerEditorCache::DrawSampleCache(EMediaTrackType TrackType, const F
 
 void SMediaPlayerEditorCache::DrawSampleStates(const TRangeSet<FTimespan>& RangeSet, const FGeometry& AllottedGeometry, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, const FLinearColor& Color, float YPos, float YScale) const
 {
-	const FSlateBrush* GenericBrush = FCoreStyle::Get().GetBrush("GenericWhiteBox");
+	static const FSlateBrush* GenericBrush = FCoreStyle::Get().GetBrush("GenericWhiteBox");
+
 	const FTimespan Duration = MediaPlayer->GetDuration();
 
 	FSlateClippingZone ClippingZone(AllottedGeometry);

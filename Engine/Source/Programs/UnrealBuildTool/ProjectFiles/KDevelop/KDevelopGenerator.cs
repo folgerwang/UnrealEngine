@@ -155,7 +155,7 @@ namespace UnrealBuildTool
 		{
 			int BuildConfigIndex = 1;
 
-			var UnrealRootPath = UnrealBuildTool.RootDirectory.FullName;
+			string UnrealRootPath = UnrealBuildTool.RootDirectory.FullName;
 			FileContent.Append("[CustomBuildSystem]\n");
 			FileContent.Append("CurrentConfiguration=BuildConfig0\n\n"); //
 
@@ -184,25 +184,25 @@ namespace UnrealBuildTool
 			FileContent.Append("Executable=bash\n");
 			FileContent.Append("Type=1\n\n");
 
-			foreach (var Project in GeneratedProjectFiles)
+			foreach (ProjectFile Project in GeneratedProjectFiles)
 			{
-				foreach (var TargetFile in Project.ProjectTargets)
+				foreach (ProjectTarget TargetFile in Project.ProjectTargets)
 				{
 					if (TargetFile.TargetFilePath == null)
 					{
 						continue;
 					}
 
-					var TargetName = TargetFile.TargetFilePath.GetFileNameWithoutAnyExtensions();
+					string TargetName = TargetFile.TargetFilePath.GetFileNameWithoutAnyExtensions();
 
 					// Remove both ".cs" and ".
 					foreach (UnrealTargetConfiguration CurConfiguration in Enum.GetValues(typeof(UnrealTargetConfiguration)))
 					{
 						if (CurConfiguration != UnrealTargetConfiguration.Unknown && CurConfiguration != UnrealTargetConfiguration.Development)
 						{
-							if (UnrealBuildTool.IsValidConfiguration(CurConfiguration))
+							if (InstalledPlatformInfo.IsValidConfiguration(CurConfiguration, EProjectType.Code))
 							{
-								var ConfName = Enum.GetName(typeof(UnrealTargetConfiguration), CurConfiguration);
+								string ConfName = Enum.GetName(typeof(UnrealTargetConfiguration), CurConfiguration);
 								FileContent.Append(String.Format("[CustomBuildSystem][BuildConfig{0}]\nBuildDir=file://{1}\n", BuildConfigIndex, UnrealRootPath));
 
 								if (TargetName == GameProjectName)
@@ -268,22 +268,22 @@ namespace UnrealBuildTool
 			List<string> IncludeDirectories = new List<string>();
 			List<string> SystemIncludeDirectories = new List<string>();
 
-			var UnrealEngineRootPath = UnrealBuildTool.RootDirectory.FullName;
+			string UnrealEngineRootPath = UnrealBuildTool.RootDirectory.FullName;
 
 			int IncludeIndex = 1;
 			// Iterate through all the include paths that
 			// UnrealBuildTool.exe generates
 
-			foreach (var CurProject in GeneratedProjectFiles)
+			foreach (ProjectFile CurProject in GeneratedProjectFiles)
 			{
 				KDevelopProjectFile KDevelopProject = CurProject as KDevelopProjectFile;
 				if (KDevelopProject == null)
 				{
-					System.Console.WriteLine("KDevelopProject == null");
+					Log.TraceInformation("KDevelopProject == null");
 					continue;
 				}
 
-				foreach (var CurPath in KDevelopProject.IntelliSenseIncludeSearchPaths)
+				foreach (string CurPath in KDevelopProject.IntelliSenseIncludeSearchPaths)
 				{
 					string FullProjectPath = ProjectFileGenerator.MasterProjectPath.FullName;
 					string FullPath = "";
@@ -311,7 +311,7 @@ namespace UnrealBuildTool
 
 				}
 
-				foreach (var CurPath in KDevelopProject.IntelliSenseSystemIncludeSearchPaths)
+				foreach (string CurPath in KDevelopProject.IntelliSenseSystemIncludeSearchPaths)
 				{
 					string FullProjectPath = ProjectFileGenerator.MasterProjectPath.FullName;
 					string FullPath = "";
@@ -347,13 +347,13 @@ namespace UnrealBuildTool
 			IncludeDirectories = Tmp.ToList();
 			SystemIncludeDirectories = Stmp.ToList();
 
-			foreach (var CurPath in IncludeDirectories)
+			foreach (string CurPath in IncludeDirectories)
 			{
 				FileContent.Append(CurPath);
 				FileContent.Append(" \n");
 			}
 
-			foreach (var CurPath in SystemIncludeDirectories)
+			foreach (string CurPath in SystemIncludeDirectories)
 			{
 				FileContent.Append(CurPath);
 				FileContent.Append(" \n");
@@ -394,16 +394,16 @@ namespace UnrealBuildTool
 
 			List<string> DefineHolder = new List<string>();
 
-			foreach (var CurProject in GeneratedProjectFiles)
+			foreach (ProjectFile CurProject in GeneratedProjectFiles)
 			{
 				KDevelopProjectFile KDevelopProject = CurProject as KDevelopProjectFile;
 				if (KDevelopProject == null)
 				{
-					System.Console.WriteLine("KDevelopProject == null");
+					Log.TraceInformation("KDevelopProject == null");
 					continue;
 				}
 
-				foreach (var CurDefine in KDevelopProject.IntelliSensePreprocessorDefinitions)
+				foreach (string CurDefine in KDevelopProject.IntelliSensePreprocessorDefinitions)
 				{
 					SplitDefinitionAndValue(CurDefine, out Key, out Value);
 					if (string.IsNullOrEmpty(Value))
@@ -423,7 +423,7 @@ namespace UnrealBuildTool
 			Tmp = DefineHolder.Distinct().ToList();
 			DefineHolder = Tmp.ToList();
 
-			foreach (var Def in DefineHolder)
+			foreach (string Def in DefineHolder)
 			{
 				FileContent.Append(Def);
 			}
@@ -462,18 +462,18 @@ namespace UnrealBuildTool
 		{
 			// RAKE! Take one KDevelopProjectFileContent and pass
 			// it through each function that writes out the sections.
-			var KDevelopFileContent = new StringBuilder();
-			var KDevelopMasterFileContent = new StringBuilder();
+			StringBuilder KDevelopFileContent = new StringBuilder();
+			StringBuilder KDevelopMasterFileContent = new StringBuilder();
 
 			// These are temp files until we can write them to the 
 			// *.kdev4 filename directly 
-			var DefinesFileContent = new StringBuilder();
-			var IncludesFileContent = new StringBuilder();
+			StringBuilder DefinesFileContent = new StringBuilder();
+			StringBuilder IncludesFileContent = new StringBuilder();
 
-			var FileName = MasterProjectName + ".kdev4";
+			string FileName = MasterProjectName + ".kdev4";
 
-			var DefinesFileName = "Defines.txt"; // RAKE! TEMP!
-			var IncludesFileName = "Includes.txt"; // RAKE! TEMP!
+			string DefinesFileName = "Defines.txt"; // RAKE! TEMP!
+			string IncludesFileName = "Includes.txt"; // RAKE! TEMP!
 
 			WriteKDevMasterProjectSection(ref KDevelopMasterFileContent, MasterProjectName);
 
@@ -483,18 +483,18 @@ namespace UnrealBuildTool
 			WriteExcludeSection(ref KDevelopFileContent);
 
 			// Write the master kdev file.
-			var FullMasterProjectPath = Path.Combine(MasterProjectPath.FullName, ".kdev4/");
+			string FullMasterProjectPath = Path.Combine(MasterProjectPath.FullName, ".kdev4/");
 
 			if (!Directory.Exists(FullMasterProjectPath))
 			{
 				Directory.CreateDirectory(FullMasterProjectPath);
 			}
 
-			var FullKDevelopMasterFileName = Path.Combine(MasterProjectPath.FullName, FileName);
-			var FullKDevelopFileName = Path.Combine(FullMasterProjectPath, FileName);
+			string FullKDevelopMasterFileName = Path.Combine(MasterProjectPath.FullName, FileName);
+			string FullKDevelopFileName = Path.Combine(FullMasterProjectPath, FileName);
 
-			var FullDefinesFileName = Path.Combine(FullMasterProjectPath, DefinesFileName);
-			var FullIncludesFileName = Path.Combine(FullMasterProjectPath, IncludesFileName);
+			string FullDefinesFileName = Path.Combine(FullMasterProjectPath, DefinesFileName);
+			string FullIncludesFileName = Path.Combine(FullMasterProjectPath, IncludesFileName);
 
 			WriteFileIfChanged(FullDefinesFileName, DefinesFileContent.ToString());
 			WriteFileIfChanged(FullIncludesFileName, IncludesFileContent.ToString());

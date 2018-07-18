@@ -16,7 +16,7 @@
 
 #if WITH_EDITOR
 #include "PackageTools.h"
-#include "MessageLog.h"
+#include "Logging/MessageLog.h"
 #endif
 
 #if WITH_UNREAL_DEVELOPER_TOOLS

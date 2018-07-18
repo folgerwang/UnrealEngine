@@ -11,7 +11,6 @@ public class NiagaraEditor : ModuleRules
 			"NiagaraEditor/Private/Toolkits",
 			"NiagaraEditor/Private/Widgets",
 			"NiagaraEditor/Private/Sequencer/NiagaraSequence",
-			"NiagaraEditor/Private/Sequencer/LevelSequence",
 			"NiagaraEditor/Private/ViewModels",
 			"NiagaraEditor/Private/TypeEditorUtilities"
 		});
@@ -22,6 +21,7 @@ public class NiagaraEditor : ModuleRules
                 "RHI",
                 "Core", 
 				"CoreUObject", 
+				"CurveEditor",
 				"ApplicationCore",
                 "InputCore",
 				"RenderCore",
@@ -31,10 +31,12 @@ public class NiagaraEditor : ModuleRules
                 "EditorStyle",
 				"UnrealEd", 
 				"VectorVM",
+                "NiagaraCore",
                 "Niagara",
                 "NiagaraShader",
                 "MovieScene",
 				"Sequencer",
+				"TimeManagement",
 				"PropertyEditor",
 				"GraphEditor",
                 "ShaderFormatVectorVM",
@@ -43,7 +45,8 @@ public class NiagaraEditor : ModuleRules
 				"MovieSceneTools",
                 "MovieSceneTracks",
                 "AdvancedPreviewScene",
-            }
+				"Projects",
+			}
         );
 
 		PrivateIncludePathModuleNames.AddRange(
@@ -60,8 +63,10 @@ public class NiagaraEditor : ModuleRules
 
 		PublicDependencyModuleNames.AddRange(
             new string[] {
+                "NiagaraCore",
                 "NiagaraShader",
                 "Engine",
+                "NiagaraCore",
                 "Niagara",
                 "UnrealEd",
             }

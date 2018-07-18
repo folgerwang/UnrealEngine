@@ -114,6 +114,11 @@ public:
 		 */
 		SLATE_ARGUMENT(bool, SingleLayoutPass)
 
+#if WITH_EDITOR
+		/** Force a particular screen size to be used instead of the reported device size. */
+		SLATE_ARGUMENT(TOptional<FVector2D>, OverrideScreenSize)
+#endif
+
 	SLATE_END_ARGS()
 
 	/** Constructor */
@@ -152,6 +157,10 @@ public:
 
 	/** Set IgnoreInheritedScale argument */
 	void SetIgnoreInheritedScale(bool InIgnoreInheritedScale);
+
+#if WITH_EDITOR
+	void SetOverrideScreenInformation(TOptional<FVector2D> InScreenSize);
+#endif
 	
 protected:
 	// Begin SWidget overrides.
@@ -161,6 +170,9 @@ protected:
 
 	float GetLayoutScale() const;
 	void RefreshSafeZoneScale();
+#if WITH_EDITOR
+	void DebugSafeAreaUpdated(const FMargin& NewSafeZone);
+#endif
 
 protected:
 	/** The allowed direction of stretching of the content */
@@ -206,4 +218,8 @@ protected:
 
 	/**  */
 	mutable FVector2D LastSlotWidgetDesiredSize;
+
+#if WITH_EDITOR
+	TOptional<FVector2D> OverrideScreenSize;
+#endif
 };

@@ -343,8 +343,7 @@ Now that all of the options for the Mobile Packing Wizard have been set up and s
 	[/OBJECT]
 
 	[region:warning]
-	You must package your project's files before you build the DLC. <!--Trying to package the DLC first and then packing your project will not.
-[/COMMENT]
+	You must package your project's files before you build the DLC.
 	[/region]
 
 1. Once the **Launch this Profile** button has been pressed, the Project Launcher will begin the packaging process. You can see the progress of the packaging process in the Project Launcher window.
@@ -740,9 +739,7 @@ Now that all of the options for the Mobile Packing Wizard have been set up and s
 	[/OBJECT]
 
 	[region:warning]
-	You must package your project's files before you build the DLC. [COMMENT:none]
-Trying to package the DLC first and then packing your project will not.
-[/COMMENT]
+	You must package your project's files before you build the DLC.
 	[/region]
 
 1. Once the **Launch this Profile** button has been pressed, the Project Launcher will begin the packaging process. You can see the progress of the packaging process in the Project Launcher window.
@@ -904,4 +901,4 @@ mac
 Inside of the folders, you will find the various pieces of your project that have been set up to be downloaded after the users have downloaded and installed the application on their mobile device.
 
 [/EXCERPT:ios]
--->
+[/COMMENT]

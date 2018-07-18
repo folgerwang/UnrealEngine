@@ -16,7 +16,7 @@ float DebugLineLifetime = 2.f;
 
 #include "Collision/CollisionDebugDrawing.h"
 #include "Collision/CollisionConversions.h"
-#include "ScopedTimers.h"
+#include "ProfilingDebugging/ScopedTimers.h"
 
 /**
  * Helper to lock/unlock multiple scenes that also makes sure to unlock everything when it goes out of scope.
@@ -323,7 +323,7 @@ struct FScopedSQHitchRepeater
 
 PxQueryHitType::Enum FPxQueryFilterCallback::preFilter(const PxFilterData& filterData, const PxShape* shape, const PxRigidActor* actor, PxHitFlags& queryFlags)
 {
-	SCOPE_CYCLE_COUNTER(STAT_Collision_PreFilter);
+	//SCOPE_CYCLE_COUNTER(STAT_Collision_PreFilter);
 
 	ensureMsgf(shape, TEXT("Invalid shape encountered in FPxQueryFilterCallback::preFilter, actor: %p, filterData: %x %x %x %x"), actor, filterData.word0, filterData.word1, filterData.word2, filterData.word3);
 

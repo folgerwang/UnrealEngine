@@ -23,7 +23,7 @@ class SHorizontalBox;
  * Tools for animatable transforms
  */
 class F3DTransformTrackEditor
-	: public FKeyframeTrackEditor<UMovieScene3DTransformTrack, UMovieScene3DTransformSection, FTransformKey>
+	: public FKeyframeTrackEditor<UMovieScene3DTransformTrack>
 {
 public:
 
@@ -96,14 +96,14 @@ private:
 
 	/** Generates transform keys based on the last transform, the current transform, and other options. 
 		One transform key is generated for each individual key to be added to the section. */
-	void GetTransformKeys( const FTransformData& LastTransform, const FTransformData& CurrentTransform, EKey3DTransformChannel::Type ChannelsToKey, bool bUnwindRotation, TArray<FTransformKey>& OutNewKeys, TArray<FTransformKey>& OutDefaultKeys );
+	void GetTransformKeys( const TOptional<FTransformData>& LastTransform, const FTransformData& CurrentTransform, EMovieSceneTransformChannel ChannelsToKey, FGeneratedTrackKeys& OutGeneratedKeys );
 
 	/**
 	* Adds transform tracks and keys to the selected objects in the level.
 	*
 	* @param Channel The transform channel to add keys for.
 	*/
-	void OnAddTransformKeysForSelectedObjects( EKey3DTransformChannel::Type Channel );
+	void OnAddTransformKeysForSelectedObjects( EMovieSceneTransformChannel Channel );
 
 	/** 
 	 * Adds transform keys to an object represented by a handle.
@@ -112,7 +112,7 @@ private:
 	 * @param ChannelToKey The channels to add keys to.
 	 * @param KeyParams Parameters which control how the keys are added. 
 	 */
-	void AddTransformKeysForHandle( FGuid ObjectHandle, EKey3DTransformChannel::Type ChannelToKey, ESequencerKeyMode KeyMode );
+	void AddTransformKeysForHandle( FGuid ObjectHandle, EMovieSceneTransformChannel ChannelToKey, ESequencerKeyMode KeyMode );
 
 	/**
 	* Adds transform keys to a specific object.
@@ -121,7 +121,7 @@ private:
 	* @param ChannelToKey The channels to add keys to.
 	* @param KeyParams Parameters which control how the keys are added.
 	*/
-	void AddTransformKeysForObject( UObject* Object, EKey3DTransformChannel::Type ChannelToKey, ESequencerKeyMode KeyMode );
+	void AddTransformKeysForObject( UObject* Object, EMovieSceneTransformChannel ChannelToKey, ESequencerKeyMode KeyMode );
 
 	/**
 	* Adds keys to a specific actor.
@@ -129,25 +129,17 @@ private:
 	* @param LastTransform The last known transform of the actor if any.
 	* @param CurrentTransform The current transform of the actor.
 	* @param ChannelToKey The channels to add keys to.
-	* @param bUnwindRotation Whether or not rotation key values should be unwound.
 	* @param KeyParams Parameters which control how the keys are added.
 	*/
-	void AddTransformKeys( UObject* ObjectToKey, const FTransformData& LastTransform, const FTransformData& CurrentTransform, EKey3DTransformChannel::Type ChannelsToKey, bool bUnwindRotation, ESequencerKeyMode KeyMode );
-
-	/**
-	* Delegate target of AnimatablePropertyChanged which actually adds the keys.
-
-	* @param Time The time to add keys.
-	* @param ObjectToKey The object to add keys to.
-	* @param Keys The keys to add.
-	* @param KeyParams Parameters which control how the keys are added.
-	*/
-	FKeyPropertyResult OnAddTransformKeys( float Time, UObject* ObjectToKey, TArray<FTransformKey>* NewKeys, TArray<FTransformKey>* DefaultKeys, FTransformData CurrentTransform, ESequencerKeyMode KeyMode );
+	void AddTransformKeys( UObject* ObjectToKey, const TOptional<FTransformData>& LastTransform, const FTransformData& CurrentTransform, EMovieSceneTransformChannel ChannelsToKey, ESequencerKeyMode KeyMode );
 
 private:
 
 	/** Import an animation sequence's root transforms into a transform section */
 	static void ImportAnimSequenceTransforms(const FAssetData& Asset, TSharedRef<class ISequencer> Sequencer, UMovieScene3DTransformTrack* TransformTrack);
+
+	/** Import an animation sequence's root transforms into a transform section */
+	static void ImportAnimSequenceTransformsEnterPressed(const TArray<FAssetData>& Asset, TSharedRef<class ISequencer> Sequencer, UMovieScene3DTransformTrack* TransformTrack);
 
 private:
 

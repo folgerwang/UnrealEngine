@@ -20,6 +20,15 @@ public:
 	{
 		return RenderingThreadMask;
 	}
+	static EThreadPriority GetRenderingThreadPriority()
+	{
+		return TPri_SlightlyBelowNormal;
+	}
+
+	static EThreadPriority GetRHIThreadPriority()
+	{
+		return TPri_Normal;
+	}
 
 public:
 	static int64 GameThreadMask;

@@ -1,7 +1,8 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Sections/MovieSceneParameterSection.h"
-#include "SequencerObjectVersion.h"
+#include "UObject/SequencerObjectVersion.h"
+#include "Channels/MovieSceneChannelProxy.h"
 
 FScalarParameterNameAndCurve::FScalarParameterNameAndCurve( FName InParameterName )
 {
@@ -21,6 +22,7 @@ FColorParameterNameAndCurves::FColorParameterNameAndCurves( FName InParameterNam
 UMovieSceneParameterSection::UMovieSceneParameterSection( const FObjectInitializer& ObjectInitializer )
 	: Super( ObjectInitializer )
 {
+	bSupportsInfiniteRange = true;
 	EvalOptions.EnableAndSetCompletionMode
 		(GetLinkerCustomVersion(FSequencerObjectVersion::GUID) < FSequencerObjectVersion::WhenFinishedDefaultsToRestoreState ? 
 			EMovieSceneCompletionMode::KeepState : 
@@ -29,36 +31,117 @@ UMovieSceneParameterSection::UMovieSceneParameterSection( const FObjectInitializ
 			EMovieSceneCompletionMode::ProjectDefault);
 }
 
-void UMovieSceneParameterSection::AddScalarParameterKey( FName InParameterName, float InTime, float InValue )
+void UMovieSceneParameterSection::Serialize(FArchive& Ar)
 {
-	FRichCurve* ExistingCurve = nullptr;
+	Super::Serialize(Ar);
+
+	if (Ar.IsLoading())
+	{
+		ReconstructChannelProxy();
+	}
+}
+
+void UMovieSceneParameterSection::ReconstructChannelProxy()
+{
+	FMovieSceneChannelProxyData Channels;
+
+#if WITH_EDITOR
+
+	for ( FScalarParameterNameAndCurve& Scalar : GetScalarParameterNamesAndCurves() )
+	{
+		FMovieSceneChannelMetaData MetaData(Scalar.ParameterName, FText::FromName(Scalar.ParameterName));
+		// Prevent single channels from collapsing to the track node
+		MetaData.bCanCollapseToTrack = false;
+		Channels.Add(Scalar.ParameterCurve, MetaData, TMovieSceneExternalValue<float>());
+	}
+	for ( FVectorParameterNameAndCurves& Vector : GetVectorParameterNamesAndCurves() )
+	{
+		FString ParameterString = Vector.ParameterName.ToString();
+		FText Group = FText::FromString(ParameterString);
+
+		Channels.Add(Vector.XCurve, FMovieSceneChannelMetaData(*(ParameterString + TEXT(".X")), FCommonChannelData::ChannelX, Group), TMovieSceneExternalValue<float>());
+		Channels.Add(Vector.YCurve, FMovieSceneChannelMetaData(*(ParameterString + TEXT(".Y")), FCommonChannelData::ChannelY, Group), TMovieSceneExternalValue<float>());
+		Channels.Add(Vector.ZCurve, FMovieSceneChannelMetaData(*(ParameterString + TEXT(".Z")), FCommonChannelData::ChannelZ, Group), TMovieSceneExternalValue<float>());
+	}
+	for ( FColorParameterNameAndCurves& Color : GetColorParameterNamesAndCurves() )
+	{
+		FString ParameterString = Color.ParameterName.ToString();
+		FText Group = FText::FromString(ParameterString);
+
+		FMovieSceneChannelMetaData MetaData_R(*(ParameterString + TEXT("R")), FCommonChannelData::ChannelR, Group);
+		MetaData_R.SortOrder = 0;
+		MetaData_R.Color = FCommonChannelData::RedChannelColor;
+
+		FMovieSceneChannelMetaData MetaData_G(*(ParameterString + TEXT("G")), FCommonChannelData::ChannelG, Group);
+		MetaData_G.SortOrder = 1;
+		MetaData_G.Color = FCommonChannelData::GreenChannelColor;
+
+		FMovieSceneChannelMetaData MetaData_B(*(ParameterString + TEXT("B")), FCommonChannelData::ChannelB, Group);
+		MetaData_B.SortOrder = 2;
+		MetaData_B.Color = FCommonChannelData::BlueChannelColor;
+
+		FMovieSceneChannelMetaData MetaData_A(*(ParameterString + TEXT("A")), FCommonChannelData::ChannelA, Group);
+		MetaData_A.SortOrder = 3;
+
+		Channels.Add(Color.RedCurve,   MetaData_R, TMovieSceneExternalValue<float>());
+		Channels.Add(Color.GreenCurve, MetaData_G, TMovieSceneExternalValue<float>());
+		Channels.Add(Color.BlueCurve,  MetaData_B, TMovieSceneExternalValue<float>());
+		Channels.Add(Color.AlphaCurve, MetaData_A, TMovieSceneExternalValue<float>());
+	}
+
+#else
+
+	for ( FScalarParameterNameAndCurve& Scalar : GetScalarParameterNamesAndCurves() )
+	{
+		Channels.Add(Scalar.ParameterCurve);
+	}
+	for ( FVectorParameterNameAndCurves& Vector : GetVectorParameterNamesAndCurves() )
+	{
+		Channels.Add(Vector.XCurve);
+		Channels.Add(Vector.YCurve);
+		Channels.Add(Vector.ZCurve);
+	}
+	for ( FColorParameterNameAndCurves& Color : GetColorParameterNamesAndCurves() )
+	{
+		Channels.Add(Color.RedCurve);
+		Channels.Add(Color.GreenCurve);
+		Channels.Add(Color.BlueCurve);
+		Channels.Add(Color.AlphaCurve);
+	}
+
+#endif
+
+	ChannelProxy = MakeShared<FMovieSceneChannelProxy>(MoveTemp(Channels));
+}
+
+void UMovieSceneParameterSection::AddScalarParameterKey( FName InParameterName, FFrameNumber InTime, float InValue )
+{
+	FMovieSceneFloatChannel* ExistingChannel = nullptr;
 	for ( FScalarParameterNameAndCurve& ScalarParameterNameAndCurve : ScalarParameterNamesAndCurves )
 	{
 		if ( ScalarParameterNameAndCurve.ParameterName == InParameterName )
 		{
-			ExistingCurve = &ScalarParameterNameAndCurve.ParameterCurve;
+			ExistingChannel = &ScalarParameterNameAndCurve.ParameterCurve;
 			break;
 		}
 	}
-	if ( ExistingCurve == nullptr )
+	if ( ExistingChannel == nullptr )
 	{
-		int32 NewIndex = ScalarParameterNamesAndCurves.Add( FScalarParameterNameAndCurve( InParameterName ) );
-		ScalarParameterNamesAndCurves[NewIndex].Index = ScalarParameterNamesAndCurves.Num() + VectorParameterNamesAndCurves.Num() - 1;
-		ExistingCurve = &ScalarParameterNamesAndCurves[NewIndex].ParameterCurve;
-	}
-	ExistingCurve->AddKey(InTime, InValue);
+		const int32 NewIndex = ScalarParameterNamesAndCurves.Add( FScalarParameterNameAndCurve( InParameterName ) );
+		ExistingChannel = &ScalarParameterNamesAndCurves[NewIndex].ParameterCurve;
 
-	if (GetStartTime() > InTime)
-	{
-		SetStartTime(InTime);
+		ReconstructChannelProxy();
 	}
-	if (GetEndTime() < InTime)
+
+	ExistingChannel->AddCubicKey(InTime, InValue);
+
+	if (TryModify())
 	{
-		SetEndTime(InTime);
+		SetRange(TRange<FFrameNumber>::Hull(TRange<FFrameNumber>(InTime), GetRange()));
 	}
 }
 
-void UMovieSceneParameterSection::AddVectorParameterKey( FName InParameterName, float InTime, FVector InValue )
+void UMovieSceneParameterSection::AddVectorParameterKey( FName InParameterName, FFrameNumber InTime, FVector InValue )
 {
 	FVectorParameterNameAndCurves* ExistingCurves = nullptr;
 	for ( FVectorParameterNameAndCurves& VectorParameterNameAndCurve : VectorParameterNamesAndCurves )
@@ -72,24 +155,22 @@ void UMovieSceneParameterSection::AddVectorParameterKey( FName InParameterName, 
 	if ( ExistingCurves == nullptr )
 	{
 		int32 NewIndex = VectorParameterNamesAndCurves.Add( FVectorParameterNameAndCurves( InParameterName ) );
-		VectorParameterNamesAndCurves[NewIndex].Index = VectorParameterNamesAndCurves.Num() + VectorParameterNamesAndCurves.Num() - 1;
 		ExistingCurves = &VectorParameterNamesAndCurves[NewIndex];
-	}
-	ExistingCurves->XCurve.AddKey( InTime, InValue.X );
-	ExistingCurves->YCurve.AddKey( InTime, InValue.Y );
-	ExistingCurves->ZCurve.AddKey( InTime, InValue.Z );
 
-	if (GetStartTime() > InTime)
-	{
-		SetStartTime(InTime);
+		ReconstructChannelProxy();
 	}
-	if (GetEndTime() < InTime)
+
+	ExistingCurves->XCurve.AddCubicKey(InTime, InValue.X);
+	ExistingCurves->YCurve.AddCubicKey(InTime, InValue.Y);
+	ExistingCurves->ZCurve.AddCubicKey(InTime, InValue.Z);
+
+	if (TryModify())
 	{
-		SetEndTime(InTime);
+		SetRange(TRange<FFrameNumber>::Hull(TRange<FFrameNumber>(InTime), GetRange()));
 	}
 }
 
-void UMovieSceneParameterSection::AddColorParameterKey( FName InParameterName, float InTime, FLinearColor InValue )
+void UMovieSceneParameterSection::AddColorParameterKey( FName InParameterName, FFrameNumber InTime, FLinearColor InValue )
 {
 	FColorParameterNameAndCurves* ExistingCurves = nullptr;
 	for ( FColorParameterNameAndCurves& ColorParameterNameAndCurve : ColorParameterNamesAndCurves )
@@ -103,21 +184,19 @@ void UMovieSceneParameterSection::AddColorParameterKey( FName InParameterName, f
 	if ( ExistingCurves == nullptr )
 	{
 		int32 NewIndex = ColorParameterNamesAndCurves.Add( FColorParameterNameAndCurves( InParameterName ) );
-		ColorParameterNamesAndCurves[NewIndex].Index = ColorParameterNamesAndCurves.Num() + ColorParameterNamesAndCurves.Num() - 1;
 		ExistingCurves = &ColorParameterNamesAndCurves[NewIndex];
-	}
-	ExistingCurves->RedCurve.AddKey( InTime, InValue.R );
-	ExistingCurves->GreenCurve.AddKey( InTime, InValue.G );
-	ExistingCurves->BlueCurve.AddKey( InTime, InValue.B );
-	ExistingCurves->AlphaCurve.AddKey( InTime, InValue.A );
 
-	if (GetStartTime() > InTime)
-	{
-		SetStartTime(InTime);
+		ReconstructChannelProxy();
 	}
-	if (GetEndTime() < InTime)
+
+	ExistingCurves->RedCurve.AddCubicKey(   InTime, InValue.R );
+	ExistingCurves->GreenCurve.AddCubicKey( InTime, InValue.G );
+	ExistingCurves->BlueCurve.AddCubicKey(  InTime, InValue.B );
+	ExistingCurves->AlphaCurve.AddCubicKey( InTime, InValue.A );
+
+	if (TryModify())
 	{
-		SetEndTime(InTime);
+		SetRange(TRange<FFrameNumber>::Hull(TRange<FFrameNumber>(InTime), GetRange()));
 	}
 }
 
@@ -128,7 +207,7 @@ bool UMovieSceneParameterSection::RemoveScalarParameter( FName InParameterName )
 		if ( ScalarParameterNamesAndCurves[i].ParameterName == InParameterName )
 		{
 			ScalarParameterNamesAndCurves.RemoveAt(i);
-			UpdateParameterIndicesFromRemoval(i);
+			ReconstructChannelProxy();
 			return true;
 		}
 	}
@@ -142,7 +221,7 @@ bool UMovieSceneParameterSection::RemoveVectorParameter( FName InParameterName )
 		if ( VectorParameterNamesAndCurves[i].ParameterName == InParameterName )
 		{
 			VectorParameterNamesAndCurves.RemoveAt( i );
-			UpdateParameterIndicesFromRemoval( i );
+			ReconstructChannelProxy();
 			return true;
 		}
 	}
@@ -156,16 +235,16 @@ bool UMovieSceneParameterSection::RemoveColorParameter( FName InParameterName )
 		if ( ColorParameterNamesAndCurves[i].ParameterName == InParameterName )
 		{
 			ColorParameterNamesAndCurves.RemoveAt( i );
-			UpdateParameterIndicesFromRemoval( i );
+			ReconstructChannelProxy();
 			return true;
 		}
 	}
 	return false;
 }
 
-TArray<FScalarParameterNameAndCurve>* UMovieSceneParameterSection::GetScalarParameterNamesAndCurves()
+TArray<FScalarParameterNameAndCurve>& UMovieSceneParameterSection::GetScalarParameterNamesAndCurves()
 {
-	return &ScalarParameterNamesAndCurves;
+	return ScalarParameterNamesAndCurves;
 }
 
 const TArray<FScalarParameterNameAndCurve>& UMovieSceneParameterSection::GetScalarParameterNamesAndCurves() const
@@ -173,9 +252,9 @@ const TArray<FScalarParameterNameAndCurve>& UMovieSceneParameterSection::GetScal
 	return ScalarParameterNamesAndCurves;
 }
 
-TArray<FVectorParameterNameAndCurves>* UMovieSceneParameterSection::GetVectorParameterNamesAndCurves()
+TArray<FVectorParameterNameAndCurves>& UMovieSceneParameterSection::GetVectorParameterNamesAndCurves()
 {
-	return &VectorParameterNamesAndCurves;
+	return VectorParameterNamesAndCurves;
 }
 
 const TArray<FVectorParameterNameAndCurves>& UMovieSceneParameterSection::GetVectorParameterNamesAndCurves() const
@@ -183,9 +262,9 @@ const TArray<FVectorParameterNameAndCurves>& UMovieSceneParameterSection::GetVec
 	return VectorParameterNamesAndCurves;
 }
 
-TArray<FColorParameterNameAndCurves>* UMovieSceneParameterSection::GetColorParameterNamesAndCurves()
+TArray<FColorParameterNameAndCurves>& UMovieSceneParameterSection::GetColorParameterNamesAndCurves()
 {
-	return &ColorParameterNamesAndCurves;
+	return ColorParameterNamesAndCurves;
 }
 
 const TArray<FColorParameterNameAndCurves>& UMovieSceneParameterSection::GetColorParameterNamesAndCurves() const
@@ -206,163 +285,5 @@ void UMovieSceneParameterSection::GetParameterNames( TSet<FName>& ParameterNames
 	for ( const FColorParameterNameAndCurves& ColorParameterNameAndCurves : ColorParameterNamesAndCurves )
 	{
 		ParameterNames.Add( ColorParameterNameAndCurves.ParameterName );
-	}
-}
-
-void UMovieSceneParameterSection::UpdateParameterIndicesFromRemoval( int32 RemovedIndex )
-{
-	for ( FScalarParameterNameAndCurve& ScalarParameterAndCurve : ScalarParameterNamesAndCurves )
-	{
-		if ( ScalarParameterAndCurve.Index > RemovedIndex )
-		{
-			ScalarParameterAndCurve.Index--;
-		}
-	}
-	for ( FVectorParameterNameAndCurves& VectorParameterAndCurves : VectorParameterNamesAndCurves )
-	{
-		if ( VectorParameterAndCurves.Index > RemovedIndex )
-		{
-			VectorParameterAndCurves.Index--;
-		}
-	}
-	for ( FColorParameterNameAndCurves& ColorParameterAndCurves : ColorParameterNamesAndCurves )
-	{
-		if ( ColorParameterAndCurves.Index > RemovedIndex )
-		{
-			ColorParameterAndCurves.Index--;
-		}
-	}
-}
-
-void UMovieSceneParameterSection::GatherCurves(TArray<const FRichCurve*>& OutCurves) const
-{
-	for ( const FScalarParameterNameAndCurve& ScalarParameterNameAndCurve : ScalarParameterNamesAndCurves )
-	{
-		OutCurves.Add(&ScalarParameterNameAndCurve.ParameterCurve);
-	}
-
-	for ( const FVectorParameterNameAndCurves& VectorParameterNameAndCurves : VectorParameterNamesAndCurves )
-	{
-		OutCurves.Add(&VectorParameterNameAndCurves.XCurve);
-		OutCurves.Add(&VectorParameterNameAndCurves.YCurve);
-		OutCurves.Add(&VectorParameterNameAndCurves.ZCurve);
-	}
-
-	for ( const FColorParameterNameAndCurves& ColorParameterNameAndCurve : ColorParameterNamesAndCurves )
-	{
-		OutCurves.Add(&ColorParameterNameAndCurve.RedCurve);
-		OutCurves.Add(&ColorParameterNameAndCurve.BlueCurve);
-		OutCurves.Add(&ColorParameterNameAndCurve.GreenCurve);
-		OutCurves.Add(&ColorParameterNameAndCurve.AlphaCurve);
-	}
-}
-
-void UMovieSceneParameterSection::GatherCurves(TArray<FRichCurve*>& OutCurves)
-{
-	for ( FScalarParameterNameAndCurve& ScalarParameterNameAndCurve : ScalarParameterNamesAndCurves )
-	{
-		OutCurves.Add(&ScalarParameterNameAndCurve.ParameterCurve);
-	}
-
-	for ( FVectorParameterNameAndCurves& VectorParameterNameAndCurves : VectorParameterNamesAndCurves )
-	{
-		OutCurves.Add(&VectorParameterNameAndCurves.XCurve);
-		OutCurves.Add(&VectorParameterNameAndCurves.YCurve);
-		OutCurves.Add(&VectorParameterNameAndCurves.ZCurve);
-	}
-
-	for ( FColorParameterNameAndCurves& ColorParameterNameAndCurve : ColorParameterNamesAndCurves )
-	{
-		OutCurves.Add(&ColorParameterNameAndCurve.RedCurve);
-		OutCurves.Add(&ColorParameterNameAndCurve.BlueCurve);
-		OutCurves.Add(&ColorParameterNameAndCurve.GreenCurve);
-		OutCurves.Add(&ColorParameterNameAndCurve.AlphaCurve);
-	}
-}
-
-
-
-/* UMovieSceneSection overrides
- *****************************************************************************/
-
-void UMovieSceneParameterSection::DilateSection(float DilationFactor, float Origin, TSet<FKeyHandle>& KeyHandles)
-{
-	Super::DilateSection(DilationFactor, Origin, KeyHandles);
-
-	TArray<FRichCurve*> AllCurves;
-	GatherCurves(AllCurves);
-
-	for (auto Curve : AllCurves)
-	{
-		Curve->ScaleCurve(Origin, DilationFactor, KeyHandles);
-	}
-}
-
-void UMovieSceneParameterSection::GetKeyHandles(TSet<FKeyHandle>& OutKeyHandles, TRange<float> TimeRange) const
-{
-	if (!TimeRange.Overlaps(GetRange()))
-	{
-		return;
-	}
-
-	TArray<const FRichCurve*> AllCurves;
-	GatherCurves(AllCurves);
-
-	for (auto Curve : AllCurves)
-	{
-		for (auto It(Curve->GetKeyHandleIterator()); It; ++It)
-		{
-			float Time = Curve->GetKeyTime(It.Key());
-			if (TimeRange.Contains(Time))
-			{
-				OutKeyHandles.Add(It.Key());
-			}
-		}
-	}
-}
-
-
-void UMovieSceneParameterSection::MoveSection(float DeltaPosition, TSet<FKeyHandle>& KeyHandles)
-{
-	Super::MoveSection(DeltaPosition, KeyHandles);
-
-	TArray<FRichCurve*> AllCurves;
-	GatherCurves(AllCurves);
-
-	for (auto Curve : AllCurves)
-	{
-		Curve->ShiftCurve(DeltaPosition, KeyHandles);
-	}
-}
-
-
-TOptional<float> UMovieSceneParameterSection::GetKeyTime( FKeyHandle KeyHandle ) const
-{
-	TArray<const FRichCurve*> AllCurves;
-	GatherCurves( AllCurves );
-
-	for ( auto Curve : AllCurves )
-	{
-		if ( Curve->IsKeyHandleValid( KeyHandle ) )
-		{
-			return TOptional<float>( Curve->GetKeyTime( KeyHandle ) );
-		}
-	}
-	return TOptional<float>();
-}
-
-
-void UMovieSceneParameterSection::SetKeyTime( FKeyHandle KeyHandle, float Time )
-{
-	TArray<FRichCurve*> AllCurves;
-	GatherCurves( AllCurves );
-
-	for ( auto Curve : AllCurves )
-	{
-		if ( Curve->IsKeyHandleValid( KeyHandle ) )
-		{
-			Curve->SetKeyTime( KeyHandle, Time );
-			break;
-		}
 	}
 }

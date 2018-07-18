@@ -83,7 +83,7 @@ void FOnlineAsyncTaskManager::Stop(void)
 		NumOutTasks = OutQueue.Num();
 	}
 
-	UE_LOG_ONLINE(Display, TEXT("FOnlineAsyncTaskManager::Stop() ActiveTask:%p Tasks[%d/%d]"), ActiveTask, NumInTasks, NumOutTasks);
+	UE_LOG_ONLINE(VeryVerbose, TEXT("FOnlineAsyncTaskManager::Stop() ActiveTask:%p Tasks[%d/%d]"), ActiveTask, NumInTasks, NumOutTasks);
 
 	// Set the variable to requesting exit before we trigger the event
 	bRequestingExit = true;
@@ -92,7 +92,7 @@ void FOnlineAsyncTaskManager::Stop(void)
 
 void FOnlineAsyncTaskManager::Exit(void)
 {
-	UE_LOG_ONLINE(Display, TEXT("FOnlineAsyncTaskManager::Exit() started"));
+	UE_LOG_ONLINE(VeryVerbose, TEXT("FOnlineAsyncTaskManager::Exit() started"));
 
 	FPlatformProcess::ReturnSynchEventToPool(WorkEvent);
 	WorkEvent = nullptr;
@@ -100,7 +100,7 @@ void FOnlineAsyncTaskManager::Exit(void)
 	OnlineThreadId = 0;
 	InvocationCount--;
 
-	UE_LOG_ONLINE(Display, TEXT("FOnlineAsyncTaskManager::Exit() finished"));
+	UE_LOG_ONLINE(VeryVerbose, TEXT("FOnlineAsyncTaskManager::Exit() finished"));
 }
 
 void FOnlineAsyncTaskManager::AddToInQueue(FOnlineAsyncTask* NewTask)
@@ -162,6 +162,7 @@ void FOnlineAsyncTaskManager::GameTick()
 				else
 				{
 					Item = nullptr;
+					break;
 				}
 #else
 				OutQueue.RemoveAt(0);	
@@ -174,7 +175,7 @@ void FOnlineAsyncTaskManager::GameTick()
 #if !UE_BUILD_SHIPPING
 			if (TimeToWait > 0.0f)
 			{
-				UE_LOG(LogOnline, Verbose, TEXT("Async task '%s' finalizing after %f seconds"),
+				UE_LOG_ONLINE(Verbose, TEXT("Async task '%s' finalizing after %f seconds"),
 					*Item->ToString(),
 					Item->GetElapsedTime());
 			}
@@ -187,7 +188,7 @@ void FOnlineAsyncTaskManager::GameTick()
 			Item = nullptr;
 		}
 	}
-	while (Item != nullptr);
+	while (CurrentQueueSize > 1);
 
 	int32 QueueSize = 0;
 	bool bHasActiveTask = false;
@@ -257,13 +258,13 @@ void FOnlineAsyncTaskManager::Tick()
 			{
 				if (Task->WasSuccessful())
 				{
-					UE_LOG(LogOnline, Verbose, TEXT("Async task '%s' succeeded in %f seconds (Parallel)"),
+					UE_LOG_ONLINE(Verbose, TEXT("Async task '%s' succeeded in %f seconds (Parallel)"),
 						*Task->ToString(),
 						Task->GetElapsedTime());
 				}
 				else
 				{
-					UE_LOG(LogOnline, Warning, TEXT("Async task '%s' failed in %f seconds (Parallel)"),
+					UE_LOG_ONLINE(Warning, TEXT("Async task '%s' failed in %f seconds (Parallel)"),
 						*Task->ToString(),
 						Task->GetElapsedTime());
 				}
@@ -291,13 +292,13 @@ void FOnlineAsyncTaskManager::Tick()
 			{
 				if (Task->WasSuccessful())
 				{
-					UE_LOG(LogOnline, Verbose, TEXT("Async task '%s' succeeded in %f seconds"),
+					UE_LOG_ONLINE(Verbose, TEXT("Async task '%s' succeeded in %f seconds"),
 						*Task->ToString(),
 						Task->GetElapsedTime());
 				}
 				else
 				{
-					UE_LOG(LogOnline, Warning, TEXT("Async task '%s' failed in %f seconds"),
+					UE_LOG_ONLINE(Warning, TEXT("Async task '%s' failed in %f seconds"),
 						*Task->ToString(),
 						Task->GetElapsedTime());
 				}

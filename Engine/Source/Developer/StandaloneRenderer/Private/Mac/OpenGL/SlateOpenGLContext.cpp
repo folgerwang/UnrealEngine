@@ -5,11 +5,11 @@
 
 #include "SlateOpenGLMac.h"
 
-#include "MacApplication.h"
-#include "MacWindow.h"
-#include "MacTextInputMethodSystem.h"
-#include "MacPlatformApplicationMisc.h"
-#include "CocoaTextView.h"
+#include "Mac/MacApplication.h"
+#include "Mac/MacWindow.h"
+#include "Mac/MacTextInputMethodSystem.h"
+#include "Mac/MacPlatformApplicationMisc.h"
+#include "Mac/CocoaTextView.h"
 #include <OpenGL/gl.h>
 #include <OpenGL/glext.h>
 
@@ -193,7 +193,7 @@ void FSlateOpenGLContext::Initialize(void* InWindow, const FSlateOpenGLContext* 
 			[View setWantsBestResolutionOpenGLSurface:YES];
 		}
 
-		if (FPlatformMisc::IsRunningOnMavericks() && ([Window styleMask] & NSTexturedBackgroundWindowMask))
+		if (FPlatformMisc::IsRunningOnMavericks() && ([Window styleMask] & NSWindowStyleMaskTexturedBackground))
 		{
 			NSView* SuperView = [[Window contentView] superview];
 			[SuperView addSubview:View];

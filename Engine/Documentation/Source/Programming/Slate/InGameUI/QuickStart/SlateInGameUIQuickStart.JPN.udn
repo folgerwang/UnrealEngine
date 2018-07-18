@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2621786
+﻿INTSourceChangelist:3238697
 Title:Slate インゲーム UI のクイックスタート
 Crumbs:
 Description:
@@ -43,7 +43,7 @@ Version:4.9
 			TSharedPtr<SWidget> MenuRoot;
 		};
 
-	安全なリファレンスを Slate Menu イベントのデリゲート関数の「これ」にパスするのに便利なので、MainMenu クラスは TSharedFromThis テンプレートを継承します。詳細については後で説明します。
+	安全なリファレンスを Slate Menu イベントのデリゲート関数の「これ」にパスするのに便利なので、MainMenu クラスは TSharedFromThis テンプレートから派生します。詳細については後で説明します。
 
 1. メニュー クラスの関数の基本的な実装を追加します。
 
@@ -89,7 +89,7 @@ Version:4.9
 
 	#pragma once
 
-	#include "GameFramework/GameMode.h"
+	#include "GameFramework/GameModeBase.h"
 	#include "MainMenuGameMode.generated.h"
 
 	class MainMenu;
@@ -98,11 +98,15 @@ Version:4.9
 	 * 
 	 */
 	UCLASS()
-	class AMainMenuGameMode : public AGameMode
+	class AMainMenuGameMode : public AGameModeBase
 	{
 		GENERATED_UCLASS_BODY()
 
+	protected:
+
 		virtual void BeginPlay() override;
+
+	public:
 
 		TSharedPtr<MainMenu> MainMenuPtr;
 

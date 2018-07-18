@@ -23,7 +23,6 @@ public class MacTargetPlatform : ModuleRules
 
 		PrivateIncludePaths.AddRange(
 			new string[] {
-				"Developer/MacTargetPlatform/Classes"
 			}
 		);
 

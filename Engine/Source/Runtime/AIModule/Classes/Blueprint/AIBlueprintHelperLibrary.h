@@ -65,4 +65,9 @@ class AIMODULE_API UAIBlueprintHelperLibrary : public UBlueprintFunctionLibrary
 	UFUNCTION(BlueprintPure, Category = "AI", meta = (UnsafeDuringActorConstruction = "true"))
 	static UNavigationPath* GetCurrentPath(AController* Controller);
 
+	UFUNCTION(BlueprintCallable, Category = "AI|Navigation")
+	static void SimpleMoveToActor(AController* Controller, const AActor* Goal);
+
+	UFUNCTION(BlueprintCallable, Category = "AI|Navigation")
+	static void SimpleMoveToLocation(AController* Controller, const FVector& Goal);
 };

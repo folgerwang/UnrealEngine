@@ -28,27 +28,17 @@ const FString UGatherTextCommandlet::UsageText
 
 int32 UGatherTextCommandlet::Main( const FString& Params )
 {
-	const TCHAR* Parms = *Params;
 	TArray<FString> Tokens;
 	TArray<FString> Switches;
 	TMap<FString, FString> ParamVals;
 	UCommandlet::ParseCommandLine(*Params, Tokens, Switches, ParamVals);
 	
-	// find the file corresponding to this object's loc file, loading it if necessary
-	FString GatherTextConfigPath;
-	const FString* ParamVal = ParamVals.Find(FString(TEXT("Config")));
-	if (ParamVal)
+	// Build up the complete list of config files to process
+	TArray<FString> GatherTextConfigPaths;
+	if (const FString* ConfigParamPtr = ParamVals.Find(TEXT("config")))
 	{
-		GatherTextConfigPath = *ParamVal;
-	}	
-	else
-	{
-		UE_LOG(LogGatherTextCommandlet, Error, TEXT("-Config not specified.\n%s"), *UsageText);
-		return -1;
-	}
+		ConfigParamPtr->ParseIntoArray(GatherTextConfigPaths, TEXT(";"));
 
-	if(FPaths::IsRelative(GatherTextConfigPath))
-	{
 		FString ProjectBasePath;
 		if (!FPaths::ProjectDir().IsEmpty())
 		{
@@ -58,9 +48,70 @@ int32 UGatherTextCommandlet::Main( const FString& Params )
 		{
 			ProjectBasePath = FPaths::EngineDir();
 		}
-		GatherTextConfigPath = FPaths::Combine( *ProjectBasePath, *GatherTextConfigPath );
+
+		for (FString& GatherTextConfigPath : GatherTextConfigPaths)
+		{
+			if (FPaths::IsRelative(GatherTextConfigPath))
+			{
+				GatherTextConfigPath = FPaths::Combine(*ProjectBasePath, *GatherTextConfigPath);
+			}
+		}
 	}
 
+	if (GatherTextConfigPaths.Num() == 0)
+	{
+		UE_LOG(LogGatherTextCommandlet, Error, TEXT("-config not specified.\n%s"), *UsageText);
+		return -1;
+	}
+
+	const bool bEnableSourceControl = Switches.Contains(TEXT("EnableSCC"));
+	const bool bDisableSubmit = Switches.Contains(TEXT("DisableSCCSubmit"));
+
+	TSharedPtr<FLocalizationSCC> CommandletSourceControlInfo;
+	if (bEnableSourceControl)
+	{
+		CommandletSourceControlInfo = MakeShareable(new FLocalizationSCC());
+
+		FText SCCErrorStr;
+		if (!CommandletSourceControlInfo->IsReady(SCCErrorStr))
+		{
+			UE_LOG(LogGatherTextCommandlet, Error, TEXT("Source Control error: %s"), *SCCErrorStr.ToString());
+			return -1;
+		}
+	}
+
+	for (const FString& GatherTextConfigPath : GatherTextConfigPaths)
+	{
+		const int32 Result = ProcessGatherConfig(GatherTextConfigPath, CommandletSourceControlInfo, Tokens, Switches, ParamVals);
+		if (Result != 0)
+		{
+			return Result;
+		}
+	}
+
+	if (CommandletSourceControlInfo.IsValid() && !bDisableSubmit)
+	{
+		FText SCCErrorStr;
+		if (CommandletSourceControlInfo->CheckinFiles(GetChangelistDescription(GatherTextConfigPaths), SCCErrorStr))
+		{
+			UE_LOG(LogGatherTextCommandlet, Log, TEXT("Submitted Localization files."));
+		}
+		else
+		{
+			UE_LOG(LogGatherTextCommandlet, Error, TEXT("%s"), *SCCErrorStr.ToString());
+			if (!CommandletSourceControlInfo->CleanUp(SCCErrorStr))
+			{
+				UE_LOG(LogGatherTextCommandlet, Error, TEXT("%s"), *SCCErrorStr.ToString());
+			}
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
+int32 UGatherTextCommandlet::ProcessGatherConfig(const FString& GatherTextConfigPath, const TSharedPtr<FLocalizationSCC>& CommandletSourceControlInfo, const TArray<FString>& Tokens, const TArray<FString>& Switches, const TMap<FString, FString>& ParamVals)
+{
 	GConfig->LoadFile(*GatherTextConfigPath);
 
 	if (!GConfig->FindConfigFile(*GatherTextConfigPath))
@@ -69,24 +120,7 @@ int32 UGatherTextCommandlet::Main( const FString& Params )
 		return -1; 
 	}
 
-	const bool bEnableSourceControl = Switches.Contains(TEXT("EnableSCC"));
-	const bool bDisableSubmit = Switches.Contains(TEXT("DisableSCCSubmit"));
-
-	UE_LOG(LogGatherTextCommandlet, Log,TEXT("Beginning GatherText Commandlet."));
-
-	TSharedPtr< FLocalizationSCC > CommandletSourceControlInfo = nullptr;
-
-	if( bEnableSourceControl )
-	{
-		CommandletSourceControlInfo = MakeShareable( new FLocalizationSCC() );
-
-		FText SCCErrorStr;
-		if( !CommandletSourceControlInfo->IsReady( SCCErrorStr ) )
-		{
-			UE_LOG( LogGatherTextCommandlet, Error, TEXT("Source Control error: %s"), *SCCErrorStr.ToString() );
-			return -1;
-		}
-	}
+	UE_LOG(LogGatherTextCommandlet, Display, TEXT("Beginning GatherText Commandlet for '%s'"), *GatherTextConfigPath);
 
 	// Basic helper that can be used only to gather a new manifest for writing
 	TSharedRef<FLocTextHelper> CommandletGatherManifestHelper = MakeShareable(new FLocTextHelper(MakeShareable(new FLocFileSCCNotifies(CommandletSourceControlInfo))));
@@ -122,7 +156,7 @@ int32 UGatherTextCommandlet::Main( const FString& Params )
 		UClass* CommandletClass = FindObject<UClass>(ANY_PACKAGE,*CommandletClassName,false);
 		if (!CommandletClass)
 		{
-			UE_LOG(LogGatherTextCommandlet, Error,TEXT("The commandlet name %s in section %s is invalid."), *CommandletClassName, *StepName);
+			UE_LOG(LogGatherTextCommandlet, Error, TEXT("The commandlet name %s in section %s is invalid."), *CommandletClassName, *StepName);
 			continue;
 		}
 
@@ -134,7 +168,7 @@ int32 UGatherTextCommandlet::Main( const FString& Params )
 		// Execute the commandlet.
 		double CommandletExecutionStartTime = FPlatformTime::Seconds();
 
-		UE_LOG(LogGatherTextCommandlet, Log,TEXT("Executing %s: %s"), *StepName, *CommandletClassName);
+		UE_LOG(LogGatherTextCommandlet, Display, TEXT("Executing %s: %s"), *StepName, *CommandletClassName);
 		
 		FString GeneratedCmdLine = FString::Printf(TEXT("-Config=\"%s\" -Section=%s"), *GatherTextConfigPath , *StepName);
 
@@ -158,7 +192,7 @@ int32 UGatherTextCommandlet::Main( const FString& Params )
 
 		if( 0 != Commandlet->Main( GeneratedCmdLine ) )
 		{
-			UE_LOG(LogGatherTextCommandlet, Error,TEXT("%s-%s reported an error."), *StepName, *CommandletClassName);
+			UE_LOG(LogGatherTextCommandlet, Error, TEXT("%s-%s reported an error."), *StepName, *CommandletClassName);
 			if( CommandletSourceControlInfo.IsValid() )
 			{
 				FText SCCErrorStr;
@@ -170,77 +204,28 @@ int32 UGatherTextCommandlet::Main( const FString& Params )
 			return -1;
 		}
 
-		UE_LOG(LogGatherTextCommandlet, Log,TEXT("Completed %s: %s"), *StepName, *CommandletClassName);
-	}
-
-	if( CommandletSourceControlInfo.IsValid() && !bDisableSubmit )
-	{
-		FText SCCErrorStr;
-		if( CommandletSourceControlInfo->CheckinFiles( GetChangelistDescription(GatherTextConfigPath), SCCErrorStr ) )
-		{
-			UE_LOG(LogGatherTextCommandlet, Log,TEXT("Submitted Localization files."));
-		}
-		else
-		{
-			UE_LOG(LogGatherTextCommandlet, Error, TEXT("%s"), *SCCErrorStr.ToString());
-			if( !CommandletSourceControlInfo->CleanUp( SCCErrorStr ) )
-			{
-				UE_LOG(LogGatherTextCommandlet, Error, TEXT("%s"), *SCCErrorStr.ToString());
-			}
-			return -1;
-		}
+		UE_LOG(LogGatherTextCommandlet, Display, TEXT("Completed %s: %s in %f seconds"), *StepName, *CommandletClassName, FPlatformTime::Seconds() - CommandletExecutionStartTime);
 	}
 
 	return 0;
 }
 
-FText UGatherTextCommandlet::GetChangelistDescription( const FString& InConfigPath )
+FText UGatherTextCommandlet::GetChangelistDescription(const TArray<FString>& GatherTextConfigPaths)
 {
-	// Find the target name to include in the change list description, this is just the config file name without path or extension info
-	const FString TargetName = FPaths::GetBaseFilename( InConfigPath, true );
-
-	// Find the project info to include in the changelist description from the config file path
-	const FString AbsoluteConfigPath = FPaths::ConvertRelativePathToFull( InConfigPath );
-	const FString RootDir = FPaths::RootDir();
-	const FString PluginsDir = FPaths::ConvertRelativePathToFull( FPaths::ProjectPluginsDir() );
-	bool bIsPlugin = false;
-	FString ProjectName;
-	if( AbsoluteConfigPath.StartsWith( RootDir ) )
+	FString ProjectName = FApp::GetProjectName();
+	if (ProjectName.IsEmpty())
 	{
-		// Strip the first portion of the config path which we are not interested in
-		FString StrippedPath;
-		if( AbsoluteConfigPath.StartsWith( PluginsDir ) )
-		{
-			bIsPlugin = true;
-			StrippedPath = AbsoluteConfigPath.RightChop( PluginsDir.Len() );
-		}
-		else
-		{
-			StrippedPath = AbsoluteConfigPath.RightChop( RootDir.Len() );
-		}
-
-		// Grab the first token of our stripped path and use it as the project name
-		FString Left, Right;
-		StrippedPath.Split(TEXT("/"), &Left, &Right);
-		ProjectName = Left;
-	}
-	else
-	{
-		// The config file falls outside of the root directory, we will use the game name if we have it
-		if (FCString::Strlen(FApp::GetProjectName()) != 0)
-		{
-			ProjectName = FApp::GetProjectName();
-		}
+		ProjectName = TEXT("Engine");
 	}
 
-	FString ChangeDescriptionString(TEXT("[Localization Update]"));
+	FString ChangeDescriptionString = FString::Printf(TEXT("[Localization Update] %s\n\n"), *ProjectName);
 
-	if( !ProjectName.IsEmpty() )
+	ChangeDescriptionString += TEXT("Targets:\n");
+	for (const FString& GatherTextConfigPath : GatherTextConfigPaths)
 	{
-		ChangeDescriptionString += (bIsPlugin) ? TEXT(" Plugin: ") : TEXT(" Project: ");
-		ChangeDescriptionString += ProjectName;
+		const FString TargetName = FPaths::GetBaseFilename(GatherTextConfigPath, true);
+		ChangeDescriptionString += FString::Printf(TEXT("  %s\n"), *TargetName);
 	}
-	
-	ChangeDescriptionString += FString::Printf( TEXT(" Target: %s"), *TargetName );
-	return FText::FromString( ChangeDescriptionString );
+
+	return FText::FromString(MoveTemp(ChangeDescriptionString));
 }

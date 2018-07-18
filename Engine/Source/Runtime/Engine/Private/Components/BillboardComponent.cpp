@@ -107,14 +107,14 @@ public:
 			if (ULevelStreaming* LevelStreaming = FLevelUtils::FindStreamingLevel(Level))
 			{
 				// Selection takes priority over level coloration.
-				LevelColor = LevelStreaming->LevelColor;
+				SetLevelColor(LevelStreaming->LevelColor);
 			}
 		}
 
 		FColor NewPropertyColor;
 		if (GEngine->GetPropertyColorationColor( (UObject*)InComponent, NewPropertyColor ))
 		{
-			PropertyColor = NewPropertyColor;
+			SetPropertyColor(NewPropertyColor);
 		}
 	}
 
@@ -185,8 +185,8 @@ public:
 					{
 						ColorToUse = FColor::Red;
 					}
-					FLinearColor LevelColorToUse = IsSelected() ? ColorToUse : (FLinearColor)LevelColor;
-					FLinearColor PropertyColorToUse = PropertyColor;
+					FLinearColor LevelColorToUse = IsSelected() ? ColorToUse : (FLinearColor)GetLevelColor();
+					FLinearColor PropertyColorToUse = GetPropertyColor();
 
 					const FLinearColor& SpriteColor = View->Family->EngineShowFlags.LevelColoration ? LevelColorToUse :
 						( (View->Family->EngineShowFlags.PropertyColoration) ? PropertyColorToUse : ColorToUse );
@@ -293,7 +293,7 @@ UBillboardComponent::UBillboardComponent(const FObjectInitializer& ObjectInitial
 	UL = 0;
 	VL = 0;
 	bHiddenInGame = true;
-	bGenerateOverlapEvents = false;
+	SetGenerateOverlapEvents(false);
 	bUseEditorCompositing = true;
 
 #if WITH_EDITORONLY_DATA

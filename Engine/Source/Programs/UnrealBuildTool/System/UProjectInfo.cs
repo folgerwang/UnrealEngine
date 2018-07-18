@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -17,6 +17,16 @@ namespace UnrealBuildTool
 	/// </summary>
 	public static class UProjectInfo
 	{
+		/// <summary>
+		/// Lock object used to control access to static variables
+		/// </summary>
+		static object LockObject = new object();
+
+		/// <summary>
+		/// List of non-foreign project directories (ie. all the directories listed in .uprojectdirs files). Call GetNonForeignProjectBaseDirs() to populate.
+		/// </summary>
+		static List<DirectoryReference> NonForeignProjectBaseDirs;
+
 		/// <summary>
 		/// Map of relative or complete project file names to the project info
 		/// </summary>
@@ -134,51 +144,71 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Get the list of directories that can contain non-foreign projects.
+		/// </summary>
+		/// <returns>List of directories that can contain non-foreign projects</returns>
+		static List<DirectoryReference> GetNonForeignProjectBaseDirs()
+		{
+			if(NonForeignProjectBaseDirs == null)
+			{
+				lock(LockObject)
+				{
+					HashSet<DirectoryReference> BaseDirs = new HashSet<DirectoryReference>();
+					foreach (FileReference ProjectDirsFile in DirectoryReference.EnumerateFiles(UnrealBuildTool.RootDirectory, "*.uprojectdirs", SearchOption.TopDirectoryOnly))
+					{
+						foreach(string Line in File.ReadAllLines(ProjectDirsFile.FullName))
+						{
+							string TrimLine = Line.Trim();
+							if(!TrimLine.StartsWith(";"))
+							{
+								DirectoryReference BaseProjectDir = DirectoryReference.Combine(UnrealBuildTool.RootDirectory, TrimLine);
+								if(BaseProjectDir.IsUnderDirectory(UnrealBuildTool.RootDirectory))
+								{
+									BaseDirs.Add(BaseProjectDir);
+								}
+								else
+								{
+									Log.TraceWarning("Project search path '{0}' referenced by '{1}' is not under '{2}', ignoring.", TrimLine, ProjectDirsFile, UnrealBuildTool.RootDirectory);
+								}
+							}
+						}
+					}
+					NonForeignProjectBaseDirs = BaseDirs.ToList();
+				}
+
+			}
+			return NonForeignProjectBaseDirs;
+		}
+
+		/// <summary>
+		/// Determines if the given project file is a foreign project
+		/// </summary>
+		/// <param name="ProjectFileName">The project filename</param>
+		/// <returns>True if it's a foreign project</returns>
+		public static bool IsForeignProject(FileReference ProjectFileName)
+		{
+			return !GetNonForeignProjectBaseDirs().Contains(ProjectFileName.Directory.ParentDirectory);
+		}
+
+		/// <summary>
 		/// Discover and fill in the project info
 		/// </summary>
 		public static void FillProjectInfo()
 		{
 			DateTime StartTime = DateTime.Now;
 
-			List<DirectoryInfo> DirectoriesToSearch = new List<DirectoryInfo>();
-
-			// Find all the .uprojectdirs files contained in the root folder and add their entries to the search array
-			string EngineSourceDirectory = Path.GetFullPath(Path.Combine(RootDirectory, "Engine", "Source"));
-
-			foreach (FileReference ProjectDirsFile in DirectoryReference.EnumerateFiles(UnrealBuildTool.RootDirectory, "*.uprojectdirs", SearchOption.TopDirectoryOnly))
-			{
-				Log.TraceVerbose("\tFound uprojectdirs file {0}", ProjectDirsFile.FullName);
-				foreach(string Line in File.ReadAllLines(ProjectDirsFile.FullName))
-				{
-					string TrimLine = Line.Trim();
-					if(!TrimLine.StartsWith(";"))
-					{
-						DirectoryReference BaseProjectDir = DirectoryReference.Combine(UnrealBuildTool.RootDirectory, TrimLine);
-						if(BaseProjectDir.IsUnderDirectory(UnrealBuildTool.RootDirectory))
-						{
-							DirectoriesToSearch.Add(new DirectoryInfo(BaseProjectDir.FullName));
-						}
-						else
-						{
-							Log.TraceWarning("Project search path '{0}' is not under root directory, ignoring.", TrimLine);
-						}
-					}
-				}
-			}
+			List<DirectoryInfo> DirectoriesToSearch = GetNonForeignProjectBaseDirs().Select(x => new DirectoryInfo(x.FullName)).ToList();
 
 			Log.TraceVerbose("\tFound {0} directories to search", DirectoriesToSearch.Count);
 
 			foreach (DirectoryInfo DirToSearch in DirectoriesToSearch)
 			{
-				Log.TraceVerbose("\t\tSearching {0}", DirToSearch.FullName);
 				if (DirToSearch.Exists)
 				{
 					foreach (DirectoryInfo SubDir in DirToSearch.EnumerateDirectories())
 					{
-						Log.TraceVerbose("\t\t\tFound subdir {0} ({1})", SubDir.FullName, SubDir.Name);
 						foreach(FileInfo UProjFile in SubDir.EnumerateFiles("*.uproject", SearchOption.TopDirectoryOnly))
 						{
-							Log.TraceVerbose("\t\t\t\t{0}", UProjFile.FullName);
 							AddProject(new FileReference(UProjFile));
 						}
 					}
@@ -223,9 +253,10 @@ namespace UnrealBuildTool
 		/// <param name="Project">The project to check</param>
 		/// <param name="PluginName">Name of the plugin to check</param>
 		/// <param name="Platform">The target platform</param>
+		/// <param name="TargetConfiguration">The target configuration</param>
 		/// <param name="Target"></param>
 		/// <returns>True if the plugin should be enabled for this project</returns>
-		public static bool IsPluginEnabledForProject(string PluginName, ProjectDescriptor Project, UnrealTargetPlatform Platform, TargetType Target)
+		public static bool IsPluginEnabledForProject(string PluginName, ProjectDescriptor Project, UnrealTargetPlatform Platform, UnrealTargetConfiguration TargetConfiguration, TargetType Target)
 		{
 			bool bEnabled = false;
 			if (Project != null && Project.Plugins != null)
@@ -234,9 +265,7 @@ namespace UnrealBuildTool
 				{
 					if (String.Compare(PluginReference.Name, PluginName, true) == 0)
 					{
-						// start with whether it's enabled by default
-						bEnabled = PluginReference.bEnabled;
-						bEnabled = PluginReference.IsEnabledForPlatform(Platform) && PluginReference.IsEnabledForTarget(Target);
+						bEnabled = PluginReference.bEnabled && PluginReference.IsEnabledForPlatform(Platform) && PluginReference.IsEnabledForTargetConfiguration(TargetConfiguration) && PluginReference.IsEnabledForTarget(Target);
 						break;
 					}
 				}

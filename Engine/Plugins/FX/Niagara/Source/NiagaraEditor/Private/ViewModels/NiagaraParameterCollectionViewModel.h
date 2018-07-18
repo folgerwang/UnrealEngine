@@ -4,7 +4,8 @@
 
 #include "NiagaraObjectSelection.h"
 #include "NiagaraParameterViewModel.h"
-#include "Visibility.h"
+#include "Layout/Visibility.h"
+#include "TickableEditorObject.h"
 
 struct FNiagaraTypeDefinition;
 
@@ -84,7 +85,7 @@ public:
 
 /** Base class for parameter collection view models.  Partially implements the parameter collection interface with
 	behavior common to all view models. */
-class FNiagaraParameterCollectionViewModel : public INiagaraParameterCollectionViewModel
+class FNiagaraParameterCollectionViewModel : public INiagaraParameterCollectionViewModel, public FTickableEditorObject
 {
 public:
 	FNiagaraParameterCollectionViewModel(ENiagaraParameterEditMode InParameterEditMode);
@@ -105,6 +106,11 @@ public:
 	virtual FOnExpandedChanged& OnExpandedChanged() override { return OnExpandedChangedDelegate; }
 	virtual FOnParameterValueChanged& OnParameterValueChanged() override { return OnParameterValueChangedDelegate; }
 	virtual void NotifyParameterChangedExternally(FName ParameterName) override;
+
+	//~ FTickableEditorObject interface
+	virtual void Tick(float DeltaTime) override;
+	virtual bool IsTickable() const override;
+	virtual TStatId GetStatId() const override;
 
 protected:
 	/** Gets a set containing the names of the parameters. */
@@ -132,6 +138,9 @@ protected:
 
 	/** Gets the edit mode for parameters in this collection. */
 	const ENiagaraParameterEditMode ParameterEditMode;
+
+	/** Refresh the UI next frames. */
+	bool bNeedsRefresh;
 
 private:
 	/** An array of available types for parameters. */

@@ -39,7 +39,9 @@ namespace UnrealBuildTool.Rules
 					"AndroidPermission",
 					"GoogleARCoreRendering",
 					"GoogleARCoreSDK",
-					"OpenGL"
+					"OpenGL",
+					"UElibPNG",
+					"zlib"
 				}
 			);
 
@@ -57,6 +59,12 @@ namespace UnrealBuildTool.Rules
 
 				// Register Plugin Language
 				AdditionalPropertiesForReceipt.Add("AndroidPlugin", Path.Combine(ModuleDirectory, "GoogleARCoreBase_APL.xml"));
+
+				if (AndroidExports.CreateToolChain(Target.ProjectFile).GetNdkApiLevelInt(19) >= 24)
+				{
+					// Camera CPU image access dependency.
+					PublicAdditionalLibraries.Add("mediandk");
+				}
 			}
 
 			bFasterWithoutUnity = false;

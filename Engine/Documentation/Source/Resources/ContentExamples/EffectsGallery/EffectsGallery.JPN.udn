@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2714421
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:エフェクト コンテンツのサンプル
 Crumbs:%ROOT%, Resources, Resources/ContentExamples
@@ -10,42 +10,7 @@ Related:Engine/Rendering/ParticleSystems/Reference/TypeData/GPUSprites
 Related:Engine/Rendering/ParticleSystems/ParticleLights
 Related:Engine/Rendering/ParticleSystems/Reference/Modules/VectorField
 Version:4.9
-
-
-[REGION:banner]
-![](Effects_Header.png)(convert:false)
-[/REGION]
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources/ContentExamples/EffectsGallery:title%](effects_compact.png)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/EffectsGallery:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/ContentExamples/EffectsGallery:description%
-	[/PARAM]
-	[PARAM:path]
-	[RELATIVE:Resources/ContentExamples/EffectsGallery]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Resources/ContentExamples/EffectsGallery:title%](effects_compact.png)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/EffectsGallery:title%
-	[/PARAM]
-	[PARAM:path]
-	[RELATIVE:Resources/ContentExamples/EffectsGallery]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:effects_compact.png
 
 [COMMENT:none]
 -[TOC(start:2 end:2)]-
@@ -61,7 +26,7 @@ Version:4.9
 
 
 [region:note]
-サンプル名をクリックすると、サンプル毎にリソースを見ることができます。
+各サンプルのリソースをさらに見る場合は、サンプル名をクリックしてください。
 [/region]
  
 
@@ -71,8 +36,8 @@ Version:4.9
 
 以下は、**エフェクト** マップ内にあるサンプルです。 
 
-| 例 | 実演内容 |
-| ------- | ------------|
+| サンプル | 内容 |
+| ------- | ------------ |
 | **[1.1 CPU と GPU のパーティクル](Resources\ContentExamples\EffectsGallery\1_A)** | CPU パーティクルと GPU パーティクルの違いを、長所、短所を示しながら 2 つの簡単なパーティクルの噴水で実演します。 |
 | **[1.2 VelocityCone モジュールを使用した GPU パーティクル](Resources\ContentExamples\EffectsGallery\1_B)** | コーン (円錐) 形状のパーティクルを出力する Velocity Cone モジュールの使用を示したものです。このサンプルでは、Mesh TypeData モジュールを介して スタティック メッシュ をパーティクルに追加する方法も示します (例、2 つのエミッタが火花を出力し、もうひとつがスタティック メッシュを出力します)。 |
 | **[1.3 エミッタの初期位置の GPU パーティクル](Resources\ContentExamples\EffectsGallery\1_C)** | 後方にトレイルを残しながら中心点を移動する 3 つの球体を表現しています。このサンプルでは、Emitter Initial Location モジュールを使用して他のパーティクルの場所からパーティクルをスポーンさせる方法を示しています。 |

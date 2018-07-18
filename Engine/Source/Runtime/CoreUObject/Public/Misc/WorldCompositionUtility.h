@@ -32,7 +32,8 @@ public:
 
 	}
 
-	friend FArchive& operator<<( FArchive& Ar, FWorldTileLayer& D );
+	friend FArchive& operator<<(FArchive& Ar, FWorldTileLayer& D);
+	friend void operator<<(FStructuredArchive::FSlot Slot, FWorldTileLayer& D);
 
 public:
 	/** Human readable name for this layer */
@@ -59,7 +60,8 @@ public:
 	{
 	}
 
-	friend FArchive& operator<<( FArchive& Ar, FWorldTileLayer& D );
+	friend FArchive& operator<<(FArchive& Ar, FWorldTileLayer& D);
+	friend void operator<<(FStructuredArchive::FSlot Slot, FWorldTileLayer& D);
 
 	bool operator==(const FWorldTileLODInfo& OtherInfo) const
 	{
@@ -85,15 +87,16 @@ class FWorldTileInfo
 {
 public:
 	FWorldTileInfo()
-		: Position(0,0)
-		, AbsolutePosition(0,0)
+		: Position(0,0,0)
+		, AbsolutePosition(0,0,0)
 		, Bounds(ForceInit)
 		, bHideInTileView(false)
 		, ZOrder(0)
 	{
 	}
 	
-	COREUOBJECT_API friend FArchive& operator<<( FArchive& Ar, FWorldTileInfo& D );
+	COREUOBJECT_API friend FArchive& operator<<(FArchive& Ar, FWorldTileInfo& D);
+	COREUOBJECT_API friend void operator<<(FStructuredArchive::FSlot Slot, FWorldTileInfo& D);
 
 	bool operator==(const FWorldTileInfo& OtherInfo) const
 	{
@@ -123,9 +126,9 @@ public:
 	
 public:
 	/** Tile position in the world relative to parent */
-	FIntPoint			Position; 
+	FIntVector			Position; 
 	/** Absolute tile position in the world. Calculated in runtime */
-	FIntPoint			AbsolutePosition; 
+	FIntVector			AbsolutePosition; 
 	/** Tile bounding box  */
 	FBox				Bounds;
 	/** Tile assigned layer  */

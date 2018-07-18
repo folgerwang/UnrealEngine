@@ -272,9 +272,7 @@ With Unreal Engine 4.16, these are some improvements for DFAO with test results 
 | Optimization | Orignal Cost (ms) | New Cost (ms) | Savings (ms) |
 | ------------ | ------------ | -------- | ------- |
 | The culling algorithm has changed to produce a list of intersecting screen tiles for each object, instead of the other way around. Each tile/object intersection gets its cone tracing thread group, so wavefronts are much smaller and scheduled better.  | 3.63 | 3.48 | 0.15 |
-| Slow instructions in the inner loop have been replaced with fast approximations [COMMENT:none]
--(exp2 -> sqr + 1, rcpFast, lengthFast)-
-[/COMMENT]. | 3.25 | 3.09 | 0.16 |
+| Slow instructions in the inner loop have been replaced with fast approximations | 3.25 | 3.09 | 0.16 |
 | The transform was moved out of the inner loop from world to local space (sample position constructed from local space position + direction). | 3.09 | 3.04 | 0.05 |
 | Compute shader for ClearUAV.  | 3.04 | 2.62 | 0.42 |
 [/REGION]
@@ -299,7 +297,6 @@ the history faster. Overall, this should help reduce ghosting that can happen wh
 
 
 [COMMENT:none]
---
 
 [INCLUDE:#comp2]
 
@@ -329,15 +326,11 @@ the history faster. Overall, this should help reduce ghosting that can happen wh
 [/REGION]
 [/EXCERPT:comp2]
 
--
 [/COMMENT]
 
 
 #### Global Distance Fields
 
-[COMMENT:none]
--- EXCERPT taken from MeshDistanceFields.INT.udn --
-[/COMMENT]
 [INCLUDE:Engine/Rendering/LightingAndShadows/MeshDistanceFields#visualizeglobaldf1]
 
 The clipmap is separated into four slices around the camera that are only updated where needed, which can happen when camera movement reveals a new slice or an object is never moved causing 
@@ -348,9 +341,6 @@ a teleport.
 [REGION:caption] Clipmap visualization of the texel size of the clipmaps with each clipmap being represented by a different color. [/REGION]
 
 
-[COMMENT:none]
--- EXCERPT taken from MeshDistanceFields.INT.udn --
-[/COMMENT]
 [INCLUDE:Engine/Rendering/LightingAndShadows/MeshDistanceFields#visualizeglobaldf2]
 
 The Global Distance Field is a lower resolution than its object Distance Fields counterpart, making Global Distance Fields inaccurate near surfaces. When cone traces happen, the object Distance Field

@@ -27,9 +27,10 @@ static bool IsBlendModeSupported(EShaderPlatform Platform, EDecalBlendMode Decal
 	{
 		switch (DecalBlendMode)
 		{
-			case DBM_Stain:			// Modulate
-			case DBM_Emissive:		// Additive
-			case DBM_Translucent:	// Translucent
+			case DBM_Stain:			 // Modulate
+			case DBM_Emissive:		 // Additive
+			case DBM_Translucent:	 // Translucent
+			case DBM_AlphaComposite: // Premultiplied Alpha
 				break;
 			default:
 				return false;
@@ -122,6 +123,7 @@ public:
 		SvPositionToDecal.Bind(Initializer.ParameterMap,TEXT("SvPositionToDecal"));
 		DecalToWorld.Bind(Initializer.ParameterMap,TEXT("DecalToWorld"));
 		WorldToDecal.Bind(Initializer.ParameterMap,TEXT("WorldToDecal"));
+		DecalOrientation.Bind(Initializer.ParameterMap,TEXT("DecalOrientation"));
 		DecalParams.Bind(Initializer.ParameterMap, TEXT("DecalParams"));
 	}
 
@@ -129,7 +131,7 @@ public:
 	{
 		const FPixelShaderRHIParamRef ShaderRHI = GetPixelShader();
 
-		FMaterialShader::SetParameters(RHICmdList, ShaderRHI, MaterialProxy, *MaterialProxy->GetMaterial(View.GetFeatureLevel()), View, View.ViewUniformBuffer, true, ESceneRenderTargetsMode::SetTextures);
+		FMaterialShader::SetParameters(RHICmdList, ShaderRHI, MaterialProxy, *MaterialProxy->GetMaterial(View.GetFeatureLevel()), View, View.ViewUniformBuffer, ESceneTextureSetupMode::All);
 
 		FTransform ComponentTrans = DecalProxy.ComponentTrans;
 
@@ -173,6 +175,12 @@ public:
 
 		SetShaderValue(RHICmdList, ShaderRHI, WorldToDecal, WorldToComponent);
 
+		if (DecalOrientation.IsBound())
+		{
+			// can get DecalOrientation form DecalToWorld matrix, but it will require binding whole matrix and normalizing axis in the shader
+			SetShaderValue(RHICmdList, ShaderRHI, DecalOrientation, ComponentTrans.GetUnitAxis(EAxis::X));
+		}
+		
 		float LifetimeAlpha = FMath::Clamp(View.Family->CurrentWorldTime * -DecalProxy.InvFadeDuration + DecalProxy.FadeStartDelayNormalized, 0.0f, 1.0f);
 		SetShaderValue(RHICmdList, ShaderRHI, DecalParams, FVector2D(FadeAlphaValue, LifetimeAlpha));
 	}
@@ -180,7 +188,7 @@ public:
 	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FMaterialShader::Serialize(Ar);
-		Ar << SvPositionToDecal << DecalToWorld << WorldToDecal << DecalParams;
+		Ar << SvPositionToDecal << DecalToWorld << WorldToDecal << DecalOrientation << DecalParams;
 		return bShaderHasOutdatedParameters;
 	}
 
@@ -188,17 +196,21 @@ private:
 	FShaderParameter SvPositionToDecal;
 	FShaderParameter DecalToWorld;
 	FShaderParameter WorldToDecal;
+	FShaderParameter DecalOrientation;
 	FShaderParameter DecalParams;
 };
 
 IMPLEMENT_MATERIAL_SHADER_TYPE(,FDeferredDecalPS,TEXT("/Engine/Private/DeferredDecal.usf"),TEXT("MainPS"),SF_Pixel);
 
 
-void FDecalRendering::BuildVisibleDecalList(const FScene& Scene, const FViewInfo& View, EDecalRenderStage DecalRenderStage, FTransientDecalRenderDataList& OutVisibleDecals)
+bool FDecalRendering::BuildVisibleDecalList(const FScene& Scene, const FViewInfo& View, EDecalRenderStage DecalRenderStage, FTransientDecalRenderDataList* OutVisibleDecals)
 {
 	QUICK_SCOPE_CYCLE_COUNTER(BuildVisibleDecalList);
 
-	OutVisibleDecals.Empty(Scene.Decals.Num());
+	if (OutVisibleDecals)
+	{
+		OutVisibleDecals->Empty(Scene.Decals.Num());
+	}
 
 	const float FadeMultiplier = CVarDecalFadeScreenSizeMultiplier.GetValueOnRenderThread();
 	const EShaderPlatform ShaderPlatform = View.GetShaderPlatform();
@@ -263,13 +275,22 @@ void FDecalRendering::BuildVisibleDecalList(const FScene& Scene, const FViewInfo
 				// we could do this test earlier to avoid the decal intersection but getting DecalBlendMode also costs
 				if (View.Family->EngineShowFlags.ShaderComplexity || (DecalRenderStage == LocalDecalRenderStage && Data.FadeAlpha>0.0f) )
 				{
-					OutVisibleDecals.Add(Data);
+					if (!OutVisibleDecals)
+					{
+						return true;
+					}
+					OutVisibleDecals->Add(Data);
 				}
 			}
 		}
 	}
 
-	if (OutVisibleDecals.Num() > 0)
+	if (!OutVisibleDecals)
+	{
+		return false;
+	}
+
+	if (OutVisibleDecals->Num() > 0)
 	{
 		// Sort by sort order to allow control over composited result
 		// Then sort decals by state to reduce render target switches
@@ -301,8 +322,12 @@ void FDecalRendering::BuildVisibleDecalList(const FScene& Scene, const FViewInfo
 		};
 
 		// Sort decals by blend mode to reduce render target switches
-		OutVisibleDecals.Sort(FCompareFTransientDecalRenderData());
+		OutVisibleDecals->Sort(FCompareFTransientDecalRenderData());
+
+		return true;
 	}
+
+	return false;
 }
 
 FMatrix FDecalRendering::ComputeComponentToClipMatrix(const FViewInfo& View, const FMatrix& DecalComponentToWorld)
@@ -334,7 +359,8 @@ void FDecalRendering::SetShader(FRHICommandList& RHICmdList, FGraphicsPipelineSt
 
 		SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit, EApplyRendertargetOption::ForceApply);
 
-		DebugPixelShader->SetParameters(RHICmdList, *VertexShader, PixelShader, DecalData.MaterialProxy, *DecalData.MaterialResource, View);
+		FDrawingPolicyRenderState DrawRenderState(View);
+		DebugPixelShader->SetParameters(RHICmdList, *VertexShader, PixelShader, DecalData.MaterialProxy, *DecalData.MaterialResource, View, DrawRenderState);
 		DebugPixelShader->SetMesh(RHICmdList, View);
 	}
 	else

@@ -4,7 +4,7 @@
 #include "HAL/PlatformMisc.h"
 
 #include "RequiredProgramMainCPPInclude.h"
-#include "ExceptionHandling.h"
+#include "HAL/ExceptionHandling.h"
 
 IMPLEMENT_APPLICATION( MinidumpDiagnostics, "MinidumpDiagnostics" )
 

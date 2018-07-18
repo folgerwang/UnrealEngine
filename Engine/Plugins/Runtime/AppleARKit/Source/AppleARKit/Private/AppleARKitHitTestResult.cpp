@@ -2,9 +2,9 @@
 
 // AppleARKit
 #include "AppleARKitHitTestResult.h"
-#include "AppleARKitTransform.h"
+#include "AppleARKitConversion.h"
 
-#if ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
+#if SUPPORTS_ARKIT_1_0
 
 /** Conversion function from ARKit native ARHitTestResultType */
 EAppleARKitHitTestResultType ToEAppleARKitHitTestResultType(ARHitTestResultType InTypes)
@@ -70,8 +70,8 @@ FAppleARKitHitTestResult::FAppleARKitHitTestResult( ARHitTestResult* InARHitTest
 	// Convert properties
 	Type = ToEAppleARKitHitTestResultType( InARHitTestResult.type );
     Distance = InARHitTestResult.distance * WorldToMetersScale;
-	Transform = FAppleARKitTransform::ToFTransform( InARHitTestResult.worldTransform, WorldToMetersScale );
+	Transform = FAppleARKitConversion::ToFTransform( InARHitTestResult.worldTransform );
 	Anchor = InAnchor;
 }
 
-#endif // #ARKIT_SUPPORT
+#endif

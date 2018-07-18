@@ -197,6 +197,7 @@ namespace UnrealVS
 				new SubMenu {Name = "WinRT_ARM", SubMenuId = 0x1D00, DynamicStartCommandId = 0x1D30},
 				new SubMenu {Name = "HTML5", SubMenuId = 0x1E00, DynamicStartCommandId = 0x1E30},
 				new SubMenu {Name = "Linux", SubMenuId = 0x1F00, DynamicStartCommandId = 0x1F30},
+				new SubMenu {Name = "Switch", SubMenuId = 0x2000, DynamicStartCommandId = 0x2030},
 			};
 
 		/// The main root command of the Quick Build menu hierarchy - used to hide it when not active

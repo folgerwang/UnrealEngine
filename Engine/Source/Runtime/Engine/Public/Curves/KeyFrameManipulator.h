@@ -38,8 +38,40 @@ public:
 		}
 	}
 
-	TKeyFrameManipulator(const TKeyFrameManipulator&) = default;
-	TKeyFrameManipulator& operator=(const TKeyFrameManipulator&) = default;
+	TKeyFrameManipulator(const TKeyFrameManipulator& Rhs)
+		: KeyTimes(Rhs.KeyTimes)
+		, KeyHandleLUT(Rhs.KeyHandleLUT == &Rhs.TemporaryKeyHandleLUT ? &TemporaryKeyHandleLUT : Rhs.KeyHandleLUT)
+		, TemporaryKeyHandleLUT(Rhs.TemporaryKeyHandleLUT)
+	{}
+
+	TKeyFrameManipulator& operator=(const TKeyFrameManipulator& Rhs)
+	{
+		if (&Rhs != this)
+		{
+			KeyTimes = Rhs.KeyTimes;
+			KeyHandleLUT = Rhs.KeyHandleLUT == &Rhs.TemporaryKeyHandleLUT ? &TemporaryKeyHandleLUT : Rhs.KeyHandleLUT;
+			TemporaryKeyHandleLUT = Rhs.TemporaryKeyHandleLUT;
+		}
+		return *this;
+	}
+
+	TKeyFrameManipulator(TKeyFrameManipulator&& Rhs)
+		: KeyTimes(Rhs.KeyTimes)
+		, KeyHandleLUT(Rhs.KeyHandleLUT == &Rhs.TemporaryKeyHandleLUT ? &TemporaryKeyHandleLUT : Rhs.KeyHandleLUT)
+		, TemporaryKeyHandleLUT(MoveTemp(Rhs.TemporaryKeyHandleLUT))
+	{}
+
+	TKeyFrameManipulator& operator=(TKeyFrameManipulator&& Rhs)
+	{
+		if (&Rhs != this)
+		{
+			KeyTimes = Rhs.KeyTimes;
+			KeyHandleLUT = Rhs.KeyHandleLUT == &Rhs.TemporaryKeyHandleLUT ? &TemporaryKeyHandleLUT : Rhs.KeyHandleLUT;
+			TemporaryKeyHandleLUT = MoveTemp(Rhs.TemporaryKeyHandleLUT);
+		}
+		return *this;
+	}
+
 	virtual ~TKeyFrameManipulator() {}
 
 private:

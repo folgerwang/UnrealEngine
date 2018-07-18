@@ -48,6 +48,7 @@ public:
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
 #endif
 	virtual UTexture* GetReferencedTexture() override;
+	virtual bool CanReferenceTexture() const override { return true; }
 #if WITH_EDITOR
 	virtual uint32 GetInputType(int32 InputIndex) override {return MCT_Unknown;}
 	virtual uint32 GetOutputType(int32 InputIndex) override {return MCT_Unknown;}

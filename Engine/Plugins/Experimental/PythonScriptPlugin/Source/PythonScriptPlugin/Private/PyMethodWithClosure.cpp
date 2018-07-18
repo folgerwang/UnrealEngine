@@ -77,22 +77,33 @@ void ShutdownPyMethodWithClosure()
 }
 
 
+bool FPyMethodWithClosureDef::AddMethod(FPyMethodWithClosureDef* InMethod, PyTypeObject* InType)
+{
+	if (!(InMethod->MethodFlags & METH_COEXIST) && PyDict_GetItemString(InType->tp_dict, InMethod->MethodName))
+	{
+		// Skip this method, but don't fail
+		return true;
+	}
+
+	FPyObjectPtr Descr = FPyObjectPtr::StealReference(NewMethodDescriptor(InType, InMethod));
+	if (!Descr)
+	{
+		return false;
+	}
+
+	if (PyDict_SetItemString(InType->tp_dict, InMethod->MethodName, Descr) != 0)
+	{
+		return false;
+	}
+
+	return true;
+}
+
 bool FPyMethodWithClosureDef::AddMethods(FPyMethodWithClosureDef* InMethods, PyTypeObject* InType)
 {
 	for (FPyMethodWithClosureDef* MethodDef = InMethods; MethodDef->MethodName; ++MethodDef)
 	{
-		if (!(MethodDef->MethodFlags & METH_COEXIST) && PyDict_GetItemString(InType->tp_dict, MethodDef->MethodName))
-		{
-			continue;
-		}
-
-		FPyObjectPtr Descr = FPyObjectPtr::StealReference(NewMethodDescriptor(InType, MethodDef));
-		if (!Descr)
-		{
-			return false;
-		}
-
-		if (PyDict_SetItemString(InType->tp_dict, MethodDef->MethodName, Descr) != 0)
+		if (!AddMethod(MethodDef, InType))
 		{
 			return false;
 		}

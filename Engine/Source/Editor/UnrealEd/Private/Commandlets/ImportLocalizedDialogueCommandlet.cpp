@@ -513,7 +513,7 @@ USoundWave* UImportLocalizedDialogueCommandlet::ImportSoundWave(const FString& I
 			const TArray<ITargetPlatform*>& Platforms = TPM->GetActiveTargetPlatforms();
 			for (ITargetPlatform* Platform : Platforms)
 			{
-				SoundWave->GetCompressedData(Platform->GetWaveFormat(SoundWave));
+				SoundWave->GetCompressedData(Platform->GetWaveFormat(SoundWave), Platform->GetAudioCompressionSettings());
 			}
 		}
 	}

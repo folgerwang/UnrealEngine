@@ -18,7 +18,7 @@
 #include "IPhysicsAssetEditor.h"
 #include "Editor/PhysicsAssetEditor/Private/PhysicsAssetEditorSharedData.h"
 #include "PhysicsEngine/BodySetupEnums.h"
-#include "ArrayView.h"
+#include "Containers/ArrayView.h"
 #include "GraphEditor.h"
 
 struct FAssetData;
@@ -102,6 +102,9 @@ public:
 		return FString(TEXT("Engine/Physics/PhysicsAssetEditor"));
 	}
 
+	/** IHasPersonaToolkit interface */
+	virtual TSharedRef<IPersonaToolkit> GetPersonaToolkit() const override { return PersonaToolkit.ToSharedRef(); }
+
 	/** FGCObject interface */
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
 
@@ -120,8 +123,6 @@ public:
 	void HandleSelectionChanged(const TArrayView<TSharedPtr<ISkeletonTreeItem>>& InSelectedItems, ESelectInfo::Type InSelectInfo);
 
 	void HandleCreateNewConstraint(int32 BodyIndex0, int32 BodyIndex1);
-
-	TSharedRef<IPersonaToolkit> GetPersonaToolkit() const { return PersonaToolkit.ToSharedRef(); }
 
 	TSharedPtr<ISkeletonTree> GetSkeletonTree() const { return SkeletonTree.ToSharedRef(); }
 
@@ -233,7 +234,8 @@ private:
 	void OnAddSphere();
 	void OnAddSphyl();
 	void OnAddBox();
-	bool CanAddPrimitive() const;
+	void OnAddTaperedCapsule();
+	bool CanAddPrimitive(EAggCollisionShape::Type InPrimitiveType) const;
 	void OnDeletePrimitive();
 	void OnDuplicatePrimitive();
 	bool CanDuplicatePrimitive() const;

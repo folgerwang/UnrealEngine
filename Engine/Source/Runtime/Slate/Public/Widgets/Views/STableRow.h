@@ -35,6 +35,19 @@ template <typename ItemType> class SListView;
 class SLATE_API ITableRow
 {
 	public:
+
+		/**
+		 * Called when the row has been generated and associated with an item in the owning table.
+		 * Any attempts to access the item associated with the row prior to this (i.e. in Construct()) will fail, as the association is not yet established in the owning table.
+		 */
+		virtual void InitializeRow() = 0;
+
+		/**
+		 * Called when the row has been released from the owning table and is no longer associated with any items therein.
+		 * Only relevant if the row widgets are pooled or otherwise referenced/kept alive outside the owning table. Otherwise, the row is destroyed.
+		 */
+		virtual void ResetRow() = 0;
+
 		/**
 		 * @param InIndexInList  The index of the item for which this widget was generated
 		 */
@@ -46,12 +59,21 @@ class SLATE_API ITableRow
 		/** Toggle the expansion of the item associated with this row */
 		virtual void ToggleExpansion() = 0;
 
+		/** @return True if the corresponding item is selected; false otherwise */
+		virtual bool IsItemSelected() const = 0;
+
 		/** @return how nested the item associated with this row when it is in a TreeView */
 		virtual int32 GetIndentLevel() const = 0;
 
 		/** @return Does this item have children? */
 		virtual int32 DoesItemHaveChildren() const = 0;
 
+		/** @return BitArray where each entry corresponds to whether this item needs a vertical wire draw for that depth. */
+		virtual TBitArray<> GetWiresNeededByDepth() const = 0;
+
+		/** @return true if this item is the last direct descendant of its parent. */
+		virtual bool IsLastChild() const = 0;
+		
 		/** @return this table row as a widget */
 		virtual TSharedRef<SWidget> AsWidget() = 0;
 
@@ -306,83 +328,43 @@ public:
 	virtual FReply OnMouseButtonDown( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override
 	{
 		TSharedPtr< ITypedTableView<ItemType> > OwnerWidget = OwnerTablePtr.Pin();
-		ChangedSelectionOnMouseDown = false;
+		bChangedSelectionOnMouseDown = false;
 
 		check(OwnerWidget.IsValid());
 
 		if ( MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton )
 		{
-			switch( GetSelectionMode() )
+			const ESelectionMode::Type SelectionMode = GetSelectionMode();
+			if (SelectionMode != ESelectionMode::None)
 			{
-			case ESelectionMode::Single:
+				const ItemType& MyItem = *OwnerWidget->Private_ItemFromWidget(this);
+				const bool bIsSelected = OwnerWidget->Private_IsItemSelected(MyItem);
+
+				if (SelectionMode == ESelectionMode::Multi)
 				{
-					const ItemType* MyItem = OwnerWidget->Private_ItemFromWidget( this );
-					const bool bIsSelected = OwnerWidget->Private_IsItemSelected( *MyItem );
-
-					// Select the item under the cursor
-					if( !bIsSelected )
+					if (MouseEvent.IsControlDown())
 					{
-						OwnerWidget->Private_ClearSelection();
-						OwnerWidget->Private_SetItemSelection( *MyItem, true, true );
-						ChangedSelectionOnMouseDown = true;
+						OwnerWidget->Private_SetItemSelection(MyItem, !bIsSelected, true);
+						bChangedSelectionOnMouseDown = true;
 					}
-					
-					return FReply::Handled()
-						.DetectDrag( SharedThis(this), EKeys::LeftMouseButton )
-						.SetUserFocus(OwnerWidget->AsWidget(), EFocusCause::Mouse)
-						.CaptureMouse( SharedThis(this) );
+					else if (MouseEvent.IsShiftDown())
+					{
+						OwnerWidget->Private_SelectRangeFromCurrentTo(MyItem);
+						bChangedSelectionOnMouseDown = true;
+					}
 				}
-				break;
-
-			case ESelectionMode::SingleToggle:
+				
+				if (!bIsSelected && !bChangedSelectionOnMouseDown)
 				{
-					const ItemType* MyItem = OwnerWidget->Private_ItemFromWidget( this );
-					const bool bIsSelected = OwnerWidget->Private_IsItemSelected( *MyItem );
-
-					if( !bIsSelected )
-					{
-						OwnerWidget->Private_ClearSelection();
-						OwnerWidget->Private_SetItemSelection( *MyItem, true, true );
-						ChangedSelectionOnMouseDown = true;
-					}
-
-					return FReply::Handled()
-						.DetectDrag( SharedThis(this), EKeys::LeftMouseButton )
-						.SetUserFocus(OwnerWidget->AsWidget(), EFocusCause::Mouse)
-						.CaptureMouse( SharedThis(this) );
+					OwnerWidget->Private_ClearSelection();
+					OwnerWidget->Private_SetItemSelection(MyItem, true, true);
+					bChangedSelectionOnMouseDown = true;
 				}
-				break;
 
-			case ESelectionMode::Multi:
-				{
-					const ItemType* MyItem = OwnerWidget->Private_ItemFromWidget( this );
-					const bool bIsSelected = OwnerWidget->Private_IsItemSelected( *MyItem );
-
-					check(MyItem != nullptr);
-
-					if ( MouseEvent.IsControlDown() )
-					{
-						OwnerWidget->Private_SetItemSelection( *MyItem, !bIsSelected, true );
-						ChangedSelectionOnMouseDown = true;
-					}
-					else if ( MouseEvent.IsShiftDown() )
-					{
-						OwnerWidget->Private_SelectRangeFromCurrentTo( *MyItem );
-						ChangedSelectionOnMouseDown = true;
-					}
-					else if ( !bIsSelected )
-					{
-						OwnerWidget->Private_ClearSelection();
-						OwnerWidget->Private_SetItemSelection( *MyItem, true, true );
-						ChangedSelectionOnMouseDown = true;
-					}
-
-					return FReply::Handled()
-						.DetectDrag( SharedThis(this), EKeys::LeftMouseButton )
-						.SetUserFocus(OwnerWidget->AsWidget(), EFocusCause::Mouse)
-						.CaptureMouse( SharedThis(this) );
-				}
-				break;
+				return FReply::Handled()
+					.DetectDrag(SharedThis(this), EKeys::LeftMouseButton)
+					.SetUserFocus(OwnerWidget->AsWidget(), EFocusCause::Mouse)
+					.CaptureMouse(SharedThis(this));
 			}
 		}
 
@@ -408,7 +390,7 @@ public:
 		{
 			FReply Reply = FReply::Unhandled().ReleaseMouseCapture();
 
-			if ( ChangedSelectionOnMouseDown )
+			if ( bChangedSelectionOnMouseDown )
 			{
 				Reply = FReply::Handled().ReleaseMouseCapture();
 			}
@@ -422,11 +404,8 @@ public:
 					{
 					case ESelectionMode::SingleToggle:
 						{
-							if ( !ChangedSelectionOnMouseDown )
+							if ( !bChangedSelectionOnMouseDown )
 							{
-								const ItemType* MyItem = OwnerWidget->Private_ItemFromWidget( this );
-								const bool bIsSelected = OwnerWidget->Private_IsItemSelected( *MyItem );
-
 								OwnerWidget->Private_ClearSelection();
 								OwnerWidget->Private_SignalSelectionChanged(ESelectInfo::OnMouseClick);
 							}
@@ -437,7 +416,7 @@ public:
 
 					case ESelectionMode::Multi:
 						{
-							if ( !ChangedSelectionOnMouseDown && !MouseEvent.IsControlDown() && !MouseEvent.IsShiftDown() )
+							if ( !bChangedSelectionOnMouseDown && !MouseEvent.IsControlDown() && !MouseEvent.IsShiftDown() )
 							{
 								const ItemType* MyItem = OwnerWidget->Private_ItemFromWidget( this );
 								check(MyItem != nullptr);
@@ -466,7 +445,7 @@ public:
 					Reply = FReply::Handled().ReleaseMouseCapture();
 				}
 
-				if ( ChangedSelectionOnMouseDown )
+				if ( bChangedSelectionOnMouseDown )
 				{
 					OwnerWidget->Private_SignalSelectionChanged(ESelectInfo::OnMouseClick);
 				}
@@ -521,52 +500,46 @@ public:
 
 	virtual FReply OnTouchEnded( const FGeometry& MyGeometry, const FPointerEvent& InTouchEvent ) override
 	{
-		if ( bProcessingSelectionTouch )
+		FReply Reply = FReply::Unhandled();
+
+		if (bProcessingSelectionTouch)
 		{
 			bProcessingSelectionTouch = false;
-			const TSharedPtr< ITypedTableView<ItemType> > OwnerWidget = OwnerTablePtr.Pin();
-			const ItemType* MyItem = OwnerWidget->Private_ItemFromWidget( this );
-
-			switch( GetSelectionMode() )
+			const TSharedPtr<ITypedTableView<ItemType>> OwnerWidget = OwnerTablePtr.Pin();
+			if (const ItemType* MyItem = OwnerWidget->Private_ItemFromWidget(this))
 			{
-				default:
-				case ESelectionMode::None:
-					return FReply::Unhandled();
-				break;
-
-				case ESelectionMode::Single:
+				ESelectionMode::Type SelectionMode = GetSelectionMode();
+				if (SelectionMode != ESelectionMode::None)
 				{
-					OwnerWidget->Private_ClearSelection();
-					OwnerWidget->Private_SetItemSelection( *MyItem, true, true );
-					OwnerWidget->Private_SignalSelectionChanged(ESelectInfo::OnMouseClick);
-					return FReply::Handled();
-				}
-				break;
+					const bool bIsSelected = OwnerWidget->Private_IsItemSelected(*MyItem);
+					if (!bIsSelected)
+					{
+						if (SelectionMode != ESelectionMode::Multi)
+						{
+							OwnerWidget->Private_ClearSelection();
+						}
+						OwnerWidget->Private_SetItemSelection(*MyItem, true, true);
+						OwnerWidget->Private_SignalSelectionChanged(ESelectInfo::OnMouseClick);
 
-				case ESelectionMode::SingleToggle:
-				{
-					const bool bShouldBecomeSelected = !OwnerWidget->Private_IsItemSelected(*MyItem);
-					OwnerWidget->Private_ClearSelection();
-					OwnerWidget->Private_SetItemSelection( *MyItem, bShouldBecomeSelected, true );
-					OwnerWidget->Private_SignalSelectionChanged(ESelectInfo::OnMouseClick);
-				}
-				break;
+						Reply = FReply::Handled();
+					}
+					else if (SelectionMode == ESelectionMode::SingleToggle || SelectionMode == ESelectionMode::Multi)
+					{
+						OwnerWidget->Private_SetItemSelection(*MyItem, true, true);
+						OwnerWidget->Private_SignalSelectionChanged(ESelectInfo::OnMouseClick);
 
-				case ESelectionMode::Multi:
-				{
-					const bool bShouldBecomeSelected = !OwnerWidget->Private_IsItemSelected(*MyItem);
-					OwnerWidget->Private_SetItemSelection( *MyItem, bShouldBecomeSelected, true );
-					OwnerWidget->Private_SignalSelectionChanged(ESelectInfo::OnMouseClick);
+						Reply = FReply::Handled();
+					}
 				}
-				break;
+
+				if (OwnerWidget->Private_OnItemClicked(*MyItem))
+				{
+					Reply = FReply::Handled();
+				}
 			}
-			
-			return FReply::Handled();
 		}
-		else
-		{
-			return FReply::Unhandled();
-		}
+
+		return Reply;
 	}
 
 	virtual FReply OnDragDetected( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override
@@ -578,7 +551,7 @@ public:
 			bProcessingSelectionTouch = false;
 			return FReply::Handled().CaptureMouse( OwnerTablePtr.Pin()->AsWidget() );
 		}
-		else if ( HasMouseCapture() && ChangedSelectionOnMouseDown )
+		else if ( HasMouseCapture() && bChangedSelectionOnMouseDown )
 		{
 			TSharedPtr< ITypedTableView<ItemType> > OwnerWidget = OwnerTablePtr.Pin();
 			OwnerWidget->Private_SignalSelectionChanged(ESelectInfo::OnMouseClick);
@@ -679,7 +652,7 @@ public:
 				if (ReportedZone.IsSet())
 				{
 					FReply DropReply = OnAcceptDrop.Execute(DragDropEvent, ReportedZone.GetValue(), *MyItem);
-					if (DropReply.IsEventHandled())
+					if (DropReply.IsEventHandled() && ReportedZone.GetValue() == EItemDropZone::OntoItem)
 					{
 						// Expand the drop target just in case, so that what we dropped is visible.
 						OwnerWidget->Private_SetItemExpansion(*MyItem, true);
@@ -700,6 +673,9 @@ public:
 
 		return Reply;
 	}
+
+	virtual void InitializeRow() override {}
+	virtual void ResetRow() override {}
 
 	virtual void SetIndexInList( int32 InIndexInList ) override
 	{
@@ -723,9 +699,16 @@ public:
 		if( bItemHasChildren )
 		{
 			ItemType MyItem = *(OwnerWidget->Private_ItemFromWidget( this ));
-			const bool IsItemExpanded = bItemHasChildren && OwnerWidget->Private_IsItemExpanded( MyItem );
-			OwnerWidget->Private_SetItemExpansion( MyItem, !IsItemExpanded );
+			const bool bIsItemExpanded = bItemHasChildren && OwnerWidget->Private_IsItemExpanded( MyItem );
+			OwnerWidget->Private_SetItemExpansion( MyItem, !bIsItemExpanded);
 		}
+	}
+
+	virtual bool IsItemSelected() const override
+	{
+		TSharedPtr<ITypedTableView<ItemType>> OwnerTable = OwnerTablePtr.Pin();
+		const ItemType& MyItem = *OwnerTable->Private_ItemFromWidget(this);
+		return OwnerTable->Private_IsItemSelected(MyItem);
 	}
 
 	virtual int32 GetIndentLevel() const override
@@ -736,6 +719,16 @@ public:
 	virtual int32 DoesItemHaveChildren() const override
 	{
 		return OwnerTablePtr.Pin()->Private_DoesItemHaveChildren( IndexInList );
+	}
+
+	virtual TBitArray<> GetWiresNeededByDepth() const override
+	{
+		return OwnerTablePtr.Pin()->Private_GetWiresNeededByDepth(IndexInList);
+	}
+
+	virtual bool IsLastChild() const override
+	{
+		return OwnerTablePtr.Pin()->Private_IsLastChild(IndexInList);
 	}
 
 	virtual TSharedRef<SWidget> AsWidget() override
@@ -1005,7 +998,7 @@ protected:
 	/** The widget in the content slot for this row */
 	TWeakPtr<SWidget> Content;
 
-	bool ChangedSelectionOnMouseDown;
+	bool bChangedSelectionOnMouseDown;
 
 	/** Did the current a touch interaction start in this item?*/
 	bool bProcessingSelectionTouch;

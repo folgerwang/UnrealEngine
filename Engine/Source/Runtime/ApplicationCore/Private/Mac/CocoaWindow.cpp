@@ -1,10 +1,10 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "CocoaWindow.h"
-#include "MacApplication.h"
-#include "CocoaTextView.h"
-#include "CocoaThread.h"
-#include "MacCursor.h"
+#include "Mac/CocoaWindow.h"
+#include "Mac/MacApplication.h"
+#include "Mac/CocoaTextView.h"
+#include "Mac/CocoaThread.h"
+#include "Mac/MacCursor.h"
 #include "HAL/IConsoleManager.h"
 
 NSString* NSDraggingExited = @"NSDraggingExited";
@@ -36,6 +36,8 @@ NSString* NSPerformDragOperation = @"NSPerformDragOperation";
 		bIsOnActiveSpace = [super isOnActiveSpace];
 		self.TargetWindowMode = EWindowMode::Windowed;
 		[super setAlphaValue:Opacity];
+		[super setRestorable:NO];
+		[super disableSnapshotRestoration];
 	}
 	return NewSelf;
 }
@@ -43,7 +45,7 @@ NSString* NSPerformDragOperation = @"NSPerformDragOperation";
 - (NSRect)openGLFrame
 {
 	SCOPED_AUTORELEASE_POOL;
-	if ([self styleMask] & NSTexturedBackgroundWindowMask)
+	if ([self styleMask] & NSWindowStyleMaskTexturedBackground)
 	{
 		return [self frame];
 	}
@@ -56,7 +58,7 @@ NSString* NSPerformDragOperation = @"NSPerformDragOperation";
 - (NSView*)openGLView
 {
 	SCOPED_AUTORELEASE_POOL;
-	if (FPlatformMisc::IsRunningOnMavericks() && [self styleMask] & (NSTexturedBackgroundWindowMask))
+	if (FPlatformMisc::IsRunningOnMavericks() && [self styleMask] & (NSWindowStyleMaskTexturedBackground))
 	{
 		NSView* SuperView = [[self contentView] superview];
 		for (NSView* View in [SuperView subviews])
@@ -129,7 +131,7 @@ NSString* NSPerformDragOperation = @"NSPerformDragOperation";
 - (BOOL)canBecomeKeyWindow
 {
 	SCOPED_AUTORELEASE_POOL;
-	return bAcceptsInput && ([self styleMask] != NSBorderlessWindowMask);
+	return bAcceptsInput && ([self styleMask] != NSWindowStyleMaskBorderless);
 }
 
 - (BOOL)validateMenuItem:(NSMenuItem*)MenuItem
@@ -195,6 +197,12 @@ NSString* NSPerformDragOperation = @"NSPerformDragOperation";
 - (void)keyUp:(NSEvent*)Event
 {
 	// @note Deliberately empty - we don't want OS X to handle keyboard input as it will recursively re-add events we aren't handling
+}
+
+- (NSSize)window:(NSWindow *)window willUseFullScreenContentSize:(NSSize)proposedSize
+{
+	// Without this delegate method we seem to get different behavour in rare edge cases when changing to windowed fullscreen mode
+	return proposedSize;
 }
 
 - (void)windowWillEnterFullScreen:(NSNotification*)Notification

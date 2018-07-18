@@ -36,6 +36,30 @@ public:
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=AnchorData)
 	FVector2D Alignment;
+
+	/**
+	* Compares this set of FAnchorData with another for equality.
+	*
+	* @param Other The other FAnchorData.
+	* @return true if the two FAnchors are equal, false otherwise.
+	*/
+	bool operator==(const FAnchorData& Other) const
+	{
+		return Offsets == Other.Offsets && 
+			   Anchors == Other.Anchors && 
+			   Alignment == Other.Alignment;
+	}
+
+	/**
+	* Compares this set of FAnchorData with another for inequality.
+	*
+	* @param Other The other FAnchorData.
+	* @return true if the two FAnchors are not equal, false otherwise.
+	*/
+	bool operator!=(const FAnchorData& Other) const
+	{
+		return !(*this == Other);
+	}
 };
 
 UCLASS()

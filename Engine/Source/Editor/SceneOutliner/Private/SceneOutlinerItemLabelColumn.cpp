@@ -218,7 +218,24 @@ private:
 	{
 		if (const AActor* Actor = ActorPtr.Get())
 		{
-			return FClassIconFinder::FindIconForActor(const_cast<AActor*>(Actor));
+			if (WeakSceneOutliner.IsValid())
+			{
+				FSlateBrush* CachedBrush = WeakSceneOutliner.Pin()->GetCachedIconForClass(Actor->GetClass()->GetFName());
+				if (CachedBrush != nullptr)
+				{
+					return CachedBrush;
+				}
+				else
+				{
+					const FSlateBrush* FoundSlateBrush = FClassIconFinder::FindIconForActor(const_cast<AActor*>(Actor));
+					WeakSceneOutliner.Pin()->CacheIconForClass(Actor->GetClass()->GetFName(), const_cast<FSlateBrush*>(FoundSlateBrush));
+					return FoundSlateBrush;
+				}
+			}
+			else
+			{
+				return nullptr;
+			}
 		}
 		else
 		{

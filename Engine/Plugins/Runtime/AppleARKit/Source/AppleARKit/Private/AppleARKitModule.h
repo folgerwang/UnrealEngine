@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "IHeadMountedDisplayModule.h"
 #include "Features/IModularFeature.h"
 #include "AppleARKitSystem.h"
@@ -21,6 +21,7 @@ public:
 
 	virtual void ShutdownModule() override;
 
+    void PreExit();
 };
 
 DECLARE_LOG_CATEGORY_EXTERN(LogAppleARKit, Log, All);

@@ -91,6 +91,34 @@ void UGridPanel::SynchronizeProperties()
 	}
 }
 
+void UGridPanel::SetColumnFill(int32 ColumnIndex, float Coefficient)
+{
+	while (ColumnFill.Num() <= ColumnIndex)
+	{
+		ColumnFill.Emplace(0);
+	}
+	ColumnFill[ColumnIndex] = Coefficient;
+
+	if (MyGridPanel.IsValid())
+	{
+		MyGridPanel->SetColumnFill(ColumnIndex, Coefficient);
+	}
+}
+
+void UGridPanel::SetRowFill(int32 ColumnIndex, float Coefficient)
+{
+	while (RowFill.Num() <= ColumnIndex)
+	{
+		RowFill.Emplace(0);
+	}
+	RowFill[ColumnIndex] = Coefficient;
+
+	if (MyGridPanel.IsValid())
+	{
+		MyGridPanel->SetRowFill(ColumnIndex, Coefficient);
+	}
+}
+
 #if WITH_EDITOR
 
 const FText UGridPanel::GetPaletteCategory()

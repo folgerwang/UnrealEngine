@@ -6,6 +6,8 @@
 #include "UObject/ObjectMacros.h"
 #include "Misc/Guid.h"
 
+class FPackageIndex;
+
 /**
  * Wrapper for index into a ULnker's ImportMap or ExportMap.
  * Values greater than zero indicate that this is an index into the ExportMap.  The
@@ -120,16 +122,42 @@ public:
 	 */
 	FORCEINLINE friend FArchive& operator<<(FArchive& Ar, FPackageIndex& Value)
 	{
-		Ar << Value.Index;
+		FStructuredArchiveFromArchive(Ar).GetSlot() << Value;
 		return Ar;
+	}
+
+	/**
+	 * Serializes a package index value from or into a structured archive slot.
+	 *
+	 * @param Slot - The structured archive slot to serialize from or to.
+	 * @param Value - The value to serialize.
+	 */
+	FORCEINLINE friend void operator<<(FStructuredArchive::FSlot Slot, FPackageIndex& Value)
+	{
+		Slot << Value.Index;
 	}
 
 	FORCEINLINE friend uint32 GetTypeHash(const FPackageIndex& In)
 	{
 		return uint32(In.Index);
 	}
-};
 
+	/**
+	Friend declarations for Lex functions
+	*/
+	/**
+	Lex functions
+	*/
+	friend FString LexToString(const FPackageIndex& Value)
+	{
+		return FString::FromInt(Value.Index);
+	}
+
+	friend void LexFromString(FPackageIndex& Value, const TCHAR* String)
+	{
+		Value.Index = FCString::Atoi(String);
+	}
+};
 
 /**
  * Base class for UObject resource types.  FObjectResources are used to store UObjects on disk
@@ -229,14 +257,14 @@ struct FObjectExport : public FObjectResource
 	 * portion of this export's data that is serialized using script serialization.
 	 * Transient
 	 */
-	int32				ScriptSerializationStartOffset;
+	int64				ScriptSerializationStartOffset;
 
 	/**
 	 * The location (into the FLinker's underlying file reader archive) of the end of the
 	 * portion of this export's data that is serialized using script serialization.
 	 * Transient
 	 */
-	int32				ScriptSerializationEndOffset;
+	int64				ScriptSerializationEndOffset;
 
 	/**
 	 * The UObject represented by this export.  Assigned the first time CreateExport is called for this export.
@@ -331,8 +359,9 @@ struct FObjectExport : public FObjectResource
 	COREUOBJECT_API FObjectExport();
 	FObjectExport( UObject* InObject );
 	
-	/** I/O function */
-	friend COREUOBJECT_API FArchive& operator<<( FArchive& Ar, FObjectExport& E );
+	/** I/O functions */
+	friend COREUOBJECT_API FArchive& operator<<(FArchive& Ar, FObjectExport& E);
+	friend COREUOBJECT_API void operator<<(FStructuredArchive::FSlot Slot, FObjectExport& E);
 
 };
 
@@ -387,6 +416,7 @@ struct FObjectImport : public FObjectResource
 	FObjectImport( UObject* InObject );
 	FObjectImport( UObject* InObject, UClass* InClass );
 	
-	/** I/O function */
-	friend COREUOBJECT_API FArchive& operator<<( FArchive& Ar, FObjectImport& I );
+	/** I/O functions */
+	friend COREUOBJECT_API FArchive& operator<<(FArchive& Ar, FObjectImport& I);
+	friend COREUOBJECT_API void operator<<( FStructuredArchive::FSlot Slot, FObjectImport& I );
 };

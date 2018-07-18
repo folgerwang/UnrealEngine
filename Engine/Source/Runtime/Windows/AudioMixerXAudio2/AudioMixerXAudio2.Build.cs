@@ -32,5 +32,10 @@ public class AudioMixerXAudio2 : ModuleRules
         {
             PrivateDependencyModuleNames.Add("XMA2");
         }
+
+		if (Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Win64 || Target.Platform == UnrealTargetPlatform.XboxOne)
+		{
+			PrecompileForTargets = PrecompileTargetsType.Any;
+		}
 	}
 }

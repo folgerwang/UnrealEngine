@@ -60,6 +60,7 @@ TSharedRef<SWidget> UEditableText::RebuildWidget()
 		.OnTextChanged( BIND_UOBJECT_DELEGATE( FOnTextChanged, HandleOnTextChanged ) )
 		.OnTextCommitted( BIND_UOBJECT_DELEGATE( FOnTextCommitted, HandleOnTextCommitted ) )
 		.VirtualKeyboardType( EVirtualKeyboardType::AsKeyboardType( KeyboardType.GetValue() ) )
+		.VirtualKeyboardOptions(VirtualKeyboardOptions)
 		.VirtualKeyboardDismissAction(VirtualKeyboardDismissAction)
 		.Justification( Justification );
 	

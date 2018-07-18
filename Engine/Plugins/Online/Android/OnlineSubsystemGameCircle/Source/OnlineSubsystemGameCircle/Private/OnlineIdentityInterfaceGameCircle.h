@@ -3,10 +3,13 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "OnlineIdentityInterface.h"
+#include "Interfaces/OnlineIdentityInterface.h"
 #include "OnlineSubsystemGameCirclePackage.h"
 
 #include "OnlineAGSPlayerClientCallbacks.h"
+
+// from OnlineSubsystemTypes.h
+TEMP_UNIQUENETIDSTRING_SUBCLASS(FUniqueNetIdGameCircle, GAMECIRCLE_SUBSYSTEM);
 
 class FOnlineIdentityGameCircle :
 	public IOnlineIdentity
@@ -42,9 +45,9 @@ PACKAGE_SCOPE:
 	FOnlineIdentityGameCircle(FOnlineSubsystemGameCircle* InSubsystem);
 
 	/** Allow individual interfaces to access the currently signed-in user's id */
-	TSharedPtr<const FUniqueNetIdString> GetCurrentUserId() const { return UniqueNetId; }
+	TSharedPtr<const FUniqueNetIdGameCircle> GetCurrentUserId() const { return UniqueNetId; }
 
-	void SetCurrentUserId(TSharedPtr<const FUniqueNetIdString> InUniqueNetId) { UniqueNetId = InUniqueNetId; }
+	void SetCurrentUserId(TSharedPtr<const FUniqueNetIdGameCircle> InUniqueNetId) { UniqueNetId = InUniqueNetId; }
 
 	void SetSignedInState(bool bNewState) { bIsLoggedIn = bNewState; }
 
@@ -65,7 +68,7 @@ private:
 	} LocalPlayerInfo;
 
 	/** UID for this identity */
-	TSharedPtr<const FUniqueNetIdString> UniqueNetId;
+	TSharedPtr<const FUniqueNetIdGameCircle> UniqueNetId;
 
 	FOnlineSignedInStateChangedListener	SignedInStateChangeListener;
 

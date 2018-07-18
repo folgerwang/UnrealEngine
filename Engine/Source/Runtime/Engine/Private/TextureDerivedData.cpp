@@ -30,6 +30,7 @@
 #include "Interfaces/ITargetPlatformManagerModule.h"
 #include "Interfaces/ITextureFormat.h"
 #include "Engine/TextureCube.h"
+#include "Engine/VolumeTexture.h"
 #include "ProfilingDebugging/CookStats.h"
 
 /*------------------------------------------------------------------------------
@@ -42,7 +43,7 @@
 // In case of merge conflicts with DDC versions, you MUST generate a new GUID and set this new
 // guid as version
 
-#define TEXTURE_DERIVEDDATA_VER		TEXT("814DCC3DC72143F49509781513CB9855")
+#define TEXTURE_DERIVEDDATA_VER		TEXT("68A083899C6F4316B8CE0E2958EDE2C2")
 
 #if ENABLE_COOK_STATS
 namespace TextureCookStats
@@ -270,6 +271,9 @@ static void GetTextureBuildSettings(
 	OutBuildSettings.bComputeBokehAlpha = (Texture.LODGroup == TEXTUREGROUP_Bokeh);
 	OutBuildSettings.bReplicateAlpha = false;
 	OutBuildSettings.bReplicateRed = false;
+	OutBuildSettings.bVolume = false;
+	OutBuildSettings.bCubemap = false;
+
 	if (Texture.MaxTextureSize > 0)
 	{
 		OutBuildSettings.MaxTextureResolution = Texture.MaxTextureSize;
@@ -287,9 +291,14 @@ static void GetTextureBuildSettings(
 			OutBuildSettings.MaxTextureResolution = 512;
 		}
 	}
+	else if (Texture.IsA(UVolumeTexture::StaticClass()))
+	{
+		OutBuildSettings.bVolume = true;
+		OutBuildSettings.DiffuseConvolveMipLevel = 0;
+		OutBuildSettings.bLongLatSource = false;
+	}
 	else
 	{
-		OutBuildSettings.bCubemap = false;
 		OutBuildSettings.DiffuseConvolveMipLevel = 0;
 		OutBuildSettings.bLongLatSource = false;
 	}
@@ -323,7 +332,8 @@ static void GetTextureBuildSettings(
 	OutBuildSettings.bFlipGreenChannel = Texture.bFlipGreenChannel;
 	OutBuildSettings.CompositeTextureMode = Texture.CompositeTextureMode;
 	OutBuildSettings.CompositePower = Texture.CompositePower;
-	OutBuildSettings.LODBias = TextureLODSettings.CalculateLODBias(Texture.Source.GetSizeX(), Texture.Source.GetSizeY(), Texture.LODGroup, Texture.LODBias, Texture.NumCinematicMipLevels, Texture.MipGenSettings);
+	OutBuildSettings.LODBias = TextureLODSettings.CalculateLODBias(Texture.Source.GetSizeX(), Texture.Source.GetSizeY(), Texture.MaxTextureSize, Texture.LODGroup, Texture.LODBias, Texture.NumCinematicMipLevels, Texture.MipGenSettings);
+	OutBuildSettings.LODBiasWithCinematicMips = TextureLODSettings.CalculateLODBias(Texture.Source.GetSizeX(), Texture.Source.GetSizeY(), Texture.MaxTextureSize, Texture.LODGroup, Texture.LODBias, 0, Texture.MipGenSettings);
 	OutBuildSettings.bStreamable = bPlatformSupportsTextureStreaming && !Texture.NeverStream && (Texture.LODGroup != TEXTUREGROUP_UI) && (Cast<const UTexture2D>(&Texture) != NULL);
 	OutBuildSettings.PowerOfTwoMode = Texture.PowerOfTwoMode;
 	OutBuildSettings.PaddingColor = Texture.PaddingColor;
@@ -703,7 +713,8 @@ static void BeginLoadDerivedMips(TIndirectArray<FTexture2DMipMap>& Mips, int32 F
 /** Asserts that MipSize is correct for the mipmap. */
 static void CheckMipSize(FTexture2DMipMap& Mip, EPixelFormat PixelFormat, int32 MipSize)
 {
-	if (MipSize != CalcTextureMipMapSize(Mip.SizeX, Mip.SizeY, PixelFormat, 0))
+	// Only volume can have SizeZ != 1
+	if (MipSize != Mip.SizeZ * CalcTextureMipMapSize(Mip.SizeX, Mip.SizeY, PixelFormat, 0))
 	{
 		UE_LOG(LogTexture, Warning,
 			TEXT("%dx%d mip of %s texture has invalid data in the DDC. Got %d bytes, expected %d. Key=%s"),
@@ -717,14 +728,14 @@ static void CheckMipSize(FTexture2DMipMap& Mip, EPixelFormat PixelFormat, int32 
 	}
 }
 
-bool FTexturePlatformData::TryInlineMipData()
+bool FTexturePlatformData::TryInlineMipData(int32 FirstMipToLoad)
 {
 	FAsyncMipHandles AsyncHandles;
 	TArray<uint8> TempData;
 	FDerivedDataCacheInterface& DDC = GetDerivedDataCacheRef();
 
-	BeginLoadDerivedMips(Mips, 0, AsyncHandles);
-	for (int32 MipIndex = 0; MipIndex < Mips.Num(); ++MipIndex)
+	BeginLoadDerivedMips(Mips, FirstMipToLoad, AsyncHandles);
+	for (int32 MipIndex = FirstMipToLoad; MipIndex < Mips.Num(); ++MipIndex)
 	{
 		FTexture2DMipMap& Mip = Mips[MipIndex];
 		if (Mip.DerivedDataKey.IsEmpty() == false)
@@ -982,7 +993,7 @@ static void SerializePlatformData(
 			const int32 NumCinematicMipLevels = Texture->NumCinematicMipLevels;
 			const TextureMipGenSettings MipGenSetting = Texture->MipGenSettings;
 
-			FirstMipToSerialize = Ar.CookingTarget()->GetTextureLODSettings().CalculateLODBias(Width, Height, LODGroup, LODBias, 0, MipGenSetting);
+			FirstMipToSerialize = Ar.CookingTarget()->GetTextureLODSettings().CalculateLODBias(Width, Height, Texture->MaxTextureSize, LODGroup, LODBias, 0, MipGenSetting);
 			FirstMipToSerialize = FMath::Clamp(FirstMipToSerialize, 0, FMath::Max(NumMips-1,0));
 			NumMips -= FirstMipToSerialize;
 		}
@@ -995,10 +1006,19 @@ static void SerializePlatformData(
 		}
 	}
 
+	TArray<uint32> BulkDataMipFlags;
+
 	// Force resident mips inline
 	if (bCooked && Ar.IsSaving())
 	{
+		BulkDataMipFlags.AddZeroed(PlatformData->Mips.Num());
+		for (int32 MipIndex = 0; MipIndex < PlatformData->Mips.Num(); ++MipIndex)
+		{
+			BulkDataMipFlags[MipIndex] = PlatformData->Mips[MipIndex].BulkData.GetBulkDataFlags();
+		}
+
 		int32 MinMipToInline = 0;
+		int32 OptionalMips = 0; // TODO: do we need to consider platforms saving texture assets as cooked files? all the info to calculate the optional is part of the editor only data
 		
 #if WITH_EDITORONLY_DATA
 		check(Ar.CookingTarget());
@@ -1011,9 +1031,23 @@ static void SerializePlatformData(
 #endif
 		{
 			MinMipToInline = FMath::Max(0, NumMips - PlatformData->GetNumNonStreamingMips());
+#if WITH_EDITORONLY_DATA
+			const int32 Width = PlatformData->SizeX;
+			const int32 Height = PlatformData->SizeY;
+			const int32 LODGroup = Texture->LODGroup;
+			const int32 LODBias = Texture->LODBias;
+			const int32 NumCinematicMipLevels = Texture->NumCinematicMipLevels;
+
+			OptionalMips = Ar.CookingTarget()->GetTextureLODSettings().CalculateNumOptionalMips(LODGroup, Width, Height, NumMips, MinMipToInline, Texture->MipGenSettings);
+#endif
 		}
 
-		for (int32 MipIndex = 0; MipIndex < NumMips && MipIndex < MinMipToInline; ++MipIndex)
+		for (int32 MipIndex = 0; MipIndex < NumMips && MipIndex < OptionalMips; ++MipIndex )
+		{
+			PlatformData->Mips[MipIndex + FirstMipToSerialize].BulkData.SetBulkDataFlags(BULKDATA_Force_NOT_InlinePayload| BULKDATA_OptionalPayload);
+		}
+
+		for (int32 MipIndex = OptionalMips; MipIndex < NumMips && MipIndex < MinMipToInline; ++MipIndex)
 		{
 			PlatformData->Mips[MipIndex + FirstMipToSerialize].BulkData.SetBulkDataFlags(BULKDATA_Force_NOT_InlinePayload);
 		}
@@ -1022,7 +1056,6 @@ static void SerializePlatformData(
 			PlatformData->Mips[MipIndex + FirstMipToSerialize].BulkData.SetBulkDataFlags(BULKDATA_ForceInlinePayload | BULKDATA_SingleUse);
 		}
 	}
-
 	Ar << NumMips;
 	if (Ar.IsLoading())
 	{
@@ -1037,6 +1070,14 @@ static void SerializePlatformData(
 	{
 		PlatformData->Mips[FirstMipToSerialize + MipIndex].Serialize(Ar, Texture, MipIndex);
 	}
+
+	for (int32 MipIndex = 0; MipIndex < BulkDataMipFlags.Num(); ++MipIndex)
+	{
+		check( Ar.IsSaving() );
+		PlatformData->Mips[MipIndex].BulkData.ClearBulkDataFlags(~BulkDataMipFlags[MipIndex]);
+		PlatformData->Mips[MipIndex].BulkData.SetBulkDataFlags(BulkDataMipFlags[MipIndex]);
+	}
+	
 }
 
 void FTexturePlatformData::Serialize(FArchive& Ar, UTexture* Owner)
@@ -1514,31 +1555,31 @@ void UTexture::SerializeCookedPlatformData(FArchive& Ar)
 			}
 			else
 			{
-			TMap<FString, FTexturePlatformData*> *CookedPlatformDataPtr = GetCookedPlatformData();
+				TMap<FString, FTexturePlatformData*> *CookedPlatformDataPtr = GetCookedPlatformData();
 				if (CookedPlatformDataPtr == NULL)
-				return;
+					return;
 
-			TArray<FName> PlatformFormats;
+				TArray<FName> PlatformFormats;
 
-			Ar.CookingTarget()->GetTextureFormats(this, PlatformFormats);
-			for (int32 FormatIndex = 0; FormatIndex < PlatformFormats.Num(); FormatIndex++)
-			{
-				FString DerivedDataKey;
-				BuildSettings.TextureFormatName = PlatformFormats[FormatIndex];
-				GetTextureDerivedDataKey(*this, BuildSettings, DerivedDataKey);
-
-				FTexturePlatformData *PlatformDataPtr = (*CookedPlatformDataPtr).FindRef(DerivedDataKey);
-				
-				if (PlatformDataPtr == NULL)
+				Ar.CookingTarget()->GetTextureFormats(this, PlatformFormats);
+				for (int32 FormatIndex = 0; FormatIndex < PlatformFormats.Num(); FormatIndex++)
 				{
-					PlatformDataPtr = new FTexturePlatformData();
-					PlatformDataPtr->Cache(*this, BuildSettings, ETextureCacheFlags::InlineMips | ETextureCacheFlags::Async, nullptr);
-					
+					FString DerivedDataKey;
+					BuildSettings.TextureFormatName = PlatformFormats[FormatIndex];
+					GetTextureDerivedDataKey(*this, BuildSettings, DerivedDataKey);
+
+					FTexturePlatformData *PlatformDataPtr = (*CookedPlatformDataPtr).FindRef(DerivedDataKey);
+
+					if (PlatformDataPtr == NULL)
+					{
+						PlatformDataPtr = new FTexturePlatformData();
+						PlatformDataPtr->Cache(*this, BuildSettings, ETextureCacheFlags::InlineMips | ETextureCacheFlags::Async, nullptr);
+
 						CookedPlatformDataPtr->Add(DerivedDataKey, PlatformDataPtr);
-					
+
+					}
+					PlatformDataToSerialize.Add(PlatformDataPtr);
 				}
-				PlatformDataToSerialize.Add(PlatformDataPtr);
-			}
 			}
 
 			for (int32 i = 0; i < PlatformDataToSerialize.Num(); ++i)
@@ -1547,8 +1588,8 @@ void UTexture::SerializeCookedPlatformData(FArchive& Ar)
 				PlatformDataToSave->FinishCache();
 				FName PixelFormatName = PixelFormatEnum->GetNameByValue(PlatformDataToSave->PixelFormat);
 				Ar << PixelFormatName;
-				int32 SkipOffsetLoc = Ar.Tell();
-				int32 SkipOffset = 0;
+				int64 SkipOffsetLoc = Ar.Tell();
+				int64 SkipOffset = 0;
 
 				{
 					FArchive::FScopeSetDebugSerializationFlags S(Ar,DSF_IgnoreDiff);
@@ -1586,7 +1627,7 @@ void UTexture::SerializeCookedPlatformData(FArchive& Ar)
 		while (PixelFormatName != NAME_None)
 		{
 			EPixelFormat PixelFormat = (EPixelFormat)PixelFormatEnum->GetValueByName(PixelFormatName);
-			int32 SkipOffset = 0;
+			int64 SkipOffset = 0;
 			Ar << SkipOffset;
 			bool bFormatSupported = GPixelFormats[PixelFormat].Supported;
 			if (RunningPlatformData->PixelFormat == PF_Unknown && bFormatSupported)

@@ -4,11 +4,20 @@
 	<!-- init section is always evaluated once per architecture -->
 	<init>
 		<log text="Google SDK Android init"/>
+
+        <!-- check if using Gradle -->
+        <setBoolFromProperty result="bGradle" ini="Engine" section="/Script/AndroidRuntimeSettings.AndroidRuntimeSettings" property="bEnableGradle" default="false"/>
+        <if condition="bGradle">
+            <true>
+                <log text="Google requires minimum SDK of 15"/>
+            </true>
+        </if>
+        
 		<!-- <trace enable="true"/> -->
 		<!-- get packaging for Google from ini and reset it if architecture not supported -->
 		<setBoolFromProperty result="bEnabled" ini="Engine" section="OnlineSubsystemGoogle" property="bEnabled" default="false"/>
-		<setStringFromProperty result="ClientId" ini="Engine" section="OnlineSubsystemGoogle" property="ClientId" default="0"/>
-		<setStringFromProperty result="ServerClientId" ini="Engine" section="OnlineSubsystemGoogle" property="ServerClientId" default="0"/>
+		<!-- <setStringFromProperty result="ClientId" ini="Engine" section="OnlineSubsystemGoogle" property="ClientId" default="0"/> -->
+		<!-- <setStringFromProperty result="ServerClientId" ini="Engine" section="OnlineSubsystemGoogle" property="ServerClientId" default="0"/> -->
 		<dumpvars/>
 	</init>
 	
@@ -31,11 +40,23 @@
 	<AARImports>
 		<if condition="bEnabled">
 			<true>
-				<insertValue value="com.google.android.gms,play-services-auth,11.0.4" />
-				<insertNewline/>
+                <if condition="bGradle">
+                    <false>
+                        <insertValue value="com.google.android.gms,play-services-auth,11.0.4" />
+                        <insertNewline/>
+                    </false>
+                </if>
 			</true>
 		</if>
 	</AARImports>
+
+    <buildGradleAdditions>
+        <insert>
+            dependencies {
+            implementation('com.google.android.gms:play-services-auth:11.8.0')
+            }
+        </insert>
+    </buildGradleAdditions>
 
 	<!-- optional updates applied to AndroidManifest.xml -->
 	<androidManifestUpdates>
@@ -106,6 +127,28 @@
 	// Begin Google gameActivityClassAdditions
 	private GoogleLogin googleLogin;
 	public GoogleLogin getGoogleLogin() { return googleLogin; }
+    
+    public int AndroidThunkJava_Google_Init(String clientId, String serverId)
+	{
+		Log.debug("[JAVA] - AndroidThunkJava_Google_Init begin:");
+        Log.debug("[JAVA] - clientId:" + clientId);
+        Log.debug("[JAVA] - serverId:" + serverId);
+        
+        int resultCode = -1;
+	    if ((googleLogin == null) || (!googleLogin.init(clientId, serverId)))
+	    {
+		    googleLogin = null;
+		    Log.error("[JAVA] - Google SDK failed to initialize!");
+	    }
+	    else
+	    {
+	    	Log.debug("[JAVA] - Google SDK success!");
+            resultCode = 0;
+	    }
+       
+		Log.debug("[JAVA] - AndroidThunkJava_Google_Init end: " + resultCode);
+        return resultCode;
+	}
 
 	public int AndroidThunkJava_Google_Login(String[] ScopeFields)
 	{
@@ -154,24 +197,8 @@
 			<true>
 				<insert>	
 	// Begin Google onCreate
-				</insert>
-				<insertValue value="    String androidClientId = &quot;$S(ClientId)&quot;;" />
-				<insertNewline/>
-				<insert>
-				</insert>
-				<insertValue value="    String serverClientId = &quot;$S(ServerClientId)&quot;;" />
-				<insertNewline/>
-				<insert>
-	googleLogin = new GoogleLogin(this, Log);
-	if (!googleLogin.init(getPackageName(), BuildConfiguration, androidClientId, serverClientId, savedInstanceState))
-	{
-		googleLogin = null;
-		Log.error("[JAVA] - Google SDK failed to initialize!");
-	}
-	else
-	{
-		Log.debug("[JAVA] - Google SDK success!");
-	}
+    Log.debug("[JAVA] - Google onCreate");
+    googleLogin = new GoogleLogin(this, Log, getPackageName(), BuildConfiguration);
 	// End Google onCreate
 				</insert>
 			</true>
@@ -184,6 +211,7 @@
 			<true>
 				<insert>                    
 	// Begin Google onDestroy
+    Log.debug("[JAVA] - Google onDestroy");
 	if (googleLogin != null)
 	{
 		googleLogin.onDestroy();
@@ -200,6 +228,7 @@
 			<true>
 				<insert>
 	// Begin Google onStart
+    Log.debug("[JAVA] - Google onStart");
 	if (googleLogin != null)
 	{
 		googleLogin.onStart();
@@ -216,6 +245,7 @@
 			<true>
 				<insert>
 	// Begin Google onStop
+    Log.debug("[JAVA] - Google onStop");
 	if (googleLogin != null)
 	{
 		googleLogin.onStop();
@@ -256,6 +286,7 @@
 			<true>
 				<insert>
 	// Begin Google onActivityResult
+    Log.debug("[JAVA] - Google onActivityResult");
 	if (googleLogin != null)
 	{
 		googleLogin.onActivityResult(requestCode, resultCode, data);

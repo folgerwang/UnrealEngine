@@ -33,10 +33,10 @@ class USoundNodeAttenuation : public USoundNode
 public:
 	//~ Begin USoundNode Interface. 
 	virtual void ParseNodes( class FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanceHash, FActiveSound& ActiveSound, const FSoundParseParameters& ParseParams, TArray<FWaveInstance*>& WaveInstances ) override;
-	virtual float MaxAudibleDistance( float CurrentMaxDistance ) override;
+	virtual float GetMaxDistance() const override;
 	//~ End USoundNode Interface. 
 
-	ENGINE_API FSoundAttenuationSettings* GetAttenuationSettingsToApply();
+	ENGINE_API const FSoundAttenuationSettings* GetAttenuationSettingsToApply() const;
 };
 
 

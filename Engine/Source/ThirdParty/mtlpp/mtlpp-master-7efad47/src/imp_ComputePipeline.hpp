@@ -8,6 +8,47 @@
 MTLPP_BEGIN
 
 template<>
+struct IMPTable<MTLComputePipelineDescriptor*, void> : public IMPTableBase<MTLComputePipelineDescriptor*>
+{
+	IMPTable()
+	{
+	}
+	
+	IMPTable(Class C)
+	: IMPTableBase<MTLComputePipelineDescriptor*>(C)
+	, INTERPOSE_CONSTRUCTOR(label, C)
+	, INTERPOSE_CONSTRUCTOR(setLabel, C)
+	, INTERPOSE_CONSTRUCTOR(computeFunction, C)
+	, INTERPOSE_CONSTRUCTOR(setComputeFunction, C)
+	, INTERPOSE_CONSTRUCTOR(threadGroupSizeIsMultipleOfThreadExecutionWidth, C)
+	, INTERPOSE_CONSTRUCTOR(setThreadGroupSizeIsMultipleOfThreadExecutionWidth, C)
+	, INTERPOSE_CONSTRUCTOR(stageInputDescriptor, C)
+	, INTERPOSE_CONSTRUCTOR(setStageInputDescriptor, C)
+	, INTERPOSE_CONSTRUCTOR(buffers, C)
+	, INTERPOSE_CONSTRUCTOR(setBuffers, C)
+	, INTERPOSE_CONSTRUCTOR(reset, C)
+	{
+	}
+	
+	INTERPOSE_SELECTOR(MTLComputePipelineDescriptor*, label, label, NSString *);
+	INTERPOSE_SELECTOR(MTLComputePipelineDescriptor*, setLabel:, setLabel, void, NSString *);
+	
+	INTERPOSE_SELECTOR(MTLComputePipelineDescriptor*, computeFunction, computeFunction, id <MTLFunction>);
+	INTERPOSE_SELECTOR(MTLComputePipelineDescriptor*, setComputeFunction:, setComputeFunction, void, id <MTLFunction>);
+	
+	INTERPOSE_SELECTOR(MTLComputePipelineDescriptor*, threadGroupSizeIsMultipleOfThreadExecutionWidth, threadGroupSizeIsMultipleOfThreadExecutionWidth, BOOL);
+	INTERPOSE_SELECTOR(MTLComputePipelineDescriptor*, setThreadGroupSizeIsMultipleOfThreadExecutionWidth:, setThreadGroupSizeIsMultipleOfThreadExecutionWidth, void, BOOL);
+	
+	INTERPOSE_SELECTOR(MTLComputePipelineDescriptor*, stageInputDescriptor, stageInputDescriptor, MTLStageInputOutputDescriptor*);
+	INTERPOSE_SELECTOR(MTLComputePipelineDescriptor*, setStageInputDescriptor:, setStageInputDescriptor, void, MTLStageInputOutputDescriptor*);
+	
+	INTERPOSE_SELECTOR(MTLComputePipelineDescriptor*, buffers, buffers, MTLPipelineBufferDescriptorArray*);
+	INTERPOSE_SELECTOR(MTLComputePipelineDescriptor*, setBuffers:, setBuffers, void, MTLPipelineBufferDescriptorArray*);
+	
+	INTERPOSE_SELECTOR(MTLComputePipelineDescriptor*, reset, reset, void);
+};
+
+template<>
 struct IMPTable<id<MTLComputePipelineState>, void> : public IMPTableState<id<MTLComputePipelineState>>
 {
 	IMPTable()

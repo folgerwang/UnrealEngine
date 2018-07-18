@@ -4,7 +4,10 @@
 
 #include "IncludePython.h"
 #include "PyPtr.h"
+#include "PyGenUtil.h"
 #include "PyConversionMethod.h"
+#include "PyConversionResult.h"
+#include "Misc/Guid.h"
 #include "UObject/GCObject.h"
 
 #if WITH_PYTHON
@@ -13,7 +16,7 @@
 extern PyTypeObject PyWrapperBaseType;
 
 /** Initialize the PyWrapperBase types and add them to the given Python module */
-void InitializePyWrapperBase(PyObject* PyModule);
+void InitializePyWrapperBase(PyGenUtil::FNativePythonModule& ModuleInfo);
 
 /** Base type for all UE4 exposed instances */
 struct FPyWrapperBase
@@ -39,6 +42,11 @@ struct FPyWrapperBase
 	static TYPE* GetMetaData(PyTypeObject* PyType) { return (TYPE*)FPyWrapperBaseMetaData::GetMetaData(PyType); }				\
 	static TYPE* GetMetaData(FPyWrapperBase* Instance) { return (TYPE*)FPyWrapperBaseMetaData::GetMetaData(Instance); }
 
+#define PY_METADATA_METHODS(TYPE, GUID)																							\
+	PY_OVERRIDE_GETSET_METADATA(TYPE)																							\
+	static FGuid StaticTypeId() { return (GUID); }																				\
+	virtual FGuid GetTypeId() const override { return StaticTypeId(); }
+
 /** Base meta-data for all UE4 exposed types */
 struct FPyWrapperBaseMetaData
 {
@@ -52,13 +60,26 @@ struct FPyWrapperBaseMetaData
 	static FPyWrapperBaseMetaData* GetMetaData(FPyWrapperBase* Instance);
 
 	FPyWrapperBaseMetaData()
-		: AddReferencedObjects(nullptr)
 	{
 	}
 
-	/** AddReferencedObjects */
-	typedef void(*FAROFunc)(FPyWrapperBase*, FReferenceCollector&);
-	FAROFunc AddReferencedObjects;
+	virtual ~FPyWrapperBaseMetaData()
+	{
+	}
+
+	/** Get the ID associated with this meta-data type */
+	virtual FGuid GetTypeId() const = 0;
+
+	/** Get the reflection meta data type object associated with this wrapper type if there is one or nullptr if not. */
+	virtual const UField* GetMetaType() const
+	{
+		return nullptr;
+	}
+
+	/** Add object references from the given Python object to the given collector */
+	virtual void AddReferencedObjects(FPyWrapperBase* Instance, FReferenceCollector& Collector)
+	{
+	}
 };
 
 typedef TPyPtr<FPyWrapperBase> FPyWrapperBasePtr;

@@ -32,6 +32,9 @@
 		<setBoolIsEqual result="bNoDefaultTracker" arg1="$S(DefaultTracker)" arg2=""/>
 		<setBoolIsEqual result="bNoProcessName" arg1="$S(ProcessName)" arg2=""/>
 		<setBoolIsEqual result="bNoDelayStart" arg1="$S(DelayStart)" arg2="0.0"/>
+
+		<!-- check if using Gradle -->
+		<setBoolFromProperty result="bGradle" ini="Engine" section="/Script/AndroidRuntimeSettings.AndroidRuntimeSettings" property="bEnableGradle" default="false"/>
 	</init>
 	
 	<!-- optional files or directories to copy to Intermediate/Android/APK -->
@@ -47,9 +50,21 @@
 
 	<!-- AAR dependencies -->
 	<AARImports>
-		<insertValue value="com.google.android.gms,play-services-analytics,11.0.4" />
-		<insertNewline/>
+		<if condition="bGradle">
+			<false>
+				<insertValue value="com.google.android.gms,play-services-analytics,11.0.4" />
+				<insertNewline/>
+			</false>
+		</if>
 	</AARImports>
+
+	<buildGradleAdditions>
+		<insert>
+dependencies {
+	implementation('com.google.android.gms:play-services-analytics:11.8.0')
+}
+		</insert>
+	</buildGradleAdditions>
 	
 	<!-- optional additions to proguard -->
 	<proguardAdditions>

@@ -50,11 +50,11 @@ void SetRadixSortShaderCompilerEnvironment( FShaderCompilerEnvironment& OutEnvir
 ------------------------------------------------------------------------------*/
 
 BEGIN_UNIFORM_BUFFER_STRUCT( FRadixSortParameters, )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( uint32, RadixShift )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( uint32, TilesPerGroup )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( uint32, ExtraTileCount )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( uint32, ExtraKeyCount )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( uint32, GroupCount )
+	UNIFORM_MEMBER( uint32, RadixShift )
+	UNIFORM_MEMBER( uint32, TilesPerGroup )
+	UNIFORM_MEMBER( uint32, ExtraTileCount )
+	UNIFORM_MEMBER( uint32, ExtraKeyCount )
+	UNIFORM_MEMBER( uint32, GroupCount )
 END_UNIFORM_BUFFER_STRUCT( FRadixSortParameters )
 
 IMPLEMENT_UNIFORM_BUFFER_STRUCT(FRadixSortParameters,TEXT("RadixSortUB"));

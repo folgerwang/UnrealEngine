@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "AndroidJava.h"
+#include "Android/AndroidJava.h"
 #include "RHI.h"
 #include "RHIResources.h"
 
@@ -71,6 +71,7 @@ public:
 	bool IsPrepared();
 	bool DidComplete();
 	bool SetDataSource(const FString & Url);
+	FString GetDataSource();
 	bool Prepare();
 	bool PrepareAsync();
 	void SeekTo(int32 Milliseconds);
@@ -111,6 +112,7 @@ private:
 	FJavaClassMethod IsPreparedMethod;
 	FJavaClassMethod DidCompleteMethod;
 	FJavaClassMethod SetDataSourceURLMethod;
+	FJavaClassMethod GetDataSourceURLMethod;
 	FJavaClassMethod PrepareMethod;
 	FJavaClassMethod PrepareAsyncMethod;
 	FJavaClassMethod SeekToMethod;

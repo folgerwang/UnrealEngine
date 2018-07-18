@@ -9,9 +9,15 @@ public class Party : ModuleRules
 		PublicDefinitions.Add("PARTY_PACKAGE=1");
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
 
-		PrivateIncludePaths.AddRange(
+        PublicDependencyModuleNames.AddRange(
+            new string[] {
+                "OnlineSubsystem",
+                "OnlineSubsystemUtils",
+            }
+            );
+
+        PrivateIncludePaths.AddRange(
 			new string[] {
-				"Private",
 			}
 			);
 
@@ -20,8 +26,6 @@ public class Party : ModuleRules
 				"Core",
 				"CoreUObject",
 				"Engine",
-				"OnlineSubsystem",
-				"OnlineSubsystemUtils",
 			}
 			);
 

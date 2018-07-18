@@ -13,7 +13,7 @@
 #include "Sections/MovieSceneAudioSection.h"
 #include "Tracks/MovieSceneAudioTrack.h"
 #include "MovieScene.h"
-#include "MovieSceneEvaluation.h"
+#include "Evaluation/MovieSceneEvaluation.h"
 #include "IMovieScenePlayer.h"
 
 
@@ -273,9 +273,8 @@ struct FAudioSectionExecutionToken : IMovieSceneExecutionToken
 FMovieSceneAudioSectionTemplateData::FMovieSceneAudioSectionTemplateData(const UMovieSceneAudioSection& Section)
 	: Sound(Section.GetSound())
 	, AudioStartOffset(Section.GetStartOffset())
-	, AudioRange(Section.GetAudioRange())
-	, AudioPitchMultiplierCurve(Section.GetPitchMultiplierCurve())
-	, AudioVolumeCurve(Section.GetSoundVolumeCurve())
+	, AudioPitchMultiplierCurve(Section.GetPitchMultiplierChannel())
+	, AudioVolumeCurve(Section.GetSoundVolumeChannel())
 	, RowIndex(Section.GetRowIndex())
 	, bOverrideAttenuation(Section.GetOverrideAttenuation())
 	, AttenuationSettings(Section.GetAttenuationSettings())
@@ -283,6 +282,7 @@ FMovieSceneAudioSectionTemplateData::FMovieSceneAudioSectionTemplateData(const U
 	, OnAudioFinished(Section.GetOnAudioFinished())
 	, OnAudioPlaybackPercent(Section.GetOnAudioPlaybackPercent())
 {
+	SectionStartTimeSeconds = (Section.HasStartFrame() ? Section.GetInclusiveStartFrame() : 0) / Section.GetTypedOuter<UMovieScene>()->GetTickResolution();
 }
 
 void FMovieSceneAudioSectionTemplateData::EnsureAudioIsPlaying(UAudioComponent& AudioComponent, FPersistentEvaluationData& PersistentData, const FMovieSceneContext& Context, bool bAllowSpatialization, IMovieScenePlayer& Player) const
@@ -290,14 +290,16 @@ void FMovieSceneAudioSectionTemplateData::EnsureAudioIsPlaying(UAudioComponent& 
 	Player.SavePreAnimatedState(AudioComponent, FStopAudioPreAnimatedToken::GetAnimTypeID(), FStopAudioPreAnimatedToken::FProducer());
 
 	bool bPlaySound = !AudioComponent.IsPlaying() || AudioComponent.Sound != Sound;
-	float AudioVolume = AudioVolumeCurve.Eval(Context.GetTime());
-	float PitchMultiplier = AudioPitchMultiplierCurve.Eval(Context.GetTime());
 
+	float AudioVolume = 1.f;
+	AudioVolumeCurve.Evaluate(Context.GetTime(), AudioVolume);
 	if (AudioComponent.VolumeMultiplier != AudioVolume)
 	{
 		AudioComponent.SetVolumeMultiplier(AudioVolume);
 	}
-	
+
+	float PitchMultiplier = 1.f;
+	AudioPitchMultiplierCurve.Evaluate(Context.GetTime(), PitchMultiplier);
 	if (AudioComponent.PitchMultiplier != PitchMultiplier)
 	{
 		AudioComponent.SetPitchMultiplier(PitchMultiplier);
@@ -328,7 +330,8 @@ void FMovieSceneAudioSectionTemplateData::EnsureAudioIsPlaying(UAudioComponent& 
 			AudioComponent.bIsUISound = false;
 		}
 
-		AudioComponent.Play((Context.GetTime() - AudioRange.GetLowerBoundValue()) + FMath::Max(AudioStartOffset, 0.f));
+		const float AudioTime = (Context.GetTime() / Context.GetFrameRate()) - SectionStartTimeSeconds + FMath::Max(AudioStartOffset, 0.f);
+		AudioComponent.Play(AudioTime);
 
 		if (Context.GetStatus() == EMovieScenePlayerStatus::Scrubbing)
 		{

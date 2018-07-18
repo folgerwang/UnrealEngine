@@ -24,6 +24,10 @@ class UMG_API UWindowTitleBarArea : public UContentWidget
 
 public:
 
+	/** Should the title bar area diaplay window minimize/maximize/close buttons. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Interaction", meta = (DisplayName = "Window Buttons Enabled"))
+	bool bWindowButtonsEnabled;
+
 	/** Should double clicking the title bar area toggle fullscreen instead of maximizing the window. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Interaction", meta=(DisplayName="Toggle Fullscreen"))
 	bool bDoubleClickTogglesFullscreen;
@@ -69,7 +73,7 @@ protected:
 private:
 
 	bool HandleWindowAction(const TSharedRef<FGenericWindow>& PlatformWindow, EWindowAction::Type WindowAction);
-	void HandleMouseButtonDoubleClick();
+	void RequestToggleFullscreen();
 
 private:
 

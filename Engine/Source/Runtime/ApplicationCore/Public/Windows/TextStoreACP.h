@@ -7,11 +7,11 @@
 #include "Containers/Array.h"
 #include "Templates/SharedPointer.h"
 
-#include "WindowsHWrapper.h"
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/WindowsHWrapper.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 #include <TextStor.h>
 #include <msctf.h>
-#include "COMPointer.h"
+#include "Windows/COMPointer.h"
 
 class ITextInputMethodContext;
 
@@ -140,4 +140,4 @@ public:
 	TfEditCookie TSFEditCookie;
 };
 
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"

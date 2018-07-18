@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
 #include "Constraint.h"
-#include "Containers/Algo/Transform.h"
+#include "Algo/Transform.h"
 #include "NodeHierarchy.generated.h"
 
 /** A node in a named hierarchy */

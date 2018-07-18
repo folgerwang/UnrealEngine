@@ -32,6 +32,10 @@ namespace ProxyLOD
 	                           openvdb::FloatGrid::Ptr& OutSDFGrid,
 		                       openvdb::Int32Grid* OutPolyIndexGrid = nullptr);
 
+	bool MeshArrayToSDFVolume( const FRawMeshAdapter& InMeshAdapter,
+		                       openvdb::FloatGrid::Ptr& OutSDFGrid,
+		                       openvdb::Int32Grid* OutPolyIndexGrid = nullptr);
+
 	/**
 	* Extract the isosurface (=IsoValue) of the given SDF volume, in the form of triangle mesh.
 	*
@@ -66,6 +70,38 @@ namespace ProxyLOD
 		                              const double IsoValue, 
 		                              const double Adaptivity, 
 		                              TAOSMesh<AOSVertexType>& OutMesh);
+
+	/**
+	* Updates the InOutSDFVollume to potentially close small holes and gaps in the iso-surface.
+	*
+	* This is particularly useful when processing distant buildings (where the doors
+	* and windows may only be a few voxels in size).  In this case, closing the openings
+	* may result in a water-tight mesh and thus remove interior geometry.
+	* 
+	* NB: In addition to closing holes, this may merge nearby separate objects.
+	*
+	* @param InOutSDFVolume      Signed distance field that will be altered
+	* @param GapRadius           1/2 the length scale of the gap or hole size.
+	* @param MaxDilations        The max allowed number of dilation/erosion pairs,
+	*
+	* NB: If the GapRadius is large compared with the voxelsize of the input volume, 
+	* the dilations and erosions will be done with a larger voxelsize (as determined
+	* by MaxDilations).
+	*                            
+	*/
+	void CloseGaps(openvdb::FloatGrid::Ptr InOutSDFVolume, const double GapRadius, const int32 MaxDilations);
+
+	/**
+	* Update the InOutSDFVolume by doing a CSG difference with the Clipping volume.
+	*
+	* NB: In addition to altering the InOutSDFVolume, this may destroy the clipping volume
+	*
+	* @param InOutSDFVolume     Signed distance field representing the interesting geometry.
+	* @param ClippingVolume     Signed distance field representing the region to be subtracted from the interesting geometry.
+	*
+	*/
+	void RemoveClipped(openvdb::FloatGrid::Ptr InOutSDFVolume, openvdb::FloatGrid::Ptr ClippingVolume);
+
 }
 
 

@@ -7,7 +7,6 @@ D3D12Device.h: D3D12 Device Interfaces
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Misc/ScopeLock.h"
 
 class FD3D12DynamicRHI;
 
@@ -15,7 +14,7 @@ class FD3D12Device : public FD3D12SingleNodeGPUObject, public FNoncopyable, publ
 {
 public:
 	FD3D12Device();
-	FD3D12Device(GPUNodeMask Node, FD3D12Adapter* InAdapter);
+	FD3D12Device(FRHIGPUMask Node, FD3D12Adapter* InAdapter);
 
 	virtual ~FD3D12Device()
 	{
@@ -47,7 +46,8 @@ public:
 	ID3D12Device* GetDevice();
 	FD3D12DynamicRHI* GetOwningRHI();
 
-	inline FD3D12QueryHeap* GetQueryHeap() { return &OcclusionQueryHeap; }
+	inline FD3D12QueryHeap* GetOcclusionQueryHeap() { return &OcclusionQueryHeap; }
+	inline FD3D12QueryHeap* GetTimestampQueryHeap() { return &TimestampQueryHeap; }
 
 	template <typename TViewDesc> FD3D12OfflineDescriptorManager& GetViewDescriptorAllocator();
 	template<> FD3D12OfflineDescriptorManager& GetViewDescriptorAllocator<D3D12_SHADER_RESOURCE_VIEW_DESC>() { return SRVAllocator; }
@@ -74,19 +74,24 @@ public:
 	inline const D3D12_HEAP_PROPERTIES &GetConstantBufferPageProperties() { return ConstantBufferPageProperties; }
 
 	inline uint32 GetNumContexts() { return CommandContextArray.Num(); }
-	inline FD3D12CommandContext& GetCommandContext(uint32 i = 0) const { return *CommandContextArray[i]; }
+	inline FD3D12CommandContext& GetCommandContext(uint32 ThreadIndex = 0) const { return *CommandContextArray[ThreadIndex]; }
 
 	inline uint32 GetNumAsyncComputeContexts() { return AsyncComputeContextArray.Num(); }
-	inline FD3D12CommandContext& GetAsyncComputeContext(uint32 i = 0) const { return *AsyncComputeContextArray[i]; }
+	inline FD3D12CommandContext& GetAsyncComputeContext(uint32 ThreadIndex = 0) const { return *AsyncComputeContextArray[ThreadIndex]; }
 
-	inline FD3D12CommandContext* ObtainCommandContext() {
+	inline FD3D12CommandContext* ObtainCommandContext() 
+	{
 		FScopeLock Lock(&FreeContextsLock);
 		return FreeCommandContexts.Pop();
 	}
-	inline void ReleaseCommandContext(FD3D12CommandContext* CmdContext) {
+	inline void ReleaseCommandContext(FD3D12CommandContext* CmdContext) 
+	{
+		check(!CmdContext || CmdContext->GetGPUIndex() == GetGPUIndex());
 		FScopeLock Lock(&FreeContextsLock);
 		FreeCommandContexts.Add(CmdContext);
 	}
+
+	ID3D12CommandQueue* GetD3DCommandQueue(ED3D12CommandQueueType InQueueType = ED3D12CommandQueueType::Default) const;
 
 	inline FD3D12CommandContext& GetDefaultCommandContext() const { return GetCommandContext(0); }
 	inline FD3D12CommandContext& GetDefaultAsyncComputeContext() const { return GetAsyncComputeContext(0); }
@@ -95,7 +100,6 @@ public:
 	inline FD3D12ResidencyManager& GetResidencyManager() { return ResidencyManager; }
 
 	TArray<FD3D12CommandListHandle> PendingCommandLists;
-	uint32 PendingCommandListsTotalWorkCommands;
 
 	void RegisterGPUWork(uint32 NumPrimitives = 0, uint32 NumVertices = 0);
 	void PushGPUEvent(const TCHAR* Name, FColor Color);
@@ -103,8 +107,6 @@ public:
 
 	FD3D12SamplerState* CreateSampler(const FSamplerStateInitializerRHI& Initializer);
 	void CreateSamplerInternal(const D3D12_SAMPLER_DESC& Desc, D3D12_CPU_DESCRIPTOR_HANDLE Descriptor);
-
-	void GetLocalVideoMemoryInfo(DXGI_QUERY_VIDEO_MEMORY_INFO* LocalVideoMemoryInfo);
 
 	void BlockUntilIdle();
 
@@ -132,6 +134,7 @@ protected:
 	FD3D12GlobalOnlineHeap GlobalViewHeap;
 
 	FD3D12QueryHeap OcclusionQueryHeap;
+	FD3D12QueryHeap TimestampQueryHeap;
 
 	FD3D12DefaultBufferAllocator DefaultBufferAllocator;
 

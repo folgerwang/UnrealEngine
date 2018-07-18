@@ -8,8 +8,8 @@
 #include "Widgets/DeclarativeSyntaxSupport.h"
 #include "Widgets/SLeafWidget.h"
 #include "Framework/SlateDelegates.h"
-#include "SCompoundWidget.h"
-#include "SNumericEntryBox.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/Input/SNumericEntryBox.h"
 
 /** Callback to get the current FVector4 value */
 DECLARE_DELEGATE_RetVal_OneParam(bool, FOnGetCurrentVector4Value, FVector4&)
@@ -84,6 +84,12 @@ public:
 		/** Called right after the slider handle is released by the user */
 		SLATE_EVENT(FSimpleDelegate, OnEndSliderMovement)
 
+		/** Called when the mouse captures starts on the color wheel */
+		SLATE_EVENT(FSimpleDelegate, OnBeginMouseCapture)
+
+		/** Called when the mouse captures ends for the color wheel */
+		SLATE_EVENT(FSimpleDelegate, OnEndMouseCapture)
+
 	SLATE_END_ARGS()
 
 	/**	Destructor. */
@@ -121,7 +127,9 @@ protected:
 
 	// Callback for value changes in the color spectrum picker.
 	void HandleCurrentColorValueChanged(const FLinearColor& NewValue, bool ShouldCommitValueChanges);
-	void HandleColorWheelMouseCaptureEnd();
+
+	void HandleColorWheelMouseCaptureBegin(const FLinearColor& InValue);
+	void HandleColorWheelMouseCaptureEnd(const FLinearColor& InValue);
 
 	void OnBeginSliderMovement();
 	void OnEndSliderMovement(float NewValue);
@@ -147,4 +155,6 @@ protected:
 
 	FSimpleDelegate ExternalBeginSliderMovementDelegate;
 	FSimpleDelegate ExternalEndSliderMovementDelegate;
+	FSimpleDelegate ExternalBeginMouseCaptureDelegate;
+	FSimpleDelegate ExternalEndMouseCaptureDelegate;
 };

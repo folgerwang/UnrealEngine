@@ -60,21 +60,14 @@ SamplerState DistanceFieldNormalSampler;
 
 float4 EncodeDownsampledGBuffer(FGBufferData GBufferData, float SceneDepth)
 {
-	float DepthSign = HasDistanceFieldRepresentation(GBufferData) > 0 ? 1 : -1;
-	float ZSign = GBufferData.ShadingModelID == SHADINGMODELID_UNLIT ? -1 : 1;
-	float ZChannel = GBufferData.WorldNormal.z > 0 ? .5f : 1;
-	float4 OutValue = float4(GBufferData.WorldNormal.xy, ZChannel * ZSign, DepthSign * SceneDepth);
-	return OutValue;
-}
+	return float4(GBufferData.WorldNormal.xyz, SceneDepth);
+} 
 
-void GetDownsampledGBuffer(float2 ScreenUV, out float3 OutNormal, out float OutDepth, out bool bHasDistanceFieldRepresentation, out bool bLit)
+void GetDownsampledGBuffer(float2 ScreenUV, out float3 OutNormal, out float OutDepth)
 {
 	float4 TextureValue = Texture2DSampleLevel(DistanceFieldNormalTexture, DistanceFieldNormalSampler, ScreenUV, 0);
-	bHasDistanceFieldRepresentation = TextureValue.w > 0;
-	bLit = TextureValue.z > 0; 
-	OutDepth = abs(TextureValue.w);
-	OutNormal = float3(TextureValue.xy, sqrt(1 - dot(TextureValue.xy, TextureValue.xy)));
-	OutNormal.z *= abs(TextureValue.z) > .75f ? -1 : 1;
+	OutNormal = TextureValue.xyz;
+	OutDepth = TextureValue.w;
 }
 
 float GetDownsampledDepth(float2 ScreenUV)
@@ -173,6 +166,58 @@ float3 ComputeBentNormal(float3 RecordWorldNormal, uint RelativeRecordIndex)
 	return UnoccludedDirection;
 }
 
+float2 AOBufferBilinearUVMax;
+
+float3 UpsampleDFAO(float4 UVAndScreenPos)
+{
+	// Distance field AO was computed at 0,0 regardless of viewrect min
+	float2 DistanceFieldUVs = UVAndScreenPos.xy - View.ViewRectMin.xy * View.BufferSizeAndInvSize.zw;
+	DistanceFieldUVs = min(DistanceFieldUVs, AOBufferBilinearUVMax);
+
+#define BILATERAL_UPSAMPLE 1
+#if BILATERAL_UPSAMPLE
+	float2 LowResBufferSize = floor(View.BufferSizeAndInvSize.xy / AO_DOWNSAMPLE_FACTOR);
+	float2 LowResTexelSize = 1.0f / LowResBufferSize;
+	float2 Corner00UV = floor(DistanceFieldUVs * LowResBufferSize - .5f) / LowResBufferSize + .5f * LowResTexelSize;
+	float2 BilinearWeights = (DistanceFieldUVs - Corner00UV) * LowResBufferSize;
+
+	float4 TextureValues00 = Texture2DSampleLevel(BentNormalAOTexture, BentNormalAOSampler, Corner00UV, 0);
+	float4 TextureValues10 = Texture2DSampleLevel(BentNormalAOTexture, BentNormalAOSampler, Corner00UV + float2(LowResTexelSize.x, 0), 0);
+	float4 TextureValues01 = Texture2DSampleLevel(BentNormalAOTexture, BentNormalAOSampler, Corner00UV + float2(0, LowResTexelSize.y), 0);
+	float4 TextureValues11 = Texture2DSampleLevel(BentNormalAOTexture, BentNormalAOSampler, Corner00UV + LowResTexelSize, 0);
+
+	float4 CornerWeights = float4(
+		(1 - BilinearWeights.y) * (1 - BilinearWeights.x),
+		(1 - BilinearWeights.y) * BilinearWeights.x,
+		BilinearWeights.y * (1 - BilinearWeights.x),
+		BilinearWeights.y * BilinearWeights.x);
+
+	float Epsilon = .0001f;
+
+	float4 CornerDepths = float4(TextureValues00.w, TextureValues10.w, TextureValues01.w, TextureValues11.w);
+	float SceneDepth = CalcSceneDepth(UVAndScreenPos.xy);
+	float4 DepthWeights = 1.0f / (abs(CornerDepths - SceneDepth.xxxx) + Epsilon);
+	float4 FinalWeights = CornerWeights * DepthWeights;
+
+	float InvWeight = 1.0f / dot(FinalWeights, 1);
+
+	float3 InterpolatedResult =
+		(FinalWeights.x * TextureValues00.xyz
+			+ FinalWeights.y * TextureValues10.xyz
+			+ FinalWeights.z * TextureValues01.xyz
+			+ FinalWeights.w * TextureValues11.xyz)
+		* InvWeight;
+
+	float3 BentNormal = InterpolatedResult.xyz;
+
+#else
+	float3 BentNormal = Texture2DSampleLevel(BentNormalAOTexture, BentNormalAOSampler, DistanceFieldUVs, 0).xyz;
+
+#endif
+
+	return BentNormal;
+}
+
 #ifndef CULLED_TILE_SIZEX
 #define CULLED_TILE_SIZEX 4
 #endif
@@ -222,10 +267,6 @@ float2 GetScreenUVFromScreenGrid(uint2 OutputCoordinate)
 }
 
 Buffer<uint> CulledTilesStartOffsetArray;
-
-RWBuffer<uint> RWNumCulledTilesArray;
-RWBuffer<uint> RWCulledTilesStartOffsetArray;
-RWBuffer<uint> RWCulledTileDataArray;
 
 #define INVALID_TILE_INDEX 0xFFFF
 

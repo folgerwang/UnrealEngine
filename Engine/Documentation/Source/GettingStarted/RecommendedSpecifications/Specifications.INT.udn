@@ -14,9 +14,7 @@ Tags:Specifications
 [TOC(start:2)]
 
 [EXCERPT:Main]
-[EXCERPT:Intro]
-Unreal Engine has some specific hardware and software requirements for running the game and editor or developing with the engine.
-[/EXCERPT:Intro]
+[INCLUDE:#Intro]
 
 ## Recommended Hardware
 
@@ -60,35 +58,6 @@ Unreal Engine has some specific hardware and software requirements for running t
 	[INCLUDE:#linuxminhardware]
 	[/PARAM]
 [/OBJECT]
-
-[COMMENT:none]
-
-[EXCERPT:WindowsMinHardware]
-|||
-| -------- | --- |
-| **Operating System** | Windows 7/8 64-bit |
-| **Processor** | Quad-core Intel or AMD, 2.5 GHz or faster |
-| **Memory** | 8 GB RAM |
-| **Video Card/DirectX Version** | DirectX 11 compatible graphics card |
-[/EXCERPT:WindowsMinHardware]
-[EXCERPT:MacOSMinHardware]
-|||
-| -------- | --- |
-| **Operating System** | macOS 10.13 High Sierra  |
-| **Processor** | Quad-core Intel, 2.5 GHz or faster |
-| **Memory** | 8 GB RAM |
-| **Video Card** | Metal 1.2 Compatible Graphics Card |
-[/EXCERPT:MacOSMinHardware]
-[EXCERPT:LinuxMinHardware]
-|||
-| -------- | --- |
-| **Operating System** | Ubuntu 15.04  |
-| **Processor** | Quad-core Intel or AMD, 2.5 GHz or faster |
-| **Memory** | 16 GB RAM |
-| **Video Card** | 	NVIDIA GeForce 470 GTX or higher with latest NVIDIA binary drivers |
-[/EXCERPT:LinuxMinHardware]
-
-[/COMMENT]
 
 
 [PUBLISH:Licensee]
@@ -150,43 +119,6 @@ Below are the requirements for running the engine or editor.
 [/REGION]
 [/PUBLISH:Licensee]
 
-[COMMENT:none]
-
-[EXCERPT:WindowsMinSoftware]
-| Running the Engine ||
-| -------- | --- |
-| **Operating System** | Windows 7/8 64-bit |
-| **DirectX Runtime** | [DirectX End-User Runtimes (June 2010)](http://www.microsoft.com/en-us/download/details.aspx?id=8109) |
-
-[/EXCERPT:WindowsMinSoftware]
-
-[EXCERPT:MacOSMinSoftware]
-| Running the Engine ||
-| -------- | --- |
-| **Operating System** | macOS 10.12.6 Sierra  |
-[/EXCERPT:MacOSMinSoftware]
-
-[EXCERPT:LinuxMinSoftware]
-| Running the Engine ||
-| -------- | --- |
-| **Operating System** | Any reasonable new Linux distro (CentOS 6.x being the oldest tested)  |
-| **Linux Kernel Version** | kernel 2.6.32 or newer  |
-| **Additional Dependencies** | glibc 2.12.2 or newer  |
-[/EXCERPT:LinuxMinSoftware]
-
-[EXCERPT:WER]
-[REGION:note]
-UE4's crash reporting feature requires you to have **Windows Error Reporting** enabled, which is the default. If you have disabled this feature, please enable it.
-[/REGION]
-[/EXCERPT:WER]
-
-[EXCERPT:VCRuntime]
-[Visual Studio C++ 2015 Redist](https://www.microsoft.com/en-us/download/details.aspx?id=48145)
-[/EXCERPT:VCRuntime]
-
-
-[/COMMENT]
-
 
 The requirements for programmers developing with the engine are listed below.
 
@@ -231,44 +163,7 @@ The requirements for programmers developing with the engine are listed below.
 	[/PARAM]
 [/OBJECT]
 
-[COMMENT:none]
 
-[EXCERPT:WindowsMinDevelopment]
-| Developing with the Engine ||
-| -------- | --- |
-| **All 'Running the Engine' requirements (automatically installed)** ||
-| **Visual Studio Version** | [INCLUDE:#VS] |
-| [REGION:tablesection]iOS Development[/REGION] ||
-| **iTunes Version** | [iTunes 11 or higher](http://www.apple.com/itunes/) |
-[/EXCERPT:WindowsMinDevelopment]
-[EXCERPT:MacOSMinDevelopment]
-| Developing with the Engine ||
-| -------- | --- |
-| **Xcode Version** | 9.0 [REGION:note]If you need to verify that you're running the correct version of Xcode, run the following command from the terminal window: `sudo xcode-select -s /Applications/Xcode-beta.app/Contents/Developer`[/REGION] |
-[/EXCERPT:MacOSMinDevelopment]
-[EXCERPT:LinuxMinDevelopment]
-| Developing with the Engine ||
-| -------- | --- |
-| **Operating System** | Ubuntu 15.04  |
-| **Compiler** | clang 3.5.x or 3.6.x  |
-| [REGION:tablesection]Optional[/REGION] ||
-| **IDE** | QtCreator 3.1 or KDevelop 4.6|
-| **Build System** | CMake 2.8 |
-[/EXCERPT:LinuxMinDevelopment]
-
-[/COMMENT]
-
-[COMMENT:none]
-
-[EXCERPT:VS]
-Visual Studio 2015 Professional or Visual Studio 2015 Community:
-
-* [Pro](https://www.visualstudio.com/downloads/download-visual-studio-vs)
-* [Community](https://www.visualstudio.com/en-us/products/visual-studio-community-vs.aspx)
-
-[/EXCERPT:VS]
-
-[/COMMENT]
 
 [PUBLISH:Licensee]
 ## Graphics Card Drivers
@@ -310,3 +205,93 @@ Below are the typical systems used at Epic by programmers and artists. These sho
 [/REGION]
 [/PUBLISH:Licensee]
 [/EXCERPT:Main]
+
+[COMMENT:none]
+[EXCERPT:Intro]
+Unreal Engine has some specific hardware and software requirements for running the game and editor or developing with the engine.
+[/EXCERPT:Intro]
+[EXCERPT:VS]
+Visual Studio 2015 Professional or Visual Studio 2015 Community:
+
+* [Pro](https://www.visualstudio.com/downloads/download-visual-studio-vs)
+* [Community](https://www.visualstudio.com/en-us/products/visual-studio-community-vs.aspx)
+
+[/EXCERPT:VS]
+[EXCERPT:WindowsMinDevelopment]
+| Developing with the Engine ||
+| -------- | --- |
+| **All 'Running the Engine' requirements (automatically installed)** ||
+| **Visual Studio Version** | [INCLUDE:#VS] |
+| [REGION:tablesection]iOS Development[/REGION] ||
+| **iTunes Version** | [iTunes 11 or higher](http://www.apple.com/itunes/) |
+[/EXCERPT:WindowsMinDevelopment]
+[EXCERPT:MacOSMinDevelopment]
+| Developing with the Engine ||
+| -------- | --- |
+| **Xcode Version** | 9.0 [REGION:note]If you need to verify that you're running the correct version of Xcode, run the following command from the terminal window: `sudo xcode-select -s /Applications/Xcode-beta.app/Contents/Developer`[/REGION] |
+[/EXCERPT:MacOSMinDevelopment]
+[EXCERPT:LinuxMinDevelopment]
+| Developing with the Engine ||
+| -------- | --- |
+| **Operating System** | Ubuntu 15.04  |
+| **Compiler** | clang 3.5.x or 3.6.x  |
+| [REGION:tablesection]Optional[/REGION] ||
+| **IDE** | QtCreator 3.1 or KDevelop 4.6|
+| **Build System** | CMake 2.8 |
+[/EXCERPT:LinuxMinDevelopment]
+[EXCERPT:WindowsMinSoftware]
+| Running the Engine ||
+| -------- | --- |
+| **Operating System** | Windows 7/8 64-bit |
+| **DirectX Runtime** | [DirectX End-User Runtimes (June 2010)](http://www.microsoft.com/en-us/download/details.aspx?id=8109) |
+
+[/EXCERPT:WindowsMinSoftware]
+
+[EXCERPT:MacOSMinSoftware]
+| Running the Engine ||
+| -------- | --- |
+| **Operating System** | macOS 10.12.6 Sierra  |
+[/EXCERPT:MacOSMinSoftware]
+
+[EXCERPT:LinuxMinSoftware]
+| Running the Engine ||
+| -------- | --- |
+| **Operating System** | Any reasonable new Linux distro (CentOS 6.x being the oldest tested)  |
+| **Linux Kernel Version** | kernel 2.6.32 or newer  |
+| **Additional Dependencies** | glibc 2.12.2 or newer  |
+[/EXCERPT:LinuxMinSoftware]
+
+[EXCERPT:WER]
+[REGION:note]
+UE4's crash reporting feature requires you to have **Windows Error Reporting** enabled, which is the default. If you have disabled this feature, please enable it.
+[/REGION]
+[/EXCERPT:WER]
+
+[EXCERPT:VCRuntime]
+[Visual Studio C++ 2015 Redist](https://www.microsoft.com/en-us/download/details.aspx?id=48145)
+[/EXCERPT:VCRuntime]
+[EXCERPT:WindowsMinHardware]
+|||
+| -------- | --- |
+| **Operating System** | Windows 7/8 64-bit |
+| **Processor** | Quad-core Intel or AMD, 2.5 GHz or faster |
+| **Memory** | 8 GB RAM |
+| **Video Card/DirectX Version** | DirectX 11 compatible graphics card |
+[/EXCERPT:WindowsMinHardware]
+[EXCERPT:MacOSMinHardware]
+|||
+| -------- | --- |
+| **Operating System** | macOS 10.13 High Sierra  |
+| **Processor** | Quad-core Intel, 2.5 GHz or faster |
+| **Memory** | 8 GB RAM |
+| **Video Card** | Metal 1.2 Compatible Graphics Card |
+[/EXCERPT:MacOSMinHardware]
+[EXCERPT:LinuxMinHardware]
+|||
+| -------- | --- |
+| **Operating System** | Ubuntu 15.04  |
+| **Processor** | Quad-core Intel or AMD, 2.5 GHz or faster |
+| **Memory** | 16 GB RAM |
+| **Video Card** | 	NVIDIA GeForce 470 GTX or higher with latest NVIDIA binary drivers |
+[/EXCERPT:LinuxMinHardware]
+[/COMMENT]

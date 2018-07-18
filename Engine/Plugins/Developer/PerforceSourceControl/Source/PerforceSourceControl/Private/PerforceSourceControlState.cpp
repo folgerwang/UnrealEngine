@@ -2,6 +2,7 @@
 
 #include "PerforceSourceControlState.h"
 #include "PerforceSourceControlRevision.h"
+#include "Misc/EngineVersion.h"
 
 #define LOCTEXT_NAMESPACE "PerforceSourceControl.State"
 
@@ -42,6 +43,31 @@ TSharedPtr<class ISourceControlRevision, ESPMode::ThreadSafe> FPerforceSourceCon
 	return NULL;
 }
 
+
+bool FPerforceSourceControlState::IsCheckedOutInOtherBranch(const FString& CurrentBranch) const
+{
+	return (CheckedOutBranches.Num() > 0 && !CheckedOutBranches.Contains(CurrentBranch.Len() ? CurrentBranch : FEngineVersion::Current().GetBranch()));
+}
+
+bool FPerforceSourceControlState::IsModifiedInOtherBranch(const FString& CurrentBranch) const
+{
+	return !HeadBranch.IsEmpty() && (HeadBranch != TEXT("*CurrentBranch")) && ( HeadBranch != (CurrentBranch.Len() ? CurrentBranch : FEngineVersion::Current().GetBranch()));
+}
+
+bool FPerforceSourceControlState::GetOtherBranchHeadModification(FString& HeadBranchOut, FString& ActionOut, int32& HeadChangeListOut) const
+{
+	if (HeadBranch == TEXT("*CurrentBranch"))
+	{
+		return false;
+	}
+
+	HeadBranchOut = HeadBranch;
+	ActionOut = HeadAction;
+	HeadChangeListOut = HeadChangeList;
+	
+	return !HeadBranchOut.IsEmpty();
+}
+
 TSharedPtr<class ISourceControlRevision, ESPMode::ThreadSafe> FPerforceSourceControlState::GetBaseRevForMerge() const
 {
 	if( PendingResolveRevNumber == INVALID_REVISION )
@@ -58,6 +84,19 @@ FName FPerforceSourceControlState::GetIconName() const
 	{
 		return FName("Perforce.NotAtHeadRevision");
 	}
+	else if (State != EPerforceState::CheckedOut && State != EPerforceState::CheckedOutOther)
+	{
+		if (IsCheckedOutInOtherBranch())
+		{
+			return FName("Perforce.CheckedOutByOtherUserOtherBranch");
+		}
+
+		if (IsModifiedInOtherBranch())
+		{
+			return FName("Perforce.ModifiedOtherBranch");
+		}
+	}
+
 
 	switch(State)
 	{
@@ -89,6 +128,19 @@ FName FPerforceSourceControlState::GetSmallIconName() const
 	{
 		return FName("Perforce.NotAtHeadRevision_Small");
 	}
+	else if (State != EPerforceState::CheckedOut && State != EPerforceState::CheckedOutOther)
+	{
+		if (IsCheckedOutInOtherBranch())
+		{
+			return FName("Perforce.CheckedOutByOtherUserOtherBranch_Small");
+		}
+
+		if (IsModifiedInOtherBranch())
+		{
+			return FName("Perforce.ModifiedOtherBranch_Small");
+		}
+	}
+
 
 	switch(State)
 	{
@@ -124,6 +176,18 @@ FText FPerforceSourceControlState::GetDisplayName() const
 	{
 		return LOCTEXT("NotCurrent", "Not current");
 	}
+	else if (State != EPerforceState::CheckedOut && State != EPerforceState::CheckedOutOther)
+	{
+		if (IsCheckedOutInOtherBranch())
+		{
+			return FText::Format(LOCTEXT("CheckedOutOther", "Checked out by: {0}"), FText::FromString(OtherUserBranchCheckedOuts));
+		}
+
+		if (IsModifiedInOtherBranch())
+		{
+			return FText::Format(LOCTEXT("ModifiedOtherBranch", "Modified in branch: {0}"), FText::FromString(HeadBranch));
+		}
+	}
 
 	switch(State)
 	{
@@ -158,6 +222,19 @@ FText FPerforceSourceControlState::GetDisplayTooltip() const
 	else if( !IsCurrent() )
 	{
 		return LOCTEXT("NotCurrent_Tooltip", "The file(s) are not at the head revision");
+	}
+	else if (State != EPerforceState::CheckedOut && State != EPerforceState::CheckedOutOther)
+	{
+		if (IsCheckedOutInOtherBranch())
+		{
+			return FText::Format(LOCTEXT("CheckedOutOther_Tooltip", "Checked out by: {0}"), FText::FromString(GetOtherUserBranchCheckedOuts()));
+		}
+		else if (IsModifiedInOtherBranch())
+		{
+			FNumberFormattingOptions NoCommas;
+			NoCommas.UseGrouping = false;
+			return FText::Format(LOCTEXT("ModifiedOtherBranch_Tooltip", "Modified in branch: {0} CL:{1} ({2})"), FText::FromString(HeadBranch), FText::AsNumber(HeadChangeList, &NoCommas), FText::FromString(HeadAction));
+		}
 	}
 
 	switch(State)

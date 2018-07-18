@@ -1,28 +1,15 @@
-﻿INTSourceChangelist:3244370
-Availability:Public
+﻿Availability:Public
 Title:1. 必要なアセットを設定する
 Crumbs: %ROOT%, Engine, Engine/Blueprints, Engine/Blueprints/HowTo
 Description:プロジェクトで使用するアセットをセットアップしてみましょう。 
 version:4.9
 tags:Blueprints
+parent:Engine\Blueprints\HowTo
+type:how-to
+type:multi-step
+order:1
 
-
-[VAR:Steps]
-[OBJECT:Navigation]
-	[PARAM:previous]
-	[/PARAM]
-	[PARAM:current]
-	[/PARAM]
-	[PARAM:home]
-		[How To ホーム](Engine\Blueprints\HowTo "%Engine\Blueprints\HowTo:Title%")
-	[/PARAM]
-	[PARAM:next]
-	[次のステップ](Engine\Blueprints\HowTo\BPHT_2 "%Engine\Blueprints\HowTo\BPHT_2:title%") 
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-
+[NAV]
 
 このページでは、このガイドの途中から必要になるアセットの下準備と設定を行います。被破壊スタティックメッシュを作成し、スポーン ポイントに配置し、基本的な HUD を作成して、ゲームのステートに関する情報をプレイヤーに表示します。 
 
@@ -172,6 +159,4 @@ tags:Blueprints
 これでアセットが設定されました。次のステップでは、**Character ブループリント** に少しだけ変更を加えて、プレイ可能なキャラクターのゲーム設定を正しく行っていきます。 
 
 
-
-
-
+[NAV]

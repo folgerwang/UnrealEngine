@@ -16,8 +16,8 @@ FLargeMemoryReader::FLargeMemoryReader(const uint8* InData, const int64 Num, ELa
 	, ArchiveName(InArchiveName)
 {
 	UE_CLOG(!(InData && Num > 0), LogSerialization, Fatal, TEXT("Tried to initialize an FLargeMemoryReader with a null or empty buffer. Archive name: %s."), *ArchiveName.ToString());
-	ArIsLoading = true;
-	ArIsPersistent = (InFlags & ELargeMemoryReaderFlags::Persistent) != ELargeMemoryReaderFlags::None;
+	this->SetIsLoading(true);
+	this->SetIsPersistent((InFlags & ELargeMemoryReaderFlags::Persistent) != ELargeMemoryReaderFlags::None);
 }
 
 void FLargeMemoryReader::Serialize(void* OutData, int64 Num)

@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:3360829
+﻿INTSourceChangelist:3746172
 Title:クイック選択メニュー
 Description:クイック選択メニューを使うと、VR モードにおいてエディタ パネルとウィンドウに簡単にアクセスできるようになります。
 Crumbs:
-Availability: public
+Availability:Docs
 parent:Engine/Editor/VR
 type: reference
 order:2
@@ -56,7 +56,7 @@ prereq:Engine/Editor/VR/ActivateVRMode
 | Asset Editor | ブループリント エディタ、マテリアル エディタなど、すべてのアセット エディタのコンテナとなる [Asset (アセット)] ウィンドウを開きます。 |
 | Tutorial | **[VR Mode Tutorial]** ウィンドウを開いて、VR エディタの一般的な機能の解説付きウォークスルー コレクションにアクセスできます。 |
 | World | **[World Settings (ワールド設定)]** パネルを開いて、現在のレベルのプロパティへのアクセスを可能にします。 |
-| Toggle All UI | クイック選択メニューの [Interface] セクションで利用可能な UI Interace ウィンドウを開きます。 |
+| Toggle All UI | クイック選択メニューの [Interface] セクションで利用可能な UI Inteface ウィンドウを開きます。 |
 
 ### Tools オプション
 

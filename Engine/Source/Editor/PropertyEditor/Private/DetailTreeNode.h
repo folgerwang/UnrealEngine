@@ -14,6 +14,7 @@ class ITableRow;
 class STableViewBase;
 class FDetailWidgetRow;
 class FPropertyNode;
+class FComplexPropertyNode;
 struct FDetailColumnSizeData;
 struct FDetailFilter;
 
@@ -37,6 +38,8 @@ public:
 	/** IDetailTreeNode interface */
 	virtual FNodeWidgets CreateNodeWidgets() const;
 	virtual void GetChildren(TArray<TSharedRef<IDetailTreeNode>>& OutChildren);
+	virtual TSharedPtr<class IDetailPropertyRow> GetRow() const override { return nullptr; }
+	virtual void GetFilterStrings(TArray<FString>& OutFilterStrings) const override { };
 
 	/** @return The details view that this node is in */
 	virtual IDetailsViewPrivate* GetDetailsView() const = 0;
@@ -128,6 +131,9 @@ public:
 	 */
 	virtual TSharedPtr<FPropertyNode> GetPropertyNode() const { return nullptr; }
 
-	virtual TSharedPtr<class IDetailPropertyRow> GetRow() const override { return nullptr; }
+	/**
+	 * Gets the external property node associated with this node.  This will return nullptr for all rows expect property rows which were generated from an external root.
+	 */
+	virtual TSharedPtr<FComplexPropertyNode> GetExternalRootPropertyNode() const { return nullptr; }
 };
 

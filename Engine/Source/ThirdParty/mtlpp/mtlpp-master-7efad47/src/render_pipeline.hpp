@@ -20,6 +20,57 @@
 
 MTLPP_BEGIN
 
+namespace ue4
+{
+	template<>
+	struct ITable<id<MTLRenderPipelineState>, void> : public IMPTable<id<MTLRenderPipelineState>, void>, public ITableCacheRef
+	{
+		ITable()
+		{
+		}
+		
+		ITable(Class C)
+		: IMPTable<id<MTLRenderPipelineState>, void>(C)
+		{
+		}
+	};
+	
+	template<>
+	inline ITable<MTLRenderPipelineColorAttachmentDescriptor*, void>* CreateIMPTable(MTLRenderPipelineColorAttachmentDescriptor* handle)
+	{
+		static ITable<MTLRenderPipelineColorAttachmentDescriptor*, void> Table(object_getClass(handle));
+		return &Table;
+	}
+	
+	template<>
+	inline ITable<MTLRenderPipelineReflection*, void>* CreateIMPTable(MTLRenderPipelineReflection* handle)
+	{
+		static ITable<MTLRenderPipelineReflection*, void> Table(object_getClass(handle));
+		return &Table;
+	}
+	
+	template<>
+	inline ITable<MTLRenderPipelineDescriptor*, void>* CreateIMPTable(MTLRenderPipelineDescriptor* handle)
+	{
+		static ITable<MTLRenderPipelineDescriptor*, void> Table(object_getClass(handle));
+		return &Table;
+	}
+	
+	template<>
+	inline ITable<MTLTileRenderPipelineColorAttachmentDescriptor*, void>* CreateIMPTable(MTLTileRenderPipelineColorAttachmentDescriptor* handle)
+	{
+		static ITable<MTLTileRenderPipelineColorAttachmentDescriptor*, void> Table(object_getClass(handle));
+		return &Table;
+	}
+	
+	template<>
+	inline ITable<MTLTileRenderPipelineDescriptor*, void>* CreateIMPTable(MTLTileRenderPipelineDescriptor* handle)
+	{
+		static ITable<MTLTileRenderPipelineDescriptor*, void> Table(object_getClass(handle));
+		return &Table;
+	}
+}
+
 namespace mtlpp
 {
 	class PipelineBufferDescriptor;
@@ -115,7 +166,8 @@ namespace mtlpp
     {
     public:
         RenderPipelineColorAttachmentDescriptor();
-        RenderPipelineColorAttachmentDescriptor(MTLRenderPipelineColorAttachmentDescriptor* handle) : ns::Object<MTLRenderPipelineColorAttachmentDescriptor*>(handle) { }
+		RenderPipelineColorAttachmentDescriptor(ns::Ownership const retain) : ns::Object<MTLRenderPipelineColorAttachmentDescriptor*>(retain) {}
+        RenderPipelineColorAttachmentDescriptor(MTLRenderPipelineColorAttachmentDescriptor* handle, ns::Ownership const retain = ns::Ownership::Retain) : ns::Object<MTLRenderPipelineColorAttachmentDescriptor*>(handle, retain) { }
 
         PixelFormat     GetPixelFormat() const;
         bool            IsBlendingEnabled() const;
@@ -138,64 +190,36 @@ namespace mtlpp
         void SetWriteMask(ColorWriteMask writeMask);
     }
     MTLPP_AVAILABLE(10_11, 8_0);
-
-    class AutoReleasedRenderPipelineReflection : public ns::Object<MTLRenderPipelineReflection*, true>
-    {
-		AutoReleasedRenderPipelineReflection(const AutoReleasedRenderPipelineReflection& rhs) = delete;
-#if MTLPP_CONFIG_RVALUE_REFERENCES
-		AutoReleasedRenderPipelineReflection(AutoReleasedRenderPipelineReflection&& rhs) = delete;
-#endif
-		AutoReleasedRenderPipelineReflection& operator=(const AutoReleasedRenderPipelineReflection& rhs) = delete;
-#if MTLPP_CONFIG_RVALUE_REFERENCES
-		AutoReleasedRenderPipelineReflection& operator=(AutoReleasedRenderPipelineReflection&& rhs) = delete;
-#endif
-		
-		friend class RenderPipelineReflection;
-    public:
-        AutoReleasedRenderPipelineReflection();
-        AutoReleasedRenderPipelineReflection(MTLRenderPipelineReflection* handle) : ns::Object<MTLRenderPipelineReflection*, true>(handle) { }
-
-        const ns::Array<Argument> GetVertexArguments() const;
-        const ns::Array<Argument> GetFragmentArguments() const;
-		const ns::Array<Argument> GetTileArguments() const;
-    }
-    MTLPP_AVAILABLE(10_11, 8_0);
 	
 	class RenderPipelineReflection : public ns::Object<MTLRenderPipelineReflection*>
 	{
 	public:
 		RenderPipelineReflection();
-		RenderPipelineReflection(MTLRenderPipelineReflection* handle) : ns::Object<MTLRenderPipelineReflection*>(handle) { }
-		RenderPipelineReflection(const AutoReleasedRenderPipelineReflection& rhs);
-#if MTLPP_CONFIG_RVALUE_REFERENCES
-		RenderPipelineReflection(const AutoReleasedRenderPipelineReflection&& rhs);
-#endif
-		RenderPipelineReflection& operator=(const AutoReleasedRenderPipelineReflection& rhs);
-#if MTLPP_CONFIG_RVALUE_REFERENCES
-		RenderPipelineReflection& operator=(AutoReleasedRenderPipelineReflection&& rhs);
-#endif
+		RenderPipelineReflection(ns::Ownership const retain) : ns::Object<MTLRenderPipelineReflection*>(retain) {}
+		RenderPipelineReflection(MTLRenderPipelineReflection* handle, ns::Ownership const retain = ns::Ownership::Retain) : ns::Object<MTLRenderPipelineReflection*>(handle, retain) { }
 		
-		const ns::Array<Argument> GetVertexArguments() const;
-		const ns::Array<Argument> GetFragmentArguments() const;
-		const ns::Array<Argument> GetTileArguments() const;
+		const ns::AutoReleased<ns::Array<Argument>> GetVertexArguments() const;
+		const ns::AutoReleased<ns::Array<Argument>> GetFragmentArguments() const;
+		const ns::AutoReleased<ns::Array<Argument>> GetTileArguments() const;
 	}
 	MTLPP_AVAILABLE(10_11, 8_0);
+	typedef ns::AutoReleased<RenderPipelineReflection> AutoReleasedRenderPipelineReflection;
 
     class RenderPipelineDescriptor : public ns::Object<MTLRenderPipelineDescriptor*>
     {
     public:
         RenderPipelineDescriptor();
-        RenderPipelineDescriptor(MTLRenderPipelineDescriptor* handle) : ns::Object<MTLRenderPipelineDescriptor*>(handle) { }
+        RenderPipelineDescriptor(MTLRenderPipelineDescriptor* handle, ns::Ownership const retain = ns::Ownership::Retain) : ns::Object<MTLRenderPipelineDescriptor*>(handle, retain) { }
 
-        ns::String                                         GetLabel() const;
-        Function                                           GetVertexFunction() const;
-        Function                                           GetFragmentFunction() const;
-        VertexDescriptor                                   GetVertexDescriptor() const;
+        ns::AutoReleased<ns::String>                                         GetLabel() const;
+        ns::AutoReleased<Function>                                           GetVertexFunction() const;
+        ns::AutoReleased<Function>                                           GetFragmentFunction() const;
+        ns::AutoReleased<VertexDescriptor>                                   GetVertexDescriptor() const;
         NSUInteger                                           GetSampleCount() const;
         bool                                               IsAlphaToCoverageEnabled() const;
         bool                                               IsAlphaToOneEnabled() const;
         bool                                               IsRasterizationEnabled() const;
-        ns::Array<RenderPipelineColorAttachmentDescriptor> GetColorAttachments() const;
+        ns::AutoReleased<ns::Array<RenderPipelineColorAttachmentDescriptor>> GetColorAttachments() const;
         PixelFormat                                        GetDepthAttachmentPixelFormat() const;
         PixelFormat                                        GetStencilAttachmentPixelFormat() const;
         PrimitiveTopologyClass                             GetInputPrimitiveTopology() const MTLPP_AVAILABLE_MAC(10_11);
@@ -207,8 +231,8 @@ namespace mtlpp
         TessellationFactorStepFunction                     GetTessellationFactorStepFunction() const MTLPP_AVAILABLE(10_12, 10_0);
         Winding                                            GetTessellationOutputWindingOrder() const MTLPP_AVAILABLE(10_12, 10_0);
 		
-		ns::Array<PipelineBufferDescriptor> GetVertexBuffers() const MTLPP_AVAILABLE(10_13, 11_0);
-		ns::Array<PipelineBufferDescriptor> GetFragmentBuffers() const MTLPP_AVAILABLE(10_13, 11_0);
+		ns::AutoReleased<ns::Array<PipelineBufferDescriptor>> GetVertexBuffers() const MTLPP_AVAILABLE(10_13, 11_0);
+		ns::AutoReleased<ns::Array<PipelineBufferDescriptor>> GetFragmentBuffers() const MTLPP_AVAILABLE(10_13, 11_0);
 
 
         void SetLabel(const ns::String& label);
@@ -238,10 +262,10 @@ namespace mtlpp
     {
     public:
         RenderPipelineState() { }
-        RenderPipelineState(ns::Protocol<id<MTLRenderPipelineState>>::type handle) : ns::Object<ns::Protocol<id<MTLRenderPipelineState>>::type>(handle) { }
+		RenderPipelineState(ns::Protocol<id<MTLRenderPipelineState>>::type handle, ue4::ITableCache* cache = nullptr, ns::Ownership const retain = ns::Ownership::Retain) : ns::Object<ns::Protocol<id<MTLRenderPipelineState>>::type>(handle, retain, ue4::ITableCacheRef(cache).GetRenderPipelineState(handle)) { }
 
-        ns::String GetLabel() const;
-        Device     GetDevice() const;
+        ns::AutoReleased<ns::String> GetLabel() const;
+        ns::AutoReleased<Device>     GetDevice() const;
 		
 		NSUInteger GetMaxTotalThreadsPerThreadgroup() const MTLPP_AVAILABLE_IOS(11_0);
 		bool GetThreadgroupSizeMatchesTileSize() const MTLPP_AVAILABLE_IOS(11_0);
@@ -254,34 +278,34 @@ namespace mtlpp
 	{
 	public:
 		TileRenderPipelineColorAttachmentDescriptor();
-		TileRenderPipelineColorAttachmentDescriptor(MTLTileRenderPipelineColorAttachmentDescriptor* handle) : ns::Object<MTLTileRenderPipelineColorAttachmentDescriptor*>(handle) { }
+		TileRenderPipelineColorAttachmentDescriptor(ns::Ownership const retain) : ns::Object<MTLTileRenderPipelineColorAttachmentDescriptor*>(retain) {}
+		TileRenderPipelineColorAttachmentDescriptor(MTLTileRenderPipelineColorAttachmentDescriptor* handle, ns::Ownership const retain = ns::Ownership::Retain) : ns::Object<MTLTileRenderPipelineColorAttachmentDescriptor*>(handle, retain) { }
 		
-		PixelFormat     GetPixelFormat() const;
+		PixelFormat     GetPixelFormat() const MTLPP_AVAILABLE_IOS(11_0);
 		
-		void SetPixelFormat(PixelFormat pixelFormat);
-	}
-	MTLPP_AVAILABLE_IOS(11_0);
+		void SetPixelFormat(PixelFormat pixelFormat) MTLPP_AVAILABLE_IOS(11_0);
+	};
 	
 	class TileRenderPipelineDescriptor : public ns::Object<MTLTileRenderPipelineDescriptor*>
 	{
 	public:
-		TileRenderPipelineDescriptor();
-		TileRenderPipelineDescriptor(MTLTileRenderPipelineDescriptor* handle) : ns::Object<MTLTileRenderPipelineDescriptor*>(handle) { }
+		TileRenderPipelineDescriptor() MTLPP_AVAILABLE_IOS(11_0);
+		TileRenderPipelineDescriptor(MTLTileRenderPipelineDescriptor* handle, ns::Ownership const retain = ns::Ownership::Retain) MTLPP_AVAILABLE_IOS(11_0) : ns::Object<MTLTileRenderPipelineDescriptor*>(handle, retain) { }
 		
-		ns::String                                         GetLabel() const;
-		Function                                           GetTileFunction() const;
-		NSUInteger                                           GetRasterSampleCount() const;
-		ns::Array<TileRenderPipelineColorAttachmentDescriptor> GetColorAttachments() const;
-		bool                                        GetThreadgroupSizeMatchesTileSize() const;
-		ns::Array<PipelineBufferDescriptor> GetTileBuffers() const MTLPP_AVAILABLE_IOS(11_0);
+		ns::AutoReleased<ns::String>                                         GetLabel() const MTLPP_AVAILABLE_IOS(11_0);
+		ns::AutoReleased<Function>                                           GetTileFunction() const MTLPP_AVAILABLE_IOS(11_0);
+		NSUInteger                                           GetRasterSampleCount() const MTLPP_AVAILABLE_IOS(11_0);
+		ns::AutoReleased<ns::Array<TileRenderPipelineColorAttachmentDescriptor>> GetColorAttachments() const MTLPP_AVAILABLE_IOS(11_0);
+		bool                                        GetThreadgroupSizeMatchesTileSize() const MTLPP_AVAILABLE_IOS(11_0);
+		ns::AutoReleased<ns::Array<PipelineBufferDescriptor>> GetTileBuffers() const MTLPP_AVAILABLE_IOS(11_0);
 		
 		
-		void SetLabel(const ns::String& label);
-		void SetTileFunction(const Function& tileFunction);
-		void SetRasterSampleCount(NSUInteger sampleCount);
-		void SetThreadgroupSizeMatchesTileSize(bool threadgroupSizeMatchesTileSize);
+		void SetLabel(const ns::String& label) MTLPP_AVAILABLE_IOS(11_0);
+		void SetTileFunction(const Function& tileFunction) MTLPP_AVAILABLE_IOS(11_0);
+		void SetRasterSampleCount(NSUInteger sampleCount) MTLPP_AVAILABLE_IOS(11_0);
+		void SetThreadgroupSizeMatchesTileSize(bool threadgroupSizeMatchesTileSize) MTLPP_AVAILABLE_IOS(11_0);
 		
-		void Reset();
+		void Reset() MTLPP_AVAILABLE_IOS(11_0);
 	}
 	MTLPP_AVAILABLE_IOS(11_0);
 }

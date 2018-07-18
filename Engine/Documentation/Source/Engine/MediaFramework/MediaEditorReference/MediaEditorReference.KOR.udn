@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3782314
 Availability:Public
-Title: Media Editor Reference
+Title: 미디어 에디터 레퍼런스
 Crumbs:%ROOT%, Engine
-Description:Breaks down the interface elements and options within the Media Editor used with Media Framework. 
+Description:미디어 에디터 안에서 미디어 프레임워크에 사용되는 인터페이스 요소와 옵션 분석입니다.
 Type: Reference
 Version: 4.18
 Parent: Engine/MediaFramework
@@ -14,171 +14,171 @@ Related: Engine\MediaFramework\HowTo
 
 [TOC(start:2 end:2)]
 
-When opening a **Media Player** asset, the **Media Editor** window will open presenting you with options for playing back and controlling different aspects of your **Media Source** assets. 
-In the Media Editor, you can define the player Plug-in used for a Media Source, select between different audio/video tracks (if applicable) as well as define settings for the Media Player itself. 
-The **Info** tab inside this editor will also display information about the type of media you are accessing which can be used to debug any potential playback problems. 
-Please refer to each of the sections below for more information and a breakdown of the available options. 
+**Media Player** (미디어 플레이어) 애셋을 열면, **미디어 에디터** 창이 열리면서 **미디어 소스** 애셋의 여러 부분을 제어하고 재생할 수 있는 옵션이 제공됩니다.
+미디어 에디터에서는, 미디어 소스에 사용되는 플레이어 플러그인 정의, (적용 가능한 경우) 다양한 오디오/비디오 트랙 선택은 물론 미디어 플레이어 자체에 대한 세팅을 정의할 수도 있습니다.
+이 에디터 안의 **Info** (정보) 탭에는 접근중인 미디어 유형 관련 정보도 표시되므로 이를 통해 발생 가능한 재생 문제를 디버깅할 수도 있습니다.
+사용 가능한 옵션 관련 상세 정보와 분석은 아래 각 섹션을 참고하세요.
 
-## Toolbar
+## 툴바
 
 ![](Toolbar.png)
 
-The **Toolbar** section of the Media Editor enables you to control the playback of media. 
+미디어 에디터의 **Toolbar** (툴바) 섹션에서는 미디어 재생에 대한 제어가 가능합니다.
 
 [REGION:note]
-You must first select a valid Media Source from the **Media Library** window that you want to play for the playback options to become available. 
+먼저 **미디어 라이브러리** 창에서 재생하고자 하는 유효 미디어 소스를 선택해야 재생 옵션이 활성화됩니다.
 [/REGION]
 
-| Option | Description |
+| 옵션 | 설명 |
 | -------- | ----------- |
-| ![](toolbar_1.png) | Saves this Media Player asset (**Ctrl+S**). |
-| ![](toolbar_2.png) | Browse to the Media Player asset in the Content Browser (**Ctrl+B**). |
-| ![](toolbar_3.png) | Jump to previous item in the Playlist. |
-| ![](toolbar_4.png) | Rewind the media source to the beginning. |
-| ![](toolbar_5.png) | Reverse playback of the selected media (clicking multiple times increases the seek speed). |
-| ![](toolbar_6.png) | Start/Resume media playback. |
-| ![](toolbar_7.png) | Pause media playback. |
-| ![](toolbar_8.png) | Fast forward media playback (clicking multiple times increases the seek speed). |
-| ![](toolbar_9.png) | Jump to the next item in the Playlist. |
-| ![](toolbar_10.png) | Close the currently opened media. |
+| ![](toolbar_1.png) | 이 미디어 플레이어 애셋을 저장합니다 (**Ctrl+S**). |
+| ![](toolbar_2.png) | 콘텐츠 브라우저에서 미디어 플레이어 애셋을 탐색합니다 (**Ctrl+B**). |
+| ![](toolbar_3.png) | 플레이리스트의 예전 항목으로 점프합니다. |
+| ![](toolbar_4.png) | 미디어 소스를 처음으로 되감습니다. |
+| ![](toolbar_5.png) | 선택된 미디어 재생 방향을 반대로 돌립니다 (여러 번 클릭하면 탐색 속도가 빨라집니다). |
+| ![](toolbar_6.png) | 미디어 재생을 시작/재개합니다. |
+| ![](toolbar_7.png) | 미디어 재생을 일시정지합니다. |
+| ![](toolbar_8.png) | 미디어 재생 속도를 높입니다 (여러 번 클릭하면 탐색 속도가 빨라집니다). |
+| ![](toolbar_9.png) | 플레이리스트의 다음 항목으로 점프합니다. |
+| ![](toolbar_10.png) | 현재 열린 미디어를 닫습니다. |
 
 
-## Player Window
+## 플레이어 창
 
 ![](Player.png)
 
-The **Player Window** enables you to view the playback of your media as well as define **Playback Options**.
-When you open a Media Source and mouse over this window, you will see text overlays that display the name of the file (upper-left), the current player Plug-in being used (upper-right), the state of the media (lower-left), and the current horizontal, vertical fields of view and view rotation (lower-right), which is used for 360 videos.
+**플레이어 창** 에서는 미디어 재생 확인은 물론 **Playback Options** (재생 옵션) 정의도 가능합니다.
+미디어 소스를 열고 이 창에 커서를 올리면, (좌상단) 파일 이름이 표시되는 텍스트 오버레이, (우상단) 현재 사용중인 플레이어 플러그인, (좌하단) 미디어 상태, (우하단) 현재 가로 세로 필드 오브 뷰 및 뷰 회전값이 표시되며, 이는 360 비디오에 사용됩니다.
 
 
 [REGION:warning]
-As of engine 4.18, there are no player plugins that support 360 videos however future iterations of the Media Framework tools will provide more support for them. 
+엔진 버전 4.18 기준으로 360 비디오를 지원하는 플레이어 플러그인은 없지만, 앞으로 미디어 프레임워크 툴 반복처리 작업에 따라 지원이 추가될 것입니다.
 [/REGION]
 
-At the top of the Player Window, there is a text field that displays the URL path (which you can use to Open directly in Blueprint with the **Open URL** Blueprint node). To the right of the URL field, a reload button can be used to reload the current media (similar to pressing the reload button on most web browsers and can be used to reload external URLs that link to the Internet). 
-To the left of the URL field, via the drop-down menu, are the **Capture Devices** options. 
+플레이어 창 상단에는, URL 경로가 표시되는 칸이 있습니다 (이를 통해 **Open URL** 블루프린트 노드로 블루프린트에서 직접 열 수 있습니다). URL 칸 오른쪽은 새로고침 버튼으로, 현재 미디어를 다시 로드합니다 (일반 웹 브라우저의 새로고침 버튼과 비슷하며, 인터넷에 연결되는 외부 URL 을 새로고칠 때 사용할 수 있습니다).
+URL 칸 왼쪽에는 드롭다운 메뉴를 통한 **Capture Devices** (캡처 디바이스) 옵션이 있습니다.
 
-### Capture Devices
+### 캡처 디바이스
 
 ![](CaptureDevices.png)
 
-The **Capture Devices** menu and options are available when you have a connected and [supported device](Engine/MediaFramework/TechReference) attached to your computer. 
-These options enable you to test different audio and capture devices where the URL will update with the selected device. Capture Devices are slightly different the other Media Sources in that you can have multiple devices connected. 
-You can use Blueprint (or C++) code to enumerate and filter for specific devices. 
+**Capture Devices** (캡처 디바이스) 메뉴와 옵션은 컴퓨터에 [지원되는 디바이스](Engine/MediaFramework/TechReference) 가 연결되어 있을 때만 사용 가능합니다.
+이 옵션을 통해 다양한 오디오 및 캡처 디바이스를 테스트할 수 있는데, URL 이 선택된 디바이스에 맞게 업데이트됩니다. 캡처 디바이스는 다수의 디바이스를 연결할 수 있다는 점에서 다른 미디어 소스와 약간 다릅니다.
+블루프린트 (또는 C++) 코드를 사용하여 특정 디바이스에 대한 필터링 또는 열거형 적용이 가능합니다.
 
 ![](Enumerate.png)
 
 [REGION:caption]
-Above, in a Blueprint, you can search for enumerate or capture devices to see the list of optional enumerators. 
+위는, 블루프린트에서 열거형 또는 캡처 디바이스를 검색하여 옵션 열거형 목록을 확인하고 있습니다.
 [/REGION]
 
-In the example below, a sample setup using the **Enumerate Video Capture Devices** node is shown to filter for specified devices that we can use to obtain the URL to open. 
+아래 예제는, **Enumerate Video Capture Devices** 노드에 특정 디바이스에 대한 필터를 적용한 샘플 구성으로, 이를 통해 열어볼 URL 을 구할 수 있습니다.
 
 ![](EnumerateExample.png)
 
 [REGION:note]
-Please see the [](Engine\MediaFramework\HowTo\UsingWebCams\) page for more information. 
+자세한 정보는 [](Engine\MediaFramework\HowTo\UsingWebCams\) 문서를 참고하세요.
 [/REGION]
 
-### Playback Options
+### 재생 옵션
 
 ![](PlaybackOptions.png)
 
-Also part of the Player Window is the **Playback Options** menu that contains several different options used to define how your media is played. 
+플레이어 창에 있는 **Playback Options** (재생 옵션) 메뉴에서는 미디어 재생 방식을 정의하는 데 사용되는 여러가지 다양한 옵션을 찾아볼 수 있습니다.
 
-**Player**
-| Option | Description |
+**플레이어**
+| 옵션 | 설명 |
 | --- | --- |
-| **Decoder** | This section enables you to define the player Plug-in used for media. Automatic is the default setting which will auto-select the appropriate player Plug-in based on the type of media.  |
+| **Decoder** | 디코더 - 이 섹션에서는 미디어에 사용되는 플레이어 플러그인을 정의할 수 있습니다. 기본 세팅은 Automatic (자동)으로, 미디어 유형에 따라 적합한 플레이어 플러그인을 자동 선택합니다. |
 
-**Tracks**
-| Option | Description |
+**트랙**
+| 옵션 | 설명 |
 | --- | --- |
-| **Audio** | Enables you to set the default audio track associated with a media source (if multiple audio tracks are embedded with the media) or disable the audio track.  |
-| **Captions** | Enables you to define the default caption track for a selected media source (if tracks are embedded with the media). |
-| **Subtitles** | Enables you to define the default subtitles track for a selected media source (if tracks are embedded with the media). |
-| **Text** | Enables you to define the default text track for a selected media source (if tracks are embedded with the media). |
-| **Video** | Enables you to set the default video track associated with a media source (if multiple video tracks are embedded with the media) or disable the video track. |
+| **Audio** | 오디오 - (미디어에 다수의 오디오 트랙이 삽입된 경우) 미디어 소스에 연결된 기본 오디오 트랙을 설정하거나 오디오 트랙을 비활성화시킬 수 있습니다. |
+| **Captions** | 캡션 - (트랙이 미디어와 함께 삽입된 경우) 선택된 미디어 소스에 대한 기본 캡션 트랙을 정의할 수 있습니다. |
+| **Subtitles** | 서브타이틀 - (트랙이 미디어와 함께 삽입된 경우) 선택된 미디어 소스에 대한 기본 서브타이틀 트랙을 정의할 수 있습니다. |
+| **Text** | 텍스트 - (트랙이 미디어와 함께 삽입된 경우) 선택된 미디어 소스에 대한 기본 텍스트 트랙을 정의할 수 있습니다. |
+| **Video** | 비디오 - (다수의 비디오 트랙이 미디어와 함께 삽입된 경우) 미디어 소스에 연결된 기본 비디오 트랙을 설정하거나 비디오 트랙을 비활성화시킬 수 있습니다. |
 
-**Formats**
-| Option | Description |
+**포맷**
+| 옵션 | 설명 |
 | --- | --- |
-| **Audio** | Displays the available audio format tracks which you can select from (if applicable).  |
-| **Captions** | Displays the available caption format tracks which you can select from (if applicable).  |
-| **Subtitles** | Displays the available subtitle format tracks which you can select from (if applicable).  |
-| **Text** | Displays the available text format tracks which you can select from (if applicable).  |
-| **Video** | Displays the available video format tracks which you can select from (if applicable).  |
+| **Audio** | 오디오 - 사용가능한 오디오 포맷 트랙이 표시되며, 여기서 (적용 가능한 경우) 선택할 수 있습니다. |
+| **Captions** | 캡션 - 사용가능한 캡션 포맷 트랙이 표시되며, 여기서 (적용 가능한 경우) 선택할 수 있습니다. |
+| **Subtitles** | 서브타이틀 - 사용가능한 서브타이틀 포맷이 표시되며, 여기서 (적용 가능한 경우) 선택할 수 있습니다. |
+| **Text** | 텍스트 - 사용가능한 텍스트 포맷이 표시되며, 여기서 (적용 가능한 경우) 선택할 수 있습니다. |
+| **Video** | 비디오 - 사용가능한 비디오 포맷이 표시되며, 여기서 (적용 가능한 경우) 선택할 수 있습니다. |
 
-**View**
-| Option | Description |
+**뷰**
+| 옵션 | 설명 |
 | --- | --- |
-| **Scale** | Change the video size to Fit (fit video in the Player Window), Fill (fill video in the Player Window) or Original Size (to use the original dimensions of the video).  |
-| **Show Text Overlays** | Toggles the display of any associated overlay assets with the selected media. |
+| **Scale** | 스케일 - 비디오 크기를 Fit (비디오를 플레이어 창에 맞추기), Fill (비디오를 플레이어 창에 채우기), Original Size (비디오 원래 크기 사용)으로 설정합니다. |
+| **Show Text Overlays** | 텍스트 오버레이 표시 - 선택된 미디어와 연관된 오버레이 애셋 표시를 토글합니다. |
 
 
-## Media Library
+## 미디어 라이브러리
 
 ![](MediaLibrary.png)
 
-The **Media Library** displays all of the Media Source assets within your project that you can open in the Media Editor. 
-You can right-click on a source in this window to open up a context menu that you can use to edit the asset, open in the Media Editor, browse to the asset in the Content Browser or show the location of the Media File on your computer. 
-This window also displays the type of each Media Source as well as their associated URL string. 
+**Media Library** (미디어 라이브러리)에는 미디어 에디터에서 열 수 있는 프로젝트 내 미디어 소스 애셋 전부가 표시됩니다.
+이 창에서 소스에 우클릭하면 열리는 맥락 메뉴를 통해 애셋 편집, 미디어 에디터에서 열기, 콘텐츠 브라우저에서 애셋 탐색, 컴퓨터에서 미디어 파일 위치 표시 등이 가능합니다.
+이 창에는 각 미디어 소스 유형과 함께 그에 연결된 URL 스트링도 표시됩니다.
 
-## Playlist
+## 플레이리스트
 
 ![](Playlist.png)
 
-The **Playlist** section of the Media Editor not only displays all of the files contained within a Media Playlist but also enables you to create/save new Media Playlists assets inside your project. 
-The arrows in the upper-right corner of the Playlist window function similar to the Toolbar's **Prev** and **Next** buttons and enable you to cycle through Media Sources in your playlist.
+미디어 에디터의 **Playlist** (플레이리스트) 섹션에는 미디어 플레이리스트에 포함된 모든 파일이 표시될 뿐만 아니라 프로젝트 안에 새로운 미디어 플레이리스트 애셋을 생성/저장할 수도 있습니다.
+플레이리스트 창 우상단 구석의 화살표는 툴바의 **예전** 및 **다음** 버튼과 비슷한 기능을 수행하여 플레이리스트의 미디어 소스 파일을 돌아볼 수 있습니다.
 
 ![](ActiveMediaPlaylist.png)
 
 [REGION:caption]
-Above, an active Media Playlist displays each of the Media Sources contained within it with the arrow marker pointing to the currently playing source. 
+위에서, 활성 미디어 플레이리스트에는 포함된 미디어 소스 각각이 표시되며, 화살표가 현재 재생중인 소스를 가리킵니다.
 [/REGION]
 
-Each Media Source (when active) has a local Media Playlist created inside the Media Editor. You can save the local Media Playlist as a new Media Playlist by clicking the **Save** icon. 
+각 미디어 소스는 (활성화 시) 미디어 에디터 안에 로컬 미디어 플레이리스트가 생성됩니다. **저장** 아이콘을 클릭하면 그 로컬 미디어 플레이리스트를 새로운 미디어 플레이리스트로 저장할 수 있습니다.
 
 ![](UnsavedPlaylist.png)
 
 [REGION:warning]
-As of engine 4.18, there currently is no way to add Media Sources to a local Media Playlist, however, support slated for updates in future engine releases. 
+언리얼 엔진 4.18 기준으로, 현재 로컬 미디어 플레이리스트에 미디어 소스를 추가할 수 있는 방법이 없습니다만, 앞으로 있을 업데이트에 추가될 예정입니다.
 [/REGION]
 
 
-## Details / Info
+## 디테일 / 인포
 
 ![](Details.png)
 
-The **Details** panel provides options for controlling playback of the Media Player itself. 
+**디테일** 패널에는 미디어 플레이어 자체에 대한 재생 제어를 위한 옵션이 제공됩니다.
 
-**Playback**
-| Option | Description |
+**재생**
+| 옵션 | 설명 |
 | -------- | ----------- |
-| **Play on Open** | When enabled will automatically start to play a Media Source when opening the source through Blueprint or C++. |
-| **Shuffle** | When a Playlist is opened, if this option is enabled, the player will randomly select a source within the playlist rather than playback sequentially. |
-| **Loop** | When enabled will loop a single Media Source or entire Media Playlist (looping Video Capture devices is not supported). |
+| **Play on Open** | 열리면 재생 - 켜면 블루프린트나 C++ 를 통해 미디어 소스를 열었을 때 재생을 자동 시작합니다. |
+| **Shuffle** | 셔플 - 플레이리스트가 열렸을 때 이 옵션이 켜져있으면, 플레이리스트의 소스를 순서대로 재생하지 않고 무작위로 선택해서 재생합니다. |
+| **Loop** | 루프 - 켜면 단일 미디어 소스 또는 전체 미디어 플레이리스트를 반복 재생합니다 (비디오 캡처 디바이스에는 루프가 지원되지 않습니다). |
 
-**View Settings**
-| Option | Description |
+**뷰 세팅**
+| 옵션 | 설명 |
 | -------- | ----------- |
-| **Horizontal Field of View** | Enables you to manually set the Horizontal FOV value for 360 videos.  |
-| **Vertical Field of View** | Enables you to manually set the Vertical FOV value for 360 videos. |
-| **View Rotation** | Enables you to manually set the View Rotation for 360 videos. |
+| **Horizontal Field of View** | 가로 필드 오브 뷰 - 360 비디오의 가로 FOV 값을 수동 설정할 수 있습니다. |
+| **Vertical Field of View** | 세로 필드 오브 뷰 - 360 비디오의 세로 FOV 값을 수동 설정할 수 있습니다. |
+| **View Rotation** | 뷰 회전 - 360 비디오의 뷰 회전 값을 수동 설정할 수 있습니다. |
 
 [REGION:warning]
-As cited in the [Player Window](#playerwindow) section, version 4.18 does not support 360 videos. Future iterations of the Media Framework tools however will provide support for them. 
+[플레이어 창](#플레이어창) 섹션에 언급된 대로, 4.18 버전은 360 비디오를 지원하지 않습니다. 앞으로 미디어 프레임워크 툴이 개선되면서 지원될 것입니다.
 [/REGION]
 
-### Info Panel
+### 인포 패널
 
 ![](InfoPanel.png)
 
-The **Info** panel provides information about the selected Media Source that you can use for debugging purposes. 
-This window displays the player Plug-in associated with the file, the number of video and audio streams and information about video and audio tracks such as the codec being used, sample rate and dimensions. 
+**인포** 패널에는 선택된 미디어 소스에 대해 디버깅용으로 사용할 수 있는 정보가 제공됩니다.
+이 창에는 파일에 연결된 플레이어 플러그인, 비디오와 오디오 스트림 수, 비디오와 오디오 트랙 관련 정보, 예를 들면 사용중인 코텍, 샘플링 속도, 크기 등이 표시됩니다.
 
-Any errors when trying to playback video will be displayed here, for example, if you attempt to load an unsupported format, it will list it in this window as **Not supported**. 
-Additionally, you can use the **Copy to Clipboard** button to copy this information out which you can use to post to our official forums or [Answer Hub](https://answers.unrealengine.com/) pages to get help with and troubleshoot any playback issues. 
+비디오 재생 도중 오류가 발생하면 여기 표시됩니다. 예를 들어 지원되지 않는 포맷을 로드하려 한 경우, **Not supported** 로 이 창에 나타납니다.
+추가로, **클립보드로 복사** 버튼을 사용하여 이 정보를 복사한 뒤 공식 포럼이나 [Answer Hub](https://answers.unrealengine.com/) 게시물에 붙여넣으면 재생 관련 문제를 해결하거나 도움을 얻을 수 있습니다.
 
 
 

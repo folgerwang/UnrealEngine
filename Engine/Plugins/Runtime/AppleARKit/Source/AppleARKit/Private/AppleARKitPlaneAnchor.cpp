@@ -3,7 +3,7 @@
 // AppleARKit
 #include "AppleARKitPlaneAnchor.h"
 #include "AppleARKitModule.h"
-#include "AppleARKitTransform.h"
+#include "AppleARKitConversion.h"
 
 // UE4
 #include "Misc/ScopeLock.h"
@@ -30,7 +30,7 @@ FTransform UAppleARKitPlaneAnchor::GetTransformToCenter() const
 	return FTransform( Center ) * Transform;
 }
 
-#if ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
+#if SUPPORTS_ARKIT_1_0
 
 void UAppleARKitPlaneAnchor::Update_DelegateThread( ARAnchor* Anchor )
 {
@@ -44,9 +44,9 @@ void UAppleARKitPlaneAnchor::Update_DelegateThread( ARAnchor* Anchor )
 		FScopeLock ScopeLock( &UpdateLock );
 		
 		// @todo use World Settings WorldToMetersScale
-		Extent = FAppleARKitTransform::ToFVector( PlaneAnchor.extent ).GetAbs();
-		Center = FAppleARKitTransform::ToFVector( PlaneAnchor.center );
+		Extent = FAppleARKitConversion::ToFVector( PlaneAnchor.extent ).GetAbs();
+		Center = FAppleARKitConversion::ToFVector( PlaneAnchor.center );
 	}
 }
 
-#endif // ARKIT_SUPPORT
+#endif

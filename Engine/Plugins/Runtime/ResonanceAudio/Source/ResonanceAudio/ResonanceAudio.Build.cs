@@ -13,13 +13,13 @@ namespace UnrealBuildTool.Rules
 
             PublicIncludePaths.AddRange(
                 new string[] {
-                    "ResonanceAudio/Public"
                 }
             );
 
             PrivateIncludePaths.AddRange(
                 new string[] {
                     "ResonanceAudio/Private",
+                    "../../../../Source/Runtime/AudioMixer/Private"
                 }
             );
 
@@ -35,7 +35,7 @@ namespace UnrealBuildTool.Rules
 
             PrivateIncludePathModuleNames.AddRange(
                 new string[] {
-                    "TargetPlatform",
+                    "TargetPlatform"
                 }
             );
 

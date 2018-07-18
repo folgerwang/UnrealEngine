@@ -975,10 +975,10 @@ bool FGameplayTagContainer::NetSerialize(FArchive& Ar, class UPackageMap* Map, b
 	if (Ar.IsSaving())
 	{
 		uint8 NumTags = GameplayTags.Num();
-		uint8 MaxSize = (1 << NumBitsForContainerSize);
-		if (!ensureMsgf(NumTags < MaxSize, TEXT("TagContainer has %d elements when max is %d! Tags: %s"), NumTags, MaxSize, *ToStringSimple()))
+		uint8 MaxSize = (1 << NumBitsForContainerSize) - 1;
+		if (!ensureMsgf(NumTags <= MaxSize, TEXT("TagContainer has %d elements when max is %d! Tags: %s"), NumTags, MaxSize, *ToStringSimple()))
 		{
-			NumTags = MaxSize - 1;
+			NumTags = MaxSize;
 		}
 		
 		Ar.SerializeBits(&NumTags, NumBitsForContainerSize);
@@ -1463,6 +1463,17 @@ FGameplayTagQuery FGameplayTagQuery::MakeQuery_MatchNoTags(FGameplayTagContainer
 		.NoTagsMatch()
 		.AddTags(InTags)
 		);
+}
+
+// static
+FGameplayTagQuery FGameplayTagQuery::MakeQuery_MatchTag(FGameplayTag const & InTag)
+{
+	return FGameplayTagQuery::BuildQuery
+	(
+		FGameplayTagQueryExpression()
+		.AllTagsMatch()
+		.AddTag(InTag)
+	);
 }
 
 

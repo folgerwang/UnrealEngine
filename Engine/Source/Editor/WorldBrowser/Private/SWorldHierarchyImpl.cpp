@@ -857,7 +857,7 @@ void SWorldHierarchyImpl::RepopulateEntireTree()
 {
 	EmptyTreeItems();
 
-	for (const TSharedPtr<FLevelModel>& Level : WorldModel->GetAllLevels())
+	for (const TSharedPtr<FLevelModel>& Level : WorldModel->GetFilteredLevels())
 	{
 		if (Level.IsValid())
 		{

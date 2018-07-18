@@ -17,6 +17,7 @@ public:
 	virtual ~FJsonArchiveInputFormatter();
 
 	virtual FArchive& GetUnderlyingArchive() override;
+	virtual FStructuredArchiveFormatter* CreateSubtreeReader() override;
 
 	virtual void EnterRecord() override;
 	virtual void EnterRecord(TArray<FString>& OutKeys) override;

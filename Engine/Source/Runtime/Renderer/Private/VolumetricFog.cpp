@@ -154,7 +154,6 @@ public:
 		: FGlobalShader(Initializer)
 	{
 		VolumetricFogParameters.Bind(Initializer.ParameterMap);
-		HeightFogParameters.Bind(Initializer.ParameterMap);
 		GlobalAlbedo.Bind(Initializer.ParameterMap, TEXT("GlobalAlbedo"));
 		GlobalEmissive.Bind(Initializer.ParameterMap, TEXT("GlobalEmissive"));
 		GlobalExtinctionScale.Bind(Initializer.ParameterMap, TEXT("GlobalExtinctionScale"));
@@ -173,10 +172,13 @@ public:
 		FComputeShaderRHIParamRef ShaderRHI = GetComputeShader();
 		FGlobalShader::SetParameters<FViewUniformShaderParameters>(RHICmdList, ShaderRHI, View.ViewUniformBuffer);
 		VolumetricFogParameters.Set(RHICmdList, ShaderRHI, View, IntegrationData);
-		HeightFogParameters.Set(RHICmdList, ShaderRHI, &View);
 		SetShaderValue(RHICmdList, ShaderRHI, GlobalAlbedo, FogInfo.VolumetricFogAlbedo);
 		SetShaderValue(RHICmdList, ShaderRHI, GlobalEmissive, FogInfo.VolumetricFogEmissive);
 		SetShaderValue(RHICmdList, ShaderRHI, GlobalExtinctionScale, FogInfo.VolumetricFogExtinctionScale);
+
+		FFogUniformParameters FogUniformParameters;
+		SetupFogUniformParameters(View, FogUniformParameters);
+		SetUniformBufferParameterImmediate(RHICmdList, ShaderRHI, GetUniformBufferParameter<FFogUniformParameters>(), FogUniformParameters);
 	}
 
 	void UnsetParameters(FRHICommandList& RHICmdList, 
@@ -191,7 +193,6 @@ public:
 	{		
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
 		Ar << VolumetricFogParameters;
-		Ar << HeightFogParameters;
 		Ar << GlobalAlbedo;
 		Ar << GlobalEmissive;
 		Ar << GlobalExtinctionScale;
@@ -201,7 +202,6 @@ public:
 private:
 
 	FVolumetricFogIntegrationParameters VolumetricFogParameters;
-	FExponentialHeightFogShaderParameters HeightFogParameters;
 	FShaderParameter GlobalAlbedo;
 	FShaderParameter GlobalEmissive;
 	FShaderParameter GlobalExtinctionScale;
@@ -384,7 +384,7 @@ bool LightNeedsSeparateInjectionIntoVolumetricFog(const FLightSceneInfo* LightSc
 		&& LightProxy->CastsVolumetricShadow())
 	{
 		const FStaticShadowDepthMap* StaticShadowDepthMap = LightProxy->GetStaticShadowDepthMap();
-		const bool bStaticallyShadowed = LightSceneInfo->IsPrecomputedLightingValid() && StaticShadowDepthMap && StaticShadowDepthMap->TextureRHI;
+		const bool bStaticallyShadowed = LightSceneInfo->IsPrecomputedLightingValid() && StaticShadowDepthMap && StaticShadowDepthMap->Data && StaticShadowDepthMap->TextureRHI;
 
 		return GetShadowForInjectionIntoVolumetricFog(LightProxy, VisibleLightInfo) != NULL || bStaticallyShadowed;
 	}
@@ -628,7 +628,7 @@ void FDeferredShadingSceneRenderer::RenderLocalLightsForVolumetricFog(
 			}
 		}
 
-		RHICmdList.CopyToResolveTarget(OutLocalShadowedLightScattering->GetRenderTargetItem().TargetableTexture, OutLocalShadowedLightScattering->GetRenderTargetItem().ShaderResourceTexture, true, FResolveParams());
+		RHICmdList.CopyToResolveTarget(OutLocalShadowedLightScattering->GetRenderTargetItem().TargetableTexture, OutLocalShadowedLightScattering->GetRenderTargetItem().ShaderResourceTexture, FResolveParams());
 	
 		GRenderTargetPool.VisualizeTexture.SetCheckPoint(RHICmdList, OutLocalShadowedLightScattering);
 	}
@@ -662,7 +662,6 @@ public:
 		LightScatteringHistory.Bind(Initializer.ParameterMap, TEXT("LightScatteringHistory"));
 		LightScatteringHistorySampler.Bind(Initializer.ParameterMap, TEXT("LightScatteringHistorySampler"));
 		VolumetricFogParameters.Bind(Initializer.ParameterMap);
-		ForwardLightingParameters.Bind(Initializer.ParameterMap);
 		DirectionalLightFunctionWorldToShadow.Bind(Initializer.ParameterMap, TEXT("DirectionalLightFunctionWorldToShadow"));
 		LightFunctionTexture.Bind(Initializer.ParameterMap, TEXT("LightFunctionTexture"));
 		LightFunctionSampler.Bind(Initializer.ParameterMap, TEXT("LightFunctionSampler"));
@@ -676,7 +675,6 @@ public:
 		UseDirectionalLightShadowing.Bind(Initializer.ParameterMap, TEXT("UseDirectionalLightShadowing"));
 		AOParameters.Bind(Initializer.ParameterMap);
 		GlobalDistanceFieldParameters.Bind(Initializer.ParameterMap);
-		HeightFogParameters.Bind(Initializer.ParameterMap);
 	}
 
 	TVolumetricFogLightScatteringCS()
@@ -720,7 +718,7 @@ public:
 			LightScatteringHistoryTexture);
 
 		VolumetricFogParameters.Set(RHICmdList, ShaderRHI, View, IntegrationData);
-		ForwardLightingParameters.Set(RHICmdList, ShaderRHI, View);
+		SetUniformBufferParameter(RHICmdList, ShaderRHI, GetUniformBufferParameter<FForwardLightData>(), View.ForwardLightingResources->ForwardLightDataUniformBuffer);
 
 		SetShaderValue(RHICmdList, ShaderRHI, DirectionalLightFunctionWorldToShadow, DirectionalLightFunctionWorldToShadowValue);
 
@@ -778,7 +776,10 @@ public:
 
 		AOParameters.Set(RHICmdList, ShaderRHI, AOParameterData);
 		GlobalDistanceFieldParameters.Set(RHICmdList, ShaderRHI, View.GlobalDistanceFieldInfo.ParameterData);
-		HeightFogParameters.Set(RHICmdList, ShaderRHI, &View);
+
+		FFogUniformParameters FogUniformParameters;
+		SetupFogUniformParameters(View, FogUniformParameters);
+		SetUniformBufferParameterImmediate(RHICmdList, ShaderRHI, GetUniformBufferParameter<FFogUniformParameters>(), FogUniformParameters);
 	}
 
 	void UnsetParameters(FRHICommandList& RHICmdList, const FViewInfo& View, IPooledRenderTarget* LightScatteringRenderTarget)
@@ -793,7 +794,6 @@ public:
 		Ar << LightScatteringHistory;
 		Ar << LightScatteringHistorySampler;
 		Ar << VolumetricFogParameters;
-		Ar << ForwardLightingParameters;
 		Ar << DirectionalLightFunctionWorldToShadow;
 		Ar << LightFunctionTexture;
 		Ar << LightFunctionSampler;
@@ -807,7 +807,6 @@ public:
 		Ar << UseDirectionalLightShadowing;
 		Ar << AOParameters;
 		Ar << GlobalDistanceFieldParameters;
-		Ar << HeightFogParameters;
 		return bShaderHasOutdatedParameters;
 	}
 
@@ -817,7 +816,6 @@ private:
 	FShaderResourceParameter LightScatteringHistory;
 	FShaderResourceParameter LightScatteringHistorySampler;
 	FVolumetricFogIntegrationParameters VolumetricFogParameters;
-	FForwardLightingParameters ForwardLightingParameters;
 	FShaderParameter DirectionalLightFunctionWorldToShadow;
 	FShaderResourceParameter LightFunctionTexture;
 	FShaderResourceParameter LightFunctionSampler;
@@ -831,7 +829,6 @@ private:
 	FShaderParameter UseDirectionalLightShadowing;
 	FAOParameters AOParameters;
 	FGlobalDistanceFieldParameters GlobalDistanceFieldParameters;
-	FExponentialHeightFogShaderParameters HeightFogParameters;
 };
 
 #define IMPLEMENT_VOLUMETRICFOG_LIGHT_SCATTERING_CS_TYPE(bTemporalReprojection, bDistanceFieldSkyOcclusion) \

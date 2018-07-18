@@ -148,11 +148,11 @@ class UAtmosphericFogComponent : public USceneComponent
 	FColor DefaultLightColor;
 
 	/** Disable Sun Disk rendering. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, interp, Category=Lighting)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, interp, Category=Lighting, meta=(ScriptName="DisableSunDiskValue"))
 	uint32 bDisableSunDisk : 1;
 
 	/** Disable Color scattering from ground. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, interp, Category=Lighting)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, interp, Category=Lighting, meta=(ScriptName="DisableGroundScatteringValue"))
 	uint32 bDisableGroundScattering : 1;
 
 	/** Set brightness of the light */
@@ -254,6 +254,7 @@ public:
 	
 	//~ Begin UObject Interface. 
 	virtual void PostLoad() override;
+	virtual bool IsPostLoadThreadSafe() const override;
 	virtual void BeginDestroy() override;
 
 #if WITH_EDITOR

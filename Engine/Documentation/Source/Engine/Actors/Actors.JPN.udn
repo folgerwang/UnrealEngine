@@ -30,7 +30,7 @@ Light、Static Mesh、Particle System Emitter のアクタやその他、どの�
 
 ## アクタの作業
 
-[DIR(output:"topic" parent:"Engine/Actors" org:"hierarchy" end:"1" path:"!Engine/Actors/Types")]
+[DIR(output:"topic" parent:"Engine/Actors" org:"hierarchy" end:"1")]
 
 ## アクタの種類
 

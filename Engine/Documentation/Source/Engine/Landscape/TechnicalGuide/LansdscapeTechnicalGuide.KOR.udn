@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3108692
+﻿INTSourceChangelist:3807090
 Availability: Public
 Title:랜드스케이프 테크니컬 가이드
 Crumbs: %ROOT%, Engine, Engine/Landscape
@@ -38,7 +38,7 @@ topic-image:Engine/Landscape/Materials/LS_Technical.png
 
 컴포넌트가 넷 들어있는 매우 단순한 랜드스케이프는 아래(초록색 윤곽선)와 같습니다. 각 컴포넌트는 하나의 쿼드로 되어있습니다. 컴포넌트가 만나는 곳의 버텍스가 어떻게 복제되는지 보이기 위해 하나의 컴포넌트를 분리시켰습니다.
 
-![Landscape_Components.jpg](Landscape_Components.jpg)(w:256 h:256)
+![Landscape_Components.jpg](Landscape_Components.jpg)(w:256)
 
 
 ## 컴포넌트 섹션
@@ -51,7 +51,7 @@ topic-image:Engine/Landscape/Materials/LS_Technical.png
 
 섹션이 넷 들어있는 개별 컴포넌트는 아래( 초록색 윤곽선)와 같습니다. 각 섹션은 9 (3x3) 개의 쿼드로 이루어져 있습니다. 마찬가지로 섹션이 만나는 곳의 버텍스가 복제되는 것을 볼 수 있습니다.
 
-![Landscape_Component_Sections.jpg](Landscape_Component_Sections.jpg)(w:256 h:256)
+![Landscape_Component_Sections.jpg](Landscape_Component_Sections.jpg)(w:256)
 
 
 ## 하이트맵 치수 계산하기

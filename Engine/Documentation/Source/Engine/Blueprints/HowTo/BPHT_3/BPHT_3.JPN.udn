@@ -1,29 +1,15 @@
-﻿INTSourceChangelist:3244370
-Availability:Public
+﻿Availability:Public
 Title:3.射撃対象となる岩をスポーンする
 Crumbs: %ROOT%, Engine, Engine/Blueprints, Engine/Blueprints/HowTo
 Description:スポーン ポイントに設定した位置の 1 つで岩をスポーンするボタンをプレイヤーが押せるようにしてみましょう。 
 version:4.9
 tags:Blueprints
+parent:Engine\Blueprints\HowTo
+type:how-to
+type:multi-step
+order:3
 
-
-[VAR:Steps]
-[OBJECT:Navigation]
-	[PARAM:previous]
-	[前のステップ](Engine\Blueprints\HowTo\BPHT_2 "%Engine\Blueprints\HowTo\BPHT_2:title%") 
-	[/PARAM]
-	[PARAM:current]
-	[/PARAM]
-	[PARAM:home]
-		[How To ホーム](Engine\Blueprints\HowTo "%Engine\Blueprints\HowTo:Title%")
-	[/PARAM]
-	[PARAM:next]
-	[次のステップ](Engine\Blueprints\HowTo\BPHT_4 "%Engine\Blueprints\HowTo\BPHT_4:title%") 
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-
+[NAV]
 
 Description:プレイヤーがボタンを押して射撃対象となる岩をスポーンできるロジックを設定します。レベル内にスポーン ポイントを幾つか定義してあります。それらの 1 つを取得するために、**イベントディスパッチャー** を使って **Level ブループリント** (次のステップで作成します) 内にイベントを実行して、これらの位置の 1 つを取得して Character プリントに送ります。 
 
@@ -71,7 +57,7 @@ Description:プレイヤーがボタンを押して射撃対象となる岩を�
 
 	プレイヤーが岩をスポーンできる時に対するロジックはされました。次はスポーン位置を取得するためにレベルと通信する必要があります。**F** が押されると呼び出される **イベントディスパッチャー** を使って行います。**Level ブループリント** はイベントディスパッチャーをリッスンし、呼び出されると独自のイベントを実行してスポーン ポイントの 1 つの位置を取得し、それを Character ブループリントへ渡します。 
 
-1.	**[My Blueprint]** ウィンドウで**[+ Event Dispatcher (イベントディスパッチャーを追加)]** ボタンをクリックします。 
+1.	**[My Blueprint]** ウィンドウで **[+ Event Dispatcher (イベントディスパッチャーを追加)]** ボタンをクリックします。 
 
 	![](AddEventDispatcher.png)
 
@@ -102,19 +88,4 @@ Description:プレイヤーがボタンを押して射撃対象となる岩を�
 次のステップでは **Level ブループリント** を使用して、Character ブループリントのイベントディスパッチャーが呼び出された時に、スポーン ポイントの 1 つの位置を取得して、その情報を Character ブループリントに渡します (こうすることで、 Character ブループリントから Level ブループリントとその逆という、双方向で情報を渡します)。 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+[NAV]

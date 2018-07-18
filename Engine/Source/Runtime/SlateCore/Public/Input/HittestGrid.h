@@ -23,6 +23,35 @@ public:
 	virtual TSharedPtr<struct FVirtualPointerPosition> TranslateMouseCoordinateFor3DChild( const TSharedRef<SWidget>& ChildWidget, const FGeometry& ViewportGeometry, const FVector2D& ScreenSpaceMouseCoordinate, const FVector2D& LastScreenSpaceMouseCoordinate ) const = 0;
 };
 
+
+struct FCachedWidget
+{
+	FCachedWidget(int32 InParentIndex, const FArrangedWidget& InWidget, int32 InClippingStateIndex, int32 InLayerId)
+		: WidgetPtr(InWidget.Widget)
+		, CachedGeometry(InWidget.Geometry)
+		, ClippingStateIndex(InClippingStateIndex)
+		, Children()
+		, ParentIndex(InParentIndex)
+		, LayerId(InLayerId)
+	{}
+
+	void AddChild(const int32 ChildIndex)
+	{
+		Children.Add(ChildIndex);
+	}
+
+	TWeakPtr<SWidget> WidgetPtr;
+	/** Allow widgets that implement this interface to insert widgets into the bubble path */
+	TWeakPtr<ICustomHitTestPath> CustomPath;
+	FGeometry CachedGeometry;
+	int32 ClippingStateIndex;
+	TArray<int32, TInlineAllocator<4> > Children;
+	int32 ParentIndex;
+	/** This is needed to be able to pick the best of the widgets within the virtual cursor's radius. */
+	int32 LayerId;
+};
+
+
 class SLATECORE_API FHittestGrid
 {
 public:
@@ -74,40 +103,6 @@ private:
 	struct FCell
 	{
 		TArray<int32> CachedWidgetIndexes;
-	};
-
-	/**
-	 * @todo umg: can we eliminate this?
-	 *
-	 * FNodes are a duplicate of the widget tree, with each widget
-	 * that is encountered on the way to outputting a hit-testable element
-	 * being recorded such that the event bubbling path can be reconstructed.
-	 */
-	struct FCachedWidget
-	{
-		FCachedWidget(int32 InParentIndex, const FArrangedWidget& InWidget, int32 InClippingStateIndex, int32 InLayerId)
-			: WidgetPtr(InWidget.Widget)
-			, CachedGeometry(InWidget.Geometry)
-			, ClippingStateIndex(InClippingStateIndex)
-			, Children()
-			, ParentIndex(InParentIndex)
-			, LayerId(InLayerId)
-		{}
-
-		void AddChild(const int32 ChildIndex)
-		{
-			Children.Add(ChildIndex);
-		}
-
-		TWeakPtr<SWidget> WidgetPtr;
-		/** Allow widgets that implement this interface to insert widgets into the bubble path */
-		TWeakPtr<ICustomHitTestPath> CustomPath;
-		FGeometry CachedGeometry;
-		int32 ClippingStateIndex;
-		TArray<int32, TInlineAllocator<16> > Children;
-		int32 ParentIndex;
-		/** This is needed to be able to pick the best of the widgets within the virtual cursor's radius. */
-		int32 LayerId;
 	};
 
 	/** Shared arguments to helper functions. */

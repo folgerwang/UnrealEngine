@@ -19,12 +19,18 @@ typedef FMacPlatformProperties<WITH_EDITORONLY_DATA, UE_SERVER, !WITH_SERVER_COD
 #elif PLATFORM_IOS
 #include "IOS/IOSPlatformProperties.h"
 typedef FIOSPlatformProperties FPlatformProperties;
+#elif PLATFORM_LUMIN
+#include "Lumin/LuminPlatformProperties.h"
+typedef FLuminPlatformProperties FPlatformProperties;
 #elif PLATFORM_ANDROID
 #include "Android/AndroidProperties.h"
 typedef FAndroidPlatformProperties FPlatformProperties;
 #elif PLATFORM_HTML5
 #include "HTML5/HTML5PlatformProperties.h"
 typedef FHTML5PlatformProperties FPlatformProperties;
+#elif PLATFORM_QUAIL
+#include "Quail/QuailPlatformProperties.h"
+typedef FQuailPlatformProperties FPlatformProperties;
 #elif PLATFORM_LINUX
 #include "Linux/LinuxPlatformProperties.h"
 typedef FLinuxPlatformProperties<WITH_EDITORONLY_DATA, UE_SERVER, !WITH_SERVER_CODE> FPlatformProperties;

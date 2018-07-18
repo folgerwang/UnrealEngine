@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections;
@@ -693,7 +693,7 @@ namespace UnrealBuildTool
 
             if (bRecursive)
             {
-                foreach(var dir in DirectoryReference.EnumerateDirectories(LocalDirectory))
+                foreach(DirectoryReference dir in DirectoryReference.EnumerateDirectories(LocalDirectory))
                 {
                     QueueDirectoryForBatchUpload(dir);
                 }
@@ -723,10 +723,15 @@ namespace UnrealBuildTool
 			return RemoteFileItem;
 		}
 
-        public FileItem RemoteToLocalFileItem(FileItem RemoteFileItem)
+		public override void DoLocalToRemoteFileItem(FileItem LocalFileItem)
+		{
+			LocalToRemoteFileItem(LocalFileItem, true);
+		}
+
+		public FileItem RemoteToLocalFileItem(FileItem RemoteFileItem)
         {
             // Look to see if we've already made a remote FileItem for this local FileItem
-            foreach (var Item in CachedRemoteFileItems)
+            foreach (KeyValuePair<FileItem, FileItem> Item in CachedRemoteFileItems)
             {
                 if (Item.Value.AbsolutePath == RemoteFileItem.AbsolutePath)
                 {
@@ -771,19 +776,19 @@ namespace UnrealBuildTool
 				// header files existed on disk at the time that UBT scanned include statements looking for prerequisite files.  Those
 				// files are created during code generation and must exist on disk by the time this function is called.  We'll scan
 				// for generated code files and make sure they are enqueued for copying to the remote machine.
-				foreach (var UObjectModule in Manifest.Modules)
+				foreach (UHTManifest.Module UObjectModule in Manifest.Modules)
 				{
 					// @todo uht: Ideally would only copy exactly the files emitted by UnrealHeaderTool, rather than scanning directory (could copy stale files; not a big deal though)
 					try
 					{
-						var GeneratedCodeDirectory = Path.GetDirectoryName(UObjectModule.GeneratedCPPFilenameBase);
-						var GeneratedCodeFiles = Directory.GetFiles(GeneratedCodeDirectory, "*", SearchOption.AllDirectories);
-						foreach (var GeneratedCodeFile in GeneratedCodeFiles)
+						string GeneratedCodeDirectory = Path.GetDirectoryName(UObjectModule.GeneratedCPPFilenameBase);
+						string[] GeneratedCodeFiles = Directory.GetFiles(GeneratedCodeDirectory, "*", SearchOption.AllDirectories);
+						foreach (string GeneratedCodeFile in GeneratedCodeFiles)
 						{
 							// Skip copying "Timestamp" files (UBT temporary files)
 							if (!Path.GetFileName(GeneratedCodeFile).Equals(@"Timestamp", StringComparison.InvariantCultureIgnoreCase))
 							{
-								var GeneratedCodeFileItem = FileItem.GetExistingItemByPath(GeneratedCodeFile);
+								FileItem GeneratedCodeFileItem = FileItem.GetExistingItemByPath(GeneratedCodeFile);
 								QueueFileForBatchUpload(GeneratedCodeFileItem);
 							}
 						}
@@ -798,10 +803,10 @@ namespace UnrealBuildTool
 					// header scan wouldn't have picked them up if they hadn't been generated yet!
 					try
 					{
-						var SourceFiles = Directory.GetFiles(UObjectModule.BaseDirectory, "*", SearchOption.AllDirectories);
-						foreach (var SourceFile in SourceFiles)
+						string[] SourceFiles = Directory.GetFiles(UObjectModule.BaseDirectory, "*", SearchOption.AllDirectories);
+						foreach (string SourceFile in SourceFiles)
 						{
-							var SourceFileItem = FileItem.GetExistingItemByPath(SourceFile);
+							FileItem SourceFileItem = FileItem.GetExistingItemByPath(SourceFile);
 							QueueFileForBatchUpload(SourceFileItem);
 						}
 					}
@@ -954,10 +959,10 @@ namespace UnrealBuildTool
 					RsyncProcess.StartInfo.WorkingDirectory = ExeDir;
 				}
 
-				// --exclude='*'  ??? why???
+				// This will sync everything except .o files (because we want to keep old .o files on the target machine for iterative builds)
 				RsyncProcess.StartInfo.FileName = ResolvedRSyncExe;
                 RsyncProcess.StartInfo.Arguments = string.Format(
-                    "-vzrltgoDe \"{0}\" --rsync-path=\"mkdir -p {2} && rsync\" --chmod=ug=rwX,o=rxX --delete --files-from=\"{4}\" --include-from=\"{5}\" --include='*/' --exclude='*.o' --exclude='Timestamp' '{1}' \"{6}@{3}\":'{2}'",
+					"-vzrltgoDe \"{0}\" --rsync-path=\"mkdir -p {2} && rsync\" --chmod=ug=rwX,o=rxX --delete --files-from=\"{4}\" --include-from=\"{5}\" --include='*/' --exclude='*.o' --exclude='Timestamp' '{1}' \"{6}@{3}\":'{2}'",
 					ResolvedRsyncAuthentication,
 					CygRootPath,
 					RemotePath,
@@ -965,11 +970,31 @@ namespace UnrealBuildTool
 					ConvertPathToCygwin(RSyncPathsFile),
 					ConvertPathToCygwin(IncludeFromFile),
 					RSyncUsername);
-				Console.WriteLine("Command: " + RsyncProcess.StartInfo.Arguments);
+				Log.TraceInformation("Command: " + RsyncProcess.StartInfo.Arguments);
 
 				RsyncProcess.OutputDataReceived += new DataReceivedEventHandler(OutputReceivedForRsync);
 				RsyncProcess.ErrorDataReceived += new DataReceivedEventHandler(OutputErrorForRsync);
 
+				// run rsync
+				Utils.RunLocalProcess(RsyncProcess);
+
+				RsyncProcess = new Process();
+				if (ExeDir != "")
+				{
+					RsyncProcess.StartInfo.WorkingDirectory = ExeDir;
+				}
+				// this rsync, following the above rsync call will just sync newer .o files (this will usually do something only first time compiling a project, on a binary build)
+				RsyncProcess.StartInfo.FileName = ResolvedRSyncExe;
+				RsyncProcess.StartInfo.Arguments = string.Format(
+				   "-vzrltgoDe \"{0}\" --rsync-path=\"mkdir -p {2} && rsync\" --chmod=ug=rwX,o=rxX --files-from=\"{4}\" --include-from=\"{5}\" --include='*/' --exclude='Timestamp' '{1}' \"{6}@{3}\":'{2}'",
+				   ResolvedRsyncAuthentication,
+				   CygRootPath,
+				   RemotePath,
+				   RemoteServerName,
+				   ConvertPathToCygwin(RSyncPathsFile),
+				   ConvertPathToCygwin(IncludeFromFile),
+				   RSyncUsername);
+				Log.TraceInformation("Command: " + RsyncProcess.StartInfo.Arguments);
 				// run rsync
 				Utils.RunLocalProcess(RsyncProcess);
 
@@ -1053,7 +1078,7 @@ namespace UnrealBuildTool
 
 		static public Hashtable SSHCommand(string WorkingDirectory, string Command, string RemoteOutputPath)
 		{
-			Console.WriteLine("Doing {0}", Command);
+			Log.TraceInformation("Doing {0}", Command);
 
 			// make the commandline for other end
 			string RemoteCommandline = "cd \"" + WorkingDirectory + "\"";
@@ -1083,7 +1108,7 @@ namespace UnrealBuildTool
 
 				DateTime Now = DateTime.Now;
 				UploadFile(CommandLineFile, RemoteCommandlinePath);
-				Console.WriteLine("Upload took {0}", (DateTime.Now - Now).ToString());
+				Log.TraceInformation("Upload took {0}", (DateTime.Now - Now).ToString());
 
 				// execute the file, not a commandline
 				RemoteCommandline += string.Format(" && bash < {0} && rm {0}", RemoteCommandlinePath);
@@ -1113,7 +1138,7 @@ namespace UnrealBuildTool
 
 			DateTime Start = DateTime.Now;
 			Int64 ExitCode = Utils.RunLocalProcess(SSHProcess);
-			Console.WriteLine("Execute took {0}", (DateTime.Now - Start).ToString());
+			Log.TraceInformation("Execute took {0}", (DateTime.Now - Start).ToString());
 
 			// now we have enough to fill out the HashTable
 			DictionaryLock.WaitOne();
@@ -1133,60 +1158,6 @@ namespace UnrealBuildTool
 
 			Log.TraceVerbose("Available command slot count for " + TargetMacName + " is " + RemoteAvailableCommandSlotCount.ToString());
 			return RemoteAvailableCommandSlotCount;
-		}
-
-		/// <summary>
-		/// Translates clang output warning/error messages into vs-clickable messages
-		/// </summary>
-		/// <param name="sender"> Sending object</param>
-		/// <param name="e">  Event arguments (In this case, the line of string output)</param>
-		protected void RemoteOutputReceivedEventHandler(object sender, DataReceivedEventArgs e)
-		{
-			var Output = e.Data;
-			if (Output == null)
-			{
-				return;
-			}
-
-			if (Utils.IsRunningOnMono)
-			{
-				Log.TraceInformation(Output);
-			}
-			else
-			{
-				// Need to match following for clickable links
-				string RegexFilePath = @"^(\/[A-Za-z0-9_\-\.]*)+\.(cpp|c|mm|m|hpp|h)";
-				string RegexLineNumber = @"\:\d+\:\d+\:";
-				string RegexDescription = @"(\serror:\s|\swarning:\s).*";
-
-				// Get Matches
-				string MatchFilePath = Regex.Match(Output, RegexFilePath).Value.Replace("Engine/Source/../../", "");
-				string MatchLineNumber = Regex.Match(Output, RegexLineNumber).Value;
-				string MatchDescription = Regex.Match(Output, RegexDescription).Value;
-
-				// If any of the above matches failed, do nothing
-				if (MatchFilePath.Length == 0 ||
-					MatchLineNumber.Length == 0 ||
-					MatchDescription.Length == 0)
-				{
-					Log.TraceInformation(Output);
-					return;
-				}
-
-				// Convert Path
-				string RegexStrippedPath = @"\/Engine\/.*"; //@"(Engine\/|[A-Za-z0-9_\-\.]*\/).*";
-				string ConvertedFilePath = Regex.Match(MatchFilePath, RegexStrippedPath).Value;
-				ConvertedFilePath = Path.GetFullPath("..\\.." + ConvertedFilePath);
-
-				// Extract Line + Column Number
-				string ConvertedLineNumber = Regex.Match(MatchLineNumber, @"\d+").Value;
-				string ConvertedColumnNumber = Regex.Match(MatchLineNumber, @"(?<=:\d+:)\d+").Value;
-
-				// Write output
-				string ConvertedExpression = "  " + ConvertedFilePath + "(" + ConvertedLineNumber + "," + ConvertedColumnNumber + "):" + MatchDescription;
-				Log.TraceInformation(ConvertedExpression); // To create clickable vs link
-				//			Log.TraceInformation(Output);				// To preserve readable output log
-			}
 		}
 
 		/// <summary>

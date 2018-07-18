@@ -99,12 +99,6 @@ private:
 
 struct FMD5Hash;
 
-namespace Lex
-{
-	CORE_API FString ToString(const FMD5Hash& Hash);
-	CORE_API void FromString(FMD5Hash& Hash, const TCHAR* Buffer);
-}
-
 /** Simple helper struct to ease the caching of MD5 hashes */
 struct FMD5Hash
 {
@@ -159,8 +153,8 @@ private:
 	/** The bytes this hash comprises */
 	uint8 Bytes[16];
 
-	friend FString Lex::ToString(const FMD5Hash&);
-	friend void Lex::FromString(FMD5Hash& Hash, const TCHAR*);
+	friend CORE_API FString LexToString(const FMD5Hash&);
+	friend CORE_API void LexFromString(FMD5Hash& Hash, const TCHAR*);
 };
 
 /*-----------------------------------------------------------------------------
@@ -198,6 +192,11 @@ public:
 	inline FString ToString() const
 	{
 		return BytesToHex((const uint8*)Hash, sizeof(Hash));
+	}
+	void FromString(const FString& Src)
+	{
+		check(Src.Len() == 40);
+		HexToBytes(Src, Hash);
 	}
 
 	friend bool operator==(const FSHAHash& X, const FSHAHash& Y)
@@ -410,7 +409,7 @@ public:
 	 * @param Size Size of Data
 	 * @param bInFreeOnClose If true, Data will be FMemory::Free'd when this archive is closed
 	 * @param SHASourcePathname Path to the file to use to lookup the SHA hash value
-	 * @param bIsPersistent Uses this value for ArIsPersistent
+	 * @param bIsPersistent Uses this value for SetIsPersistent()
 	 * @param bInIsUnfoundHashAnError true if failing to lookup the hash should trigger an error (only in ShippingPC)
 	 */
 	FBufferReaderWithSHA( 

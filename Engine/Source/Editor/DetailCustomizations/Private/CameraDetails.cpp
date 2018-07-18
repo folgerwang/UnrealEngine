@@ -98,7 +98,6 @@ void FCameraDetails::CustomizeDetails( IDetailLayoutBuilder& DetailLayout )
 		OrthoFarClipPlaneRow.Visibility(OrthographicVisibility);
 
 		// Aspect ratio
-		CameraCategory.AddProperty( bConstrainAspectRatioProperty );
 		IDetailPropertyRow& AspectRatioRow = CameraCategory.AddProperty(AspectRatioProperty);
 
 		// Provide the special aspect ratio row
@@ -142,10 +141,12 @@ void FCameraDetails::CustomizeDetails( IDetailLayoutBuilder& DetailLayout )
 					]
 				]
 			];
-		
-		CameraCategory.AddProperty(DetailLayout.GetProperty(GET_MEMBER_NAME_CHECKED(UCameraComponent, bUsePawnControlRotation)));
-		CameraCategory.AddProperty(DetailLayout.GetProperty(GET_MEMBER_NAME_CHECKED(UCameraComponent, PostProcessBlendWeight)));
 	}
+
+	IDetailCategoryBuilder& CameraSettingsCategory = DetailLayout.EditCategory( "CameraOptions", FText::GetEmpty(), ECategoryPriority::Important );
+	CameraSettingsCategory.AddProperty( bConstrainAspectRatioProperty );
+	CameraSettingsCategory.AddProperty(DetailLayout.GetProperty(GET_MEMBER_NAME_CHECKED(UCameraComponent, bUsePawnControlRotation)));
+	CameraSettingsCategory.AddProperty(DetailLayout.GetProperty(GET_MEMBER_NAME_CHECKED(UCameraComponent, PostProcessBlendWeight)));
 
 	UpdateAspectTextFromProperty();
 }

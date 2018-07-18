@@ -18,6 +18,10 @@ class FImaginaryFiBData;
 class FSpawnTabArgs;
 class SFindInBlueprints;
 
+// Shared pointers to cached imaginary data (must be declared as thread-safe).
+typedef TWeakPtr<FImaginaryFiBData, ESPMode::ThreadSafe> FImaginaryFiBDataWeakPtr;
+typedef TSharedPtr<FImaginaryFiBData, ESPMode::ThreadSafe> FImaginaryFiBDataSharedPtr;
+
 #define MAX_GLOBAL_FIND_RESULTS 4
 
 /**
@@ -119,7 +123,7 @@ struct FSearchData
 	bool bMarkedForDeletion;
 
 	/** Cached ImaginaryBlueprint data for the searchable content, prevents having to re-parse every search */
-	TSharedPtr< class FImaginaryBlueprint > ImaginaryBlueprint;
+	FImaginaryFiBDataSharedPtr ImaginaryBlueprint;
 
 	/** Version of the data */
 	int32 Version;
@@ -299,7 +303,7 @@ public:
 	}
 
 	/** Returns the FilteredImaginaryResults from the search query, these results have been filtered by the ImaginaryDataFilter. */
-	void GetFilteredImaginaryResults(TArray<TSharedPtr<class FImaginaryFiBData>>& OutFilteredImaginaryResults);
+	void GetFilteredImaginaryResults(TArray<FImaginaryFiBDataSharedPtr>& OutFilteredImaginaryResults);
 
 public:
 	/** Thread to run the cleanup FRunnable on */
@@ -326,8 +330,8 @@ public:
 	/** A going count of all Blueprints below the MinimiumVersionRequirement */
 	int32 BlueprintCountBelowVersion;
 
-	/** Filtered (ImaginaryDataFilter) list of imaginary data results that met the search requirements */
-	TArray<TSharedPtr<class FImaginaryFiBData>> FilteredImaginaryResults;
+	/** Filtered (ImaginaryDataFilter) list of imaginary data results that met the search requirements. Must be declared as thread-safe since imaginary data is a shared resource. */
+	TArray<FImaginaryFiBDataSharedPtr> FilteredImaginaryResults;
 
 	/** Filter to limit the FilteredImaginaryResults to */
 	enum ESearchQueryFilter ImaginaryDataFilter;

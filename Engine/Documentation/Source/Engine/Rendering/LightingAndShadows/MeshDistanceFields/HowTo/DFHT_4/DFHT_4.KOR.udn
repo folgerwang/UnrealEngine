@@ -81,7 +81,7 @@ Social-image:DFISBanner1.png
 
 	![](TransformMobility.png)(w:550)
 	
-	그 후 **Lighting** 섹션 아래 **Distance Field Indirect Shadow** 옵션을 켭니다.
+1. 그 후 **Lighting** 섹션 아래 **Distance Field Indirect Shadow** 옵션을 켭니다.
 	
 	![](EnableDFIS.png)(w:550)
 
@@ -100,6 +100,6 @@ Social-image:DFISBanner1.png
 	
 ## 부가 세팅
 
-스태틱 메시 액터의 디스턴스 필드 간접 그림자 전용 세팅은 [](Engine/Rendering/LightingAndShadows/MeshDistanceFields/Reference) 
-문서를 참고하세요.
+스태틱 메시 액터의 디스턴스 필드 간접 그림자 전용 세팅은 [](Engine/Rendering/LightingAndShadows/MeshDistanceFields/Reference) 문서를 
+참고하세요.
 

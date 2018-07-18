@@ -3,7 +3,7 @@
 #pragma once
 #include <GameKit/GKLocalPlayer.h>
 
-#include "OnlineSessionInterface.h"
+#include "Interfaces/OnlineSessionInterface.h"
 #include "OnlineSubsystemIOSTypes.h"
 
 #if !PLATFORM_TVOS
@@ -114,6 +114,8 @@ PACKAGE_SCOPE:
 public:
 
 	virtual ~FOnlineSessionIOS();
+
+	virtual TSharedPtr<const FUniqueNetId> CreateSessionIdFromString(const FString& SessionIdStr) override;
 
 	FNamedOnlineSession* GetNamedSession(FName SessionName) override;
 

@@ -50,7 +50,7 @@ public:
 public:
 	bool WillClassBeConverted(const UBlueprintGeneratedClass* InClass) const;
 
-	static void GatherAssetReferencedByUDSDefaultValue(TSet<UObject*>& Dependencies, UUserDefinedStruct* Struct);
+	static void GatherAssetsReferencedByUDSDefaultValue(TSet<UObject*>& Dependencies, UUserDefinedStruct* Struct);
 
 	static bool IsFieldFromExcludedPackage(const UField* Field, const TSet<FName>& InExcludedModules);
 

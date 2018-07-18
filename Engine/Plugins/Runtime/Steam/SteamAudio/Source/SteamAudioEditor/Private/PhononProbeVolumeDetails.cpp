@@ -7,6 +7,8 @@
 #include "PhononCommon.h"
 #include "SteamAudioEditorModule.h"
 #include "SteamAudioSettings.h"
+#include "PhononReverb.h"
+#include "SteamAudioEnvironment.h"
 
 #include "DetailLayoutBuilder.h"
 #include "DetailCategoryBuilder.h"
@@ -37,8 +39,7 @@ namespace SteamAudio
 	{
 		FFormatNamedArguments Arguments;
 		Arguments.Add(TEXT("GenerateProbesProgress"), FText::AsPercent(Progress));
-		GGenerateProbesTickable->SetDisplayText(FText::Format(NSLOCTEXT("SteamAudio", "ComputingProbeLocationsText",
-			"Computing probe locations ({GenerateProbesProgress} complete)"), Arguments));
+		GGenerateProbesTickable->SetDisplayText(FText::Format(NSLOCTEXT("SteamAudio", "ComputingProbeLocationsText", "Computing probe locations ({GenerateProbesProgress} complete)"), Arguments));
 	}
 
 	TSharedRef<IDetailCustomization> FPhononProbeVolumeDetails::MakeInstance()
@@ -48,7 +49,7 @@ namespace SteamAudio
 
 	FText FPhononProbeVolumeDetails::GetTotalDataSize()
 	{
-		return PrettyPrintedByte(PhononProbeVolume->ProbeDataSize);
+		return FText::AsMemory(PhononProbeVolume->ProbeDataSize);
 	}
 
 	void FPhononProbeVolumeDetails::CustomizeDetails(IDetailLayoutBuilder& DetailLayout)
@@ -74,7 +75,7 @@ namespace SteamAudio
 		DetailLayout.EditCategory("ProbeGeneration").AddProperty(GET_MEMBER_NAME_CHECKED(APhononProbeVolume, PlacementStrategy));
 		DetailLayout.EditCategory("ProbeGeneration").AddProperty(GET_MEMBER_NAME_CHECKED(APhononProbeVolume, HorizontalSpacing));
 		DetailLayout.EditCategory("ProbeGeneration").AddProperty(GET_MEMBER_NAME_CHECKED(APhononProbeVolume, HeightAboveFloor));
-		DetailLayout.EditCategory("ProbeGeneration").AddCustomRow(NSLOCTEXT("PhononProbeVolumeDetails", "Generate Probes", "Generate Probes"))
+		DetailLayout.EditCategory("ProbeGeneration").AddCustomRow(NSLOCTEXT("SteamAudio", "GenerateProbes", "Generate Probes"))
 			.NameContent()
 			[
 				SNullWidget::NullWidget
@@ -92,7 +93,7 @@ namespace SteamAudio
 					.OnClicked(this, &FPhononProbeVolumeDetails::OnGenerateProbes)
 					[
 						SNew(STextBlock)
-						.Text(NSLOCTEXT("PhononProbeVolumeDetails", "Generate Probes", "Generate Probes"))
+						.Text(NSLOCTEXT("SteamAudio", "GenerateProbes", "Generate Probes"))
 						.Font(IDetailLayoutBuilder::GetDetailFont())
 					]
 				]
@@ -110,7 +111,7 @@ namespace SteamAudio
 				.NameContent()
 				[
 					SNew(STextBlock)
-					.Text(NSLOCTEXT("PhononProbeVolumeDetails", "Probe Data Size", "Probe Data Size"))
+					.Text(NSLOCTEXT("SteamAudio", "ProbeDataSize", "Probe Data Size"))
 					.Font(IDetailLayoutBuilder::GetDetailFont())
 				]
 				.ValueContent()
@@ -145,7 +146,7 @@ namespace SteamAudio
 					.VAlign(VAlign_Center)
 					[
 						SNew(STextBlock)
-						.Text(PrettyPrintedByte(BakedDataInfo.Size))
+						.Text(FText::AsMemory(BakedDataInfo.Size))
 						.Font(IDetailLayoutBuilder::GetDetailFont())
 					]
 				]
@@ -161,7 +162,17 @@ namespace SteamAudio
 	{
 		IPLhandle ProbeBox = nullptr;
 		PhononProbeVolume->LoadProbeBoxFromDisk(&ProbeBox);
-		iplDeleteBakedDataByName(ProbeBox, TCHAR_TO_ANSI(*PhononProbeVolume->BakedDataInfo[ArrayIndex].Name.ToString().ToLower()));
+		
+		FIdentifierMap IdentifierMap;
+		LoadBakedIdentifierMapFromDisk(PhononProbeVolume->GetWorld(), IdentifierMap);
+		
+		FString BakedDataString = PhononProbeVolume->BakedDataInfo[ArrayIndex].Name.ToString().ToLower();
+
+		IPLBakedDataIdentifier BakedDataIdentifier;
+		BakedDataIdentifier.type = BakedDataString.Equals("__reverb__") ? IPL_BAKEDDATATYPE_REVERB : IPL_BAKEDDATATYPE_STATICSOURCE;
+		BakedDataIdentifier.identifier = IdentifierMap.Get(BakedDataString);
+		
+		iplDeleteBakedDataByIdentifier(ProbeBox, BakedDataIdentifier);
 		PhononProbeVolume->BakedDataInfo.RemoveAt(ArrayIndex);
 		PhononProbeVolume->UpdateProbeData(ProbeBox);
 		iplDestroyProbeBox(&ProbeBox);
@@ -169,7 +180,7 @@ namespace SteamAudio
 
 	FReply FPhononProbeVolumeDetails::OnGenerateProbes()
 	{
-		GGenerateProbesTickable->SetDisplayText(NSLOCTEXT("SteamAudio", "Generating probes...", "Generating probes..."));
+		GGenerateProbesTickable->SetDisplayText(NSLOCTEXT("SteamAudio", "GeneratingProbes", "Generating probes..."));
 		GGenerateProbesTickable->CreateNotification();
 
 		// Grab a copy of the volume ptr as it will be destroyed if user clicks off of volume in GUI
@@ -191,7 +202,7 @@ namespace SteamAudio
 			SimulationSettings.numRays = GetDefault<USteamAudioSettings>()->BakedRays;
 			SimulationSettings.numDiffuseSamples = GetDefault<USteamAudioSettings>()->BakedSecondaryRays;
 
-			GGenerateProbesTickable->SetDisplayText(NSLOCTEXT("SteamAudio", "Loading scene...", "Loading scene..."));
+			GGenerateProbesTickable->SetDisplayText(NSLOCTEXT("SteamAudio", "LoadingScene", "Loading scene..."));
 
 			// Attempt to load from disk, otherwise export
 			if (!LoadSceneFromDisk(World, nullptr, SimulationSettings, &PhononScene, PhononSceneInfo))
@@ -201,7 +212,7 @@ namespace SteamAudio
 				if (!CreateScene(World, &PhononScene, &PhononStaticMeshes, PhononSceneInfo.NumTriangles))
 				{
 					GGenerateProbesTickable->QueueWorkItem(FWorkItem([](FText& DisplayText) {
-						DisplayText = NSLOCTEXT("SteamAudio", "Unable to create scene.", "Unable to create scene.");
+						DisplayText = NSLOCTEXT("SteamAudio", "UnableToCreateScene", "Unable to create scene.");
 					}, SNotificationItem::CS_Fail, true));
 					return;
 				}
@@ -249,7 +260,7 @@ namespace SteamAudio
 			
 			// Notify UI that we're done
 			GGenerateProbesTickable->QueueWorkItem(FWorkItem([](FText& DisplayText) {
-				DisplayText = NSLOCTEXT("SteamAudio", "Probe placement complete.", "Probe placement complete."); 
+				DisplayText = NSLOCTEXT("SteamAudio", "ProbePlacementComplete", "Probe placement complete."); 
 			}, SNotificationItem::CS_Success, true));
 		});
 

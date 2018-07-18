@@ -59,6 +59,18 @@ namespace AutomationTool
 		/// </summary>
 		/// <param name="Param">Param to read its value.</param>
 		/// <returns>Returns the value or Default if the parameter was not found.</returns>
+		public bool ParseParamBool(string Param, bool Default = false)
+		{
+			string boolValue = ParseParamValue(Params, Param, Default.ToString());
+			return bool.Parse(boolValue);
+		}
+
+		/// <summary>
+		/// Parses the command's Params list for a parameter and reads its value. 
+		/// Ex. ParseParamValue(Args, "map=")
+		/// </summary>
+		/// <param name="Param">Param to read its value.</param>
+		/// <returns>Returns the value or Default if the parameter was not found.</returns>
 		public int ParseParamInt(string Param, int Default = 0)
 		{
 			string num = ParseParamValue(Params, Param, Default.ToString());

@@ -1,12 +1,12 @@
-﻿INTSourceChangelist:2591123
+﻿INTSourceChangelist:3151861
 Availability:NoPublish
-Title:AGameMode
+Title:AGameState
 Crumbs:
 Description:GameState クラスの概要
 
 [EXCERPT:AGameState]
 
-GameState はクライアント上でゲームのステートをモニタします。 
+GameState はクライアント上でゲーム ステートをモニタします。 
 
 [VAR:ToolTipFullLink]
 Gameplay/Framework/GameState

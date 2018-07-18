@@ -23,7 +23,6 @@ try_symlink ../gac/I18N.Other/4.0.0.0__0738eb9f132ed756/I18N.Other.dll lib/mono/
 try_symlink ../gac/I18N.Rare/4.0.0.0__0738eb9f132ed756/I18N.Rare.dll lib/mono/4.5/I18N.Rare.dll
 try_symlink ../gac/I18N.West/4.0.0.0__0738eb9f132ed756/I18N.West.dll lib/mono/4.5/I18N.West.dll
 try_symlink ../gac/IBM.Data.DB2/1.0.0.0__7c307b91aa13d208/IBM.Data.DB2.dll lib/mono/4.5/IBM.Data.DB2.dll
-try_symlink ../gac/ICSharpCode.SharpZipLib/4.84.0.0__1b03e6acf1164f73/ICSharpCode.SharpZipLib.dll lib/mono/4.5/ICSharpCode.SharpZipLib.dll
 try_symlink ../gac/Microsoft.Build/4.0.0.0__b03f5f7f11d50a3a/Microsoft.Build.dll lib/mono/4.5/Microsoft.Build.dll
 try_symlink ../gac/Microsoft.Build.Engine/4.0.0.0__b03f5f7f11d50a3a/Microsoft.Build.Engine.dll lib/mono/4.5/Microsoft.Build.Engine.dll
 try_symlink ../gac/Microsoft.Build.Framework/4.0.0.0__b03f5f7f11d50a3a/Microsoft.Build.Framework.dll lib/mono/4.5/Microsoft.Build.Framework.dll
@@ -40,7 +39,6 @@ try_symlink ../gac/Mono.CSharp/4.0.0.0__0738eb9f132ed756/Mono.CSharp.dll lib/mon
 try_symlink ../gac/Mono.Data.Sqlite/4.0.0.0__0738eb9f132ed756/Mono.Data.Sqlite.dll lib/mono/4.5/Mono.Data.Sqlite.dll
 try_symlink ../gac/Mono.Data.Tds/4.0.0.0__0738eb9f132ed756/Mono.Data.Tds.dll lib/mono/4.5/Mono.Data.Tds.dll
 try_symlink ../gac/Mono.Debugger.Soft/4.0.0.0__0738eb9f132ed756/Mono.Debugger.Soft.dll lib/mono/4.5/Mono.Debugger.Soft.dll
-try_symlink ../gac/Mono.Http/4.0.0.0__0738eb9f132ed756/Mono.Http.dll lib/mono/4.5/Mono.Http.dll
 try_symlink ../gac/Mono.Management/4.0.0.0__0738eb9f132ed756/Mono.Management.dll lib/mono/4.5/Mono.Management.dll
 try_symlink ../gac/Mono.Messaging/4.0.0.0__0738eb9f132ed756/Mono.Messaging.dll lib/mono/4.5/Mono.Messaging.dll
 try_symlink ../gac/Mono.Messaging.RabbitMQ/4.0.0.0__0738eb9f132ed756/Mono.Messaging.RabbitMQ.dll lib/mono/4.5/Mono.Messaging.RabbitMQ.dll
@@ -158,10 +156,6 @@ try_symlink ../../../gac/Microsoft.Build.Framework/14.0.0.0__b03f5f7f11d50a3a/Mi
 try_symlink ../../../gac/Microsoft.Build.Tasks.Core/14.0.0.0__b03f5f7f11d50a3a/Microsoft.Build.Tasks.Core.dll lib/mono/xbuild/14.0/bin/Microsoft.Build.Tasks.Core.dll
 try_symlink ../../../gac/Microsoft.Build.Utilities.Core/14.0.0.0__b03f5f7f11d50a3a/Microsoft.Build.Utilities.Core.dll lib/mono/xbuild/14.0/bin/Microsoft.Build.Utilities.Core.dll
 try_symlink ../../../gac/Mono.XBuild.Tasks/14.0.0.0__0738eb9f132ed756/Mono.XBuild.Tasks.dll lib/mono/xbuild/14.0/bin/Mono.XBuild.Tasks.dll
-if [ ! -d lib/mono/monodoc ]; then
-  mkdir lib/mono/monodoc
-fi
-try_symlink ../gac/monodoc/1.0.0.0__0738eb9f132ed756/monodoc.dll lib/mono/monodoc/monodoc.dll
 
 function try_chmod {
 	if [ -f $1 ]; then

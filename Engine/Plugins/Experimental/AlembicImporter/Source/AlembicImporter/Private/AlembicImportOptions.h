@@ -14,7 +14,14 @@
 class UAbcImportSettings;
 class IDetailsView;
 
-typedef TSharedPtr<struct FAbcPolyMeshObject> FAbcPolyMeshObjectPtr;
+
+struct FPolyMeshData
+{
+	FPolyMeshData(class FAbcPolyMesh* InPolyMesh) : PolyMesh(InPolyMesh) {}
+	class FAbcPolyMesh* PolyMesh;
+};
+
+typedef TSharedPtr<FPolyMeshData> FPolyMeshDataPtr;
 
 class SAlembicImportOptions : public SCompoundWidget
 {
@@ -27,7 +34,7 @@ public:
 		SLATE_ARGUMENT(UAbcImportSettings*, ImportSettings)
 		SLATE_ARGUMENT(TSharedPtr<SWindow>, WidgetWindow)
 		SLATE_ARGUMENT(FText, FullPath)				
-		SLATE_ARGUMENT(TArray<FAbcPolyMeshObjectPtr>, PolyMeshes)
+		SLATE_ARGUMENT(TArray<class FAbcPolyMesh*>, PolyMeshes)
 	SLATE_END_ARGS()
 
 public:
@@ -76,15 +83,15 @@ public:
 	{}
 
 private:
-	TSharedRef<ITableRow> OnGenerateWidgetForList(FAbcPolyMeshObjectPtr InItem, const TSharedRef<STableViewBase>& OwnerTable);
+	TSharedRef<ITableRow> OnGenerateWidgetForList(FPolyMeshDataPtr InItem, const TSharedRef<STableViewBase>& OwnerTable);
 	bool CanImport() const;
 
-	void OnItemDoubleClicked(FAbcPolyMeshObjectPtr ClickedItem);
+	void OnItemDoubleClicked(FPolyMeshDataPtr ClickedItem);
 private:
 	UAbcImportSettings*	ImportSettings;
 	TWeakPtr< SWindow > WidgetWindow;
 	TSharedPtr< SButton > ImportButton;
 	bool			bShouldImport;
-	TArray<FAbcPolyMeshObjectPtr> PolyMeshes;
+	TArray<FPolyMeshDataPtr> PolyMeshData;
 	TSharedPtr<IDetailsView> DetailsView;
 };

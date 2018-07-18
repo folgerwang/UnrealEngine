@@ -10,10 +10,10 @@
 #include "Templates/SharedPointer.h"
 
 #if PLATFORM_WINDOWS
-	#include "WindowsHWrapper.h"
-	#include "AllowWindowsPlatformTypes.h"
+	#include "Windows/WindowsHWrapper.h"
+	#include "Windows/AllowWindowsPlatformTypes.h"
 #else
-	#include "XboxOneAllowPlatformTypes.h"
+	#include "XboxOne/XboxOneAllowPlatformTypes.h"
 #endif
 
 class IMfMediaSourceReaderSink;
@@ -66,9 +66,9 @@ private:
 
 
 #if PLATFORM_WINDOWS
-	#include "HideWindowsPlatformTypes.h"
+	#include "Windows/HideWindowsPlatformTypes.h"
 #else
-	#include "XboxOneHidePlatformTypes.h"
+	#include "XboxOne/XboxOneHidePlatformTypes.h"
 #endif
 
 #endif //MFMEDIA_SUPPORTED_PLATFORM

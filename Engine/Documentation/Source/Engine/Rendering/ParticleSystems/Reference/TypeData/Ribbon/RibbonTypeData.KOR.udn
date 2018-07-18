@@ -41,7 +41,7 @@ topic-image:RibbonSmoke.png
 | **Render Tessellation** | 테셀레이션 렌더 - _True_ 면 각 스폰된 파티클 사이의 테셀레이션 경로가 렌더링됩니다. 캐스케이드에서 벌레잡이용으로 사용됩니다. |
 | **Tiling Distance** | 타일링 거리 - 둘째 UV 세트를 타일링할 (추정) 커버된 거리입니다. 0.0이면 둘째 UV 세트는 전달되지 않습니다. |
 | **Distance Tessellation Step Size** | 거리 테셀레이션 단계 크기 - 트레일용 테셀레이션 지점간의 거리입니다. 트레일에 테셀레이션 지점을 몇이나 만들 지, 즉 트레일이 얼마나 부드러울지를 결정하는 데 쓰입니다. 정확한 계산식은: [INCLUDE:#TessellationPoints] |
-| **Enable Tangent Diff Interp Scale** | 탄젠트 비교 보간 스케일 켜기 - [INCLUDE:#EnableTangentDiffInterpScale] |
+|**Enable Tangent Diff Interp Scale**|[INCLUDE:#EnableTangentDiffInterpScale]|
 | **Tangent Tessellation Scalar** | 탄젠트 테셀레이션 스칼라 - 테셀레이션용 탄젠트 스칼라입니다. 탄젠트 A와 B 사이의 각도는 [0.0f .. 1.0f] 범위로 매핑됩니다. 그리고서 여기에다 TangentTessellationScalar (탄젠트 테셀레이션 스칼라)값을 곱해 테셀레이트할 점 수를 냅니다. |
 
 

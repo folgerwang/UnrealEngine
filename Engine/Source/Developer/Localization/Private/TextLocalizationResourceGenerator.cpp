@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "TextLocalizationResourceGenerator.h"
-#include "TextLocalizationResource.h"
+#include "Internationalization/TextLocalizationResource.h"
 #include "Misc/Paths.h"
 #include "Internationalization/Culture.h"
 #include "Misc/ConfigCacheIni.h"
@@ -18,7 +18,7 @@ bool FTextLocalizationResourceGenerator::GenerateLocMeta(const FLocTextHelper& I
 	return true;
 }
 
-bool FTextLocalizationResourceGenerator::GenerateLocRes(const FLocTextHelper& InLocTextHelper, const FString& InCultureToGenerate, const bool bSkipSourceCheck, const FString& InLocResID, FTextLocalizationResource& OutLocRes)
+bool FTextLocalizationResourceGenerator::GenerateLocRes(const FLocTextHelper& InLocTextHelper, const FString& InCultureToGenerate, const bool bSkipSourceCheck, const FTextLocalizationResourceId& InLocResID, FTextLocalizationResource& OutLocRes)
 {
 	// Add each manifest entry to the LocRes file
 	InLocTextHelper.EnumerateSourceTexts([&InLocTextHelper, &InCultureToGenerate, &bSkipSourceCheck, &InLocResID, &OutLocRes](TSharedRef<FManifestEntry> InManifestEntry) -> bool
@@ -31,12 +31,7 @@ bool FTextLocalizationResourceGenerator::GenerateLocRes(const FLocTextHelper& In
 			InLocTextHelper.GetRuntimeText(InCultureToGenerate, InManifestEntry->Namespace, Context.Key, Context.KeyMetadataObj, ELocTextExportSourceMethod::NativeText, InManifestEntry->Source, TranslationText, bSkipSourceCheck);
 
 			// Add this entry to the LocRes
-			FTextLocalizationResource::FKeysTable& KeyTable = OutLocRes.Namespaces.FindOrAdd(*InManifestEntry->Namespace);
-			FTextLocalizationResource::FEntryArray& EntryArray = KeyTable.FindOrAdd(*Context.Key);
-			FTextLocalizationResource::FEntry& NewEntry = EntryArray[EntryArray.AddDefaulted()];
-			NewEntry.LocResID = InLocResID;
-			NewEntry.SourceStringHash = FCrc::StrCrc32(*InManifestEntry->Source.Text);
-			NewEntry.LocalizedString = TranslationText.Text;
+			OutLocRes.AddEntry(InManifestEntry->Namespace.GetString(), Context.Key.GetString(), InManifestEntry->Source.Text, TranslationText.Text, InLocResID);
 		}
 
 		return true; // continue enumeration
@@ -147,14 +142,14 @@ bool FTextLocalizationResourceGenerator::GenerateLocResAndUpdateLiveEntriesFromC
 		}
 	}
 
-	TArray<FTextLocalizationResource> TextLocalizationResources;
+	TArray<TSharedPtr<FTextLocalizationResource>> TextLocalizationResources;
 	for (const FString& CultureName : CulturesToGenerate)
 	{
 		const FString CulturePath = DestinationPath / CultureName;
 		const FString ResourceFilePath = FPaths::ConvertRelativePathToFull(CulturePath / ResourceName);
 
-		FTextLocalizationResource& LocRes = TextLocalizationResources[TextLocalizationResources.AddDefaulted()];
-		if (!GenerateLocRes(LocTextHelper, CultureName, bSkipSourceCheck, ResourceFilePath, LocRes))
+		TSharedPtr<FTextLocalizationResource>& LocRes = TextLocalizationResources.Add_GetRef(MakeShared<FTextLocalizationResource>());
+		if (!GenerateLocRes(LocTextHelper, CultureName, bSkipSourceCheck, FTextLocalizationResourceId(ResourceFilePath), *LocRes))
 		{
 			UE_LOG(LogTextLocalizationResourceGenerator, Error, TEXT("Failed to generate localization resource for culture '%s'."), *CultureName);
 			return false;

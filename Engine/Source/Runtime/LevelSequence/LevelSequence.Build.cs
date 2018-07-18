@@ -15,6 +15,7 @@ public class LevelSequence : ModuleRules
 				"Engine",
 				"MovieScene",
 				"MovieSceneTracks",
+				"TimeManagement",
 				"UMG",
 			}
 		);

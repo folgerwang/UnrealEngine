@@ -12,6 +12,7 @@
 #include "Factories/FbxTextureImportData.h"
 #include "Factories/FbxSceneImportFactory.h"
 #include "MeshBuild.h"
+#include "Algo/LevenshteinDistance.h"
 
 class AActor;
 class ACameraActor;
@@ -37,7 +38,8 @@ class UTexture;
 struct FExpressionInput;
 struct FRawMesh;
 struct FRichCurve;
-
+struct FStaticMaterial;
+struct FSkeletalMaterial;
 // Temporarily disable a few warnings due to virtual function abuse in FBX source files
 #pragma warning( push )
 
@@ -102,15 +104,17 @@ DECLARE_LOG_CATEGORY_EXTERN(LogFbx, Log, All);
 
 #define DEBUG_FBX_NODE( Prepend, FbxNode ) FPlatformMisc::LowLevelOutputDebugStringf( TEXT("%s %s\n"), ANSI_TO_TCHAR(Prepend), ANSI_TO_TCHAR( FbxNode->GetName() ) )
 
+#define FBX_METADATA_PREFIX TEXT("FBX.")
+
 namespace UnFbx
 {
 
 struct FBXImportOptions
 {
 	// General options
+	bool bCanShowDialog;
 	bool bImportScene;
 	bool bImportMaterials;
-	bool bResetMaterialSlots;
 	bool bInvertNormalMap;
 	bool bImportTextures;
 	bool bImportLOD;
@@ -189,8 +193,10 @@ struct FBXImportOptions
 	//This data allow to override some fbx Material(point by the uint64 id) with existing unreal material asset
 	TMap<uint64, class UMaterialInterface*> OverrideMaterials;
 
-	//The importer is importing a preview
-	bool bIsReimportPreview;
+	/*
+	 * Temporary copy of the mesh we re-import, we use this copy to compare section shape when matching section
+	*/
+	UObject* OriginalMeshCopy;
 
 	bool ShouldImportNormals()
 	{
@@ -498,6 +504,55 @@ enum EFbxCreator
 	Unknow
 };
 
+class FFbxHelper
+{
+public:
+	/**
+	* This function is use to compute the weight between two name.
+	*/
+	static float NameCompareWeight(const FString& A, const FString& B)
+	{
+		FString Longer = A;
+		FString Shorter = B;
+		if (A.Len() < B.Len())
+		{
+			Longer = B;
+			Shorter = A;
+		}
+
+		if (Longer.Compare(Shorter, ESearchCase::CaseSensitive) == 0)
+		{
+			return 1.0f;
+		}
+		if (Longer.Compare(Shorter, ESearchCase::IgnoreCase) == 0)
+		{
+			return 0.98f;
+		}
+		// We do the contain so it is giving better result since often we compare thing like copy and paste string name
+		// we want to match: BackZ
+		// between: Paste_BackZ and BackX
+		// EditDistance for Paste_BackZ is 5/11 =0.45
+		// EditDistance for BackX is 4/5= 0.8
+		// The contains weight for Paste_BackZ is 0.98- (0.25*(1.0-5/11)) = 0.844
+		if (Longer.Contains(Shorter, ESearchCase::CaseSensitive))
+		{
+			return 0.98f - 0.25f*(1.0f - ((float)(Shorter.Len()) / (float)(Longer.Len())));
+		}
+		if (Longer.Contains(Shorter, ESearchCase::IgnoreCase))
+		{
+			return 0.96f - 0.25f*(1.0f - ((float)(Shorter.Len()) / (float)(Longer.Len())));
+		}
+
+
+		float LongerLength = (float)Longer.Len();
+		if (LongerLength == 0)
+		{
+			return 1.0f;
+		}
+		return (LongerLength - Algo::LevenshteinDistance(Longer, Shorter)) / LongerLength;
+	}
+};
+
 /**
  * Main FBX Importer class.
  */
@@ -510,9 +565,6 @@ public:
 	 */
 	UNREALED_API static FFbxImporter* GetInstance();
 	static void DeleteInstance();
-
-	static FFbxImporter* GetPreviewInstance();
-	static void DeletePreviewInstance();
 
 	/**
 	* Clear all data that need to be clear when we start importing a fbx file.
@@ -552,7 +604,7 @@ public:
 	 * @param bParseStatistics
 	 * @return bool
 	 */
-	bool OpenFile( FString Filename, bool bParseStatistics, bool bForSceneInfo = false );
+	bool OpenFile(FString Filename);
 	
 	/**
 	 * Import Fbx file.
@@ -659,6 +711,11 @@ public:
 	static void UpdateSkeletalMeshImportData(USkeletalMesh *SkeletalMesh, UFbxSkeletalMeshImportData* SkeletalMeshImportData, int32 SpecificLod, TArray<FName> *ImportMaterialOriginalNameData, TArray<FImportMeshLodSectionsData> *ImportMeshLodData);
 	void ImportStaticMeshGlobalSockets( UStaticMesh* StaticMesh );
 	void ImportStaticMeshLocalSockets( UStaticMesh* StaticMesh, TArray<FbxNode*>& MeshNodeArray);
+
+	/*
+	 * Add a GeneratedLOD to the staticmesh at the specified LOD index
+	 */
+	void AddStaticMeshSourceModelGeneratedLOD(UStaticMesh* StaticMesh, int32 LODIndex);
 
 	/**
 	 * re-import Unreal static mesh from updated Fbx file
@@ -927,12 +984,22 @@ public:
 	/*
 	* This function show a dialog to let the user know what will be change if the fbx is imported
 	*/
-	void ShowFbxReimportPreview(UObject *ReimportObj, UFbxImportUI* ImportUI, const FString& FullPath);
+	void ShowFbxCompareWindow(UObject *SourceObj, UObject *ResultObj, bool &UserCancel);
 
 	/*
 	* Function use to retrieve general fbx information for the preview
 	*/
 	void FillGeneralFbxFileInformation(void *GeneralInfoPtr);
+	
+	/*
+	* This function show a dialog to let the user resolve the material conflict that arise when re-importing a skeletal mesh
+	*/
+	static void ShowFbxMaterialConflictWindowSK(const TArray<FSkeletalMaterial>& InSourceMaterials, const TArray<FSkeletalMaterial>& InResultMaterials, TArray<int32>& RemapMaterials, TArray<bool>& FuzzyRemapMaterials, bool &UserCancel);
+
+	/*
+	* This function show a dialog to let the user resolve the material conflict that arise when re-importing a static mesh
+	*/
+	static void ShowFbxMaterialConflictWindowSM(const TArray<FStaticMaterial>& InSourceMaterials, const TArray<FStaticMaterial>& InResultMaterials, TArray<int32>& RemapMaterials, TArray<bool>& FuzzyRemapMaterials, bool &UserCancel);
 
 	/** helper function **/
 	UNREALED_API static void DumpFBXNode(FbxNode* Node);
@@ -992,6 +1059,14 @@ private:
 	* not reference it will add a tokenized error.
 	*/
 	void ValidateAllMeshesAreReferenceByNodeAttribute();
+
+	/*
+	 * Parse the fbx and create some LODGroup for matching LODX_ prefix
+	 * Simply change the hierarchy to incorporate LODGroup and child all LODX_ prefix with the matching geometry name.
+	 * The LODX_ prefix support X from 0 to 9
+	 * The X parameter do not have to be continuous, but the LOD will be set in the correct order.
+	 */
+	void ConvertLodPrefixToLodGroup();
 
 	/**
 	* Recursive search for a node having a mesh attribute
@@ -1066,6 +1141,11 @@ private:
 	* Example, if we have 3 materials name shader we will get (shader, shader_ncl1_1, shader_ncl1_2).
 	*/
 	void FixMaterialClashName();
+
+	/**
+	* Node with no name we will name it "ncl1_x" x is a a unique counter.
+	*/
+	void EnsureNodeNameAreValid();
 
 public:
 	// current Fbx scene we are importing. Make sure to release it after import
@@ -1648,6 +1728,7 @@ public:
 		}
 	}
 };
+
 } // namespace UnFbx
 
 

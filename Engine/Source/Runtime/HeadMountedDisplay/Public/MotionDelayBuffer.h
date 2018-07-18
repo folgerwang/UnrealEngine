@@ -2,7 +2,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "SharedPointer.h"
+#include "Templates/SharedPointer.h"
 #include "LateUpdateManager.h"
 #include "UObject/WeakObjectPtr.h"
 
@@ -12,7 +12,6 @@ class USceneComponent;
 class FSceneInterface;
 class FMotionDelayBuffer;
 class FSceneViewFamily;
-enum class EControllerHand : uint8;
 class FMotionDelayTarget;
 class FMotionDelayClient;
 
@@ -37,6 +36,7 @@ public:
 	FMotionDelayClient(const FAutoRegister& AutoRegister);
 
 	virtual uint32 GetDesiredDelay() const = 0;
+	virtual void GetExemptTargets(TArray<USceneComponent*>& ExemptTargets) const {}
 
 	void Apply_RenderThread(FSceneInterface* Scene);
 	void Restore_RenderThread(FSceneInterface* Scene);
@@ -51,6 +51,9 @@ public:
 	virtual void PostRenderViewFamily_RenderThread(FRHICommandListImmediate& RHICmdList, FSceneViewFamily& InViewFamily) override;
 	virtual int32 GetPriority() const override;
 	virtual bool IsActiveThisFrame(class FViewport* InViewport) const override;
+
+protected:
+	bool FindDelayTransform(USceneComponent* Target, uint32 Delay, FTransform& TransformOut);
 
 private:
 	struct FTargetTransform

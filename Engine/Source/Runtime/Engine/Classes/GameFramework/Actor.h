@@ -38,6 +38,7 @@ ENGINE_API DECLARE_LOG_CATEGORY_EXTERN(LogActor, Log, Warning);
 // Delegate signatures
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_FiveParams( FTakeAnyDamageSignature, AActor*, DamagedActor, float, Damage, const class UDamageType*, DamageType, class AController*, InstigatedBy, AActor*, DamageCauser );
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_NineParams( FTakePointDamageSignature, AActor*, DamagedActor, float, Damage, class AController*, InstigatedBy, FVector, HitLocation, class UPrimitiveComponent*, FHitComponent, FName, BoneName, FVector, ShotFromDirection, const class UDamageType*, DamageType, AActor*, DamageCauser );
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_SevenParams( FTakeRadialDamageSignature, AActor*, DamagedActor, float, Damage, const class UDamageType*, DamageType, FVector, Origin, FHitResult, HitInfo, class AController*, InstigatedBy, AActor*, DamageCauser );
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams( FActorBeginOverlapSignature, AActor*, OverlappedActor, AActor*, OtherActor );
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams( FActorEndOverlapSignature, AActor*, OverlappedActor, AActor*, OtherActor );
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_FourParams( FActorHitSignature, AActor*, SelfActor, AActor*, OtherActor, FVector, NormalImpulse, const FHitResult&, Hit );
@@ -154,8 +155,14 @@ public:
 	 * If true, this actor is no longer replicated to new clients, and is "torn off" (becomes a ROLE_Authority) on clients to which it was being replicated.
 	 * @see TornOff()
 	 */
+	DEPRECATED(4.20, "Use GetTearOff() or TearOff() functions. This property will become private.")
 	UPROPERTY(Replicated)
-	uint8 bTearOff:1;    
+	uint8 bTearOff:1; 
+
+	/** returns TearOff status */
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
+	bool GetTearOff() const { return bTearOff; }
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 	/** Networking - Server - TearOff this actor to stop replication to clients. Will set bTearOff to true. */
 	UFUNCTION(BlueprintCallable, Category=Replication)
@@ -179,6 +186,14 @@ public:
 	/** If true, this actor will be replicated to network replays (default is true) */
 	UPROPERTY()
 	uint8 bRelevantForNetworkReplays:1;
+
+	/**
+	 * If true, this actor will only be destroyed during scrubbing if the replay is set to a time before the actor existed.
+	 * Otherwise, RewindForReplay will be called if we detect the actor needs to be reset.
+	 * Note, this Actor must not be destroyed by gamecode, and RollbackViaDeletion may not be used. 
+	 */
+	UPROPERTY()
+	uint8 bReplayRewindable:1;
 
 	/**
 	 * Whether we allow this Actor to tick before it receives the BeginPlay event.
@@ -222,8 +237,12 @@ public:
 	uint8 bIgnoresOriginShifting:1;
 
 	/** If true, and if World setting has bEnableHierarchicalLOD equal to true, then it will generate LODActor from groups of clustered Actor */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=LOD, meta=(DisplayName="Include Actor for HLOD Mesh generation"))
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category=LOD, meta=(DisplayName="Include Actor for HLOD Mesh generation"))
 	uint8 bEnableAutoLODGeneration:1;
+
+	/** Whether this actor is editor-only. Use with care, as if this actor is referenced by anything else that reference will be NULL in cooked builds */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=Cooking)
+	uint8 bIsEditorOnlyActor:1;
 
 	/** Indicates the actor was pulled through a seamless travel.  */
 	UPROPERTY()
@@ -262,6 +281,9 @@ protected:
 	UPROPERTY()
 	uint8 bAllowReceiveTickEventOnDedicatedServer:1;
 
+	/** Flag indicating we have checked initial simulating physics state to sync networked proxies to the server. */
+	uint8 bNetCheckedInitialPhysicsState : 1;
+
 private:
 	/** Whether FinishSpawning has been called for this Actor.  If it has not, the Actor is in a malformed state */
 	uint8 bHasFinishedSpawning:1;
@@ -292,6 +314,9 @@ private:
 	UPROPERTY(Transient, DuplicateTransient)
 	uint8 bActorIsBeingDestroyed:1;
 
+	/** Set if an Actor tries to be destroyed while it is beginning play so that once BeginPlay ends we can issue the destroy call. */
+	uint8 bActorWantsDestroyDuringBeginPlay : 1;
+
 	enum class EActorBeginPlayState : uint8
 	{
 		HasNotBegunPlay,
@@ -312,10 +337,6 @@ private:
 	TEnumAsByte<enum ENetRole> RemoteRole;
 
 public:
-
-	// ORION TODO - was moved to private. Add accessor?
-	/** Flag indicating we have checked initial simulating physics state to sync networked proxies to the server. */
-	uint8 bNetCheckedInitialPhysicsState : 1;
 
 	/**
 	 * Set whether this actor replicates to network clients. When this actor is spawned on the server it will be sent to clients as well.
@@ -339,6 +360,10 @@ public:
 	
 	/** Copies RemoteRole from another Actor and adds this actor to the list of network actors if necessary. */
 	void CopyRemoteRoleFrom(const AActor* CopyFromActor);
+
+	/** Returns how much control the local machine has over this actor. */
+	UFUNCTION(BlueprintCallable, Category=Replication)
+	ENetRole GetLocalRole() const;
 
 	/** Returns how much control the remote machine has over this actor. */
 	UFUNCTION(BlueprintCallable, Category=Replication)
@@ -474,6 +499,12 @@ public:
 	 * Called for everyone when recording a Client Replay, including Simulated Proxies.
 	 */
 	virtual void PreReplicationForReplay(IRepChangedPropertyTracker & ChangedPropertyTracker);
+
+	/**
+	 * Called on the actor before checkpoint data is applied during a replay.
+	 * Only called if bReplayRewindable is set.
+	 */
+	virtual void RewindForReplay();
 
 	/** Called by the networking system to call PreReplication on this actor and its components using the given NetDriver to find or create RepChangedPropertyTrackers. */
 	void CallPreReplication(UNetDriver* NetDriver);	
@@ -617,6 +648,10 @@ public:
 	/** Called when the actor is damaged by point damage. */
 	UPROPERTY(BlueprintAssignable, Category="Game|Damage")
 	FTakePointDamageSignature OnTakePointDamage;
+
+	/** Called when the actor is damaged by radial damage. */
+	UPROPERTY(BlueprintAssignable, Category="Game|Damage")
+	FTakeRadialDamageSignature OnTakeRadialDamage;
 	
 	/** 
 	 * Called when another actor begins to overlap this actor, for example a player walking into a trigger.
@@ -1464,7 +1499,9 @@ public:
 	virtual void PostRename( UObject* OldOuter, const FName OldName ) override;
 	virtual bool CanBeInCluster() const override;
 	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
+	virtual bool IsEditorOnly() const override;
 #if WITH_EDITOR
+	virtual bool NeedsLoadForTargetPlatform(const ITargetPlatform* TargetPlatform) const;
 	virtual void PreEditChange(UProperty* PropertyThatWillChange) override;
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 	virtual void PreEditUndo() override;
@@ -1621,6 +1658,9 @@ public:
 	 */
 	virtual bool IsLevelBoundsRelevant() const { return true; }
 
+	/** Set LOD Parent Primitive*/
+	void SetLODParent(class UPrimitiveComponent* InLODParent, float InParentDrawDistance);
+
 #if WITH_EDITOR
 	// Editor specific
 
@@ -1646,10 +1686,7 @@ public:
 	virtual void EditorApplyScale(const FVector& DeltaScale, const FVector* PivotLocation, bool bAltDown, bool bShiftDown, bool bCtrlDown);
 
 	/** Called by MirrorActors to perform a mirroring operation on the actor */
-	virtual void EditorApplyMirror(const FVector& MirrorScale, const FVector& PivotLocation);
-
-	/** Set LOD Parent Primitive*/
-	void SetLODParent(class UPrimitiveComponent* InLODParent, float InParentDrawDistance);
+	virtual void EditorApplyMirror(const FVector& MirrorScale, const FVector& PivotLocation);	
 
 	/**
 	 * Simple accessor to check if the actor is hidden upon editor startup
@@ -2138,6 +2175,9 @@ public:
 
 	/** Ensure that all the components in the Components array are registered */
 	virtual void RegisterAllComponents();
+
+	/** Called before all the components in the Components array are registered */
+	virtual void PreRegisterAllComponents();
 
 	/** Called after all the components in the Components array are registered */
 	virtual void PostRegisterAllComponents();
@@ -2669,7 +2709,7 @@ public:
 			{
 				OutComponents.Add(Component);
 			}
-			else if (bIncludeFromChildActors)
+			if (bIncludeFromChildActors)
 			{
 				if (UChildActorComponent* ChildActorComponent = Cast<UChildActorComponent>(OwnedComponent))
 				{
@@ -2717,12 +2757,13 @@ public:
 			if (Component)
 			{
 				OutComponents.Add(Component);
-			}
-			else if (bIncludeFromChildActors)
-			{
-				if (UChildActorComponent* ChildActorComponent = Cast<UChildActorComponent>(Component))
+
+				if (bIncludeFromChildActors)
 				{
-					ChildActorComponents.Add(ChildActorComponent);
+					if (UChildActorComponent* ChildActorComponent = Cast<UChildActorComponent>(Component))
+					{
+						ChildActorComponents.Add(ChildActorComponent);
+					}
 				}
 			}
 		}
@@ -2908,6 +2949,7 @@ private:
 
 	friend struct FMarkActorIsBeingDestroyed;
 	friend struct FActorParentComponentSetter;
+	friend struct FSetActorWantsDestroyDuringBeginPlay;
 
 	// Static helpers for accessing functions on SceneComponent.
 	// These are templates for no other reason than to delay compilation until USceneComponent is defined.
@@ -2996,6 +3038,20 @@ private:
 
 	friend UWorld;
 };
+
+/** This should only be used by UWorld::DestroyActor when the actor is in the process of beginning play so it can't be destroyed yet */
+struct FSetActorWantsDestroyDuringBeginPlay
+{
+private:
+	FSetActorWantsDestroyDuringBeginPlay(AActor* InActor)
+	{
+		ensure(InActor->IsActorBeginningPlay()); // Doesn't make sense to call this under any other circumstances
+		InActor->bActorWantsDestroyDuringBeginPlay = true;
+	}
+
+	friend UWorld;
+};
+
 
 /**
  * TInlineComponentArray is simply a TArray that reserves a fixed amount of space on the stack
@@ -3118,6 +3174,11 @@ FORCEINLINE_DEBUGGABLE const AActor* AActor::GetNetOwner() const
 	// NetOwner is the Actor Owner unless otherwise overridden (see PlayerController/Pawn/Beacon)
 	// Used in ServerReplicateActors
 	return Owner;
+}
+
+FORCEINLINE_DEBUGGABLE ENetRole AActor::GetLocalRole() const
+{
+	return Role;
 }
 
 FORCEINLINE_DEBUGGABLE ENetRole AActor::GetRemoteRole() const

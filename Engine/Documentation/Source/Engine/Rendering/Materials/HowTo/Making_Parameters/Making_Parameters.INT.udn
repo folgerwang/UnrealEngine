@@ -92,8 +92,8 @@ Where the real power of Material Parameters comes into play is when you use them
 
 1. First find and add the following type and amount of Material Parameter Expression nodes to the Material Graph.
 
-	* ** Vector Parameter ** x 1
-	* ** Scalar Node** x 2
+	* **Vector Parameter** x 1
+	* **Scalar Node** x 2
 	
 	[OBJECT:EmbeddedVideo]
 	[PARAMLITERAL:width]

@@ -26,16 +26,19 @@ void FRCSeparateTranslucensyPassES2::Process(FRenderingCompositePassContext& Con
 	// Set the view family's render target/viewport.
 	Context.SetViewportAndCallRHI(View.ViewRect);
 
-	FDrawingPolicyRenderState DrawRenderState(View);
+	TUniformBufferRef<FMobileBasePassUniformParameters> BasePassUniformBuffer;
+	CreateMobileBasePassUniformBuffer(Context.RHICmdList, View, true, BasePassUniformBuffer);
+
+	FDrawingPolicyRenderState DrawRenderState(View, BasePassUniformBuffer);
 
 	// Enable depth test, disable depth writes.
 	DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<false, CF_DepthNearOrEqual>::GetRHI());
 
 	// Draw translucent prims
-	FMobileTranslucencyDrawingPolicyFactory::ContextType DrawingContext(ESceneRenderTargetsMode::SetTextures, ETranslucencyPass::TPT_TranslucencyAfterDOF);
+	FMobileTranslucencyDrawingPolicyFactory::ContextType DrawingContext(ETranslucencyPass::TPT_TranslucencyAfterDOF);
 	View.TranslucentPrimSet.DrawPrimitivesForMobile<FMobileTranslucencyDrawingPolicyFactory>(Context.RHICmdList, View, DrawRenderState, DrawingContext);
 	
-	Context.RHICmdList.CopyToResolveTarget(SceneTargets.GetSceneColorSurface(), SceneTargets.GetSceneColorTexture(), false, FResolveParams());
+	Context.RHICmdList.CopyToResolveTarget(SceneTargets.GetSceneColorSurface(), SceneTargets.GetSceneColorTexture(), FResolveParams());
 }
 
 FRenderingCompositeOutput* FRCSeparateTranslucensyPassES2::GetOutput(EPassOutputId InPassOutputId)

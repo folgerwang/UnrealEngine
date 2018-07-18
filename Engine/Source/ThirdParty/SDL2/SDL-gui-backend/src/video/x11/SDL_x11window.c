@@ -334,6 +334,13 @@ SetupWindowData(_THIS, SDL_Window * window, Window w, BOOL created)
 /* EG BEGIN */
 #ifdef SDL_WITH_EPIC_EXTENSIONS
     data->initiate_maximize = SDL_FALSE;
+
+#if SDL_VIDEO_DRIVER_X11_XFIXES
+    data->pointer_barrier_active = SDL_FALSE;
+    SDL_memset(&data->barrier, 0, sizeof(data->barrier));
+    SDL_memset(&data->barrier_rect, 0, sizeof(SDL_Rect));
+#endif
+
 #endif /* SDL_WITH_EPIC_EXTENSIONS */
 /* EG END */
 
@@ -1638,6 +1645,20 @@ X11_DestroyWindow(_THIS, SDL_Window * window)
             X11_XFlush(display);
         }
         SDL_free(data);
+
+/* EG BEGIN */
+#ifdef SDL_WITH_EPIC_EXTENSIONS
+
+#if SDL_VIDEO_DRIVER_X11_XFIXES   
+        /* If the pointer barriers are active for this, deactivate it.*/
+        if (videodata->active_cursor_confined_window == window) {
+            X11_DestroyPointerBarrier(_this, window);
+        }
+#endif
+
+#endif /* SDL_WITH_EPIC_EXTENSIONS */
+/* EG END */
+
     }
     window->driverdata = NULL;
 }

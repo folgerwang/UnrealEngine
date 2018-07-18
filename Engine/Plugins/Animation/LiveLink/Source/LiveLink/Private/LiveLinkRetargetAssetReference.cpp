@@ -3,7 +3,8 @@
 #include "LiveLinkRetargetAssetReference.h"
 #include "LiveLinkRemapAsset.h"
 
-FLiveLinkRetargetAssetReference::FLiveLinkRetargetAssetReference() //: CurrentRetargetAsset(ULiveLinkRemapAsset::StaticClass())
+FLiveLinkRetargetAssetReference::FLiveLinkRetargetAssetReference()
+	: CurrentRetargetAsset(nullptr)
 {
 
 }

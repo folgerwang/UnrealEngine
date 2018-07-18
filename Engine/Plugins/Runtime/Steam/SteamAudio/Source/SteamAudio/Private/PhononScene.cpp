@@ -13,10 +13,10 @@
 #include "Engine/StaticMesh.h"
 #include "StaticMeshResources.h"
 #include "SteamAudioSettings.h"
-#include "PlatformFileManager.h"
-#include "GenericPlatformFile.h"
-#include "Paths.h"
-#include "Async.h"
+#include "HAL/PlatformFilemanager.h"
+#include "GenericPlatform/GenericPlatformFile.h"
+#include "Misc/Paths.h"
+#include "Async/Async.h"
 
 #if WITH_EDITOR
 

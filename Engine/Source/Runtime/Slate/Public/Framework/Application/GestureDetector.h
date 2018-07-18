@@ -3,7 +3,7 @@
 
 #include "InputCoreTypes.h"
 #include "Containers/BitArray.h"
-#include "GenericApplicationMessageHandler.h"
+#include "GenericPlatform/GenericApplicationMessageHandler.h"
 
 /**
  * The gesture detector can simulate the detection of certain kinds of gestures that may or may not

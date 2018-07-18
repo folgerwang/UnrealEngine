@@ -15,10 +15,10 @@
 #include "WaitUntil.h"
 #include "LocateBy.h"
 
-#include "ICursor.h"
+#include "GenericPlatform/ICursor.h"
 #include "Misc/Timespan.h"
 #include "InputCoreTypes.h"
-#include "GenericApplicationMessageHandler.h"
+#include "GenericPlatform/GenericApplicationMessageHandler.h"
 #include "Framework/Application/SlateApplication.h"
 
 

@@ -26,6 +26,8 @@
 #include "VectorField/VectorFieldStatic.h"
 #include "Components/VectorFieldComponent.h"
 #include "PrimitiveSceneProxy.h"
+#include "Materials/Material.h"
+#include "Engine/Engine.h"
 
 #if WITH_EDITORONLY_DATA
 	#include "EditorFramework/AssetImportData.h"
@@ -518,6 +520,13 @@ FBoxSphereBounds UVectorFieldComponent::CalcBounds(const FTransform& LocalToWorl
 	return NewBounds.TransformBy( LocalToWorld );
 }
 
+void UVectorFieldComponent::GetUsedMaterials(TArray<UMaterialInterface*>& OutMaterials, bool bGetDebugMaterials) const
+{
+	if (GEngine->LevelColorationUnlitMaterial != nullptr)
+	{
+		OutMaterials.Add(GEngine->LevelColorationUnlitMaterial);
+	}
+}
 
 void UVectorFieldComponent::OnRegister()
 {
@@ -633,13 +642,13 @@ void UVectorFieldComponent::PostEditChangeProperty(FPropertyChangedEvent& Proper
 ------------------------------------------------------------------------------*/
 
 BEGIN_UNIFORM_BUFFER_STRUCT( FCompositeAnimatedVectorFieldUniformParameters, )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( FVector4, FrameA )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( FVector4, FrameB )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( FVector, VoxelSize )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( float, FrameLerp )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( float, NoiseScale )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( float, NoiseMax )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( uint32, Op )
+	UNIFORM_MEMBER( FVector4, FrameA )
+	UNIFORM_MEMBER( FVector4, FrameB )
+	UNIFORM_MEMBER( FVector, VoxelSize )
+	UNIFORM_MEMBER( float, FrameLerp )
+	UNIFORM_MEMBER( float, NoiseScale )
+	UNIFORM_MEMBER( float, NoiseMax )
+	UNIFORM_MEMBER( uint32, Op )
 END_UNIFORM_BUFFER_STRUCT( FCompositeAnimatedVectorFieldUniformParameters )
 
 IMPLEMENT_UNIFORM_BUFFER_STRUCT(FCompositeAnimatedVectorFieldUniformParameters,TEXT("CVF"));

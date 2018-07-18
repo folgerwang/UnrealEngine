@@ -61,7 +61,7 @@ public:
 	 * @param InImaginaryBlueprintRoot		The imaginary Blueprint to search through
 	 * @return								Search result shared pointer, can be used for display in the search results window
 	 */
-	FSearchResult StartSearchQuery(const FString& InSearchString, TSharedPtr<FImaginaryBlueprint> InImaginaryBlueprintRoot);
+	FSearchResult StartSearchQuery(const FString& InSearchString, FImaginaryFiBDataSharedPtr InImaginaryBlueprintRoot);
 
 	/**
 	 * Starts a search query given a string and an imaginary Blueprint
@@ -69,7 +69,7 @@ public:
 	 * @param InSearchString				The string to search using
 	 * @param InImaginaryBlueprintRoot		The imaginary Blueprint to search through
 	 */
-	void MakeSearchQuery(const FString& InSearchString, TSharedPtr<FImaginaryBlueprint> InImaginaryBlueprintRoot);
+	void MakeSearchQuery(const FString& InSearchString, FImaginaryFiBDataSharedPtr InImaginaryBlueprintRoot);
 	
 	/**
 	 * Runs a search query on any pending imaginary data
@@ -87,7 +87,7 @@ public:
 	 * @param InSearchQueryFilter				A filter to decide if the imaginary item is compatible with the function
 	 * @param OutTargetPendingSearchables		List of pending imaginary items that will be sub-searched, this gets filled out by the function
 	 */
-	void BuildFunctionTargets(TSharedPtr<FImaginaryFiBData> InRootData, ESearchQueryFilter InSearchQueryFilter, TArray< TWeakPtr< FImaginaryFiBData > >& OutTargetPendingSearchables);
+	void BuildFunctionTargets(FImaginaryFiBDataSharedPtr InRootData, ESearchQueryFilter InSearchQueryFilter, TArray<FImaginaryFiBDataWeakPtr>& OutTargetPendingSearchables);
 
 	/**
 	 * Builds a list of imaginary items, using their names, that can be targeted by a function
@@ -96,7 +96,7 @@ public:
 	 * @param InTagName							The name of objects to find
 	 * @param OutTargetPendingSearchables		List of pending imaginary items that will be sub-searched, this gets filled out by the function
 	 */
-	void BuildFunctionTargetsByName(TSharedPtr<FImaginaryFiBData> InRootData, FString InTagName, TArray< TWeakPtr< FImaginaryFiBData > >& OutTargetPendingSearchables);
+	void BuildFunctionTargetsByName(FImaginaryFiBDataSharedPtr InRootData, FString InTagName, TArray<FImaginaryFiBDataWeakPtr>& OutTargetPendingSearchables);
 
 	/**
 	 * Callback when a function is called by the evaluator
@@ -117,13 +117,13 @@ public:
 	bool OnFilterDefaultFunction(const FTextFilterString& InFunctionName, const FTextFilterString& InFunctionParams);
 
 	/** Builds a list of search results in their imaginary data form, filtered by an object type */
-	void CreateFilteredResultsListFromTree(ESearchQueryFilter InSearchQueryFilter, TArray< TSharedPtr<FImaginaryFiBData> >& InOutValidSearchResults);
+	void CreateFilteredResultsListFromTree(ESearchQueryFilter InSearchQueryFilter, TArray<FImaginaryFiBDataSharedPtr>& InOutValidSearchResults);
 
 	/** Helper function to return search results given an imaginary Blueprint root */
-	FSearchResult GetSearchResults(TSharedPtr<FImaginaryBlueprint> InImaginaryBlueprintRoot);
+	FSearchResult GetSearchResults(FImaginaryFiBDataSharedPtr InImaginaryBlueprintRoot);
 public:
-	/** Current item being searched in the Imaginary Blueprint */
-	TWeakPtr< FImaginaryFiBData > CurrentSearchable;
+	/** Current item being searched in the Imaginary Blueprint. Must be declared as thread-safe because this is a shared object. */
+	FImaginaryFiBDataWeakPtr CurrentSearchable;
 
 	/** A going list of all imaginary items that match the search query */
 	TArray< const FImaginaryFiBData* > MatchesSearchQuery;
@@ -131,8 +131,8 @@ public:
 	/** A mapping of items and their components that match the search query */
 	TMultiMap< const FImaginaryFiBData*, FComponentUniqueDisplay > MatchingSearchComponents;
 
-	/** A list of imaginary items that still need to be searched */
-	TArray< TWeakPtr< FImaginaryFiBData > > PendingSearchables;
+	/** A list of imaginary items that still need to be searched. Must be declared as thread-safe because it points to a shared object. */
+	TArray<FImaginaryFiBDataWeakPtr> PendingSearchables;
 
 	/** When a function returns on an item, this is the list of items that matched the sub-search query */
 	TArray< const FImaginaryFiBData* > LastFunctionResultMatchesSearchQuery;

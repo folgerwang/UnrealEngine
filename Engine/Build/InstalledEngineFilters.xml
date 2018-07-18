@@ -30,6 +30,7 @@
 	<Property Name="IOSStripFilter" Value="*.a;"/>
 	<Property Name="TVOSStripFilter" Value="*.a;"/>
 	<Property Name="LinuxStripFilter" Value="Engine\Binaries\Linux\*."/>
+	<Property Name="LuminStripFilter" Value="*.a;*.so"/>
 
 	<Property Name="WindowsSignFilter" Value="*.exe;*.dll"/>
 	<Property Name="MacSignFilter" Value="*.dylib;*.app"/>
@@ -59,6 +60,9 @@
 	
 	<!-- Define Editor Filters -->
 	<Property Name="CopyEditorFilter">
+		<!-- This assembly is normally embedded into the UBT executable, but it can technically be rebuilt from an installed build -->
+		Engine/Binaries/ThirdParty/VisualStudio/...
+
 		<!-- In-editor documentation -->
 		Engine/Documentation/Source/Shared/...
 		Engine/Documentation/Extras/...
@@ -131,7 +135,8 @@
 		Templates/TP_2DSideScrollerBP/...
 		Templates/TP_VehicleAdv/...
 		Templates/TP_VehicleAdvBP/...
-		<!-- shared template resources -->
+		
+		<!-- Shared template resources -->
 		Templates/TemplateResources/...
 
 		<!-- Build files -->
@@ -197,13 +202,19 @@
 			<!-- Binaries which are explicitly staged by UAT rather than listing runtime dependencies -->
 			Engine/Binaries/ThirdParty/OpenSSL/...
 
+			<!-- Linux cross build Debug tools -->
+			Engine/Binaries/Linux/dump_syms.exe
+			Engine/Binaries/Linux/BreakpadSymbolEncoder.exe
+
 			<!-- Extra tools -->
 			Engine/Extras/3dsMaxScripts/...
 			Engine/Extras/VisualStudioDebugging/UE4.natvis
-			Engine/Extras/MayaLiveLink/...
 			Engine/Extras/MayaVelocityGridExporter/...
 			Engine/Extras/UnrealVS/...
 			Engine/Extras/Redist/en-us/*
+			
+			<!-- nDisplay Template -->
+			Templates/TP_nDisplayBP/...
 		</Property>
 
 		<Property Name="CopyEditorExceptions" Value="$(CopyEditorExceptions)">
@@ -250,19 +261,29 @@
 		<Property Name="CopyEditorFilter" Value="$(CopyEditorFilter)">
 			<!-- Build batch files -->
 			Engine/Build/BatchFiles/Linux/Build.sh
-			Engine/Build/BatchFiles/Linux/BuildThirdParty.sh
+			Engine/Build/BatchFiles/Linux/GenerateGDBInit.sh
+			Engine/Build/BatchFiles/Linux/FixDependencyFiles.sh
 			Engine/Build/BatchFiles/Linux/GenerateProjectFiles.sh
-			Engine/Build/BatchFiles/Linux/GitDependencies.sh
 			Engine/Build/BatchFiles/Linux/QASmokeManual.sh
+			Engine/Build/BatchFiles/Linux/Setup.sh
+			Engine/Build/BatchFiles/Linux/SetupMono.sh
+			Engine/Build/BatchFiles/Linux/FixMonoFiles.sh
 			Engine/Build/BatchFiles/Linux/RunMono.sh
 			Engine/Build/BatchFiles/Linux/RunXBuild.sh
-			Engine/Build/BatchFiles/Linux/Setup.sh
-			Engine/Build/BatchFiles/Linux/UpdateDeps.sh
 			Engine/Build/BatchFiles/RunUAT.sh
+
+			<!-- Debug tools -->
+			Engine/Binaries/Linux/dump_syms
+			Engine/Binaries/Linux/BreakpadSymbolEncoder
+
+			<!-- Mono -->
+			Engine/Binaries/ThirdParty/Mono/...
+
+			<!-- Extra tools -->
+			Engine/Extras/GDBPrinters/UE4Printers.py
 
 			<!-- Bundled libcxx -->
 			Engine/Source/ThirdParty/Linux/LibCxx/...
-
 		</Property>
 	</Do>
 
@@ -441,5 +462,15 @@
 
 	<!-- Additional Binaries(.nspd directories) -->
 	<Property Name="CopySwitchFilter" Value="$(CopySwitchFilter);Engine/Binaries/Switch/*.nspd/..."/>
+	
+	<!-- Lumin -->
+	<Property Name="CopyLuminFilter">
+		<!-- Build Files -->
+		Engine/Build/Lumin/...
+		Engine/Source/ThirdParty/ResonanceAudioApi/Lumin/ResonanceAudio_LPL.xml
+	</Property>
+	
+	<Property Name="CopyLuminExceptions">
+	</Property>
 
 </BuildGraph>

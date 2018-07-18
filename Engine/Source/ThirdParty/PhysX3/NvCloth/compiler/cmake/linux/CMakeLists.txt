@@ -22,10 +22,10 @@ ENDIF()
 SET(CMAKE_SHARED_LINKER_FLAGS "")
 
 # Build debug info for all configurations
-SET(CMAKE_CXX_FLAGS_DEBUG "-std=c++11 -O0 -g3 -gdwarf-2")
-SET(CMAKE_CXX_FLAGS_CHECKED "-std=c++11 -g3 -gdwarf-2 -O3")
-SET(CMAKE_CXX_FLAGS_PROFILE "-std=c++11 -O3 -g")
-SET(CMAKE_CXX_FLAGS_RELEASE "-std=c++11 -O3 -g")
+SET(CMAKE_CXX_FLAGS_DEBUG "-std=c++11 -O0 -g3 -gdwarf-3")
+SET(CMAKE_CXX_FLAGS_CHECKED "-std=c++11 -g3 -gdwarf-3 -O3")
+SET(CMAKE_CXX_FLAGS_PROFILE "-std=c++11 -O3 -g3 -gdwarf-3")
+SET(CMAKE_CXX_FLAGS_RELEASE "-std=c++11 -O3 -g3 -gdwarf-3")
 
 
 #set(CMAKE_XCODE_ATTRIBUTE_DEBUG_INFORMATION_FORMAT "dwarf-with-dsym")

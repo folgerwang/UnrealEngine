@@ -8,7 +8,7 @@
 #include "DestructibleComponent.h"
 #include "EngineStats.h"
 #include "GameFramework/DamageType.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "AI/NavigationSystemBase.h"
 #include "Particles/ParticleSystemComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "DestructibleActor.h"
@@ -949,6 +949,8 @@ void UDestructibleComponent::SetChunksWorldTM(const TArray<FUpdateChunksInfo>& U
 
 		GetEditableComponentSpaceTransforms()[BoneIndex] = FTransform(BoneRotation, BoneTranslation);
 	}
+
+	bNeedToFlipSpaceBaseBuffers = true;
 
 	// Mark the transform as dirty, so the bounds are updated and sent to the render thread
 	MarkRenderTransformDirty();

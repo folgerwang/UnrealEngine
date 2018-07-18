@@ -6,10 +6,12 @@
 #include "Types/SlateEnums.h"
 #include "Layout/Visibility.h"
 #include "Materials/MaterialLayersFunctions.h"
-#include "Reply.h"
-#include "SSplitter.h"
+#include "Input/Reply.h"
+#include "Widgets/Layout/SSplitter.h"
 #include "MaterialEditor/MaterialEditorInstanceConstant.h"
+#include "DragAndDrop/DecoratedDragDropOp.h"
 #include "MaterialPropertyHelpers.generated.h"
+
 
 struct FAssetData;
 class IDetailGroup;
@@ -18,6 +20,7 @@ class IPropertyHandle;
 class UMaterialEditorInstanceConstant;
 enum class ECheckBoxState : uint8;
 class UMaterialInterface;
+class SMaterialLayersFunctionsInstanceTreeItem;
 
 DECLARE_DELEGATE_OneParam(FGetShowHiddenParameters, bool&);
 
@@ -73,6 +76,66 @@ struct FMaterialTreeColumnSizeData
 	void SetColumnWidth(float InWidth) { OnWidthChanged.ExecuteIfBound(InWidth); }
 };
 
+class SLayerHandle : public SCompoundWidget
+{
+public:
+	SLATE_BEGIN_ARGS(SLayerHandle)
+	{}
+	SLATE_DEFAULT_SLOT(FArguments, Content)
+		SLATE_ARGUMENT(TSharedPtr<SMaterialLayersFunctionsInstanceTreeItem>, OwningStack)
+		SLATE_END_ARGS()
+
+		void Construct(const FArguments& InArgs);
+
+	FReply OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override
+	{
+		return FReply::Handled().DetectDrag(SharedThis(this), EKeys::LeftMouseButton);
+	};
+
+
+	FReply OnDragDetected(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
+	TSharedPtr<class FLayerDragDropOp> CreateDragDropOperation(TSharedPtr<SMaterialLayersFunctionsInstanceTreeItem> InOwningStack);
+
+private:
+	TWeakPtr<SMaterialLayersFunctionsInstanceTreeItem> OwningStack;
+};
+
+
+class FLayerDragDropOp : public FDecoratedDragDropOp
+{
+public:
+	DRAG_DROP_OPERATOR_TYPE(FLayerDragDropOp, FDecoratedDragDropOp)
+
+	FLayerDragDropOp(TSharedPtr<SMaterialLayersFunctionsInstanceTreeItem> InOwningStack)
+	{
+		OwningStack = InOwningStack;
+		DecoratorWidget = SNew(SBorder)
+			.BorderImage(FEditorStyle::GetBrush("Graph.ConnectorFeedback.Border"))
+			.Content()
+			[
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				.VAlign(VAlign_Center)
+				[
+					SNew(STextBlock)
+					.Text(NSLOCTEXT("LayerDragDrop", "PlaceLayerHere", "Place Layer and Blend Here"))
+				]
+			];
+
+		Construct();
+	};
+
+	TSharedPtr<SWidget> DecoratorWidget;
+
+	virtual TSharedPtr<SWidget> GetDefaultDecorator() const override
+	{
+		return DecoratorWidget;
+	}
+
+	TWeakPtr<class SMaterialLayersFunctionsInstanceTreeItem> OwningStack;
+};
+
 /*-----------------------------------------------------------------------------
    FMaterialInstanceBaseParameterDetails
 -----------------------------------------------------------------------------*/
@@ -110,7 +173,7 @@ public:
 	static FReply OnClickedSaveNewMaterialInstance(class UMaterialInterface* Object, UObject* EditorObject);
 
 	static void CopyMaterialToInstance(class UMaterialInstanceConstant* ChildInstance, TArray<struct FEditorParameterGroup> &ParameterGroups);
-	static void TransitionAndCopyParameters(class UMaterialInstanceConstant* ChildInstance, TArray<struct FEditorParameterGroup> &ParameterGroups);
+	static void TransitionAndCopyParameters(class UMaterialInstanceConstant* ChildInstance, TArray<struct FEditorParameterGroup> &ParameterGroups, bool bForceCopy = false);
 	static FReply OnClickedSaveNewFunctionInstance(class UMaterialFunctionInterface* Object, class UMaterialInterface* PreviewMaterial, UObject* EditorObject);
 	static FReply OnClickedSaveNewLayerInstance(class UMaterialFunctionInterface* Object, TSharedPtr<FStackSortedData> InSortedData);
 
@@ -119,13 +182,19 @@ public:
 	static void SetVectorChannelMaskValue(const FString& StringValue, TSharedPtr<IPropertyHandle> PropertyHandle, class UDEditorParameterValue* InParameter, UObject* MaterialEditorInstance);
 
 	static TArray<class UFactory*> GetAssetFactories(EMaterialParameterAssociation AssetType);
-
 	/**
 	*  Returns group for parameter. Creates one if needed.
 	*
 	* @param ParameterGroup		Name to be looked for.
 	*/
 	static FEditorParameterGroup&  GetParameterGroup(class UMaterial* InMaterial, FName& ParameterGroup, TArray<struct FEditorParameterGroup>& ParameterGroups);
+
+	static TSharedRef<SWidget> MakeStackReorderHandle(TSharedPtr<SMaterialLayersFunctionsInstanceTreeItem> InOwningStack);
+
+	static bool OnShouldSetCurveAsset(const FAssetData& AssetData, TSoftObjectPtr<class UCurveLinearColorAtlas> InAtlas);
+	static void SetPositionFromCurveAsset(const FAssetData& AssetData, TSoftObjectPtr<class UCurveLinearColorAtlas> InAtlas, class UDEditorScalarParameterValue* InParameter, TSharedPtr<IPropertyHandle> PropertyHandle, UObject* MaterialEditorInstance);
+
+	static void ResetCurveToDefault(TSharedPtr<IPropertyHandle> PropertyHandle, class UDEditorParameterValue* Parameter, UMaterialEditorInstanceConstant* MaterialEditorInstance);
 
 	static FText LayerID;
 	static FText BlendID;

@@ -58,7 +58,7 @@ public:
 private:
 
 	/** Delegate for AnimatablePropertyChanged in AddKey. */
-	FKeyPropertyResult AddKeyInternal( float KeyTime, UObject* Object);
+	FKeyPropertyResult AddKeyInternal( FFrameNumber KeyTime, UObject* Object);
 };
 
 
@@ -79,10 +79,7 @@ public:
 	// ISequencerSection interface
 	virtual UMovieSceneSection* GetSectionObject() override;
 	virtual float GetSectionHeight() const override;
-	virtual void GenerateSectionLayout( class ISectionLayoutBuilder& LayoutBuilder ) const override;
 	virtual int32 OnPaintSection( FSequencerSectionPainter& InPainter ) const override;
-	virtual const FSlateBrush* GetKeyBrush( FKeyHandle KeyHandle ) const override;
-	virtual FVector2D GetKeyBrushOrigin( FKeyHandle KeyHandle ) const override;
 	virtual bool SectionIsResizable() const override { return false; }
 
 private:
@@ -92,10 +89,4 @@ private:
 
 	/** The sequencer that owns this section */
 	TWeakPtr<ISequencer> OwningSequencerPtr;
-
-	/** The UEnum for the EParticleKey enum */
-	const UEnum* ParticleKeyEnum;
-
-	const FSlateBrush* LeftKeyBrush;
-	const FSlateBrush* RightKeyBrush;
 };

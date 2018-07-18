@@ -42,8 +42,9 @@
 #include "Serialization/BulkData.h"
 #include "UObject/LinkerLoad.h"
 #include "Misc/RedirectCollector.h"
+#include "UObject/GCScopeLock.h"
 
-
+#include "Serialization/ArchiveUObjectFromStructuredArchive.h"
 #include "Serialization/ArchiveDescribeReference.h"
 #include "UObject/FindStronglyConnected.h"
 #include "UObject/UObjectThreadContext.h"
@@ -336,6 +337,13 @@ void UObject::PostEditChange(void)
 void UObject::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	FCoreUObjectDelegates::OnObjectPropertyChanged.Broadcast(this, PropertyChangedEvent);
+
+	// Snapshot the transaction buffer for this object if this was from an interactive change
+	// This allows listeners to be notified of intermediate changes of state
+	if (PropertyChangedEvent.ChangeType == EPropertyChangeType::Interactive)
+	{
+		SnapshotTransactionBuffer(this);
+	}
 }
 
 
@@ -529,6 +537,10 @@ void UObject::PostEditUndo(TSharedPtr<ITransactionObjectAnnotation> TransactionA
 	UObject::PostEditUndo();
 }
 
+void UObject::PostTransacted(const FTransactionObjectEvent& TransactionEvent)
+{
+	FCoreUObjectDelegates::OnObjectTransacted.Broadcast(this, TransactionEvent);
+}
 
 bool UObject::IsSelectedInEditor() const
 {
@@ -635,6 +647,11 @@ bool UObject::NeedsLoadForClient() const
 void UObject::UpdateClassesExcludedFromDedicatedClient(const TArray<FString>& InClassNames, const TArray<FString>& InModulesNames)
 {
 	GDedicatedClientExclusionList.UpdateExclusionList(InClassNames, InModulesNames);
+}
+
+bool UObject::NeedsLoadForTargetPlatform(const class ITargetPlatform* TargetPlatform) const
+{
+	return true;
 }
 
 bool UObject::CanCreateInCurrentContext(UObject* Template)
@@ -1149,6 +1166,12 @@ void UObject::GetPreloadDependencies(TArray<UObject*>& OutDeps)
 	}
 }
 
+void UObject::Serialize(FStructuredArchive::FRecord Record)
+{
+	FArchiveUObjectFromStructuredArchive Ar(Record.EnterField(FIELD_NAME_TEXT("BaseClassAutoGen")));
+	UObject::Serialize(Ar);
+}
+
 void UObject::Serialize( FArchive& Ar )
 {
 	// These three items are very special items from a serialization standpoint. They aren't actually serialized.
@@ -1660,6 +1683,26 @@ void UObject::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
 	}
 
 	FAssetRegistryTag::GetAssetRegistryTagsFromSearchableProperties(this, OutTags);
+
+#if WITH_EDITOR
+	// Check if there's a UMetaData for this object that has tags that are requested in the settings to be transferred to the Asset Registry
+	const TSet<FName>& MetaDataTagsForAR = GetMetaDataTagsForAssetRegistry();
+	if (MetaDataTagsForAR.Num() > 0)
+	{
+		TMap<FName, FString>* MetaDataMap = UMetaData::GetMapForObject(this);
+		if (MetaDataMap)
+		{
+			for (TMap<FName, FString>::TConstIterator It(*MetaDataMap); It; ++It)
+			{
+				FName Tag = It->Key;
+				if (!Tag.IsNone() && MetaDataTagsForAR.Contains(Tag))
+				{
+					OutTags.Add(FAssetRegistryTag(Tag, It->Value, UObject::FAssetRegistryTag::TT_Alphabetical));
+				}
+			}
+		}
+	}
+#endif // WITH_EDITOR
 }
 
 const FName& UObject::SourceFileTagName()
@@ -1669,6 +1712,13 @@ const FName& UObject::SourceFileTagName()
 }
 
 #if WITH_EDITOR
+static TSet<FName> MetaDataTagsForAssetRegistry;
+
+TSet<FName>& UObject::GetMetaDataTagsForAssetRegistry()
+{
+	return MetaDataTagsForAssetRegistry;
+}
+
 void UObject::GetAssetRegistryTagMetadata(TMap<FName, FAssetRegistryTagMetadata>& OutMetadata) const
 {
 	OutMetadata.Add(FPrimaryAssetId::PrimaryAssetTypeTag,
@@ -1831,6 +1881,17 @@ void UObject::LoadConfig( UClass* ConfigClass/*=NULL*/, const TCHAR* InFilename/
 	{
 		return;
 	}
+
+#if !IS_PROGRAM
+	// Do we have properties that don't exist yet?
+	// If this happens then we're trying to load the config for an object that doesn't
+	// know what its layout is. Usually a call to GetDefaultObject that occurs too early
+	// because ProcessNewlyLoadedUObjects hasn't happened yet
+	checkf(ConfigClass->PropertyLink != nullptr
+		|| (ConfigClass->GetSuperStruct() && ConfigClass->PropertiesSize == ConfigClass->GetSuperStruct()->PropertiesSize)
+		|| ConfigClass->PropertiesSize == 0,
+		TEXT("class %s has uninitialized properties. Accessed too early?"), *ConfigClass->GetName());
+#endif
 
 	UClass* ParentClass = ConfigClass->GetSuperClass();
 	if ( ParentClass != NULL )
@@ -2803,7 +2864,7 @@ static void PrivateRecursiveDumpFlags(UStruct* Struct, void* Data, FOutputDevice
 	check(Data != NULL);
 	for( TFieldIterator<UProperty> It(Struct); It; ++It )
 	{
-		if ( It->GetOwnerClass()->GetPropertiesSize() != sizeof(UObject) )
+		if (It->GetOwnerClass() && It->GetOwnerClass()->GetPropertiesSize() != sizeof(UObject) )
 		{
 			for( int32 i=0; i<It->ArrayDim; i++ )
 			{
@@ -2953,7 +3014,7 @@ void ParseFunctionFlags(uint32 Flags, TArray<const TCHAR*>& Results)
 }
 
 
-TArray<const TCHAR*> ParsePropertyFlags(uint64 Flags)
+COREUOBJECT_API TArray<const TCHAR*> ParsePropertyFlags(EPropertyFlags InFlags)
 {
 	TArray<const TCHAR*> Results;
 
@@ -3017,6 +3078,7 @@ TArray<const TCHAR*> ParsePropertyFlags(uint64 Flags)
 		TEXT("CPF_SkipSerialization"),
 	};
 
+	uint64 Flags = InFlags;
 	for (const TCHAR* FlagName : PropertyFlags)
 	{
 		if (Flags & 1)
@@ -3670,38 +3732,38 @@ bool StaticExec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar )
 			UObject* Object;
 			if (ParseObject(Str,TEXT("NAME="),Object,ANY_PACKAGE))
 			{
-				uint32 SearchModeFlags = FReferenceChainSearch::ESearchMode::PrintResults;
+				
+				EReferenceChainSearchMode SearchModeFlags = EReferenceChainSearchMode::PrintResults;
 
 				FString Tok;
 				while(FParse::Token(Str, Tok, false))
 				{
 					if (FCString::Stricmp(*Tok, TEXT("shortest")) == 0)
 					{
-						if ( !!(SearchModeFlags&FReferenceChainSearch::ESearchMode::Longest) )
+						if ( !!(SearchModeFlags&EReferenceChainSearchMode::Longest) )
 						{
 							UE_LOG(LogObj, Log, TEXT("Specifing 'shortest' AND 'longest' is invalid. Ignoring this occurence of 'shortest'."));
 						}
-						SearchModeFlags |= FReferenceChainSearch::ESearchMode::Shortest;
+						SearchModeFlags |= EReferenceChainSearchMode::Shortest;
 					}
 					else if (FCString::Stricmp(*Tok, TEXT("longest")) == 0)
 					{
-						if ( !!(SearchModeFlags&FReferenceChainSearch::ESearchMode::Shortest) )
+						if ( !!(SearchModeFlags&EReferenceChainSearchMode::Shortest) )
 						{
 							UE_LOG(LogObj, Log, TEXT("Specifing 'shortest' AND 'longest' is invalid. Ignoring this occurence of 'longest'."));
 						}
-						SearchModeFlags |= FReferenceChainSearch::ESearchMode::Longest;
+						SearchModeFlags |= EReferenceChainSearchMode::Longest;
 					}
 					else if (FCString::Stricmp(*Tok, TEXT("external")) == 0)
 					{
-						SearchModeFlags |= FReferenceChainSearch::ESearchMode::ExternalOnly;
+						SearchModeFlags |= EReferenceChainSearchMode::ExternalOnly;
 					}
 					else if (FCString::Stricmp(*Tok, TEXT("direct")) == 0)
 					{
-						SearchModeFlags |= FReferenceChainSearch::ESearchMode::Direct;
+						SearchModeFlags |= EReferenceChainSearchMode::Direct;
 					}
 				}
 				
-
 				FReferenceChainSearch RefChainSearch(Object, SearchModeFlags);
 			}
 			else
@@ -4078,13 +4140,12 @@ void StaticUObjectInit();
 void InitUObject();
 void StaticExit();
 
-void PreInitUObject()
-{
-	// Deprecated.
-}
-
 void InitUObject()
 {
+	LLM_SCOPE(ELLMTag::InitUObject);
+
+	FGCCSyncObject::Create();
+
 	// Initialize redirects map
 	for (const TPair<FString,FConfigFile>& It : *GConfig)
 	{
@@ -4144,6 +4205,7 @@ void StaticUObjectInit()
 // Internal cleanup functions
 void CleanupGCArrayPools();
 void CleanupLinkerAnnotations();
+void CleanupCachedArchetypes();
 
 //
 // Shut down the object manager.
@@ -4169,8 +4231,8 @@ void StaticExit()
 	IncrementalPurgeGarbage( false );
 
 	// Keep track of how many objects there are for GC stats as we simulate a mark pass.
-	extern int32 GObjectCountDuringLastMarkPhase;
-	GObjectCountDuringLastMarkPhase = 0;
+	extern FThreadSafeCounter GObjectCountDuringLastMarkPhase;
+	GObjectCountDuringLastMarkPhase.Reset();
 
 	// Tag all non template & class objects as unreachable. We can't use object iterators for this as they ignore certain objects.
 	//
@@ -4182,7 +4244,7 @@ void StaticExit()
 	for ( FRawObjectIterator It; It; ++It )
 	{
 		// Valid object.
-		GObjectCountDuringLastMarkPhase++;
+		GObjectCountDuringLastMarkPhase.Increment();
 
 		FUObjectItem* ObjItem = *It;
 		checkSlow(ObjItem);
@@ -4244,6 +4306,7 @@ void StaticExit()
 	FDeferredMessageLog::Cleanup();
 	CleanupGCArrayPools();
 	CleanupLinkerAnnotations();
+	CleanupCachedArchetypes();
 
 	UE_LOG(LogExit, Log, TEXT("Object subsystem successfully closed.") );
 }

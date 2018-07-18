@@ -1,5 +1,5 @@
-﻿INTSourceChangelist:3150518
-Title:アンリアル エンジン VR エディタ
+﻿INTSourceChangelist:3782314
+Title:アンリアル エンジン VR モード
 Description:VR 専用のインタラクションを備えたエディタ ツールセット機能を使って、仮想現実環境にワールドをビルドする
 Crumbs:
 Availability:public
@@ -7,62 +7,33 @@ parent:Engine/Editor
 type:overview
 order:10
 tags:VR
-version:4.12
+version:4.17
 skilllevel:intermediate
 social-image:vreditor_social.png
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Editor/VR:title%](Engine/Editor/VR/vreditor.png)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Editor/VR:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Editor/VR]
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Editor/VR:description%
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Editor/VR:title%](Engine/Editor/VR/vr_editor.png)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Editor/VR:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Editor/VR]
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Editor/VR:description%
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:Engine/Editor/VR/vreditor.png
 
 [EXCERPT:main]
-VR エディタは、VR ワールドのビルド専用のインタラクション モデルを備えたエディタ ツールセット機能を使って、仮想現実環境にワールドのビルドが可能になります。
+VR モードでは、VR ワールドのビルド専用のインタラクション モデルを備えたアンリアル エンジン ツールセット機能を使って、仮想現実 (VR) ワールドのビルドが可能になります。
 
 VR で直接作業をすると、現実的で信憑性のあるワールドの作成に必要とされる正しいスケールを感じることができますし、モーション コントローラを使うことで自然な動きとインタラクションのある環境をビルドできます。
 
-[PUBLISH:rocket,licensee]
 [OBJECT:EmbeddedVideo]
 	[PARAMLITERAL:videoid]
 	JKO9fEjNiio
 	[/PARAMLITERAL]
 	[PARAMLITERAL:width]
-	930
+	100
 	[/PARAMLITERAL]
 	[PARAMLITERAL:height]
-	568
+	56.25
+	[/PARAMLITERAL]
+	[PARAMLITERAL:units]
+	%
+	[/PARAMLITERAL]
+	[PARAMLITERAL:type]
+	simple
 	[/PARAMLITERAL]
 [/OBJECT]
-[/PUBLISH:rocket,licensee]
 
 ## 要件
 
@@ -80,13 +51,15 @@ VR モードでアンリアル エディタを使用するためには、以下�
 | **ビデオ ドライバ** | 必ず最新版のビデオ ドライバをインストールしておいてください。HMD の中には最新のドライバが必要なものがあります。 |
 [/EXCERPT:main]
 
-## はじめよう
+## 始めてみましょう
 
-[DIR(end:"1" output:"topic" type:"how-to" tags:"Getting Started" parent:"Engine/Editor/VR")]
+%Engine/Editor/VR/ActivateVRMode:topic%
+%Engine/Editor/VR/Controls:topic%
 
 ## ガイド
 
-[DIR(end:"1" output:"topic" type:"how-to" tags:"Level Editing, GitHub" parent:"Engine/Editor/VR")]
+%Engine/Editor/VR/WorldInteraction:topic%
+%Engine/Editor/VR/ActorInteraction:topic%
 
 ## リファレンス
 

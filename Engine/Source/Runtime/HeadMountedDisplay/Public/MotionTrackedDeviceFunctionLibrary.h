@@ -153,6 +153,25 @@ class HEADMOUNTEDDISPLAY_API UMotionTrackedDeviceFunctionLibrary : public UBluep
 	UFUNCTION(BlueprintCallable, Category = "Input|MotionTracking")
 	static void DisableMotionTrackingOfControllersForPlayer(int32 PlayerIndex);
 
+	/**
+	 * Returns a list of all available motion sources (FNames associated with 
+	 * discrete tracking data that can be used to drive MotionControllerComponents).
+	 */
 	UFUNCTION(BlueprintCallable, Category = "Input|MotionTracking")
 	static TArray<FName> EnumerateMotionSources();
+
+	/**
+	 * Returns the system name used to distinguish the current tracking system.
+	 * If no XR tracking system is active, then the name 'None' is returned.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Input|MotionTracking")
+	static FName GetActiveTrackingSystemName();
+
+	/**
+	 * Queries the specified source's tracking status and returns true if it has tracking.
+	 *
+	 * @return Tracking status of the specified controller.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Input|MotionTracking")
+	static bool IsMotionSourceTracking(int32 PlayerIndex, FName SourceName);
 };

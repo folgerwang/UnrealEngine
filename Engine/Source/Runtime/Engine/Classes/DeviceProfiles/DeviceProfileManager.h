@@ -55,7 +55,18 @@ public:
 	 * @param ProfileName - The profile name to find.
 	 * @return The found profile.
 	 */
-	UDeviceProfile* FindProfile( const FString& ProfileName );
+	UDeviceProfile* FindProfile( const FString& ProfileName, bool bCreateProfileOnFail = true );
+
+	/**
+	* Overrides the device profile. The original profile can be restored with RestoreDefaultDeviceProfile
+	*/
+	void SetOverrideDeviceProfile(UDeviceProfile* DeviceProfile);
+
+	/**
+	* Restore the device profile to the default for this device
+	*/
+	void RestoreDefaultDeviceProfile();
+
 
 	/**
 	 * Get the device profile .ini name.

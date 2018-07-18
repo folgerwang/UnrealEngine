@@ -38,7 +38,7 @@ public:
 	: EditorContentPackages(inEditorContentPackages)
 	{
 		ArIsObjectReferenceCollector = true;
-		ArIsPersistent = true;
+		this->SetIsPersistent(true);
 		ArIgnoreClassRef = true;
 	}
 
@@ -248,9 +248,9 @@ void ALevelStreamingVolume::CheckForErrors()
 
 	// Warn if the volume has no streaming levels associated with it
 	bool bHasAssociatedLevels = false;
-	for (auto It = GetWorld()->StreamingLevels.CreateConstIterator(); It; ++It)
+	for (ULevelStreaming* LevelStreaming : GetWorld()->GetStreamingLevels())
 	{
-		if ((*It)->EditorStreamingVolumes.Contains(this))
+		if (LevelStreaming && LevelStreaming->EditorStreamingVolumes.Contains(this))
 		{
 			bHasAssociatedLevels = true;
 			break;

@@ -25,10 +25,10 @@ void HZBBuildPS(noperspective float4 RenderTargetUVAndScreenPos : TEXCOORD0, out
 	UV[2] = min(InUV + float2(-0.25f,  0.25f) * InvSize, InputViewportMaxBound);
 	UV[3] = min(InUV + float2( 0.25f,  0.25f) * InvSize, InputViewportMaxBound);
 
-	Depth.x = SceneDepthTexture.SampleLevel( SceneDepthTextureSampler, UV[0], 0 ).r;
-	Depth.y = SceneDepthTexture.SampleLevel( SceneDepthTextureSampler, UV[1], 0 ).r;
-	Depth.z = SceneDepthTexture.SampleLevel( SceneDepthTextureSampler, UV[2], 0 ).r;
-	Depth.w = SceneDepthTexture.SampleLevel( SceneDepthTextureSampler, UV[3], 0 ).r;
+	Depth.x = SceneTexturesStruct.SceneDepthTexture.SampleLevel( SceneTexturesStruct.SceneDepthTextureSampler, UV[0], 0 ).r;
+	Depth.y = SceneTexturesStruct.SceneDepthTexture.SampleLevel( SceneTexturesStruct.SceneDepthTextureSampler, UV[1], 0 ).r;
+	Depth.z = SceneTexturesStruct.SceneDepthTexture.SampleLevel( SceneTexturesStruct.SceneDepthTextureSampler, UV[2], 0 ).r;
+	Depth.w = SceneTexturesStruct.SceneDepthTexture.SampleLevel( SceneTexturesStruct.SceneDepthTextureSampler, UV[3], 0 ).r;
 #else
 	const float2 InUV = RenderTargetUVAndScreenPos.xy;
 	

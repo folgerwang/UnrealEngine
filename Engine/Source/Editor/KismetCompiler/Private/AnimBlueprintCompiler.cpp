@@ -126,6 +126,9 @@ FAnimBlueprintCompilerContext::FAnimBlueprintCompilerContext(UAnimBlueprint* Sou
 		TSet<FGuid> NodeGuids;
 		NodeGuids.Reserve(200);
 
+		// Tracking to see if we need to warn for deterministic cooking
+		bool bNodeGuidsRegenerated = false;
+
 		for (UEdGraph* Graph : AnimBlueprint->FunctionGraphs)
 		{
 			if (AnimationEditorUtils::IsAnimGraph(Graph))
@@ -144,6 +147,8 @@ FAnimBlueprintCompilerContext::FAnimBlueprintCompilerContext(UAnimBlueprint* Sou
 					{
 						if (NodeGuids.Contains(Node->NodeGuid))
 						{
+							bNodeGuidsRegenerated = true;
+							
 							Node->CreateNewGuid(); // GUID is already being used, create a new one.
 						}
 						else
@@ -153,6 +158,11 @@ FAnimBlueprintCompilerContext::FAnimBlueprintCompilerContext(UAnimBlueprint* Sou
 					}
 				}
 			}
+		}
+
+		if(bNodeGuidsRegenerated)
+		{
+			UE_LOG(LogAnimation, Warning, TEXT("Animation Blueprint %s has nodes with invalid node guids that have been regenerated. This blueprint will not cook deterministically until it is resaved."), *AnimBlueprint->GetPathName());
 		}
 	}
 
@@ -715,7 +725,7 @@ void FAnimBlueprintCompilerContext::ProcessSubInstance(UAnimGraphNode_SubInstanc
 		FString PrefixedName = SubInstance->GetPinTargetVariableName(Pin);
 
 		// Create a property on the new class to hold the pin data
-		UProperty* NewProperty = FKismetCompilerUtilities::CreatePropertyOnScope(NewAnimBlueprintClass, FName(*PrefixedName), Pin->PinType, NewAnimBlueprintClass, 0, GetSchema(), MessageLog);
+		UProperty* NewProperty = FKismetCompilerUtilities::CreatePropertyOnScope(NewAnimBlueprintClass, FName(*PrefixedName), Pin->PinType, NewAnimBlueprintClass, CPF_None, GetSchema(), MessageLog);
 		if(NewProperty)
 		{
 			FKismetCompilerUtilities::LinkAddedProperty(NewAnimBlueprintClass, NewProperty);
@@ -1908,12 +1918,22 @@ void FAnimBlueprintCompilerContext::CopyTermDefaultsToDefaultObject(UObject* Def
 
 #if WITH_EDITORONLY_DATA // ANIMINST_PostCompileValidation
 			const bool bWarnAboutBlueprintUsage = AnimBlueprint->bWarnAboutBlueprintUsage || DefaultAnimInstance->PCV_ShouldWarnAboutNodesNotUsingFastPath();
+			const bool bNotifyAboutBlueprintUsage = DefaultAnimInstance->PCV_ShouldNotifyAboutNodesNotUsingFastPath();
 #else
 			const bool bWarnAboutBlueprintUsage = AnimBlueprint->bWarnAboutBlueprintUsage;
+			const bool bNotifyAboutBlueprintUsage = false;
 #endif
-			if (bWarnAboutBlueprintUsage && (TrueNode->BlueprintUsage == EBlueprintUsage::UsesBlueprint))
+			if ((TrueNode->BlueprintUsage == EBlueprintUsage::UsesBlueprint) && (bWarnAboutBlueprintUsage || bNotifyAboutBlueprintUsage))
 			{
-				MessageLog.Warning(*LOCTEXT("BlueprintUsageWarning", "Node @@ uses Blueprint to update its values, access member variables directly or use a constant value for better performance.").ToString(), Node);
+				const FString MessageString = LOCTEXT("BlueprintUsageWarning", "Node @@ uses Blueprint to update its values, access member variables directly or use a constant value for better performance.").ToString();
+				if (bWarnAboutBlueprintUsage)
+				{
+					MessageLog.Warning(*MessageString, Node);
+				}
+				else
+				{
+					MessageLog.Note(*MessageString, Node);
+				}
 			}
 		}
 	}
@@ -2483,13 +2503,22 @@ void FAnimBlueprintCompilerContext::PostCompileDiagnostics()
 
 	if (!bIsDerivedAnimBlueprint)
 	{
+		bool bUsingCopyPoseFromMesh = false;
+
 		// Run thru all nodes and make sure they like the final results
 		for (auto NodeIt = AllocatedAnimNodeIndices.CreateConstIterator(); NodeIt; ++NodeIt)
 		{
 			if (UAnimGraphNode_Base* Node = NodeIt.Key())
 			{
 				Node->ValidateAnimNodePostCompile(MessageLog, NewAnimBlueprintClass, NodeIt.Value());
+				bUsingCopyPoseFromMesh = bUsingCopyPoseFromMesh || Node->UsingCopyPoseFromMesh();
 			}
+		}
+
+		// Update CDO
+		if (UAnimInstance* const DefaultAnimInstance = CastChecked<UAnimInstance>(NewAnimBlueprintClass->GetDefaultObject()))
+		{
+			DefaultAnimInstance->bUsingCopyPoseFromMesh = bUsingCopyPoseFromMesh;
 		}
 
 		//

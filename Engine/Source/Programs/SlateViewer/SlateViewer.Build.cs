@@ -60,7 +60,7 @@ public class SlateViewer : ModuleRules
 		{
 			PrivateDependencyModuleNames.AddRange(
 				new string[] {
-					"LinuxCommonStartup"
+					"UnixCommonStartup"
 				}
 			);
 		}

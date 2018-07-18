@@ -296,7 +296,8 @@ static FVertexBufferRHIRef AllocVertexBuffer(uint32 Stride, uint32 NumElements)
 
 static void ReleaseVertexBuffer(FVertexBuffer& VertexBuffer)
 {
-	if (VertexBuffer.VertexBufferRHI->GetSize() <= FGlobalDynamicMeshVertexPolicy().GetPoolBucketSize(FGlobalDynamicMeshVertexPolicy::NumPoolBuckets - 1))
+	if (IsValidRef(VertexBuffer.VertexBufferRHI)
+		&& VertexBuffer.VertexBufferRHI->GetSize() <= FGlobalDynamicMeshVertexPolicy().GetPoolBucketSize(FGlobalDynamicMeshVertexPolicy::NumPoolBuckets - 1))
 	{
 		GDynamicMeshVertexPool.ReleasePooledResource(VertexBuffer.VertexBufferRHI);
 		VertexBuffer.VertexBufferRHI = nullptr;
@@ -344,7 +345,7 @@ public:
 
 		if (RHISupportsManualVertexFetch(GMaxRHIShaderPlatform))
 		{
-			TangentBufferSRV = RHICreateShaderResourceView(TangentBuffer.VertexBufferRHI, 4, PF_R8G8B8A8);
+			TangentBufferSRV = RHICreateShaderResourceView(TangentBuffer.VertexBufferRHI, 4, PF_R8G8B8A8_SNORM);
 			TexCoordBufferSRV = RHICreateShaderResourceView(TexCoordBuffer.VertexBufferRHI, TextureStride, TextureFormat);
 			ColorBufferSRV = RHICreateShaderResourceView(ColorBuffer.VertexBufferRHI, 4, PF_R8G8B8A8);
 
@@ -597,8 +598,7 @@ int32 FDynamicMeshBuilder::AddVertex(
 	Vertex->TextureCoordinate[0] = InTextureCoordinate;
 	Vertex->TangentX = InTangentX;
 	Vertex->TangentZ = InTangentZ;
-	// store the sign of the determinant in TangentZ.W (-1=0,+1=255)
-	Vertex->TangentZ.Vector.W = GetBasisDeterminantSign( InTangentX, InTangentY, InTangentZ ) < 0 ? 0 : 255;
+	Vertex->TangentZ.Vector.W = GetBasisDeterminantSignByte( InTangentX, InTangentY, InTangentZ );
 	Vertex->Color = InColor;
 
 	return VertexIndex;

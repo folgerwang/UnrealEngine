@@ -9,7 +9,7 @@ bool FOnlineExternalUIFacebookCommon::ShowLoginUI(const int ControllerIndex, boo
 
 	FacebookSubsystem->ExecuteNextTick([ControllerIndex, Delegate]()
 	{
-		Delegate.ExecuteIfBound(nullptr, ControllerIndex);
+		Delegate.ExecuteIfBound(nullptr, ControllerIndex, FOnlineError(false));
 	});
 
 	return bStarted;

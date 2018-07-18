@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3804170
 Availability:Public
 Title: 무비 렌더링 명령줄 인수
 Crumbs: %ROOT%, Engine
@@ -88,11 +88,11 @@ tags:Sequencer
 
 | 인수 | 설명 | 주 |
 | ---- | ----------- |----------- |
-| -CustomRenderPasses="RenderPassName" | 커스텀 렌더 패스를 설정합니다. | 옵션 (괄호 제외): <br> AmbientOcclusion, BaseColor, CustomDepth, CustomDepthWorldUnits, CustomStencil, FinalImage, MaterialAO (앰비언트 오클루전), Metallic, Opacity, PostTonemapHDRColor, Roughness, SceneColor, SceneDepth, SceneDepthWorldUnits, SeparateTranslucencyA (알파), SeparateTranslucencyRGB, ShadingModel, Specular, SubsurfaceColor, WorldNormal. |
+| -CustomRenderPasses="RenderPassName" | 커스텀 렌더 패스를 설정합니다. | 옵션 (괄호 제외): AmbientOcclusion, BaseColor, CustomDepth, CustomDepthWorldUnits, CustomStencil, FinalImage, MaterialAO (앰비언트 오클루전), Metallic, Opacity, PostTonemapHDRColor, Roughness, SceneColor, SceneDepth, SceneDepthWorldUnits, SeparateTranslucencyA (알파), SeparateTranslucencyRGB, ShadingModel, Specular, SubsurfaceColor, WorldNormal. |
 | -CaptureFramesInHDR | HDR 을 .exr 포맷으로 렌더링합니다. | |
 | -HDRCompressionQuality=## | HDR 프레임에 대한 압축 퀄리티입니다 (0 은 압축 없음, 1 은 기본 압축으로 느릴 수 있습니다). -CaptureFramesInHDR 에 따라 달라집니다. | |
 | -CaptureGamut="HCGM_Name" | HDR 캡처 데이터를 저장할 때 사용할 색 공간입니다. -CaptureFramesInHDR 에 따라 달라집니다. | (아래 색 공간 설명 참고) HCGM_Rec709, HCGM_P3DCI, HCGM_Rec2020, HCGM_ACES, HCGM_ACEScg, HCGM_MAX. |
-| -PostProcessingMaterial="MaterialPath" | 렌더링에 사용할 커스텀 포스트 프로세싱 머티리얼입니다. | 포맷은 다음과 같습니다: "Material'/Engine/BufferVisualization/SceneDepth.SceneDepth'" <br> 그 경로를 쉽게 구하는 방법은 콘텐츠 브라우저에서 머티리얼에 우클릭한 다음 Copy Reference (레퍼런스 복사)하면 됩니다. |
+| -PostProcessingMaterial="MaterialPath" | 렌더링에 사용할 커스텀 포스트 프로세싱 머티리얼입니다. | 포맷은 다음과 같습니다: "Material'/Engine/BufferVisualization/SceneDepth.SceneDepth'" 그 경로를 쉽게 구하는 방법은 콘텐츠 브라우저에서 머티리얼에 우클릭한 다음 Copy Reference (레퍼런스 복사)하면 됩니다. |
 
 * 색 공간 설명
 	* HCGM_Rec709 - Rec. 709 / sRGB
@@ -115,9 +115,9 @@ tags:Sequencer
 | r.ForceLOD=0 | 모든 LOD 를 0 으로 강제 설정하고, -1 은 끕니다. |
 | r.MotionBlurQuality=4 | 모션 블러 메소드를 정의합니다 (퀄리티 또는 퍼포먼스를 조율합니다): 0 은 끔, 1 은 낮음, 2 는 중간, 3 은 높음(기본), 4 는 매우 높음 입니다.|
 | r.MotionBlurSeparable=1 | 보다 높은 퀄리티의 블러를 위해 노이즈에 스무딩을 적용하는 이차 모션 블러 패스를 추가합니다. 0 은 꺼짐, 1 은 켜짐 입니다. |
-| r.DepthOfFieldQuality=4 | 뎁스 오브 필드 퀄리티를 조절할 수 있습니다. 현재 보케 DOF 에만 완전히 영향을 줍니다. 가우시안 DOF 는 0 이 꺼짐, 그 외에는 켜짐 입니다. <br> [INCLUDE:Engine\Sequencer\Workflow\RenderingCmdLine#dofquality] |
-| r.HLOD=0 | 단일 인수: 0 또는 1 로 HLOD 시스템 끄기/켜기 입니다. <br> 다중 인수: X 를 강제 적용하는데, X 는 뷰에 강제로 적용시킬 HLOD 레벨입니다. |
-| r.SSR.Quality=4| 스크린 스페이스 리플렉션 사용 여부와 어떤 퀄리티 세팅을 사용할지 입니다. 포스트 프로세스 세팅에서 스케일이 다른 세팅을 제한합니다. 퍼포먼스 비용이 들고, 시각적인 사실감이 더해지지만, 기술적 한계가 있습니다. <br> [INCLUDE:Engine\Sequencer\Workflow\RenderingCmdLine#ssrquality]  |
+| r.DepthOfFieldQuality=4 | 뎁스 오브 필드 퀄리티를 조절할 수 있습니다. 현재 보케 DOF 에만 완전히 영향을 줍니다. 가우시안 DOF 는 0 이 꺼짐, 그 외에는 켜짐 입니다. [INCLUDE:Engine\Sequencer\Workflow\RenderingCmdLine#dofquality] |
+| r.HLOD=0 | 단일 인수: 0 또는 1 로 HLOD 시스템 끄기/켜기 입니다. 다중 인수: X 를 강제 적용하는데, X 는 뷰에 강제로 적용시킬 HLOD 레벨입니다. |
+| r.SSR.Quality=4| 스크린 스페이스 리플렉션 사용 여부와 어떤 퀄리티 세팅을 사용할지 입니다. 포스트 프로세스 세팅에서 스케일이 다른 세팅을 제한합니다. 퍼포먼스 비용이 들고, 시각적인 사실감이 더해지지만, 기술적 한계가 있습니다.  [INCLUDE:Engine\Sequencer\Workflow\RenderingCmdLine#ssrquality]  |
 | r.ViewDistanceScale=30 | 뷰 디스턴스 스케일을 조절합니다. 프리미티브의 MaxDrawDistance (최대 그리기 거리)에 이 값을 곱합니다. 값이 클 수록 가시 거리가 늘어나지만 퍼포먼스 비용도 증가합니다. |
 | r.MipMapLODBias=-1 | 모든 2D 텍스처에 부가 밉 맵 바이어스를 적용하며, 범위는 -15.0 에서 15.0 입니다. |
 | r.Shadow.MaxResolution=4096 | 섀도우 뎁스 렌더링에 허용된 (텍셀 단위) 최대 정사각 치수입니다. 범위는 4 에서 하드웨어 한계치까지입니다. 높을 수록 섀도우 퀄리티가 좋아지지만 퍼포먼스 비용도 늘어납니다. |

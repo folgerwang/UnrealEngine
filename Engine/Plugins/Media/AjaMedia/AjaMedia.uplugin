@@ -1,0 +1,54 @@
+{
+	"FileVersion" : 3,
+	
+	"FriendlyName" : "Aja Media Player",
+	"Version" : 1,
+	"VersionName" : "1.0",
+	"CreatedBy" : "Epic Games Inc",
+	"CreatedByURL" : "http://epicgames.com",
+	"Description" : "Implements input and output using Aja Capture cards.",
+	"Category" : "Media Players",
+	"CanContainContent" : true,
+	"EnabledByDefault" : false,
+	"IsBetaVersion": true,
+
+	"Modules": [
+		{
+			"Name": "AjaMedia",
+			"Type": "RuntimeNoCommandlet",
+			"LoadingPhase": "Default",
+			"WhitelistPlatforms": [ "Win64" ]
+		},
+		{
+			"Name": "AjaMediaOutput",
+			"Type": "RuntimeNoCommandlet",
+			"LoadingPhase": "Default",
+			"WhitelistPlatforms": [ "Win64" ]
+		},
+		{
+			"Name": "AjaMediaFactory",
+			"Type": "Editor",
+			"LoadingPhase": "PostEngineInit",
+			"WhitelistPlatforms": [ "Win64" ]
+		},
+		{
+			"Name": "AjaMediaFactory",
+			"Type": "RuntimeNoCommandlet",
+			"LoadingPhase": "PostEngineInit",
+			"WhitelistPlatforms": [ "Win64" ]
+		},
+		{
+			"Name": "AjaMediaEditor",
+			"Type": "Editor",
+			"LoadingPhase": "PostEngineInit",
+			"WhitelistPlatforms": [ "Win64" ]
+		}
+	],
+	"Plugins" :
+	[
+		{
+			"Name" : "MediaFrameworkUtilities",
+			"Enabled" : true
+		}
+	]
+}

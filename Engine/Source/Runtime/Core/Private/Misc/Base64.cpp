@@ -217,10 +217,6 @@ template<typename CharType> bool FBase64::Decode(const CharType* Source, uint32 
 		}
 
 		// Now we can tear the uint32 into bytes
-		if(Length >= 4)
-		{
-			Dest[2] = OriginalTriplet & 0xFF;
-		}
 		OriginalTriplet >>= 8;
 		if(Length >= 3)
 		{

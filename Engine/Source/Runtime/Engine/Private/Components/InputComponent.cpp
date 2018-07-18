@@ -2,6 +2,7 @@
 
 #include "Components/InputComponent.h"
 #include "GameFramework/PlayerController.h"
+#include "GameFramework/PlayerInput.h"
 
 
 /* UInputComponent interface
@@ -13,6 +14,98 @@ UInputComponent::UInputComponent( const FObjectInitializer& ObjectInitializer )
 	bBlockInput = false;
 }
 
+void UInputComponent::ConditionalBuildKeyMap(UPlayerInput* PlayerInput)
+{
+	if (!ensure(PlayerInput))
+	{
+		return;
+	}
+
+	FCachedKeyToActionInfo* CachedInfoToPopulate = nullptr;
+
+	for (int32 Index = CachedKeyToActionInfo.Num() - 1; Index >= 0; --Index)
+	{
+		CachedInfoToPopulate = &CachedKeyToActionInfo[Index];
+
+		if (CachedInfoToPopulate->PlayerInput == PlayerInput)
+		{
+			if (CachedInfoToPopulate->KeyMapBuiltForIndex == PlayerInput->GetKeyMapBuildIndex())
+			{
+				// Found it and it doesn't need to be rebuilt
+				return;
+			}
+			// Found it and it does need to be rebuilt
+			break;
+		}
+		else if (CachedInfoToPopulate->PlayerInput == nullptr)
+		{
+			CachedKeyToActionInfo.RemoveAtSwap(Index, 1, false);
+		}
+
+		CachedInfoToPopulate = nullptr;
+	}
+
+	if (CachedInfoToPopulate == nullptr)
+	{
+		CachedKeyToActionInfo.AddDefaulted();
+		CachedInfoToPopulate = &CachedKeyToActionInfo.Last();
+		CachedInfoToPopulate->PlayerInput = PlayerInput;
+	}
+
+	// Reset the map and AnyKey array
+	for (TPair<FKey, TArray<TSharedPtr<FInputActionBinding>>>& KeyBindingPair : CachedInfoToPopulate->KeyToActionMap)
+	{
+		KeyBindingPair.Value.Reset();
+	}
+	CachedInfoToPopulate->AnyKeyToActionMap.Reset();
+
+	for (const TSharedPtr<FInputActionBinding>& ActionBinding : ActionBindings)
+	{
+		const TArray<FInputActionKeyMapping>& KeysForAction = PlayerInput->GetKeysForAction(ActionBinding->ActionName);
+
+		for (const FInputActionKeyMapping& KeyMapping : KeysForAction)
+		{
+			if (KeyMapping.Key != EKeys::AnyKey)
+			{
+				CachedInfoToPopulate->KeyToActionMap.FindOrAdd(KeyMapping.Key).Add(ActionBinding);
+			}
+			else
+			{
+				CachedInfoToPopulate->AnyKeyToActionMap.Add(ActionBinding);
+			}
+		}
+	}
+
+	CachedInfoToPopulate->KeyMapBuiltForIndex = PlayerInput->GetKeyMapBuildIndex();
+}
+
+void UInputComponent::GetActionsBoundToKey(UPlayerInput* PlayerInput, const FKey Key, TArray<TSharedPtr<FInputActionBinding>>& Actions) const
+{
+	for (const FCachedKeyToActionInfo& CachedInfo : CachedKeyToActionInfo)
+	{
+		if (CachedInfo.PlayerInput == PlayerInput)
+		{
+			if (const TArray<TSharedPtr<FInputActionBinding>>* ActionsForKey = CachedInfo.KeyToActionMap.Find(Key))
+			{
+				for (const TSharedPtr<FInputActionBinding>& ActionForKey : *ActionsForKey)
+				{
+					Actions.AddUnique(ActionForKey);
+				}
+			}
+			for (const TSharedPtr<FInputActionBinding>& ActionForKey : CachedInfo.AnyKeyToActionMap)
+			{
+				Actions.AddUnique(ActionForKey);
+			}
+			return;
+		}
+	}
+	// If we get here then we failed to find cached actions for the specified PlayerInput which means the conditional function has not yet been called
+	// We'll ensure so high level code is fixed, and then force it to be built and recall ourselves
+	ensure(false);
+	UInputComponent* MutableThis = const_cast<UInputComponent*>(this);
+	MutableThis->ConditionalBuildKeyMap(PlayerInput);
+	GetActionsBoundToKey(PlayerInput, Key, Actions);
+}
 
 float UInputComponent::GetAxisValue( const FName AxisName ) const
 {
@@ -103,21 +196,23 @@ bool UInputComponent::HasBindings( ) const
 }
 
 
-FInputActionBinding& UInputComponent::AddActionBinding( const FInputActionBinding& Binding )
+FInputActionBinding& UInputComponent::AddActionBinding( const FInputActionBinding& InBinding )
 {
-	ActionBindings.Add(Binding);
+	ActionBindings.Add(MakeShared<FInputActionBinding>(InBinding));
+	FInputActionBinding& Binding = *ActionBindings.Last().Get();
+
 	if (Binding.KeyEvent == IE_Pressed || Binding.KeyEvent == IE_Released)
 	{
 		const EInputEvent PairedEvent = (Binding.KeyEvent == IE_Pressed ? IE_Released : IE_Pressed);
 		for (int32 BindingIndex = ActionBindings.Num() - 2; BindingIndex >= 0; --BindingIndex )
 		{
-			FInputActionBinding& ActionBinding = ActionBindings[BindingIndex];
+			FInputActionBinding& ActionBinding = *ActionBindings[BindingIndex].Get();
 			if (ActionBinding.ActionName == Binding.ActionName)
 			{
 				// If we find a matching event that is already paired we know this is paired so mark it off and we're done
 				if (ActionBinding.bPaired)
 				{
-					ActionBindings.Last().bPaired = true;
+					Binding.bPaired = true;
 					break;
 				}
 				// Otherwise if this is a pair to the new one mark them both as paired
@@ -125,18 +220,27 @@ FInputActionBinding& UInputComponent::AddActionBinding( const FInputActionBindin
 				else if (ActionBinding.KeyEvent == PairedEvent)
 				{
 					ActionBinding.bPaired = true;
-					ActionBindings.Last().bPaired = true;
+					Binding.bPaired = true;
 				}
 			}
 		}
 	}
 
-	return ActionBindings.Last();
+	for (FCachedKeyToActionInfo& CachedInfo : CachedKeyToActionInfo)
+	{
+		CachedInfo.KeyMapBuiltForIndex = 0;
+	}
+
+	return Binding;
 }
 
 
 void UInputComponent::ClearActionBindings( )
 {
+	for (FCachedKeyToActionInfo& CachedInfo : CachedKeyToActionInfo)
+	{
+		CachedInfo.KeyMapBuiltForIndex = 0;
+	}
 	ActionBindings.Reset();
 }
 
@@ -144,7 +248,7 @@ void UInputComponent::RemoveActionBinding( const int32 BindingIndex )
 {
 	if (BindingIndex >= 0 && BindingIndex < ActionBindings.Num())
 	{
-		const FInputActionBinding& BindingToRemove = ActionBindings[BindingIndex];
+		const FInputActionBinding& BindingToRemove = *ActionBindings[BindingIndex].Get();
 
 		// Potentially need to clear some pairings
 		if (BindingToRemove.bPaired)
@@ -156,7 +260,7 @@ void UInputComponent::RemoveActionBinding( const int32 BindingIndex )
 			{
 				if (ActionIndex != BindingIndex)
 				{
-					const FInputActionBinding& ActionBinding = ActionBindings[ActionIndex];
+					const FInputActionBinding& ActionBinding = *ActionBindings[ActionIndex].Get();
 					if (ActionBinding.ActionName == BindingToRemove.ActionName)
 					{
 						// If we find another of the same key event then the pairing is intact so we're done
@@ -176,11 +280,15 @@ void UInputComponent::RemoveActionBinding( const int32 BindingIndex )
 
 			for (int32 ClearIndex = 0; ClearIndex < IndicesToClear.Num(); ++ClearIndex)
 			{
-				ActionBindings[IndicesToClear[ClearIndex]].bPaired = false;
+				ActionBindings[IndicesToClear[ClearIndex]]->bPaired = false;
 			}
 		}
 
-		ActionBindings.RemoveAt(BindingIndex);
+		ActionBindings.RemoveAt(BindingIndex, 1, false);
+		for (FCachedKeyToActionInfo& CachedInfo : CachedKeyToActionInfo)
+		{
+			CachedInfo.KeyMapBuiltForIndex = 0;
+		}
 	}
 }
 

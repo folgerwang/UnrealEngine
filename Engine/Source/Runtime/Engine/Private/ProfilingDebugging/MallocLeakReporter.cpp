@@ -1,10 +1,10 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "MallocLeakReporter.h"
-#include "Parse.h"
-#include "Ticker.h"
-#include "UObjectGlobals.h"
-#include "Paths.h"
+#include "ProfilingDebugging/MallocLeakReporter.h"
+#include "Misc/Parse.h"
+#include "Containers/Ticker.h"
+#include "UObject/UObjectGlobals.h"
+#include "Misc/Paths.h"
 
 
 DEFINE_LOG_CATEGORY_STATIC(LogLeakDetector, Log, All);
@@ -98,6 +98,8 @@ void FMallocLeakReporter::Clear()
 
 void FMallocLeakReporter::Checkpoint()
 {
+    QUICK_SCOPE_CYCLE_COUNTER(STAT_FMallocLeakDetection_Checkpoint);
+
 #if MALLOC_LEAKDETECTION
 	FMallocLeakDetection::Get().CheckpointLinearFit();
 #endif
@@ -105,6 +107,8 @@ void FMallocLeakReporter::Checkpoint()
 
 int32 FMallocLeakReporter::WriteReports(const uint32 ReportFlags /*=EReportOption::ReportAll*/)
 {
+    QUICK_SCOPE_CYCLE_COUNTER(STAT_FMallocLeakReporter_WriteReports);
+
 	FString MapName = FPaths::GetBaseFilename(GWorld->GetName());
 
 	FString BaseName = FString::Printf(TEXT("%03d_%s"), ReportCount++, *MapName);
@@ -169,7 +173,7 @@ static FAutoConsoleCommand LeakReporterStartCommand(
 
 		FMallocLeakReporter::Get().Start(Size * 1024, ReportTime);
 
-		UE_LOG(LogConsoleResponse, Display, TEXT("Tracking allocations >=  %d KB and reporting every %d seconds"), Size / 1024, ReportTime);
+		UE_LOG(LogConsoleResponse, Display, TEXT("Tracking allocations >=  %d KB and reporting every %f seconds"), Size / 1024, ReportTime);
 	})
 );
 

@@ -34,11 +34,11 @@ public class OodleHandlerComponent : ModuleRules
 				"Plugins", "Runtime", "PacketHandlers", "CompressionComponents", "Oodle", "Source", "ThirdParty", "NotForLicensees",
 				"Oodle", "255", "win", "lib" );
 		}
-		else if (Target.Platform == UnrealTargetPlatform.Linux)
+		else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
 		{
 			OodleNotForLicenseesLibDir = System.IO.Path.Combine( Target.UEThirdPartySourceDirectory, "..", "..",
 				"Plugins", "Runtime", "PacketHandlers", "CompressionComponents", "Oodle", "Source", "ThirdParty", "NotForLicensees",
-				"Oodle", "255", "linux", "lib" );
+				"Oodle", "255", "Linux", "lib" );
 		}
 		else if ( Target.Platform == UnrealTargetPlatform.PS4 )
 		{
@@ -58,8 +58,26 @@ public class OodleHandlerComponent : ModuleRules
             "Plugins", "Runtime", "PacketHandlers", "CompressionComponents", "Oodle", "Source", "ThirdParty", "NotForLicensees",
             "Oodle", "255", "Mac", "lib");
         }
+		else if (Target.Platform == UnrealTargetPlatform.Android)
+		{
+			OodleNotForLicenseesLibDir = System.IO.Path.Combine(Target.UEThirdPartySourceDirectory, "..", "..",
+			"Plugins", "Runtime", "PacketHandlers", "CompressionComponents", "Oodle", "Source", "ThirdParty", "NotForLicensees",
+			"Oodle", "255", "Android", "lib");
+		}
+		else if (Target.Platform == UnrealTargetPlatform.IOS)
+		{
+			OodleNotForLicenseesLibDir = System.IO.Path.Combine(Target.UEThirdPartySourceDirectory, "..", "..",
+			"Plugins", "Runtime", "PacketHandlers", "CompressionComponents", "Oodle", "Source", "ThirdParty", "NotForLicensees",
+			"Oodle", "255", "IOS", "lib");
+		}
+		else if (Target.Platform == UnrealTargetPlatform.Switch)
+		{
+			OodleNotForLicenseesLibDir = System.IO.Path.Combine(Target.UEThirdPartySourceDirectory, "..", "..",
+			"Plugins", "Runtime", "PacketHandlers", "CompressionComponents", "Oodle", "Source", "ThirdParty", "NotForLicensees",
+			"Oodle", "255", "Switch", "lib");
+		}
 
-        if (OodleNotForLicenseesLibDir.Length > 0)
+		if (OodleNotForLicenseesLibDir.Length > 0)
 		{
 			try
 			{

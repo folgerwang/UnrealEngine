@@ -6,11 +6,11 @@
 #include "Misc/Parse.h"
 #include "Misc/CommandLine.h"
 
-#include "EngineVersion.h"
+#include "Misc/EngineVersion.h"
 #include "ISourceControlModule.h"
 
-#include "WindowsHWrapper.h"
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/WindowsHWrapper.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 #include <DbgHelp.h>
 
 bool FCrashDebugHelperWindows::CreateMinidumpDiagnosticReport( const FString& InCrashDumpFilename )
@@ -179,4 +179,4 @@ void FCrashDebugHelperWindows::SyncAndReadSourceFile(bool bSyncSymbols, bool bAn
 	}
 }
 
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"

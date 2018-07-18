@@ -10,7 +10,7 @@
 #if UE_USE_MALLOC_REPLAY_PROXY
 
 #include "Misc/CString.h"
-#include "PlatformProcess.h"
+#include "HAL/PlatformProcess.h"
 
 struct FMallocReplayProxyCloserOnExit
 {

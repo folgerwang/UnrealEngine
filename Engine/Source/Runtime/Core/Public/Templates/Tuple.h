@@ -8,6 +8,7 @@
 #include "Templates/Decay.h"
 #include "Delegates/IntegerSequence.h"
 #include "Templates/Invoke.h"
+#include "Serialization/StructuredArchive.h"
 
 // VS2015 Update 2 (and seemingly earlier) erroneously complains about multiple versions
 // of special member functions, so we disable the use of defaulting in that case.
@@ -17,15 +18,6 @@
 	#define TUPLES_USE_DEFAULTED_FUNCTIONS 0
 #else
 	#define TUPLES_USE_DEFAULTED_FUNCTIONS 1
-#endif
-
-// Static analysis causes internal compiler errors with auto-deduced return types,
-// but some older VC versions still have return type deduction failures inside the delegate code
-// when they are enabled.  So we currently only enable them for static analysis builds.
-#if defined(_MSC_VER) && !defined(__INTEL_COMPILER)
-	#define USE_TUPLE_AUTO_RETURN_TYPES USING_CODE_ANALYSIS
-#else
-	#define USE_TUPLE_AUTO_RETURN_TYPES 1
 #endif
 
 class FArchive;
@@ -414,7 +406,7 @@ namespace UE4Tuple_Private
 		#endif
 
 		template <typename FuncType, typename... ArgTypes>
-		#if USE_TUPLE_AUTO_RETURN_TYPES
+		#if PLATFORM_COMPILER_HAS_DECLTYPE_AUTO
 			decltype(auto) ApplyAfter(FuncType&& Func, ArgTypes&&... Args) const
 		#else
 			auto ApplyAfter(FuncType&& Func, ArgTypes&&... Args) const -> decltype(Func(Forward<ArgTypes>(Args)..., this->Get<Indices>()...))
@@ -424,7 +416,7 @@ namespace UE4Tuple_Private
 		}
 
 		template <typename FuncType, typename... ArgTypes>
-		#if USE_TUPLE_AUTO_RETURN_TYPES
+		#if PLATFORM_COMPILER_HAS_DECLTYPE_AUTO
 			decltype(auto) ApplyBefore(FuncType&& Func, ArgTypes&&... Args) const
 		#else
 			auto ApplyBefore(FuncType&& Func, ArgTypes&&... Args) const -> decltype(Func(this->Get<Indices>()..., Forward<ArgTypes>(Args)...))
@@ -439,6 +431,14 @@ namespace UE4Tuple_Private
 			int Temp[] = { 0, (Ar << Tuple.template Get<Indices>(), 0)... };
 			(void)Temp;
 			return Ar;
+		}
+
+		FORCEINLINE friend void operator<<(FStructuredArchive::FSlot Slot, TTupleImpl& Tuple)
+		{
+			// This should be implemented with a fold expression when our compilers support it
+			FStructuredArchive::FStream Stream = Slot.EnterStream();
+			int Temp[] = { 0, (Stream.EnterElement() << Tuple.template Get<Indices>(), 0)... };
+			(void)Temp;
 		}
 
 		FORCEINLINE friend bool operator==(const TTupleImpl& Lhs, const TTupleImpl& Rhs)
@@ -489,7 +489,7 @@ namespace UE4Tuple_Private
 			template <uint32 Index> FORCEINLINE       int32& Get();
 
 			template <typename FuncType, typename... ArgTypes>
-			#if USE_TUPLE_AUTO_RETURN_TYPES
+			#if PLATFORM_COMPILER_HAS_DECLTYPE_AUTO
 				decltype(auto) ApplyAfter(FuncType&& Func, ArgTypes&&... Args) const
 			#else
 				auto ApplyAfter(FuncType&& Func, ArgTypes&&... Args) const -> decltype(Func(Forward<ArgTypes>(Args)...))
@@ -499,7 +499,7 @@ namespace UE4Tuple_Private
 			}
 
 			template <typename FuncType, typename... ArgTypes>
-			#if USE_TUPLE_AUTO_RETURN_TYPES
+			#if PLATFORM_COMPILER_HAS_DECLTYPE_AUTO
 				decltype(auto) ApplyBefore(FuncType&& Func, ArgTypes&&... Args) const
 			#else
 				auto ApplyBefore(FuncType&& Func, ArgTypes&&... Args) const -> decltype(Func(Forward<ArgTypes>(Args)...))
@@ -560,7 +560,7 @@ namespace UE4Tuple_Private
 	struct TTransformTuple_Impl<TIntegerSequence<uint32, Indices...>>
 	{
 		template <typename TupleType, typename FuncType>
-		#if USE_TUPLE_AUTO_RETURN_TYPES
+		#if PLATFORM_COMPILER_HAS_DECLTYPE_AUTO
 			static decltype(auto) Do(TupleType&& Tuple, FuncType Func)
 		#else
 			static auto Do(TupleType&& Tuple, FuncType Func) -> decltype(MakeTuple(Func(Forward<TupleType>(Tuple).template Get<Indices>())...))
@@ -722,7 +722,7 @@ FORCEINLINE TTuple<typename TDecay<Types>::Type...> MakeTuple(Types&&... Args)
  * }
  */
 template <typename FuncType, typename... Types>
-#if USE_TUPLE_AUTO_RETURN_TYPES
+#if PLATFORM_COMPILER_HAS_DECLTYPE_AUTO
 	FORCEINLINE decltype(auto) TransformTuple(TTuple<Types...>&& Tuple, FuncType Func)
 #else
 	FORCEINLINE auto TransformTuple(TTuple<Types...>&& Tuple, FuncType Func) -> decltype(UE4Tuple_Private::TTransformTuple_Impl<TMakeIntegerSequence<uint32, sizeof...(Types)>>::Do(MoveTemp(Tuple), MoveTemp(Func)))
@@ -732,7 +732,7 @@ template <typename FuncType, typename... Types>
 }
 
 template <typename FuncType, typename... Types>
-#if USE_TUPLE_AUTO_RETURN_TYPES
+#if PLATFORM_COMPILER_HAS_DECLTYPE_AUTO
 	FORCEINLINE decltype(auto) TransformTuple(const TTuple<Types...>& Tuple, FuncType Func)
 #else
 	FORCEINLINE auto TransformTuple(const TTuple<Types...>& Tuple, FuncType Func) -> decltype(UE4Tuple_Private::TTransformTuple_Impl<TMakeIntegerSequence<uint32, sizeof...(Types)>>::Do(Tuple, MoveTemp(Func)))

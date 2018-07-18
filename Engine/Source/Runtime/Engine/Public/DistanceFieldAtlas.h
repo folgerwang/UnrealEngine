@@ -15,7 +15,7 @@
 #include "RenderResource.h"
 #include "RenderingThread.h"
 #include "TextureLayout3d.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 class FDistanceFieldVolumeData;
 class UStaticMesh;
@@ -161,12 +161,6 @@ public:
 		bMeshWasPlane(false),
 		VolumeTexture(*this)
 	{}
-
-	// Use the deferred cleanup interface to safely delete even when the rendering thread stores a reference to this volume data
-	virtual void FinishCleanup() override
-	{
-		delete this;
-	}
 
 	void GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize) const
 	{

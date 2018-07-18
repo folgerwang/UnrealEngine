@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3108692
+﻿INTSourceChangelist:3807090
 Availability: Public
 Title:버텍스 컬러 일치
 Crumbs:%ROOT%, Engine, Engine/UI/LevelEditor/Modes/MeshPaintMode/VertexColor
@@ -28,9 +28,9 @@ Version: 4.9
 
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
-	![Original Mesh - Fix Before](fix_before.png)(w:850 h:404)
+	![원본 메시 - 고치기 전](fix_before.png)(w:850)
 	[/PARAM]
 	[PARAM:after]
-	![Lower Poly Mesh - Fixup applied](fix_after.png)(w:850 h:404)
+	![로우 폴리 메시 - 고치기 적용 후](fix_after.png)(w:850)
 	[/PARAM]
 [/OBJECT]

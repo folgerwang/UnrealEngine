@@ -10,8 +10,8 @@
 #include "FbxMeshUtils.h"
 #include "Framework/Notifications/NotificationManager.h"
 #include "Widgets/Notifications/SNotificationList.h"
-#include "MessageDialog.h"
-#include "ScopedSlowTask.h"
+#include "Misc/MessageDialog.h"
+#include "Misc/ScopedSlowTask.h"
 
 #define LOCTEXT_NAMESPACE "AssetTypeActions"
 
@@ -50,7 +50,7 @@ void FAssetTypeActions_StaticMesh::GetActions( const TArray<UObject*>& InObjects
 
 	MenuBuilder.AddMenuEntry(
 		NSLOCTEXT("AssetTypeActions_StaticMesh", "ObjectContext_ClearVertexColors", "Remove Vertex Colors"),
-		NSLOCTEXT("AssetTypeActions_StaticMesh", "ObjectContext_ClearVertexColors", "Removes vertex colors from all LODS in all selected meshes."),
+		NSLOCTEXT("AssetTypeActions_StaticMesh", "ObjectContext_ClearVertexColorsTooltip", "Removes vertex colors from all LODS in all selected meshes."),
 		FSlateIcon(),
 		FUIAction(
 			FExecuteAction::CreateSP(this, &FAssetTypeActions_StaticMesh::ExecuteRemoveVertexColors, Meshes)
@@ -195,7 +195,7 @@ void FAssetTypeActions_StaticMesh::ExecutePasteLODSettings(TArray<TWeakObjectPtr
 	for (int32 i = 0; i < LODCopyMesh->SourceModels.Num(); i++)
 	{
 		LODSettings[i].ReductionSettings = LODCopyMesh->SourceModels[i].ReductionSettings;
-		LODSettings[i].ScreenSize = LODCopyMesh->SourceModels[i].ScreenSize;
+		LODSettings[i].ScreenSize = LODCopyMesh->SourceModels[i].ScreenSize.Default;
 	}
 
 	const bool bAutoComputeLODScreenSize = LODCopyMesh->bAutoComputeLODScreenSize;
@@ -208,21 +208,12 @@ void FAssetTypeActions_StaticMesh::ExecutePasteLODSettings(TArray<TWeakObjectPtr
 			UStaticMesh* Mesh = MeshPtr.Get();
 
 			const int32 LODCount = LODSettings.Num();
-			if (Mesh->SourceModels.Num() > LODCount)
-			{
-				const int32 NumToRemove = Mesh->SourceModels.Num() - LODCount;
-				Mesh->SourceModels.RemoveAt(LODCount, NumToRemove);
-			}
-
-			while (Mesh->SourceModels.Num() < LODCount)
-			{
-				new(Mesh->SourceModels) FStaticMeshSourceModel();
-			}
+			Mesh->SetNumSourceModels(LODCount);
 
 			for (int32 i = 0; i < LODCount; i++)
 			{
 				Mesh->SourceModels[i].ReductionSettings = LODSettings[i].ReductionSettings;
-				Mesh->SourceModels[i].ScreenSize = LODSettings[i].ScreenSize;
+				Mesh->SourceModels[i].ScreenSize.Default = LODSettings[i].ScreenSize;
 			}
 
 			for (int32 i = LODCount; i < LODSettings.Num(); ++i)
@@ -230,7 +221,7 @@ void FAssetTypeActions_StaticMesh::ExecutePasteLODSettings(TArray<TWeakObjectPtr
 				FStaticMeshSourceModel& SrcModel = Mesh->SourceModels[i];
 
 				SrcModel.ReductionSettings = LODSettings[i].ReductionSettings;
-				SrcModel.ScreenSize = LODSettings[i].ScreenSize;
+				SrcModel.ScreenSize.Default = LODSettings[i].ScreenSize;
 			}
 
 			Mesh->bAutoComputeLODScreenSize = bAutoComputeLODScreenSize;

@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "SSymbolDebugger.h"
-#include "AsyncWork.h"
+#include "Async/AsyncWork.h"
 #include "CrashDebugHelper.h"
 
 /**

@@ -1,6 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "AndroidJavaEnv.h"
+#include "Android/AndroidJavaEnv.h"
 #include "CoreMinimal.h"
 #include "HAL/ThreadSingleton.h"
 #include "HAL/PlatformMisc.h"
@@ -147,7 +147,7 @@ JNIEnv* AndroidJavaEnv::GetJavaEnv( bool bRequireGlobalThis /*= true*/ )
 		jint AttachResult = CurrentJavaVM->AttachCurrentThread(&Env, NULL);
 		if (AttachResult == JNI_ERR)
 		{
-			FPlatformMisc::LowLevelOutputDebugString(L"UNIT TEST -- Failed to attach thread to get the JNI environment!");
+			FPlatformMisc::LowLevelOutputDebugString(TEXT("UNIT TEST -- Failed to attach thread to get the JNI environment!"));
 			check(false);
 			return nullptr;
 		}
@@ -155,7 +155,7 @@ JNIEnv* AndroidJavaEnv::GetJavaEnv( bool bRequireGlobalThis /*= true*/ )
 	}
 	else if (GetEnvResult != JNI_OK)
 	{
-		FPlatformMisc::LowLevelOutputDebugStringf(L"UNIT TEST -- Failed to get the JNI environment! Result = %d", GetEnvResult);
+		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("UNIT TEST -- Failed to get the JNI environment! Result = %d"), GetEnvResult);
 		check(false);
 		return nullptr;
 

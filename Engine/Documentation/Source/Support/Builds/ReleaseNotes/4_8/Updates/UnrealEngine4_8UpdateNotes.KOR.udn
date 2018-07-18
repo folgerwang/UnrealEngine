@@ -22,7 +22,7 @@ Github: [https://github.com/EpicGames/UnrealEngine/releases/tag/4.8.1-release](h
 
 픽스:
 
-* UE-11816	[CrashReport] 에디터에 직접적 원인이 없는 가비지 콜렉션 크래시
+* UE-11816	[CrashReport] 에디터에 직접적 원인이 없는 가비지 컬렉션 크래시
 
 * UE-12079	Crash: UGameInstance::StartGameInstance "Failed to enter xx"
 
@@ -146,7 +146,7 @@ Github: [https://github.com/EpicGames/UnrealEngine/releases/tag/4.8.2-release](h
 
 * UE-17523	컨스트럭션에서 Paper2D Set Sprite 함수가 모빌리티를 Movable 로 설정해야 함
 
-* UE-17562	[CrashReport] TBaseMulticastDelegate<void,TSharedPtr<FSearchEntry,0> >::AddDelegateInstance() 크래시
+* UE-17562	[CrashReport] `TBaseMulticastDelegate<void,TSharedPtr<FSearchEntry,0> >::AddDelegateInstance()` 에 크래시
 
 * UE-17569	GitHub 1309 : [Core][Windows] GetRawInputData() 실패 시 크래시가 나지 않음
 
@@ -156,7 +156,7 @@ Github: [https://github.com/EpicGames/UnrealEngine/releases/tag/4.8.2-release](h
 
 * UE-17829	별도의 프로세스로 멀티플레이어 PIE 를 사용하면 두 번째 클라이언트 로드 실패
 
-* UE-18020	Crash Report Client - 데이터 콜렉션 업데이트
+* UE-18020	Crash Report Client - 데이터 컬렉션 업데이트
 
 * UE-18041	[CrashReport] PostInitProperties 의 치명적 오류
 

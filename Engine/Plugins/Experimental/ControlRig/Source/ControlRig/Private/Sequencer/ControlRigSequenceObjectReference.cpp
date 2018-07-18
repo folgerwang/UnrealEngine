@@ -1,6 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "ControlRigSequenceObjectReference.h"
+#include "Sequencer/ControlRigSequenceObjectReference.h"
 #include "ControlRig.h"
 
 FControlRigSequenceObjectReference FControlRigSequenceObjectReference::Create(UControlRig* InControlRig)

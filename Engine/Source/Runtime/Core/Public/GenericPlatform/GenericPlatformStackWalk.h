@@ -173,6 +173,15 @@ struct CORE_API FGenericPlatformStackWalk
 	static uint32 CaptureStackBackTrace( uint64* BackTrace, uint32 MaxDepth, void* Context = nullptr );
 
 	/**
+	 * Capture a stack backtrace for a specific thread.
+	 *
+	 * @param	ThreadId			ID of the thread to trace
+	 * @param	BackTrace			[out] Pointer to array to take backtrace
+	 * @param	MaxDepth			Entries in BackTrace array
+	 */
+	static uint32 CaptureThreadStackBackTrace(uint64 ThreadId, uint64* BackTrace, uint32 MaxDepth);
+
+	/**
 	 * Walks the stack and appends the human readable string to the passed in one.
 	 * @warning: The code assumes that HumanReadableString is large enough to contain the information.
 	 *

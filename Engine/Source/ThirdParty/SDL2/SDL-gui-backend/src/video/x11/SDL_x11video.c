@@ -35,6 +35,14 @@
 #include "SDL_x11touch.h"
 #include "SDL_x11xinput2.h"
 
+/* EG BEGIN */
+#ifdef SDL_WITH_EPIC_EXTENSIONS
+#if SDL_VIDEO_DRIVER_X11_XFIXES
+#include "SDL_x11xfixes.h"
+#endif
+#endif // SDL_WITH_EPIC_EXTENSIONS
+/* EG END */
+
 #if SDL_VIDEO_OPENGL_EGL
 #include "SDL_x11opengles.h"
 #endif
@@ -180,6 +188,14 @@ X11_CreateDevice(int devindex)
 
     data->global_mouse_changed = SDL_TRUE;
 
+/* EG BEGIN */
+#ifdef SDL_WITH_EPIC_EXTENSIONS
+#if SDL_VIDEO_DRIVER_X11_XFIXES
+    data->active_cursor_confined_window = NULL;
+#endif
+#endif // SDL_WITH_EPIC_EXTENSIONS
+/* EG END */
+
     /* FIXME: Do we need this?
        if ( (SDL_strncmp(X11_XDisplayName(display), ":", 1) == 0) ||
        (SDL_strncmp(X11_XDisplayName(display), "unix:", 5) == 0) ) {
@@ -260,6 +276,7 @@ X11_CreateDevice(int devindex)
 /* EG BEGIN */
 #ifdef SDL_WITH_EPIC_EXTENSIONS
     device->SetKeyboardGrab = X11_SetKeyboardGrab;
+    device->ConfineCursor = X11_ConfineCursor;
     device->VK_LoadLibrary = X11_VK_LoadLibrary;
     device->VK_UnloadLibrary = X11_VK_UnloadLibrary;
     device->VK_GetRequiredInstanceExtensions = X11_VK_GetRequiredInstanceExtensions;
@@ -440,6 +457,12 @@ X11_VideoInit(_THIS)
     }
 
     X11_InitXinput2(_this);
+
+/* EG BEGIN */
+#ifdef SDL_WITH_EPIC_EXTENSIONS
+    X11_InitXFixes(_this);
+#endif // SDL_WITH_EPIC_EXTENSIONS
+/* EG END */
 
     if (X11_InitKeyboard(_this) != 0) {
         return -1;

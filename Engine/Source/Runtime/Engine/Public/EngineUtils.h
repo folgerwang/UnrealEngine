@@ -470,6 +470,18 @@ public:
 	}
 
 	/**
+	 * Constructor
+	 *
+	 * @param  InWorld  The world whose actors are to be iterated over.
+	 * @param  InClass  The type of actors to be iterated over.
+	 */
+	explicit FActorIterator(UWorld* InWorld, TSubclassOf<AActor> InClass, EActorIteratorFlags InFlags = EActorIteratorFlags::OnlyActiveLevels | EActorIteratorFlags::SkipPendingKill)
+		: Super(InWorld, InClass, InFlags)
+	{
+		++(*this);
+	}
+
+	/**
 	 * Constructor for creating an end iterator
 	 */
 	explicit FActorIterator(EActorIteratorType)
@@ -605,6 +617,18 @@ public:
 	}
 
 	/**
+	 * Constructor
+	 *
+	 * @param  InWorld  The world whose actors are to be iterated over.
+	 * @param  InClass  The type of actors to be iterated over.
+	 */
+	explicit FSelectedActorIterator(UWorld* InWorld, TSubclassOf<AActor> InClass)
+		: Super(InWorld, InClass, EActorIteratorFlags::SkipPendingKill | EActorIteratorFlags::OnlySelectedActors)
+	{
+		++(*this);
+	}
+
+	/**
 	 * Constructor for creating an end iterator
 	 */
 	explicit FSelectedActorIterator(EActorIteratorType)
@@ -680,6 +704,7 @@ struct FSubLevelStatus
 	FName				PackageName;
 	EStreamingStatus	StreamingStatus;
 	int32				LODIndex;
+	bool				bInConsiderList;
 	bool				bPlayerInside;
 };
 

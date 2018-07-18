@@ -16,7 +16,7 @@ class UAnimSequence;
 class FAnimationEditorPreviewScene : public IPersonaPreviewScene, public FEditorUndoClient
 {
 public:
-	FAnimationEditorPreviewScene(const ConstructionValues& CVS, const TSharedRef<class IEditableSkeleton>& InEditableSkeleton, const TSharedRef<class IPersonaToolkit>& InPersonaToolkit);
+	FAnimationEditorPreviewScene(const ConstructionValues& CVS, const TSharedPtr<class IEditableSkeleton>& InEditableSkeleton, const TSharedRef<class IPersonaToolkit>& InPersonaToolkit);
 
 	~FAnimationEditorPreviewScene();
 
@@ -31,10 +31,10 @@ public:
 	virtual void InvalidateViews() override;
 	virtual void FocusViews() override;
 	virtual UDebugSkelMeshComponent* GetPreviewMeshComponent() const override { return SkeletalMeshComponent; }
-	virtual void SetPreviewMeshComponent(UDebugSkelMeshComponent* InSkeletalMeshComponent) override { SkeletalMeshComponent = InSkeletalMeshComponent; }
+	virtual void SetPreviewMeshComponent(UDebugSkelMeshComponent* InSkeletalMeshComponent) override;
 	virtual void SetAdditionalMeshes(class UDataAsset* InAdditionalMeshes) override;
 	virtual void RefreshAdditionalMeshes() override;
-	virtual void ShowReferencePose(bool bResetBoneTransforms = false) override;
+	virtual void ShowReferencePose(bool bShowRefPose, bool bResetBoneTransforms = false) override;
 	virtual bool IsShowReferencePoseEnabled() const override;
 	virtual void SetSelectedBone(const FName& BoneName) override;
 	virtual void ClearSelectedBone() override;
@@ -102,6 +102,36 @@ public:
 	virtual void UnregisterOnMeshClick(void* Thing) override
 	{
 		OnMeshClick.RemoveAll(Thing);
+	}
+
+	virtual FDelegateHandle RegisterOnSelectedBoneChanged(const FOnSelectedBoneChanged& Delegate) override
+	{
+		return OnSelectedBoneChanged.Add(Delegate);
+	}
+
+	virtual void UnregisterOnSelectedBoneChanged(FDelegateHandle InHandle) override
+	{
+		OnSelectedBoneChanged.Remove(InHandle);
+	}
+
+	virtual FDelegateHandle RegisterOnSelectedSocketChanged(const FOnSelectedSocketChanged& Delegate) override
+	{
+		return OnSelectedSocketChanged.Add(Delegate);
+	}
+
+	virtual void UnregisterOnSelectedSocketChanged(FDelegateHandle InHandle) override
+	{
+		OnSelectedSocketChanged.Remove(InHandle);
+	}
+
+	virtual FDelegateHandle RegisterOnDeselectAll(const FSimpleDelegate& Delegate) override
+	{
+		return OnDeselectAll.Add(Delegate);
+	}
+
+	virtual void UnregisterOnDeselectAll(FDelegateHandle InHandle) override
+	{
+		OnDeselectAll.Remove(InHandle);
 	}
 
 	virtual void SetDefaultAnimationMode(EPreviewSceneDefaultAnimationMode Mode, bool bShowNow) override;
@@ -182,6 +212,8 @@ public:
 		return CameraOverride;
 	}
 
+
+	virtual void HandleSkeletonTreeSelectionChanged(const TArrayView<TSharedPtr<ISkeletonTreeItem>>& InSelectedItems, ESelectInfo::Type InSelectInfo) override;
 	/** FPreviewScene interface */
 	virtual void Tick(float InDeltaTime) override;
 	virtual bool IsTickable() const override;
@@ -235,6 +267,9 @@ public:
 	/** Stop recording in this Persona instance */
 	void StopRecording();
 
+	/** Delegate fired when recording state changes */
+	FSimpleMulticastDelegate& OnRecordingStateChanged() { return OnRecordingStateChangedDelegate; }
+
 	/** Get the currently recording animation */
 	UAnimSequence* GetCurrentRecording() const;
 
@@ -253,6 +288,9 @@ public:
 	/** Broadcasts that a mesh viewport click occurred */
 	virtual bool BroadcastMeshClick(HActor* HitProxy, const FViewportClick& Click) {
 		OnMeshClick.Broadcast(HitProxy, Click); return OnMeshClick.IsBound(); }
+
+	/** Override for preview component selection to inform the editor we consider it selected */
+	bool PreviewComponentSelectionOverride(const UPrimitiveComponent* InComponent) const;
 
 private:
 	/** Set preview mesh internal use only. The mesh should be verified by now. */
@@ -276,7 +314,7 @@ private:
 	/** Create an actor used to simulate wind (useful for cloth) */
 	TWeakObjectPtr<class AWindDirectionalSource> CreateWindActor(UWorld* World);
 
-	TSharedRef<class IEditableSkeleton> GetEditableSkeleton() const { return EditableSkeletonPtr.Pin().ToSharedRef(); }
+	TSharedPtr<class IEditableSkeleton> GetEditableSkeleton() const { return EditableSkeletonPtr.Pin(); }
 
 private:
 	/** The one and only actor we have */
@@ -360,6 +398,20 @@ private:
 	FSimpleMulticastDelegate OnPreTickDelegate;
 	FSimpleMulticastDelegate OnPostTickDelegate;
 
+	/** Delegate fired when recording state changes */
+	FSimpleMulticastDelegate OnRecordingStateChangedDelegate;
+
 	/** The last time we were flagged for ticking */
 	double LastTickTime;
+	/** Bone selection changed delegate */
+	FOnSelectedBoneChangedMulticaster OnSelectedBoneChanged;
+
+	/** Socket selection changed delegate */
+	FOnSelectedSocketChangedMulticaster OnSelectedSocketChanged;
+
+	/** Deselect all delegate */
+	FSimpleMulticastDelegate OnDeselectAll;
+
+	/** Selection recursion guard */
+	bool bSelecting;
 };

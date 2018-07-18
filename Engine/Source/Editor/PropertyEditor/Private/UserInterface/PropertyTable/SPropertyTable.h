@@ -472,7 +472,7 @@ public:
 	virtual FReply OnPreviewKeyDown( const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent ) override
 	{
 		const FKey Key = InKeyEvent.GetKey();
-		if ( Key == EKeys::Enter )
+		if ( Key == EKeys::Enter && !InKeyEvent.IsShiftDown() )
 		{
 			const TSharedPtr< IPropertyTableCell > CurrentCell = Table->GetCurrentCell();
 			if ( CurrentCell.IsValid() )

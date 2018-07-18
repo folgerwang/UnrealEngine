@@ -10,7 +10,7 @@ THIRD_PARTY_INCLUDES_END
 
 FOnlineAsyncTaskGooglePlayQueryAchievements::FOnlineAsyncTaskGooglePlayQueryAchievements(
 	FOnlineSubsystemGooglePlay* InSubsystem,
-	const FUniqueNetIdString& InUserId,
+	const FUniqueNetIdGooglePlay& InUserId,
 	const FOnQueryAchievementsCompleteDelegate& InDelegate)
 	: FOnlineAsyncTaskBasic(InSubsystem)
 	, UserId(InUserId)

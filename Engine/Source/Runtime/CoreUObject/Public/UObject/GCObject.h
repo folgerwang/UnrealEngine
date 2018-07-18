@@ -41,11 +41,20 @@ public:
 	void AddObject(FGCObject* Object);
 
 	/**
-	 * Removes a window from the list so it won't receive serialization events
+	 * Removes an object from the referencer list
 	 *
 	 * @param Object The object to remove from the list
 	 */
 	void RemoveObject(FGCObject* Object);
+
+	/**
+	 * Get the name of the first FGCObject that owns this object.
+	 *
+	 * @param Object The object that we're looking for.
+	 * @param OutName the name of the FGCObject that reports this object.
+	 * @return true if the object was found.
+	 */
+	bool GetReferencerName(UObject* Object, FString& OutName) const;
 
 	/**
 	 * Forwards this call to all registered objects so they can reference
@@ -71,6 +80,8 @@ public:
  */
 class COREUOBJECT_API FGCObject
 {
+	bool bReferenceAdded = false;
+
 	void Init()
 	{
 		// Some objects can get created after the engine started shutting down (lazy init of singletons etc).
@@ -80,6 +91,7 @@ class COREUOBJECT_API FGCObject
 			check(GGCObjectReferencer);
 			// Add this instance to the referencer's list
 			GGCObjectReferencer->AddObject(this);
+			bReferenceAdded = true;
 		}
 	}
 
@@ -129,8 +141,8 @@ public:
 	virtual ~FGCObject(void)
 	{
 		// GObjectSerializer will be NULL if this object gets destroyed after the exit purge.
-		// We also don't want to be removing objects when exiting since some of they may not have been added anyway (see Init())
-		if (GGCObjectReferencer && !GIsRequestingExit)
+		// We want to make sure we remove any objects that were added to the GGCObjectReferencer during Init when exiting
+		if (GGCObjectReferencer && bReferenceAdded)
 		{
 			// Remove this instance from the referencer's list
 			GGCObjectReferencer->RemoveObject(this);
@@ -144,5 +156,13 @@ public:
 	 * @param Collector The collector of referenced objects.
 	 */
 	virtual void AddReferencedObjects( FReferenceCollector& Collector ) = 0;
+
+	/**
+	 * Use this method to report a name for your referencer.
+	 */
+	virtual FString GetReferencerName() const
+	{
+		return "Unknown FGCObject";
+	}
 };
 

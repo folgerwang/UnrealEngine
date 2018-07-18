@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2750681
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:Location モジュール
 Crumbs: %ROOT%, Engine, Engine/Rendering/ParticleSystems, Engine/Rendering/ParticleSystems/Reference
 Description:パーティクルの生存期間を通じてパーティクル位置に何度も作用する Location モジュール
 Version:4.9
+tags:Particles
 
 [TOC(start:2 end:3)]
 
@@ -114,7 +115,7 @@ LAd89U2b-YY
 
 [EXCERPT:BoneSourceLoc]
 [REGION:simpletable]
-|**プロパティ**|**説明**|
+| **プロパティ** | **説明** |
 | --- | --- |
 | _Bone Socket Name_ |パーティクルのソースとして使用するために、スケルタルメッシュにボーンまたはソケットの名前を指定します。|
 | _Offset_ | _Universal Offset_ に加えて使用する個々のボーンまたはソケットからのオフセットです。|
@@ -123,7 +124,7 @@ LAd89U2b-YY
 
 
 
--------------End Bone/Socket Location Includes-------------
+-----------Bone/Socket Location Includes----------------
 [/COMMENT]
 
 ## Direct Location モジュール
@@ -133,7 +134,7 @@ LAd89U2b-YY
 | プロパティ | 説明 |
 | ---- | ---- |
 |[REGION:tablesection]Location[/REGION]||
-|**Location** | 一時にパーティクルの位置を与えるベクター分布です。値はパーティクルの RelativeTime に基づいて取得します。パーティクル位置は、この値に設定されていることに留意してください。従って、旧モジュールに対するこれまでの上書きは全て影響を与えます。|
+|**Location** | 一時にパーティクルの位置を与えるベクター分布です。Particle RelativeTime に基づいて値を取得します。パーティクル位置は、この値に設定されていることに留意してください。従って、旧モジュールに対するこれまでの上書きは全て影響を与えます。|
 |**Location Offset** | 位置から適用するためにオフセットが与えられたベクター分布は、Location 演算から取得します。オフセットは EmitterTime を使用して取得します。アクタなどにスクリプトコードで設定されたロケーション フィールドの使用や、ランダムな LocationOffset をオブジェクト周りでオフセットする際に実用的です。パーティクルの存続期間を通じて、オフセットは一定のままです。|
 |**Scale Factor** | タイムラインの任意の時点で、オブジェクトのベロシティのスケーリングを有効にするベクター分布です。パーティクルが追跡していたパスに適合させるため、パーティクルのワープを有効にします。|
 | **Direction** | 現在は使用していません。 |
@@ -271,7 +272,7 @@ ZM6GkFxO-b0
 [/PARAMLITERAL]
 [/OBJECT]
 
-**Sphere** モジュールは、パーティクルの初期位置を球体形状内に設定します。以下のメンバーが含まれます。
+**Sphere** モジュールは、パーティクルの初期位置を球体形状内に設定します。クラスには次のメンバが格納されています。
 
 | プロパティ | 説明 |
 | ---- | ---- |
@@ -351,7 +352,7 @@ ZM6GkFxO-b0
 
 [EXCERPT:VertSourceLoc]
 [REGION:simpletable]
-|**プロパティ**|**説明**|
+| **プロパティ** | **説明** |
 | --- | --- |
 |_(Numbered Entry)_|パーティクルのソースとして機能させるために、頂点またはサーフェスをウエイト付けしなくてはいけないスケルタルメッシュ上のボーン名を指定します。|
 [/REGION]
@@ -374,7 +375,7 @@ ZM6GkFxO-b0
 
 ##Source Movement モジュール
 
-Source Movement モジュールはソースの移動に基づいて、パーティクル位置をオフセットするために使用します (例：エミッタ)。以下のメンバーが含まれます
+Source Movement モジュールはソースの移動に基づいて、パーティクル位置をオフセットするために使用します (例：エミッタ)。以下のプロパティが含まれます。
 
 | プロパティ | 説明 |
 | ---- | ---- |

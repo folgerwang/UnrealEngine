@@ -2,6 +2,8 @@
 
 #pragma once
 
+#if WITH_SLATE_REMOTE_SERVER
+
 #include "CoreMinimal.h"
 #include "Containers/Ticker.h"
 #include "Layout/WidgetPath.h"
@@ -97,3 +99,5 @@ private:
 	/** Ever increasing timestamp to send to the input system. */
 	double Timestamp;
 };
+
+#endif // WITH_SLATE_REMOTE_SERVER

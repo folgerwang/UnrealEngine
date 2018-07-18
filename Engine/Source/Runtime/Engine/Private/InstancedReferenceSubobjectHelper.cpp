@@ -163,7 +163,8 @@ void FFindInstancedReferenceSubobjectHelper::GetInstancedSubObjects_Inner(FInsta
 			{
 				ensure(KeyObjectProperty->HasAllPropertyFlags(CPF_InstancedReference));
 				FScriptMapHelper MapHelper(MapProperty, MapProperty->ContainerPtrToValuePtr<void>(ContainerAddress));
-				for (int32 ElementIndex = 0; ElementIndex < MapHelper.Num(); ++ElementIndex)
+				int32 Num = MapHelper.Num();
+				for (int32 ElementIndex = 0; Num; ++ElementIndex)
 				{
 					if (MapHelper.IsValidIndex(ElementIndex))
 					{
@@ -174,6 +175,8 @@ void FFindInstancedReferenceSubobjectHelper::GetInstancedSubObjects_Inner(FInsta
 							OutObjects(FInstancedSubObjRef(ObjectValue, PropertyPath));
 							PropertyPath.Pop();
 						}
+
+						--Num;
 					}
 				}
 			}
@@ -184,7 +187,8 @@ void FFindInstancedReferenceSubobjectHelper::GetInstancedSubObjects_Inner(FInsta
 			if (const UStruct* Struct = ValueStructProperty->Struct)
 			{
 				FScriptMapHelper MapHelper(MapProperty, MapProperty->ContainerPtrToValuePtr<void>(ContainerAddress));
-				for (int32 ElementIndex = 0; ElementIndex < MapHelper.Num(); ++ElementIndex)
+				int32 Num = MapHelper.Num();
+				for (int32 ElementIndex = 0; Num; ++ElementIndex)
 				{
 					if (MapHelper.IsValidIndex(ElementIndex))
 					{
@@ -196,6 +200,8 @@ void FFindInstancedReferenceSubobjectHelper::GetInstancedSubObjects_Inner(FInsta
 							GetInstancedSubObjects_Inner(PropertyPath, ValueAddress, OutObjects);
 							PropertyPath.Pop();
 						}
+
+						--Num;
 					}
 				}
 			}
@@ -206,7 +212,8 @@ void FFindInstancedReferenceSubobjectHelper::GetInstancedSubObjects_Inner(FInsta
 			{
 				ensure(ValueObjectProperty->HasAllPropertyFlags(CPF_InstancedReference));
 				FScriptMapHelper MapHelper(MapProperty, MapProperty->ContainerPtrToValuePtr<void>(ContainerAddress));
-				for (int32 ElementIndex = 0; ElementIndex < MapHelper.Num(); ++ElementIndex)
+				int32 Num = MapHelper.Num();
+				for (int32 ElementIndex = 0; Num; ++ElementIndex)
 				{
 					if (MapHelper.IsValidIndex(ElementIndex))
 					{
@@ -217,6 +224,8 @@ void FFindInstancedReferenceSubobjectHelper::GetInstancedSubObjects_Inner(FInsta
 							OutObjects(FInstancedSubObjRef(ObjectValue, PropertyPath));
 							PropertyPath.Pop();
 						}
+
+						--Num;
 					}
 				}
 			}
@@ -229,7 +238,8 @@ void FFindInstancedReferenceSubobjectHelper::GetInstancedSubObjects_Inner(FInsta
 			if (const UStruct* Struct = ElementStructProperty->Struct)
 			{
 				FScriptSetHelper SetHelper(SetProperty, SetProperty->ContainerPtrToValuePtr<void>(ContainerAddress));
-				for (int32 ElementIndex = 0; ElementIndex < SetHelper.Num(); ++ElementIndex)
+				int32 Num = SetHelper.Num();
+				for (int32 ElementIndex = 0; Num; ++ElementIndex)
 				{
 					if (SetHelper.IsValidIndex(ElementIndex))
 					{
@@ -240,6 +250,8 @@ void FFindInstancedReferenceSubobjectHelper::GetInstancedSubObjects_Inner(FInsta
 							GetInstancedSubObjects_Inner(PropertyPath, ElementAddress, OutObjects);
 							PropertyPath.Pop();
 						}
+
+						--Num;
 					}
 				}
 			}
@@ -250,7 +262,8 @@ void FFindInstancedReferenceSubobjectHelper::GetInstancedSubObjects_Inner(FInsta
 			{
 				ensure(ElementObjectProperty->HasAllPropertyFlags(CPF_InstancedReference));
 				FScriptSetHelper SetHelper(SetProperty, SetProperty->ContainerPtrToValuePtr<void>(ContainerAddress));
-				for (int32 ElementIndex = 0; ElementIndex < SetHelper.Num(); ++ElementIndex)
+				int32 Num = SetHelper.Num();
+				for (int32 ElementIndex = 0; Num; ++ElementIndex)
 				{
 					if (SetHelper.IsValidIndex(ElementIndex))
 					{
@@ -261,6 +274,8 @@ void FFindInstancedReferenceSubobjectHelper::GetInstancedSubObjects_Inner(FInsta
 							OutObjects(FInstancedSubObjRef(ObjectValue, PropertyPath));
 							PropertyPath.Pop();
 						}
+
+						--Num;
 					}
 				}
 			}

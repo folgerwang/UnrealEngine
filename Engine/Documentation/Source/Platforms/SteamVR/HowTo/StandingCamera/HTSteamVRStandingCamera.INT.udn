@@ -23,7 +23,7 @@ Below you will find instructions setting up a Pawn to work with a standing Steam
     [REGION:simpletable]
 	|Component Name| Value |
     |--------|------------|
-    |** Scene**|VRCameraRoot|
+    |**Scene**|VRCameraRoot|
     |**Camera**|VRCamera|
 	[/region]
 

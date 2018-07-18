@@ -67,3 +67,8 @@ void FLevelViewportLayoutEntity::SaveConfig(const FString& ConfigSection)
 {
 	LevelViewport->SaveConfig(ConfigSection);
 }
+
+void FLevelViewportLayoutEntity::TakeHighResScreenShot() const
+{
+	GetLevelViewportClient().TakeHighResScreenShot();
+}

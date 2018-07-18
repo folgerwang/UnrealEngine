@@ -4,6 +4,7 @@
 #include "Animation/Skeleton.h"
 #include "Engine/SkeletalMesh.h"
 #include "EngineLogs.h"
+#include "Animation/AnimCurveTypes.h"
 
 DEFINE_LOG_CATEGORY(LogSkeletalControl);
 
@@ -11,10 +12,10 @@ DEFINE_LOG_CATEGORY(LogSkeletalControl);
 // FBoneContainer
 
 FBoneContainer::FBoneContainer()
-: Asset(NULL)
-, AssetSkeletalMesh(NULL)
-, AssetSkeleton(NULL)
-, RefSkeleton(NULL)
+: Asset(nullptr)
+, AssetSkeletalMesh(nullptr)
+, AssetSkeleton(nullptr)
+, RefSkeleton(nullptr)
 , bDisableRetargeting(false)
 , bUseRAWData(false)
 , bUseSourceData(false)
@@ -28,9 +29,9 @@ FBoneContainer::FBoneContainer()
 FBoneContainer::FBoneContainer(const TArray<FBoneIndexType>& InRequiredBoneIndexArray, const FCurveEvaluationOption& CurveEvalOption, UObject& InAsset)
 : BoneIndicesArray(InRequiredBoneIndexArray)
 , Asset(&InAsset)
-, AssetSkeletalMesh(NULL)
-, AssetSkeleton(NULL)
-, RefSkeleton(NULL)
+, AssetSkeletalMesh(nullptr)
+, AssetSkeleton(nullptr)
+, RefSkeleton(nullptr)
 , bDisableRetargeting(false)
 , bUseRAWData(false)
 , bUseSourceData(false)
@@ -53,7 +54,7 @@ struct FBoneContainerScratchArea : public TThreadSingleton<FBoneContainerScratch
 
 void FBoneContainer::Initialize(const FCurveEvaluationOption& CurveEvalOption)
 {
-	RefSkeleton = NULL;
+	RefSkeleton = nullptr;
 	UObject* AssetObj = Asset.Get();
 	USkeletalMesh* AssetSkeletalMeshObj = Cast<USkeletalMesh>(AssetObj);
 	USkeleton* AssetSkeletonObj = nullptr;
@@ -180,68 +181,98 @@ void FBoneContainer::Initialize(const FCurveEvaluationOption& CurveEvalOption)
 			VirtualBoneCompactPoseData.Add(FVirtualBoneCompactPoseData(FCompactPoseBoneIndex(VBInd), FCompactPoseBoneIndex(SourceInd), FCompactPoseBoneIndex(TargetInd)));
 		}
 	}
-
 	// cache required curve UID list according to new bone sets
 	CacheRequiredAnimCurveUids(CurveEvalOption);
+
+	// Reset retargeting cached data look up table.
+	RetargetSourceCachedDataLUT.Reset();
 }
 
 void FBoneContainer::CacheRequiredAnimCurveUids(const FCurveEvaluationOption& CurveEvalOption)
 {
-	if (CurveEvalOption.bAllowCurveEvaluation && AssetSkeleton.IsValid())
+	if (AssetSkeleton.IsValid())
 	{
 		// this is placeholder. In the future, this will change to work with linked joint of curve meta data
 		// anim curve name Uids; For now it adds all of them
 		const FSmartNameMapping* Mapping = AssetSkeleton->GetSmartNameContainer(USkeleton::AnimCurveMappingName);
 		if (Mapping != nullptr)
 		{
-			AnimCurveNameUids.Reset();
-			// fill name array
+			UIDToArrayIndexLUT.Reset();
+			
+			const SmartName::UID_Type MaxUID = Mapping->GetMaxUID();
+
+			if (MaxUID == SmartName::MaxUID)
+			{
+				// No smart names, nothing to do
+				return;
+			}
+
+			//Init UID LUT to everything unused
+			UIDToArrayIndexLUT.AddUninitialized(MaxUID+1);
+			for (SmartName::UID_Type& Item : UIDToArrayIndexLUT)
+			{
+				Item = SmartName::MaxUID;
+			}
+
+			// Get Current Names / UIDs
 			TArray<FName> CurveNames;
 			Mapping->FillNameArray(CurveNames);
-			Mapping->FillUidArray(AnimCurveNameUids);
+
+			// Get UID List
+			TArray<SmartName::UID_Type> UIDList;
+			Mapping->FillUidArray(UIDList);
 
 			// if the linked joints don't exists in RequiredBones, remove itself
 			if (CurveNames.Num() > 0)
 			{
+				int32 NumAvailableUIDs = 0;
 				for (int32 CurveNameIndex = CurveNames.Num() - 1; CurveNameIndex >=0 ; --CurveNameIndex)
 				{
 					const FName& CurveName = CurveNames[CurveNameIndex];
-					if (CurveEvalOption.DisallowedList && CurveEvalOption.DisallowedList->Contains(CurveName))
+					bool bBeingUsed = true;
+					if (!CurveEvalOption.bAllowCurveEvaluation)
 					{
-						//remove the UID
-						AnimCurveNameUids.RemoveAt(CurveNameIndex);
+						bBeingUsed = false;
 					}
 					else
 					{
-						const FCurveMetaData* CurveMetaData = Mapping->GetCurveMetaData(CurveNames[CurveNameIndex]);
-						if (CurveMetaData)
+						// CurveNameIndex shouyld match to UID
+						if (CurveEvalOption.DisallowedList && CurveEvalOption.DisallowedList->Contains(CurveName))
 						{
-							if (CurveMetaData->MaxLOD < CurveEvalOption.LODIndex)
+							//remove the UID
+							bBeingUsed = false;
+						}
+						else
+						{
+							const FCurveMetaData* CurveMetaData = Mapping->GetCurveMetaData(CurveNames[CurveNameIndex]);
+							if (CurveMetaData)
 							{
-								AnimCurveNameUids.RemoveAt(CurveNameIndex);
-							}
-							else if (CurveMetaData->LinkedBones.Num() > 0)
-							{
-								bool bRemove = true;
-								for (int32 LinkedBoneIndex = 0; LinkedBoneIndex < CurveMetaData->LinkedBones.Num(); ++LinkedBoneIndex)
+								if (CurveMetaData->MaxLOD < CurveEvalOption.LODIndex)
 								{
-									const FBoneReference& BoneReference = CurveMetaData->LinkedBones[LinkedBoneIndex];
-									// we want to make sure all the joints are removed from RequiredBones before removing this UID
-									if (BoneReference.GetCompactPoseIndex(*this) != INDEX_NONE)
-									{
-										// still has some joint that matters, do not remove
-										bRemove = false;
-										break;
-									}
+									bBeingUsed = false;
 								}
-
-								if (bRemove)
+								else if (CurveMetaData->LinkedBones.Num() > 0)
 								{
-									//remove the UID
-									AnimCurveNameUids.RemoveAt(CurveNameIndex);
+									bBeingUsed = false;
+									for (int32 LinkedBoneIndex = 0; LinkedBoneIndex < CurveMetaData->LinkedBones.Num(); ++LinkedBoneIndex)
+									{
+										const FBoneReference& BoneReference = CurveMetaData->LinkedBones[LinkedBoneIndex];
+										// we want to make sure all the joints are removed from RequiredBones before removing this UID
+										if (BoneReference.GetCompactPoseIndex(*this) != INDEX_NONE)
+										{
+											// still has some joint that matters, do not remove
+											bBeingUsed = true;
+											break;
+										}
+									}
 								}
 							}
 						}
+					}
+
+					if (bBeingUsed)
+					{
+						UIDToArrayIndexLUT[UIDList[CurveNameIndex]] = NumAvailableUIDs++;
 					}
 				}
 			}
@@ -249,8 +280,64 @@ void FBoneContainer::CacheRequiredAnimCurveUids(const FCurveEvaluationOption& Cu
 	}
 	else
 	{
-		AnimCurveNameUids.Reset();
+		UIDToArrayIndexLUT.Reset();
 	}
+}
+
+const FRetargetSourceCachedData& FBoneContainer::GetRetargetSourceCachedData(const FName& InRetargetSourceName) const
+{
+	FRetargetSourceCachedData* RetargetSourceCachedData = RetargetSourceCachedDataLUT.Find(InRetargetSourceName);
+	if (!RetargetSourceCachedData)
+	{
+		RetargetSourceCachedData = &RetargetSourceCachedDataLUT.Add(InRetargetSourceName);
+
+		// Build Cached Data for OrientAndScale retargeting.
+
+		const TArray<FTransform>& AuthoredOnRefSkeleton = AssetSkeleton->GetRefLocalPoses(InRetargetSourceName);
+		const TArray<FTransform>& PlayingOnRefSkeleton = GetRefPoseCompactArray();
+		const int32 CompactPoseNumBones = GetCompactPoseNumBones();
+
+		RetargetSourceCachedData->CompactPoseIndexToOrientAndScaleIndex.Reset();
+
+		for (int32 CompactBoneIndex = 0; CompactBoneIndex < CompactPoseNumBones; CompactBoneIndex++)
+		{
+			const int32& SkeletonBoneIndex = CompactPoseToSkeletonIndex[CompactBoneIndex];
+
+			if (AssetSkeleton->GetBoneTranslationRetargetingMode(SkeletonBoneIndex) == EBoneTranslationRetargetingMode::OrientAndScale)
+			{
+				const FVector SourceSkelTrans = AuthoredOnRefSkeleton[SkeletonBoneIndex].GetTranslation();
+				const FVector TargetSkelTrans = PlayingOnRefSkeleton[CompactBoneIndex].GetTranslation();
+
+				// If translations are identical, we don't need to do any retargeting
+				if (!SourceSkelTrans.Equals(TargetSkelTrans, BONE_TRANS_RT_ORIENT_AND_SCALE_PRECISION))
+				{
+					const float SourceSkelTransLength = SourceSkelTrans.Size();
+					const float TargetSkelTransLength = TargetSkelTrans.Size();
+
+					// this only works on non zero vectors.
+					if (!FMath::IsNearlyZero(SourceSkelTransLength * TargetSkelTransLength))
+					{
+						const FVector SourceSkelTransDir = SourceSkelTrans / SourceSkelTransLength;
+						const FVector TargetSkelTransDir = TargetSkelTrans / TargetSkelTransLength;
+
+						const FQuat DeltaRotation = FQuat::FindBetweenNormals(SourceSkelTransDir, TargetSkelTransDir);
+						const float Scale = TargetSkelTransLength / SourceSkelTransLength;
+						const int32 OrientAndScaleIndex = RetargetSourceCachedData->OrientAndScaleData.Add(FOrientAndScaleRetargetingCachedData(DeltaRotation, Scale, SourceSkelTrans, TargetSkelTrans));
+
+						// initialize CompactPoseBoneIndex to OrientAndScale Index LUT on demand
+						if (RetargetSourceCachedData->CompactPoseIndexToOrientAndScaleIndex.Num() == 0)
+						{
+							RetargetSourceCachedData->CompactPoseIndexToOrientAndScaleIndex.Init(INDEX_NONE, CompactPoseNumBones);
+						}
+
+						RetargetSourceCachedData->CompactPoseIndexToOrientAndScaleIndex[CompactBoneIndex] = OrientAndScaleIndex;
+					}
+				}
+			}
+		}
+	}
+
+	return *RetargetSourceCachedData;
 }
 
 int32 FBoneContainer::GetPoseBoneIndexForBoneName(const FName& BoneName) const

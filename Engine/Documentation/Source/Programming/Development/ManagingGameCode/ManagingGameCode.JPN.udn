@@ -3,7 +3,7 @@ Availability:Public
 Title:ゲームコードの管理
 Crumbs: %ROOT%, Programming, Programming\Development
 Description:コードの追加とプロジェクトファイルの生成 
-Version:4.16
+Version: 4.16
 Parent:Programming/Development
 Order:
 type:overview
@@ -157,10 +157,10 @@ type:overview
 	[/PARAMLITERAL]
 	[PARAM:content]
 	1. Windows Explorer で [ProjectName].uproject の保存場所へ移動します。
-	1. 「[ProjectName].uproject」ファイルを **右クリック** して **[Generate Visual Studio Files]** を選択します。
+
+	1. [ProjectName].uproject ファイルを **右クリック** して **[Generate Visual Studio Files]** を選択します。
 
 	![](Generate_Visual_Studio_Files.png)
-
 
 	1. UnrealbuildTool が、Intellisense データの生成も含めてプロジェクト ファイルとソリューションを更新します。
 
@@ -181,7 +181,7 @@ type:overview
 	[PARAM:content]
 	1. Finder から `[ProjectName].uproject` が保存されている場所へ移動します。 
 
-	1. 「[ProjectName].uproject」ファイルを **右クリック** して Generate Xcode Files を選択します。 
+	1. [ProjectName].uproject ファイルを **右クリック** して Generate Xcode Files を選択します。 
 
 		![](Generate_Xcode_Files.png)
 
@@ -195,8 +195,8 @@ type:overview
 
 [PUBLISH:Licensee]
 [REGION:note]
-UE4 ルート ディレクトリ外部プロジェクト用の詳細プロジェクトファイル生成オプションについては、「RegisterShellCommands.bat」バッチファイルを編集します。[Generate Visual Studio projects (all platforms)] エントリには、
-追加のメニュー エントリ例が表示されます。この場合、`-AllPlatforms` フラグを表示します。[利用可能なオプション](Programming/UnrealBuildSystem/ProjectFileGenerator) はメインの「`GenerateProjectFiles.bat`」ファイルに対するものと同一です。  
+UE4 ルート ディレクトリ外部プロジェクト用の詳細プロジェクトファイル生成オプションについては、RegisterShellCommands.bat バッチファイルを編集します。[Generate Visual Studio projects (all platforms)] エントリには、
+追加のメニュー エントリ例が表示されます。この場合、`-AllPlatforms` フラグを表示します。[利用可能なオプション](Programming/UnrealBuildSystem/ProjectFileGenerator) はメインの `GenerateProjectFiles.bat` ファイルに対するものと同一です。  
 [/REGION:note]
 [/PUBLISH:Licensee]
 

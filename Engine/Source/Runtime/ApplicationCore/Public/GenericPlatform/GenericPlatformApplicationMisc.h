@@ -3,8 +3,8 @@
 #pragma once
 
 #include "CoreTypes.h"
-#include "GenericApplication.h"
-#include "IConsoleManager.h"
+#include "GenericPlatform/GenericApplication.h"
+#include "HAL/IConsoleManager.h"
 
 /**
  * The accuracy when dealing with physical characteristics of the monitor/screen of the device we're running on.

@@ -1,6 +1,6 @@
 // Copyright 2017 Google Inc.
 
-#include "Classes/GoogleVRHMDFunctionLibrary.h"
+#include "GoogleVRHMDFunctionLibrary.h"
 #include "GoogleVRHMD.h"
 
 UGoogleVRHMDFunctionLibrary::UGoogleVRHMDFunctionLibrary(const FObjectInitializer& ObjectInitializer)

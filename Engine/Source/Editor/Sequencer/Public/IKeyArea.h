@@ -2,218 +2,284 @@
 
 #pragma once
 
-#include "CoreMinimal.h"
-#include "Widgets/SWidget.h"
+#include "Math/Color.h"
+#include "UObject/ObjectKey.h"
+#include "UObject/NameTypes.h"
+#include "Templates/SharedPointer.h"
+#include "Containers/ArrayView.h"
 #include "Curves/KeyHandle.h"
-#include "Curves/RichCurve.h"
+#include "MovieSceneCommonHelpers.h"
+#include "Channels/MovieSceneChannelHandle.h"
 
+struct FRichCurve;
+struct FKeyDrawParams;
+struct FMovieSceneChannel;
+struct FMovieSceneChannelProxy;
+struct FSequencerPasteEnvironment;
+struct ISequencerChannelInterface;
+struct FMovieSceneChannelMetaData;
+struct FMovieSceneClipboardEnvironment;
+
+class SWidget;
+class ISequencer;
+class FCurveModel;
+class FStructOnScope;
+class UMovieSceneSection;
 class FMovieSceneClipboardBuilder;
 class FMovieSceneClipboardKeyTrack;
-class FStructOnScope;
-class ISequencer;
-class UMovieSceneSection;
-struct FMovieSceneClipboardEnvironment;
-struct FSequencerPasteEnvironment;
-struct FSlateBrush;
-enum class EMovieSceneKeyInterpolation : uint8;
-
-/**
- * Information for how to draw each key.
- */
-struct FKeyDrawingInfo
-{
-	FKeyDrawingInfo()
-		: Brush(nullptr)
-		, Size(FVector2D::ZeroVector)
-	{ }
-
-	/** The brush to use for each key */
-	const FSlateBrush* Brush;
-
-	/** The size of each key */
-	const FVector2D Size;
-};
-
 
 /**
  * Interface that should be implemented for the UI portion of a key area within a section
  */
-class IKeyArea : public TSharedFromThis<IKeyArea>
+class SEQUENCER_API IKeyArea : public TSharedFromThis<IKeyArea>
 {
 public:
 
-	/** Virtual destructor. */
-	virtual ~IKeyArea() { }
-
-	/** @return The array of unsorted key handles in the key area */
-	virtual TArray<FKeyHandle> GetUnsortedKeyHandles() const = 0;
-
 	/**
-	 * Sets the time of a key given a handle
+	 * Constructor
 	 *
-	 * @param KeyHandle Handle of the key
-	 * @param The new time of the key
+	 * @param InSection The section that owns the channel that this key area represents
+	 * @param InChannel Handle to the channel this key area represents
 	 */
-	virtual void SetKeyTime(FKeyHandle KeyHandle, float NewKeyTime) = 0;
+	IKeyArea(UMovieSceneSection& InSection, FMovieSceneChannelHandle InChannel);
+
+public:
 
 	/**
-	 * Gets the time of a key given a handle
+	 * Locate the sequencer channel interface for this key area's channel
+	 * @note: Channel interfaces are registered via ISequencerModule::RegisterChannelInterface
 	 *
-	 * @param KeyHandle Handle of the key
-	 * @return The time of the key
+	 * @return The channel interface, or nullptr if one was not found
 	 */
-	virtual float GetKeyTime(FKeyHandle KeyHandle) const = 0;
+	ISequencerChannelInterface* FindChannelEditorInterface() const;
 
 	/**
-	 * Dilates the key by a specific factor
+	 * Access the channel type identifier for the channel that this key area wraps
 	 *
-	 * @param Scale The multiplier which scales this key
-	 * @param Origin Time to scale from
-	 * @return The handle of the key
+	 * @return The name of the channel type
 	 */
-	virtual FKeyHandle DilateKey(FKeyHandle KeyHandle, float Scale, float Origin) = 0;
+	FName GetChannelTypeName() const
+	{
+		return ChannelHandle.GetChannelTypeName();
+	}
 
 	/**
-	 * Moves a key
-	 * 
-	 * @param KeyHandle		Handle of the key to move
-	 * @param DeltaPosition	The delta position of the key
-	 */
-	virtual FKeyHandle MoveKey(FKeyHandle KeyHandle, float DeltaPosition) = 0;
-		
-	/**
-	 * Deletes a key
-	 * 
-	 * @param KeyHandle The key to delete
-	 */
-	virtual void DeleteKey(FKeyHandle KeyHandle) = 0;
-
-	/**
-	 * Set key interpolation
+	 * Access the channel handle that this key area represents
 	 *
-	 * @param KeyHandle The key handle
-	 * @param InterpMode The interpolation mode
+	 * @return The (potentially invalid) channel handle
 	 */
-	virtual void SetKeyInterpMode(FKeyHandle KeyHandle, ERichCurveInterpMode InterpMode) = 0;
+	const FMovieSceneChannelHandle& GetChannel() const
+	{
+		return ChannelHandle;
+	}
 
 	/**
-	 * Get key interpolation
+	 * Resolve this key area's channel handle
 	 *
-	 * @param KeyHandle The key handle
-	 * @return InterpMode The interpolation mode
+	 * @return A (potentially invalid) interface to this key area's channel
 	 */
-	virtual ERichCurveInterpMode GetKeyInterpMode(FKeyHandle Keyhandle) const = 0;
+	FMovieSceneChannel* ResolveChannel() const;
 
 	/**
-	 * Set key tangent
+	 * Get this key area's name
 	 *
-	 * @param KeyHandle The key handle
-	 * @param TangentMode The tangent mode
+	 * @return This key area's name
 	 */
-	virtual void SetKeyTangentMode(FKeyHandle KeyHandle, ERichCurveTangentMode TangentMode) = 0;
+	FName GetName() const;
 
 	/**
-	 * Get key tangent
+	 * Set this key area's name
 	 *
-	 * @param KeyHandle The key handle
-	 * @return TangentMode The tangent mode
+	 * @param InName This key area's name
 	 */
-	virtual ERichCurveTangentMode GetKeyTangentMode(FKeyHandle KeyHandle) const = 0;
+	void SetName(FName InName);
 
 	/**
-	 * Set extrapolation
+	 * Get the color of this channel that should be drawn underneath its keys
 	 *
-	 * @param ExtrapMode The extrapolation mode
-	 * @param bPreInfinity Set pre-infinity (or post-infinity)
+	 * @return (Optional) This channel's color
 	 */
-	virtual void SetExtrapolationMode(ERichCurveExtrapolation ExtrapMode, bool bPreInfinity) = 0;
+	TOptional<FLinearColor> GetColor() const
+	{
+		return Color;
+	}
 
 	/**
-	 * Get extrapolation
+	 * Access section that owns the channel this key area represents
 	 *
-	 * @param bPreInfinity Get pre-infinity (or post-infinity)
-	 * @return ExtrapMode The extrapolation mode
+	 * @return The owning section, or nullptr if it has been destroyed
 	 */
-	virtual ERichCurveExtrapolation GetExtrapolationMode(bool bPreInfinity) const = 0;
+	UMovieSceneSection* GetOwningSection() const;
+
+public:
 
 	/**
-	 * @return Whether this key area can set extrapolation mode
-	 */
-	virtual bool CanSetExtrapolationMode() const { return false; }
-
-	/**
-	 * Adds a key at the specified time if there isn't already a key present.  The value of the added key should
-	 * be the value which would be returned if the animation containing this key area was evaluated at the specified time.
+	 * Add a key at the specified time with the current value of the channel, updating an existing key if possible
 	 *
-	 * @param InKeyInterpolation KeyInterpolation
-	 * @param TimeToCopyFrom Optional time to copy key parameters from
-	 * @param return      The new keys that were added
+	 * @param Time            The time at which a key should be added (or updated)
+	 * @param ObjectBindingID The object binding ID this key area's track is bound to 
+	 * @param InSequencer     The currently active sequencer
+	 * @return A handle to the key that was added or updated
 	 */
-	virtual TArray<FKeyHandle> AddKeyUnique(float Time, EMovieSceneKeyInterpolation InKeyInterpolation, float TimeToCopyFrom = FLT_MAX) = 0;
+	FKeyHandle AddOrUpdateKey(FFrameNumber Time, const FGuid& ObjectBindingID, ISequencer& InSequencer);
 
 	/**
-	 * Duplicate the specified key
-	 */
-	virtual TOptional<FKeyHandle> DuplicateKey(FKeyHandle KeyToDuplicate) = 0;
-
-	/** Gets the rich curve associated with this key area.  This can be null but it must be valid in order to be
-	  * edited by the curve editor. */
-	virtual FRichCurve* GetRichCurve() = 0;
-
-	/**
-	 * Gets the section which owns this key area.
-	 */
-	virtual UMovieSceneSection* GetOwningSection() = 0;
-
-	/**
-	 * Returns true if this key area can create a key editor widget for the animation outliner.
-	 */
-	virtual bool CanCreateKeyEditor() = 0;
-
-	/**
-	 * Creates a key editor for this key area for use in the animation outliner.
-	 */
-	virtual TSharedRef<SWidget> CreateKeyEditor(ISequencer* Sequencer) = 0;
-
-	/**
-	 * Copy keys from this key area
+	 * Duplicate the key represented by the specified handle
 	 *
-	 * @param ClipboardBuilder	Clipboard builder to add keys to
-	 * @param KeyMask			Predicate to be called to check whether a key should be copied
+	 * @param InKeyHandle     A handle to the key to duplicate
+	 * @return A handle to the new duplicated key
 	 */
-	virtual void CopyKeys(FMovieSceneClipboardBuilder& ClipboardBuilder, const TFunctionRef<bool(FKeyHandle, const IKeyArea&)>& KeyMask) const = 0;
+	FKeyHandle DuplicateKey(FKeyHandle InKeyHandle) const;
 
 	/**
-	 * Paste keys into this key area
+	 * Get the time of the key represented by the specified handle
 	 *
-	 * @param KeyTrack			Container of keys to paste into this area
-	 * @param SrcEnvironment		The source environment the cliboard originated from
-	 * @param DstEnvironment		The new environment to paste in
+	 * @param InKeyHandle     A handle to the key to query for
+	 * @return The key's time, or TNumericLimits<int32>::Lowest() if the handle was not valid
 	 */
-	virtual void PasteKeys(const FMovieSceneClipboardKeyTrack& KeyTrack, const FMovieSceneClipboardEnvironment& SrcEnvironment, const FSequencerPasteEnvironment& DstEnvironment) = 0;
+	FORCEINLINE FFrameNumber GetKeyTime(FKeyHandle InKeyHandle) const
+	{
+		FFrameNumber Time = TNumericLimits<int32>::Lowest();
+		GetKeyTimes(TArrayView<const FKeyHandle>(&InKeyHandle, 1), TArrayView<FFrameNumber>(&Time, 1));
+		return Time;
+	}
 
 	/**
-	 * Give this key area a specific name
-	 */
-	virtual void SetName(FName Name) = 0;
-
-	/**
-	 * Get this area's name, or None if not set
-	 */
-	virtual FName GetName() const = 0;
-
-	/**
-	 * Get the key area's color.
+	 * Get the times of every key represented by the specified handles
 	 *
-	 * @return Key area color.
+	 * @param InKeyHandles     A handle to the key to query for
+	 * @param OutTimes         A pre-sized array view to populate with key times
 	 */
-	virtual TOptional<FLinearColor> GetColor() = 0;
+	void GetKeyTimes(TArrayView<const FKeyHandle> InKeyHandles, TArrayView<FFrameNumber> OutTimes) const;
 
 	/**
-	 * Get the data structure representing the specified key.
+	 * Get all key handles that exist within the given time range
 	 *
-	 * @param KeyHandle The handle of the key.
-	 * @return The key's data structure representation, or nullptr if key not found or no structure available.
+	 * @param OutHandles       An array to populate with key handles, any key handles will be appended to this array
+	 * @param WithinRange      (Optional) A predicate range to search within
 	 */
-	virtual TSharedPtr<FStructOnScope> GetKeyStruct(FKeyHandle KeyHandle) = 0;
+	FORCEINLINE void GetKeyHandles(TArray<FKeyHandle>& OutHandles, const TRange<FFrameNumber>& WithinRange = TRange<FFrameNumber>::All()) const
+	{
+		GetKeyInfo(&OutHandles, nullptr, WithinRange);
+	}
+
+	/**
+	 * Get all key times that exist within the given time range
+	 *
+	 * @param OutTimes         An array to populate with key times, any key times will be appended to this array
+	 * @param WithinRange      (Optional) A predicate range to search within
+	 */
+	FORCEINLINE void GetKeyTimes(TArray<FFrameNumber>& OutTimes, const TRange<FFrameNumber>& WithinRange = TRange<FFrameNumber>::All()) const
+	{
+		GetKeyInfo(nullptr, &OutTimes, WithinRange);
+	}
+
+	/**
+	 * Populate the specified handle and/or time arrays with information pertaining to keys that exist within the given range
+	 *
+	 * @param OutHandles       (Optional) An array to populate with key handles, any key handles will be appended to this array
+	 * @param OutTimes         (Optional) An array to populate with key times, any key times will be appended to this array
+	 * @param WithinRange      (Optional) A predicate range to search within
+	 */
+	void GetKeyInfo(TArray<FKeyHandle>* OutHandles, TArray<FFrameNumber>* OutTimes, const TRange<FFrameNumber>& WithinRange = TRange<FFrameNumber>::All()) const;
+
+	/**
+	 * Set the time of the key with the specified handle
+	 *
+	 * @param InKeyHandle      The key handle to set
+	 * @param InKeyTime        The time to set the key to
+	 */
+	void SetKeyTime(FKeyHandle InKeyHandle, FFrameNumber InKeyTime) const
+	{
+		SetKeyTimes(TArrayView<const FKeyHandle>(&InKeyHandle, 1), TArrayView<const FFrameNumber>(&InKeyTime, 1));
+	}
+
+	/**
+	 * Set the times of the each key with the specified handles
+	 *
+	 * @param InKeyHandles     An array of handles that should have their time set to times in the corresponding InKeyTimes array
+	 * @param InKeyTimes       Array of times to set to, one per key handle. Must match the size of InKeyHandles
+	 */
+	void SetKeyTimes(TArrayView<const FKeyHandle> InKeyHandles, TArrayView<const FFrameNumber> InKeyTimes) const;
+
+public:
+
+	/**
+	 * Gather key drawing information for the specified key handles
+	 *
+	 * @param InKeyHandles     An array of handles to draw
+	 * @param OutKeyDrawParams Pre-sized array view of parameters to populate with each key
+	 */
+	void DrawKeys(TArrayView<const FKeyHandle> InKeyHandles, TArrayView<FKeyDrawParams> OutKeyDrawParams);
+
+	/**
+	 * Copy all the keys specified in KeyMask to the specified clipboard
+	 *
+	 * @param ClipboardBuilder The structure responsible for building clipboard information for each key
+	 * @param KeyMask          A specific set of keys to copy
+	 */
+	void CopyKeys(FMovieSceneClipboardBuilder& ClipboardBuilder, TArrayView<const FKeyHandle> KeyMask) const;
+
+
+	/**
+	 * Paste the specified key track into this key area
+	 *
+	 * @param KeyTrack         The source clipboard data to paste
+	 * @param SrcEnvironment   The environment the source data was copied from
+	 * @param DstEnvironment   The environment we're pasting into
+	 */
+	void PasteKeys(const FMovieSceneClipboardKeyTrack& KeyTrack, const FMovieSceneClipboardEnvironment& SrcEnvironment, const FSequencerPasteEnvironment& DstEnvironment);
+
+
+	/**
+	 * Create a new model for this key area that can be used on the curve editor interface
+	 *
+	 * @return (Optional) A new model to be added to a curve editor
+	 */
+	TUniquePtr<FCurveModel> CreateCurveEditorModel(TSharedRef<ISequencer> InSequencer) const;
+
+public:
+
+	FRichCurve* GetRichCurve() const { return nullptr; }
+
+	/**
+	 * Get a key structure for editing a value on this channel
+	 *
+	 * @return The key structure for this channel, or nullptr
+	 */
+	TSharedPtr<FStructOnScope> GetKeyStruct(FKeyHandle KeyHandle) const;
+
+	/**
+	 * Check whether this key area can create an editor on the sequencer node tree
+	 */
+	bool CanCreateKeyEditor() const;
+
+	/**
+	 * Create an editor on the sequencer node tree
+	 *
+	 * @param Sequencer        The currently active sequencer
+	 * @param ObjectBindingID  The ID of the object this key area's track is bound to
+	 * @return The editor widget to display on the key area's node
+	 */
+	TSharedRef<SWidget> CreateKeyEditor(TWeakPtr<ISequencer> Sequencer, const FGuid& ObjectBindingID);
+
+private:
+
+	/** A weak pointer back to the originating UMovieSceneSection that owns this channel */
+	TWeakObjectPtr<UMovieSceneSection> WeakOwningSection;
+
+	/** Handle to the channel itself */
+	FMovieSceneChannelHandle ChannelHandle;
+
+	/** Optional property bindings class where the section resides inside a UMovieScenePropertyTrack */
+	TOptional<FTrackInstancePropertyBindings> PropertyBindings;
+
+	/** The color of this channel that should be drawn underneath its keys */
+	TOptional<FLinearColor> Color;
+
+	/** The name of this channel. */
+	FName ChannelName;
+
+	/** The display text of this channel. */
+	FText DisplayText;
 };

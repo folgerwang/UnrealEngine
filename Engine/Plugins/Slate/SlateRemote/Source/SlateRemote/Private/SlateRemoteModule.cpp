@@ -85,6 +85,7 @@ protected:
 	/** Initializes the Slate Remote server with the current settings. */
 	void InitializeRemoteServer()
 	{
+#if WITH_SLATE_REMOTE_SERVER
 		ShutdownRemoteServer();
 
 		USlateRemoteSettings* Settings = GetMutableDefault<USlateRemoteSettings>();
@@ -139,11 +140,13 @@ protected:
 		{
 			GLog->Logf(TEXT("Error: SlateRemote: Failed to acquire socket subsystem."));
 		}
+#endif
 	}
 
 	/** Restarts the services that this modules provides. */
 	void RestartServices()
 	{
+#if WITH_SLATE_REMOTE_SERVER
 		const USlateRemoteSettings& Settings = *GetDefault<USlateRemoteSettings>();
 
 		if (Settings.EnableRemoteServer)
@@ -157,12 +160,15 @@ protected:
 		{
 			ShutdownRemoteServer();
 		}
+#endif
 	}
 
 	/** Shuts down the Slate Remote server. */
 	void ShutdownRemoteServer()
 	{
+#if WITH_SLATE_REMOTE_SERVER
 		RemoteServer.Reset();
+#endif
 	}
 
 	/**
@@ -172,6 +178,7 @@ protected:
 	 */
 	bool SupportsSlateRemote() const
 	{
+#if WITH_SLATE_REMOTE_SERVER
 		// disallow for commandlets
 		if (IsRunningCommandlet())
 		{
@@ -179,6 +186,9 @@ protected:
 		}
 
 		return true;
+#else
+		return false;
+#endif // WITH_SLATE_REMOTE_SERVER
 	}
 
 private:
@@ -204,9 +214,10 @@ private:
 	}
 
 private:
-
+#if WITH_SLATE_REMOTE_SERVER
 	/** Holds the Slate Remote server. */
 	TSharedPtr<FSlateRemoteServer> RemoteServer;
+#endif
 };
 
 

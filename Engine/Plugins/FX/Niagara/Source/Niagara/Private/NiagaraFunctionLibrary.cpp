@@ -29,14 +29,18 @@ UNiagaraComponent* UNiagaraFunctionLibrary::SpawnSystemAtLocation(UObject* World
 		{
 			AActor* Actor = World->GetWorldSettings();
 			PSC = NewObject<UNiagaraComponent>((Actor ? Actor : (UObject*)World));
+#if WITH_EDITORONLY_DATA
+			PSC->bWaitForCompilationOnActivate = true;
+#endif
 			PSC->SetAsset(SystemTemplate);
 			PSC->SetAutoDestroy(bAutoDestroy);
+			PSC->bAutoActivate = false;
 			PSC->RegisterComponentWithWorld(World);
 
 			PSC->SetAbsolute(true, true, true);
 			PSC->SetWorldLocationAndRotation(SpawnLocation, SpawnRotation);
 			PSC->SetRelativeScale3D(FVector(1.f));
-			//PSC->ActivateSystem(true);
+			PSC->Activate(true);
 		}
 	}
 	return PSC;

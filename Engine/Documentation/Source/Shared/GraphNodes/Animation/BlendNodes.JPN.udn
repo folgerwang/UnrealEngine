@@ -1,8 +1,7 @@
-﻿INTSourceChangelist:2591123
-Availability:NoPublish
+﻿Availability:NoPublish
 Title:Animation ノードの参照
 Crumbs:
-Description:Animation ブループリントで使用できるさまざまなアニメーション ノードの説明
+Description:Animation ブループリントに使用できる各種アニメーション ノードの説明
 
 [EXCERPT:DummyExcerpt]
 
@@ -74,13 +73,13 @@ Alpha パラメータでブレンドされた指定された加算ポーズを�
 
 [EXCERPT:UAnimGraphNode_ComponentToLocalSpace]
 
-コンポーネント空間のポーズを (それぞれのボーン変形はメッシュ コンポーネントと相対的) ローカル空間へ変換します (それぞれのボーン変形は親ボーンと相対的)。
+コンポーネント空間のポーズを (それぞれのボーンのトランスフォームはメッシュ コンポーネントと相対的) ローカル空間へ変換します (それぞれのボーンのトランスフォームは親ボーンと相対的)。
 
 [/EXCERPT:UAnimGraphNode_ComponentToLocalSpace]
 
 [EXCERPT:UAnimGraphNode_LocalToComponentSpace]
 
-ローカル空間 (それぞれのボーン変形は親ボーンと相対的) のポーズをコンポーネント空間 (それぞれのボーン変形はメッシュ コンポーネントと相対的) に変換します。
+ローカル空間 (それぞれのボーンのトランスフォームは親ボーンと相対的) のポーズをコンポーネント空間 (それぞれのボーンのトランスフォームはメッシュ コンポーネントと相対的) に変換します。
 
 [/EXCERPT:UAnimGraphNode_LocalToComponentSpace]
 
@@ -141,13 +140,13 @@ Root ボーンを回転させて、アニメーション データの外側の�
 
 [EXCERPT:UAnimGraphNode_CopyBone]
 
-1 つのボーンから他のボーンへトランスフォーム (変換) をコピーします。平行移動、回転、スケーリング、または 3 つすべてをコピーすることができます。
+1 つのボーンから他のボーンへトランスフォームをコピーします。平行移動、回転、スケーリング、または 3 つすべてをコピーすることができます。
 
 [/EXCERPT:UAnimGraphNode_CopyBone]
 
 [EXCERPT:UAnimGraphNode_ModifyBone]
 
-ボーンのトランスフォーム (変換) を修正します。
+ボーンのトランスフォームを修正します。
 
 [/EXCERPT:UAnimGraphNode_ModifyBone]
 
@@ -165,7 +164,7 @@ Spring Controller は、ボーンが参照ポーズ位置から伸ばすこと�
 
 [EXCERPT:UAnimGraphNode_TwoBoneIK]
 
-[Two Bone IK] 制御は、キャラクターの手足など 3 つのジョイント チェーンにインバース キネマティクス (IK) ソルバを適用します
+Two Bone IK 制御はキャラクターの手足など、 3 つの関節チェーンへ IK (Inverse kinematic) ソルバを適用します。
 
 [/EXCERPT:UAnimGraphNode_TwoBoneIK]
 
@@ -189,19 +188,19 @@ Spring Controller は、ボーンが参照ポーズ位置から伸ばすこと�
 
 [EXCERPT:UAnimGraphNode_Fabrik]
 
-FaBRIK (前方後方到達インバース キネマティクス) アルゴリズムをボーン チェーンに適用して、エンド エフェクタに相対的なボーン トランスフォーム (変換) を行います。
+FaBRIK (前方後方到達インバース キネマティクス) アルゴリズムをボーン チェーンに適用して、エンド エフェクタに相対的なボーン トランスフォームを行います。
 
 [/EXCERPT:UAnimGraphNode_Fabrik]
 
 [EXCERPT:UAnimGraphNode_BoneDrivenController]
 
-他のトランスフォーム (変換) コンポーネントに基づいて、ボーンのトランスフォーム (変換) コンポーネントを操作トランスフォーム (変換) と回転の各コンポーネントは、このノードのソースおよびターゲットとして、あるいは全体としてそのスケールとして使用できます。別のボーンの X 軸の回転から Z 軸のトランスレーション (変換) を操作する場合などです。最終的な出力は乗数で変更することができます。
+他のトランスフォーム コンポーネントに基づいて、ボーンのトランスフォーム コンポーネントを操作トランスフォームと回転の各コンポーネントは、このノードのソースおよびターゲットとして、あるいは全体としてそのスケールとして使用できます。別のボーンの X 軸の回転から Z 軸のトランスレーション (平行移動) を操作する場合などです。最終的な出力は乗数で変更することができます。
 
 [/EXCERPT:UAnimGraphNode_BoneDrivenController]
 
 [EXCERPT:UAnimGraphNode_LookAt]
 
-指定した軸に沿って別のボーン、または指定した位置を見るようにボーンのトランスフォーム (変換) を修正します。
+指定した軸に沿って別のボーン、または指定した位置を見るようにボーンのトランスフォームを修正します。
 
 [/EXCERPT:UAnimGraphNode_LookAt]
 
@@ -210,3 +209,17 @@ FaBRIK (前方後方到達インバース キネマティクス) アルゴリズ
 IK ボーンチェーンのリターゲティングを処理します。HandFKWeight (両サイドを支持) に基いて IK ボーンチェーンが FK ハンドボーンと交わるように移動させます。(0 = 左手を支持、 1 = 右手を支持、 0.5 = 同等のウェイト)
 
 [/EXCERPT:UAnimGraphNode_HandIKRetargeting]
+
+[EXCERPT:GraphNode_FastPathInfo]
+
+アニメーション ノードでは Fast Path を使って、以下のいずれかを確実に行うことでブループリントの使用が遅くなるのを回避します。
+- メンバー変数に直接アクセスする
+- 無効化されたブール メンバー変数にアクセスする
+- ネスティングされた構造体のメンバーにアクセスする
+- "Break Struct" ケースにもアクセスする (Break Transform は、明らかな例外です)
+
+[VAR:ToolTipFullLink]
+Engine/Animation/Optimization/FastPath
+[/VAR]
+
+[/EXCERPT:GraphNode_FastPathInfo]

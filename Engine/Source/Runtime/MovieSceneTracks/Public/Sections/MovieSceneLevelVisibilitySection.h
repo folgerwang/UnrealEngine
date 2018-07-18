@@ -44,8 +44,6 @@ public:
 
 	//~ UMovieSceneSection interface
 	virtual FMovieSceneEvalTemplatePtr GenerateTemplate() const override;
-	virtual TOptional<float> GetKeyTime(FKeyHandle KeyHandle) const override;
-	virtual void SetKeyTime(FKeyHandle KeyHandle, float Time) override;
 
 private:
 

@@ -8,16 +8,16 @@
 // Platform specific vector intrinsics include.
 #if WITH_DIRECTXMATH
 #define SIMD_ALIGNMENT (16)
-#include "UnrealMathDirectX.h"
+#include "Math/UnrealMathDirectX.h"
 #elif PLATFORM_ENABLE_VECTORINTRINSICS
 #define SIMD_ALIGNMENT (16)
 #include "Math/UnrealMathSSE.h"
 #elif PLATFORM_ENABLE_VECTORINTRINSICS_NEON
 #define SIMD_ALIGNMENT (16)
-#include "UnrealMathNeon.h"
+#include "Math/UnrealMathNeon.h"
 #else
 #define SIMD_ALIGNMENT (4)
-#include "UnrealMathFPU.h"
+#include "Math/UnrealMathFPU.h"
 #endif
 
 // 'Cross-platform' vector intrinsics (built on the platform-specific ones defined above)

@@ -151,6 +151,9 @@ FReply FProceduralMeshComponentDetails::ClickedOnConvertToStaticMesh()
 					RawMesh.WedgeTangentZ.Add(TangentZ);
 
 					RawMesh.WedgeTexCoords[0].Add(ProcVertex.UV0);
+					RawMesh.WedgeTexCoords[1].Add(ProcVertex.UV1);
+					RawMesh.WedgeTexCoords[2].Add(ProcVertex.UV2);
+					RawMesh.WedgeTexCoords[3].Add(ProcVertex.UV3);
 					RawMesh.WedgeColors.Add(ProcVertex.Color);
 				}
 
@@ -183,16 +186,16 @@ FReply FProceduralMeshComponentDetails::ClickedOnConvertToStaticMesh()
 				StaticMesh->LightingGuid = FGuid::NewGuid();
 
 				// Add source to new StaticMesh
-				FStaticMeshSourceModel* SrcModel = new (StaticMesh->SourceModels) FStaticMeshSourceModel();
-				SrcModel->BuildSettings.bRecomputeNormals = false;
-				SrcModel->BuildSettings.bRecomputeTangents = false;
-				SrcModel->BuildSettings.bRemoveDegenerates = false;
-				SrcModel->BuildSettings.bUseHighPrecisionTangentBasis = false;
-				SrcModel->BuildSettings.bUseFullPrecisionUVs = false;
-				SrcModel->BuildSettings.bGenerateLightmapUVs = true;
-				SrcModel->BuildSettings.SrcLightmapIndex = 0;
-				SrcModel->BuildSettings.DstLightmapIndex = 1;
-				SrcModel->RawMeshBulkData->SaveRawMesh(RawMesh);
+				FStaticMeshSourceModel& SrcModel = StaticMesh->AddSourceModel();
+				SrcModel.BuildSettings.bRecomputeNormals = false;
+				SrcModel.BuildSettings.bRecomputeTangents = false;
+				SrcModel.BuildSettings.bRemoveDegenerates = false;
+				SrcModel.BuildSettings.bUseHighPrecisionTangentBasis = false;
+				SrcModel.BuildSettings.bUseFullPrecisionUVs = false;
+				SrcModel.BuildSettings.bGenerateLightmapUVs = true;
+				SrcModel.BuildSettings.SrcLightmapIndex = 0;
+				SrcModel.BuildSettings.DstLightmapIndex = 1;
+				SrcModel.SaveRawMesh(RawMesh);
 
 				// Copy materials to new mesh
 				for (UMaterialInterface* Material : MeshMaterials)

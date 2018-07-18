@@ -292,6 +292,16 @@ public:
 /* FMath inline functions
  *****************************************************************************/
 
+inline FVector FMath::RayPlaneIntersection( const FVector& RayOrigin, const FVector& RayDirection, const FPlane& Plane )
+{
+	const FVector PlaneNormal = FVector( Plane.X, Plane.Y, Plane.Z );
+	const FVector PlaneOrigin = PlaneNormal * Plane.W;
+
+	const float Distance = FVector::DotProduct( ( PlaneOrigin - RayOrigin ), PlaneNormal ) / FVector::DotProduct( RayDirection, PlaneNormal );
+	return RayOrigin + RayDirection * Distance;
+}
+
+
 inline FVector FMath::LinePlaneIntersection
 	(
 	const FVector &Point1,

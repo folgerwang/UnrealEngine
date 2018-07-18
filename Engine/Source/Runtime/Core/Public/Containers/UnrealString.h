@@ -279,6 +279,10 @@ public:
 	{
 		const int32 NewSizeIncludingTerminator = (NewReservedSize > 0) ? (NewReservedSize + 1) : 0;
 		Data.Reset(NewSizeIncludingTerminator);
+		if (TCHAR* DataPtr = Data.GetData())
+		{
+			*DataPtr = TEXT('\0');
+		}
 	}
 
 	/**
@@ -1359,11 +1363,21 @@ public:
 	 * @returns FString object that was constructed using format and additional parameters.
 	 */
 	template <typename FmtType, typename... Types>
-	static FString Printf(const FmtType& Fmt, Types... Args)
+	static typename TEnableIf<TIsArrayOrRefOfType<FmtType, TCHAR>::Value, FString>::Type Printf(const FmtType& Fmt, Types... Args)
 	{
-#if USE_FORMAT_STRING_TYPE_CHECKING
 		static_assert(TIsArrayOrRefOfType<FmtType, TCHAR>::Value, "Formatting string must be a TCHAR array.");
-#endif
+		static_assert(TAnd<TIsValidVariadicFunctionArg<Types>...>::Value, "Invalid argument(s) passed to FString::Printf");
+
+		return PrintfImpl(Fmt, Args...);
+	}
+
+	template <typename FmtType, typename... Types>
+	DEPRECATED(4.20, "The formatting string must now be a TCHAR string literal.")
+	static typename TEnableIf<!TIsArrayOrRefOfType<FmtType, TCHAR>::Value, FString>::Type Printf(const FmtType& Fmt, Types... Args)
+	{
+		// NOTE: When this deprecated function is removed, the return type of the overload above
+		//       should be set to simply FString.
+
 		static_assert(TAnd<TIsValidVariadicFunctionArg<Types>...>::Value, "Invalid argument(s) passed to FString::Printf");
 
 		return PrintfImpl(Fmt, Args...);
@@ -1820,7 +1834,7 @@ inline const TCHAR* GetData(const FString& String)
 
 inline SIZE_T GetNum(const FString& String)
 {
-	return String.GetCharArray().Num();
+	return String.Len();
 }
 
 /** Case insensitive string hash function. */
@@ -1872,7 +1886,7 @@ inline int32 StringToBytes( const FString& String, uint8* OutBytes, int32 MaxBuf
 		CharPos++;
 		++NumBytes;
 	}
-	return NumBytes - 1;
+	return NumBytes;
 }
 
 /** @return Char value of Nibble */
@@ -1968,104 +1982,148 @@ inline int32 HexToBytes( const FString& HexString, uint8* OutBytes )
 	return NumBytes;
 }
 
-/** Namespace that houses lexical conversion for various types. User defined conversions can be implemented externally */
+/**
+ * Generalized API to convert something to a string. Function named after the (deprecated) Lex namespace, which
+ * was deprecated because introducing customization points in a nested namespace didn't work in generic code because
+ * it foiled 2-phase template instantiating compilers, which would bind to the qualified name (LexToString) in the first phase,
+ * preventing future overloads defined in later headers to be considered for binding.
+ */
+ /**
+ *	Expected functions in this namespace are as follows:
+ *		bool								LexTryParseString(T& OutValue, const TCHAR* Buffer);
+ *		void 								LexFromString(T& OutValue, const TCHAR* Buffer);
+ *		<implicitly convertible to string>	LexToString(T);
+ *		                    ^-- Generally this means it can return either FString or const TCHAR* 
+ *		                        Generic code that uses ToString should assign to an FString or forward along to other functions
+ *		                        that accept types that are also implicitly convertible to FString 
+ *
+ *	Implement custom functionality externally.
+ */
+
+ /** Covert a string buffer to intrinsic types */
+inline void LexFromString(int8& OutValue, 		const TCHAR* Buffer)	{	OutValue = FCString::Atoi(Buffer);		}
+inline void LexFromString(int16& OutValue,		const TCHAR* Buffer)	{	OutValue = FCString::Atoi(Buffer);		}
+inline void LexFromString(int32& OutValue,		const TCHAR* Buffer)	{	OutValue = FCString::Atoi(Buffer);		}
+inline void LexFromString(int64& OutValue,		const TCHAR* Buffer)	{	OutValue = FCString::Atoi64(Buffer);	}
+inline void LexFromString(uint8& OutValue,		const TCHAR* Buffer)	{	OutValue = FCString::Atoi(Buffer);		}
+inline void LexFromString(uint16& OutValue, 	const TCHAR* Buffer)	{	OutValue = FCString::Atoi(Buffer);		}
+inline void LexFromString(uint32& OutValue, 	const TCHAR* Buffer)	{	OutValue = FCString::Atoi64(Buffer);	}	//64 because this unsigned and so Atoi might overflow
+inline void LexFromString(uint64& OutValue, 	const TCHAR* Buffer)	{	OutValue = FCString::Strtoui64(Buffer, nullptr, 0); }
+inline void LexFromString(float& OutValue,		const TCHAR* Buffer)	{	OutValue = FCString::Atof(Buffer);		}
+inline void LexFromString(double& OutValue, 	const TCHAR* Buffer)	{	OutValue = FCString::Atod(Buffer);		}
+inline void LexFromString(bool& OutValue, 		const TCHAR* Buffer)	{	OutValue = FCString::ToBool(Buffer);	}
+inline void LexFromString(FString& OutValue, 	const TCHAR* Buffer)	{	OutValue = Buffer;						}
+
+ /** Convert numeric types to a string */
+template<typename T>
+typename TEnableIf<TIsArithmetic<T>::Value, FString>::Type
+LexToString(const T& Value)
+{
+	return FString::Printf( TFormatSpecifier<T>::GetFormatSpecifier(), Value );
+}
+
+template<typename CharType>
+typename TEnableIf<TIsCharType<CharType>::Value, FString>::Type
+LexToString(const CharType* Ptr)
+{
+	return FString(Ptr);
+}
+
+inline FString LexToString(bool Value)
+{
+	return Value ? TEXT("true") : TEXT("false");
+}
+
+FORCEINLINE FString LexToString(FString&& Str)
+{
+	return MoveTemp(Str);
+}
+
+FORCEINLINE FString LexToString(const FString& Str)
+{
+	return Str;
+}
+
+/** Helper template to convert to sanitized strings */
+template<typename T>
+FString LexToSanitizedString(const T& Value)
+{
+	return LexToString(Value);
+}
+
+/** Overloaded for floats */
+inline FString LexToSanitizedString(float Value)
+{
+	return FString::SanitizeFloat(Value);
+}
+
+/** Overloaded for doubles */
+inline FString LexToSanitizedString(double Value)
+{
+	return FString::SanitizeFloat(Value);
+}
+
+
+/** Parse a string into this type, returning whether it was successful */
+/** Specialization for arithmetic types */
+template<typename T>
+static typename TEnableIf<TIsArithmetic<T>::Value, bool>::Type
+LexTryParseString(T& OutValue, const TCHAR* Buffer)
+{
+	if (FCString::IsNumeric(Buffer))
+	{
+		LexFromString(OutValue, Buffer);
+		return true;
+	}
+	return false;
+}
+
+/** Try and parse a bool - always returns true */
+static bool LexTryParseString(bool& OutValue, const TCHAR* Buffer)
+{
+	LexFromString(OutValue, Buffer);
+	return true;
+}
+
+
+/** Deprecated Lex namespace. Forwards on to Lex prefixed equivalents for backwards compatibility. See Lex-prefixed functions above. */
 namespace Lex
 {
-	/**
-	 *	Expected functions in this namespace are as follows:
-	 *		bool								TryParseString(T& OutValue, const TCHAR* Buffer);
-	 *		void 								FromString(T& OutValue, const TCHAR* Buffer);
-	 *		<implicitly convertible to string>	ToString(T);
-	 *		                    ^-- Generally this means it can return either FString or const TCHAR* 
-	 *		                        Generic code that uses ToString should assign to an FString or forward along to other functions
-	 *		                        that accept types that are also implicitly convertible to FString 
-	 *
-	 *	Implement custom functionality externally.
-	 */
-
-	/** Covert a string buffer to intrinsic types */
-	inline void FromString(int8& OutValue, 		const TCHAR* Buffer)	{	OutValue = FCString::Atoi(Buffer);		}
-	inline void FromString(int16& OutValue,		const TCHAR* Buffer)	{	OutValue = FCString::Atoi(Buffer);		}
-	inline void FromString(int32& OutValue,		const TCHAR* Buffer)	{	OutValue = FCString::Atoi(Buffer);		}
-	inline void FromString(int64& OutValue,		const TCHAR* Buffer)	{	OutValue = FCString::Atoi64(Buffer);	}
-	inline void FromString(uint8& OutValue,		const TCHAR* Buffer)	{	OutValue = FCString::Atoi(Buffer);		}
-	inline void FromString(uint16& OutValue, 	const TCHAR* Buffer)	{	OutValue = FCString::Atoi(Buffer);		}
-	inline void FromString(uint32& OutValue, 	const TCHAR* Buffer)	{	OutValue = FCString::Atoi64(Buffer);	}	//64 because this unsigned and so Atoi might overflow
-	inline void FromString(uint64& OutValue, 	const TCHAR* Buffer)	{	OutValue = FCString::Strtoui64(Buffer, nullptr, 0); }
-	inline void FromString(float& OutValue,		const TCHAR* Buffer)	{	OutValue = FCString::Atof(Buffer);		}
-	inline void FromString(double& OutValue, 	const TCHAR* Buffer)	{	OutValue = FCString::Atod(Buffer);		}
-	inline void FromString(bool& OutValue, 		const TCHAR* Buffer)	{	OutValue = FCString::ToBool(Buffer);	}
-	inline void FromString(FString& OutValue, 	const TCHAR* Buffer)	{	OutValue = Buffer;						}
-
-	/** Convert numeric types to a string */
-	template<typename T>
-	typename TEnableIf<TIsArithmetic<T>::Value, FString>::Type
-		ToString(const T& Value)
-	{
-		return FString::Printf( TFormatSpecifier<T>::GetFormatSpecifier(), Value );
-	}
-
-	template<typename CharType>
-	typename TEnableIf<TIsCharType<CharType>::Value, FString>::Type
-		ToString(const CharType* Ptr)
-	{
-		return FString(Ptr);
-	}
-
-	inline FString ToString(bool Value)
-	{
-		return Value ? TEXT("true") : TEXT("false");
-	}
-
-	FORCEINLINE FString ToString(FString&& Str)
-	{
-		return MoveTemp(Str);
-	}
-
-	FORCEINLINE FString ToString(const FString& Str)
-	{
-		return Str;
-	}
-
-	/** Helper template to convert to sanitized strings */
-	template<typename T>
-	FString ToSanitizedString(const T& Value)
-	{
-		return ToString(Value);
-	}
-
-	/** Overloaded for floats */
-	inline FString ToSanitizedString(float Value)
-	{
-		return FString::SanitizeFloat(Value);
-	}
-
-	/** Overloaded for doubles */
-	inline FString ToSanitizedString(double Value)
-	{
-		return FString::SanitizeFloat(Value);
-	}
-
-
-	/** Parse a string into this type, returning whether it was successful */
-	/** Specialization for arithmetic types */
-	template<typename T>
-	static typename TEnableIf<TIsArithmetic<T>::Value, bool>::Type
-		TryParseString(T& OutValue, const TCHAR* Buffer)
-	{
-		if (FCString::IsNumeric(Buffer))
-		{
-			FromString(OutValue, Buffer);
-			return true;
-		}
-		return false;
-	}
 	
-	/** Try and parse a bool - always returns true */
-	static bool TryParseString(bool& OutValue, const TCHAR* Buffer)
+	template<typename T> 
+	DEPRECATED(4.20, "Lex::FromString has been deprecated. Please use LexFromString instead.")
+	void FromString(T& OutValue, const TCHAR* Buffer) 
+	{ 
+		LexFromString(OutValue, Buffer); 
+	}
+
+	template<typename T> 
+	DEPRECATED(4.20, "Lex::ToString has been deprecated. Please use LexToString instead.")
+#if PLATFORM_COMPILER_HAS_DECLTYPE_AUTO
+	decltype(auto) ToString(T&& Value)
+#else
+	auto ToString(T&& Value) -> decltype(LexToString(Forward<T>(Value)))
+#endif
 	{
-		FromString(OutValue, Buffer);
-		return true;
+		return LexToString(Forward<T>(Value)); 
+	}
+
+	template<typename T>
+	DEPRECATED(4.20, "Lex::ToSanitizedString has been deprecated. Please use LexToSanitizedString instead.")
+#if PLATFORM_COMPILER_HAS_DECLTYPE_AUTO
+	decltype(auto) ToSanitizedString(T&& Value)
+#else
+	auto ToSanitizedString(T&& Value) -> decltype(LexToSanitizedString(Forward<T>(Value)))
+#endif
+	{
+		return LexToSanitizedString(Forward<T>(Value)); 
+	}
+
+	template<typename T>
+	DEPRECATED(4.20, "Lex::TryParseString has been deprecated. Please use LexTryParseString instead.")
+	bool TryParseString(T& OutValue, const TCHAR* Buffer) 
+	{ 
+		return LexTryParseString(OutValue, Buffer); 
 	}
 }
 
@@ -2077,14 +2135,34 @@ namespace LexicalConversion = Lex;
 template<typename T>
 struct TTypeToString
 {
-	static FString ToString(const T& Value)				{ return Lex::ToString(Value); }
-	static FString ToSanitizedString(const T& Value)	{ return Lex::ToSanitizedString(Value); }
+	static FString ToString(const T& Value)				{ return LexToString(Value); }
+	static FString ToSanitizedString(const T& Value)	{ return LexToSanitizedString(Value); }
 };
 template<typename T>
 struct TTypeFromString
 {
-	static void FromString(T& Value, const TCHAR* Buffer) { return Lex::FromString(Value, Buffer); }
+	static void FromString(T& Value, const TCHAR* Buffer) { return LexFromString(Value, Buffer); }
 };
+
+/**
+ * Gets a non-owning TCHAR pointer from a string type.
+ *
+ * Can be used generically to get a const TCHAR*, when it is not known if the argument is a TCHAR* or an FString:
+ *
+ * template <typename T>
+ * void LogValue(const T& Val)
+ * {
+ *     Logf(TEXT("Value: %s"), ToCStr(LexToString(Val)));
+ * }
+ */
+FORCEINLINE const TCHAR* ToCStr(const TCHAR* Ptr)
+{
+	return Ptr;
+}
+FORCEINLINE const TCHAR* ToCStr(const FString& Str)
+{
+	return *Str;
+}
 
 /*----------------------------------------------------------------------------
 	Special archivers.
@@ -2226,6 +2304,6 @@ CORE_API int32 FindMatchingClosingParenthesis(const FString& TargetString, const
 *
 * @return	The slugged string
 */
-CORE_API FString SlugStringForValidName(const FString& DisplayString);
+CORE_API FString SlugStringForValidName(const FString& DisplayString, const TCHAR* ReplaceWith = TEXT(""));
 
 #include "Misc/StringFormatArg.h"

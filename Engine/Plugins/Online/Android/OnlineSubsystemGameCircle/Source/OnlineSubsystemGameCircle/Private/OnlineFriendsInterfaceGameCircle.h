@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "OnlineFriendsInterface.h"
+#include "Interfaces/OnlineFriendsInterface.h"
 #include "AGS/PlayerClientInterface.h"
 
 

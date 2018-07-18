@@ -195,6 +195,22 @@ public:
 		}
 		return 0;
 	}
+
+	int32 CalcNumOptionalMips() const;
+
+	FORCEINLINE bool GetMipDataFilename(const int32 MipIndex, const FString*& BulkDataFilename)
+	{
+		if (PlatformData)
+		{
+			if ( MipIndex < PlatformData->Mips.Num() && MipIndex >= 0)
+			{
+				BulkDataFilename = &PlatformData->Mips[MipIndex].BulkData.GetFilename();
+				return true;
+			}
+		}
+		return false;
+	}
+
 	FORCEINLINE EPixelFormat GetPixelFormat() const
 	{
 		if (PlatformData)
@@ -324,7 +340,11 @@ public:
 	 *
 	 * @return true if initialized and ready for streaming, false otherwise
 	 */
-	ENGINE_API bool IsReadyForStreaming() const;
+	bool FORCEINLINE IsReadyForStreaming() const
+	{
+		FTexture2DResource* Texture2DResource = (FTexture2DResource*)Resource;
+		return Texture2DResource && Texture2DResource->bReadyForStreaming;
+	}
 
 	/**
 	 * Waits until all streaming requests for this texture has been fully processed.

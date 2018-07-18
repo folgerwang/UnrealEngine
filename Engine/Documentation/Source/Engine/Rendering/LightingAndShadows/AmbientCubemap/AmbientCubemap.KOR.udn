@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3810557
 Availability:Public
 Title:앰비언트 큐브맵
 Crumbs: %ROOT%, Engine, Engine/Rendering/LightingAndShadows
@@ -7,15 +7,7 @@ Version: 4.9
 topic-image:cubemap2.png
 
 [excerpt:AmbientCubemap]
-[EXCERPT:AmbientCubemap_Desc]
-**Ambient Cubemap** (앰비언트 큐브맵)을 통해 제공된 이미지로 씬에 라이팅이 가능합니다. 이 이미지는 먼 거리의 구체에 매핑(되며, 이는 밉맵을 가진 큐브맵 텍스처로 구현되고, 여기에는 미리 블러링된 버전의 이미지가 보관)됩니다.
-블러링 적용 버전은 다양한 (반사가 선명 vs 먹먹한) 광택의 스페큘러 라이팅에 쓸 수 있는 방식으로 계산되며, 디퓨즈 라이팅에도 사용할 수 있습니다.
-이 이펙트는 머티리얼이 빛을 받는 위치와는 상관이 없습니다. 관찰자의 위치, (스페큘러 이펙트에 대한) 머티리얼의 거칠기, 머티리얼 표면 노멀이 전부 계산에 들어갑니다. 
-
-[REGION:note]
-앰비언트 큐브맵에는 로컬 섀도잉이 매우 제한적입니다 (SSAO 만). 하늘빛 표현에는 그 대신 [스카이 라이트](Engine/Rendering/LightingAndShadows/LightTypes/SkyLight) 를 사용하세요.**  
-[/REGION]
-[/EXCERPT:AmbientCubemap_Desc]
+[INCLUDE:#AmbientCubemap_Desc]
 
 앰비언트 큐브맵은 (완벽히 동적인 라이팅의 게임에서 좋은) 미묘한 방향성 배경 효과, 또는 모델 뷰어 어플리케이션 용으로 의도된 것입니다.
 
@@ -37,3 +29,15 @@ topic-image:cubemap2.png
 
 이 이미지의 큐브맵은 Paul Debevec 의 light probe 에서 따 온 것입니다. [http://www.pauldebevec.com/probes](http://www.pauldebevec.com/probes)
 [/excerpt:AmbientCubemap]
+
+[COMMENT:none]
+[EXCERPT:AmbientCubemap_Desc]
+**Ambient Cubemap** (앰비언트 큐브맵)을 통해 제공된 이미지로 씬에 라이팅이 가능합니다. 이 이미지는 먼 거리의 구체에 매핑(되며, 이는 밉맵을 가진 큐브맵 텍스처로 구현되고, 여기에는 미리 블러링된 버전의 이미지가 보관)됩니다.
+블러링 적용 버전은 다양한 (반사가 선명 vs 먹먹한) 광택의 스페큘러 라이팅에 쓸 수 있는 방식으로 계산되며, 디퓨즈 라이팅에도 사용할 수 있습니다.
+이 이펙트는 머티리얼이 빛을 받는 위치와는 상관이 없습니다. 관찰자의 위치, (스페큘러 이펙트에 대한) 머티리얼의 거칠기, 머티리얼 표면 노멀이 전부 계산에 들어갑니다. 
+
+[REGION:note]
+앰비언트 큐브맵에는 로컬 섀도잉이 매우 제한적입니다 (SSAO 만). 하늘빛 표현에는 그 대신 [스카이 라이트](Engine/Rendering/LightingAndShadows/LightTypes/SkyLight) 를 사용하세요.**  
+[/REGION]
+[/EXCERPT:AmbientCubemap_Desc]
+[/COMMENT]

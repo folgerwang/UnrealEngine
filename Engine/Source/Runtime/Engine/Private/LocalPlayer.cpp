@@ -26,7 +26,7 @@
 #include "Net/OnlineEngineInterface.h"
 #include "SceneManagement.h"
 #include "PhysicsPublic.h"
-#include "SkeletalMeshRenderData.h"
+#include "Rendering/SkeletalMeshRenderData.h"
 #include "HAL/PlatformApplicationMisc.h"
 
 #include "IHeadMountedDisplay.h"
@@ -649,7 +649,7 @@ void ULocalPlayer::GetViewPoint(FMinimalViewInfo& OutViewInfo, EStereoscopicPass
 	{
 		if (PlayerController->PlayerCameraManager != NULL)
 		{
-			OutViewInfo = PlayerController->PlayerCameraManager->CameraCache.POV;
+			OutViewInfo = PlayerController->PlayerCameraManager->GetCameraCachePOV();
 			OutViewInfo.FOV = PlayerController->PlayerCameraManager->GetFOVAngle();
 			PlayerController->GetPlayerViewPoint(/*out*/ OutViewInfo.Location, /*out*/ OutViewInfo.Rotation);
 		}
@@ -663,6 +663,9 @@ void ULocalPlayer::GetViewPoint(FMinimalViewInfo& OutViewInfo, EStereoscopicPass
 	{
 		ViewExt->SetupViewPoint(PlayerController, OutViewInfo);
 	};
+
+	// We store the originally desired FOV as other classes may adjust to account for ultra-wide aspect ratios
+	OutViewInfo.DesiredFOV = OutViewInfo.FOV;
 }
 
 bool ULocalPlayer::CalcSceneViewInitOptions(
@@ -797,6 +800,8 @@ FSceneView* ULocalPlayer::CalcSceneView( class FSceneViewFamily* ViewFamily,
 	OutViewLocation = ViewInfo.Location;
 	OutViewRotation = ViewInfo.Rotation;
 	ViewInitOptions.bUseFieldOfViewForLOD = ViewInfo.bUseFieldOfViewForLOD;
+	ViewInitOptions.FOV = ViewInfo.FOV;
+	ViewInitOptions.DesiredFOV = ViewInfo.DesiredFOV;
 
 	// Fill out the rest of the view init options
 	ViewInitOptions.ViewFamily = ViewFamily;
@@ -841,6 +846,11 @@ FSceneView* ULocalPlayer::CalcSceneView( class FSceneViewFamily* ViewFamily,
 		//	CAMERA OVERRIDE
 		//	NOTE: Matinee works through this channel
 		View->OverridePostProcessSettings(ViewInfo.PostProcessSettings, ViewInfo.PostProcessBlendWeight);
+
+		if (PlayerController->PlayerCameraManager)
+		{
+			PlayerController->PlayerCameraManager->UpdatePhotographyPostProcessing(View->FinalPostProcessSettings);
+		}
 
 		View->EndFinalPostprocessSettings(ViewInitOptions);
 	}
@@ -1043,16 +1053,16 @@ bool ULocalPlayer::GetProjectionData(FViewport* Viewport, EStereoscopicPass Ster
     {
 		auto XRCamera = GEngine->XRSystem.IsValid() ? GEngine->XRSystem->GetXRCamera() : nullptr;
 		if (XRCamera.IsValid())
-    {
-		AActor* ViewTarget = PlayerController->GetViewTarget();
-		const bool bHasActiveCamera = ViewTarget && ViewTarget->HasActiveCameraComponent();
+		{
+			AActor* ViewTarget = PlayerController->GetViewTarget();
+			const bool bHasActiveCamera = ViewTarget && ViewTarget->HasActiveCameraComponent();
 			XRCamera->UseImplicitHMDPosition(bHasActiveCamera);
 		}
 
 		if (GEngine->StereoRenderingDevice.IsValid())
 		{
-        GEngine->StereoRenderingDevice->CalculateStereoViewOffset(StereoPass, ViewInfo.Rotation, GetWorld()->GetWorldSettings()->WorldToMeters, StereoViewLocation);
-    }
+			GEngine->StereoRenderingDevice->CalculateStereoViewOffset(StereoPass, ViewInfo.Rotation, GetWorld()->GetWorldSettings()->WorldToMeters, StereoViewLocation);
+		}
     }
 
 	// Create the view matrix
@@ -1537,18 +1547,18 @@ FString ULocalPlayer::GetNickname() const
 	return TEXT("");
 }
 
-TSharedPtr<const FUniqueNetId> ULocalPlayer::GetUniqueNetIdFromCachedControllerId() const
+FUniqueNetIdRepl ULocalPlayer::GetUniqueNetIdFromCachedControllerId() const
 {
 	UWorld* World = GetWorld();
 	if (World != nullptr)
 	{
-		return UOnlineEngineInterface::Get()->GetUniquePlayerId(World, ControllerId);
+		return FUniqueNetIdRepl(UOnlineEngineInterface::Get()->GetUniquePlayerId(World, ControllerId));
 	}
 
-	return nullptr;
+	return FUniqueNetIdRepl();
 }
 
-TSharedPtr<const FUniqueNetId> ULocalPlayer::GetCachedUniqueNetId() const
+FUniqueNetIdRepl ULocalPlayer::GetCachedUniqueNetId() const
 {
 	return CachedUniqueNetId;
 }
@@ -1558,11 +1568,11 @@ void ULocalPlayer::SetCachedUniqueNetId(TSharedPtr<const FUniqueNetId> NewUnique
 	CachedUniqueNetId = NewUniqueNetId;
 }
 
-TSharedPtr<const FUniqueNetId> ULocalPlayer::GetPreferredUniqueNetId() const
+FUniqueNetIdRepl ULocalPlayer::GetPreferredUniqueNetId() const
 {
 	// Prefer the cached unique net id (only if it's valid)
 	// This is for backwards compatibility for games that don't yet cache the unique id properly
-	if (GetCachedUniqueNetId().IsValid() && GetCachedUniqueNetId()->IsValid())
+	if (GetCachedUniqueNetId().IsValid())
 	{
 		return GetCachedUniqueNetId();
 	}
@@ -1574,23 +1584,8 @@ TSharedPtr<const FUniqueNetId> ULocalPlayer::GetPreferredUniqueNetId() const
 bool ULocalPlayer::IsCachedUniqueNetIdPairedWithControllerId() const
 {
 	// Get the UniqueNetId that is paired with the controller
-	TSharedPtr<const FUniqueNetId> UniqueIdFromController = GetUniqueNetIdFromCachedControllerId();
-
-	if (CachedUniqueNetId.IsValid() != UniqueIdFromController.IsValid())
-	{
-		// Definitely can't match if one is valid and not the other
-		return false;
-	}
-
-	if (!CachedUniqueNetId.IsValid())
-	{
-		// Both are invalid, technically they match
-		check(!UniqueIdFromController.IsValid());
-		return true;
-	}
-
-	// Both are valid, ask them if they match
-	return *CachedUniqueNetId == *UniqueIdFromController;
+	FUniqueNetIdRepl UniqueIdFromController = GetUniqueNetIdFromCachedControllerId();
+	return (CachedUniqueNetId == UniqueIdFromController);
 }
 
 UWorld* ULocalPlayer::GetWorld() const

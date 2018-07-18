@@ -71,9 +71,7 @@ public:
 	 * Access to the device profiles Texture LOD Settings
 	 */
 	UTextureLODSettings* GetTextureLODSettings() const;
-
-	bool ModifyCVarValue(const FString& CVarName, const FString& CVarValue, bool bAddIfNonExistant = false);
-	FString GetCVarValue(const FString& CVarName);
+	
 private:
 	// Make sure our TextureLODGroups array is sorted correctly and complete
 	void ValidateTextureLODGroups();
@@ -94,5 +92,46 @@ public:
 	//~ Begin UObject Interface
 	virtual void PostEditChangeProperty( FPropertyChangedEvent& PropertyChangedEvent ) override;
 	//~ End UObject Interface
+
+	bool ModifyCVarValue(const FString& CVarName, const FString& CVarValue, bool bAddIfNonExistant = false);
+	FString GetCVarValue(const FString& CVarName);
+
+	/** Lazily generate a consolidated list of CVars, recursing up the device profile hierarchy */
+	const TMap<FString, FString>& GetConsolidatedCVars() const;
+
+	/** 
+	 * Get the string value of a CVar that is held in this device profile, or in any parent device profile.
+	 * @param	CVarName		The name of the CVar to find
+	 * @param	OutString		The string value of the CVar, if found
+	 * @param	bCheckDefaults	Whether to also check the IConsoleManager for the global default value for the CVar
+	 * @return true if the CVar was found in this device profile
+	 */
+	bool GetConsolidatedCVarValue(const TCHAR* CVarName, FString& OutString, bool bCheckDefaults = false) const;
+
+	/** 
+	 * Get the int32 value of a CVar that is held in this device profile, or in any parent device profile.
+	 * @param	CVarName		The name of the CVar to find
+	 * @param	OutString		The int32 value of the CVar, if found
+	 * @param	bCheckDefaults	Whether to also check the IConsoleManager for the global default value for the CVar
+	 * @return true if the CVar was found in this device profile
+	 */
+	bool GetConsolidatedCVarValue(const TCHAR* CVarName, int32& OutValue, bool bCheckDefaults = false) const;
+
+	/** 
+	 * Get the float value of a CVar that is held in this device profile, or in any parent device profile.
+	 * @param	CVarName		The name of the CVar to find
+	 * @param	OutString		The float value of the CVar, if found
+	 * @param	bCheckDefaults	Whether to also check the IConsoleManager for the global default value for the CVar
+	 * @return true if the CVar was found in this device profile
+	 */
+	bool GetConsolidatedCVarValue(const TCHAR* CVarName, float& OutValue, bool bCheckDefaults = false) const;
+
+private:
+	/** Helper function to broadcast when CVars change and clear consolidated map */
+	void HandleCVarsChanged();
+
+private:
+	/** Consolidated CVars, lazy initialized - access via GetConsolidatedCVars */
+	mutable TMap<FString, FString> ConsolidatedCVars;
 #endif
 };

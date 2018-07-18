@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "Classes/EdGraph/EdGraphSchema.h"
+#include "EdGraph/EdGraphSchema.h"
 #include "SoundSubmixGraphSchema.generated.h"
 
 /** Action to add a node to the graph */

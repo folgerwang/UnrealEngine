@@ -29,7 +29,7 @@ struct FBehaviorTreeTemplateInfo
 	uint16 InstanceMemorySize;
 };
 
-UCLASS(config=Engine)
+UCLASS(config=Engine, Transient)
 class AIMODULE_API UBehaviorTreeManager : public UObject
 {
 	GENERATED_UCLASS_BODY()

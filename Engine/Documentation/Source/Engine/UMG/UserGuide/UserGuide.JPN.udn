@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3612551
+﻿INTSourceChangelist:3807090
 Availability:Public
 Crumbs: %ROOT%
 Title:UMG UI デザイナ ユーザーガイド
@@ -12,7 +12,7 @@ Tags:UMG UI Designer
 
 
 [REGION:fullwidth raw]
-![](UserGuideHeader.png)(w:940 h:160 convert:false)
+![](UserGuideHeader.png)(w:940 convert:false)
 [/REGION]
 
 [EXCERPT:umgheader]
@@ -20,12 +20,5 @@ Tags:UMG UI Designer
 [/EXCERPT:umgheader]
 
 
-## はじめよう
-
-[DIR(output:"topiccompact" parent:"Engine/UMG/UserGuide" org:"hierarchy" tags:"Getting Started" end:"1")]
-
-
-## 参考文献
-
-[DIR(output:"topiccompact" parent:"Engine/UMG/UserGuide" org:"hierarchy" tags:"!Getting Started" end:"1")]
+[DIR(output:"topiccompact" parent:"Engine/UMG/UserGuide" org:"hierarchy" end:"1")]
 

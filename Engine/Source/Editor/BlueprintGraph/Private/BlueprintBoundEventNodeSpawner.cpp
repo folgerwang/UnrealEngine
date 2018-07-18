@@ -4,7 +4,7 @@
 #include "GameFramework/Actor.h"
 #include "K2Node_ActorBoundEvent.h"
 #include "K2Node_ComponentBoundEvent.h"
-#include "EditorStyleSettings.h"
+#include "Classes/EditorStyleSettings.h"
 #include "Editor/EditorEngine.h"
 #include "ObjectEditorUtils.h"
 #include "Kismet2/KismetEditorUtilities.h"

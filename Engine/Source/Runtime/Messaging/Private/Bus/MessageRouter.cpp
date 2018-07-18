@@ -6,7 +6,7 @@
 #include "IMessageSubscription.h"
 #include "IMessageReceiver.h"
 #include "IMessageInterceptor.h"
-
+#include "Misc/ConfigCacheIni.h"
 
 /* FMessageRouter structors
  *****************************************************************************/
@@ -15,9 +15,12 @@ FMessageRouter::FMessageRouter()
 	: DelayedMessagesSequence(0)
 	, Stopping(false)
 	, Tracer(MakeShareable(new FMessageTracer()))
+	, bAllowDelayedMessaging(false)
 {
 	ActiveSubscriptions.FindOrAdd(NAME_All);
-	WorkEvent = FPlatformProcess::GetSynchEventFromPool(true);
+	WorkEvent = FPlatformProcess::GetSynchEventFromPool();
+
+	GConfig->GetBool(TEXT("Messaging"), TEXT("bAllowDelayedMessaging"), bAllowDelayedMessaging, GEngineIni);
 }
 
 
@@ -31,6 +34,12 @@ FMessageRouter::~FMessageRouter()
 /* FRunnable interface
  *****************************************************************************/
 
+FSingleThreadRunnable* FMessageRouter::GetSingleThreadInterface()
+{
+	return this;
+}
+
+
 bool FMessageRouter::Init()
 {
 	return true;
@@ -39,24 +48,14 @@ bool FMessageRouter::Init()
 
 uint32 FMessageRouter::Run()
 {
-	CurrentTime = FDateTime::UtcNow();
-
 	while (!Stopping)
 	{
-		if (WorkEvent->Wait(CalculateWaitTime()))
-		{
-			CurrentTime = FDateTime::UtcNow();
-			CommandDelegate Command;
+		CurrentTime = FDateTime::UtcNow();
 
-			while (Commands.Dequeue(Command))
-			{
-				Command.Execute();
-			}
-
-			WorkEvent->Reset();
-		}
-
+		ProcessCommands();
 		ProcessDelayedMessages();
+
+		WorkEvent->Wait(CalculateWaitTime());
 	}
 
 	return 0;
@@ -207,6 +206,17 @@ void FMessageRouter::FilterSubscriptions(
 }
 
 
+void FMessageRouter::ProcessCommands()
+{
+	CommandDelegate Command;
+
+	while (Commands.Dequeue(Command))
+	{
+		Command.Execute();
+	}
+}
+
+
 void FMessageRouter::ProcessDelayedMessages()
 {
 	FDelayedMessage DelayedMessage;
@@ -216,6 +226,18 @@ void FMessageRouter::ProcessDelayedMessages()
 		DelayedMessages.HeapPop(DelayedMessage);
 		DispatchMessage(DelayedMessage.Context.ToSharedRef());
 	}
+}
+
+
+/* FSingleThreadRunnable interface
+ *****************************************************************************/
+
+void FMessageRouter::Tick()
+{
+	CurrentTime = FDateTime::UtcNow();
+
+	ProcessDelayedMessages();
+	ProcessCommands();
 }
 
 
@@ -332,8 +354,7 @@ void FMessageRouter::HandleRouteMessage(TSharedRef<IMessageContext, ESPMode::Thr
 	}
 
 	// dispatch the message
-	// @todo gmp: implement time synchronization between networked message endpoints
-	if (false) //(Context->GetTimeSent() > CurrentTime)
+	if (bAllowDelayedMessaging && (Context->GetTimeSent() > CurrentTime))
 	{
 		DelayedMessages.HeapPush(FDelayedMessage(Context, ++DelayedMessagesSequence));
 	}

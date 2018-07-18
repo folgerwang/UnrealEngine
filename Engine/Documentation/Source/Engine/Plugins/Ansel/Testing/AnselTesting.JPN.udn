@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3579346
+﻿INTSourceChangelist:3808342
 Availability:Public
 TItle:NVIDIA Ansel キャプチャー テスト
 Description:ゲームの拡張画像をキャプチャーし、共有するための Nvidia の Ansel のインゲームのフォトグラフィー ツールの UE4 への統合の概要です。
@@ -16,10 +16,6 @@ topic-image:Ansel_Testing_Topic.png
 1. NvCameraConfiguration.exe アプリケーションを実行し、**NvCamera Status** をデフォルトである _Enable_ に必ず設定してください。
 
 		C:\Program Files\NVIDIA Corporation\Ansel\Tools\NvCameraConfiguration.exe
-
-1. NvCameraEnable.exe アプリケーションを実行し、ゲームで Ansel を使えるように `whitelisting-everything` を渡します。これはリブートしても残り、`whitelisting-everything` の代わりに `whitelisting-default` を入力することでリセットすることができます。
-
-		"C:\Program Files\NVIDIA Corporation\Ansel\Tools\NvCameraEnable.exe" whitelisting-everything
 
 1. アンリアル エディタで、レベル エディタのツールバーから **[Play > Standalone Game]** の順に選択し、Standalone Game として実行します。エディタで再生時には Ansel はアクティベートしません。
 

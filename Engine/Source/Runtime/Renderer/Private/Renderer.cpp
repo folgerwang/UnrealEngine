@@ -26,55 +26,6 @@
 #include "GPUBenchmark.h"
 #include "SystemSettings.h"
 
-/** A minimal forwarding lighting setup. */
-class FMinimalDummyForwardLightingResources : public FRenderResource
-{
-public:
-	FForwardLightingViewResources ForwardLightingResources;
-	
-	/** Destructor. */
-	virtual ~FMinimalDummyForwardLightingResources()
-	{}
-	
-	virtual void InitRHI()
-	{
-		if (GMaxRHIFeatureLevel == ERHIFeatureLevel::SM5)
-		{
-			ForwardLightingResources.ForwardLocalLightBuffer.Initialize(sizeof(FVector4), sizeof(FForwardLocalLightData) / sizeof(FVector4), PF_A32B32G32R32F, BUF_Dynamic);
-			ForwardLightingResources.ForwardGlobalLightData = TUniformBufferRef<FForwardGlobalLightData>::CreateUniformBufferImmediate(FForwardGlobalLightData(), UniformBuffer_MultiFrame);
-			ForwardLightingResources.NumCulledLightsGrid.Initialize(sizeof(uint32), 1, PF_R32_UINT);
-			// @todo Metal lacks efficient SRV/UAV format conversions.
-#if PLATFORM_MAC || PLATFORM_IOS
-			if(IsMetalPlatform(GMaxRHIShaderPlatform))
-			{
-				ForwardLightingResources.CulledLightDataGrid.Initialize(sizeof(uint32), 1, PF_R32_UINT);
-			}
-			else
-#endif
-			{
-				ForwardLightingResources.CulledLightDataGrid.Initialize(sizeof(uint16), 1, PF_R16_UINT);
-			}
-		}
-	}
-	
-	virtual void ReleaseRHI()
-	{
-		ForwardLightingResources.Release();
-	}
-};
-
-FForwardLightingViewResources* GetMinimalDummyForwardLightingResources()
-{
-	static TGlobalResource<FMinimalDummyForwardLightingResources>* GMinimalDummyForwardLightingResources = nullptr;
-
-	if (!GMinimalDummyForwardLightingResources)
-	{
-		GMinimalDummyForwardLightingResources = new TGlobalResource<FMinimalDummyForwardLightingResources>();
-	}
-
-	return &GMinimalDummyForwardLightingResources->ForwardLightingResources;
-}
-
 DEFINE_LOG_CATEGORY(LogRenderer);
 
 IMPLEMENT_MODULE(FRendererModule, Renderer);
@@ -85,6 +36,22 @@ IMPLEMENT_MODULE(FRendererModule, Renderer);
 	// where we need to visualize SystemSettings
 	FSystemSettings* GSystemSettingsForVisualizers = &GSystemSettings;
 #endif
+
+// Dummy Reflection capture uniform buffer for translucent tile mesh rendering
+class FDummyReflectionCaptureUniformBuffer : public TUniformBuffer<FReflectionCaptureShaderData>
+{
+	typedef TUniformBuffer< FReflectionCaptureShaderData > Super;
+	
+public:
+	virtual void InitDynamicRHI() override
+	{
+		FReflectionCaptureShaderData DummyPositionsBuffer;
+		FMemory::Memzero(DummyPositionsBuffer);
+		SetContentsNoUpdate(DummyPositionsBuffer);
+		Super::InitDynamicRHI();
+	}
+};
+static TGlobalResource< FDummyReflectionCaptureUniformBuffer > GDummyReflectionCaptureUniformBuffer;
 
 void FRendererModule::ReallocateSceneRenderTargets()
 {
@@ -115,9 +82,11 @@ void FRendererModule::DrawTileMesh(FRHICommandListImmediate& RHICmdList, FDrawin
 		FMaterialRenderProxy::UpdateDeferredCachedUniformExpressions();
 
 		//Apply the minimal forward lighting resources
+		extern FForwardLightingViewResources* GetMinimalDummyForwardLightingResources();
 		View.ForwardLightingResources = GetMinimalDummyForwardLightingResources();
 
 		View.InitRHIResources();
+		DrawRenderState.SetViewUniformBuffer(View.ViewUniformBuffer);
 
 		const auto FeatureLevel = View.GetFeatureLevel();
 
@@ -133,20 +102,28 @@ void FRendererModule::DrawTileMesh(FRHICommandListImmediate& RHICmdList, FDrawin
 
 		GSystemTextures.InitializeTextures(RHICmdList, FeatureLevel);
 
-		FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
-		SceneContext.AllocDummyGBufferTargets(RHICmdList);
-		SceneContext.SetLightAttenuationMode(false);		
-
 		// handle translucent material blend modes, not relevant in MaterialTexCoordScalesAnalysis since it outputs the scales.
 		if (IsTranslucentBlendMode(MaterialBlendMode) && View.Family->GetDebugViewShaderMode() != DVSM_OutputMaterialTextureScales)
 		{
 			if (FeatureLevel >= ERHIFeatureLevel::SM4)
 			{
-				FTranslucencyDrawingPolicyFactory::DrawDynamicMesh(RHICmdList, View, FTranslucencyDrawingPolicyFactory::ContextType(nullptr, ETranslucencyPass::TPT_AllTranslucency, true, ESceneRenderTargetsMode::InvalidScene), Mesh, false, DrawRenderState, NULL, HitProxyId);
+				// Crash fix - reflection capture shader parameter is bound but we have no buffer during Build Texture Streaming
+				if(!View.ReflectionCaptureUniformBuffer.IsValid())
+				{
+					View.ReflectionCaptureUniformBuffer = GDummyReflectionCaptureUniformBuffer;
+				}
+			
+				TUniformBufferRef<FTranslucentBasePassUniformParameters> BasePassUniformBuffer;
+				CreateTranslucentBasePassUniformBuffer(RHICmdList, View, nullptr, ESceneTextureSetupMode::None, BasePassUniformBuffer);
+				DrawRenderState.SetPassUniformBuffer(BasePassUniformBuffer);
+				FTranslucencyDrawingPolicyFactory::DrawDynamicMesh(RHICmdList, View, FTranslucencyDrawingPolicyFactory::ContextType(nullptr, ETranslucencyPass::TPT_AllTranslucency, true), Mesh, false, DrawRenderState, NULL, HitProxyId);
 			}
 			else
 			{
-				FMobileTranslucencyDrawingPolicyFactory::DrawDynamicMesh(RHICmdList, View, FMobileTranslucencyDrawingPolicyFactory::ContextType(ESceneRenderTargetsMode::InvalidScene, ETranslucencyPass::TPT_AllTranslucency), Mesh, false, DrawRenderState, NULL, HitProxyId);
+				TUniformBufferRef<FMobileBasePassUniformParameters> BasePassUniformBuffer;
+				CreateMobileBasePassUniformBuffer(RHICmdList, View, false, BasePassUniformBuffer);
+				DrawRenderState.SetPassUniformBuffer(BasePassUniformBuffer);
+				FMobileTranslucencyDrawingPolicyFactory::DrawDynamicMesh(RHICmdList, View, FMobileTranslucencyDrawingPolicyFactory::ContextType(ETranslucencyPass::TPT_AllTranslucency), Mesh, false, DrawRenderState, NULL, HitProxyId);
 			}
 		}
 		// handle opaque materials
@@ -164,11 +141,17 @@ void FRendererModule::DrawTileMesh(FRHICommandListImmediate& RHICmdList, FDrawin
 			{
 				if (FeatureLevel >= ERHIFeatureLevel::SM4)
 				{
-					FBasePassOpaqueDrawingPolicyFactory::DrawDynamicMesh(RHICmdList, View, FBasePassOpaqueDrawingPolicyFactory::ContextType(ESceneRenderTargetsMode::InvalidScene), Mesh, false, DrawRenderState, NULL, HitProxyId);
+					TUniformBufferRef<FOpaqueBasePassUniformParameters> BasePassUniformBuffer;
+					CreateOpaqueBasePassUniformBuffer(RHICmdList, View, nullptr, BasePassUniformBuffer);
+					DrawRenderState.SetPassUniformBuffer(BasePassUniformBuffer);
+					FBasePassOpaqueDrawingPolicyFactory::DrawDynamicMesh(RHICmdList, View, FBasePassOpaqueDrawingPolicyFactory::ContextType(), Mesh, false, DrawRenderState, NULL, HitProxyId);
 				}
 				else
 				{
-					FMobileBasePassOpaqueDrawingPolicyFactory::DrawDynamicMesh(RHICmdList, View, FMobileBasePassOpaqueDrawingPolicyFactory::ContextType(ESceneRenderTargetsMode::InvalidScene), Mesh, false, DrawRenderState, NULL, HitProxyId);
+					TUniformBufferRef<FMobileBasePassUniformParameters> BasePassUniformBuffer;
+					CreateMobileBasePassUniformBuffer(RHICmdList, View, false, BasePassUniformBuffer);
+					DrawRenderState.SetPassUniformBuffer(BasePassUniformBuffer);
+					FMobileBasePassOpaqueDrawingPolicyFactory::DrawDynamicMesh(RHICmdList, View, FMobileBasePassOpaqueDrawingPolicyFactory::ContextType(), Mesh, false, DrawRenderState, NULL, HitProxyId);
 				}
 			}
 		}	
@@ -190,6 +173,8 @@ void FRendererModule::DebugLogOnCrash()
 	GRenderTargetPool.VisualizeTexture.SortOrder = 1;
 	GRenderTargetPool.VisualizeTexture.bFullList = true;
 	GRenderTargetPool.VisualizeTexture.DebugLog(false);
+	
+	GEngine->Exec(NULL, TEXT("rhi.DumpMemory"), *GLog);
 
 	// execute on main thread
 	{
@@ -198,7 +183,6 @@ void FRendererModule::DebugLogOnCrash()
 			void Thread()
 			{
 				GEngine->Exec(NULL, TEXT("Mem FromReport"), *GLog);
-				GEngine->Exec(NULL, TEXT("rhi.DumpMemory"), *GLog);
 			}
 		} Test;
 
@@ -242,7 +226,7 @@ void FRendererModule::GPUBenchmark(FSynthBenchmarkResults& InOut, float WorkScal
 		);
 
 	FSceneView DummyView(ViewInitOptions);
-
+	FlushRenderingCommands();
 	ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
 	  RendererGPUBenchmarkCommand,
 	  FSceneView, DummyView, DummyView,
@@ -279,8 +263,6 @@ static void VisualizeTextureExec( const TCHAR* Cmd, FOutputDevice &Ar )
 		{
 			break;
 		}
-
-		Parameter.ToLower();
 
 		// FULL flag
 		if(Parameter == TEXT("fulllist") || Parameter == TEXT("full"))

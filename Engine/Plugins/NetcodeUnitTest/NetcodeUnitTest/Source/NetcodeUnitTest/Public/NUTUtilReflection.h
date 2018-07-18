@@ -6,7 +6,7 @@
 #include "UObject/Class.h"
 #include "UObject/UnrealType.h"
 #include "UObject/StructOnScope.h"
-#include "ValueOrError.h"
+#include "Templates/ValueOrError.h"
 
 class FStructOnScope;
 class FFuncReflection;

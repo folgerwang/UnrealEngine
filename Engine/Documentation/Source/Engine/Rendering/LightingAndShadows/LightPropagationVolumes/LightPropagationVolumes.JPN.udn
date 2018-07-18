@@ -1,50 +1,10 @@
-﻿INTSourceChangelist:2735504
-Availability:Public
+﻿Availability:Public
 Title:Light Propagation Volume
 Crumbs:%ROOT%, Engine, Engine/Rendering/LightingAndShadows
 Description:グローバル イルミネーションを動的に生成するシステム
 Version:4.9
 SkillLevel:Advanced
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![](lpv_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Rendering/LightingAndShadows/LightPropagationVolumes:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Rendering/LightingAndShadows/LightPropagationVolumes:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/LightingAndShadows/LightPropagationVolumes]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![](lpv_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Rendering/LightingAndShadows/LightPropagationVolumes:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Rendering/LightingAndShadows/LightPropagationVolumes:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/LightingAndShadows/LightPropagationVolumes]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:lpv_topic.png
 
 [REGION:todo]
 Light Propagation Volume は、開発段階の機能であり、本番環境で使用する準備はまだ整っていません。
@@ -68,10 +28,10 @@ Light Propagation Volume は、開発段階の機能であり、本番環境で�
 
 ## 基本的なシーン設定
 
-* **可動性 (Mobility) ** を **可動 (Movable)** に設定した状態で平行光源 (Directional Light) を追加します。
+* **可動性 (Mobility) ** を **可動 (Movable)** に設定した状態で指向性ライト (Directional Light) を追加します。
 * ジオメトリ (頂点・形状) およびライトの方向を追加 / 調整し、シャドウがかかる部分とライトを受ける部分 (理想としては、明るい色のマテリアル) をつくります。
 * 動的 (グローバル イルミネーション) GI として混乱を招く Lightmass GI (グローバルイルミネーション) が有効になっていないことを確認します (両方の技術を一緒に使用すると、明るすぎる間接照明になります)。
-* 平行光源で **[Affect Dynamic Indirect Lighting]** を有効にします。
+* 指向性ライトで **[Affect Dynamic Indirect Lighting]** を有効にします。
 * 表示フラグにある Light Propagation モードのビューモードが有効になり、Light Propagation Volume がカバーするエリアが視覚化されます。[以下を参照](#グローバルイルミネーションを表示する)。
 * ポスト プロセス ボリューム (unbound であること) を追加 / 変更し、必要な詳細度と距離 (トレードオフ) でエリアをカバーするように[LightPropagationVolume] 設定でサイズを微調整します。
 * GI を有効化 / 無効化するには、Global Illumination 表示フラグを使用します。
@@ -80,18 +40,18 @@ Light Propagation Volume は、開発段階の機能であり、本番環境で�
 ## Light Propagation Volume の設定
 
 グローバル設定の一部は、ポストプロセス設定にあります (ポストプロセス ボリュームを追加し、 
-unbound にし、適切な優先度を持たせるようにします)。
+必要な詳細度と距離 (トレードオフ) でエリアをカバーするように[LightPropagationVolume] 設定でサイズを微調整します。
 
 ![](LPV_settings.png)
 
-ツールチップ (マウスでかざす) には、設定に関する詳細情報が表示されます。
+GI を有効化 / 無効化するには、Global Illumination 表示フラグを使用します。
 
 [COMMENT:none]
  add setting descriptions 
 [/COMMENT]
 
-ボリュームでこうした設定をすると、カメラ位置に応じてソフトでブレンド可能なものにすることができます (例、 
-屋内環境または木々の下で GI バウンスが少なくなります)。
+ボリュームでこうした設定をすると、カメラ位置に応じてソフトでブレンド可能なものにすることができます  
+(例、屋内環境または木々の下で GI バウンスが少なくなります)。
 
 セカンダリ オクルージョンを有効にします。セカンダリ バウンスは非常に負荷が低いため、これも有効にします。 
 
@@ -114,12 +74,12 @@ unbound にし、適切な優先度を持たせるようにします)。
 
 ![](LPV_disable_material.png)
 
-## 平行光源の設定
+## 指向性ライトの設定
 
-パフォーマンス上の理由から、Light Propagation Volume は平行光源のみを入射光として使用します。この方法では、 
+パフォーマンス上の理由から、Light Propagation Volume は指向性ライトのみを入射光として使用します。この方法では、 
 カメラの近くにある、いわゆる _Reflective Shadow Map_ を計算します。これは、通常のシャドウマップ (ライト パースペクティブからの不透明な深度の 2d テクスチャ) のようなものですが、 
-マテリアルのプロパティが追加 (マテリアルのカラー、法線) されています。各ポイントライトに対して 
-上記を行うと、非常に負荷が高くなります。平行光源で適切な設定を行うようにしてください。
+マテリアルのプロパティが追加 (マテリアルのカラー、法線) されています。各ポイントライトに対して上記を行うと、 
+非常に負荷が高くなります。指向性ライトで適切な設定を行うようにしてください。
 
 ![](LPV_light_settings.png)
 
@@ -162,7 +122,7 @@ unbound にし、適切な優先度を持たせるようにします)。
 
 [/EXCERPT:GIReplaceExample]
 
-##その他の注記
+##その他の注意事項
 
 現在の LPV 実装のプロパティ
 
@@ -174,11 +134,11 @@ unbound にし、適切な優先度を持たせるようにします)。
 * ライトのバウンスはデカールの影響を受けません。
 * デカールのシェーディングは単純に機能します (デカール適用前にベース パスにライティングが適用されるベイクされたライティングとは異なります)。
 * 演算シェーダー (DirectX11) のサポートが必要です。
-* ライトのバウンスに対して 1 つ以上の平行光源をサポートしています。
+* ライトのバウンスに対して 1 つ以上の指向性ライトをサポートしています。
 * ランタイムにサイズを変更すると、時間の経過とともに徐々に薄くなる小さなアーティファクトが生じます。
 * 負荷が小さいエリアのライトに対するエミッシブ ライティング (現時点では未対応)
-* オクルージョン (現時点では未対応)
-* ポイント ライトシャドウをオクルージョンによって近似値化 (現時点では未対応)
+* オクルージョン(現時点では未対応)
+* ポイントライトシャドウをオクルージョンによって近似値化 (現時点では未対応)
 * パフォーマンス コストは多少かかりますが、クオリティは非常に高くなるジオメトリのボクセル化によるセカンダリ オクルージョン(現時点では未対応)
 
 
@@ -196,7 +156,7 @@ unbound にし、適切な優先度を持たせるようにします)。
 	17
 	[/PARAMLITERAL]
 	[PARAM:caption]
-	**視覚化された Light Propagation Volume を見るには、スライダをドラッグします。** 
+	**Light Propagation Volume を表示するにはスライダをドラッグします。** 
 	[/PARAM]
 	[PARAM:image_list]
 	![](LPV_visualize_1.png)

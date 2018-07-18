@@ -24,9 +24,9 @@
 #include "IOSVR.h"
 #include "OSVRCustomPresent.h"
 
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 #include <osvr/RenderKit/RenderManagerD3D11C.h>
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 #include "Runtime/Windows/D3D11RHI/Private/D3D11RHIPrivate.h"
 
 class FCurrentCustomPresent : public FOSVRCustomPresent<ID3D11Device>
@@ -35,34 +35,6 @@ public:
     FCurrentCustomPresent(OSVR_ClientContext clientContext) :
         FOSVRCustomPresent(clientContext)
     {
-    }
-
-    virtual bool UpdateViewport(const FViewport& InViewport, class FRHIViewport* InViewportRHI) override
-    {
-        FScopeLock lock(&mOSVRMutex);
-
-        check(IsInGameThread());
-        if (!IsInitialized())
-        {
-            UE_LOG(FOSVRCustomPresentLog, Warning, TEXT("UpdateViewport called but custom present is not initialized - doing nothing"));
-            return false;
-        }
-        else
-        {
-            check(InViewportRHI);
-            //const FTexture2DRHIRef& rt = InViewport.GetRenderTargetTexture();
-            //check(IsValidRef(rt));
-            //SetRenderTargetTexture((ID3D11Texture2D*)rt->GetNativeResource()); // @todo: do we need to do this?
-            auto oldCustomPresent = InViewportRHI->GetCustomPresent();
-            if (oldCustomPresent != this)
-            {
-                InViewportRHI->SetCustomPresent(this);
-            }
-            // UpdateViewport is called before we're initialized, so we have to
-            // defer updates to the render buffers until we're in the render thread.
-            //bRenderBuffersNeedToUpdate = true;
-            return true;
-        }
     }
 
     virtual bool AllocateRenderTargetTexture(uint32 index, uint32 sizeX, uint32 sizeY, uint8 format, uint32 numMips, uint32 flags, uint32 targetableTextureFlags, FTexture2DRHIRef& outTargetableTexture, FTexture2DRHIRef& outShaderResourceTexture, uint32 numSamples = 1) override

@@ -142,6 +142,7 @@ void USoundNodeLooping::ResetChildren(const UPTRINT NodeWaveInstanceHash, FActiv
 		}
 	}
 }
+
 float USoundNodeLooping::GetDuration()
 {
 	// Assume no duration (i.e. no input node)

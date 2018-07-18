@@ -13,6 +13,9 @@ class FShaderParameterMap;
 class FUniformBufferStruct;
 struct FShaderCompilerEnvironment;
 
+SHADERCORE_API void CacheUniformBufferIncludes(TMap<const TCHAR*, struct FCachedUniformBufferDeclaration>& Cache, EShaderPlatform Platform);
+
+
 enum EShaderParameterFlags
 {
 	// no shader error if the parameter is not used
@@ -154,7 +157,7 @@ private:
 };
 
 /** Creates a shader code declaration of this struct for the given shader platform. */
-extern SHADERCORE_API void CreateUniformBufferShaderDeclaration(const TCHAR* Name,const FUniformBufferStruct& UniformBufferStruct,EShaderPlatform Platform, FString& OutDeclaration);
+extern SHADERCORE_API void CreateUniformBufferShaderDeclaration(const TCHAR* Name,const FUniformBufferStruct& UniformBufferStruct, FString& OutDeclaration);
 
 class FShaderUniformBufferParameter
 {

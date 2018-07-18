@@ -4,7 +4,7 @@
 
 #include "OnlineSubsystemTwitch.h"
 #include "OnlineSubsystemTwitchPackage.h"
-#include "OnlineExternalUIInterface.h"
+#include "Interfaces/OnlineExternalUIInterface.h"
 
 class FOnlineSubsystemTwitch;
 class IHttpRequest;
@@ -40,6 +40,7 @@ public:
 
 	// IOnlineExternalUI
 	virtual bool ShowLoginUI(const int ControllerIndex, bool bShowOnlineOnly, bool bShowSkipButton, const FOnLoginUIClosedDelegate& Delegate = FOnLoginUIClosedDelegate()) override;
+	virtual bool ShowAccountCreationUI(const int ControllerIndex, const FOnAccountCreationUIClosedDelegate& Delegate = FOnAccountCreationUIClosedDelegate()) override { /** NYI */ return false; }
 	virtual bool ShowFriendsUI(int32 LocalUserNum) override;
 	virtual bool ShowInviteUI(int32 LocalUserNum, FName SessionName = NAME_GameSession) override;
 	virtual bool ShowAchievementsUI(int32 LocalUserNum) override;
@@ -104,10 +105,10 @@ private:
 	 * @param LocalUserNum index of the local user initiating the request
 	 * @param bWasSuccessful was the login call successful
 	 * @param UserId user id of the logged in user, or null if login failed
-	 * @param Error error string if applicable
+	 * @param ErrorStr error string if applicable
 	 * @param Delegate UI closed delegate to fire, completing the external UIs part in the login process
 	 */
-	void OnAccessTokenLoginComplete(int32 LocalUserNum, bool bWasSuccessful, const FUniqueNetId& UserId, const FString& Error, FOnLoginUIClosedDelegate Delegate);
+	void OnAccessTokenLoginComplete(int32 LocalUserNum, bool bWasSuccessful, const FUniqueNetId& UserId, const FString& ErrorStr, FOnLoginUIClosedDelegate Delegate);
 };
 
 typedef TSharedPtr<FOnlineExternalUITwitch, ESPMode::ThreadSafe> FOnlineExternalUITwitchPtr;

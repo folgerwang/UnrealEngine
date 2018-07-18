@@ -285,11 +285,13 @@ FConstraintInstance::FConstraintInstance()
 	, bSwingVelocityDrive_DEPRECATED(false)
 	, bTwistPositionDrive_DEPRECATED(false)
 	, bTwistVelocityDrive_DEPRECATED(false)
+	, bAngularSlerpDrive_DEPRECATED(false)
 	, bAngularOrientationDrive_DEPRECATED(false)
 	, bEnableSwingDrive_DEPRECATED(true)
 	, bEnableTwistDrive_DEPRECATED(true)
 	, bAngularVelocityDrive_DEPRECATED(false)
 	, AngularPositionTarget_DEPRECATED(ForceInit)
+	, AngularDriveMode_DEPRECATED(EAngularDriveMode::SLERP)
 	, AngularOrientationTarget_DEPRECATED(ForceInit)
 	, AngularVelocityTarget_DEPRECATED(ForceInit)
 	, AngularDriveSpring_DEPRECATED(50.0f)
@@ -348,7 +350,7 @@ float ComputeAverageMass_AssumesLocked(const PxRigidActor* PActor1, const PxRigi
 		}
 
 		check(NumDynamic);
-		AverageMass = TotalMass / NumDynamic;
+		AverageMass = TotalMass / NumDynamic; //-V609
 	}
 
 	return AverageMass;

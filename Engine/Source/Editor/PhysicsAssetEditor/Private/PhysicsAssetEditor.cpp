@@ -41,6 +41,7 @@
 #include "PhysicsEngine/BoxElem.h"
 #include "PhysicsEngine/SphereElem.h"
 #include "PhysicsEngine/SphylElem.h"
+#include "PhysicsEngine/TaperedCapsuleElem.h"
 #include "PhysicsEngine/BodySetup.h"
 #include "PhysicsEngine/PhysicsConstraintTemplate.h"
 #include "PhysicsEngine/ConstraintUtils.h"
@@ -70,13 +71,14 @@
 #include "SkeletonTreePhysicsBodyItem.h"
 #include "SkeletonTreePhysicsShapeItem.h"
 #include "SkeletonTreePhysicsConstraintItem.h"
-#include "ScopedSlowTask.h"
+#include "Misc/ScopedSlowTask.h"
 #include "PhysicsAssetGenerationSettings.h"
 #include "Framework/Commands/GenericCommands.h"
 #include "UICommandList_Pinnable.h"
 #include "IPinnedCommandList.h"
-#include "SSpinBox.h"
-#include "SNumericEntryBox.h"
+#include "Widgets/Input/SSpinBox.h"
+#include "Widgets/Input/SNumericEntryBox.h"
+#include "AnimationEditorPreviewActor.h"
 
 const FName PhysicsAssetEditorModes::PhysicsAssetEditorMode("PhysicsAssetEditorMode");
 
@@ -246,7 +248,7 @@ void FPhysicsAssetEditor::HandleViewportSelectionChanged(const TArray<FPhysicsAs
 						for (const FPhysicsAssetEditorSharedData::FSelection& SelectedBody : InSelectedBodies)
 						{
 							USkeletalBodySetup* BodySetup = SharedData->PhysicsAsset->SkeletalBodySetups[SelectedBody.Index];
-							int32 GeomCount = BodySetup->AggGeom.SphereElems.Num() + BodySetup->AggGeom.SphylElems.Num() + BodySetup->AggGeom.BoxElems.Num() + BodySetup->AggGeom.ConvexElems.Num();
+							int32 GeomCount = BodySetup->AggGeom.GetElementCount();
 							if (BodySetup == InItem->GetObject())
 							{
 								if(InItem->IsOfType<FSkeletonTreePhysicsShapeItem>())
@@ -659,17 +661,22 @@ void FPhysicsAssetEditor::BindCommands()
 	ToolkitCommands->MapAction(
 		Commands.AddSphere,
 		FExecuteAction::CreateSP(this, &FPhysicsAssetEditor::OnAddSphere),
-		FCanExecuteAction::CreateSP(this, &FPhysicsAssetEditor::CanAddPrimitive));
+		FCanExecuteAction::CreateSP(this, &FPhysicsAssetEditor::CanAddPrimitive, EAggCollisionShape::Sphere));
 
 	ToolkitCommands->MapAction(
 		Commands.AddSphyl,
 		FExecuteAction::CreateSP(this, &FPhysicsAssetEditor::OnAddSphyl),
-		FCanExecuteAction::CreateSP(this, &FPhysicsAssetEditor::CanAddPrimitive));
+		FCanExecuteAction::CreateSP(this, &FPhysicsAssetEditor::CanAddPrimitive, EAggCollisionShape::Sphyl));
 
 	ToolkitCommands->MapAction(
 		Commands.AddBox,
 		FExecuteAction::CreateSP(this, &FPhysicsAssetEditor::OnAddBox),
-		FCanExecuteAction::CreateSP(this, &FPhysicsAssetEditor::CanAddPrimitive));
+		FCanExecuteAction::CreateSP(this, &FPhysicsAssetEditor::CanAddPrimitive, EAggCollisionShape::Box));
+
+	ToolkitCommands->MapAction(
+		Commands.AddTaperedCapsule,
+		FExecuteAction::CreateSP(this, &FPhysicsAssetEditor::OnAddTaperedCapsule),
+		FCanExecuteAction::CreateSP(this, &FPhysicsAssetEditor::CanAddPrimitive, EAggCollisionShape::TaperedCapsule));
 
 	ToolkitCommands->MapAction(
 		Commands.DeletePrimitive,
@@ -1011,6 +1018,18 @@ void FPhysicsAssetEditor::Mirror()
 	RefreshPreviewViewport();
 }
 
+static void FillAddShapeMenu(FMenuBuilder& InSubMenuBuilder)
+{
+	const FPhysicsAssetEditorCommands& PhysicsAssetEditorCommands = FPhysicsAssetEditorCommands::Get();
+
+	InSubMenuBuilder.BeginSection("ShapeTypeHeader", LOCTEXT("ShapeTypeHeader", "Shape Type"));
+	InSubMenuBuilder.AddMenuEntry( PhysicsAssetEditorCommands.AddBox );
+	InSubMenuBuilder.AddMenuEntry( PhysicsAssetEditorCommands.AddSphere );
+	InSubMenuBuilder.AddMenuEntry( PhysicsAssetEditorCommands.AddSphyl );
+	InSubMenuBuilder.AddMenuEntry( PhysicsAssetEditorCommands.AddTaperedCapsule );
+	InSubMenuBuilder.EndSection();
+}
+
 void FPhysicsAssetEditor::BuildMenuWidgetBody(FMenuBuilder& InMenuBuilder)
 {
 	InMenuBuilder.PushCommandList(GetToolkitCommands());
@@ -1036,16 +1055,7 @@ void FPhysicsAssetEditor::BuildMenuWidgetBody(FMenuBuilder& InMenuBuilder)
 				InSubMenuBuilder.EndSection();
 			}
 
-			static void FillAddShapeMenu(FMenuBuilder& InSubMenuBuilder)
-			{
-				const FPhysicsAssetEditorCommands& PhysicsAssetEditorCommands = FPhysicsAssetEditorCommands::Get();
 
-				InSubMenuBuilder.BeginSection("ShapeTypeHeader", LOCTEXT("ShapeTypeHeader", "Shape Type"));
-				InSubMenuBuilder.AddMenuEntry( PhysicsAssetEditorCommands.AddBox );
-				InSubMenuBuilder.AddMenuEntry( PhysicsAssetEditorCommands.AddSphere );
-				InSubMenuBuilder.AddMenuEntry( PhysicsAssetEditorCommands.AddSphyl );
-				InSubMenuBuilder.EndSection();
-			}
 
 			static void FillCollisionMenu(FMenuBuilder& InSubMenuBuilder)
 			{
@@ -1064,7 +1074,7 @@ void FPhysicsAssetEditor::BuildMenuWidgetBody(FMenuBuilder& InMenuBuilder)
 		InMenuBuilder.BeginSection( "BodyActions", LOCTEXT( "BodyHeader", "Body" ) );
 		InMenuBuilder.AddMenuEntry( Commands.RegenerateBodies );
 		InMenuBuilder.AddSubMenu( LOCTEXT("AddShapeMenu", "Add Shape"), LOCTEXT("AddShapeMenu_ToolTip", "Add shapes to this body"),
-			FNewMenuDelegate::CreateStatic( &FLocal::FillAddShapeMenu ) );
+			FNewMenuDelegate::CreateStatic( &FillAddShapeMenu ) );
 		InMenuBuilder.AddSubMenu( LOCTEXT("CollisionMenu", "Collision"), LOCTEXT("CollisionMenu_ToolTip", "Adjust body/body collision"),
 			FNewMenuDelegate::CreateStatic( &FLocal::FillCollisionMenu ) );	
 
@@ -1274,6 +1284,8 @@ void FPhysicsAssetEditor::BuildMenuWidgetBone(FMenuBuilder& InMenuBuilder)
 	{
 		const FPhysicsAssetEditorCommands& Commands = FPhysicsAssetEditorCommands::Get();
 		InMenuBuilder.AddMenuEntry( Commands.AddBodies );
+		InMenuBuilder.AddSubMenu( LOCTEXT("AddShapeMenu", "Add Shape"), LOCTEXT("AddShapeMenu_ToolTip", "Add shapes to this body"),
+			FNewMenuDelegate::CreateStatic( &FillAddShapeMenu ) );
 	}
 	InMenuBuilder.EndSection();
 	InMenuBuilder.PopCommandList();
@@ -1353,8 +1365,24 @@ void FPhysicsAssetEditor::AddNewPrimitive(EAggCollisionShape::Type InPrimitiveTy
 		//first we need to grab all the bodies we're modifying (removes duplicates from multiple primitives)
 		for(int32 i=0; i<SharedData->SelectedBodies.Num(); ++i)
 		{
-			
 			NewSelection.AddUnique(FPhysicsAssetEditorSharedData::FSelection(SharedData->SelectedBodies[i].Index, EAggCollisionShape::Unknown, 0));	//only care about body index for now, we'll later update the primitive index
+		}
+
+		// Make new bodies for any bones we have selected that dont already have them
+		TArray<TSharedPtr<ISkeletonTreeItem>> Items = SkeletonTree->GetSelectedItems();
+		FSkeletonTreeSelection Selection(Items);
+		TArray<TSharedPtr<ISkeletonTreeItem>> BoneItems = Selection.GetSelectedItemsByTypeId("FSkeletonTreeBoneItem");
+		
+		for(TSharedPtr<ISkeletonTreeItem> BoneItem : BoneItems)
+		{
+			UBoneProxy* BoneProxy = CastChecked<UBoneProxy>(BoneItem->GetObject());
+
+			int32 BoneIndex = SharedData->EditorSkelComp->GetBoneIndex(BoneProxy->BoneName);
+			if (BoneIndex != INDEX_NONE)
+			{
+				int32 NewBodyIndex = FPhysicsAssetUtils::CreateNewBody(SharedData->PhysicsAsset, BoneProxy->BoneName);
+				NewSelection.AddUnique(FPhysicsAssetEditorSharedData::FSelection(NewBodyIndex, EAggCollisionShape::Unknown, 0));
+			}
 		}
 
 		for(int32 i=0; i<NewSelection.Num(); ++i)
@@ -1463,6 +1491,31 @@ void FPhysicsAssetEditor::AddNewPrimitive(EAggCollisionShape::Type InPrimitiveTy
 
 				BodySetup->InvalidatePhysicsData();
 				BodySetup->CreatePhysicsMeshes();
+			}
+			else if (PrimitiveType == EAggCollisionShape::TaperedCapsule)
+			{
+				NewPrimIndex = BodySetup->AggGeom.TaperedCapsuleElems.Add(FKTaperedCapsuleElem());
+				NewSelection[i].PrimitiveType = EAggCollisionShape::TaperedCapsule;
+				NewSelection[i].PrimitiveIndex = NewPrimIndex;
+				FKTaperedCapsuleElem* TaperedCapsuleElem = &BodySetup->AggGeom.TaperedCapsuleElems[NewPrimIndex];
+
+				if (!bCopySelected)
+				{
+					TaperedCapsuleElem->SetTransform( FTransform::Identity );
+
+					TaperedCapsuleElem->Length = PhysicsAssetEditor::DefaultPrimSize;
+					TaperedCapsuleElem->Radius0 = PhysicsAssetEditor::DefaultPrimSize;
+					TaperedCapsuleElem->Radius1 = PhysicsAssetEditor::DefaultPrimSize;
+				}
+				else
+				{
+					TaperedCapsuleElem->SetTransform( BodySetup->AggGeom.TaperedCapsuleElems[SharedData->GetSelectedBody()->PrimitiveIndex].GetTransform() );
+					TaperedCapsuleElem->Center.X += PhysicsAssetEditor::DuplicateXOffset;
+
+					TaperedCapsuleElem->Length = BodySetup->AggGeom.TaperedCapsuleElems[SharedData->GetSelectedBody()->PrimitiveIndex].Length;
+					TaperedCapsuleElem->Radius0 = BodySetup->AggGeom.TaperedCapsuleElems[SharedData->GetSelectedBody()->PrimitiveIndex].Radius0;
+					TaperedCapsuleElem->Radius1 = BodySetup->AggGeom.TaperedCapsuleElems[SharedData->GetSelectedBody()->PrimitiveIndex].Radius1;
+				}
 			}
 			else
 			{
@@ -1585,6 +1638,8 @@ void FPhysicsAssetEditor::OnChangeDefaultMesh(USkeletalMesh* OldPreviewMesh, USk
 		MeshUtilities.CalcBoneVertInfos(NewPreviewMesh, SharedData->AnyWeightBoneInfos, false);
 
 		RefreshHierachyTree();
+
+		SharedData->EditorSkelComp->SetDisablePostProcessBlueprint(true);
 	}
 }
 
@@ -2033,7 +2088,12 @@ void FPhysicsAssetEditor::OnAddBox()
 	AddNewPrimitive(EAggCollisionShape::Box);
 }
 
-bool FPhysicsAssetEditor::CanAddPrimitive() const
+void FPhysicsAssetEditor::OnAddTaperedCapsule()
+{
+	AddNewPrimitive(EAggCollisionShape::TaperedCapsule);
+}
+
+bool FPhysicsAssetEditor::CanAddPrimitive(EAggCollisionShape::Type InPrimitiveType) const
 {
 	return IsNotSimulation();
 }
@@ -2456,6 +2516,11 @@ void FPhysicsAssetEditor::OnSelectAllBodies()
 				FPhysicsAssetEditorSharedData::FSelection Selection(i, EAggCollisionShape::Convex, j);
 				SharedData->SetSelectedBody(Selection, true);
 			}
+			for (int32 j = 0; j < AggGeom->TaperedCapsuleElems.Num(); ++j)
+			{
+				FPhysicsAssetEditorSharedData::FSelection Selection(i, EAggCollisionShape::TaperedCapsule, j);
+				SharedData->SetSelectedBody(Selection, true);
+			}
 		}
 	}
 }
@@ -2697,7 +2762,7 @@ void FPhysicsAssetEditor::HandlePreviewSceneCreated(const TSharedRef<IPersonaPre
 
 	SharedData->Initialize(InPersonaPreviewScene);
 
-	AActor* Actor = InPersonaPreviewScene->GetWorld()->SpawnActor<AActor>(AActor::StaticClass(), FTransform::Identity);
+	AAnimationEditorPreviewActor* Actor = InPersonaPreviewScene->GetWorld()->SpawnActor<AAnimationEditorPreviewActor>(AAnimationEditorPreviewActor::StaticClass(), FTransform::Identity);
 	InPersonaPreviewScene->SetActor(Actor);
 
 	// Create the preview component
@@ -2705,9 +2770,10 @@ void FPhysicsAssetEditor::HandlePreviewSceneCreated(const TSharedRef<IPersonaPre
 	SharedData->EditorSkelComp->SharedData = SharedData.Get();
 	SharedData->EditorSkelComp->SetSkeletalMesh(SharedData->PhysicsAsset->GetPreviewMesh());
 	SharedData->EditorSkelComp->SetPhysicsAsset(SharedData->PhysicsAsset, true);
+	SharedData->EditorSkelComp->SetDisablePostProcessBlueprint(true);
 	InPersonaPreviewScene->SetPreviewMeshComponent(SharedData->EditorSkelComp);
 	InPersonaPreviewScene->AddComponent(SharedData->EditorSkelComp, FTransform::Identity);
-		
+
 	// set root component, so we can attach to it. 
 	Actor->SetRootComponent(SharedData->EditorSkelComp);
 

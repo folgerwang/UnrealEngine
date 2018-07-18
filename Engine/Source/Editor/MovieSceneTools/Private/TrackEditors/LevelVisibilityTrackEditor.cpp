@@ -63,7 +63,7 @@ TSharedPtr<SWidget> FLevelVisibilityTrackEditor::BuildOutlinerEditWidget( const 
 }
 
 
-void FLevelVisibilityTrackEditor::AddNewSection( UMovieScene* MovieScene, UMovieSceneTrack* LevelVisibilityTrack, ELevelVisibility Visibility )
+UMovieSceneLevelVisibilitySection* FLevelVisibilityTrackEditor::AddNewSection( UMovieScene* MovieScene, UMovieSceneTrack* LevelVisibilityTrack, ELevelVisibility Visibility )
 {
 	const FScopedTransaction Transaction( LOCTEXT( "AddLevelVisibilitySection_Transaction", "Add Level Visibility Trigger" ) );
 
@@ -71,8 +71,9 @@ void FLevelVisibilityTrackEditor::AddNewSection( UMovieScene* MovieScene, UMovie
 
 	UMovieSceneLevelVisibilitySection* LevelVisibilitySection = CastChecked<UMovieSceneLevelVisibilitySection>( LevelVisibilityTrack->CreateNewSection() );
 	LevelVisibilitySection->SetVisibility( Visibility );
-	LevelVisibilitySection->SetStartTime( MovieScene->GetPlaybackRange().GetLowerBoundValue() );
-	LevelVisibilitySection->SetEndTime( MovieScene->GetPlaybackRange().GetUpperBoundValue() );
+
+	TRange<FFrameNumber> SectionRange = MovieScene->GetPlaybackRange();
+	LevelVisibilitySection->SetRange(SectionRange);
 
 	int32 RowIndex = -1;
 	for ( const UMovieSceneSection* Section : LevelVisibilityTrack->GetAllSections() )
@@ -82,6 +83,8 @@ void FLevelVisibilityTrackEditor::AddNewSection( UMovieScene* MovieScene, UMovie
 	LevelVisibilitySection->SetRowIndex(RowIndex + 1);
 
 	LevelVisibilityTrack->AddSection( *LevelVisibilitySection );
+
+	return LevelVisibilitySection;
 }
 
 
@@ -100,9 +103,15 @@ void FLevelVisibilityTrackEditor::OnAddTrack()
 	UMovieSceneLevelVisibilityTrack* NewTrack = FocusedMovieScene->AddMasterTrack<UMovieSceneLevelVisibilityTrack>();
 	checkf( NewTrack != nullptr, TEXT("Failed to create new level visibility track.") );
 
-	AddNewSection( FocusedMovieScene, NewTrack, ELevelVisibility::Visible );
-
+	UMovieSceneLevelVisibilitySection* NewSection = AddNewSection( FocusedMovieScene, NewTrack, ELevelVisibility::Visible );
+	if (GetSequencer().IsValid())
+	{
+		GetSequencer()->OnAddTrack(NewTrack);
+	}
 	GetSequencer()->NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::MovieSceneStructureItemAdded );
+	GetSequencer()->EmptySelection();
+	GetSequencer()->SelectSection(NewSection);
+	GetSequencer()->ThrobSectionSelection();
 }
 
 
@@ -137,8 +146,12 @@ void FLevelVisibilityTrackEditor::OnAddNewSection( UMovieSceneTrack* LevelVisibi
 		return;
 	}
 
-	AddNewSection( FocusedMovieScene, LevelVisibilityTrack, Visibility );
+	UMovieSceneLevelVisibilitySection* NewSection = AddNewSection( FocusedMovieScene, LevelVisibilityTrack, Visibility );
+
 	GetSequencer()->NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::MovieSceneStructureItemAdded );
+	GetSequencer()->EmptySelection();
+	GetSequencer()->SelectSection(NewSection);
+	GetSequencer()->ThrobSectionSelection();
 }
 
 #undef LOCTEXT_NAMESPACE

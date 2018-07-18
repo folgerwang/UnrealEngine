@@ -186,7 +186,7 @@ namespace UnrealBuildTool
 							{
 								if(!TryAddConfigLine(CurrentSection, Line, StartIdx, EndIdx, DefaultAction))
 								{
-									Console.WriteLine("Couldn't parse '{0}' in {1} of {2}", Line, CurrentSection, Location.FullName);
+									Log.TraceWarning("Couldn't parse '{0}' in {1} of {2}", Line, CurrentSection, Location.FullName);
 								}
 								break;
 							}
@@ -227,7 +227,7 @@ namespace UnrealBuildTool
 						string IniKeyValue = Setting.Substring(Setting.IndexOf(':') + 1);
 						if (!TryAddConfigLine(CurrentSection, IniKeyValue, 0, IniKeyValue.Length, DefaultAction))
 						{
-							Console.WriteLine("Couldn't parse '{0}'", IniKeyValue);
+							Log.TraceWarning("Couldn't parse '{0}'", IniKeyValue);
 						}
 					}
 				}

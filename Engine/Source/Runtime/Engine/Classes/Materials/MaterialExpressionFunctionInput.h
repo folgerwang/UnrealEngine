@@ -23,8 +23,10 @@ enum EFunctionInputType
 	FunctionInput_Vector4,
 	FunctionInput_Texture2D,
 	FunctionInput_TextureCube,
+	FunctionInput_VolumeTexture,
 	FunctionInput_StaticBool,
 	FunctionInput_MaterialAttributes,
+	FunctionInput_TextureExternal,
 	FunctionInput_MAX,
 };
 

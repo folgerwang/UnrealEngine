@@ -36,7 +36,7 @@ ADefaultPawn::ADefaultPawn(const FObjectInitializer& ObjectInitializer)
 	CollisionComponent->SetCollisionProfileName(UCollisionProfile::Pawn_ProfileName);
 
 	CollisionComponent->CanCharacterStepUpOn = ECB_No;
-	CollisionComponent->bShouldUpdatePhysicsVolume = true;
+	CollisionComponent->SetShouldUpdatePhysicsVolume(true);
 	CollisionComponent->SetCanEverAffectNavigation(false);
 	CollisionComponent->bDynamicObstacle = true;
 
@@ -70,7 +70,7 @@ ADefaultPawn::ADefaultPawn(const FObjectInitializer& ObjectInitializer)
 		MeshComponent->SetCollisionProfileName(UCollisionProfile::Pawn_ProfileName);
 		const float Scale = CollisionComponent->GetUnscaledSphereRadius() / 160.f; // @TODO: hardcoding known size of EngineMeshes.Sphere. Should use a unit sphere instead.
 		MeshComponent->SetRelativeScale3D(FVector(Scale));
-		MeshComponent->bGenerateOverlapEvents = false;
+		MeshComponent->SetGenerateOverlapEvents(false);
 		MeshComponent->SetCanEverAffectNavigation(false);
 	}
 

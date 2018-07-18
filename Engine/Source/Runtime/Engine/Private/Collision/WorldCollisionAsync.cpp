@@ -31,7 +31,16 @@
  * @param UserData		UserData
  */
 
-#define RUN_ASYNC_TRACE 1
+namespace AsyncTraceCVars
+{
+	static int32 RunAsyncTraceOnWorkerThread = 1;
+	static FAutoConsoleVariableRef CVarRunAsyncTraceOnWorkerThread(
+		TEXT("RunAsyncTraceOnWorkerThread"),
+		RunAsyncTraceOnWorkerThread,
+		TEXT("Whether to use worker thread for async trace functionality. This works if FApp::ShouldUseThreadingForPerformance is true. Otherwise it will always use game thread. \n")
+		TEXT("0: Use game thread, 1: User worker thread"),
+		ECVF_Default);
+}
 
 namespace
 {
@@ -200,8 +209,6 @@ namespace
 		}
 	}
 
-	#if RUN_ASYNC_TRACE
-
 	FAutoConsoleTaskPriority CPrio_FAsyncTraceTask(
 		TEXT("TaskGraph.TaskPriorities.AsyncTraceTask"),
 		TEXT("Task and thread priority for async traces."),
@@ -274,7 +281,6 @@ namespace
 			}
 		}
 	};
-	#endif // RUN_ASYNC_TRACE
 
 	// This runs each chunk whenever filled up to GAsyncChunkSizeToIncrement OR when ExecuteAll is true
 	template <typename DatumType>
@@ -291,18 +297,22 @@ namespace
 			Next.Block = Next.Block - 1;
 			Next.Index = ASYNC_TRACE_BUFFER_SIZE;
 		}
-		// don't execute if we haven't been explicitly requested to OR there's nothing to run
+		// don't execute if we haven't been explicitly requested to OR there's nothing to runs
 		else if (!bExecuteAll || Next.Index == 0)
 		{
 			return;
 		}
 
 		auto* Datum      = GetTraceContainer<DatumType>(DataBuffer)[Next.Block]->Buffer;
-		#if RUN_ASYNC_TRACE
+		const bool bRunAsyncTraceOnWorkerThread = !!AsyncTraceCVars::RunAsyncTraceOnWorkerThread && FApp::ShouldUseThreadingForPerformance();
+		if (bRunAsyncTraceOnWorkerThread)
+		{
 			DataBuffer.AsyncTraceCompletionEvent.Emplace(TGraphTask<FAsyncTraceTask>::CreateTask(NULL, ENamedThreads::GameThread).ConstructAndDispatchWhenReady(Datum, Next.Index));
-		#else
+		}
+		else
+		{
 			RunTraceTask(Datum, Next.Index);
-		#endif
+		}
 	}
 
 	template <typename DatumType>
@@ -437,16 +447,18 @@ bool UWorld::QueryOverlapData(const FTraceHandle& Handle, FOverlapDatum& OutData
 
 void UWorld::WaitForAllAsyncTraceTasks()
 {
-#if RUN_ASYNC_TRACE
-	// if running thread, wait until all threads finishes, if we don't do this, there might be more thread running
-	AsyncTraceData& DataBufferExecuted = AsyncTraceState.GetBufferForPreviousFrame();
-	if (DataBufferExecuted.AsyncTraceCompletionEvent.Num() > 0)
+	const bool bRunAsyncTraceOnWorkerThread = !!AsyncTraceCVars::RunAsyncTraceOnWorkerThread && FApp::ShouldUseThreadingForPerformance();
+	if (bRunAsyncTraceOnWorkerThread)
 	{
-		QUICK_SCOPE_CYCLE_COUNTER(STAT_WaitForAllAsyncTraceTasks);
-		FTaskGraphInterface::Get().WaitUntilTasksComplete(DataBufferExecuted.AsyncTraceCompletionEvent,ENamedThreads::GameThread);
-		DataBufferExecuted.AsyncTraceCompletionEvent.Reset();
+		// if running thread, wait until all threads finishes, if we don't do this, there might be more thread running
+		AsyncTraceData& DataBufferExecuted = AsyncTraceState.GetBufferForPreviousFrame();
+		if (DataBufferExecuted.AsyncTraceCompletionEvent.Num() > 0)
+		{
+			QUICK_SCOPE_CYCLE_COUNTER(STAT_WaitForAllAsyncTraceTasks);
+			FTaskGraphInterface::Get().WaitUntilTasksComplete(DataBufferExecuted.AsyncTraceCompletionEvent, ENamedThreads::GameThread);
+			DataBufferExecuted.AsyncTraceCompletionEvent.Reset();
+		}
 	}
-#endif // RUN_ASYNC_TRACE
 }
 
 void UWorld::ResetAsyncTrace()

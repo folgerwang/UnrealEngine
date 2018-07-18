@@ -9,6 +9,8 @@
 #include "PhononScene.h"
 #include "SteamAudioSettings.h"
 #include "SteamAudioEditorModule.h"
+#include "PhononReverb.h"
+#include "SteamAudioEnvironment.h"
 
 #include "LevelEditor.h"
 #include "LevelEditorActions.h"
@@ -36,8 +38,7 @@ namespace SteamAudio
 		Arguments.Add(TEXT("NumProbeVolumes"), FText::AsNumber(GNumProbeVolumes));
 		Arguments.Add(TEXT("NumBakeTasks"), FText::AsNumber(GNumBakeTasks));
 		Arguments.Add(TEXT("CurrentBakeTask"), FText::AsNumber(GCurrentBakeTask));
-		GBakeTickable->SetDisplayText(FText::Format(NSLOCTEXT("SteamAudio", "BakeText",
-			"Baking {CurrentBakeTask}/{NumBakeTasks} sources \n {CurrentProbeVolume}/{NumProbeVolumes} probe volumes ({BakeProgress} complete)"), Arguments));
+		GBakeTickable->SetDisplayText(FText::Format(NSLOCTEXT("SteamAudio", "BakeProgressFmt", "Baking {CurrentBakeTask}/{NumBakeTasks} sources \n {CurrentProbeVolume}/{NumProbeVolumes} probe volumes ({BakeProgress} complete)"), Arguments));
 	}
 
 	static void CancelBake()
@@ -54,7 +55,7 @@ namespace SteamAudio
 	{
 		GIsBaking.store(true);
 
-		GBakeTickable->SetDisplayText(NSLOCTEXT("SteamAudio", "Baking...", "Baking..."));
+		GBakeTickable->SetDisplayText(NSLOCTEXT("SteamAudio", "Baking", "Baking..."));
 		GBakeTickable->CreateNotificationWithCancel(FSimpleDelegate::CreateStatic(CancelBake));
 
 		auto World = GEditor->LevelViewportClients[0]->GetWorld();
@@ -85,7 +86,7 @@ namespace SteamAudio
 			if (!AtLeastOneProbe)
 			{
 				UE_LOG(LogSteamAudioEditor, Error, TEXT("Ensure at least one Phonon Probe Volume with probes exists."));
-				GBakeTickable->SetDisplayText(NSLOCTEXT("SteamAudio", "Bake failed.", "Bake failed. Create at least one Phonon Probe Volume that has probes."));
+				GBakeTickable->SetDisplayText(NSLOCTEXT("SteamAudio", "BakeFailed_NoProbes", "Bake failed. Create at least one Phonon Probe Volume that has probes."));
 				GBakeTickable->DestroyNotification(SNotificationItem::CS_Fail);
 				GIsBaking.store(false);
 				return;
@@ -109,14 +110,14 @@ namespace SteamAudio
 			IPLhandle PhononEnvironment = nullptr;
 			FPhononSceneInfo PhononSceneInfo;
 
-			GBakeTickable->SetDisplayText(NSLOCTEXT("SteamAudio", "Loading scene...", "Loading scene..."));
+			GBakeTickable->SetDisplayText(NSLOCTEXT("SteamAudio", "LoadingScene", "Loading scene..."));
 
 			// Load the scene
 			if (!LoadSceneFromDisk(World, ComputeDevice, SimulationSettings, &PhononScene, PhononSceneInfo))
 			{
 				// If we can't find the scene, then presumably they haven't generated probes either, so just exit
 				UE_LOG(LogSteamAudioEditor, Error, TEXT("Unable to create Phonon environment: .phononscene not found. Be sure to export the scene."));
-				GBakeTickable->SetDisplayText(NSLOCTEXT("SteamAudio", "Bake failed.", "Bake failed. Export scene first."));
+				GBakeTickable->SetDisplayText(NSLOCTEXT("SteamAudio", "BakeFailed_NoScene", "Bake failed. Export scene first."));
 				GBakeTickable->DestroyNotification(SNotificationItem::CS_Fail);
 				GIsBaking.store(false);
 				return;
@@ -126,7 +127,7 @@ namespace SteamAudio
 
 			if (BakeReverb)
 			{
-				GBakeTickable->SetDisplayText(NSLOCTEXT("SteamAudio", "Baking...", "Baking..."));
+				GBakeTickable->SetDisplayText(NSLOCTEXT("SteamAudio", "Baking", "Baking..."));
 				GNumProbeVolumes = PhononProbeVolumes.Num();
 				GCurrentProbeVolume = 1;
 
@@ -137,7 +138,11 @@ namespace SteamAudio
 					IPLhandle ProbeBox = nullptr;
 					PhononProbeVolume->LoadProbeBoxFromDisk(&ProbeBox);
 
-					iplDeleteBakedDataByName(ProbeBox, (IPLstring)"__reverb__");
+					IPLBakedDataIdentifier ReverbIdentifier;
+					ReverbIdentifier.identifier = 0;
+					ReverbIdentifier.type = IPL_BAKEDDATATYPE_REVERB;
+
+					iplDeleteBakedDataByIdentifier(ProbeBox, ReverbIdentifier);
 					iplBakeReverb(PhononEnvironment, ProbeBox, BakingSettings, BakeProgressCallback);
 
 					if (!GIsBaking.load())
@@ -148,7 +153,7 @@ namespace SteamAudio
 
 					FBakedDataInfo BakedDataInfo;
 					BakedDataInfo.Name = "__reverb__";
-					BakedDataInfo.Size = iplGetBakedDataSizeByName(ProbeBox, (IPLstring)"__reverb__");
+					BakedDataInfo.Size = iplGetBakedDataSizeByIdentifier(ProbeBox, ReverbIdentifier);
 
 					auto ExistingInfo = PhononProbeVolume->BakedDataInfo.FindByPredicate([=](const FBakedDataInfo& InfoItem)
 					{
@@ -175,7 +180,7 @@ namespace SteamAudio
 					iplDestroyEnvironment(&PhononEnvironment);
 					iplDestroyScene(&PhononScene);
 
-					GBakeTickable->SetDisplayText(NSLOCTEXT("SteamAudio", "Bake cancelled.", "Bake cancelled."));
+					GBakeTickable->SetDisplayText(NSLOCTEXT("SteamAudio", "BakeCancelled", "Bake cancelled."));
 					GBakeTickable->DestroyNotification(SNotificationItem::CS_Fail);
 					return;
 				}
@@ -184,6 +189,10 @@ namespace SteamAudio
 
 				++GCurrentBakeTask;
 			}
+
+			// IN PROGRESS
+			FIdentifierMap BakedIdentifierMap;
+			LoadBakedIdentifierMapFromDisk(World, BakedIdentifierMap);
 
 			for (auto PhononSourceComponent : PhononSourceComponents)
 			{
@@ -197,6 +206,15 @@ namespace SteamAudio
 				else
 				{
 					AudioComponent->AudioComponentUserID = PhononSourceComponent->UniqueIdentifier;
+					FString SourceString = AudioComponent->GetAudioComponentUserID().ToString().ToLower();
+					if (!BakedIdentifierMap.ContainsKey(SourceString))
+					{
+						BakedIdentifierMap.Add(SourceString);
+					}
+
+					IPLBakedDataIdentifier SourceIdentifier;
+					SourceIdentifier.type = IPL_BAKEDDATATYPE_STATICSOURCE;
+					SourceIdentifier.identifier = BakedIdentifierMap.Get(SourceString);
 
 					GBakeTickable->SetDisplayText(NSLOCTEXT("SteamAudio", "Baking...", "Baking..."));
 					GNumProbeVolumes = PhononProbeVolumes.Num();
@@ -213,9 +231,8 @@ namespace SteamAudio
 						SourceInfluence.radius = PhononSourceComponent->BakingRadius * SteamAudio::SCALEFACTOR;
 						SourceInfluence.center = SteamAudio::UnrealToPhononIPLVector3(PhononSourceComponent->GetComponentLocation());
 
-						iplDeleteBakedDataByName(ProbeBox, TCHAR_TO_ANSI(*AudioComponent->GetAudioComponentUserID().ToString()));
-						iplBakePropagation(PhononEnvironment, ProbeBox, SourceInfluence, TCHAR_TO_ANSI(*AudioComponent->GetAudioComponentUserID().ToString().ToLower()),
-							BakingSettings, BakeProgressCallback);
+						iplDeleteBakedDataByIdentifier(ProbeBox, SourceIdentifier);
+						iplBakePropagation(PhononEnvironment, ProbeBox, SourceInfluence, SourceIdentifier, BakingSettings, BakeProgressCallback);
 
 						if (!GIsBaking.load())
 						{
@@ -225,7 +242,7 @@ namespace SteamAudio
 
 						FBakedDataInfo BakedDataInfo;
 						BakedDataInfo.Name = PhononSourceComponent->UniqueIdentifier;
-						BakedDataInfo.Size = iplGetBakedDataSizeByName(ProbeBox, TCHAR_TO_ANSI(*PhononSourceComponent->UniqueIdentifier.ToString().ToLower()));
+						BakedDataInfo.Size = iplGetBakedDataSizeByIdentifier(ProbeBox, SourceIdentifier);
 
 						auto ExistingInfo = PhononProbeVolume->BakedDataInfo.FindByPredicate([=](const FBakedDataInfo& InfoItem)
 						{
@@ -258,17 +275,19 @@ namespace SteamAudio
 				}
 			}
 
+			SaveBakedIdentifierMapToDisk(World, BakedIdentifierMap);
+
 			iplDestroyEnvironment(&PhononEnvironment);
 			iplDestroyScene(&PhononScene);
 
 			if (!GIsBaking.load())
 			{
-				GBakeTickable->SetDisplayText(NSLOCTEXT("SteamAudio", "Bake cancelled.", "Bake cancelled."));
+				GBakeTickable->SetDisplayText(NSLOCTEXT("SteamAudio", "BakeCancelled", "Bake cancelled."));
 				GBakeTickable->DestroyNotification(SNotificationItem::CS_Fail);
 			}
 			else
 			{
-				GBakeTickable->SetDisplayText(NSLOCTEXT("SteamAudio", "Bake propagation complete.", "Bake propagation complete."));
+				GBakeTickable->SetDisplayText(NSLOCTEXT("SteamAudio", "BakePropagationComplete", "Bake propagation complete."));
 				GBakeTickable->DestroyNotification();
 				GIsBaking.store(false);
 			}

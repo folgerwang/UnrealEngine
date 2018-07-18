@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3810467
 Availability: Public
 Crumbs:%ROOT%, Platforms
 Title:구글 VR 용 카메라 구성
@@ -69,7 +69,7 @@ prereq: Platforms\GoogleVR\QuickStart
     [REGION:simpletable]
 	|컴포넌트 이름| 값 |
     |--------|------------|
-    |** Scene**|VRCameraRoot|
+    |**Scene**|VRCameraRoot|
     |**Camera**|VRCamera|
 	[/region]
 

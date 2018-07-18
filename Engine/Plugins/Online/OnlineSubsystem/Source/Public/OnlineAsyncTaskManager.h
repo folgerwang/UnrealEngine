@@ -79,7 +79,7 @@ PACKAGE_SCOPE:
 
 	/** Hidden on purpose */
 	FOnlineAsyncEvent() : 
-		Subsystem(NULL)
+		Subsystem(nullptr)
 	{
 	}
 
@@ -119,13 +119,13 @@ public:
 	 * Check the state of the async task
 	 * @return true if complete, false otherwise
 	 */
-	virtual bool IsDone() = 0;
+	virtual bool IsDone() const = 0;
 
 	/**
 	 * Check the success of the async task
 	 * @return true if successful, false otherwise
 	 */
-	virtual bool WasSuccessful() = 0;
+	virtual bool WasSuccessful() const = 0;
 
 	/**
 	 * Give the async task time to do its work
@@ -164,8 +164,8 @@ public:
 
 	virtual FString ToString() const override { return FString("FOnlineAsyncTaskGenericCallable"); }
 
-	virtual bool IsDone() override { return true; }
-	virtual bool WasSuccessful() override { return true; }
+	virtual bool IsDone() const override { return true; }
+	virtual bool WasSuccessful() const override { return true; }
 
 private:
 	/** Stored copy of the object to invoke on the game thread. */
@@ -173,10 +173,10 @@ private:
 };
 
 /**
-* An async task that can execute any callable type with no parameters.
-* For example, l lambda, or an object with an operator().
-* Useful for calling simple functions that need to run on the ONLINE thread.
-*/
+ * An async task that can execute any callable type with no parameters.
+ * For example, l lambda, or an object with an operator().
+ * Useful for calling simple functions that need to run on the ONLINE thread.
+ */
 template<class CallableType>
 class FOnlineAsyncTaskThreadedGenericCallable : public FOnlineAsyncTask
 {
@@ -200,8 +200,8 @@ public:
 
 	virtual FString ToString() const override { return FString("FOnlineAsyncTaskThreadedGenericCallable"); }
 
-	virtual bool IsDone() override { return bHasTicked; }
-	virtual bool WasSuccessful() override { return true; }
+	virtual bool IsDone() const override { return bHasTicked; }
+	virtual bool WasSuccessful() const override { return true; }
 
 private:
 	/** True after it has ticked once and run the Callable on the online thread */
@@ -218,13 +218,13 @@ PACKAGE_SCOPE:
 	/** Reference to online subsystem */
 	T* Subsystem;
 	/** Has the task completed */
-	volatile bool bIsComplete;
+	FThreadSafeBool bIsComplete;
 	/** Has the task complete successfully */
-	volatile bool bWasSuccessful;
+	FThreadSafeBool bWasSuccessful;
 
 	/** Hidden on purpose */
 	FOnlineAsyncTaskBasic()
-		: Subsystem(NULL)
+		: Subsystem(nullptr)
 		, bIsComplete(false)
 		, bWasSuccessful(false)
 	{
@@ -244,10 +244,26 @@ public:
 	}
 
 	/**
+	 * Copies the contents of this task to another
+	 * Use sparingly, it is not atomic.
+	 */
+	FOnlineAsyncTaskBasic& operator= (const FOnlineAsyncTaskBasic& Other)
+	{
+		if (this != &Other)
+		{
+			Subsystem = Other.Subsystem;
+			bIsComplete = !!Other.bIsComplete;
+			bWasSuccessful = !!Other.bWasSuccessful;
+		}
+
+		return *this;
+	}
+
+	/**
 	 * Check the state of the async task
 	 * @return true if complete, false otherwise
 	 */
-	virtual bool IsDone() override
+	virtual bool IsDone() const override
 	{
 		return bIsComplete;
 	}
@@ -256,7 +272,7 @@ public:
 	 * Check the success of the async task
 	 * @return true if successful, false otherwise
 	 */
-	virtual bool WasSuccessful() override
+	virtual bool WasSuccessful() const override
 	{
 		return bWasSuccessful;
 	}

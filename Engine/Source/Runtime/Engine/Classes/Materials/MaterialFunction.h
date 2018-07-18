@@ -88,11 +88,13 @@ public:
 	//~ Begin UMaterialFunctionInterface interface
 	virtual EMaterialFunctionUsage GetMaterialFunctionUsage() override { return MaterialFunctionUsage; }
 
+#if WITH_EDITOR
 	/** Recursively update all function call expressions in this function, or in nested functions. */
 	virtual void UpdateFromFunctionResource() override;
 
 	/** Get the inputs and outputs that this function exposes, for a function call expression to use. */
 	virtual void GetInputsAndOutputs(TArray<struct FFunctionExpressionInput>& OutInputs, TArray<struct FFunctionExpressionOutput>& OutOutputs) const override;
+#endif
 
 	virtual bool ValidateFunctionUsage(class FMaterialCompiler* Compiler, const FFunctionExpressionOutput& Output) override;
 

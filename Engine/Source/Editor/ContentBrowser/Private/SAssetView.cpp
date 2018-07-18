@@ -45,7 +45,7 @@
 #include "EmptyFolderVisibilityManager.h"
 #include "Framework/Notifications/NotificationManager.h"
 #include "Widgets/Notifications/SNotificationList.h"
-#include "SSplitter.h"
+#include "Widgets/Layout/SSplitter.h"
 #include "HAL/PlatformApplicationMisc.h"
 #include "DesktopPlatformModule.h"
 #include "Misc/FileHelper.h"
@@ -242,6 +242,7 @@ void SAssetView::Construct( const FArguments& InArgs )
 	OnPathSelected = InArgs._OnPathSelected;
 	HiddenColumnNames = DefaultHiddenColumnNames = InArgs._HiddenColumnNames;
 	CustomColumns = InArgs._CustomColumns;
+	OnSearchOptionsChanged = InArgs._OnSearchOptionsChanged;
 
 	if ( InArgs._InitialViewType >= 0 && InArgs._InitialViewType < EAssetViewType::MAX )
 	{
@@ -1361,7 +1362,8 @@ FReply SAssetView::OnDrop( const FGeometry& MyGeometry, const FDragDropEvent& Dr
 						const FString& Filename = FilesAndDestinations[FileIdx].Key;
 						const FString& DestinationPath = FilesAndDestinations[FileIdx].Value;
 						FString Name = ObjectTools::SanitizeObjectName(FPaths::GetBaseFilename(Filename));
-						FString PackageName = DestinationPath + TEXT("/") + Name;
+						FString PackageName = ObjectTools::SanitizeInvalidChars(DestinationPath + TEXT("/") + Name, INVALID_LONGPACKAGE_CHARACTERS);
+
 
 						// We can not create assets that share the name of a map file in the same location
 						if (FEditorFileUtils::IsMapPackageAsset(PackageName))
@@ -2628,7 +2630,9 @@ void SAssetView::OnCollectionUpdated( const FCollectionNameType& Collection )
 void SAssetView::OnAssetRenamed(const FAssetData& AssetData, const FString& OldObjectPath)
 {
 	// Remove the old asset, if it exists
-	RemoveAssetByPath( FName( *OldObjectPath ) );
+	FName OldObjectPackageName = *OldObjectPath;
+	RemoveAssetByPath( OldObjectPackageName );
+	RecentlyAddedAssets.RemoveAllSwap( [&](const FAssetData& Other) { return Other.ObjectPath == OldObjectPackageName; } );
 
 	// Add the new asset, if it should be in the cached list
 	OnAssetAdded( AssetData );
@@ -2961,6 +2965,49 @@ TSharedRef<SWidget> SAssetView::GetViewButtonContent()
 	}
 	MenuBuilder.EndSection();
 
+	MenuBuilder.BeginSection("Search", LOCTEXT("SearchHeading", "Search"));
+	{
+		MenuBuilder.AddMenuEntry(
+			LOCTEXT("IncludeClassNameOption", "Search Asset Class Names"),
+			LOCTEXT("IncludeClassesNameOptionTooltip", "Include asset type names in search criteria?  (e.g. Blueprint, Texture, Sound)"),
+			FSlateIcon(),
+			FUIAction(
+				FExecuteAction::CreateSP(this, &SAssetView::ToggleIncludeClassNames),
+				FCanExecuteAction::CreateSP(this, &SAssetView::IsToggleIncludeClassNamesAllowed),
+				FIsActionChecked::CreateSP(this, &SAssetView::IsIncludingClassNames)
+			),
+			NAME_None,
+			EUserInterfaceActionType::ToggleButton
+		);
+
+		MenuBuilder.AddMenuEntry(
+			LOCTEXT("IncludeAssetPathOption", "Search Asset Path"),
+			LOCTEXT("IncludeAssetPathOptionTooltip", "Include entire asset path in search criteria?"),
+			FSlateIcon(),
+			FUIAction(
+				FExecuteAction::CreateSP(this, &SAssetView::ToggleIncludeAssetPaths),
+				FCanExecuteAction::CreateSP(this, &SAssetView::IsToggleIncludeAssetPathsAllowed),
+				FIsActionChecked::CreateSP(this, &SAssetView::IsIncludingAssetPaths)
+			),
+			NAME_None,
+			EUserInterfaceActionType::ToggleButton
+		);
+
+		MenuBuilder.AddMenuEntry(
+			LOCTEXT("IncludeCollectionNameOption", "Search Collection Names"),
+			LOCTEXT("IncludeCollectionNameOptionTooltip", "Include Collection names in search criteria?"),
+			FSlateIcon(),
+			FUIAction(
+				FExecuteAction::CreateSP(this, &SAssetView::ToggleIncludeCollectionNames),
+				FCanExecuteAction::CreateSP(this, &SAssetView::IsToggleIncludeCollectionNamesAllowed),
+				FIsActionChecked::CreateSP(this, &SAssetView::IsIncludingCollectionNames)
+			),
+			NAME_None,
+			EUserInterfaceActionType::ToggleButton
+		);
+	}
+	MenuBuilder.EndSection();
+
 	MenuBuilder.BeginSection("AssetThumbnails", LOCTEXT("ThumbnailsHeading", "Thumbnails"));
 	{
 		MenuBuilder.AddWidget(
@@ -3230,6 +3277,64 @@ bool SAssetView::IsShowingCppContent() const
 {
 	return IsToggleShowCppContentAllowed() && GetDefault<UContentBrowserSettings>()->GetDisplayCppFolders();
 }
+
+void SAssetView::ToggleIncludeClassNames()
+{
+	const bool bIncludeClassNames = GetDefault<UContentBrowserSettings>()->GetIncludeClassNames();
+	GetMutableDefault<UContentBrowserSettings>()->SetIncludeClassNames(!bIncludeClassNames);
+	GetMutableDefault<UContentBrowserSettings>()->PostEditChange();
+
+	OnSearchOptionsChanged.ExecuteIfBound();
+}
+
+bool SAssetView::IsToggleIncludeClassNamesAllowed() const
+{
+	return true;
+}
+
+bool SAssetView::IsIncludingClassNames() const
+{
+	return IsToggleIncludeClassNamesAllowed() && GetDefault<UContentBrowserSettings>()->GetIncludeClassNames();
+}
+
+void SAssetView::ToggleIncludeAssetPaths()
+{
+	const bool bIncludeAssetPaths = GetDefault<UContentBrowserSettings>()->GetIncludeAssetPaths();
+	GetMutableDefault<UContentBrowserSettings>()->SetIncludeAssetPaths(!bIncludeAssetPaths);
+	GetMutableDefault<UContentBrowserSettings>()->PostEditChange();
+
+	OnSearchOptionsChanged.ExecuteIfBound();
+}
+
+bool SAssetView::IsToggleIncludeAssetPathsAllowed() const
+{
+	return true;
+}
+
+bool SAssetView::IsIncludingAssetPaths() const
+{
+	return IsToggleIncludeAssetPathsAllowed() && GetDefault<UContentBrowserSettings>()->GetIncludeAssetPaths();
+}
+
+void SAssetView::ToggleIncludeCollectionNames()
+{
+	const bool bIncludeCollectionNames = GetDefault<UContentBrowserSettings>()->GetIncludeCollectionNames();
+	GetMutableDefault<UContentBrowserSettings>()->SetIncludeCollectionNames(!bIncludeCollectionNames);
+	GetMutableDefault<UContentBrowserSettings>()->PostEditChange();
+
+	OnSearchOptionsChanged.ExecuteIfBound();
+}
+
+bool SAssetView::IsToggleIncludeCollectionNamesAllowed() const
+{
+	return true;
+}
+
+bool SAssetView::IsIncludingCollectionNames() const
+{
+	return IsToggleIncludeCollectionNamesAllowed() && GetDefault<UContentBrowserSettings>()->GetIncludeCollectionNames();
+}
+
 
 void SAssetView::SetCurrentViewType(EAssetViewType::Type NewType)
 {

@@ -1,4 +1,4 @@
-﻿Availability:Public
+Availability:Public
 TItle:NVIDIA Ansel Plugin Overview
 Description:Overview of the Unreal Engine 4 integration of NVIDIA's Ansel in-game photography tool that enables capturing and sharing enhanced images from games.
 Crumbs:
@@ -66,10 +66,16 @@ To select a capture type, use the **Capture type** slider:
 
 
 [REGION:note]
-Not all filters are valid with multipart Capture types, e.g. 360 and Highres. You may therefore see filters, or aspects of a filter, removed in the final picture.
+Not all Ansel filters are valid with multipart Capture types, e.g. 360 and Highres. You may therefore see filters, or aspects of a filter, removed in the final picture.
 
 Similarly, not all UE4 postprocessing effects are valid with multipart Capture types.  Standard UE4 postprocessing effects which are problematic in this case are automatically removed in the final picture.
 [/REGION]
+
+## Camera Constraints
+
+The photographer is allowed to move the camera freely, with two constraints by default:
+1. The camera is forced to remain within a certain distance of its starting position.
+1. The camera is unable to move through collidable objects, i.e. walls and characters.
 
 ## Filters
 
@@ -109,6 +115,12 @@ To select a filter, use the **Filter** slider:
 [REGION:tip]
 Some filters, such as the **Custom** filter, have additional settings that can be used to adjust the filter even further.
 [/REGION]
+
+## Controlling game effects from the Ansel UI
+
+The Ansel plugin detects whether the game is using certain graphical effects (Focus, Bloom, etc) and adds a 'Game settings' section to the Ansel UI.  Expand this section to control these options during photography.
+
+![](game_settings.png)(w:960)
 
 ## Customizing the Player Experience
 

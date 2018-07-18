@@ -2,12 +2,14 @@
 
 #pragma once
 
+#if USE_ANDROID_JNI
+
 #include "CoreMinimal.h"
 #include "Widgets/SLeafWidget.h"
 #include "Widgets/DeclarativeSyntaxSupport.h"
 #include "AndroidWebBrowserWindow.h"
 #include "AndroidWebBrowserDialog.h"
-#include "AndroidJava.h"
+#include "Android/AndroidJava.h"
 #include "RHI.h"
 #include "RHIResources.h"
 #include "UObject/Class.h"
@@ -83,7 +85,7 @@ public:
 
 protected:
 	static FCriticalSection WebControlsCS;
-	static TMap<jlong, TWeakPtr<SAndroidWebBrowserWidget>> AllWebControls;
+	static TMap<int64, TWeakPtr<SAndroidWebBrowserWidget>> AllWebControls;
 
 	bool HandleJsDialog(TSharedPtr<IWebBrowserDialog>& Dialog);
 	int HistorySize;
@@ -113,3 +115,5 @@ private:
 	/** Texture sample object pool. */
 	FWebBrowserTextureSamplePool* TextureSamplePool;
 };
+
+#endif // USE_ANDROID_JNI

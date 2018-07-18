@@ -2,10 +2,10 @@
 
 #pragma once
 
-#include "SCompoundWidget.h"
+#include "Widgets/SCompoundWidget.h"
 #include "ClothingAssetFactoryInterface.h"
 #include "IDetailCustomization.h"
-#include "DeclarativeSyntaxSupport.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
 #include "Engine/SkeletalMesh.h"
 
 DECLARE_DELEGATE_OneParam(FOnCreateClothingRequested, FSkeletalMeshClothBuildParams&);

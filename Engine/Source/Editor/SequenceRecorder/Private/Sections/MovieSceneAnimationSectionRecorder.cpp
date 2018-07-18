@@ -9,15 +9,16 @@
 #include "SequenceRecorderUtils.h"
 #include "SequenceRecorderSettings.h"
 #include "ActorRecording.h"
+#include "SequenceRecorder.h"
 
 TSharedPtr<IMovieSceneSectionRecorder> FMovieSceneAnimationSectionRecorderFactory::CreateSectionRecorder(const FActorRecordingSettings& InActorRecordingSettings) const
 {
 	return nullptr;
 }
 
-TSharedPtr<FMovieSceneAnimationSectionRecorder> FMovieSceneAnimationSectionRecorderFactory::CreateSectionRecorder(UAnimSequence* InAnimSequence, const FAnimationRecordingSettings& InAnimationSettings) const
+TSharedPtr<FMovieSceneAnimationSectionRecorder> FMovieSceneAnimationSectionRecorderFactory::CreateSectionRecorder(UAnimSequence* InAnimSequence, const FAnimationRecordingSettings& InAnimationSettings, const FString& InAnimAssetPath, const FString& InAnimAssetName) const
 {
-	return MakeShareable(new FMovieSceneAnimationSectionRecorder(InAnimationSettings, InAnimSequence));
+	return MakeShareable(new FMovieSceneAnimationSectionRecorder(InAnimationSettings, InAnimSequence, InAnimAssetPath, InAnimAssetName));
 }
 
 bool FMovieSceneAnimationSectionRecorderFactory::CanRecordObject(UObject* InObjectToRecord) const
@@ -33,10 +34,12 @@ bool FMovieSceneAnimationSectionRecorderFactory::CanRecordObject(UObject* InObje
 	return false;
 }
 
-FMovieSceneAnimationSectionRecorder::FMovieSceneAnimationSectionRecorder(const FAnimationRecordingSettings& InAnimationSettings, UAnimSequence* InSpecifiedSequence)
+FMovieSceneAnimationSectionRecorder::FMovieSceneAnimationSectionRecorder(const FAnimationRecordingSettings& InAnimationSettings, UAnimSequence* InSpecifiedSequence, const FString& InAnimAssetPath, const FString& InAnimAssetName)
 	: AnimSequence(InSpecifiedSequence)
 	, bRemoveRootTransform(true)
 	, AnimationSettings(InAnimationSettings)
+	, AnimAssetPath(InAnimAssetPath)
+	, AnimAssetName(InAnimAssetName)
 {
 }
 
@@ -71,18 +74,26 @@ void FMovieSceneAnimationSectionRecorder::CreateSection(UObject* InObjectToRecor
 				// build an asset path
 				const USequenceRecorderSettings* Settings = GetDefault<USequenceRecorderSettings>();
 
-				FString AssetPath = Settings->SequenceRecordingBasePath.Path;
-				if (Settings->AnimationSubDirectory.Len() > 0)
+				if (AnimAssetPath.IsEmpty())
 				{
-					AssetPath /= Settings->AnimationSubDirectory;
+					AnimAssetPath = FSequenceRecorder::Get().GetSequenceRecordingBasePath();
+					if (Settings->AnimationSubDirectory.Len() > 0)
+					{
+						AnimAssetPath /= Settings->AnimationSubDirectory;
+					}
 				}
 
-				FString AssetName = Settings->SequenceName.Len() > 0 ? Settings->SequenceName : TEXT("RecordedSequence");
-				AssetName += TEXT("_");
-				check(Actor);
-				AssetName += Actor->GetActorLabel();
+				if (AnimAssetName.IsEmpty())
+				{
+					const FString SequenceName = FSequenceRecorder::Get().GetSequenceRecordingName();
+					AnimAssetName = SequenceName.Len() > 0 ? SequenceName : TEXT("RecordedSequence");
+					AnimAssetName += TEXT("_");
+					check(Actor);
+					AnimAssetName += Actor->GetActorLabel();
+				}
 
-				AnimSequence = SequenceRecorderUtils::MakeNewAsset<UAnimSequence>(AssetPath, AssetName);
+				AnimSequence = SequenceRecorderUtils::MakeNewAsset<UAnimSequence>(AnimAssetPath, AnimAssetName);
+
 				if (AnimSequence.IsValid())
 				{
 					FAssetRegistryModule::AssetCreated(AnimSequence.Get());
@@ -98,11 +109,25 @@ void FMovieSceneAnimationSectionRecorder::CreateSection(UObject* InObjectToRecor
 
 				if (MovieScene)
 				{
-					UMovieSceneSkeletalAnimationTrack* AnimTrack = MovieScene->AddTrack<UMovieSceneSkeletalAnimationTrack>(Guid);
+					UMovieSceneSkeletalAnimationTrack* AnimTrack = MovieScene->FindTrack<UMovieSceneSkeletalAnimationTrack>(Guid);
+					if (!AnimTrack)
+					{
+						AnimTrack = MovieScene->AddTrack<UMovieSceneSkeletalAnimationTrack>(Guid);
+					}
+					else
+					{
+						AnimTrack->RemoveAllAnimationData();
+					}
+
 					if (AnimTrack)
 					{
-						AnimTrack->AddNewAnimation(Time, AnimSequence.Get());
+						FFrameRate   TickResolution  = AnimTrack->GetTypedOuter<UMovieScene>()->GetTickResolution();
+						FFrameNumber CurrentFrame    = (Time * TickResolution).FloorToFrame();
+
+						AnimTrack->AddNewAnimation(CurrentFrame, AnimSequence.Get());
 						MovieSceneSection = Cast<UMovieSceneSkeletalAnimationSection>(AnimTrack->GetAllSections()[0]);
+
+						MovieSceneSection->TimecodeSource = SequenceRecorderUtils::GetTimecodeSource();
 					}
 				}
 			}
@@ -110,7 +135,7 @@ void FMovieSceneAnimationSectionRecorder::CreateSection(UObject* InObjectToRecor
 	}
 }
 
-void FMovieSceneAnimationSectionRecorder::FinalizeSection()
+void FMovieSceneAnimationSectionRecorder::FinalizeSection(float CurrentTime)
 {
 	if(AnimSequence.IsValid())
 	{
@@ -128,9 +153,12 @@ void FMovieSceneAnimationSectionRecorder::FinalizeSection()
 		FAnimationRecorderManager::Get().StopRecordingAnimation(SkeletalMeshComponent.Get(), bShowMessage);
 	}
 
-	if(MovieSceneSection.IsValid() && AnimSequence.IsValid())
+	if(MovieSceneSection.IsValid() && AnimSequence.IsValid() && MovieSceneSection->HasStartFrame())
 	{
-		MovieSceneSection->SetEndTime(MovieSceneSection->GetStartTime() + AnimSequence->GetPlayLength());
+		FFrameRate   TickResolution  = MovieSceneSection->GetTypedOuter<UMovieScene>()->GetTickResolution();
+		FFrameNumber SequenceLength  = (AnimSequence->GetPlayLength() * TickResolution).FloorToFrame();
+		
+		MovieSceneSection->SetEndFrame(TRangeBound<FFrameNumber>::Exclusive(MovieSceneSection->GetInclusiveStartFrame() + SequenceLength));
 	}
 }
 

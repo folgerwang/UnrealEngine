@@ -140,7 +140,7 @@ namespace UnrealBuildTool
 		
 		private void ParseSourceFilesIntoGroups()
 		{
-			foreach (var CurSourceFile in SourceFiles)
+			foreach (SourceFile CurSourceFile in SourceFiles)
 			{
 				EddieSourceFile SourceFile = CurSourceFile as EddieSourceFile;
 				string FileName = SourceFile.Reference.GetFileName();
@@ -148,7 +148,7 @@ namespace UnrealBuildTool
 				string FilePath = SourceFile.Reference.MakeRelativeTo(ProjectFilePath.Directory);
 				string FilePathMac = Utils.CleanDirectorySeparators(FilePath, '/');
 				
-				var ProjectRelativeSourceFile = CurSourceFile.Reference.MakeRelativeTo(ProjectFilePath.Directory);
+				string ProjectRelativeSourceFile = CurSourceFile.Reference.MakeRelativeTo(ProjectFilePath.Directory);
 				string RelativeSourceDirectory = Path.GetDirectoryName(ProjectRelativeSourceFile);
 				// Use the specified relative base folder
 				if (CurSourceFile.BaseFolder != null)	// NOTE: We are looking for null strings, not empty strings!
@@ -172,7 +172,7 @@ namespace UnrealBuildTool
 		
 		private void EmitProject(StringBuilder Content, Dictionary<string, EddieFolder> Folders)
 		{
-			foreach (var CurGroup in Folders)
+			foreach (KeyValuePair<string, EddieFolder> CurGroup in Folders)
 			{
                 if (Path.GetFileName(CurGroup.Key) != "Documentation")
                 {
@@ -180,7 +180,7 @@ namespace UnrealBuildTool
                 
                     if (CurGroup.Value.bIsModuleFolder)
                     {
-                        var ProjectFileContent = new StringBuilder();
+                        StringBuilder ProjectFileContent = new StringBuilder();
                 
                         ProjectFileContent.Append("# @Eddie Workset@" + ProjectFileGenerator.NewLine);
                         ProjectFileContent.Append("AddWorkset \"" + Path.GetFileName(CurGroup.Key) + ".wkst\" \"" + CurGroup.Value.WorksetPath + "\"" + ProjectFileGenerator.NewLine);
@@ -220,7 +220,7 @@ namespace UnrealBuildTool
 		{
 			bool bSuccess = false;
 			
-			var TargetName = ProjectFilePath.GetFileNameWithoutExtension();
+			string TargetName = ProjectFilePath.GetFileNameWithoutExtension();
 			
 			FileReference GameProjectPath = null;
 			foreach(ProjectTarget Target in ProjectTargets)
@@ -232,7 +232,7 @@ namespace UnrealBuildTool
 				}
 			}
 			
-			var ProjectFileContent = new StringBuilder();
+			StringBuilder ProjectFileContent = new StringBuilder();
 			
 			ProjectFileContent.Append("# @Eddie Workset@" + ProjectFileGenerator.NewLine);
 			ProjectFileContent.Append("AddWorkset \"" + this.ToString() + ".wkst\" \"" + ProjectFilePath.FullName + "\"" + ProjectFileGenerator.NewLine);

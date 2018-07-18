@@ -8,10 +8,10 @@
 
 #include "AutomationDriver.h"
 
-#include "Async.h"
-#include "AsyncResult.h"
+#include "Async/Async.h"
+#include "Async/AsyncResult.h"
 #include "InputCoreTypes.h"
-#include "GenericApplicationMessageHandler.h"
+#include "GenericPlatform/GenericApplicationMessageHandler.h"
 
 class FDriverElementExtensions
 {

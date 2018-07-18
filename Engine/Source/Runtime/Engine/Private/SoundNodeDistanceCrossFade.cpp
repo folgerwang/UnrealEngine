@@ -14,27 +14,27 @@ USoundNodeDistanceCrossFade::USoundNodeDistanceCrossFade(const FObjectInitialize
 {
 }
 
-float USoundNodeDistanceCrossFade::MaxAudibleDistance( float CurrentMaxDistance )
+float USoundNodeDistanceCrossFade::GetMaxDistance() const
 {
 	float Retval = 0.0f;
 
-	for( int32 CrossFadeIndex = 0; CrossFadeIndex < CrossFadeInput.Num(); CrossFadeIndex++ )
+	for (int32 CrossFadeIndex = 0; CrossFadeIndex < CrossFadeInput.Num(); CrossFadeIndex++)
 	{
-		float FadeInDistanceMax = CrossFadeInput[ CrossFadeIndex ].FadeInDistanceEnd;
-		float FadeOutDistanceMax = CrossFadeInput[ CrossFadeIndex ].FadeOutDistanceEnd;
+		float FadeInDistanceMax = CrossFadeInput[CrossFadeIndex].FadeInDistanceEnd;
+		float FadeOutDistanceMax = CrossFadeInput[CrossFadeIndex].FadeOutDistanceEnd;
 
-		if( FadeInDistanceMax > Retval )
+		if (FadeInDistanceMax > Retval)
 		{
 			Retval = FadeInDistanceMax;
 		}
 
-		if( FadeOutDistanceMax > Retval )
+		if (FadeOutDistanceMax > Retval)
 		{
 			Retval = FadeOutDistanceMax;
 		}
 	}
 
-	return( Retval );
+	return Retval;
 }
 
 

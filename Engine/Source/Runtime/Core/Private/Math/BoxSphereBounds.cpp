@@ -51,6 +51,10 @@ FBoxSphereBounds FBoxSphereBounds::TransformBy(const FMatrix& M) const
 	MaxRadius = VectorMax(VectorMax(MaxRadius, VectorReplicate(MaxRadius, 1)), VectorReplicate(MaxRadius, 2));
 	Result.SphereRadius = FMath::Sqrt(VectorGetComponent( MaxRadius, 0) ) * SphereRadius;
 
+	// For non-uniform scaling, computing sphere radius from a box results in a smaller sphere.
+	float const BoxExtentMagnitude = FMath::Sqrt(VectorGetComponent(VectorDot3(NewExtent, NewExtent), 0));
+	Result.SphereRadius = FMath::Min(Result.SphereRadius, BoxExtentMagnitude);
+
 	Result.DiagnosticCheckNaN();
 	return Result;
 }

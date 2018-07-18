@@ -68,7 +68,7 @@ MS_ALIGN(16) struct FSkinMatrix3x4
 } GCC_ALIGN(16);
 
 template<>
-class TUniformBufferTypeInfo<FSkinMatrix3x4>
+class TUniformBufferTypeInfo<FSkinMatrix3x4, false>
 {
 public:
 	enum { BaseType = UBMT_FLOAT32 };
@@ -90,7 +90,7 @@ enum
 };
 
 BEGIN_UNIFORM_BUFFER_STRUCT(FBoneMatricesUniformShaderParameters,)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_ARRAY(FSkinMatrix3x4, BoneMatrices, [MAX_GPU_BONE_MATRICES_UNIFORMBUFFER])
+	UNIFORM_MEMBER_ARRAY(FSkinMatrix3x4, BoneMatrices, [MAX_GPU_BONE_MATRICES_UNIFORMBUFFER])
 END_UNIFORM_BUFFER_STRUCT(FBoneMatricesUniformShaderParameters)
 
 #define SET_BONE_DATA(B, X) B.SetMatrixTranspose(X)
@@ -246,7 +246,7 @@ public:
 			}
 		}
 		
-		// if FeatureLevel < ERHIFeatureLevel::ES3_1
+		// if FeatureLevel <= ERHIFeatureLevel::ES3_1
 		FUniformBufferRHIParamRef GetUniformBuffer() const
 		{
 			return UniformBuffer;
@@ -296,7 +296,7 @@ public:
 		// RevisionNumber Tracker
 		uint32 PreviousRevisionNumber;
 		uint32 CurrentRevisionNumber;
-		// if FeatureLevel < ERHIFeatureLevel::ES3_1
+		// if FeatureLevel <= ERHIFeatureLevel::ES3_1
 		FUniformBufferRHIRef UniformBuffer;
 		
 		static TConsoleVariableData<int32>* MaxBonesVar;
@@ -369,7 +369,14 @@ public:
 	virtual const FShaderResourceViewRHIRef GetTangentsSRV() const = 0;
 	virtual const FShaderResourceViewRHIRef GetTextureCoordinatesSRV() const = 0;
 	virtual const FShaderResourceViewRHIRef GetColorComponentsSRV() const = 0;
+	virtual uint32 GetNumTexCoords() const = 0;
 	virtual const uint32 GetColorIndexMask() const = 0;
+
+	inline const FVertexStreamComponent& GetTangentStreamComponent(int Index)
+	{
+		check(TangentStreamComponents[Index].VertexBuffer != nullptr);
+		return TangentStreamComponents[Index];
+	}
 
 protected:
 	/** dynamic data need for setting the shader */ 
@@ -377,13 +384,15 @@ protected:
 	/** Pool of buffers for bone matrices. */
 	static TGlobalResource<FBoneBufferPool> BoneBufferPool;
 
+	FVertexStreamComponent TangentStreamComponents[2];
+
 private:
 	uint32 NumVertices;
 };
 
 /** Vertex factory with vertex stream components for GPU skinned vertices */
 template<bool bExtraBoneInfluencesT>
-class TGPUSkinVertexFactory : public FGPUBaseSkinVertexFactory
+class ENGINE_API TGPUSkinVertexFactory : public FGPUBaseSkinVertexFactory
 {
 	DECLARE_VERTEX_FACTORY_TYPE(TGPUSkinVertexFactory<bExtraBoneInfluencesT>);
 
@@ -434,6 +443,8 @@ public:
 	void SetData(const FDataType& InData)
 	{
 		Data = InData;
+		this->TangentStreamComponents[0] = InData.TangentBasisComponents[0];
+		this->TangentStreamComponents[1] = InData.TangentBasisComponents[1];
 		FGPUBaseSkinVertexFactory::UpdateRHI();
 	}
 
@@ -459,6 +470,11 @@ public:
 	const FShaderResourceViewRHIRef GetTextureCoordinatesSRV() const override
 	{
 		return Data.TextureCoordinatesSRV;
+	}
+
+	uint32 GetNumTexCoords() const override
+	{
+		return Data.NumTexCoords;
 	}
 
 	const FShaderResourceViewRHIRef GetColorComponentsSRV() const override
@@ -530,6 +546,12 @@ public:
 	//TODO should be supported
 	bool SupportsPositionOnlyStream() const override { return false; }
 
+	inline void InvalidateStreams()
+	{
+		PositionStreamIndex = -1;
+		TangentStreamIndex = -1;
+	}
+
 protected:
 	// Vertex buffer required for creating the Vertex Declaration
 	FVertexBuffer PositionVBAlias;
@@ -577,6 +599,8 @@ public:
 	void SetData(const FDataType& InData)
 	{
 		MorphData = InData;
+		this->TangentStreamComponents[0] = InData.TangentBasisComponents[0];
+		this->TangentStreamComponents[1] = InData.TangentBasisComponents[1];
 		FGPUBaseSkinVertexFactory::UpdateRHI();
 	}
 
@@ -603,6 +627,11 @@ public:
 	const FShaderResourceViewRHIRef GetTextureCoordinatesSRV() const override
 	{
 		return MorphData.TextureCoordinatesSRV;
+	}
+
+	uint32 GetNumTexCoords() const override
+	{
+		return MorphData.NumTexCoords;
 	}
 
 	const FShaderResourceViewRHIRef GetColorComponentsSRV() const override
@@ -695,12 +724,26 @@ public:
 			check(ClothSimulPositionNormalBuffer[Index].VertexBufferRHI.IsValid());
 			return ClothSimulPositionNormalBuffer[Index];
 		}
-
-		/**
-		* Matrix to apply to positions/normals
-		*/
-		FMatrix ClothLocalToWorld;
 		
+		FMatrix& GetClothLocalToWorldForWriting(uint32 FrameNumber)
+		{
+			uint32 Index = GetOldestIndex(FrameNumber);
+
+			return ClothLocalToWorld[Index];
+		}
+
+		const FMatrix& GetClothLocalToWorldForReading(bool bPrevious, uint32 FrameNumber) const
+		{
+			int32 Index = GetMostRecentIndex(FrameNumber);
+
+			if(bPrevious && DoWeHavePreviousData())
+			{
+				Index = 1 - Index;
+			}
+
+			return ClothLocalToWorld[Index];
+		}
+
 		/**
 		 * weight to blend between simulated positions and key-framed poses
 		 * if ClothBlendWeight is 1.0, it shows only simulated positions and if it is 0.0, it shows only key-framed animation
@@ -714,6 +757,11 @@ public:
 		FVertexBufferAndSRV ClothSimulPositionNormalBuffer[2];
 		// from GFrameNumber, to detect pause and old data when an object was not rendered for some time
 		uint32 BufferFrameNumber[2];
+
+		/**
+		 * Matrix to apply to positions/normals
+		 */
+		FMatrix ClothLocalToWorld[2];
 
 		// @return 0 / 1, index into ClothSimulPositionNormalBuffer[]
 		uint32 GetMostRecentIndex(uint32 FrameNumber) const
@@ -777,6 +825,9 @@ public:
 			// both are not valid
 			BufferFrameNumber[0] = -1;
 			BufferFrameNumber[1] = -1;
+
+			ClothLocalToWorld[0] = FMatrix::Identity;
+			ClothLocalToWorld[1] = FMatrix::Identity;
 		}
 	};
 
@@ -875,6 +926,8 @@ public:
 	{
         Super::SetData(InData);
 		MeshMappingData = InData;
+		this->TangentStreamComponents[0] = InData.TangentBasisComponents[0];
+		this->TangentStreamComponents[1] = InData.TangentBasisComponents[1];
 		FGPUBaseSkinVertexFactory::UpdateRHI();
 	}
 
@@ -886,6 +939,36 @@ public:
 	virtual const FGPUBaseSkinVertexFactory* GetVertexFactory() const override
 	{
 		return this;
+	}
+
+	const FShaderResourceViewRHIRef GetPositionsSRV() const override
+	{
+		return MeshMappingData.PositionComponentSRV;
+	}
+
+	const FShaderResourceViewRHIRef GetTangentsSRV() const override
+	{
+		return MeshMappingData.TangentsSRV;
+	}
+
+	const FShaderResourceViewRHIRef GetTextureCoordinatesSRV() const override
+	{
+		return MeshMappingData.TextureCoordinatesSRV;
+	}
+
+	uint32 GetNumTexCoords() const override
+	{
+		return MeshMappingData.NumTexCoords;
+	}
+
+	const FShaderResourceViewRHIRef GetColorComponentsSRV() const override
+	{
+		return MeshMappingData.ColorComponentsSRV;
+	}
+
+	const uint32 GetColorIndexMask() const override
+	{
+		return MeshMappingData.ColorIndexMask;
 	}
 
 	// FRenderResource interface.

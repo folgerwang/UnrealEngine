@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:2735872
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:6 - ビルド プロセスを実行する
 Crumbs:%ROOT%, GettingStarted, Engine/QuickStart
-Description:多数のアクタを配置したカスタマイズ状態でレベルを作成する最終ステップの 1 つは、ビルド プロセスです。
+Description:多くのアクタを配置し、カスタマイズした状態で、レベルを作成するための最終ステップの 1 つは、ビルド プロセスです。
 SkillLevel:Beginner
 Version:4.9
 checkpoint: editorqs
@@ -62,7 +62,7 @@ checkpoint: editorqs
 	**WASD** を使って移動、 **Mouse** でカメラを回転させて、レベル内を飛び回ることができます。 
 
 
-## 結果
+## 最終結果
 
 この時点で、レベル ライティングが **ビルド** され、エディタ機能の **Play** でゲームをプレビューしているはずです。ここまでのステップは、アンリアル エンジンでレベル構築をする時に最も一般的な動作の実行方法を理解してもらうことが目的でした。 
 

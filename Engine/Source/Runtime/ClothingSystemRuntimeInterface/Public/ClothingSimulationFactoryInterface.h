@@ -4,7 +4,7 @@
 
 #include "ClothingSimulationInterface.h"
 
-#include "Object.h"
+#include "UObject/Object.h"
 #include "Features/IModularFeature.h"
 
 #include "ClothingSimulationFactoryInterface.generated.h"

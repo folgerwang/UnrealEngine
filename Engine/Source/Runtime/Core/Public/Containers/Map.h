@@ -10,9 +10,10 @@
 #include "Misc/StructBuilder.h"
 #include "Templates/Function.h"
 #include "Containers/Set.h"
-#include "Containers/Algo/Reverse.h"
+#include "Algo/Reverse.h"
 #include "Templates/Tuple.h"
-#include "HasGetTypeHash.h"
+#include "Templates/HasGetTypeHash.h"
+#include "Containers/UnrealString.h"
 
 #define ExchangeB(A,B) {bool T=A; A=B; B=T;}
 
@@ -265,6 +266,7 @@ public:
 
 	/** 
 	 * Helper function to return the amount of memory allocated by this container .
+	 * Only returns the size of allocations made directly by the container, not the elements themselves.
 	 *
 	 * @return Number of bytes allocated by this container.
 	 * @see CountBytes
@@ -525,6 +527,43 @@ public:
 	FORCEINLINE friend FArchive& operator<<(FArchive& Ar,TMapBase& Map)
 	{
 		return Ar << Map.Pairs;
+	}
+
+	/** Structured archive serializer. */
+	FORCEINLINE friend void operator<<(FStructuredArchive::FSlot Slot, TMapBase& InMap)
+	{
+		if (Slot.GetUnderlyingArchive().IsTextFormat())
+		{
+			int32 Num = InMap.Num();
+			FStructuredArchive::FMap Map = Slot.EnterMap(Num);
+
+			if (Slot.GetUnderlyingArchive().IsLoading())
+			{
+				FString KeyString;
+				KeyType Key;
+
+				for (int32 Index = 0; Index < Num; ++Index)
+				{
+					FStructuredArchive::FSlot ValueSlot = Map.EnterElement(KeyString);
+					LexFromString(Key, *KeyString);
+					ValueSlot << InMap.Add(Key);
+				}
+			}
+			else
+			{
+				FString StringK;
+				for (TMapBase::TIterator It(InMap); It; ++It)
+				{
+					StringK = LexToString(It->Key);
+					FStructuredArchive::FSlot ValueSlot = Map.EnterElement(StringK);
+					ValueSlot << It->Value;
+				}
+			}
+		}
+		else
+		{
+			Slot << InMap.Pairs;
+		}
 	}
 
 	/**
@@ -887,6 +926,16 @@ public:
 	{
 	}
 
+	/** Constructor which gets its elements from a native initializer list */
+	TMap(std::initializer_list<TPairInitializer<const KeyType&, const ValueType&>> InitList)
+	{
+		this->Reserve((int32)InitList.size());
+		for (const TPairInitializer<const KeyType&, const ValueType&>& Element : InitList)
+		{
+			this->Add(Element.Key, Element.Value);
+		}
+	}
+
 	/** Assignment operator for moving elements from a TMap with a different SetAllocator */
 	template<typename OtherSetAllocator>
 	TMap& operator=(TMap<KeyType, ValueType, OtherSetAllocator, KeyFuncs>&& Other)
@@ -900,6 +949,17 @@ public:
 	TMap& operator=(const TMap<KeyType, ValueType, OtherSetAllocator, KeyFuncs>& Other)
 	{
 		(Super&)*this = Other;
+		return *this;
+	}
+
+	/** Assignment operator which gets its elements from a native initializer list */
+	TMap& operator=(std::initializer_list<TPairInitializer<const KeyType&, const ValueType&>> InitList)
+	{
+		this->Empty((int32)InitList.size());
+		for (const TPairInitializer<const KeyType&, const ValueType&>& Element : InitList)
+		{
+			this->Add(Element.Key, Element.Value);
+		}
 		return *this;
 	}
 
@@ -1012,6 +1072,16 @@ public:
 	{
 	}
 
+	/** Constructor which gets its elements from a native initializer list */
+	TMultiMap(std::initializer_list<TPairInitializer<const KeyType&, const ValueType&>> InitList)
+	{
+		this->Reserve((int32)InitList.size());
+		for (const TPairInitializer<const KeyType&, const ValueType&>& Element : InitList)
+		{
+			this->Add(Element.Key, Element.Value);
+		}
+	}
+
 	/** Assignment operator for moving elements from a TMap with a different SetAllocator */
 	template<typename OtherSetAllocator>
 	TMultiMap& operator=(TMultiMap<KeyType, ValueType, OtherSetAllocator, KeyFuncs>&& Other)
@@ -1025,6 +1095,17 @@ public:
 	TMultiMap& operator=(const TMultiMap<KeyType, ValueType, OtherSetAllocator, KeyFuncs>& Other)
 	{
 		(Super&)*this = Other;
+		return *this;
+	}
+
+	/** Assignment operator which gets its elements from a native initializer list */
+	TMultiMap& operator=(std::initializer_list<TPairInitializer<const KeyType&, const ValueType&>> InitList)
+	{
+		this->Empty((int32)InitList.size());
+		for (const TPairInitializer<const KeyType&, const ValueType&>& Element : InitList)
+		{
+			this->Add(Element.Key, Element.Value);
+		}
 		return *this;
 	}
 

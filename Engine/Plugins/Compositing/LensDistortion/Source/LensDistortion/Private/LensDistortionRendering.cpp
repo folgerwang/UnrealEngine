@@ -5,14 +5,14 @@
 
 #include "Classes/Engine/TextureRenderTarget2D.h"
 #include "Classes/Engine/World.h"
-#include "Public/GlobalShader.h"
-#include "Public/PipelineStateCache.h"
-#include "Public/RHIStaticStates.h"
-#include "Public/SceneUtils.h"
-#include "Public/SceneInterface.h"
-#include "Public/ShaderParameterUtils.h"
-#include "Public/Logging/MessageLog.h"
-#include "Public/Internationalization/Internationalization.h"
+#include "GlobalShader.h"
+#include "PipelineStateCache.h"
+#include "RHIStaticStates.h"
+#include "SceneUtils.h"
+#include "SceneInterface.h"
+#include "ShaderParameterUtils.h"
+#include "Logging/MessageLog.h"
+#include "Internationalization/Internationalization.h"
 
 
 static const uint32 kGridSubdivisionX = 32;
@@ -226,7 +226,7 @@ static void DrawUVDisplacementToRenderTarget_RenderThread(
 	RHICmdList.CopyToResolveTarget(
 		OutTextureRenderTargetResource->GetRenderTargetTexture(),
 		OutTextureRenderTargetResource->TextureRHI,
-		false, FResolveParams());
+		FResolveParams());
 }
 
 

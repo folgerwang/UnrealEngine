@@ -7,6 +7,7 @@
 #include "HAL/Runnable.h"
 #include "HttpPackage.h"
 #include "Misc/SingleThreadRunnable.h"
+#include "Containers/Queue.h"
 
 class IHttpThreadedRequest;
 
@@ -108,32 +109,29 @@ protected:
 	double LastTime;
 
 protected:
-	/** Critical section to lock access to PendingThreadedRequests, CancelledThreadedRequests, and CompletedThreadedRequests */
-	FCriticalSection RequestArraysLock;
-
 	/** 
 	 * Threaded requests that are waiting to be processed on the http thread.
-	 * Added to on non-HTTP thread, processed then cleared on HTTP thread.
+	 * Added to on (any) non-HTTP thread, processed then cleared on HTTP thread.
 	 */
-	TArray<IHttpThreadedRequest*> PendingThreadedRequests;
+	TQueue<IHttpThreadedRequest*, EQueueMode::Mpsc> PendingThreadedRequests;
 
 	/**
 	 * Threaded requests that are waiting to be cancelled on the http thread.
-	 * Added to on non-HTTP thread, processed then cleared on HTTP thread.
+	 * Added to on (any) non-HTTP thread, processed then cleared on HTTP thread.
 	 */
-	TArray<IHttpThreadedRequest*> CancelledThreadedRequests;
+	TQueue<IHttpThreadedRequest*, EQueueMode::Mpsc> CancelledThreadedRequests;
 
 	/**
-	 * Currently running threaded requests (not in any of the other arrays).
+	 * Currently running threaded requests (not in any of the other lists, except potentially CancelledThreadedRequests).
 	 * Only accessed on the HTTP thread.
 	 */
 	TArray<IHttpThreadedRequest*> RunningThreadedRequests;
 
 	/**
 	 * Threaded requests that have completed and are waiting for the game thread to process.
-	 * Added to on HTTP thread, processed then cleared on game thread.
+	 * Added to on HTTP thread, processed then cleared on game thread (Single producer, single consumer)
 	 */
-	TArray<IHttpThreadedRequest*> CompletedThreadedRequests;
+	TQueue<IHttpThreadedRequest*, EQueueMode::Spsc> CompletedThreadedRequests;
 
 	/** Pointer to Runnable Thread */
 	FRunnableThread* Thread;

@@ -330,20 +330,20 @@ FText SWorldTileItem::GetLevelNameText() const
 
 FText SWorldTileItem::GetPositionText() const
 {
-	FIntPoint Position = TileModel->GetRelativeLevelPosition();
+	FIntVector Position = TileModel->GetRelativeLevelPosition();
 	bool bLocked = WorldModel->IsLockTilesLocationEnabled();
 	
 	FTextFormat TextFormat;
 	if (bLocked)
 	{
-		TextFormat = LOCTEXT("PositionXYFmtLocked", "{0}, {1} (Locked)");
+		TextFormat = LOCTEXT("PositionXYZFmtLocked", "{0}, {1}, {2} (Locked)");
 	}
 	else
 	{
-		TextFormat = LOCTEXT("PositionXYFmt", "{0}, {1}");
+		TextFormat = LOCTEXT("PositionXYZFmt", "{0}, {1}, {2}");
 	}
 		
-	return FText::Format(TextFormat, FText::AsNumber(Position.X), FText::AsNumber(Position.Y));
+	return FText::Format(TextFormat, FText::AsNumber(Position.X), FText::AsNumber(Position.Y), FText::AsNumber(Position.Z));
 }
 
 FText SWorldTileItem::GetBoundsExtentText() const

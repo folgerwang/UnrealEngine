@@ -255,8 +255,8 @@ Order:-7
 	* ECC_WorldTrace is gone, use ECC_Static if you're looking for stationary geometry (Movement channel is ECC_Static and Mobility is not Movable)
 	* Global default is defined via code and INI file.Global default isn't all block anymore
 		* Changed syntax of default channel define to include default response (global default)
-				+CustomTraceChannel=(Channel=GameTraceChannel1, Name=Interact, Response=Ignore)
 
+				+CustomTraceChannel=(Channel=GameTraceChannel1, Name=Interact, Response=Ignore)
 		* Removed DefaultResponse from Profile definition but it starts from global default.
 	* CollisionResponse data structure has changed to allow only modified channels from global default (note this isn't CDO value but global default)
 	* More changes are coming!

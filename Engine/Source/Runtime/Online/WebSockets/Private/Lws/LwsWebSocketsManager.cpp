@@ -5,12 +5,15 @@
 #if WITH_WEBSOCKETS && WITH_LIBWEBSOCKETS
 
 #include "WebSocketsModule.h"
-#include "RunnableThread.h"
+#include "HAL/RunnableThread.h"
+#if WITH_SSL
 #include "Ssl.h"
+#endif
 #include "WebSocketsLog.h"
 #include "HAL/PlatformTime.h"
 #include "HAL/PlatformProcess.h"
 #include "Misc/ConfigCacheIni.h"
+#include "Stats/Stats.h"
 
 namespace {
 	static const struct lws_extension LwsExtensions[] = {
@@ -33,7 +36,11 @@ static void LwsLog(int Level, const char* LogLine);
 
 // FLwsWebSocketsManager
 FLwsWebSocketsManager::FLwsWebSocketsManager()
-	: LwsContext(nullptr)
+	: 
+#if WITH_SSL
+	SslContext(nullptr),
+#endif
+	LwsContext(nullptr)
 	, Thread(nullptr)
 {
 	ThreadTargetFrameTimeInSeconds = 1.0f / 30.0f; // 30Hz
@@ -78,7 +85,8 @@ void FLwsWebSocketsManager::InitWebSockets(TArrayView<const FString> Protocols)
 	LwsProtocols.Add({ nullptr, nullptr, 0, 0 });
 
 	// Subscribe to log events.  Everything except LLL_PARSER
-	lws_set_log_level(LLL_ERR | LLL_WARN | LLL_NOTICE | LLL_INFO | LLL_DEBUG | LLL_HEADER | LLL_EXT | LLL_CLIENT | LLL_LATENCY, &LwsLog);
+	static_assert(LLL_COUNT == 11, "If LLL_COUNT increases, libwebsockets has added new log categories, analyze if we should be listening to them");
+	lws_set_log_level(LLL_ERR | LLL_WARN | LLL_NOTICE | LLL_INFO | LLL_DEBUG | LLL_HEADER | LLL_EXT | LLL_CLIENT | LLL_LATENCY | LLL_USER, &LwsLog);
 
 	struct lws_context_creation_info ContextInfo = {};
 
@@ -86,10 +94,40 @@ void FLwsWebSocketsManager::InitWebSockets(TArrayView<const FString> Protocols)
 	ContextInfo.protocols = LwsProtocols.GetData();
 	ContextInfo.uid = -1;
 	ContextInfo.gid = -1;
-	ContextInfo.options |= LWS_SERVER_OPTION_PEER_CERT_NOT_REQUIRED | LWS_SERVER_OPTION_DISABLE_OS_CA_CERTS;
-	ContextInfo.ssl_cipher_list = nullptr;
+	ContextInfo.options |= LWS_SERVER_OPTION_PEER_CERT_NOT_REQUIRED | LWS_SERVER_OPTION_DISABLE_OS_CA_CERTS | LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT;
+	
+	// HTTP proxy
+#if 0 // @todo implement
+	ContextInfo.http_proxy_address;
+	ContextInfo.http_proxy_port;
+#endif
+
+#if WITH_SSL
+	// SSL client options
+	// Create a context for SSL
+	FSslModule& SslModule = FModuleManager::LoadModuleChecked<FSslModule>("SSL");
+	ISslManager& SslManager = SslModule.GetSslManager();
+	if (SslManager.InitializeSsl())
+	{
+		SslContext = SslManager.CreateSslContext(FSslContextCreateOptions());
+		ContextInfo.provided_client_ssl_ctx = SslContext;
+		ContextInfo.options &= ~(LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT); // Do not need to globally init
+	}
+	else
+#endif
+	{
+		ContextInfo.options |= LWS_SERVER_OPTION_DO_SSL_GLOBAL_INIT;
+	}
+
+	if (!ContextInfo.provided_client_ssl_ctx)
+	{
+		UE_LOG(LogWebSockets, Verbose, TEXT("Failed to create our SSL context, this will result in libwebsockets managing its own SSL context, which calls SSLs global cleanup functions, impacting other uses of SSL"));
+	}
+	
+	// Extensions
 	// TODO:  Investigate why enabling LwsExtensions prevents us from receiving packets larger than 1023 bytes, and also why lws_remaining_packet_payload returns 0 in that case
 	ContextInfo.extensions = nullptr;// LwsExtensions;
+
 	LwsContext = lws_create_context(&ContextInfo);
 	if (LwsContext == nullptr)
 	{
@@ -97,7 +135,8 @@ void FLwsWebSocketsManager::InitWebSockets(TArrayView<const FString> Protocols)
 		return;
 	}
 	
-	// TODO:  Determine thread stack size
+	int32 ThreadStackSize = 128 * 1024;
+	GConfig->GetInt(TEXT("WebSockets.LibWebSockets"), TEXT("ThreadStackSize"), ThreadStackSize, GEngineIni);
 	Thread = FRunnableThread::Create(this, TEXT("LibwebsocketsThread"), 128 * 1024, TPri_Normal);
 	if (!Thread)
 	{
@@ -138,6 +177,19 @@ void FLwsWebSocketsManager::ShutdownWebSockets()
 	SocketsToStart.Empty();
 	SocketsToStop.Empty(); // TODO:  Should we trigger the OnClosed/OnConnectionError delegates?
 	Sockets.Empty();
+
+#if WITH_SSL
+	FSslModule& SslModule = FModuleManager::LoadModuleChecked<FSslModule>("SSL");
+	ISslManager& SslManager = SslModule.GetSslManager();
+
+	if (SslContext)
+	{
+		SslManager.DestroySslContext(SslContext);
+		SslContext = nullptr;
+	}
+
+	SslManager.ShutdownSsl();
+#endif
 }
 
 bool FLwsWebSocketsManager::Init()
@@ -238,12 +290,14 @@ int FLwsWebSocketsManager::CallbackWrapper(lws* Connection, lws_callback_reasons
 	{
 	case LWS_CALLBACK_RECEIVE_PONG:
 		return 0;
+#if WITH_SSL
 	case LWS_CALLBACK_OPENSSL_LOAD_EXTRA_CLIENT_VERIFY_CERTS:
 	case LWS_CALLBACK_OPENSSL_LOAD_EXTRA_SERVER_VERIFY_CERTS:
 	{
 		FSslModule::Get().GetCertificateManager().AddCertificatesToSslContext(static_cast<SSL_CTX*>(UserData));
 		return 0;
 	}
+#endif
 	case LWS_CALLBACK_WSI_DESTROY:
 	{
 		SocketsDestroyedDuringService.Add(Socket);
@@ -318,6 +372,8 @@ void FLwsWebSocketsManager::StartProcessingWebSocket(FLwsWebSocket* Socket)
 
 bool FLwsWebSocketsManager::GameThreadTick(float DeltaTime)
 {
+    QUICK_SCOPE_CYCLE_COUNTER(STAT_FLwsWebSocketsManager_GameThreadTick);
+
 	for (const FLwsWebSocketRef& Socket : Sockets)
 	{
 		Socket->GameThreadTick();

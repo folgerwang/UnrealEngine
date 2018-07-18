@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3810557
 Availability:Public
 Title:소스에서 언리얼 엔진 빌드하기
 Crumbs: %ROOT%, Programming, Programming/Development
@@ -106,6 +106,22 @@ tags:Unreal Build System
 	[/PARAM]
 [/OBJECT]
 
+## 언리얼 엔진 시작하기
+
+[](GettingStarted) 문서를 참고하여 언리얼 엔진 사용법을 배워보세요!
+
+UE4 에 빠르게 익숙해지는 방법을 찾고계시다면, 다음 튜토리얼을 참고하세요:
+*	[](Engine/Content/QuickStart)
+*	[](Programming/QuickStart)
+*	[](Engine/QuickStart)
+
+
+[REGION:note]
+UE4 에디터내 도움말 기능도 답을 구하기 좋은 방법입니다.
+[/REGION]
+
+[/EXCERPT:Main]
+
 [COMMENT:none]
 
 [EXCERPT:windowscompile]
@@ -174,10 +190,6 @@ tags:Unreal Build System
 
 [/EXCERPT:linuxcompile]
 
-[/COMMENT]
-
-[COMMENT:none]
-
 [EXCERPT:windowsrun]
 
 1.	시작 프로젝트를 **UE4** 로 설정합니다.
@@ -227,19 +239,3 @@ tags:Unreal Build System
 [/EXCERPT:linuxrun]
 
 [/COMMENT]
-
-## 언리얼 엔진 시작
-
-언리얼 엔진을 시작하는 법은 [](GettingStarted) 문서를 참고하시기 바랍니다.
-
-UE4 를 빠르게 시작해 보려면, 다음 튜토리얼을 참고하세요:
-*	[](Engine/Content/QuickStart)
-*	[](Programming/QuickStart)
-*	[](Engine/QuickStart)
-
-
-[REGION:note]
-UE4 의 에디터내 도움말 기능 역시 질문에 대한 답을 찾는 데 좋은 방법입니다.
-[/REGION]
-
-[/EXCERPT:Main]

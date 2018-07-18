@@ -37,7 +37,7 @@
 #include "Animation/EditorAnimCurveBoneLinks.h"
 #include "IEditableSkeleton.h"
 #include "IDetailChildrenBuilder.h"
-#include "SNumericEntryBox.h"
+#include "Widgets/Input/SNumericEntryBox.h"
 #include "BoneControllers/AnimNode_SkeletalControlBase.h"
 #include "Engine/SkeletalMeshSocket.h"
 #include "Styling/CoreStyle.h"

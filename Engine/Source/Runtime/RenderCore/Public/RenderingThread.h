@@ -77,7 +77,7 @@ extern RENDERCORE_API void AdvanceFrameRenderPrerequisite();
 /**
  * Waits for the rendering thread to finish executing all pending rendering commands.  Should only be used from the game thread.
  */
-extern RENDERCORE_API void FlushRenderingCommands();
+extern RENDERCORE_API void FlushRenderingCommands(bool bFlushDeferredDeletes = false);
 
 extern RENDERCORE_API void FlushPendingDeleteRHIResources_GameThread();
 extern RENDERCORE_API void FlushPendingDeleteRHIResources_RenderThread();
@@ -622,8 +622,10 @@ FORCEINLINE_DEBUGGABLE void EnqueueUniqueRenderCommand(LAMBDA& Lambda)
 class RENDERCORE_API FDeferredCleanupInterface
 {
 public:
-	virtual void FinishCleanup() = 0;
 	virtual ~FDeferredCleanupInterface() {}
+
+	DEPRECATED(4.20, "FinishCleanup is deprecated. Use RAII in the destructor instead.")
+	virtual void FinishCleanup() final {}
 };
 
 /**

@@ -5,7 +5,7 @@
 #include "DetailCategoryBuilder.h"
 #include "IDetailPropertyRow.h"
 #include "DetailWidgetRow.h"
-#include "SInlineEditableTextBlock.h"
+#include "Widgets/Text/SInlineEditableTextBlock.h"
 #include "NiagaraParameterCollectionViewModel.h"
 #include "NiagaraScriptInputCollectionViewModel.h"
 #include "NiagaraScriptOutputCollectionViewModel.h"
@@ -13,13 +13,14 @@
 #include "NiagaraParameterViewModel.h"
 #include "NiagaraEditorStyle.h"
 #include "IDetailChildrenBuilder.h"
-#include "MultiBoxBuilder.h"
-#include "SComboButton.h"
-#include "SImage.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Input/SComboButton.h"
+#include "Widgets/Input/SButton.h"
+#include "Widgets/Images/SImage.h"
 #include "NiagaraEditorModule.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "INiagaraEditorTypeUtilities.h"
-#include "SBox.h"
+#include "Widgets/Layout/SBox.h"
 #include "NiagaraScript.h"
 #include "NiagaraParameterCollectionCustomNodeBuilder.h"
 #include "NiagaraMetaDataCustomNodeBuilder.h"
@@ -121,6 +122,12 @@ void FNiagaraScriptDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuilder
 	static const FName ScriptCategoryName = TEXT("Script");
 	static const FName MetadataCategoryName = TEXT("Metadata");
 
+	TSharedPtr<IPropertyHandle> NumericOutputPropertyHandle = DetailBuilder.GetProperty(TEXT("NumericOutputTypeSelectionMode"));
+	if (NumericOutputPropertyHandle.IsValid())
+	{
+		NumericOutputPropertyHandle->MarkHiddenByCustomization();
+	}
+
 	DetailBuilder.EditCategory(ScriptCategoryName);
 
 	UNiagaraScript* StandaloneScript = ScriptViewModel->GetStandaloneScript();
@@ -160,8 +167,35 @@ void FNiagaraScriptDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuilder
 	if (MetadataCollectionViewModel.IsValid())
 	{
 		IDetailCategoryBuilder& MetadataDetailCategory = DetailBuilder.EditCategory(MetadataCategoryName, LOCTEXT("MetadataParamCategoryName", "Variable Metadata"));
+		MetadataDetailCategory.HeaderContent(
+			// Checkbox for showing in curve editor
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.Padding(5, 0, 5, 0)
+			.HAlign(EHorizontalAlignment::HAlign_Right)
+			[
+				SNew(SButton)
+				.ButtonStyle(FEditorStyle::Get(), "HoverHintOnly")
+				.HAlign(HAlign_Right)
+				.VAlign(VAlign_Center)
+				.ContentPadding(1)
+				.ToolTipText(LOCTEXT("RefreshMetadataToolTip", "Refresh the view according to the latest Editor Sort Priority values"))
+				.OnClicked(this, &FNiagaraScriptDetails::OnRefreshMetadata)
+				.Content()
+				[
+					SNew(SImage)
+					.Image(FEditorStyle::GetBrush("Icons.Refresh"))
+				]
+			]
+		);
 		MetadataDetailCategory.AddCustomBuilder(MakeShared<FNiagaraMetaDataCustomNodeBuilder>(MetadataCollectionViewModel.ToSharedRef()));
 	}	
+}
+
+FReply FNiagaraScriptDetails::OnRefreshMetadata()
+{
+	ScriptViewModel->GetMetadataCollectionViewModel()->RequestRefresh();
+    return FReply::Handled();
 }
 
 

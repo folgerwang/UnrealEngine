@@ -11,6 +11,11 @@ FStructuredArchiveFormatter::~FStructuredArchiveFormatter()
 {
 }
 
+bool FStructuredArchiveFormatter::RequiresStructuralMetadata() const
+{
+	return true;
+}
+
 //////////// Functions ////////////
 
 #if WITH_TEXT_ARCHIVE_SUPPORT

@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
 #include "UObject/Object.h"
-#include "Public/ShowFlags.h"
+#include "ShowFlags.h"
 #include "ComposurePlayerCompositingTarget.generated.h"
 
 

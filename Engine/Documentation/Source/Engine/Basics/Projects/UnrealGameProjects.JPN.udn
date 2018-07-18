@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3810557
 Availability:Public
 Title:アンリアル ゲーム プロジェクト
 Crumbs: %ROOT%, Engine
@@ -12,11 +12,7 @@ related:Programming/Development/CompilingProjects
 related:Programming/Development/ManagingGameCode
 
 [EXCERPT:Main]
-[EXCERPT:Intro]
-
-[INCLUDE:Shared/Glossary/P/#Glossary_project]
-
-[/EXCERPT:Intro]
+[INCLUDE:#intro]
 
 %Engine/Basics/Projects/Browser:topic%
 [OBJECT:Topic]
@@ -34,20 +30,12 @@ related:Programming/Development/ManagingGameCode
 	[/PARAM]
 [/OBJECT]
 
+[/EXCERPT:Main]
 
 [COMMENT:none]
+[EXCERPT:Intro]
 
-プロジェクトは以下の 2 種類のどちらかになります。
+[INCLUDE:Shared/Glossary/P/#Glossary_project]
 
-* **Content-Only (コンテンツ専用)** - マップ、アートアセット、 _ブループリント_ などのコンテンツ アセットを用いて、エディタで全ての開発を行うプロジェクトです。
-* **Code** - _コンテンツ専用_ プロジェクトで可能な通常のコンテンツ開発に加え、コード開発を行うことができるプロジェクトです 
-
-[REGION:tip]
-[](Programming/Development/ManagingGameCode/CppClassWizard) を用いてコンテンツ プロジェクトをコード プロジェクトへ変換することができます。
-[/REGION]
-
-
-
+[/EXCERPT:Intro]
 [/COMMENT]
-
-[/EXCERPT:Main]

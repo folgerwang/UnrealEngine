@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3809606
 Availability:Public
 Title:アニメーション通知
 Crumbs: %ROOT%, Engine, Engine/Animation, Engine/Animation/Sequences
@@ -159,7 +159,7 @@ AnimTrail エミッタを使用するには、以下を行う必要がありま�
 1. AnimTrail タイプのデータを含む [パーティクル システム](Engine/Rendering/ParticleSystems) を作成します。 
 2. **Trail** タイプの通知ステートを作成しアニメーションに追加します。
 
-[COMMENT]
+[COMMENT:none]
  To be included as part of a HowTo.
 パーティクル システムをセットアップする
 
@@ -167,7 +167,7 @@ AnimTrail エミッタを使用するには、以下を行う必要がありま�
 このタイプのデータ モジュールのいくつかのプロパティは、トレイルの挙動に影響を及ぼします。以下は、システム セットアップ時の **カスケード** の表示です。後で説明するように、トレイルは Skeletal Mesh コンポーネントと合わせて使用しなければならないため、このプレビュー ウィンドウには何も表示されません。 
 
 [REGION:lightbox]  
-[![](TrailExample.png)(w:480 h:480)](TrailExample.png)
+[![](TrailExample.png)(w:480)](TrailExample.png)
 [/REGION]
 _クリックしてフルサイズ表示_ 
 
@@ -232,7 +232,7 @@ AnimTrail を追加したら **[Details]** パネルからプロパティを変�
 | **Render Tangents** | カーブ タンジェントのデバッグ レンダリングを切り替えます。 |
 | **Render Tessellation** | カーブ上の全頂点のデバッグ レンダリングを切り替えます。スポーンポイント間でカーブがどのようにテッセレーションされるかを示します。 |
 
-[COMMENT]
+[COMMENT:none]
  To be included with AnimTrail HowTo.
 ### ブループリントでアニメーションのトレイルを制御する
 上記の方法は、AnimTrails を制御する標準的なアプローチですが、Anim Notify を使用する必要なく、ブループリント内から制御することもできます。 

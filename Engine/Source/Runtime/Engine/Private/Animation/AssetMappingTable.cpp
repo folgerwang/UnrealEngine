@@ -20,7 +20,7 @@ bool FAssetMapping::IsValidMapping(UAnimationAsset* InSourceAsset, UAnimationAss
 {
 	// for now we only allow same class
 	return ( InSourceAsset && InTargetAsset && InSourceAsset != InTargetAsset && 
-			InSourceAsset->StaticClass() == InTargetAsset->StaticClass() &&
+			InSourceAsset->GetClass() == InTargetAsset->GetClass() &&
 			InSourceAsset->GetSkeleton() == InTargetAsset->GetSkeleton() &&
 			InSourceAsset->IsValidAdditive() == InTargetAsset->IsValidAdditive()
 			// @note check if same kind of additive?

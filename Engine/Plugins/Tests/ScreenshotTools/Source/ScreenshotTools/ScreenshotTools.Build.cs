@@ -9,7 +9,6 @@ public class ScreenshotTools : ModuleRules
 		
 		PublicIncludePaths.AddRange(
 			new string[] {
-				"ScreenshotTools/Public"
 				// ... add public include paths required here ...
 			}
 			);
@@ -17,7 +16,6 @@ public class ScreenshotTools : ModuleRules
 		
 		PrivateIncludePaths.AddRange(
 			new string[] {
-				"ScreenshotTools/Private",
 				// ... add other private include paths required here ...
 			}
 			);

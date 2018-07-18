@@ -2,7 +2,7 @@
 
 #include "AnimGraphNode_LookAt.h"
 #include "Animation/AnimInstance.h"
-#include "AnimPhysObjectVersion.h"
+#include "UObject/AnimPhysObjectVersion.h"
 
 /////////////////////////////////////////////////////
 // UAnimGraphNode_LookAt

@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "RuntimeAssetCacheBuilders.h"
-#include "Serialization/BufferWriter.h"
+#include "Serialization/LargeMemoryWriter.h"
 #include "RuntimeAssetCacheModule.h"
 #include "TextureResource.h"
 #include "Engine/Texture.h"
@@ -26,13 +26,12 @@ FVoidPtrParam URuntimeAssetCacheBuilder_ObjectBase::Build()
 	// If we do have an asset, serialize it here into a good format and return a pointer to that memory buffer.
 	if (Asset)
 	{
-		int64 DataSize = GetSerializedDataSizeEstimate();
-		void* Result = new uint8[DataSize];
-		FBufferWriter Ar(Result, DataSize, false);
-		Ar.ArIsPersistent = true;
+		FLargeMemoryWriter Ar(GetSerializedDataSizeEstimate(), /*bIsPersistent*/ true);
 		SerializeAsset(Ar);
 
-		return FVoidPtrParam(Result, Ar.Tell());
+		FVoidPtrParam Result(Ar.GetData(), Ar.TotalSize());
+		Ar.ReleaseOwnership();
+		return Result;
 	}
 
 	// null

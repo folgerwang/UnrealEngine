@@ -140,10 +140,18 @@ public:
 	 */
 	static void RefreshAllNodes(UBlueprint* Blueprint);
 
+	/** Event fired after RefreshAllNodes is called */
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnRefreshAllNodes, UBlueprint* /*Blueprint*/);
+	static FOnRefreshAllNodes OnRefreshAllNodesEvent;
+
 	/**
 	 * Reconstructs all nodes in the blueprint, node reconstruction order determined by FCompareNodePriority.
 	 */
 	static void ReconstructAllNodes(UBlueprint* Blueprint);
+
+	/** Event fired after ReconstructAllNodes is called */
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnReconstructAllNodes, UBlueprint* /*Blueprint*/);
+	static FOnReconstructAllNodes OnReconstructAllNodesEvent;
 
 	/**
 	 * Optimized refresh of nodes that depend on external blueprints.  Refreshes the nodes, but does not recompile the skeleton class
@@ -649,6 +657,13 @@ public:
 	 * @return			The given pin if its owning node is compiler-relevant, or the first pin linked to the owning node at the matching "pass-through" pin that is owned by a compiler-relevant node. May be NULL if no compiler-relevant nodes can be found from the given pin.
 	 */
 	static UEdGraphPin* FindFirstCompilerRelevantLinkedPin(UEdGraphPin* FromPin);
+
+	/**
+	 * Removes all local bookmarks that reference the given Blueprint asset.
+	 *
+	 * @param			ForBlueprint	The Blueprint asset for which to remove local Bookmarks.
+	 */
+	static void RemoveAllLocalBookmarks(const UBlueprint* ForBlueprint);
 
 	//////////////////////////////////////////////////////////////////////////
 	// Functions
@@ -1540,6 +1555,23 @@ protected:
 	static void PostSetupObjectPinType(UBlueprint* InBlueprint, FBPVariableDescription& InOutVarDesc);
 
 public:
+	/** Event fired after RenameVariableReferences is called */
+	DECLARE_MULTICAST_DELEGATE_FourParams(FOnRenameVariableReferences, UBlueprint* /*Blueprint*/, UClass* /*VariableClass*/, const FName& /*OldVarName*/, const FName& /*NewVarName*/);
+	static FOnRenameVariableReferences OnRenameVariableReferencesEvent;
+
+protected:
+	/**
+	 * Looks through the specified blueprint for any references to the specified 
+	 * variable, and renames them accordingly.
+	 * 
+	 * @param  Blueprint		The blueprint that you want to search through.
+	 * @param  VariableClass	The class that owns the variable that we're renaming
+	 * @param  OldVarName		The current name of the variable we want to replace
+	 * @param  NewVarName		The name that we wish to change all references to
+	 */
+	static void RenameVariableReferences(UBlueprint* Blueprint, UClass* VariableClass, const FName& OldVarName, const FName& NewVarName);
+
+public:
 	static FName GetFunctionNameFromClassByGuid(const UClass* InClass, const FGuid FunctionGuid);
 	static bool GetFunctionGuidFromClassByFieldName(const UClass* InClass, const FName FunctionName, FGuid& FunctionGuid);
 
@@ -1566,7 +1598,10 @@ public:
 	/**
 	 * Returns true if this BP is currently based on a type that returns true for the UObject::ImplementsGetWorld() call:
 	 */
-	static bool ImplentsGetWorld(const UBlueprint* BP);
+	static bool ImplementsGetWorld(const UBlueprint* BP);
+
+	DEPRECATED(4.20, "Use ImplementsGetWorld")
+	static bool ImplentsGetWorld(const UBlueprint* BP) { return ImplementsGetWorld(BP); }
 };
 
 struct UNREALED_API FBlueprintDuplicationScopeFlags

@@ -600,7 +600,7 @@ The FChar type is defined as `TChar<TCHAR>` (as it is listed in the API).
 
 ### Containers
 
-Containers are classes whose primary function is to store collections of data.  The most common of these classes are **TArray**,** TMap**, and **TSet**.  Each of these are dynamically sized, and so will grow to whatever size you need.
+Containers are classes whose primary function is to store collections of data.  The most common of these classes are **TArray**, **TMap**, and **TSet**.  Each of these are dynamically sized, and so will grow to whatever size you need.
 
 [Full Topic: Containers API](https://docs.unrealengine.com/latest/INT/API/Runtime/Core/Containers/index.html)
 

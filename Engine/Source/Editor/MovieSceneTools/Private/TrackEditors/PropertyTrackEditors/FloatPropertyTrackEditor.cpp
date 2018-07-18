@@ -3,7 +3,6 @@
 #include "TrackEditors/PropertyTrackEditors/FloatPropertyTrackEditor.h"
 #include "Editor/UnrealEdEngine.h"
 #include "UnrealEdGlobals.h"
-#include "Sections/FloatPropertySection.h"
 #include "MatineeImportTools.h"
 #include "Matinee/InterpTrackFloatBase.h"
 
@@ -14,23 +13,10 @@ TSharedRef<ISequencerTrackEditor> FFloatPropertyTrackEditor::CreateTrackEditor( 
 }
 
 
-TSharedRef<ISequencerSection> FFloatPropertyTrackEditor::MakeSectionInterface(UMovieSceneSection& SectionObject, UMovieSceneTrack& Track, FGuid ObjectBinding)
+void FFloatPropertyTrackEditor::GenerateKeysFromPropertyChanged( const FPropertyChangedParams& PropertyChangedParams, FGeneratedTrackKeys& OutGeneratedKeys )
 {
-	UMovieScenePropertyTrack* PropertyTrack = Cast<UMovieScenePropertyTrack>(&Track);
-	if (PropertyTrack != nullptr)
-	{
-		return MakeShareable(new FFloatPropertySection(GetSequencer().Get(), ObjectBinding, PropertyTrack->GetPropertyName(), PropertyTrack->GetPropertyPath(), SectionObject, Track.GetDisplayName()));
-	}
-	else
-	{
-		return MakeShareable(new FFloatPropertySection(SectionObject, Track.GetDisplayName()));
-	}
-}
-
-
-void FFloatPropertyTrackEditor::GenerateKeysFromPropertyChanged( const FPropertyChangedParams& PropertyChangedParams, TArray<float>& NewGeneratedKeys, TArray<float>& DefaultGeneratedKeys )
-{
-	NewGeneratedKeys.Add( PropertyChangedParams.GetPropertyValue<float>() );
+	const float KeyedValue =  PropertyChangedParams.GetPropertyValue<float>();
+	OutGeneratedKeys.Add(FMovieSceneChannelValueSetter::Create<FMovieSceneFloatChannel>(0, KeyedValue, true));
 }
 
 

@@ -1,6 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "AutomationTest.h"
+#include "Misc/AutomationTest.h"
 #include "Tests/TestHelpers.h"
 #include "Tests/Fake/ChunkDataAccess.fake.h"
 #include "Tests/Fake/FileSystem.fake.h"
@@ -449,7 +449,7 @@ void FInstallChunkSourceSpec::InventUsableChunkData()
 		for (const FGuid& ProducibleChunk : MockInstallationManifest->ProducibleChunks)
 		{
 			uint64 ChunkPolyHash;
-			FSHAHashData ChunkShaHash;
+			FSHAHash ChunkShaHash;
 			for (const FFileChunkPart& FileChunkPart : MockInstallationManifest->FilePartsForChunk[ProducibleChunk])
 			{
 				TArray<uint8>& FileData = FakeFileSystem->DiskData[MockInstallLocation / FileChunkPart.Filename];

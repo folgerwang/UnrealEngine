@@ -58,11 +58,10 @@ protected:
 	/** Constructs the window and widget if applicable */
 	virtual void Construct() override;
 
+	virtual EVisibility GetIconVisible() const;
+	virtual EVisibility GetErrorIconVisible() const;
+
 private:
-
-	EVisibility GetIconVisible() const;
-	EVisibility GetErrorIconVisible() const;
-
 	// The pin that the drag action is currently hovering over
 	FEdGraphPinReference HoveredPin;
 

@@ -361,7 +361,7 @@ Before you can start creating a new Plugin for Unreal Engine 4 (UE4) you will fi
                 }
             };
 
-1. Next, open up the **LensDistortionBlueprintLibrary.h** file. This file controls how this node will show up in Blueprints so not only do we need to replace **FLensDistortionCameraModel** with **FFooCameraModel**, we also need to change the **Category = "Lens Distortion" ** to **Category = "Foo | Lens Distortion"**.
+1. Next, open up the **LensDistortionBlueprintLibrary.h** file. This file controls how this node will show up in Blueprints so not only do we need to replace **FLensDistortionCameraModel** with **FFooCameraModel**, we also need to change the **Category = "Lens Distortion"** to **Category = "Foo | Lens Distortion"**.
 
     [region:note]
     You should replace FLensDistortionCameraModel with FFooCameraModel **six** times in this file.

@@ -5,6 +5,7 @@
 #include "Components/SkeletalMeshComponent.h"
 #include "DrawDebugHelpers.h"
 #include "Animation/AnimInstanceProxy.h"
+#include "FABRIK.h"
 
 /////////////////////////////////////////////////////
 // AnimNode_Fabrik
@@ -119,71 +120,8 @@ void FAnimNode_Fabrik::EvaluateSkeletalControl_AnyThread(FComponentSpacePoseCont
 		}
 	}
 
-	bool bBoneLocationUpdated = false;
-	float const RootToTargetDistSq = FVector::DistSquared(Chain[0].Position, CSEffectorLocation);
 	int32 const NumChainLinks = Chain.Num();
-
-	// FABRIK algorithm - bone translation calculation
-	// If the effector is further away than the distance from root to tip, simply move all bones in a line from root to effector location
-	if (RootToTargetDistSq > FMath::Square(MaximumReach))
-	{
-		for (int32 LinkIndex = 1; LinkIndex < NumChainLinks; LinkIndex++)
-		{
-			FABRIKChainLink const & ParentLink = Chain[LinkIndex - 1];
-			FABRIKChainLink & CurrentLink = Chain[LinkIndex];
-			CurrentLink.Position = ParentLink.Position + (CSEffectorLocation - ParentLink.Position).GetUnsafeNormal() * CurrentLink.Length;
-		}
-		bBoneLocationUpdated = true;
-	}
-	else // Effector is within reach, calculate bone translations to position tip at effector location
-	{
-		int32 const TipBoneLinkIndex = NumChainLinks - 1;
-
-		// Check distance between tip location and effector location
-		float Slop = FVector::Dist(Chain[TipBoneLinkIndex].Position, CSEffectorLocation);
-		if (Slop > Precision)
-		{
-			// Set tip bone at end effector location.
-			Chain[TipBoneLinkIndex].Position = CSEffectorLocation;
-
-			int32 IterationCount = 0;
-			while ((Slop > Precision) && (IterationCount++ < MaxIterations))
-			{
-				// "Forward Reaching" stage - adjust bones from end effector.
-				for (int32 LinkIndex = TipBoneLinkIndex - 1; LinkIndex > 0; LinkIndex--)
-				{
-					FABRIKChainLink & CurrentLink = Chain[LinkIndex];
-					FABRIKChainLink const & ChildLink = Chain[LinkIndex + 1];
-
-					CurrentLink.Position = ChildLink.Position + (CurrentLink.Position - ChildLink.Position).GetUnsafeNormal() * ChildLink.Length;
-				}
-
-				// "Backward Reaching" stage - adjust bones from root.
-				for (int32 LinkIndex = 1; LinkIndex < TipBoneLinkIndex; LinkIndex++)
-				{
-					FABRIKChainLink const & ParentLink = Chain[LinkIndex - 1];
-					FABRIKChainLink & CurrentLink = Chain[LinkIndex];
-
-					CurrentLink.Position = ParentLink.Position + (CurrentLink.Position - ParentLink.Position).GetUnsafeNormal() * CurrentLink.Length;
-				}
-
-				// Re-check distance between tip location and effector location
-				// Since we're keeping tip on top of effector location, check with its parent bone.
-				Slop = FMath::Abs(Chain[TipBoneLinkIndex].Length - FVector::Dist(Chain[TipBoneLinkIndex - 1].Position, CSEffectorLocation));
-			}
-
-			// Place tip bone based on how close we got to target.
-			{
-				FABRIKChainLink const & ParentLink = Chain[TipBoneLinkIndex - 1];
-				FABRIKChainLink & CurrentLink = Chain[TipBoneLinkIndex];
-
-				CurrentLink.Position = ParentLink.Position + (CurrentLink.Position - ParentLink.Position).GetUnsafeNormal() * CurrentLink.Length;
-			}
-
-			bBoneLocationUpdated = true;
-		}
-	}
-
+	bool bBoneLocationUpdated = AnimationCore::SolveFabrik(Chain, CSEffectorLocation, MaximumReach, Precision, MaxIterations);
 	// If we moved some bones, update bone transforms.
 	if (bBoneLocationUpdated)
 	{

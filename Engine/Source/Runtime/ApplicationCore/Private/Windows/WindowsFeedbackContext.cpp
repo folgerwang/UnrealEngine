@@ -1,11 +1,11 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "WindowsFeedbackContext.h"
-#include "WindowsHWrapper.h"
-#include "ThreadHeartBeat.h"
+#include "Windows/WindowsFeedbackContext.h"
+#include "Windows/WindowsHWrapper.h"
+#include "HAL/ThreadHeartBeat.h"
 #include "Internationalization/Internationalization.h"
 #include "Misc/App.h"
-#include "WindowsHWrapper.h"
+#include "Windows/WindowsHWrapper.h"
 
 bool FWindowsFeedbackContext::YesNof(const FText& Question)
 {

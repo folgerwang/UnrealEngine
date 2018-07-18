@@ -7,6 +7,7 @@
 #include "Preferences/MaterialEditorOptions.h"
 #include "Preferences/PersonaOptions.h"
 #include "Preferences/PhysicsAssetEditorOptions.h"
+#include "Preferences/MaterialStatsOptions.h"
 
 // @todo find a better place for all of this, preferably in the appropriate modules
 // though this would require the classes to be relocated as well
@@ -55,6 +56,18 @@ UPhysicsAssetEditorOptions::UPhysicsAssetEditorOptions(const FObjectInitializer&
 UMaterialEditorOptions::UMaterialEditorOptions(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+}
+
+UMaterialStatsOptions::UMaterialStatsOptions(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+#if PLATFORM_WINDOWS
+	bPlatformUsed[GMaxRHIFeatureLevel == ERHIFeatureLevel::SM5 ? SP_PCD3D_SM5 : SP_PCD3D_SM4] = 1;
+#elif PLATFORM_IOS
+	bPlatformUsed[SP_OPENGL_ES2_IOS] = 1;
+#endif
+
+	bMaterialQualityUsed[EMaterialQualityLevel::High] = 1;
 }
 
 

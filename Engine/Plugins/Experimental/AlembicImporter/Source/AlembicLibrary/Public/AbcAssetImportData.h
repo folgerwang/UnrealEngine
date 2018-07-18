@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 
 #include "EditorFramework/AssetImportData.h"
+#include "AbcImportSettings.h"
 #include "AbcAssetImportData.generated.h"
 
 /**
@@ -17,4 +18,7 @@ class ALEMBICLIBRARY_API UAbcAssetImportData : public UAssetImportData
 public:
 	UPROPERTY()
 	TArray<FString> TrackNames;
+
+	UPROPERTY()
+	FAbcSamplingSettings SamplingSettings;
 };

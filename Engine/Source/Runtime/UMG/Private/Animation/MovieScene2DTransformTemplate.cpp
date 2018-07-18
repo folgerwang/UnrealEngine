@@ -3,7 +3,7 @@
 #include "Animation/MovieScene2DTransformTemplate.h"
 #include "Animation/MovieScene2DTransformSection.h"
 #include "Animation/MovieScene2DTransformTrack.h"
-#include "MovieSceneEvaluation.h"
+#include "Evaluation/MovieSceneEvaluation.h"
 
 template<>
 FMovieSceneAnimTypeID GetBlendingDataType<FWidgetTransform>()
@@ -15,43 +15,49 @@ FMovieSceneAnimTypeID GetBlendingDataType<FWidgetTransform>()
 FMovieScene2DTransformSectionTemplate::FMovieScene2DTransformSectionTemplate(const UMovieScene2DTransformSection& Section, const UMovieScenePropertyTrack& Track)
 	: FMovieScenePropertySectionTemplate(Track.GetPropertyName(), Track.GetPropertyPath())
 	, BlendType(Section.GetBlendType().Get())
+	, Mask(Section.GetMask())
 {
-	Translation[0] = Section.GetTranslationCurve(EAxis::X);
-	Translation[1] = Section.GetTranslationCurve(EAxis::Y);
+	EMovieScene2DTransformChannel MaskChannels = Mask.GetChannels();
 
-	Rotation = Section.GetRotationCurve();
+	if (EnumHasAllFlags(MaskChannels, EMovieScene2DTransformChannel::TranslationX))	Translation[0] = Section.Translation[0];
+	if (EnumHasAllFlags(MaskChannels, EMovieScene2DTransformChannel::TranslationY))	Translation[1] = Section.Translation[1];
 
-	Scale[0] = Section.GetScaleCurve(EAxis::X);
-	Scale[1] = Section.GetScaleCurve(EAxis::Y);
+	if (EnumHasAllFlags(MaskChannels, EMovieScene2DTransformChannel::Rotation))		Rotation = Section.Rotation;
 
-	Shear[0] = Section.GetShearCurve(EAxis::X);
-	Shear[1] = Section.GetShearCurve(EAxis::Y);
+	if (EnumHasAllFlags(MaskChannels, EMovieScene2DTransformChannel::ScaleX))		Scale[0] = Section.Scale[0];
+	if (EnumHasAllFlags(MaskChannels, EMovieScene2DTransformChannel::ScaleY))		Scale[1] = Section.Scale[1];
+
+	if (EnumHasAllFlags(MaskChannels, EMovieScene2DTransformChannel::ShearX))		Shear[0] = Section.Shear[0];
+	if (EnumHasAllFlags(MaskChannels, EMovieScene2DTransformChannel::ShearY))		Shear[1] = Section.Shear[1];
 }
 
 void FMovieScene2DTransformSectionTemplate::Evaluate(const FMovieSceneEvaluationOperand& Operand, const FMovieSceneContext& Context, const FPersistentEvaluationData& PersistentData, FMovieSceneExecutionTokens& ExecutionTokens) const
 {
-	const float Time = Context.GetTime();
+	const FFrameTime Time = Context.GetTime();
 	MovieScene::TMultiChannelValue<float, 7> AnimatedData;
 
+	EMovieScene2DTransformChannel ChannelMask = Mask.GetChannels();
+
 	// Only activate channels if the curve has data associated with it
-	auto EvalChannel = [&AnimatedData, Time](uint8 ChanneIndex, const FRichCurve& Curve)
+	auto EvalChannel = [&AnimatedData, Time, ChannelMask](uint8 ChanneIndex, EMovieScene2DTransformChannel ChannelType, const FMovieSceneFloatChannel& Channel)
 	{
-		if (Curve.HasAnyData())
+		float Value = 0.f;
+		if (EnumHasAllFlags(ChannelMask, ChannelType) && Channel.Evaluate(Time, Value))
 		{
-			AnimatedData.Set(ChanneIndex, Curve.Eval(Time));
+			AnimatedData.Set(ChanneIndex, Value);
 		}
 	};
 
-	EvalChannel(0, Translation[0]);
-	EvalChannel(1, Translation[1]);
+	EvalChannel(0, EMovieScene2DTransformChannel::TranslationX, Translation[0]);
+	EvalChannel(1, EMovieScene2DTransformChannel::TranslationY, Translation[1]);
 
-	EvalChannel(2, Scale[0]);
-	EvalChannel(3, Scale[1]);
+	EvalChannel(2, EMovieScene2DTransformChannel::ScaleX, Scale[0]);
+	EvalChannel(3, EMovieScene2DTransformChannel::ScaleY, Scale[1]);
 
-	EvalChannel(4, Shear[0]);
-	EvalChannel(5, Shear[1]);
+	EvalChannel(4, EMovieScene2DTransformChannel::ShearX, Shear[0]);
+	EvalChannel(5, EMovieScene2DTransformChannel::ShearY, Shear[1]);
 
-	EvalChannel(6, Rotation);
+	EvalChannel(6, EMovieScene2DTransformChannel::Rotation, Rotation);
 
 	if (!AnimatedData.IsEmpty())
 	{

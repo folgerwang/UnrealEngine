@@ -16,6 +16,7 @@ FSlateFontServices::FSlateFontServices(TSharedRef<class FSlateFontCache> InGameT
 	, GameThreadFontMeasure(FSlateFontMeasure::Create(GameThreadFontCache))
 	, RenderThreadFontMeasure((GameThreadFontCache == RenderThreadFontCache) ? GameThreadFontMeasure : FSlateFontMeasure::Create(RenderThreadFontCache))
 {
+	UE_LOG(LogSlate, Log, TEXT("SlateFontServices - WITH_FREETYPE: %d, WITH_HARFBUZZ: %d"), WITH_FREETYPE, WITH_HARFBUZZ);
 }
 
 

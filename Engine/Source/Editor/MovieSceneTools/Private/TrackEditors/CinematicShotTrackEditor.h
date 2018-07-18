@@ -62,8 +62,8 @@ public:
 	virtual void Tick(float DeltaTime) override;
 	virtual void BuildTrackContextMenu( FMenuBuilder& MenuBuilder, UMovieSceneTrack* Track ) override;
 	virtual const FSlateBrush* GetIconBrush() const override;
-	virtual bool OnAllowDrop(const FDragDropEvent& DragDropEvent, UMovieSceneTrack* Track) override;
-	virtual FReply OnDrop(const FDragDropEvent& DragDropEvent, UMovieSceneTrack* Track) override;
+	virtual bool OnAllowDrop(const FDragDropEvent& DragDropEvent, UMovieSceneTrack* Track, int32 RowIndex, const FGuid& TargetObjectGuid) override;
+	virtual FReply OnDrop(const FDragDropEvent& DragDropEvent, UMovieSceneTrack* Track, int32 RowIndex, const FGuid& TargetObjectGuid) override;
 
 	/*
 	 * Insert shot. 
@@ -121,7 +121,7 @@ private:
 	 * @param ShotToDuplicate The shot to duplicate.
 	 * @return The new shot.
 	 */
-	UMovieSceneSubSection* CreateShotInternal(FString& NewShotName, float NewShotStartTime, UMovieSceneCinematicShotSection* ShotToDuplicate = nullptr);
+	UMovieSceneSubSection* CreateShotInternal(FString& NewShotName, FFrameNumber NewShotStartTime, UMovieSceneCinematicShotSection* ShotToDuplicate = nullptr);
 
 
 private:
@@ -138,11 +138,14 @@ private:
 	/** Callback for executing a menu entry in the "Add Shot" combo button. */
 	void HandleAddCinematicShotComboButtonMenuEntryExecute(const FAssetData& AssetData);
 
+	/** Callback for executing a menu entry in the "Add Shot" combo button when enter pressed. */
+	void HandleAddCinematicShotComboButtonMenuEntryEnterPressed(const TArray<FAssetData>& AssetData);
+
 	/** Find or create a cinematic shot track in the currently focused movie scene. */
 	UMovieSceneCinematicShotTrack* FindOrCreateCinematicShotTrack();
 
 	/** Delegate for AnimatablePropertyChanged in AddKey */
-	FKeyPropertyResult AddKeyInternal(float KeyTime, UMovieSceneSequence* InMovieSceneSequence);
+	FKeyPropertyResult AddKeyInternal(FFrameNumber KeyTime, UMovieSceneSequence* InMovieSceneSequence, int32 RowIndex);
 
 	/** Delegate for shots button lock state */
 	ECheckBoxState AreShotsLocked() const; 
@@ -168,13 +171,19 @@ private:
 	void OnUpdateCameraCut(UObject* CameraObject, bool bJumpCut);
 
 	/** Callback for AnimatablePropertyChanged in HandleAssetAdded. */
-	FKeyPropertyResult HandleSequenceAdded(float KeyTime, UMovieSceneSequence* Sequence);
+	FKeyPropertyResult HandleSequenceAdded(FFrameNumber KeyTime, UMovieSceneSequence* Sequence, int32 RowIndex);
 
 	/** Callback for ImportEDL. */
 	void ImportEDL();
 	
 	/** Callback for ExportEDL. */
 	void ExportEDL();
+
+	/** Callback for ImportFCPXML. */
+	void ImportFCPXML();
+
+	/** Callback for ExportFCPXML. */
+	void ExportFCPXML();
 
 private:
 

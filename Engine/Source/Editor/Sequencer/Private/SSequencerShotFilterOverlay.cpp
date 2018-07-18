@@ -21,22 +21,22 @@ void SSequencerShotFilterOverlay::Construct(const FArguments& InArgs, TSharedRef
 int32 SSequencerShotFilterOverlay::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyCullingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const
 {
 	float Alpha = Sequencer.Pin()->GetOverlayFadeCurve();
-		
+
 	if (Alpha > 0.f)
 	{
-		FTimeToPixel TimeToPixelConverter = FTimeToPixel(AllottedGeometry, ViewRange.Get());
+		FTimeToPixel TimeToPixelConverter(AllottedGeometry, ViewRange.Get(), Sequencer.Pin()->GetFocusedTickResolution());
 		
 		TRange<float> TimeBounds = TRange<float>(
-			TimeToPixelConverter.PixelToTime(0),
-			TimeToPixelConverter.PixelToTime(AllottedGeometry.GetLocalSize().X)
+			TimeToPixelConverter.PixelToSeconds(0),
+			TimeToPixelConverter.PixelToSeconds(AllottedGeometry.GetLocalSize().X)
 		);
 
 		TArray< TRange<float> > OverlayRanges = ComputeOverlayRanges(TimeBounds, CachedFilteredRanges);
 
 		for (int32 i = 0; i < OverlayRanges.Num(); ++i)
 		{
-			float LowerBound = TimeToPixelConverter.TimeToPixel(OverlayRanges[i].GetLowerBoundValue());
-			float UpperBound = TimeToPixelConverter.TimeToPixel(OverlayRanges[i].GetUpperBoundValue());
+			float LowerBound = TimeToPixelConverter.SecondsToPixel(OverlayRanges[i].GetLowerBoundValue());
+			float UpperBound = TimeToPixelConverter.SecondsToPixel(OverlayRanges[i].GetUpperBoundValue());
 
 			FSlateDrawElement::MakeBox(
 				OutDrawElements,

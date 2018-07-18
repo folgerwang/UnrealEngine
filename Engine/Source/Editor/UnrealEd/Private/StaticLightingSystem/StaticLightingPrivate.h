@@ -14,7 +14,7 @@
 #include "Templates/ScopedPointer.h"
 #include "StaticLighting.h"
 #include "LightingBuildOptions.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 class FCanvas;
 class FLightmassProcessor;

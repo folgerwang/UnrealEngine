@@ -72,7 +72,7 @@ bool FGenericPlatformStackWalk::SymbolInfoToHumanReadableString( const FProgramC
 
 		// Start with address
 		ANSICHAR PCAddress[MAX_TEMP_SPRINTF] = { 0 };
-		FCStringAnsi::Snprintf(PCAddress, MAX_TEMP_SPRINTF, "0x%016X ", SymbolInfo.ProgramCounter);
+		FCStringAnsi::Snprintf(PCAddress, MAX_TEMP_SPRINTF, "0x%016llx ", SymbolInfo.ProgramCounter);
 		FCStringAnsi::Strncat(StackLine, PCAddress, MAX_SPRINTF);
 		
 		// Module if it's present
@@ -152,6 +152,11 @@ bool FGenericPlatformStackWalk::SymbolInfoToHumanReadableStringEx( const FProgra
 
 
 uint32 FGenericPlatformStackWalk::CaptureStackBackTrace( uint64* BackTrace, uint32 MaxDepth, void* Context )
+{
+	return 0;
+}
+
+uint32 FGenericPlatformStackWalk::CaptureThreadStackBackTrace(uint64 ThreadId, uint64* BackTrace, uint32 MaxDepth)
 {
 	return 0;
 }

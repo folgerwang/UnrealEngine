@@ -8,10 +8,10 @@
 #include "Misc/CommandLine.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Modules/ModuleManager.h"
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 	#include <delayimp.h>
 	#include "amd_ags.h"
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 
 bool D3D11RHI_ShouldCreateWithD3DDebug()
@@ -40,6 +40,9 @@ TAutoConsoleVariable<int32> CVarD3D11ZeroBufferSizeInMB(
 
 FD3D11DynamicRHI::FD3D11DynamicRHI(IDXGIFactory1* InDXGIFactory1,D3D_FEATURE_LEVEL InFeatureLevel, int32 InChosenAdapter, const DXGI_ADAPTER_DESC& InChosenDescription) :
 	DXGIFactory1(InDXGIFactory1),
+#if NV_AFTERMATH
+	NVAftermathIMContextHandle(nullptr),
+#endif
 	FeatureLevel(InFeatureLevel),
 	AmdAgsContext(NULL),
 	bCurrentDepthStencilStateIsReadOnly(false),
@@ -567,16 +570,6 @@ void FD3D11DynamicRHI::RHIAcquireThreadOwnership()
 	// Nothing to do
 }
 void FD3D11DynamicRHI::RHIReleaseThreadOwnership()
-{
-	// Nothing to do
-}
-
-void FD3D11DynamicRHI::RHIAutomaticCacheFlushAfterComputeShader(bool bEnable) 
-{
-	// Nothing to do
-}
-
-void FD3D11DynamicRHI::RHIFlushComputeShaderCache()
 {
 	// Nothing to do
 }

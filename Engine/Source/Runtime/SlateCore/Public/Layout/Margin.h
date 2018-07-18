@@ -61,6 +61,14 @@ public:
 		, Right(Horizontal)
 		, Bottom(Vertical)
 	{ }
+
+	/** Construct a Margin where Horizontal describes Left and Right spacing while Vertical describes Top and Bottom spacing */
+	FMargin(const FVector2D& InVector)
+		: Left(InVector.X)
+		, Top(InVector.Y)
+		, Right(InVector.X)
+		, Bottom(InVector.Y)
+	{ }
 	
 	/** Construct a Margin where the spacing on each side is individually specified. */
 	FMargin( float InLeft, float InTop, float InRight, float InBottom )
@@ -68,6 +76,14 @@ public:
 		, Top(InTop)
 		, Right(InRight)
 		, Bottom(InBottom)
+	{ }
+
+	/** Construct a Margin where the margins are coming from a FVector4 */
+	FMargin(const FVector4& InVector)
+		: Left(InVector.X)
+		, Top(InVector.Y)
+		, Right(InVector.Z)
+		, Bottom(InVector.W)
 	{ }
 	
 public:
@@ -162,6 +178,7 @@ public:
 	}
 };
 
+template <> struct TIsPODType<FMargin> { enum { Value = true }; };
 
 template<>
 inline float FMargin::GetTotalSpaceAlong<Orient_Horizontal>( ) const { return Left + Right; }

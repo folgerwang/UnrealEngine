@@ -5,7 +5,7 @@ Title:フォントのインポート
 Description:Font アセットをインポートして UE4 で使用する方法を説明します。
 Type:How-to
 SkillLevel:Beginner
-Version:4.15
+Version: 4.15
 Parent:Engine/UMG/UserGuide/Fonts/Howto
 Related:Engine/UMG/UserGuide/Fonts
 Related:Engine/UMG/UserGuide/Fonts/HowTo/CreatingFonts

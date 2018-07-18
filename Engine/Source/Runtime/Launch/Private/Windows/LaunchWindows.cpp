@@ -4,9 +4,9 @@
 #include "Misc/App.h"
 #include "Misc/OutputDeviceError.h"
 #include "LaunchEngineLoop.h"
-#include "ExceptionHandling.h"
-#include "PlatformMallocCrash.h"
-#include "WindowsHWrapper.h"
+#include "HAL/ExceptionHandling.h"
+#include "HAL/PlatformMallocCrash.h"
+#include "Windows/WindowsHWrapper.h"
 
 #if UE_BUILD_DEBUG
 #include <crtdbg.h>

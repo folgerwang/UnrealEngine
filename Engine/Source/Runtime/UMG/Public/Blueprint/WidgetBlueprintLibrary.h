@@ -14,6 +14,7 @@
 #include "Blueprint/DragDropOperation.h"
 #include "Blueprint/UserWidget.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
+#include "Slate/SGameLayerManager.h"
 #include "WidgetBlueprintLibrary.generated.h"
 
 class UFont;
@@ -230,19 +231,19 @@ public:
 	 * Gets the resource object on a brush.  This could be a UTexture2D or a UMaterialInterface.
 	 */
 	UFUNCTION(BlueprintPure, Category="Widget|Brush")
-	static UObject* GetBrushResource(UPARAM(ref) FSlateBrush& Brush);
+	static UObject* GetBrushResource(const FSlateBrush& Brush);
 
 	/**
 	 * Gets the brush resource as a texture 2D.
 	 */
 	UFUNCTION(BlueprintPure, Category="Widget|Brush")
-	static UTexture2D* GetBrushResourceAsTexture2D(UPARAM(ref) FSlateBrush& Brush);
+	static UTexture2D* GetBrushResourceAsTexture2D(const FSlateBrush& Brush);
 
 	/**
 	 * Gets the brush resource as a material.
 	 */
 	UFUNCTION(BlueprintPure, Category="Widget|Brush")
-	static UMaterialInterface* GetBrushResourceAsMaterial(UPARAM(ref) FSlateBrush& Brush);
+	static UMaterialInterface* GetBrushResourceAsMaterial(const FSlateBrush& Brush);
 
 	/**
 	 * Sets the resource on a brush to be a UTexture2D.
@@ -322,4 +323,18 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category="Widget|Hardware Cursor", meta=( WorldContext="WorldContextObject" ))
 	static bool SetHardwareCursor(UObject* WorldContextObject, EMouseCursor::Type CursorShape, FName CursorName, FVector2D HotSpot);
+
+	UFUNCTION(BlueprintCallable, Category = "Widget|Window Title Bar")
+	static void SetWindowTitleBarState(UWidget* TitleBarContent, EWindowTitleBarMode Mode, bool bTitleBarDragEnabled, bool bWindowButtonsVisible, bool bTitleBarVisible);
+
+	UFUNCTION(BlueprintCallable, Category = "Widget|Window Title Bar")
+	static void RestorePreviousWindowTitleBarState();
+
+	DECLARE_DYNAMIC_DELEGATE(FOnGameWindowCloseButtonClickedDelegate);
+
+	UFUNCTION(BlueprintCallable, Category = "Widget|Window Title Bar")
+	static void SetWindowTitleBarOnCloseClickedDelegate(FOnGameWindowCloseButtonClickedDelegate Delegate);
+
+	UFUNCTION(BlueprintCallable, Category = "Widget|Window Title Bar")
+	static void SetWindowTitleBarCloseButtonActive(bool bActive);
 };

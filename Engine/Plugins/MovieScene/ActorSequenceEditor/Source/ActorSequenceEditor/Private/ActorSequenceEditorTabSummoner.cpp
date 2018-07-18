@@ -7,8 +7,8 @@
 #include "ISequencerModule.h"
 #include "LevelEditorSequencerIntegration.h"
 #include "SSCSEditor.h"
-#include "SlateIconFinder.h"
-#include "BlueprintEditorUtils.h"
+#include "Styling/SlateIconFinder.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 #include "EditorStyleSet.h"
 #include "Widgets/Images/SImage.h"
 #include "Editor.h"
@@ -240,7 +240,10 @@ public:
 			}
 			else if (UBlueprintGeneratedClass* GeneratedClass = LocalActorSequence->GetTypedOuter<UBlueprintGeneratedClass>())
 			{
-				return GeneratedClass->SimpleConstructionScript->GetComponentEditorActorInstance();
+				if (GeneratedClass->SimpleConstructionScript)
+				{
+					return GeneratedClass->SimpleConstructionScript->GetComponentEditorActorInstance();
+				}
 			}
 		}
 		
@@ -327,6 +330,7 @@ public:
 			SequencerInitParams.bEditWithinLevelEditor = false;
 			SequencerInitParams.ViewParams.AddMenuExtender = AddMenuExtender;
 			SequencerInitParams.ViewParams.UniqueName = "EmbeddedActorSequenceEditor";
+			SequencerInitParams.ViewParams.ScrubberStyle = ESequencerScrubberStyle::FrameBlock;
 			SequencerInitParams.ViewParams.OnReceivedFocus.BindRaw(this, &SActorSequenceEditorWidgetImpl::OnSequencerReceivedFocus);
 		}
 

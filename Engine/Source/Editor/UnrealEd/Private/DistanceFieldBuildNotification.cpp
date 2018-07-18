@@ -8,7 +8,7 @@
 #include "DistanceFieldAtlas.h"
 #include "Framework/Notifications/NotificationManager.h"
 #include "Widgets/Notifications/SNotificationList.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 /** Notification class for asynchronous distance field building. */
 class FDistanceFieldBuildNotificationImpl

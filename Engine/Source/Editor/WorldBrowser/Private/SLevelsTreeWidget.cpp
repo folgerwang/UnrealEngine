@@ -3,7 +3,7 @@
 #include "SLevelsTreeWidget.h"
 
 #include "EditorStyleSet.h"
-#include "AssetDragDropOp.h"
+#include "DragAndDrop/AssetDragDropOp.h"
 #include "LevelCollectionModel.h"
 #include "AssetSelection.h"
 #include "LevelModel.h"

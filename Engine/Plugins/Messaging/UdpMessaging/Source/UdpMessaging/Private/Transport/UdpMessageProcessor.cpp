@@ -108,6 +108,12 @@ bool FUdpMessageProcessor::EnqueueOutboundMessage(const TSharedRef<FUdpSerialize
 /* FRunnable interface
  *****************************************************************************/
 
+FSingleThreadRunnable* FUdpMessageProcessor::GetSingleThreadInterface()
+{
+	return this;
+}
+
+
 bool FUdpMessageProcessor::Init()
 {
 	Beacon = new FUdpMessageBeacon(Socket, LocalNodeId, MulticastEndpoint);
@@ -123,12 +129,7 @@ uint32 FUdpMessageProcessor::Run()
 	{
 		if (WorkEvent->Wait(CalculateWaitTime()))
 		{
-			CurrentTime = FDateTime::UtcNow();
-
-			ConsumeInboundSegments();
-			ConsumeOutboundMessages();
-			UpdateKnownNodes();
-			UpdateStaticNodes();
+			Update();
 		}
 	}
 	
@@ -442,6 +443,17 @@ void FUdpMessageProcessor::RemoveKnownNode(const FGuid& NodeId)
 }
 
 
+void FUdpMessageProcessor::Update()
+{
+	CurrentTime = FDateTime::UtcNow();
+
+	ConsumeInboundSegments();
+	ConsumeOutboundMessages();
+	UpdateKnownNodes();
+	UpdateStaticNodes();
+}
+
+
 void FUdpMessageProcessor::UpdateKnownNodes()
 {
 	// remove dead remote endpoints
@@ -530,4 +542,13 @@ void FUdpMessageProcessor::UpdateStaticNodes()
 	{
 		UpdateSegmenters(StaticNodePair.Value);
 	}
+}
+
+
+/* FSingleThreadRunnable interface
+ *****************************************************************************/
+
+void FUdpMessageProcessor::Tick()
+{
+	Update();
 }

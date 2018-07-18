@@ -11,6 +11,7 @@
 class APlayerCameraManager;
 class ICameraPhotography;
 struct FMinimalViewInfo;
+struct FPostProcessSettings;
 
 /**
 * The public interface of the CameraPhotographyModule
@@ -63,6 +64,11 @@ public:
 	ICameraPhotography() {};
 	virtual ~ICameraPhotography() {};
 	virtual bool UpdateCamera(FMinimalViewInfo& InOutPOV, APlayerCameraManager* PCMgr) = 0;
+	virtual void UpdatePostProcessing(FPostProcessSettings& InOutPostProcessingSettings) = 0;
+	virtual void StartSession() = 0;
+	virtual void StopSession() = 0;
 	virtual bool IsSupported() = 0;
+	virtual void SetUIControlVisibility(uint8 UIControlTarget, bool bIsVisible) = 0;
+	virtual void DefaultConstrainCamera(const FVector NewCameraLocation, const FVector PreviousCameraLocation, const FVector OriginalCameraLocation, FVector& OutCameraLocation, APlayerCameraManager* PCMgr) = 0;
 	virtual const TCHAR* const GetProviderName() = 0;	
 };

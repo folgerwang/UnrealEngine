@@ -2,14 +2,14 @@
 
 #include "DesktopPlatformWindows.h"
 #include "DesktopPlatformPrivate.h"
-#include "FeedbackContextMarkup.h"
+#include "Misc/FeedbackContextMarkup.h"
 #include "WindowsNativeFeedbackContext.h"
-#include "COMPointer.h"
+#include "Windows/COMPointer.h"
 #include "Misc/Paths.h"
 #include "Misc/Guid.h"
 #include "HAL/FileManager.h"
 
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 	#include <commdlg.h>
 	#include <shellapi.h>
 	#include <shlobj.h>
@@ -17,7 +17,7 @@
 	#include <LM.h>
 	#include <tlhelp32.h>
 	#include <Psapi.h>
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 #pragma comment( lib, "version.lib" )
 

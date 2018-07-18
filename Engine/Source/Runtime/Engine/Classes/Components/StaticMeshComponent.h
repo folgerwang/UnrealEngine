@@ -13,7 +13,9 @@
 #include "Components/MeshComponent.h"
 #include "PackedNormal.h"
 #include "RawIndexBuffer.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
+#include "Runtime/Launch/Resources/Version.h"
+#include "UObject/RenderingObjectVersion.h"
 #include "StaticMeshComponent.generated.h"
 
 class FColorVertexBuffer;
@@ -40,7 +42,7 @@ struct FPaintedVertex
 	FVector Position;
 
 	UPROPERTY()
-	FPackedNormal Normal;
+	FVector4 Normal;
 
 	UPROPERTY()
 	FColor Color;
@@ -53,13 +55,24 @@ struct FPaintedVertex
 	}
 
 
-		FORCEINLINE friend FArchive& operator<<( FArchive& Ar, FPaintedVertex& PaintedVertex )
+	FORCEINLINE friend FArchive& operator<<(FArchive& Ar, FPaintedVertex& PaintedVertex)
+	{
+		Ar << PaintedVertex.Position;
+
+		if (Ar.CustomVer(FRenderingObjectVersion::GUID) < FRenderingObjectVersion::IncreaseNormalPrecision)
 		{
-			Ar << PaintedVertex.Position;
-			Ar << PaintedVertex.Normal;
-			Ar << PaintedVertex.Color;
-			return Ar;
+			FDeprecatedSerializedPackedNormal Temp;
+			Ar << Temp;
+			PaintedVertex.Normal = Temp;
 		}
+		else
+		{
+			Ar << PaintedVertex.Normal;
+		}
+		
+		Ar << PaintedVertex.Color;
+		return Ar;
+	}
 	
 };
 
@@ -77,6 +90,11 @@ struct FStaticMeshComponentLODInfo
 
 	/** Uniquely identifies this LOD's built map data. */
 	FGuid MapBuildDataId;
+
+#if WITH_EDITOR
+	/** Check to see if MapBuildDataId was loaded - otherwise we need to display a warning on cook */
+	bool bMapBuildDataIdLoaded;
+#endif
 
 	/** Used during deserialization to temporarily store legacy lightmap data. */
 	FMeshMapBuildData* LegacyMapBuildData;
@@ -286,6 +304,12 @@ public:
 	uint8 bDisplayVertexColors:1;
 #endif
 
+	/**
+	 * Controls whether the static mesh component's backface culling should be reversed
+	 */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=Lighting)
+	uint8 bReverseCulling : 1;
+
 	/** Light map resolution to use on this component, used if bOverrideLightMapRes is true and there is a valid StaticMesh. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Lighting, meta=(ClampMax = 4096, editcondition="bOverrideLightMapRes") )
 	int32 OverriddenLightMapRes;
@@ -361,6 +385,12 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Components|StaticMesh")
 	void GetLocalBounds(FVector& Min, FVector& Max) const;
 
+	/** 
+	 * Set forced reverse culling
+	 */
+	UFUNCTION(BlueprintCallable, Category="Rendering|Lighting")
+	void SetReverseCulling(bool ReverseCulling);
+
 	virtual void SetCollisionProfileName(FName InCollisionProfileName) override;
 
 public:
@@ -380,6 +410,7 @@ public:
 #endif // WITH_EDITOR
 	virtual void PreSave(const class ITargetPlatform* TargetPlatform) override;
 	virtual void PostLoad() override;
+	virtual bool IsPostLoadThreadSafe() const override;
 	virtual bool AreNativePropertiesIdenticalTo( UObject* Other ) const override;
 	virtual FString GetDetailedInfoInternal() const override;
 	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);

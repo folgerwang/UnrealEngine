@@ -4,9 +4,11 @@
 	<!-- init section is always evaluated once per architecture -->
 	<init>
 		<log text="GearVR init"/>
-		<!-- currently only support armv7 -->
 		<setBool result="bSupported" value="false"/>
 		<isArch arch="armeabi-v7a">
+			<setBool result="bSupported" value="true"/>
+		</isArch>
+        <isArch arch="arm64-v8a">
 			<setBool result="bSupported" value="true"/>
 		</isArch>
 
@@ -125,11 +127,31 @@
 	<!-- optional files or directories to copy to Intermediate/Android/APK -->
 	<resourceCopies>
 		<isArch arch="armeabi-v7a">
-			<copyFile src="$S(EngineDir)/Source/ThirdParty/Oculus/OVRPlugin/OVRPlugin/ExtLibs/libvrapi.so"
+    		<log text="Copying libvrapi.so"/>
+			<copyFile src="$S(EngineDir)/Source/ThirdParty/Oculus/OVRPlugin/OVRPlugin/ExtLibs/armeabi-v7a/libvrapi.so"
 						dst="$S(BuildDir)/libs/armeabi-v7a/libvrapi.so" />
-      <log text="Copying libOVRPlugin.so"/>
-      <copyFile src="$S(EngineDir)/Source/ThirdParty/Oculus/OVRPlugin/OVRPlugin/Lib/armeabi-v7a/libOVRPlugin.so"
-            dst="$S(BuildDir)/libs/armeabi-v7a/libOVRPlugin.so" />
+
+    		<log text="Copying libvrintegrationloader.so"/>
+			<copyFile src="$S(EngineDir)/Source/ThirdParty/Oculus/OVRPlugin/OVRPlugin/ExtLibs/armeabi-v7a/libvrintegrationloader.so"
+						dst="$S(BuildDir)/libs/armeabi-v7a/libvrintegrationloader.so" />
+
+    		<log text="Copying libOVRPlugin.so"/>
+			<copyFile src="$S(EngineDir)/Source/ThirdParty/Oculus/OVRPlugin/OVRPlugin/Lib/armeabi-v7a/libOVRPlugin.so"
+            			dst="$S(BuildDir)/libs/armeabi-v7a/libOVRPlugin.so" />
+		</isArch>
+        
+        <isArch arch="arm64-v8a">
+    		<log text="Copying libvrapi.so"/>
+			<copyFile src="$S(EngineDir)/Source/ThirdParty/Oculus/OVRPlugin/OVRPlugin/ExtLibs/arm64-v8a/libvrapi.so"
+						dst="$S(BuildDir)/libs/arm64-v8a/libvrapi.so" />
+
+    		<log text="Copying libvrintegrationloader.so"/>
+			<copyFile src="$S(EngineDir)/Source/ThirdParty/Oculus/OVRPlugin/OVRPlugin/ExtLibs/arm64-v8a/libvrintegrationloader.so"
+						dst="$S(BuildDir)/libs/arm64-v8a/libvrintegrationloader.so" />
+
+    		<log text="Copying libOVRPlugin.so"/>
+			<copyFile src="$S(EngineDir)/Source/ThirdParty/Oculus/OVRPlugin/OVRPlugin/Lib/arm64-v8a/libOVRPlugin.so"
+            			dst="$S(BuildDir)/libs/arm64-v8a/libOVRPlugin.so" />
 		</isArch>
 
 		<copyFile src="$S(EngineDir)/Source/ThirdParty/Oculus/OVRPlugin/OVRPlugin/ExtLibs/VrApi.jar"
@@ -242,9 +264,10 @@
 		<!-- need this if plugin enabled and supported architecture, even if not packaged for GearVR -->
 		<if condition="bSupported">
 			<true>
-				<loadLibrary name="vrapi" failmsg="GearVR library not loaded and required!" />
-        <loadLibrary name="OVRPlugin" failmsg="OVRPlugin library not loaded and required!" />
-      </true>
+				<loadLibrary name="vrapi" failmsg="vrapi library not loaded and required!" />
+				<loadLibrary name="vrintegrationloader" failmsg="vrintegrationloader library not loaded and required!" />
+        		<loadLibrary name="OVRPlugin" failmsg="OVRPlugin library not loaded and required!" />
+      		</true>
 		</if>
 	</soLoadLibrary>
 </root>

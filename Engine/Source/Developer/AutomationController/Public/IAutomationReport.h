@@ -85,14 +85,18 @@ public:
 	{
 	}
 
-	FAutomationArtifact(const FString& InName, EAutomationArtifactType InType, const TMap<FString, FString>& InLocalFiles)
-		: Name(InName)
+	FAutomationArtifact(FGuid InUniqueId, const FString& InName, EAutomationArtifactType InType, const TMap<FString, FString>& InLocalFiles)
+		: Id(InUniqueId)
+		, Name(InName)
 		, Type(InType)
 		, LocalFiles(InLocalFiles)
 	{
 	}
 
 public:
+
+	UPROPERTY()
+	FGuid Id;
 
 	UPROPERTY()
 	FString Name;
@@ -103,7 +107,7 @@ public:
 	UPROPERTY()
 	TMap<FString, FString> Files;
 
-	// Local Files are the files generated during a testing run, once exported, the invidual file paths
+	// Local Files are the files generated during a testing run, once exported, the individual file paths
 	// should be stored in the Files map.
 	TMap<FString, FString> LocalFiles;
 };
@@ -127,22 +131,22 @@ struct FAutomationTestResults
 	void Reset()
 	{
 		State = EAutomationState::NotRun;
-		Events.Empty();
+		Entries.Empty();
 		Artifacts.Empty();
 		WarningTotal = 0;
 		ErrorTotal = 0;
 	}
 
-	void SetEvents(const TArray<FAutomationEvent>& InEvents, int32 InWarningTotal, int32 InErrorTotal)
+	void SetEvents(const TArray<FAutomationExecutionEntry>& InEvents, int32 InWarningTotal, int32 InErrorTotal)
 	{
-		Events = InEvents;
+		Entries = InEvents;
 		WarningTotal = InWarningTotal;
 		ErrorTotal = InErrorTotal;
 	}
 
-	void AddEvent(const FAutomationEvent& Event)
+	void AddEvent(const FAutomationExecutionEntry& Event)
 	{
-		switch ( Event.Type )
+		switch ( Event.Event.Type )
 		{
 		case EAutomationEventType::Warning:
 			WarningTotal++;
@@ -152,12 +156,12 @@ struct FAutomationTestResults
 			break;
 		}
 
-		Events.Add(Event);
+		Entries.Add(Event);
 	}
 
-	const TArray<FAutomationEvent>& GetEvents() const { return Events; }
+	const TArray<FAutomationExecutionEntry>& GetEntries() const { return Entries; }
 
-	int32 GetLogTotal() const { return Events.Num() - (WarningTotal + ErrorTotal); }
+	int32 GetLogTotal() const { return Entries.Num() - (WarningTotal + ErrorTotal); }
 	int32 GetWarningTotal() const { return WarningTotal; }
 	int32 GetErrorTotal() const { return ErrorTotal; }
 
@@ -176,7 +180,7 @@ public:
 
 private:
 	/* All events reported as part of this test */
-	TArray<FAutomationEvent> Events;
+	TArray<FAutomationExecutionEntry> Entries;
 
 	int32 WarningTotal;
 

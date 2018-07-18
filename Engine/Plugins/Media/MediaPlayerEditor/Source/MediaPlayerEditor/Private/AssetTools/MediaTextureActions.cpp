@@ -24,7 +24,7 @@ bool FMediaTextureActions::CanFilter()
 }
 
 
-void FMediaTextureActions::GetActions( const TArray<UObject*>& InObjects, FMenuBuilder& MenuBuilder )
+void FMediaTextureActions::GetActions(const TArray<UObject*>& InObjects, FMenuBuilder& MenuBuilder)
 {
 	FAssetTypeActions_Base::GetActions(InObjects, MenuBuilder);
 
@@ -33,7 +33,7 @@ void FMediaTextureActions::GetActions( const TArray<UObject*>& InObjects, FMenuB
 	MenuBuilder.AddMenuEntry(
 		LOCTEXT("MediaTexture_CreateMaterial", "Create Material"),
 		LOCTEXT("MediaTexture_CreateMaterialTooltip", "Creates a new material using this texture."),
-		FSlateIcon( FEditorStyle::GetStyleSetName(), "ClassIcon.Material" ),
+		FSlateIcon(FEditorStyle::GetStyleSetName(), "ClassIcon.Material"),
 		FUIAction(
 			FExecuteAction::CreateSP(this, &FMediaTextureActions::ExecuteCreateMaterial, Textures),
 			FCanExecuteAction()
@@ -43,22 +43,22 @@ void FMediaTextureActions::GetActions( const TArray<UObject*>& InObjects, FMenuB
 /*	MenuBuilder.AddMenuEntry(
 		LOCTEXT("MediaTexture_CreateSlateBrush", "Create Slate Brush"),
 		LOCTEXT("MediaTexture_CreateSlateBrushToolTip", "Creates a new slate brush using this texture."),
-		FSlateIcon( FEditorStyle::GetStyleSetName(), "ClassIcon.SlateBrushAsset" ),
+		FSlateIcon(FEditorStyle::GetStyleSetName(), "ClassIcon.SlateBrushAsset"),
 		FUIAction(
-			FExecuteAction::CreateSP( this, &FAssetTypeActions_MediaTexture::ExecuteCreateSlateBrush, Textures ),
+			FExecuteAction::CreateSP(this, &FAssetTypeActions_MediaTexture::ExecuteCreateSlateBrush, Textures),
 			FCanExecuteAction()
 		)
 	);*/
 
 	/* @todo AssetTypeActions Implement FindMaterials using the asset registry.
-	if ( InObjects.Num() == 1 )
+	if (InObjects.Num() == 1)
 	{
 		MenuBuilder.AddMenuEntry(
 			LOCTEXT("Texture_FindMaterials", "Find Materials Using This"),
 			LOCTEXT("Texture_FindMaterialsTooltip", "Finds all materials that use this material in the content browser."),
 			FSlateIcon(),
 			FUIAction(
-				FExecuteAction::CreateSP( this, &FAssetTypeActions_Texture::ExecuteFindMaterials, Textures(0) ),
+				FExecuteAction::CreateSP(this, &FAssetTypeActions_Texture::ExecuteFindMaterials, Textures(0)),
 				FCanExecuteAction()
 				)
 			);
@@ -68,7 +68,7 @@ void FMediaTextureActions::GetActions( const TArray<UObject*>& InObjects, FMenuB
 
 uint32 FMediaTextureActions::GetCategories()
 {
-	return EAssetTypeCategories::MaterialsAndTextures;
+	return EAssetTypeCategories::MaterialsAndTextures | EAssetTypeCategories::Media;
 }
 
 
@@ -90,13 +90,13 @@ FColor FMediaTextureActions::GetTypeColor() const
 }
 
 
-bool FMediaTextureActions::HasActions ( const TArray<UObject*>& InObjects ) const
+bool FMediaTextureActions::HasActions(const TArray<UObject*>& InObjects) const
 {
 	return true;
 }
 
 
-void FMediaTextureActions::OpenAssetEditor( const TArray<UObject*>& InObjects, TSharedPtr<IToolkitHost> EditWithinLevelEditor )
+void FMediaTextureActions::OpenAssetEditor(const TArray<UObject*>& InObjects, TSharedPtr<IToolkitHost> EditWithinLevelEditor)
 {
 	EToolkitMode::Type Mode = EditWithinLevelEditor.IsValid() ? EToolkitMode::WorldCentric : EToolkitMode::Standalone;
 
@@ -116,7 +116,7 @@ void FMediaTextureActions::OpenAssetEditor( const TArray<UObject*>& InObjects, T
 /* FAssetTypeActions_MediaTexture callbacks
  *****************************************************************************/
 
-void FMediaTextureActions::ExecuteCreateMaterial( TArray<TWeakObjectPtr<UTexture>> Objects )
+void FMediaTextureActions::ExecuteCreateMaterial(TArray<TWeakObjectPtr<UTexture>> Objects)
 {
 	IContentBrowserSingleton& ContentBrowserSingleton = FModuleManager::LoadModuleChecked<FContentBrowserModule>("ContentBrowser").Get();
 	const FString DefaultSuffix = TEXT("_Mat");
@@ -175,7 +175,7 @@ void FMediaTextureActions::ExecuteCreateMaterial( TArray<TWeakObjectPtr<UTexture
 }
 
 /*
-void FAssetTypeActions_MediaTexture::ExecuteCreateSlateBrush( TArray<TWeakObjectPtr<UTexture>> Objects )
+void FAssetTypeActions_MediaTexture::ExecuteCreateSlateBrush(TArray<TWeakObjectPtr<UTexture>> Objects)
 {
 	const FString DefaultSuffix = TEXT("_Brush");
 
@@ -219,7 +219,7 @@ void FAssetTypeActions_MediaTexture::ExecuteCreateSlateBrush( TArray<TWeakObject
 				FAssetToolsModule& AssetToolsModule = FModuleManager::GetModuleChecked<FAssetToolsModule>("AssetTools");
 				UObject* NewAsset = AssetToolsModule.Get().CreateAsset(Name, FPackageName::GetLongPackagePath(PackageName), USlateBrushAsset::StaticClass(), Factory);
 
-				if( NewAsset )
+				if (NewAsset != nullptr)
 				{
 					ObjectsToSync.Add(NewAsset);
 				}
@@ -234,7 +234,7 @@ void FAssetTypeActions_MediaTexture::ExecuteCreateSlateBrush( TArray<TWeakObject
 }*/
 
 
-void FMediaTextureActions::ExecuteFindMaterials( TWeakObjectPtr<UTexture> Object )
+void FMediaTextureActions::ExecuteFindMaterials(TWeakObjectPtr<UTexture> Object)
 {
 	auto Texture = Object.Get();
 

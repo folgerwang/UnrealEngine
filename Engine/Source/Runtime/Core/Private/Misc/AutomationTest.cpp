@@ -18,7 +18,7 @@ DEFINE_LOG_CATEGORY_STATIC(LogAutomationTest, Warning, All);
 
 void FAutomationTestFramework::FAutomationTestFeedbackContext::Serialize( const TCHAR* V, ELogVerbosity::Type Verbosity, const class FName& Category )
 {
-	const int32 STACK_OFFSET = 7;
+	const int32 STACK_OFFSET = 5;//FMsg::Logf_InternalImpl
 	// TODO would be nice to search for the first stack frame that isn't in outputdevice or other logging files, would be more robust.
 
 	if (!IsRunningCommandlet() && (Verbosity == ELogVerbosity::SetColor))
@@ -442,9 +442,21 @@ void FAutomationTestFramework::GetValidTestNames( TArray<FAutomationTestInfo>& T
 
 		const bool bEnabled = (CurTestFlags & EAutomationTestFlags::Disabled) == 0;
 
+		const double GenerateTestNamesStartTime = FPlatformTime::Seconds();
+		
 		if (bEnabled && bPassesApplicationRequirements && bPassesFeatureRequirements && bPassesFilterRequirement)
 		{
 			CurTest->GenerateTestNames(TestInfo);
+		}
+
+		// Make sure people are not writing complex tests that take forever to return the names of the tests
+		// otherwise the session frontend locks up when looking at your local tests.
+		const double GenerateTestNamesEndTime = FPlatformTime::Seconds();
+		const double TimeForGetTests = static_cast<float>(GenerateTestNamesEndTime - GenerateTestNamesStartTime);
+		if (TimeForGetTests > 10.0f)
+		{
+			//force a failure if a smoke test takes too long
+			UE_LOG(LogAutomationTest, Warning, TEXT("Automation Test '%s' took > 10 seconds to return from GetTests(...): %.2fs"), *CurTest->GetTestName(), (float)TimeForGetTests);
 		}
 	}
 }
@@ -540,18 +552,18 @@ void FAutomationTestFramework::DumpAutomationTestExecutionInfo( const TMap<FStri
 
 		UE_LOG(LogAutomationTest, Log, TEXT("%s: %s"), *CurTestName, CurExecutionInfo.bSuccessful ? *SuccessMessage : *FailMessage);
 
-		for ( const FAutomationEvent& Event : CurExecutionInfo.GetEvents() )
+		for ( const FAutomationExecutionEntry& Entry : CurExecutionInfo.GetEntries() )
 		{
-			switch ( Event.Type )
+			switch (Entry.Event.Type )
 			{
 				case EAutomationEventType::Info:
-					UE_LOG(LogAutomationTest, Display, TEXT("%s"), *Event.Message);
+					UE_LOG(LogAutomationTest, Display, TEXT("%s"), *Entry.Event.Message);
 					break;
 				case EAutomationEventType::Warning:
-					UE_LOG(LogAutomationTest, Warning, TEXT("%s"), *Event.Message);
+					UE_LOG(LogAutomationTest, Warning, TEXT("%s"), *Entry.Event.Message);
 					break;
 				case EAutomationEventType::Error:
-					UE_LOG(LogAutomationTest, Error, TEXT("%s"), *Event.Message);
+					UE_LOG(LogAutomationTest, Error, TEXT("%s"), *Entry.Event.Message);
 					break;
 			}
 		}
@@ -657,9 +669,9 @@ void FAutomationTestFramework::SetTreatWarningsAsErrors(TOptional<bool> bTreatWa
 	AutomationTestFeedbackContext.TreatWarningsAsErrors = bTreatWarningsAsErrors.IsSet() ? bTreatWarningsAsErrors.GetValue() : GWarn->TreatWarningsAsErrors;
 }
 
-void FAutomationTestFramework::NotifyScreenshotComparisonComplete(bool bWasNew, bool bWasSimilar, double MaxLocalDifference, double GlobalDifference, FString ErrorMessage)
+void FAutomationTestFramework::NotifyScreenshotComparisonComplete(const FAutomationScreenshotCompareResults& CompareResults)
 {
-	OnScreenshotCompared.Broadcast(bWasNew, bWasSimilar, MaxLocalDifference, GlobalDifference, ErrorMessage);
+	OnScreenshotCompared.Broadcast(CompareResults);
 }
 
 void FAutomationTestFramework::NotifyTestDataRetrieved(bool bWasNew, const FString& JsonData)
@@ -694,7 +706,7 @@ FAutomationTestFramework::~FAutomationTestFramework()
 	AutomationTestClassNameToInstanceMap.Empty();
 }
 
-FString FAutomationEvent::ToString() const
+FString FAutomationExecutionEntry::ToString() const
 {
 	FString ComplexString;
 
@@ -706,14 +718,14 @@ FString FAutomationEvent::ToString() const
 		ComplexString += TEXT("): ");
 	}
 
-	if ( !Context.IsEmpty() )
+	if ( !Event.Context.IsEmpty() )
 	{
 		ComplexString += TEXT("[");
-		ComplexString += Context;
+		ComplexString += Event.Context;
 		ComplexString += TEXT("] ");
 	}
 
-	ComplexString += Message;
+	ComplexString += Event.Message;
 
 	return ComplexString;
 }
@@ -724,7 +736,7 @@ void FAutomationTestExecutionInfo::Clear()
 {
 	ContextStack.Reset();
 
-	Events.Empty();
+	Entries.Empty();
 	AnalyticsItems.Empty();
 
 	Errors = 0;
@@ -740,10 +752,10 @@ int32 FAutomationTestExecutionInfo::RemoveAllEvents(EAutomationEventType EventTy
 
 int32 FAutomationTestExecutionInfo::RemoveAllEvents(TFunctionRef<bool(FAutomationEvent&)> FilterPredicate)
 {
-	int32 TotalRemoved = Events.RemoveAll([&](FAutomationEvent& Event) {
-		if ( FilterPredicate(Event) )
+	int32 TotalRemoved = Entries.RemoveAll([this, &FilterPredicate](FAutomationExecutionEntry& Entry) {
+		if (FilterPredicate(Entry.Event))
 		{
-			switch ( Event.Type )
+			switch (Entry.Event.Type)
 			{
 			case EAutomationEventType::Warning:
 				Warnings--;
@@ -761,9 +773,9 @@ int32 FAutomationTestExecutionInfo::RemoveAllEvents(TFunctionRef<bool(FAutomatio
 	return TotalRemoved;
 }
 
-void FAutomationTestExecutionInfo::AddEvent(const FAutomationEvent& Event)
+void FAutomationTestExecutionInfo::AddEvent(const FAutomationEvent& Event, int StackOffset)
 {
-	switch ( Event.Type )
+	switch (Event.Type)
 	{
 	case EAutomationEventType::Warning:
 		Warnings++;
@@ -773,12 +785,22 @@ void FAutomationTestExecutionInfo::AddEvent(const FAutomationEvent& Event)
 		break;
 	}
 
-	const int32 Index = Events.Add(Event);
-	FAutomationEvent& NewEvent = Events[Index];
-
-	if ( NewEvent.Context.IsEmpty() )
+	int32 EntryIndex = 0;
+	if (FAutomationTestFramework::Get().GetCaptureStack())
 	{
-		NewEvent.Context = GetContext();
+		TArray<FProgramCounterSymbolInfo> Stack = FPlatformStackWalk::GetStack(StackOffset + 1, 1);
+		EntryIndex = Entries.Add(FAutomationExecutionEntry(Event, Stack[0].Filename, Stack[0].LineNumber));
+	}
+	else
+	{
+		EntryIndex = Entries.Add(FAutomationExecutionEntry(Event));
+	}
+
+	FAutomationExecutionEntry& NewEntry = Entries[EntryIndex];
+
+	if (NewEntry.Event.Context.IsEmpty())
+	{
+		NewEntry.Event.Context = GetContext();
 	}
 }
 
@@ -794,6 +816,45 @@ void FAutomationTestExecutionInfo::AddError(const FString& ErrorMessage)
 
 //------------------------------------------------------------------------------
 
+FAutomationEvent FAutomationScreenshotCompareResults::ToAutomationEvent(const FString& ScreenhotName) const
+{
+	FAutomationEvent Event(EAutomationEventType::Info, TEXT(""));
+
+	if (bWasNew)
+	{
+		Event.Type = EAutomationEventType::Warning;
+		Event.Message = FString::Printf(TEXT("New Screenshot '%s' was discovered!  Please add a ground truth version of it."), *ScreenhotName);
+	}
+	else
+	{
+		if (bWasSimilar)
+		{
+			Event.Type = EAutomationEventType::Info;
+			Event.Message = FString::Printf(TEXT("Screenshot '%s' was similar!  Global Difference = %f, Max Local Difference = %f"),
+				*ScreenhotName, GlobalDifference, MaxLocalDifference);
+		}
+		else
+		{
+			Event.Type = EAutomationEventType::Error;
+
+			if (ErrorMessage.IsEmpty())
+			{
+				Event.Message = FString::Printf(TEXT("Screenshot '%s' test failed, Screnshots were different!  Global Difference = %f, Max Local Difference = %f"),
+					*ScreenhotName, GlobalDifference, MaxLocalDifference);
+			}
+			else
+			{
+				Event.Message = FString::Printf(TEXT("Screenshot '%s' test failed; Error = %s"), *ScreenhotName, *ErrorMessage);
+			}
+		}
+	}
+
+	Event.Artifact = UniqueId;
+	return Event;
+}
+
+//------------------------------------------------------------------------------
+
 void FAutomationTestBase::ClearExecutionInfo()
 {
 	ExecutionInfo.Clear();
@@ -803,31 +864,23 @@ void FAutomationTestBase::AddError(const FString& InError, int32 StackOffset)
 {
 	if( !bSuppressLogs && !IsExpectedError(InError))
 	{
-		if ( FAutomationTestFramework::Get().GetCaptureStack() )
-		{
-			TArray<FProgramCounterSymbolInfo> Stack = FPlatformStackWalk::GetStack(StackOffset + 1, 1);
-			ExecutionInfo.AddEvent(FAutomationEvent(EAutomationEventType::Error, InError, ExecutionInfo.GetContext(), Stack[0].Filename, Stack[0].LineNumber));
-		}
-		else
-		{
-			ExecutionInfo.AddEvent(FAutomationEvent(EAutomationEventType::Error, InError, ExecutionInfo.GetContext()));
-		}
+		ExecutionInfo.AddEvent(FAutomationEvent(EAutomationEventType::Error, InError), StackOffset + 1);
 	}
 }
 
-void FAutomationTestBase::AddError(const FString& InError, const FString& InFilename, int32 InLineNumber)
+void FAutomationTestBase::AddErrorS(const FString& InError, const FString& InFilename, int32 InLineNumber)
 {
 	if ( !bSuppressLogs && !IsExpectedError(InError))
 	{
-		ExecutionInfo.AddEvent(FAutomationEvent(EAutomationEventType::Error, InError, ExecutionInfo.GetContext(), InFilename, InLineNumber));
+		//ExecutionInfo.AddEvent(FAutomationEvent(EAutomationEventType::Error, InError, ExecutionInfo.GetContext(), InFilename, InLineNumber));
 	}
 }
 
-void FAutomationTestBase::AddWarning(const FString& InWarning, const FString& InFilename, int32 InLineNumber)
+void FAutomationTestBase::AddWarningS(const FString& InWarning, const FString& InFilename, int32 InLineNumber)
 {
 	if ( !bSuppressLogs && !IsExpectedError(InWarning))
 	{
-		ExecutionInfo.AddEvent(FAutomationEvent(EAutomationEventType::Warning, InWarning, ExecutionInfo.GetContext(), InFilename, InLineNumber));
+		//ExecutionInfo.AddEvent(FAutomationEvent(EAutomationEventType::Warning, InWarning, ExecutionInfo.GetContext(), InFilename, InLineNumber));
 	}
 }
 
@@ -835,15 +888,7 @@ void FAutomationTestBase::AddWarning( const FString& InWarning, int32 StackOffse
 {
 	if ( !bSuppressLogs && !IsExpectedError(InWarning))
 	{
-		if ( FAutomationTestFramework::Get().GetCaptureStack() )
-		{
-			TArray<FProgramCounterSymbolInfo> Stack = FPlatformStackWalk::GetStack(StackOffset + 1, 1);
-			ExecutionInfo.AddEvent(FAutomationEvent(EAutomationEventType::Warning, InWarning, ExecutionInfo.GetContext(), Stack[0].Filename, Stack[0].LineNumber));
-		}
-		else
-		{
-			ExecutionInfo.AddEvent(FAutomationEvent(EAutomationEventType::Warning, InWarning, ExecutionInfo.GetContext()));
-		}
+		ExecutionInfo.AddEvent(FAutomationEvent(EAutomationEventType::Warning, InWarning), StackOffset + 1);
 	}
 }
 
@@ -851,21 +896,21 @@ void FAutomationTestBase::AddInfo( const FString& InLogItem, int32 StackOffset )
 {
 	if ( !bSuppressLogs )
 	{
-		if ( FAutomationTestFramework::Get().GetCaptureStack() )
-		{
-			TArray<FProgramCounterSymbolInfo> Stack = FPlatformStackWalk::GetStack(StackOffset + 1, 1);
-			ExecutionInfo.AddEvent(FAutomationEvent(EAutomationEventType::Info, InLogItem, ExecutionInfo.GetContext(), Stack[0].Filename, Stack[0].LineNumber));
-		}
-		else
-		{
-			ExecutionInfo.AddEvent(FAutomationEvent(EAutomationEventType::Info, InLogItem, ExecutionInfo.GetContext()));
-		}
+		ExecutionInfo.AddEvent(FAutomationEvent(EAutomationEventType::Info, InLogItem), StackOffset + 1);
 	}
 }
 
 void FAutomationTestBase::AddAnalyticsItem(const FString& InAnalyticsItem)
 {
 	ExecutionInfo.AnalyticsItems.Add(InAnalyticsItem);
+}
+
+void FAutomationTestBase::AddEvent(const FAutomationEvent& InEvent, int32 StackOffset)
+{
+	if (!bSuppressLogs)
+	{
+		ExecutionInfo.AddEvent(InEvent, StackOffset + 1);
+	}
 }
 
 bool FAutomationTestBase::HasAnyErrors() const
@@ -914,8 +959,6 @@ bool FAutomationTestBase::HasMetExpectedErrors()
 
 	return HasMetAllExpectedErrors;
 }
-
-
 
 void FAutomationTestBase::SetSuccessState( bool bSuccessful )
 {

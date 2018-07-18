@@ -1,71 +1,17 @@
-﻿INTSourceChangelist:2721838
+﻿INTSourceChangelist:3782314
 Availability:Public
-Title:1.3 - シーンカラー
+Title:1.3 - Scene Color
 Crumbs:%ROOT%, Resources, Resources/ContentExamples, Resources/ContentExamples/PostProcessing
-Description:ポストプロセスのサンプル レベルの概要、サンプル 1.3：シーンカラー
+Description:ポストプロセスのサンプル レベルの概要、サンプル 1.3：Scene Color (シーン カラー) 
 Version:4.9
-
-[VAR:Steps]
-[OBJECT:Navigation]
-	[PARAM:previous]
-		[前のサンプル](Resources/ContentExamples/PostProcessing/1_2 "%Resources/ContentExamples/PostProcessing/1_2:title%")
-	[/PARAM]
-	[PARAM:current]
-	[/PARAM]
-	[PARAM:home]
-		[ポストプロセスのホーム](Resources/ContentExamples/PostProcessing)
-	[/PARAM]
-	[PARAM:next]
-		[次のサンプル](Resources/ContentExamples/PostProcessing/1_4 "%Resources/ContentExamples/PostProcessing/1_4:title%")
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:Resources/ContentExamples/PostProcessing/PP_3.png
 
 
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources/ContentExamples/PostProcessing/1_3:title%](Resources/ContentExamples/PostProcessing/PP_3.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%\rendering_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/PostProcessing/1_3:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/ContentExamples/PostProcessing/1_3:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/ContentExamples/PostProcessing/1_3]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Resources/ContentExamples/PostProcessing/1_3:title%](Resources/ContentExamples/PostProcessing/PP_3.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%\rendering_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/PostProcessing/1_3:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/ContentExamples/PostProcessing/1_3:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/ContentExamples/PostProcessing/1_3]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
+ポストプロセス ボリュームの **Scene Color** カテゴリは、**Film** カテゴリとは異なる表現でシーンの色彩調整にさまざまな効果をもたらします。Film カテゴリには、黒つぶれ箇所へのアクセス、カラーチャンネルの再混合、そしてシーンの彩度を減じるオプションがあります。 Scene Color カテゴリは、 **Vignette** (ビネット エフェクト)、 **Scene Fringe** (シーンフリンジ)、そして **Tone Mapping** などのオプションがあります。
 
-ポストプロセス ボリュームの **Scene Color** カテゴリは、**Film** カテゴリとは異なる表現でシーンの色彩調整にさまざまな効果をもたらします。Film カテゴリには、黒つぶれ箇所へのアクセス、カラーチャンネルの再混合、そしてシーンの彩度を減じるオプションがあります。 Scene Color カテゴリは、 **Vignette (ビネット効果)**、 **Scene Fringe (シーンフリンジ)**、そして **Tone Mapping (トーン マッピング)** などのオプションがあります。
-
-## Vignette（ビネット効果)
+## ビネット効果 (Vignette)
 
 [INCLUDE:Engine/Rendering\PostProcessEffects\Vignette#Vignette_Desc]
 
@@ -81,7 +27,7 @@ Version:4.9
 ![](1_3_02.png)
 [/REGION]
 
-## Tone Mapping（トーン マッピング）
+## トーン マッピング (Tone Mapping)
 
 [INCLUDE:Engine/Rendering\PostProcessEffects\ColorGrading#ToneMapping_Desc]
 

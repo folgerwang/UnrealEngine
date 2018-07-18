@@ -1,15 +1,20 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "NiagaraStackParameterStoreEntry.h"
+#include "ViewModels/Stack/NiagaraStackParameterStoreEntry.h"
 #include "NiagaraScriptSource.h"
 #include "NiagaraGraph.h"
 #include "EdGraphSchema_Niagara.h"
 #include "NiagaraEditorUtilities.h"
-#include "NiagaraSystemViewModel.h"
+#include "ViewModels/NiagaraSystemViewModel.h"
+#include "NiagaraSystem.h"
 #include "NiagaraSystemScriptViewModel.h"
-#include "NiagaraEmitterViewModel.h"
+#include "ViewModels/NiagaraEmitterViewModel.h"
+#include "NiagaraEmitterHandle.h"
 #include "NiagaraScriptGraphViewModel.h"
-#include "NiagaraStackObject.h"
+#include "ViewModels/Stack/NiagaraStackObject.h"
+#include "NiagaraNodeParameterMapGet.h"
+#include "ViewModels/Stack/NiagaraStackGraphUtilities.h"
+#include "NiagaraStackEditorData.h"
 
 #include "ScopedTransaction.h"
 #include "Editor.h"
@@ -19,38 +24,24 @@
 #include "ARFilter.h"
 #include "EdGraph/EdGraphPin.h"
 
+
 #define LOCTEXT_NAMESPACE "UNiagaraStackParameterStoreEntry"
 UNiagaraStackParameterStoreEntry::UNiagaraStackParameterStoreEntry()
-	: ItemIndentLevel(0)
-	, ValueObjectEntry(nullptr)
+	: ValueObjectEntry(nullptr)
 {
-}
-
-void UNiagaraStackParameterStoreEntry::BeginDestroy()
-{
-	Super::BeginDestroy();
-}
-int32 UNiagaraStackParameterStoreEntry::GetItemIndentLevel() const
-{
-	return ItemIndentLevel;
-}
-
-void UNiagaraStackParameterStoreEntry::SetItemIndentLevel(int32 InItemIndentLevel)
-{
-	ItemIndentLevel = InItemIndentLevel;
 }
 
 void UNiagaraStackParameterStoreEntry::Initialize(
-	TSharedRef<FNiagaraSystemViewModel> InSystemViewModel,
-	TSharedRef<FNiagaraEmitterViewModel> InEmitterViewModel,
-	UNiagaraStackEditorData& InStackEditorData,
+	FRequiredEntryData InRequiredEntryData,
 	UObject* InOwner,
 	FNiagaraParameterStore* InParameterStore,
 	FString InInputParameterHandle,
-	FNiagaraTypeDefinition InInputType)
+	FNiagaraTypeDefinition InInputType,
+	FString InOwnerStackItemEditorDataKey)
 {
-	Super::Initialize(InSystemViewModel, InEmitterViewModel);
-	StackEditorData = &InStackEditorData;
+	bool bParameterIsAdvanced = false;
+	FString ParameterStackEditorDataKey = FString::Printf(TEXT("Parameter-%s"), *InInputParameterHandle);
+	Super::Initialize(InRequiredEntryData, bParameterIsAdvanced, InOwnerStackItemEditorDataKey, ParameterStackEditorDataKey);
 	DisplayName = FText::FromString(InInputParameterHandle);
 	ParameterName = *InInputParameterHandle;
 	InputType = InInputType;
@@ -63,18 +54,16 @@ const FNiagaraTypeDefinition& UNiagaraStackParameterStoreEntry::GetInputType() c
 	return InputType;
 }
 
-void UNiagaraStackParameterStoreEntry::RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren)
+void UNiagaraStackParameterStoreEntry::RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren, TArray<FStackIssue>& NewIssues)
 {
 	RefreshValueAndHandle();
 
 	if (ValueObject != nullptr)
 	{
-		if(ValueObjectEntry == nullptr ||
-			ValueObjectEntry->GetObject() != ValueObject)
+		if(ValueObjectEntry == nullptr || ValueObjectEntry->GetObject() != ValueObject)
 		{
 			ValueObjectEntry = NewObject<UNiagaraStackObject>(this);
-			ValueObjectEntry->Initialize(GetSystemViewModel(), GetEmitterViewModel(), ValueObject);
-			ValueObjectEntry->SetItemIndentLevel(ItemIndentLevel + 1);
+			ValueObjectEntry->Initialize(CreateDefaultChildRequiredData(), ValueObject, GetOwnerStackItemEditorDataKey());
 		}
 		NewChildren.Add(ValueObjectEntry);
 	}
@@ -110,16 +99,6 @@ FText UNiagaraStackParameterStoreEntry::GetDisplayName() const
 	return DisplayName;
 }
 
-FName UNiagaraStackParameterStoreEntry::GetTextStyleName() const
-{
-	return "NiagaraEditor.Stack.ParameterText";
-}
-
-bool UNiagaraStackParameterStoreEntry::GetCanExpand() const
-{
-	return true;
-}
-
 TSharedPtr<FStructOnScope> UNiagaraStackParameterStoreEntry::GetValueStruct()
 {
 	return LocalValueStruct;
@@ -132,7 +111,7 @@ UNiagaraDataInterface* UNiagaraStackParameterStoreEntry::GetValueObject()
 
 void UNiagaraStackParameterStoreEntry::NotifyBeginValueChange()
 {
-	GEditor->BeginTransaction(LOCTEXT("BeginEditModuleInputValue", "Edit module input value."));
+	GEditor->BeginTransaction(LOCTEXT("ModifyInputValue", "Modify input value."));
 	Owner->Modify();
 }
 
@@ -155,7 +134,6 @@ void UNiagaraStackParameterStoreEntry::NotifyValueChanged()
 	{
 		FNiagaraVariable DefaultVariable(InputType, ParameterName);
 		ParameterStore->SetParameterData(LocalValueStruct->GetStructMemory(), DefaultVariable);
-		GetSystemViewModel()->ResetSystem();
 	}
 }
 
@@ -166,74 +144,205 @@ bool UNiagaraStackParameterStoreEntry::CanReset() const
 
 void UNiagaraStackParameterStoreEntry::Reset()
 {
+	NotifyBeginValueChange();
+	FNiagaraVariable Var (InputType, ParameterName);
 	if (InputType.GetClass() == nullptr)
-	{		
-		// For struct inputs the override pin and anything attached to it should be removed.
-		FScopedTransaction ScopedTransaction(LOCTEXT("ResetInputStructTransaction", "Reset the inputs value to default."));
+	{
+		FNiagaraEditorUtilities::ResetVariableToDefaultValue(Var);
+		Var.CopyTo(LocalValueStruct->GetStructMemory()); 
+		ParameterStore->SetParameterData(LocalValueStruct->GetStructMemory(), Var);
 	}
 	else
 	{
-		// For object types make sure the override is setup to an input which matches the default object.
-		FScopedTransaction ScopedTransaction(LOCTEXT("ResetInputObjectTransaction", "Reset the inputs data interface object to default."));
+		UNiagaraDataInterface* DefaultObject = NewObject<UNiagaraDataInterface>(this, const_cast<UClass*>(InputType.GetClass()));
+		DefaultObject->CopyTo(ParameterStore->GetDataInterface(Var));
 	}
+	RefreshValueAndHandle();
 	RefreshChildren();
+	NotifyEndValueChange();
+	GetSystemViewModel()->ResetSystem();
 }
 
 bool UNiagaraStackParameterStoreEntry::CanRenameInput() const
 {
-	return false;
+	return true; 
 }
 
 bool UNiagaraStackParameterStoreEntry::GetIsRenamePending() const
 {
-	return CanRenameInput() /*&& StackEditorData->GetModuleInputIsRenamePending(StackEditorDataKey)*/;
+	return CanRenameInput() && GetStackEditorData().GetModuleInputIsRenamePending(ParameterName.ToString());
 }
 
 void UNiagaraStackParameterStoreEntry::SetIsRenamePending(bool bIsRenamePending)
 {
 	if (CanRenameInput())
 	{
-		//StackEditorData->SetModuleInputIsRenamePending(StackEditorDataKey, bIsRenamePending);
+		GetStackEditorData().SetModuleInputIsRenamePending(ParameterName.ToString(), bIsRenamePending);
 	}
+}
+
+TArray<UEdGraphPin*> UNiagaraStackParameterStoreEntry::GetOwningPins()
+{
+	TArray<UNiagaraGraph*> GraphsToCheck;
+	// search system graph
+	UNiagaraScript* SystemScript = GetSystemViewModel()->GetSystem().GetSystemSpawnScript();
+	if (SystemScript != nullptr)
+	{
+		UNiagaraScriptSource* ScriptSource = Cast<UNiagaraScriptSource>(SystemScript->GetSource());
+		if (ScriptSource != nullptr)
+		{
+			UNiagaraGraph* SystemGraph = ScriptSource->NodeGraph;
+			if (SystemGraph != nullptr)
+			{
+				GraphsToCheck.Add(SystemGraph);
+			}
+		}
+	}
+
+	// search emitter graphs
+	auto EmitterHandles = GetSystemViewModel()->GetSystem().GetEmitterHandles();
+	for (FNiagaraEmitterHandle Handle : EmitterHandles)
+	{
+		UNiagaraGraph* EmitterGraph = CastChecked<UNiagaraScriptSource>(Handle.GetInstance()->GraphSource)->NodeGraph;
+		GraphsToCheck.Add(EmitterGraph);
+	}
+	TArray<UEdGraphPin*> OwningPins;
+	for (UNiagaraGraph* Graph : GraphsToCheck)
+	{
+		TArray<UNiagaraNodeParameterMapGet*> MapReadNodes;
+		Graph->GetNodesOfClass<UNiagaraNodeParameterMapGet>(MapReadNodes);
+		for (UNiagaraNode* Node : MapReadNodes)
+		{
+			for (UEdGraphPin* GraphPin : Node->Pins)
+			{
+				if (GraphPin->GetName() == ParameterName.ToString())
+				{
+					OwningPins.Add(GraphPin);
+					break;
+				}
+			}
+		}
+	}
+	return OwningPins;
 }
 
 void UNiagaraStackParameterStoreEntry::RenameInput(FString NewName)
 {
-	/*
-	if (OwningAssignmentNode.IsValid() && InputParameterHandlePath.Num() == 1 && InputParameterHandle.GetName() != NewName)
+	FName NewFName = FName(*NewName);
+	FString ActualNameString = NewName;
+	FString NamespacePrefix = FNiagaraParameterHandle::UserNamespace.ToString() + ".";
+	if (NewName.Contains(NamespacePrefix))
 	{
-		bool bIsCurrentlyPinned = GetIsPinned();
-		bool bIsCurrentlyExpanded = StackEditorData->GetStackEntryIsExpanded(FNiagaraStackGraphUtilities::GenerateStackModuleEditorDataKey(*OwningAssignmentNode), false);
+		ActualNameString = NewName.Replace(*NamespacePrefix, TEXT(""));
+	}
+	FName ActualName = FName(*ActualNameString);
+	// what if it's not user namespace? dehardcode.
+	FNiagaraParameterHandle ParameterHandle(FNiagaraParameterHandle::UserNamespace, ActualName); 
+	FName VariableName = ParameterHandle.GetParameterHandleString();
+	if (VariableName != ParameterName)
+	{
 
-		FNiagaraParameterHandle TargetHandle(OwningAssignmentNode->AssignmentTarget.GetName().ToString());
-		FNiagaraParameterHandle RenamedTargetHandle(TargetHandle.GetNamespace(), NewName);
-		OwningAssignmentNode->AssignmentTarget.SetName(RenamedTargetHandle.GetParameterHandleString());
-		OwningAssignmentNode->RefreshFromExternalChanges();
-
-		InputParameterHandle = FNiagaraParameterHandle(InputParameterHandle.GetNamespace(), NewName);
-		InputParameterHandlePath.Empty();
-		InputParameterHandlePath.Add(InputParameterHandle);
-		AliasedInputParameterHandle = FNiagaraParameterHandle::CreateAliasedModuleParameterHandle(InputParameterHandle, OwningAssignmentNode.Get());
-		DisplayName = FText::FromString(InputParameterHandle.GetName());
-
-		UEdGraphPin* OverridePin = GetOverridePin();
-		if (OverridePin != nullptr)
+		// destroy links, rename parameter and rebuild links
+		TArray<UEdGraphPin*> OwningPins = GetOwningPins();
+		TArray<UEdGraphPin*> LinkedPins;
+		for (UEdGraphPin* GraphPin : OwningPins)
 		{
-			OverridePin->PinName = AliasedInputParameterHandle.GetParameterHandleString();
+			for (UEdGraphPin* OverridePin : GraphPin->LinkedTo)
+			{
+				LinkedPins.Add(OverridePin);
+			}
 		}
 
-		StackEditorDataKey = FNiagaraStackGraphUtilities::GenerateStackFunctionInputEditorDataKey(*OwningFunctionCallNode.Get(), InputParameterHandle);
-		StackEditorData->SetModuleInputIsPinned(StackEditorDataKey, bIsCurrentlyPinned);
-		StackEditorData->SetStackEntryIsExpanded(FNiagaraStackGraphUtilities::GenerateStackModuleEditorDataKey(*OwningAssignmentNode), bIsCurrentlyExpanded);
+		FScopedTransaction ScopedTransaction(LOCTEXT("RenameUserParameter", "Rename user parameter"));
+		Owner->Modify();
+		// remove old one (a bit overkill but it beats duplicating code)
+		RemovePins(OwningPins);
+		// TODO Would it be better to actually keep variable name being ActualName and ParameterName being ParameterHandle.GetParameterHandleString(), and rewrite the way the Entry is built?
+		ParameterStore->RenameParameter(FNiagaraVariable(InputType, ParameterName), VariableName); 
+		// rebuild all links
+		for (UEdGraphPin* LinkedPin : LinkedPins)
+		{
+			// remove links
+			TArray<TWeakObjectPtr<UNiagaraDataInterface>> RemovedDataObjects;
+			FNiagaraStackGraphUtilities::RemoveNodesForStackFunctionInputOverridePin(*LinkedPin, RemovedDataObjects); // no need to broadcast data objects modified here, the graph will recompile
+			// generate current link
+			FNiagaraStackGraphUtilities::SetLinkedValueHandleForFunctionInput(*LinkedPin, ParameterHandle);
+		}
 
-		CastChecked<UNiagaraGraph>(OwningAssignmentNode->GetGraph())->NotifyGraphNeedsRecompile();
+		ParameterName = VariableName;
+		DisplayName = FText::FromName(ParameterName);
 	}
-	*/
+}
+
+void UNiagaraStackParameterStoreEntry::Delete()
+{
+	FScopedTransaction ScopedTransaction(LOCTEXT("RemoveUserParameter", "Remove user parameter"));
+
+	// for delete, do a parameter map traversal to deduce all the usages and then  remove them 
+	TArray<UEdGraphPin*> OwningPins = GetOwningPins();
+	RemovePins(OwningPins);
+
+	//remove from store
+	Owner->Modify();
+	ParameterStore->RemoveParameter(FNiagaraVariable(InputType, ParameterName));
+	if (InputType.GetClass() != nullptr)
+	{
+		UNiagaraDataInterface* DataInterface = NewObject<UNiagaraDataInterface>(this, const_cast<UClass*>(InputType.GetClass()));
+		if (DataInterface != nullptr)
+		{
+			GetSystemViewModel()->NotifyDataObjectChanged(DataInterface);
+		}
+	}
+
+	ParameterDeletedDelegate.Broadcast();
+}
+
+void UNiagaraStackParameterStoreEntry::RemovePins(TArray<UEdGraphPin*> OwningPins /*, bool bSetPreviousValue*/)
+{
+	for (UEdGraphPin* GraphPin : OwningPins)
+	{
+		UNiagaraGraph* Graph = CastChecked<UNiagaraGraph>(GraphPin->GetOwningNode()->GetGraph());
+	
+		if (GraphPin->LinkedTo.Num() != 0)
+		{
+			// remember output of pin 
+			UEdGraphPin* OverridePin = GraphPin->LinkedTo[0];
+			//break old pin links
+			GraphPin->BreakAllPinLinks();
+			
+			//now set value of pin output to the value of the GetCurrentValueVariable()
+			const UEdGraphSchema_Niagara* Schema = GetDefault<UEdGraphSchema_Niagara>();
+			//FNiagaraVariable Var = Schema->PinToNiagaraVariable(GraphPin, true); // use this instead of GetCurrentValueVariable() for default value
+			FString PinDefaultValue;
+			if (InputType.GetClass() == nullptr)
+			{
+				if (Schema->TryGetPinDefaultValueFromNiagaraVariable(*GetCurrentValueVariable(), PinDefaultValue))
+				{
+					OverridePin->DefaultValue = PinDefaultValue;
+				}
+			}
+			else
+			{
+				UNiagaraDataInterface* OverrideObj = NewObject<UNiagaraDataInterface>(this, const_cast<UClass*>(InputType.GetClass()));
+				FNiagaraStackGraphUtilities::SetDataValueObjectForFunctionInput(*OverridePin, const_cast<UClass*>(InputType.GetClass()), GetCurrentValueObject()->GetName(), OverrideObj);
+				GetCurrentValueObject()->CopyTo(OverrideObj);
+			}
+			
+		}
+		// now also remove node
+		Graph->RemoveNode(GraphPin->GetOwningNode());
+		Graph->NotifyGraphNeedsRecompile();
+	}
 }
 
 UNiagaraStackParameterStoreEntry::FOnValueChanged& UNiagaraStackParameterStoreEntry::OnValueChanged()
 {
 	return ValueChangedDelegate;
+}
+
+UNiagaraStackParameterStoreEntry::FOnParameterDeleted& UNiagaraStackParameterStoreEntry::OnParameterDeleted()
+{
+	return ParameterDeletedDelegate;
 }
 
 TSharedPtr<FNiagaraVariable> UNiagaraStackParameterStoreEntry::GetCurrentValueVariable()
@@ -258,6 +367,39 @@ UNiagaraDataInterface* UNiagaraStackParameterStoreEntry::GetCurrentValueObject()
 		return ParameterStore->GetDataInterface(DefaultVariable);
 	}
 	return nullptr;
+}
+
+bool UNiagaraStackParameterStoreEntry::IsUniqueName(FString NewName)
+{
+	FString NamespacePrefix = FNiagaraParameterHandle::UserNamespace.ToString() + "."; // correcting name of variable for comparison, all user variables start with "User."
+	if (!NewName.Contains(NamespacePrefix))
+	{
+		NewName = NamespacePrefix + NewName;
+	}
+	TArray<FNiagaraVariable> Variables;
+	ParameterStore->GetParameters(Variables);
+	// check for duplicates, but exclude self from search
+	for (auto parameter : Variables)
+	{
+		if (parameter.GetName().ToString() == NewName)
+		{
+			if (GetCurrentValueVariable().IsValid())
+			{
+				if (parameter != *GetCurrentValueVariable())
+				{
+					return false;
+				}
+			}
+			else if (GetCurrentValueObject() != nullptr)
+			{
+				if (ParameterStore->GetDataInterface(parameter) != GetCurrentValueObject())
+				{
+					return false;
+				}
+			}
+		}
+	}
+	return true;
 }
 
 #undef LOCTEXT_NAMESPACE

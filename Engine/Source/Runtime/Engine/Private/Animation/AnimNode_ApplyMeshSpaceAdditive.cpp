@@ -25,7 +25,7 @@ void FAnimNode_ApplyMeshSpaceAdditive::Update_AnyThread(const FAnimationUpdateCo
 	Base.Update(Context);
 
 	ActualAlpha = 0.f;
-	if (IsLODEnabled(Context.AnimInstanceProxy, LODThreshold))
+	if (IsLODEnabled(Context.AnimInstanceProxy))
 	{
 		// @note: If you derive this class, and if you have input that you rely on for base
 		// this is not going to work	

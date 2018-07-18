@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 14
-VisualStudioVersion = 14.0.25123.0
+VisualStudioVersion = 14.0.25420.1
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UnrealGameSync", "UnrealGameSync\UnrealGameSync.csproj", "{94DC470D-5944-4899-A646-299F5E605A1D}"
 EndProject
@@ -17,6 +17,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PostBadgeStatus", "PostBadgeStatus\PostBadgeStatus.csproj", "{DCBE3437-5DBF-41B4-B854-967BC0C93C48}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UnrealGameSyncMetadataServer", "UnrealGameSyncMetadataServer\UnrealGameSyncMetadataServer.csproj", "{C8D13E98-C8CD-42FB-9C79-F3EB11B0F3E8}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -80,8 +82,23 @@ Global
 		{DCBE3437-5DBF-41B4-B854-967BC0C93C48}.Release|Mixed Platforms.Build.0 = Release|Any CPU
 		{DCBE3437-5DBF-41B4-B854-967BC0C93C48}.Release|x86 for Design View.ActiveCfg = Release|Any CPU
 		{DCBE3437-5DBF-41B4-B854-967BC0C93C48}.Release|x86 for Design View.Build.0 = Release|Any CPU
+		{C8D13E98-C8CD-42FB-9C79-F3EB11B0F3E8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C8D13E98-C8CD-42FB-9C79-F3EB11B0F3E8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C8D13E98-C8CD-42FB-9C79-F3EB11B0F3E8}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU
+		{C8D13E98-C8CD-42FB-9C79-F3EB11B0F3E8}.Debug|Mixed Platforms.Build.0 = Debug|Any CPU
+		{C8D13E98-C8CD-42FB-9C79-F3EB11B0F3E8}.Debug|x86 for Design View.ActiveCfg = Debug|Any CPU
+		{C8D13E98-C8CD-42FB-9C79-F3EB11B0F3E8}.Debug|x86 for Design View.Build.0 = Debug|Any CPU
+		{C8D13E98-C8CD-42FB-9C79-F3EB11B0F3E8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C8D13E98-C8CD-42FB-9C79-F3EB11B0F3E8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C8D13E98-C8CD-42FB-9C79-F3EB11B0F3E8}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
+		{C8D13E98-C8CD-42FB-9C79-F3EB11B0F3E8}.Release|Mixed Platforms.Build.0 = Release|Any CPU
+		{C8D13E98-C8CD-42FB-9C79-F3EB11B0F3E8}.Release|x86 for Design View.ActiveCfg = Release|Any CPU
+		{C8D13E98-C8CD-42FB-9C79-F3EB11B0F3E8}.Release|x86 for Design View.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {E5161250-1099-4026-9835-49318580492C}
 	EndGlobalSection
 EndGlobal

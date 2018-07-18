@@ -21,7 +21,7 @@
 /** Match attributes (value is FString) */
 #define SETTING_MATCH_MEMBERS_JSON FName(TEXT("MATCHMEMBERS"))
 /** Session member constant custom json (value is FString) - This is to be used with FString::Printf, populated with user xuid */
-#define SETTING_SESSION_MEMBER_CONSTANT_CUSTOM_JSON_XUID FName(TEXT("SESSIONMEMBERCONSTANTCUSTOMJSON%s"))
+#define SETTING_SESSION_MEMBER_CONSTANT_CUSTOM_JSON_XUID_PREFIX TEXT("SESSIONMEMBERCONSTANTCUSTOMJSON")
 /** Set self as host (value is int32)*/
 #define SETTING_MAX_RESULT FName(TEXT("MAXRESULT"))
 /** Set self as host (value is int32)*/
@@ -45,9 +45,11 @@
 /** Matchmade game session URI for join in progress/invites */
 #define  SETTING_GAME_SESSION_URI FName(TEXT("GAMESESSIONURI"))
 /** Session member group identifier (value is FString) - This is to be used with FString::Printf, populated with user xuid - Field required with Team Based matchmaking*/
-#define SETTING_GROUP_NAME FName(TEXT("USERGROUPNAME%s"))
+#define SETTING_GROUP_NAME_PREFIX TEXT("USERGROUPNAME")
 /** Information to join a third-party auxiliary session (value is FString) */
 #define SETTING_CUSTOM_JOIN_INFO FName(TEXT("CUSTOMJOININFO"))
+/** What verbosity of session updates to subscribe to (value is FString, comma-separated if multiple values needed)*/
+#define SETTING_SESSION_SUBSCRIPTION_TYPES FName(TEXT("SESSIONSUBSCRIPTIONTYPE"))
 
 // These are PS4 specific settings to be used in FOnlineSessionSettings as keys
 

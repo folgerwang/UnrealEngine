@@ -1,17 +1,17 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3532405
 Availability: Docs
 Crumbs: %ROOT%
-Title: Brand Glossary
-Description: A glossary of key terms, which are used to describe the systems, features, and tools that belong to Unreal Engine 4 (UE4).
+Title: 브랜드 용어집
+Description: 언리얼 엔진 4 에 속하는 시스템, 피처, 툴을 설명하는 데 사용되는 핵심 용어 해설집입니다.
 Type: Reference
 Version: 4.16
 Parent:BrandGlossary
 Order:7
 Tags:Brand Glossary
 
-Welcome to the Unreal Engine 4 (UE4) **Brand Glossary**. If you want to create user-facing resources for the UE4 community, this guide 
-helps you gain a better understanding of the terms being used to describe systems, features, and tools belonging to UE4. After reading 
-through this glossary, you'll also know how to properly spell and capitalize the terms we use to describe Unreal Engine.  
+언리얼 엔진 4 (UE4) **브랜드 용어집** 에 오신 것을 환영합니다. UE4 커뮤니티의 사용자를 위한 자료를 만들고자 하는 경우, 
+UE4 에 속하는 시스템, 피처, 툴을 설명하는 데 사용되고 있는 용어의 이해를 돕기 위한 문서입니다.
+이 용어집을 통독하고나면, 언리얼 엔진 설명에 사용하는 용어의 스펠링과 대소문자 구분을 확실히 하실 수 있을 것입니다.
 
 <hr>
   
@@ -42,22 +42,22 @@ through this glossary, you'll also know how to properly spell and capitalize the
 <font size = "5" color=#001940>Y</font>&nbsp;&nbsp;
 <font size = "5" color=#001940>Z</font>&nbsp;&nbsp;
 
-##Game Mode
+##GameMode
 
-The GameMode Class is responsible for setting the rules of the game that is being played. The rules can include how players join the game, whether or not a game can be paused, level transitions, as well as any game-specific behavior (for example, win conditions).
+게임 모드 - 플레이 중인 게임의 규칙 설정을 담당하는 클래스입니다. 이 규칙에는 플레이어의 게임 참가 방식, 게임 일시정지 가능 여부, 레벨 전환, 게임 전용 작동방식 (예로 승리 조건) 등이 포함됩니다.
 
 ##Gameplay Framework
 
-The basic gameplay classes include functionality for representing players, allies, and enemies; as well as for controlling these avatars with player input or AI logic. There are also classes for creating heads-up displays and cameras for players. Finally, gameplay classes such as GameMode, GameState, and PlayerState set the rules of the game. Gameplay classes also track how the game and the players are progressing.
+게임플레이 프레임워크 - 기본 게임플레이 클래스에는 플레이어/적/아군 표현은 물론 플레이어 입력 또는 AI 로직으로 그 아바타를 제어하는 기능까지 포함합니다. 플레이어의 머리 위 디스플레이(HUD)나 카메라를 만들기 위한 클래스도 있습니다. 마지막으로, GameMode, GameState, PlayerState 와 같은 게임플레이 클래스는 게임 규칙을 설정합니다. 게임플레이 클래스는 게임 및 플레이어 진행 상황을 추적하기도 합니다.
 
 ##GameState
 
-The GameState contains information that you want replicated to every client in a game. Put simply, it is ‘The State of the Game’ for every connected player.
+게임 스테이트 - 게임에서 모든 클라이언트에 리플리케이트하고자 하는 정보가 들어가는 클래스입니다. 간단히 말해서, 접속된 모든 플레이어의 '게임 상태' 입니다.
 
 ##Global Asset Picker
 
-The Global Asset Picker (Ctrl-P) is a fast-access means of editing assets or bringing them into your levels. In some ways, it is similar to the Content Browser but without limiting itself to the current folder you have selected in the Asset Tree. Not only can you pull assets specific to your game, but also anything from Engine, like lights or sound emitters. Because it offers all available assets in a list format, it is not intended to be used as means for browsing. Instead, it’s perfect for those moments when you know the asset (or asset type) you need and just want to quickly type part of its name into the Search Line.
+글로벌 애셋 선택기 - 애셋을 빠르게 편집하여 레벨에 놓을 수 있도록 해줍니다. 어떤 면에서는 콘텐츠 브라우저와 비슷하지만, 애셋 트리에 선택된 현재 폴더에 제한되지 않는다는 점이 다릅니다. 게임 전용 애셋 뿐만 아니라, 라이트나 사운드 이미터처럼 엔진에 있는 것들도 끌어올 수 있습니다. 사용할 수 있는 모든 애셋을 목록으로 제공하기에, 브라우저로 쓰기에는 적합하지 않습니다. 대신, 필요한 애셋( 또는 애셋 유형)을 확실히 알고있거나, 검색줄에 그 이름 일부를 입력하여 빠르게 찾아보고 싶을 때 좋습니다.
 
 ##Grass Tool
 
-A tool to densely populate the Landscape Terrain used in a forest with grass, flowers, and small rocks.
+그래스 툴 - 숲에 사용된 랜드스케이프 터레인에 풀, 꽃, 작은 바위를 빽빽하게 채우는 툴입니다.

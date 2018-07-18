@@ -1,8 +1,8 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "RHI.h"
-#include "ModuleManager.h"
-#include "AndroidApplication.h"
+#include "Modules/ModuleManager.h"
+#include "Android/AndroidApplication.h"
 
 FDynamicRHI* PlatformCreateDynamicRHI()
 {
@@ -10,8 +10,9 @@ FDynamicRHI* PlatformCreateDynamicRHI()
 
 	// Load the dynamic RHI module.
 	IDynamicRHIModule* DynamicRHIModule = NULL;
+	ERHIFeatureLevel::Type RequestedFeatureLevel = ERHIFeatureLevel::Num;
 
-	if (FAndroidMisc::ShouldUseVulkan())
+	if (FPlatformMisc::ShouldUseVulkan())
 	{
 		// Vulkan is required, release the EGL created by FAndroidAppEntry::PlatformInit.
 		FAndroidAppEntry::ReleaseEGL();
@@ -20,6 +21,10 @@ FDynamicRHI* PlatformCreateDynamicRHI()
 		if (!DynamicRHIModule->IsSupported())
 		{
 			DynamicRHIModule = &FModuleManager::LoadModuleChecked<IDynamicRHIModule>(TEXT("OpenGLDrv"));
+		}
+		else
+		{
+			RequestedFeatureLevel = FPlatformMisc::ShouldUseDesktopVulkan() ? ERHIFeatureLevel::SM5 : ERHIFeatureLevel::ES3_1;
 		}
 	}
 	else
@@ -38,7 +43,7 @@ FDynamicRHI* PlatformCreateDynamicRHI()
 	if (DynamicRHIModule)
 	{
 		// Create the dynamic RHI.
-		DynamicRHI = DynamicRHIModule->CreateRHI();
+		DynamicRHI = DynamicRHIModule->CreateRHI(RequestedFeatureLevel);
 	}
 
 	return DynamicRHI;

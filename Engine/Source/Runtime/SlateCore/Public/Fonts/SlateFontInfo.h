@@ -39,6 +39,13 @@ struct SLATECORE_API FFontOutlineSettings
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=OutlineSettings, meta=(ClampMin="0"))
 	int32 OutlineSize;
 
+	/** 
+	 * If checked, the outline will be completely translucent where the filled area will be.  This allows for a separate fill alpha value
+	 * The trade off when enabling this is slightly worse quality for completely opaque fills where the inner outline border meets the fill area
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=OutlineSettings)
+	bool bSeparateFillAlpha;
+
 	/** Optional material to apply to the outline */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=SlateStyleRules, meta=(AllowedClasses="MaterialInterface"))
 	UObject* OutlineMaterial;
@@ -47,32 +54,23 @@ struct SLATECORE_API FFontOutlineSettings
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=OutlineSettings)
 	FLinearColor OutlineColor;
 
-	/** 
-	 * If checked, the outline will be completely translucent where the filled area will be.  This allows for a separate fill alpha value
-	 * The trade off when enabling this is slightly worse quality for completely opaque fills where the inner outline border meets the fill area
-	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=OutlineSettings)
-	bool bSeparateFillAlpha;
-
 	FFontOutlineSettings()
 		: OutlineSize(0)
+		, bSeparateFillAlpha(false)
 		, OutlineMaterial(nullptr)
 		, OutlineColor(FLinearColor::Black)
-		, bSeparateFillAlpha(false)
 	{}
 
 	FFontOutlineSettings(int32 InOutlineSize, FLinearColor InColor = FLinearColor::Black)
 		: OutlineSize(InOutlineSize)
+		, bSeparateFillAlpha(false)
 		, OutlineMaterial(nullptr)
 		, OutlineColor(InColor)
-		, bSeparateFillAlpha(false)
 	{}
 
 	bool operator==(const FFontOutlineSettings& Other) const
 	{
 		return OutlineSize == Other.OutlineSize
-			&& OutlineMaterial == Other.OutlineMaterial
-			&& OutlineColor == Other.OutlineColor
 			&& bSeparateFillAlpha == Other.bSeparateFillAlpha;
 	}
 
@@ -80,10 +78,13 @@ struct SLATECORE_API FFontOutlineSettings
 	{
 		uint32 Hash = 0;
 		Hash = HashCombine(Hash, GetTypeHash(OutlineSettings.OutlineSize));
-		Hash = HashCombine(Hash, GetTypeHash(OutlineSettings.OutlineMaterial));
-		Hash = HashCombine(Hash, GetTypeHash(OutlineSettings.OutlineColor));
 		Hash = HashCombine(Hash, GetTypeHash(OutlineSettings.bSeparateFillAlpha));
 		return Hash;
+	}
+
+	bool IsVisible() const
+	{
+		return OutlineSize > 0 && OutlineColor.A > 0;
 	}
 
 	static FFontOutlineSettings NoOutline;
@@ -265,6 +266,8 @@ public:
 	 */
 	void PostSerialize(const FArchive& Ar);
 #endif
+
+	void AddReferencedObjects(FReferenceCollector& Collector);
 
 private:
 

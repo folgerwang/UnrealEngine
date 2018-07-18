@@ -4,9 +4,9 @@
 #pragma once
 
 
-#include "OnlineFriendsInterface.h"
+#include "Interfaces/OnlineFriendsInterface.h"
 #include "OnlineSubsystemIOSTypes.h"
-#include "OnlinePresenceInterface.h"
+#include "Interfaces/OnlinePresenceInterface.h"
 
 /**
  * Info associated with an online friend on the ios gamecenter service
@@ -34,7 +34,7 @@ public:
 	 * Init/default constructor
 	 */
 	FOnlineFriendIOS(const FString& InUserId=TEXT("")) 
-		: UserId(new FUniqueNetIdString(InUserId))
+		: UserId(new FUniqueNetIdIOS(InUserId))
 	{
 	}
 

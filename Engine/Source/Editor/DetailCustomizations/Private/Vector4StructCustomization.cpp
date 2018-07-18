@@ -1,8 +1,8 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 #include "Vector4StructCustomization.h"
 #include "IPropertyUtilities.h"
-#include "SNumericEntryBox.h"
-#include "SColorGradingPicker.h"
+#include "Widgets/Input/SNumericEntryBox.h"
+#include "Widgets/Colors/SColorGradingPicker.h"
 #include "IDetailChildrenBuilder.h"
 #include "DetailLayoutBuilder.h"
 #include "DetailWidgetRow.h"

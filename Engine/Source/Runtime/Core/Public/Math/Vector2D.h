@@ -58,6 +58,13 @@ public:
 	explicit FORCEINLINE FVector2D(EForceInit);
 
 	/**
+	 * Constructor that does not initialize.  More explicit than the default constructor.
+	 *
+	 * @param ENoInit Don't init
+	 */
+	explicit FORCEINLINE FVector2D(ENoInit) { }
+
+	/**
 	 * Constructs a vector from an FVector.
 	 * Copies the X and Y components from the FVector.
 	 *
@@ -928,7 +935,7 @@ FORCEINLINE bool FVector2D::InitFromString(const FString& InSourceString)
 
 FORCEINLINE float FMath::GetRangePct(FVector2D const& Range, float Value)
 {
-	return (Range.X != Range.Y) ? (Value - Range.X) / (Range.Y - Range.X) : Range.X;
+	return GetRangePct(Range.X, Range.Y, Value);
 }
 
 FORCEINLINE float FMath::GetRangeValue(FVector2D const& Range, float Pct)

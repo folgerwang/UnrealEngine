@@ -9,6 +9,7 @@
 #include "UObject/TextProperty.h"
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonSerializer.h"
+#include "Policies/CondensedJsonPrintPolicy.h"
 #include "UObject/PropertyPortFlags.h"
 #include "OnlineSubsystem.h"
 #include "JsonObjectConverter.h"
@@ -25,6 +26,10 @@ FVariantData::FVariantData(const FVariantData& Other)
 	if (Other.Type == EOnlineKeyValuePairDataType::String)
 	{
 		SetValue(Other.Value.AsTCHAR);
+	}
+	else if (Other.Type == EOnlineKeyValuePairDataType::Json)
+	{
+		SetJsonValueFromString(Other.Value.AsTCHAR);
 	}
 	else if (Other.Type == EOnlineKeyValuePairDataType::Blob)
 	{
@@ -62,6 +67,10 @@ FVariantData& FVariantData::operator=(const FVariantData& Other)
 		if (Other.Type == EOnlineKeyValuePairDataType::String)
 		{
 			SetValue(Other.Value.AsTCHAR);
+		}
+		else if (Other.Type == EOnlineKeyValuePairDataType::Json)
+		{
+			SetJsonValueFromString(Other.Value.AsTCHAR);
 		}
 		else if (Other.Type == EOnlineKeyValuePairDataType::Blob)
 		{
@@ -102,7 +111,7 @@ void FVariantData::SetValue(const TCHAR* InData)
 {
 	Empty();
 	Type = EOnlineKeyValuePairDataType::String;
-	if (InData != NULL)
+	if (InData != nullptr)
 	{	
 		int32 StrLen = FCString::Strlen(InData);
 		// Allocate a buffer for the string plus terminator
@@ -243,13 +252,37 @@ void FVariantData::SetValue(uint64 InData)
 }
 
 /**
+* Copies the data and sets the type
+*
+* @param InData the new data to assign
+*/
+void FVariantData::SetValue(const TSharedRef<FJsonObject>& InData)
+{
+	FString SerializedData;
+	auto Writer = TJsonWriterFactory<TCHAR, TCondensedJsonPrintPolicy<TCHAR>>::Create(&SerializedData);
+	FJsonSerializer::Serialize(InData, Writer);
+	SetJsonValueFromString(SerializedData);
+}
+
+/**
+* Copies the data and sets the type
+*
+* @param InData the new data to assign
+*/
+void FVariantData::SetJsonValueFromString(const FString& InData)
+{
+	SetValue(InData);
+	Type = EOnlineKeyValuePairDataType::Json;
+}
+
+/**
  * Copies the data after verifying the type
  *
  * @param OutData out value that receives the copied data
  */
 void FVariantData::GetValue(FString& OutData) const
 {
-	if (Type == EOnlineKeyValuePairDataType::String && Value.AsTCHAR != NULL)
+	if ((Type == EOnlineKeyValuePairDataType::String || Type == EOnlineKeyValuePairDataType::Json) && Value.AsTCHAR != nullptr)
 	{
 		OutData = Value.AsTCHAR;
 	}
@@ -380,7 +413,7 @@ void FVariantData::GetValue(uint32& OutSize, uint8** OutData) const
 	else
 	{
 		OutSize = 0;
-		*OutData = NULL;
+		*OutData = nullptr;
 	}
 }
 
@@ -419,6 +452,29 @@ void FVariantData::GetValue(double& OutData) const
 	else
 	{
 		OutData = 0.0;
+	}
+}
+
+/**
+* Copies the data after verifying the type
+*
+* @param OutData out value that receives the copied data
+*/
+void FVariantData::GetValue(TSharedPtr<FJsonObject>& OutData) const
+{
+	if (Type == EOnlineKeyValuePairDataType::Json)
+	{
+		FString SerializedData;
+		auto Reader = TJsonReaderFactory<TCHAR>::Create(Value.AsTCHAR);
+		if (!FJsonSerializer::Deserialize(Reader, OutData))
+		{
+			OutData = MakeShared<FJsonObject>();
+			UE_LOG_ONLINE(Warning, TEXT("Invalid serialized json in FVariantData: %s"), Value.AsTCHAR);
+		}
+	}
+	else
+	{
+		OutData = MakeShared<FJsonObject>();
 	}
 }
 
@@ -743,6 +799,183 @@ bool FVariantData::FromJson(const TSharedRef<FJsonObject>& JsonObject)
 	return bResult;
 }
 
+void FVariantData::AddToJsonObject(const TSharedRef<FJsonObject>& JsonObject, const FString& Name) const
+{
+	switch (Type)
+	{
+	case EOnlineKeyValuePairDataType::Int32:
+	{
+		int32 FieldValue;
+		GetValue(FieldValue);
+		JsonObject->SetNumberField(Name + TEXT("_i"), (double)FieldValue);
+		break;
+	}
+	case EOnlineKeyValuePairDataType::UInt32:
+	{
+		uint32 FieldValue;
+		GetValue(FieldValue);
+		JsonObject->SetNumberField(Name + TEXT("_u"), (double)FieldValue);
+		break;
+	}
+	case EOnlineKeyValuePairDataType::Float:
+	{
+		float FieldValue;
+		GetValue(FieldValue);
+		JsonObject->SetNumberField(Name + TEXT("_f"), (double)FieldValue);
+		break;
+	}
+	case EOnlineKeyValuePairDataType::String:
+	{
+		FString FieldValue;
+		GetValue(FieldValue);
+		JsonObject->SetStringField(Name + TEXT("_s"), FieldValue);
+		break;
+	}
+	case EOnlineKeyValuePairDataType::Bool:
+	{
+		bool FieldValue;
+		GetValue(FieldValue);
+		JsonObject->SetBoolField(Name + TEXT("_b"), FieldValue);
+		break;
+	}
+	case EOnlineKeyValuePairDataType::Int64:
+	{
+		JsonObject->SetStringField(Name + TEXT("_I"), ToString());
+		break;
+	}
+	case EOnlineKeyValuePairDataType::UInt64:
+	{
+		JsonObject->SetStringField(Name + TEXT("_U"), ToString());
+		break;
+	}
+	case EOnlineKeyValuePairDataType::Double:
+	{
+		double FieldValue;
+		GetValue(FieldValue);
+		JsonObject->SetNumberField(Name + TEXT("_d"), (double)FieldValue);
+		break;
+	}
+	case EOnlineKeyValuePairDataType::Json:
+	{
+		TSharedPtr<FJsonObject> FieldValue;
+		GetValue(FieldValue);
+		JsonObject->SetObjectField(Name + TEXT("_j"), FieldValue);
+	}
+	case EOnlineKeyValuePairDataType::Empty:
+	case EOnlineKeyValuePairDataType::Blob:
+	default:
+		break;
+	}
+}
+
+bool FVariantData::FromJsonValue(const FString& JsonPropertyName, const TSharedRef<class FJsonValue>& JsonValue, FString& OutName)
+{
+	bool bResult = false;
+	const TCHAR* Separator = FCString::Strrchr(*JsonPropertyName, TEXT('_'));
+	int32 Index;
+	if (JsonPropertyName.FindLastChar(TEXT('_'), Index) && Index + 1 < JsonPropertyName.Len())
+	{
+		const TCHAR DataType = JsonPropertyName[Index + 1];
+		OutName = JsonPropertyName.Left(Index);
+		switch (DataType)
+		{
+		case TEXT('i'):
+		{
+			int32 FieldValue;
+			if (JsonValue->TryGetNumber(FieldValue))
+			{
+				SetValue(FieldValue);
+				bResult = true;
+			}
+			break;
+		}
+		case TEXT('u'):
+		{
+			uint32 FieldValue;
+			if (JsonValue->TryGetNumber(FieldValue))
+			{
+				SetValue(FieldValue);
+				bResult = true;
+			}
+			break;
+		}
+		case TEXT('f'):
+		{
+			double FieldValue;
+			if (JsonValue->TryGetNumber(FieldValue))
+			{
+				SetValue(static_cast<float>(FieldValue));
+				bResult = true;
+			}
+			break;
+		}
+		case TEXT('s'):
+		{
+			FString FieldValue;
+			if (JsonValue->TryGetString(FieldValue))
+			{
+				SetValue(FieldValue);
+				bResult = true;
+			}
+			break;
+		}
+		case TEXT('b'):
+		{
+			bool FieldValue;
+			if (JsonValue->TryGetBool(FieldValue))
+			{
+				SetValue(FieldValue);
+				bResult = true;
+			}
+			break;
+		}
+		case TEXT('I'):
+		{
+			FString FieldValue;
+			if (JsonValue->TryGetString(FieldValue))
+			{
+				Type = EOnlineKeyValuePairDataType::Int64;
+				bResult = FromString(FieldValue);
+			}
+			break;
+		}
+		case TEXT('U'):
+		{
+			FString FieldValue;
+			if (JsonValue->TryGetString(FieldValue))
+			{
+				Type = EOnlineKeyValuePairDataType::UInt64;
+				bResult = FromString(FieldValue);
+			}
+			break;
+		}
+		case TEXT('d'):
+		{
+			double FieldValue;
+			if (JsonValue->TryGetNumber(FieldValue))
+			{
+				SetValue(FieldValue);
+				bResult = true;
+			}
+			break;
+		}
+		case TEXT('j'):
+		{
+			const TSharedPtr<FJsonObject>* FieldValue;
+			if (JsonValue->TryGetObject(FieldValue))
+			{
+				SetValue((*FieldValue).ToSharedRef());
+				bResult = true;
+			}
+		}
+		default:
+			break;
+		}
+	}
+
+	return bResult;
+}
+
 /**
  * Comparison of two settings data classes
  *
@@ -781,6 +1014,7 @@ bool FVariantData::operator==(const FVariantData& Other) const
 				return Value.AsDouble == Other.Value.AsDouble;
 			}
 		case EOnlineKeyValuePairDataType::String:
+		case EOnlineKeyValuePairDataType::Json:
 			{
 				return FCString::Strcmp(Value.AsTCHAR, Other.Value.AsTCHAR) == 0;
 			}
@@ -830,7 +1064,7 @@ bool FVariantDataConverter::VariantMapToUStruct(const FOnlineKeyValuePairs<FStri
 		void* Value = Property->ContainerPtrToValuePtr<uint8>(OutStruct);
 		if (!VariantDataToUProperty(VariantData, Property, Value, CheckFlags, SkipFlags))
 		{
-			UE_LOG(LogOnline, Error, TEXT("VariantMapToUStruct - Unable to parse %s.%s from Variant"), *StructDefinition->GetName(), *PropertyName);
+			UE_LOG_ONLINE(Error, TEXT("VariantMapToUStruct - Unable to parse %s.%s from Variant"), *StructDefinition->GetName(), *PropertyName);
 			return false;
 		}
 	}
@@ -842,13 +1076,13 @@ bool FVariantDataConverter::VariantDataToUProperty(const FVariantData* Variant, 
 {
 	if (!Variant)
 	{
-		UE_LOG(LogOnline, Error, TEXT("VariantDataToUProperty - Invalid value"));
+		UE_LOG_ONLINE(Error, TEXT("VariantDataToUProperty - Invalid value"));
 		return false;
 	}
 
 	if (Property->ArrayDim != 1)
 	{
-		UE_LOG(LogOnline, Warning, TEXT("Ignoring excess properties when deserializing %s"), *Property->GetName());
+		UE_LOG_ONLINE(Warning, TEXT("Ignoring excess properties when deserializing %s"), *Property->GetName());
 	}
 
 	return ConvertScalarVariantToUProperty(Variant, Property, OutValue, CheckFlags, SkipFlags);
@@ -916,7 +1150,7 @@ bool FVariantDataConverter::ConvertScalarVariantToUProperty(const FVariantData* 
 			EnumProperty->GetUnderlyingProperty()->SetIntPropertyValue(OutValue, Value);
 		}
 
-		UE_LOG(LogOnline, Error, TEXT("ConvertScalarVariantToUProperty - Unable to import enum %s from %s value for property %s"), *Enum->CppType, Variant->GetTypeString(), *Property->GetNameCPP());
+		UE_LOG_ONLINE(Error, TEXT("ConvertScalarVariantToUProperty - Unable to import enum %s from %s value for property %s"), *Enum->CppType, Variant->GetTypeString(), *Property->GetNameCPP());
 		return false;
 	}
 	else if (UNumericProperty* NumericProperty = Cast<UNumericProperty>(Property))
@@ -932,7 +1166,7 @@ bool FVariantDataConverter::ConvertScalarVariantToUProperty(const FVariantData* 
 			int32 IntValue = Enum->GetValueByName(FName(*StrValue));
 			if (IntValue == INDEX_NONE)
 			{
-				UE_LOG(LogOnline, Error, TEXT("ConvertScalarVariantToUProperty - Unable import enum %s from string value %s for property %s"), *Enum->CppType, *StrValue, *Property->GetNameCPP());
+				UE_LOG_ONLINE(Error, TEXT("ConvertScalarVariantToUProperty - Unable import enum %s from string value %s for property %s"), *Enum->CppType, *StrValue, *Property->GetNameCPP());
 				return false;
 			}
 			NumericProperty->SetIntPropertyValue(OutValue, (int64)IntValue);
@@ -1008,7 +1242,7 @@ bool FVariantDataConverter::ConvertScalarVariantToUProperty(const FVariantData* 
 		}
 		else
 		{
-			UE_LOG(LogOnline, Error, TEXT("ConvertScalarVariantToUProperty - Unable to set numeric property type %s for property %s"), *Property->GetClass()->GetName(), *Property->GetNameCPP());
+			UE_LOG_ONLINE(Error, TEXT("ConvertScalarVariantToUProperty - Unable to set numeric property type %s for property %s"), *Property->GetClass()->GetName(), *Property->GetNameCPP());
 			return false;
 		}
 	}
@@ -1033,13 +1267,13 @@ bool FVariantDataConverter::ConvertScalarVariantToUProperty(const FVariantData* 
 		TSharedRef<TJsonReader<>> JsonReader = TJsonReaderFactory<>::Create(StrValue);
 		if (!FJsonSerializer::Deserialize(JsonReader, JsonObject) || !JsonObject.IsValid())
 		{
-			UE_LOG(LogOnline, Warning, TEXT("ConvertScalarVariantToUProperty - Unable to parse json=[%s]"), *StrValue);
+			UE_LOG_ONLINE(Warning, TEXT("ConvertScalarVariantToUProperty - Unable to parse json=[%s]"), *StrValue);
 			return false;
 		}
 		
 		if (!FJsonObjectConverter::JsonValueToUProperty(JsonObject->GetField<EJson::Array>(Property->GetNameCPP()), Property, OutValue, 0, 0))
 		{
-			UE_LOG(LogOnline, Warning, TEXT("ConvertScalarVariantToUProperty - Unable to parse %s from JSON"), *Property->GetNameCPP());
+			UE_LOG_ONLINE(Warning, TEXT("ConvertScalarVariantToUProperty - Unable to parse %s from JSON"), *Property->GetNameCPP());
 			return false;
 		}
 	}
@@ -1054,7 +1288,7 @@ bool FVariantDataConverter::ConvertScalarVariantToUProperty(const FVariantData* 
 		}
 		else
 		{
-			UE_LOG(LogOnline, Error, TEXT("ConvertScalarVariantToUProperty - Attempted to import FText from variant that was not a string for property %s"), *Property->GetNameCPP());
+			UE_LOG_ONLINE(Error, TEXT("ConvertScalarVariantToUProperty - Attempted to import FText from variant that was not a string for property %s"), *Property->GetNameCPP());
 			return false;
 		}
 	}
@@ -1084,14 +1318,43 @@ bool FVariantDataConverter::ConvertScalarVariantToUProperty(const FVariantData* 
 			}
 			else if (!FDateTime::ParseIso8601(*DateString, DateTimeOut))
 			{
-				UE_LOG(LogOnline, Error, TEXT("ConvertScalarVariantToUProperty - Unable to import FDateTime from Iso8601 String for property %s"), *Property->GetNameCPP());
+				UE_LOG_ONLINE(Error, TEXT("ConvertScalarVariantToUProperty - Unable to import FDateTime from Iso8601 String for property %s"), *Property->GetNameCPP());
 				return false;
 			}
 		}
 		else
 		{
-			UE_LOG(LogOnline, Error, TEXT("ConvertScalarVariantToUProperty - Attempted to import UStruct from non-string key for property %s"), *Property->GetNameCPP());
-			return false;
+			FString StrValue;
+			Variant->GetValue(StrValue);
+
+			UScriptStruct::ICppStructOps* TheCppStructOps = StructProperty->Struct->GetCppStructOps();
+			if (StructProperty->Struct != FJsonObjectWrapper::StaticStruct() && TheCppStructOps && TheCppStructOps->HasImportTextItem())
+			{
+				// Has its own way of converting a string back to the right data type (FUniqueNetIdRepl for instance)
+				const TCHAR* ImportTextPtr = *StrValue;
+				if (!TheCppStructOps->ImportTextItem(ImportTextPtr, OutValue, PPF_None, nullptr, (FOutputDevice*)GWarn))
+				{
+					// Fall back to trying the tagged property approach if custom ImportTextItem couldn't get it done
+					Property->ImportText(ImportTextPtr, OutValue, PPF_None, nullptr);
+				}
+			}
+			else
+			{
+				// More complicated UStructs convert to/from Json Objects
+				TSharedPtr<FJsonObject> JsonObject;
+				TSharedRef<TJsonReader<>> JsonReader = TJsonReaderFactory<>::Create(StrValue);
+				if (!FJsonSerializer::Deserialize(JsonReader, JsonObject) || !JsonObject.IsValid())
+				{
+					UE_LOG_ONLINE(Warning, TEXT("ConvertScalarVariantToUProperty - Unable to parse json=[%s]"), *StrValue);
+					return false;
+				}
+
+				if (!FJsonObjectConverter::JsonValueToUProperty(JsonObject->GetField<EJson::Object>(Property->GetNameCPP()), Property, OutValue, 0, 0))
+				{
+					UE_LOG_ONLINE(Warning, TEXT("ConvertScalarVariantToUProperty - Unable to parse %s from JSON"), *Property->GetNameCPP());
+					return false;
+				}
+			}
 		}
 	}
 	else
@@ -1101,15 +1364,15 @@ bool FVariantDataConverter::ConvertScalarVariantToUProperty(const FVariantData* 
 		{
 			FString StrValue;
 			Variant->GetValue(StrValue);
-			if (Property->ImportText(*StrValue, OutValue, 0, NULL) == NULL)
+			if (Property->ImportText(*StrValue, OutValue, 0, nullptr) == nullptr)
 			{
-				UE_LOG(LogOnline, Error, TEXT("ConvertScalarVariantToUProperty - Unable import property type %s from string value for property %s"), *Property->GetClass()->GetName(), *Property->GetNameCPP());
+				UE_LOG_ONLINE(Error, TEXT("ConvertScalarVariantToUProperty - Unable import property type %s from string value for property %s"), *Property->GetClass()->GetName(), *Property->GetNameCPP());
 				return false;
 			}
 		}
 		else
 		{
-			UE_LOG(LogOnline, Error, TEXT("ConvertScalarVariantToUProperty - Unable import property type %s from string value for property %s"), *Property->GetClass()->GetName(), *Property->GetNameCPP());
+			UE_LOG_ONLINE(Error, TEXT("ConvertScalarVariantToUProperty - Unable import property type %s from string value for property %s"), *Property->GetClass()->GetName(), *Property->GetNameCPP());
 		}
 	}
 
@@ -1144,7 +1407,7 @@ bool FVariantDataConverter::UStructToVariantMap(const UStruct* StructDefinition,
 		{
 			VariantData.Empty();
 			UClass* PropClass = Property->GetClass();
-			UE_LOG(LogOnline, Error, TEXT("UStructToVariantMap - Unhandled property type '%s': %s"), *PropClass->GetName(), *Property->GetPathName());
+			UE_LOG_ONLINE(Error, TEXT("UStructToVariantMap - Unhandled property type '%s': %s"), *PropClass->GetName(), *Property->GetPathName());
 			return false;
 		}
 	}
@@ -1161,10 +1424,19 @@ bool FVariantDataConverter::UPropertyToVariantData(UProperty* Property, const vo
 	else 
 	{ 
 		UClass* PropClass = Property->GetClass();
-		UE_LOG(LogOnline, Error, TEXT("UPropertyToVariantData - ArrayDim > 1 for '%s': %s"), *PropClass->GetName(), *Property->GetPathName());
+		UE_LOG_ONLINE(Error, TEXT("UPropertyToVariantData - ArrayDim > 1 for '%s': %s"), *PropClass->GetName(), *Property->GetPathName());
 	}
 
 	return false;
+}
+
+void ConvertScalarUPropertyToJsonObject_Helper(UProperty* Property, const void* Value, FVariantData &OutVariantData)
+{
+	TSharedPtr<FJsonValue> Json = FJsonObjectConverter::UPropertyToJsonValue(Property, Value, 0, 0);
+
+	TSharedRef<FJsonObject> JsonObject = MakeShareable(new FJsonObject());
+	JsonObject->SetField(Property->GetNameCPP(), Json);
+	OutVariantData.SetValue(JsonObject);
 }
 
 bool FVariantDataConverter::ConvertScalarUPropertyToVariant(UProperty* Property, const void* Value, FVariantData& OutVariantData, int64 CheckFlags, int64 SkipFlags)
@@ -1182,7 +1454,7 @@ bool FVariantDataConverter::ConvertScalarUPropertyToVariant(UProperty* Property,
 	{
 		// see if it's an enum
 		UEnum* EnumDef = NumericProperty->GetIntPropertyEnum();
-		if (EnumDef != NULL)
+		if (EnumDef != nullptr)
 		{
 			// export enums as strings
 			FString StringValue = EnumDef->GetNameStringByValue(NumericProperty->GetSignedIntPropertyValue(Value));
@@ -1220,33 +1492,44 @@ bool FVariantDataConverter::ConvertScalarUPropertyToVariant(UProperty* Property,
 	}
 	else if (UArrayProperty *ArrayProperty = Cast<UArrayProperty>(Property))
 	{
-		TSharedPtr<FJsonValue> Json = FJsonObjectConverter::UPropertyToJsonValue(Property, Value, 0, 0);
-
-		TSharedRef<FJsonObject> JsonObject = MakeShareable(new FJsonObject());
-		JsonObject->SetField(Property->GetNameCPP(), Json);
-		
-		FString Contents;
-		TSharedRef< TJsonWriter<> > Writer = TJsonWriterFactory<>::Create(&Contents);
-		if (FJsonSerializer::Serialize(JsonObject, Writer))
-		{
-			OutVariantData.SetValue(Contents);
-		}
+		ConvertScalarUPropertyToJsonObject_Helper(Property, Value, OutVariantData);
 	}
 	else if (UStructProperty *StructProperty = Cast<UStructProperty>(Property))
 	{
-		FOnlineKeyValuePairs<FString, FVariantData> Out;
-		if (FVariantDataConverter::UStructToVariantMap(StructProperty->Struct, Value, Out, CheckFlags & (~CPF_ParmFlags), SkipFlags))
+		static const FName NAME_DateTime(TEXT("DateTime"));
+		if (StructProperty->Struct->GetFName() == NAME_DateTime)
 		{
-			// need to convert the data into the existing variant mapping
+			FString Iso8601String;
+			if (Value)
+			{
+				const FDateTime* Data = reinterpret_cast<const FDateTime*>(Value);
+				Iso8601String = Data->ToIso8601();
+			}
+			OutVariantData.SetValue(Iso8601String);
 		}
-		// fall through to default
+		else
+		{
+			UScriptStruct::ICppStructOps* TheCppStructOps = StructProperty->Struct->GetCppStructOps();
+			if (StructProperty->Struct != FJsonObjectWrapper::StaticStruct() && TheCppStructOps && TheCppStructOps->HasExportTextItem())
+			{
+				// If the struct has its own way of making a string, store it as such (FUniqueNetIdRepl for instance)
+				FString OutValueStr;
+				TheCppStructOps->ExportTextItem(OutValueStr, Value, nullptr, nullptr, PPF_None, nullptr);
+				OutVariantData.SetValue(OutValueStr);
+			}
+			else
+			{
+				// More complicated UStructs convert to/from Json Objects
+				ConvertScalarUPropertyToJsonObject_Helper(Property, Value, OutVariantData);
+			}
+		}
 	}
 	
 	if (OutVariantData.GetType() == EOnlineKeyValuePairDataType::Empty)
 	{
 		// Default to export as string for everything else
 		FString StringValue;
-		Property->ExportTextItem(StringValue, Value, NULL, NULL, PPF_None);
+		Property->ExportTextItem(StringValue, Value, nullptr, nullptr, PPF_None);
 		OutVariantData.SetValue(StringValue);
 	}
 

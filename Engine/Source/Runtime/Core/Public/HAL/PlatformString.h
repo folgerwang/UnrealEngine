@@ -17,9 +17,11 @@
 #include "Android/AndroidString.h"
 #elif PLATFORM_HTML5
 #include "HTML5/HTML5PlatformString.h"
-#elif PLATFORM_LINUX
-#include "Linux/LinuxPlatformString.h"
+#elif PLATFORM_UNIX
+#include "Unix/UnixPlatformString.h"
 #elif PLATFORM_SWITCH
 #include "Switch/SwitchPlatformString.h"
+#else
+#error Unknown platform
 #endif
 

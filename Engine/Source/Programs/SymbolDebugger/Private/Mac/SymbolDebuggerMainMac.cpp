@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SymbolDebuggerApp.h"
-#include "CocoaThread.h"
+#include "Mac/CocoaThread.h"
 
 static FString GSavedCommandLine;
 

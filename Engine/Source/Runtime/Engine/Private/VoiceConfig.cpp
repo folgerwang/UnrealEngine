@@ -1,10 +1,25 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "VoiceConfig.h"
+#include "Net/VoiceConfig.h"
 #include "Engine/World.h"
 #include "GameFramework/GameStateBase.h"
 
 TMap<FUniqueNetIdWrapper, UVOIPTalker*> UVOIPStatics::VoiceTalkerMap;
+
+static TAutoConsoleVariable<float> CVarVoiceSilenceDetectionAttackTime(TEXT("voice.SilenceDetectionAttackTime"),
+	2.0f,
+	TEXT("Attack time to be set for the VOIP microphone's silence detection algorithm in milliseconds.\n"),	
+	ECVF_Default);
+
+static TAutoConsoleVariable<float> CVarVoiceSilenceDetectionReleaseTime(TEXT("voice.SilenceDetectionReleaseTime"),
+	1100.0f,
+	TEXT("Release time to be set for the VOIP microphone's silence detection algorithm in milliseconds.\n"),	
+	ECVF_Default);
+
+static TAutoConsoleVariable<float> CVarVoiceSilenceDetectionThreshold(TEXT("voice.SilenceDetectionThreshold"),
+	0.08f,
+	TEXT("Threshold to be set for the VOIP microphone's silence detection algorithm.\n"),	
+	ECVF_Default);
 
 int32 UVOIPStatics::GetVoiceSampleRate()
 {
@@ -143,7 +158,9 @@ APlayerState* UVOIPStatics::GetPlayerStateFromUniqueNetId(UWorld* InWorld, const
 
 void UVOIPStatics::SetMicThreshold(float InThreshold)
 {
-	MicSilenceDetectionConfig::Threshold = InThreshold;
+	static IConsoleVariable* SilenceDetectionCVar = IConsoleManager::Get().FindConsoleVariable(TEXT("voice.SilenceDetectionThreshold"));
+	check(SilenceDetectionCVar);
+	SilenceDetectionCVar->Set(InThreshold, ECVF_SetByGameSetting);
 }
 
 void UVOIPStatics::SetVOIPTalkerForPlayer(const FUniqueNetIdWrapper& InPlayerId, UVOIPTalker* InTalker)

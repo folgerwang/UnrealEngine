@@ -13,9 +13,6 @@
 #define UE_GCCLUSTER_VERBOSE_LOGGING (0 && !UE_BUILD_SHIPPING)
 #endif
 
-// Verifies cluster assumptions
-COREUOBJECT_API bool VerifyClusterAssumptions(UObject* ClusterRootObject);
-
 #if !UE_BUILD_SHIPPING
 
 // Dumps a single cluster to log

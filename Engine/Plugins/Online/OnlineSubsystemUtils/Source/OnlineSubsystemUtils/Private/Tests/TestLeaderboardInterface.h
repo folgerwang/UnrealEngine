@@ -17,11 +17,17 @@
 	/** The subsystem that was requested to be tested or the default if empty */
 	const FString Subsystem;
 
+	/** Cached Online Subsystem Pointer */
+	class IOnlineSubsystem* OnlineSub;
+
 	/** Keep track of success across all functions and callbacks */
 	bool bOverallSuccess;
 
 	/** Logged in UserId */
 	TSharedPtr<const FUniqueNetId> UserId;
+
+	/** Passed in UserId */
+	FString FindRankUserId;
 
 	/** Convenient access to the leaderboard interfaces */
 	IOnlineLeaderboardsPtr Leaderboards;
@@ -33,10 +39,14 @@
 	FOnLeaderboardFlushCompleteDelegate LeaderboardFlushDelegate;
 	/** Delegate called when a leaderboard has been successfully read */
 	FOnLeaderboardReadCompleteDelegate LeaderboardReadCompleteDelegate;
+	FOnLeaderboardReadCompleteDelegate LeaderboardReadRankCompleteDelegate;
+	FOnLeaderboardReadCompleteDelegate LeaderboardReadRankUserCompleteDelegate;
 
 	/** Handles to the above delegates */ 
 	FDelegateHandle LeaderboardFlushDelegateHandle;
 	FDelegateHandle LeaderboardReadCompleteDelegateHandle;
+	FDelegateHandle LeaderboardReadRankCompleteDelegateHandle;
+	FDelegateHandle LeaderboardReadRankUserCompleteDelegateHandle;
 
 	/** Current phase of testing */
 	int32 TestPhase;
@@ -68,11 +78,19 @@
 	 *	Delegate called when a leaderboard has been successfully read
 	 */
 	void OnLeaderboardReadComplete(bool bWasSuccessful);
+	void OnLeaderboardRankReadComplete(bool bWasSuccessful);
+	void OnLeaderboardUserRankReadComplete(bool bWasSuccessful);
 
 	/**
 	 *	Read in some predefined data from a leaderboard
 	 */
 	void ReadLeaderboards();
+	void ReadLeaderboardsRank(int32 Rank, int32 Range);
+	void ReadLeaderboardsUser(const FUniqueNetId& InUserId, int32 Range);
+	void ReadLeaderboardsUser(int32 Range);
+
+	/** Utilities */
+	void PrintLeaderboards();
 
  public:
 	/**
@@ -80,19 +98,9 @@
 	 *
 	 * @param InSubsystem the subsystem to test
 	 */
-	FTestLeaderboardInterface(const FString& InSubsystem) :
-		Subsystem(InSubsystem),
-		bOverallSuccess(true),
-		Leaderboards(NULL),
-		TestPhase(0),
-		LastTestPhase(-1)
-	{
-	}
+	FTestLeaderboardInterface(const FString& InSubsystem);
 
-	~FTestLeaderboardInterface()
-	{
-		Leaderboards = NULL;
-	}
+	virtual ~FTestLeaderboardInterface();
 
 	// FTickerObjectBase
 
@@ -103,7 +111,7 @@
 	/**
 	 * Kicks off all of the testing process
 	 */
-	void Test(class UWorld* InWorld);
+	void Test(class UWorld* InWorld, const FString& InUserId);
  };
 
 #endif //WITH_DEV_AUTOMATION_TESTS

@@ -14,11 +14,50 @@ void UGameplayTagsList::SortTags()
 	GameplayTagList.Sort();
 }
 
+URestrictedGameplayTagsList::URestrictedGameplayTagsList(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+	// No config filename, needs to be set at creation time
+}
+
+void URestrictedGameplayTagsList::SortTags()
+{
+	RestrictedGameplayTagList.Sort();
+}
+
+bool FRestrictedConfigInfo::operator==(const FRestrictedConfigInfo& Other) const
+{
+	if (RestrictedConfigName != Other.RestrictedConfigName)
+	{
+		return false;
+	}
+
+	if (Owners.Num() != Other.Owners.Num())
+	{
+		return false;
+	}
+
+	for (int32 Idx = 0; Idx < Owners.Num(); ++Idx)
+	{
+		if (Owners[Idx] != Other.Owners[Idx])
+		{
+			return false;
+		}
+	}
+
+	return true;
+}
+
+bool FRestrictedConfigInfo::operator!=(const FRestrictedConfigInfo& Other) const
+{
+	return !(operator==(Other));
+}
+
 UGameplayTagsSettings::UGameplayTagsSettings(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
 	ConfigFileName = GetDefaultConfigFilename();
-	ImportTagsFromConfig = false;
+	ImportTagsFromConfig = true;
 	WarnOnInvalidTags = true;
 	FastReplication = false;
 	NumBitsForContainerSize = 6;
@@ -26,11 +65,53 @@ UGameplayTagsSettings::UGameplayTagsSettings(const FObjectInitializer& ObjectIni
 }
 
 #if WITH_EDITOR
+void UGameplayTagsSettings::PreEditChange(UProperty* PropertyThatWillChange)
+{
+	Super::PreEditChange(PropertyThatWillChange);
+
+	if (PropertyThatWillChange && PropertyThatWillChange->GetFName() == GET_MEMBER_NAME_CHECKED(UGameplayTagsSettings, RestrictedConfigFiles))
+	{
+		RestrictedConfigFilesTempCopy = RestrictedConfigFiles;
+	}
+}
+
 void UGameplayTagsSettings::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 	if (PropertyChangedEvent.Property)
 	{
+		if (PropertyChangedEvent.Property->GetName() == "RestrictedConfigName")
+		{
+			UGameplayTagsManager& Manager = UGameplayTagsManager::Get();
+			for (const FRestrictedConfigInfo& Info : RestrictedConfigFiles)
+			{
+				if (!Info.RestrictedConfigName.IsEmpty())
+				{
+					Manager.FindOrAddTagSource(*Info.RestrictedConfigName, EGameplayTagSourceType::RestrictedTagList);
+				}
+			}
+		}
+
+		// if we're adding a new restricted config file we will try to auto populate the owner
+		if (PropertyChangedEvent.ChangeType == EPropertyChangeType::ArrayAdd && PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(UGameplayTagsSettings, RestrictedConfigFiles))
+		{
+			if (RestrictedConfigFilesTempCopy.Num() + 1 == RestrictedConfigFiles.Num())
+			{
+				int32 FoundIdx = RestrictedConfigFilesTempCopy.Num();
+				for (int32 Idx = 0; Idx < RestrictedConfigFilesTempCopy.Num(); ++Idx)
+				{
+					if (RestrictedConfigFilesTempCopy[Idx] != RestrictedConfigFiles[Idx])
+					{
+						FoundIdx = Idx;
+						break;
+					}
+				}
+
+				ensure(FoundIdx < RestrictedConfigFiles.Num());
+				RestrictedConfigFiles[FoundIdx].Owners.Add(FPlatformProcess::UserName());
+
+			}
+		}
 		IGameplayTagsModule::OnTagSettingsChanged.Broadcast();
 	}
 }

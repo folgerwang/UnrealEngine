@@ -331,7 +331,7 @@ void FVirtualTextureSpace::ApplyUpdates( FRHICommandList& RHICmdList )
 		MipSize >>= 1;
 	}
 
-	RHICmdList.CopyToResolveTarget( PageTableTarget.TargetableTexture, PageTableTarget.ShaderResourceTexture, false, FResolveParams() );
+	RHICmdList.CopyToResolveTarget( PageTableTarget.TargetableTexture, PageTableTarget.ShaderResourceTexture, FResolveParams() );
 
 	GRenderTargetPool.VisualizeTexture.SetCheckPoint( RHICmdList, PageTable );
 }

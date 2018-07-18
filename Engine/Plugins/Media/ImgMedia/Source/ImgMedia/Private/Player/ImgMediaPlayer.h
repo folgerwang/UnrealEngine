@@ -130,6 +130,9 @@ private:
 	/** The URL of the currently opened media. */
 	FString CurrentUrl;
 
+	/** Whether an offset to delta time has been applied yet. */
+	bool DeltaTimeHackApplied;
+
 	/** The media event handler. */
 	IMediaEventSink& EventSink;
 

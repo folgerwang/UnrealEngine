@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3801260
 Availability: Public
 Title:캐스케이드 파티클 에디터 참고서
 Crumbs: %ROOT%, Engine, Engine/Rendering/ParticleSystems
@@ -296,10 +296,6 @@ topic-image:cascade_topic.png
 [/EXCERPT:Emitters]
 
 [/COMMENT]
-
-[REGION:raw]
-![](Engine\Rendering\LightingAndShadows\LightTypes\Point\spacer.png)
-[/REGION]
 
 [COMMENT:none]
 

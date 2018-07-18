@@ -52,7 +52,7 @@ struct FBuildPatchUtils
 	 * @param FileHash			The file hash value
 	 * @return	The file chunk path
 	 */
-	static FString GetFileNewFilename(const EBuildPatchAppManifestVersion::Type ManifestVersion, const FString& RootDirectory, const FGuid& FileGUID, const FSHAHashData& FileHash);
+	static FString GetFileNewFilename(const EBuildPatchAppManifestVersion::Type ManifestVersion, const FString& RootDirectory, const FGuid& FileGUID, const FSHAHash& FileHash);
 	static FString GetFileNewFilename(const EBuildPatchAppManifestVersion::Type ManifestVersion, const FString& RootDirectory, const FGuid& FileGUID, const uint64& FilePartHash);
 
 	/**
@@ -69,7 +69,7 @@ struct FBuildPatchUtils
 	 * @param FileGUID			OUT	The file chunk Guid
 	 * @param FileHash			OUT	The file chunk rolling hash value
 	 */
-	static void GetFileDetailFromNewFilename(const FString& FileNewFilename, FGuid& FileGUID, FSHAHashData& FileHash);
+	static void GetFileDetailFromNewFilename(const FString& FileNewFilename, FGuid& FileGUID, FSHAHash& FileHash);
 
 	/**
 	 * Gets the filename for a chunk generated from it's GUID
@@ -132,7 +132,7 @@ struct FBuildPatchUtils
 	 * @param ShouldAbortDelegate	IN		Delegate that returns a bool, which if true will abort the process
 	 * @return		0 if no match, 1 for match with Hash1, and 2 for match with Hash2
 	 */
-	static uint8 VerifyFile(BuildPatchServices::IFileSystem* FileSystem, const FString& FileToVerify, const FSHAHashData& Hash1, const FSHAHashData& Hash2, FBuildPatchFloatDelegate ProgressDelegate, FBuildPatchBoolRetDelegate ShouldPauseDelegate, FBuildPatchBoolRetDelegate ShouldAbortDelegate);
+	static uint8 VerifyFile(BuildPatchServices::IFileSystem* FileSystem, const FString& FileToVerify, const FSHAHash& Hash1, const FSHAHash& Hash2, FBuildPatchFloatDelegate ProgressDelegate, FBuildPatchBoolRetDelegate ShouldPauseDelegate, FBuildPatchBoolRetDelegate ShouldAbortDelegate);
 
 	/**
 	 * Checks a file against SHA1 hashes. The function takes two so that it can return no match, match with Hash1, or match with Hash2, that way we can check the file for being the same as an old manifest or new manifest
@@ -143,5 +143,5 @@ struct FBuildPatchUtils
 	 * @param Hash2					IN		A second Hash to match against the file
 	 * @return		0 if no match, 1 for match with Hash1, and 2 for match with Hash2
 	 */
-	static uint8 VerifyFile(BuildPatchServices::IFileSystem* FileSystem, const FString& FileToVerify, const FSHAHashData& Hash1, const FSHAHashData& Hash2);
+	static uint8 VerifyFile(BuildPatchServices::IFileSystem* FileSystem, const FString& FileToVerify, const FSHAHash& Hash1, const FSHAHash& Hash2);
 };

@@ -110,7 +110,7 @@ UModelComponent::UModelComponent(const FObjectInitializer& ObjectInitializer)
 	CastShadow = true;
 	bUseAsOccluder = true;
 	Mobility = EComponentMobility::Static;
-	bGenerateOverlapEvents = false;
+	SetGenerateOverlapEvents(false);
 
 	SetCollisionProfileName(UCollisionProfile::BlockAll_ProfileName);
 }
@@ -128,7 +128,7 @@ void UModelComponent::InitializeModelComponent(UModel* InModel, uint16 InCompone
 	CastShadow = true;
 	bUseAsOccluder = true;
 	Mobility = EComponentMobility::Static;
-	bGenerateOverlapEvents = false;
+	SetGenerateOverlapEvents(false);
 
 	SetCollisionProfileName(UCollisionProfile::BlockAll_ProfileName);
 }

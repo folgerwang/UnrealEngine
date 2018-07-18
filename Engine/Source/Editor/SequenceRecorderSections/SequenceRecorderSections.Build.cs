@@ -32,6 +32,7 @@ namespace UnrealBuildTool.Rules
                     "MovieScene",
                     "MovieSceneTracks",
 					"SequenceRecorder",
+					"TimeManagement"
 				}
 				);
 

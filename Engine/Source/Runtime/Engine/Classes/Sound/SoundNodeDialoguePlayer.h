@@ -35,7 +35,7 @@ public:
 
 	//~ Begin USoundNode Interface
 	virtual int32 GetMaxChildNodes() const override;
-	virtual float GetDuration() override;
+	virtual float GetDuration();
 	virtual int32 GetNumSounds(const UPTRINT NodeWaveInstanceHash, FActiveSound& ActiveSound) const { return 1; }
 	virtual void ParseNodes( FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanceHash, FActiveSound& ActiveSound, const FSoundParseParameters& ParseParams, TArray<FWaveInstance*>& WaveInstances ) override;
 #if WITH_EDITOR

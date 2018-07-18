@@ -10,7 +10,6 @@
 #define PICTURE_DATA_SILHOUETTE "is_silhouette"
 #define PICTURE_DATA_URL "url"
 
-#if 0
 /**
  * Facebook specific implementation of the unique net id
  */
@@ -46,6 +45,16 @@ public:
 	explicit FUniqueNetIdFacebook(uint64 InUniqueNetId) :
 		UniqueNetId(InUniqueNetId)
 	{
+	}
+
+	explicit FUniqueNetIdFacebook(const FString& Str) :
+		UniqueNetId(FCString::Strtoui64(*Str, nullptr, 10))
+	{
+	}
+
+	virtual FName GetType() const override
+	{
+		return FACEBOOK_SUBSYSTEM;
 	}
 
 	//~ Begin FUniqueNetId Interface
@@ -88,7 +97,6 @@ public:
 		return (uint32)(A.UniqueNetId) + ((uint32)((A.UniqueNetId) >> 32 ) * 23);
 	}
 };
-#endif
 
 /**
  * Facebook error from JSON payload

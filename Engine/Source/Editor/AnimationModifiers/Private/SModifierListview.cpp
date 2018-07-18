@@ -2,9 +2,9 @@
 
 #include "SModifierListview.h"
 #include "SModifierItemRow.h"
-#include "MultiBoxBuilder.h"
-#include "GenericCommands.h"
-#include "MultiBoxBuilder.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Framework/Commands/GenericCommands.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "EditorStyleSet.h"
 
 #define LOCTEXT_NAMESPACE "SModifierListview"

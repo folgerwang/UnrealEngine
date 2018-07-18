@@ -4,6 +4,7 @@
  * MaterialTemplate.usf: Filled in by FHLSLMaterialTranslator::GetMaterialShaderCode for each material being compiled.
  */
 
+#include "/Engine/Private/SceneTexturesCommon.ush"
 #include "/Engine/Private/Random.ush"
 #include "/Engine/Private/MonteCarlo.ush"
 #include "/Engine/Generated/UniformBuffers/Material.ush"
@@ -87,8 +88,22 @@ struct FMaterialParticleParameters
 	float4 TranslatedWorldPositionAndSize;
 	/** Macro UV scale and bias. */
 	half4 MacroUV;
-	/** Dynamic parameter used by particle systems. */
+
+	/** Dynamic parameters used by particle systems. */
 	half4 DynamicParameter;
+
+#if NUM_DYNAMIC_PARAMETERS > 1
+	half4 DynamicParameter1;
+#endif
+
+#if NUM_DYNAMIC_PARAMETERS > 2
+	half4 DynamicParameter2;
+#endif
+
+#if NUM_DYNAMIC_PARAMETERS > 3
+	half4 DynamicParameter3;
+#endif
+
 	/** mesh particle orientation */
 	float4x4 LocalToWorld;
 
@@ -103,13 +118,40 @@ struct FMaterialParticleParameters
 	float2 Size;
 };
 
-float4 GetDynamicParameter(FMaterialParticleParameters Parameters, float4 Default)
+float4 GetDynamicParameter(FMaterialParticleParameters Parameters, float4 Default, int ParameterIndex=0)
 {
-	#if (PARTICLE_FACTORY || NIAGARA_PARTICLE_FACTORY)
+#if (NIAGARA_PARTICLE_FACTORY)
+	if(ParameterIndex == 0)
+	{
+		return Parameters.DynamicParameter;
+	}
+#if NUM_DYNAMIC_PARAMETERS > 1
+	else if(ParameterIndex == 1)
+	{
+		return Parameters.DynamicParameter1;
+	}
+#endif
+#if NUM_DYNAMIC_PARAMETERS > 2
+	else if(ParameterIndex == 2)
+	{
+		return Parameters.DynamicParameter2;
+	}
+#endif	
+#if NUM_DYNAMIC_PARAMETERS > 3
+	else if(ParameterIndex == 3)
+	{
+		return Parameters.DynamicParameter3;
+	}
+#endif
+	else
+	{
+		return Default;
+	}
+#elif (PARTICLE_FACTORY)
 	return Parameters.DynamicParameter;
-	#else
+#else
 	return Default;
-	#endif
+#endif
 }
 
 /** 
@@ -164,6 +206,11 @@ struct FMaterialPixelParameters
 	 * The transpose(TangentToWorld) is WorldToTangent, and TangentToWorld[2] is WorldVertexNormal
 	 */
 	half3x3 TangentToWorld;
+
+#if USE_WORLDVERTEXNORMAL_CENTER_INTERPOLATION
+	/** World vertex normal interpolated at the pixel center that is safe to use for derivatives. */
+	half3 WorldVertexNormal_Center;
+#endif
 
 	/** 
 	 * Interpolated worldspace position of this pixel
@@ -421,7 +468,7 @@ float4 GetSceneTextureViewSize(const uint SceneTextureId)
 		return ViewportSize;
 	}
 	#endif
-	return View.ViewSizeAndInvSize;
+	return ResolvedView.ViewSizeAndInvSize;
 }
 
 
@@ -610,10 +657,20 @@ MaterialFloat2 GetDefaultSceneTextureUV(FMaterialPixelParameters Parameters, con
 	{
 		return DecalToWorld[3].xyz;
 	}
+	
+	float3 GetObjectOrientation()
+	{
+		return DecalOrientation.xyz;
+	}
 #else
 	float3 GetActorWorldPosition()
 	{
 		return Primitive.ActorWorldPosition;
+	}
+	
+	float3 GetObjectOrientation()
+	{
+		return Primitive.ObjectOrientation.xyz;
 	}
 #endif // DECAL_PRIMITIVE
 
@@ -760,7 +817,7 @@ float GetPerInstanceFadeAmount(FMaterialVertexParameters Parameters)
  
 MaterialFloat GetDistanceCullFade()
 {
-	return saturate( View.RealTime * PrimitiveFade.FadeTimeScaleBias.x + PrimitiveFade.FadeTimeScaleBias.y );
+	return saturate( ResolvedView.RealTime * PrimitiveFade.FadeTimeScaleBias.x + PrimitiveFade.FadeTimeScaleBias.y );
 }
 
 /** Rotates Position about the given axis by the given angle, in radians, and returns the offset to Position. */
@@ -846,7 +903,7 @@ float4 MaterialExpressionAtmosphericFog(FMaterialPixelParameters Parameters, flo
 float3 MaterialExpressionAtmosphericLightVector(FMaterialPixelParameters Parameters)
 {
 #if MATERIAL_ATMOSPHERIC_FOG
-	return View.AtmosphericFogSunDirection;
+	return ResolvedView.AtmosphericFogSunDirection;
 #else
 	return float3(0.f, 0.f, 0.f);
 #endif
@@ -855,7 +912,7 @@ float3 MaterialExpressionAtmosphericLightVector(FMaterialPixelParameters Paramet
 float3 MaterialExpressionAtmosphericLightColor(FMaterialPixelParameters Parameters)
 {
 #if MATERIAL_ATMOSPHERIC_FOG
-	return View.AtmosphericFogSunColor;
+	return ResolvedView.AtmosphericFogSunColor;
 #else
 	return float3(0.f, 0.f, 0.f);
 #endif
@@ -910,7 +967,7 @@ MaterialFloat4 ProcessMaterialColorTextureLookup(MaterialFloat4 TextureValue)
 {
 #if (FEATURE_LEVEL == FEATURE_LEVEL_ES2) // ES2 does not support sRGB sampling
 	#if MOBILE_EMULATION
-	if( View.MobilePreviewMode > 0.5f)
+	if( ResolvedView.MobilePreviewMode > 0.5f)
 	{
 		// undo HW srgb->lin
 		TextureValue.rgb = pow(TextureValue.rgb, 1.0f / 2.2f); // TODO: replace with a more accurate lin -> sRGB conversion.
@@ -933,7 +990,7 @@ MaterialFloat ProcessMaterialGreyscaleTextureLookup(MaterialFloat TextureValue)
 {
 #if (FEATURE_LEVEL == FEATURE_LEVEL_ES2) || COMPILER_GLSL_ES3_1 || VULKAN_PROFILE // ES2, OpenGLES3.1, Vulkan3.1 do not support sRGB sampling from R8
 	#if MOBILE_EMULATION
-	if( View.MobilePreviewMode > 0.5f )
+	if( ResolvedView.MobilePreviewMode > 0.5f )
 	{
 		// undo HW srgb->lin
 		TextureValue = pow(TextureValue, 1.0f/2.2f); // TODO: replace with a more accurate lin -> sRGB conversion.
@@ -1035,7 +1092,7 @@ float GetSphericalParticleOpacity(FMaterialPixelParameters Parameters, float Den
 
 #if !SPHERICAL_OPACITY_FOR_SHADOW_DEPTHS
 		// Fade out as the particle approaches the near plane
-		Opacity = lerp(0, Opacity, saturate((Parameters.ScreenPosition.w - ParticleRadius - View.NearPlane) / ParticleRadius));
+		Opacity = lerp(0, Opacity, saturate((Parameters.ScreenPosition.w - ParticleRadius - ResolvedView.NearPlane) / ParticleRadius));
 #endif
 	}
 
@@ -1241,11 +1298,24 @@ MaterialFloat2 GetLightmapUVs(FMaterialPixelParameters Parameters)
 }
 
 #if USES_EYE_ADAPTATION
-#include "/Engine/Private/EyeAdaptationCommon.ush"
+
+#if FEATURE_LEVEL >= FEATURE_LEVEL_SM5
+
+// Allow passes to reroute which uniform buffer struct EyeAdaptation comes from
+#ifndef EyeAdaptationStruct
+#define EyeAdaptationStruct SceneTexturesStruct
+#endif
+
+//Provides access to the EyeAdaptation RT. Only available in SM5.
+float EyeAdaptationLookup()
+{
+	return EyeAdaptationStruct.EyeAdaptation.Load(int3(0, 0, 0)).x;
+}
+#endif
+
 #endif
 
 #if NEEDS_SCENE_TEXTURES
-#include "/Engine/Private/DeferredShadingCommon.ush"		// GetGBufferData()
 
 float4 GetPostProcessInputMinMax(uint Index)
 {
@@ -1260,6 +1330,8 @@ float4 GetPostProcessInputMinMax(uint Index)
 #endif
 	return 1.0f;
 }
+
+#if SHADING_PATH_MOBILE
 
 MaterialFloat4 MobileSceneTextureLookup(inout FMaterialPixelParameters Parameters, int SceneTextureId, float2 UV)
 {
@@ -1276,7 +1348,7 @@ MaterialFloat4 MobileSceneTextureLookup(inout FMaterialPixelParameters Parameter
 		UV.y = 1.0 - UV.y; 
 		#endif
 		
-		MaterialFloat Depth = ConvertFromDeviceZ(Texture2DSample(SceneDepthTexture, SceneDepthTextureSampler, UV).r);
+		MaterialFloat Depth = ConvertFromDeviceZ(Texture2DSample(MobileSceneTextures.SceneDepthTexture, MobileSceneTextures.SceneDepthTextureSampler, UV).r);
 		return MaterialFloat4(Depth.rrr, 0.f);
 	}
 	//PPI_CustomDepth
@@ -1286,7 +1358,7 @@ MaterialFloat4 MobileSceneTextureLookup(inout FMaterialPixelParameters Parameter
 		UV.y = 1.0 - UV.y; 
 		#endif
 
-		MaterialFloat Depth = ConvertFromDeviceZ(Texture2DSample(CustomDepthTexture, CustomDepthTextureSampler, UV).r);
+		MaterialFloat Depth = ConvertFromDeviceZ(Texture2DSample(MobileSceneTextures.CustomDepthTexture, MobileSceneTextures.CustomDepthTextureSampler, UV).r);
 		return MaterialFloat4(Depth.rrr, 0.f);
 	}
 	// PPI_PostprocessInput
@@ -1309,7 +1381,7 @@ MaterialFloat4 MobileSceneTextureLookup(inout FMaterialPixelParameters Parameter
 		UV.y = 1.0 - UV.y; 
 		#endif
 
-		MaterialFloat Stencil = Texture2DSample(MobileCustomStencilTexture, MobileCustomStencilTextureSampler, UV).r*255.0;
+		MaterialFloat Stencil = Texture2DSample(MobileSceneTextures.MobileCustomStencilTexture, MobileSceneTextures.MobileCustomStencilTextureSampler, UV).r*255.0;
 		Stencil = floor(Stencil + 0.5);
 		return MaterialFloat4(Stencil.rrr, 0.f);
 	}
@@ -1317,6 +1389,12 @@ MaterialFloat4 MobileSceneTextureLookup(inout FMaterialPixelParameters Parameter
 
 	return MaterialFloat4(0.0f, 0.0f, 0.0f, 0.0f);
 }
+
+#endif // SHADING_PATH_MOBILE
+
+#if SHADING_PATH_DEFERRED
+
+#include "/Engine/Private/DeferredShadingCommon.ush"		// GetGBufferData()
 
 /** Applies an offset to the scene texture lookup and decodes the HDR linear space color. */
 float4 SceneTextureLookup(float2 UV, int SceneTextureIndex, bool bFiltered)
@@ -1390,7 +1468,27 @@ float4 SceneTextureLookup(float2 UV, int SceneTextureIndex, bool bFiltered)
 			return float4(0, 0, 0, 0);
 	}
 }
+
+#endif // SHADING_PATH_DEFERRED
 #endif // NEEDS_SCENE_TEXTURES
+
+#if SHADING_PATH_DEFERRED
+
+/** Applies an offset to the scene texture lookup and decodes the HDR linear space color. */
+float3 DecodeSceneColorForMaterialNode(float2 ScreenUV)
+{
+#if SCENE_TEXTURES_DISABLED
+	// Hit proxies rendering pass doesn't have access to valid render buffers
+	return float3(0.0f, 0.0f, 0.0f);
+#else
+	float4 EncodedSceneColor = Texture2DSample(SceneTexturesStruct.SceneColorCopyTexture, SceneTexturesStruct.SceneColorCopyTextureSampler, ScreenUV);
+
+	// Undo the function in EncodeSceneColorForMaterialNode
+	return pow(EncodedSceneColor.rgb, 4) * 10;
+#endif
+}
+
+#endif // SHADING_PATH_DEFERRED
 
 // Uniform material expressions.
 %s
@@ -1410,13 +1508,13 @@ half3 GetMaterialNormal(FMaterialPixelParameters Parameters, FPixelMaterialInput
 	#if (USE_EDITOR_SHADERS && !(ES2_PROFILE || ES3_1_PROFILE || ESDEFERRED_PROFILE)) || MOBILE_EMULATION
 	{
 		// this feature is only needed for development/editor - we can compile it out for a shipping build (see r.CompileShadersForDevelopment cvar help)
-		half3 OverrideNormal = View.NormalOverrideParameter.xyz;
+		half3 OverrideNormal = ResolvedView.NormalOverrideParameter.xyz;
 
 		#if !MATERIAL_TANGENTSPACENORMAL
-			OverrideNormal = Parameters.TangentToWorld[2] * (1 - View.NormalOverrideParameter.w);
+			OverrideNormal = Parameters.TangentToWorld[2] * (1 - ResolvedView.NormalOverrideParameter.w);
 		#endif
 
-		RetNormal = RetNormal * View.NormalOverrideParameter.w + OverrideNormal;
+		RetNormal = RetNormal * ResolvedView.NormalOverrideParameter.w + OverrideNormal;
 	}
 	#endif
 
@@ -1496,7 +1594,7 @@ half GetMaterialRoughness(FPixelMaterialInputs PixelMaterialInputs)
 	#if MOBILE_EMULATION
 	{
 		// this is only needed for mobile preview on PC
-		Roughness = Roughness * View.RoughnessOverrideParameter.y + View.RoughnessOverrideParameter.x;
+		Roughness = Roughness * ResolvedView.RoughnessOverrideParameter.y + ResolvedView.RoughnessOverrideParameter.x;
 	}
 	#endif
 
@@ -1508,7 +1606,7 @@ half GetMaterialRoughness(FPixelMaterialInputs PixelMaterialInputs)
 	#if (USE_EDITOR_SHADERS && !ESDEFERRED_PROFILE)
 	{
 		// this feature is only needed for development/editor - we can compile it out for a shipping build (see r.CompileShadersForDevelopment cvar help)
-		Roughness = Roughness * View.RoughnessOverrideParameter.y + View.RoughnessOverrideParameter.x;
+		Roughness = Roughness * ResolvedView.RoughnessOverrideParameter.y + ResolvedView.RoughnessOverrideParameter.x;
 	}
 	#endif
 	
@@ -1691,7 +1789,7 @@ float GetMaterialPixelDepthOffset(FPixelMaterialInputs PixelMaterialInputs)
 
 #if DECAL_PRIMITIVE
 
-float3 TransformTangentNormalToWorld(in FMaterialPixelParameters Parameters, float3 TangentNormal)
+float3 TransformTangentNormalToWorld(MaterialFloat3x3 TangentToWorld, float3 TangentNormal)
 {
 	// To transform the normals use tranpose(Inverse(DecalToWorld)) = transpose(WorldToDecal)
 	// But we want to only rotate the normals (we don't want to non-uniformaly scale them).
@@ -1711,9 +1809,9 @@ float3 TransformTangentNormalToWorld(in FMaterialPixelParameters Parameters, flo
 
 #else //DECAL_PRIMITIVE
 
-float3 TransformTangentNormalToWorld(in FMaterialPixelParameters Parameters, float3 TangentNormal)
+float3 TransformTangentNormalToWorld(MaterialFloat3x3 TangentToWorld, float3 TangentNormal)
 {
-	return normalize(float3(TransformTangentVectorToWorld(Parameters.TangentToWorld, TangentNormal)));
+	return normalize(float3(TransformTangentVectorToWorld(TangentToWorld, TangentNormal)));
 }
 
 #endif //DECAL_PRIMITIVE
@@ -1740,9 +1838,12 @@ void CalcPixelMaterialInputs(in out FMaterialPixelParameters Parameters, in out 
 
 	// normalizing after the tangent space to world space conversion improves quality with sheared bases (UV layout to WS causes shrearing)
 	// use full precision normalize to avoid overflows
-	Parameters.WorldNormal = TransformTangentNormalToWorld(Parameters, MaterialNormal);
+	Parameters.WorldNormal = TransformTangentNormalToWorld(Parameters.TangentToWorld, MaterialNormal);
+
 #else //MATERIAL_TANGENTSPACENORMAL
+
 	Parameters.WorldNormal = normalize(MaterialNormal);
+
 #endif //MATERIAL_TANGENTSPACENORMAL
 
 #if MATERIAL_TANGENTSPACENORMAL
@@ -1860,7 +1961,7 @@ void GetMaterialCoverageAndClipping(FMaterialPixelParameters Parameters, FPixelM
 		};
 		//Pos = floor( Pos + DepthGrad * float2( 4093, 3571 ) );
 
-		float Dither5 = frac( ( Pos.x + Pos.y * 2 - 1.5 + View.TemporalAAParams.x ) / 5 );
+		float Dither5 = frac( ( Pos.x + Pos.y * 2 - 1.5 + ResolvedView.TemporalAAParams.x ) / 5 );
 		float Noise = frac( dot( float2( 171.0, 231.0 ) / 71, Pos.xy ) );
 		float Dither = ( Dither5 * 5 + Noise ) * (1.0 / 6.0);
 
@@ -1891,7 +1992,7 @@ uint DiscardMaterialWithPixelCoverage(FMaterialPixelParameters MaterialParameter
 	float OriginalMask = GetMaterialMaskInputRaw(PixelMaterialInputs);
 	float MaskClip = GetMaterialOpacityMaskClipValue();
 
-	if (View.NumSceneColorMSAASamples > 1)
+	if (ResolvedView.NumSceneColorMSAASamples > 1)
 	{
 		float Mask = (OriginalMask - MaskClip) / (1.0 - MaskClip);
 		uint CurrentPixelCoverage = GetDerivativeCoverageFromMask(Mask);
@@ -1958,7 +2059,7 @@ void CalcMaterialParametersEx(
 	Parameters.TwoSidedSign = 1.0f;
 
 #if MATERIAL_TWOSIDED && HAS_PRIMITIVE_UNIFORM_BUFFER
-	Parameters.TwoSidedSign *= View.CullingSign * Primitive.LocalToWorldDeterminantSign;
+	Parameters.TwoSidedSign *= ResolvedView.CullingSign * Primitive.LocalToWorldDeterminantSign;
 
 	#if !MATERIAL_TWOSIDED_SEPARATE_PASS
 		Parameters.TwoSidedSign *= GetFloatFacingSign(bIsFrontFace);

@@ -27,7 +27,7 @@ TArray<FActiveGameplayEffectHandle> FGameplayAbilityTargetData::ApplyGameplayEff
 	
 	AppliedHandles.Reserve(Actors.Num());
 
-	for (TWeakObjectPtr<AActor> TargetActor : Actors)
+	for (TWeakObjectPtr<AActor>& TargetActor : Actors)
 	{
 		UAbilitySystemComponent* TargetComponent = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(TargetActor.Get());
 
@@ -49,9 +49,13 @@ TArray<FActiveGameplayEffectHandle> FGameplayAbilityTargetData::ApplyGameplayEff
 
 void FGameplayAbilityTargetData::AddTargetDataToContext(FGameplayEffectContextHandle& Context, bool bIncludeActorArray) const
 {
-	if (bIncludeActorArray && (GetActors().Num() > 0))
+	if (bIncludeActorArray)
 	{
-		Context.AddActors(GetActors());
+		const TArray<TWeakObjectPtr<AActor>> WeakArray = GetActors();
+		if (WeakArray.Num() > 0)
+		{
+			Context.AddActors(WeakArray);
+		}
 	}
 
 	if (HasHitResult() && !Context.GetHitResult())

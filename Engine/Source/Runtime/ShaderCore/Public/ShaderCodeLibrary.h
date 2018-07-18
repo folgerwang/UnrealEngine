@@ -48,10 +48,74 @@ struct SHADERCORE_API FShaderCodeLibraryPipeline
 	}
 };
 
+struct SHADERCORE_API FCompactFullName
+{
+	TArray<FName> ObjectClassAndPath;
+
+	bool operator==(const FCompactFullName& Other) const
+	{
+		return ObjectClassAndPath == Other.ObjectClassAndPath;
+	}
+
+	FString ToString() const;
+	void ParseFromString(const FString& Src);
+	friend SHADERCORE_API uint32 GetTypeHash(const FCompactFullName& A);
+};
+
+
+struct SHADERCORE_API FStableShaderKeyAndValue
+{
+	FCompactFullName ClassNameAndObjectPath;
+	FName ShaderType;
+	FName ShaderClass;
+	FName MaterialDomain;
+	FName FeatureLevel;
+	FName QualityLevel;
+	FName TargetFrequency;
+	FName TargetPlatform;
+	FName VFType;
+	FName PermutationId;
+
+	uint32 KeyHash;
+
+	FSHAHash OutputHash;
+
+	FStableShaderKeyAndValue()
+		: KeyHash(0)
+	{
+	}
+
+	void ComputeKeyHash();
+	void ParseFromString(const FString& Src);
+	FString ToString() const;
+	static FString HeaderLine();
+
+	friend bool operator ==(const FStableShaderKeyAndValue& A, const FStableShaderKeyAndValue& B)
+	{
+		return
+			A.ClassNameAndObjectPath == B.ClassNameAndObjectPath &&
+			A.ShaderType == B.ShaderType &&
+			A.ShaderClass == B.ShaderClass &&
+			A.MaterialDomain == B.MaterialDomain &&
+			A.FeatureLevel == B.FeatureLevel &&
+			A.QualityLevel == B.QualityLevel &&
+			A.TargetFrequency == B.TargetFrequency &&
+			A.TargetPlatform == B.TargetPlatform &&
+			A.VFType == B.VFType &&
+			A.PermutationId == B.PermutationId;
+	}
+
+	friend uint32 GetTypeHash(const FStableShaderKeyAndValue &Key)
+	{
+		return Key.KeyHash;
+	}
+
+};
+
 class FShaderFactoryInterface : public FRHIShaderLibrary
 {
 public:
-	FShaderFactoryInterface(EShaderPlatform InPlatform) : FRHIShaderLibrary(InPlatform) {}
+	FShaderFactoryInterface(EShaderPlatform InPlatform, FString const& Name) : FRHIShaderLibrary(InPlatform, Name) {}
 	
 	virtual bool IsNativeLibrary() const override final {return false;}
 	
@@ -69,14 +133,19 @@ public:
 struct SHADERCORE_API FShaderCodeLibrary
 {
 	static void InitForRuntime(EShaderPlatform ShaderPlatform);
-	static void InitForCooking(bool bNativeFormat);
 	static void Shutdown();
 	
-	// At cook time, add shader code to collection
-	static bool AddShaderCode(EShaderPlatform ShaderPlatform, EShaderFrequency Frequency, const FSHAHash& Hash, const TArray<uint8>& InCode, uint32 const UncompressedSize);
+	static bool IsEnabled();
 	
-	// At cook time, add shader pipeline to collection
-	static bool AddShaderPipeline(FShaderPipeline* Pipeline);
+	// Open a named library.
+	// For cooking this will place all added shaders & pipelines into the library file with this name.
+	// At runtime this will open the shader library with this name.
+	static void OpenLibrary(FString const& Name, FString const& Directory);
+    
+	// Close a named library.
+	// For cooking, after this point any AddShaderCode/AddShaderPipeline calls will be invalid until OpenLibrary is called again.
+	// At runtime this will release the library data and further requests for shaders from this library will fail.
+	static void CloseLibrary(FString const& Name);
 	
 	/** Instantiate or retrieve a vertex shader from the cache for the provided code & hash. */
 	static FVertexShaderRHIRef CreateVertexShader(EShaderPlatform Platform, FSHAHash Hash, TArray<uint8> const& Code);
@@ -93,6 +162,8 @@ struct SHADERCORE_API FShaderCodeLibrary
 	/** Instantiate or retrieve a compute shader from the cache for the provided code & hash. */
 	static FComputeShaderRHIRef CreateComputeShader(EShaderPlatform Platform, FSHAHash Hash, TArray<uint8> const& Code);
 
+    static bool ContainsShaderCode(const FSHAHash& Hash);
+    
 	// Place a request to preload shader code
 	// Blocking call if no Archive is provided or Archive is not a type of FLinkerLoad
 	// Shader code preload will be finished before owning UObject PostLoad call
@@ -116,11 +187,35 @@ struct SHADERCORE_API FShaderCodeLibrary
 	static TSet<FShaderCodeLibraryPipeline> const* GetShaderPipelines(EShaderPlatform Platform);
 
 #if WITH_EDITOR
-	// Save collected shader code to a file for each specified shader platform
-	static bool SaveShaderCode(const FString& OutputDir, const FString& DebugOutputDir, const TArray<FName>& ShaderFormats);
+	// Initialize the library cooker
+	static void InitForCooking(bool bNativeFormat);
 	
-	// Package the separate shader bytecode files into a single native shader library.
-	static bool PackageNativeShaderLibrary(const FString& ShaderCodeDir, const FString& DebugShaderCodeDir, const TArray<FName>& ShaderFormats);
+	// Clean the cook directories
+	static void CleanDirectories(TArray<FName> const& ShaderFormats);
+    
+    // Specify the shader formats to cook
+    static void CookShaderFormats(TArray<FName> const& ShaderFormats);
+	
+	// At cook time, add shader code to collection
+	static bool AddShaderCode(EShaderPlatform ShaderPlatform, EShaderFrequency Frequency, const FSHAHash& Hash, const TArray<uint8>& InCode, uint32 const UncompressedSize);
+
+	// We check this early in the callstack to avoid creating a bunch of FName and keys and things we will never save anyway
+	static bool NeedsShaderStableKeys();
+
+	// At cook time, add the human readable key value information
+	static void AddShaderStableKeyValue(EShaderPlatform ShaderPlatform, FStableShaderKeyAndValue& StableKeyValue);
+
+	// At cook time, add shader pipeline to collection
+	static bool AddShaderPipeline(FShaderPipeline* Pipeline);
+	
+	// Save collected shader code to a file for each specified shader platform, collating all child cooker results.
+	static bool SaveShaderCodeMaster(const FString& OutputDir, const FString& MetaOutputDir, const TArray<FName>& ShaderFormats, FString& OutSCLCSVPath);
+	
+	// Save collected shader code to a file for each specified shader platform, handles only this instances intermediate results.
+	static bool SaveShaderCodeChild(const FString& OutputDir, const FString& MetaOutputDir, const TArray<FName>& ShaderFormats);
+	
+	// Package the separate shader bytecode files into a single native shader library. Must be called by the master process.
+	static bool PackageNativeShaderLibrary(const FString& ShaderCodeDir, const TArray<FName>& ShaderFormats);
 	
 	// Dump collected stats for each shader platform
 	static void DumpShaderCodeStats();

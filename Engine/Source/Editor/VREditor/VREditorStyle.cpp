@@ -1,11 +1,11 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "VREditorStyle.h"
-#include "SlateTypes.h"
+#include "Styling/SlateTypes.h"
 #include "EditorStyleSet.h"
 #include "Styling/SlateStyleRegistry.h"
 #include "Styling/CoreStyle.h"
-#include "SUniformGridPanel.h"
+#include "Widgets/Layout/SUniformGridPanel.h"
 #include "Brushes/SlateImageBrush.h"
 #include "Brushes/SlateBoxBrush.h"
 #include "Brushes/SlateBorderBrush.h"
@@ -14,20 +14,14 @@
 
 TSharedPtr< FSlateStyleSet > FVREditorStyle::VREditorStyleInstance = NULL;
 
-void FVREditorStyle::Initialize()
-{
-	if ( !VREditorStyleInstance.IsValid() )
-	{
-		VREditorStyleInstance = Create();
-		FSlateStyleRegistry::RegisterSlateStyle( *VREditorStyleInstance);
-	}
-}
-
 void FVREditorStyle::Shutdown()
 {
-	FSlateStyleRegistry::UnRegisterSlateStyle( *VREditorStyleInstance);
-	ensure(VREditorStyleInstance.IsUnique() );
-	VREditorStyleInstance.Reset();
+	if (VREditorStyleInstance.IsValid())
+	{
+		FSlateStyleRegistry::UnRegisterSlateStyle(*VREditorStyleInstance);
+		ensure(VREditorStyleInstance.IsUnique());
+		VREditorStyleInstance.Reset();
+	}
 }
 
 FName FVREditorStyle::GetStyleSetName()
@@ -240,6 +234,11 @@ void FVREditorStyle::ReloadTextures()
 
 const ISlateStyle& FVREditorStyle::Get()
 {
+	if (!VREditorStyleInstance.IsValid())
+	{
+		VREditorStyleInstance = Create();
+		FSlateStyleRegistry::RegisterSlateStyle(*VREditorStyleInstance);
+	}
 	return *VREditorStyleInstance;
 }
 

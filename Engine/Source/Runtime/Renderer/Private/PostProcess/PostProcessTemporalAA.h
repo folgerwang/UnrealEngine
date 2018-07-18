@@ -11,112 +11,117 @@
 #include "RenderingCompositionGraph.h"
 
 
-// ePId_Input0: Reflections (point)
-// ePId_Input1: Previous frame's output (bilinear)
-// ePId_Input2: Velocity (point)
-// derives from TRenderingCompositePassBase<InputCount, OutputCount> 
-class FRCPassPostProcessSSRTemporalAA : public TRenderingCompositePassBase<3, 1>
+/** Lists of TAA configurations. */
+enum class ETAAPassConfig
 {
-public:
-	FRCPassPostProcessSSRTemporalAA(const FTemporalAAHistory& InInputHistory, FTemporalAAHistory* OutOutputHistory)
-		: InputHistory(InInputHistory), OutputHistory(OutOutputHistory)
-	{ }
+	LegacyDepthOfField,
+	Main,
+	ScreenSpaceReflections,
+	LightShaft,
+	MainUpsampling,
+	DiaphragmDOF,
+	DiaphragmDOFUpsampling,
 
-	// interface FRenderingCompositePass ---------
-	virtual void Process(FRenderingCompositePassContext& Context) override;
-	virtual void Release() override { delete this; }
-	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const override;
-
-private:
-	const FTemporalAAHistory& InputHistory;
-	FTemporalAAHistory* OutputHistory;
+	MAX
 };
 
-// ePId_Input0: Half Res DOF input (point)
-// ePId_Input1: Previous frame's output (bilinear)
-// ePId_Input2: Velocity (point)
-// derives from TRenderingCompositePassBase<InputCount, OutputCount> 
-class FRCPassPostProcessDOFTemporalAA : public TRenderingCompositePassBase<3, 1>
+
+static FORCEINLINE bool IsTAAUpsamplingConfig(ETAAPassConfig Pass)
 {
-public:
-	FRCPassPostProcessDOFTemporalAA(const FTemporalAAHistory& InInputHistory, FTemporalAAHistory* OutOutputHistory, bool bInIsComputePass)
-		: InputHistory(InInputHistory), OutputHistory(OutOutputHistory)
+	return Pass == ETAAPassConfig::MainUpsampling || Pass == ETAAPassConfig::DiaphragmDOFUpsampling;
+}
+
+static FORCEINLINE bool IsMainTAAConfig(ETAAPassConfig Pass)
+{
+	return Pass == ETAAPassConfig::Main || Pass == ETAAPassConfig::MainUpsampling;
+}
+
+static FORCEINLINE bool IsDOFTAAConfig(ETAAPassConfig Pass)
+{
+	return Pass == ETAAPassConfig::DiaphragmDOF || Pass == ETAAPassConfig::DiaphragmDOFUpsampling;
+}
+
+
+/** Configuration of TAA. */
+struct FTAAPassParameters
+{
+	// TAA pass to run.
+	ETAAPassConfig Pass;
+
+	// Whether to use the faster shader permutation.
+	bool bUseFast;
+
+	// Whether to do compute or not.
+	bool bIsComputePass;
+
+	// Whether downsampled (box filtered, half resolution) frame should be written out.
+	// Only used when bIsComputePass is true.
+	bool bDownsample;
+	EPixelFormat DownsampleOverrideFormat;
+
+	// Viewport rectangle of the input and output of TAA at ResolutionDivisor == 1.
+	FIntRect InputViewRect;
+	FIntRect OutputViewRect;
+
+	// Resolution divisor.
+	int32 ResolutionDivisor;
+
+
+	FTAAPassParameters(const FViewInfo& View)
+		: Pass(ETAAPassConfig::Main)
+		, bUseFast(false)
+		, bIsComputePass(false)
+		, bDownsample(false)
+		, DownsampleOverrideFormat(PF_Unknown)
+		, InputViewRect(View.ViewRect)
+		, OutputViewRect(View.ViewRect)
+		, ResolutionDivisor(1)
+	{ }
+
+
+	// Customises the view rectangles for input and output.
+	FORCEINLINE void SetupViewRect(const FViewInfo& View, int32 InResolutionDivisor = 1)
 	{
-		bIsComputePass = bInIsComputePass;
-		bPreferAsyncCompute = false;
-		bPreferAsyncCompute &= (GNumActiveGPUsForRendering == 1); // Can't handle multi-frame updates on async pipe
+		ResolutionDivisor = InResolutionDivisor;
+
+		InputViewRect = View.ViewRect;
+
+		// When upsampling, always upsampling to top left corner to reuse same RT as before upsampling.
+		if (IsTAAUpsamplingConfig(Pass))
+		{
+			OutputViewRect.Min = FIntPoint(0, 0);
+			OutputViewRect.Max =  View.GetSecondaryViewRectSize();
+		}
+		else
+		{
+			OutputViewRect = InputViewRect;
+		}
 	}
 
-	// interface FRenderingCompositePass ---------
-	virtual void Process(FRenderingCompositePassContext& Context) override;
-	virtual void Release() override { delete this; }
-	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const override;
-
-	virtual FComputeFenceRHIParamRef GetComputePassEndFence() const override { return AsyncEndFence; }
-
-private:
-	template <typename TRHICmdList>
-	void DispatchCS(TRHICmdList& RHICmdList, FRenderingCompositePassContext& Context, const FIntRect& DestRect, FUnorderedAccessViewRHIParamRef DestUAV, FTextureRHIParamRef EyeAdaptationTex, int32 ScaleFactor);
-
-	FComputeFenceRHIRef AsyncEndFence;
-
-	const FTemporalAAHistory& InputHistory;
-	FTemporalAAHistory* OutputHistory;
+	// Shifts input and output view rect to top left corner
+	FORCEINLINE void TopLeftCornerViewRects()
+	{
+		InputViewRect.Max -= InputViewRect.Min;
+		InputViewRect.Min = FIntPoint::ZeroValue;
+		OutputViewRect.Max -= OutputViewRect.Min;
+		OutputViewRect.Min = FIntPoint::ZeroValue;
+	}
 };
 
-// ePId_Input0: Half Res DOF input (point)
-// ePId_Input1: Previous frame's output (bilinear)
-// ePId_Input2: Velocity (point)
-// derives from TRenderingCompositePassBase<InputCount, OutputCount> 
-class FRCPassPostProcessDOFTemporalAANear : public TRenderingCompositePassBase<3, 1>
-{
-public:
-	FRCPassPostProcessDOFTemporalAANear(const FTemporalAAHistory& InInputHistory, FTemporalAAHistory* OutOutputHistory)
-		: InputHistory(InInputHistory), OutputHistory(OutOutputHistory)
-	{ }
-
-	// interface FRenderingCompositePass ---------
-	virtual void Process(FRenderingCompositePassContext& Context) override;
-	virtual void Release() override { delete this; }
-	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const override;
-
-private:
-	const FTemporalAAHistory& InputHistory;
-	FTemporalAAHistory* OutputHistory;
-};
-
-
-// ePId_Input0: Half Res light shaft input (point)
-// ePId_Input1: Previous frame's output (bilinear)
-// derives from TRenderingCompositePassBase<InputCount, OutputCount> 
-class FRCPassPostProcessLightShaftTemporalAA : public TRenderingCompositePassBase<2, 1>
-{
-public:
-	FRCPassPostProcessLightShaftTemporalAA(const FTemporalAAHistory& InInputHistory)
-		: InputHistory(InInputHistory)
-	{ }
-
-	// interface FRenderingCompositePass ---------
-	virtual void Process(FRenderingCompositePassContext& Context) override;
-	virtual void Release() override { delete this; }
-	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const override;
-
-private:
-	const FTemporalAAHistory& InputHistory;
-};
 
 // ePId_Input0: Full Res Scene color (point)
-// ePId_Input1: Previous frame's output (bilinear)
 // ePId_Input2: Velocity (point)
+// ePId_Output0: Antialiased color
+// ePId_Output1: Downsampled antialiased color (only when FTAAConfig::bDownsample is true)
 // derives from TRenderingCompositePassBase<InputCount, OutputCount> 
-class FRCPassPostProcessTemporalAA : public TRenderingCompositePassBase<3, 1>
+class FRCPassPostProcessTemporalAA : public TRenderingCompositePassBase<3, 3>
 {
 public:
 	FRCPassPostProcessTemporalAA(
 		const class FPostprocessContext& Context,
+		const FTAAPassParameters& Parameters,
 		const FTemporalAAHistory& InInputHistory,
-		FTemporalAAHistory* OutOutputHistory,
-		bool bInIsComputePass);
+		FTemporalAAHistory* OutOutputHistory);
 
 	// interface FRenderingCompositePass ---------
 	virtual void Process(FRenderingCompositePassContext& Context) override;
@@ -125,14 +130,17 @@ public:
 
 	virtual FComputeFenceRHIParamRef GetComputePassEndFence() const override { return AsyncEndFence; }
 
-private:
-	FIntPoint OutputExtent;
+	bool IsDownsamplePossible() const { return bDownsamplePossible; }
 
-	template <typename TRHICmdList>
-	void DispatchCS(TRHICmdList& RHICmdList, FRenderingCompositePassContext& Context, const FIntRect& DestRect, FUnorderedAccessViewRHIParamRef DestUAV, const bool bUseFast, const bool bUseDither, FTextureRHIParamRef EyeAdaptationTex);
+private:
+	const FTAAPassParameters Parameters;
+
+	FIntPoint OutputExtent;
 
 	FComputeFenceRHIRef AsyncEndFence;
 
 	const FTemporalAAHistory& InputHistory;
 	FTemporalAAHistory* OutputHistory;
+
+	bool bDownsamplePossible = false;
 };

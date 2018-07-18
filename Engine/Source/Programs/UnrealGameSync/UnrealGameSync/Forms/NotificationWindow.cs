@@ -95,11 +95,6 @@ namespace UnrealGameSync
 			}
 		}
 
-		protected override void OnLoad(EventArgs e)
-		{
-			base.OnLoad(e);
-		}
-
 		public void CalculateBounds()
 		{
 			int ReferenceSize8 = (int)(8 * Font.Height) / 16;
@@ -126,7 +121,7 @@ namespace UnrealGameSync
 
 				// Set the window size
 				int TextX = GutterW + LogoW + ReferenceSize8 * 2;
-				Size = new Size(TextX + MessageW + CloseButtonSize + GutterW, MessageY + MessageH + GutterH);
+				Size = new Size(TextX + Math.Max(MessageW, CaptionW) + CloseButtonSize + GutterW, MessageY + MessageH + GutterH);
 
 				// Set the bounds of the individual elements
 				CloseButtonBounds = new Rectangle(Width - GutterW - CloseButtonSize, GutterH, CloseButtonSize, CloseButtonSize);

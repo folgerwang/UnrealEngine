@@ -64,22 +64,28 @@ class FIOSCommandLineHelper
 			{
 				FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Found ue4commandline.txt file") LINE_TERMINATOR);
 
-				char CommandLine[CMD_LINE_MAX];
-				fgets(CommandLine, ARRAY_COUNT(CommandLine) - 1, CommandLineFile);
-
-				// chop off trailing spaces
-				while (*CommandLine && isspace(CommandLine[strlen(CommandLine) - 1]))
+				char CommandLine[CMD_LINE_MAX] = {0};
+				char* DataExists = fgets(CommandLine, ARRAY_COUNT(CommandLine) - 1, CommandLineFile);
+				if (DataExists)
 				{
-					CommandLine[strlen(CommandLine) - 1] = 0;
-				}
+					// chop off trailing spaces
+					while (*CommandLine && isspace(CommandLine[strlen(CommandLine) - 1]))
+					{
+						CommandLine[strlen(CommandLine) - 1] = 0;
+					}
 
-				FCommandLine::Append(UTF8_TO_TCHAR(CommandLine));
+					FCommandLine::Append(UTF8_TO_TCHAR(CommandLine));
+				}
 			}
 			else
 			{
 				FPlatformMisc::LowLevelOutputDebugStringf(TEXT("No ue4commandline.txt [%s] found") LINE_TERMINATOR, *CommandLineFilePath);
 			}
 
+			if (!AdditionalCommandArgs.IsEmpty() && !FChar::IsWhitespace(AdditionalCommandArgs[0]))
+			{
+				FCommandLine::Append(TEXT(" "));
+			}
 			FCommandLine::Append(*AdditionalCommandArgs);
 
 			// now merge the GSavedCommandLine with the rest
@@ -87,6 +93,5 @@ class FIOSCommandLineHelper
 
 			FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Combined iOS Commandline: %s") LINE_TERMINATOR, FCommandLine::Get());
 		}
-
 };
 

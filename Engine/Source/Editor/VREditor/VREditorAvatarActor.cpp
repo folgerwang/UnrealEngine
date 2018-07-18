@@ -60,7 +60,7 @@ AVREditorAvatarActor::AVREditorAvatarActor() :
 	PostProcessComponent(nullptr),
 	VRMode( nullptr )
 {
-	if (UNLIKELY(IsRunningDedicatedServer()))   // @todo vreditor: Hack to avoid loading font assets in the cooker on Linux
+	if (UNLIKELY(IsRunningDedicatedServer()) || HasAnyFlags(RF_ClassDefaultObject))   // @todo vreditor: Hack to avoid loading font assets in the cooker on Linux
 	{
 		return;
 	}
@@ -199,7 +199,7 @@ void AVREditorAvatarActor::Init( UVREditorMode* InVRMode  )
 		UserScaleIndicatorText->SetCollisionProfileName( UCollisionProfile::NoCollision_ProfileName );
 		UserScaleIndicatorText->bSelectable = false;
 
-		UserScaleIndicatorText->bGenerateOverlapEvents = false;
+		UserScaleIndicatorText->SetGenerateOverlapEvents(false);
 		UserScaleIndicatorText->SetCanEverAffectNavigation( false );
 		UserScaleIndicatorText->bCastDynamicShadow = false;
 		UserScaleIndicatorText->bCastStaticShadow = false;
@@ -278,7 +278,7 @@ void AVREditorAvatarActor::TickManually( const float DeltaTime )
 			auto XRCamera = GEngine->XRSystem->GetXRCamera();
 			if (XRCamera.IsValid())
 			{
-				XRCamera->SetupLateUpdate(ParentToWorld, HeadMeshComponent);
+				XRCamera->SetupLateUpdate(ParentToWorld, HeadMeshComponent, false);
 			}
 			HeadMeshComponent->SetRelativeTransform( RoomSpaceTransformWithWorldToMetersScaling );
 		}

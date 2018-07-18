@@ -48,7 +48,7 @@
 */
 
 /**
-* Utility to resize an array.
+* Utility to resize an array with uninitialized data.
 * NB: this destroys any content.
 */
 template <typename ValueType>
@@ -58,7 +58,27 @@ void ResizeArray(TArray<ValueType>& Array, int32 Size)
 	Array.AddUninitialized(Size);
 }
 
+/**
+* Utility to resize an array with constructor initialized data.
+* NB: this destroys any content.
+*/
+template <typename ValueType>
+void ResizeInializedArray(TArray<ValueType>& Array, int32 Size)
+{
+	if (Size == 0)
+	{
+		TArray<ValueType> EmptyVector;
+		Swap(EmptyVector, Array);
+	}
+	else
+	{
 
+		TArray<ValueType> Tmp;
+		Tmp.InsertDefaulted(0, Size);
+
+		Swap(Array, Tmp);
+	}
+}
 /**
 * Mesh type that holds minimal required data for openvdb iso-surface extraction 
 * interface.
@@ -86,6 +106,10 @@ struct FVertexDataMesh
 	TArray<FVector>   Normal;
 	TArray<FVector>   Tangent;
 	TArray<FVector>   BiTangent;
+
+	// Optional. Used for ray shooting when transfering materials.
+	TArray<FVector>   TransferNormal;
+
 	// stores information about the tangentspace
 	// 1 = right handed.  -1 left handed
 	TArray<int32>     TangentHanded;
@@ -186,6 +210,13 @@ public:
 	// Return position pos in local grid index space for polygon n and vertex v
 	void getIndexSpacePoint(size_t FaceNumber, size_t CornerNumber, openvdb::Vec3d& pos) const;
 	
+	/**
+	* The transform used to map between the physical space of the mesh and the voxel space.
+	*/
+	const openvdb::math::Transform& GetTransform() const
+	{
+		return *Transform;
+	}
 
 private:
 
@@ -214,6 +245,8 @@ public:
 
 	FRawMeshArrayAdapter(const TArray<FMeshMergeData>& InMergeDataArray, const openvdb::math::Transform::Ptr InTransform);
 
+	FRawMeshArrayAdapter(const TArray<const FMeshMergeData*>& InMergeDataPtrArray);
+	
 	FRawMeshArrayAdapter(const TArray<FMeshMergeData>& InMergeDataArray);
 
 	// copy constructor 

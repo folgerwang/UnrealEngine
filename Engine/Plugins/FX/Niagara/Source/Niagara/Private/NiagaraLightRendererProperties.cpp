@@ -3,10 +3,30 @@
 #include "NiagaraLightRendererProperties.h"
 #include "NiagaraRenderer.h"
 #include "NiagaraConstants.h"
-
 UNiagaraLightRendererProperties::UNiagaraLightRendererProperties()
 	: RadiusScale(1.0f), ColorAdd(FVector(0.0f, 0.0f, 0.0f))
 {
+}
+
+void UNiagaraLightRendererProperties::PostInitProperties()
+{
+	Super::PostInitProperties();
+	if (HasAnyFlags(RF_ClassDefaultObject) == false && PositionBinding.BoundVariable.GetName() == NAME_None)
+	{
+		PositionBinding = FNiagaraConstants::GetAttributeDefaultBinding(SYS_PARAM_PARTICLES_POSITION);
+		ColorBinding = FNiagaraConstants::GetAttributeDefaultBinding(SYS_PARAM_PARTICLES_COLOR);
+		RadiusBinding = FNiagaraConstants::GetAttributeDefaultBinding(SYS_PARAM_PARTICLES_LIGHT_RADIUS);
+	}
+}
+
+/** The bindings depend on variables that are created during the NiagaraModule startup. However, the CDO's are build prior to this being initialized, so we defer setting these values until later.*/
+void UNiagaraLightRendererProperties::InitCDOPropertiesAfterModuleStartup()
+{
+	UNiagaraLightRendererProperties* CDO = CastChecked<UNiagaraLightRendererProperties>(UNiagaraLightRendererProperties::StaticClass()->GetDefaultObject());
+
+	CDO->PositionBinding = FNiagaraConstants::GetAttributeDefaultBinding(SYS_PARAM_PARTICLES_POSITION);
+	CDO->ColorBinding = FNiagaraConstants::GetAttributeDefaultBinding(SYS_PARAM_PARTICLES_COLOR);
+	CDO->RadiusBinding = FNiagaraConstants::GetAttributeDefaultBinding(SYS_PARAM_PARTICLES_LIGHT_RADIUS);
 }
 
 NiagaraRenderer* UNiagaraLightRendererProperties::CreateEmitterRenderer(ERHIFeatureLevel::Type FeatureLevel)
@@ -25,33 +45,18 @@ void UNiagaraLightRendererProperties::GetUsedMaterials(TArray<UMaterialInterface
 const TArray<FNiagaraVariable>& UNiagaraLightRendererProperties::GetRequiredAttributes()
 {
 	static TArray<FNiagaraVariable> Attrs;
-
-	if (Attrs.Num() == 0)
-	{
-		Attrs.Add(SYS_PARAM_PARTICLES_POSITION);
-		Attrs.Add(SYS_PARAM_PARTICLES_COLOR);
-		Attrs.Add(SYS_PARAM_PARTICLES_SCALE);
-		/*Attrs.Add(SYS_PARAM_PARTICLES_VELOCITY);
-		Attrs.Add(SYS_PARAM_PARTICLES_SPRITE_ROTATION);
-		Attrs.Add(SYS_PARAM_PARTICLES_NORMALIZED_AGE);
-		Attrs.Add(SYS_PARAM_PARTICLES_SPRITE_SIZE);*/
-	}
-
 	return Attrs;
 }
 
 const TArray<FNiagaraVariable>& UNiagaraLightRendererProperties::GetOptionalAttributes()
 {
 	static TArray<FNiagaraVariable> Attrs;
-
 	if (Attrs.Num() == 0)
 	{
-		//Attrs.Add(SYS_PARAM_PARTICLES_SPRITE_FACING);
-		//Attrs.Add(SYS_PARAM_PARTICLES_SPRITE_ALIGNMENT);
-		//Attrs.Add(SYS_PARAM_PARTICLES_SUB_IMAGE_INDEX);
-		//Attrs.Add(SYS_PARAM_PARTICLES_DYNAMIC_MATERIAL_PARAM);
+		Attrs.Add(SYS_PARAM_PARTICLES_POSITION);
+		Attrs.Add(SYS_PARAM_PARTICLES_COLOR);
+		Attrs.Add(SYS_PARAM_PARTICLES_LIGHT_RADIUS);
 	}
-
 	return Attrs;
 }
 

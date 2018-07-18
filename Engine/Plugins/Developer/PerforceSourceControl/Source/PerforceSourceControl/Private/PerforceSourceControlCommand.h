@@ -35,7 +35,7 @@ public:
 	/**
 	 * This method is also used to tell the object to cleanup but not before
 	 * the object has finished it's work.
-	 */ 
+	 */
 	virtual void DoThreadedWork() override;
 
 	/** Attempt to cancel the operation */
@@ -55,6 +55,9 @@ public:
 
 	/** Was the operation canceled while trying to connect? */
 	bool WasCanceledWhileTryingToConnect() const;
+
+	/** Save any results and call any registered callbacks. */
+	ECommandResult::Type ReturnResults();
 
 public:
 	/** Connection parameters, reproduced here because if is not safe to access the provider's settings from another thread */
@@ -96,9 +99,13 @@ public:
 	/** Files to perform this operation on */
 	TArray< FString > Files;
 
-	/**Info and/or warning message message storage*/
-	TArray< FText > InfoMessages;
+	/** Potential error, warning and info message storage */
+	FSourceControlResultInfo ResultInfo;
 
-	/**Potential error message storage*/
-	TArray< FText > ErrorMessages;
+	/** Branch names for status queries */
+	TArray< FString > StatusBranchNames;
+
+	/** Content root for branch mapping */
+	FString ContentRoot;
+
 };

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3483116
+﻿INTSourceChangelist:3807090
 Title:Android OpenGL ES 3.1 モバイル レンダラー
 Description:UE4 Android プロジェクトをOpenGL ES 3.1 モバイル レンダラーで使用するための設定方法
 Crumbs:%ROOT%, Platforms, Platforms/Android, Platforms/Android/OpenGLES31MobileRenderer/
@@ -59,7 +59,7 @@ OpenGL ES 3.1 Support は、Github からダウンロードおよびコンパイ
 1. [Project Settings (プロジェクト設定)] メニューから **[Platforms (プラットフォーム)]** セクション > [Android] セクションを開きます。
 
 	[REGION:lightbox]
-	[![](Platforms\Android\VulkanMobileRenderer\VMP_Android_Settings_00.png)(w:639 h:385)](Platforms\Android\VulkanMobileRenderer\VMP_Android_Settings_00.png)
+	[![](Platforms\Android\VulkanMobileRenderer\VMP_Android_Settings_00.png)(w:639)](Platforms\Android\VulkanMobileRenderer\VMP_Android_Settings_00.png)
 	[/REGION]
 
 	[REGION:caption]
@@ -69,7 +69,7 @@ OpenGL ES 3.1 Support は、Github からダウンロードおよびコンパイ
 1. **[APKPackaging]** セクションで **[Minimum SDK (最低限の SDK)]** と **[Target SDK (ターゲットの SDK)]** を **「21」** に設定します。
 
 	[REGION:lightbox]
-	[![](OGL3_04.png)(w:639 h:385)](OGL3_04.png)
+	[![](OGL3_04.png)(w:639)](OGL3_04.png)
 	[/REGION]
 
 	[REGION:caption]

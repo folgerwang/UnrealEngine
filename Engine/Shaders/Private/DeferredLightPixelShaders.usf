@@ -21,16 +21,18 @@ FDeferredLightData SetupLightDataForStandardDeferred()
 	LightData.LightTangent = DeferredLightUniforms.NormalizedLightTangent;
 	LightData.SpotAnglesAndSourceRadius = float4(DeferredLightUniforms.SpotAngles, DeferredLightUniforms.SourceRadius, DeferredLightUniforms.SourceLength);
     LightData.SoftSourceRadius = DeferredLightUniforms.SoftSourceRadius;
-	LightData.MinRoughness = DeferredLightUniforms.MinRoughness;
-	LightData.ContactShadowLength = DeferredLightUniforms.ContactShadowLength;
+	LightData.SpecularScale = DeferredLightUniforms.SpecularScale;
+	LightData.ContactShadowLength = abs(DeferredLightUniforms.ContactShadowLength);
+	LightData.ContactShadowLengthInWS = DeferredLightUniforms.ContactShadowLength < 0.0f;
 	LightData.DistanceFadeMAD = DeferredLightUniforms.DistanceFadeMAD;
 	LightData.ShadowMapChannelMask = DeferredLightUniforms.ShadowMapChannelMask;
 	LightData.ShadowedBits = DeferredLightUniforms.ShadowedBits;
 
 	LightData.bInverseSquared = INVERSE_SQUARED_FALLOFF;
-	LightData.bRadialLight = RADIAL_ATTENUATION;
+	LightData.bRadialLight = LIGHT_SOURCE_SHAPE > 0;
 	//@todo - permutation opportunity
-	LightData.bSpotLight = RADIAL_ATTENUATION;
+	LightData.bSpotLight = LIGHT_SOURCE_SHAPE > 0;
+	LightData.bRectLight = LIGHT_SOURCE_SHAPE == 2;
 
 	return LightData;
 }
@@ -43,55 +45,25 @@ uint GetLightingChannelMask(float2 UV)
 	return LightingChannelsTexture.Load(uint3(IntegerUV, 0)).x;
 }
 
-/** 
- * Pixel shader for rendering a directional light using a full screen quad. 
- */
-void DirectionalPixelMain(
-	float2 InUV : TEXCOORD0,
-	float3 ScreenVector : TEXCOORD1,
-	float4 SVPos : SV_POSITION,
-	out float4 OutColor : SV_Target0
-	)
-{
-	OutColor = 0;
-	float3 CameraVector = normalize(ScreenVector);
 
-	FScreenSpaceData ScreenSpaceData = GetScreenSpaceData(InUV);
-
-	// Only light pixels marked as using deferred shading
-	BRANCH if( ScreenSpaceData.GBuffer.ShadingModelID > 0 
-#if USE_LIGHTING_CHANNELS
-		&& (GetLightingChannelMask(InUV) & DeferredLightUniforms.LightingChannelMask) 
-#endif
-		)
-	{
-		float SceneDepth = CalcSceneDepth(InUV);
-		float3 WorldPosition = ScreenVector * SceneDepth + View.WorldCameraOrigin;
-
-		FDeferredLightData LightData = SetupLightDataForStandardDeferred();
-		
-		uint2 Random = Rand3DPCG16( uint3( SVPos.xy, View.Random ) ).xy;
-		float Dither = InterleavedGradientNoise( SVPos.xy, View.StateFrameIndexMod8 );
-
-		OutColor = GetDynamicLighting(WorldPosition, CameraVector, ScreenSpaceData.GBuffer, ScreenSpaceData.AmbientOcclusion, ScreenSpaceData.GBuffer.ShadingModelID, LightData, GetPerPixelLightAttenuation(InUV), Dither, Random);
-	}
-
-#if USE_PREEXPOSURE
-		OutColor *= View.PreExposure;
-#endif
-}
-
-/** 
- * Pixel shader for rendering a point or spot light using approximate bounding geometry. 
- */
-void RadialPixelMain(
+void DeferredLightPixelMain(
+#if LIGHT_SOURCE_SHAPE > 0
 	float4 InScreenPosition : TEXCOORD0,
-	float4 SVPos : SV_POSITION,
-	out float4 OutColor : SV_Target0
+#else
+	float2 ScreenUV			: TEXCOORD0,
+	float3 ScreenVector		: TEXCOORD1,
+#endif
+	float4 SVPos			: SV_POSITION,
+	out float4 OutColor		: SV_Target0
 	)
 {
 	OutColor = 0;
+
+#if LIGHT_SOURCE_SHAPE > 0
 	float2 ScreenUV = InScreenPosition.xy / InScreenPosition.w * View.ScreenPositionScaleBias.xy + View.ScreenPositionScaleBias.wz;
+#else
+	float3 CameraVector = normalize(ScreenVector);
+#endif
 	
 	FScreenSpaceData ScreenSpaceData = GetScreenSpaceData(ScreenUV);
 
@@ -103,21 +75,22 @@ void RadialPixelMain(
 		)
 	{
 		float SceneDepth = CalcSceneDepth(ScreenUV);
+
+#if LIGHT_SOURCE_SHAPE > 0
 		// With a perspective projection, the clip space position is NDC * Clip.w
 		// With an orthographic projection, clip space is the same as NDC
 		float2 ClipPosition = InScreenPosition.xy / InScreenPosition.w * (View.ViewToClip[3][3] < 1.0f ? SceneDepth : 1.0f);
-		float4 HomogeneousWorldPosition = mul(float4(ClipPosition, SceneDepth, 1), View.ScreenToWorld);
-		float3 WorldPosition = HomogeneousWorldPosition.xyz / HomogeneousWorldPosition.w;
+		float3 WorldPosition = mul(float4(ClipPosition, SceneDepth, 1), View.ScreenToWorld).xyz;
 		float3 CameraVector = normalize(WorldPosition - View.WorldCameraOrigin);
+#else
+		float3 WorldPosition = ScreenVector * SceneDepth + View.WorldCameraOrigin;
+#endif
 
 		FDeferredLightData LightData = SetupLightDataForStandardDeferred();
 
-		uint2 Random = uint2( SVPos.xy );
-		//uint2 Random = SobolPixel( uint2(SVPos.xy) );
-		//uint2 Random = Rand3DPCG16( uint3( SVPos.xy, View.Random ) ).xy;
 		float Dither = InterleavedGradientNoise( SVPos.xy, View.StateFrameIndexMod8 );
 
-		OutColor = GetDynamicLighting(WorldPosition, CameraVector, ScreenSpaceData.GBuffer, ScreenSpaceData.AmbientOcclusion, ScreenSpaceData.GBuffer.ShadingModelID, LightData, GetPerPixelLightAttenuation(ScreenUV), Dither, Random);
+		OutColor = GetDynamicLighting(WorldPosition, CameraVector, ScreenSpaceData.GBuffer, ScreenSpaceData.AmbientOcclusion, ScreenSpaceData.GBuffer.ShadingModelID, LightData, GetPerPixelLightAttenuation(ScreenUV), Dither, uint2( SVPos.xy ));
 		OutColor *= ComputeLightProfileMultiplier(WorldPosition, DeferredLightUniforms.LightPosition, -DeferredLightUniforms.NormalizedLightDirection, DeferredLightUniforms.NormalizedLightTangent);
 
 #if USE_PREEXPOSURE

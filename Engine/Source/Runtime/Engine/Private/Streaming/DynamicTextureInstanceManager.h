@@ -27,10 +27,11 @@ public:
 
 	void IncrementalUpdate(FRemovedTextureArray& RemovedTextures, float Percentage);
 
-#if !UE_BUILD_SHIPPING
 	// Get all (non removed) components refered by the manager. Debug only.
 	void GetReferencedComponents(TArray<const UPrimitiveComponent*>& Components) { StateSync.SyncAndGetState()->GetReferencedComponents(Components); }
-#endif
+
+	/** Remove all pending components that are marked for delete. This prevents searching in the pending list for each entry. */
+	void OnPreGarbageCollect(FRemovedTextureArray& RemovedTextures);
 
 	/*-----------------------------------
 	------ ITextureInstanceManager ------

@@ -23,7 +23,7 @@ public:
 	 *
 	 * @param Capacity The number of elements that the buffer can store (will be rounded up to the next power of 2).
 	 */
-	TCircularBuffer(uint32 Capacity)
+	explicit TCircularBuffer(uint32 Capacity)
 	{
 		checkSlow(Capacity > 0);
 		checkSlow(Capacity <= 0xffffffffU);

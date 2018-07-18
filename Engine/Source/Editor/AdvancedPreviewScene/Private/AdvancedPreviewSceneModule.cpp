@@ -3,7 +3,7 @@
 #include "AdvancedPreviewSceneModule.h"
 #include "SAdvancedPreviewDetailsTab.h"
 #include "AdvancedPreviewSceneCommands.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 
 void FAdvancedPreviewSceneModule::StartupModule()
 {

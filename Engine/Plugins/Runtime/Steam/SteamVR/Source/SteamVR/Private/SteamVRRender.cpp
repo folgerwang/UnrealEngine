@@ -41,8 +41,12 @@ void FSteamVRHMD::RenderTexture_RenderThread(FRHICommandListImmediate& RHICmdLis
 		DrawClearQuad(RHICmdList, FLinearColor(0, 0, 0, 0));
 	}
 
-	check(SpectatorScreenController);
-	SpectatorScreenController->RenderSpectatorScreen_RenderThread(RHICmdList, BackBuffer, SrcTexture, WindowSize);
+	//@todo Fix for crash on exit, but do not merge, since there is a more robust fix in Main
+	if (bStereoDesired && bStereoEnabled)
+	{
+		check(SpectatorScreenController);
+		SpectatorScreenController->RenderSpectatorScreen_RenderThread(RHICmdList, BackBuffer, SrcTexture, WindowSize);
+	}
 }
 
 static void DrawOcclusionMesh(FRHICommandList& RHICmdList, EStereoscopicPass StereoPass, const FHMDViewMesh MeshAssets[])
@@ -77,14 +81,72 @@ void FSteamVRHMD::DrawVisibleAreaMesh_RenderThread(FRHICommandList& RHICmdList, 
 	DrawOcclusionMesh(RHICmdList, StereoPass, VisibleAreaMeshes);
 }
 
+
+struct FRHICommandExecute_BeginRendering final : public FRHICommand<FRHICommandExecute_BeginRendering>
+{
+	FSteamVRHMD::BridgeBaseImpl *pBridge;
+	FRHICommandExecute_BeginRendering(FSteamVRHMD::BridgeBaseImpl* pInBridge)
+		: pBridge(pInBridge)
+	{
+	}
+
+	void Execute(FRHICommandListBase& /* unused */)
+	{
+		check(pBridge->IsUsingExplicitTimingMode());
+		pBridge->BeginRendering_RHI();
+	}
+};
+
+void FSteamVRHMD::BridgeBaseImpl::BeginRendering_RenderThread(FRHICommandListImmediate& RHICmdList)
+{
+	if (IsUsingExplicitTimingMode())
+	{
+		new (RHICmdList.AllocCommand<FRHICommandExecute_BeginRendering>()) FRHICommandExecute_BeginRendering(this);
+	}
+}
+
+void FSteamVRHMD::BridgeBaseImpl::BeginRendering_RHI()
+{
+	check(!IsRunningRHIInSeparateThread() || IsInRHIThread());
+	Plugin->VRCompositor->SubmitExplicitTimingData();
+}
+
+bool FSteamVRHMD::BridgeBaseImpl::Present(int& SyncInterval)
+{
+	check(IsRunningRHIInSeparateThread() ? IsInRHIThread() : IsInRenderingThread());
+
+	if (Plugin->VRCompositor == nullptr)
+	{
+		return false;
+	}
+
+	FinishRendering();
+
+	return true;
+}
+
 bool FSteamVRHMD::BridgeBaseImpl::NeedsNativePresent()
 {
-    if (Plugin->VRCompositor == nullptr)
-    {
-        return false;
-    }
-    
-    return true;
+	if (Plugin->VRCompositor == nullptr)
+	{
+		return false;
+	}
+	
+	return true;
+}
+
+bool FSteamVRHMD::BridgeBaseImpl::NeedsPostPresentHandoff() const
+{
+	return bUseExplicitTimingMode || (CUsePostPresentHandoff.GetValueOnRenderThread() == 1);
+}
+
+void FSteamVRHMD::BridgeBaseImpl::PostPresent()
+{
+	if (NeedsPostPresentHandoff())
+	{
+		check(!IsRunningRHIInSeparateThread() || IsInRHIThread());
+		Plugin->VRCompositor->PostPresentHandoff();
+	}
 }
 
 #if PLATFORM_WINDOWS
@@ -95,17 +157,6 @@ FSteamVRHMD::D3D11Bridge::D3D11Bridge(FSteamVRHMD* plugin):
 {
 }
 
-void FSteamVRHMD::D3D11Bridge::BeginRendering()
-{
-	check(IsInRenderingThread());
-
-	static bool Inited = false;
-	if (!Inited)
-	{
-		Inited = true;
-	}
-}
-
 void FSteamVRHMD::D3D11Bridge::FinishRendering()
 {
 	vr::Texture_t Texture;
@@ -114,24 +165,27 @@ void FSteamVRHMD::D3D11Bridge::FinishRendering()
 	Texture.eColorSpace = vr::ColorSpace_Auto;
 
 	vr::VRTextureBounds_t LeftBounds;
-    LeftBounds.uMin = 0.0f;
+	LeftBounds.uMin = 0.0f;
 	LeftBounds.uMax = 0.5f;
-    LeftBounds.vMin = 0.0f;
-    LeftBounds.vMax = 1.0f;
+	LeftBounds.vMin = 0.0f;
+	LeftBounds.vMax = 1.0f;
 	
-    vr::EVRCompositorError Error = Plugin->VRCompositor->Submit(vr::Eye_Left, &Texture, &LeftBounds);
+	vr::EVRCompositorError Error = Plugin->VRCompositor->Submit(vr::Eye_Left, &Texture, &LeftBounds);
 
 	vr::VRTextureBounds_t RightBounds;
 	RightBounds.uMin = 0.5f;
-    RightBounds.uMax = 1.0f;
-    RightBounds.vMin = 0.0f;
-    RightBounds.vMax = 1.0f;
+	RightBounds.uMax = 1.0f;
+	RightBounds.vMin = 0.0f;
+	RightBounds.vMax = 1.0f;
 	   
 	Texture.handle = RenderTargetTexture;
 	Error = Plugin->VRCompositor->Submit(vr::Eye_Right, &Texture, &RightBounds);
-    if (Error != vr::VRCompositorError_None)
+
+	static bool FirstError = true;
+	if (FirstError && Error != vr::VRCompositorError_None)
 	{
 		UE_LOG(LogHMD, Log, TEXT("Warning:  SteamVR Compositor had an error on present (%d)"), (int32)Error);
+		FirstError = false;
 	}
 }
 
@@ -154,36 +208,8 @@ void FSteamVRHMD::D3D11Bridge::UpdateViewport(const FViewport& Viewport, FRHIVie
 
 	RenderTargetTexture = (ID3D11Texture2D*)RT->GetNativeResource();
 	RenderTargetTexture->AddRef();
-
-	InViewportRHI->SetCustomPresent(this);
 }
 
-
-void FSteamVRHMD::D3D11Bridge::OnBackBufferResize()
-{
-}
-
-bool FSteamVRHMD::D3D11Bridge::Present(int& SyncInterval)
-{
-	check(IsInRenderingThread());
-
-	if (Plugin->VRCompositor == nullptr)
-	{
-		return false;
-	}
-
-	FinishRendering();
-
-	return true;
-}
-
-void FSteamVRHMD::D3D11Bridge::PostPresent()
-{
-	if (CUsePostPresentHandoff.GetValueOnRenderThread() == 1)
-	{
-		Plugin->VRCompositor->PostPresentHandoff();
-	}
-}
 #endif // PLATFORM_WINDOWS
 
 #if !PLATFORM_MAC
@@ -192,11 +218,7 @@ FSteamVRHMD::VulkanBridge::VulkanBridge(FSteamVRHMD* plugin):
 	RenderTargetTexture(0)
 {
 	bInitialized = true;
-}
-
-void FSteamVRHMD::VulkanBridge::BeginRendering()
-{
-//	check(IsInRenderingThread());
+	bUseExplicitTimingMode = true;
 }
 
 void FSteamVRHMD::VulkanBridge::FinishRendering()
@@ -207,10 +229,14 @@ void FSteamVRHMD::VulkanBridge::FinishRendering()
 	{
 		FVulkanTexture2D* Texture2D = (FVulkanTexture2D*)RenderTargetTexture.GetReference();
 		FVulkanCommandListContext& ImmediateContext = vlkRHI->GetDevice()->GetImmediateContext();
-		const VkImageLayout* CurrentLayout = ImmediateContext.GetTransitionState().CurrentLayout.Find(Texture2D->Surface.Image);
+		VkImageLayout& CurrentLayout = ImmediateContext.GetTransitionAndLayoutManager().FindOrAddLayoutRW(Texture2D->Surface.Image, VK_IMAGE_LAYOUT_UNDEFINED);
+		bool bHadLayout = (CurrentLayout != VK_IMAGE_LAYOUT_UNDEFINED);
 		FVulkanCmdBuffer* CmdBuffer = ImmediateContext.GetCommandBufferManager()->GetUploadCmdBuffer();
 		VkImageSubresourceRange SubresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
-		vlkRHI->VulkanSetImageLayout( CmdBuffer->GetHandle(), Texture2D->Surface.Image, CurrentLayout ? *CurrentLayout : VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, SubresourceRange );
+		if (CurrentLayout != VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL)
+		{
+			vlkRHI->VulkanSetImageLayout(CmdBuffer->GetHandle(), Texture2D->Surface.Image, CurrentLayout, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, SubresourceRange);
+		}
 
 		vr::VRTextureBounds_t LeftBounds;
 		LeftBounds.uMin = 0.0f;
@@ -241,7 +267,16 @@ void FSteamVRHMD::VulkanBridge::FinishRendering()
 		Plugin->VRCompositor->Submit(vr::Eye_Left, &texture, &LeftBounds);
 		Plugin->VRCompositor->Submit(vr::Eye_Right, &texture, &RightBounds);
 
-		ImmediateContext.GetCommandBufferManager()->SubmitUploadCmdBuffer(false);
+		if (bHadLayout && CurrentLayout != VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL)
+		{
+			vlkRHI->VulkanSetImageLayout(CmdBuffer->GetHandle(), Texture2D->Surface.Image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, CurrentLayout, SubresourceRange);
+		}
+		else
+		{
+			CurrentLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+		}
+
+		ImmediateContext.GetCommandBufferManager()->SubmitUploadCmdBuffer();
 	}
 }
 
@@ -250,51 +285,11 @@ void FSteamVRHMD::VulkanBridge::Reset()
 
 }
 
-void FSteamVRHMD::VulkanBridge::UpdateViewport(const FViewport& Viewport, FRHIViewport* InViewportRHI)
-{
-	RenderTargetTexture = Viewport.GetRenderTargetTexture();
-	check(IsValidRef(RenderTargetTexture));
-
-	InViewportRHI->SetCustomPresent(this);
-}
-
-
-void FSteamVRHMD::VulkanBridge::OnBackBufferResize()
-{
-}
-
-bool FSteamVRHMD::VulkanBridge::Present(int& SyncInterval)
-{
-	if (Plugin->VRCompositor == nullptr)
-	{
-		return false;
-	}
-
-	FinishRendering();
-
-	return true;
-}
-
-void FSteamVRHMD::VulkanBridge::PostPresent()
-{
-	if (CUsePostPresentHandoff.GetValueOnRenderThread() == 1)
-	{
-		Plugin->VRCompositor->PostPresentHandoff();
-	}
-}
-
 FSteamVRHMD::OpenGLBridge::OpenGLBridge(FSteamVRHMD* plugin):
 	BridgeBaseImpl(plugin),
 	RenderTargetTexture(0)
 {
 	bInitialized = true;
-}
-
-void FSteamVRHMD::OpenGLBridge::BeginRendering()
-{
-	check(IsInRenderingThread());
-
-
 }
 
 void FSteamVRHMD::OpenGLBridge::FinishRendering()
@@ -341,35 +336,6 @@ void FSteamVRHMD::OpenGLBridge::UpdateViewport(const FViewport& Viewport, FRHIVi
 	check(IsValidRef(RT));
 
 	RenderTargetTexture = *reinterpret_cast<GLuint*>(RT->GetNativeResource());
-
-	InViewportRHI->SetCustomPresent(this);
-}
-
-
-void FSteamVRHMD::OpenGLBridge::OnBackBufferResize()
-{
-}
-
-bool FSteamVRHMD::OpenGLBridge::Present(int& SyncInterval)
-{
-	check(IsInRenderingThread());
-
-	if (Plugin->VRCompositor == nullptr)
-	{
-		return false;
-	}
-
-	FinishRendering();
-
-	return true;
-}
-
-void FSteamVRHMD::OpenGLBridge::PostPresent()
-{
-	if (CUsePostPresentHandoff.GetValueOnRenderThread() == 1)
-	{
-		Plugin->VRCompositor->PostPresentHandoff();
-	}
 }
 
 #elif PLATFORM_MAC
@@ -377,17 +343,6 @@ void FSteamVRHMD::OpenGLBridge::PostPresent()
 FSteamVRHMD::MetalBridge::MetalBridge(FSteamVRHMD* plugin):
 	BridgeBaseImpl(plugin)
 {}
-
-void FSteamVRHMD::MetalBridge::BeginRendering()
-{
-	check(IsInRenderingThread());
-
-	static bool Inited = false;
-	if (!Inited)
-	{
-		Inited = true;
-	}
-}
 
 void FSteamVRHMD::MetalBridge::FinishRendering()
 {
@@ -414,9 +369,12 @@ void FSteamVRHMD::MetalBridge::FinishRendering()
 	RightBounds.vMax = 1.0f;
 	
 	Error = Plugin->VRCompositor->Submit(vr::Eye_Right, &Texture, &RightBounds);
-	if (Error != vr::VRCompositorError_None)
+
+	static bool FirstError = true;
+	if (FirstError && Error != vr::VRCompositorError_None)
 	{
 		UE_LOG(LogHMD, Log, TEXT("Warning:  SteamVR Compositor had an error on present (%d)"), (int32)Error);
+		FirstError = false;
 	}
 
 	static_cast<FRHITextureSet2D*>(TextureSet.GetReference())->Advance();
@@ -424,41 +382,6 @@ void FSteamVRHMD::MetalBridge::FinishRendering()
 
 void FSteamVRHMD::MetalBridge::Reset()
 {
-}
-
-void FSteamVRHMD::MetalBridge::UpdateViewport(const FViewport& Viewport, FRHIViewport* InViewportRHI)
-{
-	check(IsInGameThread());
-	check(InViewportRHI);
-	InViewportRHI->SetCustomPresent(this);
-}
-
-void FSteamVRHMD::MetalBridge::OnBackBufferResize()
-{
-}
-
-bool FSteamVRHMD::MetalBridge::Present(int& SyncInterval)
-{
-	// Editor appears to be in rt, game appears to be in rhi?
-	//check(IsInRenderingThread());
-	//check(IsInRHIThread());
-
-	if (Plugin->VRCompositor == nullptr)
-	{
-		return false;
-	}
-
-	FinishRendering();
-
-	return true;
-}
-
-void FSteamVRHMD::MetalBridge::PostPresent()
-{
-	if (CUsePostPresentHandoff.GetValueOnRenderThread() == 1)
-	{
-		Plugin->VRCompositor->PostPresentHandoff();
-	}
 }
 
 IOSurfaceRef FSteamVRHMD::MetalBridge::GetSurface(const uint32 SizeX, const uint32 SizeY)

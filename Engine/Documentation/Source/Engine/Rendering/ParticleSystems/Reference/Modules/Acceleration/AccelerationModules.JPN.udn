@@ -1,10 +1,10 @@
-﻿INTSourceChangelist:2750589
+﻿INTSourceChangelist:3243860
 Availability:Public
 Title:Acceleration モジュール
 Crumbs: %ROOT%, Engine, Engine/Rendering/ParticleSystems, Engine/Rendering/ParticleSystems/Reference
 Description:時間とともにパーティクルのベロシティ (移動速度) に変更を加えるモジュール
 Version:4.9
-
+tags:Particles
 
 [TOC(start:2 end:3)]
 

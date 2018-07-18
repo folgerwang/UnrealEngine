@@ -118,14 +118,14 @@ class FPostProcessHMDPS : public FGlobalShader
 
 public:
 	FPostProcessPassParameters PostprocessParameter;
-	FDeferredPixelShaderParameters DeferredParameters;
+	FSceneTextureShaderParameters SceneTextureParameters;
 
 	/** Initialization constructor. */
 	FPostProcessHMDPS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
 		: FGlobalShader(Initializer)
 	{
 		PostprocessParameter.Bind(Initializer.ParameterMap);
-		DeferredParameters.Bind(Initializer.ParameterMap);
+		SceneTextureParameters.Bind(Initializer);
 
 	}
 
@@ -137,14 +137,14 @@ public:
 		FGlobalShader::SetParameters<FViewUniformShaderParameters>(RHICmdList, ShaderRHI, Context.View.ViewUniformBuffer);
 
 		PostprocessParameter.SetPS(RHICmdList, ShaderRHI, Context, TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI());
-		DeferredParameters.Set(RHICmdList, ShaderRHI, Context.View, MD_PostProcess);
+		SceneTextureParameters.Set(RHICmdList, ShaderRHI, Context.View.FeatureLevel, ESceneTextureSetupMode::All);
 	}
 
 	// FShader interface.
 	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
-		Ar << PostprocessParameter << DeferredParameters;
+		Ar << PostprocessParameter << SceneTextureParameters;
 		return bShaderHasOutdatedParameters;
 	}
 };
@@ -172,7 +172,7 @@ void FRCPassPostProcessHMD::Process(FRenderingCompositePassContext& Context)
 	const FSceneRenderTargetItem& DestRenderTarget = PassOutputs[0].RequestSurface(Context);
 
 	// Set the view family's render target/viewport
-	if (DestRenderTarget.TargetableTexture->GetClearColor() == FLinearColor::Black)
+	if (!ensure(DestRenderTarget.TargetableTexture.IsValid()) || DestRenderTarget.TargetableTexture->GetClearColor() == FLinearColor::Black)
 	{
 		FRHIRenderTargetView RtView = FRHIRenderTargetView(DestRenderTarget.TargetableTexture, ERenderTargetLoadAction::EClear);
 		FRHISetRenderTargetsInfo Info(1, &RtView, FRHIDepthRenderTargetView());
@@ -213,12 +213,20 @@ void FRCPassPostProcessHMD::Process(FRenderingCompositePassContext& Context)
 	}
 	GEngine->XRSystem->GetHMDDevice()->DrawDistortionMesh_RenderThread(Context, SrcSize);
 
-	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, false, FResolveParams());
+	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 }
 
 FPooledRenderTargetDesc FRCPassPostProcessHMD::ComputeOutputDesc(EPassOutputId InPassOutputId) const
 {
 	FPooledRenderTargetDesc Ret = PassOutputs[0].RenderTargetDesc;
+
+	if (const FRenderingCompositeOutputRef* InputPass0 = GetInput(ePId_Input0))
+	{
+		if (const FRenderingCompositeOutput* PassInput = InputPass0->GetOutput())
+		{
+			Ret = PassInput->RenderTargetDesc;
+		}
+	}
 
 	Ret.Reset();
 	Ret.DebugName = TEXT("HMD");

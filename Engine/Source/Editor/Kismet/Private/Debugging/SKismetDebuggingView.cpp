@@ -1085,7 +1085,7 @@ void SKismetDebuggingView::Construct(const FArguments& InArgs)
 			.Text( this, &SKismetDebuggingView::GetTopText )
 		]
 		+SVerticalBox::Slot()
-		. FillHeight(1.0f)
+		.AutoHeight()
 		[
 			SAssignNew( DebugTreeView, STreeView< FDebugTreeItemPtr > )
 			.TreeItemsSource( &RootTreeItems )

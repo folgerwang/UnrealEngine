@@ -59,8 +59,10 @@ public class UnrealEd : ModuleRules
 				"ViewportInteraction",
 				"VREditor",
 				"Persona",
-                "PhysicsAssetEditor",
-                "ClothingSystemEditorInterface",
+				"PhysicsAssetEditor",
+				"ClothingSystemEditorInterface",
+				"NavigationSystem",
+				"Media",
 			}
 		);
 
@@ -82,7 +84,6 @@ public class UnrealEd : ModuleRules
 				"EditorStyle",
 				"SourceControl",
 				"UnrealEdMessages",
-				"AIModule",
 				"GameplayDebugger",
 				"BlueprintGraph",
 				"Http",
@@ -93,7 +94,10 @@ public class UnrealEd : ModuleRules
 				"AudioEditor",
 				"NetworkFileSystem",
 				"UMG",
-			}
+				"NavigationSystem",
+                "MeshDescription",
+                "MeshBuilder",
+            }
 		);
 
 		PrivateDependencyModuleNames.AddRange(
@@ -105,6 +109,7 @@ public class UnrealEd : ModuleRules
 				"AppFramework",
 				"BlueprintGraph",
 				"CinematicCamera",
+				"CurveEditor",
 				"DesktopPlatform",
 				"LauncherPlatform",
 				"EditorStyle",
@@ -156,6 +161,7 @@ public class UnrealEd : ModuleRules
 				"ClothingSystemRuntime",
 				"ClothingSystemRuntimeInterface",
 				"PIEPreviewDeviceProfileSelector",
+				"TimeManagement",
 			}
 		);
 
@@ -183,7 +189,7 @@ public class UnrealEd : ModuleRules
 				"LevelEditor",
 				"PackagesDialog",
 				"Persona",
-                "PhysicsAssetEditor",
+				"PhysicsAssetEditor",
 				"ProjectLauncher",
 				"DeviceManager",
 				"SettingsEditor",
@@ -213,11 +219,11 @@ public class UnrealEd : ModuleRules
 				"HTML5PlatformEditor",
 				"PortalProxies",
 				"PortalServices",
-				"GeometryCacheEd",
 				"BlueprintNativeCodeGen",
 				"OverlayEditor",
 				"AnimationModifiers",
 				"ClothPainter",
+				"Media",
 			}
 		);
 
@@ -231,6 +237,11 @@ public class UnrealEd : ModuleRules
 			DynamicallyLoadedModuleNames.Add("AndroidPlatformEditor");
 		}
 
+		if (Target.Platform == UnrealTargetPlatform.Win64 || Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Mac)
+		{
+			DynamicallyLoadedModuleNames.Add("LuminPlatformEditor");
+		}
+
 		CircularlyReferencedDependentModules.AddRange(
 			new string[]
 			{
@@ -238,7 +249,7 @@ public class UnrealEd : ModuleRules
 				"Kismet",
 				"AudioEditor",
 				"ViewportInteraction",
-				"VREditor"
+				"VREditor",
 			}
 		);
 
@@ -254,6 +265,9 @@ public class UnrealEd : ModuleRules
 				"MeshUtilities",
 				"AssetTools",
 				"KismetCompiler",
+				"NavigationSystem",
+				"GameplayTasks",
+				"AIModule",
 			}
 			);
 

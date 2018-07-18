@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2727334
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:2.入力設定と Pawn Movement コンポーネントの作成
 Crumbs:%ROOT%, Programming, Programming/Tutorials, Programming/Tutorials/Components
@@ -30,14 +30,14 @@ version:4.9
 	設定メニューに移動したら、左パネルの **エンジン** セクションから **Input (入力)** を選択します。パーティクル システムの切り替えを設定する **Action Mapping (アクションマッピング)** 、**ポーン** を動かす 2 つの **Axis Mappings** 、そして **ポーン** を回転するためにもう一つの **Axis Mapping** を設定しなくてはいけません。
 
 	| ----- | ----- | ----- |
-	| Action Mapping (アクション マッピング) | | |
+	| Action Mapping | | |
 	| ParticleToggle (パーティクルの切替) | スペース バー | |
 
 	| ----- | ----- | ----- |
-	| Axis Mapping (軸マッピング) | | |
-	| MoveForward (前方向へ移動) | W | 1.0 |
+	| Axis Mapping | | |
+	| MoveForward | W | 1.0 |
 	|  | S | -1.0 |
-	| MoveRight (右へ移動) | A | -1.0 |
+	| MoveRight | A | -1.0 |
 	|  | D | 1.0 |
 	| Turn (ターン) | Mouse X | 1.0 |
 
@@ -61,126 +61,117 @@ version:4.9
 
 	![](NameComponent.png)
 
-----
 
 これで入力設定を定義して、カスタムの Pawn Movement コンポーネントを作成しました。**Visual Studio** に戻って、Pawn Movement Component を使用時の ポーンの移動方法を定義するためにコードを記述しましょう。
 
-[OBJECT:Section]
-    [PARAMLITERAL:id]
-    code
-    [/PARAMLITERAL]
-    [PARAM:heading]
-	    作業中のコード
-    [/PARAM]
-    [PARAM:content]
-		**CollidingPawn.h**
-			// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+## 作業中のコード
 
-			#pragma once
+**CollidingPawn.h**
 
-			#include "GameFramework/Pawn.h"
-			#include "CollidingPawn.generated.h"
+	// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
 
-			UCLASS()
-			class HOWTO_COMPONENTS_API ACollidingPawn : public APawn
-			{
-				GENERATED_BODY()
+	#pragma once
 
-			public:
-				// Sets default values for this pawn's properties (このポーンのプロパティのデフォルト値を設定)
-				ACollidingPawn();
+	#include "GameFramework/Pawn.h"
+	#include "CollidingPawn.generated.h"
 
-				// ゲーム開始時またはスポーン時に呼ばれます。
-				virtual void BeginPlay() override;
-	// フレームごとに呼ばれます。
+	UCLASS()
+	class HOWTO_COMPONENTS_API ACollidingPawn : public APawn
+	{
+		GENERATED_BODY()
 
-				virtual void Tick( float DeltaSeconds ) override;
+	public:
+		// Sets default values for this pawn's properties (このポーンのプロパティのデフォルト値を設定) 
+		ACollidingPawn();
 
-				// 機能と入力をバインドするために呼ばれます。
-				virtual void SetupPlayerInputComponent(class UInputComponent* InputComponent) override;
+	protected:
+		// Called when the game starts or when spawned (ゲーム開始時またはスポーン時に呼び出されます)
+		virtual void BeginPlay() override;
+	public:
+		// Called every frame (フレーム毎に呼び出されます)
+		virtual void Tick( float DeltaSeconds ) override;
 
-				UParticleSystemComponent* OurParticleSystem;
-			};
+		// Called to bind functionality to input (機能を入力にバインドするために呼び出されます)
+		virtual void SetupPlayerInputComponent(class UInputComponent* InputComponent) override;
 
-		**CollidingPawn.cpp**
-			// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+		UParticleSystemComponent* OurParticleSystem;
+	};
 
-			#include "HowTo_Components.h"
-			#include "CollidingPawn.h"
+**CollidingPawn.cpp**
 
-			// デフォルト値を設定
-			ACollidingPawn::ACollidingPawn()
-			{
- 				// Set this pawn to call Tick() every frame. (フレーム毎に Tick() を呼び出すには、このポーンを設定します)必要がなければパフォーマンスを向上させるためにオフにすることができます。
-				PrimaryActorTick.bCanEverTick = true;
+	// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
 
-				// Our root component will be a sphere that reacts to physics (ルート コンポーネントは物理に反応するスフィア (球体) になります)
-				USphereComponent* SphereComponent = CreateDefaultSubobject<USphereComponent>(TEXT("RootComponent"));
-				RootComponent = SphereComponent;
-				SphereComponent->InitSphereRadius(40.0f);
-				SphereComponent->SetCollisionProfileName(TEXT("Pawn"));
+	#include "HowTo_Components.h"
+	#include "CollidingPawn.h"
 
-				// Create and position a mesh component so we can see where our sphere is (スフィアの位置が分かるようにメッシュ コンポーネントを作成して配置します)
-				UStaticMeshComponent* SphereVisual = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("VisualRepresentation"));
-				SphereVisual->AttachTo(RootComponent);
-				static ConstructorHelpers::FObjectFinder<UStaticMesh> SphereVisualAsset(TEXT("/Game/StarterContent/Shapes/Shape_Sphere.Shape_Sphere"));
-				if (SphereVisualAsset.Succeeded())
-				{
-					SphereVisual->SetStaticMesh(SphereVisualAsset.Object);
-					SphereVisual->SetRelativeLocation(FVector(0.0f, 0.0f, -40.0f));
-					SphereVisual->SetWorldScale3D(FVector(0.8f));
-				}
+	// Sets default values (デフォルト値を設定) 
+	ACollidingPawn::ACollidingPawn()
+	{
+ 		// Set this pawn to call Tick() every frame. (フレーム毎に Tick() を呼び出すようにこのポーンを設定します。) You can turn this off to improve performance if you don't need it. (必要がなければパフォーマンスを向上させるためにオフにすることができます) 
+		PrimaryActorTick.bCanEverTick = true;
 
-				// Create a particle system that we can activate or deactivate (アクティブまたは非アクティブに出来るパーティクルシステムを作成)
-				OurParticleSystem = CreateDefaultSubobject<UParticleSystemComponent>(TEXT("MovementParticles"));
-				OurParticleSystem->AttachTo(SphereVisual);
-				OurParticleSystem->bAutoActivate = false;
-				OurParticleSystem->SetRelativeLocation(FVector(-20.0f, 0.0f, 20.0f));
-				static ConstructorHelpers::FObjectFinder<UParticleSystem> ParticleAsset(TEXT("/Game/StarterContent/Particles/P_Fire.P_Fire"));
-				if (ParticleAsset.Succeeded())
-				{
-					OurParticleSystem->SetTemplate(ParticleAsset.Object);
-				}
+		// ルート コンポーネントは物理に反応するスフィア (球体) になります。
+		USphereComponent* SphereComponent = CreateDefaultSubobject<USphereComponent>(TEXT("RootComponent"));
+		RootComponent = SphereComponent;
+		SphereComponent->InitSphereRadius(40.0f);
+		SphereComponent->SetCollisionProfileName(TEXT("Pawn"));
 
-				// Use a spring arm to give the camera smooth, natural-feeling motion (カメラにスムーズで自然な動きを与えるためにスプリング アームを使用) 
-				USpringArmComponent* SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraAttachmentArm"));
-				SpringArm->AttachTo(RootComponent);
-				SpringArm->RelativeRotation = FRotator(-45.f, 0.f, 0.f);
-				SpringArm->TargetArmLength = 400.0f;
-				SpringArm->bEnableCameraLag = true;
-				SpringArm->CameraLagSpeed = 3.0f;
+		// 球体の位置が分かるようにメッシュ コンポーネントを作成して配置します
+		UStaticMeshComponent* SphereVisual = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("VisualRepresentation"));
+		SphereVisual->SetupAttachment(RootComponent);
+		static ConstructorHelpers::FObjectFinder<UStaticMesh> SphereVisualAsset(TEXT("/Game/StarterContent/Shapes/Shape_Sphere.Shape_Sphere"));
+		if (SphereVisualAsset.Succeeded())
+		{
+			SphereVisual->SetStaticMesh(SphereVisualAsset.Object);
+			SphereVisual->SetRelativeLocation(FVector(0.0f, 0.0f, -40.0f));
+			SphereVisual->SetWorldScale3D(FVector(0.8f));
+		}
 
-				// Create a camera and attach to our spring arm (カメラを作成してスプリングアームに親子付け)
-				UCameraComponent* Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("ActualCamera"));
-				Camera->AttachTo(SpringArm, USpringArmComponent::SocketName);
+		// アクティブまたは非アクティブにできるパーティクル システムを作成
+		OurParticleSystem = CreateDefaultSubobject<UParticleSystemComponent>(TEXT("MovementParticles"));
+		OurParticleSystem->SetupAttachment(SphereVisual);
+		OurParticleSystem->bAutoActivate = false;
+		OurParticleSystem->SetRelativeLocation(FVector(-20.0f, 0.0f, 20.0f));
+		static ConstructorHelpers::FObjectFinder<UParticleSystem> ParticleAsset(TEXT("/Game/StarterContent/Particles/P_Fire.P_Fire"));
+		if (ParticleAsset.Succeeded())
+		{
+			OurParticleSystem->SetTemplate(ParticleAsset.Object);
+		}
 
-				// Take control of the default player (デフォルト プレイヤーをコントロール)
-				AutoPossessPlayer = EAutoReceiveInput::Player0;
-			}
+		// カメラにスムーズで自然な動きを与えるためにスプリング アームを使用
+		USpringArmComponent* SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraAttachmentArm"));
+		SpringArm->SetupAttachment(RootComponent);
+		SpringArm->RelativeRotation = FRotator(-45.f, 0.f, 0.f);
+		SpringArm->TargetArmLength = 400.0f;
+		SpringArm->bEnableCameraLag = true;
+		SpringArm->CameraLagSpeed = 3.0f;
 
-			// ゲーム開始時またはスポーン時に呼ばれます。
-			void ACollidingPawn::BeginPlay()
-			{
-				Super::BeginPlay();
+		// カメラを作成してスプリング アームに親子付け
+		UCameraComponent* Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("ActualCamera"));
+		Camera->SetupAttachment(SpringArm, USpringArmComponent::SocketName);
+
+		// デフォルト プレイヤーをコントロール
+		AutoPossessPlayer = EAutoReceiveInput::Player0;
 	}
 
+	// Called when the game starts or when spawned (ゲーム開始時またはスポーン時に呼び出されます)
+	void ACollidingPawn::BeginPlay()
+	{
+		Super::BeginPlay();
 
-			// フレームごとに呼ばれます。
-			void ACollidingPawn::Tick( float DeltaTime )
-			{
-				Super::Tick( DeltaTime );
+	}
 
-			}
+	// Called every frame (フレーム毎に呼び出されます)
+	void ACollidingPawn::Tick( float DeltaTime )
+	{
+		Super::Tick( DeltaTime );
 
-			// 機能と入力をバインドするために呼ばれます。
-			void ACollidingPawn::SetupPlayerInputComponent(class UInputComponent* InputComponent)
-			{
-				Super::SetupPlayerInputComponent(InputComponent);
+	}
+	// Called to bind functionality to input (機能を入力にバインドするために呼び出されます)
+	void ACollidingPawn::SetupPlayerInputComponent(class UInputComponent* InputComponent)
+	{
+		Super::SetupPlayerInputComponent(InputComponent);
 
-			}
-
-
-    [/PARAM]
-[/OBJECT]
+	}
 
 

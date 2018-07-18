@@ -21,6 +21,7 @@ struct FTargetDeviceClaimed;
 struct FTargetDeviceServiceDeployCommit;
 struct FTargetDeviceServiceDeployFile;
 struct FTargetDeviceServiceLaunchApp;
+struct FTargetDeviceServiceTerminateLaunchedProcess;
 struct FTargetDeviceServicePing;
 struct FTargetDeviceServicePowerOff;
 struct FTargetDeviceServicePowerOn;
@@ -97,6 +98,9 @@ private:
 
 	/** Callback for FTargetDeviceServiceLaunchApp messages. */
 	void HandleLaunchAppMessage(const FTargetDeviceServiceLaunchApp& Message, const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context);
+
+	/** Callback for FTargetDeviceServiceTerminateLaunchedProcess messages. */
+	void HandleTerminateLaunchedProcessMessage(const FTargetDeviceServiceTerminateLaunchedProcess& Message, const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context);
 
 	/** Callback for FTargetDeviceServicePing messages. */
 	void HandlePingMessage(const FTargetDeviceServicePing& InMessage, const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context);

@@ -1,13 +1,13 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "CompileAllBlueprintsCommandlet.h"
+#include "Commandlets/CompileAllBlueprintsCommandlet.h"
 
 #include "AssetRegistryModule.h"
-#include "CompilerResultsLog.h"
+#include "Kismet2/CompilerResultsLog.h"
 #include "EngineUtils.h"
 #include "ISourceControlModule.h"
 #include "Misc/FileHelper.h"
-#include "Paths.h"
+#include "Misc/Paths.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogCompileAllBlueprintsCommandlet, Log, All);
 

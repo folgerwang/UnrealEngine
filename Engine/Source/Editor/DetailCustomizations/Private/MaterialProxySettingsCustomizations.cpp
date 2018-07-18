@@ -128,8 +128,14 @@ void FMaterialProxySettingsCustomizations::AddTextureSizeClamping(TSharedPtr<IPr
 {
 	TSharedPtr<IPropertyHandle> PropertyX = TextureSizeProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FIntPoint, X));
 	TSharedPtr<IPropertyHandle> PropertyY = TextureSizeProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FIntPoint, Y));
-
-	const FString MaxTextureResolutionString = FString::FromInt(GetMax2DTextureDimension());
+	// NB: the current gobal value 16384 GetMax2DTextureDimension() will cause int32 overflow for 32bit color formats 
+	//     with 16 bytes per pixel.
+	//     See implimentations of ImageUtils.cpp :: GetRawData()  and ImageCore.cpp :: CopyTo()
+	//     11585 = Floor( Sqrt ( Max_int32 / 16)  )
+	const int32 TmpMaxSize = FMath::FloorToInt(FMath::Sqrt(MAX_int32 / 16));
+	const int32 MaxProxyTextureResolution = FMath::Min(TmpMaxSize, (int32)GetMax2DTextureDimension());
+	
+	const FString MaxTextureResolutionString = FString::FromInt(MaxProxyTextureResolution);
 	TextureSizeProperty->GetProperty()->SetMetaData(TEXT("ClampMax"), *MaxTextureResolutionString);
 	TextureSizeProperty->GetProperty()->SetMetaData(TEXT("UIMax"), *MaxTextureResolutionString);
 	PropertyX->GetProperty()->SetMetaData(TEXT("ClampMax"), *MaxTextureResolutionString);

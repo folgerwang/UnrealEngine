@@ -1,12 +1,12 @@
 // Copyright 2017 Google Inc.
 
 #include "GoogleVRTransition2DBPLibrary.h"
-#include "Classes/GoogleVRTransition2DCallbackProxy.h"
+#include "GoogleVRTransition2DCallbackProxy.h"
 #include "GoogleVRTransition2D.h"
 
 #if PLATFORM_ANDROID
 #include "Android/AndroidJNI.h"
-#include "AndroidApplication.h"
+#include "Android/AndroidApplication.h"
 static jclass _TransitionHelperClass;
 static jmethodID _TransitionTo2DMethodId;
 static jmethodID _TransitionToVRMethodId;

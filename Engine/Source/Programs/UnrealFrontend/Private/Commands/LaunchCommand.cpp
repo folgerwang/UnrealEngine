@@ -1,10 +1,10 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "LaunchCommand.h"
-#include "IPluginManager.h"
-#include "ITargetPlatform.h"
-#include "ITargetPlatformManagerModule.h"
-#include "TaskGraphInterfaces.h"
+#include "Interfaces/IPluginManager.h"
+#include "Interfaces/ITargetPlatform.h"
+#include "Interfaces/ITargetPlatformManagerModule.h"
+#include "Async/TaskGraphInterfaces.h"
 #include "Misc/CommandLine.h"
 #include "Containers/Ticker.h"
 #include "HAL/PlatformProcess.h"

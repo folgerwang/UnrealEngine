@@ -101,6 +101,11 @@ namespace IncludeTool
 		public List<DirectoryReference> IncludePaths = new List<DirectoryReference>();
 
 		/// <summary>
+		/// List of force-included headers
+		/// </summary>
+		public List<FileReference> ForceIncludeFiles = new List<FileReference>();
+
+		/// <summary>
 		/// Default constructor
 		/// </summary>
 		public CompileEnvironment(FileReference InCompiler, CompilerType InCompilerType)
@@ -120,6 +125,7 @@ namespace IncludeTool
 			Options = new List<CompileOption>(Other.Options);
 			Definitions = new List<string>(Other.Definitions);
 			IncludePaths = new List<DirectoryReference>(Other.IncludePaths);
+			ForceIncludeFiles = new List<FileReference>(Other.ForceIncludeFiles);
 		}
 
 		/// <summary>
@@ -134,11 +140,13 @@ namespace IncludeTool
 			{
 				Arguments.AddRange(Definitions.Select(x => "-D " + x));
 				Arguments.AddRange(IncludePaths.Select(x => "-I \"" + x + "\""));
+				Arguments.AddRange(ForceIncludeFiles.Select(x => "-include \"" + x + "\""));
 			}
 			else
 			{
 				Arguments.AddRange(Definitions.Select(x => "/D " + x));
 				Arguments.AddRange(IncludePaths.Select(x => "/I \"" + x + "\""));
+				Arguments.AddRange(ForceIncludeFiles.Select(x => "/FI\"" + x + "\""));
 			}
 			return String.Join(" ", Arguments);
 		}
@@ -201,6 +209,18 @@ namespace IncludeTool
 					else
 					{
 						Writer.WriteLine("/I {0}", Utility.QuoteArgument(IncludePath.FullName));
+					}
+				}
+
+				foreach (FileReference ForceIncludeFile in ForceIncludeFiles)
+				{
+					if(CompilerType == CompilerType.Clang)
+					{
+						Writer.WriteLine("-include {0}", Utility.QuoteArgument(ForceIncludeFile.FullName.Replace('\\', '/')));
+					}
+					else
+					{
+						Writer.WriteLine("/FI{0}", Utility.QuoteArgument(ForceIncludeFile.FullName));
 					}
 				}
 
@@ -291,6 +311,14 @@ namespace IncludeTool
 							else if (Tokens[Idx].StartsWith("-I"))
 							{
 								Environment.IncludePaths.Add(new DirectoryReference(DirectoryReference.Combine(BaseDir, Tokens[Idx].Substring(2).Replace("//", "/")).FullName.ToLowerInvariant()));
+							}
+							else if(Tokens[Idx].StartsWith("/FI"))
+							{
+								Environment.ForceIncludeFiles.Add(new FileReference(Tokens[Idx].Substring(2)));
+							}
+							else if(Tokens[Idx] == "-include")
+							{
+								Environment.ForceIncludeFiles.Add(new FileReference(Tokens[++Idx]));
 							}
 							else if (Tokens[Idx] == "-Xclang" || Tokens[Idx] == "-target" || Tokens[Idx] == "--target" || Tokens[Idx] == "-x" || Tokens[Idx] == "-o")
 							{

@@ -57,8 +57,9 @@ public:
 	 * @param	InCustomWidgetIdentifier	Unique identifier used to persist the widget. Matched to the parameter when calling AddCustomWidget.
 	 * @param	InCustomWidgetDisplayName	Text to display next to the custom widget, and to generate tooltips for the widget.
 	 * @param	InCustomWidgetPadding		Custom padding around the widget.
+	 * @param	bInShowLabel				Whether to display the label in the pinned widget (it will still be used in the context menus)
 	 */
-	virtual void RegisterCustomWidget(FOnGenerateCustomWidget InOnGenerateCustomWidget, FName InCustomWidgetIdentifier, FText InCustomWidgetDisplayName, FMargin InCustomWidgetPadding = FMargin(2.0f, 1.0f)) = 0;
+	virtual void RegisterCustomWidget(FOnGenerateCustomWidget InOnGenerateCustomWidget, FName InCustomWidgetIdentifier, TAttribute<FText> InCustomWidgetDisplayName, FMargin InCustomWidgetPadding = FMargin(2.0f, 1.0f), bool bInShowLabel = true) = 0;
 
 	/** 
 	 * Add a command to the pinned list.

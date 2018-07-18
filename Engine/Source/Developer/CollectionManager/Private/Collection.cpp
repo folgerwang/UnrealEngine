@@ -13,6 +13,7 @@
 #include "ISourceControlProvider.h"
 #include "ISourceControlModule.h"
 #include "Misc/TextFilterExpressionEvaluator.h"
+#include "Misc/EngineBuildSettings.h"
 
 #define LOCTEXT_NAMESPACE "CollectionManager"
 
@@ -965,12 +966,18 @@ bool FCollection::CheckinCollection(FText& OutError)
 		}
 	}
 
-	FText ChangelistDesc = ChangelistDescBuilder.ToText();
-	if (ChangelistDesc.IsEmpty())
+	if (ChangelistDescBuilder.IsEmpty())
 	{
 		// No changes could be detected
-		ChangelistDesc = FText::Format(LOCTEXT("CollectionNotModifiedDesc", "Collection '{0}' not modified"), CollectionNameText);
+		ChangelistDescBuilder.AppendLineFormat(LOCTEXT("CollectionNotModifiedDesc", "Collection '{0}' not modified"), CollectionNameText);
 	}
+
+	if (FEngineBuildSettings::IsInternalBuild())
+	{
+		ChangelistDescBuilder.AppendLine(FString(TEXT("#jira none")));
+	}
+
+	FText ChangelistDesc = ChangelistDescBuilder.ToText();
 
 	// Finally check in the file
 	TSharedRef<FCheckIn, ESPMode::ThreadSafe> CheckInOperation = ISourceControlOperation::Create<FCheckIn>();

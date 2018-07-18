@@ -29,7 +29,6 @@ public class AppFramework : ModuleRules
                 "Runtime/AppFramework/Private/Framework/Testing",
 				"Runtime/AppFramework/Private/Widgets",
                 "Runtime/AppFramework/Private/Widgets/Colors",
-                "Runtime/AppFramework/Private/Widgets/Input",
                 "Runtime/AppFramework/Private/Widgets/Testing",
                 "Runtime/AppFramework/Private/Widgets/Workflow",
 			}

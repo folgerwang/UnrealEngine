@@ -116,7 +116,7 @@ public:
 	~FClassNetCacheMgr() { ClearClassNetCache(); }
 
 	/** get the cached field to index mappings for the given class */
-	const FClassNetCache*	GetClassNetCache( const UClass* Class );
+	const FClassNetCache*	GetClassNetCache( UClass* Class );
 	void					ClearClassNetCache();
 
 	void				SortProperties( TArray< UProperty* >& Properties ) const;
@@ -147,6 +147,8 @@ class COREUOBJECT_API UPackageMap : public UObject
 
 	// @todo document
 	virtual bool		SerializeName( FArchive& Ar, FName& InName );
+
+	static bool			StaticSerializeName( FArchive& Ar, FName& InName );
 
 	virtual UObject*	ResolvePathAndAssignNetGUID( const FNetworkGUID& NetGUID, const FString& PathName ) { return NULL; }
 
@@ -342,7 +344,7 @@ class INetSerializeCB
 public:
 	INetSerializeCB() { }
 
-	virtual void NetSerializeStruct( UScriptStruct* Struct, FArchive& Ar, UPackageMap* Map, void* Data, bool& bHasUnmapped ) = 0;
+	virtual void NetSerializeStruct( UScriptStruct* Struct, FBitArchive& Ar, UPackageMap* Map, void* Data, bool& bHasUnmapped ) = 0;
 };
 
 

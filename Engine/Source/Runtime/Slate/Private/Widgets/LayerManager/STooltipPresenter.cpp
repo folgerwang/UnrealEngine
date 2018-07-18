@@ -7,7 +7,7 @@
 void STooltipPresenter::Construct(const FArguments& InArgs)
 {
 	this->ChildSlot.AttachWidget(InArgs._Content.Widget);
-	LocalCursorPosition = FVector2D::ZeroVector;
+	bCanTick = false;
 }
 
 void STooltipPresenter::SetContent(const TSharedRef<SWidget>& InWidget)
@@ -15,15 +15,12 @@ void STooltipPresenter::SetContent(const TSharedRef<SWidget>& InWidget)
 	ChildSlot.AttachWidget(InWidget);
 }
 
-void STooltipPresenter::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
-{
-	// Have to do this in Tick because we need Desktop-space geometry. OnArrangedChildren is called from Paint() and uses window-space geometry.
-	LocalCursorPosition = AllottedGeometry.AbsoluteToLocal(FSlateApplication::Get().GetCursorPos());
-}
-
 void STooltipPresenter::OnArrangeChildren(const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren) const
 {
 	static const FVector2D CursorSize = FVector2D(12, 12);
+
+	// Cached geometry is in desktop space.  We need to convert from desktop space where the mouse is to local space so use CachedGeometry.
+	const FVector2D LocalCursorPosition = GetCachedGeometry().AbsoluteToLocal(FSlateApplication::Get().GetCursorPos());
 
 	const FSlateRect CursorAnchorRect(LocalCursorPosition, LocalCursorPosition + CursorSize);
 	const FSlateRect TooltipPopup(LocalCursorPosition + CursorSize, LocalCursorPosition + CursorSize + ChildSlot.GetWidget()->GetDesiredSize());

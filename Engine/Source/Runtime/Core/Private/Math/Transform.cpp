@@ -8,7 +8,7 @@
 
 #if !ENABLE_VECTORIZED_TRANSFORM
 
-#include "DefaultValueHelper.h"
+#include "Misc/DefaultValueHelper.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogTransform, Log, All);
 

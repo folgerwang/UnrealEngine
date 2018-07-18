@@ -399,6 +399,15 @@ public:
 	FRotator GetViewRotation() const;
 
 	/**
+	 * Delay of the player's time.
+	 *
+	 * @return Delay added to the player's time used to manually sync multiple sources.
+	 * @see SetTimeDelay
+	 */
+	UFUNCTION(BlueprintCallable, Category="Media|MediaPlayer")
+	FTimespan GetTimeDelay() const;
+
+	/**
 	 * Check whether the player is in an error state.
 	 *
 	 * When the player is in an error state, no further operations are possible.
@@ -638,6 +647,17 @@ public:
 	bool SelectTrack(EMediaPlayerTrack TrackType, int32 TrackIndex);
 
 	/**
+	 * Set the time on which to block.
+	 *
+	 * If set, this player will block in TickFetch until the video sample
+	 * for the specified time are actually available.
+	 *
+	 * @param Time The time to block on, or FTimespan::MinValue to disable.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Media|MediaPlayer")
+	void SetBlockOnTime(const FTimespan& Time);
+
+	/**
 	 * Set the name of the desired native player.
 	 *
 	 * @param PlayerName The name of the player to set.
@@ -665,6 +685,20 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category="Media|MediaPlayer")
 	bool SetRate(float Rate);
+
+
+	/**
+	 * Set the volume on the native player if not mixing with Sound Wave asset.
+	 *
+	 * The SetNativeVolume can be used to change the audio output volume at runtime. Note that
+	 * not all media player plug-ins may support native audio output on all platforms.
+	 *
+	 * @param Volume The volume to set.
+	 * @return true on success, false otherwise.
+	 * @see NativeAudioOut
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Media|MediaPlayer")
+	bool SetNativeVolume(float Volume);
 
 	/**
 	 * Set the format on the specified track.
@@ -716,6 +750,18 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Media|MediaPlayer")
 	bool SetViewRotation(const FRotator& Rotation, bool Absolute);
+
+	/**
+	 * Delay of the player's time.
+	 *
+	 * This setting can be used to manually sync multiple sources.
+	 * Set to 1 seconds, if you would like that Player to play 1 second behind his current time.
+	 * If the value is too big, it is possible that the player would not hold that frame for that long.
+	 * @return true on success, false otherwise.
+	 * @see GetTimeDelay
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Media|MediaPlayer")
+	void SetTimeDelay(FTimespan TimeDelay);
 
 	/**
 	 * Check whether the specified playback rate is supported.
@@ -978,6 +1024,14 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category=Playback)
 	int32 PlaylistIndex;
 
+	/**
+	 * Delay of the player's time.
+	 *
+	 * @see SetTimeDelay, GetTimeDelay
+	 */
+	UPROPERTY(BlueprintReadOnly, Category=Playback)
+	FTimespan TimeDelay;
+
 protected:
 
 	/**
@@ -1041,7 +1095,13 @@ private:
 	/** Automatically start playback of next item in play list. */
 	bool PlayOnNext;
 
-#if WITH_EDITOR
+#if WITH_EDITORONLY_DATA
+public:
+	/** Whether this player should stop when entering or exiting PIE. */
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, AdvancedDisplay, Category=Editor)
+	bool AffectedByPIEHandling;
+
+private:
 	/** Whether the player was playing in PIE/SIE. */
 	bool WasPlayingInPIE;
 #endif

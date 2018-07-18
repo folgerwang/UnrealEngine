@@ -405,7 +405,12 @@ public:
 			// Track how much the mouse moved since the mouse down.
 			TotalMouseDelta += CursorDelta.Size();
 
-			if (bIsRightMouseButtonDown || bIsMiddleMouseButtonDown)
+			// Zooming - drop through to default behaviour
+			if(bIsRightMouseButtonDown && (bIsLeftMouseButtonDown || bIsMiddleMouseButtonDown || FSlateApplication::Get().GetModifierKeys().IsAltDown() || FSlateApplication::Get().IsUsingTrackpad()))
+			{
+				return SNodePanel::OnMouseMove(MyGeometry, MouseEvent);
+			}
+			else if (bIsRightMouseButtonDown || bIsMiddleMouseButtonDown)
 			{
 				FReply ReplyState = FReply::Handled();
 

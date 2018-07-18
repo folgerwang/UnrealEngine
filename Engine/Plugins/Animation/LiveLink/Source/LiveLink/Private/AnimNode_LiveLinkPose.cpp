@@ -5,12 +5,13 @@
 
 #include "Features/IModularFeatures.h"
 
-#include "AnimInstanceProxy.h"
+#include "Animation/AnimInstanceProxy.h"
 
 #include "LiveLinkRemapAsset.h"
 
 FAnimNode_LiveLinkPose::FAnimNode_LiveLinkPose() 
 	: RetargetAsset(ULiveLinkRemapAsset::StaticClass())
+	, CurrentRetargetAsset(nullptr)
 	, LiveLinkClient(nullptr)
 {
 }

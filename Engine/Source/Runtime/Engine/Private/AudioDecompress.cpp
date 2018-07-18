@@ -642,8 +642,8 @@ void FAsyncAudioDecompressWorker::DoWork()
 				AudioInfo->EnableHalfRate(true);
 			}
 #endif
-			// Extract the data
-			Wave->SampleRate = QualityInfo.SampleRate;
+
+			Wave->SetSampleRate(QualityInfo.SampleRate);
 			Wave->NumChannels = QualityInfo.NumChannels;
 			if (QualityInfo.Duration > 0.0f)
 			{ 
@@ -659,16 +659,9 @@ void FAsyncAudioDecompressWorker::DoWork()
 					Wave->CachedRealtimeFirstBuffer = (uint8*)FMemory::Malloc(PCMBufferSize);
 					AudioInfo->ReadCompressedData(Wave->CachedRealtimeFirstBuffer, Wave->bLooping, PCMBufferSize);
 				}
-				else
+				else if (Wave->GetPrecacheState() == ESoundWavePrecacheState::Done)
 				{
-					if (Wave->bIsPrecacheDone)
-					{
-						UE_LOG(LogAudio, Warning, TEXT("Attempted to precache decoded audio multiple times."));
-					}
-					else
-					{
-						UE_LOG(LogAudio, Warning, TEXT("CachedRealtimeFirstBuffer potentially contains invalid data."));
-					}
+					UE_LOG(LogAudio, Warning, TEXT("Attempted to precache decoded audio multiple times."));
 				}
 #endif
 			}
@@ -705,9 +698,6 @@ void FAsyncAudioDecompressWorker::DoWork()
 		}
 
 		delete AudioInfo;
-
-		// Flag that we've finished this precache decompress task.
-		Wave->bIsPrecacheDone = true;
 	}
 }
 

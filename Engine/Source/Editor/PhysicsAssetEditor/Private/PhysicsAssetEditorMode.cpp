@@ -13,9 +13,9 @@
 #include "PhysicsAssetEditorProfilesSummoner.h"
 #include "PropertyEditorModule.h"
 #include "Preferences/PhysicsAssetEditorOptions.h"
-#include "SSpinBox.h"
-#include "ModuleManager.h"
-#include "MultiBoxBuilder.h"
+#include "Widgets/Input/SSpinBox.h"
+#include "Modules/ModuleManager.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "PhysicsAssetEditorToolsSummoner.h"
 #include "UICommandList_Pinnable.h"
 #include "IPersonaViewport.h"
@@ -164,7 +164,7 @@ FPhysicsAssetEditorMode::FPhysicsAssetEditorMode(TSharedRef<FWorkflowCentricAppl
 	ViewportExtenders[0]->AddMenuExtension("AnimViewportPhysicsMenu", EExtensionHook::After, PhysicsAssetEditor->GetToolkitCommands(), FMenuExtensionDelegate::CreateLambda(ExtendMenuBar));
 
 
-	FPersonaViewportArgs ViewportArgs(InSkeletonTree, InPreviewScene, PhysicsAssetEditor->OnPostUndo);
+	FPersonaViewportArgs ViewportArgs(InPreviewScene);
 	ViewportArgs.bAlwaysShowTransformToolbar = true;
 	ViewportArgs.bShowStats = false;
 	ViewportArgs.bShowTurnTable = false;

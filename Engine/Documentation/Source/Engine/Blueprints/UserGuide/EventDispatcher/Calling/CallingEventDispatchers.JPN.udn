@@ -1,10 +1,10 @@
-﻿INTSourceChangelist:2688231
+﻿INTSourceChangelist:3244370
 Availability:Public
 Title:イベント ディスパッチャーの呼び出し
 Crumbs: %ROOT%, Engine, Engine/Blueprints, Engine/Blueprints/UserGuide, Engine/Blueprints/UserGuide/EventDispatcher
 Description:イベント ディスパッチャーを呼び出すと、イベント リストで現在バインドされているすべてのイベントが実行されます。
 version:4.9
-
+tags:Blueprints
 
 
 [TOC(start:2 end:3)]

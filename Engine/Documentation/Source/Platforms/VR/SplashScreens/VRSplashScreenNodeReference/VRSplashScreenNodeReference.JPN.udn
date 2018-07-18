@@ -1,7 +1,7 @@
-﻿INTSourceChangelist:3622284
+﻿INTSourceChangelist:3689149
 Availability:Public 
 Crumbs: %ROOT%
-Title: VR Splash Screen のノードのリファレンス
+Title:VR Splash Screen のノードのリファレンス
 Description:VR Splash Screens の各ノードの機能の概要
 Type:Reference
 Version:4.17
@@ -17,116 +17,111 @@ Tags:VR
 
 ## 一般的な Splash Screen ノード
 
-* ### Auto Loading Splash Screen を有効にする方法
+### Auto Loading Splash Screen を有効にする方法
 
-    ![](Platforms\VR\SplashScreens\VRLS_EnableAutoLoading.png)
+![](Platforms\VR\SplashScreens\VRLS_EnableAutoLoading.png)
 
-    |設定名| 説明|
-    |---------------|----------------------------------------------------|
-    |In Auto Show Enabled|true の場合、レベルのロード時にスプラッシュスクリーンをロードします。|
+|設定名| 説明|
+|---------------|----------------------------------------------------|
+|**In Auto Show Enabled**|true の場合、レベルのロード時にスプラッシュスクリーンをロードします。|
 
-* ### Hide Splash Screen
+### Hide Splash Screen
 
-    ![](Platforms\VR\SplashScreens\VRLS_Hide_Splash.png)
+![](Platforms\VR\SplashScreens\VRLS_Hide_Splash.png)
 
-    |設定名| 説明|
-    |---------------|----------------------------------------------------|
-    |Hide Splash Screen|スプラッシュスクリーンを非表示にします。|
+|設定名| 説明|
+|---------------|----------------------------------------------------|
+|**Hide Splash Screen**|スプラッシュスクリーンを非表示にします。|
 
-* ### Set Splash Screen
+### Set Splash Screen
 
-    ![](Platforms\VR\SplashScreens\VRLS_Set_Splash.png)
+![](Platforms\VR\SplashScreens\VRLS_Set_Splash.png)
 
-    |設定名| 説明|
-    |---------------|----------------------------------------------------|
-    |Texture|スプラッシュに使用するテクスチャです。B8R8G8A8 形式でなくてはなりません。|
-    |Scale|テクスチャのスケールです。|
-    |Offest|テクスチャのレンダリング開始位置です。|
-    |Show Loading Movie|"ローディング" ムービーを表示します。|
-    |Show on Set|コンポジタの呼び出し時に指定されるテクスチャを表示します。|
+|設定名| 説明|
+|---------------|----------------------------------------------------|
+|**Texture**|スプラッシュに使用するテクスチャです。B8R8G8A8 形式でなくてはなりません。|
+|**Scale**|テクスチャのスケールです。|
+|**Offest**|テクスチャのレンダリング開始位置です。|
+|**Show Loading Movie**|ロード中のムービーを表示します。|
+|**Show on Set**|コンポジタの呼び出し時に指定されるテクスチャを表示します。|
 
-* ### Show Splash Screen
+### Show Splash Screen
 
-    ![](Platforms\VR\SplashScreens\VRLS_Show_Splash.png)
+![](Platforms\VR\SplashScreens\VRLS_Show_Splash.png)
 
-    |設定名| 説明|
-    |---------------|----------------------------------------------------|
-    |Show Splash Screen|スプラッシュスクリーンを表示します。|
+|設定名| 説明|
+|---------------|----------------------------------------------------|
+|**Show Splash Screen**|スプラッシュスクリーンを表示します。|
 
 ## Oculus Specific Splash Screens
 
 以下は、Oculus 専用の splash screen ノードの機能の詳細です。以下のノードは、ターゲットが Oculus HMD の場合のみ使用することを念頭に置いてください。
 
-* Add Loading Splash Screen
+### Add Loading Splash Screen
 
-    ![](Platforms\VR\SplashScreens\VRLS_OC_Add_Loading.png)
+![](Platforms\VR\SplashScreens\VRLS_OC_Add_Loading.png)
 
-    |設定名| 説明|
-    |---------------|----------------------------------------------------|
-    |Texture|スプラッシュスクリーンに使用する Texture アセットです。Gear VR はローディング アイコン用のパスとして使用します。現在、他のパラメータはすべて Gear VR からは無視されます。|
-    |Translation in Meters|スプラッシュスクリーンの中心のメーター単位の最初のトランスレーションです。|
-    |Rotation|ピボット (回転軸) をスプラッシュスクリーンの中心にして、スプラッシュスクリーンの最初の回転です。|
-    |Size in Meters|スプラッシュスクリーンのクワッドのメーター単位のサイズです。|
-    |Delta Rotation|第 2 フレームごとにクワッドのトランスフォームに追加される増分回転です。クワッドは中心を軸にして回転します。|
-    |Clear Before Add|true の場合、スプラッシュをクリアしてから新規を追加します。|
+|設定名| 説明|
+|---------------|----------------------------------------------------|
+|**Texture**|スプラッシュスクリーンに使用する Texture アセットです。Gear VR はローディング アイコン用のパスとして使用します。現在、他のパラメータはすべて Gear VR からは無視されます。|
+|**Translation in Meters**|スプラッシュスクリーンの中心のメーター単位の最初のトランスレーションです。|
+|**Rotation**|ピボット (回転軸) をスプラッシュスクリーンの中心にして、スプラッシュスクリーンの最初の回転です。|
+|**Size in Meters**|スプラッシュスクリーンのクワッドのメーター単位のサイズです。|
+|**Delta Rotation**|第 2 フレームごとにクワッドのトランスフォームに追加される増分回転です。クワッドは中心を軸にして回転します。|
+|**Clear Before Add**|true の場合、スプラッシュをクリアしてから新規を追加します。|
 
-* ### Clear Loading Splash Screen
+### Clear Loading Splash Screen
 
-    ![](Platforms\VR\SplashScreens\VRLS_OC_Clear_Loading_Splash.png)
+![](Platforms\VR\SplashScreens\VRLS_OC_Clear_Loading_Splash.png)
 
-    |設定名| 説明|
-    |---------------|----------------------------------------------------|
-    |Clear Loading Splash Screen|すべてのスプラッシュスクリーンを削除します。|
+|設定名| 説明|
+|---------------|----------------------------------------------------|
+|**Clear Loading Splash Screen**|すべてのスプラッシュスクリーンを削除します。|
 
-* ### Auto Loading Splash Screen を有効にする方法
+### Auto Loading Splash Screen を有効にする方法
 
-    ![](Platforms\VR\SplashScreens\VRLS_OC_Enable_Auto_Load.png)
+![](Platforms\VR\SplashScreens\VRLS_OC_Enable_Auto_Load.png)
 
-    |設定名| 説明|
-    |---------------|----------------------------------------------------|
-    |Auto Show Enabled|true の場合、マップロード時のスプラッシュスクリーンの自動表示が有効にされます。|
+|設定名| 説明|
+|---------------|----------------------------------------------------|
+|**Auto Show Enabled**|rue の場合、マップロード時のスプラッシュスクリーンの自動表示が有効にされます。|
 
-* ### Hide Loading Icon
+### Hide Loading Icon
 
-    ![](Platforms\VR\SplashScreens\VRLS_OC_Hide_Loading.png)
+![](Platforms\VR\SplashScreens\VRLS_OC_Hide_Loading.png)
 
-    |設定名| 説明|
-    |---------------|----------------------------------------------------|
-    |Hide Loading Icon|ローディング アイコンをクリアします。このコールですべてのスプラッシュがクリアされます。|
+|設定名| 説明|
+|---------------|----------------------------------------------------|
+|**Hide Loading Icon**|ローディング アイコンをクリアします。このコールですべてのスプラッシュがクリアされます。|
 
-* ### Hide Loading Splash Screen
+### Hide Loading Splash Screen
 
-    ![](Platforms\VR\SplashScreens\VRLS_OC_Hide_Loading_SS.png)
+![](Platforms\VR\SplashScreens\VRLS_OC_Hide_Loading_SS.png)
 
-    |設定名| 説明|
-    |---------------|----------------------------------------------------|
-    |Clear|非表示にした後、すべてのスプラッシュスクリーンをクリアします。|
+|設定名| 説明|
+|---------------|----------------------------------------------------|
+|**Clear**|非表示にした後、すべてのスプラッシュスクリーンをクリアします。|
 
-* ### Is Auto Loading Splash Screen Enabled
+### Is Auto Loading Splash Screen Enabled
 
-    ![](Platforms\VR\SplashScreens\VRLS_OC_IsAutoLoasding.png)
+![](Platforms\VR\SplashScreens\VRLS_OC_IsAutoLoasding.png)
 
-    |設定名| 説明|
-    |---------------|----------------------------------------------------|
-    |Is Auto Loading Splash Screen Enabled| LoadMap の呼び出し時にスプラッシュスクリーンが自動表示される場合は true を返します。|
+|設定名| 説明|
+|---------------|----------------------------------------------------|
+|**Is Auto Loading Splash Screen Enabled**| LoadMap の呼び出し時にスプラッシュスクリーンが自動表示される場合は true を返します。|
 
-* ### Is Loading Icon Enabled
+### Is Loading Icon Enabled
 
-    ![](Platforms\VR\SplashScreens\VRLS_OC_IsLoadingIconEnabled.png)
+![](Platforms\VR\SplashScreens\VRLS_OC_IsLoadingIconEnabled.png)
 
-    |設定名| 説明|
-    |---------------|----------------------------------------------------|
-    |Is Loading Icon Enabled| スプラッシュスクリーンがローディング アイコン モードの場合は true を返します。|
+|設定名| 説明|
+|---------------|----------------------------------------------------|
+|**Is Loading Icon Enabled**| スプラッシュスクリーンがローディング アイコン モードの場合は true を返します。|
 
-* ### Show Loading Splash Screen
+### Show Loading Splash Screen
 
-    ![](Platforms\VR\SplashScreens\VRLS_OC_ShowLoadingSplashScreen.png)
+![](Platforms\VR\SplashScreens\VRLS_OC_ShowLoadingSplashScreen.png)
 
-    |設定名| 説明|
-    |---------------|----------------------------------------------------|
-    |Show Loading Splash Screen| ローディング スプラッシュスクリーンを表示します。|
-
-
-
-
-
+|設定名| 説明|
+|---------------|----------------------------------------------------|
+|**Show Loading Splash Screen**| ローディング スプラッシュスクリーンを表示します。|

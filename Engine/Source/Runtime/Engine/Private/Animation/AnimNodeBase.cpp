@@ -105,9 +105,10 @@ void FAnimNode_Base::EvaluateComponentSpace_AnyThread(FComponentSpacePoseContext
 	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 }
 
-bool FAnimNode_Base::IsLODEnabled(FAnimInstanceProxy* AnimInstanceProxy, int32 InLODThreshold)
+bool FAnimNode_Base::IsLODEnabled(FAnimInstanceProxy* AnimInstanceProxy)
 {
-	return ((InLODThreshold == INDEX_NONE) || (AnimInstanceProxy->GetLODLevel() <= InLODThreshold));
+	const int32 NodeLODThreshold = GetLODThreshold();
+	return ((NodeLODThreshold == INDEX_NONE) || (AnimInstanceProxy->GetLODLevel() <= NodeLODThreshold));
 }
 
 void FAnimNode_Base::OnInitializeAnimInstance(const FAnimInstanceProxy* InProxy, const UAnimInstance* InAnimInstance)
@@ -117,6 +118,15 @@ void FAnimNode_Base::OnInitializeAnimInstance(const FAnimInstanceProxy* InProxy,
 	RootInitialize(InProxy);
 	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 }
+
+void FAnimNode_Base::ResetDynamics(ETeleportType InTeleportType)
+{
+	// Call legacy implementation for backwards compatibility
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
+	ResetDynamics();
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
+}
+
 
 /////////////////////////////////////////////////////
 // FPoseLinkBase
@@ -496,6 +506,7 @@ void FExposedValueHandler::Initialize(FAnimNode_Base* AnimNode, UObject* AnimIns
 			CopyRecord.CachedSourceProperty = AnimInstanceObject->GetClass()->FindPropertyByName(CopyRecord.SourcePropertyName);
 		}
 		check(CopyRecord.CachedSourceProperty);
+
 		if (UArrayProperty* SourceArrayProperty = Cast<UArrayProperty>(CopyRecord.CachedSourceProperty))
 		{
 			// the compiler should not be generating any code that calls down this path at the moment - it is untested
@@ -551,6 +562,13 @@ void FExposedValueHandler::Initialize(FAnimNode_Base* AnimNode, UObject* AnimIns
 
 			if (CopyRecord.bInstanceIsTarget)
 			{
+				// Re-find our dest property as it (or its class outer) may have changed
+				if (CopyRecord.DestProperty->GetOuter() != AnimInstanceObject->GetClass())
+				{
+					CopyRecord.DestProperty = AnimInstanceObject->GetClass()->FindPropertyByName(CopyRecord.DestProperty->GetFName());
+				}
+				check(CopyRecord.DestProperty);
+
 				CopyRecord.CachedDestContainer = AnimInstanceObject;
 				CopyRecord.Dest = CopyRecord.DestProperty->ContainerPtrToValuePtr<uint8>(AnimInstanceObject, CopyRecord.DestArrayIndex);
 			}
@@ -575,12 +593,6 @@ void FExposedValueHandler::Initialize(FAnimNode_Base* AnimNode, UObject* AnimIns
 			{
 				CopyRecord.CopyType = ECopyType::MemCopy;
 			}
-		}
-		else
-		{
-			// Dest property is NULL, so something has gone wrong with compilation/serialization
-			UE_LOG(LogAnimation, Error, TEXT("Animation Blueprint CopyRecord with NULL DestProperty. Skipping copy."));
-			CopyRecord.PostCopyOperation = (EPostCopyOperation)((uint8)EPostCopyOperation::LogicalNegateBool + 1);
 		}
 	}
 
@@ -646,8 +658,6 @@ void FExposedValueHandler::Execute(const FAnimationBaseContext& Context) const
 					static_cast<UBoolProperty*>(DestArrayProperty->Inner)->SetPropertyValue(CopyRecord.Dest, !bValue); // added to support arrays
 				}
 			}
-			break;
-		default:
 			break;
 		}
 	}

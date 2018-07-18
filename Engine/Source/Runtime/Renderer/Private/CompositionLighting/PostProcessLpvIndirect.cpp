@@ -52,7 +52,7 @@ public:
 	FShaderResourceParameter LpvBufferSRVParameters[7];
 	FShaderResourceParameter LpvVolumeTextureSampler;
 	FShaderResourceParameter AOVolumeTextureSRVParameter;
-	FDeferredPixelShaderParameters DeferredParameters;
+	FSceneTextureShaderParameters SceneTextureParameters;
 	FShaderResourceParameter PreIntegratedGF;
 	FShaderResourceParameter PreIntegratedGFSampler;
 
@@ -61,7 +61,7 @@ public:
 		: FGlobalShader(Initializer)
 	{
 		PostprocessParameter.Bind(Initializer.ParameterMap);
-		DeferredParameters.Bind(Initializer.ParameterMap);
+		SceneTextureParameters.Bind(Initializer);
 		for ( int i=0; i<7; i++ )
 		{
 			LpvBufferSRVParameters[i].Bind( Initializer.ParameterMap, LpvVolumeTextureSRVNames[i] );
@@ -101,7 +101,7 @@ public:
 		}
 		FGlobalShader::SetParameters<FViewUniformShaderParameters>(RHICmdList, ShaderRHI, Context.View.ViewUniformBuffer);
 		PostprocessParameter.SetPS(RHICmdList, ShaderRHI, Context, TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI());
-		DeferredParameters.Set(RHICmdList, ShaderRHI, Context.View, MD_PostProcess);
+		SceneTextureParameters.Set(RHICmdList, ShaderRHI, Context.View.FeatureLevel, ESceneTextureSetupMode::All);
 		SetTextureParameter(RHICmdList, ShaderRHI, PreIntegratedGF, PreIntegratedGFSampler, TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI(), GSystemTextures.PreintegratedGF->GetRenderTargetItem().ShaderResourceTexture);
 	}
 	
@@ -116,7 +116,7 @@ public:
 			Ar << LpvBufferSRVParameters[i];
 		}
 		Ar << LpvVolumeTextureSampler;
-		Ar << DeferredParameters;
+		Ar << SceneTextureParameters;
 		Ar << PreIntegratedGF;
 		Ar << PreIntegratedGFSampler;
 		Ar << AOVolumeTextureSRVParameter;
@@ -163,14 +163,14 @@ public:
 	FShaderResourceParameter LpvVolumeTextureSampler;
 	FShaderResourceParameter AOVolumeTextureSRVParameter;
 
-	FDeferredPixelShaderParameters DeferredParameters;
+	FSceneTextureShaderParameters SceneTextureParameters;
 
 	/** Initialization constructor. */
 	FPostProcessLpvDirectionalOcclusionPS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
 		: FGlobalShader(Initializer)
 	{
 		PostprocessParameter.Bind(Initializer.ParameterMap);
-		DeferredParameters.Bind(Initializer.ParameterMap);
+		SceneTextureParameters.Bind(Initializer);
 		LpvVolumeTextureSampler.Bind(Initializer.ParameterMap, TEXT("gLpv3DTextureSampler"));
 		AOVolumeTextureSRVParameter.Bind( Initializer.ParameterMap, TEXT("gAOVolumeTexture") );
 	}
@@ -192,7 +192,7 @@ public:
 
 		FGlobalShader::SetParameters<FViewUniformShaderParameters>(Context.RHICmdList, ShaderRHI, Context.View.ViewUniformBuffer);
 		PostprocessParameter.SetPS(Context.RHICmdList, ShaderRHI, Context, TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI());
-		DeferredParameters.Set(Context.RHICmdList, ShaderRHI, Context.View, MD_PostProcess);
+		SceneTextureParameters.Set(Context.RHICmdList, ShaderRHI, Context.View.FeatureLevel, ESceneTextureSetupMode::All);
 	}
 
 	// FShader interface.
@@ -200,7 +200,7 @@ public:
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
 		Ar << LpvVolumeTextureSampler;
-		Ar << DeferredParameters;
+		Ar << SceneTextureParameters;
 		Ar << AOVolumeTextureSRVParameter;
 		Ar << PostprocessParameter;
 		return bShaderHasOutdatedParameters;
@@ -340,10 +340,10 @@ void FRCPassPostProcessLpvIndirect::Process(FRenderingCompositePassContext& Cont
 			View.StereoPass,
 			Context.HasHmdMesh());
 
-		Context.RHICmdList.CopyToResolveTarget(DestColorRenderTarget.TargetableTexture, DestColorRenderTarget.ShaderResourceTexture, false, FResolveParams());
+		Context.RHICmdList.CopyToResolveTarget(DestColorRenderTarget.TargetableTexture, DestColorRenderTarget.ShaderResourceTexture, FResolveParams());
 		if(bApplySeparateSpecularRT)
 		{
-			Context.RHICmdList.CopyToResolveTarget(DestSpecularRenderTarget.TargetableTexture, DestSpecularRenderTarget.ShaderResourceTexture, false, FResolveParams());
+			Context.RHICmdList.CopyToResolveTarget(DestSpecularRenderTarget.TargetableTexture, DestSpecularRenderTarget.ShaderResourceTexture, FResolveParams());
 		}
 	}
 
@@ -481,7 +481,7 @@ void FRCPassPostProcessVisualizeLPV::Process(FRenderingCompositePassContext& Con
 		Canvas.Flush_RenderThread(Context.RHICmdList);
 	}
 
-	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, false, FResolveParams());
+	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 	
 	// to satify following passws
 	FRenderingCompositeOutput* Output = GetOutput(ePId_Output0);

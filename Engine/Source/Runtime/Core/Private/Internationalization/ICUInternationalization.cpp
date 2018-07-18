@@ -24,6 +24,8 @@ THIRD_PARTY_INCLUDES_END
 
 DEFINE_LOG_CATEGORY_STATIC(LogICUInternationalization, Log, All);
 
+static_assert(sizeof(UChar) == 2, "UChar (from ICU) is assumed to always be 2-bytes!");
+
 namespace
 {
 	struct FICUOverrides
@@ -135,6 +137,7 @@ bool FICUInternationalization::Initialize()
 
 	u_setDataFileFunctions(nullptr, &FICUInternationalization::OpenDataFile, &FICUInternationalization::CloseDataFile, &(ICUStatus));
 	u_init(&(ICUStatus));
+	checkf(U_SUCCESS(ICUStatus), TEXT("Failed to open ICUInternationalization data file, missing or corrupt?"));
 
 	FICURegexManager::Create();
 	FICUBreakIteratorManager::Create();
@@ -172,6 +175,13 @@ void FICUInternationalization::Terminate()
 	CachedCultures.Empty();
 
 	u_cleanup();
+
+	for (auto& PathToCachedFileDataPair : PathToCachedFileDataMap)
+	{
+		UE_LOG(LogICUInternationalization, Warning, TEXT("ICU data file '%s' (ref count %d) was still referenced after ICU shutdown. This will likely lead to a crash."), *PathToCachedFileDataPair.Key, PathToCachedFileDataPair.Value.ReferenceCount);
+	}
+	PathToCachedFileDataMap.Empty();
+
 #if NEEDS_ICU_DLLS
 	UnloadDLLs();
 #endif //IS_PROGRAM || !IS_MONOLITHIC
@@ -338,6 +348,20 @@ void FICUInternationalization::InitializeAvailableCultures()
 		if (!ScriptCode.IsEmpty() && !CountryCode.IsEmpty())
 		{
 			AppendCultureData(LanguageCode, ScriptCode, CountryCode);
+		}
+	}
+
+	// getAvailableLocales doesn't always cover all languages that ICU supports, so we spin that list too and add any that were missed
+	// Note: getISOLanguages returns the start of an array of const char* null-terminated strings, with a null string signifying the end of the array
+	for (const char* const* AvailableLanguages = icu::Locale::getISOLanguages(); *AvailableLanguages; ++AvailableLanguages)
+	{
+		FString LanguageCode = UTF8_TO_TCHAR(*AvailableLanguages);
+		LanguageCode.ToLowerInline();
+
+		// Only care about 2-letter codes
+		if (LanguageCode.Len() == 2)
+		{
+			AppendCultureData(LanguageCode, FString(), FString());
 		}
 	}
 
@@ -834,20 +858,15 @@ void FICUInternationalization::CloseDataFile(const void* context, void* const fi
 
 FICUInternationalization::FICUCachedFileData::FICUCachedFileData(const int64 FileSize)
 	: ReferenceCount(0)
-	, Buffer( FICUOverrides::Malloc(nullptr, FileSize) )
+	, Buffer(FICUOverrides::Malloc(nullptr, FileSize))
 {
-}
-
-FICUInternationalization::FICUCachedFileData::FICUCachedFileData(const FICUCachedFileData& Source)
-{
-	checkf(false, TEXT("Cached file data for ICU may not be copy constructed. Something is trying to copy construct FICUCachedFileData."));
 }
 
 FICUInternationalization::FICUCachedFileData::FICUCachedFileData(FICUCachedFileData&& Source)
 	: ReferenceCount(Source.ReferenceCount)
-	, Buffer( Source.Buffer )
+	, Buffer(Source.Buffer)
 {
-	// Make sure the moved source object doesn't retain the pointer and free the memory we now point to.
+	Source.ReferenceCount = 0;
 	Source.Buffer = nullptr;
 }
 
@@ -855,7 +874,9 @@ FICUInternationalization::FICUCachedFileData::~FICUCachedFileData()
 {
 	if (Buffer)
 	{
-		check(ReferenceCount == 0);
+		// Removing this check as the actual crash when the lingering ICU resource is 
+		// deleted is much more useful at tracking down where the leak is coming from
+		//check(ReferenceCount == 0);
 		FICUOverrides::Free(nullptr, Buffer);
 	}
 }

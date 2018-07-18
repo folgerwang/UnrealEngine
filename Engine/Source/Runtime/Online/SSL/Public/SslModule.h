@@ -2,8 +2,9 @@
 
 #pragma once
 
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 
+class ISslManager;
 class ISslCertificateManager;
 
 /**
@@ -30,6 +31,9 @@ public:
 
 	// FSslModule
 
+	/** Constructor */
+	FSslModule();
+
 	/**
 	 * Singleton-like access to this module's interface.  This is just for convenience!
 	 * Beware of calling this during the shutdown phase, though.  Your module might have been unloaded already.
@@ -39,14 +43,20 @@ public:
 	SSL_API static FSslModule& Get();
 
 	/**
-	 * Accessor for the SSL certificate container
+	 * Accessor for the SSL certificate manager
 	 *
-	 * @return Http request manager used by the module
+	 * @return SSL certificate manager manager
 	 */
 	inline ISslCertificateManager& GetCertificateManager()
 	{
 		check(CertificateManagerPtr != nullptr);
 		return *CertificateManagerPtr;
+	}
+
+	inline ISslManager& GetSslManager()
+	{
+		check(SslManagerPtr != nullptr);
+		return *SslManagerPtr;
 	}
 
 private:
@@ -65,9 +75,11 @@ private:
 	 */
 	virtual void ShutdownModule() override;
 
-
-	///** Keeps track of SSL certificates */
+	/** Keeps track of SSL certificates */
 	ISslCertificateManager* CertificateManagerPtr;
+
+	/** Manager of the SSL library */
+	ISslManager* SslManagerPtr;
 
 	/** singleton for the module while loaded and available */
 	static FSslModule* Singleton;

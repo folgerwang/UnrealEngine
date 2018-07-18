@@ -9,6 +9,7 @@
 #include "Engine/SkeletalMesh.h"
 #include "PhysicsEngine/PhysicalAnimationComponent.h"
 #include "PhysicsEngine/BodySetup.h"
+#include "Interfaces/Interface_PreviewMeshProvider.h"
 #include "PhysicsAsset.generated.h"
 
 class FMeshElementCollector;
@@ -25,7 +26,7 @@ class USkeletalBodySetup;
  */
 
 UCLASS(hidecategories=Object, BlueprintType, MinimalAPI)
-class UPhysicsAsset : public UObject
+class UPhysicsAsset : public UObject, public IInterface_PreviewMeshProvider
 {
 	GENERATED_UCLASS_BODY()
 
@@ -79,6 +80,10 @@ public:
 	*/
 	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = Physics)
 	uint8 bUseAsyncScene:1;
+
+	/** If true, we skip instancing bodies for this PhysicsAsset on dedicated servers */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = Physics)
+	uint8 bNotForDedicatedServer:1;
 
 	/** This caches the BodySetup Index by BodyName to speed up FindBodyIndex */
 	TMap<FName, int32>					BodySetupIndexMap;
@@ -183,17 +188,15 @@ public:
 #if WITH_EDITOR
 	/** Update skeletal meshes when physics asset changes*/
 	ENGINE_API void RefreshPhysicsAssetChange() const;
+#endif
 
 	/** Delegate fired when physics asset changes */
 	DECLARE_MULTICAST_DELEGATE_OneParam(FRefreshPhysicsAssetChangeDelegate, const UPhysicsAsset*);
 	ENGINE_API static FRefreshPhysicsAssetChangeDelegate OnRefreshPhysicsAssetChange;
+	/** IPreviewMeshProviderInterface interface */
+	virtual void SetPreviewMesh(USkeletalMesh* PreviewMesh, bool bMarkAsDirty = true);
+	virtual USkeletalMesh* GetPreviewMesh() const;
 
-	/** Set the preview mesh for this physics asset */
-	ENGINE_API void SetPreviewMesh(USkeletalMesh* PreviewMesh);
-
-	/** Get the preview mesh for this physics asset */
-	ENGINE_API USkeletalMesh* GetPreviewMesh() const;
-#endif
 
 private:
 

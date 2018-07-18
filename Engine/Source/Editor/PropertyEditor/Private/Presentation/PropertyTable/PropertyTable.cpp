@@ -27,6 +27,8 @@ FPropertyTable::FPropertyTable()
 	, ShowRowHeader( true )
 	, ShowObjectName( true )
 	, ItemHeight( 20 )
+	, PrimarySortMode( EColumnSortMode::None )
+	, SecondarySortMode( EColumnSortMode::None )
 	, AllowUserToChangeRoot( true )
 	, bRefreshRequested( false )
 	, Orientation( EPropertyTableOrientation::AlignPropertiesInColumns )
@@ -321,53 +323,87 @@ void FPropertyTable::SetSelectionMode( const ESelectionMode::Type Mode )
 	}
 }
 
+EColumnSortPriority::Type FPropertyTable::GetColumnSortPriority(const TSharedRef< class IPropertyTableColumn > Column) const
+{
+	if (Column == PrimarySortedByColumn.Pin())
+	{
+		return EColumnSortPriority::Primary;
+	}
+	else if (Column == SecondarySortedByColumn.Pin())
+	{
+		return EColumnSortPriority::Secondary;
+	}
+
+	return EColumnSortPriority::None;
+}
+
 EColumnSortMode::Type FPropertyTable::GetColumnSortMode( const TSharedRef< class IPropertyTableColumn > Column ) const
 {
-	if ( Column == SortedByColumn.Pin() )
+	if ( Column == PrimarySortedByColumn.Pin() )
 	{
-		return SortedColumnMode;
+		return PrimarySortMode;
+	}
+	else if (Column == SecondarySortedByColumn.Pin())
+	{
+		return SecondarySortMode;
 	}
 
 	return EColumnSortMode::None;
 }
 
-void FPropertyTable::SortByColumnWithId( const EColumnSortPriority::Type SortPriority, const FName& ColumnId, const EColumnSortMode::Type SortMode )
+void FPropertyTable::SortByColumnWithId( const EColumnSortPriority::Type SortPriority, const FName& ColumnId, const EColumnSortMode::Type SortMode)
 {
 	for( auto ColumnIter = Columns.CreateIterator(); ColumnIter; ++ColumnIter )
 	{
 		const TSharedRef< IPropertyTableColumn > Column = *ColumnIter;
 		if ( Column->GetId() == ColumnId )
 		{
-			SortByColumn( Column, SortMode );
+			SortByColumn( Column, SortMode, SortPriority );
 			break;
 		}
 	}
 }
 
-void FPropertyTable::SortByColumn( const TSharedRef< class IPropertyTableColumn >& Column, EColumnSortMode::Type SortMode )
+void FPropertyTable::SortByColumn( const TSharedRef< class IPropertyTableColumn >& Column, EColumnSortMode::Type SortMode, const EColumnSortPriority::Type SortPriority)
 {
 	if ( !Column->CanSortBy() )
 	{
-		SortedByColumn = NULL;
-		SortedColumnMode = EColumnSortMode::None;
+		/*PrimarySortedByColumn = nullptr;
+		SecondarySortedByColumn = nullptr;
+		PrimarySortMode = EColumnSortMode::None;
+		PrimarySortMode = EColumnSortMode::None;*/
 		return;
 	}
 
-	SortedByColumn = Column;
-	EColumnSortMode::Type OriginalSortMode = SortedColumnMode;
-	SortedColumnMode = SortMode;
+	if (SortPriority == EColumnSortPriority::Primary)
+	{
+		PrimarySortedByColumn = Column;
+		PrimarySortMode = SortMode;
+	}
+	else
+	{
+		SecondarySortedByColumn = Column;
+		SecondarySortMode = SortMode;
+	}
 
-	if ( SortedColumnMode == EColumnSortMode::None )
+	// If the primary and secondary columns are the same eliminate the secondary sort
+	if (PrimarySortedByColumn == SecondarySortedByColumn)
+	{
+		SecondarySortedByColumn = nullptr;
+		SecondarySortMode = EColumnSortMode::None;
+	}
+
+	if (SortMode == EColumnSortMode::None )
 	{
 		return;
 	}
 
-	Column->Sort( Rows, SortedColumnMode );
-
-	if ( SortedByColumn.IsValid() )
+	if (ensure(PrimarySortedByColumn.IsValid()))
 	{
-		RowsChanged.Broadcast();
+		PrimarySortedByColumn.Pin()->Sort(Rows, PrimarySortMode, SecondarySortedByColumn.Pin(), SecondarySortMode);
 	}
+
+	RowsChanged.Broadcast();
 }
 
 void SetCellValue( const TSharedRef< IPropertyTableCell >& Cell, FString Value )
@@ -1134,10 +1170,10 @@ void FPropertyTable::UpdateRows()
 		}
 	}
 
-	const TSharedPtr< IPropertyTableColumn > Column = SortedByColumn.Pin();
-	if ( Column.IsValid() && SortedColumnMode != EColumnSortMode::None )
+	const TSharedPtr< IPropertyTableColumn > Column = PrimarySortedByColumn.Pin();
+	if ( Column.IsValid() && PrimarySortMode != EColumnSortMode::None )
 	{
-		Column->Sort( Rows, SortedColumnMode );
+		Column->Sort( Rows, PrimarySortMode, SecondarySortedByColumn.Pin(), SecondarySortMode);
 	}
 
 	RowsChanged.Broadcast();

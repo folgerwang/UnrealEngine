@@ -9,9 +9,11 @@
 #include "Engine/Selection.h"
 #include "EditorModeTools.h"
 #include "EditorModeManager.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "EditorViewportClient.h"
 #include "UnrealClient.h"
+#include "MovieScene.h"
+#include "Channels/MovieSceneChannelProxy.h"
 
 ASequencerKeyActor::ASequencerKeyActor()
 	: Super()
@@ -36,7 +38,7 @@ ASequencerKeyActor::ASequencerKeyActor()
 	KeyMeshComponent->SetCollisionResponseToAllChannels(ECR_Ignore);
 	KeyMeshComponent->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block);
 	
-	KeyMeshComponent->bGenerateOverlapEvents = false;
+	KeyMeshComponent->SetGenerateOverlapEvents(false);
 	KeyMeshComponent->SetCanEverAffectNavigation(false);
 	KeyMeshComponent->bCastDynamicShadow = false;
 	KeyMeshComponent->bCastStaticShadow = false;
@@ -75,13 +77,15 @@ void ASequencerKeyActor::PropagateKeyChange()
 		// Mark the track section as dirty
 		TrackSection->Modify();
 
-		// Update the translation keys
-		FRichCurve& TransXCurve = TrackSection->GetTranslationCurve(EAxis::X);
-		FRichCurve& TransYCurve = TrackSection->GetTranslationCurve(EAxis::Y);
-		FRichCurve& TransZCurve = TrackSection->GetTranslationCurve(EAxis::Z);
-		TransXCurve.UpdateOrAddKey(KeyTime, GetActorTransform().GetLocation().X);
-		TransYCurve.UpdateOrAddKey(KeyTime, GetActorTransform().GetLocation().Y);
-		TransZCurve.UpdateOrAddKey(KeyTime, GetActorTransform().GetLocation().Z);
+		FFrameRate   TickResolution  = TrackSection->GetTypedOuter<UMovieScene>()->GetTickResolution();
+		FFrameNumber FrameNumber     = (KeyTime * TickResolution).RoundToFrame();
+
+		TArrayView<FMovieSceneFloatChannel*> FloatChannels = TrackSection->GetChannelProxy().GetChannels<FMovieSceneFloatChannel>();
+
+		const FVector Translation = GetActorTransform().GetLocation();
+		FloatChannels[0]->GetData().UpdateOrAddKey(FrameNumber, FMovieSceneFloatValue(Translation.X));
+		FloatChannels[1]->GetData().UpdateOrAddKey(FrameNumber, FMovieSceneFloatValue(Translation.Y));
+		FloatChannels[2]->GetData().UpdateOrAddKey(FrameNumber, FMovieSceneFloatValue(Translation.Z));
 
 		// Draw a single transform track based on the data from this key
 		FEditorViewportClient* ViewportClient = StaticCast<FEditorViewportClient*>(GEditor->GetActiveViewport()->GetClient());

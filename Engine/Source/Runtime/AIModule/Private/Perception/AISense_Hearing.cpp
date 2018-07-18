@@ -170,6 +170,13 @@ void UAISense_Hearing::RegisterEvent(const FAINoiseEvent& Event)
 	RequestImmediateUpdate();
 }
 
+void UAISense_Hearing::RegisterEventsBatch(const TArray<FAINoiseEvent>& Events)
+{
+	NoiseEvents.Append(Events);
+
+	RequestImmediateUpdate();
+}
+
 void UAISense_Hearing::RegisterWrappedEvent(UAISenseEvent& PerceptionEvent)
 {
 	UAISenseEvent_Hearing* HearingEvent = Cast<UAISenseEvent_Hearing>(&PerceptionEvent);

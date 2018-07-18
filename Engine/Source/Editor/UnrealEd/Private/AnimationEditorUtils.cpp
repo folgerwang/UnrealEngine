@@ -41,6 +41,7 @@
 #include "K2Node_Composite.h"
 #include "Kismet2/BlueprintEditorUtils.h"
 #include "Animation/AnimCompress_Automatic.h"
+#include "AssetRegistryModule.h"
 
 #define LOCTEXT_NAMESPACE "AnimationEditorUtils"
 
@@ -317,6 +318,8 @@ namespace AnimationEditorUtils
 				//Destroy the assets we just create
 				for (UObject* ObjectToDelete : ObjectsToSync)
 				{
+					// Notify the asset registry
+					FAssetRegistryModule::AssetDeleted(ObjectToDelete);
 					ObjectToDelete->ClearFlags(RF_Standalone | RF_Public);
 					ObjectToDelete->RemoveFromRoot();
 					ObjectToDelete->MarkPendingKill();

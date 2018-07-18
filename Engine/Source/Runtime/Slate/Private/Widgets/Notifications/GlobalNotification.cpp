@@ -1,6 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "GlobalNotification.h"
+#include "Widgets/Notifications/GlobalNotification.h"
 #include "Layout/Visibility.h"
 #include "Framework/Notifications/NotificationManager.h"
 #include "Widgets/Notifications/SNotificationList.h"

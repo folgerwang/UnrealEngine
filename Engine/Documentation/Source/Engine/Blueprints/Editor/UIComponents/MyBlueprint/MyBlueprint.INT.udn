@@ -18,6 +18,23 @@ For example, a normal Blueprint will always have a **ConstructionScript** and an
 
 ## Creation Buttons
 
+[INCLUDE:#MyBlueprintPanel]
+
+## My Blueprint Sections
+
+The **My Blueprint** tab is divided up into 6 sections: The **Add New**, Graphs, Functions, Macros, Variables, and Event Dispatchers sections.
+
+![My Blueprint Pane](MyBlueprintPane.png)
+
+The 5 lower sections will organize elements of your Blueprint into their respective groups. While the top section gives you quick access to create new Graphs, Variables, etc... and search the entire **My Blueprint** panel.
+
+## Searching in My Blueprint
+
+The **My Blueprint** tab contains a text box used for searching the graphs belonging to the Blueprint. This works the same way as the contextual action menu that you use for adding new nodes, but is limited to searching items found within **My Blueprint**.  You can search based on name, comment, and other data.  So, if you know you have a node that is **SetActorHidden**, you can type that in the box, and the explorer will show you all the **SetActorHidden** nodes in your graph.
+
+[/EXCERPT:Main]
+
+[COMMENT:none]
 [EXCERPT:MyBlueprintPanel]
 The **My Blueprint** tab has shortcut buttons (the ![](plus_Button.png) at the end of each heading) for creating new variables, functions, macros, event graphs, and event dispatchers.
 
@@ -38,23 +55,4 @@ Finally, you can use the **Add New** button at the top of the **My Blueprint** P
 ![](addNew.png)
 
 [/EXCERPT:MyBlueprintPanel]
-
-
-## My Blueprint Sections
-
-The **My Blueprint** tab is divided up into 6 sections: The **Add New**, Graphs, Functions, Macros, Variables, and Event Dispatchers sections.
-
-![My Blueprint Pane](MyBlueprintPane.png)
-
-The 5 lower sections will organize elements of your Blueprint into their respective groups. While the top section gives you quick access to create new Graphs, Variables, etc... and search the entire **My Blueprint** panel.
-
-## Searching in My Blueprint
-
-The **My Blueprint** tab contains a text box used for searching the graphs belonging to the Blueprint. This works the same way as the contextual action menu that you use for adding new nodes, but is limited to searching items found within **My Blueprint**.  You can search based on name, comment, and other data.  So, if you know you have a node that is **SetActorHidden**, you can type that in the box, and the explorer will show you all the **SetActorHidden** nodes in your graph.
-
-
-
-
-
-[/EXCERPT:Main]
-
+[/COMMENT]

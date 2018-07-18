@@ -406,10 +406,7 @@ void UProceduralFoliageTile::StepSimulation()
 		SpreadSeeds(NewInstances);
 	}
 
-	for (FProceduralFoliageInstance* Inst : NewInstances)
-	{
-		InstancesSet.Add(Inst);
-	}
+	InstancesSet.Append(NewInstances);
 
 	FlushPendingRemovals();
 }

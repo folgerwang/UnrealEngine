@@ -12,7 +12,7 @@
 #include "Styling/CoreStyle.h"
 #include "Widgets/Layout/SBorder.h"
 #include "Styling/SlateWidgetStyleAsset.h"
-#include "SSplitter.h"
+#include "Widgets/Layout/SSplitter.h"
 
 class SScrollBar;
 
@@ -20,6 +20,7 @@ namespace EColumnSortPriority
 {
 	enum Type
 	{
+		None,
 		Primary = 0,
 		Secondary = 1,
 		Max,

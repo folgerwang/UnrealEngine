@@ -1,10 +1,11 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "HAL/LowLevelMemTracker.h"
-#include "ScopeLock.h"
+#include "Misc/ScopeLock.h"
 #include "LowLevelMemoryUtils.h"
 #include "HAL/FileManager.h"
 #include "Misc/Paths.h"
+#include "Misc/CString.h"
 #include "HAL/IConsoleManager.h"
 
 #if ENABLE_LOW_LEVEL_MEM_TRACKER
@@ -55,11 +56,13 @@ DECLARE_LLM_MEMORY_STAT(TEXT("GenericPlatformMallocCrash"), STAT_GenericPlatform
 DECLARE_LLM_MEMORY_STAT(TEXT("Engine Misc"), STAT_EngineMiscLLM, STATGROUP_LLMFULL);
 DECLARE_LLM_MEMORY_STAT(TEXT("TaskGraph Misc Tasks"), STAT_TaskGraphTasksMiscLLM, STATGROUP_LLMFULL);
 DECLARE_LLM_MEMORY_STAT(TEXT("Audio"), STAT_AudioLLM, STATGROUP_LLMFULL);
+DECLARE_LLM_MEMORY_STAT(TEXT("AudioMixer"), STAT_AudioMixerLLM, STATGROUP_LLMFULL);
 DECLARE_LLM_MEMORY_STAT(TEXT("FName"), STAT_FNameLLM, STATGROUP_LLMFULL);
 DECLARE_LLM_MEMORY_STAT(TEXT("Networking"), STAT_NetworkingLLM, STATGROUP_LLMFULL);
 DECLARE_LLM_MEMORY_STAT(TEXT("Meshes"), STAT_MeshesLLM, STATGROUP_LLMFULL);
 DECLARE_LLM_MEMORY_STAT(TEXT("Stats"), STAT_StatsLLM, STATGROUP_LLMFULL);
 DECLARE_LLM_MEMORY_STAT(TEXT("Shaders"), STAT_ShadersLLM, STATGROUP_LLMFULL);
+DECLARE_LLM_MEMORY_STAT(TEXT("PSO"), STAT_PSOLLM, STATGROUP_LLMFULL);
 DECLARE_LLM_MEMORY_STAT(TEXT("Textures"), STAT_TexturesLLM, STATGROUP_LLMFULL);
 DECLARE_LLM_MEMORY_STAT(TEXT("Render Targets"), STAT_RenderTargetsLLM, STATGROUP_LLMFULL);
 DECLARE_LLM_MEMORY_STAT(TEXT("RHIMisc"), STAT_RHIMiscLLM, STATGROUP_LLMFULL);
@@ -81,6 +84,13 @@ DECLARE_LLM_MEMORY_STAT(TEXT("LoadMap Misc"), STAT_LoadMapMiscLLM, STATGROUP_LLM
 DECLARE_LLM_MEMORY_STAT(TEXT("StreamingManager"), STAT_StreamingManagerLLM, STATGROUP_LLMFULL);
 DECLARE_LLM_MEMORY_STAT(TEXT("Graphics"), STAT_GraphicsPlatformLLM, STATGROUP_LLMPlatform);
 DECLARE_LLM_MEMORY_STAT(TEXT("FileSystem"), STAT_FileSystemLLM, STATGROUP_LLMFULL);
+DECLARE_LLM_MEMORY_STAT(TEXT("Localization"), STAT_LocalizationLLM, STATGROUP_LLMFULL);
+DECLARE_LLM_MEMORY_STAT(TEXT("VertexBuffer"), STAT_VertexBufferLLM, STATGROUP_LLMFULL);
+DECLARE_LLM_MEMORY_STAT(TEXT("IndexBuffer"), STAT_IndexBufferLLM, STATGROUP_LLMFULL);
+DECLARE_LLM_MEMORY_STAT(TEXT("UniformBuffer"), STAT_UniformBufferLLM, STATGROUP_LLMFULL);
+DECLARE_LLM_MEMORY_STAT(TEXT("AssetRegistry"), STAT_AssetRegistryLLM, STATGROUP_LLMFULL);
+DECLARE_LLM_MEMORY_STAT(TEXT("ConfigSystem"), STAT_ConfigSystemLLM, STATGROUP_LLMFULL);
+DECLARE_LLM_MEMORY_STAT(TEXT("InitUObject"), STAT_InitUObjectLLM, STATGROUP_LLMFULL);
 
 /*
 * LLM Summary stats referenced by ELLMTagNames
@@ -104,62 +114,73 @@ struct FLLMTagInfo
 	FName SummaryStatName;		// shows in the LLM stat group
 };
 
-// *** order must match ELLMTag enum ***
-const FLLMTagInfo ELLMTagNames[] =
+extern const TCHAR* LLMGetTagName(ELLMTag Tag)
 {
-	// CSV name								LLM Stat stat name									LLM Summary stat name							// enum value
-	{ TEXT("Untagged"),						NAME_None,											NAME_None },									// ELLMTag::Untagged
-	{ TEXT("Paused"),						NAME_None,											NAME_None },									// ELLMTag::Paused
-	{ TEXT("Total"),						GET_STATFNAME(STAT_TotalLLM),						GET_STATFNAME(STAT_TrackedTotalSummaryLLM) },	// ELLMTag::Total
-	{ TEXT("Untracked"),					GET_STATFNAME(STAT_UntrackedLLM),					GET_STATFNAME(STAT_TrackedTotalSummaryLLM) },	// ELLMTag::Untracked
-	{ TEXT("Total"),						GET_STATFNAME(STAT_PlatformTotalLLM),				NAME_None },									// ELLMTag::PlatformTotal
-	{ TEXT("Tracked Total"),				GET_STATFNAME(STAT_TrackedTotalLLM),				GET_STATFNAME(STAT_TrackedTotalSummaryLLM) },	// ELLMTag::TrackedTotal
-	{ TEXT("Untagged"),						GET_STATFNAME(STAT_UntaggedTotalLLM),				NAME_None },									// ELLMTag::UntaggedTotal
-	{ TEXT("Tracked Total"),				GET_STATFNAME(STAT_PlatformTrackedTotalLLM),		NAME_None },									// ELLMTag::PlatformTrackedTotal
-	{ TEXT("Untagged"),						GET_STATFNAME(STAT_PlatformUntaggedTotalLLM),		NAME_None },									// ELLMTag::PlatformUntaggedTotal
-	{ TEXT("Untracked"),					GET_STATFNAME(STAT_PlatformUntrackedLLM),			NAME_None },									// ELLMTag::PlatformUntracked
-	{ TEXT("FMalloc"),						GET_STATFNAME(STAT_FMallocLLM),						NAME_None },									// ELLMTag::FMalloc
-	{ TEXT("FMalloc Unused"),				GET_STATFNAME(STAT_FMallocUnusedLLM),				GET_STATFNAME(STAT_EngineSummaryLLM) },			// ELLMTag::FMallocUnused
-	{ TEXT("ThreadStack"),					GET_STATFNAME(STAT_ThreadStackLLM),					GET_STATFNAME(STAT_EngineSummaryLLM) },			// ELLMTag::ThreadStack
-	{ TEXT("ThreadStack"),					GET_STATFNAME(STAT_ThreadStackPlatformLLM),			NAME_None },									// ELLMTag::ThreadStackPlatform
-	{ TEXT("Program Size"),					GET_STATFNAME(STAT_ProgramSizePlatformLLM),			NAME_None },									// ELLMTag::ProgramSizePlatform
-	{ TEXT("Program Size"),					GET_STATFNAME(STAT_ProgramSizeLLM),					GET_STATFNAME(STAT_EngineSummaryLLM) },			// ELLMTag::ProgramSize
-	{ TEXT("OOM Backup Pool"),				GET_STATFNAME(STAT_OOMBackupPoolPlatformLLM),		NAME_None },									// ELLMTag::BackupOOMMemoryPoolPlatform
-	{ TEXT("OOM Backup Pool"),				GET_STATFNAME(STAT_OOMBackupPoolLLM),				GET_STATFNAME(STAT_EngineSummaryLLM) },			// ELLMTag::BackupOOMMemoryPool
-	{ TEXT("GenericPlatformMallocCrash"),	GET_STATFNAME(STAT_GenericPlatformMallocCrashLLM),	GET_STATFNAME(STAT_EngineSummaryLLM) },			// ELLMTag::GenericPlatformMallocCrash
-	{ TEXT("GenericPlatformMallocCrash"),	GET_STATFNAME(STAT_GenericPlatformMallocCrashPlatformLLM),	GET_STATFNAME(STAT_EngineSummaryLLM) },	// ELLMTag::GenericPlatformMallocCrashPlatform
-	{ TEXT("Engine Misc"),					GET_STATFNAME(STAT_EngineMiscLLM),					GET_STATFNAME(STAT_EngineSummaryLLM) },			// ELLMTag::EngineMisc
-	{ TEXT("TaskGraph Misc Tasks"),			GET_STATFNAME(STAT_TaskGraphTasksMiscLLM),			GET_STATFNAME(STAT_EngineSummaryLLM) },			// ELLMTag::TaskGraphTasksMisc
-	{ TEXT("Audio"),						GET_STATFNAME(STAT_AudioLLM),						GET_STATFNAME(STAT_AudioSummaryLLM) },			// ELLMTag::Audio
-	{ TEXT("FName"),						GET_STATFNAME(STAT_FNameLLM),						GET_STATFNAME(STAT_EngineSummaryLLM) },			// ELLMTag::FName
-	{ TEXT("Networking"),					GET_STATFNAME(STAT_NetworkingLLM),					GET_STATFNAME(STAT_EngineSummaryLLM) },			// ELLMTag::Networking
-	{ TEXT("Meshes"),						GET_STATFNAME(STAT_MeshesLLM),						GET_STATFNAME(STAT_MeshesSummaryLLM) },			// ELLMTag::Meshes
-	{ TEXT("Stats"),						GET_STATFNAME(STAT_StatsLLM),						GET_STATFNAME(STAT_EngineSummaryLLM) },			// ELLMTag::Stats
-	{ TEXT("Shaders"),						GET_STATFNAME(STAT_ShadersLLM),						GET_STATFNAME(STAT_EngineSummaryLLM) },			// ELLMTag::Shaders
-	{ TEXT("Textures"),						GET_STATFNAME(STAT_TexturesLLM),					GET_STATFNAME(STAT_TexturesSummaryLLM) },			// ELLMTag::Textures
-	{ TEXT("Render Targets"),				GET_STATFNAME(STAT_RenderTargetsLLM),				GET_STATFNAME(STAT_EngineSummaryLLM) },			// ELLMTag::RenderTargets
-	{ TEXT("RHI Misc"),						GET_STATFNAME(STAT_RHIMiscLLM),						GET_STATFNAME(STAT_EngineSummaryLLM) },			// ELLMTag::RHIMisc
-	{ TEXT("PhysX TriMesh"),				GET_STATFNAME(STAT_PhysXTriMeshLLM),				GET_STATFNAME(STAT_PhysXSummaryLLM) },			// ELLMTag::PhysXTriMesh
-	{ TEXT("PhysX ConvexMesh"),				GET_STATFNAME(STAT_PhysXConvexMeshLLM),				GET_STATFNAME(STAT_PhysXSummaryLLM) },			// ELLMTag::PhysXConvexMesh
-	{ TEXT("AsyncLoading"),					GET_STATFNAME(STAT_AsyncLoadingLLM),				GET_STATFNAME(STAT_EngineSummaryLLM) },			// ELLMTag::AsyncLoading
-	{ TEXT("UObject"),						GET_STATFNAME(STAT_UObjectLLM),						GET_STATFNAME(STAT_UObjectSummaryLLM) },		// ELLMTag::UObject
-	{ TEXT("Animation"),					GET_STATFNAME(STAT_AnimationLLM),					GET_STATFNAME(STAT_AnimationSummaryLLM) },		// ELLMTag::Animation
-	{ TEXT("StaticMesh"),					GET_STATFNAME(STAT_StaticMeshLLM),					GET_STATFNAME(STAT_StaticMeshSummaryLLM) },		// ELLMTag::StaticMesh
-	{ TEXT("Materials"),					GET_STATFNAME(STAT_MaterialsLLM),					GET_STATFNAME(STAT_MaterialsSummaryLLM) },		// ELLMTag::Materials
-	{ TEXT("Particles"),					GET_STATFNAME(STAT_ParticlesLLM),					GET_STATFNAME(STAT_ParticlesSummaryLLM) },		// ELLMTag::Particles
-	{ TEXT("GC"),							GET_STATFNAME(STAT_GCLLM),							GET_STATFNAME(STAT_EngineSummaryLLM) },			// ELLMTag::GC
-	{ TEXT("UI"),							GET_STATFNAME(STAT_UILLM),							GET_STATFNAME(STAT_UISummaryLLM) },				// ELLMTag::UI
-	{ TEXT("PhysX"),						GET_STATFNAME(STAT_PhysXLLM),						GET_STATFNAME(STAT_PhysXSummaryLLM) },			// ELLMTag::PhysX
-	{ TEXT("EnginePreInit"),				GET_STATFNAME(STAT_EnginePreInitLLM),				GET_STATFNAME(STAT_EngineSummaryLLM) },			// ELLMTag::EnginePreInitMemory
-	{ TEXT("EngineInit"),					GET_STATFNAME(STAT_EngineInitLLM),					GET_STATFNAME(STAT_EngineSummaryLLM) },			// ELLMTag::EngineInitMemory
-	{ TEXT("Rendering Thread"),				GET_STATFNAME(STAT_RenderingThreadLLM),				GET_STATFNAME(STAT_EngineSummaryLLM) },			// ELLMTag::RenderingThreadMemory
-	{ TEXT("LoadMap Misc"),					GET_STATFNAME(STAT_LoadMapMiscLLM),					GET_STATFNAME(STAT_EngineSummaryLLM) },			// ELLMTag::LoadMapMisc
-	{ TEXT("StreamingManager"),				GET_STATFNAME(STAT_StreamingManagerLLM),			GET_STATFNAME(STAT_EngineSummaryLLM) },			// ELLMTag::StreamingManager
-	{ TEXT("Graphics"),						GET_STATFNAME(STAT_GraphicsPlatformLLM),			NAME_None },									// ELLMTag::GraphicsPlatform
-	{ TEXT("FileSystem"),					GET_STATFNAME(STAT_FileSystemLLM),					GET_STATFNAME(STAT_EngineSummaryLLM) },			// ELLMTag::FileSystem
-};
+#define LLM_TAG_NAME_ARRAY(Enum,Str,Stat,Group) TEXT(Str),
+	static TCHAR const* Names[] = { LLM_ENUM_GENERIC_TAGS(LLM_TAG_NAME_ARRAY) };
+#undef LLM_TAG_NAME_ARRAY
 
-static_assert(sizeof(ELLMTagNames) / sizeof(FLLMTagInfo) == (int32)ELLMTag::GenericTagCount, "Please update ELLMTagNames to match the ELLMTag enum");
+	int32 Index = (int32)Tag;
+	if (Index >= 0 && Index < ARRAY_COUNT(Names))
+	{
+		return Names[Index];
+	}
+	else
+	{
+		return nullptr;
+	}
+}
+
+extern const ANSICHAR* LLMGetTagNameANSI(ELLMTag Tag)
+{
+#define LLM_TAG_NAME_ARRAY(Enum,Str,Stat,Group) Str,
+	static ANSICHAR const* Names[] = { LLM_ENUM_GENERIC_TAGS(LLM_TAG_NAME_ARRAY) };
+#undef LLM_TAG_NAME_ARRAY
+
+	int32 Index = (int32)Tag;
+	if (Index >= 0 && Index < ARRAY_COUNT(Names))
+	{
+		return Names[Index];
+	}
+	else
+	{
+		return nullptr;
+	}
+}
+
+extern FName LLMGetTagStat(ELLMTag Tag)
+{
+#define LLM_TAG_STAT_ARRAY(Enum,Str,Stat,Group) Stat,
+	static FName Names[] = { LLM_ENUM_GENERIC_TAGS(LLM_TAG_STAT_ARRAY) };
+#undef LLM_TAG_STAT_ARRAY
+
+	int32 Index = (int32)Tag;
+	if (Index >= 0 && Index < ARRAY_COUNT(Names))
+	{
+		return Names[Index];
+	}
+	else
+	{
+		return NAME_None;
+	}
+}
+
+extern FName LLMGetTagStatGroup(ELLMTag Tag)
+{
+#define LLM_TAG_STATGROUP_ARRAY(Enum,Str,Stat,Group) Group,
+	static FName Names[] = { LLM_ENUM_GENERIC_TAGS(LLM_TAG_STATGROUP_ARRAY) };
+#undef LLM_TAG_STAT_ARRAY
+
+	int32 Index = (int32)Tag;
+	if (Index >= 0 && Index < ARRAY_COUNT(Names))
+	{
+		return Names[Index];
+	}
+	else
+	{
+		return NAME_None;
+	}
+}
 
 /**
  * FLLMCsvWriter: class for writing out the LLM stats to a csv file every few seconds
@@ -293,9 +314,15 @@ public:
 
 	int64 GetTagAmount(ELLMTag Tag) const;
 	void SetTagAmount(ELLMTag Tag, int64 Amount, bool AddToTotal);
+    int64 GetActiveTag();
 
 	int64 GetAllocTypeAmount(ELLMAllocType AllocType);
 
+	int64 GetTrackedMemoryOverFrames() const
+	{
+		return TrackedMemoryOverFrames;
+	}
+    
 protected:
 
 	// per thread state
@@ -443,6 +470,11 @@ FLowLevelMemTracker::FLowLevelMemTracker()
 	{
 		ActiveSets[Index] = Index == (int32)ELLMTagSet::None;
 	}
+
+	for (int32 Index = 0; Index < sizeof(PlatformTags)/sizeof(FLLMPlatformTag); Index++ )
+	{
+		PlatformTags[Index].Name = nullptr;
+	}
 }
 
 FLowLevelMemTracker::~FLowLevelMemTracker()
@@ -572,7 +604,10 @@ void FLowLevelMemTracker::ProcessCommandLine(const TCHAR* CmdLine)
 
 	if (bCanEnable)
 	{
-#if LLM_COMMANDLINE_ENABLES_FUNCTIONALITY
+#if LLM_AUTO_ENABLE
+		// LLM is always on, regardless of command line
+		bIsDisabled = false;
+#elif LLM_COMMANDLINE_ENABLES_FUNCTIONALITY
 		// if we require commandline to enable it, then we are disabled if it's not there
 		bIsDisabled = FParse::Param(CmdLine, TEXT("LLM")) == false;
 #else
@@ -624,6 +659,17 @@ void FLowLevelMemTracker::ProcessCommandLine(const TCHAR* CmdLine)
 			}
 		}
 	}
+}
+
+// Return the total amount of memory being tracked
+uint64 FLowLevelMemTracker::GetTotalTrackedMemory(ELLMTracker Tracker)
+{
+	if (bIsDisabled)
+	{
+		return 0;
+	}
+
+	return GetTracker(Tracker)->GetTrackedMemoryOverFrames();
 }
 
 void FLowLevelMemTracker::OnLowLevelAlloc(ELLMTracker Tracker, const void* Ptr, uint64 Size, ELLMTag DefaultTag, ELLMAllocType AllocType)
@@ -737,6 +783,36 @@ void FLowLevelMemTracker::RegisterPlatformTag(int32 Tag, const TCHAR* Name, FNam
 	PlatformTag.SummaryStatName = SummaryStatName;
 }
 
+bool FLowLevelMemTracker::FindTagByName( const TCHAR* Name, uint64& OutTag ) const
+{
+	if( Name != nullptr )
+	{
+		for ( int32 GenericTagIndex = 0; GenericTagIndex < (int32)ELLMTag::GenericTagCount; GenericTagIndex++ )
+		{
+			if( LLMGetTagName((ELLMTag)GenericTagIndex) != nullptr && FCString::Stricmp( Name, LLMGetTagName((ELLMTag)GenericTagIndex) ) == 0 )
+			{
+				OutTag = GenericTagIndex;
+				return true;
+			}
+		}
+		for ( int32 PlatformTagIndex = 0; PlatformTagIndex <= (int32)ELLMTag::PlatformTagEnd - (int32)ELLMTag::PlatformTagStart; PlatformTagIndex++ )
+		{
+			if( PlatformTags[PlatformTagIndex].Name != nullptr && FCString::Stricmp( Name, PlatformTags[PlatformTagIndex].Name ) == 0 )
+			{
+				OutTag = (int32)ELLMTag::PlatformTagStart + PlatformTagIndex;
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+
+int64 FLowLevelMemTracker::GetActiveTag(ELLMTracker Tracker)
+{
+    return GetTracker(Tracker)->GetActiveTag();
+}
 
 
 FLLMScope::FLLMScope(FName StatIDName, ELLMTagSet Set, ELLMTracker Tracker)
@@ -1048,6 +1124,7 @@ void FLLMTracker::OnAllocMoved(const void* Dest, const void* Source)
 void FLLMTracker::TrackMemory(int64 Tag, int64 Amount)
 {
 	FLLMTracker::FLLMThreadState* State = GetOrCreateState();
+	FScopeLock Lock(&State->TagSection);
 	State->IncrTag(Tag, Amount, true);
 	FPlatformAtomics::InterlockedAdd(&TrackedMemoryOverFrames, Amount);
 }
@@ -1056,6 +1133,7 @@ void FLLMTracker::TrackMemory(int64 Tag, int64 Amount)
 void FLLMTracker::PauseAndTrackMemory(int64 Tag, int64 Amount, ELLMAllocType AllocType)
 {
 	FLLMTracker::FLLMThreadState* State = GetOrCreateState();
+	FScopeLock Lock(&State->TagSection);
 	State->PausedFlags[(int32)AllocType] = true;
 	State->IncrTag(Tag, Amount, true);
 	FPlatformAtomics::InterlockedAdd(&TrackedMemoryOverFrames, Amount);
@@ -1118,13 +1196,13 @@ void FLLMTracker::Update(FLLMPlatformTag* PlatformTags)
 
 void FLLMTracker::UpdateTotals()
 {
-	FName StatName = ELLMTagNames[(int32)TrackedTotalTag].StatName;
+	FName StatName = LLMGetTagStat(TrackedTotalTag);
 	if (StatName != NAME_None)
 	{
 		SET_MEMORY_STAT_FName(StatName, TrackedMemoryOverFrames);
 	}
 
-	FName SummaryStatName = ELLMTagNames[(int32)TrackedTotalTag].SummaryStatName;
+	FName SummaryStatName = LLMGetTagStatGroup(TrackedTotalTag);
 	if (SummaryStatName != NAME_None)
 	{
 		SET_MEMORY_STAT_FName(SummaryStatName, TrackedMemoryOverFrames);
@@ -1150,6 +1228,11 @@ void FLLMTracker::WriteCsv(FLLMPlatformTag* PlatformTags)
 	CsvWriter.Update(PlatformTags);
 }
 
+int64 FLLMTracker::GetActiveTag()
+{
+    FLLMThreadState* State = GetOrCreateState();
+    return State->GetTopTag();
+}
 
 FLLMTracker::FLLMThreadState::FLLMThreadState()
 	: UntaggedAllocs(0)
@@ -1308,7 +1391,7 @@ void FLLMTracker::SetTagAmount(ELLMTag Tag, int64 Amount, bool AddToTotal)
 		FPlatformAtomics::InterlockedAdd(&TrackedMemoryOverFrames, (int64)(Amount - EnumTagAmounts[(int32)Tag]));
 	}
 
-	SET_MEMORY_STAT_FName(ELLMTagNames[(int32)Tag].StatName, Amount);
+	SET_MEMORY_STAT_FName(LLMGetTagStat(Tag), Amount);
 
 	EnumTagAmounts[(int32)Tag] = Amount;
 
@@ -1335,6 +1418,11 @@ void FLLMTracker::FLLMThreadState::TrackAllocation(const void* Ptr, uint64 Size,
 	IncrTag(AssetTag, Size, false);
 #endif
 	
+	if (Tracker == ELLMTracker::Default)
+	{
+		FPlatformMemory::OnLowLevelMemory_Alloc(Ptr, Size, Tag);
+	}
+	
 #if ENABLE_MEMPRO
 	if (START_MEMPRO && Tracker == ELLMTracker::Default && (MemProTrackTag == ELLMTag::MaxUserAllocation || MemProTrackTag == (ELLMTag)Tag))
 	{
@@ -1350,6 +1438,11 @@ void FLLMTracker::FLLMThreadState::TrackFree(const void* Ptr, int64 Tag, uint64 
 	AllocTypeAmounts[(int32)AllocType] -= Size;
 
 	IncrTag(Tag, 0 - Size, bTrackedUntagged);
+
+	if (Tracker == ELLMTracker::Default)
+	{
+		FPlatformMemory::OnLowLevelMemory_Free(Ptr, Size, Tag);
+	}
 
 #if ENABLE_MEMPRO
 	if (START_MEMPRO && Tracker == ELLMTracker::Default && (MemProTrackTag == ELLMTag::MaxUserAllocation || MemProTrackTag == (ELLMTag)Tag))
@@ -1398,8 +1491,8 @@ void FLLMTracker::FLLMThreadState::GetFrameStatTotals(
 #endif
 	}
 
-	IncMemoryStatByFName(ELLMTagNames[(int32)InUntaggedTotalTag].StatName, InStateCopy.UntaggedAllocs);
-	IncMemoryStatByFName(ELLMTagNames[(int32)InUntaggedTotalTag].SummaryStatName, InStateCopy.UntaggedAllocs);
+	IncMemoryStatByFName(LLMGetTagStat(InUntaggedTotalTag), InStateCopy.UntaggedAllocs);
+	IncMemoryStatByFName(LLMGetTagStatGroup(InUntaggedTotalTag), InStateCopy.UntaggedAllocs);
 
 #if LLM_TRACK_PEAK_MEMORY
 	InCsvWriter.AddStat(FNameToTag(InUntaggedStatName), InStateCopy.UntaggedAllocs, InStateCopy.UntaggedAllocsPeak);
@@ -1440,9 +1533,9 @@ void FLLMTracker::FLLMThreadState::GetFrameStatTotals(
 		}
 		else
 		{
-			check(Tag >= 0 && Tag < sizeof(ELLMTagNames) / sizeof(FLLMTagInfo));
-			IncMemoryStatByFName(ELLMTagNames[Tag].StatName, int64(Amount));
-			IncMemoryStatByFName(ELLMTagNames[Tag].SummaryStatName, int64(Amount));
+			check(Tag >= 0 && LLMGetTagName((ELLMTag)Tag) != nullptr);
+			IncMemoryStatByFName(LLMGetTagStat((ELLMTag)Tag), int64(Amount));
+			IncMemoryStatByFName(LLMGetTagStatGroup((ELLMTag)Tag), int64(Amount));
 			OutEnumTagAmounts[Tag] += Amount;
 		}
 	}
@@ -1600,7 +1693,7 @@ const TCHAR* FLLMCsvWriter::GetTrackerCsvName(ELLMTracker InTracker)
 */
 void FLLMCsvWriter::Write(const FString& Text)
 {
-	Archive->Serialize((void*)*Text, Text.Len() * sizeof(TCHAR));
+	Archive->Serialize(TCHAR_TO_ANSI(*Text), Text.Len() * sizeof(ANSICHAR));
 }
 
 /*
@@ -1705,8 +1798,8 @@ FString FLLMCsvWriter::GetTagName(int64 Tag, FLLMPlatformTag* PlatformTags)
 	}
 	else
 	{
-		check(Tag >= 0 && Tag < sizeof(ELLMTagNames) / sizeof(FLLMTagInfo));
-		return ELLMTagNames[Tag].Name;
+		check(Tag >= 0 && LLMGetTagName((ELLMTag)Tag) != nullptr);
+		return LLMGetTagName((ELLMTag)Tag);
 	}
 }
 

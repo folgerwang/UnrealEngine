@@ -128,7 +128,7 @@ void TQuadTree<ElementType, NodeCapacity>::Serialize(FArchive& Ar)
 	{
 		if(SubTreeFlags[Idx])
 		{
-			if(Ar.ArIsLoading)
+			if(Ar.IsLoading())
 			{
 				SubTrees[Idx] = new TreeType(FBox2D(), MinimumQuadSize);
 			}
@@ -258,7 +258,7 @@ void TQuadTree<ElementType, NodeCapacity>::InsertElementRecursive(const ElementT
 
 			if (!bCanSplitTree)
 			{
-				UE_LOG(LogQuadTree, Warning, TEXT("Minimum size %f reached for quadtree at %s. Filling beyond capacity %d to %d"), MinimumQuadSize, *Position.ToString(), NodeCapacity, Nodes.Num());
+				UE_LOG(LogQuadTree, Verbose, TEXT("Minimum size %f reached for quadtree at %s. Filling beyond capacity %d to %d"), MinimumQuadSize, *Position.ToString(), NodeCapacity, Nodes.Num());
 			}
 		}
 		else
@@ -349,7 +349,8 @@ void TQuadTree<ElementType, NodeCapacity>::GetIntersectingElements(const FBox2D&
 	{
 		if (Box.Intersect(Node.Box))
 		{
-			check(!ElementsOut.Contains(Node.Element));
+			//Debug performance will be at least 1 order slower
+			checkSlow(!ElementsOut.Contains(Node.Element));
 			ElementsOut.Add(Node.Element);
 		}
 	};

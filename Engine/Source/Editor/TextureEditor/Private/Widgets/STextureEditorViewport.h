@@ -119,6 +119,12 @@ private:
 	// Callback for getting the zoom slider's value.
 	float HandleZoomSliderValue( ) const;
 
+	// Callback for changes in the zoom slider.
+	void HandleOpacitySliderChanged( float NewValue );
+
+	// Callback for getting the zoom slider's value.
+	float HandleOpacitySliderValue( ) const;
+
 	// Checks if the texture being edited has a valid texture resource
 	bool HasValidTextureResource( ) const;
 

@@ -50,6 +50,9 @@ public:
 	/** @returns true if a sphere/point (with optional radius CheckRadius) overlaps this volume */
 	bool EncompassesPoint(FVector Point, float SphereRadius=0.f, float* OutDistanceToPoint = 0) const;
 
+	/** @returns the coarse bounds of this volume */
+	FBoxSphereBounds GetBounds() const;
+
 	//Begin UObject Interface
 #if WITH_EDITOR
 	virtual void PostEditImport() override;

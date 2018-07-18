@@ -14,7 +14,7 @@ DECLARE_DYNAMIC_DELEGATE(FOnContentInstallSucceeded);
 DECLARE_DYNAMIC_DELEGATE_TwoParams(FOnContentInstallFailed, FText, ErrorText, int32, ErrorCode);
 
 UCLASS(BlueprintType)
-class UMobileInstalledContent : public UObject
+class MOBILEPATCHINGUTILS_API UMobileInstalledContent : public UObject
 {
 	GENERATED_BODY()
 
@@ -43,7 +43,7 @@ public:
 };
 
 UCLASS(BlueprintType)
-class UMobilePendingContent : public UMobileInstalledContent
+class MOBILEPATCHINGUTILS_API UMobilePendingContent : public UMobileInstalledContent
 {
 	GENERATED_BODY()
 
@@ -111,7 +111,7 @@ DECLARE_DYNAMIC_DELEGATE_OneParam(FOnRequestContentSucceeded, UMobilePendingCont
 DECLARE_DYNAMIC_DELEGATE_TwoParams(FOnRequestContentFailed, FText, ErrorText, int32, ErrorCode);
 
 UCLASS()
-class UMobilePatchingLibrary : public UBlueprintFunctionLibrary
+class MOBILEPATCHINGUTILS_API UMobilePatchingLibrary : public UBlueprintFunctionLibrary
 {
 	GENERATED_BODY()
 

@@ -20,7 +20,6 @@ ALevelScriptActor::ALevelScriptActor(const FObjectInitializer& ObjectInitializer
 	bActorLabelEditable = false;
 	bEditable = false;
 #endif // WITH_EDITORONLY_DATA
-	PrimaryActorTick.bCanEverTick = true;
 
 	bCanBeDamaged = false;
 	bInputEnabled = true;
@@ -98,7 +97,10 @@ void ALevelScriptActor::SetCinematicMode(bool bCinematicMode, bool bHidePlayer, 
 	// Loop through all player controllers and call their version of SetCinematicMode which is where all the magic happens and replication occurs
 	for( FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator )
 	{
-		(*Iterator)->SetCinematicMode(bCinematicMode, bHidePlayer, bAffectsHUD, bAffectsMovement, bAffectsTurning);
+		if (APlayerController* PC = Iterator->Get())
+		{
+			PC->SetCinematicMode(bCinematicMode, bHidePlayer, bAffectsHUD, bAffectsMovement, bAffectsTurning);
+		}
 	}
 }
 

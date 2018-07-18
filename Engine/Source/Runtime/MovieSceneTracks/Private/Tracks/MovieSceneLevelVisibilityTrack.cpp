@@ -53,19 +53,6 @@ const TArray<UMovieSceneSection*>& UMovieSceneLevelVisibilityTrack::GetAllSectio
 }
 
 
-TRange<float> UMovieSceneLevelVisibilityTrack::GetSectionBoundaries() const
-{
-	TArray< TRange<float> > Bounds;
-
-	for (int32 SectionIndex = 0; SectionIndex < Sections.Num(); ++SectionIndex)
-	{
-		Bounds.Add(Sections[SectionIndex]->GetRange());
-	}
-
-	return TRange<float>::Hull(Bounds);
-}
-
-
 bool UMovieSceneLevelVisibilityTrack::HasSection(const UMovieSceneSection& Section) const
 {
 	return Sections.Contains(&Section);

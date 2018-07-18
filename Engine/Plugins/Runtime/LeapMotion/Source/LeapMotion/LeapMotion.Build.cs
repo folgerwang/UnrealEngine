@@ -30,7 +30,6 @@ namespace UnrealBuildTool.Rules
 		{
 			PublicIncludePaths.AddRange(
 				new string[] {
-					"LeapMotion/Public",
 					// ... add public include paths required here ...
 				}
 				);

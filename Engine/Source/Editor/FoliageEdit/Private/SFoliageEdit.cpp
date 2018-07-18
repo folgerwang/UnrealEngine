@@ -24,9 +24,9 @@
 #include "IIntroTutorials.h"
 #include "Widgets/Input/SNumericEntryBox.h"
 #include "SFoliagePalette.h"
-#include "SHeader.h"
-#include "SSeparator.h"
-#include "SErrorText.h"
+#include "Widgets/Layout/SHeader.h"
+#include "Widgets/Layout/SSeparator.h"
+#include "Widgets/Notifications/SErrorText.h"
 
 #define LOCTEXT_NAMESPACE "FoliageEd_Mode"
 
@@ -61,437 +61,437 @@ void SFoliageEdit::Construct(const FArguments& InArgs)
 			SNew(SVerticalBox)
 			.IsEnabled(this, &SFoliageEdit::IsFoliageEditorEnabled)
 
-			+ SVerticalBox::Slot()
-			.AutoHeight()
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			.Padding(1.f, 5.f, 0.f, 5.f)
 			[
-				SNew(SHorizontalBox)
-				+ SHorizontalBox::Slot()
-				.AutoWidth()
-				.Padding(1.f, 5.f, 0.f, 5.f)
-				[
-					BuildToolBar()
-				]
+				BuildToolBar()
+			]
 
-				+ SHorizontalBox::Slot()
-				.Padding(0.f, 2.f, 2.f, 0.f)
+			+ SHorizontalBox::Slot()
+			.Padding(0.f, 2.f, 2.f, 0.f)
+			[
+				SNew(SBorder)
+				.BorderImage(FEditorStyle::GetBrush("ToolPanel.DarkGroupBorder"))
+				.Padding(StandardPadding)
 				[
-					SNew(SBorder)
-					.BorderImage(FEditorStyle::GetBrush("ToolPanel.DarkGroupBorder"))
+					SNew(SVerticalBox)
+
+					// Active Tool Title
+					+ SVerticalBox::Slot()
+					.AutoHeight()
+					[
+						SNew(SHorizontalBox)
+
+						+ SHorizontalBox::Slot()
+						.Padding(StandardLeftPadding)
+						.HAlign(HAlign_Left)
+						[
+							SNew(STextBlock)
+							.Text(this, &SFoliageEdit::GetActiveToolName)
+							.TextStyle(FEditorStyle::Get(), "FoliageEditMode.ActiveToolName.Text")
+						]
+
+						+ SHorizontalBox::Slot()
+						.Padding(StandardRightPadding)
+						.HAlign(HAlign_Right)
+						.VAlign(VAlign_Center)
+						.AutoWidth()
+						[
+							// Tutorial link
+							IntroTutorials.CreateTutorialsWidget(TEXT("FoliageMode"))
+						]
+					]
+
+					+ SVerticalBox::Slot()
+					.AutoHeight()
 					.Padding(StandardPadding)
 					[
-						SNew(SVerticalBox)
-
-						// Active Tool Title
-						+ SVerticalBox::Slot()
-						.AutoHeight()
+						SNew(SHeader)
+						.Visibility(this, &SFoliageEdit::GetVisibility_Options)
 						[
-							SNew(SHorizontalBox)
-
-							+ SHorizontalBox::Slot()
-							.Padding(StandardLeftPadding)
-							.HAlign(HAlign_Left)
-							[
-								SNew(STextBlock)
-								.Text(this, &SFoliageEdit::GetActiveToolName)
-								.TextStyle(FEditorStyle::Get(), "FoliageEditMode.ActiveToolName.Text")
-							]
-
-							+ SHorizontalBox::Slot()
-							.Padding(StandardRightPadding)
-							.HAlign(HAlign_Right)
-							.VAlign(VAlign_Center)
-							.AutoWidth()
-							[
-								// Tutorial link
-								IntroTutorials.CreateTutorialsWidget(TEXT("FoliageMode"))
-							]
+							SNew(STextBlock)
+							.Text(LOCTEXT("OptionHeader", "Brush Options"))
+							.Font(StandardFont)
 						]
+					]
 
-						+ SVerticalBox::Slot()
-						.AutoHeight()
-						.Padding(StandardPadding)
+					// Brush Size
+					+ SVerticalBox::Slot()
+					.AutoHeight()
+					[
+						SNew(SHorizontalBox)
+						.ToolTipText(LOCTEXT("BrushSize_Tooltip", "The size of the foliage brush"))
+						.Visibility(this, &SFoliageEdit::GetVisibility_Radius)
+
+						+ SHorizontalBox::Slot()
+						.Padding(StandardLeftPadding)
+						.FillWidth(1.0f)
+						.VAlign(VAlign_Center)
 						[
-							SNew(SHeader)
-							.Visibility(this, &SFoliageEdit::GetVisibility_Options)
-							[
-								SNew(STextBlock)
-								.Text(LOCTEXT("OptionHeader", "Brush Options"))
-								.Font(StandardFont)
-							]
+							SNew(STextBlock)
+							.Text(LOCTEXT("BrushSize", "Brush Size"))
+							.Font(StandardFont)
 						]
-
-						// Brush Size
-						+ SVerticalBox::Slot()
-						.AutoHeight()
+						+ SHorizontalBox::Slot()
+						.Padding(StandardRightPadding)
+						.FillWidth(2.0f)
+						.MaxWidth(100.f)
+						.VAlign(VAlign_Center)
 						[
-							SNew(SHorizontalBox)
-							.ToolTipText(LOCTEXT("BrushSize_Tooltip", "The size of the foliage brush"))
-							.Visibility(this, &SFoliageEdit::GetVisibility_Radius)
+							SNew(SNumericEntryBox<float>)
+							.Font(StandardFont)
+							.AllowSpin(true)
+							.MinValue(0.0f)
+							.MaxValue(65536.0f)
+							.MaxSliderValue(8192.0f)
+							.MinDesiredValueWidth(50.0f)
+							.SliderExponent(3.0f)
+							.Value(this, &SFoliageEdit::GetRadius)
+							.OnValueChanged(this, &SFoliageEdit::SetRadius)
+							.IsEnabled(this, &SFoliageEdit::IsEnabled_BrushSize)
+						]						
+					]
 
-							+ SHorizontalBox::Slot()
-							.Padding(StandardLeftPadding)
-							.FillWidth(1.0f)
-							.VAlign(VAlign_Center)
-							[
-								SNew(STextBlock)
-								.Text(LOCTEXT("BrushSize", "Brush Size"))
-								.Font(StandardFont)
-							]
-							+ SHorizontalBox::Slot()
-							.Padding(StandardRightPadding)
-							.FillWidth(2.0f)
-							.MaxWidth(100.f)
-							.VAlign(VAlign_Center)
-							[
-								SNew(SNumericEntryBox<float>)
-								.Font(StandardFont)
-								.AllowSpin(true)
-								.MinValue(0.0f)
-								.MaxValue(65536.0f)
-								.MaxSliderValue(8192.0f)
-								.MinDesiredValueWidth(50.0f)
-								.SliderExponent(3.0f)
-								.Value(this, &SFoliageEdit::GetRadius)
-								.OnValueChanged(this, &SFoliageEdit::SetRadius)
-								.IsEnabled(this, &SFoliageEdit::IsEnabled_BrushSize)
-							]						
+					// Paint Density
+					+ SVerticalBox::Slot()
+					.AutoHeight()
+					[
+						SNew(SHorizontalBox)
+						.ToolTipText(LOCTEXT("PaintDensity_Tooltip", "The density of foliage to paint. This is a multiplier for the individual foliage type's density specifier."))
+						.Visibility(this, &SFoliageEdit::GetVisibility_PaintDensity)
+
+						+ SHorizontalBox::Slot()
+						.Padding(StandardLeftPadding)
+						.FillWidth(1.0f)
+						.VAlign(VAlign_Center)
+						[
+							SNew(STextBlock)
+							.Text(LOCTEXT("PaintDensity", "Paint Density"))
+							.Font(StandardFont)
 						]
-
-						// Paint Density
-						+ SVerticalBox::Slot()
-						.AutoHeight()
+						+ SHorizontalBox::Slot()
+						.Padding(StandardRightPadding)
+						.FillWidth(2.0f)
+						.MaxWidth(100.f)
+						.VAlign(VAlign_Center)
 						[
-							SNew(SHorizontalBox)
-							.ToolTipText(LOCTEXT("PaintDensity_Tooltip", "The density of foliage to paint. This is a multiplier for the individual foliage type's density specifier."))
-							.Visibility(this, &SFoliageEdit::GetVisibility_PaintDensity)
-
-							+ SHorizontalBox::Slot()
-							.Padding(StandardLeftPadding)
-							.FillWidth(1.0f)
-							.VAlign(VAlign_Center)
-							[
-								SNew(STextBlock)
-								.Text(LOCTEXT("PaintDensity", "Paint Density"))
-								.Font(StandardFont)
-							]
-							+ SHorizontalBox::Slot()
-							.Padding(StandardRightPadding)
-							.FillWidth(2.0f)
-							.MaxWidth(100.f)
-							.VAlign(VAlign_Center)
-							[
-								SNew(SNumericEntryBox<float>)
-								.Font(StandardFont)
-								.AllowSpin(true)
-								.MinValue(0.0f)
-								.MaxValue(2.0f)
-								.MaxSliderValue(1.0f)
-								.MinDesiredValueWidth(50.0f)
-								.Value(this, &SFoliageEdit::GetPaintDensity)
-								.OnValueChanged(this, &SFoliageEdit::SetPaintDensity)
-								.IsEnabled(this, &SFoliageEdit::IsEnabled_PaintDensity)
-							]
+							SNew(SNumericEntryBox<float>)
+							.Font(StandardFont)
+							.AllowSpin(true)
+							.MinValue(0.0f)
+							.MaxValue(1.0f)
+							.MaxSliderValue(1.0f)
+							.MinDesiredValueWidth(50.0f)
+							.Value(this, &SFoliageEdit::GetPaintDensity)
+							.OnValueChanged(this, &SFoliageEdit::SetPaintDensity)
+							.IsEnabled(this, &SFoliageEdit::IsEnabled_PaintDensity)
 						]
+					]
 
-						// Erase Density
-						+ SVerticalBox::Slot()
-						.AutoHeight()
+					// Erase Density
+					+ SVerticalBox::Slot()
+					.AutoHeight()
+					[
+						SNew(SHorizontalBox)
+						.ToolTipText(LOCTEXT("EraseDensity_Tooltip", "The density of foliage to leave behind when erasing with the Shift key held. 0 will remove all foliage."))
+						.Visibility(this, &SFoliageEdit::GetVisibility_EraseDensity)
+
+						+ SHorizontalBox::Slot()
+						.Padding(StandardLeftPadding)
+						.FillWidth(1.0f)
+						.VAlign(VAlign_Center)
 						[
-							SNew(SHorizontalBox)
-							.ToolTipText(LOCTEXT("EraseDensity_Tooltip", "The density of foliage to leave behind when erasing with the Shift key held. 0 will remove all foliage."))
-							.Visibility(this, &SFoliageEdit::GetVisibility_EraseDensity)
-
-							+ SHorizontalBox::Slot()
-							.Padding(StandardLeftPadding)
-							.FillWidth(1.0f)
-							.VAlign(VAlign_Center)
-							[
-								SNew(STextBlock)
-								.Text(LOCTEXT("EraseDensity", "Erase Density"))
-								.Font(StandardFont)
-							]
-							+ SHorizontalBox::Slot()
-							.Padding(StandardRightPadding)
-							.FillWidth(2.0f)
-							.MaxWidth(100.f)
-							.VAlign(VAlign_Center)
-							[
-								SNew(SNumericEntryBox<float>)
-								.Font(StandardFont)
-								.AllowSpin(true)
-								.MinValue(0.0f)
-								.MaxValue(2.0f)
-								.MaxSliderValue(1.0f)
-								.MinDesiredValueWidth(50.0f)
-								.Value(this, &SFoliageEdit::GetEraseDensity)
-								.OnValueChanged(this, &SFoliageEdit::SetEraseDensity)
-								.IsEnabled(this, &SFoliageEdit::IsEnabled_EraseDensity)
-							]
-						]					
+							SNew(STextBlock)
+							.Text(LOCTEXT("EraseDensity", "Erase Density"))
+							.Font(StandardFont)
+						]
+						+ SHorizontalBox::Slot()
+						.Padding(StandardRightPadding)
+						.FillWidth(2.0f)
+						.MaxWidth(100.f)
+						.VAlign(VAlign_Center)
+						[
+							SNew(SNumericEntryBox<float>)
+							.Font(StandardFont)
+							.AllowSpin(true)
+							.MinValue(0.0f)
+							.MaxValue(1.0f)
+							.MaxSliderValue(1.0f)
+							.MinDesiredValueWidth(50.0f)
+							.Value(this, &SFoliageEdit::GetEraseDensity)
+							.OnValueChanged(this, &SFoliageEdit::SetEraseDensity)
+							.IsEnabled(this, &SFoliageEdit::IsEnabled_EraseDensity)
+						]
+					]					
 					
-						+ SVerticalBox::Slot()
+					+ SVerticalBox::Slot()
+					.Padding(StandardPadding)
+					.AutoHeight()
+					[
+						SNew(SHorizontalBox)
+						.Visibility(this, &SFoliageEdit::GetVisibility_Options)
+
+						+ SHorizontalBox::Slot()
+						.VAlign(VAlign_Center)
 						.Padding(StandardPadding)
-						.AutoHeight()
-						[
-							SNew(SHorizontalBox)
-							.Visibility(this, &SFoliageEdit::GetVisibility_Options)
-
-							+ SHorizontalBox::Slot()
-							.VAlign(VAlign_Center)
-							.Padding(StandardPadding)
-							[
-								SNew(SWrapBox)
-								.UseAllottedWidth(true)
-								.InnerSlotPadding({6, 5})
-
-								+ SWrapBox::Slot()
-								[
-									SNew(SBox)
-									.MinDesiredWidth(150)
-									[
-										SNew(SCheckBox)
-										.Visibility(this, &SFoliageEdit::GetVisibility_SingleInstantiationMode)
-										.OnCheckStateChanged(this, &SFoliageEdit::OnCheckStateChanged_SingleInstantiationMode)
-										.IsChecked(this, &SFoliageEdit::GetCheckState_SingleInstantiationMode)
-										.ToolTipText(LOCTEXT("SingleInstantiationModeTooltips", "Paint a single foliage instance at the mouse cursor location (i + Mouse Click)"))
-										[
-											SNew(STextBlock)
-											.Text(LOCTEXT("SingleInstantiationMode", "Single Instance Mode"))
-											.Font(StandardFont)
-										]
-									]
-								]
-
-								+ SWrapBox::Slot()
-								[
-									SNew(SBox)
-									.MinDesiredWidth(150)
-									[
-										SNew(SCheckBox)
-										.Visibility(this, &SFoliageEdit::GetVisibility_SpawnInCurrentLevelMode)
-										.OnCheckStateChanged(this, &SFoliageEdit::OnCheckStateChanged_SpawnInCurrentLevelMode)
-										.IsChecked(this, &SFoliageEdit::GetCheckState_SpawnInCurrentLevelMode)
-										.ToolTipText(LOCTEXT("SpawnInCurrentLevelModeTooltips", "Wether to place foliage meshes in the current level or in the level containing the mesh being painted on."))
-										[
-											SNew(STextBlock)
-											.Text(LOCTEXT("SpawnInCurrentLevelMode", "Place in Current Level"))
-											.Font(StandardFont)
-										]
-									]
-								]
-							]
-						]
-
-						// Filters
-						+ SVerticalBox::Slot()
-						.Padding(StandardPadding)
-						.AutoHeight()
-						[
-							SNew(SHeader)
-							.Visibility(this, &SFoliageEdit::GetVisibility_Filters)
-							[
-								SNew(STextBlock)
-								.Text(LOCTEXT("FiltersHeader", "Filters"))
-								.Font(StandardFont)
-							]
-						]
-
-						+ SVerticalBox::Slot()
-						.Padding(StandardPadding)
-						.AutoHeight()
-						[
-							SNew(SHorizontalBox)
-							.Visibility(this, &SFoliageEdit::GetVisibility_Filters)
-
-							+ SHorizontalBox::Slot()
-							.VAlign(VAlign_Center)
-							.Padding(StandardPadding)
-							[
-								SNew(SWrapBox)
-								.UseAllottedWidth(true)
-								.InnerSlotPadding({6, 5})
-
-								+ SWrapBox::Slot()
-								[
-									SNew(SBox)
-									.MinDesiredWidth(91)
-									.Visibility(this, &SFoliageEdit::GetVisibility_LandscapeFilter)
-									[
-										SNew(SCheckBox)
-										.Visibility(this, &SFoliageEdit::GetVisibility_Filters)
-										.OnCheckStateChanged(this, &SFoliageEdit::OnCheckStateChanged_Landscape)
-										.IsChecked(this, &SFoliageEdit::GetCheckState_Landscape)
-										.ToolTipText(this, &SFoliageEdit::GetTooltipText_Landscape)
-										[
-											SNew(STextBlock)
-											.Text(LOCTEXT("Landscape", "Landscape"))
-											.Font(StandardFont)
-										]
-									]
-								]
-
-								+ SWrapBox::Slot()
-								[
-									SNew(SBox)
-									.MinDesiredWidth(91)
-									[
-										SNew(SCheckBox)
-										.Visibility(this, &SFoliageEdit::GetVisibility_Filters)
-										.OnCheckStateChanged(this, &SFoliageEdit::OnCheckStateChanged_StaticMesh)
-										.IsChecked(this, &SFoliageEdit::GetCheckState_StaticMesh)
-										.ToolTipText(this, &SFoliageEdit::GetTooltipText_StaticMesh)
-										[
-											SNew(STextBlock)
-											.Text(LOCTEXT("StaticMeshes", "Static Meshes"))
-											.Font(StandardFont)
-										]
-									]
-								]
-
-								+ SWrapBox::Slot()
-								[
-									SNew(SBox)
-									.MinDesiredWidth(91)
-									[
-										SNew(SCheckBox)
-										.Visibility(this, &SFoliageEdit::GetVisibility_Filters)
-										.OnCheckStateChanged(this, &SFoliageEdit::OnCheckStateChanged_BSP)
-										.IsChecked(this, &SFoliageEdit::GetCheckState_BSP)
-										.ToolTipText(this, &SFoliageEdit::GetTooltipText_BSP)
-										[
-											SNew(STextBlock)
-											.Text(LOCTEXT("BSP", "BSP"))
-											.Font(StandardFont)
-										]
-									]
-								]
-
-								+ SWrapBox::Slot()
-								[
-									SNew(SBox)
-									.MinDesiredWidth(91)
-									[
-										SNew(SCheckBox)
-										.Visibility(this, &SFoliageEdit::GetVisibility_Filters)
-										.OnCheckStateChanged(this, &SFoliageEdit::OnCheckStateChanged_Foliage)
-										.IsChecked(this, &SFoliageEdit::GetCheckState_Foliage)
-										.ToolTipText(this, &SFoliageEdit::GetTooltipText_Foliage)
-										[
-											SNew(STextBlock)
-											.Text(LOCTEXT("Foliage", "Foliage"))
-											.Font(StandardFont)
-										]
-									]
-								]
-
-								+ SWrapBox::Slot()
-								[
-									SNew(SBox)
-									.MinDesiredWidth(91)
-									[
-										SNew(SCheckBox)
-										.Visibility(this, &SFoliageEdit::GetVisibility_Filters)
-										.OnCheckStateChanged(this, &SFoliageEdit::OnCheckStateChanged_Translucent)
-										.IsChecked(this, &SFoliageEdit::GetCheckState_Translucent)
-										.ToolTipText(this, &SFoliageEdit::GetTooltipText_Translucent)
-										[
-											SNew(STextBlock)
-											.Text(LOCTEXT("Translucent", "Translucent"))
-											.Font(StandardFont)
-										]
-									]
-								]
-
-							]
-						]
-
-						// Actions
-						+ SVerticalBox::Slot()
-						.Padding(StandardPadding)
-						.AutoHeight()
-						[
-							SNew(SHeader)
-							.Visibility(this, &SFoliageEdit::GetVisibility_Actions)
-							[
-								SNew(STextBlock)
-								.Text(LOCTEXT("ActionsHeader", "Actions"))
-								.Font(StandardFont)
-							]
-						]
-
-						+ SVerticalBox::Slot()
-						.Padding(StandardPadding)
-						.AutoHeight()
 						[
 							SNew(SWrapBox)
 							.UseAllottedWidth(true)
-							.Visibility(this, &SFoliageEdit::GetVisibility_SelectionOptions)
+							.InnerSlotPadding({6, 5})
 
-							// Select all instances
 							+ SWrapBox::Slot()
-							.Padding(FMargin(0.f, 0.f, 6.f, 3.f))
 							[
 								SNew(SBox)
-								.WidthOverride(100.f)
-								.HeightOverride(25.f)
+								.MinDesiredWidth(150)
 								[
-									SNew(SButton)
-									.HAlign(HAlign_Center)
-									.VAlign(VAlign_Center)
-									.OnClicked(this, &SFoliageEdit::OnSelectAllInstances)
-									.Text(LOCTEXT("SelectAllInstances", "Select All"))
-									.ToolTipText(LOCTEXT("SelectAllInstances_Tooltip", "Selects all foliage instances"))
+									SNew(SCheckBox)
+									.Visibility(this, &SFoliageEdit::GetVisibility_SingleInstantiationMode)
+									.OnCheckStateChanged(this, &SFoliageEdit::OnCheckStateChanged_SingleInstantiationMode)
+									.IsChecked(this, &SFoliageEdit::GetCheckState_SingleInstantiationMode)
+									.ToolTipText(LOCTEXT("SingleInstantiationModeTooltips", "Paint a single foliage instance at the mouse cursor location (i + Mouse Click)"))
+									[
+										SNew(STextBlock)
+										.Text(LOCTEXT("SingleInstantiationMode", "Single Instance Mode"))
+										.Font(StandardFont)
+									]
 								]
 							]
 
-							// Select all invalid instances
 							+ SWrapBox::Slot()
-							.Padding(FMargin(0.f, 0.f, 6.f, 3.f))
 							[
 								SNew(SBox)
-								.WidthOverride(100.f)
-								.HeightOverride(25.f)
+								.MinDesiredWidth(150)
 								[
-									SNew(SButton)
-									.HAlign(HAlign_Center)
-									.VAlign(VAlign_Center)
-									.OnClicked(this, &SFoliageEdit::OnSelectInvalidInstances)
-									.Text(LOCTEXT("SelectInvalidInstances", "Select Invalid"))
-									.ToolTipText(LOCTEXT("SelectInvalidInstances_Tooltip", "Selects all foliage instances that are not placed in a valid location"))
+									SNew(SCheckBox)
+									.Visibility(this, &SFoliageEdit::GetVisibility_SpawnInCurrentLevelMode)
+									.OnCheckStateChanged(this, &SFoliageEdit::OnCheckStateChanged_SpawnInCurrentLevelMode)
+									.IsChecked(this, &SFoliageEdit::GetCheckState_SpawnInCurrentLevelMode)
+									.ToolTipText(LOCTEXT("SpawnInCurrentLevelModeTooltips", "Wether to place foliage meshes in the current level or in the level containing the mesh being painted on."))
+									[
+										SNew(STextBlock)
+										.Text(LOCTEXT("SpawnInCurrentLevelMode", "Place in Current Level"))
+										.Font(StandardFont)
+									]
+								]
+							]
+						]
+					]
+
+					// Filters
+					+ SVerticalBox::Slot()
+					.Padding(StandardPadding)
+					.AutoHeight()
+					[
+						SNew(SHeader)
+						.Visibility(this, &SFoliageEdit::GetVisibility_Filters)
+						[
+							SNew(STextBlock)
+							.Text(LOCTEXT("FiltersHeader", "Filters"))
+							.Font(StandardFont)
+						]
+					]
+
+					+ SVerticalBox::Slot()
+					.Padding(StandardPadding)
+					.AutoHeight()
+					[
+						SNew(SHorizontalBox)
+						.Visibility(this, &SFoliageEdit::GetVisibility_Filters)
+
+						+ SHorizontalBox::Slot()
+						.VAlign(VAlign_Center)
+						.Padding(StandardPadding)
+						[
+							SNew(SWrapBox)
+							.UseAllottedWidth(true)
+							.InnerSlotPadding({6, 5})
+
+							+ SWrapBox::Slot()
+							[
+								SNew(SBox)
+								.MinDesiredWidth(91)
+								.Visibility(this, &SFoliageEdit::GetVisibility_LandscapeFilter)
+								[
+									SNew(SCheckBox)
+									.Visibility(this, &SFoliageEdit::GetVisibility_Filters)
+									.OnCheckStateChanged(this, &SFoliageEdit::OnCheckStateChanged_Landscape)
+									.IsChecked(this, &SFoliageEdit::GetCheckState_Landscape)
+									.ToolTipText(this, &SFoliageEdit::GetTooltipText_Landscape)
+									[
+										SNew(STextBlock)
+										.Text(LOCTEXT("Landscape", "Landscape"))
+										.Font(StandardFont)
+									]
+								]
+							]
+
+							+ SWrapBox::Slot()
+							[
+								SNew(SBox)
+								.MinDesiredWidth(91)
+								[
+									SNew(SCheckBox)
+									.Visibility(this, &SFoliageEdit::GetVisibility_Filters)
+									.OnCheckStateChanged(this, &SFoliageEdit::OnCheckStateChanged_StaticMesh)
+									.IsChecked(this, &SFoliageEdit::GetCheckState_StaticMesh)
+									.ToolTipText(this, &SFoliageEdit::GetTooltipText_StaticMesh)
+									[
+										SNew(STextBlock)
+										.Text(LOCTEXT("StaticMeshes", "Static Meshes"))
+										.Font(StandardFont)
+									]
+								]
+							]
+
+							+ SWrapBox::Slot()
+							[
+								SNew(SBox)
+								.MinDesiredWidth(91)
+								[
+									SNew(SCheckBox)
+									.Visibility(this, &SFoliageEdit::GetVisibility_Filters)
+									.OnCheckStateChanged(this, &SFoliageEdit::OnCheckStateChanged_BSP)
+									.IsChecked(this, &SFoliageEdit::GetCheckState_BSP)
+									.ToolTipText(this, &SFoliageEdit::GetTooltipText_BSP)
+									[
+										SNew(STextBlock)
+										.Text(LOCTEXT("BSP", "BSP"))
+										.Font(StandardFont)
+									]
+								]
+							]
+
+							+ SWrapBox::Slot()
+							[
+								SNew(SBox)
+								.MinDesiredWidth(91)
+								[
+									SNew(SCheckBox)
+									.Visibility(this, &SFoliageEdit::GetVisibility_Filters)
+									.OnCheckStateChanged(this, &SFoliageEdit::OnCheckStateChanged_Foliage)
+									.IsChecked(this, &SFoliageEdit::GetCheckState_Foliage)
+									.ToolTipText(this, &SFoliageEdit::GetTooltipText_Foliage)
+									[
+										SNew(STextBlock)
+										.Text(LOCTEXT("Foliage", "Foliage"))
+										.Font(StandardFont)
+									]
+								]
+							]
+
+							+ SWrapBox::Slot()
+							[
+								SNew(SBox)
+								.MinDesiredWidth(91)
+								[
+									SNew(SCheckBox)
+									.Visibility(this, &SFoliageEdit::GetVisibility_Filters)
+									.OnCheckStateChanged(this, &SFoliageEdit::OnCheckStateChanged_Translucent)
+									.IsChecked(this, &SFoliageEdit::GetCheckState_Translucent)
+									.ToolTipText(this, &SFoliageEdit::GetTooltipText_Translucent)
+									[
+										SNew(STextBlock)
+										.Text(LOCTEXT("Translucent", "Translucent"))
+										.Font(StandardFont)
+									]
+								]
+							]
+
+						]
+					]
+
+					// Actions
+					+ SVerticalBox::Slot()
+					.Padding(StandardPadding)
+					.AutoHeight()
+					[
+						SNew(SHeader)
+						.Visibility(this, &SFoliageEdit::GetVisibility_Actions)
+						[
+							SNew(STextBlock)
+							.Text(LOCTEXT("ActionsHeader", "Actions"))
+							.Font(StandardFont)
+						]
+					]
+
+					+ SVerticalBox::Slot()
+					.Padding(StandardPadding)
+					.AutoHeight()
+					[
+						SNew(SWrapBox)
+						.UseAllottedWidth(true)
+						.Visibility(this, &SFoliageEdit::GetVisibility_SelectionOptions)
+
+						// Select all instances
+						+ SWrapBox::Slot()
+						.Padding(FMargin(0.f, 0.f, 6.f, 3.f))
+						[
+							SNew(SBox)
+							.WidthOverride(100.f)
+							.HeightOverride(25.f)
+							[
+								SNew(SButton)
+								.HAlign(HAlign_Center)
+								.VAlign(VAlign_Center)
+								.OnClicked(this, &SFoliageEdit::OnSelectAllInstances)
+								.Text(LOCTEXT("SelectAllInstances", "Select All"))
+								.ToolTipText(LOCTEXT("SelectAllInstances_Tooltip", "Selects all foliage instances"))
+							]
+						]
+
+						// Select all invalid instances
+						+ SWrapBox::Slot()
+						.Padding(FMargin(0.f, 0.f, 6.f, 3.f))
+						[
+							SNew(SBox)
+							.WidthOverride(100.f)
+							.HeightOverride(25.f)
+							[
+								SNew(SButton)
+								.HAlign(HAlign_Center)
+								.VAlign(VAlign_Center)
+								.OnClicked(this, &SFoliageEdit::OnSelectInvalidInstances)
+								.Text(LOCTEXT("SelectInvalidInstances", "Select Invalid"))
+								.ToolTipText(LOCTEXT("SelectInvalidInstances_Tooltip", "Selects all foliage instances that are not placed in a valid location"))
 						
-								]
 							]
+						]
 
-							// Deselect all
-							+ SWrapBox::Slot()
-							.Padding(FMargin(0.f, 0.f, 6.f, 3.f))
+						// Deselect all
+						+ SWrapBox::Slot()
+						.Padding(FMargin(0.f, 0.f, 6.f, 3.f))
+						[
+							SNew(SBox)
+							.WidthOverride(100.f)
+							.HeightOverride(25.f)
 							[
-								SNew(SBox)
-								.WidthOverride(100.f)
-								.HeightOverride(25.f)
-								[
-									SNew(SButton)
-									.HAlign(HAlign_Center)
-									.VAlign(VAlign_Center)
-									.OnClicked(this, &SFoliageEdit::OnDeselectAllInstances)
-									.Text(LOCTEXT("DeselectAllInstances", "Deselect All"))
-									.ToolTipText(LOCTEXT("DeselectAllInstances_Tooltip", "Deselects all foliage instances"))
-								]
+								SNew(SButton)
+								.HAlign(HAlign_Center)
+								.VAlign(VAlign_Center)
+								.OnClicked(this, &SFoliageEdit::OnDeselectAllInstances)
+								.Text(LOCTEXT("DeselectAllInstances", "Deselect All"))
+								.ToolTipText(LOCTEXT("DeselectAllInstances_Tooltip", "Deselects all foliage instances"))
 							]
 						]
 					]
 				]
 			]
+		]
 
-			// Foliage Palette
-			+ SVerticalBox::Slot()
-			.FillHeight(1.f)
-			.VAlign(VAlign_Fill)
-			.Padding(0.f, 5.f, 0.f, 0.f)
-			[
-				SAssignNew(FoliagePalette, SFoliagePalette)
-				.FoliageEdMode(FoliageEditMode)
-			]
+		// Foliage Palette
+		+ SVerticalBox::Slot()
+		.FillHeight(1.f)
+		.VAlign(VAlign_Fill)
+		.Padding(0.f, 5.f, 0.f, 0.f)
+		[
+			SAssignNew(FoliagePalette, SFoliagePalette)
+			.FoliageEdMode(FoliageEditMode)
+		]
 		]
 	];
 

@@ -2,7 +2,7 @@
 
 #include "OculusUpdateSessionCallbackProxy.h"
 #include "OnlineSubsystemOculusPrivate.h"
-#include "CoreOnline.h"
+#include "UObject/CoreOnline.h"
 #include "Online.h"
 #include "OnlineSessionInterfaceOculus.h"
 

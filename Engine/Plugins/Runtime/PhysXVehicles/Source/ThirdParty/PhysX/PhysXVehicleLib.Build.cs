@@ -30,8 +30,9 @@ public class PhysXVehicleLib : ModuleRules
                     return PhysXLibraryMode.Checked;
                 }
             case UnrealTargetConfiguration.Shipping:
+				return PhysXLibraryMode.Shipping;
             case UnrealTargetConfiguration.Test:
-                return PhysXLibraryMode.Shipping;
+                return PhysXLibraryMode.Profile;
             case UnrealTargetConfiguration.Development:
             case UnrealTargetConfiguration.DebugGame:
             case UnrealTargetConfiguration.Unknown:
@@ -96,8 +97,8 @@ public class PhysXVehicleLib : ModuleRules
 
             PublicAdditionalLibraries.Add(String.Format(PhysXLibDir + "Mac/libPhysX3Vehicle{0}.a", LibrarySuffix));
         }
-        else if (Target.Platform == UnrealTargetPlatform.Android)
-        {
+        else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Android))
+		{
             PublicLibraryPaths.Add(PhysXLibDir + "Android/ARMv7");
             PublicLibraryPaths.Add(PhysXLibDir + "Android/x86");
             PublicLibraryPaths.Add(PhysXLibDir + "Android/ARM64");
@@ -105,7 +106,7 @@ public class PhysXVehicleLib : ModuleRules
 
             PublicAdditionalLibraries.Add(String.Format("PhysX3Vehicle{0}", LibrarySuffix));
         }
-        else if (Target.Platform == UnrealTargetPlatform.Linux)
+        else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
         {
             PublicLibraryPaths.Add(PhysXLibDir + "Linux/" + Target.Architecture);
 

@@ -52,7 +52,7 @@ struct FEngineShowFlags
 	// Define the showflags.
 	// A show flag is either an uint32:1 or static const bool (if optimized out according to UE_BUILD_OPTIMIZED_SHOWFLAGS)
 
-#if PLATFORM_HTML5 // broken fit field compiler -- will be sending this file to the emscripten &/or clang keepers
+#if PLATFORM_HTML5 // broken fit field compiler -- will be sending this test case to the emscripten &/or clang keepers
 	#define SHOWFLAG_ALWAYS_ACCESSIBLE(a,...) bool a; void Set##a(bool bVal){ a = bVal;}
 #else
 	#define SHOWFLAG_ALWAYS_ACCESSIBLE(a,...) uint32 a : 1; void Set##a(bool bVal){ a = bVal?1:0;}
@@ -76,9 +76,6 @@ struct FEngineShowFlags
 	};
 	// ---------------------------------------------------------
 
-	// namespace to match the original in the old loc system
-	#define LOCTEXT_NAMESPACE "UnrealEd"
-
 	/** Retrieve the localized display name for a named show flag */
 	static void FindShowFlagDisplayName(const FString& InName, FText& OutText)
 	{
@@ -91,22 +88,27 @@ struct FEngineShowFlags
 			#include "ShowFlagsValues.inl"
 
 			// Additional strings that don't correspond to a showflag variable:
-			LocNames.Add(TEXT("BlockingVolume"), LOCTEXT("BlockingVolumeSF", "Blocking"));
-			LocNames.Add(TEXT("CullDistanceVolume"), LOCTEXT("CullDistanceVolumeSF", "Cull Distance"));
-			LocNames.Add(TEXT("LevelStreamingVolume"), LOCTEXT("LevelStreamingVolumeSF", "Level Streaming"));
-			LocNames.Add(TEXT("LightmassCharacterIndirectDetailVolume"), LOCTEXT("LightmassCharacterIndirectDetailVolumeSF", "Lightmass Character Indirect Detail"));
-			LocNames.Add(TEXT("LightmassImportanceVolume"), LOCTEXT("LightmassImportanceVolumeSF", "Lightmass Importance"));
-			LocNames.Add(TEXT("MassiveLODOverrideVolume"), LOCTEXT("MassiveLODOverrideVolumeSF", "Massive LOD Override"));
-			LocNames.Add(TEXT("NavMeshBoundsVolume"), LOCTEXT("NavMeshBoundsVolumeSF", "NavMesh Bounds"));
-			LocNames.Add(TEXT("NavModifierVolume"), LOCTEXT("NavModifierVolumeSF", "Nav Modifier"));
-			LocNames.Add(TEXT("PainCausingVolume"), LOCTEXT("PainCausingVolumeSF", "Pain Causing"));
-			LocNames.Add(TEXT("PhysicsVolume"), LOCTEXT("PhysicsVolumeSF", "Physics"));
-			LocNames.Add(TEXT("PostProcessVolume"), LOCTEXT("PostProcessVolumeSF", "Post Process"));
-			LocNames.Add(TEXT("PrecomputedVisibilityOverrideVolume"), LOCTEXT("PrecomputedVisibilityOverrideVolumeSF", "Precomputed Visibility Override"));
-			LocNames.Add(TEXT("PrecomputedVisibilityVolume"), LOCTEXT("PrecomputedVisibilityVolumeSF", "Precomputed Visibility"));
-			LocNames.Add(TEXT("AudioVolume"), LOCTEXT("AudioVolumeSF", "Audio"));
-			LocNames.Add(TEXT("TriggerVolume"), LOCTEXT("TriggerVolumeSF", "Trigger"));
-			LocNames.Add(TEXT("VisualizeAO"), LOCTEXT("VisualizeAOSF", "Ambient Occlusion"));
+			LocNames.Add(TEXT("BlockingVolume"), NSLOCTEXT("UnrealEd", "BlockingVolumeSF", "Blocking"));
+			LocNames.Add(TEXT("CullDistanceVolume"), NSLOCTEXT("UnrealEd", "CullDistanceVolumeSF", "Cull Distance"));
+			LocNames.Add(TEXT("LevelStreamingVolume"), NSLOCTEXT("UnrealEd", "LevelStreamingVolumeSF", "Level Streaming"));
+			LocNames.Add(TEXT("LightmassCharacterIndirectDetailVolume"), NSLOCTEXT("UnrealEd", "LightmassCharacterIndirectDetailVolumeSF", "Lightmass Character Indirect Detail"));
+			LocNames.Add(TEXT("LightmassImportanceVolume"), NSLOCTEXT("UnrealEd", "LightmassImportanceVolumeSF", "Lightmass Importance"));
+			LocNames.Add(TEXT("MassiveLODOverrideVolume"), NSLOCTEXT("UnrealEd", "MassiveLODOverrideVolumeSF", "Massive LOD Override"));
+			LocNames.Add(TEXT("NavMeshBoundsVolume"), NSLOCTEXT("UnrealEd", "NavMeshBoundsVolumeSF", "NavMesh Bounds"));
+			LocNames.Add(TEXT("NavModifierVolume"), NSLOCTEXT("UnrealEd", "NavModifierVolumeSF", "Nav Modifier"));
+			LocNames.Add(TEXT("PainCausingVolume"), NSLOCTEXT("UnrealEd", "PainCausingVolumeSF", "Pain Causing"));
+			LocNames.Add(TEXT("PhysicsVolume"), NSLOCTEXT("UnrealEd", "PhysicsVolumeSF", "Physics"));
+			LocNames.Add(TEXT("PostProcessVolume"), NSLOCTEXT("UnrealEd", "PostProcessVolumeSF", "Post Process"));
+			LocNames.Add(TEXT("PrecomputedVisibilityOverrideVolume"), NSLOCTEXT("UnrealEd", "PrecomputedVisibilityOverrideVolumeSF", "Precomputed Visibility Override"));
+			LocNames.Add(TEXT("PrecomputedVisibilityVolume"), NSLOCTEXT("UnrealEd", "PrecomputedVisibilityVolumeSF", "Precomputed Visibility"));
+			LocNames.Add(TEXT("AudioVolume"), NSLOCTEXT("UnrealEd", "AudioVolumeSF", "Audio"));
+			LocNames.Add(TEXT("TriggerVolume"), NSLOCTEXT("UnrealEd", "TriggerVolumeSF", "Trigger"));
+			LocNames.Add(TEXT("CameraBlockingVolume"), NSLOCTEXT("UnrealEd", "CameraBlockingVolumeSF", "Camera Blocking"));
+			LocNames.Add(TEXT("HierarchicalLODVolume"), NSLOCTEXT("UnrealEd", "HierarchicalLODVolumeSF", "Hierarchical LOD"));
+			LocNames.Add(TEXT("KillZVolume"), NSLOCTEXT("UnrealEd", "KillZVolumeSF", "Kill Z"));
+			LocNames.Add(TEXT("MeshMergeCullingVolume"), NSLOCTEXT("UnrealEd", "MeshMergeCullingVolumeSF", "Mesh Merge Culling"));
+			LocNames.Add(TEXT("VolumetricLightmapDensityVolume"), NSLOCTEXT("UnrealEd", "VolumetricLightmapDensityVolumeSF", "Volumetric Lightmap Density"));
+			LocNames.Add(TEXT("VisualizeAO"), NSLOCTEXT("UnrealEd", "VisualizeAOSF", "Ambient Occlusion"));
 		}
 
 		check(InName.Len() > 0);
@@ -120,8 +122,6 @@ struct FEngineShowFlags
 			OutText = FText::FromString(InName);
 		}
 	}
-
-	#undef LOCTEXT_NAMESPACE
 
 	/** this function defines the grouping in the editor. If a flag is not defined here it's assumed to be a postprocess flag */
 	static EShowFlagGroup FindShowFlagGroup(const TCHAR* Name)
@@ -300,7 +300,7 @@ private:
 		}
 
 		// Most flags are on by default. With the following line we only need disable flags.
-#if PLATFORM_HTML5
+#if PLATFORM_HTML5 // broken compiler -- will be sending this test case to the emscripten &/or clang keepers
 		FMemory::Memset(this, uint8(true), sizeof(*this));
 #else
 		FMemory::Memset(this, 0xff, sizeof(*this));
@@ -333,7 +333,8 @@ private:
 		SetHLODColoration(false);
 		SetVisualizeLPV(false);
 		SetStreamingBounds(false);
-		SetFoliageOcclusionBounds(false);
+		SetHISMCOcclusionBounds(false);
+		SetHISMCClusterTree(false);
 		SetConstraints(false);
 		SetMassProperties(false);
 		SetCameraFrustums(false);

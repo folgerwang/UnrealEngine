@@ -1,9 +1,11 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "AndroidEventManager.h"
-#include "AndroidApplication.h"
+#include "Android/AndroidEventManager.h"
+
+#if USE_ANDROID_EVENTS
+#include "Android/AndroidApplication.h"
 #include "AudioDevice.h"
-#include "CallbackDevice.h"
+#include "Misc/CallbackDevice.h"
 #include <android/native_window.h> 
 #include <android/native_window_jni.h> 
 #include "IHeadMountedDisplay.h"
@@ -73,11 +75,11 @@ void FAppEventManager::Tick()
 				}
 				else
 				{
-				if (GEngine->XRSystem.IsValid() && GEngine->XRSystem->GetHMDDevice() && GEngine->XRSystem->GetHMDDevice()->IsHMDConnected())
-				{
-					// delay the destruction until after the renderer teardown on Gear VR
-					bDestroyWindow = true;
-				}
+					if (GEngine->XRSystem.IsValid() && GEngine->XRSystem->GetHMDDevice() && GEngine->XRSystem->GetHMDDevice()->IsHMDConnected())
+					{
+						// delay the destruction until after the renderer teardown on Gear VR
+						bDestroyWindow = true;
+					}
 					else
 					{
 						FAndroidAppEntry::DestroyWindow();
@@ -256,7 +258,7 @@ FAppEventManager::FAppEventManager():
 
 void FAppEventManager::OnScaleFactorChanged(IConsoleVariable* CVar)
 {
-	if (CVar->GetFlags() & ECVF_SetByConsole)
+	if ((CVar->GetFlags() & ECVF_SetByMask) == ECVF_SetByConsole)
 	{
 		FAppEventManager::GetInstance()->ExecWindowResized();
 	}
@@ -609,3 +611,4 @@ void FAppEventManager::WaitForEmptyQueue()
 	}
 }
 
+#endif

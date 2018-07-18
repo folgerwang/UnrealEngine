@@ -3,7 +3,7 @@
 #pragma once
 
 #include "Engine/Engine.h"
-#include "Private/HAL/MallocLeakDetection.h"
+#include "HAL/MallocLeakDetection.h"
 #include "Delegates/Delegate.h"
 #include "Delegates/DelegateCombinations.h"
 

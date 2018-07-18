@@ -1,25 +1,25 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "ControlRigTrackEditor.h"
-#include "MovieSceneControlRigSection.h"
-#include "MovieSceneControlRigTrack.h"
+#include "Sequencer/MovieSceneControlRigSection.h"
+#include "Sequencer/MovieSceneControlRigTrack.h"
 #include "ClassViewerModule.h"
 #include "ClassViewerFilter.h"
-#include "FloatCurveKeyArea.h"
 #include "ISectionLayoutBuilder.h"
 #include "SequencerSectionPainter.h"
 #include "ControlRig.h"
 #include "SequencerUtilities.h"
-#include "ControlRigSequence.h"
+#include "Sequencer/ControlRigSequence.h"
 #include "ContentBrowserModule.h"
 #include "IContentBrowserSingleton.h"
 #include "LevelEditor.h"
 #include "EditorStyleSet.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "GameFramework/Actor.h"
-#include "MultiBoxBuilder.h"
-#include "SlateApplication.h"
-#include "SBox.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Layout/SBox.h"
+#include "MovieSceneTimeHelpers.h"
 
 namespace ControlRigEditorConstants
 {
@@ -69,112 +69,99 @@ public:
 		return (float)ControlRigEditorConstants::AnimationTrackHeight;
 	}
 
-	virtual void GenerateSectionLayout(class ISectionLayoutBuilder& LayoutBuilder) const override
-	{
-		WeightArea = MakeShareable(new FFloatCurveKeyArea(&Section.Weight, &Section));
-
-		LayoutBuilder.AddKeyArea("Weight", LOCTEXT("WeightArea", "Weight"), WeightArea.ToSharedRef());
-	}
-
 	virtual int32 OnPaintSection(FSequencerSectionPainter& InPainter) const override
 	{
 		int32 LayerId = InPainter.PaintSectionBackground();
 
-		const float SectionSize = Section.GetTimeSize();
+		ESlateDrawEffect DrawEffects = InPainter.bParentEnabled ? ESlateDrawEffect::None : ESlateDrawEffect::DisabledEffect;
 
-		if (SectionSize <= 0.0f)
+		TRange<FFrameNumber> SectionRange = Section.GetRange();
+		if (SectionRange.GetLowerBound().IsOpen() || SectionRange.GetUpperBound().IsOpen())
 		{
-			return LayerId;
+			return InPainter.LayerId;
+		}
+		const FFrameNumber SectionStartFrame = Section.GetInclusiveStartFrame();
+		const FFrameNumber SectionEndFrame   = Section.GetExclusiveEndFrame();
+		const int32        SectionSize       = MovieScene::DiscreteSize(SectionRange);
+
+		if (SectionSize <= 0)
+		{
+			return InPainter.LayerId;
 		}
 
-		const float DrawScale = InPainter.SectionGeometry.Size.X / SectionSize;
-		const ESlateDrawEffect DrawEffects = InPainter.bParentEnabled
-			? ESlateDrawEffect::None
-			: ESlateDrawEffect::DisabledEffect;
+		const float        PixelsPerFrame    = InPainter.SectionGeometry.Size.X / float(SectionSize);
 
-		UMovieScene* MovieScene = nullptr;
-		FFloatRange PlaybackRange;
-		if (Section.GetSequence() != nullptr)
+		UMovieSceneSequence* InnerSequence = Section.GetSequence();
+		if (InnerSequence)
 		{
-			MovieScene = Section.GetSequence()->GetMovieScene();
-			PlaybackRange = MovieScene->GetPlaybackRange();
-		}
-		else
-		{
-			UMovieSceneTrack* MovieSceneTrack = CastChecked<UMovieSceneTrack>(Section.GetOuter());
-			MovieScene = CastChecked<UMovieScene>(MovieSceneTrack->GetOuter());
-			PlaybackRange = MovieScene->GetPlaybackRange();
-		}
+			UMovieScene*         MovieScene    = InnerSequence->GetMovieScene();
+			TRange<FFrameNumber> PlaybackRange = MovieScene->GetPlaybackRange();
 
-		// add box for the working size
-		const float StartOffset = 1.0f/Section.Parameters.TimeScale * Section.Parameters.StartOffset;
-		const float WorkingStart = -1.0f/Section.Parameters.TimeScale * PlaybackRange.GetLowerBoundValue() - StartOffset;
-		const float WorkingSize = 1.0f/Section.Parameters.TimeScale * (MovieScene != nullptr ? MovieScene->GetEditorData().WorkingRange.Size<float>() : 1.0f);
+			FMovieSceneSequenceTransform InnerToOuterTransform = Section.OuterToInnerTransform().Inverse();
 
-		// add dark tint for left out-of-bounds & working range
-		if (StartOffset < 0.0f)
-		{
-			FSlateDrawElement::MakeBox(
-				InPainter.DrawElements,
-				++LayerId,
-				InPainter.SectionGeometry.ToPaintGeometry(
-					FVector2D(0.0f, 0.f),
-					FVector2D(-StartOffset * DrawScale, InPainter.SectionGeometry.Size.Y)
-				),
-				FEditorStyle::GetBrush("WhiteBrush"),
-				ESlateDrawEffect::None,
-				FLinearColor::Black.CopyWithNewOpacity(0.2f)
-			);
-		}
+			const FFrameNumber StartOffset = (FFrameTime(Section.Parameters.GetStartFrameOffset()) * InnerToOuterTransform).FloorToFrame();
+			if (StartOffset < 0)
+			{
+				// add dark tint for left out-of-bounds
+				FSlateDrawElement::MakeBox(
+					InPainter.DrawElements,
+					InPainter.LayerId++,
+					InPainter.SectionGeometry.ToPaintGeometry(
+						FVector2D(0.0f, 0.f),
+						FVector2D(-StartOffset.Value * PixelsPerFrame, InPainter.SectionGeometry.Size.Y)
+					),
+					FEditorStyle::GetBrush("WhiteBrush"),
+					DrawEffects,
+					FLinearColor::Black.CopyWithNewOpacity(0.5f)
+				);
 
-		// add green line for playback start
-		if (StartOffset < 0)
-		{
-			FSlateDrawElement::MakeBox(
-				InPainter.DrawElements,
-				++LayerId,
-				InPainter.SectionGeometry.ToPaintGeometry(
-					FVector2D(-StartOffset * DrawScale, 0.f),
-					FVector2D(1.0f, InPainter.SectionGeometry.Size.Y)
-				),
-				FEditorStyle::GetBrush("WhiteBrush"),
-				ESlateDrawEffect::None,
-				FColor(32, 128, 32)	// 120, 75, 50 (HSV)
-			);
-		}
+				// add green line for playback start
+				FSlateDrawElement::MakeBox(
+					InPainter.DrawElements,
+					InPainter.LayerId++,
+					InPainter.SectionGeometry.ToPaintGeometry(
+						FVector2D(-StartOffset.Value * PixelsPerFrame, 0.f),
+						FVector2D(1.0f, InPainter.SectionGeometry.Size.Y)
+					),
+					FEditorStyle::GetBrush("WhiteBrush"),
+					DrawEffects,
+					FColor(32, 128, 32)	// 120, 75, 50 (HSV)
+				);
+			}
 
-		// add dark tint for right out-of-bounds & working range
-		const float PlaybackEnd = 1.0f/Section.Parameters.TimeScale * PlaybackRange.Size<float>() - StartOffset;
+			const FFrameNumber InnerEndFrame = PlaybackRange.GetUpperBound().IsInclusive() ? PlaybackRange.GetUpperBoundValue()+1 : PlaybackRange.GetUpperBoundValue();
+			const FFrameTime   PlaybackEnd   = FFrameTime(InnerEndFrame) * InnerToOuterTransform;
 
-		if (PlaybackEnd < SectionSize)
-		{
-			FSlateDrawElement::MakeBox(
-				InPainter.DrawElements,
-				++LayerId,
-				InPainter.SectionGeometry.ToPaintGeometry(
-					FVector2D(PlaybackEnd * DrawScale, 0.f),
-					FVector2D((SectionSize - PlaybackEnd) * DrawScale, InPainter.SectionGeometry.Size.Y)
-				),
-				FEditorStyle::GetBrush("WhiteBrush"),
-				ESlateDrawEffect::None,
-				FLinearColor::Black.CopyWithNewOpacity(0.2f)
-			);
-		}
+			if (SectionRange.Contains(PlaybackEnd.FrameNumber))
+			{
+				// add dark tint for right out-of-bounds
+				const double EndFrameRelativeToStart = (PlaybackEnd-SectionStartFrame).AsDecimal();
+				FSlateDrawElement::MakeBox(
+					InPainter.DrawElements,
+					InPainter.LayerId++,
+					InPainter.SectionGeometry.ToPaintGeometry(
+						FVector2D(EndFrameRelativeToStart * PixelsPerFrame, 0.f),
+						FVector2D((SectionSize - EndFrameRelativeToStart) * PixelsPerFrame, InPainter.SectionGeometry.Size.Y)
+					),
+					FEditorStyle::GetBrush("WhiteBrush"),
+					DrawEffects,
+					FLinearColor::Black.CopyWithNewOpacity(0.5f)
+				);
 
-		// add red line for playback end
-		if (PlaybackEnd <= SectionSize)
-		{
-			FSlateDrawElement::MakeBox(
-				InPainter.DrawElements,
-				++LayerId,
-				InPainter.SectionGeometry.ToPaintGeometry(
-					FVector2D(PlaybackEnd * DrawScale, 0.f),
-					FVector2D(1.0f, InPainter.SectionGeometry.Size.Y)
-				),
-				FEditorStyle::GetBrush("WhiteBrush"),
-				ESlateDrawEffect::None,
-				FColor(128, 32, 32)	// 0, 75, 50 (HSV)
-			);
+
+				// add red line for playback end
+				FSlateDrawElement::MakeBox(
+					InPainter.DrawElements,
+					InPainter.LayerId++,
+					InPainter.SectionGeometry.ToPaintGeometry(
+						FVector2D(EndFrameRelativeToStart * PixelsPerFrame, 0.f),
+						FVector2D(1.0f, InPainter.SectionGeometry.Size.Y)
+					),
+					FEditorStyle::GetBrush("WhiteBrush"),
+					DrawEffects,
+					FColor(128, 32, 32)	// 0, 75, 50 (HSV)
+				);
+			}
 		}
 
 		return LayerId;
@@ -194,9 +181,6 @@ private:
 
 	/** The section we are visualizing */
 	UMovieSceneControlRigSection& Section;
-
-	/** Weight key areas. */
-	mutable TSharedPtr<FFloatCurveKeyArea> WeightArea;
 };
 
 FControlRigTrackEditor::FControlRigTrackEditor( TSharedRef<ISequencer> InSequencer )
@@ -288,6 +272,7 @@ void FControlRigTrackEditor::AddControlRigSubMenu(FMenuBuilder& MenuBuilder, FGu
 		FAssetPickerConfig AssetPickerConfig;
 		{
 			AssetPickerConfig.OnAssetSelected = FOnAssetSelected::CreateRaw(this, &FControlRigTrackEditor::OnSequencerAssetSelected, ObjectBinding, Track);
+			AssetPickerConfig.OnAssetEnterPressed = FOnAssetEnterPressed::CreateRaw(this, &FControlRigTrackEditor::OnSequencerAssetEnterPressed, ObjectBinding, Track);
 			AssetPickerConfig.bAllowNullSelection = false;
 			AssetPickerConfig.InitialAssetViewType = EAssetViewType::List;
 			AssetPickerConfig.Filter.bRecursiveClasses = true;
@@ -321,7 +306,15 @@ void FControlRigTrackEditor::OnSequencerAssetSelected(const FAssetData& AssetDat
 	}
 }
 
-FKeyPropertyResult FControlRigTrackEditor::AddKeyInternal(float KeyTime, FGuid ObjectBinding, UControlRigSequence* Sequence, UMovieSceneTrack* Track)
+void FControlRigTrackEditor::OnSequencerAssetEnterPressed(const TArray<FAssetData>& AssetData, FGuid ObjectBinding, UMovieSceneTrack* Track)
+{
+	if (AssetData.Num() > 0)
+	{
+		OnSequencerAssetSelected(AssetData[0].GetAsset(), ObjectBinding, Track);
+	}
+}
+
+FKeyPropertyResult FControlRigTrackEditor::AddKeyInternal(FFrameNumber KeyTime, FGuid ObjectBinding, UControlRigSequence* Sequence, UMovieSceneTrack* Track)
 {
 	FKeyPropertyResult KeyPropertyResult;
 	bool bHandleCreated = false;

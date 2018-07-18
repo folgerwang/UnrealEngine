@@ -208,14 +208,14 @@ public:
 	 *
 	 * @param InterruptedPathHandling  Should interrupted paths result in a truncated path or an invalid path
 	 */
-	FWidgetPath ToWidgetPath( EInterruptedPathHandling::Type InterruptedPathHandling = EInterruptedPathHandling::Truncate, const FPointerEvent* PointerEvent = nullptr ) const;
+	FWidgetPath ToWidgetPath( EInterruptedPathHandling::Type InterruptedPathHandling = EInterruptedPathHandling::Truncate, const FPointerEvent* PointerEvent = nullptr, const EVisibility VisibilityFilter = EVisibility::Visible) const;
 
 	/**
 	 * Make a non-weak WidgetPath out of this WeakWidgetPath. Do this by computing all the relevant geometries and converting the weak pointers to TSharedPtr.
 	 *
 	 * @param InterruptedPathHandling  Should interrupted paths result in a truncated path or an invalid path
 	 */
-	TSharedRef<FWidgetPath> ToWidgetPathRef( EInterruptedPathHandling::Type InterruptedPathHandling = EInterruptedPathHandling::Truncate, const FPointerEvent* PointerEvent = nullptr ) const;
+	TSharedRef<FWidgetPath> ToWidgetPathRef( EInterruptedPathHandling::Type InterruptedPathHandling = EInterruptedPathHandling::Truncate, const FPointerEvent* PointerEvent = nullptr, const EVisibility VisibilityFilter = EVisibility::Visible) const;
 
 	struct EPathResolutionResult
 	{
@@ -232,7 +232,7 @@ public:
 	 * @param InterruptedPathHandling	Should interrupted paths result in a truncated path or an invalid path.
 	 * @return Whether the path is truncated or live - a live path refers to a widget that is currently active and visible, a widget with a truncated path is not.
 	 */
-	EPathResolutionResult::Result ToWidgetPath( FWidgetPath& WidgetPath, EInterruptedPathHandling::Type InterruptedPathHandling = EInterruptedPathHandling::Truncate, const FPointerEvent* PointerEvent = nullptr ) const;
+	EPathResolutionResult::Result ToWidgetPath( FWidgetPath& WidgetPath, EInterruptedPathHandling::Type InterruptedPathHandling = EInterruptedPathHandling::Truncate, const FPointerEvent* PointerEvent = nullptr, const EVisibility VisibilityFilter = EVisibility::Visible) const;
 
 	bool ContainsWidget( const TSharedRef< const SWidget >& SomeWidget ) const;
 

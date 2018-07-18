@@ -16,11 +16,21 @@
 #include "ScreenRendering.h"
 #include "PipelineStateCache.h"
 
+int32 GFrameGrabberFrameLatency = 0;
+static FAutoConsoleVariableRef CVarFrameGrabberFrameLatency(
+	TEXT("framegrabber.framelatency"),
+	GFrameGrabberFrameLatency,
+	TEXT("How many frames to wait before reading back a frame. 0 frames will work but cause a performance regression due to CPU and GPU syncing up.\n"),
+	ECVF_RenderThreadSafe | ECVF_Scalability
+);
+
+
 FViewportSurfaceReader::FViewportSurfaceReader(EPixelFormat InPixelFormat, FIntPoint InBufferSize)
 {
 	AvailableEvent = nullptr;
 	ReadbackTexture = nullptr;
 	PixelFormat = InPixelFormat;
+	bQueuedForCapture = false;
 
 	Resize(InBufferSize.X, InBufferSize.Y);
 }
@@ -73,7 +83,17 @@ void FViewportSurfaceReader::BlockUntilAvailable()
 	}
 }
 
-void FViewportSurfaceReader::ResolveRenderTarget(const FViewportRHIRef& ViewportRHI, TFunction<void(FColor*, int32, int32)> Callback)
+void FViewportSurfaceReader::Reset()
+{
+	if (AvailableEvent)
+	{
+		AvailableEvent->Trigger();
+	}
+	BlockUntilAvailable();
+	bQueuedForCapture = false;
+}
+
+void FViewportSurfaceReader::ResolveRenderTarget(FViewportSurfaceReader* RenderToReadback, const FViewportRHIRef& ViewportRHI, TFunction<void(FColor*, int32, int32)> Callback)
 {
 	static const FName RendererModuleName( "Renderer" );
 	// @todo: JIRA UE-41879 and UE-43829 - added defensive guards against memory trampling on this render command to try and ascertain why it occasionally crashes
@@ -85,18 +105,19 @@ void FViewportSurfaceReader::ResolveRenderTarget(const FViewportRHIRef& Viewport
 	uint32 MemoryGuard2 = 0xaffec7ed;
 	IRendererModule* RendererModuleDebug = RendererModule;
 
-	auto RenderCommand = [=](FRHICommandListImmediate& RHICmdList){
+	bQueuedForCapture = true;
+	auto RenderCommand = [=](FRHICommandListImmediate& RHICmdList, FViewportSurfaceReader* InRenderToReadback){
 
 		// @todo: JIRA UE-41879 and UE-43829. If any of these ensures go off, something has overwritten the memory for this render command (buffer underflow/overflow?)
 		bool bMemoryTrample = !ensureMsgf(RendererModule, TEXT("RendererModule has become null. This indicates a memory trample.")) ||
 			!ensureMsgf(RendererModule == RendererModuleDebug, TEXT("RendererModule and RendererModuleDebug are not equal (0x%016x != 0x%016x). This indicates a memory trample."), (void*)RendererModule, (void*)RendererModuleDebug) ||
-			!ensureMsgf(MemoryGuard1 == 0xaffec7ed, TEXT("Memory guard 1 is now 0x%08x, expected 0xaffec7ed."), MemoryGuard1) ||
-			!ensureMsgf(MemoryGuard2 == 0xaffec7ed, TEXT("Memory guard 2 is now 0x%08x, expected 0xaffec7ed."), MemoryGuard2);
+			!ensureMsgf(MemoryGuard1 == 0xaffec7ed, TEXT("Memory guard 1 is now 0x%08x, expected 0xaffec7ed."), MemoryGuard1) || //-V547
+			!ensureMsgf(MemoryGuard2 == 0xaffec7ed, TEXT("Memory guard 2 is now 0x%08x, expected 0xaffec7ed."), MemoryGuard2); //-V547
 
 		if (bMemoryTrample)
 		{
 			// In the hope that 'this' is still ok, triggering the event will prevent a deadlock. If it's not ok, this may crash, but it was going to crash anyway
-			AvailableEvent->Trigger();
+			InRenderToReadback->AvailableEvent->Trigger();
 			return;
 		}
 
@@ -119,7 +140,7 @@ void FViewportSurfaceReader::ResolveRenderTarget(const FViewportRHIRef& Viewport
 		if (bMemoryTrample)
 		{
 			// In the hope that 'this' is still ok, triggering the event will prevent a deadlock. If it's not ok, this may crash, but it was going to crash anyway
-			AvailableEvent->Trigger();
+			RenderToReadback->AvailableEvent->Trigger();
 			return;
 		}
 
@@ -153,13 +174,16 @@ void FViewportSurfaceReader::ResolveRenderTarget(const FViewportRHIRef& Viewport
 
 		FTexture2DRHIRef SourceBackBuffer = RHICmdList.GetViewportBackBuffer(ViewportRHI);
 
-		if (TargetSize.X != SourceBackBuffer->GetSizeX() || TargetSize.Y != SourceBackBuffer->GetSizeY())
+		const bool bIsSourceBackBufferSameAsWindowSize = SourceBackBuffer->GetSizeX() == WindowSize.X && SourceBackBuffer->GetSizeY() == WindowSize.Y;
+		const bool bIsSourceBackBufferSameAsTargetSize = TargetSize.X == SourceBackBuffer->GetSizeX() && TargetSize.Y == SourceBackBuffer->GetSizeY();
+
+		if (bIsSourceBackBufferSameAsWindowSize || bIsSourceBackBufferSameAsTargetSize)
 		{
-			PixelShader->SetParameters(RHICmdList, TStaticSamplerState<SF_Bilinear>::GetRHI(), SourceBackBuffer);
+			PixelShader->SetParameters(RHICmdList, TStaticSamplerState<SF_Point>::GetRHI(), SourceBackBuffer);
 		}
 		else
 		{
-			PixelShader->SetParameters(RHICmdList, TStaticSamplerState<SF_Point>::GetRHI(), SourceBackBuffer);
+			PixelShader->SetParameters(RHICmdList, TStaticSamplerState<SF_Bilinear>::GetRHI(), SourceBackBuffer);
 		}
 
 		float U = float(CaptureRect.Min.X) / float(SourceBackBuffer->GetSizeX());
@@ -173,56 +197,63 @@ void FViewportSurfaceReader::ResolveRenderTarget(const FViewportRHIRef& Viewport
 			TargetSize.X,							// Dest Width
 			TargetSize.Y,							// Dest Height
 			U, V,									// Source U, V
-			1, 1,									// Source USize, VSize
+			SizeU, SizeV,							// Source USize, VSize
 			CaptureRect.Max - CaptureRect.Min,		// Target buffer size
 			FIntPoint(1, 1),						// Source texture size
 			*VertexShader,
 			EDRF_Default);
 
 		// Asynchronously copy render target from GPU to CPU
-		const bool bKeepOriginalSurface = false;
 		RHICmdList.CopyToResolveTarget(
 			DestRenderTarget.TargetableTexture,
 			ReadbackTexture,
-			bKeepOriginalSurface,
 			FResolveParams());
 
-		void* ColorDataBuffer = nullptr;
 
-		int32 Width = 0, Height = 0;
-		RHICmdList.MapStagingSurface(ReadbackTexture, ColorDataBuffer, Width, Height);
+		if (InRenderToReadback)
+		{
+			void* ColorDataBuffer = nullptr;
 
-		Callback((FColor*)ColorDataBuffer, Width, Height);
+			int32 Width = 0, Height = 0;
+			RHICmdList.MapStagingSurface(InRenderToReadback->ReadbackTexture, ColorDataBuffer, Width, Height);
 
-		RHICmdList.UnmapStagingSurface(ReadbackTexture);
-		AvailableEvent->Trigger();
+			Callback((FColor*)ColorDataBuffer, Width, Height);
+
+			RHICmdList.UnmapStagingSurface(InRenderToReadback->ReadbackTexture);
+			InRenderToReadback->AvailableEvent->Trigger();
+		}
 	};
 
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
+	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
 		ResolveCaptureFrameTexture,
-		TFunction<void(FRHICommandListImmediate&)>, InRenderCommand, RenderCommand,
-	{
-		InRenderCommand(RHICmdList);
-	});
+		TFunction<void(FRHICommandListImmediate&, FViewportSurfaceReader* InRenderToReadback)>, InRenderCommand, RenderCommand,
+		FViewportSurfaceReader*, InRenderToReadback, RenderToReadback,
+		{
+			InRenderCommand(RHICmdList, InRenderToReadback);
+		}
+	);
 }
 
-FFrameGrabber::FFrameGrabber(TSharedRef<FSceneViewport> Viewport, FIntPoint DesiredBufferSize, EPixelFormat InPixelFormat, uint32 NumSurfaces)
+FFrameGrabber::FFrameGrabber(TSharedRef<FSceneViewport> Viewport, FIntPoint DesiredBufferSize, EPixelFormat InPixelFormat, uint32 NumSurfaces, bool bAlwaysFlushOnDraw)
 {
 	State = EFrameGrabberState::Inactive;
 
-	// cause the viewport to always flush on draw
-	Viewport->IncrementFlushOnDraw();
-
+	if (bAlwaysFlushOnDraw)
 	{
-		// Setup a functor to decrement the flag on destruction (this class isn't necessarily tied to scene viewports)
-		TWeakPtr<FSceneViewport> WeakViewport = Viewport;
-		OnShutdown = [WeakViewport]{
-			TSharedPtr<FSceneViewport> PinnedViewport = WeakViewport.Pin();
-			if (PinnedViewport.IsValid())
-			{
-				PinnedViewport->DecrementFlushOnDraw();
-			}
-		};
+		// cause the viewport to always flush on draw
+		Viewport->IncrementFlushOnDraw();
+
+		{
+			// Setup a functor to decrement the flag on destruction (this class isn't necessarily tied to scene viewports)
+			TWeakPtr<FSceneViewport> WeakViewport = Viewport;
+			OnShutdown = [WeakViewport] {
+				TSharedPtr<FSceneViewport> PinnedViewport = WeakViewport.Pin();
+				if (PinnedViewport.IsValid())
+				{
+					PinnedViewport->DecrementFlushOnDraw();
+				}
+			};
+		}
 	}
 
 	TargetSize = DesiredBufferSize;
@@ -232,6 +263,7 @@ FFrameGrabber::FFrameGrabber(TSharedRef<FSceneViewport> Viewport, FIntPoint Desi
 	check(NumSurfaces != 0);
 
 	FIntRect CaptureRect(0,0,Viewport->GetSize().X, Viewport->GetSize().Y);
+	FIntPoint WindowSize(0, 0);
 
 	// Set up the capture rectangle
 	TSharedPtr<SViewport> ViewportWidget = Viewport->GetViewportWidget().Pin();
@@ -252,14 +284,18 @@ FFrameGrabber::FFrameGrabber(TSharedRef<FSceneViewport> Viewport, FIntPoint Desi
 			{
 				FArrangedWidget ArrangedWidget = WidgetPath.FindArrangedWidget(ViewportWidget.ToSharedRef()).Get(FArrangedWidget::NullWidget);
 
-				FVector2D Position = ArrangedWidget.Geometry.AbsolutePosition;
-				FVector2D Size = ArrangedWidget.Geometry.GetDrawSize();
+				FVector2D Position = ArrangedWidget.Geometry.GetAbsolutePosition();
+				FVector2D Size = ArrangedWidget.Geometry.GetAbsoluteSize();
 
 				CaptureRect = FIntRect(
 					Position.X,
 					Position.Y,
 					Position.X + Size.X,
 					Position.Y + Size.Y);
+
+				FVector2D AbsoluteSize = InnerWindowGeometry.GetAbsoluteSize();
+				WindowSize = FIntPoint(AbsoluteSize.X, AbsoluteSize.Y);
+
 			}
 		}
 	}
@@ -270,7 +306,10 @@ FFrameGrabber::FFrameGrabber(TSharedRef<FSceneViewport> Viewport, FIntPoint Desi
 	{
 		Surfaces.Emplace(InPixelFormat, DesiredBufferSize);
 		Surfaces.Last().Surface.SetCaptureRect(CaptureRect);
+		Surfaces.Last().Surface.SetWindowSize(WindowSize);
 	}
+
+	FrameGrabLatency = GFrameGrabberFrameLatency;
 
 	// Ensure textures are setup
 	FlushRenderingCommands();
@@ -278,7 +317,7 @@ FFrameGrabber::FFrameGrabber(TSharedRef<FSceneViewport> Viewport, FIntPoint Desi
 
 FFrameGrabber::~FFrameGrabber()
 {
-	if (OnWindowRendered.IsValid())
+	if (OnWindowRendered.IsValid() && FSlateApplication::IsInitialized())
 	{
 		FSlateApplication::Get().GetRenderer()->OnSlateWindowRendered().Remove(OnWindowRendered);
 	}
@@ -332,7 +371,10 @@ void FFrameGrabber::Shutdown()
 		Surface.Surface.BlockUntilAvailable();
 	}
 
-	FSlateApplication::Get().GetRenderer()->OnSlateWindowRendered().Remove(OnWindowRendered);
+	if (FSlateApplication::IsInitialized())
+	{
+		FSlateApplication::Get().GetRenderer()->OnSlateWindowRendered().Remove(OnWindowRendered);
+	}
 	OnWindowRendered = FDelegateHandle();
 }
 
@@ -391,17 +433,38 @@ void FFrameGrabber::OnSlateWindowRendered( SWindow& SlateWindow, void* ViewportR
 		PendingFramePayloads.RemoveAt(0, 1, false);
 	}
 
+	if (FrameGrabLatency != GFrameGrabberFrameLatency)
+	{
+		FlushRenderingCommands();
+		for (FResolveSurface& Surface : Surfaces)
+		{
+			Surface.Surface.Reset();
+			CurrentFrameIndex = 0;
+		}
+		FrameGrabLatency = GFrameGrabberFrameLatency;
+	}
+
+	const int32 PrevCaptureIndexOffset = FMath::Clamp(FrameGrabLatency, 0, Surfaces.Num() - 1);
 	const int32 ThisCaptureIndex = CurrentFrameIndex;
+	const int32 PrevCaptureIndex = (CurrentFrameIndex - PrevCaptureIndexOffset) < 0 ? Surfaces.Num() - (PrevCaptureIndexOffset - CurrentFrameIndex) : (CurrentFrameIndex - PrevCaptureIndexOffset);
 
-	FResolveSurface* ThisFrameTarget = &Surfaces[ThisCaptureIndex];
-	ThisFrameTarget->Surface.BlockUntilAvailable();
+	FResolveSurface* NextFrameTarget = &Surfaces[ThisCaptureIndex];
+	NextFrameTarget->Surface.BlockUntilAvailable();
 
-	ThisFrameTarget->Surface.Initialize();
-	ThisFrameTarget->Payload = Payload;
+	NextFrameTarget->Surface.Initialize();
+	NextFrameTarget->Payload = Payload;
+
+	FViewportSurfaceReader* PrevFrameTarget = &Surfaces[PrevCaptureIndex].Surface;
+
+	//If the latency is 0, then we are asking to readback the frame we are currently queuing immediately. 
+	if (!PrevFrameTarget->WasEverQueued() && (PrevCaptureIndexOffset > 0))
+	{
+		PrevFrameTarget = nullptr;
+	}
 
 	const FViewportRHIRef* RHIViewport = (const FViewportRHIRef*)ViewportRHIPtr;
 
-	Surfaces[ThisCaptureIndex].Surface.ResolveRenderTarget(*RHIViewport, [=](FColor* ColorBuffer, int32 Width, int32 Height){
+	Surfaces[ThisCaptureIndex].Surface.ResolveRenderTarget(PrevFrameTarget, *RHIViewport, [=](FColor* ColorBuffer, int32 Width, int32 Height){
 		// Handle the frame
 		OnFrameReady(ThisCaptureIndex, ColorBuffer, Width, Height);
 	});
@@ -419,22 +482,32 @@ void FFrameGrabber::OnFrameReady(int32 BufferIndex, FColor* ColorBuffer, int32 W
 	
 	const FResolveSurface& Surface = Surfaces[BufferIndex];
 
-	FCapturedFrameData ResolvedFrameData(TargetSize, Surface.Payload);
-
-	ResolvedFrameData.ColorBuffer.InsertUninitialized(0, TargetSize.X * TargetSize.Y);
-	FColor* Dest = &ResolvedFrameData.ColorBuffer[0];
-
-	const int32 MaxWidth = FMath::Min(TargetSize.X, Width);
-	for (int32 Row = 0; Row < FMath::Min(Height, TargetSize.Y); ++Row)
+	bool bExecuteDefaultGrabber = true;
+	if (Surface.Payload.IsValid())
 	{
-		FMemory::Memcpy(Dest, ColorBuffer, sizeof(FColor)*MaxWidth);
-		ColorBuffer += Width;
-		Dest += MaxWidth;
+		bExecuteDefaultGrabber = Surface.Payload->OnFrameReady_RenderThread(ColorBuffer, FIntPoint(Width, Height), TargetSize);
 	}
 
+	if (bExecuteDefaultGrabber)
 	{
-		FScopeLock Lock(&CapturedFramesMutex);
-		CapturedFrames.Add(MoveTemp(ResolvedFrameData));
+		FCapturedFrameData ResolvedFrameData(TargetSize, Surface.Payload);
+
+		ResolvedFrameData.ColorBuffer.InsertUninitialized(0, TargetSize.X * TargetSize.Y);
+		FColor* Dest = &ResolvedFrameData.ColorBuffer[0];
+
+		const int32 MaxWidth = FMath::Min(TargetSize.X, Width);
+		for (int32 Row = 0; Row < FMath::Min(Height, TargetSize.Y); ++Row)
+		{
+			FMemory::Memcpy(Dest, ColorBuffer, sizeof(FColor)*MaxWidth);
+			ColorBuffer += Width;
+			Dest += MaxWidth;
+		}
+
+		{
+			FScopeLock Lock(&CapturedFramesMutex);
+			CapturedFrames.Add(MoveTemp(ResolvedFrameData));
+		}
 	}
+
 	OutstandingFrameCount.Decrement();
 }

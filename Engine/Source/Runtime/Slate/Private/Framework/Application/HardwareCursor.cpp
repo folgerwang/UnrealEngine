@@ -7,8 +7,8 @@
 #include "Logging/LogMacros.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
-#include "ModuleManager.h"
-#include "SlateApplication.h"
+#include "Modules/ModuleManager.h"
+#include "Framework/Application/SlateApplication.h"
 #include "HAL/PlatformApplicationMisc.h"
 
 #if PLATFORM_LINUX

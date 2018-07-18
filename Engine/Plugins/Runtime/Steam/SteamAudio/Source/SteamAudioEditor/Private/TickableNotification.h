@@ -5,8 +5,8 @@
 #pragma once
 
 #include "TickableEditorObject.h"
-#include "SNotificationList.h"
-#include "Queue.h"
+#include "Widgets/Notifications/SNotificationList.h"
+#include "Containers/Queue.h"
 
 namespace SteamAudio
 {

@@ -104,7 +104,7 @@ public:
 	FArchiveInvalidateTransientRefs()
 	{
 		ArIsObjectReferenceCollector = true;
-		ArIsPersistent = false;
+		this->SetIsPersistent(false);
 		ArIgnoreArchetypeRef = false;
 	}
 protected:
@@ -684,11 +684,15 @@ UBlueprint* FKismetEditorUtilities::ReloadBlueprint(UBlueprint* StaleBlueprint)
 	check(StaleBlueprint->IsAsset());
 	FSoftObjectPath BlueprintAssetRef(StaleBlueprint);
 
+	// Need to close the editor now, it won't work once it's been garbage collected during the reload
+	FAssetEditorManager::Get().CloseAllEditorsForAsset(StaleBlueprint);
+
 	FBlueprintUnloader Unloader(StaleBlueprint);
 	Unloader.UnloadBlueprint(/*bResetPackage =*/true);
 
 	UBlueprint* ReloadedBlueprint = Cast<UBlueprint>(StaticLoadObject(UBlueprint::StaticClass(), /*Outer =*/nullptr, *BlueprintAssetRef.ToString()));
 
+	// This will generally not fix most references as the UnloadBlueprint causes a GC
 	Unloader.ReplaceStaleRefs(ReloadedBlueprint);
 	return ReloadedBlueprint;
 }
@@ -2012,11 +2016,17 @@ void FKismetEditorUtilities::CreateNewBoundEventForActor(AActor* Actor, FName Ev
 					const FVector2D NewNodePos = TargetGraph->GetGoodPlaceForNewNode();
 
 					// Create a new event node
-					UK2Node_ActorBoundEvent* EventNodeTemplate = NewObject<UK2Node_ActorBoundEvent>();
-					EventNodeTemplate->InitializeActorBoundEventParams(Actor, DelegateProperty);
-
+					UK2Node_ActorBoundEvent* EventNode = FEdGraphSchemaAction_K2NewNode::SpawnNode<UK2Node_ActorBoundEvent>(
+						TargetGraph,
+						NewNodePos,
+						EK2NewNodeFlags::SelectNewNode,
+						[Actor, DelegateProperty](UK2Node_ActorBoundEvent* NewInstance)
+						{
+							NewInstance->InitializeActorBoundEventParams(Actor, DelegateProperty);
+						}
+					);
 					// Finally, bring up kismet and jump to the new node
-					if (UK2Node_ActorBoundEvent* EventNode = FEdGraphSchemaAction_K2NewNode::SpawnNodeFromTemplate<UK2Node_ActorBoundEvent>(TargetGraph, EventNodeTemplate, NewNodePos))
+					if (EventNode)
 					{
 						BringKismetToFocusAttentionOnObject(EventNode);
 					}
@@ -2050,10 +2060,15 @@ void FKismetEditorUtilities::CreateNewBoundEventForClass(UClass* Class, FName Ev
 				const FVector2D NewNodePos = TargetGraph->GetGoodPlaceForNewNode();
 
 				// Create a new event node
-				UK2Node_ComponentBoundEvent* EventNodeTemplate = NewObject<UK2Node_ComponentBoundEvent>();
-				EventNodeTemplate->InitializeComponentBoundEventParams(ComponentProperty, DelegateProperty);
-
-				UK2Node_ComponentBoundEvent* EventNode = FEdGraphSchemaAction_K2NewNode::SpawnNodeFromTemplate<UK2Node_ComponentBoundEvent>(TargetGraph, EventNodeTemplate, NewNodePos);
+				UK2Node_ComponentBoundEvent* EventNode = FEdGraphSchemaAction_K2NewNode::SpawnNode<UK2Node_ComponentBoundEvent>(
+					TargetGraph,
+					NewNodePos,
+					EK2NewNodeFlags::SelectNewNode,
+					[ComponentProperty, DelegateProperty](UK2Node_ComponentBoundEvent* NewInstance)
+					{
+						NewInstance->InitializeComponentBoundEventParams(ComponentProperty, DelegateProperty);
+					}
+				);
 
 				// Finally, bring up kismet and jump to the new node
 				if ( EventNode != nullptr )

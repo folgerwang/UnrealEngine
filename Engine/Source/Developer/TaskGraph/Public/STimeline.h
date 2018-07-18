@@ -20,6 +20,7 @@ public:
 	SLATE_BEGIN_ARGS( STimeline )
 		: _MinValue( 0.0f )
 		, _MaxValue( 1.0f )
+		, _FixedLabelSpacing(1.0)
 		{}
 
 		/** Minimum value on the timeline */

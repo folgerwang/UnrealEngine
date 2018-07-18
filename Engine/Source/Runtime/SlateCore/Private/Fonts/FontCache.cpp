@@ -333,6 +333,12 @@ FShapedGlyphSequencePtr FShapedGlyphSequence::GetSubSequence(const int32 InStart
 	return nullptr;
 }
 
+void FShapedGlyphSequence::AddReferencedObjects(FReferenceCollector& Collector)
+{
+	Collector.AddReferencedObject(FontMaterial);
+	Collector.AddReferencedObject(OutlineSettings.OutlineMaterial);
+}
+
 FShapedGlyphSequence::EEnumerateGlyphsResult FShapedGlyphSequence::EnumerateLogicalGlyphsInSourceRange(const int32 InStartIndex, const int32 InEndIndex, const FForEachShapedGlyphEntryCallback& InGlyphCallback) const
 {
 	if (InStartIndex == InEndIndex)
@@ -727,8 +733,6 @@ FSlateFontCache::FSlateFontCache( TSharedRef<ISlateFontAtlasFactory> InFontAtlas
 	, MaxNonAtlasedTexturesBeforeFlushRequest( 1 )
 	, FrameCounterLastFlushRequest( 0 )
 {
-	UE_LOG(LogSlate, Log, TEXT("SlateFontCache - WITH_FREETYPE: %d, WITH_HARFBUZZ: %d"), WITH_FREETYPE, WITH_HARFBUZZ);
-
 	FInternationalization::Get().OnCultureChanged().AddRaw(this, &FSlateFontCache::HandleCultureChanged);
 }
 
@@ -1010,6 +1014,16 @@ const TSet<FName>& FSlateFontCache::GetFontAttributes( const FFontData& InFontDa
 	return CompositeFontCache->GetFontAttributes(InFontData);
 }
 
+TArray<FString> FSlateFontCache::GetAvailableFontSubFaces(FFontFaceDataConstRef InMemory) const
+{
+	return FFreeTypeFace::GetAvailableSubFaces(FTLibrary.Get(), InMemory);
+}
+
+TArray<FString> FSlateFontCache::GetAvailableFontSubFaces(const FString& InFilename) const
+{
+	return FFreeTypeFace::GetAvailableSubFaces(FTLibrary.Get(), InFilename);
+}
+
 uint16 FSlateFontCache::GetLocalizedFallbackFontRevision() const
 {
 	return FLegacySlateFontInfoCache::Get().GetLocalizedFallbackFontRevision();
@@ -1100,7 +1114,10 @@ void FSlateFontCache::FlushCache()
 			FontObjectsToFlush.Empty();
 		}
 
-		UE_LOG(LogSlate, Verbose, TEXT("Slate font cache was flushed"));
+#if !WITH_EDITOR
+		UE_LOG(LogSlate, Log, TEXT("Slate font cache was flushed"));
+#endif
+
 	}
 	else
 	{

@@ -190,9 +190,10 @@ public:
 	 * 
 	 * @param LongPackageName Package name.
 	 * @param OutFilename Package filename on disk.
+	 * @param InAllowTextFormats Detect text format packages as well as binary (priority to text)
 	 * @return true if the specified package name points to an existing package, false otherwise.
 	 **/
-	static bool DoesPackageExist(const FString& LongPackageName, const FGuid* Guid = NULL, FString* OutFilename = NULL);
+	static bool DoesPackageExist(const FString& LongPackageName, const FGuid* Guid = NULL, FString* OutFilename = NULL, bool InAllowTextFormats = true);
 
 	/**
 	 * Attempts to find a package given its short name on disk (very slow).
@@ -283,11 +284,21 @@ public:
 	/**
 	* Returns the file extension for packages containing text assets.
 	*
-	* @return	file extension for textasset packages ( dot included )
+	* @return	file extension for text asset packages ( dot included )
 	*/
 	static FORCEINLINE const FString& GetTextAssetPackageExtension()
 	{
 		return TextAssetPackageExtension;
+	}
+
+	/**
+	* Returns the file extension for packages containing text maps.
+	*
+	* @return	file extension for text map packages ( dot included )
+	*/
+	static FORCEINLINE const FString& GetTextMapPackageExtension()
+	{
+		return TextMapPackageExtension;
 	}
 
 	/** 
@@ -419,9 +430,10 @@ public:
 	*
 	* @param InPackageFilename Package filename without the extension.
 	* @param OutFilename If the package could be found, filename with the extension.
+	* @param InAllowTextFormats Detect text format packages as well as binary (priority to text)
 	* @return true if the package could be found on disk.
 	*/
-	static bool FindPackageFileWithoutExtension(const FString& InPackageFilename, FString& OutFilename);
+	static bool FindPackageFileWithoutExtension(const FString& InPackageFilename, FString& OutFilename, bool InAllowTextFormats = true);
 
 	/**
 	 * Converts a long package name to the case it exists as on disk.
@@ -443,6 +455,8 @@ private:
 	static FString AssetPackageExtension;
 	static FString MapPackageExtension;
 	static FString TextAssetPackageExtension;
+	static FString TextMapPackageExtension;
+
 	/**
 	 * Internal function used to rename filename to long package name.
 	 *

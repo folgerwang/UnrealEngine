@@ -1,6 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "NiagaraStackModuleItemOutput.h"
+#include "ViewModels/Stack/NiagaraStackModuleItemOutput.h"
 #include "NiagaraNodeFunctionCall.h"
 #include "NiagaraConstants.h"
 #include "NiagaraScriptSource.h"
@@ -15,16 +15,12 @@ UNiagaraStackModuleItemOutput::UNiagaraStackModuleItemOutput()
 {
 }
 
-int32 UNiagaraStackModuleItemOutput::GetItemIndentLevel() const
-{
-	return 1;
-}
-
-void UNiagaraStackModuleItemOutput::Initialize(TSharedRef<FNiagaraSystemViewModel> InSystemViewModel, TSharedRef<FNiagaraEmitterViewModel> InEmitterViewModel, UNiagaraNodeFunctionCall& InFunctionCallNode, FName InOutputParameterHandle,
+void UNiagaraStackModuleItemOutput::Initialize(FRequiredEntryData InRequiredEntryData, UNiagaraNodeFunctionCall& InFunctionCallNode, FName InOutputParameterHandle,
 	FNiagaraTypeDefinition InOutputType)
 {
 	checkf(FunctionCallNode.Get() == nullptr, TEXT("Can only set the Output once."));
-	Super::Initialize(InSystemViewModel, InEmitterViewModel);
+	FString OutputStackEditorDataKey = FString::Printf(TEXT("%s-Output-%s"), *InFunctionCallNode.NodeGuid.ToString(EGuidFormats::DigitsWithHyphens), *InOutputParameterHandle.ToString());
+	Super::Initialize(InRequiredEntryData, OutputStackEditorDataKey);
 	FunctionCallNode = &InFunctionCallNode;
 	OutputType = InOutputType;
 	OutputParameterHandle = FNiagaraParameterHandle(InOutputParameterHandle);
@@ -34,16 +30,6 @@ void UNiagaraStackModuleItemOutput::Initialize(TSharedRef<FNiagaraSystemViewMode
 FText UNiagaraStackModuleItemOutput::GetDisplayName() const
 {
 	return DisplayName;
-}
-
-FName UNiagaraStackModuleItemOutput::GetTextStyleName() const
-{
-	return "NiagaraEditor.Stack.ParameterText";
-}
-
-bool UNiagaraStackModuleItemOutput::GetCanExpand() const
-{
-	return true;
 }
 
 FText UNiagaraStackModuleItemOutput::GetTooltipText() const
@@ -69,6 +55,16 @@ FText UNiagaraStackModuleItemOutput::GetTooltipText() const
 		}
 	}
 	return FText::FromName(ValueVariable.GetName());
+}
+
+bool UNiagaraStackModuleItemOutput::GetIsEnabled() const
+{
+	return FunctionCallNode->GetDesiredEnabledState() == ENodeEnabledState::Enabled;
+}
+
+UNiagaraStackEntry::EStackRowStyle UNiagaraStackModuleItemOutput::GetStackRowStyle() const
+{
+	return EStackRowStyle::ItemContent;
 }
 
 const FNiagaraParameterHandle& UNiagaraStackModuleItemOutput::GetOutputParameterHandle() const

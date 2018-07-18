@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "AsyncResult.h"
+#include "Async/AsyncResult.h"
 #include "Misc/Timespan.h"
 #include "WaitUntil.h"
 #include "GenericPlatform/GenericApplication.h"

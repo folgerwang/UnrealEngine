@@ -685,9 +685,9 @@ Engine/Rendering/Materials/ExpressionReference/Math#subtract
 [/EXCERPT:UMaterialExpressionSubtract]
 
 [EXCERPT:UMaterialExpressionCollectionParameter]
-Collection Parameter (콜렉션 파라미터)는 Parameter Collection (파라미터 콜렉션) 애셋을 레퍼런싱하는 데 사용되는 표현식입니다. 이들은 머티리얼, 블루프린트 등 여러가지 다양한 애셋에서 쉽게 재사용할 수 있는 파라미터 그룹입니다. 파라미터 콜렉션 관련 상세 정보는 파라미터 콜렉션 문서. 를 참고해 주시기 바랍니다.
+Collection Parameter (컬렉션 파라미터)는 Parameter Collection (파라미터 컬렉션) 애셋을 레퍼런싱하는 데 사용되는 표현식입니다. 이들은 머티리얼, 블루프린트 등 여러가지 다양한 애셋에서 쉽게 재사용할 수 있는 파라미터 그룹입니다. 파라미터 컬렉션 관련 상세 정보는 파라미터 컬렉션 문서. 를 참고해 주시기 바랍니다.
 
-하나의 머티리얼은 최대 두 개의 머티리얼 파라미터 콜렉션 레퍼런스가 가능합니다. 하나는 보통 게임 측면의 값에, 다른 하나는 레벨 전용 파라미터에 사용할 수 있습니다. 하나의 콜렉션은 최대 각각 1024 개 씩의 스칼라 & 벡터 파라미터를 가질 수 있습니다.
+하나의 머티리얼은 최대 두 개의 머티리얼 파라미터 컬렉션 레퍼런스가 가능합니다. 하나는 보통 게임 측면의 값에, 다른 하나는 레벨 전용 파라미터에 사용할 수 있습니다. 하나의 컬렉션은 최대 각각 1024 개 씩의 스칼라 & 벡터 파라미터를 가질 수 있습니다.
 
 [VAR:ToolTipFullLink]
 Engine/Rendering/Materials/ExpressionReference/Parameters#collectionparameters

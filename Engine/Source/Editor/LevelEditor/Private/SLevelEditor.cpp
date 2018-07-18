@@ -46,7 +46,7 @@
 #include "Widgets/Docking/SDockTab.h"
 #include "SActorDetails.h"
 #include "GameFramework/WorldSettings.h"
-#include "LayoutExtender.h"
+#include "Framework/Docking/LayoutExtender.h"
 #include "HierarchicalLODOutlinerModule.h"
 
 
@@ -719,12 +719,7 @@ TSharedRef<SDockTab> SLevelEditor::SpawnLevelEditorTab( const FSpawnTabArgs& Arg
 			.Label(Label)
 			.ToolTip(IDocumentation::Get()->CreateToolTip(Label, nullptr, "Shared/Editor/HLOD", "main"))
 			[
-				SNew(SBorder)
-				.Padding(0)
-				.BorderImage(FEditorStyle::GetBrush("ToolPanel.GroupBorder"))				
-				[
-					HLODModule.CreateHLODOutlinerWidget()
-				]
+				HLODModule.CreateHLODOutlinerWidget()
 			];
 	}
 	else if( TabIdentifier == WorldBrowserHierarchyTab )

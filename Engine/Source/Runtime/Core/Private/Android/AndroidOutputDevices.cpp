@@ -4,7 +4,7 @@
 	AndroidOutputDevices.cpp: Android implementations of OutputDevices functions
 =============================================================================*/
 
-#include "AndroidOutputDevices.h"
+#include "Android/AndroidOutputDevices.h"
 
 /*class FOutputDevice* FAndroidOutputDevices::GetLog()
 {

@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
+#include "Math/RandomStream.h"
 
 //TODO: move to a per platform header and have VM scale vectorization according to vector width.
 #define VECTOR_WIDTH (128)
@@ -137,10 +138,18 @@ enum class EVectorVMOp : uint8
 	enter_stat_scope,
 	exit_stat_scope,
 
+	//updates an ID in the ID table
+	update_id,
+	//acquires a new ID from the free list.
+	acquire_id,
+
 	NumOpcodes
 };
 
 
+//TODO: 
+//All of this stuff can be handled by the VM compiler rather than dirtying the VM code.
+//Some require RWBuffer like support.
 struct FDataSetMeta
 {
 	uint8 **InputRegisters;
@@ -149,12 +158,28 @@ struct FDataSetMeta
 	int32 DataSetAccessIndex;	// index for individual elements of this set
 	int32 DataSetOffset;		// offset in the register table
 
-	FDataSetMeta(uint32 DataSetSize, uint8 **Data = nullptr, uint8 InNumVariables = 0)
-		: InputRegisters(Data), NumVariables(InNumVariables), DataSetSizeInBytes(DataSetSize), DataSetAccessIndex(0), DataSetOffset(0)
-	{}
+	int32 InstanceOffset;		// offset of the first instance processed 
+	
+	TArray<int32>*RESTRICT IDTable;
+	TArray<int32>*RESTRICT FreeIDTable;
 
-	FDataSetMeta()
-		: InputRegisters(nullptr), NumVariables(0), DataSetSizeInBytes(0), DataSetAccessIndex(0), DataSetOffset(0)
+	/** Number of free IDs in the FreeIDTable */
+	int32* NumFreeIDs;
+
+	/** MaxID used in this execution. */
+	int32* MaxUsedID;
+
+	int32 IDAcquireTag;
+
+	FDataSetMeta(uint32 DataSetSize, uint8 **Data, uint8 InNumVariables, int32 InInstanceOffset, TArray<int32>* InIDTable, TArray<int32>* InFreeIDTable, int32* InNumFreeIDs, int32* InMaxUsedID, int32 InIDAcquireTag)
+		: InputRegisters(Data), NumVariables(InNumVariables), DataSetSizeInBytes(DataSetSize), DataSetAccessIndex(INDEX_NONE), DataSetOffset(0), InstanceOffset(InInstanceOffset)
+		, IDTable(InIDTable), FreeIDTable(InFreeIDTable), NumFreeIDs(InNumFreeIDs), MaxUsedID(InMaxUsedID), IDAcquireTag(InIDAcquireTag)
+	{
+	}
+
+	FDataSetMeta() 
+		: InputRegisters(nullptr), NumVariables(0), DataSetSizeInBytes(0), DataSetAccessIndex(INDEX_NONE), DataSetOffset(0), InstanceOffset(0)
+		, IDTable(nullptr), FreeIDTable(nullptr), NumFreeIDs(nullptr), MaxUsedID(nullptr), IDAcquireTag(0)
 	{}
 };
 
@@ -197,7 +222,6 @@ namespace VectorVM
 		FVMExternalFunction* ExternalFunctionTable,
 		void** UserPtrTable,
 		int32 NumInstances
-
 #if STATS
 		, const TArray<TStatId>& StatScopes
 #endif
@@ -205,8 +229,6 @@ namespace VectorVM
 
 	VECTORVM_API void Init();
 } // namespace VectorVM
-
-
 
 
   /**
@@ -231,6 +253,9 @@ struct FVectorVMContext : TThreadSingleton<FVectorVMContext>
 	/** Start instance of current chunk. */
 	int32 StartInstance;
 
+	/** Array of meta data on data sets. TODO: This struct should be removed and all features it contains be handled by more general vm ops and the compiler's knowledge of offsets etc. */
+	FDataSetMeta*RESTRICT DataSetMetaTable;
+
 #if STATS
 	TArray<FCycleCounter, TInlineAllocator<64>> StatCounterStack;
 	const TArray<TStatId>* StatScopes;
@@ -238,6 +263,8 @@ struct FVectorVMContext : TThreadSingleton<FVectorVMContext>
 
 	TArray<uint8, TAlignedHeapAllocator<VECTOR_WIDTH_BYTES>> TempRegTable;
 	uint8 *RESTRICT RegisterTable[VectorVM::MaxRegisters];
+
+	FRandomStream RandStream;
 
 	FVectorVMContext();
 
@@ -251,7 +278,8 @@ struct FVectorVMContext : TThreadSingleton<FVectorVMContext>
 		int32 *InDataSetOffsetTable,
 		int32 InNumSecondaryDatasets,
 		FVMExternalFunction* InExternalFunctionTable,
-		void** InUserPtrTable
+		void** InUserPtrTable,
+		FDataSetMeta*RESTRICT InDataSetMetaTable
 #if STATS
 		, const TArray<TStatId>* InStatScopes
 #endif
@@ -313,6 +341,7 @@ struct FConstantHandler : public FConstantHandlerBase
 		, Constant(*((T*)(Context.ConstantTable + ConstantIndex)))
 	{}
 	FORCEINLINE const T& Get() { return Constant; }
+	FORCEINLINE const T& GetAndAdvance() { return Constant; }
 };
 
 
@@ -325,6 +354,7 @@ struct FDataSetOffsetHandler : FConstantHandlerBase
 		, Offset(Context.DataSetOffsetTable[ConstantIndex])
 	{}
 	FORCEINLINE const uint32 Get() { return Offset; }
+	FORCEINLINE const uint32 GetAndAdvance() { return Offset; }
 };
 
 
@@ -338,6 +368,7 @@ struct FConstantHandler<VectorRegister> : public FConstantHandlerBase
 		, Constant(VectorLoadFloat1(&Context.ConstantTable[ConstantIndex]))
 	{}
 	FORCEINLINE const VectorRegister Get() { return Constant; }
+	FORCEINLINE const VectorRegister GetAndAdvance() { return Constant; }
 };
 
 template<>
@@ -349,6 +380,7 @@ struct FConstantHandler<VectorRegisterInt> : public FConstantHandlerBase
 		, Constant(VectorIntLoad1(&Context.ConstantTable[ConstantIndex]))
 	{}
 	FORCEINLINE const VectorRegisterInt Get() { return Constant; }
+	FORCEINLINE const VectorRegisterInt GetAndAdvance() { return Constant; }
 };
 
 //////////////////////////////////////////////////////////////////////////
@@ -390,6 +422,8 @@ struct FRegisterHandler : public FRegisterHandlerBase
 	FORCEINLINE const T Get() { return *Register; }
 	FORCEINLINE T* GetDest() { return Register; }
 	FORCEINLINE void Advance() { ++Register; }
+	FORCEINLINE const T GetAndAdvance() { return *Register++; }
+	FORCEINLINE T* GetDestAndAdvance() { return Register++; }
 };
 
 template<> struct FRegisterHandler<VectorRegister> : public FRegisterHandlerBase
@@ -403,6 +437,7 @@ template<> struct FRegisterHandler<VectorRegister> : public FRegisterHandlerBase
 	FORCEINLINE const VectorRegister Get() { return VectorLoadAligned(Register); }
 	FORCEINLINE VectorRegister* GetDest() { return Register; }
 	FORCEINLINE void Advance() { ++Register; }
+	FORCEINLINE const VectorRegister  GetAndAdvance() { return *Register++; }
 };
 
 template<> struct FRegisterHandler<VectorRegisterInt> : public FRegisterHandlerBase
@@ -416,6 +451,7 @@ template<> struct FRegisterHandler<VectorRegisterInt> : public FRegisterHandlerB
 	FORCEINLINE const VectorRegisterInt Get() { return VectorIntLoadAligned(Register); }
 	FORCEINLINE VectorRegisterInt* GetDest() { return Register; }
 	FORCEINLINE void Advance() { ++Register; }
+	FORCEINLINE const VectorRegisterInt GetAndAdvance() { return *Register++; }
 };
 
 /** Handles writing to a register, advancing the pointer with each write. */
@@ -430,6 +466,7 @@ struct FRegisterDestHandler : public FRegisterHandlerBase
 	FORCEINLINE T* RESTRICT GetDest() { return Register; }
 	FORCEINLINE T GetValue() { return *Register; }
 	FORCEINLINE void Advance() { ++Register; }
+	FORCEINLINE T* GetDestAndAdvance() { return Register++; }
 };
 
 template<> struct FRegisterDestHandler<VectorRegister> : public FRegisterHandlerBase
@@ -443,6 +480,7 @@ template<> struct FRegisterDestHandler<VectorRegister> : public FRegisterHandler
 
 	FORCEINLINE VectorRegister* RESTRICT GetDest() { return Register; }
 	FORCEINLINE void Advance() { ++Register; }
+	FORCEINLINE VectorRegister* GetDestAndAdvance() { return Register++; }
 };
 
 template<> struct FRegisterDestHandler<VectorRegisterInt> : public FRegisterHandlerBase
@@ -456,5 +494,6 @@ template<> struct FRegisterDestHandler<VectorRegisterInt> : public FRegisterHand
 
 	FORCEINLINE VectorRegisterInt* RESTRICT GetDest() { return Register; }
 	FORCEINLINE void Advance() { ++Register; }
+	FORCEINLINE VectorRegisterInt* GetDestAndAdvance() { return Register++; }
 };
 

@@ -2,9 +2,11 @@
 
 #pragma once
 
+#if USE_ANDROID_JNI
+
 #include "CoreMinimal.h"
 #include "AndroidJSScripting.h"
-#include "JsonStructDeserializerBackend.h"
+#include "Backends/JsonStructDeserializerBackend.h"
 #include "Serialization/MemoryReader.h"
 
 class FAndroidJSStructDeserializerBackend
@@ -20,3 +22,5 @@ private:
 	TArray<uint8> JsonData;
 	FMemoryReader Reader;
 };
+
+#endif // USE_ANDROID_JNI

@@ -5,6 +5,16 @@ D3D12Texture.h: Implementation of D3D12 Texture
 =============================================================================*/
 #pragma once
 
+void SafeCreateTexture2D(FD3D12Device* pDevice, 
+	FD3D12Adapter* Adapter,
+	const D3D12_RESOURCE_DESC& TextureDesc,
+	const D3D12_CLEAR_VALUE* ClearValue, 
+	FD3D12ResourceLocation* OutTexture2D, 
+	uint8 Format, 
+	uint32 Flags,
+	D3D12_RESOURCE_STATES InitialState);
+
+
 /** Texture base class. */
 class FD3D12TextureBase : public FD3D12BaseShaderResource, public FD3D12TransientResource, public FD3D12LinkedAdapterObject<FD3D12TextureBase>
 {

@@ -8,7 +8,7 @@
 #endif
 
 #include "ClothingSimulationInteractorNv.h"
-#include "Package.h"
+#include "UObject/Package.h"
 
 IClothingSimulation* UClothingSimulationFactoryNv::CreateSimulation()
 {

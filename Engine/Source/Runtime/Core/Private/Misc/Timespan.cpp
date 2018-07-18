@@ -81,6 +81,7 @@ FString FTimespan::ToString(const TCHAR* Format) const
 			case TCHAR('s'): Result += FString::Printf(TEXT("%02i"), FMath::Abs(GetSeconds())); break;
 			case TCHAR('f'): Result += FString::Printf(TEXT("%03i"), FMath::Abs(GetFractionMilli())); break;
 			case TCHAR('u'): Result += FString::Printf(TEXT("%06i"), FMath::Abs(GetFractionMicro())); break;
+			case TCHAR('t'): Result += FString::Printf(TEXT("%07i"), FMath::Abs(GetFractionTicks())); break;
 			case TCHAR('n'): Result += FString::Printf(TEXT("%09i"), FMath::Abs(GetFractionNano())); break;
 			default:
 				Result += *Format;
@@ -106,8 +107,9 @@ bool FTimespan::Parse(const FString& TimespanString, FTimespan& OutTimespan)
 	// @todo gmp: implement stricter FTimespan parsing; this implementation is too forgiving
 
 	// get string tokens
-	const bool HasFractional = TimespanString.Contains(TEXT("."));
-	FString TokenString = (HasFractional) ? TimespanString.Replace(TEXT("."), TEXT(":")) : TimespanString;
+	const bool HasFractional = TimespanString.Contains(TEXT(".")) || TimespanString.Contains(TEXT(","));
+	FString TokenString = TimespanString;
+	TokenString.ReplaceInline(TEXT("."), TEXT(":"));
 	TokenString.ReplaceInline(TEXT(","), TEXT(":"));
 
 	const bool Negative = TokenString.StartsWith(TEXT("-"));

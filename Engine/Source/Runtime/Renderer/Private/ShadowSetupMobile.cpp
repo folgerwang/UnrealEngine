@@ -198,6 +198,7 @@ static bool MobileDetermineStaticMeshesCSMVisibilityState(FScene* Scene, FViewIn
 			}
 		}
 	}
+
 	return bFoundReceiver;
 }
 
@@ -400,8 +401,11 @@ void FMobileSceneRenderer::BuildCSMVisibilityState(FLightSceneInfo* LightSceneIn
 
 				FConvexVolume ViewFrustum;
 				GetViewFrustumBounds(ViewFrustum, View.ViewMatrices.GetViewProjectionMatrix(), true);
+				//FConvexVolume& ShadowReceiverFrustum = ProjectedShadowInfo->CascadeSettings.ShadowBoundsAccurate;
+				//FVector PreShadowTranslation = FVector(0, 0, 0);
 				FConvexVolume& ShadowReceiverFrustum = ProjectedShadowInfo->ReceiverFrustum;
 				FVector& PreShadowTranslation = ProjectedShadowInfo->PreShadowTranslation;
+
 
 				// Common receiver test functions.
 				// Test receiver bounding box against view+shadow frustum only

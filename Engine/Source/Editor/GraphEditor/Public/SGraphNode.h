@@ -61,7 +61,7 @@ public:
 	FVector2D GetTitleSize() const;
 
 protected:
-	UEdGraphNode* GraphNode;
+	TWeakObjectPtr<UEdGraphNode> GraphNode;
 	FNodeTextCache NodeTitleCache;
 	FName ExtraLineStyle;
 
@@ -182,7 +182,7 @@ public:
 	 *
 	 * @return A pointer to the pin widget hovered in this node, or invalid pointer if none.
 	 */
-	TSharedPtr<SGraphPin> GetHoveredPin( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) const;
+	virtual TSharedPtr<SGraphPin> GetHoveredPin( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) const;
 
 	TSharedPtr<SGraphPin> FindWidgetForPin( UEdGraphPin* ThePin ) const;
 

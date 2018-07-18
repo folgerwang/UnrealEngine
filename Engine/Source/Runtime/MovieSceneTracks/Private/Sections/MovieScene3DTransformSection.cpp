@@ -3,7 +3,235 @@
 #include "Sections/MovieScene3DTransformSection.h"
 #include "UObject/StructOnScope.h"
 #include "Evaluation/MovieScene3DTransformTemplate.h"
-#include "SequencerObjectVersion.h"
+#include "UObject/SequencerObjectVersion.h"
+#include "Algo/AnyOf.h"
+#include "Channels/MovieSceneChannelProxy.h"
+#include "GameFramework/Actor.h"
+#include "EulerTransform.h"
+
+#if WITH_EDITOR
+
+struct F3DTransformChannelEditorData
+{
+	F3DTransformChannelEditorData(EMovieSceneTransformChannel Mask)
+	{
+		FText LocationGroup = NSLOCTEXT("MovieSceneTransformSection", "Location", "Location");
+		FText RotationGroup = NSLOCTEXT("MovieSceneTransformSection", "Rotation", "Rotation");
+		FText ScaleGroup    = NSLOCTEXT("MovieSceneTransformSection", "Scale",    "Scale");
+		{
+			MetaData[0].SetIdentifiers("Location.X", FCommonChannelData::ChannelX, LocationGroup);
+			MetaData[0].bEnabled = EnumHasAllFlags(Mask, EMovieSceneTransformChannel::TranslationX);
+			MetaData[0].Color = FCommonChannelData::RedChannelColor;
+			MetaData[0].SortOrder = 0;
+
+			MetaData[1].SetIdentifiers("Location.Y", FCommonChannelData::ChannelY, LocationGroup);
+			MetaData[1].bEnabled = EnumHasAllFlags(Mask, EMovieSceneTransformChannel::TranslationY);
+			MetaData[1].Color = FCommonChannelData::GreenChannelColor;
+			MetaData[1].SortOrder = 1;
+
+			MetaData[2].SetIdentifiers("Location.Z", FCommonChannelData::ChannelZ, LocationGroup);
+			MetaData[2].bEnabled = EnumHasAllFlags(Mask, EMovieSceneTransformChannel::TranslationZ);
+			MetaData[2].Color = FCommonChannelData::BlueChannelColor;
+			MetaData[2].SortOrder = 2;
+		}
+		{
+			MetaData[3].SetIdentifiers("Rotation.X", NSLOCTEXT("MovieSceneTransformSection", "RotationX", "Roll"), RotationGroup);
+			MetaData[3].bEnabled = EnumHasAllFlags(Mask, EMovieSceneTransformChannel::RotationX);
+			MetaData[3].Color = FCommonChannelData::RedChannelColor;
+			MetaData[3].SortOrder = 3;
+
+			MetaData[4].SetIdentifiers("Rotation.Y", NSLOCTEXT("MovieSceneTransformSection", "RotationY", "Pitch"), RotationGroup);
+			MetaData[4].bEnabled = EnumHasAllFlags(Mask, EMovieSceneTransformChannel::RotationY);
+			MetaData[4].Color = FCommonChannelData::GreenChannelColor;
+			MetaData[4].SortOrder = 4;
+
+			MetaData[5].SetIdentifiers("Rotation.Z", NSLOCTEXT("MovieSceneTransformSection", "RotationZ", "Yaw"), RotationGroup);
+			MetaData[5].bEnabled = EnumHasAllFlags(Mask, EMovieSceneTransformChannel::RotationZ);
+			MetaData[5].Color = FCommonChannelData::BlueChannelColor;
+			MetaData[5].SortOrder = 5;
+		}
+		{
+			MetaData[6].SetIdentifiers("Scale.X", FCommonChannelData::ChannelX, ScaleGroup);
+			MetaData[6].bEnabled = EnumHasAllFlags(Mask, EMovieSceneTransformChannel::ScaleX);
+			MetaData[6].Color = FCommonChannelData::RedChannelColor;
+			MetaData[6].SortOrder = 6;
+
+			MetaData[7].SetIdentifiers("Scale.Y", FCommonChannelData::ChannelY, ScaleGroup);
+			MetaData[7].bEnabled = EnumHasAllFlags(Mask, EMovieSceneTransformChannel::ScaleY);
+			MetaData[7].Color = FCommonChannelData::GreenChannelColor;
+			MetaData[7].SortOrder = 7;
+
+			MetaData[8].SetIdentifiers("Scale.Z", FCommonChannelData::ChannelZ, ScaleGroup);
+			MetaData[8].bEnabled = EnumHasAllFlags(Mask, EMovieSceneTransformChannel::ScaleZ);
+			MetaData[8].Color = FCommonChannelData::BlueChannelColor;
+			MetaData[8].SortOrder = 8;
+		}
+		{
+			MetaData[9].SetIdentifiers("Weight", NSLOCTEXT("MovieSceneTransformSection", "Weight", "Weight"));
+			MetaData[9].bEnabled = EnumHasAllFlags(Mask, EMovieSceneTransformChannel::Weight);
+		}
+
+		ExternalValues[0].OnGetExternalValue = ExtractTranslationX;
+		ExternalValues[1].OnGetExternalValue = ExtractTranslationY;
+		ExternalValues[2].OnGetExternalValue = ExtractTranslationZ;
+		ExternalValues[3].OnGetExternalValue = ExtractRotationX;
+		ExternalValues[4].OnGetExternalValue = ExtractRotationY;
+		ExternalValues[5].OnGetExternalValue = ExtractRotationZ;
+		ExternalValues[6].OnGetExternalValue = ExtractScaleX;
+		ExternalValues[7].OnGetExternalValue = ExtractScaleY;
+		ExternalValues[8].OnGetExternalValue = ExtractScaleZ;
+	}
+
+	static TOptional<FVector> GetTranslation(UObject& InObject, FTrackInstancePropertyBindings* Bindings)
+	{
+		const UStructProperty* TransformProperty = Bindings ? Cast<UStructProperty>(Bindings->GetProperty(InObject)) : nullptr;
+
+		if (TransformProperty)
+		{
+			if (TransformProperty->Struct == TBaseStructure<FTransform>::Get())
+			{
+				if (TOptional<FTransform> Transform = Bindings->GetOptionalValue<FTransform>(InObject))
+				{
+					return Transform->GetTranslation();
+				}
+			}
+			else if (TransformProperty->Struct == TBaseStructure<FEulerTransform>::Get())
+			{
+				if (TOptional<FEulerTransform> EulerTransform = Bindings->GetOptionalValue<FEulerTransform>(InObject))
+				{
+					return EulerTransform->Location;
+				}
+			}
+		}
+		else if (AActor* Actor = Cast<AActor>(&InObject))
+		{
+			if (USceneComponent* RootComponent = Actor->GetRootComponent())
+			{
+				return RootComponent->GetRelativeTransform().GetTranslation();
+			}
+		}
+
+		return TOptional<FVector>();
+	}
+
+	static TOptional<FRotator> GetRotator(UObject& InObject, FTrackInstancePropertyBindings* Bindings)
+	{
+		const UStructProperty* TransformProperty = Bindings ? Cast<UStructProperty>(Bindings->GetProperty(InObject)) : nullptr;
+
+		if (TransformProperty)
+		{
+			if (TransformProperty->Struct == TBaseStructure<FTransform>::Get())
+			{
+				if (TOptional<FTransform> Transform = Bindings->GetOptionalValue<FTransform>(InObject))
+				{
+					return Transform->GetRotation().Rotator();
+				}
+			}
+			else if (TransformProperty->Struct == TBaseStructure<FEulerTransform>::Get())
+			{
+				if (TOptional<FEulerTransform> EulerTransform = Bindings->GetOptionalValue<FEulerTransform>(InObject))
+				{
+					return EulerTransform->Rotation;
+				}
+			}
+		}
+		else if (AActor* Actor = Cast<AActor>(&InObject))
+		{
+			if (USceneComponent* RootComponent = Actor->GetRootComponent())
+			{
+				return RootComponent->RelativeRotation;
+			}
+		}
+
+		return TOptional<FRotator>();
+	}
+
+	static TOptional<FVector> GetScale(UObject& InObject, FTrackInstancePropertyBindings* Bindings)
+	{
+		const UStructProperty* TransformProperty = Bindings ? Cast<UStructProperty>(Bindings->GetProperty(InObject)) : nullptr;
+
+		if (TransformProperty)
+		{
+			if (TransformProperty->Struct == TBaseStructure<FTransform>::Get())
+			{
+				if (TOptional<FTransform> Transform = Bindings->GetOptionalValue<FTransform>(InObject))
+				{
+					return Transform->GetScale3D();
+				}
+			}
+			else if (TransformProperty->Struct == TBaseStructure<FEulerTransform>::Get())
+			{
+				if (TOptional<FEulerTransform> EulerTransform = Bindings->GetOptionalValue<FEulerTransform>(InObject))
+				{
+					return EulerTransform->Scale;
+				}
+			}
+		}
+		else if (AActor* Actor = Cast<AActor>(&InObject))
+		{
+			if (USceneComponent* RootComponent = Actor->GetRootComponent())
+			{
+				return RootComponent->GetRelativeTransform().GetScale3D();
+			}
+		}
+
+		return TOptional<FVector>();
+	}
+
+	static TOptional<float> ExtractTranslationX(UObject& InObject, FTrackInstancePropertyBindings* Bindings)
+	{
+		TOptional<FVector> Translation = GetTranslation(InObject, Bindings);
+		return Translation.IsSet() ? Translation->X : TOptional<float>();
+	}
+	static TOptional<float> ExtractTranslationY(UObject& InObject, FTrackInstancePropertyBindings* Bindings)
+	{
+		TOptional<FVector> Translation = GetTranslation(InObject, Bindings);
+		return Translation.IsSet() ? Translation->Y : TOptional<float>();
+	}
+	static TOptional<float> ExtractTranslationZ(UObject& InObject, FTrackInstancePropertyBindings* Bindings)
+	{
+		TOptional<FVector> Translation = GetTranslation(InObject, Bindings);
+		return Translation.IsSet() ? Translation->Z : TOptional<float>();
+	}
+
+	static TOptional<float> ExtractRotationX(UObject& InObject, FTrackInstancePropertyBindings* Bindings)
+	{
+		TOptional<FRotator> Rotator = GetRotator(InObject, Bindings);
+		return Rotator.IsSet() ? Rotator->Roll : TOptional<float>();
+	}
+	static TOptional<float> ExtractRotationY(UObject& InObject, FTrackInstancePropertyBindings* Bindings)
+	{
+		TOptional<FRotator> Rotator = GetRotator(InObject, Bindings);
+		return Rotator.IsSet() ? Rotator->Pitch : TOptional<float>();
+	}
+	static TOptional<float> ExtractRotationZ(UObject& InObject, FTrackInstancePropertyBindings* Bindings)
+	{
+		TOptional<FRotator> Rotator = GetRotator(InObject, Bindings);
+		return Rotator.IsSet() ? Rotator->Yaw : TOptional<float>();
+	}
+
+	static TOptional<float> ExtractScaleX(UObject& InObject, FTrackInstancePropertyBindings* Bindings)
+	{
+		TOptional<FVector> Scale = GetScale(InObject, Bindings);
+		return Scale.IsSet() ? Scale->X : TOptional<float>();
+	}
+	static TOptional<float> ExtractScaleY(UObject& InObject, FTrackInstancePropertyBindings* Bindings)
+	{
+		TOptional<FVector> Scale = GetScale(InObject, Bindings);
+		return Scale.IsSet() ? Scale->Y : TOptional<float>();
+	}
+	static TOptional<float> ExtractScaleZ(UObject& InObject, FTrackInstancePropertyBindings* Bindings)
+	{
+		TOptional<FVector> Scale = GetScale(InObject, Bindings);
+		return Scale.IsSet() ? Scale->Z : TOptional<float>();
+	}
+
+	FMovieSceneChannelMetaData      MetaData[10];
+	TMovieSceneExternalValue<float> ExternalValues[10];
+};
+
+#endif // WITH_EDITOR
+
 
 
 /* FMovieScene3DLocationKeyStruct interface
@@ -11,14 +239,7 @@
 
 void FMovieScene3DLocationKeyStruct::PropagateChanges(const FPropertyChangedEvent& ChangeEvent)
 {
-	for (int32 Index = 0; Index <= 2; ++Index)
-	{
-		if(LocationKeys[Index] != nullptr)
-		{
-			LocationKeys[Index]->Value = Location[Index];
-			LocationKeys[Index]->Time = Time;
-		}
-	}
+	KeyStructInterop.Apply(Time);
 }
 
 
@@ -27,21 +248,7 @@ void FMovieScene3DLocationKeyStruct::PropagateChanges(const FPropertyChangedEven
 
 void FMovieScene3DRotationKeyStruct::PropagateChanges(const FPropertyChangedEvent& ChangeEvent)
 {
-	if(RotationKeys[0] != nullptr)
-	{
-		RotationKeys[0]->Value = Rotation.Roll;
-		RotationKeys[0]->Time = Time;
-	}
-	if(RotationKeys[1] != nullptr)
-	{	
-		RotationKeys[1]->Value = Rotation.Pitch;
-		RotationKeys[1]->Time = Time;
-	}
-	if(RotationKeys[2] != nullptr)
-	{
-		RotationKeys[2]->Value = Rotation.Yaw;
-		RotationKeys[2]->Time = Time;
-	}
+	KeyStructInterop.Apply(Time);
 }
 
 
@@ -50,14 +257,7 @@ void FMovieScene3DRotationKeyStruct::PropagateChanges(const FPropertyChangedEven
 
 void FMovieScene3DScaleKeyStruct::PropagateChanges(const FPropertyChangedEvent& ChangeEvent)
 {
-	for (int32 Index = 0; Index <= 2; ++Index)
-	{
-		if(ScaleKeys[Index] != nullptr)
-		{
-			ScaleKeys[Index]->Value = Scale[Index];
-			ScaleKeys[Index]->Time = Time;
-		}
-	}
+	KeyStructInterop.Apply(Time);
 }
 
 
@@ -66,43 +266,16 @@ void FMovieScene3DScaleKeyStruct::PropagateChanges(const FPropertyChangedEvent& 
 
 void FMovieScene3DTransformKeyStruct::PropagateChanges(const FPropertyChangedEvent& ChangeEvent)
 {
-	for (int32 Index = 0; Index <= 2; ++Index)
-	{
-		if(LocationKeys[Index] != nullptr)
-		{
-			LocationKeys[Index]->Value = Location[Index];
-			LocationKeys[Index]->Time = Time;
-		}
-		if(ScaleKeys[Index] != nullptr)
-		{
-			ScaleKeys[Index]->Value = Scale[Index];
-			ScaleKeys[Index]->Time = Time;
-		}
-	}
-
-	if(RotationKeys[0] != nullptr)
-	{
-		RotationKeys[0]->Value = Rotation.Roll;
-		RotationKeys[0]->Time = Time;
-	}
-	if(RotationKeys[1] != nullptr)
-	{	
-		RotationKeys[1]->Value = Rotation.Pitch;
-		RotationKeys[1]->Time = Time;
-	}
-	if(RotationKeys[2] != nullptr)
-	{
-		RotationKeys[2]->Value = Rotation.Yaw;
-		RotationKeys[2]->Time = Time;
-	}
+	KeyStructInterop.Apply(Time);
 }
 
 
-/* FMovieScene3DTransformKeyStruct interface
+/* UMovieScene3DTransformSection interface
  *****************************************************************************/
 
 UMovieScene3DTransformSection::UMovieScene3DTransformSection(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
+	, bUseQuaternionInterpolation(false)
 #if WITH_EDITORONLY_DATA
 	, Show3DTrajectory(EShow3DTrajectory::EST_OnlyWhenSelected)
 #endif
@@ -114,532 +287,255 @@ UMovieScene3DTransformSection::UMovieScene3DTransformSection(const FObjectInitia
 			EMovieSceneCompletionMode::RestoreState : 
 			EMovieSceneCompletionMode::ProjectDefault);
 
+	ProxyChannels = EMovieSceneTransformChannel::None;
 	TransformMask = EMovieSceneTransformChannel::AllTransform;
 	BlendType = EMovieSceneBlendType::Absolute;
+	bSupportsInfiniteRange = true;
+
+	UpdateChannelProxy();
 }
 
-
-/* UMovieScene3DTransformSection interface
- *****************************************************************************/
-void UMovieScene3DTransformSection::EvalTranslation(float Time, FVector& InOutTranslation) const
+void UMovieScene3DTransformSection::Serialize(FArchive& Ar)
 {
-	InOutTranslation.X = Translation[0].Eval(Time, InOutTranslation.X);
-	InOutTranslation.Y = Translation[1].Eval(Time, InOutTranslation.Y);
-	InOutTranslation.Z = Translation[2].Eval(Time, InOutTranslation.Z);
-}
+	Super::Serialize(Ar);
 
-
-void UMovieScene3DTransformSection::EvalRotation(float Time, FRotator& InOutRotation) const
-{
-	InOutRotation.Roll = Rotation[0].Eval(Time, InOutRotation.Roll);
-	InOutRotation.Pitch = Rotation[1].Eval(Time, InOutRotation.Pitch);
-	InOutRotation.Yaw = Rotation[2].Eval(Time, InOutRotation.Yaw);
-}
-
-
-void UMovieScene3DTransformSection::EvalScale(float Time, FVector& InOutScale) const
-{
-	InOutScale.X = Scale[0].Eval(Time, InOutScale.X);
-	InOutScale.Y = Scale[1].Eval(Time, InOutScale.Y);
-	InOutScale.Z = Scale[2].Eval(Time, InOutScale.Z);
-}
-
-
-/**
- * Chooses an appropriate curve from an axis and a set of curves
- */
-template<typename T>
-static T* ChooseCurve(EAxis::Type Axis, T* Curves)
-{
-	switch(Axis)
+	if (Ar.IsLoading())
 	{
-	case EAxis::X:
-		return &Curves[0];
-
-	case EAxis::Y:
-		return &Curves[1];
-
-	case EAxis::Z:
-		return &Curves[2];
-
-	default:
-		check(false);
-		return nullptr;
+		UpdateChannelProxy();
 	}
 }
 
-
-FRichCurve& UMovieScene3DTransformSection::GetTranslationCurve(EAxis::Type Axis) 
+FMovieSceneTransformMask UMovieScene3DTransformSection::GetMask() const
 {
-	return *ChooseCurve(Axis, Translation);
+	return TransformMask;
 }
 
-
-const FRichCurve& UMovieScene3DTransformSection::GetTranslationCurve(EAxis::Type Axis) const
+void UMovieScene3DTransformSection::SetMask(FMovieSceneTransformMask NewMask)
 {
-	return *ChooseCurve(Axis, Translation);
+	TransformMask = NewMask;
+	UpdateChannelProxy();
 }
 
-
-FRichCurve& UMovieScene3DTransformSection::GetRotationCurve(EAxis::Type Axis)
+FMovieSceneTransformMask UMovieScene3DTransformSection::GetMaskByName(const FName& InName) const
 {
-	return *ChooseCurve(Axis, Rotation);
-}
-
-
-const FRichCurve& UMovieScene3DTransformSection::GetRotationCurve(EAxis::Type Axis) const
-{
-	return *ChooseCurve(Axis, Rotation);
-}
-
-
-FRichCurve& UMovieScene3DTransformSection::GetScaleCurve(EAxis::Type Axis)
-{
-	return *ChooseCurve(Axis, Scale);
-}
-
-
-const FRichCurve& UMovieScene3DTransformSection::GetScaleCurve(EAxis::Type Axis) const
-{
-	return *ChooseCurve(Axis, Scale);
-}
-
-FRichCurve& UMovieScene3DTransformSection::GetManualWeightCurve()
-{
-	return ManualWeight;
-}
-
-const FRichCurve& UMovieScene3DTransformSection::GetManualWeightCurve() const
-{
-	return ManualWeight;
-}
-
-
-/* UMovieSceneSection interface
- *****************************************************************************/
-
-void UMovieScene3DTransformSection::MoveSection(float DeltaTime, TSet<FKeyHandle>& KeyHandles)
-{
-	Super::MoveSection(DeltaTime, KeyHandles);
-
-	// Move all the curves in this section
-	for (int32 Axis = 0; Axis < 3; ++Axis)
+	if (InName == TEXT("Location"))
 	{
-		Translation[Axis].ShiftCurve(DeltaTime, KeyHandles);
-		Rotation[Axis].ShiftCurve(DeltaTime, KeyHandles);
-		Scale[Axis].ShiftCurve(DeltaTime, KeyHandles);
+		return EMovieSceneTransformChannel::Translation;
 	}
-	ManualWeight.ShiftCurve(DeltaTime, KeyHandles);
-}
-
-
-void UMovieScene3DTransformSection::DilateSection(float DilationFactor, float Origin, TSet<FKeyHandle>& KeyHandles)
-{
-	Super::DilateSection(DilationFactor, Origin, KeyHandles);
-
-	for (int32 Axis = 0; Axis < 3; ++Axis)
+	else if (InName == TEXT("Location.X"))
 	{
-		Translation[Axis].ScaleCurve(Origin, DilationFactor, KeyHandles);
-		Rotation[Axis].ScaleCurve(Origin, DilationFactor, KeyHandles);
-		Scale[Axis].ScaleCurve(Origin, DilationFactor, KeyHandles);
+		return EMovieSceneTransformChannel::TranslationX;
 	}
-	ManualWeight.ScaleCurve(Origin, DilationFactor, KeyHandles);
+	else if (InName == TEXT("Location.Y"))
+	{
+		return EMovieSceneTransformChannel::TranslationY;
+	}
+	else if (InName == TEXT("Location.Z"))
+	{
+		return EMovieSceneTransformChannel::TranslationZ;
+	}
+	else if (InName == TEXT("Rotation"))
+	{
+		return EMovieSceneTransformChannel::Rotation;
+	}
+	else if (InName == TEXT("Rotation.X"))
+	{
+		return EMovieSceneTransformChannel::RotationX;
+	}
+	else if (InName == TEXT("Rotation.Y"))
+	{
+		return EMovieSceneTransformChannel::RotationY;
+	}
+	else if (InName == TEXT("Rotation.Z"))
+	{
+		return EMovieSceneTransformChannel::RotationZ;
+	}
+	else if (InName == TEXT("Scale"))
+	{
+		return EMovieSceneTransformChannel::Scale;
+	}
+	else if (InName == TEXT("Scale.X"))
+	{
+		return EMovieSceneTransformChannel::ScaleX;
+	}
+	else if (InName == TEXT("Scale.Y"))
+	{
+		return EMovieSceneTransformChannel::ScaleY;
+	}
+	else if (InName == TEXT("Scale.Z"))
+	{
+		return EMovieSceneTransformChannel::ScaleZ;
+	}
+
+	return EMovieSceneTransformChannel::All;
 }
 
-
-void UMovieScene3DTransformSection::GetKeyHandles(TSet<FKeyHandle>& OutKeyHandles, TRange<float> TimeRange) const
+void UMovieScene3DTransformSection::UpdateChannelProxy()
 {
-	if (!TimeRange.Overlaps(GetRange()))
+	if (ProxyChannels == TransformMask.GetChannels())
 	{
 		return;
 	}
 
-	for (int32 Axis = 0; Axis < 3; ++Axis)
-	{
-		for (auto It(Translation[Axis].GetKeyHandleIterator()); It; ++It)
-		{
-			float Time = Translation[Axis].GetKeyTime(It.Key());
-			if (TimeRange.Contains(Time))
-			{
-				OutKeyHandles.Add(It.Key());
-			}
-		}
+	ProxyChannels = TransformMask.GetChannels();
 
-		for (auto It(Rotation[Axis].GetKeyHandleIterator()); It; ++It)
-		{
-			float Time = Rotation[Axis].GetKeyTime(It.Key());
-			if (TimeRange.Contains(Time))
-			{
-				OutKeyHandles.Add(It.Key());
-			}
-		}
+	FMovieSceneChannelProxyData Channels;
 
-		for (auto It(Scale[Axis].GetKeyHandleIterator()); It; ++It)
-		{
-			float Time = Scale[Axis].GetKeyTime(It.Key());
-			if (TimeRange.Contains(Time))
-			{
-				OutKeyHandles.Add(It.Key());
-			}
-		}
-	}
-	for (auto It(ManualWeight.GetKeyHandleIterator()); It; ++It)
-	{
-		float Time = ManualWeight.GetKeyTime(It.Key());
-		if (TimeRange.Contains(Time))
-		{
-			OutKeyHandles.Add(It.Key());
-		}
-	}
+#if WITH_EDITOR
+
+	F3DTransformChannelEditorData EditorData(TransformMask.GetChannels());
+
+	Channels.Add(Translation[0], EditorData.MetaData[0], EditorData.ExternalValues[0]);
+	Channels.Add(Translation[1], EditorData.MetaData[1], EditorData.ExternalValues[1]);
+	Channels.Add(Translation[2], EditorData.MetaData[2], EditorData.ExternalValues[2]);
+	Channels.Add(Rotation[0],    EditorData.MetaData[3], EditorData.ExternalValues[3]);
+	Channels.Add(Rotation[1],    EditorData.MetaData[4], EditorData.ExternalValues[4]);
+	Channels.Add(Rotation[2],    EditorData.MetaData[5], EditorData.ExternalValues[5]);
+	Channels.Add(Scale[0],       EditorData.MetaData[6], EditorData.ExternalValues[6]);
+	Channels.Add(Scale[1],       EditorData.MetaData[7], EditorData.ExternalValues[7]);
+	Channels.Add(Scale[2],       EditorData.MetaData[8], EditorData.ExternalValues[8]);
+	Channels.Add(ManualWeight,   EditorData.MetaData[9], EditorData.ExternalValues[9]);
+
+#else
+
+	Channels.Add(Translation[0]);
+	Channels.Add(Translation[1]);
+	Channels.Add(Translation[2]);
+	Channels.Add(Rotation[0]);
+	Channels.Add(Rotation[1]);
+	Channels.Add(Rotation[2]);
+	Channels.Add(Scale[0]);
+	Channels.Add(Scale[1]);
+	Channels.Add(Scale[2]);
+	Channels.Add(ManualWeight);
+
+#endif
+
+	ChannelProxy = MakeShared<FMovieSceneChannelProxy>(MoveTemp(Channels));
 }
-
-
-TSharedPtr<FStructOnScope> UMovieScene3DTransformSection::GetKeyStruct(const TArray<FKeyHandle>& KeyHandles)
-{
-	FRichCurveKey* TranslationKeys[3];
-	FRichCurveKey* RotationKeys[3];
-	FRichCurveKey* ScaleKeys[3];
-
-	bool bHasTranslationKeys = false;
-	bool bHasRotationKeys = false;
-	bool bHasScaleKeys = false;
-
-	for (int32 Index = 0; Index <= 2; ++Index)
-	{
-		TranslationKeys[Index] = Translation[Index].GetFirstMatchingKey(KeyHandles);
-		if(TranslationKeys[Index] != nullptr)
-		{
-			bHasTranslationKeys = true;
-		}
-		RotationKeys[Index] = Rotation[Index].GetFirstMatchingKey(KeyHandles);
-		if(RotationKeys[Index] != nullptr)
-		{
-			bHasRotationKeys = true;
-		}
-		ScaleKeys[Index] = Scale[Index].GetFirstMatchingKey(KeyHandles);
-		if(ScaleKeys[Index] != nullptr)
-		{
-			bHasScaleKeys = true;
-		}
-	}
-
-	int32 KeyTypeCount = 0;
-	if(bHasTranslationKeys)
-	{
-		KeyTypeCount++;
-	}
-	if(bHasRotationKeys)
-	{
-		KeyTypeCount++;
-	}
-	if(bHasScaleKeys)
-	{
-		KeyTypeCount++;
-	}
-
-	// do we have multiple keys on multiple parts of the transform?
-	if (KeyTypeCount > 1)
-	{
-		TSharedRef<FStructOnScope> KeyStruct = MakeShareable(new FStructOnScope(FMovieScene3DTransformKeyStruct::StaticStruct()));
-		auto Struct = (FMovieScene3DTransformKeyStruct*)KeyStruct->GetStructMemory();
-		{
-			for (int32 Index = 0; Index <= 2; ++Index)
-			{
-				if(TranslationKeys[Index] != nullptr)
-				{
-					Struct->LocationKeys[Index] = TranslationKeys[Index];
-					Struct->Location[Index] = TranslationKeys[Index]->Value;
-					Struct->Time = TranslationKeys[Index]->Time;
-				}
-
-				if(RotationKeys[Index] != nullptr)
-				{
-					Struct->RotationKeys[Index] = RotationKeys[Index];
-					Struct->Time = RotationKeys[Index]->Time;
-				}
-				
-				if(ScaleKeys[Index] != nullptr)
-				{
-					Struct->ScaleKeys[Index] = ScaleKeys[Index];
-					Struct->Scale[Index] = ScaleKeys[Index]->Value;
-					Struct->Time = ScaleKeys[Index]->Time;
-				}
-			}
-
-			if(RotationKeys[0] != nullptr)
-			{
-				Struct->Rotation.Roll = RotationKeys[0]->Value;
-			}
-			if(RotationKeys[1] != nullptr)
-			{
-				Struct->Rotation.Pitch = RotationKeys[1]->Value;
-			}
-			if(RotationKeys[2] != nullptr)
-			{
-				Struct->Rotation.Yaw = RotationKeys[2]->Value;
-			}
-		}
-
-		return KeyStruct;
-	}
-	
-	if (bHasTranslationKeys)
-	{
-		TSharedRef<FStructOnScope> KeyStruct = MakeShareable(new FStructOnScope(FMovieScene3DLocationKeyStruct::StaticStruct()));
-		auto Struct = (FMovieScene3DLocationKeyStruct*)KeyStruct->GetStructMemory();
-		{
-			for (int32 Index = 0; Index <= 2; ++Index)
-			{
-				if(TranslationKeys[Index] != nullptr)
-				{
-					Struct->LocationKeys[Index] = TranslationKeys[Index];
-					Struct->Location[Index] = TranslationKeys[Index]->Value;
-					Struct->Time = TranslationKeys[Index]->Time;
-				}
-			}
-		}
-
-		return KeyStruct;
-	}
-	
-	if (bHasRotationKeys)
-	{
-		TSharedRef<FStructOnScope> KeyStruct = MakeShareable(new FStructOnScope(FMovieScene3DRotationKeyStruct::StaticStruct()));
-		auto Struct = (FMovieScene3DRotationKeyStruct*)KeyStruct->GetStructMemory();
-		{
-			for (int32 Index = 0; Index <= 2; ++Index)
-			{
-				if(RotationKeys[Index] != nullptr)
-				{
-					Struct->RotationKeys[Index] = RotationKeys[Index];
-					Struct->Time = RotationKeys[Index]->Time;
-				}
-			}
-
-			if (Struct->RotationKeys[0] != nullptr)
-			{
-				Struct->Rotation.Roll = Struct->RotationKeys[0]->Value;
-			}
-
-			if (Struct->RotationKeys[1] != nullptr)
-			{
-				Struct->Rotation.Pitch = Struct->RotationKeys[1]->Value;
-			}
-			
-			if (Struct->RotationKeys[2] != nullptr)
-			{
-				Struct->Rotation.Yaw = Struct->RotationKeys[2]->Value;
-			}
-		}
-
-		return KeyStruct;
-	}
-	
-	if (bHasScaleKeys)
-	{
-		TSharedRef<FStructOnScope> KeyStruct = MakeShareable(new FStructOnScope(FMovieScene3DScaleKeyStruct::StaticStruct()));
-		auto Struct = (FMovieScene3DScaleKeyStruct*)KeyStruct->GetStructMemory();
-		{
-			for (int32 Index = 0; Index <= 2; ++Index)
-			{
-				if(ScaleKeys[Index] != nullptr)
-				{
-					Struct->ScaleKeys[Index] = ScaleKeys[Index];
-					Struct->Scale[Index] = ScaleKeys[Index]->Value;
-					Struct->Time = ScaleKeys[Index]->Time;
-				}
-			}
-		}
-
-		return KeyStruct;
-	}
-
-	return nullptr;
-}
-
-
-TOptional<float> UMovieScene3DTransformSection::GetKeyTime( FKeyHandle KeyHandle ) const
-{
-	// Translation
-	if ( Translation[0].IsKeyHandleValid( KeyHandle ) )
-	{
-		return TOptional<float>( Translation[0].GetKeyTime( KeyHandle ) );
-	}
-	if ( Translation[1].IsKeyHandleValid( KeyHandle ) )
-	{
-		return TOptional<float>( Translation[1].GetKeyTime( KeyHandle ) );
-	}
-	if ( Translation[2].IsKeyHandleValid( KeyHandle ) )
-	{
-		return TOptional<float>( Translation[2].GetKeyTime( KeyHandle ) );
-	}
-	// Rotation
-	if ( Rotation[0].IsKeyHandleValid( KeyHandle ) )
-	{
-		return TOptional<float>( Rotation[0].GetKeyTime( KeyHandle ) );
-	}
-	if ( Rotation[1].IsKeyHandleValid( KeyHandle ) )
-	{
-		return TOptional<float>( Rotation[1].GetKeyTime( KeyHandle ) );
-	}
-	if ( Rotation[2].IsKeyHandleValid( KeyHandle ) )
-	{
-		return TOptional<float>( Rotation[2].GetKeyTime( KeyHandle ) );
-	}
-	// Scale
-	if ( Scale[0].IsKeyHandleValid( KeyHandle ) )
-	{
-		return TOptional<float>( Scale[0].GetKeyTime( KeyHandle ) );
-	}
-	if ( Scale[1].IsKeyHandleValid( KeyHandle ) )
-	{
-		return TOptional<float>( Scale[1].GetKeyTime( KeyHandle ) );
-	}
-	if ( Scale[2].IsKeyHandleValid( KeyHandle ) )
-	{
-		return TOptional<float>( Scale[2].GetKeyTime( KeyHandle ) );
-	}
-	if ( ManualWeight.IsKeyHandleValid( KeyHandle ) )
-	{
-		return TOptional<float>( ManualWeight.GetKeyTime( KeyHandle ) );
-	}
-	return TOptional<float>();
-}
-
-
-void UMovieScene3DTransformSection::SetKeyTime( FKeyHandle KeyHandle, float Time )
-{
-	// Translation
-	if ( Translation[0].IsKeyHandleValid( KeyHandle ) )
-	{
-		Translation[0].SetKeyTime( KeyHandle, Time );
-	}
-	else if ( Translation[1].IsKeyHandleValid( KeyHandle ) )
-	{
-		Translation[1].SetKeyTime( KeyHandle, Time );
-	}
-	else if ( Translation[2].IsKeyHandleValid( KeyHandle ) )
-	{
-		Translation[2].SetKeyTime( KeyHandle, Time );
-	}
-	// Rotation
-	else if ( Rotation[0].IsKeyHandleValid( KeyHandle ) )
-	{
-		Rotation[0].SetKeyTime( KeyHandle, Time );
-	}
-	else if ( Rotation[1].IsKeyHandleValid( KeyHandle ) )
-	{
-		Rotation[1].SetKeyTime( KeyHandle, Time );
-	}
-	else if ( Rotation[2].IsKeyHandleValid( KeyHandle ) )
-	{
-		Rotation[2].SetKeyTime( KeyHandle, Time );
-	}
-	// Scale
-	else if ( Scale[0].IsKeyHandleValid( KeyHandle ) )
-	{
-		Scale[0].SetKeyTime( KeyHandle, Time );
-	}
-	else if ( Scale[1].IsKeyHandleValid( KeyHandle ) )
-	{
-		Scale[1].SetKeyTime( KeyHandle, Time );
-	}
-	else if ( Scale[2].IsKeyHandleValid( KeyHandle ) )
-	{
-		Scale[2].SetKeyTime( KeyHandle, Time );
-	}
-	else if ( ManualWeight.IsKeyHandleValid( KeyHandle ) )
-	{
-		ManualWeight.SetKeyTime( KeyHandle, Time );
-	}
-}
-
 
 /* UMovieSceneSection interface
  *****************************************************************************/
 
-// This function uses a template to avoid duplicating this for const and non-const versions
-template<typename CurveType>
-CurveType* GetCurveForChannelAndAxis(EKey3DTransformChannel::Type Channel, EAxis::Type Axis,
-	CurveType* TranslationCurves, CurveType* RotationCurves, CurveType* ScaleCurves)
+
+TSharedPtr<FStructOnScope> UMovieScene3DTransformSection::GetKeyStruct(TArrayView<const FKeyHandle> KeyHandles)
 {
-	CurveType* ChannelCurves = nullptr;
-	switch (Channel)
+	FVector  StartingLocation;
+	FRotator StartingRotation;
+	FVector  StartingScale;
+
+	TArrayView<FMovieSceneFloatChannel*> FloatChannels = ChannelProxy->GetChannels<FMovieSceneFloatChannel>();
+
+	TOptional<TTuple<FKeyHandle, FFrameNumber>> LocationKeys[3] = {
+		FMovieSceneChannelValueHelper::FindFirstKey(FloatChannels[0], KeyHandles),
+		FMovieSceneChannelValueHelper::FindFirstKey(FloatChannels[1], KeyHandles),
+		FMovieSceneChannelValueHelper::FindFirstKey(FloatChannels[2], KeyHandles)
+	};
+
+	TOptional<TTuple<FKeyHandle, FFrameNumber>> RotationKeys[3] = {
+		FMovieSceneChannelValueHelper::FindFirstKey(FloatChannels[3], KeyHandles),
+		FMovieSceneChannelValueHelper::FindFirstKey(FloatChannels[4], KeyHandles),
+		FMovieSceneChannelValueHelper::FindFirstKey(FloatChannels[5], KeyHandles)
+	};
+
+	TOptional<TTuple<FKeyHandle, FFrameNumber>> ScaleKeys[3] = {
+		FMovieSceneChannelValueHelper::FindFirstKey(FloatChannels[6], KeyHandles),
+		FMovieSceneChannelValueHelper::FindFirstKey(FloatChannels[7], KeyHandles),
+		FMovieSceneChannelValueHelper::FindFirstKey(FloatChannels[8], KeyHandles)
+	};
+
+	const int32 AnyLocationKeys = Algo::AnyOf(LocationKeys);
+	const int32 AnyRotationKeys = Algo::AnyOf(RotationKeys);
+	const int32 AnyScaleKeys =    Algo::AnyOf(ScaleKeys);
+
+	// do we have multiple keys on multiple parts of the transform?
+	if (AnyLocationKeys + AnyRotationKeys + AnyScaleKeys > 1)
 	{
-	case EKey3DTransformChannel::Translation:
-		ChannelCurves = TranslationCurves;
-		break;
-	case EKey3DTransformChannel::Rotation:
-		ChannelCurves = RotationCurves;
-		break;
-	case EKey3DTransformChannel::Scale:
-		ChannelCurves = ScaleCurves;
-		break;
+		TSharedRef<FStructOnScope> KeyStruct = MakeShareable(new FStructOnScope(FMovieScene3DTransformKeyStruct::StaticStruct()));
+		auto Struct = (FMovieScene3DTransformKeyStruct*)KeyStruct->GetStructMemory();
+
+		Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle<FMovieSceneFloatChannel>(0), &Struct->Location.X,     LocationKeys[0]));
+		Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle<FMovieSceneFloatChannel>(1), &Struct->Location.Y,     LocationKeys[1]));
+		Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle<FMovieSceneFloatChannel>(2), &Struct->Location.Z,     LocationKeys[2]));
+
+		Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle<FMovieSceneFloatChannel>(3), &Struct->Rotation.Roll,  RotationKeys[0]));
+		Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle<FMovieSceneFloatChannel>(4), &Struct->Rotation.Pitch, RotationKeys[1]));
+		Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle<FMovieSceneFloatChannel>(5), &Struct->Rotation.Yaw,   RotationKeys[2]));
+
+		Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle<FMovieSceneFloatChannel>(6), &Struct->Scale.X,        ScaleKeys[0]));
+		Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle<FMovieSceneFloatChannel>(7), &Struct->Scale.Y,        ScaleKeys[1]));
+		Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle<FMovieSceneFloatChannel>(8), &Struct->Scale.Z,        ScaleKeys[2]));
+
+		Struct->KeyStructInterop.SetStartingValues();
+		Struct->Time = Struct->KeyStructInterop.GetUnifiedKeyTime().Get(0);
+		return KeyStruct;
 	}
 
-	if (ChannelCurves != nullptr)
+	if (AnyLocationKeys > 1)
 	{
-		switch (Axis)
-		{
-		case EAxis::X:
-			return &ChannelCurves[0];
-		case EAxis::Y:
-			return &ChannelCurves[1];
-		case EAxis::Z:
-			return &ChannelCurves[2];
-		}
+		TSharedRef<FStructOnScope> KeyStruct = MakeShareable(new FStructOnScope(FMovieScene3DLocationKeyStruct::StaticStruct()));
+		auto Struct = (FMovieScene3DLocationKeyStruct*)KeyStruct->GetStructMemory();
+
+		Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle<FMovieSceneFloatChannel>(0), &Struct->Location.X,     LocationKeys[0]));
+		Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle<FMovieSceneFloatChannel>(1), &Struct->Location.Y,     LocationKeys[1]));
+		Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle<FMovieSceneFloatChannel>(2), &Struct->Location.Z,     LocationKeys[2]));
+
+		Struct->KeyStructInterop.SetStartingValues();
+		Struct->Time = Struct->KeyStructInterop.GetUnifiedKeyTime().Get(0);
+		return KeyStruct;
 	}
 
-	checkf(false, TEXT("Invalid channel and axis combination."));
+	if (AnyRotationKeys)
+	{
+		TSharedRef<FStructOnScope> KeyStruct = MakeShareable(new FStructOnScope(FMovieScene3DRotationKeyStruct::StaticStruct()));
+		auto Struct = (FMovieScene3DRotationKeyStruct*)KeyStruct->GetStructMemory();
+
+		Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle<FMovieSceneFloatChannel>(3), &Struct->Rotation.Roll,  RotationKeys[0]));
+		Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle<FMovieSceneFloatChannel>(4), &Struct->Rotation.Pitch, RotationKeys[1]));
+		Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle<FMovieSceneFloatChannel>(5), &Struct->Rotation.Yaw,   RotationKeys[2]));
+
+		Struct->KeyStructInterop.SetStartingValues();
+		Struct->Time = Struct->KeyStructInterop.GetUnifiedKeyTime().Get(0);
+		return KeyStruct;
+	}
+
+	if (AnyScaleKeys)
+	{
+		TSharedRef<FStructOnScope> KeyStruct = MakeShareable(new FStructOnScope(FMovieScene3DScaleKeyStruct::StaticStruct()));
+		auto Struct = (FMovieScene3DScaleKeyStruct*)KeyStruct->GetStructMemory();
+
+		Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle<FMovieSceneFloatChannel>(6), &Struct->Scale.X,        ScaleKeys[0]));
+		Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle<FMovieSceneFloatChannel>(7), &Struct->Scale.Y,        ScaleKeys[1]));
+		Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle<FMovieSceneFloatChannel>(8), &Struct->Scale.Z,        ScaleKeys[2]));
+
+		Struct->KeyStructInterop.SetStartingValues();
+		Struct->Time = Struct->KeyStructInterop.GetUnifiedKeyTime().Get(0);
+		return KeyStruct;
+	}
+
 	return nullptr;
-}
-
-
-bool UMovieScene3DTransformSection::NewKeyIsNewData(float Time, const FTransformKey& TransformKey) const
-{
-	const FRichCurve* KeyCurve = GetCurveForChannelAndAxis(TransformKey.Channel, TransformKey.Axis, Translation, Rotation, Scale);
-	return FMath::IsNearlyEqual(KeyCurve->Eval(Time), TransformKey.Value) == false;
-}
-
-
-bool UMovieScene3DTransformSection::HasKeys(const FTransformKey& TransformKey) const
-{
-	const FRichCurve* KeyCurve = GetCurveForChannelAndAxis(TransformKey.Channel, TransformKey.Axis, Translation, Rotation, Scale);
-	return KeyCurve->GetNumKeys() != 0;
-}
-
-
-void UMovieScene3DTransformSection::AddKey(float Time, const FTransformKey& TransformKey, EMovieSceneKeyInterpolation KeyInterpolation)
-{
-	FRichCurve* KeyCurve = GetCurveForChannelAndAxis(TransformKey.Channel, TransformKey.Axis, Translation, Rotation, Scale);
-	
-	bool bUnwindRotation = TransformKey.Channel == EKey3DTransformChannel::Rotation;
-	AddKeyToCurve(*KeyCurve, Time, TransformKey.Value, KeyInterpolation, bUnwindRotation);
-}
-
-
-void UMovieScene3DTransformSection::SetDefault(const FTransformKey& TransformKey)
-{
-	FRichCurve* KeyCurve = GetCurveForChannelAndAxis(TransformKey.Channel, TransformKey.Axis, Translation, Rotation, Scale);
-	SetCurveDefault(*KeyCurve, TransformKey.Value);
-}
-
-
-void UMovieScene3DTransformSection::ClearDefaults()
-{
-	Translation[0].ClearDefaultValue();
-	Translation[1].ClearDefaultValue();
-	Translation[2].ClearDefaultValue();
-	Rotation[0].ClearDefaultValue();
-	Rotation[1].ClearDefaultValue();
-	Rotation[2].ClearDefaultValue();
-	Scale[0].ClearDefaultValue();
-	Scale[1].ClearDefaultValue();
-	Scale[2].ClearDefaultValue();
-	ManualWeight.ClearDefaultValue();
 }
 
 FMovieSceneEvalTemplatePtr UMovieScene3DTransformSection::GenerateTemplate() const
 {
 	return FMovieSceneComponentTransformSectionTemplate(*this);
+}
+
+
+bool UMovieScene3DTransformSection::GetUseQuaternionInterpolation() const
+{
+	return bUseQuaternionInterpolation;
+}
+
+bool UMovieScene3DTransformSection::ShowCurveForChannel(const void *ChannelPtr) const
+{
+	if (GetUseQuaternionInterpolation())
+	{
+		TArrayView<FMovieSceneFloatChannel*> FloatChannels = ChannelProxy->GetChannels<FMovieSceneFloatChannel>();
+		if (static_cast<void *>(FloatChannels[3]) == ChannelPtr || static_cast<void *>(FloatChannels[4]) == ChannelPtr || static_cast<void *>(FloatChannels[5]) == ChannelPtr)
+		{
+			return false;
+		}
+	}
+	return true;
 }

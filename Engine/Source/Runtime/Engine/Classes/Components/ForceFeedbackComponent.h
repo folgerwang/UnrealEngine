@@ -1,11 +1,11 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
 #include "GameFramework/ForceFeedbackAttenuation.h"
 #include "Components/SceneComponent.h"
 #include "Tickable.h"
-#include "GCObject.h"
+#include "UObject/GCObject.h"
 #include "ForceFeedbackComponent.generated.h"
 
 struct FDisplayDebugManager;

@@ -4,13 +4,13 @@
 
 #include "CoreMinimal.h"
 #include "UObject/CoreOnline.h"
-#include "VoiceConfig.h"
+#include "Net/VoiceConfig.h"
 #ifndef MAX_VOICE_DATA_SIZE
 	#define MAX_VOICE_DATA_SIZE 8*1024
 #endif
 
 #ifndef MAX_SPLITSCREEN_TALKERS
-	#if PLATFORM_WINDOWS || PLATFORM_LINUX || PLATFORM_MAC
+	#if PLATFORM_WINDOWS || PLATFORM_UNIX || PLATFORM_MAC
 		#define MAX_SPLITSCREEN_TALKERS 1
 	#else
 		#define MAX_SPLITSCREEN_TALKERS 4

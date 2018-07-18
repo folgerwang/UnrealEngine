@@ -3,7 +3,7 @@
 
 #include "ItemPropertyNode.h"
 #include "Misc/ConfigCacheIni.h"
-#include "EditorStyleSettings.h"
+#include "Classes/EditorStyleSettings.h"
 #include "ObjectPropertyNode.h"
 #include "PropertyEditorHelpers.h"
 

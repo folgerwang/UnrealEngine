@@ -1,7 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "ComposurePostMoveSettingsPropertyTrackEditor.h"
-#include "ComposurePostMoveSettingsPropertySection.h"
 #include "MovieScene/MovieSceneComposurePostMoveSettingsSection.h"
 #include "ComposurePostMoves.h"
 #include "SComposurePostMoveSettingsImportDialog.h"
@@ -10,20 +9,13 @@
 #include "Widgets/Notifications/SNotificationList.h"
 #include "Framework/Notifications/NotificationManager.h"
 #include "ComposureEditorModule.h"
+#include "Misc/QualifiedFrameTime.h"
 
 #define LOCTEXT_NAMESPACE "ComposurePostMoveSettingsPropertyTrackEditor"
 
 TSharedRef<ISequencerTrackEditor> FComposurePostMoveSettingsPropertyTrackEditor::CreateTrackEditor(TSharedRef<ISequencer> InSequencer)
 {
 	return MakeShareable(new FComposurePostMoveSettingsPropertyTrackEditor(InSequencer));
-}
-
-
-TSharedRef<ISequencerSection> FComposurePostMoveSettingsPropertyTrackEditor::MakeSectionInterface(UMovieSceneSection& SectionObject, UMovieSceneTrack& Track, FGuid ObjectBinding)
-{
-	UMovieScenePropertyTrack* PropertyTrack = Cast<UMovieScenePropertyTrack>(&Track);
-	checkf(PropertyTrack != nullptr, TEXT("Incompatible track in FPostMoveSettingsPropertyTrackEditor"));
-	return MakeShareable(new FComposurePostMoveSettingsPropertySection(GetSequencer().Get(), ObjectBinding, PropertyTrack->GetPropertyName(), PropertyTrack->GetPropertyPath(), SectionObject, Track.GetDisplayName()));
 }
 
 
@@ -51,14 +43,14 @@ void FComposurePostMoveSettingsPropertyTrackEditor::ShowImportPostMoveSettingsDi
 	UMovieScene* ParentMovieScene = PostMoveSettingsTrack->GetTypedOuter<UMovieScene>();
 	if (ParentMovieScene != nullptr)
 	{
-		float FrameInterval = ParentMovieScene->GetFixedFrameInterval();
-		int32 StartFrame = FMath::RoundToInt(ParentMovieScene->GetPlaybackRange().GetLowerBoundValue() / FrameInterval);
+		TRange<FFrameNumber> PlaybackRange = ParentMovieScene->GetPlaybackRange();
+		const FFrameNumber   StartFrame    = PlaybackRange.GetLowerBound().IsInclusive() ? PlaybackRange.GetLowerBoundValue() : PlaybackRange.GetLowerBoundValue() + 1;
 
 		TSharedPtr<SWindow> TopLevelWindow = FSlateApplication::Get().GetActiveTopLevelWindow();
 		if (TopLevelWindow.IsValid())
 		{
 			TSharedRef<SWindow> Dialog =
-				SNew(SComposurePostMoveSettingsImportDialog, FrameInterval, StartFrame)
+				SNew(SComposurePostMoveSettingsImportDialog, ParentMovieScene->GetDisplayRate(), StartFrame)
 				.OnImportSelected(this, &FComposurePostMoveSettingsPropertyTrackEditor::ImportPostMoveSettings, PostMoveSettingsTrack)
 				.OnImportCanceled(this, &FComposurePostMoveSettingsPropertyTrackEditor::ImportCanceled);
 			FSlateApplication::Get().AddWindowAsNativeChild(Dialog, TopLevelWindow.ToSharedRef());
@@ -87,7 +79,7 @@ void NotifyImportFailed(FString Path, FText Message)
 }
 
 
-void FComposurePostMoveSettingsPropertyTrackEditor::ImportPostMoveSettings(FString ImportFilePath, float FrameInverval, int32 StartFrame, UMovieSceneComposurePostMoveSettingsTrack* PostMoveSettingsTrack)
+void FComposurePostMoveSettingsPropertyTrackEditor::ImportPostMoveSettings(FString ImportFilePath, FFrameRate ImportFrameRate, FFrameNumber StartFrame, UMovieSceneComposurePostMoveSettingsTrack* PostMoveSettingsTrack)
 {
 	TSharedPtr<SWindow> DialogPinned = ImportDialog.Pin();
 	if (DialogPinned.IsValid())
@@ -104,23 +96,26 @@ void FComposurePostMoveSettingsPropertyTrackEditor::ImportPostMoveSettings(FStri
 	}
 
 	UMovieSceneComposurePostMoveSettingsSection* PostMoveSettingsSection = CastChecked<UMovieSceneComposurePostMoveSettingsSection>(PostMoveSettingsTrack->CreateNewSection());
-	PostMoveSettingsSection->SetIsInfinite(true);
+	PostMoveSettingsSection->SetRange(TRange<FFrameNumber>::All());
 
-	FRichCurve& PivotXCurve = PostMoveSettingsSection->GetCurve(EComposurePostMoveSettingsChannel::Pivot, EComposurePostMoveSettingsAxis::X);
-	FRichCurve& PivotYCurve = PostMoveSettingsSection->GetCurve(EComposurePostMoveSettingsChannel::Pivot, EComposurePostMoveSettingsAxis::Y);
+	TArrayView<FMovieSceneFloatChannel*> Channels = PostMoveSettingsSection->GetChannelProxy().GetChannels<FMovieSceneFloatChannel>();
 
-	FRichCurve& TranslationXCurve = PostMoveSettingsSection->GetCurve(EComposurePostMoveSettingsChannel::Translation, EComposurePostMoveSettingsAxis::X);
-	FRichCurve& TranslationYCurve = PostMoveSettingsSection->GetCurve(EComposurePostMoveSettingsChannel::Translation, EComposurePostMoveSettingsAxis::Y);
-
-	FRichCurve& RotationAngleCurve = PostMoveSettingsSection->GetCurve(EComposurePostMoveSettingsChannel::RotationAngle, EComposurePostMoveSettingsAxis::None);
-
-	FRichCurve& ScaleCurve = PostMoveSettingsSection->GetCurve(EComposurePostMoveSettingsChannel::Scale, EComposurePostMoveSettingsAxis::None);
+	FMovieSceneFloatChannel* PivotXCurve        = Channels[0];
+	FMovieSceneFloatChannel* PivotYCurve        = Channels[1];
+	FMovieSceneFloatChannel* TranslationXCurve  = Channels[2];
+	FMovieSceneFloatChannel* TranslationYCurve  = Channels[3];
+	FMovieSceneFloatChannel* RotationAngleCurve = Channels[4];
+	FMovieSceneFloatChannel* ScaleCurve         = Channels[5];
 
 	TArray<FString> ImportFileLines;
 	ImportFileContents.ParseIntoArray(ImportFileLines, TEXT("\n"), true);
-	float StartTime = UMovieScene::CalculateFixedFrameTime(StartFrame * FrameInverval, FrameInverval);
-	float Time = StartTime;
-	float EndTime = StartTime;
+
+	FFrameRate TickResolution = PostMoveSettingsSection->GetTypedOuter<UMovieScene>()->GetTickResolution();
+	
+	FQualifiedFrameTime ImportTime(StartFrame, ImportFrameRate);
+
+	TRange<FFrameNumber> SectionRange(ImportTime.ConvertTo(TickResolution).FloorToFrame());
+
 	int32 LineNumber = 1;
 	for (const FString& ImportFileLine : ImportFileLines)
 	{
@@ -137,31 +132,31 @@ void FComposurePostMoveSettingsPropertyTrackEditor::ImportPostMoveSettings(FStri
 				return;
 			}
 
-			float FixedIntervalTime = UMovieScene::CalculateFixedFrameTime(Time, FrameInverval);
+			const FFrameNumber Time = ImportTime.ConvertTo(TickResolution).FloorToFrame();
 
 			float PivotX = FCString::Atof(*ImportFileLineValues[0]);
 			float PivotY = FCString::Atof(*ImportFileLineValues[1]);
-			PivotXCurve.AddKey(FixedIntervalTime, PivotX);
-			PivotYCurve.AddKey(FixedIntervalTime, PivotY);
+			PivotXCurve->AddCubicKey(Time, PivotX);
+			PivotYCurve->AddCubicKey(Time, PivotY);
 
 			float TranslationX = FCString::Atof(*ImportFileLineValues[2]);
 			float TranslationY = FCString::Atof(*ImportFileLineValues[3]);
-			TranslationXCurve.AddKey(FixedIntervalTime, TranslationX);
-			TranslationYCurve.AddKey(FixedIntervalTime, TranslationY);
+			TranslationXCurve->AddCubicKey(Time, TranslationX);
+			TranslationYCurve->AddCubicKey(Time, TranslationY);
 
 			float Rotation = FCString::Atof(*ImportFileLineValues[4]);
-			RotationAngleCurve.AddKey(FixedIntervalTime, Rotation);
+			RotationAngleCurve->AddCubicKey(Time, Rotation);
 
 			float Scale = FCString::Atof(*ImportFileLineValues[5]);
-			ScaleCurve.AddKey(FixedIntervalTime, Scale);
+			ScaleCurve->AddCubicKey(Time, Scale);
 
-			EndTime = FixedIntervalTime;
-			Time += FrameInverval;
+			SectionRange.SetUpperBound(TRangeBound<FFrameNumber>::Inclusive(Time));
+
+			++ImportTime.Time.FrameNumber;
 		}
 		LineNumber++;
 	}
-	PostMoveSettingsSection->SetStartTime(StartTime);
-	PostMoveSettingsSection->SetEndTime(EndTime);
+	PostMoveSettingsSection->SetRange(SectionRange);
 
 	FScopedTransaction ImportPostMoveSettingsTransaction(NSLOCTEXT("PostMoveSettingsPropertyTrackEditor", "ImportTransaction", "Import post move settings from file"));
 	PostMoveSettingsTrack->Modify();
@@ -181,24 +176,24 @@ void FComposurePostMoveSettingsPropertyTrackEditor::ImportCanceled()
 }
 
 
-void FComposurePostMoveSettingsPropertyTrackEditor::GenerateKeysFromPropertyChanged(const FPropertyChangedParams& PropertyChangedParams, TArray<FComposurePostMoveSettingsKey>& NewGeneratedKeys, TArray<FComposurePostMoveSettingsKey>& DefaultGeneratedKeys)
+void FComposurePostMoveSettingsPropertyTrackEditor::GenerateKeysFromPropertyChanged(const FPropertyChangedParams& PropertyChangedParams, FGeneratedTrackKeys& OutGeneratedKeys)
 {
-	FName ChannelName = PropertyChangedParams.StructPropertyNameToKey;
+	FPropertyPath StructPath = PropertyChangedParams.StructPathToKey;
+	FName ChannelName = StructPath.GetNumProperties() != 0 ? StructPath.GetLeafMostProperty().Property->GetFName() : NAME_None;
+
 	FComposurePostMoveSettings PostMoveSettings = PropertyChangedParams.GetPropertyValue<FComposurePostMoveSettings>();
 
-	TArray<FComposurePostMoveSettingsKey>& PivotKeys = ChannelName == NAME_None || ChannelName == GET_MEMBER_NAME_CHECKED(FComposurePostMoveSettings, Pivot) ? NewGeneratedKeys : DefaultGeneratedKeys;
-	PivotKeys.Add(FComposurePostMoveSettingsKey(EComposurePostMoveSettingsChannel::Pivot, EComposurePostMoveSettingsAxis::X, PostMoveSettings.Pivot.X));
-	PivotKeys.Add(FComposurePostMoveSettingsKey(EComposurePostMoveSettingsChannel::Pivot, EComposurePostMoveSettingsAxis::Y, PostMoveSettings.Pivot.Y));
+	const bool bKeyPivot       = ChannelName == NAME_None || ChannelName == GET_MEMBER_NAME_CHECKED(FComposurePostMoveSettings, Pivot);
+	const bool bKeyTranslation = ChannelName == NAME_None || ChannelName == GET_MEMBER_NAME_CHECKED(FComposurePostMoveSettings, Translation);
+	const bool bKeyRotation    = ChannelName == NAME_None || ChannelName == GET_MEMBER_NAME_CHECKED(FComposurePostMoveSettings, RotationAngle);
+	const bool bKeyScale       = ChannelName == NAME_None || ChannelName == GET_MEMBER_NAME_CHECKED(FComposurePostMoveSettings, Scale);
 
-	TArray<FComposurePostMoveSettingsKey>& TranslateKeys = ChannelName == NAME_None || ChannelName == GET_MEMBER_NAME_CHECKED(FComposurePostMoveSettings, Translation) ? NewGeneratedKeys : DefaultGeneratedKeys;
-	TranslateKeys.Add(FComposurePostMoveSettingsKey(EComposurePostMoveSettingsChannel::Translation, EComposurePostMoveSettingsAxis::X, PostMoveSettings.Translation.X));
-	TranslateKeys.Add(FComposurePostMoveSettingsKey(EComposurePostMoveSettingsChannel::Translation, EComposurePostMoveSettingsAxis::Y, PostMoveSettings.Translation.Y));
-
-	TArray<FComposurePostMoveSettingsKey>& RotationKeys = ChannelName == NAME_None || ChannelName == GET_MEMBER_NAME_CHECKED(FComposurePostMoveSettings, RotationAngle) ? NewGeneratedKeys : DefaultGeneratedKeys;
-	RotationKeys.Add(FComposurePostMoveSettingsKey(EComposurePostMoveSettingsChannel::RotationAngle, EComposurePostMoveSettingsAxis::None, PostMoveSettings.RotationAngle));
-
-	TArray<FComposurePostMoveSettingsKey>& ScaleKeys = ChannelName == NAME_None || ChannelName == GET_MEMBER_NAME_CHECKED(FComposurePostMoveSettings, Scale) ? NewGeneratedKeys : DefaultGeneratedKeys;
-	ScaleKeys.Add(FComposurePostMoveSettingsKey(EComposurePostMoveSettingsChannel::Scale, EComposurePostMoveSettingsAxis::None, PostMoveSettings.Scale));
+	OutGeneratedKeys.Add(FMovieSceneChannelValueSetter::Create<FMovieSceneFloatChannel>(0, PostMoveSettings.Pivot.X,       bKeyPivot));
+	OutGeneratedKeys.Add(FMovieSceneChannelValueSetter::Create<FMovieSceneFloatChannel>(1, PostMoveSettings.Pivot.Y,       bKeyPivot));
+	OutGeneratedKeys.Add(FMovieSceneChannelValueSetter::Create<FMovieSceneFloatChannel>(2, PostMoveSettings.Translation.X, bKeyTranslation));
+	OutGeneratedKeys.Add(FMovieSceneChannelValueSetter::Create<FMovieSceneFloatChannel>(3, PostMoveSettings.Translation.Y, bKeyTranslation));
+	OutGeneratedKeys.Add(FMovieSceneChannelValueSetter::Create<FMovieSceneFloatChannel>(4, PostMoveSettings.RotationAngle, bKeyRotation));
+	OutGeneratedKeys.Add(FMovieSceneChannelValueSetter::Create<FMovieSceneFloatChannel>(5, PostMoveSettings.Scale,         bKeyScale));
 }
 
 #undef LOCTEXT_NAMESPACE

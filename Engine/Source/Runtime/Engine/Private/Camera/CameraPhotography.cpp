@@ -42,7 +42,17 @@ static TAutoConsoleVariable<int32> CVarPhotographySettleFrames(
 static TAutoConsoleVariable<float> CVarPhotographyTranslationSpeed(
 	TEXT("r.Photography.TranslationSpeed"),
 	100.0f,
-	TEXT("Normal speed (in unreal units per second) at which to move the roaming photography camera. (Default: 100.0)"));
+	TEXT("Normal speed (in Unreal Units per second) at which to move the roaming photography camera. (Default: 100.0)"));
+
+static TAutoConsoleVariable<float> CVarConstrainCameraSize(
+	TEXT("r.Photography.Constrain.CameraSize"),
+	14.0f,
+	TEXT("Radius (in Unreal Units) of sphere around the camera; used to prevent the camera clipping into nearby geometry when constraining camera with collision (Default: 14.0)"));
+
+static TAutoConsoleVariable<float> CVarConstrainCameraDistance(
+	TEXT("r.Photography.Constrain.MaxCameraDistance"),
+	2500.0f,
+	TEXT("Maximum distance (in Unreal Units) which camera is allowed to wander from its initial position when constraining camera by distance (Default: 2500.0)"));
 
 static TAutoConsoleVariable<int32> CVarPhotographyAutoPostprocess(
 	TEXT("r.Photography.AutoPostprocess"),
@@ -130,6 +140,49 @@ bool FCameraPhotographyManager::UpdateCamera(FMinimalViewInfo& InOutPOV, APlayer
 		return ActiveImpl->UpdateCamera(InOutPOV, PCMgr);
 	}
 	return false;
+}
+
+void FCameraPhotographyManager::UpdatePostProcessing(FPostProcessSettings& InOutPostProcessingSettings)
+{
+	if (ActiveImpl.IsValid())
+	{
+		ActiveImpl->UpdatePostProcessing(InOutPostProcessingSettings);
+	}
+}
+
+void FCameraPhotographyManager::StartSession()
+{
+	if (ActiveImpl.IsValid())
+	{
+		ActiveImpl->StartSession();
+	}
+}
+
+void FCameraPhotographyManager::StopSession()
+{
+	if (ActiveImpl.IsValid())
+	{
+		ActiveImpl->StopSession();
+	}
+}
+
+void FCameraPhotographyManager::SetUIControlVisibility(uint8 UIControlTarget, bool bIsVisible)
+{
+	if (ActiveImpl.IsValid())
+	{
+		ActiveImpl->SetUIControlVisibility(UIControlTarget, bIsVisible);
+	}
+}
+
+void FCameraPhotographyManager::DefaultConstrainCamera(const FVector NewCameraLocation, const FVector PreviousCameraLocation, const FVector OriginalCameraLocation, FVector& OutCameraLocation, APlayerCameraManager* PCMgr)
+{
+	// let proposed camera through unmodified by default
+	OutCameraLocation = NewCameraLocation;
+
+	if (ActiveImpl.IsValid())
+	{
+		ActiveImpl->DefaultConstrainCamera(NewCameraLocation, PreviousCameraLocation, OriginalCameraLocation, OutCameraLocation, PCMgr);
+	}
 }
 
 

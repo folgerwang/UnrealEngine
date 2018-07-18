@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
-#include "EnumRange.h"
+#include "Misc/EnumRange.h"
 #include "SlateEnums.generated.h"
 
 

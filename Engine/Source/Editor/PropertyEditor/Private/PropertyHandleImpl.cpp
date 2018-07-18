@@ -21,7 +21,7 @@
 
 #include "Framework/Notifications/NotificationManager.h"
 #include "Widgets/Notifications/SNotificationList.h"
-#include "EnumProperty.h"
+#include "UObject/EnumProperty.h"
 #include "IDetailPropertyRow.h"
 
 #define LOCTEXT_NAMESPACE "PropertyHandleImplementation"
@@ -32,11 +32,6 @@ FPropertyValueImpl::FPropertyValueImpl( TSharedPtr<FPropertyNode> InPropertyNode
 	, NotifyHook( InNotifyHook )
 	, bInteractiveChangeInProgress( false )
 	, InvalidOperationError( nullptr )
-{
-
-}
-
-FPropertyValueImpl::~FPropertyValueImpl()
 {
 }
 
@@ -297,26 +292,6 @@ FString FPropertyValueImpl::GetPropertyValueArray() const
 	return String;
 }
 
-bool FPropertyValueImpl::SendTextToObjectProperty( const FString& Text, EPropertyValueSetFlags::Type Flags )
-{
-	TSharedPtr<FPropertyNode> PropertyNodePin = PropertyNode.Pin();
-	if( PropertyNodePin.IsValid() )
-	{
-		FComplexPropertyNode* ParentNode = PropertyNodePin->FindComplexParent();
-
-		// If more than one object is selected, an empty field indicates their values for this property differ.
-		// Don't send it to the objects value in this case (if we did, they would all get set to None which isn't good).
-		if ((!ParentNode || ParentNode->GetInstancesNum() > 1) && !Text.Len())
-		{
-			return false;
-		}
-
-		return ImportText( Text, PropertyNodePin.Get(), Flags ) != FPropertyAccess::Fail;
-
-	}
-
-	return false;
-}
 
 void FPropertyValueImpl::GenerateArrayIndexMapToObjectNode( TMap<FString,int32>& OutArrayIndexMap, FPropertyNode* PropertyNode )
 {
@@ -671,6 +646,14 @@ void FPropertyValueImpl::SetOnChildPropertyValuePreChange(const FSimpleDelegate&
 	}
 }
 
+void FPropertyValueImpl::SetOnPropertyResetToDefault(const FSimpleDelegate& InOnPropertyResetToDefault)
+{
+	if (PropertyNode.IsValid())
+	{
+		PropertyNode.Pin()->OnPropertyResetToDefault().Add(InOnPropertyResetToDefault);
+	}
+}
+
 void FPropertyValueImpl::SetOnRebuildChildren( const FSimpleDelegate& InOnRebuildChildren )
 {
 	if( PropertyNode.IsValid() )
@@ -860,163 +843,6 @@ FPropertyAccess::Result FPropertyValueImpl::SetValueAsString( const FString& InV
 	return Result;
 }
 
-bool FPropertyValueImpl::SetObject( const UObject* NewObject, EPropertyValueSetFlags::Type Flags )
-{
-	TSharedPtr<FPropertyNode> PropertyNodePin = PropertyNode.Pin();
-	if( PropertyNodePin.IsValid() )
-	{
-		FString ObjectPathName = NewObject ? NewObject->GetPathName() : TEXT("None");
-		bool bResult = SendTextToObjectProperty( ObjectPathName, Flags );
-
-		// @todo PropertyEditing:  This fails when it should not.  some UProperties remove the object class from the name and some dont. 
-		// So comparing the path name to one that adds the object class name will always fail even though the value was set correctly
-#if 0
-		if( bResult )
-		{
-			UProperty* NodeProperty = PropertyNodePin->GetProperty();
-
-			const FString CompareName = NewObject ? FString::Printf( TEXT("%s'%s'"), *NewObject->GetClass()->GetName(), *ObjectPathName ) : TEXT("None");
-
-			// Read values back and report any failures.
-			TArray<FObjectBaseAddress> ObjectsThatWereModified;
-			FObjectPropertyNode* ObjectNode = PropertyNodePin->FindObjectItemParent();
-			
-			if( ObjectNode )
-			{
-				bool bAllObjectPropertyValuesMatch = true;
-				for ( TPropObjectIterator Itor( ObjectNode->ObjectIterator() ) ; Itor ; ++Itor )
-				{
-					TWeakObjectPtr<UObject>	Object = *Itor;
-					uint8*		Addr = PropertyNodePin->GetValueBaseAddress( (uint8*) Object.Get() );
-
-					FString PropertyValue;
-					NodeProperty->ExportText_Direct(PropertyValue, Addr, Addr, nullptr, 0 );
-					if ( PropertyValue != CompareName )
-					{
-						bAllObjectPropertyValuesMatch = false;
-						break;
-					}
-				}
-
-				// Warn that some object assignments failed.
-				if ( !bAllObjectPropertyValuesMatch )
-				{
-					bResult = false;
-				}
-			}
-			else
-			{
-				bResult = false;
-			}
-		}
-#endif
-		return bResult;
-	}
-
-	return false;
-}
-
-FPropertyAccess::Result FPropertyValueImpl::OnUseSelected()
-{
-	FPropertyAccess::Result Res = FPropertyAccess::Fail;
-	TSharedPtr<FPropertyNode> PropertyNodePin = PropertyNode.Pin();
-	if( PropertyNodePin.IsValid() )
-	{
-		UProperty* NodeProperty = PropertyNodePin->GetProperty();
-
-		UObjectPropertyBase* ObjProp = Cast<UObjectPropertyBase>( NodeProperty );
-		UInterfaceProperty* IntProp = Cast<UInterfaceProperty>( NodeProperty );
-		UClassProperty* ClassProp = Cast<UClassProperty>( NodeProperty );
-		USoftClassProperty* SoftClassProperty = Cast<USoftClassProperty>( NodeProperty );
-		UClass* const InterfaceThatMustBeImplemented = ObjProp ? ObjProp->GetOwnerProperty()->GetClassMetaData(TEXT("MustImplement")) : nullptr;
-
-		if(ClassProp || SoftClassProperty)
-		{
-			FEditorDelegates::LoadSelectedAssetsIfNeeded.Broadcast();
-
-			const UClass* const SelectedClass = GEditor->GetFirstSelectedClass(ClassProp ? ClassProp->MetaClass : SoftClassProperty->MetaClass);
-			if(SelectedClass)
-			{
-				if (!InterfaceThatMustBeImplemented || SelectedClass->ImplementsInterface(InterfaceThatMustBeImplemented))
-				{
-					FString const ClassPathName = SelectedClass->GetPathName();
-
-					TArray<FText> RestrictReasons;
-					if (PropertyNodePin->IsRestricted(ClassPathName, RestrictReasons))
-					{
-						check(RestrictReasons.Num() > 0);
-						FMessageDialog::Open(EAppMsgType::Ok, RestrictReasons[0]);
-					}
-					else 
-					{
-						
-						Res = SetValueAsString(ClassPathName, EPropertyValueSetFlags::DefaultFlags);
-					}
-				}
-			}
-		}
-		else
-		{
-			FEditorDelegates::LoadSelectedAssetsIfNeeded.Broadcast();
-
-			UClass* ObjPropClass = UObject::StaticClass();
-			if( ObjProp )
-			{
-				ObjPropClass = ObjProp->PropertyClass;
-			}
-			else if( IntProp ) 
-			{
-				ObjPropClass = IntProp->InterfaceClass;
-			}
-
-			bool const bMustBeLevelActor = ObjProp ? ObjProp->GetOwnerProperty()->GetBoolMetaData(TEXT("MustBeLevelActor")) : false;
-
-			// Find best appropriate selected object
-			UObject* SelectedObject = nullptr;
-
-			if (bMustBeLevelActor)
-			{
-				// @todo: ensure at compile time that MustBeLevelActor flag is only set on actor properties
-
-				// looking only for level actors here
-				USelection* const SelectedSet = GEditor->GetSelectedActors();
-				SelectedObject = SelectedSet->GetTop( ObjPropClass, InterfaceThatMustBeImplemented);
-			}
-			else
-			{
-				// normal behavior, where actor classes will look for level actors and 
-				USelection* const SelectedSet = GEditor->GetSelectedSet( ObjPropClass );
-				SelectedObject = SelectedSet->GetTop( ObjPropClass, InterfaceThatMustBeImplemented );
-			}
-
-			if( SelectedObject )
-			{
-				FString const ObjPathName = SelectedObject->GetPathName();
-
-				TArray<FText> RestrictReasons;
-				if (PropertyNodePin->IsRestricted(ObjPathName, RestrictReasons))
-				{
-					check(RestrictReasons.Num() > 0);
-					FMessageDialog::Open(EAppMsgType::Ok, RestrictReasons[0]);
-				}
-				else if (!SetObject(SelectedObject, EPropertyValueSetFlags::DefaultFlags))
-				{
-					// Warn that some object assignments failed.
-					FMessageDialog::Open( EAppMsgType::Ok, FText::Format(
-						NSLOCTEXT("UnrealEd", "ObjectAssignmentsFailed", "Failed to assign {0} to the {1} property, see log for details."),
-						FText::FromString(SelectedObject->GetPathName()), PropertyNodePin->GetDisplayName()) );
-				}
-				else
-				{
-					Res = FPropertyAccess::Success;
-				}
-			}
-		}
-	}
-
-	return Res;
-}
-
 bool FPropertyValueImpl::IsPropertyTypeOf( UClass* ClassType ) const
 {
 	TSharedPtr<FPropertyNode> PropertyNodePin = PropertyNode.Pin();
@@ -1158,9 +984,18 @@ void FPropertyValueImpl::ResetToDefault()
 	TSharedPtr<FPropertyNode> PropertyNodePin = PropertyNode.Pin();
 	if( PropertyNodePin.IsValid() && !PropertyNodePin->IsEditConst() && PropertyNodePin->GetDiffersFromDefault() )
 	{
-		PropertyNodePin->ResetToDefault( NotifyHook );
-	}
+		const bool bUseDisplayName = false;
+		FScopedTransaction Transaction( NSLOCTEXT("UnrealEd", "PropertyWindowResetToDefault", "Reset to Default") );
+		TSharedPtr<FPropertyNode>& KeyNode = PropertyNodePin->GetPropertyKeyNode();
+		if(KeyNode.IsValid())
+		{
+			FPropertyValueImpl(KeyNode, NotifyHook, PropertyUtilities.Pin())
+				.ImportText(KeyNode->GetDefaultValueAsString(bUseDisplayName), EPropertyValueSetFlags::DefaultFlags);
+		}
+		ImportText(PropertyNodePin->GetDefaultValueAsString(bUseDisplayName), EPropertyValueSetFlags::DefaultFlags);
 
+		PropertyNodePin->BroadcastPropertyResetToDefault();
+	}
 }
 
 bool FPropertyValueImpl::DiffersFromDefault() const
@@ -1210,6 +1045,9 @@ void FPropertyValueImpl::AddChild()
 			// determines whether we actually changed any values (if the user clicks the "emtpy" button when the array is already empty,
 			// we don't want the objects to be marked dirty)
 			bool bNotifiedPreChange = false;
+
+			// If we added a new Map entry we need to rebuild children
+			bool bAddedMapEntry = false;
 
 			TArray< TMap<FString, int32> > ArrayIndicesPerObject;
 			TArray< TMap<UObject*, bool> > PropagationResultPerObject;
@@ -1283,6 +1121,7 @@ void FPropertyValueImpl::AddChild()
 						MapHelper.Rehash();
 
 						uint8* PairPtr = MapHelper.GetPairPtr(Index);
+						bAddedMapEntry = true;
 					}
 
 					ArrayIndicesPerObject[i].Add(NodeProperty->GetName(), Index);
@@ -1303,6 +1142,11 @@ void FPropertyValueImpl::AddChild()
 			{
 				PropertyNodePin->FixPropertiesInEvent(ChangeEvent);
 				PropertyUtilities.Pin()->NotifyFinishedChangingProperties(ChangeEvent);
+			}
+
+			if (bAddedMapEntry)
+			{
+				PropertyNodePin->RebuildChildren();
 			}
 		}
 	}
@@ -1799,9 +1643,6 @@ void FPropertyValueImpl::SwapChildren( TSharedPtr<FPropertyNode> FirstChildNode,
 
 void FPropertyValueImpl::MoveElementTo(int32 OriginalIndex, int32 NewIndex)
 {
-	FScopedTransaction Transaction(NSLOCTEXT("UnrealEd", "MoveRow", "Move Row"));
-
-	GetPropertyNode()->NotifyPreChange(GetPropertyNode()->GetProperty(), NotifyHook);
 	// Insert into the middle or add to the end
 	if (NewIndex < GetPropertyNode()->GetNumChildNodes())
 	{
@@ -2094,12 +1935,6 @@ void FPropertyValueImpl::MoveElementTo(int32 OriginalIndex, int32 NewIndex)
 				ChildNodePtr->FixPropertiesInEvent(ChangeEvent);
 			}
 		}
-		FPropertyChangedEvent MoveEvent(ParentNode->GetProperty(), EPropertyChangeType::Unspecified);
-		GetPropertyNode()->NotifyPostChange(MoveEvent, NotifyHook);
-		if (PropertyUtilities.IsValid())
-		{
-			PropertyUtilities.Pin()->NotifyFinishedChangingProperties(MoveEvent);
-		}
 	}
 }
 
@@ -2279,7 +2114,12 @@ FPropertyHandleBase::FPropertyHandleBase( TSharedPtr<FPropertyNode> PropertyNode
 {
 
 }
- 
+
+FPropertyAccess::Result FPropertyHandleBase::GetValueData(void*& OutAddress) const
+{
+	return Implementation->GetValueData(OutAddress);
+}
+
 bool FPropertyHandleBase::IsValidHandle() const
 {
 	return Implementation->HasValidPropertyNode();
@@ -2516,12 +2356,16 @@ FPropertyAccess::Result FPropertyHandleBase::GetNumChildren( uint32& OutNumChild
 
 uint32 FPropertyHandleBase::GetNumOuterObjects() const
 {
-	FObjectPropertyNode* ObjectNode = Implementation->GetPropertyNode()->FindObjectItemParent();
-
 	uint32 NumObjects = 0;
-	if( ObjectNode )
+	if (Implementation->GetPropertyNode().IsValid())
 	{
-		NumObjects = ObjectNode->GetNumObjects();
+		FObjectPropertyNode* ObjectNode = Implementation->GetPropertyNode()->FindObjectItemParent();
+
+
+		if (ObjectNode)
+		{
+			NumObjects = ObjectNode->GetNumObjects();
+		}
 	}
 
 	return NumObjects;
@@ -2529,12 +2373,15 @@ uint32 FPropertyHandleBase::GetNumOuterObjects() const
 
 void FPropertyHandleBase::GetOuterObjects( TArray<UObject*>& OuterObjects ) const
 {
-	FObjectPropertyNode* ObjectNode = Implementation->GetPropertyNode()->FindObjectItemParent();
-	if( ObjectNode )
+	if (Implementation->GetPropertyNode().IsValid())
 	{
-		for( int32 ObjectIndex = 0; ObjectIndex < ObjectNode->GetNumObjects(); ++ObjectIndex )
+		FObjectPropertyNode* ObjectNode = Implementation->GetPropertyNode()->FindObjectItemParent();
+		if (ObjectNode)
 		{
-			OuterObjects.Add( ObjectNode->GetUObject( ObjectIndex ) );
+			for (int32 ObjectIndex = 0; ObjectIndex < ObjectNode->GetNumObjects(); ++ObjectIndex)
+			{
+				OuterObjects.Add(ObjectNode->GetUObject(ObjectIndex));
+			}
 		}
 	}
 
@@ -2542,12 +2389,14 @@ void FPropertyHandleBase::GetOuterObjects( TArray<UObject*>& OuterObjects ) cons
 
 void FPropertyHandleBase::GetOuterPackages(TArray<UPackage*>& OuterPackages) const
 {
-	FComplexPropertyNode* ComplexNode = Implementation->GetPropertyNode()->FindComplexParent();
-	if (ComplexNode)
+	if(Implementation->GetPropertyNode().IsValid())
 	{
-		switch (ComplexNode->GetPropertyType())
+		FComplexPropertyNode* ComplexNode = Implementation->GetPropertyNode()->FindComplexParent();
+		if (ComplexNode)
 		{
-		case FComplexPropertyNode::EPT_Object:
+			switch (ComplexNode->GetPropertyType())
+			{
+			case FComplexPropertyNode::EPT_Object:
 			{
 				FObjectPropertyNode* ObjectNode = static_cast<FObjectPropertyNode*>(ComplexNode);
 				for (int32 ObjectIndex = 0; ObjectIndex < ObjectNode->GetNumObjects(); ++ObjectIndex)
@@ -2557,15 +2406,16 @@ void FPropertyHandleBase::GetOuterPackages(TArray<UPackage*>& OuterPackages) con
 			}
 			break;
 
-		case FComplexPropertyNode::EPT_StandaloneStructure:
+			case FComplexPropertyNode::EPT_StandaloneStructure:
 			{
 				FStructurePropertyNode* StructNode = static_cast<FStructurePropertyNode*>(ComplexNode);
 				OuterPackages.Add(StructNode->GetOwnerPackage());
 			}
 			break;
 
-		default:
-			break;
+			default:
+				break;
+			}
 		}
 	}
 }
@@ -2608,6 +2458,11 @@ void FPropertyHandleBase::SetOnPropertyValuePreChange(const FSimpleDelegate& InO
 void FPropertyHandleBase::SetOnChildPropertyValuePreChange(const FSimpleDelegate& InOnChildPropertyValuePreChange)
 {
 	Implementation->SetOnChildPropertyValuePreChange(InOnChildPropertyValuePreChange);
+}
+
+void FPropertyHandleBase::SetOnPropertyResetToDefault(const FSimpleDelegate& InOnPropertyResetToDefault)
+{
+	Implementation->SetOnPropertyResetToDefault(InOnPropertyResetToDefault);
 }
 
 TSharedPtr<FPropertyNode> FPropertyHandleBase::GetPropertyNode() const
@@ -3052,7 +2907,8 @@ void FPropertyHandleBase::NotifyFinishedChangingProperties()
 
 FPropertyAccess::Result FPropertyHandleBase::SetObjectValueFromSelection()
 {
-	return Implementation->OnUseSelected();
+	// Only implemented by Object handles
+	return FPropertyAccess::Result::Fail;
 }
 
 void FPropertyHandleBase::AddRestriction( TSharedRef<const FPropertyRestriction> Restriction )
@@ -3370,7 +3226,7 @@ FPropertyAccess::Result FPropertyHandleInt::SetValue(const int8& NewValue, EProp
 	// Clamp the value from any meta data ranges stored on the property value
 	int8 FinalValue = ClampIntegerValueFromMetaData<int8>( NewValue, *Implementation->GetPropertyNode() );
 
-	const FString ValueStr = Lex::ToString(FinalValue);
+	const FString ValueStr = LexToString(FinalValue);
 	Res = Implementation->ImportText(ValueStr, Flags);
 
 	return Res;
@@ -3383,7 +3239,7 @@ FPropertyAccess::Result FPropertyHandleInt::SetValue(const int16& NewValue, EPro
 	// Clamp the value from any meta data ranges stored on the property value
 	int16 FinalValue = ClampIntegerValueFromMetaData<int16>(NewValue, *Implementation->GetPropertyNode());
 
-	const FString ValueStr = Lex::ToString(FinalValue);
+	const FString ValueStr = LexToString(FinalValue);
 	Res = Implementation->ImportText(ValueStr, Flags);
 
 	return Res;
@@ -3396,7 +3252,7 @@ FPropertyAccess::Result FPropertyHandleInt::SetValue( const int32& NewValue, EPr
 	// Clamp the value from any meta data ranges stored on the property value
 	int32 FinalValue = ClampIntegerValueFromMetaData<int32>( NewValue, *Implementation->GetPropertyNode() );
 
-	const FString ValueStr = Lex::ToString(FinalValue);
+	const FString ValueStr = LexToString(FinalValue);
 	Res = Implementation->ImportText( ValueStr, Flags );
 
 	return Res;
@@ -3409,7 +3265,7 @@ FPropertyAccess::Result FPropertyHandleInt::SetValue(const int64& NewValue, EPro
 	// Clamp the value from any meta data ranges stored on the property value
 	int64 FinalValue = ClampIntegerValueFromMetaData<int64>(NewValue, *Implementation->GetPropertyNode());
 
-	const FString ValueStr = Lex::ToString(FinalValue);
+	const FString ValueStr = LexToString(FinalValue);
 	Res = Implementation->ImportText(ValueStr, Flags);
 	return Res;
 }
@@ -3420,7 +3276,7 @@ FPropertyAccess::Result FPropertyHandleInt::SetValue(const uint16& NewValue, EPr
 	// Clamp the value from any meta data ranges stored on the property value
 	uint16 FinalValue = ClampIntegerValueFromMetaData<uint16>(NewValue, *Implementation->GetPropertyNode());
 
-	const FString ValueStr = Lex::ToString(FinalValue);
+	const FString ValueStr = LexToString(FinalValue);
 	Res = Implementation->ImportText(ValueStr, Flags);
 
 	return Res;
@@ -3433,7 +3289,7 @@ FPropertyAccess::Result FPropertyHandleInt::SetValue(const uint32& NewValue, EPr
 	// Clamp the value from any meta data ranges stored on the property value
 	uint32 FinalValue = ClampIntegerValueFromMetaData<uint32>(NewValue, *Implementation->GetPropertyNode());
 
-	const FString ValueStr = Lex::ToString(FinalValue);
+	const FString ValueStr = LexToString(FinalValue);
 	Res = Implementation->ImportText(ValueStr, Flags);
 
 	return Res;
@@ -3445,7 +3301,7 @@ FPropertyAccess::Result FPropertyHandleInt::SetValue(const uint64& NewValue, EPr
 	// Clamp the value from any meta data ranges stored on the property value
 	uint64 FinalValue = ClampIntegerValueFromMetaData<uint64>(NewValue, *Implementation->GetPropertyNode());
 
-	const FString ValueStr = Lex::ToString(FinalValue);
+	const FString ValueStr = LexToString(FinalValue);
 	Res = Implementation->ImportText(ValueStr, Flags);
 	return Res;
 }
@@ -3738,14 +3594,13 @@ FPropertyAccess::Result FPropertyHandleObject::SetValue( const UObject* const& N
 {
 	const TSharedPtr<FPropertyNode>& PropertyNode = Implementation->GetPropertyNode();
 
-	bool bResult = false;
 	if (!PropertyNode->HasNodeFlags(EPropertyNodeFlags::EditInlineNew))
 	{
 		FString ObjectPathName = NewValue ? NewValue->GetPathName() : TEXT("None");
-		bResult = Implementation->SendTextToObjectProperty(ObjectPathName, Flags);
+		return SetValueFromFormattedString(ObjectPathName, Flags);
 	}
 
-	return bResult ? FPropertyAccess::Success : FPropertyAccess::Fail;
+	return FPropertyAccess::Fail;
 }
 
 FPropertyAccess::Result FPropertyHandleObject::GetValue(FAssetData& OutValue) const
@@ -3765,7 +3620,6 @@ FPropertyAccess::Result FPropertyHandleObject::SetValue(const FAssetData& NewVal
 {
 	const TSharedPtr<FPropertyNode>& PropertyNode = Implementation->GetPropertyNode();
 
-	bool bResult = false;
 	if (!PropertyNode->HasNodeFlags(EPropertyNodeFlags::EditInlineNew))
 	{
 		if (!PropertyNode->GetProperty()->IsA(USoftObjectProperty::StaticClass()))
@@ -3775,42 +3629,124 @@ FPropertyAccess::Result FPropertyHandleObject::SetValue(const FAssetData& NewVal
 		}
 
 		FString ObjectPathName = NewValue.IsValid() ? NewValue.ObjectPath.ToString() : TEXT("None");
-		bResult = Implementation->SendTextToObjectProperty(ObjectPathName, Flags);
+		return SetValueFromFormattedString(ObjectPathName, Flags);
 	}
 
-	return bResult ? FPropertyAccess::Success : FPropertyAccess::Fail;
+	return FPropertyAccess::Fail;
 }
 
 FPropertyAccess::Result FPropertyHandleObject::SetValueFromFormattedString(const FString& InValue, EPropertyValueSetFlags::Type Flags)
 {
-	UProperty* Property = GetProperty();
-	const FString EmptyString = FString();
-	const FString& AllowedClassesString = Property ? Property->GetMetaData("AllowedClasses") : EmptyString;
+	// We need to do all of the type validation up front, to correctly support soft objects
+	TSharedPtr<FPropertyNode> PropertyNodePin = Implementation->GetPropertyNode();
+	UProperty* NodeProperty = PropertyNodePin.IsValid() ? PropertyNodePin->GetProperty() : nullptr;
+	const TCHAR* ObjectBuffer = *InValue;
+	UObject* QualifiedObject = nullptr;
 
-	if (Property && !AllowedClassesString.IsEmpty())
+	// This will attempt to load the object if it is not in memory. We purposefully pass in null as owner to avoid issues with cross level references
+	if (NodeProperty && UObjectPropertyBase::ParseObjectPropertyValue(NodeProperty, nullptr, UObject::StaticClass(), 0, ObjectBuffer, QualifiedObject))
 	{
-		const TCHAR* ObjectBuffer = *InValue;
-		UObject* QualifiedObject = nullptr;
-
-		// Check to see if the object we're attempting to import has a class that's allowed for the property. If not, bail early.
-		if (UObjectPropertyBase::ParseObjectPropertyValue(Property, Property->GetOuter(), UObject::StaticClass(), 0, ObjectBuffer, QualifiedObject))
+		if (QualifiedObject)
 		{
+			UObjectPropertyBase* ObjectProperty = Cast<UObjectPropertyBase>(NodeProperty);
+			UInterfaceProperty* InterfaceProperty = Cast<UInterfaceProperty>(NodeProperty);
+			UClassProperty* ClassProperty = Cast<UClassProperty>(NodeProperty);
+			USoftClassProperty* SoftClassProperty = Cast<USoftClassProperty>(NodeProperty);
+			USoftObjectProperty* SoftObjectProperty = Cast<USoftObjectProperty>(NodeProperty);
+
+			// Figure out what classes are required
+			UClass* InterfaceThatMustBeImplemented = nullptr;
+			UClass* RequiredClass = nullptr;
+			if (ClassProperty)
+			{
+				RequiredClass = ClassProperty->MetaClass;
+			}
+			else if (SoftClassProperty)
+			{
+				RequiredClass = SoftClassProperty->MetaClass;
+			}
+			else if (ObjectProperty)
+			{
+				RequiredClass = ObjectProperty->PropertyClass;
+				InterfaceThatMustBeImplemented = ObjectProperty->GetOwnerProperty()->GetClassMetaData(TEXT("MustImplement"));
+			}
+			else if (InterfaceProperty)
+			{
+				InterfaceThatMustBeImplemented = InterfaceProperty->InterfaceClass;
+			}
+			else
+			{
+				return FPropertyAccess::Fail;
+			}
+
+			// Figure out what class to check against
+			UClass* QualifiedClass = Cast<UClass>(QualifiedObject);
+			if (!QualifiedClass)
+			{
+				QualifiedClass = QualifiedObject->GetClass();
+			}
+
+			const FString& AllowedClassesString = NodeProperty->GetMetaData("AllowedClasses");
 			TArray<FString> AllowedClassNames;
 			AllowedClassesString.ParseIntoArray(AllowedClassNames, TEXT(","), true);
 			bool bSupportedObject = false;
 
-			for (auto ClassNameIt = AllowedClassNames.CreateConstIterator(); ClassNameIt; ++ClassNameIt)
+			// Check AllowedClasses metadata
+			if (AllowedClassNames.Num() > 0)
 			{
-				const FString& ClassName = *ClassNameIt;
-				UClass* AllowedClass = FindObject<UClass>(ANY_PACKAGE, *ClassName);
-				const bool bIsInterface = AllowedClass && AllowedClass->HasAnyClassFlags(CLASS_Interface);
-				
-				// Check if the object is an allowed class type this property supports
-				// Note: QualifieObject may be null if we're clearing the value.  Allow clears to pass through without a supported class
-				if (AllowedClass && (!QualifiedObject || QualifiedObject->IsA(AllowedClass) || (bIsInterface && QualifiedObject->GetClass()->ImplementsInterface(AllowedClass))))
+				for (const FString& ClassName : AllowedClassNames)
 				{
-					bSupportedObject = true;
-					break;
+					UClass* AllowedClass = FindObject<UClass>(ANY_PACKAGE, *ClassName);
+					const bool bIsInterface = AllowedClass && AllowedClass->HasAnyClassFlags(CLASS_Interface);
+
+					// Check if the object is an allowed class type this property supports
+					if ((AllowedClass && QualifiedObject->IsA(AllowedClass)) || (bIsInterface && QualifiedObject->GetClass()->ImplementsInterface(AllowedClass)))
+					{
+						bSupportedObject = true;
+						break;
+					}
+				}
+			}
+			else
+			{
+				bSupportedObject = true;
+			}
+
+			// Check required class
+			if (RequiredClass && !QualifiedClass->IsChildOf(RequiredClass))
+			{
+				bSupportedObject = false;
+			}
+
+			// Check required interface
+			if (InterfaceThatMustBeImplemented && !QualifiedClass->ImplementsInterface(InterfaceThatMustBeImplemented))
+			{
+				bSupportedObject = false;
+			}
+
+			// Check node restrictions
+			TArray<FText> RestrictReasons;
+			if (PropertyNodePin->IsRestricted(QualifiedObject->GetPathName(), RestrictReasons))
+			{
+				bSupportedObject = false;
+			}
+
+			// Check level actor
+			bool const bMustBeLevelActor = ObjectProperty ? ObjectProperty->GetOwnerProperty()->GetBoolMetaData(TEXT("MustBeLevelActor")) : false;
+			if (bMustBeLevelActor)
+			{
+				if (AActor* Actor = Cast<AActor>(QualifiedObject))
+				{
+					if (!Actor->GetLevel())
+					{
+						// Not in a level
+						bSupportedObject = false;
+					}
+				}
+				else
+				{
+					// Not an actor
+					bSupportedObject = false;
 				}
 			}
 
@@ -3819,14 +3755,117 @@ FPropertyAccess::Result FPropertyHandleObject::SetValueFromFormattedString(const
 				return FPropertyAccess::Fail;
 			}
 		}
-		else
-		{
-			// Not an object, so bail.
-			return FPropertyAccess::Fail;
-		}
+
+		// Parsing passed but object is null, we want to set it to null explicitly
+	}
+	else
+	{
+		// Failed parsing, it's either invalid format or a nonexistent object
+		return FPropertyAccess::Fail;
 	}
 
 	return FPropertyHandleBase::SetValueFromFormattedString(InValue, Flags);
+}
+
+FPropertyAccess::Result FPropertyHandleObject::SetObjectValueFromSelection()
+{
+	FPropertyAccess::Result Res = FPropertyAccess::Fail;
+	TSharedPtr<FPropertyNode> PropertyNodePin = Implementation->GetPropertyNode();
+	if (PropertyNodePin.IsValid())
+	{
+		UProperty* NodeProperty = PropertyNodePin->GetProperty();
+
+		UObjectPropertyBase* ObjProp = Cast<UObjectPropertyBase>(NodeProperty);
+		UInterfaceProperty* IntProp = Cast<UInterfaceProperty>(NodeProperty);
+		UClassProperty* ClassProp = Cast<UClassProperty>(NodeProperty);
+		USoftClassProperty* SoftClassProperty = Cast<USoftClassProperty>(NodeProperty);
+		UClass* const InterfaceThatMustBeImplemented = ObjProp ? ObjProp->GetOwnerProperty()->GetClassMetaData(TEXT("MustImplement")) : nullptr;
+
+		if (ClassProp || SoftClassProperty)
+		{
+			FEditorDelegates::LoadSelectedAssetsIfNeeded.Broadcast();
+
+			const UClass* const SelectedClass = GEditor->GetFirstSelectedClass(ClassProp ? ClassProp->MetaClass : SoftClassProperty->MetaClass);
+			if (SelectedClass)
+			{
+				if (!InterfaceThatMustBeImplemented || SelectedClass->ImplementsInterface(InterfaceThatMustBeImplemented))
+				{
+					FString const ClassPathName = SelectedClass->GetPathName();
+
+					TArray<FText> RestrictReasons;
+					if (PropertyNodePin->IsRestricted(ClassPathName, RestrictReasons))
+					{
+						check(RestrictReasons.Num() > 0);
+						FMessageDialog::Open(EAppMsgType::Ok, RestrictReasons[0]);
+					}
+					else
+					{
+
+						Res = SetValueFromFormattedString(ClassPathName, EPropertyValueSetFlags::DefaultFlags);
+					}
+				}
+			}
+		}
+		else
+		{
+			FEditorDelegates::LoadSelectedAssetsIfNeeded.Broadcast();
+
+			UClass* ObjPropClass = UObject::StaticClass();
+			if (ObjProp)
+			{
+				ObjPropClass = ObjProp->PropertyClass;
+			}
+			else if (IntProp)
+			{
+				ObjPropClass = IntProp->InterfaceClass;
+			}
+
+			bool const bMustBeLevelActor = ObjProp ? ObjProp->GetOwnerProperty()->GetBoolMetaData(TEXT("MustBeLevelActor")) : false;
+
+			// Find best appropriate selected object
+			UObject* SelectedObject = nullptr;
+
+			if (bMustBeLevelActor)
+			{
+				// @todo: ensure at compile time that MustBeLevelActor flag is only set on actor properties
+
+				// looking only for level actors here
+				USelection* const SelectedSet = GEditor->GetSelectedActors();
+				SelectedObject = SelectedSet->GetTop(ObjPropClass, InterfaceThatMustBeImplemented);
+			}
+			else
+			{
+				// normal behavior, where actor classes will look for level actors and 
+				USelection* const SelectedSet = GEditor->GetSelectedSet(ObjPropClass);
+				SelectedObject = SelectedSet->GetTop(ObjPropClass, InterfaceThatMustBeImplemented);
+			}
+
+			if (SelectedObject)
+			{
+				FString const ObjPathName = SelectedObject->GetPathName();
+
+				TArray<FText> RestrictReasons;
+				if (PropertyNodePin->IsRestricted(ObjPathName, RestrictReasons))
+				{
+					check(RestrictReasons.Num() > 0);
+					FMessageDialog::Open(EAppMsgType::Ok, RestrictReasons[0]);
+				}
+				else if (SetValueFromFormattedString(SelectedObject->GetPathName(), EPropertyValueSetFlags::DefaultFlags) != FPropertyAccess::Success)
+				{
+					// Warn that some object assignments failed.
+					FMessageDialog::Open(EAppMsgType::Ok, FText::Format(
+						NSLOCTEXT("UnrealEd", "ObjectAssignmentsFailed", "Failed to assign {0} to the {1} property, see log for details."),
+						FText::FromString(SelectedObject->GetPathName()), PropertyNodePin->GetDisplayName()));
+				}
+				else
+				{
+					Res = FPropertyAccess::Success;
+				}
+			}
+		}
+	}
+
+	return Res;
 }
 
 // Vector

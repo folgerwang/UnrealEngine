@@ -1,8 +1,7 @@
-﻿INTSourceChangelist:2702740
-Availability:Public
+﻿Availability:Public
 Title:5.ランドスケープ マテリアルをペイントする
 Crumbs:%ROOT%, GettingStarted, Engine/Landscape/QuickStart
-Description:レベルにアクタをいくつか作成したのでバリエーションを増やしてみましょう。
+Description:アクタがレベル内にある状態で、バリエーションを加えます。
 version:4.9
 
 [VAR:Steps]
@@ -63,6 +62,7 @@ version:4.9
 	![](T_Landscape_Target_Layers.png)
 
 1. 名前の右側に、**プラス記号** のアイコンがあります。プラス記号のアイコンをクリックすると、どのタイプのレイヤーを追加したいかを尋ねる別のメニューが表示されます。例えば、**[Weight-Blended Layer(normal)]** オプションを選択してみましょう。
+
 	![](T_Landscape_Blend_Layer.png)
 
 1. **[Weight-Blended Layer(normal)]** オプションを選択すると、新規作成した **Landscape Layer Info Objects** の保存先を尋ねるポップアップが表示されます。**「Landscape」** フォルダにある **「Resources」** フォルダを選択し、**[OK]** ボタンを押します。
@@ -78,9 +78,9 @@ version:4.9
 ## ランドスケープをペイントする
 
 ランドスケープをペイントする前に、ランドスケープのペイント時に頻繁に使用するキーボードとマウス入力を以下にまとめます。
-| **一般的な制御** | **処理内容** |
+| **一般的な操作** | **処理内容** |
 | --- | --- |
-| **マウスの左ボタン** | 選択されているツールのエフェクトを選択してレイヤーに適用するストロークを実行します。 |
+| **マウスの左ボタン** | 選択中のツールのエフェクトを選択して、ストロークを実行してレイヤーに適用します。 |
 | **Ctrl+Z** | 最後のストロークをアンドゥします。|
 | **Ctrl+Y** | 最後に元に戻したストロークをリドゥします。|
 

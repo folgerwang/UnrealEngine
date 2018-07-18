@@ -60,7 +60,7 @@ public:
 		InvPrefilterRoughnessDistance.Bind(Initializer.ParameterMap, TEXT("InvPrefilterRoughnessDistance"));
 		SceneColorInputTexture.Bind(Initializer.ParameterMap, TEXT("SceneColorInputTexture"));
 		SceneColorInputSampler.Bind(Initializer.ParameterMap, TEXT("SceneColorInputSampler"));
-		DeferredParameters.Bind(Initializer.ParameterMap);
+		SceneTextureParameters.Bind(Initializer);
 		PlanarReflectionParameters.Bind(Initializer.ParameterMap);
 	}
 
@@ -68,7 +68,7 @@ public:
 	{
 		const FPixelShaderRHIParamRef ShaderRHI = GetPixelShader();
 		FGlobalShader::SetParameters<FViewUniformShaderParameters>(RHICmdList, ShaderRHI, View.ViewUniformBuffer);
-		DeferredParameters.Set(RHICmdList, ShaderRHI, View, MD_PostProcess, ESceneRenderTargetsMode::SetTextures);
+		SceneTextureParameters.Set(RHICmdList, ShaderRHI, View.FeatureLevel, ESceneTextureSetupMode::All);
 		PlanarReflectionParameters.SetParameters(RHICmdList, ShaderRHI, View, ReflectionSceneProxy);
 
 		int32 RenderTargetSizeY = ReflectionSceneProxy->RenderTarget->GetSizeXY().Y;
@@ -89,7 +89,7 @@ public:
 		Ar << SceneColorInputTexture;
 		Ar << SceneColorInputSampler;
 		Ar << PlanarReflectionParameters;
-		Ar << DeferredParameters;
+		Ar << SceneTextureParameters;
 		return bShaderHasOutdatedParameters;
 	}
 
@@ -100,7 +100,7 @@ private:
 	FShaderResourceParameter SceneColorInputTexture;
 	FShaderResourceParameter SceneColorInputSampler;
 	FPlanarReflectionParameters PlanarReflectionParameters;
-	FDeferredPixelShaderParameters DeferredParameters;
+	FSceneTextureShaderParameters SceneTextureParameters;
 };
 
 IMPLEMENT_SHADER_TYPE(template<>, FPrefilterPlanarReflectionPS<false>, TEXT("/Engine/Private/PlanarReflectionShaders.usf"), TEXT("PrefilterPlanarReflectionPS"), SF_Pixel);
@@ -221,17 +221,17 @@ static void UpdatePlanarReflectionContents_RenderThread(
 				FIndividualOcclusionHistory& OcclusionHistory = ViewState->PlanarReflectionOcclusionHistories.FindOrAdd(SceneProxy->PlanarReflectionId);
 
 				// +1 to buffered frames because the query is submitted late into the main frame, but read at the beginning of a reflection capture frame
-				const int32 NumBufferedFrames = FOcclusionQueryHelpers::GetNumBufferedFrames() + 1;
+				const int32 NumBufferedFrames = FOcclusionQueryHelpers::GetNumBufferedFrames(SceneRenderer->FeatureLevel) + 1;
 				// +1 to frame counter because we are operating before the main view's InitViews, which is where OcclusionFrameCounter is incremented
 				uint32 OcclusionFrameCounter = ViewState->OcclusionFrameCounter + 1;
-				FRenderQueryRHIRef& PastQuery = OcclusionHistory.GetPastQuery(OcclusionFrameCounter, NumBufferedFrames);
+				FRenderQueryRHIParamRef PastQuery = OcclusionHistory.GetPastQuery(OcclusionFrameCounter, NumBufferedFrames);
 
-				if (IsValidRef(PastQuery))
+				if (PastQuery)
 				{
 					uint64 NumSamples = 0;
 					QUICK_SCOPE_CYCLE_COUNTER(STAT_PlanarReflectionOcclusionQueryResults);
 
-					if (RHIGetRenderQueryResult(PastQuery.GetReference(), NumSamples, true))
+					if (RHIGetRenderQueryResult(PastQuery, NumSamples, true))
 					{
 						bIsVisibleInAnyView = NumSamples > 0;
 						if (bIsVisibleInAnyView)
@@ -300,7 +300,7 @@ static void UpdatePlanarReflectionContents_RenderThread(
 						PrefilterPlanarReflection<false>(RHICmdList, View, SceneProxy, Target);
 					}
 				}
-				RHICmdList.CopyToResolveTarget(RenderTarget->GetRenderTargetTexture(), RenderTargetTexture->TextureRHI, false, ResolveParams);
+				RHICmdList.CopyToResolveTarget(RenderTarget->GetRenderTargetTexture(), RenderTargetTexture->TextureRHI, ResolveParams);
 			}
 		}
 	}
@@ -549,7 +549,7 @@ public:
 	FPlanarReflectionPS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
 		: FGlobalShader(Initializer)
 	{
-		DeferredParameters.Bind(Initializer.ParameterMap);
+		SceneTextureParameters.Bind(Initializer);
 		PlanarReflectionParameters.Bind(Initializer.ParameterMap);
 	}
 
@@ -557,7 +557,7 @@ public:
 	{
 		const FPixelShaderRHIParamRef ShaderRHI = GetPixelShader();
 		FGlobalShader::SetParameters<FViewUniformShaderParameters>(RHICmdList, ShaderRHI, View.ViewUniformBuffer);
-		DeferredParameters.Set(RHICmdList, ShaderRHI, View, MD_PostProcess);
+		SceneTextureParameters.Set(RHICmdList, ShaderRHI, View.FeatureLevel, ESceneTextureSetupMode::All);
 		PlanarReflectionParameters.SetParameters(RHICmdList, ShaderRHI, View, ReflectionSceneProxy);
 	}
 
@@ -566,14 +566,14 @@ public:
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
 		Ar << PlanarReflectionParameters;
-		Ar << DeferredParameters;
+		Ar << SceneTextureParameters;
 		return bShaderHasOutdatedParameters;
 	}
 
 private:
 
 	FPlanarReflectionParameters PlanarReflectionParameters;
-	FDeferredPixelShaderParameters DeferredParameters;
+	FSceneTextureShaderParameters SceneTextureParameters;
 };
 
 IMPLEMENT_SHADER_TYPE(,FPlanarReflectionPS,TEXT("/Engine/Private/PlanarReflectionShaders.usf"),TEXT("PlanarReflectionPS"),SF_Pixel);
@@ -685,7 +685,7 @@ bool FDeferredShadingSceneRenderer::RenderDeferredPlanarReflections(FRHICommandL
 			}
 		}
 
-		RHICmdList.CopyToResolveTarget(Output->GetRenderTargetItem().TargetableTexture, Output->GetRenderTargetItem().ShaderResourceTexture, false, FResolveParams());
+		RHICmdList.CopyToResolveTarget(Output->GetRenderTargetItem().TargetableTexture, Output->GetRenderTargetItem().ShaderResourceTexture, FResolveParams());
 
 		return true;
 	}

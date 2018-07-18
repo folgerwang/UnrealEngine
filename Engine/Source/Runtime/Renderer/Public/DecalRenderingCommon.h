@@ -21,8 +21,17 @@ enum EDecalRenderStage
 	DRS_BeforeLighting = 2,
 	// for rendering decals on mobile
 	DRS_Mobile = 3,
+	// for rendering ambient occlusion decals
+	DRS_AmbientOcclusion = 4,
 
 	// later we could add "after lighting" and multiply
+};
+
+enum EDecalRasterizerState
+{
+	DRS_Undefined,
+	DRS_CCW,
+	DRS_CW,
 };
 
 /**
@@ -40,6 +49,7 @@ struct FDecalRenderingCommon
 		RTM_DBuffer, 
 		RTM_GBufferNormal,
 		RTM_SceneColor,
+		RTM_AmbientOcclusion,
 	};
 	
 	static EDecalBlendMode ComputeFinalDecalBlendMode(EShaderPlatform Platform, EDecalBlendMode DecalBlendMode, bool bUseNormal)
@@ -87,6 +97,9 @@ struct FDecalRenderingCommon
 			case DBM_Emissive:
 				return RTM_SceneColor;
 
+			case DBM_AlphaComposite:
+				return RTM_SceneColorAndGBufferNoNormal;
+
 			case DBM_DBuffer_ColorNormalRoughness:
 			case DBM_DBuffer_Color:
 			case DBM_DBuffer_ColorNormal:
@@ -99,6 +112,9 @@ struct FDecalRenderingCommon
 
 			case DBM_Volumetric_DistanceFunction:
 				return bHasNormal ? RTM_SceneColorAndGBufferDepthWriteWithNormal : RTM_SceneColorAndGBufferDepthWriteNoNormal;
+
+			case DBM_AmbientOcclusion:
+				return RTM_AmbientOcclusion;
 		}
 
 		// add the missing decal blend mode to the switch
@@ -128,10 +144,14 @@ struct FDecalRenderingCommon
 			case DBM_Stain:
 			case DBM_Normal:
 			case DBM_Emissive:
+			case DBM_AlphaComposite:
 				return DRS_BeforeLighting;
 		
 			case DBM_Volumetric_DistanceFunction:
 				return DRS_AfterBasePass;
+
+			case DBM_AmbientOcclusion:
+				return DRS_AmbientOcclusion;
 
 			default:
 				check(0);
@@ -155,8 +175,26 @@ struct FDecalRenderingCommon
 			case RTM_DBuffer:										return 3;
 			case RTM_GBufferNormal:									return 1;
 			case RTM_SceneColor:									return 1;
+			case RTM_AmbientOcclusion:								return 1;
 		}
 
 		return 0;
+	}
+
+
+	static EDecalRasterizerState ComputeDecalRasterizerState(bool bInsideDecal, bool bIsInverted, bool ViewReverseCulling)
+	{
+		bool bClockwise = bInsideDecal;
+
+		if (ViewReverseCulling)
+		{
+			bClockwise = !bClockwise;
+		}
+
+		if (bIsInverted)
+		{
+			bClockwise = !bClockwise;
+		}
+		return bClockwise ? DRS_CW : DRS_CCW;
 	}
 };

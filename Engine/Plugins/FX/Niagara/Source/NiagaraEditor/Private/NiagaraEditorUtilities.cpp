@@ -6,8 +6,8 @@
 #include "NiagaraNodeInput.h"
 #include "NiagaraDataInterface.h"
 #include "NiagaraComponent.h"
-#include "ModuleManager.h"
-#include "StructOnScope.h"
+#include "Modules/ModuleManager.h"
+#include "UObject/StructOnScope.h"
 #include "NiagaraGraph.h"
 #include "NiagaraSystem.h"
 #include "NiagaraScriptSource.h"
@@ -15,20 +15,25 @@
 #include "NiagaraNodeOutput.h"
 #include "EdGraphUtilities.h"
 #include "NiagaraConstants.h"
-#include "SWidget.h"
-#include "STextBlock.h"
-#include "SImage.h"
-#include "SBoxPanel.h"
+#include "Widgets/SWidget.h"
+#include "Widgets/Text/STextBlock.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/SBoxPanel.h"
 #include "HAL/PlatformApplicationMisc.h"
 #include "NiagaraEditorStyle.h"
 #include "EditorStyleSet.h"
-#include "NiagaraSystemViewModel.h"
-#include "NiagaraEmitterViewModel.h"
-#include "PlatformApplicationMisc.h"
+#include "ViewModels/NiagaraSystemViewModel.h"
+#include "ViewModels/NiagaraEmitterViewModel.h"
+#include "HAL/PlatformApplicationMisc.h"
+#include "AssetRegistryModule.h"
+#include "Misc/FeedbackContext.h"
+#include "EdGraphSchema_Niagara.h"
+#include "HAL/PlatformFilemanager.h"
+#include "Misc/FileHelper.h"
+#include "EdGraph/EdGraphPin.h"
+#include "NiagaraNodeWriteDataSet.h"
 
 #define LOCTEXT_NAMESPACE "FNiagaraEditorUtilities"
-
-
 
 TSet<FName> FNiagaraEditorUtilities::GetSystemConstantNames()
 {
@@ -57,7 +62,7 @@ void FNiagaraEditorUtilities::ResetVariableToDefaultValue(FNiagaraVariable& Vari
 	if (const UScriptStruct* ScriptStruct = Variable.GetType().GetScriptStruct())
 	{
 		FNiagaraEditorModule& NiagaraEditorModule = FModuleManager::GetModuleChecked<FNiagaraEditorModule>("NiagaraEditor");
-		TSharedPtr<INiagaraEditorTypeUtilities> TypeEditorUtilities = NiagaraEditorModule.GetTypeUtilities(Variable.GetType());
+		TSharedPtr<INiagaraEditorTypeUtilities, ESPMode::ThreadSafe> TypeEditorUtilities = NiagaraEditorModule.GetTypeUtilities(Variable.GetType());
 		if (TypeEditorUtilities.IsValid() && TypeEditorUtilities->CanProvideDefaultValue())
 		{
 			TypeEditorUtilities->UpdateVariableWithDefaultValue(Variable);
@@ -108,6 +113,7 @@ void FNiagaraEditorUtilities::GetParameterVariablesFromSystem(UNiagaraSystem& Sy
 				UNiagaraGraph::FFindInputNodeOptions FindOptions;
 				FindOptions.bIncludeAttributes = false;
 				FindOptions.bIncludeSystemConstants = false;
+				FindOptions.bIncludeTranslatorConstants = false;
 				FindOptions.bFilterDuplicates = true;
 
 				TArray<UNiagaraNodeInput*> InputNodes;
@@ -125,136 +131,6 @@ void FNiagaraEditorUtilities::GetParameterVariablesFromSystem(UNiagaraSystem& Sy
 		}
 	}
 }
-
-bool FNiagaraEditorUtilities::ConvertToMergedGraph(UNiagaraEmitter* InEmitter)
-{
-	if (InEmitter->GraphSource == nullptr)
-	{
-		UNiagaraScriptSource* Source = NewObject<UNiagaraScriptSource>(InEmitter, NAME_None, RF_Transactional);
-		if (Source)
-		{
-			UNiagaraGraph* CreatedGraph = NewObject<UNiagaraGraph>(Source, NAME_None, RF_Transactional);
-			Source->NodeGraph = CreatedGraph;
-
-			TArray<UNiagaraGraph*> GraphsToConvert;
-			TArray<ENiagaraScriptUsage> GraphUsages;
-
-			int32 yMaxPrevious = 0;
-
-			GraphsToConvert.Add(CastChecked<UNiagaraScriptSource>(InEmitter->SpawnScriptProps.Script->GetSource())->NodeGraph);
-			GraphUsages.Add(ENiagaraScriptUsage::ParticleSpawnScript);
-			GraphsToConvert.Add(CastChecked<UNiagaraScriptSource>(InEmitter->UpdateScriptProps.Script->GetSource())->NodeGraph);
-			GraphUsages.Add(ENiagaraScriptUsage::ParticleUpdateScript);
-
-			for (int32 i = 0; i < InEmitter->GetEventHandlers().Num(); i++)
-			{
-				if (InEmitter->GetEventHandlers()[i].Script != nullptr)
-				{
-					GraphsToConvert.Add(CastChecked<UNiagaraScriptSource>(InEmitter->GetEventHandlers()[i].Script->GetSource())->NodeGraph);
-					GraphUsages.Add(ENiagaraScriptUsage::ParticleEventScript);
-				}
-			}
-
-			for (int32 i = 0; i < GraphsToConvert.Num(); i++)
-			{
-				UNiagaraGraph* Graph = GraphsToConvert[i];
-				ENiagaraScriptUsage GraphUsage = GraphUsages[i];
-
-				TSet<UObject*> NodesToCopy;
-				TArray<UNiagaraNode*> SourceNodes;
-				Graph->GetNodesOfClass<UNiagaraNode>(SourceNodes);
-
-				int32 HighestY = -INT_MAX;
-				int32 EstimatedHeight = 300;
-				for (UNiagaraNode* SelectedGraphNode : SourceNodes)
-				{
-					if (SelectedGraphNode != nullptr)
-					{
-						if (SelectedGraphNode->NodePosY + EstimatedHeight > HighestY)
-						{
-							HighestY = SelectedGraphNode->NodePosY + EstimatedHeight;
-						}
-
-						if (SelectedGraphNode->CanDuplicateNode())
-						{
-							SelectedGraphNode->PrepareForCopying();
-							NodesToCopy.Add(SelectedGraphNode);
-						}
-						else
-						{
-							UE_LOG(LogNiagaraEditor, Error, TEXT("Could not clone node! %s"), *SelectedGraphNode->GetName());
-						}
-					}
-				}
-
-				FString ExportedText;
-				FEdGraphUtilities::ExportNodesToText(NodesToCopy, ExportedText);
-				FPlatformApplicationMisc::ClipboardCopy(*ExportedText);
-
-				// Grab the text to paste from the clipboard.
-				FPlatformApplicationMisc::ClipboardPaste(ExportedText);
-
-				// Import the nodes
-				TSet<UEdGraphNode*> PastedNodes;
-				FEdGraphUtilities::ImportNodesFromText(CreatedGraph, ExportedText, PastedNodes);
-
-
-				for (UEdGraphNode* PastedNode : PastedNodes)
-				{
-					PastedNode->CreateNewGuid();
-					PastedNode->NodePosY += yMaxPrevious;
-
-					UNiagaraNodeOutput* Output = Cast<UNiagaraNodeOutput>(PastedNode);
-					if (Output != nullptr)
-					{
-						Output->SetUsage(GraphUsage);
-					}
-				}
-
-				FixUpPastedInputNodes(CreatedGraph, PastedNodes);
-				yMaxPrevious = yMaxPrevious + HighestY;
-			}
-
-			InEmitter->GraphSource = Source;
-			InEmitter->SpawnScriptProps.Script->SetSource(Source);
-			InEmitter->UpdateScriptProps.Script->SetSource(Source);
-			for (int32 i = 0; i < InEmitter->GetEventHandlers().Num(); i++)
-			{
-				if (InEmitter->GetEventHandlers()[i].Script != nullptr)
-				{
-					InEmitter->GetEventHandlers()[i].Script->SetSource(Source);
-				}
-			}
-
-			// Also fix up any dependencies' referenced script type..
-			TArray<const UNiagaraGraph*> ReferencedGraphs;
-			CreatedGraph->GetAllReferencedGraphs(ReferencedGraphs);
-			for (const UNiagaraGraph* Graph : ReferencedGraphs)
-			{
-				TArray<UNiagaraNodeOutput*> Outputs;
-				Graph->FindOutputNodes(Outputs);
-				UNiagaraScript* Script = Cast<UNiagaraScript>(Graph->GetOuter());
-				if (Script)
-				{
-					for (UNiagaraNodeOutput* OutputNode : Outputs)
-					{
-						OutputNode->SetUsage(Script->GetUsage());
-					}
-				}
-			}
-			
-			// Now make sure that anyone referencing these graphs knows that they are out-of-date.
-			Source->MarkNotSynchronized();
-
-			//FString ErrorMessages;
-			//FNiagaraEditorModule& NiagaraEditorModule = FModuleManager::Get().LoadModuleChecked<FNiagaraEditorModule>(TEXT("NiagaraEditor"));
-			//NiagaraEditorModule.CompileScript(NewScript, ErrorMessages);
-			return true;
-		}
-	}
-	return false;
-}
-
 
 // TODO: This is overly complicated.
 void FNiagaraEditorUtilities::FixUpPastedInputNodes(UEdGraph* Graph, TSet<UEdGraphNode*> PastedNodes)
@@ -357,6 +233,123 @@ void FNiagaraEditorUtilities::FixUpPastedInputNodes(UEdGraph* Graph, TSet<UEdGra
 				PastedNodeForInput->CallSortPriority = NewSortOrder;
 			}
 		}
+	}
+}
+
+void FNiagaraEditorUtilities::WriteTextFileToDisk(FString SaveDirectory, FString FileName, FString TextToSave, bool bAllowOverwriting)
+{
+	IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
+
+	// CreateDirectoryTree returns true if the destination
+	// directory existed prior to call or has been created
+	// during the call.
+	if (PlatformFile.CreateDirectoryTree(*SaveDirectory))
+	{
+		// Get absolute file path
+		FString AbsoluteFilePath = SaveDirectory + "/" + FileName;
+
+		// Allow overwriting or file doesn't already exist
+		if (bAllowOverwriting || !PlatformFile.FileExists(*AbsoluteFilePath))
+		{
+			if (FFileHelper::SaveStringToFile(TextToSave, *AbsoluteFilePath))
+			{
+				UE_LOG(LogNiagaraEditor, Log, TEXT("Wrote file to %s"), *AbsoluteFilePath);
+				return;
+			}
+
+		}
+	}
+}
+
+void FNiagaraEditorUtilities::GatherChangeIds(UNiagaraEmitter& Emitter, TMap<FGuid, FGuid>& ChangeIds, const FString& InDebugName, bool bWriteToLogDir)
+{
+	FString ExportText;
+	ChangeIds.Empty();
+	TArray<UNiagaraGraph*> Graphs;
+	TArray<UNiagaraScript*> Scripts;
+	Emitter.GetScripts(Scripts);
+
+	// First gather all the graphs used by this emitter..
+	for (UNiagaraScript* Script : Scripts)
+	{
+		if (Script != nullptr && Script->GetSource() != nullptr)
+		{
+			UNiagaraScriptSource* ScriptSource = Cast<UNiagaraScriptSource>(Script->GetSource());
+			if (ScriptSource != nullptr)
+			{
+				Graphs.AddUnique(ScriptSource->NodeGraph);
+			}
+
+			if (bWriteToLogDir)
+			{
+				FNiagaraVMExecutableDataId Id;
+				Script->ComputeVMCompilationId(Id);
+				FString KeyString;
+				Id.AppendKeyString(KeyString);
+
+				UEnum* FoundEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("ENiagaraScriptUsage"), true);
+
+				FString ResultsEnum = TEXT("??");
+				if (FoundEnum)
+				{
+					ResultsEnum = FoundEnum->GetNameStringByValue((int64)Script->Usage);
+				}
+
+				ExportText += FString::Printf(TEXT("Usage: %s CompileKey: %s\n"), *ResultsEnum, *KeyString );
+			}
+		}
+	}
+
+	
+	// Now gather all the node change id's within these graphs.
+	for (UNiagaraGraph* Graph : Graphs)
+	{
+		TArray<UNiagaraNode*> Nodes;
+		Graph->GetNodesOfClass(Nodes);
+
+		for (UNiagaraNode* Node : Nodes)
+		{
+			ChangeIds.Add(Node->NodeGuid, Node->GetChangeId());
+
+			if (bWriteToLogDir)
+			{
+				ExportText += FString::Printf(TEXT("%40s    guid: %25s    changeId: %25s\n"), *Node->GetName(), *Node->NodeGuid.ToString(), *Node->GetChangeId().ToString());
+
+			}
+		}
+	}
+
+	if (bWriteToLogDir)
+	{
+		FNiagaraEditorUtilities::WriteTextFileToDisk(FPaths::ProjectLogDir(), InDebugName + TEXT(".txt"), ExportText, true);
+	}
+	
+}
+
+void FNiagaraEditorUtilities::GatherChangeIds(UNiagaraGraph& Graph, TMap<FGuid, FGuid>& ChangeIds, const FString& InDebugName, bool bWriteToLogDir)
+{
+	ChangeIds.Empty();
+	TArray<UNiagaraGraph*> Graphs;
+	
+	FString ExportText;
+	// Now gather all the node change id's within these graphs.
+	{
+		TArray<UNiagaraNode*> Nodes;
+		Graph.GetNodesOfClass(Nodes);
+
+		for (UNiagaraNode* Node : Nodes)
+		{
+			ChangeIds.Add(Node->NodeGuid, Node->GetChangeId());
+			if (bWriteToLogDir)
+			{
+				ExportText += FString::Printf(TEXT("%40s    guid: %25s    changeId: %25s\n"), *Node->GetName(), *Node->NodeGuid.ToString(), *Node->GetChangeId().ToString());
+			}
+		}
+	}
+
+	if (bWriteToLogDir)
+	{
+		FNiagaraEditorUtilities::WriteTextFileToDisk(FPaths::ProjectLogDir(), InDebugName + TEXT(".txt"), ExportText, true);
 	}
 }
 
@@ -505,13 +498,13 @@ void FNiagaraEditorUtilities::CompileExistingEmitters(const TArray<UNiagaraEmitt
 			continue;
 		}
 
-		// We only need to compile emitters referenced directly by systems since emitters can now only be used in the context 
+		// We only need to compile emitters referenced directly as instances by systems since emitters can now only be used in the context 
 		// of a system.
 		for (TObjectIterator<UNiagaraSystem> SystemIterator; SystemIterator; ++SystemIterator)
 		{
-			if (SystemIterator->ReferencesSourceEmitter(*Emitter))
+			if (SystemIterator->ReferencesInstanceEmitter(*Emitter))
 			{
-				SystemIterator->Compile(false);
+				SystemIterator->RequestCompile(false);
 
 				TArray<TSharedPtr<FNiagaraSystemViewModel>> ExistingSystemViewModels;
 				FNiagaraSystemViewModel::GetAllViewModelsForObject(*SystemIterator, ExistingSystemViewModels);
@@ -543,6 +536,352 @@ bool FNiagaraEditorUtilities::TryGetEventDisplayName(UNiagaraEmitter* Emitter, F
 		}
 	}
 	return false;
+}
+
+bool FNiagaraEditorUtilities::IsCompilableAssetClass(UClass* AssetClass)
+{
+	static const TSet<UClass*> CompilableClasses = { UNiagaraScript::StaticClass(), UNiagaraEmitter::StaticClass(), UNiagaraSystem::StaticClass() };
+	return CompilableClasses.Contains(AssetClass);
+}
+
+void FNiagaraEditorUtilities::MarkDependentCompilableAssetsDirty(TArray<UObject*> InObjects)
+{
+	const FText LoadAndMarkDirtyDisplayName = NSLOCTEXT("NiagaraEditor", "MarkDependentAssetsDirtySlowTask", "Loading and marking dependent assets dirty.");
+	GWarn->BeginSlowTask(LoadAndMarkDirtyDisplayName, true, true);
+
+	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
+	TArray<FAssetIdentifier> ReferenceNames;
+
+	TArray<FAssetData> AssetsToLoadAndMarkDirty;
+	TArray<FAssetData> AssetsToCheck;
+
+	for (UObject* InObject : InObjects)
+	{	
+		AssetsToCheck.Add(FAssetData(InObject));
+	}
+
+	while (AssetsToCheck.Num() > 0)
+	{
+		FAssetData AssetToCheck = AssetsToCheck[0];
+		AssetsToCheck.RemoveAtSwap(0);
+		if (IsCompilableAssetClass(AssetToCheck.GetClass()))
+		{
+			if (AssetsToLoadAndMarkDirty.Contains(AssetToCheck) == false)
+			{
+				AssetsToLoadAndMarkDirty.Add(AssetToCheck);
+				TArray<FName> Referencers;
+				AssetRegistryModule.Get().GetReferencers(AssetToCheck.PackageName, Referencers);
+				for (FName& Referencer : Referencers)
+				{
+					AssetRegistryModule.Get().GetAssetsByPackageName(Referencer, AssetsToCheck);
+				}
+			}
+		}
+	}
+
+	int32 ItemIndex = 0;
+	for (FAssetData AssetDataToLoadAndMarkDirty : AssetsToLoadAndMarkDirty)
+	{	
+		if (GWarn->ReceivedUserCancel())
+		{
+			break;
+		}
+		GWarn->StatusUpdate(ItemIndex++, AssetsToLoadAndMarkDirty.Num(), LoadAndMarkDirtyDisplayName);
+		UObject* AssetToMarkDirty = AssetDataToLoadAndMarkDirty.GetAsset();
+		AssetToMarkDirty->Modify(true);
+	}
+
+	GWarn->EndSlowTask();
+}
+
+template<typename Action>
+void TraverseGraphFromOutputDepthFirst(const UEdGraphSchema_Niagara* Schema, UNiagaraNode* Node, Action& VisitAction)
+{
+	UNiagaraGraph* Graph = Node->GetNiagaraGraph();
+	TArray<UNiagaraNode*> Nodes;
+	Graph->BuildTraversal(Nodes, Node);
+	for (UNiagaraNode* GraphNode : Nodes)
+	{
+		VisitAction(Schema, GraphNode);
+	}
+}
+
+void FixUpNumericPinsVisitor(const UEdGraphSchema_Niagara* Schema, UNiagaraNode* Node)
+{
+	// Fix up numeric input pins and keep track of numeric types to decide the output type.
+	TArray<FNiagaraTypeDefinition> InputTypes;
+	TArray<UEdGraphPin*> InputPins;
+	Node->GetInputPins(InputPins);
+	for (UEdGraphPin* InputPin : InputPins)
+	{
+		if (InputPin->PinType.PinCategory == UEdGraphSchema_Niagara::PinCategoryType)
+		{
+			FNiagaraTypeDefinition InputPinType = Schema->PinToTypeDefinition(InputPin);
+
+			// If the input pin is the generic numeric type set it to the type of the linked output pin which should have been processed already.
+			if (InputPinType == FNiagaraTypeDefinition::GetGenericNumericDef() && InputPin->LinkedTo.Num() == 1)
+			{
+				UEdGraphPin* InputPinLinkedPin = UNiagaraNode::TraceOutputPin(InputPin->LinkedTo[0]);
+				FNiagaraTypeDefinition InputPinLinkedPinType = Schema->PinToTypeDefinition(InputPinLinkedPin);
+				if (InputPinLinkedPinType.IsValid())
+				{
+					// Only update the input pin type if the linked pin type is valid.
+					InputPin->PinType = Schema->TypeDefinitionToPinType(InputPinLinkedPinType);
+					InputPinType = InputPinLinkedPinType;
+				}
+			}
+
+			if (InputPinType == FNiagaraTypeDefinition::GetGenericNumericDef())
+			{
+				UE_LOG(LogNiagaraEditor, Error, TEXT("Unable to deduce type for numeric input pin. Node: %s Pin: %s"), *Node->GetName(), *InputPin->GetName());
+			}
+
+			InputTypes.Add(InputPinType);
+		}
+	}
+
+	// Fix up numeric outputs based on the inputs.
+	if (InputTypes.Num() > 0 && Node->GetNumericOutputTypeSelectionMode() != ENiagaraNumericOutputTypeSelectionMode::None)
+	{
+		FNiagaraTypeDefinition OutputNumericType = FNiagaraTypeDefinition::GetNumericOutputType(InputTypes, Node->GetNumericOutputTypeSelectionMode());
+		if (OutputNumericType != FNiagaraTypeDefinition::GetGenericNumericDef())
+		{
+			TArray<UEdGraphPin*> OutputPins;
+			Node->GetOutputPins(OutputPins);
+			for (UEdGraphPin* OutputPin : OutputPins)
+			{
+				FNiagaraTypeDefinition OutputPinType = Schema->PinToTypeDefinition(OutputPin);
+				if (OutputPinType == FNiagaraTypeDefinition::GetGenericNumericDef())
+				{
+					OutputPin->PinType = Schema->TypeDefinitionToPinType(OutputNumericType);
+				}
+			}
+		}
+	}
+}
+
+void FNiagaraEditorUtilities::FixUpNumericPins(const UEdGraphSchema_Niagara* Schema, UNiagaraNode* Node)
+{
+	auto FixUpVisitor = [&](const UEdGraphSchema_Niagara* LSchema, UNiagaraNode* LNode) { FixUpNumericPinsVisitor(LSchema, LNode); };
+	TraverseGraphFromOutputDepthFirst(Schema, Node, FixUpVisitor);
+}
+
+/* Go through the graph and attempt to auto-detect the type of any numeric pins by working back from the leaves of the graph. Only change the types of pins, not FNiagaraVariables.*/
+void PreprocessGraph(const UEdGraphSchema_Niagara* Schema, UNiagaraGraph* Graph, UNiagaraNodeOutput* OutputNode)
+{
+	check(OutputNode);
+	{
+		FNiagaraEditorUtilities::FixUpNumericPins(Schema, OutputNode);
+	}
+}
+
+/* Go through the graph and force any input nodes with Numeric types to a hard-coded type of float. This will allow modules and functions to compile properly.*/
+void PreProcessGraphForInputNumerics(const UEdGraphSchema_Niagara* Schema, UNiagaraGraph* Graph, TArray<FNiagaraVariable>& OutChangedNumericParams)
+{
+	// Visit all input nodes
+	TArray<UNiagaraNodeInput*> InputNodes;
+	Graph->FindInputNodes(InputNodes);
+	for (UNiagaraNodeInput* InputNode : InputNodes)
+	{
+		// See if any of the output pins are of Numeric type. If so, force to floats.
+		TArray<UEdGraphPin*> OutputPins;
+		InputNode->GetOutputPins(OutputPins);
+		for (UEdGraphPin* OutputPin : OutputPins)
+		{
+			FNiagaraTypeDefinition OutputPinType = Schema->PinToTypeDefinition(OutputPin);
+			if (OutputPinType == FNiagaraTypeDefinition::GetGenericNumericDef())
+			{
+				OutputPin->PinType = Schema->TypeDefinitionToPinType(FNiagaraTypeDefinition::GetFloatDef());
+			}
+		}
+
+		// Record that we touched this variable for later cleanup and make sure that the 
+		// variable's type now matches the pin.
+		if (InputNode->Input.GetType() == FNiagaraTypeDefinition::GetGenericNumericDef())
+		{
+			OutChangedNumericParams.Add(InputNode->Input);
+			InputNode->Input.SetType(FNiagaraTypeDefinition::GetFloatDef());
+		}
+	}
+}
+
+/* Should be called after all pins have been successfully auto-detected for type. This goes through and synchronizes any Numeric FNiagaraVarible outputs with the deduced pin type. This will allow modules and functions to compile properly.*/
+void PreProcessGraphForAttributeNumerics(const UEdGraphSchema_Niagara* Schema, UNiagaraGraph* Graph, UNiagaraNodeOutput* OutputNode, TArray<FNiagaraVariable>& OutChangedNumericParams)
+{
+	// Visit the output node
+	if (OutputNode != nullptr)
+	{
+		// For each pin, make sure that if it has a valid type, but the associated variable is still Numeric,
+		// force the variable to match the pin's new type. Record that we touched this variable for later cleanup.
+		TArray<UEdGraphPin*> InputPins;
+		OutputNode->GetInputPins(InputPins);
+		check(OutputNode->Outputs.Num() == InputPins.Num());
+		for (int32 i = 0; i < InputPins.Num(); i++)
+		{
+			FNiagaraVariable& Param = OutputNode->Outputs[i];
+			UEdGraphPin* InputPin = InputPins[i];
+
+			FNiagaraTypeDefinition InputPinType = Schema->PinToTypeDefinition(InputPin);
+			if (Param.GetType() == FNiagaraTypeDefinition::GetGenericNumericDef() &&
+				InputPinType != FNiagaraTypeDefinition::GetGenericNumericDef())
+			{
+				OutChangedNumericParams.Add(Param);
+				Param.SetType(InputPinType);
+			}
+		}
+	}
+}
+
+void FNiagaraEditorUtilities::ResolveNumerics(UNiagaraGraph* SourceGraph, bool bForceParametersToResolveNumerics, TArray<FNiagaraVariable>& ChangedNumericParams)
+{
+	const UEdGraphSchema_Niagara* Schema = CastChecked<UEdGraphSchema_Niagara>(SourceGraph->GetSchema());
+
+	// In the case of functions or modules, we may not have enough information at this time to fully resolve the type. In that case,
+	// we circumvent the resulting errors by forcing a type. This gives the user an appropriate level of type checking. We will, however need to clean this up in
+	// the parameters that we output.
+	//bool bForceParametersToResolveNumerics = InScript->IsStandaloneScript();
+	if (bForceParametersToResolveNumerics)
+	{
+		PreProcessGraphForInputNumerics(Schema, SourceGraph, ChangedNumericParams);
+	}
+
+	// Auto-deduce the input types for numerics in the graph and overwrite the types on the pins. If PreProcessGraphForInputNumerics occurred, then
+	// we will have pre-populated the inputs with valid types.
+	TArray<UNiagaraNodeOutput*> OutputNodes;
+	SourceGraph->FindOutputNodes(OutputNodes);
+
+	for (UNiagaraNodeOutput* OutputNode : OutputNodes)
+	{
+		PreprocessGraph(Schema, SourceGraph, OutputNode);
+
+		// Now that we've auto-deduced the types, we need to handle any lingering Numerics in the Output's FNiagaraVariable outputs. 
+		// We use the pin's deduced type to temporarily overwrite the variable's type.
+		if (bForceParametersToResolveNumerics)
+		{
+			PreProcessGraphForAttributeNumerics(Schema, SourceGraph, OutputNode, ChangedNumericParams);
+		}
+	}
+}
+
+void FNiagaraEditorUtilities::PreprocessFunctionGraph(const UEdGraphSchema_Niagara* Schema, UNiagaraGraph* Graph, const TArray<UEdGraphPin*>& CallInputs, const TArray<UEdGraphPin*>& CallOutputs, ENiagaraScriptUsage ScriptUsage)
+{
+	// Change any numeric inputs or outputs to match the types from the call node.
+	TArray<UNiagaraNodeInput*> InputNodes;
+
+	// Only handle nodes connected to the correct output node in the event of multiple output nodes in the graph.
+	UNiagaraGraph::FFindInputNodeOptions Options;
+	Options.bFilterByScriptUsage = true;
+	Options.TargetScriptUsage = ScriptUsage;
+
+	Graph->FindInputNodes(InputNodes, Options);
+
+	for (UNiagaraNodeInput* InputNode : InputNodes)
+	{
+		FNiagaraVariable& Input = InputNode->Input;
+		if (Input.GetType() == FNiagaraTypeDefinition::GetGenericNumericDef())
+		{
+			UEdGraphPin* const* MatchingPin = CallInputs.FindByPredicate([&](const UEdGraphPin* Pin) { return (Pin->PinName == Input.GetName()); });
+
+			if (MatchingPin != nullptr)
+			{
+				FNiagaraTypeDefinition PinType = Schema->PinToTypeDefinition(*MatchingPin);
+				Input.SetType(PinType);
+				TArray<UEdGraphPin*> OutputPins;
+				InputNode->GetOutputPins(OutputPins);
+				check(OutputPins.Num() == 1);
+				OutputPins[0]->PinType = (*MatchingPin)->PinType;
+			}
+		}
+	}
+
+	UNiagaraNodeOutput* OutputNode = Graph->FindOutputNode(ScriptUsage);
+	check(OutputNode);
+
+	TArray<UEdGraphPin*> InputPins;
+	OutputNode->GetInputPins(InputPins);
+
+	for (FNiagaraVariable& Output : OutputNode->Outputs)
+	{
+		if (Output.GetType() == FNiagaraTypeDefinition::GetGenericNumericDef())
+		{
+			UEdGraphPin* const* MatchingPin = CallOutputs.FindByPredicate([&](const UEdGraphPin* Pin) { return (Pin->PinName == Output.GetName()); });
+
+			if (MatchingPin != nullptr)
+			{
+				FNiagaraTypeDefinition PinType = Schema->PinToTypeDefinition(*MatchingPin);
+				Output.SetType(PinType);
+			}
+		}
+	}
+
+	FNiagaraEditorUtilities::FixUpNumericPins(Schema, OutputNode);
+
+}
+
+UNiagaraNodeOutput* FNiagaraEditorUtilities::GetScriptOutputNode(UNiagaraScript& Script)
+{
+	UNiagaraScriptSource* Source = CastChecked<UNiagaraScriptSource>(Script.GetSource());
+	return Source->NodeGraph->FindEquivalentOutputNode(Script.GetUsage(), Script.GetUsageId());
+}
+
+UNiagaraScript* FNiagaraEditorUtilities::GetScriptFromSystem(UNiagaraSystem& System, FGuid EmitterHandleId, ENiagaraScriptUsage Usage, FGuid UsageId)
+{
+	if (UNiagaraScript::IsEquivalentUsage(Usage, ENiagaraScriptUsage::SystemSpawnScript))
+	{
+		return System.GetSystemSpawnScript();
+	}
+	else if (UNiagaraScript::IsEquivalentUsage(Usage, ENiagaraScriptUsage::SystemUpdateScript))
+	{
+		return System.GetSystemUpdateScript();
+	}
+	else if (EmitterHandleId.IsValid())
+	{
+		const FNiagaraEmitterHandle* ScriptEmitterHandle = System.GetEmitterHandles().FindByPredicate(
+			[EmitterHandleId](const FNiagaraEmitterHandle& EmitterHandle) { return EmitterHandle.GetId() == EmitterHandleId; });
+		if (ScriptEmitterHandle != nullptr)
+		{
+			if (UNiagaraScript::IsEquivalentUsage(Usage, ENiagaraScriptUsage::EmitterSpawnScript))
+			{
+				return ScriptEmitterHandle->GetInstance()->EmitterSpawnScriptProps.Script;
+			}
+			else if (UNiagaraScript::IsEquivalentUsage(Usage, ENiagaraScriptUsage::EmitterUpdateScript))
+			{
+				return ScriptEmitterHandle->GetInstance()->EmitterUpdateScriptProps.Script;
+			}
+			else if (UNiagaraScript::IsEquivalentUsage(Usage, ENiagaraScriptUsage::ParticleSpawnScript))
+			{
+				return ScriptEmitterHandle->GetInstance()->SpawnScriptProps.Script;
+			}
+			else if (UNiagaraScript::IsEquivalentUsage(Usage, ENiagaraScriptUsage::ParticleUpdateScript))
+			{
+				return ScriptEmitterHandle->GetInstance()->UpdateScriptProps.Script;
+			}
+			else if (UNiagaraScript::IsEquivalentUsage(Usage, ENiagaraScriptUsage::ParticleEventScript))
+			{
+				for (const FNiagaraEventScriptProperties& EventScriptProperties : ScriptEmitterHandle->GetInstance()->GetEventHandlers())
+				{
+					if (EventScriptProperties.Script->GetUsageId() == UsageId)
+					{
+						return EventScriptProperties.Script;
+					}
+				}
+			}
+		}
+	}
+	return nullptr;
+}
+
+const FNiagaraEmitterHandle* FNiagaraEditorUtilities::GetEmitterHandleForEmitter(UNiagaraSystem& System, UNiagaraEmitter& Emitter)
+{
+	return System.GetEmitterHandles().FindByPredicate(
+		[&Emitter](const FNiagaraEmitterHandle& EmitterHandle) { return EmitterHandle.GetInstance() == &Emitter; });
+}
+
+FText FNiagaraEditorUtilities::FormatScriptAssetDescription(FText Description, FName Path)
+{
+	return Description.IsEmptyOrWhitespace()
+		? FText::Format(LOCTEXT("ScriptAssetDescriptionFormatPathOnly", "Path: {0}"), FText::FromName(Path))
+		: FText::Format(LOCTEXT("ScriptAssetDescriptionFormat", "Description: {1}\nPath: {0}"), FText::FromName(Path), Description);
 }
 
 #undef LOCTEXT_NAMESPACE

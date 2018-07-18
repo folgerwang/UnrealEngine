@@ -57,11 +57,11 @@ class UWorldTileDetails : public UObject
 	
 	// Tile position in the world, relative to parent 
 	UPROPERTY(Category=Tile, EditAnywhere )
-	FIntPoint						Position;
+	FIntVector						Position;
 
 	// Tile absolute position in the world (readonly)
 	UPROPERTY(Category=Tile, VisibleAnywhere)
-	FIntPoint						AbsolutePosition;
+	FIntVector						AbsolutePosition;
 
 	// Tile sorting order
 	UPROPERTY(Category=Tile, EditAnywhere, meta=(ClampMin = "-1000", ClampMax = "1000", UIMin = "-1000", UIMax = "1000"))

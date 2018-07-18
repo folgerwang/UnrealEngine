@@ -23,75 +23,60 @@ UMovieSceneSubTrack::UMovieSceneSubTrack( const FObjectInitializer& ObjectInitia
 #endif
 }
 
-UMovieSceneSubSection* UMovieSceneSubTrack::AddSequence(UMovieSceneSequence* Sequence, float StartTime, float Duration, const bool& bInsertSequence)
+UMovieSceneSubSection* UMovieSceneSubTrack::AddSequenceOnRow(UMovieSceneSequence* Sequence, FFrameNumber StartTime, int32 Duration, int32 RowIndex)
 {
 	Modify();
-
-	// If inserting, push all existing sections out to make space for the new one
-	if (bInsertSequence)
-	{
-		// If there's a shot that starts at the same time as this new shot, push the shots forward to make space for this one
-		bool bPushShotsForward = false;
-		for (auto Section : Sections)
-		{
-			float SectionStartTime = Section->GetStartTime();
-			if (FMath::IsNearlyEqual(SectionStartTime, StartTime))
-			{
-				bPushShotsForward = true;
-				break;
-			}
-		}
-		if (bPushShotsForward)
-		{
-			for (auto Section : Sections)
-			{
-				float SectionStartTime = Section->GetStartTime();
-				if (SectionStartTime >= StartTime)
-				{
-					Section->SetStartTime(SectionStartTime + Duration);
-					Section->SetEndTime(Section->GetEndTime() + Duration);
-				}
-			}
-		}
-		// Otherwise, see if there's a shot after the start time and clamp the duration to that next shot
-		else
-		{
-			bool bFoundAfterShot = false;
-			float MinDiff = FLT_MAX;
-			for (auto Section : Sections)
-			{
-				float SectionStartTime = Section->GetStartTime();
-				if (SectionStartTime > StartTime)
-				{
-					bFoundAfterShot = true;
-					float Diff = SectionStartTime - StartTime;
-					MinDiff = FMath::Min(MinDiff, Diff);
-				}
-			}
-
-			if (MinDiff != FLT_MAX)
-			{
-				Duration = MinDiff;
-			}
-		}
-	}
 
 	UMovieSceneSubSection* NewSection = CastChecked<UMovieSceneSubSection>(CreateNewSection());
 	{
 		NewSection->SetSequence(Sequence);
-		NewSection->SetStartTime(StartTime);
-		NewSection->SetEndTime(StartTime + Duration);
+		NewSection->SetRange(TRange<FFrameNumber>(StartTime, StartTime + Duration));
+	}
+
+	// If no given row index, put it on the next available row
+	if (RowIndex == INDEX_NONE)
+	{
+		RowIndex = 0;
+		NewSection->SetRowIndex(RowIndex);
+		while (NewSection->OverlapsWithSections(Sections) != nullptr)
+		{
+			++RowIndex;
+			NewSection->SetRowIndex(RowIndex);
+		}
+	}
+
+	NewSection->SetRowIndex(RowIndex);
+
+	// If this overlaps with any sections, move out all the sections that are beyond this row
+	if (NewSection->OverlapsWithSections(Sections))
+	{
+		for (UMovieSceneSection* OtherSection : Sections)
+		{
+			if (OtherSection != NewSection && OtherSection->GetRowIndex() >= RowIndex)
+			{
+				OtherSection->SetRowIndex(OtherSection->GetRowIndex()+1);
+			}
+		}
 	}
 
 	Sections.Add(NewSection);
+
+#if WITH_EDITORONLY_DATA
+	if (Sequence && Sequence->GetMovieScene())
+	{
+		NewSection->TimecodeSource = Sequence->GetMovieScene()->TimecodeSource;
+	}
+#endif
 
 	return NewSection;
 }
 
 UMovieSceneSubSection* UMovieSceneSubTrack::AddSequenceToRecord()
 {
+	Modify();
+
 	UMovieScene* MovieScene = CastChecked<UMovieScene>(GetOuter());
-	TRange<float> PlaybackRange = MovieScene->GetPlaybackRange();
+	TRange<FFrameNumber> PlaybackRange = MovieScene->GetPlaybackRange();
 
 	int32 MaxRowIndex = -1;
 	for (auto Section : Sections)
@@ -103,8 +88,7 @@ UMovieSceneSubSection* UMovieSceneSubTrack::AddSequenceToRecord()
 	{
 		NewSection->SetRowIndex(MaxRowIndex + 1);
 		NewSection->SetAsRecording(true);
-		NewSection->SetStartTime(PlaybackRange.GetLowerBoundValue());
-		NewSection->SetEndTime(PlaybackRange.GetUpperBoundValue());
+		NewSection->SetRange(PlaybackRange);
 	}
 
 	Sections.Add(NewSection);
@@ -177,19 +161,6 @@ UMovieSceneSection* UMovieSceneSubTrack::CreateNewSection()
 const TArray<UMovieSceneSection*>& UMovieSceneSubTrack::GetAllSections() const 
 {
 	return Sections;
-}
-
-
-TRange<float> UMovieSceneSubTrack::GetSectionBoundaries() const
-{
-	TArray<TRange<float>> Bounds;
-
-	for (int32 SectionIndex = 0; SectionIndex < Sections.Num(); ++SectionIndex)
-	{
-		Bounds.Add(Sections[SectionIndex]->GetRange());
-	}
-
-	return TRange<float>::Hull(Bounds);
 }
 
 

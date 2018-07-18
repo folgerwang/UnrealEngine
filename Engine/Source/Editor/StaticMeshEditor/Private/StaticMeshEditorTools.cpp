@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "StaticMeshEditorTools.h"
 #include "Framework/Commands/UIAction.h"
@@ -26,6 +26,7 @@
 #include "PhysicsEngine/BodySetup.h"
 #include "FbxMeshUtils.h"
 #include "Widgets/Input/SVectorInputBox.h"
+#include "SPerPlatformPropertiesWidget.h"
 
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 #include "EngineAnalytics.h"
@@ -35,6 +36,9 @@
 #include "Engine/SkeletalMesh.h"
 #include "IMeshReductionManagerModule.h"
 #include "HAL/PlatformApplicationMisc.h"
+#include "Widgets/Input/SFilePathPicker.h"
+#include "EditorDirectories.h"
+#include "EditorFramework/AssetImportData.h"
 
 const uint32 MaxHullCount = 64;
 const uint32 MinHullCount = 2;
@@ -53,6 +57,16 @@ const int32 DefaultVertsPerHull = 16;
 
 #define LOCTEXT_NAMESPACE "StaticMeshEditor"
 DEFINE_LOG_CATEGORY_STATIC(LogStaticMeshEditorTools,Log,All);
+
+/*
+* Custom data key
+*/
+enum SM_CustomDataKey
+{
+	CustomDataKey_LODVisibilityState = 0, //This is the key to know if a LOD is shown in custom mode. Do CustomDataKey_LODVisibilityState + LodIndex for a specific LOD
+	CustomDataKey_LODEditMode = 100 //This is the key to know the state of the custom lod edit mode.
+};
+
 
 FStaticMeshDetails::FStaticMeshDetails( class FStaticMeshEditor& InStaticMeshEditor )
 	: StaticMeshEditor( InStaticMeshEditor )
@@ -1411,8 +1425,9 @@ void FMeshSectionSettingsLayout::AddToCategory( IDetailCategoryBuilder& Category
 	SectionListDelegates.OnCopySectionItem.BindSP(this, &FMeshSectionSettingsLayout::OnCopySectionItem);
 	SectionListDelegates.OnCanCopySectionItem.BindSP(this, &FMeshSectionSettingsLayout::OnCanCopySectionItem);
 	SectionListDelegates.OnPasteSectionItem.BindSP(this, &FMeshSectionSettingsLayout::OnPasteSectionItem);
-
-	CategoryBuilder.AddCustomBuilder(MakeShareable(new FSectionList(CategoryBuilder.GetParentLayout(), SectionListDelegates, false, 64, LODIndex)));
+	//We need a valid name if we want the section expand state to be saved
+	FName StaticMeshSectionListName = FName(*(FString(TEXT("StaticMeshSectionListNameLOD_")) + FString::FromInt(LODIndex)));
+	CategoryBuilder.AddCustomBuilder(MakeShareable(new FSectionList(CategoryBuilder.GetParentLayout(), SectionListDelegates, true, 64, LODIndex, StaticMeshSectionListName)));
 
 	StaticMeshEditor.RegisterOnSelectedLODChanged(FOnSelectedLODChanged::CreateSP(this, &FMeshSectionSettingsLayout::UpdateLODCategoryVisibility), false);
 }
@@ -1956,7 +1971,7 @@ void FMeshSectionSettingsLayout::SetCurrentLOD(int32 NewLodIndex)
 
 void FMeshSectionSettingsLayout::UpdateLODCategoryVisibility()
 {
-	if (CustomLODEditModePtr != nullptr && *CustomLODEditModePtr == true)
+	if (StaticMeshEditor.GetCustomData(CustomDataKey_LODEditMode) > 0)
 	{
 		//Do not change the Category visibility if we are in custom mode
 		return;
@@ -2227,33 +2242,8 @@ void FMeshMaterialsLayout::GetMaterials(IMaterialListBuilder& ListBuilder)
 void FMeshMaterialsLayout::OnMaterialChanged(UMaterialInterface* NewMaterial, UMaterialInterface* PrevMaterial, int32 MaterialIndex, bool bReplaceAll)
 {
 	UStaticMesh& StaticMesh = GetStaticMesh();
-	FScopedTransaction ScopeTransaction(LOCTEXT("StaticMeshEditorMaterialChanged", "Staticmesh editor: Material changed"));
-
-	// flag the property (Materials) we're modifying so that not all of the object is rebuilt.
-	UProperty* ChangedProperty = NULL;
-	ChangedProperty = FindField<UProperty>(UStaticMesh::StaticClass(), "StaticMaterials");
-	check(ChangedProperty);
-	StaticMesh.PreEditChange(ChangedProperty);
-
-	if (StaticMesh.StaticMaterials.IsValidIndex(MaterialIndex))
-	{
-		StaticMesh.StaticMaterials[MaterialIndex].MaterialInterface = NewMaterial;
-		if (NewMaterial != nullptr)
-		{
-			//Set the Material slot name to a good default one
-			if (StaticMesh.StaticMaterials[MaterialIndex].MaterialSlotName == NAME_None)
-			{
-				StaticMesh.StaticMaterials[MaterialIndex].MaterialSlotName = NewMaterial->GetFName();
-			}
-			//Set the original fbx material name so we can re-import correctly
-			if (StaticMesh.StaticMaterials[MaterialIndex].ImportedMaterialSlotName == NAME_None)
-			{
-				StaticMesh.StaticMaterials[MaterialIndex].ImportedMaterialSlotName = NewMaterial->GetFName();
-			}
-		}
-	}
-
-	CallPostEditChange(ChangedProperty);
+	StaticMesh.SetMaterial(MaterialIndex, NewMaterial);
+	StaticMeshEditor.RefreshViewport();
 }
 
 TSharedRef<SWidget> FMeshMaterialsLayout::OnGenerateWidgetsForMaterial(UMaterialInterface* Material, int32 SlotIndex)
@@ -2811,15 +2801,11 @@ void FLevelOfDetailSettingsLayout::AddToDetailsPanel( IDetailLayoutBuilder& Deta
 	]
 	.ValueContent()
 	[
-		SNew(SSpinBox<int32>)
-		.Font( IDetailLayoutBuilder::GetDetailFont() )
-		.Value(this, &FLevelOfDetailSettingsLayout::GetMinLOD)
-		.OnValueChanged(this, &FLevelOfDetailSettingsLayout::OnMinLODChanged)
-		.OnValueCommitted(this, &FLevelOfDetailSettingsLayout::OnMinLODCommitted)
-		.MinValue(0)
-		.MaxValue(MAX_STATIC_MESH_LODS)
-		.ToolTipText(this, &FLevelOfDetailSettingsLayout::GetMinLODTooltip)
-		.IsEnabled(FLevelOfDetailSettingsLayout::GetLODCount() > 1)
+		SNew(SPerPlatformPropertiesWidget)
+		.OnGenerateWidget(this, &FLevelOfDetailSettingsLayout::GetMinLODWidget)
+		.OnAddPlatform(this, &FLevelOfDetailSettingsLayout::AddMinLODPlatformOverride)
+		.OnRemovePlatform(this, &FLevelOfDetailSettingsLayout::RemoveMinLODPlatformOverride)
+		.PlatformOverrideNames(this, &FLevelOfDetailSettingsLayout::GetMinLODPlatformOverrideNames)
 	];
 
 	// Add Number of LODs slider.
@@ -2909,7 +2895,7 @@ FReply FLevelOfDetailSettingsLayout::OnRemoveLOD(int32 LODIndex)
 				FScopedTransaction Transaction( TEXT(""), TransactionDescription, StaticMesh );
 
 				StaticMesh->Modify();
-				StaticMesh->SourceModels.RemoveAt(LODIndex);
+				StaticMesh->RemoveSourceModel(LODIndex);
 				--LODCount;
 				StaticMesh->PostEditChange();
 
@@ -2982,8 +2968,6 @@ void FLevelOfDetailSettingsLayout::AddLODLevelCategories( IDetailLayoutBuilder& 
 			.OnCheckStateChanged(this, &FLevelOfDetailSettingsLayout::SetLODCustomModeCheck, (int32)INDEX_NONE)
 			.ToolTipText(LOCTEXT("LODCustomModeFirstRowTooltip", "Custom Mode allow editing multiple LOD in same time."))
 		];
-		//Set the custom mode to false
-		CustomLODEditMode = false;
 		// Create information panel for each LOD level.
 		for(int32 LODIndex = 0; LODIndex < StaticMeshLODCount; ++LODIndex)
 		{
@@ -3019,7 +3003,7 @@ void FLevelOfDetailSettingsLayout::AddLODLevelCategories( IDetailLayoutBuilder& 
 					ReductionSettingsWidgets[LODIndex]->UpdateSettings(SrcModel.ReductionSettings);
 				}
 
-				if (SrcModel.RawMeshBulkData->IsEmpty() == false)
+				if (SrcModel.RawMeshBulkData->IsEmpty() == false || SrcModel.OriginalMeshDescription != nullptr)
 				{
 					BuildSettingsWidgets[LODIndex] = MakeShareable( new FMeshBuildSettingsLayout( AsShared() ) );
 					BuildSettingsWidgets[LODIndex]->UpdateSettings(SrcModel.BuildSettings);
@@ -3037,10 +3021,10 @@ void FLevelOfDetailSettingsLayout::AddLODLevelCategories( IDetailLayoutBuilder& 
 					ReductionSettingsWidgets[LODIndex]->UpdateSettings(ReductionSettings);
 				}
 
-				if(LODScreenSizes[LODIndex] >= LODScreenSizes[LODIndex-1])
+				if(LODScreenSizes[LODIndex].Default >= LODScreenSizes[LODIndex-1].Default)
 				{
 					const float DefaultScreenSizeDifference = 0.01f;
-					LODScreenSizes[LODIndex] = LODScreenSizes[LODIndex-1] - DefaultScreenSizeDifference;
+					LODScreenSizes[LODIndex].Default = LODScreenSizes[LODIndex-1].Default - DefaultScreenSizeDifference;
 				}
 			}
 
@@ -3048,46 +3032,63 @@ void FLevelOfDetailSettingsLayout::AddLODLevelCategories( IDetailLayoutBuilder& 
 			CategoryName.AppendInt( LODIndex );
 
 			FText LODLevelString = FText::FromString(FString(TEXT("LOD ")) + FString::FromInt(LODIndex) );
+			bool bHasBeenSimplified = StaticMesh->SourceModels[LODIndex].RawMeshBulkData->IsEmpty() || StaticMesh->SourceModels[LODIndex].ReductionSettings.PercentTriangles < 1.0f || StaticMesh->SourceModels[LODIndex].ReductionSettings.MaxDeviation > 0.0f;
+			FText GeneratedString = FText::FromString(bHasBeenSimplified ? TEXT("[generated]") : TEXT(""));
 
 			IDetailCategoryBuilder& LODCategory = DetailBuilder.EditCategory( *CategoryName, LODLevelString, ECategoryPriority::Important );
 			LodCategories.Add(&LODCategory);
 
 			LODCategory.HeaderContent
 			(
-				SNew( SBox )
-				.HAlign( HAlign_Right )
+				SNew( SHorizontalBox )
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
 				[
-					SNew( SHorizontalBox )
-					+ SHorizontalBox::Slot()
-					.Padding(FMargin(5.0f, 0.0f))
-					.AutoWidth()
+					SNew(SBox)
+					.Padding(FMargin(4.0f, 0.0f))
 					[
 						SNew(STextBlock)
-						.Font(FEditorStyle::GetFontStyle("StaticMeshEditor.NormalFont"))
-						.Text(this, &FLevelOfDetailSettingsLayout::GetLODScreenSizeTitle, LODIndex)
-						.Visibility( LODIndex > 0 ? EVisibility::Visible : EVisibility::Collapsed )
+						.Text(GeneratedString)
+						.Font(IDetailLayoutBuilder::GetDetailFontItalic())
 					]
-					+ SHorizontalBox::Slot()
-					.Padding( FMargin( 5.0f, 0.0f ) )
-					.AutoWidth()
+				]
+				+SHorizontalBox::Slot()
+				.FillWidth(1.0f)
+				[
+					SNew( SBox )
+					.HAlign( HAlign_Right )
 					[
-						SNew(STextBlock)
-						.Font(FEditorStyle::GetFontStyle("StaticMeshEditor.NormalFont"))
-						.Text( FText::Format( LOCTEXT("Triangles_MeshSimplification", "Triangles: {0}"), FText::AsNumber( StaticMeshEditor.GetNumTriangles(LODIndex) ) ) )
-					]
-					+ SHorizontalBox::Slot()
-					.Padding( FMargin( 5.0f, 0.0f ) )
-					.AutoWidth()
-					[
-						SNew(STextBlock)
-						.Font(FEditorStyle::GetFontStyle("StaticMeshEditor.NormalFont"))
-						.Text( FText::Format( LOCTEXT("Vertices_MeshSimplification", "Vertices: {0}"), FText::AsNumber( StaticMeshEditor.GetNumVertices(LODIndex) ) ) )
+						SNew( SHorizontalBox )
+						+ SHorizontalBox::Slot()
+						.Padding(FMargin(5.0f, 0.0f))
+						.AutoWidth()
+						[
+							SNew(STextBlock)
+							.Font(FEditorStyle::GetFontStyle("StaticMeshEditor.NormalFont"))
+							.Text(this, &FLevelOfDetailSettingsLayout::GetLODScreenSizeTitle, LODIndex)
+							.Visibility( LODIndex > 0 ? EVisibility::Visible : EVisibility::Collapsed )
+						]
+						+ SHorizontalBox::Slot()
+						.Padding( FMargin( 5.0f, 0.0f ) )
+						.AutoWidth()
+						[
+							SNew(STextBlock)
+							.Font(FEditorStyle::GetFontStyle("StaticMeshEditor.NormalFont"))
+							.Text( FText::Format( LOCTEXT("Triangles_MeshSimplification", "Triangles: {0}"), FText::AsNumber( StaticMeshEditor.GetNumTriangles(LODIndex) ) ) )
+						]
+						+ SHorizontalBox::Slot()
+						.Padding( FMargin( 5.0f, 0.0f ) )
+						.AutoWidth()
+						[
+							SNew(STextBlock)
+							.Font(FEditorStyle::GetFontStyle("StaticMeshEditor.NormalFont"))
+							.Text( FText::Format( LOCTEXT("Vertices_MeshSimplification", "Vertices: {0}"), FText::AsNumber( StaticMeshEditor.GetNumVertices(LODIndex) ) ) )
+						]
 					]
 				]
 			);
-			
-			
-			SectionSettingsWidgets[ LODIndex ] = MakeShareable( new FMeshSectionSettingsLayout( StaticMeshEditor, LODIndex, LodCategories, &CustomLODEditMode) );
+					
+			SectionSettingsWidgets[ LODIndex ] = MakeShareable( new FMeshSectionSettingsLayout( StaticMeshEditor, LODIndex, LodCategories) );
 			SectionSettingsWidgets[ LODIndex ]->AddToCategory( LODCategory );
 
 			LODCategory.AddCustomRow(( LOCTEXT("ScreenSizeRow", "ScreenSize")))
@@ -3098,17 +3099,41 @@ void FLevelOfDetailSettingsLayout::AddLODLevelCategories( IDetailLayoutBuilder& 
 				.Text(LOCTEXT("ScreenSizeName", "Screen Size"))
 			]
 			.ValueContent()
+			.MinDesiredWidth(FLevelOfDetailSettingsLayout::GetScreenSizeWidgetWidth(LODIndex))
+			.MaxDesiredWidth(FLevelOfDetailSettingsLayout::GetScreenSizeWidgetWidth(LODIndex))
 			[
-				SNew(SSpinBox<float>)
-				.Font(IDetailLayoutBuilder::GetDetailFont())
-				.MinValue(0.0f)
-				.MaxValue(WORLD_MAX)
-				.SliderExponent(2.0f)
-				.Value(this, &FLevelOfDetailSettingsLayout::GetLODScreenSize, LODIndex)
-				.OnValueChanged(this, &FLevelOfDetailSettingsLayout::OnLODScreenSizeChanged, LODIndex)
-				.OnValueCommitted(this, &FLevelOfDetailSettingsLayout::OnLODScreenSizeCommitted, LODIndex)
-				.IsEnabled(this, &FLevelOfDetailSettingsLayout::CanChangeLODScreenSize)
+				SNew(SPerPlatformPropertiesWidget)
+				.OnGenerateWidget(this, &FLevelOfDetailSettingsLayout::GetLODScreenSizeWidget, LODIndex)
+				.OnAddPlatform(this, &FLevelOfDetailSettingsLayout::AddLODScreenSizePlatformOverride, LODIndex)
+				.OnRemovePlatform(this, &FLevelOfDetailSettingsLayout::RemoveLODScreenSizePlatformOverride, LODIndex)
+				.PlatformOverrideNames(this, &FLevelOfDetailSettingsLayout::GetLODScreenSizePlatformOverrideNames, LODIndex)
 			];
+
+			if(LODIndex > 0 && StaticMesh->SourceModels.IsValidIndex(LODIndex) && !StaticMesh->SourceModels[LODIndex].RawMeshBulkData->IsEmpty())
+			{
+				FString FileTypeFilter = TEXT("All files (*.*)|*.*");
+				LODCategory.AddCustomRow(( LOCTEXT("SourceImporFilenameRow", "SourceImportFilename")))
+				.NameContent()
+				[
+					SNew(STextBlock)
+					.Font(IDetailLayoutBuilder::GetDetailFont())
+					.Text(LOCTEXT("SourceImportFilenameName", "Source Import Filename"))
+				]
+				.ValueContent()
+					.MinDesiredWidth(125.0f)
+					.MaxDesiredWidth(0.0f)
+				[
+					SNew(SFilePathPicker)
+						.BrowseButtonImage(FEditorStyle::GetBrush("PropertyWindow.Button_Ellipsis"))
+						.BrowseButtonStyle(FEditorStyle::Get(), "HoverHintOnly")
+						.BrowseButtonToolTip(LOCTEXT("FileButtonToolTipText", "Choose a source import file"))
+						.BrowseDirectory(FEditorDirectories::Get().GetLastDirectory(ELastDirectory::GENERIC_OPEN))
+						.BrowseTitle(LOCTEXT("PropertyEditorTitle", "Source import file picker..."))
+						.FilePath(this, &FLevelOfDetailSettingsLayout::GetSourceImportFilename, LODIndex)
+						.FileTypeFilter(FileTypeFilter)
+						.OnPathPicked(this, &FLevelOfDetailSettingsLayout::SetSourceImportFilename, LODIndex)
+				];
+			}
 
 			if (BuildSettingsWidgets[LODIndex].IsValid())
 			{
@@ -3146,6 +3171,37 @@ void FLevelOfDetailSettingsLayout::AddLODLevelCategories( IDetailLayoutBuilder& 
 			LODCustomModeCategory.SetCategoryVisibility(true);
 			LODCustomModeCategory.SetShowAdvanced(false);
 		}
+
+
+
+		//Restore the state of the custom check LOD
+		for (int32 DetailLODIndex = 0; DetailLODIndex < StaticMeshLODCount; ++DetailLODIndex)
+		{
+			int32 LodCheckValue = StaticMeshEditor.GetCustomData(CustomDataKey_LODVisibilityState + DetailLODIndex);
+			if (LodCheckValue != INDEX_NONE)
+			{
+				DetailDisplayLODs[DetailLODIndex] = LodCheckValue > 0;
+			}
+		}
+
+		//Restore the state of the custom LOD mode if its true (greater then 0)
+		bool bCustomLodEditMode = StaticMeshEditor.GetCustomData(CustomDataKey_LODEditMode) > 0;
+		if (bCustomLodEditMode)
+		{
+			for (int32 DetailLODIndex = 0; DetailLODIndex < StaticMeshLODCount; ++DetailLODIndex)
+			{
+				if (!LodCategories.IsValidIndex(DetailLODIndex))
+				{
+					break;
+				}
+				LodCategories[DetailLODIndex]->SetCategoryVisibility(DetailDisplayLODs[DetailLODIndex]);
+			}
+		}
+
+		if (LodCustomCategory != nullptr)
+		{
+			LodCustomCategory->SetShowAdvanced(bCustomLodEditMode);
+		}
 	}
 }
 
@@ -3154,30 +3210,73 @@ FLevelOfDetailSettingsLayout::~FLevelOfDetailSettingsLayout()
 {
 }
 
+FString FLevelOfDetailSettingsLayout::GetSourceImportFilename(int32 LODIndex) const
+{
+	UStaticMesh* Mesh = StaticMeshEditor.GetStaticMesh();
+	if (!Mesh->SourceModels.IsValidIndex(LODIndex) || Mesh->SourceModels[LODIndex].SourceImportFilename.IsEmpty())
+	{
+		return FString(TEXT(""));
+	}
+	return UAssetImportData::ResolveImportFilename(Mesh->SourceModels[LODIndex].SourceImportFilename, nullptr);
+}
+
+void FLevelOfDetailSettingsLayout::SetSourceImportFilename(const FString& SourceFileName, int32 LODIndex) const
+{
+	UStaticMesh* Mesh = StaticMeshEditor.GetStaticMesh();
+	if (!Mesh->SourceModels.IsValidIndex(LODIndex))
+	{
+		return;
+	}
+	if (SourceFileName.IsEmpty())
+	{
+		Mesh->SourceModels[LODIndex].SourceImportFilename = SourceFileName;
+	}
+	else
+	{
+		Mesh->SourceModels[LODIndex].SourceImportFilename = UAssetImportData::SanitizeImportFilename(SourceFileName, nullptr);
+	}
+	Mesh->Modify();
+}
+
 int32 FLevelOfDetailSettingsLayout::GetLODCount() const
 {
 	return LODCount;
 }
 
-float FLevelOfDetailSettingsLayout::GetLODScreenSize( int32 LODIndex ) const
+float FLevelOfDetailSettingsLayout::GetLODScreenSize(FName PlatformGroupName, int32 LODIndex) const
 {
 	check(LODIndex < MAX_STATIC_MESH_LODS);
 	UStaticMesh* Mesh = StaticMeshEditor.GetStaticMesh();
-	float ScreenSize = LODScreenSizes[FMath::Clamp(LODIndex, 0, MAX_STATIC_MESH_LODS-1)];
+	const FPerPlatformFloat& LODScreenSize = LODScreenSizes[FMath::Clamp(LODIndex, 0, MAX_STATIC_MESH_LODS - 1)];
+	float ScreenSize = LODScreenSize.Default;
+	if (PlatformGroupName != NAME_None)
+	{
+		const float* PlatformScreenSize = LODScreenSize.PerPlatform.Find(PlatformGroupName);
+		if (PlatformScreenSize != nullptr)
+		{
+			ScreenSize = *PlatformScreenSize;
+		}
+	}
+
 	if(Mesh->bAutoComputeLODScreenSize)
 	{
-		ScreenSize = Mesh->RenderData->ScreenSize[LODIndex];
+		ScreenSize = Mesh->RenderData->ScreenSize[LODIndex].Default;
 	}
 	else if(Mesh->SourceModels.IsValidIndex(LODIndex))
 	{
-		ScreenSize = Mesh->SourceModels[LODIndex].ScreenSize;
+		ScreenSize = Mesh->SourceModels[LODIndex].ScreenSize.Default;
+		const float* PlatformScreenSize = Mesh->SourceModels[LODIndex].ScreenSize.PerPlatform.Find(PlatformGroupName);
+		if (PlatformScreenSize != nullptr)
+		{
+			ScreenSize = *PlatformScreenSize;
+		}
 	}
 	return ScreenSize;
 }
 
 FText FLevelOfDetailSettingsLayout::GetLODScreenSizeTitle( int32 LODIndex ) const
 {
-	return FText::Format( LOCTEXT("ScreenSize_MeshSimplification", "Screen Size: {0}"), FText::AsNumber(GetLODScreenSize(LODIndex)));
+	return FText::Format( LOCTEXT("ScreenSize_MeshSimplification", "Screen Size: {0}"), FText::AsNumber(GetLODScreenSize(NAME_None, LODIndex)));
 }
 
 bool FLevelOfDetailSettingsLayout::CanChangeLODScreenSize() const
@@ -3185,7 +3284,67 @@ bool FLevelOfDetailSettingsLayout::CanChangeLODScreenSize() const
 	return !IsAutoLODEnabled();
 }
 
-void FLevelOfDetailSettingsLayout::OnLODScreenSizeChanged( float NewValue, int32 LODIndex )
+TSharedRef<SWidget> FLevelOfDetailSettingsLayout::GetLODScreenSizeWidget(FName PlatformGroupName, int32 LODIndex) const
+{
+	return SNew(SSpinBox<float>)
+		.Font(IDetailLayoutBuilder::GetDetailFont())
+		.MinValue(0.0f)
+		.MaxValue(WORLD_MAX)
+		.SliderExponent(2.0f)
+		.Value(this, &FLevelOfDetailSettingsLayout::GetLODScreenSize, PlatformGroupName, LODIndex)
+		.OnValueChanged(this, &FLevelOfDetailSettingsLayout::OnLODScreenSizeChanged, PlatformGroupName, LODIndex)
+		.OnValueCommitted(this, &FLevelOfDetailSettingsLayout::OnLODScreenSizeCommitted, PlatformGroupName, LODIndex)
+		.IsEnabled(this, &FLevelOfDetailSettingsLayout::CanChangeLODScreenSize);
+}
+
+TArray<FName> FLevelOfDetailSettingsLayout::GetLODScreenSizePlatformOverrideNames(int32 LODIndex) const
+{
+	TArray<FName> KeyArray;
+	LODScreenSizes[LODIndex].PerPlatform.GenerateKeyArray(KeyArray);
+	KeyArray.Sort();
+	return KeyArray;
+}
+
+float FLevelOfDetailSettingsLayout::GetScreenSizeWidgetWidth(int32 LODIndex) const
+{
+	return (float)(LODScreenSizes[LODIndex].PerPlatform.Num() + 1) * 125.f;
+}
+
+bool FLevelOfDetailSettingsLayout::AddLODScreenSizePlatformOverride(FName PlatformGroupName, int32 LODIndex)
+{
+	FScopedTransaction Transaction(LOCTEXT("AddLODScreenSizePlatformOverride", "Add LOD Screen Size Platform Override"));
+	UStaticMesh* StaticMesh = StaticMeshEditor.GetStaticMesh();
+	if (LODScreenSizes[LODIndex].PerPlatform.Find(PlatformGroupName) == nullptr)
+	{
+		if(!StaticMesh->bAutoComputeLODScreenSize && StaticMesh->SourceModels.IsValidIndex(LODIndex))
+		{
+			StaticMesh->Modify();
+			float Value = StaticMesh->SourceModels[LODIndex].ScreenSize.Default;
+			StaticMesh->SourceModels[LODIndex].ScreenSize.PerPlatform.Add(PlatformGroupName, Value);
+			OnLODScreenSizeChanged(Value, PlatformGroupName, LODIndex);
+			return true;
+		}
+	}
+	return false;
+}
+
+bool FLevelOfDetailSettingsLayout::RemoveLODScreenSizePlatformOverride(FName PlatformGroupName, int32 LODIndex)
+{
+	FScopedTransaction Transaction(LOCTEXT("RemoveLODScreenSizePlatformOverride", "Remove LOD Screen Size Platform Override"));
+	UStaticMesh* StaticMesh = StaticMeshEditor.GetStaticMesh();
+	if (!StaticMesh->bAutoComputeLODScreenSize && StaticMesh->SourceModels.IsValidIndex(LODIndex))
+	{
+		StaticMesh->Modify();
+		if (StaticMesh->SourceModels[LODIndex].ScreenSize.PerPlatform.Remove(PlatformGroupName) != 0)
+		{
+			OnLODScreenSizeChanged(StaticMesh->SourceModels[LODIndex].ScreenSize.Default, PlatformGroupName, LODIndex);
+			return true;
+		}
+	}
+	return false;
+}
+
+void FLevelOfDetailSettingsLayout::OnLODScreenSizeChanged( float NewValue, FName PlatformGroupName, int32 LODIndex )
 {
 	check(LODIndex < MAX_STATIC_MESH_LODS);
 	UStaticMesh* StaticMesh = StaticMeshEditor.GetStaticMesh();
@@ -3199,12 +3358,26 @@ void FLevelOfDetailSettingsLayout::OnLODScreenSizeChanged( float NewValue, int32
 
 		// Update Display factors for further LODs
 		const float MinimumDifferenceInScreenSize = KINDA_SMALL_NUMBER;
-		LODScreenSizes[LODIndex] = NewValue;
-		// Make sure we aren't trying to ovelap or have more than one LOD for a value
-		for (int32 i = 1; i < MAX_STATIC_MESH_LODS; ++i)
+		
+		if (PlatformGroupName == NAME_None)
 		{
-			float MaxValue = FMath::Max(LODScreenSizes[i-1] - MinimumDifferenceInScreenSize, 0.0f);
-			LODScreenSizes[i] = FMath::Min(LODScreenSizes[i], MaxValue);
+			LODScreenSizes[LODIndex].Default = NewValue;
+
+			// Make sure we aren't trying to overlap or have more than one LOD for a value
+			for (int32 i = 1; i < MAX_STATIC_MESH_LODS; ++i)
+			{
+				float MaxValue = FMath::Max(LODScreenSizes[i-1].Default - MinimumDifferenceInScreenSize, 0.0f);
+				LODScreenSizes[i].Default = FMath::Min(LODScreenSizes[i].Default, MaxValue);
+			}
+		}
+		else
+		{
+			// Per-platform overrides don't have any restrictions
+			float* PlatformScreenSize = LODScreenSizes[LODIndex].PerPlatform.Find(PlatformGroupName);
+			if (PlatformScreenSize != nullptr)
+			{
+				*PlatformScreenSize = NewValue;
+			}
 		}
 
 		// Push changes immediately.
@@ -3231,9 +3404,9 @@ void FLevelOfDetailSettingsLayout::OnLODScreenSizeChanged( float NewValue, int32
 	}
 }
 
-void FLevelOfDetailSettingsLayout::OnLODScreenSizeCommitted( float NewValue, ETextCommit::Type CommitType, int32 LODIndex )
+void FLevelOfDetailSettingsLayout::OnLODScreenSizeCommitted( float NewValue, ETextCommit::Type CommitType, FName PlatformGroupName, int32 LODIndex )
 {
-	OnLODScreenSizeChanged(NewValue, LODIndex);
+	OnLODScreenSizeChanged(NewValue, PlatformGroupName, LODIndex);
 }
 
 void FLevelOfDetailSettingsLayout::UpdateLODNames()
@@ -3273,23 +3446,32 @@ void FLevelOfDetailSettingsLayout::OnLODGroupChanged(TSharedPtr<FString> NewValu
 	FName NewGroup = LODGroupNames[GroupIndex];
 	if (StaticMesh->LODGroup != NewGroup)
 	{
-		EAppReturnType::Type DialogResult = FMessageDialog::Open(
-			EAppMsgType::YesNo,
-			FText::Format( LOCTEXT("ApplyDefaultLODSettings", "Changing LOD group will overwrite the current settings with the defaults from LOD group '{0}'. Do you wish to continue?"), FText::FromString( **NewValue ) )
-			);
-		if (DialogResult == EAppReturnType::Yes)
+		if (NewGroup != NAME_None)
 		{
-			StaticMesh->SetLODGroup(NewGroup);
-			// update the internal count
-			LODCount = StaticMesh->SourceModels.Num();
-			StaticMeshEditor.RefreshTool();
+			EAppReturnType::Type DialogResult = FMessageDialog::Open(
+				EAppMsgType::YesNo,
+				FText::Format(LOCTEXT("ApplyDefaultLODSettings", "Changing LOD group will overwrite the current settings with the defaults from LOD group '{0}'. Do you wish to continue?"), FText::FromString(**NewValue))
+			);
+			if (DialogResult == EAppReturnType::Yes)
+			{
+				StaticMesh->SetLODGroup(NewGroup);
+				// update the internal count
+				LODCount = StaticMesh->SourceModels.Num();
+				StaticMeshEditor.RefreshTool();
+			}
+			else
+			{
+				// Overriding the selection; ensure that the widget correctly reflects the property value
+				int32 Index = LODGroupNames.Find(StaticMesh->LODGroup);
+				check(Index != INDEX_NONE);
+				LODGroupComboBox->SetSelectedItem(LODGroupOptions[Index]);
+			}
 		}
 		else
 		{
-			// Overriding the selection; ensure that the widget correctly reflects the property value
-			int32 Index = LODGroupNames.Find(StaticMesh->LODGroup);
-			check(Index != INDEX_NONE);
-			LODGroupComboBox->SetSelectedItem(LODGroupOptions[Index]);
+			//Setting to none just change the LODGroup to None, the LOD count will not change
+			StaticMesh->SetLODGroup(NewGroup);
+			StaticMeshEditor.RefreshTool();
 		}
 	}
 }
@@ -3316,11 +3498,11 @@ void FLevelOfDetailSettingsLayout::OnAutoLODChanged(ECheckBoxState NewState)
 	{
 		if (StaticMesh->SourceModels.IsValidIndex(0))
 		{
-			StaticMesh->SourceModels[0].ScreenSize = 1.0f;
+			StaticMesh->SourceModels[0].ScreenSize.Default = 1.0f;
 		}
 		for (int32 LODIndex = 1; LODIndex < StaticMesh->SourceModels.Num(); ++LODIndex)
 		{
-			StaticMesh->SourceModels[LODIndex].ScreenSize = StaticMesh->RenderData->ScreenSize[LODIndex];
+			StaticMesh->SourceModels[LODIndex].ScreenSize.Default = StaticMesh->RenderData->ScreenSize[LODIndex].Default;
 		}
 	}
 	StaticMesh->PostEditChange();
@@ -3383,16 +3565,7 @@ void FLevelOfDetailSettingsLayout::ApplyChanges()
 	FlushRenderingCommands();
 
 	StaticMesh->Modify();
-	if (StaticMesh->SourceModels.Num() > LODCount)
-	{
-		int32 NumToRemove = StaticMesh->SourceModels.Num() - LODCount;
-		StaticMesh->SourceModels.RemoveAt(LODCount, NumToRemove);
-	}
-	while (StaticMesh->SourceModels.Num() < LODCount)
-	{
-		new(StaticMesh->SourceModels) FStaticMeshSourceModel();
-	}
-	check(StaticMesh->SourceModels.Num() == LODCount);
+	StaticMesh->SetNumSourceModels(LODCount);
 
 	for (int32 LODIndex = 0; LODIndex < LODCount; ++LODIndex)
 	{
@@ -3408,19 +3581,19 @@ void FLevelOfDetailSettingsLayout::ApplyChanges()
 
 		if (LODIndex == 0)
 		{
-			SrcModel.ScreenSize = 1.0f;
+			SrcModel.ScreenSize.Default = 1.0f;
 		}
 		else
 		{
 			SrcModel.ScreenSize = LODScreenSizes[LODIndex];
 			FStaticMeshSourceModel& PrevModel = StaticMesh->SourceModels[LODIndex-1];
-			if(SrcModel.ScreenSize >= PrevModel.ScreenSize)
+			if(SrcModel.ScreenSize.Default >= PrevModel.ScreenSize.Default)
 			{
 				const float DefaultScreenSizeDifference = 0.01f;
-				LODScreenSizes[LODIndex] = LODScreenSizes[LODIndex-1] - DefaultScreenSizeDifference;
+				LODScreenSizes[LODIndex].Default = LODScreenSizes[LODIndex-1].Default - DefaultScreenSizeDifference;
 
 				// Make sure there are no incorrectly overlapping values
-				SrcModel.ScreenSize = 1.0f - 0.01f * LODIndex;
+				SrcModel.ScreenSize.Default = 1.0f - 0.01f * LODIndex;
 			}
 		}
 	}
@@ -3459,35 +3632,101 @@ FText FLevelOfDetailSettingsLayout::GetLODCountTooltip() const
 	return LOCTEXT("LODCountTooltip_Disabled", "Auto mesh reduction is unavailable! Please provide a mesh reduction interface such as Simplygon to use this feature or manually import LOD levels.");
 }
 
-int32 FLevelOfDetailSettingsLayout::GetMinLOD() const
+int32 FLevelOfDetailSettingsLayout::GetMinLOD(FName Platform) const
 {
 	UStaticMesh* StaticMesh = StaticMeshEditor.GetStaticMesh();
 	check(StaticMesh);
 
-	return StaticMesh->MinLOD;
+	int32* ValuePtr = (Platform == NAME_None) ? nullptr : StaticMesh->MinLOD.PerPlatform.Find(Platform);
+	return (ValuePtr != nullptr) ? *ValuePtr : StaticMesh->MinLOD.Default;
 }
 
-void FLevelOfDetailSettingsLayout::OnMinLODChanged(int32 NewValue)
+void FLevelOfDetailSettingsLayout::OnMinLODChanged(int32 NewValue, FName Platform)
 {
 	UStaticMesh* StaticMesh = StaticMeshEditor.GetStaticMesh();
 	check(StaticMesh);
 
 	{
-		FStaticMeshComponentRecreateRenderStateContext ReregisterContext(StaticMesh,false);
-		StaticMesh->MinLOD = FMath::Clamp<int32>(NewValue, 0, MAX_STATIC_MESH_LODS - 1);
+		FStaticMeshComponentRecreateRenderStateContext ReregisterContext(StaticMesh, false);
+		NewValue = FMath::Clamp<int32>(NewValue, 0, MAX_STATIC_MESH_LODS - 1);
+		if (Platform == NAME_None)
+		{
+			StaticMesh->MinLOD.Default = NewValue;
+		}
+		else
+		{
+			int32* ValuePtr = StaticMesh->MinLOD.PerPlatform.Find(Platform);
+			if (ValuePtr != nullptr)
+			{
+				*ValuePtr = NewValue;
+			}
+		}
 		StaticMesh->Modify();
 	}
 	StaticMeshEditor.RefreshViewport();
 }
 
-void FLevelOfDetailSettingsLayout::OnMinLODCommitted(int32 InValue, ETextCommit::Type CommitInfo)
+void FLevelOfDetailSettingsLayout::OnMinLODCommitted(int32 InValue, ETextCommit::Type CommitInfo, FName Platform)
 {
-	OnMinLODChanged(InValue);
+	OnMinLODChanged(InValue, Platform);
 }
 
 FText FLevelOfDetailSettingsLayout::GetMinLODTooltip() const
 {
 	return LOCTEXT("MinLODTooltip", "The minimum LOD to use for rendering.  This can be overridden in components.");
+}
+
+TSharedRef<SWidget> FLevelOfDetailSettingsLayout::GetMinLODWidget(FName PlatformGroupName) const
+{
+	return SNew(SSpinBox<int32>)
+		.Font(IDetailLayoutBuilder::GetDetailFont())
+		.Value(this, &FLevelOfDetailSettingsLayout::GetMinLOD, PlatformGroupName)
+		.OnValueChanged(this, &FLevelOfDetailSettingsLayout::OnMinLODChanged, PlatformGroupName)
+		.OnValueCommitted(this, &FLevelOfDetailSettingsLayout::OnMinLODCommitted, PlatformGroupName)
+		.MinValue(0)
+		.MaxValue(MAX_STATIC_MESH_LODS)
+		.ToolTipText(this, &FLevelOfDetailSettingsLayout::GetMinLODTooltip)
+		.IsEnabled(FLevelOfDetailSettingsLayout::GetLODCount() > 1);
+}
+
+bool FLevelOfDetailSettingsLayout::AddMinLODPlatformOverride(FName PlatformGroupName)
+{
+	FScopedTransaction Transaction(LOCTEXT("AddMinLODPlatformOverride", "Add Min LOD Platform Override"));
+	UStaticMesh* StaticMesh = StaticMeshEditor.GetStaticMesh();
+	check(StaticMesh);
+	StaticMesh->Modify();
+	if (StaticMesh->MinLOD.PerPlatform.Find(PlatformGroupName) == nullptr)
+	{
+		float Value = StaticMesh->MinLOD.Default;
+		StaticMesh->MinLOD.PerPlatform.Add(PlatformGroupName, Value);
+		OnMinLODChanged(Value, PlatformGroupName);
+		return true;
+	}
+	return false;
+}
+
+bool FLevelOfDetailSettingsLayout::RemoveMinLODPlatformOverride(FName PlatformGroupName)
+{
+	FScopedTransaction Transaction(LOCTEXT("RemoveMinLODPlatformOverride", "Remove Min LOD Platform Override"));
+	UStaticMesh* StaticMesh = StaticMeshEditor.GetStaticMesh();
+	check(StaticMesh);
+	StaticMesh->Modify();
+	if (StaticMesh->MinLOD.PerPlatform.Remove(PlatformGroupName) != 0)
+	{
+		OnMinLODChanged(StaticMesh->MinLOD.Default, PlatformGroupName);
+		return true;
+	}
+	return false;
+}
+
+TArray<FName> FLevelOfDetailSettingsLayout::GetMinLODPlatformOverrideNames() const
+{
+	UStaticMesh* StaticMesh = StaticMeshEditor.GetStaticMesh();
+	check(StaticMesh);
+	TArray<FName> KeyArray;
+	StaticMesh->MinLOD.PerPlatform.GenerateKeyArray(KeyArray);
+	KeyArray.Sort();
+	return KeyArray;
 }
 
 FText FLevelOfDetailSettingsLayout::GetLODCustomModeNameContent(int32 LODIndex) const
@@ -3514,7 +3753,7 @@ ECheckBoxState FLevelOfDetailSettingsLayout::IsLODCustomModeCheck(int32 LODIndex
 	}
 	if (LODIndex == INDEX_NONE)
 	{
-		return CustomLODEditMode ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+		return StaticMeshEditor.GetCustomData(CustomDataKey_LODEditMode) > 0 ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
 	}
 	return DetailDisplayLODs[LODIndex] ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
 }
@@ -3530,7 +3769,7 @@ void FLevelOfDetailSettingsLayout::SetLODCustomModeCheck(ECheckBoxState NewState
 	{
 		if (NewState == ECheckBoxState::Unchecked)
 		{
-			CustomLODEditMode = false;
+			StaticMeshEditor.SetCustomData(CustomDataKey_LODEditMode, 0);
 			SectionSettingsWidgets[0]->SetCurrentLOD(CurrentLodIndex);
 			for (int32 DetailLODIndex = 0; DetailLODIndex < MAX_STATIC_MESH_LODS; ++DetailLODIndex)
 			{
@@ -3543,16 +3782,17 @@ void FLevelOfDetailSettingsLayout::SetLODCustomModeCheck(ECheckBoxState NewState
 		}
 		else
 		{
-			CustomLODEditMode = true;
+			StaticMeshEditor.SetCustomData(CustomDataKey_LODEditMode, 1);
 			SectionSettingsWidgets[0]->SetCurrentLOD(0);
 		}
 	}
-	else if(CustomLODEditMode)
+	else if(StaticMeshEditor.GetCustomData(CustomDataKey_LODEditMode) > 0)
 	{
 		DetailDisplayLODs[LODIndex] = NewState == ECheckBoxState::Checked;
+		StaticMeshEditor.SetCustomData(CustomDataKey_LODVisibilityState + LODIndex, DetailDisplayLODs[LODIndex] ? 1 : 0);
 	}
 
-	if (CustomLODEditMode)
+	if (StaticMeshEditor.GetCustomData(CustomDataKey_LODEditMode) > 0)
 	{
 		for (int32 DetailLODIndex = 0; DetailLODIndex < MAX_STATIC_MESH_LODS; ++DetailLODIndex)
 		{
@@ -3566,7 +3806,7 @@ void FLevelOfDetailSettingsLayout::SetLODCustomModeCheck(ECheckBoxState NewState
 
 	if (LodCustomCategory != nullptr)
 	{
-		LodCustomCategory->SetShowAdvanced(CustomLODEditMode);
+		LodCustomCategory->SetShowAdvanced(StaticMeshEditor.GetCustomData(CustomDataKey_LODEditMode) > 0);
 	}
 }
 
@@ -3577,7 +3817,7 @@ bool FLevelOfDetailSettingsLayout::IsLODCustomModeEnable(int32 LODIndex) const
 		// Custom checkbox is always enable
 		return true;
 	}
-	return CustomLODEditMode;
+	return StaticMeshEditor.GetCustomData(CustomDataKey_LODEditMode) > 0;
 }
 
 TSharedRef<SWidget> FLevelOfDetailSettingsLayout::OnGenerateLodComboBoxForLodPicker()
@@ -3600,7 +3840,7 @@ TSharedRef<SWidget> FLevelOfDetailSettingsLayout::OnGenerateLodComboBoxForLodPic
 EVisibility FLevelOfDetailSettingsLayout::LodComboBoxVisibilityForLodPicker() const
 {
 	//No combo box when in Custom mode
-	if (CustomLODEditMode == true)
+	if (StaticMeshEditor.GetCustomData(CustomDataKey_LODEditMode) > 0)
 	{
 		return EVisibility::Hidden;
 	}
@@ -3610,7 +3850,7 @@ EVisibility FLevelOfDetailSettingsLayout::LodComboBoxVisibilityForLodPicker() co
 bool FLevelOfDetailSettingsLayout::IsLodComboBoxEnabledForLodPicker() const
 {
 	//No combo box when in Custom mode
-	return !CustomLODEditMode;
+	return StaticMeshEditor.GetCustomData(CustomDataKey_LODEditMode) <= 0;
 }
 
 TSharedRef<SWidget> FLevelOfDetailSettingsLayout::OnGenerateLodMenuForLodPicker()

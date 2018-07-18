@@ -8,7 +8,7 @@ AHierarchicalLODVolume::AHierarchicalLODVolume(const FObjectInitializer& ObjectI
 	: Super(ObjectInitializer)
 	, bIncludeOverlappingActors(false)
 {
-	GetBrushComponent()->bGenerateOverlapEvents = false;
+	GetBrushComponent()->SetGenerateOverlapEvents(false);
 	bNotForClientOrServer = true;
 
 	bColored = true;

@@ -3,8 +3,44 @@
 #pragma once
 
 #include "PyWrapperBase.h"
+#include "PyPtr.h"
 #include "PyWrapperOwnerContext.h"
 #include "UObject/WeakObjectPtr.h"
+#include "PyWrapperDelegate.generated.h"
+
+/**
+ * UObject proxy base used to wrap a callable Python object so that it can be used with an Unreal delegate
+ * @note This can't go inside the WITH_PYTHON block due to UHT parsing limitations (it doesn't understand that macro)
+ */
+UCLASS()
+class UPythonCallableForDelegate : public UObject
+{
+	GENERATED_BODY()
+
+public:
+	//~ UObject interface
+	virtual void BeginDestroy() override;
+
+	/** Native function implementation used by the signature correct Unreal functions added to the derived classes (the ones that are bound to the delegate itself) */
+	DECLARE_FUNCTION(CallPythonNative);
+
+#if WITH_PYTHON
+	/** Get the Python callable object on this instance (borrowed reference) */
+	PyObject* GetCallable() const;
+
+	/** Set the Python callable object on this instance */
+	void SetCallable(PyObject* InCallable);
+#endif	// WITH_PYTHON
+
+	/** Name given to the generated function that we should bind to the Unreal delegate */
+	static const FName GeneratedFuncName;
+
+private:
+#if WITH_PYTHON
+	/** The callable Python callable object this object wraps (if any) */
+	FPyObjectPtr PyCallable;
+#endif	// WITH_PYTHON
+};
 
 #if WITH_PYTHON
 
@@ -15,7 +51,7 @@ extern PyTypeObject PyWrapperDelegateType;
 extern PyTypeObject PyWrapperMulticastDelegateType;
 
 /** Initialize the PyWrapperDelegate types and add them to the given Python module */
-void InitializePyWrapperDelegate(PyObject* PyModule);
+void InitializePyWrapperDelegate(PyGenUtil::FNativePythonModule& ModuleInfo);
 
 /** Base type for all UE4 exposed delegate instances */
 template <typename DelegateType>
@@ -23,9 +59,6 @@ struct TPyWrapperDelegate : public FPyWrapperBase
 {
 	/** The owner of the wrapped delegate instance (if any) */
 	FPyWrapperOwnerContext OwnerContext;
-
-	/** Function representing the signature of this delegate instance */
-	const UFunction* DelegateSignature;
 
 	/** Wrapped delegate instance */
 	DelegateType* DelegateInstance;
@@ -41,25 +74,54 @@ struct TPyWrapperDelegateMetaData : public FPyWrapperBaseMetaData
 	PY_OVERRIDE_GETSET_METADATA(TPyWrapperDelegateMetaData)
 
 	TPyWrapperDelegateMetaData()
-		: DelegateSignature(nullptr)
+		: PythonCallableForDelegateClass(nullptr)
 	{
 	}
 
 	/** Get the delegate signature from the given type */
-	static const UFunction* GetDelegateSignature(PyTypeObject* PyType)
+	static const PyGenUtil::FGeneratedWrappedFunction& GetDelegateSignature(PyTypeObject* PyType)
 	{
 		TPyWrapperDelegateMetaData* PyWrapperMetaData = TPyWrapperDelegateMetaData::GetMetaData(PyType);
-		return PyWrapperMetaData ? PyWrapperMetaData->DelegateSignature : nullptr;
+		static const PyGenUtil::FGeneratedWrappedFunction NullDelegateSignature = PyGenUtil::FGeneratedWrappedFunction();
+		return PyWrapperMetaData ? PyWrapperMetaData->DelegateSignature : NullDelegateSignature;
 	}
 
 	/** Get the delegate signature from the type of the given instance */
-	static const UFunction* GetDelegateSignature(WrapperType* Instance)
+	static const PyGenUtil::FGeneratedWrappedFunction& GetDelegateSignature(WrapperType* Instance)
 	{
 		return GetDelegateSignature(Py_TYPE(Instance));
 	}
 
+	/** Get the generated class type used to wrap Python callables for this delegate type */
+	static const UClass* GetPythonCallableForDelegateClass(PyTypeObject* PyType)
+	{
+		TPyWrapperDelegateMetaData* PyWrapperMetaData = TPyWrapperDelegateMetaData::GetMetaData(PyType);
+		return PyWrapperMetaData ? PyWrapperMetaData->PythonCallableForDelegateClass : nullptr;
+	}
+
+	/** Get the generated class type used to wrap Python callables for this delegate type */
+	static const UClass* GetPythonCallableForDelegateClass(WrapperType* Instance)
+	{
+		return GetPythonCallableForDelegateClass(Py_TYPE(Instance));
+	}
+
+	/** Add object references from the given Python object to the given collector */
+	virtual void AddReferencedObjects(FPyWrapperBase* Instance, FReferenceCollector& Collector) override
+	{
+		Collector.AddReferencedObject(PythonCallableForDelegateClass);
+	}
+
+	/** Get the reflection meta data type object associated with this wrapper type if there is one or nullptr if not. */
+	virtual const UField* GetMetaType() const override
+	{
+		return DelegateSignature.Func;
+	}
+
 	/** Unreal function representing the signature for the delegate */
-	const UFunction* DelegateSignature;
+	PyGenUtil::FGeneratedWrappedFunction DelegateSignature;
+
+	/** Generated class type used to wrap Python callables for this delegate type */
+	const UClass* PythonCallableForDelegateClass;
 };
 
 /** Type for all UE4 exposed delegate instances */
@@ -75,7 +137,7 @@ struct FPyWrapperDelegate : public TPyWrapperDelegate<FScriptDelegate>
 	static int Init(FPyWrapperDelegate* InSelf);
 
 	/** Initialize this wrapper instance to the given value (called via tp_init for Python, or directly in C++) */
-	static int Init(FPyWrapperDelegate* InSelf, const FPyWrapperOwnerContext& InOwnerContext, const UFunction* InDelegateSignature, FScriptDelegate* InValue, const EPyConversionMethod InConversionMethod);
+	static int Init(FPyWrapperDelegate* InSelf, const FPyWrapperOwnerContext& InOwnerContext, FScriptDelegate* InValue, const EPyConversionMethod InConversionMethod);
 
 	/** Deinitialize this wrapper instance (called via Init and Free to restore the instance to its New state) */
 	static void Deinit(FPyWrapperDelegate* InSelf);
@@ -84,10 +146,10 @@ struct FPyWrapperDelegate : public TPyWrapperDelegate<FScriptDelegate>
 	static bool ValidateInternalState(FPyWrapperDelegate* InSelf);
 
 	/** Cast the given Python object to this wrapped type (returns a new reference) */
-	static FPyWrapperDelegate* CastPyObject(PyObject* InPyObject);
+	static FPyWrapperDelegate* CastPyObject(PyObject* InPyObject, FPyConversionResult* OutCastResult = nullptr);
 
 	/** Cast the given Python object to this wrapped type, or attempt to convert the type into a new wrapped instance (returns a new reference) */
-	static FPyWrapperDelegate* CastPyObject(PyObject* InPyObject, PyTypeObject* InType);
+	static FPyWrapperDelegate* CastPyObject(PyObject* InPyObject, PyTypeObject* InType, FPyConversionResult* OutCastResult = nullptr);
 
 	/** Call the delegate */
 	static PyObject* CallDelegate(FPyWrapperDelegate* InSelf, PyObject* InArgs);
@@ -96,7 +158,10 @@ struct FPyWrapperDelegate : public TPyWrapperDelegate<FScriptDelegate>
 /** Meta-data for all UE4 exposed delegate types */
 struct FPyWrapperDelegateMetaData : public TPyWrapperDelegateMetaData<FPyWrapperDelegate>
 {
-	PY_OVERRIDE_GETSET_METADATA(FPyWrapperDelegateMetaData)
+	PY_METADATA_METHODS(FPyWrapperDelegateMetaData, FGuid(0xCB3D0485, 0x8A3A443E, 0xBEE336F4, 0x82888A81))
+
+	/** Add object references from the given Python object to the given collector */
+	virtual void AddReferencedObjects(FPyWrapperBase* Instance, FReferenceCollector& Collector) override;
 };
 
 /** Type for all UE4 exposed multicast delegate instances */
@@ -112,7 +177,7 @@ struct FPyWrapperMulticastDelegate : public TPyWrapperDelegate<FMulticastScriptD
 	static int Init(FPyWrapperMulticastDelegate* InSelf);
 
 	/** Initialize this wrapper instance to the given value (called via tp_init for Python, or directly in C++) */
-	static int Init(FPyWrapperMulticastDelegate* InSelf, const FPyWrapperOwnerContext& InOwnerContext, const UFunction* InDelegateSignature, FMulticastScriptDelegate* InValue, const EPyConversionMethod InConversionMethod);
+	static int Init(FPyWrapperMulticastDelegate* InSelf, const FPyWrapperOwnerContext& InOwnerContext, FMulticastScriptDelegate* InValue, const EPyConversionMethod InConversionMethod);
 
 	/** Deinitialize this wrapper instance (called via Init and Free to restore the instance to its New state) */
 	static void Deinit(FPyWrapperMulticastDelegate* InSelf);
@@ -121,10 +186,10 @@ struct FPyWrapperMulticastDelegate : public TPyWrapperDelegate<FMulticastScriptD
 	static bool ValidateInternalState(FPyWrapperMulticastDelegate* InSelf);
 
 	/** Cast the given Python object to this wrapped type (returns a new reference) */
-	static FPyWrapperMulticastDelegate* CastPyObject(PyObject* InPyObject);
+	static FPyWrapperMulticastDelegate* CastPyObject(PyObject* InPyObject, FPyConversionResult* OutCastResult = nullptr);
 
 	/** Cast the given Python object to this wrapped type, or attempt to convert the type into a new wrapped instance (returns a new reference) */
-	static FPyWrapperMulticastDelegate* CastPyObject(PyObject* InPyObject, PyTypeObject* InType);
+	static FPyWrapperMulticastDelegate* CastPyObject(PyObject* InPyObject, PyTypeObject* InType, FPyConversionResult* OutCastResult = nullptr);
 
 	/** Call the delegate */
 	static PyObject* CallDelegate(FPyWrapperMulticastDelegate* InSelf, PyObject* InArgs);
@@ -133,7 +198,10 @@ struct FPyWrapperMulticastDelegate : public TPyWrapperDelegate<FMulticastScriptD
 /** Meta-data for all UE4 exposed multicast delegate types */
 struct FPyWrapperMulticastDelegateMetaData : public TPyWrapperDelegateMetaData<FPyWrapperMulticastDelegate>
 {
-	PY_OVERRIDE_GETSET_METADATA(FPyWrapperMulticastDelegateMetaData)
+	PY_METADATA_METHODS(FPyWrapperMulticastDelegateMetaData, FGuid(0x448FB4DA, 0x38DC4386, 0xBCAFF448, 0x29C0F3A4))
+
+	/** Add object references from the given Python object to the given collector */
+	virtual void AddReferencedObjects(FPyWrapperBase* Instance, FReferenceCollector& Collector) override;
 };
 
 typedef TPyPtr<FPyWrapperDelegate> FPyWrapperDelegatePtr;

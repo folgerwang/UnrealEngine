@@ -10,7 +10,7 @@
 #include "Installer/DownloadService.h"
 #include "Installer/InstallerError.h"
 #include "Common/StatsCollector.h"
-#include "IBuildInstaller.h"
+#include "Interfaces/IBuildInstaller.h"
 #include "BuildPatchUtil.h"
 #include "HAL/ThreadSafeBool.h"
 #include "Containers/Queue.h"
@@ -520,7 +520,7 @@ namespace BuildPatchServices
 					TArray<uint8> DownloadedData = Download->GetData();
 
 					// If we know the SHA for this chunk, inject to data for verification.
-					FSHAHashData LegacyHashType;
+					FSHAHash LegacyHashType;
 					if (InstallManifest->GetChunkShaHash(DownloadId, LegacyHashType))
 					{
 						FSHAHash ChunkShaHash;

@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneBlendingAccumulator.h"
-#include "MovieSceneTemplateInterrogation.h"
+#include "Evaluation/Blending/MovieSceneBlendingAccumulator.h"
+#include "Compilation/MovieSceneTemplateInterrogation.h"
 
 FMovieSceneAnimTypeID GetInitialValueTypeID()
 {

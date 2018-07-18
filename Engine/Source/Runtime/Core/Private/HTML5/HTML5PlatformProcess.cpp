@@ -43,13 +43,13 @@ void FHTML5PlatformProcess::SleepNoStats(float Seconds)
 {
 	if ( FPlatformProcess::SupportsMultithreading() )
 	{
-		EM_ASM_({
-			console.log("FHTML5PlatformProcess::SleepNoStats(" + $0 + ")");
-		}, Seconds);
+//		EM_ASM_({
+//			console.log("FHTML5PlatformProcess::SleepNoStats(" + $0 + ")");
+//		}, Seconds);
 		emscripten_sleep_with_yield(Seconds*1000.0f);
 	}
 	else {
-		EM_ASM({console.log("FHTML5PlatformProcess::SleepNoStats( SKIPPING )");});
+//		EM_ASM({console.log("FHTML5PlatformProcess::SleepNoStats( SKIPPING )");});
 	}
 }
 
@@ -63,7 +63,7 @@ void FHTML5PlatformProcess::SleepInfinite()
 	}); // =)
 }
 
-#include "HTML5PlatformRunnableThread.h"
+#include "HTML5/HTML5PlatformRunnableThread.h"
 
 FRunnableThread* FHTML5PlatformProcess::CreateRunnableThread()
 {

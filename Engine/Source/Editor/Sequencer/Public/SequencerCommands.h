@@ -91,9 +91,6 @@ public:
 	/** Toggle locking the playback range. */
 	TSharedPtr< FUICommandInfo > TogglePlaybackRangeLocked;
 
-	/** Forces playback both in editor and at runtime to be evaluated at fixed frame intervals. */
-	TSharedPtr< FUICommandInfo > ToggleForceFixedFrameIntervalPlayback;
-
 	/** Reruns construction scripts on bound actors every frame. */
 	TSharedPtr< FUICommandInfo > ToggleRerunConstructionScripts;
 
@@ -117,6 +114,9 @@ public:
 
 	/** Expand/collapse nodes and descendants */
 	TSharedPtr< FUICommandInfo > ToggleExpandCollapseNodesAndDescendants;
+
+	/** Sort all nodes and descendants */
+	TSharedPtr< FUICommandInfo > SortAllNodesAndDescendants;
 
 	/** Sets the upper bound of the selection range */
 	TSharedPtr< FUICommandInfo > SetSelectionRangeEnd;
@@ -147,6 +147,9 @@ public:
 
 	/** Sets the interp tangent mode for the selected keys to break */
 	TSharedPtr< FUICommandInfo > SetInterpolationCubicBreak;
+
+	/** Toggles the interp tangent weight mode for the selected keys */
+	TSharedPtr< FUICommandInfo > ToggleWeightedTangents;
 
 	/** Sets the interp tangent mode for the selected keys to linear */
 	TSharedPtr< FUICommandInfo > SetInterpolationLinear;
@@ -193,11 +196,17 @@ public:
 	/** Turns autokey on and off. */
 	TSharedPtr< FUICommandInfo > ToggleAutoKeyEnabled;
 
-	/** Turns key all on and off. */
-	TSharedPtr< FUICommandInfo > ToggleKeyAllEnabled;
+	/** Set mode to just key changed attribute. */
+	TSharedPtr< FUICommandInfo > SetKeyChanged;
 
-	/** Turns show frame numbers on and off. */
-	TSharedPtr< FUICommandInfo > ToggleShowFrameNumbers;
+	/** Set mode to key changed attribute and others in it's group. */
+	TSharedPtr< FUICommandInfo > SetKeyGroup;
+
+	/** Set mode to key all. */
+	TSharedPtr< FUICommandInfo > SetKeyAll;
+
+	/** Rotates through the supported formats for displaying times/frames/timecode. */
+	TSharedPtr< FUICommandInfo > ChangeTimeDisplayFormat;
 
 	/** Toggle the visibility of the goto box. */
 	TSharedPtr< FUICommandInfo > ToggleShowGotoBox;
@@ -207,6 +216,9 @@ public:
 
 	/** Bake transform. */
 	TSharedPtr< FUICommandInfo > BakeTransform;
+
+	/** Sync to source timecode. */
+	TSharedPtr< FUICommandInfo > SyncToSourceTimecode;
 
 	/** Turns the range slider on and off. */
 	TSharedPtr< FUICommandInfo > ToggleShowRangeSlider;
@@ -304,9 +316,6 @@ public:
 	/** Rebinds all possessable references with their current bindings. */
 	TSharedPtr< FUICommandInfo > RebindPossessableReferences;
 
-	/** Attempts to move all time data for this sequence on to a valid frame */
-	TSharedPtr< FUICommandInfo > FixFrameTiming;
-
 	/** Record the selected actors into a sub sequence of the currently active sequence */
 	TSharedPtr< FUICommandInfo > RecordSelectedActors;
 
@@ -321,6 +330,10 @@ public:
 
 	/** Toggle whether we should evaluate sub sequences in isolation */
 	TSharedPtr< FUICommandInfo > ToggleEvaluateSubSequencesInIsolation;
+
+	TSharedPtr<FUICommandInfo> SetAllCurveVisibility;
+	TSharedPtr<FUICommandInfo> SetSelectedCurveVisibility;
+	TSharedPtr<FUICommandInfo> SetAnimatedCurveVisibility;
 
 	/**
 	 * Initialize commands

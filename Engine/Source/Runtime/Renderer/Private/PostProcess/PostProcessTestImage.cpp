@@ -37,7 +37,7 @@ class FPostProcessTestImagePS : public FGlobalShader
 
 public:
 	FPostProcessPassParameters PostprocessParameter;
-	FDeferredPixelShaderParameters DeferredParameters;
+	FSceneTextureShaderParameters SceneTextureParameters;
 	FShaderParameter FrameNumber;
 	FShaderParameter FrameTime;
 	FColorRemapShaderParameters ColorRemapShaderParameters;
@@ -48,7 +48,7 @@ public:
 		, ColorRemapShaderParameters(Initializer.ParameterMap)
 	{
 		PostprocessParameter.Bind(Initializer.ParameterMap);
-		DeferredParameters.Bind(Initializer.ParameterMap);
+		SceneTextureParameters.Bind(Initializer);
 		FrameNumber.Bind(Initializer.ParameterMap,TEXT("FrameNumber"));
 		FrameTime.Bind(Initializer.ParameterMap,TEXT("FrameTime"));
 	}
@@ -61,7 +61,7 @@ public:
 		FGlobalShader::SetParameters<FViewUniformShaderParameters>(RHICmdList, ShaderRHI, Context.View.ViewUniformBuffer);
 
 		PostprocessParameter.SetPS(RHICmdList, ShaderRHI, Context, TStaticSamplerState<SF_Point, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI());
-		DeferredParameters.Set(RHICmdList, ShaderRHI, Context.View, MD_PostProcess);
+		SceneTextureParameters.Set(RHICmdList, ShaderRHI, Context.View.FeatureLevel, ESceneTextureSetupMode::All);
 
 		{
 			uint32 FrameNumberValue = Context.View.Family->FrameNumber;
@@ -80,7 +80,7 @@ public:
 	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
-		Ar << PostprocessParameter << DeferredParameters << FrameNumber << FrameTime << ColorRemapShaderParameters;
+		Ar << PostprocessParameter << SceneTextureParameters << FrameNumber << FrameTime << ColorRemapShaderParameters;
 		return bShaderHasOutdatedParameters;
 	}
 };
@@ -184,7 +184,7 @@ void FRCPassPostProcessTestImage::Process(FRenderingCompositePassContext& Contex
 	}
 
 
-	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, false, FResolveParams());
+	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 }
 
 FPooledRenderTargetDesc FRCPassPostProcessTestImage::ComputeOutputDesc(EPassOutputId InPassOutputId) const

@@ -204,7 +204,7 @@ void FRCPassPostProcessBuildHCB::Process(FRenderingCompositePassContext& Context
 			EDRF_UseTriangleOptimization);
 #endif
 
-		RHICmdList.CopyToResolveTarget(HCBRenderTarget.TargetableTexture, HCBRenderTarget.ShaderResourceTexture, false, FResolveParams(FResolveRect(), CubeFace_PosX, 0));
+		RHICmdList.CopyToResolveTarget(HCBRenderTarget.TargetableTexture, HCBRenderTarget.ShaderResourceTexture, FResolveParams(FResolveRect(), CubeFace_PosX, 0));
 	}
 		
 	FIntPoint SrcSize = HCBSize;
@@ -268,7 +268,7 @@ void FRCPassPostProcessBuildHCB::Process(FRenderingCompositePassContext& Context
 			EDRF_UseTriangleOptimization);
 #endif
 
-		RHICmdList.CopyToResolveTarget(HCBRenderTarget.TargetableTexture, HCBRenderTarget.ShaderResourceTexture, false, FResolveParams(FResolveRect(), CubeFace_PosX, MipIndex));
+		RHICmdList.CopyToResolveTarget(HCBRenderTarget.TargetableTexture, HCBRenderTarget.ShaderResourceTexture, FResolveParams(FResolveRect(), CubeFace_PosX, MipIndex));
 
 		SrcSize /= 2;
 		DstSize /= 2;

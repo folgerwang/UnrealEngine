@@ -130,7 +130,6 @@ protected:
 	// End SWidget overrides.
 
  protected:
-	
 	TAttribute<const FSlateBrush*> BorderImage;
 	TAttribute<FSlateColor> BorderBackgroundColor;
 	TAttribute<FVector2D> DesiredSizeScale;

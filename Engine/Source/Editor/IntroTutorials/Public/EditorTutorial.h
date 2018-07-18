@@ -14,7 +14,7 @@ class AActor;
 class UTexture2D;
 
 /** The type of tutorial content to display */
-UENUM()
+UENUM(meta=(ScriptName="TutorialContentType"))
 namespace ETutorialContent
 {
 	enum Type

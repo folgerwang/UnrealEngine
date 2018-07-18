@@ -18,8 +18,6 @@
 #include "SceneRenderTargetParameters.h"
 #include "ShaderParameterUtils.h"
 
-FTextureRHIRef& GetEyeAdaptation(FRHICommandList& RHICmdList, const FSceneView& View);
-
 template<typename TBufferStruct> class TUniformBufferRef;
 
 template<typename ParameterType> 
@@ -45,16 +43,14 @@ public:
 	int32 NumScalarExpressions;
 	int32 Num2DTextureExpressions;
 	int32 NumCubeTextureExpressions;
-	int32 NumPerFrameScalarExpressions;
-	int32 NumPerFrameVectorExpressions;
+	int32 NumVolumeTextureExpressions;
 
 	FDebugUniformExpressionSet()
 		: NumVectorExpressions(0)
 		, NumScalarExpressions(0)
 		, Num2DTextureExpressions(0)
 		, NumCubeTextureExpressions(0)
-		, NumPerFrameScalarExpressions(0)
-		, NumPerFrameVectorExpressions(0)
+		, NumVolumeTextureExpressions(0)
 	{
 	}
 
@@ -70,8 +66,7 @@ public:
 		NumScalarExpressions = InUniformExpressionSet.UniformScalarExpressions.Num();
 		Num2DTextureExpressions = InUniformExpressionSet.Uniform2DTextureExpressions.Num();
 		NumCubeTextureExpressions = InUniformExpressionSet.UniformCubeTextureExpressions.Num();
-		NumPerFrameScalarExpressions = InUniformExpressionSet.PerFrameUniformScalarExpressions.Num();
-		NumPerFrameVectorExpressions = InUniformExpressionSet.PerFrameUniformVectorExpressions.Num();
+		NumVolumeTextureExpressions = InUniformExpressionSet.UniformVolumeTextureExpressions.Num();
 	}
 
 	/** Returns true if the number of uniform expressions matches those with which the debug set was initialized. */
@@ -81,8 +76,7 @@ public:
 			&& NumScalarExpressions == InUniformExpressionSet.UniformScalarExpressions.Num()
 			&& Num2DTextureExpressions == InUniformExpressionSet.Uniform2DTextureExpressions.Num()
 			&& NumCubeTextureExpressions == InUniformExpressionSet.UniformCubeTextureExpressions.Num()
-			&& NumPerFrameScalarExpressions == InUniformExpressionSet.PerFrameUniformScalarExpressions.Num()
-			&& NumPerFrameVectorExpressions == InUniformExpressionSet.PerFrameUniformVectorExpressions.Num();
+			&& NumVolumeTextureExpressions == InUniformExpressionSet.UniformVolumeTextureExpressions.Num();
 	}
 };
 
@@ -91,10 +85,9 @@ inline FArchive& operator<<(FArchive& Ar, FDebugUniformExpressionSet& DebugExpre
 {
 	Ar << DebugExpressionSet.NumVectorExpressions;
 	Ar << DebugExpressionSet.NumScalarExpressions;
-	Ar << DebugExpressionSet.NumPerFrameScalarExpressions;
-	Ar << DebugExpressionSet.NumPerFrameVectorExpressions;
 	Ar << DebugExpressionSet.Num2DTextureExpressions;
 	Ar << DebugExpressionSet.NumCubeTextureExpressions;
+	Ar << DebugExpressionSet.NumVolumeTextureExpressions;
 	return Ar;
 }
 
@@ -105,7 +98,10 @@ class RENDERER_API FMaterialShader : public FShader
 public:
 	static FName UniformBufferLayoutName;
 
-	FMaterialShader() : DebugUniformExpressionUBLayout(FRHIUniformBufferLayout::Zero)
+	FMaterialShader()
+#if ALLOW_SHADERMAP_DEBUG_DATA
+		: DebugUniformExpressionUBLayout(FRHIUniformBufferLayout::Zero)
+#endif
 	{
 	}
 
@@ -115,6 +111,11 @@ public:
 
 	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
 	{
+	}
+
+	static bool ValidateCompiledResult(EShaderPlatform Platform, const TArray<FMaterial*>& Materials, const FShaderParameterMap& ParameterMap, TArray<FString>& OutError)
+	{
+		return true;
 	}
 
 	FUniformBufferRHIParamRef GetParameterCollectionBuffer(const FGuid& Id, const FSceneInterface* SceneInterface) const;
@@ -142,6 +143,15 @@ public:
 
 	/** Sets pixel parameters that are material specific but not FMeshBatch specific. */
 	template< typename ShaderRHIParamRef >
+	void SetParametersInner(
+		FRHICommandList& RHICmdList,
+		const ShaderRHIParamRef ShaderRHI, 
+		const FMaterialRenderProxy* MaterialRenderProxy, 
+		const FMaterial& Material,
+		const FSceneView& View);
+
+	/** Sets pixel parameters that are material specific but not FMeshBatch specific. */
+	template< typename ShaderRHIParamRef >
 	void SetParameters(
 		FRHICommandList& RHICmdList,
 		const ShaderRHIParamRef ShaderRHI, 
@@ -149,8 +159,7 @@ public:
 		const FMaterial& Material,
 		const FSceneView& View, 
 		const TUniformBufferRef<FViewUniformShaderParameters>& ViewUniformBuffer,
-		bool bDeferredPass, 
-		ESceneRenderTargetsMode::Type TextureMode);
+		ESceneTextureSetupMode SceneTextureSetupMode);
 
 	// FShader interface.
 	virtual bool Serialize(FArchive& Ar) override;
@@ -158,35 +167,31 @@ public:
 
 	void SetInstanceParameters(FRHICommandList& RHICmdList, uint32 InVertexOffset, uint32 InInstanceOffset, uint32 InInstanceCount) const
 	{
-		bool const bZeroInstanceOffset = IsMetalPlatform(GMaxRHIShaderPlatform) || IsVulkanPlatform(GMaxRHIShaderPlatform) || IsVulkanMobilePlatform(GMaxRHIShaderPlatform);
+		bool const bZeroInstanceOffset = IsVulkanPlatform(GMaxRHIShaderPlatform) || IsVulkanMobilePlatform(GMaxRHIShaderPlatform);
 		SetShaderValue(RHICmdList, GetVertexShader(), VertexOffset, bZeroInstanceOffset ? 0 : InVertexOffset);
 		SetShaderValue(RHICmdList, GetVertexShader(), InstanceOffset, bZeroInstanceOffset ? 0 : InInstanceOffset);
 		SetShaderValue(RHICmdList, GetVertexShader(), InstanceCount, InInstanceCount);
 	}
 
+protected:
+
+	FSceneTextureShaderParameters SceneTextureParameters;
+
 private:
 
 	FShaderUniformBufferParameter MaterialUniformBuffer;
 	TArray<FShaderUniformBufferParameter> ParameterCollectionUniformBuffers;
-	TArray<FShaderParameter> PerFrameScalarExpressions;
-	TArray<FShaderParameter> PerFrameVectorExpressions;
-	TArray<FShaderParameter> PerFramePrevScalarExpressions;
-	TArray<FShaderParameter> PerFramePrevVectorExpressions;
-	FDeferredPixelShaderParameters DeferredParameters;
-	FShaderResourceParameter SceneColorCopyTexture;
-	FShaderResourceParameter SceneColorCopyTextureSampler;
-
-	//Use of the eye adaptation texture here is experimental and potentially dangerous as it can introduce a feedback loop. May be removed.
-	FShaderResourceParameter EyeAdaptation;
 
 	FShaderParameter InstanceCount;
 	FShaderParameter InstanceOffset;
 	FShaderParameter VertexOffset;
 
+#if ALLOW_SHADERMAP_DEBUG_DATA
 	FDebugUniformExpressionSet	DebugUniformExpressionSet;
 	FRHIUniformBufferLayout		DebugUniformExpressionUBLayout;
 	FString						DebugDescription;
-
+#endif
+	
 	/** If true, cached uniform expressions are allowed. */
 	static int32 bAllowCachedUniformExpressions;
 	/** Console variable ref to toggle cached uniform expressions. */

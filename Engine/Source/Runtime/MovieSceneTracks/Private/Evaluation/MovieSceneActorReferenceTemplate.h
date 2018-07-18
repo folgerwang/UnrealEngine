@@ -4,13 +4,11 @@
 
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
-#include "Misc/Guid.h"
 #include "Evaluation/MovieSceneEvalTemplate.h"
 #include "Evaluation/MovieScenePropertyTemplate.h"
-#include "Curves/IntegralCurve.h"
+#include "Sections/MovieSceneActorReferenceSection.h"
 #include "MovieSceneActorReferenceTemplate.generated.h"
 
-class UMovieSceneActorReferenceSection;
 class UMovieScenePropertyTrack;
 
 USTRUCT()
@@ -42,8 +40,5 @@ private:
 	FMovieScenePropertySectionData PropertyData;
 
 	UPROPERTY()
-	FIntegralCurve ActorGuidIndexCurve;
-
-	UPROPERTY()
-	TArray<FGuid> ActorGuids;
+	FMovieSceneActorReferenceData ActorReferenceData;
 };

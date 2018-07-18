@@ -7,28 +7,60 @@
 #include "Misc/OutputDeviceError.h"
 #include "LaunchEngineLoop.h"
 #include "IMessagingModule.h"
-#include "IOSAppDelegate.h"
-#include "IOSView.h"
-#include "IOSCommandLineHelper.h"
+#include "IOS/IOSAppDelegate.h"
+#include "IOS/IOSView.h"
+#include "IOS/IOSCommandLineHelper.h"
 #include "GameLaunchDaemonMessageHandler.h"
 #include "AudioDevice.h"
-#include "GenericPlatformChunkInstall.h"
+#include "GenericPlatform/GenericPlatformChunkInstall.h"
 #include "IOSAudioDevice.h"
 #include "LocalNotification.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "RenderingThread.h"
 #include "GenericPlatform/GenericApplication.h"
 #include "Misc/ConfigCacheIni.h"
-
+#include "MoviePlayer.h"
 
 FEngineLoop GEngineLoop;
 FGameLaunchDaemonMessageHandler GCommandSystem;
+
+static const double cMaxThreadWaitTime = 2.0;    // Setting this to be 2 seconds
 
 void FAppEntry::Suspend()
 {
 	if (GEngine && GEngine->GetMainAudioDevice())
 	{
-		GEngine->GetMainAudioDevice()->SuspendContext();
+        FAudioDevice* AudioDevice = GEngine->GetMainAudioDevice();
+        
+        if (FTaskGraphInterface::IsRunning())
+        {
+            FGraphEventRef ResignTask = FFunctionGraphTask::CreateAndDispatchWhenReady([AudioDevice]()
+            {
+                FAudioThread::RunCommandOnAudioThread([AudioDevice]()
+                {
+                    AudioDevice->SuspendContext();
+                }, TStatId());
+                
+                FAudioCommandFence AudioCommandFence;
+                AudioCommandFence.BeginFence();
+                AudioCommandFence.Wait();
+            }, TStatId(), NULL, ENamedThreads::GameThread);
+            
+            // Do not wait forever for this task to complete since the game thread may be stuck on waiting for user input from a modal dialog box
+            double    startTime = FPlatformTime::Seconds();
+            while((FPlatformTime::Seconds() - startTime) < cMaxThreadWaitTime)
+            {
+                FPlatformProcess::Sleep(0.05f);
+                if(ResignTask->IsComplete())
+                {
+                    break;
+                }
+            }
+        }
+        else
+        {
+            AudioDevice->SuspendContext();
+        }        
 	}
 	else
 	{
@@ -44,7 +76,22 @@ void FAppEntry::Resume()
 {
 	if (GEngine && GEngine->GetMainAudioDevice())
 	{
-		GEngine->GetMainAudioDevice()->ResumeContext();
+        FAudioDevice* AudioDevice = GEngine->GetMainAudioDevice();
+        
+        if (FTaskGraphInterface::IsRunning())
+        {
+            FFunctionGraphTask::CreateAndDispatchWhenReady([AudioDevice]()
+            {
+                FAudioThread::RunCommandOnAudioThread([AudioDevice]()
+                {
+                    AudioDevice->ResumeContext();
+                }, TStatId());
+            }, TStatId(), NULL, ENamedThreads::GameThread);
+        }
+        else
+        {
+            AudioDevice->ResumeContext();
+        }
 	}
 	else
 	{
@@ -137,6 +184,11 @@ static void MainThreadInit()
 	[AppDelegate.IOSView CreateFramebuffer:YES];
 }
 
+
+bool FAppEntry::IsStartupMoviePlaying()
+{
+	return GEngine && GEngine->IsInitialized() && GetMoviePlayer() && GetMoviePlayer()->IsStartupMoviePlaying();
+}
 
 
 void FAppEntry::PlatformInit()
@@ -256,6 +308,9 @@ int main(int argc, char *argv[])
 		GSavedCommandLine += TEXT(" ");
 		GSavedCommandLine += UTF8_TO_TCHAR(argv[Option]);
 	}
+
+	// convert $'s to " because Xcode swallows the " and this will allow -execcmds= to be usable from xcode
+	GSavedCommandLine = GSavedCommandLine.Replace(TEXT("$"), TEXT("\""));
 
 	FIOSCommandLineHelper::InitCommandArgs(FString());
 	

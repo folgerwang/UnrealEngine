@@ -6,24 +6,11 @@
 #include "UObject/ObjectMacros.h"
 #include "Components/SceneComponent.h"
 #include "Curves/KeyHandle.h"
-#include "Curves/RichCurve.h"
 #include "MovieSceneSection.h"
-#include "Sections/IKeyframeSection.h"
 #include "MovieSceneKeyStruct.h"
+#include "Channels/MovieSceneFloatChannel.h"
 #include "MovieScene3DTransformSection.generated.h"
 
-class FStructOnScope;
-
-namespace EKey3DTransformChannel
-{
-	enum Type
-	{
-		Translation = 0x00000001,
-		Rotation = 0x00000002,
-		Scale = 0x00000004,
-		All = Translation | Rotation | Scale
-	};
-}
 
 #if WITH_EDITORONLY_DATA
 /** Visibility options for 3d trajectory. */
@@ -36,6 +23,7 @@ enum class EShow3DTrajectory : uint8
 };
 #endif
 
+
 /**
 * Stores information about a transform for the purpose of adding keys to a transform section
 */
@@ -47,10 +35,12 @@ struct FTransformData
 	FRotator Rotation;
 	/** Scale component */
 	FVector Scale;
-	/** Whether or not the data is valid (any values set) */
-	bool bValid;
 
-	bool IsValid() const { return bValid; }
+	FTransformData()
+		: Translation( ForceInitToZero )
+		, Rotation( ForceInitToZero )
+		, Scale( ForceInitToZero )
+	{}
 
 	/**
 	* Constructor.  Builds the data from a scene component
@@ -62,30 +52,8 @@ struct FTransformData
 		: Translation( InComponent->RelativeLocation )
 		, Rotation( InComponent->RelativeRotation )
 		, Scale( InComponent->RelativeScale3D )
-		, bValid( true )
-	{}
-
-	FTransformData()
-		: bValid( false )
 	{}
 };
-
-
-struct FTransformKey
-{
-	FTransformKey( EKey3DTransformChannel::Type InChannel, EAxis::Type InAxis, float InValue, bool InbUnwindRotation )
-	{
-		Channel = InChannel;
-		Axis = InAxis;
-		Value = InValue;
-		bUnwindRotation = InbUnwindRotation;
-	}
-	EKey3DTransformChannel::Type Channel;
-	EAxis::Type Axis;
-	float Value;
-	bool bUnwindRotation;
-};
-
 
 /**
  * Proxy structure for translation keys in 3D transform sections.
@@ -102,12 +70,13 @@ struct FMovieScene3DLocationKeyStruct
 
 	/** The key's time. */
 	UPROPERTY(EditAnywhere, Category=Key)
-	float Time;
+	FFrameNumber Time;
 
-	FRichCurveKey* LocationKeys[3];
+	FMovieSceneKeyStructHelper KeyStructInterop;
 
 	virtual void PropagateChanges(const FPropertyChangedEvent& ChangeEvent) override;
 };
+template<> struct TStructOpsTypeTraits<FMovieScene3DLocationKeyStruct> : public TStructOpsTypeTraitsBase2<FMovieScene3DLocationKeyStruct> { enum { WithCopy = false }; };
 
 
 /**
@@ -125,13 +94,13 @@ struct FMovieScene3DRotationKeyStruct
 
 	/** The key's time. */
 	UPROPERTY(EditAnywhere, Category=Key)
-	float Time;
+	FFrameNumber Time;
 
-	FRichCurveKey* RotationKeys[3];
+	FMovieSceneKeyStructHelper KeyStructInterop;
 
 	virtual void PropagateChanges(const FPropertyChangedEvent& ChangeEvent) override;
 };
-
+template<> struct TStructOpsTypeTraits<FMovieScene3DRotationKeyStruct> : public TStructOpsTypeTraitsBase2<FMovieScene3DRotationKeyStruct> { enum { WithCopy = false }; };
 
 /**
  * Proxy structure for translation keys in 3D transform sections.
@@ -148,12 +117,13 @@ struct FMovieScene3DScaleKeyStruct
 
 	/** The key's time. */
 	UPROPERTY(EditAnywhere, Category=Key)
-	float Time;
+	FFrameNumber Time;
 
-	FRichCurveKey* ScaleKeys[3];
+	FMovieSceneKeyStructHelper KeyStructInterop;
 
 	virtual void PropagateChanges(const FPropertyChangedEvent& ChangeEvent) override;
 };
+template<> struct TStructOpsTypeTraits<FMovieScene3DScaleKeyStruct> : public TStructOpsTypeTraitsBase2<FMovieScene3DScaleKeyStruct> { enum { WithCopy = false }; };
 
 
 /**
@@ -179,14 +149,13 @@ struct FMovieScene3DTransformKeyStruct
 
 	/** The key's time. */
 	UPROPERTY(EditAnywhere, Category=Key)
-	float Time;
+	FFrameNumber Time;
 
-	FRichCurveKey* LocationKeys[3];
-	FRichCurveKey* RotationKeys[3];
-	FRichCurveKey* ScaleKeys[3];
+	FMovieSceneKeyStructHelper KeyStructInterop;
 
 	virtual void PropagateChanges(const FPropertyChangedEvent& ChangeEvent) override;
 };
+template<> struct TStructOpsTypeTraits<FMovieScene3DTransformKeyStruct> : public TStructOpsTypeTraitsBase2<FMovieScene3DTransformKeyStruct> { enum { WithCopy = false }; };
 
 enum class EMovieSceneTransformChannel : uint32
 {
@@ -272,109 +241,45 @@ private:
 UCLASS(MinimalAPI)
 class UMovieScene3DTransformSection
 	: public UMovieSceneSection
-	, public IKeyframeSection<FTransformKey>
 {
 	GENERATED_UCLASS_BODY()
 
 public:
 
-	/**
-	 * Evaluates the translation component of the transform
-	 *
-	 * @param Time				The position in time within the movie scene
-	 * @param OutTranslation	The evaluated translation.  Note: will remain unchanged if there were no keys to evaluate
-	 */
-	MOVIESCENETRACKS_API void EvalTranslation( float Time, FVector& InOutTranslation ) const;
-
-	/**
-	 * Evaluates the rotation component of the transform
-	 *
-	 * @param Time				The position in time within the movie scene
-	 * @param OutRotation		The evaluated rotation.  Note: will remain unchanged if there were no keys to evaluate
-	 */
-	MOVIESCENETRACKS_API void EvalRotation( float Time, FRotator& InOutRotation ) const;
-
-	/**
-	 * Evaluates the scale component of the transform
-	 *
-	 * @param Time				The position in time within the movie scene
-	 * @param OutScale			The evaluated scale.  Note: will remain unchanged if there were no keys to evaluate
-	 */
-	MOVIESCENETRACKS_API void EvalScale( float Time, FVector& InOutScale ) const;
-
-	/** 
-	 * Returns the translation curve for a specific axis
-	 *
-	 * @param Axis	The axis of the translation curve to get
-	 * @return The curve on the axis
-	 */
-	MOVIESCENETRACKS_API FRichCurve& GetTranslationCurve( EAxis::Type Axis );
-	MOVIESCENETRACKS_API const FRichCurve& GetTranslationCurve( EAxis::Type Axis ) const;
-
-	/** 
-	 * Returns the rotation curve for a specific axis
-	 *
-	 * @param Axis	The axis of the rotation curve to get
-	 * @return The curve on the axis
-	 */
-	MOVIESCENETRACKS_API FRichCurve& GetRotationCurve( EAxis::Type Axis );
-	MOVIESCENETRACKS_API const FRichCurve& GetRotationCurve( EAxis::Type Axis ) const;
-
-	/** 
-	 * Returns the scale curve for a specific axis
-	 *
-	 * @param Axis	The axis of the scale curve to get
-	 * @return The curve on the axis
-	 */
-	MOVIESCENETRACKS_API FRichCurve& GetScaleCurve( EAxis::Type Axis );
-	MOVIESCENETRACKS_API const FRichCurve& GetScaleCurve( EAxis::Type Axis ) const;
-
-	/**
-	 * Returns the manual weight curve for this section
-	 * @return The manual weight curve
-	 */
-	MOVIESCENETRACKS_API FRichCurve& GetManualWeightCurve();
-	MOVIESCENETRACKS_API const FRichCurve& GetManualWeightCurve() const;
-
-	FMovieSceneTransformMask GetMask() const
-	{
-		return TransformMask;
-	}
-
-	void SetMask(FMovieSceneTransformMask NewMask)
-	{
-		TransformMask = NewMask;
-	}
-
-	/**
-	 * Return the trajectory visibility
-	 */
-#if WITH_EDITORONLY_DATA
-	MOVIESCENETRACKS_API EShow3DTrajectory GetShow3DTrajectory() { return Show3DTrajectory; }
-#endif
-
-public:
-
-	// UMovieSceneSection interface
-
-	virtual void MoveSection( float DeltaPosition, TSet<FKeyHandle>& KeyHandles ) override;
-	virtual void DilateSection( float DilationFactor, float Origin, TSet<FKeyHandle>& KeyHandles ) override;
-	virtual void GetKeyHandles(TSet<FKeyHandle>& OutKeyHandles, TRange<float> TimeRange) const override;
-	virtual TSharedPtr<FStructOnScope> GetKeyStruct(const TArray<FKeyHandle>& KeyHandles) override;
-	virtual TOptional<float> GetKeyTime( FKeyHandle KeyHandle ) const override;
-	virtual void SetKeyTime( FKeyHandle KeyHandle, float Time ) override;
-
-public:
-
-	// IKeyframeSection interface.
-
-	virtual bool NewKeyIsNewData( float Time, const FTransformKey& KeyData ) const override;
-	virtual bool HasKeys( const FTransformKey& KeyData ) const override;
-	virtual void AddKey( float Time, const FTransformKey& KeyData, EMovieSceneKeyInterpolation KeyInterpolation ) override;
-	virtual void SetDefault( const FTransformKey& KeyData ) override;
-	virtual void ClearDefaults() override;
-	virtual FMovieSceneEvalTemplatePtr GenerateTemplate() const override;
+	/* From UMovieSection*/
 	
+	virtual bool ShowCurveForChannel(const void *Channel) const override;
+
+public:
+
+	/**
+	 * Access the mask that defines which channels this track should animate
+	 */
+	MOVIESCENETRACKS_API FMovieSceneTransformMask GetMask() const;
+
+	/**
+	 * Set the mask that defines which channels this track should animate
+	 */
+	MOVIESCENETRACKS_API void SetMask(FMovieSceneTransformMask NewMask);
+
+	/**
+	 * Get the mask by name
+	 */
+	MOVIESCENETRACKS_API FMovieSceneTransformMask GetMaskByName(const FName& InName) const;
+
+	/**
+	* Get whether we should use quaternion interpolation for our rotations.
+	*/
+	MOVIESCENETRACKS_API bool GetUseQuaternionInterpolation() const;
+
+protected:
+
+	virtual void Serialize(FArchive& Ar) override;
+	virtual TSharedPtr<FStructOnScope> GetKeyStruct(TArrayView<const FKeyHandle> KeyHandles) override;
+	virtual FMovieSceneEvalTemplatePtr GenerateTemplate() const override;
+
+	void UpdateChannelProxy();
+
 private:
 
 	UPROPERTY()
@@ -382,23 +287,41 @@ private:
 
 	/** Translation curves */
 	UPROPERTY()
-	FRichCurve Translation[3];
+	FMovieSceneFloatChannel Translation[3];
 	
 	/** Rotation curves */
 	UPROPERTY()
-	FRichCurve Rotation[3];
+	FMovieSceneFloatChannel Rotation[3];
 
 	/** Scale curves */
 	UPROPERTY()
-	FRichCurve Scale[3];
+	FMovieSceneFloatChannel Scale[3];
 
 	/** Manual weight curve */
 	UPROPERTY()
-	FRichCurve ManualWeight;
+	FMovieSceneFloatChannel ManualWeight;
+
+	/** Unserialized mask that defines the mask of the current channel proxy so we don't needlessly re-create it on post-undo */
+	EMovieSceneTransformChannel ProxyChannels;
+
+	/** Whether to use a quaternion linear interpolation between keys. This finds the 'shortest' distance between keys */
+	UPROPERTY(EditAnywhere, DisplayName = "Use Quaternion Interpolation", Category = "Rotation")
+	bool bUseQuaternionInterpolation;
 
 #if WITH_EDITORONLY_DATA
+
+public:
+
+	/**
+	 * Return the trajectory visibility
+	 */
+	MOVIESCENETRACKS_API EShow3DTrajectory GetShow3DTrajectory() { return Show3DTrajectory; }
+
+private:
+
 	/** Whether to show the 3d trajectory */
 	UPROPERTY(EditAnywhere, DisplayName = "Show 3D Trajectory", Category = "Transform")
 	EShow3DTrajectory Show3DTrajectory;
-#endif
+
+#endif // WITH_EDITORONLY_DATA
 };

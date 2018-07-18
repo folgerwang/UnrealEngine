@@ -3,63 +3,35 @@
 #include "AppleARKitSystem.h"
 #include "DefaultXRCamera.h"
 #include "AppleARKitSessionDelegate.h"
-#include "ScopeLock.h"
+#include "Misc/ScopeLock.h"
 #include "AppleARKitModule.h"
-#include "AppleARKitTransform.h"
+#include "AppleARKitConversion.h"
 #include "AppleARKitVideoOverlay.h"
 #include "AppleARKitFrame.h"
-#if ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
-#include "IOSAppDelegate.h"
-#endif
 #include "AppleARKitAnchor.h"
 #include "AppleARKitPlaneAnchor.h"
-#include "AppleARKitConfiguration.h"
+#include "AppleARKitConversion.h"
 #include "GeneralProjectSettings.h"
-#include "IOSRuntimeSettings.h"
-#include "AppleARKitFaceMeshConversion.h"
 #include "ARSessionConfig.h"
 #include "AppleARKitSettings.h"
-#include "ARTrackable.h"
+//@joeg -- Environment capture support
+#include "AppleARKitTrackable.h"
 #include "ARLightEstimate.h"
 #include "ARTraceResult.h"
 #include "ARPin.h"
 
+// To separate out the face ar library linkage from standard ar apps
+#include "AppleARKitFaceSupport.h"
+
 // For orientation changed
 #include "Misc/CoreDelegates.h"
 
-namespace ARKitUtil
-{
+#if PLATFORM_IOS
+	#include "IOSRuntimeSettings.h"
 
-static UARPin* PinFromComponent( const USceneComponent* Component, const TArray<UARPin*>& InPins )
-{
-	for (UARPin* Pin : InPins)
-	{
-		if (Pin->GetPinnedComponent() == Component)
-		{
-			return Pin;
-		}
-	}
-	
-	return nullptr;
-}
-
-
-static TArray<UARPin*> PinsFromGeometry( const UARTrackedGeometry* Geometry, const TArray<UARPin*>& InPins )
-{
-	TArray<UARPin*> OutPins;
-	for (UARPin* Pin : InPins)
-	{
-		if (Pin->GetTrackedGeometry() == Geometry)
-		{
-			OutPins.Add(Pin);
-		}
-	}
-	
-	return OutPins;
-}
-
-	
-}
+	#pragma clang diagnostic push
+	#pragma clang diagnostic ignored "-Wpartial-availability"
+#endif
 
 
 //
@@ -151,8 +123,8 @@ private:
 			ARKitSystem.OnGetARSessionStatus().Status == EARSessionStatus::Running &&
 			ARKitSystem.GetSessionConfig().ShouldRenderCameraOverlay();
 
-#if ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
-		if ([IOSAppDelegate GetDelegate].OSVersion >= 11.0f)
+#if SUPPORTS_ARKIT_1_0
+		if (FAppleARKitAvailability::SupportsARKit10())
 		{
 			return bRenderOverlay;
 		}
@@ -162,7 +134,7 @@ private:
 		}
 #else
 		return false;
-#endif //ARKIT_SUPPORT
+#endif
 	}
 	//~ FDefaultXRCamera
 	
@@ -170,202 +142,6 @@ private:
 	FAppleARKitSystem& ARKitSystem;
 	FAppleARKitVideoOverlay VideoOverlay;
 };
-
-
-
-#if ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
-static FORCEINLINE FGuid ToFGuid( uuid_t UUID )
-{
-	FGuid AsGUID(
-		*(uint32*)UUID,
-		*((uint32*)UUID)+1,
-		*((uint32*)UUID)+2,
-		*((uint32*)UUID)+3);
-	return AsGUID;
-}
-
-static FORCEINLINE FGuid ToFGuid( NSUUID* Identifier )
-{
-	// Get bytes
-	uuid_t UUID;
-	[Identifier getUUIDBytes:UUID];
-	
-	// Set FGuid parts
-	return ToFGuid( UUID );
-}
-
-FARBlendShapeMap ToBlendShapeMap(NSDictionary<ARBlendShapeLocation,NSNumber *>* BlendShapes)
-{
-	FARBlendShapeMap BlendShapeMap;
-
-#define SET_BLEND_SHAPE(AppleShape, UE4Shape) \
-	if (BlendShapes[AppleShape]) \
-	{ \
-		BlendShapeMap.Add(UE4Shape, [BlendShapes[AppleShape] floatValue]); \
-	}
-
-	// Do we want to capture face performance or look at the face as if in a mirror
-	if (GetDefault<UAppleARKitSettings>()->DefaultFaceTrackingDirection == EARFaceTrackingDirection::FaceRelative)
-	{
-		SET_BLEND_SHAPE(ARBlendShapeLocationEyeBlinkLeft, EARFaceBlendShape::EyeBlinkLeft);
-		SET_BLEND_SHAPE(ARBlendShapeLocationEyeLookDownLeft, EARFaceBlendShape::EyeLookDownLeft);
-		SET_BLEND_SHAPE(ARBlendShapeLocationEyeLookInLeft, EARFaceBlendShape::EyeLookInLeft);
-		SET_BLEND_SHAPE(ARBlendShapeLocationEyeLookOutLeft, EARFaceBlendShape::EyeLookOutLeft);
-		SET_BLEND_SHAPE(ARBlendShapeLocationEyeLookUpLeft, EARFaceBlendShape::EyeLookUpLeft);
-		SET_BLEND_SHAPE(ARBlendShapeLocationEyeSquintLeft, EARFaceBlendShape::EyeSquintLeft);
-		SET_BLEND_SHAPE(ARBlendShapeLocationEyeWideLeft, EARFaceBlendShape::EyeWideLeft);
-		SET_BLEND_SHAPE(ARBlendShapeLocationEyeBlinkRight, EARFaceBlendShape::EyeBlinkRight);
-		SET_BLEND_SHAPE(ARBlendShapeLocationEyeLookDownRight, EARFaceBlendShape::EyeLookDownRight);
-		SET_BLEND_SHAPE(ARBlendShapeLocationEyeLookInRight, EARFaceBlendShape::EyeLookInRight);
-		SET_BLEND_SHAPE(ARBlendShapeLocationEyeLookOutRight, EARFaceBlendShape::EyeLookOutRight);
-		SET_BLEND_SHAPE(ARBlendShapeLocationEyeLookUpRight, EARFaceBlendShape::EyeLookUpRight);
-		SET_BLEND_SHAPE(ARBlendShapeLocationEyeSquintRight, EARFaceBlendShape::EyeSquintRight);
-		SET_BLEND_SHAPE(ARBlendShapeLocationEyeWideRight, EARFaceBlendShape::EyeWideRight);
-		SET_BLEND_SHAPE(ARBlendShapeLocationJawForward, EARFaceBlendShape::JawForward);
-		SET_BLEND_SHAPE(ARBlendShapeLocationJawLeft, EARFaceBlendShape::JawLeft);
-		SET_BLEND_SHAPE(ARBlendShapeLocationJawRight, EARFaceBlendShape::JawRight);
-		SET_BLEND_SHAPE(ARBlendShapeLocationMouthLeft, EARFaceBlendShape::MouthLeft);
-		SET_BLEND_SHAPE(ARBlendShapeLocationMouthRight, EARFaceBlendShape::MouthRight);
-		SET_BLEND_SHAPE(ARBlendShapeLocationMouthSmileLeft, EARFaceBlendShape::MouthSmileLeft);
-		SET_BLEND_SHAPE(ARBlendShapeLocationMouthSmileRight, EARFaceBlendShape::MouthSmileRight);
-		SET_BLEND_SHAPE(ARBlendShapeLocationMouthFrownLeft, EARFaceBlendShape::MouthFrownLeft);
-		SET_BLEND_SHAPE(ARBlendShapeLocationMouthFrownRight, EARFaceBlendShape::MouthFrownRight);
-		SET_BLEND_SHAPE(ARBlendShapeLocationMouthDimpleLeft, EARFaceBlendShape::MouthDimpleLeft);
-		SET_BLEND_SHAPE(ARBlendShapeLocationMouthDimpleRight, EARFaceBlendShape::MouthDimpleRight);
-		SET_BLEND_SHAPE(ARBlendShapeLocationMouthStretchLeft, EARFaceBlendShape::MouthStretchLeft);
-		SET_BLEND_SHAPE(ARBlendShapeLocationMouthStretchRight, EARFaceBlendShape::MouthStretchRight);
-		SET_BLEND_SHAPE(ARBlendShapeLocationMouthPressLeft, EARFaceBlendShape::MouthPressLeft);
-		SET_BLEND_SHAPE(ARBlendShapeLocationMouthPressRight, EARFaceBlendShape::MouthPressRight);
-		SET_BLEND_SHAPE(ARBlendShapeLocationMouthLowerDownLeft, EARFaceBlendShape::MouthLowerDownLeft);
-		SET_BLEND_SHAPE(ARBlendShapeLocationMouthLowerDownRight, EARFaceBlendShape::MouthLowerDownRight);
-		SET_BLEND_SHAPE(ARBlendShapeLocationMouthUpperUpLeft, EARFaceBlendShape::MouthUpperUpLeft);
-		SET_BLEND_SHAPE(ARBlendShapeLocationMouthUpperUpRight, EARFaceBlendShape::MouthUpperUpRight);
-		SET_BLEND_SHAPE(ARBlendShapeLocationBrowDownLeft, EARFaceBlendShape::BrowDownLeft);
-		SET_BLEND_SHAPE(ARBlendShapeLocationBrowDownRight, EARFaceBlendShape::BrowDownRight);
-		SET_BLEND_SHAPE(ARBlendShapeLocationBrowOuterUpLeft, EARFaceBlendShape::BrowOuterUpLeft);
-		SET_BLEND_SHAPE(ARBlendShapeLocationBrowOuterUpRight, EARFaceBlendShape::BrowOuterUpRight);
-		SET_BLEND_SHAPE(ARBlendShapeLocationCheekSquintLeft, EARFaceBlendShape::CheekSquintLeft);
-		SET_BLEND_SHAPE(ARBlendShapeLocationCheekSquintRight, EARFaceBlendShape::CheekSquintRight);
-		SET_BLEND_SHAPE(ARBlendShapeLocationNoseSneerLeft, EARFaceBlendShape::NoseSneerLeft);
-		SET_BLEND_SHAPE(ARBlendShapeLocationNoseSneerRight, EARFaceBlendShape::NoseSneerRight);
-	}
-	else
-	{
-		SET_BLEND_SHAPE(ARBlendShapeLocationEyeBlinkLeft, EARFaceBlendShape::EyeBlinkRight);
-		SET_BLEND_SHAPE(ARBlendShapeLocationEyeLookDownLeft, EARFaceBlendShape::EyeLookDownRight);
-		SET_BLEND_SHAPE(ARBlendShapeLocationEyeLookInLeft, EARFaceBlendShape::EyeLookInRight);
-		SET_BLEND_SHAPE(ARBlendShapeLocationEyeLookOutLeft, EARFaceBlendShape::EyeLookOutRight);
-		SET_BLEND_SHAPE(ARBlendShapeLocationEyeLookUpLeft, EARFaceBlendShape::EyeLookUpRight);
-		SET_BLEND_SHAPE(ARBlendShapeLocationEyeSquintLeft, EARFaceBlendShape::EyeSquintRight);
-		SET_BLEND_SHAPE(ARBlendShapeLocationEyeWideLeft, EARFaceBlendShape::EyeWideRight);
-		SET_BLEND_SHAPE(ARBlendShapeLocationEyeBlinkRight, EARFaceBlendShape::EyeBlinkLeft);
-		SET_BLEND_SHAPE(ARBlendShapeLocationEyeLookDownRight, EARFaceBlendShape::EyeLookDownLeft);
-		SET_BLEND_SHAPE(ARBlendShapeLocationEyeLookInRight, EARFaceBlendShape::EyeLookInLeft);
-		SET_BLEND_SHAPE(ARBlendShapeLocationEyeLookOutRight, EARFaceBlendShape::EyeLookOutLeft);
-		SET_BLEND_SHAPE(ARBlendShapeLocationEyeLookUpRight, EARFaceBlendShape::EyeLookUpLeft);
-		SET_BLEND_SHAPE(ARBlendShapeLocationEyeSquintRight, EARFaceBlendShape::EyeSquintLeft);
-		SET_BLEND_SHAPE(ARBlendShapeLocationEyeWideRight, EARFaceBlendShape::EyeWideLeft);
-		SET_BLEND_SHAPE(ARBlendShapeLocationJawForward, EARFaceBlendShape::JawForward);
-		SET_BLEND_SHAPE(ARBlendShapeLocationJawLeft, EARFaceBlendShape::JawRight);
-		SET_BLEND_SHAPE(ARBlendShapeLocationJawRight, EARFaceBlendShape::JawLeft);
-		SET_BLEND_SHAPE(ARBlendShapeLocationMouthLeft, EARFaceBlendShape::MouthRight);
-		SET_BLEND_SHAPE(ARBlendShapeLocationMouthRight, EARFaceBlendShape::MouthLeft);
-		SET_BLEND_SHAPE(ARBlendShapeLocationMouthSmileLeft, EARFaceBlendShape::MouthSmileRight);
-		SET_BLEND_SHAPE(ARBlendShapeLocationMouthSmileRight, EARFaceBlendShape::MouthSmileLeft);
-		SET_BLEND_SHAPE(ARBlendShapeLocationMouthFrownLeft, EARFaceBlendShape::MouthFrownRight);
-		SET_BLEND_SHAPE(ARBlendShapeLocationMouthFrownRight, EARFaceBlendShape::MouthFrownLeft);
-		SET_BLEND_SHAPE(ARBlendShapeLocationMouthDimpleLeft, EARFaceBlendShape::MouthDimpleRight);
-		SET_BLEND_SHAPE(ARBlendShapeLocationMouthDimpleRight, EARFaceBlendShape::MouthDimpleLeft);
-		SET_BLEND_SHAPE(ARBlendShapeLocationMouthStretchLeft, EARFaceBlendShape::MouthStretchRight);
-		SET_BLEND_SHAPE(ARBlendShapeLocationMouthStretchRight, EARFaceBlendShape::MouthStretchLeft);
-		SET_BLEND_SHAPE(ARBlendShapeLocationMouthPressLeft, EARFaceBlendShape::MouthPressRight);
-		SET_BLEND_SHAPE(ARBlendShapeLocationMouthPressRight, EARFaceBlendShape::MouthPressLeft);
-		SET_BLEND_SHAPE(ARBlendShapeLocationMouthLowerDownLeft, EARFaceBlendShape::MouthLowerDownRight);
-		SET_BLEND_SHAPE(ARBlendShapeLocationMouthLowerDownRight, EARFaceBlendShape::MouthLowerDownLeft);
-		SET_BLEND_SHAPE(ARBlendShapeLocationMouthUpperUpLeft, EARFaceBlendShape::MouthUpperUpRight);
-		SET_BLEND_SHAPE(ARBlendShapeLocationMouthUpperUpRight, EARFaceBlendShape::MouthUpperUpLeft);
-		SET_BLEND_SHAPE(ARBlendShapeLocationBrowDownLeft, EARFaceBlendShape::BrowDownRight);
-		SET_BLEND_SHAPE(ARBlendShapeLocationBrowDownRight, EARFaceBlendShape::BrowDownLeft);
-		SET_BLEND_SHAPE(ARBlendShapeLocationBrowOuterUpLeft, EARFaceBlendShape::BrowOuterUpRight);
-		SET_BLEND_SHAPE(ARBlendShapeLocationBrowOuterUpRight, EARFaceBlendShape::BrowOuterUpLeft);
-		SET_BLEND_SHAPE(ARBlendShapeLocationCheekSquintLeft, EARFaceBlendShape::CheekSquintRight);
-		SET_BLEND_SHAPE(ARBlendShapeLocationCheekSquintRight, EARFaceBlendShape::CheekSquintLeft);
-		SET_BLEND_SHAPE(ARBlendShapeLocationNoseSneerLeft, EARFaceBlendShape::NoseSneerRight);
-		SET_BLEND_SHAPE(ARBlendShapeLocationNoseSneerRight, EARFaceBlendShape::NoseSneerLeft);
-	}
-
-	// These are the same mirrored or not
-	SET_BLEND_SHAPE(ARBlendShapeLocationJawOpen, EARFaceBlendShape::JawOpen);
-	SET_BLEND_SHAPE(ARBlendShapeLocationMouthClose, EARFaceBlendShape::MouthClose);
-	SET_BLEND_SHAPE(ARBlendShapeLocationMouthFunnel, EARFaceBlendShape::MouthFunnel);
-	SET_BLEND_SHAPE(ARBlendShapeLocationMouthPucker, EARFaceBlendShape::MouthPucker);
-	SET_BLEND_SHAPE(ARBlendShapeLocationMouthRollLower, EARFaceBlendShape::MouthRollLower);
-	SET_BLEND_SHAPE(ARBlendShapeLocationMouthRollUpper, EARFaceBlendShape::MouthRollUpper);
-	SET_BLEND_SHAPE(ARBlendShapeLocationMouthShrugLower, EARFaceBlendShape::MouthShrugLower);
-	SET_BLEND_SHAPE(ARBlendShapeLocationMouthShrugUpper, EARFaceBlendShape::MouthShrugUpper);
-	SET_BLEND_SHAPE(ARBlendShapeLocationBrowInnerUp, EARFaceBlendShape::BrowInnerUp);
-	SET_BLEND_SHAPE(ARBlendShapeLocationCheekPuff, EARFaceBlendShape::CheekPuff);
-
-
-#undef SET_BLEND_SHAPE
-
-	return BlendShapeMap;
-}
-
-enum class EAppleAnchorType : uint8
-{
-	Anchor,
-	PlaneAnchor,
-	FaceAnchor,
-	MAX
-};
-
-struct FAppleARKitAnchorData
-{
-	FAppleARKitAnchorData(FGuid InAnchorGuid, FTransform InTransform)
-	: Transform( InTransform )
-	, AnchorType( EAppleAnchorType::Anchor )
-	, AnchorGUID( InAnchorGuid )
-	{
-	}
-
-	FAppleARKitAnchorData(FGuid InAnchorGuid, FTransform InTransform, FVector InCenter, FVector InExtent)
-	: Transform( InTransform )
-	, AnchorType( EAppleAnchorType::PlaneAnchor )
-	, AnchorGUID( InAnchorGuid )
-	, Center(InCenter)
-	, Extent(InExtent)
-	{
-	}
-
-	FAppleARKitAnchorData(FGuid InAnchorGuid, FTransform InTransform, FARBlendShapeMap InBlendShapes, TArray<FVector> InFaceVerts)
-	: Transform( InTransform )
-	, AnchorType( EAppleAnchorType::FaceAnchor )
-	, AnchorGUID( InAnchorGuid )
-	, BlendShapes( MoveTemp(InBlendShapes) )
-	, FaceVerts( MoveTemp(InFaceVerts) )
-	{
-	}
-
-	FTransform Transform;
-	EAppleAnchorType AnchorType;
-	FGuid AnchorGUID;
-	FVector Center;
-	FVector Extent;
-	FARBlendShapeMap BlendShapes;
-	TArray<FVector> FaceVerts;
-	// Note: the index buffer never changes so can be safely read once
-	static TArray<int32> FaceIndices;
-};
-
-TArray<int32> FAppleARKitAnchorData::FaceIndices;
-
-#endif//ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
-
-
-
-
-
 
 //
 //  FAppleARKitSystem
@@ -376,23 +152,14 @@ FAppleARKitSystem::FAppleARKitSystem()
 , DeviceOrientation(EScreenOrientation::Unknown)
 , DerivedTrackingToUnrealRotation(FRotator::ZeroRotator)
 , LightEstimate(nullptr)
+, CameraImage(nullptr)
+, CameraDepth(nullptr)
 , GameThreadFrameNumber(0)
 , GameThreadTimestamp(0.0)
 , LastTrackedGeometry_DebugId(0)
+, FaceARSupport(nullptr)
 {
 	// See Initialize(), as we need access to SharedThis()
-
-	// Create our LiveLink provider if the project setting is enabled
-	if (GetDefault<UAppleARKitSettings>()->bEnableLiveLinkForFaceTracking)
-	{
-		FaceTrackingLiveLinkSubjectName = GetDefault<UAppleARKitSettings>()->DefaultFaceTrackingLiveLinkSubjectName;
-#if PLATFORM_IOS
-		LiveLinkSource = FAppleARKitLiveLinkSourceFactory::CreateLiveLinkSource(true);
-#else
-		// This should be started already, but just in case
-		FAppleARKitLiveLinkSourceFactory::CreateLiveLinkRemoteListener();
-#endif
-	}
 }
 
 FAppleARKitSystem::~FAppleARKitSystem()
@@ -400,6 +167,39 @@ FAppleARKitSystem::~FAppleARKitSystem()
 	// Unregister our ability to hit-test in AR with Unreal
 }
 
+void FAppleARKitSystem::Shutdown()
+{
+#if SUPPORTS_ARKIT_1_0
+	if (Session != nullptr)
+	{
+		FaceARSupport = nullptr;
+		[Session pause];
+		Session.delegate = nullptr;
+		[Session release];
+		Session = nullptr;
+	}
+#endif
+	CameraDepth = nullptr;
+	CameraImage = nullptr;
+}
+
+void FAppleARKitSystem::CheckForFaceARSupport(UARSessionConfig* InSessionConfig)
+{
+	if (InSessionConfig->GetSessionType() != EARSessionType::Face)
+	{
+		// Clear the face ar support so we don't forward to it
+		FaceARSupport = nullptr;
+		return;
+	}
+
+	// We need to get the face support from the factory method, which is a modular feature to avoid dependencies
+	TArray<IAppleARKitFaceSupport*> Impls = IModularFeatures::Get().GetModularFeatureImplementations<IAppleARKitFaceSupport>("AppleARKitFaceSupport");
+	if (ensureAlwaysMsgf(Impls.Num() > 0, TEXT("Face AR session has been requested but the face ar plugin is not enabled")))
+	{
+		FaceARSupport = Impls[0];
+		ensureAlwaysMsgf(FaceARSupport != nullptr, TEXT("Face AR session has been requested but the face ar plugin is not enabled"));
+	}
+}
 
 FName FAppleARKitSystem::GetSystemName() const
 {
@@ -407,10 +207,9 @@ FName FAppleARKitSystem::GetSystemName() const
 	return AppleARKitSystemName;
 }
 
-
 bool FAppleARKitSystem::GetCurrentPose(int32 DeviceId, FQuat& OutOrientation, FVector& OutPosition)
 {
-	if (DeviceId == IXRTrackingSystem::HMDDeviceId && GameThreadFrame.IsValid())
+	if (DeviceId == IXRTrackingSystem::HMDDeviceId && GameThreadFrame.IsValid() && IsHeadTrackingAllowed())
 	{
 		// Do not have to lock here, because we are on the game
 		// thread and GameThreadFrame is only written to from the game thread.
@@ -425,7 +224,7 @@ bool FAppleARKitSystem::GetCurrentPose(int32 DeviceId, FQuat& OutOrientation, FV
 		// Apply counter-rotation to compensate for mobile device orientation
 		OutOrientation = CurrentTransform.GetRotation();
 		OutPosition = CurrentTransform.GetLocation();
-		
+
 		return true;
 	}
 	else
@@ -451,30 +250,55 @@ bool FAppleARKitSystem::EnumerateTrackedDevices(TArray<int32>& OutDevices, EXRTr
 	return false;
 }
 
-FRotator DeriveTrackingToWorldRotation( EScreenOrientation::Type DeviceOrientation )
+void FAppleARKitSystem::CalcTrackingToWorldRotation()
 {
 	// We rotate the camera to counteract the portrait vs. landscape viewport rotation
-	FRotator DeviceRot = FRotator::ZeroRotator;
-	switch (DeviceOrientation)
+	DerivedTrackingToUnrealRotation = FRotator::ZeroRotator;
+
+	const EARWorldAlignment WorldAlignment = GetSessionConfig().GetWorldAlignment();
+	if (WorldAlignment == EARWorldAlignment::Gravity || WorldAlignment == EARWorldAlignment::GravityAndHeading)
 	{
-		case EScreenOrientation::Portrait:
-			DeviceRot = FRotator(0.0f, 0.0f, -90.0f);
-			break;
-			
-		case EScreenOrientation::PortraitUpsideDown:
-			DeviceRot = FRotator(0.0f, 0.0f, 90.0f);
-			break;
-			
-		default:
-		case EScreenOrientation::LandscapeLeft:
-			break;
-			
-		case EScreenOrientation::LandscapeRight:
-			DeviceRot = FRotator(0.0f, 0.0f, 180.0f);
-			break;
-	};
-	
-	return DeviceRot;
+		switch (DeviceOrientation)
+		{
+			case EScreenOrientation::Portrait:
+				DerivedTrackingToUnrealRotation = FRotator(0.0f, 0.0f, -90.0f);
+				break;
+				
+			case EScreenOrientation::PortraitUpsideDown:
+				DerivedTrackingToUnrealRotation = FRotator(0.0f, 0.0f, 90.0f);
+				break;
+				
+			default:
+			case EScreenOrientation::LandscapeLeft:
+				break;
+				
+			case EScreenOrientation::LandscapeRight:
+				DerivedTrackingToUnrealRotation = FRotator(0.0f, 0.0f, 180.0f);
+				break;
+		}
+	}
+	// Camera aligned which means +X is to the right along the long axis
+	else
+	{
+		switch (DeviceOrientation)
+		{
+			case EScreenOrientation::Portrait:
+				DerivedTrackingToUnrealRotation = FRotator(0.0f, 0.0f, 90.0f);
+				break;
+				
+			case EScreenOrientation::PortraitUpsideDown:
+				DerivedTrackingToUnrealRotation = FRotator(0.0f, 0.0f, -90.0f);
+				break;
+				
+			default:
+			case EScreenOrientation::LandscapeLeft:
+				DerivedTrackingToUnrealRotation = FRotator(0.0f, 0.0f, -180.0f);
+				break;
+				
+			case EScreenOrientation::LandscapeRight:
+				break;
+		}
+	}
 }
 
 void FAppleARKitSystem::UpdateFrame()
@@ -490,16 +314,36 @@ void FAppleARKitSystem::UpdateFrame()
 			// Used to mark the time at which tracked geometry was updated
 			GameThreadFrameNumber++;
 			GameThreadTimestamp = GameThreadFrame->Timestamp;
+
+#if SUPPORTS_ARKIT_1_0
+			// Only create a new camera image texture if it's set
+			if (GameThreadFrame->CameraImage != nullptr)
+			{
+				if (!bCanReuseCameraImage || CameraImage == nullptr)
+				{
+					CameraImage = NewObject<UAppleARKitTextureCameraImage>();
+					bCanReuseCameraImage = true;
+				}
+                CameraImage->Init(GameThreadTimestamp, GameThreadFrame->CameraImage);
+			}
+
+			// Only create a new camera depth texture if it's set (currently only Face AR)
+			if (GameThreadFrame->CameraDepth != nullptr)
+			{
+				if (!bCanReuseCameraDepth || CameraDepth == nullptr)
+				{
+					CameraDepth = NewObject<UAppleARKitTextureCameraDepth>();
+					bCanReuseCameraDepth = true;
+				}
+                CameraDepth->Init(GameThreadTimestamp, GameThreadFrame->CameraDepth);
+			}
+#endif
 		}
 	}
 }
 
 void FAppleARKitSystem::UpdatePoses()
 {
-	if (DeviceOrientation == EScreenOrientation::Unknown)
-	{
-		SetDeviceOrientation( static_cast<EScreenOrientation::Type>(FPlatformMisc::GetDeviceOrientation()) );
-	}
 	UpdateFrame();
 }
 
@@ -517,8 +361,8 @@ bool FAppleARKitSystem::IsHeadTrackingAllowed() const
 		OnGetARSessionStatus().Status == EARSessionStatus::Running &&
 		GetSessionConfig().ShouldEnableCameraTracking();
 
-#if ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
-	if ([IOSAppDelegate GetDelegate].OSVersion >= 11.0f)
+#if SUPPORTS_ARKIT_1_0
+	if (FAppleARKitAvailability::SupportsARKit10())
 	{
 		return bEnableCameraTracking;
 	}
@@ -528,7 +372,7 @@ bool FAppleARKitSystem::IsHeadTrackingAllowed() const
 	}
 #else
 	return false;
-#endif //ARKIT_SUPPORT
+#endif
 }
 
 TSharedPtr<class IXRCamera, ESPMode::ThreadSafe> FAppleARKitSystem::GetXRCamera(int32 DeviceId)
@@ -575,6 +419,31 @@ bool FAppleARKitSystem::OnStartGameFrame(FWorldContext& WorldContext)
 	}
 	
 	return true;
+}
+
+void* FAppleARKitSystem::GetARSessionRawPointer()
+{
+#if SUPPORTS_ARKIT_1_0
+	return static_cast<void*>(Session);
+#endif
+	ensureAlwaysMsgf(false, TEXT("FAppleARKitSystem::GetARSessionRawPointer is unimplemented on current platform."));
+	return nullptr;
+}
+
+void* FAppleARKitSystem::GetGameThreadARFrameRawPointer()
+{
+#if SUPPORTS_ARKIT_1_0
+	if (GameThreadFrame.IsValid())
+	{
+		return GameThreadFrame->NativeFrame;
+	}
+	else
+	{
+		return nullptr;
+	}
+#endif
+	ensureAlwaysMsgf(false, TEXT("FAppleARKitSystem::GetARGameThreadFrameRawPointer is unimplemented on current platform."));
+	return nullptr;
 }
 
 //bool FAppleARKitSystem::ARLineTraceFromScreenPoint(const FVector2D ScreenPosition, TArray<FARTraceResult>& OutHitResults)
@@ -643,13 +512,13 @@ static bool IsHitInRange( float UnrealHitDistance )
 	return 20.0f < UnrealHitDistance && UnrealHitDistance < 500.0f;
 }
 
-#if ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
+#if SUPPORTS_ARKIT_1_0
 
 static UARTrackedGeometry* FindGeometryFromAnchor( ARAnchor* InAnchor, TMap<FGuid, UARTrackedGeometry*>& Geometries )
 {
 	if (InAnchor != NULL)
 	{
-		const FGuid AnchorGUID = ToFGuid( InAnchor.identifier );
+		const FGuid AnchorGUID = FAppleARKitConversion::ToFGuid( InAnchor.identifier );
 		UARTrackedGeometry** Result = Geometries.Find(AnchorGUID);
 		if (Result != nullptr)
 		{
@@ -660,7 +529,7 @@ static UARTrackedGeometry* FindGeometryFromAnchor( ARAnchor* InAnchor, TMap<FGui
 	return nullptr;
 }
 
-#endif//ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
+#endif
 
 TArray<FARTraceResult> FAppleARKitSystem::OnLineTraceTrackedObjects( const FVector2D ScreenCoord, EARLineTraceChannels TraceChannels )
 {
@@ -670,7 +539,7 @@ TArray<FARTraceResult> FAppleARKitSystem::OnLineTraceTrackedObjects( const FVect
 	// Sanity check
 	if (IsRunning())
 	{
-#if ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
+#if SUPPORTS_ARKIT_1_0
 		
 		TSharedRef<FARSystemBase, ESPMode::ThreadSafe> This = SharedThis(this);
 		
@@ -717,7 +586,7 @@ TArray<FARTraceResult> FAppleARKitSystem::OnLineTraceTrackedObjects( const FVect
 						{
 							// Hit result has passed and above filtering, add it to the list
 							// Convert to Unreal's Hit Test result format
-							Results.Add( FARTraceResult( This, UnrealHitDistance, EARLineTraceChannels::PlaneUsingExtent, FAppleARKitTransform::ToFTransform( HitTestResult.worldTransform, WorldToMetersScale )*GetAlignmentTransform(), FindGeometryFromAnchor(HitTestResult.anchor, TrackedGeometries) ) );
+							Results.Add( FARTraceResult( This, UnrealHitDistance, EARLineTraceChannels::PlaneUsingExtent, FAppleARKitConversion::ToFTransform( HitTestResult.worldTransform )*GetAlignmentTransform(), FindGeometryFromAnchor(HitTestResult.anchor, TrackedGeometries) ) );
 						}
 					}
 				}
@@ -733,7 +602,7 @@ TArray<FARTraceResult> FAppleARKitSystem::OnLineTraceTrackedObjects( const FVect
 						{
 							// Hit result has passed and above filtering, add it to the list
 							// Convert to Unreal's Hit Test result format
-							Results.Add( FARTraceResult( This, UnrealHitDistance, EARLineTraceChannels::GroundPlane, FAppleARKitTransform::ToFTransform( HitTestResult.worldTransform, WorldToMetersScale )*GetAlignmentTransform(), FindGeometryFromAnchor(HitTestResult.anchor, TrackedGeometries) ) );
+							Results.Add( FARTraceResult( This, UnrealHitDistance, EARLineTraceChannels::GroundPlane, FAppleARKitConversion::ToFTransform( HitTestResult.worldTransform )*GetAlignmentTransform(), FindGeometryFromAnchor(HitTestResult.anchor, TrackedGeometries) ) );
 						}
 					}
 				}
@@ -751,13 +620,13 @@ TArray<FARTraceResult> FAppleARKitSystem::OnLineTraceTrackedObjects( const FVect
 						{
 							// Hit result has passed and above filtering, add it to the list
 							// Convert to Unreal's Hit Test result format
-							Results.Add( FARTraceResult( This, UnrealHitDistance, EARLineTraceChannels::FeaturePoint, FAppleARKitTransform::ToFTransform( HitTestResult.worldTransform, WorldToMetersScale )*GetAlignmentTransform(), FindGeometryFromAnchor(HitTestResult.anchor, TrackedGeometries) ) );
+							Results.Add( FARTraceResult( This, UnrealHitDistance, EARLineTraceChannels::FeaturePoint, FAppleARKitConversion::ToFTransform( HitTestResult.worldTransform )*GetAlignmentTransform(), FindGeometryFromAnchor(HitTestResult.anchor, TrackedGeometries) ) );
 						}
 					}
 				}
 			}
 		}
-#endif // ARKIT_SUPPORT
+#endif
 	}
 	
 	if (Results.Num() > 1)
@@ -781,6 +650,18 @@ TArray<UARTrackedGeometry*> FAppleARKitSystem::OnGetAllTrackedGeometries() const
 TArray<UARPin*> FAppleARKitSystem::OnGetAllPins() const
 {
 	return Pins;
+}
+
+UARTextureCameraImage* FAppleARKitSystem::OnGetCameraImage()
+{
+	bCanReuseCameraImage = false;
+	return CameraImage;
+}
+
+UARTextureCameraDepth* FAppleARKitSystem::OnGetCameraDepth()
+{
+	bCanReuseCameraDepth = false;
+	return CameraDepth;
 }
 
 UARLightEstimate* FAppleARKitSystem::OnGetCurrentLightEstimate() const
@@ -845,7 +726,7 @@ bool FAppleARKitSystem::GetCurrentFrame(FAppleARKitFrame& OutCurrentFrame) const
 
 bool FAppleARKitSystem::OnIsTrackingTypeSupported(EARSessionType SessionType) const
 {
-#if ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
+#if SUPPORTS_ARKIT_1_0
 	switch (SessionType)
 	{
 		case EARSessionType::Orientation:
@@ -858,12 +739,253 @@ bool FAppleARKitSystem::OnIsTrackingTypeSupported(EARSessionType SessionType) co
 		}
 		case EARSessionType::Face:
 		{
-			return ARFaceTrackingConfiguration.isSupported == TRUE;
+			// We need to get the face support from the factory method, which is a modular feature to avoid dependencies
+			TArray<IAppleARKitFaceSupport*> Impls = IModularFeatures::Get().GetModularFeatureImplementations<IAppleARKitFaceSupport>("AppleARKitFaceSupport");
+			if (Impls.Num() > 0 && Impls[0] != nullptr)
+			{
+				return Impls[0]->DoesSupportFaceAR();
+			}
+			return false;
 		}
 	}
 #endif
 	return false;
 }
+
+//@joeg -- ARKit 2.0 additions
+
+bool FAppleARKitSystem::OnAddManualEnvironmentCaptureProbe(FVector Location, FVector Extent)
+{
+#if SUPPORTS_ARKIT_2_0
+	if (Session != nullptr)
+	{
+		if (FAppleARKitAvailability::SupportsARKit20())
+		{
+//@joeg -- Todo need to fix this transform as it needs to use the alignment transform too
+			// Build and add the anchor
+			simd_float4x4 AnchorMatrix = FAppleARKitConversion::ToARKitMatrix(FTransform(Location));
+			simd_float3 AnchorExtent = FAppleARKitConversion::ToARKitVector(Extent * 2.f);
+			AREnvironmentProbeAnchor* ARProbe = [[AREnvironmentProbeAnchor alloc] initWithTransform: AnchorMatrix extent: AnchorExtent];
+			[Session addAnchor: ARProbe];
+			[ARProbe release];
+		}
+		return true;
+	}
+#endif
+	return false;
+}
+
+#if SUPPORTS_ARKIT_2_0
+/** Since both the object extraction and world saving need to get the world map async, use a common chunk of code for this */
+class FAppleARKitGetWorldMapObjectAsyncTask
+{
+public:
+	/** Performs the call to get the world map and triggers the OnWorldMapAcquired() the completion handler */
+	void Run()
+	{
+		[Session getCurrentWorldMapWithCompletionHandler: ^(ARWorldMap* worldMap, NSError* error)
+		 {
+			 WorldMap = worldMap;
+			 [WorldMap retain];
+			 bool bWasSuccessful = error == nullptr;
+			 FString ErrorString;
+			 if (error != nullptr)
+			 {
+				 ErrorString = [error localizedDescription];
+			 }
+			 OnWorldMapAcquired(bWasSuccessful, ErrorString);
+		 }];
+	}
+	
+protected:
+	FAppleARKitGetWorldMapObjectAsyncTask(ARSession* InSession) :
+		Session(InSession)
+	{
+		CFRetain(Session);
+	}
+	
+	void Release()
+	{
+		if (Session != nullptr)
+		{
+			[Session release];
+			Session = nullptr;
+		}
+		if (WorldMap != nullptr)
+		{
+			[WorldMap release];
+			WorldMap = nullptr;
+		}
+	}
+
+	/** Called once the world map completion handler is called */
+	virtual void OnWorldMapAcquired(bool bWasSuccessful, FString ErrorString) = 0;
+
+	/** The session object that we'll grab the world from */
+	ARSession* Session;
+	/** The world map object once the call has completed */
+	ARWorldMap* WorldMap;
+};
+
+//@joeg -- The API changed last minute so you don't need to resolve the world to get an object anymore
+// This needs to be cleaned up
+class FAppleARKitGetCandidateObjectAsyncTask :
+	public FARGetCandidateObjectAsyncTask
+{
+public:
+	FAppleARKitGetCandidateObjectAsyncTask(ARSession* InSession, FVector InLocation, FVector InExtent) :
+		Location(InLocation)
+		, Extent(InExtent)
+		, ReferenceObject(nullptr)
+		, Session(InSession)
+	{
+		[Session retain];
+	}
+	
+	/** @return the candidate object that you can use for detection later */
+	virtual UARCandidateObject* GetCandidateObject() override
+	{
+		if (ReferenceObject != nullptr)
+		{
+			UARCandidateObject* CandidateObject = NewObject<UARCandidateObject>();
+			
+			FVector RefObjCenter = FAppleARKitConversion::ToFVector(ReferenceObject.center);
+			FVector RefObjExtent = 0.5f * FAppleARKitConversion::ToFVector(ReferenceObject.extent);
+			FBox BoundingBox(RefObjCenter, RefObjExtent);
+			CandidateObject->SetBoundingBox(BoundingBox);
+			
+			// Serialize the object into a byte array and stick that on the candidate object
+			NSData* RefObjData = [NSKeyedArchiver archivedDataWithRootObject: ReferenceObject];
+			uint32 SavedSize = RefObjData.length;
+			TArray<uint8> RawBytes;
+			RawBytes.AddUninitialized(SavedSize);
+			FPlatformMemory::Memcpy(RawBytes.GetData(), [RefObjData bytes], SavedSize);
+			CandidateObject->SetCandidateObjectData(RawBytes);
+
+			return CandidateObject;
+		}
+		return nullptr;
+	}
+	
+	virtual ~FAppleARKitGetCandidateObjectAsyncTask()
+	{
+		[Session release];
+		if (ReferenceObject != nullptr)
+		{
+			CFRelease(ReferenceObject);
+		}
+	}
+
+	/** Performs the call to get the world map and triggers the OnWorldMapAcquired() the completion handler */
+	void Run()
+	{
+		simd_float4x4 ARMatrix = FAppleARKitConversion::ToARKitMatrix(FTransform(Location));
+		simd_float3 Center = 0.f;
+		simd_float3 ARExtent = FAppleARKitConversion::ToARKitVector(Extent * 2.f);
+
+		[Session createReferenceObjectWithTransform: ARMatrix center: Center extent: ARExtent
+		 completionHandler: ^(ARReferenceObject* refObject, NSError* error)
+		{
+			ReferenceObject = refObject;
+			bool bWasSuccessful = error == nullptr;
+			bHadError = error != nullptr;
+			FString ErrorString;
+			if (error != nullptr)
+			{
+				ErrorString = [error localizedDescription];
+			}
+			bIsDone = true;
+		}];
+	}
+	
+private:
+	FVector Location;
+	FVector Extent;
+	ARReferenceObject* ReferenceObject;
+
+	/** The session object that we'll grab the object from */
+	ARSession* Session;
+};
+
+class FAppleARKitSaveWorldAsyncTask :
+	public FARSaveWorldAsyncTask,
+	public FAppleARKitGetWorldMapObjectAsyncTask
+{
+public:
+	FAppleARKitSaveWorldAsyncTask(ARSession* InSession) :
+		FAppleARKitGetWorldMapObjectAsyncTask(InSession)
+	{
+	}
+
+	virtual ~FAppleARKitSaveWorldAsyncTask()
+	{
+		Release();
+	}
+
+	virtual void OnWorldMapAcquired(bool bWasSuccessful, FString ErrorString) override
+	{
+		if (bWasSuccessful)
+		{
+			NSData* WorldNSData = [NSKeyedArchiver archivedDataWithRootObject: WorldMap];
+
+			// Copy to our TArray that will serve the data to the caller
+			uint32 SavedSize = WorldNSData.length;
+			WorldData.AddUninitialized(SavedSize);
+			FPlatformMemory::Memcpy(WorldData.GetData(), [WorldNSData bytes], SavedSize);
+		}
+		else
+		{
+			Error = ErrorString;
+			bHadError = true;
+		}
+		// Trigger that we're done
+		bIsDone = true;
+	}
+};
+#endif
+
+TSharedPtr<FARGetCandidateObjectAsyncTask, ESPMode::ThreadSafe> FAppleARKitSystem::OnGetCandidateObject(FVector Location, FVector Extent) const
+{
+#if SUPPORTS_ARKIT_2_0
+	if (Session != nullptr)
+	{
+		if (FAppleARKitAvailability::SupportsARKit20())
+		{
+			TSharedPtr<FAppleARKitGetCandidateObjectAsyncTask, ESPMode::ThreadSafe> Task = MakeShared<FAppleARKitGetCandidateObjectAsyncTask, ESPMode::ThreadSafe>(Session, Location, Extent);
+			Task->Run();
+			return Task;
+		}
+	}
+#endif
+	return  MakeShared<FARErrorGetCandidateObjectAsyncTask, ESPMode::ThreadSafe>(TEXT("GetCandidateObject - requires a valid, running ARKit 2.0 session"));
+}
+
+TSharedPtr<FARSaveWorldAsyncTask, ESPMode::ThreadSafe> FAppleARKitSystem::OnSaveWorld() const
+{
+#if SUPPORTS_ARKIT_2_0
+	if (Session != nullptr)
+	{
+		if (FAppleARKitAvailability::SupportsARKit20())
+		{
+			TSharedPtr<FAppleARKitSaveWorldAsyncTask, ESPMode::ThreadSafe> Task = MakeShared<FAppleARKitSaveWorldAsyncTask, ESPMode::ThreadSafe>(Session);
+			Task->Run();
+			return Task;
+		}
+	}
+#endif
+	return  MakeShared<FARErrorSaveWorldAsyncTask, ESPMode::ThreadSafe>(TEXT("SaveWorld - requires a valid, running ARKit 2.0 session"));
+}
+
+EARWorldMappingState FAppleARKitSystem::OnGetWorldMappingStatus() const
+{
+	if (GameThreadFrame.IsValid())
+	{
+		return GameThreadFrame->WorldMappingState;
+	}
+	return EARWorldMappingState::NotAvailable;
+}
+
+//@joeg -- End additions
 
 void FAppleARKitSystem::AddReferencedObjects( FReferenceCollector& Collector )
 {
@@ -871,7 +993,12 @@ void FAppleARKitSystem::AddReferencedObjects( FReferenceCollector& Collector )
 
 	Collector.AddReferencedObjects( TrackedGeometries );
 	Collector.AddReferencedObjects( Pins );
-	
+	Collector.AddReferencedObject( CameraImage );
+	Collector.AddReferencedObject( CameraDepth );
+	Collector.AddReferencedObjects( CandidateImages );
+//@joeg -- Object detection
+	Collector.AddReferencedObjects( CandidateObjects );
+
 	if(LightEstimate)
 	{
 		Collector.AddReferencedObject(LightEstimate);
@@ -886,7 +1013,7 @@ bool FAppleARKitSystem::HitTestAtScreenPosition(const FVector2D ScreenPosition, 
 
 static TOptional<EScreenOrientation::Type> PickAllowedDeviceOrientation( EScreenOrientation::Type InOrientation )
 {
-#if ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
+#if SUPPORTS_ARKIT_1_0
 	const UIOSRuntimeSettings* IOSSettings = GetDefault<UIOSRuntimeSettings>();
 	
 	const bool bOrientationSupported[] =
@@ -950,15 +1077,14 @@ void FAppleARKitSystem::SetDeviceOrientation( EScreenOrientation::Type InOrienta
 	if (NewOrientation.IsSet() && DeviceOrientation != NewOrientation.GetValue())
 	{
 		DeviceOrientation = NewOrientation.GetValue();
-		DerivedTrackingToUnrealRotation = DeriveTrackingToWorldRotation( DeviceOrientation );
+		CalcTrackingToWorldRotation();
 	}
 }
 
 
+PRAGMA_DISABLE_OPTIMIZATION
 bool FAppleARKitSystem::Run(UARSessionConfig* SessionConfig)
 {
-// @todo - JoeG & NickA talk about incompatible session types and what to do here
-
 	if (IsRunning())
 	{
 		UE_LOG(LogAppleARKit, Log, TEXT("Session already running"), this);
@@ -966,15 +1092,36 @@ bool FAppleARKitSystem::Run(UARSessionConfig* SessionConfig)
 		return true;
 	}
 
-	// @todo arkit FAppleARKitSystem::GetWorldToMetersScale needs a real scale somehow
-	FAppleARKitConfiguration Config;
-#if ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
-	if ([IOSAppDelegate GetDelegate].OSVersion >= 11.0f)
+//@joeg -- bug fix
+	{
+		// Clear out any existing frames since they aren't valid anymore
+		FScopeLock ScopeLock(&FrameLock);
+		GameThreadFrame = TSharedPtr<FAppleARKitFrame, ESPMode::ThreadSafe>();
+		LastReceivedFrame = TSharedPtr<FAppleARKitFrame, ESPMode::ThreadSafe>();
+	}
+	
+	// Make sure this is set at session start, because there are timing issues with using only the delegate approach
+	if (DeviceOrientation == EScreenOrientation::Unknown)
+	{
+		SetDeviceOrientation( static_cast<EScreenOrientation::Type>(FPlatformMisc::GetDeviceOrientation()) );
+	}
+
+#if SUPPORTS_ARKIT_1_0
+	if (FAppleARKitAvailability::SupportsARKit10())
 	{
 		ARSessionRunOptions options = 0;
 
-		// Convert to native ARWorldTrackingSessionConfiguration
-		ARConfiguration* Configuration = ToARConfiguration(SessionConfig, Config);
+		ARConfiguration* Configuration = nullptr;
+		CheckForFaceARSupport(SessionConfig);
+		if (FaceARSupport == nullptr)
+		{
+			Configuration = FAppleARKitConversion::ToARConfiguration(SessionConfig, CandidateImages, ConvertedCandidateImages, CandidateObjects);
+		}
+		else
+		{
+			Configuration = FaceARSupport->ToARConfiguration(SessionConfig);
+		}
+
 		// Not all session types are supported by all devices
 		if (Configuration == nullptr)
 		{
@@ -1022,15 +1169,17 @@ bool FAppleARKitSystem::Run(UARSessionConfig* SessionConfig)
 		[Session runWithConfiguration : Configuration options : options];
 	}
 	
-#endif // ARKIT_SUPPORT
+#endif
 	
 	// @todo arkit Add support for relocating ARKit space to Unreal World Origin? BaseTransform = FTransform::Identity;
 	
 	// Set running state
 	bIsRunning = true;
 	
+	OnARSessionStarted.Broadcast();
 	return true;
 }
+PRAGMA_ENABLE_OPTIMIZATION
 
 bool FAppleARKitSystem::IsRunning() const
 {
@@ -1046,9 +1195,9 @@ bool FAppleARKitSystem::Pause()
 	}
 	
 	UE_LOG(LogAppleARKit, Log, TEXT("Stopping session: %p"), this);
-	
-#if ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
-	if ([IOSAppDelegate GetDelegate].OSVersion >= 11.0f)
+
+#if SUPPORTS_ARKIT_1_0
+	if (FAppleARKitAvailability::SupportsARKit10())
 	{
 		// Suspend the session
 		[Session pause];
@@ -1064,7 +1213,7 @@ bool FAppleARKitSystem::Pause()
 		}
 	}
 	
-#endif // ARKIT_SUPPORT
+#endif
 	
 	// Set running state
 	bIsRunning = false;
@@ -1094,43 +1243,83 @@ void FAppleARKitSystem::SessionDidFailWithError_DelegateThread(const FString& Er
 	UE_LOG(LogAppleARKit, Warning, TEXT("Session failed with error: %s"), *Error);
 }
 
-#if ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
+#if SUPPORTS_ARKIT_1_0
 
-static TSharedPtr<FAppleARKitAnchorData> MakeAnchorData( ARAnchor* Anchor, const float WorldToMeterScale )
+TArray<int32> FAppleARKitAnchorData::FaceIndices;
+
+static TSharedPtr<FAppleARKitAnchorData> MakeAnchorData( ARAnchor* Anchor )
 {
-	// Construct appropriate UAppleARKitAnchor subclass
 	TSharedPtr<FAppleARKitAnchorData> NewAnchor;
 	if ([Anchor isKindOfClass:[ARPlaneAnchor class]])
 	{
 		ARPlaneAnchor* PlaneAnchor = (ARPlaneAnchor*)Anchor;
 		NewAnchor = MakeShared<FAppleARKitAnchorData>(
-			ToFGuid(PlaneAnchor.identifier),
-			FAppleARKitTransform::ToFTransform(PlaneAnchor.transform, WorldToMeterScale),
-			FAppleARKitTransform::ToFVector(PlaneAnchor.center, WorldToMeterScale),
+			FAppleARKitConversion::ToFGuid(PlaneAnchor.identifier),
+			FAppleARKitConversion::ToFTransform(PlaneAnchor.transform),
+			FAppleARKitConversion::ToFVector(PlaneAnchor.center),
 			// @todo use World Settings WorldToMetersScale
-			0.5f*FAppleARKitTransform::ToFVector(PlaneAnchor.extent, WorldToMeterScale).GetAbs()
+			0.5f*FAppleARKitConversion::ToFVector(PlaneAnchor.extent).GetAbs()
 		);
-	}
-	else if ([Anchor isKindOfClass:[ARFaceAnchor class]])
-	{
-		ARFaceAnchor* FaceAnchor = (ARFaceAnchor*)Anchor;
-		NewAnchor = MakeShared<FAppleARKitAnchorData>(
-			ToFGuid(FaceAnchor.identifier),
-			FAppleARKitTransform::ToFTransform(FaceAnchor.transform, WorldToMeterScale),
-			ToBlendShapeMap(FaceAnchor.blendShapes),
-			ToVertexBuffer(FaceAnchor.geometry.vertices, FaceAnchor.geometry.vertexCount)
-		);
-		// Only convert from 16bit to 32bit once
-		if (FAppleARKitAnchorData::FaceIndices.Num() == 0)
+
+#if SUPPORTS_ARKIT_1_5
+		if (FAppleARKitAvailability::SupportsARKit15())
 		{
-			FAppleARKitAnchorData::FaceIndices = To32BitIndexBuffer(FaceAnchor.geometry.triangleIndices, FaceAnchor.geometry.triangleCount * 3);
+			//@todo All this copying should really happen on-demand.
+			const int32 NumBoundaryVerts = PlaneAnchor.geometry.boundaryVertexCount;
+			NewAnchor->BoundaryVerts.Reset(NumBoundaryVerts);
+			for(int32 i=0; i<NumBoundaryVerts; ++i)
+			{
+				const vector_float3& Vert = PlaneAnchor.geometry.boundaryVertices[i];
+				NewAnchor->BoundaryVerts.Add(FAppleARKitConversion::ToFVector(Vert));
+			}
 		}
+#endif
 	}
+#if SUPPORTS_ARKIT_1_5
+	else if (FAppleARKitAvailability::SupportsARKit15() && [Anchor isKindOfClass:[ARImageAnchor class]])
+	{
+		ARImageAnchor* ImageAnchor = (ARImageAnchor*)Anchor;
+		NewAnchor = MakeShared<FAppleARKitAnchorData>(
+			FAppleARKitConversion::ToFGuid(ImageAnchor.identifier),
+			FAppleARKitConversion::ToFTransform(ImageAnchor.transform),
+//@joeg -- Changed to share image and object detection
+			EAppleAnchorType::ImageAnchor,
+			FString(ImageAnchor.referenceImage.name)
+		);
+#if SUPPORTS_ARKIT_2_0
+		NewAnchor->bIsTracked = ImageAnchor.isTracked;
+#endif
+	}
+#endif
+//@joeg -- Added environmental texture probe support
+#if SUPPORTS_ARKIT_2_0
+	else if (FAppleARKitAvailability::SupportsARKit20() && [Anchor isKindOfClass:[AREnvironmentProbeAnchor class]])
+	{
+		AREnvironmentProbeAnchor* ProbeAnchor = (AREnvironmentProbeAnchor*)Anchor;
+		NewAnchor = MakeShared<FAppleARKitAnchorData>(
+			FAppleARKitConversion::ToFGuid(ProbeAnchor.identifier),
+			FAppleARKitConversion::ToFTransform(ProbeAnchor.transform),
+			0.5f * FAppleARKitConversion::ToFVector(ProbeAnchor.extent).GetAbs(),
+			ProbeAnchor.environmentTexture
+		);
+	}
+//@joeg -- Object dectection support
+	else if (FAppleARKitAvailability::SupportsARKit20() && [Anchor isKindOfClass:[ARObjectAnchor class]])
+	{
+		ARObjectAnchor* ObjectAnchor = (ARObjectAnchor*)Anchor;
+		NewAnchor = MakeShared<FAppleARKitAnchorData>(
+			  FAppleARKitConversion::ToFGuid(ObjectAnchor.identifier),
+			  FAppleARKitConversion::ToFTransform(ObjectAnchor.transform),
+			  EAppleAnchorType::ObjectAnchor,
+			  FString(ObjectAnchor.referenceObject.name)
+		  );
+	}
+#endif
 	else
 	{
 		NewAnchor = MakeShared<FAppleARKitAnchorData>(
-			ToFGuid(Anchor.identifier),
-			FAppleARKitTransform::ToFTransform(Anchor.transform, WorldToMeterScale));
+			FAppleARKitConversion::ToFGuid(Anchor.identifier),
+			FAppleARKitConversion::ToFTransform(Anchor.transform));
 	}
 	
 	return NewAnchor;
@@ -1142,9 +1331,22 @@ void FAppleARKitSystem::SessionDidAddAnchors_DelegateThread( NSArray<ARAnchor*>*
 					   STAT_FAppleARKitSystem_SessionDidAddAnchors,
 					   STATGROUP_APPLEARKIT);
 
+	// If this object is valid, we are running a face session and need that code to process things
+	if (FaceARSupport != nullptr)
+	{
+		const FRotator& AdjustBy = GetSessionConfig().GetWorldAlignment() == EARWorldAlignment::Camera ? DerivedTrackingToUnrealRotation : FRotator::ZeroRotator;
+		const TArray<TSharedPtr<FAppleARKitAnchorData>> AnchorList = FaceARSupport->MakeAnchorData(anchors, GameThreadTimestamp, GameThreadFrameNumber, AdjustBy);
+		for (TSharedPtr<FAppleARKitAnchorData> NewAnchorData : AnchorList)
+		{
+			auto AddAnchorTask = FSimpleDelegateGraphTask::FDelegate::CreateSP(this, &FAppleARKitSystem::SessionDidAddAnchors_Internal, NewAnchorData.ToSharedRef());
+			FSimpleDelegateGraphTask::CreateAndDispatchWhenReady(AddAnchorTask, GET_STATID(STAT_FAppleARKitSystem_SessionDidAddAnchors), nullptr, ENamedThreads::GameThread);
+		}
+		return;
+	}
+
 	for (ARAnchor* anchor in anchors)
 	{
-		TSharedPtr<FAppleARKitAnchorData> NewAnchorData = MakeAnchorData(anchor, GetWorldToMetersScale());
+		TSharedPtr<FAppleARKitAnchorData> NewAnchorData = MakeAnchorData(anchor);
 		if (ensure(NewAnchorData.IsValid()))
 		{
 			auto AddAnchorTask = FSimpleDelegateGraphTask::FDelegate::CreateSP(this, &FAppleARKitSystem::SessionDidAddAnchors_Internal, NewAnchorData.ToSharedRef());
@@ -1159,9 +1361,22 @@ void FAppleARKitSystem::SessionDidUpdateAnchors_DelegateThread( NSArray<ARAnchor
 					   STAT_FAppleARKitSystem_SessionDidUpdateAnchors,
 					   STATGROUP_APPLEARKIT);
 	
+	// If this object is valid, we are running a face session and need that code to process things
+	if (FaceARSupport != nullptr)
+	{
+		const FRotator& AdjustBy = GetSessionConfig().GetWorldAlignment() == EARWorldAlignment::Camera ? DerivedTrackingToUnrealRotation : FRotator::ZeroRotator;
+		const TArray<TSharedPtr<FAppleARKitAnchorData>> AnchorList = FaceARSupport->MakeAnchorData(anchors, GameThreadTimestamp, GameThreadFrameNumber, AdjustBy);
+		for (TSharedPtr<FAppleARKitAnchorData> NewAnchorData : AnchorList)
+		{
+			auto UpdateAnchorTask = FSimpleDelegateGraphTask::FDelegate::CreateSP(this, &FAppleARKitSystem::SessionDidUpdateAnchors_Internal, NewAnchorData.ToSharedRef());
+			FSimpleDelegateGraphTask::CreateAndDispatchWhenReady(UpdateAnchorTask, GET_STATID(STAT_FAppleARKitSystem_SessionDidUpdateAnchors), nullptr, ENamedThreads::GameThread);
+		}
+		return;
+	}
+
 	for (ARAnchor* anchor in anchors)
 	{
-		TSharedPtr<FAppleARKitAnchorData> NewAnchorData = MakeAnchorData(anchor, GetWorldToMetersScale());
+		TSharedPtr<FAppleARKitAnchorData> NewAnchorData = MakeAnchorData(anchor);
 		if (ensure(NewAnchorData.IsValid()))
 		{
 			auto UpdateAnchorTask = FSimpleDelegateGraphTask::FDelegate::CreateSP(this, &FAppleARKitSystem::SessionDidUpdateAnchors_Internal, NewAnchorData.ToSharedRef());
@@ -1176,10 +1391,12 @@ void FAppleARKitSystem::SessionDidRemoveAnchors_DelegateThread( NSArray<ARAnchor
 					   STAT_FAppleARKitSystem_SessionDidRemoveAnchors,
 					   STATGROUP_APPLEARKIT);
 	
+	// Face AR Anchors are also removed this way, no need for special code since they are tracked geometry
+
 	for (ARAnchor* anchor in anchors)
 	{
 		// Convert to FGuid
-		const FGuid AnchorGuid = ToFGuid( anchor.identifier );
+		const FGuid AnchorGuid = FAppleARKitConversion::ToFGuid( anchor.identifier );
 
 		auto RemoveAnchorTask = FSimpleDelegateGraphTask::FDelegate::CreateSP(this, &FAppleARKitSystem::SessionDidRemoveAnchors_Internal, AnchorGuid);
 		FSimpleDelegateGraphTask::CreateAndDispatchWhenReady(RemoveAnchorTask, GET_STATID(STAT_FAppleARKitSystem_SessionDidRemoveAnchors), nullptr, ENamedThreads::GameThread);
@@ -1194,18 +1411,27 @@ void FAppleARKitSystem::SessionDidAddAnchors_Internal( TSharedRef<FAppleARKitAnc
 	{
 		UpdateFrame();
 	}
+	
+	// If this object is valid, we are running a face session and we need to publish LiveLink data on the game thread
+	if (FaceARSupport != nullptr && AnchorData->AnchorType == EAppleAnchorType::FaceAnchor)
+	{
+		FaceARSupport->PublishLiveLinkData(AnchorData, GameThreadTimestamp, GameThreadFrameNumber);
+	}
 
+	FString NewAnchorDebugName;
 	UARTrackedGeometry* NewGeometry = nullptr;
 	switch (AnchorData->AnchorType)
 	{
 		case EAppleAnchorType::Anchor:
 		{
+			NewAnchorDebugName = FString::Printf(TEXT("ANCHOR-%02d"), LastTrackedGeometry_DebugId++);
 			NewGeometry = NewObject<UARTrackedGeometry>();
 			NewGeometry->UpdateTrackedGeometry(SharedThis(this), GameThreadFrameNumber, GameThreadTimestamp, AnchorData->Transform, GetAlignmentTransform());
 			break;
 		}
 		case EAppleAnchorType::PlaneAnchor:
 		{
+			NewAnchorDebugName = FString::Printf(TEXT("PLN-%02d"), LastTrackedGeometry_DebugId++);
 			UARPlaneGeometry* NewGeo = NewObject<UARPlaneGeometry>();
 			NewGeo->UpdateTrackedGeometry(SharedThis(this), GameThreadFrameNumber, GameThreadTimestamp, AnchorData->Transform, GetAlignmentTransform(), AnchorData->Center, AnchorData->Extent);
 			NewGeometry = NewGeo;
@@ -1213,15 +1439,42 @@ void FAppleARKitSystem::SessionDidAddAnchors_Internal( TSharedRef<FAppleARKitAnc
 		}
 		case EAppleAnchorType::FaceAnchor:
 		{
-			// Update LiveLink first, because the other updates use MoveTemp for efficiency
-			if (LiveLinkSource.IsValid())
-			{
-				LiveLinkSource->PublishBlendShapes(FaceTrackingLiveLinkSubjectName, GameThreadTimestamp, GameThreadFrameNumber, AnchorData->BlendShapes);
-			}
-
+			NewAnchorDebugName = FString::Printf(TEXT("FACE-%02d"), LastTrackedGeometry_DebugId++);
 			UARFaceGeometry* NewGeo = NewObject<UARFaceGeometry>();
-			NewGeo->UpdateTrackedGeometry(SharedThis(this), GameThreadFrameNumber, GameThreadTimestamp, AnchorData->Transform, GetAlignmentTransform(), AnchorData->BlendShapes, AnchorData->FaceVerts, AnchorData->FaceIndices);
+//@joeg -- Eye tracking support
+			NewGeo->UpdateFaceGeometry(SharedThis(this), GameThreadFrameNumber, GameThreadTimestamp, AnchorData->Transform, GetAlignmentTransform(), AnchorData->BlendShapes, AnchorData->FaceVerts, AnchorData->FaceIndices, AnchorData->LeftEyeTransform, AnchorData->RightEyeTransform, AnchorData->LookAtTarget);
+			NewGeo->bIsTracked = true;
 			NewGeometry = NewGeo;
+			break;
+		}
+		case EAppleAnchorType::ImageAnchor:
+		{
+			NewAnchorDebugName = FString::Printf(TEXT("IMG-%02d"), LastTrackedGeometry_DebugId++);
+			UARTrackedImage* NewImage = NewObject<UARTrackedImage>();
+			UARCandidateImage** CandidateImage = CandidateImages.Find(AnchorData->DetectedAnchorName);
+			ensure(CandidateImage != nullptr);
+			NewImage->UpdateTrackedGeometry(SharedThis(this), GameThreadFrameNumber, GameThreadTimestamp, AnchorData->Transform, GetAlignmentTransform(), *CandidateImage);
+			NewGeometry = NewImage;
+			break;
+		}
+//@joeg -- Added environmental texture probe support
+		case EAppleAnchorType::EnvironmentProbeAnchor:
+		{
+			NewAnchorDebugName = FString::Printf(TEXT("ENV-%02d"), LastTrackedGeometry_DebugId++);
+			UAppleARKitEnvironmentCaptureProbe* NewProbe = NewObject<UAppleARKitEnvironmentCaptureProbe>();
+			NewProbe->UpdateEnvironmentCapture(SharedThis(this), GameThreadFrameNumber, GameThreadTimestamp, AnchorData->Transform, GetAlignmentTransform(), AnchorData->Extent, AnchorData->ProbeTexture);
+			NewGeometry = NewProbe;
+			break;
+		}
+//@joeg -- Object detection
+		case EAppleAnchorType::ObjectAnchor:
+		{
+			NewAnchorDebugName = FString::Printf(TEXT("OBJ-%02d"), LastTrackedGeometry_DebugId++);
+			UARTrackedObject* NewTrackedObject = NewObject<UARTrackedObject>();
+			UARCandidateObject** CandidateObject = CandidateObjects.Find(AnchorData->DetectedAnchorName);
+			ensure(CandidateObject != nullptr);
+			NewTrackedObject->UpdateTrackedGeometry(SharedThis(this), GameThreadFrameNumber, GameThreadTimestamp, AnchorData->Transform, GetAlignmentTransform(), *CandidateObject);
+			NewGeometry = NewTrackedObject;
 			break;
 		}
 	}
@@ -1229,7 +1482,6 @@ void FAppleARKitSystem::SessionDidAddAnchors_Internal( TSharedRef<FAppleARKitAnc
 
 	UARTrackedGeometry* NewTrackedGeometry = TrackedGeometries.Add( AnchorData->AnchorGUID, NewGeometry );
 	
-	const FString NewAnchorDebugName = FString::Printf(TEXT("APPL-%02d"), LastTrackedGeometry_DebugId++);
 	NewTrackedGeometry->SetDebugName( FName(*NewAnchorDebugName) );
 }
 
@@ -1239,6 +1491,12 @@ void FAppleARKitSystem::SessionDidUpdateAnchors_Internal( TSharedRef<FAppleARKit
 	if (!GetSessionConfig().ShouldEnableCameraTracking())
 	{
 		UpdateFrame();
+	}
+
+	// If this object is valid, we are running a face session and we need to publish LiveLink data on the game thread
+	if (FaceARSupport != nullptr && AnchorData->AnchorType == EAppleAnchorType::FaceAnchor)
+	{
+		FaceARSupport->PublishLiveLinkData(AnchorData, GameThreadTimestamp, GameThreadFrameNumber);
 	}
 
 	UARTrackedGeometry** GeometrySearchResult = TrackedGeometries.Find(AnchorData->AnchorGUID);
@@ -1272,7 +1530,7 @@ void FAppleARKitSystem::SessionDidUpdateAnchors_Internal( TSharedRef<FAppleARKit
 			{
 				if (UARPlaneGeometry* PlaneGeo = Cast<UARPlaneGeometry>(FoundGeometry))
 				{
-					PlaneGeo->UpdateTrackedGeometry(SharedThis(this), GameThreadFrameNumber, GameThreadTimestamp, AnchorData->Transform, GetAlignmentTransform(), AnchorData->Center, AnchorData->Extent);
+					PlaneGeo->UpdateTrackedGeometry(SharedThis(this), GameThreadFrameNumber, GameThreadTimestamp, AnchorData->Transform, GetAlignmentTransform(), AnchorData->Center, AnchorData->Extent, AnchorData->BoundaryVerts, nullptr);
 					for (UARPin* Pin : PinsToUpdate)
 					{
 						const FTransform Pin_LocalToTrackingTransform_PostUpdate = Pin->GetLocalToTrackingTransform_NoAlignment() * AnchorDeltaTransform;
@@ -1285,13 +1543,43 @@ void FAppleARKitSystem::SessionDidUpdateAnchors_Internal( TSharedRef<FAppleARKit
 			{
 				if (UARFaceGeometry* FaceGeo = Cast<UARFaceGeometry>(FoundGeometry))
 				{
-					// Update LiveLink first, because the other updates use MoveTemp for efficiency
-					if (LiveLinkSource.IsValid())
+//@joeg -- Eye tracking support
+					FaceGeo->UpdateFaceGeometry(SharedThis(this), GameThreadFrameNumber, GameThreadTimestamp, AnchorData->Transform, GetAlignmentTransform(), AnchorData->BlendShapes, AnchorData->FaceVerts, AnchorData->FaceIndices, AnchorData->LeftEyeTransform, AnchorData->RightEyeTransform, AnchorData->LookAtTarget);
+					FaceGeo->bIsTracked = AnchorData->bIsTracked;
+					for (UARPin* Pin : PinsToUpdate)
 					{
-						LiveLinkSource->PublishBlendShapes(FaceTrackingLiveLinkSubjectName, GameThreadTimestamp, GameThreadFrameNumber, AnchorData->BlendShapes);
+						const FTransform Pin_LocalToTrackingTransform_PostUpdate = Pin->GetLocalToTrackingTransform_NoAlignment() * AnchorDeltaTransform;
+						Pin->OnTransformUpdated(Pin_LocalToTrackingTransform_PostUpdate);
 					}
+				}
+				break;
+			}
+//@joeg -- Added image tracking support
+            case EAppleAnchorType::ImageAnchor:
+            {
+				if (UARTrackedImage* ImageAnchor = Cast<UARTrackedImage>(FoundGeometry))
+				{
+//@joeg -- Changed so object and image detection can share
+					UARCandidateImage** CandidateImage = CandidateImages.Find(AnchorData->DetectedAnchorName);
+					ensure(CandidateImage != nullptr);
 
-					FaceGeo->UpdateTrackedGeometry(SharedThis(this), GameThreadFrameNumber, GameThreadTimestamp, AnchorData->Transform, GetAlignmentTransform(), AnchorData->BlendShapes, AnchorData->FaceVerts, AnchorData->FaceIndices);
+					ImageAnchor->UpdateTrackedGeometry(SharedThis(this), GameThreadFrameNumber, GameThreadTimestamp, AnchorData->Transform, GetAlignmentTransform(), *CandidateImage);
+					ImageAnchor->bIsTracked = AnchorData->bIsTracked;
+					for (UARPin* Pin : PinsToUpdate)
+					{
+						const FTransform Pin_LocalToTrackingTransform_PostUpdate = Pin->GetLocalToTrackingTransform_NoAlignment() * AnchorDeltaTransform;
+						Pin->OnTransformUpdated(Pin_LocalToTrackingTransform_PostUpdate);
+					}
+				}
+                break;
+            }
+//@joeg -- Added environmental texture probe support
+			case EAppleAnchorType::EnvironmentProbeAnchor:
+			{
+				if (UAppleARKitEnvironmentCaptureProbe* ProbeAnchor = Cast<UAppleARKitEnvironmentCaptureProbe>(FoundGeometry))
+				{
+					// NOTE: The metal texture will be a different texture every time the cubemap is updated which requires a render resource flush
+					ProbeAnchor->UpdateEnvironmentCapture(SharedThis(this), GameThreadFrameNumber, GameThreadTimestamp, AnchorData->Transform, GetAlignmentTransform(), AnchorData->Extent, AnchorData->ProbeTexture);
 					for (UARPin* Pin : PinsToUpdate)
 					{
 						const FTransform Pin_LocalToTrackingTransform_PostUpdate = Pin->GetLocalToTrackingTransform_NoAlignment() * AnchorDeltaTransform;
@@ -1327,7 +1615,7 @@ void FAppleARKitSystem::SessionDidRemoveAnchors_Internal( FGuid AnchorGuid )
 	TrackedGeometries.Remove(AnchorGuid);
 }
 
-#endif //ARKIT_SUPPORT
+#endif
 
 void FAppleARKitSystem::SessionDidUpdateFrame_Internal( TSharedRef< FAppleARKitFrame, ESPMode::ThreadSafe > Frame )
 {
@@ -1343,14 +1631,18 @@ namespace AppleARKitSupport
 {
 	TSharedPtr<class FAppleARKitSystem, ESPMode::ThreadSafe> CreateAppleARKitSystem()
 	{
-#if ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
-		const bool bIsARApp = GetDefault<UGeneralProjectSettings>()->bSupportAR;
-		if (bIsARApp)
+#if SUPPORTS_ARKIT_1_0
+		// Handle older iOS devices somehow calling this
+		if (FAppleARKitAvailability::SupportsARKit10())
 		{
-			auto NewARKitSystem = NewARSystem<FAppleARKitSystem>();
-			return NewARKitSystem;
+            auto NewARKitSystem = NewARSystem<FAppleARKitSystem>();
+            return NewARKitSystem;
 		}
 #endif
 		return TSharedPtr<class FAppleARKitSystem, ESPMode::ThreadSafe>();
 	}
 }
+
+#if PLATFORM_IOS
+	#pragma clang diagnostic pop
+#endif

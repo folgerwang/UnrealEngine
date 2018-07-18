@@ -30,6 +30,11 @@ namespace Tools.DotNETCommon
 		public Dictionary<FileReference, bool> ProjectReferences = new Dictionary<FileReference, bool>();
 
 		/// <summary>
+		/// Mapping of content IF they are flagged Always or Newer
+		/// </summary>
+		public Dictionary<FileReference, bool> ContentReferences = new Dictionary<FileReference, bool>();
+
+		/// <summary>
 		/// Constructor
 		/// </summary>
 		/// <param name="InProperties">Initial mapping of property names to values</param>
@@ -57,11 +62,46 @@ namespace Tools.DotNETCommon
 		}
 
 		/// <summary>
-		/// Adds build products from the project to the given set.
+		/// Finds all build products from this project. This includes content and other assemblies marked to be copied local.
 		/// </summary>
-		/// <param name="OutputDir">Output directory for the build products. May be different to the project's output directory in the case that we're copying local to another project.</param>
-		/// <param name="BuildProducts">Set to receive the list of build products</param>
-		public bool AddBuildProducts(DirectoryReference OutputDir, HashSet<FileReference> BuildProducts)
+		/// <param name="OutputDir">The output directory</param>
+		/// <param name="BuildProducts">Receives the set of build products</param>
+		/// <param name="ProjectFileToInfo">Map of project file to information, to resolve build products from referenced projects copied locally</param>
+		public void FindBuildProducts(DirectoryReference OutputDir, HashSet<FileReference> BuildProducts, Dictionary<FileReference, CsProjectInfo> ProjectFileToInfo)
+		{
+			// Add the standard build products
+			FindCompiledBuildProducts(OutputDir, BuildProducts);
+
+			// Add the referenced assemblies which are marked to be copied into the output directory. This only happens for the main project, and does not happen for referenced projects.
+			foreach(KeyValuePair<FileReference, bool> Reference in References)
+			{
+				if (Reference.Value)
+				{
+					FileReference OutputFile = FileReference.Combine(OutputDir, Reference.Key.GetFileName());
+					AddReferencedAssemblyAndSupportFiles(OutputFile, BuildProducts);
+				}
+			}
+
+			// Copy the build products for any referenced projects. Note that this does NOT operate recursively.
+			foreach(KeyValuePair<FileReference, bool> ProjectReference in ProjectReferences)
+			{
+				CsProjectInfo OtherProjectInfo;
+				if(ProjectFileToInfo.TryGetValue(ProjectReference.Key, out OtherProjectInfo))
+				{
+					OtherProjectInfo.FindCompiledBuildProducts(OutputDir, BuildProducts);
+				}
+			}
+
+			// Add any copied content. This DOES operate recursively.
+			FindCopiedContent(OutputDir, BuildProducts, ProjectFileToInfo);
+		}
+
+		/// <summary>
+		/// Determines all the compiled build products (executable, etc...) directly built from this project.
+		/// </summary>
+		/// <param name="OutputDir">The output directory</param>
+		/// <param name="BuildProducts">Receives the set of build products</param>
+		public void FindCompiledBuildProducts(DirectoryReference OutputDir, HashSet<FileReference> BuildProducts)
 		{
 			string OutputType, AssemblyName;
 			if (Properties.TryGetValue("OutputType", out OutputType) && Properties.TryGetValue("AssemblyName", out AssemblyName))
@@ -80,18 +120,72 @@ namespace Tools.DotNETCommon
 						AddOptionalBuildProduct(FileReference.Combine(OutputDir, AssemblyName + ".pdb"), BuildProducts);
 						AddOptionalBuildProduct(FileReference.Combine(OutputDir, AssemblyName + ".exe.config"), BuildProducts);
 						AddOptionalBuildProduct(FileReference.Combine(OutputDir, AssemblyName + ".exe.mdb"), BuildProducts);
-						return true;
+						break;
 					case "Library":
 						BuildProducts.Add(FileReference.Combine(OutputDir, AssemblyName + ".dll"));
 						AddOptionalBuildProduct(FileReference.Combine(OutputDir, AssemblyName + ".pdb"), BuildProducts);
 						AddOptionalBuildProduct(FileReference.Combine(OutputDir, AssemblyName + ".dll.config"), BuildProducts);
 						AddOptionalBuildProduct(FileReference.Combine(OutputDir, AssemblyName + ".dll.mdb"), BuildProducts);
-						return true;
+						break;
 				}
 			}
-			return false;
 		}
 
+		/// <summary>
+		/// Finds all content which will be copied into the output directory for this project. This includes content from any project references as "copy local" recursively (though MSBuild only traverses a single reference for actual binaries, in such cases)
+		/// </summary>
+		/// <param name="OutputDir">The output directory</param>
+		/// <param name="BuildProducts">Receives the set of build products</param>
+		/// <param name="ProjectFileToInfo">Map of project file to information, to resolve build products from referenced projects copied locally</param>
+		private void FindCopiedContent(DirectoryReference OutputDir, HashSet<FileReference> OutputFiles, Dictionary<FileReference, CsProjectInfo> ProjectFileToInfo)
+		{
+			// Copy any referenced projects too.
+			foreach(KeyValuePair<FileReference, bool> ProjectReference in ProjectReferences)
+			{
+				CsProjectInfo OtherProjectInfo;
+				if(ProjectFileToInfo.TryGetValue(ProjectReference.Key, out OtherProjectInfo))
+				{
+					OtherProjectInfo.FindCopiedContent(OutputDir, OutputFiles, ProjectFileToInfo);
+				}
+			}
+
+			// Add the content which is copied to the output directory
+			foreach (KeyValuePair<FileReference, bool> ContentReference in ContentReferences)
+			{
+				FileReference ContentFile = ContentReference.Key;
+				if (ContentReference.Value)
+				{
+					OutputFiles.Add(FileReference.Combine(OutputDir, ContentFile.GetFileName()));
+				}
+			}
+		}
+
+		/// <summary>
+		/// Adds the given file and any additional build products to the output set
+		/// </summary>
+		/// <param name="OutputFile">The assembly to add</param>
+		/// <param name="OutputFiles">Set to receive the file and support files</param>
+		static public void AddReferencedAssemblyAndSupportFiles(FileReference OutputFile, HashSet<FileReference> OutputFiles)
+		{
+			OutputFiles.Add(OutputFile);
+
+			FileReference SymbolFile = OutputFile.ChangeExtension(".pdb");
+			if (FileReference.Exists(SymbolFile))
+			{
+				OutputFiles.Add(SymbolFile);
+			}
+
+			FileReference DocumentationFile = OutputFile.ChangeExtension(".xml");
+			if (FileReference.Exists(DocumentationFile))
+			{
+				OutputFiles.Add(DocumentationFile);
+			}
+		}
+
+		/// <summary>
+		/// Determines if this project is a .NET core project
+		/// </summary>
+		/// <returns>True if the project is a .NET core project</returns>
 		public bool IsDotNETCoreProject()
 		{
 			bool bIsDotNetCoreProject = false;
@@ -209,6 +303,14 @@ namespace Tools.DotNETCommon
 							ParseProjectReference(BaseDirectory, ItemElement, ProjectInfo.ProjectReferences);
 						}
 						break;
+					case "Content":
+					case "None":
+						// Reference to another project
+						if (EvaluateCondition(ItemElement, ProjectInfo.Properties))
+						{
+							ParseContent(BaseDirectory, ItemElement, ProjectInfo.ContentReferences);
+						}
+						break;
 				}
 			}
 		}
@@ -221,7 +323,7 @@ namespace Tools.DotNETCommon
 		/// <param name="References">Dictionary of project files to a bool indicating whether the assembly should be copied locally to the referencing project.</param>
 		static void ParseReference(DirectoryReference BaseDirectory, XmlElement ParentElement, Dictionary<FileReference, bool> References)
 		{
-			string HintPath = GetChildElementString(ParentElement, "HintPath", null);
+			string HintPath = UnescapeString(GetChildElementString(ParentElement, "HintPath", null));
 			if (!String.IsNullOrEmpty(HintPath))
 			{
 				// Don't include embedded assemblies; they aren't referenced externally by the compiled executable
@@ -243,12 +345,30 @@ namespace Tools.DotNETCommon
 		/// <param name="ProjectReferences">Dictionary of project files to a bool indicating whether the outputs of the project should be copied locally to the referencing project.</param>
 		static void ParseProjectReference(DirectoryReference BaseDirectory, XmlElement ParentElement, Dictionary<FileReference, bool> ProjectReferences)
 		{
-			string IncludePath = ParentElement.GetAttribute("Include");
+			string IncludePath = UnescapeString(ParentElement.GetAttribute("Include"));
 			if (!String.IsNullOrEmpty(IncludePath))
 			{
 				FileReference ProjectFile = FileReference.Combine(BaseDirectory, IncludePath);
 				bool bPrivate = GetChildElementBoolean(ParentElement, "Private", true);
 				ProjectReferences[ProjectFile] = bPrivate;
+			}
+		}
+
+		/// <summary>
+		/// Parses an assembly reference from a given 'Content' element
+		/// </summary>
+		/// <param name="BaseDirectory">Directory to resolve relative paths against</param>
+		/// <param name="ParentElement">The parent 'Content' element</param>
+		/// <param name="Contents">Dictionary of project files to a bool indicating whether the assembly should be copied locally to the referencing project.</param>
+		static void ParseContent(DirectoryReference BaseDirectory, XmlElement ParentElement, Dictionary<FileReference, bool> Contents)
+		{
+			string IncludePath = UnescapeString(ParentElement.GetAttribute("Include"));
+			if (!String.IsNullOrEmpty(IncludePath))
+			{
+				string CopyTo = GetChildElementString(ParentElement, "CopyToOutputDirectory", null);
+				bool ShouldCopy = !String.IsNullOrEmpty(CopyTo) && (CopyTo.Equals("Always", StringComparison.InvariantCultureIgnoreCase) || CopyTo.Equals("PreserveNewest", StringComparison.InvariantCultureIgnoreCase));
+				FileReference ContentFile = FileReference.Combine(BaseDirectory, IncludePath);
+				Contents.Add(ContentFile, ShouldCopy);
 			}
 		}
 
@@ -318,6 +438,13 @@ namespace Tools.DotNETCommon
 			// Expand all the properties
 			Condition = ExpandProperties(Condition, Properties);
 
+			// Parse literal true/false values
+			bool OutResult;
+			if (bool.TryParse(Condition, out OutResult))
+			{
+				return OutResult;
+			}
+
 			// Tokenize the condition
 			string[] Tokens = Tokenize(Condition);
 
@@ -326,6 +453,10 @@ namespace Tools.DotNETCommon
 			if (Tokens.Length == 3 && Tokens[0].StartsWith("'") && Tokens[1] == "==" && Tokens[2].StartsWith("'"))
 			{
 				bResult = String.Compare(Tokens[0], Tokens[2], StringComparison.InvariantCultureIgnoreCase) == 0;
+			}
+			else if (Tokens.Length == 3 && Tokens[0].StartsWith("'") && Tokens[1] == "!=" && Tokens[2].StartsWith("'"))
+			{
+				bResult = String.Compare(Tokens[0], Tokens[2], StringComparison.InvariantCultureIgnoreCase) != 0;
 			}
 			else
 			{
@@ -345,28 +476,120 @@ namespace Tools.DotNETCommon
 			string NewText = Text;
 			for (int Idx = NewText.IndexOf("$("); Idx != -1; Idx = NewText.IndexOf("$(", Idx))
 			{
-				// Find the end of the variable name
-				int EndIdx = NewText.IndexOf(')', Idx + 2);
-				if (EndIdx != -1)
+				// Find the end of the variable name, accounting for changes in scope
+				int EndIdx = Idx + 2;
+				for(int Depth = 1; Depth > 0; EndIdx++)
 				{
-					// Extract the variable name from the string
-					string Name = NewText.Substring(Idx + 2, EndIdx - (Idx + 2));
-
-					// Find the value for it, either from the dictionary or the environment block
-					string Value;
-					if (!Properties.TryGetValue(Name, out Value))
+					if(EndIdx == NewText.Length)
 					{
-						Value = Environment.GetEnvironmentVariable(Name) ?? "";
+						throw new Exception("Encountered end of string while expanding properties");
+					}
+					else if(NewText[EndIdx] == '(')
+					{
+						Depth++;
+					}
+					else if(NewText[EndIdx] == ')')
+					{
+						Depth--;
+					}
+				}
+
+				// Convert the property name to tokens
+				string[] Tokens = Tokenize(NewText.Substring(Idx + 2, (EndIdx - 1) - (Idx + 2)));
+
+				// Make sure the first token is a valid property name
+				if(Tokens.Length == 0 || !(Char.IsLetter(Tokens[0][0]) || Tokens[0][0] == '_'))
+				{
+					throw new Exception(String.Format("Invalid property name '{0}' in .csproj file", Tokens[0]));
+				}
+
+				// Find the value for it, either from the dictionary or the environment block
+				string Value;
+				if (!Properties.TryGetValue(Tokens[0], out Value))
+				{
+					Value = Environment.GetEnvironmentVariable(Tokens[0]) ?? "";
+				}
+
+				// Evaluate any functions within it
+				int TokenIdx = 1;
+				while(TokenIdx + 3 < Tokens.Length && Tokens[TokenIdx] == "." && Tokens[TokenIdx + 2] == "(")
+				{
+					// Read the method name
+					string MethodName = Tokens[TokenIdx + 1];
+
+					// Skip to the first argument
+					TokenIdx += 3;
+
+					// Parse any arguments
+					List<object> Arguments = new List<object>();
+					if(Tokens[TokenIdx] != ")")
+					{
+						Arguments.Add(ParseArgument(Tokens[TokenIdx]));
+						TokenIdx++;
+
+						while(TokenIdx + 1 < Tokens.Length && Tokens[TokenIdx] == ",")
+						{
+							Arguments.Add(ParseArgument(Tokens[TokenIdx + 2]));
+							TokenIdx += 2;
+						}
+
+						if(Tokens[TokenIdx] != ")")
+						{
+							throw new Exception("Missing closing parenthesis in condition");
+						}
 					}
 
-					// Replace the variable, or skip past it
-					NewText = NewText.Substring(0, Idx) + Value + NewText.Substring(EndIdx + 1);
+					// Skip over the closing parenthesis
+					TokenIdx++;
 
-					// Make sure we skip over the expanded variable; we don't want to recurse on it.
-					Idx += Value.Length;
+					// Execute the method
+					try
+					{
+						Value = typeof(string).InvokeMember(MethodName, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.InvokeMethod, Type.DefaultBinder, Value, Arguments.ToArray()).ToString();
+					}
+					catch(Exception Ex)
+					{
+						throw new Exception(String.Format("Unable to evaluate condition '{0}'", Text), Ex);
+					}
 				}
+
+				// Make sure there's nothing left over
+				if(TokenIdx != Tokens.Length)
+				{
+					throw new Exception(String.Format("Unable to parse token '{0}'", NewText));
+				}
+
+				// Replace the variable with its value
+				NewText = NewText.Substring(0, Idx) + Value + NewText.Substring(EndIdx);
+
+				// Make sure we skip over the expanded variable; we don't want to recurse on it.
+				Idx += Value.Length;
 			}
 			return NewText;
+		}
+
+		/// <summary>
+		/// Parse an argument into a framework type
+		/// </summary>
+		/// <param name="Token">The token to parse</param>
+		/// <returns>The argument object</returns>
+		static object ParseArgument(string Token)
+		{
+			// Try to parse a string
+			if(Token.Length > 2 && Token[0] == '\'' && Token[Token.Length - 1] == '\'')
+			{
+				return Token.Substring(1, Token.Length - 2);
+			}
+
+			// Try to parse an integer
+			int Value;
+			if(int.TryParse(Token, out Value))
+			{
+				return Value;
+			}
+
+			// Otherwise throw an exception
+			throw new Exception(String.Format("Unable to parse token '{0}' into a .NET framework type", Token));
 		}
 
 		/// <summary>
@@ -377,32 +600,93 @@ namespace Tools.DotNETCommon
 		static string[] Tokenize(string Condition)
 		{
 			List<string> Tokens = new List<string>();
-			for (int Idx = 0; Idx < Condition.Length; Idx++)
+			for (int Idx = 0; Idx < Condition.Length; )
 			{
-				if (Idx + 1 < Condition.Length && Condition[Idx] == '=' && Condition[Idx + 1] == '=')
+				if(Char.IsWhiteSpace(Condition[Idx]))
+				{
+					// Whitespace
+					Idx++;
+				}
+				else if (Idx + 1 < Condition.Length && Condition[Idx] == '=' && Condition[Idx + 1] == '=')
 				{
 					// "==" operator
-					Idx++;
+					Idx += 2;
 					Tokens.Add("==");
+				}
+				else if (Idx + 1 < Condition.Length && Condition[Idx] == '!' && Condition[Idx + 1] == '=')
+				{
+					// "!=" operator
+					Idx += 2;
+					Tokens.Add("!=");
 				}
 				else if (Condition[Idx] == '\'')
 				{
 					// Quoted string
 					int StartIdx = Idx++;
-					while (Idx + 1 < Condition.Length && Condition[Idx] != '\'')
+					for(;;Idx++)
+					{
+						if(Idx == Condition.Length)
+						{
+							throw new Exception(String.Format("Missing end quote in condition string ('{0}')", Condition));
+						}
+						if(Condition[Idx] == '\'')
+						{
+							break;
+						}
+					}
+					Idx++;
+					Tokens.Add(Condition.Substring(StartIdx, Idx - StartIdx));
+				}
+				else if(Char.IsLetterOrDigit(Condition[Idx]) || Condition[Idx] == '_')
+				{
+					// Identifier or number
+					int StartIdx = Idx++;
+					while(Idx < Condition.Length && (Char.IsLetterOrDigit(Condition[Idx]) || Condition[Idx] == '_'))
 					{
 						Idx++;
 					}
 					Tokens.Add(Condition.Substring(StartIdx, Idx - StartIdx));
 				}
-				else if (!Char.IsWhiteSpace(Condition[Idx]))
+				else
 				{
 					// Other token; assume a single character.
-					string Token = Condition.Substring(Idx, 1);
+					string Token = Condition.Substring(Idx++, 1);
 					Tokens.Add(Token);
 				}
 			}
 			return Tokens.ToArray();
+		}
+
+		/// <summary>
+		/// Un-escape an MSBuild string (see https://msdn.microsoft.com/en-us/library/bb383819.aspx)
+		/// </summary>
+		/// <param name="Text">String to remove escape characters from</param>
+		/// <returns>Unescaped string</returns>
+		static string UnescapeString(string Text)
+		{
+			const string HexChars = "0123456789abcdef";
+
+			string NewText = Text;
+			if(NewText != null)
+			{
+				for(int Idx = 0; Idx + 2 < NewText.Length; Idx++)
+				{
+					if(NewText[Idx] == '%')
+					{
+						int UpperDigitIdx = HexChars.IndexOf(Char.ToLowerInvariant(NewText[Idx + 1]));
+						if(UpperDigitIdx != -1)
+						{
+							int LowerDigitIdx = HexChars.IndexOf(Char.ToLowerInvariant(NewText[Idx + 2]));
+							if(LowerDigitIdx != -1)
+							{
+								char NewChar = (char)((UpperDigitIdx << 4) | LowerDigitIdx);
+								NewText = NewText.Substring(0, Idx) + NewChar + NewText.Substring(Idx + 3);
+							}
+						}
+					}
+				}
+			}
+			return NewText;
 		}
 	}
 }

@@ -9,7 +9,7 @@
 #import <UIKit/UIKit.h>
 
 #import "IOSAppDelegate.h"
-#include "IOSCommandLineHelper.h"
+#include "IOS/IOSCommandLineHelper.h"
 #include "IOSLaunchDaemonView.h"
 
 #define IOS_MAX_PATH 1024
@@ -28,6 +28,11 @@ void FAppEntry::Resume()
 
 void FAppEntry::SuspendTick()
 {
+}
+
+bool FAppEntry::IsStartupMoviePlaying()
+{
+	return false;
 }
 
 void FAppEntry::PreInit(IOSAppDelegate* AppDelegate, UIApplication* Application)

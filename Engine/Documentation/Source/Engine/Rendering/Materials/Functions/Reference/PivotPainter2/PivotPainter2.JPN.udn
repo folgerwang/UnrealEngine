@@ -1,13 +1,13 @@
-﻿INTSourceChangelist:3472589
+﻿INTSourceChangelist:3726228
 Availability:Public
 Crumbs:%ROOT%
-Title:Pivot Painter 2 マテリアル関数
+Title:Pivot Painter Tool 2.0 マテリアル関数
 Description:マテリアル関数は、アンリアル シェーダー ネットワークでの Pivot Painter 2 MAXScript の使用を可能にします。
 Type:reference
 Version:4.16
 Parent:Engine/Rendering/Materials/Functions/Reference
-Related:Engine/Content/Tools/PivotPainter2
-Related:Engine/Content/Tools/PivotPainter2/Reference
+Related:Engine/Content/Tools/PivotPainter/PivotPainter2
+Related:Engine/Content/Tools/PivotPainter/PivotPainter2/Reference
 Order:1
 Topic-image:PivotPainter2MF_Topic.png
 Social-image:PP2MaterialFunction_Social.png
@@ -30,9 +30,7 @@ Tags:Materials
 	[/PARAMLITERAL]
 [/OBJECT]
 
-Pivot Painter 2 マテリアル関数は、Pivot Painter 2 MAXScript に格納されている便利なモデル情報のテキストによる利用およびデコードを可能にします。MAXScript で出力された各テキストはマテリアル内での直接参照が可能です。
-ただし、テクスチャのサンプリング後に正しいステップが適用されないと、正確な値は出ません。このページでは、テクスチャ情報を速く簡単にデコードできる
-マテリアル関数を紹介します。 
+Pivot Painter 2 マテリアル関数は、Pivot Painter 2 MAXScript に格納されている便利なモデル情報のテキストによる利用およびデコードを可能にします。ただし、MAXScript によるテクスチャ出力はマテリアルから直接参照することができますが、テクスチャのサンプリング後に正しいステップが適用されないと、正確な値は出ません。このページで説明するこれらの待ていらう関数を使うと、テクスチャ情報を速くデコードできるようになります。 
 
 以下のマテリアル関数のほとんどは、Pivot Painter 2 ピボットと回転情報を使って、マテリアルを使って指定したエフェクトを実行します。
 Pivot Painter 2 の長所の 1 つは、フォリッジ用に提供されているサンプル シェーダー **PivotPainter2FoliageShader** が使いやすいことです。この特別な関数は、モデルを迅速にセットアップし、 
@@ -43,7 +41,7 @@ Pivot Painter 2 の長所の 1 つは、フォリッジ用に提供されてい�
 
 ## Pivot Painter 2 関数
 
-以下は Pivot Painter 2 に関係するすべての関数です。 
+以下は Pivot Painter 2.0 に関係するすべての関数です。 
 
 
 ### PivotPainter2FoliageShader
@@ -52,7 +50,11 @@ Pivot Painter 2 の長所の 1 つは、フォリッジ用に提供されてい�
 
 このマテリアル関数には、特定のアセットにフィットするように変更されたテクスチャおよび数値のパラメータが含まれています。 
 
-この関数の場合、マテリアル インスタンスを作成することを推奨します。マテリアル関数のパラメータにアクセスして Pivot Painter 2 シェーダーの変更ができます。 
+#### PivotPainter2FoliageShader のワークフロー
+
+この特殊な関数の場合、既に設定されているマテリアル関数の風とタービランス用のパラメータにアクセスできるように、マテリアルのマテリアル インスタンスを作成しなければなりません。 
+
+さらに、マテリアル インスタンスを作成することを推奨します。マテリアル関数のパラメータにアクセスして Pivot Painter 2 シェーダーの変更ができます。 
 
 [REGION:lightbox]
 [![](PP2FoliageShaderMaterialInstanceParams.png)(w:300)](PP2FoliageShaderMaterialInstanceParams.png)

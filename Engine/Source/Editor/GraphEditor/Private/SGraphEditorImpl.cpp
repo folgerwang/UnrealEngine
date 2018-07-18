@@ -200,6 +200,11 @@ void SGraphEditorImpl::StraightenConnections(UEdGraphPin* SourcePin, UEdGraphPin
 	GraphPanel->StraightenConnections(SourcePin, PinToAlign);
 }
 
+void SGraphEditorImpl::RefreshNode(UEdGraphNode& Node)
+{
+	GraphPanel->RefreshNode(Node);
+}
+
 void SGraphEditorImpl::Construct( const FArguments& InArgs )
 {
 	Commands = MakeShareable( new FUICommandList() );
@@ -646,11 +651,11 @@ TSharedPtr<SWidget> SGraphEditorImpl::GetTitleBar() const
 	return TitleBar;
 }
 
-void SGraphEditorImpl::SetViewLocation( const FVector2D& Location, float ZoomAmount ) 
+void SGraphEditorImpl::SetViewLocation( const FVector2D& Location, float ZoomAmount, const FGuid& BookmarkId ) 
 {
 	if( GraphPanel.IsValid() &&  EdGraphObj && (!IsLocked() || !GraphPanel->HasDeferredObjectFocus()))
 	{
-		GraphPanel->RestoreViewSettings(Location, ZoomAmount);
+		GraphPanel->RestoreViewSettings(Location, ZoomAmount, BookmarkId);
 	}
 }
 
@@ -660,6 +665,14 @@ void SGraphEditorImpl::GetViewLocation( FVector2D& Location, float& ZoomAmount )
 	{
 		Location = GraphPanel->GetViewOffset();
 		ZoomAmount = GraphPanel->GetZoomAmount();
+	}
+}
+
+void SGraphEditorImpl::GetViewBookmark( FGuid& BookmarkId )
+{
+	if (GraphPanel.IsValid())
+	{
+		BookmarkId = GraphPanel->GetViewBookmarkId();
 	}
 }
 
@@ -784,6 +797,11 @@ FSlateColor SGraphEditorImpl::InstructionBorderColor() const
 void SGraphEditorImpl::CaptureKeyboard()
 {
 	FSlateApplication::Get().SetKeyboardFocus(GraphPanel);
+}
+
+void SGraphEditorImpl::SetNodeFactory(const TSharedRef<class FGraphNodeFactory>& NewNodeFactory)
+{
+	GraphPanel->SetNodeFactory(NewNodeFactory);
 }
 
 /////////////////////////////////////////////////////

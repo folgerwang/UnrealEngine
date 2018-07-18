@@ -5,6 +5,8 @@
 #include "Sound/SoundWave.h"
 #include "Sound/AudioSettings.h"
 #include "GameFramework/GameUserSettings.h"
+#include "Misc/CommandLine.h"
+
 
 // Private consts for helping with index/generation determination in audio device manager
 static const uint32 AUDIO_DEVICE_HANDLE_INDEX_BITS		= 24;
@@ -19,6 +21,14 @@ static const uint32 AUDIO_DEVICE_DEFAULT_ALLOWED_DEVICE_COUNT = 2;
 
 // The max number of audio devices allowed
 static const uint32 AUDIO_DEVICE_MAX_DEVICE_COUNT = 8;
+
+static int32 GCVarEnableAudioThreadWait = 1;
+TAutoConsoleVariable<int32> CVarEnableAudioThreadWait(
+	TEXT("AudioThread.EnableAudioThreadWait"),
+	GCVarEnableAudioThreadWait,
+	TEXT("Enables waiting on the audio thread to finish its commands.\n")
+	TEXT("0: Not Enabled, 1: Enabled"),
+	ECVF_Default);
 
 FAudioDeviceManager::FCreateAudioDeviceResults::FCreateAudioDeviceResults()
 	: Handle(INDEX_NONE)
@@ -42,6 +52,12 @@ FAudioDeviceManager::FAudioDeviceManager()
 	, bPlayAllDeviceAudio(false)
 	, bVisualize3dDebug(false)
 {
+	// Check for a command line debug sound argument.
+	FString DebugSound;
+	if (FParse::Value(FCommandLine::Get(), TEXT("DebugSound="), DebugSound))
+	{
+		SetAudioDebugSound(*DebugSound);
+	}
 }
 
 FAudioDeviceManager::~FAudioDeviceManager()
@@ -285,7 +301,10 @@ FAudioDevice* FAudioDeviceManager::GetActiveAudioDevice()
 void FAudioDeviceManager::UpdateActiveAudioDevices(bool bGameTicking)
 {
 	// Before we kick off the next update make sure that we've finished the previous frame's update (this should be extremely rare)
-	SyncFence.Wait();
+	if (GCVarEnableAudioThreadWait)
+	{
+		SyncFence.Wait();
+	}
 
 	for (FAudioDevice* AudioDevice : Devices)
 	{
@@ -295,7 +314,10 @@ void FAudioDeviceManager::UpdateActiveAudioDevices(bool bGameTicking)
 		}
 	}
 
-	SyncFence.BeginFence();
+	if (GCVarEnableAudioThreadWait)
+	{
+		SyncFence.BeginFence();
+	}
 }
 
 void FAudioDeviceManager::AddReferencedObjects(FReferenceCollector& Collector)
@@ -575,12 +597,14 @@ void FAudioDeviceManager::TogglePlayAllDeviceAudio()
 {
 	if (!IsInAudioThread())
 	{
+		DECLARE_CYCLE_STAT(TEXT("FAudioThreadTask.TogglePlayAllDeviceAudio"), STAT_TogglePlayAllDeviceAudio, STATGROUP_AudioThreadCommands);
+
 		FAudioDeviceManager* AudioDeviceManager = this;
 		FAudioThread::RunCommandOnAudioThread([AudioDeviceManager]()
 		{
 			AudioDeviceManager->TogglePlayAllDeviceAudio();
 
-		});
+		}, GET_STATID(STAT_TogglePlayAllDeviceAudio));
 
 		return;
 	}
@@ -592,12 +616,14 @@ void FAudioDeviceManager::ToggleVisualize3dDebug()
 {
 	if (!IsInAudioThread())
 	{
+		DECLARE_CYCLE_STAT(TEXT("FAudioThreadTask.ToggleVisualize3dDebug"), STAT_ToggleVisualize3dDebug, STATGROUP_AudioThreadCommands);
+
 		FAudioDeviceManager* AudioDeviceManager = this;
 		FAudioThread::RunCommandOnAudioThread([AudioDeviceManager]()
 		{
 			AudioDeviceManager->ToggleVisualize3dDebug();
 
-		});
+		}, GET_STATID(STAT_ToggleVisualize3dDebug));
 
 		return;
 	}
@@ -610,11 +636,13 @@ void FAudioDeviceManager::ToggleDebugStat(const uint8 StatBitMask)
 #if !UE_BUILD_SHIPPING
 	if (!IsInAudioThread())
 	{
+		DECLARE_CYCLE_STAT(TEXT("FAudioThreadTask.ToggleDebugStat"), STAT_ToggleDebugStat, STATGROUP_AudioThreadCommands);
+
 		FAudioDeviceManager* AudioDeviceManager = this;
 		FAudioThread::RunCommandOnAudioThread([AudioDeviceManager, StatBitMask]()
 		{
 			AudioDeviceManager->ToggleDebugStat(StatBitMask);
-		});
+		}, GET_STATID(STAT_ToggleDebugStat));
 
 		return;
 	}
@@ -633,12 +661,14 @@ void FAudioDeviceManager::SetDebugSoloSoundClass(const TCHAR* SoundClassName)
 {
 	if (!IsInAudioThread())
 	{
+		DECLARE_CYCLE_STAT(TEXT("FAudioThreadTask.SetDebugSoloSoundClass"), STAT_SetDebugSoloSoundClass, STATGROUP_AudioThreadCommands);
+
 		FAudioDeviceManager* AudioDeviceManager = this;
 		FAudioThread::RunCommandOnAudioThread([AudioDeviceManager, SoundClassName]()
 		{
 			AudioDeviceManager->SetDebugSoloSoundClass(SoundClassName);
 
-		});
+		}, GET_STATID(STAT_SetDebugSoloSoundClass));
 		return;
 	}
 
@@ -655,12 +685,14 @@ void FAudioDeviceManager::SetDebugSoloSoundWave(const TCHAR* SoundWave)
 {
 	if (!IsInAudioThread())
 	{
+		DECLARE_CYCLE_STAT(TEXT("FAudioThreadTask.SetDebugSoloSoundWave"), STAT_SetDebugSoloSoundWave, STATGROUP_AudioThreadCommands);
+
 		FAudioDeviceManager* AudioDeviceManager = this;
 		FAudioThread::RunCommandOnAudioThread([AudioDeviceManager, SoundWave]()
 		{
 			AudioDeviceManager->SetDebugSoloSoundWave(SoundWave);
 
-		});
+		}, GET_STATID(STAT_SetDebugSoloSoundWave));
 		return;
 	}
 
@@ -676,12 +708,14 @@ void FAudioDeviceManager::SetDebugSoloSoundCue(const TCHAR* SoundCue)
 {
 	if (!IsInAudioThread())
 	{
+		DECLARE_CYCLE_STAT(TEXT("FAudioThreadTask.SetDebugSoloSoundCue"), STAT_SetDebugSoloSoundCue, STATGROUP_AudioThreadCommands);
+
 		FAudioDeviceManager* AudioDeviceManager = this;
 		FAudioThread::RunCommandOnAudioThread([AudioDeviceManager, SoundCue]()
 		{
 			AudioDeviceManager->SetDebugSoloSoundCue(SoundCue);
 
-		});
+		}, GET_STATID(STAT_SetDebugSoloSoundCue));
 		return;
 	}
 
@@ -698,9 +732,24 @@ void FAudioDeviceManager::SetAudioMixerDebugSound(const TCHAR* SoundName)
 	DebugNames.DebugAudioMixerSoundName = SoundName;
 }
 
+void FAudioDeviceManager::SetAudioDebugSound(const TCHAR* SoundName)
+{
+	DebugNames.DebugSoundName = SoundName;
+	DebugNames.bDebugSoundName = DebugNames.DebugSoundName != TEXT("");
+}
+
 const FString& FAudioDeviceManager::GetAudioMixerDebugSoundName() const
 {
 	return DebugNames.DebugAudioMixerSoundName;
 }
 
+bool FAudioDeviceManager::GetAudioDebugSound(FString& OutDebugSound)
+{
+	if (DebugNames.bDebugSoundName)
+	{
+		OutDebugSound = DebugNames.DebugSoundName;
+		return true;
+	}
+	return false;
+}
 

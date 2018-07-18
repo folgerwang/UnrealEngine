@@ -49,13 +49,13 @@ protected:
 	TOptional<NumericType> GetNumericValue() const
 	{
 		NumericType Num = NumericType();
-		Lex::FromString(Num, *GraphPinObj->GetDefaultAsString());
+		LexFromString(Num, *GraphPinObj->GetDefaultAsString());
 		return Num;
 	}
 
 	void SetNumericValue(NumericType InValue, ETextCommit::Type CommitType)
 	{
-		const FString TypeValueString = Lex::ToString(InValue);
+		const FString TypeValueString = LexToString(InValue);
 		if (GraphPinObj->GetDefaultAsString() != TypeValueString)
 		{
 			const FScopedTransaction Transaction(NSLOCTEXT("GraphEditor", "ChangeNumberPinValue", "Change Number Pin Value"));

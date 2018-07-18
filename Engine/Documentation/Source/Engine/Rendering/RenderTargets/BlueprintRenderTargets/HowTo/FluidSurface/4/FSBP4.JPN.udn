@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3259022
+﻿INTSourceChangelist:3782314
 availability:Public
 title:4.最終結果
 description:Fluid Surface ブループリントの使用方法
@@ -14,9 +14,9 @@ checkpoint:FSB
 
 [NAV]
 
-流体サーフェスの様々な構成用をがすべて Fluid Surface ブループリントに接続され、Fluid Surface ブループリントのコンパイルと保存が完了すると、レベルに追加されます。レベル内に配置されたら、マウスの左ボタンを押して流体サーフェスめがけて撃つ、もしくはキャラクターにその上を歩かせると、レベルのプレイおよび Fluid Surface ブループリントとのインタラクトが可能になります。以下の動画で、この 2 種類のインタラクションを確認できます。
+流体サーフェスの様々な構成要素がすべて Fluid Surface ブループリントに接続されると、Fluid Surface ブループリントのコンパイルと保存が完了してレベルに追加されます。レベル内にそれらが配置されると、マウスの左ボタンを押して流体サーフェスめがけて撃つ、もしくはキャラクターを使って流体サーフェス上を歩いたりして、レベルをプレイし Fluid Surface ブループリントとインタラクトすることが可能になります。この 2 種類のインタラクションを以下の動画で見てみましょう。
 
-* まずこちらは、流体サーフェスめがけて撃った場合です。
+* まずこちらは、流体サーフェスをめがけて撃った場合です。
 
 	[OBJECT:EmbeddedVideo]
 		[PARAMLITERAL:width]
@@ -30,7 +30,7 @@ checkpoint:FSB
 		[/PARAMLITERAL]
 	[/OBJECT]
 
-* そしてこちらは、ポーン ベースのキャラクターに Fluid Surface ブループリント上を歩かせた場合です。
+* そしてこちらは、ポーン ベースのキャラクターを使って Fluid Surface ブループリント上を歩いた場合です。
 
 	[OBJECT:EmbeddedVideo]
 		[PARAMLITERAL:width]

@@ -95,7 +95,7 @@ uint32 FImgMediaSchedulerThread::Run()
 }
 
 
-/* FRunnable interface
+/* FSingleThreadRunnable interface
  *****************************************************************************/
 
 void FImgMediaSchedulerThread::Tick()

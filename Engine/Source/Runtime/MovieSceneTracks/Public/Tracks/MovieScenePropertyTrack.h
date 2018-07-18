@@ -25,7 +25,6 @@ public:
 	virtual void AddSection(UMovieSceneSection& Section) override;
 	virtual void RemoveSection(UMovieSceneSection& Section) override;
 	virtual bool IsEmpty() const override;
-	virtual TRange<float> GetSectionBoundaries() const override;
 	virtual const TArray<UMovieSceneSection*>& GetAllSections() const override;
 
 #if WITH_EDITORONLY_DATA
@@ -55,10 +54,26 @@ public:
 	 * Finds a section at the current time.
 	 *
 	 * @param Time	The time relative to the owning movie scene where the section should be
+	 * @return The found section.
+	 */
+	class UMovieSceneSection* FindSection(FFrameNumber Time);
+
+	/**
+	 * Finds a section at the current time or extends an existing one
+	 *
+	 * @param Time	The time relative to the owning movie scene where the section should be
+	 * @return The found section.
+	 */
+	class UMovieSceneSection* FindOrExtendSection(FFrameNumber Time);
+
+	/**
+	 * Finds a section at the current time.
+	 *
+	 * @param Time	The time relative to the owning movie scene where the section should be
 	 * @param bSectionAdded Whether a section was added or not
 	 * @return The found section, or the new section.
 	 */
-	class UMovieSceneSection* FindOrAddSection(float Time, bool& bSectionAdded);
+	class UMovieSceneSection* FindOrAddSection(FFrameNumber Time, bool& bSectionAdded);
 
 #if WITH_EDITORONLY_DATA
 	/** Unique name for this track to afford multiple tracks on a given object (i.e. for array properties) */

@@ -94,7 +94,6 @@ float2 RandToCircle(uint2 Rand)
 	return sf;
 }
 
-///////
 float4 UniformSampleSphere( float2 E )
 {
 	float Phi = 2 * PI * E.x;
@@ -145,7 +144,7 @@ float4 CosineSampleHemisphere( float2 E )
 	H.y = SinTheta * sin( Phi );
 	H.z = CosTheta;
 
-	float PDF = CosTheta / PI;
+	float PDF = CosTheta * (1 / PI);
 
 	return float4( H, PDF );
 }
@@ -166,10 +165,9 @@ float4 UniformSampleCone( float2 E, float CosThetaMax )
 	return float4( L, PDF );
 }
 
-float4 ImportanceSampleBlinn( float2 E, float Roughness )
+float4 ImportanceSampleBlinn( float2 E, float a2 )
 {
-	float m = Roughness * Roughness;
-	float n = 2 / (m*m) - 2;
+	float n = 2 / a2 - 2;
 
 	float Phi = 2 * PI * E.x;
 	float CosTheta = ClampedPow( E.y, 1 / (n + 1) );
@@ -180,19 +178,16 @@ float4 ImportanceSampleBlinn( float2 E, float Roughness )
 	H.y = SinTheta * sin( Phi );
 	H.z = CosTheta;
 
-	float D = (n+2)/ (2*PI) * ClampedPow( CosTheta, n );
+	float D = (n+2) / (2*PI) * ClampedPow( CosTheta, n );
 	float PDF = D * CosTheta;
 
 	return float4( H, PDF );
 }
 
-float4 ImportanceSampleGGX( float2 E, float Roughness )
+float4 ImportanceSampleGGX( float2 E, float a2 )
 {
-	float m = Roughness * Roughness;
-	float m2 = m * m;
-
 	float Phi = 2 * PI * E.x;
-	float CosTheta = sqrt( (1 - E.y) / ( 1 + (m2 - 1) * E.y ) );
+	float CosTheta = sqrt( (1 - E.y) / ( 1 + (a2 - 1) * E.y ) );
 	float SinTheta = sqrt( 1 - CosTheta * CosTheta );
 
 	float3 H;
@@ -200,8 +195,8 @@ float4 ImportanceSampleGGX( float2 E, float Roughness )
 	H.y = SinTheta * sin( Phi );
 	H.z = CosTheta;
 	
-	float d = ( CosTheta * m2 - CosTheta ) * CosTheta + 1;
-	float D = m2 / ( PI*d*d );
+	float d = ( CosTheta * a2 - CosTheta ) * CosTheta + 1;
+	float D = a2 / ( PI*d*d );
 	float PDF = D * CosTheta;
 
 	return float4( H, PDF );

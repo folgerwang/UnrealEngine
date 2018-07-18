@@ -1,23 +1,25 @@
-﻿INTSourceChangelist:2744678
-Title:1. インストールの前提条件
+﻿INTSourceChangelist:3782314
+Title:1.インストールの前提条件
 Crumbs:%ROOT%, Platforms, Platforms/iOS, Platforms/iOS/QuickStart
 Description:iOS デバイス向けのゲーム開発をするために必要なすべてのソフトウェアを入手してインストールします。
 Availability:Public
-Version:4.9
+Version:4.18
 SkillLevel:Intermediate
+Checkpoint:iOSQS
+order:1
 
 [VAR:Steps]
 [OBJECT:Navigation]
-	[PARAM:previous]
-	[/PARAM]
-	[PARAM:current]
-	[/PARAM]
-	[PARAM:home]
-		[クイック スタートのホーム](Platforms/iOS/QuickStart)
-	[/PARAM]
-	[PARAM:next]
-		[次のステップ](Platforms/iOS/QuickStart/2 "%Platforms/iOS/QuickStart/2:title%")
-	[/PARAM]
+    [PARAM:previous]
+    [/PARAM]
+    [PARAM:current]
+    [/PARAM]
+    [PARAM:home]
+        [クイック スタートのホーム](Platforms/iOS/QuickStart)
+    [/PARAM]
+    [PARAM:next]
+        [前のステップ](Platforms/iOS/QuickStart/2 "%Platforms/iOS/QuickStart/2:title%")
+    [/PARAM]
 [/OBJECT]
 [/VAR]
 
@@ -28,65 +30,71 @@ SkillLevel:Intermediate
 %Globals:OSSelect%
 
 [OBJECT:ToggleButtonContent]
-	[PARAMLITERAL:category]
-	OS
-	[/PARAMLITERAL]
-	[PARAMLITERAL:id]
-	windows
-	[/PARAMLITERAL]
-	[PARAMLITERAL:active]
-	active_button_content
-	[/PARAMLITERAL]
-	[PARAM:content]
-	%windows%
-	[/PARAM]
+    [PARAMLITERAL:category]
+    OS
+    [/PARAMLITERAL]
+    [PARAMLITERAL:id]
+    windows
+    [/PARAMLITERAL]
+    [PARAMLITERAL:active]
+    active_button_content
+    [/PARAMLITERAL]
+    [PARAM:content]
+    %windows%
+    [/PARAM]
 [/OBJECT]
 [OBJECT:ToggleButtonContent]
-	[PARAMLITERAL:category]
-	OS
-	[/PARAMLITERAL]
-	[PARAMLITERAL:id]
-	mac
-	[/PARAMLITERAL]
-	[PARAMLITERAL:active]
-	[/PARAMLITERAL]
-	[PARAM:content]
-	%macos%
-	[/PARAM]
+    [PARAMLITERAL:category]
+    OS
+    [/PARAMLITERAL]
+    [PARAMLITERAL:id]
+    mac
+    [/PARAMLITERAL]
+    [PARAMLITERAL:active]
+    [/PARAMLITERAL]
+    [PARAM:content]
+    %macos%
+    [/PARAM]
 [/OBJECT]
 
 
 
 
 [VAR:windows]
-
+## ステップ
 [REGION:note]
 iTunes のインストールはお済みですか？[このセクションはスキップできます。](Platforms/iOS/QuickStart/2)
 [/REGION]
 
-iOS プロジェクトをパッケージ化し、Windows のデバイスに配備するには、**iTunes** をインストールしなければなりません。
+Windows を使う場合は、iOS プロジェクトをデバイスにパッケージし、デプロイするためには **iTunes** をインストールする必要があります。以下の Apple のリンクから、iTunes をインストールすることができます。 
 
-Apple 社のリンク、[Install iTunes](http://www.apple.com/itunes/) から iTunes をインストールすることができます。
+* [**Install iTunes**](http://www.apple.com/itunes/)
 
-[![](itunes.png)](http://www.apple.com/itunes/)
+    [![](itunes.png)](http://www.apple.com/itunes/)
 
 インストールを終了したら、**iTunes** を実行します。
+
+## 最終結果
+以上の手順を完了すると、iTunes がインストールされ、UE4 プロジェクトを iOS デバイスにデプロイすることができます。
 
 [/VAR]
 
 [VAR:macos]
-
+## ステップ
 [REGION:note]
 XCode のインストールはお済みですか？[このセクションはスキップできます。](Platforms/iOS/QuickStart/2)
 [/REGION]
 
-iOS プロジェクトをパッケージ化し、Mac OS のデバイスに配備するには、**Xcode** をインストールしなければなりません。
+iOS プロジェクトを Mac OS 上のデバイスにパッケージ化およびデプロイするためには **Xcode** の最新版をインストールする必要があります。以下のリンクを使って、Apple から XCode をインストールすることができます。 
 
-Apple 社のリンク、[Install XCode](https://developer.apple.com/xcode/) から XCode をインストールすることができます。
+* [**Install XCode**](https://developer.apple.com/xcode/)
 
-[![](DownloadXCode.png)](https://developer.apple.com/xcode/)
+    [![](DownloadXCode.png)](https://developer.apple.com/xcode/)
 
 インストールを終了したら、**Xcode** を実行します。
+
+## 最終結果
+以上の手順を完了すると xCode がインストールされ、UE4 プロジェクトを iOS デバイスにデプロイすることができます。
 
 [/VAR]
 

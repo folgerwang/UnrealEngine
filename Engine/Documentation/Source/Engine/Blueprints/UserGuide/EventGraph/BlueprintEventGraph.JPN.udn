@@ -1,49 +1,12 @@
 ﻿Availability:Public
-Title:イベント グラフ
+Title:EventGraph
 Crumbs: %ROOT%, Engine, Engine/Blueprints, Engine/Blueprints/UserGuide
 Description:ブループリント イベントに反応してアクションを実行するためにイベントと関数呼び出しを使用する
 version:4.9
 Parent:Engine/Blueprints/Anatomy
 Tags:Graphs
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Blueprints/UserGuide/EventGraph:title%](Engine\Blueprints\UserGuide\EventGraph\eventgraph_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Blueprints/UserGuide/EventGraph:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Blueprints/UserGuide/EventGraph:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Blueprints/UserGuide/EventGraph]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Blueprints/UserGuide/EventGraph:title%](Engine\Blueprints\UserGuide\EventGraph\eventgraph_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Blueprints/UserGuide/EventGraph:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Blueprints/UserGuide/EventGraph:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Blueprints/UserGuide/EventGraph]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
+tags:Blueprints
+topic-image:Engine/Blueprints/UserGuide/EventGraph/eventgraph_topic.png
 
 
 ![Graph Panel](Engine/Blueprints/Editor/Modes/GraphPanel/k2_graphview.png)

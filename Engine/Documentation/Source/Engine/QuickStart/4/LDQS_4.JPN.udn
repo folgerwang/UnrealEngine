@@ -1,10 +1,10 @@
-﻿INTSourceChangelist:2735872
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:4 - レベル内へのアクタの配置
 Crumbs:%ROOT%, GettingStarted, Engine/QuickStart
 Description:背景を作成するためにレベル内にアクタを配置して操作してみましょう。 
 SkillLevel:Beginner
-version:4.9 
+Version:4.9 
 Related:Engine/UI/LevelEditor/Modes/PlaceMode
 Related:GettingStarted/HowTo/ManipulatingActors
 Related:Engine/UI/LevelEditor/Details
@@ -16,7 +16,7 @@ checkpoint: editorqs
 [VAR:Steps]
 [OBJECT:Navigation]
 	[PARAM:previous]
-		[前のステップ](Engine/QuickStart/3 "%Engine/QuickStart/3:title%")
+		[次のステップ](Engine/QuickStart/3 "%Engine/QuickStart/3:title%")
 	[/PARAM]
 	[PARAM:current]
 	[/PARAM]
@@ -24,14 +24,14 @@ checkpoint: editorqs
 		[クイックスタート ホーム](Engine/QuickStart)
 	[/PARAM]
 	[PARAM:next]
-		[次のステップ](Engine/QuickStart/5 "%Engine/QuickStart/5:title%")
+		[前のステップ](Engine/QuickStart/5 "%Engine/QuickStart/5:title%")
 	[/PARAM]
 [/OBJECT]
 [/VAR]
 
 
 
-このステップでは空のレベル内に [アクタ](Engine/Actors) (ライトやジオメトリなど) を配置していきます。 
+このステップでは空のレベル内に [**アクタ**](Engine/Actors) (ライトやジオメトリなど) を配置していきます。 
 アクタをレベルに追加する最も一般的な 2 つの方法である、[Place モード](Engine/UI/LevelEditor/Modes/PlaceMode) を用いる方法と、[コンテンツ ブラウザ](Engine/Content/Browser) による方法を説明します。 
 このステップを完了すると、レベルにアクタを配置する方法を理解し、配置したアクタを操作して背景を作成することができます。 
 
@@ -113,7 +113,7 @@ checkpoint: editorqs
 
 	ライト、プロップ、壁、屋根を追加してみましょう (**[Content] > [StarterContent] > 「Architecture」** フォルダにあります)。 
 
-## 結果
+## 最終結果
 
 レベルには、**[Modes]** パネルと **[コンテンツ ブラウザ]** の両方から幾つか異なるアクタタイプが追加されているはずです。これらのアクタは、**Move** ツール、**Rotate** ツール、**Scale** ツールでも操作できます。最後のステップで配置したアクタによっては、上のような感じになります。 
 

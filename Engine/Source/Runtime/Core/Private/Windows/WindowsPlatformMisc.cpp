@@ -70,6 +70,8 @@
 
 #include "Windows/AllowWindowsPlatformTypes.h"
 
+#include "FramePro/FrameProProfiler.h"
+
 // This might not be defined by Windows when maintaining backwards-compatibility to pre-Win8 builds
 #ifndef SM_CONVERTIBLESLATEMODE
 #define SM_CONVERTIBLESLATEMODE			0x2003
@@ -79,12 +81,12 @@
 static TAutoConsoleVariable<int32> CVarDriverDetectionMethod(
 	TEXT("r.DriverDetectionMethod"),
 	4,
-	TEXT("Defined which implementation is used to detect the GPU driver (to check for old drivers and for logs and statistics)\n")
+	TEXT("Defines which implementation is used to detect the GPU driver (to check for old drivers, logs and statistics)\n")
 	TEXT("  0: Iterate available drivers in registry and choose the one with the same name, if in question use next method (happens)\n")
-	TEXT("  1: Get the driver of the primary adpater (might not be correct when dealing with multiple adapters)\n")
+	TEXT("  1: Get the driver of the primary adapter (might not be correct when dealing with multiple adapters)\n")
 	TEXT("  2: Use DirectX LUID (would be the best, not yet implemented)\n")
 	TEXT("  3: Use Windows functions, use the primary device (might be wrong when API is using another adapter)\n")
-	TEXT("  4: Use Windows functions, use the one names like the DirectX Device (newest, most promising)"),
+	TEXT("  4: Use Windows functions, use names such as DirectX Device (newest, most promising)"),
 	ECVF_RenderThreadSafe);
 
 int32 FWindowsOSVersionHelper::GetOSVersions( FString& out_OSVersionLabel, FString& out_OSSubVersionLabel )
@@ -547,6 +549,9 @@ void FWindowsPlatformMisc::PlatformInit()
  */
 static BOOL WINAPI ConsoleCtrlHandler( ::DWORD /*Type*/ )
 {
+	// Notify anyone listening that we're about to terminate
+	FCoreDelegates::ApplicationWillTerminateDelegate.Broadcast();
+
 	// make sure as much data is written to disk as possible
 	if (GLog)
 	{
@@ -826,6 +831,34 @@ void FWindowsPlatformMisc::SubmitErrorReport( const TCHAR* InErrorHist, EErrorRe
 bool FWindowsPlatformMisc::IsDebuggerPresent()
 {
 	return !GIgnoreDebugger && !!::IsDebuggerPresent();
+}
+
+void FWindowsPlatformMisc::BeginNamedEventFrame()
+{
+#if FRAMEPRO_ENABLED
+	FFrameProProfiler::FrameStart();
+#endif // FRAMEPRO_ENABLED
+}
+
+void FWindowsPlatformMisc::BeginNamedEvent(const struct FColor& Color, const TCHAR* Text)
+{
+#if FRAMEPRO_ENABLED
+	FFrameProProfiler::PushEvent(Text);
+#endif // FRAMEPRO_ENABLED
+}
+
+void FWindowsPlatformMisc::BeginNamedEvent(const struct FColor& Color, const ANSICHAR* Text)
+{
+#if FRAMEPRO_ENABLED
+	FFrameProProfiler::PushEvent(Text);
+#endif // FRAMEPRO_ENABLED
+}
+
+void FWindowsPlatformMisc::EndNamedEvent()
+{
+#if FRAMEPRO_ENABLED
+	FFrameProProfiler::PopEvent();
+#endif // FRAMEPRO_ENABLED
 }
 #endif // UE_BUILD_SHIPPING
 
@@ -2147,6 +2180,10 @@ static void GetVideoDriverDetails(const FString& Key, FGPUDriverInfo& Out)
 	const TCHAR* DeviceDescriptionValueName = TEXT("Device Description");
 
 	bool bDevice = FWindowsPlatformMisc::QueryRegKey(HKEY_LOCAL_MACHINE, *Key, DeviceDescriptionValueName, Out.DeviceDescription); // AMD and NVIDIA
+	if (!bDevice)
+	{
+		bDevice = FWindowsPlatformMisc::QueryRegKey(HKEY_LOCAL_MACHINE, *Key, TEXT("DriverDesc"), Out.DeviceDescription);
+	}
 
 	if (!bDevice)
 	{

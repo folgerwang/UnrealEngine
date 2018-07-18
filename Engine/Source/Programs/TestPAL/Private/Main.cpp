@@ -10,8 +10,8 @@
 
 #include "TestDirectoryWatcher.h"
 #include "RequiredProgramMainCPPInclude.h"
-#include "MallocPoisonProxy.h"
-#include "ThreadSafeCounter64.h"
+#include "HAL/MallocPoisonProxy.h"
+#include "HAL/ThreadSafeCounter64.h"
 
 DEFINE_LOG_CATEGORY(LogTestPAL);
 
@@ -276,10 +276,13 @@ int32 SysInfoTest(const TCHAR* CommandLine)
 	UE_LOG(LogTestPAL, Display, TEXT("  FPlatformMisc::GetOperatingSystemId() = '%s'"), *OSInstanceGuid);
 
 	FString UserDir = FPlatformProcess::UserDir();
-	UE_LOG(LogTestPAL, Display, TEXT("  FPlatformMisc::UserDir() = '%s'"), *UserDir);
+	UE_LOG(LogTestPAL, Display, TEXT("  FPlatformProcess::UserDir() = '%s'"), *UserDir);
 
 	FString ApplicationSettingsDir = FPlatformProcess::ApplicationSettingsDir();
-	UE_LOG(LogTestPAL, Display, TEXT("  FPlatformMisc::ApplicationSettingsDir() = '%s'"), *ApplicationSettingsDir);
+	UE_LOG(LogTestPAL, Display, TEXT("  FPlatformProcess::ApplicationSettingsDir() = '%s'"), *ApplicationSettingsDir);
+
+	FString ApplicationCurrentWorkingDir = FPlatformProcess::GetCurrentWorkingDirectory();
+	UE_LOG(LogTestPAL, Display, TEXT("  FPlatformProcess::GetCurrentWorkingDirectory() = '%s'"), *ApplicationCurrentWorkingDir);
 
 	FPlatformMemory::DumpStats(*GLog);
 

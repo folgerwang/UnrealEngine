@@ -70,14 +70,17 @@ FSlateEditableTextLayout::FSlateEditableTextLayout(ISlateEditableTextWidget& InO
 	CreateSlateTextLayout = InCreateSlateTextLayout;
 	if (!CreateSlateTextLayout.IsBound())
 	{
-		CreateSlateTextLayout.BindStatic(&FSlateTextLayout::Create);
+		CreateSlateTextLayout.BindLambda([](SWidget* InOwningWidget, const FTextBlockStyle& InDefaultTextStyle) 
+			{
+				return FSlateTextLayout::Create(InOwningWidget, InDefaultTextStyle);
+			});
 	}
 
 	OwnerWidget = &InOwnerWidget;
 	Marshaller = InTextMarshaller;
 	HintMarshaller = InHintTextMarshaller;
 	TextStyle = InTextStyle;
-	TextLayout = CreateSlateTextLayout.Execute(TextStyle);
+	TextLayout = CreateSlateTextLayout.Execute(&InOwnerWidget.GetSlateWidget().Get(), TextStyle);
 
 	WrapTextAt = 0.0f;
 	AutoWrapText = false;
@@ -267,7 +270,7 @@ void FSlateEditableTextLayout::SetHintText(const TAttribute<FText>& InHintText)
 	if (HintText.IsBound() || !HintText.Get(FText::GetEmpty()).IsEmpty())
 	{
 		HintTextStyle = TextStyle;
-		HintTextLayout = MakeUnique<FSlateTextBlockLayout>(HintTextStyle, TextLayout->GetTextShapingMethod(), TextLayout->GetTextFlowDirection(), CreateSlateTextLayout, HintMarshaller.ToSharedRef(), nullptr);
+		HintTextLayout = MakeUnique<FSlateTextBlockLayout>(OwnerWidget->GetSlateWidgetPtr().Get(), HintTextStyle, TextLayout->GetTextShapingMethod(), TextLayout->GetTextFlowDirection(), CreateSlateTextLayout, HintMarshaller.ToSharedRef(), nullptr);
 		HintTextLayout->SetDebugSourceInfo(DebugSourceInfo);
 	}
 	else
@@ -3504,6 +3507,11 @@ FText FSlateEditableTextLayout::FVirtualKeyboardEntry::GetHintText() const
 EKeyboardType FSlateEditableTextLayout::FVirtualKeyboardEntry::GetVirtualKeyboardType() const
 {
 	return (OwnerLayout->OwnerWidget->IsTextPassword()) ? Keyboard_Password : OwnerLayout->OwnerWidget->GetVirtualKeyboardType();
+}
+
+FVirtualKeyboardOptions FSlateEditableTextLayout::FVirtualKeyboardEntry::GetVirtualKeyboardOptions() const
+{
+	return OwnerLayout->OwnerWidget->GetVirtualKeyboardOptions();
 }
 
 bool FSlateEditableTextLayout::FVirtualKeyboardEntry::IsMultilineEntry() const

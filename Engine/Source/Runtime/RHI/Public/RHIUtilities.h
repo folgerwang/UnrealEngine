@@ -59,8 +59,14 @@ struct FRWBuffer
 	}
 
 	// @param AdditionalUsage passed down to RHICreateVertexBuffer(), get combined with "BUF_UnorderedAccess | BUF_ShaderResource" e.g. BUF_Static
-	void Initialize(uint32 BytesPerElement, uint32 NumElements, EPixelFormat Format, uint32 AdditionalUsage = 0,  const TCHAR* InDebugName = NULL, FResourceArrayInterface *InResourceArray = nullptr)	{
-		check(GMaxRHIFeatureLevel == ERHIFeatureLevel::SM5);
+	void Initialize(uint32 BytesPerElement, uint32 NumElements, EPixelFormat Format, uint32 AdditionalUsage = 0,  const TCHAR* InDebugName = NULL, FResourceArrayInterface *InResourceArray = nullptr)	
+	{
+		check( GMaxRHIFeatureLevel == ERHIFeatureLevel::SM5 
+			|| IsVulkanPlatform(GMaxRHIShaderPlatform) 
+			|| IsMetalPlatform(GMaxRHIShaderPlatform)
+			|| (GMaxRHIFeatureLevel == ERHIFeatureLevel::ES3_1 && GSupportsResourceView)
+		);
+
 		// Provide a debug name if using Fast VRAM so the allocators diagnostics will work
 		ensure(!((AdditionalUsage & BUF_FastVRAM) && !InDebugName));
 		NumBytes = BytesPerElement * NumElements;
@@ -108,7 +114,7 @@ struct FReadBuffer
 
 	void Initialize(uint32 BytesPerElement, uint32 NumElements, EPixelFormat Format, uint32 AdditionalUsage = 0)
 	{
-		check(GMaxRHIFeatureLevel >= ERHIFeatureLevel::SM4);
+		check(GSupportsResourceView);
 		NumBytes = BytesPerElement * NumElements;
 		FRHIResourceCreateInfo CreateInfo;
 		Buffer = RHICreateVertexBuffer(NumBytes, BUF_ShaderResource | AdditionalUsage, CreateInfo);
@@ -177,15 +183,13 @@ struct FRWBufferStructured
 	}
 };
 
-/** Encapsulates a GPU read/write ByteAddress buffer with its UAV and SRV. */
-struct FRWBufferByteAddress
+struct FByteAddressBuffer
 {
 	FStructuredBufferRHIRef Buffer;
-	FUnorderedAccessViewRHIRef UAV;
 	FShaderResourceViewRHIRef SRV;
 	uint32 NumBytes;
 
-	FRWBufferByteAddress(): NumBytes(0) {}
+	FByteAddressBuffer(): NumBytes(0) {}
 
 	void Initialize(uint32 InNumBytes, uint32 AdditionalUsage = 0)
 	{
@@ -193,8 +197,7 @@ struct FRWBufferByteAddress
 		check(GMaxRHIFeatureLevel == ERHIFeatureLevel::SM5);
 		check( NumBytes % 4 == 0 );
 		FRHIResourceCreateInfo CreateInfo;
-		Buffer = RHICreateStructuredBuffer(4, NumBytes, BUF_UnorderedAccess | BUF_ShaderResource | BUF_ByteAddressBuffer | AdditionalUsage, CreateInfo);
-		UAV = RHICreateUnorderedAccessView(Buffer, false, false);
+		Buffer = RHICreateStructuredBuffer(4, NumBytes, BUF_ShaderResource | BUF_ByteAddressBuffer | AdditionalUsage, CreateInfo);
 		SRV = RHICreateShaderResourceView(Buffer);
 	}
 
@@ -202,8 +205,25 @@ struct FRWBufferByteAddress
 	{
 		NumBytes = 0;
 		Buffer.SafeRelease();
-		UAV.SafeRelease();
 		SRV.SafeRelease();
+	}
+};
+
+/** Encapsulates a GPU read/write ByteAddress buffer with its UAV and SRV. */
+struct FRWByteAddressBuffer : public FByteAddressBuffer
+{
+	FUnorderedAccessViewRHIRef UAV;
+
+	void Initialize(uint32 InNumBytes, uint32 AdditionalUsage = 0)
+	{
+		FByteAddressBuffer::Initialize(InNumBytes, BUF_UnorderedAccess | AdditionalUsage);
+		UAV = RHICreateUnorderedAccessView(Buffer, false, false);
+	}
+
+	void Release()
+	{
+		FByteAddressBuffer::Release();
+		UAV.SafeRelease();
 	}
 };
 
@@ -226,7 +246,7 @@ struct FDynamicReadBuffer : public FReadBuffer
 	virtual void Initialize(uint32 BytesPerElement, uint32 NumElements, EPixelFormat Format, uint32 AdditionalUsage = 0)
 	{
 		ensure(
-			AdditionalUsage & (BUF_Dynamic | BUF_Volatile) &&								// buffer should be Dynamic or Volatile
+			AdditionalUsage & (BUF_Dynamic | BUF_Volatile | BUF_Static) &&								// buffer should be Dynamic or Volatile or Static
 			(AdditionalUsage & (BUF_Dynamic | BUF_Volatile)) ^ (BUF_Dynamic | BUF_Volatile) // buffer should not be both
 			);
 
@@ -866,8 +886,7 @@ private:
 #define DUMP_TRANSITION(ResourceName, TransitionType)
 #endif
 
-extern RHI_API void EnableDepthBoundsTest(FRHICommandList& RHICmdList, float WorldSpaceDepthNear, float WorldSpaceDepthFar, const FMatrix& ProjectionMatrix);
-extern RHI_API void DisableDepthBoundsTest(FRHICommandList& RHICmdList);
+extern RHI_API void SetDepthBoundsTest(FRHICommandList& RHICmdList, float WorldSpaceDepthNear, float WorldSpaceDepthFar, const FMatrix& ProjectionMatrix);
 
 /** Returns the value of the rhi.SyncInterval CVar. */
 extern RHI_API uint32 RHIGetSyncInterval();
@@ -990,3 +1009,32 @@ struct FRHILockTracker
 };
 
 extern RHI_API FRHILockTracker GRHILockTracker;
+
+
+
+
+/* Generic implementation of functions for readback and update requests
+* Both of these will need RHI specific implementations, of course
+*/
+
+
+/* Generic implementation of functions for readback and update requests
+* Both of these will need RHI specific implementations, of course
+*/
+/*
+FRHIGPUMemoryReadback *RHIScheduleGPUMemoryReadback(FRHICommandList& CmdList, FVertexBufferRHIRef GPUBuffer, FName RequestName)
+{
+	FRHIStagingBuffer *StagingBuffer = RHICreateStagingBuffer();// new FRHIStagingBuffer();
+	FRHIGPUMemoryReadback *Readback = new FRHIGPUMemoryReadback(StagingBuffer, GPUBuffer, RequestName);
+
+	return Readback;
+}
+
+FRHIGPUMemoryUpdate *RHIScheduleGPUMemoryUpdate(FRHICommandList& CmdList, FVertexBufferRHIRef GPUBuffer, FName RequestName)
+{
+	FRHIStagingBuffer *StagingBuffer = RHICreateStagingBuffer();// new FRHIStagingBuffer();
+	FRHIGPUMemoryUpdate *Update = new FRHIGPUMemoryUpdate(StagingBuffer, GPUBuffer, RequestName);
+
+	return Update;
+}
+*/

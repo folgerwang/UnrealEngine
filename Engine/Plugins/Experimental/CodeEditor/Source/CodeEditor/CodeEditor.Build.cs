@@ -8,7 +8,6 @@ namespace UnrealBuildTool.Rules
 		{
 			PrivateIncludePaths.AddRange(
 				new string[] {
-					"Developer/CodeEditor/Private",
 				}
 				);
 

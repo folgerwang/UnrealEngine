@@ -12,7 +12,7 @@ class FD3D12ResourceAllocator : public FD3D12DeviceChild, public FD3D12MultiNode
 public:
 
 	FD3D12ResourceAllocator(FD3D12Device* ParentDevice,
-		const GPUNodeMask& VisibleNodes,
+		FRHIGPUMask VisibleNodes,
 		const FString& Name,
 		D3D12_HEAP_TYPE HeapType,
 		D3D12_RESOURCE_FLAGS Flags,
@@ -85,7 +85,7 @@ class FD3D12BuddyAllocator : public FD3D12ResourceAllocator
 public:
 
 	FD3D12BuddyAllocator(FD3D12Device* ParentDevice,
-		const GPUNodeMask& VisibleNodes,
+		FRHIGPUMask VisibleNodes,
 		const FString& Name,
 		eBuddyAllocationStrategy InAllocationStrategy,
 		D3D12_HEAP_TYPE HeapType,
@@ -193,7 +193,7 @@ class FD3D12MultiBuddyAllocator : public FD3D12ResourceAllocator
 public:
 
 	FD3D12MultiBuddyAllocator(FD3D12Device* ParentDevice,
-		const GPUNodeMask& VisibleNodes,
+		FRHIGPUMask VisibleNodes,
 		const FString& Name,
 		eBuddyAllocationStrategy InAllocationStrategy,
 		D3D12_HEAP_TYPE HeapType,
@@ -242,7 +242,7 @@ class FD3D12BucketAllocator : public FD3D12ResourceAllocator
 public:
 
 	FD3D12BucketAllocator(FD3D12Device* ParentDevice,
-		const GPUNodeMask& VisibleNodes,
+		FRHIGPUMask VisibleNodes,
 		const FString& Name,
 		D3D12_HEAP_TYPE HeapType,
 		D3D12_RESOURCE_FLAGS Flags,
@@ -356,7 +356,7 @@ private:
 class FD3D12DefaultBufferAllocator : public FD3D12DeviceChild, public FD3D12MultiNodeGPUObject
 {
 public:
-	FD3D12DefaultBufferAllocator(FD3D12Device* InParent, const GPUNodeMask& VisibleNodes);
+	FD3D12DefaultBufferAllocator(FD3D12Device* InParent, FRHIGPUMask VisibleNodes);
 
 	// Grab a buffer from the available buffers or create a new buffer if none are available
 	HRESULT AllocDefaultResource(const D3D12_RESOURCE_DESC& pDesc, FD3D12ResourceLocation& ResourceLocation, uint32 Alignment);
@@ -388,7 +388,7 @@ private:
 class FD3D12TextureAllocator : public FD3D12MultiBuddyAllocator
 {
 public:
-	FD3D12TextureAllocator(FD3D12Device* Device, const GPUNodeMask& VisibleNodes, const FString& Name, uint32 HeapSize, D3D12_HEAP_FLAGS Flags);
+	FD3D12TextureAllocator(FD3D12Device* Device, FRHIGPUMask VisibleNodes, const FString& Name, uint32 HeapSize, D3D12_HEAP_FLAGS Flags);
 
 	~FD3D12TextureAllocator();
 
@@ -398,7 +398,7 @@ public:
 class FD3D12TextureAllocatorPool : public FD3D12DeviceChild, public FD3D12MultiNodeGPUObject
 {
 public:
-	FD3D12TextureAllocatorPool(FD3D12Device* Device, const GPUNodeMask& VisibilityNode);
+	FD3D12TextureAllocatorPool(FD3D12Device* Device, FRHIGPUMask VisibilityNode);
 
 	HRESULT AllocateTexture(D3D12_RESOURCE_DESC Desc, const D3D12_CLEAR_VALUE* ClearValue, uint8 UEFormat, FD3D12ResourceLocation& TextureLocation, const D3D12_RESOURCE_STATES InitialState, bool bForcePlacementCreation = false );
 
@@ -443,9 +443,9 @@ struct FD3D12FastAllocatorPage
 class FD3D12FastAllocatorPagePool : public FD3D12DeviceChild, public FD3D12MultiNodeGPUObject
 {
 public:
-	FD3D12FastAllocatorPagePool(FD3D12Device* Parent, const GPUNodeMask& VisibiltyMask, D3D12_HEAP_TYPE InHeapType, uint32 Size);
+	FD3D12FastAllocatorPagePool(FD3D12Device* Parent, FRHIGPUMask VisibiltyMask, D3D12_HEAP_TYPE InHeapType, uint32 Size);
 
-	FD3D12FastAllocatorPagePool(FD3D12Device* Parent, const GPUNodeMask& VisibiltyMask, const D3D12_HEAP_PROPERTIES& InHeapProperties, uint32 Size);
+	FD3D12FastAllocatorPagePool(FD3D12Device* Parent, FRHIGPUMask VisibiltyMask, const D3D12_HEAP_PROPERTIES& InHeapProperties, uint32 Size);
 
 	FD3D12FastAllocatorPage* RequestFastAllocatorPage();
 	void ReturnFastAllocatorPage(FD3D12FastAllocatorPage* Page);
@@ -469,8 +469,8 @@ protected:
 class FD3D12FastAllocator : public FD3D12DeviceChild, public FD3D12MultiNodeGPUObject
 {
 public:
-	FD3D12FastAllocator(FD3D12Device* Parent, const GPUNodeMask& VisibiltyMask, D3D12_HEAP_TYPE InHeapType, uint32 PageSize);
-	FD3D12FastAllocator(FD3D12Device* Parent, const GPUNodeMask& VisibiltyMask, const D3D12_HEAP_PROPERTIES& InHeapProperties, uint32 PageSize);
+	FD3D12FastAllocator(FD3D12Device* Parent, FRHIGPUMask VisibiltyMask, D3D12_HEAP_TYPE InHeapType, uint32 PageSize);
+	FD3D12FastAllocator(FD3D12Device* Parent, FRHIGPUMask VisibiltyMask, const D3D12_HEAP_PROPERTIES& InHeapProperties, uint32 PageSize);
 
 	template<typename LockType>
 	void* Allocate(uint32 Size, uint32 Alignment, class FD3D12ResourceLocation* ResourceLocation);
@@ -497,7 +497,6 @@ public:
 		, Head(BufferSize)
 		, Tail(0)
 		, LastFence(0)
-		, OutstandingAllocs(0)
 		, Fence(nullptr)
 	{}
 
@@ -509,7 +508,7 @@ public:
 		Head = Size;
 		Tail = 0;
 		LastFence = 0;
-		OutstandingAllocs = 0;
+		OutstandingAllocs.Empty();
 	}
 
 	inline void SetFence(FD3D12Fence* InFence)
@@ -520,10 +519,67 @@ public:
 
 	inline const uint64 GetSpaceLeft() const { return Head - Tail; }
 
+#if 0  // used to detect problems with fencing 
+	void GetOverwritableBlocks(uint64& Block1Start, uint64& Block1Size, uint64& Block2Start, uint64& Block2Size) const
+	{
+		check(Head >= Tail);
+		check(Size >= Head - Tail);
+		uint64 Used = Size - (Head - Tail);
+
+		if (Used == Size)
+		{
+			Block1Start = 0;
+			Block1Size = 0;
+
+			Block2Start = 0;
+			Block2Size = 0;
+		}
+		else
+		{
+			uint64 PhysicalTail = Tail % Size;
+
+			if (PhysicalTail <= Used)
+			{
+				// there is only one block, it starts at PhysicalTail
+				Block1Start = 0;
+				Block1Size = 0;
+
+				Block2Start = PhysicalTail;
+				Block2Size = Size - Used;
+			}
+			else
+			{
+				Block1Start = 0;
+				Block1Size = PhysicalTail - Used;
+
+				Block2Start = PhysicalTail;
+				Block2Size = Size - PhysicalTail;
+			}
+		}
+	}
+#endif // used to detect problems with fencing 
+
 	inline uint64 Allocate(uint64 Count)
 	{
+		{
+			const uint64 LastCompletedFence = Fence->GetLastCompletedFenceFast();
+			// If progress has been made since we were here last
+			if (LastCompletedFence > LastFence)
+			{
+				LastFence = LastCompletedFence;
+
+				for (auto It = OutstandingAllocs.CreateIterator(); It; ++It)
+				{
+					if (It.Key() < LastCompletedFence)
+					{
+						Head += It.Value();
+						It.RemoveCurrent();
+					}
+				}
+			}
+		}
+
 		uint64 ReturnValue = FailedReturnValue;
-		const uint64 LastCompletedFence = Fence->GetCachedLastCompletedFence();
 
 		uint64 PhysicalTail = Tail % Size;
 
@@ -539,19 +595,11 @@ public:
 			PhysicalTail = Tail % Size;
 		}
 
-		// If progress has been made since we were here last
-		if (LastCompletedFence > LastFence)
-		{
-			LastFence = LastCompletedFence;
-			Head += OutstandingAllocs; // Deallocate completed blocks
-			OutstandingAllocs = 0;
-		}
-
 		if (Tail + Count < Head)
 		{
 			ReturnValue = PhysicalTail;
 			Tail += Count;
-			OutstandingAllocs += Count;
+			OutstandingAllocs.FindOrAdd(Fence->GetCurrentFence()) += Count;
 		}
 
 		return ReturnValue;
@@ -563,13 +611,14 @@ private:
 	uint64 Head;
 	uint64 Tail;
 	uint64 LastFence;
-	uint64 OutstandingAllocs;
+
+	TMap<uint64, uint64, TInlineSetAllocator<16> > OutstandingAllocs;
 };
 
 class FD3D12FastConstantAllocator : public FD3D12DeviceChild, public FD3D12MultiNodeGPUObject
 {
 public:
-	FD3D12FastConstantAllocator(FD3D12Device* Parent, const GPUNodeMask& VisibiltyMask, uint32 InPageSize);
+	FD3D12FastConstantAllocator(FD3D12Device* Parent, FRHIGPUMask VisibiltyMask, uint32 InPageSize);
 
 	void Init();
 

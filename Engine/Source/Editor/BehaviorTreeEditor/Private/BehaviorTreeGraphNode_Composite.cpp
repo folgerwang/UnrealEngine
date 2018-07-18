@@ -42,7 +42,7 @@ FText UBehaviorTreeGraphNode_Composite::GetTooltipText() const
 			NSLOCTEXT("BehaviorTreeEditor", "CompositeNodeScopeTooltip", "This node is a local scope for decorators.\nAll observing decorators (Lower Priority or Both) will be removed when execution flow leaves this branch."));
 	}
 
-	return Super::GetDescription();
+	return Super::GetTooltipText();
 }
 
 void UBehaviorTreeGraphNode_Composite::GetContextMenuActions(const FGraphNodeContextMenuBuilder& Context) const

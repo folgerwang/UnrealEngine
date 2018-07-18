@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
 #include "Engine/MaterialMerging.h"
+#include "GameFramework/Actor.h"
 #include "MeshMerging.generated.h"
 
 /** The importance of a mesh feature when automatically generating mesh LODs. */
@@ -166,6 +167,18 @@ namespace ELandscapeCullingPrecision
 	};
 }
 
+UENUM()
+namespace EProxyNormalComputationMethod
+{
+	enum Type
+	{
+		AngleWeighted = 0 UMETA(DisplayName = "Angle Weighted"),
+		AreaWeighted = 1 UMETA(DisplayName = "Area  Weighted"),
+		EqualWeighted = 2 UMETA(DisplayName = "Equal Weighted")
+	};
+}
+
+
 USTRUCT()
 struct FMeshProxySettings
 {
@@ -208,13 +221,33 @@ struct FMeshProxySettings
 	UPROPERTY(EditAnywhere, Category = ProxySettings)
 	bool bCalculateCorrectLODModel;
 
-	/** Distance at which meshes should be merged together */
+	/** Distance at which meshes should be merged together, this can close gaps like doors and windows in distant geometry */
 	UPROPERTY(EditAnywhere, Category = ProxySettings)
 	float MergeDistance;
-	
+
+	/** Base color assigned to LOD geometry that can't be associated with the source geometry: e.g. doors and windows that have been closed by the Merge Distance */
+	UPROPERTY(EditAnywhere, Category = ProxySettings, meta = (DisplayName = "Unresolved Geometry Color"))
+	FColor UnresolvedGeometryColor;
+
+	/** Enable an override for material transfer distance */
+	UPROPERTY(EditAnywhere, Category = MaxRayCastDist, meta = (InlineEditConditionToggle))
+	bool bOverrideTransferDistance;
+
+	/** Override search distance used when discovering texture values for simplified geometry.  Useful when non-zero Merge Distance setting generates new geometry in concave corners.*/
+	UPROPERTY(EditAnywhere, Category = ProxySettings, meta = (EditCondition = "bOverrideTransferDistance", DisplayName = "Transfer Distance Override", ClampMin = 0))
+	float MaxRayCastDist;
+
+	/** Enable the use of hard angle based vertex splitting */
+	UPROPERTY(EditAnywhere, Category = HardAngleThreshold, meta = (InlineEditConditionToggle))
+	bool bUseHardAngleThreshold;
+
 	/** Angle at which a hard edge is introduced between faces */
-	UPROPERTY(EditAnywhere, Category = ProxySettings, meta = (DisplayName = "Hard Edge Angle"))
+	UPROPERTY(EditAnywhere, Category = ProxySettings, meta = (EditCondition = "bUseHardAngleThreshold", DisplayName = "Hard Edge Angle", ClampMin = 0, ClampMax = 180))
 	float HardAngleThreshold;
+
+	/** Controls the method used to calculate the normal for the simplified geometry */
+	UPROPERTY(EditAnywhere, Category = ProxySettings, meta = (DisplayName = "Normal Calculation Method"))
+	TEnumAsByte<EProxyNormalComputationMethod::Type> NormalCalculationMethod;
 
 	/** Lightmap resolution */
 	UPROPERTY(EditAnywhere, Category = ProxySettings, meta = (ClampMin = 32, ClampMax = 4096, EditCondition = "!bComputeLightMapResolution"))
@@ -247,8 +280,22 @@ struct FMeshProxySettings
 	UPROPERTY(EditAnywhere, Category = ProxySettings)
 	bool bAllowDistanceField;
 
+	/** Whether to attempt to re-use the source mesh's lightmap UVs when baking the material or always generate a new set. */
+	UPROPERTY(EditAnywhere, Category = ProxySettings)
+	bool bReuseMeshLightmapUVs;
 
+	/** Whether to generate collision for the proxy mesh */
+	UPROPERTY(EditAnywhere, Category = ProxySettings)
+	bool bCreateCollision;
 
+	/** Whether to allow vertex colors saved in the merged mesh */
+	UPROPERTY(EditAnywhere, Category = ProxySettings)
+	bool bAllowVertexColors;
+
+	/** Whether to generate lightmap uvs for the merged mesh */
+	UPROPERTY(EditAnywhere, Category = ProxySettings)
+	bool bGenerateLightmapUVs;
+	
 	/** Default settings. */
 	FMeshProxySettings()
 		: ScreenSize(300)
@@ -260,14 +307,26 @@ struct FMeshProxySettings
 		, bExportMetallicMap_DEPRECATED(false)
 		, bExportRoughnessMap_DEPRECATED(false)
 		, bExportSpecularMap_DEPRECATED(false)
-		, MergeDistance(4)
-		, HardAngleThreshold(80.0f)
+		, bCalculateCorrectLODModel(false)
+		, MergeDistance(0)
+		, UnresolvedGeometryColor(FColor::Black)
+		, bOverrideTransferDistance(false)
+		, MaxRayCastDist(20)
+		, bUseHardAngleThreshold(false)
+		, HardAngleThreshold(130.f)
+		, NormalCalculationMethod(EProxyNormalComputationMethod::AngleWeighted)
 		, LightMapResolution(256)
+		, bComputeLightMapResolution(false)
 		, bRecalculateNormals(true)
+		, bBakeVertexData_DEPRECATED(false)
 		, bUseLandscapeCulling(false)
+		, LandscapeCullingPrecision(ELandscapeCullingPrecision::Medium)
 		, bAllowAdjacency(false)
 		, bAllowDistanceField(false)
-		
+		, bReuseMeshLightmapUVs(true)
+		, bCreateCollision(true)
+		, bAllowVertexColors(false)
+		, bGenerateLightmapUVs(false)
 	{ 
 		MaterialSettings.MaterialMergeType = EMaterialMergeType::MaterialMergeType_Simplygon;
 	}
@@ -278,8 +337,13 @@ struct FMeshProxySettings
 		return ScreenSize == Other.ScreenSize
 			&& MaterialSettings == Other.MaterialSettings
 			&& bRecalculateNormals == Other.bRecalculateNormals
+			&& bOverrideTransferDistance == Other.bOverrideTransferDistance
+			&& MaxRayCastDist == Other.MaxRayCastDist
+			&& bUseHardAngleThreshold == Other.bUseHardAngleThreshold
 			&& HardAngleThreshold == Other.HardAngleThreshold
+			&& NormalCalculationMethod == Other.NormalCalculationMethod
 			&& MergeDistance == Other.MergeDistance
+			&& UnresolvedGeometryColor == Other.UnresolvedGeometryColor
 			&& bOverrideVoxelSize == Other.bOverrideVoxelSize
 			&& VoxelSize == Other.VoxelSize;
 	}
@@ -303,7 +367,9 @@ enum class EMeshLODSelectionType : uint8
 	// Whether or not to export all of the LODs found in the source meshes
 	SpecificLOD = 1 UMETA(DisplayName = "Use specific LOD level"),
 	// Whether or not to calculate the appropriate LOD model for the given screen size
-	CalculateLOD = 2 UMETA(DisplayName = "Calculate correct LOD level")
+	CalculateLOD = 2 UMETA(DisplayName = "Calculate correct LOD level"),
+	// Whether or not to use the lowest-detail LOD
+	LowestDetailLOD = 3 UMETA(DisplayName = "Always use the lowest-detail LOD (i.e. the highest LOD index)")
 };
 
 UENUM()
@@ -311,6 +377,14 @@ enum class EMeshMergeType : uint8
 {
 	MeshMergeType_Default,
 	MeshMergeType_MergeActor
+};
+
+/** As UHT doesnt allow arrays of bools, we need this binary enum :( */
+UENUM()
+enum class EUVOutput : uint8
+{
+	DoNotOutputChannel,
+	OutputChannel
 };
 
 /**
@@ -365,6 +439,22 @@ struct FMeshMergingSettings
 	UPROPERTY(Category = MaterialSettings, EditAnywhere, BlueprintReadWrite, meta = (editcondition = "bMergeMaterials"))
 	bool bUseTextureBinning;
 			
+	/** Whether to attempt to re-use the source mesh's lightmap UVs when baking the material or always generate a new set. */
+	UPROPERTY(EditAnywhere, Category = MaterialSettings)
+	bool bReuseMeshLightmapUVs;
+
+	/** Whether to attempt to merge materials that are deemed equivalent. This can cause artifacts in the merged mesh if world position/actor position etc. is used to determine output color. */
+	UPROPERTY(EditAnywhere, Category = MaterialSettings)
+	bool bMergeEquivalentMaterials;
+
+	/** Whether to output the specified UV channels into the merged mesh (only if the source meshes contain valid UVs for the specified channel) */
+	UPROPERTY(EditAnywhere, Category = MeshSettings)
+	EUVOutput OutputUVs[8];	// Should be MAX_MESH_TEXTURE_COORDS but as this is an engine module we cant include RawMesh
+
+	/** The gutter (in texels) to add to each sub-chart for our baked-out material for the top mip level */
+	UPROPERTY(EditAnywhere, Category = MaterialSettings)
+	int32 GutterSize;
+
 	UPROPERTY()
 	bool bCalculateCorrectLODModel_DEPRECATED;
 
@@ -381,6 +471,13 @@ struct FMeshMergingSettings
 	/** Whether or not to use available landscape geometry to cull away invisible triangles */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LandscapeCulling)
 	bool bUseLandscapeCulling;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = MeshSettings)
+	bool bIncludeImposters;
+
+	/** Whether to allow distance field to be computed for this mesh.  Disable this to save memory if you mesh will only rendered in the distance. */
+	UPROPERTY(EditAnywhere, Category = MeshSettings)
+	bool bAllowDistanceField;
 
 	/** Whether to export normal maps for material merging */
 	UPROPERTY()
@@ -404,6 +501,7 @@ struct FMeshMergingSettings
 	FMeshMergingSettings()
 		: bGenerateLightMapUV(true)
 		, TargetLightMapResolution(256)
+		, bComputedLightMapResolution(false)
 		, bImportVertexColors_DEPRECATED(false)
 		, bPivotPointAtZero(false)
 		, bMergePhysicsData(false)
@@ -411,11 +509,16 @@ struct FMeshMergingSettings
 		, bBakeVertexDataToMesh(false)
 		, bUseVertexDataForBakingMaterial(true)
 		, bUseTextureBinning(false)
+		, bReuseMeshLightmapUVs(true)
+		, bMergeEquivalentMaterials(true)
+		, GutterSize(2)
 		, bCalculateCorrectLODModel_DEPRECATED(false)
 		, LODSelectionType(EMeshLODSelectionType::CalculateLOD)
 		, ExportSpecificLOD_DEPRECATED(0)
 		, SpecificLOD(0)
 		, bUseLandscapeCulling(false)
+		, bIncludeImposters(true)
+		, bAllowDistanceField(false)
 		, bExportNormalMap_DEPRECATED(true)
 		, bExportMetallicMap_DEPRECATED(false)
 		, bExportRoughnessMap_DEPRECATED(false)
@@ -423,6 +526,10 @@ struct FMeshMergingSettings
 		, MergedMaterialAtlasResolution_DEPRECATED(1024)
 		, MergeType(EMeshMergeType::MeshMergeType_Default)
 	{
+		for(EUVOutput& OutputUV : OutputUVs)
+		{
+			OutputUV = EUVOutput::OutputChannel;
+		}
 	}
 
 	/** Handles deprecated properties */
@@ -432,6 +539,8 @@ struct FMeshMergingSettings
 /** Struct to store per section info used to populate data after (multiple) meshes are merged together */
 struct FSectionInfo
 {
+	FSectionInfo() : Material(nullptr), MaterialSlotName(NAME_None), MaterialIndex(INDEX_NONE), StartIndex(INDEX_NONE), EndIndex(INDEX_NONE), bProcessed(false)	{}
+
 	/** Material used by the section */
 	class UMaterialInterface* Material;
 	/** Name value for the section */
@@ -451,4 +560,56 @@ struct FSectionInfo
 	{
 		return Material == Other.Material && EnabledProperties == Other.EnabledProperties;
 	}
+};
+
+/** How to replace instanced */
+UENUM()
+enum class EMeshInstancingReplacementMethod
+{
+	/** Destructive workflow: remove the original actors when replacing with instanced static meshes */
+	RemoveOriginalActors,
+
+	/** Non-destructive workflow: keep the original actors but hide them and set them to be editor-only */
+	KeepOriginalActorsAsEditorOnly
+};
+
+/** Mesh instance-replacement settings */
+USTRUCT()
+struct FMeshInstancingSettings
+{
+	GENERATED_BODY()
+
+	FMeshInstancingSettings()
+		: ActorClassToUse(AActor::StaticClass())
+		, InstanceReplacementThreshold(2)
+		, MeshReplacementMethod(EMeshInstancingReplacementMethod::KeepOriginalActorsAsEditorOnly)
+		, bSkipMeshesWithVertexColors(true)
+		, bUseHLODVolumes(true)
+	{}
+
+	/** The actor class to attach new instance static mesh components to */
+	UPROPERTY(EditAnywhere, NoClear, Category="Instancing")
+	TSubclassOf<AActor> ActorClassToUse;
+
+	/** The number of static mesh instances needed before a mesh is replaced with an instanced version */
+	UPROPERTY(EditAnywhere, Category="Instancing", meta=(ClampMin=1))
+	int32 InstanceReplacementThreshold;
+
+	/** How to replace the original actors when instancing */
+	UPROPERTY(EditAnywhere, Category="Instancing")
+	EMeshInstancingReplacementMethod MeshReplacementMethod;
+
+	/** 
+	 * Whether to skip the conversion to an instanced static mesh for meshes with vertex colors.
+	 * Instanced static meshes do not support vertex colors per-instance, so conversion will lose
+	 * this data.
+	 */
+	UPROPERTY(EditAnywhere, Category="Instancing")
+	bool bSkipMeshesWithVertexColors;
+
+	/** 
+	 * Whether split up instanced static mesh components based on their intersection with HLOD volumes
+	 */
+	UPROPERTY(EditAnywhere, Category="Instancing", meta=(DisplayName="Use HLOD Volumes"))
+	bool bUseHLODVolumes;
 };

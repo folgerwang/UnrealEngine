@@ -8,10 +8,11 @@
 #include "BuildPatchFileConstructor.h"
 #include "HAL/PlatformFilemanager.h"
 #include "HAL/FileManager.h"
+#include "HAL/RunnableThread.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
-#include "HAL/RunnableThread.h"
 #include "Misc/ScopeLock.h"
+#include "Misc/OutputDeviceRedirector.h"
 #include "BuildPatchServicesPrivate.h"
 #include "Interfaces/IBuildInstaller.h"
 #include "Data/ChunkData.h"
@@ -261,9 +262,9 @@ uint32 FBuildPatchFileConstructor::Run()
 			CountBytesProcessed(FileSize);
 			GLog->Logf(TEXT("FBuildPatchFileConstructor::SkipFile %s"), *FileToConstruct);
 			// Get the file manifest.
-			const FFileManifestData* FileManifest = BuildManifest->GetFileManifest(FileToConstruct);
+			const FFileManifest* FileManifest = BuildManifest->GetFileManifest(FileToConstruct);
 			// Go through each chunk part, and dereference it from the reference tracker.
-			for (const FChunkPartData& ChunkPart : FileManifest->FileChunkParts)
+			for (const FChunkPart& ChunkPart : FileManifest->FileChunkParts)
 			{
 				bFileSuccess = ChunkReferenceTracker->PopReference(ChunkPart.Guid) && bFileSuccess;
 			}
@@ -370,10 +371,10 @@ bool FBuildPatchFileConstructor::ConstructFileFromChunks( const FString& Filenam
 
 	// Calculate the hash as we write the data
 	FSHA1 HashState;
-	FSHAHashData HashValue;
+	FSHAHash HashValue;
 
 	// First make sure we can get the file manifest
-	const FFileManifestData* FileManifest = BuildManifest->GetFileManifest(Filename);
+	const FFileManifest* FileManifest = BuildManifest->GetFileManifest(Filename);
 	bSuccess = FileManifest != nullptr;
 	if( bSuccess )
 	{
@@ -408,7 +409,7 @@ bool FBuildPatchFileConstructor::ConstructFileFromChunks( const FString& Filenam
 				int64 ByteCounter = 0;
 				for (int32 ChunkPartIdx = StartChunkPart; ChunkPartIdx < FileManifest->FileChunkParts.Num() && !bShouldAbort; ++ChunkPartIdx)
 				{
-					const FChunkPartData& ChunkPart = FileManifest->FileChunkParts[ChunkPartIdx];
+					const FChunkPart& ChunkPart = FileManifest->FileChunkParts[ChunkPartIdx];
 					const int64 NextBytePosition = ByteCounter + ChunkPart.Size;
 					if (NextBytePosition <= StartPosition)
 					{
@@ -468,7 +469,7 @@ bool FBuildPatchFileConstructor::ConstructFileFromChunks( const FString& Filenam
 			// For each chunk, load it, and place it's data into the file
 			for( int32 ChunkPartIdx = StartChunkPart; ChunkPartIdx < FileManifest->FileChunkParts.Num() && bSuccess && !bShouldAbort; ++ChunkPartIdx )
 			{
-				const FChunkPartData& ChunkPart = FileManifest->FileChunkParts[ChunkPartIdx];
+				const FChunkPart& ChunkPart = FileManifest->FileChunkParts[ChunkPartIdx];
 				bSuccess = InsertChunkData( ChunkPart, *NewFile, HashState );
 				FileConstructorStat->OnFileProgress(Filename, NewFile->Tell());
 				if( bSuccess )
@@ -572,7 +573,7 @@ bool FBuildPatchFileConstructor::ConstructFileFromChunks( const FString& Filenam
 	return bSuccess;
 }
 
-bool FBuildPatchFileConstructor::InsertChunkData(const FChunkPartData& ChunkPart, FArchive& DestinationFile, FSHA1& HashState)
+bool FBuildPatchFileConstructor::InsertChunkData(const FChunkPart& ChunkPart, FArchive& DestinationFile, FSHA1& HashState)
 {
 	uint8* Data;
 	uint8* DataStart;

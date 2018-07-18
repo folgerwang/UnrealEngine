@@ -13,6 +13,11 @@ namespace UnrealBuildTool.Rules
 					"Media",
 				});
 
+			PrivateDependencyModuleNames.AddRange(
+				new string[] {
+					"ImageWrapper",
+				});
+
 			PrivateIncludePaths.AddRange(
 				new string[] {
 					"Runtime/MediaUtils/Private",

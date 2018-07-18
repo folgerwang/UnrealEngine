@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
 #include "UObject/Object.h"
-#include "Classes/Components/SceneComponent.h"
+#include "Components/SceneComponent.h"
 #include "ComposurePostProcessPass.generated.h"
 
 

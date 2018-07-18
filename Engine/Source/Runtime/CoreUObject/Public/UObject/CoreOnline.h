@@ -75,6 +75,22 @@ struct FJoinabilitySettings
 		MaxPartySize(0)
 	{
 	}
+
+	bool operator==(const FJoinabilitySettings& Other) const
+	{
+		return SessionName == Other.SessionName &&
+			bPublicSearchable == Other.bPublicSearchable &&
+			bAllowInvites == Other.bAllowInvites &&
+			bJoinViaPresence == Other.bJoinViaPresence &&
+			bJoinViaPresenceFriendsOnly == Other.bJoinViaPresenceFriendsOnly &&
+			MaxPlayers == Other.MaxPlayers &&
+			MaxPartySize == Other.MaxPartySize;
+	}
+
+	bool operator!=(const FJoinabilitySettings& Other) const
+	{
+		return !(FJoinabilitySettings::operator==(Other));
+	}
 };
 
 /**
@@ -121,6 +137,14 @@ public:
 	{
 		return !(FUniqueNetId::operator==(Other));
 	}
+
+	/**
+	 * Get the type token for this opaque data
+	 * This is useful for inferring UniqueId subclasses and knowing which OSS it "goes with"
+	 *
+	 * @return FName representing the Type
+	 */
+	virtual FName GetType() const { return NAME_None; /* This should be pure virtual, however, older versions of the OSS plugins cannot handle that */ };
 
 	/** 
 	 * Get the raw byte representation of this opaque data
@@ -171,26 +195,23 @@ public:
 		return FString();
 	}
 
-	/**
-	* Friend function for using FUniqueNetIdWrapper as a hashable key
-	*/
 	friend inline uint32 GetTypeHash(FUniqueNetId const& Value)
 	{
-		// Reinterpret the first four bytes into a hash.
-		if (Value.GetSize() >= 4)
+		const int32 Size = Value.GetSize();
+		if (Size < sizeof(uint32))
 		{
-			return (*((uint32*)Value.GetBytes()));
+			// Grab 1 byte worth of data as 32bit
+			return GetTypeHash((uint32)(*Value.GetBytes()));
+		}
+		else if (Size < sizeof(uint64))
+		{
+			// Grab 4 bytes worth of data
+			return GetTypeHash(*((uint32*)Value.GetBytes()));
 		}
 		else
 		{
-			uint32 Hash = 0;
-			const uint8* InID = Value.GetBytes();
-			for (int32 ByteIndex = 0; ByteIndex < Value.GetSize(); ByteIndex++)
-			{
-				Hash |= InID[ByteIndex] << (8 * ByteIndex);
-			}
-
-			return Hash;
+			// Grab 8 bytes worth of data
+			return GetTypeHash(*((uint64*)Value.GetBytes()));
 		}
 	}
 
@@ -203,6 +224,11 @@ public:
 
 	FUniqueNetIdWrapper() 
 		: UniqueNetId()
+	{
+	}
+
+	FUniqueNetIdWrapper(const FUniqueNetId& InUniqueNetId)
+		: UniqueNetId(InUniqueNetId.AsShared())
 	{
 	}
 
@@ -244,10 +270,25 @@ public:
 		return (bBothInvalid || (bBothValid && (*UniqueNetId == *Other.UniqueNetId)));
 	}
 
+	bool operator==(TSharedPtr<const FUniqueNetId> const& Other) const
+	{
+		return Other == (*this);
+	}
+
+	bool operator==(TSharedRef<const FUniqueNetId> const& Other) const
+	{
+		return Other == (*this);
+	}
+
 	/** Comparison operator */
 	bool operator!=(FUniqueNetIdWrapper const& Other) const
 	{
 		return !(*this == Other);
+	}
+
+	FName GetType() const
+	{
+		return IsValid() ? UniqueNetId->GetType() : NAME_None;
 	}
 	
 	/** Convert this value to a string */
@@ -257,9 +298,9 @@ public:
 	}
 
 	/** Convert this value to a string with additional information */
-	virtual FString ToDebugString() const
+	FString ToDebugString() const
 	{
-		return IsValid() ? UniqueNetId->ToDebugString() : TEXT("INVALID");
+		return IsValid() ? FString::Printf(TEXT("%s:%s"), *UniqueNetId->GetType().ToString(), *UniqueNetId->ToDebugString()) : TEXT("INVALID");
 	}
 
 	/** Is the FUniqueNetId wrapped in this object valid */
@@ -273,7 +314,7 @@ public:
 	 *
 	 * @param InUniqueNetId id to associate
 	 */
-	void SetUniqueNetId(const TSharedPtr<const FUniqueNetId>& InUniqueNetId)
+	virtual void SetUniqueNetId(const TSharedPtr<const FUniqueNetId>& InUniqueNetId)
 	{
 		UniqueNetId = InUniqueNetId;
 	}
@@ -314,7 +355,38 @@ public:
 			// If we hit this, something went wrong and we have received an unhashable wrapper.
 			return INDEX_NONE;
 		}
+	}
 
+	static FUniqueNetIdWrapper Invalid()
+	{
+		static FUniqueNetIdWrapper InvalidId(nullptr);
+		return InvalidId;
+	}
+
+	bool friend operator==(TSharedPtr<const FUniqueNetId> const& LHS, FUniqueNetIdWrapper const& RHS)
+	{
+		// Both invalid structs or both valid and deep comparison equality
+		bool bBothValid = RHS.IsValid() && LHS.IsValid() && LHS->IsValid();
+		bool bBothInvalid = !RHS.IsValid() && (!LHS.IsValid() || !LHS->IsValid());
+		return (bBothInvalid || (bBothValid && (*LHS == *RHS)));
+	}
+
+	bool friend operator==(TSharedRef<const FUniqueNetId> const& LHS, FUniqueNetIdWrapper const& RHS)
+	{
+		// Both invalid structs or both valid and deep comparison equality
+		bool bBothValid = RHS.IsValid() && LHS->IsValid();
+		bool bBothInvalid = !RHS.IsValid() && !LHS->IsValid();
+		return (bBothInvalid || (bBothValid && (*LHS == *RHS)));
+	}
+
+	bool friend operator!=(TSharedPtr<const FUniqueNetId> const& LHS, FUniqueNetIdWrapper const& RHS)
+	{
+		return !(LHS == RHS);
+	}
+
+	bool friend operator!=(TSharedRef<const FUniqueNetId> const& LHS, FUniqueNetIdWrapper const& RHS)
+	{
+		return !(LHS == RHS);
 	}
 
 protected:
@@ -322,3 +394,23 @@ protected:
 	// Actual unique id
 	TSharedPtr<const FUniqueNetId> UniqueNetId;
 };
+
+template <typename ValueType>
+struct TUniqueNetIdMapKeyFuncs : public TDefaultMapKeyFuncs<TSharedRef<const FUniqueNetId>, ValueType, false>
+{
+	static FORCEINLINE TSharedRef<const FUniqueNetId>	GetSetKey(TPair<TSharedRef<const FUniqueNetId>, ValueType> const& Element) { return Element.Key; }
+	static FORCEINLINE uint32							GetKeyHash(TSharedRef<const FUniqueNetId> const& Key) {	return GetTypeHash(*Key); }
+	static FORCEINLINE bool								Matches(TSharedRef<const FUniqueNetId> const& A, TSharedRef<const FUniqueNetId> const& B) { return (A == B) || (*A == *B); }
+};
+
+template <typename ValueType>
+using TUniqueNetIdMap = TMap<TSharedRef<const FUniqueNetId>, ValueType, FDefaultSetAllocator, TUniqueNetIdMapKeyFuncs<ValueType>>;
+
+struct FUniqueNetIdKeyFuncs : public DefaultKeyFuncs<TSharedRef<const FUniqueNetId>>
+{
+	static FORCEINLINE TSharedRef<const FUniqueNetId>	GetSetKey(TSharedRef<const FUniqueNetId> const& Element) { return Element; }
+	static FORCEINLINE uint32							GetKeyHash(TSharedRef<const FUniqueNetId> const& Key) { return GetTypeHash(*Key); }
+	static FORCEINLINE bool								Matches(TSharedRef<const FUniqueNetId> const& A, TSharedRef<const FUniqueNetId> const& B) { return (A == B) || (*A == *B); }
+};
+
+using FUniqueNetIdSet = TSet<TSharedRef<const FUniqueNetId>, FUniqueNetIdKeyFuncs>;

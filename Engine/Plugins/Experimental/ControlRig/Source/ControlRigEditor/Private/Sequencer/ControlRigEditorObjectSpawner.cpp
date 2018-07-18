@@ -5,7 +5,7 @@
 #include "MovieScene.h"
 #include "MovieSceneSpawnable.h"
 #include "IMovieScenePlayer.h"
-#include "ControlRigBindingTrack.h"
+#include "Sequencer/ControlRigBindingTrack.h"
 #include "Sections/MovieSceneSpawnSection.h"
 #include "ISequencer.h"
 #include "ControlRigEditMode.h"
@@ -14,6 +14,20 @@
 
 #define LOCTEXT_NAMESPACE "ControlRigEditorObjectSpawner"
 
+FControlRigEditorObjectSpawner::FControlRigEditorObjectSpawner()
+	: FControlRigObjectSpawner()
+{
+#if WITH_EDITOR
+	GEditor->OnObjectsReplaced().AddRaw(this, &FControlRigEditorObjectSpawner::OnObjectsReplaced);
+#endif
+}
+
+FControlRigEditorObjectSpawner::~FControlRigEditorObjectSpawner()
+{
+#if WITH_EDITOR
+	GEditor->OnObjectsReplaced().RemoveAll(this);
+#endif
+}
 TSharedRef<IMovieSceneObjectSpawner> FControlRigEditorObjectSpawner::CreateObjectSpawner()
 {
 	return MakeShareable(new FControlRigEditorObjectSpawner);
@@ -61,7 +75,7 @@ TValueOrError<FNewSpawnable, FText> FControlRigEditorObjectSpawner::CreateNewSpa
 	return MakeError(FText());
 }
 
-void FControlRigEditorObjectSpawner::SetupDefaultsForSpawnable(UObject* SpawnedObject, const FGuid& Guid, const FTransformData& TransformData, TSharedRef<ISequencer> Sequencer, USequencerSettings* Settings)
+void FControlRigEditorObjectSpawner::SetupDefaultsForSpawnable(UObject* SpawnedObject, const FGuid& Guid, const TOptional<FTransformData>& TransformData, TSharedRef<ISequencer> Sequencer, USequencerSettings* Settings)
 {
 	UMovieScene* OwnerMovieScene = Sequencer->GetFocusedMovieSceneSequence()->GetMovieScene();
 
@@ -75,13 +89,36 @@ void FControlRigEditorObjectSpawner::SetupDefaultsForSpawnable(UObject* SpawnedO
 	if (BindingTrack)
 	{
 		UMovieSceneSpawnSection* SpawnSection = Cast<UMovieSceneSpawnSection>(BindingTrack->CreateNewSection());
-		SpawnSection->SetDefault(true);
-		SpawnSection->SetIsInfinite(Sequencer->GetInfiniteKeyAreas());
+		SpawnSection->GetChannel().SetDefault(1);
+		if (Sequencer->GetInfiniteKeyAreas())
+		{
+			SpawnSection->SetRange(TRange<FFrameNumber>::All());
+		}
 		BindingTrack->AddSection(*SpawnSection);
 		BindingTrack->SetObjectId(Guid);
 	}
 }
 
+void FControlRigEditorObjectSpawner::OnObjectsReplaced(const TMap<UObject*, UObject*>& OldToNewInstanceMap)
+{
+	if (ObjectHolderPtr.IsValid())
+	{
+		for (int32 Index = 0; Index < ObjectHolderPtr->Objects.Num(); ++Index)
+		{
+			const UObject* CurrentObject = ObjectHolderPtr->Objects[Index];
+			UObject* const* NewFound = OldToNewInstanceMap.Find(CurrentObject);
+
+			if (NewFound)
+			{
+				UControlRig* ControlRig = Cast<UControlRig>(*NewFound);
+				if (ControlRig)
+				{
+					ControlRig->PostReinstanceCallback(CastChecked<const UControlRig>(CurrentObject));
+				}
+			}
+		}
+	}
+}
 #endif	// #if WITH_EDITOR
 
 #undef LOCTEXT_NAMESPACE

@@ -24,6 +24,7 @@ class FDebugDisplayInfo;
 class FNetworkPredictionData_Server_Character;
 class FSavedMove_Character;
 class UPrimitiveComponent;
+class INavigationData;
 class UCharacterMovementComponent;
 
 DECLARE_DELEGATE_RetVal_TwoParams(FTransform, FOnProcessRootMotion, const FTransform&, UCharacterMovementComponent*)
@@ -485,6 +486,14 @@ public:
 	 */
 	UPROPERTY(Category="Character Movement (Networking)", EditDefaultsOnly)
 	uint32 bNetworkSkipProxyPredictionOnNetUpdate:1;
+
+	/**
+	 * Flag used on the server to determine whether to always replicate ReplicatedServerLastTransformUpdateTimeStamp to clients.
+	 * Normally this is only sent when the network smoothing mode on character movement is set to Linear smoothing (on the server), to save bandwidth.
+	 * Setting this to true will force the timestamp to replicate regardless, in case the server doesn't know about the smoothing mode, or if the timestamp is used for another purpose.
+	 */
+	UPROPERTY(Category="Character Movement (Networking)", EditDefaultsOnly, AdvancedDisplay)
+	uint32 bNetworkAlwaysReplicateTransformUpdateTimestamp:1;
 
 public:
 
@@ -1409,10 +1418,10 @@ public:
 	virtual void ClearAccumulatedForces();
 
 	/** Update the character state in PerformMovement right before doing the actual position change */
-	virtual void UpdateCharacterStateBeforeMovement();
+	virtual void UpdateCharacterStateBeforeMovement(float DeltaSeconds);
 
 	/** Update the character state in PerformMovement after the position change. Some rotation updates happen after this. */
-	virtual void UpdateCharacterStateAfterMovement();
+	virtual void UpdateCharacterStateAfterMovement(float DeltaSeconds);
 
 	/** 
 	 * Handle start swimming functionality
@@ -1497,7 +1506,7 @@ protected:
 	virtual void SetNavWalkingPhysics(bool bEnable);
 
 	/** Get Navigation data for the Character. Returns null if there is no associated nav data. */
-	const class ANavigationData* GetNavData() const;
+	const class INavigationDataInterface* GetNavData() const;
 
 	/** 
 	 * Checks to see if the current location is not encroaching blocking geometry so the character can leave NavWalking.
@@ -1801,7 +1810,7 @@ public:
 	* @param FloorResult			Result of the floor check
 	*/
 	UFUNCTION(BlueprintCallable, Category="Pawn|Components|CharacterMovement", meta=(DisplayName="FindFloor", ScriptName="FindFloor"))
-	void K2_FindFloor(FVector CapsuleLocation, FFindFloorResult& FloorResult) const;
+	virtual void K2_FindFloor(FVector CapsuleLocation, FFindFloorResult& FloorResult) const;
 
 	/**
 	 * Compute distance to the floor from bottom sphere of capsule and store the result in OutFloorResult.
@@ -1830,7 +1839,7 @@ public:
 	* @param FloorResult			Result of the floor check
 	*/
 	UFUNCTION(BlueprintCallable, Category="Pawn|Components|CharacterMovement", meta=(DisplayName="ComputeFloorDistance", ScriptName="ComputeFloorDistance"))
-	void K2_ComputeFloorDist(FVector CapsuleLocation, float LineDistance, float SweepDistance, float SweepRadius, FFindFloorResult& FloorResult) const;
+	virtual void K2_ComputeFloorDist(FVector CapsuleLocation, float LineDistance, float SweepDistance, float SweepRadius, FFindFloorResult& FloorResult) const;
 
 	/**
 	 * Sweep against the world and return the first blocking hit.
@@ -2128,7 +2137,12 @@ public:
 		!! ServerData.CurrentClientTimeStamp can be reset !!
 		@returns true if TimeStamp is valid, or false if it has expired. */
 	virtual bool VerifyClientTimeStamp(float TimeStamp, FNetworkPredictionData_Server_Character & ServerData);
+
 protected:
+
+	/** Clock time on the server of the last timestamp reset. */
+	float LastTimeStampResetServerTime;
+
 	/** Internal const check for client timestamp validity without side-effects. 
 	  * @see VerifyClientTimeStamp */
 	bool IsClientTimeStampValid(float TimeStamp, const FNetworkPredictionData_Server_Character& ServerData, bool& bTimeStampResetDetected) const;
@@ -2338,6 +2352,12 @@ public:
 
 	virtual void FlushServerMoves();
 
+	/** 
+	 * When moving the character, we should inform physics as to whether we are teleporting.
+	 * This allows physics to avoid injecting forces into simulations from client corrections (etc.)
+	 */
+	ETeleportType GetTeleportType() const;
+
 protected:
 
 	/** called in Tick to update data in RVO avoidance manager */
@@ -2407,6 +2427,8 @@ public:
 	FSavedMove_Character();
 	virtual ~FSavedMove_Character();
 
+	ACharacter* CharacterOwner;
+
 	uint32 bPressedJump:1;
 	uint32 bWantsToCrouch:1;
 	uint32 bForceMaxAccel:1;
@@ -2417,15 +2439,21 @@ public:
 	/** If true this move is using an old TimeStamp, before a reset occurred. */
 	uint32 bOldTimeStampBeforeReset:1;
 
+	uint32 bWasJumping:1;
+
 	float TimeStamp;    // Time of this move.
 	float DeltaTime;    // amount of time for this move
 	float CustomTimeDilation;
 	float JumpKeyHoldTime;
+	float JumpForceTimeRemaining;
 	int32 JumpMaxCount;
 	int32 JumpCurrentCount;
-	uint8 MovementMode;	// packed movement mode
+	
+	DEPRECATED_FORGAME(4.20, "This property is deprecated, use StartPackedMovementMode or EndPackedMovementMode instead.")
+	uint8 MovementMode;
 
 	// Information at the start of the move
+	uint8 StartPackedMovementMode;
 	FVector StartLocation;
 	FVector StartRelativeLocation;
 	FVector StartVelocity;
@@ -2437,8 +2465,11 @@ public:
 	float StartCapsuleHalfHeight;
 	TWeakObjectPtr<UPrimitiveComponent> StartBase;
 	FName StartBoneName;
+	uint32 StartActorOverlapCounter;
+	uint32 StartComponentOverlapCounter;
 
 	// Information after the move has been performed
+	uint8 EndPackedMovementMode;
 	FVector SavedLocation;
 	FRotator SavedRotation;
 	FVector SavedVelocity;
@@ -2446,8 +2477,11 @@ public:
 	FRotator SavedControlRotation;
 	TWeakObjectPtr<UPrimitiveComponent> EndBase;
 	FName EndBoneName;
+	uint32 EndActorOverlapCounter;
+	uint32 EndComponentOverlapCounter;
 
 	FVector Acceleration;
+	float MaxSpeed;
 
 	// Cached to speed up iteration over IsImportantMove().
 	FVector AccelNormal;
@@ -2465,6 +2499,8 @@ public:
 	float AccelMagThreshold;	
 	/** Threshold for deciding if we can combine two moves, true if cosine of angle between them is <= this. */
 	float AccelDotThresholdCombine;
+	/** Client saved moves will not combine if the result of GetMaxSpeed() differs by this much between moves. */
+	float MaxSpeedThresholdCombine;
 	
 	/** Clear saved move properties, so it can be re-used. */
 	virtual void Clear();
@@ -2491,7 +2527,10 @@ public:
 	virtual void PostUpdate(ACharacter* C, EPostUpdateMode PostUpdateMode);
 	
 	/** @Return true if this move can be combined with NewMove for replication without changing any behavior */
-	virtual bool CanCombineWith(const FSavedMovePtr& NewMove, ACharacter* InPawn, float MaxDelta) const;
+	virtual bool CanCombineWith(const FSavedMovePtr& NewMove, ACharacter* InCharacter, float MaxDelta) const;
+
+	/** Combine this move with an older move and update relevant state. */
+	virtual void CombineWith(const FSavedMove_Character* OldMove, ACharacter* InCharacter, APlayerController* PC, const FVector& OldStartLocation);
 	
 	/** Called before ClientUpdatePosition uses this SavedMove to make a predictive correction	 */
 	virtual void PrepMoveFor(ACharacter* C);

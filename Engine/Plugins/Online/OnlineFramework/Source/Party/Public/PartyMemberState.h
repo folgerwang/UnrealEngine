@@ -29,7 +29,7 @@ struct FPartyMemberRepState
 /**
  * Main representation of a party member
  */
-UCLASS(config = Game, notplaceable)
+UCLASS(config = Game, notplaceable, Within=PartyGameState)
 class PARTY_API UPartyMemberState : public UObject
 {
 	GENERATED_UCLASS_BODY()

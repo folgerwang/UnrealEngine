@@ -9,6 +9,7 @@
 #include "Misc/CoreDelegates.h"
 #include "Engine/Texture.h"
 #include "HeadMountedDisplayBase.h"
+#include "SceneUtils.h" // for SCOPED_DRAW_EVENT()
 
 
 FDefaultSpectatorScreenController::FDefaultSpectatorScreenController(FHeadMountedDisplayBase* InHMDDevice)
@@ -236,6 +237,7 @@ void FDefaultSpectatorScreenController::RenderSpectatorScreen_RenderThread(FRHIC
 
 	if (SpectatorScreenDelegate_RenderThread.IsBound())
 	{
+		SCOPED_DRAW_EVENT(RHICmdList, SpectatorScreen)
 		SpectatorScreenDelegate_RenderThread.Execute(RHICmdList, BackBuffer, SrcTexture, SpectatorScreenTexture_RenderThread, WindowSize);
 	}
 }

@@ -31,7 +31,7 @@
 #include "Materials/MaterialInstance.h"
 #include "MaterialUtilities.h"
 #include "Misc/ScopedSlowTask.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 #define LOCTEXT_NAMESPACE "MaterialEditorUtilities"
 
@@ -502,9 +502,9 @@ void FMaterialEditorUtilities::GetVisibleMaterialParametersFromExpression(
 
 			if (LayersExpression->bIsLayerGraphBuilt)
 			{
-				for (int32 LayerIndex = 0; LayerIndex < LayersExpression->LayerCallers.Num(); ++LayerIndex)
+				for (auto* Layer : LayersExpression->LayerCallers)
 				{
-					if (auto* Layer = LayersExpression->LayerCallers[LayerIndex])
+					if (Layer && Layer->MaterialFunction)
 					{
 						TUniquePtr<FGetVisibleMaterialParametersFunctionState> NewFunctionState = MakeUnique<FGetVisibleMaterialParametersFunctionState>(Layer);
 						FunctionStack.Push(NewFunctionState.Get());
@@ -515,9 +515,9 @@ void FMaterialEditorUtilities::GetVisibleMaterialParametersFromExpression(
 					}
 				}
 
-				for (int32 BlendIndex = 0; BlendIndex < LayersExpression->BlendCallers.Num(); ++BlendIndex)
+				for (auto* Blend : LayersExpression->BlendCallers)
 				{
-					if (auto* Blend = LayersExpression->BlendCallers[BlendIndex])
+					if (Blend && Blend->MaterialFunction)
 					{
 						TUniquePtr<FGetVisibleMaterialParametersFunctionState> NewFunctionState = MakeUnique<FGetVisibleMaterialParametersFunctionState>(Blend);
 						FunctionStack.Push(NewFunctionState.Get());

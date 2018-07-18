@@ -9,17 +9,17 @@
 #include "UObject/UObjectHash.h"
 #include "UObject/Class.h"
 #include "UObject/UnrealType.h"
-#include "ConfigCacheIni.h"
+#include "Misc/ConfigCacheIni.h"
 
 UFbxExportOption::UFbxExportOption(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 	FbxExportCompatibility = EFbxExportCompatibility::FBX_2013;
+	bASCII = false;
 	bForceFrontXAxis = false;
 	LevelOfDetail = true;
 	Collision = true;
 	VertexColor = true;
-	WeldedVertices = true; // By default we want to weld verts, but provide option to not weld
 	MapSkeletalMotionToRoot = false;
 }
 

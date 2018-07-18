@@ -6,7 +6,7 @@
 #include "ClothingSimulationFactory.h"
 #include "SimulationEditorExtenderNv.h"
 #include "ClothingAssetFactory.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "Features/IModularFeatures.h"
 
 IMPLEMENT_MODULE(FClothingSystemEditorModule, ClothingSystemEditor);

@@ -1,4 +1,5 @@
-﻿Availability:Public
+﻿INTSourceChangelist:3807090
+Availability:Public
 Title:モバイル プラットフォーム向けのライティング
 Crumbs:%ROOT%, Platforms, Platforms/Mobile
 Description:モバイル ゲーム向けのライティング設定
@@ -51,10 +52,10 @@ UE4 のモバイル プラットフォームでライトを使う場合、UE4 �
 
 	[OBJECT:ComparisonSlider]
 	[PARAM:before]
-	![Sphere Reflection Captures Off ](Reflection_Probes_Off.png)(w:800 h:473)
+	![Sphere Reflection Captures Off ](Reflection_Probes_Off.png)(w:800)
 	[/PARAM]
 	[PARAM:after]
-	![Sphere Reflection Captures On](Reflection_Probes_On.png)(w:800 h:473)
+	![Sphere Reflection Captures On](Reflection_Probes_On.png)(w:800)
 	[/PARAM]
 	[/OBJECT]
 
@@ -64,10 +65,10 @@ UE4 のモバイル プラットフォームでライトを使う場合、UE4 �
 
 		[OBJECT:ComparisonSlider]
 		[PARAM:before]
-		![Flat Normal Map ](Interesting_Normal_Map_00.png)(w:800 h:473)
+		![Flat Normal Map ](Interesting_Normal_Map_00.png)(w:800)
 		[/PARAM]
 		[PARAM:after]
-		![Rough Normal Map](Interesting_Normal_Map_01.png)(w:800 h:473)
+		![Rough Normal Map](Interesting_Normal_Map_01.png)(w:800)
 		[/PARAM]
 		[/OBJECT]
 
@@ -75,10 +76,10 @@ UE4 のモバイル プラットフォームでライトを使う場合、UE4 �
 
 		[OBJECT:ComparisonSlider]
 		[PARAM:before]
-		![Varying Roughness ](Interesting_Roughness_Map_00.png)(w:624 h:723)
+		![Varying Roughness ](Interesting_Roughness_Map_00.png)(w:624)
 		[/PARAM]
 		[PARAM:after]
-		![Flat Roughness](Interesting_Roughness_Map_01.png)(w:624 h:723)
+		![Flat Roughness](Interesting_Roughness_Map_01.png)(w:624)
 		[/PARAM]
 		[/OBJECT]
 
@@ -86,10 +87,10 @@ UE4 のモバイル プラットフォームでライトを使う場合、UE4 �
 
 		[OBJECT:ComparisonSlider]
 		[PARAM:before]
-		![Metallic Off](Metallic_Off.png)(w:341 h:600)
+		![Metallic Off](Metallic_Off.png)(w:341)
 		[/PARAM]
 		[PARAM:after]
-		![Metallic On](Metallic_On.png)(w:341 h:600)
+		![Metallic On](Metallic_On.png)(w:341)
 		[/PARAM]
 		[/OBJECT]
 
@@ -124,7 +125,7 @@ Stationary Directional Light (固定の指向性ライト) は、シーンの動
 * **シャドウ カラーの変更：** [Directional Light (指向性ライト)] > **[Light]** セクション > **[Modulated Shadow Color]** オプションを調整して、変調シャドウがキャストしたシャドウの色を変更できます。ゲームプレイまはたアートに合わせてシャドウの色を調節する場合に便利です。
 
 	[REGION:lightbox]
-	[![](Change_Mod_Shadow_Color.png)(w:771 h:252)](Change_Mod_Shadow_Color.png)
+	[![](Change_Mod_Shadow_Color.png)(w:771)](Change_Mod_Shadow_Color.png)
 	[/REGION]
 
 	[REGION:caption]

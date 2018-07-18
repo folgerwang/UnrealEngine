@@ -19,6 +19,12 @@ public:
 	UPROPERTY(EditAnywhere, Category = If)
 	TArray<FGuid> OutputVarGuids;
 
+	UPROPERTY(EditAnywhere, Category = If)
+	TArray<FGuid> InputAVarGuids;
+
+	UPROPERTY(EditAnywhere, Category = If)
+	TArray<FGuid> InputBVarGuids;
+
 	//~ Begin UObject Interface
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 	virtual void PostLoad() override;
@@ -35,10 +41,11 @@ public:
 	virtual bool RefreshFromExternalChanges() override;
 	//~ End UNiagaraNode Interface
 
+protected:
+
 	/** Helper function to create a variable to add to the OutputVars and FGuid to add to OutputVarGuids. */
 	FGuid AddOutput(FNiagaraTypeDefinition Type, const FName& Name);
 
-protected:
 	//~ Begin EdGraphNode Interface
 	virtual void OnPinRemoved(UEdGraphPin* PinToRemove) override;
 	//~ End EdGraphNode Interface
@@ -51,4 +58,8 @@ protected:
 	virtual bool CanMovePin(const UEdGraphPin* Pin) const override { return false; }
 	virtual bool AllowNiagaraTypeForAddPin(const FNiagaraTypeDefinition& InType) override;
 	//~ End UNiagaraNodeWithDynamicPins Interface
+
+private:
+	static const FString InputAPinSuffix;
+	static const FString InputBPinSuffix;
 };

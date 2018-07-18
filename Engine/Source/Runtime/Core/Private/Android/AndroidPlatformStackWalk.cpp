@@ -4,7 +4,7 @@
 	AndroidPlatformStackWalk.cpp: Android implementations of stack walk functions
 =============================================================================*/
 
-#include "AndroidPlatformStackWalk.h"
+#include "Android/AndroidPlatformStackWalk.h"
 #include "HAL/PlatformMemory.h"
 #include "Misc/CString.h"
 #include <unwind.h>
@@ -20,6 +20,8 @@ void FAndroidPlatformStackWalk::ProgramCounterToSymbolInfo(uint64 ProgramCounter
 	{
 		return;
 	}
+
+	out_SymbolInfo.ProgramCounter = ProgramCounter;
 
 	int32 Status = 0;
 	ANSICHAR* DemangledName = NULL;
@@ -50,7 +52,7 @@ void FAndroidPlatformStackWalk::ProgramCounterToSymbolInfo(uint64 ProgramCounter
 	// TODO open libUE4.so from the apk and get the DWARF-2 data.
 	FCStringAnsi::Strcat(out_SymbolInfo.Filename, "Unknown");
 	out_SymbolInfo.LineNumber = 0;
-	
+
 	// Offset of the symbol in the module, eg offset into libUE4.so needed for offline addr2line use.
 	out_SymbolInfo.OffsetInModule = ProgramCounter - (uint64)DylibInfo.dli_fbase;
 
@@ -77,13 +79,19 @@ namespace AndroidStackWalkHelpers
 	{
 		uint32* DepthPtr = (uint32*)InDepthPtr;
 
-		if (*DepthPtr < MaxDepth)
+		// stop if filled the buffer
+		if (*DepthPtr >= MaxDepth)
 		{
-			BackTrace[*DepthPtr] = (uint64)_Unwind_GetIP(Context);
+			return _Unwind_Reason_Code::_URC_END_OF_STACK;
 		}
 
-		(*DepthPtr)++;
-		return (_Unwind_Reason_Code)0;
+		uint64 ip = (uint64)_Unwind_GetIP(Context);
+		if (ip)
+		{
+			BackTrace[*DepthPtr] = ip;
+			(*DepthPtr)++;
+		}
+		return _Unwind_Reason_Code::_URC_NO_REASON;
 	}
 }
 
@@ -116,4 +124,78 @@ uint32 FAndroidPlatformStackWalk::CaptureStackBackTrace(uint64* BackTrace, uint3
 	uint32 Depth = 0;
 	_Unwind_Backtrace(AndroidStackWalkHelpers::BacktraceCallback, &Depth);
 	return Depth;
+}
+
+bool FAndroidPlatformStackWalk::SymbolInfoToHumanReadableString(const FProgramCounterSymbolInfo& SymbolInfo, ANSICHAR* HumanReadableString, SIZE_T HumanReadableStringSize)
+{
+	const int32 MAX_TEMP_SPRINTF = 256;
+
+	//
+	// Callstack lines should be written in this standard format
+	//
+	//	0xaddress module!func [file]
+	// 
+	// E.g. 0x045C8D01 (0x00009034) OrionClient.self!UEngine::PerformError() [D:\Epic\Orion\Engine\Source\Runtime\Engine\Private\UnrealEngine.cpp:6481]
+	//
+	// Module may be omitted, everything else should be present, or substituted with a string that conforms to the expected type
+	//
+	// E.g 0x00000000 (0x00000000) UnknownFunction []
+	//
+	// 
+	if (HumanReadableString && HumanReadableStringSize > 0)
+	{
+		ANSICHAR StackLine[MAX_SPRINTF] = { 0 };
+
+		// Strip module path.
+		const ANSICHAR* Pos0 = FCStringAnsi::Strrchr(SymbolInfo.ModuleName, '\\');
+		const ANSICHAR* Pos1 = FCStringAnsi::Strrchr(SymbolInfo.ModuleName, '/');
+		const UPTRINT RealPos = FMath::Max((UPTRINT)Pos0, (UPTRINT)Pos1);
+		const ANSICHAR* StrippedModuleName = RealPos > 0 ? (const ANSICHAR*)(RealPos + 1) : SymbolInfo.ModuleName;
+
+		// Start with address
+		ANSICHAR PCAddress[MAX_TEMP_SPRINTF] = { 0 };
+		FCStringAnsi::Snprintf(PCAddress, MAX_TEMP_SPRINTF, "0x%016llX ", SymbolInfo.ProgramCounter);
+		FCStringAnsi::Strncat(StackLine, PCAddress, MAX_SPRINTF);
+		FCStringAnsi::Snprintf(PCAddress, MAX_TEMP_SPRINTF, "(0x%016llX) ", SymbolInfo.OffsetInModule);
+		FCStringAnsi::Strncat(StackLine, PCAddress, MAX_SPRINTF);
+
+		// Module if it's present
+		const bool bHasValidModuleName = FCStringAnsi::Strlen(StrippedModuleName) > 0;
+		if (bHasValidModuleName)
+		{
+			FCStringAnsi::Strncat(StackLine, StrippedModuleName, MAX_SPRINTF);
+			FCStringAnsi::Strncat(StackLine, "!", MAX_SPRINTF);
+		}
+
+		// Function if it's available, unknown if it's not
+		const bool bHasValidFunctionName = FCStringAnsi::Strlen(SymbolInfo.FunctionName) > 0;
+		if (bHasValidFunctionName)
+		{
+			FCStringAnsi::Strncat(StackLine, SymbolInfo.FunctionName, MAX_SPRINTF);
+		}
+		else
+		{
+			FCStringAnsi::Strncat(StackLine, "UnknownFunction", MAX_SPRINTF);
+		}
+
+		// file info
+		const bool bHasValidFilename = FCStringAnsi::Strlen(SymbolInfo.Filename) > 0 && SymbolInfo.LineNumber > 0;
+		if (bHasValidFilename)
+		{
+			ANSICHAR FilenameAndLineNumber[MAX_TEMP_SPRINTF] = { 0 };
+			FCStringAnsi::Snprintf(FilenameAndLineNumber, MAX_TEMP_SPRINTF, " [%s:%i]", SymbolInfo.Filename, SymbolInfo.LineNumber);
+			FCStringAnsi::Strncat(StackLine, FilenameAndLineNumber, MAX_SPRINTF);
+		}
+		else
+		{
+			FCStringAnsi::Strncat(StackLine, " []", MAX_SPRINTF);
+		}
+
+		// Append the stack line.
+		FCStringAnsi::Strncat(HumanReadableString, StackLine, HumanReadableStringSize);
+
+		// Return true, if we have a valid function name.
+		return bHasValidFunctionName;
+	}
+	return false;
 }

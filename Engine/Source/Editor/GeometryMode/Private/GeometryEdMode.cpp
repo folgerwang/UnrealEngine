@@ -5,7 +5,7 @@
 #include "Misc/FeedbackContext.h"
 #include "Modules/ModuleManager.h"
 #include "EditorStyleSet.h"
-#include "EditorStyleSettings.h"
+#include "Classes/EditorStyleSettings.h"
 #include "Materials/Material.h"
 #include "Engine/Selection.h"
 #include "EditorModeManager.h"
@@ -1098,7 +1098,7 @@ bool FModeTool_GeometryModify::BoxSelect( FBox& InBox, bool InSelect )
 }
 
 /** @return		true if something was selected/deselected, false otherwise. */
-bool FModeTool_GeometryModify::FrustumSelect( const FConvexVolume& InFrustum, bool InSelect /* = true */ )
+bool FModeTool_GeometryModify::FrustumSelect( const FConvexVolume& InFrustum, FEditorViewportClient* InViewportClient, bool InSelect /* = true */ )
 {
 	bool bResult = false;
 	if( GLevelEditorModeTools().IsModeActive( FBuiltinEditorModes::EM_Geometry ) )

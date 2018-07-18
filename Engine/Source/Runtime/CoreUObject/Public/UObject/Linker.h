@@ -28,8 +28,9 @@ struct FCompressedChunk
 	/** Compressed size in bytes.				*/
 	int32		CompressedSize;
 
-	/** I/O function */
-	friend COREUOBJECT_API FArchive& operator<<(FArchive& Ar,FCompressedChunk& Chunk);
+	/** I/O functions */
+	friend COREUOBJECT_API FArchive& operator<<(FArchive& Ar, FCompressedChunk& Chunk);
+	friend COREUOBJECT_API void operator<<(FStructuredArchive::FSlot Slot, FCompressedChunk& Chunk);
 };
 
 
@@ -160,6 +161,7 @@ public:
 
 	/** Serializes the searchable name map */
 	COREUOBJECT_API void SerializeSearchableNamesMap(FArchive &Ar);
+	COREUOBJECT_API void SerializeSearchableNamesMap(FStructuredArchive::FSlot Slot);
 };
 
 
@@ -562,7 +564,7 @@ COREUOBJECT_API void DeleteLoaders();
 /** Queues linker for deletion */
 COREUOBJECT_API void DeleteLoader(FLinkerLoad* Loader);
 
-COREUOBJECT_API FLinkerLoad* GetPackageLinker(UPackage* InOuter, const TCHAR* InLongPackageName, uint32 LoadFlags, UPackageMap* Sandbox, FGuid* CompatibleGuid);
+COREUOBJECT_API FLinkerLoad* GetPackageLinker(UPackage* InOuter, const TCHAR* InLongPackageName, uint32 LoadFlags, UPackageMap* Sandbox, FGuid* CompatibleGuid, FArchive* InReaderOverride = nullptr);
 COREUOBJECT_API FString GetPrestreamPackageLinkerName(const TCHAR* InLongPackageName, bool bExistSkip = true);
 
 

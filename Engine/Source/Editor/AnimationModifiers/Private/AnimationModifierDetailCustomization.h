@@ -3,7 +3,7 @@
 #pragma once
 
 #include "IDetailCustomization.h"
-#include "Reply.h"
+#include "Input/Reply.h"
 class SButton;
 class UAnimationModifier;
 

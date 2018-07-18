@@ -16,8 +16,8 @@
 #include "GPUSkinVertexFactory.h"
 #include "SkeletalRenderPublic.h"
 #include "ClothingSystemRuntimeTypes.h"
-#include "SkeletalMeshRenderData.h"
-#include "SkeletalMeshLODRenderData.h"
+#include "Rendering/SkeletalMeshRenderData.h"
+#include "Rendering/SkeletalMeshLODRenderData.h"
 
 class FGPUSkinCache;
 
@@ -325,6 +325,8 @@ public:
 		FSkeletalMeshVertexClothBuffer*	APEXClothVertexBuffer = nullptr;
 		uint32 NumVertices = 0;
 	};
+
+	virtual void RefreshClothingTransforms(const FMatrix& InNewLocalToWorld, uint32 FrameNumber) override;
 
 private:
 

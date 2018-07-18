@@ -5,8 +5,8 @@
 #include "AutomationDriverTypeDefs.h"
 #include "SAutomationDriverSpecSuite.h"
 #include "AutomationDriverSpecSuiteViewModel.h"
-#include "Ticker.h"
-#include "Async.h"
+#include "Containers/Ticker.h"
+#include "Async/Async.h"
 #include "Framework/Application/SlateApplication.h"
 
 #define TEST_TRUE(expression) \

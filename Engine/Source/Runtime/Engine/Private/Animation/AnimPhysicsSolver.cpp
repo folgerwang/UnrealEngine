@@ -40,6 +40,9 @@ DEFINE_STAT(STAT_AnimDynamicsVelocityInit);
 DEFINE_STAT(STAT_AnimDynamicsPoseUpdate);
 DEFINE_STAT(STAT_AnimDynamicsLimitUpdate);
 
+#define ENABLE_ANIMDYNAMICS_STATS 0
+
+
 //////////////////////////////////////////////////////////////////////////
 // FAnimPhysShape - Defines a set of vertices that make a shape with volume and CoM
 
@@ -927,7 +930,9 @@ void FAnimPhys::PhysicsUpdate(float DeltaTime, TArray<FAnimPhysRigidBody*>& Bodi
 	for (int32 Iteration = 0; Iteration < NumPreIterations; ++Iteration)
 	{
 		{
+#if ENABLE_ANIMDYNAMICS_STATS
 			SCOPE_CYCLE_COUNTER(STAT_AnimDynamicsLinearPre);
+#endif
 			for(FAnimPhysLinearLimit& CurrentLimit : LinearLimits)
 			{
 				CurrentLimit.Iter(DeltaTime);
@@ -935,8 +940,10 @@ void FAnimPhys::PhysicsUpdate(float DeltaTime, TArray<FAnimPhysRigidBody*>& Bodi
 		}
 
 		{
+#if ENABLE_ANIMDYNAMICS_STATS
 			SCOPE_CYCLE_COUNTER(STAT_AnimDynamicsAngularPre);
-			for(FAnimPhysAngularLimit& CurrentLimit : AngularLimits)
+#endif
+			for (FAnimPhysAngularLimit& CurrentLimit : AngularLimits)
 			{
 				CurrentLimit.Iter(DeltaTime);
 			}

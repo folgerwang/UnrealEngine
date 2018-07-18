@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "ObjectMacros.h"
+#include "UObject/ObjectMacros.h"
 #include "UObject/Interface.h"
 #include "ControlRigInterface.generated.h"
 
@@ -22,15 +22,15 @@ public:
 	/**
 	 * Perform any per tick setup work
 	 */
-	virtual void PreEvaluate() = 0;
+	virtual void PreEvaluate_GameThread() = 0;
 
 	/**
-	 * Perform any work that this animation controller needs to do per-tick
+	 * Perform any work that this control rig needs to do per-tick
 	 */
-	virtual void Evaluate() = 0;
+	virtual void Evaluate_AnyThread() = 0;
 
 	/**
 	 * Perform any per tick finalization work
 	 */
-	virtual void PostEvaluate() = 0;
+	virtual void PostEvaluate_GameThread() = 0;
 };

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2723473
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:フォグシート＆ライトビーム
 Crumbs:%ROOT%, Resources, Resources/Showcases/BlueprintExamples
@@ -41,7 +41,7 @@ Fog Sheet ブループリントは、上記のとおり、スタティック メ
 
 ### ブループリントの設定
 
-| ブループリントの特性 | 目的 |
+|ブループリントの特性 |目的 |
 |---|---|
 | **Components List** | _Components List_ 内で作成されたコンポーネントのみが単一の Billboard Component で選択可能なアイコンのみを提供します。レベル内の配置に使用されます。 |
 | **Construction Script** | [INCLUDE:#FogSheetCS] |
@@ -60,7 +60,7 @@ Fog Sheet ブループリントは、上記のとおり、スタティック メ
 
 ![](BPVariables_FogSheet.png) ![](MaterialProperties_FogSheet.png)
 
-| プロパティ | 目的 |
+| プロパティ | 説明 |
 | --- | --- |
 |[REGION:tablesection]マテリアル[/REGION]||
 | **Color** | フォグ エフェクトの色です。 |
@@ -70,7 +70,7 @@ Fog Sheet ブループリントは、上記のとおり、スタティック メ
 | **Noise Projection Distance** | フォグ ノイズに対しデプス オフセットを提供します。 |
 | **Noise Size** | タイリングと同様です。値が高いほど、ノイズ テクスチャのタイル処理が少なくなります。 |
 | **Panning Speed** | ノイズ テクスチャがフォグ サーフェス上にパンされる速さです。 |
-| **Fade Distance** | プレイヤーの接近に伴いフォグが薄くなるプレイヤーとエフェクト間の距離です。こうすることで、プレイヤーはシート ジオメトリに気がつきません。 |
+| **Fade Distance** | プレイヤーの接近に伴いフォグが薄くなるプレイヤーとエフェクト間の距離です。プレイヤーがシート ジオメトリに気がつかないようにします。 |
 |[REGION:tablesection]BP Fog Sheet[/REGION]||
 | **Size** | フォグ シートの表示に使用するシートメッシュのサイズを制御します。 |
 
@@ -99,10 +99,10 @@ Light Beam ブループリントは、ある光源の回転を追うことがで
 
 ### ブループリントの設定
 
-このブループリントのコンポーネントリスト、コンストラクション スクリプト、そしてイベントグラフは以下のタスクを実行します。
+このブループリントのコンポーネント リスト、コンストラクション スクリプト、そしてイベント グラフは以下のタスクを実行します。
 
 
-| ブループリントの特性 | 目的 |
+|ブループリントの特性 |目的 |
 |---|---|
 | **Components List** | _Components List_ 内で作成されたコンポーネントのみが単一の Billboard Component で選択可能なアイコンのみを提供します。レベル内の配置に使用されます。 |
 | **Construction Script** | [INCLUDE:#LightBeamCS] |
@@ -115,7 +115,7 @@ Light Beam ブループリントは、ある光源の回転を追うことがで
 
 ![](LightRay_Variables.png) ![](LightRay_Properties.png)
 
-| プロパティ | 目的 |
+| プロパティ | 説明 |
 | --- | --- |
 |[REGION:tablesection]Light Beam[/REGION]||
 | **Light** | ライトビームに追わせたい光源を追加します。 |
@@ -134,7 +134,7 @@ Light Beam ブループリントは、ある光源の回転を追うことがで
 
 
 [COMMENT:none]
---------EXCERPTS---------------
+
 
 [EXCERPT:FogSheetCS]
 _コンストラクション スクリプト_ は以下のタスクを実行します。
@@ -157,5 +157,5 @@ _コンストラクション スクリプト_ は以下のタスクを実行し�
 
 
 
------------/EXCERPTS-----------
+
 [/COMMENT]

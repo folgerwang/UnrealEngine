@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3429249
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:シーケンサー クイック スタート
 Crumbs: %ROOT%, Engine
@@ -6,7 +6,7 @@ Description:UE4 でシーケンサー エディタの作業を開始するため
 Navigation:topic
 parent:Engine/Sequencer
 order:1
-Version:4.12
+Version:4.18
 type:quick start
 checkpoint:sequencerqs
 tags:Sequencer
@@ -14,24 +14,29 @@ tags:Getting Started
 topic-image:sequencerQS_topic.png
 
 [OBJECT:EmbeddedVideo]
-[PARAMLITERAL:width]
-640
-[/PARAMLITERAL]
-[PARAMLITERAL:height]
-360
-[/PARAMLITERAL]
-[PARAMLITERAL:videoid]
-Z2E4lcodFww
-[/PARAMLITERAL]
+	[PARAMLITERAL:videoid]
+	8d-iuJFT9uM
+	[/PARAMLITERAL]
+	[PARAMLITERAL:width]
+	100
+	[/PARAMLITERAL]
+	[PARAMLITERAL:height]
+	56.25
+	[/PARAMLITERAL]
+	[PARAMLITERAL:units]
+	%
+	[/PARAMLITERAL]
+	[PARAMLITERAL:type]
+	simple
+	[/PARAMLITERAL]
 [/OBJECT]
+
 
 _このガイドを終える頃には、上の画面のようなシーンが出来上がります。_
 
 ## 目標
 
 このガイドでは、UE4 でシネマティックス作成の基礎を学びます。 
-
-シーケンサーを初めて使う場合には、このガイドがお勧めです。 
 
 ## 目的
 
@@ -45,19 +50,9 @@ _このガイドを終える頃には、上の画面のようなシーンが出�
 *	シネマティックスのショットとテイクの作成と使用の方法
 
 
-[OBJECT:TopicList]
-	[PARAM:icon]
-		![](%ROOT%/build_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		ステップ
-	[/PARAM]
-	[PARAM:description]
-	[/PARAM]
-	[PARAM:links]
-	[DIR(output:"checkpoint" parent:"Engine/Sequencer/QuickStart" org:"hierarchy")]
-	[/PARAM]
-[/OBJECT]
+## ステップ
+
+[DIR(output:"checkpoint" parent:"Engine/Sequencer/QuickStart" org:"hierarchy")]
 
 [REGION:call_to_action]
 	[クリックして開始](Engine/Sequencer/QuickStart/1 "%Engine/Sequencer/QuickStart/1:title%")

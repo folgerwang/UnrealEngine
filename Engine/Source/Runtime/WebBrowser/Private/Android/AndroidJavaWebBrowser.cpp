@@ -1,7 +1,10 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AndroidJavaWebBrowser.h"
-#include "AndroidApplication.h"
+
+#if USE_ANDROID_JNI
+
+#include "Android/AndroidApplication.h"
 
 #if UE_BUILD_SHIPPING
 // always clear any exceptions in SHipping
@@ -217,4 +220,5 @@ void FJavaAndroidWebBrowser::SetAndroid3DBrowser(bool InIsAndroid3DBrowser)
 	CallMethod<void>(SetAndroid3DBrowserMethod, InIsAndroid3DBrowser);
 }
 
+#endif // USE_ANDROID_JNI
 

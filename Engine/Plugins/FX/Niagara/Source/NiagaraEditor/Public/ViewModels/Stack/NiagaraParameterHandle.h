@@ -19,7 +19,7 @@ public:
 
 	bool operator==(const FNiagaraParameterHandle& Other) const;
 
-	static FNiagaraParameterHandle CreateAliasedModuleParameterHandle(const FNiagaraParameterHandle& ModuleParameterHandle, UNiagaraNodeFunctionCall* ModuleNode);
+	static FNiagaraParameterHandle CreateAliasedModuleParameterHandle(const FNiagaraParameterHandle& ModuleParameterHandle, const UNiagaraNodeFunctionCall* ModuleNode);
 
 	static FNiagaraParameterHandle CreateEngineParameterHandle(const FNiagaraVariable& SystemVariable);
 
@@ -39,6 +39,8 @@ public:
 
 	const FName GetNamespace() const;
 
+	bool IsUserHandle() const;
+
 	bool IsEngineHandle() const;
 
 	bool IsSystemHandle() const;
@@ -49,6 +51,8 @@ public:
 
 	bool IsModuleHandle() const;
 
+	bool IsParameterCollectionHandle() const;
+
 public:
 	static const FName UserNamespace;
 	static const FName EngineNamespace;
@@ -56,6 +60,7 @@ public:
 	static const FName EmitterNamespace;
 	static const FName ParticleAttributeNamespace;
 	static const FName ModuleNamespace;
+	static const FName ParameterCollectionNamespace;
 	static const FString InitialPrefix;
 
 private:

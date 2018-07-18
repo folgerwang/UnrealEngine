@@ -74,6 +74,7 @@ type:how-to
 	![](camera_bp9.png)
 
 	ここでは、**Event Begin Play** (ゲーム開始時) に **Player Controller** Index 0 (デフォルト プレイヤー) のために **Set View Target with Blend** (視点のアングル) を、**CameraActor** (New View Target (新規ビュー ターゲット)) に設定することを表しています。 
+
 	**Set View Target with Blend** ノードのもう 1 つのオプションでは、徐々にブレンドし、使用するブレンドの種類やブレンドの制御に使用する Exponent を指定し、さらにブレンドのためにビューターゲットを固定することができます (ここではこれら全てデフォルトのままにしておきます)。  
 
 1.	**[Compile]** をクリックして終了し、ブループリント ウィンドウを閉じます。 

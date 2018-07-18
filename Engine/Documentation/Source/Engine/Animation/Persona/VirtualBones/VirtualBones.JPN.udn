@@ -39,20 +39,20 @@ order:100
 仮想ボーンをスケルタルメッシュのスケルトン ツリーに追加するには、以下の手順に従います。
 
 1. **[Skeleton Tree]** ウィンドウを使って、最初の接続点にするボーンを選択します。 
-	[REGION:lightbox]
 
+	[REGION:lightbox]
 	[![](Add_SelectBone.png)(w:600)](Add_SelectBone.png)
 	[/REGION]
 	[REGION:caption] クリックしてフルサイズ表示 [/REGION]
 
 1. 右クリックしてコンテキスト メニューを表示させて、リストから **[Add Virtual Bone]** を選択します。次に展開した **[Pick Target Bone...]** から、接続したいボーンを選択します。
-	[REGION:lightbox]
 
+	[REGION:lightbox]
 	[![](Add_AddVB_Target.png)(w:600)](Add_AddVB_Target.png)
 	[/REGION]
 	[REGION:caption] クリックしてフルサイズ表示 [/REGION]
-	[REGION:tip]
 
+	[REGION:tip]
 	スケルトンの階層を有効にして常に可視状態にすることができます。これを行うには、ビューポートで、 **Show** > **Bone** > **All Hierarchy** の順序で選択します。 
 	[/REGION]
 
@@ -101,14 +101,14 @@ order:100
 1. 仮想ボーンの名前を変更するには、以下の 3 種類の方法があります。 
 
 	* 右クリックしてコンテキスト メニューから **[Rename Virtual Bone]** を選択します。
-		![](Rename_ContextMenu.png)(w:400)
 
+		![](Rename_ContextMenu.png)(w:400)
 	* 仮想ボーンを選択した状態で **F2** キーを押します。
 	* または仮想ボーンの名前の上でダブルクリックします。
 
-	## 追加の資料
 
 
+## 追加の資料
 
 仮想ボーンの実際の使用に関する追加情報や提案、例えばリターゲットを簡単にする、コントローラー、方向、スロープのワープの参照フレームを変更するためにどのように使用するかについては 
 以下をご覧ください。 

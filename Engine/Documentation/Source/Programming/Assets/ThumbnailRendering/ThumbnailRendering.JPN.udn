@@ -3,7 +3,7 @@ Availability:Docs
 Title:サムネイル レンダリングの技術ガイド
 Crumbs: %ROOT%, Engine, Engine/UI, Programming
 Description:コンテンツ ブラウザ内でアセット タイプのサムネイルをレンダリングするプログラマー向けガイド
-バージョン：4.9
+Version: 4.9
 
 [REGION:todo]
 	このページはアンリアル エンジン 3 のドキュメントから転載され現在見直しがされています。古い情報が含まれる場合もありますので予めご了承ください。

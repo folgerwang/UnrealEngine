@@ -6,6 +6,7 @@
 #include "XmppConnection.h"
 #include "XmppStrophe/StropheConnection.h"
 #include "XmppStrophe/XmppStropheThread.h"
+#include "XmppStrophe/StropheWebsocketConnection.h"
 
 #include "Containers/Ticker.h"
 
@@ -69,10 +70,11 @@ public:
 
 	// XMPP Thread methods
 
-	void ReceiveConnectionStateChange(FStropheConnectionEvent Event);
-	void ReceiveConnectionError(const FStropheError& Error, FStropheConnectionEvent Event);
+	void ReceiveConnectionStateChange(EStropheConnectionEvent Event, bool bQueue = true);
+	void ReceiveConnectionError(const FStropheError& Error, EStropheConnectionEvent Event);
 	void ReceiveStanza(const FStropheStanza& Stanza);
 	void QueueNewLoginStatus(EXmppLoginStatus::Type NewStatus);
+	void ProcessLoginStatusChange(EXmppLoginStatus::Type NewLoginStatus);
 
 	/** Get our Context object */
 	const FStropheContext& GetContext() const { return StropheContext; }
@@ -87,8 +89,11 @@ protected:
 	/** Our XMPP thread that manages sending/receiving/sending events */
 	TUniquePtr<FXmppStropheThread> StropheThread;
 
+	/** If using websockets, use event driven websocket connection instead */
+	TUniquePtr<FStropheWebsocketConnection> WebsocketConnection;
+
 	/** Current login status */
-	volatile EXmppLoginStatus::Type LoginStatus;
+	TAtomic<EXmppLoginStatus::Type> LoginStatus;
 
 	/** Queue of login status changes processed on tick so that we do not miss processing any status changes */
 	TQueue<EXmppLoginStatus::Type> IncomingLoginStatusChanges;

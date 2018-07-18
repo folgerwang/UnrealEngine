@@ -129,7 +129,7 @@ namespace BuildPatchServices
 
 	bool FVerification::VerfiyFileSha(const FString& BuildFile, int64 BuildFileSize)
 	{
-		FSHAHashData BuildFileHash;
+		FSHAHash BuildFileHash;
 		bool bFoundHash = Manifest->GetFileHash(BuildFile, BuildFileHash);
 		checkf(bFoundHash, TEXT("Missing file hash from manifest."));
 		TFunction<void(float)> FileProgress = [this, &BuildFileSize, &BuildFile](float Progress)

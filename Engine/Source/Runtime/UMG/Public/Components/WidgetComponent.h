@@ -184,6 +184,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category=UserInterface)
 	void SetOwnerPlayer(ULocalPlayer* LocalPlayer);
 
+	/** @see bManuallyRedraw */
+	UFUNCTION(BlueprintCallable, Category=UserInterface)
+	void SetManuallyRedraw(bool bUseManualRedraw);
+
 	/** Gets the local player that owns this widget component. */
 	UFUNCTION(BlueprintCallable, Category=UserInterface)
 	ULocalPlayer* GetOwnerPlayer() const;
@@ -361,6 +365,13 @@ protected:
 	bool bWindowFocusable;
 
 	/**
+	 * Widget components that appear in the world will be gamma corrected by the 3D renderer.
+	 * In some cases, widget components are blitted directly into the backbuffer, in which case gamma correction should be enabled.
+	 */
+	UPROPERTY(EditAnywhere, Category = UserInterface, AdvancedDisplay)
+	bool bApplyGammaCorrection;
+
+	/**
 	 * The owner player for a widget component, if this widget is drawn on the screen, this controls
 	 * what player's screen it appears on for split screen, if not set, users player 0.
 	 */
@@ -474,5 +485,5 @@ protected:
 	static TSharedPtr<class FWidget3DHitTester> WidgetHitTester;
 
 	/** Helper class for drawing widgets to a render target. */
-	TSharedPtr<class FWidgetRenderer> WidgetRenderer;
+	class FWidgetRenderer* WidgetRenderer;
 };

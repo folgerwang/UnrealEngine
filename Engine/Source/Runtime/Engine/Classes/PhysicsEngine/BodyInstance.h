@@ -70,15 +70,6 @@ typedef TArray<physx::PxShape*, TInlineAllocator<NumInlinedPxShapeElements>> FIn
 
 ENGINE_API int32 FillInlinePxShapeArray_AssumesLocked(FInlinePxShapeArray& Array, const physx::PxRigidActor& RigidActor);
 
-/** Helper to fill FInlinePxShapeArray from a PxRigidActor. Returns number of shapes added. */
-DEPRECATED(4.16, "Please call FillInlinePxShapeArray_AssumesLocked and make sure you obtain the appropriate PhysX scene locks")
-inline int32 FillInlinePxShapeArray(FInlinePxShapeArray& Array, const physx::PxRigidActor& RigidActor)
-{
-	return FillInlinePxShapeArray_AssumesLocked(Array, RigidActor);
-}
-
-
-
 #endif // WITH_PHYSX
 
 UENUM(BlueprintType)
@@ -211,28 +202,6 @@ private:
 	UPROPERTY(EditAnywhere, Category=Custom)
 	TEnumAsByte<enum ECollisionChannel> ObjectType;
 
-public:
-	/** Current scale of physics - used to know when and how physics must be rescaled to match current transform of OwnerComponent. */
-	FVector Scale3D;
-
-	/////////
-	// COLLISION SETTINGS
-
-#if WITH_EDITORONLY_DATA
-	/** Types of objects that this physics objects will collide with. */
-	UPROPERTY() 
-	struct FCollisionResponseContainer ResponseToChannels_DEPRECATED;
-#endif // WITH_EDITORONLY_DATA
-
-private:
-
-	/** Collision Profile Name **/
-	UPROPERTY(EditAnywhere, Category=Custom)
-	FName CollisionProfileName;
-
-	/** Custom Channels for Responses*/
-	UPROPERTY(EditAnywhere, Category = Custom)
-	struct FCollisionResponse CollisionResponses;
 
 	/** Extra mask for filtering. Look at declaration for logic */
 	FMaskFilter MaskFilter;
@@ -269,6 +238,9 @@ public:
 	/**	Should 'Hit' events fire when this object collides during physics simulation. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Collision, meta = (DisplayName = "Simulation Generates Hit Events"))
 	uint8 bNotifyRigidBodyCollision : 1;
+
+	/**	Enable contact modification. Assumes custom contact modification has been provided (see FPhysXContactModifyCallback) */
+	uint8 bContactModification : 1;
 
 	/////////
 	// SIM SETTINGS
@@ -341,15 +313,24 @@ public:
 	UPROPERTY(EditAnywhere, Category = Physics, meta = (editcondition = "bSimulatePhysics", InlineEditConditionToggle))
 	uint8 bOverrideMaxAngularVelocity : 1;
 
-	/** When initializing dynamic instances their component or velocity can override the bStartAwake flag */
-	uint8 bWokenExternally : 1;
-
 	/**
 	* If true, this body will be put into the asynchronous physics scene. If false, it will be put into the synchronous physics scene.
 	* If the body is static, it will be placed into both scenes regardless of the value of bUseAsyncScene.
 	*/
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category = Physics)
 	uint8 bUseAsyncScene : 1;
+
+
+	/** 
+	 * @HACK:
+	 * These are ONLY used when the 'p.EnableDynamicPerBodyFilterHacks' CVar is set (disabled by default).
+	 * Some games need to dynamically modify collision per skeletal body. These provide game code a way to 
+	 * do that, until we're able to refactor how skeletal bodies work.
+	 */
+	uint8 bHACK_DisableCollisionResponse : 1;
+	/* By default, an owning skel mesh component will override the body's collision filter. This will disable that behavior. */
+	uint8 bHACK_DisableSkelComponentFilterOverriding : 1;
+
 protected:
 
 	/** Whether this body instance has its own custom MaxDepenetrationVelocity*/
@@ -360,8 +341,44 @@ protected:
 	UPROPERTY(EditAnywhere, Category = Physics, meta = (InlineEditConditionToggle))
 	uint8 bOverrideWalkableSlopeOnInstance : 1;
 
+	/** 
+	 * Internal flag to allow us to quickly check whether we should interpolate when substepping 
+	 * e.g. kinematic bodies that are QueryOnly do not need to interpolate as we will not be querying them
+	 * at a sub-position.
+	 * This is complicated by welding, where multiple the CollisionEnabled flag of the root must be considered.
+	 */
+	UPROPERTY()
+	uint8 bInterpolateWhenSubStepping : 1;
+
+	/** Whether we are pending a collision profile setup */
+	uint8 bPendingCollisionProfileSetup : 1;
+
 	uint8 bHasSharedShapes : 1;
 
+public:
+	/** Current scale of physics - used to know when and how physics must be rescaled to match current transform of OwnerComponent. */
+	FVector Scale3D;
+
+	/////////
+	// COLLISION SETTINGS
+
+#if WITH_EDITORONLY_DATA
+	/** Types of objects that this physics objects will collide with. */
+	UPROPERTY() 
+	struct FCollisionResponseContainer ResponseToChannels_DEPRECATED;
+#endif // WITH_EDITORONLY_DATA
+
+private:
+
+	/** Collision Profile Name **/
+	UPROPERTY(EditAnywhere, Category=Custom)
+	FName CollisionProfileName;
+
+	/** Custom Channels for Responses*/
+	UPROPERTY(EditAnywhere, Category = Custom)
+	struct FCollisionResponse CollisionResponses;
+
+protected:
 	/** The maximum velocity used to depenetrate this object*/
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category = Physics, meta = (editcondition = "bOverrideMaxDepenetrationVelocity", ClampMin = "0.0", UIMin = "0.0"))
 	float MaxDepenetrationVelocity;
@@ -374,13 +391,21 @@ protected:
 	/** The body setup holding the default body instance and its collision profile. */
 	TWeakObjectPtr<UBodySetup> ExternalCollisionProfileBodySetup;
 
+	/** Update the substepping interpolation flag */
+	void UpdateInterpolateWhenSubStepping();
+
 public:
+
+	/** Whether we should interpolate when substepping. @see bInterpolateWhenSubStepping */
+	bool ShouldInterpolateWhenSubStepping() const { return bInterpolateWhenSubStepping; }
 
 	/** Returns the mass override. See MassInKgOverride for documentation */
 	float GetMassOverride() const { return MassInKgOverride; }
 
 	/** Sets the mass override */
 	void SetMassOverride(float MassInKG, bool bNewOverrideMass = true);
+
+	bool GetRigidBodyState(FRigidBodyState& OutState);
 
 	/** 'Drag' force added to reduce linear movement */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Physics)
@@ -468,6 +493,10 @@ public:
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=Physics)
 	int32 PositionSolverIterationCount;
 
+	/** This physics body's solver iteration count for velocity. Increasing this will be more CPU intensive, but better stabilized. */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category = Physics)
+	int32 VelocitySolverIterationCount;
+
 public:
 
 #if WITH_PHYSX
@@ -482,22 +511,6 @@ public:
 
 	TSharedPtr<TArray<ANSICHAR>> CharDebugName;
 #endif	//WITH_PHYSX
-
-	/** Internal use. Physics-engine id of the actor used during serialization. Needs to be outside the ifdef for serialization purposes*/
-	UPROPERTY()
-	uint64 RigidActorSyncId;
-
-	/** Internal use. Physics-engine id of the actor used during serialization.  Needs to be outside the ifdef for serialization purposes*/
-	UPROPERTY()
-	uint64 RigidActorAsyncId;
-
-	/** This physics body's solver iteration count for velocity. Increasing this will be more CPU intensive, but better stabilized. */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category = Physics)
-	int32 VelocitySolverIterationCount;
-
-	/** Per instance data used to initialize dynamic instances */
-	/** Initial physx velocity to apply to dynamic instances */
-	FVector InitialLinearVelocity;
 
 	/** PrimitiveComponent containing this body.   */
 	TWeakObjectPtr<class UPrimitiveComponent> OwnerComponent;
@@ -573,9 +586,8 @@ public:
 	 *	@param BodySetup
 	 *	@param PrimitiveComp
 	 *	@param InRBScene
-	 *  @param PhysicsSerializer
 	 */
-	static void InitStaticBodies(const TArray<FBodyInstance*>& Bodies, const TArray<FTransform>& Transforms, UBodySetup* BodySetup, class UPrimitiveComponent* PrimitiveComp, class FPhysScene* InRBScene, class UPhysicsSerializer* PhysicsSerializer);
+	static void InitStaticBodies(const TArray<FBodyInstance*>& Bodies, const TArray<FTransform>& Transforms, UBodySetup* BodySetup, class UPrimitiveComponent* PrimitiveComp, class FPhysScene* InRBScene);
 
 	/** Obtains the appropriate PhysX scene lock for READING and executes the passed in lambda. */
 	void ExecuteOnPhysicsReadOnly(TFunctionRef<void()> Func) const;
@@ -760,21 +772,7 @@ public:
 	void AddForceAtPosition(const FVector& Force, const FVector& Position, bool bAllowSubstepping = true, bool bIsLocalForce = false);
 
 	/** Add a torque to this body */
-	DEPRECATED(4.18, "Use AddTorqueInRadians instead.")
-	inline void AddTorque(const FVector& Torque, bool bAllowSubstepping = true, bool bAccelChange = false)
-	{
-		AddTorqueInRadians(Torque, bAllowSubstepping, bAccelChange);
-	}
-
-	/** Add a torque to this body */
 	void AddTorqueInRadians(const FVector& Torque, bool bAllowSubstepping = true, bool bAccelChange = false);
-
-	/** Add a rotational impulse to this body */
-	DEPRECATED(4.18, "Use AddAngularImpulseInRadians instead.")
-	inline void AddAngularImpulse(const FVector& Impulse, bool bVelChange)
-	{
-		AddAngularImpulseInRadians(Impulse, bVelChange);
-	}
 
 	/** Add a rotational impulse to this body */
 	void AddAngularImpulseInRadians(const FVector& Impulse, bool bVelChange);
@@ -787,31 +785,10 @@ public:
 	void SetLinearVelocity(const FVector& NewVel, bool bAddToCurrent);
 
 	/** Set the angular velocity of this body */
-	DEPRECATED(4.18, "Use SetAngularVelocityInRadians instead - be sure to convert NewAngVel to radians first.")
-	inline void SetAngularVelocity(const FVector& NewAngVel, bool bAddToCurrent)
-	{
-		SetAngularVelocityInRadians(FMath::DegreesToRadians(NewAngVel), bAddToCurrent);
-	}
-
-	/** Set the angular velocity of this body */
 	void SetAngularVelocityInRadians(const FVector& NewAngVel, bool bAddToCurrent);
 
 	/** Set the maximum angular velocity of this body */
-	DEPRECATED(4.18, "Use SetMaxAngularVelocityInRadians instead - be sure to convert NewMaxAngVel to radians first.")
-	inline void SetMaxAngularVelocity(float NewMaxAngVel, bool bAddToCurrent, bool bUpdateOverrideMaxAngularVelocity = true)
-	{
-		SetMaxAngularVelocityInRadians(FMath::DegreesToRadians(NewMaxAngVel), bAddToCurrent, bUpdateOverrideMaxAngularVelocity);
-	}
-
-	/** Set the maximum angular velocity of this body */
 	void SetMaxAngularVelocityInRadians(float NewMaxAngVel, bool bAddToCurrent, bool bUpdateOverrideMaxAngularVelocity = true);
-
-	/** Get the maximum angular velocity of this body */
-	DEPRECATED(4.18, "Use GetMaxAngularVelocityInRadians instead - be sure to convert the return value to degrees if required.")
-	inline float GetMaxAngularVelocity() const
-	{
-		return FMath::RadiansToDegrees(GetMaxAngularVelocityInRadians());
-	}
 
 	/** Get the maximum angular velocity of this body */
 	float GetMaxAngularVelocityInRadians() const;
@@ -822,6 +799,8 @@ public:
 	void SetInstanceNotifyRBCollision(bool bNewNotifyCollision);
 	/** Enables/disables whether this body is affected by gravity. */
 	void SetEnableGravity(bool bGravityEnabled);
+	/** Enables/disables contact modification */
+	void SetContactModification(bool bNewContactModification);
 
 	/** Enable/disable Continuous Collidion Detection feature */
 	void SetUseCCD(bool bInUseCCD);
@@ -854,21 +833,7 @@ public:
 	FVector GetUnrealWorldVelocity_AssumesLocked() const;
 
 	/** Get current angular velocity in world space from physics body. */
-	DEPRECATED(4.18, "Use GetUnrealWorldAngularVelocityInRadians instead - be sure to convert the return value to degrees if required.")
-	inline FVector GetUnrealWorldAngularVelocity() const
-	{
-		return FMath::RadiansToDegrees(GetUnrealWorldAngularVelocityInRadians());
-	}
-
-	/** Get current angular velocity in world space from physics body. */
 	FVector GetUnrealWorldAngularVelocityInRadians() const;
-
-	/** Get current angular velocity in world space from physics body. */
-	DEPRECATED(4.18, "Use GetUnrealWorldAngularVelocityInRadians_AssumesLocked instead - be sure to convert the return value to degrees if required.")
-	inline FVector GetUnrealWorldAngularVelocity_AssumesLocked() const
-	{
-		return FMath::DegreesToRadians(GetUnrealWorldAngularVelocityInRadians_AssumesLocked());
-	}
 
 	/** Get current angular velocity in world space from physics body. */
 	FVector GetUnrealWorldAngularVelocityInRadians_AssumesLocked() const;
@@ -916,8 +881,17 @@ public:
 	ECollisionEnabled::Type GetCollisionEnabled() const;
 
 	/**  
-	 * Set Collision Profile Name
+	 * Set Collision Profile Name (deferred)
 	 * This function is called by constructors when they set ProfileName
+	 * This will change current CollisionProfileName, but collision data will not be set up until the physics state is created
+	 * or the collision profile is accessed.
+	 * @param InCollisionProfileName : New Profile Name
+	 */
+	void SetCollisionProfileNameDeferred(FName InCollisionProfileName);
+
+	/**  
+	 * Set Collision Profile Name
+	 * This function should be called outside of constructors to set profile name.
 	 * This will change current CollisionProfileName to be this, and overwrite Collision Setting
 	 * 
 	 * @param InCollisionProfileName : New Profile Name
@@ -1094,8 +1068,6 @@ public:
 	/** 
 	 * Returns memory used by resources allocated for this body instance ( ex. Physx resources )
 	 **/
-	DEPRECATED(4.14, "GetBodyInstanceResourceSize is deprecated. Please use GetBodyInstanceResourceSizeEx instead.")
-	SIZE_T GetBodyInstanceResourceSize(EResourceSizeMode::Type Mode) const;
 	void GetBodyInstanceResourceSizeEx(FResourceSizeEx& CumulativeResourceSize) const;
 
 	/**
@@ -1104,6 +1076,9 @@ public:
 	void FixupData(class UObject* Loader);
 
 	const FCollisionResponse& GetCollisionResponse() const { return CollisionResponses; }
+
+	/** Applies a deferred collision profile */
+	void ApplyDeferredCollisionProfileName();
 
 #if WITH_PHYSX
 public:
@@ -1161,7 +1136,6 @@ private:
 	
 	friend struct FInitBodiesHelper<true>;
 	friend struct FInitBodiesHelper<false>;
-	friend class FDerivedDataPhysXBinarySerializer;
 	friend class FBodyInstanceCustomizationHelper;
 	friend class FFoliageTypeCustomizationHelpers;
 

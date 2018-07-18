@@ -24,6 +24,7 @@ public class MovieSceneTools : ModuleRules
 				"CoreUObject",
 				"Engine",
                 "InputCore",
+                "MovieSceneCapture",
 				"UnrealEd",
 				"Sequencer"
 			}
@@ -33,10 +34,13 @@ public class MovieSceneTools : ModuleRules
 			new string[] {
                 "ActorPickerMode",
                 "CinematicCamera",
+                "CurveEditor",
                 "DesktopPlatform",
+                "Json",
+                "JsonUtilities",
 				"LevelSequence",
+                "MessageLog",
 				"MovieScene",
-                "MovieSceneCapture",
 				"MovieSceneTracks",
 				"BlueprintGraph",
 				"KismetCompiler",
@@ -52,6 +56,10 @@ public class MovieSceneTools : ModuleRules
 				"RHI",
 				"ShaderCore",
 				"SequenceRecorder",
+				"TimeManagement",
+                "AnimationCore",
+				"TimeManagement",
+                "XmlParser",
 			}
 		);
 

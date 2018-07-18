@@ -6,6 +6,18 @@
 #include "OnlineSubsystemTypes.h"
 #include "OnlineDelegateMacros.h"
 
+ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlineEntitlement, Display, All);
+
+#define UE_LOG_ONLINE_ENTITLEMENT(Verbosity, Format, ...) \
+{ \
+	UE_LOG(LogOnlineEntitlement, Verbosity, TEXT("%s%s"), ONLINE_LOG_PREFIX, *FString::Printf(Format, ##__VA_ARGS__)); \
+}
+
+#define UE_CLOG_ONLINE_ENTITLEMENT(Conditional, Verbosity, Format, ...) \
+{ \
+	UE_CLOG(Conditional, LogOnlineEntitlement, Verbosity, TEXT("%s%s"), ONLINE_LOG_PREFIX, *FString::Printf(Format, ##__VA_ARGS__)); \
+}
+
 /** 
  * unique identifier for entitlements
  */
@@ -30,6 +42,12 @@ struct FOnlineEntitlement
 	int32 RemainingCount;
 	/** Number of prior uses for a consumable */
 	int32 ConsumedCount;
+	/** When the entitlement started */
+	FString StartDate;
+	/** When the entitlement will expire */
+	FString EndDate;
+	/** Current Status of the entitlement e.g. Active, Subscribe, Expire ... */
+	FString Status;
 
 	FOnlineEntitlement()
 		: bIsConsumable(false)

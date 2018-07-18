@@ -1346,7 +1346,7 @@ TValueOrError<FString, FString> FVMReflection::GetValueAsString()
 	}
 	else
 	{
-		ReturnVal = MakeError(FString(TEXT("Error: Can't convert value to string")));
+		ReturnVal = MakeError(FString(TEXT("ReflErr: Can't convert value to string")));
 	}
 
 	return ReturnVal;
@@ -1454,7 +1454,7 @@ void FVMReflection::SetError(FString InError, bool bCastError/*=false*/)
 
 		if (InError.Len() > 0)
 		{
-			FString HistoryStr = FString::Printf(TEXT(" (ERROR: %s)"), *InError);
+			FString HistoryStr = FString::Printf(TEXT(" (ReflErr: %s)"), *InError);
 
 			if (bCastError)
 			{
@@ -1487,7 +1487,7 @@ void FVMReflection::SetError(FString InError, bool bCastError/*=false*/)
 				CurHistory += CurString;
 			}
 
-			UE_LOG(LogUnitTest, Log, TEXT("Reflection Error: History dump: %s"), *CurHistory);
+			UE_LOG(LogUnitTest, Log, TEXT("Reflection Err: History dump: %s"), *CurHistory);
 		}
 	}
 }

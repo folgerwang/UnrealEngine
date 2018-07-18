@@ -19,9 +19,9 @@
 /**
 * Tools for animatable property types such as floats ands vectors
 */
-template<typename TrackType, typename SectionType, typename KeyDataType>
+template<typename TrackType>
 class FPropertyTrackEditor
-	: public FKeyframeTrackEditor<TrackType, SectionType, KeyDataType>
+	: public FKeyframeTrackEditor<TrackType>
 {
 public:
 	/**
@@ -30,7 +30,7 @@ public:
 	 * @param InSequencer The sequencer instance to be used by this tool
 	 */
 	FPropertyTrackEditor( TSharedRef<ISequencer> InSequencer )
-		: FKeyframeTrackEditor<TrackType, SectionType, KeyDataType>( InSequencer )
+		: FKeyframeTrackEditor<TrackType>( InSequencer )
 	{ }
 
 	/**
@@ -40,45 +40,11 @@ public:
 	 * @param InWatchedPropertyTypes A list of property types that this editor can animate
 	 */
 	FPropertyTrackEditor( TSharedRef<ISequencer> InSequencer, TArrayView<const FAnimatedPropertyKey> InWatchedPropertyTypes )
-		: FKeyframeTrackEditor<TrackType, SectionType, KeyDataType>( InSequencer )
+		: FKeyframeTrackEditor<TrackType>( InSequencer )
 	{
 		for (const FAnimatedPropertyKey& Key : InWatchedPropertyTypes)
 		{
 			AddWatchedProperty(Key);
-		}
-	}
-
-	DEPRECATED(4.16, "Please use FPropertyTrackEditor(TSharedRef<ISequencer>, TArrayView<const FAnimatedPropertyKey>)")
-	FPropertyTrackEditor( TSharedRef<ISequencer> InSequencer, FName WatchedPropertyTypeName )
-		: FKeyframeTrackEditor<TrackType, SectionType, KeyDataType>( InSequencer )
-	{
-		AddWatchedPropertyType( WatchedPropertyTypeName );
-	}
-
-	DEPRECATED(4.16, "Please use FPropertyTrackEditor(TSharedRef<ISequencer>, TArrayView<const FAnimatedPropertyKey>)")
-	FPropertyTrackEditor( TSharedRef<ISequencer> InSequencer, FName WatchedPropertyTypeName1, FName WatchedPropertyTypeName2 )
-		: FKeyframeTrackEditor<TrackType, SectionType, KeyDataType>( InSequencer )
-	{
-		AddWatchedPropertyType( WatchedPropertyTypeName1 );
-		AddWatchedPropertyType( WatchedPropertyTypeName2 );
-	}
-
-	DEPRECATED(4.16, "Please use FPropertyTrackEditor(TSharedRef<ISequencer>, TArrayView<const FAnimatedPropertyKey>)")
-	FPropertyTrackEditor( TSharedRef<ISequencer> InSequencer, FName WatchedPropertyTypeName1, FName WatchedPropertyTypeName2, FName WatchedPropertyTypeName3 )
-		: FKeyframeTrackEditor<TrackType, SectionType, KeyDataType>( InSequencer )
-	{
-		AddWatchedPropertyType( WatchedPropertyTypeName1 );
-		AddWatchedPropertyType( WatchedPropertyTypeName2 );
-		AddWatchedPropertyType( WatchedPropertyTypeName3 );
-	}
-
-	DEPRECATED(4.16, "Please use FPropertyTrackEditor(TSharedRef<ISequencer>, TArrayView<const FAnimatedPropertyKey>)")
-	FPropertyTrackEditor( TSharedRef<ISequencer> InSequencer, TArray<FName> InWatchedPropertyTypeNames )
-		: FKeyframeTrackEditor<TrackType, SectionType, KeyDataType>( InSequencer )
-	{
-		for ( FName WatchedPropertyTypeName : InWatchedPropertyTypeNames )
-		{
-			AddWatchedPropertyType( WatchedPropertyTypeName );
 		}
 	}
 
@@ -115,10 +81,9 @@ protected:
 	* Generates keys based on the new value from the property property change parameters.
 	*
 	* @param PropertyChangedParams Parameters associated with the property change.
-	* @param NewGeneratedKeys New keys which should be added due to the property change.
-	* @param DefaultGeneratedKeys Default value keys which should not be added, but may be needed for setting up defaults on new multi-channel tracks.
+	* @param OutGeneratedKeys Array of keys that are generated from the changed property
 	*/
-	virtual void GenerateKeysFromPropertyChanged( const FPropertyChangedParams& PropertyChangedParams, TArray<KeyDataType>& NewGeneratedKeys, TArray<KeyDataType>& DefaultGeneratedKeys ) = 0;
+	virtual void GenerateKeysFromPropertyChanged( const FPropertyChangedParams& PropertyChangedParams, FGeneratedTrackKeys& OutGeneratedKeys ) = 0;
 
 	/** When true, this track editor will only be used on properties which have specified it as a custom track class. This is necessary to prevent duplicate
 		property change handling in cases where a custom track editor handles the same type of data as one of the standard track editors. */
@@ -198,7 +163,7 @@ protected:
 	/** Adds a callback for property changes for the supplied property type name. */
 	void AddWatchedProperty( FAnimatedPropertyKey PropertyKey )
 	{
-		FMovieSceneTrackEditor::GetSequencer()->GetObjectChangeListener().GetOnAnimatablePropertyChanged( PropertyKey ).AddRaw( this, &FPropertyTrackEditor<TrackType, SectionType, KeyDataType>::OnAnimatedPropertyChanged );
+		FMovieSceneTrackEditor::GetSequencer()->GetObjectChangeListener().GetOnAnimatablePropertyChanged( PropertyKey ).AddRaw( this, &FPropertyTrackEditor::OnAnimatedPropertyChanged );
 		WatchedProperties.Add( PropertyKey );
 	}
 
@@ -239,13 +204,12 @@ private:
 	}
 
 	/** Adds a key based on a property change. */
-	FKeyPropertyResult OnKeyProperty( float KeyTime, FPropertyChangedParams PropertyChangedParams )
+	FKeyPropertyResult OnKeyProperty( FFrameNumber KeyTime, FPropertyChangedParams PropertyChangedParams )
 	{
 		FKeyPropertyResult KeyPropertyResult;
 
-		TArray<KeyDataType> NewKeysForPropertyChange;
-		TArray<KeyDataType> DefaultKeysForPropertyChange;
-		GenerateKeysFromPropertyChanged( PropertyChangedParams, NewKeysForPropertyChange, DefaultKeysForPropertyChange );
+		FGeneratedTrackKeys GeneratedKeys;
+		GenerateKeysFromPropertyChanged( PropertyChangedParams, GeneratedKeys );
 
 		UProperty* Property = PropertyChangedParams.PropertyPath.GetLeafMostProperty().Property.Get();
 		if (!Property)
@@ -271,11 +235,10 @@ private:
 		// also check for track editors which should only be used for customization.
 		if ( SupportsType( TrackClass ) && ( ForCustomizedUseOnly() == false || *CustomizedClass != nullptr) )
 		{
-			return FKeyframeTrackEditor<TrackType, SectionType, KeyDataType>::AddKeysToObjects(
+			return this->AddKeysToObjects(
 				PropertyChangedParams.ObjectsThatChanged,
 				KeyTime,
-				NewKeysForPropertyChange,
-				DefaultKeysForPropertyChange,
+				GeneratedKeys,
 				PropertyChangedParams.KeyMode,
 				TrackClass,
 				UniqueName,

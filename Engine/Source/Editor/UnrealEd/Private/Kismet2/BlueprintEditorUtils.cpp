@@ -44,7 +44,7 @@
 #include "Settings/ProjectPackagingSettings.h"
 #include "Matinee/MatineeActor.h"
 #include "Engine/LevelScriptBlueprint.h"
-#include "BlueprintsObjectVersion.h"
+#include "UObject/BlueprintsObjectVersion.h"
 #include "Kismet2/CompilerResultsLog.h"
 #include "Algo/Transform.h"
 
@@ -276,16 +276,9 @@ static void RenameVariableReferencesInGraph(UBlueprint* InBlueprint, UClass* InV
 	}
 }
 
-/**
- * Looks through the specified blueprint for any references to the specified 
- * variable, and renames them accordingly.
- * 
- * @param  Blueprint		The blueprint that you want to search through.
- * @param  VariableClass	The class that owns the variable that we're renaming
- * @param  OldVarName		The current name of the variable we want to replace
- * @param  NewVarName		The name that we wish to change all references to
- */
-static void RenameVariableReferences(UBlueprint* Blueprint, UClass* VariableClass, const FName& OldVarName, const FName& NewVarName)
+FBlueprintEditorUtils::FOnRenameVariableReferences FBlueprintEditorUtils::OnRenameVariableReferencesEvent;
+
+void FBlueprintEditorUtils::RenameVariableReferences(UBlueprint* Blueprint, UClass* VariableClass, const FName& OldVarName, const FName& NewVarName)
 {
 	TArray<UEdGraph*> AllGraphs;
 	Blueprint->GetAllGraphs(AllGraphs);
@@ -295,6 +288,8 @@ static void RenameVariableReferences(UBlueprint* Blueprint, UClass* VariableClas
 	{
 		RenameVariableReferencesInGraph(Blueprint, VariableClass, CurrentGraph, OldVarName, NewVarName);
 	}
+
+	OnRenameVariableReferencesEvent.Broadcast(Blueprint, VariableClass, OldVarName, NewVarName);
 }
 
 //////////////////////////////////////
@@ -491,6 +486,8 @@ FUCSComponentId::FUCSComponentId(const UK2Node_AddComponent* UCSNode)
 //////////////////////////////////////
 // FBlueprintEditorUtils
 
+FBlueprintEditorUtils::FOnRefreshAllNodes FBlueprintEditorUtils::OnRefreshAllNodesEvent;
+
 void FBlueprintEditorUtils::RefreshAllNodes(UBlueprint* Blueprint)
 {
 	if (!Blueprint || !Blueprint->HasAllFlags(RF_LoadCompleted))
@@ -541,8 +538,11 @@ void FBlueprintEditorUtils::RefreshAllNodes(UBlueprint* Blueprint)
 	{
 		FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
 	}
+
+	OnRefreshAllNodesEvent.Broadcast(Blueprint);
 }
 
+FBlueprintEditorUtils::FOnReconstructAllNodes FBlueprintEditorUtils::OnReconstructAllNodesEvent;
 
 void FBlueprintEditorUtils::ReconstructAllNodes(UBlueprint* Blueprint)
 {
@@ -570,6 +570,8 @@ void FBlueprintEditorUtils::ReconstructAllNodes(UBlueprint* Blueprint)
 		const UEdGraphSchema* Schema = CurrentNode->GetGraph()->GetSchema();
 		Schema->ReconstructNode(*CurrentNode, true);
 	}
+
+	OnReconstructAllNodesEvent.Broadcast(Blueprint);
 }
 
 void FBlueprintEditorUtils::ReplaceDeprecatedNodes(UBlueprint* Blueprint)
@@ -832,6 +834,33 @@ UEdGraphPin* FBlueprintEditorUtils::FindFirstCompilerRelevantLinkedPin(UEdGraphP
 	return RelevantNodeLinks.Num() > 0 ? RelevantNodeLinks[0].LinkedPin : nullptr;
 }
 
+void FBlueprintEditorUtils::RemoveAllLocalBookmarks(const UBlueprint* ForBlueprint)
+{
+	if (ForBlueprint)
+	{
+		bool bSaveConfig = false;
+		const FString BPPackageName = ForBlueprint->GetOutermost()->GetName();
+		UBlueprintEditorSettings* LocalSettings = GetMutableDefault<UBlueprintEditorSettings>();
+		for (int32 i = 0; i < LocalSettings->BookmarkNodes.Num(); ++i)
+		{
+			const FBPEditorBookmarkNode& BookmarkNode = LocalSettings->BookmarkNodes[i];
+			const FEditedDocumentInfo* BookmarkInfo = LocalSettings->Bookmarks.Find(BookmarkNode.NodeGuid);
+			if (BookmarkInfo != nullptr && BookmarkInfo->EditedObjectPath.GetLongPackageName() == BPPackageName)
+			{
+				bSaveConfig = true;
+
+				LocalSettings->BookmarkNodes.RemoveAt(i--);
+				LocalSettings->Bookmarks.Remove(BookmarkNode.NodeGuid);
+			}
+		}
+
+		if (bSaveConfig)
+		{
+			LocalSettings->SaveConfig();
+		}
+	}
+}
+
 /** 
  * Check FKismetCompilerContext::SetCanEverTickForActor
  */
@@ -879,7 +908,7 @@ public:
 		: TargetBlueprint(TargetBP)
 	{
 		ArIsObjectReferenceCollector = true;
-		ArIsPersistent = false;
+		this->SetIsPersistent(false);
 		ArIgnoreArchetypeRef = false;
 	}
 
@@ -1407,6 +1436,7 @@ UClass* FBlueprintEditorUtils::RegenerateBlueprintClass(UBlueprint* Blueprint, U
 			if (Blueprint->GeneratedClass)
 			{
 				FBlueprintEditorUtils::RecreateClassMetaData(Blueprint, Blueprint->GeneratedClass, true);
+				Blueprint->GeneratedClass->ClassFlags &= ~CLASS_ReplicationDataIsSetUp;
 				Blueprint->GeneratedClass->SetUpRuntimeReplicationData();
 			}
 
@@ -2529,7 +2559,7 @@ void FBlueprintEditorUtils::RemoveGraph(UBlueprint* Blueprint, class UEdGraph* G
 			// Can't just call Remove, the object is wrapped in a struct
 			for(int EditedDocIdx = 0; EditedDocIdx < Blueprint->LastEditedDocuments.Num(); ++EditedDocIdx)
 			{
-				if(Blueprint->LastEditedDocuments[EditedDocIdx].EditedObject == GraphToRemove)
+				if(Blueprint->LastEditedDocuments[EditedDocIdx].EditedObjectPath.ResolveObject() == GraphToRemove)
 				{
 					Blueprint->LastEditedDocuments.RemoveAt(EditedDocIdx);
 					break;
@@ -3873,11 +3903,16 @@ void FBlueprintEditorUtils::SetBlueprintVariableCategory(UBlueprint* Blueprint, 
 		UClass* OuterClass = CastChecked<UClass>(TargetProperty->GetOuter());
 		const bool bIsNativeVar = (OuterClass->ClassGeneratedBy == nullptr);
 
-		// If the category does not change, we will not recompile the Blueprint
-		bool bIsCategoryChanged = false;
 		if (!bIsNativeVar)
 		{
-			TargetProperty->SetMetaData(TEXT("Category"), *SetCategory.ToString());
+			if (UTimelineTemplate* Timeline = Blueprint->FindTimelineTemplateByVariableName(TargetProperty->GetFName()))
+			{
+				Timeline->SetMetaData(TEXT("Category"), *SetCategory.ToString());
+			}
+			else
+			{
+				TargetProperty->SetMetaData(TEXT("Category"), *SetCategory.ToString());
+			}
 			const int32 VarIndex = FBlueprintEditorUtils::FindNewVariableIndex(Blueprint, VarName);
 			if (VarIndex != INDEX_NONE)
 			{
@@ -5266,14 +5301,14 @@ void FBlueprintEditorUtils::ReplaceVariableReferences(UBlueprint* Blueprint, con
 {
 	check((OldName != NAME_None) && (NewName != NAME_None));
 
-	::RenameVariableReferences(Blueprint, Blueprint->GeneratedClass, OldName, NewName);
+	FBlueprintEditorUtils::RenameVariableReferences(Blueprint, Blueprint->GeneratedClass, OldName, NewName);
 
 	TArray<UBlueprint*> Dependents;
 	GetDependentBlueprints(Blueprint, Dependents);
 
 	for (UBlueprint* DependentBp : Dependents)
 	{
-		::RenameVariableReferences(DependentBp, Blueprint->GeneratedClass, OldName, NewName);
+		FBlueprintEditorUtils::RenameVariableReferences(DependentBp, Blueprint->GeneratedClass, OldName, NewName);
 	}
 }
 
@@ -5671,10 +5706,13 @@ bool FBlueprintEditorUtils::ImplementNewInterface(UBlueprint* Blueprint, const F
 	{
 		if( Blueprint->ImplementedInterfaces[i].Interface == InterfaceClass )
 		{
-			Blueprint->Message_Warn( FString::Printf (*LOCTEXT("InterfaceAlreadyImplemented", "ImplementNewInterface: Blueprint '%s' already implements the interface called '%s'").ToString(), 
-				*Blueprint->GetPathName(), 
-				*InterfaceClassName.ToString())
-				);
+			Blueprint->Message_Warn(
+				FText::Format(
+					LOCTEXT("InterfaceAlreadyImplementedFmt", "ImplementNewInterface: Blueprint '{0}' already implements the interface called '{1}'"),
+					FText::FromString(Blueprint->GetPathName()),
+					FText::FromString(InterfaceClassName.ToString())
+				).ToString()
+			);
 			return false;
 		}
 	}
@@ -5697,11 +5735,14 @@ bool FBlueprintEditorUtils::ImplementNewInterface(UBlueprint* Blueprint, const F
 			{
 				bAllFunctionsAdded = false;
 
-				Blueprint->Message_Error( FString::Printf (*LOCTEXT("InterfaceFunctionConflicts", "ImplementNewInterface: Blueprint '%s' has a function or graph which conflicts with the function %s in the interface called '%s'").ToString(), 
-					*Blueprint->GetPathName(), 
-					*FunctionName.ToString(), 
-					*InterfaceClassName.ToString())
-					);
+				Blueprint->Message_Error(
+					FText::Format(
+						LOCTEXT("InterfaceFunctionConflictsFmt", "ImplementNewInterface: Blueprint '{0}' has a function or graph which conflicts with the function {1} in the interface called '{2}'"),
+						FText::FromString(Blueprint->GetPathName()),
+						FText::FromName(FunctionName),
+						FText::FromName(InterfaceClassName)
+					).ToString()
+				);
 				break;
 			}
 
@@ -5917,7 +5958,7 @@ void FBlueprintEditorUtils::PurgeNullGraphs(UBlueprint* Blueprint)
 	CleanNullGraphReferencesInArray(Blueprint, Blueprint->DelegateSignatureGraphs);
 	CleanNullGraphReferencesInArray(Blueprint, Blueprint->MacroGraphs);
 
-	Blueprint->LastEditedDocuments.RemoveAll([](const FEditedDocumentInfo& TestDoc) { return TestDoc.EditedObject == nullptr; });
+	Blueprint->LastEditedDocuments.RemoveAll([](const FEditedDocumentInfo& TestDoc) { return TestDoc.EditedObjectPath.ResolveObject() == nullptr; });
 }
 
 struct FConformCallsToParentFunctionUtils
@@ -6361,11 +6402,23 @@ static void ConformInterfaceByName(UBlueprint* Blueprint, FBPInterfaceDescriptio
 
 			// warn the user that their old functionality won't work (it's now connected 
 			// to a custom node that isn't triggered anywhere)
-			FText WarningMessageText = InterfaceFunction ?
-				LOCTEXT("InterfaceEventNodeReplaced_Warn", "'%s' was promoted from an event to a function - it has been replaced by a custom event, which won't trigger unless you call it manually.") :
-				LOCTEXT("InterfaceEventRemovedNodeReplaced_Warn", "'%s' was removed from its interface - it has been replaced by a custom event, which won't trigger unless you call it manually.");
+			FText WarningMessageText;
+			if (InterfaceFunction)
+			{
+				WarningMessageText = FText::Format(
+					LOCTEXT("InterfaceEventNodeReplaced_WarnFmt", "'{0}' was promoted from an event to a function - it has been replaced by a custom event, which won't trigger unless you call it manually."),
+					FText::FromName(FunctionName)
+				);
+			}
+			else
+			{
+				WarningMessageText = FText::Format(
+					LOCTEXT("InterfaceEventRemovedNodeReplaced_WarnFmt", "'{0}' was removed from its interface - it has been replaced by a custom event, which won't trigger unless you call it manually."),
+					FText::FromName(FunctionName)
+				);
+			}
 
-			Blueprint->Message_Warn(FString::Printf(*WarningMessageText.ToString(), *FunctionName.ToString()));
+			Blueprint->Message_Warn(WarningMessageText.ToString());
 		}
 
 		// Cache off the graph names for this interface, for easier searching
@@ -6445,8 +6498,12 @@ static void ConformInterfaceByName(UBlueprint* Blueprint, FBPInterfaceDescriptio
 			else
 			{
 				Blueprint->Status = BS_Error;
-				const FString NewError = FString::Printf( *LOCTEXT("InterfaceNameCollision_Error", "Interface name collision in blueprint: %s, interface: %s, name: %s").ToString(), 
-					*Blueprint->GetFullName(), *CurrentInterfaceDesc.Interface->GetFullName(), *FunctionName.ToString());
+				const FString NewError = FText::Format(
+					LOCTEXT("InterfaceNameCollision_ErrorFmt", "Interface name collision in blueprint: {0}, interface: {1}, name: {2}"),
+					FText::FromString(Blueprint->GetFullName()),
+					FText::FromString(CurrentInterfaceDesc.Interface->GetFullName()),
+					FText::FromName(FunctionName)
+				).ToString();
 				Blueprint->Message_Error(NewError);
 			}
 		}
@@ -9013,7 +9070,7 @@ UClass* FBlueprintEditorUtils::GetNativeParent(const UBlueprint* BP)
 	return Ret;
 }
 
-bool FBlueprintEditorUtils::ImplentsGetWorld(const UBlueprint* BP)
+bool FBlueprintEditorUtils::ImplementsGetWorld(const UBlueprint* BP)
 {
 	if(UClass* NativeParent = GetNativeParent(BP))
 	{

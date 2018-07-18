@@ -25,19 +25,19 @@ void TestKeyValuePairs()
  	TestKeyValuePairs.Add(TEXT("STRINGValue"), FVariantData(TEXT("This Is A Test!"))); 
  	TestKeyValuePairs.Add(TEXT("BLOBValue"), FVariantData(TestData)); 
 
-	UE_LOG(LogOnline, Display, TEXT("ConstIterator"));
+	UE_LOG_ONLINE(Display, TEXT("ConstIterator"));
 	for (TestDataType::TConstIterator It(TestKeyValuePairs); It; ++It)
 	{
-		UE_LOG(LogOnline, Display, TEXT("%s = %s"), *It.Key().ToString(), *It.Value().ToString());
+		UE_LOG_ONLINE(Display, TEXT("%s = %s"), *It.Key().ToString(), *It.Value().ToString());
 	}
 
-	UE_LOG(LogOnline, Display, TEXT("Iterator"));
+	UE_LOG_ONLINE(Display, TEXT("Iterator"));
 	for (TestDataType::TIterator It(TestKeyValuePairs); It; ++It)
 	{
-		UE_LOG(LogOnline, Display, TEXT("Iterator %s = %s"), *It.Key().ToString(), *It.Value().ToString());
+		UE_LOG_ONLINE(Display, TEXT("Iterator %s = %s"), *It.Key().ToString(), *It.Value().ToString());
 	}
 
-	UE_LOG(LogOnline, Display, TEXT("Finding all elements"));
+	UE_LOG_ONLINE(Display, TEXT("Finding all elements"));
 	if (TestKeyValuePairs.Find(TEXT("INTValue")) == NULL)
 	{
 		bSuccess = false;
@@ -65,23 +65,23 @@ void TestKeyValuePairs()
 
 	if (!bSuccess)
 	{
-		UE_LOG(LogOnline, Display, TEXT("Not all elements found!"));
+		UE_LOG_ONLINE(Display, TEXT("Not all elements found!"));
 	}
 
 	TestKeyValuePairs.Remove(TEXT("INTValue"));
 	TestKeyValuePairs.Remove(TEXT("BLOBValue"));
 
-	UE_LOG(LogOnline, Display, TEXT("Iterator AFTER removing int32 and Blob elements"));
+	UE_LOG_ONLINE(Display, TEXT("Iterator AFTER removing int32 and Blob elements"));
 	for (TestDataType::TIterator It(TestKeyValuePairs); It; ++It)
 	{
-		UE_LOG(LogOnline, Display, TEXT("Iterator %s = %s"), *It.Key().ToString(), *It.Value().ToString());
+		UE_LOG_ONLINE(Display, TEXT("Iterator %s = %s"), *It.Key().ToString(), *It.Value().ToString());
 	}
 
 	TestKeyValuePairs.Empty();
-	UE_LOG(LogOnline, Display, TEXT("Iterator AFTER emptying structure"));
+	UE_LOG_ONLINE(Display, TEXT("Iterator AFTER emptying structure"));
 	for (TestDataType::TIterator It(TestKeyValuePairs); It; ++It)
 	{
-		UE_LOG(LogOnline, Display, TEXT("Iterator %s = %s"), *It.Key().ToString(), *It.Value().ToString());
+		UE_LOG_ONLINE(Display, TEXT("Iterator %s = %s"), *It.Key().ToString(), *It.Value().ToString());
 	}
 
 	bSuccess = TestKeyValuePairs.Num() == 0 ? true : false;
@@ -99,17 +99,17 @@ void TestKeyValuePairs()
 		bSuccess = bSuccess && (OutValue == TestValue);   
 		
 		CopyValue = OrigKeyValuePair; 
-		UE_LOG(LogOnline, Display, TEXT("int32 Test %s == %s"), *OrigKeyValuePair.ToString(), *CopyValue.ToString());
+		UE_LOG_ONLINE(Display, TEXT("int32 Test %s == %s"), *OrigKeyValuePair.ToString(), *CopyValue.ToString());
 
 		OrigKeyValuePair.Increment<int32,EOnlineKeyValuePairDataType::Int32>((int32)1);
-		UE_LOG(LogOnline, Display, TEXT("+1 Now is %s"), *OrigKeyValuePair.ToString());
+		UE_LOG_ONLINE(Display, TEXT("+1 Now is %s"), *OrigKeyValuePair.ToString());
 
 		OrigKeyValuePair.Decrement<int32,EOnlineKeyValuePairDataType::Int32>((int32)1);
-		UE_LOG(LogOnline, Display, TEXT("-1 Now is %s"), *OrigKeyValuePair.ToString());
+		UE_LOG_ONLINE(Display, TEXT("-1 Now is %s"), *OrigKeyValuePair.ToString());
 
 		bSuccess = bSuccess && (OrigKeyValuePair == CopyValue); 
 		bSuccess = bSuccess && OrigKeyValuePair.FromString(TEXT("5"));
-		UE_LOG(LogOnline, Display, TEXT("int32 Test %s == %s"), *OrigKeyValuePair.ToString(), *CopyValue.ToString());
+		UE_LOG_ONLINE(Display, TEXT("int32 Test %s == %s"), *OrigKeyValuePair.ToString(), *CopyValue.ToString());
 	}
 
 	{
@@ -121,17 +121,17 @@ void TestKeyValuePairs()
 		bSuccess = bSuccess && (OutValue == TestValue);
 
 		CopyValue = OrigKeyValuePair; 
-		UE_LOG(LogOnline, Display, TEXT("float Test %s == %s"), *OrigKeyValuePair.ToString(), *CopyValue.ToString());
+		UE_LOG_ONLINE(Display, TEXT("float Test %s == %s"), *OrigKeyValuePair.ToString(), *CopyValue.ToString());
 
 		OrigKeyValuePair.Increment<float,EOnlineKeyValuePairDataType::Float>(1.0f);
-		UE_LOG(LogOnline, Display, TEXT("+1 Now is %s"), *OrigKeyValuePair.ToString());
+		UE_LOG_ONLINE(Display, TEXT("+1 Now is %s"), *OrigKeyValuePair.ToString());
 
 		OrigKeyValuePair.Decrement<float,EOnlineKeyValuePairDataType::Float>(1.0f);
-		UE_LOG(LogOnline, Display, TEXT("-1 Now is %s"), *OrigKeyValuePair.ToString());
+		UE_LOG_ONLINE(Display, TEXT("-1 Now is %s"), *OrigKeyValuePair.ToString());
 
 		bSuccess = bSuccess && (OrigKeyValuePair == CopyValue); 
 		bSuccess = bSuccess && OrigKeyValuePair.FromString(TEXT("5.0"));
-		UE_LOG(LogOnline, Display, TEXT("float Test %s == %s"), *OrigKeyValuePair.ToString(), *CopyValue.ToString());
+		UE_LOG_ONLINE(Display, TEXT("float Test %s == %s"), *OrigKeyValuePair.ToString(), *CopyValue.ToString());
 	}
 
 	{
@@ -143,17 +143,17 @@ void TestKeyValuePairs()
 		bSuccess = bSuccess && (OutValue == TestValue);
 
 		CopyValue = OrigKeyValuePair; 
-		UE_LOG(LogOnline, Display, TEXT("double Test %s == %s"), *OrigKeyValuePair.ToString(), *CopyValue.ToString());
+		UE_LOG_ONLINE(Display, TEXT("double Test %s == %s"), *OrigKeyValuePair.ToString(), *CopyValue.ToString());
 
 		OrigKeyValuePair.Increment<double,EOnlineKeyValuePairDataType::Double>(1.0);
-		UE_LOG(LogOnline, Display, TEXT("+1 Now is %s"), *OrigKeyValuePair.ToString());
+		UE_LOG_ONLINE(Display, TEXT("+1 Now is %s"), *OrigKeyValuePair.ToString());
 
 		OrigKeyValuePair.Decrement<double,EOnlineKeyValuePairDataType::Double>(1.0);
-		UE_LOG(LogOnline, Display, TEXT("-1 Now is %s"), *OrigKeyValuePair.ToString());
+		UE_LOG_ONLINE(Display, TEXT("-1 Now is %s"), *OrigKeyValuePair.ToString());
 
 		bSuccess = bSuccess && (OrigKeyValuePair == CopyValue); 
 		bSuccess = bSuccess && OrigKeyValuePair.FromString(TEXT("5.0"));
-		UE_LOG(LogOnline, Display, TEXT("double Test %s == %s"), *OrigKeyValuePair.ToString(), *CopyValue.ToString());
+		UE_LOG_ONLINE(Display, TEXT("double Test %s == %s"), *OrigKeyValuePair.ToString(), *CopyValue.ToString());
 	}
 
 	{
@@ -165,17 +165,17 @@ void TestKeyValuePairs()
 		bSuccess = bSuccess && (OutValue == TestValue);
 
 		CopyValue = OrigKeyValuePair; 
-		UE_LOG(LogOnline, Display, TEXT("uint64 Test %s == %s"), *OrigKeyValuePair.ToString(), *CopyValue.ToString()); 
+		UE_LOG_ONLINE(Display, TEXT("uint64 Test %s == %s"), *OrigKeyValuePair.ToString(), *CopyValue.ToString()); 
 
 		OrigKeyValuePair.Increment<uint64,EOnlineKeyValuePairDataType::Int64>(1.0);
-		UE_LOG(LogOnline, Display, TEXT("+1 Now is %s"), *OrigKeyValuePair.ToString());
+		UE_LOG_ONLINE(Display, TEXT("+1 Now is %s"), *OrigKeyValuePair.ToString());
 
 		OrigKeyValuePair.Decrement<uint64,EOnlineKeyValuePairDataType::Int64>(1.0);
-		UE_LOG(LogOnline, Display, TEXT("-1 Now is %s"), *OrigKeyValuePair.ToString());
+		UE_LOG_ONLINE(Display, TEXT("-1 Now is %s"), *OrigKeyValuePair.ToString());
 
 		bSuccess = bSuccess && (OrigKeyValuePair == CopyValue);
 		bSuccess = bSuccess && OrigKeyValuePair.FromString(TEXT("524288"));
-		UE_LOG(LogOnline, Display, TEXT("uint64 Test %s == %s"), *OrigKeyValuePair.ToString(), *CopyValue.ToString());
+		UE_LOG_ONLINE(Display, TEXT("uint64 Test %s == %s"), *OrigKeyValuePair.ToString(), *CopyValue.ToString());
 	}
 
 	{
@@ -188,7 +188,7 @@ void TestKeyValuePairs()
 
 		CopyValue = OrigKeyValuePair; 
 		bSuccess = bSuccess && (OrigKeyValuePair == CopyValue);
-		UE_LOG(LogOnline, Display, TEXT("STRING Test %s == %s"), *OrigKeyValuePair.ToString(), *CopyValue.ToString()); 
+		UE_LOG_ONLINE(Display, TEXT("STRING Test %s == %s"), *OrigKeyValuePair.ToString(), *CopyValue.ToString()); 
 	}
 
 	{
@@ -206,10 +206,10 @@ void TestKeyValuePairs()
 
 		CopyValue = OrigKeyValuePair; 
 		bSuccess = bSuccess && (OrigKeyValuePair == CopyValue); 
-		UE_LOG(LogOnline, Display, TEXT("BLOB Test %s == %s"), *OrigKeyValuePair.ToString(), *CopyValue.ToString());
+		UE_LOG_ONLINE(Display, TEXT("BLOB Test %s == %s"), *OrigKeyValuePair.ToString(), *CopyValue.ToString());
 	}
 
-	UE_LOG(LogOnline, Warning, TEXT("KeyValuePairTest: %s!"), bSuccess ? TEXT("PASSED") : TEXT("FAILED"));
+	UE_LOG_ONLINE(Warning, TEXT("KeyValuePairTest: %s!"), bSuccess ? TEXT("PASSED") : TEXT("FAILED"));
 }
 
 #endif //WITH_DEV_AUTOMATION_TESTS

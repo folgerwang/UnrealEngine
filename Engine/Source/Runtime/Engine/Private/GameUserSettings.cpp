@@ -56,6 +56,7 @@ enum EGameUserSettingsVersion
 UGameUserSettings::UGameUserSettings(const FObjectInitializer& ObjectInitializer)
 :	Super(ObjectInitializer)
 {
+	// this will only call the base version of SetToDefaults but some constructors may rely on it being set
 	SetToDefaults();
 }
 
@@ -114,21 +115,24 @@ EWindowMode::Type UGameUserSettings::GetLastConfirmedFullscreenMode() const
 
 void UGameUserSettings::SetFullscreenMode( EWindowMode::Type InFullscreenMode )
 {
-	switch ( InFullscreenMode )
+	if (FullscreenMode != InFullscreenMode)
 	{
-		case EWindowMode::Fullscreen:
-			FullscreenMode = 0;
-			break;
-		case EWindowMode::WindowedFullscreen:
-			FullscreenMode = 1;
-			break;
-		case EWindowMode::Windowed:
-		default:
-			FullscreenMode = 2;
-			break;
-	}
+		switch (InFullscreenMode)
+		{
+			case EWindowMode::Fullscreen:
+				FullscreenMode = 0;
+				break;
+			case EWindowMode::WindowedFullscreen:
+				FullscreenMode = 1;
+				break;
+			case EWindowMode::Windowed:
+			default:
+				FullscreenMode = 2;
+				break;
+		}
 
-	UpdateResolutionQuality();
+		UpdateResolutionQuality();
+	}
 }
 
 EWindowMode::Type UGameUserSettings::GetPreferredFullscreenMode() const
@@ -209,6 +213,8 @@ void UGameUserSettings::ConfirmVideoMode()
 	LastConfirmedFullscreenMode = FullscreenMode;
 	LastUserConfirmedResolutionSizeX = ResolutionSizeX;
 	LastUserConfirmedResolutionSizeY = ResolutionSizeY;
+
+	OnGameUserSettingsUINeedsUpdate.Broadcast();
 }
 
 void UGameUserSettings::RevertVideoMode()
@@ -229,6 +235,8 @@ void UGameUserSettings::SetToDefaults()
 	MinResolutionScale = Scalability::MinResolutionScale;
 	DesiredScreenWidth = 1280;
 	DesiredScreenHeight = 720;
+	LastUserConfirmedDesiredScreenWidth = DesiredScreenWidth;
+	LastUserConfirmedDesiredScreenHeight = DesiredScreenHeight;
 	LastCPUBenchmarkResult = -1.0f;
 	LastGPUBenchmarkResult = -1.0f;
 	LastCPUBenchmarkSteps.Empty();
@@ -269,18 +277,6 @@ void UGameUserSettings::UpdateResolutionQuality()
 	const int32 ScreenHeight = (FullscreenMode == EWindowMode::WindowedFullscreen) ? GetDesktopResolution().Y : ResolutionSizeY;
 	MinResolutionScale = FMath::Max<float>(Scalability::MinResolutionScale, ((float)MinHeight / (float)ScreenHeight) * 100.0f);
 
-	// Clamp the desired width to the actual window width
-	if (ScreenWidth > 0 && DesiredScreenWidth > ScreenWidth)
-	{
-		DesiredScreenWidth = ScreenWidth;
-	}
-
-	// Clamp the desired height to the actual window height
-	if (ScreenHeight > 0 && DesiredScreenHeight > ScreenHeight)
-	{
-		DesiredScreenHeight = ScreenHeight;
-	}
-
 	if (bUseDesiredScreenHeight)
 	{
 		ScalabilityQuality.ResolutionQuality = GetDefaultResolutionScale();
@@ -289,14 +285,16 @@ void UGameUserSettings::UpdateResolutionQuality()
 	{
 		ScalabilityQuality.ResolutionQuality = FMath::Max(ScalabilityQuality.ResolutionQuality, MinResolutionScale);
 	}
-
-	OnGameUserSettingsUINeedsUpdate.Broadcast();
 }
 
 float UGameUserSettings::GetDefaultResolutionScale()
 {
-	const float DesiredResQuality = FindResolutionQualityForScreenSize(DesiredScreenWidth, DesiredScreenHeight);
+	const int32 ScreenWidth = (FullscreenMode == EWindowMode::WindowedFullscreen) ? GetDesktopResolution().X : ResolutionSizeX;
+	const int32 ScreenHeight = (FullscreenMode == EWindowMode::WindowedFullscreen) ? GetDesktopResolution().Y : ResolutionSizeY;
+	const int32 ClampedWidth = (ScreenWidth > 0 && DesiredScreenWidth > ScreenWidth) ? ScreenWidth : DesiredScreenWidth;
+	const int32 ClampedHeight = (ScreenHeight > 0 && DesiredScreenHeight > ScreenHeight) ? ScreenHeight : DesiredScreenHeight;
 
+	const float DesiredResQuality = FindResolutionQualityForScreenSize(ClampedWidth, ClampedHeight);
 	return FMath::Max(DesiredResQuality, MinResolutionScale);
 }
 
@@ -414,6 +412,14 @@ void UGameUserSettings::ValidateSettings()
 		LastUserConfirmedResolutionSizeY = ResolutionSizeY;
 	}
 
+	const int32 ScreenWidth = (FullscreenMode == EWindowMode::WindowedFullscreen) ? GetDesktopResolution().X : ResolutionSizeX;
+	const int32 ScreenHeight = (FullscreenMode == EWindowMode::WindowedFullscreen) ? GetDesktopResolution().Y : ResolutionSizeY;
+	const int32 ClampedWidth = (ScreenWidth > 0 && DesiredScreenWidth > ScreenWidth) ? ScreenWidth : DesiredScreenWidth;
+	const int32 ClampedHeight = (ScreenHeight > 0 && DesiredScreenHeight > ScreenHeight) ? ScreenHeight : DesiredScreenHeight;
+
+	LastUserConfirmedDesiredScreenWidth = DesiredScreenWidth;
+	LastUserConfirmedDesiredScreenHeight = DesiredScreenHeight;
+
 #if !PLATFORM_PS4 && !PLATFORM_XBOXONE
 	// We do not modify the user setting on console if HDR is not supported
 	if (bUseHDRDisplayOutput && !SupportsHDRDisplayOutput())
@@ -509,18 +515,19 @@ void UGameUserSettings::ApplyResolutionSettings(bool bCheckForCommandLineOverrid
 	}
 
 	IConsoleManager::Get().CallAllConsoleVariableSinks();
+
+	OnGameUserSettingsUINeedsUpdate.Broadcast();
 }
 
 void UGameUserSettings::ApplySettings(bool bCheckForCommandLineOverrides)
 {
-	ApplyResolutionSettings(bCheckForCommandLineOverrides);
 	ApplyNonResolutionSettings();
+	ApplyResolutionSettings(bCheckForCommandLineOverrides);
 
 	SaveSettings();
-	UE_LOG(LogConsoleResponse, Display, TEXT(""));
 }
 
-void UGameUserSettings::LoadSettings( bool bForceReload/*=false*/ )
+void UGameUserSettings::LoadSettings(bool bForceReload/*=false*/)
 {
 	QUICK_SCOPE_CYCLE_COUNTER(GameUserSettings_LoadSettings);
 
@@ -567,7 +574,7 @@ void UGameUserSettings::SaveSettings()
 void UGameUserSettings::LoadConfigIni( bool bForceReload/*=false*/ )
 {
 	// Load .ini, allowing merging
-	FConfigCacheIni::LoadGlobalIniFile(GGameUserSettingsIni, TEXT("GameUserSettings"), NULL, bForceReload);
+	FConfigCacheIni::LoadGlobalIniFile(GGameUserSettingsIni, TEXT("GameUserSettings"), nullptr, bForceReload, false, true, *FConfigCacheIni::GetGameUserSettingsDir());
 }
 
 void UGameUserSettings::PreloadResolutionSettings()
@@ -647,7 +654,7 @@ FIntPoint UGameUserSettings::GetDefaultWindowPosition()
 
 EWindowMode::Type UGameUserSettings::GetDefaultWindowMode()
 {
-	// WindowedFullscreen should be the general default or games
+	// WindowedFullscreen should be the general default for games
 	return EWindowMode::WindowedFullscreen;
 }
 
@@ -672,6 +679,9 @@ void UGameUserSettings::ResetToCurrentSettings()
 		FullscreenMode = LastConfirmedFullscreenMode;
 		ResolutionSizeX = LastUserConfirmedResolutionSizeX;
 		ResolutionSizeY = LastUserConfirmedResolutionSizeY;
+
+		DesiredScreenWidth = LastUserConfirmedDesiredScreenWidth;
+		DesiredScreenHeight = LastUserConfirmedDesiredScreenHeight;
 
 		// Reset the quality settings to the current levels
 		ScalabilityQuality = Scalability::GetQualityLevels();
@@ -869,10 +879,9 @@ void UGameUserSettings::EnableHDRDisplayOutput(bool bEnable, int32 DisplayNits /
 
 	if (ensure(CVarHDROutputDevice && CVarHDRColorGamut && CVarHDROutputEnabled))
 	{
-		check( !bEnable || IsHDRAllowed() );
-		if (bEnable && !GRHISupportsHDROutput)
+		if (bEnable && !(GRHISupportsHDROutput && IsHDRAllowed()))
 		{
-			UE_LOG(LogConsoleResponse, Display, TEXT("Tried to enable HDR display output but unsupported, forcing off."));
+			UE_LOG(LogConsoleResponse, Display, TEXT("Tried to enable HDR display output but unsupported or disallowed, forcing off."));
 			bEnable = false;
 		}
 

@@ -93,8 +93,6 @@ void SAssetPicker::Construct( const FArguments& InArgs )
 	// Search box
 	if (!InArgs._AssetPickerConfig.bAutohideSearchBar)
 	{
-		TextFilter = MakeShareable( new FFrontendFilter_Text() );
-		TextFilter->SetIncludeClassName(InArgs._AssetPickerConfig.Filter.ClassNames.Num() != 1);
 		HighlightText = TAttribute< FText >( this, &SAssetPicker::GetHighlightedText );
 
 		OtherDevelopersFilter = MakeShareable( new FFrontendFilter_ShowOtherDevelopers(nullptr) );
@@ -264,9 +262,19 @@ void SAssetPicker::Construct( const FArguments& InArgs )
 		.OnPathSelected(this, &SAssetPicker::FolderEntered)
 		.HiddenColumnNames(InArgs._AssetPickerConfig.HiddenColumnNames)
 		.CustomColumns(InArgs._AssetPickerConfig.CustomColumns)
+		.OnSearchOptionsChanged(this, &SAssetPicker::HandleSearchSettingsChanged)
 	];
 
 	LoadSettings();
+
+	if (AssetViewPtr.IsValid() && !InArgs._AssetPickerConfig.bAutohideSearchBar)
+	{
+		TextFilter = MakeShareable(new FFrontendFilter_Text());
+		bool bClassNamesProvided = (InArgs._AssetPickerConfig.Filter.ClassNames.Num() != 1);
+		TextFilter->SetIncludeClassName(bClassNamesProvided || AssetViewPtr->IsIncludingClassNames());
+		TextFilter->SetIncludeAssetPath(AssetViewPtr->IsIncludingAssetPaths());
+		TextFilter->SetIncludeCollectionNames(AssetViewPtr->IsIncludingCollectionNames());
+	}
 
 	AssetViewPtr->RequestSlowFullListRefresh();
 }
@@ -395,8 +403,11 @@ void SAssetPicker::SetNewBackendFilter(const FARFilter& NewFilter)
 	CurrentBackendFilter.PackagePaths.Reset();
 
 	// Update the Text filter too, since now class names may no longer matter
-	TextFilter->SetIncludeClassName(NewFilter.ClassNames.Num() != 1);
-	
+	if (TextFilter.IsValid())
+	{
+		TextFilter->SetIncludeClassName(NewFilter.ClassNames.Num() != 1);
+	}
+
 	OnFilterChanged();
 }
 
@@ -570,6 +581,14 @@ void SAssetPicker::SaveSettings() const
 
 		AssetViewPtr->SaveSettings(GEditorPerProjectIni, SContentBrowser::SettingsIniSection, SettingsString);
 	}
+}
+
+void SAssetPicker::HandleSearchSettingsChanged()
+{
+	bool bClassNamesProvided = (FilterListPtr.IsValid() ? FilterListPtr->GetInitialClassFilters().Num() != 1 : false);
+	TextFilter->SetIncludeClassName(bClassNamesProvided || AssetViewPtr->IsIncludingClassNames());
+	TextFilter->SetIncludeAssetPath(AssetViewPtr->IsIncludingAssetPaths());
+	TextFilter->SetIncludeCollectionNames(AssetViewPtr->IsIncludingCollectionNames());
 }
 
 #undef LOCTEXT_NAMESPACE

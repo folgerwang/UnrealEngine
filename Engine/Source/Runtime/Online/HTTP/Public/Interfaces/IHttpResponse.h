@@ -119,17 +119,17 @@ public:
 	 *
 	 * @return the response code.
 	 */
-	virtual int32 GetResponseCode() = 0;
+	virtual int32 GetResponseCode() const = 0;
 
 	/**
 	 * Returns the payload as a string, assuming the payload is UTF8.
 	 *
 	 * @return the payload as a string.
 	 */
-	virtual FString GetContentAsString() = 0;
+	virtual FString GetContentAsString() const = 0;
 
 	/** 
 	 * Destructor for overrides 
 	 */
-	virtual ~IHttpResponse() {};
+	virtual ~IHttpResponse() = default;
 };

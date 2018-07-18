@@ -17,9 +17,11 @@
 #include <sys/ioctl.h>
 #include <assert.h>
 #include <emscripten/emscripten.h>
+#else
+#define USE_LIBWEBSOCKET 1
 #endif
 
-#if !PLATFORM_HTML5
+#if USE_LIBWEBSOCKET
 // Work around a conflict between a UI namespace defined by engine code and a typedef in OpenSSL
 #define UI UI_ST
 THIRD_PARTY_INCLUDES_START
@@ -28,7 +30,7 @@ THIRD_PARTY_INCLUDES_END
 #undef UI
 #endif
 
-#if !PLATFORM_HTML5
+#if USE_LIBWEBSOCKET
 static int unreal_networking_client(struct lws *wsi, enum lws_callback_reasons reason, void *user, void *in, size_t len);
 
 static void lws_debugLogS(int level, const char *line)
@@ -43,7 +45,7 @@ FWebSocket::FWebSocket(
 :IsServerSide(false)
 {
 
-#if !PLATFORM_HTML5
+#if USE_LIBWEBSOCKET
 
 #if !UE_BUILD_SHIPPING
 	lws_set_log_level(LLL_ERR | LLL_WARN | LLL_NOTICE | LLL_DEBUG | LLL_INFO, lws_debugLogS);
@@ -80,7 +82,7 @@ FWebSocket::FWebSocket(
 	Wsi = lws_client_connect_via_info(&ConnectInfo);
 	check(Wsi);
 
-#else // PLATFORM_HTML5
+#else // ! USE_LIBWEBSOCKET -- HTML5 uses BSD network API
 
 	SockFd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (SockFd == -1)
@@ -122,13 +124,13 @@ FWebSocket::FWebSocket(
 	}
 #endif
 
-#if PLATFORM_HTML5
+#if !USE_LIBWEBSOCKET // HTML5 uses BSD network API
 	int Ret = connect(SockFd, (struct sockaddr *)&RemoteAddr, sizeof(RemoteAddr));
 	UE_LOG(LogHTML5Networking, Warning, TEXT(" Connect socket returned %d"), Ret);
 #endif
 }
 
-#if !PLATFORM_HTML5
+#if USE_LIBWEBSOCKET
 FWebSocket::FWebSocket(WebSocketInternalContext* InContext, WebSocketInternal* InWsi)
 	: Context(InContext)
 	, Wsi(InWsi)
@@ -145,7 +147,7 @@ bool FWebSocket::Send(uint8* Data, uint32 Size)
 {
 	TArray<uint8> Buffer;
 
-#if !PLATFORM_HTML5
+#if USE_LIBWEBSOCKET
 	Buffer.AddDefaulted(LWS_PRE); // Reserve space for WS header data
 #endif
 
@@ -196,7 +198,7 @@ struct sockaddr_in* FWebSocket::GetRemoteAddr()
 
 FString FWebSocket::LocalEndPoint(bool bAppendPort)
 {
-#if !PLATFORM_HTML5
+#if USE_LIBWEBSOCKET
 	int sock = lws_get_socket_fd(Wsi);
 	struct sockaddr_in addr;
 	socklen_t len = sizeof addr;
@@ -225,7 +227,7 @@ FString FWebSocket::LocalEndPoint(bool bAppendPort)
 #endif
 
 	return remote;
-#else
+#else // ! USE_LIBWEBSOCKET -- HTML5 uses BSD network API
 	// NOTE: there's no way to get this info from browsers...
 	// return generic localhost without port #
 	return FString(TEXT("127.0.0.1"));
@@ -239,13 +241,13 @@ void FWebSocket::Tick()
 
 void FWebSocket::HandlePacket()
 {
-#if !PLATFORM_HTML5
+#if USE_LIBWEBSOCKET
 
 	lws_service(Context, 0);
 	if (!IsServerSide)
 		lws_callback_on_writable_all_protocol(Context, &Protocols[0]);
 
-#else // PLATFORM_HTML5
+#else // ! USE_LIBWEBSOCKET -- HTML5 uses BSD network API
 
 	fd_set Fdr;
 	fd_set Fdw;
@@ -281,7 +283,7 @@ void FWebSocket::Flush()
 	auto PendingMesssages = OutgoingBuffer.Num();
 	while (OutgoingBuffer.Num() > 0 && !IsServerSide)
 	{
-#if !PLATFORM_HTML5
+#if USE_LIBWEBSOCKET
 		if (Protocols)
 		{
 			lws_callback_on_writable_all_protocol(Context, &Protocols[0]);
@@ -312,7 +314,7 @@ void FWebSocket::SetErrorCallBack(FWebsocketInfoCallBack CallBack)
 
 void FWebSocket::OnRawRecieve(void* Data, uint32 Size)
 {
-#if !PLATFORM_HTML5
+#if USE_LIBWEBSOCKET
 
 	RecievedBuffer.Append((uint8*)Data, Size); // consumes all of Data
 	while (RecievedBuffer.Num() > sizeof(uint32))
@@ -329,7 +331,7 @@ void FWebSocket::OnRawRecieve(void* Data, uint32 Size)
 		}
 	}
 
-#else // PLATFORM_HTML5
+#else // ! USE_LIBWEBSOCKET -- HTML5 uses BSD network API
 
 	// browser was crashing when using RecievedBuffer...
 
@@ -371,7 +373,7 @@ void FWebSocket::OnRawWebSocketWritable(WebSocketInternal* wsi)
 
 	TArray <uint8>& Packet = OutgoingBuffer[0];
 
-#if !PLATFORM_HTML5
+#if USE_LIBWEBSOCKET
 
 	uint32 TotalDataSize = Packet.Num() - LWS_PRE;
 	uint32 DataToSend = TotalDataSize;
@@ -392,7 +394,7 @@ void FWebSocket::OnRawWebSocketWritable(WebSocketInternal* wsi)
 
 	check(Wsi == wsi);
 
-#else // PLATFORM_HTML5
+#else // ! USE_LIBWEBSOCKET -- HTML5 uses BSD network API
 
 	uint32 TotalDataSize = Packet.Num();
 	uint32 DataToSend = TotalDataSize;
@@ -422,7 +424,7 @@ FWebSocket::~FWebSocket()
 {
 	RecievedCallBack.Unbind();
 
-#if !PLATFORM_HTML5
+#if USE_LIBWEBSOCKET
 
 	Flush();
 
@@ -434,7 +436,7 @@ FWebSocket::~FWebSocket()
 		Protocols = NULL;
 	}
 
-#else // PLATFORM_HTML5
+#else // ! USE_LIBWEBSOCKET -- HTML5 uses BSD network API
 
 	close(SockFd);
 
@@ -442,7 +444,7 @@ FWebSocket::~FWebSocket()
 
 }
 
-#if !PLATFORM_HTML5
+#if USE_LIBWEBSOCKET
 static int unreal_networking_client(
 		struct lws *Wsi,
 		enum lws_callback_reasons Reason,

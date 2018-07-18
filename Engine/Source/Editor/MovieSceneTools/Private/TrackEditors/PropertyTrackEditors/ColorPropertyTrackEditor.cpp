@@ -25,11 +25,11 @@ TSharedRef<ISequencerSection> FColorPropertyTrackEditor::MakeSectionInterface(UM
 {
 	UMovieScenePropertyTrack* PropertyTrack = Cast<UMovieScenePropertyTrack>(&Track);
 	checkf(PropertyTrack != nullptr, TEXT("Incompatible track in FColorPropertyTrackEditor"));
-	return MakeShareable(new FColorPropertySection(GetSequencer().Get(), ObjectBinding, PropertyTrack->GetPropertyName(), PropertyTrack->GetPropertyPath(), SectionObject, Track.GetDisplayName()));
+	return MakeShared<FColorPropertySection>(SectionObject, ObjectBinding, GetSequencer());
 }
 
 
-void FColorPropertyTrackEditor::GenerateKeysFromPropertyChanged( const FPropertyChangedParams& PropertyChangedParams, TArray<FColorKey>& NewGeneratedKeys, TArray<FColorKey>& DefaultGeneratedKeys )
+void FColorPropertyTrackEditor::GenerateKeysFromPropertyChanged( const FPropertyChangedParams& PropertyChangedParams, FGeneratedTrackKeys& OutGeneratedKeys )
 {
 	UProperty* Property = PropertyChangedParams.PropertyPath.GetLeafMostProperty().Property.Get();
 	if (!Property)
@@ -42,8 +42,6 @@ void FColorPropertyTrackEditor::GenerateKeysFromPropertyChanged( const FProperty
 	FName PropertyName = Property->GetFName();
 
 	bool bIsFColor = StructName == NAME_Color;
-	bool bIsFLinearColor = StructName == NAME_LinearColor;
-	bool bIsSlateColor = StructName == FName( "SlateColor" );
 
 	FLinearColor ColorValue;
 
@@ -61,19 +59,18 @@ void FColorPropertyTrackEditor::GenerateKeysFromPropertyChanged( const FProperty
 		ColorValue.A = 1;
 	}
 
-	FName ChannelName = PropertyChangedParams.StructPropertyNameToKey;
+	FPropertyPath StructPath = PropertyChangedParams.StructPathToKey;
+	FName ChannelName = StructPath.GetNumProperties() != 0 ? StructPath.GetLeafMostProperty().Property->GetFName() : NAME_None;
 
-	TArray<FColorKey>& RedKeys = ChannelName == NAME_None || ChannelName == RedName || ChannelName == SpecifiedColorName ? NewGeneratedKeys : DefaultGeneratedKeys;
-	RedKeys.Add( FColorKey( EKeyColorChannel::Red, ColorValue.R, bIsSlateColor ) );
+	const bool bKeyRed   =  ChannelName == NAME_None || ChannelName == RedName   || ChannelName == SpecifiedColorName;
+	const bool bKeyGreen =  ChannelName == NAME_None || ChannelName == GreenName || ChannelName == SpecifiedColorName;
+	const bool bKeyBlue  =  ChannelName == NAME_None || ChannelName == BlueName  || ChannelName == SpecifiedColorName;
+	const bool bKeyAlpha =  ChannelName == NAME_None || ChannelName == AlphaName || ChannelName == SpecifiedColorName;
 
-	TArray<FColorKey>& GreenKeys = ChannelName == NAME_None || ChannelName == GreenName || ChannelName == SpecifiedColorName ? NewGeneratedKeys : DefaultGeneratedKeys;
-	GreenKeys.Add( FColorKey( EKeyColorChannel::Green, ColorValue.G, bIsSlateColor ) );
-
-	TArray<FColorKey>& BlueKeys =  ChannelName == NAME_None || ChannelName == BlueName || ChannelName == SpecifiedColorName ? NewGeneratedKeys : DefaultGeneratedKeys;
-	BlueKeys.Add( FColorKey( EKeyColorChannel::Blue, ColorValue.B, bIsSlateColor ) );
-
-	TArray<FColorKey>& AlphaKeys = ChannelName == NAME_None || ChannelName == AlphaName || ChannelName == SpecifiedColorName ? NewGeneratedKeys : DefaultGeneratedKeys;
-	AlphaKeys.Add( FColorKey( EKeyColorChannel::Alpha, ColorValue.A, bIsSlateColor ) );
+	OutGeneratedKeys.Add(FMovieSceneChannelValueSetter::Create<FMovieSceneFloatChannel>(0, ColorValue.R, bKeyRed));
+	OutGeneratedKeys.Add(FMovieSceneChannelValueSetter::Create<FMovieSceneFloatChannel>(1, ColorValue.G, bKeyGreen));
+	OutGeneratedKeys.Add(FMovieSceneChannelValueSetter::Create<FMovieSceneFloatChannel>(2, ColorValue.B, bKeyBlue));
+	OutGeneratedKeys.Add(FMovieSceneChannelValueSetter::Create<FMovieSceneFloatChannel>(3, ColorValue.A, bKeyAlpha));
 }
 
 void CopyInterpColorTrack(TSharedRef<ISequencer> Sequencer, UInterpTrackColorProp* ColorPropTrack, UMovieSceneColorTrack* ColorTrack)

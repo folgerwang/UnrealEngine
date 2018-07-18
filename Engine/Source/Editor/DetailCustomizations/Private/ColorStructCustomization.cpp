@@ -11,7 +11,7 @@
 #include "DetailLayoutBuilder.h"
 #include "IPropertyUtilities.h"
 #include "Widgets/Colors/SColorPicker.h"
-#include "SlateApplication.h"
+#include "Framework/Application/SlateApplication.h"
 
 
 #define LOCTEXT_NAMESPACE "FColorStructCustomization"

@@ -71,7 +71,7 @@ namespace
 
 
 /** Number of top function calls to hide when dumping the callstack as text. */
-#if PLATFORM_LINUX
+#if PLATFORM_UNIX
 
 	// Rationale: check() and ensure() handlers have different depth - worse, ensure() can optionally end up calling the same path as check().
 	// It is better to show the full callstack as is than accidentaly ignore a part of the problem
@@ -79,7 +79,7 @@ namespace
 
 #else
 	#define CALLSTACK_IGNOREDEPTH 2
-#endif // PLATFORM_LINUX
+#endif // PLATFORM_UNIX
 
 CORE_API void (*GPrintScriptCallStackFn)() = nullptr;
 
@@ -118,6 +118,7 @@ void StaticFailDebug( const TCHAR* Error, const ANSICHAR* File, int32 Line, cons
 	}
 
 	FScopeLock Lock( &FailDebugCriticalSection );
+	FPlatformMisc::LowLevelOutputDebugStringf(TEXT("%s") FILE_LINE_DESC TEXT("\n%s\n"), Error, ANSI_TO_TCHAR(File), Line, Description);
 
 	// Copy the detailed error into the error message.
 	FCString::Snprintf( GErrorMessage, ARRAY_COUNT( GErrorMessage ), TEXT( "%s" ) FILE_LINE_DESC TEXT( "\n%s\n" ), Error, ANSI_TO_TCHAR( File ), Line, DescriptionAndTrace);
@@ -167,13 +168,15 @@ void FDebug::LogFormattedMessageWithCallstack(const FName& LogName, const ANSICH
 		// Find the end of the current line
 		const TCHAR* LineEnd = LineStart;
 		TCHAR* SingleLineWritePos = SingleLine;
+		int32 SpaceRemaining = ARRAY_COUNT(SingleLine) - 1;
 
-		while (*LineEnd != 0 && *LineEnd != '\r' && *LineEnd != '\n')
+		while (SpaceRemaining > 0 && *LineEnd != 0 && *LineEnd != '\r' && *LineEnd != '\n')
 		{
 			*SingleLineWritePos++ = *LineEnd++;
+			--SpaceRemaining;
 		}
 
-		// cap it it
+		// cap it
 		*SingleLineWritePos = 0;
 
 		// prefix function lines with [Callstack] for parsing tools
@@ -288,7 +291,10 @@ void FDebug::EnsureFailed(const ANSICHAR* Expr, const ANSICHAR* File, int32 Line
 			// The reason why we don't call HeartBeat() at the end of this function is that maybe this thread
 			// Never had a heartbeat checked and may not be sending heartbeats at all which would later lead to a false positives when detecting hangs.
 			FThreadHeartBeat::Get().KillHeartBeat();
-			FGameThreadHitchHeartBeat::Get().FrameStart(true);
+			if (IsInGameThread())
+			{
+				FGameThreadHitchHeartBeat::Get().FrameStart(true);
+			}
 
 			{
 #if STATS
@@ -420,7 +426,7 @@ void VARARGS FDebug::AssertFailed(const ANSICHAR* Expr, const ANSICHAR* File, in
 }
 
 #if DO_CHECK || DO_GUARD_SLOW
-bool VARARGS FDebug::OptionallyLogFormattedEnsureMessageReturningFalse( bool bLog, const ANSICHAR* Expr, const ANSICHAR* File, int32 Line, const TCHAR* FormattedMsg, ... )
+bool VARARGS FDebug::OptionallyLogFormattedEnsureMessageReturningFalseImpl( bool bLog, const ANSICHAR* Expr, const ANSICHAR* File, int32 Line, const TCHAR* FormattedMsg, ... )
 {
 	if (bLog)
 	{

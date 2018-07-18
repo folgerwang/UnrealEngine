@@ -3,7 +3,7 @@
 
 #include "CoreMinimal.h"
 #include "Input/Reply.h"
-#include "SlateIcon.h"
+#include "Textures/SlateIcon.h"
 
 enum class ECheckBoxState : uint8;
 

@@ -68,9 +68,9 @@
 #include "Kismet2/KismetEditorUtilities.h"
 #include "Animation/AnimNotifies/AnimNotify.h"
 #include "Animation/AnimNotifies/AnimNotifyState.h"
-#include "BlueprintEditorUtils.h"
-#include "SNotificationList.h"
-#include "NotificationManager.h"
+#include "Kismet2/BlueprintEditorUtils.h"
+#include "Widgets/Notifications/SNotificationList.h"
+#include "Framework/Notifications/NotificationManager.h"
 #include "PhysicsEngine/PhysicsAsset.h"
 #include "PersonaPreviewSceneDescription.h"
 #include "PersonaPreviewSceneAnimationController.h"
@@ -104,12 +104,11 @@ void FPersonaModule::StartupModule()
 		TArray<FAssetData> AssetData;
 		AssetRegistryModule.Get().GetAssetsByClass(UBlueprint::StaticClass()->GetFName(), AssetData);
 
-		const FName BPParentClassName( TEXT( "ParentClass" ) );
 		const FString BPAnimNotify( TEXT("Class'/Script/Engine.AnimNotify'" ));
 
 		for (int32 AssetIndex = 0; AssetIndex < AssetData.Num(); ++AssetIndex)
 		{
-			FString TagValue = AssetData[ AssetIndex ].GetTagValueRef<FString>(BPParentClassName);
+			FString TagValue = AssetData[ AssetIndex ].GetTagValueRef<FString>(FBlueprintTags::ParentClassPath);
 			if (TagValue == BPAnimNotify)
 			{
 				FString BlueprintPath = AssetData[AssetIndex].ObjectPath.ToString();
@@ -176,6 +175,17 @@ static void SetupPersonaToolkit(const TSharedRef<FPersonaToolkit>& Toolkit, cons
 	{
 		Toolkit->CreatePreviewScene(PersonaToolkitArgs);
 	}
+}
+
+TSharedRef<IPersonaToolkit> FPersonaModule::CreatePersonaToolkit(UObject* InAsset, const FPersonaToolkitArgs& PersonaToolkitArgs) const
+{
+	TSharedRef<FPersonaToolkit> NewPersonaToolkit(new FPersonaToolkit());
+
+	NewPersonaToolkit->Initialize(InAsset);
+
+	SetupPersonaToolkit(NewPersonaToolkit, PersonaToolkitArgs);
+
+	return NewPersonaToolkit;
 }
 
 TSharedRef<IPersonaToolkit> FPersonaModule::CreatePersonaToolkit(USkeleton* InSkeleton, const FPersonaToolkitArgs& PersonaToolkitArgs) const

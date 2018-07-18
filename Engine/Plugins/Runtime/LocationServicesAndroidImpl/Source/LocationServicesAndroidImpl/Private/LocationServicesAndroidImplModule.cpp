@@ -2,7 +2,7 @@
 
 #include "LocationServicesAndroidImplModule.h"
 #include "LocationServicesAndroidImpl.h"
-#include "Classes/LocationServicesBPLibrary.h"
+#include "LocationServicesBPLibrary.h"
 
 IMPLEMENT_MODULE(FLocationServicesAndroidImplModule, LocationServicesAndroidImpl)
 

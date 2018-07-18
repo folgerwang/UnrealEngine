@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2994308
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:Coordinates 表現式
 Crumbs: %ROOT%, Engine, Engine/Rendering/Materials
 Description:テクスチャ座標上でアクションを実施したり、テクスチャ座標として使用したり、テクスチャ座標を変更する値を出力する表現式。
 Version:4.9
+tags:Materials
 
 [EXCERPT:TOC]
 [TOC(start:2)]
@@ -48,7 +49,7 @@ Version:4.9
 | **SpeedX** | U方向へ座標をパニングする速度を指定します。 |
 | **SpeedY** | V方向へ座標をパニングする速度を指定します。 |
 | [REGION:tablesection]入力値[/REGION] ||
-| **Coordinate (座標) ** | ベース UV のテクスチャ座標を取り込むと、式を修正できます。 |
+| **Coordinate** | ベース UV のテクスチャ座標を取り込むと、式を修正できます。 |
 | **Time** | 現在のパニング位置を決定するために使用する値を取り込みます。通常は、[Time](Engine/Rendering/Materials/ExpressionReference/Constant#Time) 式によって一定のパニング効果が得られますが、[Constant](Engine/Rendering/Materials/ExpressionReference/Constant#Constant) または [ScalarParameter](Engine/Rendering/Materials/ExpressionReference/Parameters#ScalarParameter) を使用して、特定のオフセットを設定したり、マチネまたはブループリントを通してパニングを制御することができます。 |
 
 
@@ -67,7 +68,7 @@ Panner は Time の入力値によって変化する UV を生成します。Coo
 
 ## Rotator
 
-**Rotator** 表現式は回転テクスチャの作成に使用できる、2 チャンネルのベクター値形式で UV テクスチャ座標を出力します。
+Rotator 表現式は回転テクスチャの作成に使用できる、2 チャンネルのベクター値形式で UV テクスチャ座標を出力します。
 
 | アイテム | 説明 |
 | -------- | ----------- |
@@ -92,7 +93,7 @@ Panner は Time の入力値によって変化する UV を生成します。Coo
 **ScreenPosition** 表現式は、現在レンダリング中のピクセルのスクリーン空間位置を出力します。  
 
 [COMMENT:none]
-| アイテム | 説明|
+| アイテム | 説明 |
 | -------- | ----------- |
 | [REGION:tablesection]プロパティ[/REGION] ||
 | **Screen Align** | True の場合、ScreenPosition が位置を同次座標で割り、スクリーンアライメント用に位置を[0,0] - [1,1] へマップ付します。 |
@@ -144,13 +145,13 @@ Panner は Time の入力値によって変化する UV を生成します。Coo
 ## WorldPosition
 
 
-WorldPosition 表現式は、ワールド空間の現在のピクセル位置を出力します。出力値を単に Emissive に接続することによって可視化が可能となります。
+**WorldPosition** 表現式は、ワールド空間の現在のピクセル位置を出力します。視覚化するには、出力値を単に Emissive に接続します。
 
 [REGION:fullwidth]
 ![WorldPositionExample.png](WorldPositionExample.png)
 [/REGION]
 
-一般的な使用方法は、カメラからピクセル (PixelDepth から直行距離と対照的に) までの放射距離を求めます。WorldPosition はテクスチャ座標としての使用や、近距離のテクスチャ座標の組み合わせを使用した無関係のメッシュを持つ際に実用的です。これはテクスチャの平面マップ に WorldPosition.xy を使用した基本例となります。
+一般的な使用方法は、カメラからピクセル (PixelDepth から直行距離と対照的に) までの放射距離を求めます。WorldPosition はテクスチャ座標としての使用や、関連のないメッシュが近距離にある場合にこのテクスチャ座標を使って合わせるのに便利です。これはテクスチャの平面マップに WorldPosition.xy を使用した基本例となります。
 
 [REGION:fullwidth]
 ![WorldPosPlanarMap.png](WorldPosPlanarMap.png)

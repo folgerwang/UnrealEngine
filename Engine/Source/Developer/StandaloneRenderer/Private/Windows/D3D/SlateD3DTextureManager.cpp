@@ -214,7 +214,15 @@ bool FSlateD3DTextureManager::LoadTexture( const FSlateBrush& InBrush, uint32& O
 	if( FFileHelper::LoadFileToArray( RawFileData, *ResourcePath ) )
 	{
 		IImageWrapperModule& ImageWrapperModule = FModuleManager::LoadModuleChecked<IImageWrapperModule>( FName("ImageWrapper") );
-		TSharedPtr<IImageWrapper> ImageWrapper = ImageWrapperModule.CreateImageWrapper( EImageFormat::PNG );
+
+		//Try and determine format, if that fails assume PNG
+		EImageFormat ImageFormat = ImageWrapperModule.DetectImageFormat(RawFileData.GetData(), RawFileData.Num());
+		if (ImageFormat == EImageFormat::Invalid)
+		{
+			ImageFormat = EImageFormat::PNG;
+		}
+		TSharedPtr<IImageWrapper> ImageWrapper = ImageWrapperModule.CreateImageWrapper(ImageFormat);
+
 		if ( ImageWrapper.IsValid() && ImageWrapper->SetCompressed( RawFileData.GetData(), RawFileData.Num() ) )
 		{
 			OutWidth = ImageWrapper->GetWidth();

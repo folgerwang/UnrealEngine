@@ -19,6 +19,7 @@ struct FAssetData;
 class IAssetTypeActions;
 class IClassTypeActions;
 class UFactory;
+class UAssetImportTask;
 
 USTRUCT(BlueprintType)
 struct FAssetRenameData
@@ -227,6 +228,15 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Editor Scripting | Asset Tools")
 	virtual TArray<UObject*> ImportAssetsAutomated( const UAutomatedAssetImportData* ImportData) const = 0;
+
+	/**
+	* Imports assets using tasks specified.
+	*
+	* @param ImportTasks	Tasks that specify how to import each file
+	* @return list of successfully imported assets
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Editor Scripting | Asset Tools")
+	virtual void ImportAssetTasks(const TArray<UAssetImportTask*>& ImportTasks) const = 0;
 
 	/**
 	 * Exports the specified objects to file.

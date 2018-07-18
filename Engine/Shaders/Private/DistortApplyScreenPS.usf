@@ -15,6 +15,8 @@ static const half InvDistortionScaleBias = 1 / 4.0f;
  * A=negative vertical offset 
  */
 
+Texture2D		SceneColorTexture;
+SamplerState	SceneColorTextureSampler;
   
  #if USE_MSAA
 Texture2DMS<float4> DistortionMSAATexture;

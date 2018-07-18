@@ -637,7 +637,7 @@ enum EUnrealEngineObjectUE4Version
 	VER_UE4_AUTOMATIC_VERSION = VER_UE4_AUTOMATIC_VERSION_PLUS_ONE - 1
 };
 
-#include "PendingVersions.h"
+#include "UObject/PendingVersions.h"
 
 enum EUnrealEngineObjectLicenseeUE4Version
 {

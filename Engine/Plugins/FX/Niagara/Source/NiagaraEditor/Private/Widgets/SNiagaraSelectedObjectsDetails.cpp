@@ -3,7 +3,7 @@
 #include "SNiagaraSelectedObjectsDetails.h"
 #include "NiagaraObjectSelection.h"
 
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
 #include "IDetailsView.h"
 

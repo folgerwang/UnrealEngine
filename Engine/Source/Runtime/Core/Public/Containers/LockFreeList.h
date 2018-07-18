@@ -9,7 +9,7 @@
 #include "HAL/ThreadSafeCounter.h"
 #include "Misc/NoopCounter.h"
 #include "Containers/ContainersFwd.h"
-#include "PlatformProcess.h"
+#include "HAL/PlatformProcess.h"
 
 CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogLockFreeList, Log, All);
 
@@ -695,15 +695,16 @@ public:
 			ThreadToWake = FindThreadToWake(LocalMasterState.GetPtr());
 #if 0
 			// This block of code is supposed to avoid starting the task thread if the queues are empty.
-			// It does not work. In rare cases no task thread is woken up.
+			// There WAS a silly bug here. In rare cases no task thread is woken up.
+			// That bug has been fixed, but I don't think we really need this code anyway.
 			// Without this block, it is possible that we do a redundant wake-up, but for task threads, that can happen anyway. 
-			// For named threads, the rare redudnant wakeup seems acceptable.
+			// For named threads, the rare redundant wakeup seems acceptable.
 			if (ThreadToWake >= 0)
 			{
 				bool bAny = false;
 				for (int32 Index = 0; !bAny && Index < NumPriorities; Index++)
 				{
-					bAny = PriorityQueues[Index].IsEmpty();
+					bAny = !PriorityQueues[Index].IsEmpty();
 				}
 				if (!bAny) // if there is nothing in the queues, then don't wake anyone
 				{

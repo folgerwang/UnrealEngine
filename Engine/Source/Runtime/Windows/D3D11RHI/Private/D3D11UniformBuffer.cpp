@@ -203,16 +203,21 @@ FUniformBufferRHIRef FD3D11DynamicRHI::RHICreateUniformBuffer(const void* Conten
 	if (Layout.Resources.Num())
 	{
 		int32 NumResources = Layout.Resources.Num();
-		FRHIResource** InResources = (FRHIResource**)((uint8*)Contents + Layout.ResourceOffset);
 		NewUniformBuffer->ResourceTable.Empty(NumResources);
 		NewUniformBuffer->ResourceTable.AddZeroed(NumResources);
 
-		checkf(InResources, TEXT("Invalid resources creating uniform buffer for %s [0x%x + %u]."), *Layout.GetDebugName().ToString(), Contents, Layout.ResourceOffset);
+		check(Layout.ResourceOffsets.Num() == NumResources);
 
 		for (int32 i = 0; i < NumResources; ++i)
 		{
-			checkf(InResources[i], TEXT("Invalid resource entry creating uniform buffer, %s.Resources[%u], ResourceType 0x%x."), *Layout.GetDebugName().ToString(), i, Layout.Resources[i]);
-			NewUniformBuffer->ResourceTable[i] = InResources[i];
+			FRHIResource* Resource = *(FRHIResource**)((uint8*)Contents + Layout.ResourceOffsets[i]);
+
+			// Allow null SRV's in uniform buffers for feature levels that don't support SRV's in shaders
+			if (!(GMaxRHIFeatureLevel <= ERHIFeatureLevel::ES3_1 && Layout.Resources[i] == UBMT_SRV))
+			{
+				checkf(Resource, TEXT("Invalid resource entry creating uniform buffer, %s.Resources[%u], ResourceType 0x%x."), *Layout.GetDebugName().ToString(), i, Layout.Resources[i]);
+			}
+			NewUniformBuffer->ResourceTable[i] = Resource;
 		}
 	}
 

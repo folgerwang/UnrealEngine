@@ -138,6 +138,16 @@ void FThumbnailPreviewScene::GetView(FSceneViewFamily* ViewFamily, int32 X, int3
 	}
 }
 
+void FThumbnailPreviewScene::Tick(float DeltaTime)
+{
+	UpdateCaptureContents();
+}
+
+TStatId FThumbnailPreviewScene::GetStatId() const
+{
+	return TStatId();
+}
+
 float FThumbnailPreviewScene::GetBoundsZOffset(const FBoxSphereBounds& Bounds) const
 {
 	// Return half the height of the bounds plus one to avoid ZFighting with the floor plane

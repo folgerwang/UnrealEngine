@@ -21,8 +21,8 @@ void FAssetTypeActions_MaterialFunctionInstance::GetActions( const TArray<UObjec
 	FAssetTypeActions_MaterialFunction::GetActions(InObjects, MenuBuilder);
 
 	MenuBuilder.AddMenuEntry(
-		LOCTEXT("MaterialInstanceConstant_FindParent", "Find Parent"),
-		LOCTEXT("MaterialInstanceConstant_FindParentTooltip", "Finds the function this instance is based on in the content browser."),
+		LOCTEXT("MaterialFunctionInstance_FindParent", "Find Parent"),
+		LOCTEXT("MaterialFunctionInstance_FindParentTooltip", "Finds the function this instance is based on in the content browser."),
 		FSlateIcon(FEditorStyle::GetStyleSetName(), "ContentBrowser.AssetActions.GenericFind"),
 		FUIAction(
 			FExecuteAction::CreateSP( this, &FAssetTypeActions_MaterialFunctionInstance::ExecuteFindParent, MFIs ),

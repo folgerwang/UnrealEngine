@@ -119,6 +119,34 @@ public:
 	/** The background color displayed in the tile map editor */
 	UPROPERTY(Category=Setup, EditAnywhere, meta=(HideAlphaChannel))
 	FLinearColor BackgroundColor;
+
+	/** The color of the tile grid */
+	UPROPERTY(Category=Setup, EditAnywhere, meta=(HideAlphaChannel))
+	FLinearColor TileGridColor;
+
+	/** The color of the multi tile grid */
+	UPROPERTY(Category=Setup, EditAnywhere, meta=(HideAlphaChannel))
+	FLinearColor MultiTileGridColor;
+
+	/** Number of tiles the multi tile grid spans horizontally. 0 removes vertical lines */
+	UPROPERTY(Category=Setup, EditAnywhere, meta=(ClampMin=0))
+	int32 MultiTileGridWidth;
+
+	/** Number of tiles the multi tile grid spans vertically. 0 removes horizontal lines */
+	UPROPERTY(Category=Setup, EditAnywhere, meta=(ClampMin=0))
+	int32 MultiTileGridHeight;
+
+	/** Number of tiles the multi tile grid is shifted to the right */
+	UPROPERTY(Category=Setup, EditAnywhere)
+	int32 MultiTileGridOffsetX;
+
+	/** Number of tiles the multi tile grid is shifted downwards */
+	UPROPERTY(Category=Setup, EditAnywhere)
+	int32 MultiTileGridOffsetY;
+
+	/** The color of the layer grid */
+	UPROPERTY(Category=Setup, EditAnywhere, meta=(HideAlphaChannel))
+	FLinearColor LayerGridColor;
 #endif
 
 	/** The naming index to start at when trying to create a new layer */

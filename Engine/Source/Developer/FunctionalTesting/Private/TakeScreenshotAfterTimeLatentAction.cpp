@@ -7,16 +7,18 @@
 #include "EngineGlobals.h"
 #include "Misc/AutomationTest.h"
 
-FTakeScreenshotAfterTimeLatentAction::FTakeScreenshotAfterTimeLatentAction(const FLatentActionInfo& LatentInfo, const FString& InScreenshotName, FAutomationScreenshotOptions InOptions)
+FTakeScreenshotAfterTimeLatentAction::FTakeScreenshotAfterTimeLatentAction(const FLatentActionInfo& LatentInfo, const FString& InScreenshotName, const FString& InNotes, FAutomationScreenshotOptions InOptions)
 	: ExecutionFunction(LatentInfo.ExecutionFunction)
 	, OutputLink(LatentInfo.Linkage)
 	, CallbackTarget(LatentInfo.CallbackTarget)
 	, ScreenshotName(InScreenshotName)
+	, Notes(InNotes)
 	, SecondsRemaining(InOptions.Delay)
 	, IssuedScreenshotCapture(false)
 	, TakenScreenshot(false)
 	, Options(InOptions)
 {
+	UAutomationBlueprintFunctionLibrary::FinishLoadingBeforeScreenshot();
 }
 
 FTakeScreenshotAfterTimeLatentAction::~FTakeScreenshotAfterTimeLatentAction()
@@ -35,13 +37,15 @@ void FTakeScreenshotAfterTimeLatentAction::UpdateOperation(FLatentResponse& Resp
 	{
 		if ( !IssuedScreenshotCapture )
 		{
+			UAutomationBlueprintFunctionLibrary::FinishLoadingBeforeScreenshot();
+
 			SecondsRemaining -= Response.ElapsedTime();
 			if ( SecondsRemaining <= 0.0f )
 			{
 				UObject* Caller = CallbackTarget.IsValid() ? CallbackTarget.Get() : nullptr;
 				FAutomationTestFramework::Get().OnScreenshotTakenAndCompared.AddRaw(this, &FTakeScreenshotAfterTimeLatentAction::OnScreenshotTakenAndCompared);
 
-				if ( UAutomationBlueprintFunctionLibrary::TakeAutomationScreenshotInternal(Caller, ScreenshotName, Options) )
+				if ( UAutomationBlueprintFunctionLibrary::TakeAutomationScreenshotInternal(Caller, ScreenshotName, Notes, Options) )
 				{
 					IssuedScreenshotCapture = true;
 				}

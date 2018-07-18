@@ -320,7 +320,7 @@ bool FJsonInternationalizationArchiveSerializer::JsonObjToArchive(TSharedRef<FJs
 					bIsOptional = ChildJSONObject->GetBoolField(TAG_OPTIONAL);
 				}
 
-				TArray<FString> Keys;
+				TArray<FLocKey> Keys;
 				TSharedPtr< FLocMetadataObject > KeyMetadataNode;
 				if (InArchive->GetFormatVersion() < FInternationalizationArchive::EFormatVersion::AddedKeys)
 				{
@@ -356,12 +356,12 @@ bool FJsonInternationalizationArchiveSerializer::JsonObjToArchive(TSharedRef<FJs
 					}
 				}
 
-				for (const FString& Key : Keys)
+				for (const FLocKey& Key : Keys)
 				{
 					const bool bAddSuccessful = InArchive->AddEntry(AccumulatedNamespace, Key, Source, Translation, KeyMetadataNode, bIsOptional);
 					if (!bAddSuccessful)
 					{
-						UE_LOG(LogInternationalizationArchiveSerializer, Warning, TEXT("Could not add JSON entry to the Internationalization archive: Namespace:%s Key:%s DefaultText:%s"), *AccumulatedNamespace, *Key, *SourceText);
+						UE_LOG(LogInternationalizationArchiveSerializer, Warning, TEXT("Could not add JSON entry to the Internationalization archive: Namespace:%s Key:%s DefaultText:%s"), *AccumulatedNamespace, *Key.GetString(), *SourceText);
 					}
 				}
 			}
@@ -399,7 +399,7 @@ void FJsonInternationalizationArchiveSerializer::GenerateStructuredData( TShared
 		TArray< FString > NamespaceTokens;
 
 		// Tokenize the namespace by using '.' as a delimiter
-		int32 NamespaceTokenCount = UnstructuredArchiveEntry->Namespace.ParseIntoArray( NamespaceTokens, *NAMESPACE_DELIMITER, true );
+		int32 NamespaceTokenCount = UnstructuredArchiveEntry->Namespace.GetString().ParseIntoArray( NamespaceTokens, *NAMESPACE_DELIMITER, true );
 
 		TSharedPtr< FStructuredArchiveEntry > StructuredArchiveEntry = RootElement;
 		//Loop through all the namespace tokens and find the appropriate structured entry, if it does not exist add it.  At the end StructuredArchiveEntry
@@ -497,7 +497,7 @@ void FJsonInternationalizationArchiveSerializer::StructuredDataToJsonObj( TShare
 		TranslationNode->SetStringField( TAG_TRANSLATION_TEXT, ProcessedTranslation );
 		EntryNode->SetObjectField( TAG_TRANSLATION, TranslationNode );
 
-		EntryNode->SetStringField( TAG_KEY, Entry->Key );
+		EntryNode->SetStringField( TAG_KEY, Entry->Key.GetString() );
 
 		if( Entry->KeyMetadataObj.IsValid() )
 		{

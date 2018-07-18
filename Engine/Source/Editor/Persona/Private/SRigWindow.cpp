@@ -18,6 +18,10 @@
 #include "BoneMappingHelper.h"
 #include "SSkeletonWidget.h"
 #include "IEditableSkeleton.h"
+#include "IContentBrowserSingleton.h"
+#include "ContentBrowserModule.h"
+#include "Animation/DebugSkelMeshComponent.h"
+#include "Framework/Application/SlateApplication.h"
 
 class FPersona;
 
@@ -30,9 +34,10 @@ DECLARE_DELEGATE_RetVal_OneParam(FName, FOnGetBoneMapping, FName /** Node Name *
 //////////////////////////////////////////////////////////////////////////
 // SRigWindow
 
-void SRigWindow::Construct(const FArguments& InArgs, const TSharedRef<class IEditableSkeleton>& InEditableSkeleton, FSimpleMulticastDelegate& InOnPostUndo)
+void SRigWindow::Construct(const FArguments& InArgs, const TSharedRef<class IEditableSkeleton>& InEditableSkeleton, const TSharedRef<class IPersonaPreviewScene>& InPreviewScene, FSimpleMulticastDelegate& InOnPostUndo)
 {
 	EditableSkeletonPtr = InEditableSkeleton;
+	PreviewScenePtr = InPreviewScene;
 	bDisplayAdvanced = false;
 
 	InEditableSkeleton->RefreshRigConfig();
@@ -44,6 +49,7 @@ void SRigWindow::Construct(const FArguments& InArgs, const TSharedRef<class IEdi
 		// first add rig asset picker
 		+ SVerticalBox::Slot()
 		.AutoHeight()
+		.Padding(2,2)
 		[
 			SNew(SHorizontalBox)
 
@@ -78,31 +84,33 @@ void SRigWindow::Construct(const FArguments& InArgs, const TSharedRef<class IEdi
 		.AutoHeight()
 		.HAlign(HAlign_Center)
 		.VAlign(VAlign_Center)
-		.Padding(5, 5)
+		.Padding(2, 5)
 		[
 			SNew(SHorizontalBox)
 
 			+ SHorizontalBox::Slot()
-			.HAlign(HAlign_Right)
-			.Padding(5, 0)
+			.HAlign(HAlign_Center)
+			.Padding(2, 0)
+			.AutoWidth()
 			[
 				SNew(SButton)
 				.OnClicked(FOnClicked::CreateSP(this, &SRigWindow::OnAutoMapping))
 				.HAlign(HAlign_Center)
 				.VAlign(VAlign_Center)
-				.Text(LOCTEXT("AutoMapping_Title", "Auto  Mapping"))
+				.Text(LOCTEXT("AutoMapping_Title", "AutoMap"))
 				.ToolTipText(LOCTEXT("AutoMapping_Tooltip", "Automatically map the best matching bones"))
 			]
 
 			+SHorizontalBox::Slot()
 			.HAlign(HAlign_Right)
-			.Padding(5, 0)
+			.Padding(2, 0)
+			.AutoWidth()
 			[
 				SNew(SButton)
 				.OnClicked(FOnClicked::CreateSP(this, &SRigWindow::OnClearMapping))
 				.HAlign(HAlign_Center)
 				.VAlign(VAlign_Center)
-				.Text(LOCTEXT("ClearMapping_Title", "Clear Mapping"))
+				.Text(LOCTEXT("ClearMapping_Title", "Clear"))
 				.ToolTipText(LOCTEXT("ClearMapping_Tooltip", "Clear currently mapping bones"))
 			]
 
@@ -119,8 +127,35 @@ void SRigWindow::Construct(const FArguments& InArgs, const TSharedRef<class IEdi
 // 			]
 
 			+SHorizontalBox::Slot()
-			.HAlign(HAlign_Right)
-			.Padding(5, 0)
+			.HAlign(HAlign_Center)
+			.Padding(2, 0)
+			.AutoWidth()
+			[
+				SNew(SButton)
+				.OnClicked(FOnClicked::CreateSP(this, &SRigWindow::OnSaveMapping))
+				.HAlign(HAlign_Center)
+				.VAlign(VAlign_Center)
+				.Text(LOCTEXT("SaveMapping_Title", "Save"))
+				.ToolTipText(LOCTEXT("SaveMapping_Tooltip", "Save currently mapping bones"))
+			]
+
+			+SHorizontalBox::Slot()
+			.HAlign(HAlign_Center)
+			.Padding(2, 0)
+			.AutoWidth()
+			[
+				SNew(SButton)
+				.OnClicked(FOnClicked::CreateSP(this, &SRigWindow::OnLoadMapping))
+				.HAlign(HAlign_Center)
+				.VAlign(VAlign_Center)
+				.Text(LOCTEXT("LoadMapping_Title", "Load"))
+				.ToolTipText(LOCTEXT("LoadMapping_Tooltip", "Load mapping from saved asset."))
+			]
+
+			+SHorizontalBox::Slot()
+			.HAlign(HAlign_Center)
+			.Padding(2, 0)
+			.AutoWidth()
 			[
 				SNew(SButton)
 				.OnClicked(FOnClicked::CreateSP(this, &SRigWindow::OnToggleAdvanced))
@@ -267,7 +302,11 @@ FText SRigWindow::GetAssetName() const
 
 const struct FReferenceSkeleton& SRigWindow::GetReferenceSkeleton() const
 {
-	return EditableSkeletonPtr.Pin()->GetSkeleton().GetReferenceSkeleton();
+	// have to change this to preview mesh because that's what the retarget base pose will be
+	UDebugSkelMeshComponent* PreviewMeshComp = PreviewScenePtr.Pin()->GetPreviewMeshComponent();
+	USkeletalMesh* PreviewMesh = (PreviewMeshComp) ? PreviewMeshComp->SkeletalMesh : nullptr;
+	// it's because retarget base pose leaves in mesh, so if you give ref skeleton of skeleton, you might have joint that your mesh doesn't have
+	return (PreviewMesh)? PreviewMesh->RefSkeleton : EditableSkeletonPtr.Pin()->GetSkeleton().GetReferenceSkeleton();
 }
 
 bool SRigWindow::OnTargetSkeletonSelected(USkeleton* SelectedSkeleton, URig*  Rig) const
@@ -380,9 +419,119 @@ FReply SRigWindow::OnClearMapping()
 	return FReply::Handled();
 }
 
+// save mapping function
+FReply SRigWindow::OnSaveMapping()
+{
+	URig* Rig = GetRigObject();
+	if (Rig)
+	{
+		const USkeleton& Skeleton = EditableSkeletonPtr.Pin()->GetSkeleton();
+		const FString DefaultPackageName = Skeleton.GetPathName();
+		const FString DefaultPath = FPackageName::GetLongPackagePath(DefaultPackageName);
+		const FString DefaultName = TEXT("BoneMapping");
+
+		// Initialize SaveAssetDialog config
+		FSaveAssetDialogConfig SaveAssetDialogConfig;
+		SaveAssetDialogConfig.DialogTitleOverride = LOCTEXT("SaveMappingToAsset", "Save Mapping");
+		SaveAssetDialogConfig.DefaultPath = DefaultPath;
+		SaveAssetDialogConfig.DefaultAssetName = DefaultName;
+		SaveAssetDialogConfig.ExistingAssetPolicy = ESaveAssetDialogExistingAssetPolicy::AllowButWarn;
+		SaveAssetDialogConfig.AssetClassNames.Add(UNodeMappingContainer::StaticClass()->GetFName());
+
+		FContentBrowserModule& ContentBrowserModule = FModuleManager::LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
+		FString SaveObjectPath = ContentBrowserModule.Get().CreateModalSaveAssetDialog(SaveAssetDialogConfig);
+		if (!SaveObjectPath.IsEmpty())
+		{
+			const FString SavePackageName = FPackageName::ObjectPathToPackageName(SaveObjectPath);
+			const FString SavePackagePath = FPaths::GetPath(SavePackageName);
+			const FString SaveAssetName = FPaths::GetBaseFilename(SavePackageName);
+			
+			// create package and create object
+			UPackage* Package = CreatePackage(nullptr, *SavePackageName);
+			UNodeMappingContainer* MapperClass = NewObject<UNodeMappingContainer>(Package, *SaveAssetName, RF_Public | RF_Standalone);
+			USkeletalMeshComponent* PreviewMeshComp = PreviewScenePtr.Pin()->GetPreviewMeshComponent();
+			USkeletalMesh* PreviewMesh = PreviewMeshComp->SkeletalMesh;
+			if (MapperClass && PreviewMesh)
+			{
+				// update mapping information on the class
+				MapperClass->SetSourceAsset(Rig);
+				MapperClass->SetTargetAsset(PreviewMesh);
+
+				const TArray<FNode>& Nodes = Rig->GetNodes();
+				for (const auto& Node : Nodes)
+				{
+					FName MappingName = Skeleton.GetRigBoneMapping(Node.Name);
+					if (Node.Name != NAME_None && MappingName != NAME_None)
+					{
+						MapperClass->AddMapping(Node.Name, MappingName);
+					}
+				}
+
+				// save mapper class
+				FString const PackageName = Package->GetName();
+				FString const PackageFileName = FPackageName::LongPackageNameToFilename(PackageName, FPackageName::GetAssetPackageExtension());
+
+				UPackage::SavePackage(Package, NULL, RF_Standalone, *PackageFileName, GError, nullptr, false, true, SAVE_NoError);
+			}
+		}
+	}
+	return FReply::Handled(); 
+}
+
+FReply SRigWindow::OnLoadMapping()
+{
+	// show list of skeletalmeshes that they can choose from
+	FContentBrowserModule& ContentBrowserModule = FModuleManager::Get().LoadModuleChecked<FContentBrowserModule>(TEXT("ContentBrowser"));
+
+	FAssetPickerConfig AssetPickerConfig;
+	AssetPickerConfig.Filter.ClassNames.Add(UNodeMappingContainer::StaticClass()->GetFName());
+	AssetPickerConfig.OnAssetSelected = FOnAssetSelected::CreateSP(this, &SRigWindow::SetSelectedMappingAsset);
+	AssetPickerConfig.bAllowNullSelection = false;
+	AssetPickerConfig.InitialAssetViewType = EAssetViewType::Tile;
+
+	TSharedRef<SWidget> Widget = SNew(SBox)
+		.WidthOverride(384)
+		.HeightOverride(768)
+		[
+			SNew(SBorder)
+			.BorderBackgroundColor(FLinearColor(0.25f, 0.25f, 0.25f, 1.f))
+			.Padding(2)
+			[
+				SNew(SBorder)
+				.BorderImage(FEditorStyle::GetBrush("ToolPanel.GroupBorder"))
+				.Padding(8)
+				[
+					ContentBrowserModule.Get().CreateAssetPicker(AssetPickerConfig)
+				]
+			]
+		];
+
+	FSlateApplication::Get().PushMenu(
+		AsShared(),
+		FWidgetPath(),
+		Widget,
+		FSlateApplication::Get().GetCursorPos(),
+		FPopupTransitionEffect(FPopupTransitionEffect::TopMenu)
+	);
+
+	return FReply::Handled();
+}
+
 FReply SRigWindow::OnToggleView()
 {
 	return FReply::Handled();
+}
+
+void SRigWindow::SetSelectedMappingAsset(const FAssetData& InAssetData)
+{
+	UNodeMappingContainer* Container = Cast<UNodeMappingContainer>(InAssetData.GetAsset());
+	if (Container)
+	{
+		const TMap<FName, FName> SourceToTarget = Container->GetNodeMappingTable();
+		EditableSkeletonPtr.Pin()->SetRigBoneMappings(SourceToTarget);
+	}
+
+	FSlateApplication::Get().DismissAllMenus();
 }
 
 #undef LOCTEXT_NAMESPACE

@@ -933,7 +933,7 @@ namespace IncludeTool
 			IncludePaths.AddRange(ExtraSystemIncludePaths);
 
 			// Set up the preprocessor with the correct defines for this environment
-			Preprocessor PreprocessorInst = new Preprocessor(PreludeLocation, CompileEnvironment.Definitions, IncludePaths);
+			Preprocessor PreprocessorInst = new Preprocessor(PreludeLocation, CompileEnvironment.Definitions, IncludePaths, CompileEnvironment.ForceIncludeFiles);
 			PreprocessIncludedFile(PreprocessorInst, InitialFile, FileToActiveMarkup, Log);
 		}
 
@@ -964,24 +964,32 @@ namespace IncludeTool
 
 					// Process the directive
 					PreprocessorMarkup Markup = File.Markup[Idx];
-					if(Markup.Type != PreprocessorMarkupType.Include)
+					try
 					{
-						Preprocessor.ParseMarkup(Markup.Type, Markup.Tokens, Markup.Location.LineIdx);
-					}
-					else if(Preprocessor.IsBranchActive())
-					{
-						// Figure out which file is being included
-						PreprocessorFile TargetFile = Preprocessor.ResolveInclude(Markup.Tokens, Markup.Location.LineIdx);
-						if(!Markup.SetIncludedFile(TargetFile.WorkspaceFile.ReadSourceFile()))
+						if(Markup.Type != PreprocessorMarkupType.Include)
 						{
-							PreprocessorFile ExistingTargetFile = new PreprocessorFile(TargetFile.FileName, Workspace.GetFile(Markup.IncludedFile.Location));
-							Log.WriteLine("{0}({1}): warning: include text resolved to different locations", File.Location, Markup.Location.LineIdx + 1);
-							Log.WriteLine("    First: {0}", ExistingTargetFile.Location);
-							Log.WriteLine("    Now:   {0}", TargetFile.Location);
-							TargetFile = ExistingTargetFile;
+							Preprocessor.ParseMarkup(Markup.Type, Markup.Tokens, Markup.Location.LineIdx);
 						}
-						PreprocessIncludedFile(Preprocessor, TargetFile, FileToActiveMarkup, Log);
-						ActiveMarkup.Flags[Idx] = true;
+						else if(Preprocessor.IsBranchActive())
+						{
+							// Figure out which file is being included
+							PreprocessorFile TargetFile = Preprocessor.ResolveInclude(Markup.Tokens, Markup.Location.LineIdx);
+							if(!Markup.SetIncludedFile(TargetFile.WorkspaceFile.ReadSourceFile()))
+							{
+								PreprocessorFile ExistingTargetFile = new PreprocessorFile(TargetFile.FileName, Workspace.GetFile(Markup.IncludedFile.Location));
+								Log.WriteLine("{0}({1}): warning: include text resolved to different locations", File.Location, Markup.Location.LineIdx + 1);
+								Log.WriteLine("    First: {0}", ExistingTargetFile.Location);
+								Log.WriteLine("    Now:   {0}", TargetFile.Location);
+								TargetFile = ExistingTargetFile;
+							}
+							PreprocessIncludedFile(Preprocessor, TargetFile, FileToActiveMarkup, Log);
+							ActiveMarkup.Flags[Idx] = true;
+						}
+					}
+					catch(PreprocessorException Ex)
+					{
+						Log.WriteLine("{0}({1}): error: {2}", File.Location, Markup.Location.LineIdx, Ex.Message);
+						return;
 					}
 				}
 
@@ -990,7 +998,7 @@ namespace IncludeTool
 				{
 					foreach(PreprocessorMarkup Markup in File.Markup)
 					{
-						if(Markup.IncludedFile != null && (Markup.IncludedFile.Flags & SourceFileFlags.External) == 0 && !File.Location.FullName.Contains("PhyaLib") && !File.Location.GetFileName().Contains("Recast"))
+						if(Markup.IncludedFile != null && (Markup.IncludedFile.Flags & SourceFileFlags.External) == 0 && !File.Location.FullName.Contains("PhyaLib") && !File.Location.GetFileName().Contains("Recast") && !File.Location.GetFileName().Contains("FramePro") && !File.Location.GetFileName().Contains("libSampleRate"))
 						{
 							Log.WriteLine("{0}({1}): warning: external file is including non-external file ('{2}')", IncludedFile.Location.FullName, Markup.Location.LineIdx + 1, Markup.IncludedFile.Location);
 						}

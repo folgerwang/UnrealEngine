@@ -14,6 +14,7 @@
 #include "ITimeSlider.h"
 #include "Framework/Commands/UICommandList.h"
 #include "Widgets/Input/NumericTypeInterface.h"
+#include "Widgets/Input/SSpinBox.h"
 #include "Sequencer.h"
 
 class FActorDragDropGraphEdOp;
@@ -21,10 +22,8 @@ class FAssetDragDropOp;
 class FClassDragDropOp;
 class FMovieSceneClipboard;
 class FSequencerTimeSliderController;
-class FUnloadedClassDragDropOp;
 class FVirtualTrackArea;
 class ISequencerEditTool;
-class SSequencerCurveEditor;
 class SSequencerGotoBox;
 class SSequencerLabelBrowser;
 class SSequencerTrackArea;
@@ -97,7 +96,6 @@ public:
 
 	DECLARE_DELEGATE_OneParam( FOnToggleBoolOption, bool )
 	SLATE_BEGIN_ARGS( SSequencer )
-		: _ScrubPosition( 1.0f )
 	{ }
 		/** The current view range (seconds) */
 		SLATE_ATTRIBUTE( FAnimatedRange, ViewRange )
@@ -106,25 +104,19 @@ public:
 		SLATE_ATTRIBUTE( FAnimatedRange, ClampRange )
 
 		/** The playback range */
-		SLATE_ATTRIBUTE( TRange<float>, PlaybackRange )
+		SLATE_ATTRIBUTE( TRange<FFrameNumber>, PlaybackRange )
 
 		/** The selection range */
-		SLATE_ATTRIBUTE(TRange<float>, SelectionRange)
+		SLATE_ATTRIBUTE( TRange<FFrameNumber>, SelectionRange)
 
 		/** The current sub sequence range */
-		SLATE_ATTRIBUTE(TOptional<TRange<float>>, SubSequenceRange)
+		SLATE_ATTRIBUTE( TOptional<TRange<FFrameNumber>>, SubSequenceRange)
 
 		/** The playback status */
 		SLATE_ATTRIBUTE( EMovieScenePlayerStatus::Type, PlaybackStatus )
 
 		/** Called when the user changes the playback range */
-		SLATE_EVENT( FOnRangeChanged, OnInOutRangeChanged )
-
-		/** Called when the user has begun dragging the selection range */
-		SLATE_EVENT( FSimpleDelegate, OnBeginInOutRangeDrag )
-
-		/** Called when the user changes the playback range */
-		SLATE_EVENT( FOnRangeChanged, OnPlaybackRangeChanged )
+		SLATE_EVENT( FOnFrameRangeChanged, OnPlaybackRangeChanged )
 
 		/** Called when the user has begun dragging the playback range */
 		SLATE_EVENT( FSimpleDelegate, OnPlaybackRangeBeginDrag )
@@ -133,7 +125,7 @@ public:
 		SLATE_EVENT( FSimpleDelegate, OnPlaybackRangeEndDrag )
 
 		/** Called when the user changes the selection range */
-		SLATE_EVENT( FOnRangeChanged, OnSelectionRangeChanged )
+		SLATE_EVENT( FOnFrameRangeChanged, OnSelectionRangeChanged )
 
 		/** Called when the user has begun dragging the selection range */
 		SLATE_EVENT( FSimpleDelegate, OnSelectionRangeBeginDrag )
@@ -147,17 +139,14 @@ public:
 		/** Called when the user toggles the play back range lock */
 		SLATE_EVENT( FSimpleDelegate, OnTogglePlaybackRangeLocked )
 
-		/** The time snap interval */
-		SLATE_ATTRIBUTE( float, TimeSnapInterval )
-
 		/** The current scrub position in (seconds) */
-		SLATE_ATTRIBUTE( float, ScrubPosition )
+		SLATE_ATTRIBUTE( FFrameTime, ScrubPosition )
 
 		/** Called when the user changes the view range */
 		SLATE_EVENT( FOnViewRangeChanged, OnViewRangeChanged )
 
 		/** Called when the user changes the clamp range */
-		SLATE_EVENT( FOnRangeChanged, OnClampRangeChanged )
+		SLATE_EVENT( FOnTimeRangeChanged, OnClampRangeChanged )
 
 		/** Called to get the nearest key */
 		SLATE_EVENT( FOnGetNearestKey, OnGetNearestKey )
@@ -174,6 +163,9 @@ public:
 		/** Called to populate the add combo button in the toolbar. */
 		SLATE_EVENT( FOnGetAddMenuContent, OnGetAddMenuContent )
 
+		/** Called when object is clicked. */
+		SLATE_EVENT(FOnBuildCustomContextMenuForGuid, OnBuildCustomContextMenuForGuid)
+			
 		/** Called when any widget contained within sequencer has received focus */
 		SLATE_EVENT( FSimpleDelegate, OnReceivedFocus )
 
@@ -238,14 +230,16 @@ public:
 	TArray<FSectionHandle> GetSectionHandles(const TSet<TWeakObjectPtr<UMovieSceneSection>>& DesiredSections) const;
 
 	/** @return a numeric type interface that will parse and display numbers as frames and times correctly */
-	TSharedRef<INumericTypeInterface<float>> GetNumericTypeInterface();
-
-	/** @return a numeric type interface that will parse and display numbers as frames and times correctly, including any zero padding, if necessary */
-	TSharedRef<INumericTypeInterface<float>> GetZeroPadNumericTypeInterface();
+	TSharedRef<INumericTypeInterface<double>> GetNumericTypeInterface() const;
 	
 	/** Access the currently active track area edit tool */
 	const ISequencerEditTool* GetEditTool() const;
 
+	void ShowTickResolutionOverlay();
+	void HideTickResolutionOverlay();
+
+	/** Sets the play time for the sequence but clamped by the working range. This is useful for cases where we can't clamp via the UI control. */
+	void SetPlayTimeClampedByWorkingRange(double Frame);
 public:
 
 	// FNotifyHook overrides
@@ -281,6 +275,9 @@ private:
 	/** Handles changes to the selected outliner nodes. */
 	void HandleOutlinerNodeSelectionChanged();
 
+	/** Syncs the current node selection to the curve editor. */
+	void SyncCurveEditorToSelection();
+
 	/** Empty active timer to ensure Slate ticks during Sequencer playback */
 	EActiveTimerReturnType EnsureSlateTickDuringPlayback(double InCurrentTime, float InDeltaTime);	
 
@@ -314,8 +311,15 @@ private:
 	/** Makes the allow edits menu for the toolbar. */
 	TSharedRef<SWidget> MakeAllowEditsMenu();
 
+	/** Makes the key group menu for the toolbar. */
+	TSharedRef<SWidget> MakeKeyGroupMenu();
+
 	/** Makes the playback speed menu for the toolbar. */
 	void FillPlaybackSpeedMenu(FMenuBuilder& InMenuBuilder);
+
+public:
+	/** Makes the time display format menu for the toolbar and the play rate menu. */
+	void FillTimeDisplayFormatMenu(FMenuBuilder& MenuBuilder);
 
 public:	
 
@@ -326,11 +330,6 @@ public:
 	TSharedPtr<ITimeSlider> GetTopTimeSliderWidget() const;
 
 private:
-
-	/**
-	* @return The value of the current time snap interval.
-	*/
-	float OnGetTimeSnapInterval() const;
 
 	/**
 	* Called when the time snap interval changes.
@@ -386,14 +385,7 @@ private:
 	 * @param	DragDropOp	Information about the class(es) that were dropped
 	 */
 	void OnClassesDropped(const FClassDragDropOp& DragDropOp);
-	
-	/**
-	 * Called when one or more unloaded classes are dropped into the widget
-	 *
-	 * @param	DragDropOp	Information about the unloaded class(es) that were dropped
-	 */
-	void OnUnloadedClassesDropped(const FUnloadedClassDragDropOp& DragDropOp);
-	
+		
 	/**
 	 * Called when one or more actors are dropped into the widget
 	 *
@@ -419,8 +411,8 @@ private:
 	/** Gets whether or not the time range should be visible. */
 	EVisibility GetTimeRangeVisibility() const;
 
-	/** Gets whether or not to show frame numbers. */
-	bool ShowFrameNumbers() const;
+	/** What is the preferred display format for time values. */
+	EFrameNumberDisplayFormats GetTimeDisplayFormat() const;
 
 	/** Called when a column fill percentage is changed by a splitter slot. */
 	void OnColumnFillCoefficientChanged(float FillCoefficient, int32 ColumnIndex);
@@ -428,13 +420,13 @@ private:
 	/** Gets paint options for painting the playback range on sequencer */
 	FPaintPlaybackRangeArgs GetSectionPlaybackRangeArgs() const;
 
-	/** Called whenever the active sequence instance changes on the FSequencer */
-	void OnSequenceInstanceActivated( FMovieSceneSequenceIDRef ActiveInstanceID );
-
 	EVisibility GetDebugVisualizerVisibility() const;
 	
 	void SetPlaybackSpeed(float InPlaybackSpeed);
 	float GetPlaybackSpeed() const;
+
+	/** Controls how fast Spinboxes change values. */
+	double GetSpinboxDelta() const;
 
 public:
 	/** On Paste Command */
@@ -451,8 +443,13 @@ public:
 	void PasteFromHistory();
 
 	/** Generate a paste menu args structure */
-	struct FPasteContextMenuArgs GeneratePasteArgs(float PasteAtTime, TSharedPtr<FMovieSceneClipboard> Clipboard = nullptr);
+	struct FPasteContextMenuArgs GeneratePasteArgs(FFrameNumber PasteAtTime, TSharedPtr<FMovieSceneClipboard> Clipboard = nullptr);
 
+	/** Execute custom context menu if passed in the FSequencerViewParams  */
+	void BuildCustomContextMenuForGuid(FMenuBuilder& MenuBuilder, FGuid ObjectBinding);
+
+	/** This adds the specified path to the selection set to be restored the next time the tree view is refreshed. */
+	void AddAdditionalPathToSelectionSet(const FString& Path) { AdditionalSelectionsToAdd.Add(Path); }
 private:
 
 	/** Goto box widget. */
@@ -467,9 +464,6 @@ private:
 	/** Outliner widget */
 	TSharedPtr<SSequencerTrackOutliner> TrackOutliner;
 
-	/** The curve editor. */
-	TSharedPtr<SSequencerCurveEditor> CurveEditor;
-
 	/** The breadcrumb trail widget for this sequencer */
 	TSharedPtr<SBreadcrumbTrail<FSequencerBreadcrumb>> BreadcrumbTrail;
 
@@ -478,6 +472,9 @@ private:
 
 	/** The search box for filtering tracks. */
 	TSharedPtr<SSearchBox> SearchBox;
+
+	/** The current playback time display.*/
+	TSharedPtr<SSpinBox<double>> PlayTimeDisplay;
 
 	/** The sequencer tree view responsible for the outliner and track areas */
 	TSharedPtr<SSequencerTreeView> TreeView;
@@ -507,13 +504,15 @@ private:
 	TSharedPtr<FExtender> ToolbarExtender;
 
 	/** Numeric type interface used for converting parsing and generating strings from numbers */
-	TSharedPtr<INumericTypeInterface<float>> NumericTypeInterface;
-	TSharedPtr<INumericTypeInterface<float>> ZeroPadNumericTypeInterface;
+	TSharedPtr<INumericTypeInterface<double>> NumericTypeInterface;
 
 	/** Time slider controller for this sequencer */
 	TSharedPtr<FSequencerTimeSliderController> TimeSliderController;
 
 	FOnGetAddMenuContent OnGetAddMenuContent;
+
+	/** Called when object is clicked in track list */
+	FOnBuildCustomContextMenuForGuid OnBuildCustomContextMenuForGuid;
 
 	/** Called when the user has begun dragging the selection selection range */
 	FSimpleDelegate OnSelectionRangeBeginDrag;
@@ -531,6 +530,15 @@ private:
 	FSimpleDelegate OnReceivedFocus;
 
 	/** Cached clamp and view range for unlinking the curve editor time range */
-	TRange<float> CachedClampRange;
-	TRange<float> CachedViewRange;
+	TRange<double> CachedClampRange;
+	TRange<double> CachedViewRange;
+
+	/**
+	 * A list of additional paths to add to the selection set when it is restored after rebuilding the tree.
+	 * This can be used to highlight nodes that may not exist until the rebuild. Cleared after the tree is rebuilt
+	 * and the selection list is restored.
+	*/
+	TArray<FString> AdditionalSelectionsToAdd;
+
+	TSharedPtr<SWidget> TickResolutionOverlay;
 };

@@ -100,31 +100,28 @@ enum class EEncryptionResponse : uint8
 	InvalidParams
 };
 
-namespace Lex
+inline const TCHAR* const LexToString(const EEncryptionResponse Response)
 {
-	inline const TCHAR* const ToString(const EEncryptionResponse Response)
+	switch (Response)
 	{
-		switch (Response)
-		{
-			case EEncryptionResponse::Failure:
-				return TEXT("Failure");
-			case EEncryptionResponse::Success:
-				return TEXT("Success");
-			case EEncryptionResponse::InvalidToken:
-				return TEXT("InvalidToken");
-			case EEncryptionResponse::NoKey:
-				return TEXT("NoKey");
-			case EEncryptionResponse::SessionIdMismatch:
-				return TEXT("SessionIdMismatch");
-			case EEncryptionResponse::InvalidParams:
-				return TEXT("InvalidParams");
-			default:
-				break;
-		}
-
-		checkf(false, TEXT("Missing EncryptionResponse Type: %d"), static_cast<const int32>(Response));
-		return TEXT("");
+		case EEncryptionResponse::Failure:
+			return TEXT("Failure");
+		case EEncryptionResponse::Success:
+			return TEXT("Success");
+		case EEncryptionResponse::InvalidToken:
+			return TEXT("InvalidToken");
+		case EEncryptionResponse::NoKey:
+			return TEXT("NoKey");
+		case EEncryptionResponse::SessionIdMismatch:
+			return TEXT("SessionIdMismatch");
+		case EEncryptionResponse::InvalidParams:
+			return TEXT("InvalidParams");
+		default:
+			break;
 	}
+
+	checkf(false, TEXT("Missing EncryptionResponse Type: %d"), static_cast<const int32>(Response));
+	return TEXT("");
 }
 
 struct FEncryptionKeyResponse
@@ -161,27 +158,24 @@ enum class ECheatPunishType : uint8
 	PunishInfo
 };
 
-namespace Lex
+inline const TCHAR* const LexToString(const ECheatPunishType Response)
 {
-	inline const TCHAR* const ToString(const ECheatPunishType Response)
+	switch (Response)
 	{
-		switch (Response)
-		{
-			case ECheatPunishType::Unknown:
-				return TEXT("Unknown");
-			case ECheatPunishType::KickClient:
-				return TEXT("KickClient");
-			case ECheatPunishType::KickMatch:
-				return TEXT("KickMatch");
-			case ECheatPunishType::PunishInfo:
-				return TEXT("PunishInfo");
-			default:
-				break;
-		}
-
-		checkf(false, TEXT("Missing ECheatPunishType Type: %d"), static_cast<const int32>(Response));
-		return TEXT("");
+		case ECheatPunishType::Unknown:
+			return TEXT("Unknown");
+		case ECheatPunishType::KickClient:
+			return TEXT("KickClient");
+		case ECheatPunishType::KickMatch:
+			return TEXT("KickMatch");
+		case ECheatPunishType::PunishInfo:
+			return TEXT("PunishInfo");
+		default:
+			break;
 	}
+
+	checkf(false, TEXT("Missing ECheatPunishType Type: %d"), static_cast<const int32>(Response));
+	return TEXT("");
 }
 
 /** 

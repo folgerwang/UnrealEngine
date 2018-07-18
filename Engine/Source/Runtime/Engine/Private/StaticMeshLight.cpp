@@ -451,6 +451,9 @@ void UStaticMeshComponent::InvalidateLightingCacheDetailed(bool bInvalidateBuild
 	{
 		FStaticMeshComponentLODInfo& LODDataElement = LODData[i];
 		LODDataElement.MapBuildDataId = FGuid::NewGuid();
+		#if WITH_EDITOR
+			LODDataElement.bMapBuildDataIdLoaded = false;
+		#endif
 	}
 
 	MarkRenderStateDirty();

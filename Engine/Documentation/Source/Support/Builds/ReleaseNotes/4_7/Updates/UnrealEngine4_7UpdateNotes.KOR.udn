@@ -24,7 +24,7 @@ Github: [https://github.com/EpicGames/UnrealEngine/releases/tag/4.7.1-release](h
 
 * UE-6706 HUD 블루프린트에서 Draw Text 노드를 사용할 때 텍스트 스케일이 적용되지 않음
 
-* UE-7139 "가비지 콜렉션이 /Game/Maps/UEDPIE_2_Menu.Menu 클린업 하지 못함!" 으로 크래시 유발
+* UE-7139 "가비지 컬렉션이 /Game/Maps/UEDPIE_2_Menu.Menu 클린업 하지 못함!" 으로 크래시 유발
 
 * UE-7497 그래프를 활성화시켜도 비주얼 로거에 표시되지 않음
 

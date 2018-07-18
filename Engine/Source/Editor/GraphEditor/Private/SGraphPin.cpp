@@ -184,7 +184,7 @@ void SGraphPin::Construct(const FArguments& InArgs, UEdGraphPin* InPin)
 	TSharedRef<SWidget> LabelWidget = GetLabelWidget(InArgs._PinLabelStyle);
 
 	// Create the widget used for the pin body (status indicator, label, and value)
-	TSharedRef<SWrapBox> LabelAndValue =
+	LabelAndValue =
 		SNew(SWrapBox)
 		.PreferredWidth(150.f);
 
@@ -210,7 +210,7 @@ void SGraphPin::Construct(const FArguments& InArgs, UEdGraphPin* InPin)
 				LabelWidget
 			];
 
-		TSharedRef<SWidget> ValueWidget = GetDefaultValueWidget();
+		ValueWidget = GetDefaultValueWidget();
 
 		if (ValueWidget != SNullWidget::NullWidget)
 		{
@@ -222,7 +222,7 @@ void SGraphPin::Construct(const FArguments& InArgs, UEdGraphPin* InPin)
 					.Padding(0.0f)
 					.IsEnabled(this, &SGraphPin::IsEditingEnabled)
 					[
-						ValueWidget
+						ValueWidget.ToSharedRef()
 					]
 				];
 		}
@@ -251,7 +251,7 @@ void SGraphPin::Construct(const FArguments& InArgs, UEdGraphPin* InPin)
 			.AutoWidth()
 			.VAlign(VAlign_Center)
 			[
-				LabelAndValue
+				LabelAndValue.ToSharedRef()
 			];
 	}
 	else
@@ -262,7 +262,7 @@ void SGraphPin::Construct(const FArguments& InArgs, UEdGraphPin* InPin)
 			.AutoWidth()
 			.VAlign(VAlign_Center)
 			[
-				LabelAndValue
+				LabelAndValue.ToSharedRef()
 			]
 			+SHorizontalBox::Slot()
 			.AutoWidth()
@@ -287,9 +287,9 @@ void SGraphPin::Construct(const FArguments& InArgs, UEdGraphPin* InPin)
 				PinWidgetRef
 			]
 			.HighDetail()
-				[
-					PinContent.ToSharedRef()
-				]
+			[
+				PinContent.ToSharedRef()
+			]
 		]
 	);
 
@@ -1123,7 +1123,8 @@ bool SGraphPin::IsEditingEnabled() const
 
 bool SGraphPin::UseLowDetailPinNames() const
 {
-	if (SGraphNode* MyOwnerNode = OwnerNodePtr.Pin().Get())
+	SGraphNode* MyOwnerNode = OwnerNodePtr.Pin().Get();
+	if (MyOwnerNode && MyOwnerNode->GetOwnerPanel().IsValid())
 	{
 		return MyOwnerNode->GetOwnerPanel()->GetCurrentLOD() <= EGraphRenderingLOD::LowDetail;
 	}

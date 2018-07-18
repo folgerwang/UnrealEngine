@@ -19,7 +19,7 @@
 #include "Serialization/BulkData.h"
 #include "Engine/TextureDefines.h"
 #include "UnrealClient.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 class FTexture2DResourceMem;
 class UTexture2D;
@@ -36,6 +36,8 @@ struct FTexture2DMipMap
 	int32 SizeX;
 	/** Height of the mip-map. */
 	int32 SizeY;
+	/** Depth of the mip-map. */
+	int32 SizeZ;
 	/** Bulk data if stored in the package. */
 	FByteBulkData BulkData;
 
@@ -43,6 +45,7 @@ struct FTexture2DMipMap
 	FTexture2DMipMap()
 		: SizeX(0)
 		, SizeY(0)
+		, SizeZ(0)
 	{
 	}
 
@@ -536,6 +539,7 @@ protected:
 	 */
 	friend class UTextureRenderTarget2D;
 	virtual void UpdateDeferredResource(FRHICommandListImmediate& RHICmdList, bool bClearRenderTarget=true) override;
+	void Resize(int32 NewSizeX, int32 NewSizeY);
 
 private:
 	/** The UTextureRenderTarget2D which this resource represents. */
@@ -658,6 +662,6 @@ private:
 	ECubeFace CurrentTargetFace;
 };
 
-ENGINE_API FName GetDefaultTextureFormatName( const class ITargetPlatform* TargetPlatform, const class UTexture* Texture, const class FConfigFile& EngineSettings, bool bSupportDX11TextureFormats );
+ENGINE_API FName GetDefaultTextureFormatName( const class ITargetPlatform* TargetPlatform, const class UTexture* Texture, const class FConfigFile& EngineSettings, bool bSupportDX11TextureFormats, bool bSupportCompressedVolumeTexture = false);
 // returns all the texture formats which can be returned by GetDefaultTextureFormatName
 ENGINE_API void GetAllDefaultTextureFormats( const class ITargetPlatform* TargetPlatform, TArray<FName>& OutFormats, bool bSupportDX11TextureFormats);

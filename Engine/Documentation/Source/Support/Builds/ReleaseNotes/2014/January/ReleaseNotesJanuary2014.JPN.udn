@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3367470
+﻿INTSourceChangelist:3782314
 Title:2014 年 1 月リリースノート
 Crumbs:%ROOT%, Support/Builds
 Description:
@@ -456,8 +456,8 @@ QA_APPROVED_UE4_BUILD_MINIMUM
 	* Addition of Quick Launch to UFE.
 		* Quick Launch will start a cook on the fly server, deploy, and launch the project on the selected device.
 		* If -development is specified on the UFE command-line, Quick Launch will also build the project before launch.
-	#### ネットワーキング
 
+#### ネットワーキング
 * Lifetime properties are the only supported path now, this will most likely require code changes.
 * GetReplicationList has been replaced by GetLifetimeReplicatedProps.
 	* GetLifetimeReplicatedProps is only called once now.

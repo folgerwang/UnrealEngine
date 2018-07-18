@@ -10,26 +10,15 @@ public class libcurl : ModuleRules
 
 		PublicDefinitions.Add("WITH_LIBCURL=1");
 
-		string NewLibCurlPath = Target.UEThirdPartySourceDirectory;
-		if (Target.Architecture == "x86_64-unknown-linux-gnu")
-		{
-			NewLibCurlPath += "libcurl/7_57_0/";
-		}
-		else
-		{
-			NewLibCurlPath += "libcurl/7_48_0/";
-		}
+		string LinuxLibCurlPath = Target.UEThirdPartySourceDirectory + "libcurl/7_48_0/";
+		string WinLibCurlPath = Target.UEThirdPartySourceDirectory + "libcurl/curl-7.55.1/";
+		string AndroidLibCurlPath = Target.UEThirdPartySourceDirectory + "libcurl/";
 
-		string LibCurlPath = Target.UEThirdPartySourceDirectory + "libcurl/curl-7.47.1/";
-
-		// TODO: latest recompile for consoles and mobile platforms
-		string OldLibCurlPath = Target.UEThirdPartySourceDirectory + "libcurl/";
-
-		if (Target.Platform == UnrealTargetPlatform.Linux)
+		if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
 		{
 			string platform = "/Linux/" + Target.Architecture;
-			string IncludePath = NewLibCurlPath + "include" + platform;
-			string LibraryPath = NewLibCurlPath + "lib" + platform;
+			string IncludePath = LinuxLibCurlPath + "include" + platform;
+			string LibraryPath = LinuxLibCurlPath + "lib" + platform;
 
 			PublicIncludePaths.Add(IncludePath);
 			PublicLibraryPaths.Add(LibraryPath);
@@ -38,36 +27,27 @@ public class libcurl : ModuleRules
 			PrivateDependencyModuleNames.Add("SSL");
 		}
 
-		else if (Target.Platform == UnrealTargetPlatform.Android)
+		else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Android))
 		{
 			// toolchain will filter properly
-            PublicIncludePaths.Add(OldLibCurlPath + "include/Android/ARMv7");
-            PublicLibraryPaths.Add(OldLibCurlPath + "lib/Android/ARMv7");
-            PublicIncludePaths.Add(OldLibCurlPath + "include/Android/ARM64");
-            PublicLibraryPaths.Add(OldLibCurlPath + "lib/Android/ARM64");
-            PublicIncludePaths.Add(OldLibCurlPath + "include/Android/x86");
-            PublicLibraryPaths.Add(OldLibCurlPath + "lib/Android/x86");
-            PublicIncludePaths.Add(OldLibCurlPath + "include/Android/x64");
-            PublicLibraryPaths.Add(OldLibCurlPath + "lib/Android/x64");
+            PublicIncludePaths.Add(AndroidLibCurlPath + "include/Android/ARMv7");
+            PublicLibraryPaths.Add(AndroidLibCurlPath + "lib/Android/ARMv7");
+            PublicIncludePaths.Add(AndroidLibCurlPath + "include/Android/ARM64");
+            PublicLibraryPaths.Add(AndroidLibCurlPath + "lib/Android/ARM64");
+            PublicIncludePaths.Add(AndroidLibCurlPath + "include/Android/x86");
+            PublicLibraryPaths.Add(AndroidLibCurlPath + "lib/Android/x86");
+            PublicIncludePaths.Add(AndroidLibCurlPath + "include/Android/x64");
+            PublicLibraryPaths.Add(AndroidLibCurlPath + "lib/Android/x64");
 
 			PublicAdditionalLibraries.Add("curl");
 //			PublicAdditionalLibraries.Add("crypto");
 //			PublicAdditionalLibraries.Add("ssl");
 //			PublicAdditionalLibraries.Add("dl");
         }
-
-   		else if (Target.Platform == UnrealTargetPlatform.Mac)
-		{
-			string PlatformSubdir = "/Mac/";
-			PublicIncludePaths.Add(LibCurlPath + "include" + PlatformSubdir);
-			// OSX needs full path
-			PublicAdditionalLibraries.Add(LibCurlPath + "lib" + PlatformSubdir + "libcurl.a");
-		}
-
 		else if (Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Win64)
 		{
-			PublicIncludePaths.Add(LibCurlPath + "include/" + Target.Platform.ToString() +  "/VS" + Target.WindowsPlatform.GetVisualStudioCompilerVersionName());
-			PublicLibraryPaths.Add(LibCurlPath + "lib/" + Target.Platform.ToString() +  "/VS" + Target.WindowsPlatform.GetVisualStudioCompilerVersionName());
+			PublicIncludePaths.Add(WinLibCurlPath + "include/" + Target.Platform.ToString() +  "/VS" + Target.WindowsPlatform.GetVisualStudioCompilerVersionName());
+			PublicLibraryPaths.Add(WinLibCurlPath + "lib/" + Target.Platform.ToString() +  "/VS" + Target.WindowsPlatform.GetVisualStudioCompilerVersionName());
 
 			PublicAdditionalLibraries.Add("libcurl_a.lib");
 			PublicDefinitions.Add("CURL_STATICLIB=1");

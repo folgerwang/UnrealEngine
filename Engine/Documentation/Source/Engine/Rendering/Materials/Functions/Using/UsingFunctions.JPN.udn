@@ -1,10 +1,11 @@
-﻿INTSourceChangelist:2731709
+﻿INTSourceChangelist:3242329
 Availability:Public
 Title:マテリアル関数を使用する
 Crumbs: %ROOT%, Engine, Engine/Rendering/Materials
 Description:マテリアル内でマテリアル関数を使用する方法
 Version:4.9
 SkillLevel:Beginner
+tags:Materials
 
 このドキュメントは、マテリアル関数の概念に関して実用的な知識を持ち合わせているユーザーを対象としています。詳細は、[マテリアル関数の概要](Engine/Rendering/Materials/Functions/Overview) ページを参照してください。
 

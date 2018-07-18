@@ -1,11 +1,11 @@
-﻿INTSourceChangelist:2716625
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:3 - ライティング評価
 Crumbs:%ROOT%, Resources, Resources/ContentExamples, Resources/ContentExamples/LevelDesign
 Description:レベルデザインの概要、サンプル 3：ライティング評価
-Related: Engine/Rendering/LightingAndShadows/Basics
-Related: Engine/Rendering/PostProcessEffects
-Related: Engine/Rendering/ParticleSystems
+Related:Engine/Rendering/LightingAndShadows/Basics
+Related:Engine/Rendering/PostProcessEffects
+Related:Engine/Rendering/ParticleSystems
 Version:4.9
 
 [VAR:Steps]
@@ -48,8 +48,8 @@ Version:4.9
 
 ![](leveldesign_3.png)
 
-ライティング評価では、最終版のライトをレベル全体に配置します。配置されたライトは単に基礎的なイルミネーションを提供するのではなく、最終イメージやレベルの雰囲気に合わせるために 
+ライティングの評価では、最終的なライトがレベル全体に配置されます。配置されたライトは単に基礎的な照明を提供するのではなく、最終イメージやレベルの雰囲気に合わせるために 
 設定を微調整します。この時点でポストプロセス エフェクトも最終イメージとレベルの雰囲気に合わせるために調整します。ライティングとポストプロセス エフェクトを変更するということは、 
-レベル全体に適用したマテリアルの変更が必要であることも意味します。最後に、いくつかのパーティクル エフェクトをレベルへ追加します。例えばレベルで使用するライティングがトーチの場合、
-トーチの炎のパーティクル効果をこの評価中に追加することができます。
+レベル全体に適用したマテリアルの変更が必要であることも意味します。最後に、いくつかのパーティクル エフェクトをレベルへ追加します。例えば、レベルのライティングがトーチの場合、
+トーチの炎のパーティクル エフェクトをこの評価中に追加することができます。
 [/REGION]

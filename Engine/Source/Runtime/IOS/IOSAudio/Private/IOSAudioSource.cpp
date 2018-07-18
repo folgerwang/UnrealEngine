@@ -9,11 +9,12 @@
  ------------------------------------------------------------------------------------*/
 
 #include "IOSAudioDevice.h"
-#include "IAudioFormat.h"
+#include "Interfaces/IAudioFormat.h"
 #include "ContentStreaming.h"
-#include "IAudioFormat.h"
+#include "Interfaces/IAudioFormat.h"
 #include "AudioDecompress.h"
 #include "ADPCMAudioInfo.h"
+#include "Audio.h"
 
 const uint32	Callback_Free = 0;
 const uint32	Callback_Locked = 1;
@@ -42,9 +43,10 @@ namespace
 
 FIOSAudioSoundSource::FIOSAudioSoundSource(FIOSAudioDevice* InAudioDevice, uint32 InBusNumber) :
 	FSoundSource(InAudioDevice),
+	SampleRate(0),
+    SourceLPFFrequency(MAX_FILTER_FREQUENCY),
 	IOSAudioDevice(InAudioDevice),
 	IOSBuffer(NULL),
-	SampleRate(0),
 	BusNumber(InBusNumber)
 {
 	check(IOSAudioDevice);
@@ -192,6 +194,9 @@ bool FIOSAudioSoundSource::Init(FWaveInstance* InWaveInstance)
 	
 	UnlockCallback(&CallbackLock);
 
+    LowpassFilterBank.SetNum(CHANNELS_PER_BUS);
+    LPFParamBank.SetNum(CHANNELS_PER_BUS);
+    
 	return true;
 }
 
@@ -217,6 +222,16 @@ void FIOSAudioSoundSource::Update(void)
 	{
 		// Emulate the bleed to rear speakers followed by stereo fold down
 		Volume *= 1.25f;
+	}
+
+    SetFilterFrequency();
+    
+    SourceLPFFrequency = LPFFrequency;
+    
+	// Factor in the xaudio2 attenuation that happens to stereo assets.
+	if (WaveInstance->WaveData->NumChannels == 2 && WaveInstance->bUseSpatialization)
+	{
+		Volume *= 0.5f;
 	}
 
 	// Apply global multiplier to disable sound when not the foreground app
@@ -270,11 +285,26 @@ void FIOSAudioSoundSource::Play(void)
 {
 	if (WaveInstance && AttachToAUGraph())
 	{
+        
 		Paused = false;
 		Playing = true;
 
 		// Updates the source which sets the pitch and volume
 		Update();
+        
+        for (Audio::FBiquadFilter& Filter : LowpassFilterBank)
+        {
+            Filter.Reset();
+            Filter.Init(SampleRate, 1, Audio::EBiquadFilter::Lowpass, LPFFrequency);
+        }
+        
+        for (Audio::FParam& Param : LPFParamBank)
+        {
+            Param.Init();
+            Param.SetValue(LPFFrequency);
+            Param.Reset();
+        }
+        
 	}
 }
 
@@ -392,6 +422,14 @@ bool FIOSAudioSoundSource::DetachFromAUGraph()
 	// Set a callback for the specified node's specified input
 	for (int32 Channel = 0; Channel < CHANNELS_PER_BUS; Channel++)
 	{
+        Status = AudioUnitSetParameter(IOSAudioDevice->GetMixerUnit(),
+                                       k3DMixerParam_Gain,
+                                       kAudioUnitScope_Input,
+                                       GetAudioUnitElement(Channel),
+                                       -120.0,
+                                       0);
+        UE_CLOG(Status != noErr, LogIOSAudio, Error, TEXT("Failed to set k3DMixerParam_Gain for audio mixer unit: BusNumber=%d, Channel=%d"), BusNumber, Channel);
+        
 		Status = AudioUnitSetParameter(IOSAudioDevice->GetMixerUnit(),
 		                               k3DMixerParam_Enable,
 		                               kAudioUnitScope_Input,
@@ -399,14 +437,6 @@ bool FIOSAudioSoundSource::DetachFromAUGraph()
 		                               0,
 		                               0);
 		UE_CLOG(Status != noErr, LogIOSAudio, Error, TEXT("Failed to set k3DMixerParam_Enable for audio mixer unit: BusNumber=%d, Channel=%d"), BusNumber, Channel);
-
-		Status = AudioUnitSetParameter(IOSAudioDevice->GetMixerUnit(),
-		                               k3DMixerParam_Gain,
-		                               kAudioUnitScope_Input,
-		                               GetAudioUnitElement(Channel),
-		                               -120.0,
-		                               0);
-		UE_CLOG(Status != noErr, LogIOSAudio, Error, TEXT("Failed to set k3DMixerParam_Gain for audio mixer unit: BusNumber=%d, Channel=%d"), BusNumber, Channel);
 	}
 
 	return Status == noErr;
@@ -418,9 +448,9 @@ OSStatus FIOSAudioSoundSource::IOSAudioRenderCallback(void* RefCon, AudioUnitRen
 {
 	FIOSAudioSoundSource* Source = static_cast<FIOSAudioSoundSource*>(RefCon);
 	UInt32 Channel = BusNumber % CHANNELS_PER_BUS;
-	
+    
 	AudioSampleType* OutData = reinterpret_cast<AudioSampleType*>(IOData->mBuffers[0].mData);
-	
+    
 	// Make sure we should be rendering
 	if (!LockCallback(&Source->CallbackLock))
 	{
@@ -449,10 +479,53 @@ OSStatus FIOSAudioSoundSource::IOSAudioRenderCallback(void* RefCon, AudioUnitRen
 				(uint8*)Source->IOSBuffer->SampleData,
 				Source->WaveInstance->LoopingMode == LOOP_WithNotification || Source->WaveInstance->LoopingMode == LOOP_Forever);
 	}
-	
+    
+    // If the channel count is higher than we've expected,
+    // initialize a new LPF for this channel.
+    if (Source->LPFParamBank.Num() <= Channel)
+    {
+        int32 ChannelIndex = Source->LPFParamBank.AddDefaulted(1);
+        Source->LPFParamBank[ChannelIndex].Init();
+        Source->LPFParamBank[ChannelIndex].SetValue(Source->SourceLPFFrequency);
+        Source->LPFParamBank[ChannelIndex].Reset();
+        
+        ChannelIndex = Source->LowpassFilterBank.AddDefaulted(1);
+        Source->LowpassFilterBank[ChannelIndex].Reset();
+        Source->LowpassFilterBank[ChannelIndex].Init(Source->SampleRate, 1, Audio::EBiquadFilter::Lowpass, Source->SourceLPFFrequency);
+    }
+    
+    // Set up LPF filter for this channel:
+    Audio::FParam& LPFParam = Source->LPFParamBank[Channel];
+    Audio::FBiquadFilter& LowpassFilter = Source->LowpassFilterBank[Channel];
+    
+    LPFParam.Reset();
+    const bool bShouldUpdateCutoffFrequency = !FMath::IsNearlyEqual(Source->SourceLPFFrequency, LPFParam.GetValue());
+    
+    if(bShouldUpdateCutoffFrequency)
+    {
+        LPFParam.SetValue(Source->SourceLPFFrequency, NumFrames);
+    }
+    else
+    {
+        LowpassFilter.SetFrequency(Source->SourceLPFFrequency);
+    }
+    
 	for(int32 sampleItr = 0; sampleItr < NumFrames; ++sampleItr)
 	{
-		*OutData++ = *(Source->IOSBuffer->SampleData + sampleItr * Source->IOSBuffer->NumChannels + Channel);
+		AudioSampleType IntSample = *(Source->IOSBuffer->SampleData + sampleItr * Source->IOSBuffer->NumChannels + Channel);
+        
+        // Apply LPF:
+        if(bShouldUpdateCutoffFrequency)
+        {
+            LowpassFilter.SetFrequency(LPFParam.Update());
+        }
+        
+        float FloatSample = ((float) IntSample) / 32767.0f;
+        if(LPFParam.GetValue() != MAX_FILTER_FREQUENCY)
+        {
+            LowpassFilter.ProcessAudioFrame(&FloatSample, &FloatSample);
+        }
+        *OutData++ = (SInt16) (FloatSample * 32767.0f);
 	}
 	
 	if(Source->bChannel0Finished && Channel == Source->IOSBuffer->NumChannels - 1)

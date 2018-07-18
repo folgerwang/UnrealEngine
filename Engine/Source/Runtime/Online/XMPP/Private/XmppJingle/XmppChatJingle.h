@@ -22,7 +22,7 @@ public:
 
 	// IXmppChat
 
-	virtual bool SendChat(const FString& RecipientId, const class FXmppChatMessage& Chat) override;
+	virtual bool SendChat(const FXmppUserJid& RecipientId, const FString& Message) override;
 	virtual FOnXmppChatReceived& OnReceiveChat() override { return OnXmppChatReceivedDelegate; }
 
 	// FTickerObjectBase

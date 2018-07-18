@@ -64,9 +64,10 @@ public:
 	 * 2. Skip all asset that have a missing source file path
 	 * 3. Cancel the whole reimport command
 	 *
-	 * * @param	Objs	Objects to try reimporting
+	 * * @param	ToImportObjects		Objects to try reimporting
+	 * * @param	bShowNotification	True to show a notification when complete, false otherwise
 	 */
-	UNREALED_API virtual void ValidateAllSourceFileAndReimport(TArray<UObject*> &ToImportObjects);
+	UNREALED_API virtual void ValidateAllSourceFileAndReimport(TArray<UObject*> &ToImportObjects, bool bShowNotification = true);
 
 	/**
 	* Attempt to reimport multiple objects from its source by giving registered reimport

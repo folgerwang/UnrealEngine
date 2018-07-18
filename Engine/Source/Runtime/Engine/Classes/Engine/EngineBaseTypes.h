@@ -22,7 +22,7 @@ struct FTickContext;
 //
 //	EInputEvent
 //
-UENUM()
+UENUM(meta=(ScriptName="InputEventType"))
 enum EInputEvent
 {
 	IE_Pressed              =0,

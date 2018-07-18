@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3810557
 Availability:Public
 Title:ディレクトリ構造
 Crumbs: %ROOT%, Engine
@@ -63,10 +63,24 @@ order:25
 | **Binaries** | コンパイル中に作成された実行ファイルまたは他のファイルが含まれます。 |
 | **Config** | ゲームのデフォルト プロジェクト設定です。 |
 | **Content** | アセット パッケージとマップを含んだエンジンやゲームのコンテンツを格納します。 |
-| **External dependencies** | エンジンのパブリック ヘッダファイルを表示します (Visual Studio のみで見ることができます)。 |
+| **External dependencies** | エンジンのパブリック ヘッダファイルを表示します (Visual Studio でのみ見ることができます)。 |
 | **Intermediate** | Visual Studio プロジェクト ファイルなど UnrealBuildTool が生成したファイルを含みます。これらのファイルは削除および再ビルドが可能です。 |
 | **Saved** | 設定ファイルやログ ファイルなどエンジンで生成されるファイルを格納します。これらのファイルは削除および再ビルドが可能です。 |
 | **Source** | ゲーム モジュールのオブジェクト クラス ファイルを格納します。 [INCLUDE:#Source] |
+
+
+## Solution ディレクトリ
+ 
+| ディレクトリ | 説明 |
+| --------- | ----------- |
+| **Classes** | ゲーム オブジェクト クラスの定義を格納します (「.h」ファイル)。 |
+| **Config** | ゲームのデフォルト プロジェクト設定です。 |
+| **External dependencies** | エンジンのパブリック ヘッダファイルを表示します (Visual Studio でのみ見ることができます)。 |
+| **Private** | プライベートなゲーム オブジェクト クラスの実装ファイルを格納します (「.cpp」ファイル) |
+| **Public** | パブリックなゲーム オブジェクト クラスの実装ファイルを格納します (「.cpp」ファイル) |
+
+
+[/EXCERPT:Main]
 
 [COMMENT:none]
 
@@ -80,16 +94,3 @@ order:25
 [/EXCERPT:Source]
 
 [/COMMENT]
-
-## Solution ディレクトリ
- 
-| ディレクトリ | 説明 |
-| --------- | ----------- |
-| **Classes** | ゲーム オブジェクト クラスの定義を格納します (「`.h`」ファイル)。 |
-| **Config** | ゲームのデフォルト プロジェクト設定です。 |
-| **External dependencies** | エンジンのパブリック ヘッダファイルを表示します (Visual Studio のみで見ることができます)。 |
-| **Private** | プライベートなゲーム オブジェクト クラスの実装ファイルを格納します (「.cpp」ファイル) |
-| **Public** | パブリックなゲーム オブジェクト クラスの実装ファイルを格納します (「.cpp」ファイル) |
-
-
-[/EXCERPT:Main]

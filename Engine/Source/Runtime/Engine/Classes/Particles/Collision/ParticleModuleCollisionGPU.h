@@ -28,7 +28,7 @@ namespace EParticleCollisionResponse
 	};
 }
 
-UCLASS(editinlinenew, hidecategories=Object, MinimalAPI, meta=(DisplayName = "Collision (Scene Depth)"))
+UCLASS(editinlinenew, hidecategories=Object, MinimalAPI, meta=(DisplayName = "Collision"))
 class UParticleModuleCollisionGPU : public UParticleModuleCollisionBase
 {
 	GENERATED_UCLASS_BODY()

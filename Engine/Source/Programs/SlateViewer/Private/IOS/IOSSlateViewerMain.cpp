@@ -1,10 +1,10 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SlateViewerApp.h"
-#include "IOSAppDelegate.h"
-#include "IOSCommandLineHelper.h"
+#include "IOS/IOSAppDelegate.h"
+#include "IOS/IOSCommandLineHelper.h"
 #include "IOS/SlateOpenGLESView.h"
-#include "STestSuite.h"
+#include "Widgets/Testing/STestSuite.h"
 
 #import <UIKit/UIKit.h>
 
@@ -24,6 +24,11 @@ void FAppEntry::Resume()
 
 void FAppEntry::SuspendTick()
 {
+}
+
+bool FAppEntry::IsStartupMoviePlaying()
+{
+	return false;
 }
 
 

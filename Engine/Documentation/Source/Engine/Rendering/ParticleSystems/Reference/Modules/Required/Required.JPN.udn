@@ -3,7 +3,7 @@ Title:デフォルト設定で必須のモジュールと Spawn モジュール
 Crumbs: %ROOT%, Engine, Engine/Rendering/ParticleSystems, Engine/Rendering/ParticleSystems/Reference
 Description:エミッタに同梱されている各関数に必須のモジュール
 Version:4.9
-
+tags:Particles
 
 [TOC(start:2 end:3)]
 

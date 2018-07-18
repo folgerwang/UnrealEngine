@@ -993,6 +993,16 @@ void FAnimationRuntime::ExcludeBonesWithNoParents(const TArray<int32>& BoneIndic
 	}
 }
 
+struct FBlendMeshPosesPerBoneWeightsScratchArea : public TThreadSingleton<FBlendMeshPosesPerBoneWeightsScratchArea>
+{
+	TCustomBoneIndexArray<FQuat, FCompactPoseBoneIndex> SourceRotations;
+	TCustomBoneIndexArray<FQuat, FCompactPoseBoneIndex> BlendRotations;
+	TCustomBoneIndexArray<FQuat, FCompactPoseBoneIndex> TargetRotations;
+	TArray<float> MaxPoseWeights;
+	TArray<const FBlendedCurve*> SourceCurves;
+	TArray<float> SourceWeights;
+};
+
 void FAnimationRuntime::BlendMeshPosesPerBoneWeights(
 		struct FCompactPose& BasePose,
 		const TArray<struct FCompactPose>& BlendPoses,
@@ -1021,15 +1031,19 @@ void FAnimationRuntime::BlendMeshPosesPerBoneWeights(
 
 	const FBoneContainer& BoneContainer = BasePose.GetBoneContainer();
 
-	TCustomBoneIndexArray<FQuat, FCompactPoseBoneIndex> SourceRotations;
-	TCustomBoneIndexArray<FQuat, FCompactPoseBoneIndex> BlendRotations;
-	TCustomBoneIndexArray<FQuat, FCompactPoseBoneIndex> TargetRotations;
+	TCustomBoneIndexArray<FQuat, FCompactPoseBoneIndex>& SourceRotations = FBlendMeshPosesPerBoneWeightsScratchArea::Get().SourceRotations;
+	TCustomBoneIndexArray<FQuat, FCompactPoseBoneIndex>& BlendRotations = FBlendMeshPosesPerBoneWeightsScratchArea::Get().BlendRotations;
+	TCustomBoneIndexArray<FQuat, FCompactPoseBoneIndex>& TargetRotations = FBlendMeshPosesPerBoneWeightsScratchArea::Get().TargetRotations;
 
+	SourceRotations.Reset();
 	SourceRotations.AddUninitialized(NumBones);
+	BlendRotations.Reset();
 	BlendRotations.AddUninitialized(NumBones);
+	TargetRotations.Reset();
 	TargetRotations.AddUninitialized(NumBones);
 
-	TArray<float> MaxPoseWeights;
+	TArray<float>& MaxPoseWeights = FBlendMeshPosesPerBoneWeightsScratchArea::Get().MaxPoseWeights;
+	MaxPoseWeights.Reset();
 	MaxPoseWeights.AddZeroed(NumPoses);
 
 	for (const FCompactPoseBoneIndex BoneIndex : BasePose.ForEachBoneIndex())
@@ -1100,24 +1114,33 @@ void FAnimationRuntime::BlendMeshPosesPerBoneWeights(
 	// the way we blend curve per bone
 	// is to find out max weight per that pose, and then apply that weight to the curve
 	{
-		TArray<const FBlendedCurve*> SourceCurves;
-		TArray<float> SourceWegihts;
+		TArray<const FBlendedCurve*>& SourceCurves = FBlendMeshPosesPerBoneWeightsScratchArea::Get().SourceCurves;
+		TArray<float>& SourceWeights = FBlendMeshPosesPerBoneWeightsScratchArea::Get().SourceWeights;
 
-		SourceCurves.SetNumUninitialized(NumPoses+1);
-		SourceWegihts.SetNumUninitialized(NumPoses +1);
+		SourceCurves.Reset();
+		SourceCurves.SetNumUninitialized(NumPoses + 1);
+		SourceWeights.Reset();
+		SourceWeights.SetNumUninitialized(NumPoses + 1);
 
 		SourceCurves[0] = &BaseCurve;
-		SourceWegihts[0] = 1.f;
+		SourceWeights[0] = 1.f;
 
 		for(int32 Idx=0; Idx<NumPoses; ++Idx)
 		{
 			SourceCurves[Idx+1] = &BlendedCurves[Idx];
-			SourceWegihts[Idx+1] = MaxPoseWeights[Idx];
+			SourceWeights[Idx+1] = MaxPoseWeights[Idx];
 		}
 
-		BlendCurves(SourceCurves, SourceWegihts, OutCurve, CurveBlendOption);
+		BlendCurves(SourceCurves, SourceWeights, OutCurve, CurveBlendOption);
 	}
 }
+
+struct FBlendLocalPosesPerBoneWeightsScratchArea : public TThreadSingleton<FBlendLocalPosesPerBoneWeightsScratchArea>
+{
+	TArray<float> MaxPoseWeights;
+	TArray<const FBlendedCurve*> SourceCurves;
+	TArray<float> SourceWeights;
+};
 
 void FAnimationRuntime::BlendLocalPosesPerBoneWeights(
 	FCompactPose& BasePose,
@@ -1145,7 +1168,8 @@ void FAnimationRuntime::BlendLocalPosesPerBoneWeights(
 		check(BlendPose.GetNumBones() == NumBones);
 	}
 
-	TArray<float> MaxPoseWeights;
+	TArray<float>& MaxPoseWeights = FBlendLocalPosesPerBoneWeightsScratchArea::Get().MaxPoseWeights;
+	MaxPoseWeights.Reset();
 	MaxPoseWeights.AddZeroed(NumPoses);
 
 	for (FCompactPoseBoneIndex BoneIndex : BasePose.ForEachBoneIndex())
@@ -1177,22 +1201,24 @@ void FAnimationRuntime::BlendLocalPosesPerBoneWeights(
 	// the way we blend curve per bone
 	// is to find out max weight per that pose, and then apply that weight to the curve
 	{
-		TArray<const FBlendedCurve*> SourceCurves;
-		TArray<float> SourceWegihts;
+		TArray<const FBlendedCurve*>& SourceCurves = FBlendLocalPosesPerBoneWeightsScratchArea::Get().SourceCurves;
+		TArray<float>& SourceWeights = FBlendLocalPosesPerBoneWeightsScratchArea::Get().SourceWeights;
 
-		SourceCurves.SetNumUninitialized(NumPoses +1);
-		SourceWegihts.SetNumUninitialized(NumPoses +1);
+		SourceCurves.Reset();
+		SourceCurves.SetNumUninitialized(NumPoses + 1);
+		SourceWeights.Reset();
+		SourceWeights.SetNumUninitialized(NumPoses + 1);
 
 		SourceCurves[0] = &BaseCurve;
-		SourceWegihts[0] = 1.f;
+		SourceWeights[0] = 1.f;
 
 		for (int32 Idx=0; Idx<NumPoses; ++Idx)
 		{
 			SourceCurves[Idx+1] = &BlendedCurves[Idx];
-			SourceWegihts[Idx+1] = MaxPoseWeights[Idx];
+			SourceWeights[Idx+1] = MaxPoseWeights[Idx];
 		}
 		
-		BlendCurves(SourceCurves, SourceWegihts, OutCurve, CurveBlendOption);
+		BlendCurves(SourceCurves, SourceWeights, OutCurve, CurveBlendOption);
 	}
 }
 
@@ -1538,6 +1564,16 @@ void FAnimationRuntime::FillUpComponentSpaceTransformsRefPose(const USkeleton* S
 	FillUpComponentSpaceTransforms(RefSkeleton, ReferencePose, ComponentSpaceTransforms);
 }
 
+void FAnimationRuntime::FillUpComponentSpaceTransformsRetargetBasePose(const USkeletalMesh* Mesh, TArray<FTransform> &ComponentSpaceTransforms)
+{
+	if (Mesh)
+	{
+		const TArray<FTransform>& ReferencePose = Mesh->RetargetBasePose;
+		const FReferenceSkeleton& RefSkeleton = Mesh->RefSkeleton;
+		FillUpComponentSpaceTransforms(RefSkeleton, ReferencePose, ComponentSpaceTransforms);
+	}
+}
+
 void FAnimationRuntime::FillUpComponentSpaceTransformsRetargetBasePose(const USkeleton* Skeleton, TArray<FTransform> &ComponentSpaceTransforms)
 {
 	check(Skeleton);
@@ -1546,13 +1582,7 @@ void FAnimationRuntime::FillUpComponentSpaceTransformsRetargetBasePose(const USk
 	const USkeletalMesh* PreviewMesh = Skeleton->GetPreviewMesh();
 	if (PreviewMesh)
 	{
-		const TArray<FTransform>& ReferencePose = PreviewMesh->RetargetBasePose;
-		const FReferenceSkeleton& RefSkeleton = PreviewMesh->RefSkeleton;
-		FillUpComponentSpaceTransforms(RefSkeleton, ReferencePose, ComponentSpaceTransforms);
-	}
-	else
-	{
-		FAnimationRuntime::FillUpComponentSpaceTransformsRefPose(Skeleton, ComponentSpaceTransforms);
+		FillUpComponentSpaceTransformsRetargetBasePose(PreviewMesh, ComponentSpaceTransforms);
 	}
 }
 #endif // WITH_EDITOR
@@ -1696,45 +1726,73 @@ void FAnimationRuntime::RetargetBoneTransform(const USkeleton* MySkeleton, const
 	{
 		switch (MySkeleton->GetBoneTranslationRetargetingMode(SkeletonBoneIndex))
 		{
-		case EBoneTranslationRetargetingMode::AnimationScaled:
-		{
-			// @todo - precache that in FBoneContainer when we have SkeletonIndex->TrackIndex mapping. So we can just apply scale right away.
-			const TArray<FTransform>& SkeletonRefPoseArray = MySkeleton->GetRefLocalPoses(RetargetSource);
-			const float SourceTranslationLength = SkeletonRefPoseArray[SkeletonBoneIndex].GetTranslation().Size();
-			if (SourceTranslationLength > KINDA_SMALL_NUMBER)
+			case EBoneTranslationRetargetingMode::AnimationScaled:
 			{
-				const float TargetTranslationLength = RequiredBones.GetRefPoseTransform(BoneIndex).GetTranslation().Size();
-				BoneTransform.ScaleTranslation(TargetTranslationLength / SourceTranslationLength);
+				// @todo - precache that in FBoneContainer when we have SkeletonIndex->TrackIndex mapping. So we can just apply scale right away.
+				const TArray<FTransform>& SkeletonRefPoseArray = MySkeleton->GetRefLocalPoses(RetargetSource);
+				const float SourceTranslationLength = SkeletonRefPoseArray[SkeletonBoneIndex].GetTranslation().Size();
+				if (SourceTranslationLength > KINDA_SMALL_NUMBER)
+				{
+					const float TargetTranslationLength = RequiredBones.GetRefPoseTransform(BoneIndex).GetTranslation().Size();
+					BoneTransform.ScaleTranslation(TargetTranslationLength / SourceTranslationLength);
+				}
+				break;
 			}
-			break;
-		}
 
-		case EBoneTranslationRetargetingMode::Skeleton:
-		{
-			BoneTransform.SetTranslation(bIsBakedAdditive ? FVector::ZeroVector : RequiredBones.GetRefPoseTransform(BoneIndex).GetTranslation());
-			break;
-		}
-
-
-		case EBoneTranslationRetargetingMode::AnimationRelative:
-		{
-			// With baked additive animations, Animation Relative delta gets canceled out, so we can skip it.
-			// (A1 + Rel) - (A2 + Rel) = A1 - A2.
-			if (!bIsBakedAdditive)
+			case EBoneTranslationRetargetingMode::Skeleton:
 			{
-				const TArray<FTransform>& AuthoredOnRefSkeleton = MySkeleton->GetRefLocalPoses(RetargetSource);
-				const TArray<FTransform>& PlayingOnRefSkeleton = RequiredBones.GetRefPoseArray();
-
-				const FTransform& RefPoseTransform = RequiredBones.GetRefPoseTransform(BoneIndex);
-
-				// Apply the retargeting as if it were an additive difference between the current skeleton and the retarget skeleton. 
-				BoneTransform.SetRotation(BoneTransform.GetRotation() * AuthoredOnRefSkeleton[SkeletonBoneIndex].GetRotation().Inverse() * RefPoseTransform.GetRotation());
-				BoneTransform.SetTranslation(BoneTransform.GetTranslation() + (RefPoseTransform.GetTranslation() - AuthoredOnRefSkeleton[SkeletonBoneIndex].GetTranslation()));
-				BoneTransform.SetScale3D(BoneTransform.GetScale3D() * (RefPoseTransform.GetScale3D() * AuthoredOnRefSkeleton[SkeletonBoneIndex].GetSafeScaleReciprocal(AuthoredOnRefSkeleton[SkeletonBoneIndex].GetScale3D())));
-				BoneTransform.NormalizeRotation();
+				BoneTransform.SetTranslation(bIsBakedAdditive ? FVector::ZeroVector : RequiredBones.GetRefPoseTransform(BoneIndex).GetTranslation());
+				break;
 			}
-			break;
-		}
+
+			case EBoneTranslationRetargetingMode::AnimationRelative:
+			{
+				// With baked additive animations, Animation Relative delta gets canceled out, so we can skip it.
+				// (A1 + Rel) - (A2 + Rel) = A1 - A2.
+				if (!bIsBakedAdditive)
+				{
+					const TArray<FTransform>& AuthoredOnRefSkeleton = MySkeleton->GetRefLocalPoses(RetargetSource);
+					const TArray<FTransform>& PlayingOnRefSkeleton = RequiredBones.GetRefPoseCompactArray();
+
+					const FTransform& RefPoseTransform = RequiredBones.GetRefPoseTransform(BoneIndex);
+
+					// Apply the retargeting as if it were an additive difference between the current skeleton and the retarget skeleton. 
+					BoneTransform.SetRotation(BoneTransform.GetRotation() * AuthoredOnRefSkeleton[SkeletonBoneIndex].GetRotation().Inverse() * RefPoseTransform.GetRotation());
+					BoneTransform.SetTranslation(BoneTransform.GetTranslation() + (RefPoseTransform.GetTranslation() - AuthoredOnRefSkeleton[SkeletonBoneIndex].GetTranslation()));
+					BoneTransform.SetScale3D(BoneTransform.GetScale3D() * (RefPoseTransform.GetScale3D() * AuthoredOnRefSkeleton[SkeletonBoneIndex].GetSafeScaleReciprocal(AuthoredOnRefSkeleton[SkeletonBoneIndex].GetScale3D())));
+					BoneTransform.NormalizeRotation();
+				}
+				break;
+			}
+
+			case EBoneTranslationRetargetingMode::OrientAndScale:
+			{
+				if (!bIsBakedAdditive)
+				{
+					const FRetargetSourceCachedData& RetargetSourceCachedData = RequiredBones.GetRetargetSourceCachedData(RetargetSource);
+					const TArray<FOrientAndScaleRetargetingCachedData>& OrientAndScaleDataArray = RetargetSourceCachedData.OrientAndScaleData;
+					const TArray<int32>& CompactPoseIndexToOrientAndScaleIndex = RetargetSourceCachedData.CompactPoseIndexToOrientAndScaleIndex;
+
+					// If we have any cached retargeting data.
+					if ((OrientAndScaleDataArray.Num() > 0) && (CompactPoseIndexToOrientAndScaleIndex.Num() == RequiredBones.GetCompactPoseNumBones()))
+					{
+						const int32 OrientAndScaleIndex = CompactPoseIndexToOrientAndScaleIndex[BoneIndex.GetInt()];
+						if (OrientAndScaleIndex != INDEX_NONE)
+						{
+							const FOrientAndScaleRetargetingCachedData& OrientAndScaleData = OrientAndScaleDataArray[OrientAndScaleIndex];
+							const FVector AnimatedTranslation = BoneTransform.GetTranslation();
+
+							// If Translation is not animated, we can just copy the TargetTranslation. No retargeting needs to be done.
+							const FVector NewTranslation = (AnimatedTranslation - OrientAndScaleData.SourceTranslation).IsNearlyZero(BONE_TRANS_RT_ORIENT_AND_SCALE_PRECISION) ?
+								OrientAndScaleData.TargetTranslation :
+								OrientAndScaleData.TranslationDeltaOrient.RotateVector(AnimatedTranslation) * OrientAndScaleData.TranslationScale;
+
+							BoneTransform.SetTranslation(NewTranslation);
+						}
+					}
+				}
+				break;
+			}
 		}
 	}
 }

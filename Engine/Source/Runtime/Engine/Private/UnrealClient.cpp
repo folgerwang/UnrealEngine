@@ -20,15 +20,15 @@
 #include "EditorSupportDelegates.h"
 #include "HighResScreenshot.h"
 #include "GameFramework/GameUserSettings.h"
-#include "DynamicResolutionState.h"
-
+#include "HModel.h"
 #include "Framework/Notifications/NotificationManager.h"
 #include "Widgets/Notifications/SNotificationList.h"
 #include "Engine/PostProcessVolume.h"
 #include "RendererInterface.h"
 #include "EngineModule.h"
 #include "Performance/EnginePerformanceTargets.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
+#include "EngineUtils.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogClient, Log, All);
 
@@ -298,6 +298,10 @@ void FScreenshotRequest::RequestScreenshot(const FString& InFilename, bool bInSh
 	else
 	{
 		Filename = GeneratedFilename;
+		if (FPaths::GetExtension(Filename).Len() == 0)
+		{
+			Filename += TEXT(".png");
+		}
 	}
 
 	// Register the screenshot
@@ -370,6 +374,11 @@ FString FScreenshotRequest::NextScreenshotName;
 bool FScreenshotRequest::bShowUI = false;
 TArray<FColor> FScreenshotRequest::HighresScreenshotMaskColorArray;
 
+static TAutoConsoleVariable<int32> CVarFullSizeUnitGraph(
+	TEXT("FullSizeUnitGraph"),
+	0,
+	TEXT("If true, the unit graph is the old full size, full brightness version."));
+
 
 int32 FStatUnitData::DrawStat(FViewport* InViewport, FCanvas* InCanvas, int32 InX, int32 InY)
 {
@@ -402,22 +411,11 @@ int32 FStatUnitData::DrawStat(FViewport* InViewport, FCanvas* InCanvas, int32 In
 	RawRenderThreadTime = FPlatformTime::ToMilliseconds(GRenderThreadTime);
 	RenderThreadTime = 0.9 * RenderThreadTime + 0.1 * RawRenderThreadTime;
 
-	float RawResolutionFraction = -1.0f;
-	float RawMaxResolutionFraction = 1.0f;
-	EDynamicResolutionStatus DynamicResolutionStatus = GEngine->GetDynamicResolutionStatus();
-	if (DynamicResolutionStatus == EDynamicResolutionStatus::Enabled)
-	{
-		const IDynamicResolutionState* DynResState = GEngine->GetDynamicResolutionState();
-		if (DynResState->IsSupported())
-		{
-			RawResolutionFraction = DynResState->GetResolutionFractionApproximation();
-			RawMaxResolutionFraction = DynResState->GetResolutionFractionUpperBound();
-		}
-		else
-		{
-			DynamicResolutionStatus = EDynamicResolutionStatus::Disabled;
-		}
-	}
+	RawRHITTime = FPlatformTime::ToMilliseconds(GRHIThreadTime);
+	RHITTime = 0.9 * RHITTime + 0.1 * RawRHITTime;
+
+	FDynamicResolutionStateInfos DynamicResolutionStateInfos;
+	GEngine->GetDynamicResolutionCurrentStateInfos(/* out */ DynamicResolutionStateInfos);
 
 	/** Number of milliseconds the GPU was busy last frame. */
 	const uint32 GPUCycles = RHIGetGPUFrameCycles();
@@ -426,15 +424,17 @@ int32 FStatUnitData::DrawStat(FViewport* InViewport, FCanvas* InCanvas, int32 In
 
 	SET_FLOAT_STAT(STAT_UnitFrame, FrameTime);
 	SET_FLOAT_STAT(STAT_UnitRender, RenderThreadTime);
+	SET_FLOAT_STAT(STAT_UnitRHIT, RHITTime);
 	SET_FLOAT_STAT(STAT_UnitGame, GameThreadTime);
 	SET_FLOAT_STAT(STAT_UnitGPU, GPUFrameTime);
 
-	GEngine->SetAverageUnitTimes(FrameTime, RenderThreadTime, GameThreadTime, GPUFrameTime);
+	GEngine->SetAverageUnitTimes(FrameTime, RenderThreadTime, GameThreadTime, GPUFrameTime, RHITTime);
 
 	float Max_RenderThreadTime = 0.0f;
 	float Max_GameThreadTime = 0.0f;
 	float Max_GPUFrameTime = 0.0f;
 	float Max_FrameTime = 0.0f;
+	float Max_RHITTime = 0.0f;
 
 	const bool bShowUnitMaxTimes = InViewport->GetClient() ? InViewport->GetClient()->IsStatEnabled(TEXT("UnitMax")) : false;
 #if !UE_BUILD_SHIPPING
@@ -443,7 +443,8 @@ int32 FStatUnitData::DrawStat(FViewport* InViewport, FCanvas* InCanvas, int32 In
 	GameThreadTimes[CurrentIndex] = bShowRawUnitTimes ? RawGameThreadTime : GameThreadTime;
 	GPUFrameTimes[CurrentIndex] = bShowRawUnitTimes ? RawGPUFrameTime : GPUFrameTime;
 	FrameTimes[CurrentIndex] = bShowRawUnitTimes ? RawFrameTime : FrameTime;
-	ResolutionFractions[CurrentIndex] = RawResolutionFraction;
+	RHITTimes[CurrentIndex] = bShowRawUnitTimes ? RawRHITTime : RHITTime;
+	ResolutionFractions[CurrentIndex] = DynamicResolutionStateInfos.ResolutionFractionApproximation;
 	CurrentIndex++;
 	if (CurrentIndex == NumberOfSamples)
 	{
@@ -470,6 +471,10 @@ int32 FStatUnitData::DrawStat(FViewport* InViewport, FCanvas* InCanvas, int32 In
 			if (Max_FrameTime < FrameTimes[MaxIndex])
 			{
 				Max_FrameTime = FrameTimes[MaxIndex];
+			}
+			if (Max_RHITTime < RHITTimes[MaxIndex])
+			{
+				Max_RHITTime = RHITTimes[MaxIndex];
 			}
 		}
 	}
@@ -543,7 +548,7 @@ int32 FStatUnitData::DrawStat(FViewport* InViewport, FCanvas* InCanvas, int32 In
 				const FColor GPUMaxColor = GEngine->GetFrameTimeDisplayColor(Max_GPUFrameTime);
 				InCanvas->DrawShadowedString(X3, InY, *FString::Printf(TEXT("%4.2f ms"), Max_GPUFrameTime), Font, GPUMaxColor);
 			}
-			if(GMaxRHIShaderPlatform == SP_PS4)
+			if (GMaxRHIShaderPlatform == SP_PS4)
 			{
 				FString Warnings;
 
@@ -568,29 +573,97 @@ int32 FStatUnitData::DrawStat(FViewport* InViewport, FCanvas* InCanvas, int32 In
 					}
 				}
 
-				if(!Warnings.IsEmpty())
+				if (!Warnings.IsEmpty())
 				{
 					InCanvas->DrawShadowedString(X3 + 100, InY, *Warnings, Font, FColor::Red);
 				}
 			}
 			InY += RowHeight;
 		}
-
 		{
-			InCanvas->DrawShadowedString(X1, InY, TEXT("DynRes:"), Font, bShowUnitTimeGraph ? FColor(255, 160, 100) : FColor::White);
-			if (DynamicResolutionStatus != EDynamicResolutionStatus::Enabled)
+			const FColor RenderThreadAverageColor = GEngine->GetFrameTimeDisplayColor(RHITTime);
+			InCanvas->DrawShadowedString(X1, InY, TEXT("RHIT:"), Font, bShowUnitTimeGraph ? FColor(255, 100, 255) : FColor::White);
+			InCanvas->DrawShadowedString(X2, InY, *FString::Printf(TEXT("%3.2f ms"), RHITTime), Font, RenderThreadAverageColor);
+			if (bShowUnitMaxTimes)
 			{
-				InCanvas->DrawShadowedString(X2, InY,
-					DynamicResolutionStatus == EDynamicResolutionStatus::Paused ? TEXT("Paused") : TEXT("OFF"),
-					Font, FColor(160, 160, 160));
+				const FColor RenderThreadMaxColor = GEngine->GetFrameTimeDisplayColor(Max_RHITTime);
+				InCanvas->DrawShadowedString(X3, InY, *FString::Printf(TEXT("%4.2f ms"), Max_RHITTime), Font, RenderThreadMaxColor);
+			}
+			InY += RowHeight;
+		}
+		{
+			uint64 MemoryUsed = FPlatformMemory::GetMemoryUsedFast();
+			if (MemoryUsed > 0)
+			{
+				// print out currently used memory
+				InCanvas->DrawShadowedString(X1, InY, TEXT("Mem:"), Font, bShowUnitTimeGraph ? FColor(100, 100, 255) : FColor::White);
+				double MemInGb = MemoryUsed / (1024.0 * 1024.0 * 1024.0);
+				double MemInMb = MemoryUsed / (1024.0 * 1024.0);
+				InCanvas->DrawShadowedString(X2, InY, *FString::Printf(TEXT("%3.2f%s"), MemInGb > 1.0 ? MemInGb : MemInMb, MemInGb > 1.0 ? TEXT("GB") : TEXT("MB")), Font, FColor::Green);
+				InY += RowHeight;
+			}
+		}
+
+		ERHIFeatureLevel::Type FeatureLevel = InCanvas->GetFeatureLevel();
+		if (FeatureLevel >= ERHIFeatureLevel::SM4)
+		{
+			float ResolutionFraction = DynamicResolutionStateInfos.ResolutionFractionApproximation;
+			float ScreenPercentage = ResolutionFraction * 100.0f;
+
+			InCanvas->DrawShadowedString(X1, InY, TEXT("DynRes:"), Font, bShowUnitTimeGraph ? FColor(255, 160, 100) : FColor::White);
+			if (DynamicResolutionStateInfos.Status == EDynamicResolutionStatus::Enabled)
+			{
+				FColor Color = (ResolutionFraction < AlertResolutionFraction) ? FColor::Red : ((ResolutionFraction < FMath::Min(ResolutionFraction * 0.97f, 1.0f)) ? FColor::Yellow : FColor::Green);
+				InCanvas->DrawShadowedString(X2, InY, *FString::Printf(TEXT("%3.1f%% x %3.1f%%"), ScreenPercentage, ScreenPercentage), Font, Color);
+			}
+			else if (DynamicResolutionStateInfos.Status == EDynamicResolutionStatus::DebugForceEnabled)
+			{
+				InCanvas->DrawShadowedString(X2, InY, *FString::Printf(TEXT("%3.1f%% x %3.1f%%"), ScreenPercentage, ScreenPercentage), Font, FColor::Magenta);
+			}
+			else if (DynamicResolutionStateInfos.Status == EDynamicResolutionStatus::Paused)
+			{
+				InCanvas->DrawShadowedString(X2, InY, TEXT("Paused"), Font, FColor::Magenta);
+			}
+			else if (DynamicResolutionStateInfos.Status == EDynamicResolutionStatus::Disabled)
+			{
+				InCanvas->DrawShadowedString(X2, InY, TEXT("OFF"), Font, FColor(160, 160, 160));
+			}
+			else if (DynamicResolutionStateInfos.Status == EDynamicResolutionStatus::Unsupported)
+			{
+				InCanvas->DrawShadowedString(X2, InY, TEXT("Unsupported"), Font, FColor(160, 160, 160));
 			}
 			else
 			{
-				float ScreenPercentage = RawResolutionFraction * 100.0f;
-				FColor Color = (RawResolutionFraction < AlertResolutionFraction) ? FColor::Red : ((RawResolutionFraction < FMath::Min(RawMaxResolutionFraction * 0.97f, 1.0f)) ? FColor::Yellow : FColor::Green);
-				InCanvas->DrawShadowedString(X2, InY, *FString::Printf(TEXT("%3.1f%% x %3.1f%%"), ScreenPercentage, ScreenPercentage), Font, Color);
+				check(0);
 			}
 			InY += RowHeight;
+		}
+		else // Mobile
+		{
+			// Draw calls
+			{
+				int32 NumDrawCalls = GNumDrawCallsRHI;
+				InCanvas->DrawShadowedString(X1, InY, TEXT("Draws:"), Font, bShowUnitTimeGraph ? FColor(100, 100, 255) : FColor::White);
+				InCanvas->DrawShadowedString(X2, InY, *FString::Printf(TEXT("%d"), NumDrawCalls), Font, FColor::Green);
+				InY += RowHeight;
+			}
+			
+			// Primitives
+			{
+				int32 NumPrimitives = GNumPrimitivesDrawnRHI;
+				InCanvas->DrawShadowedString(X1, InY, TEXT("Prims:"), Font, bShowUnitTimeGraph ? FColor(100, 100, 255) : FColor::White);
+				if (NumPrimitives < 10000)
+				{
+					InCanvas->DrawShadowedString(X2, InY, *FString::Printf(TEXT("%d"), NumPrimitives), Font, FColor::Green);
+				}
+				else
+				{
+					float NumPrimitivesK = NumPrimitives/1000.f;
+					InCanvas->DrawShadowedString(X2, InY, *FString::Printf(TEXT("%.1fK"), NumPrimitivesK), Font, FColor::Green);
+				}
+				
+				InY += RowHeight;
+			}
 		}
 	}
 
@@ -598,6 +671,8 @@ int32 FStatUnitData::DrawStat(FViewport* InViewport, FCanvas* InCanvas, int32 In
 	// Draw simple unit time graph
 	if (bShowUnitTimeGraph)
 	{
+		const bool bSmallGraph = !CVarFullSizeUnitGraph.GetValueOnGameThread();
+
 		UFont* SmallFont = GEngine->GetSmallFont();
 		check(SmallFont);
 		int32 AlertPrintWidth = SmallFont->GetStringSize(TEXT("000.0"));
@@ -610,6 +685,7 @@ int32 FStatUnitData::DrawStat(FViewport* InViewport, FCanvas* InCanvas, int32 In
 			EGS_Game,
 			EGS_GPU,
 			EGS_Frame,
+			EGS_RHIT,
 			EGS_UnboundedHighValueCount,
 
 			EGS_DynRes = EGS_UnboundedHighValueCount,
@@ -626,23 +702,31 @@ int32 FStatUnitData::DrawStat(FViewport* InViewport, FCanvas* InCanvas, int32 In
 		const float AlertTimeMS = TargetTimeMS;
 
 		// Graph layout
-		const float GraphBackgroundMarginSize = 8.0f;
+		const float GraphHeight = (bSmallGraph ? 120.0f : 350.0f);
+#if PLATFORM_ANDROID || PLATFORM_IOS
+		const float GraphLeftXPos = 20.0f;
+		const float GraphBottomYPos = GraphHeight + 80.0f;
+#else
 		const float GraphLeftXPos = 80.0f;
 		const float GraphBottomYPos = InViewport->GetSizeXY().Y / InCanvas->GetDPIScale() - 50.0f;
-		const float GraphHorizPixelsPerFrame = 2.0f;
-		const float GraphHeight = 350.0f;
+#endif
 
-		const float TargetTimeMSHeight = 300.0f;
+		const float GraphBackgroundMarginSize = 8.0f;
+		const float GraphHorizPixelsPerFrame = (bSmallGraph ? 1.0f : 2.0f);
+
+		const float TargetTimeMSHeight = GraphHeight * 0.85f;
 		const float	MaxDynresTargetTimeMSHeight = TargetTimeMSHeight * 0.75f;
 
+		const float OutOfBudgetMarginHeight = (bSmallGraph ? 1 : 3);
+
 		const float GraphTotalWidth = GraphHorizPixelsPerFrame * NumberOfSamples;
-		const float GraphTotalHeight = TargetTimeMSHeight + (3 + EGS_UnboundedHighValueCount) * AlertPrintHeight;
+		const float GraphTotalHeight = TargetTimeMSHeight + (OutOfBudgetMarginHeight + EGS_UnboundedHighValueCount) * AlertPrintHeight;
 
 		// Scale MS axis so that TargetTimeMS stays at fixed ordinate.
 		const float GraphVerticalPixelsPerMS = TargetTimeMSHeight / TargetTimeMS;
 
 		// Scale dyn res so that RawMaxResolutionFraction is at MaxDynresTargetTimeMSHeight or below.
-		const float GraphVerticalPixelsPerResolutionFraction = FMath::Min(100.0f, MaxDynresTargetTimeMSHeight / (RawMaxResolutionFraction * RawMaxResolutionFraction));
+		const float GraphVerticalPixelsPerResolutionFraction = FMath::Min(100.0f, MaxDynresTargetTimeMSHeight / (DynamicResolutionStateInfos.ResolutionFractionUpperBound * DynamicResolutionStateInfos.ResolutionFractionUpperBound));
 
 		// Compute pulse effect for lines above alert threshold
 		const float AlertPulseFreq = 8.0f;
@@ -687,7 +771,7 @@ int32 FStatUnitData::DrawStat(FViewport* InViewport, FCanvas* InCanvas, int32 In
 				HitProxyId);
 
 			InCanvas->DrawShadowedString(
-				GraphLeftXPos - GraphBackgroundMarginSize, 
+				GraphLeftXPos - GraphBackgroundMarginSize,
 				GraphBottomYPos - GraphTotalHeight - GraphBackgroundMarginSize - AlertPrintHeight - 2.0f,
 				bShowRawUnitTimes ? TEXT("(Raw timings)") : TEXT("(Filtered timings)"), SmallFont, GraphBorderColor);
 		}
@@ -718,7 +802,7 @@ int32 FStatUnitData::DrawStat(FViewport* InViewport, FCanvas* InCanvas, int32 In
 			const FLinearColor LineColor(0.2f, 0.1f, 0.02f);
 			FVector StartPos(
 				GraphLeftXPos - 1.0f,
-				GraphBottomYPos - GraphVerticalPixelsPerResolutionFraction * RawMaxResolutionFraction * RawMaxResolutionFraction,
+				GraphBottomYPos - GraphVerticalPixelsPerResolutionFraction * DynamicResolutionStateInfos.ResolutionFractionUpperBound  * DynamicResolutionStateInfos.ResolutionFractionUpperBound ,
 				0.0f);
 			FVector EndPos(
 				GraphLeftXPos + GraphHorizPixelsPerFrame * NumberOfSamples + GraphBackgroundMarginSize,
@@ -731,7 +815,7 @@ int32 FStatUnitData::DrawStat(FViewport* InViewport, FCanvas* InCanvas, int32 In
 				LineColor,
 				HitProxyId);
 
-			float MaxScreenPercentage = RawMaxResolutionFraction * 100.0f;
+			float MaxScreenPercentage = DynamicResolutionStateInfos.ResolutionFractionUpperBound  * 100.0f;
 			InCanvas->DrawShadowedString(
 				EndPos.X + 4.0f,
 				EndPos.Y - AlertPrintHeight / 2,
@@ -739,7 +823,7 @@ int32 FStatUnitData::DrawStat(FViewport* InViewport, FCanvas* InCanvas, int32 In
 		}
 
 		// Screen percentage = 100% native line
-		if (RawMaxResolutionFraction > 1.0f)
+		if (DynamicResolutionStateInfos.ResolutionFractionUpperBound > 1.0f)
 		{
 			const FLinearColor LineColor(0.2f, 0.1f, 0.02f);
 			FVector StartPos(
@@ -757,7 +841,7 @@ int32 FStatUnitData::DrawStat(FViewport* InViewport, FCanvas* InCanvas, int32 In
 				LineColor,
 				HitProxyId);
 
-			if (GraphVerticalPixelsPerResolutionFraction * (RawMaxResolutionFraction * RawMaxResolutionFraction - 1.0f) >= AlertPrintHeight)
+			if (GraphVerticalPixelsPerResolutionFraction * (DynamicResolutionStateInfos.ResolutionFractionUpperBound  * DynamicResolutionStateInfos.ResolutionFractionUpperBound  - 1.0f) >= AlertPrintHeight)
 			{
 				InCanvas->DrawShadowedString(EndPos.X + 4.0f, EndPos.Y - AlertPrintHeight / 2, TEXT("100.0% x 100.0% (native)"), SmallFont, LineColor);
 			}
@@ -786,7 +870,7 @@ int32 FStatUnitData::DrawStat(FViewport* InViewport, FCanvas* InCanvas, int32 In
 				*FString::Printf(TEXT("%3.1f%% x %3.1f%% (alert)"), AlertScreenPercentage, AlertScreenPercentage), SmallFont, LineColor);
 		}
 
-		int32 AlertPrintY = GraphBottomYPos - AlertTimeMS * GraphVerticalPixelsPerMS - 3 * AlertPrintHeight;
+		int32 AlertPrintY = GraphBottomYPos - AlertTimeMS * GraphVerticalPixelsPerMS - OutOfBudgetMarginHeight * AlertPrintHeight;
 
 		const bool bShowFrameTimeInUnitGraph = InViewport->GetClient() ? InViewport->GetClient()->IsStatEnabled(TEXT("UnitTime")) : false;
 		for (int32 StatIndex = 0; StatIndex < EGS_Count; ++StatIndex)
@@ -837,6 +921,13 @@ int32 FStatUnitData::DrawStat(FViewport* InViewport, FCanvas* InCanvas, int32 In
 				Values = FrameTimes.GetData();
 				GraphVerticalPixelPerValue = GraphVerticalPixelsPerMS;
 				StatColor = FLinearColor(0.1f, 1.0f, 0.1f);		// Green
+				break;
+
+			case EGS_RHIT:
+				AbsoluteAlertValueThreshold = AlertTimeMS;
+				Values = RHITTimes.GetData();
+				GraphVerticalPixelPerValue = GraphVerticalPixelsPerMS;
+				StatColor = FLinearColor(1.0f, 0.1f, 1.0f);		// Green
 				break;
 
 			case EGS_DynRes:
@@ -916,7 +1007,7 @@ int32 FStatUnitData::DrawStat(FViewport* InViewport, FCanvas* InCanvas, int32 In
 					}
 					for (; CheckIndex < NumberOfSamples; ++CheckIndex)
 					{
-						if ((!HigherIsBest && Values[CheckIndex] <= AlertValue) || 
+						if ((!HigherIsBest && Values[CheckIndex] <= AlertValue) ||
 							(HigherIsBest && Values[CheckIndex] >= AlertValue))
 						{
 							break;
@@ -1021,7 +1112,7 @@ FViewport::FViewport(FViewportClient* InViewportClient):
 	if (GIsEditor) 
 	{
 		GConfig->GetInt( TEXT("UnrealEd.HitProxy"), TEXT("HitProxySize"), (int32&)HitProxySize, GEditorIni );
-		FMath::Clamp( HitProxySize, (uint32)1, (uint32)MAX_HITPROXYSIZE );
+		HitProxySize = FMath::Clamp( HitProxySize, (uint32)1, (uint32)MAX_HITPROXYSIZE );
 	}
 
 	// Cache the viewport client's hit proxy storage requirement.
@@ -1130,7 +1221,7 @@ void FViewport::HighResScreenshot()
 
 	while (FrameDelay)
 	{
-		DummyViewport->EnqueueBeginRenderFrame();
+		DummyViewport->EnqueueBeginRenderFrame(false);
 
 		FCanvas Canvas(DummyViewport, NULL, ViewportClient->GetWorld(), ViewportClient->GetWorld()->FeatureLevel);
 		{
@@ -1306,7 +1397,7 @@ void UPostProcessComponent::Serialize(FArchive& Ar)
 /**
 *	Starts a new rendering frame. Called from the game thread thread.
 */
-void FViewport::EnqueueBeginRenderFrame()
+void FViewport::EnqueueBeginRenderFrame(const bool bShouldPresent)
 {
 	AdvanceFrameRenderPrerequisite();
 	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
@@ -1378,7 +1469,7 @@ void FViewport::Draw( bool bShouldPresent /*= true */)
 				{
 					bLockToVsync |= (Player && Player->PlayerController && Player->PlayerController->bCinematicMode);
 				}
-	 			EnqueueBeginRenderFrame();
+	 			EnqueueBeginRenderFrame(bShouldPresent);
 
 				// Calculate gamethread time (excluding idle time)
 				{
@@ -1507,7 +1598,7 @@ const TArray<FColor>& FViewport::GetRawHitProxyData(FIntRect InRect)
 	// If the hit proxy map isn't up to date, render the viewport client's hit proxies to it.
 	else if (!bHitProxiesCached)
 	{
-		EnqueueBeginRenderFrame();
+		EnqueueBeginRenderFrame(false);
 
 		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
 			BeginDrawingCommandHitProxy,
@@ -1532,8 +1623,8 @@ const TArray<FColor>& FViewport::GetRawHitProxyData(FIntRect InRect)
 			FHitProxyMap*, HitProxyMap, &HitProxyMap,
 			{
 			// Copy (resolve) the rendered thumbnail from the render target to its texture
-			RHICmdList.CopyToResolveTarget(HitProxyMap->GetRenderTargetTexture(), HitProxyMap->GetHitProxyTexture(), false, FResolveParams());
-			RHICmdList.CopyToResolveTarget(HitProxyMap->GetRenderTargetTexture(), HitProxyMap->GetHitProxyCPUTexture(), false, FResolveParams());
+			RHICmdList.CopyToResolveTarget(HitProxyMap->GetRenderTargetTexture(), HitProxyMap->GetHitProxyTexture(), FResolveParams());
+			RHICmdList.CopyToResolveTarget(HitProxyMap->GetRenderTargetTexture(), HitProxyMap->GetHitProxyCPUTexture(), FResolveParams());
 		});
 
 		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
@@ -1655,6 +1746,51 @@ HHitProxy* FViewport::GetHitProxy(int32 X,int32 Y)
 	}
 
 	return HitProxy;
+}
+
+void FViewport::GetActorsAndModelsInHitProxy(FIntRect InRect, TSet<AActor*>& OutActors, TSet<UModel*>& OutModels)
+{
+	const TArray<FColor>& RawHitProxyData = GetRawHitProxyData(InRect);
+
+	OutActors.Empty();
+	OutModels.Empty();
+
+	// Lower the resolution with massive box selects
+	const int32 Step = (InRect.Width() > 500 && InRect.Height() > 500) ? 4 : 1;
+
+	for (int32 Y = InRect.Min.Y; Y < InRect.Max.Y; Y = Y < InRect.Max.Y - 1 ? FMath::Min(InRect.Max.Y-1, Y+Step) : ++Y )
+	{
+		const FColor* SourceData = &RawHitProxyData[Y * SizeX];
+		for (int32 X = InRect.Min.X; X < InRect.Max.X; X = X < InRect.Max.X-1 ? FMath::Min(InRect.Max.X-1, X + Step) : ++X )
+		{
+			FHitProxyId HitProxyId(SourceData[X]);
+			HHitProxy* HitProxy = GetHitProxyById(HitProxyId);
+
+			if (HitProxy)
+			{
+				if( HitProxy->IsA(HActor::StaticGetType()) )
+				{
+					AActor* Actor = ((HActor*)HitProxy)->Actor;
+					if (Actor)
+					{
+						OutActors.Add(Actor);
+					}
+				}
+				else if( HitProxy->IsA(HModel::StaticGetType()) )
+				{
+					OutModels.Add( ((HModel*)HitProxy)->GetModel() );
+				}
+				else if( HitProxy->IsA(HBSPBrushVert::StaticGetType()) )
+				{
+					HBSPBrushVert* HitBSPBrushVert = ((HBSPBrushVert*)HitProxy);
+					if( HitBSPBrushVert->Brush.IsValid() )
+					{
+						OutActors.Add( HitBSPBrushVert->Brush.Get() );
+					}
+				}
+			}
+		}
+	}
 }
 
 void FViewport::UpdateViewportRHI(bool bDestroyed, uint32 NewSizeX, uint32 NewSizeY, EWindowMode::Type NewWindowMode, EPixelFormat PreferredPixelFormat)

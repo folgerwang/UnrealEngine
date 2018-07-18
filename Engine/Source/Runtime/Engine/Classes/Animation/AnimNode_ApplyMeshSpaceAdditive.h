@@ -34,6 +34,8 @@ struct ENGINE_API FAnimNode_ApplyMeshSpaceAdditive : public FAnimNode_Base
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Performance, meta = (DisplayName = "LOD Threshold"))
 	int32 LODThreshold;
 
+	virtual int32 GetLODThreshold() const override { return LODThreshold; }
+
 	UPROPERTY(Transient)
 	float ActualAlpha;
 

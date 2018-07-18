@@ -45,6 +45,7 @@
 #include "ir_rvalue_visitor.h"
 #include "ir_print_visitor.h"
 #include "glsl_types.h"
+#include "IRDump.h"
 
 static bool debug = false;
 

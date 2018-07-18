@@ -19,8 +19,10 @@
 #include "Android/AndroidTLS.h"
 #elif PLATFORM_HTML5
 #include "HTML5/HTML5PlatformTLS.h"
-#elif PLATFORM_LINUX
-#include "Linux/LinuxPlatformTLS.h"
+#elif PLATFORM_UNIX
+#include "Unix/UnixPlatformTLS.h"
 #elif PLATFORM_SWITCH
 #include "Switch/SwitchPlatformTLS.h"
+#else
+#error Unknown platform
 #endif

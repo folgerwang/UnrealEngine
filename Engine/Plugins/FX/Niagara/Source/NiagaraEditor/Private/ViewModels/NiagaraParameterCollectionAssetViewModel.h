@@ -3,9 +3,9 @@
 #pragma once
 
 #include "NiagaraParameterCollectionViewModel.h"
-#include "TNiagaraViewModelManager.h"
+#include "ViewModels/TNiagaraViewModelManager.h"
 #include "EditorUndoClient.h"
-#include "NotifyHook.h"
+#include "Misc/NotifyHook.h"
 
 class SNiagaraParameterCollection;
 class UNiagaraParameterCollection;

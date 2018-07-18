@@ -5,6 +5,7 @@
 #include "CoreTypes.h"
 #include "Engine/EngineTypes.h"
 #include "Containers/UnrealString.h"
+#include "Misc/FrameRate.h"
 #include "UObject/ObjectMacros.h"
 #include "UObject/ScriptMacros.h"
 #include "BaseMediaSource.h"
@@ -40,9 +41,9 @@ public:
 
 public:
 
-	/** Overrides the default frame rate stored in the image files (0.0 = do not override). */
+	/** Overrides the default frame rate stored in the image files (0/0 = do not override). */
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category=Sequence, AdvancedDisplay)
-	float FramesPerSecondOverride;
+	FFrameRate FrameRateOverride;
 
 	/** Name of the proxy directory to use. */
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category=Sequence, AdvancedDisplay)
@@ -84,7 +85,7 @@ public:
 
 	//~ IMediaOptions interface
 
-	virtual double GetMediaOption(const FName& Key, double DefaultValue) const override;
+	virtual int64 GetMediaOption(const FName& Key, int64 DefaultValue) const override;
 	virtual FString GetMediaOption(const FName& Key, const FString& DefaultValue) const override;
 	virtual bool HasMediaOption(const FName& Key) const override;
 

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3108692
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:マテリアルのコンテンツ サンプル
 Crumbs:%ROOT%, Resources, Resources/ContentExamples
@@ -12,41 +12,12 @@ Related:Engine/Rendering/Materials/LayeredMaterials
 Related:Engine/Rendering/Materials/MaterialInstances
 Related:Engine/Actors/DecalActor
 Version:4.9
+topic-image:materials_compact.png
 
 [REGION:banner]
 ![](MaterialNodes_Header.png)(convert:false)
 [/REGION]
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources/ContentExamples/Materials:title%](materials_compact.png)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/Materials:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/ContentExamples/Materials:description%
-	[/PARAM]
-	[PARAM:path]
-	[RELATIVE:Resources/ContentExamples/Materials]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Resources/ContentExamples/Materials:title%](materials_compact.png)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/Materials:title%
-	[/PARAM]
-	[PARAM:path]
-	[RELATIVE:Resources/ContentExamples/Materials]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
 [TOC(start:2 end:2)]
 
@@ -111,7 +82,7 @@ Version:4.9
 | **[1.1 マテリアル](Resources\ContentExamples\MaterialInstances\1_1)** | インスタンスとして使用できる **マスター マテリアル** を紹介している Material_Advanced マップのサンプル 1.1 と良く似たサンプルです。 |
 | **[1.2 インスタンス](Resources\ContentExamples\MaterialInstances\1_2)** | マテリアル インスタンス (マテリアルの子供) インスタンスは親の **パラメータ** を持っていながら親に影響を与えずに個々で変更が可能な例です (オリジナルを保持しながら複雑なマテリアルを作成する場合に便利です)。 |
 | **[1.3 インスタンスのインスタンス](Resources\ContentExamples\MaterialInstances\1_3)** | 親から継承され、子供のマテリアルへ渡されるインスタンスのインスタンスです。 |
-| **[1.4 グループ](Resources\ContentExamples\MaterialInstances\1_4)** | グループ は マテリアル のレンダリング方法に影響は与えませんが、マテリアル インスタンス エディタ内におけるパラメータのリスト化の方法を管理できるようになります。 |
+| **[1.4 グループ](Resources\ContentExamples\MaterialInstances\1_4)** | グループはマテリアルのレンダリング方法に影響は与えませんが、マテリアル インスタンス エディタ内におけるパラメータのリスト化の方法を管理できるようになります。 |
 
 
 ## Material_Properties マップ
@@ -133,7 +104,7 @@ Version:4.9
 | **[1.8 テッセレーション](Resources\ContentExamples\MaterialProperties\1_8)** | テッセレーションは、メッシュのサーフェスの詳細度を高めるために使います。  |
 | **[1.9 オパシティ マスク クリップ値](Resources\ContentExamples\MaterialProperties\1_9)** | ピクセルが不透明または半透明の場合に、クリップ値を使って閾値を設定する方法を説明します。 |
 | **[1.10 透過シャドーをマスクしてキャスト](Resources\ContentExamples\MaterialProperties\1_10)** | シャドーをマスクされたマテリアルとして取り扱って、シャドーを透過マテリアル上に作成する方法です。 |
-| **[1.11 屈折深度バイアス](Resources\ContentExamples\MaterialProperties\1_11)** | スクリーン空間エフェクトである屈折は、オブジェクトが近すぎる場合にマスクアウトするための屈折バイアスで調節します。 |
+| **[1.11 屈折深度バイアス](Resources\ContentExamples\MaterialProperties\1_11)** | スクリーン空間エフェクトである Refraction は近すぎるオブジェクトをマスクアウトするために使われる 深度バイアス の影響を受けます。 |
 
 
 

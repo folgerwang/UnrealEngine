@@ -9,7 +9,7 @@
 #include "CoreMinimal.h"
 #include "UObject/UObjectGlobals.h"
 #include "Misc/Guid.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 struct FAsyncPackageDesc
 {

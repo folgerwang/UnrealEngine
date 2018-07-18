@@ -8,6 +8,7 @@ SkillLevel: Beginner
 
 In the following steps, we are going to create a simple door that opens/closes when entering/exiting a trigger volume. 
 
+[EXCERPT:ProjectStart]
 ## Creating the Project
 
 In this section, we will set up the project. 

@@ -9,6 +9,7 @@
 
 FName FXRMotionControllerBase::LeftHandSourceId(TEXT("Left"));
 FName FXRMotionControllerBase::RightHandSourceId(TEXT("Right"));
+FName FXRMotionControllerBase::HMDSourceId(TEXT("HMD"));
 
 namespace XRMotionControllerBase_Impl
 {

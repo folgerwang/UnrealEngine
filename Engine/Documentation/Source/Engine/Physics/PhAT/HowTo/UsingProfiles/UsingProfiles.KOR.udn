@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3735117
 Availability: Public
 Crumbs: %ROOT%
-Title: Using Profiles for Bodies and Constraints
-Description: How to use profiles for bodies and constraints in the Physics Asset Editor.
+Title: 바디 및 컨스트레인트에 프로파일 사용
+Description: 피직스 애셋 에디터에서 바디 및 컨스트레인트에 프로파일을 사용하는 방법입니다.
 Type: how-to
 SkillLevel:Beginner
 Version:4.18
@@ -20,94 +20,94 @@ Social-image:
 [TOC(start:2 end:2)]
 
 
-The [Physics Asset Editor](Engine/Physics/PhAT/PhysicsAssetEditor) enables you to create your own [Profiles](Engine/Physics/PhAT/ToolsAndProfiles) that can be used to assign Physical Animation settings to [Bodies](Engine/Physics/PhysicsBodies)
-and Constraint settings to [Constraints](Engine/Physics/Constraints/ConstraintsReference). 
+[피직스 애셋 에디터](Engine/Physics/PhAT/PhysicsAssetEditor) 에서는 별도의 [프로파일](Engine/Physics/PhAT/ToolsAndProfiles) 을 생성한 뒤 [바디](Engine/Physics/PhysicsBodies) 에 피지컬 애니메이션 세팅을 할당하거나 
+[컨스트레인트](Engine/Physics/Constraints/ConstraintsReference) 에 컨스트레인트 세팅을 할당하는 데 사용할 수 있습니다.
 
 ![](Engine\Physics\PhAT\ToolsAndProfiles\Profiles.png)
 
-Use the sections below to learn how to create, delete, create and unassign your own profiles:
+프로파일 생성, 삭제, 할당, 할당해제 방법은 아래와 같습니다.
 
 
-## Create and Assign a Profile
+## 프로파일 생성 및 할당
 
-To **create and assign** a profile, follow these steps:
+프로파일 **생성 및 할당** 방법은 다음과 같습니다:
 
-1. Select a **body** or **constraint** from the Skeleton Tree. 
+1. 스켈레톤 트리에서 **바디** 또는 **컨스트레인트** 를 선택합니다.
 	
 	[REGION:lightbox]
 	[![](Engine/Physics/PhAT/ToolsAndProfiles/CreateAssign_01.png)(w:300)](Engine/Physics/PhAT/ToolsAndProfiles/CreateAssign_01.png)
 	[/REGION]
-	[REGION:caption] Click image for full size. [/REGION]
+	[REGION:caption] 이미지를 클릭하면 원본을 확인합니다. [/REGION]
 
-1. In the **Profiles** tab, click the **New** button next to the type of profile you want to create; **Physical Animation** or **Constraint**. Then under the **Current Profile** in the text box, 
-give your profile a name to reference it later.
+1. **프로파일** 탭에서 **피지컬 애니메이션** 또는 **컨스트레인트** 중 생성하고자 하는 프로파일 유형 옆 **신규** 버튼을 클릭합니다. 그리고 **현재 프로파일** 아래 글상자에 프로파일 이름을 짓습니다. 
+나중에 이 이름으로 레퍼런싱할 것입니다.
 	
 	[REGION:lightbox]
 	[![](Engine/Physics/PhAT/ToolsAndProfiles/CreateAssign_02.png)(w:500)](Engine/Physics/PhAT/ToolsAndProfiles/CreateAssign_02.png)
 	[/REGION]
-	[REGION:caption] Click image for full size. [/REGION]
+	[REGION:caption] 이미지를 클릭하면 원본을 확인합니다. [/REGION]
 
 	[REGION:note]
-	When profiles are created, they are initialized "empty" meaning they use default settings.
+	프로파일이 생성되면, "공백" 상태로 초기화됩니다. 기본 세팅을 사용한다는 뜻입니다.
 	[/REGION]
 
-1. Use the **Graph** or **Skeleton Tree** to select the bodies or constraints you want to assign to a profile.
+1. **그래프** 또는 **스켈레톤 트리** 를 사용하여 프로파일에 할당하고자 하는 바디 또는 컨스트레인트를 선택합니다.
 
 	![](Engine/Physics/PhAT/ToolsAndProfiles/CreateAssign_03.png)
-	[REGION:caption] The Graph for the selected body. [/REGION]
+	[REGION:caption] 선택된 바디에 대한 그래프입니다. [/REGION]
 
-	Then in the **Profiles** tab, set the **Current Profile** to the one you want to use and click **Assign**. The selected nodes will change from shaded to their fill color.
+	그리고 **프로파일** 탭에서, **현재 프로파일** 을 사용하고자 하는 것으로 설정한 뒤 **할당** 을 클릭합니다. 선택된 노드가 음영 상태에서 채우기 색으로 바뀝니다.
 
 	![](Engine/Physics/PhAT/ToolsAndProfiles/CreateAssign_03a.png)
 
-	The selected nodes will change to use their fill color indicating they are assigned this profile, while the other Body node (shaded) is not.
+	선택된 노드가 채우기 색을 사용하도록 바뀌면서 이 프로파일에 할당되었음을 나타내며, (음영 상태의) 다른 바디 노드는 그렇지 않습니다.
 
 	![](Engine/Physics/PhAT/ToolsAndProfiles/CreateAssign_03b.png)
 
-1. In the **Details** panel for the selected body, the currently assigned profile will be indicated, and you can adjust the properties for the type of profile you're creating.
+1. 선택된 바디의 **디테일** 패널에, 현재 할당된 프로파일이 나타나며, 생성중인 프로파일 유형에 대한 프로퍼티를 조절할 수 있습니다.
 	
 	![](Engine/Physics/PhAT/ToolsAndProfiles/CreateAssign_04.png)
 	[REGION:caption]
-	A Physical Animation profile is assigned to this selected Body.
+	이 선택 바디에 피지컬 애니메이션 프로파일이 할당되었습니다.
 	[/REGION]
 
 
-## Unassigning a Profile
+## 프로파일 할당해제
 
-To **Unassign** a body or constraint from a profile, follow these steps:
+프로파일에서 바디 또는 컨스트레인트 **Unassign** (할당해제) 방법은 다음과 같습니다:
 
-1. Select a **body** or **constraint** from the Skeleton Tree that you want to edit.
+1. 편집하고자 하는 스켈레톤 트리에서 **바디** 또는 **컨스트레인트** 를 선택합니다.
 
 	![](Engine/Physics/PhAT/ToolsAndProfiles/CreateAssign_01.png)
 
-1. In the **Profiles** tab, set the **Current Profile** to the one you want to edit. Use the **arrow** drop-down to select the assigned profile, if needed.  
+1. **프로파일** 탭에서, **현재 프로파일** 을 편집하고자 하는 것으로 설정합니다. **화살표** 드롭다운을 사용하여 할당된 프로파일을, 필요한 경우 선택합니다.
 
 	![](Engine/Physics/PhAT/ToolsAndProfiles/Unassign_02.png)
 
-	In the **Graph**, the nodes assigned to the selected profile will have their fill color and not be shaded.
+	**그래프** 에서 선택된 프로파일에 할당된 노드는 채우기 색으로 표시되고, 음영이 사라집니다.
 
 	![](Engine/Physics/PhAT/ToolsAndProfiles/CreateAssign_03b.png)
 
-1. With the nodes selected that you want to disassociate from a profile, click the **Unassign** button in the **Profiles** tab.
+1. 프로파일에서 연결을 해제하고자 하는 노드를 선택해 둔 채, **프로파일** 탭의 **Unassign** (할당해제) 버튼을 클릭합니다.
 
 	![](Engine/Physics/PhAT/ToolsAndProfiles/Unassign_03.png)
 
-	After doing so, the selected nodes will become shaded for the currently selected profile since none in the graph are using it.
+	그렇게 하고나면, 선택된 노드는 현재 선택된 프로파일에 대해 음영 상태가 되는데, 그래프에서 그것을 사용하는 것이 없기 때문입니다.
 
 	![](Engine/Physics/PhAT/ToolsAndProfiles/CreateAssign_03.png)
 
-## Deleting a Profile
+## 프로파일 삭제
 
-To **Delete** a profile, follow these steps:
+프로파일을 **삭제** 하는 방법은 다음과 같습니다:
 
-1. In the **Profiles** tab, use the **arrow** drop-down to select the **Current Profile** to the one you want to remove.
+1. **프로파일** 탭에서 **화살표** 드롭다운을 사용하여 **현재 프로파일** 을 제거하고자 하는 것으로 선택합니다.
 
 	![](Engine/Physics/PhAT/ToolsAndProfiles/DeleteProfiles_01.png)
 	[REGION:caption]
-	The bottom part of the drop-down lists all created profiles.
+	드롭다운 하단에 생성된 프로파일이 전부 나열됩니다.
 	[/REGION]
 
-1. Click the **Delete** button to remove it from the list of available profiles.
+1. **삭제** 버튼을 누르면 사용가능 프로파일 목록에서 제거됩니다.
 
 	![](Engine/Physics/PhAT/ToolsAndProfiles/DeleteProfile_02.png)
 

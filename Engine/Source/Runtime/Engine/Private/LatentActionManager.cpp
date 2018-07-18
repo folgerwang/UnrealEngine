@@ -4,6 +4,9 @@
 #include "UObject/Class.h"
 #include "LatentActions.h"
 
+FOnLatentActionsChanged FLatentActionManager::LatentActionsChangedDelegate;
+
+
 /////////////////////////////////////////////////////
 // FPendingLatentAction
 
@@ -25,6 +28,8 @@ void FLatentActionManager::AddNewAction(UObject* InActionObject, int32 UUID, FPe
 		ObjectActionListPtr = MakeShareable(new FActionList());
 	}
 	ObjectActionListPtr->Add(UUID, NewAction);
+
+	LatentActionsChangedDelegate.Broadcast(InActionObject, ELatentActionChangeType::ActionsAdded);
 }
 
 void FLatentActionManager::RemoveActionsForObject(TWeakObjectPtr<UObject> InObject)
@@ -79,7 +84,11 @@ void FLatentActionManager::ProcessLatentActions(UObject* InObject, float DeltaTi
 					delete Action;
 				}
 			}
+
+			// Notify listeners that latent actions for this object were removed
+			LatentActionsChangedDelegate.Broadcast(It.Key().Get(), ELatentActionChangeType::ActionsRemoved);
 		}
+
 	}
 	ActionsToRemoveMap.Reset();
 
@@ -167,6 +176,11 @@ void FLatentActionManager::TickLatentActionForObject(float DeltaTime, FActionLis
 		FPendingLatentAction* DyingAction = ItemPair.Value;
 		ObjectActionList.Remove(ItemIndex, DyingAction);
 		delete DyingAction;
+	}
+
+	if (ItemsToRemove.Num() > 0)
+	{
+		LatentActionsChangedDelegate.Broadcast(InObject, ELatentActionChangeType::ActionsRemoved);
 	}
 
 	// Trigger any pending execution links

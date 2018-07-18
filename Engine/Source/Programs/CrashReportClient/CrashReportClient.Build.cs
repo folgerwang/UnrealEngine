@@ -25,6 +25,7 @@ public class CrashReportClient : ModuleRules
 				"HTTP",
 				"Json",
 				"Projects",
+				"PakFile",
 				"XmlParser",
 				"Analytics",
 				"AnalyticsET",

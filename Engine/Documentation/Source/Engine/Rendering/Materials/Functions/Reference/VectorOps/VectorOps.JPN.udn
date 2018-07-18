@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2730073
+﻿INTSourceChangelist:3242329
 Availability:Public
 title:ベクターオペレーション
 Crumbs: %ROOT%, Engine, Engine/Rendering/Materials,  Engine/Rendering/Materials/Functions
 Description:フレネル効果などのベクトルの計算の処理に作成された関数
 Version:4.9
+tags:Materials
 
 [TOC (start:2 end:3)]
 

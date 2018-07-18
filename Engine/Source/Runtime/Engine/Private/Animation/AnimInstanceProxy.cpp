@@ -14,13 +14,14 @@
 #include "Animation/AnimNode_SubInput.h"
 #include "Engine/Engine.h"
 #include "DrawDebugHelpers.h"
+#include "GameFramework/WorldSettings.h"
 
 #define DO_ANIMSTAT_PROCESSING(StatName) DEFINE_STAT(STAT_ ## StatName)
-#include "AnimMTStats.h"
+#include "Animation/AnimMTStats.h"
 #undef DO_ANIMSTAT_PROCESSING
 
 #define DO_ANIMSTAT_PROCESSING(StatName) DEFINE_STAT(STAT_ ## StatName ## _WorkerThread)
-#include "AnimMTStats.h"
+#include "Animation/AnimMTStats.h"
 #undef DO_ANIMSTAT_PROCESSING
 
 #define LOCTEXT_NAMESPACE "AnimInstance"
@@ -161,6 +162,7 @@ void FAnimInstanceProxy::InitializeRootNode()
 {
 	if (RootNode != nullptr)
 	{
+		LODDisabledGameThreadPreUpdateNodes.Reset();
 		GameThreadPreUpdateNodes.Reset();
 		DynamicResetNodes.Reset();
 
@@ -251,6 +253,7 @@ FGuid MakeGuidForMessage(const FText& Message)
 
 void FAnimInstanceProxy::LogMessage(FName InLogType, EMessageSeverity::Type InSeverity, const FText& InMessage)
 {
+#if !NO_LOGGING
 	FGuid CurrentMessageGuid = MakeGuidForMessage(InMessage);
 	if(!PreviouslyLoggedMessages.Contains(CurrentMessageGuid))
 	{
@@ -260,6 +263,7 @@ void FAnimInstanceProxy::LogMessage(FName InLogType, EMessageSeverity::Type InSe
 			LoggedMessages->Emplace(InSeverity, InMessage);
 		}
 	}
+#endif
 }
 
 void FAnimInstanceProxy::Uninitialize(UAnimInstance* InAnimInstance)
@@ -270,16 +274,25 @@ void FAnimInstanceProxy::Uninitialize(UAnimInstance* InAnimInstance)
 
 void FAnimInstanceProxy::PreUpdate(UAnimInstance* InAnimInstance, float DeltaSeconds)
 {
+	USkeletalMeshComponent* SkelMeshComp = InAnimInstance->GetSkelMeshComponent();
+	UWorld* World = SkelMeshComp ? SkelMeshComp->GetWorld() : nullptr;
+
 	CurrentDeltaSeconds = DeltaSeconds;
+	CurrentTimeDilation = World ? World->GetWorldSettings()->GetEffectiveTimeDilation() : 1.0f;
 	RootMotionMode = InAnimInstance->RootMotionMode;
 	bShouldExtractRootMotion = InAnimInstance->ShouldExtractRootMotion();
 
 	InitializeObjects(InAnimInstance);
 
-	if (USkeletalMeshComponent* SkelMeshComp = InAnimInstance->GetSkelMeshComponent())
+	if (SkelMeshComp)
 	{
 		// Save off LOD level that we're currently using.
-		LODLevel = SkelMeshComp->PredictedLODLevel;
+		const int32 PreviousLODLevel = LODLevel;
+		LODLevel = InAnimInstance->GetLODLevel();
+		if (LODLevel != PreviousLODLevel)
+		{
+			OnPreUpdateLODChanged(PreviousLODLevel, LODLevel);
+		}
 
 		// Cache these transforms, so nodes don't have to pull it off the gamethread manually.
 		SkelMeshCompLocalToWorld = SkelMeshComp->GetComponentTransform();
@@ -295,8 +308,10 @@ void FAnimInstanceProxy::PreUpdate(UAnimInstance* InAnimInstance, float DeltaSec
 	QueuedDrawDebugItems.Reset();
 #endif
 
+#if !NO_LOGGING
 	//Reset logged update messages
 	LoggedMessagesMap.FindOrAdd("Update").Reset();
+#endif
 
 	ClearSlotNodeWeights();
 
@@ -338,6 +353,46 @@ void FAnimInstanceProxy::PreUpdate(UAnimInstance* InAnimInstance, float DeltaSec
 	for (FAnimNode_Base* Node : GameThreadPreUpdateNodes)
 	{
 		Node->PreUpdate(InAnimInstance);
+	}
+}
+
+void FAnimInstanceProxy::OnPreUpdateLODChanged(const int32 PreviousLODIndex, const int32 NewLODIndex)
+{
+	// Decrease detail, see which nodes need to be disabled.
+	if (NewLODIndex > PreviousLODIndex)
+	{
+		// Calling PreUpdate on GameThreadPreUpdateNodes is expensive, it triggers a cache miss.
+		// So remove nodes from this array if they're going to get culled by LOD.
+		for (int32 NodeIndex = 0; NodeIndex < GameThreadPreUpdateNodes.Num(); NodeIndex++)
+		{
+			FAnimNode_Base* AnimNodePtr = static_cast<FAnimNode_Base*>(GameThreadPreUpdateNodes[NodeIndex]);
+			if (AnimNodePtr)
+			{
+				if (!AnimNodePtr->IsLODEnabled(this))
+				{
+					LODDisabledGameThreadPreUpdateNodes.Add(AnimNodePtr);
+					GameThreadPreUpdateNodes.RemoveAt(NodeIndex, 1, false);
+					NodeIndex--;
+				}
+			}
+		}
+	}
+	// Increase detail, see which nodes need to be enabled.
+	else
+	{
+		for (int32 NodeIndex = 0; NodeIndex < LODDisabledGameThreadPreUpdateNodes.Num(); NodeIndex++)
+		{
+			FAnimNode_Base* AnimNodePtr = static_cast<FAnimNode_Base*>(LODDisabledGameThreadPreUpdateNodes[NodeIndex]);
+			if (AnimNodePtr)
+			{
+				if (AnimNodePtr->IsLODEnabled(this))
+				{
+					GameThreadPreUpdateNodes.Add(AnimNodePtr);
+					LODDisabledGameThreadPreUpdateNodes.RemoveAt(NodeIndex, 1, false);
+					NodeIndex--;
+				}
+			}
+		}
 	}
 }
 
@@ -383,6 +438,7 @@ void FAnimInstanceProxy::PostUpdate(UAnimInstance* InAnimInstance) const
 	}
 #endif
 
+#if !NO_LOGGING
 	FMessageLog MessageLog("AnimBlueprintLog");
 	const TArray<FLogMessageEntry>* Messages = LoggedMessagesMap.Find("Update");
 	if (ensureMsgf(Messages, TEXT("PreUpdate isn't called. This could potentially cause other issues.")))
@@ -392,12 +448,14 @@ void FAnimInstanceProxy::PostUpdate(UAnimInstance* InAnimInstance) const
 			MessageLog.Message(Message.Key, Message.Value);
 		}
 	}
+#endif
 }
 
 void FAnimInstanceProxy::PostEvaluate(UAnimInstance* InAnimInstance)
 {
 	ClearObjects();
 
+#if !NO_LOGGING
 	FMessageLog MessageLog("AnimBlueprintLog");
 	if(const TArray<FLogMessageEntry>* Messages = LoggedMessagesMap.Find("Evaluate"))
 	{
@@ -406,6 +464,7 @@ void FAnimInstanceProxy::PostEvaluate(UAnimInstance* InAnimInstance)
 			MessageLog.Message(Message.Key, Message.Value);
 		}
 	}
+#endif
 }
 
 void FAnimInstanceProxy::InitializeObjects(UAnimInstance* InAnimInstance)
@@ -419,6 +478,30 @@ void FAnimInstanceProxy::InitializeObjects(UAnimInstance* InAnimInstance)
 	{
 		Skeleton = nullptr;
 	}
+
+	// Calculate the number of skipped frames after this one due to URO and store it on our evaluation and update counters
+	const FAnimUpdateRateParameters* RateParams = SkeletalMeshComponent->AnimUpdateRateParams;
+
+	NumUroSkippedFrames_Update = 0;
+	NumUroSkippedFrames_Eval = 0;
+	if(RateParams)
+	{
+		bool bDoUro = SkeletalMeshComponent->ShouldUseUpdateRateOptimizations();
+		bool bDoEvalOptimization = bDoUro && RateParams->DoEvaluationRateOptimizations();
+
+		if(bDoUro)
+		{
+			NumUroSkippedFrames_Update = RateParams->UpdateRate - 1;
+		}
+
+		if(bDoEvalOptimization)
+		{
+			NumUroSkippedFrames_Eval = RateParams->EvaluationRate - 1;
+		}
+	}
+
+	UpdateCounter.SetMaxSkippedFrames(NumUroSkippedFrames_Update);
+	EvaluationCounter.SetMaxSkippedFrames(NumUroSkippedFrames_Eval);
 }
 
 void FAnimInstanceProxy::ClearObjects()
@@ -530,9 +613,13 @@ void FAnimInstanceProxy::TickAssetPlayerInstances(float DeltaSeconds)
 				}
 			}
 
+#if DO_CHECK
 			//For debugging UE-54705
 			FName InitialMarkerPrevious = TickContext.MarkerTickContext.GetMarkerSyncStartPosition().PreviousMarkerName;
 			FName InitialMarkerEnd = TickContext.MarkerTickContext.GetMarkerSyncStartPosition().NextMarkerName;
+			const bool bIsLeaderRecordValidPre = SyncGroup.ActivePlayers[0].MarkerTickRecord->IsValid();
+			FMarkerTickRecord LeaderPreMarkerTickRecord = *SyncGroup.ActivePlayers[0].MarkerTickRecord;
+#endif
 
 			// initialize to invalidate first
 			ensureMsgf(SyncGroup.GroupLeaderIndex == INDEX_NONE, TEXT("SyncGroup with GroupIndex=%d had a non -1 group leader index of %d in asset %s"), GroupIndex, SyncGroup.GroupLeaderIndex, *GetNameSafe(SkeletalMeshComponent));
@@ -590,28 +677,34 @@ void FAnimInstanceProxy::TickAssetPlayerInstances(float DeltaSeconds)
 
 				if (!bStartMarkerValid)
 				{
+#if DO_CHECK
 					FString ErrorMsg = FString(TEXT("Prev Marker name not valid for sync group.\n"));
 					ErrorMsg += FString::Format(TEXT("\tMarker {0} : SyncGroupName {1} : Leader {2}\n"), { MarkerStart.PreviousMarkerName.ToString(), SyncGroupName.ToString(), LeaderAnimName });
 					ErrorMsg += FString::Format(TEXT("\tInitalPrev {0} : InitialNext {1} : GroupLeaderIndex {2}\n"), { InitialMarkerPrevious.ToString(), InitialMarkerEnd.ToString(), GroupLeaderIndex });
+					ErrorMsg += FString::Format(TEXT("\tLeader (0 index) was originally valid: {0} | Record: {1}\n"), { bIsLeaderRecordValidPre, LeaderPreMarkerTickRecord.ToString() });
 					ErrorMsg += FString::Format(TEXT("\t Valid Markers : {0}\n"), { SyncGroup.ValidMarkers.Num() });
 					for (int32 MarkerIndex = 0; MarkerIndex < SyncGroup.ValidMarkers.Num(); ++MarkerIndex)
 					{
 						ErrorMsg += FString::Format(TEXT("\t\t{0}) '{1}'\n"), {MarkerIndex, SyncGroup.ValidMarkers[MarkerIndex].ToString()});
 					}
-					ensureMsgf(false, *ErrorMsg);
+					ensureMsgf(false, TEXT("%s"), *ErrorMsg);
+#endif
 					TickContext.InvalidateMarkerSync();
 				}
 				else if (!bEndMarkerValid)
 				{
+#if DO_CHECK
 					FString ErrorMsg = FString(TEXT("Next Marker name not valid for sync group.\n"));
 					ErrorMsg += FString::Format(TEXT("\tMarker {0} : SyncGroupName {1} : Leader {2}\n"), { MarkerStart.NextMarkerName.ToString(), SyncGroupName.ToString(), LeaderAnimName });
 					ErrorMsg += FString::Format(TEXT("\tInitalPrev {0} : InitialNext {1} : GroupLeaderIndex {2}\n"), { InitialMarkerPrevious.ToString(), InitialMarkerEnd.ToString(), GroupLeaderIndex });
+					ErrorMsg += FString::Format(TEXT("\tLeader (0 index) was originally valid: {0} | Record: {1}\n"), { bIsLeaderRecordValidPre, LeaderPreMarkerTickRecord.ToString() });
 					ErrorMsg += FString::Format(TEXT("\t Valid Markers : {0}\n"), { SyncGroup.ValidMarkers.Num() });
 					for (int32 MarkerIndex = 0; MarkerIndex < SyncGroup.ValidMarkers.Num(); ++MarkerIndex)
 					{
 						ErrorMsg += FString::Format(TEXT("\t\t{0}) '{1}'\n"), { MarkerIndex, SyncGroup.ValidMarkers[MarkerIndex].ToString() });
 					}
-					ensureMsgf(false, *ErrorMsg);
+					ensureMsgf(false, TEXT("%s"), *ErrorMsg);
+#endif
 					TickContext.InvalidateMarkerSync();
 				}
 			}
@@ -645,9 +738,8 @@ void FAnimInstanceProxy::TickAssetPlayerInstances(float DeltaSeconds)
 	for (int32 TickIndex = 0; TickIndex < UngroupedActivePlayers.Num(); ++TickIndex)
 	{
 		FAnimTickRecord& AssetPlayerToTick = UngroupedActivePlayers[TickIndex];
-		static TArray<FName> TempNames;
 		const TArray<FName>* UniqueNames = AssetPlayerToTick.SourceAsset->GetUniqueMarkerNames();
-		const TArray<FName>& ValidMarkers = UniqueNames ? *UniqueNames : TempNames;
+		const TArray<FName>& ValidMarkers = UniqueNames ? *UniqueNames : FMarkerTickContext::DefaultMarkerNames;
 
 		const bool bOnlyOneAnimationInGroup = true;
 		FAnimAssetTickContext TickContext(DeltaSeconds, RootMotionMode, bOnlyOneAnimationInGroup, ValidMarkers);
@@ -993,12 +1085,15 @@ void FAnimInstanceProxy::RecalcRequiredBones(USkeletalMeshComponent* Component, 
 void FAnimInstanceProxy::RecalcRequiredCurves(const FCurveEvaluationOption& CurveEvalOption)
 {
 	RequiredBones.CacheRequiredAnimCurveUids(CurveEvalOption);
+	bBoneCachesInvalidated = true;
 }
 
 void FAnimInstanceProxy::UpdateAnimation()
 {
 	ANIM_MT_SCOPE_CYCLE_COUNTER(ProxyUpdateAnimation, !IsInGameThread());
 	FScopeCycleCounterUObject AnimScope(GetAnimInstanceObject());
+
+	CacheBones();
 
 	// update native update
 	{
@@ -1016,7 +1111,9 @@ void FAnimInstanceProxy::UpdateAnimation()
 void FAnimInstanceProxy::PreEvaluateAnimation(UAnimInstance* InAnimInstance)
 {
 	InitializeObjects(InAnimInstance);
+#if !NO_LOGGING
 	LoggedMessagesMap.FindOrAdd("Evaluate").Reset();
+#endif
 }
 
 void FAnimInstanceProxy::EvaluateAnimation(FPoseContext& Output)
@@ -1732,7 +1829,7 @@ void FAnimInstanceProxy::BindNativeDelegates()
 	{
 		for (UStructProperty* Property : InAnimClassInterface->GetAnimNodeProperties())
 		{
-			if(Property && Property->Struct == FAnimNode_StateMachine::StaticStruct())
+			if(Property && Property->Struct->IsChildOf(FAnimNode_StateMachine::StaticStruct()))
 			{
 				FAnimNode_StateMachine* StateMachine = Property->ContainerPtrToValuePtr<FAnimNode_StateMachine>(AnimInstanceObject);
 				if(StateMachine)
@@ -1826,7 +1923,7 @@ FAnimNode_StateMachine* FAnimInstanceProxy::GetStateMachineInstanceFromName(FNam
 		for (int32 MachineIndex = 0; MachineIndex < AnimNodeProperties.Num(); MachineIndex++)
 		{
 			UStructProperty* Property = AnimNodeProperties[AnimNodeProperties.Num() - 1 - MachineIndex];
-			if (Property && Property->Struct == FAnimNode_StateMachine::StaticStruct())
+			if (Property && Property->Struct->IsChildOf(FAnimNode_StateMachine::StaticStruct()))
 			{
 				FAnimNode_StateMachine* StateMachine = Property->ContainerPtrToValuePtr<FAnimNode_StateMachine>(AnimInstanceObject);
 				if (StateMachine)
@@ -1854,7 +1951,7 @@ const FBakedAnimationStateMachine* FAnimInstanceProxy::GetStateMachineInstanceDe
 		for (int32 MachineIndex = 0; MachineIndex < AnimNodeProperties.Num(); MachineIndex++)
 		{
 			UStructProperty* Property = AnimNodeProperties[AnimNodeProperties.Num() - 1 - MachineIndex];
-			if(Property && Property->Struct == FAnimNode_StateMachine::StaticStruct())
+			if(Property && Property->Struct->IsChildOf(FAnimNode_StateMachine::StaticStruct()))
 			{
 				FAnimNode_StateMachine* StateMachine = Property->ContainerPtrToValuePtr<FAnimNode_StateMachine>(AnimInstanceObject);
 				if(StateMachine)
@@ -1882,7 +1979,7 @@ int32 FAnimInstanceProxy::GetStateMachineIndex(FName MachineName)
 		for (int32 MachineIndex = 0; MachineIndex < AnimNodeProperties.Num(); MachineIndex++)
 		{
 			UStructProperty* Property = AnimNodeProperties[AnimNodeProperties.Num() - 1 - MachineIndex];
-			if(Property && Property->Struct == FAnimNode_StateMachine::StaticStruct())
+			if(Property && Property->Struct->IsChildOf(FAnimNode_StateMachine::StaticStruct()))
 			{
 				FAnimNode_StateMachine* StateMachine = Property->ContainerPtrToValuePtr<FAnimNode_StateMachine>(AnimInstanceObject);
 				if(StateMachine)
@@ -1910,7 +2007,7 @@ void FAnimInstanceProxy::GetStateMachineIndexAndDescription(FName InMachineName,
 		for (int32 MachineIndex = 0; MachineIndex < AnimNodeProperties.Num(); MachineIndex++)
 		{
 			UStructProperty* Property = AnimNodeProperties[AnimNodeProperties.Num() - 1 - MachineIndex];
-			if (Property && Property->Struct == FAnimNode_StateMachine::StaticStruct())
+			if (Property && Property->Struct->IsChildOf(FAnimNode_StateMachine::StaticStruct()))
 			{
 				FAnimNode_StateMachine* StateMachine = Property->ContainerPtrToValuePtr<FAnimNode_StateMachine>(AnimInstanceObject);
 				if (StateMachine)
@@ -2009,12 +2106,17 @@ void FAnimInstanceProxy::RecordStateWeight(const int32 InMachineClassIndex, cons
 	}
 }
 
-void FAnimInstanceProxy::ResetDynamics()
+void FAnimInstanceProxy::ResetDynamics(ETeleportType InTeleportType)
 {
 	for(FAnimNode_Base* Node : DynamicResetNodes)
 	{
-		Node->ResetDynamics();
+		Node->ResetDynamics(InTeleportType);
 	}
+}
+
+void FAnimInstanceProxy::ResetDynamics()
+{
+	ResetDynamics(ETeleportType::ResetPhysics);
 }
 
 #if WITH_EDITOR

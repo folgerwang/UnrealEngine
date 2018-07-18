@@ -5,24 +5,15 @@
 #include "CoreTypes.h"
 #include "HAL/MemoryBase.h"
 
-#if !defined(WITH_EDITOR)
-#error "WITH_EDITOR must be defined"
-#endif
+/**
+ * Stomp memory allocator support should be enabled in Core.Build.cs.
+ * Run-time validation should be enabled using '-stompmalloc' command line argument.
+ */
 
-#ifndef USE_MALLOC_STOMP
-	#if !WITH_EDITOR && PLATFORM_DESKTOP
-	#define USE_MALLOC_STOMP 0
-	#endif
-#endif
-
-#ifndef USE_MALLOC_STOMP
-#define USE_MALLOC_STOMP 0
-#endif
-
-#if USE_MALLOC_STOMP
+#if WITH_MALLOC_STOMP
 
 #if PLATFORM_WINDOWS
-	#include "WindowsHWrapper.h"
+	#include "Windows/WindowsHWrapper.h"
 #endif
 
 /**
@@ -42,9 +33,7 @@ private:
 	static const SIZE_T SentinelExpectedValue = 0xdeadbeef;
 #endif
 
-	static const SIZE_T PageSize = 4096U; // TODO: Verify the assumption that all relevant platforms use 4KiB pages.
-
-	static const uint32 NoAccessProtectMode;
+	const SIZE_T PageSize;
 
 	struct FAllocationData
 	{
@@ -61,11 +50,13 @@ private:
 	/** If it is set to true, instead of focusing on overruns the allocator will focus on underruns. */
 	const bool bUseUnderrunMode;
 
+	UPTRINT VirtualAddressCursor = 0;
+	SIZE_T VirtualAddressMax = 0;
+	static const SIZE_T VirtualAddressBlockSize = 1 * 1024 * 1024 * 1024; // 1 GB blocks
+
 public:
 	// FMalloc interface.
-	FMallocStomp(const bool InUseUnderrunMode = false)
-		: bUseUnderrunMode(InUseUnderrunMode)
-	{}
+	FMallocStomp(const bool InUseUnderrunMode = false);
 
 	/**
 	 * Allocates a block of a given number of bytes of memory with the required alignment.
@@ -138,6 +129,12 @@ public:
 	{
 		return TEXT( "Stomp" );
 	}
+
+	virtual bool IsInternallyThreadSafe() const override
+	{
+		// Stomp allocator is NOT thread-safe and must be externally-synchronized.
+		return false;
+	}
 };
 
-#endif // USE_MALLOC_STOMP
+#endif // WITH_MALLOC_STOMP

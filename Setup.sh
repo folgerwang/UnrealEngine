@@ -36,6 +36,16 @@ else
 		chmod +x .git/hooks/post-merge
 	fi
 
+	# Get the dependencies for the first time
+	Engine/Build/BatchFiles/Linux/GitDependencies.sh --prompt $@
+
+	echo Register the engine installation...
+	if [ -f Engine/Binaries/Linux/UnrealVersionSelector-Linux-Shipping ]; then
+		pushd Engine/Binaries/Linux > /dev/null
+		./UnrealVersionSelector-Linux-Shipping -register
+		popd > /dev/null
+	fi
+
 	pushd Engine/Build/BatchFiles/Linux > /dev/null
 	./Setup.sh "$@"
 	popd > /dev/null

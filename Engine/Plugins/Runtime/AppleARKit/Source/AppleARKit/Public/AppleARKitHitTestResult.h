@@ -3,10 +3,11 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "AppleARKitAvailability.h"
 
-#if ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
-#import <ARKit/ARKit.h>
-#endif // ARKIT_SUPPORT
+#if SUPPORTS_ARKIT_1_0
+	#import <ARKit/ARKit.h>
+#endif
 
 
 #include "ARSystem.h"
@@ -34,7 +35,7 @@ enum class EAppleARKitHitTestResultType : uint8
 };
 ENUM_CLASS_FLAGS(EAppleARKitHitTestResultType);
 
-#if ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
+#if SUPPORTS_ARKIT_1_0
 
 /** Conversion function from ARKit native ARHitTestResultType */
 EAppleARKitHitTestResultType ToEAppleARKitHitTestResultType(ARHitTestResultType InTypes);
@@ -52,7 +53,7 @@ struct APPLEARKIT_API FAppleARKitHitTestResult
     // Default constructor
 	FAppleARKitHitTestResult() {};
 
-#if ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
+#if SUPPORTS_ARKIT_1_0
 
 	/** 
 	 * This is a conversion copy-constructor that takes a raw ARHitTestResult and fills this 
@@ -60,7 +61,7 @@ struct APPLEARKIT_API FAppleARKitHitTestResult
 	 */ 
 	FAppleARKitHitTestResult( ARHitTestResult* InARHitTestResult, class UAppleARKitAnchor* InAnchor = nullptr, float WorldToMetersScale = 100.0f );
 
-#endif // #ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
+#endif
 
 	/**
 	 * The type of the hit-test result.

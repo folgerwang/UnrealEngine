@@ -1,11 +1,11 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "MacWindow.h"
-#include "MacApplication.h"
-#include "MacCursor.h"
-#include "CocoaTextView.h"
-#include "CocoaThread.h"
-#include "MacPlatformApplicationMisc.h"
+#include "Mac/MacWindow.h"
+#include "Mac/MacApplication.h"
+#include "Mac/MacCursor.h"
+#include "Mac/CocoaTextView.h"
+#include "Mac/CocoaThread.h"
+#include "Mac/MacPlatformApplicationMisc.h"
 #include "HAL/PlatformProcess.h"
 
 FMacWindow::FMacWindow()
@@ -55,30 +55,30 @@ void FMacWindow::Initialize( FMacApplication* const Application, const TSharedRe
 	{
 		if( Definition->HasCloseButton )
 		{
-			WindowStyle = NSClosableWindowMask;
+			WindowStyle = NSWindowStyleMaskClosable;
 		}
 
 		// In order to support rounded, shadowed windows set the window to be titled - we'll set the content view to cover the whole window
-		WindowStyle |= NSTitledWindowMask | (FPlatformMisc::IsRunningOnMavericks() ? NSTexturedBackgroundWindowMask : NSFullSizeContentViewWindowMask);
+		WindowStyle |= NSWindowStyleMaskTitled | (FPlatformMisc::IsRunningOnMavericks() ? NSWindowStyleMaskTexturedBackground : NSWindowStyleMaskFullSizeContentView);
 		
 		if( Definition->SupportsMinimize )
 		{
-			WindowStyle |= NSMiniaturizableWindowMask;
+			WindowStyle |= NSWindowStyleMaskMiniaturizable;
 		}
 		if( Definition->SupportsMaximize || Definition->HasSizingFrame )
 		{
-			WindowStyle |= NSResizableWindowMask;
+			WindowStyle |= NSWindowStyleMaskResizable;
 		}
 	}
 	else
 	{
-		WindowStyle = NSBorderlessWindowMask;
+		WindowStyle = NSWindowStyleMaskBorderless;
 	}
 
 	if( Definition->HasOSWindowBorder )
 	{
-		WindowStyle |= NSTitledWindowMask;
-		WindowStyle &= FPlatformMisc::IsRunningOnMavericks() ? ~NSTexturedBackgroundWindowMask : ~NSFullSizeContentViewWindowMask;
+		WindowStyle |= NSWindowStyleMaskTitled;
+		WindowStyle &= FPlatformMisc::IsRunningOnMavericks() ? ~NSWindowStyleMaskTexturedBackground : ~NSWindowStyleMaskFullSizeContentView;
 	}
 
 	MainThreadCall(^{
@@ -160,7 +160,7 @@ void FMacWindow::Initialize( FMacApplication* const Application, const TSharedRe
 				{
 					[WindowHandle setCollectionBehavior: NSWindowCollectionBehaviorFullScreenPrimary|NSWindowCollectionBehaviorDefault|NSWindowCollectionBehaviorManaged|NSWindowCollectionBehaviorParticipatesInCycle];
 
-					// By default NSResizableWindowMask enables zoom button as well, so we need to disable it if that's what the project requests
+					// By default NSWindowStyleMaskResizable enables zoom button as well, so we need to disable it if that's what the project requests
 					if (Definition->HasSizingFrame && !Definition->SupportsMaximize)
 					{
 						[[WindowHandle standardWindowButton:NSWindowZoomButton] setEnabled:NO];
@@ -332,11 +332,6 @@ void FMacWindow::Show()
 
 		bIsFirstTimeVisible = false;
 
-		MainThreadCall(^{
-			SCOPED_AUTORELEASE_POOL;
-			[WindowHandle orderFrontAndMakeMain:bShouldActivate andKey:bShouldActivate];
-		}, UE4ShowEventMode, true);
-
 		if (bShouldActivate)
 		{
 			// Tell MacApplication to send window deactivate and activate messages to Slate without waiting for Cocoa events.
@@ -346,6 +341,12 @@ void FMacWindow::Show()
 		{
 			MacApplication->OnWindowOrderedFront(SharedThis(this));
 		}
+
+		FCocoaWindow* WindowHandleCopy = WindowHandle;
+		MainThreadCall(^{
+			SCOPED_AUTORELEASE_POOL;
+			[WindowHandleCopy orderFrontAndMakeMain:bShouldActivate andKey:bShouldActivate];
+		}, UE4ShowEventMode, true);
 
 		bIsVisible = true;
 	}
@@ -366,7 +367,10 @@ void FMacWindow::Hide()
 
 void FMacWindow::SetWindowMode(EWindowMode::Type NewWindowMode)
 {
-	ApplySizeAndModeChanges(PositionX, PositionY, WindowHandle.contentView.frame.size.width, WindowHandle.contentView.frame.size.height, NewWindowMode);
+	if(WindowHandle)
+	{
+		ApplySizeAndModeChanges(PositionX, PositionY, WindowHandle.contentView.frame.size.width, WindowHandle.contentView.frame.size.height, NewWindowMode);
+	}
 }
 
 EWindowMode::Type FMacWindow::GetWindowMode() const
@@ -545,6 +549,9 @@ void FMacWindow::OnWindowDidChangeScreen()
 
 void FMacWindow::ApplySizeAndModeChanges(int32 X, int32 Y, int32 Width, int32 Height, EWindowMode::Type WindowMode)
 {
+	// It's possible for Window handle to become nil in FMacWindow::Destroy() after a call to UpdateFullScreenState() in this function,
+	// in rare cases due to FPlatformApplicationMisc::PumpMessages
+	
 	SCOPED_AUTORELEASE_POOL;
 
 	bool bIsFullScreen = [WindowHandle windowMode] == EWindowMode::WindowedFullscreen || [WindowHandle windowMode] == EWindowMode::Fullscreen;
@@ -581,33 +588,36 @@ void FMacWindow::ApplySizeAndModeChanges(int32 X, int32 Y, int32 Width, int32 He
 			UpdateFullScreenState(true);
 			bIsFullScreen = false;
 		}
-
-		WindowHandle.TargetWindowMode = WindowMode;
-
-		const float DPIScaleFactor = FPlatformApplicationMisc::GetDPIScaleFactorAtPoint(X, Y);
-		Width /= DPIScaleFactor;
-		Height /= DPIScaleFactor;
-
-		const FVector2D CocoaPosition = FMacApplication::ConvertSlatePositionToCocoa(X, Y);
-		NSRect Rect = NSMakeRect(CocoaPosition.X, CocoaPosition.Y - Height + 1, FMath::Max(Width, 1), FMath::Max(Height, 1));
-		if (Definition->HasOSWindowBorder)
+		
+		if(WindowHandle)
 		{
-			Rect = [WindowHandle frameRectForContentRect:Rect];
-		}
+			WindowHandle.TargetWindowMode = WindowMode;
 
-		UpdateFullScreenState(bWantsFullScreen != bIsFullScreen);
+			const float DPIScaleFactor = FPlatformApplicationMisc::GetDPIScaleFactorAtPoint(X, Y);
+			Width /= DPIScaleFactor;
+			Height /= DPIScaleFactor;
 
-		if (WindowMode == EWindowMode::Windowed && !NSEqualRects([WindowHandle frame], Rect))
-		{
-			MainThreadCall(^{
-				SCOPED_AUTORELEASE_POOL;
-				[WindowHandle setFrame:Rect display:YES];
+			const FVector2D CocoaPosition = FMacApplication::ConvertSlatePositionToCocoa(X, Y);
+			NSRect Rect = NSMakeRect(CocoaPosition.X, CocoaPosition.Y - Height + 1, FMath::Max(Width, 1), FMath::Max(Height, 1));
+			if (Definition->HasOSWindowBorder)
+			{
+				Rect = [WindowHandle frameRectForContentRect:Rect];
+			}
 
-				if (Definition->ShouldPreserveAspectRatio)
-				{
-					[WindowHandle setContentAspectRatio:NSMakeSize((float)Width / (float)Height, 1.0f)];
-				}
-			}, UE4ResizeEventMode, true);
+			UpdateFullScreenState(bWantsFullScreen != bIsFullScreen);
+
+			if (WindowHandle && WindowMode == EWindowMode::Windowed && !NSEqualRects([WindowHandle frame], Rect))
+			{
+				MainThreadCall(^{
+					SCOPED_AUTORELEASE_POOL;
+					[WindowHandle setFrame:Rect display:YES];
+
+					if (Definition->ShouldPreserveAspectRatio)
+					{
+						[WindowHandle setContentAspectRatio:NSMakeSize((float)Width / (float)Height, 1.0f)];
+					}
+				}, UE4ResizeEventMode, true);
+			}
 		}
 	}
 	else
@@ -637,7 +647,10 @@ void FMacWindow::ApplySizeAndModeChanges(int32 X, int32 Y, int32 Width, int32 He
 		}
 	}
 
-	WindowHandle->bZoomed = WindowHandle.zoomed;
+	if(WindowHandle)
+	{
+		WindowHandle->bZoomed = WindowHandle.zoomed;
+	}
 
 	if (FadeReservationToken != 0)
 	{

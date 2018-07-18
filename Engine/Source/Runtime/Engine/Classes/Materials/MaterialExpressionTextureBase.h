@@ -52,6 +52,8 @@ class ENGINE_API UMaterialExpressionTextureBase : public UMaterialExpression
 		return Texture;
 	}
 
+	virtual bool CanReferenceTexture() const override { return true; }
+
 	/**
 	 * Automatically determines and set the sampler type for the current texture.
 	 */

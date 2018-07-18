@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3716175
+﻿INTSourceChangelist:3801260
 Availability: Public
 Crumbs: %ROOT%
 Title:레이 트레이스 디스턴스 필드 소프트 섀도 사용법
@@ -15,9 +15,6 @@ Tags:Lighting
 Topic-image:DistanceField_Topic.png
 Social-image:CSMAndDF.png.png
 
-[VAR:spacer]![](%ROOT%/spacer.png)(w:135 convert:false)[/VAR]
-[VAR:spacer2]![](%ROOT%/spacer.png)(w:40 convert:false)[/VAR]
- 
 
 [REGION:fullwidth raw]
 ![](RTDFBanner.png)

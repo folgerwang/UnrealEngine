@@ -26,6 +26,9 @@ DECLARE_CYCLE_STAT(TEXT("ImgMedia Player Close"), STAT_ImgMedia_PlayerClose, STA
 DECLARE_CYCLE_STAT(TEXT("ImgMedia Player TickInput"), STAT_ImgMedia_PlayerTickInput, STATGROUP_Media);
 
 
+const FTimespan HackDeltaTimeOffset(1);
+
+
 /* FImgMediaPlayer structors
  *****************************************************************************/
 
@@ -34,6 +37,7 @@ FImgMediaPlayer::FImgMediaPlayer(IMediaEventSink& InEventSink, const TSharedRef<
 	, CurrentRate(0.0f)
 	, CurrentState(EMediaState::Closed)
 	, CurrentTime(FTimespan::Zero())
+	, DeltaTimeHackApplied(false)
 	, EventSink(InEventSink)
 	, LastFetchTime(FTimespan::MinValue())
 	, PlaybackRestarted(false)
@@ -69,6 +73,7 @@ void FImgMediaPlayer::Close()
 	CurrentRate = 0.0f;
 	CurrentState = EMediaState::Closed;
 	CurrentTime = FTimespan::Zero();
+	DeltaTimeHackApplied = false;
 	LastFetchTime = FTimespan::MinValue();
 	PlaybackRestarted = false;
 	SelectedVideoTrack = INDEX_NONE;
@@ -164,14 +169,22 @@ bool FImgMediaPlayer::Open(const FString& Url, const IMediaOptions* Options)
 		Proxy = GetDefault<UImgMediaSettings>()->GetDefaultProxy();
 	}
 
+	// get frame rate override, if any
+	FFrameRate FrameRateOverride(0, 0);
+
+	if (Options != nullptr)
+	{
+		FrameRateOverride.Denominator = Options->GetMediaOption(ImgMedia::FrameRateOverrideDenonimatorOption, 0LL);
+		FrameRateOverride.Numerator = Options->GetMediaOption(ImgMedia::FrameRateOverrideNumeratorOption, 0LL);
+	}
+
 	// initialize image loader on a separate thread
 	Loader = MakeShared<FImgMediaLoader, ESPMode::ThreadSafe>(Scheduler.ToSharedRef());
 	Scheduler->RegisterLoader(Loader.ToSharedRef());
 
-	const float FpsOverride = (Options != nullptr) ? Options->GetMediaOption(ImgMedia::FramesPerSecondOverrideOption, 0.0f) : 0.0f;
 	const FString SequencePath = Url.RightChop(6);
 
-	Async<void>(EAsyncExecution::ThreadPool, [FpsOverride, LoaderPtr = TWeakPtr<FImgMediaLoader, ESPMode::ThreadSafe>(Loader), Proxy, SequencePath, Loop = ShouldLoop]()
+	Async<void>(EAsyncExecution::ThreadPool, [FrameRateOverride, LoaderPtr = TWeakPtr<FImgMediaLoader, ESPMode::ThreadSafe>(Loader), Proxy, SequencePath, Loop = ShouldLoop]()
 	{
 		TSharedPtr<FImgMediaLoader, ESPMode::ThreadSafe> PinnedLoader = LoaderPtr.Pin();
 
@@ -184,7 +197,7 @@ bool FImgMediaPlayer::Open(const FString& Url, const IMediaOptions* Options)
 				ProxyPath = SequencePath; // fall back to root folder
 			}
 
-			PinnedLoader->Initialize(ProxyPath, FpsOverride, Loop);
+			PinnedLoader->Initialize(ProxyPath, FrameRateOverride, Loop);
 		}
 	});
 
@@ -200,7 +213,7 @@ bool FImgMediaPlayer::Open(const TSharedRef<FArchive, ESPMode::ThreadSafe>& /*Ar
 
 void FImgMediaPlayer::TickInput(FTimespan DeltaTime, FTimespan /*Timecode*/)
 {
-//	SCOPE_CYCLE_COUNTER(STAT_ImgMedia_PlayerTickInput);
+	SCOPE_CYCLE_COUNTER(STAT_ImgMedia_PlayerTickInput);
 
 	if (!Loader.IsValid() || (CurrentState == EMediaState::Error))
 	{
@@ -241,6 +254,19 @@ void FImgMediaPlayer::TickInput(FTimespan DeltaTime, FTimespan /*Timecode*/)
 		CurrentTime += DeltaTime * CurrentRate;
 	}
 
+	// The following is a hack to accommodate for frame time rounding errors. The problem is
+	// that frame delta times can be one tick more or less each frame, depending on how the
+	// frame time is rounded. This presents a problem when driving media playback from Sequencer,
+	// because even both Sequencer and Media Framework clocks are running at the same rate, they
+	// may not be in phase with regards to rounding. This can cause some frames to be skipped.
+	// FFrameTime support in Media Framework is required to fix this properly.
+
+	if (!DeltaTimeHackApplied)
+	{
+		CurrentTime += HackDeltaTimeOffset;
+		DeltaTimeHackApplied = true;
+	}
+
 	// handle looping
 	if ((CurrentTime >= CurrentDuration) || (CurrentTime < FTimespan::Zero()))
 	{
@@ -260,13 +286,21 @@ void FImgMediaPlayer::TickInput(FTimespan DeltaTime, FTimespan /*Timecode*/)
 			CurrentState = EMediaState::Stopped;
 			CurrentTime = FTimespan::Zero();
 			CurrentRate = 0.0f;
+			DeltaTimeHackApplied = false;
 
 			EventSink.ReceiveMediaEvent(EMediaEvent::PlaybackSuspended);
 		}
 	}
 
+	UE_LOG(LogImgMedia, VeryVerbose, TEXT("Player %p: CurrentTime %s, Delta %s, CurrentRate %f"),
+		this,
+		*CurrentTime.ToString(TEXT("%h:%m:%s.%t")),
+		*DeltaTime.ToString(TEXT("%h:%m:%s.%t")),
+		CurrentRate
+	);
+
 	// update image loader
-	if (SelectedVideoTrack != INDEX_NONE)
+	if (SelectedVideoTrack == 0)
 	{
 		Loader->RequestFrame(CurrentTime, CurrentRate, ShouldLoop);
 	}
@@ -324,6 +358,11 @@ bool FImgMediaPlayer::CanControl(EMediaControl Control) const
 	if (!IsInitialized())
 	{
 		return false;
+	}
+
+	if (Control == EMediaControl::BlockOnFetch)
+	{
+		return ((CurrentState == EMediaState::Paused) || (CurrentState == EMediaState::Playing));
 	}
 
 	if (Control == EMediaControl::Pause)
@@ -403,7 +442,7 @@ bool FImgMediaPlayer::Seek(const FTimespan& Time)
 		return false;
 	}
 
-	if ((Time < FTimespan::Zero()) || (Time > CurrentDuration))
+	if ((Time < FTimespan::Zero()) || (Time >= CurrentDuration))
 	{
 		UE_LOG(LogImgMedia, Warning, TEXT("Invalid seek time %s (media duration is %s)"), *Time.ToString(), *CurrentDuration.ToString());
 		return false;
@@ -415,13 +454,22 @@ bool FImgMediaPlayer::Seek(const FTimespan& Time)
 		CurrentState = EMediaState::Paused;
 	}
 
-	CurrentTime = Time;
-	LastFetchTime = FTimespan::MinValue();
+	// more timing hacks for Sequencer
+	CurrentTime = Time + HackDeltaTimeOffset;
+	DeltaTimeHackApplied = true;
 
+	if (CurrentTime == CurrentDuration)
+	{
+		CurrentTime -= HackDeltaTimeOffset;
+	}
+
+	// update the loader
 	if (CurrentState == EMediaState::Paused)
 	{
 		Loader->RequestFrame(CurrentTime, CurrentRate, ShouldLoop);
 	}
+
+	LastFetchTime = FTimespan::MinValue();
 
 	EventSink.ReceiveMediaEvent(EMediaEvent::SeekCompleted);
 
@@ -614,7 +662,7 @@ bool FImgMediaPlayer::GetVideoTrackFormat(int32 TrackIndex, int32 FormatIndex, F
 	}
 
 	OutFormat.Dim = Loader->GetSequenceDim();
-	OutFormat.FrameRate = Loader->GetSequenceFps();
+	OutFormat.FrameRate = Loader->GetSequenceFrameRate().AsDecimal();
 	OutFormat.FrameRates = TRange<float>(OutFormat.FrameRate);
 	OutFormat.TypeName = TEXT("Image"); // @todo gmp: fix me (should be image type)
 
@@ -644,3 +692,5 @@ bool FImgMediaPlayer::SetTrackFormat(EMediaTrackType TrackType, int32 TrackIndex
 {
 	return (IsInitialized() && (TrackIndex == 0) && (FormatIndex == 0));
 }
+
+#undef LOCTEXT_NAMESPACE

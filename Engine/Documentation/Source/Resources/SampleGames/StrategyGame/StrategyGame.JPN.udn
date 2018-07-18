@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3151861
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:戦略ゲームのサンプル
 Crumbs:%ROOT%, Resources
@@ -12,43 +12,7 @@ Related:Gameplay/Framework/UIAndHUD
 Related:Gameplay/Input
 Related:Engine/Rendering/ParticleSystems
 Version:4.9
-
-
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources/SampleGames/StrategyGame:title%](StrategyGameTopic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/SampleGames/StrategyGame:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/SampleGames/StrategyGame:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/SampleGames/StrategyGame]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Resources/SampleGames/StrategyGame:title%](StrategyGameTopic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/SampleGames/StrategyGame:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/SampleGames/StrategyGame:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/SampleGames/StrategyGame]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:StrategyGameTopic.png
 
 
 [REGION:fullwidth]

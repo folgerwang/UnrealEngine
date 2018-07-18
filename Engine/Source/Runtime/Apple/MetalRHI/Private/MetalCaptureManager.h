@@ -3,29 +3,15 @@
 #pragma once
 
 #include <Metal/Metal.h>
-
-NS_ASSUME_NONNULL_BEGIN
-
-/**
- * Equivalent to MTLCaptureScope so that we may compile against older SDK versions.
- */
-@protocol IMTLCaptureScope <NSObject>
-- (void)beginScope;
-- (void)endScope;
-
-@property (nullable, copy, atomic) NSString *label;
-@property (nonnull, readonly, nonatomic)  id<MTLDevice> device;
-@property (nullable, readonly, nonatomic) id<MTLCommandQueue> commandQueue;
-@end
-
-NS_ASSUME_NONNULL_END
+#include "capture_scope.hpp"
+#include "device.hpp"
 
 class FMetalCommandQueue;
 
 class FMetalCaptureManager
 {
 public:
-	FMetalCaptureManager(id<MTLDevice> Device, FMetalCommandQueue& Queue);
+	FMetalCaptureManager(mtlpp::Device Device, FMetalCommandQueue& Queue);
 	~FMetalCaptureManager();
 	
 	// Called by the MetalRHI code to trigger the provided capture scopes visible in Xcode.
@@ -37,7 +23,7 @@ public:
 	void EndCapture(void);
 	
 private:
-	TMetalPtr<id<MTLDevice>> Device;
+	mtlpp::Device Device;
 	FMetalCommandQueue& Queue;
 	bool bSupportsCaptureManager;
 	
@@ -55,7 +41,7 @@ private:
 		EMetalCaptureType Type;
 		uint32 StepCount;
 		uint32 LastTrigger;
-		TMetalPtr<id<IMTLCaptureScope>> MTLScope;
+		mtlpp::CaptureScope MTLScope;
 	};
 	
 	TArray<FMetalCaptureScope> ActiveScopes;

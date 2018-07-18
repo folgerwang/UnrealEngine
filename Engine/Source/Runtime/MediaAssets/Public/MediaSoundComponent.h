@@ -20,6 +20,7 @@ class FMediaPlayerFacade;
 class IMediaAudioSample;
 class IMediaPlayer;
 class UMediaPlayer;
+class USoundClass;
 
 
 /**
@@ -51,8 +52,31 @@ class MEDIAASSETS_API UMediaSoundComponent
 public:
 
 	/** Media sound channel type. */
-	UPROPERTY(EditAnywhere, Category="MediaSoundComponent")
+	UPROPERTY(EditAnywhere, Category="Media")
 	EMediaSoundChannels Channels;
+
+	/** Dynamically adjust the sample rate if audio and media clock desynchronize. */
+	UPROPERTY(EditAnywhere, Category="Media", AdvancedDisplay)
+	bool DynamicRateAdjustment;
+
+	/**
+	 * Factor for calculating the sample rate adjustment.
+	 *
+	 * If dynamic rate adjustment is enabled, this number is multiplied with the drift
+	 * between the audio and media clock (in 100ns ticks) to determine the adjustment.
+	 * that is to be multiplied into the current playrate.
+	 */
+	UPROPERTY(EditAnywhere, Category="Media", AdvancedDisplay)
+	float RateAdjustmentFactor;
+
+	/**
+	 * The allowed range of dynamic rate adjustment.
+	 *
+	 * If dynamic rate adjustment is enabled, and the necessary adjustment
+	 * falls outside of this range, audio samples will be dropped.
+	 */
+	UPROPERTY(EditAnywhere, Category="Media", AdvancedDisplay)
+	FFloatRange RateAdjustmentRange;
 
 public:
 
@@ -99,6 +123,16 @@ public:
 
 	void UpdatePlayer();
 
+#if WITH_EDITOR
+	/**
+	 * Set the component's default media player property.
+	 *
+	 * @param NewMediaPlayer The player to set.
+	 * @see SetMediaPlayer
+	 */
+	void SetDefaultMediaPlayer(UMediaPlayer* NewMediaPlayer);
+#endif
+
 public:
 
 	//~ TAttenuatedComponentVisualizer interface
@@ -122,7 +156,7 @@ public:
 public:
 
 	//~ UObject interface
-
+	virtual void PostInitProperties() override;
 	virtual void PostLoad() override;
 
 #if WITH_EDITOR
@@ -143,7 +177,7 @@ protected:
 	//~ USynthComponent interface
 
 	virtual bool Init(int32& SampleRate) override;
-	virtual void OnGenerateAudio(float* OutAudio, int32 NumSamples) override;
+	virtual int32 OnGenerateAudio(float* OutAudio, int32 NumSamples) override;
 
 protected:
 
@@ -175,9 +209,16 @@ private:
 	/** The player facade that's currently providing texture samples. */
 	TWeakPtr<FMediaPlayerFacade, ESPMode::ThreadSafe> CurrentPlayerFacade;
 
+	/** Adjusts the output sample rate to synchronize audio and media clock. */
+	float RateAdjustment;
+
 	/** The audio resampler. */
 	FMediaAudioResampler* Resampler;
 
 	/** Audio sample queue. */
 	TSharedPtr<FMediaAudioSampleQueue, ESPMode::ThreadSafe> SampleQueue;
+
+private:
+
+	static USoundClass* DefaultMediaSoundClassObject;
 };

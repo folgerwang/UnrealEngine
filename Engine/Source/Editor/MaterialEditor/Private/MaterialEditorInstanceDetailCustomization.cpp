@@ -37,13 +37,15 @@
 #include "Materials/MaterialInstanceConstant.h"
 #include "MaterialPropertyHelpers.h"
 #include "Widgets/Input/SButton.h"
-#include "SBox.h"
+#include "Widgets/Layout/SBox.h"
 #include "Factories/MaterialInstanceConstantFactoryNew.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "AssetToolsModule.h"
 #include "Materials/MaterialFunctionInterface.h"
 #include "Materials/MaterialFunction.h"
 #include "Materials/MaterialFunctionInstance.h"
+#include "Curves/CurveLinearColor.h"
+#include "IPropertyUtilities.h"
 
 #define LOCTEXT_NAMESPACE "MaterialInstanceEditor"
 
@@ -88,6 +90,8 @@ FString FMaterialInstanceParameterDetails::GetFunctionParentPath() const
 
 void FMaterialInstanceParameterDetails::CustomizeDetails(IDetailLayoutBuilder& DetailLayout)
 {
+	PropertyUtilities = DetailLayout.GetPropertyUtilities();
+
 	// Create a new category for a custom layout for the MIC parameters at the very top
 	FName GroupsCategoryName = TEXT("ParameterGroups");
 	IDetailCategoryBuilder& GroupsCategory = DetailLayout.EditCategory(GroupsCategoryName, LOCTEXT("MICParamGroupsTitle", "Parameter Groups"));
@@ -369,6 +373,10 @@ void FMaterialInstanceParameterDetails::CreateSingleGroupWidget(FEditorParameter
 			{
 				CreateVectorChannelMaskParameterValueWidget(Parameter, ParameterProperty, DetailGroup);
 			}
+			if (ScalarParam && ScalarParam->AtlasData.bIsUsedAsAtlasPosition)
+			{
+				CreateScalarAtlasPositionParameterValueWidget(Parameter, ParameterProperty, DetailGroup);
+			}
 			else if (ScalarParam || SwitchParam || TextureParam || VectorParam || FontParam)
 			{
 				if (ScalarParam && ScalarParam->SliderMax > ScalarParam->SliderMin)
@@ -564,6 +572,61 @@ void FMaterialInstanceParameterDetails::CreateVectorChannelMaskParameterValueWid
 	}
 }
 
+void FMaterialInstanceParameterDetails::CreateScalarAtlasPositionParameterValueWidget(class UDEditorParameterValue* Parameter, TSharedPtr<IPropertyHandle> ParameterProperty, IDetailGroup& DetailGroup)
+{
+	TSharedPtr<IPropertyHandle> ParameterValueProperty = ParameterProperty->GetChildHandle("ParameterValue");
+
+	if (ParameterValueProperty->IsValidHandle())
+	{
+		TAttribute<bool> IsParamEnabled = TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateStatic(&FMaterialPropertyHelpers::IsOverriddenExpression, Parameter));
+
+		IDetailPropertyRow& PropertyRow = DetailGroup.AddPropertyRow(ParameterValueProperty.ToSharedRef());
+		PropertyRow.EditCondition(IsParamEnabled, FOnBooleanValueChanged::CreateStatic(&FMaterialPropertyHelpers::OnOverrideParameter, Parameter, MaterialEditorInstance));
+		// Handle reset to default manually
+		PropertyRow.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateStatic(&FMaterialPropertyHelpers::ShouldShowExpression, Parameter, MaterialEditorInstance, ShowHiddenDelegate)));
+
+		const FText ParameterName = FText::FromName(Parameter->ParameterInfo.Name);
+		UDEditorScalarParameterValue* AtlasParameter = Cast<UDEditorScalarParameterValue>(Parameter);
+
+		FIsResetToDefaultVisible IsResetVisible = FIsResetToDefaultVisible::CreateStatic(&FMaterialPropertyHelpers::ShouldShowResetToDefault, Parameter, MaterialEditorInstance);
+		FResetToDefaultHandler ResetHandler = FResetToDefaultHandler::CreateStatic(&FMaterialPropertyHelpers::ResetCurveToDefault, Parameter, MaterialEditorInstance);
+		FResetToDefaultOverride ResetOverride = FResetToDefaultOverride::Create(IsResetVisible, ResetHandler);
+
+		PropertyRow.OverrideResetToDefault(ResetOverride);
+
+		FDetailWidgetRow& CustomWidget = PropertyRow.CustomWidget();
+		CustomWidget
+			.FilterString(ParameterName)
+			.NameContent()
+			[
+				SNew(STextBlock)
+				.Text(ParameterName)
+				.ToolTipText(FMaterialPropertyHelpers::GetParameterExpressionDescription(Parameter, MaterialEditorInstance))
+				.Font(FEditorStyle::GetFontStyle(TEXT("PropertyWindow.NormalFont")))
+			]
+			.ValueContent()
+			.HAlign(HAlign_Fill)
+			.MaxDesiredWidth(400.0f)
+			[
+				SNew(SObjectPropertyEntryBox)
+				.ObjectPath(this, &FMaterialInstanceParameterDetails::GetCurvePath, AtlasParameter)
+				.AllowedClass(UCurveLinearColor::StaticClass())
+				.NewAssetFactories(TArray<UFactory*>())
+				.DisplayThumbnail(true)
+				.ThumbnailPool(PropertyUtilities.Pin()->GetThumbnailPool())
+				.OnShouldSetAsset(FOnShouldSetAsset::CreateStatic(&FMaterialPropertyHelpers::OnShouldSetCurveAsset, AtlasParameter->AtlasData.Atlas))
+				.OnObjectChanged(FOnSetObject::CreateStatic(&FMaterialPropertyHelpers::SetPositionFromCurveAsset, AtlasParameter->AtlasData.Atlas, AtlasParameter, ParameterProperty, (UObject*)MaterialEditorInstance))
+				.DisplayCompactSize(true)
+			];
+	}
+}
+
+FString FMaterialInstanceParameterDetails::GetCurvePath(UDEditorScalarParameterValue* Parameter) const
+{
+	FString Path = Parameter->AtlasData.Curve->GetPathName();
+	return Path;
+}
+
 bool FMaterialInstanceParameterDetails::IsVisibleExpression(UDEditorParameterValue* Parameter)
 {
 	return MaterialEditorInstance->VisibleExpressions.Contains(Parameter->ParameterInfo);
@@ -640,7 +703,7 @@ EVisibility FMaterialInstanceParameterDetails::ShouldShowSubsurfaceProfile() con
 {
 	EMaterialShadingModel Model = MaterialEditorInstance->SourceInstance->GetShadingModel();
 
-	return (Model == MSM_SubsurfaceProfile) ? EVisibility::Visible : EVisibility::Collapsed;
+	return UseSubsurfaceProfile(Model) ? EVisibility::Visible : EVisibility::Collapsed;
 }
 
 

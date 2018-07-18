@@ -15,6 +15,7 @@
 
 #include "MediaPlayer.h"
 #include "Misc/MediaTextureResource.h"
+#include "IMediaTextureSample.h"
 
 
 /* Local helpers
@@ -212,6 +213,10 @@ void UMediaTexture::PostLoad()
 	CurrentPlayer = MediaPlayer;
 }
 
+bool UMediaTexture::IsPostLoadThreadSafe() const
+{
+	return false;
+}
 
 #if WITH_EDITOR
 
@@ -350,3 +355,23 @@ void UMediaTexture::UpdateQueue()
 		SampleQueue.Reset();
 	}
 }
+
+FTimespan UMediaTexture::GetNextSampleTime() const
+{
+	FTimespan SampleTime;
+
+	TSharedPtr<IMediaTextureSample, ESPMode::ThreadSafe> Sample;
+	const bool bHasSucceed = SampleQueue->Peek(Sample);
+	if (bHasSucceed)
+	{
+		SampleTime = Sample->GetTime();
+	}
+
+	return SampleTime;
+}
+
+int32 UMediaTexture::GetAvailableSampleCount() const
+{
+	return SampleQueue->Num();
+}
+

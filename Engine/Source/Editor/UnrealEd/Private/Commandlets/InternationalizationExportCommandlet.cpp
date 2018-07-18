@@ -2,9 +2,9 @@
 
 #include "Commandlets/InternationalizationExportCommandlet.h"
 #include "PortableObjectPipeline.h"
-#include "UObjectGlobals.h"
-#include "Package.h"
-#include "Class.h"
+#include "UObject/UObjectGlobals.h"
+#include "UObject/Package.h"
+#include "UObject/Class.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogInternationalizationExportCommandlet, Log, All);
 

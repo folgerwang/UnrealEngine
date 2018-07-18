@@ -379,7 +379,13 @@ private:
 			LaunchProfile->SetDeploymentMode(ELauncherProfileDeploymentModes::FileServer);
 
 			ILauncherDeviceGroupRef NewGroup = Model->GetProfileManager()->CreateUnmanagedDeviceGroup();
-			NewGroup->AddDevice(DeviceProxy->GetTargetDeviceId(Variant));
+
+			// multi-device targets (All_<platform>_devices_on_<host>) return a list of devices 
+			const TSet<FString>& TargetDeviceIds = DeviceProxy->GetTargetDeviceIds(NAME_None);
+			for (TSet<FString>::TConstIterator ItDeviceID(TargetDeviceIds); ItDeviceID; ++ItDeviceID)
+			{
+				NewGroup->AddDevice(*ItDeviceID);
+			}
 			LaunchProfile->SetDeployedDeviceGroup(NewGroup);
 
 			LaunchProfile->ClearCookedPlatforms();

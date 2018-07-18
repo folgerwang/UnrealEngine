@@ -283,11 +283,11 @@ In the renderer, we tend to have a convention on naming shader classes and shade
 |Shader Domain  | Suffix |
 |-------------- |--------|
 |**Vertex Shader**  |VS|
-|**Hull Shader **   |HS|
+|**Hull Shader**   |HS|
 |**Domain Shader**  |DS|
 |**Geometry Shader**|GS|
-|**Pixel Shader  ** |PS|
-|**Compute Shader **|CS|
+|**Pixel Shader** |PS|
+|**Compute Shader**|CS|
 
 For example, in a C++ file, the call to **FLensDistortionUVGenerationVS** has VS at the end signaling that it is a Vertex Shader. Inside of a USF file the **void MainVS(...)** ends with a VS signaling that it is going to use the Vertex Shader. When dealing with Struct's in HLSL, the struct name should start with **F** like FBasePassInterpolators for example.
 

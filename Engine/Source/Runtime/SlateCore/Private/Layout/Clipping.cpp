@@ -1,8 +1,8 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Layout/Clipping.h"
-#include "AssertionMacros.h"
-#include "LogVerbosity.h"
+#include "Misc/AssertionMacros.h"
+#include "Logging/LogVerbosity.h"
 #include "SlateGlobals.h"
 
 FSlateClippingZone::FSlateClippingZone(const FShortRect& AxisAlignedRect)
@@ -182,9 +182,12 @@ bool FSlateClippingZone::IsPointInside(const FVector2D& Point) const
 
 //-------------------------------------------------------------------
 
-FSlateClippingState::FSlateClippingState(bool InbAlwaysClips)
-	: StateIndex(INDEX_NONE)
-	, bAlwaysClips(InbAlwaysClips)
+FSlateClippingState::FSlateClippingState(EClippingFlags InFlags /*= EClippingFlags::None*/)
+	: Flags(InFlags)
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	, Debugging_StateIndex(INDEX_NONE)
+	, Debugging_StateIndexFromFrame(INDEX_NONE)
+#endif
 {
 }
 
@@ -215,8 +218,6 @@ FSlateClippingManager::FSlateClippingManager()
 
 int32 FSlateClippingManager::PushClip(const FSlateClippingZone& InClipRect)
 {
-	FSlateClippingState NewClippingState(InClipRect.GetAlwaysClip());
-
 	const FSlateClippingState* PreviousClippingState = nullptr;
 
 	if (!InClipRect.GetShouldIntersectParent())
@@ -237,6 +238,9 @@ int32 FSlateClippingManager::PushClip(const FSlateClippingZone& InClipRect)
 		PreviousClippingState = &ClippingStates[ClippingStack.Top()];
 	}
 
+	// Initialize the new clipping state
+	FSlateClippingState NewClippingState(InClipRect.GetAlwaysClip() ? EClippingFlags::AlwaysClip : EClippingFlags::None);
+
 	if (PreviousClippingState == nullptr)
 	{
 		if (InClipRect.IsAxisAligned())
@@ -250,10 +254,11 @@ int32 FSlateClippingManager::PushClip(const FSlateClippingZone& InClipRect)
 	}
 	else
 	{
-		if (PreviousClippingState->ScissorRect.IsSet())
+		if (PreviousClippingState->GetClippingMethod() == EClippingMethod::Scissor)
 		{
 			if (InClipRect.IsAxisAligned())
 			{
+				ensure(PreviousClippingState->ScissorRect.IsSet());
 				NewClippingState.ScissorRect = PreviousClippingState->ScissorRect->Intersect(InClipRect);
 			}
 			else
@@ -275,12 +280,16 @@ int32 FSlateClippingManager::PushClip(const FSlateClippingZone& InClipRect)
 
 int32 FSlateClippingManager::PushClippingState(FSlateClippingState& NewClippingState)
 {
-	NewClippingState.SetStateIndex(ClippingStates.Num());
+	int32 NewClippingStateIndex = ClippingStates.Num();
 
-	ClippingStack.Add(NewClippingState.GetStateIndex());
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	NewClippingState.SetDebuggingStateIndex(NewClippingStateIndex);
+#endif
+
+	ClippingStack.Add(NewClippingStateIndex);
 	ClippingStates.Add(NewClippingState);
 
-	return NewClippingState.GetStateIndex();
+	return NewClippingStateIndex;
 }
 
 int32 FSlateClippingManager::GetClippingIndex() const
@@ -295,7 +304,7 @@ const TArray< FSlateClippingState >& FSlateClippingManager::GetClippingStates() 
 
 void FSlateClippingManager::PopClip()
 {
-#ifdef WITH_EDITOR
+#if WITH_EDITOR
 	if (ClippingStack.Num() == 0)
 	{
 		UE_LOG(LogSlate, Log, TEXT("Attempting to pop clipping stack of size 0 due to a breakpoint."));

@@ -20,7 +20,7 @@ public:
 	 *
 	 * @param MenuBuilder The builder for the menu that owns this menu.
 	 */
-	static void MakeMenu( FMenuBuilder& MenuBuilder )
+	static void MakeMenu( FMenuBuilder& MenuBuilder, bool bIsVolumeTexture )
 	{
 		// color channel options
 		MenuBuilder.BeginSection("ChannelSection", LOCTEXT("ChannelsSectionHeader", "Color Channels"));
@@ -41,6 +41,15 @@ public:
 				LOCTEXT("BackgroundTooltip", "Set the viewport's background"),
 				FNewMenuDelegate::CreateStatic(&FTextureEditorViewOptionsMenu::GenerateBackgroundMenuContent)
 			);
+
+			if (bIsVolumeTexture)
+			{
+				MenuBuilder.AddSubMenu(
+					LOCTEXT("ViewMode", "View Mode"),
+					LOCTEXT("ViewModeTooltip", "Set the view mode"),
+					FNewMenuDelegate::CreateStatic(&FTextureEditorViewOptionsMenu::GenerateVolumeDisplayModeMenuContent)
+				);
+			}
 
 			MenuBuilder.AddMenuEntry(FTextureEditorCommands::Get().TextureBorder);
 			MenuBuilder.AddMenuEntry(FTextureEditorCommands::Get().FitToViewport);
@@ -63,6 +72,17 @@ protected:
 		MenuBuilder.AddMenuEntry(FTextureEditorCommands::Get().CheckeredBackground);
 		MenuBuilder.AddMenuEntry(FTextureEditorCommands::Get().CheckeredBackgroundFill);
 		MenuBuilder.AddMenuEntry(FTextureEditorCommands::Get().SolidBackground);
+	}
+
+	/**
+	 * Creates the 'Display Mode' sub-menu.
+	 *
+	 * @param MenuBuilder The builder for the menu that owns this menu.
+	 */
+	static void GenerateVolumeDisplayModeMenuContent( FMenuBuilder& MenuBuilder )
+	{
+		MenuBuilder.AddMenuEntry(FTextureEditorCommands::Get().DepthSlices);
+		MenuBuilder.AddMenuEntry(FTextureEditorCommands::Get().TraceIntoVolume);
 	}
 };
 

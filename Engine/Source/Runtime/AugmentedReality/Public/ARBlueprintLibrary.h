@@ -8,6 +8,7 @@
 #include "ARTypes.h"
 #include "ARTraceResult.h"
 #include "ARSessionConfig.h"
+#include "ARTrackable.h"
 #include "ARBlueprintLibrary.generated.h"
 
 
@@ -81,7 +82,15 @@ public:
 	/** @return a list of all the real-world geometry as currently seen by the Augmented Reality system */
 	UFUNCTION(BlueprintCallable, Category = "AR AugmentedReality|Tracking", meta = (Keywords = "ar augmentedreality augmented reality tracking geometry anchor"))
 	static TArray<UARTrackedGeometry*> GetAllGeometries();
-	
+
+	/** @return the current camera image from the Augmented Reality system */
+	UFUNCTION(BlueprintCallable, Category = "AR AugmentedReality|Camera", meta = (Keywords = "ar augmentedreality augmented reality camera image"))
+	static UARTextureCameraImage* GetCameraImage();
+
+	/** @return the current camera depth data from the Augmented Reality system */
+	UFUNCTION(BlueprintCallable, Category = "AR AugmentedReality|Camera", meta = (Keywords = "ar augmentedreality augmented reality camera image depth"))
+	static UARTextureCameraDepth* GetCameraDepth();
+
 	/**
 	 * Test whether this type of session is supported by the current Augmented Reality platform.
 	 * e.g. is your device capable of doing positional tracking or orientation only?
@@ -149,6 +158,37 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "AR AugmentedReality|Pin", meta = (Keywords = "ar augmentedreality augmented reality tracking pin anchor"))
 	static TArray<UARPin*> GetAllPins();
 	
+//@joeg -- Helpers to make things easier
+	/** @return a list of all the tracked planes as currently seen by the Augmented Reality system */
+	UFUNCTION(BlueprintCallable, Category = "AR AugmentedReality|Tracking", meta = (Keywords = "ar augmentedreality augmented reality tracking geometry anchor"))
+	static TArray<UARPlaneGeometry*> GetAllTrackedPlanes();
+	
+	/** @return a list of all the tracked points as currently seen by the Augmented Reality system */
+	UFUNCTION(BlueprintCallable, Category = "AR AugmentedReality|Tracking", meta = (Keywords = "ar augmentedreality augmented reality tracking geometry anchor"))
+	static TArray<UARTrackedPoint*> GetAllTrackedPoints();
+	
+	/** @return a list of all the tracked images as currently seen by the Augmented Reality system */
+	UFUNCTION(BlueprintCallable, Category = "AR AugmentedReality|Tracking", meta = (Keywords = "ar augmentedreality augmented reality tracking images anchor"))
+	static TArray<UARTrackedImage*> GetAllTrackedImages();
+	
+	/** @return a list of all the tracked environment capture probes as currently seen by the Augmented Reality system */
+	UFUNCTION(BlueprintCallable, Category = "AR AugmentedReality|Tracking", meta = (Keywords = "ar augmentedreality augmented reality tracking anchor"))
+	static TArray<UAREnvironmentCaptureProbe*> GetAllTrackedEnvironmentCaptureProbes();
+
+//@joeg -- Added environmental texture probe support
+	/** Adds an environment capture probe to the ar world */
+	UFUNCTION(BlueprintCallable, Category = "AR AugmentedReality|Tracking", meta = (Keywords = "ar augmentedreality augmented reality tracking anchor"))
+	static bool AddManualEnvironmentCaptureProbe(FVector Location, FVector Extent);
+
+	/** @return the current world mapping status for the AR world */
+	UFUNCTION(BlueprintCallable, Category = "AR AugmentedReality|Tracking", meta = (Keywords = "ar augmentedreality augmented reality tracking anchor"))
+	static EARWorldMappingState GetWorldMappingStatus();
+	
+	static TSharedPtr<FARSaveWorldAsyncTask, ESPMode::ThreadSafe> SaveWorld();
+	static TSharedPtr<FARGetCandidateObjectAsyncTask, ESPMode::ThreadSafe> GetCandidateObject(FVector Location, FVector Extent);
+	
+//@joeg -- End additions
+
 public:
 	static void RegisterAsARSystem(const TSharedPtr<FARSystemBase, ESPMode::ThreadSafe>& NewArSystem);
 	
@@ -158,7 +198,7 @@ private:
 };
 
 
-UCLASS(meta=(ScriptName="ARLibrary"))
+UCLASS(meta=(ScriptName="ARTraceResultLibrary"))
 class AUGMENTEDREALITY_API UARTraceResultLibrary : public UBlueprintFunctionLibrary
 {
 	GENERATED_BODY()

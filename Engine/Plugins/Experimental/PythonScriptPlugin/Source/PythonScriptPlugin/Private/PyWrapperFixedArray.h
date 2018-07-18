@@ -12,7 +12,7 @@
 extern PyTypeObject PyWrapperFixedArrayType;
 
 /** Initialize the PyWrapperFixedArray types and add them to the given Python module */
-void InitializePyWrapperFixedArray(PyObject* PyModule);
+void InitializePyWrapperFixedArray(PyGenUtil::FNativePythonModule& ModuleInfo);
 
 /** Type for all UE4 exposed fixed-array instances */
 struct FPyWrapperFixedArray : public FPyWrapperBase
@@ -45,12 +45,12 @@ struct FPyWrapperFixedArray : public FPyWrapperBase
 	static bool ValidateInternalState(FPyWrapperFixedArray* InSelf);
 
 	/** Cast the given Python object to this wrapped type (returns a new reference) */
-	static FPyWrapperFixedArray* CastPyObject(PyObject* InPyObject);
+	static FPyWrapperFixedArray* CastPyObject(PyObject* InPyObject, FPyConversionResult* OutCastResult = nullptr);
 
 	/** Cast the given Python object to this wrapped type, or attempt to convert the type into a new wrapped instance (returns a new reference) */
-	static FPyWrapperFixedArray* CastPyObject(PyObject* InPyObject, PyTypeObject* InType, const PyUtil::FPropertyDef& InPropDef);
+	static FPyWrapperFixedArray* CastPyObject(PyObject* InPyObject, PyTypeObject* InType, const PyUtil::FPropertyDef& InPropDef, FPyConversionResult* OutCastResult = nullptr);
 
-	/** Get the raw pointer to the element at index N */
+	/** Get the raw pointer to the element at index N (negative indexing not supported) */
 	static void* GetItemPtr(FPyWrapperFixedArray* InSelf, Py_ssize_t InIndex);
 
 	/** Get the length of this container (equivalent to 'len(x)' in Python) */
@@ -75,9 +75,14 @@ struct FPyWrapperFixedArray : public FPyWrapperBase
 /** Meta-data for all UE4 exposed fixed-array types */
 struct FPyWrapperFixedArrayMetaData : public FPyWrapperBaseMetaData
 {
-	PY_OVERRIDE_GETSET_METADATA(FPyWrapperFixedArrayMetaData)
+	PY_METADATA_METHODS(FPyWrapperFixedArrayMetaData, FGuid(0x8A8CA89E, 0xC8F04627, 0xA7D2B568, 0xB086C02E))
 
-	FPyWrapperFixedArrayMetaData();
+	FPyWrapperFixedArrayMetaData()
+	{
+	}
+
+	/** Add object references from the given Python object to the given collector */
+	virtual void AddReferencedObjects(FPyWrapperBase* Instance, FReferenceCollector& Collector) override;
 };
 
 typedef TPyPtr<FPyWrapperFixedArray> FPyWrapperFixedArrayPtr;

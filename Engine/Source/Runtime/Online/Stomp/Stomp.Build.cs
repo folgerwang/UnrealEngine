@@ -12,7 +12,7 @@ public class Stomp : ModuleRules
 			Target.Platform == UnrealTargetPlatform.Win32 ||
 			Target.Platform == UnrealTargetPlatform.Win64 ||
 			Target.Platform == UnrealTargetPlatform.Mac ||
-			Target.Platform == UnrealTargetPlatform.Linux ||
+			Target.IsInPlatformGroup(UnrealPlatformGroup.Unix) ||
 			Target.Platform == UnrealTargetPlatform.XboxOne ||
 			Target.Platform == UnrealTargetPlatform.PS4;
 

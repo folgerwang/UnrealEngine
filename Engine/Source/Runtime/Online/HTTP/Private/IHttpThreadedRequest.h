@@ -3,9 +3,9 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Interfaces/IHttpRequest.h"
+#include "GenericPlatform/HttpRequestImpl.h"
 
-class IHttpThreadedRequest : public IHttpRequest
+class IHttpThreadedRequest : public FHttpRequestImpl
 {
 public:
 	// Called on http thread

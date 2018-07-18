@@ -9,18 +9,14 @@
 #include "Interfaces/IAndroidDeviceDetectionModule.h"
 #include "AndroidTargetDevice.h"
 #include "AndroidTargetPlatform.h"
+#include "IAndroidTargetPlatformModule.h"
 
 #define LOCTEXT_NAMESPACE "FAndroidTargetPlatformModule"
 
 /**
- * Holds the target platform singleton.
- */
-static ITargetPlatform* AndroidTargetSingleton = NULL;
-
-/**
  * Module for the Android target platform.
  */
-class FAndroidTargetPlatformModule : public ITargetPlatformModule
+class FAndroidTargetPlatformModule : public IAndroidTargetPlatformModule
 {
 public:
 
@@ -29,7 +25,12 @@ public:
 	 */
 	~FAndroidTargetPlatformModule( )
 	{
-		AndroidTargetSingleton = NULL;
+		for (ITargetPlatform* TP : TargetPlatforms)
+		{
+			delete TP;
+		}
+		TargetPlatforms.Empty();
+		MultiPlatforms.Empty();
 	}
 
 
@@ -37,28 +38,61 @@ public:
 	
 	// Begin ITargetPlatformModule interface
 
-	virtual ITargetPlatform* GetTargetPlatform() override
+	virtual TArray<ITargetPlatform*> GetTargetPlatforms() override
 	{
-		if (AndroidTargetSingleton == NULL)
+		if (TargetPlatforms.Num() == 0)
 		{
-			AndroidTargetSingleton = new FAndroidTargetPlatform<FAndroidPlatformProperties>();	
+			for (int32 Type = 0; Type < 2; Type++)
+			{
+				bool bIsClient = Type == 1;
+				SinglePlatforms.Add(new FAndroidTargetPlatform(bIsClient));
+				SinglePlatforms.Add(new FAndroid_ASTCTargetPlatform(bIsClient));
+				SinglePlatforms.Add(new FAndroid_ATCTargetPlatform(bIsClient));
+				SinglePlatforms.Add(new FAndroid_DXTTargetPlatform(bIsClient));
+				SinglePlatforms.Add(new FAndroid_ETC1TargetPlatform(bIsClient));
+				SinglePlatforms.Add(new FAndroid_ETC1aTargetPlatform(bIsClient));
+				SinglePlatforms.Add(new FAndroid_ETC2TargetPlatform(bIsClient));
+				SinglePlatforms.Add(new FAndroid_PVRTCTargetPlatform(bIsClient));
+
+				// thse are used in NotifyMultiSelectedFormatsChanged, so track in another array
+				MultiPlatforms.Add(new FAndroid_MultiTargetPlatform(bIsClient));
+			}
+
+			// join the single and the multi into one
+			TargetPlatforms.Append(SinglePlatforms);
+			TargetPlatforms.Append(MultiPlatforms);
+
+			// set up the multi platforms now that we have all the other platforms ready to go
+			NotifyMultiSelectedFormatsChanged();
 		}
-		
-		return AndroidTargetSingleton;
+
+		return TargetPlatforms;
+	}
+
+
+	virtual void NotifyMultiSelectedFormatsChanged() override
+	{
+		for (FAndroid_MultiTargetPlatform* TP : MultiPlatforms)
+		{
+			TP->LoadFormats(SinglePlatforms);
+		}
+		// @todo multi needs to be passed this event!
 	}
 
 	// End ITargetPlatformModule interface
 
 public:
 	// Begin IModuleInterface interface
-	virtual void StartupModule() override
-	{
-	}
-
-	virtual void ShutdownModule() override
-	{
-	}
+	virtual void StartupModule() override { }
+	virtual void ShutdownModule() override { }
 	// End IModuleInterface interface
+
+private:
+
+	/** Holds the target platforms. */
+	TArray<ITargetPlatform*> TargetPlatforms;
+	TArray<FAndroidTargetPlatform*> SinglePlatforms;
+	TArray<FAndroid_MultiTargetPlatform*> MultiPlatforms;
 };
 
 

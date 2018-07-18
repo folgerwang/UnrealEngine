@@ -15,7 +15,7 @@
 
 struct FFrameCaptureViewExtension : public FSceneViewExtensionBase
 {
-	FFrameCaptureViewExtension( const FAutoRegister& AutoRegister, const TArray<FString>& InRenderPasses, bool bInCaptureFramesInHDR, int32 InHDRCompressionQuality, int32 InCaptureGamut, UMaterialInterface* InPostProcessingMaterial)
+	FFrameCaptureViewExtension( const FAutoRegister& AutoRegister, const TArray<FString>& InRenderPasses, bool bInCaptureFramesInHDR, int32 InHDRCompressionQuality, int32 InCaptureGamut, UMaterialInterface* InPostProcessingMaterial, bool bInDisableScreenPercentage)
 		: FSceneViewExtensionBase(AutoRegister)
 		, RenderPasses(InRenderPasses)
 		, bNeedsCapture(true)
@@ -23,6 +23,7 @@ struct FFrameCaptureViewExtension : public FSceneViewExtensionBase
 		, HDRCompressionQuality(InHDRCompressionQuality)
 		, CaptureGamut(InCaptureGamut)
 		, PostProcessingMaterial(InPostProcessingMaterial)
+		, bDisableScreenPercentage(bInDisableScreenPercentage)
 	{
 		CVarDumpFrames = IConsoleManager::Get().FindConsoleVariable(TEXT("r.BufferVisualizationDumpFrames"));
 		CVarDumpFramesAsHDR = IConsoleManager::Get().FindConsoleVariable(TEXT("r.BufferVisualizationDumpFramesAsHDR"));
@@ -125,8 +126,11 @@ struct FFrameCaptureViewExtension : public FSceneViewExtensionBase
 
 	virtual void SetupViewFamily(FSceneViewFamily& InViewFamily) override
 	{
-		// Ensure we're rendering at full size.
-		InViewFamily.EngineShowFlags.ScreenPercentage = false;
+		if (bDisableScreenPercentage)
+		{
+			// Ensure we're rendering at full size.
+			InViewFamily.EngineShowFlags.ScreenPercentage = false;
+		}
 	}
 
 	virtual void BeginRenderViewFamily(FSceneViewFamily& InViewFamily) {}
@@ -146,6 +150,8 @@ private:
 	int32 CaptureGamut;
 
 	UMaterialInterface* PostProcessingMaterial;
+
+	bool bDisableScreenPercentage;
 
 	IConsoleVariable* CVarDumpFrames;
 	IConsoleVariable* CVarDumpFramesAsHDR;
@@ -208,6 +214,7 @@ bool FCompositionGraphCaptureProtocol::Initialize(const FCaptureProtocolInitSett
 	bool bCaptureFramesInHDR = false;
 	int32 HDRCompressionQuality = 0;
 	int32 CaptureGamut = HCGM_Rec709;
+	bool bDisableScreenPercentage = true;
 
 	UMaterialInterface* PostProcessingMaterial = nullptr;
 	UCompositionGraphCaptureSettings* ProtocolSettings = CastChecked<UCompositionGraphCaptureSettings>(InSettings.ProtocolSettings);
@@ -218,6 +225,7 @@ bool FCompositionGraphCaptureProtocol::Initialize(const FCaptureProtocolInitSett
 		HDRCompressionQuality = ProtocolSettings->HDRCompressionQuality;
 		CaptureGamut = ProtocolSettings->CaptureGamut;
 		PostProcessingMaterial = Cast<UMaterialInterface>(ProtocolSettings->PostProcessingMaterial.TryLoad());
+		bDisableScreenPercentage = ProtocolSettings->bDisableScreenPercentage;
 
 		FString OverrideRenderPasses;
 		if (FParse::Value(FCommandLine::Get(), TEXT("-CustomRenderPasses="), OverrideRenderPasses))
@@ -242,9 +250,15 @@ bool FCompositionGraphCaptureProtocol::Initialize(const FCaptureProtocolInitSett
 		{
 			CaptureGamut = OverrideCaptureGamut;
 		}
+
+		bool bOverrideDisableScreenPercentage;
+		if (FParse::Bool(FCommandLine::Get(), TEXT("-DisableScreenPercentage="), bOverrideDisableScreenPercentage))
+		{
+			bDisableScreenPercentage = bOverrideDisableScreenPercentage;
+		}
 	}
 
-	ViewExtension = FSceneViewExtensions::NewExtension<FFrameCaptureViewExtension>(RenderPasses, bCaptureFramesInHDR, HDRCompressionQuality, CaptureGamut, PostProcessingMaterial);
+	ViewExtension = FSceneViewExtensions::NewExtension<FFrameCaptureViewExtension>(RenderPasses, bCaptureFramesInHDR, HDRCompressionQuality, CaptureGamut, PostProcessingMaterial, bDisableScreenPercentage);
 
 	return true;
 }

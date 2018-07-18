@@ -23,18 +23,23 @@
 #include "Rendering/SkeletalMeshModel.h"
 
 #include "Animation/DebugSkelMeshComponent.h"
-#include "ClothingAsset.h"
+#include "Assets/ClothingAsset.h"
 #include "SCreateClothingSettingsPanel.h"
 #include "ClothingSystemEditorInterfaceModule.h"
-#include "Classes/Preferences/PersonaOptions.h"
+#include "Preferences/PersonaOptions.h"
 
 #include "Widgets/Layout/SBox.h"
 #include "Widgets/Layout/SBorder.h"
-#include "Application/SlateApplication.h"
+#include "Framework/Application/SlateApplication.h"
 #include "EditorViewportClient.h"
 #include "Settings/EditorExperimentalSettings.h"
 #include "Algo/Transform.h"
 #include "ISkeletonTreeItem.h"
+#include "FbxMeshUtils.h"
+#include "LODUtilities.h"
+
+#include "LODUtilities.h"
+#include "ScopedTransaction.h"
 
 const FName SkeletalMeshEditorAppIdentifier = FName(TEXT("SkeletalMeshEditorApp"));
 
@@ -158,6 +163,9 @@ void FSkeletalMeshEditor::BindCommands()
 	ToolkitCommands->MapAction(FSkeletalMeshEditorCommands::Get().ReimportMesh,
 		FExecuteAction::CreateSP(this, &FSkeletalMeshEditor::HandleReimportMesh));
 
+	ToolkitCommands->MapAction(FSkeletalMeshEditorCommands::Get().ReimportAllMesh,
+		FExecuteAction::CreateSP(this, &FSkeletalMeshEditor::HandleReimportAllMesh));
+
 	ToolkitCommands->MapAction(FSkeletalMeshEditorCommands::Get().MeshSectionSelection,
 		FExecuteAction::CreateSP(this, &FSkeletalMeshEditor::ToggleMeshSectionSelection),
 		FCanExecuteAction(), 
@@ -178,8 +186,22 @@ void FSkeletalMeshEditor::ExtendToolbar()
 
 	ToolbarExtender = MakeShareable(new FExtender);
 
+	auto ConstructReimportContextMenu = [this]()
+	{
+		FMenuBuilder MenuBuilder(true, nullptr);
+		MenuBuilder.AddMenuEntry(FSkeletalMeshEditorCommands::Get().ReimportMesh->GetLabel(),
+			FSkeletalMeshEditorCommands::Get().ReimportMesh->GetDescription(),
+			FSlateIcon(),
+			FUIAction(FExecuteAction::CreateSP(this, &FSkeletalMeshEditor::HandleReimportMesh)));
+		MenuBuilder.AddMenuEntry(FSkeletalMeshEditorCommands::Get().ReimportAllMesh->GetLabel(),
+			FSkeletalMeshEditorCommands::Get().ReimportAllMesh->GetDescription(),
+			FSlateIcon(),
+			FUIAction(FExecuteAction::CreateSP(this, &FSkeletalMeshEditor::HandleReimportAllMesh)));
+		return MenuBuilder.MakeWidget();
+	};
+
 	// extend extra menu/toolbars
-	auto FillToolbar = [this](FToolBarBuilder& ToolbarBuilder)
+	auto FillToolbar = [this, ConstructReimportContextMenu](FToolBarBuilder& ToolbarBuilder)
 	{
 		FPersonaModule& PersonaModule = FModuleManager::LoadModuleChecked<FPersonaModule>("Persona");
 		FPersonaModule::FCommonToolbarExtensionArgs Args;
@@ -189,6 +211,12 @@ void FSkeletalMeshEditor::ExtendToolbar()
 		ToolbarBuilder.BeginSection("Mesh");
 		{
 			ToolbarBuilder.AddToolBarButton(FSkeletalMeshEditorCommands::Get().ReimportMesh);
+			ToolbarBuilder.AddComboButton(
+				FUIAction(),
+				FOnGetContent::CreateLambda(ConstructReimportContextMenu),
+				TAttribute<FText>(),
+				TAttribute<FText>()
+			);
 		}
 		ToolbarBuilder.EndSection();
 
@@ -318,8 +346,60 @@ void FSkeletalMeshEditor::FillMeshClickMenu(FMenuBuilder& MenuBuilder, HActor* H
 			TEXT(""),
 			EUserInterfaceActionType::Button
 		);
+
+
+		if (SkeletalMesh != nullptr && SkeletalMesh->GetImportedModel()->LODModels.IsValidIndex(LodIndex))
+		{
+			const FSkeletalMeshLODInfo* SkeletalMeshLODInfo = SkeletalMesh->GetLODInfo(LodIndex);
+			if (SkeletalMeshLODInfo != nullptr)
+			{
+				FUIAction ActionRemoveSection;
+				ActionRemoveSection.ExecuteAction = FExecuteAction::CreateSP(this, &FSkeletalMeshEditor::OnRemoveSectionFromLodAndBelowMenuItemClicked, LodIndex, SectionIndex);
+
+				MenuBuilder.AddMenuEntry(
+					FText::Format(LOCTEXT("MeshClickMenu_RemoveSectionFromLodAndBelow", "Generate section {1} up to LOD {0}"), LodIndex, SectionIndex),
+					FText::Format(LOCTEXT("MeshClickMenu_RemoveSectionFromLodAndBelow_Tooltip", "Generated LODs will use section {1} up to LOD {0}, and ignore it for lower quality LODs"), LodIndex, SectionIndex),
+					FSlateIcon(),
+					ActionRemoveSection
+				);
+			}
+		}
 	}
 	MenuBuilder.EndSection();
+}
+
+void FSkeletalMeshEditor::OnRemoveSectionFromLodAndBelowMenuItemClicked(int32 LodIndex, int32 SectionIndex)
+{
+	if (SkeletalMesh == nullptr || !SkeletalMesh->GetImportedModel()->LODModels.IsValidIndex(LodIndex) || !SkeletalMesh->GetImportedModel()->LODModels[LodIndex].Sections.IsValidIndex(SectionIndex))
+	{
+		return;
+	}
+	const FSkeletalMeshLODInfo* SkeletalMeshLODInfo = SkeletalMesh->GetLODInfo(LodIndex);
+	if (SkeletalMeshLODInfo == nullptr)
+	{
+		return;
+	}
+	FScopedTransaction Transaction(LOCTEXT("ChangeGenerateUpTo", "Set Generate Up To"));
+	SkeletalMesh->Modify();
+
+	SkeletalMesh->GetImportedModel()->LODModels[LodIndex].Sections[SectionIndex].GenerateUpToLodIndex = LodIndex;
+	FSkeletalMeshUpdateContext UpdateContext;
+	UpdateContext.SkeletalMesh = SkeletalMesh;
+	UpdateContext.AssociatedComponents.Push(GetPersonaToolkit()->GetPreviewMeshComponent());
+	//Generate only the LODs that can be affected by the changes
+	TArray<int32> BaseLodIndexes;
+	BaseLodIndexes.Add(LodIndex);
+	for (int32 GenerateLodIndex = LodIndex + 1; GenerateLodIndex < SkeletalMesh->GetImportedModel()->LODModels.Num(); ++GenerateLodIndex)
+	{
+		const FSkeletalMeshLODInfo* CurrentSkeletalMeshLODInfo = SkeletalMesh->GetLODInfo(GenerateLodIndex);
+		if (CurrentSkeletalMeshLODInfo != nullptr && CurrentSkeletalMeshLODInfo->bHasBeenSimplified && BaseLodIndexes.Contains(CurrentSkeletalMeshLODInfo->ReductionSettings.BaseLOD))
+		{
+			FLODUtilities::SimplifySkeletalMeshLOD(UpdateContext, GenerateLodIndex);
+			BaseLodIndexes.Add(GenerateLodIndex);
+		}
+	}
+	SkeletalMesh->PostEditChange();
+	GetPersonaToolkit()->GetPreviewScene()->InvalidateViews();
 }
 
 void FSkeletalMeshEditor::FillApplyClothingAssetMenu(FMenuBuilder& MenuBuilder, int32 InLodIndex, int32 InSectionIndex)
@@ -624,6 +704,39 @@ void FSkeletalMeshEditor::HandleReimportMesh()
 	if (SkeletalMesh)
 	{
 		FReimportManager::Instance()->Reimport(SkeletalMesh, true);
+	}
+}
+
+void FSkeletalMeshEditor::HandleReimportAllMesh()
+{
+	// Reimport the asset
+	if (SkeletalMesh)
+	{
+		//Reimport base LOD
+		if (FReimportManager::Instance()->Reimport(SkeletalMesh, true))
+		{
+			//Reimport all custom LODs
+			for (int32 LodIndex = 1; LodIndex < SkeletalMesh->GetLODNum(); ++LodIndex)
+			{
+				//Do not reimport LOD that was re-import with the base mesh
+				if (SkeletalMesh->GetLODInfo(LodIndex)->bImportWithBaseMesh)
+				{
+					continue;
+				}
+				if (SkeletalMesh->GetLODInfo(LodIndex)->bHasBeenSimplified == false)
+				{
+					FbxMeshUtils::ImportMeshLODDialog(SkeletalMesh, LodIndex);
+				}
+				else
+				{
+					//Regenerate the LOD
+					FSkeletalMeshUpdateContext UpdateContext;
+					UpdateContext.SkeletalMesh = SkeletalMesh;
+					UpdateContext.AssociatedComponents.Push(GetPersonaToolkit()->GetPreviewMeshComponent());
+					FLODUtilities::SimplifySkeletalMeshLOD(UpdateContext, LodIndex);
+				}
+			}
+		}
 	}
 }
 

@@ -26,7 +26,13 @@ enum class EQueryMobilityType
   * Note this will not include any queries taking a default SceneQuery param
   */
 #define FIND_UNKNOWN_SCENE_QUERIES 0
-#define SCENE_QUERY_STAT_ONLY(QueryName) QUICK_USE_CYCLE_STAT(QueryName, STATGROUP_CollisionTags)
+
+#if ENABLE_STATNAMEDEVENTS
+	#define SCENE_QUERY_STAT_ONLY(QueryName) TStatId(ANSI_TO_PROFILING(#QueryName))
+#else
+	#define SCENE_QUERY_STAT_ONLY(QueryName) QUICK_USE_CYCLE_STAT(QueryName, STATGROUP_CollisionTags)
+#endif
+
 #define SCENE_QUERY_STAT_NAME_ONLY(QueryName) [](){ static FName StaticName(#QueryName); return StaticName;}()
 #define SCENE_QUERY_STAT(QueryName) SCENE_QUERY_STAT_NAME_ONLY(QueryName), SCENE_QUERY_STAT_ONLY(QueryName)
 
@@ -51,7 +57,7 @@ struct ENGINE_API FCollisionQueryParams
 	/** Whether we want to return the triangle face index for complex static mesh traces */
 	bool bReturnFaceIndex;
 
-	/** Only fill in the PhysMaterial field of  */
+	/** Whether we want to include the physical material in the results. */
 	bool bReturnPhysicalMaterial;
 
 	/** Whether to ignore blocking results. */
@@ -178,6 +184,7 @@ public:
 
 	/** Add a collection of actors for this trace to ignore */
 	void AddIgnoredActors(const TArray<AActor*>& InIgnoreActors);
+	void AddIgnoredActors(const TArray<const AActor*>& InIgnoreActors);
 
 	/** Variant that uses an array of TWeakObjectPtrs */
 	void AddIgnoredActors(const TArray<TWeakObjectPtr<AActor> >& InIgnoreActors);

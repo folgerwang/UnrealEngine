@@ -25,6 +25,7 @@ public class UnrealFrontend : ModuleRules
 				"DeviceManager",
 				"LauncherServices",
 				"Messaging",
+                "OutputLog",
 				"Profiler",
 				"ProfilerClient",
                 "ProjectLauncher",
@@ -48,7 +49,7 @@ public class UnrealFrontend : ModuleRules
 
 		DynamicallyLoadedModuleNames.AddRange(
 			new string[] {
-				"SlateReflector",
+				"SlateReflector"
 			}
 		);
 
@@ -64,7 +65,7 @@ public class UnrealFrontend : ModuleRules
 		{
 			PrivateDependencyModuleNames.AddRange(
 				new string[] {
-					"LinuxCommonStartup"
+					"UnixCommonStartup"
 				}
 			);
 		}

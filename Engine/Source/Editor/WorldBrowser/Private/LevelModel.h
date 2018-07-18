@@ -27,7 +27,7 @@ struct FLevelModelVisitor
 /**
  * Interface for non-UI presentation logic for a level in a world
  */
-class FLevelModel
+class WORLDBROWSER_API FLevelModel
 	: public TSharedFromThis<FLevelModel>	
 {
 public:

@@ -63,6 +63,12 @@ public:
 	 */
 	virtual ESlateShaderResource::Type GetType() const = 0;
 
+#if SLATE_CHECK_UOBJECT_RENDER_RESOURCES
+	virtual void CheckForStaleResources() const { }
+#else
+	FORCEINLINE void CheckForStaleResources() const { }
+#endif
+
 public:
 
 	/** Virtual destructor. */
@@ -194,7 +200,6 @@ class FSlateResourceHandle
 {
 	friend class FSlateShaderResourceManager;
 	friend class FSlateNullShaderResourceManager;
-	friend class FSlateDrawElement;
 public:
 	FSlateResourceHandle() {}
 
@@ -202,6 +207,15 @@ public:
 	 * @return true if the handle still points to a valid rendering resource
 	 */
 	bool IsValid() const { return Data.IsValid() && Data->Proxy; }
+
+	/**
+	 * @return the resource proxy used to render.
+	 */
+	const FSlateShaderResourceProxy* GetResourceProxy() const
+	{
+		return Data.IsValid() ? Data->Proxy : nullptr;
+	}
+
 private:
 	FSlateResourceHandle(const TSharedPtr<FSlateSharedHandleData>& InData)
 		: Data(InData)

@@ -50,7 +50,7 @@ private:
 
 	/** Cached section start time */
 	UPROPERTY()
-	float SectionStartTime;
+	FFrameNumber SectionStartTime;
 };
 
 /** Section template for a camera anim */
@@ -75,5 +75,5 @@ private:
 
 	/** Cached section start time */
 	UPROPERTY()
-	float SectionStartTime;
+	FFrameNumber SectionStartTime;
 };

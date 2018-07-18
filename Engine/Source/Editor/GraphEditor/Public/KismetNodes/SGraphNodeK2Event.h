@@ -7,7 +7,7 @@
 #include "Widgets/SWidget.h"
 #include "Widgets/SOverlay.h"
 #include "Engine/GameViewportClient.h"
-#include "SGraphNodeK2Default.h"
+#include "KismetNodes/SGraphNodeK2Default.h"
 
 class SGraphPin;
 

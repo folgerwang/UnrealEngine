@@ -11,7 +11,7 @@
 #include "FbxExportOption.generated.h"
 
  // Fbx export compatibility
-UENUM()
+UENUM(BlueprintType)
 enum class EFbxExportCompatibility : uint8
 {
 	FBX_2011,
@@ -28,31 +28,31 @@ class UFbxExportOption : public UObject
 	GENERATED_UCLASS_BODY()
 public:
 	/** This will set the fbx sdk compatibility when exporting to fbx file. The default value is 2013 */
-	UPROPERTY(EditAnywhere, config, Category = Exporter)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, Category = Exporter)
 	EFbxExportCompatibility FbxExportCompatibility;
 
+	/** If enabled, save as ascii instead of binary */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, config, Category = Exporter)
+	uint32 bASCII : 1;
+
 	/** If enabled, export with X axis as the front axis instead of default -Y */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, config, Category = Exporter)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, config, Category = Exporter)
 	uint32 bForceFrontXAxis : 1;
 
 	/** If enable, export vertex color */
-	UPROPERTY(EditAnywhere, config, category = Mesh)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, category = Mesh)
 	uint32 VertexColor : 1;
 
 	/** If enabled, export the level of detail */
-	UPROPERTY(EditAnywhere, config, category = StaticMesh)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, category = StaticMesh)
 	uint32 LevelOfDetail : 1;
 
 	/** If enabled, export collision */
-	UPROPERTY(EditAnywhere, config, category = StaticMesh)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, category = StaticMesh)
 	uint32 Collision : 1;
 
-	/** If enable, export welded vertices*/
-	UPROPERTY(EditAnywhere, AdvancedDisplay, config, category = StaticMesh)
-	uint32 WeldedVertices : 1;
-
 	/** If enable, Map skeletal actor motion to the root bone of the skeleton. */
-	UPROPERTY(EditAnywhere, config, category = Animation)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, config, category = Animation)
 	uint32 MapSkeletalMotionToRoot : 1;
 
 	/* Set all the UProperty to the CDO value */

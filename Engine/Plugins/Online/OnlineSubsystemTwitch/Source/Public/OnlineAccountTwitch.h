@@ -1,9 +1,9 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
- 
+
 #include "OnlineSubsystemTypes.h"
-#include "JsonSerializerMacros.h"
+#include "Serialization/JsonSerializerMacros.h"
 #include "OnlineSubsystemTwitchPackage.h"
 
 struct FTwitchTokenValidationResponse;
@@ -31,7 +31,7 @@ public:
 
 	// FUserOnlineAccountTwitch
 	FUserOnlineAccountTwitch(const FString& InUserId = FString(), const FString& InAuthTicket = FString())
-		: UserId(MakeShared<FUniqueNetIdString>(InUserId))
+		: UserId(MakeShared<FUniqueNetIdTwitch>(InUserId))
 		, AuthTicket(InAuthTicket)
 	{
 	}

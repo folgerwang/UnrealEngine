@@ -1,14 +1,14 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "WindowsPlatformApplicationMisc.h"
-#include "WindowsApplication.h"
-#include "WindowsErrorOutputDevice.h"
-#include "WindowsConsoleOutputDevice.h"
-#include "WindowsFeedbackContext.h"
+#include "Windows/WindowsPlatformApplicationMisc.h"
+#include "Windows/WindowsApplication.h"
+#include "Windows/WindowsErrorOutputDevice.h"
+#include "Windows/WindowsConsoleOutputDevice.h"
+#include "Windows/WindowsFeedbackContext.h"
 #include "HAL/FeedbackContextAnsi.h"
 #include "Misc/App.h"
 #include "Math/Color.h"
-#include "WindowsHWrapper.h"
+#include "Windows/WindowsHWrapper.h"
 #include "Modules/ModuleManager.h"
 
 // Resource includes.
@@ -276,7 +276,7 @@ bool FWindowsPlatformApplicationMisc::GetWindowTitleMatchingText(const TCHAR* Ti
 
 float FWindowsPlatformApplicationMisc::GetDPIScaleFactorAtPoint(float X, float Y)
 {
-	if (GIsEditor && IsHighDPIAwarenessEnabled())
+	if (IsHighDPIAwarenessEnabled())
 	{
 		if (GetDpiForMonitor)
 		{
@@ -286,7 +286,7 @@ float FWindowsPlatformApplicationMisc::GetDPIScaleFactorAtPoint(float X, float Y
 			{
 				uint32 DPIX = 0;
 				uint32 DPIY = 0;
-				return SUCCEEDED(GetDpiForMonitor(Monitor, 0/*MDT_EFFECTIVE_DPI_VALUE*/, &DPIX, &DPIY)) ? DPIX / 96.0f : 1.0f;
+				return SUCCEEDED(GetDpiForMonitor(Monitor, 0 /*MDT_EFFECTIVE_DPI*/, &DPIX, &DPIY)) ? DPIX / 96.0f : 1.0f;
 			}
 		}
 		else

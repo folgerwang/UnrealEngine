@@ -36,7 +36,7 @@ FSkeletalMeshObject::FSkeletalMeshObject(USkinnedMeshComponent* InMeshComponent,
 ,	SelectedEditorMaterial(InMeshComponent->GetSelectedEditorMaterial())
 #endif	
 ,	SkeletalMeshRenderData(InSkelMeshRenderData)
-,	SkeletalMeshLODInfo(InMeshComponent->SkeletalMesh->LODInfo)
+,	SkeletalMeshLODInfo(InMeshComponent->SkeletalMesh->GetLODInfoArray())
 ,	SkinCacheEntry(nullptr)
 ,	LastFrameNumber(0)
 ,	bUsePerBoneMotionBlur(InMeshComponent->bPerBoneMotionBlur)
@@ -89,7 +89,7 @@ void FSkeletalMeshObject::UpdateMinDesiredLODLevel(const FSceneView* View, const
 		for(int32 LODLevel = SkeletalMeshRenderData->LODRenderData.Num()-1; LODLevel > 0; LODLevel--)
 		{
 			// Get ScreenSize for this LOD
-			float ScreenSize = SkeletalMeshLODInfo[LODLevel].ScreenSize;
+			float ScreenSize = SkeletalMeshLODInfo[LODLevel].ScreenSize.Default;
 
 			// If we are considering shifting to a better (lower) LOD, bias with hysteresis.
 			if(LODLevel  <= CurrentLODLevel)
@@ -175,6 +175,15 @@ void FSkeletalMeshObject::InitLODInfos(const USkinnedMeshComponent* SkelComponen
 	}
 }
 
+float FSkeletalMeshObject::GetScreenSize(int32 LODIndex) const
+{
+	if (SkeletalMeshLODInfo.IsValidIndex(LODIndex))
+	{
+		return SkeletalMeshLODInfo[LODIndex].ScreenSize.Default;
+	}
+	return 0.f;
+}
+
 /*-----------------------------------------------------------------------------
 Global functions
 -----------------------------------------------------------------------------*/
@@ -197,9 +206,6 @@ void UpdateRefToLocalMatricesInner(TArray<FMatrix>& ReferenceToLocal, const TArr
 	const bool bBoneVisibilityStatesValid = BoneVisibilityStates.Num() == ComponentTransform.Num();
 	const bool bIsMasterCompValid = MasterBoneMap != nullptr;
 	
-	// Handle case of using ParentAnimComponent for SpaceBases.
-	// this always should be same
-	check(BoneVisibilityStates.Num() == ComponentTransform.Num());
 	for (int32 RequiredBoneSetIndex = 0; RequiredBoneSets[RequiredBoneSetIndex] != NULL; RequiredBoneSetIndex++)
 	{
 		const TArray<FBoneIndexType>& RequiredBoneIndices = *RequiredBoneSets[RequiredBoneSetIndex];
@@ -211,6 +217,9 @@ void UpdateRefToLocalMatricesInner(TArray<FMatrix>& ReferenceToLocal, const TArr
 
 			if ( RefBasesInvMatrix->IsValidIndex(ThisBoneIndex) )
 			{
+				// On the off chance the parent matrix isn't valid, revert to identity.
+				ReferenceToLocal[ThisBoneIndex] = FMatrix::Identity;
+
 				//if we have master pose component, we use MasterBoneMap to figure out the mapping
 				if( bIsMasterCompValid )
 				{
@@ -232,32 +241,43 @@ void UpdateRefToLocalMatricesInner(TArray<FMatrix>& ReferenceToLocal, const TArr
 					}
 					else
 					{
-						// On the off chance the parent matrix isn't valid, revert to identity.
-						ReferenceToLocal[ThisBoneIndex] = FMatrix::Identity;
+						const int32 ParentIndex = RefSkeleton.GetParentIndex(ThisBoneIndex);
+						const FMatrix RefLocalPose = RefSkeleton.GetRefBonePose()[ThisBoneIndex].ToMatrixWithScale();
+						if (ParentIndex != INDEX_NONE)
+						{
+							ReferenceToLocal[ThisBoneIndex] = RefLocalPose * ReferenceToLocal[ParentIndex];
+						}
+						else
+						{
+							ReferenceToLocal[ThisBoneIndex] = RefLocalPose;
+						}
 					}
 				}
 				else
 				{
 					if (ComponentTransform.IsValidIndex(ThisBoneIndex))
 					{
-						// If we can't find this bone in the parent, we just use the reference pose.
-						const int32 ParentIndex = RefSkeleton.GetParentIndex(ThisBoneIndex);
-						bool bNeedToHideBone = BoneVisibilityStates[ThisBoneIndex] != BVS_Visible;
-						if (bNeedToHideBone && ParentIndex != INDEX_NONE)
+						if (bBoneVisibilityStatesValid)
 						{
-							ReferenceToLocal[ThisBoneIndex] = ReferenceToLocal[ParentIndex].ApplyScale(0.f);
+							// If we can't find this bone in the parent, we just use the reference pose.
+							const int32 ParentIndex = RefSkeleton.GetParentIndex(ThisBoneIndex);
+							bool bNeedToHideBone = BoneVisibilityStates[ThisBoneIndex] != BVS_Visible;
+							if (bNeedToHideBone && ParentIndex != INDEX_NONE)
+							{
+								ReferenceToLocal[ThisBoneIndex] = ReferenceToLocal[ParentIndex].ApplyScale(0.f);
+							}
+							else
+							{
+								checkSlow(ComponentTransform[ThisBoneIndex].IsRotationNormalized());
+								ReferenceToLocal[ThisBoneIndex] = ComponentTransform[ThisBoneIndex].ToMatrixWithScale();
+							}
 						}
 						else
 						{
 							checkSlow(ComponentTransform[ThisBoneIndex].IsRotationNormalized());
 							ReferenceToLocal[ThisBoneIndex] = ComponentTransform[ThisBoneIndex].ToMatrixWithScale();
-						}				
+						}
 					}
-					else
-					{
-						// On the off chance the parent matrix isn't valid, revert to identity.
-						ReferenceToLocal[ThisBoneIndex] = FMatrix::Identity;
-					}					
 				}
 			}
 			// removed else statement to set ReferenceToLocal[ThisBoneIndex] = FTransform::Identity;

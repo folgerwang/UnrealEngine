@@ -18,7 +18,7 @@ public:
 
 	virtual TSharedPtr<IMovieSceneSectionRecorder> CreateSectionRecorder(const struct FActorRecordingSettings& InActorRecordingSettings) const override;
 	virtual bool CanRecordObject(class UObject* InObjectToRecord) const override;
-	virtual UObject* CreateSettingsObject() const override { return NewObject<UMovieSceneVisibilitySectionRecorderSettings>(); }
+	virtual UObject* CreateSettingsObject(class UObject* InOuter) const override { return  NewObject<UMovieSceneVisibilitySectionRecorderSettings>(InOuter, FName(TEXT("MovieSceneVisibilitySectionRecorder"))); }
 };
 
 class FMovieSceneVisibilitySectionRecorder : public IMovieSceneSectionRecorder
@@ -27,7 +27,7 @@ public:
 	virtual ~FMovieSceneVisibilitySectionRecorder() {}
 
 	virtual void CreateSection(UObject* InObjectToRecord, class UMovieScene* MovieScene, const FGuid& Guid, float Time) override;
-	virtual void FinalizeSection() override;
+	virtual void FinalizeSection(float CurrentTime) override;
 	virtual void Record(float CurrentTime) override;
 	virtual void InvalidateObjectToRecord() override
 	{

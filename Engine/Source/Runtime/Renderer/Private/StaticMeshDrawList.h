@@ -81,14 +81,31 @@ struct FDrawListStats
 	TMap<FName, int32> SingleMeshPolicyVertexFactoryFrequency;
 };
 
+
+inline uint8 PointerHash8(const void* Ptr)
+{
+	const int32 PtrShift1 = PLATFORM_64BITS ? 4 : 3;
+	const int32 PtrShift2 = PLATFORM_64BITS ? 12 : 11;
+	uint8 Hash1 = (reinterpret_cast<UPTRINT>(Ptr) >> PtrShift1) & 0xff;
+	uint8 Hash2 = (reinterpret_cast<UPTRINT>(Ptr) >> PtrShift2) & 0xff;
+	return Hash1^Hash2;
+}
+
 /** Fields in the key used to sort mesh elements in a draw list. */
+
+#define USE_SORT_DRAWLISTS_BY_SHADER (PLATFORM_ANDROID)
+
+#if !USE_SORT_DRAWLISTS_BY_SHADER
+
 struct FDrawListSortKeyFields
 {
-	uint64 MeshElementIndex : 16;
-	uint64 DepthBits : 16;
-	uint64 DrawingPolicyIndex : 16;
-	uint64 DrawingPolicyDepthBits : 15;
-	uint64 bBackground : 1;
+	uint64 MeshElementIndex : 16;			//
+	uint64 DepthBits : 8;					// Order by mesh depth
+	uint64 MeshMI : 8;						// Order by mesh material instance within DrawPolicy (Tex/Constants)
+	uint64 MeshVF : 8;						// Order by mesh VertexFactory within DrawPolicy (VBO)
+	uint64 DrawingPolicyIndex : 16;			// Order by DrawPolicy ( PSO )
+	uint64 DrawingPolicyDepthBits : 7;		// Order DrawingPolicies front to back
+	uint64 bBackground : 1;					// Non-background meshes first 
 };
 
 /** Key for sorting mesh elements. */
@@ -103,22 +120,82 @@ FORCEINLINE bool operator<(FDrawListSortKey A, FDrawListSortKey B)
 	return A.PackedInt < B.PackedInt;
 }
 
+FORCEINLINE void ZeroDrawListSortKey(FDrawListSortKey& A)
+{
+	A.PackedInt = 0;
+}
+
+#else
+
+struct FDrawListSortKeyFields
+{
+	uint64 MeshElementIndex : 16;			//
+	uint64 DepthBits : 8;					// Order by mesh depth
+	uint64 MeshVF : 8;						// Order by mesh VertexFactory within DrawPolicy (VBO)
+	uint64 MeshMI : 8;						// Order by mesh material instance (Tex/Constants)
+	uint64 DrawingPolicyIndex : 16;			// Order by DrawPolicy ( PSO )
+	uint64 DrawingPolicyDepthBits : 7;		// Order DrawingPolicies front to back
+	uint64 PixelShaderHash : 8;				// Order by mesh pixel shader
+	uint64 VertexShaderHash : 8;			// Order by mesh vertex shader
+	uint64 bBackground : 1;					// Non-background meshes first 
+};
+
+struct FPackedIntPair
+{
+	uint64 PackedIntLow;
+	uint64 PackedIntHigh;
+};
+
+/** Key for sorting mesh elements. */
+union FDrawListSortKey
+{
+	FDrawListSortKeyFields Fields;
+	FPackedIntPair PackedIntPair;
+};
+
+FORCEINLINE bool operator<(FDrawListSortKey A, FDrawListSortKey B)
+{
+	return (A.PackedIntPair.PackedIntHigh == B.PackedIntPair.PackedIntHigh) ?
+		A.PackedIntPair.PackedIntLow < B.PackedIntPair.PackedIntLow :
+		A.PackedIntPair.PackedIntHigh < B.PackedIntPair.PackedIntHigh;
+}
+
+FORCEINLINE void ZeroDrawListSortKey(FDrawListSortKey& A)
+{
+	A.PackedIntPair.PackedIntLow = 0;
+	A.PackedIntPair.PackedIntHigh = 0;
+}
+
+FORCEINLINE void SetShadersDrawListSortKey(FDrawListSortKey& A, const FBoundShaderStateInput& BSSI)
+{
+	A.Fields.PixelShaderHash = PointerHash8(BSSI.PixelShaderRHI);
+	A.Fields.VertexShaderHash = PointerHash8(BSSI.VertexShaderRHI);
+}
+
+#endif
+
+
 /** Builds a sort key. */
-inline FDrawListSortKey GetSortKey(bool bBackground, float BoundsRadius, float DrawingPolicyDistance, int32 DrawingPolicyIndex, float Distance, int32 MeshElementIndex)
+inline FDrawListSortKey GetSortKey(bool bBackground, float BoundsRadius, float DrawingPolicyDistanceSq, int32 DrawingPolicyIndex, float DistanceSq, int32 MeshElementIndex, FStaticMesh* Mesh)
 {
 	union FFloatToInt { float F; uint32 I; };
 	FFloatToInt F2I;
-
+	
 	FDrawListSortKey Key;
+	ZeroDrawListSortKey(Key);
+
 	Key.Fields.bBackground = bBackground || BoundsRadius > HALF_WORLD_MAX/4.0f;
-	F2I.F = Distance;
-	Key.Fields.DrawingPolicyDepthBits = ((-int32(F2I.I >> 31) | 0x80000000) ^ F2I.I) >> 17;
+	F2I.F = DrawingPolicyDistanceSq/HALF_WORLD_MAX;
+	Key.Fields.DrawingPolicyDepthBits = (F2I.I >> 24) & 0xff; // store policy depth 7 bit exponent
 	Key.Fields.DrawingPolicyIndex = DrawingPolicyIndex;
-	F2I.F = Distance;
-	Key.Fields.DepthBits = ((-int32(F2I.I >> 31) | 0x80000000) ^ F2I.I) >> 16;
+	Key.Fields.MeshVF = PointerHash8(Mesh->VertexFactory);
+	Key.Fields.MeshMI = PointerHash8(Mesh->MaterialRenderProxy);
+	F2I.F = DistanceSq/HALF_WORLD_MAX;
+	Key.Fields.DepthBits = (F2I.I >> 23) & 0xff; // store mesh depth 8 bit exponent
 	Key.Fields.MeshElementIndex = MeshElementIndex;
 	return Key;
 }
+
 
 /**
  * A set of static meshs, each associated with a mesh drawing policy of a particular type.
@@ -485,6 +562,9 @@ public:
 
 	/** Sorts OrderedDrawingPolicies front to back. */
 	void SortFrontToBack(FVector ViewPosition);
+
+	/** Computes bounding boxes for each Drawing Policy using only visible meshes */
+	void ComputeVisiblePoliciesBounds(const TBitArray<SceneRenderingBitArrayAllocator>& VisibilityMap);
 
 	/** Builds a list of primitives that use the given materials in this static draw list. */
 	void GetUsedPrimitivesBasedOnMaterials(ERHIFeatureLevel::Type InFeatureLevel, const TArray<const FMaterial*>& Materials, TArray<FPrimitiveSceneInfo*>& PrimitivesToUpdate);

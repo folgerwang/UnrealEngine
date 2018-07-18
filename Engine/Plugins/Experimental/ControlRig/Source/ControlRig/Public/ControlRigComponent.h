@@ -38,9 +38,6 @@ public:
 	UPROPERTY(EditAnywhere, Instanced, Category = "ControlRig", meta = (ShowOnlyInnerProperties))
 	UControlRig* ControlRig;
 
-	/** Whether we should recreate our ControlRig */
-	bool bNeedsInitialization;
-
 public:
 	// UObject interface
 #if WITH_EDITOR
@@ -77,9 +74,5 @@ public:
 	}
 
 private:
-	/** Update any tick dependencies we may need */
-	void RegisterTickDependencies();
-
-	void UnRegisterTickDependencies();
 	friend class FControlRigComponentInstanceData;
 };

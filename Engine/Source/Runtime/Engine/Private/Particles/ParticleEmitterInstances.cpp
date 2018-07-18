@@ -68,6 +68,8 @@ DEFINE_STAT(STAT_MeshParticles);
 DEFINE_STAT(STAT_MeshRenderingTime);
 DEFINE_STAT(STAT_MeshTickTime);
 
+DEFINE_STAT(STAT_MeshParticlePolys);
+
 /** GPU Particle stats. */
 
 DEFINE_STAT(STAT_GPUSpriteParticles);
@@ -1317,6 +1319,7 @@ void FParticleEmitterInstance::UpdateBoundingBox(float DeltaTime)
 			? Component->GetComponentToWorld().ToMatrixWithScale() 
 			: FMatrix::Identity;
 
+		bool bSkipDoubleSpawnUpdate = !SpriteTemplate->bUseLegacySpawningBehavior;
 		for (int32 i=0; i<ActiveParticles; i++)
 		{
 			DECLARE_PARTICLE(Particle, ParticleData + ParticleStride * ParticleIndices[i]);
@@ -1324,15 +1327,22 @@ void FParticleEmitterInstance::UpdateBoundingBox(float DeltaTime)
 			// Do linear integrator and update bounding box
 			// Do angular integrator, and wrap result to within +/- 2 PI
 			Particle.OldLocation	= Particle.Location;
-			if ((Particle.Flags & STATE_Particle_Freeze) == 0)
+
+			bool bJustSpawned = (Particle.Flags & STATE_Particle_JustSpawned) != 0;
+			Particle.Flags &= ~STATE_Particle_JustSpawned;
+
+			//Don't update position for newly spawned particles. They already have a partial update applied during spawn.
+			bool bSkipUpdate = bJustSpawned && bSkipDoubleSpawnUpdate;
+
+			if ((Particle.Flags & STATE_Particle_Freeze) == 0 && !bSkipUpdate)
 			{
 				if ((Particle.Flags & STATE_Particle_FreezeTranslation) == 0)
 				{
-					NewLocation	= Particle.Location + (DeltaTime * Particle.Velocity);
+					NewLocation = Particle.Location + (DeltaTime * Particle.Velocity);
 				}
 				else
 				{
-					NewLocation	= Particle.Location;
+					NewLocation = Particle.Location;
 				}
 				if ((Particle.Flags & STATE_Particle_FreezeRotation) == 0)
 				{
@@ -1340,13 +1350,13 @@ void FParticleEmitterInstance::UpdateBoundingBox(float DeltaTime)
 				}
 				else
 				{
-					NewRotation	= Particle.Rotation;
+					NewRotation = Particle.Rotation;
 				}
 			}
 			else
 			{
-				NewLocation	= Particle.Location;
-				NewRotation	= Particle.Rotation;
+				NewLocation = Particle.Location;
+				NewRotation = Particle.Rotation;
 			}
 
 			float LocalMax(0.0f);
@@ -1677,14 +1687,21 @@ void FParticleEmitterInstance::ResetParticleParameters(float DeltaTime)
 		}
 	}
 
+	bool bSkipDoubleSpawnUpdate = !SpriteTemplate->bUseLegacySpawningBehavior;
 	for (int32 ParticleIndex = 0; ParticleIndex < ActiveParticles; ParticleIndex++)
 	{
 		DECLARE_PARTICLE(Particle, ParticleData + ParticleStride * ParticleIndices[ParticleIndex]);
 		Particle.Velocity		= Particle.BaseVelocity;
 		Particle.Size = GetParticleBaseSize(Particle);
 		Particle.RotationRate	= Particle.BaseRotationRate;
-		Particle.Color			= Particle.BaseColor;
-		Particle.RelativeTime	+= Particle.OneOverMaxLifetime * DeltaTime;
+		Particle.Color = Particle.BaseColor;
+
+		bool bJustSpawned = (Particle.Flags & STATE_Particle_JustSpawned) != 0;
+
+		//Don't update position for newly spawned particles. They already have a partial update applied during spawn.
+		bool bSkipUpdate = bJustSpawned && bSkipDoubleSpawnUpdate;
+
+		Particle.RelativeTime	+= bSkipUpdate ? 0.0f : Particle.OneOverMaxLifetime * DeltaTime;
 
 		if (CameraPayloadOffset > 0)
 		{
@@ -2043,9 +2060,8 @@ float FParticleEmitterInstance::Spawn(float DeltaTime)
 			NewCount = ActiveParticles + Number + BurstCount;
 		}
 
-		float	BurstIncrement = (BurstCount > 0.0f) ? (1.f / BurstCount) : 0.0f;
-		float	BurstStartTime = DeltaTime * BurstIncrement;
-
+		float	BurstIncrement = SpriteTemplate->bUseLegacySpawningBehavior ? (BurstCount > 0.0f) ? (1.f / BurstCount) : 0.0f : 0.0f;
+		float	BurstStartTime = SpriteTemplate->bUseLegacySpawningBehavior ? DeltaTime * BurstIncrement : 0.0f;
 
 		if (NewCount >= MaxActiveParticles)
 		{
@@ -2108,53 +2124,74 @@ void FParticleEmitterInstance::SpawnParticles( int32 Count, float StartTime, flo
 	{
 		LODLevel->EventGenerator->HandleParticleBurst(this, EventPayload, Count);
 	}
-
-	UParticleLODLevel* HighestLODLevel = SpriteTemplate->LODLevels[0];
-	float SpawnTime = StartTime;
-	float Interp = 1.0f;
-	const float InterpIncrement = (Count > 0 && Increment > 0.0f) ? (1.0f / (float)Count) : 0.0f;
-	for (int32 i=0; i<Count; i++)
+	
+	auto SpawnInternal = [&](bool bLegacySpawnBehavior)
 	{
-		check(ActiveParticles <= MaxActiveParticles);
-		DECLARE_PARTICLE_PTR(Particle, ParticleData + ParticleStride * ParticleIndices[ActiveParticles]);
-		const uint32 CurrentParticleIndex = ActiveParticles++;
-		StartTime -= Increment;
-		Interp -= InterpIncrement;
-
-		PreSpawn(Particle, InitialLocation, InitialVelocity);
-		for (int32 ModuleIndex = 0; ModuleIndex < LODLevel->SpawnModules.Num(); ModuleIndex++)
+		UParticleLODLevel* HighestLODLevel = SpriteTemplate->LODLevels[0];
+		float SpawnTime = StartTime;
+		float Interp = 1.0f;
+		const float InterpIncrement = (Count > 0 && Increment > 0.0f) ? (1.0f / (float)Count) : 0.0f;
+		for (int32 i = 0; i < Count; i++)
 		{
-			UParticleModule* SpawnModule = LODLevel->SpawnModules[ModuleIndex];
-			if (SpawnModule->bEnabled)
+			check(ActiveParticles <= MaxActiveParticles);
+			DECLARE_PARTICLE_PTR(Particle, ParticleData + ParticleStride * ParticleIndices[ActiveParticles]);
+			const uint32 CurrentParticleIndex = ActiveParticles++;
+
+			if (bLegacySpawnBehavior)
 			{
-				UParticleModule* OffsetModule = HighestLODLevel->SpawnModules[ModuleIndex];
-				SpawnModule->Spawn(this, GetModuleDataOffset(OffsetModule), SpawnTime, Particle);
-
-				ensureMsgf(!Particle->Location.ContainsNaN(), TEXT("NaN in Particle Location. Template: %s, Component: %s"), Component ? *GetNameSafe(Component->Template) : TEXT("UNKNOWN"), *GetPathNameSafe(Component));
+				StartTime -= Increment;
+				Interp -= InterpIncrement;
 			}
-		}
-		PostSpawn(Particle, Interp, SpawnTime);
 
-		// Spawn modules may set a relative time greater than 1.0f to indicate that a particle should not be spawned. We kill these particles.
-		if(Particle->RelativeTime > 1.0f)
-		{
-			KillParticle(CurrentParticleIndex);
-
-			// Process next particle
-			continue;
-		}
-
-		if (EventPayload)
-		{
-			if (EventPayload->bSpawnEventsPresent)
+			PreSpawn(Particle, InitialLocation, InitialVelocity);
+			for (int32 ModuleIndex = 0; ModuleIndex < LODLevel->SpawnModules.Num(); ModuleIndex++)
 			{
-				LODLevel->EventGenerator->HandleParticleSpawned(this, EventPayload, Particle);
-			}
-		}
+				UParticleModule* SpawnModule = LODLevel->SpawnModules[ModuleIndex];
+				if (SpawnModule->bEnabled)
+				{
+					UParticleModule* OffsetModule = HighestLODLevel->SpawnModules[ModuleIndex];
+					SpawnModule->Spawn(this, GetModuleDataOffset(OffsetModule), SpawnTime, Particle);
 
-		INC_DWORD_STAT(STAT_SpriteParticlesSpawned);
+					ensureMsgf(!Particle->Location.ContainsNaN(), TEXT("NaN in Particle Location. Template: %s, Component: %s"), Component ? *GetNameSafe(Component->Template) : TEXT("UNKNOWN"), *GetPathNameSafe(Component));
+				}
+			}
+			PostSpawn(Particle, Interp, SpawnTime);
+
+			// Spawn modules may set a relative time greater than 1.0f to indicate that a particle should not be spawned. We kill these particles.
+			if (Particle->RelativeTime > 1.0f)
+			{
+				KillParticle(CurrentParticleIndex);
+
+				// Process next particle
+				continue;
+			}
+			
+			if (EventPayload)
+			{
+				if (EventPayload->bSpawnEventsPresent)
+				{
+					LODLevel->EventGenerator->HandleParticleSpawned(this, EventPayload, Particle);
+				}
+			}
+
+			if (!bLegacySpawnBehavior)
+			{
+				SpawnTime -= Increment;
+				Interp -= InterpIncrement;
+			}
+
+			INC_DWORD_STAT(STAT_SpriteParticlesSpawned);
+		}
+	};
+
+	if (SpriteTemplate->bUseLegacySpawningBehavior)
+	{
+		SpawnInternal(true);
 	}
-
+	else
+	{
+		SpawnInternal(false);
+	}
 }
 
 UParticleLODLevel* FParticleEmitterInstance::GetCurrentLODLevelChecked()
@@ -2314,6 +2351,7 @@ void FParticleEmitterInstance::PostSpawn(FBaseParticle* Particle, float Interpol
 
 	// Store a sequence counter.
 	Particle->Flags |= ((ParticleCounter++) & STATE_CounterMask);
+	Particle->Flags |= STATE_Particle_JustSpawned;
 }
 
 /**
@@ -3351,6 +3389,7 @@ void FParticleMeshEmitterInstance::UpdateBoundingBox(float DeltaTime)
 		FPlatformMisc::Prefetch(ParticleData, ParticleStride * ParticleIndices[0]);
 		FPlatformMisc::Prefetch(ParticleData, (ParticleIndices[0] * ParticleStride) + PLATFORM_CACHE_LINE_SIZE);
 
+		bool bSkipDoubleSpawnUpdate = !SpriteTemplate->bUseLegacySpawningBehavior;
 		for (int32 i=0; i<ActiveParticles; i++)
 		{
 			DECLARE_PARTICLE(Particle, ParticleData + ParticleStride * ParticleIndices[i]);
@@ -3359,7 +3398,14 @@ void FParticleMeshEmitterInstance::UpdateBoundingBox(float DeltaTime)
 
 			// Do linear integrator and update bounding box
 			Particle.OldLocation = Particle.Location;
-			if ((Particle.Flags & STATE_Particle_Freeze) == 0)
+
+			bool bJustSpawned = (Particle.Flags & STATE_Particle_JustSpawned) != 0;
+			Particle.Flags &= ~STATE_Particle_JustSpawned;
+
+			//Don't update position for newly spawned particles. They already have a partial update applied during spawn.
+			bool bSkipUpdate = bJustSpawned && bSkipDoubleSpawnUpdate;
+
+			if ((Particle.Flags & STATE_Particle_Freeze) == 0 && !bSkipUpdate)
 			{
 				if ((Particle.Flags & STATE_Particle_FreezeTranslation) == 0)
 				{
@@ -3518,7 +3564,7 @@ void FParticleMeshEmitterInstance::PostSpawn(FBaseParticle* Particle, float Inte
 bool FParticleMeshEmitterInstance::IsDynamicDataRequired(UParticleLODLevel* InCurrentLODLevel)
 {
 	return MeshTypeData->Mesh != NULL
-		&& MeshTypeData->Mesh->HasValidRenderData()
+		&& MeshTypeData->Mesh->HasValidRenderData(false)
 		&& FParticleEmitterInstance::IsDynamicDataRequired(InCurrentLODLevel);
 }
 
@@ -3563,6 +3609,8 @@ FDynamicEmitterDataBase* FParticleMeshEmitterInstance::GetDynamicData(bool bSele
 		bSelected,
 		this,
 		MeshTypeData->Mesh,
+		MeshTypeData->bUseStaticMeshLODs,
+		MeshTypeData->LODSizeScale,
 		InFeatureLevel
 		);
 

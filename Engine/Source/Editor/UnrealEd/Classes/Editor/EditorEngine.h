@@ -57,6 +57,7 @@ class USoundNode;
 class UTextureRenderTarget2D;
 struct FAnalyticsEventAttribute;
 class UEditorWorldExtensionManager;
+class ITargetDevice;
 
 //
 // Things to set in mapSetBrush.
@@ -223,7 +224,7 @@ struct FCachedActorLabels
 	UNREALED_API explicit FCachedActorLabels(UWorld* World, const TSet<AActor*>& IgnoredActors = TSet<AActor*>());
 
 	/** Populate the set of actor names */
-	void Populate(UWorld* World, const TSet<AActor*>& IgnoredActors = TSet<AActor*>());
+	UNREALED_API void Populate(UWorld* World, const TSet<AActor*>& IgnoredActors = TSet<AActor*>());
 
 	/** Add a new label to this set */
 	FORCEINLINE void Add(const FString& InLabel)
@@ -332,6 +333,19 @@ struct FSelectionStateOfLevel
 	/** Path names of all the selected components */
 	UPROPERTY()
 	TArray<FString> SelectedComponents;
+};
+
+/** Overrides you can pass when starting PIE to temporarily supress the user's options for dedicated server, number of clients..etc. */
+struct FPlayInEditorOverrides
+{
+	FPlayInEditorOverrides()
+		: bDedicatedServer()
+		, NumberOfClients()
+	{
+	}
+
+	TOptional<bool> bDedicatedServer;
+	TOptional<int32> NumberOfClients;
 };
 
 /**
@@ -711,12 +725,6 @@ public:
 	DECLARE_EVENT_OneParam( UEditorEngine, FOnEndTransformCamera, UObject& );
 	FOnEndTransformCamera& OnEndCameraMovement() { return OnEndCameraTransformEvent; }
 
-	/** Delegate broadcast by the engine every tick when PIE/SIE is active, to check to see whether we need to
-		be able to capture state for simulating actor (for Sequencer recording features).  The single bool parameter
-		should be set to true if recording features are needed. */
-	DECLARE_EVENT_OneParam( UEditorEngine, FGetActorRecordingState, bool& /* bIsRecordingActive */ );
-	FGetActorRecordingState& GetActorRecordingState() { return GetActorRecordingStateEvent; }
-
 	/** Editor-only event triggered when a HLOD Actor is moved between clusters */
 	DECLARE_EVENT_TwoParams(UEngine, FHLODActorMovedEvent, const AActor*, const AActor*);
 	FHLODActorMovedEvent& OnHLODActorMoved() { return HLODActorMovedEvent; }
@@ -740,9 +748,11 @@ public:
 
 	/** Editor-only event triggered when a HLOD Actor is marked dirty */
 	DECLARE_EVENT_OneParam(UEngine, FHLODActorMarkedDirtyEvent, class ALODActor*);
+	DEPRECATED(4.20, "This function is no longer used.")
 	FHLODActorMarkedDirtyEvent& OnHLODActorMarkedDirty() { return HLODActorMarkedDirtyEvent; }
 
 	/** Called by internal engine systems after a HLOD Actor is marked dirty */
+	DEPRECATED(4.20, "This function is no longer used.")
 	void BroadcastHLODActorMarkedDirty(class ALODActor* InActor) { HLODActorMarkedDirtyEvent.Broadcast(InActor); }
 
 	/** Editor-only event triggered when a HLOD Actor is marked dirty */
@@ -964,7 +974,7 @@ public:
 	void CancelTransaction(int32 Index);
 	bool UndoTransaction(bool bCanRedo = true);
 	bool RedoTransaction();
-	bool IsTransactionActive();
+	bool IsTransactionActive() const;
 	FText GetTransactionName() const;
 	bool IsObjectInTransactionBuffer( const UObject* Object ) const;
 
@@ -1128,7 +1138,7 @@ public:
 	 */
 	virtual void TakeHighResScreenShots(){}
 
-	virtual void NoteSelectionChange() { check(0); }
+	virtual void NoteSelectionChange() {}
 
 	/**
 	 * Adds an actor to the world at the specified location.
@@ -1763,9 +1773,9 @@ public:
 	 * @param	InWorld		World context
 	 * @param	bInSimulateInEditor	True to start an in-editor simulation session, or false to start a play-in-editor session
 	 */
-	virtual void PlayInEditor( UWorld* InWorld, bool bInSimulateInEditor );
+	virtual void PlayInEditor( UWorld* InWorld, bool bInSimulateInEditor, FPlayInEditorOverrides Overrides = FPlayInEditorOverrides());
 
-	virtual UGameInstance* CreatePIEGameInstance(int32 InPIEInstance, bool bInSimulateInEditor, bool bAnyBlueprintErrors, bool bStartInSpectatorMode, bool bPlayNetDedicated, float PIEStartTime);
+	virtual UGameInstance* CreatePIEGameInstance(int32 InPIEInstance, bool bInSimulateInEditor, bool bAnyBlueprintErrors, bool bStartInSpectatorMode, bool bPlayNetDedicated, bool bPlayStereoscopic, float PIEStartTime);
 
 	/**
 	 * Kills the Play From Here session
@@ -1942,11 +1952,12 @@ public:
 	 * Copies selected actors to the clipboard.  Supports copying actors from multiple levels.
 	 * NOTE: Doesn't support copying prefab instance actors!
 	 *
-	 * @param InWorld		World to get the selected actors from
-	 * @param bShouldCut If true, deletes the selected actors after copying them to the clipboard
-	 * @param bShouldCut If true, this cut is part of a move and the actors will be immediately pasted
+	 * @param InWorld				World to get the selected actors from
+	 * @param bShouldCut			If true, deletes the selected actors after copying them to the clipboard
+	 * @param bIsMove				If true, this cut is part of a move and the actors will be immediately pasted
+	 * @param bWarnAboutReferences	Whether or not to show a modal warning about referenced actors that may no longer function after being moved
 	 */
-	void CopySelectedActorsToClipboard( UWorld* InWorld, const bool bShouldCut, const bool bIsMove = false );
+	void CopySelectedActorsToClipboard( UWorld* InWorld, const bool bShouldCut, const bool bIsMove = false, bool bWarnAboutReferences = true);
 
 	/**
 	 * Checks to see whether it's possible to perform a paste operation.
@@ -2444,14 +2455,14 @@ public:
 	 *
 	 * @return				true if a PIE session exists and the user refused to end it, false otherwise.
 	 */
-	bool ShouldAbortBecauseOfPIEWorld() const;
+	bool ShouldAbortBecauseOfPIEWorld();
 
 	/**
 	 * If an unsaved world exists that would be lost in a map transition, give the user the option to cancel a map load.
 	 *
 	 * @return				true if an unsaved world exists and the user refused to continue, false otherwise.
 	 */
-	bool ShouldAbortBecauseOfUnsavedWorld() const;
+	bool ShouldAbortBecauseOfUnsavedWorld();
 
 	/**
 	 * Gets the user-friendly, localized (if exists) name of a property
@@ -2804,10 +2815,6 @@ private:
 	/** Broadcasts after an Actor is removed from a cluster */
 	FHLODActorRemovedFromClusterEvent HLODActorRemovedFromClusterEvent;
 
-	/** Delegate broadcast by the engine every tick when PIE/SIE is active, to check to see whether we need to
-		be able to capture state for simulating actor (for Sequencer recording features) */
-	FGetActorRecordingState GetActorRecordingStateEvent;
-
 	/** Delegate to be called when a matinee is requested to be opened */
 	FShouldOpenMatineeCallback ShouldOpenMatineeCallback;
 
@@ -2891,6 +2898,13 @@ protected:
 
 	void PlayUsingLauncher();
 
+	/** 
+	* Cancel Play using Launcher on error 
+	* 
+	* if the physical device is not authorized to be launched to, we need to pop an error instead of trying to launch
+	*/
+	void CancelPlayUsingLauncher();
+
 	/** Called when Matinee is opened */
 	virtual void OnOpenMatinee(){};
 
@@ -2951,6 +2965,23 @@ public:
 	virtual void HandleTravelFailure(UWorld* InWorld, ETravelFailure::Type FailureType, const FString& ErrorString);
 
 	void AutomationLoadMap(const FString& MapName, FString* OutError);
+
+	/** This function should be called to notify the editor that new materials were added to our scene or some materials were modified */
+	void OnSceneMaterialsModified();
+
+protected:
+	/** For some platforms (e.g. mobiles), when running in editor mode, we emulate the shaders functionality on available running GPU (e.g. DirectX),
+	 *  but when displaying the shader complexity we need to be able compile and extract statistics (instruction count) from the real shaders that
+	 *  will be compiled when the game will run on the specific platform. Thus (if compiler available) we perform an 'offline' shader compilation step,
+	 *  extract the needed statistics and transfer them to the emulated editor running shaders.
+	 *  This function will be called from OnSceneMaterialsModified() */
+	void UpdateShaderComplexityMaterials();
+
+	/** Utility function that can determine whether some input world is using materials who's shaders are emulated in the editor */
+	bool IsEditorShaderPlatformEmulated(UWorld* World);
+
+	/** Utility function that checks if, for the current shader platform used by the editor, there's an available offline shader compiler */
+	bool IsOfflineShaderCompilerAvailable(UWorld* World);
 
 protected:
 

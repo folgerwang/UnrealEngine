@@ -2,15 +2,15 @@
 
 #include "AndroidMovieStreamer.h"
 
-#include "AndroidApplication.h"
-#include "AndroidJava.h"
-#include "AndroidFile.h"
+#include "Android/AndroidApplication.h"
+#include "Android/AndroidJava.h"
+#include "Android/AndroidFile.h"
 
-#include "RenderingCommon.h"
+#include "Rendering/RenderingCommon.h"
 #include "RenderUtils.h"
 #include "Slate/SlateTextures.h"
 #include "MoviePlayer.h"
-#include "StringConv.h"
+#include "Containers/StringConv.h"
 
 #include "Misc/ScopeLock.h"
 #include "Misc/Paths.h"
@@ -44,6 +44,35 @@ void FAndroidMediaPlayerStreamer::ForceCompletion()
 {
 	CloseMovie();
 }
+
+static void DoUpdateTextureMovieSampleExecute(TWeakPtr<FJavaAndroidMediaPlayer, ESPMode::ThreadSafe> JavaMediaPlayerPtr, int32 DestTexture)
+{
+	auto PinnedJavaMediaPlayer = JavaMediaPlayerPtr.Pin();
+
+	if (!PinnedJavaMediaPlayer.IsValid())
+	{
+		return;
+	}
+
+	PinnedJavaMediaPlayer->GetVideoLastFrame(DestTexture);
+}
+
+struct FRHICommandUpdateTextureMovieSample final : public FRHICommand<FRHICommandUpdateTextureMovieSample>
+{
+	TWeakPtr<FJavaAndroidMediaPlayer, ESPMode::ThreadSafe> JavaMediaPlayerPtr;
+	int32 DestTexture;
+
+	FORCEINLINE_DEBUGGABLE FRHICommandUpdateTextureMovieSample(TWeakPtr<FJavaAndroidMediaPlayer, ESPMode::ThreadSafe> InJavaMediaPlayerPtr, int32 InDestTexture)
+		: JavaMediaPlayerPtr(InJavaMediaPlayerPtr)
+		, DestTexture(InDestTexture)
+	{
+	}
+	void Execute(FRHICommandListBase& CmdList)
+	{
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_FRHICommandUpdateTextureMovieSample_Execute);
+		DoUpdateTextureMovieSampleExecute(JavaMediaPlayerPtr, DestTexture);
+	}
+};
 
 bool FAndroidMediaPlayerStreamer::Tick(float DeltaTime)
 {
@@ -83,7 +112,15 @@ bool FAndroidMediaPlayerStreamer::Tick(float DeltaTime)
 			if (!FAndroidMisc::ShouldUseVulkan())
 			{
 				int32 DestTexture = *reinterpret_cast<int32*>(CurrentTexture->GetTypedResource().GetReference()->GetNativeResource());
-				bool frameSuccess = JavaMediaPlayer->GetVideoLastFrame(DestTexture);
+				if (IsRunningRHIInSeparateThread())
+				{
+					FRHICommandListImmediate &RHICommandList = GetImmediateCommandList_ForRenderCommand();
+					new (RHICommandList.AllocCommand<FRHICommandUpdateTextureMovieSample>()) FRHICommandUpdateTextureMovieSample(JavaMediaPlayer, DestTexture);
+				}
+				else
+				{
+					DoUpdateTextureMovieSampleExecute(JavaMediaPlayer, DestTexture);
+				}
 			}
 			else
 			{

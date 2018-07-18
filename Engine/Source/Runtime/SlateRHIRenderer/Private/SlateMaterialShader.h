@@ -66,7 +66,7 @@ public:
 	virtual bool Serialize(FArchive& Ar) override;
 
 private:
-	FShaderParameter GammaValues;
+	FShaderParameter GammaAndAlphaValues;
 	FShaderParameter ShaderParams;
 	/** Extra texture (like a font atlas) to be used in addition to any material textures */
 	FShaderResourceParameter TextureParameterSampler;

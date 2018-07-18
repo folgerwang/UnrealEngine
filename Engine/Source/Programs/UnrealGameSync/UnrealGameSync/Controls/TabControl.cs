@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -149,6 +149,11 @@ namespace UnrealGameSync
 		public object GetTabData(int TabIdx)
 		{
 			return Tabs[TabIdx].Data;
+		}
+
+		public void SetTabData(int TabIdx, object Data)
+		{
+			Tabs[TabIdx].Data = Data;
 		}
 
 		public int GetSelectedTabIndex()

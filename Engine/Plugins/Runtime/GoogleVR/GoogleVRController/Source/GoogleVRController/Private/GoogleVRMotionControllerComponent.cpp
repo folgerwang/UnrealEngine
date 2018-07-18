@@ -1,10 +1,10 @@
 // Copyright 2017 Google Inc.
 
-#include "Classes/GoogleVRMotionControllerComponent.h"
+#include "GoogleVRMotionControllerComponent.h"
 #include "GoogleVRController.h"
 #include "GoogleVRLaserPlaneComponent.h"
-#include "Classes/GoogleVRLaserVisualComponent.h"
-#include "Classes/GoogleVRControllerFunctionLibrary.h"
+#include "GoogleVRLaserVisualComponent.h"
+#include "GoogleVRControllerFunctionLibrary.h"
 #include "MotionControllerComponent.h"
 #include "Materials/MaterialParameterCollection.h"
 #include "Materials/MaterialParameterCollectionInstance.h"

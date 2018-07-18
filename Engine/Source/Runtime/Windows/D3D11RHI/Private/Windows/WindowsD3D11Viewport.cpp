@@ -8,7 +8,7 @@
 #include "RenderCore.h"
 #include "Misc/CommandLine.h"
 
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 #include <dwmapi.h>
 
 #include "dxgi1_2.h"
@@ -168,4 +168,4 @@ void FD3D11Viewport::ConditionalResetSwapChain(bool bIgnoreFocus)
 	}
 }
 
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"

@@ -34,27 +34,32 @@ AVREditorDockableWindow::AVREditorDockableWindow() :
 	CloseButtonHoverAlpha(0.0f),
 	DockSelectDistance(0.0f)
 {
-	UVREditorAssetContainer* AssetContainer = LoadObject<UVREditorAssetContainer>(nullptr, *UVREditorMode::AssetContainerPath);
+	if (HasAnyFlags(RF_ClassDefaultObject))
+	{
+		return;
+	}
+
+	const UVREditorAssetContainer& AssetContainer = UVREditorMode::LoadAssetContainer();
 
 	{
-		UStaticMesh* WindowMesh = AssetContainer->WindowMesh;
+		UStaticMesh* WindowMesh = AssetContainer.WindowMesh;
 		WindowMeshComponent->SetStaticMesh(WindowMesh);
 		check(WindowMeshComponent != nullptr);
 	}
 
-	UMaterialInterface* HoverMaterial = AssetContainer->WindowMaterial;
-	UMaterialInterface* TranslucentHoverMaterial = AssetContainer->WindowMaterial;
+	UMaterialInterface* HoverMaterial = AssetContainer.WindowMaterial;
+	UMaterialInterface* TranslucentHoverMaterial = AssetContainer.WindowMaterial;
 
 	const FRotator RelativeRotation(30.f, 0.f, 0.f);
 	{
-		UStaticMesh* SelectionMesh = AssetContainer->WindowSelectionBarMesh;
+		UStaticMesh* SelectionMesh = AssetContainer.WindowSelectionBarMesh;
 
 		SelectionBarMeshComponent = CreateDefaultSubobject<UStaticMeshComponent>( TEXT( "SelectionBarMesh" ) );
 		SelectionBarMeshComponent->SetStaticMesh( SelectionMesh );
 		SelectionBarMeshComponent->SetMobility( EComponentMobility::Movable );
 		SelectionBarMeshComponent->SetupAttachment( RootComponent );
 
-		SelectionBarMeshComponent->bGenerateOverlapEvents = false;
+		SelectionBarMeshComponent->SetGenerateOverlapEvents(false);
 		SelectionBarMeshComponent->SetCanEverAffectNavigation( false );
 		SelectionBarMeshComponent->bCastDynamicShadow = false;
 		SelectionBarMeshComponent->bCastStaticShadow = false;
@@ -71,14 +76,14 @@ AVREditorDockableWindow::AVREditorDockableWindow() :
 	}
 
 	{
-		UStaticMesh* CloseButtonMesh = AssetContainer->WindowCloseButtonMesh;
+		UStaticMesh* CloseButtonMesh = AssetContainer.WindowCloseButtonMesh;
 
 		CloseButtonMeshComponent= CreateDefaultSubobject<UStaticMeshComponent>( TEXT( "CloseButtonMesh" ) );
 		CloseButtonMeshComponent->SetStaticMesh( CloseButtonMesh );
 		CloseButtonMeshComponent->SetMobility( EComponentMobility::Movable );
 		CloseButtonMeshComponent->SetupAttachment( RootComponent );
 
-		CloseButtonMeshComponent->bGenerateOverlapEvents = false;
+		CloseButtonMeshComponent->SetGenerateOverlapEvents(false);
 		CloseButtonMeshComponent->SetCanEverAffectNavigation( false );
 		CloseButtonMeshComponent->bCastDynamicShadow = false;
 		CloseButtonMeshComponent->bCastStaticShadow = false;

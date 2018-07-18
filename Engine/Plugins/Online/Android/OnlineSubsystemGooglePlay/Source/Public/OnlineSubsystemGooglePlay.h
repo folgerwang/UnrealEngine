@@ -7,7 +7,7 @@
 #include "OnlineSubsystemImpl.h"
 #include "OnlineExternalUIInterfaceGooglePlay.h"
 #include "OnlineAsyncTaskManagerGooglePlay.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 #include "HAL/RunnableThread.h"
 #include "OnlineStoreInterfaceGooglePlay.h"
 

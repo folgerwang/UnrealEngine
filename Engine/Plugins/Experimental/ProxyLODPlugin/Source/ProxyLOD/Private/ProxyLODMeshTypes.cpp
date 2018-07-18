@@ -37,6 +37,33 @@ void FRawMeshAdapter::getIndexSpacePoint(size_t FaceNumber, size_t CornerNumber,
 
 // --- FRawMeshArrayAdapter ----
 
+
+FRawMeshArrayAdapter::FRawMeshArrayAdapter(const TArray<const FMeshMergeData*>& InMergeDataPtrArray)
+{
+	// Make a default transform.
+	Transform = openvdb::math::Transform::createLinearTransform(1.);
+
+	PointCount = 0;
+	PolyCount = 0;
+
+	PolyOffsetArray.push_back(PolyCount);
+	for (int32 MeshIdx = 0, MeshCount = InMergeDataPtrArray.Num(); MeshIdx < MeshCount; ++MeshIdx)
+	{
+		const FMeshMergeData* MergeData = InMergeDataPtrArray[MeshIdx];
+		const FRawMesh* RawMesh = MergeData->RawMesh;
+		PointCount += size_t(RawMesh->VertexPositions.Num());
+		PolyCount += size_t(RawMesh->WedgeIndices.Num() / 3);
+
+		PolyOffsetArray.push_back(PolyCount);
+		RawMeshArray.push_back(RawMesh);
+
+		MergeDataArray.push_back(MergeData);
+	}
+
+	// Compute the bbox
+	ComputeAABB(this->BBox);
+}
+
 FRawMeshArrayAdapter::FRawMeshArrayAdapter(const TArray<FMeshMergeData>& InMergeDataArray)
 {
 	// Make a default transform.

@@ -45,21 +45,6 @@ public:
 	 */
 	FPropertyValueImpl( TSharedPtr<FPropertyNode> InPropertyNode, FNotifyHook* InNotifyHook, TSharedPtr<IPropertyUtilities> InPropertyUtilities );
 
-	virtual ~FPropertyValueImpl();
-
-	/**
-	 * Sets an object property to point to the new object
-	 * 
-	 * @param NewObject	The new object value
-	 */
-	bool SetObject( const UObject* NewObject, EPropertyValueSetFlags::Type Flags);
-
-	/**
-	 * Sets the value of an object property to the selected object in the content browser
-	 * @return Whether or not the call was successful
-	 */
-	virtual FPropertyAccess::Result OnUseSelected();
-
 	/**
 	 * Recurse up to the next object node, adding all array indices into a map according to their property name
 	 * @param ArrayIndexMap - for the current object, what properties use which array offsets
@@ -162,27 +147,24 @@ public:
 	void SetOnChildPropertyValueChanged( const FSimpleDelegate& InOnChildPropertyValueChanged );
 
 	/**
-	* Sets a delegate to call when the property value is about to change
-	*/
+	 * Sets a delegate to call when the property value is about to change
+	 */
 	void SetOnPropertyValuePreChange(const FSimpleDelegate& InOnPropertyValuePreChange);
 
 	/**
-	* Sets a delegate to call when the propery value of a child is about to change
-	*/
+	 * Sets a delegate to call when the propery value of a child is about to change
+	 */
 	void SetOnChildPropertyValuePreChange(const FSimpleDelegate& InOnChildPropertyValuePreChange);
+
+	/**
+	 * Sets a delegate to call when a property is reset to default
+	 */
+	void SetOnPropertyResetToDefault(const FSimpleDelegate& InOnPropertyResetToDefault);
 
 	/**
 	 * Sets a delegate to call when children of the property node must be rebuilt
 	 */
 	void SetOnRebuildChildren( const FSimpleDelegate& InOnRebuildChildren );
-
-	/**
-	 * Sends a formatted string to an object property if safe to do so
-	 *
-	 * @param Text	The text to send
-	 * @return true if the text could be set
-	 */
-	bool SendTextToObjectProperty( const FString& Text, EPropertyValueSetFlags::Type Flags ); 
 
 	/**
 	 * Get the value of a property as a formatted string.
@@ -432,6 +414,7 @@ public:
 	DECLARE_PROPERTY_ACCESSOR( UObject* )
 	DECLARE_PROPERTY_ACCESSOR( const UObject* )
 	DECLARE_PROPERTY_ACCESSOR( FAssetData )
+	virtual FPropertyAccess::Result GetValueData(void*& OutAddress) const override;
 
 	/** IPropertyHandle interface */
 	virtual bool IsValidHandle() const override;
@@ -453,6 +436,8 @@ public:
 	virtual void SetOnChildPropertyValueChanged( const FSimpleDelegate& InOnPropertyValueChanged ) override;
 	virtual void SetOnPropertyValuePreChange(const FSimpleDelegate& InOnPropertyValuePreChange) override;
 	virtual void SetOnChildPropertyValuePreChange(const FSimpleDelegate& InOnPropertyValuePreChange) override;
+	virtual void SetOnPropertyResetToDefault(const FSimpleDelegate& InOnPropertyResetToDefault) override;
+
 	virtual int32 GetIndexInArray() const override;
 	virtual FPropertyAccess::Result GetValueAsFormattedString( FString& OutValue, EPropertyPortFlags PortFlags = PPF_PropertyWindow ) const override;
 	virtual FPropertyAccess::Result GetValueAsDisplayString( FString& OutValue, EPropertyPortFlags PortFlags = PPF_PropertyWindow) const override;
@@ -608,6 +593,7 @@ public:
 	virtual FPropertyAccess::Result GetValue( FAssetData& OutValue ) const override;
 	virtual FPropertyAccess::Result SetValue( const FAssetData& InValue, EPropertyValueSetFlags::Type Flags = EPropertyValueSetFlags::DefaultFlags ) override;
 	virtual FPropertyAccess::Result SetValueFromFormattedString(const FString& InValue, EPropertyValueSetFlags::Type Flags = EPropertyValueSetFlags::DefaultFlags) override;
+	virtual FPropertyAccess::Result SetObjectValueFromSelection() override;
 };
 
 class FPropertyHandleVector : public FPropertyHandleBase

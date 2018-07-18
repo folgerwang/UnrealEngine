@@ -14,12 +14,9 @@
 #include "Widgets/SNullWidget.h"
 #include "EditorStyleSet.h"
 
-class FFbxSceneInfo;
-
 enum EFBXCompareSection
 {
 	EFBXCompareSection_General = 0,
-	EFBXCompareSection_Materials,
 	EFBXCompareSection_Skeleton,
 	EFBXCompareSection_Count
 };
@@ -205,9 +202,14 @@ public:
 	FSlateColor GetCurrentCellColor() const;
 	FSlateColor GetFbxCellColor() const;
 
-	TSharedRef<SWidget> ConstructCell(FCompMesh *MeshData, int32 MeshMaterialIndex, bool bSkinxxDuplicate, bool bSkinxxMissing);
+	TSharedRef<SWidget> ConstructCell(FCompMesh *MeshData, int32 MeshMaterialIndex);
 	virtual TSharedRef<SWidget> ConstructCellCurrent() override;
 	virtual TSharedRef<SWidget> ConstructCellFbx() override;
+
+	FText GetCellString(bool IsFbxData) const;
+	FText GetCellTooltipString(bool IsFbxData) const;
+
+	TSharedPtr<SWidget> ParentContextMenu;
 };
 
 class SCompareRowDataTableListViewRow : public SMultiColumnTableRow<TSharedPtr<FCompareRowData>>
@@ -242,7 +244,7 @@ public:
 		if (ColumnName == FName(TEXT("RowIndex")))
 		{
 			return SNew(SBox)
-				.Padding(FMargin(5.0f, 0.0f, 0.0f, 0.0f))
+				.Padding(FMargin(5.0f, 2.0f, 0.0f, 2.0f))
 				[
 					SNew(STextBlock)
 					.Text(FText::FromString(FString::FromInt(CompareRowData->RowIndex)))
@@ -269,27 +271,27 @@ class SFbxCompareWindow : public SCompoundWidget
 public:
 	SLATE_BEGIN_ARGS(SFbxCompareWindow)
 		: _WidgetWindow()
-		, _FullFbxPath()
-		, _FbxSceneInfo()
-		, _FbxGeneralInfo()
 		, _AssetReferencingSkeleton(nullptr)
-		, _CurrentMeshData(nullptr)
-		, _FbxMeshData(nullptr)
-		, _PreviewObject(nullptr)
+		, _SourceData(nullptr)
+		, _ResultData(nullptr)
+		, _SourceObject(nullptr)
+		, _ResultObject(nullptr)
+		, _FbxGeneralInfo()
 		{}
 
 		SLATE_ARGUMENT( TSharedPtr<SWindow>, WidgetWindow )
-		SLATE_ARGUMENT( FText, FullFbxPath )
-		SLATE_ARGUMENT( TSharedPtr<FFbxSceneInfo>, FbxSceneInfo )
-		SLATE_ARGUMENT( FGeneralFbxFileInfo, FbxGeneralInfo )
 		SLATE_ARGUMENT( TArray<TSharedPtr<FString>>*, AssetReferencingSkeleton)
-		SLATE_ARGUMENT( FCompMesh*, CurrentMeshData )
-		SLATE_ARGUMENT( FCompMesh*, FbxMeshData )
-		SLATE_ARGUMENT( UObject*, PreviewObject )
+		SLATE_ARGUMENT( FCompMesh*, SourceData)
+		SLATE_ARGUMENT( FCompMesh*, ResultData)
+		SLATE_ARGUMENT( UObject*, SourceObject )
+		SLATE_ARGUMENT( UObject*, ResultObject)
+		SLATE_ARGUMENT( FGeneralFbxFileInfo, FbxGeneralInfo )		
 			
 	SLATE_END_ARGS()
 
 public:
+	bool HasConflict();
+	bool bRevertReimport;
 	void Construct(const FArguments& InArgs);
 	virtual bool SupportsKeyboardFocus() const override { return true; }
 
@@ -299,8 +301,10 @@ public:
 		{
 			WidgetWindow.Pin()->RequestDestroyWindow();
 		}
+		bRevertReimport = false;
 		return FReply::Handled();
 	}
+
 
 	virtual FReply OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent ) override
 	{
@@ -308,22 +312,18 @@ public:
 		{
 			return OnDone();
 		}
-
 		return FReply::Unhandled();
 	}
 
 	SFbxCompareWindow()
-		: FullFbxPath(TEXT(""))
-		, FbxSceneInfo()
-		
 	{}
 		
 private:
 	TWeakPtr< SWindow > WidgetWindow;
-	FString FullFbxPath;
 
-	//Preview Mesh
-	UObject *PreviewObject;
+	//Meshes
+	UObject *SourceObject;
+	UObject *ResultObject;
 
 	//////////////////////////////////////////////////////////////////////////
 	//Collapse generic
@@ -336,7 +336,6 @@ private:
 	//////////////////////////////////////////////////////////////////////////
 	// General fbx data
 	FGeneralFbxFileInfo FbxGeneralInfo;
-	TSharedPtr<FFbxSceneInfo> FbxSceneInfo;
 	TArray<TSharedPtr<FString>> GeneralListItem;
 	
 	void FillGeneralListItem();
@@ -348,23 +347,8 @@ private:
 
 	//////////////////////////////////////////////////////////////////////////
 	// Compare data
-	FCompMesh *CurrentMeshData;
-	FCompMesh *FbxMeshData;
-	//////////////////////////////////////////////////////////////////////////
-
-	//////////////////////////////////////////////////////////////////////////
-	// Material Data
-	TArray<TSharedPtr<FMaterialCompareData>> CompareMaterialListItem;
-	FMaterialCompareData::EMaterialCompareDisplayOption CurrentDisplayOption;
-	
-	void FillMaterialListItem();
-	bool FindSkinxxErrors(FCompMesh *MeshData, TArray<bool> &DuplicateSkinxxMaterialNames, TArray<bool> &MissingSkinxxSuffixeMaterialNames);
-	//Construct slate
-	TSharedPtr<SWidget> ConstructMaterialComparison();
-	//Slate events
-	TSharedRef<ITableRow> OnGenerateRowForCompareMaterialList(TSharedPtr<FMaterialCompareData> RowData, const TSharedRef<STableViewBase>& Table);
-	void ToggleMaterialDisplay(ECheckBoxState InNewValue, FMaterialCompareData::EMaterialCompareDisplayOption InDisplayOption);
-	ECheckBoxState IsToggleMaterialDisplayChecked(FMaterialCompareData::EMaterialCompareDisplayOption InDisplayOption) const;
+	FCompMesh *SourceData;
+	FCompMesh *ResultData;
 	//////////////////////////////////////////////////////////////////////////
 
 	//////////////////////////////////////////////////////////////////////////

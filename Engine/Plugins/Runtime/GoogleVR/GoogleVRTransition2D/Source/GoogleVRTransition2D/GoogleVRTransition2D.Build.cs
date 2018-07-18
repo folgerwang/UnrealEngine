@@ -10,7 +10,6 @@ public class GoogleVRTransition2D : ModuleRules
 		
 		PublicIncludePaths.AddRange(
 			new string[] {
-				"GoogleVRTransition2D/Public",
 				"Runtime/Launch/Public"
 				// ... add public include paths required here ...
 			}
@@ -62,6 +61,10 @@ public class GoogleVRTransition2D : ModuleRules
 
 			string PluginPath = Utils.MakePathRelativeTo(ModuleDirectory, Target.RelativeEnginePath);
 			AdditionalPropertiesForReceipt.Add("AndroidPlugin", Path.Combine(PluginPath, "GoogleVRTransition2D_APL.xml"));
+		}
+		if (Target.Platform == UnrealTargetPlatform.Lumin)
+		{
+			PrecompileForTargets = PrecompileTargetsType.None;
 		}
 	}
 }

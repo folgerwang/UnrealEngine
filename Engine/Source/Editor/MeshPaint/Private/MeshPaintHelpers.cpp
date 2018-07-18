@@ -20,7 +20,7 @@
 #include "GenericOctree.h"
 #include "Utils.h"
 
-#include "SlateApplication.h"
+#include "Framework/Application/SlateApplication.h"
 #include "SImportVertexColorOptions.h"
 #include "EditorViewportClient.h"
 #include "Interfaces/IMainFrameModule.h"
@@ -45,8 +45,8 @@
 #include "VREditorInteractor.h"
 #include "EditorWorldExtension.h"
 
-#include "ParallelFor.h"
-#include "SkeletalMeshModel.h"
+#include "Async/ParallelFor.h"
+#include "Rendering/SkeletalMeshModel.h"
 
 void MeshPaintHelpers::RemoveInstanceVertexColors(UObject* Obj)
 {
@@ -107,7 +107,7 @@ bool MeshPaintHelpers::PropagateColorsToRawMesh(UStaticMesh* StaticMesh, int32 L
 	{
 		// Use the wedge map if it is available as it is lossless.
 		FRawMesh RawMesh;
-		SrcModel.RawMeshBulkData->LoadRawMesh(RawMesh);
+		SrcModel.LoadRawMesh(RawMesh);
 
 		int32 NumWedges = RawMesh.WedgeIndices.Num();
 		if (RenderData.WedgeMap.Num() == NumWedges)
@@ -127,21 +127,21 @@ bool MeshPaintHelpers::PropagateColorsToRawMesh(UStaticMesh* StaticMesh, int32 L
 				}
 				RawMesh.WedgeColors[i] = WedgeColor;
 			}
-			SrcModel.RawMeshBulkData->SaveRawMesh(RawMesh);
+			SrcModel.SaveRawMesh(RawMesh);
 			bPropagatedColors = true;
 		}
 	}
 	else
 	{
 		// If there's no raw mesh data, don't try to do any fixup here
-		if (SrcModel.RawMeshBulkData->IsEmpty() || ComponentLODInfo.OverrideMapBuildData == nullptr)
+		if (SrcModel.IsRawMeshEmpty() || ComponentLODInfo.OverrideMapBuildData == nullptr)
 		{
 			return false;
 		}
 
 		// Fall back to mapping based on position.
 		FRawMesh RawMesh;
-		SrcModel.RawMeshBulkData->LoadRawMesh(RawMesh);
+		SrcModel.LoadRawMesh(RawMesh);
 
 		TArray<FColor> NewVertexColors;
 		FPositionVertexBuffer TempPositionVertexBuffer;
@@ -165,7 +165,7 @@ bool MeshPaintHelpers::PropagateColorsToRawMesh(UStaticMesh* StaticMesh, int32 L
 				int32 Index = RawMesh.WedgeIndices[i];
 				RawMesh.WedgeColors[i] = NewVertexColors[Index];
 			}
-			SrcModel.RawMeshBulkData->SaveRawMesh(RawMesh);
+			SrcModel.SaveRawMesh(RawMesh);
 			bPropagatedColors = true;
 		}
 	}
@@ -838,6 +838,7 @@ void MeshPaintHelpers::FillVertexColors(UMeshComponent* MeshComponent, const FCo
 			Mesh->SetFlags(RF_Transactional);
 			Mesh->Modify();
 			Mesh->bHasVertexColors = true;
+			Mesh->VertexColorGuid = FGuid::NewGuid();
 
 			// Release the static mesh's resources.
 			Mesh->ReleaseResources();
@@ -846,10 +847,10 @@ void MeshPaintHelpers::FillVertexColors(UMeshComponent* MeshComponent, const FCo
 			// allocated, and potentially accessing the UStaticMesh.
 			Mesh->ReleaseResourcesFence.Wait();
 
-			if (Mesh->LODInfo.Num() > 0)
+			if (Mesh->GetLODNum() > 0)
 			{
 				RecreateRenderStateContext = MakeUnique<FSkinnedMeshComponentRecreateRenderStateContext>(Mesh);
-				const int32 NumLods = Mesh->LODInfo.Num();
+				const int32 NumLods = Mesh->GetLODNum();
 				for (int32 LODIndex = 0; LODIndex < NumLods; ++LODIndex)
 				{
 					MeshPaintHelpers::SetColorDataForLOD(Mesh, LODIndex, FillColor, MaskColor);
@@ -897,9 +898,9 @@ void MeshPaintHelpers::SetColorDataForLOD(USkeletalMesh* SkeletalMesh, int32 LOD
 		ApplyFillWithMask(LODModel.Sections[SectionIndex].SoftVertices[SectionVertexIndex].Color, MaskColor, FillColor);
 	}
 
-	if (!SkeletalMesh->LODInfo[LODIndex].bHasPerLODVertexColors)
+	if (!SkeletalMesh->GetLODInfo(LODIndex)->bHasPerLODVertexColors)
 	{
-		SkeletalMesh->LODInfo[LODIndex].bHasPerLODVertexColors = true;
+		SkeletalMesh->GetLODInfo(LODIndex)->bHasPerLODVertexColors = true;
 	}
 }
 
@@ -1268,7 +1269,7 @@ int32 MeshPaintHelpers::GetNumberOfLODs(const UMeshComponent* MeshComponent)
 		const USkeletalMesh* SkeletalMesh = SkeletalMeshComponent->SkeletalMesh;
 		if (SkeletalMesh != nullptr)
 		{
-			NumLODs = SkeletalMesh->LODInfo.Num();
+			NumLODs = SkeletalMesh->GetLODNum();
 		}
 	}
 
@@ -1325,8 +1326,12 @@ bool MeshPaintHelpers::DoesMeshComponentContainPerLODColors(const UMeshComponent
 		USkeletalMesh* SkeletalMesh = SkeletalMeshComponent->SkeletalMesh;
 		if (SkeletalMesh)
 		{
-			for ( const FSkeletalMeshLODInfo& Info : SkeletalMesh->LODInfo )
+			const TArray<FSkeletalMeshLODInfo>& LODInfo = SkeletalMesh->GetLODInfoArray();
+			// Only check LOD level 1 and above
+			const int32 NumLODs = SkeletalMesh->GetLODNum();
+			for (int32 LODIndex = 1; LODIndex < NumLODs; ++LODIndex)
 			{
+				const FSkeletalMeshLODInfo& Info = LODInfo[LODIndex];
 				if (Info.bHasPerLODVertexColors)
 				{
 					bPerLODColors = true;
@@ -1678,6 +1683,7 @@ void MeshPaintHelpers::ApplyVertexColorsToAllLODs(IMeshPaintGeometryAdapter& Geo
 	if (Mesh)
 	{
 		FSkeletalMeshRenderData* Resource = Mesh->GetResourceForRendering();
+		FSkeletalMeshModel* SrcMesh = Mesh->GetImportedModel();
 		if (Resource)
 		{
 			const int32 NumLODs = Resource->LODRenderData.Num();
@@ -1711,8 +1717,10 @@ void MeshPaintHelpers::ApplyVertexColorsToAllLODs(IMeshPaintGeometryAdapter& Geo
 				{
 					// Do something
 					FSkeletalMeshLODRenderData& ApplyLOD = Resource->LODRenderData[LODIndex];
+					FSkeletalMeshLODModel& SrcLOD = SrcMesh->LODModels[LODIndex];
+
 					FBox CombinedBounds = BaseBounds;
-					Mesh->LODInfo[LODIndex].bHasPerLODVertexColors = false;
+					Mesh->GetLODInfo(LODIndex)->bHasPerLODVertexColors = false;
 
 					if (!ApplyLOD.StaticVertexBuffers.ColorVertexBuffer.IsInitialized())
 					{
@@ -1736,17 +1744,17 @@ void MeshPaintHelpers::ApplyVertexColorsToAllLODs(IMeshPaintGeometryAdapter& Geo
 					// Iterate over each new vertex position, attempting to find the old vertex it is closest to, applying
 					// the color of the old vertex to the new position if possible.
 					const float DistanceOverNormalThreshold = KINDA_SMALL_NUMBER;
+					check(SrcLOD.NumVertices == ApplyLOD.GetNumVertices());
 					for (uint32 VertexIndex = 0; VertexIndex < ApplyLOD.GetNumVertices(); ++VertexIndex)
 					{
 						TArray<FPaintedMeshVertex> PointsToConsider;
 						TVertexColorPropogationPosOctree::TConstIterator<> OctreeIter(VertPosOctree);
 						const FVector CurPosition = ApplyLOD.StaticVertexBuffers.PositionVertexBuffer.VertexPosition(VertexIndex);
 
-						FPackedNormal VertexTangentX, VertexTangentZ;
-						VertexTangentX = BaseLOD.StaticVertexBuffers.StaticMeshVertexBuffer.VertexTangentY(VertexIndex);
+						FPackedNormal VertexTangentZ;
 						VertexTangentZ = BaseLOD.StaticVertexBuffers.StaticMeshVertexBuffer.VertexTangentZ(VertexIndex);
 						
-						FVector CurNormal = VertexTangentZ;
+						FVector CurNormal = VertexTangentZ.ToFVector();
 
 						// Iterate through the octree attempting to find the vertices closest to the current new point
 						while (OctreeIter.HasPendingNodes())
@@ -1790,7 +1798,7 @@ void MeshPaintHelpers::ApplyVertexColorsToAllLODs(IMeshPaintGeometryAdapter& Geo
 						if (PointsToConsider.Num() > 0)
 						{
 							int32 BestVertexIndex = 0;
-							FVector BestVertexNormal = PointsToConsider[BestVertexIndex].Normal;
+							FVector BestVertexNormal = PointsToConsider[BestVertexIndex].Normal.ToFVector();
 
 							float BestDistanceSquared = (PointsToConsider[BestVertexIndex].Position - CurPosition).SizeSquared();
 							float BestNormalDot = BestVertexNormal | CurNormal;
@@ -1798,7 +1806,7 @@ void MeshPaintHelpers::ApplyVertexColorsToAllLODs(IMeshPaintGeometryAdapter& Geo
 							for (int32 ConsiderationIndex = 1; ConsiderationIndex < PointsToConsider.Num(); ++ConsiderationIndex)
 							{
 								FPaintedMeshVertex& CheckVertex = PointsToConsider[ConsiderationIndex];
-								FVector VertexNormal = CheckVertex.Normal;
+								FVector VertexNormal = CheckVertex.Normal.ToFVector();
 
 								const float DistSqrd = (CheckVertex.Position - CurPosition).SizeSquared();
 								const float NormalDot = VertexNormal | CurNormal;
@@ -1818,6 +1826,11 @@ void MeshPaintHelpers::ApplyVertexColorsToAllLODs(IMeshPaintGeometryAdapter& Geo
 							}
 
 							ApplyLOD.StaticVertexBuffers.ColorVertexBuffer.VertexColor(VertexIndex) = PointsToConsider[BestVertexIndex].Color;
+							// Also apply to the skeletal mesh source mesh
+							int32 SectionIndex = INDEX_NONE;
+							int32 SectionVertexIndex = INDEX_NONE;
+							SrcLOD.GetSectionFromVertexIndex(VertexIndex, SectionIndex, SectionVertexIndex);
+							SrcLOD.Sections[SectionIndex].SoftVertices[SectionVertexIndex].Color = PointsToConsider[BestVertexIndex].Color;
 						}
 					}
 				}

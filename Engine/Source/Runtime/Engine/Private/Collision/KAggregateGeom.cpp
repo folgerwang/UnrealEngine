@@ -78,6 +78,11 @@ FBox FKAggregateGeom::CalcAABB(const FTransform& Transform) const
 		Box += ConvexElems[i].CalcAABB(BoneTM, Scale3D);
 	}
 
+	for(int32 i=0; i<TaperedCapsuleElems.Num(); i++)
+	{
+		Box += TaperedCapsuleElems[i].CalcAABB(BoneTM, ScaleFactor);
+	}
+
 	return Box;
 
 }
@@ -380,6 +385,36 @@ void FKConvexElem::GetPlanes(TArray<FPlane>& Planes) const
 #endif // WITH_PHYSX
 }
 
+///////////////////////////////////////
+//////// FKTaperedCapsuleElem /////////
+///////////////////////////////////////
+
+EAggCollisionShape::Type FKTaperedCapsuleElem::StaticShapeType = EAggCollisionShape::TaperedCapsule;
+
+FBox FKTaperedCapsuleElem::CalcAABB(const FTransform& BoneTM, float Scale) const
+{
+	FTransform ElemTM = GetTransform();
+	ElemTM.ScaleTranslation( FVector(Scale) );
+	ElemTM *= BoneTM;
+
+	const FVector TaperedCapsuleCenter = ElemTM.GetLocation();
+
+	// Get tapered capsule axis direction
+	const FVector Axis = ElemTM.GetScaledAxis( EAxis::Z );
+	// Get abs of that vector
+	const FVector AbsAxis(FMath::Abs(Axis.X), FMath::Abs(Axis.Y), FMath::Abs(Axis.Z));
+	// Scale by length of sphyl
+	const FVector AbsDist = (Scale * 0.5f * Length) * AbsAxis;
+
+	const FVector MaxPos = TaperedCapsuleCenter + AbsDist;
+	const FVector MinPos = TaperedCapsuleCenter - AbsDist;
+	const FVector Extent0(Scale * Radius0);
+	const FVector Extent1(Scale * Radius1);
+
+	FBox Result(MinPos - Extent0, MaxPos + Extent1);
+
+	return Result;
+}
 
 static const float DIST_COMPARE_THRESH = 0.1f;
 static const float DIR_COMPARE_THRESH = 0.0003f; // about 1 degree
@@ -578,7 +613,7 @@ bool FKConvexElem::HullFromPlanes(const TArray<FPlane>& InPlanes, const TArray<F
 	bFound = false;
 	for(int32 i=2; i<VertexData.Num() ; i++)
 	{
-		if(Plane.PlaneDot(VertexData[i]) > LOCAL_EPS)
+		if(FMath::Abs(Plane.PlaneDot(VertexData[i])) > LOCAL_EPS)
 		{
 			bFound = true;
 			break;

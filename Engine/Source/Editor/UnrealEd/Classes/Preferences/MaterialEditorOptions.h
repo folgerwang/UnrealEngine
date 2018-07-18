@@ -46,13 +46,8 @@ class UNREALED_API UMaterialEditorOptions : public UObject
 	UPROPERTY(EditAnywhere, config, Category=Options)
 	uint32 bUseUnsortedMenus:1;
 
-	/** If true, show mobile statis and errors. */
-	UPROPERTY(EditAnywhere, config, Category=Options)
-	uint32 bShowMobileStats:1;
-
 	/** The users favorite material expressions. */
 	UPROPERTY(EditAnywhere, config, Category=Options)
 	TArray<FString> FavoriteExpressions;
-
 };
 

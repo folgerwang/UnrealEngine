@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3483116
+﻿INTSourceChangelist:3807090
 Title: 안드로이드 OpenGL ES 3.1 모바일 렌더러
 Description:UE4 안드로이드 프로젝트에서 OpenGL ES 3.1 모바일 렌더러를 사용하도록 구성하는 방법입니다.
 Crumbs:%ROOT%, Platforms, Platforms/Android, Platforms/Android/OpenGLES31MobileRenderer/
@@ -59,7 +59,7 @@ UE4 안드로이드 프로젝트에서 OpenGL ES 3.1 을 사용하려면, UE4 �
 1. **프로젝트 세팅** 메뉴에서 **플랫폼** 섹션으로 가 **Android** (안드로이드) 섹션을 클릭합니다.
 
 	[REGION:lightbox]
-	[![](Platforms\Android\VulkanMobileRenderer\VMP_Android_Settings_00.png)(w:639 h:385)](Platforms\Android\VulkanMobileRenderer\VMP_Android_Settings_00.png)
+	[![](Platforms\Android\VulkanMobileRenderer\VMP_Android_Settings_00.png)(w:639)](Platforms\Android\VulkanMobileRenderer\VMP_Android_Settings_00.png)
 	[/REGION]
 
 	[REGION:caption]
@@ -69,7 +69,7 @@ UE4 안드로이드 프로젝트에서 OpenGL ES 3.1 을 사용하려면, UE4 �
 1. 이제 **APKPackaging** (APK 패키징) 섹션에서 **Minimum SDK** (최소 SDK)와 **Target SDK** (대상 SDK) 버전을 **21** 로 설정합니다.
 
 	[REGION:lightbox]
-	[![](OGL3_04.png)(w:639 h:385)](OGL3_04.png)
+	[![](OGL3_04.png)(w:639)](OGL3_04.png)
 	[/REGION]
 
 	[REGION:caption]

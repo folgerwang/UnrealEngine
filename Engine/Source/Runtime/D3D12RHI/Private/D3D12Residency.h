@@ -18,13 +18,13 @@ namespace D3DX12Residency
 }
 #else
 #include "D3D12Util.h"
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 #include "dxgi1_6.h"
 #pragma warning(push)
 #pragma warning(disable : 6031)
 	#include <D3DX12Residency.h>
 #pragma warning(pop)
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 #endif
 
 namespace D3DX12Residency
@@ -68,10 +68,10 @@ namespace D3DX12Residency
 #endif
 	}
 
-	inline void InitializeResidencyManager(ResidencyManager& ResidencyManager, ID3D12Device* Device, uint32 DeviceNodeMask, IDXGIAdapter3* Adapter, uint32 MaxLatency)
+	inline void InitializeResidencyManager(ResidencyManager& ResidencyManager, ID3D12Device* Device, uint32 GPUIndex, IDXGIAdapter3* Adapter, uint32 MaxLatency)
 	{
 #if ENABLE_RESIDENCY_MANAGEMENT
-		VERIFYD3D12RESULT(ResidencyManager.Initialize(Device, DeviceNodeMask, Adapter, MaxLatency));
+		VERIFYD3D12RESULT(ResidencyManager.Initialize(Device, GPUIndex, Adapter, MaxLatency));
 #endif
 	}
 

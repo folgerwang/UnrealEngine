@@ -51,6 +51,18 @@ public:
 	 */
 	virtual void SetPreviewMesh(class USkeletalMesh* InSkeletalMesh, bool bSetPreviewMeshInAsset = true) = 0;
 
+	/** Retrieve editor custom data. Return INDEX_NONE if the key is invalid */
+	virtual int32 GetCustomData(const int32 Key) const { return INDEX_NONE; }
+	
+	/*
+	 * Store the custom data using the key.
+	 * Remark:
+	 * The custom data memory should be clear when the editor is close by the user, this is not persistent data.
+	 * Currently we use it to store the state of the editor UI to restore it properly when a refresh happen.
+	 */
+	virtual void SetCustomData(const int32 Key, const int32 CustomData) {}
+
+	
 	/** Get the context in which this toolkit is being used (usually the class name of the asset) */
 	virtual FName GetContext() const = 0;
 };

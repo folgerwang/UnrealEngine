@@ -12,12 +12,20 @@
 #include "Materials/MaterialParameterCollection.h"
 #include "Materials/MaterialExpressionCollectionParameter.h"
 
+int32 GDeferUpdateRenderStates = 1;
+FAutoConsoleVariableRef CVarDeferUpdateRenderStates(
+	TEXT("r.DeferUpdateRenderStates"),
+	GDeferUpdateRenderStates,
+	TEXT("Whether to defer updating the render states of material parameter collections when a paramter is changed until a rendering command needs them up to date.  Deferring updates is more efficient because multiple SetVectorParameterValue and SetScalarParameterValue calls in a frame will only result in one update."),
+	ECVF_RenderThreadSafe
+);
+
 TMap<FGuid, FMaterialParameterCollectionInstanceResource*> GDefaultMaterialParameterCollectionInstances;
 
 UMaterialParameterCollection::UMaterialParameterCollection(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	DefaultResource = NULL;
+	DefaultResource = nullptr;
 }
 
 void UMaterialParameterCollection::PostInitProperties()
@@ -64,7 +72,7 @@ void UMaterialParameterCollection::BeginDestroy()
 		);
 
 		DefaultResource->GameThread_Destroy();
-		DefaultResource = NULL;
+		DefaultResource = nullptr;
 	}
 
 	Super::BeginDestroy();
@@ -246,7 +254,7 @@ void UMaterialParameterCollection::PostEditChangeProperty(FPropertyChangedEvent&
 					UpdateContext.AddMaterial(CurrentMaterial);
 
 					// Propagate the change to this material
-					CurrentMaterial->PreEditChange(NULL);
+					CurrentMaterial->PreEditChange(nullptr);
 					CurrentMaterial->PostEditChange();
 					CurrentMaterial->MarkPackageDirty();
 				}
@@ -387,7 +395,7 @@ const FCollectionScalarParameter* UMaterialParameterCollection::GetScalarParamet
 		}
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 const FCollectionVectorParameter* UMaterialParameterCollection::GetVectorParameterByName(FName ParameterName) const
@@ -402,10 +410,10 @@ const FCollectionVectorParameter* UMaterialParameterCollection::GetVectorParamet
 		}
 	}
 
-	return NULL;
+	return nullptr;
 }
 
-FShaderUniformBufferParameter* ConstructCollectionUniformBufferParameter() { return NULL; }
+FShaderUniformBufferParameter* ConstructCollectionUniformBufferParameter() { return nullptr; }
 
 void UMaterialParameterCollection::CreateBufferStruct()
 {	
@@ -413,7 +421,7 @@ void UMaterialParameterCollection::CreateBufferStruct()
 	uint32 NextMemberOffset = 0;
 
 	const uint32 NumVectors = FMath::DivideAndRoundUp(ScalarParameters.Num(), 4) + VectorParameters.Num();
-	new(Members) FUniformBufferStruct::FMember(TEXT("Vectors"),TEXT(""),NextMemberOffset,UBMT_FLOAT32,EShaderPrecisionModifier::Half,1,4,NumVectors,NULL);
+	new(Members) FUniformBufferStruct::FMember(TEXT("Vectors"),TEXT(""),NextMemberOffset,UBMT_FLOAT32,EShaderPrecisionModifier::Half,1,4,NumVectors, nullptr);
 	const uint32 VectorArraySize = NumVectors * sizeof(FVector4);
 	NextMemberOffset += VectorArraySize;
 	static FName LayoutName(TEXT("MaterialCollection"));
@@ -477,7 +485,8 @@ void UMaterialParameterCollection::UpdateDefaultResource()
 UMaterialParameterCollectionInstance::UMaterialParameterCollectionInstance(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	Resource = NULL;
+	Resource = nullptr;
+	bNeedsRenderStateUpdate = false;
 }
 
 void UMaterialParameterCollectionInstance::PostInitProperties()
@@ -573,7 +582,7 @@ bool UMaterialParameterCollectionInstance::GetScalarParameterValue(FName Paramet
 	if (Parameter)
 	{
 		const float* InstanceValue = ScalarParameterValues.Find(ParameterName);
-		OutParameterValue = InstanceValue != NULL ? *InstanceValue : Parameter->DefaultValue;
+		OutParameterValue = InstanceValue != nullptr ? *InstanceValue : Parameter->DefaultValue;
 		return true;
 	}
 
@@ -587,7 +596,7 @@ bool UMaterialParameterCollectionInstance::GetVectorParameterValue(FName Paramet
 	if (Parameter)
 	{
 		const FLinearColor* InstanceValue = VectorParameterValues.Find(ParameterName);
-		OutParameterValue = InstanceValue != NULL ? *InstanceValue : Parameter->DefaultValue;
+		OutParameterValue = InstanceValue != nullptr ? *InstanceValue : Parameter->DefaultValue;
 		return true;
 	}
 
@@ -596,12 +605,34 @@ bool UMaterialParameterCollectionInstance::GetVectorParameterValue(FName Paramet
 
 void UMaterialParameterCollectionInstance::UpdateRenderState()
 {
-	// Propagate the new values to the rendering thread
-	TArray<FVector4> ParameterData;
-	GetParameterData(ParameterData);
-	Resource->GameThread_UpdateContents(Collection ? Collection->StateId : FGuid(), ParameterData, GetFName());
-	// Update the world's scene with the new uniform buffer pointer
-	World->UpdateParameterCollectionInstances(false);
+	// Don't need material parameters on the server
+	if (World && World->GetNetMode() == NM_DedicatedServer)
+	{
+		return;
+	}
+
+	bNeedsRenderStateUpdate = true;
+	World->SetMaterialParameterCollectionInstanceNeedsUpdate();
+
+	if (!GDeferUpdateRenderStates)
+	{
+		DeferredUpdateRenderState();
+	}
+}
+
+void UMaterialParameterCollectionInstance::DeferredUpdateRenderState()
+{
+	if (bNeedsRenderStateUpdate)
+	{
+		// Propagate the new values to the rendering thread
+		TArray<FVector4> ParameterData;
+		GetParameterData(ParameterData);
+		Resource->GameThread_UpdateContents(Collection ? Collection->StateId : FGuid(), ParameterData, GetFName());
+		// Update the world's scene with the new uniform buffer pointer
+		World->UpdateParameterCollectionInstances(false);
+	}
+
+	bNeedsRenderStateUpdate = false;
 }
 
 void UMaterialParameterCollectionInstance::GetParameterData(TArray<FVector4>& ParameterData) const
@@ -642,7 +673,7 @@ void UMaterialParameterCollectionInstance::FinishDestroy()
 	if (Resource)
 	{
 		Resource->GameThread_Destroy();
-		Resource = NULL;
+		Resource = nullptr;
 	}
 
 	Super::FinishDestroy();
@@ -692,7 +723,6 @@ void FMaterialParameterCollectionInstanceResource::UpdateContents(const FGuid& I
 	if (InId != FGuid() && Data.Num() > 0)
 	{
 		UniformBufferLayout.ConstantBufferSize = Data.GetTypeSize() * Data.Num();
-		UniformBufferLayout.ResourceOffset = 0;
 		check(UniformBufferLayout.Resources.Num() == 0);
 		UniformBuffer = RHICreateUniformBuffer(Data.GetData(), UniformBufferLayout, UniformBuffer_MultiFrame);
 	}

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3809606
 Availability:Public
 Title:애니메이션 시퀀스
 Crumbs: %ROOT%, Engine, Engine/Animation
@@ -102,7 +102,7 @@ Qo4hH0h9ZZA
 
 ![](AnimAssetDetails.png)
 
-[COMMENT]
+[COMMENT:none]
  This was moved with the 4.14 Animation Edtior Revamp
 ### 선형 키 제거
 

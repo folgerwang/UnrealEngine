@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3188567
+﻿INTSourceChangelist:3807090
 title:HLOD （Hierarchical Level of Detail）メッシュのビルド
 Description:HLOD が有効な UE4 プロジェクト用に HLOD メッシュを準備する方法を学習しましょう。
 crumbs:
@@ -25,27 +25,27 @@ topic-image:Engine/HLOD/HowTo/HLOD_howto_Topic_02.png
 
 1. 必要な個々の HLOD レベルのセットアップをしたら、**[Generate Clusters (クラスタ生成)]** ボタンをクリックします。
 
-	![image alt text](Engine/HLOD/Overview/image_3.png)(h:28 w:112 convert:false)
+	![image alt text](Engine/HLOD/Overview/image_3.png)(w:112 convert:false)
 
 	プロセスが開始すると、生成されている LOD レベルを示す進捗バーが表示されます。
 
-	![image alt text](Engine/HLOD/Overview/image_4.png)(h:58 w:398 convert:false)
+	![image alt text](Engine/HLOD/Overview/image_4.png)(w:398 convert:false)
 
 1. プロセスが完了すると、**HLOD アウトライナー** にクラスタ化されたすべての **アクタ** が表示されます。 
 
-	![image alt text](Engine/HLOD/Overview/image_5.png)(h:350 w:624 convert:false)
+	![image alt text](Engine/HLOD/Overview/image_5.png)(w:624 convert:false)
 
 1. 個々の **LODActors** を展開して、名前の左側にある矢印ボタンをクリックすることで、どの **スタティックメッシュ** がクラスタを構成しているかを確認することができます。
 
-	![image alt text](Engine/HLOD/Overview/image_6.png)(h:350 w:624 convert:false)
+	![image alt text](Engine/HLOD/Overview/image_6.png)(w:624 convert:false)
 
 1. **HLOD アウトライナー** から **LODActor** を選択することでレベル内のクラスタを視覚化可能であり、Editor ビューポートで確認することができます。
 
-	![image alt text](Engine/HLOD/Overview/image_7.png)(h:481 w:624 convert:false)
+	![image alt text](Engine/HLOD/Overview/image_7.png)(w:624 convert:false)
 
 生成されたクラスタがどのように機能するかをエディタで視覚化するために、**Forced Viewing Level** スライダーを使って機能している HLOD を見ることができます。特定のスクリーンサイズに変える必要はありません。これは生成されたクラスタの一部の可能性がある画面上の問題のトラブルシューティングに役立ちます。
 
-![image alt text](Engine/HLOD/Overview/image_8.png)(h:17 w:624 convert:false)
+![image alt text](Engine/HLOD/Overview/image_8.png)(w:624 convert:false)
 
 生成されたクラスタが気に入らない場合は、指定されたクラスタを展開して、問題になっている **Static Mesh アクタ** を選択します。それをクリックして別のクラスタにドラッグするか、リストの **アクタ** 名を右クリックすることで、クラスタの生成からそれを **Remove** または **Exclude** するオプションがあります。 
 
@@ -53,7 +53,7 @@ topic-image:Engine/HLOD/HowTo/HLOD_howto_Topic_02.png
 
 **Actor** を **Cluster** に追加したい場合、それらを **World Outliner** でクリックして **Cluster** にドラッグします。
 
-![image alt text](Engine/HLOD/Overview/image_11.png)(h:236 w:269 convert:false)
+![image alt text](Engine/HLOD/Overview/image_11.png)(w:269 convert:false)
 
 HLOD のレベルの **Cluster Generation Settings** で値を調整しながら、生成されるクラスタが満足のゆくものになるまでこのプロセスを繰り返します。その後、次のセクション、[**プロキシ メッシュの生成**](#プロキシメッシュの生成) に進みます。
 
@@ -63,11 +63,11 @@ HLOD のレベルの **Cluster Generation Settings** で値を調整しながら
 
 1. プロキシ メッシュをビルドする準備が整ったら、 [Generate Proxy Mesh (プロキシ メッシュの生成)] ボタンをクリックしてこのプロセスを開始することができます。  
 
-	![image alt text](Engine/HLOD/Overview/image_13.png)(h:28 w:148 convert:false)
+	![image alt text](Engine/HLOD/Overview/image_13.png)(w:148 convert:false)
 
 	プロセスが開始したら、作業中の HLOD レベルと生成中のプロキシ メッシュ数を示す進捗バーが表示されます。この進捗バーには、すべての HLOD レベルや作成されているプロキシ メッシュの合計数を表示するわけではなく、各レベルに対する情報だけが表示されます。
 
-	![image alt text](Engine/HLOD/Overview/image_14.png)(h:94 w:458 convert:false)
+	![image alt text](Engine/HLOD/Overview/image_14.png)(w:458 convert:false)
 
 	HLOD レベルの設定、作成されるプロキシ メッシュ数とシステムの仕様に応じて、このプロセスはハイエンド マシンであっても時間がかかることがあります。
 

@@ -7,7 +7,7 @@
 #include "WmfMediaReadState.h"
 #include "Misc/ScopeLock.h"
 
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 
 
 /* FWmfByteStream structors
@@ -144,7 +144,7 @@ STDMETHODIMP FWmfMediaByteStream::BeginRead(BYTE* pb, ULONG cb, IMFAsyncCallback
 		return E_INVALIDARG;
 	}
 
-	TComPtr<FWmfMediaReadState> ReadState = new(std::nothrow) FWmfMediaReadState(pb, cb);
+	TComPtr<FWmfMediaReadState> ReadState = new FWmfMediaReadState(pb, cb);
 
 	if (ReadState == NULL)
 	{
@@ -346,6 +346,6 @@ STDMETHODIMP FWmfMediaByteStream::Write(const BYTE* pb, ULONG cb, ULONG* pcbWrit
 }
 
 
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 #endif //WMFMEDIA_SUPPORTED_PLATFORM

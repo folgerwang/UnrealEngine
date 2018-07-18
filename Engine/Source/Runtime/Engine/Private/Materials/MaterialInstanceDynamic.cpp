@@ -9,6 +9,11 @@
 #include "Materials/MaterialInstanceSupport.h"
 #include "Engine/Texture.h"
 #include "Misc/RuntimeErrors.h"
+#include "UnrealEngine.h"
+#include "Materials/MaterialUniformExpressions.h"
+#include "Stats/StatsMisc.h"
+
+DECLARE_CYCLE_STAT(TEXT("MaterialInstanceDynamic CopyUniformParams"), STAT_MaterialInstanceDynamic_CopyUniformParams, STATGROUP_Shaders);
 
 UMaterialInstanceDynamic::UMaterialInstanceDynamic(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -273,9 +278,175 @@ void UMaterialInstanceDynamic::K2_InterpolateMaterialInstanceParams(UMaterialIns
 	}
 }
 
-void UMaterialInstanceDynamic::K2_CopyMaterialInstanceParameters(UMaterialInterface* Source)
+void UMaterialInstanceDynamic::K2_CopyMaterialInstanceParameters(UMaterialInterface* Source, bool bQuickParametersOnly /*= false*/)
 {
-	CopyMaterialInstanceParameters(Source);
+	if (bQuickParametersOnly)
+	{
+		CopyMaterialUniformParameters(Source);	
+	}
+	else
+	{
+		CopyMaterialInstanceParameters(Source);
+	}
+}
+
+void UMaterialInstanceDynamic::CopyMaterialUniformParameters(UMaterialInterface* Source)
+{
+	SCOPE_CYCLE_COUNTER(STAT_MaterialInstanceDynamic_CopyUniformParams)
+
+	if ((Source == nullptr) || (Source == this))
+	{
+		return;
+	}
+
+	ClearParameterValuesInternal();
+
+	if (!FPlatformProperties::IsServerOnly())
+	{
+		// Build the chain as we don't know which level in the hierarchy will override which parameter
+		TArray<UMaterialInterface*> Hierarchy;
+		UMaterialInterface* NextSource = Source;
+		while (NextSource)
+		{
+			Hierarchy.Add(NextSource);
+			if (UMaterialInstance* AsInstance = Cast<UMaterialInstance>(NextSource))
+			{
+				NextSource = AsInstance->Parent;
+			}
+			else
+			{
+				NextSource = nullptr;
+			}
+		}
+
+		// Walk chain from material base overriding discovered values. Worst case
+		// here is a long instance chain with every value overridden on every level
+		for (int Index = Hierarchy.Num() - 1; Index >= 0; --Index)
+		{
+			UMaterialInterface* Interface = Hierarchy[Index];
+
+			// For instances override existing data
+			if (UMaterialInstance* AsInstance = Cast<UMaterialInstance>(Interface))
+			{	
+				// Scalars
+				for (FScalarParameterValue& Parameter : AsInstance->ScalarParameterValues)
+				{
+					for (FScalarParameterValue& ExistingParameter : ScalarParameterValues)
+					{
+						if (ExistingParameter.ParameterInfo.Name == Parameter.ParameterInfo.Name)
+						{
+							ExistingParameter.ParameterValue = Parameter.ParameterValue;
+							break;
+						}
+					}
+				}
+
+				// Vectors
+				for (FVectorParameterValue& Parameter : AsInstance->VectorParameterValues)
+				{
+					FVectorParameterValue* ParameterValue = nullptr;
+
+					for (FVectorParameterValue& ExistingParameter : VectorParameterValues)
+					{
+						if (ExistingParameter.ParameterInfo.Name == Parameter.ParameterInfo.Name)
+						{
+							ExistingParameter.ParameterValue = Parameter.ParameterValue;
+							break;
+						}
+					}
+
+				}
+
+				// Textures
+				for (FTextureParameterValue& Parameter : AsInstance->TextureParameterValues)
+				{
+					FTextureParameterValue* ParameterValue = nullptr;
+
+					for (FTextureParameterValue& ExistingParameter : TextureParameterValues)
+					{
+						if (ExistingParameter.ParameterInfo.Name == Parameter.ParameterInfo.Name)
+						{
+							ExistingParameter.ParameterValue = Parameter.ParameterValue;
+							break;
+						}
+					}
+				}
+			}
+			else if (UMaterial* AsMaterial = Cast<UMaterial>(Interface))
+			{
+				// Material should be the base and only append new parameters
+				checkSlow(ScalarParameterValues.Num() == 0);
+				checkSlow(VectorParameterValues.Num() == 0);
+				checkSlow(TextureParameterValues.Num() == 0);
+
+				const FMaterialResource* Resource = nullptr;		
+				if (UWorld* World = AsMaterial->GetWorld())
+				{
+					Resource = AsMaterial->GetMaterialResource(World->FeatureLevel);
+				}
+
+				if (!Resource)
+				{
+					Resource = AsMaterial->GetMaterialResource(GMaxRHIFeatureLevel);
+				}
+
+				if (Resource)
+				{
+					// Scalars
+					const TArray<TRefCountPtr<FMaterialUniformExpression>>& ScalarExpressions = Resource->GetUniformScalarParameterExpressions();
+					for (FMaterialUniformExpression* ScalarExpression : ScalarExpressions)
+					{
+						if (ScalarExpression->GetType() == &FMaterialUniformExpressionScalarParameter::StaticType)
+						{
+							FMaterialUniformExpressionScalarParameter* ScalarParameter = static_cast<FMaterialUniformExpressionScalarParameter*>(ScalarExpression);
+
+							FScalarParameterValue* ParameterValue = new(ScalarParameterValues) FScalarParameterValue;
+							ParameterValue->ParameterInfo.Name = ScalarParameter->GetParameterInfo().Name;
+							ScalarParameter->GetDefaultValue(ParameterValue->ParameterValue);
+						}
+					}
+
+					// Vectors
+					const TArray<TRefCountPtr<FMaterialUniformExpression>>& VectorExpressions = Resource->GetUniformVectorParameterExpressions();
+					for (FMaterialUniformExpression* VectorExpression : VectorExpressions)
+					{
+						if (VectorExpression->GetType() == &FMaterialUniformExpressionVectorParameter::StaticType)
+						{
+							FMaterialUniformExpressionVectorParameter* VectorParameter = static_cast<FMaterialUniformExpressionVectorParameter*>(VectorExpression);
+
+							FVectorParameterValue* ParameterValue = new(VectorParameterValues) FVectorParameterValue;
+							ParameterValue->ParameterInfo.Name = VectorParameter->GetParameterInfo().Name;
+							VectorParameter->GetDefaultValue(ParameterValue->ParameterValue);
+						}
+					}
+
+					// Textures
+					const TArray<TRefCountPtr<FMaterialUniformExpressionTexture>>* TextureExpressions[2] =
+					{
+						&Resource->GetUniform2DTextureExpressions(),
+						&Resource->GetUniformCubeTextureExpressions()
+					};
+
+					for (int32 TypeIndex = 0; TypeIndex < ARRAY_COUNT(TextureExpressions); TypeIndex++)
+					{
+						for (FMaterialUniformExpressionTexture* TextureExpression : *TextureExpressions[TypeIndex])
+						{
+							if (TextureExpression->GetType() == &FMaterialUniformExpressionTextureParameter::StaticType)
+							{
+								FMaterialUniformExpressionTextureParameter* TextureParameter = static_cast<FMaterialUniformExpressionTextureParameter*>(TextureExpression);
+
+								FTextureParameterValue* ParameterValue = new(TextureParameterValues) FTextureParameterValue;
+								ParameterValue->ParameterInfo.Name = TextureParameter->GetParameterName();
+								TextureParameter->GetGameThreadTextureValue(AsMaterial, *Resource, ParameterValue->ParameterValue, false);
+							}
+						}
+					}
+				}
+			}
+		}
+
+		InitResources();
+	}
 }
 
 void UMaterialInstanceDynamic::CopyInterpParameters(UMaterialInstance* Source)

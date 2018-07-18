@@ -1,5 +1,4 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
-// .
 
 // This code is largely based on that in ir_print_glsl_visitor.cpp from
 // glsl-optimizer.
@@ -108,8 +107,7 @@ static inline std::string FixHlslName(const glsl_type* Type, bool bIsES2)
 	{
 		return "mat4";
 	}
-#ifndef UE4_HTML5_TARGET_WEBGL2
-	else if (bIsES2 && Type->base_type == GLSL_TYPE_UINT)
+	else if (bIsES2 && (Type->base_type == GLSL_TYPE_UINT))
 	{
 		// uint does not exist with GLSL 1.00 (ES2)
 		// So we silently swap uint types to int.
@@ -130,7 +128,6 @@ static inline std::string FixHlslName(const glsl_type* Type, bool bIsES2)
 			return "ivec4";
 		}
 	}
-#endif
 	return Name;
 }
 
@@ -561,6 +558,8 @@ class ir_gen_glsl_visitor : public ir_visitor
 	bool bIsES;
 	bool bEmitPrecision;
 	bool bIsES31;
+	bool bIsWebGL;
+	EHlslCompileTarget CompileTarget;
 	_mesa_glsl_parser_targets ShaderTarget;
 
 	bool bGenerateLayoutLocations;
@@ -597,6 +596,9 @@ class ir_gen_glsl_visitor : public ir_visitor
 
 	/** Whether the shader being cross compiled needs EXT_shader_texture_lod. */
 	bool bUsesES2TextureLODExtension;
+
+	/** Whether the shader being cross compiled needs GL_EXT_texture_buffer. */
+	bool bUsesTexelFetch;
 
 	// Found dFdx or dFdy
 	bool bUsesDXDY;
@@ -734,7 +736,7 @@ class ir_gen_glsl_visitor : public ir_visitor
 		}
 		else 
 		{
-			std::string Name = FixHlslName(t, bIsES && !bIsES31);
+			std::string Name = FixHlslName(t, bIsES && !bIsES31 && !bIsWebGL);
 			ralloc_asprintf_append(buffer, "%s", Name.c_str());
 		}
 	}
@@ -764,7 +766,6 @@ class ir_gen_glsl_visitor : public ir_visitor
 			if (is_unsized)
 			{
 				ralloc_asprintf_append(buffer, "[]");
-				
 			}
 			else
 			{
@@ -883,10 +884,11 @@ class ir_gen_glsl_visitor : public ir_visitor
 		const char * const ESFSmode_str[] = { "", "uniform ", "varying ", "attribute ", "", "in ", "", "shared " };
 		const char * const GLSLinterp_str[] = { "", "smooth ", "flat ", "noperspective " };
 		const char * const ESinterp_str[] = { "", "", "", "" };
+		const char * const ES31interp_str[] = { "", "smooth ", "flat ", "" };
 		const char * const layout_str[] = { "", "layout(origin_upper_left) ", "layout(pixel_center_integer) ", "layout(origin_upper_left,pixel_center_integer) " };
 
 		const char * const * mode_str = bIsES ? ((ShaderTarget == vertex_shader) ? ESVSmode_str : ESFSmode_str) : GLSLmode_str;
-		const char * const * interp_str = bIsES ? ESinterp_str : GLSLinterp_str;
+		const char * const * interp_str = bIsES ? ESinterp_str : (bIsES31 ? ES31interp_str : GLSLinterp_str);
 
 		// Check for an initialized const variable
 		// If var is read-only and initialized, set it up as an initialized const
@@ -1309,7 +1311,7 @@ class ir_gen_glsl_visitor : public ir_visitor
 			}
 			else
 			{
-				ralloc_asprintf_append(buffer, "%s(", FixHlslName(expr->type, bIsES && !bIsES31).c_str());
+				ralloc_asprintf_append(buffer, "%s(", FixHlslName(expr->type, bIsES && !bIsES31 && !bIsWebGL).c_str());
 				expr->operands[0]->accept(this);
 				ralloc_asprintf_append(buffer, ")");
 			}
@@ -1403,6 +1405,11 @@ class ir_gen_glsl_visitor : public ir_visitor
 			// See http://www.khronos.org/registry/gles/extensions/EXT/EXT_shader_texture_lod.txt
 			bUsesES2TextureLODExtension = true;
 			bEmitEXT = true;
+		}
+
+		if (op == ir_txf)
+		{
+			bUsesTexelFetch = true;
 		}
 
 		// Emit texture function and sampler.
@@ -1730,7 +1737,6 @@ class ir_gen_glsl_visitor : public ir_visitor
 		check(scope_depth > 0);
 
 		print_image_op( deref, NULL);
-		
 	}
 
 	virtual void visit(ir_dereference_record *deref)
@@ -1862,7 +1868,7 @@ class ir_gen_glsl_visitor : public ir_visitor
 		}
 		else if (constant->type->base_type == GLSL_TYPE_INT
 			// print literal uints as ints for ES2.
-			|| (bIsES && !bIsES31 && constant->type->base_type == GLSL_TYPE_UINT)
+			|| (bIsES && !bIsES31 && !bIsWebGL && constant->type->base_type == GLSL_TYPE_UINT)
 			)
 		{
 			ralloc_asprintf_append(buffer, "%d", constant->value.i[index]);
@@ -3089,7 +3095,15 @@ class ir_gen_glsl_visitor : public ir_visitor
 			{
 				ralloc_asprintf_append(buffer, "#extension GL_EXT_tessellation_shader : enable\n");
 			}
-
+		}
+		else if ((bIsES || bIsES31) && bUsesTexelFetch)
+		{
+			// Not supported by ES2 and ES3.1 spec, but many phones support this extension
+			// GPU particles require this
+			// App shall not use a shader if this extension is not supported on device
+			ralloc_asprintf_append(buffer, "\n#ifdef GL_EXT_texture_buffer\n");
+			ralloc_asprintf_append(buffer, "#extension GL_EXT_texture_buffer : enable\n");
+			ralloc_asprintf_append(buffer, "\n#endif\n");
 		}
 		ralloc_asprintf_append(buffer, "// end extensions\n");
 	}
@@ -3097,12 +3111,13 @@ class ir_gen_glsl_visitor : public ir_visitor
 public:
 
 	/** Constructor. */
-	ir_gen_glsl_visitor(bool bInIsES, bool bInEmitPrecision, bool bInIsES31, _mesa_glsl_parser_targets InShaderTarget, bool bInGenerateLayoutLocations, bool bInDefaultPrecisionIsHalf, bool bInNoGlobalUniforms, bool bInUsesFrameBufferFetch, bool bInUsesExternalTexture)
+	ir_gen_glsl_visitor(bool bInIsES, bool bInEmitPrecision, bool bInIsWebGL, EHlslCompileTarget InCompileTarget, _mesa_glsl_parser_targets InShaderTarget, bool bInGenerateLayoutLocations, bool bInDefaultPrecisionIsHalf, bool bInNoGlobalUniforms, bool bInUsesFrameBufferFetch, bool bInUsesExternalTexture)
 		: early_depth_stencil(false)
 		, bIsES(bInIsES)
 		, bEmitPrecision(bInEmitPrecision)
-		, bIsES31(bInIsES31)
-		, ShaderTarget(InShaderTarget)
+		, bIsES31(InCompileTarget == HCT_FeatureLevelES3_1 || InCompileTarget == HCT_FeatureLevelES3_1Ext)
+		, bIsWebGL(bInIsWebGL)
+		, CompileTarget(InCompileTarget)		, ShaderTarget(InShaderTarget)
 		, bGenerateLayoutLocations(bInGenerateLayoutLocations)
 		, bDefaultPrecisionIsHalf(bInDefaultPrecisionIsHalf)
 		, bUsesFrameBufferFetch(bInUsesFrameBufferFetch)
@@ -3116,6 +3131,7 @@ public:
 		, should_print_uint_literals_as_ints(false)
 		, loop_count(0)
 		, bUsesES2TextureLODExtension(false)
+		, bUsesTexelFetch(false)
 		, bUsesDXDY(false)
 		, bUsesInstanceID(false)
 		, bNoGlobalUniforms(bInNoGlobalUniforms)
@@ -3222,7 +3238,8 @@ bool compiler_internal_AdjustIsFrontFacing(bool isFrontFacing)
 				ralloc_asprintf_append(buffer, "	#define %sout\n", ES31FrameBufferFetchStorageQualifier);
 				ralloc_asprintf_append(buffer, "	vec4 FramebufferFetchES2() { return gl_LastFragColorARM; }\n");
 				ralloc_asprintf_append(buffer, "#else\n");
-				ralloc_asprintf_append(buffer, "	#error This shader requires framebuffer fetch support.\n");
+				ralloc_asprintf_append(buffer, "	#define %sout\n", ES31FrameBufferFetchStorageQualifier);
+				ralloc_asprintf_append(buffer, "	vec4 FramebufferFetchES2() { return vec4(65000.0, 65000.0, 65000.0, 65000.0); }\n");
 				ralloc_asprintf_append(buffer, "#endif\n\n");
 			}
 			else // ES3, ES2
@@ -3308,7 +3325,7 @@ bool compiler_internal_AdjustIsFrontFacing(bool isFrontFacing)
 
 		char* Extensions = ralloc_asprintf(mem_ctx, "");
 		buffer = &Extensions;
-		print_extensions(state, bUsesFrameBufferFetch, bUsesDepthbufferFetchES2, state->language_version == 310, bUsesExternalTexture);
+		print_extensions(state, bUsesFrameBufferFetch, bUsesDepthbufferFetchES2, CompileTarget == HCT_FeatureLevelES3_1Ext, bUsesExternalTexture);
 		if (state->bSeparateShaderObjects && !state->bGenerateES)
 		{
 			switch (state->target)
@@ -3500,7 +3517,16 @@ char* FGlslCodeBackend::GenerateCode(exec_list* ir, _mesa_glsl_parse_state* stat
 	const bool bGenerateLayoutLocations = state->bGenerateLayoutLocations;
 	const bool bEmitPrecision = WantsPrecisionModifiers();
 	const bool bUsesFrameBufferFetch = Frequency == HSF_PixelShader && UsesUEIntrinsic(ir, FRAMEBUFFER_FETCH_ES2);
-	ir_gen_glsl_visitor visitor(state->bGenerateES, bEmitPrecision, (Target == HCT_FeatureLevelES3_1Ext || Target == HCT_FeatureLevelES3_1), state->target, bGenerateLayoutLocations, bDefaultPrecisionIsHalf, !AllowsGlobalUniforms(), bUsesFrameBufferFetch, bUsesExternalTexture);
+	ir_gen_glsl_visitor visitor(state->bGenerateES,
+								bEmitPrecision,
+								bIsWebGL,
+								Target,
+								state->target,
+								bGenerateLayoutLocations,
+								bDefaultPrecisionIsHalf,
+								!AllowsGlobalUniforms(),
+								bUsesFrameBufferFetch,
+								bUsesExternalTexture);
 	const char* code = visitor.run(ir, state, bGroupFlattenedUBs);
 	return _strdup(code);
 }
@@ -3798,16 +3824,24 @@ static void ConfigureInOutVariableLayout(EHlslShaderFrequency Frequency,
 	}
 	else if (Semantic && FCStringAnsi::Strnicmp(Variable->name, "gl_", 3) != 0)
 	{
-		Variable->explicit_location = 1;
 		Variable->semantic = ralloc_strdup(Variable, Semantic);
+
 		if(Mode == ir_var_in)
 		{
 			Variable->location = ParseState->next_in_location_slot++;
 		}
 		else
 		{
-			Variable->location = ParseState->next_out_location_slot++;
+			// Location may be already assigned to a pixel shader outputs (SV_TargetX HLSL output semantics).
+			// We want to preserve explicitly assigned render target indices and auto-generate them otherwise.
+			const bool bIsRenderTargetOutput = Frequency == HSF_PixelShader && Mode == ir_var_out;
+			if (!bIsRenderTargetOutput || !Variable->explicit_location)
+			{
+				Variable->location = ParseState->next_out_location_slot++;
+			}
 		}
+
+		Variable->explicit_location = true;
 	}
 }
 
@@ -4010,7 +4044,9 @@ static ir_rvalue* GenShaderInputSemantic(
 
 	// Patch constants must be variables, not structs or interface blocks, in GLSL <= 4.10
 	bool bUseGLSL410Rules = InputQualifier.Fields.bIsPatchConstant && ParseState->language_version <= 410;
-	if (Frequency == HSF_VertexShader || ParseState->bGenerateES || bUseGLSL410Rules)
+	bool bUseESRules = ParseState->bGenerateES || ParseState->language_version == 310;
+
+	if (Frequency == HSF_VertexShader || bUseESRules || bUseGLSL410Rules)
 	{
 		const char* Prefix = "in";
 		if ((ParseState->bGenerateES && Frequency == HSF_PixelShader) || bUseGLSL410Rules)
@@ -4274,10 +4310,17 @@ static ir_rvalue* GenShaderOutputSemantic(
 	}
 
 	bool bUseGLSL410Rules = OutputQualifier.Fields.bIsPatchConstant && ParseState->language_version == 410;
-	if (Variable == NULL && (ParseState->bGenerateES || bUseGLSL410Rules))
+	bool bUseESRules = ParseState->bGenerateES || ParseState->language_version == 310;
+
+	if (Variable == NULL && (bUseESRules || bUseGLSL410Rules))
 	{
 		// Create a variable so that a struct will not get added
 		Variable = new(ParseState)ir_variable(Type, ralloc_asprintf(ParseState, "var_%s", Semantic), ir_var_out);
+	}
+
+	if (ParseState->bGenerateLayoutLocations && Variable && !Variable->is_patch_constant)
+	{
+		ConfigureInOutVariableLayout(Frequency, ParseState, Semantic, Variable, ir_var_out);
 	}
 
 	if (Variable)

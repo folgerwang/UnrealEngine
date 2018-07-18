@@ -65,6 +65,127 @@ DECLARE_CYCLE_STAT(TEXT("MakeHitResult"), STAT_MakeHitResult, STATGROUP_Game);
 DECLARE_CYCLE_STAT(TEXT("SpawnTime"), STAT_SpawnTime, STATGROUP_Game);
 
 //////////////////////////////////////////////////////////////////////////
+// FSaveGameHeader
+
+struct FSaveGameHeader
+{
+	FSaveGameHeader();
+	FSaveGameHeader(TSubclassOf<USaveGame> ObjectType);
+
+	void Empty();
+	bool IsEmpty() const;
+
+	void Read(FMemoryReader& MemoryReader);
+	void Write(FMemoryWriter& MemoryWriter);
+
+	int32 FileTypeTag;
+	int32 SaveGameFileVersion;
+	int32 PackageFileUE4Version;
+	FEngineVersion SavedEngineVersion;
+	int32 CustomVersionFormat;
+	FCustomVersionContainer CustomVersions;
+	FString SaveGameClassName;
+};
+
+FSaveGameHeader::FSaveGameHeader()
+	: FileTypeTag(0)
+	, SaveGameFileVersion(0)
+	, PackageFileUE4Version(0)
+	, CustomVersionFormat(static_cast<int32>(ECustomVersionSerializationFormat::Unknown))
+{}
+
+FSaveGameHeader::FSaveGameHeader(TSubclassOf<USaveGame> ObjectType)
+	: FileTypeTag(UE4_SAVEGAME_FILE_TYPE_TAG)
+	, SaveGameFileVersion(FSaveGameFileVersion::LatestVersion)
+	, PackageFileUE4Version(GPackageFileUE4Version)
+	, SavedEngineVersion(FEngineVersion::Current())
+	, CustomVersionFormat(static_cast<int32>(ECustomVersionSerializationFormat::Latest))
+	, CustomVersions(FCustomVersionContainer::GetRegistered())
+	, SaveGameClassName(ObjectType->GetPathName())
+{}
+
+void FSaveGameHeader::Empty()
+{
+	FileTypeTag = 0;
+	SaveGameFileVersion = 0;
+	PackageFileUE4Version = 0;
+	SavedEngineVersion.Empty();
+	CustomVersionFormat = (int32)ECustomVersionSerializationFormat::Unknown;
+	CustomVersions.Empty();
+	SaveGameClassName.Empty();
+}
+
+bool FSaveGameHeader::IsEmpty() const
+{
+	return (FileTypeTag == 0);
+}
+
+void FSaveGameHeader::Read(FMemoryReader& MemoryReader)
+{
+	Empty();
+
+	MemoryReader << FileTypeTag;
+
+	if (FileTypeTag != UE4_SAVEGAME_FILE_TYPE_TAG)
+	{
+		// this is an old saved game, back up the file pointer to the beginning and assume version 1
+		MemoryReader.Seek(0);
+		SaveGameFileVersion = FSaveGameFileVersion::InitialVersion;
+
+		// Note for 4.8 and beyond: if you get a crash loading a pre-4.8 version of your savegame file and 
+		// you don't want to delete it, try uncommenting these lines and changing them to use the version 
+		// information from your previous build. Then load and resave your savegame file.
+		//MemoryReader.SetUE4Ver(MyPreviousUE4Version);				// @see GPackageFileUE4Version
+		//MemoryReader.SetEngineVer(MyPreviousEngineVersion);		// @see FEngineVersion::Current()
+	}
+	else
+	{
+		// Read version for this file format
+		MemoryReader << SaveGameFileVersion;
+
+		// Read engine and UE4 version information
+		MemoryReader << PackageFileUE4Version;
+
+		MemoryReader << SavedEngineVersion;
+
+		MemoryReader.SetUE4Ver(PackageFileUE4Version);
+		MemoryReader.SetEngineVer(SavedEngineVersion);
+
+		if (SaveGameFileVersion >= FSaveGameFileVersion::AddedCustomVersions)
+		{
+			MemoryReader << CustomVersionFormat;
+
+			CustomVersions.Serialize(MemoryReader, static_cast<ECustomVersionSerializationFormat::Type>(CustomVersionFormat));
+			MemoryReader.SetCustomVersions(CustomVersions);
+		}
+	}
+
+	// Get the class name
+	MemoryReader << SaveGameClassName;
+}
+
+void FSaveGameHeader::Write(FMemoryWriter& MemoryWriter)
+{
+	// write file type tag. identifies this file type and indicates it's using proper versioning
+	// since older UE4 versions did not version this data.
+	MemoryWriter << FileTypeTag;
+
+	// Write version for this file format
+	MemoryWriter << SaveGameFileVersion;
+
+	// Write out engine and UE4 version information
+	MemoryWriter << PackageFileUE4Version;
+	MemoryWriter << SavedEngineVersion;
+
+	// Write out custom version data
+	MemoryWriter << CustomVersionFormat;
+	CustomVersions.Serialize(MemoryWriter, static_cast<ECustomVersionSerializationFormat::Type>(CustomVersionFormat));
+
+	// Write the class name so we know what class to load to
+	MemoryWriter << SaveGameClassName;
+}
+
+//////////////////////////////////////////////////////////////////////////
 // UGameplayStatics
 
 UGameplayStatics::UGameplayStatics(const FObjectInitializer& ObjectInitializer)
@@ -470,14 +591,14 @@ void UGameplayStatics::LoadStreamLevel(const UObject* WorldContextObject, FName 
 	}
 }
 
-void UGameplayStatics::UnloadStreamLevel(const UObject* WorldContextObject, FName LevelName,FLatentActionInfo LatentInfo)
+void UGameplayStatics::UnloadStreamLevel(const UObject* WorldContextObject, FName LevelName,FLatentActionInfo LatentInfo,bool bShouldBlockOnUnload)
 {
 	if (UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject, EGetWorldErrorMode::LogAndReturnNull))
 	{
 		FLatentActionManager& LatentManager = World->GetLatentActionManager();
 		if (LatentManager.FindExistingAction<FStreamLevelAction>(LatentInfo.CallbackTarget, LatentInfo.UUID) == nullptr)
 		{
-			FStreamLevelAction* NewAction = new FStreamLevelAction(false, LevelName, false, false, LatentInfo, World );
+			FStreamLevelAction* NewAction = new FStreamLevelAction(false, LevelName, false, bShouldBlockOnUnload, LatentInfo, World );
 			LatentManager.AddNewAction(LatentInfo.CallbackTarget, LatentInfo.UUID, NewAction );
 		}
 	}
@@ -496,7 +617,7 @@ ULevelStreaming* UGameplayStatics::GetStreamingLevel(const UObject* WorldContext
 				SearchPackageName = TEXT("/") + SearchPackageName;
 			}
 
-			for (ULevelStreaming* LevelStreaming : World->StreamingLevels)
+			for (ULevelStreaming* LevelStreaming : World->GetStreamingLevels())
 			{
 				// We check only suffix of package name, to handle situations when packages were saved for play into a temporary folder
 				// Like Saved/Autosaves/PackageName
@@ -685,29 +806,40 @@ void UGameplayStatics::PlayWorldCameraShake(const UObject* WorldContextObject, T
 	}
 }
 
-UParticleSystemComponent* CreateParticleSystem(UParticleSystem* EmitterTemplate, UWorld* World, AActor* Actor, bool bAutoDestroy)
+UParticleSystemComponent* CreateParticleSystem(UParticleSystem* EmitterTemplate, UWorld* World, AActor* Actor, bool bAutoDestroy, EPSCPoolMethod PoolingMethod)
 {
-	UParticleSystemComponent* PSC = NewObject<UParticleSystemComponent>((Actor ? Actor : (UObject*)World));
+	//Defaulting to creating systems from a pool. Can be disabled via fx.ParticleSystemPool.Enable 0
+	UParticleSystemComponent* PSC;
+
+	if (PoolingMethod != EPSCPoolMethod::None)
+	{
+		//If system is set to auto destroy the we should be safe to automatically allocate from a the world pool.
+		PSC = World->GetPSCPool().CreateWorldParticleSystem(EmitterTemplate, World, PoolingMethod);
+	}
+	else
+	{
+		PSC = NewObject<UParticleSystemComponent>((Actor ? Actor : (UObject*)World));
 	PSC->bAutoDestroy = bAutoDestroy;
 	PSC->bAllowAnyoneToDestroyMe = true;
 	PSC->SecondsBeforeInactive = 0.0f;
 	PSC->bAutoActivate = false;
 	PSC->SetTemplate(EmitterTemplate);
 	PSC->bOverrideLODMethod = false;
+	}
 
 	return PSC;
 }
 
-UParticleSystemComponent* UGameplayStatics::SpawnEmitterAtLocation(const UObject* WorldContextObject, UParticleSystem* EmitterTemplate, FVector SpawnLocation, FRotator SpawnRotation, bool bAutoDestroy)
+UParticleSystemComponent* UGameplayStatics::SpawnEmitterAtLocation(const UObject* WorldContextObject, UParticleSystem* EmitterTemplate, FVector SpawnLocation, FRotator SpawnRotation, bool bAutoDestroy, EPSCPoolMethod PoolingMethod)
 {
-	return SpawnEmitterAtLocation(WorldContextObject, EmitterTemplate, SpawnLocation, SpawnRotation, FVector(1.f), bAutoDestroy);
+	return SpawnEmitterAtLocation(WorldContextObject, EmitterTemplate, SpawnLocation, SpawnRotation, FVector(1.f), bAutoDestroy, PoolingMethod);
 }
 
-UParticleSystemComponent* UGameplayStatics::InternalSpawnEmitterAtLocation(UWorld* World, UParticleSystem* EmitterTemplate, FVector SpawnLocation, FRotator SpawnRotation, FVector SpawnScale, bool bAutoDestroy)
+UParticleSystemComponent* UGameplayStatics::InternalSpawnEmitterAtLocation(UWorld* World, UParticleSystem* EmitterTemplate, FVector SpawnLocation, FRotator SpawnRotation, FVector SpawnScale, bool bAutoDestroy, EPSCPoolMethod PoolingMethod)
 {
 	check(World && EmitterTemplate);
 
-	UParticleSystemComponent* PSC = CreateParticleSystem(EmitterTemplate, World, World->GetWorldSettings(), bAutoDestroy);
+	UParticleSystemComponent* PSC = CreateParticleSystem(EmitterTemplate, World, World->GetWorldSettings(), bAutoDestroy, PoolingMethod);
 
 	PSC->bAbsoluteLocation = true;
 	PSC->bAbsoluteRotation = true;
@@ -720,7 +852,7 @@ UParticleSystemComponent* UGameplayStatics::InternalSpawnEmitterAtLocation(UWorl
 	PSC->ActivateSystem(true);
 
 	// Notify the texture streamer so that PSC gets managed as a dynamic component.
-	IStreamingManager::Get().NotifyPrimitiveAttached(PSC, DPT_Spawned);
+	IStreamingManager::Get().NotifyPrimitiveUpdated(PSC);
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	if (PSC->Template && PSC->Template->IsImmortal())
@@ -734,35 +866,35 @@ UParticleSystemComponent* UGameplayStatics::InternalSpawnEmitterAtLocation(UWorl
 	return PSC;
 }
 
-UParticleSystemComponent* UGameplayStatics::SpawnEmitterAtLocation(const UObject* WorldContextObject, UParticleSystem* EmitterTemplate, FVector SpawnLocation, FRotator SpawnRotation, FVector SpawnScale, bool bAutoDestroy)
+UParticleSystemComponent* UGameplayStatics::SpawnEmitterAtLocation(const UObject* WorldContextObject, UParticleSystem* EmitterTemplate, FVector SpawnLocation, FRotator SpawnRotation, FVector SpawnScale, bool bAutoDestroy, EPSCPoolMethod PoolingMethod)
 {
 	UParticleSystemComponent* PSC = nullptr;
 	if (EmitterTemplate)
 	{
 		if (UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject, EGetWorldErrorMode::LogAndReturnNull))
 		{
-			PSC = InternalSpawnEmitterAtLocation(World, EmitterTemplate, SpawnLocation, SpawnRotation, SpawnScale, bAutoDestroy);
+			PSC = InternalSpawnEmitterAtLocation(World, EmitterTemplate, SpawnLocation, SpawnRotation, SpawnScale, bAutoDestroy, PoolingMethod);
 		}
 	}
 	return PSC;
 }
 
-UParticleSystemComponent* UGameplayStatics::SpawnEmitterAtLocation(UWorld* World, UParticleSystem* EmitterTemplate, const FTransform& SpawnTransform, bool bAutoDestroy)
+UParticleSystemComponent* UGameplayStatics::SpawnEmitterAtLocation(UWorld* World, UParticleSystem* EmitterTemplate, const FTransform& SpawnTransform, bool bAutoDestroy, EPSCPoolMethod PoolingMethod)
 {
 	UParticleSystemComponent* PSC = nullptr;
 	if (World && EmitterTemplate)
 	{
-		PSC = InternalSpawnEmitterAtLocation(World, EmitterTemplate, SpawnTransform.GetLocation(), SpawnTransform.GetRotation().Rotator(), SpawnTransform.GetScale3D(), bAutoDestroy);
+		PSC = InternalSpawnEmitterAtLocation(World, EmitterTemplate, SpawnTransform.GetLocation(), SpawnTransform.GetRotation().Rotator(), SpawnTransform.GetScale3D(), bAutoDestroy, PoolingMethod);
 	}
 	return PSC;
 }
 
-UParticleSystemComponent* UGameplayStatics::SpawnEmitterAttached(UParticleSystem* EmitterTemplate, USceneComponent* AttachToComponent, FName AttachPointName, FVector Location, FRotator Rotation, EAttachLocation::Type LocationType, bool bAutoDestroy)
+UParticleSystemComponent* UGameplayStatics::SpawnEmitterAttached(UParticleSystem* EmitterTemplate, USceneComponent* AttachToComponent, FName AttachPointName, FVector Location, FRotator Rotation, EAttachLocation::Type LocationType, bool bAutoDestroy, EPSCPoolMethod PoolingMethod)
 {
-	return SpawnEmitterAttached(EmitterTemplate, AttachToComponent, AttachPointName, Location, Rotation, FVector(1.f), LocationType, bAutoDestroy);
+	return SpawnEmitterAttached(EmitterTemplate, AttachToComponent, AttachPointName, Location, Rotation, FVector(1.f), LocationType, bAutoDestroy, PoolingMethod);
 }
 
-UParticleSystemComponent* UGameplayStatics::SpawnEmitterAttached(UParticleSystem* EmitterTemplate, USceneComponent* AttachToComponent, FName AttachPointName, FVector Location, FRotator Rotation, FVector Scale, EAttachLocation::Type LocationType, bool bAutoDestroy)
+UParticleSystemComponent* UGameplayStatics::SpawnEmitterAttached(UParticleSystem* EmitterTemplate, USceneComponent* AttachToComponent, FName AttachPointName, FVector Location, FRotator Rotation, FVector Scale, EAttachLocation::Type LocationType, bool bAutoDestroy, EPSCPoolMethod PoolingMethod)
 {
 	UParticleSystemComponent* PSC = nullptr;
 	if (EmitterTemplate)
@@ -776,7 +908,7 @@ UParticleSystemComponent* UGameplayStatics::SpawnEmitterAttached(UParticleSystem
 			UWorld* const World = AttachToComponent->GetWorld();
 			if (World && World->GetNetMode() != NM_DedicatedServer)
 			{
-				PSC = CreateParticleSystem(EmitterTemplate, World, AttachToComponent->GetOwner(), bAutoDestroy);
+				PSC = CreateParticleSystem(EmitterTemplate, World, AttachToComponent->GetOwner(), bAutoDestroy, PoolingMethod);
 				
 				PSC->SetupAttachment(AttachToComponent, AttachPointName);
 
@@ -811,7 +943,7 @@ UParticleSystemComponent* UGameplayStatics::SpawnEmitterAttached(UParticleSystem
 				PSC->ActivateSystem(true);
 				
 				// Notify the texture streamer so that PSC gets managed as a dynamic component.
-				IStreamingManager::Get().NotifyPrimitiveAttached(PSC, DPT_Spawned);
+				IStreamingManager::Get().NotifyPrimitiveUpdated(PSC);
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 				if (PSC->Template && PSC->Template->IsImmortal())
@@ -1558,31 +1690,8 @@ bool UGameplayStatics::SaveGameToMemory(USaveGame* SaveGameObject, TArray<uint8>
 {
 	FMemoryWriter MemoryWriter(OutSaveData, true);
 
-	// write file type tag. identifies this file type and indicates it's using proper versioning
-	// since older UE4 versions did not version this data.
-	int32 FileTypeTag = UE4_SAVEGAME_FILE_TYPE_TAG;
-	MemoryWriter << FileTypeTag;
-
-	// Write version for this file format
-	int32 SavegameFileVersion = FSaveGameFileVersion::LatestVersion;
-	MemoryWriter << SavegameFileVersion;
-
-	// Write out engine and UE4 version information
-	int32 PackageFileUE4Version = GPackageFileUE4Version;
-	MemoryWriter << PackageFileUE4Version;
-	FEngineVersion SavedEngineVersion = FEngineVersion::Current();
-	MemoryWriter << SavedEngineVersion;
-
-	// Write out custom version data
-	ECustomVersionSerializationFormat::Type const CustomVersionFormat = ECustomVersionSerializationFormat::Latest;
-	int32 CustomVersionFormatInt = static_cast<int32>(CustomVersionFormat);
-	MemoryWriter << CustomVersionFormatInt;
-	FCustomVersionContainer CustomVersions = FCustomVersionContainer::GetRegistered();
-	CustomVersions.Serialize(MemoryWriter, CustomVersionFormat);
-
-	// Write the class name so we know what class to load to
-	FString SaveGameClassName = SaveGameObject->GetClass()->GetName();
-	MemoryWriter << SaveGameClassName;
+	FSaveGameHeader SaveHeader(SaveGameObject->GetClass());
+	SaveHeader.Write(MemoryWriter);
 
 	// Then save the object state, replacing object refs and names with strings
 	FObjectAndNameAsStringProxyArchive Ar(MemoryWriter, false);
@@ -1613,31 +1722,8 @@ bool UGameplayStatics::SaveGameToSlot(USaveGame* SaveGameObject, const FString& 
 		TArray<uint8> ObjectBytes;
 		FMemoryWriter MemoryWriter(ObjectBytes, true);
 
-		// write file type tag. identifies this file type and indicates it's using proper versioning
-		// since older UE4 versions did not version this data.
-		int32 FileTypeTag = UE4_SAVEGAME_FILE_TYPE_TAG;
-		MemoryWriter << FileTypeTag;
-
-		// Write version for this file format
-		int32 SavegameFileVersion = FSaveGameFileVersion::LatestVersion;
-		MemoryWriter << SavegameFileVersion;
-
-		// Write out engine and UE4 version information
-		int32 PackageFileUE4Version = GPackageFileUE4Version;
-		MemoryWriter << PackageFileUE4Version;
-		FEngineVersion SavedEngineVersion = FEngineVersion::Current();
-		MemoryWriter << SavedEngineVersion;
-
-		// Write out custom version data
-		ECustomVersionSerializationFormat::Type const CustomVersionFormat = ECustomVersionSerializationFormat::Latest;
-		int32 CustomVersionFormatInt = static_cast<int32>(CustomVersionFormat);
-		MemoryWriter << CustomVersionFormatInt;
-		FCustomVersionContainer CustomVersions = FCustomVersionContainer::GetRegistered();
-		CustomVersions.Serialize(MemoryWriter, CustomVersionFormat);
-
-		// Write the class name so we know what class to load to
-		FString SaveGameClassName = SaveGameObject->GetClass()->GetName();
-		MemoryWriter << SaveGameClassName;
+		FSaveGameHeader SaveHeader(SaveGameObject->GetClass());
+		SaveHeader.Write(MemoryWriter);
 
 		// Then save the object state, replacing object refs and names with strings
 		FObjectAndNameAsStringProxyArchive Ar(MemoryWriter, false);
@@ -1682,57 +1768,14 @@ USaveGame* UGameplayStatics::LoadGameFromSlot(const FString& SlotName, const int
 		{
 			FMemoryReader MemoryReader(ObjectBytes, true);
 
-			int32 FileTypeTag;
-			MemoryReader << FileTypeTag;
-
-			int32 SavegameFileVersion;
-			if (FileTypeTag != UE4_SAVEGAME_FILE_TYPE_TAG)
-			{
-				// this is an old saved game, back up the file pointer to the beginning and assume version 1
-				MemoryReader.Seek(0);
-				SavegameFileVersion = FSaveGameFileVersion::InitialVersion;
-
-				// Note for 4.8 and beyond: if you get a crash loading a pre-4.8 version of your savegame file and 
-				// you don't want to delete it, try uncommenting these lines and changing them to use the version 
-				// information from your previous build. Then load and resave your savegame file.
-				//MemoryReader.SetUE4Ver(MyPreviousUE4Version);				// @see GPackageFileUE4Version
-				//MemoryReader.SetEngineVer(MyPreviousEngineVersion);		// @see FEngineVersion::Current()
-			}
-			else
-			{
-				// Read version for this file format
-				MemoryReader << SavegameFileVersion;
-
-				// Read engine and UE4 version information
-				int32 SavedUE4Version;
-				MemoryReader << SavedUE4Version;
-
-				FEngineVersion SavedEngineVersion;
-				MemoryReader << SavedEngineVersion;
-
-				MemoryReader.SetUE4Ver(SavedUE4Version);
-				MemoryReader.SetEngineVer(SavedEngineVersion);
-
-				if (SavegameFileVersion >= FSaveGameFileVersion::AddedCustomVersions)
-				{
-					int32 CustomVersionFormat;
-					MemoryReader << CustomVersionFormat;
-
-					FCustomVersionContainer CustomVersions;
-					CustomVersions.Serialize(MemoryReader, static_cast<ECustomVersionSerializationFormat::Type>(CustomVersionFormat));
-					MemoryReader.SetCustomVersions(CustomVersions);
-				}
-			}
-			
-			// Get the class name
-			FString SaveGameClassName;
-			MemoryReader << SaveGameClassName;
+			FSaveGameHeader SaveHeader;
+			SaveHeader.Read(MemoryReader);
 
 			// Try and find it, and failing that, load it
-			UClass* SaveGameClass = FindObject<UClass>(ANY_PACKAGE, *SaveGameClassName);
+			UClass* SaveGameClass = FindObject<UClass>(ANY_PACKAGE, *SaveHeader.SaveGameClassName);
 			if(SaveGameClass == NULL)
 			{
-				SaveGameClass = LoadObject<UClass>(NULL, *SaveGameClassName);
+				SaveGameClass = LoadObject<UClass>(NULL, *SaveHeader.SaveGameClassName);
 			}
 
 			// If we have a class, try and load it.
@@ -1747,6 +1790,16 @@ USaveGame* UGameplayStatics::LoadGameFromSlot(const FString& SlotName, const int
 	}
 
 	return OutSaveGameObject;
+}
+
+FMemoryReader UGameplayStatics::StripSaveGameHeader(const TArray<uint8>& SaveData)
+{
+	FMemoryReader MemoryReader(SaveData, /*bIsPersistent =*/true);
+
+	FSaveGameHeader SaveHeader;
+	SaveHeader.Read(MemoryReader);
+
+	return MemoryReader;
 }
 
 float UGameplayStatics::GetWorldDeltaSeconds(const UObject* WorldContextObject)
@@ -2361,7 +2414,7 @@ bool UGameplayStatics::ProjectWorldToScreen(APlayerController const* Player, con
 				ScreenPosition -= FVector2D(ProjectionData.GetConstrainedViewRect().Min);
 			}
 
-			bResult = Player->PostProcessWorldToScreen(WorldPosition, ScreenPosition, bPlayerViewportRelative);
+			bResult = bResult && Player->PostProcessWorldToScreen(WorldPosition, ScreenPosition, bPlayerViewportRelative);
 			return bResult;
 		}
 	}

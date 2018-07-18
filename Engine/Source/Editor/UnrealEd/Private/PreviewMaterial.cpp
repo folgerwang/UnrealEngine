@@ -10,7 +10,7 @@
 #include "MaterialEditor/DEditorStaticSwitchParameterValue.h"
 #include "MaterialEditor/DEditorTextureParameterValue.h"
 #include "MaterialEditor/DEditorVectorParameterValue.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "AI/NavigationSystemBase.h"
 #include "MaterialEditor/MaterialEditorInstanceConstant.h"
 #include "MaterialEditor/MaterialEditorPreviewParameters.h"
 #include "MaterialEditor/MaterialEditorMeshComponent.h"
@@ -25,11 +25,12 @@
 #include "Materials/MaterialExpressionMaterialAttributeLayers.h"
 #include "Materials/MaterialExpressionStaticBoolParameter.h"
 #include "Materials/MaterialExpressionStaticComponentMaskParameter.h"
-#include "UObjectIterator.h"
+#include "UObject/UObjectIterator.h"
 #include "PropertyEditorDelegates.h"
 #include "IDetailsView.h"
 #include "MaterialEditingLibrary.h"
 #include "MaterialPropertyHelpers.h"
+#include "MaterialStatsCommon.h"
 
 /**
  * Class for rendering the material on the preview mesh in the Material Editor
@@ -114,20 +115,33 @@ public:
 				}
 			}
 
+			// Only allow shaders that are used in the stats.
 			if (bEditorStatsMaterial)
 			{
-				TMap<FName, FString> ShaderTypeNamesAndDescriptions;
-				GetRepresentativeShaderTypesAndDescriptions(ShaderTypeNamesAndDescriptions);
+				TMap<FName, TArray<FMaterialStatsUtils::FRepresentativeShaderInfo>> ShaderTypeNamesAndDescriptions;
+				FMaterialStatsUtils::GetRepresentativeShaderTypesAndDescriptions(ShaderTypeNamesAndDescriptions, this);
 
-				//Only allow shaders that are used in the stats.
-				return ShaderTypeNamesAndDescriptions.Contains(ShaderType->GetFName());
+				for (auto DescriptionPair : ShaderTypeNamesAndDescriptions)
+				{
+					auto &DescriptionArray = DescriptionPair.Value;
+					if (DescriptionArray.FindByPredicate([ShaderType = ShaderType](auto& Info) { return Info.ShaderName == ShaderType->GetFName(); }))
+					{
+						return true;
+					}
+				}
+
+				return false;
 			}
 
 			// look for any of the needed type
 			bool bShaderTypeMatches = false;
 
 			// For FMaterialResource::GetRepresentativeInstructionCounts
-			if (FCString::Stristr(ShaderType->GetName(), TEXT("BasePassPSTDistanceFieldShadowsAndLightMapPolicyHQ")))
+			if (FCString::Stricmp(ShaderType->GetName(), TEXT("MobileDirectionalLight")))
+			{
+				bShaderTypeMatches = true;
+			}
+			else if (FCString::Stristr(ShaderType->GetName(), TEXT("BasePassPSTDistanceFieldShadowsAndLightMapPolicyHQ")))
 			{
 				bShaderTypeMatches = true;
 			}
@@ -194,15 +208,16 @@ public:
 	virtual bool IsPersistent() const { return false; }
 
 	// FMaterialRenderProxy interface
-	virtual const FMaterial* GetMaterial(ERHIFeatureLevel::Type FeatureLevel) const
+	virtual void GetMaterialWithFallback(ERHIFeatureLevel::Type FeatureLevel, const FMaterialRenderProxy*& OutMaterialRenderProxy, const FMaterial*& OutMaterial) const override
 	{
 		if(GetRenderingThreadShaderMap())
 		{
-			return this;
+			OutMaterialRenderProxy = this;
+			OutMaterial = this;
 		}
 		else
 		{
-			return UMaterial::GetDefaultMaterial(MD_Surface)->GetRenderProxy(false)->GetMaterial(FeatureLevel);
+			UMaterial::GetDefaultMaterial(MD_Surface)->GetRenderProxy(false)->GetMaterialWithFallback(FeatureLevel, OutMaterialRenderProxy, OutMaterial);
 		}
 	}
 
@@ -362,6 +377,7 @@ void UMaterialEditorPreviewParameters::RegenerateArrays()
 			if (PreviewMaterial->GetScalarParameterValue(ParameterValue.ParameterInfo, Value))
 			{
 				ParentMaterial->GetScalarParameterSliderMinMax(ParameterName, ParameterValue.SliderMin, ParameterValue.SliderMax);
+				ParentMaterial->IsScalarParameterUsedAsAtlasPosition(ParameterName, ParameterValue.AtlasData.bIsUsedAsAtlasPosition, ParameterValue.AtlasData.Curve, ParameterValue.AtlasData.Atlas);
 				ParameterValue.ParameterValue = Value;
 			}
 			if (ParentMaterial->GetParameterSortPriority(ParameterName, SortPriority))
@@ -962,6 +978,7 @@ void UMaterialEditorInstanceConstant::RegenerateArrays()
 
 			if (SourceInstance->GetScalarParameterValue(ParameterInfo, ParameterValue.ParameterValue))
 			{
+				SourceInstance->IsScalarParameterUsedAsAtlasPosition(ParameterInfo, ParameterValue.AtlasData.bIsUsedAsAtlasPosition, ParameterValue.AtlasData.Curve, ParameterValue.AtlasData.Atlas);
 				SourceInstance->GetScalarParameterSliderMinMax(ParameterInfo, ParameterValue.SliderMin, ParameterValue.SliderMax);		
 			}
 
@@ -1325,6 +1342,15 @@ void UMaterialEditorInstanceConstant::CopyToSourceInstance(const bool bForceStat
 				if (ScalarParameterValue && ScalarParameterValue->bOverride)
 				{
 					SourceInstance->SetScalarParameterValueEditorOnly(ScalarParameterValue->ParameterInfo, ScalarParameterValue->ParameterValue);
+					// Copy from editor parameter to saved FParameter
+					if (ScalarParameterValue->AtlasData.bIsUsedAsAtlasPosition)
+					{
+						FScalarParameterAtlasInstanceData InAtlasData = FScalarParameterAtlasInstanceData();
+						InAtlasData.bIsUsedAsAtlasPosition = ScalarParameterValue->AtlasData.bIsUsedAsAtlasPosition;
+						InAtlasData.Curve = ScalarParameterValue->AtlasData.Curve;
+						InAtlasData.Atlas = ScalarParameterValue->AtlasData.Atlas;
+						SourceInstance->SetScalarParameterAtlasEditorOnly(ScalarParameterValue->ParameterInfo, InAtlasData);
+					}
 				}
 				else if (VectorParameterValue && VectorParameterValue->bOverride)
 				{

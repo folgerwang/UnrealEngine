@@ -3,36 +3,22 @@
 #include "SComposurePostMoveSettingsImportDialog.h"
 #include "Widgets/Layout/SGridPanel.h"
 #include "Widgets/Input/SSpinBox.h"
-#include "Widgets/Input/SNumericEntryBox.h"
 #include "Widgets/Input/SFilePathPicker.h"
-#include "Widgets/Input/SNumericDropDown.h"
 #include "Widgets/Input/SButton.h"
+#include "Widgets/SFrameRatePicker.h"
 #include "EditorStyleSet.h"
 #include "EditorDirectories.h"
 
 #define LOCTEXT_NAMESPACE "PostMoveSettingsImportDialog"
 
-void SComposurePostMoveSettingsImportDialog::Construct(const FArguments& InArgs, float InFrameInterval, int32 InStartFrame)
+void SComposurePostMoveSettingsImportDialog::Construct(const FArguments& InArgs, FFrameRate InFrameRate, FFrameNumber InStartFrame)
 {
-	FrameInterval = InFrameInterval;
+	FrameRate  = InFrameRate;
 	StartFrame = InStartFrame;
 	OnImportSelected = InArgs._OnImportSelected;
 	OnImportCanceled = InArgs._OnImportCanceled;
 
 	const FButtonStyle& ButtonStyle = FCoreStyle::Get().GetWidgetStyle< FButtonStyle >("Button");
-
-	//TODO: There is a matching list in sequencer for snapping values, they should be generated together.
-	TArray<SNumericDropDown<float>::FNamedValue> FrameRateValues;
-	FrameRateValues.Add(SNumericDropDown<float>::FNamedValue(1 / 15.0f, LOCTEXT("15Fps", "15 fps"), LOCTEXT("Description15Fps", "15 fps")));
-	FrameRateValues.Add(SNumericDropDown<float>::FNamedValue(1 / 24.0f, LOCTEXT("24Fps", "24 fps (film)"), LOCTEXT("Description24Fps", "24 fps (film)")));
-	FrameRateValues.Add(SNumericDropDown<float>::FNamedValue(1 / 25.0f, LOCTEXT("25Fps", "25 fps (PAL/25)"), LOCTEXT("Description25Fps", "25 fps (PAL/25)")));
-	FrameRateValues.Add(SNumericDropDown<float>::FNamedValue(1 / 29.97f, LOCTEXT("29.97Fps", "29.97 fps (NTSC/30)"), LOCTEXT("Description29.97Fps", "29.97 fps (NTSC/30)")));
-	FrameRateValues.Add(SNumericDropDown<float>::FNamedValue(1 / 30.0f, LOCTEXT("30Fps", "30 fps"), LOCTEXT("Description30Fps", "30 fps")));
-	FrameRateValues.Add(SNumericDropDown<float>::FNamedValue(1 / 48.0f, LOCTEXT("48Fps", "48 fps"), LOCTEXT("Description48Fps", "48 fps")));
-	FrameRateValues.Add(SNumericDropDown<float>::FNamedValue(1 / 50.0f, LOCTEXT("50Fps", "50 fps (PAL/50)"), LOCTEXT("Description50Fps", "50 fps (PAL/50)")));
-	FrameRateValues.Add(SNumericDropDown<float>::FNamedValue(1 / 59.94f, LOCTEXT("59.94Fps", "59.94 fps (NTSC/60)"), LOCTEXT("Description59.94Fps", "59.94 fps (NTSC/60)")));
-	FrameRateValues.Add(SNumericDropDown<float>::FNamedValue(1 / 60.0f, LOCTEXT("60Fps", "60 fps"), LOCTEXT("Description60Fps", "60 fps")));
-	FrameRateValues.Add(SNumericDropDown<float>::FNamedValue(1 / 120.0f, LOCTEXT("120Fps", "120 fps"), LOCTEXT("Description120Fps", "120 fps")));
 
 	SWindow::Construct(SWindow::FArguments()
 		.Title(LOCTEXT("PostMoveSettingsImportDialogTitle", "Import external post moves data"))
@@ -88,11 +74,9 @@ void SComposurePostMoveSettingsImportDialog::Construct(const FArguments& InArgs,
 					+ SGridPanel::Slot(1, 2)
 					.Padding(0, 10, 0, 0)
 					[
-						SNew(SNumericDropDown<float>)
-						.DropDownValues(FrameRateValues)
-						.bShowNamedValue(true)
-						.Value(this, &SComposurePostMoveSettingsImportDialog::GetFrameInterval)
-						.OnValueChanged(this, &SComposurePostMoveSettingsImportDialog::FrameIntervalChanged)
+						SNew(SFrameRatePicker)
+						.Value(this, &SComposurePostMoveSettingsImportDialog::GetFrameRate)
+						.OnValueChanged(this, &SComposurePostMoveSettingsImportDialog::FrameRateChanged)
 					]
 
 					// Start Frame
@@ -171,24 +155,24 @@ void SComposurePostMoveSettingsImportDialog::FilePathPicked(const FString& Picke
 	FilePath = PickedPath;
 }
 
-float SComposurePostMoveSettingsImportDialog::GetFrameInterval() const
+FFrameRate SComposurePostMoveSettingsImportDialog::GetFrameRate() const
 {
-	return FrameInterval;
+	return FrameRate;
 }
 
-int32  SComposurePostMoveSettingsImportDialog::GetStartFrame() const
+int32 SComposurePostMoveSettingsImportDialog::GetStartFrame() const
 {
-	return StartFrame;
+	return StartFrame.Value;
 }
 
-void  SComposurePostMoveSettingsImportDialog::StartFrameChanged(int32 Value)
+void SComposurePostMoveSettingsImportDialog::StartFrameChanged(int32 Value)
 {
-	StartFrame = Value;
+	StartFrame.Value = Value;
 }
 
-void SComposurePostMoveSettingsImportDialog::FrameIntervalChanged(float Value)
+void SComposurePostMoveSettingsImportDialog::FrameRateChanged(FFrameRate Value)
 {
-	FrameInterval = Value;
+	FrameRate = Value;
 }
 
 FReply SComposurePostMoveSettingsImportDialog::OnCancelPressed()
@@ -199,6 +183,8 @@ FReply SComposurePostMoveSettingsImportDialog::OnCancelPressed()
 
 FReply SComposurePostMoveSettingsImportDialog::OnImportPressed()
 {
-	OnImportSelected.ExecuteIfBound(FilePath, FrameInterval, StartFrame);
+	OnImportSelected.ExecuteIfBound(FilePath, FrameRate, StartFrame);
 	return FReply::Handled();
 }
+
+#undef LOCTEXT_NAMESPACE

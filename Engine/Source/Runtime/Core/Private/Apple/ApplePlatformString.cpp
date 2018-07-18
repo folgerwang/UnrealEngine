@@ -4,8 +4,8 @@
 	ApplePlatformString.mm: Mac implementations of string functions
 =============================================================================*/
 
-#include "ApplePlatformString.h"
-#include "UnrealString.h"
+#include "Apple/ApplePlatformString.h"
+#include "Containers/UnrealString.h"
 #include "Containers/StringConv.h"
 
 @implementation NSString (FString_Extensions)

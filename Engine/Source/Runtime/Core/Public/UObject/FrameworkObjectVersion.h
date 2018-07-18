@@ -116,6 +116,9 @@ struct CORE_API FFrameworkObjectVersion
 		// Function terminator nodes serialize an FMemberReference rather than a name/class pair
 		FunctionTerminatorNodesUseMemberReference,
 
+		// Custom event and non-native interface event implementations add 'const' to reference parameters
+		EditableEventsUseConstRefParameters,
+
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,
 		LatestVersion = VersionPlusOne - 1

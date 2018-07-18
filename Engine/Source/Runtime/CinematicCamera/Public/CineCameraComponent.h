@@ -80,13 +80,18 @@ struct FCameraLensSettings
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Lens", meta = (ForceUnits = mm))
 	float MinimumFocusDistance;
 
+	/** Number of blades of diaphragm. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Lens", meta = (ClampMin = "4", ClampMax = "16"))
+	int32 DiaphragmBladeCount;
+
 	bool operator==(const FCameraLensSettings& Other) const
 	{
 		return (MinFocalLength == Other.MinFocalLength)
 			&& (MaxFocalLength == Other.MaxFocalLength)
 			&& (MinFStop == Other.MinFStop)
 			&& (MaxFStop == Other.MaxFStop)
-			&& (MinimumFocusDistance == Other.MinimumFocusDistance);
+			&& (MinimumFocusDistance == Other.MinimumFocusDistance)
+			&& (DiaphragmBladeCount == Other.DiaphragmBladeCount);
 	}
 };
 
@@ -199,7 +204,7 @@ struct FCameraFocusSettings
 /**
  * A specialized version of a camera component, geared toward cinematic usage.
  */
-UCLASS(HideCategories = (CameraSettings), HideFunctions = (SetFieldOfView, SetAspectRatio, SetConstraintAspectRatio), Blueprintable, ClassGroup = Camera, meta = (BlueprintSpawnableComponent), Config = Engine)
+UCLASS(HideCategories = (CameraSettings), HideFunctions = (SetFieldOfView, SetAspectRatio), Blueprintable, ClassGroup = Camera, meta = (BlueprintSpawnableComponent), Config = Engine)
 class CINEMATICCAMERA_API UCineCameraComponent : public UCameraComponent
 {
 	GENERATED_BODY()
@@ -295,15 +300,13 @@ protected:
 	virtual void OnComponentDestroyed(bool bDestroyingHierarchy) override;
 #endif
 
-#if WITH_EDITORONLY_DATA
-
 	/** Mesh used for debug focus plane visualization */
 	UPROPERTY(transient)
-	UStaticMesh* DebugFocusPlaneMesh;
+	UStaticMesh* FocusPlaneVisualizationMesh;
 
 	/** Material used for debug focus plane visualization */
 	UPROPERTY(transient)
-	UMaterial* DebugFocusPlaneMaterial;
+	UMaterial* FocusPlaneVisualizationMaterial;
 
 	/** Component for the debug focus plane visualization */
 	UPROPERTY(transient)
@@ -313,6 +316,7 @@ protected:
 	UPROPERTY(transient)
 	UMaterialInstanceDynamic* DebugFocusPlaneMID;
 
+#if WITH_EDITORONLY_DATA
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 	virtual void ResetProxyMeshTransform() override;
 #endif
@@ -345,8 +349,9 @@ protected:
 
 	virtual void NotifyCameraCut() override;
 	
-private:
 	void RecalcDerivedData();
+
+private:
 	float GetDesiredFocusDistance(const FVector& InLocation) const;
 	float GetWorldToMetersScale() const;
 

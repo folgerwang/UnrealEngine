@@ -1,6 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneImagePlateSection.h"
+#include "MovieScene.h"
 
 #define LOCTEXT_NAMESPACE "MovieSceneImagePlateSection"
 
@@ -14,8 +15,11 @@ UMovieSceneImagePlateSection::UMovieSceneImagePlateSection(const FObjectInitiali
 	EvalOptions.CompletionMode = EMovieSceneCompletionMode::RestoreState;
 	bReuseExistingTexture = false;
 
-	// Video tracks have some preroll by default to precache frames
-	SetPreRollTime(0.5f);
+	UMovieScene* Outer = GetTypedOuter<UMovieScene>();
+	FFrameRate FrameRate = Outer ? Outer->GetTickResolution() : FFrameRate(24, 1);
+
+	// media tracks have some preroll by default to precache frames
+	SetPreRollFrames( (0.5 * FrameRate).RoundToFrame().Value );
 }
 
 #undef LOCTEXT_NAMESPACE

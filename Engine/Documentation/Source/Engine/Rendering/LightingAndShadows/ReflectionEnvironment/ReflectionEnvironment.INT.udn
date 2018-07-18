@@ -145,7 +145,7 @@ You can fine tune the amount of lightmap mixing that will take place by adjustin
  
 * **r.ReflectionEnvironmentBeginMixingRoughness (default = 0.1)**
 * **r.ReflectionEnvironmentEndMixingRoughness (default = 0.3)**
-* ** r.ReflectionEnvironmentLightmapMixBasedOnRoughness (default = 1)**
+* **r.ReflectionEnvironmentLightmapMixBasedOnRoughness (default = 1)**
 * **r.ReflectionEnvironmentLightmapMixLargestWeight (default = 1000)**
 
 ## High Quality Reflections

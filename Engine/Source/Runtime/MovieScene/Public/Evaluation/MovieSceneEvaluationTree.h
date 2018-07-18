@@ -2,12 +2,13 @@
 
 #pragma once
 
-#include "Range.h"
-#include "ArrayView.h"
-#include "Array.h"
+#include "Math/Range.h"
+#include "Containers/ArrayView.h"
+#include "Containers/Array.h"
 #include "Templates/Function.h"
+#include "Misc/FrameNumber.h"
 
-#include "SequencerObjectVersion.h"
+#include "UObject/SequencerObjectVersion.h"
 
 struct FMovieSceneEvaluationTree;
 struct FMovieSceneEvaluationTreeNode;
@@ -249,11 +250,11 @@ struct FMovieSceneEvaluationTreeNode
 {
 	/** Constructors */
 	FMovieSceneEvaluationTreeNode()
-		: Range(FFloatRange::Empty())
+		: Range(TRange<FFrameNumber>::Empty())
 		, Parent(FMovieSceneEvaluationTreeNodeHandle::Invalid())
 	{}
 
-	FMovieSceneEvaluationTreeNode(TRange<float> InRange, FMovieSceneEvaluationTreeNodeHandle InParent)
+	FMovieSceneEvaluationTreeNode(TRange<FFrameNumber> InRange, FMovieSceneEvaluationTreeNodeHandle InParent)
 		: Range(InRange)
 		, Parent(InParent)
 	{}
@@ -265,7 +266,7 @@ struct FMovieSceneEvaluationTreeNode
 	}
 
 	/** The time-range that this node represents */
-	FFloatRange Range;
+	TRange<FFrameNumber> Range;
 	/** Handle to the parent node */
 	FMovieSceneEvaluationTreeNodeHandle Parent;
 	/** Identifier for the child node entries associated with this node (FMovieSceneEvaluationTree::ChildNodes) */
@@ -296,7 +297,7 @@ struct FMovieSceneEvaluationTreeNode
 struct MOVIESCENE_API FMovieSceneEvaluationTree
 {
 	FMovieSceneEvaluationTree()
-		: RootNode(FMovieSceneEvaluationTreeNode(TRange<float>::All(), FMovieSceneEvaluationTreeNodeHandle::Invalid()))
+		: RootNode(FMovieSceneEvaluationTreeNode(TRange<FFrameNumber>::All(), FMovieSceneEvaluationTreeNodeHandle::Invalid()))
 	{}
 
 	/**
@@ -305,7 +306,7 @@ struct MOVIESCENE_API FMovieSceneEvaluationTree
 	 * @param Time The time at which we should start iterating
 	 * @return A bi-directional iterator that is set to the unique range that overlaps the current time
 	 */
-	FMovieSceneEvaluationTreeRangeIterator IterateFromTime(float Time) const;
+	FMovieSceneEvaluationTreeRangeIterator IterateFromTime(FFrameNumber Time) const;
 
 	/**
 	 * Start iterating this tree from the specified lower boundary
@@ -313,7 +314,7 @@ struct MOVIESCENE_API FMovieSceneEvaluationTree
 	 * @param InStartingLowerBound The lowerbound at which we should start iterating
 	 * @return A bi-directional iterator that is set to the unique range that overlaps the specified lowerbound
 	 */
-	FMovieSceneEvaluationTreeRangeIterator IterateFromLowerBound(TRangeBound<float> InStartingLowerBound) const;
+	FMovieSceneEvaluationTreeRangeIterator IterateFromLowerBound(TRangeBound<FFrameNumber> InStartingLowerBound) const;
 
 	/**
 	 * Access this tree's root node (infinite range)
@@ -383,7 +384,7 @@ struct MOVIESCENE_API FMovieSceneEvaluationTree
 	 *
 	 * @param InTimeRange 		The time range to add to the tree
 	 */
-	void AddTimeRange(TRange<float> InTimeRange);
+	void AddTimeRange(TRange<FFrameNumber> InTimeRange);
 
 	/**
 	 * Serialize this evaluation tree
@@ -420,7 +421,7 @@ protected:
 	 * @param InOperator 		Operator implementation to call for each node that is relevant to the time range
 	 * @param InParent 			The current parent node
 	 */
-	void AddTimeRange(TRange<float> InTimeRange, const IMovieSceneEvaluationTreeNodeOperator& InOperator, FMovieSceneEvaluationTreeNodeHandle InParent);
+	void AddTimeRange(TRange<FFrameNumber> InTimeRange, const IMovieSceneEvaluationTreeNodeOperator& InOperator, FMovieSceneEvaluationTreeNodeHandle InParent);
 
 	/**
 	 * Helper function that creates a new child for the specified parent node
@@ -430,7 +431,7 @@ protected:
 	 * @param InsertIndex		The index at which to insert the new child (children must be sorted)
 	 * @param InParent 			The node to add the child to
 	 */
-	void InsertNewChild(TRange<float> InEffectiveRange, const IMovieSceneEvaluationTreeNodeOperator& InOperator, int32 InsertIndex, FMovieSceneEvaluationTreeNodeHandle InParent);
+	void InsertNewChild(TRange<FFrameNumber> InEffectiveRange, const IMovieSceneEvaluationTreeNodeOperator& InOperator, int32 InsertIndex, FMovieSceneEvaluationTreeNodeHandle InParent);
 
 	/** This tree's root node */
 	FMovieSceneEvaluationTreeNode RootNode;
@@ -448,7 +449,7 @@ struct MOVIESCENE_API FMovieSceneEvaluationTreeRangeIterator
 	FMovieSceneEvaluationTreeRangeIterator(const FMovieSceneEvaluationTree& InTree);
 
 	/** Iterate the tree ranges starting at the range that overlaps the specified lower bound */
-	FMovieSceneEvaluationTreeRangeIterator(const FMovieSceneEvaluationTree& InTree, TRangeBound<float> StartingBound);
+	FMovieSceneEvaluationTreeRangeIterator(const FMovieSceneEvaluationTree& InTree, TRangeBound<FFrameNumber> StartingBound);
 
 	/** Move onto the next time range */
 	FMovieSceneEvaluationTreeRangeIterator& operator++()
@@ -479,7 +480,7 @@ struct MOVIESCENE_API FMovieSceneEvaluationTreeRangeIterator
 	}
 
 	/** Get the current range */
-	TRange<float> Range() const
+	TRange<FFrameNumber> Range() const
 	{
 		return CurrentRange;
 	}
@@ -509,19 +510,19 @@ private:
 	}
 
 	/** Compare a bound with a range based on whether we're iterating forwards or backwards */
-	static bool CompareBound(bool bForwards, TRange<float> Range, TRangeBound<float> Bound)
+	static bool CompareBound(bool bForwards, TRange<FFrameNumber> Range, TRangeBound<FFrameNumber> Bound)
 	{
 		return bForwards ? Range.GetLowerBound() == Bound : Range.GetUpperBound() == Bound;
 	}
 
 	/** Access the 'leading' bound of a range (lowerbound if forwards, upperbound if backwards) */
-	static TRangeBound<float> GetLeadingBound(bool bForwards, TRange<float> Range)
+	static TRangeBound<FFrameNumber> GetLeadingBound(bool bForwards, TRange<FFrameNumber> Range)
 	{
 		return bForwards ? Range.GetLowerBound() : Range.GetUpperBound();
 	}
 
 	/** Access the 'trailing' bound of a range (upperbound if forwards, lowerbound if backwards) */
-	static TRangeBound<float> GetTrailingBound(bool bForwards, TRange<float> Range)
+	static TRangeBound<FFrameNumber> GetTrailingBound(bool bForwards, TRange<FFrameNumber> Range)
 	{
 		return bForwards ? Range.GetUpperBound() : Range.GetLowerBound();
 	}
@@ -530,11 +531,11 @@ private:
 	void Iter(bool bForwards);
 
 	/** Find the next child within the given parent that is >= the specified bound based on whether we're going forwards or backwards */
-	FMovieSceneEvaluationTreeNodeHandle FindNextChild(FMovieSceneEvaluationTreeNodeHandle ParentNodeHandle, TRangeBound<float> PredicateBound, bool bForwards);
+	FMovieSceneEvaluationTreeNodeHandle FindNextChild(FMovieSceneEvaluationTreeNodeHandle ParentNodeHandle, TRangeBound<FFrameNumber> PredicateBound, bool bForwards);
 
 private:
 	/** The unique time range that we're currently at */
-	TRange<float> CurrentRange;
+	TRange<FFrameNumber> CurrentRange;
 	/** Handle of the current node */
 	FMovieSceneEvaluationTreeNodeHandle CurrentNodeHandle;
 	/** The tree we're iterating */
@@ -552,7 +553,7 @@ struct TMovieSceneEvaluationTree : FMovieSceneEvaluationTree
 	 *
 	 * @param InTimeRange 		The range with which this data should be associated
 	 */
-	void Add(TRange<float> InTimeRange)
+	void Add(TRange<FFrameNumber> InTimeRange)
 	{
 		struct FNullOperator : IMovieSceneEvaluationTreeNodeOperator
 		{
@@ -569,7 +570,7 @@ struct TMovieSceneEvaluationTree : FMovieSceneEvaluationTree
 	 * @param InTimeRange 		The range with which this data should be associated
 	 * @param InData 			The data to assoicate with this time range
 	 */
-	void AddUnique(TRange<float> InTimeRange, DataType InData)
+	void AddUnique(TRange<FFrameNumber> InTimeRange, DataType InData)
 	{
 		AddTimeRange(InTimeRange, FAddUniqueOperator(*this, MoveTemp(InData)), FMovieSceneEvaluationTreeNodeHandle::Root());
 	}
@@ -580,7 +581,7 @@ struct TMovieSceneEvaluationTree : FMovieSceneEvaluationTree
 	 * @param InTimeRange 		The range with which this data should be associated
 	 * @param InData 			The data to assoicate with this time range
 	 */
-	void Add(TRange<float> InTimeRange, DataType InData)
+	void Add(TRange<FFrameNumber> InTimeRange, DataType InData)
 	{
 		AddTimeRange(InTimeRange, FAddOperator(*this, MoveTemp(InData)), FMovieSceneEvaluationTreeNodeHandle::Root());
 	}

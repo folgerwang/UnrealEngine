@@ -1,13 +1,13 @@
-﻿INTSourceChangelist:2620109
+﻿INTSourceChangelist:3782314
 Availability:Public
-Title:3.Pawn Movement Component のビヘイビアのコーディング
+Title:3.Pawn Movement コンポーネントの挙動のコーディング
 Crumbs:%ROOT%, Programming, Programming/Tutorials, Programming/Tutorials/Components
-Description:Pawn Movement Component でコントロールするポーンがフレームごとに動く位置の判断方法を定義するコードの記述
-バージョン:4.9
+Description:Pawn Movement コンポーネントが、フレーム毎に制御対象のポーンがどこに行くかの判断の方法を定義するコードを記述します。
+version:4.9
 [VAR:Steps]
 [OBJECT:Navigation]
 	[PARAM:previous]
-		[前の手順](Programming\Tutorials\Components\2 "%Programming\Tutorials\Components\2:title%")
+		[前のステップ](Programming\Tutorials\Components\2 "%Programming\Tutorials\Components\2:title%")
 	[/PARAM]
 	[PARAM:current]
 	[/PARAM]
@@ -15,38 +15,37 @@ Description:Pawn Movement Component でコントロールするポーンがフ�
 		[](Programming\Tutorials\Components\)
 	[/PARAM]
 	[PARAM:next]
-		[次の手順](Programming\Tutorials\Components\4 "%Programming\Tutorials\Components\4:title%")
+		[次のステップ](Programming\Tutorials\Components\4 "%Programming\Tutorials\Components\4:title%")
 	[/PARAM]
 [/OBJECT]
 [/VAR]
 
 
 
-1. **Visual Studio** に戻ってカスタム仕様の **Pawn Movement Component** をプログラミングします。ここで必要な記述は、フレーム間を移動するための **TickComponent** 関数です（ **アクタ** のTick 関数と類似）「CollidingPawnMovementComponent.h」ファイルのクラス定義で TickComponent をオーバーライドしなくてはいけません：
+1. **Visual Studio** に戻り、カスタマイズした **Pawn Movement コンポーネント** を記述することができます。実際に記述が必要なのは、各フレームでどのように動くかを示す **TickComponent** 関数 (**アクタ** の **Tick** 関数に類似)のみです。CollidingPawnMovementComponent.h で、クラス定義の TickComponent をオーバーライドする必要があります。
 
 		public:
 			virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;	
 
-	「CollidingPawnMovementComponent.cpp」 ファイルにこの関数を定義します：
+	CollidingPawnMovementComponent.cpp ファイルにこの関数を定義します：
 
 		void UCollidingPawnMovementComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
 		{
 			Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-
-			// Make sure that everything is still valid, and that we are allowed to move（全てがまだ有効で移動可能であることを確認）
+			// Make sure that everything is still valid, and that we are allowed to move.
 			if (!PawnOwner || !UpdatedComponent || ShouldSkipUpdate(DeltaTime))
 			{
 				return;
 			}
 
-			// Get (and then clear) the movement vector that we set in ACollidingPawn::Tick（ACollidingPawn::Tickで設定した移動ベクターをGet（その後クリア））
+			// Get (and then clear) the movement vector that we set in ACollidingPawn::Tick
 			FVector DesiredMovementThisFrame = ConsumeInputVector().GetClampedToMaxSize(1.0f) * DeltaTime * 150.0f;
 			if (!DesiredMovementThisFrame.IsNearlyZero())
 			{
 				FHitResult Hit;
 				SafeMoveUpdatedComponent(DesiredMovementThisFrame, UpdatedComponent->GetComponentRotation(), true, Hit);
 
-				// If we bumped into something, try to slide along it（何かとぶつかった時に、ぶつかった対象物に沿ってスライド）
+				// If we bumped into something, try to slide along it
 				if (Hit.IsValidBlockingHit())
 				{
 					SlideAlongSurface(DesiredMovementThisFrame, 1.f - Hit.Time, Hit.Normal, Hit);
@@ -54,185 +53,186 @@ Description:Pawn Movement Component でコントロールするポーンがフ�
 			}
 		};
 
-	このコードは、適切な箇所でサーフェスをスライドしながら、ワールド内で **ポーン** をスムースに動かします。重力はポーンに適用されず、ポーンの最大速度は1秒当たり150の **アンリアル単位** でハードコーディングされています。
+	このコードは、適切な箇所でサーフェスをスライドしながら、ワールド内で **ポーン** をスムーズに動かします。重力はポーンに適用されず、ポーンの最大速度は 1 秒当たり 150 の** アンリアル単位** でハードコーディングされています。
 
-	[REGION:note]この TickComponent function は **UPawnMovementComponent** クラスが提供するパワフルな機能をいくつか利用します。
-	<br>**ConsumeInputVector** は、移動入力値の保存に使用するビルドイン変数の値をレポートしてクリアします。
-	<br>**SafeMoveUpdatedComponent** はソリッドなバリアを尊重しながら Pawn Movement Component の移動に **アンリアルエンジン** 物理を使用します。
-	<br>**SlideAlongSurface** は、その場に停止したり壁や斜面にくっつくのではなく、壁や斜面に最終的に衝突した時のコリジョンサーフェスに沿ったスムースなスライドの計算および物理を処理します。
-	<br>その他にも検討に値する機能が Pawn Movement Components に含まれていますが、このチュートリアルのスコープには必要ありません。**Floating Pawn Movement**、 **Spectator Pawn Movement**、 または **Character Movement Component** などその他のクラスもさらなる使用法やアイデアを与えてくれるかもしれません。[/REGION]
+	[REGION:note]
+	この TickComponent 関数は UPawnMovementComponent クラスのパワフルな機能をいくつか利用します。
+	**ConsumeInputVector** は、移動入力値の保存に使用するビルドイン変数の値をレポートしてクリアします。
 
-----
+	**SafeMoveUpdatedComponent** はソリッドなバリアを尊重しながら Pawn Movement コンポーネントの移動に **アンリアルエンジン** の物理を使用します。
 
-Pawn Movement Component のビヘイビアを定義したら、カスタマイズ Pawn クラスにすべてをまとめるコードを記述していきます。
+	**SlideAlongSurface** は、その場に停止したり壁や斜面にくっつくのではなく、壁や斜面に最終的に衝突した時のコリジョンサーフェスに沿ったスムーズなスライドの計算および物理を処理します。 
 
-[OBJECT:Section]
-    [PARAMLITERAL:id]
-    コード
-    [/PARAMLITERAL]
-    [PARAM:heading]
-	    作業中のコード
-    [/PARAM]
-    [PARAM:content]
-		**CollidingPawn.h**
-			// Copyright 1998-2018 Epic Games, Inc.All Rights Reserved.
+	 Pawn Movement コンポーネントは、その他にも検討に値する機能がありますが、このチュートリアルの範囲では必要ありません。**Floating Pawn Movement**、 **Spectator Pawn Movement**、 **Character Movement Component** などその他のクラスもさらなる使用法やアイデアを与えてくれるかもしれません。
+	[/REGION]
 
-			#pragma once
 
-			#include "GameFramework/Pawn.h"
-			#include "CollidingPawn.generated.h"
+Pawn Movement Component の挙動を定義したら、カスタマイズした Pawn クラスにすべてをまとめるコードを記述していきます。
 
-			UCLASS()
-			class HOWTO_COMPONENTS_API ACollidingPawn : public APawn
-			{
-				GENERATED_BODY()
+## 作業中のコード
 
-			public:
-				// Sets default values for this pawn's properties（このポーンのプロパティのデフォルト値を設定）
-				ACollidingPawn();
+**CollidingPawn.h**
 
-				// Called when the game starts or when spawned（ゲーム開始またはスポーン時に呼ばれます）
-				virtual void BeginPlay() override;
-	// Called every frame（フレームごとに呼ばれます）
+	// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
 
-				virtual void Tick( float DeltaSeconds ) override;
+	#pragma once
 
-				// Called to bind functionality to input（機能と入力を連結するために呼ばれます）
-				virtual void SetupPlayerInputComponent(class UInputComponent* InputComponent) OVERRIDE;
+	#include "GameFramework/Pawn.h"
+	#include "CollidingPawn.generated.h"
 
-				UParticleSystemComponent* OurParticleSystem;
-			};
+	UCLASS()
+	class HOWTO_COMPONENTS_API ACollidingPawn : public APawn
+	{
+		GENERATED_BODY()
 
-		**CollidingPawn.cpp**
-			// Copyright 1998-2018 Epic Games, Inc.All Rights Reserved.
+	public:
+		// Sets default values for this pawn's properties
+		ACollidingPawn();
 
-			#include "HowTo_Components.h"
-			#include "CollidingPawn.h"
+	protected:
+		// Called when the game starts or when spawned
+		virtual void BeginPlay() override;
+	
+	public:
+		// Called every frame
+		virtual void Tick( float DeltaSeconds ) override;
 
-			// Sets default values（デフォルト値を設定）
-			ACollidingPawn::ACollidingPawn()
-			{
- 				// Set this pawn to call Tick() every frame.You can turn this off to improve performance if you don't need it.（このアクタがフレームごとにTick()を呼び出すように設定。必要なければパフォーマンスを向上させるためにオフにします）
-				PrimaryActorTick.bCanEverTick = true;
+		// Called to bind functionality to input
+		virtual void SetupPlayerInputComponent(class UInputComponent* InputComponent) override;
 
-				// Our root component will be a sphere that reacts to physics（ルートコンポーネントは物理に反応するスフィアになります）
-				USphereComponent* SphereComponent = CreateDefaultSubobject<USphereComponent>(TEXT("RootComponent"));
-				RootComponent = SphereComponent;
-				SphereComponent->InitSphereRadius(40.0f);
-				SphereComponent->SetCollisionProfileName(TEXT("Pawn"));
+		UParticleSystemComponent* OurParticleSystem;
+	};
 
-				// Create and position a mesh component so we can see where our sphere is（スフィアの位置が分かるようにメッシュコンポーネントを作成して配置します）
-				UStaticMeshComponent* SphereVisual = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("VisualRepresentation"));
-				SphereVisual->AttachTo(RootComponent);
-				static ConstructorHelpers::FObjectFinder<UStaticMesh> SphereVisualAsset(TEXT("/Game/StarterContent/Shapes/Shape_Sphere.Shape_Sphere"));
-				if (SphereVisualAsset.Succeeded())
-				{
-					SphereVisual->SetStaticMesh(SphereVisualAsset.Object);
-					SphereVisual->SetRelativeLocation(FVector(0.0f, 0.0f, -40.0f));
-					SphereVisual->SetWorldScale3D(FVector(0.8f));
-				}
+**CollidingPawn.cpp**
 
-				// Create a particle system that we can activate or deactivate（アクティブまたは非アクティブに出来るパーティクルシステムを作成）
-				OurParticleSystem = CreateDefaultSubobject<UParticleSystemComponent>(TEXT("MovementParticles"));
-				OurParticleSystem->AttachTo(SphereVisual);
-				OurParticleSystem->bAutoActivate = false;
-				OurParticleSystem->SetRelativeLocation(FVector(-20.0f, 0.0f, 20.0f));
-				static ConstructorHelpers::FObjectFinder<UParticleSystem> ParticleAsset(TEXT("/Game/StarterContent/Particles/P_Fire.P_Fire"));
-				if (ParticleAsset.Succeeded())
-				{
-					OurParticleSystem->SetTemplate(ParticleAsset.Object);
-				}
+	// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
 
-				// Use a spring arm to give the camera smooth, natural-feeling motion（カメラにスムースで自然な移動を再現するためにスプリングアームを使用）
-				USpringArmComponent* SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraAttachmentArm"));
-				SpringArm->AttachTo(RootComponent);
-				SpringArm->RelativeRotation = FRotator(-45.f, 0.f, 0.f);
-				SpringArm->TargetArmLength = 400.0f;
-				SpringArm->bEnableCameraLag = true;
-				SpringArm->CameraLagSpeed = 3.0f;
+	#include "HowTo_Components.h"
+	#include "CollidingPawn.h"
 
-				// Create a camera and attach to our spring arm（カメラを作成してスプリングアームに親子付け）
-				UCameraComponent* Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("ActualCamera"));
-				Camera->AttachTo(SpringArm, USpringArmComponent::SocketName);
+	// Sets default values
+	ACollidingPawn::ACollidingPawn()
+	{
+ 		// Set this pawn to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
+		PrimaryActorTick.bCanEverTick = true;
 
-				// Take control of the default player（デフォルトプレイヤーをコントロール）
-				AutoPossessPlayer = EAutoReceiveInput::Player0;
-			}
+		// Our root component will be a sphere that reacts to physics
+		USphereComponent* SphereComponent = CreateDefaultSubobject<USphereComponent>(TEXT("RootComponent"));
+		RootComponent = SphereComponent;
+		SphereComponent->InitSphereRadius(40.0f);
+		SphereComponent->SetCollisionProfileName(TEXT("Pawn"));
 
-			// Called when the game starts or when spawned（ゲーム開始またはスポーン時に呼ばれます）
-			void ACollidingPawn::BeginPlay()
-			{
-				Super::BeginPlay();
+		// Create and position a mesh component so we can see where our sphere is
+		UStaticMeshComponent* SphereVisual = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("VisualRepresentation"));
+		SphereVisual->SetupAttachment(RootComponent);
+		static ConstructorHelpers::FObjectFinder<UStaticMesh> SphereVisualAsset(TEXT("/Game/StarterContent/Shapes/Shape_Sphere.Shape_Sphere"));
+		if (SphereVisualAsset.Succeeded())
+		{
+			SphereVisual->SetStaticMesh(SphereVisualAsset.Object);
+			SphereVisual->SetRelativeLocation(FVector(0.0f, 0.0f, -40.0f));
+			SphereVisual->SetWorldScale3D(FVector(0.8f));
+		}
+
+		// Create a particle system that we can activate or deactivate
+		OurParticleSystem = CreateDefaultSubobject<UParticleSystemComponent>(TEXT("MovementParticles"));
+		OurParticleSystem->SetupAttachment(SphereVisual);
+		OurParticleSystem->bAutoActivate = false;
+		OurParticleSystem->SetRelativeLocation(FVector(-20.0f, 0.0f, 20.0f));
+		static ConstructorHelpers::FObjectFinder<UParticleSystem> ParticleAsset(TEXT("/Game/StarterContent/Particles/P_Fire.P_Fire"));
+		if (ParticleAsset.Succeeded())
+		{
+			OurParticleSystem->SetTemplate(ParticleAsset.Object);
+		}
+
+		// Use a spring arm to give the camera smooth, natural-feeling motion.
+		USpringArmComponent* SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraAttachmentArm"));
+		SpringArm->SetupAttachment(RootComponent);
+		SpringArm->RelativeRotation = FRotator(-45.f, 0.f, 0.f);
+		SpringArm->TargetArmLength = 400.0f;
+		SpringArm->bEnableCameraLag = true;
+		SpringArm->CameraLagSpeed = 3.0f;
+
+		// Create a camera and attach to our spring arm
+		UCameraComponent* Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("ActualCamera"));
+		Camera->SetupAttachment(SpringArm, USpringArmComponent::SocketName);
+
+		// Take control of the default player
+		AutoPossessPlayer = EAutoReceiveInput::Player0;
 	}
 
+	// Called when the game starts or when spawned
+	void ACollidingPawn::BeginPlay()
+	{
+		Super::BeginPlay();
+	
+	}
 
-			// Called every frame（フレームごとに呼ばれます）
-			void ACollidingPawn::Tick( float DeltaTime )
-			{
-				Super::Tick( DeltaTime );
+	// Called every frame
+	void ACollidingPawn::Tick( float DeltaTime )
+	{
+		Super::Tick( DeltaTime );
 
-			}
+	}
 
-			// Called to bind functionality to input（機能と入力を連結するために呼ばれます）
-			void ACollidingPawn::SetupPlayerInputComponent(class UInputComponent* InputComponent)
-			{
-				Super::SetupPlayerInputComponent(InputComponent);
+	// Called to bind functionality to input
+	void ACollidingPawn::SetupPlayerInputComponent(class UInputComponent* InputComponent)
+	{
+		Super::SetupPlayerInputComponent(InputComponent);
 
-			}
+	}
 
-		**CollidingPawnMovementComponent.h**
-			// Copyright 1998-2018 Epic Games, Inc.All Rights Reserved.
+**CollidingPawnMovementComponent.h**
 
-			#pragma once
+	// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
 
-			#include "GameFramework/PawnMovementComponent.h"
-			#include "CollidingPawnMovementComponent.generated.h"
+	#pragma once
 
-			/**
-			 * 
-			 */
-			UCLASS()
-			class HOWTO_COMPONENTS_API UCollidingPawnMovementComponent : public UPawnMovementComponent
-			{
-				GENERATED_BODY()
+	#include "GameFramework/PawnMovementComponent.h"
+	#include "CollidingPawnMovementComponent.generated.h"
+
+	/**
+		* 
+		*/
+	UCLASS()
+	class HOWTO_COMPONENTS_API UCollidingPawnMovementComponent : public UPawnMovementComponent
+	{
+		GENERATED_BODY()
+
 	public:
+		virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;	
+	};
 
-				virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;	
-			};
+**CollidingPawnMovementComponent.cpp**
 
-		**CollidingPawnMovementComponent.cpp**
-			// Copyright 1998-2018 Epic Games, Inc.All Rights Reserved.
+	// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
 
-			#include "HowTo_Components.h"
-			#include "CollidingPawnMovementComponent.h"
+	#include "HowTo_Components.h"
+	#include "CollidingPawnMovementComponent.h"
 
-			void UCollidingPawnMovementComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
+	void UCollidingPawnMovementComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
+	{
+		Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+
+		// Make sure that everything is still valid, and that we are allowed to move.
+		if (!PawnOwner || !UpdatedComponent || ShouldSkipUpdate(DeltaTime))
+		{
+			return;
+		}
+
+		// Get (and then clear) the movement vector that we set in ACollidingPawn::Tick
+		FVector DesiredMovementThisFrame = ConsumeInputVector().GetClampedToMaxSize(1.0f) * DeltaTime * 150.0f;
+		if (!DesiredMovementThisFrame.IsNearlyZero())
+		{
+			FHitResult Hit;
+			SafeMoveUpdatedComponent(DesiredMovementThisFrame, UpdatedComponent->GetComponentRotation(), true, Hit);
+
+			// If we bumped into something, try to slide along it
+			if (Hit.IsValidBlockingHit())
 			{
-				Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+				SlideAlongSurface(DesiredMovementThisFrame, 1.f - Hit.Time, Hit.Normal, Hit);
+			}
+		}
+	};
 
-				// Make sure that everything is still valid, and that we are allowed to move（全てがまだ有効で移動可能であることを確認）
-				if (!PawnOwner || !UpdatedComponent || ShouldSkipUpdate(DeltaTime))
-				{
-					return;
-				}
-
-				// Get (and then clear) the movement vector that we set in ACollidingPawn::Tick（ACollidingPawn::Tickで設定した移動ベクターをGet（その後クリア））
-				FVector DesiredMovementThisFrame = ConsumeInputVector().GetClampedToMaxSize(1.0f) * DeltaTime * 150.0f;
-				if (!DesiredMovementThisFrame.IsNearlyZero())
-				{
-					FHitResult Hit;
-					SafeMoveUpdatedComponent(DesiredMovementThisFrame, UpdatedComponent->GetComponentRotation(), true, Hit);
-
-					// If we bumped into something, try to slide along it（何かとぶつかった時に、ぶつかった対象物に沿ってスライド）
-					if (Hit.IsValidBlockingHit())
-					{
-						SlideAlongSurface(DesiredMovementThisFrame, 1.f - Hit.Time, Hit.Normal, Hit);
-					}
-				}
-			};
-
-
-    [/PARAM]
-[/OBJECT]
 
 

@@ -69,7 +69,7 @@ namespace UnrealBuildTool
 		{
 			bool bSuccess = false;
 			
-			var WorksetDataContent = new StringBuilder();
+			StringBuilder WorksetDataContent = new StringBuilder();
 			WorksetDataContent.Append("# @Eddie Workset@" + ProjectFileGenerator.NewLine);
 			WorksetDataContent.Append("AddWorkset \"" + MasterProjectName + ".wkst\" \"" + MasterProjectPath + "\"" + ProjectFileGenerator.NewLine);
 			
@@ -98,7 +98,7 @@ namespace UnrealBuildTool
 			AddProjectsFunction(MasterProjectName, RootFolder.SubFolders);
 			
 			string ProjectName = MasterProjectName;
-			var FilePath = MasterProjectPath + "/" + ProjectName + ".wkst";
+			string FilePath = MasterProjectPath + "/" + ProjectName + ".wkst";
 			
 			bSuccess = WriteFileIfChanged(FilePath, WorksetDataContent.ToString(), new UTF8Encoding());
 			

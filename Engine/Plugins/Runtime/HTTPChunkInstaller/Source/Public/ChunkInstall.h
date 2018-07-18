@@ -3,17 +3,17 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Runnable.h"
+#include "HAL/Runnable.h"
 #include "Interfaces/IBuildManifest.h"
-#include "IBuildPatchServicesModule.h"
-#include "PlatformProcess.h"
-#include "Event.h"
-#include "GenericPlatformFile.h"
-#include "Paths.h"
-#include "PlatformFilemanager.h"
-#include "CoreDelegates.h"
-#include "FileManager.h"
-#include "Stats.h"
+#include "Interfaces/IBuildPatchServicesModule.h"
+#include "HAL/PlatformProcess.h"
+#include "HAL/Event.h"
+#include "GenericPlatform/GenericPlatformFile.h"
+#include "Misc/Paths.h"
+#include "HAL/PlatformFilemanager.h"
+#include "Misc/CoreDelegates.h"
+#include "HAL/FileManager.h"
+#include "Stats/Stats.h"
 
 class FChunkInstallTask : public FRunnable
 {

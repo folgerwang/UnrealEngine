@@ -13,11 +13,11 @@
 #include "Engine/EngineTypes.h"
 #include "Engine/Level.h"
 #include "Engine/Brush.h"
-#include "ISourceControlOperation.h"
 #include "SourceControlOperations.h"
 #include "ISourceControlModule.h"
+#include "SourceControlHelpers.h"
 #include "Materials/MaterialInterface.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "AI/NavigationSystemBase.h"
 #include "Editor/UnrealEdEngine.h"
 #include "Settings/LevelEditorMiscSettings.h"
 #include "Misc/ConfigCacheIni.h"
@@ -39,6 +39,8 @@
 #include "MaterialUtilities.h"
 #include "UnrealEngine.h"
 #include "DebugViewModeHelpers.h"
+#include "MaterialStatsCommon.h"
+#include "Materials/MaterialInstance.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogEditorBuildUtils, Log, All);
 
@@ -160,13 +162,11 @@ bool FEditorBuildUtils::EditorAutomatedBuildAndSubmit( const FEditorAutomatedBui
 		}
 		
 		// Try to save each streaming level (if they should be submitted)
-		for ( TArray<ULevelStreaming*>::TIterator LevelIter( GWorld->StreamingLevels ); LevelIter; ++LevelIter )
+		for (ULevelStreaming* CurStreamingLevel : GWorld->GetStreamingLevels())
 		{
-			ULevelStreaming* CurStreamingLevel = *LevelIter;
-			if ( CurStreamingLevel != NULL )
-			{
-				ULevel* Level = CurStreamingLevel->GetLoadedLevel();
-				if ( Level != NULL )
+			if (CurStreamingLevel)
+			{			
+				if (ULevel* Level = CurStreamingLevel->GetLoadedLevel())
 				{
 					CurOutermostPkg = Level->GetOutermost();
 					if ( PackagesToSubmit.Contains( CurOutermostPkg ) && !FEditorFileUtils::SaveLevel( Level ) )
@@ -716,12 +716,11 @@ bool FEditorBuildUtils::PrepForAutomatedBuild( const FEditorAutomatedBuildSettin
 			EditorLevelUtils::SetLevelVisibility( GWorld->PersistentLevel, true, false );
 			bVisibilityToggled = true;
 		}
-		for ( TArray<ULevelStreaming*>::TConstIterator LevelIter( GWorld->StreamingLevels ); LevelIter; ++LevelIter )
+		for (ULevelStreaming* CurStreamingLevel : GWorld->GetStreamingLevels())
 		{
-			ULevelStreaming* CurStreamingLevel = *LevelIter;
-			if ( CurStreamingLevel && !FLevelUtils::IsLevelVisible( CurStreamingLevel ) )
+			if ( CurStreamingLevel && !FLevelUtils::IsStreamingLevelVisibleInEditor( CurStreamingLevel ) )
 			{
-				CurStreamingLevel->bShouldBeVisibleInEditor = true;
+				CurStreamingLevel->SetShouldBeVisibleInEditor(true);
 				bVisibilityToggled = true;
 			}
 		}
@@ -817,8 +816,7 @@ void FEditorBuildUtils::SubmitPackagesForAutomatedBuild( const TSet<UPackage*>& 
 
 void FEditorBuildUtils::TriggerNavigationBuilder(UWorld* InWorld, FName Id)
 {
-	if( InWorld->GetWorldSettings()->bEnableNavigationSystem &&
-		InWorld->GetNavigationSystem() )
+	if (InWorld)
 	{
 		if (Id == FBuildOptions::BuildAIPaths ||
 			Id == FBuildOptions::BuildSelectedAIPaths ||
@@ -834,7 +832,7 @@ void FEditorBuildUtils::TriggerNavigationBuilder(UWorld* InWorld, FName Id)
 		}
 
 		// Invoke navmesh generator
-		InWorld->GetNavigationSystem()->Build();
+		FNavigationSystem::Build(*InWorld);
 	}
 }
 
@@ -1153,11 +1151,26 @@ bool FEditorBuildUtils::EditorBuildTextureStreaming(UWorld* InWorld, EViewModeIn
 
 bool FEditorBuildUtils::CompileViewModeShaders(UWorld* InWorld, EViewModeIndex SelectedViewMode)
 {
-	if (!InWorld || SelectedViewMode != VMI_RequiredTextureResolution) return false;
-	const EDebugViewShaderMode ShaderMode = DVSM_RequiredTextureResolution;
+	if (!InWorld)
+	{
+		return false;
+	}
 
-	const EMaterialQualityLevel::Type QualityLevel = GetCachedScalabilityCVars().MaterialQualityLevel;;
+	// This process is incredibly slow for large projects even if we end up compiling no shaders
+	// but isn't essential and we will lazily compile shaders afterwards. This upfront compile
+	// was found to cause minute-long stalls every time the view mode was activated on a simulated
+	// feature level so the check for !bExtractComplexityStats has been removed for shader complexity.
+	//const EShaderPlatform ShaderPlatform = GetFeatureLevelShaderPlatform(FeatureLevel);
+	//bool bIsSimulated = IsSimulatedPlatform(ShaderPlatform);
+	//bool bExtractComplexityStats = bIsSimulated && (SelectedViewMode == VMI_ShaderComplexity || SelectedViewMode == VMI_ShaderComplexityWithQuadOverdraw);
+
+	if (SelectedViewMode != VMI_RequiredTextureResolution)
+	{
+		return false;
+	}
+
 	const ERHIFeatureLevel::Type FeatureLevel = InWorld->FeatureLevel;
+	const EMaterialQualityLevel::Type QualityLevel = GetCachedScalabilityCVars().MaterialQualityLevel;;
 
 	FScopedSlowTask CompileShaderTask(3.f, LOCTEXT("CompileDebugViewModeShaders", "Compiling Missing ViewMode Shaders")); // { Get Used Materials, Sync Pending Shader, Wait for Compilation }
 	CompileShaderTask.MakeDialog(true);
@@ -1172,9 +1185,20 @@ bool FEditorBuildUtils::CompileViewModeShaders(UWorld* InWorld, EViewModeIndex S
 
 	if (Materials.Num())
 	{
-		if (!CompileDebugViewModeShaders(ShaderMode, QualityLevel, FeatureLevel, false, true, Materials, CompileShaderTask))
+		// As mentioned above this is now only done if the SelectedViewMode is VMI_RequiredTextureResolution so removing the unused code
+/*		if (SelectedViewMode == VMI_ShaderComplexity || SelectedViewMode == VMI_ShaderComplexityWithQuadOverdraw)
 		{
-			return false;
+			if (!CompileShadersComplexityViewMode(QualityLevel, FeatureLevel, Materials, CompileShaderTask))
+			{
+				return false;
+			}
+		}
+		else if (SelectedViewMode == VMI_RequiredTextureResolution)*/
+		{
+			if (!CompileDebugViewModeShaders(DVSM_RequiredTextureResolution, QualityLevel, FeatureLevel, false, true, Materials, CompileShaderTask))
+			{
+				return false;
+			}
 		}
 	}
 	else
@@ -1184,6 +1208,118 @@ bool FEditorBuildUtils::CompileViewModeShaders(UWorld* InWorld, EViewModeIndex S
 
 	CollectGarbage(GARBAGE_COLLECTION_KEEPFLAGS);
 	return true;
+}
+
+/** classed used to compile shaders for a specific (mobile) platform and copy the number of instruction to the editor-emulated (mobile) platform */
+class FMaterialOfflineCompilation : public FMaterialResource
+{
+public:
+	FMaterialOfflineCompilation() {}
+	virtual ~FMaterialOfflineCompilation() {}
+
+	/** this will pass paths to (eventual) offline shader compilers */
+	virtual void SetupExtaCompilationSettings(const EShaderPlatform Platform, FExtraShaderCompilerSettings& Settings) const override;
+
+	/** this function will copy the number of instruction in each of its shaders to editor's emulated shaders */
+	void CopyPlatformSpecificStats();
+};
+
+void FMaterialOfflineCompilation::SetupExtaCompilationSettings(const EShaderPlatform Platform, FExtraShaderCompilerSettings& Settings) const
+{
+	Settings.OfflineCompilerPath = FMaterialStatsUtils::GetPlatformOfflineCompilerPath(Platform);
+}
+
+bool FEditorBuildUtils::CompileShadersComplexityViewMode(EMaterialQualityLevel::Type QualityLevel, ERHIFeatureLevel::Type FeatureLevel, TSet<UMaterialInterface*>& Materials, FSlowTask& ProgressTask)
+{
+	check(Materials.Num());
+
+	// Finish compiling pending shaders first.
+	if (!WaitForShaderCompilation(LOCTEXT("CompileShaders_Complexity_FinishPendingShadersCompilation", "Waiting For Pending Shaders Compilation"), ProgressTask))
+	{
+		return false;
+	}
+
+	TArray<TSharedPtr<FMaterialOfflineCompilation>> OfflineShaderResources;
+
+	const double StartTime = FPlatformTime::Seconds();
+	const float OneOverNumMaterials = 1.f / (float)Materials.Num();
+
+	const auto SimulatedShaderPlatform = GetFeatureLevelShaderPlatform(FeatureLevel);
+	const auto ShaderPlatform = GetSimulatedPlatform(SimulatedShaderPlatform);
+
+	bool bResult = false;
+
+	// trigger shader compilation/loading for each of the passed materials
+	for (UMaterialInterface* MaterialInterface : Materials)
+	{
+		check(MaterialInterface);
+
+		TSharedPtr<FMaterialOfflineCompilation> SpecialResource = MakeShareable(new FMaterialOfflineCompilation());
+		SpecialResource->SetMaterial(MaterialInterface->GetMaterial(), QualityLevel, true, FeatureLevel, Cast<UMaterialInstance>(MaterialInterface));
+
+		FMaterialShaderMapId ResourceId;
+		SpecialResource->GetShaderMapId(ShaderPlatform, ResourceId);
+		SpecialResource->CacheShaders(ResourceId, ShaderPlatform, false);
+
+		OfflineShaderResources.Add(SpecialResource);
+	}
+
+	// wait for compilation to be done and copy the number of instruction from the compiled shaders to the emulated shader set
+	if (WaitForShaderCompilation(LOCTEXT("CompileDebugViewModeShaders", "Offline Shader Compilation"), ProgressTask))
+	{
+		FSuspendRenderingThread SuspendObject(false);
+
+		for (int32 i = 0; i < OfflineShaderResources.Num(); ++i)
+		{
+			OfflineShaderResources[i]->CopyPlatformSpecificStats();
+		}
+
+		UE_LOG(LogShaders, Display, TEXT("Offline shader compilation took %.3f seconds."), FPlatformTime::Seconds() - StartTime);
+		bResult = true;
+	}
+
+	OfflineShaderResources.Reset();
+	return bResult;
+}
+
+void FMaterialOfflineCompilation::CopyPlatformSpecificStats()
+{
+	auto Quality = GetQualityLevel();
+	auto Feature = GetFeatureLevel();
+
+	FMaterialResource* Resource = GetMaterialInterface()->GetMaterialResource(Feature, Quality);
+
+	if (Resource == nullptr)
+	{
+		return;
+	}
+
+	const FMaterialShaderMap* DstShaderMap = Resource->GetGameThreadShaderMap();
+	const FMaterialShaderMap* SrcShaderMap = GetGameThreadShaderMap();
+
+	if (DstShaderMap == nullptr || SrcShaderMap == nullptr)
+	{
+		return;
+	}
+
+	TMap<FName, FShader*> SrcShaders;
+	SrcShaderMap->GetShaderList(SrcShaders);
+
+	TMap<FName, FShader*> DstShaders;
+	DstShaderMap->GetShaderList(DstShaders);
+
+	for (auto Pair : SrcShaders)
+	{
+		auto *DestinationShaderPtr = DstShaders.Find(Pair.Key);
+		if (DestinationShaderPtr != nullptr)
+		{
+			FShader *DestinationShader = *DestinationShaderPtr;
+			FShader *SourceShader = Pair.Value;
+
+			auto NumInstructions = SourceShader->GetNumInstructions();
+			DestinationShader->SetNumInstructions(NumInstructions);
+		}
+	}
 }
 
 #undef LOCTEXT_NAMESPACE

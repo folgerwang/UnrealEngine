@@ -6,6 +6,7 @@
 #include "Modules/ModuleManager.h"
 #include "SPerforceSourceControlSettings.h"
 #include "PerforceSourceControlModule.h"
+#include "SourceControlHelpers.h"
 
 namespace PerforceSettingsConstants
 {

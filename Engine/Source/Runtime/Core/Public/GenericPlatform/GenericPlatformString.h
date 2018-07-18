@@ -45,10 +45,19 @@ struct FGenericPlatformString
 	template <typename Encoding>
 	static const TCHAR* GetEncodingTypeName();
 
+	static const ANSICHAR* GetEncodingName()
+	{
+#if PLATFORM_TCHAR_IS_4_BYTES
+		return "UTF-32LE";
+#else
+		return "UTF-16LE";
+#endif
+	}
+
 	/**
 	 * True if the encoding type of the string is some form of unicode
 	 */
-	static const bool IsUnicodeEncoded = false;
+	static const bool IsUnicodeEncoded = true;
 
 
 	/**
@@ -67,6 +76,9 @@ struct FGenericPlatformString
 	template <bool Dummy> struct TIsFixedWidthEncoding_Helper<Dummy, ANSICHAR> { enum { Value = true }; };
 	template <bool Dummy> struct TIsFixedWidthEncoding_Helper<Dummy, WIDECHAR> { enum { Value = true }; };
 	template <bool Dummy> struct TIsFixedWidthEncoding_Helper<Dummy, UCS2CHAR> { enum { Value = true }; };
+#if PLATFORM_TCHAR_IS_CHAR16
+	template <bool Dummy> struct TIsFixedWidthEncoding_Helper<Dummy, wchar_t> { enum { Value = true }; };
+#endif
 
 	template <typename T>
 	struct TIsFixedWidthEncoding : TIsFixedWidthEncoding_Helper<false, T>

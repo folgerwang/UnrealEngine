@@ -109,14 +109,14 @@ void UOnlinePIESettings::PostEditChangeProperty(FPropertyChangedEvent& PropertyC
 	if (PropertyChangedEvent.Property != NULL)
 	{
 		FName MemberPropName = PropertyChangedEvent.MemberProperty->GetFName();
-		FName SubPropName = PropertyChangedEvent.Property->GetFName();
 		if (MemberPropName == GET_MEMBER_NAME_CHECKED(UOnlinePIESettings, bOnlinePIEEnabled))
 		{
 			// Possibly get rid of the null subsystem in favor of the real default or if we are disabling online pie then get rid of the real subsystem to replace it with null
 			IOnlineSubsystem::ReloadDefaultSubsystem();
 		}
-		if (MemberPropName == GET_MEMBER_NAME_CHECKED(UOnlinePIESettings, Logins))
+		else if (MemberPropName == GET_MEMBER_NAME_CHECKED(UOnlinePIESettings, Logins))
 		{
+			FName SubPropName = PropertyChangedEvent.Property->GetFName();
 			if (SubPropName == GET_MEMBER_NAME_CHECKED(FPIELoginSettingsInternal, Id))
 			{
 				for (FPIELoginSettingsInternal& Login : Logins)
@@ -141,25 +141,6 @@ void UOnlinePIESettings::PostEditChangeProperty(FPropertyChangedEvent& PropertyC
 				{
 					// Remove any whitespace from login input
 					Login.Type.TrimStartAndEndInline();
-				}
-			}
-
-			if (PropertyChangedEvent.ChangeType != EPropertyChangeType::ArrayAdd)
-			{
-				bool bOneLoginValid = false;
-				for (FPIELoginSettingsInternal& Login : Logins)
-				{
-					if (Login.IsValid())
-					{
-						bOneLoginValid = true;
-						break;
-					}
-				}
-
-				if (!bOneLoginValid)
-				{
-					// Disable PIE logins when there are no logins available
-					bOnlinePIEEnabled = false;
 				}
 			}
 		}

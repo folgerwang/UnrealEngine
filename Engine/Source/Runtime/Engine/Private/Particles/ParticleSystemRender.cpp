@@ -34,10 +34,11 @@
 #include "Particles/TypeData/ParticleModuleTypeDataRibbon.h"
 #include "Particles/ParticleModuleRequired.h"
 #include "ParticleBeamTrailVertexFactory.h"
-#include "Private/SceneRendering.h"
+#include "Renderer/Private/SceneRendering.h"
 #include "Particles/ParticleLODLevel.h"
 #include "Engine/StaticMesh.h"
 
+DECLARE_CYCLE_STAT(TEXT("ParticleSystemSceneProxy Create GT"), STAT_FParticleSystemSceneProxy_Create, STATGROUP_Particles);
 DECLARE_CYCLE_STAT(TEXT("ParticleSystemSceneProxy GetMeshElements RT"), STAT_FParticleSystemSceneProxy_GetMeshElements, STATGROUP_Particles);
 DECLARE_CYCLE_STAT(TEXT("DynamicSpriteEmitterData GetDynamicMeshElementsEmitter GetParticleOrderData RT"), STAT_FDynamicSpriteEmitterData_GetDynamicMeshElementsEmitter_GetParticleOrderData, STATGROUP_Particles);
 DECLARE_CYCLE_STAT(TEXT("DynamicSpriteEmitterData PerParticleWorkOrTasks RT"), STAT_FDynamicSpriteEmitterData_PerParticleWorkOrTasks, STATGROUP_Particles);
@@ -1015,7 +1016,7 @@ public:
 
 
 
-FParticleVertexFactoryBase *FDynamicSpriteEmitterData::CreateVertexFactory(ERHIFeatureLevel::Type InFeatureLevel)
+FParticleVertexFactoryBase *FDynamicSpriteEmitterData::CreateVertexFactory(ERHIFeatureLevel::Type InFeatureLevel, const FParticleSystemSceneProxy *InOwnerProxy)
 {
 	FParticleSpriteVertexFactory *VertexFactory = new FParticleSpriteVertexFactory(InFeatureLevel);
 	VertexFactory->SetParticleFactoryType(PVFT_Sprite);
@@ -1396,6 +1397,8 @@ FDynamicMeshEmitterData::FDynamicMeshEmitterData(const UParticleModuleRequired* 
 	, bUseCameraFacing(false)
 	, bApplyParticleRotationAsSpin(false)
 	, CameraFacingOption(0)
+	, LastCalculatedMeshLOD(0)
+	, EmitterInstance(nullptr)
 {
 	// only update motion blur transforms if we are not paused
 	// bPlayersOnlyPending allows us to keep the particle transforms 
@@ -1410,9 +1413,12 @@ FDynamicMeshEmitterData::~FDynamicMeshEmitterData()
 void FDynamicMeshEmitterData::Init( bool bInSelected,
 									const FParticleMeshEmitterInstance* InEmitterInstance,
 									UStaticMesh* InStaticMesh,
+									bool InUseStaticMeshLODs,
+									float InLODSizeScale,
 									ERHIFeatureLevel::Type InFeatureLevel )
 {
 	bSelected = bInSelected;
+	EmitterInstance = InEmitterInstance;
 
 	// @todo: For replays, currently we're assuming the original emitter instance is bound to the same mesh as
 	//        when the replay was generated (safe), and various mesh/material indices are intact.  If
@@ -1420,8 +1426,9 @@ void FDynamicMeshEmitterData::Init( bool bInSelected,
 	//        reference and mesh component/material indices in the actual replay data.
 
 	StaticMesh = InStaticMesh;
+	bUseStaticMeshLODs = InUseStaticMeshLODs;
+	LODSizeScale = InLODSizeScale;
 	check(StaticMesh);
-
 	check(Source.ParticleStride < 2 * 1024);	// TTP #3375
 
 	TArray<UMaterialInterface*, TInlineAllocator<2> > MeshMaterialsGT;
@@ -1512,7 +1519,7 @@ void FDynamicMeshEmitterData::Init( bool bInSelected,
 FParticleVertexFactoryBase* FDynamicMeshEmitterData::BuildVertexFactory(const FParticleSystemSceneProxy* InOwnerProxy)
 {
 	FParticleVertexFactoryBase* PoolVertexFactory = GParticleVertexFactoryPool.GetParticleVertexFactory(PVFT_Mesh, InOwnerProxy->GetScene().GetFeatureLevel(), this);
-	SetupVertexFactory((FMeshParticleVertexFactory*)PoolVertexFactory, StaticMesh->RenderData->LODResources[0]);
+	SetupVertexFactory((FMeshParticleVertexFactory*)PoolVertexFactory, StaticMesh->RenderData->LODResources[GetMeshLODIndexFromProxy(InOwnerProxy)]);
 	return PoolVertexFactory;
 }
 
@@ -1551,13 +1558,37 @@ public:
 	TArray<FMeshParticleInstanceVertexPrevTransform, SceneRenderingAllocator> PrevTransformDataAllocationsCPU;
 };
 
+uint32 FDynamicMeshEmitterData::GetMeshLODIndexFromProxy(const FParticleSystemSceneProxy *InOwnerProxy) const
+{
+	int FirstAvailableLOD = 0;
+	for (; FirstAvailableLOD < StaticMesh->RenderData->LODResources.Num(); FirstAvailableLOD++)
+	{
+		if (StaticMesh->RenderData->LODResources[FirstAvailableLOD].GetNumVertices() > 0)
+		{
+			break;
+		}
+	}
 
-FParticleVertexFactoryBase *FDynamicMeshEmitterData::CreateVertexFactory(ERHIFeatureLevel::Type InFeatureLevel)
+	// hack for FORT - 71986.  Needs to be resolved for real ASAP.  
+	// For now return the first valid LOD, should be 0 on non-mobile platforms.
+	//if (!InOwnerProxy)
+	{
+		return FirstAvailableLOD;
+	}
+	const auto FeatureLevel = InOwnerProxy->GetScene().GetFeatureLevel();
+	int32 MeshMinimumLOD = StaticMesh->MinLOD.GetValueForFeatureLevel(FeatureLevel);
+	FirstAvailableLOD = FMath::Clamp(FirstAvailableLOD, MeshMinimumLOD, StaticMesh->GetNumLODs()-1);
+	
+	int32 MeshLOD = (InOwnerProxy->MeshEmitterLODIndices.IsValidIndex(EmitterIndex)) ? InOwnerProxy->MeshEmitterLODIndices[EmitterIndex] : 0;
+	return FMath::Clamp(MeshLOD, FirstAvailableLOD, StaticMesh->GetNumLODs()-1);
+}
+
+FParticleVertexFactoryBase *FDynamicMeshEmitterData::CreateVertexFactory(ERHIFeatureLevel::Type InFeatureLevel, const FParticleSystemSceneProxy *InOwnerProxy)
 {
 	FMeshParticleVertexFactory *VertexFactory = ConstructMeshParticleVertexFactory(InFeatureLevel);
 
 	VertexFactory->SetParticleFactoryType(PVFT_Mesh);
-	SetupVertexFactory(VertexFactory, StaticMesh->RenderData->LODResources[0]);
+	SetupVertexFactory(VertexFactory, StaticMesh->RenderData->LODResources[GetMeshLODIndexFromProxy(InOwnerProxy)]);
 
 	const int32 InstanceVertexStride = GetDynamicVertexStride(InFeatureLevel);
 	const int32 DynamicParameterVertexStride = bUsesDynamicParameter ? GetDynamicParameterVertexStride() : 0;
@@ -1635,7 +1666,7 @@ void FDynamicMeshEmitterData::GetDynamicMeshElementsEmitter(const FParticleSyste
 
 						if (FGlobalDynamicVertexBuffer::Get().IsRenderAlarmLoggingEnabled())
 						{
-							UE_LOG(LogParticles, Warning, TEXT("Panic logging.  Allocated %u bytes for Resource: %s, Owner: %s"), ParticleCount * DynamicParameterVertexStride, *Proxy->GetResourceName().ToString(), *Proxy->GetOwnerName().ToString())
+							UE_LOG(LogParticles, Warning, TEXT("Panic logging.  Allocated %u bytes for Resource: %s, Owner: %s"), ParticleCount * DynamicParameterVertexStride, *Proxy->GetResourceName().ToString(), *Proxy->GetOwnerName().ToString());
 						}
 					}
 
@@ -1657,7 +1688,7 @@ void FDynamicMeshEmitterData::GetDynamicMeshElementsEmitter(const FParticleSyste
 						int32 PrevTransformVertexStride = sizeof(FVector4) * 3;
 					
 						uint8* TempPrevTranformVert = (uint8*)PrevTransformBuffer;
-					
+
 						for (int32 i = ActiveParticleCount - 1; i >= 0; i--)
 						{
 							FVector4* PrevTransformVertex = (FVector4*)TempPrevTranformVert;
@@ -1665,11 +1696,10 @@ void FDynamicMeshEmitterData::GetDynamicMeshElementsEmitter(const FParticleSyste
 							const int32	CurrentIndex = Source.DataContainer.ParticleIndices[i];
 							const uint8* ParticleBase = Source.DataContainer.ParticleData + CurrentIndex * Source.ParticleStride;
 							const FBaseParticle& Particle = *((const FBaseParticle*)ParticleBase);
-						
+
 							// Instance to world transformation. Translation (Instance world position) is packed into W
 							FMatrix TransMat(FMatrix::Identity);
 							GetParticleTransform(Particle, Proxy, View, TransMat);
-						
 							// Transpose on CPU to allow for simpler shader code to perform the transform.
 							const FMatrix Transpose = TransMat.GetTransposed();
 						
@@ -1765,12 +1795,15 @@ void FDynamicMeshEmitterData::GetDynamicMeshElementsEmitter(const FParticleSyste
 				InstanceVerticesCPU = MeshVertexFactory->GetInstanceVerticesCPU();
 			}
 			check(StaticMesh != nullptr);
-			const FStaticMeshLODResources& LODModel = StaticMesh->RenderData->LODResources[0];
+
+			const FStaticMeshLODResources& LODModel = StaticMesh->RenderData->LODResources[GetMeshLODIndexFromProxy(Proxy)];
+
 			const bool bIsWireframe = AllowDebugViewmodes() && View->Family->EngineShowFlags.Wireframe;
 
 			//@todo. Handle LODs.
 			for (int32 LODIndex = 0; LODIndex < 1; LODIndex++)
 			{
+				uint32 TotalTriangles = 0;
 				for (int32 SectionIndex = 0; SectionIndex < LODModel.Sections.Num(); SectionIndex++)
 				{
 					FMaterialRenderProxy* MaterialProxy = nullptr;
@@ -1780,11 +1813,20 @@ void FDynamicMeshEmitterData::GetDynamicMeshElementsEmitter(const FParticleSyste
 					}
 					const FStaticMeshSection& Section = LODModel.Sections[SectionIndex];
 
-					if ((Section.NumTriangles == 0) || (MaterialProxy == nullptr))
+					if (Section.NumTriangles == 0)
 					{
 						//@todo. This should never occur, but it does occasionally.
+						UE_LOG(LogParticles, Warning, TEXT("Mesh section %i has 0 triangles (LOD %i)"), SectionIndex, GetMeshLODIndexFromProxy(Proxy));
 						continue;
 					}
+
+					if (MaterialProxy == nullptr)
+					{
+						UE_LOG(LogParticles, Warning, TEXT("Mesh section %i has a null material proxy (LOD %i)"), SectionIndex, GetMeshLODIndexFromProxy(Proxy));
+						continue;
+					}
+
+					TotalTriangles += Section.NumTriangles;
 
 					FMeshBatch& Mesh = Collector.AllocateMesh();
 					Mesh.VertexFactory = MeshVertexFactory;
@@ -1817,7 +1859,7 @@ void FDynamicMeshEmitterData::GetDynamicMeshElementsEmitter(const FParticleSyste
 						{
 							Mesh.Type = PT_TriangleList;
 							Mesh.MaterialRenderProxy = MaterialProxy;
-							Mesh.bWireframe = true;	
+							Mesh.bWireframe = true;
 							BatchElement.FirstIndex = 0;
 							BatchElement.IndexBuffer = &LODModel.IndexBuffer;
 							BatchElement.NumPrimitives = LODModel.IndexBuffer.GetNumIndices() / 3;
@@ -1843,7 +1885,7 @@ void FDynamicMeshEmitterData::GetDynamicMeshElementsEmitter(const FParticleSyste
 						BatchElement.UserIndex = 0;
 
 						Mesh.Elements.Reserve(ParticleCount);
-						for(int32 ParticleIndex = 1; ParticleIndex < ParticleCount; ++ParticleIndex)
+						for (int32 ParticleIndex = 1; ParticleIndex < ParticleCount; ++ParticleIndex)
 						{
 							FMeshBatchElement* NextElement = new(Mesh.Elements) FMeshBatchElement();
 							*NextElement = Mesh.Elements[0];
@@ -1853,12 +1895,19 @@ void FDynamicMeshEmitterData::GetDynamicMeshElementsEmitter(const FParticleSyste
 
 					Mesh.bCanApplyViewModeOverrides = true;
 					Mesh.bUseWireframeSelectionColoring = Proxy->IsSelected();
-			
-				#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 					Mesh.VisualizeLODIndex = (int8)Proxy->GetVisualizeLODIndex();
-				#endif
+#endif
 
 					Collector.AddMesh(ViewIndex, Mesh);
+
+					INC_DWORD_STAT_BY(STAT_MeshParticlePolys, ParticleCount * LODModel.GetNumTriangles());
+				}
+
+				if (TotalTriangles == 0)
+				{
+					UE_LOG(LogParticles, Warning, TEXT("WARNING: particle mesh LOD %i has no triangles, but is reported as a valid LOD!"), GetMeshLODIndexFromProxy(Proxy));
 				}
 			}
 		}
@@ -1871,6 +1920,19 @@ void FDynamicMeshEmitterData::GetDynamicMeshElementsEmitter(const FParticleSyste
 			RenderDebug(Proxy, Collector.GetPDI(ViewIndex), View, true);
 		}
 	}
+
+	if (bUseStaticMeshLODs)
+	{
+		if (EmitterIndex < Proxy->MeshEmitterLODIndices.Num())
+		{
+			if (Proxy->MeshEmitterLODIndices[EmitterIndex] != LastCalculatedMeshLOD)
+			{
+				Proxy->MarkEmitterVertexFactoryDirty(EmitterIndex);
+			}
+			Proxy->MeshEmitterLODIndices[EmitterIndex] = LastCalculatedMeshLOD;
+		}
+	}
+
 }
 
 void FDynamicMeshEmitterData::GatherSimpleLights(const FParticleSystemSceneProxy* Proxy, const FSceneViewFamily& ViewFamily, FSimpleLightArray& OutParticleLights) const
@@ -2339,11 +2401,18 @@ void FDynamicMeshEmitterData::GetInstanceData(void* InstanceData, void* DynamicP
 	uint8* TempDynamicParameterVert = (uint8*)DynamicParameterData;
 	uint8* TempPrevTranformVert = (uint8*)PrevTransformBuffer;
 
+	LastCalculatedMeshLOD = MAX_STATIC_MESH_LODS;
+	static TConsoleVariableData<float>* CVarStaticMeshLODDistanceScale = IConsoleManager::Get().FindTConsoleVariableDataFloat(TEXT("r.StaticMeshLODDistanceScale"));
+	float InvScreenSizeScale = 1.f / CVarStaticMeshLODDistanceScale->GetValueOnRenderThread();
+	float TotalLODSizeScale = InvScreenSizeScale*LODSizeScale;
+
 	for (int32 i = ParticleCount - 1; i >= 0; i--)
 	{
 		const int32	CurrentIndex	= Source.DataContainer.ParticleIndices[i];
 		const uint8* ParticleBase	= Source.DataContainer.ParticleData + CurrentIndex * Source.ParticleStride;
 		const FBaseParticle& Particle		= *((const FBaseParticle*) ParticleBase);
+
+
 		FMeshParticleInstanceVertex* CurrentInstanceVertex = (FMeshParticleInstanceVertex*)TempVert;
 		
 		// Populate instance buffer;
@@ -2359,6 +2428,21 @@ void FDynamicMeshEmitterData::GetInstanceData(void* InstanceData, void* DynamicP
 		CurrentInstanceVertex->Transform[0] = FVector4(Transpose.M[0][0], Transpose.M[0][1], Transpose.M[0][2], Transpose.M[0][3]);
 		CurrentInstanceVertex->Transform[1] = FVector4(Transpose.M[1][0], Transpose.M[1][1], Transpose.M[1][2], Transpose.M[1][3]);
 		CurrentInstanceVertex->Transform[2] = FVector4(Transpose.M[2][0], Transpose.M[2][1], Transpose.M[2][2], Transpose.M[2][3]);
+
+		if (bUseStaticMeshLODs)
+		{
+			// if we're in local space, transform largest particle's position to world space
+			// this is then used to determine screen size for LOD selection in GetDynamicMeshElements
+			FVector ParticlePos = Particle.Location;
+			if (Source.bUseLocalSpace)
+			{
+				ParticlePos = Proxy->GetLocalToWorld().TransformPosition(ParticlePos);
+			}
+			FVector ParticleSize = TransMat.TransformVector(Particle.Size);
+			int32 LODIndexToUse = ComputeStaticMeshLOD(StaticMesh->RenderData.Get(), ParticlePos, ParticleSize.Size()*0.5f*StaticMesh->GetBounds().SphereRadius, *View, 0, TotalLODSizeScale);
+			LODIndexToUse = FMath::Min(LODIndexToUse, StaticMesh->GetNumLODs() - 1);
+			LastCalculatedMeshLOD = LODIndexToUse < LastCalculatedMeshLOD ? LODIndexToUse : LastCalculatedMeshLOD;
+		}
 
 		if (PrevTransformBuffer)
 		{
@@ -2619,7 +2703,7 @@ public:
 };
 
 
-FParticleVertexFactoryBase *FDynamicBeam2EmitterData::CreateVertexFactory(ERHIFeatureLevel::Type InFeatureLevel)
+FParticleVertexFactoryBase *FDynamicBeam2EmitterData::CreateVertexFactory(ERHIFeatureLevel::Type InFeatureLevel, const FParticleSystemSceneProxy *InOwnerProxy)
 {
 	FParticleBeamTrailVertexFactory *VertexFactory = new FParticleBeamTrailVertexFactory(InFeatureLevel);
 	VertexFactory->SetParticleFactoryType(PVFT_BeamTrail);
@@ -5391,7 +5475,7 @@ FParticleVertexFactoryBase* FDynamicTrailsEmitterData::BuildVertexFactory(const 
 
 
 
-FParticleVertexFactoryBase *FDynamicTrailsEmitterData::CreateVertexFactory(ERHIFeatureLevel::Type InFeatureLevel)
+FParticleVertexFactoryBase *FDynamicTrailsEmitterData::CreateVertexFactory(ERHIFeatureLevel::Type InFeatureLevel, const FParticleSystemSceneProxy *InOwnerProxy)
 {
 	FParticleBeamTrailVertexFactory *VertexFactory = new FParticleBeamTrailVertexFactory(InFeatureLevel);
 	VertexFactory->SetParticleFactoryType(PVFT_BeamTrail);
@@ -5928,8 +6012,8 @@ int32 FDynamicRibbonEmitterData::FillVertexData(struct FAsyncBufferFillData& Dat
 				FVector CurrUp = WorkingUp;
 				FLinearColor CurrColor = PackingParticle->Color;
 
-				FVector PrevPosition = PrevParticle->Location;
-				FVector PrevTangent = PrevTrailPayload->Tangent;
+				FVector PrevPosition = PrevParticle->Location; //-V522
+				FVector PrevTangent = PrevTrailPayload->Tangent; //-V522
 				FVector PrevUp = PrevWorkingUp;
 				FLinearColor PrevColor = PrevParticle->Color;
 				float PrevSize = PrevParticle->Size.X * Source.Scale.X;
@@ -6775,9 +6859,9 @@ FParticleSystemSceneProxy::FParticleSystemSceneProxy(const UParticleSystemCompon
 	, bCanBeOccluded(InbCanBeOccluded)
 	, bHasCustomOcclusionBounds(false)
 {
-	WireframeColor = FLinearColor(3.0f, 0.0f, 0.0f);
-	LevelColor = FLinearColor(1.0f, 1.0f, 0.0f);
-	PropertyColor = FLinearColor(1.0f, 1.0f, 1.0f);
+	SetWireframeColor(FLinearColor(3.0f, 0.0f, 0.0f));
+	SetLevelColor(FLinearColor(1.0f, 1.0f, 0.0f));
+	SetPropertyColor(FLinearColor(1.0f, 1.0f, 1.0f));
 
 	LODMethod = Component->LODMethod;
 
@@ -6871,10 +6955,7 @@ void FParticleSystemSceneProxy::GetDynamicMeshElements(const TArray<const FScene
 				{
 					if (VisibilityMap & (1 << ViewIndex))
 					{
-
 						const FSceneView* View = Views[ViewIndex];
-
-
 						Data->GetDynamicMeshElementsEmitter(this, View, ViewFamily, ViewIndex, Collector, VertexFactory);
 						NumDraws++;
 					}
@@ -7175,6 +7256,7 @@ void FParticleSystemSceneProxy::GatherSimpleLights(const FSceneViewFamily& ViewF
 
 FPrimitiveSceneProxy* UParticleSystemComponent::CreateSceneProxy()
 {
+	SCOPE_CYCLE_COUNTER(STAT_FParticleSystemSceneProxy_Create);
 	FParticleSystemSceneProxy* NewProxy = NULL;
 
 	//@fixme EmitterInstances.Num() check should be here to avoid proxies for dead emitters but there are some edge cases where it happens for emitters that have just activated...
@@ -7258,3 +7340,4 @@ ENGINE_API void DrawParticleSystemHelpers(const FSceneView* View,FPrimitiveDrawI
 	}
 }
 #endif	//#if WITH_EDITOR
+

@@ -27,7 +27,7 @@ SkillLevel: Beginner
 | --- | :--- |
 | **Physics Blend** | 피직스 블렌드 - **피직스 애셋 툴** 에서 시뮬레이션 도중의 피직스/애니메이션 블렌딩을 수동 제어할 수 있습니다. |
 | **Update Joints from Animation** | 애니메이션에서 조인트 업데이트 - 피직스/애니메이션을 수동 제어할 수 있습니다. |
-| **Physics Update Mode** | 피직스 업데이트 모드 - [INCLUDE:#UpdateJointsfromAnimationEnum] |
+| **Physics Update Mode** | [INCLUDE:#UpdateJointsfromAnimationEnum] |
 | **Poke Pause Time** | 찌르기 일시정지 시간 - 래그돌을 찌른 후 반응이 시작되기까지 걸리는 시간입니다. |
 | **Poke Blend Time** | 찌르기 블렌드 시간 - 피직스에서 애니메이션으로 블렌딩하는 데 걸리는 시간입니다. |
 [/REGION]

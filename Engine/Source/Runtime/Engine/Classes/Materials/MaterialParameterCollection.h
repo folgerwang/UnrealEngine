@@ -12,7 +12,7 @@
 #include "Misc/Guid.h"
 #include "Templates/ScopedPointer.h"
 #include "UniformBuffer.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 #include "MaterialParameterCollection.generated.h"
 
 struct FPropertyChangedEvent;
@@ -44,6 +44,7 @@ struct FCollectionScalarParameter : public FCollectionParameterBase
 	GENERATED_USTRUCT_BODY()
 
 	FCollectionScalarParameter()
+		: DefaultValue(0.0f)
 	{
 		ParameterName = FName(TEXT("Scalar"));
 	}

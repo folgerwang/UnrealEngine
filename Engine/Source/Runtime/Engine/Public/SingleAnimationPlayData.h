@@ -37,6 +37,7 @@ struct FSingleAnimationPlayData
 
 	FSingleAnimationPlayData()
 	{
+		AnimToPlay = nullptr;
 		SavedPlayRate = 1.0f;
 		bSavedLooping = true;
 		bSavedPlaying = true;

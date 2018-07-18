@@ -6,6 +6,8 @@
 
 #if PLATFORM_XBOXONE
 	#include "EncryptionContextBCrypt.h"
+#elif PLATFORM_SWITCH
+	#include "EncryptionContextSwitch.h"
 #else
 	#include "EncryptionContextOpenSSL.h"
 #endif

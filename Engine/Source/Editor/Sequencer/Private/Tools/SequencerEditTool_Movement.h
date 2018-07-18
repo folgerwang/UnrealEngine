@@ -7,7 +7,7 @@
 #include "Input/CursorReply.h"
 #include "Input/Reply.h"
 #include "Tools/SequencerEditTool.h"
-#include "Tools/DelayedDrag.h"
+#include "Framework/DelayedDrag.h"
 
 class SSequencer;
 struct ISequencerHotspot;
@@ -39,14 +39,14 @@ public:
 
 protected:
 
-	FString TimeToString(float Time, bool IsDelta) const;
+	FString TimeToString(FFrameTime Time, bool IsDelta) const;
 
 private:
 
 	TSharedPtr<ISequencerEditToolDragOperation> CreateDrag(const FPointerEvent& MouseEvent);
 
-	bool GetHotspotTime(float& HotspotTime) const;
-	float GetHotspotOffsetTime(float CurrentTime) const;
+	bool GetHotspotTime(FFrameTime& HotspotTime) const;
+	FFrameTime GetHotspotOffsetTime(FFrameTime CurrentTime) const;
 
 	struct FDelayedDrag_Hotspot : FDelayedDrag
 	{
@@ -68,5 +68,5 @@ private:
 	FVector2D DragPosition;
 
 	/** The hotspot's time before dragging started. */
-	float OriginalHotspotTime;
+	FFrameTime OriginalHotspotTime;
 };

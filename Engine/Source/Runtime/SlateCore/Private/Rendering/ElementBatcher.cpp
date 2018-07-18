@@ -10,7 +10,6 @@
 #include "HAL/IConsoleManager.h"
 
 DECLARE_CYCLE_STAT(TEXT("Find Batch For Element Time"), STAT_SlateFindBatchForElement, STATGROUP_SlateVerbose);
-DECLARE_DWORD_COUNTER_STAT(TEXT("Num Elements (Prebatch)"), STAT_SlateNumPrebatchElements, STATGROUP_Slate);
 
 DECLARE_CYCLE_STAT(TEXT("Add Elements Time"), STAT_SlateAddElements, STATGROUP_Slate);
 
@@ -18,14 +17,23 @@ SLATE_DECLARE_CYCLE_COUNTER(GSlateAddElements, "Add Elements");
 SLATE_DECLARE_CYCLE_COUNTER(GSlateFindBatchTime, "FindElementForBatch");
 SLATE_DECLARE_CYCLE_COUNTER(GSlateFillBatchBuffers, "FillBatchBuffers");
 
-DECLARE_DWORD_COUNTER_STAT(TEXT("Elements (Box)"), STAT_SlateNumBoxElements, STATGROUP_Slate);
-DECLARE_DWORD_COUNTER_STAT(TEXT("Elements (Text)"), STAT_SlateNumTextElements, STATGROUP_Slate);
+DECLARE_DWORD_COUNTER_STAT(TEXT("Elements"), STAT_SlateElements, STATGROUP_Slate);
+DECLARE_DWORD_COUNTER_STAT(TEXT("Elements (Box)"), STAT_SlateElements_Box, STATGROUP_Slate);
+DECLARE_DWORD_COUNTER_STAT(TEXT("Elements (Border)"), STAT_SlateElements_Border, STATGROUP_Slate);
+DECLARE_DWORD_COUNTER_STAT(TEXT("Elements (Text)"), STAT_SlateElements_Text, STATGROUP_Slate);
+DECLARE_DWORD_COUNTER_STAT(TEXT("Elements (ShapedText)"), STAT_SlateElements_ShapedText, STATGROUP_Slate);
+DECLARE_DWORD_COUNTER_STAT(TEXT("Elements (Line)"), STAT_SlateElements_Line, STATGROUP_Slate);
+DECLARE_DWORD_COUNTER_STAT(TEXT("Elements (Cached Buffer)"), STAT_SlateElements_CachedBuffer, STATGROUP_Slate);
+DECLARE_DWORD_COUNTER_STAT(TEXT("Elements (Other)"), STAT_SlateElements_Other, STATGROUP_Slate);
+
+int32 GSlateFeathering = 0;
+static FAutoConsoleVariableRef CVarSlateFeathering(TEXT("Slate.Feathering"), GSlateFeathering, TEXT("Provides a means of doing Anti-Aliasing around the edges by feathering boxes."), ECVF_Default);
 
 FSlateElementBatcher::FSlateElementBatcher( TSharedRef<FSlateRenderingPolicy> InRenderingPolicy )
 	: BatchData( nullptr )
 	, DrawLayer( nullptr )
 	, RenderingPolicy( &InRenderingPolicy.Get() )
-	, NumDrawnBatchesStat(0)
+	, ElmementStat_Other(0)
 	, NumPostProcessPasses(0)
 	, PixelCenterOffset( InRenderingPolicy->GetPixelCenterOffset() )
 	, bSRGBVertexColor( !InRenderingPolicy->IsVertexColorInLinearSpace() )
@@ -44,104 +52,84 @@ void FSlateElementBatcher::AddElements(FSlateWindowElementList& WindowElementLis
 
 	SCOPE_CYCLE_COUNTER(STAT_SlateAddElements);
 
-	NumDrawnBatchesStat = NumDrawnBoxesStat = NumDrawnTextsStat = 0;
+	ElmementStat_Other = 0;
+	ElmementStat_Boxes = 0;
+	ElmementStat_Borders = 0;
+	ElmementStat_Text = 0;
+	ElmementStat_ShapedText = 0;
+	ElmementStat_Line = 0;
+	ElmementStat_CachedBuffer = 0;
 
 	BatchData = &WindowElementList.GetBatchData();
 	DrawLayer = &WindowElementList.GetRootDrawLayer();
 	
 	FVector2D ViewportSize = WindowElementList.GetWindow()->GetViewportSize();
+
+	ClippingStates = &WindowElementList.ClippingManager.GetClippingStates();
+
+	BatchData->DetermineIsStencilClippingRequired(*ClippingStates);
 	
-	AddElements(WindowElementList.GetRootDrawLayer().DrawElements, ViewportSize);
+	AddElementsInternal(WindowElementList.GetRootDrawLayer().DrawElements, ViewportSize);
 
 	TMap< TSharedPtr<FSlateDrawLayerHandle, ESPMode::ThreadSafe>, TSharedPtr<FSlateDrawLayer> >& DrawLayers = WindowElementList.GetChildDrawLayers();
 	for ( auto& Entry : DrawLayers )
 	{
 		DrawLayer = Entry.Value.Get();
-		AddElements(Entry.Value.Get()->DrawElements, ViewportSize);
+		AddElementsInternal(DrawLayer->DrawElements, ViewportSize);
 	}
-
-	BatchData->CopyClippingStates(WindowElementList.ClippingManager.GetClippingStates());
 
 	// Done with the element list
 	BatchData = nullptr;
 	DrawLayer = nullptr;
+	ClippingStates = nullptr;
 
-	SET_DWORD_STAT(STAT_SlateNumPrebatchElements, NumDrawnBatchesStat);
-	SET_DWORD_STAT(STAT_SlateNumBoxElements, NumDrawnBoxesStat);
-	SET_DWORD_STAT(STAT_SlateNumTextElements, NumDrawnTextsStat);
+	const int32 ElmementStat_All =
+		ElmementStat_Boxes +
+		ElmementStat_Borders +
+		ElmementStat_Text +
+		ElmementStat_ShapedText +
+		ElmementStat_Line +
+		ElmementStat_CachedBuffer +
+		ElmementStat_Other;
+
+	INC_DWORD_STAT_BY(STAT_SlateElements, ElmementStat_All);
+	INC_DWORD_STAT_BY(STAT_SlateElements_Box, ElmementStat_Boxes);
+	INC_DWORD_STAT_BY(STAT_SlateElements_Border, ElmementStat_Borders);
+	INC_DWORD_STAT_BY(STAT_SlateElements_Text, ElmementStat_Text);
+	INC_DWORD_STAT_BY(STAT_SlateElements_ShapedText, ElmementStat_ShapedText);
+	INC_DWORD_STAT_BY(STAT_SlateElements_Line, ElmementStat_Line);
+	INC_DWORD_STAT_BY(STAT_SlateElements_CachedBuffer, ElmementStat_CachedBuffer);
+	INC_DWORD_STAT_BY(STAT_SlateElements_Other, ElmementStat_Other);
 }
 
-void FSlateElementBatcher::AddElements(const TArray<FSlateDrawElement>& DrawElements, const FVector2D& ViewportSize)
+void FSlateElementBatcher::AddElementsInternal(const TArray<FSlateDrawElement>& DrawElements, const FVector2D& ViewportSize)
 {
-	// This stuff is just for the counters. Could be scoped by an #ifdef if necessary.
-	static_assert(
-		FSlateDrawElement::EElementType::ET_Box == 0 &&
-		FSlateDrawElement::EElementType::ET_DebugQuad == 1 &&
-		FSlateDrawElement::EElementType::ET_Text == 2 &&
-		FSlateDrawElement::EElementType::ET_ShapedText == 3 &&
-		FSlateDrawElement::EElementType::ET_Spline == 4 &&
-		FSlateDrawElement::EElementType::ET_Line == 5 &&
-		FSlateDrawElement::EElementType::ET_Gradient == 6 &&
-		FSlateDrawElement::EElementType::ET_Viewport == 7 &&
-		FSlateDrawElement::EElementType::ET_Border == 8 &&
-		FSlateDrawElement::EElementType::ET_Custom == 9 &&
-		FSlateDrawElement::EElementType::ET_CustomVerts == 10 &&
-		FSlateDrawElement::EElementType::ET_CachedBuffer == 11 &&
-		FSlateDrawElement::EElementType::ET_Layer == 12 &&
-		FSlateDrawElement::EElementType::ET_PostProcessPass == 13 &&
-		FSlateDrawElement::EElementType::ET_Count == 14,
-		"If FSlateDrawElement::EElementType is modified, this array must be made to match." );
-
-	static FName ElementFNames[] =
-	{
-		FName(TEXT("Box")),
-		FName(TEXT("DebugQuad")),
-		FName(TEXT("Text")),
-		FName(TEXT("ShapedText")),
-		FName(TEXT("Spline")),
-		FName(TEXT("Line")),
-		FName(TEXT("Gradient")),
-		FName(TEXT("Viewport")),
-		FName(TEXT("Border")),
-		FName(TEXT("Custom")),
-		FName(TEXT("CustomVerts")),
-		FName(TEXT("CachedBuffer")),
-		FName(TEXT("Layer")),
-		FName(TEXT("FXPass")),
-	};
-
 	checkSlow(DrawLayer);
+
+	BatchBoxElements();
+	BatchBorderElements();
+	BatchTextElements();
+	BatchShapedTextElements();
+	BatchLineElements();
+	BatchCachedBuffers();
 
 	for ( int32 DrawElementIndex = 0; DrawElementIndex < DrawElements.Num(); ++DrawElementIndex )
 	{
 		const FSlateDrawElement& DrawElement = DrawElements[DrawElementIndex];
 
-		++NumDrawnBatchesStat;
+		ElmementStat_Other++;
 
 		const bool EnablePixelSnapping = !EnumHasAllFlags(DrawElement.GetDrawEffects(), ESlateDrawEffect::NoPixelSnapping);
 
-		// time just the adding of the element. The clipping stuff will be counted in exclusive time for the non-typed timer.
-		SLATE_CYCLE_COUNTER_SCOPE_CUSTOM_DETAILED(SLATE_STATS_DETAIL_LEVEL_MED, GSlateAddElements, ElementFNames[DrawElement.GetElementType()]);
 		// Determine what type of element to add
 		switch ( DrawElement.GetElementType() )
 		{
-		case FSlateDrawElement::ET_Box:
-			EnablePixelSnapping ? AddBoxElement<ESlateVertexRounding::Enabled>(DrawElement) : AddBoxElement<ESlateVertexRounding::Disabled>(DrawElement);
-			break;
 		case FSlateDrawElement::ET_DebugQuad:
 			EnablePixelSnapping ? AddQuadElement<ESlateVertexRounding::Enabled>(DrawElement) : AddQuadElement<ESlateVertexRounding::Disabled>(DrawElement);
 			break;
-		case FSlateDrawElement::ET_Text:
-			EnablePixelSnapping ? AddTextElement<ESlateVertexRounding::Enabled>(DrawElement) : AddTextElement<ESlateVertexRounding::Disabled>(DrawElement);
-			break;
-		case FSlateDrawElement::ET_ShapedText:
-			EnablePixelSnapping ? AddShapedTextElement<ESlateVertexRounding::Enabled>(DrawElement) : AddShapedTextElement<ESlateVertexRounding::Disabled>(DrawElement);
-			break;
 		case FSlateDrawElement::ET_Spline:
-			EnablePixelSnapping ? AddSplineElement<ESlateVertexRounding::Enabled>(DrawElement) : AddSplineElement<ESlateVertexRounding::Disabled>(DrawElement);
-			break;
-		case FSlateDrawElement::ET_Line:
-			EnablePixelSnapping ? AddLineElement<ESlateVertexRounding::Enabled>(DrawElement) : AddLineElement<ESlateVertexRounding::Disabled>(DrawElement);
+			// Note that we ignore pixel snapping here; see implementation for more info.
+			AddSplineElement(DrawElement);
 			break;
 		case FSlateDrawElement::ET_Gradient:
 			EnablePixelSnapping ? AddGradientElement<ESlateVertexRounding::Enabled>(DrawElement) : AddGradientElement<ESlateVertexRounding::Disabled>(DrawElement);
@@ -149,17 +137,11 @@ void FSlateElementBatcher::AddElements(const TArray<FSlateDrawElement>& DrawElem
 		case FSlateDrawElement::ET_Viewport:
 			EnablePixelSnapping ? AddViewportElement<ESlateVertexRounding::Enabled>(DrawElement) : AddViewportElement<ESlateVertexRounding::Disabled>(DrawElement);
 			break;
-		case FSlateDrawElement::ET_Border:
-			EnablePixelSnapping ? AddBorderElement<ESlateVertexRounding::Enabled>(DrawElement) : AddBorderElement<ESlateVertexRounding::Disabled>(DrawElement);
-			break;
 		case FSlateDrawElement::ET_Custom:
 			AddCustomElement(DrawElement);
 			break;
 		case FSlateDrawElement::ET_CustomVerts:
 			AddCustomVerts(DrawElement);
-			break;
-		case FSlateDrawElement::ET_CachedBuffer:
-			AddCachedBuffer(DrawElement);
 			break;
 		case FSlateDrawElement::ET_Layer:
 			AddLayer(DrawElement);
@@ -174,11 +156,93 @@ void FSlateElementBatcher::AddElements(const TArray<FSlateDrawElement>& DrawElem
 	}
 }
 
-FColor FSlateElementBatcher::PackVertexColor(const FLinearColor& InLinearColor)
+FName Elements_Boxes(TEXT("Boxes"));
+FName Elements_Borders(TEXT("Borders"));
+FName Elements_Text(TEXT("Text"));
+FName Elements_ShapedText(TEXT("ShapedText"));
+FName Elements_Lines(TEXT("Lines"));
+FName Elements_CachedBuffer(TEXT("CachedBuffer"));
+
+void FSlateElementBatcher::BatchBoxElements()
 {
-	//NOTE: Using pow(x,2) instead of a full sRGB conversion has been tried, but it ended up
-	// causing too much loss of data in the lower levels of black.
-	return InLinearColor.ToFColor(bSRGBVertexColor);
+	const TArray<FSlateDrawBox>& Elements = DrawLayer->BoxElements;
+	for (int32 ElementIndex = 0; ElementIndex < Elements.Num(); ++ElementIndex)
+	{
+		const FSlateDrawBox& Element = Elements[ElementIndex];
+		Element.IsPixelSnapped() ? AddBoxElement<ESlateVertexRounding::Enabled>(Element) : AddBoxElement<ESlateVertexRounding::Disabled>(Element);
+	}
+
+	ElmementStat_Boxes += Elements.Num();
+}
+
+void FSlateElementBatcher::BatchBorderElements()
+{
+	SLATE_CYCLE_COUNTER_SCOPE_CUSTOM_DETAILED(SLATE_STATS_DETAIL_LEVEL_MED, GSlateAddElements, Elements_Borders);
+
+	const TArray<FSlateDrawBox>& Elements = DrawLayer->BorderElements;
+	for (int32 ElementIndex = 0; ElementIndex < Elements.Num(); ++ElementIndex)
+	{
+		const FSlateDrawBox& Element = Elements[ElementIndex];
+		Element.IsPixelSnapped() ? AddBorderElement<ESlateVertexRounding::Enabled>(Element) : AddBorderElement<ESlateVertexRounding::Disabled>(Element);
+	}
+
+	ElmementStat_Borders += Elements.Num();
+}
+
+void FSlateElementBatcher::BatchTextElements()
+{
+	SLATE_CYCLE_COUNTER_SCOPE_CUSTOM_DETAILED(SLATE_STATS_DETAIL_LEVEL_MED, GSlateAddElements, Elements_Text);
+
+	const TArray<FSlateDrawText>& Elements = DrawLayer->TextElements;
+	for (int32 ElementIndex = 0; ElementIndex < Elements.Num(); ++ElementIndex)
+	{
+		const FSlateDrawText& Element = Elements[ElementIndex];
+		Element.IsPixelSnapped() ? AddTextElement<ESlateVertexRounding::Enabled>(Element) : AddTextElement<ESlateVertexRounding::Disabled>(Element);
+	}
+
+	ElmementStat_Text += Elements.Num();
+}
+
+void FSlateElementBatcher::BatchShapedTextElements()
+{
+	SLATE_CYCLE_COUNTER_SCOPE_CUSTOM_DETAILED(SLATE_STATS_DETAIL_LEVEL_MED, GSlateAddElements, Elements_ShapedText);
+
+	const TArray<FSlateDrawShapedText>& Elements = DrawLayer->ShapedTextElements;
+	for (int32 ElementIndex = 0; ElementIndex < Elements.Num(); ++ElementIndex)
+	{
+		const FSlateDrawShapedText& Element = Elements[ElementIndex];
+		Element.IsPixelSnapped() ? AddShapedTextElement<ESlateVertexRounding::Enabled>(Element) : AddShapedTextElement<ESlateVertexRounding::Disabled>(Element);
+	}
+
+	ElmementStat_ShapedText += Elements.Num();
+}
+
+void FSlateElementBatcher::BatchLineElements()
+{
+	SLATE_CYCLE_COUNTER_SCOPE_CUSTOM_DETAILED(SLATE_STATS_DETAIL_LEVEL_MED, GSlateAddElements, Elements_Lines);
+
+	const TArray<FSlateDrawLines>& Elements = DrawLayer->LineElements;
+	for (int32 ElementIndex = 0; ElementIndex < Elements.Num(); ++ElementIndex)
+	{
+		const FSlateDrawLines& Element = Elements[ElementIndex];
+		Element.IsPixelSnapped() ? AddLineElement<ESlateVertexRounding::Enabled>(Element) : AddLineElement<ESlateVertexRounding::Disabled>(Element);
+	}
+
+	ElmementStat_Line += Elements.Num();
+}
+
+void FSlateElementBatcher::BatchCachedBuffers()
+{
+	SLATE_CYCLE_COUNTER_SCOPE_CUSTOM_DETAILED(SLATE_STATS_DETAIL_LEVEL_MED, GSlateAddElements, Elements_CachedBuffer);
+
+	const TArray<FSlateDrawCachedBuffer>& Elements = DrawLayer->CachedElementBuffers;
+	for (int32 ElementIndex = 0; ElementIndex < Elements.Num(); ++ElementIndex)
+	{
+		const FSlateDrawCachedBuffer& Element = Elements[ElementIndex];
+		AddCachedBuffer(Element);
+	}
+
+	ElmementStat_CachedBuffer += Elements.Num();
 }
 
 template<ESlateVertexRounding Rounding>
@@ -220,23 +284,6 @@ void FSlateElementBatcher::AddQuadElement( const FSlateDrawElement& DrawElement,
 	BatchIndices.Add( IndexStart + 3 );
 }
 
-
-FSlateRenderTransform GetBoxRenderTransform(const FSlateDrawElement& DrawElement)
-{
-	const FSlateRenderTransform& ElementRenderTransform = DrawElement.GetRenderTransform();
-	const float RotationAngle = DrawElement.GetDataPayload().Angle;
-	if (RotationAngle == 0.0f)
-	{
-		return ElementRenderTransform;
-	}
-	const FVector2D RotationPoint = DrawElement.GetDataPayload().RotationPoint;
-	const FSlateRenderTransform RotationTransform = Concatenate(Inverse(RotationPoint), FQuat2D(RotationAngle), RotationPoint);
-	return Concatenate(RotationTransform, ElementRenderTransform);
-}
-
-int32 SlateFeathering = 0;
-static FAutoConsoleVariableRef CVarSlateFeathering(TEXT("Slate.Feathering"), SlateFeathering, TEXT(""), ECVF_Default);
-
 FORCEINLINE void IndexQuad(FSlateIndexArray& BatchIndices, int32 TopLeft, int32 TopRight, int32 BottomRight, int32 BottomLeft)
 {
 	BatchIndices.Add(TopLeft);
@@ -249,20 +296,11 @@ FORCEINLINE void IndexQuad(FSlateIndexArray& BatchIndices, int32 TopLeft, int32 
 }
 
 template<ESlateVertexRounding Rounding>
-void FSlateElementBatcher::AddBoxElement(const FSlateDrawElement& DrawElement)
+void FSlateElementBatcher::AddBoxElement(const FSlateDrawBox& DrawElement)
 {
-	NumDrawnBoxesStat++;
-
-	const FSlateDataPayload& InPayload = DrawElement.GetDataPayload();
-
-	check(InPayload.BrushResource);
-	const FSlateBrush* BrushResource = InPayload.BrushResource;
-
-	ensureMsgf(BrushResource->DrawAs != ESlateBrushDrawType::NoDrawType, TEXT("This should have been filtered out earlier in the Make... call."));
-
-	const FColor Tint = PackVertexColor(InPayload.Tint);
+	const FColor Tint = PackVertexColor(DrawElement.GetTint());
 	const FSlateRenderTransform& ElementRenderTransform = DrawElement.GetRenderTransform();
-	const FSlateRenderTransform RenderTransform = GetBoxRenderTransform(DrawElement);
+	const FSlateRenderTransform RenderTransform = DrawElement.GetRenderTransform();// GetBoxRenderTransform(DrawElement);
 	const FVector2D& LocalSize = DrawElement.GetLocalSize();
 
 	const ESlateDrawEffect InDrawEffects = DrawElement.GetDrawEffects();
@@ -284,7 +322,7 @@ void FSlateElementBatcher::AddBoxElement(const FSlateDrawElement& DrawElement)
 
 	FVector2D HalfTexel;
 
-	const FSlateShaderResourceProxy* ResourceProxy = InPayload.ResourceProxy;
+	const FSlateShaderResourceProxy* ResourceProxy = DrawElement.GetResourceProxy();
 	FSlateShaderResource* Resource = nullptr;
 	if( ResourceProxy )
 	{
@@ -297,7 +335,7 @@ void FSlateElementBatcher::AddBoxElement(const FSlateDrawElement& DrawElement)
 		// Texel offset
 		HalfTexel = FVector2D( PixelCenterOffset/TextureWidth, PixelCenterOffset/TextureHeight );
 
-		FBox2D BrushUV = BrushResource->GetUVRegion();
+		const FBox2D& BrushUV = DrawElement.GetBrushUVRegion();
 		//In case brush has valid UV region - use it instead of proxy UV
 		if (BrushUV.bIsValid)
 		{
@@ -320,16 +358,16 @@ void FSlateElementBatcher::AddBoxElement(const FSlateDrawElement& DrawElement)
 	}
 
 
-	const ESlateBrushTileType::Type TilingRule = BrushResource->Tiling;
+	const ESlateBrushTileType::Type TilingRule = DrawElement.GetBrushTiling();
 	const bool bTileHorizontal = (TilingRule == ESlateBrushTileType::Both || TilingRule == ESlateBrushTileType::Horizontal);
 	const bool bTileVertical = (TilingRule == ESlateBrushTileType::Both || TilingRule == ESlateBrushTileType::Vertical);
 
-	const ESlateBrushMirrorType::Type MirroringRule = BrushResource->Mirroring;
+	const ESlateBrushMirrorType::Type MirroringRule = DrawElement.GetBrushMirroring();
 	const bool bMirrorHorizontal = (MirroringRule == ESlateBrushMirrorType::Both || MirroringRule == ESlateBrushMirrorType::Horizontal);
 	const bool bMirrorVertical = (MirroringRule == ESlateBrushMirrorType::Both || MirroringRule == ESlateBrushMirrorType::Vertical);
 
 	// Pass the tiling information as a flag so we can pick the correct texture addressing mode
-	ESlateBatchDrawFlag DrawFlags = InPayload.BatchFlags;
+	ESlateBatchDrawFlag DrawFlags = DrawElement.GetBatchFlags();
 	DrawFlags |= ( ( bTileHorizontal ? ESlateBatchDrawFlag::TileU : ESlateBatchDrawFlag::None ) | ( bTileVertical ? ESlateBatchDrawFlag::TileV : ESlateBatchDrawFlag::None ) );
 
 	FSlateElementBatch& ElementBatch = FindBatchForElement( Layer, FShaderParams(), Resource, ESlateDrawPrimitive::TriangleList, ESlateShader::Default, InDrawEffects, DrawFlags, DrawElement.GetClippingIndex(), DrawElement.GetSceneIndex());
@@ -346,14 +384,14 @@ void FSlateElementBatcher::AddBoxElement(const FSlateDrawElement& DrawElement)
 	// The offset into the index buffer where this elements indices start
 	uint32 IndexOffsetStart = BatchIndices.Num();
 
-	const FMargin& Margin = BrushResource->Margin;
+	const FMargin& Margin = DrawElement.GetBrushMargin();
 
 	const FVector2D TopRight = FVector2D(BotRight.X, TopLeft.Y);
 	const FVector2D BotLeft = FVector2D(TopLeft.X, BotRight.Y);
 
 	const FColor FeatherColor(0, 0, 0, 0);
 
-	if ( BrushResource->DrawAs != ESlateBrushDrawType::Image &&
+	if ( DrawElement.GetBrushDrawType() != ESlateBrushDrawType::Image &&
 		( Margin.Left != 0.0f || Margin.Top != 0.0f || Margin.Right != 0.0f || Margin.Bottom != 0.0f ) )
 	{
 		// Create 9 quads for the box element based on the following diagram
@@ -513,7 +551,7 @@ void FSlateElementBatcher::AddBoxElement(const FSlateDrawElement& DrawElement)
 		BatchIndices.Add( IndexStart + 14 );
 		BatchIndices.Add( IndexStart + 15 );
 
-		if ( SlateFeathering && Rounding == ESlateVertexRounding::Disabled )
+		if ( GSlateFeathering && Rounding == ESlateVertexRounding::Disabled )
 		{
 			const int32 FeatherStart = BatchVertices.Num();
 
@@ -610,7 +648,7 @@ void FSlateElementBatcher::AddBoxElement(const FSlateDrawElement& DrawElement)
 		int32 BottomLeftIndex = IndexStart + 2;
 		int32 BottomRightIndex = IndexStart + 3;
 
-		if ( SlateFeathering && Rounding == ESlateVertexRounding::Disabled )
+		if ( GSlateFeathering && Rounding == ESlateVertexRounding::Disabled )
 		{
 			const int32 FeatherStart = BatchVertices.Num();
 
@@ -663,28 +701,14 @@ void FSlateElementBatcher::AddBoxElement(const FSlateDrawElement& DrawElement)
 }
 
 template<ESlateVertexRounding Rounding>
-void FSlateElementBatcher::AddTextElement(const FSlateDrawElement& DrawElement)
+void FSlateElementBatcher::AddTextElement(const FSlateDrawText& DrawElement)
 {
-	const FSlateDataPayload& InPayload = DrawElement.GetDataPayload();
-	FColor BaseTint = PackVertexColor(InPayload.Tint);
+	FColor BaseTint = PackVertexColor(DrawElement.GetTint());
 
-	const FFontOutlineSettings& OutlineSettings = InPayload.FontInfo.OutlineSettings;
+	const FFontOutlineSettings& OutlineSettings = DrawElement.GetFontInfo().OutlineSettings;
 
-	// Don't do anything if there the font would be completely transparent 
-	if ((BaseTint.A == 0 && OutlineSettings.OutlineSize == 0) || (BaseTint.A == 0 && OutlineSettings.OutlineColor.A == 0))
-	{
-		return;
-	}
-
-	int32 Len = InPayload.ImmutableText ? FCString::Strlen(InPayload.ImmutableText) : 0;
-	// Nothing to do if no text
-	if (Len == 0)
-	{
-		return;
-	}
-
-
-	NumDrawnTextsStat++;
+	int32 Len = DrawElement.GetTextLength();
+	ensure(Len > 0);
 
 	ESlateDrawEffect InDrawEffects = DrawElement.GetDrawEffects();
 	uint32 Layer = DrawElement.GetLayer();
@@ -692,7 +716,7 @@ void FSlateElementBatcher::AddTextElement(const FSlateDrawElement& DrawElement)
 	// extract the layout transform from the draw element
 	FSlateLayoutTransform LayoutTransform(DrawElement.GetScale(), DrawElement.GetPosition());
 
-	// We don't just scale up fonts, we draw them in local space pre-scaled so we don't get scaling artifcats.
+	// We don't just scale up fonts, we draw them in local space pre-scaled so we don't get scaling artifacts.
 	// So we need to pull the layout scale out of the layout and render transform so we can apply them
 	// in local space with pre-scaled fonts.
 	const float FontScale = LayoutTransform.GetScale();
@@ -702,7 +726,7 @@ void FSlateElementBatcher::AddTextElement(const FSlateDrawElement& DrawElement)
 	FSlateFontCache& FontCache = *RenderingPolicy->GetFontCache();
 	FSlateShaderResourceManager& ResourceManager = *RenderingPolicy->GetResourceManager();
 
-	const UObject* BaseFontMaterial = InPayload.FontInfo.FontMaterial;
+	const UObject* BaseFontMaterial = DrawElement.GetFontInfo().FontMaterial;
 	const UObject* OutlineFontMaterial = OutlineSettings.OutlineMaterial;
 
 	bool bOutlineFont = OutlineSettings.OutlineSize > 0.0f;
@@ -712,7 +736,7 @@ void FSlateElementBatcher::AddTextElement(const FSlateDrawElement& DrawElement)
 
 	auto BuildFontGeometry = [&](const FFontOutlineSettings& InOutlineSettings, const FColor& InTint, const UObject* FontMaterial, int32 InLayer, int32 InOutlineHorizontalOffset)
 	{
-		FCharacterList& CharacterList = FontCache.GetCharacterList(InPayload.FontInfo, FontScale, InOutlineSettings);
+		FCharacterList& CharacterList = FontCache.GetCharacterList(DrawElement.GetFontInfo(), FontScale, InOutlineSettings);
 
 		float MaxHeight = CharacterList.GetMaxHeight();
 
@@ -750,7 +774,9 @@ void FSlateElementBatcher::AddTextElement(const FSlateDrawElement& DrawElement)
 		uint32 NumLines = 1;
 		for( uint32 CharIndex = 0; CharIndex < NumChars; ++CharIndex )
 		{
-			const TCHAR CurrentChar = InPayload.ImmutableText[ CharIndex ];
+			const TCHAR CurrentChar = DrawElement.GetText()[ CharIndex ];
+
+			ensure(CurrentChar != '\0');
 
 			const bool IsNewline = (CurrentChar == '\n');
 
@@ -766,7 +792,7 @@ void FSlateElementBatcher::AddTextElement(const FSlateDrawElement& DrawElement)
 			}
 			else
 			{
-				const FCharacterEntry& Entry = CharacterList.GetCharacter(CurrentChar, InPayload.FontInfo.FontFallback);
+				const FCharacterEntry& Entry = CharacterList.GetCharacter(CurrentChar, DrawElement.GetFontInfo().FontFallback);
 
 				if( Entry.Valid && (FontAtlasTexture == nullptr || Entry.TextureIndex != FontTextureIndex) )
 				{
@@ -776,7 +802,7 @@ void FSlateElementBatcher::AddTextElement(const FSlateDrawElement& DrawElement)
 					FontAtlasTexture = FontCache.GetSlateTextureResource( FontTextureIndex );
 					check(FontAtlasTexture);
 
-					FontShaderResource = ResourceManager.GetFontShaderResource( FontTextureIndex, FontAtlasTexture, InPayload.FontInfo.FontMaterial );
+					FontShaderResource = ResourceManager.GetFontShaderResource( FontTextureIndex, FontAtlasTexture, DrawElement.GetFontInfo().FontMaterial );
 					check(FontShaderResource);
 
 					ElementBatch = &FindBatchForElement(InLayer, FShaderParams(), FontShaderResource, ESlateDrawPrimitive::TriangleList, ESlateShader::Font, InDrawEffects, ESlateBatchDrawFlag::None, DrawElement.GetClippingIndex(), DrawElement.GetSceneIndex());
@@ -787,8 +813,8 @@ void FSlateElementBatcher::AddTextElement(const FSlateDrawElement& DrawElement)
 					VertexOffset = BatchVertices->Num();
 					IndexOffset = BatchIndices->Num();
 				
-					InvTextureSizeX = 1.0f/FontAtlasTexture->GetWidth();
-					InvTextureSizeY = 1.0f/FontAtlasTexture->GetHeight();
+					InvTextureSizeX = 1.0f / FontAtlasTexture->GetWidth();
+					InvTextureSizeY = 1.0f / FontAtlasTexture->GetHeight();
 				}
 
 				const bool bIsWhitespace = !Entry.Valid || FText::IsWhitespace(CurrentChar);
@@ -888,35 +914,23 @@ void FSlateElementBatcher::AddTextElement(const FSlateDrawElement& DrawElement)
 }
 
 template<ESlateVertexRounding Rounding>
-void FSlateElementBatcher::AddShapedTextElement( const FSlateDrawElement& DrawElement )
+void FSlateElementBatcher::AddShapedTextElement( const FSlateDrawShapedText& DrawElement )
 {
-	const FSlateDataPayload& InPayload = DrawElement.GetDataPayload();
-	check(InPayload.ShapedGlyphSequence.IsValid());
+	const FShapedGlyphSequence* ShapedGlyphSequence = DrawElement.GetShapedGlyphSequence().Get();
+	checkSlow(ShapedGlyphSequence);
 
-	const FFontOutlineSettings& OutlineSettings = InPayload.ShapedGlyphSequence->GetFontOutlineSettings();
+	const FFontOutlineSettings& OutlineSettings = ShapedGlyphSequence->GetFontOutlineSettings();
 
-	const TArray<FShapedGlyphEntry>& GlyphsToRender = InPayload.ShapedGlyphSequence->GetGlyphsToRender();
-	if (GlyphsToRender.Num() == 0)
-	{
-		return;
-	}
+	const TArray<FShapedGlyphEntry>& GlyphsToRender = ShapedGlyphSequence->GetGlyphsToRender();
+	ensure(GlyphsToRender.Num() > 0);
 
-	FColor BaseTint = PackVertexColor(InPayload.Tint);
-
-
-	// Don't do anything if there the font would be completely transparent 
-	if((BaseTint.A == 0 && OutlineSettings.OutlineSize == 0) || (BaseTint.A == 0 && InPayload.OutlineTint.A == 0))
-	{
-		return;
-	}
+	FColor BaseTint = PackVertexColor(DrawElement.GetTint());
 
 	FSlateFontCache& FontCache = *RenderingPolicy->GetFontCache();
 	FSlateShaderResourceManager& ResourceManager = *RenderingPolicy->GetResourceManager();
 
-	const int16 TextBaseline = InPayload.ShapedGlyphSequence->GetTextBaseline();
-	const uint16 MaxHeight = InPayload.ShapedGlyphSequence->GetMaxTextHeight();
-
-	NumDrawnTextsStat++;
+	const int16 TextBaseline = ShapedGlyphSequence->GetTextBaseline();
+	const uint16 MaxHeight = ShapedGlyphSequence->GetMaxTextHeight();
 
 	ESlateDrawEffect InDrawEffects = DrawElement.GetDrawEffects();
 	uint32 Layer = DrawElement.GetLayer();
@@ -924,14 +938,14 @@ void FSlateElementBatcher::AddShapedTextElement( const FSlateDrawElement& DrawEl
 	// extract the layout transform from the draw element
 	FSlateLayoutTransform LayoutTransform(DrawElement.GetScale(), DrawElement.GetPosition());
 
-	// We don't just scale up fonts, we draw them in local space pre-scaled so we don't get scaling artifcats.
+	// We don't just scale up fonts, we draw them in local space pre-scaled so we don't get scaling artifacts.
 	// So we need to pull the layout scale out of the layout and render transform so we can apply them
 	// in local space with pre-scaled fonts.
 	const float FontScale = LayoutTransform.GetScale();
 	FSlateLayoutTransform InverseLayoutTransform = Inverse(Concatenate(Inverse(FontScale), LayoutTransform));
 	const FSlateRenderTransform RenderTransform = Concatenate(Inverse(FontScale), DrawElement.GetRenderTransform());
 
-	const UObject* BaseFontMaterial = InPayload.ShapedGlyphSequence->GetFontMaterial();
+	const UObject* BaseFontMaterial = ShapedGlyphSequence->GetFontMaterial();
 	const UObject* OutlineFontMaterial = OutlineSettings.OutlineMaterial;
 
 	bool bOutlineFont = OutlineSettings.OutlineSize > 0.0f;
@@ -1064,7 +1078,7 @@ void FSlateElementBatcher::AddShapedTextElement( const FSlateDrawElement& DrawEl
 	if (bOutlineFont)
 	{
 		// Build geometry for the outline
-		BuildFontGeometry(OutlineSettings, PackVertexColor(InPayload.OutlineTint), OutlineFontMaterial, Layer, 0);
+		BuildFontGeometry(OutlineSettings, PackVertexColor(DrawElement.GetOutlineTint()), OutlineFontMaterial, Layer, 0);
 		
 		//The fill area was measured without an outline so it must be shifted by the scaled outline size
 		float HorizontalOffset = FMath::RoundToFloat(OutlineSize * FontScale);
@@ -1207,185 +1221,481 @@ void FSlateElementBatcher::AddGradientElement( const FSlateDrawElement& DrawElem
 	}
 }
 
-template<ESlateVertexRounding Rounding>
-void FSlateElementBatcher::AddSplineElement( const FSlateDrawElement& DrawElement )
-{
-	const FSlateRenderTransform& RenderTransform = DrawElement.GetRenderTransform();
-	const FSlateDataPayload& InPayload = DrawElement.GetDataPayload();
-	ESlateDrawEffect InDrawEffects = DrawElement.GetDrawEffects();
-	uint32 Layer = DrawElement.GetLayer();
-
-	//@todo SLATE: Merge with AddLineElement?
-
-	//@todo SLATE: This should probably be done in window space so there are no scaling artifacts?
-	const float DirectLength = (InPayload.EndPt - InPayload.StartPt).Size();
-	const float HandleLength = ((InPayload.EndPt - InPayload.EndDir) - (InPayload.StartPt + InPayload.StartDir)).Size();
-	float NumSteps = FMath::Clamp<float>(FMath::CeilToInt(FMath::Max(DirectLength,HandleLength)/15.0f), 1, 256);
-	float GradientSubSteps = 0.f;
-	// Is this spline using a color gradient?
-	const bool bColorGradient = InPayload.GradientStops.Num() > 0;
-	if (bColorGradient)
-	{
-		const float GradientSteps = InPayload.GradientStops.Num() - 1.f;
-		GradientSubSteps = FMath::CeilToInt(NumSteps/GradientSteps);
-		NumSteps = GradientSteps * GradientSubSteps;
-	}
-
-	// 1 is the minimum thickness we support
-	// Thickness is given in screenspace, so convert it to local space before proceeding.
-	float InThickness = FMath::Max( 1.0f, DrawElement.GetInverseLayoutTransform().GetScale() * InPayload.Thickness );
-
-	// The radius to use when checking the distance of pixels to the actual line.  Arbitrary value based on what looks the best
-	const float Radius = 1.5f;
-
-	// Compute the actual size of the line we need based on thickness.  Need to ensure pixels that are at least Thickness/2 + Sample radius are generated so that we have enough pixels to blend.
-	// The idea for the spline anti-alising technique is based on the fast prefiltered lines technique published in GPU Gems 2 
-	const float LineThickness = FMath::CeilToInt( (2.0f * Radius + InThickness ) * FMath::Sqrt(2.0f) );
-
-	// The amount we increase each side of the line to generate enough pixels
-	const float HalfThickness = LineThickness * .5f + Radius;
-
-	// Find a batch for the element
-	FSlateElementBatch& ElementBatch = FindBatchForElement( Layer, FShaderParams::MakePixelShaderParams( FVector4( InPayload.Thickness,Radius,0,0) ), nullptr, ESlateDrawPrimitive::TriangleList, ESlateShader::LineSegment, InDrawEffects, ESlateBatchDrawFlag::None, DrawElement.GetClippingIndex(), DrawElement.GetSceneIndex());
-	FSlateVertexArray& BatchVertices = BatchData->GetBatchVertexList(ElementBatch);
-	FSlateIndexArray& BatchIndices = BatchData->GetBatchIndexList(ElementBatch);
-
-	const FVector2D StartPt = InPayload.StartPt;
-	const FVector2D StartDir = InPayload.StartDir;
-	const FVector2D EndPt = InPayload.EndPt;
-	const FVector2D EndDir = InPayload.EndDir;
-	
-	// Compute the normal to the line
-	FVector2D Normal = FVector2D( StartPt.Y - EndPt.Y, EndPt.X - StartPt.X ).GetSafeNormal();
-
-	FVector2D Up = Normal * HalfThickness;
-
-	// Generate the first segment
-	const float Alpha = 1.0f/NumSteps;
-	FVector2D StartPos = StartPt;
-	FVector2D EndPos = FVector2D( FMath::CubicInterp( StartPt, StartDir, EndPt, EndDir, Alpha ) );
-
-	FColor VertexCol = bColorGradient ? PackVertexColor(InPayload.GradientStops[0].Color) : PackVertexColor(InPayload.Tint);
-
-	BatchVertices.Add(FSlateVertex::Make<Rounding>( RenderTransform, StartPos + Up, TransformPoint(RenderTransform, StartPos), TransformPoint(RenderTransform, EndPos), VertexCol ) );
-	BatchVertices.Add(FSlateVertex::Make<Rounding>( RenderTransform, StartPos - Up, TransformPoint(RenderTransform, StartPos), TransformPoint(RenderTransform, EndPos), VertexCol ) );
-
-	// Generate the rest of the segments
-	for( int32 Step = 0; Step < NumSteps; ++Step )
-	{
-		// Skip the first step as it was already generated
-		if( Step > 0 )
-		{
-			const float StepAlpha = (Step+1.0f)/NumSteps;
-			EndPos = FVector2D( FMath::CubicInterp( StartPt, StartDir, EndPt, EndDir, StepAlpha ) );
-		}
-		if (bColorGradient)
-		{
-			const float InterpVal = FMath::Min<float>(InPayload.GradientStops.Num()-1, (Step+1.f)/GradientSubSteps);
-			const int32 ColorIdx = FMath::CeilToInt(InterpVal);
-			const float ColorAlpha = InterpVal - (ColorIdx-1);
-			VertexCol = PackVertexColor(FLinearColor::LerpUsingHSV(InPayload.GradientStops[ColorIdx-1].Color, InPayload.GradientStops[ColorIdx].Color, ColorAlpha));
-		}
-
-		int32 IndexStart = BatchVertices.Num();
-
-		// Compute the normal to the line
-		FVector2D SegmentNormal = FVector2D( StartPos.Y - EndPos.Y, EndPos.X - StartPos.X ).GetSafeNormal();
-
-		// Create the new vertices for the thick line segment
-		Up = SegmentNormal * HalfThickness;
-
-		BatchVertices.Add(FSlateVertex::Make<Rounding>( RenderTransform, EndPos + Up, TransformPoint(RenderTransform, StartPos), TransformPoint(RenderTransform, EndPos), VertexCol ) );
-		BatchVertices.Add(FSlateVertex::Make<Rounding>( RenderTransform, EndPos - Up, TransformPoint(RenderTransform, StartPos), TransformPoint(RenderTransform, EndPos), VertexCol ) );
-
-		BatchIndices.Add( IndexStart - 2 );
-		BatchIndices.Add( IndexStart - 1 );
-		BatchIndices.Add( IndexStart + 0 );
-
-		BatchIndices.Add( IndexStart + 0 );
-		BatchIndices.Add( IndexStart + 1 );
-		BatchIndices.Add( IndexStart - 1 );
-
-		StartPos = EndPos;
-	}
-}
-
-
 /**
- * Calculates the intersection of two line segments P1->P2, P3->P4
- * The tolerance setting is used when the lines aren't currently intersecting but will intersect in the future  
- * The higher the tolerance the greater the distance that the intersection point can be.
- *
- * @return true if the line intersects.  Populates Intersection
- */
-static bool LineIntersect( const FVector2D& P1, const FVector2D& P2, const FVector2D& P3, const FVector2D& P4, FVector2D& Intersect, float Tolerance = .1f)
+* Calculates the intersection of two line segments P1->P2, P3->P4
+* The tolerance setting is used when the lines aren't currently intersecting but will intersect in the future
+* The higher the tolerance the greater the distance that the intersection point can be.
+*
+* @return true if the line intersects.  Populates Intersection
+*/
+static bool LineIntersect(const FVector2D& P1, const FVector2D& P2, const FVector2D& P3, const FVector2D& P4, FVector2D& Intersect, float Tolerance = .1f)
 {
-	float NumA = ( (P4.X-P3.X)*(P1.Y-P3.Y) - (P4.Y-P3.Y)*(P1.X-P3.X) );
-	float NumB =  ( (P2.X-P1.X)*(P1.Y-P3.Y) - (P2.Y-P1.Y)*(P1.X-P3.X) );
+	float NumA = ((P4.X - P3.X)*(P1.Y - P3.Y) - (P4.Y - P3.Y)*(P1.X - P3.X));
+	float NumB = ((P2.X - P1.X)*(P1.Y - P3.Y) - (P2.Y - P1.Y)*(P1.X - P3.X));
 
-	float Denom = (P4.Y-P3.Y)*(P2.X-P1.X) - (P4.X-P3.X)*(P2.Y-P1.Y);
+	float Denom = (P4.Y - P3.Y)*(P2.X - P1.X) - (P4.X - P3.X)*(P2.Y - P1.Y);
 
-	if( FMath::IsNearlyZero( NumA ) && FMath::IsNearlyZero( NumB )  )
+	if (FMath::IsNearlyZero(NumA) && FMath::IsNearlyZero(NumB))
 	{
 		// Lines are the same
 		Intersect = (P1 + P2) / 2;
 		return true;
 	}
 
-	if( FMath::IsNearlyZero(Denom) )
+	if (FMath::IsNearlyZero(Denom))
 	{
 		// Lines are parallel
 		return false;
 	}
-	 
+
 	float B = NumB / Denom;
 	float A = NumA / Denom;
 
 	// Note that this is a "tweaked" intersection test for the purpose of joining line segments.  We don't just want to know if the line segments
 	// Intersect, but where they would if they don't currently. Except that we don't care in the case that where the segments 
 	// intersection is so far away that its infeasible to use the intersection point later.
-	if( A >= -Tolerance && A <= (1.0f + Tolerance ) && B >= -Tolerance && B <= (1.0f + Tolerance) )
+	if (A >= -Tolerance && A <= (1.0f + Tolerance) && B >= -Tolerance && B <= (1.0f + Tolerance))
 	{
-		Intersect = P1+A*(P2-P1);
+		Intersect = P1 + A*(P2 - P1);
 		return true;
 	}
 
 	return false;
 }
-	
-template<ESlateVertexRounding Rounding>
-void FSlateElementBatcher::AddLineElement( const FSlateDrawElement& DrawElement )
+
+
+/** Utility class for building a strip of lines. */
+struct FLineBuilder
 {
+	// Will append 5 vertexes to OutBatchVertices and 9 indexes to
+	// OutBatchIndices. Creates the following cap geometry:
+	//
+	// Cap Vertex Indexes              Cap Measurements
+	//
+	//     U == 0
+	//   2-4----                        2-------4-------....
+	//   |\| 							|       |     ^ 
+	//   | 0  <-- U==0.5				|<- d ->o    2h  
+	//   |/|							|       |     v
+	//   1-3----						1-------3-------....
+	//     U == 0
+	//                                 d is CapDirection
+	//                                 h is Up
+	//                                 o is CapOrigin
+
+	static void MakeCap(
+		FSlateVertexArray& OutBatchVertices,
+		FSlateIndexArray& OutBatchIndices,
+		const FSlateRenderTransform& RenderTransform,
+		const FVector2D& CapOrigin,
+		const FVector2D& CapDirection,
+		const FVector2D& Up,
+		const FColor& Color
+	)
+	{
+		const int FirstVertIndex = OutBatchVertices.Num();
+
+		OutBatchVertices.Add(FSlateVertex::Make<ESlateVertexRounding::Disabled>(RenderTransform, CapOrigin, FVector2D(0.5, 0.0f), FVector2D::ZeroVector, Color));
+		OutBatchVertices.Add(FSlateVertex::Make<ESlateVertexRounding::Disabled>(RenderTransform, CapOrigin + CapDirection + Up, FVector2D(0.0, 0.0f), FVector2D::ZeroVector, Color));
+		OutBatchVertices.Add(FSlateVertex::Make<ESlateVertexRounding::Disabled>(RenderTransform, CapOrigin + CapDirection - Up, FVector2D(0.0, 0.0f), FVector2D::ZeroVector, Color));
+		OutBatchVertices.Add(FSlateVertex::Make<ESlateVertexRounding::Disabled>(RenderTransform, CapOrigin + Up, FVector2D(0.0, 0.0f), FVector2D::ZeroVector, Color));
+		OutBatchVertices.Add(FSlateVertex::Make<ESlateVertexRounding::Disabled>(RenderTransform, CapOrigin - Up, FVector2D(0.0, 0.0f), FVector2D::ZeroVector, Color));
+
+		OutBatchIndices.Add(FirstVertIndex + 0);
+		OutBatchIndices.Add(FirstVertIndex + 3);
+		OutBatchIndices.Add(FirstVertIndex + 1);
+
+		OutBatchIndices.Add(FirstVertIndex + 0);
+		OutBatchIndices.Add(FirstVertIndex + 1);
+		OutBatchIndices.Add(FirstVertIndex + 2);
+
+		OutBatchIndices.Add(FirstVertIndex + 0);
+		OutBatchIndices.Add(FirstVertIndex + 2);
+		OutBatchIndices.Add(FirstVertIndex + 4);
+	}
+
+	FLineBuilder(FSlateVertexArray& InBatchVertices, FSlateIndexArray& InBatchIndices, const FVector2D StartPoint, float HalfThickness, const FSlateRenderTransform& InRenderTransform, const FColor& InColor)
+		: BatchVertices(InBatchVertices)
+		, BatchIndices(InBatchIndices)
+		, RenderTransform(InRenderTransform)
+		, LastPointAdded()
+		, LastNormal(FVector2D::ZeroVector)
+		, HalfLineThickness(HalfThickness)
+		, NumPointsAdded(1)
+		, SingleColor(InColor)
+	{
+		LastPointAdded[0] = LastPointAdded[1] = StartPoint;
+	}
+
+	
+	void BuildBezierGeometry_WithColorGradient(const TArray<FSlateGradientStop>& GradientStops, int32 GradientStopIndex, const FVector2D& P0, const FVector2D& P1, const FVector2D& P2, const FVector2D& P3, const FSlateElementBatcher& InBatcher)
+	{
+		const int32 NumGradientStops = GradientStops.Num();
+		const float SubdivisionPoint = 1.0f / (NumGradientStops - GradientStopIndex);
+		
+		if (GradientStopIndex < NumGradientStops - 1)
+		{
+			FVector2D TwoCurves[7];
+			deCasteljauSplit_WithColorGradient(P0, P1, P2, P3, TwoCurves, SubdivisionPoint);
+			Subdivide_WithColorGradient(GradientStops[GradientStopIndex - 1].Color, GradientStops[GradientStopIndex].Color, InBatcher, TwoCurves[0], TwoCurves[1], TwoCurves[2], TwoCurves[3], *this, 1.0f);
+			BuildBezierGeometry_WithColorGradient(GradientStops, GradientStopIndex + 1, TwoCurves[3], TwoCurves[4], TwoCurves[5], TwoCurves[6], InBatcher);
+		}
+		else
+		{
+			// We have reached the last gradient stop, so we can finish this spline.
+			Subdivide_WithColorGradient(GradientStops[GradientStopIndex - 1].Color, GradientStops[GradientStopIndex].Color, InBatcher, P0, P1, P2, P3, *this, 1.0f);
+			Finish(P3, InBatcher.PackVertexColor(GradientStops[GradientStopIndex].Color));
+		}	
+		
+	}
+
+	void BuildBezierGeometry(const FVector2D& P0, const FVector2D& P1, const FVector2D& P2, const FVector2D& P3)
+	{
+		Subdivide(P0, P1, P2, P3, *this, 1.0f);
+		Finish(P3, SingleColor);
+	}
+	
+private:
+	void AppendPoint(const FVector2D NewPoint, const FColor& InColor)
+	{
+		// We only add vertexes for the previous line segment.
+		// This is because we want to average the previous and new normals
+		// In order to prevent overlapping line segments on the spline.
+		// These occur especially when curvature is high.
+
+		const FVector2D NewNormal = FVector2D(LastPointAdded[0].Y - NewPoint.Y, NewPoint.X - LastPointAdded[0].X).GetSafeNormal();
+
+		if (NumPointsAdded == 2)
+		{
+			// Once we have two points, we have a normal, so we can generate the first bit of geometry.
+			const FVector2D LastUp = LastNormal*HalfLineThickness;
+
+			BatchVertices.Add(FSlateVertex::Make<ESlateVertexRounding::Disabled>(RenderTransform, LastPointAdded[1] + LastUp, FVector2D(1.0f, 0.0f), FVector2D::ZeroVector, InColor));
+			BatchVertices.Add(FSlateVertex::Make<ESlateVertexRounding::Disabled>(RenderTransform, LastPointAdded[1] - LastUp, FVector2D(0.0f, 0.0f), FVector2D::ZeroVector, InColor));
+		}
+
+		if (NumPointsAdded >= 2)
+		{
+			const FVector2D AveragedUp = (0.5f*(NewNormal + LastNormal)).GetSafeNormal()*HalfLineThickness;
+
+			BatchVertices.Add(FSlateVertex::Make<ESlateVertexRounding::Disabled>(RenderTransform, LastPointAdded[0] + AveragedUp, FVector2D(1.0f, 0.0f), FVector2D::ZeroVector, InColor));
+			BatchVertices.Add(FSlateVertex::Make<ESlateVertexRounding::Disabled>(RenderTransform, LastPointAdded[0] - AveragedUp, FVector2D(0.0f, 0.0f), FVector2D::ZeroVector, InColor));
+
+			const int32 NumVerts = BatchVertices.Num();
+
+			// Counterclockwise winding on triangles
+			BatchIndices.Add(NumVerts - 3);
+			BatchIndices.Add(NumVerts - 4);
+			BatchIndices.Add(NumVerts - 2);
+
+			BatchIndices.Add(NumVerts - 3);
+			BatchIndices.Add(NumVerts - 2);
+			BatchIndices.Add(NumVerts - 1);
+		}
+
+		LastPointAdded[1] = LastPointAdded[0];
+		LastPointAdded[0] = NewPoint;
+		LastNormal = NewNormal;
+
+		++NumPointsAdded;
+	}
+
+	void Finish(const FVector2D& LastPoint, const FColor& InColor)
+	{
+		if (NumPointsAdded < 3)
+		{
+			// Line builder needs at least two line segments (3 points) to
+			// complete building its geometry.
+			// This will only happen in the case when we have a straight line.
+			AppendPoint(LastPoint, InColor);
+		}
+		else
+		{
+			// We have added the last point, but the line builder only builds
+			// geometry for the previous line segment. Build geometry for the
+			// last line segment.
+			const FVector2D LastUp = LastNormal*HalfLineThickness;
+
+			BatchVertices.Add(FSlateVertex::Make<ESlateVertexRounding::Disabled>(RenderTransform, LastPointAdded[0] + LastUp, FVector2D(1.0f, 0.0f), FVector2D::ZeroVector, InColor));
+			BatchVertices.Add(FSlateVertex::Make<ESlateVertexRounding::Disabled>(RenderTransform, LastPointAdded[0] - LastUp, FVector2D(0.0f, 0.0f), FVector2D::ZeroVector, InColor));
+
+			const int32 NumVerts = BatchVertices.Num();
+
+			// Counterclockwise winding on triangles
+			BatchIndices.Add(NumVerts - 3);
+			BatchIndices.Add(NumVerts - 4);
+			BatchIndices.Add(NumVerts - 2);
+
+			BatchIndices.Add(NumVerts - 3);
+			BatchIndices.Add(NumVerts - 2);
+			BatchIndices.Add(NumVerts - 1);
+		}
+	}
+
+	/**
+	* Based on comp.graphics.algorithms: Adaptive Subdivision of Bezier Curves.
+	*
+	*   P1 + - - - - + P2
+	*     /           \
+	* P0 *             * P3
+	*
+	* In a perfectly flat curve P1 is the midpoint of (P0, P2) and P2 is the midpoint of (P1,P3).
+	* Computing the deviation of points P1 and P2 from the midpoints of P0,P2 and P1,P3 provides
+	* a simple and reliable measure of flatness.
+	*
+	* P1Deviation = (P0 + P2)/2 - P1
+	* P2Deviation = (P1 + P3)/2 - P2
+	*
+	* Eliminate divides: same expression but gets us twice the allowable error
+	* P1Deviation*2 = P0 + P2 - 2*P1
+	* P2Deviation*2 = P1 + P3 - 2*P2
+	*
+	* Use manhattan distance: 2*Deviation = |P1Deviation.x| + |P1Deviation.y| + |P2Deviation.x| + |P2Deviation.y|
+	*
+	*/
+	static float ComputeCurviness(const FVector2D&  P0, const FVector2D&  P1, const FVector2D&  P2, const FVector2D&  P3)
+	{
+		FVector2D TwoP1Deviations = P0 + P2 - 2 * P1;
+		FVector2D TwoP2Deviations = P1 + P3 - 2 * P2;
+		float TwoDeviations = FMath::Abs(TwoP1Deviations.X) + FMath::Abs(TwoP1Deviations.Y) + FMath::Abs(TwoP2Deviations.X) + FMath::Abs(TwoP2Deviations.Y);
+		return TwoDeviations;
+	}
+
+
+	/**
+	* deCasteljau subdivision of Bezier Curves based on reading of Gernot Hoffmann's Bezier Curves.
+	*
+	*       P1 + - - - - + P2                P1 +
+	*         /           \                    / \
+	*     P0 *             * P3            P0 *   \   * P3
+	*                                              \ /
+	*                                               + P2
+	*
+	*
+	* Split the curve defined by P0,P1,P2,P3 into two new curves L0..L3 and R0..R3 that define the same shape.
+	*
+	* Points L0 and R3 are P0 and P3.
+	* First find points L1, M, R2  as the midpoints of (P0,P1), (P1,P2), (P2,P3).
+	* Find two more points: L2, R1 defined by midpoints of (L1,M) and (M,R2) respectively.
+	* The final points L3 and R0 are both the midpoint of (L2,R1)
+	*
+	*/
+	static void deCasteljauSplit(const FVector2D&  P0, const FVector2D&  P1, const FVector2D&  P2, const FVector2D& P3, FVector2D OutCurveParams[7])
+	{
+		FVector2D L1 = (P0 + P1) * 0.5f;
+		FVector2D M = (P1 + P2) * 0.5f;
+		FVector2D R2 = (P2 + P3) * 0.5f;
+
+		FVector2D L2 = (L1 + M) * 0.5f;
+		FVector2D R1 = (M + R2) * 0.5f;
+
+		FVector2D L3R0 = (L2 + R1) * 0.5f;
+
+		OutCurveParams[0] = P0;
+		OutCurveParams[1] = L1;
+		OutCurveParams[2] = L2;
+		OutCurveParams[3] = L3R0;
+		OutCurveParams[4] = R1;
+		OutCurveParams[5] = R2;
+		OutCurveParams[6] = P3;
+	}
+
+	/** More general form of the deCasteljauSplit splits the curve into two parts at a point between 0 and 1 along the curve's length. */
+	static void deCasteljauSplit_WithColorGradient(const FVector2D&  P0, const FVector2D&  P1, const FVector2D&  P2, const FVector2D& P3, FVector2D OutCurveParams[7], float SplitPoint = 0.5f)
+	{
+		FVector2D L1 = FMath::Lerp(P0,P1,SplitPoint);
+		FVector2D M = FMath::Lerp(P1,P2,SplitPoint);
+		FVector2D R2 = FMath::Lerp(P2,P3,SplitPoint);
+
+		FVector2D L2 = FMath::Lerp(L1,M,SplitPoint);
+		FVector2D R1 = FMath::Lerp(M,R2,SplitPoint);
+
+		FVector2D L3R0 = FMath::Lerp(L2,R1,SplitPoint);
+
+		OutCurveParams[0] = P0;
+		OutCurveParams[1] = L1;
+		OutCurveParams[2] = L2;
+		OutCurveParams[3] = L3R0;
+		OutCurveParams[4] = R1;
+		OutCurveParams[5] = R2;
+		OutCurveParams[6] = P3;
+	}
+
+	static void Subdivide(const FVector2D&  P0, const FVector2D&  P1, const FVector2D&  P2, const FVector2D&  P3, FLineBuilder& LineBuilder, float MaxBiasTimesTwo = 2.0f)
+	{
+		const float Curviness = ComputeCurviness(P0, P1, P2, P3);
+		if (Curviness > MaxBiasTimesTwo)
+		{
+			// Split the Bezier into two curves.
+			FVector2D TwoCurves[7];
+			deCasteljauSplit(P0, P1, P2, P3, TwoCurves);
+			// Subdivide left, then right
+			Subdivide(TwoCurves[0], TwoCurves[1], TwoCurves[2], TwoCurves[3], LineBuilder, MaxBiasTimesTwo);
+			Subdivide(TwoCurves[3], TwoCurves[4], TwoCurves[5], TwoCurves[6], LineBuilder, MaxBiasTimesTwo);
+		}
+		else
+		{
+			LineBuilder.AppendPoint(P3, LineBuilder.SingleColor);
+		}
+	}
+
+	static void Subdivide_WithColorGradient(const FLinearColor& StartColor, const FLinearColor& EndColor, const FSlateElementBatcher& InBatcher, const FVector2D&  P0, const FVector2D&  P1, const FVector2D&  P2, const FVector2D&  P3, FLineBuilder& LineBuilder, float MaxBiasTimesTwo = 2.0f)
+	{
+		const float Curviness = ComputeCurviness(P0, P1, P2, P3);
+		if (Curviness > MaxBiasTimesTwo)
+		{
+			// Split the Bezier into two curves.
+			FVector2D TwoCurves[7];
+			deCasteljauSplit(P0, P1, P2, P3, TwoCurves);
+			const FLinearColor MidpointColor = FLinearColor::LerpUsingHSV(StartColor, EndColor, 0.5f);
+			// Subdivide left, then right
+			Subdivide_WithColorGradient(StartColor, MidpointColor, InBatcher, TwoCurves[0], TwoCurves[1], TwoCurves[2], TwoCurves[3], LineBuilder, MaxBiasTimesTwo);
+			Subdivide_WithColorGradient(MidpointColor, EndColor, InBatcher, TwoCurves[3], TwoCurves[4], TwoCurves[5], TwoCurves[6], LineBuilder, MaxBiasTimesTwo);
+		}
+		else
+		{
+			LineBuilder.AppendPoint(P3, InBatcher.PackVertexColor(EndColor));
+		}
+	}
+	
+private:
+	FSlateVertexArray& BatchVertices;
+	FSlateIndexArray& BatchIndices;
+	const FSlateRenderTransform& RenderTransform;
+	FVector2D LastPointAdded[2];
+	FVector2D LastNormal;
+	float HalfLineThickness;
+	int32 NumPointsAdded;
+	FColor SingleColor;
+
+};
+
+
+void FSlateElementBatcher::AddSplineElement(const FSlateDrawElement& DrawElement)
+{
+	// WHY NO PIXEL SNAPPING?
+	//
+	// Pixel snapping with splines does not make sense.
+	// If any of the segments are snapped to pixels, the line will
+	// not appear continuous. It is possible to snap the first and
+	// last points to pixels, but unclear what that means given
+	// a floating point line width.
+
 	const FSlateRenderTransform& RenderTransform = DrawElement.GetRenderTransform();
 	const FSlateDataPayload& InPayload = DrawElement.GetDataPayload();
+	ESlateDrawEffect InDrawEffects = DrawElement.GetDrawEffects();
+	uint32 Layer = DrawElement.GetLayer();
+
+	// 1 is the minimum thickness we support for generating geometry.
+	// The shader takes care of sub-pixel line widths.
+	// Thickness is given in screenspace, so convert it to local space before proceeding.
+	float InThickness = FMath::Max(1.0f, DrawElement.GetInverseLayoutTransform().GetScale() * InPayload.Thickness);
+
+	// Width of the filter size to use for anti-aliasing.
+	// Increasing this value will increase the fuzziness of line edges.
+	const float FilterScale = 1.0f;
+
+	static const float TwoRootTwo = 2 * FMath::Sqrt(2);
+	// Compute the actual size of the line we need based on thickness.
+	// Each line segment will be a bit thicker than the line to account
+	// for the size of the filter.
+	const float LineThickness = (TwoRootTwo + InThickness);
+
+	// The amount we increase each side of the line to generate enough pixels
+	const float HalfThickness = LineThickness * .5f + FilterScale;
+
+	const FColor SplineColor = (InPayload.GradientStops.Num()==1) ? PackVertexColor(InPayload.GradientStops[0].Color) : PackVertexColor(InPayload.Tint);
+
+	FSlateElementBatch& ElementBatch = FindBatchForElement(Layer, FShaderParams::MakePixelShaderParams(FVector4(InPayload.Thickness, FilterScale, 0, 0)), nullptr, ESlateDrawPrimitive::TriangleList, ESlateShader::LineSegment, InDrawEffects, ESlateBatchDrawFlag::None, DrawElement.GetClippingIndex(), DrawElement.GetSceneIndex());
+
+	FLineBuilder LineBuilder(
+		BatchData->GetBatchVertexList(ElementBatch),
+		BatchData->GetBatchIndexList(ElementBatch),
+		InPayload.P0,
+		HalfThickness,
+		RenderTransform,
+		SplineColor
+	);
+
+	if (const bool bNoGradient = InPayload.GradientStops.Num() <= 1)
+	{
+		// Normal scenario where there is no color gradient.
+		LineBuilder.BuildBezierGeometry(InPayload.P0, InPayload.P1, InPayload.P2, InPayload.P3);
+	}
+	else
+	{
+		// Deprecated scenario _WithColorGradient
+		LineBuilder.BuildBezierGeometry_WithColorGradient( InPayload.GradientStops, 1, InPayload.P0, InPayload.P1, InPayload.P2, InPayload.P3, *this);
+	}
+	
+}
+
+
+template<ESlateVertexRounding Rounding>
+void FSlateElementBatcher::AddLineElement( const FSlateDrawLines& DrawElement )
+{
+	const FSlateRenderTransform& RenderTransform = DrawElement.GetRenderTransform();
 	ESlateDrawEffect DrawEffects = DrawElement.GetDrawEffects();
 	uint32 Layer = DrawElement.GetLayer();
 
-	if (InPayload.NumPoints < 2 || !InPayload.Points)
+	const uint16 NumPoints = DrawElement.GetNumPoints();
+	if (NumPoints < 2 || !DrawElement.GetPoints())
 	{
 		return;
 	}
+	
+	const FVector2D* Points = DrawElement.GetPoints();
+	const FColor FinalTint = PackVertexColor(DrawElement.GetTint());
 
-	const FVector2D* Points = InPayload.Points;
-	const FColor FinalTint = PackVertexColor(InPayload.Tint);
-
-	if( InPayload.bAntialias )
+	if( DrawElement.IsAntialiased() )
 	{
-		// The radius to use when checking the distance of pixels to the actual line.  Arbitrary value based on what looks the best
-		const float Radius = 1.5f;
+		//
+		//  The true center of the line is represented by o---o---o
+		//
+		//
+		//           Two triangles make up each trapezoidal line segment
+		//                /        |  |   
+		//               v         |  |   
+		//    +-+---------------+  |  | 
+		//    |\|              / \ v  | 
+		//    | o-------------o   \   |  +--------- U==0
+		//    |/|            / \   \  |  | 
+		//    +-+-----------+   \   \ v  v  
+		//                   \   \   +------+-+
+		//     ^              \   \ /       |/| 
+		//     |               \   o--------o | <-- Endcap
+		//     Endcap           \ /         |\|
+		//                       +----------+-+
+		//                               ^
+		//                               |
+		//                               +--------- U==1
+		//
+		// Each trapezoidal section has a Vertex.U==1 on the bottom and Vertex.U==0 on top.
+		// Endcaps have Vertex.U==0.5 in the middle and Vertex.U==0 on the outside.
+		// This enables easy distance calculations to the "true center" of the line for
+		// anti-aliasing calculations performed in the pixels shader.
+
+
+
+
+		// Half of the width of the filter size to use for anti-aliasing.
+		// Increasing this value will increase the fuzziness of line edges.
+		const float FilterScale = 1.0f;
 
 		// Thickness is given in screen space, so convert it to local space before proceeding.
-		float RequestedThickness = InPayload.Thickness;
+		float RequestedThickness = DrawElement.GetThickness();
 		
-		// Compute the actual size of the line we need based on thickness.  Need to ensure pixels that are at least Thickness/2 + Sample radius are generated so that we have enough pixels to blend.
-		// The idea for the anti-aliasing technique is based on the fast prefiltered lines technique published in GPU Gems 2 
-		const float LineThickness = FMath::CeilToInt( (2.0f * Radius + RequestedThickness ) * FMath::Sqrt(2.0f) );
+		static const float TwoRootTwo = 2 * FMath::Sqrt(2);
+		// Compute the actual size of the line we need based on thickness.
+		// Each line segment will be a bit thicker than the line to account
+		// for the size of the filter.
+		const float LineThickness = (TwoRootTwo + RequestedThickness );
 
 		// The amount we increase each side of the line to generate enough pixels
-		const float HalfThickness = LineThickness * .5f + Radius;
+		const float HalfThickness = LineThickness * .5f + FilterScale;
 
 		// Find a batch for the element
-		FSlateElementBatch& ElementBatch = FindBatchForElement( Layer, FShaderParams::MakePixelShaderParams( FVector4(RequestedThickness,Radius,0,0) ), nullptr, ESlateDrawPrimitive::TriangleList, ESlateShader::LineSegment, DrawEffects, ESlateBatchDrawFlag::None, DrawElement.GetClippingIndex(), DrawElement.GetSceneIndex());
+		FSlateElementBatch& ElementBatch = FindBatchForElement( Layer, FShaderParams::MakePixelShaderParams( FVector4(RequestedThickness, FilterScale,0,0) ), nullptr, ESlateDrawPrimitive::TriangleList, ESlateShader::LineSegment, DrawEffects, ESlateBatchDrawFlag::None, DrawElement.GetClippingIndex(), DrawElement.GetSceneIndex());
 		FSlateVertexArray& BatchVertices = BatchData->GetBatchVertexList(ElementBatch);
 		FSlateIndexArray& BatchIndices = BatchData->GetBatchIndexList(ElementBatch);
 
@@ -1393,23 +1703,26 @@ void FSlateElementBatcher::AddLineElement( const FSlateDrawElement& DrawElement 
 		FVector2D EndPos = Points[1];
 
 		FVector2D Normal = FVector2D( StartPos.Y - EndPos.Y, EndPos.X - StartPos.X ).GetSafeNormal();
-
 		FVector2D Up = Normal * HalfThickness;
 
-		FColor StartColor = InPayload.PointColors ? PackVertexColor(InPayload.PointColors[0] * InPayload.Tint) : FinalTint;
-		FColor EndColor = 	InPayload.PointColors ? PackVertexColor(InPayload.PointColors[1] * InPayload.Tint) : FinalTint;
+		FColor StartColor = DrawElement.GetPointColors() ? PackVertexColor(DrawElement.GetPointColors()[0] * DrawElement.GetTint()) : FinalTint;
+		FColor EndColor = DrawElement.GetPointColors() ? PackVertexColor(DrawElement.GetPointColors()[1] * DrawElement.GetTint()) : FinalTint;		
+	
+		const FVector2D StartCapDirection = HalfThickness*((StartPos - EndPos).GetSafeNormal());
+		FLineBuilder::MakeCap(BatchVertices, BatchIndices, RenderTransform, StartPos, StartCapDirection, Up, StartColor);
+		const uint32 IndexStart = BatchVertices.Num();
 
-		BatchVertices.Add(FSlateVertex::Make<Rounding>( RenderTransform, StartPos + Up, TransformPoint(RenderTransform, StartPos), TransformPoint(RenderTransform, EndPos), StartColor ) );
-		BatchVertices.Add(FSlateVertex::Make<Rounding>( RenderTransform, StartPos - Up, TransformPoint(RenderTransform, StartPos), TransformPoint(RenderTransform, EndPos), EndColor ) );
+		// First two points in the line.
+		BatchVertices.Add(FSlateVertex::Make<Rounding>( RenderTransform, StartPos + Up, FVector2D(1.0, 0.0f), FVector2D::ZeroVector, StartColor ) );
+		BatchVertices.Add(FSlateVertex::Make<Rounding>( RenderTransform, StartPos - Up, FVector2D(0.0, 0.0f), FVector2D::ZeroVector, StartColor) );
 
 		// Generate the rest of the segments
-		for( int32 Point = 1; Point < InPayload.NumPoints; ++Point )
+		for( int32 Point = 1; Point < NumPoints; ++Point )
 		{
 			EndPos = Points[Point];
 			// Determine if we should check the intersection point with the next line segment.
 			// We will adjust were this line ends to the intersection
-			bool bCheckIntersection = (Point + 1) < InPayload.NumPoints;
-			uint32 IndexStart = BatchVertices.Num();
+			bool bCheckIntersection = (Point + 1) < NumPoints;
 
 			// Compute the normal to the line
 			Normal = FVector2D( StartPos.Y - EndPos.Y, EndPos.X - StartPos.X ).GetSafeNormal();
@@ -1417,11 +1730,10 @@ void FSlateElementBatcher::AddLineElement( const FSlateDrawElement& DrawElement 
 			// Create the new vertices for the thick line segment
 			Up = Normal * HalfThickness;
 
-			FColor PointColor = InPayload.PointColors ? PackVertexColor(InPayload.PointColors[Point] * InPayload.Tint) : FinalTint;
+			FColor PointColor = DrawElement.GetPointColors() ? PackVertexColor(DrawElement.GetPointColors()[Point] * DrawElement.GetTint()) : FinalTint;
 
 			FVector2D IntersectUpper = EndPos + Up;
 			FVector2D IntersectLower = EndPos - Up;
-			FVector2D IntersectCenter = EndPos;
 
 			if( bCheckIntersection )
 			{
@@ -1452,52 +1764,31 @@ void FSlateElementBatcher::AddLineElement( const FSlateDrawElement& DrawElement 
 					// visualizes the intersection
 					//AddQuadElement( IntersectLower-FVector2D(1,1), FVector2D(2,2), 1, InClippingRect, Layer+1, FColor::Yellow);
 				}
-				// the midpoint of the intersection.  Used as the new end to the line segment (not adjusted for anti-aliasing)
-				IntersectCenter = (IntersectUpper+IntersectLower) * .5f;
 			}
 
-			// We use these points when making the copy of the vert below, so go ahead and cache it.
-			FVector2D StartPosRenderSpace = TransformPoint(RenderTransform, StartPos);
-			FVector2D IntersectCenterRenderSpace = TransformPoint(RenderTransform, IntersectCenter);
+			BatchVertices.Add(FSlateVertex::Make<Rounding>( RenderTransform, IntersectUpper, FVector2D(1.0, 0.0f), FVector2D::ZeroVector, PointColor ) );
+			BatchVertices.Add(FSlateVertex::Make<Rounding>( RenderTransform, IntersectLower, FVector2D(0.0, 0.0f), FVector2D::ZeroVector, PointColor ) );
+			
+			// Counterclockwise winding on triangles
+			BatchIndices.Add(IndexStart + 2 * Point - 1);
+			BatchIndices.Add(IndexStart + 2 * Point - 2);
+			BatchIndices.Add(IndexStart + 2 * Point + 0);
 
-			if( Point > 1 )
-			{
-				// Make a copy of the last two vertices and update their start and end position to reflect the new line segment
-				FSlateVertex StartV1 = BatchVertices[IndexStart-1];
-				FSlateVertex StartV2 = BatchVertices[IndexStart-2];
-
-				StartV1.TexCoords[0] = StartPosRenderSpace.X;
-				StartV1.TexCoords[1] = StartPosRenderSpace.Y;
-				StartV1.TexCoords[2] = IntersectCenterRenderSpace.X;
-				StartV1.TexCoords[3] = IntersectCenterRenderSpace.Y;
-
-				StartV2.TexCoords[0] = StartPosRenderSpace.X;
-				StartV2.TexCoords[1] = StartPosRenderSpace.Y;
-				StartV2.TexCoords[2] = IntersectCenterRenderSpace.X;
-				StartV2.TexCoords[3] = IntersectCenterRenderSpace.Y;
-
-				IndexStart += 2;
-				BatchVertices.Add( StartV2 );
-				BatchVertices.Add( StartV1 );
-			}
-
-			BatchVertices.Add(FSlateVertex::Make<Rounding>( RenderTransform, IntersectUpper, StartPosRenderSpace, IntersectCenterRenderSpace, PointColor ) );
-			BatchVertices.Add(FSlateVertex::Make<Rounding>( RenderTransform, IntersectLower, StartPosRenderSpace, IntersectCenterRenderSpace, PointColor ) );
-
-			BatchIndices.Add( IndexStart - 1 );
-			BatchIndices.Add( IndexStart - 2 );
-			BatchIndices.Add( IndexStart + 0 );
-
-			BatchIndices.Add( IndexStart + 0 );
-			BatchIndices.Add( IndexStart + 1 );
-			BatchIndices.Add( IndexStart - 1 );
+			BatchIndices.Add(IndexStart + 2 * Point - 1);
+			BatchIndices.Add(IndexStart + 2 * Point + 0);
+			BatchIndices.Add(IndexStart + 2 * Point + 1);
 
 			StartPos = EndPos;
 		}
+
+		EndPos = Points[NumPoints - 1];
+		StartPos = Points[NumPoints - 2];
+		const FVector2D EndCapDirection = HalfThickness*((EndPos-StartPos).GetSafeNormal());
+		FLineBuilder::MakeCap(BatchVertices, BatchIndices, RenderTransform, EndPos, EndCapDirection, Up, EndColor);
 	}
 	else
 	{
-		if (InPayload.Thickness == 1)
+		if (DrawElement.GetThickness() == 1)
 		{
 			// Find a batch for the element
 			FSlateElementBatch& ElementBatch = FindBatchForElement(Layer, FShaderParams(), nullptr, ESlateDrawPrimitive::LineList, ESlateShader::Default, DrawEffects, ESlateBatchDrawFlag::None, DrawElement.GetClippingIndex(), DrawElement.GetSceneIndex());
@@ -1505,14 +1796,14 @@ void FSlateElementBatcher::AddLineElement( const FSlateDrawElement& DrawElement 
 			FSlateIndexArray& BatchIndices = BatchData->GetBatchIndexList(ElementBatch);
 
 			// Generate the line segments using the native line rendering of the platform.
-			for (int32 Point = 0; Point < InPayload.NumPoints - 1; ++Point)
+			for (int32 Point = 0; Point < DrawElement.GetNumPoints() - 1; ++Point)
 			{
 				uint32 IndexStart = BatchVertices.Num();
 				FVector2D StartPos = Points[Point];
 				FVector2D EndPos = Points[Point + 1];
 
-				FColor StartColor = InPayload.PointColors ? PackVertexColor(InPayload.PointColors[Point]   * InPayload.Tint) : FinalTint;
-				FColor EndColor = 	InPayload.PointColors ? PackVertexColor(InPayload.PointColors[Point+1] * InPayload.Tint) : FinalTint;
+				FColor StartColor = DrawElement.GetPointColors() ? PackVertexColor(DrawElement.GetPointColors()[Point]   * DrawElement.GetTint()) : FinalTint;
+				FColor EndColor = DrawElement.GetPointColors() ? PackVertexColor(DrawElement.GetPointColors()[Point+1] * DrawElement.GetTint()) : FinalTint;
 
 				BatchVertices.Add(FSlateVertex::Make<Rounding>(RenderTransform, StartPos, FVector2D::ZeroVector, StartColor));
 				BatchVertices.Add(FSlateVertex::Make<Rounding>(RenderTransform, EndPos, FVector2D::ZeroVector, EndColor));
@@ -1529,17 +1820,17 @@ void FSlateElementBatcher::AddLineElement( const FSlateDrawElement& DrawElement 
 			FSlateIndexArray& BatchIndices = BatchData->GetBatchIndexList(ElementBatch);
 
 			// Generate the line segments using non-aa'ed polylines.
-			for (int32 Point = 0; Point < InPayload.NumPoints - 1; ++Point)
+			for (int32 Point = 0; Point < DrawElement.GetNumPoints() - 1; ++Point)
 			{
 				uint32 IndexStart = BatchVertices.Num();
 				const FVector2D StartPos = Points[Point];
 				const FVector2D EndPos = Points[Point + 1];
 
-				FColor StartColor	= InPayload.PointColors ? PackVertexColor(InPayload.PointColors[Point]   * InPayload.Tint) : FinalTint;
-				FColor EndColor		= InPayload.PointColors ? PackVertexColor(InPayload.PointColors[Point+1] * InPayload.Tint) : FinalTint;
+				FColor StartColor	= DrawElement.GetPointColors() ? PackVertexColor(DrawElement.GetPointColors()[Point]   * DrawElement.GetTint()) : FinalTint;
+				FColor EndColor		= DrawElement.GetPointColors() ? PackVertexColor(DrawElement.GetPointColors()[Point+1] * DrawElement.GetTint()) : FinalTint;
 	
 				const FVector2D SegmentNormal = (EndPos - StartPos).GetSafeNormal();
-				const FVector2D HalfThickNormal = SegmentNormal * (InPayload.Thickness * 0.5f);
+				const FVector2D HalfThickNormal = SegmentNormal * (DrawElement.GetThickness() * 0.5f);
 
 				BatchVertices.Add(FSlateVertex::Make<Rounding>(RenderTransform, StartPos + FVector2D(HalfThickNormal.Y, -HalfThickNormal.X), FVector2D::ZeroVector, FVector2D::ZeroVector, StartColor));
 				BatchVertices.Add(FSlateVertex::Make<Rounding>(RenderTransform, StartPos + FVector2D(-HalfThickNormal.Y, HalfThickNormal.X), FVector2D::ZeroVector, FVector2D::ZeroVector, StartColor));
@@ -1626,23 +1917,20 @@ void FSlateElementBatcher::AddViewportElement( const FSlateDrawElement& DrawElem
 }
 
 template<ESlateVertexRounding Rounding>
-void FSlateElementBatcher::AddBorderElement( const FSlateDrawElement& DrawElement )
+void FSlateElementBatcher::AddBorderElement( const FSlateDrawBox& DrawElement )
 {
 	const FSlateRenderTransform& RenderTransform = DrawElement.GetRenderTransform();
 	const FVector2D& LocalSize = DrawElement.GetLocalSize();
-	const FSlateDataPayload& InPayload = DrawElement.GetDataPayload();
 	ESlateDrawEffect InDrawEffects = DrawElement.GetDrawEffects();
 	uint32 Layer = DrawElement.GetLayer();
 
 	const float DrawScale = DrawElement.GetScale();
 
-	check( InPayload.BrushResource );
-
 	uint32 TextureWidth = 1;
 	uint32 TextureHeight = 1;
 
 	// Currently borders are not atlased because they are tiled.  So we just assume the texture proxy holds the actual texture
-	const FSlateShaderResourceProxy* ResourceProxy = InPayload.ResourceProxy;
+	const FSlateShaderResourceProxy* ResourceProxy = DrawElement.GetResourceProxy();
 	FSlateShaderResource* Resource = ResourceProxy ? ResourceProxy->Resource : nullptr;
 	if( Resource )
 	{
@@ -1657,7 +1945,7 @@ void FSlateElementBatcher::AddBorderElement( const FSlateDrawElement& DrawElemen
 	const FVector2D StartUV = HalfTexel;
 	const FVector2D EndUV = FVector2D( 1.0f, 1.0f ) + HalfTexel;
 
-	const FMargin& Margin = InPayload.BrushResource->Margin;
+	const FMargin& Margin = DrawElement.GetBrushMargin();
 
 	// Do pixel snapping
 	FVector2D TopLeft(0,0);
@@ -1703,7 +1991,7 @@ void FSlateElementBatcher::AddBorderElement( const FSlateDrawElement& DrawElemen
 	FShaderParams ShaderParams = FShaderParams::MakePixelShaderParams( FVector4(LeftMarginU,RightMarginU,TopMarginV,BottomMarginV) );
 
 	// The tint color applies to all brushes and is passed per vertex
-	const FColor Tint = PackVertexColor(InPayload.Tint);
+	const FColor Tint = PackVertexColor(DrawElement.GetTint());
 
 	// Pass the tiling information as a flag so we can pick the correct texture addressing mode
 	ESlateBatchDrawFlag DrawFlags = (ESlateBatchDrawFlag::TileU|ESlateBatchDrawFlag::TileV);
@@ -1851,7 +2139,7 @@ void FSlateElementBatcher::AddCustomElement( const FSlateDrawElement& DrawElemen
 		check( ElementBatches );
 
 		// Custom elements are not batched together 
-		(*ElementBatches)->Add( FSlateElementBatch( InPayload.CustomDrawer, DrawElement.GetClippingIndex() ) );
+		(*ElementBatches)->Add( FSlateElementBatch( InPayload.CustomDrawer, DrawElement.GetClippingIndex(), *ClippingStates ) );
 	}
 }
 
@@ -1881,6 +2169,7 @@ void FSlateElementBatcher::AddCustomVerts(const FSlateDrawElement& DrawElement)
 			DrawElement.GetDrawEffects(),
 			InPayload.BatchFlags,
 			DrawElement.GetClippingIndex(),
+			*ClippingStates,
 			InPayload.NumInstances,
 			InPayload.InstanceOffset,
 			InPayload.InstanceData,
@@ -1902,15 +2191,12 @@ void FSlateElementBatcher::AddCustomVerts(const FSlateDrawElement& DrawElement)
 	}
 }
 
-void FSlateElementBatcher::AddCachedBuffer(const FSlateDrawElement& DrawElement)
+void FSlateElementBatcher::AddCachedBuffer(const FSlateDrawCachedBuffer& DrawElement)
 {
 	FElementBatchMap& LayerToElementBatches = DrawLayer->GetElementBatchMap();
 
-	const FSlateDataPayload& InPayload = DrawElement.GetDataPayload();
 	uint32 Layer = DrawElement.GetLayer();
 
-	if ( InPayload.CachedRenderData )
-	{
 		// See if the layer already exists.
 		TUniqueObj<FElementBatchArray>* ElementBatches = LayerToElementBatches.Find(Layer);
 		if ( !ElementBatches )
@@ -1921,9 +2207,8 @@ void FSlateElementBatcher::AddCachedBuffer(const FSlateDrawElement& DrawElement)
 		check(ElementBatches);
 
 		// Custom elements are not batched together
-		TSharedPtr< FSlateRenderDataHandle, ESPMode::ThreadSafe > RenderData = InPayload.CachedRenderData->AsShared();
-		(*ElementBatches)->Add(FSlateElementBatch(RenderData, InPayload.CachedRenderDataOffset, DrawElement.GetClippingIndex()));
-	}
+	TSharedPtr< FSlateRenderDataHandle, ESPMode::ThreadSafe > RenderData = DrawElement.GetRenderDataHandle()->AsShared();
+	(*ElementBatches)->Add(FSlateElementBatch(RenderData, DrawElement.GetRenderOffset(), DrawElement.GetClippingIndex(), *ClippingStates));
 }
 
 void FSlateElementBatcher::AddLayer(const FSlateDrawElement& DrawElement)
@@ -1946,7 +2231,7 @@ void FSlateElementBatcher::AddLayer(const FSlateDrawElement& DrawElement)
 
 		// Custom elements are not batched together
 		TSharedPtr< FSlateDrawLayerHandle, ESPMode::ThreadSafe > LayerHandle = InPayload.LayerHandle->AsShared();
-		(*ElementBatches)->Add(FSlateElementBatch(LayerHandle, DrawElement.GetClippingIndex()));
+		(*ElementBatches)->Add(FSlateElementBatch(LayerHandle, DrawElement.GetClippingIndex(), *ClippingStates));
 	}
 }
 
@@ -1996,9 +2281,11 @@ void FSlateElementBatcher::AddPostProcessPass(const FSlateDrawElement& DrawEleme
 		check(ElementBatches);
 
 		// Custom elements are not batched together 
-		(*ElementBatches)->Add(FSlateElementBatch(nullptr, Params, ESlateShader::PostProcess, ESlateDrawPrimitive::TriangleList, ESlateDrawEffect::None, ESlateBatchDrawFlag::None, DrawElement.GetClippingIndex()));
+		(*ElementBatches)->Add(FSlateElementBatch(nullptr, Params, ESlateShader::PostProcess, ESlateDrawPrimitive::TriangleList, ESlateDrawEffect::None, ESlateBatchDrawFlag::None, DrawElement.GetClippingIndex(), *ClippingStates));
 	}
 }
+
+
 
 FSlateElementBatch& FSlateElementBatcher::FindBatchForElement(
 	uint32 Layer, 
@@ -2027,7 +2314,7 @@ FSlateElementBatch& FSlateElementBatcher::FindBatchForElement(
 	checkSlow( ElementBatches );
 
 	// Create a temp batch so we can use it as our key to find if the same batch already exists
-	FSlateElementBatch TempBatch( InTexture, ShaderParams, ShaderType, PrimitiveType, DrawEffects, DrawFlags, ClippingIndex, 0, 0, nullptr, SceneIndex );
+	FSlateElementBatch TempBatch( InTexture, ShaderParams, ShaderType, PrimitiveType, DrawEffects, DrawFlags, ClippingIndex, *ClippingStates, 0, 0, nullptr, SceneIndex );
 
 	FSlateElementBatch* ElementBatch = (*ElementBatches)->FindByKey( TempBatch );
 	if( !ElementBatch )

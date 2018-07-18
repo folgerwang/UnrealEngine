@@ -17,7 +17,10 @@ public:
 	virtual ~FLateUpdateManager() {}
 
 	/** Setup state for applying the render thread late update */
-	void Setup(const FTransform& ParentToWorld, USceneComponent* Component);
+	void Setup(const FTransform& ParentToWorld, USceneComponent* Component, bool bSkipLateUpdate);
+
+	/** Returns true if the LateUpdateSetup data is stale. */
+	bool GetSkipLateUpdate_RenderThread() const;
 
 	/** Apply the late update delta to the cached components */
 	void Apply_RenderThread(FSceneInterface* Scene, const FTransform& OldRelativeTransform, const FTransform& NewRelativeTransform);
@@ -49,6 +52,8 @@ private:
 	FTransform LateUpdateParentToWorld[2];
 	/** Primitives that need late update before rendering */
 	TArray<LateUpdatePrimitiveInfo> LateUpdatePrimitives[2];
+	/** Late Update Info Stale, if this is found true do not late update */
+	bool SkipLateUpdate[2];
 
 	int32 LateUpdateGameWriteIndex;
 	int32 LateUpdateRenderReadIndex;

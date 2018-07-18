@@ -1,46 +1,15 @@
-﻿INTSourceChangelist:2968923
-Availability:Public
-Title:ブループリントのクイックスタートガイド
+﻿Availability:Public
+Title:ブループリント クイックスタートガイド
 Crumbs: %ROOT%, Engine, Engine/Blueprints
 version:4.9
 Description:ブループリントを作成して使ってみましょう
 parent:Engine/Blueprints
 order:1
-クイックスタート
+type:quick start
+tags:Blueprints
+topic-image:QuickStart.png
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Blueprints/QuickStart:title%](QuickStart.png)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Blueprints/QuickStart:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Blueprints/QuickStart]
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Blueprints/QuickStart:description%
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Blueprints/QuickStart:title%](QuickStart.png)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Blueprints/QuickStart:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Blueprints/QuickStart]
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Blueprints/QuickStart:description%
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
 [OBJECT:EmbeddedVideo]
 	[PARAMLITERAL:width]

@@ -1,167 +1,79 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Animation/MovieSceneMarginSection.h"
+#include "Channels/MovieSceneChannelProxy.h"
+
+#if WITH_EDITOR
+
+struct FMarginSectionEditorData
+{
+	FMarginSectionEditorData()
+	{
+		MetaData[0].SetIdentifiers("Left", NSLOCTEXT("MovieSceneMarginSection", "LeftText", "Left"));
+		MetaData[0].SortOrder = 0;
+
+		MetaData[1].SetIdentifiers("Top", NSLOCTEXT("MovieSceneMarginSection", "TopText", "Top"));
+		MetaData[1].SortOrder = 1;
+
+		MetaData[2].SetIdentifiers("Right", NSLOCTEXT("MovieSceneMarginSection", "RightText", "Right"));
+		MetaData[2].SortOrder = 2;
+
+		MetaData[3].SetIdentifiers("Bottom", NSLOCTEXT("MovieSceneMarginSection", "BottomText", "Bottom"));
+		MetaData[3].SortOrder = 3;
+
+		ExternalValues[0].OnGetExternalValue = ExtractLeftChannel;
+		ExternalValues[1].OnGetExternalValue = ExtractTopChannel;
+		ExternalValues[2].OnGetExternalValue = ExtractRightChannel;
+		ExternalValues[3].OnGetExternalValue = ExtractBottomChannel;
+	}
+
+	static TOptional<float> ExtractLeftChannel(UObject& InObject, FTrackInstancePropertyBindings* Bindings)
+	{
+		return Bindings ? Bindings->GetCurrentValue<FMargin>(InObject).Left : TOptional<float>();
+	}
+	static TOptional<float> ExtractTopChannel(UObject& InObject, FTrackInstancePropertyBindings* Bindings)
+	{
+		return Bindings ? Bindings->GetCurrentValue<FMargin>(InObject).Top : TOptional<float>();
+	}
+	static TOptional<float> ExtractRightChannel(UObject& InObject, FTrackInstancePropertyBindings* Bindings)
+	{
+		return Bindings ? Bindings->GetCurrentValue<FMargin>(InObject).Right : TOptional<float>();
+	}
+	static TOptional<float> ExtractBottomChannel(UObject& InObject, FTrackInstancePropertyBindings* Bindings)
+	{
+		return Bindings ? Bindings->GetCurrentValue<FMargin>(InObject).Bottom : TOptional<float>();
+	}
+
+	FMovieSceneChannelMetaData      MetaData[4];
+	TMovieSceneExternalValue<float> ExternalValues[4];
+};
+
+#endif	// WITH_EDITOR
 
 UMovieSceneMarginSection::UMovieSceneMarginSection( const FObjectInitializer& ObjectInitializer )
 	: Super( ObjectInitializer )
 {
 	BlendType = EMovieSceneBlendType::Absolute;
-}
 
-void UMovieSceneMarginSection::MoveSection( float DeltaTime, TSet<FKeyHandle>& KeyHandles )
-{
-	Super::MoveSection( DeltaTime, KeyHandles );
+	FMovieSceneChannelProxyData Channels;
+	bSupportsInfiniteRange = true;
 
-	// Move all the curves in this section
-	LeftCurve.ShiftCurve(DeltaTime, KeyHandles);
-	TopCurve.ShiftCurve(DeltaTime, KeyHandles);
-	RightCurve.ShiftCurve(DeltaTime, KeyHandles);
-	BottomCurve.ShiftCurve(DeltaTime, KeyHandles);
-}
+#if WITH_EDITOR
 
-void UMovieSceneMarginSection::DilateSection( float DilationFactor, float Origin, TSet<FKeyHandle>& KeyHandles )
-{
-	Super::DilateSection(DilationFactor, Origin, KeyHandles);
+	static const FMarginSectionEditorData EditorData;
+	Channels.Add(LeftCurve,   EditorData.MetaData[0], EditorData.ExternalValues[0]);
+	Channels.Add(TopCurve,    EditorData.MetaData[1], EditorData.ExternalValues[1]);
+	Channels.Add(RightCurve,  EditorData.MetaData[2], EditorData.ExternalValues[2]);
+	Channels.Add(BottomCurve, EditorData.MetaData[3], EditorData.ExternalValues[3]);
 
-	LeftCurve.ScaleCurve(Origin, DilationFactor, KeyHandles);
-	TopCurve.ScaleCurve(Origin, DilationFactor, KeyHandles);
-	RightCurve.ScaleCurve(Origin, DilationFactor, KeyHandles);
-	BottomCurve.ScaleCurve(Origin, DilationFactor, KeyHandles);
-}
+#else
 
-void UMovieSceneMarginSection::GetKeyHandles(TSet<FKeyHandle>& OutKeyHandles, TRange<float> TimeRange) const
-{
-	if (!TimeRange.Overlaps(GetRange()))
-	{
-		return;
-	}
+	Channels.Add(LeftCurve);
+	Channels.Add(TopCurve);
+	Channels.Add(RightCurve);
+	Channels.Add(BottomCurve);
 
-	for (auto It(LeftCurve.GetKeyHandleIterator()); It; ++It)
-	{
-		float Time = LeftCurve.GetKeyTime(It.Key());
-		if (TimeRange.Contains(Time))
-		{
-			OutKeyHandles.Add(It.Key());
-		}
-	}
-	for (auto It(TopCurve.GetKeyHandleIterator()); It; ++It)
-	{
-		float Time = TopCurve.GetKeyTime(It.Key());
-		if (TimeRange.Contains(Time))
-		{
-			OutKeyHandles.Add(It.Key());
-		}
-	}
-	for (auto It(RightCurve.GetKeyHandleIterator()); It; ++It)
-	{
-		float Time = RightCurve.GetKeyTime(It.Key());
-		if (TimeRange.Contains(Time))
-		{
-			OutKeyHandles.Add(It.Key());
-		}
-	}
-	for (auto It(BottomCurve.GetKeyHandleIterator()); It; ++It)
-	{
-		float Time = BottomCurve.GetKeyTime(It.Key());
-		if (TimeRange.Contains(Time))
-		{
-			OutKeyHandles.Add(It.Key());
-		}
-	}
-}
-
-
-TOptional<float> UMovieSceneMarginSection::GetKeyTime( FKeyHandle KeyHandle ) const
-{
-	if ( LeftCurve.IsKeyHandleValid( KeyHandle ) )
-	{
-		return TOptional<float>( LeftCurve.GetKeyTime( KeyHandle ) );
-	}
-	if ( TopCurve.IsKeyHandleValid( KeyHandle ) )
-	{
-		return TOptional<float>( TopCurve.GetKeyTime( KeyHandle ) );
-	}
-	if ( RightCurve.IsKeyHandleValid( KeyHandle ) )
-	{
-		return TOptional<float>( RightCurve.GetKeyTime( KeyHandle ) );
-	}
-	if ( BottomCurve.IsKeyHandleValid( KeyHandle ) )
-	{
-		return TOptional<float>( BottomCurve.GetKeyTime( KeyHandle ) );
-	}
-	return TOptional<float>();
-}
-
-
-void UMovieSceneMarginSection::SetKeyTime( FKeyHandle KeyHandle, float Time )
-{
-	if ( LeftCurve.IsKeyHandleValid( KeyHandle ) )
-	{
-		LeftCurve.SetKeyTime( KeyHandle, Time );
-	}
-	else if ( TopCurve.IsKeyHandleValid( KeyHandle ) )
-	{
-		TopCurve.SetKeyTime( KeyHandle, Time );
-	}
-	else if ( RightCurve.IsKeyHandleValid( KeyHandle ) )
-	{
-		RightCurve.SetKeyTime( KeyHandle, Time );
-	}
-	else if ( BottomCurve.IsKeyHandleValid( KeyHandle ) )
-	{
-		BottomCurve.SetKeyTime( KeyHandle, Time );
-	}
-}
-
-
-template<typename CurveType>
-CurveType* GetCurveForChannel( EKeyMarginChannel Channel, CurveType* LeftCurve, CurveType* TopCurve, CurveType* RightCurve, CurveType* BottomCurve )
-{
-	switch ( Channel )
-	{
-	case EKeyMarginChannel::Left:
-		return LeftCurve;
-	case EKeyMarginChannel::Top:
-		return TopCurve;
-	case EKeyMarginChannel::Right:
-		return RightCurve;
-	case EKeyMarginChannel::Bottom:
-		return BottomCurve;
-	}
-	checkf(false, TEXT("Invalid curve channel"));
-	return nullptr;
-}
-
-
-void UMovieSceneMarginSection::AddKey( float Time, const FMarginKey& Key, EMovieSceneKeyInterpolation KeyInterpolation )
-{
-	FRichCurve* KeyCurve = GetCurveForChannel( Key.Channel, &LeftCurve, &TopCurve, &RightCurve, &BottomCurve );
-	AddKeyToCurve( *KeyCurve, Time, Key.Value, KeyInterpolation );
-}
-
-
-bool UMovieSceneMarginSection::NewKeyIsNewData( float Time, const FMarginKey& Key ) const
-{
-	const FRichCurve* KeyCurve = GetCurveForChannel( Key.Channel, &LeftCurve, &TopCurve, &RightCurve, &BottomCurve );
-	return FMath::IsNearlyEqual( KeyCurve->Eval( Time ), Key.Value ) == false;
-}
-
-bool UMovieSceneMarginSection::HasKeys( const FMarginKey& Key ) const
-{
-	const FRichCurve* KeyCurve = GetCurveForChannel( Key.Channel, &LeftCurve, &TopCurve, &RightCurve, &BottomCurve );
-	return KeyCurve->GetNumKeys() != 0;
-}
-
-void UMovieSceneMarginSection::SetDefault( const FMarginKey& Key )
-{
-	FRichCurve* KeyCurve = GetCurveForChannel( Key.Channel, &LeftCurve, &TopCurve, &RightCurve, &BottomCurve );
-	SetCurveDefault( *KeyCurve, Key.Value );
-}
-
-void UMovieSceneMarginSection::ClearDefaults()
-{
-	LeftCurve.ClearDefaultValue();
-	TopCurve.ClearDefaultValue();
-	RightCurve.ClearDefaultValue();
-	BottomCurve.ClearDefaultValue();
+#endif
+	
+	ChannelProxy = MakeShared<FMovieSceneChannelProxy>(MoveTemp(Channels));
 }

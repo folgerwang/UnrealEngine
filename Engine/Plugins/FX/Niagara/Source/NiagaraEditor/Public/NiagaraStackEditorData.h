@@ -3,6 +3,7 @@
 #pragma once
 
 #include "NiagaraStackEditorData.generated.h"
+struct FStackIssue;
 
 /** Editor only UI data for emitters. */
 UCLASS()
@@ -11,19 +12,6 @@ class UNiagaraStackEditorData : public UObject
 	GENERATED_BODY()
 
 public:
-	/*
-	 * Gets whether or not a module has been pinned.
-	 * @param ModuleInputKey A unique key for the module. 
-	 */
-	bool GetModuleInputIsPinned(const FString& ModuleInputKey) const;
-
-	/*
-	 * Sets whether or not a module is pinned.
-	 * @param ModuleInputKey A unique key for the module.
-	 * @param bIsPinned Whether or not the module is pinned.
-	 */
-	void SetModuleInputIsPinned(const FString& ModuleInputKey, bool bIsPinned);
-
 	/*
 	* Gets whether or not a module has a rename pending.
 	* @param ModuleInputKey A unique key for the module.
@@ -51,14 +39,68 @@ public:
 	 */
 	void SetStackEntryIsExpanded(const FString& StackEntryKey, bool bIsExpanded);
 
+	/*
+	* Gets whether or not a stack item is showing advanced items.
+	* @param StackItemKey A unique key for the entry.
+	* @param bIsExpandedDefault The default value to return if the expanded state hasn't been set for the stack entry.
+	*/
+	bool GetStackItemShowAdvanced(const FString& StackEntryKey, bool bShowAdvancedDefault) const;
+
+	/*
+	* Sets whether or not a stack entry is Expanded.
+	* @param StackEntryKey A unique key for the entry.
+	* @param bIsExpanded Whether or not the entry is expanded.
+	*/
+	void SetStackItemShowAdvanced(const FString& StackEntryKey, bool bShowAdanced);
+
+	/* Gets whether or not all advanced items should be shown in the stack. */
+	bool GetShowAllAdvanced() const;
+
+	/* Sets whether or not all advanced items should be shown in the stack. */
+	void SetShowAllAdvanced(bool bInShowAllAdvanced);
+
+	/* Gets whether or not item outputs should be shown in the stack. */
+	bool GetShowOutputs() const;
+
+	/* Sets whether or not item outputs should be shown in the stack. */
+	void SetShowOutputs(bool bInShowOutputs);
+
+	/* Gets the last scroll position for the associated stack. */
+	double GetLastScrollPosition() const;
+
+	/* Sets the last scroll position for the associated stack. */
+	void SetLastScrollPosition(double InLastScrollPosition);
+
+	/*
+	* @param Issue the issue to be dismissed (not fixed).
+	*/
+	void DismissStackIssue(FString IssueId);
+
+	/* Restores all the dismissed issues so that the user can see them and choose what to do. */
+	NIAGARAEDITOR_API void UndismissAllIssues();
+
+	/* Gets a reference to the dismissed stack issue array */
+	NIAGARAEDITOR_API const TArray<FString>& GetDismissedStackIssueIds();
+
 private:
-
-	UPROPERTY()
-	TMap<FString, bool> ModuleInputKeyToPinnedMap;
-
 	UPROPERTY()
 	TMap<FString, bool> ModuleInputKeyToRenamePendingMap;
 
 	UPROPERTY()
 	TMap<FString, bool> StackEntryKeyToExpandedMap;
+
+	UPROPERTY()
+	TMap<FString, bool> StackItemKeyToShowAdvancedMap;
+
+	UPROPERTY()
+	bool bShowAllAdvanced;
+
+	UPROPERTY()
+	bool bShowOutputs;
+
+	UPROPERTY()
+	double LastScrollPosition;
+
+	UPROPERTY()
+	TArray<FString> DismissedStackIssueIds;
 };

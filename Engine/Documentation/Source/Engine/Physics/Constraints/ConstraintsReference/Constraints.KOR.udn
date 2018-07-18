@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3891955
 Availability: Public
 Title:피직스 컨스트레인트 참고서
 Crumbs: %ROOT%, Engine, Engine/Physics
@@ -230,7 +230,7 @@ Physics Constraint (피직스 컨스트레인트)의 프로퍼티를 주요 카�
 
 | 프로퍼티 | 설명 |
 | -------- | ----------- |
-|[REGION:tablesection]Constraint[/REGION]|
+|[REGION:tablesection]Constraint[/REGION]||
 | **Component Name 1** |  |
 | **Component Name 2** |   |
 | **Joint Name** |  |
@@ -260,7 +260,7 @@ Physics Constraint (피직스 컨스트레인트)의 프로퍼티를 주요 카�
 
 | 프로퍼티 | 설명 |
 | -------- | ----------- |
-|[REGION:tablesection]Linear Limits[/REGION]|
+|[REGION:tablesection]Linear Limits[/REGION]||
 | **Linear XMotion** |  |
 | **Linear YMotion** |  |
 | **Linear ZMotion** |  |
@@ -271,11 +271,11 @@ Physics Constraint (피직스 컨스트레인트)의 프로퍼티를 주요 카�
 | **Linear Limit Damping** |  |
 | **Linear Breakable** |  |
 | **Linear Break Threshold** |  |
-|[REGION:tablesection]Projection[/REGION]|
+|[REGION:tablesection]Projection[/REGION]||
 | **Enable Projection** |  |
 | **Projection Linear Tolerance** |  |
 | **Projection Angular Tolerance** |  |
-|[REGION:tablesection]Angular Limits[/REGION]|
+|[REGION:tablesection]Angular Limits[/REGION]||
 | **Angular Swing 1Motion** |  |
 | **Angular Swing 2Motion** |  |
 | **Angular Twist Motion** |  |
@@ -291,7 +291,7 @@ Physics Constraint (피직스 컨스트레인트)의 프로퍼티를 주요 카�
 | **Twist Limit Damping** |  |
 | **Angular Breakable** |  |
 | **Angular Break Threshold** |  |
-|[REGION:tablesection]Linear Motor[/REGION]|
+|[REGION:tablesection]Linear Motor[/REGION]||
 | **Linear Position Drive** |  |
 | **Linear XPosition Drive** |  |
 | **Linear YPosition Drive** |  |
@@ -302,17 +302,14 @@ Physics Constraint (피직스 컨스트레인트)의 프로퍼티를 주요 카�
 | **Linear Velocity Target** |  |
 | **Linear Velocity Strength** | 직선 속도 세기 - 직선 구동력에 적용할 제동력입니다. |
 | **Max Linear Force** | 최대 직선 힘 - 직선 구동력이 적용할 수 있는 힘의 한계입니다. |
-|[REGION:tablesection]Angular Motor[/REGION]|
+|[REGION:tablesection]Angular Motor[/REGION]||
 | **Angular Orientation Drive** |  |
 | **Angular Orientation Target** |  |
 | **Angular Position Strength** | 각 위치 세기 - 각 구동력에 적용할 스프링 값입니다. |
 | **Angular Velocity Drive** |  |
 | **Angular Velocity Target** |  |
 | **Angular Velocity Strength** | 각 속도 세기 - 각 구동력에 적용할 제동 값입니다. |
-| **Max Angular Force ** | 최대 각 힘 - 각 구동력이 적용할 수 있는 힘의 한계입니다. |
-
-
-<!--
+| **Max Angular Force** | 최대 각 힘 - 각 구동력이 적용할 수 있는 힘의 한계입니다. |
 
 [EXCERPT:linearMotionEnum]
 | **유형** | **설명** |
@@ -330,8 +327,6 @@ Physics Constraint (피직스 컨스트레인트)의 프로퍼티를 주요 카�
 | **Locked** | 잠김 - 이 축에는 완벽 제약됩니다. |
 [/EXCERPT:angularMotionEnum]
 
-
-[/COMMENT]
 
 ## 추가 정보
 
@@ -361,10 +356,6 @@ _왼쪽에서 오른쪽 순으로: 힌지, 프리즈매틱, 볼과 소켓 아이
 
 _왼쪽에서 오른쪽 순 (피직스 컨스트레인트에 4 배 스케일 적용): 직선 운동을 15 유닛으로 제한, 직선 운동을 자유로 설정._
 
-[COMMENT:none]
- For information on all the properties relating to Linear Freedom and Limits see: [%Engine/Physics\Constraints\ConstraintsReferencetitle%](Engine/Physics\Constraints\ConstraintsReference 
-[/COMMENT]
-
 ### 각 자유 및 제한
 
 ![](PhysCon_AngularLimitsProps.png)
@@ -385,10 +376,6 @@ _왼쪽에서 오른쪽으로: Swing 1 은 45 도로 제한, Swing 2 는 45 도�
 [![](PhysCon_AngPos1.png)(h:312)](PhysCon_AngPos1.png) [![](PhysCon_AngPos2.png)(h:312)](PhysCon_AngPos2.png) 
 [/REGION]
 
-[COMMENT:none]
- For information on all the properties relating to Angular Freedom and Limits see: [%Engine/Physics\Constraints\ConstraintsReferencetitle%](Engine/Physics\Constraints\ConstraintsReference 
-[/COMMENT]
-
 ### 방향
 
 피직스 컨스트레인트 액터의 축은 피직스 컨스트레인트 액터의 회전값과 일직선상에 놓이며, 두 오브젝트 사이의 평형이 되지는 않습니다. 원하는 효과를 내기 위해서는, 컨스트레인트 방향 정렬 방식을 알아둘 필요가 있습니다.
@@ -405,9 +392,7 @@ _왼쪽에서 오른쪽으로: Swing 1 은 45 도로 제한, Swing 2 는 45 도�
 [![](PhysCon_SimFlat.png)(w:453)](PhysCon_SimFlat.png) [![](PhysCon_SimAngled.png)(w:453)](PhysCon_SimAngled.png)
 [/REGION]
 
-각 제한 사용시, 트위스트 (양수 X) 축은 파랑 제약 액터 (컨스트레인드 액터 2) 쪽을 향하도록 정렬되어 있다 가정합니다.[COMMENT:none]
--This is really important because the -
-[/COMMENT] 
+각 제한 사용시, 트위스트 (양수 X) 축은 파랑 제약 액터 (컨스트레인드 액터 2) 쪽을 향하도록 정렬되어 있다 가정합니다. 
 
 [REGION:lightbox]
 [![](PhysCon_Angular.png)(w:453)](PhysCon_Angular.png) [![](PhysCon_AngularSim.png)(w:453)](PhysCon_AngularSim.png)
@@ -417,32 +402,7 @@ _왼쪽에서 오른쪽으로: Swing 1 은 45 도로 제한, Swing 2 는 45 도�
 
 ![](PhysCon_AngularCone_2.png)(h:300 convert:false) ![](PhysCon_Arc.png)(h:300 convert:false)
 
-[COMMENT:none]
-
-
-### 볼과 소켓
-볼과 소켓 조인트는 단순히 직선 운동이 잠겨있고 각 운동이 자유로운 조인트를 말합니다.
-
-
-### 힌지
-힌지는 직선 운동이 잠겨있다는 점에서 볼과 소켓과 비슷하나, 스윙 부분 역시 잠겨있어 트위스트 축으로만 회전 가능하다는 점이 다릅니다.
-
-
-### 프리즈매틱
-프리즈매틱 조인트는 모든 각 운동을 잠그고 셋 중 두 개의 직선 운동도 잠근 것입니다. 즉 전혀 회전이 불가능한 미닫이 문같은 것을 만들 수 있습니다.
-
-
-### 조인트 마찰
-구동(drive) 세팅으로 조인트 마찰(friction) 시뮬레이션이 가능합니다. 목표 속도를 0 으로 하고 속도 구동 옵션을 켠 뒤, LinearDriveForceLimit 및 AngularDriveForceLimit 세팅을 사용하여 조인트가 운동에 대해 갖는 마찰력을 조절합니다.
-
-
-### 펀치 백
-볼과 소켓 조인트를 기반으로 펀치백 (세로 막대 위에 달려있어 주먹으로 칠 수 있는 공) 같은 것을 시뮬레이션할 수 있습니다. 먼저 볼과 소켓 조인트를 만들고, 스윙 위치 구동을 켠 뒤 **AngularDriveSpring** 및 **AngularDriveDamping** 옵션을 조절하여 밀었을 때 적당히 흔들리다가 수직 위치로 오도록 만듭니다. 스윙 한계값도 켜서 너무 멀리 굽어지지 않도록 할 수 있습니다.
-
-
 [/COMMENT]
--->
-
 
 
 

@@ -106,7 +106,7 @@ public:
 
 	/**
 	* The normal vector to the palm. If your hand is flat, this vector will point downward,
-	* or “out” of the front surface of your palm.
+	* or "out" of the front surface of your palm.
 	*/
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Leap Hand")
 	FVector PalmNormal;
@@ -195,7 +195,7 @@ public:
 	float RotationProbability(const class ULeapFrame *OtherFrame);
 
 	/**
-	* The scale factor derived from this hand’s motion between the current frame and the specified frame.
+	* The scale factor derived from this hand's motion between the current frame and the specified frame.
 	*
 	* @param	OtherFrame	The starting frame for computing the relative scaling.
 	* @return	A positive value representing the heuristically determined scaling change ratio of the hand between the current frame and that specified in the sinceFrame parameter.

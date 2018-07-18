@@ -65,16 +65,13 @@ class GAMEPLAYABILITIES_API UAbilitySystemGlobals : public UObject
 	/** Global callback that can handle game-specific code that needs to run before applying a gameplay effect spec */
 	virtual void GlobalPreGameplayEffectSpecApply(FGameplayEffectSpec& Spec, UAbilitySystemComponent* AbilitySystemComponent);
 
-	// Stubs for WIP feature that will come to engine
+	/** Override to handle global state when gameplay effects are being applied */
 	virtual void PushCurrentAppliedGE(const FGameplayEffectSpec* Spec, UAbilitySystemComponent* AbilitySystemComponent) { }
 	virtual void SetCurrentAppliedGE(const FGameplayEffectSpec* Spec) { }
 	virtual void PopCurrentAppliedGE() { }
 
 	/** Returns true if the ability system should try to predict gameplay effects applied to non local targets */
-	bool ShouldPredictTargetGameplayEffects() const
-	{
-		return PredictTargetGameplayEffects;
-	}
+	bool ShouldPredictTargetGameplayEffects() const;
 
 	/** Searches the passed in class to look for a UFunction implementing the gameplay cue tag, sets MatchedTag to the exact tag found */
 	UFunction* GetGameplayCueFunction(const FGameplayTag &Tag, UClass* Class, FName &MatchedTag);
@@ -88,6 +85,7 @@ class GAMEPLAYABILITIES_API UAbilitySystemGlobals : public UObject
 	/** Sets a default gameplay cue tag using the asset's name. Returns true if it changed the tag. */
 	static bool DeriveGameplayCueTagFromAssetName(FString AssetName, FGameplayTag& GameplayCueTag, FName& GameplayCueName);
 
+	/** Sets a default gameplay cue tag using the asset's class*/
 	template<class T>
 	static void DeriveGameplayCueTagFromClass(T* CDO)
 	{
@@ -148,46 +146,52 @@ class GAMEPLAYABILITIES_API UAbilitySystemGlobals : public UObject
 	/** Returns true if ability costs are ignored, returns false otherwise. Always returns false in shipping builds. */
 	bool ShouldIgnoreCosts() const;
 
+	/** Called when debug strings are available, to write them to the display */
 	DECLARE_MULTICAST_DELEGATE(FOnClientServerDebugAvailable);
 	FOnClientServerDebugAvailable OnClientServerDebugAvailable;
 
 	/** Global place to accumulate debug strings for ability system component. Used when we fill up client side debug string immediately, and then wait for server to send server strings */
 	TArray<FString>	AbilitySystemDebugStrings;
 
-
-	// Helper functions for applying global scaling to various ability system tasks. This isn't meant to be a shipping feature, but to help with debugging and interation via cvar AbilitySystem.GlobalAbilityScale.
+	/** Helper functions for applying global scaling to various ability system tasks. This isn't meant to be a shipping feature, but to help with debugging and interation via cvar AbilitySystem.GlobalAbilityScale */
 	static void NonShipping_ApplyGlobalAbilityScaler_Rate(float& Rate);
 	static void NonShipping_ApplyGlobalAbilityScaler_Duration(float& Duration);
 
 	// Global Tags
 
+	/** TryActivate failed due to being dead */
 	UPROPERTY()
-	FGameplayTag ActivateFailIsDeadTag; // TryActivate failed due to being dead
+	FGameplayTag ActivateFailIsDeadTag; 
 	UPROPERTY(config)
 	FName ActivateFailIsDeadName;
 
+	/** TryActivate failed due to being on cooldown */
 	UPROPERTY()
-	FGameplayTag ActivateFailCooldownTag; // TryActivate failed due to being on cooldown
+	FGameplayTag ActivateFailCooldownTag; 
 	UPROPERTY(config)
 	FName ActivateFailCooldownName;
 
+	/** TryActivate failed due to not being able to spend costs */
 	UPROPERTY()
-	FGameplayTag ActivateFailCostTag; // TryActivate failed due to not being able to spend costs
+	FGameplayTag ActivateFailCostTag; 
 	UPROPERTY(config)
 	FName ActivateFailCostName;
 
+	/** TryActivate failed due to being blocked by other abilities */
 	UPROPERTY()
-	FGameplayTag ActivateFailTagsBlockedTag; // TryActivate failed due to being blocked by other abilities
+	FGameplayTag ActivateFailTagsBlockedTag; 
 	UPROPERTY(config)
 	FName ActivateFailTagsBlockedName;
 
+	/** TryActivate failed due to missing required tags */
 	UPROPERTY()
-	FGameplayTag ActivateFailTagsMissingTag; // TryActivate failed due to missing required tags
+	FGameplayTag ActivateFailTagsMissingTag; 
 	UPROPERTY(config)
 	FName ActivateFailTagsMissingName;
 
+	/** Failed to activate due to invalid networking settings, this is designer error */
 	UPROPERTY()
-	FGameplayTag ActivateFailNetworkingTag; // Failed to activate due to invalid networking settings, this is designer error
+	FGameplayTag ActivateFailNetworkingTag; 
 	UPROPERTY(config)
 	FName ActivateFailNetworkingName;
 
@@ -195,6 +199,7 @@ class GAMEPLAYABILITIES_API UAbilitySystemGlobals : public UObject
 	UPROPERTY(config)
 	int32	MinimalReplicationTagCountBits;
 
+	/** Initialize global tags by reading from config using the names and creating tags for use at runtime */
 	virtual void InitGlobalTags()
 	{
 		if (ActivateFailIsDeadName != NAME_None)
@@ -228,14 +233,16 @@ class GAMEPLAYABILITIES_API UAbilitySystemGlobals : public UObject
 		}
 	}
 
-	// GameplayCue Parameters
+	/** Initialize GameplayCue Parameters */
 	virtual void InitGameplayCueParameters(FGameplayCueParameters& CueParameters, const FGameplayEffectSpecForRPC &Spec);
 	virtual void InitGameplayCueParameters_GESpec(FGameplayCueParameters& CueParameters, const FGameplayEffectSpec &Spec);
 	virtual void InitGameplayCueParameters(FGameplayCueParameters& CueParameters, const FGameplayEffectContextHandle& EffectContext);
 
-	// Trigger async loading of the gameplay cue object libraries. By default, the manager will do this on creation,
-	// but that behavior can be changed by a derived class overriding ShouldAsyncLoadObjectLibrariesAtStart and returning false.
-	// In that case, this function must be called to begin the load
+	/**
+	 * Trigger async loading of the gameplay cue object libraries. By default, the manager will do this on creation,
+	 * but that behavior can be changed by a derived class overriding ShouldAsyncLoadObjectLibrariesAtStart and returning false.
+	 * In that case, this function must be called to begin the load
+	 */
 	virtual void StartAsyncLoadingObjectLibraries();
 
 	/** Simple accessor to whether gameplay modifier evaluation channels should be allowed or not */
@@ -253,6 +260,7 @@ class GAMEPLAYABILITIES_API UAbilitySystemGlobals : public UObject
 	/** Simple index-based accessor to the alias name for the specified gameplay mod evaluation channel, if any */
 	const FName& GetGameplayModEvaluationChannelAlias(int32 Index) const;
 
+	/** Path where the engine will load gameplay cue notifies from */
 	virtual TArray<FString> GetGameplayCueNotifyPaths() { return GameplayCueNotifyPaths; }
 
 protected:
@@ -287,9 +295,15 @@ protected:
 	UPROPERTY(config)
 	FSoftObjectPath GlobalCurveTableName;
 
+	UPROPERTY()
+	UCurveTable* GlobalCurveTable;
+
 	/** Holds information about the valid attributes' min and max values and stacking rules */
 	UPROPERTY(config)
 	FSoftObjectPath GlobalAttributeMetaDataTableName;
+
+	UPROPERTY()
+	UDataTable* GlobalAttributeMetaDataTable;
 
 	/** Holds default values for attribute sets, keyed off of Name/Levels. NOTE: Preserved for backwards compatibility, should use the array version below now */
 	UPROPERTY(config)
@@ -298,6 +312,10 @@ protected:
 	/** Array of curve table names to use for default values for attribute sets, keyed off of Name/Levels */
 	UPROPERTY(config)
 	TArray<FSoftObjectPath> GlobalAttributeSetDefaultsTableNames;
+
+	/** Curve tables containing default values for attribute sets, keyed off of Name/Levels */
+	UPROPERTY()
+	TArray<UCurveTable*> GlobalAttributeDefaultsTables;
 
 	/** Class reference to gameplay cue manager. Use this if you want to just instantiate a class for your gameplay cue manager without having to create an asset. */
 	UPROPERTY(config)
@@ -322,19 +340,11 @@ protected:
 	UPROPERTY(config)
 	bool PredictTargetGameplayEffects;
 
-	UPROPERTY()
-	UCurveTable* GlobalCurveTable;
-
-	/** Curve tables containing default values for attribute sets, keyed off of Name/Levels */
-	UPROPERTY()
-	TArray<UCurveTable*> GlobalAttributeDefaultsTables;
-
-	UPROPERTY()
-	UDataTable* GlobalAttributeMetaDataTable;
-
+	/** Manager for all gameplay cues */
 	UPROPERTY()
 	UGameplayCueManager* GlobalGameplayCueManager;
 
+	/** Used to initialize attribute sets */
 	TSharedPtr<FAttributeSetInitter> GlobalAttributeSetInitter;
 
 	template <class T>
@@ -342,7 +352,6 @@ protected:
 
 #if WITH_EDITOR
 	void OnTableReimported(UObject* InObject);
-
 	void OnPreBeginPIE(const bool bIsSimulatingInEditor);
 #endif
 
@@ -363,7 +372,7 @@ public:
 	FOnAbilitySystemAssetFoundDelegate AbilityFindAssetInEditorCallbacks;
 };
 
-
+/** Scope object that indicates when a gameplay effect is being applied */
 struct FScopeCurrentGameplayEffectBeingApplied
 {
 	FScopeCurrentGameplayEffectBeingApplied(const FGameplayEffectSpec* Spec, UAbilitySystemComponent* AbilitySystemComponent)

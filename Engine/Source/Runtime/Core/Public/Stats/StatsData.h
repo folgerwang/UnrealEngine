@@ -78,8 +78,7 @@ void ParseTypedValue( const TCHAR* Stream, const TCHAR* Match, T& Out )
 	TCHAR Temp[64] = TEXT( "" );
 	if( FParse::Value( Stream, Match, Temp, ARRAY_COUNT( Temp ) ) )
 	{
-		using namespace Lex;
-		FromString( Out, Temp );
+		LexFromString( Out, Temp );
 	}
 }
 
@@ -241,7 +240,7 @@ struct CORE_API FRawStatStackNode
 
 	/** Constructor, this always and only builds the thread root node. The thread root is not a numeric stat! **/
 	FRawStatStackNode()
-		: Meta(FStatConstants::NAME_ThreadRoot, EStatDataType::ST_None, nullptr, nullptr, nullptr, false, false)
+		: Meta(FStatConstants::NAME_ThreadRoot, EStatDataType::ST_None, nullptr, nullptr, nullptr, false, false, false)
 	{
 	}
 

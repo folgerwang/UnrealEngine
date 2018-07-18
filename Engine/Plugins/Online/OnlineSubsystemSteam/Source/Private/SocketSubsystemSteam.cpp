@@ -474,6 +474,8 @@ void FSocketSubsystemSteam::P2PRemove(FUniqueNetIdSteam& SessionId, int32 Channe
  */
 bool FSocketSubsystemSteam::Tick(float DeltaTime)
 {	
+    QUICK_SCOPE_CYCLE_COUNTER(STAT_SocketSubsystemSteam_Tick);
+
 	double CurSeconds = FPlatformTime::Seconds();
 
 	// Debug connection state information

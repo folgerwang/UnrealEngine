@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "GenericApplication.h"
+#include "GenericPlatform/GenericApplication.h"
 
 class FIOSWindow;
 
@@ -53,4 +53,6 @@ private:
 
 	static FCriticalSection CriticalSection;
 	static bool bOrientationChanged;
+
+	void CacheDisplayMetrics();
 };

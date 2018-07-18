@@ -24,19 +24,29 @@ struct MOVIESCENECAPTURE_API FViewportSurfaceReader
 	/** Wait for this reader to become available, if it's currently in use */
 	void BlockUntilAvailable();
 
+	/** Safely resets the state of the wait event. When doing latent surface reading sometimes we may want to just bail on reading a given frame.
+	  * Should only be performed after flushing rendering commands.
+	  */
+	void Reset();
+
 	/**
 	 * Resolve the specified viewport RHI, calling the specified callback with the result.
 	 *
 	 * @param	ViewportRHI		The viewport to resolve
 	 * @param	Callback 		Callback to call with the locked texture data. This will be called on an undefined thread.
 	 */
-	void ResolveRenderTarget(const FViewportRHIRef& ViewportRHI, TFunction<void(FColor*, int32, int32)> Callback);
+	void ResolveRenderTarget(FViewportSurfaceReader* RenderToReadback, const FViewportRHIRef& ViewportRHI, TFunction<void(FColor*, int32, int32)> Callback);
 
 	/** Get the current size of the texture */
 	FIntPoint GetCurrentSize() const;
 
 	/** Set the rectangle within which to read pixels */
 	void SetCaptureRect(FIntRect InCaptureRect) { CaptureRect = InCaptureRect; }
+
+	/** Set the window size that we expect from the BackBuffer */
+	void SetWindowSize(FIntPoint InWindowSize) { WindowSize = InWindowSize; }
+
+	bool WasEverQueued() const { return bQueuedForCapture; } 
 
 protected:
 
@@ -55,16 +65,27 @@ protected:
 	/** The rectangle to read from the surface */
 	FIntRect CaptureRect;
 
+	/** In windows mode, the size of the widget with the border */
+	FIntPoint WindowSize;
+
 	/** The desired pixel format of the resolved textures */
 	EPixelFormat PixelFormat;
 
 	/** Whether this reader is enabled or not. */
 	bool bIsEnabled;
+
+	bool bQueuedForCapture;
 };
 
 struct IFramePayload
 {
 	virtual ~IFramePayload() {}
+
+	/**
+	 * Called when the buffer is now available in CPU ram
+	 * Return true if you would like to execute the default behavior. (If you return false, GetCapturedFrames will be empty).
+	 */
+	virtual bool OnFrameReady_RenderThread(FColor* ColorBuffer, FIntPoint BufferSize, FIntPoint TargetSize) const { return true; }
 };
 
 typedef TSharedPtr<IFramePayload, ESPMode::ThreadSafe> FFramePayloadPtr;
@@ -106,12 +127,13 @@ public:
 	/**
 	 * Construct this frame grabber
 	 *
-	 * @param InViewport		The viewport we are to grab frames for
-	 * @param DesiredBufferSize	The desired size of captured frames
-	 * @param InPixelFormat		The desired pixel format to store captured frames as
-	 * @param InNumSurfaces		The number of destination surfaces contained in our buffer 
+	 * @param InViewport			The viewport we are to grab frames for
+	 * @param DesiredBufferSize		The desired size of captured frames
+	 * @param InPixelFormat			The desired pixel format to store captured frames as
+	 * @param InNumSurfaces			The number of destination surfaces contained in our buffer 
+	 * @param bAlwaysFlushOnDraw	The viewport will flush at everydraw (increase synchronization, reduce performance)
 	 */
-	FFrameGrabber(TSharedRef<FSceneViewport> Viewport, FIntPoint DesiredBufferSize, EPixelFormat InPixelFormat = PF_B8G8R8A8, uint32 NumSurfaces = 2);
+	FFrameGrabber(TSharedRef<FSceneViewport> Viewport, FIntPoint DesiredBufferSize, EPixelFormat InPixelFormat = PF_B8G8R8A8, uint32 NumSurfaces = 3, bool bAlwaysFlushOnDraw = true);
 
 	/** Destructor */
 	~FFrameGrabber();
@@ -189,6 +211,8 @@ private:
 
 	/** Optional RAII shutdown functor */
 	TFunction<void()> OnShutdown;
+
+	int32 FrameGrabLatency;
 
 	/** The current state of the grabber */
 	enum class EFrameGrabberState

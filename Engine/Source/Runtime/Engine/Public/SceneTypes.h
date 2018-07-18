@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "ObjectMacros.h"
+#include "UObject/ObjectMacros.h"
 #include "Templates/RefCounting.h"
 #include "Containers/List.h"
 
@@ -91,6 +91,7 @@ enum ELightComponentType
 	LightType_Directional = 0,
 	LightType_Point,
 	LightType_Spot,
+	LightType_Rect,
 	LightType_MAX,
 	LightType_NumBits = 2
 };

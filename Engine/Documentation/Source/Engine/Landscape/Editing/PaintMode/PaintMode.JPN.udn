@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3260884
+﻿INTSourceChangelist:3807090
 Availability:Public
 Title:Paint モード
 Crumbs: %ROOT%, Engine, Engine/Landscape, Engine/Landscape/Editing
@@ -27,7 +27,7 @@ Version:4.9
 
 [TOC(start:2 end:3)]
 
-**Paint** モードのツールは、マテリアル レイヤーをランドスケープの選択箇所に適用して、ランドスケープの外観を修正します。
+**Paint** モードのツールを使って、マテリアル レイヤーをランドスケープの選択箇所に適用して、ランドスケープの外観を修正することができます。
 
 Landscape マテリアルに関する詳細は、[Landscape マテリアル](Engine/Landscape\Materials) をご覧ください。
 
@@ -79,10 +79,10 @@ Paint ツールは、現在選択されているブラシとフォールオフ�
 
 [OBJECT:ComparisonSlider]
 	[PARAM:before]
-	![Landscape Smooth Layer Before](Landscape_Smooth_Layer_Before.jpg)(w:900 h:500)
+	![Landscape Smooth Layer Before](Landscape_Smooth_Layer_Before.jpg)(w:900)
 	[/PARAM]
 	[PARAM:after]
-	![Landscape Smooth Layer After](Landscape_Smooth_Layer_After.jpg)(w:900 h:500)
+	![Landscape Smooth Layer After](Landscape_Smooth_Layer_After.jpg)(w:900)
 	[/PARAM]
 [/OBJECT]
 
@@ -136,7 +136,7 @@ Paint ツールは、現在選択されているブラシとフォールオフ�
 
 選択したレイヤーいずれかは、ツールのオプションと設定、および使用している [ブラシ](Engine\Landscape\Editing\Brushes) に準じて、ペイント ツールでランドスケープに適用することができます。
 
-![Landscape_Layers.jpg](Landscape_Layers.jpg)(w:900 h:389)
+![Landscape_Layers.jpg](Landscape_Layers.jpg)(w:900)
 
 [REGION:note]
 ペイントツールの多くはスカルプト ツールと似ています。使用法も似ていますが、高さマップの代わりにレイヤーのアプリケーションの操作に使用します。
@@ -193,7 +193,7 @@ Paint ツールは、現在選択されているブラシとフォールオフ�
 | オプション | 説明 |
 | ------ | ----------- |
 | **Phys Material** | このレイヤーが優先されているランドスケープ領域に割り当てられた [物理マテリアル](Engine/Physics/PhysicalMaterials) (ある場合) です。 |
-| **Hardness** | [Erosion (侵食)](Engine/Landscape/Editing/SculptMode/#Erosion) ツールで使用する値です。 |
+| **Hardness** | [侵食](Engine/Landscape/Editing/SculptMode/#Erosion) ツールで使用する値です。 |
 
 ### 存在しないレイヤー
 

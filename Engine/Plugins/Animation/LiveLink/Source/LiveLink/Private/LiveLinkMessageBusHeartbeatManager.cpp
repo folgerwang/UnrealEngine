@@ -2,8 +2,8 @@
 
 #include "LiveLinkMessageBusHeartbeatManager.h"
 #include "LiveLinkMessageBusSource.h"
-#include "ScopeLock.h"
-#include "Async.h"
+#include "Misc/ScopeLock.h"
+#include "Async/Async.h"
 
 #define LL_HEARTBEAT_SLEEP_TIME 1.0f
 

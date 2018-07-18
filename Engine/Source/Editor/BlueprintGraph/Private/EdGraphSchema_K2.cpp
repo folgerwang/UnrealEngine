@@ -62,7 +62,7 @@
 #include "K2Node_VariableSet.h"
 #include "K2Node_SetFieldsInStruct.h"
 #include "Kismet2/BlueprintEditorUtils.h"
-#include "EditorStyleSettings.h"
+#include "Classes/EditorStyleSettings.h"
 #include "Editor.h"
 
 #include "Kismet/BlueprintMapLibrary.h"
@@ -380,13 +380,13 @@ public:
 
 					if (Asset.IsValid() && !Asset.IsAssetLoaded())
 					{
-						const FString BlueprintTypeStr = Asset.GetTagValueRef<FString>("BlueprintType");
+						const FString BlueprintTypeStr = Asset.GetTagValueRef<FString>(FBlueprintTags::BlueprintType);
 						const bool bNormalBP = BlueprintTypeStr == BPNormalTypeAllowed;
 						const bool bInterfaceBP = BlueprintTypeStr == BPInterfaceTypeAllowed;
 
 						if (bNormalBP || bInterfaceBP)
 						{
-							const uint32 ClassFlags = Asset.GetTagValueRef<uint32>("ClassFlags");
+							const uint32 ClassFlags = Asset.GetTagValueRef<uint32>(FBlueprintTags::ClassFlags);
 							if (!(ClassFlags & CLASS_Deprecated))
 							{
 								if (bNormalBP)
@@ -816,7 +816,7 @@ bool UEdGraphSchema_K2::CanFunctionBeUsedInGraph(const UClass* InClass, const UF
 					UBlueprint* BP = FBlueprintEditorUtils::FindBlueprintForGraph(InDestGraph);
 					const bool bIsFunctLib = BP && (EBlueprintType::BPTYPE_FunctionLibrary == BP->BlueprintType);
 					UClass* ParentClass = BP ? BP->ParentClass : NULL;
-					const bool bIncompatibleParent = ParentClass && (!FBlueprintEditorUtils::ImplentsGetWorld(BP) && !ParentClass->HasMetaDataHierarchical(FBlueprintMetadata::MD_ShowWorldContextPin));
+					const bool bIncompatibleParent = ParentClass && (!FBlueprintEditorUtils::ImplementsGetWorld(BP) && !ParentClass->HasMetaDataHierarchical(FBlueprintMetadata::MD_ShowWorldContextPin));
 					if (!bIsFunctLib && bIncompatibleParent)
 					{
 						if (OutReason != nullptr)
@@ -956,13 +956,13 @@ FText UEdGraphSchema_K2::GetFriendlySignatureName(const UFunction* Function)
 	return UK2Node_CallFunction::GetUserFacingFunctionName( Function );
 }
 
-void UEdGraphSchema_K2::GetAutoEmitTermParameters(const UFunction* Function, TArray<FString>& AutoEmitParameterNames) const
+void UEdGraphSchema_K2::GetAutoEmitTermParameters(const UFunction* Function, TArray<FString>& AutoEmitParameterNames)
 {
-	AutoEmitParameterNames.Empty();
+	AutoEmitParameterNames.Reset();
 
-	if( Function->HasMetaData(FBlueprintMetadata::MD_AutoCreateRefTerm) )
+	const FString& MetaData = Function->GetMetaData(FBlueprintMetadata::MD_AutoCreateRefTerm);
+	if (!MetaData.IsEmpty())
 	{
-		const FString& MetaData = Function->GetMetaData(FBlueprintMetadata::MD_AutoCreateRefTerm);
 		MetaData.ParseIntoArray(AutoEmitParameterNames, TEXT(","), true);
 
 		for (int32 NameIndex = 0; NameIndex < AutoEmitParameterNames.Num();)
@@ -1490,9 +1490,15 @@ void UEdGraphSchema_K2::GetContextMenuActions(const UEdGraph* CurrentGraph, cons
 					MenuBuilder->AddMenuEntry( FGraphEditorCommands::Get().RecombineStructPin );
 				}
 	
-				// Conditionally add the execution path pin removal if this is an execution branching node
+				// Conditionally add the execution path pin options if this is an execution branching node
 				if( InGraphPin->Direction == EGPD_Output && InGraphPin->GetOwningNode())
 				{
+					if (CastChecked<UK2Node>(InGraphPin->GetOwningNode())->CanEverInsertExecutionPin())
+					{
+						MenuBuilder->AddMenuEntry(FGraphEditorCommands::Get().InsertExecutionPinBefore);
+						MenuBuilder->AddMenuEntry(FGraphEditorCommands::Get().InsertExecutionPinAfter);
+					}
+
 					if (CastChecked<UK2Node>(InGraphPin->GetOwningNode())->CanEverRemoveExecutionPin())
 					{
 						MenuBuilder->AddMenuEntry( FGraphEditorCommands::Get().RemoveExecutionPin );
@@ -2450,6 +2456,12 @@ public:
 		return *AutocastFunctionMap;
 	}
 
+	static void Shutdown()
+	{
+		delete AutocastFunctionMap;
+		AutocastFunctionMap = nullptr;
+	}
+
 	static void OnProjectHotReloaded(bool bWasTriggeredAutomatically)
 	{
 		if (AutocastFunctionMap)
@@ -2488,6 +2500,12 @@ public:
 };
 
 FAutocastFunctionMap* FAutocastFunctionMap::AutocastFunctionMap = nullptr;
+
+void UEdGraphSchema_K2::Shutdown()
+{
+	FAutocastFunctionMap::Shutdown();
+}
+
 
 bool UEdGraphSchema_K2::SearchForAutocastFunction(const UEdGraphPin* OutputPin, const UEdGraphPin* InputPin, /*out*/ FName& TargetFunction, /*out*/ UClass*& FunctionOwner) const
 {
@@ -2820,7 +2838,7 @@ FString UEdGraphSchema_K2::IsPinDefaultValid(const UEdGraphPin* Pin, const FStri
 	{
 		if( !bIsAutoCreateRefTerm )
 		{
-			// No harm in leaving a function result node input (aka functin output) unconnected - the property will be initialized correctly
+			// No harm in leaving a function result node input (aka function output) unconnected - the property will be initialized correctly
 			// as empty:
 			bool bIsFunctionOutput = false;
 			if(UK2Node_FunctionResult* Result = Cast<UK2Node_FunctionResult>(Pin->GetOwningNode()))
@@ -3633,10 +3651,14 @@ FText UEdGraphSchema_K2::TerminalTypeToText(const FName Category, const FName Su
 		}
 		else
 		{
-			FString SubCategoryObjName = SubCategoryObject->GetName();
+			FString SubCategoryObjName;
 			if (UField* SubCategoryField = Cast<UField>(SubCategoryObject))
 			{
 				SubCategoryObjName = SubCategoryField->GetDisplayNameText().ToString();
+			}
+			else
+			{
+				SubCategoryObjName = SubCategoryObject->GetName();
 			}
 
 			if (!bIsWeakPtr)
@@ -3651,6 +3673,12 @@ FText UEdGraphSchema_K2::TerminalTypeToText(const FName Category, const FName Su
 				if (Category == UEdGraphSchema_K2::PC_Struct && (SubCategoryObject == UEdGraphSchema_K2::VectorStruct || SubCategoryObject == UEdGraphSchema_K2::RotatorStruct || SubCategoryObject == UEdGraphSchema_K2::TransformStruct))
 				{
 					PropertyText = FText::Format(LOCTEXT("ObjectAsTextWithoutCategory", "{ObjectName}"), Args);
+				}
+				// If this is a raw UObject reference don't display Object twice
+				else if (((Category == UEdGraphSchema_K2::PC_Object) || (Category == UEdGraphSchema_K2::PC_SoftObject)) && (SubCategoryObject == UObject::StaticClass()))
+				{
+					Args.Add(TEXT("Category"), UEdGraphSchema_K2::GetCategoryText(Category));
+					PropertyText = FText::Format(LOCTEXT("ObjectAsJustCategory", "{Category}"), Args);
 				}
 				else
 				{
@@ -3667,7 +3695,7 @@ FText UEdGraphSchema_K2::TerminalTypeToText(const FName Category, const FName Su
 			}
 		}
 	}
-	else if (SubCategory != TEXT(""))
+	else if (!SubCategory.IsNone())
 	{
 		FFormatNamedArguments Args;
 		Args.Add(TEXT("Category"), UEdGraphSchema_K2::GetCategoryText(Category));
@@ -4452,7 +4480,7 @@ void UEdGraphSchema_K2::HandleGraphBeingDeleted(UEdGraph& GraphBeingRemoved) con
 		}
 
 		// Remove from the list of recently edited documents
-		Blueprint->LastEditedDocuments.RemoveAll([&GraphBeingRemoved](const FEditedDocumentInfo& TestDoc) { return TestDoc.EditedObject == &GraphBeingRemoved; });
+		Blueprint->LastEditedDocuments.RemoveAll([&GraphBeingRemoved](const FEditedDocumentInfo& TestDoc) { return TestDoc.EditedObjectPath.ResolveObject() == &GraphBeingRemoved; });
 	}
 }
 
@@ -4689,21 +4717,21 @@ bool UEdGraphSchema_K2::DoesDefaultValueMatchAutogenerated(const UEdGraphPin& In
 	return Super::DoesDefaultValueMatchAutogenerated(InPin);
 }
 
-bool UEdGraphSchema_K2::IsAutoCreateRefTerm(const UEdGraphPin* Pin) const
+bool UEdGraphSchema_K2::IsAutoCreateRefTerm(const UEdGraphPin* Pin)
 {
 	check(Pin);
 
 	bool bIsAutoCreateRefTerm = false;
-	UEdGraphNode* OwningNode = Pin->GetOwningNode();
-	UK2Node_CallFunction* FuncNode = Cast<UK2Node_CallFunction>(OwningNode);
-	if (FuncNode)
+	if (!Pin->PinName.IsNone())
 	{
-		UFunction* TargetFunction = FuncNode->GetTargetFunction();
-		if (TargetFunction && !Pin->PinName.IsNone())
+		if (UK2Node_CallFunction* FuncNode = Cast<UK2Node_CallFunction>(Pin->GetOwningNode()))
 		{
-			TArray<FString> AutoCreateParameterNames;
-			GetAutoEmitTermParameters(TargetFunction, AutoCreateParameterNames);
-			bIsAutoCreateRefTerm = AutoCreateParameterNames.Contains(Pin->PinName.ToString());
+			if (UFunction* TargetFunction = FuncNode->GetTargetFunction())
+			{
+				static TArray<FString> AutoCreateParameterNames;
+				GetAutoEmitTermParameters(TargetFunction, AutoCreateParameterNames);
+				bIsAutoCreateRefTerm = AutoCreateParameterNames.Contains(Pin->PinName.ToString());
+			}
 		}
 	}
 
@@ -4770,6 +4798,15 @@ bool UEdGraphSchema_K2::FindFunctionParameterDefaultValue(const UFunction* Funct
 		// Specified default value in the metadata
 		OutString = MetadataDefaultValue;
 		bHasAutomaticValue = true;
+
+		// If the parameter is a class then try and get the full name as the metadata might just be the short name
+		if (Param->IsA<UClassProperty>() && !FPackageName::IsValidObjectPath(OutString))
+		{
+			if (UClass* DefaultClass = FindObject<UClass>(ANY_PACKAGE, *OutString, true))
+			{
+				OutString = DefaultClass->GetPathName();
+			}
+		}
 	}
 	else
 	{
@@ -6914,7 +6951,7 @@ void UEdGraphSchema_K2::OnPinConnectionDoubleCicked(UEdGraphPin* PinA, UEdGraphP
 	UEdGraph* ParentGraph = PinA->GetOwningNode()->GetGraph();
 	if (!FBlueprintEditorUtils::IsGraphReadOnly(ParentGraph))
 	{
-		UK2Node_Knot* NewKnot = FEdGraphSchemaAction_K2NewNode::SpawnNodeFromTemplate<UK2Node_Knot>(ParentGraph, NewObject<UK2Node_Knot>(), KnotTopLeft);
+		UK2Node_Knot* NewKnot = FEdGraphSchemaAction_K2NewNode::SpawnNode<UK2Node_Knot>(ParentGraph, KnotTopLeft, EK2NewNodeFlags::SelectNewNode);
 
 		// Move the connections across (only notifying the knot, as the other two didn't really change)
 		PinA->BreakLinkTo(PinB);
@@ -6958,22 +6995,32 @@ void UEdGraphSchema_K2::ConfigureVarNode(UK2Node_Variable* InVarNode, FName InVa
 
 UK2Node_VariableGet* UEdGraphSchema_K2::SpawnVariableGetNode(const FVector2D GraphPosition, class UEdGraph* ParentGraph, FName VariableName, UStruct* Source) const
 {
-	UK2Node_VariableGet* NodeTemplate = NewObject<UK2Node_VariableGet>();
 	UBlueprint* Blueprint = FBlueprintEditorUtils::FindBlueprintForGraph(ParentGraph);
 
-	UEdGraphSchema_K2::ConfigureVarNode(NodeTemplate, VariableName, Source, Blueprint);
-
-	return FEdGraphSchemaAction_K2NewNode::SpawnNodeFromTemplate<UK2Node_VariableGet>(ParentGraph, NodeTemplate, GraphPosition);
+	return FEdGraphSchemaAction_K2NewNode::SpawnNode<UK2Node_VariableGet>(
+		ParentGraph,
+		GraphPosition,
+		EK2NewNodeFlags::SelectNewNode,
+		[VariableName, Source, Blueprint](UK2Node_VariableGet* NewInstance)
+		{
+			UEdGraphSchema_K2::ConfigureVarNode(NewInstance, VariableName, Source, Blueprint);
+		}
+	);
 }
 
 UK2Node_VariableSet* UEdGraphSchema_K2::SpawnVariableSetNode(const FVector2D GraphPosition, class UEdGraph* ParentGraph, FName VariableName, UStruct* Source) const
 {
-	UK2Node_VariableSet* NodeTemplate = NewObject<UK2Node_VariableSet>();
 	UBlueprint* Blueprint = FBlueprintEditorUtils::FindBlueprintForGraph(ParentGraph);
 
-	UEdGraphSchema_K2::ConfigureVarNode(NodeTemplate, VariableName, Source, Blueprint);
-
-	return FEdGraphSchemaAction_K2NewNode::SpawnNodeFromTemplate<UK2Node_VariableSet>(ParentGraph, NodeTemplate, GraphPosition);
+	return FEdGraphSchemaAction_K2NewNode::SpawnNode<UK2Node_VariableSet>(
+		ParentGraph,
+		GraphPosition,
+		EK2NewNodeFlags::SelectNewNode,
+		[VariableName, Source, Blueprint](UK2Node_VariableSet* NewInstance)
+		{
+			UEdGraphSchema_K2::ConfigureVarNode(NewInstance, VariableName, Source, Blueprint);
+		}
+	);
 }
 
 UEdGraphPin* UEdGraphSchema_K2::DropPinOnNode(UEdGraphNode* InTargetNode, const FName& InSourcePinName, const FEdGraphPinType& InSourcePinType, EEdGraphPinDirection InSourcePinDirection) const

@@ -6,6 +6,8 @@
 #include "Misc/Guid.h"
 #include "Modules/ModuleInterface.h"
 #include "Containers/ArrayView.h"
+#include "Misc/QualifiedFrameTime.h"
+#include "SequenceRecorderActorGroup.h"
 
 class AActor;
 class ISequenceAudioRecorder;
@@ -13,6 +15,8 @@ class ISequenceAudioRecorder;
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnRecordingStarted, class UMovieSceneSequence* /*Sequence*/);
 
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnRecordingFinished, class UMovieSceneSequence* /*Sequence*/);
+
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnRecordingGroupAdded, TWeakObjectPtr<USequenceRecorderActorGroup> /*ActorGroup*/);
 
 class ISequenceRecorder : public IModuleInterface
 {
@@ -32,7 +36,7 @@ public:
 	virtual bool IsRecording() = 0;
 
 	/** How long is the currently recording sequence */
-	virtual float GetCurrentRecordingLength() = 0;
+	virtual FQualifiedFrameTime GetCurrentRecordingLength() = 0;
 
 	/**
 	 * Start a recording, possibly with some delay (specified by the sequence recording settings).
@@ -96,6 +100,19 @@ public:
 	virtual bool HasAudioRecorder() const = 0;
 
 	/**
+	 * Add an actor to be recorded when the next recording pass begins
+	 * @param	ActorToRecord	The actor to queue for recording	
+	 */
+	virtual UActorRecording* QueueActorToRecord(AActor* ActorToRecord) = 0;
+
+	/**
+	 * Get the take number of an actor that is queued to record in the current group
+	 * @param	InActor		The actor to fetch the take number for
+	 * @return the take number for the given actor, 0 if actor isn't queued or no group is active
+	 */
+	virtual uint32 GetTakeNumberForActor(AActor* InActor) const = 0;
+
+	/**
 	 * Attempt to create an audio recorder
 	 * @param	Settings	Settings for the audio recorder
 	 * @return A valid ptr to an audio recorder or null
@@ -107,4 +124,31 @@ public:
 
 	/** Get the sequence recorder finished delegate */
 	virtual FOnRecordingFinished& OnRecordingFinished() = 0;
+	
+	/** Get the name the of the sequence recording. */
+	virtual FString GetSequenceRecordingName() const = 0;
+	
+	/** Get the directory that the sequence should record into. */
+	virtual FString GetSequenceRecordingBasePath() const = 0;
+
+	/** Returns the current recording group (if any), otherwise returns nullptr. */
+	virtual TWeakObjectPtr<USequenceRecorderActorGroup> GetCurrentRecordingGroup() const = 0;
+
+	/** Adds a new recording group and picks a default name. Returns the new recording group and sets as the current recording group. */
+	virtual TWeakObjectPtr<USequenceRecorderActorGroup> AddRecordingGroup() = 0;
+
+	/** Removes the current recording group if any. Will make GetRecordingGroup() return nullptr. */
+	virtual void RemoveCurrentRecordingGroup() = 0;
+
+	/** Duplicates the current recording group if any. Returns the new recording group and sets as the current recording group. */
+	virtual TWeakObjectPtr<USequenceRecorderActorGroup> DuplicateRecordingGroup() = 0;
+
+	/** Attempts to load a recording group from the specified name. Returns a pointer to the group if successfully loaded, otherwise nullptr. */
+	virtual TWeakObjectPtr<USequenceRecorderActorGroup> LoadRecordingGroup(const FName Name) = 0;
+
+	/** Returns a list of names for the recording groups stored in this map. */
+	virtual TArray<FName> GetRecordingGroupNames() const = 0;
+
+	/** Get the Recording Group added delegate */
+	virtual FOnRecordingGroupAdded& OnRecordingGroupAdded() = 0;
 };

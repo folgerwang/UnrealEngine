@@ -26,6 +26,7 @@ public class MatineeToLevelSequence : ModuleRules
                 "Slate",
                 "SlateCore",
                 "UnrealEd",
+				"TimeManagement"
             }
         );
 
@@ -39,7 +40,6 @@ public class MatineeToLevelSequence : ModuleRules
 
         PrivateIncludePaths.AddRange(
             new string[] {
-                "LevelSequenceEditor/Private",
             }
         );
     }

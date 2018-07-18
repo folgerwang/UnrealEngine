@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "OnlineSubsystemTypes.h"
-#include "OnlinePresenceInterface.h"
+#include "Interfaces/OnlinePresenceInterface.h"
 
 
 class FOnlineFriendGameCircle : public FOnlineFriend

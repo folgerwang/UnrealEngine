@@ -125,6 +125,35 @@ FUnorderedAccessViewRHIRef FD3D11DynamicRHI::RHICreateUnorderedAccessView(FVerte
 	return new FD3D11UnorderedAccessView(UnorderedAccessView,VertexBuffer);
 }
 
+FUnorderedAccessViewRHIRef FD3D11DynamicRHI::RHICreateUnorderedAccessView(FIndexBufferRHIParamRef IndexBufferRHI, uint8 Format)
+{
+	FD3D11IndexBuffer* IndexBuffer = ResourceCast(IndexBufferRHI);
+
+	D3D11_BUFFER_DESC BufferDesc;
+	IndexBuffer->Resource->GetDesc(&BufferDesc);
+
+	const bool bByteAccessBuffer = (BufferDesc.MiscFlags & D3D11_RESOURCE_MISC_BUFFER_ALLOW_RAW_VIEWS) != 0;
+
+	D3D11_UNORDERED_ACCESS_VIEW_DESC UAVDesc;
+	UAVDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
+	UAVDesc.Format = FindUnorderedAccessDXGIFormat((DXGI_FORMAT)GPixelFormats[Format].PlatformFormat);
+	UAVDesc.Buffer.FirstElement = 0;
+
+	UAVDesc.Buffer.NumElements = BufferDesc.ByteWidth / GPixelFormats[Format].BlockBytes;
+	UAVDesc.Buffer.Flags = 0;
+
+	if (bByteAccessBuffer)
+	{
+		UAVDesc.Buffer.Flags |= D3D11_BUFFER_UAV_FLAG_RAW;
+		UAVDesc.Format = DXGI_FORMAT_R32_TYPELESS;
+	}
+
+	TRefCountPtr<ID3D11UnorderedAccessView> UnorderedAccessView;
+	VERIFYD3D11RESULT_EX(Direct3DDevice->CreateUnorderedAccessView(IndexBuffer->Resource, &UAVDesc, (ID3D11UnorderedAccessView**)UnorderedAccessView.GetInitReference()), Direct3DDevice);
+
+	return new FD3D11UnorderedAccessView(UnorderedAccessView, IndexBuffer);
+}
+
 FShaderResourceViewRHIRef FD3D11DynamicRHI::RHICreateShaderResourceView(FStructuredBufferRHIParamRef StructuredBufferRHI)
 {
 	FD3D11StructuredBuffer* StructuredBuffer = ResourceCast(StructuredBufferRHI);

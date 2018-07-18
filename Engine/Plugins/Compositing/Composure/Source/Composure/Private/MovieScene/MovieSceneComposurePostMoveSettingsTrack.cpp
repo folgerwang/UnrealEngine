@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneComposurePostMoveSettingsTrack.h"
-#include "MovieSceneComposurePostMoveSettingsSection.h"
+#include "MovieScene/MovieSceneComposurePostMoveSettingsTrack.h"
+#include "MovieScene/MovieSceneComposurePostMoveSettingsSection.h"
 #include "MovieSceneComposurePostMoveSettingsSectionTemplate.h"
 #include "Evaluation/MovieSceneEvalTemplate.h"
 

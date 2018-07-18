@@ -123,11 +123,6 @@ namespace UnrealBuildTool
 		public bool bProducesImportLibrary = false;
 
 		/// <summary>
-		/// Optional custom event handler for standard output.
-		/// </summary>
-		public DataReceivedEventHandler OutputEventHandler = null;	// @todo ubtmake urgent: Delegate variables are not saved, but we are comparing against this in ExecuteActions() for XGE!
-
-		/// <summary>
 		/// Callback used to perform a special action instead of a generic command line
 		/// </summary>
 		public delegate void BlockingActionHandler(Action Action, out int ExitCode, out string Output);
@@ -327,7 +322,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Builds a list of actions that need to be executed to produce the specified output items.
 		/// </summary>
-		public List<Action> GetActionsToExecute(BuildConfiguration BuildConfiguration, Action[] PrerequisiteActions, List<UEBuildTarget> Targets, Dictionary<UEBuildTarget, CPPHeaders> TargetToHeaders, out Dictionary<UEBuildTarget, List<FileItem>> TargetToOutdatedPrerequisitesMap)
+		public List<Action> GetActionsToExecute(BuildConfiguration BuildConfiguration, Action[] PrerequisiteActions, List<UEBuildTarget> Targets, Dictionary<UEBuildTarget, CPPHeaders> TargetToHeaders, bool bIsAssemblingBuild, bool bNeedsFullCPPIncludeRescan, out Dictionary<UEBuildTarget, List<FileItem>> TargetToOutdatedPrerequisitesMap)
 		{
 			DateTime CheckOutdatednessStartTime = DateTime.UtcNow;
 
@@ -351,7 +346,7 @@ namespace UnrealBuildTool
 					ActionHistory History = new ActionHistory(HistoryFilename.FullName);
 					HistoryList.Add(History);
 					OpenHistoryFiles.Add(HistoryFilename);
-					GatherAllOutdatedActions(BuildConfiguration, BuildTarget, TargetToHeaders[BuildTarget], History, ref OutdatedActionDictionary, TargetToOutdatedPrerequisitesMap);
+					GatherAllOutdatedActions(BuildConfiguration, BuildTarget, TargetToHeaders[BuildTarget], bIsAssemblingBuild, bNeedsFullCPPIncludeRescan, History, ref OutdatedActionDictionary, TargetToOutdatedPrerequisitesMap);
 				}
 			}
 
@@ -395,7 +390,7 @@ namespace UnrealBuildTool
 			{
 				foreach (FileItem ProducedItem in ActionToExecute.ProducedItems)
 				{
-					if(ProducedItem.bExists && !ActionToExecute.bUseIncrementalLinking && ProducedItem.Reference.HasExtension(".pdb"))
+					if(ProducedItem.bExists && !ActionToExecute.bUseIncrementalLinking && ProducedItem.Location.HasExtension(".pdb"))
 					{
 						Log.TraceVerbose("Deleting outdated pdb: {0}", ProducedItem.AbsolutePath);
 						ProducedItem.Delete();
@@ -430,8 +425,8 @@ namespace UnrealBuildTool
 					HashSet<Action> UnlinkedActionsToReadd = UnlinkedActions.Where(Action => PrerequisiteLinkActions.Contains(Action)).ToHashSet();
 
 					// Also re-add any DLL whose import library is being rebuilt. These may be separate actions, and the import library will reference the new DLL even if it isn't being compiled itself, so it must exist.
-					HashSet<FileReference> ProducedItemsToReAdd = ActionsToExecute.SelectMany(x => x.ProducedItems).Select(x => x.Reference).Where(x => x.HasExtension(".lib")).Select(x => x.ChangeExtension(".suppressed.lib")).ToHashSet();
-					UnlinkedActionsToReadd.UnionWith(UnlinkedActions.Where(x => x.ProducedItems.Any(y => ProducedItemsToReAdd.Contains(y.Reference))));
+					HashSet<FileReference> ProducedItemsToReAdd = ActionsToExecute.SelectMany(x => x.ProducedItems).Select(x => x.Location).Where(x => x.HasExtension(".lib")).Select(x => x.ChangeExtension(".suppressed.lib")).ToHashSet();
+					UnlinkedActionsToReadd.UnionWith(UnlinkedActions.Where(x => x.ProducedItems.Any(y => ProducedItemsToReAdd.Contains(y.Location))));
 
 					// Bail if we didn't find anything
 					if (UnlinkedActionsToReadd.Count == 0)
@@ -494,6 +489,10 @@ namespace UnrealBuildTool
 				{
 					Executor = new SNDBS();
 				}
+				else if(ParallelExecutor.IsAvailable() && BuildConfiguration.bAllowParallelExecutor)
+				{
+					Executor = new ParallelExecutor();
+				}
 				else
 				{
 					Executor = new LocalExecutor();
@@ -512,7 +511,7 @@ namespace UnrealBuildTool
 						"Targets", TargetInfoForTelemetry,
 						"NumActions", ActionsToExecute.Count.ToString(),
 						"NumCompileActions", ActionsToExecute.Count(x => x.ActionType == ActionType.Compile).ToString(),
-						"NumPchCompileActions", ActionsToExecute.Count(x => x.ActionType == ActionType.Compile && x.ProducedItems.Any(y => y.Reference.HasExtension(".pch") || y.Reference.HasExtension(".gch"))).ToString(),
+						"NumPchCompileActions", ActionsToExecute.Count(x => x.ActionType == ActionType.Compile && x.ProducedItems.Any(y => y.Location.HasExtension(".pch") || y.Location.HasExtension(".gch"))).ToString(),
 						"NumLinkActions", ActionsToExecute.Count(x => x.ActionType == ActionType.Link).ToString(),
 						"ElapsedTime", (DateTime.UtcNow - StartTime).TotalSeconds.ToString());
 				}
@@ -903,11 +902,13 @@ namespace UnrealBuildTool
 		/// <param name="Target"></param>
 		/// <param name="Headers"></param>
 		/// <param name="RootAction">- The action being considered.</param>
+		/// <param name="bIsAssemblingBuild"></param>
+		/// <param name="bNeedsFullCPPIncludeRescan"></param>
 		/// <param name="OutdatedActionDictionary">-</param>
 		/// <param name="ActionHistory"></param>
 		/// <param name="TargetToOutdatedPrerequisitesMap"></param>
 		/// <returns>true if outdated</returns>
-		public bool IsActionOutdated(BuildConfiguration BuildConfiguration, UEBuildTarget Target, CPPHeaders Headers, Action RootAction, Dictionary<Action, bool> OutdatedActionDictionary, ActionHistory ActionHistory, Dictionary<UEBuildTarget, List<FileItem>> TargetToOutdatedPrerequisitesMap)
+		public bool IsActionOutdated(BuildConfiguration BuildConfiguration, UEBuildTarget Target, CPPHeaders Headers, Action RootAction, bool bIsAssemblingBuild, bool bNeedsFullCPPIncludeRescan, Dictionary<Action, bool> OutdatedActionDictionary, ActionHistory ActionHistory, Dictionary<UEBuildTarget, List<FileItem>> TargetToOutdatedPrerequisitesMap)
 		{
 			// Only compute the outdated-ness for actions that don't aren't cached in the outdated action dictionary.
 			bool bIsOutdated = false;
@@ -927,8 +928,8 @@ namespace UnrealBuildTool
 						if (!ActionHistory.GetProducingCommandLine(ProducedItem, out OldProducingCommandLine)
 						|| !String.Equals(OldProducingCommandLine, NewProducingCommandLine, StringComparison.InvariantCultureIgnoreCase))
 						{
-							Log.TraceVerbose(
-								"{0}: Produced item \"{1}\" was produced by outdated command-line.\nOld command-line: {2}\nNew command-line: {3}",
+							Log.TraceLog(
+								"{0}: Produced item \"{1}\" was produced by outdated command-line.\n  Old command-line: {2}\n  New command-line: {3}",
 								RootAction.StatusDescription,
 								Path.GetFileName(ProducedItem.AbsolutePath),
 								OldProducingCommandLine,
@@ -957,7 +958,7 @@ namespace UnrealBuildTool
 					else
 					{
 						// If any of the produced items doesn't exist, the action is outdated.
-						Log.TraceVerbose(
+						Log.TraceLog(
 							"{0}: Produced item \"{1}\" doesn't exist.",
 							RootAction.StatusDescription,
 							Path.GetFileName(ProducedItem.AbsolutePath)
@@ -978,7 +979,7 @@ namespace UnrealBuildTool
 					// on and cache all of the includes so that we have them for a quick outdatedness check the next run.
 					if (!bIsOutdated &&
 						BuildConfiguration.bUseUBTMakefiles &&
-						UnrealBuildTool.IsAssemblingBuild)
+						bIsAssemblingBuild)
 					{
 						bCheckIfIncludedFilesAreNewer = true;
 					}
@@ -986,7 +987,7 @@ namespace UnrealBuildTool
 					// Were we asked to force an update of our cached includes BEFORE we try to build?  This may be needed if our cache can no longer
 					// be trusted and we need to fill it with perfectly valid data (even if we're in assembler only mode)
 					if (BuildConfiguration.bUseUBTMakefiles &&
-						UnrealBuildTool.bNeedsFullCPPIncludeRescan)
+						bNeedsFullCPPIncludeRescan)
 					{
 						// This will be slow!
 						bPerformExhaustiveIncludeSearchAndUpdateCache = true;
@@ -1016,7 +1017,7 @@ namespace UnrealBuildTool
 										bool bPrerequisiteItemIsNewerThanLastExecution = TimeDifference.TotalSeconds > 1;
 										if (bPrerequisiteItemIsNewerThanLastExecution)
 										{
-											Log.TraceVerbose(
+											Log.TraceLog(
 												"{0}: Included file {1} is newer than the last execution of the action: {2} vs {3}",
 												RootAction.StatusDescription,
 												Path.GetFileName(IncludedFile.AbsolutePath),
@@ -1060,9 +1061,9 @@ namespace UnrealBuildTool
 							// If the prerequisite is produced by an outdated action, then this action is outdated too.
 							if (PrerequisiteItem.ProducingAction != null)
 							{
-								if (IsActionOutdated(BuildConfiguration, Target, Headers, PrerequisiteItem.ProducingAction, OutdatedActionDictionary, ActionHistory, TargetToOutdatedPrerequisitesMap))
+								if (IsActionOutdated(BuildConfiguration, Target, Headers, PrerequisiteItem.ProducingAction, bIsAssemblingBuild, bNeedsFullCPPIncludeRescan, OutdatedActionDictionary, ActionHistory, TargetToOutdatedPrerequisitesMap))
 								{
-									Log.TraceVerbose(
+									Log.TraceLog(
 										"{0}: Prerequisite {1} is produced by outdated action.",
 										RootAction.StatusDescription,
 										Path.GetFileName(PrerequisiteItem.AbsolutePath)
@@ -1078,7 +1079,7 @@ namespace UnrealBuildTool
 								bool bPrerequisiteItemIsNewerThanLastExecution = TimeDifference.TotalSeconds > 1;
 								if (bPrerequisiteItemIsNewerThanLastExecution)
 								{
-									Log.TraceVerbose(
+									Log.TraceLog(
 										"{0}: Prerequisite {1} is newer than the last execution of the action: {2} vs {3}",
 										RootAction.StatusDescription,
 										Path.GetFileName(PrerequisiteItem.AbsolutePath),
@@ -1156,13 +1157,13 @@ namespace UnrealBuildTool
 		/// Builds a dictionary containing the actions from AllActions that are outdated by calling
 		/// IsActionOutdated.
 		/// </summary>
-		void GatherAllOutdatedActions(BuildConfiguration BuildConfiguration, UEBuildTarget Target, CPPHeaders Headers, ActionHistory ActionHistory, ref Dictionary<Action, bool> OutdatedActions, Dictionary<UEBuildTarget, List<FileItem>> TargetToOutdatedPrerequisitesMap)
+		void GatherAllOutdatedActions(BuildConfiguration BuildConfiguration, UEBuildTarget Target, CPPHeaders Headers, bool bIsAssemblingBuild, bool bNeedsFullCPPIncludeRescan, ActionHistory ActionHistory, ref Dictionary<Action, bool> OutdatedActions, Dictionary<UEBuildTarget, List<FileItem>> TargetToOutdatedPrerequisitesMap)
 		{
 			DateTime CheckOutdatednessStartTime = DateTime.UtcNow;
 
 			foreach (Action Action in AllActions)
 			{
-				IsActionOutdated(BuildConfiguration, Target, Headers, Action, OutdatedActions, ActionHistory, TargetToOutdatedPrerequisitesMap);
+				IsActionOutdated(BuildConfiguration, Target, Headers, Action, bIsAssemblingBuild, bNeedsFullCPPIncludeRescan, OutdatedActions, ActionHistory, TargetToOutdatedPrerequisitesMap);
 			}
 
 			if (UnrealBuildTool.bPrintPerformanceInfo)
@@ -1539,7 +1540,7 @@ namespace UnrealBuildTool
 							else
 							{
 								// Not a file we were tracking
-								// Console.WriteLine( "Unknown file: " + PrerequisiteFileItem.AbsolutePath );
+								// Log.TraceInformation( "Unknown file: " + PrerequisiteFileItem.AbsolutePath );
 							}
 						}
 						else if (PrerequisiteFileItem.ProducingAction != null)
@@ -1614,7 +1615,7 @@ namespace UnrealBuildTool
 						else
 						{
 							// Some other header that we don't track directly
-							//Console.WriteLine( "File not known: " + PrerequisiteFileItem.AbsolutePath );
+							//Log.TraceInformation( "File not known: " + PrerequisiteFileItem.AbsolutePath );
 						}
 					}
 				}

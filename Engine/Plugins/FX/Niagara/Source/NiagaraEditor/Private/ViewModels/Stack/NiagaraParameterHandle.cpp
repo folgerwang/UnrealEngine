@@ -1,6 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "NiagaraParameterHandle.h"
+#include "ViewModels/Stack/NiagaraParameterHandle.h"
 #include "NiagaraNodeFunctionCall.h"
 #include "NiagaraScript.h"
 #include "NiagaraTypes.h"
@@ -11,6 +11,7 @@ const FName FNiagaraParameterHandle::SystemNamespace(TEXT("System"));
 const FName FNiagaraParameterHandle::EmitterNamespace(TEXT("Emitter"));
 const FName FNiagaraParameterHandle::ParticleAttributeNamespace(TEXT("Particles"));
 const FName FNiagaraParameterHandle::ModuleNamespace(TEXT("Module"));
+const FName FNiagaraParameterHandle::ParameterCollectionNamespace(TEXT("NPC"));
 const FString FNiagaraParameterHandle::InitialPrefix(TEXT("Initial"));
 
 FNiagaraParameterHandle::FNiagaraParameterHandle() 
@@ -45,7 +46,7 @@ bool FNiagaraParameterHandle::operator==(const FNiagaraParameterHandle& Other) c
 	return ParameterHandleName == Other.ParameterHandleName;
 }
 
-FNiagaraParameterHandle FNiagaraParameterHandle::CreateAliasedModuleParameterHandle(const FNiagaraParameterHandle& ModuleParameterHandle, UNiagaraNodeFunctionCall* ModuleNode)
+FNiagaraParameterHandle FNiagaraParameterHandle::CreateAliasedModuleParameterHandle(const FNiagaraParameterHandle& ModuleParameterHandle, const UNiagaraNodeFunctionCall* ModuleNode)
 {
 	return ModuleParameterHandle.IsModuleHandle()
 		? FNiagaraParameterHandle(*ModuleNode->GetFunctionName(), ModuleParameterHandle.GetName())
@@ -98,6 +99,11 @@ const FName FNiagaraParameterHandle::GetNamespace() const
 	return Namespace;
 }
 
+bool FNiagaraParameterHandle::IsUserHandle() const
+{
+	return Namespace == UserNamespace;
+}
+
 bool FNiagaraParameterHandle::IsEngineHandle() const
 {
 	return Namespace == EngineNamespace;
@@ -121,4 +127,9 @@ bool FNiagaraParameterHandle::IsParticleAttributeHandle() const
 bool FNiagaraParameterHandle::IsModuleHandle() const
 {
 	return Namespace == ModuleNamespace;
+}
+
+bool FNiagaraParameterHandle::IsParameterCollectionHandle() const
+{
+	return Namespace == ParameterCollectionNamespace;
 }

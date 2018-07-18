@@ -1,23 +1,26 @@
-﻿INTSourceChangelist:2522609
+﻿INTSourceChangelist:3108692
+Availability:Public
 Title:スプライトソケットの使用
 Crumbs: %ROOT%, Engine, Engine/Paper2D
-Description:Paper 2D Sprite で定義したソケットにオブジェクトを親子付けする方法 
-Availability:Public
+Description:Paper 2D Sprite で定義したソケットにオブジェクトを親子付けする方法  
 Related:Engine\Paper2D\Sprites
 Related:Engine\Paper2D\Flipbooks
+Version:4.9
+SkillLevel:Intermediate
+
 
 
 このページでは、スプライトにソケットを追加した後にオブジェクトを親子付けすることができるブループリント内からこれらの追加したソケットにアクセスする方法を学びます。スプライトソケットからパーティクルエフェクトをスポーン（例えば燃えているキャラクター）、キャラクターの手に武器を親子付け（銃や刀）、またはスプライトのソケットにスポーンしたり親子付けが必要なさまざまなアイテムを設定することが出来ます。 
 
 この例では、キャラクターの頭に帽子を親子付けします。 
 
-**複数のスプライトにソケットを追加する方法** 
+**複数のスプライトにソケットを追加する方法**: 
 
-1.	ソケットを追加するスプライトを検索してこれを開きます。 
+1.	ソケットを追加するスプライトを検索してこれを開きます。  
 
-1.	 **詳細** パネルで **Sockets** の横に表示されている **+** をクリックして新規ソケットを追加します。 
+1.	**[Details]** パネルで **[Sockets]** の横に表示されている **+** をクリックして新規ソケットを追加します。 
 
-1.	 **Socket Name（ソケット名）** を入力して、ビューポート内の **Local Transform** またはウィジェットを使用して設定したい場所へソケットを移動させます。 
+1.	**[Socket Name]** に入力して、ビューポート内の **Local Transform** またはウィジェットを使用して、設定したい場所へソケットを移動させます。 
 
 	![](AddingSocket.png)
 
@@ -25,31 +28,31 @@ Related:Engine\Paper2D\Flipbooks
 
 重要なのはここで入力するソケット名を必ず覚えておくことです。例では _HatSocket_ と名前を付けた新規のソケットを作成して、これにキャラクターがかぶる 2D の帽子をスポーンさせます。例では1つのスプライトしか取り上げていませんが、アイドル時に発生するアニメーションに8つのスプライトを使用しているため、これらのスプライトにもソケットを追加しなくてはいけません。 
 
-**Property Matrix** を使用すれば簡単に追加出来ます。 
+**Property Matrix** を使用すれば簡単に追加できます。 
 
-**複数のスプライトにソケットを追加する方法** 
+**複数のスプライトにソケットを追加する方法**: 
 
-1.	 **コンテンツブラウザ** でソケットを適用するスプライトを Flipbook アニメーションからすべて選択します。 
+1.	**コンテンツ ブラウザ** でソケットを適用するスプライトを Flipbook アニメーションからすべて選択します。 
 
-1.	スプライトを **右クリック** して、 **Asset Actions** から **Property Matrix...** を選択します。
+1.	スプライトを **右クリック** して **[Asset Actions]** セクションから **[Property Matrix...]** を選びます。
 
 	![](PropteryMatrix.png)
 
-	**Property Matrix** を開いてすべてのスプライトを同時に修正することで時間を短縮することができます。 
+	**[Property Matrix]** を開いてすべてのスプライトを同時に修正することで時間を短縮することができます。 
 
 	[REGION:note]
 	8フレーム全てを選択するために、リファレンス用に既にソケットを追加したスプライトも選択します。 
 	[/REGION]
 
-1. **Property Matrix** 内で各スプライト（ソケットなし）を選択してから、 **+** をクリックしてそれぞれにソケットを追加します。 
+1. **[Property Matrix]** 内で各スプライト（ソケットなし）を選択してから、**+** をクリックしてそれぞれにソケットを追加します。 
 
 	![](AddSockets.png)(w:820)
 
-1. エレメント 0 を展開して、 **Socket Name** で最初のスプライトと同じ名前を付けます（例では **HatSocket** ） 
+1. エレメント 0 を展開して、**Socket Name** で最初のスプライトと同じ名前を付けます (例では **HatSocket**)。 
 
 	![](AddSockets2.png)(w:820)
 
-1. **Local Transform** を展開してから、 **Translation** セクションで XYZ の値を最初のスプライトと同じ値に設定します。 
+1. **Local Transform** を展開してから、**[Translation]** セクションで XYZ の値を最初のスプライトと同じ値に設定します。 
 
 	![](AddSockets3.png)(w:820)
 
@@ -64,29 +67,44 @@ Related:Engine\Paper2D\Flipbooks
 フリップブックの各フレームにソケットを親子付けしたので、ソケットの位置でアクタをスポーンするようにブループリントに伝えることができます。 
 
 
-**ブループリント経由でスプライトソケットにアクセスする** 
+**ブループリント経由でスプライトソケットにアクセスする**: 
 
-1.	Character ブループリント内の **My Blueprint** ウィンドウで目の形のアイコンと **Show Inherited Variables** をクリックします。 
+1.	Character ブループリントの **[My Blueprint]** ウィンドウで、目のアイコンと **[Show Inherited Variables]** をクリックします。 
 
-1.	**左クリック** してキャラクターに対して **Sprite** コンポーネントをドラッグします。 
+1.	**左クリック** してキャラクターの **Sprite** コンポーネントにドラッグします。 
 
 	![](Blueprint1.png)
 
-1.	 **Event Begin Play** ノードを **Spawn Actor from Class** ノードへ追加して必要な Actor Class に設定します。 
+1.	**Event Begin Play** ノードを引き出して **Spawn Actor from Class** ノードを追加します。 
 
-1.	**Spawn Transform** に **Make Transform** ノードを使用して、 **Return Value** を **Attach To** ノードに接続します。 
+1.	**Spawn Transform** に **Make Transform** ノードを使用して **Return Value** を **Attach To** ノードに接続します。 
 
-1.	**Sprite** コンポーネントを **In Parent** と接続して、 **In Socket Name** に作成したソケットの名前を入力します。 
+1.	**Sprite** コンポーネントを **In Parent** と接続して、**In Socket Name** に作成したソケットの名前を入力します。 
 
 	![](Blueprint2.png)(w:800)
 
 	設定は上図のようになっているはずです。一例として、作成した **HatSocket** 位置でキャラクターに親子付けしているハットのスプライトコンポーネントを格納する **Hat_BP** という名前のブループリントをスポーンさせるだけです。アイドルなフレームで行った上記の同一プロセスでは、ゲームでハットをかぶったキャラクターで終わるように実行フレームで実行しました（以下に表示）。 
 
-1.	 **コンパイル** してエディタでプレイすると、スポーンした Actor クラスがソケット位置でスポーンして親子付けされます。 
+1.	**コンパイル** してエディタでプレイすると、スポーンした Actor クラスがソケット位置でスポーンして親子付けされます。 
 
-	![](Example_GIF.gif)(convert:false)
+	[OBJECT:EmbeddedVideo]
+	[PARAMLITERAL:width]
+	640
+	[/PARAMLITERAL]
+	[PARAMLITERAL:height]
+	360
+	[/PARAMLITERAL]
+	[PARAMLITERAL:videoid]
+	_UwQz20VxYc
+	[/PARAMLITERAL]
+	[/OBJECT]
 
 スプライトにソケットを追加して、任意の数の異なる要素をこのソケットに親子付けすることができます。スプライトがフリップブックの一部であることやアニメーションの一部であることは関係なく、ソケットに接続する対象はすべてユーザーの判断でおこなってください。 
+
+
+
+
+
 
 
 

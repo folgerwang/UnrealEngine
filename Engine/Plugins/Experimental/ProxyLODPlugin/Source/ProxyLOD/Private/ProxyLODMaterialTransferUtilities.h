@@ -93,6 +93,8 @@ namespace ProxyLOD
 	*                                         ( of the Simplified Geometry) to positions on the Simplified Geometry.
 	* @param InMaterials                      Array of flattened materials corresponding to the various meshes in the
 	*                                         Src geometry.
+	* @param UnresolvedSrcColor               Base color to be used when the src geometry can't be identified (e.g. regions where
+	*                                         gap filling has closed doors and windows)
 	* @param OutMaterials                     Flattened materials for the Simplified Geometry.
 	*
 	* Map Diffuse, Specular, Metallic, Roughness, Normal, Emissive, Opacity to the correct materials.
@@ -104,6 +106,7 @@ namespace ProxyLOD
 							  const ProxyLOD::FRasterGrid&  SuperSampledDstUVGrid,
 							  const ProxyLOD::FRasterGrid&  DstUVGrid,
 							  const TArray<FFlattenMaterial>& InMaterials, 
+							  const FColor UnresolvedSrcColor,
 		                      FFlattenMaterial& OutMaterial);
 
 

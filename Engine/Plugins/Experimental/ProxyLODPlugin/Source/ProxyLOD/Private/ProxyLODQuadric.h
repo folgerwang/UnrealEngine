@@ -19,95 +19,43 @@ namespace ProxyLOD
 {
 
 
-	static FORCEINLINE void CalcGradient(double* __restrict GradMatrix, double grad[4], float a0, float a1, float a2)
+	static FORCEINLINE void CalcGradient(double* __restrict GradMatrix, float a0, float a1, float a2, double OutGrad[4])
 	{
-		grad[0] = -GradMatrix[0] * a0 + GradMatrix[4] * a1 + GradMatrix[8] * a2;
-		grad[1] = +GradMatrix[1] * a0 - GradMatrix[5] * a1 - GradMatrix[9] * a2;
-		grad[2] = -GradMatrix[2] * a0 + GradMatrix[6] * a1 + GradMatrix[10] * a2;
-		grad[3] = +GradMatrix[3] * a0 - GradMatrix[7] * a1 - GradMatrix[11] * a2;
+		OutGrad[0] = -GradMatrix[0] * a0 + GradMatrix[4] * a1 + GradMatrix[ 8] * a2;
+		OutGrad[1] = +GradMatrix[1] * a0 - GradMatrix[5] * a1 - GradMatrix[ 9] * a2;
+		OutGrad[2] = -GradMatrix[2] * a0 + GradMatrix[6] * a1 + GradMatrix[10] * a2;
+		OutGrad[3] = +GradMatrix[3] * a0 - GradMatrix[7] * a1 - GradMatrix[11] * a2;
 	}
 
-	// returns length
-	static FORCEINLINE float NormalizeSelf(FVector& V)
+	// returns length and normalizes input vector
+
+	static FORCEINLINE double NormalizeSelf(double(&V)[3])
 	{
-		float Length2 = V.SizeSquared();
-		float Length = FMath::Sqrt(Length2);
-		V /= Length;
+		double Length2 = V[0] * V[0] + V[1] * V[1] + V[2] * V[2];
+		double Length = std::sqrt(Length2);
+		{
+			double InvL = 1. / Length;
+			V[0] *= InvL;
+			V[1] *= InvL;
+			V[2] *= InvL;
+		}
 		return Length;
 	}
 
-	static bool CalcGradient(double grad[4], const FVector& p0, const FVector& p1, const FVector& p2, const FVector& n, float a0, float a1, float a2)
+	static FORCEINLINE double NormalizeSelf(double& Vx, double& Vy, double& Vz)
 	{
-		// solve for gd
-		// [ p0, 1 ][ g0 ] = [ a0 ]
-		// [ p1, 1 ][ g1 ] = [ a1 ]
-		// [ p2, 1 ][ g2 ] = [ a2 ]
-		// [ n,  0 ][ d  ] = [ 0  ]
-
-		double det, invDet;
-
-		// 2x2 sub-determinants required to calculate 4x4 determinant
-		double det2_01_01 = p0[0] * p1[1] - p0[1] * p1[0];
-		double det2_01_02 = p0[0] * p1[2] - p0[2] * p1[0];
-		double det2_01_03 = p0[0] - p1[0];
-		double det2_01_12 = p0[1] * p1[2] - p0[2] * p1[1];
-		double det2_01_13 = p0[1] - p1[1];
-		double det2_01_23 = p0[2] - p1[2];
-
-		// 3x3 sub-determinants required to calculate 4x4 determinant
-		double det3_201_013 = p2[0] * det2_01_13 - p2[1] * det2_01_03 + det2_01_01;
-		double det3_201_023 = p2[0] * det2_01_23 - p2[2] * det2_01_03 + det2_01_02;
-		double det3_201_123 = p2[1] * det2_01_23 - p2[2] * det2_01_13 + det2_01_12;
-
-		det = -det3_201_123 * n[0] + det3_201_023 * n[1] - det3_201_013 * n[2];
-
-		if (FMath::Abs(det) < SINGULAR_QUADRIC_DET)
+		double Length2 = Vx * Vx + Vy * Vy + Vz * Vz;
+		double Length = std::sqrt(Length2);
 		{
-			return false;
+			double InvL = 1. / Length;
+			Vx *= InvL;
+			Vy *= InvL;
+			Vz *= InvL;
 		}
-
-		invDet = 1.0 / det;
-
-		// remaining 2x2 sub-determinants
-		double det2_03_01 = p0[0] * n[1] - p0[1] * n[0];
-		double det2_03_02 = p0[0] * n[2] - p0[2] * n[0];
-		double det2_03_12 = p0[1] * n[2] - p0[2] * n[1];
-		double det2_03_03 = -n[0];
-		double det2_03_13 = -n[1];
-		double det2_03_23 = -n[2];
-
-		double det2_13_01 = p1[0] * n[1] - p1[1] * n[0];
-		double det2_13_02 = p1[0] * n[2] - p1[2] * n[0];
-		double det2_13_12 = p1[1] * n[2] - p1[2] * n[1];
-		double det2_13_03 = -n[0];
-		double det2_13_13 = -n[1];
-		double det2_13_23 = -n[2];
-
-		// remaining 3x3 sub-determinants
-		double det3_203_012 = p2[0] * det2_03_12 - p2[1] * det2_03_02 + p2[2] * det2_03_01;
-		double det3_203_013 = p2[0] * det2_03_13 - p2[1] * det2_03_03 + det2_03_01;
-		double det3_203_023 = p2[0] * det2_03_23 - p2[2] * det2_03_03 + det2_03_02;
-		double det3_203_123 = p2[1] * det2_03_23 - p2[2] * det2_03_13 + det2_03_12;
-
-		double det3_213_012 = p2[0] * det2_13_12 - p2[1] * det2_13_02 + p2[2] * det2_13_01;
-		double det3_213_013 = p2[0] * det2_13_13 - p2[1] * det2_13_03 + det2_13_01;
-		double det3_213_023 = p2[0] * det2_13_23 - p2[2] * det2_13_03 + det2_13_02;
-		double det3_213_123 = p2[1] * det2_13_23 - p2[2] * det2_13_13 + det2_13_12;
-
-		double det3_301_012 = n[0] * det2_01_12 - n[1] * det2_01_02 + n[2] * det2_01_01;
-		double det3_301_013 = n[0] * det2_01_13 - n[1] * det2_01_03;
-		double det3_301_023 = n[0] * det2_01_23 - n[2] * det2_01_03;
-		double det3_301_123 = n[1] * det2_01_23 - n[2] * det2_01_13;
-
-		grad[0] = -det3_213_123 * invDet * a0 + det3_203_123 * invDet * a1 + det3_301_123 * invDet * a2;
-		grad[1] = +det3_213_023 * invDet * a0 - det3_203_023 * invDet * a1 - det3_301_023 * invDet * a2;
-		grad[2] = -det3_213_013 * invDet * a0 + det3_203_013 * invDet * a1 + det3_301_013 * invDet * a2;
-		grad[3] = +det3_213_012 * invDet * a0 - det3_203_012 * invDet * a1 - det3_301_012 * invDet * a2;
-
-		return true;
+		return Length;
 	}
 
-	static bool CalcGradientMatrix(double* __restrict GradMatrix, const FVector& p0, const FVector& p1, const FVector& p2, const FVector& n)
+	static bool CalcGradientMatrix(const double(&p0)[3], const double(&p1)[3], const double(&p2)[3], const double(&n)[3], double* __restrict OutGradMatrix)
 	{
 		// solve for gd
 		// [ p0, 1 ][ g0 ] = [ a0 ]
@@ -170,20 +118,20 @@ namespace ProxyLOD
 		double det3_301_023 = n[0] * det2_01_23 - n[2] * det2_01_03;
 		double det3_301_123 = n[1] * det2_01_23 - n[2] * det2_01_13;
 
-		GradMatrix[0] = det3_213_123 * invDet;
-		GradMatrix[1] = det3_213_023 * invDet;
-		GradMatrix[2] = det3_213_013 * invDet;
-		GradMatrix[3] = det3_213_012 * invDet;
+		OutGradMatrix[0] = det3_213_123 * invDet;
+		OutGradMatrix[1] = det3_213_023 * invDet;
+		OutGradMatrix[2] = det3_213_013 * invDet;
+		OutGradMatrix[3] = det3_213_012 * invDet;
 
-		GradMatrix[4] = det3_203_123 * invDet;
-		GradMatrix[5] = det3_203_023 * invDet;
-		GradMatrix[6] = det3_203_013 * invDet;
-		GradMatrix[7] = det3_203_012 * invDet;
+		OutGradMatrix[4] = det3_203_123 * invDet;
+		OutGradMatrix[5] = det3_203_023 * invDet;
+		OutGradMatrix[6] = det3_203_013 * invDet;
+		OutGradMatrix[7] = det3_203_012 * invDet;
 
-		GradMatrix[8] = det3_301_123 * invDet;
-		GradMatrix[9] = det3_301_023 * invDet;
-		GradMatrix[10] = det3_301_013 * invDet;
-		GradMatrix[11] = det3_301_012 * invDet;
+		OutGradMatrix[8] = det3_301_123 * invDet;
+		OutGradMatrix[9] = det3_301_023 * invDet;
+		OutGradMatrix[10] = det3_301_013 * invDet;
+		OutGradMatrix[11] = det3_301_012 * invDet;
 
 		return true;
 	}
@@ -224,26 +172,42 @@ namespace ProxyLOD
 		double		a;
 	};
 
-	inline FQuadric::FQuadric(const FVector& p0, const FVector& p1, const FVector& p2)
+	inline FQuadric::FQuadric(const FVector& fp0, const FVector& fp1, const FVector& fp2)
 	{
-		FVector n = (p2 - p0) ^ (p1 - p0);
-		float Length = ProxyLOD::NormalizeSelf(n);
-		if (Length < SMALL_NUMBER)
+		// Convert to double 
+
+		const double p0[3] = { fp0[0], fp0[1], fp0[2] };
+		const double p1[3] = { fp1[0], fp1[1], fp1[2] };
+		const double p2[3] = { fp2[0], fp2[1], fp2[2] };
+
+		// Compute the wedge product, giving the normal direction scaled by 
+		// twice the triangle area.
+
+		double nX, nY, nZ;
+		{
+			double tmpA[3] = { p2[0] - p0[0], p2[1] - p0[1], p2[2] - p0[2] };
+			double tmpB[3] = { p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2] };
+
+			nX = tmpA[1] * tmpB[2] - tmpA[2] * tmpB[1];
+			nY = tmpA[2] * tmpB[0] - tmpA[0] * tmpB[2];
+			nZ = tmpA[0] * tmpB[1] - tmpA[1] * tmpB[0];
+		}
+
+		// Rescale the normal direction vector to unit length.
+
+		double Length = NormalizeSelf(nX, nY, nZ);
+		if (Length < double(SMALL_NUMBER))
 		{
 			Zero();
 			return;
 		}
 
-		checkSlow(FMath::IsFinite(n.X));
-		checkSlow(FMath::IsFinite(n.Y));
-		checkSlow(FMath::IsFinite(n.Z));
+		checkSlow(FMath::IsFinite(nX));
+		checkSlow(FMath::IsFinite(nY));
+		checkSlow(FMath::IsFinite(nZ));
 
-		double nX = n.X;
-		double nY = n.Y;
-		double nZ = n.Z;
-
-		double area = 0.5f * Length;
-		double dist = -(nX * p0.X + nY * p0.Y + nZ * p0.Z);
+		const double area = 0.5 * Length;
+		const double dist = -(nX * p0[0] + nY * p0[1] + nZ * p0[2]); // n.dot.p0
 
 		nxx = nX * nX;
 		nyy = nY * nY;
@@ -280,7 +244,7 @@ namespace ProxyLOD
 #endif
 	}
 
-	inline FQuadric::FQuadric(const FVector& p0, const FVector& p1, const FVector& faceNormal, const float edgeWeight)
+	inline FQuadric::FQuadric(const FVector& fp0, const FVector& fp1, const FVector& faceNormal, const float edgeWeight)
 	{
 		if (!faceNormal.IsNormalized())
 		{
@@ -288,26 +252,43 @@ namespace ProxyLOD
 			return;
 		}
 
-		FVector edge = p1 - p0;
+		// Convert to double 
 
-		FVector n = edge ^ faceNormal;
-		float Length = ProxyLOD::NormalizeSelf(n);
-		if (Length < SMALL_NUMBER)
+		const double p0[3] = { fp0[0], fp0[1], fp0[2] };
+		const double p1[3] = { fp1[0], fp1[1], fp1[2] };
+
+		// Compute the wedge product, giving the a direction
+		// normal to the edge and face normal (a bi-tangent) 
+
+		double nX, nY, nZ; //  n = (p1 - p0) ^ (faceNormal);
+		double edgeSize;
+		{
+			// edge = fp1 - fp0
+			double tmpA[3] = { p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2] };
+			double tmpB[3] = { faceNormal.X,  faceNormal.Y,  faceNormal.Z };
+
+			nX = tmpA[1] * tmpB[2] - tmpA[2] * tmpB[1];
+			nY = tmpA[2] * tmpB[0] - tmpA[0] * tmpB[2];
+			nZ = tmpA[0] * tmpB[1] - tmpA[1] * tmpB[0];
+
+			edgeSize = std::sqrt(tmpA[0] * tmpA[0] + tmpA[1] * tmpA[1] + tmpA[2] * tmpA[2]);
+		}
+
+		// Rescale the normal direction vector to unit length.
+
+		const double Length = NormalizeSelf(nX, nY, nZ);
+		if (Length < double(SMALL_NUMBER))
 		{
 			Zero();
 			return;
 		}
 
-		checkSlow(FMath::IsFinite(n.X));
-		checkSlow(FMath::IsFinite(n.Y));
-		checkSlow(FMath::IsFinite(n.Z));
+		checkSlow(FMath::IsFinite(nX));
+		checkSlow(FMath::IsFinite(nY));
+		checkSlow(FMath::IsFinite(nZ));
 
-		double nX = n.X;
-		double nY = n.Y;
-		double nZ = n.Z;
-
-		double dist = -(nX * p0.X + nY * p0.Y + nZ * p0.Z);
-		double weight = edgeWeight * edge.Size();
+		double dist = -(nX * p0[0] + nY * p0[1] + nZ * p0[2]); // n.dot.p0
+		double weight = edgeWeight * edgeSize;
 
 		nxx = weight * nX * nX;
 		nyy = weight * nY * nY;
@@ -470,29 +451,49 @@ namespace ProxyLOD
 
 	template< uint32 NumAttributes >
 	inline TQuadricAttr< NumAttributes >::TQuadricAttr(
-		const FVector& p0, const FVector& p1, const FVector& p2,
+		const FVector& fp0, const FVector& fp1, const FVector& fp2,
 		const float* attr0, const float* attr1, const float* attr2,
 		const float* AttributeWeights)
 	{
-		FVector n = (p2 - p0) ^ (p1 - p0);
-		float Length = NormalizeSelf(n);
-		if (Length < SMALL_NUMBER)
+		// Convert to double 
+
+		const double p0[3] = { fp0[0], fp0[1], fp0[2] };
+		const double p1[3] = { fp1[0], fp1[1], fp1[2] };
+		const double p2[3] = { fp2[0], fp2[1], fp2[2] };
+
+		// Compute the wedge product, giving the normal direction scaled by 
+		// twice the triangle area.
+
+		double n[3];
+		{
+			double tmpA[3] = { p2[0] - p0[0], p2[1] - p0[1], p2[2] - p0[2] };
+			double tmpB[3] = { p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2] };
+
+			n[0] = tmpA[1] * tmpB[2] - tmpA[2] * tmpB[1];
+			n[1] = tmpA[2] * tmpB[0] - tmpA[0] * tmpB[2];
+			n[2] = tmpA[0] * tmpB[1] - tmpA[1] * tmpB[0];
+		}
+
+		// Rescale the normal direction vector to unit length.
+
+		double Length = NormalizeSelf(n);
+		if (Length < double(SMALL_NUMBER))
 		{
 			Zero();
 			return;
 		}
 
-		checkSlow(FMath::IsFinite(n.X));
-		checkSlow(FMath::IsFinite(n.Y));
-		checkSlow(FMath::IsFinite(n.Z));
+		checkSlow(FMath::IsFinite(n[0]));
+		checkSlow(FMath::IsFinite(n[1]));
+		checkSlow(FMath::IsFinite(n[2]));
 
-		double nX = n.X;
-		double nY = n.Y;
-		double nZ = n.Z;
+		const double area = 0.5 * Length;
+		const double dist = -(n[0] * p0[0] + n[1] * p0[1] + n[2] * p0[2]); // n.dot.p0
 
-		double area = 0.5f * Length;
-		double dist = -(nX * p0.X + nY * p0.Y + nZ * p0.Z);
-
+		const double nX = n[0];
+		const double nY = n[1];
+		const double nZ = n[2];
+		
 		nxx = nX * nX;
 		nyy = nY * nY;
 		nzz = nZ * nZ;
@@ -515,7 +516,7 @@ namespace ProxyLOD
 #endif
 
 		double GradMatrix[12];
-		bool bInvertable = CalcGradientMatrix(GradMatrix, p0, p1, p2, n);
+		bool bInvertable = CalcGradientMatrix(p0, p1, p2, n, GradMatrix);
 
 		for (uint32 i = 0; i < NumAttributes; i++)
 		{
@@ -532,14 +533,15 @@ namespace ProxyLOD
 			float a1 = AttributeWeights[i] * attr1[i];
 			float a2 = AttributeWeights[i] * attr2[i];
 
-			double grad[4];
-			//if( !CalcGradient( grad, p0, p1, p2, n, a0, a1, a2 ) )
-			if (!bInvertable)
+			a0 = FMath::IsFinite(a0) ? a0 : 0.0f;
+			a1 = FMath::IsFinite(a1) ? a1 : 0.0f;
+			a2 = FMath::IsFinite(a2) ? a2 : 0.0f;
+
+			double grad[4] = { 0., 0., 0., (a0 + a1 + a2) / 3.0 }; // default values for non-invert case
+			if (bInvertable)
 			{
-				grad[0] = 0.0;
-				grad[1] = 0.0;
-				grad[2] = 0.0;
-				grad[3] = (a0 + a1 + a2) / 3.0;
+				CalcGradient(GradMatrix, a0, a1, a2, grad);
+
 			}
 			else
 			{
@@ -547,13 +549,13 @@ namespace ProxyLOD
 				a1 = FMath::IsFinite(a1) ? a1 : 0.0f;
 				a2 = FMath::IsFinite(a2) ? a2 : 0.0f;
 
-				CalcGradient(GradMatrix, grad, a0, a1, a2);
-
-				checkSlow(!FMath::IsNaN(grad[0]));
-				checkSlow(!FMath::IsNaN(grad[1]));
-				checkSlow(!FMath::IsNaN(grad[2]));
-				checkSlow(!FMath::IsNaN(grad[3]));
+				CalcGradient(GradMatrix, a0, a1, a2, grad);
 			}
+
+			checkSlow(!FMath::IsNaN(grad[0]));
+			checkSlow(!FMath::IsNaN(grad[1]));
+			checkSlow(!FMath::IsNaN(grad[2]));
+			checkSlow(!FMath::IsNaN(grad[3]));
 
 			//double t0 = grad[0] * p0.x + grad[1] * p0.y + grad[2] * p0.z + grad[3];
 			//double t1 = grad[0] * p1.x + grad[1] * p1.y + grad[2] * p1.z + grad[3];

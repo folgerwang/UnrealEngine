@@ -4,7 +4,7 @@
 #include "Audio.h"
 #include "ActiveSound.h"
 #include "Sound/SoundWave.h"
-#include "FrameworkObjectVersion.h"
+#include "UObject/FrameworkObjectVersion.h"
 
 #define LOCTEXT_NAMESPACE "SoundNodeWavePlayer"
 
@@ -33,6 +33,13 @@ void USoundNodeWavePlayer::LoadAsset(bool bAddToRoot)
 	if (IsAsyncLoading())
 	{
 		SoundWave = SoundWaveAssetPtr.Get();
+		if (SoundWave && SoundWave->HasAnyFlags(RF_NeedLoad))
+		{			
+			// This can happen when the owning USoundCue's PostLoad gets called and the SoundWave hasn't been serialized yet
+			// In this case we need to make sure we don't pass the pointer to the SoundNodeWavePlayer too early as the SoundWave
+			// will be serialized on the AsyncLoadingThread shortly and this may lead to strange race conditions / thread safety issues
+			SoundWave = nullptr;
+		}
 		if (SoundWave == nullptr)
 		{
 			const FString LongPackageName = SoundWaveAssetPtr.GetLongPackageName();
@@ -48,7 +55,7 @@ void USoundNodeWavePlayer::LoadAsset(bool bAddToRoot)
 		}
 		if (SoundWave)
 		{
-			SoundWave->AddToCluster(this);
+			SoundWave->AddToCluster(this, true);
 		}
 	}
 	else
@@ -152,9 +159,13 @@ float USoundNodeWavePlayer::GetDuration()
 	return Duration;
 }
 
-bool USoundNodeWavePlayer::IsAllowedVirtual() const
+bool USoundNodeWavePlayer::IsVirtualizeWhenSilent() const
 {
-	return SoundWave && SoundWave->IsAllowedVirtual();
+	if (SoundWave)
+	{
+		return SoundWave->bVirtualizeWhenSilent;
+	}
+	return false;
 }
 
 #if WITH_EDITOR

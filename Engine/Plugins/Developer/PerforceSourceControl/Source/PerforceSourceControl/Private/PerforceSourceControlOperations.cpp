@@ -4,6 +4,7 @@
 #include "PerforceSourceControlPrivate.h"
 #include "HAL/FileManager.h"
 #include "Misc/Paths.h"
+#include "Misc/EngineVersion.h"
 #include "Modules/ModuleManager.h"
 #include "SourceControlOperations.h"
 #include "PerforceSourceControlRevision.h"
@@ -38,28 +39,53 @@ struct FRemoveRedundantErrors
 	FString Filter;
 };
 
-/** 
+struct FBranchModification
+{
+	FBranchModification(const FString& InBranchName, const FString& InFileName, const FString& InAction, int32 InChangeList, int64 InModTime )
+		: BranchName(InBranchName)
+		, FileName(InFileName)
+		, Action(InAction)
+		, ChangeList(InChangeList)
+		, ModTime(InModTime)
+	{
+	}
+
+	FString BranchName;
+	FString FileName;
+	FString Action;
+	int32 ChangeList;
+	int64 ModTime;									  
+
+	FString OtherUserCheckedOut;
+	TArray<FString> CheckedOutBranches;
+};
+
+
+/**
  * Remove redundant errors (that contain a particular string) and also
  * update the commands success status if all errors were removed.
  */
-static void RemoveRedundantErrors(FPerforceSourceControlCommand& InCommand, const FString& InFilter)
+static void RemoveRedundantErrors(FPerforceSourceControlCommand& InCommand, const FString& InFilter, bool bMoveToInfo = true)
 {
 	bool bFoundRedundantError = false;
-	for(auto Iter(InCommand.ErrorMessages.CreateConstIterator()); Iter; Iter++)
+	for(auto Iter(InCommand.ResultInfo.ErrorMessages.CreateConstIterator()); Iter; Iter++)
 	{
 		// Perforce reports files that are already synced as errors, so copy any errors
 		// we get to the info list in this case
 		if(Iter->ToString().Contains(InFilter))
 		{
-			InCommand.InfoMessages.Add(*Iter);
+			if (bMoveToInfo)
+			{
+				InCommand.ResultInfo.InfoMessages.Add(*Iter);
+			}
 			bFoundRedundantError = true;
 		}
 	}
 
-	InCommand.ErrorMessages.RemoveAll( FRemoveRedundantErrors(InFilter) );
+	InCommand.ResultInfo.ErrorMessages.RemoveAll( FRemoveRedundantErrors(InFilter) );
 
 	// if we have no error messages now, assume success!
-	if(bFoundRedundantError && InCommand.ErrorMessages.Num() == 0 && !InCommand.bCommandSuccessful)
+	if(bFoundRedundantError && InCommand.ResultInfo.ErrorMessages.Num() == 0 && !InCommand.bCommandSuccessful)
 	{
 		InCommand.bCommandSuccessful = true;
 	}
@@ -156,26 +182,26 @@ static bool CheckWorkspaceRecordSet(const FP4RecordSet& InRecords, TArray<FText>
 
 	for(const auto& Record : InRecords)
 	{
-		FString Root = Record(TEXT("Root"));	
-		
+		FString Root = Record(TEXT("Root"));
+
 		// A workspace root could be "null" which allows the user to map depot locations to different drives.
 		// Allow these workspaces since we already allow workspaces mapped to drive letters.
 		const bool bIsNullClientRootPath = (Root == TEXT("null"));
-			
+
 		// Sanitize root name
 		Root = Root.Replace(TEXT("\\"), TEXT("/"));
 		if (!Root.EndsWith(TEXT("/")))
 		{
 			Root += TEXT("/");
 		}
-			
+
 		if (bIsNullClientRootPath || ApplicationPath.Contains(Root))
 		{
 			return true;
 		}
 		else
 		{
-			const FString Client = Record(TEXT("Client"));	
+			const FString Client = Record(TEXT("Client"));
 			OutNotificationText = FText::Format(LOCTEXT("WorkspaceError", "Workspace '{0}' does not map into this project's directory."), FText::FromString(Client));
 			OutErrorMessages.Add(OutNotificationText);
 			OutErrorMessages.Add(LOCTEXT("WorkspaceHelp", "You should set your workspace up to map to a directory at or above the project's directory."));
@@ -213,21 +239,21 @@ bool FPerforceConnectWorker::Execute(FPerforceSourceControlCommand& InCommand)
 		FP4RecordSet Records;
 		Parameters.Add(TEXT("-o"));
 		Parameters.Add(InCommand.ConnectionInfo.Workspace);
-		InCommand.bCommandSuccessful = Connection.RunCommand(TEXT("client"), Parameters, Records, InCommand.ErrorMessages, FOnIsCancelled::CreateRaw(&InCommand, &FPerforceSourceControlCommand::IsCanceled), InCommand.bConnectionDropped);
-		
+		InCommand.bCommandSuccessful = Connection.RunCommand(TEXT("client"), Parameters, Records, InCommand.ResultInfo.ErrorMessages, FOnIsCancelled::CreateRaw(&InCommand, &FPerforceSourceControlCommand::IsCanceled), InCommand.bConnectionDropped);
+
 		// If there are error messages, user name is most likely invalid. Otherwise, make sure workspace actually
 		// exists on server by checking if we have it's update date.
-		InCommand.bCommandSuccessful &= InCommand.ErrorMessages.Num() == 0 && Records.Num() > 0 && Records[0].Contains(TEXT("Update"));
-		if (!InCommand.bCommandSuccessful && InCommand.ErrorMessages.Num() == 0)
+		InCommand.bCommandSuccessful &= InCommand.ResultInfo.ErrorMessages.Num() == 0 && Records.Num() > 0 && Records[0].Contains(TEXT("Update"));
+		if (!InCommand.bCommandSuccessful && InCommand.ResultInfo.ErrorMessages.Num() == 0)
 		{
-			InCommand.ErrorMessages.Add(LOCTEXT("InvalidWorkspace", "Invalid workspace."));
+			InCommand.ResultInfo.ErrorMessages.Add(LOCTEXT("InvalidWorkspace", "Invalid workspace."));
 		}
 
 		// check if we can actually work with this workspace
 		if(InCommand.bCommandSuccessful)
 		{
 			FText Notification;
-			InCommand.bCommandSuccessful = CheckWorkspaceRecordSet(Records, InCommand.ErrorMessages, Notification);
+			InCommand.bCommandSuccessful = CheckWorkspaceRecordSet(Records, InCommand.ResultInfo.ErrorMessages, Notification);
 			if(!InCommand.bCommandSuccessful)
 			{
 				check(InCommand.Operation->GetName() == GetName());
@@ -238,7 +264,7 @@ bool FPerforceConnectWorker::Execute(FPerforceSourceControlCommand& InCommand)
 
 		if(InCommand.bCommandSuccessful)
 		{
-			ParseRecordSet(Records, InCommand.InfoMessages);
+			ParseRecordSet(Records, InCommand.ResultInfo.InfoMessages);
 		}
 	}
 	return InCommand.bCommandSuccessful;
@@ -255,7 +281,7 @@ FName FPerforceCheckOutWorker::GetName() const
 }
 
 bool FPerforceCheckOutWorker::Execute(FPerforceSourceControlCommand& InCommand)
-{	
+{
 	FScopedPerforceConnection ScopedConnection(InCommand);
 	if (!InCommand.IsCanceled() && ScopedConnection.IsValid())
 	{
@@ -266,7 +292,7 @@ bool FPerforceCheckOutWorker::Execute(FPerforceSourceControlCommand& InCommand)
 
 		Parameters.Append(InCommand.Files);
 		FP4RecordSet Records;
-		InCommand.bCommandSuccessful = Connection.RunCommand(TEXT("edit"), Parameters, Records, InCommand.ErrorMessages, FOnIsCancelled::CreateRaw(&InCommand, &FPerforceSourceControlCommand::IsCanceled), InCommand.bConnectionDropped);
+		InCommand.bCommandSuccessful = Connection.RunCommand(TEXT("edit"), Parameters, Records, InCommand.ResultInfo.ErrorMessages, FOnIsCancelled::CreateRaw(&InCommand, &FPerforceSourceControlCommand::IsCanceled), InCommand.bConnectionDropped);
 		ParseRecordSetForState(Records, OutResults);
 	}
 
@@ -303,13 +329,13 @@ bool FPerforceCheckInWorker::Execute(FPerforceSourceControlCommand& InCommand)
 {
 	FScopedPerforceConnection ScopedConnection(InCommand);
 	if (!InCommand.IsCanceled() && ScopedConnection.IsValid())
-	{	
+	{
 		FPerforceConnection& Connection = ScopedConnection.GetConnection();
 
 		check(InCommand.Operation->GetName() == GetName());
 		TSharedRef<FCheckIn, ESPMode::ThreadSafe> Operation = StaticCastSharedRef<FCheckIn>(InCommand.Operation);
 
-		int32 ChangeList = Connection.CreatePendingChangelist(Operation->GetDescription(), FOnIsCancelled::CreateRaw(&InCommand, &FPerforceSourceControlCommand::IsCanceled), InCommand.ErrorMessages);
+		int32 ChangeList = Connection.CreatePendingChangelist(Operation->GetDescription(), FOnIsCancelled::CreateRaw(&InCommand, &FPerforceSourceControlCommand::IsCanceled), InCommand.ResultInfo.ErrorMessages);
 		if (ChangeList > 0)
 		{
 			// Batch reopen into multiple commands, to avoid command line limits
@@ -319,7 +345,7 @@ bool FPerforceCheckInWorker::Execute(FPerforceSourceControlCommand& InCommand)
 			{
 				FP4RecordSet Records;
 				TArray< FString > ReopenParams;
-						
+
 				//Add changelist information to params
 				ReopenParams.Insert(TEXT("-c"), 0);
 				ReopenParams.Insert(FString::Printf(TEXT("%d"), ChangeList), 1);
@@ -330,7 +356,7 @@ bool FPerforceCheckInWorker::Execute(FPerforceSourceControlCommand& InCommand)
 					ReopenParams.Add(InCommand.Files[FileIndex]);
 				}
 
-				InCommand.bCommandSuccessful = Connection.RunCommand(TEXT("reopen"), ReopenParams, Records, InCommand.ErrorMessages, FOnIsCancelled::CreateRaw(&InCommand, &FPerforceSourceControlCommand::IsCanceled), InCommand.bConnectionDropped);
+				InCommand.bCommandSuccessful = Connection.RunCommand(TEXT("reopen"), ReopenParams, Records, InCommand.ResultInfo.ErrorMessages, FOnIsCancelled::CreateRaw(&InCommand, &FPerforceSourceControlCommand::IsCanceled), InCommand.bConnectionDropped);
 			}
 
 			if (InCommand.bCommandSuccessful)
@@ -342,9 +368,9 @@ bool FPerforceCheckInWorker::Execute(FPerforceSourceControlCommand& InCommand)
 				SubmitParams.Insert(TEXT("-c"), 0);
 				SubmitParams.Insert(FString::Printf(TEXT("%d"), ChangeList), 1);
 
-				InCommand.bCommandSuccessful = Connection.RunCommand(TEXT("submit"), SubmitParams, Records, InCommand.ErrorMessages, FOnIsCancelled::CreateRaw(&InCommand, &FPerforceSourceControlCommand::IsCanceled), InCommand.bConnectionDropped);
+				InCommand.bCommandSuccessful = Connection.RunCommand(TEXT("submit"), SubmitParams, Records, InCommand.ResultInfo.ErrorMessages, FOnIsCancelled::CreateRaw(&InCommand, &FPerforceSourceControlCommand::IsCanceled), InCommand.bConnectionDropped);
 
-				if (InCommand.ErrorMessages.Num() > 0)
+				if (InCommand.ResultInfo.ErrorMessages.Num() > 0)
 				{
 					InCommand.bCommandSuccessful = false;
 				}
@@ -397,7 +423,7 @@ FName FPerforceMarkForAddWorker::GetName() const
 bool FPerforceMarkForAddWorker::Execute(FPerforceSourceControlCommand& InCommand)
 {
 	// Perforce will allow you to mark files for add that don't currently exist on disk
-	// This goes against the workflow of our other SCC providers (such as SVN and Git), 
+	// This goes against the workflow of our other SCC providers (such as SVN and Git),
 	// so we manually check that the files exist before allowing this command to continue
 	// This keeps the behavior consistent between SCC providers
 	bool bHasMissingFiles = false;
@@ -406,7 +432,7 @@ bool FPerforceMarkForAddWorker::Execute(FPerforceSourceControlCommand& InCommand
 		if(!IFileManager::Get().FileExists(*FileToAdd))
 		{
 			bHasMissingFiles = true;
-			InCommand.ErrorMessages.Add(FText::Format(LOCTEXT("Error_FailedToMarkFileForAdd_FileMissing", "Failed mark the file '{0}' for add. The file doesn't exist on disk."), FText::FromString(FileToAdd)));
+			InCommand.ResultInfo.ErrorMessages.Add(FText::Format(LOCTEXT("Error_FailedToMarkFileForAdd_FileMissing", "Failed mark the file '{0}' for add. The file doesn't exist on disk."), FText::FromString(FileToAdd)));
 		}
 	}
 	if(bHasMissingFiles)
@@ -425,7 +451,7 @@ bool FPerforceMarkForAddWorker::Execute(FPerforceSourceControlCommand& InCommand
 		AppendChangelistParameter(Parameters);
 		Parameters.Append(InCommand.Files);
 
-		InCommand.bCommandSuccessful = Connection.RunCommand(TEXT("add"), Parameters, Records, InCommand.ErrorMessages, FOnIsCancelled::CreateRaw(&InCommand, &FPerforceSourceControlCommand::IsCanceled), InCommand.bConnectionDropped);
+		InCommand.bCommandSuccessful = Connection.RunCommand(TEXT("add"), Parameters, Records, InCommand.ResultInfo.ErrorMessages, FOnIsCancelled::CreateRaw(&InCommand, &FPerforceSourceControlCommand::IsCanceled), InCommand.bConnectionDropped);
 		ParseRecordSetForState(Records, OutResults);
 	}
 	return InCommand.bCommandSuccessful;
@@ -453,7 +479,7 @@ bool FPerforceDeleteWorker::Execute(FPerforceSourceControlCommand& InCommand)
 		Parameters.Append(InCommand.Files);
 
 		FP4RecordSet Records;
-		InCommand.bCommandSuccessful = Connection.RunCommand(TEXT("delete"), Parameters, Records, InCommand.ErrorMessages, FOnIsCancelled::CreateRaw(&InCommand, &FPerforceSourceControlCommand::IsCanceled), InCommand.bConnectionDropped);
+		InCommand.bCommandSuccessful = Connection.RunCommand(TEXT("delete"), Parameters, Records, InCommand.ResultInfo.ErrorMessages, FOnIsCancelled::CreateRaw(&InCommand, &FPerforceSourceControlCommand::IsCanceled), InCommand.bConnectionDropped);
 		ParseRecordSetForState(Records, OutResults);
 	}
 	return InCommand.bCommandSuccessful;
@@ -481,7 +507,7 @@ bool FPerforceRevertWorker::Execute(FPerforceSourceControlCommand& InCommand)
 		Parameters.Append(InCommand.Files);
 
 		FP4RecordSet Records;
-		InCommand.bCommandSuccessful = Connection.RunCommand(TEXT("revert"), Parameters, Records, InCommand.ErrorMessages, FOnIsCancelled::CreateRaw(&InCommand, &FPerforceSourceControlCommand::IsCanceled), InCommand.bConnectionDropped);
+		InCommand.bCommandSuccessful = Connection.RunCommand(TEXT("revert"), Parameters, Records, InCommand.ResultInfo.ErrorMessages, FOnIsCancelled::CreateRaw(&InCommand, &FPerforceSourceControlCommand::IsCanceled), InCommand.bConnectionDropped);
 		ParseRecordSetForState(Records, OutResults);
 	}
 	return InCommand.bCommandSuccessful;
@@ -539,7 +565,7 @@ bool FPerforceSyncWorker::Execute(FPerforceSourceControlCommand& InCommand)
 		}
 
 		FP4RecordSet Records;
-		InCommand.bCommandSuccessful = Connection.RunCommand(TEXT("sync"), Parameters, Records, InCommand.ErrorMessages, FOnIsCancelled::CreateRaw(&InCommand, &FPerforceSourceControlCommand::IsCanceled), InCommand.bConnectionDropped);
+		InCommand.bCommandSuccessful = Connection.RunCommand(TEXT("sync"), Parameters, Records, InCommand.ResultInfo.ErrorMessages, FOnIsCancelled::CreateRaw(&InCommand, &FPerforceSourceControlCommand::IsCanceled), InCommand.bConnectionDropped);
 		ParseSyncResults(Records, OutResults);
 
 		RemoveRedundantErrors(InCommand, TEXT("file(s) up-to-date"));
@@ -552,8 +578,145 @@ bool FPerforceSyncWorker::UpdateStates() const
 	return UpdateCachedStates(OutResults);
 }
 
-static void ParseUpdateStatusResults(const FP4RecordSet& InRecords, const TArray<FText>& ErrorMessages, TArray<FPerforceSourceControlState>& OutStates)
+static void ParseBranchModificationResults(const FP4RecordSet& InRecords, const TArray<FText>& ErrorMessages, const FString& ContentRoot, TMap<FString, FBranchModification>& BranchModifications)
 {
+
+	for (int32 Index = 0; Index < InRecords.Num(); ++Index)
+	{
+		const FP4Record& ClientRecord = InRecords[Index];
+		FString DepotFileName = ClientRecord(TEXT("depotFile"));
+		FString ClientFileName = ClientRecord(TEXT("clientFile"));
+		FString HeadAction = ClientRecord(TEXT("headAction"));
+		int64 HeadModTime = FCString::Atoi64(*ClientRecord(TEXT("headModTime")));
+		int64 HeadTime = FCString::Atoi64(*ClientRecord(TEXT("headTime")));
+		int32 HeadChange = FCString::Atoi(*ClientRecord(TEXT("headChange")));
+
+		// Filter out add modifications as these can be the result of generating a missing uasset from source content
+		// and in the case where there are 2 competing adds, this is a conflict state
+		if (HeadAction == TEXT("add"))
+		{
+			continue;
+		}
+
+		// Get the content filename and add to branch states
+		FString CurrentBranch(TEXT("*CurrentBranch"));
+		FString Branch, BranchFile;
+		if (DepotFileName.Split(ContentRoot, &Branch, &BranchFile))
+		{
+			// Sanitize names
+			Branch.RemoveFromEnd(FString(TEXT("/")));
+			BranchFile.RemoveFromStart(FString(TEXT("/")));
+		}
+
+		if (!Branch.Len() || !BranchFile.Len())
+		{
+			continue;
+		}
+
+		if (ClientFileName.Len())
+		{
+			Branch = CurrentBranch;
+		}
+
+		// In the case of delete, P4 stores 0 for modification time, so use the HeadTime of the CL
+		if (!HeadModTime)
+		{
+			HeadModTime = HeadTime;
+		}
+
+		// Check for modification in another branch
+		if (BranchModifications.Contains(BranchFile))
+		{
+			FBranchModification& BranchModification = BranchModifications[BranchFile];
+
+			// Never overwrite a current branch modification with the same from a different branch
+			if (BranchModification.ModTime == HeadModTime)
+			{
+				if (BranchModification.BranchName == CurrentBranch && Branch != CurrentBranch)
+				{
+					continue;
+				}
+			}
+
+			//  We want latest modification, <= so we catch the actual edit CL in the revision list
+			if (BranchModification.ModTime <= HeadModTime)
+			{
+				BranchModification.ModTime = HeadModTime;
+				BranchModification.BranchName = Branch;
+				BranchModification.Action = HeadAction;
+				BranchModification.ChangeList = HeadChange;
+			}
+		}
+		else
+		{
+			BranchModifications.Add(BranchFile, FBranchModification(Branch, BranchFile, HeadAction, HeadChange, HeadModTime));
+		}
+	}
+
+}
+
+static void ParseUpdateStatusResults(const FP4RecordSet& InRecords, const TArray<FText>& ErrorMessages, TArray<FPerforceSourceControlState>& OutStates, const FString& ContentRoot, TMap<FString, FBranchModification>& BranchModifications)
+{
+	// Build up a map of any other branch states
+	for (int32 Index = 0; Index < InRecords.Num(); ++Index)
+	{
+		const FP4Record& ClientRecord = InRecords[Index];
+		FString FileName = ClientRecord(TEXT("clientFile"));
+
+		if (FileName.Len())
+		{
+			// Local workspace file, we're only interested in other branches here
+			continue;
+		}
+
+		// Get the content filename and add to branch states
+		FString DepotFileName = ClientRecord(TEXT("depotFile"));
+		FString OtherOpen = ClientRecord(TEXT("otherOpen"));
+
+		FString Branch;
+
+		if (DepotFileName.Split(ContentRoot, &Branch, &FileName))
+		{
+			// Sanitize
+			Branch.RemoveFromEnd(FString(TEXT("/")));
+			FileName.RemoveFromStart(FString(TEXT("/")));
+
+			// Add to branch modifications if not currently recorded
+			if (FileName.Len() && !BranchModifications.Contains(FileName))
+			{
+				BranchModifications.Add(FileName, FBranchModification(Branch, FileName, FString(TEXT("none")), 0, 0));
+			}
+		}
+
+		if (!FileName.Len())
+		{
+			// There was a problem getting the filename
+			continue;
+		}
+
+		// Store checkout information to branch state
+		FBranchModification& BranchModification = BranchModifications[FileName];
+
+		if (OtherOpen.Len())
+		{
+			BranchModification.CheckedOutBranches.AddUnique(Branch);
+
+			int32 OtherOpenNum = FCString::Atoi(*OtherOpen);
+			for (int32 OpenIdx = 0; OpenIdx < OtherOpenNum; ++OpenIdx)
+			{
+				const FString OtherOpenRecordKey = FString::Printf(TEXT("otherOpen%d"), OpenIdx);
+				const FString OtherOpenRecordValue = ClientRecord(OtherOpenRecordKey);
+
+				BranchModification.OtherUserCheckedOut += OtherOpenRecordValue;
+				if (OpenIdx < OtherOpenNum - 1)
+				{
+					BranchModification.OtherUserCheckedOut += TEXT(", ");
+				}
+			}
+		}
+
+	}
+
 	// Iterate over each record found as a result of the command, parsing it for relevant information
 	for (int32 Index = 0; Index < InRecords.Num(); ++Index)
 	{
@@ -569,24 +732,31 @@ static void ParseUpdateStatusResults(const FP4RecordSet& InRecords, const TArray
 		FString HeadType = ClientRecord(TEXT("headType"));
 		const bool bUnresolved = ClientRecord.Contains(TEXT("unresolved"));
 
+		if (!FileName.Len())
+		{
+			// From another branch and already encoded in the branch state map
+			continue;
+		}
+
 		FString FullPath(FileName);
 		FPaths::NormalizeFilename(FullPath);
+
 		OutStates.Add(FPerforceSourceControlState(FullPath));
 		FPerforceSourceControlState& State = OutStates.Last();
 		State.DepotFilename = DepotFileName;
 
 		State.State = EPerforceState::ReadOnly;
-		if (Action.Len() > 0 && Action == TEXT("add")) 
+		if (Action.Len() > 0 && Action == TEXT("add"))
 		{
 			State.State = EPerforceState::OpenForAdd;
 		}
-		else if (Action.Len() > 0 && Action == TEXT("delete")) 
+		else if (Action.Len() > 0 && Action == TEXT("delete"))
 		{
 			State.State = EPerforceState::MarkedForDelete;
 		}
 		else if (OpenType.Len() > 0)
 		{
-			if(Action.Len() > 0 && Action == TEXT("branch")) 
+			if(Action.Len() > 0 && Action == TEXT("branch"))
 			{
 				State.State = EPerforceState::Branched;
 			}
@@ -611,14 +781,55 @@ static void ParseUpdateStatusResults(const FP4RecordSet& InRecords, const TArray
 				}
 			}
 
+			// Add to the checked out branches
+			State.CheckedOutBranches.AddUnique(FEngineVersion::Current().GetBranch());
+
 			State.State = EPerforceState::CheckedOutOther;
 		}
 		//file has been previously deleted, ok to add again
-		else if (HeadAction.Len() > 0 && HeadAction == TEXT("delete")) 
+		else if (HeadAction.Len() > 0 && HeadAction == TEXT("delete"))
 		{
 			State.State = EPerforceState::NotInDepot;
 		}
-		
+
+		// If checked out or modified in another branch, setup state
+		FString BranchFile;
+		FileName.Replace(TEXT("\\"), TEXT("/")).Split(ContentRoot, nullptr, &BranchFile);
+		BranchFile.RemoveFromStart(TEXT("/"));
+
+		State.HeadBranch = TEXT("*CurrentBranch");
+		State.HeadAction = HeadAction;
+		State.HeadModTime = FCString::Atoi64(*ClientRecord(TEXT("headModTime")));
+		State.HeadChangeList = FCString::Atoi(*ClientRecord(TEXT("headChange")));
+
+		if (BranchModifications.Contains(BranchFile))
+		{
+			const FBranchModification& BranchModification = BranchModifications[BranchFile];
+
+			if (BranchModification.BranchName.Len())
+			{
+				// If the branch modification change is more recent record it
+				if (BranchModification.ModTime > State.HeadModTime)
+				{
+					State.HeadBranch = BranchModification.BranchName;
+					State.HeadAction = BranchModification.Action;
+					State.HeadModTime = BranchModification.ModTime;
+					State.HeadChangeList = BranchModification.ChangeList;
+				}
+			}
+
+			// Setup other branch check outs
+			if (BranchModification.CheckedOutBranches.Num())
+			{
+				State.OtherUserBranchCheckedOuts += BranchModification.OtherUserCheckedOut;
+
+				for (auto& OtherBranch : BranchModification.CheckedOutBranches)
+				{
+					State.CheckedOutBranches.AddUnique(OtherBranch);
+				}
+			}
+		}
+
 		if (HeadRev.Len() > 0 && HaveRev.Len() > 0)
 		{
 			TTypeFromString<int>::FromString(State.DepotRevNumber, *HeadRev);
@@ -650,7 +861,7 @@ static void ParseUpdateStatusResults(const FP4RecordSet& InRecords, const TArray
 					FString ResolveBaseRev = ClientRecord(VarName);
 
 					TTypeFromString<int>::FromString(State.PendingResolveRevNumber, *ResolveBaseRev);
-					
+
 					++ResolveActionNumber;
 				}
 			}
@@ -698,7 +909,7 @@ static void ParseUpdateStatusResults(const FP4RecordSet& InRecords, const TArray
 			FPaths::NormalizeFilename(FullPath);
 			OutStates.Add(FPerforceSourceControlState(FullPath));
 			FPerforceSourceControlState& State = OutStates.Last();
-			State.State = EPerforceState::NotUnderClientRoot;	
+			State.State = EPerforceState::NotUnderClientRoot;
 		}
 	}
 }
@@ -779,7 +990,7 @@ static void ParseHistoryResults(const FP4RecordSet& InRecords, const TArray<FPer
 		{
 			const FP4Record& ClientRecord = InRecords[RecordIndex];
 
-			// Extract the file name 
+			// Extract the file name
 			check(ClientRecord.Contains(TEXT("depotFile")));
 			FString DepotFileName = ClientRecord(TEXT("depotFile"));
 			FString LocalFileName = FindWorkspaceFile(InStates, DepotFileName);
@@ -831,7 +1042,7 @@ static void ParseHistoryResults(const FP4RecordSet& InRecords, const TArray<FPer
 					check(ClientRecord.Contains(*VarName));
 					FileSize = ClientRecord(*VarName);
 				}
-		
+
 				// Extract the clientspec/workspace
 				VarName = FString::Printf(TEXT("client%d"), RevisionNumbers);
 				check(ClientRecord.Contains(*VarName));
@@ -889,7 +1100,7 @@ static void ParseDiffResults(const FP4RecordSet& InRecords, TArray<FString>& Out
 			const FP4Record& ClientRecord = InRecords[Index];
 			FString FileName = ClientRecord(TEXT("clientFile"));
 			FPaths::NormalizeFilename(FileName);
-			OutModifiedFiles.Add(FileName);	
+			OutModifiedFiles.Add(FileName);
 		}
 	}
 }
@@ -917,23 +1128,67 @@ bool FPerforceUpdateStatusWorker::Execute(FPerforceSourceControlCommand& InComma
 			// We want to include integration record information:
 			Parameters.Add(TEXT("-Or"));
 
+			// Get the branches of interest for status updates
+			const FString& ContentRoot = InCommand.ContentRoot;
+			const TArray<FString>& StatusBranches = InCommand.StatusBranchNames;
+
 			// Mandatory parameters (the list of files to stat):
-			for (FString& File : InCommand.Files)
+			for (FString File : InCommand.Files)
 			{
 				if (IFileManager::Get().DirectoryExists(*File))
 				{
 					// If the file is a directory, do a recursive fstat on the contents
 					File /= TEXT("...");
 				}
+				else
+				{
+					for (auto& Branch : StatusBranches )
+					{
+						// Check the status branch for updates
+						FString BranchFile;
+						if (File.Split(ContentRoot, nullptr, &BranchFile))
+						{
+							// Ignore collection files when querying status branches
+							FString Ext = FPaths::GetExtension(BranchFile, true);
+							if (Ext.Compare(TEXT(".collection"), ESearchCase::IgnoreCase) == 0)
+							{
+								continue;
+							}
+							
+							TArray<FStringFormatArg> Args = { Branch, ContentRoot, BranchFile };
+							Parameters.Add(FString::Format(TEXT("{0}/{1}{2}"), Args));
+						}
+					}
+				}
 
 				Parameters.Add(File);
 			}
 
+			// Initially successful
+			InCommand.bCommandSuccessful = true;
+
+			// Parse branch modifications
+			TMap<FString, FBranchModification> BranchModifications;
+			if (StatusBranches.Num())
+			{
+				// Get all revisions to check for modifications on other branches
+				TArray<FString> RevisionParameters = Parameters;
+				// Sort by head revision
+				RevisionParameters.Insert(TEXT("-Sr"), 0);
+				// Note: -Of suppresses open[...], so must be generated in a separate query
+				RevisionParameters.Insert(TEXT("-Of"), 0);
+
+				FP4RecordSet RevisionRecords;
+				InCommand.bCommandSuccessful &= Connection.RunCommand(TEXT("fstat"), RevisionParameters, RevisionRecords, InCommand.ResultInfo.ErrorMessages, FOnIsCancelled::CreateRaw(&InCommand, &FPerforceSourceControlCommand::IsCanceled), InCommand.bConnectionDropped);
+				ParseBranchModificationResults(RevisionRecords, InCommand.ResultInfo.ErrorMessages, ContentRoot, BranchModifications);
+			}
+
 			FP4RecordSet Records;
-			InCommand.bCommandSuccessful = Connection.RunCommand(TEXT("fstat"), Parameters, Records, InCommand.ErrorMessages, FOnIsCancelled::CreateRaw(&InCommand, &FPerforceSourceControlCommand::IsCanceled), InCommand.bConnectionDropped);
-			ParseUpdateStatusResults(Records, InCommand.ErrorMessages, OutStates);
+			InCommand.bCommandSuccessful &= Connection.RunCommand(TEXT("fstat"), Parameters, Records, InCommand.ResultInfo.ErrorMessages, FOnIsCancelled::CreateRaw(&InCommand, &FPerforceSourceControlCommand::IsCanceled), InCommand.bConnectionDropped);
+			ParseUpdateStatusResults(Records, InCommand.ResultInfo.ErrorMessages, OutStates, ContentRoot, BranchModifications);
 			RemoveRedundantErrors(InCommand, TEXT(" - no such file(s)."));
 			RemoveRedundantErrors(InCommand, TEXT("' is not under client's root '"));
+			RemoveRedundantErrors(InCommand, TEXT(" - protected namespace - access denied"), false);
 		}
 		else
 		{
@@ -959,7 +1214,7 @@ bool FPerforceUpdateStatusWorker::Execute(FPerforceSourceControlCommand& InComma
 			//limit to last 100 changes
 			Parameters.Add(TEXT("-m 100"));
 			Parameters.Append(InCommand.Files);
-			InCommand.bCommandSuccessful &= Connection.RunCommand(TEXT("filelog"), Parameters, Records, InCommand.ErrorMessages, FOnIsCancelled::CreateRaw(&InCommand, &FPerforceSourceControlCommand::IsCanceled), InCommand.bConnectionDropped);
+			InCommand.bCommandSuccessful &= Connection.RunCommand(TEXT("filelog"), Parameters, Records, InCommand.ResultInfo.ErrorMessages, FOnIsCancelled::CreateRaw(&InCommand, &FPerforceSourceControlCommand::IsCanceled), InCommand.bConnectionDropped);
 			ParseHistoryResults(Records, OutStates, OutHistory);
 			RemoveRedundantErrors(InCommand, TEXT(" - no such file(s)."));
 			RemoveRedundantErrors(InCommand, TEXT(" - file(s) not on client"));
@@ -973,7 +1228,7 @@ bool FPerforceUpdateStatusWorker::Execute(FPerforceSourceControlCommand& InComma
 			TArray<FString> Parameters = InCommand.Files;
 			Parameters.Add(FileQuery);
 			FP4RecordSet Records;
-			InCommand.bCommandSuccessful &= Connection.RunCommand(TEXT("opened"), Parameters, Records, InCommand.ErrorMessages, FOnIsCancelled::CreateRaw(&InCommand, &FPerforceSourceControlCommand::IsCanceled), InCommand.bConnectionDropped);
+			InCommand.bCommandSuccessful &= Connection.RunCommand(TEXT("opened"), Parameters, Records, InCommand.ResultInfo.ErrorMessages, FOnIsCancelled::CreateRaw(&InCommand, &FPerforceSourceControlCommand::IsCanceled), InCommand.bConnectionDropped);
 			ParseOpenedResults(Records, ANSI_TO_TCHAR(Connection.P4Client.GetClient().Text()), Connection.ClientRoot, OutStateMap);
 			RemoveRedundantErrors(InCommand, TEXT(" - no such file(s)."));
 			RemoveRedundantErrors(InCommand, TEXT("' is not under client's root '"));
@@ -986,13 +1241,14 @@ bool FPerforceUpdateStatusWorker::Execute(FPerforceSourceControlCommand& InComma
 			// Query for open files different than the versions stored in Perforce
 			Parameters.Add(TEXT("-sa"));
 			Parameters.Append(InCommand.Files);
-			InCommand.bCommandSuccessful &= Connection.RunCommand(TEXT("diff"), Parameters, Records, InCommand.ErrorMessages, FOnIsCancelled::CreateRaw(&InCommand, &FPerforceSourceControlCommand::IsCanceled), InCommand.bConnectionDropped);
+			InCommand.bCommandSuccessful &= Connection.RunCommand(TEXT("diff"), Parameters, Records, InCommand.ResultInfo.ErrorMessages, FOnIsCancelled::CreateRaw(&InCommand, &FPerforceSourceControlCommand::IsCanceled), InCommand.bConnectionDropped);
 
 			// Parse the results and store them in the command
 			ParseDiffResults(Records, OutModifiedFiles);
 			RemoveRedundantErrors(InCommand, TEXT(" - no such file(s)."));
 			RemoveRedundantErrors(InCommand, TEXT(" - file(s) not opened for edit"));
 			RemoveRedundantErrors(InCommand, TEXT("' is not under client's root '"));
+			RemoveRedundantErrors(InCommand, TEXT(" - file(s) not opened on this client"));
 		}
 	}
 #endif
@@ -1015,7 +1271,7 @@ bool FPerforceUpdateStatusWorker::UpdateStates() const
 		// Update every member except History and Timestamp. History will be updated below from the OutHistory map.
 		// Timestamp is used to throttle status requests, so update it to current time:
 		auto History = MoveTemp(State->History);
-		*State = Status; 
+		*State = Status;
 		State->History = MoveTemp(History);
 		State->TimeStamp = Now;
 		bUpdated = true;
@@ -1059,7 +1315,7 @@ bool FPerforceGetWorkspacesWorker::Execute(FPerforceSourceControlCommand& InComm
 	{
 		FPerforceConnection& Connection = ScopedConnection.GetConnection();
 		TArray<FString> ClientSpecList;
-		InCommand.bCommandSuccessful = Connection.GetWorkspaceList(InCommand.ConnectionInfo, FOnIsCancelled::CreateRaw(&InCommand, &FPerforceSourceControlCommand::IsCanceled), ClientSpecList, InCommand.ErrorMessages);
+		InCommand.bCommandSuccessful = Connection.GetWorkspaceList(InCommand.ConnectionInfo, FOnIsCancelled::CreateRaw(&InCommand, &FPerforceSourceControlCommand::IsCanceled), ClientSpecList, InCommand.ResultInfo.ErrorMessages);
 
 		check(InCommand.Operation->GetName() == GetName());
 		TSharedRef<FGetWorkspaces, ESPMode::ThreadSafe> Operation = StaticCastSharedRef<FGetWorkspaces>(InCommand.Operation);
@@ -1097,9 +1353,9 @@ bool FPerforceCopyWorker::Execute(class FPerforceSourceControlCommand& InCommand
 
 		Parameters.Append(InCommand.Files);
 		Parameters.Add(DestinationPath);
-		
+
 		FP4RecordSet Records;
-		InCommand.bCommandSuccessful = Connection.RunCommand(TEXT("integrate"), Parameters, Records, InCommand.ErrorMessages, FOnIsCancelled::CreateRaw(&InCommand, &FPerforceSourceControlCommand::IsCanceled), InCommand.bConnectionDropped);
+		InCommand.bCommandSuccessful = Connection.RunCommand(TEXT("integrate"), Parameters, Records, InCommand.ResultInfo.ErrorMessages, FOnIsCancelled::CreateRaw(&InCommand, &FPerforceSourceControlCommand::IsCanceled), InCommand.bConnectionDropped);
 
 		// We now need to do a p4 resolve.
 		// This is because when we copy a file in the Editor, we first make the copy on disk before attempting to branch. This causes a conflict in P4's eyes.
@@ -1110,7 +1366,7 @@ bool FPerforceCopyWorker::Execute(class FPerforceSourceControlCommand& InCommand
 			TArray<FString> ResolveParameters;
 			ResolveParameters.Add(TEXT("-ay"));	// 'accept yours'
 			ResolveParameters.Add(DestinationPath);
-			InCommand.bCommandSuccessful = Connection.RunCommand(TEXT("resolve"), ResolveParameters, Records, InCommand.ErrorMessages, FOnIsCancelled::CreateRaw(&InCommand, &FPerforceSourceControlCommand::IsCanceled), InCommand.bConnectionDropped);
+			InCommand.bCommandSuccessful = Connection.RunCommand(TEXT("resolve"), ResolveParameters, Records, InCommand.ResultInfo.ErrorMessages, FOnIsCancelled::CreateRaw(&InCommand, &FPerforceSourceControlCommand::IsCanceled), InCommand.bConnectionDropped);
 		}
 	}
 	return InCommand.bCommandSuccessful;
@@ -1122,12 +1378,12 @@ bool FPerforceCopyWorker::UpdateStates() const
 }
 
 // IPerforceSourceControlWorker interface
-FName FPerforceResolveWorker::GetName() const 
+FName FPerforceResolveWorker::GetName() const
 {
 	return "Resolve";
 }
 
-bool FPerforceResolveWorker::Execute(class FPerforceSourceControlCommand& InCommand) 
+bool FPerforceResolveWorker::Execute(class FPerforceSourceControlCommand& InCommand)
 {
 	FScopedPerforceConnection ScopedConnection(InCommand);
 	if (!InCommand.IsCanceled() && ScopedConnection.IsValid())
@@ -1141,7 +1397,7 @@ bool FPerforceResolveWorker::Execute(class FPerforceSourceControlCommand& InComm
 		AppendChangelistParameter(Parameters);
 
 		FP4RecordSet Records;
-		InCommand.bCommandSuccessful = Connection.RunCommand(TEXT("resolve"), Parameters, Records, InCommand.ErrorMessages, FOnIsCancelled::CreateRaw(&InCommand, &FPerforceSourceControlCommand::IsCanceled), InCommand.bConnectionDropped);
+		InCommand.bCommandSuccessful = Connection.RunCommand(TEXT("resolve"), Parameters, Records, InCommand.ResultInfo.ErrorMessages, FOnIsCancelled::CreateRaw(&InCommand, &FPerforceSourceControlCommand::IsCanceled), InCommand.bConnectionDropped);
 		if( InCommand.bCommandSuccessful )
 		{
 			UpdatedFiles = InCommand.Files;
@@ -1151,7 +1407,7 @@ bool FPerforceResolveWorker::Execute(class FPerforceSourceControlCommand& InComm
 	return InCommand.bCommandSuccessful;
 }
 
-bool FPerforceResolveWorker::UpdateStates() const 
+bool FPerforceResolveWorker::UpdateStates() const
 {
 	FPerforceSourceControlModule& PerforceSourceControl = FPerforceSourceControlModule::Get();
 

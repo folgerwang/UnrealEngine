@@ -82,6 +82,8 @@ public:
 	UPROPERTY()
 	FString DeviceModel;
 	UPROPERTY()
+	bool VulkanAvailable;
+	UPROPERTY()
 	bool UsingHoudini;
 
 	UPROPERTY()

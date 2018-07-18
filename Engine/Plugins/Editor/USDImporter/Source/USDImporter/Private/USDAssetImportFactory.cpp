@@ -4,10 +4,10 @@
 #include "USDImporter.h"
 #include "IUSDImporterModule.h"
 #include "ActorFactories/ActorFactoryStaticMesh.h"
-#include "ScopedTimers.h"
+#include "ProfilingDebugging/ScopedTimers.h"
 #include "USDImportOptions.h"
 #include "Engine/StaticMesh.h"
-#include "Paths.h"
+#include "Misc/Paths.h"
 #include "JsonObjectConverter.h"
 #include "USDAssetImportData.h"
 

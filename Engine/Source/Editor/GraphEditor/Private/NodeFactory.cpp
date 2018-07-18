@@ -56,19 +56,19 @@
 #include "KismetNodes/SGraphNodeK2Copy.h"
 
 #include "KismetPins/SGraphPinBool.h"
-#include "SGraphPinString.h"
+#include "KismetPins/SGraphPinString.h"
 #include "KismetPins/SGraphPinText.h"
-#include "SGraphPinObject.h"
+#include "KismetPins/SGraphPinObject.h"
 #include "KismetPins/SGraphPinClass.h"
 #include "KismetPins/SGraphPinExec.h"
-#include "SGraphPinNum.h"
-#include "SGraphPinInteger.h"
-#include "SGraphPinColor.h"
+#include "KismetPins/SGraphPinNum.h"
+#include "KismetPins/SGraphPinInteger.h"
+#include "KismetPins/SGraphPinColor.h"
 #include "KismetPins/SGraphPinEnum.h"
 #include "KismetPins/SGraphPinKey.h"
-#include "SGraphPinVector.h"
-#include "SGraphPinVector2D.h"
-#include "SGraphPinVector4.h"
+#include "KismetPins/SGraphPinVector.h"
+#include "KismetPins/SGraphPinVector2D.h"
+#include "KismetPins/SGraphPinVector4.h"
 #include "KismetPins/SGraphPinIndex.h"
 #include "KismetPins/SGraphPinCollisionProfile.h"
 
@@ -232,104 +232,16 @@ TSharedPtr<SGraphPin> FNodeFactory::CreatePinWidget(UEdGraphPin* InPin)
 
 	if (const UEdGraphSchema_K2* K2Schema = Cast<const UEdGraphSchema_K2>(InPin->GetSchema()))
 	{
-		if (InPin->PinType.PinCategory == UEdGraphSchema_K2::PC_Boolean)
+		TSharedPtr<SGraphPin> K2PinWidget = CreateK2PinWidget(InPin);
+		if(K2PinWidget.IsValid())
 		{
-			return SNew(SGraphPinBool, InPin);
-		}
-		else if (InPin->PinType.PinCategory == UEdGraphSchema_K2::PC_Text)
-		{
-			return SNew(SGraphPinText, InPin);
-		}
-		else if (InPin->PinType.PinCategory == UEdGraphSchema_K2::PC_Exec)
-		{
-			return SNew(SGraphPinExec, InPin);
-		}
-		else if (InPin->PinType.PinCategory == UEdGraphSchema_K2::PC_Object)
-		{
-			return SNew(SGraphPinObject, InPin);
-		}
-		else if (InPin->PinType.PinCategory == UEdGraphSchema_K2::PC_Interface)
-		{
-			return SNew(SGraphPinObject, InPin);
-		}
-		else if (InPin->PinType.PinCategory == UEdGraphSchema_K2::PC_SoftObject)
-		{
-			return SNew(SGraphPinObject, InPin);
-		}
-		else if (InPin->PinType.PinCategory == UEdGraphSchema_K2::PC_Class)
-		{
-			return SNew(SGraphPinClass, InPin);
-		}
-		else if (InPin->PinType.PinCategory == UEdGraphSchema_K2::PC_SoftClass)
-		{
-			return SNew(SGraphPinClass, InPin);
-		}
-		else if (InPin->PinType.PinCategory == UEdGraphSchema_K2::PC_Int)
-		{
-			return SNew(SGraphPinInteger, InPin);
-		}
-		else if (InPin->PinType.PinCategory == UEdGraphSchema_K2::PC_Float)
-		{
-			return SNew(SGraphPinNum<float>, InPin);
-		}
-		else if (InPin->PinType.PinCategory == UEdGraphSchema_K2::PC_String || InPin->PinType.PinCategory == UEdGraphSchema_K2::PC_Name)
-		{
-			return SNew(SGraphPinString, InPin);
-		}
-		else if (InPin->PinType.PinCategory == UEdGraphSchema_K2::PC_Struct)
-		{
-			// If you update this logic you'll probably need to update UEdGraphSchema_K2::ShouldHidePinDefaultValue!
-			UScriptStruct* ColorStruct = TBaseStructure<FLinearColor>::Get();
-			UScriptStruct* VectorStruct = TBaseStructure<FVector>::Get();
-			UScriptStruct* Vector2DStruct = TBaseStructure<FVector2D>::Get();
-			UScriptStruct* RotatorStruct = TBaseStructure<FRotator>::Get();
-
-			if (InPin->PinType.PinSubCategoryObject == ColorStruct)
-			{
-				return SNew(SGraphPinColor, InPin);
-			}
-			else if ((InPin->PinType.PinSubCategoryObject == VectorStruct) || (InPin->PinType.PinSubCategoryObject == RotatorStruct))
-			{
-				return SNew(SGraphPinVector, InPin);
-			}
-			else if (InPin->PinType.PinSubCategoryObject == Vector2DStruct)
-			{
-				return SNew(SGraphPinVector2D, InPin);
-			}
-			else if (InPin->PinType.PinSubCategoryObject == FKey::StaticStruct())
-			{
-				return SNew(SGraphPinKey, InPin);
-			}
-			else if (InPin->PinType.PinSubCategoryObject == FCollisionProfileName::StaticStruct())
-			{
-				return SNew(SGraphPinCollisionProfile, InPin);
-			}
-		}
-		else if (InPin->PinType.PinCategory == UEdGraphSchema_K2::PC_Byte)
-		{
-			// Check for valid enum object reference
-			if ((InPin->PinType.PinSubCategoryObject != NULL) && (InPin->PinType.PinSubCategoryObject->IsA(UEnum::StaticClass())))
-			{
-				return SNew(SGraphPinEnum, InPin);
-			}
-			else
-			{
-				return SNew(SGraphPinInteger, InPin);
-			}
-		}
-		else if ((InPin->PinType.PinCategory == UEdGraphSchema_K2::PC_Wildcard) && (InPin->PinType.PinSubCategory == UEdGraphSchema_K2::PSC_Index))
-		{
-			return SNew(SGraphPinIndex, InPin);
-		}
-		else if(InPin->PinType.PinCategory == UEdGraphSchema_K2::PC_MCDelegate)
-		{
-			return SNew(SGraphPinString, InPin);
+			return K2PinWidget;
 		}
 	}
 
 	if (const UMaterialGraphSchema* MaterialGraphSchema = Cast<const UMaterialGraphSchema>(InPin->GetSchema()))
 	{
-		if (InPin->PinType.PinCategory == UMaterialGraphSchema::PC_MaterialInput)
+		if (InPin->PinType.PinCategory == MaterialGraphSchema->PC_MaterialInput)
 		{
 			return SNew(SGraphPinMaterialInput, InPin);
 		}
@@ -341,6 +253,106 @@ TSharedPtr<SGraphPin> FNodeFactory::CreatePinWidget(UEdGraphPin* InPin)
 	
 	// If we didn't pick a custom pin widget, use an uncustomized basic pin
 	return SNew(SGraphPin, InPin);
+}
+
+
+TSharedPtr<SGraphPin> FNodeFactory::CreateK2PinWidget(UEdGraphPin* InPin)
+{
+	if (InPin->PinType.PinCategory == UEdGraphSchema_K2::PC_Boolean)
+	{
+		return SNew(SGraphPinBool, InPin);
+	}
+	else if (InPin->PinType.PinCategory == UEdGraphSchema_K2::PC_Text)
+	{
+		return SNew(SGraphPinText, InPin);
+	}
+	else if (InPin->PinType.PinCategory == UEdGraphSchema_K2::PC_Exec)
+	{
+		return SNew(SGraphPinExec, InPin);
+	}
+	else if (InPin->PinType.PinCategory == UEdGraphSchema_K2::PC_Object)
+	{
+		return SNew(SGraphPinObject, InPin);
+	}
+	else if (InPin->PinType.PinCategory == UEdGraphSchema_K2::PC_Interface)
+	{
+		return SNew(SGraphPinObject, InPin);
+	}
+	else if (InPin->PinType.PinCategory == UEdGraphSchema_K2::PC_SoftObject)
+	{
+		return SNew(SGraphPinObject, InPin);
+	}
+	else if (InPin->PinType.PinCategory == UEdGraphSchema_K2::PC_Class)
+	{
+		return SNew(SGraphPinClass, InPin);
+	}
+	else if (InPin->PinType.PinCategory == UEdGraphSchema_K2::PC_SoftClass)
+	{
+		return SNew(SGraphPinClass, InPin);
+	}
+	else if (InPin->PinType.PinCategory == UEdGraphSchema_K2::PC_Int)
+	{
+		return SNew(SGraphPinInteger, InPin);
+	}
+	else if (InPin->PinType.PinCategory == UEdGraphSchema_K2::PC_Float)
+	{
+		return SNew(SGraphPinNum<float>, InPin);
+	}
+	else if (InPin->PinType.PinCategory == UEdGraphSchema_K2::PC_String || InPin->PinType.PinCategory == UEdGraphSchema_K2::PC_Name)
+	{
+		return SNew(SGraphPinString, InPin);
+	}
+	else if (InPin->PinType.PinCategory == UEdGraphSchema_K2::PC_Struct)
+	{
+		// If you update this logic you'll probably need to update UEdGraphSchema_K2::ShouldHidePinDefaultValue!
+		UScriptStruct* ColorStruct = TBaseStructure<FLinearColor>::Get();
+		UScriptStruct* VectorStruct = TBaseStructure<FVector>::Get();
+		UScriptStruct* Vector2DStruct = TBaseStructure<FVector2D>::Get();
+		UScriptStruct* RotatorStruct = TBaseStructure<FRotator>::Get();
+
+		if (InPin->PinType.PinSubCategoryObject == ColorStruct)
+		{
+			return SNew(SGraphPinColor, InPin);
+		}
+		else if ((InPin->PinType.PinSubCategoryObject == VectorStruct) || (InPin->PinType.PinSubCategoryObject == RotatorStruct))
+		{
+			return SNew(SGraphPinVector, InPin);
+		}
+		else if (InPin->PinType.PinSubCategoryObject == Vector2DStruct)
+		{
+			return SNew(SGraphPinVector2D, InPin);
+		}
+		else if (InPin->PinType.PinSubCategoryObject == FKey::StaticStruct())
+		{
+			return SNew(SGraphPinKey, InPin);
+		}
+		else if (InPin->PinType.PinSubCategoryObject == FCollisionProfileName::StaticStruct())
+		{
+			return SNew(SGraphPinCollisionProfile, InPin);
+		}
+	}
+	else if (InPin->PinType.PinCategory == UEdGraphSchema_K2::PC_Byte)
+	{
+		// Check for valid enum object reference
+		if ((InPin->PinType.PinSubCategoryObject != NULL) && (InPin->PinType.PinSubCategoryObject->IsA(UEnum::StaticClass())))
+		{
+			return SNew(SGraphPinEnum, InPin);
+		}
+		else
+		{
+			return SNew(SGraphPinInteger, InPin);
+		}
+	}
+	else if ((InPin->PinType.PinCategory == UEdGraphSchema_K2::PC_Wildcard) && (InPin->PinType.PinSubCategory == UEdGraphSchema_K2::PSC_Index))
+	{
+		return SNew(SGraphPinIndex, InPin);
+	}
+	else if(InPin->PinType.PinCategory == UEdGraphSchema_K2::PC_MCDelegate)
+	{
+		return SNew(SGraphPinString, InPin);
+	}
+
+	return nullptr;
 }
 
 FConnectionDrawingPolicy* FNodeFactory::CreateConnectionPolicy(const UEdGraphSchema* Schema, int32 InBackLayerID, int32 InFrontLayerID, float ZoomFactor, const FSlateRect& InClippingRect, FSlateWindowElementList& InDrawElements, UEdGraph* InGraphObj)
@@ -387,4 +399,19 @@ FConnectionDrawingPolicy* FNodeFactory::CreateConnectionPolicy(const UEdGraphSch
 
 	// If we never picked a custom policy, use the uncustomized standard policy
 	return ConnectionDrawingPolicy;
+}
+
+TSharedPtr<SGraphNode> FGraphNodeFactory::CreateNodeWidget(UEdGraphNode* InNode)
+{
+	return FNodeFactory::CreateNodeWidget(InNode);
+}
+
+TSharedPtr<SGraphPin> FGraphNodeFactory::CreatePinWidget(UEdGraphPin* InPin)
+{
+	return FNodeFactory::CreatePinWidget(InPin);
+}
+
+FConnectionDrawingPolicy* FGraphNodeFactory::CreateConnectionPolicy(const UEdGraphSchema* Schema, int32 InBackLayerID, int32 InFrontLayerID, float ZoomFactor, const FSlateRect& InClippingRect, FSlateWindowElementList& InDrawElements, UEdGraph* InGraphObj)
+{
+	return FNodeFactory::CreateConnectionPolicy(Schema, InBackLayerID, InFrontLayerID, ZoomFactor, InClippingRect, InDrawElements, InGraphObj);
 }

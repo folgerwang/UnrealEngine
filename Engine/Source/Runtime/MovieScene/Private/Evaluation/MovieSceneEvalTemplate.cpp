@@ -3,12 +3,13 @@
 #include "Evaluation/MovieSceneEvalTemplate.h"
 #include "Evaluation/MovieSceneEvalTemplateSerializer.h"
 
-float FMovieSceneEvalTemplate::EvaluateEasing(float CurrentTime) const
+float FMovieSceneEvalTemplate::EvaluateEasing(FFrameTime CurrentTime) const
 {
 	return SourceSection ? SourceSection->EvaluateEasing(CurrentTime) : 1.f;
 }
 
 bool FMovieSceneEvalTemplatePtr::Serialize(FArchive& Ar)
 {
-	return SerializeInlineValue(*this, Ar);
+	bool bShouldWarn = !WITH_EDITORONLY_DATA;
+	return SerializeInlineValue(*this, Ar, bShouldWarn);
 }

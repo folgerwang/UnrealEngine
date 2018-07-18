@@ -16,7 +16,7 @@
 #include "BlueprintCompilerCppBackendUtils.h"
 #include "Kismet/KismetNodeHelperLibrary.h"
 #include "Kismet/KismetArrayLibrary.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 // Generates single "if" scope. Its condition checks context of given term.
 struct FSafeContextScopedEmmitter

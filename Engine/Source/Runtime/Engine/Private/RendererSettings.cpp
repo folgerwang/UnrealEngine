@@ -1,6 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Engine/RendererSettings.h"
+#include "PixelFormat.h"
 
 #if WITH_EDITOR
 #include "Editor/EditorEngine.h"
@@ -8,6 +9,46 @@
 /** The editor object. */
 extern UNREALED_API class UEditorEngine* GEditor;
 #endif // #if WITH_EDITOR
+
+namespace EAlphaChannelMode
+{
+	EAlphaChannelMode::Type FromInt(int32 InAlphaChannelMode)
+	{
+		return static_cast<EAlphaChannelMode::Type>(FMath::Clamp(InAlphaChannelMode, (int32)Disabled, (int32)AllowThroughTonemapper));
+	}
+}
+
+namespace EDefaultBackBufferPixelFormat
+{
+	EPixelFormat Convert2PixelFormat(EDefaultBackBufferPixelFormat::Type InDefaultBackBufferPixelFormat)
+	{
+		static EPixelFormat SPixelFormat[] = { PF_B8G8R8A8, PF_A16B16G16R16, PF_FloatRGB, PF_FloatRGBA, PF_A2B10G10R10, PF_A2B10G10R10 };
+		return SPixelFormat[(int32)InDefaultBackBufferPixelFormat];
+	}
+
+	int32 NumberOfBitForAlpha(EDefaultBackBufferPixelFormat::Type InDefaultBackBufferPixelFormat)
+	{
+		switch (InDefaultBackBufferPixelFormat)
+		{
+			case DBBPF_A16B16G16R16:
+				return 16;
+			case DBBPF_B8G8R8A8:
+			case DBBPF_FloatRGBA:
+				return 8;
+			case DBBPF_A2B10G10R10:
+				return 2;
+			case DBBPF_FloatRGB:
+			default:
+				return 0;
+		}
+		return 0;
+	}
+
+	EDefaultBackBufferPixelFormat::Type FromInt(int32 InDefaultBackBufferPixelFormat)
+	{
+		return static_cast<EDefaultBackBufferPixelFormat::Type>(FMath::Clamp(InDefaultBackBufferPixelFormat, 0, (int32)DBBPF_MAX - 1));
+	}
+}
 
 URendererSettings::URendererSettings(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -19,6 +60,8 @@ URendererSettings::URendererSettings(const FObjectInitializer& ObjectInitializer
 	bSupportAtmosphericFog = true;
 	bSupportSkinCacheShaders = false;
 	bSupportMaterialLayers = false;
+	GPUSimulationTextureSizeX = 1024;
+	GPUSimulationTextureSizeY = 1024;
 }
 
 void URendererSettings::PostInitProperties()
@@ -44,6 +87,16 @@ void URendererSettings::PostEditChangeProperty(FPropertyChangedEvent& PropertyCh
 
 	if (PropertyChangedEvent.Property)
 	{
+		// round up GPU sim texture sizes to nearest power of two, and constrain to sensible values
+		if ( PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(URendererSettings, GPUSimulationTextureSizeX) 
+			|| PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(URendererSettings, GPUSimulationTextureSizeY) ) 
+		{
+			static const int32 MinGPUSimTextureSize = 32;
+			static const int32 MaxGPUSimTextureSize = 8192;
+			GPUSimulationTextureSizeX = FMath::RoundUpToPowerOfTwo( FMath::Clamp(GPUSimulationTextureSizeX, MinGPUSimTextureSize, MaxGPUSimTextureSize) );
+			GPUSimulationTextureSizeY = FMath::RoundUpToPowerOfTwo( FMath::Clamp(GPUSimulationTextureSizeY, MinGPUSimTextureSize, MaxGPUSimTextureSize) );
+		}
+
 		ExportValuesToConsoleVariables(PropertyChangedEvent.Property);
 
 		if (PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(URendererSettings, ReflectionCaptureResolution) && 

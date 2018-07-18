@@ -264,7 +264,7 @@ void FOnlineLeaderboardsGameCircle::OnReadFriendsListComplete(int32 LocalPlayer,
 void FOnlineLeaderboardsGameCircle::GetScoreForNextPlayer(const char *const LeaderboardID)
 {
 	check(PlayersToQuery.Num() > 0);
-	const FUniqueNetIdString NetIdString(PlayersToQuery[0]->ToString());
+	const FUniqueNetIdGameCircle NetIdString(PlayersToQuery[0]->ToString());
 
 	UE_LOG_ONLINE(Display, TEXT("Getting Score for Player Id - %s . %s"), *PlayersToQuery[0]->ToString(), *NetIdString.UniqueNetIdStr);
 

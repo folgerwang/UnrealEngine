@@ -1,9 +1,13 @@
-﻿INTSourceChangelist:3029270
-Availability:Docs
+﻿INTSourceChangelist:3467293
+Availability:Public
 Title:Developer ツール
 Crumbs: %ROOT%, Engine
 Description:Developer Tools ファイル メニューのオプションの説明 
 version:4.12
+parent:Engine/Editor
+type:overview
+order:30
+Topic-image:DeveloperTools_topic.png
 
 [REGION:raw]
 ![](DeveloperTools2.png)
@@ -41,7 +45,7 @@ Developer ツールには 3 つのカテゴリがあります。
 | **Device Manager** | デバイス マネージャを開きます。|
 | **Device Profiles** | [Device Profile](Platforms/DeviceProfiles)  タブを開きます。プロジェクト内でデバイス固有のコンフィギュレーションを管理できます。 |
 | **Merge Actors** | Merge Actors ツールを開きます。 |
-| **Pixel Inspector** | [**Pixel Inspector**](Engine\Tools\DevTools\PixelInspector) を開きます。ビューポートから特定のピクセルの情報を提供します。 |
+| **Pixel Inspector** | [**Pixel Inspector**](Engine/Tools/DevTools/PixelInspector) を開きます。ビューポートから特定のピクセルの情報を提供します。 |
 | **Session Frontend** | [**Session Frontend**](Engine/Deployment/UnrealFrontend) ツールを開きます。日常のゲーム開発 (prep ビルド、デプロイ、起動) に使用する多目的ツールです。 |
 | **Widget Reflector** | ウィジェット リフレクターを開きます。
 

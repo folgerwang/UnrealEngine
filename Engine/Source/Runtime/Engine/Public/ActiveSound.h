@@ -246,6 +246,15 @@ public:
 	/** Returns whether or not the active sound can be deleted. */
 	bool CanDelete() const { return !bAsyncOcclusionPending; }
 
+	/** Whether or not the active sound is a looping sound. */
+	bool IsLooping() const { return Sound && Sound->IsLooping(); }
+
+	/** Whether or not the active sound a one-shot sound. */
+	bool IsOneShot() const { return !IsLooping(); }
+
+	/** Whether or not the active sound is currently playing audible sound. */
+	bool IsPlayingAudio() const { return bIsPlayingAudio; }
+
 	FAudioDevice* AudioDevice;
 
 	/** The group of active concurrent sounds that this sound is playing in. */
@@ -357,6 +366,12 @@ public:
 	/** Whether or not this active sound will update the average envelope value of every wave instance that plays a sound source. Based on set delegates on audio component. */
 	uint8 bUpdateMultiEnvelopeValue:1;
 
+	/** Whether or not this active sound is playing audio, as in making audible sounds. */
+	uint8 bIsPlayingAudio:1;
+
+	/** Whether or not the active sound is stoppping. */
+	uint8 bIsStopping:1;
+
 public:
 	uint8 UserIndex;
 
@@ -367,6 +382,7 @@ public:
 	FThreadSafeBool bAsyncOcclusionPending;
 
 	float PlaybackTime;
+	float MinCurrentPitch;
 	float RequestedStartTime;
 
 	float CurrentAdjustVolumeMultiplier;
@@ -577,7 +593,16 @@ private:
 	friend class FAudioDevice;
 
 	/** Stops the active sound. Can only be called from the owning audio device. */
-	void Stop();
+	void Stop(bool bStopNow);
+
+	/** Whether or not the active sound is stopping. */
+	bool IsStopping() const { return bIsStopping; }
+
+	/** Ensures that the sound has finished stopping. Waits until the sound finishes stopping naturally. */
+	void EnsureStopped();
+
+	/** Called when an active sound has been stopped but needs to update it's stopping sounds. Returns true when stopping sources have finished stopping. */
+	bool UpdateStoppingSources(uint64 CurrentTick, bool bEnsureStopped);
 
 	/** Sets the target volume multiplier to achieve over the specified time period */
 	void UpdateAdjustVolumeMultiplier(const float DeltaTime);

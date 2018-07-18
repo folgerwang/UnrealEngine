@@ -3,12 +3,12 @@
 #pragma once
 
 #include "MovieSceneFwd.h"
-#include "MovieSceneAnimTypeID.h"
-#include "MovieSceneBlendingActuatorID.h"
-#include "InlineValue.h"
-#include "MovieSceneEvaluationScope.h"
-#include "MovieSceneEvaluationOperand.h"
-#include "BlendableToken.h"
+#include "Evaluation/MovieSceneAnimTypeID.h"
+#include "Evaluation/Blending/MovieSceneBlendingActuatorID.h"
+#include "Misc/InlineValue.h"
+#include "Evaluation/MovieSceneEvaluationScope.h"
+#include "Evaluation/MovieSceneEvaluationOperand.h"
+#include "Evaluation/Blending/BlendableToken.h"
 #include "IMovieScenePlayer.h"
 
 struct FMovieSceneInterrogationData;

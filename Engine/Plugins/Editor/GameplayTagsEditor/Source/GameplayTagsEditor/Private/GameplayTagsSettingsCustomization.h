@@ -33,4 +33,6 @@ private:
 	void OnTagTreeChanged();
 
 	TSharedPtr<SGameplayTagWidget> TagWidget;
+
+	TSharedPtr<SGameplayTagWidget> RestrictedTagWidget;
 };

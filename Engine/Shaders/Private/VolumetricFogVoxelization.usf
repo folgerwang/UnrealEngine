@@ -4,7 +4,6 @@
 
 // So vertex factories can interpolate dependencies of VertexFactoryGetTranslatedPrimitiveVolumeBounds
 #define PASS_NEEDS_PRIMITIVE_VOLUME_BOUNDS 1
-#define MIN_MATERIAL_TEXCOORDS 1
 
 #include "Common.ush"
 #include "/Engine/Generated/Material.ush"
@@ -76,7 +75,18 @@ void VoxelizeGS(triangle FVoxelizeVolumePrimitiveVSToGS Inputs[3], inout Triangl
 		&& ClosestSliceIndex <= FurthestSliceIndexUnclamped
 		&& FurthestSliceIndexUnclamped >= 0)
 	{
-#if VOXELIZE_SHAPE_MODE == OBJECT_BOX_MODE
+#if VOXELIZE_SHAPE_MODE == PRIMITIVE_SPHERE_MODE
+
+		float InvPrimitiveVolumeRadius = 1.0f / PrimitiveVolumeBounds.w;
+		float2 PrimitiveCenterToVertex[NUM_INPUT_VERTICES];
+
+		UNROLL
+		for (uint VertexIndex = 0; VertexIndex < NUM_INPUT_VERTICES; VertexIndex++)
+		{
+			PrimitiveCenterToVertex[VertexIndex] = (Inputs[VertexIndex].VertexQuadCoordinate - ViewSpacePrimitiveVolumeOrigin.xy) * InvPrimitiveVolumeRadius;
+		}
+
+#elif VOXELIZE_SHAPE_MODE == OBJECT_BOX_MODE
 		float2 ViewSpaceBoundingBoxMin = 10000000;
 		float2 ViewSpaceBoundingBoxMax = -10000000;
 
@@ -107,14 +117,13 @@ void VoxelizeGS(triangle FVoxelizeVolumePrimitiveVSToGS Inputs[3], inout Triangl
 				UNROLL
 				for (uint VertexIndex = 0; VertexIndex < NUM_INPUT_VERTICES; VertexIndex++)
 				{
-					float2 CornerMask = Inputs[VertexIndex].VertexQuadCoordinate;
-
 					#if VOXELIZE_SHAPE_MODE == PRIMITIVE_SPHERE_MODE
 						// Use vertex positions that bound this slice of the sphere in view space
-						ViewSpaceVertices[VertexIndex] = ViewSpacePrimitiveVolumeOrigin.xy + (CornerMask * 2 - 1) * SliceRadius;
+						ViewSpaceVertices[VertexIndex] = ViewSpacePrimitiveVolumeOrigin.xy + PrimitiveCenterToVertex[VertexIndex] * SliceRadius;
 					#elif VOXELIZE_SHAPE_MODE == OBJECT_BOX_MODE
 						// Use vertex positions that bound the OBB in view space
 						//@todo - accurately intersect each slice with the OBB producing a 3-6 vertex polygon like "A Vertex Program for Efficient Box-Plane Intersection"
+						float2 CornerMask = Inputs[VertexIndex].VertexQuadCoordinate;
 						ViewSpaceVertices[VertexIndex] = ViewSpaceBoundingBoxMin + (ViewSpaceBoundingBoxMax - ViewSpaceBoundingBoxMin) * CornerMask;
 					#endif
 				}
@@ -164,35 +173,24 @@ void VoxelizeVS(
 	FMaterialVertexParameters VertexParameters = GetMaterialVertexParameters(Input, VFIntermediates, TranslatedWorldPosition.xyz, TangentToLocal);
 	Output.FactoryInterpolants = VertexFactoryGetInterpolantsVSToPS(Input, VFIntermediates, VertexParameters);
 
-
-
-
-
+	float3 ViewSpacePosition = mul(TranslatedWorldPosition, ResolvedView.TranslatedWorldToView).xyz;
 
 #if USING_VERTEX_SHADER_LAYER
 	FVoxelizeVolumePrimitiveVSToGS Inputs[1];
 	Inputs[0].FactoryInterpolants = Output.FactoryInterpolants;
 
-#if VOXELIZE_SHAPE_MODE == PRIMITIVE_SPHERE_MODE
-
-	Inputs[0].VertexQuadCoordinate = VertexParameters.TexCoords[0];
-
-#elif VOXELIZE_SHAPE_MODE == OBJECT_BOX_MODE
-
-	Inputs[0].VertexQuadCoordinate = float2(VertexId & 1, (VertexId >> 1) & 1);
-
-#endif
+	#if VOXELIZE_SHAPE_MODE == PRIMITIVE_SPHERE_MODE
+		Inputs[0].VertexQuadCoordinate = ViewSpacePosition.xy;
+	#elif VOXELIZE_SHAPE_MODE == OBJECT_BOX_MODE
+		Inputs[0].VertexQuadCoordinate = float2(VertexId & 1, (VertexId >> 1) & 1);
+	#endif
 
 	Voxelize(Inputs, Output);
 #else
 	#if VOXELIZE_SHAPE_MODE == PRIMITIVE_SPHERE_MODE
-
-	Output.VertexQuadCoordinate = VertexParameters.TexCoords[0];
-
+		Output.VertexQuadCoordinate = ViewSpacePosition.xy;
 	#elif VOXELIZE_SHAPE_MODE == OBJECT_BOX_MODE
-
-	Output.VertexQuadCoordinate = float2(VertexId & 1, (VertexId >> 1) & 1);
-
+		Output.VertexQuadCoordinate = float2(VertexId & 1, (VertexId >> 1) & 1);
 	#endif
 #endif
 }

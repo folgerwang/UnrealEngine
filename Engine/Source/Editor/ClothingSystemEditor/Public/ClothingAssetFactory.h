@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "ClothingAsset.h"
+#include "Assets/ClothingAsset.h"
 #include "ClothingAssetFactoryInterface.h"
 #include "GPUSkinPublicDefs.h"
 

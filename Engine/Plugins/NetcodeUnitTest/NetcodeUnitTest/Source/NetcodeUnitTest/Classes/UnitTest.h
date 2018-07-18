@@ -118,6 +118,9 @@ protected:
 	/** Whether or not this unit test is unreliable, i.e. prone to giving incorrect/unexpected results, requiring multiple runs */
 	bool bUnreliable;
 
+	/** Whether or not this unit test is obsolete - i.e. based on code no longer present in the game/engine */
+	bool bObsolete;
+
 
 	/**
 	 * The unit test result we expect for each games codebase, i.e. whether we expect that the problem is fixed yet or not

@@ -1,56 +1,20 @@
-﻿INTSourceChangelist:3213117
+﻿INTSourceChangelist:3736212
 Availability:Public
 Title:Movable Lights (可動ライト)
 Crumbs: %ROOT%, Engine, Engine/Rendering/LightingAndShadows,Engine/Rendering/LightingAndShadows/LightMobility
 Description:実行中にプロパティをすべて変更できる完全に動的なライト
 Version:4.9
+parent:Engine/Rendering/LightingAndShadows/LightMobility
+order:3
+type:overview
+topic-image:PL_Topic.png
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Rendering/LightingAndShadows/LightMobility/DynamicLights:title%](PL_Topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Rendering/LightingAndShadows/LightMobility/DynamicLights:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Rendering/LightingAndShadows/LightMobility/DynamicLights:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/LightingAndShadows/LightMobility/DynamicLights]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Rendering/LightingAndShadows/LightMobility/DynamicLights:title%](PL_Topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/light_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Rendering/LightingAndShadows/LightMobility/DynamicLights:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Rendering/LightingAndShadows/LightMobility/DynamicLights:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/LightingAndShadows/LightMobility/DynamicLights]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
 [REGION:fullwidth raw]
 ![](Engine/Rendering/LightingAndShadows/lighting_overview_banner_001.png)(convert:false)
 [/REGION]
 
 [TOC(start:2 end:3)]
-
-
 
 [EXCERPT:Movable001]
 
@@ -73,7 +37,7 @@ Version:4.9
 移動しないポイント ライトまたはスポット ライトに対して、シャドウ マップを格納して次のフレームに再利用することができます。この機能は、背景が通常は動かないゲームでは、シャドウ キャスティング ムーバブル ポイントライトとスポットライトの効率を上げます。次のドキュメントでは、この機能を UE4 プロジェクトで使用する方法を説明します。
 
 ### シャドウマップ キャッシュとパフォーマンスの確認方法
-シャドウマップ キャッシュは UE4 プロジェクトでは自動的に有効にされます。シャドウマップ キャッシュののパフォーマンスを確認するために、以下の手順でシャドウマップ キャッシュの有効 / 無効を切り替えます。
+Shadow Map Caching (シャドウマップ キャッシュ) は UE4 プロジェクトでは自動的に有効にされます。シャドウマップ キャッシュののパフォーマンスを確認するために、以下の手順でシャドウマップ キャッシュの有効 / 無効を切り替えます。
 
 [region:note]
 以下のシャドウマップ キャッシュのデモには Sun Temple プロジェクトを使用しました。Sun Temple  マップは、エピック ゲームズ ランチャーの [Learn] タブから見つけることができます。
@@ -129,7 +93,7 @@ Version:4.9
 
 	* プリミティブの **[Mobility (可動性)]** が **[Static (静的)]** または **[Stationary (固定)]** に設定されている場合 
 	* レベルで使用しているマテリアルが **World Position Offset** を使わない場合
-	* ライトは **ポイント** ライトか **Spot** ライトのいずれか、**[Mobility (可動性)]** を **[Movable (可動)]** に設定して **[Shadow Casting]** を有効にします。
+	* ライトは **ポイント** ライトか **スポット** ライトのいずれか、**[Mobility (可動性)]** を **[Movable (可動)]** に設定して **[Shadow Casting]** を有効にします。
 	* ライトは 1 個所に残しておかなければなりません。
-	* アニメートしている **テセレーション** または **ピクセル深度オフセット** を使用しているマテリアルは、シャドウ深度がキャッシュされるとアーティファクトを生じ得ることがあります。
+	* アニメートしている **テセレーション** または **Pixel Depth Offset (ピクセル深度オフセット)** を使用しているマテリアルは、シャドウ深度がキャッシュされるとアーティファクトを生じ得ることがあります。
 

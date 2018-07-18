@@ -31,6 +31,7 @@ public:
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
 #endif
 	virtual UTexture* GetReferencedTexture() override;
+	virtual bool CanReferenceTexture() const override { return true; }
 	//~ End UMaterialExpression Interface
 
 	virtual FGuid& GetParameterExpressionId() override;

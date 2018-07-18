@@ -1,5 +1,4 @@
-﻿INTSourceChangeList:3149199
-Availability:Public
+﻿Availability:Public
 Title:ビューポートで Spline コンポーネントを編集する方法
 Crumbs: %ROOT%, Engine
 Description:Null
@@ -12,45 +11,7 @@ version:4.13
 skilllevel:Beginner
 reference-image:FullEdit.gif
 tags:Splines
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/BlueprintSplines/HowTo/EditSplineComponentInEditor:title%](Engine/BlueprintSplines/Splines_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/editor_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/BlueprintSplines/HowTo/EditSplineComponentInEditor:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/BlueprintSplines/HowTo/EditSplineComponentInEditor:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/BlueprintSplines/HowTo/EditSplineComponentInEditor]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/BlueprintSplines/HowTo/EditSplineComponentInEditor:title%](Engine/BlueprintSplines/Splines_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/editor_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/BlueprintSplines/HowTo/EditSplineComponentInEditor:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/BlueprintSplines/HowTo/EditSplineComponentInEditor:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/BlueprintSplines/HowTo/EditSplineComponentInEditor]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:Engine/BlueprintSplines/Splines_topic.png
 
 レベル エディタ内の **Blueprint Spline コンポーネント** のカーブの編集方法をステップごとに説明します。**Blueprint Spline Mesh コンポーネント** も設定およびレベル エディタでの編集が可能です。ただし、使用できるポイントは 2 つのみで、追加もできません。
 

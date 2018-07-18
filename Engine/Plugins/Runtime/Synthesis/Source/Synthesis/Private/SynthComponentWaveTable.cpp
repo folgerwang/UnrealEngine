@@ -25,6 +25,12 @@ bool USynthSamplePlayer::Init(int32& SampleRate)
 
 	SampleBufferReader.Init(SampleRate);
 	SoundWaveLoader.Init(GetAudioDevice());
+
+	if (SoundWave != nullptr)
+	{
+		SoundWaveLoader.LoadSoundWave(SoundWave);
+	}
+
 	return true;
 }
 
@@ -36,7 +42,7 @@ void USynthSamplePlayer::SetPitch(float InPitch, float InTimeSec)
 	});
 }
 
-void USynthSamplePlayer::SeekToTime(float InTimeSecs, ESamplePlayerSeekType InSeekType)
+void USynthSamplePlayer::SeekToTime(float InTimeSecs, ESamplePlayerSeekType InSeekType, bool bWrap)
 {
 	Audio::ESeekType::Type SeekType;
 	switch (InSeekType)
@@ -55,9 +61,9 @@ void USynthSamplePlayer::SeekToTime(float InTimeSecs, ESamplePlayerSeekType InSe
 			break;
 	}
 
-	SynthCommand([this, InTimeSecs, SeekType]()
+	SynthCommand([this, InTimeSecs, SeekType, bWrap]()
 	{
-		SampleBufferReader.SeekTime(InTimeSecs, SeekType);
+		SampleBufferReader.SeekTime(InTimeSecs, SeekType, bWrap);
 	});
 }
 
@@ -136,6 +142,7 @@ void USynthSamplePlayer::TickComponent(float DeltaTime, enum ELevelTick TickType
 		SynthCommand([this, NewSampleBuffer]()
 		{
 			SampleBuffer = NewSampleBuffer;
+			SampleBufferReader.ClearBuffer();
 
 			// Clear the pending sound waves queue since we've now loaded a new buffer of data
 			SoundWaveLoader.Reset();
@@ -145,7 +152,7 @@ void USynthSamplePlayer::TickComponent(float DeltaTime, enum ELevelTick TickType
 	OnSamplePlaybackProgress.Broadcast(GetCurrentPlaybackProgressTime(), GetCurrentPlaybackProgressPercent());
 }
 
-void USynthSamplePlayer::OnGenerateAudio(float* OutAudio, int32 NumSamples)
+int32 USynthSamplePlayer::OnGenerateAudio(float* OutAudio, int32 NumSamples)
 {
 	if (SampleBuffer.GetData() && !SampleBufferReader.HasBuffer())
 	{
@@ -153,7 +160,7 @@ void USynthSamplePlayer::OnGenerateAudio(float* OutAudio, int32 NumSamples)
 		const int32 BufferNumSamples = SampleBuffer.GetNumSamples();
 		const int32 BufferNumChannels = SampleBuffer.GetNumChannels();
 		const int32 BufferSampleRate = SampleBuffer.GetSampleRate();
-		SampleBufferReader.SetBuffer(&BufferData, BufferNumSamples, BufferNumChannels, BufferSampleRate);
+		SampleBufferReader.SetBuffer(BufferData, BufferNumSamples, BufferNumChannels, BufferSampleRate);
 		SampleDurationSec = BufferNumSamples / (BufferSampleRate * BufferNumChannels);
 	}
 
@@ -170,4 +177,5 @@ void USynthSamplePlayer::OnGenerateAudio(float* OutAudio, int32 NumSamples)
 			OutAudio[Sample] = 0.0f;
 		}
 	}
+	return NumSamples;
 }

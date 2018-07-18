@@ -77,6 +77,9 @@ class ClothImpl : public Cloth
 	virtual void clearInertia();
 
 	virtual void teleport(const physx::PxVec3& delta);
+	virtual void teleportToLocation(const physx::PxVec3& translation, const physx::PxQuat& rotation);
+
+	virtual void ignoreVelocityDiscontinuity();
 
 	virtual float getPreviousIterationDt() const;
 	virtual void setGravity(const physx::PxVec3& gravity);
@@ -210,6 +213,7 @@ public: //Fields shared between all cloth classes
 	physx::PxTransform mCurrentMotion;
 	physx::PxVec3 mLinearVelocity;
 	physx::PxVec3 mAngularVelocity;
+	bool mIgnoreVelocityDiscontinuityNextFrame;
 
 	float mPrevIterDt;
 	MovingAverage mIterDtAvg;
@@ -289,6 +293,21 @@ inline void ClothImpl<T>::teleport(const physx::PxVec3& delta)
 {
 	mCurrentMotion.p += delta;
 	mTargetMotion.p += delta;
+}
+
+template <typename T>
+inline void ClothImpl<T>::teleportToLocation(const physx::PxVec3& translation, const physx::PxQuat& rotation)
+{
+	mCurrentMotion.p = translation;
+	mCurrentMotion.q = rotation;
+	mTargetMotion.p = translation;
+	mTargetMotion.q = rotation;
+}
+
+template <typename T>
+inline void ClothImpl<T>::ignoreVelocityDiscontinuity()
+{
+	mIgnoreVelocityDiscontinuityNextFrame = true;
 }
 
 template <typename T>

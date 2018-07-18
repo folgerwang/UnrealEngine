@@ -727,6 +727,7 @@ bool GameProjectUtils::CreateProject(const FProjectInformation& InProjectInfo, F
 		Enum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EGraphicsPreset"), true);
 		EventAttributes.Add(FAnalyticsEventAttribute(TEXT("GraphicsPreset"), Enum ? Enum->GetNameStringByValue(InProjectInfo.DefaultGraphicsPerformance) : FString()));
 		EventAttributes.Add(FAnalyticsEventAttribute(TEXT("StarterContent"), InProjectInfo.bCopyStarterContent ? TEXT("Yes") : TEXT("No")));
+		EventAttributes.Emplace(TEXT("Enterprise"), InProjectInfo.bIsEnterpriseProject);
 
 		FEngineAnalytics::GetProvider().RecordEvent( TEXT( "Editor.NewProject.ProjectCreated" ), EventAttributes );
 	}
@@ -897,6 +898,8 @@ bool GameProjectUtils::UpdateStartupModuleNames(FProjectDescriptor& Descriptor, 
 		Descriptor.Modules.Add(FModuleDescriptor(*(*StartupModuleNames)[Idx]));
 	}
 
+	ResetCurrentProjectModulesCache();
+
 	return true;
 }
 
@@ -949,6 +952,7 @@ void GameProjectUtils::OpenAddToProjectDialog(const FAddToProjectConfig& Config,
 
 	TSharedRef<SNewClassDialog> NewClassDialog = 
 		SNew(SNewClassDialog)
+		.ParentWindow(AddCodeWindow)
 		.Class(Config._ParentClass)
 		.ClassViewerFilter(Config._AllowableParents)
 		.ClassDomain(InDomain)
@@ -1127,6 +1131,7 @@ GameProjectUtils::EAddCodeToProjectResult GameProjectUtils::AddCodeToProject(con
 		EventAttributes.Add(FAnalyticsEventAttribute(TEXT("ParentClass"), ParentClassName.IsEmpty() ? TEXT("None") : ParentClassName));
 		EventAttributes.Add(FAnalyticsEventAttribute(TEXT("Outcome"), Result == EAddCodeToProjectResult::Succeeded ? TEXT("Successful") : TEXT("Failed")));
 		EventAttributes.Add(FAnalyticsEventAttribute(TEXT("FailureReason"), OutFailReason.ToString()));
+		EventAttributes.Emplace(TEXT("Enterprise"), IProjectManager::Get().IsEnterpriseProject());
 
 		FEngineAnalytics::GetProvider().RecordEvent( TEXT( "Editor.AddCodeToProject.CodeAdded" ), EventAttributes );
 	}
@@ -1174,6 +1179,8 @@ bool GameProjectUtils::GenerateProjectFromScratch(const FProjectInformation& InP
 	TArray<FString> CreatedFiles;
 
 	SlowTask.EnterProgressFrame();
+
+	ResetCurrentProjectModulesCache();
 
 	// Generate config files
 	if (!GenerateConfigFiles(InProjectInfo, CreatedFiles, OutFailReason))
@@ -1594,7 +1601,11 @@ bool GameProjectUtils::CreateProjectFromTemplate(const FProjectInformation& InPr
 	{
 		return false;
 	}
-	
+
+	if (!TemplateDefs->PreGenerateProject(DestFolder, SrcFolder, InProjectInfo.ProjectFilename, InProjectInfo.TemplateFile, InProjectInfo.bShouldGenerateCode, OutFailReason))
+	{
+		return false;
+	}
 	
 	SlowTask.EnterProgressFrame();
 
@@ -2090,13 +2101,115 @@ bool GameProjectUtils::IsStarterContentAvailableForNewProjects()
 	return bHasStaterContent;
 }
 
-TArray<FModuleContextInfo> GameProjectUtils::GetCurrentProjectModules()
+int32 FindSpecificBuildFiles(const TCHAR* Path, TMap<FString, FString>& BuildFiles)
+{
+	class FBuildFileVistor : public IPlatformFile::FDirectoryVisitor
+	{
+	public:
+		TMap<FString, FString>& BuildFiles;
+		int32& NumBuildFilesFound;
+		FString CheckFilename;
+		bool bSawAnyBuildFile;
+
+		FBuildFileVistor(TMap<FString, FString>& InBuildFiles, int32& InNumBuildFilesFound) :
+			BuildFiles(InBuildFiles),
+			NumBuildFilesFound(InNumBuildFilesFound),
+			bSawAnyBuildFile(false)
+		{
+		}
+
+		virtual bool Visit(const TCHAR* FilenameOrDirectory, bool bIsDirectory)
+		{
+			if (bIsDirectory)
+			{
+				return true;
+			}
+
+			static const FString BuildFileSuffix(TEXT(".Build.cs"));
+			CheckFilename = FilenameOrDirectory;
+			if (!CheckFilename.EndsWith(BuildFileSuffix))
+			{
+				return true;
+			}
+
+			bSawAnyBuildFile = true;
+
+			CheckFilename = FPaths::GetCleanFilename(CheckFilename);
+			FString* Found = BuildFiles.Find(CheckFilename);
+			if (Found && Found->Len() == 0)
+			{
+				*Found = FilenameOrDirectory;
+				++NumBuildFilesFound;
+			}
+
+			return false;
+		}
+	};
+
+	class FBuildDirectoryVistor : public IPlatformFile::FDirectoryVisitor
+	{
+	public:
+		FBuildFileVistor FileVisitor;
+		FString CheckDirectory;
+
+		FBuildDirectoryVistor(TMap<FString, FString>& InBuildFiles, int32& InNumBuildFilesFound) :
+			FileVisitor(InBuildFiles, InNumBuildFilesFound)
+		{
+		}
+
+		virtual bool Visit(const TCHAR* FilenameOrDirectory, bool bIsDirectory)
+		{
+			if (bIsDirectory)
+			{
+				static const FString Dot(TEXT("."));
+				CheckDirectory = FPaths::GetCleanFilename(FilenameOrDirectory);
+				if (!CheckDirectory.StartsWith(Dot) && CheckDirectory != TEXT("Public") && CheckDirectory != TEXT("Private"))
+				{
+					return ScanDirectory(FilenameOrDirectory);
+				}
+			}
+
+			return true;
+		}
+
+		bool ScanDirectory(const TCHAR* FilenameOrDirectory)
+		{
+			// Iterate files only the first time
+			FileVisitor.bSawAnyBuildFile = false;
+			IFileManager::Get().IterateDirectory(FilenameOrDirectory, FileVisitor);
+			if (!FileVisitor.bSawAnyBuildFile && FileVisitor.NumBuildFilesFound < FileVisitor.BuildFiles.Num())
+			{
+				// Iterate directories only the second time
+				IFileManager::Get().IterateDirectory(FilenameOrDirectory, *this);
+			}
+
+			return FileVisitor.NumBuildFilesFound < FileVisitor.BuildFiles.Num();
+		}
+	};
+
+	int32 NumBuildFilesFound = 0;
+	FBuildDirectoryVistor DirectoryVisitor(BuildFiles, NumBuildFilesFound);
+	DirectoryVisitor.ScanDirectory(Path);
+	return NumBuildFilesFound;
+}
+
+void GameProjectUtils::ResetCurrentProjectModulesCache()
+{
+	IProjectManager::Get().GetCurrentProjectModuleContextInfos().Reset();
+}
+
+const TArray<FModuleContextInfo>& GameProjectUtils::GetCurrentProjectModules()
 {
 	const FProjectDescriptor* const CurrentProject = IProjectManager::Get().GetCurrentProject();
 	check(CurrentProject);
 
-	TArray<FModuleContextInfo> RetModuleInfos;
+	TArray<FModuleContextInfo>& RetModuleInfos = IProjectManager::Get().GetCurrentProjectModuleContextInfos();
+	if (RetModuleInfos.Num() > 0)
+	{
+		return RetModuleInfos;
+	}
 
+	RetModuleInfos.Reset(CurrentProject->Modules.Num() + 1);
 	if (!GameProjectUtils::ProjectHasCodeFiles() || CurrentProject->Modules.Num() == 0)
 	{
 		// If this project doesn't currently have any code in it, we need to add a dummy entry for the game
@@ -2108,6 +2221,15 @@ TArray<FModuleContextInfo> GameProjectUtils::GetCurrentProjectModules()
 		RetModuleInfos.Emplace(ModuleInfo);
 	}
 
+	TMap<FString, FString> BuildFilePathsByName;
+	BuildFilePathsByName.Reserve(CurrentProject->Modules.Num());
+	for (const FModuleDescriptor& ModuleDesc : CurrentProject->Modules)
+	{
+		BuildFilePathsByName.Add(ModuleDesc.Name.ToString() + TEXT(".Build.cs"));
+	}
+
+	FindSpecificBuildFiles(*FPaths::GameSourceDir(), BuildFilePathsByName);
+
 	// Resolve out the paths for each module and add the cut-down into to our output array
 	for (const FModuleDescriptor& ModuleDesc : CurrentProject->Modules)
 	{
@@ -2116,14 +2238,14 @@ TArray<FModuleContextInfo> GameProjectUtils::GetCurrentProjectModules()
 		ModuleInfo.ModuleType = ModuleDesc.Type;
 
 		// Try and find the .Build.cs file for this module within our currently loaded project's Source directory
-		FString TmpPath;
-		if (!FindSourceFileInProject(ModuleInfo.ModuleName + ".Build.cs", FPaths::GameSourceDir(), TmpPath))
+		FString* FullPath = BuildFilePathsByName.Find(ModuleInfo.ModuleName + TEXT(".Build.cs"));
+		if (!FullPath)
 		{
 			continue;
 		}
 
 		// Chop the .Build.cs file off the end of the path
-		ModuleInfo.ModuleSourcePath = FPaths::GetPath(TmpPath);
+		ModuleInfo.ModuleSourcePath = FPaths::GetPath(*FullPath);
 		ModuleInfo.ModuleSourcePath = FPaths::ConvertRelativePathToFull(ModuleInfo.ModuleSourcePath / ""); // Ensure trailing /
 
 		RetModuleInfos.Emplace(ModuleInfo);
@@ -2935,6 +3057,8 @@ bool GameProjectUtils::GenerateGameModuleBuildFile(const FString& NewBuildFileNa
 	FinalOutput = FinalOutput.Replace(TEXT("%PRIVATE_DEPENDENCY_MODULE_NAMES%"), *MakeCommaDelimitedList(PrivateDependencyModuleNames), ESearchCase::CaseSensitive);
 	FinalOutput = FinalOutput.Replace(TEXT("%MODULE_NAME%"), *ModuleName, ESearchCase::CaseSensitive);
 
+	ResetCurrentProjectModulesCache();
+
 	return WriteOutputFile(NewBuildFileName, FinalOutput, OutFailReason);
 }
 
@@ -2985,6 +3109,8 @@ bool GameProjectUtils::GenerateEditorModuleBuildFile(const FString& NewBuildFile
 	FinalOutput = FinalOutput.Replace(TEXT("%PUBLIC_DEPENDENCY_MODULE_NAMES%"), *MakeCommaDelimitedList(PublicDependencyModuleNames), ESearchCase::CaseSensitive);
 	FinalOutput = FinalOutput.Replace(TEXT("%PRIVATE_DEPENDENCY_MODULE_NAMES%"), *MakeCommaDelimitedList(PrivateDependencyModuleNames), ESearchCase::CaseSensitive);
 	FinalOutput = FinalOutput.Replace(TEXT("%MODULE_NAME%"), *ModuleName, ESearchCase::CaseSensitive);
+
+	ResetCurrentProjectModulesCache();
 
 	return WriteOutputFile(NewBuildFileName, FinalOutput, OutFailReason);
 }

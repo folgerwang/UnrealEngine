@@ -5,15 +5,20 @@
 #include "CoreTypes.h"
 #include "Containers/ContainerAllocationPolicies.h"
 #include "Containers/Array.h"
+#include "Containers/ArrayView.h"
 #include "Misc/Crc.h"
 #include "Containers/UnrealString.h"
 #include "Containers/Set.h"
 #include "Containers/Map.h"
 #include "Templates/SharedPointer.h"
 #include "Delegates/Delegate.h"
-#include "LocTesting.h"
-#include "LocKeyFuncs.h"
+#include "Internationalization/LocTesting.h"
+#include "Internationalization/LocKeyFuncs.h"
+#include "Internationalization/LocalizedTextSourceTypes.h"
+#include "Internationalization/TextLocalizationResourceId.h"
 
+struct FPolyglotTextData;
+class ILocalizedTextSource;
 class FTextLocalizationResource;
 
 typedef TSharedRef<FString, ESPMode::ThreadSafe> FTextDisplayStringRef;
@@ -23,7 +28,8 @@ typedef TSharedPtr<FString, ESPMode::ThreadSafe> FTextDisplayStringPtr;
 class CORE_API FTextLocalizationManager
 {
 	friend CORE_API void BeginInitTextLocalization();
-	friend CORE_API void EndInitTextLocalization();
+	friend CORE_API void InitEngineTextLocalization();
+	friend CORE_API void InitGameTextLocalization();
 
 private:
 	/** Utility class for managing the currently loaded or registered text localizations. */
@@ -34,14 +40,14 @@ private:
 		struct FDisplayStringEntry
 		{
 			bool bIsLocalized;
-			FString LocResID;
+			FTextLocalizationResourceId LocResID;
 			uint32 SourceStringHash;
 			FTextDisplayStringRef DisplayString;
 #if ENABLE_LOC_TESTING
 			FString NativeStringBackup;
 #endif
 
-			FDisplayStringEntry(const bool InIsLocalized, const FString& InLocResID, const uint32 InSourceStringHash, const FTextDisplayStringRef& InDisplayString)
+			FDisplayStringEntry(const bool InIsLocalized, const FTextLocalizationResourceId& InLocResID, const uint32 InSourceStringHash, const FTextDisplayStringRef& InDisplayString)
 				: bIsLocalized(InIsLocalized)
 				, LocResID(InLocResID)
 				, SourceStringHash(InSourceStringHash)
@@ -91,15 +97,33 @@ private:
 #endif
 
 private:
-	FTextLocalizationManager() 
-		: bIsInitialized(false)
-		, SynchronizationObject()
-		, TextRevisionCounter(0)
-	{}
+	FTextLocalizationManager();
 
 public:
+
 	/** Singleton accessor */
 	static FTextLocalizationManager& Get();
+
+	/**
+	 * Given a localization category, get the native culture for the category (if known).
+	 * @return The native culture for the given localization category, or an empty string if the native culture is unknown.
+	 */
+	FString GetNativeCultureName(const ELocalizedTextSourceCategory InCategory) const;
+
+	/**
+	 * Get a list of culture names that we have localized resource data for (ELocalizationLoadFlags controls which resources should be checked).
+	 */
+	TArray<FString> GetLocalizedCultureNames(const ELocalizationLoadFlags InLoadFlags) const;
+
+	/**
+	 * Register a localized text source with the text localization manager.
+	 */
+	void RegisterTextSource(const TSharedRef<ILocalizedTextSource>& InLocalizedTextSource, const bool InRefreshResources = true);
+
+	/**
+	 * Register a polyglot text data with the text localization manager.
+	 */
+	void RegisterPolyglotTextData(const FPolyglotTextData& InPolyglotTextData, const bool InAddDisplayString = true);
 
 	/**	Finds and returns the display string with the given namespace and key, if it exists.
 	 *	Additionally, if a source string is specified and the found localized display string was not localized from that source string, null will be returned. */
@@ -144,7 +168,7 @@ public:
 	void UpdateFromLocalizationResource(const FString& LocalizationResourceFilePath);
 
 	/** Updates display string entries and adds new display string entries based on localizations found in the specified localization resources. */
-	void UpdateFromLocalizationResources(const TArray<FTextLocalizationResource>& TextLocalizationResources);
+	void UpdateFromLocalizationResources(TArrayView<const TSharedPtr<FTextLocalizationResource>> TextLocalizationResources);
 
 	/** Reloads resources for the current culture. */
 	void RefreshResources();
@@ -216,26 +240,31 @@ public:
 	DECLARE_EVENT(FTextLocalizationManager, FTextRevisionChangedEvent)
 	FTextRevisionChangedEvent OnTextRevisionChangedEvent;
 
-	/** Delegate for gathering up additional localization paths that are unknown to the UE4 core (such as plugins) */
-	DECLARE_MULTICAST_DELEGATE_OneParam(FGatherAdditionalLocResPathsDelegate, TArray<FString>&);
-	FGatherAdditionalLocResPathsDelegate GatherAdditionalLocResPathsCallback;
-
 private:
 	/** Callback for changes in culture. Loads the new culture's localization resources. */
 	void OnCultureChanged();
 
 	/** Loads localization resources for the specified culture, optionally loading localization resources that are editor-specific or game-specific. */
-	void LoadLocalizationResourcesForCulture(const FString& CultureName, const bool ShouldLoadEditor, const bool ShouldLoadGame, const bool ShouldLoadNative);
+	void LoadLocalizationResourcesForCulture(const FString& CultureName, const ELocalizationLoadFlags LocLoadFlags);
+
+	/** Loads localization resources for the specified prioritized cultures, optionally loading localization resources that are editor-specific or game-specific. */
+	void LoadLocalizationResourcesForPrioritizedCultures(TArrayView<const FString> PrioritizedCultureNames, const ELocalizationLoadFlags LocLoadFlags);
 
 	/** Updates display string entries and adds new display string entries based on provided native text. */
-	void UpdateFromNative(const TArray<FTextLocalizationResource>& TextLocalizationResources);
+	void UpdateFromNative(const FTextLocalizationResource& TextLocalizationResource);
 
 	/** Updates display string entries and adds new display string entries based on provided localizations. */
-	void UpdateFromLocalizations(const TArray<FTextLocalizationResource>& TextLocalizationResources);
+	void UpdateFromLocalizations(TArrayView<const TSharedPtr<FTextLocalizationResource>> TextLocalizationResources);
 
 	/** Dirties the local revision counter for the given display string by incrementing it (or adding it) */
 	void DirtyLocalRevisionForDisplayString(const FTextDisplayStringRef& InDisplayString);
 
 	/** Dirties the text revision counter by incrementing it, causing a revision mismatch for any information cached before this happens.  */
 	void DirtyTextRevision();
+
+	/** Array of registered localized text sources, sorted by priority (@see RegisterTextSource) */
+	TArray<TSharedPtr<ILocalizedTextSource>> LocalizedTextSources;
+
+	/** The polyglot text source (this is also added to LocalizedTextSources, but we keep a pointer to it directly so we can add new polyglot data to it at runtime) */
+	TSharedPtr<class FPolyglotTextSource> PolyglotTextSource;
 };

@@ -16,12 +16,25 @@ public:
 
 	virtual ~FSlotBase();
 
+	FORCEINLINE_DEBUGGABLE void AttachWidgetParent(SWidget* InParent)
+	{
+		if (RawParentPtr != InParent)
+		{
+			ensureMsgf(RawParentPtr == nullptr, TEXT("Slots should not be reassigned to different parents."));
+
+			RawParentPtr = InParent;
+			AfterContentOrOwnerAssigned();
+		}
+	}
+
 	FORCEINLINE_DEBUGGABLE void AttachWidget( const TSharedRef<SWidget>& InWidget )
 	{
-		// If we don't hold a reference here, ~SWidget() could called on the old widget before the assignment takes place
+		// TODO: If we don't hold a reference here, ~SWidget() could called on the old widget before the assignment takes place
 		// The behavior of TShareRef is going to change in the near future to avoid this issue and this should then be reverted.
 		TSharedRef<SWidget> LocalWidget = Widget;
+		DetatchParentFromContent();
 		Widget = InWidget;
+		AfterContentOrOwnerAssigned();
 	}
 
 	/**
@@ -41,17 +54,21 @@ public:
 	 */
 	const TSharedPtr<SWidget> DetachWidget();
 
+protected:
+	/** The parent and owner of the slot. */
+	SWidget* RawParentPtr;
+
+private:
+	void DetatchParentFromContent();
+	void AfterContentOrOwnerAssigned();
+
 private:
 	// non-copyable
 	FSlotBase& operator=(const FSlotBase&);
 	FSlotBase(const FSlotBase&);
 
 private:
-	/**
-	 *
-	 * Widget IS NOW PRIVATE!
-	 *
-	 */
+	/** The content widget of the slot. */
 	TSharedRef<SWidget> Widget;
 };
 

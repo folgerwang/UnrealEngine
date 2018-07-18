@@ -107,6 +107,7 @@
 #include "SSCSEditorViewport.h"
 #include "SKismetInspector.h"
 #include "SBlueprintPalette.h"
+#include "SBlueprintBookmarks.h"
 #include "SBlueprintActionMenu.h"
 #include "SMyBlueprint.h"
 #include "SReplaceNodeReferences.h"
@@ -115,6 +116,7 @@
 // Debugging
 #include "Debugging/SKismetDebuggingView.h"
 #include "Debugging/KismetDebugCommands.h"
+#include "WatchPointViewer.h"
 // End of debugging
 
 // Misc diagnostics
@@ -754,6 +756,11 @@ void FBlueprintEditor::RefreshEditors(ERefreshBlueprintEditorReason::Type Reason
 		UpdateSCSPreview();
 	}
 
+	if (BookmarksWidget.IsValid())
+	{
+		BookmarksWidget->RefreshBookmarksTree();
+	}
+
 	// Note: There is an optimization inside of ShowDetailsForSingleObject() that skips the refresh if the object being selected is the same as the previous object.
 	// The SKismetInspector class is shared between both Defaults mode and Components mode, but in Defaults mode the object selected is always going to be the CDO. Given
 	// that the selection does not really change, we force it to refresh and skip the optimization. Otherwise, some things may not work correctly in Defaults mode. For
@@ -996,6 +1003,16 @@ TSharedRef<SGraphEditor> FBlueprintEditor::CreateGraphEditorWidget(TSharedRef<FT
 				FExecuteAction::CreateSP( this, &FBlueprintEditor::OnAddExecutionPin ),
 				FCanExecuteAction::CreateSP( this, &FBlueprintEditor::CanAddExecutionPin )
 				);
+
+			GraphEditorCommands->MapAction( FGraphEditorCommands::Get().InsertExecutionPinBefore,
+				FExecuteAction::CreateSP( this, &FBlueprintEditor::OnInsertExecutionPinBefore ),
+				FCanExecuteAction::CreateSP( this, &FBlueprintEditor::CanInsertExecutionPin )
+				);
+
+			GraphEditorCommands->MapAction(FGraphEditorCommands::Get().InsertExecutionPinAfter,
+				FExecuteAction::CreateSP(this, &FBlueprintEditor::OnInsertExecutionPinAfter),
+				FCanExecuteAction::CreateSP(this, &FBlueprintEditor::CanInsertExecutionPin)
+			);
 
 			GraphEditorCommands->MapAction( FGraphEditorCommands::Get().RemoveExecutionPin,
 				FExecuteAction::CreateSP( this, &FBlueprintEditor::OnRemoveExecutionPin ),
@@ -1332,21 +1349,7 @@ TSharedRef<SGraphEditor> FBlueprintEditor::CreateGraphEditorWidget(TSharedRef<FT
 		.HistoryNavigationWidget(InTabInfo->CreateHistoryNavigationWidget());
 
 	SGraphEditor::FGraphEditorEvents InEvents;
-	InEvents.OnSelectionChanged = SGraphEditor::FOnSelectionChanged::CreateSP( this, &FBlueprintEditor::OnSelectedNodesChanged );
-	InEvents.OnDropActor = SGraphEditor::FOnDropActor::CreateSP( this, &FBlueprintEditor::OnGraphEditorDropActor );
-	InEvents.OnDropStreamingLevel = SGraphEditor::FOnDropStreamingLevel::CreateSP( this, &FBlueprintEditor::OnGraphEditorDropStreamingLevel );
-	InEvents.OnNodeDoubleClicked = FSingleNodeEvent::CreateSP(this, &FBlueprintEditor::OnNodeDoubleClicked);
-	InEvents.OnVerifyTextCommit = FOnNodeVerifyTextCommit::CreateSP(this, &FBlueprintEditor::OnNodeVerifyTitleCommit);
-	InEvents.OnTextCommitted = FOnNodeTextCommitted::CreateSP(this, &FBlueprintEditor::OnNodeTitleCommitted);
-	InEvents.OnSpawnNodeByShortcut = SGraphEditor::FOnSpawnNodeByShortcut::CreateSP(this, &FBlueprintEditor::OnSpawnGraphNodeByShortcut, InGraph);
-	InEvents.OnNodeSpawnedByKeymap = SGraphEditor::FOnNodeSpawnedByKeymap::CreateSP(this, &FBlueprintEditor::OnNodeSpawnedByKeymap );
-	InEvents.OnDisallowedPinConnection = SGraphEditor::FOnDisallowedPinConnection::CreateSP(this, &FBlueprintEditor::OnDisallowedPinConnection);
-
-	// Custom menu for K2 schemas
-	if(InGraph->Schema != NULL && InGraph->Schema->IsChildOf(UEdGraphSchema_K2::StaticClass()))
-	{
-		InEvents.OnCreateActionMenu = SGraphEditor::FOnCreateActionMenu::CreateSP(this, &FBlueprintEditor::OnCreateGraphActionMenu);
-	}
+	SetupGraphEditorEvents(InGraph, InEvents);
 
 	// Append play world commands
 	GraphEditorCommands->Append( FPlayWorldCommands::GlobalPlayWorldActions.ToSharedRef() );
@@ -1384,6 +1387,25 @@ TSharedRef<SGraphEditor> FBlueprintEditor::CreateGraphEditorWidget(TSharedRef<FT
 	Editor->SetViewLocation(ViewOffset, ZoomAmount);
 
 	return Editor;
+}
+
+void FBlueprintEditor::SetupGraphEditorEvents(UEdGraph* InGraph, SGraphEditor::FGraphEditorEvents& InEvents)
+{
+	InEvents.OnSelectionChanged = SGraphEditor::FOnSelectionChanged::CreateSP( this, &FBlueprintEditor::OnSelectedNodesChanged );
+	InEvents.OnDropActor = SGraphEditor::FOnDropActor::CreateSP( this, &FBlueprintEditor::OnGraphEditorDropActor );
+	InEvents.OnDropStreamingLevel = SGraphEditor::FOnDropStreamingLevel::CreateSP( this, &FBlueprintEditor::OnGraphEditorDropStreamingLevel );
+	InEvents.OnNodeDoubleClicked = FSingleNodeEvent::CreateSP(this, &FBlueprintEditor::OnNodeDoubleClicked);
+	InEvents.OnVerifyTextCommit = FOnNodeVerifyTextCommit::CreateSP(this, &FBlueprintEditor::OnNodeVerifyTitleCommit);
+	InEvents.OnTextCommitted = FOnNodeTextCommitted::CreateSP(this, &FBlueprintEditor::OnNodeTitleCommitted);
+	InEvents.OnSpawnNodeByShortcut = SGraphEditor::FOnSpawnNodeByShortcut::CreateSP(this, &FBlueprintEditor::OnSpawnGraphNodeByShortcut, InGraph);
+	InEvents.OnNodeSpawnedByKeymap = SGraphEditor::FOnNodeSpawnedByKeymap::CreateSP(this, &FBlueprintEditor::OnNodeSpawnedByKeymap );
+	InEvents.OnDisallowedPinConnection = SGraphEditor::FOnDisallowedPinConnection::CreateSP(this, &FBlueprintEditor::OnDisallowedPinConnection);
+
+	// Custom menu for K2 schemas
+	if(InGraph->Schema != NULL && InGraph->Schema->IsChildOf(UEdGraphSchema_K2::StaticClass()))
+	{
+		InEvents.OnCreateActionMenu = SGraphEditor::FOnCreateActionMenu::CreateSP(this, &FBlueprintEditor::OnCreateGraphActionMenu);
+	}
 }
 
 FGraphAppearanceInfo FBlueprintEditor::GetCurrentGraphAppearance() const
@@ -1679,6 +1701,7 @@ void FBlueprintEditor::LoadLibrariesFromAssetRegistry()
 						if (BlueprintLibPtr )
 						{
 							StandardLibraries.AddUnique(BlueprintLibPtr);
+							WatchViewer::UpdateWatchListFromBlueprint(BlueprintLibPtr);
 						}
 					}
 				}
@@ -1737,6 +1760,7 @@ void FBlueprintEditor::InitBlueprintEditor(
 	const TSharedRef<FTabManager::FLayout> DummyLayout = FTabManager::NewLayout("NullLayout")->AddArea(FTabManager::NewPrimaryArea());
 	const bool bCreateDefaultStandaloneMenu = true;
 	const bool bCreateDefaultToolbar = true;
+	const FName BlueprintEditorAppName = FName(TEXT("BlueprintEditorApp"));
 	InitAssetEditor(Mode, InitToolkitHost, BlueprintEditorAppName, DummyLayout, bCreateDefaultStandaloneMenu, bCreateDefaultToolbar, Objects);
 	
 	CommonInitialization(InBlueprints);
@@ -2246,6 +2270,10 @@ void FBlueprintEditor::CreateDefaultTabContents(const TArray<UBlueprint*>& InBlu
 		this->Palette = 
 			SNew(SBlueprintPalette, SharedThis(this))
 				.IsEnabled(this, &FBlueprintEditor::IsFocusedGraphEditable);
+
+		this->BookmarksWidget =
+			SNew(SBlueprintBookmarks)
+				.EditorContext(SharedThis(this));
 	}
 
 	if (IsEditingSingleBlueprint())
@@ -2619,6 +2647,11 @@ void FBlueprintEditor::FindInBlueprint_Clicked()
 
 void FBlueprintEditor::ReparentBlueprint_Clicked()
 {
+	if (!ReparentBlueprint_IsVisible())
+	{
+		return;
+	}
+
 	TArray<UBlueprint*> Blueprints;
 	for (int32 i = 0; i < GetEditingObjects().Num(); ++i)
 	{
@@ -2965,6 +2998,13 @@ void FBlueprintEditor::OnGraphEditorFocused(const TSharedRef<SGraphEditor>& InGr
 			}
 		}
 	}
+
+	// If the bookmarks view is active, check whether or not we're restricting the view to the current graph. If we are, update the tree to reflect the focused graph context.
+	if (BookmarksWidget.IsValid()
+		&& GetDefault<UBlueprintEditorSettings>()->bShowBookmarksForCurrentDocumentOnlyInTab)
+	{
+		BookmarksWidget->RefreshBookmarksTree();
+	}
 }
 
 void FBlueprintEditor::OnGraphEditorBackgrounded(const TSharedRef<SGraphEditor>& InGraphEditor)
@@ -2992,10 +3032,15 @@ void FBlueprintEditor::OnGraphEditorDropActor(const TArray< TWeakObjectPtr<AActo
 			AActor* DroppedActor = Actors[i].Get();
 			if (DroppedActor&& (DroppedActor->GetLevel() == BlueprintLevel) && !DroppedActor->IsChildActor())
 			{
-				UK2Node_Literal* LiteralNodeTemplate = NewObject<UK2Node_Literal>();
-				LiteralNodeTemplate->SetObjectRef(DroppedActor);
-
-				UK2Node_Literal* ActorRefNode = FEdGraphSchemaAction_K2NewNode::SpawnNodeFromTemplate<UK2Node_Literal>(Graph, LiteralNodeTemplate, NodeLocation);
+				UK2Node_Literal* ActorRefNode = FEdGraphSchemaAction_K2NewNode::SpawnNode<UK2Node_Literal>(
+					Graph,
+					NodeLocation,
+					EK2NewNodeFlags::SelectNewNode,
+					[DroppedActor](UK2Node_Literal* NewInstance)
+					{
+						NewInstance->SetObjectRef(DroppedActor);
+					}
+				);
 				NodeLocation.Y += UEdGraphSchema_K2::EstimateNodeHeight(ActorRefNode);
 			}
 		}
@@ -3013,11 +3058,15 @@ void FBlueprintEditor::OnGraphEditorDropStreamingLevel(const TArray< TWeakObject
 		if ((DroppedLevel != NULL) && 
 			(DroppedLevel->IsA(ULevelStreamingKismet::StaticClass()))) 
 		{
-			const FVector2D NodeLocation = DropLocation + (i * FVector2D(0,80));
-				
-			UK2Node_CallFunction* NodeTemplate = NewObject<UK2Node_CallFunction>(Graph);
-			NodeTemplate->SetFromFunction(TargetFunc);
-			UK2Node_CallFunction* Node = FEdGraphSchemaAction_K2NewNode::SpawnNodeFromTemplate<UK2Node_CallFunction>(Graph, NodeTemplate, NodeLocation);
+			UK2Node_CallFunction* Node = FEdGraphSchemaAction_K2NewNode::SpawnNode<UK2Node_CallFunction>(
+				Graph,
+				DropLocation + (i * FVector2D(0, 80)),
+				EK2NewNodeFlags::SelectNewNode,
+				[TargetFunc](UK2Node_CallFunction* NewInstance)
+				{
+					NewInstance->SetFromFunction(TargetFunc);
+				}
+			);
 						
 			// Set dropped level package name
 			UEdGraphPin* PackageNameInputPin = Node->FindPinChecked(TEXT("PackageName"));
@@ -3855,6 +3904,64 @@ bool FBlueprintEditor::CanAddExecutionPin() const
 	return true;
 }
 
+void FBlueprintEditor::OnInsertExecutionPinBefore()
+{
+	OnInsertExecutionPin(EPinInsertPosition::Before);
+}
+
+void FBlueprintEditor::OnInsertExecutionPinAfter()
+{
+	OnInsertExecutionPin(EPinInsertPosition::After);
+}
+
+void FBlueprintEditor::OnInsertExecutionPin(EPinInsertPosition Position)
+{
+	TSharedPtr<SGraphEditor> FocusedGraphEd = FocusedGraphEdPtr.Pin();
+	if (FocusedGraphEd.IsValid())
+	{
+		const FScopedTransaction Transaction(LOCTEXT("InsertExecutionPinBefore", "Insert Execution Pin Before"));
+
+		UEdGraphPin* SelectedPin = FocusedGraphEd->GetGraphPinForMenu();
+		if (SelectedPin)
+		{
+			UEdGraphNode* OwningNode = SelectedPin->GetOwningNode();
+
+			if (OwningNode)
+			{
+				if (UK2Node_ExecutionSequence* SeqNode = Cast<UK2Node_ExecutionSequence>(OwningNode))
+				{
+					SeqNode->InsertPinIntoExecutionNode(SelectedPin, Position);
+					FocusedGraphEd->RefreshNode(*OwningNode);
+
+					if (UBlueprint* BP = SeqNode->GetBlueprint())
+					{
+						FBlueprintEditorUtils::MarkBlueprintAsModified(BP);
+					}
+				}
+			}
+		}
+	}
+}
+
+bool FBlueprintEditor::CanInsertExecutionPin() const
+{
+	// We likely don't need to validate here, as we validated on menu population,
+	// but better to grey out the option if it is somehow created but will
+	// not execute correctly
+	TSharedPtr<SGraphEditor> FocusedGraphEd = FocusedGraphEdPtr.Pin();
+	if (FocusedGraphEd.IsValid())
+	{
+		UEdGraphPin* SelectedPin = FocusedGraphEd->GetGraphPinForMenu();
+		if (SelectedPin)
+		{
+			UEdGraphNode* OwningNode = SelectedPin->GetOwningNode();
+			return Cast<UK2Node_ExecutionSequence>(OwningNode) != nullptr;
+		}
+	}
+
+	return false;
+}
+
 void  FBlueprintEditor::OnRemoveExecutionPin()
 {
 	TSharedPtr<SGraphEditor> FocusedGraphEd = FocusedGraphEdPtr.Pin();
@@ -4044,7 +4151,7 @@ void FBlueprintEditor::OnAddOptionPin()
 			const FScopedTransaction Transaction( LOCTEXT("AddOptionPin", "Add Option Pin") );
 			SeqNode->Modify();
 
-			SeqNode->AddOptionPinToNode();
+			SeqNode->AddInputPin();
 
 			const UEdGraphSchema* Schema = SeqNode->GetSchema();
 			Schema->ReconstructNode(*SeqNode);
@@ -4068,7 +4175,7 @@ bool FBlueprintEditor::CanAddOptionPin() const
 	{
 		UK2Node_Select* SeqNode = Cast<UK2Node_Select>(*It);
 		// There's a bad node so return false
-		if (SeqNode == NULL || !SeqNode->CanAddOptionPinToNode())
+		if (SeqNode == nullptr || !SeqNode->CanAddPin())
 		{
 			return false;
 		}
@@ -4196,9 +4303,11 @@ void FBlueprintEditor::OnChangePinTypeFinished(const FEdGraphPinType& PinType, U
 {
 	if (FBlueprintEditorUtils::IsPinTypeValid(PinType))
 	{
+		UEdGraphNode* OwningNode = InSelectedPin->GetOwningNode();
+		OwningNode->Modify();
 		InSelectedPin->PinType = PinType;
 		if (UK2Node_Select* SelectNode = Cast<UK2Node_Select>(InSelectedPin->GetOwningNode()))
-			{
+		{
 			SelectNode->ChangePinType(InSelectedPin);
 		}
 	}
@@ -5862,6 +5971,9 @@ void FBlueprintEditor::PasteNodesHere(class UEdGraph* DestinationGraph, const FV
 			// Log new node created to analytics
 			AnalyticsTrackNodeEvent(GetBlueprintObj(), Node, false);
 		}
+
+		// post process on the node 
+		PostPasteNode(PastedNodes);
 	}
 
 	if (bNeedToModifyStructurally)
@@ -6671,8 +6783,7 @@ void FBlueprintEditor::CollapseNodes(TSet<UEdGraphNode*>& InCollapsableNodes)
 	// Create the composite node that will serve as the gateway into the subgraph
 	UK2Node_Composite* GatewayNode = NULL;
 	{
-		UK2Node_Composite* TemplateNode = NewObject<UK2Node_Composite>();
-		GatewayNode = FEdGraphSchemaAction_K2NewNode::SpawnNodeFromTemplate<UK2Node_Composite>(SourceGraph, TemplateNode, FVector2D(0,0));
+		GatewayNode = FEdGraphSchemaAction_K2NewNode::SpawnNode<UK2Node_Composite>(SourceGraph, FVector2D(0,0), EK2NewNodeFlags::SelectNewNode);
 		GatewayNode->bCanRenameNode = true;
 		check(GatewayNode);
 	}
@@ -6761,10 +6872,15 @@ UEdGraph* FBlueprintEditor::CollapseSelectionToMacro(TSharedPtr<SGraphEditor> In
 	DestinationGraph = FBlueprintEditorUtils::CreateNewGraph(GetBlueprintObj(), DocumentName, UEdGraph::StaticClass(), UEdGraphSchema_K2::StaticClass());
 	FBlueprintEditorUtils::AddMacroGraph(GetBlueprintObj(), DestinationGraph, /*bIsUserCreated=*/ true, NULL);
 
-	UK2Node_MacroInstance* MacroTemplate = NewObject<UK2Node_MacroInstance>();
-	MacroTemplate->SetMacroGraph(DestinationGraph);
-
-	UK2Node_MacroInstance* GatewayNode = FEdGraphSchemaAction_K2NewNode::SpawnNodeFromTemplate<UK2Node_MacroInstance>(SourceGraph, MacroTemplate, FVector2D(0.0f, 0.0f), false);
+	UK2Node_MacroInstance* GatewayNode = FEdGraphSchemaAction_K2NewNode::SpawnNode<UK2Node_MacroInstance>(
+		SourceGraph,
+		FVector2D(0.0f, 0.0f),
+		EK2NewNodeFlags::None,
+		[DestinationGraph](UK2Node_MacroInstance* NewInstance)
+		{
+			NewInstance->SetMacroGraph(DestinationGraph);
+		}
+	);
 
 	TArray<UK2Node_Tunnel*> TunnelNodes;
 	GatewayNode->GetMacroGraph()->GetNodesOfClass(TunnelNodes);
@@ -6938,8 +7054,47 @@ void FBlueprintEditor::RequestSaveEditedObjectState()
 	bRequestedSavingOpenDocumentState = true;
 }
 
+void FBlueprintEditor::GetBoundsForNode(const UEdGraphNode* InNode, class FSlateRect& OutRect, float InPadding) const
+{
+	if (FocusedGraphEdPtr.IsValid())
+	{
+		FocusedGraphEdPtr.Pin()->GetBoundsForNode(InNode, OutRect, InPadding);
+	}
+}
+
+void FBlueprintEditor::GetViewBookmark(FGuid& BookmarkId)
+{
+	BookmarkId.Invalidate();
+
+	if (FocusedGraphEdPtr.IsValid())
+	{
+		FocusedGraphEdPtr.Pin()->GetViewBookmark(BookmarkId);
+	}
+}
+
+void FBlueprintEditor::GetViewLocation(FVector2D& Location, float& ZoomAmount)
+{
+	Location = FVector2D::ZeroVector;
+	ZoomAmount = 0.0f;
+
+	if (FocusedGraphEdPtr.IsValid())
+	{
+		FocusedGraphEdPtr.Pin()->GetViewLocation(Location, ZoomAmount);
+	}
+}
+
+void FBlueprintEditor::SetViewLocation(const FVector2D& Location, float ZoomAmount, const FGuid& BookmarkId)
+{
+	if (FocusedGraphEdPtr.IsValid())
+	{
+		FocusedGraphEdPtr.Pin()->SetViewLocation(Location, ZoomAmount, BookmarkId);
+	}
+}
+
 void FBlueprintEditor::Tick(float DeltaTime)
 {
+	PreviewScene.UpdateCaptureContents();
+
 	// Create or update the Blueprint actor instance in the preview scene
 	if ( GetPreviewActor() == nullptr )
 	{
@@ -7113,6 +7268,11 @@ void FBlueprintEditor::OnAddNewLocalVariable()
 
 void FBlueprintEditor::OnAddNewDelegate()
 {
+	if (!AddNewDelegateIsVisible())
+	{
+		return;
+	}
+
 	const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
 	check(NULL != K2Schema);
 	UBlueprint* const Blueprint = GetBlueprintObj();
@@ -7156,6 +7316,11 @@ void FBlueprintEditor::OnAddNewDelegate()
 
 void FBlueprintEditor::NewDocument_OnClicked(ECreatedDocumentType GraphType)
 {
+	if (!NewDocument_IsVisibleForType(GraphType))
+	{
+		return;
+	}
+
 	FText DocumentNameText;
 	bool bResetMyBlueprintFilter = false;
 
@@ -7575,8 +7740,7 @@ bool FBlueprintEditor::OnNodeVerifyTitleCommit(const FText& NewText, UEdGraphNod
 			EValidatorResult Valid = NameEntryValidator->IsValid(NewText.ToString(), false);
 			
 			NodeBeingChanged->bHasCompilerMessage = true;
-			OutErrorMessage = NameEntryValidator->GetErrorText(NewText.ToString(), Valid);
-			NodeBeingChanged->ErrorMsg = OutErrorMessage.ToString();
+			NodeBeingChanged->ErrorMsg = NameEntryValidator->GetErrorString(NewText.ToString(), Valid);
 			NodeBeingChanged->ErrorType = EMessageSeverity::Error;
 		}
 	}
@@ -7678,7 +7842,7 @@ void FBlueprintEditor::RestoreEditedObjectState()
 
 	for (int32 i = 0; i < Blueprint->LastEditedDocuments.Num(); i++)
 	{
-		if (UObject* Obj = Blueprint->LastEditedDocuments[i].EditedObject)
+		if (UObject* Obj = Blueprint->LastEditedDocuments[i].EditedObjectPath.ResolveObject())
 		{
 			if(UEdGraph* Graph = Cast<UEdGraph>(Obj))
 			{
@@ -8184,6 +8348,136 @@ void FBlueprintEditor::SelectGraphActionItemByName(const FName& ItemName, ESelec
 				Inspector->ShowDetailsForSingleObject(SelectedProperty);
 			}
 		}
+	}
+}
+
+FBPEditorBookmarkNode* FBlueprintEditor::AddBookmark(const FText& DisplayName, const FEditedDocumentInfo& BookmarkInfo, bool bSharedBookmark)
+{
+	FBPEditorBookmarkNode* NewNode = nullptr;
+
+	if (bSharedBookmark)
+	{
+		if (UBlueprint* Blueprint = GetBlueprintObj())
+		{
+			NewNode = new(Blueprint->BookmarkNodes) FBPEditorBookmarkNode;
+			NewNode->NodeGuid = FGuid::NewGuid();
+			NewNode->DisplayName = DisplayName;
+
+			Blueprint->Modify();
+			Blueprint->Bookmarks.Add(NewNode->NodeGuid, BookmarkInfo);
+		}
+	}
+	else if(UBlueprintEditorSettings* LocalSettings = GetMutableDefault<UBlueprintEditorSettings>())
+	{
+		NewNode = new(LocalSettings->BookmarkNodes) FBPEditorBookmarkNode;
+		NewNode->NodeGuid = FGuid::NewGuid();
+		NewNode->DisplayName = DisplayName;
+
+		LocalSettings->Bookmarks.Add(NewNode->NodeGuid, BookmarkInfo);
+		LocalSettings->SaveConfig();
+	}
+
+	if (NewNode && BookmarksWidget.IsValid())
+	{
+		BookmarksWidget->RefreshBookmarksTree();
+	}
+
+	return NewNode;
+}
+
+void FBlueprintEditor::RenameBookmark(const FGuid& BookmarkNodeId, const FText& NewName)
+{
+	bool bFoundSharedBookmark = false;
+	if (UBlueprint* Blueprint = GetBlueprintObj())
+	{
+		for (FBPEditorBookmarkNode& BookmarkNode : Blueprint->BookmarkNodes)
+		{
+			if (BookmarkNode.NodeGuid == BookmarkNodeId)
+			{
+				Blueprint->Modify();
+				BookmarkNode.DisplayName = NewName;
+
+				bFoundSharedBookmark = true;
+				break;
+			}
+		}
+	}
+
+	if (!bFoundSharedBookmark)
+	{
+		UBlueprintEditorSettings* LocalSettings = GetMutableDefault<UBlueprintEditorSettings>();
+		for (FBPEditorBookmarkNode& BookmarkNode : LocalSettings->BookmarkNodes)
+		{
+			if (BookmarkNode.NodeGuid == BookmarkNodeId)
+			{
+				BookmarkNode.DisplayName = NewName;
+				LocalSettings->SaveConfig();
+
+				break;
+			}
+		}
+	}
+
+	if (BookmarksWidget.IsValid())
+	{
+		BookmarksWidget->RefreshBookmarksTree();
+	}
+}
+
+void FBlueprintEditor::RemoveBookmark(const FGuid& BookmarkNodeId, bool bRefreshUI)
+{
+	bool bFoundSharedBookmark = false;
+	if (UBlueprint* Blueprint = GetBlueprintObj())
+	{
+		for (int32 i = 0; i < Blueprint->BookmarkNodes.Num(); ++i)
+		{
+			const FBPEditorBookmarkNode& BookmarkNode = Blueprint->BookmarkNodes[i];
+			if (BookmarkNode.NodeGuid == BookmarkNodeId)
+			{
+				Blueprint->Modify();
+				Blueprint->BookmarkNodes.RemoveAtSwap(i);
+				FEditedDocumentInfo BookmarkInfo = Blueprint->Bookmarks.FindAndRemoveChecked(BookmarkNodeId);
+
+				FGuid CurrentBookmarkId;
+				GetViewBookmark(CurrentBookmarkId);
+				if (CurrentBookmarkId == BookmarkNodeId)
+				{
+					SetViewLocation(BookmarkInfo.SavedViewOffset, BookmarkInfo.SavedZoomAmount);
+				}
+
+				bFoundSharedBookmark = true;
+				break;
+			}
+		}
+	}
+
+	if (!bFoundSharedBookmark)
+	{
+		UBlueprintEditorSettings* LocalSettings = GetMutableDefault<UBlueprintEditorSettings>();
+		for (int32 i = 0; i < LocalSettings->BookmarkNodes.Num(); ++i)
+		{
+			const FBPEditorBookmarkNode& BookmarkNode = LocalSettings->BookmarkNodes[i];
+			if (BookmarkNode.NodeGuid == BookmarkNodeId)
+			{
+				LocalSettings->BookmarkNodes.RemoveAtSwap(i);
+				FEditedDocumentInfo BookmarkInfo = LocalSettings->Bookmarks.FindAndRemoveChecked(BookmarkNodeId);
+				LocalSettings->SaveConfig();
+
+				FGuid CurrentBookmarkId;
+				GetViewBookmark(CurrentBookmarkId);
+				if (CurrentBookmarkId == BookmarkNodeId)
+				{
+					SetViewLocation(BookmarkInfo.SavedViewOffset, BookmarkInfo.SavedZoomAmount);
+				}
+
+				break;
+			}
+		}
+	}
+
+	if (bRefreshUI && BookmarksWidget.IsValid())
+	{
+		BookmarksWidget->RefreshBookmarksTree();
 	}
 }
 

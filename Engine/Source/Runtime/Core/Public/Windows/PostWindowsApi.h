@@ -30,6 +30,9 @@ THIRD_PARTY_INCLUDES_END
 #undef CreateDesktop
 #undef GetMessage
 #undef GetCommandLine
+#undef GetProp
+#undef SetProp
+#undef GetFileAttributes
 
 // Undefine all the atomics. AllowWindowsPlatformAtomics/HideWindowsPlatformAtomics temporarily defining these macros.
 #if !PLATFORM_XBOXONE

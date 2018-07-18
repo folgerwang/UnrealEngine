@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Misc/Paths.h"
+#include "Misc/CommandLine.h"
 #include "Modules/ModuleManager.h"
 #include "OnlineSubsystemSteamModule.h"
 #include "OnlineSubsystemModule.h"
@@ -81,7 +82,7 @@ bool FOnlineSubsystemSteamModule::AreSteamDllsLoaded() const
 #if LOADING_STEAM_LIBRARIES_DYNAMICALLY
 	bLoadedClientDll = (SteamDLLHandle != NULL) ? true : false;
 	#if LOADING_STEAM_SERVER_LIBRARY_DYNAMICALLY
-	bLoadedServerDll = IsRunningDedicatedServer() ? ((SteamServerDLLHandle != NULL) ? true : false) : true;
+	bLoadedServerDll = IsRunningDedicatedServer() ? ((SteamServerDLLHandle != NULL || !bForceLoadSteamClientDll) ? true : false) : true;
 	#endif //LOADING_STEAM_SERVER_LIBRARY_DYNAMICALLY
 #endif // LOADING_STEAM_LIBRARIES_DYNAMICALLY
 
@@ -128,8 +129,10 @@ void FOnlineSubsystemSteamModule::LoadSteamModules()
 	FString RootSteamPath = GetSteamModulePath();
 	FPlatformProcess::PushDllDirectory(*RootSteamPath);
 	SteamDLLHandle = FPlatformProcess::GetDllHandle(*(RootSteamPath + "steam_api" + Suffix + ".dll"));
-	if (IsRunningDedicatedServer())
+	if (IsRunningDedicatedServer() && FCommandLine::IsInitialized() && FParse::Param(FCommandLine::Get(), TEXT("force_steamclient_link")))
 	{
+		UE_LOG_ONLINE(Log, TEXT("Force linking the steam client dlls."));
+		bForceLoadSteamClientDll = true;
 		SteamServerDLLHandle = FPlatformProcess::GetDllHandle(*(RootSteamPath + "steamclient" + Suffix + ".dll"));
 	}
 	FPlatformProcess::PopDllDirectory(*RootSteamPath);
@@ -210,7 +213,7 @@ void FOnlineSubsystemSteamModule::ShutdownModule()
 {
 	FOnlineSubsystemModule& OSS = FModuleManager::GetModuleChecked<FOnlineSubsystemModule>("OnlineSubsystem");
 	OSS.UnregisterPlatformService(STEAM_SUBSYSTEM);
-	
+
 	delete SteamFactory;
 	SteamFactory = NULL;
 

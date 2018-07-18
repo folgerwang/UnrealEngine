@@ -74,7 +74,7 @@ public:
 			if ( LevelStreaming )
 			{
 				// Selection takes priority over level coloration.
-				LevelColor = LevelStreaming->LevelColor;
+				SetLevelColor(LevelStreaming->LevelColor);
 			}
 		}
 
@@ -89,7 +89,7 @@ public:
 
 		FColor NewPropertyColor;
 		GEngine->GetPropertyColorationColor( (UObject*)InComponent, NewPropertyColor );
-		PropertyColor = NewPropertyColor;
+		SetPropertyColor(NewPropertyColor);
 
 		StaticMeshVertexBuffers.PositionVertexBuffer.Init(1);
 		StaticMeshVertexBuffers.StaticMeshVertexBuffer.Init(1, 1);

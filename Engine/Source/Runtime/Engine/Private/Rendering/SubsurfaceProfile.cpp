@@ -122,6 +122,34 @@ static float GetNextSmallerPositiveFloat(float x)
 	return *(float *)&ax;
 }
 
+// NOTE: Changing offsets below requires updating all instances of #SSSS_CONSTANTS
+// TODO: This needs to be defined in a single place and shared between C++ and shaders!
+#define SSSS_SUBSURFACE_COLOR_OFFSET			0
+#define SSSS_TRANSMISSION_OFFSET				(SSSS_SUBSURFACE_COLOR_OFFSET+1)
+#define SSSS_BOUNDARY_COLOR_BLEED_OFFSET		(SSSS_TRANSMISSION_OFFSET+1)
+#define SSSS_DUAL_SPECULAR_OFFSET				(SSSS_BOUNDARY_COLOR_BLEED_OFFSET+1)
+#define SSSS_KERNEL0_OFFSET						(SSSS_DUAL_SPECULAR_OFFSET+1)
+#define SSSS_KERNEL0_SIZE						13
+#define SSSS_KERNEL1_OFFSET						(SSSS_KERNEL0_OFFSET + SSSS_KERNEL0_SIZE)
+#define SSSS_KERNEL1_SIZE						9
+#define SSSS_KERNEL2_OFFSET						(SSSS_KERNEL1_OFFSET + SSSS_KERNEL1_SIZE)
+#define SSSS_KERNEL2_SIZE						6
+#define SSSS_KERNEL_TOTAL_SIZE					(SSSS_KERNEL0_SIZE + SSSS_KERNEL1_SIZE + SSSS_KERNEL2_SIZE)
+#define SSSS_TRANSMISSION_PROFILE_OFFSET		(SSSS_KERNEL0_OFFSET + SSSS_KERNEL_TOTAL_SIZE)
+#define SSSS_TRANSMISSION_PROFILE_SIZE			32
+#define	SSSS_MAX_TRANSMISSION_PROFILE_DISTANCE	5.0f // See MaxTransmissionProfileDistance in ComputeTransmissionProfile(), SeparableSSS.cpp
+#define	SSSS_MAX_DUAL_SPECULAR_ROUGHNESS		2.0f
+
+float Sqrt2(float X)
+{
+	return sqrtf(sqrtf(X));
+}
+
+float Pow4(float X)
+{
+	return X * X * X * X;
+}
+
 void FSubsurfaceProfileTexture::CreateTexture(FRHICommandListImmediate& RHICmdList)
 {
 	uint32 Height = SubsurfaceProfileEntries.Num();
@@ -131,7 +159,8 @@ void FSubsurfaceProfileTexture::CreateTexture(FRHICommandListImmediate& RHICmdLi
 	// true:16bit (currently required to have very small and very large kernel sizes), false: 8bit
 	const bool b16Bit = true;
 
-	const uint32 Width = 32;
+	// Each row of the texture contains SSS parameters, followed by 3 precomputed kernels. Texture must be wide enough to fit all data.
+	const uint32 Width = SSSS_TRANSMISSION_PROFILE_OFFSET + SSSS_TRANSMISSION_PROFILE_SIZE;
 
 	// at minimum 64 lines (less reallocations)
 	FPooledRenderTargetDesc Desc(FPooledRenderTargetDesc::Create2DDesc(FIntPoint(Width, FMath::Max(Height, (uint32)64)), PF_B8G8R8A8, FClearValueBinding::None, 0, TexCreate_None, false));
@@ -146,16 +175,8 @@ void FSubsurfaceProfileTexture::CreateTexture(FRHICommandListImmediate& RHICmdLi
 	uint32 DestStride;
 	uint8* DestBuffer = (uint8*)RHICmdList.LockTexture2D((FTexture2DRHIRef&)GSSProfiles->GetRenderTargetItem().ShaderResourceTexture, 0, RLM_WriteOnly, DestStride, false);
 
-	// we precompute 3 kernels of different size and store in one line
-	const uint32 KernelSize0 = 13;
-	const uint32 KernelSize1 = 9; 
-	const uint32 KernelSize2 = 6;
-
-	// index 0 is used for the SubsurfaceColor
-	const uint32 KernelTotalSize = 1 + KernelSize0 + KernelSize1 + KernelSize2;
-	check(KernelTotalSize < Width);
-
-	FLinearColor kernel[Width];
+	FLinearColor TextureRow[Width];
+	FMemory::Memzero(TextureRow);
 
 	const float FloatScale = GetNextSmallerPositiveFloat(0x10000);
 	check((int32)GetNextSmallerPositiveFloat(0x10000) == 0xffff);
@@ -173,25 +194,65 @@ void FSubsurfaceProfileTexture::CreateTexture(FRHICommandListImmediate& RHICmdLi
 		Data.FalloffColor = Data.FalloffColor.GetClamped(Bias);
 
 		// to allow blending of the Subsurface with fullres in the shader
-		kernel[0] = Data.SubsurfaceColor;
-		// unused
-		kernel[0].A = 0;
+		TextureRow[SSSS_SUBSURFACE_COLOR_OFFSET] = Data.SubsurfaceColor;
+		TextureRow[SSSS_SUBSURFACE_COLOR_OFFSET].A = 0; // unused
 
-		ComputeMirroredSSSKernel(&kernel[1], KernelSize0, Data.SubsurfaceColor, Data.FalloffColor);
-		ComputeMirroredSSSKernel(&kernel[1 + KernelSize0], KernelSize1, Data.SubsurfaceColor, Data.FalloffColor);
-		ComputeMirroredSSSKernel(&kernel[1 + KernelSize0 + KernelSize1], KernelSize2, Data.SubsurfaceColor, Data.FalloffColor);
+		TextureRow[SSSS_BOUNDARY_COLOR_BLEED_OFFSET] = Data.BoundaryColorBleed;
+
+		float MaterialRoughnessToAverage = Data.Roughness0 * (1.0f - Data.LobeMix) + Data.Roughness1 * Data.LobeMix;
+		float AverageToRoughness0 = Data.Roughness0 / MaterialRoughnessToAverage;
+		float AverageToRoughness1 = Data.Roughness1 / MaterialRoughnessToAverage;
+
+		TextureRow[SSSS_DUAL_SPECULAR_OFFSET].R = FMath::Clamp(AverageToRoughness0 / SSSS_MAX_DUAL_SPECULAR_ROUGHNESS, 0.0f, 1.0f);
+		TextureRow[SSSS_DUAL_SPECULAR_OFFSET].G = FMath::Clamp(AverageToRoughness1 / SSSS_MAX_DUAL_SPECULAR_ROUGHNESS, 0.0f, 1.0f);
+		TextureRow[SSSS_DUAL_SPECULAR_OFFSET].B = Data.LobeMix;
+		TextureRow[SSSS_DUAL_SPECULAR_OFFSET].A = FMath::Clamp(MaterialRoughnessToAverage / SSSS_MAX_DUAL_SPECULAR_ROUGHNESS, 0.0f, 1.0f);
+
+		//X:ExtinctionScale, Y:Normal Scale, Z:ScatteringDistribution, W:OneOverIOR
+		TextureRow[SSSS_TRANSMISSION_OFFSET].R = Data.ExtinctionScale;
+		TextureRow[SSSS_TRANSMISSION_OFFSET].G = Data.NormalScale;
+		TextureRow[SSSS_TRANSMISSION_OFFSET].B = Data.ScatteringDistribution;
+		TextureRow[SSSS_TRANSMISSION_OFFSET].A = 1.0f / Data.IOR;
+
+		ComputeMirroredSSSKernel(&TextureRow[SSSS_KERNEL0_OFFSET], SSSS_KERNEL0_SIZE, Data.SubsurfaceColor, Data.FalloffColor);
+		ComputeMirroredSSSKernel(&TextureRow[SSSS_KERNEL1_OFFSET], SSSS_KERNEL1_SIZE, Data.SubsurfaceColor, Data.FalloffColor);
+		ComputeMirroredSSSKernel(&TextureRow[SSSS_KERNEL2_OFFSET], SSSS_KERNEL2_SIZE, Data.SubsurfaceColor, Data.FalloffColor);
+
+		ComputeTransmissionProfile(&TextureRow[SSSS_TRANSMISSION_PROFILE_OFFSET], SSSS_TRANSMISSION_PROFILE_SIZE, Data.SubsurfaceColor, Data.FalloffColor, Data.ExtinctionScale);
 
 		// could be lower than 1 (but higher than 0) to range compress for better quality (for 8 bit)
 		const float TableMaxRGB = 1.0f;
 		const float TableMaxA = 3.0f;
+		const FLinearColor TableColorScale = FLinearColor(
+			1.0f / TableMaxRGB,
+			1.0f / TableMaxRGB,
+			1.0f / TableMaxRGB,
+			1.0f / TableMaxA);
+
+		const float CustomParameterMaxRGB = 1.0f;
+		const float CustomParameterMaxA = 1.0f;
+		const FLinearColor CustomParameterColorScale = FLinearColor(
+			1.0f / CustomParameterMaxRGB,
+			1.0f / CustomParameterMaxRGB,
+			1.0f / CustomParameterMaxRGB,
+			1.0f / CustomParameterMaxA);
 
 		// each kernel is normalized to be 1 per channel (center + one_side_samples * 2)
-		for (int32 Pos = 0; Pos < KernelTotalSize; ++Pos)
+		for (int32 Pos = 0; Pos < Width; ++Pos)
 		{
-			FVector4 C = kernel[Pos] * FLinearColor(1.0f / TableMaxRGB, 1.0f / TableMaxRGB, 1.0f / TableMaxRGB, 1.0f / TableMaxA);
+			FVector4 C = TextureRow[Pos];
 
-			// requires 16bit (could be made with 8 bit e.g. using sample0.w as 8bit scale applied to all samples (more multiplications in the shader))
-			C.W *= Data.ScatterRadius / SUBSURFACE_RADIUS_SCALE;
+			// Remap custom parameter and kernel values into 0..1
+			if (Pos >= SSSS_KERNEL0_OFFSET && Pos < SSSS_KERNEL0_OFFSET + SSSS_KERNEL_TOTAL_SIZE)
+			{
+				C *= TableColorScale;
+				// requires 16bit (could be made with 8 bit e.g. using sample0.w as 8bit scale applied to all samples (more multiplications in the shader))
+				C.W *= Data.ScatterRadius / SUBSURFACE_RADIUS_SCALE;
+			}
+			else
+			{
+				C *= CustomParameterColorScale;
+			}
 
 			if (b16Bit)
 			{

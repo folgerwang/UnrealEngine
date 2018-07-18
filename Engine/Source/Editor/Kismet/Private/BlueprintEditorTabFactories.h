@@ -118,6 +118,8 @@ private:
 	FVector2D SavedLocation;
 	/** Saved zoom the graph editor was at when this history node was last visited */
 	float SavedZoomAmount;
+	/** Saved bookmark ID the graph editor was at when this history node was last visited */
+	FGuid SavedBookmarkId;
 };
 
 /////////////////////////////////////////////////////
@@ -228,6 +230,22 @@ public:
 	virtual FText GetTabToolTipText(const FWorkflowTabSpawnInfo& Info) const override
 	{
 		return LOCTEXT("PaletteTooltip", "The Palette tab provides access to _all_ nodes that can be placed (functions, variables, events etc).");
+	}
+};
+
+//////////////////////////////////////////////////////////////////////////
+// FBookmarksSummoner
+
+struct FBookmarksSummoner : public FWorkflowTabFactory
+{
+public:
+	FBookmarksSummoner(TSharedPtr<class FAssetEditorToolkit> InHostingApp);
+
+	virtual TSharedRef<SWidget> CreateTabBody(const FWorkflowTabSpawnInfo& Info) const override;
+
+	virtual FText GetTabToolTipText(const FWorkflowTabSpawnInfo& Info) const override
+	{
+		return LOCTEXT("BookmarksTooltip", "The Bookmarks tab allows you to create, edit and select bookmarks associated with this Blueprint.");
 	}
 };
 

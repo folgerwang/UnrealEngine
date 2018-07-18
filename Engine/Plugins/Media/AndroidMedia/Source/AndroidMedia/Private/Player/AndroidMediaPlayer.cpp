@@ -17,7 +17,7 @@
 #include "UObject/UObjectGlobals.h"
 #include "ExternalTexture.h"
 
-#include "AndroidJavaMediaPlayer.h"
+#include "Android/AndroidJavaMediaPlayer.h"
 #include "AndroidMediaTextureSample.h"
 
 #define ANDROIDMEDIAPLAYER_USE_EXTERNALTEXTURE 1
@@ -333,6 +333,185 @@ void FAndroidMediaPlayer::SetGuid(const FGuid& Guid)
 	#endif
 }
 
+// ==============================================================
+// Used by TickFetch
+
+static void DoUpdateExternalMediaSampleExecute(TWeakPtr<FJavaAndroidMediaPlayer, ESPMode::ThreadSafe> JavaMediaPlayerPtr, FGuid PlayerGuid)
+{
+	auto PinnedJavaMediaPlayer = JavaMediaPlayerPtr.Pin();
+
+	if (!PinnedJavaMediaPlayer.IsValid())
+	{
+		return;
+	}
+
+	FTextureRHIRef VideoTexture = PinnedJavaMediaPlayer->GetVideoTexture();
+	if (VideoTexture == nullptr)
+	{
+		FRHIResourceCreateInfo CreateInfo;
+		VideoTexture = GDynamicRHI->RHICreateTextureExternal2D(1, 1, PF_R8G8B8A8, 1, 1, 0, CreateInfo);
+		PinnedJavaMediaPlayer->SetVideoTexture(VideoTexture);
+
+		if (VideoTexture == nullptr)
+		{
+			UE_LOG(LogAndroidMedia, Warning, TEXT("CreateTextureExternal2D failed!"));
+			return;
+		}
+
+		PinnedJavaMediaPlayer->SetVideoTextureValid(false);
+
+#if ANDROIDMEDIAPLAYER_USE_NATIVELOGGING
+		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Fetch RT: Created VideoTexture: %d - %s"), *reinterpret_cast<int32*>(VideoTexture->GetNativeResource()), *PlayerGuid.ToString());
+#endif
+	}
+
+	int32 TextureId = *reinterpret_cast<int32*>(VideoTexture->GetNativeResource());
+	int32 CurrentFramePosition = 0;
+	bool bRegionChanged = false;
+	if (PinnedJavaMediaPlayer->UpdateVideoFrame(TextureId, &CurrentFramePosition, &bRegionChanged))
+	{
+#if ANDROIDMEDIAPLAYER_USE_NATIVELOGGING
+		//			FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Fetch RT: %d - %s"), CurrentFramePosition, *Params.PlayerGuid.ToString());
+#endif
+
+		// if region changed, need to reregister UV scale/offset
+		if (bRegionChanged)
+		{
+			PinnedJavaMediaPlayer->SetVideoTextureValid(false);
+
+#if ANDROIDMEDIAPLAYER_USE_NATIVELOGGING
+			FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Fetch RT: New UV Scale/Offset = {%f, %f}, {%f, %f} - %s"),
+				PinnedJavaMediaPlayer->GetUScale(), PinnedJavaMediaPlayer->GetUOffset(),
+				PinnedJavaMediaPlayer->GetVScale(), PinnedJavaMediaPlayer->GetVOffset(), *PlayerGuid.ToString());
+#endif
+		}
+	}
+}
+
+struct FRHICommandUpdateExternalMediaSample final : public FRHICommand<FRHICommandUpdateExternalMediaSample>
+{
+	TWeakPtr<FJavaAndroidMediaPlayer, ESPMode::ThreadSafe> JavaMediaPlayerPtr;
+	FGuid PlayerGuid;
+
+	FORCEINLINE_DEBUGGABLE FRHICommandUpdateExternalMediaSample(TWeakPtr<FJavaAndroidMediaPlayer, ESPMode::ThreadSafe> InJavaMediaPlayerPtr, FGuid InPlayerGuid)
+		: JavaMediaPlayerPtr(InJavaMediaPlayerPtr)
+		, PlayerGuid(InPlayerGuid)
+	{
+	}
+	void Execute(FRHICommandListBase& CmdList)
+	{
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_FRHICommandUpdateExternalMediaSample_Execute);
+		DoUpdateExternalMediaSampleExecute(JavaMediaPlayerPtr, PlayerGuid);
+	}
+};
+
+static void DoUpdateTextureMediaSampleExecute(TWeakPtr<FJavaAndroidMediaPlayer, ESPMode::ThreadSafe> JavaMediaPlayerPtr, TWeakPtr<FMediaSamples, ESPMode::ThreadSafe> SamplesPtr,
+	TSharedRef<FAndroidMediaTextureSample, ESPMode::ThreadSafe> VideoSample)
+{
+	auto PinnedJavaMediaPlayer = JavaMediaPlayerPtr.Pin();
+	auto PinnedSamples = SamplesPtr.Pin();
+
+	if (!PinnedJavaMediaPlayer.IsValid() || !PinnedSamples.IsValid())
+	{
+		return;
+	}
+
+	const int32 CurrentFramePosition = PinnedJavaMediaPlayer->GetCurrentPosition();
+	const FTimespan Time = FTimespan::FromMilliseconds(CurrentFramePosition);
+
+	// write frame into texture
+	FRHITexture2D* Texture = VideoSample->InitializeTexture(Time);
+
+	if (Texture != nullptr)
+	{
+		int32 Resource = *reinterpret_cast<int32*>(Texture->GetNativeResource());
+		if (!PinnedJavaMediaPlayer->GetVideoLastFrame(Resource))
+		{
+			return;
+		}
+	}
+
+	PinnedSamples->AddVideo(VideoSample);
+}
+
+struct FRHICommandUpdateTextureMediaSample final : public FRHICommand<FRHICommandUpdateTextureMediaSample>
+{
+	TWeakPtr<FJavaAndroidMediaPlayer, ESPMode::ThreadSafe> JavaMediaPlayerPtr;
+	TWeakPtr<FMediaSamples, ESPMode::ThreadSafe> SamplesPtr;
+	TSharedRef<FAndroidMediaTextureSample, ESPMode::ThreadSafe> VideoSample;
+
+	FORCEINLINE_DEBUGGABLE FRHICommandUpdateTextureMediaSample(TWeakPtr<FJavaAndroidMediaPlayer, ESPMode::ThreadSafe> InJavaMediaPlayerPtr, TWeakPtr<FMediaSamples, ESPMode::ThreadSafe> InSamplesPtr,
+		TSharedRef<FAndroidMediaTextureSample, ESPMode::ThreadSafe> InVideoSample)
+		: JavaMediaPlayerPtr(InJavaMediaPlayerPtr)
+		, SamplesPtr(InSamplesPtr)
+		, VideoSample(InVideoSample)
+	{
+	}
+	void Execute(FRHICommandListBase& CmdList)
+	{
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_FRHICommandUpdateTextureMediaSample_Execute);
+		DoUpdateTextureMediaSampleExecute(JavaMediaPlayerPtr, SamplesPtr, VideoSample);
+	}
+};
+
+static void DoUpdateBufferMediaSampleExecute(TWeakPtr<FJavaAndroidMediaPlayer, ESPMode::ThreadSafe> JavaMediaPlayerPtr, TWeakPtr<FMediaSamples, ESPMode::ThreadSafe> SamplesPtr,
+	TSharedRef<FAndroidMediaTextureSample, ESPMode::ThreadSafe> VideoSample, int32 SampleCount)
+{
+	auto PinnedJavaMediaPlayer = JavaMediaPlayerPtr.Pin();
+	auto PinnedSamples = SamplesPtr.Pin();
+
+	if (!PinnedJavaMediaPlayer.IsValid() || !PinnedSamples.IsValid())
+	{
+		return;
+	}
+
+	const int32 CurrentFramePosition = PinnedJavaMediaPlayer->GetCurrentPosition();
+	const FTimespan Time = FTimespan::FromMilliseconds(CurrentFramePosition);
+
+	// write frame into buffer
+	void* Buffer = nullptr;
+	int64 BufferCount = 0;
+
+	if (!PinnedJavaMediaPlayer->GetVideoLastFrameData(Buffer, BufferCount))
+	{
+		return;
+	}
+
+	if (BufferCount != SampleCount)
+	{
+		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("FAndroidMediaPlayer::Fetch: Sample count mismatch (Buffer=%d, Available=%d"), BufferCount, SampleCount);
+	}
+	check(SampleCount <= BufferCount);
+
+	// must make a copy (buffer is owned by Java, not us!)
+	VideoSample->InitializeBuffer(Buffer, Time, true);
+
+	PinnedSamples->AddVideo(VideoSample);
+}
+
+struct FRHICommandUpdateBufferMediaSample final : public FRHICommand<FRHICommandUpdateBufferMediaSample>
+{
+	TWeakPtr<FJavaAndroidMediaPlayer, ESPMode::ThreadSafe> JavaMediaPlayerPtr;
+	TWeakPtr<FMediaSamples, ESPMode::ThreadSafe> SamplesPtr;
+	TSharedRef<FAndroidMediaTextureSample, ESPMode::ThreadSafe> VideoSample;
+	int32 SampleCount;
+
+	FORCEINLINE_DEBUGGABLE FRHICommandUpdateBufferMediaSample(TWeakPtr<FJavaAndroidMediaPlayer, ESPMode::ThreadSafe> InJavaMediaPlayerPtr, TWeakPtr<FMediaSamples, ESPMode::ThreadSafe> InSamplesPtr,
+		TSharedRef<FAndroidMediaTextureSample, ESPMode::ThreadSafe> InVideoSample, int32 InSampleCount)
+		: JavaMediaPlayerPtr(InJavaMediaPlayerPtr)
+		, SamplesPtr(InSamplesPtr)
+		, VideoSample(InVideoSample)
+		, SampleCount(InSampleCount)
+	{
+	}
+	void Execute(FRHICommandListBase& CmdList)
+	{
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_FRHICommandUpdateBufferMediaSample_Execute);
+		DoUpdateBufferMediaSampleExecute(JavaMediaPlayerPtr, SamplesPtr, VideoSample, SampleCount);
+	}
+};
+
+// ==============================================================
 
 void FAndroidMediaPlayer::TickFetch(FTimespan DeltaTime, FTimespan /*Timecode*/)
 {
@@ -370,7 +549,7 @@ void FAndroidMediaPlayer::TickFetch(FTimespan DeltaTime, FTimespan /*Timecode*/)
 		}
 
 		// populate & add sample (on render thread)
-		const auto Settings = GetDefault<UAndroidMediaSettings>();
+		//const auto Settings = GetDefault<UAndroidMediaSettings>();
 
 		struct FWriteVideoSampleParams
 		{
@@ -397,18 +576,18 @@ void FAndroidMediaPlayer::TickFetch(FTimespan DeltaTime, FTimespan /*Timecode*/)
 
 				// write frame into buffer
 				void* Buffer = nullptr;
-				int64 SampleCount = 0;
+				int64 BufferCount = 0;
 
-				if (!PinnedJavaMediaPlayer->GetVideoLastFrameData(Buffer, SampleCount))
+				if (!PinnedJavaMediaPlayer->GetVideoLastFrameData(Buffer, BufferCount))
 				{
 					return;
 				}
 
-				if (SampleCount != Params.SampleCount)
+				if (BufferCount != Params.SampleCount)
 				{
-					FPlatformMisc::LowLevelOutputDebugStringf(TEXT("FAndroidMediaPlayer::Fetch: Sample count mismatch (Buffer=%d, Available=%d"), Params.SampleCount, SampleCount);
+					FPlatformMisc::LowLevelOutputDebugStringf(TEXT("FAndroidMediaPlayer::Fetch: Sample count mismatch (Buffer=%d, Available=%d"), Params.SampleCount, BufferCount);
 				}
-				check(Params.SampleCount <= SampleCount);
+				check(Params.SampleCount <= BufferCount);
 
 				// must make a copy (buffer is owned by Java, not us!)
 				Params.VideoSample->InitializeBuffer(Buffer, Time, true);
@@ -429,6 +608,17 @@ void FAndroidMediaPlayer::TickFetch(FTimespan DeltaTime, FTimespan /*Timecode*/)
 		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(AndroidMediaPlayerWriteVideoSample,
 			FWriteVideoSampleParams, Params, WriteVideoSampleParams,
 			{
+				if (IsRunningRHIInSeparateThread())
+				{
+					new (RHICmdList.AllocCommand<FRHICommandUpdateExternalMediaSample>()) FRHICommandUpdateExternalMediaSample(Params.JavaMediaPlayerPtr, Params.PlayerGuid);
+					// wait for DoUpdateExternalMediaSampleExecute to complete.
+					RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread); 
+				}
+				else
+				{
+					DoUpdateExternalMediaSampleExecute(Params.JavaMediaPlayerPtr, Params.PlayerGuid);
+				}
+
 				auto PinnedJavaMediaPlayer = Params.JavaMediaPlayerPtr.Pin();
 
 				if (!PinnedJavaMediaPlayer.IsValid())
@@ -437,53 +627,11 @@ void FAndroidMediaPlayer::TickFetch(FTimespan DeltaTime, FTimespan /*Timecode*/)
 				}
 
 				FTextureRHIRef VideoTexture = PinnedJavaMediaPlayer->GetVideoTexture();
-				if (VideoTexture == nullptr)
+				if (VideoTexture != nullptr && !PinnedJavaMediaPlayer->IsVideoTextureValid())
 				{
-					FRHIResourceCreateInfo CreateInfo;
-					VideoTexture = RHICmdList.CreateTextureExternal2D(1, 1, PF_R8G8B8A8, 1, 1, 0, CreateInfo);
-					PinnedJavaMediaPlayer->SetVideoTexture(VideoTexture);
-
-					if (VideoTexture == nullptr)
-					{
-						UE_LOG(LogAndroidMedia, Warning, TEXT("CreateTextureExternal2D failed!"));
-						return;
-					}
-
-					PinnedJavaMediaPlayer->SetVideoTextureValid(false);
-
-					#if ANDROIDMEDIAPLAYER_USE_NATIVELOGGING
-						FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Fetch RT: Created VideoTexture: %d - %s"), *reinterpret_cast<int32*>(VideoTexture->GetNativeResource()), *Params.PlayerGuid.ToString());
-					#endif
-				}
-
-				int32 TextureId = *reinterpret_cast<int32*>(VideoTexture->GetNativeResource());
-				int32 CurrentFramePosition = 0;
-				bool bRegionChanged = false;
-				if (PinnedJavaMediaPlayer->UpdateVideoFrame(TextureId, &CurrentFramePosition, &bRegionChanged))
-				{
-					#if ANDROIDMEDIAPLAYER_USE_NATIVELOGGING
-//						FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Fetch RT: %d - %s"), CurrentFramePosition, *Params.PlayerGuid.ToString());
-					#endif
-
-					// if region changed, need to reregister UV scale/offset
-					if (bRegionChanged)
-					{
-						PinnedJavaMediaPlayer->SetVideoTextureValid(false);
-
-						#if ANDROIDMEDIAPLAYER_USE_NATIVELOGGING
-							FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Fetch RT: New UV Scale/Offset = {%f, %f}, {%f, %f} - %s"),
-								PinnedJavaMediaPlayer->GetUScale(), PinnedJavaMediaPlayer->GetUOffset(),
-								PinnedJavaMediaPlayer->GetVScale(), PinnedJavaMediaPlayer->GetVOffset(), *Params.PlayerGuid.ToString());
-						#endif
-					}
-				}
-
-				if (!PinnedJavaMediaPlayer->IsVideoTextureValid())
-				{
-					#if ANDROIDMEDIAPLAYER_USE_NATIVELOGGING
-						FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Fetch RT: Register Guid: %s"), *Params.PlayerGuid.ToString());
-					#endif
-
+#if ANDROIDMEDIAPLAYER_USE_NATIVELOGGING
+					FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Fetch RT: Register Guid: %s"), *Params.PlayerGuid.ToString());
+#endif
 					FSamplerStateInitializerRHI SamplerStateInitializer(SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp);
 					FSamplerStateRHIRef SamplerStateRHI = RHICreateSamplerState(SamplerStateInitializer);
 					FExternalTextureRegistry::Get().RegisterExternalTexture(Params.PlayerGuid, VideoTexture, SamplerStateRHI, FLinearColor(PinnedJavaMediaPlayer->GetUScale(), 0.0f, 0.0f, PinnedJavaMediaPlayer->GetVScale()), FLinearColor(PinnedJavaMediaPlayer->GetUOffset(), PinnedJavaMediaPlayer->GetVOffset(), 0.0f, 0.0f));
@@ -504,44 +652,27 @@ void FAndroidMediaPlayer::TickFetch(FTimespan DeltaTime, FTimespan /*Timecode*/)
 		}
 
 		// populate & add sample (on render thread)
-		const auto Settings = GetDefault<UAndroidMediaSettings>();
+		//const auto Settings = GetDefault<UAndroidMediaSettings>();
 
 		struct FWriteVideoSampleParams
 		{
 			TWeakPtr<FJavaAndroidMediaPlayer, ESPMode::ThreadSafe> JavaMediaPlayerPtr;
 			TWeakPtr<FMediaSamples, ESPMode::ThreadSafe> SamplesPtr;
 			TSharedRef<FAndroidMediaTextureSample, ESPMode::ThreadSafe> VideoSample;
-			bool Cacheable;
 		}
-		WriteVideoSampleParams = { JavaMediaPlayer, Samples, VideoSample, Settings->CacheableVideoSampleBuffers };
+		WriteVideoSampleParams = { JavaMediaPlayer, Samples, VideoSample };
 
 		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(AndroidMediaPlayerWriteVideoSample,
 			FWriteVideoSampleParams, Params, WriteVideoSampleParams,
 			{
-				auto PinnedJavaMediaPlayer = Params.JavaMediaPlayerPtr.Pin();
-				auto PinnedSamples = Params.SamplesPtr.Pin();
-
-				if (!PinnedJavaMediaPlayer.IsValid() || !PinnedSamples.IsValid())
+				if (IsRunningRHIInSeparateThread())
 				{
-					return;
+					new (RHICmdList.AllocCommand<FRHICommandUpdateTextureMediaSample>()) FRHICommandUpdateTextureMediaSample(Params.JavaMediaPlayerPtr, Params.SamplesPtr, Params.VideoSample);
 				}
-
-				const int32 CurrentFramePosition = PinnedJavaMediaPlayer->GetCurrentPosition();
-				const FTimespan Time = FTimespan::FromMilliseconds(CurrentFramePosition);
-
-				// write frame into texture
-				FRHITexture2D* Texture = Params.VideoSample->InitializeTexture(Time);
-
-				if (Texture != nullptr)
+				else
 				{
-					int32 Resource = *reinterpret_cast<int32*>(Texture->GetNativeResource());
-					if (!PinnedJavaMediaPlayer->GetVideoLastFrame(Resource))
-					{
-						return;
-					}
+					DoUpdateTextureMediaSampleExecute(Params.JavaMediaPlayerPtr, Params.SamplesPtr, Params.VideoSample);
 				}
-
-				PinnedSamples->AddVideo(Params.VideoSample);
 			});
 	}
 
@@ -557,7 +688,7 @@ void FAndroidMediaPlayer::TickFetch(FTimespan DeltaTime, FTimespan /*Timecode*/)
 	}
 
 	// populate & add sample (on render thread)
-	const auto Settings = GetDefault<UAndroidMediaSettings>();
+	//const auto Settings = GetDefault<UAndroidMediaSettings>();
 
 	struct FWriteVideoSampleParams
 	{
@@ -572,36 +703,14 @@ void FAndroidMediaPlayer::TickFetch(FTimespan DeltaTime, FTimespan /*Timecode*/)
 	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(AndroidMediaPlayerWriteVideoSample,
 		FWriteVideoSampleParams, Params, WriteVideoSampleParams,
 		{
-			auto PinnedJavaMediaPlayer = Params.JavaMediaPlayerPtr.Pin();
-			auto PinnedSamples = Params.SamplesPtr.Pin();
-
-			if (!PinnedJavaMediaPlayer.IsValid() || !PinnedSamples.IsValid())
+			if (IsRunningRHIInSeparateThread())
 			{
-				return;
+				new (RHICmdList.AllocCommand<FRHICommandUpdateBufferMediaSample>()) FRHICommandUpdateBufferMediaSample(Params.JavaMediaPlayerPtr, Params.SamplesPtr, Params.VideoSample, Params.SampleCount);
 			}
-
-			const int32 CurrentFramePosition = PinnedJavaMediaPlayer->GetCurrentPosition();
-			const FTimespan Time = FTimespan::FromMilliseconds(CurrentFramePosition);
-
-			// write frame into buffer
-			void* Buffer = nullptr;
-			int64 SampleCount = 0;
-
-			if (!PinnedJavaMediaPlayer->GetVideoLastFrameData(Buffer, SampleCount))
+			else
 			{
-				return;
+				DoUpdateBufferMediaSampleExecute(Params.JavaMediaPlayerPtr, Params.SamplesPtr, Params.VideoSample, Params.SampleCount);
 			}
-
-			if (SampleCount != Params.SampleCount)
-			{
-				FPlatformMisc::LowLevelOutputDebugStringf(TEXT("FAndroidMediaPlayer::Fetch: Sample count mismatch (Buffer=%d, Available=%d"), Params.SampleCount, SampleCount);
-			}
-			check(Params.SampleCount <= SampleCount);
-
-			// must make a copy (buffer is owned by Java, not us!)
-			Params.VideoSample->InitializeBuffer(Buffer, Time, true);
-
-			PinnedSamples->AddVideo(Params.VideoSample);
 		});
 #endif //WITH_ENGINE
 }
@@ -1251,6 +1360,18 @@ bool FAndroidMediaPlayer::SetRate(float Rate)
 	}
 
 	return true;
+}
+
+
+bool FAndroidMediaPlayer::SetNativeVolume(float Volume)
+{
+	if (JavaMediaPlayer.IsValid())
+	{
+		Volume = Volume < 0.0f ? 0.0f : (Volume < 1.0f ? Volume : 1.0f);
+		JavaMediaPlayer->SetAudioVolume(Volume);
+		return true;
+	}
+	return false;
 }
 
 

@@ -9,8 +9,6 @@ namespace UnrealBuildTool.Rules
 			PrivateIncludePaths.AddRange(
 				new string[] {
 					"Runtime/NetworkFileSystem/Private",
-					"Runtime/NetworkFileSystem/Private/Simple",
-					"Runtime/NetworkFileSystem/Private/Streaming",
 				});
 
 			PrivateDependencyModuleNames.AddRange(
@@ -25,8 +23,6 @@ namespace UnrealBuildTool.Rules
 			PublicIncludePaths.AddRange(
 				new string[] {
 					"Runtime/NetworkFileSystem/Public",
-					"Runtime/NetworkFileSystem/Public/Interfaces",
-					"Runtime/CoreUObject/Public/Interfaces",
 				});
 
 			PublicDependencyModuleNames.AddRange(
@@ -40,13 +36,14 @@ namespace UnrealBuildTool.Rules
 			{
 				AddEngineThirdPartyPrivateStaticDependencies(Target, "OpenSSL", "libWebSockets", "zlib");
 				PublicDefinitions.Add("ENABLE_HTTP_FOR_NFS=1");
+				PrivateDependencyModuleNames.Add("SSL");
 			}
 			else
 			{
 				PublicDefinitions.Add("ENABLE_HTTP_FOR_NFS=0");
 			}
 
-			PrecompileForTargets = PrecompileTargetsType.None;
+			PrecompileForTargets = PrecompileTargetsType.Editor;
 		}
 	}
 }

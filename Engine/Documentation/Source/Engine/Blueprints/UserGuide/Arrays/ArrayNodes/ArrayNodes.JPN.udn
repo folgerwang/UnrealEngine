@@ -1,53 +1,14 @@
-﻿INTSourceChangelist:2968923
-Availability:Public
+﻿Availability:Public
 Title:配列ノード
 Crumbs: %ROOT%, Engine/Blueprints, Engine/Blueprints/UserGuide, Engine/Blueprints/UserGuide/Arrays
 Description:ブループリント配列と連動するノード
-Version:4.9
+version:4.9
 parent:Engine/Blueprints/Scripting
 tags:Arrays and Structures
+tags:Blueprints
+tags:Special Nodes
 order:2
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine\Blueprints\UserGuide\Arrays\ArrayNodes:title%](Engine\Blueprints\UserGuide\ArrayNodes.png)
-	[/PARAM]
-	[PARAM:icon]
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Blueprints\UserGuide\Arrays\ArrayNodes:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Blueprints\UserGuide\Arrays\ArrayNodes:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine\Blueprints\UserGuide\Arrays\ArrayNodes]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine\Blueprints\UserGuide\Arrays\ArrayNodes:title%](Engine\Blueprints\UserGuide\ArrayNodes.png)
-	[/PARAM]
-	[PARAM:icon]
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Blueprints\UserGuide\Arrays\ArrayNodes:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Blueprints\UserGuide\Arrays\ArrayNodes:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine\Blueprints\UserGuide\Arrays\ArrayNodes]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-
-
+topic-image:Engine\Blueprints\UserGuide\ArrayNodes.png
 
 
 ## アイテムの追加
@@ -105,13 +66,13 @@ order:2
 
 ## Remove Index
 
-**Remove Index** ノードは、アイテムのインデックス番号を経由して配列内のアイテムを削除します。その他の全インデックス番号はギャップを埋めるため更新されます。
+**Remove Index** ノードは、アイテムのインデックス番号を経由して配列内のアイテムを取り除きます。その他のインデックス番号をすべて更新して、隙間を埋めます。
 
 ![](Array_RemoveIndex.png)
 
 ## Remove Item
 
-**Remove Item** ノードは、変数値を受け取ることによって配列からアイテムを削除します。配列内でその値が検出されると、その値は削除されます。その他のインデックス番号をすべて更新して、隙間を埋めます。このノードはアイテムの検出時および削除時に True を返す Boolean を出力します。
+**Remove Item** ノードは、変数値を受け取ることによって配列からアイテムを取り除きます。配列内でその値が検出されると、その値は削除されます。その他のインデックス番号をすべて更新して、隙間を埋めます。このノードはアイテムの検出時および削除時に True を返す Boolean を出力します。
 
 ![](Array_RemoveItem.png)
 

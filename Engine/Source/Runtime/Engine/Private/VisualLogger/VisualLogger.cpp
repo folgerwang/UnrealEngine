@@ -9,7 +9,7 @@
 #include "Modules/ModuleManager.h"
 #include "EngineGlobals.h"
 #include "AI/NavDataGenerator.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "AI/NavigationSystemBase.h"
 #include "Framework/Docking/TabManager.h"
 #include "VisualLogger/VisualLoggerBinaryFileDevice.h"
 #include "VisualLogger/VisualLoggerDebugSnapshotInterface.h"
@@ -50,6 +50,7 @@ namespace
 
 TMap<const UWorld*, FVisualLogger::RedirectionMapType> FVisualLogger::WorldToRedirectionMap;
 int32 FVisualLogger::bIsRecording = false;
+FVisualLogger::FNavigationDataDump FVisualLogger::NavigationDataDumpDelegate;
 
 bool FVisualLogger::CheckVisualLogInputInternal(const UObject* Object, const FName& CategoryName, ELogVerbosity::Type Verbosity, UWorld **World, FVisualLogEntry **CurrentEntry)
 {
@@ -337,19 +338,7 @@ void FVisualLogger::NavigationDataDump(const UObject* Object, const FLogCategory
 void FVisualLogger::NavigationDataDump(const UObject* Object, const FName& CategoryName, const ELogVerbosity::Type Verbosity, const FBox& Box)
 {
 	SCOPE_CYCLE_COUNTER(STAT_VisualLog);
-	UWorld* World = nullptr;
-	FVisualLogEntry* CurrentEntry = nullptr;
-	if (CheckVisualLogInputInternal(Object, CategoryName, Verbosity, &World, &CurrentEntry) == false || CurrentEntry == nullptr)
-	{
-		return;
-	}
-
-	const ANavigationData* MainNavData = World ? UNavigationSystem::GetNavigationSystem(World)->GetMainNavData(FNavigationSystem::ECreateIfEmpty::DontCreate) : nullptr;
-	const FNavDataGenerator* Generator = MainNavData ? MainNavData->GetGenerator() : nullptr;
-	if (Generator)
-	{
-		Generator->GrabDebugSnapshot(CurrentEntry, FMath::IsNearlyZero(Box.GetVolume()) ? MainNavData->GetBounds().ExpandBy(FVector(20,20,20)) : Box, CategoryName, Verbosity);
-	}
+	NavigationDataDumpDelegate.Broadcast(Object, CategoryName, Verbosity, Box);
 }
 
 

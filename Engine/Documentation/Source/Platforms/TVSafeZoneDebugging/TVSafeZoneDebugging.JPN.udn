@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3055464
+﻿INTSourceChangelist:3807090
 Availability:Docs
 Title:TV セーフティ ゾーンのデバッグ設定
 Crumbs:%ROOT%, Platforms
@@ -83,7 +83,7 @@ TV セーフティ ゾーン コマンドをプロジェクトの **[SystemSetti
 1. コマンドを入力すると、以下の画像のように、若干透明がかった赤の縁で囲まれたプレイ ウィンドウが表示されます。
 
 	[REGION:lightbox]
-	[![](Safe_Zone_00.png)(w:645 h:377)](Safe_Zone_00.png)
+	[![](Safe_Zone_00.png)(w:645)](Safe_Zone_00.png)
 	[/REGION]
 
 	[REGION:caption]

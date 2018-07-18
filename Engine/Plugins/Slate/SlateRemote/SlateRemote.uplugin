@@ -3,7 +3,7 @@
 	"Version" : 1,
 	"VersionName" : "1.0",
 	"FriendlyName" : "Slate Remote",
-	"Description" : "Enables support for the UE4 Remote iOS application to remotely control games with your iPhone, iPad or iPod.",
+	"Description" : "Enables support for the UE4 Remote iOS application to remotely control games with your iPhone, iPad or iPod.  Only available in non-shipping builds",
 	"Category" : "Misc",
 	"CreatedBy" : "Epic Games, Inc.",
 	"CreatedByURL" : "http://epicgames.com",
@@ -20,9 +20,12 @@
 			"Name" : "SlateRemote",
 			"Type" : "RuntimeNoCommandlet",
 			"LoadingPhase" : "Default",
-			"BlacklistPlatforms" :
+			"WhitelistPlatforms" :
 			[
-				"HTML5"
+				"Mac",
+				"Linux",
+				"Win32",
+				"Win64"
 			]
 		}
 	]

@@ -31,8 +31,6 @@ namespace UnrealBuildTool.Rules
                     "Persona"
                 }
 			); 
-
-			PrivateIncludePaths.Add("/LiveLinkEditor/Private");
 		}
 	}
 }

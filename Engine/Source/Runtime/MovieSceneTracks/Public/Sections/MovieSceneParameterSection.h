@@ -7,8 +7,11 @@
 #include "Curves/KeyHandle.h"
 #include "Curves/RichCurve.h"
 #include "MovieSceneSection.h"
+#include "Channels/MovieSceneFloatChannel.h"
 #include "MovieSceneParameterSection.generated.h"
 
+struct FMovieSceneParameterPropertyInterface;
+struct FMovieSceneConstParameterPropertyInterface;
 
 /**
  * Structure representing the animated value of a scalar parameter.
@@ -79,9 +82,7 @@ struct FScalarParameterNameAndCurve
 	GENERATED_USTRUCT_BODY()
 
 	FScalarParameterNameAndCurve()
-	{
-		Index = 0;
-	}
+	{}
 
 	/** Creates a new FScalarParameterNameAndCurve for a specific scalar parameter. */
 	FScalarParameterNameAndCurve(FName InParameterName);
@@ -90,12 +91,9 @@ struct FScalarParameterNameAndCurve
 	UPROPERTY()
 	FName ParameterName;
 
-	UPROPERTY()
-	int32 Index;
-
 	/** The curve which contains the animation data for the scalar parameter. */
 	UPROPERTY()
-	FRichCurve ParameterCurve;
+	FMovieSceneFloatChannel ParameterCurve;
 };
 
 
@@ -108,9 +106,7 @@ struct FVectorParameterNameAndCurves
 	GENERATED_USTRUCT_BODY()
 
 	FVectorParameterNameAndCurves() 
-	{
-		Index = 0;
-	}
+	{}
 
 	/** Creates a new FVectorParameterNameAndCurve for a specific vector parameter. */
 	FVectorParameterNameAndCurves(FName InParameterName);
@@ -119,20 +115,17 @@ struct FVectorParameterNameAndCurves
 	UPROPERTY()
 	FName ParameterName;
 
-	UPROPERTY()
-	int32 Index;
-
 	/** The curve which contains the animation data for the x component of the vector parameter. */
 	UPROPERTY()
-	FRichCurve XCurve;
+	FMovieSceneFloatChannel XCurve;
 
 	/** The curve which contains the animation data for the y component of the vector parameter. */
 	UPROPERTY()
-	FRichCurve YCurve;
+	FMovieSceneFloatChannel YCurve;
 
 	/** The curve which contains the animation data for the z component of the vector parameter. */
 	UPROPERTY()
-	FRichCurve ZCurve;
+	FMovieSceneFloatChannel ZCurve;
 };
 
 
@@ -145,9 +138,7 @@ struct FColorParameterNameAndCurves
 	GENERATED_USTRUCT_BODY()
 
 	FColorParameterNameAndCurves()
-	{
-		Index = 0;
-	}
+	{}
 
 	/** Creates a new FVectorParameterNameAndCurve for a specific color parameter. */
 	FColorParameterNameAndCurves(FName InParameterName);
@@ -156,24 +147,21 @@ struct FColorParameterNameAndCurves
 	UPROPERTY()
 	FName ParameterName;
 
-	UPROPERTY()
-	int32 Index;
-
 	/** The curve which contains the animation data for the red component of the color parameter. */
 	UPROPERTY()
-	FRichCurve RedCurve;
+	FMovieSceneFloatChannel RedCurve;
 
 	/** The curve which contains the animation data for the green component of the color parameter. */
 	UPROPERTY()
-	FRichCurve GreenCurve;
+	FMovieSceneFloatChannel GreenCurve;
 
 	/** The curve which contains the animation data for the blue component of the color parameter. */
 	UPROPERTY()
-	FRichCurve BlueCurve;
+	FMovieSceneFloatChannel BlueCurve;
 
 	/** The curve which contains the animation data for the alpha component of the color parameter. */
 	UPROPERTY()
-	FRichCurve AlphaCurve;
+	FMovieSceneFloatChannel AlphaCurve;
 };
 
 
@@ -188,13 +176,13 @@ class UMovieSceneParameterSection
 
 public:
 	/** Adds a a key for a specific scalar parameter at the specified time with the specified value. */
-	void AddScalarParameterKey(FName InParameterName, float InTime, float InValue);
+	MOVIESCENETRACKS_API void AddScalarParameterKey(FName InParameterName, FFrameNumber InTime, float InValue);
 
 	/** Adds a a key for a specific vector parameter at the specified time with the specified value. */
-	void AddVectorParameterKey(FName InParameterName, float InTime, FVector InValue);
+	MOVIESCENETRACKS_API void AddVectorParameterKey(FName InParameterName, FFrameNumber InTime, FVector InValue);
 
 	/** Adds a a key for a specific color parameter at the specified time with the specified value. */
-	void AddColorParameterKey(FName InParameterName, float InTime, FLinearColor InValue);
+	MOVIESCENETRACKS_API void AddColorParameterKey(FName InParameterName, FFrameNumber InTime, FLinearColor InValue);
 
 	/** 
 	 * Removes a scalar parameter from this section. 
@@ -221,35 +209,26 @@ public:
 	MOVIESCENETRACKS_API bool RemoveColorParameter(FName InParameterName);
 
 	/** Gets the animated scalar parameters and their associated curves. */
-	MOVIESCENETRACKS_API TArray<FScalarParameterNameAndCurve>* GetScalarParameterNamesAndCurves();
+	MOVIESCENETRACKS_API TArray<FScalarParameterNameAndCurve>& GetScalarParameterNamesAndCurves();
 	MOVIESCENETRACKS_API const TArray<FScalarParameterNameAndCurve>& GetScalarParameterNamesAndCurves() const;
 
 	/** Gets the animated vector parameters and their associated curves. */
-	MOVIESCENETRACKS_API TArray<FVectorParameterNameAndCurves>* GetVectorParameterNamesAndCurves();
+	MOVIESCENETRACKS_API TArray<FVectorParameterNameAndCurves>& GetVectorParameterNamesAndCurves();
 	MOVIESCENETRACKS_API const TArray<FVectorParameterNameAndCurves>& GetVectorParameterNamesAndCurves() const;
 
 	/** Gets the animated color parameters and their associated curves. */
-	MOVIESCENETRACKS_API TArray<FColorParameterNameAndCurves>* GetColorParameterNamesAndCurves();
+	MOVIESCENETRACKS_API TArray<FColorParameterNameAndCurves>& GetColorParameterNamesAndCurves();
 	MOVIESCENETRACKS_API const TArray<FColorParameterNameAndCurves>& GetColorParameterNamesAndCurves() const;
 
 	/** Gets the set of all parameter names used by this section. */
 	MOVIESCENETRACKS_API void GetParameterNames(TSet<FName>& ParameterNames) const;
 
-public:
+protected:
 
 	//~ UMovieSceneSection interface
+	virtual void Serialize(FArchive& Ar) override;
 
-	virtual void DilateSection(float DilationFactor, float Origin, TSet<FKeyHandle>& KeyHandles) override;
-	virtual void GetKeyHandles(TSet<FKeyHandle>& OutKeyHandles, TRange<float> TimeRange) const override;
-	virtual void MoveSection(float DeltaPosition, TSet<FKeyHandle>& KeyHandles) override;
-	virtual TOptional<float> GetKeyTime(FKeyHandle KeyHandle) const override;
-	virtual void SetKeyTime(FKeyHandle KeyHandle, float Time) override;
-
-private:
-
-	void UpdateParameterIndicesFromRemoval(int32 RemovedIndex);
-	void GatherCurves(TArray<const FRichCurve*> &OutCurves) const;
-	void GatherCurves(TArray<FRichCurve*> &OutCurves);
+	void ReconstructChannelProxy();
 
 private:
 

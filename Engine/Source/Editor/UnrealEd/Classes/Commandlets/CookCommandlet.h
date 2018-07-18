@@ -13,7 +13,7 @@
 #include "Templates/ScopedPointer.h"
 #include "Misc/PackageName.h"
 #include "Commandlets/Commandlet.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 #include "IPlatformFileSandboxWrapper.h"
 #include "CookCommandlet.generated.h"
 

@@ -125,7 +125,7 @@ FString FGameProjectGenerationModule::DetermineModuleIncludePath(const FModuleCo
 	return GameProjectUtils::DetermineModuleIncludePath(ModuleInfo, FileRelativeTo);
 }
 
-TArray<FModuleContextInfo> FGameProjectGenerationModule::GetCurrentProjectModules()
+const TArray<FModuleContextInfo>& FGameProjectGenerationModule::GetCurrentProjectModules()
 {
 	return GameProjectUtils::GetCurrentProjectModules();
 }

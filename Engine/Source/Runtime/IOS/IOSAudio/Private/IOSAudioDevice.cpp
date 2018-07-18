@@ -37,9 +37,17 @@ void FIOSAudioDevice::ResumeContext()
 	if (SuspendCounter > 0)
 	{
 		FPlatformAtomics::InterlockedDecrement(&SuspendCounter);
-
-		AUGraphStart(AudioUnitGraph);
-		AudioOutputUnitStart(OutputUnit);
+        
+		if (AudioUnitGraph != NULL)
+		{
+			AUGraphStart(AudioUnitGraph);
+		}
+		
+		if (OutputUnit != NULL)
+		{
+			AudioOutputUnitStart(OutputUnit);
+		}
+		
 		UE_LOG(LogIOSAudio, Display, TEXT("Resuming Audio"));
 	}
 }
@@ -51,8 +59,16 @@ void FIOSAudioDevice::SuspendContext()
 	{
 		FPlatformAtomics::InterlockedIncrement(&SuspendCounter);
 
-		AudioOutputUnitStop(OutputUnit);
-		AUGraphStop(AudioUnitGraph);
+		if (OutputUnit != NULL)
+		{
+			AudioOutputUnitStop(OutputUnit);
+		}
+
+		if (AudioUnitGraph != NULL)
+		{
+			AUGraphStop(AudioUnitGraph);
+		}
+		
 		UE_LOG(LogIOSAudio, Display, TEXT("Suspending Audio"));
 	}
 }
@@ -67,7 +83,9 @@ FIOSAudioDevice::FIOSAudioDevice() :
 	FAudioDevice(),
 	AudioUnitGraph(NULL),
 	OutputNode(0),
+	OutputUnit(NULL),
 	MixerNode(0),
+	MixerUnit(NULL),
 	NextBusNumber(0)
 {
 	bDisableAudioCaching = true;	// Do not allow DTYPE_Native buffers, only DTYPE_RealTime or DTYPE_Streaming since on the fly decompression is so cheap, it saves memory, and requires fewer code paths
@@ -119,7 +137,9 @@ bool FIOSAudioDevice::InitializeHardware()
 
 	// Setup audio output unit
 	UnitDescription.componentType         = kAudioUnitType_Output;
-	UnitDescription.componentSubType      = kAudioUnitSubType_RemoteIO;
+    
+    // tmeporarily set the audio unit to voice processing so we can use VOIP, there probably is a better way to do this going forward
+	UnitDescription.componentSubType      = FPlatformMisc::IsVoiceChatEnabled() ? kAudioUnitSubType_VoiceProcessingIO : kAudioUnitSubType_RemoteIO;
 	UnitDescription.componentManufacturer = kAudioUnitManufacturer_Apple;
 	UnitDescription.componentFlags        = 0;
 	UnitDescription.componentFlagsMask    = 0;
@@ -158,6 +178,7 @@ bool FIOSAudioDevice::InitializeHardware()
 	if (Status != noErr)
 	{
 		HandleError(TEXT("Failed to retrieve output unit reference!"), true);
+		OutputUnit = NULL;
 		return false;
 	}
 	
@@ -165,6 +186,7 @@ bool FIOSAudioDevice::InitializeHardware()
 	if (Status != noErr)
 	{
 		HandleError(TEXT("Failed to retrieve mixer unit reference!"), true);
+		MixerUnit = NULL;
 		return false;
 	}
 

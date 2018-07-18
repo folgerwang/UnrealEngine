@@ -11,9 +11,8 @@ namespace Audio
 		: FSoundBuffer(InAudioDevice)
 		, RealtimeAsyncHeaderParseTask(nullptr)
 		, DecompressionState(nullptr)
-		, SoundWaveProcedural(nullptr)
 		, BufferType(InBufferType)
-		, SampleRate(InWave->SampleRate)
+		, SampleRate(InWave->GetSampleRateForCurrentPlatform())
 		, BitsPerSample(16) // TODO: support more bits, currently hard-coded to 16
 		, Data(nullptr)
 		, DataSize(0)
@@ -72,13 +71,6 @@ namespace Audio
 			case EBufferType::Invalid:
 			// nothing
 			break;
-		}
-
-		// Mark the procedural sound wave as being ok to be destroyed now
-		if (SoundWaveProcedural)
-		{
-			SoundWaveProcedural->OnEndGenerate();
-			SoundWaveProcedural->bIsReadyForDestroy = true;
 		}
 	}
 
@@ -307,19 +299,12 @@ namespace Audio
 		Buffer->ResourceID = 0;
 		InWave->ResourceID = 0;
 
-		// Don't allow the procedural sound wave to be destroyed until we're done with it
-		Buffer->SoundWaveProcedural = Cast<USoundWaveProcedural>(InWave);
-		if (Buffer->SoundWaveProcedural)
-		{
-			Buffer->SoundWaveProcedural->bIsReadyForDestroy = false;
-		}
-
 		return Buffer;
 	}
 
 	FMixerBuffer* FMixerBuffer::CreateNativeBuffer(FMixerDevice* InMixer, USoundWave* InWave)
 	{
-		check(InWave->bIsPrecacheDone);
+		check(InWave->GetPrecacheState() == ESoundWavePrecacheState::Done);
 
 		FMixerBuffer* Buffer = new FMixerBuffer(InMixer, InWave, EBufferType::PCM);
 		return Buffer;
@@ -337,7 +322,7 @@ namespace Audio
 		if (Buffer->DecompressionState->StreamCompressedInfo(InWave, &QualityInfo))
 		{
 			// Refresh the wave data
-			InWave->SampleRate = QualityInfo.SampleRate;
+			InWave->SetSampleRate(QualityInfo.SampleRate);
 			InWave->NumChannels = QualityInfo.NumChannels;
 			InWave->RawPCMDataSize = QualityInfo.SampleDataSize;
 			InWave->Duration = QualityInfo.Duration;
@@ -357,7 +342,7 @@ namespace Audio
 	{
 		check(InMixer);
 		check(InWave);
-		check(InWave->bIsPrecacheDone);
+		check(InWave->GetPrecacheState() == ESoundWavePrecacheState::Done);
 
 		// Create a new buffer for real-time sounds
 		FMixerBuffer* Buffer = new FMixerBuffer(InMixer, InWave, EBufferType::PCMRealTime);
@@ -416,14 +401,4 @@ namespace Audio
 			RealtimeAsyncHeaderParseTask = nullptr;
 		}
 	}
-
-	void FMixerBuffer::OnBeginGenerate()
-	{
-		if (SoundWaveProcedural)
-		{
-			SoundWaveProcedural->OnBeginGenerate();
-		}
-	}
-
-
 }

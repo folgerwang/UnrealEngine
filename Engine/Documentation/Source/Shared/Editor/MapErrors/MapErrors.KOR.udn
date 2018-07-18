@@ -129,9 +129,9 @@ bStatic 플래그가 True 로 설정된 액터가 있는데 그 Physics 는 PHYS
 
 ### BSP 브러시
 
-[EXCERPT:BrushZeroPolygons]
 (#BrushZeroPolygons)
-$ **[브러시 액터] &#58; 브러시에 0 폴리곤이 있습니다. 지워 주세요 .**
+[EXCERPT:BrushZeroPolygons]
+**[브러시 액터] &#58; 브러시에 0 폴리곤이 있습니다. 지워주세요!**
 
 레벨에 있는 브러시에 연관된 폴리곤이 아무것도 없는 것이 있음을 나타내는 경고입니다. 브러시가 별다른 작업을 하지 않고 있으니 지워줘야 합니다.
 [/EXCERPT:BrushZeroPolygons]

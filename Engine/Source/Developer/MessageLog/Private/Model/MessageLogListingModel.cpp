@@ -13,7 +13,7 @@ MessageContainer::TConstIterator FMessageLogListingModel::GetMessageIterator(con
 
 const TSharedPtr< FTokenizedMessage >  FMessageLogListingModel::GetMessageAtIndex( const uint32 PageIndex, const int32 MessageIndex ) const
 {
-	TSharedPtr<FTokenizedMessage> FoundMessage = NULL;
+	TSharedPtr<FTokenizedMessage> FoundMessage = nullptr;
 	FPage* Page = PageAtIndex(PageIndex);
 	if( Page->Messages.IsValidIndex( MessageIndex ) )
 	{
@@ -37,7 +37,7 @@ const TSharedPtr< FTokenizedMessage > FMessageLogListingModel::GetMessageFromDat
 			}
 		}
 	}
-	return NULL;
+	return nullptr;
 }
 
 FText FMessageLogListingModel::GetAllMessagesAsText( const uint32 PageIndex ) const
@@ -144,7 +144,7 @@ FMessageLogListingModel::FPage& FMessageLogListingModel::CurrentPage() const
 FMessageLogListingModel::FPage* FMessageLogListingModel::PageAtIndex(const uint32 PageIndex) const
 {
 	check(PageIndex < (uint32)Pages.Num());
-	if(CachedPage != NULL && CachedPageIndex == PageIndex)
+	if(CachedPage != nullptr && CachedPageIndex == PageIndex)
 	{
 		return CachedPage;
 	}
@@ -164,7 +164,7 @@ FMessageLogListingModel::FPage* FMessageLogListingModel::PageAtIndex(const uint3
 	}
 
 	check(false);	// Should never get here!
-	return NULL;
+	return nullptr;
 }
 
 const FText& FMessageLogListingModel::GetPageTitle( const uint32 PageIndex ) const
@@ -187,7 +187,7 @@ void FMessageLogListingModel::CreateNewPageIfRequired()
 			Pages.AddHead(FPage(PendingPageName));
 
 			// invalidate cache as all indices will change
-			CachedPage = NULL;
+			CachedPage = nullptr;
 		}
 		else
 		{
@@ -204,7 +204,7 @@ bool FMessageLogListingModel::AreMessagesEqual(const TSharedRef< FTokenizedMessa
 	{
 		auto TokenItA(MessageA->GetMessageTokens().CreateConstIterator());
 		auto TokenItB(MessageB->GetMessageTokens().CreateConstIterator());
-		for( ; TokenItA && TokenItB; TokenItA++, TokenItB++)
+		for( ; TokenItA && TokenItB; ++TokenItA, ++TokenItB)
 		{
 			TSharedRef<IMessageToken> TokenA = *TokenItA;
 			TSharedRef<IMessageToken> TokenB = *TokenItB;
@@ -220,22 +220,38 @@ bool FMessageLogListingModel::AreMessagesEqual(const TSharedRef< FTokenizedMessa
 	return false;
 }
 
+// Specialized KeyFunc for TSharedRef<FTokenizedMessage> usage in TSet
+struct FTokenizedMessageKeyFunc
+{
+	typedef typename TCallTraits<TSharedRef<FTokenizedMessage>>::ParamType KeyInitType;
+	typedef typename TCallTraits<TSharedRef<FTokenizedMessage>>::ParamType ElementInitType;
+
+	enum { bAllowDuplicateKeys = false };
+
+	static FORCEINLINE KeyInitType GetSetKey(ElementInitType Element)
+	{
+		return Element;
+	}
+
+	static FORCEINLINE bool Matches(KeyInitType A, KeyInitType B)
+	{
+		return FMessageLogListingModel::AreMessagesEqual(A, B);
+	}
+
+	static FORCEINLINE uint32 GetKeyHash(KeyInitType Key)
+	{
+		return GetTypeHash(Key->ToText().ToString());
+	}
+};
+
 void FMessageLogListingModel::RemoveDuplicates(uint32 PageIndex)
 {
 	FPage* Page = PageAtIndex(PageIndex);
-	if(Page != NULL)
+	
+	if (Page != nullptr && Page->Messages.Num() > 0)
 	{
-		for(int IndexOuter = Page->Messages.Num() - 1; IndexOuter >= 0; --IndexOuter)
-		{
-			for(int IndexInner = Page->Messages.Num() - 1; IndexInner >= 0; --IndexInner)
-			{
-				if(IndexInner != IndexOuter && AreMessagesEqual(Page->Messages[IndexInner], Page->Messages[IndexOuter]))
-				{
-					Page->Messages.RemoveAt(IndexOuter);
-					break;
-				}
-			}
-		}
+		TSet<TSharedRef<FTokenizedMessage>, FTokenizedMessageKeyFunc> MessageSet(Page->Messages);
+		Page->Messages = MessageSet.Array();
 	}
 }
 

@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
-#include "Curves/IntegralCurve.h"
+#include "Channels/MovieSceneBoolChannel.h"
 #include "Evaluation/MovieSceneAnimTypeID.h"
 #include "Evaluation/MovieSceneEvalTemplate.h"
 #include "MovieSceneSpawnTemplate.generated.h"
@@ -29,5 +29,5 @@ private:
 
 protected:
 	UPROPERTY()
-	FIntegralCurve Curve;
+	FMovieSceneBoolChannel Curve;
 };

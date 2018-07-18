@@ -1499,9 +1499,14 @@ void UGatherTextFromSourceCommandlet::FStringMacroDescriptor::TryParse(const FSt
 			else
 			{
 				FString Identifier;
-				FString Namespace = Context.Namespace;
 				FString SourceLocation = FSourceLocation(Context.Filename, Context.LineNumber).ToString();
 				FString SourceText;
+
+				TOptional<FString> Namespace;
+				if (Context.WithinNamespaceDefine || !Context.Namespace.IsEmpty())
+				{
+					Namespace = Context.Namespace;
+				}
 
 				bool ArgParseError = false;
 				for (int32 ArgIdx=0; ArgIdx<Arguments.Num(); ArgIdx++)
@@ -1547,11 +1552,16 @@ void UGatherTextFromSourceCommandlet::FStringMacroDescriptor::TryParse(const FSt
 
 				if (!ArgParseError && !Identifier.IsEmpty() && !SourceText.IsEmpty())
 				{
+					if (!Namespace.IsSet())
+					{
+						UE_LOG(LogGatherTextFromSourceCommandlet, Warning, TEXT("Localization macro doesn't define a namespace and no external namespace was set. An empty namspace will be used. %s"), *SourceLocation );
+					}
+
 					FManifestContext MacroContext;
 					MacroContext.Key = Identifier;
 					MacroContext.SourceLocation = SourceLocation;
 
-					Context.AddManifestText( GetToken(), Namespace, SourceText, MacroContext );
+					Context.AddManifestText( GetToken(), Namespace.Get(FString()), SourceText, MacroContext );
 				}
 			}
 		}

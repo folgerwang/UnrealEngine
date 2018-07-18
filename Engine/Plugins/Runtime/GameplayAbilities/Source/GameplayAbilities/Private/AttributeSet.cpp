@@ -19,7 +19,7 @@
 #if WITH_EDITOR
 #include "EditorReimportHandler.h"
 #endif
-#include "UObjectThreadContext.h"
+#include "UObject/UObjectThreadContext.h"
 
 
 #if ENABLE_VISUAL_LOG
@@ -324,6 +324,11 @@ bool UAttributeSet::IsNameStableForNetworking() const
 	return bNetAddressable || Super::IsNameStableForNetworking();
 }
 
+bool UAttributeSet::IsSupportedForNetworking() const
+{
+	return true;
+}
+
 void UAttributeSet::SetNetAddressable()
 {
 	bNetAddressable = true;
@@ -403,8 +408,10 @@ void UAttributeSet::PostNetReceive()
 }
 
 FAttributeMetaData::FAttributeMetaData()
-	: MinValue(0.f)
+	: BaseValue(0.0f)
+	, MinValue(0.f)
 	, MaxValue(1.f)
+	, bCanStack(false)
 {
 
 }

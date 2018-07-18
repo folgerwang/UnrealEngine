@@ -4,42 +4,90 @@
 
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
-#include "Curves/KeyHandle.h"
-#include "Curves/RichCurve.h"
+#include "Channels/MovieSceneFloatChannel.h"
 #include "MovieSceneSection.h"
-#include "Slate/WidgetTransform.h"
-#include "Sections/IKeyframeSection.h"
 #include "MovieScene2DTransformSection.generated.h"
 
-enum class EKey2DTransformChannel
+
+enum class EMovieScene2DTransformChannel : uint32
 {
-	Translation,
-	Rotation,
-	Scale,
-	Shear
+	None			= 0x000,
+
+	TranslationX 	= 0x001,
+	TranslationY 	= 0x002,
+	Translation 	= TranslationX | TranslationY,
+
+	Rotation 		= 0x004,
+
+	ScaleX 			= 0x008,
+	ScaleY 			= 0x010,
+	Scale 			= ScaleX | ScaleY,
+
+	ShearX 			= 0x020,
+	ShearY 			= 0x040,
+	Shear           = ShearX | ShearY,
+
+	AllTransform	= Translation | Rotation | Scale | Shear
 };
+ENUM_CLASS_FLAGS(EMovieScene2DTransformChannel)
 
-
-enum class EKey2DTransformAxis
+USTRUCT()
+struct FMovieScene2DTransformMask
 {
-	X,
-	Y,
-	None
-};
+	GENERATED_BODY()
 
-struct F2DTransformKey
-{
-	F2DTransformKey( EKey2DTransformChannel InChannel, EKey2DTransformAxis InAxis, float InValue )
+	FMovieScene2DTransformMask()
+		: Mask(0)
+	{}
+
+	FMovieScene2DTransformMask(EMovieScene2DTransformChannel Channel)
+		: Mask((__underlying_type(EMovieScene2DTransformChannel))Channel)
+	{}
+
+	EMovieScene2DTransformChannel GetChannels() const
 	{
-		Channel = InChannel;
-		Axis = InAxis;
-		Value = InValue;
+		return (EMovieScene2DTransformChannel)Mask;
 	}
-	EKey2DTransformChannel Channel;
-	EKey2DTransformAxis Axis;
-	float Value;
-};
 
+	FVector2D GetTranslationFactor() const
+	{
+		EMovieScene2DTransformChannel Channels = GetChannels();
+		return FVector2D(
+			EnumHasAllFlags(Channels, EMovieScene2DTransformChannel::TranslationX) ? 1.f : 0.f,
+			EnumHasAllFlags(Channels, EMovieScene2DTransformChannel::TranslationY) ? 1.f : 0.f);
+	}
+
+	float GetRotationFactor() const
+	{
+		EMovieScene2DTransformChannel Channels = GetChannels();
+		if (EnumHasAllFlags(Channels, EMovieScene2DTransformChannel::Rotation))
+		{
+			return 1.f;
+		}
+		return 0.f;
+	}
+
+	FVector2D GetScaleFactor() const
+	{
+		EMovieScene2DTransformChannel Channels = GetChannels();
+		return FVector2D(
+			EnumHasAllFlags(Channels, EMovieScene2DTransformChannel::ScaleX) ? 1.f : 0.f,
+			EnumHasAllFlags(Channels, EMovieScene2DTransformChannel::ScaleY) ? 1.f : 0.f);
+	}
+
+	FVector2D GetShearFactor() const
+	{
+		EMovieScene2DTransformChannel Channels = GetChannels();
+		return FVector2D(
+			EnumHasAllFlags(Channels, EMovieScene2DTransformChannel::ShearX) ? 1.f : 0.f,
+			EnumHasAllFlags(Channels, EMovieScene2DTransformChannel::ShearY) ? 1.f : 0.f);
+	}
+
+private:
+
+	UPROPERTY()
+	uint32 Mask;
+};
 
 /**
  * A transform section
@@ -47,62 +95,53 @@ struct F2DTransformKey
 UCLASS(MinimalAPI)
 class UMovieScene2DTransformSection
 	: public UMovieSceneSection
-	, public IKeyframeSection<F2DTransformKey>
 {
 	GENERATED_UCLASS_BODY()
 
 public:
+		
+	/**
+	 * Access the mask that defines which channels this track should animate
+	 */
+	UMG_API FMovieScene2DTransformMask GetMask() const;
 
-	// UMovieSceneSection interface
+	/**
+	 * Set the mask that defines which channels this track should animate
+	 */
+	UMG_API void SetMask(FMovieScene2DTransformMask NewMask);
 
-	virtual void MoveSection(float DeltaPosition, TSet<FKeyHandle>& KeyHandles) override;
-	virtual void DilateSection(float DilationFactor, float Origin, TSet<FKeyHandle>& KeyHandles) override;
-	virtual void GetKeyHandles(TSet<FKeyHandle>& OutKeyHandles, TRange<float> TimeRange) const override;
-	virtual TOptional<float> GetKeyTime( FKeyHandle KeyHandle ) const override;
-	virtual void SetKeyTime( FKeyHandle KeyHandle, float Time ) override;
+	/**
+	 * Get the mask by name
+	 */
+	UMG_API FMovieScene2DTransformMask GetMaskByName(const FName& InName) const;
+
+protected:
+
+	virtual void Serialize(FArchive& Ar) override;
+
+	void UpdateChannelProxy();
 
 public:
 
-	UMG_API FRichCurve& GetTranslationCurve( EAxis::Type Axis );
-	UMG_API const FRichCurve& GetTranslationCurve( EAxis::Type Axis ) const;
-
-	UMG_API FRichCurve& GetRotationCurve();
-	UMG_API const FRichCurve& GetRotationCurve() const;
-
-	UMG_API FRichCurve& GetScaleCurve( EAxis::Type Axis );
-	UMG_API const FRichCurve& GetScaleCurve( EAxis::Type Axis ) const;
-
-	DEPRECATED(4.15, "Please use GetShearCurve.")
-	UMG_API FRichCurve& GetSheerCurve( EAxis::Type Axis );
-	
-	UMG_API FRichCurve& GetShearCurve( EAxis::Type Axis );
-	UMG_API const FRichCurve& GetShearCurve( EAxis::Type Axis ) const;
-
-	DEPRECATED(4.15, "Evaluation is now the responsibility of FMovieScene2DTransformSectionTemplate")
-	FWidgetTransform Eval( float Position, const FWidgetTransform& DefaultValue ) const;
-
-	// IKeyframeSection interface.
-	virtual bool NewKeyIsNewData( float Time, const struct F2DTransformKey& TransformKey ) const override;
-	virtual bool HasKeys( const struct F2DTransformKey& TransformKey ) const override;
-	virtual void AddKey( float Time, const struct F2DTransformKey& TransformKey, EMovieSceneKeyInterpolation KeyInterpolation ) override;
-	virtual void SetDefault( const struct F2DTransformKey& TransformKey ) override;
-	virtual void ClearDefaults() override;
-
-private:
+	UPROPERTY()
+	FMovieScene2DTransformMask TransformMask;
 
 	/** Translation curves*/
 	UPROPERTY()
-	FRichCurve Translation[2];
+	FMovieSceneFloatChannel Translation[2];
 	
 	/** Rotation curve */
 	UPROPERTY()
-	FRichCurve Rotation;
+	FMovieSceneFloatChannel Rotation;
 
 	/** Scale curves */
 	UPROPERTY()
-	FRichCurve Scale[2];
+	FMovieSceneFloatChannel Scale[2];
 
 	/** Shear curve */
 	UPROPERTY()
-	FRichCurve Shear[2];
+	FMovieSceneFloatChannel Shear[2];
+
+	/** Unserialized mask that defines the mask of the current channel proxy so we don't needlessly re-create it on post-undo */
+	EMovieScene2DTransformChannel ProxyChannels;
 };

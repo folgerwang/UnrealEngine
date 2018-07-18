@@ -40,9 +40,6 @@ private:
 	/** Resizes targets to the new size */
 	void ResizeTargets(const FIntPoint& NewSize);
 
-	/** FDeferredCleanupInterface */
-	virtual void FinishCleanup();
-
 private:
 	TArray<FTexture2DRHIRef, TInlineAllocator<2>> RenderTargets;
 	EPixelFormat PixelFormat;

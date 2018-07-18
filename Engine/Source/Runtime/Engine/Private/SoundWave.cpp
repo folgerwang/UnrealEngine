@@ -19,6 +19,7 @@
 #include "EditorFramework/AssetImportData.h"
 #include "ProfilingDebugging/CookStats.h"
 #include "HAL/LowLevelMemTracker.h"
+#include "AudioCompressionSettingsUtils.h"
 
 #if ENABLE_COOK_STATS
 namespace SoundWaveCookStats
@@ -30,6 +31,19 @@ namespace SoundWaveCookStats
 	});
 }
 #endif
+
+ITargetPlatform* USoundWave::GetRunningPlatform()
+{
+	ITargetPlatformManagerModule* TPM = GetTargetPlatformManager();
+	if (TPM)
+	{
+		return TPM->GetRunningTargetPlatform();
+	}
+	else
+	{
+		return nullptr;
+	}
+}
 
 /*-----------------------------------------------------------------------------
 	FStreamedAudioChunk
@@ -94,9 +108,13 @@ USoundWave::USoundWave(const FObjectInitializer& ObjectInitializer)
 	CompressionQuality = 40;
 	SubtitlePriority = DEFAULT_SUBTITLE_PRIORITY;
 	ResourceState = ESoundWaveResourceState::NeedsFree;
+	SetPrecacheState(ESoundWavePrecacheState::NotStarted);
 
-	// Default this to true since most sound wave types don't need precaching
-	bIsPrecacheDone = true;
+#if !WITH_EDITOR
+	bCachedSampleRateFromPlatformSettings = false;
+	bSampleRateManuallyReset = false;
+	CachedSampleRateOverride = 0.0f;
+#endif //!WITH_EDITOR
 }
 
 void USoundWave::GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize)
@@ -128,6 +146,7 @@ void USoundWave::GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize)
 		}
 	}
 }
+
 
 int32 USoundWave::GetResourceSizeForFormat(FName Format)
 {
@@ -206,6 +225,11 @@ void USoundWave::Serialize( FArchive& Ar )
 		Ar << DummyCompressionName;
 	}
 
+	if (Ar.IsSaving() || Ar.IsCooking())
+	{
+		bHasVirtualizeWhenSilent = bVirtualizeWhenSilent;
+	}
+
 	bool bSupportsStreaming = false;
 	if (Ar.IsLoading() && FPlatformProperties::SupportsAudioStreaming())
 	{
@@ -225,13 +249,25 @@ void USoundWave::Serialize( FArchive& Ar )
 			{
 #if WITH_ENGINE
 				TArray<FName> ActualFormatsToSave;
-				if (!Ar.CookingTarget()->IsServerOnly())
+				const ITargetPlatform* CookingTarget = Ar.CookingTarget();
+				if (!CookingTarget->IsServerOnly())
 				{
 					// for now we only support one format per wav
-					FName Format = Ar.CookingTarget()->GetWaveFormat(this);
-					GetCompressedData(Format); // Get the data from the DDC or build it
+					FName Format = CookingTarget->GetWaveFormat(this);
+					const FPlatformAudioCookOverrides* CompressionOverrides = CookingTarget->GetAudioCompressionSettings();
 
-					ActualFormatsToSave.Add(Format);
+					GetCompressedData(Format, CompressionOverrides); // Get the data from the DDC or build it
+					if (CompressionOverrides)
+					{
+						FString HashedString = *Format.ToString();
+						FPlatformAudioCookOverrides::GetHashSuffix(CompressionOverrides, HashedString);
+						FName PlatformSpecificFormat = *HashedString;
+						ActualFormatsToSave.Add(PlatformSpecificFormat);
+					}
+					else
+					{
+						ActualFormatsToSave.Add(Format);
+					}
 				}
 				CompressedFormatData.Serialize(Ar, this, &ActualFormatsToSave);
 #endif
@@ -267,6 +303,14 @@ void USoundWave::Serialize( FArchive& Ar )
 			BeginCachePlatformData();
 		}
 #endif // #if WITH_EDITORONLY_DATA
+
+// For non-editor builds, we can immediately cache the sample rate.
+#if !WITH_EDITOR
+		if (Ar.IsLoading())
+		{
+			SampleRate = GetSampleRateForCurrentPlatform();
+		}
+#endif // !WITH_EDITOR
 	}
 }
 
@@ -325,34 +369,163 @@ void USoundWave::PostInitProperties()
 #endif
 }
 
-bool USoundWave::HasCompressedData(FName Format) const
+bool USoundWave::HasCompressedData(FName Format, ITargetPlatform* TargetPlatform) const
 {
 	if (IsTemplate() || IsRunningDedicatedServer())
 	{
 		return false;
 	}
 
-	return CompressedFormatData.Contains(Format);
+#if WITH_EDITOR
+	const FPlatformAudioCookOverrides* CompressionOverrides = (TargetPlatform) ? TargetPlatform->GetAudioCompressionSettings() : nullptr;
+#else
+	// TargetPlatform is not available on consoles/mobile, so we have to grab it ourselves:
+	const FPlatformAudioCookOverrides* CompressionOverrides = FPlatformCompressionUtilities::GetCookOverridesForCurrentPlatform();
+#endif // WITH_EDITOR
+
+	if (CompressionOverrides)
+	{
+#if WITH_EDITOR
+		FName PlatformSpecificFormat;
+		FString HashedString = *Format.ToString();
+		FPlatformAudioCookOverrides::GetHashSuffix(CompressionOverrides, HashedString);
+		PlatformSpecificFormat = *HashedString;
+#else
+		// on non-editor builds, we cache the concatenated format in a static FName.
+		static FName PlatformSpecificFormat;
+		static FName CachedFormat;
+		if (!Format.IsEqual(CachedFormat))
+		{
+			FString HashedString = *Format.ToString();
+			FPlatformAudioCookOverrides::GetHashSuffix(CompressionOverrides, HashedString);
+			PlatformSpecificFormat = *HashedString;
+
+			CachedFormat = Format;
+		}
+#endif // WITH_EDITOR
+		return CompressedFormatData.Contains(PlatformSpecificFormat);
+	}
+	else
+	{
+		return CompressedFormatData.Contains(Format);
+	}
+
 }
 
-FByteBulkData* USoundWave::GetCompressedData(FName Format)
+const FPlatformAudioCookOverrides* USoundWave::GetPlatformCompressionOverridesForCurrentPlatform()
+{
+	return FPlatformCompressionUtilities::GetCookOverridesForCurrentPlatform();
+}
+
+FName USoundWave::GetPlatformSpecificFormat(FName Format, const FPlatformAudioCookOverrides* CompressionOverrides)
+{
+	// Platforms that require compression overrides get concatenated formats.
+#if WITH_EDITOR
+	FName PlatformSpecificFormat;
+	if (CompressionOverrides)
+	{
+		FString HashedString = *Format.ToString();
+		FPlatformAudioCookOverrides::GetHashSuffix(CompressionOverrides, HashedString);
+		PlatformSpecificFormat = *HashedString;
+	}
+	else
+	{
+		PlatformSpecificFormat = Format;
+	}
+#else
+	if (CompressionOverrides == nullptr)
+	{
+		CompressionOverrides = GetPlatformCompressionOverridesForCurrentPlatform();
+	}
+
+	// Cache the concatenated hash:
+	static FName PlatformSpecificFormat;
+	static FName CachedFormat;
+	if (!Format.IsEqual(CachedFormat))
+	{
+		if (CompressionOverrides)
+		{
+			FString HashedString = *Format.ToString();
+			FPlatformAudioCookOverrides::GetHashSuffix(CompressionOverrides, HashedString);
+			PlatformSpecificFormat = *HashedString;
+		}
+		else
+		{
+			PlatformSpecificFormat = Format;
+		}
+
+		CachedFormat = Format;
+	}
+
+#endif // WITH_EDITOR
+
+	return PlatformSpecificFormat;
+}
+
+void USoundWave::BeginGetCompressedData(FName Format, const FPlatformAudioCookOverrides* CompressionOverrides)
+{
+#if WITH_EDITOR
+	if (IsTemplate() || IsRunningDedicatedServer())
+	{
+		return;
+	}
+
+	FName PlatformSpecificFormat = GetPlatformSpecificFormat(Format, CompressionOverrides);
+
+	if (!CompressedFormatData.Contains(PlatformSpecificFormat) && !AsyncLoadingDataFormats.Contains(PlatformSpecificFormat))
+	{
+		if (GetDerivedDataCache())
+		{
+			FDerivedAudioDataCompressor* DeriveAudioData = new FDerivedAudioDataCompressor(this, Format, PlatformSpecificFormat, CompressionOverrides);
+			uint32 GetHandle = GetDerivedDataCacheRef().GetAsynchronous(DeriveAudioData);
+			AsyncLoadingDataFormats.Add(PlatformSpecificFormat, GetHandle);
+		}
+		else
+		{
+			UE_LOG(LogAudio, Error, TEXT("Attempt to access the DDC when there is none available on sound '%s', format = %s."), *GetFullName(), *PlatformSpecificFormat.ToString());
+		}
+	}
+#else
+	// No async DDC read in non-editor, nothing to precache
+#endif
+}
+
+FByteBulkData* USoundWave::GetCompressedData(FName Format, const FPlatformAudioCookOverrides* CompressionOverrides)
 {
 	if (IsTemplate() || IsRunningDedicatedServer())
 	{
 		return nullptr;
 	}
-	bool bContainedData = CompressedFormatData.Contains(Format);
-	FByteBulkData* Result = &CompressedFormatData.GetFormat(Format);
-	if (!bContainedData)
+	
+	FName PlatformSpecificFormat = GetPlatformSpecificFormat(Format, CompressionOverrides);
+
+	bool bContainedValidData = CompressedFormatData.Contains(PlatformSpecificFormat);
+	FByteBulkData* Result = &CompressedFormatData.GetFormat(PlatformSpecificFormat);
+	if (!bContainedValidData)
 	{
 		if (!FPlatformProperties::RequiresCookedData() && GetDerivedDataCache())
 		{
 			TArray<uint8> OutData;
-			FDerivedAudioDataCompressor* DeriveAudioData = new FDerivedAudioDataCompressor(this, Format);
+			bool bDataWasBuilt = false;
+			bool bGetSuccessful = false;
 
 			COOK_STAT(auto Timer = SoundWaveCookStats::UsageStats.TimeSyncWork());
-			bool bDataWasBuilt = false;
-			if (GetDerivedDataCacheRef().GetSynchronous(DeriveAudioData, OutData, &bDataWasBuilt))
+#if WITH_EDITOR
+			uint32* AsyncHandle = AsyncLoadingDataFormats.Find(PlatformSpecificFormat);
+			if (AsyncHandle)
+			{
+				GetDerivedDataCacheRef().WaitAsynchronousCompletion(*AsyncHandle);
+				bGetSuccessful = GetDerivedDataCacheRef().GetAsynchronousResults(*AsyncHandle, OutData, &bDataWasBuilt);
+				AsyncLoadingDataFormats.Remove(PlatformSpecificFormat);
+			}
+			else
+#endif
+			{
+				FDerivedAudioDataCompressor* DeriveAudioData = new FDerivedAudioDataCompressor(this, Format, PlatformSpecificFormat, CompressionOverrides);
+				bGetSuccessful = GetDerivedDataCacheRef().GetSynchronous(DeriveAudioData, OutData, &bDataWasBuilt);
+			}
+
+			if (bGetSuccessful)
 			{
 				COOK_STAT(Timer.AddHitOrMiss(bDataWasBuilt ? FCookStats::CallStats::EHitOrMiss::Miss : FCookStats::CallStats::EHitOrMiss::Hit, OutData.Num()));
 				Result->Lock(LOCK_READ_WRITE);
@@ -362,7 +535,7 @@ FByteBulkData* USoundWave::GetCompressedData(FName Format)
 		}
 		else
 		{
-			UE_LOG(LogAudio, Error, TEXT("Attempt to access the DDC when there is none available on sound '%s', format = %s. Should have been cooked."), *GetFullName(), *Format.ToString());
+			UE_LOG(LogAudio, Error, TEXT("Attempt to access the DDC when there is none available on sound '%s', format = %s. Should have been cooked."), *GetFullName(), *PlatformSpecificFormat.ToString());
 		}
 	}
 	check(Result);
@@ -385,6 +558,8 @@ void USoundWave::PostLoad()
 	{
 		return;
 	}
+
+	bHasVirtualizeWhenSilent = bVirtualizeWhenSilent;
 
 #if WITH_EDITORONLY_DATA
 	// Log a warning after loading if the source has effect chains but has channels greater than 2.
@@ -409,7 +584,7 @@ void USoundWave::PostLoad()
 
 		for (int32 Index = 0; Index < Platforms.Num(); Index++)
 		{
-			GetCompressedData(Platforms[Index]->GetWaveFormat(this));
+			BeginGetCompressedData(Platforms[Index]->GetWaveFormat(this), Platforms[Index]->GetAudioCompressionSettings());
 		}
 	}
 
@@ -418,7 +593,7 @@ void USoundWave::PostLoad()
 	if (!GIsEditor && !IsTemplate( RF_ClassDefaultObject ) && GEngine)
 	{
 		FAudioDevice* AudioDevice = GEngine->GetMainAudioDevice();
-		if (AudioDevice && AudioDevice->AreStartupSoundsPreCached())
+		if (AudioDevice)
 		{
 			// Upload the data to the hardware, but only if we've precached startup sounds already
 			AudioDevice->Precache(this);
@@ -454,6 +629,30 @@ void USoundWave::PostLoad()
 	INC_FLOAT_STAT_BY( STAT_AudioBufferTimeChannels, NumChannels * Duration );
 }
 
+void USoundWave::BeginDestroy()
+{
+	Super::BeginDestroy();
+
+	// Flag that this sound wave is beginning destroying. For procedural sound waves, this will ensure
+	// the audio render thread stops the sound before GC hits.
+	bIsBeginDestroy = true;
+
+#if WITH_EDITOR
+	// Flush any async results so we dont leak them in the DDC
+	if (GetDerivedDataCache() && AsyncLoadingDataFormats.Num() > 0)
+	{
+		TArray<uint8> OutData;
+		for (auto AsyncLoadIt = AsyncLoadingDataFormats.CreateConstIterator(); AsyncLoadIt; ++AsyncLoadIt)
+		{
+			uint32 AsyncHandle = AsyncLoadIt.Value();
+			GetDerivedDataCacheRef().WaitAsynchronousCompletion(AsyncHandle);
+			GetDerivedDataCacheRef().GetAsynchronousResults(AsyncHandle, OutData);
+		}
+
+		AsyncLoadingDataFormats.Empty();
+	}
+#endif
+}
 
 void USoundWave::InitAudioResource( FByteBulkData& CompressedData )
 {
@@ -473,7 +672,7 @@ bool USoundWave::InitAudioResource(FName Format)
 {
 	if( !ResourceSize && (!FPlatformProperties::SupportsAudioStreaming() || !IsStreaming()) )
 	{
-		FByteBulkData* Bulk = GetCompressedData(Format);
+		FByteBulkData* Bulk = GetCompressedData(Format, GetPlatformCompressionOverridesForCurrentPlatform());
 		if (Bulk)
 		{
 			ResourceSize = Bulk->GetBulkDataSize();
@@ -497,6 +696,19 @@ void USoundWave::RemoveAudioResource()
 }
 
 #if WITH_EDITOR
+
+float USoundWave::GetSampleRateForTargetPlatform(const ITargetPlatform* TargetPlatform)
+{
+	const FPlatformAudioCookOverrides* Overrides = TargetPlatform->GetAudioCompressionSettings();
+	if (Overrides)
+	{
+		return GetSampleRateForCompressionOverrides(Overrides);
+	}
+	else
+	{
+		return -1.0f;
+	}
+}
 
 void USoundWave::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
@@ -572,7 +784,7 @@ void USoundWave::FreeResources()
 	ResourceID = 0;
 	bDynamicResource = false;
 	DecompressionType = DTYPE_Setup;
-	bDecompressedFromOgg = 0;
+	bDecompressedFromOgg = false;
 
 	USoundWave* SoundWave = this;
 	FAudioThread::RunCommandOnGameThread([SoundWave]()
@@ -582,6 +794,36 @@ void USoundWave::FreeResources()
 			SoundWave->ResourceState = ESoundWaveResourceState::Freed;
 		}
 	}, TStatId());
+}
+
+bool USoundWave::CleanupDecompressor(bool bForceWait)
+{
+	check(IsInAudioThread());
+
+	if (!AudioDecompressor)
+	{
+		check(GetPrecacheState() == ESoundWavePrecacheState::Done);
+		return true;
+	}
+
+	if (AudioDecompressor->IsDone())
+	{
+		delete AudioDecompressor;
+		AudioDecompressor = nullptr;
+		SetPrecacheState(ESoundWavePrecacheState::Done);
+		return true;
+	}
+
+	if (bForceWait)
+	{
+		AudioDecompressor->EnsureCompletion();
+		delete AudioDecompressor;
+		AudioDecompressor = nullptr;
+		SetPrecacheState(ESoundWavePrecacheState::Done);
+		return true;
+	}
+
+	return false;
 }
 
 FWaveInstance* USoundWave::HandleStart( FActiveSound& ActiveSound, const UPTRINT WaveInstanceHash ) const
@@ -612,27 +854,43 @@ FWaveInstance* USoundWave::HandleStart( FActiveSound& ActiveSound, const UPTRINT
 	return WaveInstance;
 }
 
+int32 USoundWave::GetNumSoundsActive()
+{
+	return NumSoundsActive.GetValue();
+}
+
+void USoundWave::IncrementNumSounds()
+{
+	NumSoundsActive.Increment();
+}
+
+void USoundWave::DecrementNumSounds()
+{
+	int32 NewValue = NumSoundsActive.Decrement();
+	check(NewValue >= 0);
+}
+
 bool USoundWave::IsReadyForFinishDestroy()
 {
 	const bool bIsStreamingInProgress = IStreamingManager::Get().GetAudioStreamingManager().IsStreamingInProgress(this);
 
-	// Wait till streaming and decompression finishes before deleting resource.
-	if ( !bIsStreamingInProgress && (( AudioDecompressor == nullptr ) || AudioDecompressor->IsDone()) )
-	{
-		if (ResourceState == ESoundWaveResourceState::NeedsFree)
-		{
-			DECLARE_CYCLE_STAT(TEXT("FAudioThreadTask.FreeResources"), STAT_AudioFreeResources, STATGROUP_AudioThreadCommands);
+	check(GetPrecacheState() != ESoundWavePrecacheState::InProgress);
 
-			USoundWave* SoundWave = this;
-			ResourceState = ESoundWaveResourceState::Freeing;
-			FAudioThread::RunCommandOnAudioThread([SoundWave]()
-			{
-				SoundWave->FreeResources();
-			}, GET_STATID(STAT_AudioFreeResources));
-		}
+	// Wait till streaming and decompression finishes before deleting resource.
+	if (!bIsStreamingInProgress && ResourceState == ESoundWaveResourceState::NeedsFree)
+	{
+		DECLARE_CYCLE_STAT(TEXT("FAudioThreadTask.FreeResources"), STAT_AudioFreeResources, STATGROUP_AudioThreadCommands);
+
+		USoundWave* SoundWave = this;
+		ResourceState = ESoundWaveResourceState::Freeing;
+		FAudioThread::RunCommandOnAudioThread([SoundWave]()
+		{
+			SoundWave->FreeResources();
+		}, GET_STATID(STAT_AudioFreeResources));
 	}
 	
-	return ResourceState == ESoundWaveResourceState::Freed;
+	// bIsSoundActive is set in audio mixer when decoding sound waves or generating PCM data
+	return ResourceState == ESoundWaveResourceState::Freed && NumSoundsActive.GetValue() == 0;
 }
 
 
@@ -640,12 +898,8 @@ void USoundWave::FinishDestroy()
 {
 	Super::FinishDestroy();
 
-	if (AudioDecompressor)
-	{
-		check(AudioDecompressor->IsDone());
-		delete AudioDecompressor;
-		AudioDecompressor = nullptr;
-	}
+	check(GetPrecacheState() != ESoundWavePrecacheState::InProgress);
+	check(AudioDecompressor == nullptr);
 
 	CleanupCachedRunningPlatformData();
 #if WITH_EDITOR
@@ -718,6 +972,9 @@ void USoundWave::Parse( FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanc
 
 		bool bAlwaysPlay = false;
 
+		// Ensure that a Sound Class's default reverb level is used if we enabled reverb through a sound class and not from the active sound.
+		bool bUseSoundClassDefaultReverb = false;
+
 		// Properties from the sound class
 		WaveInstance->SoundClass = ParseParams.SoundClass;
 		if (ParseParams.SoundClass)
@@ -740,6 +997,15 @@ void USoundWave::Parse( FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanc
 			WaveInstance->bCenterChannelOnly = ActiveSound.bCenterChannelOnly || SoundClassProperties->bCenterChannelOnly;
 			WaveInstance->bEQFilterApplied = ActiveSound.bEQFilterApplied || SoundClassProperties->bApplyEffects;
 			WaveInstance->bReverb = ActiveSound.bReverb || SoundClassProperties->bReverb;
+
+			bUseSoundClassDefaultReverb = SoundClassProperties->bReverb && !ActiveSound.bReverb;
+
+			if (bUseSoundClassDefaultReverb)
+			{
+				WaveInstance->ReverbSendMethod = EReverbSendMethod::Manual;
+				WaveInstance->ManualReverbSendLevel = SoundClassProperties->Default2DReverbSendAmount;
+			}
+
 			WaveInstance->OutputTarget = SoundClassProperties->OutputTarget;
 
 			if (SoundClassProperties->bApplyAmbientVolumes)
@@ -901,14 +1167,9 @@ bool USoundWave::IsPlayable() const
 	return true;
 }
 
-float USoundWave::GetMaxAudibleDistance()
-{
-	return (AttenuationSettings ? AttenuationSettings->Attenuation.GetMaxDimension() : WORLD_MAX);
-}
-
 float USoundWave::GetDuration()
 {
-	return ( bLooping ? INDEFINITELY_LOOPING_DURATION : Duration);
+	return (bLooping ? INDEFINITELY_LOOPING_DURATION : Duration);
 }
 
 bool USoundWave::IsStreaming() const
@@ -940,6 +1201,50 @@ void USoundWave::UpdatePlatformData()
 	else
 	{
 		IStreamingManager::Get().GetAudioStreamingManager().RemoveStreamingSoundWave(this);
+	}
+}
+
+float USoundWave::GetSampleRateForCurrentPlatform()
+{
+#if WITH_EDITOR
+	float SampleRateOverride = FPlatformCompressionUtilities::GetTargetSampleRateForPlatform(SampleRateQuality);
+	return (SampleRateOverride > 0) ? FMath::Min(SampleRateOverride, (float) SampleRate) : SampleRate;
+#else
+	if (bCachedSampleRateFromPlatformSettings)
+	{
+		return CachedSampleRateOverride;
+	}
+	else if (bSampleRateManuallyReset)
+	{
+		CachedSampleRateOverride = SampleRate;
+		bCachedSampleRateFromPlatformSettings = true;
+
+		return CachedSampleRateOverride;
+	}
+	else
+	{
+		CachedSampleRateOverride = FPlatformCompressionUtilities::GetTargetSampleRateForPlatform(SampleRateQuality);
+		if (CachedSampleRateOverride < 0 || SampleRate < CachedSampleRateOverride)
+		{
+			CachedSampleRateOverride = SampleRate;
+		}
+
+		bCachedSampleRateFromPlatformSettings = true;
+		return CachedSampleRateOverride;
+	}
+#endif
+}
+
+float USoundWave::GetSampleRateForCompressionOverrides(const FPlatformAudioCookOverrides* CompressionOverrides)
+{
+	const float* SampleRatePtr = CompressionOverrides->PlatformSampleRates.Find(SampleRateQuality);
+	if (SampleRatePtr && *SampleRatePtr > 0.0f)
+	{
+		return FMath::Min(*SampleRatePtr, static_cast<float>(SampleRate));
+	}
+	else
+	{
+		return -1.0f;
 	}
 }
 

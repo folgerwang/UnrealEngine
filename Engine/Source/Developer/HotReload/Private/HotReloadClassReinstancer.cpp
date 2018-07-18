@@ -81,7 +81,7 @@ void FHotReloadClassReinstancer::SerializeCDOProperties(UObject* InObject, FHotR
 
 	public:
 		/** Serializes all script properties of the provided DefaultObject */
-		FCDOWriter(FCDOPropertyData& InOutData, UObject* DefaultObject, TSet<UObject*>& InVisitedObjects, FName InSubobjectName = NAME_None)
+		FCDOWriter(FCDOPropertyData& InOutData, TSet<UObject*>& InVisitedObjects, FName InSubobjectName)
 			: FMemoryWriter(InOutData.Bytes, /* bIsPersistent = */ false, /* bSetOffset = */ true)
 			, VisitedObjects(InVisitedObjects)
 			, PropertyData(InOutData)
@@ -89,7 +89,6 @@ void FHotReloadClassReinstancer::SerializeCDOProperties(UObject* InObject, FHotR
 		{
 			// Disable delta serialization, we want to serialize everything
 			ArNoDelta = true;
-			DefaultObject->SerializeScriptProperties(*this);
 		}
 		virtual void Serialize(void* Data, int64 Num) override
 		{
@@ -127,8 +126,9 @@ void FHotReloadClassReinstancer::SerializeCDOProperties(UObject* InObject, FHotR
 					VisitedObjects.Add(InObj);
 					if (Ar.GetSerializedProperty() && Ar.GetSerializedProperty()->ContainsInstancedObjectProperty())
 					{
-						// Serialize all DSO properties too					
-						FCDOWriter DefaultSubobjectWriter(PropertyData, InObj, VisitedObjects, InObj->GetFName());
+						// Serialize all DSO properties too
+						FCDOWriter DefaultSubobjectWriter(PropertyData, VisitedObjects, InObj->GetFName());
+						InObj->SerializeScriptProperties(DefaultSubobjectWriter);
 						Seek(PropertyData.Bytes.Num());
 					}
 				}
@@ -193,7 +193,8 @@ void FHotReloadClassReinstancer::SerializeCDOProperties(UObject* InObject, FHotR
 	};
 	TSet<UObject*> VisitedObjects;
 	VisitedObjects.Add(InObject);
-	FCDOWriter Ar(OutData, InObject, VisitedObjects);
+	FCDOWriter Ar(OutData, VisitedObjects, NAME_None);
+	InObject->SerializeScriptProperties(Ar);
 }
 
 void FHotReloadClassReinstancer::ReconstructClassDefaultObject(UClass* InClass, UObject* InOuter, FName InName, EObjectFlags InFlags)

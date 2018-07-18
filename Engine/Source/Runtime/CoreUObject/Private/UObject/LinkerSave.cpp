@@ -42,7 +42,10 @@ FLinkerSave::FLinkerSave(UPackage* InParent, const TCHAR* InFilename, bool bForc
 		Summary.PackageFlags = Package ? (Package->GetPackageFlags() & ~PKG_NewlyCreated) : 0;
 
 #if USE_STABLE_LOCALIZATION_KEYS
-		Summary.LocalizationId = TextNamespaceUtil::GetPackageNamespace(LinkerRoot);
+		if (GIsEditor)
+		{
+			Summary.LocalizationId = TextNamespaceUtil::GetPackageNamespace(LinkerRoot);
+		}
 #endif // USE_STABLE_LOCALIZATION_KEYS
 
 		if (Package)
@@ -54,8 +57,8 @@ FLinkerSave::FLinkerSave(UPackage* InParent, const TCHAR* InFilename, bool bForc
 		}
 
 		// Set status info.
-		ArIsSaving				= 1;
-		ArIsPersistent			= 1;
+		this->SetIsSaving(true);
+		this->SetIsPersistent(true);
 		ArForceByteSwapping		= bForceByteSwapping;
 
 #if USE_STABLE_LOCALIZATION_KEYS
@@ -92,7 +95,10 @@ FLinkerSave::FLinkerSave(UPackage* InParent, FArchive *InSaver, bool bForceByteS
 		Summary.PackageFlags = Package ? (Package->GetPackageFlags() & ~PKG_NewlyCreated) : 0;
 
 #if USE_STABLE_LOCALIZATION_KEYS
-		Summary.LocalizationId = TextNamespaceUtil::GetPackageNamespace(LinkerRoot);
+		if (GIsEditor)
+		{
+			Summary.LocalizationId = TextNamespaceUtil::GetPackageNamespace(LinkerRoot);
+		}
 #endif // USE_STABLE_LOCALIZATION_KEYS
 
 		if (Package)
@@ -104,8 +110,8 @@ FLinkerSave::FLinkerSave(UPackage* InParent, FArchive *InSaver, bool bForceByteS
 		}
 
 		// Set status info.
-		ArIsSaving = 1;
-		ArIsPersistent = 1;
+		this->SetIsSaving(true);
+		this->SetIsPersistent(true);
 		ArForceByteSwapping = bForceByteSwapping;
 
 #if USE_STABLE_LOCALIZATION_KEYS
@@ -137,7 +143,10 @@ FLinkerSave::FLinkerSave(UPackage* InParent, bool bForceByteSwapping, bool bInSa
 		Summary.PackageFlags = Package ? (Package->GetPackageFlags() & ~PKG_NewlyCreated) : 0;
 
 #if USE_STABLE_LOCALIZATION_KEYS
-		Summary.LocalizationId = TextNamespaceUtil::GetPackageNamespace(LinkerRoot);
+		if (GIsEditor)
+		{
+			Summary.LocalizationId = TextNamespaceUtil::GetPackageNamespace(LinkerRoot);
+		}
 #endif // USE_STABLE_LOCALIZATION_KEYS
 
 		if (Package)
@@ -149,8 +158,8 @@ FLinkerSave::FLinkerSave(UPackage* InParent, bool bForceByteSwapping, bool bInSa
 		}
 
 		// Set status info.
-		ArIsSaving				= 1;
-		ArIsPersistent			= 1;
+		this->SetIsSaving(true);
+		this->SetIsPersistent(true);
 		ArForceByteSwapping		= bForceByteSwapping;
 
 #if USE_STABLE_LOCALIZATION_KEYS
@@ -252,7 +261,7 @@ void FLinkerSave::Serialize( void* V, int64 Length )
 {
 #if WITH_EDITOR
 	Saver->ArDebugSerializationFlags = ArDebugSerializationFlags;
-	Saver->SetSerializedProperty(GetSerializedProperty());
+	Saver->SetSerializedPropertyChain(GetSerializedPropertyChain(), GetSerializedProperty());
 #endif
 	Saver->Serialize( V, Length );
 }

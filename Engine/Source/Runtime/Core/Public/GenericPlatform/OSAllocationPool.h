@@ -16,7 +16,7 @@
  * On Linux, avoiding frequent madvise() gives better speed and the OS is good enough about figuring out the real need in resident RAM,
  * so leaving it on except for the server where memory consumption is more important.
  */
-#define UE4_POOL_BAFO_ALLOCATIONS_COMMIT_ON_RESERVATION	(PLATFORM_LINUX && !UE_SERVER)
+#define UE4_POOL_BAFO_ALLOCATIONS_COMMIT_ON_RESERVATION	(PLATFORM_UNIX && !UE_SERVER)
 
 /*
  *  Perform checks that ensure that the pools are working as intended. This is not necessary in builds that are used for Shipping/Test or for the Development editor.

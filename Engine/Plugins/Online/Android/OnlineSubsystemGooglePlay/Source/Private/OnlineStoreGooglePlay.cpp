@@ -4,9 +4,9 @@
 #include "OnlineSubsystemGooglePlay.h"
 #include "OnlineAsyncTaskGooglePlayQueryInAppPurchases.h"
 
-#include "Internationalization.h"
+#include "Internationalization/Internationalization.h"
 #include "Internationalization/Culture.h"
-#include "FastDecimalFormat.h"
+#include "Internationalization/FastDecimalFormat.h"
 #include "Misc/ConfigCacheIni.h"
 
 FOnlineStoreGooglePlayV2::FOnlineStoreGooglePlayV2(FOnlineSubsystemGooglePlay* InSubsystem)

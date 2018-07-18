@@ -1,14 +1,14 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "SNiagaraSystemScript.h"
-#include "NiagaraSystemViewModel.h"
+#include "ViewModels/NiagaraSystemViewModel.h"
 #include "NiagaraSystemScriptViewModel.h"
 #include "NiagaraScriptViewModel.h"
 #include "NiagaraScriptInputCollectionViewModel.h"
 #include "SNiagaraParameterCollection.h"
 #include "SNiagaraScriptGraph.h"
 
-#include "SSplitter.h"
+#include "Widgets/Layout/SSplitter.h"
 
 void SNiagaraSystemScript::Construct(const FArguments& InArgs, TSharedRef<FNiagaraSystemViewModel> InSystemViewModel)
 {

@@ -88,6 +88,14 @@ struct FDetailsViewArgs
 	uint32 bAllowMultipleTopLevelObjects : 1;
 	/** If false, the details panel's scrollbar will always be hidden. Useful when embedding details panels in widgets that either grow to accommodate them, or with scrollbars of their own. */
 	uint32 bShowScrollBar : 1;
+	/** If true, all properties will be visible, not just those with CPF_Edit */
+	uint32 bForceHiddenPropertyVisibility : 1;
+	/** True if you want to show the 'Show Only Keyable Properties'. Only valid in conjunction with bShowOptions */
+	uint32 bShowKeyablePropertiesOption : 1;
+	/** True if you want to show the 'Show Only Animated Properties'. Only valid in conjunction with bShowOptions */
+	uint32 bShowAnimatedPropertiesOption: 1;
+	/** The default column width */
+	float ColumnWidth;
 
 public:
 	/** Default constructor */
@@ -115,9 +123,13 @@ public:
 		, bShowDifferingPropertiesOption(false)
 		, bCustomNameAreaLocation(false)
 		, bCustomFilterAreaLocation(false)
-		, bAllowFavoriteSystem(true)
+		, bAllowFavoriteSystem(true)	
 		, bAllowMultipleTopLevelObjects(false)
 		, bShowScrollBar(true)
+		, bForceHiddenPropertyVisibility(false)
+		, bShowKeyablePropertiesOption(true)
+		, bShowAnimatedPropertiesOption(true)
+		, ColumnWidth(.65f)
 	{
 	}
 };

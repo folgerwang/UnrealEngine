@@ -11,6 +11,7 @@ UScrollBoxSlot::UScrollBoxSlot(const FObjectInitializer& ObjectInitializer)
 	, Slot(nullptr)
 {
 	HorizontalAlignment = HAlign_Fill;
+	VerticalAlignment = VAlign_Fill;
 }
 
 void UScrollBoxSlot::BuildSlot(TSharedRef<SScrollBox> ScrollBox)
@@ -18,6 +19,7 @@ void UScrollBoxSlot::BuildSlot(TSharedRef<SScrollBox> ScrollBox)
 	Slot = &ScrollBox->AddSlot()
 		.Padding(Padding)
 		.HAlign(HorizontalAlignment)
+		.VAlign(VerticalAlignment)
 		[
 			Content == nullptr ? SNullWidget::NullWidget : Content->TakeWidget()
 		];
@@ -41,10 +43,20 @@ void UScrollBoxSlot::SetHorizontalAlignment(EHorizontalAlignment InHorizontalAli
 	}
 }
 
+void UScrollBoxSlot::SetVerticalAlignment(EVerticalAlignment InVerticalAlignment)
+{
+	VerticalAlignment = InVerticalAlignment;
+	if (Slot)
+	{
+		Slot->VAlign(InVerticalAlignment);
+	}
+}
+
 void UScrollBoxSlot::SynchronizeProperties()
 {
 	SetPadding(Padding);
 	SetHorizontalAlignment(HorizontalAlignment);
+	SetVerticalAlignment(VerticalAlignment);
 }
 
 void UScrollBoxSlot::ReleaseSlateResources(bool bReleaseChildren)

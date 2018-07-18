@@ -3,48 +3,43 @@
 #include "MetalRHIPrivate.h"
 #include "MetalCaptureManager.h"
 #include "MetalCommandQueue.h"
+#include "capture_manager.hpp"
 
 bool GMetalSupportsCaptureManager = false;
 
-FMetalCaptureManager::FMetalCaptureManager(id<MTLDevice> InDevice, FMetalCommandQueue& InQueue)
+FMetalCaptureManager::FMetalCaptureManager(mtlpp::Device InDevice, FMetalCommandQueue& InQueue)
 : Device(InDevice)
 , Queue(InQueue)
 {
-#if METAL_SUPPORTS_CAPTURE_MANAGER
-	if (FApplePlatformMisc::IsOSAtLeastVersion((uint32[]){10, 13, 0}, (uint32[]){11, 0, 0}, (uint32[]){11, 0, 0}))
+	MTLPP_IF_AVAILABLE(10.13, 11.0, 11.0)
 	{
 		GMetalSupportsCaptureManager = true;
-	}
-	
-	if (GMetalSupportsCaptureManager)
-	{
-		MTLCaptureManager* Manager = [MTLCaptureManager sharedCaptureManager];
 		
-		Manager.defaultCaptureScope = [Manager newCaptureScopeWithDevice:Device];
-		Manager.defaultCaptureScope.label = @"1 Frame";
+		mtlpp::CaptureManager Manager = mtlpp::CaptureManager::SharedCaptureManager();
+		Manager.SetDefaultCaptureScope(Manager.NewCaptureScopeWithDevice(Device));
+		Manager.GetDefaultCaptureScope().SetLabel(@"1 Frame");
 		
 		FMetalCaptureScope DefaultScope;
-		DefaultScope.MTLScope = (id<IMTLCaptureScope>)Manager.defaultCaptureScope;
+		DefaultScope.MTLScope = Manager.GetDefaultCaptureScope();
 		DefaultScope.Type = EMetalCaptureTypePresent;
 		DefaultScope.StepCount = 1;
 		DefaultScope.LastTrigger = 0;
 		ActiveScopes.Add(DefaultScope);
-		[*DefaultScope.MTLScope beginScope];
+		DefaultScope.MTLScope.BeginScope();
 		
 		uint32 PresentStepCounts[] = {2, 5, 10, 15, 30, 60, 90, 120};
 		for (uint32 i = 0; i < (sizeof(PresentStepCounts) / sizeof(uint32)); i++)
 		{
 			FMetalCaptureScope Scope;
-			Scope.MTLScope = (id<IMTLCaptureScope>)[Manager newCaptureScopeWithDevice:Device];
-			(*Scope.MTLScope).label = [NSString stringWithFormat:@"%u Frame", PresentStepCounts[i]];
+			Scope.MTLScope = Manager.NewCaptureScopeWithDevice(Device);
+			Scope.MTLScope.SetLabel(FString::Printf(TEXT("%u Frames"), PresentStepCounts[i]).GetNSString());
 			Scope.Type = EMetalCaptureTypePresent;
 			Scope.StepCount = PresentStepCounts[i];
 			Scope.LastTrigger = 0;
 			ActiveScopes.Add(Scope);
-			[*Scope.MTLScope beginScope];
+			Scope.MTLScope.BeginScope();
 		}
 	}
-#endif
 }
 
 FMetalCaptureManager::~FMetalCaptureManager()
@@ -53,7 +48,6 @@ FMetalCaptureManager::~FMetalCaptureManager()
 
 void FMetalCaptureManager::PresentFrame(uint32 FrameNumber)
 {
-#if METAL_SUPPORTS_CAPTURE_MANAGER
 	if (GMetalSupportsCaptureManager)
 	{
 		for (FMetalCaptureScope& Scope : ActiveScopes)
@@ -70,14 +64,13 @@ void FMetalCaptureManager::PresentFrame(uint32 FrameNumber)
 			
 			if (Diff >= Scope.StepCount)
 			{
-				[*Scope.MTLScope endScope];
-				[*Scope.MTLScope beginScope];
+				Scope.MTLScope.EndScope();
+				Scope.MTLScope.BeginScope();
 				Scope.LastTrigger = FrameNumber;
 			}
 		}
 	}
 	else
-#endif
 	{
 		Queue.InsertDebugCaptureBoundary();
 	}
@@ -85,21 +78,17 @@ void FMetalCaptureManager::PresentFrame(uint32 FrameNumber)
 
 void FMetalCaptureManager::BeginCapture(void)
 {
-#if METAL_SUPPORTS_CAPTURE_MANAGER
 	if (GMetalSupportsCaptureManager)
 	{
-		[[MTLCaptureManager sharedCaptureManager] startCaptureWithDevice:Device];
+		mtlpp::CaptureManager::SharedCaptureManager().StartCaptureWithDevice(Device);
 	}
-#endif
 }
 
 void FMetalCaptureManager::EndCapture(void)
 {
-#if METAL_SUPPORTS_CAPTURE_MANAGER
 	if (GMetalSupportsCaptureManager)
 	{
-		[[MTLCaptureManager sharedCaptureManager] stopCapture];
+		mtlpp::CaptureManager::SharedCaptureManager().StopCapture();
 	}
-#endif
 }
 

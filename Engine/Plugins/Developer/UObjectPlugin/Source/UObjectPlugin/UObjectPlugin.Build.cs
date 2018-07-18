@@ -12,13 +12,6 @@ namespace UnrealBuildTool.Rules
 				}
 				);
 
-			PrivateIncludePaths.AddRange(
-				new string[] {
-					"Developer/UObjectPlugin/Private",
-					// ... add other private include paths required here ...
-				}
-				);
-
 			PublicDependencyModuleNames.AddRange(
 				new string[]
 				{

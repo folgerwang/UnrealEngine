@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "MovieSceneAnimTypeID.h"
+#include "Evaluation/MovieSceneAnimTypeID.h"
 
 struct FMovieSceneBlendingActuatorID : FMovieSceneAnimTypeID
 {

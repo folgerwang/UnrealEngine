@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3703447
+﻿INTSourceChangelist:3728406
 Availability:Public
 Title:プラットフォームに特化したメディアをプレイする方法
 Crumbs:%ROOT%, Engine
@@ -56,7 +56,7 @@ Related:Engine\MediaFramework
 
 	![](Platform_05.png)
 
-	この Android の動画には Android デバイスでの再生に適している .3GP 動画ファイルを使用しています ( Windows の動画であれば .MP4 が適しています)。 
+	この Android の動画には Android デバイスでの再生に適している **.3GP** 動画ファイルを使用しています ( Windows の動画であれば .MP4 が適しています)。 
 
 1.	**[Android_Movie]** メディア ソースを開き、**[File Path]** に **[Infiltrator Demo]** (または使用したい動画) を選択して **[Open]** をクリックします。 
 
@@ -83,7 +83,8 @@ Related:Engine\MediaFramework
 
 	![](Platform_09.png)
 
-	すると、このメディア プレイヤーと紐づいた [Material](Engine/Rendering/Materials/) で使用する可能な **メディア テクスチャ** が自動作成され、コンテンツのプレイ先となるレベルにメッシュを適用します。 
+	すると、こ[マテリアル](Engine/Rendering/Materials/) で使用できる、このメディア プレイヤーと紐づいた **Media Texture** が自動作成されます。 
+	このマテリアルを選んで、コンテンツのプレイ先となるレベル内のメッシュにマテリアルを適用します。 
 
 1.	**[Media Player]** アセットの **[Media Library]** ウィンドウの **[Platform_Media]** アセットをダブルクリックします。 
 
@@ -128,7 +129,7 @@ Related:Engine\MediaFramework
 
 ## 最終結果
 
-エディタでプレイする場合、1 を押すと Windows で定義されたメディア ソースがプラットフォーム メディア ソース中で開きます。 
+エディタでプレイする場合、 **1** キーを押すと Windows で定義されたメディア ソースがプラットフォーム メディア ソース中で開きます。 
 
 [OBJECT:EmbeddedVideo]
 	[PARAMLITERAL:videoid]

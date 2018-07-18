@@ -14,7 +14,7 @@ class UAIPerceptionComponent;
 class UAISenseEvent;
 class UUserDefinedStruct;
 
-UCLASS(ClassGroup = AI, Abstract, Blueprintable)
+UCLASS(ClassGroup = AI, Abstract, Blueprintable, hidedropdown)
 class AIMODULE_API UAISense_Blueprint : public UAISense
 {
 	GENERATED_BODY()

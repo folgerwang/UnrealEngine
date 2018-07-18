@@ -35,6 +35,18 @@ struct FStaticMeshLODResources;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogParticles, Log, All);
 
+/** Detail mode for scene component rendering. */
+UENUM()
+enum EParticleDetailMode 
+{
+	PDM_Low UMETA(DisplayName = "Low"),
+	PDM_Medium UMETA(DisplayName = "Medium"),
+	PDM_High UMETA(DisplayName = "High"),
+	PDM_MAX UMETA(Hidden),
+};
+const int32 PDM_DefaultValue = 0xFFFF;
+
+
 /*-----------------------------------------------------------------------------
 	Helper macros.
 -----------------------------------------------------------------------------*/
@@ -206,6 +218,8 @@ struct FBaseParticle
 enum EParticleStates
 {
 	/** Ignore updates to the particle						*/
+	STATE_Particle_JustSpawned			= 0x02000000,
+	/** Ignore updates to the particle						*/
 	STATE_Particle_Freeze				= 0x04000000,
 	/** Ignore collision updates to the particle			*/
 	STATE_Particle_IgnoreCollisions		= 0x08000000,
@@ -220,7 +234,7 @@ enum EParticleStates
 	/** Flag indicating the particle has had at least one collision	*/
 	STATE_Particle_CollisionHasOccurred	= 0x80000000,
 	/** State mask. */
-	STATE_Mask = 0xFC000000,
+	STATE_Mask = 0xFE000000,
 	/** Counter mask. */
 	STATE_CounterMask = (~STATE_Mask)
 };
@@ -543,6 +557,12 @@ DECLARE_CYCLE_STAT_EXTERN(TEXT("Beam FillVertex Time RT"),STAT_BeamFillVertexTim
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Beam FillIndex Time RT"),STAT_BeamFillIndexTime,STATGROUP_BeamParticles, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Beam Render Time RT"),STAT_BeamRenderingTime,STATGROUP_Particles, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Beam Tick Time GT"),STAT_BeamTickTime,STATGROUP_Particles, );
+
+/**
+* Mesh Particle Stats
+*/
+
+DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Mesh Particle Polys"), STAT_MeshParticlePolys, STATGROUP_Particles, );
 
 //
 //	Helper structures for payload data...
@@ -911,6 +931,8 @@ struct FModuleLocationVertSurfaceInstancePayload
 {
 	/** The skeletal mesh component used as the source of the sockets */
 	TWeakObjectPtr<USkeletalMeshComponent> SourceComponent;
+	/** Actor that owns the skel mesh component we're using. */
+	TWeakObjectPtr<AActor> CachedActor;
 	/** The index of the vertice this particle system spawns from */
 	int32 VertIndex;
 	/** The number of valid bone indices that which can be used for . */
@@ -1382,6 +1404,8 @@ struct FDynamicEmitterReplayDataBase
 
 };
 
+
+
 /** Base class for all emitter types */
 struct FDynamicEmitterDataBase
 {
@@ -1396,7 +1420,7 @@ struct FDynamicEmitterDataBase
 	void* operator new(size_t Size);
 	void operator delete(void *RawMemory, size_t Size);
 
-	virtual FParticleVertexFactoryBase *CreateVertexFactory(ERHIFeatureLevel::Type InFeatureLevel)
+	virtual FParticleVertexFactoryBase *CreateVertexFactory(ERHIFeatureLevel::Type InFeatureLevel, const FParticleSystemSceneProxy *InOwnerProxy)
 	{
 		return nullptr;
 	}
@@ -1683,7 +1707,7 @@ struct FDynamicSpriteEmitterData : public FDynamicSpriteEmitterDataBase
 	{
 	}
 
-	virtual FParticleVertexFactoryBase *CreateVertexFactory(ERHIFeatureLevel::Type InFeatureLevel) override;
+	virtual FParticleVertexFactoryBase *CreateVertexFactory(ERHIFeatureLevel::Type InFeatureLevel, const FParticleSystemSceneProxy *InOwnerProxy) override;
 
 	/** Initialize this emitter's dynamic rendering data, called after source data has been filled in */
 	void Init( bool bInSelected );
@@ -1825,7 +1849,6 @@ struct FDynamicMeshEmitterReplayData
 };
 
 
-
 /** Dynamic emitter data for Mesh emitters */
 struct FDynamicMeshEmitterData : public FDynamicSpriteEmitterDataBase
 {
@@ -1833,10 +1856,15 @@ struct FDynamicMeshEmitterData : public FDynamicSpriteEmitterDataBase
 
 	virtual ~FDynamicMeshEmitterData();
 
-	FParticleVertexFactoryBase *CreateVertexFactory(ERHIFeatureLevel::Type InFeatureLevel) override;
-
+	virtual FParticleVertexFactoryBase *CreateVertexFactory(ERHIFeatureLevel::Type InFeatureLevel, const FParticleSystemSceneProxy *InOwnerProxy) override;
+	uint32 GetMeshLODIndexFromProxy(const FParticleSystemSceneProxy *InOwnerProxy) const;
 	/** Initialize this emitter's dynamic rendering data, called after source data has been filled in */
-	void Init(bool bInSelected,const FParticleMeshEmitterInstance* InEmitterInstance,UStaticMesh* InStaticMesh, ERHIFeatureLevel::Type InFeatureLevel );
+	void Init(	bool bInSelected,
+				const FParticleMeshEmitterInstance* InEmitterInstance,
+				UStaticMesh* InStaticMesh,
+				bool InUseStaticMeshLODs,
+				float InLODSizeScale,
+				ERHIFeatureLevel::Type InFeatureLevel);
 
 	/**
 	 *	Create the render thread resources for this emitter data
@@ -1967,6 +1995,11 @@ struct FDynamicMeshEmitterData : public FDynamicSpriteEmitterDataBase
 	uint32 bFaceCameraDirectionRatherThanPosition:1;
 	/** The EMeshCameraFacingOption setting to use if bUseCameraFacing is true. */
 	uint8 CameraFacingOption;
+
+	bool bUseStaticMeshLODs;
+	float LODSizeScale;
+	mutable int32 LastCalculatedMeshLOD;
+	const FParticleMeshEmitterInstance* EmitterInstance;
 };
 
 /** Source data for Beam emitters */
@@ -2127,7 +2160,7 @@ struct FDynamicBeam2EmitterData : public FDynamicSpriteEmitterDataBase
 
 	~FDynamicBeam2EmitterData();
 
-	virtual FParticleVertexFactoryBase *CreateVertexFactory(ERHIFeatureLevel::Type InFeatureLevel) override;
+	virtual FParticleVertexFactoryBase *CreateVertexFactory(ERHIFeatureLevel::Type InFeatureLevel, const FParticleSystemSceneProxy *InOwnerProxy) override;
 
 	/** Initialize this emitter's dynamic rendering data, called after source data has been filled in */
 	void Init( bool bInSelected );
@@ -2276,7 +2309,7 @@ struct FDynamicTrailsEmitterData : public FDynamicSpriteEmitterDataBase
 
 	~FDynamicTrailsEmitterData();
 
-	virtual FParticleVertexFactoryBase *CreateVertexFactory(ERHIFeatureLevel::Type InFeatureLevel) override;
+	virtual FParticleVertexFactoryBase *CreateVertexFactory(ERHIFeatureLevel::Type InFeatureLevel, const FParticleSystemSceneProxy *InOwnerProxy) override;
 
 	/** Initialize this emitter's dynamic rendering data, called after source data has been filled in */
 	virtual void Init(bool bInSelected);
@@ -2586,11 +2619,26 @@ public:
 		bVertexFactoriesDirty = true;
 	}
 
+	void MarkEmitterVertexFactoryDirty(uint32 EmitterIndex) const
+	{
+		check(EmitterVertexFactoryArray[EmitterIndex]);
+		EmitterVertexFactoryArray[EmitterIndex]->SetDirty();
+	}
+
 	void ClearVertexFactoriesIfDirty() const
 	{
+		// clear all VFs?
 		if (bVertexFactoriesDirty)
 		{
 			ClearVertexFactories();
+		}
+		else
+		{
+			// selectively clear
+			for (int32 Index = 0; Index < EmitterVertexFactoryArray.Num(); Index++)
+			{
+				ClearEmitterVertexFactoryIfDirty(Index);
+			}
 		}
 	}
 
@@ -2609,6 +2657,17 @@ public:
 		bVertexFactoriesDirty = false;
 	}
 
+	void ClearEmitterVertexFactoryIfDirty(uint32 EmitterIndex) const
+	{
+		FParticleVertexFactoryBase *VertexFactory = EmitterVertexFactoryArray[EmitterIndex];
+		if (VertexFactory && VertexFactory->IsDirty())
+		{
+			VertexFactory->ReleaseResource();
+			delete VertexFactory;
+			EmitterVertexFactoryArray[EmitterIndex] = nullptr;
+		}
+	}
+
 	void AddEmitterVertexFactory(FDynamicEmitterDataBase *InDynamicData) const
 	{
 		while(InDynamicData->EmitterIndex >= EmitterVertexFactoryArray.Num())
@@ -2618,7 +2677,7 @@ public:
 
 		if (EmitterVertexFactoryArray[InDynamicData->EmitterIndex] == nullptr)
 		{
-			EmitterVertexFactoryArray[InDynamicData->EmitterIndex] = InDynamicData->CreateVertexFactory(FeatureLevel);
+			EmitterVertexFactoryArray[InDynamicData->EmitterIndex] = InDynamicData->CreateVertexFactory(FeatureLevel, this);
 		}
 	}
 
@@ -2636,6 +2695,10 @@ public:
 		DynamicDataForThisFrame.Empty();
 	}
 
+	// persistent proxy storage for mesh emitter LODs; need to store these here, because GDME needs to calc the index,
+	// but VF needs to be init'ed with the correct LOD, and DynamicData goes away every frame
+	mutable TArray<int32> MeshEmitterLODIndices;
+	ERHIFeatureLevel::Type GetFeatureLevel() const { return FeatureLevel;  }
 protected:
 
 	/**
@@ -2839,4 +2902,25 @@ public:
 	void AddTemplate(class UParticleModule* Module);
 	void AddTemplate(class UParticleEmitter* Emitter);
 	~FParticleResetContext();
+};
+
+
+struct FParticleSystemCustomVersion
+{
+	enum Type
+	{
+		// Before any version changes were made
+		BeforeCustomVersionWasAdded = 0,
+		SkipCookingEmittersBasedOnDetailMode,	// skip emitter cooking if their detail mode doesn't match predefined
+		FixLegacySpawningBugs,					// fixing some spawning bugs but must keep old behavior around for existing systems.
+
+		// -----<new versions can be added above this line>-------------------------------------------------
+		VersionPlusOne,
+		LatestVersion = VersionPlusOne - 1
+	};
+	// The GUID for this custom version number
+	const static FGuid GUID;
+
+private:
+	FParticleSystemCustomVersion() {}
 };

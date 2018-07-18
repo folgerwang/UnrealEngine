@@ -4,12 +4,14 @@
 
 #include "CoreMinimal.h"
 #include "HAL/Runnable.h"
-#include "IPAddress.h"
-#include "SocketSubsystem.h"
-#include "Interfaces/IPv4/IPv4Endpoint.h"
 #include "HAL/RunnableThread.h"
+#include "Misc/SingleThreadRunnable.h"
 #include "Serialization/ArrayReader.h"
 #include "Sockets.h"
+#include "SocketSubsystem.h"
+
+#include "Interfaces/IPv4/IPv4Endpoint.h"
+#include "IPAddress.h"
 
 /**
  * Temporary fix for concurrency crashes. This whole class will be redesigned.
@@ -30,6 +32,7 @@ DECLARE_DELEGATE_TwoParams(FOnSocketDataReceived, const FArrayReaderPtr&, const 
  */
 class FUdpSocketReceiver
 	: public FRunnable
+	, private FSingleThreadRunnable
 {
 public:
 
@@ -87,7 +90,12 @@ public:
 
 public:
 
-	// FRunnable interface
+	//~ FRunnable interface
+
+	virtual FSingleThreadRunnable* GetSingleThreadInterface() override
+	{
+		return this;
+	}
 
 	virtual bool Init() override
 	{
@@ -96,30 +104,9 @@ public:
 
 	virtual uint32 Run() override
 	{
-		TSharedRef<FInternetAddr> Sender = SocketSubsystem->CreateInternetAddr();
-
 		while (!Stopping)
 		{
-			if (!Socket->Wait(ESocketWaitConditions::WaitForRead, WaitTime))
-			{
-				continue;
-			}
-
-			uint32 Size;
-
-			while (Socket->HasPendingData(Size))
-			{
-				FArrayReaderPtr Reader = MakeShareable(new FArrayReader(true));
-				Reader->SetNumUninitialized(FMath::Min(Size, 65507u));
-
-				int32 Read = 0;
-				
-				if (Socket->RecvFrom(Reader->GetData(), Reader->Num(), Read, *Sender))
-				{
-					Reader->RemoveAt(Read, Reader->Num() - Read, false);
-					DataReceivedDelegate.ExecuteIfBound(Reader, FIPv4Endpoint(Sender));
-				}
-			}
+			Update(WaitTime);
 		}
 
 		return 0;
@@ -132,24 +119,61 @@ public:
 
 	virtual void Exit() override { }
 
+protected:
+
+	/** Update this socket receiver. */
+	void Update(const FTimespan& SocketWaitTime)
+	{
+		if (!Socket->Wait(ESocketWaitConditions::WaitForRead, SocketWaitTime))
+		{
+			return;
+		}
+
+		TSharedRef<FInternetAddr> Sender = SocketSubsystem->CreateInternetAddr();
+		uint32 Size;
+
+		while (Socket->HasPendingData(Size))
+		{
+			FArrayReaderPtr Reader = MakeShareable(new FArrayReader(true));
+			Reader->SetNumUninitialized(FMath::Min(Size, 65507u));
+
+			int32 Read = 0;
+
+			if (Socket->RecvFrom(Reader->GetData(), Reader->Num(), Read, *Sender))
+			{
+				Reader->RemoveAt(Read, Reader->Num() - Read, false);
+				DataReceivedDelegate.ExecuteIfBound(Reader, FIPv4Endpoint(Sender));
+			}
+		}
+	}
+
+protected:
+
+	//~ FSingleThreadRunnable interface
+
+	virtual void Tick() override
+	{
+		Update(FTimespan::Zero());
+	}
+
 private:
 
-	/** Holds the network socket. */
+	/** The network socket. */
 	FSocket* Socket;
 
-	/** Holds a pointer to the socket sub-system. */
+	/** Pointer to the socket sub-system. */
 	ISocketSubsystem* SocketSubsystem;
 
-	/** Holds a flag indicating that the thread is stopping. */
+	/** Flag indicating that the thread is stopping. */
 	bool Stopping;
 
-	/** Holds the thread object. */
+	/** The thread object. */
 	FRunnableThread* Thread;
 
 	/** The receiver thread's name. */
 	FString ThreadName;
 
-	/** Holds the amount of time to wait for inbound packets. */
+	/** The amount of time to wait for inbound packets. */
 	FTimespan WaitTime;
 
 private:

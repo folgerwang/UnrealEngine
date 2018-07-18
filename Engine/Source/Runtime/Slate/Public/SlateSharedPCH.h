@@ -74,7 +74,7 @@
 #include "Containers/SparseArray.h"
 #include "Containers/ScriptArray.h"
 #include "Containers/BitArray.h"
-#include "Containers/Algo/Reverse.h"
+#include "Algo/Reverse.h"
 #include "Math/IntPoint.h"
 #include "Logging/LogMacros.h"
 #include "Logging/LogCategory.h"

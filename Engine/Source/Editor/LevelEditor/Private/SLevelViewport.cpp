@@ -120,7 +120,6 @@ SLevelViewport::~SLevelViewport()
 
 	FLevelEditorModule& LevelEditor = FModuleManager::GetModuleChecked<FLevelEditorModule>( LevelEditorName );
 	LevelEditor.OnRedrawLevelEditingViewports().RemoveAll( this );
-	LevelEditor.OnTakeHighResScreenShots().RemoveAll( this );
 	LevelEditor.OnActorSelectionChanged().RemoveAll( this );
 	LevelEditor.OnMapChanged().RemoveAll( this );
 
@@ -155,9 +154,9 @@ bool SLevelViewport::IsVisible() const
 
 bool SLevelViewport::IsInForegroundTab() const
 {
-	if (ViewportWidget.IsValid() && ParentLayout.IsValid() && !ConfigKey.IsEmpty())
+	if (ViewportWidget.IsValid() && ParentLayout.IsValid() && !ConfigKey.IsNone())
 	{
-		return ParentLayout.Pin()->IsLevelViewportVisible(*ConfigKey);
+		return ParentLayout.Pin()->IsLevelViewportVisible(ConfigKey);
 	}
 	return false;
 }
@@ -197,7 +196,6 @@ void SLevelViewport::Construct(const FArguments& InArgs)
 
 	FLevelEditorModule& LevelEditor = FModuleManager::GetModuleChecked<FLevelEditorModule>( LevelEditorName );
 	LevelEditor.OnRedrawLevelEditingViewports().AddRaw( this, &SLevelViewport::RedrawViewport );
-	LevelEditor.OnTakeHighResScreenShots().AddRaw( this, &SLevelViewport::TakeHighResScreenShot );
 
 	// Tell the level editor we want to be notified when selection changes
 	LevelEditor.OnActorSelectionChanged().AddRaw( this, &SLevelViewport::OnActorSelectionChanged );
@@ -368,10 +366,11 @@ void SLevelViewport::ConstructLevelEditorViewportClient( const FArguments& InArg
 	FEngineShowFlags GameShowFlags(ESFIM_Game);
 		
 	// Use config key if it exists to set up the level viewport client
-	if(!ConfigKey.IsEmpty())
+	if(!ConfigKey.IsNone())
 	{
-		const FLevelEditorViewportInstanceSettings* const ViewportInstanceSettingsPtr = GetDefault<ULevelEditorViewportSettings>()->GetViewportInstanceSettings(ConfigKey);
-		ViewportInstanceSettings = (ViewportInstanceSettingsPtr) ? *ViewportInstanceSettingsPtr : LoadLegacyConfigFromIni(ConfigKey, ViewportInstanceSettings);
+		FString ConfigKeyAsString = ConfigKey.ToString();
+		const FLevelEditorViewportInstanceSettings* const ViewportInstanceSettingsPtr = GetDefault<ULevelEditorViewportSettings>()->GetViewportInstanceSettings(ConfigKeyAsString);
+		ViewportInstanceSettings = (ViewportInstanceSettingsPtr) ? *ViewportInstanceSettingsPtr : LoadLegacyConfigFromIni(ConfigKeyAsString, ViewportInstanceSettings);
 
 		if(!ViewportInstanceSettings.EditorShowFlagsString.IsEmpty())
 		{
@@ -567,10 +566,6 @@ bool SLevelViewport::HandleDragObjects(const FGeometry& MyGeometry, const FDragD
 			new(SelectedAssetDatas)FAssetData(ClassOperation->ClassesToDrop[DroppedAssetIdx].Get());
 		}
 	}
-	else if (Operation->IsOfType<FUnloadedClassDragDropOp>())
-	{
-		bValidDrag = true;
-	}
 	else if (Operation->IsOfType<FExportTextDragDropOp>())
 	{
 		bValidDrag = true;
@@ -707,56 +702,6 @@ bool SLevelViewport::HandlePlaceDraggedObjects(const FGeometry& MyGeometry, cons
 		}
 
 		bValidDrop = true;
-	}
-	else if (Operation->IsOfType<FUnloadedClassDragDropOp>())
-	{
-		TSharedPtr<FUnloadedClassDragDropOp> DragDropOp = StaticCastSharedPtr<FUnloadedClassDragDropOp>( Operation );
-
-		DroppedObjects.Empty();
-
-		// Check if the asset is loaded, used to see if the context menu should be available
-		bAllAssetWereLoaded = true;
-
-		TArray< FClassPackageData >& AssetArray = *(DragDropOp->AssetsToDrop.Get());
-		for (int32 DroppedAssetIdx = 0; DroppedAssetIdx < AssetArray.Num(); ++DroppedAssetIdx)
-		{
-			bValidDrop = true;
-
-			FString& AssetName = AssetArray[DroppedAssetIdx].AssetName;
-
-			// Check to see if the asset can be found, otherwise load it.
-			UObject* Object = FindObject<UObject>(NULL, *AssetName);
-			if(Object == NULL)
-			{
-				// Check to see if the dropped asset was a blueprint
-				const FString& PackageName = AssetArray[DroppedAssetIdx].GeneratedPackageName;
-				Object = FindObject<UObject>(NULL, *FString::Printf(TEXT("%s.%s"), *PackageName, *AssetName));
-
-				if ( Object == NULL )
-				{
-					// Load the package.
-					GWarn->BeginSlowTask( LOCTEXT("OnDrop_FullyLoadPackage", "Fully Loading Package For Drop"), true, false );
-					UPackage* Package = LoadPackage(NULL, *PackageName, LOAD_NoRedirects );
-					if (Package)
-					{
-						Package->FullyLoad();
-					}
-					GWarn->EndSlowTask();
-
-					Object = FindObject<UObject>(Package, *AssetName);
-				}
-			}
-
-			// Check again if it has been loaded, if not, mark that all were not loaded and move on.
-			if(Object)
-			{
-				DroppedObjects.Add(Object);
-			}
-			else
-			{	
-				bAllAssetWereLoaded = false;
-			}
-		}
 	}
 	else if (Operation->IsOfType<FAssetDragDropOp>())
 	{
@@ -1611,9 +1556,9 @@ EVisibility SLevelViewport::GetTransformToolbarVisibility() const
 
 bool SLevelViewport::IsMaximized() const
 {
-	if( ParentLayout.IsValid() && !ConfigKey.IsEmpty() )
+	if( ParentLayout.IsValid() && !ConfigKey.IsNone())
 	{
-		return ParentLayout.Pin()->IsViewportMaximized( *ConfigKey );
+		return ParentLayout.Pin()->IsViewportMaximized( ConfigKey );
 	}
 
 	// Assume the viewport is always maximized if we have no layout for some reason
@@ -1690,7 +1635,7 @@ void SLevelViewport::OnToggleImmersive()
 		// We always want to animate in response to user-interactive toggling of maximized state
 		const bool bAllowAnimation = true;
 
-		FName ViewportName = *ConfigKey;
+		FName ViewportName = ConfigKey;
 		if (!ViewportName.IsNone())
 		{
 			ParentLayout.Pin()->RequestMaximizeViewport( ViewportName, bWantMaximize, bWantImmersive, bAllowAnimation );
@@ -1700,9 +1645,9 @@ void SLevelViewport::OnToggleImmersive()
 
 bool SLevelViewport::IsImmersive() const
 {
-	if( ParentLayout.IsValid() && !ConfigKey.IsEmpty() )
+	if( ParentLayout.IsValid() && !ConfigKey.IsNone())
 	{
-		return ParentLayout.Pin()->IsViewportImmersive( *ConfigKey );
+		return ParentLayout.Pin()->IsViewportImmersive( ConfigKey );
 	}
 
 	// Assume the viewport is not immersive if we have no layout for some reason
@@ -1978,14 +1923,15 @@ void SLevelViewport::OnUseDefaultShowFlags(bool bUseSavedDefaults)
 	FEngineShowFlags EditorShowFlags(ESFIM_Editor);
 	FEngineShowFlags GameShowFlags(ESFIM_Game);
 
-	if (bUseSavedDefaults && !ConfigKey.IsEmpty())
+	if (bUseSavedDefaults && !ConfigKey.IsNone())
 	{
 		FLevelEditorViewportInstanceSettings ViewportInstanceSettings;
 		ViewportInstanceSettings.ViewportType = LevelViewportClient->ViewportType;
 
 		// Get saved defaults if specified
-		const FLevelEditorViewportInstanceSettings* const ViewportInstanceSettingsPtr = GetDefault<ULevelEditorViewportSettings>()->GetViewportInstanceSettings(ConfigKey);
-		ViewportInstanceSettings = ViewportInstanceSettingsPtr ? *ViewportInstanceSettingsPtr : LoadLegacyConfigFromIni(ConfigKey, ViewportInstanceSettings);
+		FString ConfigKeyAsString = ConfigKey.ToString();
+		const FLevelEditorViewportInstanceSettings* const ViewportInstanceSettingsPtr = GetDefault<ULevelEditorViewportSettings>()->GetViewportInstanceSettings(ConfigKeyAsString);
+		ViewportInstanceSettings = ViewportInstanceSettingsPtr ? *ViewportInstanceSettingsPtr : LoadLegacyConfigFromIni(ConfigKeyAsString, ViewportInstanceSettings);
 
 		if (!ViewportInstanceSettings.EditorShowFlagsString.IsEmpty())
 		{
@@ -2488,7 +2434,7 @@ FReply SLevelViewport::OnToggleMaximize()
 		const bool bAllowAnimation = true;
 
 
-		FName ViewportName = *ConfigKey;
+		FName ViewportName = ConfigKey;
 		if (!ViewportName.IsNone())
 		{
 			ParentLayout.Pin()->RequestMaximizeViewport( ViewportName, bWantMaximize, bWantImmersive, bAllowAnimation );
@@ -2504,7 +2450,7 @@ void SLevelViewport::MakeImmersive( const bool bWantImmersive, const bool bAllow
 	{
 		const bool bWantMaximize = IsMaximized();
 
-		FName ViewportName = *ConfigKey;
+		FName ViewportName = ConfigKey;
 		if (!ViewportName.IsNone())
 		{
 			ParentLayout.Pin()->RequestMaximizeViewport( ViewportName, bWantMaximize, bWantImmersive, bAllowAnimation );
@@ -3442,9 +3388,9 @@ bool SLevelViewport::IsViewportConfigurationSet(FName ConfigurationName) const
 FName SLevelViewport::GetViewportTypeWithinLayout() const
 {
 	TSharedPtr<FLevelViewportLayout> LayoutPinned = ParentLayout.Pin();
-	if (LayoutPinned.IsValid() && !ConfigKey.IsEmpty())
+	if (LayoutPinned.IsValid() && !ConfigKey.IsNone())
 	{
-		TSharedPtr<IViewportLayoutEntity> Entity = LayoutPinned->GetViewports().FindRef(*ConfigKey);
+		TSharedPtr<IViewportLayoutEntity> Entity = LayoutPinned->GetViewports().FindRef(ConfigKey);
 		if (Entity.IsValid())
 		{
 			return Entity->GetType();
@@ -3456,7 +3402,7 @@ FName SLevelViewport::GetViewportTypeWithinLayout() const
 void SLevelViewport::SetViewportTypeWithinLayout(FName InLayoutType)
 {
 	TSharedPtr<FLevelViewportLayout> LayoutPinned = ParentLayout.Pin();
-	if (LayoutPinned.IsValid() && !ConfigKey.IsEmpty())
+	if (LayoutPinned.IsValid() && !ConfigKey.IsNone())
 	{
 		// Important - RefreshViewportConfiguration does not save config values. We save its state first, to ensure that .TypeWithinLayout (below) doesn't get overwritten
 		TSharedPtr<FLevelViewportTabContent> ViewportTabPinned = LayoutPinned->GetParentTabContent().Pin();
@@ -3466,7 +3412,7 @@ void SLevelViewport::SetViewportTypeWithinLayout(FName InLayoutType)
 		}
 
 		const FString& IniSection = FLayoutSaveRestore::GetAdditionalLayoutConfigIni();
-		GConfig->SetString( *IniSection, *( ConfigKey + TEXT(".TypeWithinLayout") ), *InLayoutType.ToString(), GEditorPerProjectIni );
+		GConfig->SetString( *IniSection, *( ConfigKey.ToString() + TEXT(".TypeWithinLayout") ), *InLayoutType.ToString(), GEditorPerProjectIni );
 
 		// Force a refresh of the tab content
 		// Viewport clients are going away.  Any current one is invalid.
@@ -3508,6 +3454,8 @@ void SLevelViewport::StartPlayInEditorSession(UGameViewportClient* PlayClient, c
 	// Remove keyboard focus to send a focus lost message to the widget to clean up any saved state from the viewport interface thats about to be swapped out
 	// Focus will be set when the game viewport is registered
 	FSlateApplication::Get().ClearKeyboardFocus(EFocusCause::SetDirectly);
+
+	PlayClient->SetPlayInEditorUseMouseForTouch(GetDefault<ULevelEditorPlaySettings>()->UseMouseForTouch);
 
 	// Attach global play world actions widget to view port
 	ActiveViewport = MakeShareable( new FSceneViewport( PlayClient, ViewportWidget) );
@@ -3978,14 +3926,6 @@ bool SLevelViewport::CanGetCameraInformationFromActor(AActor* Actor)
 	FMinimalViewInfo CameraInfo;
 
 	return GetCameraInformationFromActor(Actor, /*out*/ CameraInfo);
-}
-
-void SLevelViewport::TakeHighResScreenShot()
-{
-	if( LevelViewportClient.IsValid() )
-	{
-		LevelViewportClient->TakeHighResScreenShot();
-	}
 }
 
 void SLevelViewport::OnFloatingButtonClicked()

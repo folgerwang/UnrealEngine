@@ -330,9 +330,9 @@ public:
 		for (const Entry& E : Entries)
 		{
 			TArray<FStringFormatArg> Args;
-			Args.Add(LexicalConversion::ToString(E.Tag));
-			Args.Add(LexicalConversion::ToString(E.RawDataCount));
-			Args.Add(LexicalConversion::ToString(E.SourceDataCount));
+			Args.Add(LexToString(E.Tag));
+			Args.Add(LexToString(E.RawDataCount));
+			Args.Add(LexToString(E.SourceDataCount));
 			Ret += FString::Format(TEXT("\t{0}: Raw:{1} Source:{2}\n"), Args);
 		}
 		return Ret;
@@ -568,6 +568,7 @@ public:
 	virtual void Serialize(FArchive& Ar) override;
 	virtual void PostInitProperties() override;
 	virtual void PostLoad() override;
+	virtual bool IsPostLoadThreadSafe() const override;
 	virtual void PreSave(const class ITargetPlatform* TargetPlatform) override;
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;

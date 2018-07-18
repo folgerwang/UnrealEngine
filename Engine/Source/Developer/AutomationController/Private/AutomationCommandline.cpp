@@ -10,9 +10,9 @@
 #include "Modules/ModuleManager.h"
 #include "Misc/FilterCollection.h"
 #include "IAutomationControllerModule.h"
-#include "FileManager.h"
-#include "Paths.h"
-#include "FileHelper.h"
+#include "HAL/FileManager.h"
+#include "Misc/Paths.h"
+#include "Misc/FileHelper.h"
 #include "AssetRegistryModule.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogAutomationCommandLine, Log, All);
@@ -316,6 +316,8 @@ public:
 
 	bool Tick(float DeltaTime)
 	{
+        QUICK_SCOPE_CYCLE_COUNTER(STAT_FAutomationExecCmd_Tick);
+
 		// Update the automation controller to keep it running
 		AutomationController->Tick();
 
@@ -375,9 +377,11 @@ public:
 				{
 					if (!GIsCriticalError)
 					{
+						UE_LOG(LogAutomationCommandLine, Display, TEXT("Setting GIsCriticalError due to test failures (will cause non-zero exit code)."));
 						GIsCriticalError = AutomationController->ReportsHaveErrors();
 					}
 
+					UE_LOG(LogAutomationCommandLine, Display, TEXT("Forcing shutdown."));
 					FPlatformMisc::RequestExit(true);
 
 					// We have finished the testing, and results are available

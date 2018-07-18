@@ -5,7 +5,7 @@
 #include "HeadMountedDisplay.h"
 #include "IHeadMountedDisplay.h"
 #include "SceneViewExtension.h"
-#include "SceneViewport.h"
+#include "Slate/SceneViewport.h"
 #include "SceneView.h"
 #include "GoogleARCoreDevice.h"
 #include "ARSystem.h"
@@ -38,6 +38,9 @@ public:
 	// @todo move this to some interface
 	virtual float GetWorldToMetersScale() const override;
 
+	void* GetARSessionRawPointer() override;
+	void* GetGameThreadARFrameRawPointer() override;
+
 protected:
 	// IARSystemSupport
 	virtual void OnARSystemInitialized() override;
@@ -55,6 +58,14 @@ protected:
 
 	virtual UARPin* OnPinComponent(USceneComponent* ComponentToPin, const FTransform& PinToWorldTransform, UARTrackedGeometry* TrackedGeometry = nullptr, const FName DebugName = NAME_None) override;
 	virtual void OnRemovePin(UARPin* PinToRemove) override;
+	virtual UARTextureCameraImage* OnGetCameraImage() override { return nullptr; }
+	virtual UARTextureCameraDepth* OnGetCameraDepth() override { return nullptr; }
+	virtual bool OnAddManualEnvironmentCaptureProbe(FVector Location, FVector Extent) { return false; }
+	virtual TSharedPtr<FARGetCandidateObjectAsyncTask, ESPMode::ThreadSafe> OnGetCandidateObject(FVector Location, FVector Extent) const { return TSharedPtr<FARGetCandidateObjectAsyncTask, ESPMode::ThreadSafe>(); }
+	virtual TSharedPtr<FARSaveWorldAsyncTask, ESPMode::ThreadSafe> OnSaveWorld() const { return TSharedPtr<FARSaveWorldAsyncTask, ESPMode::ThreadSafe>(); }
+// @todo -- support this properly
+	virtual EARWorldMappingState OnGetWorldMappingStatus() const { return EARWorldMappingState::StillMappingNotRelocalizable; }
+	//~IARSystemSupport
 
 private:
 	//~ FGCObject

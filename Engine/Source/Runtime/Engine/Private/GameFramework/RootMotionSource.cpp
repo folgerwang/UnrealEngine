@@ -156,6 +156,7 @@ FRootMotionSourceSettings& FRootMotionSourceSettings::operator+=(const FRootMoti
 FRootMotionSource::FRootMotionSource()
 	: Priority(0)
 	, LocalID((uint16)ERootMotionSourceID::Invalid)
+	, AccumulateMode(ERootMotionAccumulateMode::Override)
 	, StartTime(RootMotionSource_InvalidStartTime)
 	, CurrentTime(0.0f)
 	, PreviousTime(0.0f)

@@ -7,7 +7,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "UObjectGlobals.h"
+#include "UObject/UObjectGlobals.h"
 #include "Templates/Casts.h"
 
 /**

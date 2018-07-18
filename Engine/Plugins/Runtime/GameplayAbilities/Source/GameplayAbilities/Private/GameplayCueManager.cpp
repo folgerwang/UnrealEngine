@@ -682,6 +682,9 @@ static void SearchDynamicClassCues(const FName PropertyName, const TArray<FStrin
 
 				CuesToAdd.Add(FGameplayCueReferencePair(GameplayCueTag, StringRef));
 				AssetsToLoad.Add(StringRef);
+
+				// Make sure core knows about this ref so it can be properly detected during cook.
+				StringRef.PostLoadPath();
 			}
 			else
 			{
@@ -843,7 +846,7 @@ void UGameplayCueManager::BuildCuesToAddToGlobalSet(const TArray<FAssetData>& As
 		
 		if (!FoundGameplayTag.IsNone())
 		{
-			const FString GeneratedClassTag = Data.GetTagValueRef<FString>("GeneratedClass");
+			const FString GeneratedClassTag = Data.GetTagValueRef<FString>(FBlueprintTags::GeneratedClassPath);
 			if (GeneratedClassTag.IsEmpty())
 			{
 				ABILITY_LOG(Warning, TEXT("Unable to find GeneratedClass value for AssetData %s"), *Data.ObjectPath.ToString());
@@ -862,6 +865,9 @@ void UGameplayCueManager::BuildCuesToAddToGlobalSet(const TArray<FAssetData>& As
 				OutCuesToAdd.Add(FGameplayCueReferencePair(GameplayCueTag, StringRef));
 
 				OutAssetsToLoad.Add(StringRef);
+
+				// Make sure core knows about this ref so it can be properly detected during cook.
+				StringRef.PostLoadPath();
 			}
 			else
 			{
@@ -897,7 +903,7 @@ void UGameplayCueManager::CheckForTooManyRPCs(FName FuncName, const FGameplayCue
 				{
 					if (ClientConnection)
 					{
-						UActorChannel** OwningActorChannelPtr = ClientConnection->ActorChannels.Find(Owner);
+						UActorChannel** OwningActorChannelPtr = ClientConnection->FindActorChannel(Owner);
 						TSharedRef<FObjectReplicator>* ComponentReplicatorPtr = (OwningActorChannelPtr && *OwningActorChannelPtr) ? (*OwningActorChannelPtr)->ReplicationMap.Find(PendingCue.OwningComponent) : nullptr;
 						if (ComponentReplicatorPtr)
 						{
@@ -996,6 +1002,9 @@ void UGameplayCueManager::HandleAssetAdded(UObject *Object)
 					CuesToAdd.Add(FGameplayCueReferencePair(ActorCDO->GameplayCueTag, StringRef));
 				}
 
+				// Make sure core knows about this ref so it can be properly detected during cook.
+				StringRef.PostLoadPath();
+
 				for (UGameplayCueSet* Set : GetGlobalCueSets())
 				{
 					Set->AddCues(CuesToAdd);
@@ -1041,7 +1050,7 @@ void UGameplayCueManager::HandleAssetDeleted(UObject *Object)
 /** Handles cleaning up an object library if it matches the passed in object */
 void UGameplayCueManager::HandleAssetRenamed(const FAssetData& Data, const FString& String)
 {
-	const FString ParentClassName = Data.GetTagValueRef<FString>("ParentClass");
+	const FString ParentClassName = Data.GetTagValueRef<FString>(FBlueprintTags::ParentClassPath);
 	if (!ParentClassName.IsEmpty())
 	{
 		UClass* DataClass = FindObject<UClass>(nullptr, *ParentClassName);

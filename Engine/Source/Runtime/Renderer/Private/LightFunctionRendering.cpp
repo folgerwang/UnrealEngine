@@ -105,14 +105,14 @@ public:
 		SvPositionToLight.Bind(Initializer.ParameterMap,TEXT("SvPositionToLight"));
 		LightFunctionParameters.Bind(Initializer.ParameterMap);
 		LightFunctionParameters2.Bind(Initializer.ParameterMap,TEXT("LightFunctionParameters2"));
-		DeferredParameters.Bind(Initializer.ParameterMap);
+		SceneTextureParameters.Bind(Initializer);
 	}
 
 	void SetParameters(FRHICommandList& RHICmdList, const FViewInfo& View, const FLightSceneInfo* LightSceneInfo, const FMaterialRenderProxy* MaterialProxy, bool bRenderingPreviewShadowIndicator, float ShadowFadeFraction )
 	{
 		const FPixelShaderRHIParamRef ShaderRHI = GetPixelShader();
 
-		FMaterialShader::SetParameters(RHICmdList, ShaderRHI, MaterialProxy, *MaterialProxy->GetMaterial(View.GetFeatureLevel()), View, View.ViewUniformBuffer, true, ESceneRenderTargetsMode::SetTextures);
+		FMaterialShader::SetParameters(RHICmdList, ShaderRHI, MaterialProxy, *MaterialProxy->GetMaterial(View.GetFeatureLevel()), View, View.ViewUniformBuffer, ESceneTextureSetupMode::All);
 
 		// Set the transform from screen space to light space.
 		if ( SvPositionToLight.IsBound() )
@@ -154,7 +154,7 @@ public:
 			LightSceneInfo->Proxy->GetLightFunctionDisabledBrightness(),
 			bRenderingPreviewShadowIndicator ? 1.0f : 0.0f));
 
-		DeferredParameters.Set(RHICmdList, ShaderRHI, View, MD_LightFunction);
+		SceneTextureParameters.Set(RHICmdList, ShaderRHI, View.FeatureLevel, ESceneTextureSetupMode::All);
 
 		auto DeferredLightParameter = GetUniformBufferParameter<FDeferredLightUniformStruct>();
 
@@ -170,7 +170,7 @@ public:
 		Ar << SvPositionToLight;
 		Ar << LightFunctionParameters;
 		Ar << LightFunctionParameters2;
-		Ar << DeferredParameters;
+		Ar << SceneTextureParameters;
 		return bShaderHasOutdatedParameters;
 	}
 
@@ -178,7 +178,7 @@ private:
 	FShaderParameter SvPositionToLight;
 	FLightFunctionSharedParameters LightFunctionParameters;
 	FShaderParameter LightFunctionParameters2;
-	FDeferredPixelShaderParameters DeferredParameters;
+	FSceneTextureShaderParameters SceneTextureParameters;
 };
 
 IMPLEMENT_MATERIAL_SHADER_TYPE(,FLightFunctionPS,TEXT("/Engine/Private/LightFunctionPixelShader.usf"),TEXT("Main"),SF_Pixel);
@@ -325,7 +325,7 @@ bool FDeferredShadingSceneRenderer::RenderLightFunctionForMaterial(
 					if( !bLightAttenuationCleared )
 					{
 						LightSceneInfo->Proxy->SetScissorRect(RHICmdList, View, View.ViewRect);
-						FSceneRenderTargets::Get(RHICmdList).BeginRenderingLightAttenuation(RHICmdList, true);
+						SetRenderTarget(RHICmdList, ScreenShadowMaskTexture->GetRenderTargetItem().TargetableTexture, FSceneRenderTargets::Get(RHICmdList).GetSceneDepthSurface(), ESimpleRenderTargetMode::EClearColorExistingDepth, FExclusiveDepthStencil::DepthRead_StencilWrite, true);
 					}
 				}
 				else

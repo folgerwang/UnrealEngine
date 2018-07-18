@@ -4,39 +4,24 @@
 #include "Rendering/DrawElements.h"
 #include "Sections/MovieSceneColorSection.h"
 #include "SequencerSectionPainter.h"
-#include "FloatCurveKeyArea.h"
 #include "ISectionLayoutBuilder.h"
 #include "EditorStyleSet.h"
 #include "CommonMovieSceneTools.h"
+#include "Tracks/MovieScenePropertyTrack.h"
+#include "ISequencer.h"
+#include "Channels/MovieSceneChannelProxy.h"
 
-const FName SlateColorName("SlateColor");
-
-void FColorPropertySection::GenerateSectionLayout( class ISectionLayoutBuilder& LayoutBuilder ) const
+FColorPropertySection::FColorPropertySection(UMovieSceneSection& InSectionObject, const FGuid& InObjectBindingID, TWeakPtr<ISequencer> InSequencer)
+	: FSequencerSection(InSectionObject)
+	, ObjectBindingID(InObjectBindingID)
+	, WeakSequencer(InSequencer)
 {
-	UMovieSceneColorSection* ColorSection = Cast<UMovieSceneColorSection>( &SectionObject );
-
-	TAttribute<TOptional<float>> RedExternalValue = TAttribute<TOptional<float>>::Create(
-		TAttribute<TOptional<float>>::FGetter::CreateRaw(this, &FColorPropertySection::GetColorRedValue));
-	TSharedRef<FFloatCurveKeyArea> RedKeyArea = MakeShareable( new FFloatCurveKeyArea( &ColorSection->GetRedCurve(), RedExternalValue, ColorSection ) ) ;
-
-	TAttribute<TOptional<float>> GreenExternalValue = TAttribute<TOptional<float>>::Create(
-		TAttribute<TOptional<float>>::FGetter::CreateRaw(this, &FColorPropertySection::GetColorGreenValue));
-	TSharedRef<FFloatCurveKeyArea> GreenKeyArea = MakeShareable( new FFloatCurveKeyArea( &ColorSection->GetGreenCurve(), GreenExternalValue, ColorSection ) ) ;
-	
-	TAttribute<TOptional<float>> BlueExternalValue = TAttribute<TOptional<float>>::Create(
-		TAttribute<TOptional<float>>::FGetter::CreateRaw(this, &FColorPropertySection::GetColorBlueValue));
-	TSharedRef<FFloatCurveKeyArea> BlueKeyArea = MakeShareable( new FFloatCurveKeyArea( &ColorSection->GetBlueCurve(), BlueExternalValue, ColorSection ) ) ;
-	
-	TAttribute<TOptional<float>> AlphaExternalValue = TAttribute<TOptional<float>>::Create(
-		TAttribute<TOptional<float>>::FGetter::CreateRaw(this, &FColorPropertySection::GetColorAlphaValue));
-	TSharedRef<FFloatCurveKeyArea> AlphaKeyArea = MakeShareable( new FFloatCurveKeyArea( &ColorSection->GetAlphaCurve(), AlphaExternalValue, ColorSection ) );
-
-	LayoutBuilder.AddKeyArea( "R", NSLOCTEXT( "FColorPropertySection", "RedArea", "Red" ), RedKeyArea );
-	LayoutBuilder.AddKeyArea( "G", NSLOCTEXT( "FColorPropertySection", "GreenArea", "Green" ), GreenKeyArea );
-	LayoutBuilder.AddKeyArea( "B", NSLOCTEXT( "FColorPropertySection", "BlueArea", "Blue" ), BlueKeyArea );
-	LayoutBuilder.AddKeyArea( "A", NSLOCTEXT( "FColorPropertySection", "OpacityArea", "Opacity" ), AlphaKeyArea );
+	UMovieScenePropertyTrack* PropertyTrack = InSectionObject.GetTypedOuter<UMovieScenePropertyTrack>();
+	if (PropertyTrack)
+	{
+		PropertyBindings = FTrackInstancePropertyBindings(PropertyTrack->GetPropertyName(), PropertyTrack->GetPropertyPath());
+	}
 }
-
 
 int32 FColorPropertySection::OnPaintSection( FSequencerSectionPainter& Painter ) const
 {
@@ -44,18 +29,17 @@ int32 FColorPropertySection::OnPaintSection( FSequencerSectionPainter& Painter )
 
 	const ESlateDrawEffect DrawEffects = Painter.bParentEnabled ? ESlateDrawEffect::None : ESlateDrawEffect::DisabledEffect;
 
-	const UMovieSceneColorSection* ColorSection = Cast<const UMovieSceneColorSection>( &SectionObject );
+	const UMovieSceneColorSection* ColorSection = Cast<const UMovieSceneColorSection>( WeakSection.Get() );
 
 	const FTimeToPixel& TimeConverter = Painter.GetTimeConverter();
 
-	const float StartTime = TimeConverter.PixelToTime(0.f);
-	const float EndTime = TimeConverter.PixelToTime(Painter.SectionGeometry.GetLocalSize().X);
+	const float StartTime       = TimeConverter.PixelToSeconds(0.f);
+	const float EndTime         = TimeConverter.PixelToSeconds(Painter.SectionGeometry.GetLocalSize().X);
 	const float SectionDuration = EndTime - StartTime;
 
 	FVector2D GradientSize = FVector2D( Painter.SectionGeometry.Size.X - 2.f, (Painter.SectionGeometry.Size.Y / 4) - 3.0f );
 	if ( GradientSize.X >= 1.f )
 	{
-
 		FPaintGeometry PaintGeometry = Painter.SectionGeometry.ToPaintGeometry( FVector2D( 1.f, 1.f ), GradientSize );
 
 		// If we are showing a background pattern and the colors is transparent, draw a checker pattern
@@ -66,22 +50,20 @@ int32 FColorPropertySection::OnPaintSection( FSequencerSectionPainter& Painter )
 			FEditorStyle::GetBrush( "Checker" ),
 			DrawEffects);
 
+		TArray< TTuple<float, FLinearColor> > ColorKeys;
+		ConsolidateColorCurves( ColorKeys, ColorSection, TimeConverter );
+
 		TArray<FSlateGradientStop> GradientStops;
 
-		TArray< TKeyValuePair<float, FLinearColor> > ColorKeys;
-		ConsolidateColorCurves( ColorKeys, ColorSection );
-
-		for ( int32 i = 0; i < ColorKeys.Num(); ++i )
+		for (const TTuple<float, FLinearColor>& ColorStop : ColorKeys)
 		{
-			float Time = ColorKeys[i].Key;
-			FLinearColor Color = ColorKeys[i].Value;
+			const float Time = ColorStop.Get<0>();
 
 			// HACK: The color is converted to SRgb and then reinterpreted as linear here because gradients are converted to FColor
 			// without the SRgb conversion before being passed to the renderer for some reason.
-			Color = Color.ToFColor( true ).ReinterpretAsLinear();
+			const FLinearColor Color = ColorStop.Get<1>().ToFColor( true ).ReinterpretAsLinear();
 
 			float TimeFraction = (Time - StartTime) / SectionDuration;
-
 			GradientStops.Add( FSlateGradientStop( FVector2D( TimeFraction * Painter.SectionGeometry.Size.X, 0 ), Color ) );
 		}
 
@@ -102,144 +84,119 @@ int32 FColorPropertySection::OnPaintSection( FSequencerSectionPainter& Painter )
 }
 
 
-void FColorPropertySection::ConsolidateColorCurves( TArray< TKeyValuePair<float, FLinearColor> >& OutColorKeys, const UMovieSceneColorSection* Section ) const
+void FColorPropertySection::ConsolidateColorCurves( TArray< TTuple<float, FLinearColor> >& OutColorKeys, const UMovieSceneColorSection* InColorSection, const FTimeToPixel& TimeConverter ) const
 {
-	// Get the default color from the current property value, or use black if the current property
-	// value can't be found.
-	FLinearColor DefaultColor;
-	TOptional<FLinearColor> CurrentPropertyValue = GetPropertyValueAsLinearColor();
-	if (CurrentPropertyValue.IsSet())
-	{
-		DefaultColor = CurrentPropertyValue.GetValue();
-	}
-	else
-	{
-		DefaultColor = FLinearColor::Black;
-	}
+	FLinearColor DefaultColor = GetPropertyValueAsLinearColor();
 
-	// @todo Sequencer Optimize - This could all get cached, instead of recalculating everything every OnPaint
-
-	const FRichCurve* Curves[4] = {
-		&Section->GetRedCurve(),
-		&Section->GetGreenCurve(),
-		&Section->GetBlueCurve(),
-		&Section->GetAlphaCurve()
-	};
-
-	// @todo Sequencer Optimize - This is a O(n^2) loop!
-	// Our times are floats, which means we can't use a map and
-	// do a quick lookup to see if the keys already exist
-	// because the keys are ordered, we could take advantage of that, however
-	TArray<float> TimesWithKeys;
-	for ( int32 i = 0; i < 4; ++i )
+	UMovieSceneSection* Section = WeakSection.Get();
+	if (Section)
 	{
-		const FRichCurve* Curve = Curves[i];
-		for ( auto It( Curve->GetKeyIterator() ); It; ++It )
+		// @todo Sequencer Optimize - This could all get cached, instead of recalculating everything every OnPaint
+
+		TArrayView<FMovieSceneFloatChannel*> FloatChannels = Section->GetChannelProxy().GetChannels<FMovieSceneFloatChannel>();
+
+		// Gather all the channels with keys
+		TArray<TArrayView<const FFrameNumber>, TInlineAllocator<4>> ChannelTimes;
+		for (int32 Index = 0; Index < 4; ++Index)
 		{
-			float KeyTime = It->Time;
-
-			bool bShouldAddKey = true;
-
-			int32 InsertKeyIndex = INDEX_NONE;
-			for ( int32 k = 0; k < TimesWithKeys.Num(); ++k )
+			if (FloatChannels[Index]->GetTimes().Num())
 			{
-				if ( FMath::IsNearlyEqual( TimesWithKeys[k], KeyTime ) )
+				ChannelTimes.Add(FloatChannels[Index]->GetTimes());
+			}
+		}
+
+		// Keep adding color stops for similar times until we have nothing left
+		while ( ChannelTimes.Num() )
+		{
+			// Find the earliest time from the remaining channels
+			FFrameNumber Time = TNumericLimits<int32>::Max();
+			for (const TArrayView<const FFrameNumber>& Channel : ChannelTimes)
+			{
+				Time = FMath::Min(Time, Channel[0]);
+			}
+
+			// Slice the channels until we no longer match the next time
+			for (TArrayView<const FFrameNumber>& Channel : ChannelTimes)
+			{
+				int32 SliceIndex = 0;
+				while (SliceIndex < Channel.Num() && Time == Channel[SliceIndex])
 				{
-					bShouldAddKey = false;
-					break;
+					++SliceIndex;
 				}
-				else if ( TimesWithKeys[k] > KeyTime )
+
+				if (SliceIndex > 0)
 				{
-					InsertKeyIndex = k;
-					break;
+					int32 NewNum = Channel.Num() - SliceIndex;
+					Channel = NewNum > 0 ? Channel.Slice(SliceIndex, NewNum) : TArrayView<const FFrameNumber>();
 				}
 			}
 
-			if ( InsertKeyIndex == INDEX_NONE && bShouldAddKey )
+			// Remove empty channels with no keys left
+			for (int32 Index = ChannelTimes.Num()-1; Index >= 0; --Index)
 			{
-				InsertKeyIndex = TimesWithKeys.Num();
+				if (ChannelTimes[Index].Num() == 0)
+				{
+					ChannelTimes.RemoveAt(Index, 1, false);
+				}
 			}
 
-			if ( bShouldAddKey )
-			{
-				TimesWithKeys.Insert( KeyTime, InsertKeyIndex );
-			}
+			FLinearColor ColorAtTime = DefaultColor;
+			FloatChannels[0]->Evaluate(Time, ColorAtTime.R);
+			FloatChannels[1]->Evaluate(Time, ColorAtTime.G);
+			FloatChannels[2]->Evaluate(Time, ColorAtTime.B);
+			FloatChannels[3]->Evaluate(Time, ColorAtTime.A);
+
+			OutColorKeys.Add(MakeTuple(float(Time / TimeConverter.GetTickResolution()), ColorAtTime));
 		}
 	}
 
 	// Enforce at least one key for the default value
-	if (TimesWithKeys.Num() == 0)
+	if (OutColorKeys.Num() == 0)
 	{
-		TimesWithKeys.Add(0);
-	}
-
-	// @todo Sequencer Optimize - This another O(n^2) loop, since Eval is O(n)!
-	for ( int32 i = 0; i < TimesWithKeys.Num(); ++i )
-	{
-		float Time = TimesWithKeys[i];
-
-		FLinearColor Color(
-			Section->GetRedCurve().Eval(Time, DefaultColor.R),
-			Section->GetGreenCurve().Eval(Time, DefaultColor.G),
-			Section->GetBlueCurve().Eval(Time, DefaultColor.B),
-			Section->GetAlphaCurve().Eval(Time, DefaultColor.A)
-			);
-		OutColorKeys.Add( TKeyValuePair<float, FLinearColor>( TimesWithKeys[i], Color ) );
+		OutColorKeys.Add(MakeTuple(0.f, DefaultColor));
 	}
 }
 
-
-TOptional<FLinearColor> FColorPropertySection::GetPropertyValueAsLinearColor() const
+FLinearColor FColorPropertySection::GetPropertyValueAsLinearColor() const
 {
-	UStructProperty* ColorStructProperty = Cast<UStructProperty>(GetProperty());
-	if (ColorStructProperty != nullptr)
+	UMovieSceneSection* Section = WeakSection.Get();
+	TSharedPtr<ISequencer> Sequencer = WeakSequencer.Pin();
+
+	FLinearColor LinearColor = FLinearColor::Black;
+
+	if (Section && Sequencer.IsValid())
 	{
-		if (ColorStructProperty->Struct->GetFName() == SlateColorName)
+		// Find the first object bound to this object binding ID, and apply each channel's external value to the color if possible
+		for (TWeakObjectPtr<> WeakObject : Sequencer->FindObjectsInCurrentSequence(ObjectBindingID))
 		{
-			TOptional<FSlateColor> SlateColor = GetPropertyValue<FSlateColor>();
-			if (SlateColor.IsSet())
+			if (UObject* Object = WeakObject.Get())
 			{
-				return TOptional<FLinearColor>(SlateColor.GetValue().GetSpecifiedColor());
-			}
-		}
+				// Access the editor data for the float channels which define how to extract the property value from the object
+				TArrayView<const TMovieSceneExternalValue<float>> ExternalValues = Section->GetChannelProxy().GetAllExtendedEditorData<FMovieSceneFloatChannel>();
 
-		if (ColorStructProperty->Struct->GetFName() == NAME_LinearColor)
-		{
-			return GetPropertyValue<FLinearColor>();
-		}
+				FTrackInstancePropertyBindings* BindingsPtr = PropertyBindings.IsSet() ? &PropertyBindings.GetValue() : nullptr;
 
-		if (ColorStructProperty->Struct->GetFName() == NAME_Color)
-		{
-			TOptional<FColor> Color = GetPropertyValue<FColor>();
-			if (Color.IsSet())
-			{
-				return TOptional<FLinearColor>(Color.GetValue());
+				if (ExternalValues[0].OnGetExternalValue)
+				{
+					LinearColor.R = ExternalValues[0].OnGetExternalValue(*Object, BindingsPtr).Get(0.f);
+				}
+				if (ExternalValues[1].OnGetExternalValue)
+				{
+					LinearColor.G = ExternalValues[1].OnGetExternalValue(*Object, BindingsPtr).Get(0.f);
+				}
+				if (ExternalValues[2].OnGetExternalValue)
+				{
+					LinearColor.B = ExternalValues[2].OnGetExternalValue(*Object, BindingsPtr).Get(0.f);
+				}
+				if (ExternalValues[3].OnGetExternalValue)
+				{
+					LinearColor.A = ExternalValues[3].OnGetExternalValue(*Object, BindingsPtr).Get(0.f);
+				}
+
+				break;
 			}
 		}
 	}
-	return TOptional<FLinearColor>();
-}
 
-TOptional<float> FColorPropertySection::GetColorRedValue() const
-{
-	TOptional<FLinearColor> CurrentValue = GetPropertyValueAsLinearColor();
-	return CurrentValue.IsSet() ? CurrentValue.GetValue().R : TOptional<float>();
-}
-
-TOptional<float> FColorPropertySection::GetColorGreenValue() const
-{
-	TOptional<FLinearColor> CurrentValue = GetPropertyValueAsLinearColor();
-	return CurrentValue.IsSet() ? CurrentValue.GetValue().G : TOptional<float>();
-}
-
-TOptional<float> FColorPropertySection::GetColorBlueValue() const
-{
-	TOptional<FLinearColor> CurrentValue = GetPropertyValueAsLinearColor();
-	return CurrentValue.IsSet() ? CurrentValue.GetValue().B : TOptional<float>();
-}
-
-TOptional<float> FColorPropertySection::GetColorAlphaValue() const
-{
-	TOptional<FLinearColor> CurrentValue = GetPropertyValueAsLinearColor();
-	return CurrentValue.IsSet() ? CurrentValue.GetValue().A : TOptional<float>();
+	return LinearColor;
 }

@@ -20,10 +20,7 @@ Buffer<float4> UploadOperationData;
 void UploadDataFloat4(uint DestIndex, uint UploadIndex)
 {
 	float4 UploadVector = UploadOperationData[UploadIndex];
-	RWObjectData[4 * DestIndex + 0] = UploadVector.x;
-	RWObjectData[4 * DestIndex + 1] = UploadVector.y;
-	RWObjectData[4 * DestIndex + 2] = UploadVector.z;
-	RWObjectData[4 * DestIndex + 3] = UploadVector.w;
+	WriteFloat4(RWSceneObjectData, DestIndex, UploadVector);
 }
 
 [numthreads(UPDATEOBJECTS_THREADGROUP_SIZE, 1, 1)]
@@ -38,10 +35,8 @@ void UploadObjectsToBufferCS(
 	{
 		uint DestIndex = UploadOperationIndices[UploadOperationIndex];
 		float4 UploadBounds = UploadOperationData[UploadOperationIndex * UPLOAD_DATA_STRIDE + 0];
-		RWObjectBounds[4 * DestIndex + 0] = UploadBounds.x;
-		RWObjectBounds[4 * DestIndex + 1] = UploadBounds.y;
-		RWObjectBounds[4 * DestIndex + 2] = UploadBounds.z;
-		RWObjectBounds[4 * DestIndex + 3] = UploadBounds.w;
+
+		WriteFloat4(RWSceneObjectBounds, DestIndex, UploadBounds);
 
 		UNROLL
 		for (uint VectorIndex = 0; VectorIndex < OBJECT_DATA_STRIDE; VectorIndex++)
@@ -51,15 +46,17 @@ void UploadObjectsToBufferCS(
 	}
 }
 
+#if PLATFORM_SUPPORTS_4COMPONENT_UAV_READ_WRITE
+RWBuffer<float4> RWCopyObjectBounds;
+RWBuffer<float4> RWCopyObjectData;
+#else
 RWBuffer<float> RWCopyObjectBounds;
 RWBuffer<float> RWCopyObjectData;
+#endif
 
 void CopyDataFloat4(uint DestIndex, uint SourceIndex)
 {
-	RWCopyObjectData[4 * DestIndex + 0] = ObjectData[4 * SourceIndex + 0];
-	RWCopyObjectData[4 * DestIndex + 1] = ObjectData[4 * SourceIndex + 1];
-	RWCopyObjectData[4 * DestIndex + 2] = ObjectData[4 * SourceIndex + 2];
-	RWCopyObjectData[4 * DestIndex + 3] = ObjectData[4 * SourceIndex + 3];
+	WriteFloat4(RWCopyObjectData, DestIndex, LoadFloat4(SceneObjectData, SourceIndex));
 }
 
 [numthreads(UPDATEOBJECTS_THREADGROUP_SIZE, 1, 1)]
@@ -74,10 +71,8 @@ void CopyObjectBufferCS(
 	{
 		uint SourceIndex = CopyOperationIndex;
 		uint DestIndex = CopyOperationIndex;
-		RWCopyObjectBounds[4 * DestIndex + 0] = ObjectBounds[4 * SourceIndex + 0];
-		RWCopyObjectBounds[4 * DestIndex + 1] = ObjectBounds[4 * SourceIndex + 1];
-		RWCopyObjectBounds[4 * DestIndex + 2] = ObjectBounds[4 * SourceIndex + 2];
-		RWCopyObjectBounds[4 * DestIndex + 3] = ObjectBounds[4 * SourceIndex + 3];
+
+		WriteFloat4(RWCopyObjectBounds, DestIndex, LoadFloat4(SceneObjectBounds, SourceIndex));
 
 		UNROLL
 		for (uint VectorIndex = 0; VectorIndex < OBJECT_DATA_STRIDE; VectorIndex++)
@@ -91,12 +86,17 @@ uint NumRemoveOperations;
 Buffer<uint4> RemoveOperationIndices;
 
 #if REMOVE_FROM_SAME_BUFFER
-	#define RWBoundsRemoveSource RWObjectBounds
-	#define RWDataRemoveSource RWObjectData
+	#define RWBoundsRemoveSource RWSceneObjectBounds
+	#define RWDataRemoveSource RWSceneObjectData
 #else
 
-	Buffer<float> ObjectBounds2;
-	Buffer<float> ObjectData2;
+	#if PLATFORM_SUPPORTS_4COMPONENT_UAV_READ_WRITE
+		Buffer<float4> ObjectBounds2;
+		Buffer<float4> ObjectData2;
+	#else
+		Buffer<float> ObjectBounds2;
+		Buffer<float> ObjectData2;
+	#endif
 
 	#define RWBoundsRemoveSource ObjectBounds2
 	#define RWDataRemoveSource ObjectData2
@@ -104,10 +104,7 @@ Buffer<uint4> RemoveOperationIndices;
 
 void WriteDataFloat4(uint DestIndex, uint SourceIndex)
 {
-	RWObjectData[4 * DestIndex + 0] = RWDataRemoveSource[4 * SourceIndex + 0];
-	RWObjectData[4 * DestIndex + 1] = RWDataRemoveSource[4 * SourceIndex + 1];
-	RWObjectData[4 * DestIndex + 2] = RWDataRemoveSource[4 * SourceIndex + 2];
-	RWObjectData[4 * DestIndex + 3] = RWDataRemoveSource[4 * SourceIndex + 3];
+	WriteFloat4(RWSceneObjectData, DestIndex, LoadFloat4(RWDataRemoveSource, SourceIndex));
 }
 
 [numthreads(UPDATEOBJECTS_THREADGROUP_SIZE, 1, 1)]
@@ -124,10 +121,7 @@ void RemoveObjectsFromBufferCS(
 		uint SourceIndex = RemoveOperationIndices[RemoveOperationIndex].y;
 		uint DestIndex = RemoveOperationIndices[RemoveOperationIndex].x;
 
-		RWObjectBounds[4 * DestIndex + 0] = RWBoundsRemoveSource[4 * SourceIndex + 0];
-		RWObjectBounds[4 * DestIndex + 1] = RWBoundsRemoveSource[4 * SourceIndex + 1];
-		RWObjectBounds[4 * DestIndex + 2] = RWBoundsRemoveSource[4 * SourceIndex + 2];
-		RWObjectBounds[4 * DestIndex + 3] = RWBoundsRemoveSource[4 * SourceIndex + 3];
+		WriteFloat4(RWSceneObjectBounds, DestIndex, LoadFloat4(RWBoundsRemoveSource, SourceIndex));
 
 		UNROLL
 		for (uint VectorIndex = 0; VectorIndex < OBJECT_DATA_STRIDE; VectorIndex++)
@@ -144,19 +138,14 @@ groupshared uint NumGroupObjects;
 groupshared uint GroupBaseIndex;
 groupshared uint GroupObjectIndices[UPDATEOBJECTS_THREADGROUP_SIZE];
 
-float4 FetchObjectDataFloat4(uint SourceIndex)
-{
-	return float4(ObjectData[4 * SourceIndex + 0], ObjectData[4 * SourceIndex + 1], ObjectData[4 * SourceIndex + 2], ObjectData[4 * SourceIndex + 3]);
-}
-
 void CopyCulledObjectData(uint DestIndex, uint SourceIndex)
 {
-	RWCulledObjectBounds[DestIndex] = float4(ObjectBounds[4 * SourceIndex + 0], ObjectBounds[4 * SourceIndex + 1], ObjectBounds[4 * SourceIndex + 2], ObjectBounds[4 * SourceIndex + 3]);
+	RWCulledObjectBounds[DestIndex] = LoadFloat4(SceneObjectBounds, SourceIndex);
 
 	UNROLL
 	for (uint VectorIndex = 0; VectorIndex < CULLED_OBJECT_DATA_STRIDE; VectorIndex++)
 	{
-		float4 Data = FetchObjectDataFloat4(SourceIndex * OBJECT_DATA_STRIDE + VectorIndex);
+		float4 Data = LoadFloat4(SceneObjectData, SourceIndex * OBJECT_DATA_STRIDE + VectorIndex);
 
 		// Note: only copying the first CULLED_OBJECT_DATA_STRIDE of the original object data
 		RWCulledObjectData[DestIndex * CULLED_OBJECT_DATA_STRIDE + VectorIndex] = Data;
@@ -191,16 +180,22 @@ void CullObjectsForViewCS(
 	{
 		uint SourceIndex = ObjectIndex;
 
-		float4 ObjectBoundingSphere = float4(ObjectBounds[4 * SourceIndex + 0], ObjectBounds[4 * SourceIndex + 1], ObjectBounds[4 * SourceIndex + 2], ObjectBounds[4 * SourceIndex + 3]);
+		float4 ObjectBoundingSphere = LoadFloat4(SceneObjectBounds, SourceIndex);
 		float DistanceToViewSq = dot(View.WorldCameraOrigin - ObjectBoundingSphere.xyz, View.WorldCameraOrigin - ObjectBoundingSphere.xyz);
 
 		if (DistanceToViewSq < Square(AOMaxViewDistance + ObjectBoundingSphere.w)
 			&& ViewFrustumIntersectSphere(ObjectBoundingSphere.xyz, ObjectBoundingSphere.w + AOObjectMaxDistance))
 		{
-			uint DestIndex;
-			InterlockedAdd(NumGroupObjects, 1U, DestIndex);
-			GroupObjectIndices[DestIndex] = SourceIndex;
-		}
+            float2 MinMaxDrawDist2 = LoadGlobalObjectMinMaxDrawDistance2(SourceIndex);
+
+            if ((MinMaxDrawDist2.x < 0.0001 || DistanceToViewSq > MinMaxDrawDist2.x)
+                && (MinMaxDrawDist2.y < 0.0001 || DistanceToViewSq < MinMaxDrawDist2.y))
+            {
+                uint DestIndex;
+                InterlockedAdd(NumGroupObjects, 1U, DestIndex);
+                GroupObjectIndices[DestIndex] = SourceIndex;
+            }
+        }
 	}
 
 	GroupMemoryBarrierWithGroupSync();
@@ -443,6 +438,10 @@ bool IntersectObjectWithConeDepthRange(
 
 Buffer<float4> TileConeAxisAndCos;
 Buffer<float4> TileConeDepthRanges;
+
+RWBuffer<uint> RWNumCulledTilesArray;
+RWBuffer<uint> RWCulledTilesStartOffsetArray;
+RWBuffer<uint> RWCulledTileDataArray;
 
 /** Intersects a single object with the tile and adds to the intersection list if needed. */
 void ObjectCullPS(

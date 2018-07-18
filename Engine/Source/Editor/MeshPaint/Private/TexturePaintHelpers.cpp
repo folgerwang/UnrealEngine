@@ -6,7 +6,7 @@
 #include "Components/StaticMeshComponent.h"
 #include "StaticMeshResources.h"
 #include "Components/SkeletalMeshComponent.h"
-#include "Classes/Engine/SkeletalMesh.h"
+#include "Engine/SkeletalMesh.h"
 #include "Rendering/SkeletalMeshRenderData.h"
 
 #include "IMeshPaintGeometryAdapter.h"
@@ -101,7 +101,6 @@ void TexturePaintHelpers::CopyTextureToRenderTargetTexture(UTexture* SourceTextu
 			RHICmdList.CopyToResolveTarget(
 				RenderTargetResource->GetRenderTargetTexture(),		// Source texture
 				RenderTargetResource->TextureRHI,					// Dest texture
-				true,												// Do we need the source image content again?
 				FResolveParams());									// Resolve parameters
 		});		
 }
@@ -316,7 +315,6 @@ bool TexturePaintHelpers::GenerateSeamMask(UMeshComponent* MeshComponent, int32 
 				RHICmdList.CopyToResolveTarget(
 					RenderTargetResource->GetRenderTargetTexture(),		// Source texture
 					RenderTargetResource->TextureRHI,
-					true,												// Do we need the source image content again?
 					FResolveParams());									// Resolve parameters
 			});
 

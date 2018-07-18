@@ -1,8 +1,10 @@
-﻿Availability:Public
+﻿INTSourceChangelist:3242329
+Availability:Public
 title:グラディエント（勾配）
 Crumbs: %ROOT%, Engine, Engine/Rendering/Materials,  Engine/Rendering/Materials/Functions
 Description:マテリアルに追加するための手続き的に生成されたグラディエントはテクスチャの必要性をなくし、メモリを節約します。
 Version:4.9
+tags:Materials
 
 [TOC (start:2 end:3)]
 

@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
-#include "AnimTypes.h"
+#include "Animation/AnimTypes.h"
 #include "Curves/RichCurve.h"
 #include "RBFSolver.generated.h"
 

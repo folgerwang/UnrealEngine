@@ -3,7 +3,7 @@
 #include "AudioCaptureEditor.h"
 #include "ISequenceRecorder.h"
 #include "ISequenceAudioRecorder.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "AudioRecordingManager.h"
 
 class FSequenceAudioRecorder : public ISequenceAudioRecorder

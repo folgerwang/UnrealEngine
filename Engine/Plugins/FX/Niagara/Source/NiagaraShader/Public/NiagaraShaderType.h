@@ -21,14 +21,14 @@
 		Frequency \
 		);
 
-class FNiagaraScript;
+class FNiagaraShaderScript;
 class FShaderCommonCompileJob;
 class FShaderCompileJob;
 class FUniformExpressionSet;
 
 
 /** Called for every Niagara shader to update the appropriate stats. */
-extern void UpdateNiagaraShaderCompilingStats(const FNiagaraScript* Script);
+extern void UpdateNiagaraShaderCompilingStats(const FNiagaraShaderScript* Script);
 
 /**
  * Dump shader stats for a given platform.
@@ -50,7 +50,7 @@ public:
 	{
 		//const FUniformExpressionSet& UniformExpressionSet;
 		const FString DebugDescription;
-		TArray< FDIBufferDescriptorStore > DIBufferDescriptors;
+		TArray< FNiagaraDataInterfaceGPUParamInfo > DIParamInfo;
 
 		CompiledShaderInitializerType(
 			FShaderType* InType,
@@ -59,16 +59,17 @@ public:
 			FShaderResource* InResource,
 			const FSHAHash& InNiagaraShaderMapHash,
 			const FString& InDebugDescription,
-			const TArray< FDIBufferDescriptorStore > &InDataInterfaceBufferDescriptors
+			const TArray< FNiagaraDataInterfaceGPUParamInfo > &InDIParamInfo
 			)
 		: FGlobalShaderType::CompiledShaderInitializerType(InType,InPermutationId,CompilerOutput,InResource, InNiagaraShaderMapHash,nullptr,nullptr)
 		, DebugDescription(InDebugDescription)
-		, DIBufferDescriptors(InDataInterfaceBufferDescriptors)
+		, DIParamInfo(InDIParamInfo)
 		{}
 	};
 	typedef FShader* (*ConstructCompiledType)(const CompiledShaderInitializerType&);
-	typedef bool (*ShouldCompilePermutationType)(EShaderPlatform,const FNiagaraScript*);
-	typedef void (*ModifyCompilationEnvironmentType)(EShaderPlatform,const FNiagaraScript*, FShaderCompilerEnvironment&);
+	typedef bool (*ShouldCompilePermutationType)(EShaderPlatform,const FNiagaraShaderScript*);
+	typedef bool(*ValidateCompiledResultType)(EShaderPlatform, const FShaderParameterMap&, TArray<FString>&);
+	typedef void (*ModifyCompilationEnvironmentType)(EShaderPlatform,const FNiagaraShaderScript*, FShaderCompilerEnvironment&);
 
 	FNiagaraShaderType(
 		const TCHAR* InName,
@@ -80,11 +81,13 @@ public:
 		ConstructCompiledType InConstructCompiledRef,
 		ModifyCompilationEnvironmentType InModifyCompilationEnvironmentRef,
 		ShouldCompilePermutationType InShouldCompilePermutationRef,
+		ValidateCompiledResultType InValidateCompiledResultRef,
 		GetStreamOutElementsType InGetStreamOutElementsRef
 		):
 		FShaderType(EShaderTypeForDynamicCast::Niagara, InName, InSourceFilename, InFunctionName, SF_Compute, InTotalPermutationCount, InConstructSerializedRef, InGetStreamOutElementsRef),
 		ConstructCompiledRef(InConstructCompiledRef),
 		ShouldCompilePermutationRef(InShouldCompilePermutationRef),
+		ValidateCompiledResultRef(InValidateCompiledResultRef),
 		ModifyCompilationEnvironmentRef(InModifyCompilationEnvironmentRef)
 	{
 		check(InTotalPermutationCount == 1);
@@ -94,14 +97,14 @@ public:
 	 * Enqueues a compilation for a new shader of this type.
 	 * @param Script - The script to link the shader with.
 	 */
-	class FNiagaraShaderCompileJob* BeginCompileShader(
-		uint32 ShaderMapId,
-		const FNiagaraScript* Script,
-		FShaderCompilerEnvironment* ScriptEnvironment,
-		EShaderPlatform Platform,
-		TArray<FNiagaraShaderCompileJob*>& NewJobs,
-		FShaderTarget Target,
-		TArray< FDIBufferDescriptorStore >&InBufferDescriptors
+	class FShaderCompileJob* BeginCompileShader(
+			uint32 ShaderMapId,
+			const FNiagaraShaderScript* Script,
+			FShaderCompilerEnvironment* CompilationEnvironment,
+			EShaderPlatform Platform,
+			TArray<FShaderCommonCompileJob*>& NewJobs,
+			FShaderTarget Target,
+			TArray<FNiagaraDataInterfaceGPUParamInfo>& InDIParamInfo
 		);
 
 	/**
@@ -111,7 +114,7 @@ public:
 	 */
 	FShader* FinishCompileShader(
 		const FSHAHash& NiagaraShaderMapHash,
-		const FNiagaraShaderCompileJob& CurrentJob,
+		const FShaderCompileJob& CurrentJob,
 		const FString& InDebugDescription
 		);
 
@@ -121,10 +124,16 @@ public:
 	 * @param script - The script to check.
 	 * @return True if this shader type should be cached.
 	 */
-	bool ShouldCache(EShaderPlatform Platform,const FNiagaraScript* Script) const
+	bool ShouldCache(EShaderPlatform Platform,const FNiagaraShaderScript* Script) const
 	{
 		return (*ShouldCompilePermutationRef)(Platform, Script);
 	}
+
+	/** Adds include statements for uniform buffers that this shader type references, and builds a prefix for the shader file with the include statements. */
+	void AddReferencedUniformBufferIncludes(FShaderCompilerEnvironment& OutEnvironment, FString& OutSourceFilePrefix, EShaderPlatform Platform);
+
+	void CacheUniformBufferIncludes(TMap<const TCHAR*, FCachedUniformBufferDeclaration>& Cache, EShaderPlatform Platform);
+
 
 protected:
 
@@ -133,7 +142,7 @@ protected:
 	 * @param Platform - Platform to compile for.
 	 * @param Environment - The shader compile environment that the function modifies.
 	 */
-	void SetupCompileEnvironment(EShaderPlatform Platform, const FNiagaraScript* Script, FShaderCompilerEnvironment& Environment)
+	void SetupCompileEnvironment(EShaderPlatform Platform, const FNiagaraShaderScript* Script, FShaderCompilerEnvironment& Environment)
 	{
 		// Allow the shader type to modify its compile environment.
 		(*ModifyCompilationEnvironmentRef)(Platform, Script, Environment);
@@ -142,5 +151,8 @@ protected:
 private:
 	ConstructCompiledType ConstructCompiledRef;
 	ShouldCompilePermutationType ShouldCompilePermutationRef;
+	ValidateCompiledResultType ValidateCompiledResultRef;
 	ModifyCompilationEnvironmentType ModifyCompilationEnvironmentRef;
+
+	static TMap<const FShaderCompileJob*, TArray<FNiagaraDataInterfaceGPUParamInfo> > ExtraParamInfo;
 };

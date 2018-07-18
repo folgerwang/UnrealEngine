@@ -50,9 +50,6 @@ FVector ACineCameraActor::GetLookatLocation() const
 static const FColor DebugLookatTrackingPointSolidColor(200, 200, 32, 128);		// yellow
 static const FColor DebugLookatTrackingPointOutlineColor = FColor::Black;
 
-static const FColor DebugFocusPointSolidColor(102, 26, 204, 153);		// purple
-static const FColor DebugFocusPointOutlineColor = FColor::Black;
-
 void ACineCameraActor::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
@@ -89,34 +86,6 @@ void ACineCameraActor::Tick(float DeltaTime)
 			}
 #endif // ENABLE_DRAW_DEBUG
 		}
-
-#if ENABLE_DRAW_DEBUG
-		if (CineCameraComponent->FocusSettings.TrackingFocusSettings.bDrawDebugTrackingFocusPoint)
-		{
-			AActor const* const TrackedActor = CineCameraComponent->FocusSettings.TrackingFocusSettings.ActorToTrack;
-
-			FVector FocusPoint;
-			if (TrackedActor)
-			{
-				FTransform const BaseTransform = TrackedActor->GetActorTransform();
-				FocusPoint = BaseTransform.TransformPosition(CineCameraComponent->FocusSettings.TrackingFocusSettings.RelativeOffset);
-			}
-			else
-			{
-				FocusPoint = CineCameraComponent->FocusSettings.TrackingFocusSettings.RelativeOffset;
-			}
-			
-			::DrawDebugSolidBox(GetWorld(), FocusPoint, FVector(12.f), DebugFocusPointSolidColor);
-			::DrawDebugBox(GetWorld(), FocusPoint, FVector(12.f), DebugFocusPointOutlineColor);
-		}
-#endif // ENABLE_DRAW_DEBUG
-
-#if WITH_EDITORONLY_DATA
-		if (CineCameraComponent->FocusSettings.bDrawDebugFocusPlane)
-		{
-			CineCameraComponent->UpdateDebugFocusPlane();
-		}
-#endif // WITH_EDITORONLY_DATA
 	}
 
 	bResetInterplation = false;

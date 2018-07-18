@@ -61,6 +61,7 @@ public:
 	TSharedPtr<FUICommandInfo> AddSphere;
 	TSharedPtr<FUICommandInfo> AddSphyl;
 	TSharedPtr<FUICommandInfo> AddBox;
+	TSharedPtr<FUICommandInfo> AddTaperedCapsule;
 	TSharedPtr<FUICommandInfo> DeletePrimitive;
 	TSharedPtr<FUICommandInfo> DuplicatePrimitive;
 	TSharedPtr<FUICommandInfo> ResetConstraint;

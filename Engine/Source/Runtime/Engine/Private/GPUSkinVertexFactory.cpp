@@ -227,7 +227,7 @@ bool FGPUBaseSkinVertexFactory::FShaderDataType::UpdateBoneData(FRHICommandListI
 
 	FVertexBufferAndSRV* CurrentBoneBuffer = 0;
 
-	if (InFeatureLevel >= ERHIFeatureLevel::ES3_1)
+	if (InFeatureLevel > ERHIFeatureLevel::ES3_1)
 	{
 		check(IsInRenderingThread());
 		
@@ -288,7 +288,7 @@ bool FGPUBaseSkinVertexFactory::FShaderDataType::UpdateBoneData(FRHICommandListI
 			RefToLocal.To3x4MatrixTranspose( (float*)BoneMat.M );
 		}
 	}
-	if (InFeatureLevel >= ERHIFeatureLevel::ES3_1)
+	if (InFeatureLevel > ERHIFeatureLevel::ES3_1)
 	{
 		if (NumBones)
 		{
@@ -515,7 +515,7 @@ public:
 
 			bool bLocalPerBoneMotionBlur = false;
 
-			if (FeatureLevel >= ERHIFeatureLevel::ES3_1)
+			if (FeatureLevel > ERHIFeatureLevel::ES3_1)
 			{
 				if(BoneMatrices.IsBound())
 				{
@@ -641,18 +641,21 @@ void FGPUSkinPassthroughVertexFactory::InternalUpdateVertexDeclaration(FGPUBaseS
 		Data.PositionComponentSRV = PositionRWBuffer->SRV;
 	}
 
+	Data.TangentBasisComponents[0] = SourceVertexFactory->GetTangentStreamComponent(0);
+	Data.TangentBasisComponents[1] = SourceVertexFactory->GetTangentStreamComponent(1);
+
 	if (TangentRWBuffer)
 	{
 		Data.TangentBasisComponents[0].VertexBuffer = &TangentVBAlias;
 		Data.TangentBasisComponents[0].Offset = 0;
-		Data.TangentBasisComponents[0].Type = VET_PackedNormal;
-		Data.TangentBasisComponents[0].Stride = 8;
+		Data.TangentBasisComponents[0].Type = VET_Short4N;
+		Data.TangentBasisComponents[0].Stride = 16;
 		Data.TangentBasisComponents[0].VertexStreamUsage = EVertexStreamUsage::Overridden | EVertexStreamUsage::ManualFetch;
 
 		Data.TangentBasisComponents[1].VertexBuffer = &TangentVBAlias;
-		Data.TangentBasisComponents[1].Offset = 4;
-		Data.TangentBasisComponents[1].Type = VET_PackedNormal;
-		Data.TangentBasisComponents[1].Stride = 8;
+		Data.TangentBasisComponents[1].Offset = 8;
+		Data.TangentBasisComponents[1].Type = VET_Short4N;
+		Data.TangentBasisComponents[1].Stride = 16;
 		Data.TangentBasisComponents[1].VertexStreamUsage = EVertexStreamUsage::Overridden | EVertexStreamUsage::ManualFetch;
 	}
 
@@ -769,6 +772,7 @@ public:
 		ClothSimulVertsPositionsNormalsParameter.Bind(ParameterMap,TEXT("ClothSimulVertsPositionsNormals"));
 		PreviousClothSimulVertsPositionsNormalsParameter.Bind(ParameterMap,TEXT("PreviousClothSimulVertsPositionsNormals"));
 		ClothLocalToWorldParameter.Bind(ParameterMap, TEXT("ClothLocalToWorld"));
+		PreviousClothLocalToWorldParameter.Bind(ParameterMap, TEXT("PreviousClothLocalToWorld"));
 		ClothBlendWeightParameter.Bind(ParameterMap, TEXT("ClothBlendWeight"));
 		GPUSkinApexClothParameter.Bind(ParameterMap, TEXT("GPUSkinApexCloth"));
 		GPUSkinApexClothStartIndexOffsetParameter.Bind(ParameterMap, TEXT("GPUSkinApexClothStartIndexOffset"));
@@ -783,6 +787,7 @@ public:
 		Ar << ClothSimulVertsPositionsNormalsParameter;
 		Ar << PreviousClothSimulVertsPositionsNormalsParameter;
 		Ar << ClothLocalToWorldParameter;
+		Ar << PreviousClothLocalToWorldParameter;
 		Ar << ClothBlendWeightParameter;
 		Ar << GPUSkinApexClothParameter;
 		Ar << GPUSkinApexClothStartIndexOffsetParameter;
@@ -822,7 +827,14 @@ public:
 				RHICmdList,
 				VertexShader,
 				ClothLocalToWorldParameter,
-				ClothShaderData.ClothLocalToWorld
+				ClothShaderData.GetClothLocalToWorldForReading(false, FrameNumber)
+				);
+
+			SetShaderValue(
+				RHICmdList,
+				VertexShader,
+				PreviousClothLocalToWorldParameter,
+				ClothShaderData.GetClothLocalToWorldForReading(true, FrameNumber)
 				);
 
 			SetShaderValue(
@@ -854,6 +866,7 @@ protected:
 	FShaderResourceParameter ClothSimulVertsPositionsNormalsParameter;
 	FShaderResourceParameter PreviousClothSimulVertsPositionsNormalsParameter;
 	FShaderParameter ClothLocalToWorldParameter;
+	FShaderParameter PreviousClothLocalToWorldParameter;
 	FShaderParameter ClothBlendWeightParameter;
 	FShaderResourceParameter GPUSkinApexClothParameter;
 	FShaderParameter GPUSkinApexClothStartIndexOffsetParameter;

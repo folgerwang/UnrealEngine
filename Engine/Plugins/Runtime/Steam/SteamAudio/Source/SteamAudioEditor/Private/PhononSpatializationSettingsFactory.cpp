@@ -11,7 +11,7 @@ namespace SteamAudio
 {
 	FText FAssetTypeActions_PhononSpatializationSettings::GetName() const
 	{
-		return NSLOCTEXT("AssetTypeActions", "AssetTypeActions_PhononSpatializationSettings", "Phonon Source Spatialization Settings");
+		return NSLOCTEXT("SteamAudio", "AssetTypeActions_PhononSpatializationSettings", "Phonon Source Spatialization Settings");
 	}
 
 	FColor FAssetTypeActions_PhononSpatializationSettings::GetTypeColor() const

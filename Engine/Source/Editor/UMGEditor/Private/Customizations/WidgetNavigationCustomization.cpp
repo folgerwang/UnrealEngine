@@ -156,7 +156,9 @@ EVisibility FWidgetNavigationCustomization::GetExplictWidgetFieldVisibility(TWea
 	{
 		case EUINavigationRule::Explicit:
 		case EUINavigationRule::Custom:
+		case EUINavigationRule::CustomBoundary:
 			return EVisibility::Visible;
+		
 	}
 
 	return EVisibility::Collapsed;
@@ -225,7 +227,10 @@ TSharedRef<class SWidget> FWidgetNavigationCustomization::MakeNavMenu(TWeakPtr<I
 		MenuBuilder.AddMenuEntry(LOCTEXT("NavigationRuleExplicit", "Explicit"), LOCTEXT("NavigationRuleExplicitHint", "Navigation will go to a specified widget."), FSlateIcon(), ExplicitAction);
 
 		FUIAction CustomAction(FExecuteAction::CreateSP(this, &FWidgetNavigationCustomization::HandleNavMenuEntryClicked, PropertyHandle, Nav, EUINavigationRule::Custom));
-		MenuBuilder.AddMenuEntry(LOCTEXT("NavigationRuleCustom", "Custom"), LOCTEXT("NavigationRuleCustomHint", "Custom function can determine what widget is navigated to."), FSlateIcon(), CustomAction);
+		MenuBuilder.AddMenuEntry(LOCTEXT("NavigationRuleCustom", "Custom"), LOCTEXT("NavigationRuleCustomHint", "Custom function can determine what widget is navigated to. (Applied when the itself or any children are navigated from)"), FSlateIcon(), CustomAction);
+
+		FUIAction CustomBoundaryAction(FExecuteAction::CreateSP(this, &FWidgetNavigationCustomization::HandleNavMenuEntryClicked, PropertyHandle, Nav, EUINavigationRule::CustomBoundary));
+		MenuBuilder.AddMenuEntry(LOCTEXT("NavigationRuleCustomBoundary", "CustomBoundary"), LOCTEXT("NavigationRuleCustomBoundaryHint", "Custom function can determine what widget is navigated to. (Applied when the boundary is hit)"), FSlateIcon(), CustomBoundaryAction);
 	}
 
 	return MenuBuilder.MakeWidget();

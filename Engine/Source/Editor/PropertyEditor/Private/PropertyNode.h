@@ -502,11 +502,6 @@ public:
 	FText GetResetToDefaultLabel();
 
 	/**
-	 * If there is a property, resets it to default.  Otherwise resets the entire parent structure
-	 */
-	void ResetToDefault(FNotifyHook* InNotifyHook);
-
-	/**
 	 * @return If this property node is associated with a property that can be reordered within an array
 	 */
 	bool IsReorderable();
@@ -553,6 +548,10 @@ public:
 
 	/** Broadcasts when a child of this property changes */
 	FPropertyValuePreChangeEvent& OnChildPropertyValuePreChange() { return ChildPropertyValuePreChangeEvent; }
+
+	/** Broadcasts when this property is reset to default */
+	DECLARE_EVENT(FPropertyNode, FPropertyResetToDefaultEvent);
+	FPropertyResetToDefaultEvent& OnPropertyResetToDefault() { return PropertyResetToDefaultEvent; }
 
 	/**
 	 * Marks window's seem due to filtering flags
@@ -802,7 +801,16 @@ public:
 	TSharedPtr<FPropertyNode>& GetPropertyKeyNode() { return PropertyKeyNode; }
 
 	const TSharedPtr<FPropertyNode>& GetPropertyKeyNode() const { return PropertyKeyNode; }
+	
+	/**
+	* Gets the default value of the property as string.
+	*/
+	FString GetDefaultValueAsString(bool bUseDisplayName = true);
 
+	/**
+	 * Broadcasts reset to default property changes
+	 */
+	void BroadcastPropertyResetToDefault();
 protected:
 
 	TSharedRef<FEditPropertyChain> BuildPropertyChain( UProperty* PropertyAboutToChange );
@@ -841,12 +849,7 @@ protected:
 
 	bool GetDiffersFromDefaultForObject( FPropertyItemValueDataTrackerSlate& ValueTracker, UProperty* InProperty );
 
-	FString GetDefaultValueAsStringForObject( FPropertyItemValueDataTrackerSlate& ValueTracker, UObject* InObject, UProperty* InProperty );
-	
-	/**
-	* Gets the default value of the property as string.
-	*/
-	FString GetDefaultValueAsString();
+	FString GetDefaultValueAsStringForObject( FPropertyItemValueDataTrackerSlate& ValueTracker, UObject* InObject, UProperty* InProperty, bool bUseDisplayName );
 
 	/**
 	 * Helper function to obtain the display name for an enum property
@@ -924,6 +927,9 @@ protected:
 	
 	/** Called when a child's property value has changed */
 	FPropertyValueChangedEvent ChildPropertyValueChangedEvent;
+
+	/** Called when the property is reset to default */
+	FPropertyResetToDefaultEvent PropertyResetToDefaultEvent;
 
 	/** The property being displayed/edited. */
 	TWeakObjectPtr<UProperty> Property;

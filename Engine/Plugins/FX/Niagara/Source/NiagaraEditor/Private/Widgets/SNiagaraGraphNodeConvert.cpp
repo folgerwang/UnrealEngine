@@ -6,9 +6,9 @@
 #include "NiagaraConvertPinViewModel.h"
 #include "NiagaraConvertPinSocketViewModel.h"
 #include "SNiagaraConvertPinSocket.h"
-#include "SButton.h"
+#include "Widgets/Input/SButton.h"
 #include "GraphEditorSettings.h"
-#include "DrawElements.h"
+#include "Rendering/DrawElements.h"
 #include "SGraphPin.h"
 
 #define LOCTEXT_NAMESPACE "SNiagaraGraphNodeConvert"
@@ -16,7 +16,9 @@
 
 void SNiagaraGraphNodeConvert::Construct(const FArguments& InArgs, UEdGraphNode* InGraphNode)
 {
-	GraphNode = InGraphNode;
+	GraphNode = InGraphNode; 
+	RegisterNiagaraGraphNode(InGraphNode);
+
 	UpdateGraphNode();
 }
 
@@ -98,7 +100,7 @@ void SNiagaraGraphNodeConvert::UpdateGraphNode()
 	{
 		ConvertNodeViewModel = MakeShareable(new FNiagaraConvertNodeViewModel(*ConvertNode));
 	}
-	SGraphNode::UpdateGraphNode();
+	SNiagaraGraphNode::UpdateGraphNode();
 }
 
 void SNiagaraGraphNodeConvert::AddPin(const TSharedRef<SGraphPin>& PinToAdd)

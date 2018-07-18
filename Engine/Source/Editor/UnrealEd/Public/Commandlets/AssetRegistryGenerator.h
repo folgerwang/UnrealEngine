@@ -107,14 +107,15 @@ public:
 	/**
 	 * Saves all generated manifests for each target platform.
 	 * 
-	 * @param the InSandboxFile used during cook
+	 * @param InSandboxFile the InSandboxFile used during cook
+	 * @param InExtraFlavorChunkSize the ChunkSize used during cooking for InExtraFlavor, value greater than 0 will trigger a cook for extra flavor with specified chunk size
 	 */
-	bool SaveManifests(FSandboxPlatformFile* InSandboxFile);
+	bool SaveManifests(FSandboxPlatformFile* InSandboxFile, int64 InExtraFlavorChunkSize = 0);
 
 	/**
-	 * Saves generated asset registry data for each platform.
-	 */
-	bool SaveAssetRegistry(const FString& SandboxPath, bool bSerializeDevelopmentAssetRegistry = true);
+	* Saves generated asset registry data for each platform.
+	*/
+	bool SaveAssetRegistry(const FString& SandboxPath, bool bSerializeDevelopmentAssetRegistry = true, bool bForceNoFilterAssets = false);
 
 	/** 
 	 * Writes out CookerOpenOrder.log file 
@@ -283,7 +284,7 @@ private:
 	bool ShouldPlatformGenerateStreamingInstallManifest(const ITargetPlatform* Platform) const;
 
 	/** Generates and saves streaming install chunk manifest */
-	bool GenerateStreamingInstallManifest();
+	bool GenerateStreamingInstallManifest(int64 InExtraFlavorChunkSize);
 
 	/** Gather a list of dependencies required by to completely load this package */
 	bool GatherAllPackageDependencies(FName PackageName, TArray<FName>& DependentPackageNames);

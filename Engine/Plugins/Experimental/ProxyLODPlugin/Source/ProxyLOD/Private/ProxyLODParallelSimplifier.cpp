@@ -147,7 +147,7 @@ void ProxyLOD::ParallelSimplifyMesh(const FClosestPolyField& SrcReference, const
 
 
 
-		float RetainFraction = FMath::Max(0.5f, MinFractionToRatain);
+		float RetainFraction = 0.2f; // FMath::Max(0.5f, MinFractionToRatain);
 		PartitionAndSimplifyMesh(SrcBBox, SrcTriNumByPartition, RetainFraction, MaxFeatureCost, NumPartitions, InOutMesh);
 
 		//	ProjectVerticesOntoSrc(SrcReference, InOutMesh);

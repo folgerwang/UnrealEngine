@@ -21,11 +21,6 @@ groupshared uint NumGroupObjects;
 groupshared uint GroupBaseIndex;
 groupshared uint GroupObjectIndices[CULLOBJECTS_THREADGROUP_SIZE];
 
-float4 FetchObjectDataFloat4(uint SourceIndex)
-{
-	return float4(ObjectData[4 * SourceIndex + 0], ObjectData[4 * SourceIndex + 1], ObjectData[4 * SourceIndex + 2], ObjectData[4 * SourceIndex + 3]);
-}
-
 void CopyCulledObjectData(uint DestIndex, uint SourceIndex)
 {
 	RWCulledObjectBounds[DestIndex] = LoadGlobalObjectPositionAndRadius(SourceIndex);
@@ -33,7 +28,7 @@ void CopyCulledObjectData(uint DestIndex, uint SourceIndex)
 	UNROLL
 	for (uint VectorIndex = 0; VectorIndex < CULLED_OBJECT_DATA_STRIDE; VectorIndex++)
 	{
-		float4 Data = FetchObjectDataFloat4(SourceIndex * OBJECT_DATA_STRIDE + VectorIndex);
+		float4 Data = LoadFloat4(SceneObjectData, SourceIndex * OBJECT_DATA_STRIDE + VectorIndex);
 
 		// Note: only copying the first CULLED_OBJECT_DATA_STRIDE of the original object data
 		RWCulledObjectData[DestIndex * CULLED_OBJECT_DATA_STRIDE + VectorIndex] = Data;

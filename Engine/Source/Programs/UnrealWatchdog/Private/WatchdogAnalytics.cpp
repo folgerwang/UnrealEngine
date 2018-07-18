@@ -2,7 +2,7 @@
 
 #include "WatchdogAnalytics.h"
 #include "UnrealWatchdog.h"
-#include "EngineBuildSettings.h"
+#include "Misc/EngineBuildSettings.h"
 #include "AnalyticsET.h"
 #include "IAnalyticsProviderET.h"
 

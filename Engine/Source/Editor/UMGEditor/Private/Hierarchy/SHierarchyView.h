@@ -11,7 +11,7 @@
 #include "Widgets/Views/STableRow.h"
 #include "Widgets/Views/STreeView.h"
 #include "Misc/TextFilter.h"
-#include "TreeFilterHandler.h"
+#include "Framework/Views/TreeFilterHandler.h"
 
 class FHierarchyModel;
 class FMenuBuilder;
@@ -49,6 +49,7 @@ private:
 	TSharedRef< ITableRow > WidgetHierarchy_OnGenerateRow(TSharedPtr<FHierarchyModel> InItem, const TSharedRef<STableViewBase>& OwnerTable);
 	void WidgetHierarchy_OnSelectionChanged(TSharedPtr<FHierarchyModel> SelectedItem, ESelectInfo::Type SelectInfo);
 	void WidgetHierarchy_OnExpansionChanged(TSharedPtr<FHierarchyModel> Item, bool bExpanded);
+	void WidgetHierarchy_OnMouseClick(TSharedPtr<FHierarchyModel> InItem);
 
 private:
 	void BeginRename();

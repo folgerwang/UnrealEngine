@@ -52,6 +52,28 @@ public:
 		, Maximum(MaxX, MaxY)
 	{ }
 
+	/**
+	* Compares this set of FAnchors with another for equality.
+	*
+	* @param Other The other FAnchors.
+	* @return true if the two FAnchors are equal, false otherwise.
+	*/
+	bool operator==(const FAnchors& Other) const
+	{
+		return Minimum == Other.Minimum && Maximum == Other.Maximum;
+	}
+
+	/**
+	* Compares this set of FAnchors with another for inequality.
+	*
+	* @param Other The other FAnchors.
+	* @return true if the two FAnchors are not equal, false otherwise.
+	*/
+	bool operator!=(const FAnchors& Other) const
+	{
+		return !(*this == Other);
+	}
+
 	/** Returns true if the anchors represent a stretch along the vertical axis */
 	bool IsStretchedVertical() const { return Minimum.Y != Maximum.Y; }
 

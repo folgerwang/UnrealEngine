@@ -10,7 +10,7 @@ public class Icmp : ModuleRules
 
 		PrivateIncludePaths.AddRange(
 			new string[] {
-				"Runtime/Online/Icmp/Private",
+				"Runtime/Online/ICMP/Private",
 			}
 			);
 

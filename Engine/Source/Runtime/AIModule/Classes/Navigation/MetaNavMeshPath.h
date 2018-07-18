@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "EngineDefines.h"
 #include "AI/Navigation/NavigationTypes.h"
-#include "AI/Navigation/RecastNavMesh.h"
+#include "NavMesh/RecastNavMesh.h"
 
 class AController;
 class UCanvas;

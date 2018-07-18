@@ -7,17 +7,19 @@
 
 #if PLATFORM_WINDOWS
 // Start of region that uses windows types.
-#include "WindowsHWrapper.h"
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/WindowsHWrapper.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
+THIRD_PARTY_INCLUDES_START
 #include <wtypes.h>
 #include <winbase.h>
 #include <winioctl.h>
+THIRD_PARTY_INCLUDES_END
 namespace FileSystemHelpers
 {
 	bool PlatformGetAttributes(const TCHAR* Filename, BuildPatchServices::EFileAttributes& OutFileAttributes)
 	{
 		OutFileAttributes = BuildPatchServices::EFileAttributes::None;
-		DWORD FileAttributes = ::GetFileAttributes(Filename);
+		DWORD FileAttributes = ::GetFileAttributesW(Filename);
 		DWORD Error = ::GetLastError();
 		if (FileAttributes != INVALID_FILE_ATTRIBUTES)
 		{
@@ -89,7 +91,7 @@ namespace FileSystemHelpers
 	}
 }
 // End of region that uses windows types.
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 // Stop windows header breaking our class's function name.
 #undef GetFileAttributes
 #elif PLATFORM_MAC

@@ -3,7 +3,7 @@
 #include "Animation/SmartName.h"
 #include "UObject/FrameworkObjectVersion.h"
 #include "Animation/Skeleton.h"
-#include "AnimPhysObjectVersion.h"
+#include "UObject/AnimPhysObjectVersion.h"
 
 ////////////////////////////////////////////////////////////////////////
 //

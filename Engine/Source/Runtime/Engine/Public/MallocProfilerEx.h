@@ -12,7 +12,7 @@ class FMallocProfiler;
 
 #if USE_MALLOC_PROFILER
 
-#include "MallocProfiler.h"
+#include "ProfilingDebugging/MallocProfiler.h"
 
 /** 
  * Extended version of malloc profiler, implements engine side functions that are not available in the core

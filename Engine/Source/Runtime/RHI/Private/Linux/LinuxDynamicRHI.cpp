@@ -8,10 +8,12 @@
 
 FDynamicRHI* PlatformCreateDynamicRHI()
 {
-	const bool bForceVulkan = FParse::Param(FCommandLine::Get(), TEXT("vulkan"));
+	ERHIFeatureLevel::Type RequestedFeatureLevel = ERHIFeatureLevel::SM5;	// SM4 is a dead level walking
 	FDynamicRHI* DynamicRHI = nullptr;
+
+	const bool bForceVulkan = FParse::Param(FCommandLine::Get(), TEXT("vulkan"));
 	IDynamicRHIModule* DynamicRHIModule = nullptr;
-	if(bForceVulkan)
+	if (bForceVulkan)
 	{
 		DynamicRHIModule = &FModuleManager::LoadModuleChecked<IDynamicRHIModule>(TEXT("VulkanRHI"));
 		if (!DynamicRHIModule->IsSupported())
@@ -32,8 +34,6 @@ FDynamicRHI* PlatformCreateDynamicRHI()
 			DynamicRHIModule = nullptr;
 		}
 	}
-
-	ERHIFeatureLevel::Type RequestedFeatureLevel = ERHIFeatureLevel::SM5;	// SM4 is a dead level walking
 
 	// Check the list of targeted shader platforms and decide an RHI based off them
 	TArray<FString> TargetedShaderFormats;

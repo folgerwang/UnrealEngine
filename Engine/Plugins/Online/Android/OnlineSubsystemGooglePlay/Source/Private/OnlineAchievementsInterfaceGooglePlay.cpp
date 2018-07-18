@@ -7,6 +7,7 @@
 #include "OnlineAsyncTaskGooglePlayQueryAchievements.h"
 #include "OnlineSubsystemGooglePlay.h"
 #include "UObject/Class.h"
+#include "OnlineIdentityInterfaceGooglePlay.h"
 
 using namespace gpg;
 
@@ -25,7 +26,7 @@ void FOnlineAchievementsGooglePlay::QueryAchievements(const FUniqueNetId& Player
 		return;
 	}
 
-	auto QueryTask = new FOnlineAsyncTaskGooglePlayQueryAchievements(AndroidSubsystem, FUniqueNetIdString(PlayerId), Delegate);
+	auto QueryTask = new FOnlineAsyncTaskGooglePlayQueryAchievements(AndroidSubsystem, FUniqueNetIdGooglePlay(PlayerId), Delegate);
 	AndroidSubsystem->QueueAsyncTask(QueryTask);
 }
 
@@ -148,7 +149,7 @@ void FOnlineAchievementsGooglePlay::WriteAchievements( const FUniqueNetId& Playe
 	// Kick off a query if we don't have valid data.
 	if (GoogleAchievements.status != ResponseStatus::VALID)
 	{
-		auto QueryTask = new FOnlineAsyncTaskGooglePlayQueryAchievements(AndroidSubsystem, FUniqueNetIdString(PlayerId),
+		auto QueryTask = new FOnlineAsyncTaskGooglePlayQueryAchievements(AndroidSubsystem, FUniqueNetIdGooglePlay(PlayerId),
 			FOnQueryAchievementsCompleteDelegate::CreateRaw(
 				this,
 				&FOnlineAchievementsGooglePlay::FinishAchievementWrite,

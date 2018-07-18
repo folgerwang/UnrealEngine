@@ -392,6 +392,8 @@ struct _mesa_glsl_parse_state
 
 	// Information for extracting sampler/texture names
 	TStringToSetMap TextureToSamplerMap;
+
+	bool conservative_propagation;
 };
 
 typedef struct YYLTYPE

@@ -84,7 +84,7 @@ FPixelInfo GetPixelInfo(int2 PixelPos, int SampleID, int OffsetX, int OffsetY, f
 	// outline even between multiple selected objects (best usability)
 	Ret.ObjectId = Stencil;
 
-#if (COMPILER_GLSL == 1 && FEATURE_LEVEL < FEATURE_LEVEL_SM4) || (COMPILER_METAL && FEATURE_LEVEL < FEATURE_LEVEL_SM4) || (VULKAN_PROFILE_SM5 || VULKAN_PROFILE_SM4 || VULKAN_PROFILE)
+#if (COMPILER_GLSL == 1 && FEATURE_LEVEL < FEATURE_LEVEL_SM4) || (COMPILER_METAL && FEATURE_LEVEL < FEATURE_LEVEL_SM4) || COMPILER_VULKAN
 	// Stencil read in opengl is not supported on older versions
 	Ret.ObjectId = Ret.bObjectMask ? 2 : 0;
 #endif
@@ -208,6 +208,16 @@ float4 PerSample(int2 PixelPos, int SampleID, FPixelInfo CenterPixelInfo, float3
 	return Ret;
 }
 
+#if SHADING_PATH_DEFERRED
+	#define ShadingPathSceneDepthTexture SceneTexturesStruct.SceneDepthTexture
+	#define ShadingPathSceneDepthTextureSampler SceneTexturesStruct.SceneDepthTextureSampler
+#endif
+
+#if SHADING_PATH_MOBILE
+	#define ShadingPathSceneDepthTexture MobileSceneTextures.SceneDepthTexture
+	#define ShadingPathSceneDepthTextureSampler MobileSceneTextures.SceneDepthTextureSampler
+#endif
+
 void MainPS(
 	noperspective float4 UVAndScreenPos : TEXCOORD0,
 	float4 SvPosition : SV_POSITION,
@@ -217,7 +227,7 @@ void MainPS(
 	float2 SceneBufferUV = ViewportUVToBufferUV(ViewportUV);
 
 	float2 UV = UVAndScreenPos.xy;
- 	int2 PixelPos = (int2)SvPosition.xy;
+ 	int2 PixelPos = int2(ViewportUVToPostProcessingSceneColorBufferUV(ViewportUV) * PostprocessInput0Size.xy);
 	
 	OutColor = Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UVAndScreenPos.xy);
 
@@ -247,12 +257,12 @@ void MainPS(
 		// This allows to reconstruct depth with a small pixel offset without many tetxure lookups (4xMSAA * 5 neighbors -> 20 samples)
 		// It's an approximation assuming the surface is a plane
 		float3 DeviceZPlane;
-		DeviceZPlane.z = Texture2DSampleLevel(SceneDepthTexture, SceneDepthTextureSampler, SceneBufferUV, 0).r;
+		DeviceZPlane.z = Texture2DSampleLevel(ShadingPathSceneDepthTexture, ShadingPathSceneDepthTextureSampler, SceneBufferUV, 0).r;
 
-		float Left = Texture2DSampleLevel(SceneDepthTexture, SceneDepthTextureSampler, SceneBufferUV + float2(-1, 0) * View.BufferSizeAndInvSize.zw, 0).r;
-		float Right= Texture2DSampleLevel(SceneDepthTexture, SceneDepthTextureSampler, SceneBufferUV + float2(1, 0) * View.BufferSizeAndInvSize.zw, 0).r;
-		float Top  = Texture2DSampleLevel(SceneDepthTexture, SceneDepthTextureSampler, SceneBufferUV + float2(0, -1) * View.BufferSizeAndInvSize.zw, 0).r;
-		float Bottom = Texture2DSampleLevel(SceneDepthTexture, SceneDepthTextureSampler, SceneBufferUV + float2(0, 1) * View.BufferSizeAndInvSize.zw, 0).r;
+		float Left = Texture2DSampleLevel(ShadingPathSceneDepthTexture, ShadingPathSceneDepthTextureSampler, SceneBufferUV + float2(-1, 0) * View.BufferSizeAndInvSize.zw, 0).r;
+		float Right= Texture2DSampleLevel(ShadingPathSceneDepthTexture, ShadingPathSceneDepthTextureSampler, SceneBufferUV + float2(1, 0) * View.BufferSizeAndInvSize.zw, 0).r;
+		float Top  = Texture2DSampleLevel(ShadingPathSceneDepthTexture, ShadingPathSceneDepthTextureSampler, SceneBufferUV + float2(0, -1) * View.BufferSizeAndInvSize.zw, 0).r;
+		float Bottom = Texture2DSampleLevel(ShadingPathSceneDepthTexture, ShadingPathSceneDepthTextureSampler, SceneBufferUV + float2(0, 1) * View.BufferSizeAndInvSize.zw, 0).r;
 
 		float2 DeviceZMinMax;
 		DeviceZMinMax.x = min(DeviceZPlane.z, min(min(Left, Right), min(Top, Bottom)));

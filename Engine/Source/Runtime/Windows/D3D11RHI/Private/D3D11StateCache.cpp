@@ -304,6 +304,9 @@ void FD3D11StateCacheBase::ClearState()
 	// Depth Stencil State Cache
 	CurrentReferenceStencil = 0;
 	CurrentDepthStencilState = nullptr;
+	bDepthBoundsEnabled = false;
+	DepthBoundsMin = 0.0f;
+	DepthBoundsMax = 1.0f;
 
 	// Shader Cache
 	CurrentVertexShader = nullptr;

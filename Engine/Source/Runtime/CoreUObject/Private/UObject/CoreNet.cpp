@@ -161,13 +161,13 @@ uint32 FClassNetCacheMgr::GetFieldChecksum( const UField* Field, uint32 Checksum
 	return Checksum;
 }
 
-const FClassNetCache* FClassNetCacheMgr::GetClassNetCache( const UClass* Class )
+const FClassNetCache* FClassNetCacheMgr::GetClassNetCache( UClass* Class )
 {
 	FClassNetCache* Result = ClassFieldIndices.FindRef( Class );
 
 	if ( !Result )
 	{
-		ensureMsgf(!Class->HasAnyFlags(RF_NeedLoad | RF_NeedPostLoad), TEXT("FClassNetCacheMgr::GetClassNetCache: %s has flag RF_NeedPostLoad. NetFields and ClassReps will be incorrect!"), *GetFullNameSafe(Class));
+		Class->SetUpRuntimeReplicationData();
 
 		Result					= ClassFieldIndices.Add( Class, new FClassNetCache( Class ) );
 		Result->Super			= NULL;
@@ -249,6 +249,11 @@ void FClassNetCacheMgr::ClearClassNetCache()
 -----------------------------------------------------------------------------*/
 
 bool UPackageMap::SerializeName(FArchive& Ar, FName& InName)
+{
+	return StaticSerializeName(Ar, InName);
+}
+
+bool UPackageMap::StaticSerializeName(FArchive& Ar, FName& InName)
 {
 	if (Ar.IsLoading())
 	{
@@ -342,7 +347,15 @@ FNetBitWriter::FNetBitWriter( UPackageMap * InPackageMap, int64 InMaxBits )
 
 FArchive& FNetBitWriter::operator<<( class FName& N )
 {
-	PackageMap->SerializeName( *this, N );
+	if (PackageMap)
+	{
+		PackageMap->SerializeName(*this, N);
+	}
+	else
+	{
+		UPackageMap::StaticSerializeName(*this, N);
+	}
+
 	return *this;
 }
 
@@ -389,7 +402,15 @@ FArchive& FNetBitReader::operator<<( UObject*& Object )
 
 FArchive& FNetBitReader::operator<<( class FName& N )
 {
-	PackageMap->SerializeName( *this, N );
+	if (PackageMap)
+	{
+		PackageMap->SerializeName(*this, N);
+	}
+	else
+	{
+		UPackageMap::StaticSerializeName(*this, N);
+	}
+
 	return *this;
 }
 

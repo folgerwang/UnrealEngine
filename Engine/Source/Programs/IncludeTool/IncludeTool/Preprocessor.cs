@@ -286,7 +286,7 @@ namespace IncludeTool
 		/// </summary>
 		/// <param name="Definitions">Definitions passed in on the command-line</param>
 		/// <param name="IncludePaths">Paths to search when resolving include directives</param>
-		public Preprocessor(FileReference PreludeFile, IEnumerable<string> Definitions, IEnumerable<DirectoryReference> IncludePaths)
+		public Preprocessor(FileReference PreludeFile, IEnumerable<string> Definitions, IEnumerable<DirectoryReference> IncludePaths, IEnumerable<FileReference> ForceIncludedFiles)
 		{
 			DateTime Now = DateTime.Now;
 			AddSingleTokenMacro("__DATE__", TokenType.StringLiteral, String.Format("\"{0} {1,2} {2}\"", Now.ToString("MMM"), Now.Day, Now.Year));
@@ -331,13 +331,29 @@ namespace IncludeTool
 				{
 					NameToMacro[Tokens[0].Text] = new PreprocessorMacro(Tokens[0].Text, null, Tokens.Skip(2).ToList());
 				}
-				else
+				else if(Tokens[1].Text != "(")
 				{
 					throw new PreprocessorException("Expected '=' token for definition on command-line");
 				}
 			}
 
-			this.IncludeDirectories = IncludePaths.Select(x => new IncludeDirectory() { Location = x, WorkspaceDirectory = Workspace.GetDirectory(x) }).ToList();
+			foreach(DirectoryReference IncludePath in IncludePaths)
+			{
+				if(Directory.Exists(IncludePath.FullName))
+				{
+					IncludeDirectories.Add(new IncludeDirectory() { Location = IncludePath, WorkspaceDirectory = Workspace.GetDirectory(IncludePath) });
+				}
+			}
+
+			foreach(FileReference ForceIncludedFile in ForceIncludedFiles)
+			{
+				TextBuffer ForceIncludedText = TextBuffer.FromFile(ForceIncludedFile.FullName);
+				PreprocessorMarkup[] ForceIncludedMarkup = PreprocessorMarkup.ParseArray(ForceIncludedText);
+				foreach(PreprocessorMarkup Markup in ForceIncludedMarkup)
+				{
+					ParseMarkup(Markup.Type, Markup.Tokens, Markup.Location.LineIdx);
+				}
+			}
 		}
 
 		/// <summary>
@@ -1944,7 +1960,7 @@ namespace IncludeTool
         {
 			SourceFile File = new SourceFile(null, TextBuffer.FromString(Fragment), SourceFileFlags.Inline);
 
-			Preprocessor Instance = new Preprocessor(null, new string[] { }, new DirectoryReference[] { });
+			Preprocessor Instance = new Preprocessor(null, new string[] { }, new DirectoryReference[] { }, new FileReference[] { });
 
 			string Result;
 			try
@@ -2050,7 +2066,7 @@ namespace IncludeTool
 			BufferedTextWriter BufferedLog = new BufferedTextWriter();
 
 			// Run the preprocessor on it
-			Preprocessor ToolPreprocessor = new Preprocessor(PreludeFile, Environment.Definitions, Environment.IncludePaths);
+			Preprocessor ToolPreprocessor = new Preprocessor(PreludeFile, Environment.Definitions, Environment.IncludePaths, Environment.ForceIncludeFiles);
 			FileReference ToolOutputFile = FileReference.Combine(ToolDir, InputFile.GetFileNameWithoutExtension() + ".i");
 			ToolPreprocessor.PreprocessFile(InputFile.FullName, ToolOutputFile);
 

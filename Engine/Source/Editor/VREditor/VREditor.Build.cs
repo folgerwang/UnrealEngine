@@ -6,6 +6,8 @@ namespace UnrealBuildTool.Rules
 	{
         public VREditor(ReadOnlyTargetRules Target) : base(Target)
 		{
+			PublicIncludePaths.Add(ModuleDirectory);
+
             PrivateDependencyModuleNames.AddRange(
                 new string[] {
                     "AppFramework",
@@ -48,10 +50,8 @@ namespace UnrealBuildTool.Rules
 
             PrivateIncludePaths.AddRange(
                 new string[] {
-                    "Editor/VREditor/Gizmo",
                     "Editor/VREditor/UI",
                     "Editor/VREditor/Teleporter",
-                    "Editor/VREditor/Interactables"
                 }
             );
 

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3665412
+﻿INTSourceChangelist:3810467
 Availability:Public
 Crumbs:%ROOT%, Platforms
 Title:GoogleVR のカメラの設定
@@ -6,17 +6,19 @@ Description:GoogleVR 用カメラの設定方法
 Type: how-to
 SkillLevel:Beginner
 Version:4.17
-Parent:Platforms/GoogleVR/HowTo
+Parent:Platforms/GoogleVR
 Order:2
 Tags:Basics
 topic-image:Platforms\GoogleVR\HowTo\HT_GoogleVR_Camera_Setup_Topic_Image.png
 prereq:Platforms\GoogleVR\QuickStart
 
+![](Platforms\VR\ContentSetup\VR_Seated_Experiance.png)
+
 GoogleVR の場合、座式でもスタンディング式でもゲーム用カメラの設定方法は同じです。このガイドでは、GoogleVR 用カメラの設定方法について説明します。
 
-## GoogleVR 体験用プロジェクトおよび基本的なカメラを設定する 
+## ステップ
 
-プロジェクト設定要件および Google VR 体験に必要なブループリントの作成および設定手順を説明します。
+GoogleVR 体験に必要とされるプロジェクトおよびカメラの設定は、以下の手順で行います。
 
 1. 最初に、以下の設定でアンリアル エンジン プロジェクトを新規に作成します。
 
@@ -64,20 +66,18 @@ GoogleVR の場合、座式でもスタンディング式でもゲーム用カ�
 
 1. GearVR_Pawn ブループリントを開き、**[Viewport]** タブの **[Component]** セクションを開きます。**[Add Component]** ボタンで以下の 2 つのコンポーネントを次の名前で追加して、Camera が必ず Scene Component の子になるようにします。
     
-    * Scene - VRCameraRoot
-    * Camera - VRCamera
+    [REGION:simpletable]
+	|コンポーネント名| 値 |
+    |--------|------------|
+    |** Scene**|VRCameraRoot|
+    |**Camera**|VRCamera|
+	[/region]
 
     ![](HT_GoogleVR_Camera_Setup_08.png)
 
     [region:note]
     この VR カメラ設定方法は実際のカメラを動かさずにカメラ位置のオフセットが可能です。エピックは VR HMD の種類に関係なく、この方法を推奨します。
     [/region]
-
-VR Camera の基本的なブループリントが作成されたので、GoogleVR で使えるようにブループリントを設定していきます。
-
-## GoogleVR 体験用カメラの設定方法 
-
-GoogleVR 体験用のカメラは、以下の手順で設定します。
 
 1. まず、**GoogleVR_Pawn** ブループリントを開いて、**イベントグラフ** で **Event Begin Play** ノードを引き出して Executable Actions リストを表示します。リストで **Set Tracking Origin** ノードを検索し、クリックしてイベントグラフへ追加します。
 
@@ -135,9 +135,11 @@ GoogleVR 体験用のカメラは、以下の手順で設定します。
 
     ![](HT_GoogleVR_Camera_Setup_05.png)
 
-1. 最後に **メイン ツールバー** の **[Launch Options (起動オプション)]** の横にある小さな白い三角をクリックし、リストの中からお持ちの Android デバイスを選択してパッケージ化とデバイスへのデプロイ処理を開始します。
+## 最終結果
 
-    ![](Platforms\GearVR\HowTo\CameraSetup\HT_GearVR_Camera_Setup_08.png)
+最後に **メイン ツールバー** の **[Launch Options (起動オプション)]** の横にある小さな白い三角をクリックし、リストの中からお持ちの Android デバイスを選択してパッケージ化とデバイスへのデプロイ処理を開始します。スマートフォンを HMD に置くと、VR の中で UE4 プロジェクトを表示することができます。
+
+ ![](Platforms\GearVR\HowTo\CameraSetup\HT_GearVR_Camera_Setup_08.png)
 
 ## アンリアル エンジン プロジェクトをダウンロードする
 

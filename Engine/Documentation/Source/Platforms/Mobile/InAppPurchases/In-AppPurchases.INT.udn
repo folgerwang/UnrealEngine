@@ -20,6 +20,17 @@ See the apropriate platform-specific page below for details on configuring in-ap
 [/REGION]
 
 [EXCERPT:usage]
+[INCLUDE:#usage_android]
+
+## Restoring Purchases
+
+![image alt text](image_5.png)
+
+To restore purchases, use the **Restore In-App Purchases** Blueprint node (or associated C++ function call). It only takes in the Player Controller, and returns an array of all the purchase information associated with that Player Controller. You can then process that array to compare against the particular Identifier (or Identifiers) that your gameplay logic needs. 
+
+[/EXCERPT:usage]
+
+[COMMENT:none]
 [EXCERPT:usage_android]
 ## Reading Purchase Information
 
@@ -38,12 +49,4 @@ The **Make an In-App Purchase** node is latent, so any gameplay behavior you wan
 
 There is a non-latent version of this function (the Blueprint node will display without the clock). The exit execution pin here does not wait for a response from the online service, and you will generally want to use the latent version.
 [/EXCERPT:usage_android]
-
-## Restoring Purchases
-
-![image alt text](image_5.png)
-
-To restore purchases, use the **Restore In-App Purchases** Blueprint node (or associated C++ function call). It only takes in the Player Controller, and returns an array of all the purchase information associated with that Player Controller. You can then process that array to compare against the particular Identifier (or Identifiers) that your gameplay logic needs. 
-
-[/EXCERPT:usage]
-
+[/COMMENT]

@@ -56,7 +56,7 @@ EClusterGenerationError HLODOutliner::FDragDropPayload::ParseDrag(const FDragDro
 			FHierarchicalLODUtilitiesModule& Module = FModuleManager::LoadModuleChecked<FHierarchicalLODUtilitiesModule>("HierarchicalLODUtilities");
 			IHierarchicalLODUtilities* Utilities = Module.GetUtilities();
 
-			EClusterGenerationError ClusterGenerationResult = Utilities->ShouldGenerateCluster(Actor);
+			EClusterGenerationError ClusterGenerationResult = Utilities->ShouldGenerateCluster(Actor, INDEX_NONE);
 			ErrorValue |= ClusterGenerationResult;
 			if ((ClusterGenerationResult & EClusterGenerationError::ValidActor) != EClusterGenerationError::None)
 			{

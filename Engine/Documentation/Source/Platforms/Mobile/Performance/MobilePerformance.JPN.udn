@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3801260
+﻿INTSourceChangelist:3807090
 Availability:Public
 Crumbs: %ROOT%
 Title:モバイル デバイスのパフォーマンス ガイドライン
@@ -133,7 +133,7 @@ Tags:mobile
 [COMMENT:none]
 - EXCERPTS Basic Lighting
 
-[INCLUDE:#HDRreccommendations]
+[INCLUDE:#ldrreccommendations]
 
 [EXCERPT:HDRadvantages]
 * 静的なライティングとグローバル イルミネーションへアクセスできます。
@@ -173,7 +173,7 @@ Tags:mobile
 [COMMENT:none]
 - EXCERPTS Basic Lighting
 
-[INCLUDE:#HDRreccommendations]
+[INCLUDE:#ldrreccommendations]
 
 [EXCERPT:HDRSunadvantages]
 * [Full HDR Lighting](#フルHDRライティング) ティアにリストされているすべての機能と長所
@@ -239,7 +239,7 @@ Mobile Sun Temple に Shader Complexity を使ってマテリアル負荷を表�
 このコマンドを使ってコンフィギュレーション ファイルに Mobile Content Scale Factor を設定したサンプルが以下の画像です。
 
 [REGION:lightbox]
-[![](T_MCF_INI_File.png)(w:358 h:505)](T_MCF_INI_File.png)
+[![](T_MCF_INI_File.png)(w:358)](T_MCF_INI_File.png)
 [/REGION]
 [REGION:caption]
 クリックしてフルサイズで表示
@@ -301,7 +301,7 @@ UE4 エディタで、様々な Material Quality Level 設定の結果を表示�
 手順は、**[Main Toolbar]** から **[Settings]** を選び **[Material Quality Level]** でプレビューしたいレベルを選択します。
 
 [REGION:lightbox]
-[![](MQS_Material_Preview_Level.png)(w:332 h:324)](MQS_Material_Preview_Level.png)
+[![](MQS_Material_Preview_Level.png)(w:332)](MQS_Material_Preview_Level.png)
 [/REGION]
 [REGION:caption]
 クリックしてフルサイズで表示
@@ -341,7 +341,7 @@ UE4 エディタで、様々な Material Quality Level 設定の結果を表示�
 
 1. メイン ツールバーの **[Windows]** > **[Developer Tools (開発ツール)]** から **[Device Profiles (デバイス プロファイル)]** をクリックします。  
 	[REGION:lightbox]
-	[![](MQS_Device_Profiles.png)(w:217 h:371)](MQS_Device_Profiles.png)
+	[![](MQS_Device_Profiles.png)(w:217)](MQS_Device_Profiles.png)
 	[/REGION]
 	[REGION:caption]
 	クリックしてフルサイズで表示
@@ -354,7 +354,7 @@ UE4 エディタで、様々な Material Quality Level 設定の結果を表示�
 1. **[Console Variables (コンソール変数)]** セクションの **[Rendering (レンダリング)]** オプションの **[+ (プラス記号)]** アイコンをクリックします。入力ウィンドウが表示されたら **「R.MaterialQualityLevel」** と入力して [Enter] キーを押すと、コマンドがリストに追加されます。 
 
 	[REGION:lightbox]
-	[![](MQS_Set_Con_Var.png)(w:505 h:242)](MQS_Set_Con_Var.png)
+	[![](MQS_Set_Con_Var.png)(w:505)](MQS_Set_Con_Var.png)
 	[/REGION]
 	[REGION:caption]
 	クリックしてフルサイズで表示
@@ -363,7 +363,7 @@ UE4 エディタで、様々な Material Quality Level 設定の結果を表示�
 1. コマンドが追加されたら、デフォルト値を **1** から **0** に変更します。ローエンドな Android デバイス上でプロジェクトを表示する場合、最速のマテリアル設定が使われます。
 
 	[REGION:lightbox]
-	[![](MQS_Set_Quality_Level.png)(w:505 h:242)](MQS_Set_Quality_Level.png)
+	[![](MQS_Set_Quality_Level.png)(w:505)](MQS_Set_Quality_Level.png)
 	[/REGION]
 	[REGION:caption]
 	クリックしてフルサイズで表示
@@ -375,7 +375,7 @@ UE4 エディタで、様々な Material Quality Level 設定の結果を表示�
 **メインツールバー** から **[Settings (設定)]** > **[Preview Rendering Level (レンダリング レベルのプレビュー)]** で使用するプレビュー レベルを選択します。
 
 [REGION:lightbox]
-[![](MQS_Material_Quality_Level.png)(w:332 h:324)](MQS_Material_Quality_Level.png)
+[![](MQS_Material_Quality_Level.png)(w:332)](MQS_Material_Quality_Level.png)
 [/REGION]
 [REGION:caption]
 クリックしてフルサイズで表示
@@ -392,7 +392,7 @@ UE4 エディタで、様々な Material Quality Level 設定の結果を表示�
 次に、品質レベルの変更を反映させたい Main Material ノード上にある入力に出力を接続します。以下の画像では、Quality Level が変更されるとマテリアルの複雑度が下がるように、(Starter Content に入っている) M_Brick_Clay_Old Material を設定しました。
 
 [REGION:lightbox]
-[![](MQS_Material_Setup.png)(w:789 h:412)](MQS_Material_Setup.png)
+[![](MQS_Material_Setup.png)(w:789)](MQS_Material_Setup.png)
 [/REGION]
 [REGION:caption]
 クリックしてフルサイズで表示
@@ -411,7 +411,7 @@ UE4 エディタで、様々な Material Quality Level 設定の結果を表示�
 
 
 [REGION:lightbox]
-[![](MQS_Mobile_Material_Options.png)(w:556 h:410)](MQS_Mobile_Material_Options.png)
+[![](MQS_Mobile_Material_Options.png)(w:556)](MQS_Mobile_Material_Options.png)
 [/REGION]
 [REGION:caption]
 クリックしてフルサイズで表示
@@ -432,7 +432,7 @@ UE4 エディタで、様々な Material Quality Level 設定の結果を表示�
 **Android:**
 * Open GLES 2
 * Open GLES 3.1
-* Vulkan 
+* Vulkan: 
 
 **iOS:**
 * Open GLES 2

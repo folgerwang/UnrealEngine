@@ -81,6 +81,20 @@ TSharedPtr<ITargetDeviceProxy> FTargetDeviceProxyManager::FindProxyDeviceForTarg
 
 void FTargetDeviceProxyManager::GetProxies(FName TargetPlatformName, bool IncludeUnshared, TArray<TSharedPtr<ITargetDeviceProxy>>& OutProxies)
 {
+	GetProxyList(TargetPlatformName, IncludeUnshared, false, OutProxies);
+}
+
+
+// the proxy list include aggregate (All_<platform>_devices_on_<host>) proxies
+void FTargetDeviceProxyManager::GetAllProxies(FName TargetPlatformName, TArray<TSharedPtr<ITargetDeviceProxy>>& OutProxies)
+{
+	GetProxyList(TargetPlatformName, false, true, OutProxies);
+}
+
+
+/** Gets a filtered list of proxies created by the device discovery routine */
+void FTargetDeviceProxyManager::GetProxyList(FName TargetPlatformName, bool IncludeUnshared, bool bIncludeAggregate, TArray<TSharedPtr<ITargetDeviceProxy>>& OutProxies)
+{
 	OutProxies.Reset();
 
 	for (TMap<FString, TSharedPtr<FTargetDeviceProxy> >::TConstIterator It(Proxies); It; ++It)
@@ -91,7 +105,10 @@ void FTargetDeviceProxyManager::GetProxies(FName TargetPlatformName, bool Includ
 		{
 			if (TargetPlatformName == NAME_None || Proxy->HasTargetPlatform(TargetPlatformName))
 			{
-				OutProxies.Add(Proxy);
+				if (bIncludeAggregate || !Proxy->IsAggregated())
+				{
+					OutProxies.Add(Proxy);
+				}
 			}		
 		}
 	}
@@ -102,6 +119,8 @@ void FTargetDeviceProxyManager::GetProxies(FName TargetPlatformName, bool Includ
 
 void FTargetDeviceProxyManager::RemoveDeadProxies()
 {
+    QUICK_SCOPE_CYCLE_COUNTER(STAT_FTargetDeviceProxyManager_RemoveDeadProxies);
+
 	FDateTime CurrentTime = FDateTime::UtcNow();
 
 	for (auto ProxyIter = Proxies.CreateIterator(); ProxyIter; ++ProxyIter)
@@ -118,6 +137,8 @@ void FTargetDeviceProxyManager::RemoveDeadProxies()
 
 void FTargetDeviceProxyManager::SendPing()
 {
+    QUICK_SCOPE_CYCLE_COUNTER(STAT_FTargetDeviceProxyManager_SendPing);
+
 	if (MessageEndpoint.IsValid())
 	{
 		MessageEndpoint->Publish(new FTargetDeviceServicePing(FPlatformProcess::UserName(false)), EMessageScope::Network);
@@ -136,11 +157,25 @@ void FTargetDeviceProxyManager::HandlePongMessage(const FTargetDeviceServicePong
  		return;
  	}
 
-	TSharedPtr<FTargetDeviceProxy>& Proxy = Proxies.FindOrAdd(Message.Name);
+	AddProxyFromPongMessage(Message, Context, false);
+
+	if (Message.Aggregated)
+	{
+		// add the device to the aggregate (All_<platform>_devices_on_<host>) proxy
+		// create the aggregate proxy if it wasn't created already by a previous messga
+		AddProxyFromPongMessage(Message, Context, true);
+	}
+}
+
+/** Add or update the proxy from the FTargetDeviceServicePong message */
+void FTargetDeviceProxyManager::AddProxyFromPongMessage(const FTargetDeviceServicePong& Message, const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context, bool InIsAggregated)
+{
+	FString ProxyName = InIsAggregated ? Message.AllDevicesName : Message.Name;
+	TSharedPtr<FTargetDeviceProxy>& Proxy = Proxies.FindOrAdd(ProxyName);
 
 	if (!Proxy.IsValid())
 	{
-		Proxy = MakeShareable(new FTargetDeviceProxy(Message.Name, Message, Context));
+		Proxy = MakeShareable(new FTargetDeviceProxy(ProxyName, Message, Context, InIsAggregated));
 		ProxyAddedDelegate.Broadcast(Proxy.ToSharedRef());
 	}
 	else

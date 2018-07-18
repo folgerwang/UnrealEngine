@@ -1,9 +1,13 @@
-﻿INTSourceChangelist:2750847
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:Mesh Type Data
 Crumbs: %ROOT%, Engine, Engine/Rendering/ParticleSystems, Engine/Rendering/ParticleSystems/Reference
-Description:Mesh Type Data モジュールは、スプライト パーティクルの代わりにポリゴンメッシュを適用した箇所にエフェクトを作成します。
+Description:メッシュ タイプ データ モジュールは、エミッタがスプライトパーティクルの代わりにスタティックメッシュ インスタンスを使用することを意味します。銃弾の破片やがれきなどのエフェクト作成に最適です。
 Version:4.9
+tags:Particles
+tags:TypeData
+order:3
+topic-image:LootBucket.png
 
 [TOC(start:2 end:3)]
 
@@ -14,7 +18,7 @@ Version:4.9
 **メッシュ** タイプ データ モジュールは、エミッタがスプライトパーティクルの代わりにスタティックメッシュ インスタンスを使用することを意味します。銃弾の破片やがれきなどのエフェクト作成に最適です。
 [/EXCERPT:Intro]
 
-Mesh Type Data モジュールには、以下のプロパティがあります。
+**Mesh** Type Data モジュールには、以下のプロパティがあります。
 
 |プロパティ|説明|
 |---|---|
@@ -26,7 +30,7 @@ Mesh Type Data モジュールには、以下のプロパティがあります�
 |**Pitch**| 使用するスタティックメッシュに適用する 'pre' 回転ピッチ (上下動) (度数) です。|
 |**Roll**| 使用するスタティックメッシュに適用する 'pre' 回転ロール (進行軸回転) (度数) です。 |
 |**Yaw**| 使用するスタティックメッシュに適用する 'pre' 回転ヨー (左右回転) (度数) です。 |
-|**Axis Lock Option**| メッシュを固定する軸です。これは TypeSpecific メッシュの割り当てに加えて、 LockAxis モジュールもオーバーライドします。以下のオプションが提供されます: [INCLUDE:#CameraFacingOption]|
+|**Axis Lock Option**| メッシュを固定する軸です。これは TypeSpecific メッシュの割り当てに加えて、 LockAxis モジュールもオーバーライドします。以下のオプションが提供されます: [INCLUDE:#AxisLockOption]|
 |[REGION:tablesection]CameraFacing[/REGION]||
 |**Camera Facing**| _true_ の場合、メッシュの X 軸は常にカメラ方向へ向きます。このプロパティが設定されると、_Axis Lock Option_ と他の固定された軸 / スクリーンの割り当て設定が全て無視されます。|
 |**Camera Facing Option**| _Camera Facing_ オプションの有効時にメッシュが向く角度を決定します。以下のオプションが提供されます: [INCLUDE:#CameraFacingOption]|

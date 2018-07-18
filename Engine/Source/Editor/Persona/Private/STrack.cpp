@@ -350,7 +350,7 @@ FText STrackNode::GetNodeText() const
 // STrack
 
 STrack::STrack()
-:TrackNodes()
+	: TrackNodes(this)
 {
 }
 

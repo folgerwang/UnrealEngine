@@ -6,16 +6,48 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/../")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/../")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/../")
 
-option(SOCKET_IMPL "Socket implementation" ../src/sock.c)
+set(SOCKET_IMPL ../src/sock.c CACHE STRING "Socket implementation")
 option(DISABLE_TLS "Disable TLS support" ON)
+option(DISABLE_SRV_LOOKUP "Disable SRV lookup" OFF)
+
+set(EXPAT_PATH ../../../Expat/expat-2.2.0/lib CACHE STRING "Path to expat headers")
+set(OPENSSL_PATH "" CACHE STRING "Path to openssl headers")
+set(UNREALSSL_PATH "" CACHE STRING "Path to unreal ssl headers")
+set(SOCKETAPI_PATH "" CACHE STRING "Path to socket api headers")
 
 if(${DISABLE_TLS})
 	set(TLS_IMPL "../src/tls_dummy.c")
 else()
+if(${USE_UNREAL_SSL})
+	set(TLS_IMPL "../src/tls_unreal.c")
+	include_directories(${UNREALSSL_PATH})
+	add_definitions(-DUSE_UNREAL_SSL)
+else()
 	set(TLS_IMPL "../src/tls_openssl.c")
 endif()
+	include_directories(${OPENSSL_PATH})
+endif()
 
-include_directories(../src .. ../../../Expat/expat-2.2.0/lib)
+if (${DISABLE_SRV_LOOKUP})
+	add_definitions(-DDISABLE_SRV_LOOKUP)
+endif()
+
+if (${EXPAT_MANGLE})
+	add_definitions(-DEXPAT_MANGLE=1)
+endif()
+
+if (${USE_SOCKETAPI_DISPATCH})
+	include_directories(${SOCKETAPI_PATH})
+	add_definitions(-DUSE_SOCKETAPI_DISPATCH)
+endif()
+
+add_definitions(-DXML_STATIC=1)
+
+if(WIN32)
+	add_definitions(/D_CRT_SECURE_NO_WARNINGS=1)
+endif()
+
+include_directories(../src .. ${EXPAT_PATH})
 
 set(SOURCES ../src/auth.c ../src/conn.c ../src/crypto.c ../src/ctx.c
 	../src/event.c ../src/handler.c ../src/hash.c ../src/jid.c ../src/md5.c

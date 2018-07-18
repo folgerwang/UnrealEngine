@@ -15,12 +15,11 @@
 #include "MovieSceneMediaSection.h"
 #include "MovieSceneMediaTrack.h"
 #include "MovieSceneToolsUserSettings.h"
-#include "MediaPlane.h"
-#include "MediaPlaneComponent.h"
 #include "SequencerUtilities.h"
 #include "TrackEditorThumbnail/TrackEditorThumbnailPool.h"
 #include "Widgets/SBoxPanel.h"
 #include "Widgets/Layout/SBox.h"
+#include "Misc/QualifiedFrameTime.h"
 
 #include "MediaThumbnailSection.h"
 
@@ -91,6 +90,7 @@ TSharedPtr<SWidget> FMediaTrackEditor::BuildOutlinerEditWidget(const FGuid& Obje
 		FAssetPickerConfig AssetPickerConfig;
 		{
 			AssetPickerConfig.OnAssetSelected = FOnAssetSelected::CreateRaw(this, &FMediaTrackEditor::AddNewSection, MediaTrack);
+			AssetPickerConfig.OnAssetEnterPressed = FOnAssetEnterPressed::CreateRaw(this, &FMediaTrackEditor::AddNewSectionEnterPressed, MediaTrack);
 			AssetPickerConfig.bAllowNullSelection = false;
 			AssetPickerConfig.InitialAssetViewType = EAssetViewType::List;
 			AssetPickerConfig.Filter.bRecursiveClasses = true;
@@ -138,11 +138,13 @@ bool FMediaTrackEditor::HandleAssetAdded(UObject* Asset, const FGuid& TargetObje
 			OutObjects.Add(Object);
 		}
 
-		AnimatablePropertyChanged(FOnKeyProperty::CreateRaw(this, &FMediaTrackEditor::AddAttachedMediaSource, MediaSource, OutObjects));
+		int32 RowIndex = INDEX_NONE;
+		AnimatablePropertyChanged(FOnKeyProperty::CreateRaw(this, &FMediaTrackEditor::AddAttachedMediaSource, MediaSource, OutObjects, RowIndex));
 	}
 	else
 	{
-		AnimatablePropertyChanged(FOnKeyProperty::CreateRaw(this, &FMediaTrackEditor::AddMasterMediaSource, MediaSource));
+		int32 RowIndex = INDEX_NONE;
+		AnimatablePropertyChanged(FOnKeyProperty::CreateRaw(this, &FMediaTrackEditor::AddMasterMediaSource, MediaSource, RowIndex));
 	}
 
 	return true;
@@ -153,6 +155,12 @@ TSharedRef<ISequencerSection> FMediaTrackEditor::MakeSectionInterface(UMovieScen
 {
 	check(SupportsType(SectionObject.GetOuter()->GetClass()));
 	return MakeShared<FMediaThumbnailSection>(*CastChecked<UMovieSceneMediaSection>(&SectionObject), ThumbnailPool, GetSequencer());
+}
+
+
+bool FMediaTrackEditor::SupportsSequence(UMovieSceneSequence* InSequence) const
+{
+	return (InSequence != nullptr) && (InSequence->GetClass()->GetName() == TEXT("LevelSequence"));
 }
 
 
@@ -177,7 +185,7 @@ const FSlateBrush* FMediaTrackEditor::GetIconBrush() const
 /* FMediaTrackEditor implementation
  *****************************************************************************/
 
-FKeyPropertyResult FMediaTrackEditor::AddAttachedMediaSource(float KeyTime, UMediaSource* MediaSource, TArray<TWeakObjectPtr<UObject>> ObjectsToAttachTo)
+FKeyPropertyResult FMediaTrackEditor::AddAttachedMediaSource(FFrameNumber KeyTime, UMediaSource* MediaSource, TArray<TWeakObjectPtr<UObject>> ObjectsToAttachTo, int32 RowIndex)
 {
 	FKeyPropertyResult KeyPropertyResult;
 
@@ -198,9 +206,13 @@ FKeyPropertyResult FMediaTrackEditor::AddAttachedMediaSource(float KeyTime, UMed
 			if (ensure(Track))
 			{
 				auto MediaTrack = Cast<UMovieSceneMediaTrack>(Track);
-				MediaTrack->AddNewMediaSource(*MediaSource, KeyTime);
+				UMovieSceneSection* NewSection = MediaTrack->AddNewMediaSourceOnRow(*MediaSource, KeyTime, RowIndex);
 				MediaTrack->SetDisplayName(LOCTEXT("MediaTrackName", "Media"));
 				KeyPropertyResult.bTrackModified = true;
+
+				GetSequencer()->EmptySelection();
+				GetSequencer()->SelectSection(NewSection);
+				GetSequencer()->ThrobSectionSelection();
 			}
 		}
 	}
@@ -209,7 +221,7 @@ FKeyPropertyResult FMediaTrackEditor::AddAttachedMediaSource(float KeyTime, UMed
 }
 
 
-FKeyPropertyResult FMediaTrackEditor::AddMasterMediaSource(float KeyTime, UMediaSource* MediaSource)
+FKeyPropertyResult FMediaTrackEditor::AddMasterMediaSource(FFrameNumber KeyTime, UMediaSource* MediaSource, int32 RowIndex)
 {
 	FKeyPropertyResult KeyPropertyResult;
 
@@ -217,7 +229,7 @@ FKeyPropertyResult FMediaTrackEditor::AddMasterMediaSource(float KeyTime, UMedia
 	UMovieSceneTrack* Track = TrackResult.Track;
 	auto MediaTrack = Cast<UMovieSceneMediaTrack>(Track);
 
-	MediaTrack->AddNewMediaSource(*MediaSource, KeyTime);
+	MediaTrack->AddNewMediaSourceOnRow(*MediaSource, KeyTime, RowIndex);
 
 	if (TrackResult.bWasCreated)
 	{
@@ -230,7 +242,7 @@ FKeyPropertyResult FMediaTrackEditor::AddMasterMediaSource(float KeyTime, UMedia
 }
 
 
-void FMediaTrackEditor::AddNewSection(const FAssetData& AssetData, UMovieSceneMediaTrack* Track)
+void FMediaTrackEditor::AddNewSection(const FAssetData& AssetData, UMovieSceneMediaTrack* MediaTrack)
 {
 	FSlateApplication::Get().DismissAllMenus();
 
@@ -244,17 +256,27 @@ void FMediaTrackEditor::AddNewSection(const FAssetData& AssetData, UMovieSceneMe
 		{
 			const FScopedTransaction Transaction(NSLOCTEXT("Sequencer", "AddMedia_Transaction", "Add Media"));
 
-			auto MediaTrack = Cast<UMovieSceneMediaTrack>(Track);
 			MediaTrack->Modify();
 
-			float KeyTime = GetSequencer()->GetLocalTime();
-			MediaTrack->AddNewMediaSource(*MediaSource, KeyTime);
+			FFrameTime KeyTime = GetSequencer()->GetLocalTime().Time;
+			UMovieSceneSection* NewSection = MediaTrack->AddNewMediaSource(*MediaSource, KeyTime.FrameNumber);
+
+			GetSequencer()->EmptySelection();
+			GetSequencer()->SelectSection(NewSection);
+			GetSequencer()->ThrobSectionSelection();
 
 			GetSequencer()->NotifyMovieSceneDataChanged(EMovieSceneDataChangeType::MovieSceneStructureItemAdded);
 		}
 	}
 }
 
+void FMediaTrackEditor::AddNewSectionEnterPressed(const TArray<FAssetData>& AssetData, UMovieSceneMediaTrack* Track)
+{
+	if (AssetData.Num() > 0)
+	{
+		AddNewSection(AssetData[0].GetAsset(), Track);
+	}
+}
 
 /* FMediaTrackEditor callbacks
  *****************************************************************************/
@@ -273,8 +295,12 @@ void FMediaTrackEditor::HandleAddMediaTrackMenuEntryExecute()
 	
 	auto NewTrack = FocusedMovieScene->AddMasterTrack<UMovieSceneMediaTrack>();
 	ensure(NewTrack);
-
 	NewTrack->SetDisplayName(LOCTEXT("MediaTrackName", "Media"));
+
+	if (GetSequencer().IsValid())
+	{
+		GetSequencer()->OnAddTrack(NewTrack);
+	}
 
 	GetSequencer()->NotifyMovieSceneDataChanged(EMovieSceneDataChangeType::MovieSceneStructureItemAdded);
 }

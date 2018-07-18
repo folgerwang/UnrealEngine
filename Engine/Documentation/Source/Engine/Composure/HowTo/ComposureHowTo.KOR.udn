@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3728507
+﻿INTSourceChangelist:3810467
 Availability:Docs
 Crumbs: %ROOT%
 Title:컴포셔 안내서
@@ -14,8 +14,6 @@ ADD Overview Text
 [REGION:note]
 The Overview text should describe the system, features, or concepts being covered in the How-Tos.
 [/REGION]
-
-[](FANCY:Engine\Composure\HowTo\FakeAo "%Engine\Composure\HowTo\FakeAo:description%")
 
 ADD Beginner Topic List
 [REGION:note]
@@ -33,4 +31,5 @@ ADD Advanced Topic List
 [REGION:note]
 The Advanced Topic List should link to all advanced How-To guides using fancy links.
 [/REGION]
+
 

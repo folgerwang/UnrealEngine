@@ -6,19 +6,20 @@ namespace UnrealBuildTool.Rules
 	{
 		public LinearTimecode(ReadOnlyTargetRules Target) : base(Target)
 		{
-            PrivateIncludePaths.Add("LinearTimecode/Private");
+			PrivateIncludePaths.Add("LinearTimecode/Private");
 
-            PublicDependencyModuleNames.AddRange(
-                new string[]
-                {
-                    "Core",
-                    "CoreUObject",
-                    "Engine",
-                    "Media",
-                    "MediaUtils",
-                    "MediaAssets",
-                }
-                );
+			PublicDependencyModuleNames.AddRange(
+				new string[]
+				{
+					"Core",
+					"CoreUObject",
+					"Engine",
+					"Media",
+					"MediaUtils",
+					"MediaAssets",
+					"TimeManagement",
+				}
+			);
 		}
 	}
 }

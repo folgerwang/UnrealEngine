@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3108692
+﻿INTSourceChangelist:3807090
 Availability: Licensee
 Title:퍼포스와 빌드 동기화하기
 Crumbs:%ROOT%, Engine, Programming, Programming/Basics, GettingStarted/DownloadingUnrealEngine/Perforce
@@ -20,7 +20,7 @@ version: 4.9
 
 P4v 의 트리 패널에는 Workspace 및 Depot 트리가 있습니다. Depot Tree 뷰에서 Depot 노드를 클릭하면 그 안에 있는 디렉토리가 확장됩니다.
 
-![p4v_depot_tree.jpg](p4v_depot_tree.jpg)(w:374 h:307)
+![p4v_depot_tree.jpg](p4v_depot_tree.jpg)(w:374)
 
 
 * _CodeDrop_ - 에픽이 만든 게임의 다양한 스냅샷이 포함된 것으로, 예제로 사용할 수 있습니다.
@@ -33,7 +33,7 @@ P4v 의 트리 패널에는 Workspace 및 Depot 트리가 있습니다. Depot Tr
 
 _UnrealEngine3_ 디렉토리 안에는 여러가지 서브디렉토리: _Binaries_, _Development_, _Engine_ 과 두 개의 게임 디렉토리: _ExampleGame_ 및 _UDKGame_ 이 있습니다.
 
-![p4v_depot_tree_ue3.jpg](p4v_depot_tree_ue3.jpg)(w:374 h:307)
+![p4v_depot_tree_ue3.jpg](p4v_depot_tree_ue3.jpg)(w:374)
 
 _ExampleGame_ 은 에픽이 제공하는 가장 최소한의 게임 구현으로, 게임이 _언리얼 토너먼트_와 너무 유사하지만 않다면 여기서부터 자체 게임 프로젝트를 만들기 시작해 볼 수 있습니다.
 
@@ -41,7 +41,7 @@ _UDKGame_ 은 _언리얼 토너먼트 3_ 를 기반으로 한 현재 언리얼 �
 
 _UnrealEngine3_ 의 경우, 에픽 콘텐츠 대부분은 게임-전용 디렉토리에 위치해 있기에, 필요한 것이 엔진 소스인 경우 단지 //depot/UnrealEngine3/Development 디렉토리로 싱크하면 됩니다. 예를 들어 디렉토리를 필요한 만큼만 선택하면 _UDKGame_ 콘텐츠를 업데이트하지 않고도 _ExampleGame_ 최신 콘텐츠를 받아올 수 있습니다.
 
-![p4v_depot_tree_ue3_examplegame.jpg](p4v_depot_tree_ue3_examplegame.jpg)(w:374 h:307)
+![p4v_depot_tree_ue3_examplegame.jpg](p4v_depot_tree_ue3_examplegame.jpg)(w:374)
 
 리비전을 받을 때, 많은 내려받기 진행상황이 로그 창에 표시됩니다. _Sync completed with no warnings or errors_ 라는 메시지가 바람직한 것입니다.
 
@@ -54,37 +54,37 @@ QA-승인 빌드로 동기화하려면 다음 단계를 따르십시오:
 
 1. P4V 클라이언트 어플리케이션을 실행합니다.
 
-	![p4v_small.jpg](p4v_small.jpg)(w:800 h:525)
+	![p4v_small.jpg](p4v_small.jpg)(w:800)
 
 1. Depot 트리에서 UnrealEngine3 디렉토리에 우클릭하여 뜨는 맥락 메뉴에서 _Get Revision..._ 을 선택합니다. 또는 그냥 _Actions_ 메뉴에서 _UnrealEngine3_ 디렉토리를 선택하고 _Get Revision..._ 을 선택해도 됩니다. 
 
-	![p4v_depot_menu.jpg](p4v_depot_menu.jpg)(w:304 h:650)
+	![p4v_depot_menu.jpg](p4v_depot_menu.jpg)(w:304)
 
 1. _Get Revision_ 창이 열립니다.
 
-	![p4v_get_revision.jpg](p4v_get_revision.jpg)(w:634 h:488)
+	![p4v_get_revision.jpg](p4v_get_revision.jpg)(w:634)
 
 	_Specify revision using_ 라디오 버튼을 선택하여 콤보박스와 텍스트 필드를 활성화시킵니다.
 
-	![p4v_specify_revision.jpg](p4v_specify_revision.jpg)(w:513 h:63)
+	![p4v_specify_revision.jpg](p4v_specify_revision.jpg)(w:513)
 
 1. 콤보박스에서 _label_ 을 선택합니다.
 
-	![p4v_revision_label.jpg](p4v_revision_label.jpg)(w:100 h:103)
+	![p4v_revision_label.jpg](p4v_revision_label.jpg)(w:100)
 
 	Press the ![p4v_browse_button.jpg](p4v_browse_button.jpg)button to open the _Select Label_ window.
 
-	![p4v_select_label.jpg](p4v_select_label.jpg)(w:800 h:526)
+	![p4v_select_label.jpg](p4v_select_label.jpg)(w:800)
 
 1. 싱크를 하려는 라벨을 선택합니다. 보통 이는 최신 QA-승인 빌드이며, _QA_APPROVED_BUILD_[Month]_[Year]_ 의 형태로 라벨을 지정합니다. 모든 라벨을 로드시키려면 목록을 약간 아래로 스크롤해야 할 수도 있습니다.
 
-	![p4v_label_build.jpg](p4v_label_build.jpg)(w:800 h:526)
+	![p4v_label_build.jpg](p4v_label_build.jpg)(w:800)
 
 	Press the ![p4v_ok_button.jpg](p4v_ok_button.jpg)to select the label and close the window.
 
 1. ![p4v_get_revision_button.jpg](p4v_get_revision_button.jpg) 버튼을 눌러 _Get Revision_ 창을 닫고 동기화를 시작합니다. 로그에 진행상황이 표시될 것입니다.
 
-	![p4v_sync_progress.jpg](p4v_sync_progress.jpg)(w:800 h:117)
+	![p4v_sync_progress.jpg](p4v_sync_progress.jpg)(w:800)
 
 
 

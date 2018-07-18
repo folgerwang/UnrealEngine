@@ -64,13 +64,16 @@
       <HintPath>..\..\..\Binaries\DotNET\Ionic.Zip.Reduced.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="Microsoft.VisualStudio.Setup.Configuration.Interop">
+      <HintPath>..\..\..\Binaries\ThirdParty\VisualStudio\Microsoft.VisualStudio.Setup.Configuration.Interop.dll</HintPath>
+      <EmbedInteropTypes>True</EmbedInteropTypes>
+    </Reference>
     <Reference Include="RPCUtility">
       <HintPath>..\..\..\Binaries\DotNET\RPCUtility.exe</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core">
-      <RequiredTargetFramework>3.5</RequiredTargetFramework>
     </Reference>
     <Reference Include="System.Data" />
     <Reference Include="System.Management" />
@@ -113,6 +116,9 @@
     </When>
   </Choose>
   <Choose>
+    <When Condition="Exists('Platform\Lumin\UEBuildLumin.cs')" />
+  </Choose>
+  <Choose>
     <When Condition="Exists('Platform\Mac\UEBuildMac.cs')">
       <ItemGroup>
         <Compile Include="Platform\Mac\MacExports.cs" />
@@ -124,14 +130,26 @@
       </ItemGroup>
     </When>
   </Choose>
+  <Choose>
+    <When Condition="Exists('Platform\Quail\UEBuildQuail.cs')">
+      <ItemGroup>
+        <Compile Include="Platform\Quail\QuailProjectGenerator.cs" />
+        <Compile Include="Platform\Quail\QuailToolChain.cs" />
+        <Compile Include="Platform\Quail\UEBuildQuail.cs" />
+      </ItemGroup>
+    </When>
+  </Choose>
   <ItemGroup>
     <Compile Include="Configuration\ModuleRules.cs" />
     <Compile Include="Configuration\PlatformTargetRules.cs" />
+    <Compile Include="Configuration\TargetDescriptor.cs" />
     <Compile Include="Configuration\UEBuildDeployTarget.cs" />
     <Compile Include="Configuration\UEBuildModuleExternal.cs" />
     <Compile Include="Configuration\UEBuildPlatformFactory.cs" />
     <Compile Include="Configuration\UEBuildPlatformSDK.cs" />
     <Compile Include="Configuration\UEBuildPlugin.cs" />
+    <Compile Include="Platform\Lumin\UEDeployLumin.cs" />
+    <Compile Include="ProjectFiles\CLion\CLionGenerator.cs" />
     <Compile Include="ProjectFiles\CMake\CMakefileGenerator.cs" />
     <Compile Include="ProjectFiles\CodeLite\CodeLiteGenerator.cs" />
     <Compile Include="ProjectFiles\CodeLite\CodeLiteProject.cs" />
@@ -150,12 +168,14 @@
     <Compile Include="ProjectFiles\Xcode\XcodeProjectFileGenerator.cs" />
     <Compile Include="System\BuildVersion.cs" />
     <Compile Include="System\CppCompileEnvironment.cs" />
+    <Compile Include="System\DataDrivenPlatformInfo.cs" />
     <Compile Include="System\ExceptionUtils.cs" />
+    <Compile Include="System\ParallelExecutor.cs" />
     <Compile Include="System\ModuleManifest.cs" />
     <Compile Include="System\PluginReferenceDescriptor.cs" />
+    <Compile Include="System\PrecompiledManifest.cs" />
+    <Compile Include="System\PrecompileMode.cs" />
     <Compile Include="System\RulesDocumentation.cs" />
-    <Compile Include="System\FileFilter.cs" />
-    <Compile Include="System\FileFilterNode.cs" />
     <Compile Include="System\Log.cs" />
     <Compile Include="System\PrecompiledHeaderInstance.cs" />
     <Compile Include="System\PrecompiledHeaderTemplate.cs" />
@@ -181,17 +201,20 @@
     <Compile Include="System\RulesAssembly.cs" />
     <Compile Include="System\ScopedTimer.cs" />
     <Compile Include="System\SourceFileWorkingSet.cs" />
+    <Compile Include="System\StartupTraceListener.cs" />
     <Compile Include="System\StreamUtils.cs" />
     <Compile Include="System\SupportedConfigurationsAttribute.cs" />
     <Compile Include="System\SupportedPlatformsAttribute.cs" />
     <Compile Include="System\TargetReceipt.cs" />
     <Compile Include="System\UBTMakefile.cs" />
     <Compile Include="System\UEConsoleTraceListener.cs" />
+    <Compile Include="System\VersionNumber.cs" />
     <Compile Include="System\XmlConfig.cs" />
     <Compile Include="System\XmlConfigData.cs" />
     <Compile Include="System\XmlConfigFile.cs" />
     <Compile Include="System\XmlConfigFileAttribute.cs" />
     <Compile Include="System\UnrealPluginLanguage.cs" />
+    <Compile Include="ProjectFiles\VisualStudioMac\VisualStudioMacProjectFileGenerator.cs" />
   </ItemGroup>
   <Choose>
     <When Condition="Exists('Platform\TVOS\UEBuildTVOS.cs')">
@@ -216,6 +239,13 @@
       </ItemGroup>
     </When>
   </Choose>
+  <Choose>
+    <When Condition="Exists('Platform\Android\NoRedist\AndroidToolChainInternal.cs')">
+      <ItemGroup>
+        <Compile Include="Platform\Android\NoRedist\AndroidToolChainInternal.cs" />
+      </ItemGroup>
+    </When>
+  </Choose>
   <ItemGroup>
     <Compile Include="ToolChain\RemoteExports.cs" />
     <Compile Include="UnrealBuildTool.cs" />
@@ -237,6 +267,13 @@
     </When>
   </Choose>
   <Choose>
+    <When Condition="Exists('Platform\IOS\NoRedist\IOSToolChainInternal.cs')">
+      <ItemGroup>
+        <Compile Include="Platform\IOS\NoRedist\IOSToolChainInternal.cs" />
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
     <When Condition="Exists('Platform\HTML5\UEBuildHTML5.cs')">
       <ItemGroup>
         <Compile Include="Platform\HTML5\HTML5ProjectGenerator.cs" />
@@ -254,6 +291,16 @@
         <Compile Include="Platform\Linux\LinuxProjectGenerator.cs" />
         <Compile Include="Platform\Linux\LinuxToolChain.cs" />
         <Compile Include="Platform\Linux\UEBuildLinux.cs" />
+      </ItemGroup>
+    </When>
+  </Choose>
+  <Choose>
+    <When Condition="Exists('Platform\Lumin\UEBuildLumin.cs')">
+      <ItemGroup>
+        <Compile Include="Platform\Lumin\LuminExports.cs" />
+        <Compile Include="Platform\Lumin\LuminProjectGenerator.cs" />
+        <Compile Include="Platform\Lumin\LuminToolChain.cs" />
+        <Compile Include="Platform\Lumin\UEBuildLumin.cs" />
       </ItemGroup>
     </When>
   </Choose>
@@ -295,7 +342,6 @@
     <Compile Include="System\LinkEnvironment.cs" />
     <Compile Include="System\LocalExecutor.cs" />
     <Compile Include="System\Plugins.cs" />
-    <Compile Include="System\ResponseFile.cs" />
     <Compile Include="System\RPCUtilHelper.cs" />
     <Compile Include="System\RulesCompiler.cs" />
     <Compile Include="System\SourceFileSearch.cs" />
@@ -365,5 +411,8 @@
       <Project>{5d7d66e8-8c76-4af9-b3ec-2ef03421d730}</Project>
       <Name>DotNETUtilities</Name>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="ProjectFiles\VisualStudioMac\" />
   </ItemGroup>
 </Project>

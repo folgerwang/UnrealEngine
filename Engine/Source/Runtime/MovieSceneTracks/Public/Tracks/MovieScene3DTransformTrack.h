@@ -16,30 +16,35 @@ struct FTrajectoryKey
 {
 	struct FData
 	{
-		FData(UMovieScene3DTransformSection* InSection, ERichCurveInterpMode InInterpMode, EMovieSceneTransformChannel InChannel = EMovieSceneTransformChannel::None)
-			: Section(InSection), InterpMode(InInterpMode), Channel(InChannel)
+		FData(UMovieScene3DTransformSection* InSection, TOptional<FKeyHandle> InKeyHandle, ERichCurveInterpMode InInterpMode, FName InChannelName)
+			: Section(InSection), KeyHandle(InKeyHandle), ChannelName(InChannelName), InterpMode(InInterpMode)
 		{}
 
 		TWeakObjectPtr<UMovieScene3DTransformSection> Section;
+		TOptional<FKeyHandle> KeyHandle;
+		FName ChannelName;
 		ERichCurveInterpMode InterpMode;
-		EMovieSceneTransformChannel Channel;
 	};
 
-	FTrajectoryKey(float InTime) : Time(InTime) {}
+	FTrajectoryKey(FFrameNumber InTime) : Time(InTime) {}
 
 	bool Is(ERichCurveInterpMode InInterpMode) const
 	{
-		for (const FData& Value : KeyData)
+		if (KeyData.Num())
 		{
-			if (Value.InterpMode != InInterpMode)
+			for (const FData& Value : KeyData)
 			{
-				return false;
+				if (Value.InterpMode != InInterpMode)
+				{
+					return false;
+				}
 			}
+			return true;
 		}
-		return true;
+		return false;
 	}
 
-	float Time;
+	FFrameNumber Time;
 
 	TArray<FData, TInlineAllocator<1>> KeyData;
 };
@@ -59,10 +64,15 @@ public:
 
 	virtual UMovieSceneSection* CreateNewSection() override;
 
-	MOVIESCENETRACKS_API TArray<FTrajectoryKey> GetTrajectoryData(float Time, int32 MaxNumDataPoints) const;
-
 	/**
 	 * Access the interrogation key for transform data - any interrgation data stored with this key is guaranteed to be of type 'FTransform'
 	 */
 	MOVIESCENETRACKS_API static FMovieSceneInterrogationKey GetInterrogationKey();
+
+
+#if WITH_EDITOR
+
+	MOVIESCENETRACKS_API TArray<FTrajectoryKey> GetTrajectoryData(FFrameNumber Time, int32 MaxNumDataPoints) const;
+
+#endif
 };

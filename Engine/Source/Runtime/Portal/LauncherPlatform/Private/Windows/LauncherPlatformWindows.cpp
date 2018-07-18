@@ -2,9 +2,9 @@
 
 #include "LauncherPlatformWindows.h"
 #include "LauncherPlatformModule.h"
-#include "WindowsPlatformProcess.h"
-#include "WindowsHWrapper.h"
-#include "Paths.h"
+#include "Windows/WindowsPlatformProcess.h"
+#include "Windows/WindowsHWrapper.h"
+#include "Misc/Paths.h"
 
 bool FLauncherPlatformWindows::CanOpenLauncher(bool Install)
 {

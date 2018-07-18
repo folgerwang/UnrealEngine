@@ -7,7 +7,7 @@
 #include "NiagaraGraph.h"
 #include "NiagaraNodeInput.h"
 
-#include "GenericCommands.h"
+#include "Framework/Commands/GenericCommands.h"
 #include "ScopedTransaction.h"
 #include "EdGraphUtilities.h"
 #include "Editor.h"
@@ -293,6 +293,9 @@ void FNiagaraScriptGraphViewModel::PasteNodes()
 		for (UEdGraphNode* PastedNode : PastedNodes)
 		{
 			PastedNode->CreateNewGuid();
+			UNiagaraNode* Node = Cast<UNiagaraNode>(PastedNode);
+			if (Node)
+				Node->MarkNodeRequiresSynchronization(__FUNCTION__, false);
 		}
 
 		FNiagaraEditorUtilities::FixUpPastedInputNodes(Graph, PastedNodes);

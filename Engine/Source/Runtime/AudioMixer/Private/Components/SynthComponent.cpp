@@ -1,6 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "SynthComponent.h"
+#include "Components/SynthComponent.h"
 #include "AudioDevice.h"
 #include "AudioMixerLog.h"
 
@@ -46,7 +46,7 @@ void USynthSound::OnBeginGenerate()
 	OwningSynthComponent->OnBeginGenerate();
 }
 
-bool USynthSound::OnGeneratePCMAudio(TArray<uint8>& OutAudio, int32 NumSamples)
+int32 USynthSound::OnGeneratePCMAudio(TArray<uint8>& OutAudio, int32 NumSamples)
 {
 	OutAudio.Reset();
 
@@ -54,7 +54,7 @@ bool USynthSound::OnGeneratePCMAudio(TArray<uint8>& OutAudio, int32 NumSamples)
 	{
 		// If running with audio mixer, the output audio buffer will be in floats already
 		OutAudio.AddZeroed(NumSamples * sizeof(float));
-		OwningSynthComponent->OnGeneratePCMAudio((float*)OutAudio.GetData(), NumSamples);
+		return OwningSynthComponent->OnGeneratePCMAudio((float*)OutAudio.GetData(), NumSamples);
 	}
 	else
 	{
@@ -63,7 +63,7 @@ bool USynthSound::OnGeneratePCMAudio(TArray<uint8>& OutAudio, int32 NumSamples)
 		FloatBuffer.AddZeroed(NumSamples * sizeof(float));
 		
 		float* FloatBufferDataPtr = FloatBuffer.GetData();
-		OwningSynthComponent->OnGeneratePCMAudio(FloatBufferDataPtr, NumSamples);
+		int32 NumSamplesGenerated = OwningSynthComponent->OnGeneratePCMAudio(FloatBufferDataPtr, NumSamples);
 
 		// Convert the float buffer to int16 data
 		OutAudio.AddZeroed(NumSamples * sizeof(int16));
@@ -72,9 +72,10 @@ bool USynthSound::OnGeneratePCMAudio(TArray<uint8>& OutAudio, int32 NumSamples)
 		{
 			OutAudioBuffer[i] = (int16)(32767.0f * FloatBufferDataPtr[i]);
 		}
+		return NumSamplesGenerated;
 	}
 
-	return true;
+	return NumSamples;
 }
 
 void USynthSound::OnEndGenerate()
@@ -107,6 +108,7 @@ USynthComponent::USynthComponent(const FObjectInitializer& ObjectInitializer)
 
 	// Set the default sound class
 	SoundClass = USoundBase::DefaultSoundClassObject;
+	Synth = nullptr;
 
 	PreferredBufferLength = DEFAULT_PROCEDURAL_SOUNDWAVE_BUFFER_SIZE;
 
@@ -280,7 +282,9 @@ void USynthComponent::OnUnregister()
 
 bool USynthComponent::IsReadyForOwnerToAutoDestroy() const
 {
-	return !AudioComponent || (AudioComponent && !AudioComponent->IsPlaying());
+	const bool bIsAudioComponentReadyForDestroy = !AudioComponent || (AudioComponent && !AudioComponent->IsPlaying());
+	const bool bIsSynthSoundReadyForDestroy = !Synth || !Synth->GetNumSoundsActive();
+	return bIsAudioComponentReadyForDestroy && bIsSynthSoundReadyForDestroy;
 }
 
 #if WITH_EDITOR
@@ -329,7 +333,7 @@ void USynthComponent::PumpPendingMessages()
 	}
 }
 
-void USynthComponent::OnGeneratePCMAudio(float* GeneratedPCMData, int32 NumSamples)
+int32 USynthComponent::OnGeneratePCMAudio(float* GeneratedPCMData, int32 NumSamples)
 {
 	PumpPendingMessages();
 
@@ -338,12 +342,19 @@ void USynthComponent::OnGeneratePCMAudio(float* GeneratedPCMData, int32 NumSampl
 	// Only call into the synth if we're actually playing, otherwise, we'll write out zero's
 	if (bIsSynthPlaying)
 	{
-		this->OnGenerateAudio(GeneratedPCMData, NumSamples);
+		return this->OnGenerateAudio(GeneratedPCMData, NumSamples);
 	}
+	return NumSamples;
 }
 
 void USynthComponent::Start()
 {
+	// Only need to start if we're not already active
+	if (bIsActive)
+	{
+		return;
+	}
+		
 	// This will try to create the audio component if it hasn't yet been created
 	CreateAudioComponent();
 
@@ -362,6 +373,7 @@ void USynthComponent::Start()
 		AudioComponent->AttenuationSettings = AttenuationSettings;
 		AudioComponent->bOverrideAttenuation = bOverrideAttenuation;
 		AudioComponent->bIsUISound = bIsUISound;
+		AudioComponent->bIsPreviewSound = bIsPreviewSound;
 		AudioComponent->bAllowSpatialization = bAllowSpatialization;
 		AudioComponent->ConcurrencySettings = ConcurrencySettings;
 		AudioComponent->AttenuationOverrides = AttenuationOverrides;

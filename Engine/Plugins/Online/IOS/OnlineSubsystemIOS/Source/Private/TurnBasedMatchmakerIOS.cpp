@@ -4,9 +4,9 @@
 #include "TurnBasedMatchmakerIOS.h"
 
 #include <GameKit/GameKit.h>
-#include "IOSAppDelegate.h"
+#include "IOS/IOSAppDelegate.h"
 #include "TurnBasedMatchmakerDelegateIOS.h"
-#include "IOSView.h"
+#include "IOS/IOSView.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogTurnBasedMatchmakerIOS, Log, All);
 

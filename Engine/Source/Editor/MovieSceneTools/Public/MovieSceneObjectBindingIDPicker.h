@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "SlateIcon.h"
+#include "Textures/SlateIcon.h"
 #include "MovieSceneSequenceID.h"
 
 class SWidget;

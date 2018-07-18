@@ -3,13 +3,15 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Misc/FrameRate.h"
 #include "UObject/ObjectMacros.h"
 #include "Evaluation/MovieSceneSequenceTransform.h"
 #include "Evaluation/MovieSceneSectionParameters.h"
-#include "SoftObjectPath.h"
+#include "UObject/SoftObjectPath.h"
 #include "MovieSceneSequenceID.h"
-#include "MovieSceneSequenceInstanceData.h"
-#include "ArrayView.h"
+#include "Evaluation/MovieSceneSequenceInstanceData.h"
+#include "Containers/ArrayView.h"
+#include "MovieSceneFrameMigration.h"
 #include "MovieSceneSequenceHierarchy.generated.h"
 
 class UMovieSceneSequence;
@@ -44,6 +46,11 @@ struct FMovieSceneSubSequenceData
 	 */
 	MOVIESCENE_API UMovieSceneSequence* GetLoadedSequence() const;
 
+	/**
+	 * Check whether this structure is dirty and should be reconstructed
+	 */
+	MOVIESCENE_API bool IsDirty(const UMovieSceneSubSection& InSubSection) const;
+
 	/** The sequence that the sub section references */
 	UPROPERTY(meta=(AllowedClasses="MovieSceneSequence"))
 	FSoftObjectPath Sequence;
@@ -52,21 +59,25 @@ struct FMovieSceneSubSequenceData
 	UPROPERTY()
 	FMovieSceneSequenceTransform RootToSequenceTransform;
 
+	/** The tick resolution of the inner sequence. */
+	UPROPERTY()
+	FFrameRate TickResolution;
+
 	/** This sequence's deterministic sequence ID. Used in editor to reduce the risk of collisions on recompilation. */ 
 	UPROPERTY()
 	FMovieSceneSequenceID DeterministicSequenceID;
 
 	/** This sub sequence's playback range according to its parent sub section. Clamped recursively during template generation */
 	UPROPERTY()
-	FFloatRange PlayRange;
+	FMovieSceneFrameRange PlayRange;
 
 	/** The sequence preroll range considering the start offset */
 	UPROPERTY()
-	FFloatRange PreRollRange;
+	FMovieSceneFrameRange PreRollRange;
 
 	/** The sequence postroll range considering the start offset */
 	UPROPERTY()
-	FFloatRange PostRollRange;
+	FMovieSceneFrameRange PostRollRange;
 
 	/** The accumulated hierarchical bias of this sequence. Higher bias will take precedence */
 	UPROPERTY()
@@ -87,6 +98,14 @@ private:
 
 	/** Cached version of the sequence to avoid resolving it every time */
 	mutable TWeakObjectPtr<UMovieSceneSequence> CachedSequence;
+
+	/** The sub section's signature at the time this structure was populated. */
+	UPROPERTY()
+	FGuid SubSectionSignature;
+
+	/** The transform from this sub sequence's parent to its own play space. */
+	UPROPERTY()
+	FMovieSceneSequenceTransform OuterToInnerTransform;
 };
 
 /**

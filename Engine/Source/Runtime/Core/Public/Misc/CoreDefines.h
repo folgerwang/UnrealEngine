@@ -31,8 +31,18 @@ Seek-free defines.
 
 
 /*-----------------------------------------------------------------------------
-Enabling formatting string type checking on varargs.  Intended to be defined
-on permanently when all usage is fixed.
+Macros for enabling heap storage instead of inline storage on delegate types.
+Can be overridden by setting to 1 or 0 in the project's .Target.cs files.
 -----------------------------------------------------------------------------*/
 
-#define USE_FORMAT_STRING_TYPE_CHECKING 0
+#ifndef USE_SMALL_DELEGATES
+	#define USE_SMALL_DELEGATES 1
+#endif
+
+#ifndef USE_SMALL_MULTICAST_DELEGATES
+	#define USE_SMALL_MULTICAST_DELEGATES 1
+#endif
+
+#ifndef USE_SMALL_TFUNCTIONS
+	#define USE_SMALL_TFUNCTIONS 0
+#endif

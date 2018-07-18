@@ -469,7 +469,8 @@ bool FPortableObjectFormatDOM::FromString( const FString& InStr )
 
 	bool bSuccess = true;
 
-	FString ParseString = InStr.Replace(TEXT("\r\n"), NewLineDelimiter);
+	FString ParseString = InStr;
+	ParseString.ReplaceInline(TEXT("\r\n"), NewLineDelimiter, ESearchCase::CaseSensitive);
 
 	TArray<FString> LinesToProcess;
 	ParseString.ParseIntoArray( LinesToProcess, NewLineDelimiter, false );

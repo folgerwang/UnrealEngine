@@ -3,11 +3,13 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "UObject/GCObject.h"
 #include "Fonts/ShapedTextFwd.h"
 #include "Stats/Stats.h"
 #include "Misc/MemStack.h"
 #include "Styling/WidgetStyle.h"
 #include "Fonts/SlateFontInfo.h"
+#include "Fonts/FontCache.h"
 #include "Layout/SlateRect.h"
 #include "Layout/Clipping.h"
 #include "Types/PaintArgs.h"
@@ -52,56 +54,41 @@ public:
 	// Element tint
 	FLinearColor Tint;
 
-	// Spline Data
-	FVector2D StartPt;
-	FVector2D StartDir;
-	FVector2D EndPt;
-	FVector2D EndDir;
+	// Bezier Spline Data points. E.g.
+	//
+	//       P1 + - - - - + P2                P1 +
+	//         /           \                    / \
+	//     P0 *             * P3            P0 *   \   * P3
+	//                                              \ /
+	//                                               + P2	
+	FVector2D P0;
+	FVector2D P1;
+	FVector2D P2;
+	FVector2D P3;
 
 	// Brush data
-	const FSlateBrush* BrushResource;
 	const FSlateShaderResourceProxy* ResourceProxy;
 	FSlateShaderResource* RenderTargetResource;
-
-	// Box Data
-	FVector2D RotationPoint;
-	float Angle;
 
 	// Spline/Line Data
 	float Thickness;
 
-	// Font data
-	FSlateFontInfo FontInfo;
-	TCHAR* ImmutableText;
-	FLinearColor OutlineTint;
-
-	// Shaped text data
-	FShapedGlyphSequencePtr ShapedGlyphSequence;
-
 	// Gradient data (fixme, this should be allocated with FSlateWindowElementList::Alloc)
 	TArray<FSlateGradientStop> GradientStops;
 	EOrientation GradientType;
-
-	// Line data - allocated with FSlateWindowElementList::Alloc
-	int32 NumPoints;
-	FVector2D* Points;
-	FLinearColor* PointColors;
 
 	// Viewport data
 	bool bAllowViewportScaling:1;
 	bool bViewportTextureAlphaOnly:1;
 	bool bRequiresVSync:1;
 	
-	// Whether or not to anti-alias lines
-	bool bAntialias:1;
-
 	// Misc data
 	ESlateBatchDrawFlag BatchFlags;
 
 	// Custom drawer data
 	TWeakPtr<ICustomSlateElement, ESPMode::ThreadSafe> CustomDrawer;
 
-	// Custom verts data
+	// Custom verts data, TODO FSlateWindowElementList::Alloc)?
 	TArray<FSlateVertex> CustomVertsData;
 	TArray<SlateIndex> CustomVertsIndexData;
 
@@ -110,10 +97,6 @@ public:
 	uint32 InstanceOffset;
 	uint32 NumInstances;
 
-	// Cached render data
-	class FSlateRenderDataHandle* CachedRenderData;
-	FVector2D CachedRenderDataOffset;
-
 	// Layer handle
 	FSlateDrawLayerHandle* LayerHandle;
 
@@ -121,22 +104,13 @@ public:
 	FVector4 PostProcessData;
 	int32 DownsampleAmount;
 
-	// Line data
-	ESlateLineJoinType SegmentJoinType;
-
 
 	SLATECORE_API static FSlateShaderResourceManager* ResourceManager;
 
 	FSlateDataPayload()
 		: Tint(FLinearColor::White)
-		, BrushResource(nullptr)
 		, ResourceProxy(nullptr)
 		, RenderTargetResource(nullptr)
-		, RotationPoint(FVector2D::ZeroVector)
-		, ImmutableText(nullptr)
-		, NumPoints(0)
-		, Points(nullptr)
-		, PointColors(nullptr)
 		, bViewportTextureAlphaOnly(false)
 		, bRequiresVSync(false)
 		, BatchFlags(ESlateBatchDrawFlag::None)
@@ -146,70 +120,42 @@ public:
 		, NumInstances(0)
 	{ }
 
-	void SetBoxPayloadProperties( const FSlateBrush* InBrush, const FLinearColor& InTint, FSlateShaderResourceProxy* InResourceProxy = nullptr, ISlateUpdatableInstanceBuffer* InInstanceData = nullptr )
-	{
-		Tint = InTint;
-
-		InstanceData = InInstanceData;
-
-		BrushResource = InBrush;
-		if( InResourceProxy )
-		{
-			ResourceProxy = InResourceProxy;
-		}
-		else
-		{
-			ResourceProxy = ResourceManager->GetShaderResource(*InBrush);
-		}
-		Angle = 0.0f;
-	}
-
-	void SetRotatedBoxPayloadProperties( const FSlateBrush* InBrush, float InAngle, const FVector2D& LocalRotationPoint, const FLinearColor& InTint, FSlateShaderResourceProxy* InResourceProxy = nullptr )
-	{
-		SetBoxPayloadProperties( InBrush, InTint, InResourceProxy );
-		RotationPoint = LocalRotationPoint;
-		RotationPoint.DiagnosticCheckNaN();
-		Angle = InAngle;
-	}
-
-	void SetTextPayloadProperties( FSlateWindowElementList& DrawBuffer, const FString& InText, const FSlateFontInfo& InFontInfo, const FLinearColor& InTint, const int32 StartIndex = 0, const int32 EndIndex = MAX_int32 );
-
-	void SetShapedTextPayloadProperties( const FShapedGlyphSequenceRef& InShapedGlyphSequence, const FLinearColor& InBaseTint, const FLinearColor& InOutlineTint )
-	{
-		Tint = InBaseTint;
-		OutlineTint = InOutlineTint;
-		ShapedGlyphSequence = InShapedGlyphSequence;
-	}
-
 	void SetGradientPayloadProperties( const TArray<FSlateGradientStop>& InGradientStops, EOrientation InGradientType )
 	{
 		GradientStops = InGradientStops;
 		GradientType = InGradientType;
 	}
 
-	void SetSplinePayloadProperties( const FVector2D& InStart, const FVector2D& InStartDir, const FVector2D& InEnd, const FVector2D& InEndDir, float InThickness, const FLinearColor& InTint )
+	void SetCubicBezierPayloadProperties(const FVector2D& InP0, const FVector2D& InP1, const FVector2D& InP2, const FVector2D& InP3, float InThickness, const FLinearColor& InTint)
 	{
 		Tint = InTint;
-		StartPt = InStart;
-		StartDir = InStartDir;
-		EndPt = InEnd;
-		EndDir = InEndDir;
-		BrushResource = nullptr;
+		P0 = InP0;
+		P1 = InP1;
+		P2 = InP2;
+		P3 = InP3;
+		Thickness = InThickness;
+	}
+	
+
+	void SetHermiteSplinePayloadProperties( const FVector2D& InStart, const FVector2D& InStartDir, const FVector2D& InEnd, const FVector2D& InEndDir, float InThickness, const FLinearColor& InTint )
+	{
+		Tint = InTint;
+		P0 = InStart;
+		P1 = InStart + InStartDir / 3.0f;
+		P2 = InEnd - InEndDir / 3.0f;
+		P3 = InEnd;
 		Thickness = InThickness;
 	}
 
-	void SetGradientSplinePayloadProperties( const FVector2D& InStart, const FVector2D& InStartDir, const FVector2D& InEnd, const FVector2D& InEndDir, float InThickness, const TArray<FSlateGradientStop>& InGradientStops )
+	void SetGradientHermiteSplinePayloadProperties( const FVector2D& InStart, const FVector2D& InStartDir, const FVector2D& InEnd, const FVector2D& InEndDir, float InThickness, const TArray<FSlateGradientStop>& InGradientStops )
 	{
-		StartPt = InStart;
-		StartDir = InStartDir;
-		EndPt = InEnd;
-		EndDir = InEndDir;
-		BrushResource = nullptr;
+		P0 = InStart;
+		P1 = InStart + InStartDir / 3.0f;
+		P2 = InEnd - InEndDir / 3.0f;
+		P3 = InEnd;
 		Thickness = InThickness;
 		GradientStops = InGradientStops;
 	}
-
-	void SetLinesPayloadProperties( FSlateWindowElementList& ElementList, const TArray<FVector2D>& InPoints, const FLinearColor& InTint, bool bInAntialias, ESlateLineJoinType InJoinType, float InThickness, const TArray<FLinearColor>* InPointColors );
 
 	void SetViewportPayloadProperties( const TSharedPtr<const ISlateViewport>& InViewport, const FLinearColor& InTint )
 	{
@@ -235,19 +181,222 @@ public:
 		NumInstances = InNumInstances;
 	}
 
-	void SetCachedBufferPayloadProperties(FSlateRenderDataHandle* InRenderDataHandle, const FVector2D& Offset)
-	{
-		CachedRenderData = InRenderDataHandle;
-		CachedRenderDataOffset = Offset;
-		checkSlow(CachedRenderData);
-	}
-
 	void SetLayerPayloadProperties(FSlateDrawLayerHandle* InLayerHandle)
 	{
 		LayerHandle = InLayerHandle;
 		checkSlow(LayerHandle);
 	}
 };
+
+class FSlateDrawBase
+{
+public:
+	void Setup(const FSlateWindowElementList& ElementList, int16 InLayer, const FPaintGeometry& PaintGeometry, ESlateDrawEffect InDrawEffects);
+
+public:
+	FORCEINLINE int16 GetLayer() const { return Layer; }
+	FORCEINLINE const FSlateRenderTransform& GetRenderTransform() const { return RenderTransform; }
+	FORCEINLINE void SetRenderTransform(const FSlateRenderTransform& InRenderTransform) { RenderTransform = InRenderTransform; }
+	FORCEINLINE const FTransform2D& GetLayoutToRenderTransform() const { return LayoutToRenderTransform; }
+	FORCEINLINE const FVector2D& GetPosition() const { return Position; }
+	FORCEINLINE void SetPosition(const FVector2D& InPosition) { Position = InPosition; }
+	FORCEINLINE const FVector2D& GetLocalSize() const { return LocalSize; }
+	FORCEINLINE float GetScale() const { return Scale; }
+	FORCEINLINE ESlateDrawEffect GetDrawEffects() const { return DrawEffects; }
+	FORCEINLINE bool IsPixelSnapped() const { return !EnumHasAllFlags(DrawEffects, ESlateDrawEffect::NoPixelSnapping); }
+	FORCEINLINE const int16 GetClippingIndex() const { return ClippingIndex; }
+	FORCEINLINE void SetClippingIndex(const int32 InClippingIndex) { ClippingIndex = InClippingIndex; }
+	FORCEINLINE const int8 GetSceneIndex() const { return SceneIndex; }
+	FORCEINLINE const ESlateBatchDrawFlag GetBatchFlags() const { return BatchFlags; }
+
+	FORCEINLINE FSlateLayoutTransform GetInverseLayoutTransform() const
+	{
+		return Inverse(FSlateLayoutTransform(Scale, Position));
+	}
+	
+	/**
+	 * Update element cached position with an arbitrary offset
+	 *
+	 * @param Element		   Element to update
+	 * @param InOffset         Absolute translation delta
+	 */
+	void ApplyPositionOffset(const FVector2D& InOffset);
+
+protected:
+	FSlateRenderTransform RenderTransform;
+	FTransform2D LayoutToRenderTransform;
+	
+	FVector2D Position;
+	FVector2D LocalSize;
+	float Scale;
+
+	int16 Layer;
+	int16 ClippingIndex;
+	int8 SceneIndex;
+	ESlateDrawEffect DrawEffects;
+
+	// Misc data
+	ESlateBatchDrawFlag BatchFlags;
+};
+
+class FSupportsTintMixin
+{
+public:
+	FORCEINLINE void SetTint(FLinearColor InTint) { Tint = InTint; }
+	FORCEINLINE FLinearColor GetTint() const { return Tint; }
+
+protected:
+	FLinearColor Tint;
+};
+
+class FSupportsBrushMixin
+{
+public:
+	void SetBrush(const FSlateBrush* InBrush)
+	{
+		check(InBrush);
+		ensureMsgf(InBrush->GetDrawType() != ESlateBrushDrawType::NoDrawType, TEXT("This should have been filtered out earlier in the Make... call."));
+
+		// The slate brush ptr can't be trusted after batch elements.
+		SlateBrush = InBrush;
+		const FSlateResourceHandle& ResourceHandle = InBrush->GetRenderingResource();
+		ResourceProxy = ResourceHandle.GetResourceProxy();
+	}
+
+	FORCEINLINE const FMargin& GetBrushMargin() const { return SlateBrush->GetMargin(); }
+	FORCEINLINE const FBox2D& GetBrushUVRegion() const { return SlateBrush->GetUVRegion(); }
+	FORCEINLINE ESlateBrushTileType::Type GetBrushTiling() const { return SlateBrush->GetTiling(); }
+	FORCEINLINE ESlateBrushMirrorType::Type GetBrushMirroring() const { return SlateBrush->GetMirroring(); }
+	FORCEINLINE ESlateBrushDrawType::Type GetBrushDrawType() const { return SlateBrush->GetDrawType(); }
+	FORCEINLINE const FSlateShaderResourceProxy* GetResourceProxy() const { return ResourceProxy; }
+
+protected:
+	// The slate brush ptr can't be trusted after batch elements.
+	const FSlateBrush* SlateBrush;
+
+	// The resource proxy that we actually render with
+	const FSlateShaderResourceProxy* ResourceProxy;
+};
+
+class FSlateDrawBox : public FSlateDrawBase, public FSupportsTintMixin, public FSupportsBrushMixin
+{
+};
+
+template<> struct TIsPODType<FSlateDrawBox> { enum { Value = true }; };
+
+class FSlateDrawText : public FSlateDrawBase, public FSupportsTintMixin
+{
+public:
+	void SetText(FSlateWindowElementList& ElementList, const FString& Text, const FSlateFontInfo& FontInfo, const int32 StartIndex = 0, const int32 EndIndex = MAX_int32);
+
+	FORCEINLINE const FSlateFontInfo& GetFontInfo() const { return FontInfo; }
+	FORCEINLINE const TCHAR* GetText() const { return ImmutableText; }
+	FORCEINLINE int32 GetTextLength() const { return TextLength; }
+
+	FORCEINLINE void AddReferencedObjects(FReferenceCollector& Collector)
+	{
+		FontInfo.AddReferencedObjects(Collector);
+	}
+
+protected:
+	// The font to use when rendering
+	FSlateFontInfo FontInfo;
+	// The null-terminated string data
+	TCHAR* ImmutableText;
+	// The length of the text (excluding the null-terminator, matching strlen)
+	int32 TextLength;
+};
+
+// FSlateFontInfo has complex types in it
+template<> struct TIsPODType<FSlateDrawText> { enum { Value = false }; };
+
+class FSlateDrawShapedText : public FSlateDrawBase, public FSupportsTintMixin
+{
+public:
+	void SetShapedText(const FShapedGlyphSequencePtr& InShapedGlyphSequence, FLinearColor InOutlineTint)
+	{
+		ShapedGlyphSequence = InShapedGlyphSequence;
+		OutlineTint = InOutlineTint;
+	}
+
+	FORCEINLINE FShapedGlyphSequencePtr GetShapedGlyphSequence() const { return ShapedGlyphSequence; }
+	FORCEINLINE FLinearColor GetOutlineTint() const { return OutlineTint; }
+
+	FORCEINLINE void AddReferencedObjects(FReferenceCollector& Collector)
+	{
+		const_cast<FShapedGlyphSequence*>(ShapedGlyphSequence.Get())->AddReferencedObjects(Collector);
+	}
+
+protected:
+	// Shaped text data
+	FShapedGlyphSequencePtr ShapedGlyphSequence;
+	// Element outline tint
+	FLinearColor OutlineTint;
+};
+
+// FShapedGlyphSequencePtr is a complex type.
+template<> struct TIsPODType<FSlateDrawShapedText> { enum { Value = false }; };
+
+class FSupportsThicknessMixin
+{
+public:
+	FORCEINLINE void SetThickness(float InThickness) { Thickness = InThickness; }
+	FORCEINLINE float GetThickness() const { return Thickness; }
+
+protected:
+	float Thickness;
+};
+
+class FSlateDrawLines : public FSlateDrawBase, public FSupportsTintMixin, public FSupportsThicknessMixin
+{
+public:
+	void SetLines(FSlateWindowElementList& ElementList, const TArray<FVector2D>& InPoints, bool bInAntialias, const TArray<FLinearColor>* InPointColors = nullptr);
+
+	FORCEINLINE bool IsAntialiased() const { return bAntialias; }
+	FORCEINLINE uint16 GetNumPoints() const { return NumPoints; }
+	FORCEINLINE const FVector2D* GetPoints() const { return Points; }
+	FORCEINLINE const FLinearColor* GetPointColors() const { return PointColors; }
+
+protected:
+	// Line data - allocated with FSlateWindowElementList::Alloc
+	uint16 NumPoints;
+	// Whether or not to anti-alias lines
+	bool bAntialias : 1;
+
+	FVector2D* Points;
+	FLinearColor* PointColors;
+};
+
+template<> struct TIsPODType<FSlateDrawLines> { enum { Value = true }; };
+
+/**
+ * Used for Invalidation, these buffers represent a complete cached buffer of what we normally send to the GPU to be
+ * drawn for a series of widgets.  They're used to reduce draw overhead in situations where the UI is largely static.
+ */
+class FSlateDrawCachedBuffer : public FSlateDrawBase
+{
+public:
+
+	void SetCachedBuffer(FSlateRenderDataHandle* InRenderDataHandle, const FVector2D& Offset)
+	{
+		check(InRenderDataHandle);
+
+		CachedRenderData = InRenderDataHandle;
+		CachedRenderDataOffset = Offset;
+	}
+
+	FORCEINLINE class FSlateRenderDataHandle* GetRenderDataHandle() const { return CachedRenderData; }
+	FORCEINLINE FVector2D GetRenderOffset() const { return CachedRenderDataOffset; }
+
+protected:
+	// Cached render data
+	class FSlateRenderDataHandle* CachedRenderData;
+	FVector2D CachedRenderDataOffset;
+};
+
+template<> struct TIsPODType<FSlateDrawCachedBuffer> { enum { Value = true }; };
+
+
 
 /**
  * FSlateDrawElement is the building block for Slate's rendering interface.
@@ -258,22 +407,12 @@ class FSlateDrawElement
 public:
 	enum EElementType
 	{
-		ET_Box,
 		ET_DebugQuad,
-		ET_Text,
-		ET_ShapedText,
 		ET_Spline,
-		ET_Line,
 		ET_Gradient,
 		ET_Viewport,
-		ET_Border,
 		ET_Custom,
 		ET_CustomVerts,
-		/**
-		 * Used for Invalidation, these buffers represent a complete cached buffer of what we normally send to the GPU to be
-		 * drawn for a series of widgets.  They're used to reduce draw overhead in situations where the UI is largely static.
-		 */
-		ET_CachedBuffer,
 		/**
 		 * These layers are different from "layerId", they're symbolic layers, used when building up cached geometry.  They allow
 		 * Slate to semantically differentiate between Layer A and Layer B, which may have completely different layerIds, which perhaps
@@ -355,6 +494,7 @@ public:
 		MakeBox(ElementList, InLayer, PaintGeometry, InBrush, InDrawEffects, InTint);
 	}
 
+	DEPRECATED(4.20, "Storing and passing in a FSlateResourceHandle to MakeBox is no longer necessary.")
 	SLATECORE_API static void MakeBox(
 		FSlateWindowElementList& ElementList,
 		uint32 InLayer, 
@@ -375,7 +515,7 @@ public:
 		ESlateDrawEffect InDrawEffects = ESlateDrawEffect::None, 
 		const FLinearColor& InTint = FLinearColor::White )
 	{
-		MakeBox(ElementList, InLayer, PaintGeometry, InBrush, InRenderingHandle, InDrawEffects, InTint);
+		MakeBox(ElementList, InLayer, PaintGeometry, InBrush, InDrawEffects, InTint);
 	}
 	
 	//DEPRECATED(4.17, "Use Render Transforms instead.")
@@ -408,7 +548,10 @@ public:
 	
 	SLATECORE_API static void MakeText( FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, const FString& InText, const FSlateFontInfo& InFontInfo, ESlateDrawEffect InDrawEffects = ESlateDrawEffect::None, const FLinearColor& InTint = FLinearColor::White );
 
-	SLATECORE_API static void MakeText( FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, const FText& InText, const FSlateFontInfo& InFontInfo, ESlateDrawEffect InDrawEffects = ESlateDrawEffect::None, const FLinearColor& InTint = FLinearColor::White );
+	FORCEINLINE static void MakeText(FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, const FText& InText, const FSlateFontInfo& InFontInfo, ESlateDrawEffect InDrawEffects = ESlateDrawEffect::None, const FLinearColor& InTint = FLinearColor::White)
+	{
+		MakeText(ElementList, InLayer, PaintGeometry, InText.ToString(), InFontInfo, InDrawEffects, InTint);
+	}
 
 	DEPRECATED(4.17, "ClippingRects are no longer supplied for individual draw element calls.  If you require a specialized clipping rect, use PushClip / PopClip on the WindowElementList, otherwise, just remove the parameter.")
 	static void MakeText(FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, const FString& InText, const int32 StartIndex, const int32 EndIndex, const FSlateFontInfo& InFontInfo, const FSlateRect& InClippingRect, ESlateDrawEffect InDrawEffects = ESlateDrawEffect::None, const FLinearColor& InTint = FLinearColor::White)
@@ -467,7 +610,7 @@ public:
 	}
 
 	/**
-	 * Creates a spline element
+	 * Creates a Hermite Spline element
 	 *
 	 * @param ElementList			The list in which to add elements
 	 * @param InLayer               The layer to draw the element on
@@ -481,6 +624,22 @@ public:
 	 * @param InTint                Color to tint the element
 	 */
 	SLATECORE_API static void MakeSpline( FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, const FVector2D& InStart, const FVector2D& InStartDir, const FVector2D& InEnd, const FVector2D& InEndDir, float InThickness = 0.0f, ESlateDrawEffect InDrawEffects = ESlateDrawEffect::None, const FLinearColor& InTint=FLinearColor::White );
+
+	/**
+	 * Creates a Bezier Spline element
+	 *
+	 * @param ElementList			The list in which to add elements
+	 * @param InLayer               The layer to draw the element on
+	 * @param PaintGeometry         DrawSpace position and dimensions; see FPaintGeometry
+	 * @param InStart               The start point of the spline (local space)
+	 * @param InStartDir            The direction of the spline from the start point
+	 * @param InEnd                 The end point of the spline (local space)
+	 * @param InEndDir              The direction of the spline to the end point
+	 * @param InClippingRect        Parts of the element are clipped if it falls outside of this rectangle
+	 * @param InDrawEffects         Optional draw effects to apply
+	 * @param InTint                Color to tint the element
+	 */
+	SLATECORE_API static void MakeCubicBezierSpline(FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, const FVector2D& P0, const FVector2D& P1, const FVector2D& P2, const FVector2D& P3, float InThickness = 0.0f, ESlateDrawEffect InDrawEffects = ESlateDrawEffect::None, const FLinearColor& InTint = FLinearColor::White);
 
 	DEPRECATED(4.17, "ClippingRects are no longer supplied for individual draw element calls.  If you require a specialized clipping rect, use PushClip / PopClip on the WindowElementList, otherwise, just remove the parameter.")
 	static void MakeSpline(FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, const FVector2D& InStart, const FVector2D& InStartDir, const FVector2D& InEnd, const FVector2D& InEndDir, const FSlateRect InClippingRect, float InThickness = 0.0f, ESlateDrawEffect InDrawEffects = ESlateDrawEffect::None, const FLinearColor& InTint = FLinearColor::White)
@@ -497,14 +656,13 @@ public:
 		MakeDrawSpaceSpline(ElementList, InLayer, InStart, InStartDir, InEnd, InEndDir, InThickness, InDrawEffects, InTint);
 	}
 
+	
 	/** Just like MakeSpline but in draw-space coordinates. This is useful for connecting already-transformed widgets together. */
+	DEPRECATED(4.20, "Splines with color gradients will not be supported in the future.")
 	SLATECORE_API static void MakeDrawSpaceGradientSpline( FSlateWindowElementList& ElementList, uint32 InLayer, const FVector2D& InStart, const FVector2D& InStartDir, const FVector2D& InEnd, const FVector2D& InEndDir, const TArray<FSlateGradientStop>& InGradientStops, float InThickness = 0.0f, ESlateDrawEffect InDrawEffects = ESlateDrawEffect::None );
 
-	DEPRECATED(4.17, "ClippingRects are no longer supplied for individual draw element calls.  If you require a specialized clipping rect, use PushClip / PopClip on the WindowElementList, otherwise, just remove the parameter.")
-	static void MakeDrawSpaceGradientSpline(FSlateWindowElementList& ElementList, uint32 InLayer, const FVector2D& InStart, const FVector2D& InStartDir, const FVector2D& InEnd, const FVector2D& InEndDir, const FSlateRect InClippingRect, const TArray<FSlateGradientStop>& InGradientStops, float InThickness = 0.0f, ESlateDrawEffect InDrawEffects = ESlateDrawEffect::None)
-	{
-		MakeDrawSpaceGradientSpline(ElementList, InLayer, InStart, InStartDir, InEnd, InEndDir, InGradientStops, InThickness, InDrawEffects);
-	}
+	DEPRECATED(4.20, "Splines with color gradients will not be supported in the future.")
+	static void MakeDrawSpaceGradientSpline(FSlateWindowElementList& ElementList, uint32 InLayer, const FVector2D& InStart, const FVector2D& InStartDir, const FVector2D& InEnd, const FVector2D& InEndDir, const FSlateRect InClippingRect, const TArray<FSlateGradientStop>& InGradientStops, float InThickness = 0.0f, ESlateDrawEffect InDrawEffects = ESlateDrawEffect::None);
 
 	/**
 	 * Creates a line defined by the provided points
@@ -576,6 +734,7 @@ public:
 	FORCEINLINE EElementType GetElementType() const { return ElementType; }
 	FORCEINLINE uint32 GetLayer() const { return Layer; }
 	FORCEINLINE const FSlateRenderTransform& GetRenderTransform() const { return RenderTransform; }
+	FORCEINLINE void SetRenderTransform(const FSlateRenderTransform& InRenderTransform) { RenderTransform = InRenderTransform; }
 	FORCEINLINE const FTransform2D& GetLayoutToRenderTransform() const { return LayoutToRenderTransform; }
 	FORCEINLINE const FVector2D& GetPosition() const { return Position; }
 	FORCEINLINE void SetPosition(const FVector2D& InPosition) { Position = InPosition; }
@@ -592,7 +751,6 @@ public:
 		return Inverse(FSlateLayoutTransform(Scale, Position));
 	}
 	
-
 	/**
 	 * Update element cached position with an arbitrary offset
 	 *
@@ -604,9 +762,9 @@ public:
 private:
 	void Init(FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, ESlateDrawEffect InDrawEffects);
 
-	static bool ShouldCull(FSlateWindowElementList& ElementList);
+	static bool ShouldCull(const FSlateWindowElementList& ElementList);
 
-	FORCEINLINE static bool ShouldCull(FSlateWindowElementList& ElementList, const FPaintGeometry& PaintGeometry)
+	FORCEINLINE static bool ShouldCull(const FSlateWindowElementList& ElementList, const FPaintGeometry& PaintGeometry)
 	{
 		const FVector2D& LocalSize = PaintGeometry.GetLocalSize();
 		if (LocalSize.X == 0 || LocalSize.Y == 0)
@@ -617,17 +775,9 @@ private:
 		return ShouldCull(ElementList);
 	}
 
-	FORCEINLINE static bool ShouldCull(FSlateWindowElementList& ElementList, const FPaintGeometry& PaintGeometry, const FSlateBrush* InBrush)
-	{
-		if ((InBrush && InBrush->DrawAs == ESlateBrushDrawType::NoDrawType) || ShouldCull(ElementList, PaintGeometry))
-		{
-			return true;
-		}
+	static bool ShouldCull(const FSlateWindowElementList& ElementList, const FPaintGeometry& PaintGeometry, const FSlateBrush* InBrush);
 
-		return false;
-	}
-
-	FORCEINLINE static bool ShouldCull(FSlateWindowElementList& ElementList, const FPaintGeometry& PaintGeometry, const FLinearColor& InTint)
+	FORCEINLINE static bool ShouldCull(const FSlateWindowElementList& ElementList, const FPaintGeometry& PaintGeometry, const FLinearColor& InTint)
 	{
 		if (InTint.A == 0 || ShouldCull(ElementList, PaintGeometry))
 		{
@@ -637,7 +787,17 @@ private:
 		return false;
 	}
 
-	FORCEINLINE static bool ShouldCull(FSlateWindowElementList& ElementList, const FPaintGeometry& PaintGeometry, const FSlateBrush* InBrush, const FLinearColor& InTint)
+	FORCEINLINE static bool ShouldCull(const FSlateWindowElementList& ElementList, const FPaintGeometry& PaintGeometry, const FLinearColor& InTint, const FString& InText)
+	{
+		if (InTint.A == 0 || InText.Len() == 0 || ShouldCull(ElementList, PaintGeometry))
+		{
+			return true;
+		}
+
+		return false;
+	}
+
+	FORCEINLINE static bool ShouldCull(const FSlateWindowElementList& ElementList, const FPaintGeometry& PaintGeometry, const FSlateBrush* InBrush, const FLinearColor& InTint)
 	{
 		if (InTint.A == 0 || ShouldCull(ElementList, PaintGeometry, InBrush))
 		{
@@ -740,37 +900,54 @@ private:
 class FSlateElementBatch
 {
 public:
-	FSlateElementBatch(const FSlateShaderResource* InShaderResource, const FShaderParams& InShaderParams, ESlateShader::Type ShaderType, ESlateDrawPrimitive::Type PrimitiveType, ESlateDrawEffect DrawEffects, ESlateBatchDrawFlag DrawFlags, const int32 InClippingIndex, int32 InstanceCount = 0, uint32 InstanceOffset = 0, ISlateUpdatableInstanceBuffer* InstanceData = nullptr, int32 SceneIndex = -1)
+	FSlateElementBatch(const FSlateShaderResource* InShaderResource, const FShaderParams& InShaderParams, ESlateShader::Type ShaderType, ESlateDrawPrimitive::Type PrimitiveType, ESlateDrawEffect DrawEffects, ESlateBatchDrawFlag DrawFlags, const int32 InClippingIndex, const TArray<FSlateClippingState>& ClippingStates, int32 InstanceCount = 0, uint32 InstanceOffset = 0, ISlateUpdatableInstanceBuffer* InstanceData = nullptr, int32 SceneIndex = -1)
 		: BatchKey(InShaderParams, ShaderType, PrimitiveType, DrawEffects, DrawFlags, InClippingIndex, InstanceCount, InstanceOffset, InstanceData, SceneIndex)
 		, ShaderResource(InShaderResource)
 		, NumElementsInBatch(0)
 		, VertexArrayIndex(INDEX_NONE)
 		, IndexArrayIndex(INDEX_NONE)
-	{}
+	{
+		SaveClippingState(ClippingStates);
+	}
 
-	FSlateElementBatch( TWeakPtr<ICustomSlateElement, ESPMode::ThreadSafe> InCustomDrawer, const int32 InClippingIndex )
+	FSlateElementBatch( TWeakPtr<ICustomSlateElement, ESPMode::ThreadSafe> InCustomDrawer, const int32 InClippingIndex, const TArray<FSlateClippingState>& ClippingStates)
 		: BatchKey( InCustomDrawer, InClippingIndex)
 		, ShaderResource( nullptr )
 		, NumElementsInBatch(0)
 		, VertexArrayIndex(INDEX_NONE)
 		, IndexArrayIndex(INDEX_NONE)
-	{}
+	{
+		SaveClippingState(ClippingStates);
+	}
 
-	FSlateElementBatch( TSharedPtr<FSlateRenderDataHandle, ESPMode::ThreadSafe> InCachedRenderHandle, FVector2D InCachedRenderDataOffset, const int32 InClippingIndex)
+	FSlateElementBatch( TSharedPtr<FSlateRenderDataHandle, ESPMode::ThreadSafe> InCachedRenderHandle, FVector2D InCachedRenderDataOffset, const int32 InClippingIndex, const TArray<FSlateClippingState>& ClippingStates)
 		: BatchKey( InCachedRenderHandle, InCachedRenderDataOffset, InClippingIndex)
 		, ShaderResource( nullptr )
 		, NumElementsInBatch(0)
 		, VertexArrayIndex(INDEX_NONE)
 		, IndexArrayIndex(INDEX_NONE)
-	{}
+	{
+		SaveClippingState(ClippingStates);
+	}
 
-	FSlateElementBatch( TSharedPtr<FSlateDrawLayerHandle, ESPMode::ThreadSafe> InLayerHandle, const int32 InClippingIndex)
+	FSlateElementBatch( TSharedPtr<FSlateDrawLayerHandle, ESPMode::ThreadSafe> InLayerHandle, const int32 InClippingIndex, const TArray<FSlateClippingState>& ClippingStates)
 		: BatchKey( InLayerHandle, InClippingIndex )
 		, ShaderResource( nullptr )
 		, NumElementsInBatch(0)
 		, VertexArrayIndex(INDEX_NONE)
 		, IndexArrayIndex(INDEX_NONE)
-	{}
+	{
+		SaveClippingState(ClippingStates);
+	}
+
+	void SaveClippingState(const TArray<FSlateClippingState>& ClippingStates)
+	{
+		// Store the clipping state so we can use it later for rendering.
+		if (ClippingStates.IsValidIndex(GetClippingIndex()))
+		{
+			ClippingState = ClippingStates[GetClippingIndex()];
+		}
+	}
 
 	bool operator==( const FSlateElementBatch& Other ) const
 	{	
@@ -933,6 +1110,9 @@ public:
 	int32 VertexArrayIndex;
 	/** Index into an array of index arrays where this batches indices are found (before submitting to the index buffer) */
 	int32 IndexArrayIndex;
+
+	/** The Stored clipping state for the corresponding clipping state index.  The indexes are not directly comparable later, so we need to expand it to the full state to be compared. */
+	TOptional<FSlateClippingState> ClippingState;
 };
 
 class FSlateRenderBatch
@@ -953,6 +1133,7 @@ public:
 		, DrawPrimitiveType( InBatch.GetPrimitiveType() )
 		, DrawEffects( InBatch.GetDrawEffects() )
 		, ClippingIndex( InBatch.GetClippingIndex() )
+		, ClippingState( InBatch.ClippingState )
 		, VertexArrayIndex( InBatch.VertexArrayIndex )
 		, IndexArrayIndex( InBatch.IndexArrayIndex )
 		, VertexOffset( InVertexOffset )
@@ -995,6 +1176,9 @@ public:
 	const ESlateDrawEffect DrawEffects;
 
 	const int32 ClippingIndex;
+
+	/** The Stored clipping state for the corresponding clipping state index.  The indexes are not directly comparable later, so we need to expand it to the full state to be compared. */
+	TOptional<FSlateClippingState> ClippingState;
 	
 	/** Index into the vertex array pool */
 	const int32 VertexArrayIndex;
@@ -1013,7 +1197,7 @@ public:
 };
 
 
-typedef TArray<FSlateElementBatch, TInlineAllocator<1>> FElementBatchArray;
+typedef TArray<FSlateElementBatch, TInlineAllocator<2>> FElementBatchArray;
 
 class FElementBatchMap
 {
@@ -1221,6 +1405,7 @@ public:
 		: NumBatchedVertices(0)
 		, NumBatchedIndices(0)
 		, NumLayers(0)
+		, bIsStencilBufferRequired(false)
 	{}
 
 	void Reset();
@@ -1233,12 +1418,9 @@ public:
 	/**
 	 * 
 	 */
-	const TArray<FSlateClippingState>& GetRenderClipStates() const { return RenderClipStates; }
-
-	/**
-	 * 
-	 */
 	SLATECORE_API bool IsStencilClippingRequired() const;
+
+	void DetermineIsStencilClippingRequired(const TArray<FSlateClippingState>& ClippingStates);
 
 	/**
 	 * Assigns a vertex array from the pool which is appropriate for the batch.  Creates a new array if needed
@@ -1282,11 +1464,6 @@ public:
 	 */
 	SLATECORE_API void CreateRenderBatches(FElementBatchMap& LayerToElementBatches);
 
-	/**
-	 * Set the clipping states.
-	 */
-	SLATECORE_API void CopyClippingStates(const TArray<FSlateClippingState>& InClippingStates);
-
 private:
 	/**  */
 	void Merge(FElementBatchMap& InLayerToElementBatches, uint32& VertexOffset, uint32& IndexOffset);
@@ -1327,9 +1504,6 @@ private:
 	TArray<FSlateRenderBatch> RenderBatches;
 
 	/**  */
-	TArray<FSlateClippingState> RenderClipStates;
-
-	/**  */
 	int32 NumBatchedVertices;
 
 	/**  */
@@ -1338,19 +1512,85 @@ private:
 	/** */
 	int32 NumLayers;
 
+	/** */
+	bool bIsStencilBufferRequired;
 };
 
 class FSlateRenderer;
 
 /**
- * The draw layer represents a logical draw layer, since some things might be invalidation based,
- * the logical draw layers segment out the batchable areas into sections based on what is effectively
- * patchable.
+ * The draw layer represents a logical draw layer.  Since some drawn areas mights be from cached
+ * buffers we can't depend on layer id to sort widget draw buffers from different frames being combined
+ * together.
  */
 class FSlateDrawLayer
 {
 public:
 	FElementBatchMap& GetElementBatchMap() { return LayerToElementBatches; }
+
+	void ResetLayer()
+	{
+		DrawElements.Reset();
+		BoxElements.Reset();
+		BorderElements.Reset();
+		TextElements.Reset();
+		ShapedTextElements.Reset();
+		LineElements.Reset();
+		CachedElementBuffers.Reset();
+	}
+
+	FORCEINLINE int32 GetElementCount() const
+	{
+		return DrawElements.Num() +
+			BoxElements.Num() +
+			BorderElements.Num() +
+			TextElements.Num() +
+			ShapedTextElements.Num() +
+			LineElements.Num() +
+			CachedElementBuffers.Num();
+	}
+
+	/** Apply Function to each draw element */ 
+	void ForEachElement(const TFunction<void(FSlateDrawElement&)>& InFunction)
+	{
+		for (FSlateDrawElement& Element : DrawElements)
+		{
+			InFunction(Element);
+		}
+	}
+	/** Apply Function to each draw element */ 
+	void ForEachElement(const TFunction<void(FSlateDrawBase&)>& InFunction)
+	{
+		for (FSlateDrawBox& Element : BoxElements)
+		{
+			InFunction(Element);
+		}
+
+		for (FSlateDrawBox& Element : BorderElements)
+		{
+			InFunction(Element);
+		}
+
+		for (FSlateDrawText& Element : TextElements)
+		{
+			InFunction(Element);
+		}
+
+		for (FSlateDrawShapedText& Element : ShapedTextElements)
+		{
+			InFunction(Element);
+		}
+		
+		for (FSlateDrawLines& Element : LineElements)
+		{
+			InFunction(Element);
+		}
+		
+		for (FSlateDrawCachedBuffer& Element : CachedElementBuffers)
+		{
+			InFunction(Element);
+		}
+	}
 
 public:
 	// Element batch maps sorted by layer.
@@ -1358,6 +1598,24 @@ public:
 
 	/** The elements drawn on this layer */
 	TArray<FSlateDrawElement> DrawElements;
+
+	/** Drawable Box Elements */
+	TArray<FSlateDrawBox> BoxElements;
+
+	/** Drawable Border Elements */
+	TArray<FSlateDrawBox> BorderElements;
+
+	/** Drawable Text Elements */
+	TArray<FSlateDrawText> TextElements;
+
+	/** Drawable Shaped Text Elements */
+	TArray<FSlateDrawShapedText> ShapedTextElements;
+
+	/** Drawable Line Elements */
+	TArray<FSlateDrawLines> LineElements;
+
+	/** Drawable Cached Element Buffers */
+	TArray<FSlateDrawCachedBuffer> CachedElementBuffers;
 };
 
 /**
@@ -1381,6 +1639,7 @@ public:
 class FSlateWindowElementList
 {
 	friend class FSlateElementBatcher;
+	friend class FSlateDrawElement;
 
 public:
 	/** 
@@ -1390,6 +1649,8 @@ public:
 	 * @param InRenderWindow	The window that we will be rendering to.
 	 */
 	SLATECORE_API explicit FSlateWindowElementList(TSharedPtr<SWindow> InPaintWindow = nullptr);
+
+	SLATECORE_API ~FSlateWindowElementList();
 
 	/** @return Get the window that we will be painting */
 	FORCEINLINE TSharedPtr<SWindow> GetWindow() const
@@ -1418,6 +1679,21 @@ public:
 		return RootDrawLayer.DrawElements;
 	}
 
+	/** Apply Function to each draw element */ 
+	FORCEINLINE void ForEachElement(const TFunction<void(FSlateDrawElement&)>& InFunction)
+	{
+		RootDrawLayer.ForEachElement(InFunction);
+	}
+
+	/** Apply Function to each draw element */ 
+	FORCEINLINE void ForEachElement(const TFunction<void(FSlateDrawBase&)>& InFunction)
+	{
+		RootDrawLayer.ForEachElement(InFunction);
+	}
+	
+	/** @return the total number of elements that have been registered to be drawn. */
+	SLATECORE_API int32 GetElementCount() const;
+
 	/**
 	 * Add a draw element to the list
 	 *
@@ -1429,11 +1705,8 @@ public:
 		ActiveDrawElements.Add(InDrawElement);
 	}
 	
-	FORCEINLINE void AppendItems(const TArray<FSlateDrawElement>& InDrawElements)
-	{
-		TArray<FSlateDrawElement>& ActiveDrawElements = DrawStack.Last()->DrawElements;
-		ActiveDrawElements.Append(InDrawElements);
-	}
+	void AppendItems(FSlateWindowElementList* Other);
+
 
 	/** @return Get the window size that we will be painting */
 	FORCEINLINE FVector2D GetWindowSize() const
@@ -1446,12 +1719,74 @@ public:
 	 */
 	FORCEINLINE FSlateDrawElement& AddUninitialized()
 	{
-		TArray<FSlateDrawElement>& ActiveDrawElements = DrawStack.Last()->DrawElements;
-		const int32 InsertIdx = ActiveDrawElements.AddDefaulted();
-		return ActiveDrawElements[InsertIdx];
+		TArray<FSlateDrawElement>& Elements = DrawStack.Last()->DrawElements;
+		const int32 InsertIdx = Elements.AddDefaulted();
+		return Elements[InsertIdx];
+	}
+
+	/**
+	 * Creates a new box draw element
+	 */
+	FORCEINLINE FSlateDrawBox& AddBox()
+	{
+		TArray<FSlateDrawBox>& Elements = DrawStack.Last()->BoxElements;
+		const int32 InsertIdx = Elements.AddDefaulted();
+		return Elements[InsertIdx];
+	}
+
+	/**
+	 * Creates a new border draw element
+	 */
+	FORCEINLINE FSlateDrawBox& AddBorder()
+	{
+		TArray<FSlateDrawBox>& BorderElements = DrawStack.Last()->BorderElements;
+		const int32 InsertIdx = BorderElements.AddDefaulted();
+		return BorderElements[InsertIdx];
+	}
+
+	/**
+	 * Creates a new text draw element
+	 */
+	FORCEINLINE FSlateDrawText& AddText()
+	{
+		TArray<FSlateDrawText>& Elements = DrawStack.Last()->TextElements;
+		const int32 InsertIdx = Elements.AddDefaulted();
+		return Elements[InsertIdx];
+	}
+
+	/**
+	 * Creates a new shaped text draw element
+	 */
+	FORCEINLINE FSlateDrawShapedText& AddShapedText()
+	{
+		TArray<FSlateDrawShapedText>& Elements = DrawStack.Last()->ShapedTextElements;
+		const int32 InsertIdx = Elements.AddDefaulted();
+		return Elements[InsertIdx];
+	}
+
+	/**
+	 * Creates a new lines draw element
+	 */
+	FORCEINLINE FSlateDrawLines& AddLines()
+	{
+		TArray<FSlateDrawLines>& Elements = DrawStack.Last()->LineElements;
+		const int32 InsertIdx = Elements.AddDefaulted();
+		return Elements[InsertIdx];
+	}
+
+	/**
+	 * Creates a new lines draw element
+	 */
+	FORCEINLINE FSlateDrawCachedBuffer& AddCachedBuffer()
+	{
+		TArray<FSlateDrawCachedBuffer>& Elements = DrawStack.Last()->CachedElementBuffers;
+		const int32 InsertIdx = Elements.AddDefaulted();
+		return Elements[InsertIdx];
 	}
 
 	SLATECORE_API void MergeElementList(FSlateWindowElementList* ElementList, FVector2D AbsoluteOffset);
+
+	SLATECORE_API void MergeResources(const TArray<UObject*>& AssociatedResources);
 
 	//--------------------------------------------------------------------------
 	// CLIPPING
@@ -1461,7 +1796,9 @@ public:
 	SLATECORE_API int32 GetClippingIndex() const;
 	SLATECORE_API TOptional<FSlateClippingState> GetClippingState() const;
 	SLATECORE_API void PopClip();
-	SLATECORE_API FSlateClippingManager& GetClippingManager();
+
+	FSlateClippingManager& GetClippingManager() { return ClippingManager; }
+	const FSlateClippingManager& GetClippingManager() const { return ClippingManager; }
 
 	//--------------------------------------------------------------------------
 	// DEFERRED PAINTING
@@ -1548,7 +1885,13 @@ public:
 	/**
 	 * Remove all the elements from this draw list.
 	 */
-	SLATECORE_API void ResetBuffers();
+	SLATECORE_API void ResetElementBuffers();
+
+	/** Allows manual hinting of reporting of references. */
+	SLATECORE_API void SetShouldReportReferencesToGC(bool bInReportReferences);
+
+	/** Will UObject references be reported to the GC? */
+	SLATECORE_API bool ShouldReportUObjectReferences() const;
 
 	/**
 	 * Allocate memory that remains valid until ResetBuffers is called.
@@ -1599,9 +1942,16 @@ public:
 
 	SLATECORE_API void PostDraw_ParallelThread();
 
+	SLATECORE_API void PostDraw_NonParallelRenderer();
+
 	SLATECORE_API void SetRenderTargetWindow(SWindow* InRenderTargetWindow);
 
+	SLATECORE_API void AddReferencedObjects(FReferenceCollector& Collector);
+
 private:
+	/** Resources to report to the garbage collector */
+	TArray<UObject*> ResourcesToReport;
+
 	/** 
 	 * Window which owns the widgets that are being painted but not necessarily rendered to
 	 * Widgets are always rendered to the RenderTargetWindow
@@ -1659,4 +2009,25 @@ private:
 
 	/** Store the size of the window being used to paint */
 	FVector2D WindowSize;
+
+	/** Should this element list report any references it knows about.  Defaults to true, once drawn it turns off on the rendering thread. */
+	bool bReportReferences;
+
+private:
+
+	class FWindowElementGCObject : public FGCObject
+	{
+	public:
+		FWindowElementGCObject(FSlateWindowElementList* InOwner);
+
+		void ClearOwner();
+
+		SLATECORE_API virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
+
+	private:
+		FSlateWindowElementList* Owner;
+	};
+
+	/** This keeps drawn elements alive in case the UObject stops being referenced elsewhere that we need. */
+	TUniquePtr<FWindowElementGCObject> ResourceGCRoot;
 };

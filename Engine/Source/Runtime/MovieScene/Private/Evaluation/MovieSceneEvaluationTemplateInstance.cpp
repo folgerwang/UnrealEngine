@@ -4,7 +4,7 @@
 #include "IMovieScenePlayer.h"
 #include "MovieSceneSequence.h"
 #include "MovieSceneSequence.h"
-#include "MovieSceneCompiler.h"
+#include "Compilation/MovieSceneCompiler.h"
 #include "Sections/MovieSceneSubSection.h"
 #include "Compilation/MovieSceneEvaluationTemplateGenerator.h"
 
@@ -194,16 +194,24 @@ const FMovieSceneEvaluationGroup* FMovieSceneRootEvaluationTemplateInstance::Set
 		FMovieSceneEvaluationTemplateGenerator(*RootOverrideInstance.Sequence, *RootOverrideInstance.Template).Generate();
 	}
 
+	FMovieSceneSequenceTransform MasterToRootOverrideTransform;
+	if (RootOverrideInstance.SubData)
+	{
+		MasterToRootOverrideTransform = RootOverrideInstance.SubData->RootToSequenceTransform;
+	}
+
+	FFrameNumber RootOverrideTime = (Context.GetTime() * MasterToRootOverrideTransform).FloorToFrame();
+
 	// First off, attempt to find the evaluation group in the existing evaluation field data from the template
-	int32 TemplateFieldIndex = RootOverrideInstance.Template->EvaluationField.GetSegmentFromTime(Context.GetTime());
+	int32 TemplateFieldIndex = RootOverrideInstance.Template->EvaluationField.GetSegmentFromTime(RootOverrideTime);
 
 	if (TemplateFieldIndex != INDEX_NONE)
 	{
 		const FMovieSceneEvaluationMetaData& FieldMetaData = RootOverrideInstance.Template->EvaluationField.GetMetaData(TemplateFieldIndex);
 
 		// Verify that this field entry is still valid (all its cached signatures are still the same)
-		TRange<float> InvalidatedSubSequenceRange = TRange<float>::Empty();
-		if (FieldMetaData.IsDirty(*RootOverrideInstance.Sequence, RootOverrideInstance.Template->Hierarchy, *TemplateStore, &InvalidatedSubSequenceRange))
+		TRange<FFrameNumber> InvalidatedSubSequenceRange = TRange<FFrameNumber>::Empty();
+		if (FieldMetaData.IsDirty(RootOverrideInstance.Template->Hierarchy, *TemplateStore, &InvalidatedSubSequenceRange))
 		{
 			TemplateFieldIndex = INDEX_NONE;
 
@@ -222,18 +230,17 @@ const FMovieSceneEvaluationGroup* FMovieSceneRootEvaluationTemplateInstance::Set
 		if (bFullCompile)
 		{
 			FMovieSceneCompiler::Compile(*RootOverrideInstance.Sequence, *TemplateStore);
-			TemplateFieldIndex = RootOverrideInstance.Template->EvaluationField.GetSegmentFromTime(Context.GetTime());
+			TemplateFieldIndex = RootOverrideInstance.Template->EvaluationField.GetSegmentFromTime(RootOverrideTime);
 		}
 		else
 		{
-			float CurrentTime = Context.GetTime();
-			TOptional<FCompiledGroupResult> CompileResult = FMovieSceneCompiler::CompileTime(CurrentTime, *RootOverrideInstance.Sequence, *TemplateStore);
+			TOptional<FCompiledGroupResult> CompileResult = FMovieSceneCompiler::CompileTime(RootOverrideTime, *RootOverrideInstance.Sequence, *TemplateStore);
 
 			if (CompileResult.IsSet())
 			{
-				TRange<float> FieldRange = CompileResult->Range;
+				TRange<FFrameNumber> FieldRange = CompileResult->Range;
 				TemplateFieldIndex = RootOverrideInstance.Template->EvaluationField.Insert(
-					CurrentTime,
+					RootOverrideTime,
 					FieldRange,
 					MoveTemp(CompileResult->Group),
 					MoveTemp(CompileResult->MetaData)
@@ -294,10 +301,10 @@ void FMovieSceneRootEvaluationTemplateInstance::EvaluateGroup(const FMovieSceneE
 				SubContext = Context;
 				if (Instance.SubData)
 				{
-					SubContext = Context.Transform(Instance.SubData->RootToSequenceTransform);
+					SubContext = Context.Transform(Instance.SubData->RootToSequenceTransform, Instance.SubData->TickResolution);
 
 					// Hittest against the sequence's pre and postroll ranges
-					SubContext.ReportOuterSectionRanges(Instance.SubData->PreRollRange, Instance.SubData->PostRollRange);
+					SubContext.ReportOuterSectionRanges(Instance.SubData->PreRollRange.Value, Instance.SubData->PostRollRange.Value);
 					SubContext.SetHierarchicalBias(Instance.SubData->HierarchicalBias);
 				}
 
@@ -336,10 +343,10 @@ void FMovieSceneRootEvaluationTemplateInstance::EvaluateGroup(const FMovieSceneE
 				SubContext = Context;
 				if (Instance.SubData)
 				{
-					SubContext = Context.Transform(Instance.SubData->RootToSequenceTransform);
+					SubContext = Context.Transform(Instance.SubData->RootToSequenceTransform, Instance.SubData->TickResolution);
 
 					// Hittest against the sequence's pre and postroll ranges
-					SubContext.ReportOuterSectionRanges(Instance.SubData->PreRollRange, Instance.SubData->PostRollRange);
+					SubContext.ReportOuterSectionRanges(Instance.SubData->PreRollRange.Value, Instance.SubData->PostRollRange.Value);
 					SubContext.SetHierarchicalBias(Instance.SubData->HierarchicalBias);
 				}
 
@@ -450,11 +457,27 @@ void FMovieSceneRootEvaluationTemplateInstance::CallSetupTearDown(IMovieScenePla
 	}
 }
 
-bool FMovieSceneRootEvaluationTemplateInstance::IsDirty() const
+bool FMovieSceneRootEvaluationTemplateInstance::IsDirty(TSet<UMovieSceneSequence*>* OutDirtySequences) const
 {
 	if (TransientInstances.RootInstance.IsValid())
 	{
-		return LastFrameMetaData.IsDirty(*TransientInstances.RootInstance.Sequence, TransientInstances.RootInstance.Template->Hierarchy, *TemplateStore);
+		bool bIsDirty = false;
+		if (TransientInstances.RootInstance.Template->SequenceSignature != TransientInstances.RootInstance.Sequence->GetSignature())
+		{
+			if (OutDirtySequences)
+			{
+				OutDirtySequences->Add(TransientInstances.RootInstance.Sequence);
+			}
+
+			bIsDirty = true;
+		}
+
+		if (LastFrameMetaData.IsDirty(TransientInstances.RootInstance.Template->Hierarchy, *TemplateStore, nullptr, OutDirtySequences))
+		{
+			bIsDirty = true;
+		}
+
+		return bIsDirty;
 	}
 
 	return true;

@@ -689,8 +689,8 @@ struct ENGINE_API FAnimNode_Base
 	 */
 	virtual bool NeedsDynamicReset() const { return false; }
 
-	/** Override this to perform game-thread work prior to non-game thread Update() being called */
-	virtual void ResetDynamics() {}
+	/** Called to help dynamics-based updates to recover correctly from large movements/teleports */
+	virtual void ResetDynamics(ETeleportType InTeleportType);
 
 	/** Called after compilation */
 	virtual void PostCompile(const class USkeleton* InSkeleton) {}
@@ -708,10 +708,12 @@ struct ENGINE_API FAnimNode_Base
 	virtual void Evaluate(FPoseContext& Output) { check(false); }
 	DEPRECATED(4.17, "Please use EvaluateComponentSpace_AnyThread instead")
 	virtual void EvaluateComponentSpace(FComponentSpacePoseContext& Output) { check(false); }
-
+	DEPRECATED(4.20, "Please use ResetDynamics with an ETeleportPhysics flag instead")
+	virtual void ResetDynamics() {}
 protected:
 	/** return true if enabled, otherwise, return false. This is utility function that can be used per node level */
-	bool IsLODEnabled(FAnimInstanceProxy* AnimInstanceProxy, int32 InLODThreshold);
+	bool IsLODEnabled(FAnimInstanceProxy* AnimInstanceProxy);
+	virtual int32 GetLODThreshold() const { return INDEX_NONE; }
 
 	/** Deprecated function */
 	DEPRECATED(4.17, "Please use OnInitializeAnimInstance instead")

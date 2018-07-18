@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "OnlineAchievementsInterface.h"
+#include "Interfaces/OnlineAchievementsInterface.h"
 #include "OnlineIdentityOculus.h"
 #include "OnlineSubsystemOculusPackage.h"
 
@@ -105,7 +105,7 @@ public:
 	/**
 	* Default destructor
 	*/
-	virtual ~FOnlineAchievementsOculus() = default;
+	virtual ~FOnlineAchievementsOculus();
 
 	// Begin IOnlineAchievements interface
 	virtual void WriteAchievements(const FUniqueNetId& PlayerId, FOnlineAchievementsWriteRef& WriteObject, const FOnAchievementsWrittenDelegate& Delegate = FOnAchievementsWrittenDelegate()) override;

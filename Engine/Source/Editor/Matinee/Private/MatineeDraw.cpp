@@ -290,7 +290,7 @@ void FMatinee::GetGroupLabelPosition( UInterpGroup* InGroup, int32& LabelTopPosi
 						{
 							// If we're parented then we're only visible if our parent group is not collapsed
 							check( CurParentGroup != NULL );
-							if( CurParentGroup->bCollapsed )
+							if( CurParentGroup->bCollapsed ) //-V522
 							{
 								// Parent group is collapsed, so we should not be rendered
 								bIsGroupVisible = false;
@@ -1878,7 +1878,7 @@ void FMatineeViewportClient::Draw(FViewport* InViewport, FCanvas* Canvas)
 		{
 			// If we're parented then we're only visible if our parent group is not collapsed
 			check( CurParentGroup != NULL );
-			if( CurParentGroup->bCollapsed )
+			if( CurParentGroup->bCollapsed ) //-V522
 			{
 				// Parent group is collapsed, so we should not be rendered
 				bIsGroupVisible = false;

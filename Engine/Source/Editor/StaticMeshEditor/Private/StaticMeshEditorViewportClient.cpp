@@ -13,6 +13,7 @@
 #include "Engine/StaticMeshSocket.h"
 #include "Utils.h"
 #include "IStaticMeshEditor.h"
+#include "UnrealEngine.h"
 
 #include "StaticMeshResources.h"
 #include "RawMesh.h"
@@ -23,7 +24,7 @@
 
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 #include "EngineAnalytics.h"
-#include "AI/Navigation/NavCollision.h"
+#include "AI/Navigation/NavCollisionBase.h"
 #include "PhysicsEngine/BodySetup.h"
 
 #include "Engine/AssetUserData.h"
@@ -443,7 +444,7 @@ void FStaticMeshEditorViewportClient::Draw(const FSceneView* View,FPrimitiveDraw
 
 	TSharedPtr<IStaticMeshEditor> StaticMeshEditor = StaticMeshEditorPtr.Pin();
 
-	if(!StaticMesh->RenderData->LODResources.IsValidIndex(StaticMeshEditor->GetCurrentLODIndex()))
+	if(!StaticMesh->RenderData || !StaticMesh->RenderData->LODResources.IsValidIndex(StaticMeshEditor->GetCurrentLODIndex()))
 	{
 		// Guard against corrupted meshes
 		return;
@@ -616,8 +617,8 @@ void FStaticMeshEditorViewportClient::Draw(const FSceneView* View,FPrimitiveDraw
 			}
 		}
 
-		// The simple nav geometry is only used by dynamic obstacles for now
-		if (StaticMesh->NavCollision && StaticMesh->NavCollision->bIsDynamicObstacle)
+		if (StaticMesh->NavCollision 
+			&& StaticMesh->bHasNavigationData)
 		{
 			// Draw the static mesh's body setup (simple collision)
 			FTransform GeomTransform(StaticMeshComponent->GetComponentTransform());
@@ -751,7 +752,7 @@ void FStaticMeshEditorViewportClient::DrawCanvas( FViewport& InViewport, FSceneV
 	int32 CurrentLODLevel = StaticMeshEditor->GetCurrentLODLevel();
 	if (CurrentLODLevel == 0)
 	{
-		CurrentLODLevel = ComputeStaticMeshLOD(StaticMesh->RenderData.Get(), StaticMeshComponent->Bounds.Origin, StaticMeshComponent->Bounds.SphereRadius, View, StaticMesh->MinLOD);
+		CurrentLODLevel = ComputeStaticMeshLOD(StaticMesh->RenderData.Get(), StaticMeshComponent->Bounds.Origin, StaticMeshComponent->Bounds.SphereRadius, View, StaticMesh->MinLOD.Default);
 	}
 	else
 	{
@@ -778,7 +779,7 @@ void FStaticMeshEditorViewportClient::DrawCanvas( FViewport& InViewport, FSceneV
 	TextItems.Add(SStaticMeshEditorViewport::FOverlayTextItem(
 		FText::Format(NSLOCTEXT("UnrealEd", "UVChannels_F", "UV Channels:  {0}"), FText::AsNumber(StaticMeshEditorPtr.Pin()->GetNumUVChannels(CurrentLODLevel)))));
 
-	if( StaticMesh->RenderData->LODResources.Num() > 0 )
+	if(StaticMesh->RenderData && StaticMesh->RenderData->LODResources.Num() > 0 )
 	{
 		if (StaticMesh->RenderData->LODResources[0].DistanceFieldData != nullptr )
 		{
@@ -829,6 +830,19 @@ void FStaticMeshEditorViewportClient::DrawCanvas( FViewport& InViewport, FSceneV
 	}
 
 	StaticMeshEditorViewport->PopulateOverlayText(TextItems);
+
+ 	int32 X = Canvas.GetRenderTarget()->GetSizeXY().X - 300;
+ 	int32 Y = 30;
+	// Make sure draws to the canvas are not rendered upside down.
+	Canvas.SetAllowSwitchVerticalAxis(false);
+	if (StaticMesh->BodySetup)
+	{
+		if (!(StaticMesh->BodySetup->bHasCookedCollisionData || StaticMesh->BodySetup->bNeverNeedsCookedCollisionData) || StaticMesh->BodySetup->bFailedToCreatePhysicsMeshes)
+		{
+			static const FText Message = NSLOCTEXT("Renderer", "NoCookedCollisionObject", "NO COOKED COLLISION OBJECT: TOO SMALL?");
+			Canvas.DrawShadowedText(X, Y, Message, GetStatsFont(), FLinearColor(1.0, 0.05, 0.05, 1.0));
+		}
+	}
 
 	if(bDrawUVs && StaticMesh->RenderData->LODResources.Num() > 0)
 	{
@@ -999,7 +1013,7 @@ void FStaticMeshEditorViewportClient::ProcessClick(class FSceneView& InView, cla
 
 				const uint32 LODLevel = FMath::Clamp( StaticMeshComponent->ForcedLodModel - 1, 0, StaticMeshComponent->GetStaticMesh()->GetNumLODs() - 1 );
 				FRawMesh RawMesh;
-				StaticMeshComponent->GetStaticMesh()->SourceModels[LODLevel].RawMeshBulkData->LoadRawMesh(RawMesh);
+				StaticMeshComponent->GetStaticMesh()->SourceModels[LODLevel].LoadRawMesh(RawMesh);
 
 				const int32 RawEdgeCount = RawMesh.WedgeIndices.Num() - 1; 
 				const int32 NumFaces = RawMesh.WedgeIndices.Num() / 3;

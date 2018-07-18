@@ -32,7 +32,7 @@ struct FGenericPlatformProperties
 	 */
 	static FORCEINLINE bool HasEditorOnlyData()
 	{
-		return true;
+		return WITH_EDITORONLY_DATA;
 	}
 
 	/**
@@ -51,7 +51,7 @@ struct FGenericPlatformProperties
 	 */
 	static FORCEINLINE bool IsGameOnly()
 	{
-		return false;
+		return UE_GAME;
 	}
 
 	/**
@@ -61,7 +61,7 @@ struct FGenericPlatformProperties
 	 */
 	static FORCEINLINE bool IsServerOnly()
 	{
-		return false;
+		return UE_SERVER;
 	}
 
 	/**
@@ -71,7 +71,7 @@ struct FGenericPlatformProperties
 	 */
 	static FORCEINLINE bool IsClientOnly()
 	{
-		return false;
+		return !WITH_SERVER_CODE;
 	}
 
 	/**
@@ -116,7 +116,7 @@ struct FGenericPlatformProperties
 	 */
 	static FORCEINLINE bool RequiresCookedData()
 	{
-		return false;
+		return !HasEditorOnlyData();
 	}
 
 	/**

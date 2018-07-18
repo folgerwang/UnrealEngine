@@ -19,5 +19,5 @@ public:
 
 	virtual bool EnumerateRenderableDevices(TArray<int32>& DeviceListOut) override;
 	virtual int32 GetDeviceId(EControllerHand ControllerHand) override;
-	virtual UPrimitiveComponent* CreateRenderComponent(const int32 DeviceId, AActor* Owner, EObjectFlags Flags) override;
+	virtual UPrimitiveComponent* CreateRenderComponent(const int32 DeviceId, AActor* Owner, EObjectFlags Flags, const bool bForceSynchronous, const FXRComponentLoadComplete& OnLoadComplete) override;
 };

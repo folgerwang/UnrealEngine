@@ -6,6 +6,7 @@
 #include "UObject/ObjectMacros.h"
 #include "AnimNodes/AnimNode_PoseDriver.h"
 #include "AnimGraphNode_PoseHandler.h"
+#include "EdGraph/EdGraphNodeUtils.h"
 #include "AnimGraphNode_PoseDriver.generated.h"
 
 class FCompilerResultsLog;
@@ -68,4 +69,7 @@ protected:
 	virtual FAnimNode_PoseHandler* GetPoseHandlerNode() override { return &Node; }
 	virtual const FAnimNode_PoseHandler* GetPoseHandlerNode() const override { return &Node; }
 	// End of UAnimGraphNode_PoseHandler interface
+
+	/** Constructing FText strings can be costly, so we cache the node's title */
+	FNodeTitleTextTable CachedNodeTitles;
 };

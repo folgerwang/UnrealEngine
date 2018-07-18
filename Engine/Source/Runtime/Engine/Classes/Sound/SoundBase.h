@@ -43,18 +43,42 @@ public:
 
 	/** When "stat sounds -debug" has been specified, draw this sound's attenuation shape when the sound is audible. For debugging purpose only. */
 	UPROPERTY(EditAnywhere, Category = Debug)
-	uint32 bDebug:1;
+	uint8 bDebug:1;
 
 	/** Whether or not to override the sound concurrency object with local concurrency settings. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Concurrency)
-	uint32 bOverrideConcurrency:1;
+	uint8 bOverrideConcurrency:1;
 
 	/** Whether or not to only send this audio's output to a bus. If true, will not be this sound won't be audible except through bus sends. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
-	uint32 bOutputToBusOnly : 1;
+	uint8 bOutputToBusOnly : 1;
 
 	UPROPERTY()
-	uint32 bIgnoreFocus_DEPRECATED:1;
+	uint8 bIgnoreFocus_DEPRECATED:1;
+
+	/** Whether or not to only send this audio's output to a bus. If true, will not be this sound won't be audible except through bus sends. */
+	UPROPERTY()
+	uint8 bHasDelayNode : 1;
+
+	/** Whether or not this sound has a concatenator node. If it does, we have to allow the sound to persist even though it may not have generate audible audio in a given audio thread frame. */
+	UPROPERTY()
+	uint8 bHasConcatenatorNode : 1;
+
+	/** Whether a sound has virtualize when silent enabled (i.e. for a sound cue, if any sound wave player has it enabled). */
+	UPROPERTY()
+	uint8 bHasVirtualizeWhenSilent:1;
+
+	/** Allows this sound to bypass volume-weighting for the max channel resolution. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Concurrency)
+	uint8 bBypassVolumeScaleForPriority : 1;
+
+#if WITH_EDITORONLY_DATA
+	UPROPERTY()
+	TEnumAsByte<enum EMaxConcurrentResolutionRule::Type> MaxConcurrentResolutionRule_DEPRECATED;
+#endif
+
+	/** Number of times this cue is currently being played. */
+	int32 CurrentPlayCount;
 
 	/** If Override Concurrency is false, the sound concurrency settings to use for this sound. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Concurrency, meta = (EditCondition = "!bOverrideConcurrency"))
@@ -64,24 +88,31 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Concurrency, meta = (EditCondition = "bOverrideConcurrency"))
 	struct FSoundConcurrencySettings ConcurrencyOverrides;
 
-	UPROPERTY()
-	TEnumAsByte<enum EMaxConcurrentResolutionRule::Type> MaxConcurrentResolutionRule_DEPRECATED;
-
+#if WITH_EDITORONLY_DATA
 	/** Maximum number of times this sound can be played concurrently. */
 	UPROPERTY()
 	int32 MaxConcurrentPlayCount_DEPRECATED;
+#endif
 
 	/** Duration of sound in seconds. */
 	UPROPERTY(Category=Info, AssetRegistrySearchable, VisibleAnywhere, BlueprintReadOnly)
 	float Duration;
 
-	/** Attenuation settings package for the sound */
-	UPROPERTY(EditAnywhere, Category=Attenuation)
-	USoundAttenuation* AttenuationSettings;
+	/** The max distance of the asset, as determined by attenuation settings. */
+	UPROPERTY(Category = Info, AssetRegistrySearchable, VisibleAnywhere, BlueprintReadOnly)
+	float MaxDistance;
+
+	/** Total number of samples (in the thousands). Useful as a metric to analyze the relative size of a given sound asset in content browser. */
+	UPROPERTY(Category = Info, AssetRegistrySearchable, VisibleAnywhere, BlueprintReadOnly)
+	float TotalSamples;
 
 	/** Sound priority (higher value is higher priority) used for concurrency resolution. This priority value is weighted against the final volume of the sound. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Concurrency, meta = (ClampMin = "0.0", UIMin = "0.0", ClampMax = "100.0", UIMax = "100.0") )
 	float Priority;
+
+	/** Attenuation settings package for the sound */
+	UPROPERTY(EditAnywhere, Category=Attenuation)
+	USoundAttenuation* AttenuationSettings;
 
 	/** Sound submix this sound belongs to. 
 	  * Audio will play here and traverse through the submix graph. 
@@ -107,8 +138,6 @@ public:
 	TArray<FSoundSourceBusSendInfo> PreEffectBusSends;
 
 public:	
-	/** Number of times this cue is currently being played. */
-	int32 CurrentPlayCount;
 
 	//~ Begin UObject Interface.
 	virtual void PostInitProperties() override;
@@ -130,12 +159,21 @@ public:
 	/**
 	 * Returns the farthest distance at which the sound could be heard
 	 */
-	virtual float GetMaxAudibleDistance();
+	virtual float GetMaxDistance() const;
 
 	/** 
 	 * Returns the length of the sound
 	 */
 	virtual float GetDuration();
+
+	/** Returns whether or not this sound has a delay node, which means it's possible for the sound to not generate audio for a while. */
+	bool HasDelayNode() const;
+
+	/** Returns whether or not this sound has a sequencer node, which means it's possible for the owning active sound to persist even though it's not generating audio. */
+	bool HasConcatenatorNode() const;
+
+	/** Returns true if any of the sounds in the sound have "virtualize when silent" enabled. */
+	bool IsVirtualizeWhenSilent() const;
 
 	virtual float GetVolumeMultiplier();
 	virtual float GetPitchMultiplier();

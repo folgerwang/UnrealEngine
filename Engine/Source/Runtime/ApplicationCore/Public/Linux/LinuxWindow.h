@@ -7,7 +7,6 @@
 #include "Templates/SharedPointer.h"
 #include "GenericPlatform/GenericWindow.h"
 
-
 #include "SDL.h"
 
 class FLinuxApplication;

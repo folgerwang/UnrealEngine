@@ -37,15 +37,6 @@ Version: 4.9
 	[/PARAM]
 [/OBJECT]
 
-[OBJECT:ComparisonSlider]
-	[PARAM:before]
-	![Moon Directional Light On](DirectionalLightMoon2.png)(w:600)
-	[/PARAM]
-	[PARAM:after]
-	![Moon Directional Light Off](DirectionalLightMoonOff2.png)(w:600)
-	[/PARAM]
-[/OBJECT]
-
 
 [INCLUDE:Resources/Showcases/RealisticRendering#IESProfiles]
 

@@ -9,7 +9,7 @@
 #include "UObject/UObjectHash.h"
 #include "Templates/ScopedPointer.h"
 #include "ComponentReregisterContext.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 #include "Rendering/SkeletalMeshModel.h"
 #include "AnimationBlueprintLibrary.h"
 #include "Async/ParallelFor.h"
@@ -56,7 +56,7 @@ public:
 			return false;
 		}
 
-		if (!SkeletalMesh->LODInfo.IsValidIndex(DesiredLOD))
+		if (!SkeletalMesh->IsValidLODIndex(DesiredLOD))
 		{
 			return false;
 		}
@@ -77,7 +77,8 @@ public:
 				else
 				{
 					TArray<FName> RetrievedNames;
-					for (const FBoneReference& BoneReference : SkeletalMesh->LODInfo[DesiredLOD].BonesToRemove)
+					const FSkeletalMeshLODInfo* LODInfo = SkeletalMesh->GetLODInfo(DesiredLOD);
+					for (const FBoneReference& BoneReference : LODInfo->BonesToRemove)
 					{
 						RetrievedNames.AddUnique(BoneReference.BoneName);
 					}
@@ -254,7 +255,7 @@ public:
 
 	void RetrieveBoneMatrices(USkeletalMesh* SkeletalMesh, const int32 LODIndex, TArray<FBoneIndexType>& BonesToRemove, TArray<FMatrix>& InOutMatrices)
 	{
-		if (!SkeletalMesh->LODInfo.IsValidIndex(LODIndex))
+		if (!SkeletalMesh->IsValidLODIndex(LODIndex))
 		{
 			return;
 		}
@@ -268,7 +269,7 @@ public:
 		}
 				
 		TArray<FMatrix> MultipliedBonePoses;
-		const UAnimSequence* BakePose = SkeletalMesh->LODInfo[LODIndex].BakePose;
+		const UAnimSequence* BakePose = SkeletalMesh->GetLODInfo(LODIndex)->BakePose;
 		if (BakePose)
 		{
 			// Retrieve posed bone transforms
@@ -380,10 +381,10 @@ public:
 
 			TArray<FBoneIndexType> BoneIndices;
 			TArray<FMatrix> RemovedBoneMatrices;
-			const bool bBakePoseToRemovedInfluences = (SkeletalMesh->LODInfo[DesiredLOD].BakePose != nullptr);
+			const bool bBakePoseToRemovedInfluences = (SkeletalMesh->GetLODInfo(DesiredLOD)->BakePose != nullptr);
 			if (bBakePoseToRemovedInfluences)
 			{
-				for (const FBoneReference& BoneReference : SkeletalMesh->LODInfo[DesiredLOD].BonesToRemove)
+				for (const FBoneReference& BoneReference : SkeletalMesh->GetLODInfo(DesiredLOD)->BonesToRemove)
 				{
 					int32 BoneIndex = SkeletalMesh->RefSkeleton.FindRawBoneIndex(BoneReference.BoneName);
 					if (BoneIndex != INDEX_NONE)
@@ -413,6 +414,7 @@ public:
 					for (FSoftSkinVertex& Vertex : Section.SoftVertices)
 					{
 						FVector TangentX = Vertex.TangentX;
+						FVector TangentY = Vertex.TangentY;
 						FVector TangentZ = Vertex.TangentZ;
 						FVector Position = Vertex.Position;
 						for (uint8 InfluenceIndex = 0; InfluenceIndex < 8; ++InfluenceIndex)
@@ -423,16 +425,17 @@ public:
 								Position += ((RemovedBoneMatrices[ArrayIndex].TransformPosition(Vertex.Position) - Vertex.Position) * ((float)Vertex.InfluenceWeights[InfluenceIndex] * InfluenceMultiplier));
 
 								TangentX += ((RemovedBoneMatrices[ArrayIndex].TransformVector(Vertex.TangentX) - Vertex.TangentX) * ((float)Vertex.InfluenceWeights[InfluenceIndex] * InfluenceMultiplier));
-
+								TangentY += ((RemovedBoneMatrices[ArrayIndex].TransformVector(Vertex.TangentY) - Vertex.TangentY) * ((float)Vertex.InfluenceWeights[InfluenceIndex] * InfluenceMultiplier));
 								TangentZ += ((RemovedBoneMatrices[ArrayIndex].TransformVector(Vertex.TangentZ) - Vertex.TangentZ) * ((float)Vertex.InfluenceWeights[InfluenceIndex] * InfluenceMultiplier));
 							}
 						}
 
 						Vertex.Position = Position;
 						Vertex.TangentX = TangentX.GetSafeNormal();
-						uint8 WComponent = Vertex.TangentZ.Vector.W;
+						Vertex.TangentY = TangentY.GetSafeNormal();
+						uint8 WComponent = Vertex.TangentZ.W;
 						Vertex.TangentZ = TangentZ.GetSafeNormal();
-						Vertex.TangentZ.Vector.W = WComponent;
+						Vertex.TangentZ.W = WComponent;
 					}
 				}
 				FixUpSectionBoneMaps(Section, BonesToRemove);

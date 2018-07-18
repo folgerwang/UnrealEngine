@@ -1,8 +1,9 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "SCompoundWidget.h"
-#include "StructOnScope.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
+#include "UObject/StructOnScope.h"
 
 /** Base class for inline parameter editors. These editors are expected to maintain an internal value which
 	is populated from a parameter struct. */
@@ -12,6 +13,18 @@ public:
 	DECLARE_DELEGATE(FOnValueChange);
 
 public:
+	SLATE_BEGIN_ARGS(SNiagaraParameterEditor) 
+		: _HAlign(HAlign_Left)
+		, _VAlign(VAlign_Center)
+	{ }
+		SLATE_ARGUMENT(EHorizontalAlignment, HAlign)
+		SLATE_ARGUMENT(EVerticalAlignment, VAlign)
+		SLATE_ARGUMENT(TOptional<float>, MinimumDesiredWidth)
+		SLATE_ARGUMENT(TOptional<float>, MaximumDesiredWidth)
+	SLATE_END_ARGS();
+
+	void Construct(const FArguments& InArgs);
+
 	/** Updates the internal value of the widget from a struct. */
 	virtual void UpdateInternalValueFromStruct(TSharedRef<FStructOnScope> Struct) = 0;
 
@@ -32,6 +45,21 @@ public:
 	/** Sets the OnValueChanged delegate which is run when the internal value changes. */
 	void SetOnValueChanged(FOnValueChange InOnValueChanged);
 
+	/** Gets an optional minimum desired width for this parameter editor. */
+	const TOptional<float>& GetMinimumDesiredWidth() const;
+
+	/** Gets an optional maximum desired width for this parameter editor. */
+	const TOptional<float>& GetMaximumDesiredWidth() const;
+
+	/** Gets the desired horizontal alignment of this parameter editor for it's parent container. */
+	EHorizontalAlignment GetHorizontalAlignment() const;
+
+	/** Gets the desired horizontal alignment of this parameter editor for it's parent container. */
+	EVerticalAlignment GetVerticalAlignment() const;
+
+	//~ SWidget interface
+	virtual FVector2D ComputeDesiredSize(float LayoutScaleMultiplier) const override;
+
 protected:
 	/** Sets whether this is currently the exclusive editor of this parameter, meaning that the corresponding details view
 		should not be updated.  This hack is necessary because the details view closes all color pickers when
@@ -47,6 +75,9 @@ protected:
 	/** Executes the OnValueChanged delegate. */
 	void ExecuteOnValueChanged();
 
+protected:
+	static const float DefaultInputSize;
+
 private:
 	/** Whether this is currently the exclusive editor of this parameter, meaning that the corresponding details view
 		should not be updated.  This hack is necessary because the details view closes all color pickers when
@@ -61,4 +92,16 @@ private:
 
 	/** A delegate which is executed when the internal value changes. */
 	FOnValueChange OnValueChanged;
+
+	/** The minimum desired width of this parameter editor. */
+	TOptional<float> MinimumDesiredWidth;
+
+	/** The maximum desired width of this parameter editor. */
+	TOptional<float> MaximumDesiredWidth;
+
+	/** The desired horizontal alignment of this parameter editor for it's parent container. */
+	EHorizontalAlignment HorizontalAlignment;
+
+	/** Sets the desired horizontal alignment of this parameter editor for it's parent container. */
+	EVerticalAlignment VerticalAlignment;
 };

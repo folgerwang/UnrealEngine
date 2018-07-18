@@ -100,6 +100,11 @@ namespace IncludeTool
 		/// This file should be output
 		/// </summary>
 		Output = 0x10000,
+
+		/// <summary>
+		/// Do not scan this file for exported symbols
+		/// </summary>
+		IgnoreExportedSymbols = 0x20000,
 	}
 
 	/// <summary>

@@ -54,7 +54,7 @@ struct GRAPHEDITOR_API FConnectionParams
 		: WireColor(FLinearColor::White)
 		, AssociatedPin1(nullptr)
 		, AssociatedPin2(nullptr)
-		, WireThickness(1.0f)
+		, WireThickness(1.5f)
 		, bDrawBubbles(false)
 		, bUserFlag1(false)
 		, bUserFlag2(false)
@@ -139,4 +139,11 @@ public:
 	virtual void ApplyHoverDeemphasis(UEdGraphPin* OutputPin, UEdGraphPin* InputPin, /*inout*/ float& Thickness, /*inout*/ FLinearColor& WireColor);
 
 	virtual bool IsConnectionCulled( const FArrangedWidget& StartLink, const FArrangedWidget& EndLink ) const;
+
+protected:
+	// Helper function used by Draw(). Called before DrawPinGeometries to populate PinToPinWidgetMap
+	virtual void BuildPinToPinWidgetMap(TMap<TSharedRef<SWidget>, FArrangedWidget>& InPinGeometries);
+
+	// Helper function used by Draw(). Iterates over the pin geometries, drawing connections between them
+	virtual void DrawPinGeometries(TMap<TSharedRef<SWidget>, FArrangedWidget>& InPinGeometries, FArrangedChildren& ArrangedNodes);
 };

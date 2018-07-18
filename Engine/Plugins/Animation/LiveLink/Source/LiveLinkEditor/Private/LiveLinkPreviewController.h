@@ -3,7 +3,7 @@
 #pragma once
 
 #include "PersonaPreviewSceneController.h"
-#include "SubclassOf.h"
+#include "Templates/SubclassOf.h"
 
 #include "LiveLinkPreviewController.generated.h"
 

@@ -8,6 +8,9 @@
 #include "AssetData.h"
 #include "Components/PrimitiveComponent.h"
 #include "Editor.h"
+#include "Animation/AnimInstance.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Channels/MovieSceneChannelProxy.h"
 #include "Containers/ArrayBuilder.h"
 #include "Modules/ModuleManager.h"
 #include "KeyParams.h"
@@ -243,6 +246,7 @@ void FLevelSequenceEditorToolkit::Initialize(const EToolkitMode::Type Mode, cons
 		SequencerInitParams.PlaybackContext.BindStatic(GetLevelSequenceEditorPlaybackContext);
 
 		SequencerInitParams.ViewParams.UniqueName = "LevelSequenceEditor";
+		SequencerInitParams.ViewParams.ScrubberStyle = ESequencerScrubberStyle::FrameBlock;
 		SequencerInitParams.ViewParams.OnReceivedFocus.BindRaw(this, &FLevelSequenceEditorToolkit::OnSequencerReceivedFocus);
 	}
 
@@ -260,15 +264,16 @@ void FLevelSequenceEditorToolkit::Initialize(const EToolkitMode::Type Mode, cons
 	// @todo remove when world-centric mode is added
 	FLevelEditorModule& LevelEditorModule = FModuleManager::LoadModuleChecked<FLevelEditorModule>("LevelEditor");
 
-	LevelEditorModule.AttachSequencer(Sequencer->GetSequencerWidget(), SharedThis(this));
-
-	// @todo reopen the scene outliner so that is refreshed with the sequencer info column
+	// Reopen the scene outliner so that is refreshed with the sequencer info column
 	TSharedPtr<FTabManager> LevelEditorTabManager = LevelEditorModule.GetLevelEditorTabManager();
 	if (LevelEditorTabManager->FindExistingLiveTab(FName("LevelEditorSceneOutliner")).IsValid())
 	{
 		LevelEditorTabManager->InvokeTab(FName("LevelEditorSceneOutliner"))->RequestCloseTab();
 		LevelEditorTabManager->InvokeTab(FName("LevelEditorSceneOutliner"));
 	}
+	
+	// Now Attach so this window will apear in the correct front first order
+	LevelEditorModule.AttachSequencer(Sequencer->GetSequencerWidget(), SharedThis(this));
 
 	// We need to find out when the user loads a new map, because we might need to re-create puppet actors
 	// when previewing a MovieScene
@@ -286,10 +291,10 @@ void FLevelSequenceEditorToolkit::Initialize(const EToolkitMode::Type Mode, cons
 		{
 			VRMode->OnVREditingModeExit_Handler.BindSP(this, &FLevelSequenceEditorToolkit::HandleVREditorModeExit);
 			USequencerSettings& SavedSequencerSettings = *Sequencer->GetSequencerSettings();
-			VRMode->SaveSequencerSettings(Sequencer->GetKeyAllEnabled(), Sequencer->GetAutoChangeMode(), SavedSequencerSettings);
+			VRMode->SaveSequencerSettings(Sequencer->GetKeyGroupMode() == EKeyGroupMode::KeyAll, Sequencer->GetAutoChangeMode(), SavedSequencerSettings);
 			// Override currently set auto-change behavior to always autokey
 			Sequencer->SetAutoChangeMode(EAutoChangeMode::All);
-			Sequencer->SetKeyAllEnabled(true);
+			Sequencer->SetKeyGroupMode(EKeyGroupMode::KeyAll);
 			// Tell the VR Editor mode that Sequencer has refreshed
 			VRMode->RefreshVREditorSequencer(Sequencer.Get());
 		}
@@ -449,20 +454,24 @@ void FLevelSequenceEditorToolkit::AddDefaultTracksForActor(AActor& Actor, const 
 							Scale = ActorRelativeTransform.GetScale3D();
 						}
 
-						TransformSection->SetDefault(FTransformKey(EKey3DTransformChannel::Translation, EAxis::X, Location.X, false /*bUnwindRotation*/));
-						TransformSection->SetDefault(FTransformKey(EKey3DTransformChannel::Translation, EAxis::Y, Location.Y, false /*bUnwindRotation*/));
-						TransformSection->SetDefault(FTransformKey(EKey3DTransformChannel::Translation, EAxis::Z, Location.Z, false /*bUnwindRotation*/));
+						TArrayView<FMovieSceneFloatChannel*> FloatChannels = TransformSection->GetChannelProxy().GetChannels<FMovieSceneFloatChannel>();
+						FloatChannels[0]->SetDefault(Location.X);
+						FloatChannels[1]->SetDefault(Location.Y);
+						FloatChannels[2]->SetDefault(Location.Z);
 
-						TransformSection->SetDefault(FTransformKey(EKey3DTransformChannel::Rotation, EAxis::X, Rotation.Euler().X, false /*bUnwindRotation*/));
-						TransformSection->SetDefault(FTransformKey(EKey3DTransformChannel::Rotation, EAxis::Y, Rotation.Euler().Y, false /*bUnwindRotation*/));
-						TransformSection->SetDefault(FTransformKey(EKey3DTransformChannel::Rotation, EAxis::Z, Rotation.Euler().Z, false /*bUnwindRotation*/));
+						FloatChannels[3]->SetDefault(Rotation.Euler().X);
+						FloatChannels[4]->SetDefault(Rotation.Euler().Y);
+						FloatChannels[5]->SetDefault(Rotation.Euler().Z);
 
-						TransformSection->SetDefault(FTransformKey(EKey3DTransformChannel::Scale, EAxis::X, Scale.X, false /*bUnwindRotation*/));
-						TransformSection->SetDefault(FTransformKey(EKey3DTransformChannel::Scale, EAxis::Y, Scale.Y, false /*bUnwindRotation*/));
-						TransformSection->SetDefault(FTransformKey(EKey3DTransformChannel::Scale, EAxis::Z, Scale.Z, false /*bUnwindRotation*/));
+						FloatChannels[6]->SetDefault(Scale.X);
+						FloatChannels[7]->SetDefault(Scale.Y);
+						FloatChannels[8]->SetDefault(Scale.Z);
 					}
 
-					NewSection->SetIsInfinite(GetSequencer()->GetInfiniteKeyAreas());
+					if (GetSequencer()->GetInfiniteKeyAreas())
+					{
+						NewSection->SetRange(TRange<FFrameNumber>::All());
+					}
 				}
 			}
 		}
@@ -631,7 +640,7 @@ void FLevelSequenceEditorToolkit::HandleVREditorModeExit()
 
 	// Reset sequencer settings
 	Sequencer->SetAutoChangeMode(VRMode->GetSavedEditorState().AutoChangeMode);
-	Sequencer->SetKeyAllEnabled(VRMode->GetSavedEditorState().bKeyAllEnabled);
+	Sequencer->SetKeyGroupMode(VRMode->GetSavedEditorState().bKeyAllEnabled ? EKeyGroupMode::KeyAll : EKeyGroupMode::KeyChanged);
 	VRMode->OnVREditingModeExit_Handler.Unbind();
 }
 
@@ -644,12 +653,12 @@ void FLevelSequenceEditorToolkit::HandleMapChanged(class UWorld* NewWorld, EMapC
 	}
 }
 
-void FLevelSequenceEditorToolkit::AddShot(UMovieSceneCinematicShotTrack* ShotTrack, const FString& ShotAssetName, const FString& ShotPackagePath, float ShotStartTime, float ShotEndTime, UObject* AssetToDuplicate, const FString& FirstShotAssetName)
+void FLevelSequenceEditorToolkit::AddShot(UMovieSceneCinematicShotTrack* ShotTrack, const FString& ShotAssetName, const FString& ShotPackagePath, FFrameNumber ShotStartTime, FFrameNumber ShotEndTime, UObject* AssetToDuplicate, const FString& FirstShotAssetName)
 {
 	// Create a level sequence asset for the shot
 	UObject* ShotAsset = LevelSequenceEditorHelpers::CreateLevelSequenceAsset(ShotAssetName, ShotPackagePath, AssetToDuplicate);
 	UMovieSceneSequence* ShotSequence = Cast<UMovieSceneSequence>(ShotAsset);
-	UMovieSceneSubSection* ShotSubSection = ShotTrack->AddSequence(ShotSequence, ShotStartTime, ShotEndTime-ShotStartTime);
+	UMovieSceneSubSection* ShotSubSection = ShotTrack->AddSequence(ShotSequence, ShotStartTime, (ShotEndTime-ShotStartTime).Value);
 
 	// Focus on the new shot
 	GetSequencer()->ForceEvaluate();
@@ -700,9 +709,8 @@ void FLevelSequenceEditorToolkit::AddShot(UMovieSceneCinematicShotTrack* ShotTra
 
 			if (SubSequence != nullptr)
 			{
-				UMovieSceneSubSection* SubSection = SubTrack->AddSequence(SubSequence, 0.f, ShotEndTime-ShotStartTime);
+				UMovieSceneSubSection* SubSection = SubTrack->AddSequence(SubSequence, 0, (ShotEndTime-ShotStartTime).Value);
 				SubSection->SetRowIndex(RowIndex++);
-				SubSection->SetStartTime(0.f);
 			}
 		}
 	}
@@ -741,8 +749,8 @@ void FLevelSequenceEditorToolkit::AddShot(UMovieSceneCinematicShotTrack* ShotTra
 		// Create a new camera cut section and add it to the camera cut track
 		CameraCutTrack = ShotSequence->GetMovieScene()->AddCameraCutTrack(UMovieSceneCameraCutTrack::StaticClass());
 		UMovieSceneCameraCutSection* CameraCutSection = NewObject<UMovieSceneCameraCutSection>(CameraCutTrack, NAME_None, RF_Transactional);
-		CameraCutSection->SetStartTime(ShotSequence->GetMovieScene()->GetPlaybackRange().GetLowerBoundValue()); 
-		CameraCutSection->SetEndTime(ShotSequence->GetMovieScene()->GetPlaybackRange().GetUpperBoundValue());
+
+		CameraCutSection->SetRange(ShotSequence->GetMovieScene()->GetPlaybackRange());
 		CameraCutSection->SetCameraGuid(CameraGuid);
 		CameraCutTrack->AddSection(*CameraCutSection);
 	}
@@ -760,15 +768,18 @@ void FLevelSequenceEditorToolkit::HandleMasterSequenceCreated(UObject* MasterSeq
 
 	UMovieSceneSequence* MasterSequence = Cast<UMovieSceneSequence>(MasterSequenceAsset);
 	UMovieSceneCinematicShotTrack* ShotTrack = MasterSequence->GetMovieScene()->AddMasterTrack<UMovieSceneCinematicShotTrack>();
-		
+
+	FFrameRate TickResolution = MasterSequence->GetMovieScene()->GetTickResolution();
+
 	// Create shots with a camera cut and a camera for each
-	float SequenceStartTime = ProjectSettings->DefaultStartTime;
-	float ShotStartTime = SequenceStartTime;
-	float ShotEndTime = ShotStartTime;
+	FFrameNumber SequenceStartTime = (ProjectSettings->DefaultStartTime * TickResolution).FloorToFrame();
+	FFrameNumber ShotStartTime = SequenceStartTime;
+	FFrameNumber ShotEndTime   = ShotStartTime;
+	int32        ShotDuration  = (ProjectSettings->DefaultDuration * TickResolution).RoundToFrame().Value;
 	FString FirstShotName; 
 	for (uint32 ShotIndex = 0; ShotIndex < NumShots; ++ShotIndex)
 	{
-		ShotEndTime += ProjectSettings->DefaultDuration;
+		ShotEndTime += ShotDuration;
 
 		FString ShotName = MovieSceneToolHelpers::GenerateNewShotName(ShotTrack->GetAllSections(), ShotStartTime);
 		FString ShotPackagePath = MovieSceneToolHelpers::GenerateNewShotPath(MasterSequence->GetMovieScene(), ShotName);
@@ -784,17 +795,18 @@ void FLevelSequenceEditorToolkit::HandleMasterSequenceCreated(UObject* MasterSeq
 		ShotStartTime = ShotEndTime;
 	}
 
-	MasterSequence->GetMovieScene()->SetPlaybackRange(SequenceStartTime, ShotEndTime);
+	MasterSequence->GetMovieScene()->SetPlaybackRange(SequenceStartTime, (ShotEndTime - SequenceStartTime).Value);
 
 #if WITH_EDITORONLY_DATA
-	const float OutputViewSize = ShotEndTime - SequenceStartTime;
-	const float OutputChange = OutputViewSize * 0.1f;
-	struct FMovieSceneEditorData EditorData;
-	EditorData.ViewRange = FFloatRange(SequenceStartTime - OutputChange, ShotEndTime + OutputChange);
-	EditorData.WorkingRange = FFloatRange(SequenceStartTime - OutputChange, ShotEndTime + OutputChange);
-	MasterSequence->GetMovieScene()->SetEditorData(EditorData);
+	const double SequenceStartSeconds = SequenceStartTime / TickResolution;
+	const double SequenceEndSeconds   = ShotEndTime / TickResolution;
+	const double OutputChange = (SequenceEndSeconds - SequenceStartSeconds) * 0.1;
+
+	FMovieSceneEditorData& EditorData = MasterSequence->GetMovieScene()->GetEditorData();
+	EditorData.ViewStart = EditorData.WorkStart = SequenceStartSeconds - OutputChange;
+	EditorData.ViewEnd   = EditorData.WorkEnd   = SequenceEndSeconds + OutputChange;
 #endif
-		
+
 	GetSequencer()->ResetToNewRootSequence(*MasterSequence);
 
 	UActorFactory* ActorFactory = GEditor->FindActorFactoryForActorClass(ALevelSequenceActor::StaticClass());
@@ -874,17 +886,16 @@ void FLevelSequenceEditorToolkit::HandleTrackMenuExtensionAddTrack(FMenuBuilder&
 	}
 	else
 	{
-		UPrimitiveComponent* Component = Cast<UPrimitiveComponent>(ContextObjects[0]);
-		if (Component != nullptr)
+		if (UPrimitiveComponent* PrimitiveComponent = Cast<UPrimitiveComponent>(ContextObjects[0]))
 		{
-			int32 NumMaterials = Component->GetNumMaterials();
+			int32 NumMaterials = PrimitiveComponent->GetNumMaterials();
 			if (NumMaterials > 0)
 			{
 				AddTrackMenuBuilder.BeginSection("Materials", LOCTEXT("MaterialSection", "Materials"));
 				{
 					for (int32 MaterialIndex = 0; MaterialIndex < NumMaterials; MaterialIndex++)
 					{
-						FUIAction AddComponentMaterialAction(FExecuteAction::CreateSP(this, &FLevelSequenceEditorToolkit::HandleAddComponentMaterialActionExecute, Component, MaterialIndex));
+						FUIAction AddComponentMaterialAction(FExecuteAction::CreateSP(this, &FLevelSequenceEditorToolkit::HandleAddComponentMaterialActionExecute, PrimitiveComponent, MaterialIndex));
 						FText AddComponentMaterialLabel = FText::Format(LOCTEXT("ComponentMaterialIndexLabelFormat", "Element {0}"), FText::AsNumber(MaterialIndex));
 						FText AddComponentMaterialToolTip = FText::Format(LOCTEXT("ComponentMaterialIndexToolTipFormat", "Add material element {0}"), FText::AsNumber(MaterialIndex));
 						AddTrackMenuBuilder.AddMenuEntry(AddComponentMaterialLabel, AddComponentMaterialToolTip, FSlateIcon(), AddComponentMaterialAction);
@@ -893,7 +904,39 @@ void FLevelSequenceEditorToolkit::HandleTrackMenuExtensionAddTrack(FMenuBuilder&
 				AddTrackMenuBuilder.EndSection();
 			}
 		}
+
+		if (USkeletalMeshComponent* SkeletalComponent = Cast<USkeletalMeshComponent>(ContextObjects[0]))
+		{
+			UAnimInstance* AnimInstance = SkeletalComponent->GetAnimInstance();
+			
+			FText AnimInstanceLabel = LOCTEXT("AnimInstanceLabel", "Anim Instance");
+			FText DetailedInstanceText = AnimInstance
+				? FText::Format(LOCTEXT("AnimInstanceLabelFormat", "Anim Instance '{0}'"), FText::FromString(AnimInstance->GetName()))
+				: AnimInstanceLabel;
+
+			AddTrackMenuBuilder.BeginSection("Anim Instance", AnimInstanceLabel);
+			{
+				AddTrackMenuBuilder.AddMenuEntry(
+					DetailedInstanceText,
+					LOCTEXT("AnimInstanceToolTip", "Add this skeletal mesh component's animation instance."),
+					FSlateIcon(),
+					FUIAction(
+						FExecuteAction::CreateSP(this, &FLevelSequenceEditorToolkit::BindAnimationInstance, SkeletalComponent)
+					)
+				);
+			}
+			AddTrackMenuBuilder.EndSection();
+		}
 	}
+}
+
+void FLevelSequenceEditorToolkit::BindAnimationInstance(USkeletalMeshComponent* SkeletalComponent)
+{
+	UAnimInstance* AnimInstance = SkeletalComponent->GetAnimInstance();
+
+	// If there is no script instance at the moment, just use a dummy instance for the purposes of setting up the binding in the first place.
+	// This temporary object will get GC'd later on and is never actually applied to the anim instance
+	Sequencer->GetHandleToObject(AnimInstance ? AnimInstance : NewObject<UAnimInstance>(SkeletalComponent));
 }
 
 bool FLevelSequenceEditorToolkit::OnRequestClose()

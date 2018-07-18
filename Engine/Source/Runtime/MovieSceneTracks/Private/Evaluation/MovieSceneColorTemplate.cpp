@@ -8,7 +8,7 @@
 #include "Components/LightComponent.h"
 #include "Components/SkyLightComponent.h"
 #include "Styling/SlateColor.h"
-#include "MovieSceneEvaluation.h"
+#include "Evaluation/MovieSceneEvaluation.h"
 #include "IMovieScenePlayer.h"
 #include "Evaluation/MovieScenePropertyTemplate.h"
 #include "Evaluation/Blending/MovieSceneBlendingActuator.h"
@@ -234,23 +234,23 @@ FMovieSceneColorSectionTemplate::FMovieSceneColorSectionTemplate(const UMovieSce
 	: FMovieScenePropertySectionTemplate(Track.GetPropertyName(), Track.GetPropertyPath())
 	, BlendType(Section.GetBlendType().Get())
 {
-	Curves[0] = Section.GetRedCurve();
-	Curves[1] = Section.GetGreenCurve();
-	Curves[2] = Section.GetBlueCurve();
-	Curves[3] = Section.GetAlphaCurve();
+	Curves[0] = Section.GetRedChannel();
+	Curves[1] = Section.GetGreenChannel();
+	Curves[2] = Section.GetBlueChannel();
+	Curves[3] = Section.GetAlphaChannel();
 }
 
 void FMovieSceneColorSectionTemplate::Evaluate(const FMovieSceneEvaluationOperand& Operand, const FMovieSceneContext& Context, const FPersistentEvaluationData& PersistentData, FMovieSceneExecutionTokens& ExecutionTokens) const
 {
-	const float Time = Context.GetTime();
+	const FFrameTime Time = Context.GetTime();
 	MovieScene::TMultiChannelValue<float, 4> AnimationData;
 
 	for (uint8 Index = 0; Index < 4; ++Index)
 	{
-		const FRichCurve& Curve = Curves[Index];
-		if (Curve.HasAnyData())
+		float ChannelValue = 0.f;
+		if (Curves[Index].Evaluate(Time, ChannelValue))
 		{
-			AnimationData.Set(Index, Curve.Eval(Time));
+			AnimationData.Set(Index, ChannelValue);
 		}
 	}
 

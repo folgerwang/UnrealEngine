@@ -11,16 +11,23 @@
 
 namespace ProxyLOD
 {
+	enum class ENormalComputationMethod : uint8
+	{
+		AreaWeighted,
+		AngleWeighted,
+		EqualWeighted
+	};
+
 	/**
 	* Calls into the direxXMesh library to compute the per-vertex normal, by default this will weight by area.
 	*
 	* NB: this is different than computing on the raw mesh, which can result in per-index tangent space.
 	* 
 	* @param InOutMesh        Vertex-based mesh which will be updated by this function with with a per-vertex normal
-	* @param bAngleWeighted   Determine if the normal is angle-weighted or area-weighted(default).
+	* @param Method           Determine if the normal is angle-weighted or area-weighted or equal weighted.
 	*/
 	void ComputeVertexNormals( FVertexDataMesh& InOutMesh, 
-		                       const bool bAngleWeighted = false );
+		                       const ENormalComputationMethod Method = ENormalComputationMethod::AngleWeighted);
 	/**
 	* Uses UE4 code in the Mesh Utilities module to compute the tangent space
 	* The computation is a Mikk-T(angent) space version of tangent space.  
@@ -79,6 +86,50 @@ namespace ProxyLOD
 	*/
 	int VerifyAdjacency(const uint32* EdgeAdjacentFaceArray, const uint32 NumEdgeAdjacentFaces);
 
+	/**
+	* Splits vertices along hard edges (as defined by the difference in face normals).
+	*
+	* NB: When a vertex is split, all the data is copied to the duplicate vertices - including any tangent space data.
+	* In general you will want to compute vertex normals and tangent space after doing this.
+	*
+	* @param HardAngleDegrees    The hard angle threshold, in degrees, used to determine if the vertices on an edge should be split.
+	* @param InOutMesh           The mesh that may be altered by the
+	*/
+	void SplitHardAngles(const float HardDegrees, FVertexDataMesh& InOutMesh);
+
+	/**
+	* Alters the connectivity to split vertices along hard edges (as defined by the difference in face normals).
+	*
+	* @param HardAngleRadians    The hard angle threshold, in radians, used to determine if the vertices on an edge should be split.
+	* @param FaceNormals         Pointer to array of face normals.  This is assumed to be of length NumIndices / 3.
+	*
+	* @param NumVerts            Total number of verts.  Usually this will be one more than the max of the Indices[] array.
+	*
+	* @param Indices             The index buffer.  Contents but not length maybe changed on return!
+	*
+	* @param AdditionalVertices  On return An array that maps old vertices to new ones
+	*                            (i.e. need to add Vertex[NumVerts + i] as a copy of VertexId = AdditionVertices[i] )
+	*/
+	void SplitHardAngles(const float HardAngleRadians, const TArray<FVector>& FaceNormals, const int32 NumVerts, TArray<uint32>& Indices, std::vector<uint32_t>& AdditionalVertices);
+
+	/**
+	* Splits vertices in the InOutMesh according to the mapping provided by the dupVerts array
+	* This assumes that the index buffer has already been updated to reflect the new vertices.
+	*
+	* @param InOutMesh           The mesh to be altered.
+	* @param dupVerts            A mapping of new vertices to old.
+	*
+	* If N = Number of vertices on input, the resulting mesh will have N + dupVerts.size()  verts.
+	* The vertices are duplicated with the following rule.
+	*
+	*   Vertex[N + d] = Vertex[dupVert[d]]
+	*/
+	void SplitVertices(FVertexDataMesh& InOutMesh, const std::vector<uint32_t>& dupVerts);
+
+	/**
+	* Copy the data in the member Normal Array to the memeber TransferNormal Array
+	*/
+	void CacheNormals(FVertexDataMesh& InMesh);
 
 	/**
 	* Very thin walls can develop mesh interpenetration (opposing wall surfaces meet) during simplification.  This

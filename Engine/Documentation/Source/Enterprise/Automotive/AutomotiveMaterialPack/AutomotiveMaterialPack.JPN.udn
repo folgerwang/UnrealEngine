@@ -86,7 +86,8 @@ Automotive Material Pack には、以下のマテリアルが入っています�
 		![Scale Aware Tiling](AP_02_SMP_01_Scale-Aware.png)
 		[/PARAM]
 	[/OBJECT]
-	* **World Aligned:** は、不正確な UV や不適切にセットアップされた UV が、適用されたマテリアルを正確に表示するようにします。
+	
+* **World Aligned:** は、不正確な UV や不適切にセットアップされた UV が、適用されたマテリアルを正確に表示するようにします。
 
 	[OBJECT:ComparisonSlider]
 		[PARAM:before]

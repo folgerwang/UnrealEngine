@@ -24,7 +24,7 @@ class ULevelStreamingAlwaysLoaded : public ULevelStreaming
 	//~ End UObject Interface
 
 	//~ Begin ULevelStreaming Interface
-	virtual bool ShouldBeLoaded() const override;
+	virtual bool ShouldBeLoaded() const override { return true; }
 	virtual bool ShouldBeAlwaysLoaded() const override { return true; } 
 	//~ End ULevelStreaming Interface
 

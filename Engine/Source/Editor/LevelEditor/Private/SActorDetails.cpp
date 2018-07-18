@@ -28,7 +28,7 @@
 #include "LevelEditorGenericDetails.h"
 #include "ScopedTransaction.h"
 #include "SourceCodeNavigation.h"
-#include "SDockTab.h"
+#include "Widgets/Docking/SDockTab.h"
 
 class SActorDetailsUneditableComponentWarning : public SCompoundWidget
 {

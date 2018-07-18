@@ -4,15 +4,18 @@
 
 #define STEAMVR_SUPPORTED_PLATFORMS (PLATFORM_MAC || (PLATFORM_LINUX && PLATFORM_CPU_X86_FAMILY && PLATFORM_64BITS) || (PLATFORM_WINDOWS && WINVER > 0x0502))
 
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "IHeadMountedDisplayModule.h"
 #include "IHeadMountedDisplay.h"
+#include "Logging/LogMacros.h"
 #if STEAMVR_SUPPORTED_PLATFORMS
 #include "openvr.h"
 #endif // STEAMVR_SUPPORTED_PLATFORMS
 
 /** Up to 8 motion controller devices supported (two VR motion controllers per Unreal controller, one for either the left or right hand.) */
 #define MAX_STEAMVR_CONTROLLER_PAIRS 4
+
+DECLARE_LOG_CATEGORY_EXTERN(LogSteamVR, Log, All);
 
 /**
  * The public interface to this module.  In most cases, this interface is only public to sibling modules 

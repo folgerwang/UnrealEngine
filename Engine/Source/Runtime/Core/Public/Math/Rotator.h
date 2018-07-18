@@ -298,6 +298,29 @@ public:
 	CORE_API void GetWindingAndRemainder( FRotator& Winding, FRotator& Remainder ) const;
 
 	/**
+	* Return the manhattan distance in degrees between this Rotator and the passed in one.
+	* @param Rotator[In] the Rotator we are comparing with.
+	* @return Distance(Manhattan) between the two rotators. 
+	*/
+	float GetManhattanDistance(const FRotator & Rotator) const;
+
+	/**
+	* Return a Rotator that has the same rotation but has different degree values for Yaw, Pitch, and Roll.
+	* This rotator should be within -180,180 range,
+	* @return A Rotator with the same rotation but different degrees.
+	*/
+	FRotator GetEquivalentRotator() const;
+
+	/**
+	* Modify if necessary the passed in rotator to be the closest rotator to it based upon it's equivalent.
+	* This Rotator should be within (-180, 180], usually just constructed from a Matrix or a Quaternion.
+	*
+	* @param MakeClosest[In/Out] the Rotator we want to make closest to us. Should be between 
+	* (-180, 180]. This Rotator may change if we need to use different degree values to make it closer.
+	*/
+	void SetClosestToMe(FRotator& MakeClosest) const;
+
+	/**
 	 * Get a textual representation of the vector.
 	 *
 	 * @return Text describing the vector.
@@ -373,7 +396,7 @@ public:
 	 * @param Angle The word angle.
 	 * @return The decompressed angle.
 	 */
-	static float DecompressAxisFromByte( uint16 Angle );
+	static float DecompressAxisFromByte( uint8 Angle );
 
 	/**
 	 * Compress a floating point angle into a word.
@@ -614,7 +637,7 @@ FORCEINLINE uint8 FRotator::CompressAxisToByte( float Angle )
 }
 
 
-FORCEINLINE float FRotator::DecompressAxisFromByte( uint16 Angle )
+FORCEINLINE float FRotator::DecompressAxisFromByte( uint8 Angle )
 {
 	// map [0->256) to [0->360)
 	return (Angle * 360.f / 256.f);
@@ -759,6 +782,24 @@ FORCEINLINE bool FRotator::ContainsNaN() const
 			!FMath::IsFinite(Roll));
 }
 
+FORCEINLINE float FRotator::GetManhattanDistance(const FRotator & Rotator) const
+{
+	return FMath::Abs<float>(Yaw - Rotator.Yaw) + FMath::Abs<float>(Pitch - Rotator.Pitch) + FMath::Abs<float>(Roll - Rotator.Roll);
+}
+
+FORCEINLINE FRotator FRotator::GetEquivalentRotator() const
+{
+	return FRotator(180.0f - Pitch,Yaw + 180.0f, Roll + 180.0f);
+}
+
+FORCEINLINE void FRotator::SetClosestToMe(FRotator& MakeClosest) const
+{
+	FRotator OtherChoice = MakeClosest.GetEquivalentRotator();
+	float FirstDiff = GetManhattanDistance(MakeClosest);
+	float SecondDiff = GetManhattanDistance(OtherChoice);
+	if (SecondDiff < FirstDiff)
+		MakeClosest = OtherChoice;
+}
 
 template<> struct TIsPODType<FRotator> { enum { Value = true }; };
 

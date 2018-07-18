@@ -7,7 +7,7 @@
 #include "UObject/ObjectMacros.h"
 #include "EngineDefines.h"
 #include "Components/SkeletalMeshComponent.h"
-#include "DelegateCombinations.h"
+#include "Delegates/DelegateCombinations.h"
 #include "DebugSkelMeshComponent.generated.h"
 
 class Error;
@@ -302,6 +302,7 @@ class UNREALED_API UDebugSkelMeshComponent : public USkeletalMeshComponent
 	//~ Begin SkeletalMeshComponent Interface
 	virtual void InitAnim(bool bForceReinit) override;
 	virtual bool IsWindEnabled() const override { return true; }
+	virtual void K2_SetAnimInstanceClass(class UClass* NewClass) override;
 	//~ End SkeletalMeshComponent Interface
 	// Preview.
 	// @todo document
@@ -313,6 +314,11 @@ class UNREALED_API UDebugSkelMeshComponent : public USkeletalMeshComponent
 	// @todo anim : you still need to give asset, so that we know which one to disable
 	// we can disable per asset, so that if some other window disabled before me, I don't accidently turn it off
 	void EnablePreview(bool bEnable, class UAnimationAsset * PreviewAsset);
+
+	// reference pose for this component
+	// we don't want to use default refpose because you still want to move joint when this mode is on
+	virtual void ShowReferencePose(bool bRefPose);
+	virtual bool IsReferencePoseShown() const;
 
 	/**
 	 * Update material information depending on color render mode 
@@ -453,5 +459,44 @@ public:
 	void RefreshSelectedClothingSkinnedPositions();
 
 	virtual void GetUsedMaterials(TArray<UMaterialInterface *>& OutMaterials, bool bGetDebugMaterials = false) const override;
+
+	/**
+	 * Define Custom Default pose for this component for preview
+	 */
+	virtual void SetCustomDefaultPose() {};
+
+	/*
+	 *	return RefSkeleton for drawing; 
+	 */
+	virtual const FReferenceSkeleton& GetReferenceSkeleton() const
+	{
+		if (SkeletalMesh)
+		{
+			return SkeletalMesh->RefSkeleton;
+		}
+
+		static FReferenceSkeleton EmptySkeleton;
+		return EmptySkeleton;
+	}
+
+	/*
+	*	return bone indices to draw
+	*/
+	virtual const TArray<FBoneIndexType>& GetDrawBoneIndices() const
+	{
+		return RequiredBones;
+	}
+
+	virtual int32 GetNumDrawTransform() const 
+	{
+		return GetNumComponentSpaceTransforms();
+	}
+	/*
+	 *	returns the transform of the joint 
+	 */
+	virtual FTransform GetDrawTransform(int32 BoneIndex) const
+	{
+		return GetComponentSpaceTransforms()[BoneIndex];
+	}
 
 };

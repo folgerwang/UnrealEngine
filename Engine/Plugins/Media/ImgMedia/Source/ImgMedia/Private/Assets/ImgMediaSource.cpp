@@ -11,7 +11,7 @@
  *****************************************************************************/
 
 UImgMediaSource::UImgMediaSource()
-	: FramesPerSecondOverride(0.0f)
+	: FrameRateOverride(0, 0)
 { }
 
 
@@ -51,11 +51,16 @@ void UImgMediaSource::SetSequencePath(const FString& Path)
 /* IMediaOptions interface
  *****************************************************************************/
 
-double UImgMediaSource::GetMediaOption(const FName& Key, const double DefaultValue) const
+int64 UImgMediaSource::GetMediaOption(const FName& Key, int64 DefaultValue) const
 {
-	if (Key == ImgMedia::FramesPerSecondOverrideOption)
+	if (Key == ImgMedia::FrameRateOverrideDenonimatorOption)
 	{
-		return FramesPerSecondOverride;
+		return FrameRateOverride.Denominator;
+	}
+
+	if (Key == ImgMedia::FrameRateOverrideNumeratorOption)
+	{
+		return FrameRateOverride.Numerator;
 	}
 
 	return Super::GetMediaOption(Key, DefaultValue);
@@ -75,7 +80,8 @@ FString UImgMediaSource::GetMediaOption(const FName& Key, const FString& Default
 
 bool UImgMediaSource::HasMediaOption(const FName& Key) const
 {
-	if ((Key == ImgMedia::FramesPerSecondOverrideOption) ||
+	if ((Key == ImgMedia::FrameRateOverrideDenonimatorOption) ||
+		(Key == ImgMedia::FrameRateOverrideNumeratorOption) ||
 		(Key == ImgMedia::ProxyOverrideOption))
 	{
 		return true;

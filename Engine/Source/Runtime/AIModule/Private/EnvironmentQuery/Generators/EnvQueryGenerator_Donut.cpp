@@ -92,7 +92,7 @@ void UEnvQueryGenerator_Donut::GenerateItems(FEnvQueryInstance& QueryInstance) c
 	int32 NumRings = NumberOfRings.GetValue();
 	int32 NumPoints = PointsPerRing.GetValue();
 
-	if ((InnerRadiusValue <= 0.f) || (OuterRadiusValue <= 0.f) ||
+	if ((InnerRadiusValue < 0.f) || (OuterRadiusValue <= 0.f) ||
 		(InnerRadiusValue > OuterRadiusValue) ||
 		(NumRings < 1) || (NumPoints < 1))
 	{

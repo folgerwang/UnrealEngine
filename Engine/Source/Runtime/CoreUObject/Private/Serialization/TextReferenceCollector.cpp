@@ -17,8 +17,8 @@ public:
 		, SourceToMatch(&InTextSource)
 		, Count(&OutCount)
 	{
-		ArIsSaving = true;
-		ArIsPersistent = true; // Skips transient properties
+		this->SetIsSaving(true);
+		this->SetIsPersistent(true); // Skips transient properties
 		ArShouldSkipBulkData = true; // Skips bulk data as we can't handle saving that!
 
 		// Build up the list of objects that are within our package - we won't follow object references to things outside of our package

@@ -20,6 +20,7 @@ namespace AutomationTool
 		// Command Environment
 		public const string LocalRoot = "uebp_LOCAL_ROOT";
 		public const string LogFolder = "uebp_LogFolder";
+		public const string FinalLogFolder = "uebp_FinalLogFolder";
 		public const string CSVFile = "uebp_CSVFile";
 		public const string EngineSavedFolder = "uebp_EngineSavedFolder";
 		public const string MacMallocNanoZone = "MallocNanoZone";
@@ -54,6 +55,7 @@ namespace AutomationTool
 		public string LocalRoot { get; protected set; }
 		public string EngineSavedFolder { get; protected set; }
 		public string LogFolder { get; protected set; }
+		public string FinalLogFolder { get; protected set; }
         public string CSVFile { get; protected set; }
 		public string RobocopyExe { get; protected set; }
 		public string MountExe { get; protected set; }
@@ -110,7 +112,19 @@ namespace AutomationTool
 				}
 				CommandUtils.SetEnvVar(EnvVarNames.LogFolder, LogFolder);
 			}
-			ClearLogFolder(LogFolder);
+
+			// clear the logfolder if we're the only running instance
+			if (InternalUtils.IsSoleInstance)
+			{
+				ClearLogFolder(LogFolder);
+			}
+
+			FinalLogFolder = CommandUtils.GetEnvVar(EnvVarNames.FinalLogFolder);
+			if(String.IsNullOrEmpty(FinalLogFolder))
+			{
+				FinalLogFolder = LogFolder;
+				CommandUtils.SetEnvVar(EnvVarNames.FinalLogFolder, FinalLogFolder);
+			}
 
 			RobocopyExe = GetSystemExePath("robocopy.exe");
 			MountExe = GetSystemExePath("mount.exe");

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -131,14 +131,22 @@ namespace UnrealBuildTool
 		/// <returns>True if the file exists and was read, false otherwise</returns>
 		internal static bool TryReadFile(FileReference Location, out ConfigFile ConfigFile)
 		{
-			if(!LocationToConfigFile.TryGetValue(Location, out ConfigFile))
+			lock (LocationToConfigFile)
 			{
-				if(FileReference.Exists(Location))
+				if (!LocationToConfigFile.TryGetValue(Location, out ConfigFile))
 				{
-					ConfigFile = new ConfigFile(Location);
+					if (FileReference.Exists(Location))
+					{
+						ConfigFile = new ConfigFile(Location);
+					}
+
+					if (ConfigFile != null)
+					{
+						LocationToConfigFile.Add(Location, ConfigFile);
+					}
 				}
-				LocationToConfigFile.Add(Location, ConfigFile);
 			}
+
 			return ConfigFile != null;
 		}
 
@@ -157,53 +165,56 @@ namespace UnrealBuildTool
 
 			// Try to get the cached hierarchy with this key
 			ConfigHierarchy Hierarchy;
-			if(!HierarchyKeyToHierarchy.TryGetValue(Key, out Hierarchy))
+			lock (HierarchyKeyToHierarchy)
 			{
-				List<ConfigFile> Files = new List<ConfigFile>();
-				foreach (FileReference IniFileName in ConfigHierarchy.EnumerateConfigFileLocations(Type, ProjectDir, Platform))
+				if (!HierarchyKeyToHierarchy.TryGetValue(Key, out Hierarchy))
 				{
-					ConfigFile File;
-					if(TryReadFile(IniFileName, out File))
+					List<ConfigFile> Files = new List<ConfigFile>();
+					foreach (FileReference IniFileName in ConfigHierarchy.EnumerateConfigFileLocations(Type, ProjectDir, Platform))
 					{
-						Files.Add(File);
+						ConfigFile File;
+						if (TryReadFile(IniFileName, out File))
+						{
+							Files.Add(File);
+						}
 					}
-				}
 
-				// If we haven't been given a generated project dir, but we do have a project then the generated configs
-				// should go into ProjectDir/Saved
-				if (GeneratedConfigDir == null && ProjectDir != null)
-				{
-					GeneratedConfigDir = DirectoryReference.Combine(ProjectDir, "Saved");
-				}
-
-				if (GeneratedConfigDir != null)
-				{
-					// We know where the generated version of this config file lives, so we can read it back in
-					// and include any user settings from there in our hierarchy
-					string BaseIniName = Enum.GetName(typeof(ConfigHierarchyType), Type);
-					string PlatformName = ConfigHierarchy.GetIniPlatformName(Platform);
-					FileReference DestinationIniFilename = FileReference.Combine(GeneratedConfigDir, "Config", PlatformName, BaseIniName + ".ini");
-					ConfigFile File;
-					if (TryReadFile(DestinationIniFilename, out File))
+					// If we haven't been given a generated project dir, but we do have a project then the generated configs
+					// should go into ProjectDir/Saved
+					if (GeneratedConfigDir == null && ProjectDir != null)
 					{
-						Files.Add(File);
+						GeneratedConfigDir = DirectoryReference.Combine(ProjectDir, "Saved");
 					}
-				}
 
-				// Handle command line overrides
-				string[] CmdLine = Environment.GetCommandLineArgs();
-				string IniConfigArgPrefix = "-ini:" + Enum.GetName(typeof(ConfigHierarchyType), Type) + ":";
-				foreach (string CmdLineArg in CmdLine)
-				{
-					if (CmdLineArg.StartsWith(IniConfigArgPrefix))
+					if (GeneratedConfigDir != null)
 					{
-						ConfigFile OverrideFile = new ConfigFile(CmdLineArg.Substring(IniConfigArgPrefix.Length));
-						Files.Add(OverrideFile);
+						// We know where the generated version of this config file lives, so we can read it back in
+						// and include any user settings from there in our hierarchy
+						string BaseIniName = Enum.GetName(typeof(ConfigHierarchyType), Type);
+						string PlatformName = ConfigHierarchy.GetIniPlatformName(Platform);
+						FileReference DestinationIniFilename = FileReference.Combine(GeneratedConfigDir, "Config", PlatformName, BaseIniName + ".ini");
+						ConfigFile File;
+						if (TryReadFile(DestinationIniFilename, out File))
+						{
+							Files.Add(File);
+						}
 					}
-				}
 
-				Hierarchy = new ConfigHierarchy(Files);
-				HierarchyKeyToHierarchy.Add(Key, Hierarchy);
+					// Handle command line overrides
+					string[] CmdLine = Environment.GetCommandLineArgs();
+					string IniConfigArgPrefix = "-ini:" + Enum.GetName(typeof(ConfigHierarchyType), Type) + ":";
+					foreach (string CmdLineArg in CmdLine)
+					{
+						if (CmdLineArg.StartsWith(IniConfigArgPrefix))
+						{
+							ConfigFile OverrideFile = new ConfigFile(CmdLineArg.Substring(IniConfigArgPrefix.Length));
+							Files.Add(OverrideFile);
+						}
+					}
+
+					Hierarchy = new ConfigHierarchy(Files);
+					HierarchyKeyToHierarchy.Add(Key, Hierarchy);
+				}
 			}
 			return Hierarchy;
 		}
@@ -216,36 +227,39 @@ namespace UnrealBuildTool
 		static List<ConfigField> FindConfigFieldsForType(Type TargetObjectType)
 		{
 			List<ConfigField> Fields;
-			if(!TypeToConfigFields.TryGetValue(TargetObjectType, out Fields))
+			lock(TypeToConfigFields)
 			{
-				Fields = new List<ConfigField>();
-				foreach(FieldInfo FieldInfo in TargetObjectType.GetFields(BindingFlags.Instance | BindingFlags.GetField | BindingFlags.GetProperty | BindingFlags.Public | BindingFlags.NonPublic))
+				if (!TypeToConfigFields.TryGetValue(TargetObjectType, out Fields))
 				{
-					IEnumerable<ConfigFileAttribute> Attributes = FieldInfo.GetCustomAttributes<ConfigFileAttribute>();
-					foreach(ConfigFileAttribute Attribute in Attributes)
+					Fields = new List<ConfigField>();
+					foreach (FieldInfo FieldInfo in TargetObjectType.GetFields(BindingFlags.Instance | BindingFlags.GetField | BindingFlags.GetProperty | BindingFlags.Public | BindingFlags.NonPublic))
 					{
-						// Copy the field 
-						ConfigField Setter = new ConfigField();
-						Setter.FieldInfo = FieldInfo;
-						Setter.Attribute = Attribute;
-
-						// Check if the field type implements ICollection<>. If so, we can take multiple values.
-						foreach (Type InterfaceType in FieldInfo.FieldType.GetInterfaces())
+						IEnumerable<ConfigFileAttribute> Attributes = FieldInfo.GetCustomAttributes<ConfigFileAttribute>();
+						foreach (ConfigFileAttribute Attribute in Attributes)
 						{
-							if (InterfaceType.IsGenericType && InterfaceType.GetGenericTypeDefinition() == typeof(ICollection<>))
-							{
-								MethodInfo MethodInfo = InterfaceType.GetRuntimeMethod("Add", new Type[] { InterfaceType.GenericTypeArguments[0] });
-								Setter.AddElement = (Target, Value) => { MethodInfo.Invoke(Setter.FieldInfo.GetValue(Target), new object[] { Value }); };
-								Setter.ElementType = InterfaceType.GenericTypeArguments[0];
-								break;
-							}
-						}
+							// Copy the field 
+							ConfigField Setter = new ConfigField();
+							Setter.FieldInfo = FieldInfo;
+							Setter.Attribute = Attribute;
 
-						// Add it to the output list
-						Fields.Add(Setter);
+							// Check if the field type implements ICollection<>. If so, we can take multiple values.
+							foreach (Type InterfaceType in FieldInfo.FieldType.GetInterfaces())
+							{
+								if (InterfaceType.IsGenericType && InterfaceType.GetGenericTypeDefinition() == typeof(ICollection<>))
+								{
+									MethodInfo MethodInfo = InterfaceType.GetRuntimeMethod("Add", new Type[] { InterfaceType.GenericTypeArguments[0] });
+									Setter.AddElement = (Target, Value) => { MethodInfo.Invoke(Setter.FieldInfo.GetValue(Target), new object[] { Value }); };
+									Setter.ElementType = InterfaceType.GenericTypeArguments[0];
+									break;
+								}
+							}
+
+							// Add it to the output list
+							Fields.Add(Setter);
+						}
 					}
+					TypeToConfigFields.Add(TargetObjectType, Fields);
 				}
-				TypeToConfigFields.Add(TargetObjectType, Fields);
 			}
 			return Fields;
 		}

@@ -28,8 +28,6 @@ public class TVOSTargetPlatform : ModuleRules
 		}
 		);
 
-		PlatformSpecificDynamicallyLoadedModuleNames.Add("LaunchDaemonMessages");
-
 		if (Target.bCompileAgainstEngine)
 		{
 			PrivateDependencyModuleNames.Add("Engine");

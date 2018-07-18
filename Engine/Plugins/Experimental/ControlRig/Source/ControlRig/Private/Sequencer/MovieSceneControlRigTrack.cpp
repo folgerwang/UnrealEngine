@@ -1,12 +1,13 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneControlRigTrack.h"
-#include "MovieSceneControlRigSection.h"
+#include "Sequencer/MovieSceneControlRigTrack.h"
+#include "Sequencer/MovieSceneControlRigSection.h"
 #include "Compilation/MovieSceneCompilerRules.h"
 #include "Evaluation/MovieSceneEvaluationTrack.h"
-#include "ControlRigSequence.h"
+#include "Sequencer/ControlRigSequence.h"
 #include "MovieScene.h"
-#include "ControlRigBindingTrack.h"
+#include "Sequencer/ControlRigBindingTrack.h"
+#include "MovieSceneTimeHelpers.h"
 
 #define LOCTEXT_NAMESPACE "MovieSceneControlRigTrack"
 
@@ -20,11 +21,17 @@ UMovieSceneControlRigTrack::UMovieSceneControlRigTrack(const FObjectInitializer&
 	EvalOptions.bEvaluateNearestSection_DEPRECATED = EvalOptions.bCanEvaluateNearestSection = true;
 }
 
-void UMovieSceneControlRigTrack::AddNewControlRig(float KeyTime, UControlRigSequence* InSequence)
+void UMovieSceneControlRigTrack::AddNewControlRig(FFrameNumber KeyTime, UControlRigSequence* InSequence)
 {
 	UMovieSceneControlRigSection* NewSection = Cast<UMovieSceneControlRigSection>(CreateNewSection());
 	{
-		NewSection->InitialPlacement(Sections, KeyTime, KeyTime + InSequence->GetMovieScene()->GetPlaybackRange().Size<float>(), SupportsMultipleRows());
+		UMovieScene* OuterMovieScene = GetTypedOuter<UMovieScene>();
+		UMovieScene* InnerMovieScene = InSequence->GetMovieScene();
+
+		int32      InnerSequenceLength = MovieScene::DiscreteSize(InnerMovieScene->GetPlaybackRange());
+		FFrameTime OuterSequenceLength = ConvertFrameTime(InnerSequenceLength, InnerMovieScene->GetTickResolution(), OuterMovieScene->GetTickResolution());
+
+		NewSection->InitialPlacement(Sections, KeyTime, OuterSequenceLength.FrameNumber.Value, SupportsMultipleRows());
 		NewSection->SetSequence(InSequence);
 	}
 

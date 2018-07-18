@@ -143,18 +143,13 @@ public:
 	}
 
 	/**
-	 * Returns currently active custom present. 
-	 */
-	virtual FRHICustomPresent* GetCustomPresent() { return nullptr; }
-
-	/**
 	 * Returns currently active render target manager.
 	 */
 	virtual IStereoRenderTargetManager* GetRenderTargetManager() { return nullptr; }
 
 	/**
-	* Returns an IStereoLayers implementation, if one is present
-	*/
+	 * Returns an IStereoLayers implementation, if one is present
+	 */
 	virtual IStereoLayers* GetStereoLayers () { return nullptr; }
 
 };

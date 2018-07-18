@@ -2,7 +2,7 @@
 #pragma once
 
 #include "Data/ChunkData.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 namespace BuildPatchServices
 {

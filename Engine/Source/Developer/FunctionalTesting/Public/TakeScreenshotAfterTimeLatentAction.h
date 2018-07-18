@@ -11,7 +11,7 @@ struct FLatentActionInfo;
 class FTakeScreenshotAfterTimeLatentAction : public FPendingLatentAction
 {
 public:
-	FTakeScreenshotAfterTimeLatentAction(const FLatentActionInfo& LatentInfo, const FString& InScreenshotName, FAutomationScreenshotOptions InOptions);
+	FTakeScreenshotAfterTimeLatentAction(const FLatentActionInfo& LatentInfo, const FString& InScreenshotName, const FString& InNotes, FAutomationScreenshotOptions InOptions);
 	virtual ~FTakeScreenshotAfterTimeLatentAction();
 
 	virtual void UpdateOperation(FLatentResponse& Response) override;
@@ -29,6 +29,7 @@ private:
 	int32 OutputLink;
 	FWeakObjectPtr CallbackTarget;
 	FString ScreenshotName;
+	FString Notes;
 	float SecondsRemaining;
 	bool IssuedScreenshotCapture;
 	bool TakenScreenshot;

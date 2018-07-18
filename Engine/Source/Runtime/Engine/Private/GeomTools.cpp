@@ -389,21 +389,22 @@ void FGeomTools::Buid2DPolysFromEdges(TArray<FUtilPoly2D>& OutPolys, const TArra
 }
 
 /** Given three direction vectors, indicates if A and B are on the same 'side' of Vec. */
-bool FGeomTools::VectorsOnSameSide(const FVector& Vec, const FVector& A, const FVector& B)
+bool FGeomTools::VectorsOnSameSide(const FVector& Vec, const FVector& A, const FVector& B, const float SameSideDotProductEpsilon)
 {
 	const FVector CrossA = Vec ^ A;
 	const FVector CrossB = Vec ^ B;
-	return !FMath::IsNegativeFloat(CrossA | CrossB);
+	float DotWithEpsilon = SameSideDotProductEpsilon + ( CrossA | CrossB );
+	return !FMath::IsNegativeFloat(DotWithEpsilon);
 }
 
 /** Util to see if P lies within triangle created by A, B and C. */
-bool FGeomTools::PointInTriangle(const FVector& A, const FVector& B, const FVector& C, const FVector& P)
+bool FGeomTools::PointInTriangle(const FVector& A, const FVector& B, const FVector& C, const FVector& P, const float InsideTriangleDotProductEpsilon)
 {
 	// Cross product indicates which 'side' of the vector the point is on
 	// If its on the same side as the remaining vert for all edges, then its inside.	
-	if( VectorsOnSameSide(B-A, P-A, C-A) &&
-		VectorsOnSameSide(C-B, P-B, A-B) &&
-		VectorsOnSameSide(A-C, P-C, B-C) )
+	if( VectorsOnSameSide(B-A, P-A, C-A, InsideTriangleDotProductEpsilon) &&
+		VectorsOnSameSide(C-B, P-B, A-B, InsideTriangleDotProductEpsilon) &&
+		VectorsOnSameSide(A-C, P-C, B-C, InsideTriangleDotProductEpsilon) )
 	{
 		return true;
 	}

@@ -55,6 +55,10 @@ namespace UnrealBuildTool
 			{
 				XgConsole = "xgConsole.exe";
 			}
+			else if (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Linux)
+			{
+				XgConsole = "ib_console";
+			}
 
 			// Search the path for it
 			string PathVariable = Environment.GetEnvironmentVariable("PATH");
@@ -108,16 +112,7 @@ namespace UnrealBuildTool
 			for (int ActionIndex = 1; ActionIndex < ActionsToExecute.Count && XGEResult; ++ActionIndex)
 			{
 				Action CurrentAction = ActionsToExecute[ActionIndex];
-				if (CurrentAction.OutputEventHandler == ActionBatch[0].OutputEventHandler)
-				{
-					ActionBatch.Add(CurrentAction);
-				}
-				else
-				{
-					XGEResult = ExecuteActionBatch(ActionBatch);
-					ActionBatch.Clear();
-					ActionBatch.Add(CurrentAction);
-				}
+				ActionBatch.Add(CurrentAction);
 			}
 			if (ActionBatch.Count > 0 && XGEResult)
 			{
@@ -142,42 +137,43 @@ namespace UnrealBuildTool
 				{
 					try
 					{
-						const string BuilderKey = "HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\Xoreax\\IncrediBuild\\Builder";
+						// @todo: find a way to report that for other host platforms
+						if (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64)
+						{
+							const string BuilderKey = "HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\Xoreax\\IncrediBuild\\Builder";
 
-						string CPUUtilization = Registry.GetValue(BuilderKey, "ForceCPUCount", "").ToString();
-						string AvoidTaskExecutionOnLocalMachine = Registry.GetValue(BuilderKey, "AvoidLocalExec", "").ToString();
-						string RestartRemoteProcessesOnLocalMachine = Registry.GetValue(BuilderKey, "AllowDoubleTargets", "").ToString();
-						string LimitMaxNumberOfCores = Registry.GetValue(BuilderKey, "MaxHelpers", "").ToString();
-						string WriteOutputToDiskInBackground = Registry.GetValue(BuilderKey, "LazyOutputWriter_Beta", "").ToString();
-						string MaxConcurrentPDBs = Registry.GetValue(BuilderKey, "MaxConcurrentPDBs", "").ToString();
-						string EnabledAsHelper = Registry.GetValue(BuilderKey, "LastEnabled", "").ToString();
+							string CPUUtilization = Registry.GetValue(BuilderKey, "ForceCPUCount", "").ToString();
+							string AvoidTaskExecutionOnLocalMachine = Registry.GetValue(BuilderKey, "AvoidLocalExec", "").ToString();
+							string RestartRemoteProcessesOnLocalMachine = Registry.GetValue(BuilderKey, "AllowDoubleTargets", "").ToString();
+							string LimitMaxNumberOfCores = Registry.GetValue(BuilderKey, "MaxHelpers", "").ToString();
+							string WriteOutputToDiskInBackground = Registry.GetValue(BuilderKey, "LazyOutputWriter_Beta", "").ToString();
+							string MaxConcurrentPDBs = Registry.GetValue(BuilderKey, "MaxConcurrentPDBs", "").ToString();
+							string EnabledAsHelper = Registry.GetValue(BuilderKey, "LastEnabled", "").ToString();
 
-						Telemetry.SendEvent("XGESettings.2",
-							"CPUUtilization", CPUUtilization,
-							"AvoidTaskExecutionOnLocalMachine", AvoidTaskExecutionOnLocalMachine,
-							"RestartRemoteProcessesOnLocalMachine", RestartRemoteProcessesOnLocalMachine,
-							"LimitMaxNumberOfCores", LimitMaxNumberOfCores,
-							"WriteOutputToDiskInBackground", WriteOutputToDiskInBackground,
-							"MaxConcurrentPDBs", MaxConcurrentPDBs,
-							"EnabledAsHelper", EnabledAsHelper);
+							Telemetry.SendEvent("XGESettings.2",
+								"CPUUtilization", CPUUtilization,
+								"AvoidTaskExecutionOnLocalMachine", AvoidTaskExecutionOnLocalMachine,
+								"RestartRemoteProcessesOnLocalMachine", RestartRemoteProcessesOnLocalMachine,
+								"LimitMaxNumberOfCores", LimitMaxNumberOfCores,
+								"WriteOutputToDiskInBackground", WriteOutputToDiskInBackground,
+								"MaxConcurrentPDBs", MaxConcurrentPDBs,
+								"EnabledAsHelper", EnabledAsHelper);
+						}
 					}
 					catch
 					{
 					}
 				}
-				XGEResult = ExecuteTaskFileWithProgressMarkup(XGETaskFilePath, Actions.Count, (Sender, Args) =>
-					{
-						if (Actions[0].OutputEventHandler != null)
-						{
-							Actions[0].OutputEventHandler(Sender, Args);
-						}
-						else
-						{
-							Console.WriteLine(Args.Data);
-						}
-					});
+
+				DataReceivedEventHandler OutputHandler = ((Sender, Args) => { if(Args.Data != null) { DefaultOutputHandler(Args.Data); } });
+				XGEResult = ExecuteTaskFileWithProgressMarkup(XGETaskFilePath, Actions.Count, OutputHandler);
 			}
 			return XGEResult;
+		}
+
+		private static void DefaultOutputHandler(string Message)
+		{
+			Log.TraceInformation(Message);
 		}
 
 		private static DataReceivedEventArgs ConstructDataReceivedEventArgs(string NewData)
@@ -225,10 +221,6 @@ namespace UnrealBuildTool
 							int DepIndex = InActions.IndexOf(Item.ProducingAction);
 							if (DepIndex > ActionIndex)
 							{
-								//Console.WriteLine("Action is not topologically sorted.");
-								//Console.WriteLine("  {0} {1}", Action.CommandPath, Action.CommandArguments);
-								//Console.WriteLine("Dependency");
-								//Console.WriteLine("  {0} {1}", Item.ProducingAction.CommandPath, Item.ProducingAction.CommandArguments);
 								NumSortErrors++;
 							}
 						}
@@ -236,7 +228,6 @@ namespace UnrealBuildTool
 				}
 				if (NumSortErrors > 0)
 				{
-					//Console.WriteLine("The UBT action graph was not sorted. Sorting actions....");
 					Actions = new List<Action>();
 					HashSet<int> UsedActions = new HashSet<int>();
 					for (int ActionIndex = 0; ActionIndex < InActions.Count; ActionIndex++)
@@ -272,11 +263,7 @@ namespace UnrealBuildTool
 								int DepIndex = Actions.IndexOf(Item.ProducingAction);
 								if (DepIndex > ActionIndex)
 								{
-									Console.WriteLine("Action is not topologically sorted.");
-									Console.WriteLine("  {0} {1}", Action.CommandPath, Action.CommandArguments);
-									Console.WriteLine("Dependency");
-									Console.WriteLine("  {0} {1}", Item.ProducingAction.CommandPath, Item.ProducingAction.CommandArguments);
-									throw new BuildException("Cyclical Dependency in action graph.");
+									throw new BuildException("Action is not topologically sorted.\n  {0} {1}\nDependency\n  {2} {3}", Action.CommandPath, Action.CommandArguments, Item.ProducingAction.CommandPath, Item.ProducingAction.CommandArguments);
 								}
 							}
 						}
@@ -390,7 +377,7 @@ namespace UnrealBuildTool
 					string.Join(
 						",",
 						Action.ProducedItems.ConvertAll<string>(
-							delegate(FileItem ProducedItem) { return ProducedItem.ToString(); }
+							delegate(FileItem ProducedItem) { return ProducedItem.Location.GetFileName(); }
 							).ToArray()
 						)
 					);
@@ -470,7 +457,7 @@ namespace UnrealBuildTool
 			// @todo: There is a KB coming that will fix this. Once that KB is available, test if it is present. Stalls will not be a problem if it is.
 			//
 			// Stalls are possible. However there is a workaround in XGE build 1659 and newer that can avoid the issue.
-			string XGEVersion = (string)Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Xoreax\IncrediBuild\Builder", "Version", null);
+			string XGEVersion = (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64) ? (string)Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Xoreax\IncrediBuild\Builder", "Version", null) : null;
 			if (XGEVersion != null)
 			{
 				int XGEBuildNumber;
@@ -491,7 +478,7 @@ namespace UnrealBuildTool
 
 			ProcessStartInfo XGEStartInfo = new ProcessStartInfo(
 				"xgConsole",
-				string.Format("\"{0}\" /Rebuild /NoWait {1} /NoLogo {2} /ShowTime {3}",
+				string.Format("\"{0}\" /Rebuild /NoWait {1} /NoLogo {2} /ShowAgent /ShowTime {3}",
 					TaskFilePath,
 					bStopXGECompilationAfterErrors ? "/StopOnErrors" : "",
 					SilentOption,

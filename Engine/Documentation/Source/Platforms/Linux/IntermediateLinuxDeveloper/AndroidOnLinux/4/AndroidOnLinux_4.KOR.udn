@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3736300
 Availability: Public
-Title: 4 - Deploying your Level
+Title: 4 - 레벨 디플로이
 Crumbs:%ROOT%
-Description:Learn how to deploy a level onto your Android device from UE4.
+Description:UE4 에서 안드로이드 디바이스에 레벨을 디플로이하는 방법입니다.
 Version: 4.17
 type:quick start
 parent:Platforms/Linux/IntermediateLinuxDeveloper/AndroidOnLinux
@@ -14,63 +14,63 @@ Contributor:yaakuro
 
 [nav]
 
-Deploying a level means that you're going to [Cook](Engine/Deployment/Cooking) and [Launch](Engine/Deployment/Launching) a level from UE4 onto your Android device. 
-Because you're deploying a mobile application onto an Android device, there are a lot of details to consider, including (although, not limited to); your Linux computer's compilation environment, 
-your Android device's instruction set, and your device's rendering capabilities. As such, you'll review some of the most common pre-deployment considerations before deploying the **ThirdPersonExampleMap** level onto 
-your Android device. 
+레벨을 디플로이한다는 것은 안드로이드 디바이스 상에 UE4 에서 레벨을 [쿠킹](Engine/Deployment/Cooking) 및 [실행](Engine/Deployment/Launching) 한다는 뜻입니다.
+안드로이드 디바이스 상에 모바일 어플리케이션을 디플로이한다는 것은, 고려할 것이 많다는 뜻이기도 합니다. 예를 들면, 리눅스 컴퓨터의 컴파일 환경, 
+안드로이드 디바이스의 인스트럭션 세트, 디바이스의 렌더링 성능 등입니다. 그러므로 디플로이 전 일반적으로 고려해야 하는 사항을 몇 가지 검토한 후 **ThirdPersonExampleMap** 레벨을 
+안드로이드 디바이스에 디플로이할 것입니다.
 
-## Pre-deployment Considerations on Linux
+## 리눅스에서 디플로이 전 고려할 사항
 
-Prior to deploying your application, refer to this list, which was written to help you avoid some common problems that might arise while you're deploying the game to your device.
+어플리케이션 디플로이 전, 이 목록을 참고하면 디바이스에 게임을 디플로이하는 도중 발생할 수 있는 일반적인 문제 몇 가지를 피하는 데 도움이 될 것입니다.
 
-* Although it may seem like an obvious consideration, please make sure that the Android device is properly connected to your computer.
-* If you already haven't done so, verify that Android Debug Bridge (adb) lists your connected device(s). To learn more about adb, enter `adb --help` into the terminal. You can also refer to the [Android Debug Bridge User Guide](https://developer.android.com/studio/command-line/adb.html) to learn more about adb and how to set up the program on your computer. 
-* In order to properly build, cook, package, and deploy your game to Android, you'll need to have JDK 8 installed, with your `JAVA_HOME` environment variable set to the correct version of the JDK. To verify that `JAVA_HOME` is set properly, enter `echo $JAVA_HOME` into the terminal. If you don't see the correct JDK version, [download JDK 8](http://www.oracle.com/technetwork/java/javase/downloads/index.html), and install it on your Linux computer, making sure to set the `JAVA_HOME` environment variable to the newly installed JDK. You can set the `JAVA_HOME` environment variable in the [Android SDK Project Settings](https://developer.android.com/studio/command-line/variables.html).
-* Make sure that you're building for the appropriate ARM architecture, because if you don't, your project won't deploy properly. After verifying the instruction set that'll work on your device, you can select the appropriate ARM architecture support from inside the Editor by navigating to **Edit > Project Settings... > Android > Build**, and selecting either **Support arm7** or **Support arm64**. 
-* Currently, we don't provide **Vulkan** rendering support from UE4 on Linux. 
-* Different Android devices uniquely support a variety of texture formats. If you don't know which texture formats are supported by your Android device, try setting your target texture to the Ericsson Texture Compression 1 (ETC 1) compression scheme, which should be supported by most Android devices. To learn more about supporting multiple textures, check out Android's documentation on [Creating Multiple APKs for Different GL Textures](https://developer.android.com/training/multiple-apks/texture.html). 
+* 너무 당연해 보일 수는 있지만, 컴퓨터에 안드로이드 디바이스가 제대로 연결되었는지 확인해 주세요.
+* Android Debug Bridge (adb)에 연결된 디바이스가 나오는지 확인하세요. adb 관련 자세한 내용은 터미널에 `adb --help` 라 입력합니다. [Android Debug Bridge User Guide](https://developer.android.com/studio/command-line/adb.html) 에서 adb 관련 자세한 정보는 물론 구성 방법을 확인할 수 있습니다.
+* 안드로이드에 게임을 제대로 빌드, 쿠킹, 패키징, 디플로이하기 위해서는, JDK 8 이 설치되었는지, `JAVA_HOME` 환경 변수는 올바른 JDK 버전으로 설정되었는지 확인해야 합니다. `JAVA_HOME` 이 제대로 설정되었는지 확인하려면, 터미널에 `echo $JAVA_HOME` 라 입력하면 됩니다. 올바른 JDK 버전이 보이지 않으면, [JDK 8 다운로드](http://www.oracle.com/technetwork/java/javase/downloads/index.html) 후 리눅스 컴퓨터에 설치하고, `JAVA_HOME` 환경 변수가 새로 설치된 JDK 로 설정되었는지 확인합니다. `JAVA_HOME` 환경 변수는 [Android SDK Project Settings](https://developer.android.com/studio/command-line/variables.html) 에서 설정할 수 있습니다.
+* 적합한 ARM 아키텍처용으로 빌드중인지 확인합니다. 다르면 프로젝트가 제대로 디플로이되지 않습니다. 디바이스에서 정상 작동하는 인스트럭션 세트를 확인한 이후, 에디터 **편집 > 프로젝트 세팅... > 안드로이드 > Build** 에서 적합한 ARM 아키텍처 지원을 선택하고, **Support arm7** 또는 **Support arm64** 중에서 선택합니다. 
+* 현재 리눅스 UE4 에는 **Vulkan** 렌더링 지원이 제공되지 않습니다.
+* 여러가지 안드로이드 디바이스가 고유한 방식으로 다양한 텍스처 포맷을 지원합니다. 안드로이드 디바이스에 지원되는 텍스처 포맷이 무엇인지 확실치 않은 경우, 타겟 텍스처를 Ericsson Texture Compression 1 (ETC 1) 압축 방식으로 설정해 보세요. 대부분의 안드로이드 디바이스에 지원되는 방식입니다. 다중 텍스처 지원 관련 자세한 내용은, 안드로이드의 [Creating Multiple APKs for Different GL Textures](https://developer.android.com/training/multiple-apks/texture.html) 문서를 참고하세요. 
 
-#### Reviewing Available Texture Formats
+#### 사용가능 텍스처 포맷 검토
 
-If you're interested in reading more about currently supported textures, the following chart provides a quick summary of the most commonly supported textures on Android devices:
+현재 지원되는 텍스처 관련 자세한 내용은, 안드로이드 디바이스에 흔히 지원되는 텍스처에 대한 간략 개요가 제공되는 다음 표를 참고하세요:
 
 [INCLUDE:Platforms/Android/Reference#androidformats]
 
-## Deploying your Level
+## 레벨 디플로이
 
-Now that you've read through some of the most important considerations for deploying games to Android devices, you're ready to begin the deployment process.
+안드로이드 디바이스에 게임을 디플로이할 때 가장 중요하게 고려해야 할 사항을 몇 가지 살펴봤으니, 이제 디플로이 프로세시를 시작할 준비가 되었습니다.
 
-1.	First, make sure that the **ThirdPersonExampleMap** is open.
+1.	먼저 **ThirdPersonExampleMap** 이 열렸는지 확인합니다.
 
 	[REGION:lightbox]
 		[![](LinuxAndroid_Step26.png)(w:900)](LinuxAndroid_Step26.png)
 	[/REGION]
 	
 	[REGION:caption]
-		Click for full image.
+		클릭하면 이미지 원본을 확인합니다.
 	[/REGION]
 
-1.	To open the **Devices** menu, click the arrow next to the **Launch** icon located in the **Main Toolbar**.
+1.	**Devices** (디바이스) 메뉴를 열기 위해서는, **메인 툴바** 의 **실행** 아이콘 옆 작은 화살표를 클릭합니다.
 
 	[REGION:lightbox]
 		[![](LinuxAndroid_Step27.png)(w:900)](LinuxAndroid_Step27.png)
 	[/REGION]
 	
 	[REGION:caption]
-		Click for full image.
+		클릭하면 이미지 원본을 확인합니다.
 	[/REGION]
 
-1.	With the **Devices** menu open, select your Android Device.
+1.	**디바이스** 메뉴에서 자신의 안드로이드 디바이스를 선택합니다.
 
 	[REGION:lightbox]
 		[![](LinuxAndroid_Step28.png)(w:900)](LinuxAndroid_Step28.png)
 	[/REGION]
 	
 	[REGION:caption]
-		Click for full image.
+		클릭하면 이미지 원본을 확인합니다.
 	[/REGION]
 
-1.	At this point, your Unreal Engine will deploy the level to your Android device. 
+1.	언리얼 엔진이 레벨을 안드로이드 디바이스에 디플로이할 것입니다.
 
 	[OBJECT:EmbeddedVideo]
 		[PARAMLITERAL:width]
@@ -85,27 +85,27 @@ Now that you've read through some of the most important considerations for deplo
 	[/OBJECT]
 
 	[REGION:note]
-	As you can see in the video, UE4 updates the progress of your application's deployment process in the Editor's lower right corner.
+	비디오에서 보듯, 에디터 우하단 구석에 어플리케이션 디플로이 프로세스 진행상황이 업데이트됩니다.
 	[/REGION]
 
-1.	When UE4 finishes cooking and launching your project, the level should be running on your device. You'll also be able to see an Unreal Engine icon, which should be accessible from your Android Applications Drawer.
+1.	프로젝트 쿠킹 및 실행이 완료되면, 디바이스에 레벨이 실행될 것입니다. 언리얼 엔진 아이콘도 확인할 수 있는데, Android Applications Drawer 에서 접근할 수 있습니다.
 
 	![](LinuxAndroid_Step29.png)
 
-## Determining Supported Texture Formats
+## 지원 텍스처 포맷 확인
 
-If you're still wondering which texture formats are supported by your Android device, try out the following step:
+자신의 안드로이드 디바이스에 지원되는 텍스처 포맷이 무엇인지 아직도 잘 모르겠으면, 다음과 같은 방법을 시도해 보세요:
 
-1.	While the game is running on your device, tap the screen with four (4) fingers.
+1.	디바이스에서 게임이 실행중일 때, 화면을 네 (4) 손가락 탭합니다.
 
 	![](LinuxAndroid_Step30.png)(w:900)
 
 	[REGION:caption]
-		A dialog should appear, displaying the texture formats that are supported by your Android device.
+		대화창이 나타나, 안드로이드 디바이스에 지원되는 텍스처 포맷이 표시됩니다.
 	[/REGION]
 
-## End Result
+## 최종 결과
 
-Congratulations! You should now have the Third Person Example Map running on your Android device.
+축하합니다! 이제 안드로이드 디바이스에 Third Person Example Map 이 실행되고 있는 것이 보일 것입니다.
 
 [nav]

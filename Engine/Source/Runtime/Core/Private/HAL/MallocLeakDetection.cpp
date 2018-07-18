@@ -5,6 +5,7 @@
 =============================================================================*/
 
 #include "HAL/MallocLeakDetection.h"
+#include "HAL/MallocLeakDetectionProxy.h"
 #include "Logging/LogMacros.h"
 #include "HAL/PlatformTLS.h"
 #include "HAL/IConsoleManager.h"
@@ -81,28 +82,28 @@ bool FMallocLeakDetection::IsDisabledForThisThread() const
 	return !!FPlatformTLS::GetTlsValue(FMallocLeakDetectionStatics::Get().WhitelistTLSID);
 }
 
-void FMallocLeakDetection::PushContext(const FString& Context)
+void FMallocLeakDetection::PushContext(const TCHAR* Context)
 {
 	FScopeLock Lock(&AllocatedPointersCritical);
 
-	TArray<ContextString>* TLContexts = (TArray<ContextString>*)FPlatformTLS::GetTlsValue(FMallocLeakDetectionStatics::Get().ContextsTLSID);
+	TArray<FContextString>* TLContexts = (TArray<FContextString>*)FPlatformTLS::GetTlsValue(FMallocLeakDetectionStatics::Get().ContextsTLSID);
 	if (!TLContexts)
 	{
-		TLContexts = new TArray<ContextString>();
+		TLContexts = new TArray<FContextString>();
 		FPlatformTLS::SetTlsValue(FMallocLeakDetectionStatics::Get().ContextsTLSID, TLContexts);
 	}
 
 	bRecursive = true;
 
-	ContextString Str;
-	FCString::Strncpy(Str.Buffer, *Context, 128);
+	FContextString Str;
+	FCString::Strncpy(Str.Buffer, Context, ARRAY_COUNT(Str.Buffer));
 	TLContexts->Push(Str);
 	bRecursive = false;
 }
 
 void FMallocLeakDetection::PopContext()
 {
-	TArray<ContextString>* TLContexts = (TArray<ContextString>*)FPlatformTLS::GetTlsValue(FMallocLeakDetectionStatics::Get().ContextsTLSID);
+	TArray<FContextString>* TLContexts = (TArray<FContextString>*)FPlatformTLS::GetTlsValue(FMallocLeakDetectionStatics::Get().ContextsTLSID);
 	check(TLContexts);
 	TLContexts->Pop(false);
 }
@@ -379,7 +380,7 @@ int32 FMallocLeakDetection::DumpOpenCallstacks(const TCHAR* FileName, const FMal
 
 		TArray<FString> SortedContexts;
 
-		for (const auto& Pair : OpenPointers)
+		for (const TPair<void*, FCallstackTrack>& Pair : CopyTemp(OpenPointers))
 		{
 			if (Pair.Value.CachedHash == Key)
 			{
@@ -455,7 +456,7 @@ void FMallocLeakDetection::Malloc(void* Ptr, SIZE_T Size)
 				OpenPointers.Add(Ptr, Callstack);
 				AllocsWithoutCompact++;
 
-				TArray<ContextString>* TLContexts = (TArray<ContextString>*)FPlatformTLS::GetTlsValue(FMallocLeakDetectionStatics::Get().ContextsTLSID);
+				TArray<FContextString>* TLContexts = (TArray<FContextString>*)FPlatformTLS::GetTlsValue(FMallocLeakDetectionStatics::Get().ContextsTLSID);
 
 				if (TLContexts && TLContexts->Num())
 				{
@@ -572,7 +573,7 @@ void FMallocLeakDetection::Realloc(void* OldPtr, SIZE_T OldSize, void* NewPtr, S
 		{
 			// realloc returned the same pointer, if there was a context when the call happened then
 			// update it.
-			TArray<ContextString>* TLContexts = (TArray<ContextString>*)FPlatformTLS::GetTlsValue(FMallocLeakDetectionStatics::Get().ContextsTLSID);
+			TArray<FContextString>* TLContexts = (TArray<FContextString>*)FPlatformTLS::GetTlsValue(FMallocLeakDetectionStatics::Get().ContextsTLSID);
 
 			if (TLContexts && TLContexts->Num())
 			{

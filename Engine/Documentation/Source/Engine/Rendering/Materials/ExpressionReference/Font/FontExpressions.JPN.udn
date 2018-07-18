@@ -1,10 +1,11 @@
-﻿INTSourceChangelist:2690134
+﻿INTSourceChangelist:3242329
 Availability:Public
 Title:Font 表現式
 Crumbs: %ROOT%, Engine, Engine/Rendering/Materials, Engine/Rendering/Materials/ExpressionReference
 Description:フォントアセットをサンプリングおよび出力する表現式
 Version:4.9
 SkillLevel:
+tags:Materials
 
 [EXCERPT:TOC]
 [TOC(start:2)]

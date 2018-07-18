@@ -57,6 +57,8 @@ void FHierarchicalSimplificationCustomizations::CustomizeChildren( TSharedRef<IP
 	TSharedPtr< IPropertyHandle > ProxyMeshSettingPropertyHandle = PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FHierarchicalSimplification, ProxySetting));
 	TSharedPtr< IPropertyHandle > MergeMeshSettingPropertyHandle = PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FHierarchicalSimplification, MergeSetting));
 	TSharedPtr< IPropertyHandle > TransitionScreenSizePropertyHandle = PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FHierarchicalSimplification, TransitionScreenSize));
+	TSharedPtr< IPropertyHandle > OverrideDrawDistancePropertyHandle = PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FHierarchicalSimplification, OverrideDrawDistance));
+	TSharedPtr< IPropertyHandle > ReusePreviousLevelClustersPropertyHandle = PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FHierarchicalSimplification, bReusePreviousLevelClusters));
 
 	for (auto Iter(PropertyHandles.CreateConstIterator()); Iter; ++Iter)
 	{
@@ -79,6 +81,20 @@ void FHierarchicalSimplificationCustomizations::CustomizeChildren( TSharedRef<IP
 		else  if (Iter.Value() == TransitionScreenSizePropertyHandle)
 		{
 			IDetailPropertyRow& SettingsRow = MergeGroup.AddPropertyRow(Iter.Value().ToSharedRef());
+		}
+		else if (Iter.Value() == OverrideDrawDistancePropertyHandle)
+		{
+			IDetailPropertyRow& SettingsRow = MergeGroup.AddPropertyRow(Iter.Value().ToSharedRef());
+		}
+		else if (Iter.Value() == ReusePreviousLevelClustersPropertyHandle)
+		{
+			IDetailPropertyRow& SettingsRow = ClusterGroup.AddPropertyRow(Iter.Value().ToSharedRef());
+			uint32 Index = StructPropertyHandle->GetIndexInArray();
+			// Hide the property for HLOD level 0
+			SettingsRow.Visibility(TAttribute<EVisibility>::Create([Index]()
+			{
+				return (Index == INDEX_NONE || Index > 0) ? EVisibility::Visible : EVisibility::Collapsed;
+			}));
 		}
 		else
 		{

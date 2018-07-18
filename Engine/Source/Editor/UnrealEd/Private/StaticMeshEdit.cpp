@@ -5,6 +5,7 @@
 =============================================================================*/
 
 #include "CoreMinimal.h"
+#include "Misc/CoreMisc.h"
 #include "Misc/FeedbackContext.h"
 #include "Engine/EngineTypes.h"
 #include "Model.h"
@@ -12,6 +13,7 @@
 #include "EditorFramework/ThumbnailInfo.h"
 #include "Engine/MeshMerging.h"
 #include "Engine/StaticMesh.h"
+#include "Engine/StaticMeshSocket.h"
 #include "Engine/Polys.h"
 #include "Editor.h"
 #include "StaticMeshResources.h"
@@ -22,9 +24,16 @@
 #include "PhysicsEngine/SphereElem.h"
 #include "PhysicsEngine/BodySetup.h"
 #include "FbxImporter.h"
+#include "Misc/ScopedSlowTask.h"
 
 #include "Materials/MaterialInterface.h"
 #include "Materials/Material.h"
+#include "PerPlatformProperties.h"
+#include "Interfaces/ITargetPlatformManagerModule.h"
+#include "Interfaces/ITargetPlatform.h"
+#include "Settings/EditorExperimentalSettings.h"
+#include "MeshDescription.h"
+#include "MeshAttributes.h"
 
 
 bool GBuildStaticMeshCollision = 1;
@@ -572,6 +581,7 @@ void AddConvexGeomFromVertices( const TArray<FVector>& Verts, FKAggregateGeom* A
 	ConvexElem->UpdateElemBox();
 }
 
+
 /**
  * Creates a static mesh object from raw triangle data.
  */
@@ -582,8 +592,8 @@ UStaticMesh* CreateStaticMesh(struct FRawMesh& RawMesh,TArray<FStaticMaterial>& 
 	auto StaticMesh = NewObject<UStaticMesh>(InOuter, InName, RF_Public | RF_Standalone);
 
 	// Add one LOD for the base mesh
-	FStaticMeshSourceModel* SrcModel = new(StaticMesh->SourceModels) FStaticMeshSourceModel();
-	SrcModel->RawMeshBulkData->SaveRawMesh(RawMesh);
+	FStaticMeshSourceModel& SrcModel = StaticMesh->AddSourceModel();
+	SrcModel.SaveRawMesh(RawMesh);
 	StaticMesh->StaticMaterials = Materials;
 
 	int32 NumSections = StaticMesh->StaticMaterials.Num();
@@ -605,6 +615,7 @@ UStaticMesh* CreateStaticMesh(struct FRawMesh& RawMesh,TArray<FStaticMaterial>& 
 	StaticMesh->MarkPackageDirty();
 	return StaticMesh;
 }
+
 
 /**
  *Constructor, setting all values to usable defaults 
@@ -665,6 +676,138 @@ inline bool FVerticesEqual(FVector& V1,FVector& V2)
 	}
 
 	return 1;
+}
+
+void GetBrushMesh(ABrush* Brush, UModel* Model, FMeshDescription& MeshDescription, TArray<FStaticMaterial>& OutMaterials)
+{
+	TVertexAttributeArray<FVector>& VertexPositions = MeshDescription.VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position);
+	TVertexInstanceAttributeArray<FVector>& VertexInstanceNormals = MeshDescription.VertexInstanceAttributes().GetAttributes<FVector>(MeshAttribute::VertexInstance::Normal);
+	TVertexInstanceAttributeArray<FVector>& VertexInstanceTangents = MeshDescription.VertexInstanceAttributes().GetAttributes<FVector>(MeshAttribute::VertexInstance::Tangent);
+	TVertexInstanceAttributeArray<float>& VertexInstanceBinormalSigns = MeshDescription.VertexInstanceAttributes().GetAttributes<float>(MeshAttribute::VertexInstance::BinormalSign);
+	TVertexInstanceAttributeArray<FVector4>& VertexInstanceColors = MeshDescription.VertexInstanceAttributes().GetAttributes<FVector4>(MeshAttribute::VertexInstance::Color);
+	TVertexInstanceAttributeIndicesArray<FVector2D>& VertexInstanceUVs = MeshDescription.VertexInstanceAttributes().GetAttributesSet<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
+	TEdgeAttributeArray<bool>& EdgeHardnesses = MeshDescription.EdgeAttributes().GetAttributes<bool>(MeshAttribute::Edge::IsHard);
+	TEdgeAttributeArray<float>& EdgeCreaseSharpnesses = MeshDescription.EdgeAttributes().GetAttributes<float>(MeshAttribute::Edge::CreaseSharpness);
+	TPolygonGroupAttributeArray<FName>& PolygonGroupImportedMaterialSlotNames = MeshDescription.PolygonGroupAttributes().GetAttributes<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
+	
+	//Make sure we have one UVChannel
+	VertexInstanceUVs.SetNumIndices(1);
+	
+	// Calculate the local to world transform for the source brush.
+	FMatrix	ActorToWorld = Brush ? Brush->ActorToWorld().ToMatrixWithScale() : FMatrix::Identity;
+	bool	ReverseVertices = 0;
+	FVector4	PostSub = Brush ? FVector4(Brush->GetActorLocation()) : FVector4(0, 0, 0, 0);
+
+	TMap<uint32, FEdgeID> RemapEdgeID;
+	int32 NumPolys = Model->Polys->Element.Num();
+	//Create Fill the vertex position
+	for (int32 PolygonIndex = 0; PolygonIndex < NumPolys; ++PolygonIndex)
+	{
+		FPoly& Polygon = Model->Polys->Element[PolygonIndex];
+
+		// Find a material index for this polygon.
+		UMaterialInterface*	Material = Polygon.Material;
+		if (Material == nullptr)
+		{
+			Material = UMaterial::GetDefaultMaterial(MD_Surface);
+		}
+
+		int32 MaterialIndex = OutMaterials.AddUnique(FStaticMaterial(Material, Material->GetFName(), Material->GetFName()));
+		FPolygonGroupID CurrentPolygonGroupID = FPolygonGroupID::Invalid;
+		for (const FPolygonGroupID& PolygonGroupID : MeshDescription.PolygonGroups().GetElementIDs())
+		{
+			if (Material->GetFName() == PolygonGroupImportedMaterialSlotNames[PolygonGroupID])
+			{
+				CurrentPolygonGroupID = PolygonGroupID;
+				break;
+			}
+		}
+		if (CurrentPolygonGroupID == FPolygonGroupID::Invalid)
+		{
+			CurrentPolygonGroupID = MeshDescription.CreatePolygonGroup();
+			PolygonGroupImportedMaterialSlotNames[CurrentPolygonGroupID] = Material->GetFName();
+		}
+
+		// Cache the texture coordinate system for this polygon.
+		FVector	TextureBase = Polygon.Base - (Brush ? Brush->GetPivotOffset() : FVector::ZeroVector),
+			TextureX = Polygon.TextureU / UModel::GetGlobalBSPTexelScale(),
+			TextureY = Polygon.TextureV / UModel::GetGlobalBSPTexelScale();
+		// For each vertex after the first two vertices...
+		for (int32 VertexIndex = 2; VertexIndex < Polygon.Vertices.Num(); VertexIndex++)
+		{
+			FVector Positions[3];
+			Positions[ReverseVertices ? 0 : 2] = ActorToWorld.TransformPosition(Polygon.Vertices[0]) - PostSub;
+			Positions[1] = ActorToWorld.TransformPosition(Polygon.Vertices[VertexIndex - 1]) - PostSub;
+			Positions[ReverseVertices ? 2 : 0] = ActorToWorld.TransformPosition(Polygon.Vertices[VertexIndex]) - PostSub;
+			FVertexID VertexID[3] = { FVertexID::Invalid, FVertexID::Invalid, FVertexID::Invalid };
+			for (FVertexID IterVertexID : MeshDescription.Vertices().GetElementIDs())
+			{
+				if (FVerticesEqual(Positions[0], VertexPositions[IterVertexID]))
+				{
+					VertexID[0] = IterVertexID;
+				}
+				if (FVerticesEqual(Positions[1], VertexPositions[IterVertexID]))
+				{
+					VertexID[1] = IterVertexID;
+				}
+				if (FVerticesEqual(Positions[2], VertexPositions[IterVertexID]))
+				{
+					VertexID[2] = IterVertexID;
+				}
+			}
+
+			//Create the vertex instances
+			FVertexInstanceID VertexInstanceIDs[3];
+			for (int32 CornerIndex = 0; CornerIndex < 3; ++CornerIndex)
+			{
+				if (VertexID[CornerIndex] == FVertexID::Invalid)
+				{
+					VertexID[CornerIndex] = MeshDescription.CreateVertex();
+					VertexPositions[VertexID[CornerIndex]] = Positions[CornerIndex];
+				}
+				VertexInstanceIDs[CornerIndex] = MeshDescription.CreateVertexInstance(VertexID[CornerIndex]);
+				VertexInstanceUVs.GetArrayForIndex(0)[VertexInstanceIDs[CornerIndex]] = FVector2D(
+					(Positions[CornerIndex] - TextureBase) | TextureX,
+					(Positions[CornerIndex] - TextureBase) | TextureY);
+			}
+
+			// Create a polygon with the 3 vertex instances
+			
+			TArray<FMeshDescription::FContourPoint> Contours;
+			for (uint32 TriangleEdgeNumber = 0; TriangleEdgeNumber < 3; ++TriangleEdgeNumber)
+			{
+				int32 ContourPointIndex = Contours.AddDefaulted();
+				FMeshDescription::FContourPoint& ContourPoint = Contours[ContourPointIndex];
+				//Find the matching edge ID
+				uint32 CornerIndices[2];
+				CornerIndices[0] = (TriangleEdgeNumber + 0) % 3;
+				CornerIndices[1] = (TriangleEdgeNumber + 1) % 3;
+
+				FVertexID EdgeVertexIDs[2];
+				EdgeVertexIDs[0] = VertexID[CornerIndices[0]];
+				EdgeVertexIDs[1] = VertexID[CornerIndices[1]];
+
+				FEdgeID MatchEdgeId = MeshDescription.GetVertexPairEdge(EdgeVertexIDs[0], EdgeVertexIDs[1]);
+				if (MatchEdgeId == FEdgeID::Invalid)
+				{
+					MatchEdgeId = MeshDescription.CreateEdge(EdgeVertexIDs[0], EdgeVertexIDs[1]);
+				}
+				ContourPoint.EdgeID = MatchEdgeId;
+				ContourPoint.VertexInstanceID = VertexInstanceIDs[CornerIndices[0]];
+				//All edge are hard for BSP
+				EdgeHardnesses[MatchEdgeId] = true;
+			}
+			// Insert a polygon into the mesh
+			const FPolygonID NewPolygonID = MeshDescription.CreatePolygon(CurrentPolygonGroupID, Contours);
+			int32 NewTriangleIndex = MeshDescription.GetPolygonTriangles(NewPolygonID).AddDefaulted();
+			FMeshTriangle& NewTriangle = MeshDescription.GetPolygonTriangles(NewPolygonID)[NewTriangleIndex];
+			for (int32 TriangleVertexIndex = 0; TriangleVertexIndex < 3; ++TriangleVertexIndex)
+			{
+				const FVertexInstanceID &VertexInstanceID = VertexInstanceIDs[TriangleVertexIndex];
+				NewTriangle.SetVertexInstanceID(TriangleVertexIndex, VertexInstanceID);
+			}
+		}
+	}
 }
 
 void GetBrushMesh(ABrush* Brush,UModel* Model,struct FRawMesh& OutMesh,TArray<FStaticMaterial>& OutMaterials)
@@ -754,16 +897,45 @@ void GetBrushMesh(ABrush* Brush,UModel* Model,struct FRawMesh& OutMesh,TArray<FS
 //	CreateStaticMeshFromBrush - Creates a static mesh from the triangles in a model.
 //
 
-UStaticMesh* CreateStaticMeshFromBrush(UObject* Outer,FName Name,ABrush* Brush,UModel* Model)
+UStaticMesh* CreateStaticMeshFromBrush(UObject* Outer, FName Name, ABrush* Brush, UModel* Model)
 {
-	GWarn->BeginSlowTask( NSLOCTEXT("UnrealEd", "CreatingStaticMeshE", "Creating static mesh..."), true );
+	FScopedSlowTask SlowTask(0.0f, NSLOCTEXT("UnrealEd", "CreatingStaticMeshE", "Creating static mesh..."));
+	SlowTask.MakeDialog();
 
-	FRawMesh RawMesh;
+	// Create the UStaticMesh object.
+	FStaticMeshComponentRecreateRenderStateContext RecreateRenderStateContext(FindObject<UStaticMesh>(Outer, *Name.ToString()));
+	UStaticMesh* StaticMesh = NewObject<UStaticMesh>(Outer, Name, RF_Public | RF_Standalone);
+
+	// Add one LOD for the base mesh
+	FStaticMeshSourceModel& SrcModel = StaticMesh->AddSourceModel();
+	const int32 LodIndex = StaticMesh->SourceModels.Num() - 1;
+	FMeshDescription* MeshDescription = StaticMesh->CreateOriginalMeshDescription(LodIndex);
+	UStaticMesh::RegisterMeshAttributes(*MeshDescription);
+
+	// Fill out the mesh description and materials from the brush geometry
 	TArray<FStaticMaterial> Materials;
-	GetBrushMesh(Brush,Model,RawMesh,Materials);
+	GetBrushMesh(Brush, Model, *MeshDescription, Materials);
 
-	UStaticMesh* StaticMesh = CreateStaticMesh(RawMesh, Materials,Outer,Name);
-	GWarn->EndSlowTask();
+	// Commit mesh description and materials list to static mesh
+	StaticMesh->CommitOriginalMeshDescription(LodIndex);
+	StaticMesh->StaticMaterials = Materials;
+
+	// Set up the SectionInfoMap to enable collision
+	const int32 NumSections = StaticMesh->StaticMaterials.Num();
+	for (int32 SectionIdx = 0; SectionIdx < NumSections; ++SectionIdx)
+	{
+		FMeshSectionInfo Info = StaticMesh->SectionInfoMap.Get(0, SectionIdx);
+		Info.MaterialIndex = SectionIdx;
+		Info.bEnableCollision = true;
+		StaticMesh->SectionInfoMap.Set(0, SectionIdx, Info);
+		StaticMesh->OriginalSectionInfoMap.Set(0, SectionIdx, Info);
+	}
+
+	//Set the Imported version before calling the build
+	StaticMesh->ImportVersion = EImportStaticMeshVersion::LastVersion;
+
+	StaticMesh->Build();
+	StaticMesh->MarkPackageDirty();
 
 	return StaticMesh;
 
@@ -890,11 +1062,13 @@ static void TransformPolys(UPolys* Polys,const FMatrix& Matrix)
 // LOD data to copy over
 struct ExistingLODMeshData
 {
-	FMeshBuildSettings			ExistingBuildSettings;
-	FMeshReductionSettings		ExistingReductionSettings;
-	FRawMesh					ExistingRawMesh;
-	TArray<FStaticMaterial>		ExistingMaterials;
-	float						ExistingScreenSize;
+	FMeshBuildSettings				ExistingBuildSettings;
+	FMeshReductionSettings			ExistingReductionSettings;
+	FRawMesh						ExistingRawMesh;
+	TUniquePtr<FMeshDescription>	ExistingMeshDescription;
+	TArray<FStaticMaterial>			ExistingMaterials;
+	FPerPlatformFloat				ExistingScreenSize;
+	FString							ExistingSourceImportFilename;
 };
 
 struct ExistingStaticMeshData
@@ -924,6 +1098,7 @@ struct ExistingStaticMeshData
 	float						LpvBiasMultiplier;
 	bool						bHasNavigationData;
 	FName						LODGroup;
+	FPerPlatformInt				MinLOD;
 
 	int32						ImportVersion;
 
@@ -1016,10 +1191,10 @@ ExistingStaticMeshData* SaveExistingStaticMeshData(UStaticMesh* ExistingMesh, Un
 				{
 					if (ExistingMeshDataPtr->UseMaterialNameSlotWorkflow)
 					{
-						int32 ExistMaterialIndex = ExistingMeshDataPtr->ExistingLODData[i].ExistingMaterials.Find(ExistingMesh->StaticMaterials[Info.MaterialIndex]);
+						int32 ExistMaterialIndex = ExistingMeshDataPtr->ExistingMaterials.Find(ExistingMesh->StaticMaterials[Info.MaterialIndex]);
 						if (ExistMaterialIndex == INDEX_NONE)
 						{
-							ExistMaterialIndex = ExistingMeshDataPtr->ExistingLODData[i].ExistingMaterials.Add(ExistingMesh->StaticMaterials[Info.MaterialIndex]);
+							ExistMaterialIndex = ExistingMeshDataPtr->ExistingMaterials.Add(ExistingMesh->StaticMaterials[Info.MaterialIndex]);
 						}
 						Info.MaterialIndex = ExistMaterialIndex;
 					}
@@ -1029,7 +1204,7 @@ ExistingStaticMeshData* SaveExistingStaticMeshData(UStaticMesh* ExistingMesh, Un
 						// if it's already added, we don't have to add another one. 
 						if (Info.MaterialIndex >= TotalMaterialIndex)
 						{
-							ExistingMeshDataPtr->ExistingLODData[i].ExistingMaterials.Add(ExistingMesh->StaticMaterials[Info.MaterialIndex]);
+							ExistingMeshDataPtr->ExistingMaterials.Add(ExistingMesh->StaticMaterials[Info.MaterialIndex]);
 
 							// @Todo @fixme
 							// have to refresh material index since it might be pointing at wrong one
@@ -1042,14 +1217,17 @@ ExistingStaticMeshData* SaveExistingStaticMeshData(UStaticMesh* ExistingMesh, Un
 				}
 			}
 
-			//The normals, tangent and tangent space build setting depend of the import options, so we cannot restore them, we have to set them when re-importing
-			ExistingMesh->SourceModels[i].BuildSettings.bRecomputeNormals = ImportOptions->NormalImportMethod == FBXNIM_ComputeNormals;
-			ExistingMesh->SourceModels[i].BuildSettings.bRecomputeTangents = ImportOptions->NormalImportMethod != FBXNIM_ImportNormalsAndTangents;
-			ExistingMesh->SourceModels[i].BuildSettings.bUseMikkTSpace = (ImportOptions->NormalGenerationMethod == EFBXNormalGenerationMethod::MikkTSpace) && (!ImportOptions->ShouldImportNormals() || !ImportOptions->ShouldImportTangents());
-
 			ExistingMeshDataPtr->ExistingLODData[i].ExistingBuildSettings = ExistingMesh->SourceModels[i].BuildSettings;
 			ExistingMeshDataPtr->ExistingLODData[i].ExistingReductionSettings = ExistingMesh->SourceModels[i].ReductionSettings;
-			ExistingMeshDataPtr->ExistingLODData[i].ExistingScreenSize = ExistingMesh->SourceModels[i].ScreenSize;
+			ExistingMeshDataPtr->ExistingLODData[i].ExistingScreenSize = ExistingMesh->SourceModels[i].ScreenSize.Default;
+			ExistingMeshDataPtr->ExistingLODData[i].ExistingSourceImportFilename = ExistingMesh->SourceModels[i].SourceImportFilename;
+
+			const FMeshDescription* MeshDescription = ExistingMesh->GetOriginalMeshDescription(i);
+			if (MeshDescription)
+			{
+				ExistingMeshDataPtr->ExistingLODData[i].ExistingMeshDescription = MakeUnique<FMeshDescription>(*MeshDescription);
+			}
+
 			ExistingMesh->SourceModels[i].RawMeshBulkData->LoadRawMesh(ExistingMeshDataPtr->ExistingLODData[i].ExistingRawMesh);
 		}
 
@@ -1069,6 +1247,7 @@ ExistingStaticMeshData* SaveExistingStaticMeshData(UStaticMesh* ExistingMesh, Un
 		ExistingMeshDataPtr->LpvBiasMultiplier = ExistingMesh->LpvBiasMultiplier;
 		ExistingMeshDataPtr->bHasNavigationData = ExistingMesh->bHasNavigationData;
 		ExistingMeshDataPtr->LODGroup = ExistingMesh->LODGroup;
+		ExistingMeshDataPtr->MinLOD = ExistingMesh->MinLOD;
 
 		ExistingMeshDataPtr->ExistingGenerateMeshDistanceField = ExistingMesh->bGenerateMeshDistanceField;
 		ExistingMeshDataPtr->ExistingLODForCollision = ExistingMesh->LODForCollision;
@@ -1110,25 +1289,39 @@ void RestoreExistingMeshSettings(ExistingStaticMeshData* ExistingMesh, UStaticMe
 		return;
 	}
 	NewMesh->LODGroup = ExistingMesh->LODGroup;
+	NewMesh->MinLOD = ExistingMesh->MinLOD;
 	int32 ExistingNumLods = ExistingMesh->ExistingLODData.Num();
 	int32 CurrentNumLods = NewMesh->SourceModels.Num();
 	if (LODIndex == INDEX_NONE)
 	{
 		if (CurrentNumLods > ExistingNumLods)
 		{
-			NewMesh->SourceModels.RemoveAt(ExistingNumLods, CurrentNumLods - ExistingNumLods);
+			NewMesh->SetNumSourceModels(ExistingNumLods);
+		}
+		//Create only the LOD Group we need, extra LOD will be put back when calling RestoreExistingMeshData later in the re import process
+		if (NewMesh->LODGroup != NAME_None)
+		{
+			ITargetPlatform* CurrentPlatform = GetTargetPlatformManagerRef().GetRunningTargetPlatform();
+			check(CurrentPlatform);
+			const FStaticMeshLODGroup& LODGroup = CurrentPlatform->GetStaticMeshLODSettings().GetLODGroup(NewMesh->LODGroup);
+			ExistingNumLods = FMath::Min(ExistingNumLods, LODGroup.GetDefaultNumLODs());
 		}
 
 		for (int32 i = 0; i < ExistingNumLods; i++)
 		{
 			if (NewMesh->SourceModels.Num() <= i)
 			{
-				new (NewMesh->SourceModels) FStaticMeshSourceModel();
+				NewMesh->AddSourceModel();
 			}
-
-			NewMesh->SourceModels[i].ReductionSettings = ExistingMesh->ExistingLODData[i].ExistingReductionSettings;
+			bool bSwapFromGeneratedToImported = !ExistingMesh->ExistingLODData[i].ExistingRawMesh.IsValid() && !NewMesh->SourceModels[i].RawMeshBulkData->IsEmpty();
+			bool bWasReduced = ExistingMesh->ExistingLODData[i].ExistingReductionSettings.PercentTriangles < 1.0f || ExistingMesh->ExistingLODData[i].ExistingReductionSettings.MaxDeviation > 0.0f;
+			if (!bSwapFromGeneratedToImported && bWasReduced)
+			{
+				NewMesh->SourceModels[i].ReductionSettings = ExistingMesh->ExistingLODData[i].ExistingReductionSettings;
+			}
 			NewMesh->SourceModels[i].BuildSettings = ExistingMesh->ExistingLODData[i].ExistingBuildSettings;
 			NewMesh->SourceModels[i].ScreenSize = ExistingMesh->ExistingLODData[i].ExistingScreenSize;
+			NewMesh->SourceModels[i].SourceImportFilename = ExistingMesh->ExistingLODData[i].ExistingSourceImportFilename;
 		}
 	}
 	else
@@ -1136,9 +1329,15 @@ void RestoreExistingMeshSettings(ExistingStaticMeshData* ExistingMesh, UStaticMe
 		//Just set the old configuration for the desired LODIndex
 		if(LODIndex >= 0 && LODIndex < CurrentNumLods && LODIndex < ExistingNumLods)
 		{
-			NewMesh->SourceModels[LODIndex].ReductionSettings = ExistingMesh->ExistingLODData[LODIndex].ExistingReductionSettings;
+			bool bSwapFromGeneratedToImported = !ExistingMesh->ExistingLODData[LODIndex].ExistingRawMesh.IsValid() && !NewMesh->SourceModels[LODIndex].RawMeshBulkData->IsEmpty();
+			bool bWasReduced = ExistingMesh->ExistingLODData[LODIndex].ExistingReductionSettings.PercentTriangles < 1.0f || ExistingMesh->ExistingLODData[LODIndex].ExistingReductionSettings.MaxDeviation > 0.0f;
+			if (!bSwapFromGeneratedToImported && bWasReduced)
+			{
+				NewMesh->SourceModels[LODIndex].ReductionSettings = ExistingMesh->ExistingLODData[LODIndex].ExistingReductionSettings;
+			}
 			NewMesh->SourceModels[LODIndex].BuildSettings = ExistingMesh->ExistingLODData[LODIndex].ExistingBuildSettings;
 			NewMesh->SourceModels[LODIndex].ScreenSize = ExistingMesh->ExistingLODData[LODIndex].ExistingScreenSize;
+			NewMesh->SourceModels[LODIndex].SourceImportFilename = ExistingMesh->ExistingLODData[LODIndex].ExistingSourceImportFilename;
 		}
 	}
 
@@ -1260,7 +1459,7 @@ void UpdateSomeLodsImportMeshData(UStaticMesh* NewMesh, TArray<int32> *ReimportL
 	}
 }
 
-void RestoreExistingMeshData(ExistingStaticMeshData* ExistingMeshDataPtr, UStaticMesh* NewMesh, int32 LodLevel, bool bResetMaterialSlots)
+void RestoreExistingMeshData(ExistingStaticMeshData* ExistingMeshDataPtr, UStaticMesh* NewMesh, int32 LodLevel, bool bCanShowDialog)
 {
 	if (!ExistingMeshDataPtr || !NewMesh)
 	{
@@ -1273,200 +1472,163 @@ void RestoreExistingMeshData(ExistingStaticMeshData* ExistingMeshDataPtr, UStati
 	RemapMaterial.AddZeroed(NewMesh->StaticMaterials.Num());
 	TArray<FName> RemapMaterialName;
 	RemapMaterialName.AddZeroed(NewMesh->StaticMaterials.Num());
-	
-	if (bResetMaterialSlots)
-	{
-		// If "Reset Material Slot" is enable we want to change the material array to reflect the incoming FBX
-		// But we want to try to keep material instance from the existing data, we will match the one that fit
-		// but simply put the same index material instance on the one that do not match. Because we will fill
-		// the material slot name, artist will be able to remap the material instance correctly
-		for (int32 MaterialIndex = 0; MaterialIndex < NewMesh->StaticMaterials.Num(); ++MaterialIndex)
-		{
-			RemapMaterial[MaterialIndex] = MaterialIndex;
-			if (NewMesh->StaticMaterials[MaterialIndex].MaterialInterface == nullptr || NewMesh->StaticMaterials[MaterialIndex].MaterialInterface == UMaterial::GetDefaultMaterial(MD_Surface))
-			{
-				bool bFoundMatch = false;
-				for (int32 ExistMaterialIndex = 0; ExistMaterialIndex < ExistingMeshDataPtr->ExistingMaterials.Num(); ++ExistMaterialIndex)
-				{
-					if (ExistingMeshDataPtr->ExistingMaterials[ExistMaterialIndex].ImportedMaterialSlotName == NewMesh->StaticMaterials[MaterialIndex].ImportedMaterialSlotName)
-					{
-						bFoundMatch = true;
-						RemapMaterial[MaterialIndex] = ExistMaterialIndex;
-						NewMesh->StaticMaterials[MaterialIndex].MaterialInterface = ExistingMeshDataPtr->ExistingMaterials[ExistMaterialIndex].MaterialInterface;
-					}
-				}
 
-				if (!bFoundMatch && ExistingMeshDataPtr->ExistingMaterials.IsValidIndex(MaterialIndex))
+	bool bHasSomeUnmatchedMaterial = false;
+	for (int32 MaterialIndex = 0; MaterialIndex < NewMesh->StaticMaterials.Num(); ++MaterialIndex)
+	{
+		RemapMaterial[MaterialIndex] = MaterialIndex;
+		RemapMaterialName[MaterialIndex] = NewMesh->StaticMaterials[MaterialIndex].ImportedMaterialSlotName;
+		bool bFoundMatch = false;
+		for (int32 ExistMaterialIndex = 0; ExistMaterialIndex < ExistingMeshDataPtr->ExistingMaterials.Num(); ++ExistMaterialIndex)
+		{
+			if (ExistingMeshDataPtr->ExistingMaterials[ExistMaterialIndex].ImportedMaterialSlotName == NewMesh->StaticMaterials[MaterialIndex].ImportedMaterialSlotName)
+			{
+				bFoundMatch = true;
+				RemapMaterial[MaterialIndex] = ExistMaterialIndex;
+				RemapMaterialName[MaterialIndex] = ExistingMeshDataPtr->ExistingMaterials[ExistMaterialIndex].ImportedMaterialSlotName;
+			}
+		}
+		if (!bFoundMatch)
+		{
+			RemapMaterial[MaterialIndex] = INDEX_NONE;
+			RemapMaterialName[MaterialIndex] = NAME_None;
+			bHasSomeUnmatchedMaterial = true;
+		}
+	}
+
+	if (bHasSomeUnmatchedMaterial)
+	{
+		TArray<bool> AutoRemapMaterials;
+		AutoRemapMaterials.AddZeroed(RemapMaterial.Num());
+
+		//Do a weighted remap of the material names
+		for (int32 ExistMaterialIndex = 0; ExistMaterialIndex < ExistingMeshDataPtr->ExistingMaterials.Num(); ++ExistMaterialIndex)
+		{
+			if (RemapMaterial.Contains(ExistMaterialIndex))
+			{
+				//Already remapped
+				continue;
+			}
+			//Lets have a minimum similarity to declare a match (under 15% it is not consider a match string)
+			float BestWeight = 0.25f;
+			int32 BestMaterialIndex = INDEX_NONE;
+			for (int32 MaterialIndex = 0; MaterialIndex < NewMesh->StaticMaterials.Num(); ++MaterialIndex)
+			{
+				if (RemapMaterial[MaterialIndex] != INDEX_NONE)
 				{
-					NewMesh->StaticMaterials[MaterialIndex].MaterialInterface = ExistingMeshDataPtr->ExistingMaterials[MaterialIndex].MaterialInterface;
+					continue;
+				}				
+				float StringWeight = UnFbx::FFbxHelper::NameCompareWeight(ExistingMeshDataPtr->ExistingMaterials[ExistMaterialIndex].ImportedMaterialSlotName.ToString(), NewMesh->StaticMaterials[MaterialIndex].ImportedMaterialSlotName.ToString());
+				if (StringWeight > BestWeight)
+				{
+					BestWeight = StringWeight;
+					BestMaterialIndex = MaterialIndex;
 				}
+			}
+			if (RemapMaterial.IsValidIndex(BestMaterialIndex))
+			{
+				RemapMaterial[BestMaterialIndex] = ExistMaterialIndex;
+				AutoRemapMaterials[BestMaterialIndex] = true;
+			}
+			else
+			{
+				//Call the mesh section match
+			}
+		}
+
+		//If user is attended, ask him to verify the match is good
+		bool bUserRemap = false;
+		if (bCanShowDialog)
+		{
+			bool bUserCancel = false;
+			//Ask the user to match the materials conflict
+			UnFbx::FFbxImporter::ShowFbxMaterialConflictWindowSM(ExistingMeshDataPtr->ExistingMaterials, NewMesh->StaticMaterials, RemapMaterial, AutoRemapMaterials, bUserCancel);
+			if (!bUserCancel)
+			{
+				bUserRemap = true;
 			}
 		}
 	}
-	else
+
+	//Build a ordered material list that try to keep intact the existing material list
+	TArray<FStaticMaterial> MaterialOrdered;
+	TArray<bool> MatchedNewMaterial;
+	MatchedNewMaterial.AddZeroed(NewMesh->StaticMaterials.Num());
+	for (int32 ExistMaterialIndex = 0; ExistMaterialIndex < ExistingMeshDataPtr->ExistingMaterials.Num(); ++ExistMaterialIndex)
 	{
-		//Avoid matching a material more then once
-		TArray<int32> MatchIndex;
-		//Restore the material array
-		for (int32 MaterialIndex = 0; MaterialIndex < NewMesh->StaticMaterials.Num(); ++MaterialIndex)
+		int32 MaterialIndexOrdered = MaterialOrdered.Add(ExistingMeshDataPtr->ExistingMaterials[ExistMaterialIndex]);
+		FStaticMaterial& OrderedMaterial = MaterialOrdered[MaterialIndexOrdered];
+		int32 NewMaterialIndex = INDEX_NONE;
+		if (RemapMaterial.Find(ExistMaterialIndex, NewMaterialIndex))
 		{
-			RemapMaterial[MaterialIndex] = MaterialIndex;
-			FStaticMaterial &Material = NewMesh->StaticMaterials[MaterialIndex];
-			RemapMaterialName[MaterialIndex] = Material.ImportedMaterialSlotName;
-			bool bFoundMatchingMaterial = false;
-			for (int32 ExistMaterialIndex = 0; ExistMaterialIndex < ExistingMeshDataPtr->ExistingMaterials.Num(); ++ExistMaterialIndex)
-			{
-				if (MatchIndex.Contains(ExistMaterialIndex))
-				{
-					continue;
-				}
-
-				const FStaticMaterial &ExistMaterial = ExistingMeshDataPtr->ExistingMaterials[ExistMaterialIndex];
-				if (Material.ImportedMaterialSlotName == ExistMaterial.ImportedMaterialSlotName)
-				{
-					Material.MaterialInterface = ExistMaterial.MaterialInterface;
-					Material.MaterialSlotName = ExistMaterial.MaterialSlotName;
-					Material.UVChannelData = ExistMaterial.UVChannelData;
-					MatchIndex.Add(ExistMaterialIndex);
-					RemapMaterial[MaterialIndex] = ExistMaterialIndex;
-					RemapMaterialName[MaterialIndex] = ExistMaterial.ImportedMaterialSlotName;
-					bFoundMatchingMaterial = true;
-					break;
-				}
-			}
-
-			if (!bFoundMatchingMaterial)
-			{
-				for (int32 ExistMaterialIndex = 0; ExistMaterialIndex < ExistingMeshDataPtr->ExistingMaterials.Num(); ++ExistMaterialIndex)
-				{
-					if (MatchIndex.Contains(ExistMaterialIndex))
-					{
-						continue;
-					}
-
-					const FStaticMaterial &ExistMaterial = ExistingMeshDataPtr->ExistingMaterials[ExistMaterialIndex];
-					if (ExistMaterial.ImportedMaterialSlotName == NAME_None && Material.MaterialInterface == ExistMaterial.MaterialInterface)
-					{
-						if (ExistMaterial.MaterialSlotName != NAME_None)
-						{
-							Material.MaterialSlotName = ExistMaterial.MaterialSlotName;
-						}
-						Material.UVChannelData = ExistMaterial.UVChannelData;
-						MatchIndex.Add(ExistMaterialIndex);
-						RemapMaterial[MaterialIndex] = ExistMaterialIndex;
-						RemapMaterialName[MaterialIndex] = Material.ImportedMaterialSlotName;
-						bFoundMatchingMaterial = true;
-						break;
-					}
-				}
-			}
-			if (!bFoundMatchingMaterial && ExistingMeshDataPtr->ExistingMaterials.IsValidIndex(MaterialIndex))
-			{
-				const FStaticMaterial &ExistMaterial = ExistingMeshDataPtr->ExistingMaterials[MaterialIndex];
-				Material.MaterialInterface = ExistMaterial.MaterialInterface;
-				Material.MaterialSlotName = ExistMaterial.MaterialSlotName;
-				Material.UVChannelData = ExistMaterial.UVChannelData;
-			}
-		}
-		if(ExistingMeshDataPtr->UseMaterialNameSlotWorkflow)
-		{
-			FMeshSectionInfoMap TmpExistingSectionInfoMap = ExistingMeshDataPtr->ExistingSectionInfoMap;
-			//Add all existing material not in the new mesh materials list
-			for (int32 i = 0; i < ExistingMeshDataPtr->ExistingLODData.Num(); i++)
-			{
-				if (LodLevel != INDEX_NONE && LodLevel != 0 && LodLevel != i)
-				{
-					continue;
-				}
-				ExistingLODMeshData& LODModel = ExistingMeshDataPtr->ExistingLODData[i];
-				for (int32 OldMaterialIndex = 0; OldMaterialIndex < LODModel.ExistingMaterials.Num(); ++OldMaterialIndex)
-				{
-					const FStaticMaterial &OldLodMaterial = LODModel.ExistingMaterials[OldMaterialIndex];
-					int32 MaterialNumber = NewMesh->StaticMaterials.Find(OldLodMaterial);
-					//If we did not found any perfect match then try to see if there is a material slot with the same material and the same name
-					//We do this after the perfect match in case there is two slot with the same name but not the same imported name
-					if (MaterialNumber == INDEX_NONE)
-					{
-						for (int32 NewMeshMaterialIndex = 0; NewMeshMaterialIndex < NewMesh->StaticMaterials.Num(); ++NewMeshMaterialIndex)
-						{
-							const FStaticMaterial &NewMeshMaterial = NewMesh->StaticMaterials[NewMeshMaterialIndex];
-							if (NewMeshMaterial.MaterialInterface == OldLodMaterial.MaterialInterface && NewMeshMaterial.MaterialSlotName == OldLodMaterial.MaterialSlotName)
-							{
-								MaterialNumber = NewMeshMaterialIndex;
-								break;
-							}
-						}
-					}
-					if (MaterialNumber == INDEX_NONE)
-					{
-						MaterialNumber = NewMesh->StaticMaterials.Add(OldLodMaterial);
-					}
-					//Update the section info MaterialIndex
-					int32 SectionNumber = TmpExistingSectionInfoMap.GetSectionNumber(i);
-					for (int32 SectionIndex = 0; SectionIndex < SectionNumber; ++SectionIndex)
-					{
-						FMeshSectionInfo SectionInfo = TmpExistingSectionInfoMap.Get(i, SectionIndex);
-						if (LODModel.ExistingMaterials[SectionInfo.MaterialIndex].ImportedMaterialSlotName == OldLodMaterial.ImportedMaterialSlotName)
-						{
-							SectionInfo.MaterialIndex = MaterialNumber;
-							ExistingMeshDataPtr->ExistingSectionInfoMap.Set(i, SectionIndex, SectionInfo);
-						}
-					}
-				}
-			}
+			MatchedNewMaterial[NewMaterialIndex] = true;
+			RemapMaterial[NewMaterialIndex] = MaterialIndexOrdered;
+			OrderedMaterial.ImportedMaterialSlotName = NewMesh->StaticMaterials[NewMaterialIndex].ImportedMaterialSlotName;
 		}
 		else
 		{
-			if (ExistingMeshDataPtr->ExistingMaterials.Num() > NewMesh->StaticMaterials.Num())
-			{
-				int32 OriginalMaterialNumber = NewMesh->StaticMaterials.Num();
-				for (int32 i = 0; i < ExistingMeshDataPtr->ExistingLODData.Num(); i++)
-				{
-					ExistingLODMeshData& LODModel = ExistingMeshDataPtr->ExistingLODData[i];
-					for (int32 OldMaterialIndex = 0; OldMaterialIndex < LODModel.ExistingMaterials.Num(); ++OldMaterialIndex)
-					{
-						int32 MaterialNumber = NewMesh->StaticMaterials.Num();
-						if (OldMaterialIndex >= MaterialNumber && OldMaterialIndex < ExistingMeshDataPtr->ExistingMaterials.Num())
-						{
-							NewMesh->StaticMaterials.AddZeroed((OldMaterialIndex + 1) - MaterialNumber);
-						}
-					}
-				}
-
-				//Assign the original value to the materials we just add
-				check(NewMesh->StaticMaterials.Num() <= ExistingMeshDataPtr->ExistingMaterials.Num());
-				for (int32 MaterialIndex = OriginalMaterialNumber; MaterialIndex < NewMesh->StaticMaterials.Num(); ++MaterialIndex)
-				{
-					FStaticMaterial &Material = NewMesh->StaticMaterials[MaterialIndex];
-					const FStaticMaterial &ExistMaterial = ExistingMeshDataPtr->ExistingMaterials[MaterialIndex];
-					Material = ExistMaterial;
-				}
-			}
+			//Unmatched material must be conserve
 		}
 	}
+
+	//Add the new material entries (the one that do not match with any existing material)
+	for (int32 NewMaterialIndex = 0; NewMaterialIndex < MatchedNewMaterial.Num(); ++NewMaterialIndex)
+	{
+		if (MatchedNewMaterial[NewMaterialIndex] == false)
+		{
+			int32 NewMeshIndex = MaterialOrdered.Add(NewMesh->StaticMaterials[NewMaterialIndex]);
+			RemapMaterial[NewMaterialIndex] = NewMeshIndex;
+		}
+	}
+
+	//Set the RemapMaterialName array helper
+	for (int32 MaterialIndex = 0; MaterialIndex < RemapMaterial.Num(); ++MaterialIndex)
+	{
+		int32 SourceMaterialMatch = RemapMaterial[MaterialIndex];
+		if (ExistingMeshDataPtr->ExistingMaterials.IsValidIndex(SourceMaterialMatch))
+		{
+			RemapMaterialName[MaterialIndex] = ExistingMeshDataPtr->ExistingMaterials[SourceMaterialMatch].ImportedMaterialSlotName;
+		}
+	}
+
+	//Copy the re ordered materials (this ensure the material array do not change when we re-import)
+	NewMesh->StaticMaterials = MaterialOrdered;
 
 	int32 NumCommonLODs = FMath::Min<int32>(ExistingMeshDataPtr->ExistingLODData.Num(), NewMesh->SourceModels.Num());
 	for(int32 i=0; i<NumCommonLODs; i++)
 	{
 		NewMesh->SourceModels[i].BuildSettings = ExistingMeshDataPtr->ExistingLODData[i].ExistingBuildSettings;
-		NewMesh->SourceModels[i].ReductionSettings = ExistingMeshDataPtr->ExistingLODData[i].ExistingReductionSettings;
-		NewMesh->SourceModels[i].ScreenSize = ExistingMeshDataPtr->ExistingLODData[i].ExistingScreenSize;			
+		//Restore the reduction settings only if the existing data was a using reduction. Because we can set some value if we reimport from existing rawmesh to auto generated.
+		bool bSwapFromGeneratedToImported = !ExistingMeshDataPtr->ExistingLODData[i].ExistingRawMesh.IsValid() && !NewMesh->SourceModels[i].RawMeshBulkData->IsEmpty();
+		bool bWasReduced = ExistingMeshDataPtr->ExistingLODData[i].ExistingReductionSettings.PercentTriangles < 1.0f || ExistingMeshDataPtr->ExistingLODData[i].ExistingReductionSettings.MaxDeviation > 0.0f;
+		if ( !bSwapFromGeneratedToImported && bWasReduced)
+		{
+			NewMesh->SourceModels[i].ReductionSettings = ExistingMeshDataPtr->ExistingLODData[i].ExistingReductionSettings;
+		}
+		NewMesh->SourceModels[i].ScreenSize = ExistingMeshDataPtr->ExistingLODData[i].ExistingScreenSize;
+		NewMesh->SourceModels[i].SourceImportFilename = ExistingMeshDataPtr->ExistingLODData[i].ExistingSourceImportFilename;
 	}
 
 	for(int32 i=NumCommonLODs; i < ExistingMeshDataPtr->ExistingLODData.Num(); ++i)
 	{
-		FStaticMeshSourceModel* SrcModel = new(NewMesh->SourceModels) FStaticMeshSourceModel();
-
+		FStaticMeshSourceModel& SrcModel = NewMesh->AddSourceModel();
+		if (ExistingMeshDataPtr->ExistingLODData[i].ExistingMeshDescription.IsValid())
+		{
+			FMeshDescription* MeshDescription = NewMesh->CreateOriginalMeshDescription(i);
+			*MeshDescription = MoveTemp(*ExistingMeshDataPtr->ExistingLODData[i].ExistingMeshDescription);
+			ExistingMeshDataPtr->ExistingLODData[i].ExistingMeshDescription.Reset();
+		}
 		if (ExistingMeshDataPtr->ExistingLODData[i].ExistingRawMesh.IsValidOrFixable())
 		{
-			SrcModel->RawMeshBulkData->SaveRawMesh(ExistingMeshDataPtr->ExistingLODData[i].ExistingRawMesh);
+			SrcModel.RawMeshBulkData->SaveRawMesh(ExistingMeshDataPtr->ExistingLODData[i].ExistingRawMesh);
 		}
-		SrcModel->BuildSettings = ExistingMeshDataPtr->ExistingLODData[i].ExistingBuildSettings;
-		SrcModel->ReductionSettings = ExistingMeshDataPtr->ExistingLODData[i].ExistingReductionSettings;
-		SrcModel->ScreenSize = ExistingMeshDataPtr->ExistingLODData[i].ExistingScreenSize;
+		SrcModel.BuildSettings = ExistingMeshDataPtr->ExistingLODData[i].ExistingBuildSettings;
+		SrcModel.ReductionSettings = ExistingMeshDataPtr->ExistingLODData[i].ExistingReductionSettings;
+		SrcModel.ScreenSize = ExistingMeshDataPtr->ExistingLODData[i].ExistingScreenSize;
+		SrcModel.SourceImportFilename = ExistingMeshDataPtr->ExistingLODData[i].ExistingSourceImportFilename;
 	}
 
-	// Restore the section info
+	// Restore the section info of the just imported LOD so is section info map is remap to fit the mesh material array
 	if (ExistingMeshDataPtr->ExistingSectionInfoMap.Map.Num() > 0)
 	{
 		//Build the mesh we need the render data and the existing section info map build before restoring the data
@@ -1476,12 +1638,17 @@ void RestoreExistingMeshData(ExistingStaticMeshData* ExistingMeshDataPtr, UStati
 		}
 		for (int32 i = 0; i < NewMesh->RenderData->LODResources.Num(); i++)
 		{
+			//If a LOD was specified, only touch the specified LOD
 			if (LodLevel != INDEX_NONE && LodLevel != 0 && LodLevel != i)
 			{
 				continue;
 			}
 
+			//When re-importing the asset, do not touch the LOD that was imported from file, the material array is keep intact so the section should still be valid.
+			bool NoRemapForThisLOD = LodLevel == INDEX_NONE && i != 0 && NewMesh->SourceModels[i].ReductionSettings.PercentTriangles >= 1.0f  && NewMesh->SourceModels[i].ReductionSettings.MaxDeviation <= 0.0f;
+
 			FStaticMeshLODResources& LOD = NewMesh->RenderData->LODResources[i];
+			
 			int32 NumSections = LOD.Sections.Num();
 			int32 OldSectionNumber = ExistingMeshDataPtr->ExistingSectionInfoMap.GetSectionNumber(i);
 			for (int32 SectionIndex = 0; SectionIndex < NumSections; ++SectionIndex)
@@ -1492,62 +1659,93 @@ void RestoreExistingMeshData(ExistingStaticMeshData* ExistingMeshDataPtr, UStati
 				{
 					NewMesh->SectionInfoMap.Set(i, SectionIndex, ExistingMeshDataPtr->ExistingSectionInfoMap.Get(i, SectionIndex));
 				}
+				//We recreate the SectionInfoMap from the existing data and we do not remap it if LOD is not auto generate and was not imported
+				if (NoRemapForThisLOD)
+				{
+					continue;
+				}
 
 				FMeshSectionInfo NewSectionInfo =  NewMesh->SectionInfoMap.Get(i, SectionIndex);
-
-				for (int32 ExistSectionIndex = 0; ExistSectionIndex < OldSectionNumber; ++ExistSectionIndex)
+				bool bFoundOldMatch = false;
+				bool bKeepOldSectionMaterialIndex = false;
+				int32 OriginalSectionMaterialIndex = INDEX_NONE;
+				if (RemapMaterial.IsValidIndex(NewSectionInfo.MaterialIndex) && NewMesh->StaticMaterials.IsValidIndex(NewSectionInfo.MaterialIndex))
 				{
-					FMeshSectionInfo OldSectionInfo = ExistingMeshDataPtr->ExistingSectionInfoMap.Get(i, ExistSectionIndex);
-					if(ExistingMeshDataPtr->UseMaterialNameSlotWorkflow)
+					//Find the matching old index
+					for (int32 ExistSectionIndex = 0; ExistSectionIndex < OldSectionNumber; ++ExistSectionIndex)
 					{
-						if (ExistingMeshDataPtr->ExistingMaterials.IsValidIndex(OldSectionInfo.MaterialIndex))
+						bKeepOldSectionMaterialIndex = false;
+						OriginalSectionMaterialIndex = INDEX_NONE;
+						FMeshSectionInfo OldSectionInfo = ExistingMeshDataPtr->ExistingSectionInfoMap.Get(i, ExistSectionIndex);
+						if (ExistingMeshDataPtr->UseMaterialNameSlotWorkflow)
 						{
-							const FStaticMaterial &OldSectionMaterial = ExistingMeshDataPtr->ExistingMaterials[OldSectionInfo.MaterialIndex];
-							FName OriginalFbxImportedMaterialName = OldSectionMaterial.ImportedMaterialSlotName;
-
-							if (ExistingMeshDataPtr->LastImportMeshLodSectionMaterialData.IsValidIndex(i) && ExistingMeshDataPtr->LastImportMeshLodSectionMaterialData[i].IsValidIndex(ExistSectionIndex))
+							if (ExistingMeshDataPtr->ExistingImportData.IsValid() &&
+								ExistingMeshDataPtr->LastImportMeshLodSectionMaterialData.IsValidIndex(i) &&
+								ExistingMeshDataPtr->LastImportMeshLodSectionMaterialData[i].IsValidIndex(ExistSectionIndex))
 							{
-								OriginalFbxImportedMaterialName = ExistingMeshDataPtr->LastImportMeshLodSectionMaterialData[i][ExistSectionIndex];
-							}
-
-							int32 NewSectionInfoMaterialIndex = NewSectionInfo.MaterialIndex;
-
-							bool ValidRemapIndex = RemapMaterialName.IsValidIndex(NewSectionInfoMaterialIndex);
-							if (ValidRemapIndex && RemapMaterialName[NewSectionInfoMaterialIndex] == OriginalFbxImportedMaterialName)
-							{
-								if (NewMesh->StaticMaterials.IsValidIndex(NewSectionInfoMaterialIndex))
+								//Keep the old section material index only if the user has change the section mapping
+								bKeepOldSectionMaterialIndex = ExistingMeshDataPtr->LastImportMeshLodSectionMaterialData[i][ExistSectionIndex] != ExistingMeshDataPtr->ExistingMaterials[OldSectionInfo.MaterialIndex].ImportedMaterialSlotName;
+								for (int32 ExistMaterialIndex = 0; ExistMaterialIndex < ExistingMeshDataPtr->ExistingMaterials.Num(); ++ExistMaterialIndex)
 								{
-									//Set the remap section
-									OldSectionInfo.MaterialIndex = OriginalFbxImportedMaterialName == OldSectionMaterial.ImportedMaterialSlotName ? NewSectionInfoMaterialIndex : OldSectionInfo.MaterialIndex;
-									NewMesh->SectionInfoMap.Set(i, SectionIndex, OldSectionInfo);
+									if (ExistingMeshDataPtr->LastImportMeshLodSectionMaterialData[i][ExistSectionIndex] == ExistingMeshDataPtr->ExistingMaterials[ExistMaterialIndex].ImportedMaterialSlotName)
+									{
+										OriginalSectionMaterialIndex = ExistMaterialIndex;
+										break;
+									}
 								}
-								break;
 							}
 						}
-					}
-					else
-					{
-						if (RemapMaterial.IsValidIndex(NewSectionInfo.MaterialIndex) && RemapMaterial[NewSectionInfo.MaterialIndex] == OldSectionInfo.MaterialIndex)
+						int32 OldSectionMatchIndex = OriginalSectionMaterialIndex != INDEX_NONE ? OriginalSectionMaterialIndex : OldSectionInfo.MaterialIndex;
+						if (RemapMaterial[NewSectionInfo.MaterialIndex] == OldSectionMatchIndex)
 						{
-							if (NewMesh->StaticMaterials.IsValidIndex(NewSectionInfo.MaterialIndex))
+							//Set the remap section
+							if (!bKeepOldSectionMaterialIndex)
 							{
-								//Set the remap section
 								OldSectionInfo.MaterialIndex = NewSectionInfo.MaterialIndex;
-								NewMesh->SectionInfoMap.Set(i, SectionIndex, OldSectionInfo);
 							}
+							NewMesh->SectionInfoMap.Set(i, SectionIndex, OldSectionInfo);
+							bFoundOldMatch = true;
 							break;
 						}
 					}
 				}
+
+				if (!bFoundOldMatch)
+				{
+					if (RemapMaterial.IsValidIndex(NewSectionInfo.MaterialIndex))
+					{
+						//Find the old section that was using the NewSectionInfo.MaterialIndex
+						//This will allow copying the section information: Cast Shadow, enable collision
+						for (int32 ExistSectionIndex = 0; ExistSectionIndex < OldSectionNumber; ++ExistSectionIndex)
+						{
+							FMeshSectionInfo OldSectionInfo = ExistingMeshDataPtr->ExistingSectionInfoMap.Get(i, ExistSectionIndex);
+							if (NewSectionInfo.MaterialIndex == OldSectionInfo.MaterialIndex)
+							{
+								NewSectionInfo.bCastShadow = OldSectionInfo.bCastShadow;
+								NewSectionInfo.bEnableCollision = OldSectionInfo.bEnableCollision;
+								break;
+							}
+						}
+						//If user has change the section info map, we want to keep the change
+						NewSectionInfo.MaterialIndex = RemapMaterial[NewSectionInfo.MaterialIndex];
+						NewMesh->SectionInfoMap.Set(i, SectionIndex, NewSectionInfo);
+					}
+				}
 			}
 		}
+		//Store the just imported section info map
 		NewMesh->OriginalSectionInfoMap.CopyFrom(NewMesh->SectionInfoMap);
 	}
 
 	// Assign sockets from old version of this StaticMesh.
 	for(int32 i=0; i<ExistingMeshDataPtr->ExistingSockets.Num(); i++)
 	{
-		NewMesh->Sockets.Add( ExistingMeshDataPtr->ExistingSockets[i] );
+		UStaticMeshSocket* ExistingSocket = ExistingMeshDataPtr->ExistingSockets[i];
+		UStaticMeshSocket* Socket = NewMesh->FindSocket(ExistingSocket->SocketName);
+		if (!Socket && !ExistingSocket->bSocketCreatedAtImport)
+		{
+			NewMesh->Sockets.Add(ExistingSocket);
+		}
 	}
 
 	NewMesh->bCustomizedCollision = ExistingMeshDataPtr->ExistingCustomizedCollision;

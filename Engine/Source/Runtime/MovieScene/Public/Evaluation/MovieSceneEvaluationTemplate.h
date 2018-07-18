@@ -9,6 +9,7 @@
 #include "Misc/Guid.h"
 #include "UObject/Class.h"
 #include "MovieSceneTrack.h"
+#include "MovieSceneFrameMigration.h"
 #include "Evaluation/MovieSceneTrackIdentifier.h"
 #include "Evaluation/MovieSceneEvaluationField.h"
 #include "Containers/ArrayView.h"
@@ -58,7 +59,7 @@ public:
 
 	/** Map of sub section ranges that exist in a template */
 	UPROPERTY()
-	TMap<FGuid, FFloatRange> SubSectionRanges;
+	TMap<FGuid, FMovieSceneFrameRange> SubSectionRanges;
 };
 template<> struct TStructOpsTypeTraits<FMovieSceneTemplateGenerationLedger> : public TStructOpsTypeTraitsBase2<FMovieSceneTemplateGenerationLedger> { enum { WithCopy = true }; };
 
@@ -84,7 +85,7 @@ struct FMovieSceneSubSectionData
 {
 	GENERATED_BODY()
 
-	FMovieSceneSubSectionData() {}
+	FMovieSceneSubSectionData() : Flags(ESectionEvaluationFlags::None) {}
 
 	FMovieSceneSubSectionData(UMovieSceneSubSection& InSubSection, const FGuid& InObjectBindingId, ESectionEvaluationFlags InFlags);
 
@@ -124,19 +125,60 @@ template<> struct TStructOpsTypeTraits<FMovieSceneSubSectionFieldData> : public 
 
 
 /**
+ * Sereal number used to identify evaluation template state that can only ever increase over its lifetime.
+ * Only to be stored internally on FMovieSceneEvaluationTemplate.
+ */
+USTRUCT()
+struct FMovieSceneEvaluationTemplateSerialNumber
+{
+	GENERATED_BODY()
+
+	FMovieSceneEvaluationTemplateSerialNumber()
+		: Value(0)
+	{}
+
+	/**
+	 * Access this serial number's value
+	 */
+	uint32 GetValue() const
+	{
+		return Value;
+	}
+
+	/**
+	* Increment this serial number
+	*/
+	void Increment()
+	{
+		++Value;
+	}
+
+private:
+	
+	friend struct FMovieSceneEvaluationTemplate;
+
+	/**
+	 * Copy/move semantics only ever initialize to zero, or passthrough, to ensure that FMovieSceneEvaluationTemplate::TemplateSerialNumber cannot ever move backwards.
+	 */
+	FMovieSceneEvaluationTemplateSerialNumber(const FMovieSceneEvaluationTemplateSerialNumber&) : Value(0) {}
+	FMovieSceneEvaluationTemplateSerialNumber(FMovieSceneEvaluationTemplateSerialNumber&&)      : Value(0) {}
+
+	FMovieSceneEvaluationTemplateSerialNumber& operator=(const FMovieSceneEvaluationTemplateSerialNumber&) { return *this; }
+	FMovieSceneEvaluationTemplateSerialNumber& operator=(FMovieSceneEvaluationTemplateSerialNumber&&)      { return *this; }
+
+	/** The internal value of the serial number */
+	UPROPERTY()
+	uint32 Value;
+};
+template<> struct TStructOpsTypeTraits<FMovieSceneEvaluationTemplateSerialNumber> : public TStructOpsTypeTraitsBase2<FMovieSceneEvaluationTemplateSerialNumber> { enum { WithCopy = false }; };
+
+/**
  * Template that is used for efficient runtime evaluation of a movie scene sequence. Potentially serialized into the asset.
  */
 USTRUCT()
 struct FMovieSceneEvaluationTemplate
 {
 	GENERATED_BODY()
-
-	/**
-	 * Default construction
-	 */
-	FMovieSceneEvaluationTemplate()
-	{
-	}
 
 public:
 
@@ -195,7 +237,7 @@ public:
 	/**
 	 * Add a new sub section
 	 */
-	MOVIESCENE_API void AddSubSectionRange(UMovieSceneSubSection& InSubSection, const FGuid& InObjectBindingId, const TRange<float>& InRange, ESectionEvaluationFlags InFlags);
+	MOVIESCENE_API void AddSubSectionRange(UMovieSceneSubSection& InSubSection, const FGuid& InObjectBindingId, const TRange<FFrameNumber>& InRange, ESectionEvaluationFlags InFlags);
 
 	/**
 	 * Add a new track for the specified identifier
@@ -291,6 +333,10 @@ public:
 
 	UPROPERTY()
 	FGuid SequenceSignature;
+
+	/** Serial number that is incremented every time this template is re-generated through FMovieSceneEvaluationTemplateGenerator */
+	UPROPERTY()
+	FMovieSceneEvaluationTemplateSerialNumber TemplateSerialNumber;
 
 private:
 

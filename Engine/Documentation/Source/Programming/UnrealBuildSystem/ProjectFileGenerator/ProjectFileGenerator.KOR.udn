@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3810557
 Availability:Public
 Title:자동 프로젝트 파일 생성
 Crumbs:%ROOT%
@@ -19,9 +19,7 @@ tags:Unreal Build System
 
 최신 언리얼 엔진 4 코드를 받아도 엔진이나 예제 게임을 컴파일하고 실행할 수 있도록 Visual Studio 나 Xcode 프로젝트 파일이 포함되어 있지 않다는 것을 알게 되실 것입니다. 로드할 프로젝트 파일을 생성하는 스크립트를 실행해 줘야 하는데요:
 
-* UE4 메인 디렉토리의 GenerateProjectFiles.bat 파일을 실행시킵니다[COMMENT:none]
-(//depot/UE4/ 에 매핑되어 있습니다)
-[/COMMENT].
+* UE4 메인 디렉토리의 GenerateProjectFiles.bat 파일을 실행시킵니다.
 
 	[REGION:note]
 	이 스크립트는 어느 폴더에서도 실행시킬 수 있습니다. (원한다면 바탕화면에 바로가기를 만드세요.)
@@ -94,7 +92,7 @@ Visual Studio 프로젝트의 경우, 생성되는 솔루션 파일은 `UE4.sln`
 
 * 다중 플랫폼 및 (Visual Studio 와 Xcode 같은) 개발 환경도 지원하고자 했습니다. 프로젝트 파일 여러 세트를 수동 관리하다 보면 오류가 생기거나 지치기 쉽습니다.
 
-   * 프로그래머가 고도의 맞춤형 프로젝트 파일을 생성할 수 있도록 하고자 했습니다. 앞으로 이런 부분이 더욱 중요해 질 것이라 생각합니다.
+* 프로그래머가 고도의 맞춤형 프로젝트 파일을 생성할 수 있도록 하고자 했습니다. 앞으로 이런 부분이 더욱 중요해 질 것이라 생각합니다.
 
 * 소스 파일의 디렉토리 구조는 프로젝트 파일 솔루션 계층구조에 자동으로 반영됩니다. 소스 파일을 둘러볼 때 정말 편리한 기능이나 프로젝트를 수동 작성할 때는 유지하기가 어려운 부분이었습니다.
 
@@ -128,9 +126,7 @@ Unreal Build Tool 위주의 단순한 스크립트로, 프로그램 실행파일
 
 * 스타트업 프로젝트를 UnrealBuildTool 로 바꿉니다.
 * 디버깅용 명령줄 파라미터를 이렇게 설정합니다:  `-ProjectFiles`
-* 작업 디렉토리를 다음에 대한 로컬 경로로 설정합니다: [COMMENT:none]
-//depot/UE4
-[/COMMENT][Your UE4 Directory]/Engine/Source/
+* 작업 디렉토리를 다음에 대한 로컬 경로로 설정합니다:  [Your UE4 Directory]/Engine/Source/
 * 평소처럼 컴파일하고 디버깅합니다.
 
 

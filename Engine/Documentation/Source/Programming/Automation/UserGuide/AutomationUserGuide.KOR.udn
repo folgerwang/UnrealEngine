@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3664462
+﻿INTSourceChangelist:3801260
 Availability: Public
 Crumbs: %ROOT%
 Title: 자동화 시스템 사용 안내서
@@ -11,9 +11,6 @@ Order:1
 Tags:Programming
 Topic-image:SessionFrontend_Topic.png
 Social-image:SessionFrontend.png
-
-[VAR:spacer]![](%ROOT%/spacer.png)(w:150 convert:false)[/VAR]
-[VAR:spacer2]![](%ROOT%/spacer.png)(w:40 convert:false)[/VAR]
 
 [TOC(start:2 end:3)]
 
@@ -87,17 +84,17 @@ Social-image:SessionFrontend.png
 
 
 [REGION:simpletable]
-| 아이콘 | 설명 | %spacer% | 설명 |
-| --- | --- | --- | --- |
-| ![](StartTests.png) || **Start Tests** | 테스트 시작 - 활성화된 현재 선택 자동화 테스트를 시작 또는 중지합니다. 실행되는 테스트 수 역시 버튼 아래 참고로 나열됩니다. |
-| ![](RunLevelTests.png) || **Run Level Test** | 레벨 테스트 실행 - 현재 로드된 레벨이 테스트 맵인 경우, 이 버튼을 클릭하면 테스트를 선택하여 바로 실행할 수 있습니다. |
-| ![](RefreshTests.png) || **Refresh Tests** | 테스트 새로고침 - 프로젝트에 추가된 테스트가 있으면 Test Name (테스트 이름) 리스트를 새로고칩니다. |
-| ![](FindWorkers.png) || **Find Workers** | 워커 찾기 - 테스트에 사용할 수 있는 로컬 워커를 찾습니다. |
-| ![](Errors.png) || **Errors** | 오류 - 테스트 완료 시도 중 오류가 난 테스트가 있으면 표시해 주는 Test (테스트) 창 필터를 토글합니다. |
-| ![](Warnings.png) || **Warnings** | 경고 - 테스트 완료 시도 중 경고가 난 테스트가 있으면 표시해 주는 Test (테스트) 창 필터를 토글합니다. |
-| ![](DevContent.png) || **Dev Content** | 개발 콘텐츠 - 켜면, 자동화 테스트에 개발자 디렉토리가 포함됩니다. |
-| ![](DeviceGroups.png) || **Device Groups** | 디바이스 그룹 - 몇 가지 옵션에 따라 테스트 그룹을 만들 수 있습니다. 예를 들면 머신 이름, 플랫폼, 운영 체제 버전 등입니다. |
-| ![](Presets.png) || **Preset** | 프리세트 - 선택된 테스트와 세팅으로 자동화 테스트용 프리세트를 직접 추가하여 나중에 다시 사용할 수 있도록 합니다. |
+| 아이콘 | 설명 | 설명 |
+| --- | --- | --- |
+| ![](StartTests.png) | **Start Tests** | 테스트 시작 - 활성화된 현재 선택 자동화 테스트를 시작 또는 중지합니다. 실행되는 테스트 수 역시 버튼 아래 참고로 나열됩니다. |
+| ![](RunLevelTests.png) | **Run Level Test** | 레벨 테스트 실행 - 현재 로드된 레벨이 테스트 맵인 경우, 이 버튼을 클릭하면 테스트를 선택하여 바로 실행할 수 있습니다. |
+| ![](RefreshTests.png) | **Refresh Tests** | 테스트 새로고침 - 프로젝트에 추가된 테스트가 있으면 Test Name (테스트 이름) 리스트를 새로고칩니다. |
+| ![](FindWorkers.png) | **Find Workers** | 워커 찾기 - 테스트에 사용할 수 있는 로컬 워커를 찾습니다. |
+| ![](Errors.png) | **Errors** | 오류 - 테스트 완료 시도 중 오류가 난 테스트가 있으면 표시해 주는 Test (테스트) 창 필터를 토글합니다. |
+| ![](Warnings.png) | **Warnings** | 경고 - 테스트 완료 시도 중 경고가 난 테스트가 있으면 표시해 주는 Test (테스트) 창 필터를 토글합니다. |
+| ![](DevContent.png) | **Dev Content** | 개발 콘텐츠 - 켜면, 자동화 테스트에 개발자 디렉토리가 포함됩니다. |
+| ![](DeviceGroups.png) | **Device Groups** | 디바이스 그룹 - 몇 가지 옵션에 따라 테스트 그룹을 만들 수 있습니다. 예를 들면 머신 이름, 플랫폼, 운영 체제 버전 등입니다. |
+| ![](Presets.png) | **Preset** | 프리세트 - 선택된 테스트와 세팅으로 자동화 테스트용 프리세트를 직접 추가하여 나중에 다시 사용할 수 있도록 합니다. |
 [/REGION]
 
  

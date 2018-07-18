@@ -1,7 +1,83 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "MovieSceneComposurePostMoveSettingsSection.h"
-#include "SequencerObjectVersion.h"
+#include "MovieScene/MovieSceneComposurePostMoveSettingsSection.h"
+#include "UObject/SequencerObjectVersion.h"
+#include "Channels/MovieSceneChannelProxy.h"
+#include "ComposurePostMoves.h"
+
+#if WITH_EDITOR
+
+struct FPostMoveSettingsChannelEditorData
+{
+	FPostMoveSettingsChannelEditorData()
+	{
+		FText PivotGroup = NSLOCTEXT("PostMoves", "Pivot", "Pivot");
+		FText TranslationGroup = NSLOCTEXT("PostMoves", "Translation", "Translation");
+
+		MetaData[0].SetIdentifiers("Pivot.X", FCommonChannelData::ChannelX, PivotGroup);
+		MetaData[0].SortOrder = 0;
+		MetaData[0].Color = FCommonChannelData::RedChannelColor;
+
+		MetaData[1].SetIdentifiers("Pivot.Y", FCommonChannelData::ChannelY, PivotGroup);
+		MetaData[1].SortOrder = 1;
+		MetaData[1].Color = FCommonChannelData::GreenChannelColor;
+
+		MetaData[2].SetIdentifiers("Translation.X", FCommonChannelData::ChannelX, TranslationGroup);
+		MetaData[2].SortOrder = 2;
+		MetaData[2].Color = FCommonChannelData::RedChannelColor;
+
+		MetaData[3].SetIdentifiers("Translation.Y", FCommonChannelData::ChannelY, TranslationGroup);
+		MetaData[3].SortOrder = 3;
+		MetaData[3].Color = FCommonChannelData::GreenChannelColor;
+
+		MetaData[4].SetIdentifiers("Rotation", NSLOCTEXT("PostMoves", "Rotation", "Rotation"));
+		MetaData[4].SortOrder = 4;
+
+		MetaData[5].SetIdentifiers("Scale", NSLOCTEXT("PostMoves", "Scale", "Scale"));
+		MetaData[5].SortOrder = 5;
+
+		ExternalValues[0].OnGetExternalValue = ExtractPivotX;
+		ExternalValues[1].OnGetExternalValue = ExtractPivotY;
+		ExternalValues[2].OnGetExternalValue = ExtractTranslationX;
+		ExternalValues[3].OnGetExternalValue = ExtractTranslationY;
+		ExternalValues[4].OnGetExternalValue = ExtractRotation;
+		ExternalValues[5].OnGetExternalValue = ExtractScale;
+	}
+
+	static TOptional<float> ExtractPivotX(UObject& InObject, FTrackInstancePropertyBindings* Bindings)
+	{
+		return Bindings ? Bindings->GetCurrentValue<FComposurePostMoveSettings>(InObject).Pivot.X : TOptional<float>();
+	}
+	static TOptional<float> ExtractPivotY(UObject& InObject, FTrackInstancePropertyBindings* Bindings)
+	{
+		return Bindings ? Bindings->GetCurrentValue<FComposurePostMoveSettings>(InObject).Pivot.Y : TOptional<float>();
+	}
+
+	static TOptional<float> ExtractTranslationX(UObject& InObject, FTrackInstancePropertyBindings* Bindings)
+	{
+		return Bindings ? Bindings->GetCurrentValue<FComposurePostMoveSettings>(InObject).Translation.X : TOptional<float>();
+	}
+	static TOptional<float> ExtractTranslationY(UObject& InObject, FTrackInstancePropertyBindings* Bindings)
+	{
+		return Bindings ? Bindings->GetCurrentValue<FComposurePostMoveSettings>(InObject).Translation.Y : TOptional<float>();
+	}
+
+	static TOptional<float> ExtractRotation(UObject& InObject, FTrackInstancePropertyBindings* Bindings)
+	{
+		return Bindings ? Bindings->GetCurrentValue<FComposurePostMoveSettings>(InObject).RotationAngle : TOptional<float>();
+	}
+
+	static TOptional<float> ExtractScale(UObject& InObject, FTrackInstancePropertyBindings* Bindings)
+	{
+		return Bindings ? Bindings->GetCurrentValue<FComposurePostMoveSettings>(InObject).Scale : TOptional<float>();
+	}
+
+	FMovieSceneChannelMetaData MetaData[6];
+	TMovieSceneExternalValue<float> ExternalValues[6];
+};
+
+#endif // WITH_EDITOR
+
 
 UMovieSceneComposurePostMoveSettingsSection::UMovieSceneComposurePostMoveSettingsSection( const FObjectInitializer& ObjectInitializer )
 	: Super( ObjectInitializer )
@@ -11,195 +87,31 @@ UMovieSceneComposurePostMoveSettingsSection::UMovieSceneComposurePostMoveSetting
 			EMovieSceneCompletionMode::RestoreState : 
 			EMovieSceneCompletionMode::ProjectDefault);
 	BlendType = EMovieSceneBlendType::Absolute;
-}
 
-void UMovieSceneComposurePostMoveSettingsSection::GetAllCurves(TArray<FRichCurve*>& AllCurves)
-{
-	AllCurves.Add(&Pivot[0]);
-	AllCurves.Add(&Pivot[1]);
-	AllCurves.Add(&Translation[0]);
-	AllCurves.Add(&Translation[1]);
-	AllCurves.Add(&RotationAngle);
-	AllCurves.Add(&Scale);
-}
+	// Initialize this section's channel proxy
+	FMovieSceneChannelProxyData Channels;
 
-void UMovieSceneComposurePostMoveSettingsSection::GetAllCurves(TArray<const FRichCurve*>& AllCurves) const
-{
-	AllCurves.Add(&Pivot[0]);
-	AllCurves.Add(&Pivot[1]);
-	AllCurves.Add(&Translation[0]);
-	AllCurves.Add(&Translation[1]);
-	AllCurves.Add(&RotationAngle);
-	AllCurves.Add(&Scale);
-}
+#if WITH_EDITOR
 
-void UMovieSceneComposurePostMoveSettingsSection::MoveSection(float DeltaTime, TSet<FKeyHandle>& KeyHandles)
-{
-	Super::MoveSection(DeltaTime, KeyHandles);
+	static const FPostMoveSettingsChannelEditorData EditorData;
 
-	TArray<FRichCurve*> AllCurves;
-	GetAllCurves(AllCurves);
+	Channels.Add(Pivot[0],       EditorData.MetaData[0], EditorData.ExternalValues[0]);
+	Channels.Add(Pivot[1],       EditorData.MetaData[1], EditorData.ExternalValues[1]);
+	Channels.Add(Translation[0], EditorData.MetaData[2], EditorData.ExternalValues[2]);
+	Channels.Add(Translation[1], EditorData.MetaData[3], EditorData.ExternalValues[3]);
+	Channels.Add(RotationAngle,  EditorData.MetaData[4], EditorData.ExternalValues[4]);
+	Channels.Add(Scale,          EditorData.MetaData[5], EditorData.ExternalValues[5]);
 
-	for (FRichCurve* Curve : AllCurves)
-	{
-		Curve->ShiftCurve(DeltaTime, KeyHandles);
-	}
-}
+#else
 
+	Channels.Add(Pivot[0]);
+	Channels.Add(Pivot[1]);
+	Channels.Add(Translation[0]);
+	Channels.Add(Translation[1]);
+	Channels.Add(RotationAngle);
+	Channels.Add(Scale);
 
-void UMovieSceneComposurePostMoveSettingsSection::DilateSection(float DilationFactor, float Origin, TSet<FKeyHandle>& KeyHandles)
-{
-	Super::DilateSection(DilationFactor, Origin, KeyHandles);
+#endif
 
-	TArray<FRichCurve*> AllCurves;
-	GetAllCurves(AllCurves);
-
-	for (FRichCurve* Curve : AllCurves)
-	{
-		Curve->ScaleCurve(Origin, DilationFactor, KeyHandles);
-	}
-}
-
-
-void UMovieSceneComposurePostMoveSettingsSection::GetKeyHandles(TSet<FKeyHandle>& OutKeyHandles, TRange<float> TimeRange) const
-{
-	if (!TimeRange.Overlaps(GetRange()))
-	{
-		return;
-	}
-
-	TArray<const FRichCurve*> AllCurves;
-	GetAllCurves(AllCurves);
-
-	for (const FRichCurve* Curve : AllCurves)
-	{
-		for (auto It(Curve->GetKeyHandleIterator()); It; ++It)
-		{
-			float Time = Curve->GetKeyTime(It.Key());
-			if (TimeRange.Contains(Time))
-			{
-				OutKeyHandles.Add(It.Key());
-			}
-		}
-	}
-}
-
-TOptional<float> UMovieSceneComposurePostMoveSettingsSection::GetKeyTime(FKeyHandle KeyHandle) const
-{
-	TArray<const FRichCurve*> AllCurves;
-	GetAllCurves(AllCurves);
-
-	for (const FRichCurve* Curve : AllCurves)
-	{
-		if (Curve->IsKeyHandleValid(KeyHandle))
-		{
-			return Curve->GetKeyTime(KeyHandle);
-		}
-	}
-	return TOptional<float>();
-}
-
-void UMovieSceneComposurePostMoveSettingsSection::SetKeyTime(FKeyHandle KeyHandle, float Time)
-{
-	TArray<FRichCurve*> AllCurves;
-	GetAllCurves(AllCurves);
-
-	for (FRichCurve* Curve : AllCurves)
-	{
-		if (Curve->IsKeyHandleValid(KeyHandle))
-		{
-			Curve->SetKeyTime(KeyHandle, Time);
-			break;
-		}
-	}
-}
-
-// This function uses a template to avoid duplicating this for const and non-const versions
-template<typename CurveType>
-CurveType* GetCurveForChannelAndAxis(EComposurePostMoveSettingsChannel Channel, EComposurePostMoveSettingsAxis Axis,
-	CurveType* Pivot, CurveType* Translation, CurveType* RotationAngle, CurveType* Scale)
-{
-	CurveType* Curve = nullptr;
-	switch (Channel)
-	{
-	case EComposurePostMoveSettingsChannel::Pivot:
-		if (Axis == EComposurePostMoveSettingsAxis::X)
-		{
-			Curve = &Pivot[0];
-		}
-		else if (Axis == EComposurePostMoveSettingsAxis::Y)
-		{
-			Curve = &Pivot[1];
-		}
-		break;
-	case EComposurePostMoveSettingsChannel::Translation:
-		if (Axis == EComposurePostMoveSettingsAxis::X)
-		{
-			Curve = &Translation[0];
-		}
-		else if (Axis == EComposurePostMoveSettingsAxis::Y)
-		{
-			Curve = &Translation[1];
-		}
-		break;
-	case EComposurePostMoveSettingsChannel::RotationAngle:
-		if (Axis == EComposurePostMoveSettingsAxis::None)
-		{
-			Curve = RotationAngle;
-		}
-		break;
-	case EComposurePostMoveSettingsChannel::Scale:
-		if (Axis == EComposurePostMoveSettingsAxis::None)
-		{
-			Curve = Scale;
-		}
-		break;
-	}
-	checkf(Curve != nullptr, TEXT("Invalid channel/axis combination"));
-	return Curve;
-}
-
-FRichCurve& UMovieSceneComposurePostMoveSettingsSection::GetCurve(EComposurePostMoveSettingsChannel Channel, EComposurePostMoveSettingsAxis Axis)
-{
-	return *GetCurveForChannelAndAxis(Channel, Axis, Pivot, Translation, &RotationAngle, &Scale);
-}
-
-const FRichCurve& UMovieSceneComposurePostMoveSettingsSection::GetCurve(EComposurePostMoveSettingsChannel Channel, EComposurePostMoveSettingsAxis Axis) const
-{
-	return *GetCurveForChannelAndAxis(Channel, Axis, Pivot, Translation, &RotationAngle, &Scale);
-}
-
-bool UMovieSceneComposurePostMoveSettingsSection::NewKeyIsNewData(float Time, const struct FComposurePostMoveSettingsKey& Key) const
-{
-	const FRichCurve& Curve = GetCurve(Key.Channel, Key.Axis);
-	return FMath::IsNearlyEqual(Curve.Eval(Time), Key.Value);
-}
-
-bool UMovieSceneComposurePostMoveSettingsSection::HasKeys(const struct FComposurePostMoveSettingsKey& Key) const
-{
-	const FRichCurve& Curve = GetCurve(Key.Channel, Key.Axis);
-	return Curve.GetNumKeys() != 0;
-}
-
-void UMovieSceneComposurePostMoveSettingsSection::AddKey(float Time, const struct FComposurePostMoveSettingsKey& Key, EMovieSceneKeyInterpolation KeyInterpolation)
-{
-	FRichCurve& Curve = GetCurve(Key.Channel, Key.Axis);
-	AddKeyToCurve(Curve, Time, Key.Value, KeyInterpolation);
-}
-
-void UMovieSceneComposurePostMoveSettingsSection::SetDefault(const struct FComposurePostMoveSettingsKey& Key)
-{
-	FRichCurve& Curve = GetCurve(Key.Channel, Key.Axis);
-	SetCurveDefault(Curve, Key.Value);
-}
-
-void UMovieSceneComposurePostMoveSettingsSection::ClearDefaults()
-{
-	TArray<FRichCurve*> AllCurves;
-	GetAllCurves(AllCurves);
-
-	for (FRichCurve* Curve : AllCurves)
-	{
-		Curve->ClearDefaultValue();
-	}
+	ChannelProxy = MakeShared<FMovieSceneChannelProxy>(MoveTemp(Channels));
 }

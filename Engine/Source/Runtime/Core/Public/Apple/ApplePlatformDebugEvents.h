@@ -6,9 +6,9 @@
 
 #pragma once
 #include "CoreTypes.h"
-#include "LogMacros.h"
-#include "Map.h"
-#include "UnrealString.h"
+#include "Logging/LogMacros.h"
+#include "Containers/Map.h"
+#include "Containers/UnrealString.h"
 #if PLATFORM_MAC
 #include "Mac/MacSystemIncludes.h"
 #elif PLATFORM_IOS

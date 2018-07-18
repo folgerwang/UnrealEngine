@@ -1,12 +1,12 @@
-﻿INTSoruceChangelist:3692813
-Availability:Public
+﻿Availability:Public
 Title:6 応用編
 Crumbs:%ROOT%
 Description:サンプルや詳細情報へのリンクを利用して、少し腕試しをしてみましょう。 
 SkillLevel:Beginner
 Version:4.18
 checkpoint: mediaframeworkqs
-parent:Engine\MediaFramework\QuickStart
+parent:Engine/MediaFramework/QuickStart
+type:quick start
 type:multi-step
 order:6
 tags:Media Framework
@@ -20,7 +20,7 @@ tags:Blueprints
 * [メディア プレイリスト](Engine\MediaFramework\HowTo\MediaPlaylists\) をメディア ソースとして使って、プレイヤーがテレビの "チャンネルを変更" できるようにする。
 * Media Player、Media Sound、Media Source アセットを使って 3 つ目の TV ブループリントをレベルに追加する 
 
-このサンプルでは、TV ブループリントを拡張し、プレイヤーがチャンネルの変更、早送り、巻き戻し、そしてテレビを切った後の再生開始を可能にしました。
+このサンプルでは、TV ブループリントを拡張し、プレイヤーがチャンネルの変更、早送り、巻き戻し、そしてテレビを切った後の再生開始を可能にしました。 
 
 [OBJECT:EmbeddedVideo]
 	[PARAMLITERAL:videoid]

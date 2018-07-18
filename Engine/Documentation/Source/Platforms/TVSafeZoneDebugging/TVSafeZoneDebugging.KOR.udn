@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3807090
 Availability:Docs
 Title:TV 안전 지대 디버깅 구성
 Crumbs:%ROOT%, Platforms
@@ -83,7 +83,7 @@ TV 안전 지대 명령은 프로젝트의 **DefaultEngine.ini** 파일 내 **[S
 1. 명령을 입력하면, 다음 그림처럼 전체 플레이 창 주변에 약간 투명한 빨강 테두리가 쳐진 것이 보일 것입니다.
 
 	[REGION:lightbox]
-	[![](Safe_Zone_00.png)(w:645 h:377)](Safe_Zone_00.png)
+	[![](Safe_Zone_00.png)(w:645)](Safe_Zone_00.png)
 	[/REGION]
 	
 	[REGION:caption]

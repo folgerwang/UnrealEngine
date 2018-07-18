@@ -58,3 +58,26 @@ float3 OctToUnit( float2 Oct )
 	}
 	return normalize(N);
 }
+
+#if ODS_CAPTURE
+/*
+	Apply omni-directional stereo displacement to a stereo cube map render.
+	This can later be reconstructed into a stereo lat-long by ODSCapture.usf
+	See: https://developers.google.com/vr/jump/rendering-ods-content.pdf
+*/
+float3 OffsetODS(float3 WorldPosition, float3 WorldCameraPosition, float IPD)
+{
+	float3 CamOffset = WorldPosition.xyz - WorldCameraPosition.xyz;
+	
+	float4 D = float4(CamOffset.xyz, dot(CamOffset.xyz, CamOffset.xyz));
+	D *= rsqrt(D.w);
+	
+	float3 WorldUp = float3(0.0, 0.0, 1.0);
+	float3 T = normalize(cross(D.xyz, WorldUp.xyz));
+
+	float A = IPD * IPD / D.w;
+	float B = IPD / D.w * sqrt(D.w * D.w - IPD * IPD);
+	
+	return -A * D + B * T;
+}
+#endif

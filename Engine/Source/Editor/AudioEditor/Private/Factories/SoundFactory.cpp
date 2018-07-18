@@ -384,7 +384,7 @@ UObject* USoundFactory::FactoryCreateBinary
 		}
 
 		Sound->Duration = (float)NumFrames / *WaveInfo.pSamplesPerSec;
-		Sound->SampleRate = *WaveInfo.pSamplesPerSec;
+		Sound->SetSampleRate(*WaveInfo.pSamplesPerSec);
 		Sound->NumChannels = ChannelCount;
 
 		FEditorDelegates::OnAssetPostImport.Broadcast(this, Sound);

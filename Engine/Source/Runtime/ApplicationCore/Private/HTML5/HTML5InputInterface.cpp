@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "HTML5InputInterface.h"
-#include "HTML5Cursor.h"
+#include "HTML5/HTML5InputInterface.h"
+#include "HTML5/HTML5Cursor.h"
 #include "HAL/OutputDevices.h"
 #include "HAL/PlatformTime.h"
 THIRD_PARTY_INCLUDES_START
@@ -36,8 +36,7 @@ static int Reversed[4] =
 };
 
 // all are digital except Left and Right Trigger Analog.
-#define ButtonMappingCap 16
-static FGamepadKeyNames::Type ButtonMapping[ButtonMappingCap] =
+static FGamepadKeyNames::Type ButtonMapping[HTML5_INPUT_INTERFACE_BUTTON_MAPPING_CAP] =
 {
 	FGamepadKeyNames::FaceButtonBottom,
 	FGamepadKeyNames::FaceButtonRight,
@@ -101,7 +100,7 @@ void FHTML5InputInterface::Tick(float DeltaTime, const SDL_Event& Event,TSharedR
 				const SDL_Keycode KeyCode = KeyEvent.keysym.scancode;
 				const bool bIsRepeated = KeyEvent.repeat != 0;
 
-				if ( KeyCode != 227 && KeyCode != 231 ) // UE-54056 -- filtering out Windows/Super key
+				if ( KeyCode != SDL_SCANCODE_F5 ) // UE-58440 -- note: this will be removed when new toolchain comes in
 				{
 					// First KeyDown, then KeyChar. This is important, as in-game console ignores first character otherwise
 					MessageHandler->OnKeyDown(KeyCode, KeyEvent.keysym.sym, bIsRepeated);
@@ -122,12 +121,13 @@ void FHTML5InputInterface::Tick(float DeltaTime, const SDL_Event& Event,TSharedR
 			{
 				SDL_KeyboardEvent keyEvent = Event.key;
 				const SDL_Keycode KeyCode = keyEvent.keysym.scancode;
-				if ( KeyCode != 227 && KeyCode != 231 ) // UE-54056 -- filtering out Windows/Super key
+				const bool IsRepeat = keyEvent.repeat != 0;
+
+				if ( KeyCode != SDL_SCANCODE_F5 ) // UE-58440 -- note: this will be removed when new toolchain comes in
 				{
-					const bool IsRepeat = keyEvent.repeat != 0;
 					MessageHandler->OnKeyUp( KeyCode, keyEvent.keysym.sym, IsRepeat );
-					UE_LOG(LogHTML5Input, Verbose, TEXT("KeyUp Code:%d"), KeyCode);
 				}
+				UE_LOG(LogHTML5Input, Verbose, TEXT("KeyUp Code:%d"), KeyCode);
 			}
 			break;
 		case SDL_TEXTINPUT:
@@ -183,7 +183,7 @@ void FHTML5InputInterface::SendControllerEvents()
 
 	const double CurrentTime = FPlatformTime::Seconds();
 
-	if (GamepadSupported)
+	if (GamepadSupported) // NOTE: this will prevent hot plugin controllers...  is this wanted?
 	{
 		int NumGamepads = emscripten_get_num_gamepads();
 		if (NumGamepads != PrevNumGamepads)
@@ -193,31 +193,32 @@ void FHTML5InputInterface::SendControllerEvents()
 				GamepadSupported = false;
 				return;
 			}
+			if ( NumGamepads > HTML5_INPUT_INTERFACE_MAX_CONTROLLERS )
+			{
+				NumGamepads = HTML5_INPUT_INTERFACE_MAX_CONTROLLERS;
+			}
 		}
 
-		for(int CurrentGamePad = 0; CurrentGamePad < NumGamepads && CurrentGamePad < 5; ++CurrentGamePad) // max 5 game pads.
+		for(int CurrentGamePad = 0; CurrentGamePad < NumGamepads; ++CurrentGamePad)
 		{
 			EmscriptenGamepadEvent GamePadEvent;
-			int Failed = emscripten_get_gamepad_status(CurrentGamePad, &GamePadEvent);
-			if (!Failed)
+			if ( emscripten_get_gamepad_status(CurrentGamePad, &GamePadEvent) == EMSCRIPTEN_RESULT_SUCCESS )
 			{
 				check(CurrentGamePad == GamePadEvent.index);
 				for(int CurrentAxis = 0; CurrentAxis < AxisMappingCap; ++CurrentAxis)
 				{
 					if (GamePadEvent.axis[CurrentAxis] != PrevGamePadState[CurrentGamePad].axis[CurrentAxis])
 					{
-
 						MessageHandler->OnControllerAnalog(AxisMapping[CurrentAxis],CurrentGamePad, Reversed[CurrentAxis]*GamePadEvent.axis[CurrentAxis]);
 					}
 				}
 				// edge trigger.
-				for(int CurrentButton = 0; CurrentButton < ButtonMappingCap; ++CurrentButton)
+				for(int CurrentButton = 0; CurrentButton < HTML5_INPUT_INTERFACE_BUTTON_MAPPING_CAP; ++CurrentButton)
 				{
 					// trigger for digital buttons.
-					if ( GamePadEvent.digitalButton[CurrentButton]   != PrevGamePadState[CurrentGamePad].digitalButton[CurrentButton] )
+					if ( GamePadEvent.digitalButton[CurrentButton] != PrevGamePadState[CurrentGamePad].digitalButton[CurrentButton] )
 					{
-						bool Triggered = GamePadEvent.digitalButton[CurrentButton] != 0;
-						if ( Triggered )
+						if ( GamePadEvent.digitalButton[CurrentButton] )
 						{
 							MessageHandler->OnControllerButtonPressed(ButtonMapping[CurrentButton],CurrentGamePad, false);
 							LastPressedTime[CurrentGamePad][CurrentButton] = CurrentTime;
@@ -230,9 +231,9 @@ void FHTML5InputInterface::SendControllerEvents()
 				}
 				// repeat trigger.
 				const float RepeatDelta = 0.2f;
-				for(int CurrentButton = 0; CurrentButton < ButtonMappingCap; ++CurrentButton)
+				for(int CurrentButton = 0; CurrentButton < HTML5_INPUT_INTERFACE_BUTTON_MAPPING_CAP; ++CurrentButton)
 				{
-					if ( GamePadEvent.digitalButton[CurrentButton]  )
+					if ( GamePadEvent.digitalButton[CurrentButton] )
 					{
 						if (CurrentTime - LastPressedTime[CurrentGamePad][CurrentButton] > RepeatDelta)
 						{

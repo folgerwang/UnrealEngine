@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Rendering/RenderingCommon.h"
+#include "Layout/Clipping.h"
 
 class FSlateBatchData;
 class FSlateDrawElement;
@@ -14,11 +15,19 @@ class FSlateShaderResource;
 class FSlateWindowElementList;
 struct FShaderParams;
 
+class FSlateDrawBox;
+class FSlateDrawText;
+class FSlateDrawShapedText;
+class FSlateDrawLines;
+class FSlateDrawCachedBuffer;
+
 /**
  * A class which batches Slate elements for rendering
  */
 class SLATECORE_API FSlateElementBatcher
 {
+
+	friend struct FLineBuilder;
 public:
 
 	FSlateElementBatcher( TSharedRef<FSlateRenderingPolicy> InRenderingPolicy );
@@ -45,9 +54,21 @@ public:
 	void ResetBatches();
 
 private:
-	void AddElements(const TArray<FSlateDrawElement>& DrawElements, const FVector2D& ViewportSize);
+	void AddElementsInternal(const TArray<FSlateDrawElement>& DrawElements, const FVector2D& ViewportSize);
+
+	void BatchBoxElements();
+	void BatchBorderElements();
+	void BatchTextElements();
+	void BatchShapedTextElements();
+	void BatchLineElements();
+	void BatchCachedBuffers();
 	
-	FColor PackVertexColor(const FLinearColor& InLinearColor);
+	FORCEINLINE FColor PackVertexColor(const FLinearColor& InLinearColor) const
+	{
+		//NOTE: Using pow(x,2) instead of a full sRGB conversion has been tried, but it ended up
+		// causing too much loss of data in the lower levels of black.
+		return InLinearColor.ToFColor(bSRGBVertexColor);
+	}
 
 	/** 
 	 * Creates vertices necessary to draw a Quad element 
@@ -59,19 +80,19 @@ private:
 	 * Creates vertices necessary to draw a 3x3 element
 	 */
 	template<ESlateVertexRounding Rounding>
-	void AddBoxElement( const FSlateDrawElement& DrawElement );
+	void AddBoxElement( const FSlateDrawBox& DrawElement );
 
 	/** 
 	 * Creates vertices necessary to draw a string (one quad per character)
 	 */
 	template<ESlateVertexRounding Rounding>
-	void AddTextElement( const FSlateDrawElement& DrawElement );
+	void AddTextElement( const FSlateDrawText& DrawElement );
 
 	/** 
 	 * Creates vertices necessary to draw a shaped glyph sequence (one quad per glyph)
 	 */
 	template<ESlateVertexRounding Rounding>
-	void AddShapedTextElement( const FSlateDrawElement& DrawElement );
+	void AddShapedTextElement( const FSlateDrawShapedText& DrawElement );
 
 	/** 
 	 * Creates vertices necessary to draw a gradient box (horizontal or vertical)
@@ -82,14 +103,13 @@ private:
 	/** 
 	 * Creates vertices necessary to draw a spline (Bezier curve)
 	 */
-	template<ESlateVertexRounding Rounding>
 	void AddSplineElement( const FSlateDrawElement& DrawElement );
 
 	/** 
 	 * Creates vertices necessary to draw a series of attached line segments
 	 */
 	template<ESlateVertexRounding Rounding>
-	void AddLineElement( const FSlateDrawElement& DrawElement );
+	void AddLineElement( const FSlateDrawLines& DrawElement );
 	
 	/** 
 	 * Creates vertices necessary to draw a viewport (just a textured quad)
@@ -101,7 +121,7 @@ private:
 	 * Creates vertices necessary to draw a border element
 	 */
 	template<ESlateVertexRounding Rounding>
-	void AddBorderElement( const FSlateDrawElement& DrawElement );
+	void AddBorderElement( const FSlateDrawBox& DrawElement );
 
 	/**
 	 * Batches a custom slate drawing element
@@ -117,7 +137,7 @@ private:
 
 	void AddCustomVerts( const FSlateDrawElement& DrawElement );
 
-	void AddCachedBuffer( const FSlateDrawElement& DrawElement );
+	void AddCachedBuffer( const FSlateDrawCachedBuffer& DrawElement );
 
 	void AddLayer(const FSlateDrawElement& DrawElement);
 
@@ -152,17 +172,32 @@ private:
 	/** The draw layer currently being accumulated */
 	FSlateDrawLayer* DrawLayer;
 
+	/** The draw layer currently being accumulated */
+	const TArray<FSlateClippingState>* ClippingStates;
+
 	/** Rendering policy we were created from */
 	FSlateRenderingPolicy* RenderingPolicy;
 
-	/** Track the number of drawn batches from the previous frame to report to stats. */
-	int32 NumDrawnBatchesStat;
-
 	/** Track the number of drawn boxes from the previous frame to report to stats. */
-	int32 NumDrawnBoxesStat;
+	int32 ElmementStat_Boxes;
 
-	/** Track the number of drawn texts from the previous frame to report to stats. */
-	int32 NumDrawnTextsStat;
+	/** Track the number of drawn borders from the previous frame to report to stats. */
+	int32 ElmementStat_Borders;
+
+	/** Track the number of drawn text from the previous frame to report to stats. */
+	int32 ElmementStat_Text;
+
+	/** Track the number of drawn shaped text from the previous frame to report to stats. */
+	int32 ElmementStat_ShapedText;
+
+	/** Track the number of drawn lines from the previous frame to report to stats. */
+	int32 ElmementStat_Line;
+
+	/** Track the number of drawn cached buffers from the previous frame to report to stats. */
+	int32 ElmementStat_CachedBuffer;
+
+	/** Track the number of drawn batches from the previous frame to report to stats. */
+	int32 ElmementStat_Other;
 
 	/** How many post process passes are needed */
 	int32 NumPostProcessPasses;

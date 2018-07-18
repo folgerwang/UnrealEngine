@@ -17,11 +17,11 @@ public:
 	/** Makes a new instance of this detail layout class for a specific detail view requesting it */
 	static TSharedRef<IDetailCustomization> MakeInstance();
 
-private:
+protected:
 	FTextureDetails()
 		: bIsUsingSlider(false)
 	{}
-
+private:
 	/** IDetailCustomization interface */
 	virtual void CustomizeDetails(IDetailLayoutBuilder& DetailBuilder) override;
 
@@ -35,6 +35,7 @@ private:
 	void OnPowerOfTwoModeChanged(TSharedPtr<FString> NewValue, ESelectInfo::Type SelectInfo);
 	bool CanEditPowerOfTwoMode(int32 NewPowerOfTwoMode) const;
 	void CreatePowerOfTwoModeMessage() const;
+	void OnPropertyResetToDefault() const;
 
 	TSharedPtr<IPropertyHandle> MaxTextureSizePropertyHandle;
 	TSharedPtr<IPropertyHandle> PowerOfTwoModePropertyHandle;

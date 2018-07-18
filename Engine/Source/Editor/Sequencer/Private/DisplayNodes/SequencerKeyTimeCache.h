@@ -2,37 +2,44 @@
 
 #pragma once
 
-#include "Range.h"
-#include "Guid.h"
-#include "ArrayView.h"
+#include "Math/Range.h"
+#include "Misc/Guid.h"
+#include "Containers/ArrayView.h"
 #include "Curves/KeyHandle.h"
 
-#include "SharedPointer.h"
-#include "Optional.h"
+#include "Templates/SharedPointer.h"
+#include "Misc/Optional.h"
 #include "IKeyArea.h"
-
-/** Key information that has been cached to avoid expensive operations */
-struct FSequencerCachedKey
-{
-	/** The key handle */
-	FKeyHandle Handle;
-	/** The local time of the key */
-	float Time;
-};
+#include "Misc/FrameRate.h"
 
 /** Simple structure that caches the sorted key times for a given key area */
 struct FSequencerCachedKeys
 {
 	/** Update this cache to store key times and handles from the specified key area */
-	void Update(TSharedRef<IKeyArea> KeyArea);
+	void Update(TSharedRef<IKeyArea> KeyArea, FFrameRate SourceResolution);
 
 	/** Get an view of the cached array for keys that fall within the specified range */
-	TArrayView<const FSequencerCachedKey> GetKeysInRange(TRange<float> Range) const;
+	void GetKeysInRange(const TRange<double>& Range, TArrayView<const double>* OutTimes, TArrayView<const FFrameNumber>* OutKeyFrames, TArrayView<const FKeyHandle>* OutHandles) const;
+
+	/** Get the key area this cache was generated for, or nullptr if the cache has never been updated */
+	TSharedPtr<IKeyArea> GetKeyArea() const
+	{
+		return KeyArea;
+	}
 
 private:
 	/** Cached key information */
-	TOptional<TArray<FSequencerCachedKey>> CachedKeys;
+	TArray<double> CachedKeyTimes;
+	TArray<FFrameNumber> CachedKeyFrames;
+	TArray<FKeyHandle> CachedKeyHandles;
+
 	/** The guid with which the above array was generated */
 	FGuid CachedSignature;
+
+	/** The tick resolution of the sequence that this cache was generated with */
+	FFrameRate CachedTickResolution;
+
+	/** The key area this cache is for */
+	TSharedPtr<IKeyArea> KeyArea;
 };
 

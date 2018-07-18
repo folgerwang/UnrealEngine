@@ -32,7 +32,7 @@ void APartyBeaconHost::PostInitProperties()
 
 bool APartyBeaconHost::InitHostBeacon(int32 InTeamCount, int32 InTeamSize, int32 InMaxReservations, FName InSessionName, int32 InForceTeamNum)
 {
-	UE_LOG(LogBeacon, Verbose, TEXT("InitHostBeacon TeamCount:%d TeamSize:%d MaxSize:%d"), InTeamCount, InTeamSize, InMaxReservations);
+	UE_LOG(LogPartyBeacon, Verbose, TEXT("InitHostBeacon TeamCount:%d TeamSize:%d MaxSize:%d"), InTeamCount, InTeamSize, InMaxReservations);
 	if (InMaxReservations > 0)
 	{
 		State = NewObject<UPartyBeaconState>(GetTransientPackage(), GetPartyBeaconHostClass());
@@ -49,7 +49,7 @@ bool APartyBeaconHost::InitFromBeaconState(UPartyBeaconState* PrevState)
 {
 	if (!State && PrevState)
 	{
-		UE_LOG(LogBeacon, Verbose, TEXT("InitFromBeaconState TeamCount:%d TeamSize:%d MaxSize:%d"), PrevState->NumTeams, PrevState->NumPlayersPerTeam, PrevState->MaxReservations);
+		UE_LOG(LogPartyBeacon, Verbose, TEXT("InitFromBeaconState TeamCount:%d TeamSize:%d MaxSize:%d"), PrevState->NumTeams, PrevState->NumPlayersPerTeam, PrevState->MaxReservations);
 		State = PrevState;
 		return true;
 	}
@@ -63,13 +63,13 @@ bool APartyBeaconHost::ReconfigureTeamAndPlayerCount(int32 InNumTeams, int32 InN
 	if (GetOwner() != NULL && State != NULL)
 	{
 		bSuccess = State->ReconfigureTeamAndPlayerCount(InNumTeams, InNumPlayersPerTeam, InNumReservations);
-		UE_LOG(LogBeacon, Log,
+		UE_LOG(LogPartyBeacon, Log,
 			TEXT("Beacon (%s) reconfiguring team and player count."),
 			*GetBeaconType());
 	}
 	else
 	{
-		UE_LOG(LogBeacon, Warning,
+		UE_LOG(LogPartyBeacon, Warning,
 			TEXT("Beacon (%s) hasn't been initialized yet, can't change team and player count."),
 			*GetBeaconType());
 	}
@@ -85,7 +85,7 @@ void APartyBeaconHost::SetTeamAssignmentMethod(FName NewAssignmentMethod)
 	}
 	else
 	{
-		UE_LOG(LogBeacon, Warning, TEXT("SetTeamAssignmentMethod failed for beacon with no state!"));
+		UE_LOG(LogPartyBeacon, Warning, TEXT("SetTeamAssignmentMethod failed for beacon with no state!"));
 	}
 }
 
@@ -125,7 +125,7 @@ void APartyBeaconHost::Tick(float DeltaTime)
 						}
 						else
 						{
-							UE_LOG(LogBeacon, Error, TEXT("Missing PartyBeaconClient found in ClientActors array"));
+							UE_LOG(LogPartyBeacon, Error, TEXT("Missing PartyBeaconClient found in ClientActors array"));
 							ClientActors.RemoveAtSwap(ClientIdx);
 							ClientIdx--;
 						}
@@ -159,7 +159,7 @@ void APartyBeaconHost::Tick(float DeltaTime)
 								int32 FoundIdx = State->PlayersPendingJoin.IndexOfByPredicate(PlayerMatch);
 								if (FoundIdx != INDEX_NONE)
 								{
-									UE_LOG(LogBeacon, Display, TEXT("Beacon (%s): pending player %s found in session (%s), removing."),
+									UE_LOG(LogPartyBeacon, Display, TEXT("Beacon (%s): pending player %s found in session (%s), removing."),
 										*GetName(),
 										*(PlayerEntry.UniqueId.ToDebugString()),
 										*SessionName.ToString());
@@ -222,7 +222,7 @@ void APartyBeaconHost::Tick(float DeltaTime)
 							}
 						}
 
-						UE_LOG(LogBeacon, Display, TEXT("Beacon (%s): pending player logout due to timeout for %s, elapsed time = %0.3f, removing"),
+						UE_LOG(LogPartyBeacon, Display, TEXT("Beacon (%s): pending player logout due to timeout for %s, elapsed time = %0.3f, removing"),
 							*GetName(),
 							*UniqueId->ToDebugString(),
 							ElapsedSessionTime);
@@ -247,7 +247,7 @@ int32 APartyBeaconHost::GetNumPlayersOnTeam(int32 TeamIdx) const
 	}
 	else
 	{
-		UE_LOG(LogBeacon, Warning,
+		UE_LOG(LogPartyBeacon, Warning,
 			TEXT("Beacon (%s) hasn't been initialized yet, can't get team player count."),
 			*GetBeaconType());
 	}
@@ -267,7 +267,7 @@ int32 APartyBeaconHost::GetTeamForCurrentPlayer(const FUniqueNetId& PlayerId) co
 	}
 	else
 	{
-		UE_LOG(LogBeacon, Display, TEXT("Invalid player when attempting to find team assignment"));
+		UE_LOG(LogPartyBeacon, Display, TEXT("Invalid player when attempting to find team assignment"));
 	}
 
 	return TeamNum;
@@ -283,12 +283,12 @@ int32 APartyBeaconHost::GetPlayersOnTeam(int32 TeamIndex, TArray<FUniqueNetIdRep
 		}
 		else
 		{
-			UE_LOG(LogBeacon, Warning, TEXT("GetPlayersOnTeam: Invalid team index %d"), TeamIndex);
+			UE_LOG(LogPartyBeacon, Warning, TEXT("GetPlayersOnTeam: Invalid team index %d"), TeamIndex);
 		}
 	}
 	else
 	{
-		UE_LOG(LogBeacon, Warning, TEXT("GetPlayersOnTeam failed for beacon with no state!"));
+		UE_LOG(LogPartyBeacon, Warning, TEXT("GetPlayersOnTeam failed for beacon with no state!"));
 	}
 
 	return 0;
@@ -304,7 +304,7 @@ void APartyBeaconHost::SendReservationUpdates()
 		{
 			if (NumRemaining > 0)
 			{
-				UE_LOG(LogBeacon, Verbose, TEXT("Sending reservation update %d"), NumRemaining);
+				UE_LOG(LogPartyBeacon, Verbose, TEXT("Sending reservation update %d"), NumRemaining);
 				for (AOnlineBeaconClient* ClientActor : ClientActors)
 				{
 					APartyBeaconClient* PartyBeaconClient = Cast<APartyBeaconClient>(ClientActor);
@@ -316,7 +316,7 @@ void APartyBeaconHost::SendReservationUpdates()
 			}
 			else
 			{
-				UE_LOG(LogBeacon, Verbose, TEXT("Sending reservation full"));
+				UE_LOG(LogPartyBeacon, Verbose, TEXT("Sending reservation full"));
 				for (AOnlineBeaconClient* ClientActor : ClientActors)
 				{
 					APartyBeaconClient* PartyBeaconClient = Cast<APartyBeaconClient>(ClientActor);
@@ -336,17 +336,22 @@ void APartyBeaconHost::NewPlayerAdded(const FPlayerReservation& NewPlayer)
 	{
 		if (State)
 		{
-			UE_LOG(LogBeacon, Verbose, TEXT("Beacon adding pending player %s"), *NewPlayer.UniqueId.ToDebugString());
-			State->PlayersPendingJoin.Add(NewPlayer.UniqueId.GetUniqueNetId());
+			FUniqueNetIdMatcher PlayerMatch(*NewPlayer.UniqueId);
+			int32 FoundIdx = State->PlayersPendingJoin.IndexOfByPredicate(PlayerMatch);
+			if (FoundIdx == INDEX_NONE)
+			{
+				UE_LOG(LogPartyBeacon, Verbose, TEXT("Beacon adding pending player %s"), *NewPlayer.UniqueId.ToDebugString());
+				State->PlayersPendingJoin.Add(NewPlayer.UniqueId.GetUniqueNetId());
+			}
 		}
 		else
 		{
-			UE_LOG(LogBeacon, Warning, TEXT("Beacon skipping PlayersPendingJoin for beacon with no state!"));
+			UE_LOG(LogPartyBeacon, Warning, TEXT("Beacon skipping PlayersPendingJoin for beacon with no state!"));
 		}
 	}
 	else
 	{
-		UE_LOG(LogBeacon, Warning, TEXT("Beacon skipping PlayersPendingJoin for invalid player!"));
+		UE_LOG(LogPartyBeacon, Warning, TEXT("Beacon skipping PlayersPendingJoin for invalid player!"));
 	}
 }
 
@@ -363,7 +368,7 @@ void APartyBeaconHost::HandlePlayerLogout(const FUniqueNetIdRepl& PlayerId)
 {
 	if (PlayerId.IsValid())
 	{
-		UE_LOG(LogBeacon, Verbose, TEXT("HandlePlayerLogout %s"), *PlayerId->ToDebugString());
+		UE_LOG(LogPartyBeacon, Verbose, TEXT("HandlePlayerLogout %s"), *PlayerId->ToDebugString());
 
 		if (State)
 		{
@@ -416,7 +421,7 @@ bool APartyBeaconHost::PlayerHasReservation(const FUniqueNetId& PlayerId) const
 	}
 	else
 	{
-		UE_LOG(LogBeacon, Warning,
+		UE_LOG(LogPartyBeacon, Warning,
 			TEXT("Beacon (%s) hasn't been initialized yet, no reservations."),
 			*GetBeaconType());
 	}
@@ -435,7 +440,7 @@ bool APartyBeaconHost::GetPlayerValidation(const FUniqueNetId& PlayerId, FString
 	}
 	else
 	{
-		UE_LOG(LogBeacon, Warning,
+		UE_LOG(LogPartyBeacon, Warning,
 			TEXT("Beacon (%s) hasn't been initialized yet, no validation."),
 			*GetBeaconType());
 	}
@@ -452,7 +457,7 @@ bool APartyBeaconHost::GetPartyLeader(const FUniqueNetIdRepl& InPartyMemberId, F
 	}
 	else
 	{
-		UE_LOG(LogBeacon, Warning,
+		UE_LOG(LogPartyBeacon, Warning,
 			TEXT("Beacon (%s) hasn't been initialized yet, no leader can be found."),
 			*GetBeaconType());
 	}
@@ -514,18 +519,26 @@ EPartyReservationResult::Type APartyBeaconHost::AddPartyReservation(const FParty
 						}
 					}
 
-					SendReservationUpdates();
-
-					// Clean up the game entities for these duplicate players
-					DuplicateReservation.ExecuteIfBound(ReservationRequest);
-
-					// Add all players back into the pending join list
-					for (int32 Count = 0; Count < ReservationRequest.PartyMembers.Num(); Count++)
+					if (State->CrossPlayAllowed(ReservationRequest))
 					{
-						NewPlayerAdded(ReservationRequest.PartyMembers[Count]);
-					}
+						SendReservationUpdates();
 
-					Result = EPartyReservationResult::ReservationDuplicate;
+						// Clean up the game entities for these duplicate players
+						DuplicateReservation.ExecuteIfBound(ReservationRequest);
+
+						// Add all players back into the pending join list
+						for (int32 Count = 0; Count < ReservationRequest.PartyMembers.Num(); Count++)
+						{
+							NewPlayerAdded(ReservationRequest.PartyMembers[Count]);
+						}
+
+						Result = EPartyReservationResult::ReservationDuplicate;
+					}
+					else
+					{
+						// Cross play restriction
+						Result = EPartyReservationResult::ReservationDenied_CrossPlayRestriction;
+					}
 				}
 				else
 				{
@@ -542,7 +555,7 @@ EPartyReservationResult::Type APartyBeaconHost::AddPartyReservation(const FParty
 		else
 		{
 			// Check for players we already have reservations for
-			// Keep track of team index for existing members - if we have members on opposing teams, reject this reserveration
+			// Keep track of team index for existing members - if we have members on opposing teams, reject this reservation
 			bool bContainsExistingMembers = false;
 			int32 ExistingMemberReservationTeamNum = INDEX_NONE;
 			for (const FPlayerReservation& PartyMember : ReservationRequest.PartyMembers)
@@ -551,7 +564,7 @@ EPartyReservationResult::Type APartyBeaconHost::AddPartyReservation(const FParty
 				if (MemberExistingPartyReservationIdx != INDEX_NONE)
 				{
 					const FPartyReservation& MemberExistingPartyReservation = Reservations[MemberExistingPartyReservationIdx];
-					UE_LOG(LogBeacon, Display, TEXT("APartyBeaconHost::AddPartyReservation: Found existing reservation for party member %s"), *PartyMember.UniqueId.ToString());
+					UE_LOG(LogPartyBeacon, Display, TEXT("APartyBeaconHost::AddPartyReservation: Found existing reservation for party member %s"), *PartyMember.UniqueId.ToString());
 					ReservationRequest.Dump();
 					MemberExistingPartyReservation.Dump();
 					bContainsExistingMembers = true;
@@ -563,7 +576,7 @@ EPartyReservationResult::Type APartyBeaconHost::AddPartyReservation(const FParty
 					int32 FoundIdx = State->PlayersPendingJoin.IndexOfByPredicate(PlayerMatch);
 					if (FoundIdx != INDEX_NONE)
 					{
-						UE_LOG(LogBeacon, Display, TEXT("APartyBeaconHost::AddPartyReservation: Found party member %s in the pending player list"), *PartyMember.UniqueId.ToString());
+						UE_LOG(LogPartyBeacon, Display, TEXT("APartyBeaconHost::AddPartyReservation: Found party member %s in the pending player list"), *PartyMember.UniqueId.ToString());
 						ReservationRequest.Dump();
 						bContainsExistingMembers = true;
 					}
@@ -584,27 +597,35 @@ EPartyReservationResult::Type APartyBeaconHost::AddPartyReservation(const FParty
 					{
 						if (State->AreTeamsAvailable(ReservationRequest))
 						{
-							if (State->AddReservation(ReservationRequest))
+							if (State->CrossPlayAllowed(ReservationRequest))
 							{
-								// Keep track of newly added players
-								for (const FPlayerReservation& PartyMember : ReservationRequest.PartyMembers)
+								if (State->AddReservation(ReservationRequest))
 								{
-									NewPlayerAdded(PartyMember);
+									// Keep track of newly added players
+									for (const FPlayerReservation& PartyMember : ReservationRequest.PartyMembers)
+									{
+										NewPlayerAdded(PartyMember);
+									}
+
+									SendReservationUpdates();
+
+									NotifyReservationEventNextFrame(ReservationChanged);
+									if (State->IsBeaconFull())
+									{
+										NotifyReservationEventNextFrame(ReservationsFull);
+									}
+									Result = EPartyReservationResult::ReservationAccepted;
 								}
-
-								SendReservationUpdates();
-
-								NotifyReservationEventNextFrame(ReservationChanged);
-								if (State->IsBeaconFull())
+								else
 								{
-									NotifyReservationEventNextFrame(ReservationsFull);
+									// Something wrong with team assignment
+									Result = EPartyReservationResult::IncorrectPlayerCount;
 								}
-								Result = EPartyReservationResult::ReservationAccepted;
 							}
 							else
 							{
-								// Something wrong with team assignment
-								Result = EPartyReservationResult::IncorrectPlayerCount;
+								// Cross play restriction
+								Result = EPartyReservationResult::ReservationDenied_CrossPlayRestriction;
 							}
 						}
 						else
@@ -644,9 +665,9 @@ EPartyReservationResult::Type APartyBeaconHost::AddPartyReservation(const FParty
 
 EPartyReservationResult::Type APartyBeaconHost::UpdatePartyReservation(const FPartyReservation& ReservationUpdateRequest)
 {
-	if (UE_LOG_ACTIVE(LogBeacon, Verbose))
+	if (UE_LOG_ACTIVE(LogPartyBeacon, Verbose))
 	{
-		UE_LOG(LogBeacon, Verbose, TEXT("APartyBeaconHost::UpdatePartyReservation"));
+		UE_LOG(LogPartyBeacon, Verbose, TEXT("APartyBeaconHost::UpdatePartyReservation"));
 		ReservationUpdateRequest.Dump();
 	}
 	EPartyReservationResult::Type Result = EPartyReservationResult::GeneralError;
@@ -690,7 +711,7 @@ EPartyReservationResult::Type APartyBeaconHost::UpdatePartyReservation(const FPa
 					else
 					{
 						// duplicate entry for this player
-						UE_LOG(LogBeacon, Log, TEXT("Skipping player %s because they already have a reservation with this party"),
+						UE_LOG(LogPartyBeacon, Log, TEXT("Skipping player %s because they already have a reservation with this party"),
 							*NewPlayerRes.UniqueId.ToString());
 					}
 				}
@@ -701,102 +722,109 @@ EPartyReservationResult::Type APartyBeaconHost::UpdatePartyReservation(const FPa
 					bool bPlayerRemovedFromReservation = false;
 					if (NewPlayers.Num() > 0)
 					{
-						// Copy new player entries into existing reservation
-						for (int32 PlayerIdx = 0; PlayerIdx < NewPlayers.Num(); PlayerIdx++)
+						if (State->CrossPlayAllowed(ReservationUpdateRequest))
 						{
-							const FPlayerReservation& PlayerRes = NewPlayers[PlayerIdx];
-
-							// Remove players that existed in other reservations before adding to this reservation
-							if (NumPlayersWithExistingReservation > 0)
+							// Copy new player entries into existing reservation
+							for (int32 PlayerIdx = 0; PlayerIdx < NewPlayers.Num(); PlayerIdx++)
 							{
-								const int32 FormerReservationIdx = State->GetExistingReservationContainingMember(PlayerRes.UniqueId);
-								if (FormerReservationIdx != INDEX_NONE)
+								const FPlayerReservation& PlayerRes = NewPlayers[PlayerIdx];
+
+								// Remove players that existed in other reservations before adding to this reservation
+								if (NumPlayersWithExistingReservation > 0)
 								{
-									FPartyReservation& FormerReservation = Reservations[FormerReservationIdx];
-									UE_LOG(LogBeacon, Log, TEXT("APartyBeaconHost::UpdatePartyReservation: Removing player %s from former reservation with leader %s before adding to reservation with leader %s"),
-										*PlayerRes.UniqueId.ToString(), *FormerReservation.PartyLeader.ToString(), *ReservationUpdateRequest.PartyLeader.ToString());
-									if (UE_LOG_ACTIVE(LogBeacon, Verbose))
+									const int32 FormerReservationIdx = State->GetExistingReservationContainingMember(PlayerRes.UniqueId);
+									if (FormerReservationIdx != INDEX_NONE)
 									{
-										FormerReservation.Dump();
-									}
-									int32 NumReservationsRemoved = FormerReservation.PartyMembers.RemoveAll([&PlayerRes](const FPlayerReservation& OtherRes)
-									{
-										return OtherRes.UniqueId == PlayerRes.UniqueId;
-									});
-
-									State->NumConsumedReservations -= NumReservationsRemoved;
-									UE_LOG(LogBeacon, Verbose, TEXT("APartyBeaconHost::UpdatePartyReservation: Removed %d players, setting NumConsumedReservations to %d"), NumReservationsRemoved, State->NumConsumedReservations);
-
-									if (NumReservationsRemoved != 0)
-									{
-										bPlayerRemovedFromReservation = true;
-										if (FormerReservation.PartyLeader == PlayerRes.UniqueId)
+										FPartyReservation& FormerReservation = Reservations[FormerReservationIdx];
+										UE_LOG(LogPartyBeacon, Log, TEXT("APartyBeaconHost::UpdatePartyReservation: Removing player %s from former reservation with leader %s before adding to reservation with leader %s"),
+											*PlayerRes.UniqueId.ToString(), *FormerReservation.PartyLeader.ToString(), *ReservationUpdateRequest.PartyLeader.ToString());
+										if (UE_LOG_ACTIVE(LogPartyBeacon, Verbose))
 										{
-											UE_LOG(LogBeacon, Display, TEXT("APartyBeaconHost::UpdatePartyReservation: Leader removed, finding member to promote"));
-											// Try to find a new leader for party reservation that lost its leader
-											bool bAnyMemberPromoted = false;
-											for (int32 FormerReservationPlayerIdx = 0; FormerReservationPlayerIdx < FormerReservation.PartyMembers.Num(); FormerReservationPlayerIdx++)
+											FormerReservation.Dump();
+										}
+										int32 NumReservationsRemoved = FormerReservation.PartyMembers.RemoveAll([&PlayerRes](const FPlayerReservation& OtherRes)
+										{
+											return OtherRes.UniqueId == PlayerRes.UniqueId;
+										});
+
+										State->NumConsumedReservations -= NumReservationsRemoved;
+										UE_LOG(LogPartyBeacon, Verbose, TEXT("APartyBeaconHost::UpdatePartyReservation: Removed %d players, setting NumConsumedReservations to %d"), NumReservationsRemoved, State->NumConsumedReservations);
+
+										if (NumReservationsRemoved != 0)
+										{
+											bPlayerRemovedFromReservation = true;
+											if (FormerReservation.PartyLeader == PlayerRes.UniqueId)
 											{
-												FPlayerReservation& FormerReservationPlayerEntry = FormerReservation.PartyMembers[FormerReservationPlayerIdx];
-												if (FormerReservationPlayerEntry.UniqueId != FormerReservation.PartyLeader && 
-													FormerReservationPlayerEntry.UniqueId.IsValid() &&
-													State->GetExistingReservation(FormerReservationPlayerEntry.UniqueId) == INDEX_NONE)
+												UE_LOG(LogPartyBeacon, Display, TEXT("APartyBeaconHost::UpdatePartyReservation: Leader removed, finding member to promote"));
+												// Try to find a new leader for party reservation that lost its leader
+												bool bAnyMemberPromoted = false;
+												for (int32 FormerReservationPlayerIdx = 0; FormerReservationPlayerIdx < FormerReservation.PartyMembers.Num(); FormerReservationPlayerIdx++)
 												{
-													// Promote to party leader (for now)
-													UE_LOG(LogBeacon, Display, TEXT("APartyBeaconHost::UpdatePartyReservation: Promoting member %s to leader"), *FormerReservationPlayerEntry.UniqueId.ToString());
-													FormerReservation.PartyLeader = FormerReservationPlayerEntry.UniqueId;
-													bAnyMemberPromoted = true;
-													break;
+													FPlayerReservation& FormerReservationPlayerEntry = FormerReservation.PartyMembers[FormerReservationPlayerIdx];
+													if (FormerReservationPlayerEntry.UniqueId != FormerReservation.PartyLeader &&
+														FormerReservationPlayerEntry.UniqueId.IsValid() &&
+														State->GetExistingReservation(FormerReservationPlayerEntry.UniqueId) == INDEX_NONE)
+													{
+														// Promote to party leader (for now)
+														UE_LOG(LogPartyBeacon, Display, TEXT("APartyBeaconHost::UpdatePartyReservation: Promoting member %s to leader"), *FormerReservationPlayerEntry.UniqueId.ToString());
+														FormerReservation.PartyLeader = FormerReservationPlayerEntry.UniqueId;
+														bAnyMemberPromoted = true;
+														break;
+													}
 												}
+												if (!bAnyMemberPromoted)
+												{
+													UE_LOG(LogPartyBeacon, Display, TEXT("APartyBeaconHost::UpdatePartyReservation: Failed to find a player to promote to leader"));
+												}
+												State->SanityCheckReservations(true);
 											}
-											if (!bAnyMemberPromoted)
-											{
-												UE_LOG(LogBeacon, Display, TEXT("APartyBeaconHost::UpdatePartyReservation: Failed to find a player to promote to leader"));
-											}
-											State->SanityCheckReservations(true);
 										}
 									}
-								}
 
+								}
+								ExistingReservation.PartyMembers.Add(PlayerRes);
+								// Keep track of newly added players
+								NewPlayerAdded(PlayerRes);
+								State->SanityCheckReservations(true);
 							}
-							ExistingReservation.PartyMembers.Add(PlayerRes);
-							// Keep track of newly added players
-							NewPlayerAdded(PlayerRes);
-							State->SanityCheckReservations(true);
-						}
 
-						// Update the reservation count before sending the response
-						State->NumConsumedReservations += NewPlayers.Num();
-						UE_LOG(LogBeacon, Verbose, TEXT("APartyBeaconHost::UpdatePartyReservation: Added %d players, setting NumConsumedReservations to %d"), NewPlayers.Num(), State->NumConsumedReservations);
+							// Update the reservation count before sending the response
+							State->NumConsumedReservations += NewPlayers.Num();
+							UE_LOG(LogPartyBeacon, Verbose, TEXT("APartyBeaconHost::UpdatePartyReservation: Added %d players, setting NumConsumedReservations to %d"), NewPlayers.Num(), State->NumConsumedReservations);
 
-						// Tell any UI and/or clients that there has been a change in the reservation state
-						SendReservationUpdates();
+							// Tell any UI and/or clients that there has been a change in the reservation state
+							SendReservationUpdates();
 
-						// Tell the owner that we've received a reservation so the UI can be updated
-						NotifyReservationEventNextFrame(ReservationChanged);
-						if (State->IsBeaconFull())
-						{
-							// If we've hit our limit, fire the delegate so the host can do the
-							// next step in getting parties together
-							NotifyReservationEventNextFrame(ReservationsFull);
-						}
-
-						if (bPlayerRemovedFromReservation)
-						{
-							State->Reservations.RemoveAll([](const FPartyReservation& Reservation)
+							// Tell the owner that we've received a reservation so the UI can be updated
+							NotifyReservationEventNextFrame(ReservationChanged);
+							if (State->IsBeaconFull())
 							{
-								bool bEmptyReservation = Reservation.PartyMembers.Num() == 0;
-								if (bEmptyReservation)
+								// If we've hit our limit, fire the delegate so the host can do the
+								// next step in getting parties together
+								NotifyReservationEventNextFrame(ReservationsFull);
+							}
+
+							if (bPlayerRemovedFromReservation)
+							{
+								State->Reservations.RemoveAll([](const FPartyReservation& Reservation)
 								{
-									UE_LOG(LogBeacon, Log, TEXT("Removing reservation with party leader %s because there are no more members in it"),
-										*Reservation.PartyLeader.ToString());
-								}
-								return bEmptyReservation;
-							});
-							State->SanityCheckReservations(false);
+									bool bEmptyReservation = Reservation.PartyMembers.Num() == 0;
+									if (bEmptyReservation)
+									{
+										UE_LOG(LogPartyBeacon, Log, TEXT("Removing reservation with party leader %s because there are no more members in it"),
+											*Reservation.PartyLeader.ToString());
+									}
+									return bEmptyReservation;
+								});
+								State->SanityCheckReservations(false);
+							}
+
+							Result = EPartyReservationResult::ReservationAccepted;
 						}
-						
-						Result = EPartyReservationResult::ReservationAccepted;
+						else
+						{
+							Result = EPartyReservationResult::ReservationDenied_CrossPlayRestriction;
+						}
 					}
 					else
 					{
@@ -843,7 +871,7 @@ EPartyReservationResult::Type APartyBeaconHost::RemovePartyReservation(const FUn
 	}
 	else
 	{
-		UE_LOG(LogBeacon, Warning, TEXT("Failed to find reservation to cancel for leader %s:"), PartyLeader.IsValid() ? *PartyLeader->ToString() : TEXT("INVALID") );
+		UE_LOG(LogPartyBeacon, Warning, TEXT("Failed to find reservation to cancel for leader %s:"), PartyLeader.IsValid() ? *PartyLeader->ToString() : TEXT("INVALID") );
 		return EPartyReservationResult::ReservationNotFound;
 	}
 }
@@ -856,7 +884,7 @@ void APartyBeaconHost::RegisterAuthTicket(const FUniqueNetIdRepl& InPartyMemberI
 	}
 	else
 	{
-		UE_LOG(LogBeacon, Warning,
+		UE_LOG(LogPartyBeacon, Warning,
 			TEXT("Beacon (%s) hasn't been initialized yet, not able to register auth ticket."),
 			*GetBeaconType());
 	}
@@ -870,7 +898,7 @@ void APartyBeaconHost::UpdatePartyLeader(const FUniqueNetIdRepl& InPartyMemberId
 	}
 	else
 	{
-		UE_LOG(LogBeacon, Warning,
+		UE_LOG(LogPartyBeacon, Warning,
 			TEXT("Beacon (%s) hasn't been initialized yet, not able to update party leader."),
 			*GetBeaconType());
 	}
@@ -896,13 +924,13 @@ bool APartyBeaconHost::DoesSessionMatch(const FString& SessionId) const
 
 void APartyBeaconHost::ProcessReservationRequest(APartyBeaconClient* Client, const FString& SessionId, const FPartyReservation& ReservationRequest)
 {
-	UE_LOG(LogBeacon, Verbose, TEXT("ProcessReservationRequest %s SessionId %s PartyLeader: %s PartySize: %d from (%s)"), 
+	UE_LOG(LogPartyBeacon, Verbose, TEXT("ProcessReservationRequest %s SessionId %s PartyLeader: %s PartySize: %d from (%s)"), 
 		Client ? *Client->GetName() : TEXT("NULL"), 
 		*SessionId,
 		ReservationRequest.PartyLeader.IsValid() ? *ReservationRequest.PartyLeader->ToString() : TEXT("INVALID"),
 		ReservationRequest.PartyMembers.Num(),
 		Client ? *Client->GetNetConnection()->LowLevelDescribe() : TEXT("NULL"));
-	if (UE_LOG_ACTIVE(LogBeacon, Verbose))
+	if (UE_LOG_ACTIVE(LogPartyBeacon, Verbose))
 	{
 		ReservationRequest.Dump();
 	}
@@ -915,8 +943,8 @@ void APartyBeaconHost::ProcessReservationRequest(APartyBeaconClient* Client, con
 			Result = AddPartyReservation(ReservationRequest);
 		}
 
-		UE_LOG(LogBeacon, Verbose, TEXT("ProcessReservationRequest result: %s"), EPartyReservationResult::ToString(Result));
-		if (UE_LOG_ACTIVE(LogBeacon, Verbose) &&
+		UE_LOG(LogPartyBeacon, Verbose, TEXT("ProcessReservationRequest result: %s"), EPartyReservationResult::ToString(Result));
+		if (UE_LOG_ACTIVE(LogPartyBeacon, Verbose) &&
 			(Result != EPartyReservationResult::ReservationAccepted))
 		{
 			DumpReservations();
@@ -928,7 +956,7 @@ void APartyBeaconHost::ProcessReservationRequest(APartyBeaconClient* Client, con
 
 void APartyBeaconHost::ProcessReservationUpdateRequest(APartyBeaconClient* Client, const FString& SessionId, const FPartyReservation& ReservationUpdateRequest)
 {
-	UE_LOG(LogBeacon, Verbose, TEXT("ProcessReservationUpdateRequest %s SessionId %s PartyLeader: %s PartySize: %d from (%s)"),
+	UE_LOG(LogPartyBeacon, Verbose, TEXT("ProcessReservationUpdateRequest %s SessionId %s PartyLeader: %s PartySize: %d from (%s)"),
 		Client ? *Client->GetName() : TEXT("NULL"),
 		*SessionId,
 		ReservationUpdateRequest.PartyLeader.IsValid() ? *ReservationUpdateRequest.PartyLeader->ToString() : TEXT("INVALID"),
@@ -943,8 +971,8 @@ void APartyBeaconHost::ProcessReservationUpdateRequest(APartyBeaconClient* Clien
 			Result = UpdatePartyReservation(ReservationUpdateRequest);
 		}
 
-		UE_LOG(LogBeacon, Verbose, TEXT("ProcessReservationUpdateRequest result: %s"), EPartyReservationResult::ToString(Result));
-		if (UE_LOG_ACTIVE(LogBeacon, Verbose) &&
+		UE_LOG(LogPartyBeacon, Verbose, TEXT("ProcessReservationUpdateRequest result: %s"), EPartyReservationResult::ToString(Result));
+		if (UE_LOG_ACTIVE(LogPartyBeacon, Verbose) &&
 			(Result != EPartyReservationResult::ReservationAccepted))
 		{
 			DumpReservations();
@@ -955,9 +983,29 @@ void APartyBeaconHost::ProcessReservationUpdateRequest(APartyBeaconClient* Clien
 	}
 }
 
+bool APartyBeaconHost::HasCrossplayOptOutReservation() const
+{
+	if (State)
+	{
+		return State->HasCrossplayOptOutReservation();
+	}
+
+	return false;
+}
+
+int32 APartyBeaconHost::GetReservationPlatformCount(const FString& InPlatform) const
+{
+	if (State)
+	{
+		return State->GetReservationPlatformCount(InPlatform);
+	}
+
+	return 0;
+}
+
 void APartyBeaconHost::ProcessCancelReservationRequest(APartyBeaconClient* Client, const FUniqueNetIdRepl& PartyLeader)
 {
-	UE_LOG(LogBeacon, Verbose, TEXT("ProcessCancelReservationRequest %s PartyLeader: %s from (%s)"), 
+	UE_LOG(LogPartyBeacon, Verbose, TEXT("ProcessCancelReservationRequest %s PartyLeader: %s from (%s)"), 
 		Client ? *Client->GetName() : TEXT("NULL"), 
 		PartyLeader.IsValid() ? *PartyLeader->ToString() : TEXT("INVALID"),
 		Client ? *Client->GetNetConnection()->LowLevelDescribe() : TEXT("NULL"));
@@ -965,8 +1013,8 @@ void APartyBeaconHost::ProcessCancelReservationRequest(APartyBeaconClient* Clien
 	if (Client)
 	{
 		EPartyReservationResult::Type Result = RemovePartyReservation(PartyLeader);
-		UE_LOG(LogBeacon, Verbose, TEXT("ProcessCancelReservationRequest result: %s"), EPartyReservationResult::ToString(Result));
-		if (UE_LOG_ACTIVE(LogBeacon, Verbose) &&
+		UE_LOG(LogPartyBeacon, Verbose, TEXT("ProcessCancelReservationRequest result: %s"), EPartyReservationResult::ToString(Result));
+		if (UE_LOG_ACTIVE(LogPartyBeacon, Verbose) &&
 			(Result != EPartyReservationResult::ReservationRequestCanceled))
 		{
 			DumpReservations();
@@ -978,10 +1026,10 @@ void APartyBeaconHost::ProcessCancelReservationRequest(APartyBeaconClient* Clien
 
 void APartyBeaconHost::DumpReservations() const
 {
-	UE_LOG(LogBeacon, Display, TEXT("Debug info for Beacon: %s"), *GetBeaconType());
+	UE_LOG(LogPartyBeacon, Display, TEXT("Debug info for Beacon: %s"), *GetBeaconType());
 	if (State)
 	{
 		State->DumpReservations();
 	}
-	UE_LOG(LogBeacon, Display, TEXT(""));
+	UE_LOG(LogPartyBeacon, Display, TEXT(""));
 }

@@ -45,7 +45,7 @@ public class libOpus : ModuleRules
 			PublicAdditionalLibraries.Add(OpusPath);
 			PublicAdditionalLibraries.Add(SpeexPath);
 		}
-		else if (Target.Platform == UnrealTargetPlatform.Linux)
+		else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
 		{
             if (Target.LinkType == TargetLinkType.Monolithic)
             {
@@ -68,7 +68,7 @@ public class libOpus : ModuleRules
 				}
 			}
 		}
-		else if (Target.Platform == UnrealTargetPlatform.Android)
+		else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Android))
 		{
 			PublicLibraryPaths.Add(LibraryPath + "Android/ARMv7/");
 			PublicLibraryPaths.Add(LibraryPath + "Android/ARM64/");

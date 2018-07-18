@@ -6,12 +6,12 @@
 #include "UObject/SoftObjectPath.h"
 #include "GameFramework/HUD.h"
 
-#include "SlateApplication.h"
-#include "MultiBoxBuilder.h"
-#include "MultiBoxExtender.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Framework/MultiBox/MultiBoxExtender.h"
 #include "EditorStyleSet.h"
 #include "AssetRegistryModule.h"
-#include "MessageDialog.h"
+#include "Misc/MessageDialog.h"
 #include "DataValidationCommandlet.h"
 #include "LevelEditor.h"
 #include "Misc/FeedbackContext.h"
@@ -90,14 +90,20 @@ void FDataValidationModule::ShutdownModule()
 {
 	if (!IsRunningCommandlet() && !IsRunningGame())
 	{
-		FContentBrowserModule& ContentBrowserModule = FModuleManager::LoadModuleChecked<FContentBrowserModule>(TEXT("ContentBrowser"));
-		TArray<FContentBrowserMenuExtender_SelectedAssets>& CBMenuExtenderDelegates = ContentBrowserModule.GetAllAssetViewContextMenuExtenders();
-		CBMenuExtenderDelegates.RemoveAll([this](const FContentBrowserMenuExtender_SelectedAssets& Delegate) { return Delegate.GetHandle() == ContentBrowserAssetExtenderDelegateHandle; });
-		CBMenuExtenderDelegates.RemoveAll([this](const FContentBrowserMenuExtender_SelectedAssets& Delegate) { return Delegate.GetHandle() == ContentBrowserPathExtenderDelegateHandle; });
+		FContentBrowserModule* ContentBrowserModule = FModuleManager::GetModulePtr<FContentBrowserModule>(TEXT("ContentBrowser"));
+		if (ContentBrowserModule)
+		{
+			TArray<FContentBrowserMenuExtender_SelectedAssets>& CBMenuExtenderDelegates = ContentBrowserModule->GetAllAssetViewContextMenuExtenders();
+			CBMenuExtenderDelegates.RemoveAll([this](const FContentBrowserMenuExtender_SelectedAssets& Delegate) { return Delegate.GetHandle() == ContentBrowserAssetExtenderDelegateHandle; });
+			CBMenuExtenderDelegates.RemoveAll([this](const FContentBrowserMenuExtender_SelectedAssets& Delegate) { return Delegate.GetHandle() == ContentBrowserPathExtenderDelegateHandle; });
+		}
 
 		// remove menu extension
-		FLevelEditorModule& LevelEditorModule = FModuleManager::LoadModuleChecked<FLevelEditorModule>("LevelEditor");
-		LevelEditorModule.GetMenuExtensibilityManager()->RemoveExtender(MenuExtender);
+		FLevelEditorModule* LevelEditorModule = FModuleManager::GetModulePtr<FLevelEditorModule>("LevelEditor");
+		if (LevelEditorModule)
+		{
+			LevelEditorModule->GetMenuExtensibilityManager()->RemoveExtender(MenuExtender);
+		}
 		MenuExtender = nullptr;
 	}
 }

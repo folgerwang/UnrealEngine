@@ -10,9 +10,9 @@
 #include "NiagaraCustomVersion.h"
 #include "ScopedTransaction.h"
 #include "EdGraphSchema_Niagara.h"
-#include "MultiBoxBuilder.h"
-#include "SBox.h"
-#include "SEditableTextBox.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Input/SEditableTextBox.h"
 #include "NiagaraEditorUtilities.h"
 
 #define LOCTEXT_NAMESPACE "NiagaraNodeOutput"
@@ -49,7 +49,7 @@ void UNiagaraNodeOutput::RemoveOutputPin(UEdGraphPin* Pin)
 		Modify();
 		Outputs.RemoveAt(Index);
 		ReallocatePins();
-		GetNiagaraGraph()->NotifyGraphNeedsRecompile();
+		MarkNodeRequiresSynchronization(__FUNCTION__, true);
 	}
 }
 
@@ -69,8 +69,8 @@ void UNiagaraNodeOutput::PinNameTextCommitted(const FText& Text, ETextCommit::Ty
 		FNiagaraVariable* Var = Outputs.FindByPredicate([&](const FNiagaraVariable& InVar) {return Pin->PinName == InVar.GetName(); });
 		check(Var != nullptr);
 		Pin->PinName = *Text.ToString();
-		Var->SetName(Pin->PinName);
-		GetNiagaraGraph()->NotifyGraphNeedsRecompile();
+		Var->SetName(Pin->PinName);		
+		MarkNodeRequiresSynchronization(__FUNCTION__, true);
 	}
 }
 

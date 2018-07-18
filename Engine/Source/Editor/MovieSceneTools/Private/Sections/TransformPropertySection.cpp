@@ -1,131 +1,18 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Sections/TransformPropertySection.h"
-#include "FloatCurveKeyArea.h"
 #include "ISectionLayoutBuilder.h"
 #include "Sections/MovieScene3DTransformSection.h"
 #include "SequencerSectionPainter.h"
-#include "MultiBoxBuilder.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "ScopedTransaction.h"
+#include "ISequencer.h"
 
 #define LOCTEXT_NAMESPACE "FTransformSection"
 
-void FTransformSection::AssignProperty(FName PropertyName, const FString& PropertyPath)
-{
-	PropertyBindings = FTrackInstancePropertyBindings(PropertyName, PropertyPath);
-}
-
-int32 FTransformSection::OnPaintSection(FSequencerSectionPainter& InPainter) const
-{
-	return InPainter.PaintSectionBackground();
-}
-
-void FTransformSection::GenerateSectionLayout(ISectionLayoutBuilder& LayoutBuilder) const
-{
-	static const FLinearColor BlueKeyAreaColor(0.0f, 0.0f, 0.7f, 0.5f);
-	static const FLinearColor GreenKeyAreaColor(0.0f, 0.7f, 0.0f, 0.5f);
-	static const FLinearColor RedKeyAreaColor(0.7f, 0.0f, 0.0f, 0.5f);
-
-	UMovieScene3DTransformSection* TransformSection = CastChecked<UMovieScene3DTransformSection>(Section.Get());
-	EMovieSceneTransformChannel Channels = TransformSection->GetMask().GetChannels();
-
-	// Helper function to tidy up TAttribute::Create syntax
-	typedef TOptional<float> (FTransformSection::*ValueGetter)(EAxis::Type) const;
-
-	auto MakeExternalValue = [this](ValueGetter Getter, EAxis::Type Axis) -> TAttribute<TOptional<float>>
-	{
-		return TAttribute<TOptional<float>>::Create(TAttribute<TOptional<float>>::FGetter::CreateRaw(this, Getter, Axis));
-	};
-
-	// This generates the tree structure for the transform section
-	if (EnumHasAnyFlags(Channels, EMovieSceneTransformChannel::Translation))
-	{
-		LayoutBuilder.PushCategory("Location", LOCTEXT("LocationArea", "Location"));
-
-		if (EnumHasAllFlags(Channels, EMovieSceneTransformChannel::TranslationX))
-		{
-			TSharedRef<FFloatCurveKeyArea> TranslationXKeyArea = MakeShared<FFloatCurveKeyArea>(&TransformSection->GetTranslationCurve(EAxis::X),
-				MakeExternalValue(&FTransformSection::GetTranslationValue, EAxis::X), TransformSection, RedKeyAreaColor);
-			LayoutBuilder.AddKeyArea("Location.X", LOCTEXT("LocXArea", "X"), TranslationXKeyArea );
-		}
-		if (EnumHasAllFlags(Channels, EMovieSceneTransformChannel::TranslationY))
-		{
-			TSharedRef<FFloatCurveKeyArea> TranslationYKeyArea = MakeShared<FFloatCurveKeyArea>(&TransformSection->GetTranslationCurve(EAxis::Y),
-				MakeExternalValue(&FTransformSection::GetTranslationValue, EAxis::Y), TransformSection, GreenKeyAreaColor);
-			LayoutBuilder.AddKeyArea("Location.Y", LOCTEXT("LocYArea", "Y"), TranslationYKeyArea );
-		}
-		if (EnumHasAllFlags(Channels, EMovieSceneTransformChannel::TranslationZ))
-		{
-			TSharedRef<FFloatCurveKeyArea> TranslationZKeyArea = MakeShared<FFloatCurveKeyArea>(&TransformSection->GetTranslationCurve(EAxis::Z),
-				MakeExternalValue(&FTransformSection::GetTranslationValue, EAxis::Z), TransformSection, BlueKeyAreaColor);
-			LayoutBuilder.AddKeyArea("Location.Z", LOCTEXT("LocZArea", "Z"), TranslationZKeyArea );
-		}
-
-		LayoutBuilder.PopCategory();
-	}
-
-	if (EnumHasAnyFlags(Channels, EMovieSceneTransformChannel::Rotation))
-	{
-		LayoutBuilder.PushCategory( "Rotation", LOCTEXT("RotationArea", "Rotation") );
-
-		if (EnumHasAllFlags(Channels, EMovieSceneTransformChannel::RotationX))
-		{
-			TSharedRef<FFloatCurveKeyArea> RotationXKeyArea = MakeShared<FFloatCurveKeyArea>(&TransformSection->GetRotationCurve(EAxis::X),
-				MakeExternalValue(&FTransformSection::GetRotationValue, EAxis::X), TransformSection, RedKeyAreaColor);
-			LayoutBuilder.AddKeyArea("Rotation.X", LOCTEXT("RotXArea", "X"), RotationXKeyArea );
-		}
-		if (EnumHasAllFlags(Channels, EMovieSceneTransformChannel::RotationY))
-		{
-			TSharedRef<FFloatCurveKeyArea> RotationYKeyArea = MakeShared<FFloatCurveKeyArea>(&TransformSection->GetRotationCurve(EAxis::Y),
-				MakeExternalValue(&FTransformSection::GetRotationValue, EAxis::Y), TransformSection, GreenKeyAreaColor);
-			LayoutBuilder.AddKeyArea("Rotation.Y", LOCTEXT("RotYArea", "Y"), RotationYKeyArea );
-		}
-		if (EnumHasAllFlags(Channels, EMovieSceneTransformChannel::RotationZ))
-		{
-			TSharedRef<FFloatCurveKeyArea> RotationZKeyArea = MakeShared<FFloatCurveKeyArea>(&TransformSection->GetRotationCurve(EAxis::Z),
-				MakeExternalValue(&FTransformSection::GetRotationValue, EAxis::Z), TransformSection, BlueKeyAreaColor);
-			LayoutBuilder.AddKeyArea("Rotation.Z", LOCTEXT("RotZArea", "Z"), RotationZKeyArea );
-		}
-
-		LayoutBuilder.PopCategory();
-	}
-
-	if (EnumHasAnyFlags(Channels, EMovieSceneTransformChannel::Scale))
-	{
-		LayoutBuilder.PushCategory( "Scale", LOCTEXT("ScaleArea", "Scale") );
-
-		if (EnumHasAllFlags(Channels, EMovieSceneTransformChannel::ScaleX))
-		{
-			TSharedRef<FFloatCurveKeyArea> ScaleXKeyArea = MakeShared<FFloatCurveKeyArea>(&TransformSection->GetScaleCurve(EAxis::X),
-				MakeExternalValue(&FTransformSection::GetScaleValue, EAxis::X), TransformSection, RedKeyAreaColor);
-			LayoutBuilder.AddKeyArea("Scale.X", LOCTEXT("ScaleXArea", "X"), ScaleXKeyArea );
-		}
-		if (EnumHasAllFlags(Channels, EMovieSceneTransformChannel::ScaleY))
-		{
-			TSharedRef<FFloatCurveKeyArea> ScaleYKeyArea = MakeShared<FFloatCurveKeyArea>(&TransformSection->GetScaleCurve(EAxis::Y),
-				MakeExternalValue(&FTransformSection::GetScaleValue, EAxis::Y), TransformSection, GreenKeyAreaColor);
-			LayoutBuilder.AddKeyArea("Scale.Y", LOCTEXT("ScaleYArea", "Y"), ScaleYKeyArea );
-		}
-		if (EnumHasAllFlags(Channels, EMovieSceneTransformChannel::ScaleZ))
-		{
-			TSharedRef<FFloatCurveKeyArea> ScaleZKeyArea = MakeShared<FFloatCurveKeyArea>(&TransformSection->GetScaleCurve(EAxis::Z),
-				MakeExternalValue(&FTransformSection::GetScaleValue, EAxis::Z), TransformSection, BlueKeyAreaColor);
-			LayoutBuilder.AddKeyArea("Scale.Z", LOCTEXT("ScaleZArea", "Z"), ScaleZKeyArea );
-		}
-
-		LayoutBuilder.PopCategory();
-	}
-
-	if (EnumHasAnyFlags(Channels, EMovieSceneTransformChannel::Weight))
-	{
-		TSharedRef<FFloatCurveKeyArea> WeightKeyArea = MakeShared<FFloatCurveKeyArea>(&TransformSection->GetManualWeightCurve(), TransformSection);
-		LayoutBuilder.AddKeyArea("Weight", LOCTEXT("WeightArea", "Weight"), WeightKeyArea );
-	}
-}
-
 void FTransformSection::BuildSectionContextMenu(FMenuBuilder& MenuBuilder, const FGuid& InObjectBinding)
 {
-	UMovieScene3DTransformSection* TransformSection = CastChecked<UMovieScene3DTransformSection>(Section.Get());
+	UMovieScene3DTransformSection* TransformSection = CastChecked<UMovieScene3DTransformSection>(WeakSection.Get());
 	TSharedPtr<ISequencer> SequencerPtr = WeakSequencer.Pin();
 
 	auto MakeUIAction = [=](EMovieSceneTransformChannel ChannelsToToggle)
@@ -235,79 +122,55 @@ void FTransformSection::BuildSectionContextMenu(FMenuBuilder& MenuBuilder, const
 	MenuBuilder.EndSection();
 }
 
-TOptional<FTransform> FTransformSection::GetCurrentValue() const
+bool FTransformSection::RequestDeleteCategory(const TArray<FName>& CategoryNamePaths)
 {
-	TSharedPtr<ISequencer> Sequencer = WeakSequencer.Pin();
-	if (ensure(PropertyBindings.IsSet()) && Sequencer.IsValid())
+	UMovieScene3DTransformSection* TransformSection = CastChecked<UMovieScene3DTransformSection>(WeakSection.Get());
+	TSharedPtr<ISequencer> SequencerPtr = WeakSequencer.Pin();
+		
+	const FScopedTransaction Transaction( LOCTEXT( "DeleteTransformCategory", "Delete transform category" ) );
+
+	if (TransformSection->TryModify())
 	{
-		for (TWeakObjectPtr<> WeakObject : Sequencer->FindBoundObjects(ObjectBinding, Sequencer->GetFocusedTemplateID()))
-		{
-			if (UObject* Object = WeakObject.Get())
-			{
-				return PropertyBindings->GetCurrentValue<FTransform>(*Object);
-			}
-		}
+		FName CategoryName = CategoryNamePaths[CategoryNamePaths.Num()-1];
+		
+		EMovieSceneTransformChannel Channel = TransformSection->GetMask().GetChannels();
+		EMovieSceneTransformChannel ChannelToRemove = TransformSection->GetMaskByName(CategoryName).GetChannels();
+
+		Channel = Channel ^ ChannelToRemove;
+
+		TransformSection->SetMask(Channel);
+			
+		SequencerPtr->NotifyMovieSceneDataChanged(EMovieSceneDataChangeType::MovieSceneStructureItemsChanged);
+		return true;
 	}
-	return TOptional<FTransform>();
+
+	return false;
 }
 
-TOptional<FRotator> FTransformSection::GetCurrentRotator() const
+bool FTransformSection::RequestDeleteKeyArea(const TArray<FName>& KeyAreaNamePaths)
 {
-	TSharedPtr<ISequencer> Sequencer = WeakSequencer.Pin();
-	if (ensure(PropertyBindings.IsSet()) && Sequencer.IsValid())
-	{
-		for (TWeakObjectPtr<> WeakObject : Sequencer->FindBoundObjects(ObjectBinding, Sequencer->GetFocusedTemplateID()))
-		{
-			if (UObject* Object = WeakObject.Get())
-			{
-				return PropertyBindings->GetCurrentValue<FTransform>(*Object).GetRotation().Rotator();
-			}
-		}
-	}
-	return TOptional<FRotator>();
-}
+	UMovieScene3DTransformSection* TransformSection = CastChecked<UMovieScene3DTransformSection>(WeakSection.Get());
+	TSharedPtr<ISequencer> SequencerPtr = WeakSequencer.Pin();
 
-TOptional<float> FTransformSection::GetTranslationValue(EAxis::Type Axis) const
-{
-	FTransform Transform = GetCurrentValue().Get(FTransform::Identity);
-	switch (Axis)
-	{
-	case EAxis::X:		return Transform.GetTranslation().X;
-	case EAxis::Y:		return Transform.GetTranslation().Y;
-	case EAxis::Z:		return Transform.GetTranslation().Z;
-	}
-	return TOptional<float>();
-}
+	const FScopedTransaction Transaction( LOCTEXT( "DeleteTransformChannel", "Delete transform channel" ) );
 
-TOptional<float> FTransformSection::GetRotationValue(EAxis::Type Axis) const
-{
-	TOptional<FRotator> Rotator = GetCurrentRotator();
-
-	if (!Rotator.IsSet())
+	if (TransformSection->TryModify())
 	{
-		FTransform Transform = GetCurrentValue().Get(FTransform::Identity);
-		Rotator = Transform.GetRotation().Rotator();
+		// Only delete the last key area path which is the channel. ie. TranslationX as opposed to Translation
+		FName KeyAreaName = KeyAreaNamePaths[KeyAreaNamePaths.Num()-1];
+
+		EMovieSceneTransformChannel Channel = TransformSection->GetMask().GetChannels();
+		EMovieSceneTransformChannel ChannelToRemove = TransformSection->GetMaskByName(KeyAreaName).GetChannels();
+
+		Channel = Channel ^ ChannelToRemove;
+
+		TransformSection->SetMask(Channel);
+					
+		SequencerPtr->NotifyMovieSceneDataChanged(EMovieSceneDataChangeType::MovieSceneStructureItemsChanged);
+		return true;
 	}
 
-	switch (Axis)
-	{
-	case EAxis::X:		return Rotator.GetValue().Roll;
-	case EAxis::Y:		return Rotator.GetValue().Pitch;
-	case EAxis::Z:		return Rotator.GetValue().Yaw;
-	}
-	return TOptional<float>();
-}
-
-TOptional<float> FTransformSection::GetScaleValue(EAxis::Type Axis) const
-{
-	FTransform Transform = GetCurrentValue().Get(FTransform::Identity);
-	switch (Axis)
-	{
-	case EAxis::X:		return Transform.GetScale3D().X;
-	case EAxis::Y:		return Transform.GetScale3D().Y;
-	case EAxis::Z:		return Transform.GetScale3D().Z;
-	}
-	return TOptional<float>();
+	return true;
 }
 
 #undef LOCTEXT_NAMESPACE

@@ -12,7 +12,7 @@
 #include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
 #include "ISinglePropertyView.h"
 #include "NiagaraNodeWriteDataSet.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "GraphEditorSettings.h"
 
 #define LOCTEXT_NAMESPACE "SNiagaraGraphNodeWriteDataSet"
@@ -20,7 +20,8 @@
 
 void SNiagaraGraphNodeWriteDataSet::Construct(const FArguments& InArgs, UEdGraphNode* InGraphNode)
 {
-	GraphNode = InGraphNode;
+	GraphNode = InGraphNode; 
+	RegisterNiagaraGraphNode(InGraphNode);
 
 	this->UpdateGraphNode();
 }

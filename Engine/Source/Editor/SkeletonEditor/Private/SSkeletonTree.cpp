@@ -60,10 +60,10 @@
 #include "BoneSelectionWidget.h"
 #include "BoneProxy.h"
 #include "SkeletonTreeSelection.h"
-#include "SGridPanel.h"
+#include "Widgets/Layout/SGridPanel.h"
 
 #include "HAL/PlatformApplicationMisc.h"
-#include "STreeView.h"
+#include "Widgets/Views/STreeView.h"
 #include "IPinnedCommandList.h"
 #include "PersonaModule.h"
 
@@ -126,9 +126,7 @@ void SSkeletonTree::Construct(const FArguments& InArgs, const TSharedRef<FEditab
 	BoneFilter = EBoneFilter::All;
 	SocketFilter = ESocketFilter::Active;
 	bShowingAdvancedOptions = false;
-	bSelectingSocket = false;
-	bSelectingBone = false;
-	bDeselectingAll = false;
+	bSelecting = false;
 
 	EditableSkeleton = InEditableSkeleton;
 	PreviewScene = InSkeletonTreeArgs.PreviewScene;
@@ -157,6 +155,12 @@ void SSkeletonTree::Construct(const FArguments& InArgs, const TSharedRef<FEditab
 	if(PreviewScene.IsValid())
 	{
 		PreviewScene.Pin()->RegisterOnLODChanged(FSimpleDelegate::CreateSP(this, &SSkeletonTree::OnLODSwitched));
+		PreviewScene.Pin()->RegisterOnPreviewMeshChanged(FOnPreviewMeshChanged::CreateSP(this, &SSkeletonTree::OnPreviewMeshChanged));
+		PreviewScene.Pin()->RegisterOnSelectedBoneChanged(FOnSelectedBoneChanged::CreateSP(this, &SSkeletonTree::HandleSelectedBoneChanged));
+		PreviewScene.Pin()->RegisterOnSelectedSocketChanged(FOnSelectedSocketChanged::CreateSP(this, &SSkeletonTree::HandleSelectedSocketChanged));
+		PreviewScene.Pin()->RegisterOnDeselectAll(FSimpleDelegate::CreateSP(this, &SSkeletonTree::HandleDeselectAll));
+
+		RegisterOnSelectionChanged(FOnSkeletonTreeSelectionChanged::CreateRaw(PreviewScene.Pin().Get(), &IPersonaPreviewScene::HandleSkeletonTreeSelectionChanged));
 	}
 
 	InEditableSkeleton->RegisterOnSkeletonHierarchyChanged(USkeleton::FOnSkeletonHierarchyChanged::CreateSP(this, &SSkeletonTree::CreateTreeColumns));
@@ -742,6 +746,7 @@ TSharedPtr< SWidget > SSkeletonTree::CreateContextMenu()
 						FUIAction RecursiveRetargetingAnimationAction = FUIAction(FExecuteAction::CreateSP(this, &SSkeletonTree::SetBoneTranslationRetargetingModeRecursive, EBoneTranslationRetargetingMode::Animation));
 						FUIAction RecursiveRetargetingAnimationScaledAction = FUIAction(FExecuteAction::CreateSP(this, &SSkeletonTree::SetBoneTranslationRetargetingModeRecursive, EBoneTranslationRetargetingMode::AnimationScaled));
 						FUIAction RecursiveRetargetingAnimationRelativeAction = FUIAction(FExecuteAction::CreateSP(this, &SSkeletonTree::SetBoneTranslationRetargetingModeRecursive, EBoneTranslationRetargetingMode::AnimationRelative));
+						FUIAction RecursiveRetargetingOrientAndScaleAction = FUIAction(FExecuteAction::CreateSP(this, &SSkeletonTree::SetBoneTranslationRetargetingModeRecursive, EBoneTranslationRetargetingMode::OrientAndScale));
 
 						MenuBuilder.AddMenuEntry
 							(LOCTEXT("SetTranslationRetargetingSkeletonChildrenAction", "Recursively Set Translation Retargeting Skeleton")
@@ -770,6 +775,13 @@ TSharedPtr< SWidget > SSkeletonTree::CreateContextMenu()
 							, FSlateIcon()
 							, RecursiveRetargetingAnimationRelativeAction
 							);
+
+						MenuBuilder.AddMenuEntry
+							(LOCTEXT("SetTranslationRetargetingOrientAndScaleChildrenAction", "Recursively Set Translation Retargeting OrientAndScale")
+							, LOCTEXT("BoneTranslationRetargetingOrientAndScaleToolTip", "Orient And Scale Translation.")
+							, FSlateIcon()
+							, RecursiveRetargetingOrientAndScaleAction
+						);
 					}
 					MenuBuilder.EndSection();
 				}
@@ -1037,7 +1049,7 @@ void SSkeletonTree::RemoveFromLOD(int32 LODIndex, bool bIncludeSelected, bool bI
 			}
 		}
 
-		int32 TotalLOD = PreviewMeshComponent->SkeletalMesh->LODInfo.Num();
+		int32 TotalLOD = PreviewMeshComponent->SkeletalMesh->GetLODNum();
 		IMeshUtilities& MeshUtilities = FModuleManager::Get().LoadModuleChecked<IMeshUtilities>("MeshUtilities");
 
 		if (bIncludeBelowLODs)
@@ -1527,12 +1539,9 @@ void SSkeletonTree::SetSkeletalMesh(USkeletalMesh* NewSkeletalMesh)
 
 void SSkeletonTree::SetSelectedSocket( const FSelectedSocketInfo& SocketInfo )
 {
-	if (!bSelectingSocket)
+	if (!bSelecting)
 	{
-		TGuardValue<bool> RecursionGuard(bSelectingSocket, true);
-
-		// This function is called when something else selects a socket (i.e. *NOT* the user clicking on a row in the treeview)
-		// For example, this would be called if user clicked a socket hit point in the preview window
+		TGuardValue<bool> RecursionGuard(bSelecting, true);
 
 		// Firstly, find which row (if any) contains the socket requested
 		for (auto SkeletonRowIt = LinearItems.CreateConstIterator(); SkeletonRowIt; ++SkeletonRowIt)
@@ -1541,14 +1550,9 @@ void SSkeletonTree::SetSelectedSocket( const FSelectedSocketInfo& SocketInfo )
 
 			if (SkeletonRow->GetFilterResult() != ESkeletonTreeFilterResult::Hidden && SkeletonRow->IsOfType<FSkeletonTreeSocketItem>() && StaticCastSharedPtr<FSkeletonTreeSocketItem>(SkeletonRow)->GetSocket() == SocketInfo.Socket)
 			{
-				SkeletonTreeView->SetSelection(SkeletonRow);
+				SkeletonTreeView->SetItemSelection(SkeletonRow, true);
 				SkeletonTreeView->RequestScrollIntoView(SkeletonRow);
 			}
-		}
-
-		if (GetPreviewScene().IsValid())
-		{
-			GetPreviewScene()->SetSelectedSocket(SocketInfo);
 		}
 
 		PRAGMA_DISABLE_DEPRECATION_WARNINGS
@@ -1559,16 +1563,9 @@ void SSkeletonTree::SetSelectedSocket( const FSelectedSocketInfo& SocketInfo )
 
 void SSkeletonTree::SetSelectedBone( const FName& BoneName )
 {
-	if (!bSelectingBone)
+	if (!bSelecting)
 	{
-		TGuardValue<bool> RecursionGuard(bSelectingBone, true);
-		// This function is called when something else selects a bone (i.e. *NOT* the user clicking on a row in the treeview)
-		// For example, this would be called if user clicked a bone hit point in the preview window
-
-		if (GetPreviewScene().IsValid())
-		{
-			GetPreviewScene()->SetSelectedBone(BoneName);
-		}
+		TGuardValue<bool> RecursionGuard(bSelecting, true);
 
 		// Find which row (if any) contains the bone requested
 		for (auto SkeletonRowIt = LinearItems.CreateConstIterator(); SkeletonRowIt; ++SkeletonRowIt)
@@ -1577,7 +1574,7 @@ void SSkeletonTree::SetSelectedBone( const FName& BoneName )
 
 			if (SkeletonRow->GetFilterResult() != ESkeletonTreeFilterResult::Hidden && SkeletonRow->IsOfType<FSkeletonTreeBoneItem>() && SkeletonRow->GetRowItemName() == BoneName)
 			{
-				SkeletonTreeView->SetSelection(SkeletonRow);
+				SkeletonTreeView->SetItemSelection(SkeletonRow, true);
 				SkeletonTreeView->RequestScrollIntoView(SkeletonRow);
 			}
 		}
@@ -1591,15 +1588,10 @@ void SSkeletonTree::SetSelectedBone( const FName& BoneName )
 
 void SSkeletonTree::DeselectAll()
 {
-	if (!bDeselectingAll)
+	if (!bSelecting)
 	{
-		TGuardValue<bool> RecursionGuard(bDeselectingAll, true);
+		TGuardValue<bool> RecursionGuard(bSelecting, true);
 		SkeletonTreeView->ClearSelection();
-
-		if (GetPreviewScene().IsValid())
-		{
-			GetPreviewScene()->DeselectAll();
-		}
 
 		PRAGMA_DISABLE_DEPRECATION_WARNINGS
 		OnObjectSelectedMulticast.Broadcast(nullptr);
@@ -1994,6 +1986,14 @@ void SSkeletonTree::OnLODSwitched()
 	}
 }
 
+void SSkeletonTree::OnPreviewMeshChanged(USkeletalMesh* InOldSkeletalMesh, USkeletalMesh* InNewSkeletalMesh)
+{
+	if (InOldSkeletalMesh != InNewSkeletalMesh || InNewSkeletalMesh == nullptr)
+	{
+		DeselectAll();
+	}
+}
+
 void SSkeletonTree::SelectItemsBy(TFunctionRef<bool(const TSharedRef<ISkeletonTreeItem>&, bool&)> Predicate) const
 {
 	TArray<TPair<TSharedPtr<ISkeletonTreeItem>, bool>> ItemsToSelect;
@@ -2160,6 +2160,21 @@ ESkeletonTreeFilterResult SSkeletonTree::HandleFilterSkeletonTreeItem(const FSke
 void SSkeletonTree::AddReferencedObjects( FReferenceCollector& Collector )
 {
 	Collector.AddReferencedObject(BoneProxy);
+}
+
+void SSkeletonTree::HandleSelectedBoneChanged(const FName& InBoneName)
+{
+	SetSelectedBone(InBoneName);
+}
+
+void SSkeletonTree::HandleSelectedSocketChanged(const FSelectedSocketInfo& InSocketInfo)
+{
+	SetSelectedSocket(InSocketInfo);
+}
+
+void SSkeletonTree::HandleDeselectAll()
+{
+	DeselectAll();
 }
 
 #undef LOCTEXT_NAMESPACE

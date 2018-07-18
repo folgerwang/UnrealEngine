@@ -3,13 +3,13 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "ThreadSafeCounter.h"
-#include "ScopeLock.h"
+#include "HAL/ThreadSafeCounter.h"
+#include "Misc/ScopeLock.h"
 
-#include "ThreadSafeCounter.h"
-#include "ScopeLock.h"
-#include "GenericPlatformFile.h"
-#include "PlatformProcess.h"
+#include "HAL/ThreadSafeCounter.h"
+#include "Misc/ScopeLock.h"
+#include "GenericPlatform/GenericPlatformFile.h"
+#include "HAL/PlatformProcess.h"
 
 
 #define MANAGE_FILE_HANDLES (#) // this is not longer used, this will error on any attempt to use it
@@ -156,7 +156,6 @@ private:
 	bool bIsOpenAndAvailableForClosing;
 };
 
-PRAGMA_DISABLE_OPTIMIZATION
 
 class FFileHandleRegistry
 {
@@ -346,6 +345,4 @@ private:
 
 	FThreadSafeCounter HandlesCurrentlyInUse;
 };
-
-PRAGMA_ENABLE_OPTIMIZATION
 

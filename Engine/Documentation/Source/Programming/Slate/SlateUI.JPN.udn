@@ -1,30 +1,12 @@
-﻿INTSourceChangelist:2727063
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:スレート UI フレームワーク
 Crumbs:%ROOT%, Programming
 Description:ツールとインゲーム UI の作成用のクロス プラットフォーム ユーザー インターフェース
 Navigation:topic
 Version:4.9
+topic-image:Engine/UI/editor_topic.png
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Programming/Slate:title%](Engine/UI/editor_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/prog_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Programming/Slate:title%
-	[/PARAM]
-	[PARAM:description]
-		%Programming/Slate:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Programming/Slate]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
 [Region:tip]
 インゲーム UI を作成しようとしていますか？UI の作成には [Unreal Motion Graphics (UMG)](Engine/UMG) を使う方法がお勧めです。
@@ -35,12 +17,10 @@ Version:4.9
 ## スレートに関するトピック
 
 [REGION:buttonlist]
-
-		* [](Programming/Slate/Architecture "%Programming/Slate/Architecture:Description%")
-		* [](Programming/Slate/DetailsCustomization "%Programming/Slate/DetailsCustomization:Description%")
-		* [](Programming/Slate/InGameUI "%Programming/Slate/InGameUI:Description%")
-		* [](Programming/Slate/Overview "%Programming/Slate/Overview:Description%")
-		* [](Programming/Slate/Setup "%Programming/Slate/Setup:Description%")
-		* [](Programming/Slate/Widgets "%Programming/Slate/Widgets:Description%")
-	
+* [](Programming/Slate/Architecture "%Programming/Slate/Architecture:Description%")
+* [](Programming/Slate/DetailsCustomization "%Programming/Slate/DetailsCustomization:Description%")
+* [](Programming/Slate/InGameUI "%Programming/Slate/InGameUI:Description%")
+* [](Programming/Slate/Overview "%Programming/Slate/Overview:Description%")
+* [](Programming/Slate/Setup "%Programming/Slate/Setup:Description%")
+* [](Programming/Slate/Widgets "%Programming/Slate/Widgets:Description%")
 [/REGION]

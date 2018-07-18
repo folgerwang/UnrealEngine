@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2875807
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:Depth 表現式
 Crumbs: %ROOT%, Engine, Engine/Rendering/Materials, Engine/Rendering/Materials/ExpressionReference
 Description:レンダリングされているピクセルの深度を扱う表現式
 Version:4.9
+tags:Materials
 
 [EXCERPT:TOC]
 [TOC(start:2)]
@@ -19,7 +20,7 @@ Version:4.9
 | -------- | ----------- |
 | [REGION:tablesection]プロパティ[/REGION] ||
 | **Fade Distance** | フェードが発生するワールド空間です。FadeDistance 入力が非接続時に使用されます。 | 
-| [REGION:tablesection]Inputs[/REGION] ||
+| [REGION:tablesection]入力値[/REGION] ||
 | **Opacity** | 深度がフェードする前にオブジェクトに対して既存のオパシティを受け取ります。 |
 | **FadeDistance** | フェードが発生するワールド空間の距離です。  |
 

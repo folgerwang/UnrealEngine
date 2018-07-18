@@ -15,12 +15,12 @@ FOnlineIdentityIOS::FOnlineIdentityIOS(FOnlineSubsystemIOS* InSubsystem)
 {
 }
 
-TSharedPtr<FUniqueNetIdString> FOnlineIdentityIOS::GetLocalPlayerUniqueId() const
+TSharedPtr<FUniqueNetIdIOS> FOnlineIdentityIOS::GetLocalPlayerUniqueId() const
 {
 	return UniqueNetId;
 }
 
-void FOnlineIdentityIOS::SetLocalPlayerUniqueId(const TSharedPtr<FUniqueNetIdString>& UniqueId)
+void FOnlineIdentityIOS::SetLocalPlayerUniqueId(const TSharedPtr<FUniqueNetIdIOS>& UniqueId)
 {
 	UniqueNetId = UniqueId;
 }
@@ -55,7 +55,7 @@ bool FOnlineIdentityIOS::Login(int32 LocalUserNum, const FOnlineAccountCredentia
 		bStartedLogin = true;
         
 		const FString PlayerId(GetLocalGameCenterUser().playerID);
-		UniqueNetId = MakeShareable( new FUniqueNetIdString( PlayerId ) );
+		UniqueNetId = MakeShareable( new FUniqueNetIdIOS( PlayerId ) );
 		TriggerOnLoginCompleteDelegates(LocalUserNum, true, *UniqueNetId, TEXT(""));
         
         UE_LOG(LogOnline, Log, TEXT("The user %s has logged into Game Center"), *PlayerId);
@@ -79,7 +79,7 @@ bool FOnlineIdentityIOS::Login(int32 LocalUserNum, const FOnlineAccountCredentia
 					{
 						/* Perform additional tasks for the authenticated player here */
 						const FString PlayerId(GetLocalGameCenterUser().playerID);
-						UniqueNetId = MakeShareable(new FUniqueNetIdString(PlayerId));
+						UniqueNetId = MakeShareable(new FUniqueNetIdIOS(PlayerId));
 
 						bWasSuccessful = true;
 						UE_LOG(LogOnline, Log, TEXT("The user %s has logged into Game Center"), *PlayerId);
@@ -99,7 +99,7 @@ bool FOnlineIdentityIOS::Login(int32 LocalUserNum, const FOnlineAccountCredentia
 					// Report back to the game thread whether this succeeded.
 					[FIOSAsyncTask CreateTaskWithBlock : ^ bool(void)
 					{
-						TSharedPtr<FUniqueNetIdString> UniqueIdForUser = UniqueNetId.IsValid() ? UniqueNetId : MakeShareable(new FUniqueNetIdString());
+						TSharedPtr<FUniqueNetIdIOS> UniqueIdForUser = UniqueNetId.IsValid() ? UniqueNetId : MakeShareable(new FUniqueNetIdIOS());
 						TriggerOnLoginCompleteDelegates(LocalUserNum, bWasSuccessful, *UniqueIdForUser, *ErrorMessage);
 
 						return true;
@@ -117,7 +117,7 @@ bool FOnlineIdentityIOS::Login(int32 LocalUserNum, const FOnlineAccountCredentia
 	else
 	{
 		// User is not currently logged into game center
-		TriggerOnLoginCompleteDelegates(LocalUserNum, false, FUniqueNetIdString(), TEXT("IOS version is not compatible with the game center implementation"));
+		TriggerOnLoginCompleteDelegates(LocalUserNum, false, FUniqueNetIdIOS(), TEXT("IOS version is not compatible with the game center implementation"));
 	}
 	
 	return bStartedLogin;
@@ -171,7 +171,7 @@ TSharedPtr<const FUniqueNetId> FOnlineIdentityIOS::CreateUniquePlayerId(uint8* B
 		if (StrLen > 0)
 		{
 			FString StrId((TCHAR*)Bytes);
-			return MakeShareable(new FUniqueNetIdString(StrId));
+			return MakeShareable(new FUniqueNetIdIOS(StrId));
 		}
 	}
     
@@ -180,7 +180,7 @@ TSharedPtr<const FUniqueNetId> FOnlineIdentityIOS::CreateUniquePlayerId(uint8* B
 
 TSharedPtr<const FUniqueNetId> FOnlineIdentityIOS::CreateUniquePlayerId(const FString& Str)
 {
-	return MakeShareable(new FUniqueNetIdString(Str));
+	return MakeShareable(new FUniqueNetIdIOS(Str));
 }
 
 FString FOnlineIdentityIOS::GetPlayerNickname(int32 LocalUserNum) const

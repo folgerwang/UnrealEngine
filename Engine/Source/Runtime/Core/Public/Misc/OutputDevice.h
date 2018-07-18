@@ -210,9 +210,7 @@ public:
 	template <typename FmtType, typename... Types>
 	void Logf(const FmtType& Fmt, Types... Args)
 	{
-#if USE_FORMAT_STRING_TYPE_CHECKING
 		static_assert(TIsArrayOrRefOfType<FmtType, TCHAR>::Value, "Formatting string must be a TCHAR array.");
-#endif
 		static_assert(TAnd<TIsValidVariadicFunctionArg<Types>...>::Value, "Invalid argument(s) passed to FOutputDevice::Logf");
 
 		LogfImpl(Fmt, Args...);
@@ -221,9 +219,7 @@ public:
 	template <typename FmtType, typename... Types>
 	void Logf(ELogVerbosity::Type Verbosity, const FmtType& Fmt, Types... Args)
 	{
-#if USE_FORMAT_STRING_TYPE_CHECKING
 		static_assert(TIsArrayOrRefOfType<FmtType, TCHAR>::Value, "Formatting string must be a TCHAR array.");
-#endif
 		static_assert(TAnd<TIsValidVariadicFunctionArg<Types>...>::Value, "Invalid argument(s) passed to FOutputDevice::Logf");
 
 		LogfImpl(Verbosity, Fmt, Args...);
@@ -232,9 +228,7 @@ public:
 	template <typename FmtType, typename... Types>
 	void CategorizedLogf(const FName& Category, ELogVerbosity::Type Verbosity, const FmtType& Fmt, Types... Args)
 	{
-#if USE_FORMAT_STRING_TYPE_CHECKING
 		static_assert(TIsArrayOrRefOfType<FmtType, TCHAR>::Value, "Formatting string must be a TCHAR array.");
-#endif
 		static_assert(TAnd<TIsValidVariadicFunctionArg<Types>...>::Value, "Invalid argument(s) passed to FOutputDevice::CategorizedLogf");
 
 		CategorizedLogfImpl(Category, Verbosity, Fmt, Args...);

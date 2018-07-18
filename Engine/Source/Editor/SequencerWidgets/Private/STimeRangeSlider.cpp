@@ -16,8 +16,7 @@ namespace TimeRangeSliderConstants
 void STimeRangeSlider::Construct( const FArguments& InArgs, TSharedRef<ITimeSliderController> InTimeSliderController)
 {
 	TimeSliderController = InTimeSliderController;
-	LastViewRange = TimeSliderController.Get()->GetViewRange();
-	TimeSnapInterval = InArgs._TimeSnapInterval;
+	LastViewRange = TimeSliderController->GetViewRange();
 
 	ResetState();
 	ResetHoveredState();
@@ -30,8 +29,8 @@ float STimeRangeSlider::ComputeDragDelta(const FPointerEvent& MouseEvent, int32 
 
 	if (TimeSliderController.IsValid())
 	{
-		StartTime = TimeSliderController.Get()->GetClampRange().GetLowerBoundValue();
-		EndTime = TimeSliderController.Get()->GetClampRange().GetUpperBoundValue();
+		StartTime = TimeSliderController->GetClampRange().GetLowerBoundValue();
+		EndTime = TimeSliderController->GetClampRange().GetUpperBoundValue();
 	}
 	float DragDistance = (MouseEvent.GetScreenSpacePosition() - MouseDownPosition).X;
 
@@ -48,10 +47,10 @@ void STimeRangeSlider::ComputeHandleOffsets(float& LeftHandleOffset, float& Hand
 
 	if (TimeSliderController.IsValid())
 	{
-		StartTime = TimeSliderController.Get()->GetClampRange().GetLowerBoundValue();
-		InTime = TimeSliderController.Get()->GetViewRange().GetLowerBoundValue();
-		OutTime = TimeSliderController.Get()->GetViewRange().GetUpperBoundValue();
-		EndTime = TimeSliderController.Get()->GetClampRange().GetUpperBoundValue();
+		StartTime = TimeSliderController->GetClampRange().GetLowerBoundValue();
+		InTime = TimeSliderController->GetViewRange().GetLowerBoundValue();
+		OutTime = TimeSliderController->GetViewRange().GetUpperBoundValue();
+		EndTime = TimeSliderController->GetClampRange().GetUpperBoundValue();
 	}
 
 	const float UnitsToPixel = float(GeometryWidth - TimeRangeSliderConstants::HandleSize*2) / (EndTime - StartTime);
@@ -131,7 +130,7 @@ FReply STimeRangeSlider::OnMouseButtonDown( const FGeometry& MyGeometry, const F
 	MouseDownPosition = MouseEvent.GetScreenSpacePosition();
 	if (TimeSliderController.IsValid())
 	{		
-		MouseDownViewRange = TimeSliderController.Get()->GetViewRange();
+		MouseDownViewRange = TimeSliderController->GetViewRange();
 	}
 
 	if (bHandleHovered)
@@ -166,8 +165,6 @@ FReply STimeRangeSlider::OnMouseMove( const FGeometry& MyGeometry, const FPointe
 	{
 		float DragDelta = ComputeDragDelta(MouseEvent, MyGeometry.GetLocalSize().X);
 
-		const float SnapInterval = TimeSnapInterval.Get(1.f);
-
 		ITimeSliderController* TimeSliderControllerPtr = TimeSliderController.Get();
 		if (!TimeSliderControllerPtr)
 		{
@@ -176,10 +173,10 @@ FReply STimeRangeSlider::OnMouseMove( const FGeometry& MyGeometry, const FPointe
 
 		if (bHandleDragged)
 		{
-			float NewIn = MouseDownViewRange.GetLowerBoundValue() + DragDelta;
-			float NewOut = MouseDownViewRange.GetUpperBoundValue() + DragDelta;
+			double NewIn = MouseDownViewRange.GetLowerBoundValue() + DragDelta;
+			double NewOut = MouseDownViewRange.GetUpperBoundValue() + DragDelta;
 
-			TRange<float> ClampRange = TimeSliderControllerPtr->GetClampRange();
+			TRange<double> ClampRange = TimeSliderControllerPtr->GetClampRange();
 			if (NewIn < ClampRange.GetLowerBoundValue())
 			{
 				NewIn = ClampRange.GetLowerBoundValue();
@@ -193,33 +190,30 @@ FReply STimeRangeSlider::OnMouseMove( const FGeometry& MyGeometry, const FPointe
 			
 			TimeSliderControllerPtr->SetViewRange(NewIn, NewOut, EViewRangeInterpolation::Immediate);
 		}
-		else if (bLeftHandleDragged)
+		else if (bLeftHandleDragged || bRightHandleDragged)
 		{
-			float NewIn = MouseDownViewRange.GetLowerBoundValue() + DragDelta;
-			float MaxIn = TimeSliderControllerPtr->GetViewRange().GetUpperBoundValue() - SnapInterval;
+			double NewIn = 0.0f;
+			double NewOut = 0.0f;
 
-			// Clamp to the upper view range bound minus some small number to prevent 0-sized (or negative) ranges
-			NewIn = FMath::Min(NewIn, MaxIn);
+			if (bLeftHandleDragged)
+			{
+				NewIn = MouseDownViewRange.GetLowerBoundValue() + DragDelta;
+				NewOut = MouseDownViewRange.GetUpperBoundValue() - DragDelta;
+			}
+			else
+			{
+				NewIn = MouseDownViewRange.GetLowerBoundValue() - DragDelta;
+				NewOut = MouseDownViewRange.GetUpperBoundValue() + DragDelta;
+			}
 
-			// Double check we're not outside the clamp range
-			TRange<float> ClampRange = TimeSliderControllerPtr->GetClampRange();
-			NewIn = FMath::Clamp(NewIn, ClampRange.GetLowerBoundValue(), ClampRange.GetUpperBoundValue());
+			// In cases of extreme zoom the drag delta will be greater than the difference between In/Out.
+			// This causes zooming to then become pan at extreme levels which is undesirable.
+			if (NewIn >= NewOut)
+			{
+				return FReply::Handled();
+			}
 
-			TimeSliderControllerPtr->SetViewRange(NewIn, TimeSliderControllerPtr->GetViewRange().GetUpperBoundValue(), EViewRangeInterpolation::Immediate);
-		}
-		else if (bRightHandleDragged)
-		{
-			float NewOut = MouseDownViewRange.GetUpperBoundValue() + DragDelta;
-			float MinOut = TimeSliderControllerPtr->GetViewRange().GetLowerBoundValue() + SnapInterval;
-
-			// Clamp to the upper view range bound minus some small number to prevent 0-sized (or negative) ranges
-			NewOut = FMath::Max(NewOut, MinOut);
-
-			// Double check we're not outside the clamp range
-			TRange<float> ClampRange = TimeSliderControllerPtr->GetClampRange();
-			NewOut = FMath::Clamp(NewOut, ClampRange.GetLowerBoundValue(), ClampRange.GetUpperBoundValue());
-
-			TimeSliderControllerPtr->SetViewRange(TimeSliderController.Get()->GetViewRange().GetLowerBoundValue(), NewOut, EViewRangeInterpolation::Immediate);
+			TimeSliderControllerPtr->SetViewRange(NewIn, NewOut, EViewRangeInterpolation::Immediate);
 		}
 
 		return FReply::Handled();
@@ -233,9 +227,9 @@ FReply STimeRangeSlider::OnMouseMove( const FGeometry& MyGeometry, const FPointe
 		float RightHandleOffset = 0.f;
 		ComputeHandleOffsets(LeftHandleOffset, HandleOffset, RightHandleOffset, MyGeometry.GetLocalSize().X);
 		
-		FGeometry LeftHandleRect = MyGeometry.MakeChild(FVector2D(LeftHandleOffset, 0.f), FVector2D(TimeRangeSliderConstants::HandleSize, TimeRangeSliderConstants::HandleSize));
+		FGeometry LeftHandleRect  = MyGeometry.MakeChild(FVector2D(LeftHandleOffset, 0.f), FVector2D(TimeRangeSliderConstants::HandleSize, TimeRangeSliderConstants::HandleSize));
 		FGeometry RightHandleRect = MyGeometry.MakeChild(FVector2D(RightHandleOffset, 0.f), FVector2D(TimeRangeSliderConstants::HandleSize, TimeRangeSliderConstants::HandleSize));
-		FGeometry HandleRect = MyGeometry.MakeChild(FVector2D(HandleOffset, 0.0f), FVector2D(RightHandleOffset-LeftHandleOffset-TimeRangeSliderConstants::HandleSize, TimeRangeSliderConstants::HandleSize));
+		FGeometry HandleRect      = MyGeometry.MakeChild(FVector2D(HandleOffset, 0.0f), FVector2D(RightHandleOffset-LeftHandleOffset-TimeRangeSliderConstants::HandleSize, TimeRangeSliderConstants::HandleSize));
 
 		FVector2D LocalMousePosition = MouseEvent.GetScreenSpacePosition();
 
@@ -275,18 +269,18 @@ FReply STimeRangeSlider::OnMouseButtonDoubleClick( const FGeometry& MyGeometry, 
 	{
 		if (TimeSliderController.IsValid())
 		{
-			if (FMath::IsNearlyEqual(TimeSliderController.Get()->GetViewRange().GetLowerBoundValue(), TimeSliderController.Get()->GetClampRange().GetLowerBoundValue()) &&
-				FMath::IsNearlyEqual(TimeSliderController.Get()->GetViewRange().GetUpperBoundValue(), TimeSliderController.Get()->GetClampRange().GetUpperBoundValue()))
+			if (FMath::IsNearlyEqual(TimeSliderController->GetViewRange().GetLowerBoundValue(), TimeSliderController->GetClampRange().GetLowerBoundValue()) &&
+				FMath::IsNearlyEqual(TimeSliderController->GetViewRange().GetUpperBoundValue(), TimeSliderController->GetClampRange().GetUpperBoundValue()))
 			{
 				if (!LastViewRange.IsEmpty())
 				{
-					TimeSliderController.Get()->SetViewRange(LastViewRange.GetLowerBoundValue(), LastViewRange.GetUpperBoundValue(), EViewRangeInterpolation::Immediate);
+					TimeSliderController->SetViewRange(LastViewRange.GetLowerBoundValue(), LastViewRange.GetUpperBoundValue(), EViewRangeInterpolation::Immediate);
 				}
 			}
 			else
 			{
-				LastViewRange = TRange<float>(TimeSliderController.Get()->GetViewRange().GetLowerBoundValue(), TimeSliderController.Get()->GetViewRange().GetUpperBoundValue());
-				TimeSliderController.Get()->SetViewRange(TimeSliderController.Get()->GetClampRange().GetLowerBoundValue(), TimeSliderController.Get()->GetClampRange().GetUpperBoundValue(), EViewRangeInterpolation::Immediate);
+				LastViewRange = TimeSliderController->GetViewRange();
+				TimeSliderController->SetViewRange(TimeSliderController->GetClampRange().GetLowerBoundValue(), TimeSliderController->GetClampRange().GetUpperBoundValue(), EViewRangeInterpolation::Immediate);
 			}
 		}
 

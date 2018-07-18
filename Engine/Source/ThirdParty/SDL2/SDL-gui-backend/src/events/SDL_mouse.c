@@ -697,6 +697,16 @@ ShouldUseRelativeModeWarp(SDL_Mouse *mouse)
     return SDL_GetHintBoolean(SDL_HINT_MOUSE_RELATIVE_MODE_WARP, SDL_FALSE);
 }
 
+/* EG BEGIN */
+#ifdef SDL_WITH_EPIC_EXTENSIONS
+static SDL_bool
+ShouldShowCursorInRelativeMode(SDL_Mouse *mouse)
+{
+    return SDL_GetHintBoolean(SDL_HINT_MOUSE_RELATIVE_MODE_SHOW_CURSOR, SDL_FALSE);
+}
+#endif /* SDL_WITH_EPIC_EXTENSIONS */
+/* EG END */
+
 int
 SDL_SetRelativeMouseMode(SDL_bool enabled)
 {
@@ -706,8 +716,13 @@ SDL_SetRelativeMouseMode(SDL_bool enabled)
     if (enabled == mouse->relative_mode) {
         return 0;
     }
-
+/* EG BEGIN */
+#ifdef SDL_WITH_EPIC_EXTENSIONS
+    if (enabled && focusWindow && ShouldUseRelativeModeWarp(mouse)) {
+#else
     if (enabled && focusWindow) {
+#endif /* SDL_WITH_EPIC_EXTENSIONS */
+/* EG END */
         /* Center it in the focused window to prevent clicks from going through
          * to background windows.
          */
@@ -734,7 +749,13 @@ SDL_SetRelativeMouseMode(SDL_bool enabled)
         SDL_UpdateWindowGrab(mouse->focus);
 
         /* Put the cursor back to where the application expects it */
+/* EG BEGIN */
+#ifdef SDL_WITH_EPIC_EXTENSIONS
+        if (!enabled && ShouldUseRelativeModeWarp(mouse)) {
+#else
         if (!enabled) {
+#endif /* SDL_WITH_EPIC_EXTENSIONS */
+/* EG END */
             SDL_WarpMouseInWindow(mouse->focus, mouse->x, mouse->y);
         }
     }
@@ -935,8 +956,13 @@ SDL_SetCursor(SDL_Cursor * cursor)
             cursor = mouse->def_cursor;
         }
     }
-
+/* EG BEGIN */
+#ifdef SDL_WITH_EPIC_EXTENSIONS
+    if (cursor && mouse->cursor_shown && (!mouse->relative_mode || ShouldShowCursorInRelativeMode(mouse))) {
+#else
     if (cursor && mouse->cursor_shown && !mouse->relative_mode) {
+#endif /* SDL_WITH_EPIC_EXTENSIONS */
+/* EG END */
         if (mouse->ShowCursor) {
             mouse->ShowCursor(cursor);
         }

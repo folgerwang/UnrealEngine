@@ -9,7 +9,7 @@
 #include "Internationalization/Internationalization.h"
 
 #if !UE_ENABLE_ICU
-#include "Text.h"
+#include "Internationalization/Text.h"
 #include "TextData.h"
 
 FString FTextChronoFormatter::AsDate( const FDateTime& DateTime, const EDateTimeStyle::Type DateStyle, const FString& TimeZone, const FCulture& TargetCulture )

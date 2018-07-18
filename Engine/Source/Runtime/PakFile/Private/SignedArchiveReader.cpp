@@ -51,10 +51,10 @@ FChunkCacheWorker::FChunkCacheWorker(FArchive* InReader, const TCHAR* Filename)
 	*SigFileReader << ChunkHashes;
 	delete SigFileReader;
 
-	uint32 ChunkHashesCRC = ComputePakChunkHash(&ChunkHashes[0], ChunkHashes.Num() * sizeof(TPakChunkHash));
+	OriginalSignatureFileHash = ComputePakChunkHash(&ChunkHashes[0], ChunkHashes.Num() * sizeof(TPakChunkHash));
 	FDecryptedSignature DecryptedMasterSignature;
 	FEncryption::DecryptSignature(MasterSignature, DecryptedMasterSignature, DecryptionKey);
-	if (!ensure(DecryptedMasterSignature.Data == ChunkHashesCRC))
+	if (!ensure(DecryptedMasterSignature.Data == OriginalSignatureFileHash))
 	{
 #if PAK_SIGNATURE_CHECK_FAILS_ARE_FATAL
 		FPlatformMisc::RequestExit(true);
@@ -279,21 +279,26 @@ bool FChunkCacheWorker::CheckSignature(const FChunkRequest& ChunkInfo)
 		ChunkHash = ComputePakChunkHash(ChunkInfo.Buffer->Data, ChunkInfo.Size);
 	}
 
-	bool bHashesMatch = (ChunkHash == ChunkHashes[ChunkInfo.Index]);
-	if (!bHashesMatch)
+	bool bChunkHashesMatch = (ChunkHash == ChunkHashes[ChunkInfo.Index]);
+	if (!bChunkHashesMatch)
 	{
-		UE_LOG(LogPakFile, Warning, TEXT("Pak chunk signature verification failed!"));
-		UE_LOG(LogPakFile, Warning, TEXT("  Chunk Index: %d"), ChunkInfo.Index);
-		UE_LOG(LogPakFile, Warning, TEXT("  Chunk Offset: %d"), ChunkInfo.Offset);
-		UE_LOG(LogPakFile, Warning, TEXT("  Chunk Size: %d"), ChunkInfo.Size);
-	
-		ensure(bHashesMatch);
+		UE_LOG(LogPakFile, Warning, TEXT("Pak chunk signing mismatch on chunk [%i/%i]! Expected 0x%8X, Received 0x%8X"), ChunkInfo.Index, ChunkHashes.Num(), ChunkHashes[ChunkInfo.Index], ChunkHash);
+		UE_LOG(LogPakFile, Warning, TEXT("Pak file has been corrupted or tampered with!"));
 
-		//FPlatformMisc::MessageBoxExt(EAppMsgType::Ok, TEXT("Corrupt Installation Detected. Please use \"Verify\" in the Epic Games Launcher"), TEXT("Pakfile Error"));
-		//FPlatformMisc::RequestExit(1);
+		TPakChunkHash CurrentSignatureHash = ComputePakChunkHash(&ChunkHashes[0], ChunkHashes.Num() * sizeof(TPakChunkHash));
+		if (OriginalSignatureFileHash != CurrentSignatureHash)
+		{
+			UE_LOG(LogPakFile, Warning, TEXT("Master signature table has changed since initialization!"));
+		}
+			
+		ensure(bChunkHashesMatch);
+
+#if PAK_SIGNATURE_CHECK_FAILS_ARE_FATAL
+		FPlatformMisc::RequestExit(true);
+#endif
 	}
 	
-	return bHashesMatch;
+	return bChunkHashesMatch;
 }
 
 FChunkRequest& FChunkCacheWorker::RequestChunk(int32 ChunkIndex, int64 StartOffset, int64 ChunkSize)
@@ -356,7 +361,7 @@ FSignedArchiveReader::FSignedArchiveReader(FArchive* InPakReader, FChunkCacheWor
 	, SignatureChecker(InSignatureChecker)
 {
 	// Cache global info about the archive
-	ArIsLoading = true;
+	this->SetIsLoading(true);
 	SizeOnDisk = PakReader->TotalSize();
 	ChunkCount = SizeOnDisk / FPakInfo::MaxChunkDataSize + ((SizeOnDisk % FPakInfo::MaxChunkDataSize) ? 1 : 0);
 	PakSize = SizeOnDisk;

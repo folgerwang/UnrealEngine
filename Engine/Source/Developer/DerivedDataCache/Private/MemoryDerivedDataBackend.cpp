@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "MemoryDerivedDataBackend.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 FMemoryDerivedDataBackend::FMemoryDerivedDataBackend(int64 InMaxCacheSize)
 	: MaxCacheSize(InMaxCacheSize)

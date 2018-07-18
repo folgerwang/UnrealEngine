@@ -12,15 +12,18 @@
 #include "EdGraph/EdGraphSchema.h"
 #include "EdGraphSchema_K2.h"
 #include "K2Node_CallFunction.h"
+#include "K2Node_FunctionResult.h"
 #include "K2Node_MakeArray.h"
 #include "K2Node_MakeVariable.h"
 #include "K2Node_VariableSet.h"
 #include "Kismet2/BlueprintEditorUtils.h"
+#include "Kismet2/KismetEditorUtilities.h"
 #include "EdGraphUtilities.h"
 #include "BPTerminal.h"
 #include "UObject/PropertyPortFlags.h"
 #include "KismetCompilerMisc.h"
 #include "KismetCompiler.h"
+#include "Misc/OutputDeviceNull.h"
 
 #define LOCTEXT_NAMESPACE "K2Node_FunctionEntry"
 
@@ -238,7 +241,42 @@ void UK2Node_FunctionEntry::Serialize(FArchive& Ar)
 
 	Ar.UsingCustomVersion(FBlueprintsObjectVersion::GUID);
 
-	if (Ar.IsLoading())
+	if (Ar.IsSaving())
+	{
+		for (FBPVariableDescription& LocalVariable : LocalVariables)
+		{
+			if (!LocalVariable.DefaultValue.IsEmpty())
+			{
+				// If looking for references during save, expand any default values on the local variables
+				if (Ar.IsObjectReferenceCollector() && LocalVariable.VarType.PinCategory == UEdGraphSchema_K2::PC_Struct && LocalVariable.VarType.PinSubCategoryObject.IsValid())
+				{
+					UScriptStruct* Struct = Cast<UScriptStruct>(LocalVariable.VarType.PinSubCategoryObject.Get());
+
+					if (Struct)
+					{
+						TSharedPtr<FStructOnScope> StructData = MakeShareable(new FStructOnScope(Struct));
+
+						// Import the literal text to a dummy struct and then serialize that. Hard object references will not properly import, this is only useful for soft references!
+						FOutputDeviceNull NullOutput;
+						Struct->ImportText(*LocalVariable.DefaultValue, StructData->GetStructMemory(), nullptr, PPF_SerializedAsImportText, &NullOutput, LocalVariable.VarName.ToString());
+						Struct->SerializeItem(Ar, StructData->GetStructMemory(), nullptr);
+					}
+				}
+
+				if (LocalVariable.VarType.PinCategory == UEdGraphSchema_K2::PC_SoftObject || LocalVariable.VarType.PinCategory == UEdGraphSchema_K2::PC_SoftClass)
+				{
+					FSoftObjectPath TempRef(LocalVariable.DefaultValue);
+
+					// Serialize the asset reference, this will do the save fixup. It won't actually serialize the string if this is a real archive like linkersave
+					FSoftObjectPathSerializationScope DisableSerialize(NAME_None, NAME_None, ESoftObjectPathCollectType::AlwaysCollect, ESoftObjectPathSerializeType::SkipSerializeIfArchiveHasSize);
+					Ar << TempRef;
+
+					LocalVariable.DefaultValue = TempRef.ToString();
+				}
+			}
+		}
+	}
+	else if (Ar.IsLoading())
 	{
 		if (Ar.CustomVer(FFrameworkObjectVersion::GUID) < FFrameworkObjectVersion::LocalVariablesBlueprintVisible)
 		{
@@ -584,5 +622,36 @@ bool UK2Node_FunctionEntry::ModifyUserDefinedPinDefaultValue(TSharedPtr<FUserPin
 	return false;
 }
 
+bool UK2Node_FunctionEntry::ShouldUseConstRefParams() const
+{
+	// Interface functions with no outputs will be implemented as events. As with native interface functions with no outputs, the entry
+	// node is expected to use 'const Type&' for input parameters that are passed by reference. See UEditablePinBase::PostLoad() for details.
+	if (const UEdGraph* OwningGraph = GetGraph())
+	{
+		const UBlueprint* OwningBlueprint = FBlueprintEditorUtils::FindBlueprintForGraph(OwningGraph);
+		if (OwningBlueprint && OwningBlueprint->BlueprintType == BPTYPE_Interface)
+		{
+			// Find paired result node and check for outputs.
+			for (UEdGraphNode* Node : OwningGraph->Nodes)
+			{
+				if (UK2Node_FunctionResult* ResultNode = Cast<UK2Node_FunctionResult>(Node))
+				{
+					// This might be called from the super's Serialize() method for older assets, so make sure the result node's pins have been loaded.
+					if (ResultNode->HasAnyFlags(RF_NeedLoad))
+					{
+						GetLinker()->Preload(ResultNode);
+					}
+
+					return ResultNode->UserDefinedPins.Num() == 0;
+				}
+			}
+
+			// No result node, so there are no outputs.
+			return true;
+		}
+	}
+	
+	return false;
+}
 
 #undef LOCTEXT_NAMESPACE

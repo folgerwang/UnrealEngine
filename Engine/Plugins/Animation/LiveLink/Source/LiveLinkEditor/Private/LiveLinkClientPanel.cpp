@@ -2,21 +2,21 @@
 
 #include "LiveLinkClientPanel.h"
 #include "Editor.h"
-#include "SBoxPanel.h"
-#include "SSplitter.h"
-#include "SOverlay.h"
-#include "SharedPointer.h"
-#include "SListView.h"
-#include "SButton.h"
-#include "SlateApplication.h"
-#include "MultiBoxBuilder.h"
-#include "SlateDelegates.h"
+#include "Widgets/SBoxPanel.h"
+#include "Widgets/Layout/SSplitter.h"
+#include "Widgets/SOverlay.h"
+#include "Templates/SharedPointer.h"
+#include "Widgets/Views/SListView.h"
+#include "Widgets/Input/SButton.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Framework/SlateDelegates.h"
 #include "LiveLinkClientCommands.h"
 #include "ILiveLinkSource.h"
 #include "LiveLinkClient.h"
-#include "UObjectHash.h"
+#include "UObject/UObjectHash.h"
 #include "EditorStyleSet.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "PropertyEditorModule.h"
 #include "IStructureDetailsView.h"
 #include "LiveLinkVirtualSubjectDetails.h"
@@ -592,8 +592,6 @@ FReply SLiveLinkClientPanel::OnCloseSourceSelectionPanel(ULiveLinkSourceFactory*
 	if (Source.IsValid())
 	{
 		Client->AddSource(Source);
-
-		RefreshSourceData(true);
 	}
 	
 	FSlateApplication::Get().DismissAllMenus();
@@ -605,7 +603,7 @@ void SLiveLinkClientPanel::AddVirtualSubject()
 	// Show dialog to enter weight
 	TSharedRef<STextEntryPopup> TextEntry =
 		SNew(STextEntryPopup)
-		.Label(LOCTEXT("AddVirtualSubject", "New Virtual Subject Name"))
+		.Label(LOCTEXT("AddVirtualSubjectName", "New Virtual Subject Name"))
 		.OnTextCommitted(this, &SLiveLinkClientPanel::HandleAddVirtualSubject);
 
 	FSlateApplication::Get().PushMenu(

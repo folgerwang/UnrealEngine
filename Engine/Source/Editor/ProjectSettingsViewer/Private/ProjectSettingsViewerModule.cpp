@@ -11,7 +11,8 @@
 #include "Widgets/SNullWidget.h"
 #include "Widgets/DeclarativeSyntaxSupport.h"
 #include "Engine/GameViewportClient.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "AI/NavigationSystemBase.h"
+#include "NavigationSystem.h"
 #include "Engine/Engine.h"
 #include "GameFramework/InputSettings.h"
 #include "Textures/SlateIcon.h"
@@ -28,12 +29,11 @@
 #include "ISettingsViewer.h"
 #include "Widgets/Docking/SDockTab.h"
 
-#include "AI/Navigation/RecastNavMesh.h"
+#include "NavMesh/RecastNavMesh.h"
 #include "Navigation/CrowdManager.h"
 
 
 #include "AISystem.h"
-#include "Engine/EndUserSettings.h"
 #include "Runtime/Slate/Public/SlateSettings.h"
 
 #define LOCTEXT_NAMESPACE "FProjectSettingsViewerModule"
@@ -140,9 +140,9 @@ protected:
 		);
 
 		// navigation system's class can be game specific so we need to find appropriate CDO
-		UNavigationSystem* NavSysCDO = (*GEngine->NavigationSystemClass != nullptr)
-			? GetMutableDefault<UNavigationSystem>(GEngine->NavigationSystemClass)
-			: GetMutableDefault<UNavigationSystem>();
+		UNavigationSystemBase* NavSysCDO = (*GEngine->NavigationSystemClass != nullptr)
+			? GetMutableDefault<UNavigationSystemBase>(GEngine->NavigationSystemClass)
+			: GetMutableDefault<UNavigationSystemBase>();
 		SettingsModule.RegisterSettings("Project", "Engine", "NavigationSystem",
 			LOCTEXT("NavigationSystemSettingsName", "Navigation System"),
 			LOCTEXT("NavigationSystemSettingsDescription", "Settings for the navigation system."),
@@ -168,13 +168,6 @@ protected:
 			LOCTEXT("CrowdManagerSettingsName", "Crowd Manager"),
 			LOCTEXT("CrowdManagerSettingsDescription", "Settings for the AI Crowd Manager."),
 			GetMutableDefault<UCrowdManager>()
-			);
-
-		// End-user settings
-		SettingsModule.RegisterSettings("Project", "Engine", "EndUser",
-			LOCTEXT("EndUserSettingsName", "End-User Settings"),
-			LOCTEXT("EndUserSettingsDescription", "Settings you may wish to expose to end-users of your game."),
-			GetMutableDefault<UEndUserSettings>()
 			);
 
 		SettingsModule.RegisterSettings("Project", "Engine", "Slate",

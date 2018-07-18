@@ -86,7 +86,7 @@ public:
 
 		const FAssetData& AssetData = AssetThumbnail->GetAssetData();
 
-		UClass* Class = FindObject<UClass>(ANY_PACKAGE, *AssetData.AssetClass.ToString());
+		UClass* Class = FindObjectSafe<UClass>(ANY_PACKAGE, *AssetData.AssetClass.ToString());
 		FAssetToolsModule& AssetToolsModule = FModuleManager::LoadModuleChecked<FAssetToolsModule>(TEXT("AssetTools"));
 		TSharedPtr<IAssetTypeActions> AssetTypeActions;
 		if ( Class != NULL )
@@ -345,6 +345,7 @@ private:
 		if ( AssetTypeActions.IsValid() )
 		{
 			AssetColor = AssetTypeActions.Pin()->GetTypeColor();
+			AssetColorStripWidget->SetBorderBackgroundColor(AssetColor);
 		}
 
 		UpdateThumbnailVisibilities();

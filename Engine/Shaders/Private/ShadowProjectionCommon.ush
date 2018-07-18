@@ -16,6 +16,11 @@ float4 ShadowBufferSize;
 /** Cube map texture. */
 TextureCube ShadowDepthCubeTexture;
 
+#if OPENGL_PROFILE || COMPILER_VULKAN || COMPILER_SWITCH
+// This is required on GLSL based languages as the standard does NOT allow having a texture being used with both a Comparison and regular SamplerState
+TextureCube ShadowDepthCubeTexture2;
+#endif
+
 /** Sampler state used for hardware PCF. */
 SamplerComparisonState ShadowDepthCubeTextureSampler;
 
@@ -114,6 +119,34 @@ static const float2 DiscSamples29[]=
 	float2(-0.692694, -0.086749),
 	float2(-0.082476, 0.654088),
 };
+
+void CalcCubemapVectorAndFaceIndex(float3 NormalizedLightVector, float ShadowFilterRadius, out float3 SideVector, out float3 UpVector, out int CubeFaceIndex)
+{
+	SideVector = normalize(cross(NormalizedLightVector, float3(0, 0, 1)));
+	UpVector = cross(SideVector, NormalizedLightVector);
+
+	SideVector *= InvShadowmapResolution * ShadowFilterRadius;
+	UpVector *= InvShadowmapResolution * ShadowFilterRadius;
+
+	// TODO: this should use GCN intrinsic when available
+
+	// Figure out which cube face we're sampling from
+	float3 AbsLightVector = abs(NormalizedLightVector);
+	float MaxCoordinate = max(AbsLightVector.x, max(AbsLightVector.y, AbsLightVector.z));
+
+	if (MaxCoordinate == AbsLightVector.x)
+	{
+		CubeFaceIndex = AbsLightVector.x == NormalizedLightVector.x ? 0 : 1;
+	}
+	else if (MaxCoordinate == AbsLightVector.y)
+	{
+		CubeFaceIndex = AbsLightVector.y == NormalizedLightVector.y ? 2 : 3;
+	}
+	else
+	{
+		CubeFaceIndex = AbsLightVector.z == NormalizedLightVector.z ? 4 : 5;
+	}
+}
 
 /** Computes shadowing for a given world position from a cubemap shadowmap used on a point light. */
 float CubemapHardwarePCF(float3 WorldPosition, float3 LightPosition, float LightInvRadius, float DepthBias)

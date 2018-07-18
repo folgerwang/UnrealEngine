@@ -18,7 +18,7 @@ void FTestTimeInterface::Test(UWorld* InWorld)
 	}
 	else
 	{
-		UE_LOG(LogOnline, Warning,
+		UE_LOG_ONLINE(Warning,
 			TEXT("Failed to get server time interface for %s"), *SubsystemName);
 
 		delete this;
@@ -31,11 +31,11 @@ void FTestTimeInterface::OnQueryServerUtcTimeComplete(bool bWasSuccessful, const
 
 	if (bWasSuccessful)
 	{
-		UE_LOG(LogOnline, Log, TEXT("Successful query for server time. Result=[%s]"), *DateTimeStr);
+		UE_LOG_ONLINE(Log, TEXT("Successful query for server time. Result=[%s]"), *DateTimeStr);
 	}
 	else
 	{
-		UE_LOG(LogOnline, Log, TEXT("Failed to query server time. Error=[%s]"), *Error);
+		UE_LOG_ONLINE(Log, TEXT("Failed to query server time. Error=[%s]"), *Error);
 	}
 
 	// done with the test

@@ -125,7 +125,7 @@ void UGameplayTagReponseTable::TagResponseEvent(const FGameplayTag Tag, int32 Ne
 		Remove(ASC, Info.NegativeHandles);
 		AddOrUpdate(ASC, Entry.Positive.ResponseGameplayEffects, TotalCount, Info.PositiveHandles);
 	}
-	else if (TotalCount == 0)
+	else
 	{
 		Remove(ASC, Info.PositiveHandles);
 		Remove(ASC, Info.NegativeHandles);

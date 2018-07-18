@@ -20,7 +20,7 @@
 #include "Components/SkeletalMeshComponent.h"
 #include "SkelImport.h"
 #include "Rendering/SkeletalMeshModel.h"
-
+#include "EditorFramework/AssetImportData.h"
 #include "DesktopPlatformModule.h"
 
 #if WITH_APEX_CLOTHING
@@ -41,7 +41,7 @@ DEFINE_LOG_CATEGORY_STATIC(LogExportMeshUtils, Log, All);
 struct ExistingStaticMeshData;
 extern ExistingStaticMeshData* SaveExistingStaticMeshData(UStaticMesh* ExistingMesh, UnFbx::FBXImportOptions* ImportOptions, int32 LodIndex);
 extern void RestoreExistingMeshSettings(struct ExistingStaticMeshData* ExistingMesh, UStaticMesh* NewMesh, int32 LODIndex);
-extern void RestoreExistingMeshData(struct ExistingStaticMeshData* ExistingMeshDataPtr, UStaticMesh* NewMesh, int32 LodLevel, bool bResetMaterialSlots);
+extern void RestoreExistingMeshData(struct ExistingStaticMeshData* ExistingMeshDataPtr, UStaticMesh* NewMesh, int32 LodLevel, bool bCanShowDialog);
 extern void UpdateSomeLodsImportMeshData(UStaticMesh* NewMesh, TArray<int32> *ReimportLodList);
 
 
@@ -118,7 +118,7 @@ namespace FbxMeshUtils
 			ImportOptions->bImportMaterials = false;
 			ImportOptions->bImportTextures = false;
 		}
-
+		ImportOptions->bAutoComputeLodDistances = true; //Setting auto compute distance to true will avoid changing the staticmesh flag
 		if ( !FFbxImporter->ImportFromFile( *Filename, FPaths::GetExtension( Filename ), true ) )
 		{
 			// Log the error message and fail the import.
@@ -206,7 +206,11 @@ namespace FbxMeshUtils
 					NotificationInfo.Text = FText::Format(LOCTEXT("LODImportSuccessful", "Mesh for LOD {0} imported successfully!"), FText::AsNumber(LODLevel));
 					NotificationInfo.ExpireDuration = 5.0f;
 					FSlateNotificationManager::Get().AddNotification(NotificationInfo);
-
+					if (BaseStaticMesh->SourceModels.IsValidIndex(LODLevel))
+					{
+						BaseStaticMesh->SourceModels[LODLevel].SourceImportFilename = UAssetImportData::SanitizeImportFilename(Filename, nullptr);
+						BaseStaticMesh->SourceModels[LODLevel].bImportWithBaseMesh = false;
+					}
 					bSuccess = true;
 				}
 				else
@@ -358,7 +362,7 @@ namespace FbxMeshUtils
 				if (MaxLODLevel == 0)
 				{
 					bUseLODs = false;
-					MaxLODLevel = SelectedSkelMesh->LODInfo.Num();
+					MaxLODLevel = SelectedSkelMesh->GetLODNum();
 				}
 
 				// Create LOD dropdown strings
@@ -371,7 +375,7 @@ namespace FbxMeshUtils
 
 
 				int32 SelectedLOD = LODLevel;
-				if (SelectedLOD > SelectedSkelMesh->LODInfo.Num())
+				if (SelectedLOD > SelectedSkelMesh->GetLODNum())
 				{
 					// Make sure they don't manage to select a bad LOD index
 					FFbxImporter->AddTokenizedErrorMessage(FTokenizedMessage::Create(EMessageSeverity::Warning, FText::Format(LOCTEXT("FBXImport_InvalidLODIdx", "Invalid mesh LOD index {0}, no prior LOD index exists"), FText::AsNumber(SelectedLOD))), FFbxErrors::Generic_Mesh_LOD_InvalidIndex);
@@ -428,7 +432,7 @@ namespace FbxMeshUtils
 					}
 					
 					ExistingSkelMeshData* SkelMeshDataPtr = nullptr;
-					if (SelectedSkelMesh->LODInfo.Num() > LODLevel)
+					if (SelectedSkelMesh->GetLODNum() > LODLevel)
 					{
 						SelectedSkelMesh->PreEditChange(NULL);
 						SkelMeshDataPtr = SaveExistingSkelMeshData(SelectedSkelMesh, true, SelectedLOD);
@@ -465,7 +469,7 @@ namespace FbxMeshUtils
 
 						if (SkelMeshDataPtr != nullptr)
 						{
-							RestoreExistingSkelMeshData(SkelMeshDataPtr, SelectedSkelMesh, SelectedLOD, false, ImportOptions->bIsReimportPreview);
+							RestoreExistingSkelMeshData(SkelMeshDataPtr, SelectedSkelMesh, SelectedLOD, false);
 						}
 						SelectedSkelMesh->PostEditChange();
 						// Mark package containing skeletal mesh as dirty.
@@ -498,7 +502,8 @@ namespace FbxMeshUtils
 					{
 						bSuccess = true;
 						// Set LOD source filename
-						SelectedSkelMesh->LODInfo[SelectedLOD].SourceImportFilename = Filename;
+						SelectedSkelMesh->GetLODInfo(SelectedLOD)->SourceImportFilename = UAssetImportData::SanitizeImportFilename(Filename, nullptr);
+						SelectedSkelMesh->GetLODInfo(SelectedLOD)->bImportWithBaseMesh = false;
 
 						// Notification of success
 						FNotificationInfo NotificationInfo(FText::GetEmpty());
@@ -613,10 +618,20 @@ namespace FbxMeshUtils
 
 		if(SkeletalMesh)
 		{
-			if(SkeletalMesh->LODInfo.IsValidIndex(LODLevel))
+			if(SkeletalMesh->IsValidLODIndex(LODLevel))
 			{
-				FSkeletalMeshLODInfo& SkelLodInfo = SkeletalMesh->LODInfo[LODLevel];
-				FilenameToImport = SkelLodInfo.SourceImportFilename;
+				FilenameToImport = SkeletalMesh->GetLODInfo(LODLevel)->SourceImportFilename.IsEmpty() ?
+					SkeletalMesh->GetLODInfo(LODLevel)->SourceImportFilename :
+					UAssetImportData::ResolveImportFilename(SkeletalMesh->GetLODInfo(LODLevel)->SourceImportFilename, nullptr);
+			}
+		}
+		else if (StaticMesh)
+		{
+			if (StaticMesh->SourceModels.IsValidIndex(LODLevel))
+			{
+				FilenameToImport = StaticMesh->SourceModels[LODLevel].SourceImportFilename.IsEmpty() ?
+					StaticMesh->SourceModels[LODLevel].SourceImportFilename :
+					UAssetImportData::ResolveImportFilename(StaticMesh->SourceModels[LODLevel].SourceImportFilename, nullptr);
 			}
 		}
 

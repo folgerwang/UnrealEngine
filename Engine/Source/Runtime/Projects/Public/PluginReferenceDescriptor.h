@@ -33,6 +33,12 @@ struct PROJECTS_API FPluginReferenceDescriptor
 	/** If enabled, list of platforms for which the plugin should be disabled. */
 	TArray<FString> BlacklistPlatforms;
  
+	/** If enabled, list of target configurations for which the plugin should be enabled (or all target configurations if blank). */
+	TArray<FString> WhitelistTargetConfigurations;
+
+	/** If enabled, list of target configurations for which the plugin should be disabled. */
+	TArray<FString> BlacklistTargetConfigurations;
+
 	/** If enabled, list of targets for which the plugin should be enabled (or all targets if blank). */
 	TArray<FString> WhitelistTargets;
 
@@ -47,6 +53,9 @@ struct PROJECTS_API FPluginReferenceDescriptor
 
 	/** Determines whether the plugin is enabled for the given platform */
 	bool IsEnabledForPlatform(const FString& Platform) const;
+
+	/** Determines whether the plugin is enabled for the given target configuration */
+	bool IsEnabledForTargetConfiguration(const FString& TargetConfiguration) const;
 
 	/** Determines whether the plugin is enabled for the given target */
 	bool IsEnabledForTarget(const FString& Target) const;

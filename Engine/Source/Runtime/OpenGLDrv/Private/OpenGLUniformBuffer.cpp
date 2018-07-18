@@ -7,6 +7,7 @@
 #include "CoreMinimal.h"
 #include "Stats/Stats.h"
 #include "HAL/IConsoleManager.h"
+#include "HAL/LowLevelMemTracker.h"
 #include "RHI.h"
 #include "OpenGLDrv.h"
 #include "OpenGLDrvPrivate.h"
@@ -60,6 +61,8 @@ static const uint32 RequestedUniformBufferSizeBuckets[NUM_POOL_BUCKETS] = {
 
 // Maps desired size buckets to aligment actually 
 static TArray<uint32> UniformBufferSizeBuckets;
+
+static FCriticalSection GGLUniformBufferPoolCS;
 
 
 static inline bool IsSuballocatingUBOs()
@@ -119,6 +122,8 @@ static uint32 GetPoolBucketIndex(uint32 NumBytes)
 {
 	if (UniformBufferSizeBuckets.Num() == 0)
 	{
+		check(IsInRenderingThread()); // this better be set up before there is any concurrency.
+		FScopeLock Lock(&GGLUniformBufferPoolCS);
 		RemapBuckets();
 	}
 
@@ -153,12 +158,12 @@ static inline uint32 GetPoolBucketSize(uint32 NumBytes)
 	return UniformBufferSizeBuckets[GetPoolBucketIndex(NumBytes)];
 }
 
+static FCriticalSection GGLEmulatedUniformBufferDataFactoryCS;
 struct FUniformBufferDataFactory
 {
-	TMap<GLuint, FOpenGLEUniformBufferDataRef> Entries;
-
 	FOpenGLEUniformBufferDataRef Create(uint32 Size, GLuint& OutResource)
 	{
+		FScopeLock Lock(&GGLEmulatedUniformBufferDataFactoryCS);
 		static GLuint TempCounter = 0;
 		OutResource = ++TempCounter;
 
@@ -169,6 +174,7 @@ struct FUniformBufferDataFactory
 
 	FOpenGLEUniformBufferDataRef Get(GLuint Resource)
 	{
+		FScopeLock Lock(&GGLEmulatedUniformBufferDataFactoryCS);
 		FOpenGLEUniformBufferDataRef* Buffer = Entries.Find(Resource);
 		check(Buffer);
 		return *Buffer;
@@ -176,8 +182,11 @@ struct FUniformBufferDataFactory
 
 	void Destroy(GLuint Resource)
 	{
+		FScopeLock Lock(&GGLEmulatedUniformBufferDataFactoryCS);
 		Entries.Remove(Resource);
 	}
+private:
+	TMap<GLuint, FOpenGLEUniformBufferDataRef> Entries;
 };
 
 static FUniformBufferDataFactory UniformBufferDataFactory;
@@ -198,10 +207,32 @@ static TArray<FPooledGLUniformBuffer> GLUniformBufferPool[NUM_POOL_BUCKETS][2];
 // Uniform buffers that have been freed more recently than NumSafeFrames ago.
 static TArray<FPooledGLUniformBuffer> SafeGLUniformBufferPools[NUM_SAFE_FRAMES][NUM_POOL_BUCKETS][2];
 
+// Delete the uniform buffer's GL resource
+static void ReleaseUniformBuffer(bool bEmulatedBufferData, GLuint Resource, uint32 AllocatedSize)
+{
+	if (bEmulatedBufferData)
+	{
+		UniformBufferDataFactory.Destroy(Resource);
+	}
+	else
+	{
+		check(Resource);
+		auto DeleteGLBuffer = [=]() 
+		{
+			VERIFY_GL_SCOPE();
+			FOpenGL::DeleteBuffers(1, &Resource);
+			check(Resource != 0);
+		};
+
+		RunOnGLRenderContextThread(MoveTemp(DeleteGLBuffer));
+		DecrementBufferMemory(GL_UNIFORM_BUFFER, /*bIsStructuredBuffer=*/ false, AllocatedSize);
+	}
+}
+
 // Does per-frame global updating for the uniform buffer pool.
 void BeginFrame_UniformBufferPoolCleanup()
 {
-	check(IsInRenderingThread());
+	FScopeLock Lock(&GGLUniformBufferPoolCS);
 
 	int32 NumToCleanThisFrame = 10;
 
@@ -225,15 +256,7 @@ void BeginFrame_UniformBufferPoolCleanup()
 				{
 					DEC_DWORD_STAT(STAT_OpenGLNumFreeUniformBuffers);
 					DEC_MEMORY_STAT_BY(STAT_OpenGLFreeUniformBufferMemory, PoolEntry.CreatedSize);
-					DecrementBufferMemory(GL_UNIFORM_BUFFER, /*bIsStructuredBuffer=*/ false, PoolEntry.CreatedSize);
-					if (GUseEmulatedUniformBuffers)
-					{
-						UniformBufferDataFactory.Destroy(PoolEntry.Buffer);
-					}
-					else
-					{
-						FOpenGL::DeleteBuffers( 1, &PoolEntry.Buffer );
-					}
+					ReleaseUniformBuffer(GUseEmulatedUniformBuffers, PoolEntry.Buffer, PoolEntry.CreatedSize);
 					GLUniformBufferPool[BucketIndex][StreamedIndex].RemoveAtSwap(EntryIndex);
 
 					--NumToCleanThisFrame;
@@ -274,7 +297,7 @@ void BeginFrame_UniformBufferPoolCleanup()
 static bool IsPoolingEnabled()
 {
 	static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.UniformBufferPooling"));
-	int32 CVarValue = CVar->GetValueOnRenderThread();
+	int32 CVarValue = IsInParallelRenderingThread() ? CVar->GetValueOnRenderThread() : CVar->GetValueOnGameThread();
 	return CVarValue != 0;
 };
 
@@ -290,6 +313,8 @@ TArray<TUBOPoolBuffer> UBOPool;
 
 static void SuballocateUBO( uint32 Size, GLuint& Resource, uint32& Offset, uint8*& Pointer)
 {
+	VERIFY_GL_SCOPE();
+
 	check( Size <= GetUBOPoolSize());
 	// Find space in previously allocated pool buffers
 	for ( int32 Buffer = 0; Buffer < UBOPool.Num(); Buffer++)
@@ -340,20 +365,36 @@ static void SuballocateUBO( uint32 Size, GLuint& Resource, uint32& Offset, uint8
 
 static uint32 GUniqueUniformBufferID = 0;
 
-FOpenGLUniformBuffer::FOpenGLUniformBuffer(const FRHIUniformBufferLayout& InLayout, GLuint InResource, uint32 InOffset, uint8* InPersistentlyMappedBuffer, uint32 InAllocatedSize, FOpenGLEUniformBufferDataRef& InEmulatedBuffer, bool bInStreamDraw)
+FOpenGLUniformBuffer::FOpenGLUniformBuffer(const FRHIUniformBufferLayout& InLayout)
 	: FRHIUniformBuffer(InLayout)
-	, Resource(InResource)
-	, Offset(InOffset)
-	, PersistentlyMappedBuffer(InPersistentlyMappedBuffer)
+	, Resource(0)
+	, Offset(0)
+	, PersistentlyMappedBuffer(nullptr)
 	, UniqueID(++GUniqueUniformBufferID)
-	, EmulatedBufferData(InEmulatedBuffer)
-	, AllocatedSize(InAllocatedSize)
-	, bStreamDraw(bInStreamDraw)
+	, AllocatedSize(0)
+	, bStreamDraw(false)
 {
+}
+
+void FOpenGLUniformBuffer::SetGLUniformBufferParams(GLuint InResource, uint32 InOffset, uint8* InPersistentlyMappedBuffer, uint32 InAllocatedSize, FOpenGLEUniformBufferDataRef InEmulatedBuffer, bool bInStreamDraw)
+{
+	Resource = InResource;
+	Offset = InOffset;
+	PersistentlyMappedBuffer = InPersistentlyMappedBuffer;
+	EmulatedBufferData = InEmulatedBuffer;
+	AllocatedSize = InAllocatedSize;
+	bStreamDraw = bInStreamDraw;
+
+#if ENABLE_LOW_LEVEL_MEM_TRACKER
+	LLM_SCOPED_PAUSE_TRACKING_WITH_ENUM_AND_AMOUNT(ELLMTag::UniformBuffer, InAllocatedSize, ELLMTracker::Platform, ELLMAllocType::None);
+#endif
 }
 
 FOpenGLUniformBuffer::~FOpenGLUniformBuffer()
 {
+	AccessFence.WaitFence();
+	CopyFence.WaitFence();
+
 	if (Resource != 0)
 	{
 		if (IsPoolingEnabled())
@@ -374,55 +415,228 @@ FOpenGLUniformBuffer::~FOpenGLUniformBuffer()
 			check(AllocatedSize == UniformBufferSizeBuckets[BucketIndex]);
 			// this might fail with sizes > 65536; handle it then by extending the range? sizes > 65536 are presently unsupported on Mac OS X.
 
+			FScopeLock Lock(&GGLUniformBufferPoolCS);
 			SafeGLUniformBufferPools[SafeFrameIndex][BucketIndex][StreamedIndex].Add(NewEntry);
 			INC_DWORD_STAT(STAT_OpenGLNumFreeUniformBuffers);
 			INC_MEMORY_STAT_BY(STAT_OpenGLFreeUniformBufferMemory, AllocatedSize);
 		}
-		else if (IsValidRef(EmulatedBufferData))
-		{
-			UniformBufferDataFactory.Destroy(Resource);
-		}
 		else
 		{
-			FOpenGL::DeleteBuffers(1, &Resource);
-			DecrementBufferMemory(GL_UNIFORM_BUFFER, /*bIsStructuredBuffer=*/ false, AllocatedSize);
+			ReleaseUniformBuffer(IsValidRef(EmulatedBufferData), Resource, AllocatedSize);
+			Resource = 0; 
+		}
+#if ENABLE_LOW_LEVEL_MEM_TRACKER
+		LLM_SCOPED_PAUSE_TRACKING_WITH_ENUM_AND_AMOUNT(ELLMTag::UniformBuffer, -(int64)AllocatedSize, ELLMTracker::Platform, ELLMAllocType::None);
+#endif
+	}
+}
+
+
+static void SetLayoutTable(FOpenGLUniformBuffer* NewUniformBuffer, const void* Contents,const FRHIUniformBufferLayout &Layout)
+{
+	if (Layout.Resources.Num())
+	{
+		int32 NumResources = Layout.Resources.Num();
+		NewUniformBuffer->ResourceTable.Empty(NumResources);
+		NewUniformBuffer->ResourceTable.AddZeroed(NumResources);
+		for (int32 i = 0; i < NumResources; ++i)
+		{
+			FRHIResource* Resource = *(FRHIResource**)((uint8*)Contents + Layout.ResourceOffsets[i]);
+
+			// Allow null SRV's in uniform buffers for feature levels that don't support SRV's in shaders
+			if (!(GMaxRHIFeatureLevel <= ERHIFeatureLevel::ES3_1 && Layout.Resources[i] == UBMT_SRV))
+			{
+				check(Resource);
+			}
+
+			NewUniformBuffer->ResourceTable[i] = Resource;
 		}
 	}
 }
 
-FUniformBufferRHIRef FOpenGLDynamicRHI::RHICreateUniformBuffer(const void* Contents, const FRHIUniformBufferLayout& Layout, EUniformBufferUsage Usage)
-{
-	check(IsInRenderingThread());
 
+void CopyDataToUniformBuffer(const bool bCanRunOnThisThread, FOpenGLUniformBuffer* NewUniformBuffer, const void* Contents, uint32 ContentSize)
+{
+	FOpenGLEUniformBufferDataRef EmulatedUniformDataRef = NewUniformBuffer->EmulatedBufferData;	
+	uint8* PersistentlyMappedBuffer = NewUniformBuffer->PersistentlyMappedBuffer;
+	// Copy the contents of the uniform buffer.
+	if (IsValidRef(EmulatedUniformDataRef))
+	{
+		FMemory::Memcpy(EmulatedUniformDataRef->Data.GetData(), Contents, ContentSize);
+	}
+	else if (PersistentlyMappedBuffer)
+	{
+		FMemory::Memcpy(PersistentlyMappedBuffer, Contents, ContentSize);
+	}
+	else
+	{
+		if (bCanRunOnThisThread)
+		{
+			VERIFY_GL_SCOPE();
+			FOpenGL::BufferSubData(GL_UNIFORM_BUFFER, 0, ContentSize, Contents);
+		}
+		else
+		{
+			NewUniformBuffer->CopyFence.Reset();
+			// running on RHI thread take a copy of the incoming data.
+			FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
+			void* ConstantBufferCopy = RHICmdList.Alloc(ContentSize, 16);
+			FMemory::Memcpy(ConstantBufferCopy, Contents, ContentSize);
+			
+			new (RHICmdList.AllocCommand<FRHICommandGLCommand>()) FRHICommandGLCommand(
+				[=]() 
+				{
+					VERIFY_GL_SCOPE();
+					FOpenGL::BufferSubData(GL_UNIFORM_BUFFER, 0, ContentSize, ConstantBufferCopy);
+					NewUniformBuffer->CopyFence.WriteAssertFence();
+				});
+
+			NewUniformBuffer->CopyFence.SetRHIThreadFence();
+
+		}
+	}
+}
+
+static FUniformBufferRHIRef CreateUniformBuffer(const void* Contents, const FRHIUniformBufferLayout& Layout, EUniformBufferUsage Usage)
+{
 	// This should really be synchronized, if there's a chance it'll be used from more than one buffer. Luckily, uniform buffers
 	// are only used for drawing/shader usage, not for loading resources or framebuffer blitting, so no synchronization primitives for now.
 
 	// Explicitly check that the size is nonzero before allowing CreateBuffer to opaquely fail.
 	check(Layout.Resources.Num() > 0 || Layout.ConstantBufferSize > 0);
 
-	VERIFY_GL_SCOPE();
+	FOpenGLUniformBuffer* NewUniformBuffer = new FOpenGLUniformBuffer(Layout);
 
-	bool bStreamDraw = (Usage==UniformBuffer_SingleDraw || Usage == UniformBuffer_SingleFrame);
+	TFunction<void(void)> GLCreationFunc;
+
+	const uint32 BucketIndex = GetPoolBucketIndex(Layout.ConstantBufferSize);
+	const uint32 SizeOfBufferToAllocate = UniformBufferSizeBuckets[BucketIndex];
+	const uint32 AllocatedSize = (SizeOfBufferToAllocate > 0) ? SizeOfBufferToAllocate : Layout.ConstantBufferSize;;
+	
+	// EmulatedUniformDataRef will not be initialized on RHI thread. safe to use on RT thread.
+	FOpenGLEUniformBufferDataRef EmulatedUniformDataRef;
+
+	// PersistentlyMappedBuffer initializes via IsSuballocatingUBOs path which will flush RHI commands. safe to use on RT thread.
+	uint8* PersistentlyMappedBuffer = NULL;
+
+	FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
+	{
+		const bool bStreamDraw = (Usage == UniformBuffer_SingleDraw || Usage == UniformBuffer_SingleFrame);
+		
+		// Nothing usable was found in the free pool, or we're not pooling, so create a new uniform buffer
+		if (GUseEmulatedUniformBuffers)
+		{
+			GLuint AllocatedResource = 0;
+			uint32 OffsetInBuffer = 0;
+			EmulatedUniformDataRef = UniformBufferDataFactory.Create(AllocatedSize, AllocatedResource);
+			NewUniformBuffer->SetGLUniformBufferParams(AllocatedResource, OffsetInBuffer, PersistentlyMappedBuffer, AllocatedSize, EmulatedUniformDataRef, bStreamDraw);
+		}
+		else if (IsSuballocatingUBOs())
+		{
+			GLCreationFunc = [NewUniformBuffer, AllocatedSize, &PersistentlyMappedBuffer, &EmulatedUniformDataRef, bStreamDraw]() {
+				GLuint AllocatedResource = 0;
+				uint32 OffsetInBuffer = 0;
+
+				SuballocateUBO(AllocatedSize, AllocatedResource, OffsetInBuffer, PersistentlyMappedBuffer);
+				NewUniformBuffer->SetGLUniformBufferParams(AllocatedResource, OffsetInBuffer, PersistentlyMappedBuffer, AllocatedSize, EmulatedUniformDataRef, bStreamDraw);
+			};
+		}
+		else
+		{
+			check(PersistentlyMappedBuffer == nullptr);
+			GLCreationFunc = [NewUniformBuffer, AllocatedSize, PersistentlyMappedBuffer, EmulatedUniformDataRef, bStreamDraw]()
+			{
+				VERIFY_GL_SCOPE();
+				GLuint AllocatedResource = 0;
+				uint32 OffsetInBuffer = 0;
+				FOpenGL::GenBuffers(1, &AllocatedResource);
+				::CachedBindUniformBuffer(AllocatedResource);
+				glBufferData(GL_UNIFORM_BUFFER, AllocatedSize, NULL, bStreamDraw ? GL_STREAM_DRAW : GL_STATIC_DRAW);
+				NewUniformBuffer->SetGLUniformBufferParams(AllocatedResource, OffsetInBuffer, nullptr, AllocatedSize, EmulatedUniformDataRef, bStreamDraw);
+			};
+		}
+	}
+
+	const bool bCanCreateOnThisThread = RHICmdList.Bypass() || (!IsRunningRHIInSeparateThread() && IsInRenderingThread()) || IsInRHIThread();
+	if(!GUseEmulatedUniformBuffers)
+	{
+		if (bCanCreateOnThisThread)
+		{
+			GLCreationFunc();
+		}
+		else
+		{
+			NewUniformBuffer->AccessFence.Reset();
+			// Queue GL resource creation.
+			new (RHICmdList.AllocCommand<FRHICommandGLCommand>()) FRHICommandGLCommand([=]() {GLCreationFunc(); NewUniformBuffer->AccessFence.WriteAssertFence(); });
+			NewUniformBuffer->AccessFence.SetRHIThreadFence();
+
+			// flush for the UBO case
+			// as this path interacts with UBOPool, this hasnt been addressed for the RHI thread case.
+			if (IsSuballocatingUBOs())
+			{
+				RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread);
+				RHITHREAD_GLTRACE_BLOCKING;
+			}
+		}
+	}
+
+	IncrementBufferMemory(GL_UNIFORM_BUFFER, /*bIsStructuredBuffer=*/ false, AllocatedSize);
+
+	check(!GUseEmulatedUniformBuffers || (IsValidRef(EmulatedUniformDataRef) && (EmulatedUniformDataRef->Data.Num() * EmulatedUniformDataRef->Data.GetTypeSize() == AllocatedSize)));
+
+	CopyDataToUniformBuffer(bCanCreateOnThisThread, NewUniformBuffer,Contents, Layout.ConstantBufferSize);
+
+	// Initialize the resource table for this uniform buffer.
+	SetLayoutTable(NewUniformBuffer, Contents, Layout);
+
+	return NewUniformBuffer;
+}	
+
+FUniformBufferRHIRef FOpenGLDynamicRHI::RHICreateUniformBuffer(const void* Contents, const FRHIUniformBufferLayout& Layout, EUniformBufferUsage Usage)
+{
+	FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
+	// This should really be synchronized, if there's a chance it'll be used from more than one buffer. Luckily, uniform buffers
+	// are only used for drawing/shader usage, not for loading resources or framebuffer blitting, so no synchronization primitives for now.
+
+	// Explicitly check that the size is nonzero before allowing CreateBuffer to opaquely fail.
+	check(Layout.Resources.Num() > 0 || Layout.ConstantBufferSize > 0);
+
+	bool bStreamDraw = (Usage == UniformBuffer_SingleDraw || Usage == UniformBuffer_SingleFrame);
 	GLuint AllocatedResource = 0;
 	uint32 OffsetInBuffer = 0;
 	uint8* PersistentlyMappedBuffer = NULL;
 	uint32 AllocatedSize = 0;
 	FOpenGLEUniformBufferDataRef EmulatedUniformDataRef;
 
+	const bool bCanCreateOnThisThread = RHICmdList.Bypass() || (!IsRunningRHIInSeparateThread() && IsInRenderingThread()) || IsInRHIThread();
+
 	// If the uniform buffer contains constants, allocate a uniform buffer resource from GL.
 	if (Layout.ConstantBufferSize > 0)
 	{
 		uint32 SizeOfBufferToAllocate = 0;
-		if(IsPoolingEnabled())
+		if (IsPoolingEnabled())
 		{
 			// Find the appropriate bucket based on size
 			const uint32 BucketIndex = GetPoolBucketIndex(Layout.ConstantBufferSize);
 			int StreamedIndex = bStreamDraw ? 1 : 0;
-			TArray<FPooledGLUniformBuffer>& PoolBucket = GLUniformBufferPool[BucketIndex][StreamedIndex];
-			if (PoolBucket.Num() > 0)
+
+			FPooledGLUniformBuffer FreeBufferEntry;
+			FreeBufferEntry.Buffer = 0;
+			FreeBufferEntry.CreatedSize = 0;
+			bool bHasEntry = false;
 			{
-				// Reuse the last entry in this size bucket
-				FPooledGLUniformBuffer FreeBufferEntry = PoolBucket.Pop();
+				FScopeLock Lock(&GGLUniformBufferPoolCS);
+				TArray<FPooledGLUniformBuffer>& PoolBucket = GLUniformBufferPool[BucketIndex][StreamedIndex];
+				if (PoolBucket.Num() > 0)
+				{
+					// Reuse the last entry in this size bucket
+					FreeBufferEntry = PoolBucket.Pop();
+					bHasEntry = true;
+				}
+			}
+			if (bHasEntry)
+			{
 				DEC_DWORD_STAT(STAT_OpenGLNumFreeUniformBuffers);
 				DEC_MEMORY_STAT_BY(STAT_OpenGLFreeUniformBufferMemory, FreeBufferEntry.CreatedSize);
 
@@ -435,72 +649,42 @@ FUniformBufferRHIRef FOpenGLDynamicRHI::RHICreateUniformBuffer(const void* Conte
 				}
 				else
 				{
-					::CachedBindUniformBuffer(AllocatedResource);
+					auto CacheGLUniformBuffer = [AllocatedResource]()
+					{
+						VERIFY_GL_SCOPE();
+						::CachedBindUniformBuffer(AllocatedResource);
+					};
+
+					if (bCanCreateOnThisThread)
+					{
+						CacheGLUniformBuffer();
+					}
+					else
+					{
+						new (RHICmdList.AllocCommand<FRHICommandGLCommand>()) FRHICommandGLCommand(CacheGLUniformBuffer);
+					}
 				}
 			}
 			else
 			{
 				SizeOfBufferToAllocate = UniformBufferSizeBuckets[BucketIndex];
 			}
-		}
-		
-		if (AllocatedSize == 0)
-		{
-			// When pooling is enabled we allocate a buffer large enough for the given bucket.
-			// Otherwise we just allocate the number of bytes needed for the constant buffer we've been given.
-			AllocatedSize = (SizeOfBufferToAllocate > 0) ? SizeOfBufferToAllocate : Layout.ConstantBufferSize;
-
-			// Nothing usable was found in the free pool, or we're not pooling, so create a new uniform buffer
-			if (GUseEmulatedUniformBuffers)
-			{
-				EmulatedUniformDataRef = UniformBufferDataFactory.Create(AllocatedSize, AllocatedResource);
 			}
-			else if (IsSuballocatingUBOs())
-			{
-				SuballocateUBO(AllocatedSize, AllocatedResource, OffsetInBuffer, PersistentlyMappedBuffer);
-			}
-			else
-			{
-				FOpenGL::GenBuffers(1, &AllocatedResource);
-				::CachedBindUniformBuffer(AllocatedResource);
-				glBufferData(GL_UNIFORM_BUFFER, AllocatedSize, NULL, bStreamDraw ? GL_STREAM_DRAW : GL_STATIC_DRAW);
-			}
-
-			IncrementBufferMemory(GL_UNIFORM_BUFFER, /*bIsStructuredBuffer=*/ false, AllocatedSize);
 		}
 
-		check(!GUseEmulatedUniformBuffers || (IsValidRef(EmulatedUniformDataRef) && (EmulatedUniformDataRef->Data.Num() * EmulatedUniformDataRef->Data.GetTypeSize() == AllocatedSize)));
-
-		// Copy the contents of the uniform buffer.
-		if (IsValidRef(EmulatedUniformDataRef))
-		{
-			FMemory::Memcpy(EmulatedUniformDataRef->Data.GetData(), Contents, Layout.ConstantBufferSize);
-		}
-		else if (PersistentlyMappedBuffer)
-		{
-			FMemory::Memcpy(PersistentlyMappedBuffer, Contents, Layout.ConstantBufferSize);
-		}
-		else
-		{
-			FOpenGL::BufferSubData(GL_UNIFORM_BUFFER, 0, Layout.ConstantBufferSize, Contents);
-		}
+	if (AllocatedSize == 0)
+	{
+		return CreateUniformBuffer(Contents, Layout, Usage);
 	}
 
-	FOpenGLUniformBuffer* NewUniformBuffer = new FOpenGLUniformBuffer(Layout, AllocatedResource, OffsetInBuffer, PersistentlyMappedBuffer, AllocatedSize, EmulatedUniformDataRef, bStreamDraw);
+	FOpenGLUniformBuffer* NewUniformBuffer = new FOpenGLUniformBuffer(Layout);
+	NewUniformBuffer->SetGLUniformBufferParams(AllocatedResource, OffsetInBuffer, PersistentlyMappedBuffer, AllocatedSize, EmulatedUniformDataRef, bStreamDraw);
+
+	check(!GUseEmulatedUniformBuffers || (IsValidRef(EmulatedUniformDataRef) && (EmulatedUniformDataRef->Data.Num() * EmulatedUniformDataRef->Data.GetTypeSize() == AllocatedSize)));
+	CopyDataToUniformBuffer(bCanCreateOnThisThread, NewUniformBuffer, Contents, Layout.ConstantBufferSize);
 
 	// Initialize the resource table for this uniform buffer.
-	if (Layout.Resources.Num())
-	{
-		int32 NumResources = Layout.Resources.Num();
-		FRHIResource** InResources = (FRHIResource**)((uint8*)Contents + Layout.ResourceOffset);
-		NewUniformBuffer->ResourceTable.Empty(NumResources);
-		NewUniformBuffer->ResourceTable.AddZeroed(NumResources);
-		for (int32 i = 0; i < NumResources; ++i)
-		{
-			check(InResources[i]);
-			NewUniformBuffer->ResourceTable[i] = InResources[i];
-		}
-	}
+	SetLayoutTable(NewUniformBuffer, Contents, Layout);
 
 	return NewUniformBuffer;
-}	
+}

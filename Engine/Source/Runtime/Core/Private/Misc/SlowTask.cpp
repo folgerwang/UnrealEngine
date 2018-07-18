@@ -115,3 +115,8 @@ void FSlowTask::MakeDialog(bool bShowCancelButton, bool bAllowInPIE)
 		}
 	}
 }
+
+bool FSlowTask::ShouldCancel() const
+{
+	return Context.ReceivedUserCancel();
+}

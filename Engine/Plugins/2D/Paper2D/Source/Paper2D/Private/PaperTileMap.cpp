@@ -40,6 +40,13 @@ UPaperTileMap::UPaperTileMap(const FObjectInitializer& ObjectInitializer)
 #if WITH_EDITORONLY_DATA
 	SelectedLayerIndex = INDEX_NONE;
 	BackgroundColor = FColor(55, 55, 55);
+	TileGridColor = FLinearColor::Gray;
+	MultiTileGridColor = FLinearColor::Red;
+	MultiTileGridWidth = 0;
+	MultiTileGridHeight = 0;
+	MultiTileGridOffsetX = 0;
+	MultiTileGridOffsetY = 0;
+	LayerGridColor = FLinearColor::White;
 #endif
 
 	LayerNameIndex = 0;

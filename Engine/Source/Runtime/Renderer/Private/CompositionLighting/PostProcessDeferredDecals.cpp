@@ -136,13 +136,6 @@ struct FDecalDepthState
 	}
 };
 
-enum EDecalRasterizerState
-{
-	DRS_Undefined,
-	DRS_CCW,
-	DRS_CW,
-};
-
 // @param RenderState 0:before BasePass, 1:before lighting, (later we could add "after lighting" and multiply)
 FBlendStateRHIParamRef GetDecalBlendState(const ERHIFeatureLevel::Type SMFeatureLevel, EDecalRenderStage InDecalRenderStage, EDecalBlendMode DecalBlendMode, bool bHasNormal)
 {
@@ -229,6 +222,12 @@ FBlendStateRHIParamRef GetDecalBlendState(const ERHIFeatureLevel::Type SMFeature
 
 		return TStaticBlendState<>::GetRHI();
 	}
+	else if (InDecalRenderStage == DRS_AmbientOcclusion)
+	{
+		ensure(DecalBlendMode == DBM_AmbientOcclusion);
+
+		return TStaticBlendState<CW_RED, BO_Add, BF_DestColor, BF_Zero>::GetRHI();
+	}
 	else
 	{
 		// before lighting (for non DBuffer decals)
@@ -308,6 +307,25 @@ FBlendStateRHIParamRef GetDecalBlendState(const ERHIFeatureLevel::Type SMFeature
 		case DBM_Emissive:
 			return TStaticBlendState< CW_RGB, BO_Add, BF_SourceAlpha, BF_One >::GetRHI();
 
+		case DBM_AlphaComposite:
+			if (GSupportsSeparateRenderTargetBlendState)
+			{
+				return TStaticBlendState<
+					CW_RGB, BO_Add, BF_One, BF_InverseSourceAlpha, BO_Add, BF_Zero, BF_One,	// Emissive
+					CW_RGB, BO_Add, BF_Zero, BF_One, BO_Add, BF_Zero, BF_One,				// Normal
+					CW_RGB, BO_Add, BF_One, BF_InverseSourceAlpha, BO_Add, BF_Zero, BF_One,	// Metallic, Specular, Roughness
+					CW_RGB, BO_Add, BF_One, BF_InverseSourceAlpha, BO_Add, BF_Zero, BF_One	// BaseColor
+				>::GetRHI();
+			}
+			else if (SMFeatureLevel == ERHIFeatureLevel::SM4)
+			{
+				return TStaticBlendState<
+					CW_RGB, BO_Add, BF_One, BF_InverseSourceAlpha, BO_Add, BF_Zero, BF_One,	// Emissive
+					CW_RGB, BO_Add, BF_One, BF_InverseSourceAlpha, BO_Add, BF_Zero, BF_One,	// Normal
+					CW_RGB, BO_Add, BF_One, BF_InverseSourceAlpha, BO_Add, BF_Zero, BF_One,	// Metallic, Specular, Roughness
+					CW_RGB, BO_Add, BF_One, BF_InverseSourceAlpha, BO_Add, BF_Zero, BF_One	// BaseColor
+				>::GetRHI();
+			}
 		default:
 			// the decal type should not be rendered in this pass - internal error
 			check(0);
@@ -547,6 +565,7 @@ const TCHAR* GetStageName(EDecalRenderStage Stage)
 	case DRS_AfterBasePass: return TEXT("DRS_AfterBasePass");
 	case DRS_BeforeLighting: return TEXT("DRS_BeforeLighting");
 	case DRS_Mobile: return TEXT("DRS_Mobile");
+	case DRS_AmbientOcclusion: return TEXT("DRS_AmbientOcclusion");
 	}
 	return TEXT("<UNKNOWN>");
 }
@@ -606,7 +625,7 @@ void FRCPassPostProcessDeferredDecals::DecodeRTWriteMask(FRenderingCompositePass
 
 	RHICmdList.TransitionResource(EResourceTransitionAccess::EReadable, EResourceTransitionPipeline::EComputeToGfx, SceneContext.DBufferMask->GetRenderTargetItem().UAV);
 	
-    FTextureRHIParamRef Textures[3] =
+	FTextureRHIParamRef Textures[3] =
 	{
 		SceneContext.DBufferA->GetRenderTargetItem().TargetableTexture,
 		SceneContext.DBufferB->GetRenderTargetItem().TargetableTexture,
@@ -642,7 +661,7 @@ void FRCPassPostProcessDeferredDecals::Process(FRenderingCompositePassContext& C
 
 		// If we're rendering dbuffer decals but there are no decals in the scene, we avoid the 
 		// clears/decompresses and set the targets to NULL		
-		// The DBufferA-C will be replaced with dummy textures in FDeferredPixelShaderParameters
+		// The DBufferA-C will be replaced with dummy textures in FSceneTextureShaderParameters
 		if (ViewFamily.EngineShowFlags.Decals)
 		{
 			FScene& Scene = *(FScene*)ViewFamily.Scene;
@@ -735,7 +754,7 @@ void FRCPassPostProcessDeferredDecals::Process(FRenderingCompositePassContext& C
 
 			// Build a list of decals that need to be rendered for this view
 			FTransientDecalRenderDataList SortedDecals;
-			FDecalRendering::BuildVisibleDecalList(Scene, View, CurrentStage, SortedDecals);
+			FDecalRendering::BuildVisibleDecalList(Scene, View, CurrentStage, &SortedDecals);
 
 			if (SortedDecals.Num() > 0)
 			{
@@ -780,7 +799,7 @@ void FRCPassPostProcessDeferredDecals::Process(FRenderingCompositePassContext& C
 					// Here we assume that GBuffer can only be WorldNormal since it is the only GBufferTarget handled correctly.
 					if (RenderTargetManager.bGufferADirty && DecalData.MaterialResource->NeedsGBuffer())
 					{
-						RHICmdList.CopyToResolveTarget(SceneContext.GBufferA->GetRenderTargetItem().TargetableTexture, SceneContext.GBufferA->GetRenderTargetItem().TargetableTexture, true, FResolveParams());
+						RHICmdList.CopyToResolveTarget(SceneContext.GBufferA->GetRenderTargetItem().TargetableTexture, SceneContext.GBufferA->GetRenderTargetItem().TargetableTexture, FResolveParams());
 						RenderTargetManager.TargetsToResolve[FDecalRenderTargetManager::GBufferAIndex] = nullptr;
 						RenderTargetManager.bGufferADirty = false;
 					}
@@ -835,7 +854,7 @@ void FRCPassPostProcessDeferredDecals::Process(FRenderingCompositePassContext& C
 							const auto& Scale3d = DecalProxy.ComponentTrans.GetScale3D();
 							bReverseHanded = Scale3d[0] * Scale3d[1] * Scale3d[2] < 0.f;
 						}
-						EDecalRasterizerState DecalRasterizerState = ComputeDecalRasterizerState(bInsideDecal, bReverseHanded, View);
+						EDecalRasterizerState DecalRasterizerState = FDecalRenderingCommon::ComputeDecalRasterizerState(bInsideDecal, bReverseHanded, View.bReverseCulling);
 
 						if (LastDecalRasterizerState != DecalRasterizerState)
 						{
@@ -909,7 +928,7 @@ void FRCPassPostProcessDeferredDecals::Process(FRenderingCompositePassContext& C
 	if (CurrentStage == DRS_BeforeBasePass && !bHasValidDBufferMask)
 	{
 		// Return the DBufferMask to the render target pool.
-		// FDeferredPixelShaderParameters will fall back to setting a white dummy mask texture.
+		// FSceneTextureShaderParameters will fall back to setting a white dummy mask texture.
 		// This allows us to ignore the DBufferMask on frames without decals, without having to explicitly clear the texture.
 		SceneContext.DBufferMask = nullptr;
 	}
@@ -949,7 +968,7 @@ void FDecalRenderTargetManager::ResolveTargets()
 	{
 		if (TargetsToResolve[i])
 		{
-			RHICmdList.CopyToResolveTarget(TargetsToResolve[i], TargetsToResolve[i], true, ResolveParams);
+			RHICmdList.CopyToResolveTarget(TargetsToResolve[i], TargetsToResolve[i], ResolveParams);
 		}
 	}
 }
@@ -1042,6 +1061,16 @@ void FDecalRenderTargetManager::SetRenderTargetMode(FDecalRenderingCommon::ERend
 		TargetsToResolve[DBufferCIndex] = SceneContext.DBufferC->GetRenderTargetItem().TargetableTexture;
 		SetRenderTargets(RHICmdList, 3, &TargetsToResolve[DBufferAIndex], SceneContext.GetSceneDepthSurface(), ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthRead_StencilWrite, TargetsToTransitionWritable[CurrentRenderTargetMode]);
 		break;
+
+	case FDecalRenderingCommon::RTM_AmbientOcclusion:
+	{
+		TargetsToResolve[SceneColorIndex] = SceneContext.ScreenSpaceAO->GetRenderTargetItem().TargetableTexture;
+		RHICmdList.TransitionResource(EResourceTransitionAccess::EWritable, TargetsToResolve[SceneColorIndex]);
+		ESimpleRenderTargetMode RTMode = SceneContext.bScreenSpaceAOIsValid ? ESimpleRenderTargetMode::EExistingColorAndDepth : ESimpleRenderTargetMode::EClearColorExistingDepth;
+		SetRenderTarget(RHICmdList, TargetsToResolve[SceneColorIndex], SceneContext.GetSceneDepthSurface(), ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthRead_StencilWrite, TargetsToTransitionWritable[CurrentRenderTargetMode]);
+		SceneContext.bScreenSpaceAOIsValid = true;
+		break;
+	}
 
 	default:
 		check(0);

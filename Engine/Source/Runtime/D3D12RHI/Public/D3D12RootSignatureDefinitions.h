@@ -10,6 +10,15 @@ D3D12RootSignatureDefinitions.h: D3D12 utilities for Root signatures.
 
 namespace D3D12ShaderUtils
 {
+	namespace StaticRootSignatureConstants
+	{
+		// Assume descriptors are volatile because we don't initialize all the descriptors in a table, just the ones used by the current shaders.
+		const D3D12_DESCRIPTOR_RANGE_FLAGS SRVDescriptorRangeFlags = D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC_WHILE_SET_AT_EXECUTE | D3D12_DESCRIPTOR_RANGE_FLAG_DESCRIPTORS_VOLATILE;
+		const D3D12_DESCRIPTOR_RANGE_FLAGS CBVDescriptorRangeFlags = D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC_WHILE_SET_AT_EXECUTE | D3D12_DESCRIPTOR_RANGE_FLAG_DESCRIPTORS_VOLATILE;
+		const D3D12_DESCRIPTOR_RANGE_FLAGS UAVDescriptorRangeFlags = D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE | D3D12_DESCRIPTOR_RANGE_FLAG_DESCRIPTORS_VOLATILE;
+		const D3D12_DESCRIPTOR_RANGE_FLAGS SamplerDescriptorRangeFlags = D3D12_DESCRIPTOR_RANGE_FLAG_DESCRIPTORS_VOLATILE;
+	}
+
 	// Simple base class to help write out a root signature (subclass to generate either to a binary struct or a #define)
 	struct FRootSignatureCreator
 	{
@@ -23,11 +32,47 @@ namespace D3D12ShaderUtils
 			Sampler,
 		};
 		virtual void AddTable(EShaderFrequency Stage, EType Type, int32 NumDescriptors/*, bool bAppend*/) = 0;
+		virtual void Reset() = 0;
+
+		static D3D12_DESCRIPTOR_RANGE_TYPE GetD3D12DescriptorRangeType(EType Type)
+		{
+			switch (Type)
+			{
+			case D3D12ShaderUtils::FRootSignatureCreator::SRV:
+				return D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+			case D3D12ShaderUtils::FRootSignatureCreator::UAV:
+				return D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
+			case D3D12ShaderUtils::FRootSignatureCreator::Sampler:
+				return D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER;
+			default:
+				return D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
+			}
+		}
+
+		static D3D12_DESCRIPTOR_RANGE_FLAGS GetD3D12DescriptorRangeFlags(EType Type)
+		{
+			switch (Type)
+			{
+			case D3D12ShaderUtils::FRootSignatureCreator::SRV:
+				return D3D12ShaderUtils::StaticRootSignatureConstants::SRVDescriptorRangeFlags;
+			case D3D12ShaderUtils::FRootSignatureCreator::CBV:
+				return D3D12ShaderUtils::StaticRootSignatureConstants::CBVDescriptorRangeFlags;
+			case D3D12ShaderUtils::FRootSignatureCreator::UAV:
+				return D3D12ShaderUtils::StaticRootSignatureConstants::UAVDescriptorRangeFlags;
+			case D3D12ShaderUtils::FRootSignatureCreator::Sampler:
+				return D3D12ShaderUtils::StaticRootSignatureConstants::SamplerDescriptorRangeFlags;
+			default:
+				return D3D12_DESCRIPTOR_RANGE_FLAG_NONE;
+			}
+		}
 	};
 
 	// Fat/Static Gfx Root Signature
 	inline void CreateGfxRootSignature(FRootSignatureCreator* Creator)
 	{
+		// Ensure the creator starts in a clean state (in cases of creator reuse, etc.).
+		Creator->Reset();
+
 		Creator->AddRootFlag(D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 		//Creator->AddRootFlag(D3D12_ROOT_SIGNATURE_FLAG_DENY_HULL_SHADER_ROOT_ACCESS);
 		//Creator->AddRootFlag(D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS);
@@ -52,6 +97,9 @@ namespace D3D12ShaderUtils
 	// Fat/Static Compute Root Signature
 	inline void CreateComputeRootSignature(FRootSignatureCreator* Creator)
 	{
+		// Ensure the creator starts in a clean state (in cases of creator reuse, etc.).
+		Creator->Reset();
+
 		Creator->AddRootFlag(D3D12_ROOT_SIGNATURE_FLAG_NONE);
 		Creator->AddTable(SF_NumFrequencies, FRootSignatureCreator::SRV, MAX_SRVS);
 		Creator->AddTable(SF_NumFrequencies, FRootSignatureCreator::CBV, MAX_CBS);
@@ -80,8 +128,8 @@ namespace D3D12ShaderUtils
 
 	struct FBinaryRootSignatureCreator : public FRootSignatureCreator
 	{
-		TArray<D3D12_DESCRIPTOR_RANGE/*1*/> DescriptorRanges;
-		TArray<D3D12_ROOT_PARAMETER/*1*/> Parameters;
+		TArray<D3D12_DESCRIPTOR_RANGE1> DescriptorRanges;
+		TArray<D3D12_ROOT_PARAMETER1> Parameters;
 		TMap<uint32, uint32> ParameterToRangeMap;
 
 		D3D12_ROOT_SIGNATURE_FLAGS Flags;
@@ -93,28 +141,13 @@ namespace D3D12ShaderUtils
 			Flags |= Flag;
 		}
 
-		D3D12_DESCRIPTOR_RANGE_TYPE GetD3D12Type(EType Type)
-		{
-			switch (Type)
-			{
-			case D3D12ShaderUtils::FRootSignatureCreator::SRV:
-				return D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-			case D3D12ShaderUtils::FRootSignatureCreator::UAV:
-				return D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
-			case D3D12ShaderUtils::FRootSignatureCreator::Sampler:
-				return D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER;
-			default:
-				return D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
-			}
-		}
-
 		virtual void AddTable(EShaderFrequency Stage, EType Type, int32 NumDescriptors)
 		{
 			int32 ParameterIndex = Parameters.AddZeroed();
 			int32 RangeIndex = DescriptorRanges.AddZeroed();
 
-			D3D12_ROOT_PARAMETER/*1*/& Parameter = Parameters[ParameterIndex];
-			D3D12_DESCRIPTOR_RANGE/*1*/& Range = DescriptorRanges[ParameterIndex];
+			D3D12_ROOT_PARAMETER1& Parameter = Parameters[ParameterIndex];
+			D3D12_DESCRIPTOR_RANGE1& Range = DescriptorRanges[ParameterIndex];
 
 			Parameter.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
 			Parameter.DescriptorTable.NumDescriptorRanges = 1;
@@ -123,11 +156,19 @@ namespace D3D12ShaderUtils
 			//Parameter.DescriptorTable.pDescriptorRanges = &DescriptorRanges[0];
 			ParameterToRangeMap.Add(ParameterIndex, RangeIndex);
 
-			Range.RangeType = GetD3D12Type(Type);
+			Range.RangeType = FRootSignatureCreator::GetD3D12DescriptorRangeType(Type);
 			Range.NumDescriptors = NumDescriptors;
-			//Range.Flags = D3D12_DESCRIPTOR_RANGE_FLAG_DESCRIPTORS_VOLATILE;
+			Range.Flags = FRootSignatureCreator::GetD3D12DescriptorRangeFlags(Type);
 			//Range.OffsetInDescriptorsFromTableStart = UINT32_MAX;
 			Parameter.ShaderVisibility =  D3D12ShaderUtils::TranslateShaderVisibility(Stage);
+		}
+
+		virtual void Reset()
+		{
+			DescriptorRanges.Empty();
+			Parameters.Empty();
+			ParameterToRangeMap.Empty();
+			Flags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
 		}
 
 		void Compile()

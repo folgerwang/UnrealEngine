@@ -11,8 +11,8 @@
 #include "ComponentReregisterContext.h"
 #include "Atmosphere/AtmosphericFog.h"
 #include "Components/BillboardComponent.h"
-#include "Private/ScenePrivate.h"
-#include "Private/AtmosphereRendering.h"
+#include "Runtime/Renderer/Private/ScenePrivate.h"
+#include "Runtime/Renderer/Private/AtmosphereRendering.h"
 
 #if WITH_EDITOR
 #include "ObjectEditorUtils.h"
@@ -111,6 +111,11 @@ UAtmosphericFogComponent::UAtmosphericFogComponent(const FObjectInitializer& Obj
 
 	bDisableSunDisk = false;
 	bDisableGroundScattering = false;
+}
+
+bool UAtmosphericFogComponent::IsPostLoadThreadSafe() const
+{
+	return true;
 }
 
 void UAtmosphericFogComponent::PostLoad()

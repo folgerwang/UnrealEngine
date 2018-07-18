@@ -1,4 +1,5 @@
-﻿Title:モバイル サービスのリーダーボードの使用方法
+﻿INTSourceChangelist:3782314
+Title:モバイル サービスのリーダーボードの使用方法
 Description:ゲームでリーダーボードを使用する
 Crumbs:
 Availability:Public
@@ -6,40 +7,7 @@ parent:Platforms/Mobile
 order:4
 type:how-to
 tags:mobile
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Platforms/Mobile/Leaderboards:title%](Platforms/Mobile/Leaderboards/topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Platforms/Mobile/Leaderboards:title%
-	[/PARAM]
-	[PARAM:description]
-		%Platforms/Mobile/Leaderboards:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Platforms/Mobile/Leaderboards]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Platforms/Mobile/Leaderboards:title%](Platforms/Mobile/Leaderboards/topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Platforms/Mobile/Leaderboards:title%
-	[/PARAM]
-	[PARAM:description]
-		%Platforms/Mobile/Leaderboards:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Platforms/Mobile/Leaderboards]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:topic.png
 
 リーダーボードは、プラットフォーム別にプレイヤーの高得点をトラックし表示する機能です。プレイヤーはリーダーボードを使用して権利の主張やコミュニティの確立がしやすくなります。
 
@@ -69,7 +37,7 @@ tags:mobile
 
 **Read Leaderboard Integer** ノードは、プラットフォームのゲーム サービス (現在の iOS ゲームセンターあるいは Google Play サービス) が提供する **Player Controller** の所定の **Stat Name** に保存されている値を要求します。
 
-Read Leaderboard Integer ノードは **潜在的な** ノードなので、実行出力ピンたくさん付いています。一番上は「通過」ピンですが、他の実行出力ピンと同じように機能します。その下の 2 つのピン (**On Success** と **On Failure**) は、オンライン サービスが値を返す (または返しに失敗する) と実行されます。正常に値を戻す (またはサービスが応答に失敗する) 前の **Leaderboard Value** は 0 です。
+このノードは **潜在的な** ノードなので、実行出力ピンたくさん付いています。一番上は「通過」ピンですが、他の実行出力ピンと同じように機能します。その下の 2 つのピン (**On Success** と **On Failure**) は、オンライン サービスが値を返す (または返しに失敗する) と実行されます。正常に値を戻す (またはサービスが応答に失敗する) 前の **Leaderboard Value** は 0 です。
 
 **ブループリント内:**
 

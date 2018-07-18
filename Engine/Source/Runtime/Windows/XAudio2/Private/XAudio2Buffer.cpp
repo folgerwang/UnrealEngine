@@ -243,7 +243,7 @@ void FXAudio2SoundBuffer::InitWaveFormatEx( uint16 Format, USoundWave* Wave, boo
 	// Setup the format structure required for XAudio2
 	PCM.PCMFormat.wFormatTag = Format;
 	PCM.PCMFormat.nChannels = Wave->NumChannels;
-	PCM.PCMFormat.nSamplesPerSec = Wave->SampleRate;
+	PCM.PCMFormat.nSamplesPerSec = Wave->GetSampleRateForCurrentPlatform();
 	PCM.PCMFormat.wBitsPerSample = 16;
 	PCM.PCMFormat.cbSize = 0;
 
@@ -260,7 +260,7 @@ void FXAudio2SoundBuffer::InitWaveFormatEx( uint16 Format, USoundWave* Wave, boo
 	}
 
 	PCM.PCMFormat.nBlockAlign = NumChannels * sizeof( int16 );
-	PCM.PCMFormat.nAvgBytesPerSec = NumChannels * sizeof( int16 ) * Wave->SampleRate;
+	PCM.PCMFormat.nAvgBytesPerSec = NumChannels * sizeof( int16 ) * Wave->GetSampleRateForCurrentPlatform();
 }
 
 void FXAudio2SoundBuffer::InitXMA2( FXAudio2Device* XAudio2Device, USoundWave* Wave, FXMAInfo* XMAInfo )
@@ -361,7 +361,7 @@ FXAudio2SoundBuffer* FXAudio2SoundBuffer::CreateQueuedBuffer( FXAudio2Device* XA
 	check(XAudio2Device);
 	check(Wave);
 
-	check(Wave->bIsPrecacheDone);
+	check(Wave->GetPrecacheState() == ESoundWavePrecacheState::Done);
 	// Always create a new buffer for real time decompressed sounds
 	FXAudio2SoundBuffer* Buffer = new FXAudio2SoundBuffer( XAudio2Device, SoundFormat_PCMRT );
 
@@ -447,7 +447,7 @@ FXAudio2SoundBuffer* FXAudio2SoundBuffer::CreatePreviewBuffer( FXAudio2Device* X
 
 FXAudio2SoundBuffer* FXAudio2SoundBuffer::CreateNativeBuffer( FXAudio2Device* XAudio2Device, USoundWave* Wave )
 {
-	check(Wave->bIsPrecacheDone);
+	check(Wave->GetPrecacheState() == ESoundWavePrecacheState::Done);
 
 	// Create new buffer.
 	FXAudio2SoundBuffer* Buffer = new FXAudio2SoundBuffer( XAudio2Device, SoundFormat_PCM );
@@ -483,7 +483,7 @@ FXAudio2SoundBuffer* FXAudio2SoundBuffer::CreateStreamingBuffer( FXAudio2Device*
 	if (Buffer->DecompressionState->StreamCompressedInfo(Wave, &QualityInfo))
 	{
 		// Refresh the wave data
-		Wave->SampleRate = QualityInfo.SampleRate;
+		Wave->SetSampleRate(QualityInfo.SampleRate);
 		Wave->NumChannels = QualityInfo.NumChannels;
 		Wave->RawPCMDataSize = QualityInfo.SampleDataSize;
 		Wave->Duration = QualityInfo.Duration;

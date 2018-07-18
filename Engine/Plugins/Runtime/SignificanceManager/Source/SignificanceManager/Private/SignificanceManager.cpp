@@ -409,7 +409,7 @@ void USignificanceManager::Update(TArrayView<const FTransform> InViewpoints)
 		SCOPE_CYCLE_COUNTER(STAT_SignificanceManager_SignificanceSort);
 		for (TPair<FName, TArray<const FManagedObjectInfo*>>& TagToObjectInfoArrayPair : ManagedObjectsByTag)
 		{
-			TagToObjectInfoArrayPair.Value.Sort(PickCompareBySignificance(bSortSignificanceAscending));
+			TagToObjectInfoArrayPair.Value.StableSort(PickCompareBySignificance(bSortSignificanceAscending));
 		}
 	}
 }

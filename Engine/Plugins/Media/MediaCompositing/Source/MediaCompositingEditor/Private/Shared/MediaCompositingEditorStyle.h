@@ -3,7 +3,7 @@
 #pragma once
 
 #include "Misc/Optional.h"
-#include "SlateStyle.h"
+#include "Styling/SlateStyle.h"
 
 
 class FMediaCompositingEditorStyle

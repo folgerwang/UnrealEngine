@@ -10,7 +10,7 @@
 #include "UnrealEdGlobals.h"
 #include "Engine/Selection.h"
 #include "EditorModeManager.h"
-#include "ToolkitManager.h"
+#include "Toolkits/ToolkitManager.h"
 
 #include "VREditorMode.h"
 #include "IVREditorModule.h"

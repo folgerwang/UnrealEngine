@@ -63,8 +63,8 @@ void APhysicsVolume::EndPlay(const EEndPlayReason::Type EndPlayReason)
 		{
 			// Prevent UpdatePhysicsVolume() calls below from returning this component.
 			UPrimitiveComponent* VolumeBrushComponent = GetBrushComponent();
-			const bool bSavedGenerateOverlapEvents = VolumeBrushComponent->bGenerateOverlapEvents;
-			VolumeBrushComponent->bGenerateOverlapEvents = false;
+			const bool bSavedGenerateOverlapEvents = VolumeBrushComponent->GetGenerateOverlapEvents();
+			VolumeBrushComponent->SetGenerateOverlapEvents(false);
 
 			// Refresh physics volume on any components touching this volume.
 			// TODO: Physics volume tracking code needs a cleanup, ideally it just uses normal begin/end overlap events,
@@ -73,14 +73,14 @@ void APhysicsVolume::EndPlay(const EEndPlayReason::Type EndPlayReason)
 			for (const FOverlapInfo& Info : Overlaps)
 			{
 				UPrimitiveComponent* OtherPrim = Info.OverlapInfo.GetComponent();
-				if (OtherPrim && OtherPrim->bShouldUpdatePhysicsVolume)
+				if (OtherPrim && OtherPrim->GetShouldUpdatePhysicsVolume())
 				{
 					OtherPrim->UpdatePhysicsVolume(true);
 				}
 			}
 
 			// Restore saved flag, since we may stream back in.
-			VolumeBrushComponent->bGenerateOverlapEvents = bSavedGenerateOverlapEvents;
+			VolumeBrushComponent->SetGenerateOverlapEvents(bSavedGenerateOverlapEvents);
 		}
 	}
 	Super::EndPlay(EndPlayReason);

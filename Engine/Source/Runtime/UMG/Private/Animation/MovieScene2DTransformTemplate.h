@@ -4,7 +4,8 @@
 
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
-#include "Curves/RichCurve.h"
+#include "Channels/MovieSceneFloatChannel.h"
+#include "Animation/MovieScene2DTransformSection.h"
 #include "Evaluation/MovieSceneEvalTemplate.h"
 #include "Evaluation/MovieScenePropertyTemplate.h"
 #include "Evaluation/Blending/MovieSceneMultiChannelBlending.h"
@@ -21,7 +22,7 @@ struct FMovieScene2DTransformSectionTemplate : public FMovieScenePropertySection
 {
 	GENERATED_BODY()
 	
-	FMovieScene2DTransformSectionTemplate(){}
+	FMovieScene2DTransformSectionTemplate() : BlendType((EMovieSceneBlendType)0) {}
 	FMovieScene2DTransformSectionTemplate(const UMovieScene2DTransformSection& Section, const UMovieScenePropertyTrack& Track);
 
 private:
@@ -32,23 +33,26 @@ private:
 
 	/** Translation curves */
 	UPROPERTY()
-	FRichCurve Translation[2];
+	FMovieSceneFloatChannel Translation[2];
 	
 	/** Rotation curve */
 	UPROPERTY()
-	FRichCurve Rotation;
+	FMovieSceneFloatChannel Rotation;
 
 	/** Scale curves */
 	UPROPERTY()
-	FRichCurve Scale[2];
+	FMovieSceneFloatChannel Scale[2];
 
 	/** Shear curve */
 	UPROPERTY()
-	FRichCurve Shear[2];
+	FMovieSceneFloatChannel Shear[2];
 
 	/** Blending method */
 	UPROPERTY()
 	EMovieSceneBlendType BlendType;
+
+	UPROPERTY()
+	FMovieScene2DTransformMask Mask;
 };
 
 /** Access the unique runtime type identifier for a widget transform. */

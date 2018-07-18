@@ -4,6 +4,7 @@
 
 #include "AudioMixer.h"
 #include "Sound/SoundSubmix.h"
+#include "Sound/SampleBuffer.h"
 
 class USoundEffectSubmix;
 
@@ -107,6 +108,18 @@ namespace Audio
 		// updates settings, potentially creating or removing ambisonics streams based on
 		void OnAmbisonicsSettingsChanged(UAmbisonicsSubmixSettingsBase* AmbisonicsSettings);
 
+		// This is called by the corresponding USoundSubmix when StartRecordingOutput is called.
+		void OnStartRecordingOutput(float ExpectedDuration);
+
+		// This is called by the corresponding USoundSubmix when StopRecordingOutput is called.
+		AlignedFloatBuffer& OnStopRecordingOutput(float& OutNumChannels, float& OutSampleRate);
+
+		// Register buffer listener with this submix
+		void RegisterBufferListener(ISubmixBufferListener* BufferListener);
+		
+		// Unregister buffer listener with this submix
+		void UnregisterBufferListener(ISubmixBufferListener* BufferListener);
+
 	protected:
 		// Down mix the given buffer to the desired down mix channel count
 		void FormatChangeBuffer(const ESubmixChannelFormat NewChannelType, AlignedFloatBuffer& InBuffer, AlignedFloatBuffer& OutNewBuffer);
@@ -209,6 +222,24 @@ namespace Audio
 
 		// Submix command queue to shuffle commands from audio thread to audio render thread.
 		TQueue<TFunction<void()>> CommandQueue;
+
+		// List of submix buffer listeners
+		TArray<ISubmixBufferListener*> BufferListeners;
+
+		// Critical section used for modifying and interacting with buffer listeners
+		FCriticalSection BufferListenerCriticalSection;
+
+		// This buffer is used for recorded output of the submix.
+		AlignedFloatBuffer RecordingData;
+
+		// Bool set to true when this submix is recording data.
+		uint8 bIsRecording : 1;
+
+		// Critical section used for when we are appending recorded data.
+		FCriticalSection RecordingCriticalSection;
+
+		// Handle back to the owning USoundSubmix. Used when the device is shutdown to prematurely end a recording.
+		USoundSubmix* OwningSubmixObject;
 
 		friend class FMixerDevice;
 	};

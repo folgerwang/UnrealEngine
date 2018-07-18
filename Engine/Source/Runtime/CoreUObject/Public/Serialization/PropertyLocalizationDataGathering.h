@@ -57,6 +57,11 @@ enum class EPropertyLocalizationGathererResultFlags : uint8
 	 * The call resulted in script data being added to the array.
 	 */
 	HasScript = 1<<1,
+
+	/**
+	 * The call resulted in text with an invalid package localization ID being added to the array.
+	 */
+	HasTextWithInvalidPackageLocalizationID = 1<<2,
 };
 ENUM_CLASS_FLAGS(EPropertyLocalizationGathererResultFlags);
 
@@ -127,6 +132,7 @@ private:
 
 	TArray<FGatherableTextData>& GatherableTextDataArray;
 	const UPackage* Package;
+	FString PackageNamespace;
 	EPropertyLocalizationGathererResultFlags& ResultFlags;
 	TSet<const UObject*> AllObjectsInPackage;
 	TSet<FObjectAndGatherFlags> ProcessedObjects;

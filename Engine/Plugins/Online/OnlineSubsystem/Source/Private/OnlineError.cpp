@@ -98,6 +98,10 @@ const TCHAR* FOnlineError::ToLogString() const
 	{
 		return *ErrorRaw;
 	}
+	else if (bSucceeded)
+	{
+		return TEXT("Succeeded");
+	}
 	else
 	{
 		return TEXT("(Empty FOnlineError)");

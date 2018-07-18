@@ -8,8 +8,8 @@
 #include "GameplayAbilityBlueprint.generated.h"
 
 /**
- * A Gameplay Ability Blueprint is essentially a specialized Blueprint whose graphs control a gameplay ability.
- *	NOTE: This feature is EXPERIMENTAL. Use at your own risk!
+ * A Gameplay Ability Blueprint is essentially a specialized Blueprint whose graphs control a gameplay ability
+ * The ability factory should pick this for you automatically
  */
 
 UCLASS(BlueprintType)

@@ -2,8 +2,8 @@
 
 #pragma once
 
-#include "UnrealMath.h"
-#include "IConsoleManager.h"
+#include "Math/UnrealMath.h"
+#include "HAL/IConsoleManager.h"
 #include "SpringInterpolator.generated.h"
 
 struct FRK4SpringConstants

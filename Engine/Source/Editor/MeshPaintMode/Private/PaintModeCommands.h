@@ -31,9 +31,13 @@ public:
 	TSharedPtr<FUICommandInfo> Save;
 
 	TSharedPtr<FUICommandInfo> SwitchForeAndBackgroundColor;
+	TSharedPtr<FUICommandInfo> CycleToNextLOD;
+	TSharedPtr<FUICommandInfo> CycleToPreviousLOD;
 
 	TSharedPtr<FUICommandInfo> PropagateTexturePaint;
 	TSharedPtr<FUICommandInfo> SaveTexturePaint;
+
+	TSharedPtr<FUICommandInfo> PropagateVertexColorsToLODs;
 
 	TArray<TSharedPtr<FUICommandInfo>> Commands;
 };

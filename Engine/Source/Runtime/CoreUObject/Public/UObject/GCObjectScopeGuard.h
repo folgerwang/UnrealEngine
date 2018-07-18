@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "GCObject.h"
+#include "UObject/GCObject.h"
 
 /**
  * Specific implementation of FGCObject that prevents a single UObject-based pointer from being GC'd while this guard is in scope.

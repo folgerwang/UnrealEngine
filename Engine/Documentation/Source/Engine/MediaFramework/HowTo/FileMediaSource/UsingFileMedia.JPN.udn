@@ -1,115 +1,131 @@
-﻿INTSourceChangelist:3335924
+﻿INTSourceChangelist:3718347
 Availability:Public
 Title:レベル内でビデオをプレイする
 Crumbs:%ROOT%, Engine
 Description:メディア内でビデオをプレイするための File Media アセットの使用方法 
-parent:Engine/MediaFramework
-order:3
-checkpoint: editorqs
-Version:4.15
+Type: how-to
 SkillLevel:Beginner
+Version:4.18
+Parent:Engine/MediaFramework/HowTo
+Order:3
+Tags:Media Framework
+Tags:Video Playback
 Related:Engine\MediaFramework
 
-レベル内でプレイするビデオを探しているなら、TV でもモニタでも別のオブジェクトでも **Media Framework** アセットを使って検索ができます。 
-この操作ガイドでは、プロジェクトの **「Content」** フォルダにビデオ ファイルを置いて、**Media Player** と関連アセット (**Blueprint Visual Script** も少しだけ) を使って以下のゲームプレイ中にビデオをプレイします。 
+レベル内でビデオをプレイするには、**Media Framework** ツールと Media Source アセットを使わなければなりません。レベル内の TV 上でプレイする、UI の一部としてのバックグラウンドでプレイする、また全画面でプレイする場合でも必要です。 
+Media Source アセットの種類はいろいろある一方で、デバイス (たとえばコンピュータ、電話、コンソール) 上にアンリアル エンジン 4 (UE4) でプレイしたいビデオ ファイルを格納している時に**File Media Source** アセットが使用されます。 
 
-[OBJECT:EmbeddedVideo]
-[PARAMLITERAL:width]
-640
-[/PARAMLITERAL]
-[PARAMLITERAL:height]
-360
-[/PARAMLITERAL]
-[PARAMLITERAL:videoid]
-zxyY2s6ZfrU
-[/PARAMLITERAL]
-[/OBJECT]
+この操作ガイドでは、Media Source アセットを使ってレベル内のスタティックメッシュ上でビデオをプレイします。 
+
+![](MediaHero.png)
 
 ## ステップ
 
 [REGION:note]
 ここでは **Starter Content Enabled (スターター コンテンツを有効にした状態)** で **Blueprint Third Person Template** プロジェクトを使います。
-再生するコンピュータ上に [サポートされているビデオ ファイル](Engine\MediaFramework\TechReference) がいくつか必要です。お持ちのビデオを使用するか、あるいは **右クリック** して [サンプル ビデオ](SampleVideo.mp4) をダウンロードすることもできます。 
+再生するコンピュータ上に [サポートされているビデオ ファイル](Engine\MediaFramework\TechReference) がいくつか必要です。自分のビデオを使用できます。ビデオがない場合は、チュートリアル用の [サンプル ビデオ](SampleVideo.mp4) を右クリックでダウンロードすることができます。 
 [/REGION]
 
 1.	**[コンテンツ ブラウザ]** の **[Sources Panel]** を展開したら、**[Content]** に **「Movies」** という名前のフォルダを作成します。 
 
 	![](FileMedia_01.png)
 
-1.	**「Movies」** フォルダを **右クリック** して **[Show in Explorer (エクスプローラーで表示)]** を選択します。 
+	[REGION:tip]
+	プロジェクトの **「Content/Movies」** フォルダ内に使用するメディア ファイルを置くと、メディアが確実にプロジェクトで正しくパッケージ化されます
+	[/REGION]
 
-	![](FileMedia_01b.png)
-
-1.	ビデオファイルをプロジェクトの **「Content/Movies」** フォルダにドラッグします。 
+1.	「Movies」 フォルダを **右クリック** して **[Show in Explorer (エクスプローラーで表示)]** を選択します。 
 
 	![](FileMedia_02.png)
 
-	プロジェクトの **「Content/Movies」** フォルダにビデオファイルを置くと、ビデオが確実に正しくパックされます。 
-
-1.	アンリアル エンジンのプロジェクトの中にある**「Movies」** フォルダを **右クリック** して、**[Media]** の **[File Media Source]** を選択します。 
+1.	使用するビデオ ファイルをプロジェクトの **「Content/Movies」** フォルダにドラッグします。 
 
 	![](FileMedia_03.png)
 
-1.	**SampleVideo** アセットを呼び出して開き、**File Path** を **「Content/Movies」** フォルダのビデオ ファイルの場所に指定します。 
+	[REGION:warning]
+	ビデオ コンテンツをプロジェクトでパッケージ化およびデプロイするために、コンテンツは常にプロジェクトの **「Content/Movies」** フォルダに置かれている状態にしておく必要があります。 
+	[/REGION]
+
+1.	プロジェクト内の **「Movies」** フォルダを **右クリック** して、**[Media]** の **[File Media Source]** を選択し、**SampleVideo** というアセットを呼び出します。 
 
 	![](FileMedia_04.png)
 
-1.	**[コンテンツ ブラウザ]** を **右クリック** して **[Media]** から **[Media Player]** アセットを選択します。 
+1.	File Media Source アセットの **File Path** の **[...]** ボタンをクリックして、コンピューター上にあるサンプ ビデオを指定します。 
 
 	![](FileMedia_05.png)
 
-1.	**[Create Media Player(Media Player を作成)]** ウィンドウの **[Audio output SoundWave asset]** と **[Video output Media Texture asset]** にチェックを入れます。 
+1.	**「Movies」** フォルダを右クリックして **[Media]** から **[Media Player]** を選択します。 
 
 	![](FileMedia_06.png)
 
-	再生する必要のあるこの Media Player アセットにリンクしている Media Sound Wave と Media Texture アセットを自動的に作成します。 
-
-1. 作成された Media Playe アセットに名前を付けます。Sound Wave と Media Texture にも適用可能な Media Player アセットの **SampleMedia** を呼び出しました。 
+1.	**[Create Media Player]** ウィンドウで **[Video output Media Texture asset]** オプションを有効にして **[OK]** ボタンをクリックします。 
 
 	![](FileMedia_07.png)
 
-1. Media Player アセットを開き、Media Source アセットを **ダブルクリック** して再生します。 
+	すると、 **Media Texture** アセットが作成され、作成中の Media Player に自動的に割り当てます。Media Texture はメディア コンテンツの再生を行い、これを使ってレベル内のスタティックメッシュへの割り当てが可能な **Material** を作成することができます (本ページのもう少し後の方で出てきます)。 
+
+1.	Media Player と Media Texture asset にそれぞれ **「MyPlayer」** と **「MyPlayer_Video」** と名前を付けてから **MyPlayer** Media Player アセットを開きます。 
 
 	![](FileMedia_08.png)
 
-	**[Details (詳細)]** パネルの右下にある **[Play on Open]** はデフォルトでチェックが入っていますが、それはそのアセットが自動的にコンテンツの再生を開始することを意味しています。 
-	ソースのインポート時に Media Texture アセットと Sound Wave アセットを作成したので、それらは自動的に **[Output]** セクションに割り当てられます。 
-
-1.	**[コンテンツ ブラウザ]** の **[StarterContent/Shapes]** で、**Shape_Plane** をレベルにドラッグします。このスタティックメッシュ上でビデオを再生します。 
+1.	**[Media Library]** セクションの **SampleVideo** をダブルクリックします。 
 
 	![](FileMedia_09.png)
 
-1.	**Translate (W)**、**Rotation (E)**、**Scale (R)** ツールを使って、スタティックメッシュを以下のように調節します。 
+	[Media Library] セクションで File Media Source アセットをダブルクリックすると、ビデオの再生が始まります。これは、**[Details]** パネルの **[Playback]** セクションの **[Play on Open]** オプションが有効にされているからです。 
+	このオプションにチェックが付いていると、Media Source アセットが開く時は必ず自動再生が始まるので、プレイの開始を明示的に指示する必要はありません。 
+
+	もう少し後のステップになりますが、メディア エディタ内でビデオが再生されている間に、ゲームのプレイ中にファイルのプレイが開始するように、ゲーム中に Media Source アセットを開くように [ブループリント ビジュアル スクリプティング](Engine/Blueprints) を使ってメディア プレイヤーに指示する必要があります。 
+
+1.	メイン エディタの **[Modes]** パネルの **[Basic]** **[Plane]** をレベルにドラッグし、**Transform** ツールを使って自由にサイズ変更および配置します。
 
 	![](FileMedia_10.png)
 
-1.	**[Ctrl]** を押しながら、**Sound Wave** アセットと **Media Texture** アセットを両方選択して、レベル内の **スタティックメッシュ** 上にリリースします。 
+	レベルでその Plane を選択した状態で、[Transform ツール](GettingStarted/HowTo/ManipulatingActors) を使ってメッシュを **Translate (W)**、**Rotate (E)**、**Scale (R)** して、好きな外観に調整します。 
+
+1.	**MyPlayer_Video** Media Texture アセットをレベルの **Plane** 上にドラッグして **Material** を自動作成および割り当てをします。 
 
 	![](FileMedia_11.png)
 
-	すると **マテリアル** が自動作成され、スタティックメッシュに適用されます。 
+	Media Texture をレベルのスタティックメッシュ上にドラッグすると、**コンテンツ ブラウザ** 内に自動的に新規マテリアルが自動作成され、レベルのメッシュに適用されます。 
 
-1.	メイン ツールバー で **[Blueprint]** ボタンをクリックして、**[Open Level Blueprint]** を選択します。 
+1.	レベルでその **Plane** を選択した状態で **[Details]** パネルの **[Add Component]** ボタンをクリックして **Media Sound** を探して追加します。 
 
 	![](FileMedia_12.png)
 
-1.	**「Media Player」** という名前の **Media Player Reference** タイプの **変数** を追加し、**SampleMedia** Media Player アセットに設定します。 
+	**Media Sound** コンポーネントを使って、ビデオと一緒に再生するオーディオを定義します。 
+
+1.	**[Details]** パネルで新しい **Media Sound** コンポーネントを **[Media]** セクションから選択し **[Media Player]** を **MyPlayer** を使う設定にします。 
 
 	![](FileMedia_13.png)
 
-	[REGION:note]
-	**Default Value** を代入するには、その前に **コンパイル** する必要があります。 
-	[/REGION]
+	ここで Media Sound コンポーネントを Media Player アセットに関連付けて、オーディオの抽出元が分かるようにします。 
 
-1.	**Ctrl** を押しながら **MediaPlayer** 変数へドラッグし、**右クリック** して **Event Begin Play** ノードを追加します。 
+1.	メインツールバーの **[Blueprints]** ボタンをクリックして **[Open Level Blueprint]** を選択します。 
 
 	![](FileMedia_14.png)
 
-1.	**MediaPlayer** 変数を引き出して **Open Source** ノードを **SampleVideo** Media Source に設定して、以下のように接続します。 
+	**Level Blueprint** を使って Media Player に File Media Source アセットをゲームプレイの開始時に開いてレベルでゲームが開始されるように設定します。 
+
+1.	**Media Player Reference** 型の **MediaPlayer** という **Variable** を追加し、**[Default Value]** を **MyPlayer** に設定します。 
 
 	![](FileMedia_15.png)
 
-1.	Level ブループリントを閉じてから、エディタで **プレイ** します。 
+	[REGION:note]
+	**Default Value** を定義するために、**[Compile]** ボタンの作成が必要な場合があります。 
+	[/REGION]
+
+1. 	 **Ctrl** キーを押しながら **MediaPlayer** をグラフにドラッグし、グラフを右クリックして **Event Begin Play** ノードを検索して追加します。 
+
+	![](FileMedia_16.png)
+
+	ゲームプレイの開始を知らせるためのノードと Media Player アセットへの参照ができました。あとは、プレイヤーに Media Source を開く指示を出すだけです。 
+
+1.	**Media Player** ノードをクリックして引き出し **Open Source** 機能の **Media Source** を **SampleVideo** に設定して **Event Begin Play** に接続します。 
+
+	![](FileMedia_17.png)
+
+1.	**Level ブループリント** を終了して、**[Play in Editor]** ボタンをクリックします。 
 
 
 ## 最終結果
@@ -117,16 +133,26 @@ zxyY2s6ZfrU
 エディタで再生した場合、スタティックメッシュ上でビデオがプレイを開始します。 
 
 [OBJECT:EmbeddedVideo]
-[PARAMLITERAL:width]
-640
-[/PARAMLITERAL]
-[PARAMLITERAL:height]
-360
-[/PARAMLITERAL]
-[PARAMLITERAL:videoid]
-zxyY2s6ZfrU
-[/PARAMLITERAL]
+	[PARAMLITERAL:videoid]
+	dcqiXWfkMHI
+	[/PARAMLITERAL]
+	[PARAMLITERAL:width]
+	100
+	[/PARAMLITERAL]
+	[PARAMLITERAL:height]
+	56.25
+	[/PARAMLITERAL]
+	[PARAMLITERAL:units]
+	%
+	[/PARAMLITERAL]
+	[PARAMLITERAL:type]
+	simple
+	[/PARAMLITERAL]
 [/OBJECT]
 
 **Media Player** アセットはデフォルトで **[Play on Open]** に設定されているため、**Open Source** 関数を呼び出すとビデオが自動的に開始されます。
 一時停止、巻き戻り、ビデオの停止など Media Player アセットに発行できるコマンドは他にもあります。プレイが開始されると Media Player Reference を引き出す時に、**Media Player** セクションに表示されます。
+
+この例では、プロジェクトの **「Content/Movies」** フォルダ内にメディア コンテンツを置くようにしました。このフォルダはコンテンツをパッケージ化 / デプロイ処理の一部としてコンテンツを自動的に含む唯一のフォルダなので、プロジェクトをパッケージ化する場合は推奨します (必須ではありません)。 
+File Media Source アセットをこの場所以外のフォルダに指定してもメディアはプレイされますが、たとえばモバイル デバイスにデプロイすると、コンテンツはデプロイメントの一部として含まれなくなります。  
+

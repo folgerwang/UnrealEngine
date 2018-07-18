@@ -230,6 +230,28 @@ public:
 	}
 
 	/**
+	 * Assign the new lower bound for this range
+	 *
+	 * @param NewLowerBound The new lower bound to assign
+	 * @see GetLowerBound
+	 */
+	void SetLowerBound(const BoundsType& NewLowerBound)
+	{
+		LowerBound = NewLowerBound;
+	}
+
+	/**
+	 * Assign the new lower bound value for this range. Current lower bound must not be open to call this method.
+	 *
+	 * @param NewLowerBoundValue The new lower bound value to assign
+	 * @see GetLowerBound
+	 */
+	void SetLowerBoundValue(ElementValueOrConstRef NewLowerBoundValue)
+	{
+		LowerBound.SetValue(NewLowerBoundValue);
+	}
+
+	/**
 	 * Get the value of the lower bound.
 	 *
 	 * Use HasLowerBound() to ensure that this range actually has a lower bound.
@@ -251,6 +273,28 @@ public:
 	BoundsType GetUpperBound() const
 	{
 		return UpperBound;
+	}
+
+	/**
+	 * Assign the new upper bound for this range
+	 *
+	 * @param NewUpperBound The new upper bound to assign
+	 * @see GetUpperBound
+	 */
+	void SetUpperBound(const BoundsType& NewUpperBound)
+	{
+		UpperBound = NewUpperBound;
+	}
+
+	/**
+	 * Assign the new upper bound value for this range. Current upper bound must not be open to call this method.
+	 *
+	 * @param NewUpperBoundValue The new upper bound value to assign
+	 * @see GetUpperBound
+	 */
+	void SetUpperBoundValue(ElementValueOrConstRef NewUpperBoundValue)
+	{
+		UpperBound.SetValue(NewUpperBoundValue);
 	}
 
 	/**

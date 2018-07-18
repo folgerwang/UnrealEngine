@@ -1,5 +1,4 @@
-﻿INTSourceChangelist:2623127
-Availability:Public
+﻿Availability:Public
 Title:文字列の取り扱い
 Crumbs:%ROOT%, Programming, Programming/UnrealArchitecture/Reference, Programming/UnrealArchitecture/Reference/Properties
 Description:UE4 で利用可能な文字列クラスの概要と FName、FText、FString の参照ガイド
@@ -10,19 +9,19 @@ Version:4.9
 
  [INCLUDE:Programming/UnrealArchitecture/StringHandling/FName#overview]
 
-* [FName リファレンス ガイド](Programming/UnrealArchitecture/StringHandling\FName)
+* [FName Reference Guide](Programming/UnrealArchitecture/StringHandling\FName)
 
 ### FText 
 
 [INCLUDE:Programming/UnrealArchitecture/StringHandling/FText#overview]
 
-* [FText リファレンス ガイド](Programming/UnrealArchitecture/StringHandling\FText)
+* [FText Reference Guide](Programming/UnrealArchitecture/StringHandling\FText)
 
 ### FString 
 
 [INCLUDE:Programming/UnrealArchitecture/StringHandling/FString#overview]
 
-* [FString リファレンス ガイド](Programming/UnrealArchitecture/StringHandling\FString)
+* [FString Reference Guide](Programming/UnrealArchitecture/StringHandling\FString)
 
 
 
@@ -60,7 +59,7 @@ Version:4.9
 [/VAR]
 
 [VAR:FTextToFName]
-|FText   | FName | FText から FName への直接変換はありません。かわりに、FString に変換し、次に FName に変換します。[REGION:warning] FText -> FString -> FName は、危険です。FName は大文字、小文字を区別せず、変換は不可逆であるためです。[/REGION]| 
+|FText   | FName | FText から FName への直接変換はありません。かわりに、FString に変換し、次に FName に変換します。[REGION:warning] FText -> FString -> FName は、危険です。FName はケース インセンシティブ、変換は不可逆であるためです。[/REGION]| 
 [/VAR]
  
 ## エンコーディング

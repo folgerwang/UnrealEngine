@@ -5,15 +5,10 @@
 #include "Modules/ModuleManager.h"
 
 
-/** Holds the target platform singleton. */
-static ITargetPlatform* Singleton = nullptr;
-
-
 /**
  * Module for TVOS as a target platform
  */
-class FTVOSTargetPlatformModule
-	: public ITargetPlatformModule
+class FTVOSTargetPlatformModule	: public ITargetPlatformModule
 {
 public:
 
@@ -22,21 +17,25 @@ public:
 	 */
 	~FTVOSTargetPlatformModule()
 	{
-		Singleton = nullptr;
+		for (ITargetPlatform* TP : TargetPlatforms)
+		{
+			delete TP;
+		}
+		TargetPlatforms.Empty();
 	}
-
-public:
 
 	//~ ITargetPlatformModule interface
 
-	virtual ITargetPlatform* GetTargetPlatform()
+	virtual TArray<ITargetPlatform*> GetTargetPlatforms() override
 	{
-		if (Singleton == nullptr)
+		if (TargetPlatforms.Num() == 0)
 		{
-			Singleton = new FIOSTargetPlatform(true);
+			// add Game and Client TPs
+			TargetPlatforms.Add(new FIOSTargetPlatform(true, true));
+			TargetPlatforms.Add(new FIOSTargetPlatform(true, false));
 		}
 
-		return Singleton;
+		return TargetPlatforms;
 	}
 
 public:
@@ -45,6 +44,10 @@ public:
 
 	virtual void StartupModule() override { }
 	virtual void ShutdownModule() override { }
+
+protected:
+	/** Holds the target platforms. */
+	TArray<ITargetPlatform*> TargetPlatforms;
 };
 
 

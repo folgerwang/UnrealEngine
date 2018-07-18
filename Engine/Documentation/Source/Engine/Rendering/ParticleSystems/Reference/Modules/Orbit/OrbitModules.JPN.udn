@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2750697
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:Orbit モジュール
 Crumbs: %ROOT%, Engine, Engine/Rendering/ParticleSystems, Engine/Rendering/ParticleSystems/Reference
-Description:Orbit モジュールは実際のパーティクル中心から離れた方向にオフセット回転するパーティクルスプライトをレンダリングします。
+Description:Orbit モジュールは実際のパーティクル中心から離れた方向にオフセット回転するパーティクルスプライトをレンダリングします。 
 Version:4.9
+tags:Particles
 
 
 Orbit モジュールは実際のパーティクル中心から離れた方向にオフセット回転するパーティクルスプライトをレンダリングします。 

@@ -5,7 +5,6 @@
 #include "PyWrapperBase.h"
 #include "PyWrapperOwnerContext.h"
 #include "PyUtil.h"
-#include "PyGenUtil.h"
 #include "PyConversion.h"
 #include "UObject/Class.h"
 #include "Templates/TypeCompatibleBytes.h"
@@ -17,7 +16,7 @@
 extern PyTypeObject PyWrapperStructType;
 
 /** Initialize the PyWrapperStruct types and add them to the given Python module */
-void InitializePyWrapperStruct(PyObject* PyModule);
+void InitializePyWrapperStruct(PyGenUtil::FNativePythonModule& ModuleInfo);
 
 /** Type for all UE4 exposed struct instances */
 struct FPyWrapperStruct : public FPyWrapperBase
@@ -50,19 +49,43 @@ struct FPyWrapperStruct : public FPyWrapperBase
 	static bool ValidateInternalState(FPyWrapperStruct* InSelf);
 
 	/** Cast the given Python object to this wrapped type (returns a new reference) */
-	static FPyWrapperStruct* CastPyObject(PyObject* InPyObject);
+	static FPyWrapperStruct* CastPyObject(PyObject* InPyObject, FPyConversionResult* OutCastResult = nullptr);
 
 	/** Cast the given Python object to this wrapped type, or attempt to convert the type into a new wrapped instance (returns a new reference) */
-	static FPyWrapperStruct* CastPyObject(PyObject* InPyObject, PyTypeObject* InType);
+	static FPyWrapperStruct* CastPyObject(PyObject* InPyObject, PyTypeObject* InType, FPyConversionResult* OutCastResult = nullptr);
 
-	/** Set the named property values on this instance (called via generated code) */
-	static int SetPropertyValues(FPyWrapperStruct* InSelf, PyObject* InArgs, PyObject* InKwds);
+	/** "Make" this struct from the given arguments, either using a custom make function or by setting the named property values on this instance (called via generated code) */
+	static int MakeStruct(FPyWrapperStruct* InSelf, PyObject* InArgs, PyObject* InKwds);
 
-	/** Get a named property value from this instance (called via generated code) */
-	static PyObject* GetPropertyValue(FPyWrapperStruct* InSelf, const FName InPropName, const char* InPythonAttrName);
+	/** "Break" this struct into a tuple, either using a custom break function or by getting each property value on this instance (called via generated code) */
+	static PyObject* BreakStruct(FPyWrapperStruct* InSelf);
 
-	/** Set a named property value on this instance (called via generated code) */
-	static int SetPropertyValue(FPyWrapperStruct* InSelf, PyObject* InValue, const FName InPropName, const char* InPythonAttrName, const bool InNotifyChange = false, const uint64 InReadOnlyFlags = CPF_EditConst | CPF_BlueprintReadOnly);
+	/** Get a property value from this instance (called via generated code) */
+	static PyObject* GetPropertyValue(FPyWrapperStruct* InSelf, const PyGenUtil::FGeneratedWrappedProperty& InPropDef, const char* InPythonAttrName);
+
+	/** Set a property value on this instance (called via generated code) */
+	static int SetPropertyValue(FPyWrapperStruct* InSelf, PyObject* InValue, const PyGenUtil::FGeneratedWrappedProperty& InPropDef, const char* InPythonAttrName, const bool InNotifyChange = false, const uint64 InReadOnlyFlags = CPF_EditConst | CPF_BlueprintReadOnly);
+
+	/** Call a make function on this instance (MakeStruct internal use only) */
+	static int CallMakeFunction_Impl(FPyWrapperStruct* InSelf, PyObject* InArgs, PyObject* InKwds, const PyGenUtil::FGeneratedWrappedFunction& InFuncDef);
+
+	/** Call a break function on this instance (BreakStruct internal use only) */
+	static PyObject* CallBreakFunction_Impl(FPyWrapperStruct* InSelf, const PyGenUtil::FGeneratedWrappedFunction& InFuncDef);
+
+	/** Call a dynamic function on this instance (CallFunction internal use only) */
+	static PyObject* CallDynamicFunction_Impl(FPyWrapperStruct* InSelf, PyObject* InArgs, PyObject* InKwds, const PyGenUtil::FGeneratedWrappedFunction& InFuncDef, const PyGenUtil::FGeneratedWrappedMethodParameter& InSelfParam, const PyGenUtil::FGeneratedWrappedMethodParameter& InSelfReturn, const char* InPythonFuncName);
+
+	/** Implementation of the "call" logic for a dynamic Python method with no arguments (internal Python bindings use only) */
+	static PyObject* CallDynamicMethodNoArgs_Impl(FPyWrapperStruct* InSelf, void* InClosure);
+
+	/** Implementation of the "call" logic for a dynamic Python method with arguments (internal Python bindings use only) */
+	static PyObject* CallDynamicMethodWithArgs_Impl(FPyWrapperStruct* InSelf, PyObject* InArgs, PyObject* InKwds, void* InClosure);
+
+	/** Implementation of the "call" logic for a Python operator function (internal CallOperator use only) */
+	static PyObject* CallOperatorFunction_Impl(FPyWrapperStruct* InSelf, PyObject* InRHS, const PyGenUtil::FGeneratedWrappedOperatorFunction& InOpFunc, const TOptional<EPyConversionResultState> InRequiredConversionResult = TOptional<EPyConversionResultState>(), FPyConversionResult* OutRHSConversionResult = nullptr);
+
+	/** Implementation of the "call" logic for a Python operator function (internal Python bindings use only) */
+	static PyObject* CallOperator_Impl(FPyWrapperStruct* InSelf, PyObject* InRHS, const PyGenUtil::EGeneratedWrappedOperatorType InOpType);
 
 	/** Implementation of the "getter" logic for a Python descriptor reading from an struct property (internal Python bindings use only) */
 	static PyObject* Getter_Impl(FPyWrapperStruct* InSelf, void* InClosure);
@@ -95,15 +118,15 @@ struct TPyWrapperInlineStruct : public FPyWrapperStruct
 	TTypeCompatibleBytes<WrappedType> InlineStructInstance;
 
 	/** Cast the given Python object to this wrapped type (returns a new reference) */
-	static TPyWrapperInlineStruct* CastPyObject(PyObject* InPyObject)
+	static TPyWrapperInlineStruct* CastPyObject(PyObject* InPyObject, FPyConversionResult* OutCastResult = nullptr)
 	{
-		return (TPyWrapperInlineStruct*)FPyWrapperStruct::CastPyObject(InPyObject);
+		return (TPyWrapperInlineStruct*)FPyWrapperStruct::CastPyObject(InPyObject, OutCastResult);
 	}
 
 	/** Cast the given Python object to this wrapped type, or attempt to convert the type into a new wrapped instance (returns a new reference) */
-	static TPyWrapperInlineStruct* CastPyObject(PyObject* InPyObject, PyTypeObject* InType)
+	static TPyWrapperInlineStruct* CastPyObject(PyObject* InPyObject, PyTypeObject* InType, FPyConversionResult* OutCastResult = nullptr)
 	{
-		return (TPyWrapperInlineStruct*)FPyWrapperStruct::CastPyObject(InPyObject, InType);
+		return (TPyWrapperInlineStruct*)FPyWrapperStruct::CastPyObject(InPyObject, InType, OutCastResult);
 	}
 
 	/** Get a pointer to the typed struct instance this wrapper represents */
@@ -147,7 +170,7 @@ struct TPyWrapperInlineStruct : public FPyWrapperStruct
 	template <typename FieldType, FieldType WrappedType::*FieldPtr>
 	static PyObject* StructFieldGetter(TPyWrapperInlineStruct* InSelf, void* InClosure)
 	{
-		return PyConversion::PythonizeStruct(GetTypedStruct(InSelf).*FieldPtr);
+		return PyConversion::PythonizeStructInstance(GetTypedStruct(InSelf).*FieldPtr);
 	}
 
 	/** Setter function for struct field access (for use with PyGetSetDef) */
@@ -160,7 +183,7 @@ struct TPyWrapperInlineStruct : public FPyWrapperStruct
 			return -1;
 		}
 
-		if (!PyConversion::NativizeStruct(InValue, GetTypedStruct(InSelf).*FieldPtr))
+		if (!PyConversion::NativizeStructInstance(InValue, GetTypedStruct(InSelf).*FieldPtr))
 		{
 			return -1;
 		}
@@ -202,18 +225,18 @@ struct TPyWrapperInlineStruct : public FPyWrapperStruct
 	template <typename ReturnType, ReturnType(WrappedType::*FuncPtr)()>
 	static PyObject* CallFunc_NoParams_StructReturn(TPyWrapperInlineStruct* InSelf)
 	{
-		return PyConversion::PythonizeStruct((GetTypedStruct(InSelf).*FuncPtr)());
+		return PyConversion::PythonizeStructInstance((GetTypedStruct(InSelf).*FuncPtr)());
 	}
 
 	/** Call a const function with no parameters and a struct return value (for use with PyMethodDef) */
 	template <typename ReturnType, ReturnType(WrappedType::*FuncPtr)() const>
 	static PyObject* CallConstFunc_NoParams_StructReturn(TPyWrapperInlineStruct* InSelf)
 	{
-		return PyConversion::PythonizeStruct((GetTypedStruct(InSelf).*FuncPtr)());
+		return PyConversion::PythonizeStructInstance((GetTypedStruct(InSelf).*FuncPtr)());
 	}
 };
 
-/** Default struct allocation policy interface */
+/** Struct allocation policy interface */
 class IPyWrapperStructAllocationPolicy
 {
 public:
@@ -224,48 +247,25 @@ public:
 	virtual void FreeStruct(const FPyWrapperStruct* InSelf, void* InAlloc) const = 0;
 };
 
-/** Meta-data for all UE4 exposed struct types */
-struct FPyWrapperStructMetaData : public FPyWrapperBaseMetaData
+/** Inline struct factory interface */
+class IPyWrapperInlineStructFactory
 {
-	PY_OVERRIDE_GETSET_METADATA(FPyWrapperStructMetaData)
+public:
+	/** Get the name of the Unreal struct this factory is for */
+	virtual FName GetStructName() const = 0;
 
-	FPyWrapperStructMetaData();
+	/** Get the size of the Python object that should be constructed (in bytes) */
+	virtual int32 GetPythonObjectSizeBytes() const = 0;
 
-	/** Get the allocation policy from the given type */
-	static const IPyWrapperStructAllocationPolicy* GetAllocationPolicy(PyTypeObject* PyType);
-
-	/** Get the allocation policy from the type of the given instance */
-	static const IPyWrapperStructAllocationPolicy* GetAllocationPolicy(FPyWrapperStruct* Instance);
-
-	/** Get the UStruct from the given type */
-	static UStruct* GetStruct(PyTypeObject* PyType);
-
-	/** Get the UStruct from the type of the given instance */
-	static UStruct* GetStruct(FPyWrapperStruct* Instance);
-
-	/** Resolve the original property name of a Python method from the given type */
-	static FName ResolvePropertyName(PyTypeObject* PyType, const FName InPythonPropertyName);
-
-	/** Resolve the original property name of a Python method of the given instance */
-	static FName ResolvePropertyName(FPyWrapperStruct* Instance, const FName InPythonPropertyName);
-
-	/** Allocation policy used with when allocating struct instances for a wrapped type */
-	const IPyWrapperStructAllocationPolicy* AllocPolicy;
-
-	/** Unreal struct */
-	UStruct* Struct;
-
-	/** Map of properties that were exposed to Python mapped to their original name */
-	TMap<FName, FName> PythonProperties;
-
-	/** Array of properties that were exposed to Python and can be used during init */
-	TArray<PyGenUtil::FGeneratedWrappedMethodParameter> InitParams;
+	/** Get the allocation policy of the Python object */
+	virtual const IPyWrapperStructAllocationPolicy* GetPythonObjectAllocationPolicy() const = 0;
 };
 
-/** Meta-data for all UE4 exposed inline struct types */
+/** Concrete implementation of an inline struct factory for the given type */
 template <typename InlineType>
-struct TPyWrapperInlineStructMetaData : public FPyWrapperStructMetaData
+class TPyWrapperInlineStructFactory : public IPyWrapperInlineStructFactory
 {
+private:
 	class FPyWrapperStructAllocationPolicy_Inline : public IPyWrapperStructAllocationPolicy
 	{
 	public:
@@ -279,11 +279,87 @@ struct TPyWrapperInlineStructMetaData : public FPyWrapperStructMetaData
 		}
 	};
 
-	TPyWrapperInlineStructMetaData()
+public:
+	virtual FName GetStructName() const override
+	{
+		return TBaseStructure<InlineType>::Get()->GetFName();
+	}
+
+	virtual int32 GetPythonObjectSizeBytes() const override
+	{
+		return sizeof(TPyWrapperInlineStruct<InlineType>);
+	}
+
+	virtual const IPyWrapperStructAllocationPolicy* GetPythonObjectAllocationPolicy() const override
 	{
 		static const FPyWrapperStructAllocationPolicy_Inline InlineAllocPolicy = FPyWrapperStructAllocationPolicy_Inline();
-		AllocPolicy = &InlineAllocPolicy;
+		return &InlineAllocPolicy;
 	}
+};
+
+/** Meta-data for all UE4 exposed struct types */
+struct FPyWrapperStructMetaData : public FPyWrapperBaseMetaData
+{
+	PY_METADATA_METHODS(FPyWrapperStructMetaData, FGuid(0x03C9EA75, 0x2C86448B, 0xB53D1453, 0x94AA6BAE))
+
+	FPyWrapperStructMetaData();
+
+	/** Get the UScriptStruct from the given type */
+	static UScriptStruct* GetStruct(PyTypeObject* PyType);
+
+	/** Get the UScriptStruct from the type of the given instance */
+	static UScriptStruct* GetStruct(FPyWrapperStruct* Instance);
+
+	/** Resolve the original property name of a Python property from the given type */
+	static FName ResolvePropertyName(PyTypeObject* PyType, const FName InPythonPropertyName);
+
+	/** Resolve the original property name of a Python property of the given instance */
+	static FName ResolvePropertyName(FPyWrapperStruct* Instance, const FName InPythonPropertyName);
+
+	/** Check to see if the given Python property is deprecated, and optionally return its deprecation message */
+	static bool IsPropertyDeprecated(PyTypeObject* PyType, const FName InPythonPropertyName, FString* OutDeprecationMessage = nullptr);
+
+	/** Check to see if the given Python property is deprecated, and optionally return its deprecation message */
+	static bool IsPropertyDeprecated(FPyWrapperStruct* Instance, const FName InPythonPropertyName, FString* OutDeprecationMessage = nullptr);
+
+	/** Check to see if the struct is deprecated, and optionally return its deprecation message */
+	static bool IsStructDeprecated(PyTypeObject* PyType, FString* OutDeprecationMessage = nullptr);
+
+	/** Check to see if the struct is deprecated, and optionally return its deprecation message */
+	static bool IsStructDeprecated(FPyWrapperStruct* Instance, FString* OutDeprecationMessage = nullptr);
+
+	/** Add object references from the given Python object to the given collector */
+	virtual void AddReferencedObjects(FPyWrapperBase* Instance, FReferenceCollector& Collector) override;
+
+	/** Get the reflection meta data type object associated with this wrapper type if there is one or nullptr if not. */
+	virtual const UField* GetMetaType() const override
+	{
+		return Struct;
+	}
+
+	/** Unreal struct */
+	UScriptStruct* Struct;
+
+	/** Map of properties that were exposed to Python mapped to their original name */
+	TMap<FName, FName> PythonProperties;
+
+	/** Map of properties that were exposed to Python mapped to their deprecation message (if deprecated) */
+	TMap<FName, FString> PythonDeprecatedProperties;
+
+	/** Make function associated with this struct */
+	PyGenUtil::FGeneratedWrappedFunction MakeFunc;
+
+	/** Break function associated with this struct */
+	PyGenUtil::FGeneratedWrappedFunction BreakFunc;
+
+	/** Array of properties that were exposed to Python and can be used during init */
+	TArray<PyGenUtil::FGeneratedWrappedMethodParameter> InitParams;
+
+	/** The operator stacks for this struct type */
+	PyGenUtil::FGeneratedWrappedOperatorStack OpStacks[(int32)PyGenUtil::EGeneratedWrappedOperatorType::Num];
+
+	/** Set if this struct is deprecated and using it should emit a deprecation warning */
+	TOptional<FString> DeprecationMessage;
 };
 
 typedef TPyPtr<FPyWrapperStruct> FPyWrapperStructPtr;

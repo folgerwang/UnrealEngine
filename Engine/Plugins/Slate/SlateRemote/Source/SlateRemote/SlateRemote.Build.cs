@@ -33,6 +33,16 @@ namespace UnrealBuildTool.Rules
 					"SlateRemote/Private/Server",
 					"SlateRemote/Private/Shared",
 				});
+
+			// Only valid in non-shipping builds
+			if (Target.Configuration != UnrealTargetConfiguration.Shipping)
+			{
+				PrivateDefinitions.Add("WITH_SLATE_REMOTE_SERVER=1");
+			}
+			else
+			{
+				PrivateDefinitions.Add("WITH_SLATE_REMOTE_SERVER=0");
+			}
 		}
 	}
 }

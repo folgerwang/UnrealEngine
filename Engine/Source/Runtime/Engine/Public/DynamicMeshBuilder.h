@@ -28,7 +28,7 @@ struct FDynamicMeshVertex
 		Color(FColor(255,255,255)) 
 	{
 		// basis determinant default to +1.0
-		TangentZ.Vector.W = 255;
+		TangentZ.Vector.W = 127;
 
 		for (int i = 0; i < MAX_STATIC_TEXCOORDS; i++)
 		{
@@ -43,7 +43,7 @@ struct FDynamicMeshVertex
 		Color(InColor)
 	{
 		// basis determinant default to +1.0
-		TangentZ.Vector.W = 255;
+		TangentZ.Vector.W = 127;
 
 		for (int i = 0; i < MAX_STATIC_TEXCOORDS; i++)
 		{
@@ -58,7 +58,7 @@ struct FDynamicMeshVertex
 		Color(InColor)
 	{
 		// basis determinant default to +1.0
-		TangentZ.Vector.W = 255;
+		TangentZ.Vector.W = 127;
 
 		for (int i = 0; i < MAX_STATIC_TEXCOORDS; i++)
 		{
@@ -73,7 +73,7 @@ struct FDynamicMeshVertex
 		, Color(FColor::White)
 	{
 		// TangentZ.w contains the sign of the tangent basis determinant. Assume +1
-		TangentZ.Vector.W = 255;
+		TangentZ.Vector.W = 127;
 
 		TextureCoordinate[0] = FVector2D(LayerTexcoords.X, LayerTexcoords.Y);
 		TextureCoordinate[1] = FVector2D(LayerTexcoords.X, LayerTexcoords.Y); // Z not currently set, so use Y
@@ -86,13 +86,13 @@ struct FDynamicMeshVertex
 		TangentX = InTangentX;
 		TangentZ = InTangentZ;
 		// store determinant of basis in w component of normal vector
-		TangentZ.Vector.W = GetBasisDeterminantSign(InTangentX,InTangentY,InTangentZ) < 0.0f ? 0 : 255;
+		TangentZ.Vector.W = GetBasisDeterminantSignByte(InTangentX,InTangentY,InTangentZ);
 	}
 
 	FVector GetTangentY() const
 	{
-		FVector TanX = TangentX;
-		FVector TanZ = TangentZ;
+		FVector TanX = TangentX.ToFVector();
+		FVector TanZ = TangentZ.ToFVector();
 
 		return (TanZ ^ TanX) * ((float)TangentZ.Vector.W / 127.5f - 1.0f);
 	};

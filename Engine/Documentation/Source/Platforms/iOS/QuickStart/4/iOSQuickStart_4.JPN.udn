@@ -1,25 +1,26 @@
-﻿INTSourceChangelist:2744682
+﻿INTSourceChangelist:3782314
 Title:4. iOS プロビジョニング- デバイスの追加
 Crumbs:%ROOT%, Platforms, Platforms/iOS, Platforms/iOS/QuickStart
 Description:開発デバイスを開発アカウントに関連付ける
 Availability:Public
-Version:4.9
+Version:4.18
 SkillLevel:Intermediate
-
+checkpoint:iOSQS
+order:4
 
 [VAR:Steps]
 [OBJECT:Navigation]
-	[PARAM:previous]
-		[前のステップ](Platforms/iOS/QuickStart/3 "%Platforms/iOS/QuickStart/3:title%")
-	[/PARAM]
-	[PARAM:current]
-	[/PARAM]
-	[PARAM:home]
-		[クイック スタートのホーム](Platforms/iOS/QuickStart)
-	[/PARAM]
-	[PARAM:next]
-		[次のステップ](Platforms/iOS/QuickStart/5 "%Platforms/iOS/QuickStart/5:title%")
-	[/PARAM]
+    [PARAM:previous]
+        [前のステップ](Platforms/iOS/QuickStart/3 "%Platforms/iOS/QuickStart/3:title%")
+    [/PARAM]
+    [PARAM:current]
+    [/PARAM]
+    [PARAM:home]
+        [クイック スタートのホーム](Platforms/iOS/QuickStart)
+    [/PARAM]
+    [PARAM:next]
+        [次のステップ](Platforms/iOS/QuickStart/5 "%Platforms/iOS/QuickStart/5:title%")
+    [/PARAM]
 [/OBJECT]
 [/VAR]
 
@@ -30,16 +31,10 @@ SkillLevel:Intermediate
 [/REGION]
 
 %Globals:OSSelect%
+## ステップ
+開発中に UE4 プロジェクトにインストールできるように、すべてのデバイスを [Apple iOS Developer site](https://developer.apple.com/devcenter/ios/index.action) から追加しなければなりません。アンリアル エンジン 4 は、モバイル プロビジョン プロファイル (本ガイドで後ほど作成します) と関連づいているデバイスに対してのみ起動およびインストールが可能です。
 
-開発中にゲームをインストールできるようにしたい全デバイスを、 
-[Apple iOS Developer site](https://developer.apple.com/devcenter/ios/index.action) で作成し、ダウンロードします。アンリアル エンジンでは、モバイル プロビジョニング プロファイル (後でこのガイドで作成) に関連付けられたデバイスに限り 
-ゲームを起動し、インストールできます。
-
-[REGION:note]
-これまでに iOS アプリケーションを開発したことがあり、デバイスをセットアップしていれば、この手順はスキップできます。
-[/REGION]
-
-1. Apple iOS Developer サイトの [iOS Devices](https://developer.apple.com/account/ios/device/deviceList.action) ページに進みます。
+1. Apple iOS Developer サイトの [iOS Devices](https://developer.apple.com/account/ios/device/) ページに進みます。
 
 1. 新規デバイスを追加するには、**[Add (追加)]** (プラス記号) ボタンをクリックします。
 
@@ -49,32 +44,36 @@ SkillLevel:Intermediate
 
 テスト目的でゲームを起動できるようにする全デバイスに対して上記のステップを繰り返します。
 
+## 最終結果
+
+これで、Apple Developer アカウントに登録されているデバイス上で UE4 を起動することができるようになります。
+
 [OBJECT:ToggleButtonContent]
-	[PARAMLITERAL:category]
-	OS
-	[/PARAMLITERAL]
-	[PARAMLITERAL:id]
-	windows
-	[/PARAMLITERAL]
-	[PARAMLITERAL:active]
-	active_button_content
-	[/PARAMLITERAL]
-	[PARAM:content]
-	[INCLUDE:#windows]
-	[/PARAM]
+    [PARAMLITERAL:category]
+    OS
+    [/PARAMLITERAL]
+    [PARAMLITERAL:id]
+    windows
+    [/PARAMLITERAL]
+    [PARAMLITERAL:active]
+    active_button_content
+    [/PARAMLITERAL]
+    [PARAM:content]
+    [INCLUDE:#windows]
+    [/PARAM]
 [/OBJECT]
 [OBJECT:ToggleButtonContent]
-	[PARAMLITERAL:category]
-	OS
-	[/PARAMLITERAL]
-	[PARAMLITERAL:id]
-	mac
-	[/PARAMLITERAL]
-	[PARAMLITERAL:active]
-	[/PARAMLITERAL]
-	[PARAM:content]
-	[INCLUDE:#macos]
-	[/PARAM]
+    [PARAMLITERAL:category]
+    OS
+    [/PARAMLITERAL]
+    [PARAMLITERAL:id]
+    mac
+    [/PARAMLITERAL]
+    [PARAMLITERAL:active]
+    [/PARAMLITERAL]
+    [PARAM:content]
+    [INCLUDE:#macos]
+    [/PARAM]
 [/OBJECT]
 
 

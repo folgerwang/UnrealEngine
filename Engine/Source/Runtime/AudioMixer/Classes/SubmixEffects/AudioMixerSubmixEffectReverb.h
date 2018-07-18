@@ -63,6 +63,7 @@ struct AUDIOMIXER_API FSubmixEffectReverbSettings
 	FSubmixEffectReverbSettings()
 	: Density(0.85f)
 	, Diffusion(0.85f)
+	, Gain(0.0f)
 	, GainHF(0.89f)
 	, DecayTime(1.49f)
 	, DecayHFRatio(0.83f)

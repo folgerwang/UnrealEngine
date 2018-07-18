@@ -32,7 +32,7 @@ AManipulator::AManipulator()
 	StaticMeshComponent->SetCollisionResponseToAllChannels(ECR_Ignore);
 	StaticMeshComponent->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block);
 
-	StaticMeshComponent->bGenerateOverlapEvents = false;
+	StaticMeshComponent->SetGenerateOverlapEvents(false);
 	StaticMeshComponent->SetCanEverAffectNavigation(false);
 	StaticMeshComponent->bCastDynamicShadow = false;
 	StaticMeshComponent->bCastStaticShadow = false;

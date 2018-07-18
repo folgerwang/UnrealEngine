@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2690154
+﻿INTSourceChangelist:3242329
 Availability:Public
 Title:Material Attributes 表現式
 Crumbs: %ROOT%, Engine, Engine/Rendering/Materials, Engine/Rendering/Materials/ExpressionReference
 Description:さまざまなマテリアル属性の分割や結合に使用する表現式ノードです。特に、レイヤー マテリアルの作成に役立ちます。
 Version:4.9
+tags:Materials
 
 [EXCERPT:TOC]
 [TOC(start:2)]

@@ -7,7 +7,7 @@
 #include "Misc/Guid.h"
 #include "Curves/KeyHandle.h"
 #include "MovieSceneSection.h"
-#include "SequencerObjectVersion.h"
+#include "UObject/SequencerObjectVersion.h"
 #include "MovieSceneObjectBindingID.h"
 #include "MovieSceneCameraCutSection.generated.h"
 
@@ -55,11 +55,8 @@ public:
 		CameraBindingID = InCameraBindingID;
 	}
 
+	//~ UMovieSceneSection interface
 	virtual FMovieSceneEvalTemplatePtr GenerateTemplate() const override;
-
-	// UMovieSceneSection interface
-	virtual TOptional<float> GetKeyTime(FKeyHandle KeyHandle) const override { return TOptional<float>(); }
-	virtual void SetKeyTime(FKeyHandle KeyHandle, float Time) override { }
 	virtual void OnBindingsUpdated(const TMap<FGuid, FGuid>& OldGuidToNewGuidMap) override;
 
 	/** ~UObject interface */

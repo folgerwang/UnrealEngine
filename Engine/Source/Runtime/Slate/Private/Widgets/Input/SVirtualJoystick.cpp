@@ -79,7 +79,11 @@ bool SVirtualJoystick::ShouldDisplayTouchInterface()
 	GConfig->GetBool(TEXT("/Script/Engine.InputSettings"), TEXT("bAlwaysShowTouchInterface"), bAlwaysShowTouchInterface, GInputIni);
 
 	// do we want to show virtual joysticks?
-	return FPlatformMisc::GetUseVirtualJoysticks() || bAlwaysShowTouchInterface || FSlateApplication::Get().IsFakingTouchEvents();
+	return FPlatformMisc::GetUseVirtualJoysticks() || bAlwaysShowTouchInterface
+#if ! PLATFORM_HTML5 // make HTML5 support bAlwaysShowTouchInterface only
+		|| FSlateApplication::Get().IsFakingTouchEvents()
+#endif
+		;
 }
 
 static int32 ResolveRelativePosition(float Position, float RelativeTo, float ScaleFactor)
@@ -137,7 +141,7 @@ int32 SVirtualJoystick::OnPaint( const FPaintArgs& Args, const FGeometry& Allott
 					AllottedGeometry.ToPaintGeometry(
 					Control.VisualCenter - FVector2D(Control.CorrectedVisualSize.X * 0.5f, Control.CorrectedVisualSize.Y * 0.5f),
 					Control.CorrectedVisualSize),
-					Control.Image2.Get(),
+					Control.Image2->GetSlateBrush(),
 					ESlateDrawEffect::None,
 					ColorAndOpacitySRGB
 					);
@@ -151,7 +155,7 @@ int32 SVirtualJoystick::OnPaint( const FPaintArgs& Args, const FGeometry& Allott
 					AllottedGeometry.ToPaintGeometry(
 					Control.VisualCenter + Control.ThumbPosition - FVector2D(Control.CorrectedThumbSize.X * 0.5f, Control.CorrectedThumbSize.Y * 0.5f),
 					Control.CorrectedThumbSize),
-					Control.Image1.Get(),
+					Control.Image1->GetSlateBrush(),
 					ESlateDrawEffect::None,
 					ColorAndOpacitySRGB
 					);

@@ -5,6 +5,7 @@
 =============================================================================*/
 
 #include "Common.ush"
+#include "SceneTexturesCommon.ush"
 #include "/Engine/Generated/Material.ush"
 #include "/Engine/Generated/VertexFactory.ush"
 
@@ -72,7 +73,7 @@ void Main(
 	float2 DistortBufferUV = ScreenUV + BufferUVDistortion;
 
 #if (ES2_PROFILE || ES3_1_PROFILE) && (!WEBGL)
-	float DistortSceneDepth = ConvertFromDeviceZ(Texture2DSampleLevel(SceneDepthTexture, SceneDepthTextureSampler, DistortBufferUV, 0).r);
+	float DistortSceneDepth = ConvertFromDeviceZ(Texture2DSampleLevel(MobileSceneTextures.SceneDepthTexture, MobileSceneTextures.SceneDepthTextureSampler, DistortBufferUV, 0).r); 
 #else
 	float DistortSceneDepth = CalcSceneDepth(DistortBufferUV);
 #endif // (ES2_PROFILE || ES3_1_PROFILE) 

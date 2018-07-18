@@ -25,7 +25,7 @@
 
 extern UNREALED_API UEditorEngine* GEditor;
 #endif // WITH_EDITOR
-#include "TimeGuard.h"
+#include "Misc/TimeGuard.h"
 
 DEFINE_LOG_CATEGORY(LogEQS);
 
@@ -124,6 +124,12 @@ UEnvQueryManager::UEnvQueryManager(const FObjectInitializer& ObjectInitializer) 
 		UEnvQueryManager::DebuggerStats.Empty();
 	}
 #endif
+}
+
+void UEnvQueryManager::PostLoad()
+{
+	Super::PostLoad();
+	MarkPendingKill();
 }
 
 UWorld* UEnvQueryManager::GetWorld() const

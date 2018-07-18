@@ -45,7 +45,7 @@ public:
 };
 
 /**
- * Setup up login credentials for the Play In Editor (PIE) feature
+ * Setup login credentials for the Play In Editor (PIE) feature
  */
 UCLASS(config=EditorPerProjectUserSettings, meta = (DisplayName = "Play Credentials"))
 class UOnlinePIESettings : public UDeveloperSettings

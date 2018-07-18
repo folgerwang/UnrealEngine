@@ -45,11 +45,6 @@ void FSlate3DRenderer::Cleanup()
 	BeginCleanup(this);
 }
 
-void FSlate3DRenderer::FinishCleanup()
-{
-	delete this;
-}
-
 void FSlate3DRenderer::SetUseGammaCorrection(bool bUseGammaCorrection)
 {
 	RenderTargetPolicy->SetUseGammaCorrection(bUseGammaCorrection);
@@ -81,7 +76,7 @@ void FSlate3DRenderer::DrawWindow_GameThread(FSlateDrawBuffer& DrawBuffer)
 
 	const TSharedRef<FSlateFontCache> FontCache = SlateFontServices->GetGameThreadFontCache();
 
-	TArray<TSharedPtr<FSlateWindowElementList>>& WindowElementLists = DrawBuffer.GetWindowElementLists();
+	const TArray<TSharedRef<FSlateWindowElementList>>& WindowElementLists = DrawBuffer.GetWindowElementLists();
 
 	for ( int32 WindowIndex = 0; WindowIndex < WindowElementLists.Num(); WindowIndex++ )
 	{
@@ -119,19 +114,18 @@ struct TKeepAliveCommand final : public FRHICommand < TKeepAliveCommand<TKeepAli
 
 void FSlate3DRenderer::DrawWindowToTarget_RenderThread( FRHICommandListImmediate& InRHICmdList, FTextureRenderTarget2DResource* RenderTargetResource, FSlateDrawBuffer& WindowDrawBuffer, bool bInClearTarget)
 {
+	check(IsInRenderingThread());
+	QUICK_SCOPE_CYCLE_COUNTER(Stat_Slate_WidgetRendererRenderThread);
 	SCOPED_DRAW_EVENT( InRHICmdList, SlateRenderToTarget );
 	SCOPED_GPU_STAT(InRHICmdList, Slate3D);
 
 	checkSlow( RenderTargetResource );
 
-	TArray< TSharedPtr<FSlateWindowElementList> >& WindowsToDraw = WindowDrawBuffer.GetWindowElementLists();
+	const TArray<TSharedRef<FSlateWindowElementList>>& WindowsToDraw = WindowDrawBuffer.GetWindowElementLists();
 
 	// Enqueue a command to unlock the draw buffer after all windows have been drawn
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(SlateBeginDrawingWindowsCommand,
-		FSlateRHIRenderingPolicy&, Policy, *RenderTargetPolicy,
-		{
-			Policy.BeginDrawingWindows();
-		});
+	RenderTargetPolicy->BeginDrawingWindows();
+
 
 	// Set render target and clear.
 	FTexture2DRHIRef RTResource = RenderTargetResource->GetTextureRHI();
@@ -145,7 +139,7 @@ void FSlate3DRenderer::DrawWindowToTarget_RenderThread( FRHICommandListImmediate
 
 	for ( int32 WindowIndex = 0; WindowIndex < WindowsToDraw.Num(); WindowIndex++ )
 	{
-		FSlateWindowElementList& WindowElementList = *WindowsToDraw[WindowIndex].Get();
+		FSlateWindowElementList& WindowElementList = *WindowsToDraw[WindowIndex];
 
 		FSlateBatchData& BatchData = WindowElementList.GetBatchData();
 		FElementBatchMap& RootBatchMap = WindowElementList.GetRootDrawLayer().GetElementBatchMap();
@@ -154,16 +148,16 @@ void FSlate3DRenderer::DrawWindowToTarget_RenderThread( FRHICommandListImmediate
 
 		BatchData.CreateRenderBatches(RootBatchMap);
 
-		RenderTargetPolicy->UpdateVertexAndIndexBuffers(InRHICmdList, BatchData);
-		
-		FVector2D DrawOffset = WindowDrawBuffer.ViewOffset;
-
-		FMatrix ProjectionMatrix = FSlateRHIRenderer::CreateProjectionMatrix(RTResource->GetSizeX(), RTResource->GetSizeY());
-		FMatrix ViewOffset = FTranslationMatrix::Make(FVector(DrawOffset, 0));
-		ProjectionMatrix = ViewOffset * ProjectionMatrix;
-
 		if ( BatchData.GetRenderBatches().Num() > 0 )
 		{
+			RenderTargetPolicy->UpdateVertexAndIndexBuffers(InRHICmdList, BatchData);
+		
+			FVector2D DrawOffset = WindowDrawBuffer.ViewOffset;
+
+			FMatrix ProjectionMatrix = FSlateRHIRenderer::CreateProjectionMatrix(RTResource->GetSizeX(), RTResource->GetSizeY());
+			FMatrix ViewOffset = FTranslationMatrix::Make(FVector(DrawOffset, 0));
+			ProjectionMatrix = ViewOffset * ProjectionMatrix;
+		
 			FSlateBackBuffer BackBufferTarget(RenderTargetResource->GetTextureRHI(), FIntPoint(RTResource->GetSizeX(), RTResource->GetSizeY()));
 
 			FSlateRenderingOptions DrawOptions(ProjectionMatrix);
@@ -192,26 +186,16 @@ void FSlate3DRenderer::DrawWindowToTarget_RenderThread( FRHICommandListImmediate
 				ColorTarget,
 				DepthStencil,
 				BatchData.GetRenderBatches(),
-				BatchData.GetRenderClipStates(),
 				DrawOptions
 			);
 		}
 	}
 
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(SlateEndDrawingWindowsCommand,
-		FSlateDrawBuffer*, DrawBuffer, &WindowDrawBuffer,
-		FSlateRHIRenderingPolicy&, Policy, *RenderTargetPolicy,
-		{
-			FSlateEndDrawingWindowsCommand::EndDrawingWindows(RHICmdList, DrawBuffer, Policy);
-		});
 
-	InRHICmdList.CopyToResolveTarget(RenderTargetResource->GetTextureRHI(), RTResource, true, FResolveParams());
+	FSlateEndDrawingWindowsCommand::EndDrawingWindows(InRHICmdList, &WindowDrawBuffer, *RenderTargetPolicy);
+	InRHICmdList.CopyToResolveTarget(RenderTargetResource->GetTextureRHI(), RTResource, FResolveParams());
 
 	ISlate3DRendererPtr Self = SharedThis(this);
 
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(SlateDrawWindows_ResourceRetainer,
-		ISlate3DRendererPtr, Renderer, Self,
-		{
-			new ( RHICmdList.AllocCommand<TKeepAliveCommand<ISlate3DRendererPtr>>() ) TKeepAliveCommand<ISlate3DRendererPtr>(Renderer);
-		});
+	new ( InRHICmdList.AllocCommand<TKeepAliveCommand<ISlate3DRendererPtr>>() ) TKeepAliveCommand<ISlate3DRendererPtr>(Self);
 }

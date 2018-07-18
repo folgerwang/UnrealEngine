@@ -23,6 +23,7 @@ struct FSceneCaptureViewInfo
 	FMatrix ProjectionMatrix;
 	FIntRect ViewRect;
 	EStereoscopicPass StereoPass;
+	float StereoIPD;
 };
 
 USTRUCT(BlueprintType)
@@ -47,7 +48,7 @@ UENUM()
 enum class ESceneCapturePrimitiveRenderMode : uint8
 {
 	/** Legacy */
-	PRM_LegacySceneCapture UMETA(DisplayName = "Legacy"),
+	PRM_LegacySceneCapture UMETA(DisplayName = "Render Scene Primitives (Legacy)"),
 	/** Render primitives in the scene, minus HiddenActors. */
 	PRM_RenderScenePrimitives UMETA(DisplayName = "Render Scene Primitives"),
 	/** Render only primitives in the ShowOnlyActors list, or components specified with ShowOnlyComponent(). */
@@ -69,7 +70,7 @@ class ENGINE_API USceneCaptureComponent : public USceneComponent
  	TArray<TWeakObjectPtr<UPrimitiveComponent> > HiddenComponents;
 
 	/** The actors to hide in the scene capture. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=SceneCapture)
+	UPROPERTY(EditInstanceOnly, BlueprintReadWrite, Category=SceneCapture)
 	TArray<AActor*> HiddenActors;
 
 	/** The only components to be rendered by this scene capture, if PrimitiveRenderMode is set to UseShowOnlyList. */
@@ -77,7 +78,7 @@ class ENGINE_API USceneCaptureComponent : public USceneComponent
  	TArray<TWeakObjectPtr<UPrimitiveComponent> > ShowOnlyComponents;
 
 	/** The only actors to be rendered by this scene capture, if PrimitiveRenderMode is set to UseShowOnlyList.*/
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=SceneCapture)
+	UPROPERTY(EditInstanceOnly, BlueprintReadOnly, Category=SceneCapture)
 	TArray<AActor*> ShowOnlyActors;
 
 	/** Whether to update the capture's contents every frame.  If disabled, the component will render once on load and then only when moved. */
@@ -115,6 +116,10 @@ class ENGINE_API USceneCaptureComponent : public USceneComponent
 public:
 	/** Indicates which stereo pass this component is capturing for, if any */
     EStereoscopicPass CaptureStereoPass;
+
+	/** Name of the profiling event. */
+	UPROPERTY(EditAnywhere, interp, Category = SceneCapture)
+	FString ProfilingEventName;
 
 	//~ Begin UActorComponent Interface
 	virtual void OnRegister() override;
@@ -184,7 +189,8 @@ protected:
 	/**
 	 * The view state holds persistent scene rendering state and enables occlusion culling in scene captures.
 	 * NOTE: This object is used by the rendering thread. When the game thread attempts to destroy it, FDeferredCleanupInterface will keep the object around until the RT is done accessing it.
+	 * NOTE: It is not safe to put a FSceneViewStateReference in a TArray, which moves its contents around without calling element constructors during realloc.
 	 */
-	TArray<FSceneViewStateReference> ViewStates;
+	TIndirectArray<FSceneViewStateReference> ViewStates;
 };
 

@@ -9,6 +9,8 @@
 #include "GameFramework/OnlineReplStructs.h"
 #include "PartyBeaconState.generated.h"
 
+ONLINESUBSYSTEMUTILS_API DECLARE_LOG_CATEGORY_EXTERN(LogPartyBeacon, Log, All);
+
 /** The result code that will be returned during party reservation */
 UENUM()
 namespace EPartyReservationResult
@@ -35,6 +37,8 @@ namespace EPartyReservationResult
 		ReservationAccepted,
 		/** The beacon is paused and not accepting new connections. */
 		ReservationDenied,
+		/** Some kind of cross play restriction prevents this party from joining */
+		ReservationDenied_CrossPlayRestriction,
 		/** This player is banned. */
 		ReservationDenied_Banned,
 		/** The reservation request was canceled before being sent. */
@@ -94,6 +98,10 @@ namespace EPartyReservationResult
 			case ReservationDenied:
 			{
 				return TEXT("Reservation Denied");
+			}
+			case ReservationDenied_CrossPlayRestriction:
+			{
+				return TEXT("Reservation Denied CrossPlayRestriction");
 			}
 			case ReservationDenied_Banned:
 			{
@@ -170,8 +178,9 @@ struct FPlayerReservation
 {
 	GENERATED_USTRUCT_BODY()
 	
-	FPlayerReservation() :
-		ElapsedTime(0.0f)
+	FPlayerReservation()
+		: bAllowCrossplay(false)
+		, ElapsedTime(0.0f)
 	{}
 
 	/** Unique id for this reservation */
@@ -181,6 +190,14 @@ struct FPlayerReservation
 	/** Info needed to validate user credentials when joining a server */
 	UPROPERTY(Transient)
 	FString ValidationStr;
+
+	/** Platform this user is on */
+	UPROPERTY(Transient)
+	FString Platform;
+
+    /** Does this player opt in to crossplay */
+	UPROPERTY(Transient)
+	bool bAllowCrossplay;
 
 	/** Elapsed time since player made reservation and was last seen */
 	UPROPERTY(Transient)
@@ -193,8 +210,8 @@ struct ONLINESUBSYSTEMUTILS_API FPartyReservation
 {
 	GENERATED_USTRUCT_BODY()
 
-	FPartyReservation() :
-		TeamNum(INDEX_NONE)
+	FPartyReservation() 
+		: TeamNum(INDEX_NONE)
 	{}
 
 	/** Team assigned to this party */
@@ -214,6 +231,7 @@ struct ONLINESUBSYSTEMUTILS_API FPartyReservation
 
 	/** Dump this reservation to log */
 	void Dump() const;
+	void DumpUniqueIdsOnly() const;
 
 	/**
 	 * Checks if a player from a different reservation can migrate to this reservation
@@ -489,6 +507,29 @@ class ONLINESUBSYSTEMUTILS_API UPartyBeaconState : public UObject
 	virtual bool AreTeamsAvailable(const FPartyReservation& ReservationRequest) const;
 
 	/**
+	 * Perform a cross play compatible check for the new reservation against existing reservations
+	 * 
+	 * @param ReservationRequest new reservation to compare
+	 * 
+	 * @return true if there are no cross play restrictions, false otherwise
+	 */
+	virtual bool CrossPlayAllowed(const FPartyReservation& ReservationRequest) const;
+
+	/**
+	 * @return true if there are cross play restrictions, false otherwise
+	 */
+	virtual bool HasCrossplayOptOutReservation() const;
+
+	/**
+	 * Get a count of all players for a given platform
+	 * 
+	 * @param InPlatform platform to get a count for
+	 * 
+	 * @return number of players for a given platform
+	 */
+	virtual int32 GetReservationPlatformCount(const FString& InPlatform) const;
+
+	/**
 	* Determine the team number for the given party reservation request.
 	* Uses the list of current reservations to determine what teams have open slots.
 	*
@@ -528,6 +569,9 @@ protected:
 	/** Team that everyone is forced to in single team games */
 	UPROPERTY(Transient)
 	int32 ForceTeamNum;
+	/** Are multiple consoles types allowed to play together */
+	UPROPERTY(Config)
+	bool bRestrictCrossConsole;
 
 	/** Current reservations in the system */
 	UPROPERTY(Transient)

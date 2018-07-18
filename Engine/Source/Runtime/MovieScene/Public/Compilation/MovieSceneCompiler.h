@@ -2,14 +2,14 @@
 
 #pragma once
 
-#include "Range.h"
-#include "Optional.h"
-#include "Array.h"
+#include "Math/Range.h"
+#include "Misc/Optional.h"
+#include "Containers/Array.h"
 
 #include "MovieSceneSequenceID.h"
-#include "MovieSceneSequenceTransform.h"
-#include "MovieSceneEvaluationField.h"
-#include "MovieSceneEvaluationTree.h"
+#include "Evaluation/MovieSceneSequenceTransform.h"
+#include "Evaluation/MovieSceneEvaluationField.h"
+#include "Evaluation/MovieSceneEvaluationTree.h"
 #include "Evaluation/MovieSceneEvaluationTemplateInstance.h"
 
 struct FGatherParameters;
@@ -27,10 +27,10 @@ class UMovieSceneSubSection;
 struct FCompiledGroupResult
 {
 	/** Construction to an empty result for the specified range */
-	FCompiledGroupResult(TRange<float> InRange) : Range(InRange) {}
+	FCompiledGroupResult(TRange<FFrameNumber> InRange) : Range(InRange) {}
 
 	/** The range within the sequence that the goup and meta-data apply to */
-	TRange<float> Range;
+	TRange<FFrameNumber> Range;
 
 	/** Evaluation group specifying all the entities that occur in the sequence, sorted and redy for evaluation */
 	FMovieSceneEvaluationGroup Group;
@@ -58,7 +58,7 @@ public:
 	 * @param InTemplateStore 			A template store that contains (or knows how to fetch) evaluation templates for a given sequence
 	 * @return The compiled data, ready for insertion into an FMovieSceneEvaluationField
 	 */
-	MOVIESCENE_API static TOptional<FCompiledGroupResult> CompileTime(float InGlobalTime, UMovieSceneSequence& InCompileSequence, IMovieSceneSequenceTemplateStore& InTemplateStore);
+	MOVIESCENE_API static TOptional<FCompiledGroupResult> CompileTime(FFrameNumber InGlobalTime, UMovieSceneSequence& InCompileSequence, IMovieSceneSequenceTemplateStore& InTemplateStore);
 
 	/**
 	 * Compile the hierarchy data for the specified sequence into a specific hierarchy
@@ -81,7 +81,7 @@ private:
 
 	static void PopulateEvaluationGroup(FCompiledGroupResult& OutResult, const TArray<FCompileOnTheFlyData>& SortedCompileData);
 
-	static void PopulateMetaData(FCompiledGroupResult& OutResult, const FMovieSceneSequenceHierarchy& RootHierarchy, const TArray<FCompileOnTheFlyData>& SortedCompileData, TMovieSceneEvaluationTreeDataIterator<FMovieSceneSequenceID> SubSequences);
+	static void PopulateMetaData(FCompiledGroupResult& OutResult, const FMovieSceneSequenceHierarchy& RootHierarchy, IMovieSceneSequenceTemplateStore& TemplateStore, const TArray<FCompileOnTheFlyData>& SortedCompileData, TMovieSceneEvaluationTreeDataIterator<FMovieSceneSequenceID> SubSequences);
 
 private:
 

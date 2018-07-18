@@ -2,7 +2,7 @@
 
 #include "OnlineAchievementsInterfaceGameCircle.h"
 #include "Online.h"
-#include "OnlineAchievementsInterface.h"
+#include "Interfaces/OnlineAchievementsInterface.h"
 #include "Android/AndroidJNI.h"
 #include "AGS/PlayerClientInterface.h"
 #include "OnlineSubsystemGameCircle.h"
@@ -22,7 +22,7 @@ void FOnlineAchievementsGameCircle::QueryAchievements(const FUniqueNetId& Player
 		return;
 	}
 
-	AmazonGames::AchievementsClientInterface::getAchievements(new FOnlineGetAchievementsCallback(AndroidSubsystem, FUniqueNetIdString(PlayerId), Delegate));
+	AmazonGames::AchievementsClientInterface::getAchievements(new FOnlineGetAchievementsCallback(AndroidSubsystem, FUniqueNetIdGameCircle(PlayerId), Delegate));
 }
 
 void FOnlineAchievementsGameCircle::QueryAchievementDescriptions(const FUniqueNetId& PlayerId, const FOnQueryAchievementsCompleteDelegate& Delegate)

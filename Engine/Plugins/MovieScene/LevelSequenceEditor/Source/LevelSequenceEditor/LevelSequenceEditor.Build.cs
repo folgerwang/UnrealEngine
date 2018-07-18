@@ -34,7 +34,8 @@ public class LevelSequenceEditor : ModuleRules
                 "Slate",
                 "SlateCore",
                 "UnrealEd",
-                "VREditor"
+                "VREditor",
+				"TimeManagement"
 			}
 		);
 
@@ -53,7 +54,6 @@ public class LevelSequenceEditor : ModuleRules
             new string[] {
 				"LevelSequenceEditor/Private",
 				"LevelSequenceEditor/Private/AssetTools",
-                "LevelSequenceEditor/Private/Customizations",
 				"LevelSequenceEditor/Private/Factories",
                 "LevelSequenceEditor/Private/Misc",
 				"LevelSequenceEditor/Private/Styles",

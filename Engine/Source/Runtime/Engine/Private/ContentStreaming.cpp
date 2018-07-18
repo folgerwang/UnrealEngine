@@ -410,11 +410,20 @@ void IStreamingManager::SetupViewInfos( float DeltaTime )
 		ScreenSize = LastingViewInfos[0].ScreenSize;
 		FOVScreenSize = LastingViewInfos[0].FOVScreenSize;
 	}
+
 	// Add them to the appropriate array (pending views or lasting views).
-	for ( int32 SlaveLocationIndex=0; SlaveLocationIndex < SlaveLocations.Num(); SlaveLocationIndex++ )
 	{
-		const FSlaveLocation& SlaveLocation = SlaveLocations[ SlaveLocationIndex ];
-		AddViewInformation( SlaveLocation.Location, ScreenSize, FOVScreenSize, SlaveLocation.BoostFactor, SlaveLocation.bOverrideLocation, SlaveLocation.Duration );
+		// Disable this flag as it could be used in AddViewInformation to empty SlaveLocation.
+		const bool bPendingRemoveViewsBackup = bPendingRemoveViews;
+		bPendingRemoveViews = false;
+
+		for ( int32 SlaveLocationIndex=0; SlaveLocationIndex < SlaveLocations.Num(); SlaveLocationIndex++ )
+		{
+			const FSlaveLocation& SlaveLocation = SlaveLocations[ SlaveLocationIndex ];
+			AddViewInformation( SlaveLocation.Location, ScreenSize, FOVScreenSize, SlaveLocation.BoostFactor, SlaveLocation.bOverrideLocation, SlaveLocation.Duration );
+		}
+
+		bPendingRemoveViews = bPendingRemoveViewsBackup;
 	}
 
 	// Apply a split-screen factor if we have multiple players on the same machine, and they currently have individual views.
@@ -550,7 +559,9 @@ void IStreamingManager::AddViewInformation( const FVector& ViewOrigin, float Scr
 	// Is this a reasonable location?
 	if ( FMath::Abs(ViewOrigin.X) < (1.0e+20f) && FMath::Abs(ViewOrigin.Y) < (1.0e+20f) && FMath::Abs(ViewOrigin.Z) < (1.0e+20f) )
 	{
-		BoostFactor *= CVarStreamingBoost.GetValueOnGameThread();
+		const float MinBoost = CVarStreamingMinBoost.GetValueOnGameThread();
+		const float BoostScale = FMath::Max(CVarStreamingBoost.GetValueOnGameThread(),MinBoost);
+		BoostFactor *= BoostScale;
 
 		if ( bPendingRemoveViews )
 		{
@@ -593,7 +604,9 @@ void IStreamingManager::AddViewInformation( const FVector& ViewOrigin, float Scr
  */
 void IStreamingManager::AddViewSlaveLocation( const FVector& SlaveLocation, float BoostFactor/*=1.0f*/, bool bOverrideLocation/*=false*/, float Duration/*=0.0f*/ )
 {
-	BoostFactor *= CVarStreamingBoost.GetValueOnGameThread();
+	const float MinBoost = CVarStreamingMinBoost.GetValueOnGameThread();
+	const float BoostScale = FMath::Max(CVarStreamingBoost.GetValueOnGameThread(),MinBoost);
+	BoostFactor *= BoostScale;
 
 	if ( bPendingRemoveViews )
 	{
@@ -971,17 +984,6 @@ void FStreamingManagerCollection::NotifyLevelOffset(ULevel* Level, const FVector
 	}
 }
 
-/** Called when an actor is spawned. */
-void FStreamingManagerCollection::NotifyActorSpawned( AActor* Actor )
-{
-	// Route to streaming managers.
-	for( int32 ManagerIndex=0; ManagerIndex<StreamingManagers.Num(); ManagerIndex++ )
-	{
-		IStreamingManager* StreamingManager = StreamingManagers[ManagerIndex];
-		StreamingManager->NotifyActorSpawned( Actor );
-	}
-}
-
 /** Called when a spawned actor is destroyed. */
 void FStreamingManagerCollection::NotifyActorDestroyed( AActor* Actor )
 {
@@ -990,22 +992,6 @@ void FStreamingManagerCollection::NotifyActorDestroyed( AActor* Actor )
 	{
 		IStreamingManager* StreamingManager = StreamingManagers[ManagerIndex];
 		StreamingManager->NotifyActorDestroyed( Actor );
-	}
-}
-
-/**
- * Called when a primitive is attached to an actor or another component.
- * Replaces previous info, if the primitive was already attached.
- *
- * @param InPrimitive	Newly attached dynamic/spawned primitive
- */
-void FStreamingManagerCollection::NotifyPrimitiveAttached( const UPrimitiveComponent* Primitive, EDynamicPrimitiveType DynamicType )
-{
-	// Distance-based heuristics only handle mesh components
-	for( int32 ManagerIndex=0; ManagerIndex<StreamingManagers.Num(); ManagerIndex++ )
-	{
-		IStreamingManager* StreamingManager = StreamingManagers[ManagerIndex];
-		StreamingManager->NotifyPrimitiveAttached( Primitive, DynamicType );
 	}
 }
 
@@ -1020,11 +1006,18 @@ void FStreamingManagerCollection::NotifyPrimitiveDetached( const UPrimitiveCompo
 	}
 }
 
-/**
- * Called when a primitive has had its textured changed.
- * Only affects primitives that were already attached.
- * Replaces previous info.
- */
+/** Called when a primitive streaming data needs to be updated. */
+void FStreamingManagerCollection::NotifyPrimitiveUpdated( const UPrimitiveComponent* Primitive )
+{
+	// Route to streaming managers.
+	for( int32 ManagerIndex=0; ManagerIndex<StreamingManagers.Num(); ManagerIndex++ )
+	{
+		IStreamingManager* StreamingManager = StreamingManagers[ManagerIndex];
+		StreamingManager->NotifyPrimitiveUpdated( Primitive );
+	}
+}
+
+/**  Called when a primitive streaming data needs to be updated in the last stage of the frame. */
 void FStreamingManagerCollection::NotifyPrimitiveUpdated_Concurrent( const UPrimitiveComponent* Primitive )
 {
 	// Route to streaming managers.
@@ -1057,6 +1050,9 @@ void FStreamingManagerCollection::AddOrRemoveTextureStreamingManagerIfNeeded(boo
 	if( !GRHISupportsTextureStreaming || IsRunningDedicatedServer() )
 	{
 		bUseTextureStreaming = false;
+
+		// some code relies on r.TextureStreaming so we're going to disable it here to reflect the hardware capabilities and system needs
+		CVarSetTextureStreaming.AsVariable()->Set(0, ECVF_SetByCode);
 	}
 #endif
 

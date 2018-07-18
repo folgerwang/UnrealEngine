@@ -3,7 +3,7 @@
 #include "KeyStructCustomization.h"
 #include "DetailWidgetRow.h"
 #include "SKeySelector.h"
-#include "UnrealType.h"
+#include "UObject/UnrealType.h"
 
 #define LOCTEXT_NAMESPACE "FKeyStructCustomization"
 

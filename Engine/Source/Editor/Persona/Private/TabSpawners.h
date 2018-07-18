@@ -18,6 +18,7 @@
 #include "IPersonaPreviewScene.h"
 #include "AnimationEditorViewportClient.h"
 #include "SSingleObjectDetailsPanel.h"
+#include "PersonaTabs.h"
 
 #define LOCTEXT_NAMESPACE "PersonaMode"
 
@@ -26,64 +27,6 @@ class IPersonaToolkit;
 class ISkeletonTree;
 class SPersonaDetails;
 class SToolTip;
-
-/////////////////////////////////////////////////////
-
-struct FPersonaTabs
-{
-	// Tab constants
-
-	// Selection Details
-	static const FName MorphTargetsID;
-	static const FName AnimCurveViewID;
-	static const FName SkeletonTreeViewID;
-	// Skeleton Pose manager
-	static const FName RetargetManagerID;
-	static const FName RigManagerID;
-	// Skeleton/Sockets
-	// Anim Blueprint Params
-	// Explorer
-	// Class Defaults
-	static const FName AnimBlueprintPreviewEditorID;
-	static const FName AnimBlueprintParentPlayerEditorID;
-	// Anim Document
-	static const FName ScrubberID;
-	// Toolbar
-	static const FName PreviewViewportID;
-	static const FName PreviewViewport1ID;
-	static const FName PreviewViewport2ID;
-	static const FName PreviewViewport3ID;
-	static const FName AssetBrowserID;
-	static const FName MirrorSetupID;
-	static const FName AnimBlueprintDebugHistoryID;
-	static const FName AnimAssetPropertiesID;
-	static const FName MeshAssetPropertiesID;
-	static const FName PreviewManagerID;
-	static const FName SkeletonAnimNotifiesID;
-	static const FName SkeletonSlotNamesID;
-	static const FName SkeletonSlotGroupNamesID;
-	static const FName CurveNameManagerID;
-	static const FName BlendProfileManagerID;
-
-	// Advanced Preview Scene
-	static const FName AdvancedPreviewSceneSettingsID;
-
-	static const FName DetailsID;
-
-	// Blueprint Document
-
-	// Inherited from blueprint editor
-	/*
-	static const FName Toolbar;
-	static const FName Explorer;
-	static const FName VariableList;
-	static const FName Inspector;
-	etc...
-	*/
-
-private:
-	FPersonaTabs() {}
-};
 
 /////////////////////////////////////////////////////
 
@@ -253,7 +196,6 @@ struct FPreviewViewportSummoner : public FWorkflowTabFactory
 
 	TWeakPtr<ISkeletonTree> SkeletonTree;
 	TWeakPtr<IPersonaPreviewScene> PreviewScene;
-	FSimpleMulticastDelegate& OnPostUndo;
 	TWeakPtr<FBlueprintEditor> BlueprintEditor;
 	FOnViewportCreated OnViewportCreated;
 	FOnGetViewportText OnGetViewportText;

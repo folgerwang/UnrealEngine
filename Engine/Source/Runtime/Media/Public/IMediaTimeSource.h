@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "Misc/Timespan.h"
+
 
 /**
  * Interface for media clock time sources.

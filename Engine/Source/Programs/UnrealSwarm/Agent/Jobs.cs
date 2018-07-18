@@ -1080,7 +1080,9 @@ namespace Agent
 
                             if (SourceIndex >= ListOfTasksDescending.Count)
                             {
-                                int NumWraparounds = (TaskIndex + 1) * NumStripes / ListOfTasksDescending.Count;
+                                int NumWraparounds = (int)((ulong)(TaskIndex + 1) * (ulong)NumStripes / (ulong)ListOfTasksDescending.Count);
+                                Debug.Assert(NumWraparounds >= 0);
+
                                 SourceIndex = NumWraparounds;
                             }
                         }

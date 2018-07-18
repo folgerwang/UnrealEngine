@@ -1,58 +1,11 @@
-﻿INTSourceChangelist:2686729
+﻿INTSourceChangelist:3807090
 Availability:Public
 Title:ポストプロセス マテリアルのサンプル
 Crumbs: %ROOT%, Engine, Engine/Rendering/PostProcessEffects, Engine/Rendering/PostProcessEffects/PostProcessMaterials
 Description:ビデオ スキャンライン ポストプロセス マテリアルの概要
 Version:4.9
 SkillLevel:Advanced
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![](Engine/Rendering/PostProcessEffects/PostProcessMaterials/PostProcessDemoMaterialOverview/ppm_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/content_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Rendering/PostProcessEffects/PostProcessMaterials/PostProcessDemoMaterialOverview:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Rendering/PostProcessEffects/PostProcessMaterials/PostProcessDemoMaterialOverview:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/PostProcessEffects/PostProcessMaterials/PostProcessDemoMaterialOverview]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![](Engine/Rendering/PostProcessEffects/PostProcessMaterials/PostProcessDemoMaterialOverview/ppm_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/content_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Rendering/PostProcessEffects/PostProcessMaterials/PostProcessDemoMaterialOverview:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Rendering/PostProcessEffects/PostProcessMaterials/PostProcessDemoMaterialOverview:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Rendering/PostProcessEffects/PostProcessMaterials/PostProcessDemoMaterialOverview]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:Third]
-300
-[/VAR]
-
-[VAR:PostTest]
-w:450
-[/VAR]
+topic-image:ppm_topic.png
 
 ## ポストプロセス エフェクトのマテリアルの作成
 
@@ -77,7 +30,7 @@ w:450
 1. この段階で、ポストプロセスの外見を定義するマテリアル式ネットワークを作成します。このサンプルのテストとして、ビデオ スキャンライン オーバーレイ エフェクトを作成してみます。でも、本当は望みのものを何でも作成することができます。素敵なビデオ スキャンライン ポストプロセス マテリアルのサンプルが欲しい場合は、[マテリアル設定](#マテリアル設定) セクションを参照してください。
 
 
-##マテリアル設定
+## マテリアル設定
 
 このページでは、単純なビデオ スキャンライン ポストプロセス マテリアルの概要と詳細を記述します。
 
@@ -88,7 +41,7 @@ w:450
 最初に、エフェクトに使用しているテクスチャは以下の通りです。必要があれば **右クリック** してそれぞれのテクスチャを保存したり、独自のバリエーションを作成することができます。すべて非常に単純です。
 
 [REGION:imagetable]
-|![](ScanDistort.png)(w:%Third% h:%Third% convert:false)|![](Noise.png)(w:%Third% h:%Third% convert:false) |![](Scanlines.png)(w:%Third% h:%Third% convert:false) |
+|![](ScanDistort.png)(w:300 convert:false)|![](Noise.png)(w:300 convert:false) |![](Scanlines.png)(w:300 convert:false) |
 |:---:|:---:|:---:|
 |ScanDistortion.png (2x128)|Noise.png (512x512)|Scanlines.png (4x4)|
 [/REGION]

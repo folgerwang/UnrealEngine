@@ -50,7 +50,8 @@ Keystore は、プロジェクトを必ず自分の Google Play アカウント�
 	[/OBJECT]
 
 1. 以下のコマンドライン引数を入力して [Enter] キーを押します。 
-	keytool -genkey -v -keystore ExampleKey.keystore -alias MyKey -keyalg RSA -keysize 2048 -validity 10000 
+
+		keytool -genkey -v -keystore ExampleKey.keystore -alias MyKey -keyalg RSA -keysize 2048 -validity 10000 
 
 	[OBJECT:ToggleButtonContent]
 	[PARAMLITERAL:category]

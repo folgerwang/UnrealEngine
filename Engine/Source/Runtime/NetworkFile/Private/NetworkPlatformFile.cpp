@@ -21,9 +21,9 @@
 #include "TCPTransport.h"
 
 #include "HAL/IPlatformFileModule.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
-#include "Object.h"
+#include "UObject/Object.h"
 
 DEFINE_LOG_CATEGORY(LogNetworkPlatformFile);
 
@@ -1145,7 +1145,7 @@ void FNetworkPlatformFile::EnsureFileIsLocal(const FString& Filename)
 	}
 	if (FinishedAsyncWriteUnsolicitedFiles)
 	{
-		if (bIncrimentedPackageWaits == false && FinishedAsyncNetworkReadUnsolicitedFiles->Get() == 0)
+		if (bIncrimentedPackageWaits == false && FinishedAsyncNetworkReadUnsolicitedFiles->Get() == 0) //-V522
 		{
 			++UnsolicitedPackageWaits;
 		}

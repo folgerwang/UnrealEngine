@@ -32,11 +32,11 @@ FORCEINLINE float GetBasisDeterminantSign( const FVector& XAxis, const FVector& 
 * @param XAxis - x axis (tangent)
 * @param YAxis - y axis (binormal)
 * @param ZAxis - z axis (normal)
-* @return sign of determinant either 0 (-1) or +1 (255)
+* @return sign of determinant either -127 (-1) or +1 (127)
 */
-FORCEINLINE uint8 GetBasisDeterminantSignByte( const FPackedNormal& XAxis, const FPackedNormal& YAxis, const FPackedNormal& ZAxis )
+FORCEINLINE int8 GetBasisDeterminantSignByte( const FPackedNormal& XAxis, const FPackedNormal& YAxis, const FPackedNormal& ZAxis )
 {
-	return FMath::TruncToInt(GetBasisDeterminantSign(XAxis,YAxis,ZAxis) * 127.5f + 127.5f);
+	return GetBasisDeterminantSign(XAxis.ToFVector(),YAxis.ToFVector(),ZAxis.ToFVector()) < 0 ? -127 : 127;
 }
 
 /** Information about a pixel format. */
@@ -213,6 +213,31 @@ enum EConstructTextureFlags
 	/** Default flags (maps to previous defaults to ConstructTexture2D) */
 	CTF_Default = CTF_Compress | CTF_SRGB,
 };
+
+/**
+ * Calculates the amount of memory used for a single mip-map of a texture 3D.
+ *
+ * @param TextureSizeX		Number of horizontal texels (for the base mip-level)
+ * @param TextureSizeY		Number of vertical texels (for the base mip-level)
+ * @param TextureSizeZ		Number of slices (for the base mip-level)
+ * @param Format	Texture format
+ * @param MipIndex	The index of the mip-map to compute the size of.
+ */
+RENDERCORE_API SIZE_T CalcTextureMipMapSize3D( uint32 TextureSizeX, uint32 TextureSizeY, uint32 TextureSizeZ, EPixelFormat Format, uint32 MipIndex);
+
+/**
+ * Calculates the extent of a mip.
+ *
+ * @param TextureSizeX		Number of horizontal texels (for the base mip-level)
+ * @param TextureSizeY		Number of vertical texels (for the base mip-level)
+ * @param TextureSizeZ		Number of depth texels (for the base mip-level)
+ * @param Format			Texture format
+ * @param MipIndex			The index of the mip-map to compute the size of.
+ * @param OutXExtent		The extent X of the mip
+ * @param OutYExtent		The extent Y of the mip
+ * @param OutZExtent		The extent Z of the mip
+ */
+RENDERCORE_API void CalcMipMapExtent3D( uint32 TextureSizeX, uint32 TextureSizeY, uint32 TextureSizeZ, EPixelFormat Format, uint32 MipIndex, uint32& OutXExtent, uint32& OutYExtent, uint32& OutZExtent );
 
 /**
  * Calculates the extent of a mip.

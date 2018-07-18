@@ -168,8 +168,9 @@ ProxyLOD::FSrcDataGrid::Ptr ProxyLOD::CreateCorrespondence( const FRawMeshArrayA
 
 	const auto& Indices = ReducedMesh.Indices;
 	const auto& Points = ReducedMesh.Points;
-	const auto& Normal = ReducedMesh.Normal;
+	const auto& Normal = (ReducedMesh.TransferNormal.Num() == 0) ? ReducedMesh.Normal : ReducedMesh.TransferNormal;
 
+	checkSlow(Normal.Num() == Points.Num());
 
 	// Iterate over the the UVGrid.
 
@@ -183,8 +184,13 @@ ProxyLOD::FSrcDataGrid::Ptr ProxyLOD::CreateCorrespondence( const FRawMeshArrayA
 			{
 				const auto& TexelData = UVGrid(i, j);
 				ProxyLOD::FSrcMeshData& TargetTexel = TargetGrid(i, j);
+			
+				// initialize with values that will be over-written if we
+				// can create a correspondence with the source mesh for this texel.
+
 				TargetTexel.MaterialId = -1;
 
+				// This texel is associated with a triangle on the target geometry.
 				if (TexelData.TriangleId > -1)
 				{
 					const uint32 TriangleId = TexelData.TriangleId;
@@ -403,7 +409,10 @@ ProxyLOD::FSrcDataGrid::Ptr ProxyLOD::CreateCorrespondence( const openvdb::Int32
 
 	const auto& Indices = ReducedMesh.Indices;
 	const auto& Points = ReducedMesh.Points;
-	const auto& Normal = ReducedMesh.Normal;
+	const auto& Normal = (ReducedMesh.TransferNormal.Num() == 0) ? ReducedMesh.Normal : ReducedMesh.TransferNormal;
+
+	checkSlow(Normal.Num() == Points.Num());
+
 
 
 	// Iterate over the the UVGrid.
@@ -598,7 +607,7 @@ namespace
 {
 
 	template <EFlattenMaterialProperties PropertyType>
-	void TransferMaterial(const ProxyLOD::FSrcDataGrid& CorrespondenceGrid, const ProxyLOD::FRasterGrid& UVGrid, const TArray<FFlattenMaterial>& InputMaterials, TArray<FLinearColor>& SamplesBuffer)
+	void TransferMaterial(const ProxyLOD::FSrcDataGrid& CorrespondenceGrid, const ProxyLOD::FRasterGrid& UVGrid, const TArray<FFlattenMaterial>& InputMaterials, TArray<FLinearColor>& SamplesBuffer, const FLinearColor DefaultColor = FLinearColor(0., 0., 0., 0.))
 	{
 		checkSlow(CorrespondenceGrid.Size() == UVGrid.Size());
 
@@ -609,10 +618,11 @@ namespace
 		// Init buffer to zero color
 
 		ProxyLOD::Parallel_For(ProxyLOD::FIntRange(0, BufferSize),
-			[&SamplesBuffer](const ProxyLOD::FIntRange& Range)
+			[&SamplesBuffer, DefaultColor](const ProxyLOD::FIntRange& Range)
 		{
+			const float MinFloat = std::numeric_limits<float>::lowest();
 			FLinearColor* Data = SamplesBuffer.GetData();
-			for (int32 i = Range.begin(), I = Range.end(); i < I; ++i) Data[i] = FLinearColor(0.f, 0.f, 0.f, 0.f);
+			for (int32 i = Range.begin(), I = Range.end(); i < I; ++i) Data[i] = DefaultColor;
 		});
 
 
@@ -622,7 +632,7 @@ namespace
 			[&](const ProxyLOD::FIntRange& Range)
 		{
 
-			const FColor EmptySrcColor(0, 0, 255);
+			const FColor EmptySrcColor = FColor::Black; 
 
 			auto GetColorFromBuffer = [](const FIntPoint& Size, const TArray<FColor>& Buffer, const FIntPoint& ij)->FLinearColor
 			{
@@ -845,7 +855,7 @@ namespace
 	*  NB: It is assumed that the SuperSample Grid is a multiple of the OutBuffer Grid.  I.e. an integer number of super sample
 	*      texels correspond to each result texel
 	*/
-	void SparseDownSampleColor(const ProxyLOD::TGridWrapper<FLinearColor>& SuperSampleGrid, ProxyLOD::FLinearColorGrid& OutGrid)
+	void SparseDownSampleColor(const ProxyLOD::TGridWrapper<FLinearColor>& SuperSampleGrid, ProxyLOD::FLinearColorGrid& OutGrid, const FLinearColor DefaultColor = FLinearColor(0., 0., 0., 0.))
 	{
 		FIntPoint SuperSampleSize = SuperSampleGrid.Size();
 		FIntPoint ResultSize      = OutGrid.Size();
@@ -922,6 +932,10 @@ namespace
 							float LumaCorrection = Luma / ComputeLuma(ResultColor);
 							ResultColor *= LumaCorrection;
 						}
+					}
+					else
+					{
+						ResultColor = DefaultColor;
 					}
 
 					// write it into the buffer
@@ -1508,7 +1522,7 @@ namespace
 	void TMapFlattenMaterial(const FRawMesh& DstRawMesh, const FRawMeshArrayAdapter& SrcMeshAdapter,
 		const ProxyLOD::FSrcDataGrid&  SuperSampledCorrespondenceGrid,
 		const ProxyLOD::FRasterGrid& SuperSampledDstUVGrid, const ProxyLOD::FRasterGrid& DstUVGrid,
-		const TArray<FFlattenMaterial>& InputMaterials, FFlattenMaterial& OutMaterial)
+		const TArray<FFlattenMaterial>& InputMaterials, FFlattenMaterial& OutMaterial, const FColor DefaultColor = FColor::Black)
 	{
 		const FIntPoint OutSize = OutMaterial.GetPropertySize(PropertyType);
 
@@ -1549,8 +1563,12 @@ namespace
 			}
 			else if (PropertyType == EFlattenMaterialProperties::Diffuse)
 			{
+				// The base color to use when ray-based transfer can't find any source geometry.  This happens most when
+				// using gap filling to close doors and windows.
+				const FLinearColor UnresolvedColor(DefaultColor);
+				
 				TArray<FLinearColor> SuperSampledMaterial;
-				TransferMaterial<PropertyType>(SuperSampledCorrespondenceGrid, SuperSampledDstUVGrid, InputMaterials, SuperSampledMaterial);
+				TransferMaterial<PropertyType>(SuperSampledCorrespondenceGrid, SuperSampledDstUVGrid, InputMaterials, SuperSampledMaterial, UnresolvedColor);
 
 				// Preserve the average luma when down sampling color.
 				ProxyLOD::TGridWrapper<FLinearColor> SuperSampleGrid(SuperSampledMaterial, SuperSampledDstUVGrid.Size());
@@ -1670,12 +1688,13 @@ void MapFlattenMaterial(const EFlattenMaterialProperties PropertyType,
 	const ProxyLOD::FRasterGrid& SuperSampledDstUVGrid,
 	const ProxyLOD::FRasterGrid& DstUVGrid, 
 	const TArray<FFlattenMaterial>& InputMaterials, 
+	const FColor UnresolvedSrcColor,
 	FFlattenMaterial& OutMaterial)
 {
 	switch (PropertyType)
 	{
 	case EFlattenMaterialProperties::Diffuse:
-		TMapFlattenMaterial<EFlattenMaterialProperties::Diffuse>(DstRawMesh, SrcMeshAdapter, SuperSampledCorrespondenceGrid, SuperSampledDstUVGrid, DstUVGrid, InputMaterials, OutMaterial);
+		TMapFlattenMaterial<EFlattenMaterialProperties::Diffuse>(DstRawMesh, SrcMeshAdapter, SuperSampledCorrespondenceGrid, SuperSampledDstUVGrid, DstUVGrid, InputMaterials, OutMaterial, UnresolvedSrcColor);
 		break;
 	case EFlattenMaterialProperties::Specular:
 		TMapFlattenMaterial<EFlattenMaterialProperties::Specular>(DstRawMesh, SrcMeshAdapter, SuperSampledCorrespondenceGrid, SuperSampledDstUVGrid, DstUVGrid, InputMaterials, OutMaterial);
@@ -1708,7 +1727,8 @@ void ProxyLOD::MapFlattenMaterials(const FRawMesh& DstRawMesh, const FRawMeshArr
 	const ProxyLOD::FSrcDataGrid& SuperSampledCorrespondenceGrid,
 	const ProxyLOD::FRasterGrid& SuperSampledDstUVGrid,
 	const ProxyLOD::FRasterGrid& DstUVGrid,
-	const TArray<FFlattenMaterial>& InputMaterials, 
+	const TArray<FFlattenMaterial>& InputMaterials,
+	const FColor UnresolvedSrcColor,
 	FFlattenMaterial& OutMaterial)
 {
 
@@ -1719,12 +1739,12 @@ void ProxyLOD::MapFlattenMaterials(const FRawMesh& DstRawMesh, const FRawMeshArr
 
 		// NB: The MaterialProperty is captured by value
 
-		auto MapTask = [MaterialProperty, &DstRawMesh, &SrcMeshAdapter, &SuperSampledCorrespondenceGrid, &SuperSampledDstUVGrid, &DstUVGrid, &InputMaterials, &OutMaterial]
+		auto MapTask = [MaterialProperty, &DstRawMesh, &SrcMeshAdapter, &SuperSampledCorrespondenceGrid, &SuperSampledDstUVGrid, &DstUVGrid, &InputMaterials, UnresolvedSrcColor, &OutMaterial]
 		()
 		{
 			// This is also threaded internally. 
 
-			MapFlattenMaterial(MaterialProperty, DstRawMesh, SrcMeshAdapter, SuperSampledCorrespondenceGrid, SuperSampledDstUVGrid, DstUVGrid, InputMaterials, OutMaterial);
+			MapFlattenMaterial(MaterialProperty, DstRawMesh, SrcMeshAdapter, SuperSampledCorrespondenceGrid, SuperSampledDstUVGrid, DstUVGrid, InputMaterials, UnresolvedSrcColor, OutMaterial);
 		};
 
 		// enqueue the task with the task manager.

@@ -43,9 +43,13 @@ void FSteamSplashTicker::OnPostLoadMap(UWorld*)
 
 void FSteamSplashTicker::Tick(float DeltaTime)
 {
-	if (SteamVRHMD->pBridge && SteamVRHMD->VRCompositor && SteamVRHMD->bSplashIsShown)
+	int32 Dummy = 0;
+
+	// Note, that we use the fact that BridgeBaseImpl::Present only returns false when VRCompositor is null,
+	// even though when used by the renderer as an indication whether normal present is needed.
+	if (SteamVRHMD->bSplashIsShown && SteamVRHMD->pBridge && SteamVRHMD->pBridge->Present(Dummy))
 	{
-		SteamVRHMD->pBridge->FinishRendering();
+		check(!SteamVRHMD->VRCompositor);
 		SteamVRHMD->VRCompositor->PostPresentHandoff();
 	}
 }

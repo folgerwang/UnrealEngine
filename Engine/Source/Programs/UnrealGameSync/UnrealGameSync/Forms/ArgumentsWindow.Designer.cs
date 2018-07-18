@@ -39,6 +39,7 @@ namespace UnrealGameSync
 			this.columnHeader1 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
 			this.MoveUpButton = new System.Windows.Forms.Button();
 			this.MoveDownButton = new System.Windows.Forms.Button();
+			this.PromptBeforeLaunchCheckBox = new System.Windows.Forms.CheckBox();
 			this.SuspendLayout();
 			// 
 			// OkButton
@@ -86,7 +87,7 @@ namespace UnrealGameSync
 			this.ArgumentsList.MultiSelect = false;
 			this.ArgumentsList.Name = "ArgumentsList";
 			this.ArgumentsList.OwnerDraw = true;
-			this.ArgumentsList.Size = new System.Drawing.Size(647, 393);
+			this.ArgumentsList.Size = new System.Drawing.Size(647, 363);
 			this.ArgumentsList.TabIndex = 5;
 			this.ArgumentsList.UseCompatibleStateImageBehavior = false;
 			this.ArgumentsList.View = System.Windows.Forms.View.Details;
@@ -125,6 +126,18 @@ namespace UnrealGameSync
 			this.MoveDownButton.UseVisualStyleBackColor = true;
 			this.MoveDownButton.Click += new System.EventHandler(this.MoveDownButton_Click);
 			// 
+			// PromptBeforeLaunchCheckBox
+			// 
+			this.PromptBeforeLaunchCheckBox.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+			this.PromptBeforeLaunchCheckBox.AutoSize = true;
+			this.PromptBeforeLaunchCheckBox.Location = new System.Drawing.Point(12, 388);
+			this.PromptBeforeLaunchCheckBox.Name = "PromptBeforeLaunchCheckBox";
+			this.PromptBeforeLaunchCheckBox.Size = new System.Drawing.Size(299, 19);
+			this.PromptBeforeLaunchCheckBox.TabIndex = 8;
+			this.PromptBeforeLaunchCheckBox.Text = "Always show this dialog before launching the editor";
+			this.PromptBeforeLaunchCheckBox.UseVisualStyleBackColor = true;
+			this.PromptBeforeLaunchCheckBox.CheckedChanged += new System.EventHandler(this.checkBox1_CheckedChanged);
+			// 
 			// ArgumentsWindow
 			// 
 			this.AcceptButton = this.OkButton;
@@ -132,6 +145,7 @@ namespace UnrealGameSync
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
 			this.CancelButton = this.CancelBtn;
 			this.ClientSize = new System.Drawing.Size(791, 419);
+			this.Controls.Add(this.PromptBeforeLaunchCheckBox);
 			this.Controls.Add(this.MoveDownButton);
 			this.Controls.Add(this.MoveUpButton);
 			this.Controls.Add(this.ArgumentsList);
@@ -140,9 +154,11 @@ namespace UnrealGameSync
 			this.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
 			this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
 			this.Name = "ArgumentsWindow";
+			this.ShowInTaskbar = false;
 			this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
 			this.Text = "Command Line Arguments";
 			this.ResumeLayout(false);
+			this.PerformLayout();
 
 		}
 
@@ -154,5 +170,6 @@ namespace UnrealGameSync
 		private System.Windows.Forms.ColumnHeader columnHeader1;
 		private System.Windows.Forms.Button MoveUpButton;
 		private System.Windows.Forms.Button MoveDownButton;
+		private System.Windows.Forms.CheckBox PromptBeforeLaunchCheckBox;
 	}
 }

@@ -2,7 +2,7 @@ Availability: NoPublish
 Title: Build Configuration Properties Page
 Crumbs:
 Description: This is a procedurally generated markdown page.
-Version: 4.19
+Version: 4.20
 
 ### XboxOnePlatform
 
@@ -18,11 +18,19 @@ $ bEnableThreadSanitizer : Enables thread sanitizer (TSan)
 
 $ bEnableUndefinedBehaviorSanitizer : Enables undefined behavior sanitizer (UBSan)
 
+$ bWriteSolutionOptionFile : Whether to write a solution option (suo) file for the sln
+
 $ bAddFastPDBToProjects : Whether to add the -FastPDB option to build command lines by default
 
 $ bUsePerFileIntellisense : Whether to generate per-file intellisense data
 
 $ bEditorDependsOnShaderCompileWorker : Whether to include a dependency on ShaderCompileWorker when generating project files for the editor.
+
+$ ProcessorCountMultiplier : Processor count multiplier for local execution. Can be below 1 to reserve CPU for other tasks. When using the local executor (not XGE), run a single action on each CPU core.  Note that you can set this to a larger value to get slightly faster build times in many cases, but your computer's responsiveness during compiling may be much worse.
+
+$ MaxProcessorCount : Maximum processor count for local execution.
+
+$ bStopCompilationAfterErrors : When enabled, will stop compiling targets after a compile error occurs.
 
 $ bDebugBuildsActuallyUseDebugCRT : Enables the debug C++ runtime (CRT) for debug builds. By default we always use the release runtime, since the debug version isn't particularly useful when debugging Unreal Engine projects, and linking against the debug CRT libraries forces our third party library dependencies to also be compiled using the debug CRT (and often perform more slowly). Often it can be inconvenient to require a separate copy of the debug versions of third party static libraries simply so that you can debug your program's code.
 
@@ -106,15 +114,13 @@ $ bFlushBuildDirOnRemoteMac : Whether to clean Builds directory on a remote Mac 
 
 $ bPrintToolChainTimingInfo : Whether to write detailed timing info from the compiler and linker.
 
-$ PCHOutputDirectory : The directory to put precompiled header files in. Experimental setting to allow using a path on a faster drive. Defaults to the standard output directory if not set.
-
 $ bIgnoreOutdatedImportLibraries : Whether to ignore import library files that are out of date when building targets.  Set this to true to improve iteration time. By default we don't bother relinking targets if only a dependent .lib has changed, as chances are that the import library wasn't actually different unless a dependent header file of this target was also changed, in which case the target would be rebuilt automatically.
 
 $ bUseActionHistory : Whether to generate command line dependencies for compile actions when requested
 
 $ bPrintDebugInfo : Whether debug info should be written to the console.
 
-$ LogFilename : Allows logging to a file
+$ LogFileName : Specifies the file to use for logging
 
 $ bPrintPerformanceInfo : Prints performance diagnostics about include dependencies and other bits
 
@@ -125,8 +131,6 @@ $ bAllowXGE : Whether XGE may be used.
 $ bAllowSNDBS : Whether SN-DBS may be used.
 
 $ bShouldDeleteAllOutdatedProducedItems : Whether or not to delete outdated produced items.
-
-$ LogLevel : What level of logging we wish to show
 
 $ JsonExportFile : Whether we should export a JSON file containing detailed target information.
 
@@ -146,6 +150,8 @@ $ bUseUBTMakefiles : Enables support for very fast iterative builds by caching t
 
 $ bAllowDistcc : Whether DMUCS/Distcc may be used. Distcc requires some setup - so by default disable it so we don't break local or remote building
 
+$ bAllowParallelExecutor : Whether to allow using parallel executor on Windows.
+
 $ bIgnoreJunk : Whether to skip checking for files identified by the junk manifest
 
 $ bAllowDistccLocalFallback : When enabled allows DMUCS/Distcc to fallback to local compilation when remote compiling fails. Defaults to true as separation of pre-process and compile stages can introduce non-fatal errors.
@@ -158,39 +164,103 @@ $ DMUCSCoordinator : DMUCS coordinator hostname or IP address.
 
 $ DMUCSDistProp : The DMUCS distinguishing property value to request for compile hosts.
 
-$ ProcessorCountMultiplier : Processor count multiplier for local execution. Can be below 1 to reserve CPU for other tasks. When using the local executor (not XGE), run a single action on each CPU core.  Note that you can set this to a larger value to get slightly faster build times in many cases, but your computer's responsiveness during compiling may be much worse.
-
-$ MaxProcessorCount : Maximum processor count for local execution.
-
 $ bXGENoWatchdogThread : Whether to use the no_watchdog_thread option to prevent VS2015 toolchain stalls.
 
 $ bShowXGEMonitor : Whether to display the XGE build monitor.
 
 $ bStopXGECompilationAfterErrors : When enabled, XGE will stop compiling targets after a compile error occurs.  Recommended, as it saves computing resources for others.
 
+### CLionGenerator
+
+$ bIncludeDocumentation : True if we should include documentation in the generated projects
+
+$ MasterProjectName : Name of the master project file (e.g. base file name for the solution file for Visual Studio, or the Xcode project file on Mac)
+
+$ bMasterProjectNameFromFolder : If true, sets the master project name according to the name of the folder it's in
+
 ### CMakefileGenerator
+
+$ bIncludeDocumentation : True if we should include documentation in the generated projects
+
+$ MasterProjectName : Name of the master project file (e.g. base file name for the solution file for Visual Studio, or the Xcode project file on Mac)
+
+$ bMasterProjectNameFromFolder : If true, sets the master project name according to the name of the folder it's in
 
 ### CodeLiteGenerator
 
+$ bIncludeDocumentation : True if we should include documentation in the generated projects
+
+$ MasterProjectName : Name of the master project file (e.g. base file name for the solution file for Visual Studio, or the Xcode project file on Mac)
+
+$ bMasterProjectNameFromFolder : If true, sets the master project name according to the name of the folder it's in
+
 ### EddieProjectFileGenerator
+
+$ bIncludeDocumentation : True if we should include documentation in the generated projects
+
+$ MasterProjectName : Name of the master project file (e.g. base file name for the solution file for Visual Studio, or the Xcode project file on Mac)
+
+$ bMasterProjectNameFromFolder : If true, sets the master project name according to the name of the folder it's in
 
 ### KDevelopGenerator
 
+$ bIncludeDocumentation : True if we should include documentation in the generated projects
+
+$ MasterProjectName : Name of the master project file (e.g. base file name for the solution file for Visual Studio, or the Xcode project file on Mac)
+
+$ bMasterProjectNameFromFolder : If true, sets the master project name according to the name of the folder it's in
+
 ### MakefileGenerator
+
+$ bIncludeDocumentation : True if we should include documentation in the generated projects
+
+$ MasterProjectName : Name of the master project file (e.g. base file name for the solution file for Visual Studio, or the Xcode project file on Mac)
+
+$ bMasterProjectNameFromFolder : If true, sets the master project name according to the name of the folder it's in
 
 ### ProjectFileGenerator
 
 $ Format : Default list of project file formats to generate
 
+$ bIncludeDocumentation : True if we should include documentation in the generated projects
+
+$ MasterProjectName : Name of the master project file (e.g. base file name for the solution file for Visual Studio, or the Xcode project file on Mac)
+
+$ bMasterProjectNameFromFolder : If true, sets the master project name according to the name of the folder it's in
+
 ### QMakefileGenerator
 
+$ bIncludeDocumentation : True if we should include documentation in the generated projects
+
+$ MasterProjectName : Name of the master project file (e.g. base file name for the solution file for Visual Studio, or the Xcode project file on Mac)
+
+$ bMasterProjectNameFromFolder : If true, sets the master project name according to the name of the folder it's in
+
 ### VSCodeProjectFileGenerator
+
+$ bIncludeDocumentation : True if we should include documentation in the generated projects
+
+$ MasterProjectName : Name of the master project file (e.g. base file name for the solution file for Visual Studio, or the Xcode project file on Mac)
+
+$ bMasterProjectNameFromFolder : If true, sets the master project name according to the name of the folder it's in
 
 ### VCProjectFileGenerator
 
 $ Version : The version of Visual Studio to generate project files for.
 
+$ bIncludeDocumentation : True if we should include documentation in the generated projects
+
+$ MasterProjectName : Name of the master project file (e.g. base file name for the solution file for Visual Studio, or the Xcode project file on Mac)
+
+$ bMasterProjectNameFromFolder : If true, sets the master project name according to the name of the folder it's in
+
 ### XcodeProjectFileGenerator
+
+$ bIncludeDocumentation : True if we should include documentation in the generated projects
+
+$ MasterProjectName : Name of the master project file (e.g. base file name for the solution file for Visual Studio, or the Xcode project file on Mac)
+
+$ bMasterProjectNameFromFolder : If true, sets the master project name according to the name of the folder it's in
 
 ### SourceFileWorkingSet
 
@@ -199,6 +269,16 @@ $ Provider : Sets the provider to use for determining the working set
 $ RepositoryPath : Sets the path to use for the repository. Interpreted relative to the UE root directory (ie. folder above the Engine folder) if relative.
 
 $ GitPath : Sets the path to use for the Git executable. Defaults to "git" (assuming it's in the PATH).
+
+### VCMacProjectFileGenerator
+
+$ Version : The version of Visual Studio to generate project files for.
+
+$ bIncludeDocumentation : True if we should include documentation in the generated projects
+
+$ MasterProjectName : Name of the master project file (e.g. base file name for the solution file for Visual Studio, or the Xcode project file on Mac)
+
+$ bMasterProjectNameFromFolder : If true, sets the master project name according to the name of the folder it's in
 
 ### IOSToolChain
 
@@ -251,6 +331,10 @@ $ RSyncUsername : Username on the remote machine to connect to with RSync
 ### WindowsPlatform
 
 $ Compiler : Version of the compiler toolchain to use on Windows platform. A value of "default" will be changed to a specific version at UBT startup.
+
+$ CompilerVersion : The specific toolchain version to use. This may be a specific version number (eg. "14.13.26128") or the string "Latest" to select the newest available version. By default, we use the toolchain version indicated by WindowsPlatform.DefaultToolChainVersion if it is available, or the latest version otherwise.
+
+$ WindowsSdkVersion : The specific Windows SDK version to use. This may be a specific version number (eg. "8.1", "10.0", or "10.0.10150.0") or the string "Latest" to select the newest available version. By default, we use the Windows SDK version indicated by WindowsPlatform.DefaultWindowsSdkVersion if it is available, or the latest version otherwise.
 
 $ StaticAnalyzer : The static analyzer to use
 

@@ -97,7 +97,7 @@ bool FExrImgMediaReader::GetInfo(FRgbaInputFile& InputFile, FImgMediaFrameInfo& 
 	OutInfo.CompressionName = InputFile.GetCompressionName();
 	OutInfo.Dim = InputFile.GetDataWindow();
 	OutInfo.FormatName = TEXT("EXR");
-	OutInfo.Fps = (float)InputFile.GetFramesPerSecond(IMGMEDIA_DEFAULT_FPS);
+	OutInfo.FrameRate = InputFile.GetFrameRate(ImgMedia::DefaultFrameRate);
 	OutInfo.Srgb = false;
 	OutInfo.UncompressedSize = InputFile.GetUncompressedSize();
 

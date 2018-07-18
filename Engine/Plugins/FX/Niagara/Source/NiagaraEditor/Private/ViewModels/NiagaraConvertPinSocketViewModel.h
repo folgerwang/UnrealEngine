@@ -2,9 +2,9 @@
 
 #pragma once
 
-#include "SharedPointer.h"
+#include "Templates/SharedPointer.h"
 #include "EdGraph/EdGraphNode.h"
-#include "SharedPointer.h"
+#include "Templates/SharedPointer.h"
 #include "EdGraph/EdGraphNode.h"
 #include "Layout/Visibility.h"
 #include "Layout/Margin.h"

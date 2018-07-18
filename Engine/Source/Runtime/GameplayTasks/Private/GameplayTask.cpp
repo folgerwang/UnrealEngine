@@ -51,7 +51,7 @@ IGameplayTaskOwnerInterface* UGameplayTask::ConvertToTaskOwner(AActor& OwnerActo
 
 void UGameplayTask::ReadyForActivation()
 {
-	if (TasksComponent.IsValid())
+	if (UGameplayTasksComponent* TasksPtr = TasksComponent.Get())
 	{
 		if (RequiresPriorityOrResourceManagement() == false)
 		{
@@ -59,7 +59,7 @@ void UGameplayTask::ReadyForActivation()
 		}
 		else
 		{
-			TasksComponent->AddTaskReadyForActivation(*this);
+			TasksPtr->AddTaskReadyForActivation(*this);
 		}
 	}
 	else
@@ -101,9 +101,9 @@ void UGameplayTask::InitSimulatedTask(UGameplayTasksComponent& InGameplayTasksCo
 
 UWorld* UGameplayTask::GetWorld() const
 {
-	if (TasksComponent.IsValid())
+	if (UGameplayTasksComponent* TasksPtr = TasksComponent.Get())
 	{
-		return TasksComponent.Get()->GetWorld();
+		return TasksPtr->GetWorld();
 	}
 
 	return nullptr;
@@ -115,9 +115,9 @@ AActor* UGameplayTask::GetOwnerActor() const
 	{
 		return TaskOwner->GetGameplayTaskOwner(this);		
 	}
-	else if (TasksComponent.IsValid())
+	else if (UGameplayTasksComponent* TasksPtr = TasksComponent.Get())
 	{
-		return TasksComponent->GetGameplayTaskOwner(this);
+		return TasksPtr->GetGameplayTaskOwner(this);
 	}
 
 	return nullptr;
@@ -129,9 +129,9 @@ AActor* UGameplayTask::GetAvatarActor() const
 	{
 		return TaskOwner->GetGameplayTaskAvatar(this);
 	}
-	else if (TasksComponent.IsValid())
+	else if (UGameplayTasksComponent* TasksPtr = TasksComponent.Get())
 	{
-		return TasksComponent->GetGameplayTaskAvatar(this);
+		return TasksPtr->GetGameplayTaskAvatar(this);
 	}
 
 	return nullptr;
@@ -204,9 +204,9 @@ void UGameplayTask::OnDestroy(bool bInOwnerFinished)
 	ensure(TaskState != EGameplayTaskState::Finished && !IsPendingKill());
 	TaskState = EGameplayTaskState::Finished;
 
-	if (TasksComponent.IsValid())
+	if (UGameplayTasksComponent* TasksPtr = TasksComponent.Get())
 	{
-		TasksComponent->OnGameplayTaskDeactivated(*this);
+		TasksPtr->OnGameplayTaskDeactivated(*this);
 	}
 
 	MarkPendingKill();

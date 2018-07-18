@@ -1,11 +1,11 @@
-﻿INTSourceChangelist:3255748
+﻿INTSourceChangelist:3891955
 Availability:Public
 Title:物理コンストレイントのリファレンス
 Crumbs: %ROOT%, Engine, Engine/Physics
 Description:アンリアル エディタの物理コンストレイントで利用可能なすべてのプロパティに関するリファレンス。
 parent:Engine/Physics/Constraints
 order:1
-Version:4.13
+Version:4.18
 topic-image:Engine/Physics/physics_topic.png
 tags:Physics
 SkillLevel:Beginner
@@ -44,6 +44,7 @@ SkillLevel:Beginner
 | **Enable Projection** | ボディ間の距離エラーが、 **Projection Linear Tolerance** 値を超える場合、または回転エラーが **Projection Angular Tolerance** を超える場合、物理ボディはこれを調整するために投影されます。これにより、個々のチェイン リンクが互いに離れているなどの視覚的なつながりのなさを修正します。 |
 | **Projection Linear Tolerance** | 距離エラーがワールド単位でこの値を超えると、ボディが投影されます。 |
 | **Projection Angular Tolerance** | 回転エラーがこの値を、度単位で超えるとボディが投影されます。 |
+| **Parent Dominates** | 設定すると、コンストレイント内の親のボディは子の動きの影響を受けなくなります。 |
 [/REGION]
 [/EXCERPT]
 
@@ -112,7 +113,6 @@ SkillLevel:Beginner
 | **Swing 1Limit Angle** | **XY** プレーンに沿った動きの角度。 |
 | **Twist Limit Angle** | **XZ** プレーンに沿った動きの角度。 |
 | **Swing 2Limit Angle** | X-軸に沿ったロール (進行軸回転) の対称角度 |
-| **Angular Rotation Offset** | 2 つの座標系間の角度のオフセットを指定します。デフォルトで、この制限は、 (-Angle, +Angle) になります。
 [/REGION]
 
 ### Advanced
@@ -202,11 +202,11 @@ SkillLevel:Beginner
 
 [EXCERPT:AngMotorMode]
 
-この角度モーターが SLERP (Sphereical Linear Interpolation、球面線形補間) を使うか、Swing Motor と Twist Motor (コーンおよびロール (進行軸回転) のコンストレイント) に分解するかです。角度コンストレイントがひとつでもロックされると SLERP は機能しません。
+この角度モーターが SLERP (Spherical Linear Interpolation、球面線形補間) を使うか、Swing Motor と Twist Motor (コーンおよびロール (進行軸回転) のコンストレイント) に分解するかです。角度コンストレイントがひとつでもロックされると SLERP は機能しません。
 
 |プロパティ | 説明 |
 | ---  | :--- |
-| **SLERP** | モーターを SLERP (Sphereical Linear Interpolation) モードに設定します。角度コンストレイントの軸がひとつでもロックされると SLERP は機能しません。 |
+| **SLERP** | モーターを SLERP (Spherical Linear Interpolation) モードに設定します。角度コンストレイントの軸がひとつでもロックされると SLERP は機能しません。 |
 | **Twist and Swing** | モーターを **[Twist and Swing]** (コーンとロール (進行軸回転) のコンストレイント) モードに設定します。|
 
 [/EXCERPT]
@@ -230,7 +230,7 @@ SkillLevel:Beginner
 
 | プロパティ | 説明 |
 | -------- | ----------- |
-|[REGION:tablesection]Constraint[/REGION]|
+|[REGION:tablesection]Constraint[/REGION]||
 | **Component Name 1** |  |
 | **Component Name 2** |   |
 | **Joint Name** |  |
@@ -260,7 +260,7 @@ SkillLevel:Beginner
 
 | プロパティ | 説明 |
 | -------- | ----------- |
-|[REGION:tablesection]Linear Limits[/REGION]|
+|[REGION:tablesection]Linear Limits[/REGION]||
 | **Linear XMotion** |  |
 | **Linear YMotion** |  |
 | **Linear ZMotion** |  |
@@ -271,11 +271,11 @@ SkillLevel:Beginner
 | **Linear Limit Damping** |  |
 | **Linear Breakable** |  |
 | **Linear Break Threshold** |  |
-|[REGION:tablesection]Projection[/REGION]|
+|[REGION:tablesection]Projection[/REGION]||
 | **Enable Projection** |  |
 | **Projection Linear Tolerance** |  |
 | **Projection Angular Tolerance** |  |
-|[REGION:tablesection]Angular Limits[/REGION]|
+|[REGION:tablesection]Angular Limits[/REGION]||
 | **Angular Swing 1Motion** |  |
 | **Angular Swing 2Motion** |  |
 | **Angular Twist Motion** |  |
@@ -291,7 +291,7 @@ SkillLevel:Beginner
 | **Twist Limit Damping** |  |
 | **Angular Breakable** |  |
 | **Angular Break Threshold** |  |
-|[REGION:tablesection]Linear Motor[/REGION]|
+|[REGION:tablesection]Linear Motor[/REGION]||
 | **Linear Position Drive** |  |
 | **Linear XPosition Drive** |  |
 | **Linear YPosition Drive** |  |
@@ -302,7 +302,7 @@ SkillLevel:Beginner
 | **Linear Velocity Target** |  |
 | **Linear Velocity Strength** | リニア (直線) 駆動に適用する減衰 |
 | **Max Linear Force** | リニア (直線) 駆動が適用できる力の限界 |
-|[REGION:tablesection]Angular Motor[/REGION]|
+|[REGION:tablesection]Angular Motor[/REGION]||
 | **Angular Orientation Drive** |  |
 | **Angular Orientation Target** |  |
 | **Angular Position Strength** | 角度駆動に適用するスプリング値 |
@@ -310,9 +310,6 @@ SkillLevel:Beginner
 | **Angular Velocity Target** |  |
 | **Angular Velocity Strength** | 角度駆動に適用する減衰値 |
 | **Max Angular Force ** | 角度駆動が適用できる力の上限 |
-
-
-<!--
 
 [EXCERPT:linearMotionEnum]
 | **タイプ** | **説明** |
@@ -331,8 +328,6 @@ SkillLevel:Beginner
 [/EXCERPT:angularMotionEnum]
 
 
-[/COMMENT]
-
 ## 詳しい情報
 
 ### ジョイントのセットアップ
@@ -349,7 +344,7 @@ SkillLevel:Beginner
 
 _左から右に以下のようになります。Hinge、 Prismatic、 Ball、および Socket のアイコン_
 
-### 直線運動の自由度と制約
+### 直線運動の自由度と制限
 
 ![](PhysCon_LinearProps.png)
 
@@ -361,11 +356,7 @@ _左から右に以下のようになります。Hinge、 Prismatic、 Ball、�
 
 _左から右に以下のようになります。(物理コンストレイントのスケールは 4x):Linear Motions は 15 ユニットに制限されています。Linear Motions は free に設定されています。_
 
-[COMMENT:none]
- For information on all the properties relating to Linear Freedom and Limits see:[%Engine/Physics\Constraints\ConstraintsReferencetitle%](Engine/Physics\Constraints\ConstraintsReference 
-[/COMMENT]
-
-### Angular Freedom and Limits
+### 角度の自由度と制限
 
 ![](PhysCon_AngularLimitsProps.png)
 
@@ -385,10 +376,6 @@ _左から右に以下のようになります。Swing 1 は 45 度、Swing 2 �
 [![](PhysCon_AngPos1.png)(h:312)](PhysCon_AngPos1.png) [![](PhysCon_AngPos2.png)(h:312)](PhysCon_AngPos2.png) 
 [/REGION]
 
-[COMMENT:none]
- For information on all the properties relating to Angular Freedom and Limits see:[%Engine/Physics\Constraints\ConstraintsReferencetitle%](Engine/Physics\Constraints\ConstraintsReference 
-[/COMMENT]
-
 ### 方向
 
 Physics Constraint アクタの軸は、その回転に沿ったものであり、2 つのオブジェクト間でアライメントされません。必要なエフェクトに対して、コンストレイントの方向を意識する必要があります。
@@ -405,9 +392,7 @@ Linear Motion では、制約されたアクタを重力が下に引っ張りま
 [![](PhysCon_SimFlat.png)(w:453)](PhysCon_SimFlat.png) [![](PhysCon_SimAngled.png)(w:453)](PhysCon_SimAngled.png)
 [/REGION]
 
-角度の制限を使う場合、Twist Axis (positive X) は青の制約されたアクタＶ(Constrained Actor 2) をポイントするようにアライメントされます。[COMMENT:none]
--This is really important because the -
-[/COMMENT] 
+角度の制約を使う場合、Twist Axis (positive X) は青の制約されたアクタＶ(Constrained Actor 2) をポイントするようにアライメントされます。 
 
 [REGION:lightbox]
 [![](PhysCon_Angular.png)(w:453)](PhysCon_Angular.png) [![](PhysCon_AngularSim.png)(w:453)](PhysCon_AngularSim.png)
@@ -417,32 +402,7 @@ Linear Motion では、制約されたアクタを重力が下に引っ張りま
 
 ![](PhysCon_AngularCone_2.png)(h:300 convert:false) ![](PhysCon_Arc.png)(h:300 convert:false)
 
-[COMMENT:none]
-
-
-### ボール アンド ソケット
-ボール アンド ソケットのジョイントはすべての線形部分がロックされ、角度部分がすべて自由になります。
-
-
-### ヒンジ
-ヒンジはボール アンド ソケットに似ています。すべての線形部分がロックされますが、スイング部分もロックされます。そのため、そのツイスト軸周辺でのみ回転することができます。
-
-
-### プリズマティック (直動) 
-3 つのうち 2 つの線形の角度の自由度がロックされ、すべての角度の自由度もロックされます。これにより、「レール」を滑り落ちることはできますが、全く回転できません。
-
-
-### ジョイントの摩擦
-Drive 設定を使ってジョイントの摩擦をシミュレーションすることができます。ターゲット ベロシティをゼロにしてベロシティ駆動をオンにします。LinearDriveForceLimit と AngularDriveForceLimit の設定を使用して、どれくらい強くジョイントがモーションに抵抗するかを制御します。
-
-
-### サンドバッグ
-最初にボールとソケットのジョイントを作成して、ジョイントでサンドバッグ (垂直ポール上に叩くことができるボールがある) のようなものをシミュレーションできます。次にスイング位置駆動をオンにし、押されると垂直位置周辺でうまく跳ね返るようになるまで **AngularDriveSpring** と **AngularDriveDamping** を調整します。スイングの制限もオンにして、曲がり過ぎないようにすることができます。
-
-
 [/COMMENT]
--->
-
 
 
 

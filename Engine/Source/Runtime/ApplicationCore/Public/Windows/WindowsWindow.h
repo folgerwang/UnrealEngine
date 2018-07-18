@@ -5,12 +5,12 @@
 #include "CoreTypes.h"
 #include "GenericPlatform/GenericWindow.h"
 #include "Templates/SharedPointer.h"
-#include "WindowsHWrapper.h"
+#include "Windows/WindowsHWrapper.h"
 
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 #include <Ole2.h>
 #include <oleidl.h>
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 class FWindowsApplication;
 struct FVector2D;

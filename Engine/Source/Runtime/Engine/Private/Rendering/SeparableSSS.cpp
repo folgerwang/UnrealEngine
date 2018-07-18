@@ -178,3 +178,31 @@ void ComputeMirroredSSSKernel(FLinearColor* TargetBuffer, uint32 TargetBufferSiz
 		}
 	}
 }
+
+
+void ComputeTransmissionProfile(FLinearColor* TargetBuffer, uint32 TargetBufferSize, FLinearColor SubsurfaceColor, FLinearColor FalloffColor, float ExtinctionScale)
+{
+	check(TargetBuffer);
+	check(TargetBufferSize > 0);
+
+	static float MaxTransmissionProfileDistance = 5.0f; // See MAX_TRANSMISSION_PROFILE_DISTANCE in TransmissionCommon.ush
+
+	for (uint32 i = 0; i < TargetBufferSize; ++i)
+	{
+		//10 mm
+		const float InvSize = 1.0f / TargetBufferSize;
+		float Distance = i * InvSize * MaxTransmissionProfileDistance;
+		FVector TransmissionProfile = SeparableSSS_Profile(Distance, FalloffColor);
+		TargetBuffer[i] = TransmissionProfile;
+		//Use Luminance of scattering as SSSS shadow.
+		TargetBuffer[i].A = exp(-Distance * ExtinctionScale);
+	}
+
+	// Do this is because 5mm is not enough cool down the scattering to zero, although which is small number but after tone mapping still noticeable
+	// so just Let last pixel be 0 which make sure thickness great than MaxRadius have no scattering
+	static bool bMakeLastPixelBlack = true;
+	if (bMakeLastPixelBlack)
+	{
+		TargetBuffer[TargetBufferSize - 1] = FLinearColor::Black;
+	}
+}

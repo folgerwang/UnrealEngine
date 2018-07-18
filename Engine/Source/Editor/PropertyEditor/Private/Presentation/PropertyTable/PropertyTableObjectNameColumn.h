@@ -83,18 +83,18 @@ public:
 
 	virtual bool CanSortBy() const override { return true; }
 
-	virtual void Sort( TArray< TSharedRef< class IPropertyTableRow > >& Rows, const EColumnSortMode::Type SortMode ) override
+	virtual void Sort( TArray< TSharedRef< class IPropertyTableRow > >& Rows, const EColumnSortMode::Type PrimarySortMode, const TSharedPtr<IPropertyTableColumn>& SecondarySortColumn, const EColumnSortMode::Type SecondarySortMode ) override
 	{
 		struct FCompareRowByObjectNameAscending
 		{
 		public:
-			FCompareRowByObjectNameAscending( const TSharedRef< FPropertyTableObjectNameColumn >& Column )
-				: NameColumn( Column )
+			FCompareRowByObjectNameAscending(const TSharedRef< FPropertyTableObjectNameColumn >& Column)
+				: NameColumn(Column)
 			{ }
 
-			FORCEINLINE bool operator()( const TSharedRef< IPropertyTableRow >& Lhs, const TSharedRef< IPropertyTableRow >& Rhs ) const
+			FORCEINLINE bool operator()(const TSharedRef< IPropertyTableRow >& Lhs, const TSharedRef< IPropertyTableRow >& Rhs) const
 			{
-				return NameColumn->GetObjectNameAsString( Lhs ) < NameColumn->GetObjectNameAsString( Rhs );
+				return NameColumn->GetObjectNameAsString(Lhs) < NameColumn->GetObjectNameAsString(Rhs);
 			}
 
 			TSharedRef< FPropertyTableObjectNameColumn > NameColumn;
@@ -103,13 +103,13 @@ public:
 		struct FCompareRowByObjectNameDescending
 		{
 		public:
-			FCompareRowByObjectNameDescending( const TSharedRef< FPropertyTableObjectNameColumn >& Column )
-				: Comparer( Column )
+			FCompareRowByObjectNameDescending(const TSharedRef< FPropertyTableObjectNameColumn >& Column)
+				: Comparer(Column)
 			{ }
 
-			FORCEINLINE bool operator()( const TSharedRef< IPropertyTableRow >& Lhs, const TSharedRef< IPropertyTableRow >& Rhs ) const
+			FORCEINLINE bool operator()(const TSharedRef< IPropertyTableRow >& Lhs, const TSharedRef< IPropertyTableRow >& Rhs) const
 			{
-				return !Comparer( Lhs, Rhs ); 
+				return !Comparer(Lhs, Rhs);
 			}
 
 		private:
@@ -117,12 +117,12 @@ public:
 			const FCompareRowByObjectNameAscending Comparer;
 		};
 
-		if ( SortMode == EColumnSortMode::None )
+		if (PrimarySortMode == EColumnSortMode::None)
 		{
 			return;
 		}
 
-		if ( SortMode == EColumnSortMode::Ascending )
+		if (PrimarySortMode == EColumnSortMode::Ascending )
 		{
 			Rows.Sort( FCompareRowByObjectNameAscending( SharedThis( this ) ) );
 		}
@@ -130,6 +130,12 @@ public:
 		{
 			Rows.Sort( FCompareRowByObjectNameDescending( SharedThis( this ) ) );
 		}
+	}
+
+	virtual TSharedPtr<struct FCompareRowByColumnBase> GetPropertySorter(UProperty* Property, EColumnSortMode::Type SortMode) override
+	{
+		// Does not sort properties
+		return nullptr;
 	}
 
 	virtual void Tick() override {}

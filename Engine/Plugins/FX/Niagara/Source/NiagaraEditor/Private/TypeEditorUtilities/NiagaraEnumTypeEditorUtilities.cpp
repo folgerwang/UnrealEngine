@@ -112,6 +112,10 @@ public:
 
 	void Construct(const FArguments& InArgs, const UEnum* Enum)
 	{
+		SNiagaraParameterEditor::Construct(SNiagaraParameterEditor::FArguments()
+			.MinimumDesiredWidth(DefaultInputSize)
+			.MaximumDesiredWidth(2 * DefaultInputSize));
+
 		ChildSlot
 		[
 			SNew(SEnumCombobox, Enum)
@@ -204,6 +208,37 @@ bool FNiagaraEditorEnumTypeUtilities::SetValueFromPinDefaultString(const FString
 	EnumValue.Value = (int32)Enum->GetValueByNameString(StringValue, EGetByNameFlags::ErrorIfNotFound);
 	if(EnumValue.Value != INDEX_NONE)
 	{
+		Variable.AllocateData();
+		Variable.SetValue<FNiagaraInt32>(EnumValue);
+		return true;
+	}
+	return false;
+}
+
+bool FNiagaraEditorEnumTypeUtilities::CanSetValueFromDisplayName() const
+{
+	return true;
+}
+
+bool FNiagaraEditorEnumTypeUtilities::SetValueFromDisplayName(const FText& TextValue, FNiagaraVariable& Variable) const
+{
+	const UEnum* Enum = Variable.GetType().GetEnum();
+	checkf(Enum != nullptr, TEXT("Variable is not an enum type."));
+
+	int32 FoundIndex = INDEX_NONE;
+	for (int32 i = 0; i < Enum->NumEnums(); i++)
+	{
+		if (TextValue.CompareTo(Enum->GetDisplayNameTextByIndex(i)) == 0)
+		{
+			FoundIndex = i;
+			break;
+		}
+	}
+
+	if (FoundIndex != INDEX_NONE)
+	{
+		FNiagaraInt32 EnumValue;
+		EnumValue.Value = (int32)Enum->GetValueByIndex(FoundIndex);
 		Variable.AllocateData();
 		Variable.SetValue<FNiagaraInt32>(EnumValue);
 		return true;

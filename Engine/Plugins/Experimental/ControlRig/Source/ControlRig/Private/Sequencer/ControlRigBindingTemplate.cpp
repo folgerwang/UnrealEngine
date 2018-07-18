@@ -1,14 +1,15 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "ControlRigBindingTemplate.h"
+#include "Sequencer/ControlRigBindingTemplate.h"
 #include "MovieSceneSequence.h"
 #include "Sections/MovieSceneSpawnSection.h"
-#include "MovieSceneEvaluation.h"
+#include "Evaluation/MovieSceneEvaluation.h"
 #include "IMovieScenePlayer.h"
 #include "ControlRig.h"
 #include "Components/SkeletalMeshComponent.h"
-#include "ControlRigSequencerAnimInstance.h"
-#include "MovieSceneControlRigInstanceData.h"
+#include "Sequencer/ControlRigSequencerAnimInstance.h"
+#include "Sequencer/MovieSceneControlRigInstanceData.h"
+#include "IControlRigObjectBinding.h"
 
 DECLARE_CYCLE_STAT(TEXT("Binding Track Evaluate"), MovieSceneEval_BindControlRigTemplate_Evaluate, STATGROUP_MovieSceneEval);
 DECLARE_CYCLE_STAT(TEXT("Binding Track Token Execute"), MovieSceneEval_BindControlRig_TokenExecute, STATGROUP_MovieSceneEval);
@@ -35,7 +36,7 @@ struct FControlRigPreAnimatedTokenProducer : IMovieScenePreAnimatedTokenProducer
 			{
 				if (UControlRig* ControlRig = Cast<UControlRig>(&InObject))
 				{
-					if (USkeletalMeshComponent* SkeletalMeshComponent = Cast<USkeletalMeshComponent>(ControlRig->GetBoundObject()))
+					if (USkeletalMeshComponent* SkeletalMeshComponent = Cast<USkeletalMeshComponent>(ControlRig->GetObjectBinding()->GetBoundObject()))
 					{
 						if (UControlRigSequencerAnimInstance* AnimInstance = Cast<UControlRigSequencerAnimInstance>(SkeletalMeshComponent->GetAnimInstance()))
 						{
@@ -46,7 +47,7 @@ struct FControlRigPreAnimatedTokenProducer : IMovieScenePreAnimatedTokenProducer
 						UAnimSequencerInstance::UnbindFromSkeletalMeshComponent(SkeletalMeshComponent);
 					}
 
-					ControlRig->UnbindFromObject();
+					ControlRig->GetObjectBinding()->UnbindFromObject();
 				}
 
 				Player.GetSpawnRegister().DestroyObjectDirectly(InObject);
@@ -80,7 +81,7 @@ struct FBindControlRigObjectToken : IMovieSceneExecutionToken
 	void BindToSequencerInstance(UControlRig* ControlRig)
 	{
 		check(ControlRig);
-		if (USkeletalMeshComponent* SkeletalMeshComponent = Cast<USkeletalMeshComponent>(ControlRig->GetBoundObject()))
+		if (USkeletalMeshComponent* SkeletalMeshComponent = Cast<USkeletalMeshComponent>(ControlRig->GetObjectBinding()->GetBoundObject()))
 		{
 			if (UControlRigSequencerAnimInstance* AnimInstance = UAnimCustomInstance::BindToSkeletalMeshComponent<UControlRigSequencerAnimInstance>(SkeletalMeshComponent))
 			{
@@ -92,7 +93,7 @@ struct FBindControlRigObjectToken : IMovieSceneExecutionToken
 	void UnBindFromSequencerInstance(UControlRig* ControlRig)
 	{
 		check(ControlRig);
-		if (USkeletalMeshComponent* SkeletalMeshComponent = Cast<USkeletalMeshComponent>(ControlRig->GetBoundObject()))
+		if (USkeletalMeshComponent* SkeletalMeshComponent = Cast<USkeletalMeshComponent>(ControlRig->GetObjectBinding()->GetBoundObject()))
 		{
 			UAnimCustomInstance::UnbindFromSkeletalMeshComponent(SkeletalMeshComponent);
 		}
@@ -136,20 +137,20 @@ struct FBindControlRigObjectToken : IMovieSceneExecutionToken
 						if (OuterBoundObjects.Num() > 0)
 						{
 							UObject* OuterBoundObject = OuterBoundObjects[0].Get();
-							if (OuterBoundObject && !ControlRig->IsBoundToObject(OuterBoundObject))
+							if (OuterBoundObject && !ControlRig->GetObjectBinding()->IsBoundToObject(OuterBoundObject))
 							{
 								UnBindFromSequencerInstance(ControlRig);
-								ControlRig->UnbindFromObject();
-								ControlRig->BindToObject(OuterBoundObject);
+								ControlRig->GetObjectBinding()->UnbindFromObject();
+								ControlRig->GetObjectBinding()->BindToObject(OuterBoundObject);
 							}
 						}
 					}
 #if WITH_EDITORONLY_DATA
-					else if (ObjectBinding.IsValid() && !ControlRig->IsBoundToObject(ObjectBinding.Get()))
+					else if (ObjectBinding.IsValid() && !ControlRig->GetObjectBinding()->IsBoundToObject(ObjectBinding.Get()))
 					{
 						UnBindFromSequencerInstance(ControlRig);
-						ControlRig->UnbindFromObject();
-						ControlRig->BindToObject(ObjectBinding.Get());
+						ControlRig->GetObjectBinding()->UnbindFromObject();
+						ControlRig->GetObjectBinding()->BindToObject(ObjectBinding.Get());
 					}
 #endif
 					BindToSequencerInstance(ControlRig);
@@ -160,11 +161,11 @@ struct FBindControlRigObjectToken : IMovieSceneExecutionToken
 				ControlRig = Cast<UControlRig>(BoundObjects[0].Get());
 
 #if WITH_EDITORONLY_DATA
-				if (ObjectBinding.IsValid() && !ControlRig->IsBoundToObject(ObjectBinding.Get()))
+				if (ObjectBinding.IsValid() && !ControlRig->GetObjectBinding()->IsBoundToObject(ObjectBinding.Get()))
 				{
 					UnBindFromSequencerInstance(ControlRig);
-					ControlRig->UnbindFromObject();
-					ControlRig->BindToObject(ObjectBinding.Get());
+					ControlRig->GetObjectBinding()->UnbindFromObject();
+					ControlRig->GetObjectBinding()->BindToObject(ObjectBinding.Get());
 				}
 
 				BindToSequencerInstance(ControlRig);
@@ -174,7 +175,7 @@ struct FBindControlRigObjectToken : IMovieSceneExecutionToken
 			// Update the animation's state
 			if (ControlRig)
 			{
-				if (USkeletalMeshComponent* SkeletalMeshComponent = Cast<USkeletalMeshComponent>(ControlRig->GetBoundObject()))
+				if (USkeletalMeshComponent* SkeletalMeshComponent = Cast<USkeletalMeshComponent>(ControlRig->GetObjectBinding()->GetBoundObject()))
 				{
 					if (UControlRigSequencerAnimInstance* AnimInstance = Cast<UControlRigSequencerAnimInstance>(SkeletalMeshComponent->GetAnimInstance()))
 					{
@@ -202,7 +203,7 @@ struct FBindControlRigObjectToken : IMovieSceneExecutionToken
 			{
 				if (UControlRig* ControlRig = Cast<UControlRig>(Object.Get()))
 				{
-					if(USkeletalMeshComponent* SkeletalMeshComponent = Cast<USkeletalMeshComponent>(ControlRig->GetBoundObject()))
+					if(USkeletalMeshComponent* SkeletalMeshComponent = Cast<USkeletalMeshComponent>(ControlRig->GetObjectBinding()->GetBoundObject()))
 					{
 						if (UControlRigSequencerAnimInstance* AnimInstance = Cast<UControlRigSequencerAnimInstance>(SkeletalMeshComponent->GetAnimInstance()))
 						{
@@ -213,7 +214,7 @@ struct FBindControlRigObjectToken : IMovieSceneExecutionToken
 						UAnimSequencerInstance::UnbindFromSkeletalMeshComponent(SkeletalMeshComponent);
 					}
 
-					ControlRig->UnbindFromObject();
+					ControlRig->GetObjectBinding()->UnbindFromObject();
 				}
 			}
 
@@ -264,17 +265,24 @@ void FControlRigBindingTemplate::Evaluate(const FMovieSceneEvaluationOperand& Op
 
 	const FMovieSceneControlRigInstanceData* InstanceData = PersistentData.FindInstanceData<FMovieSceneControlRigInstanceData>();
 
-	const float Time = Context.GetTime();
-	const float Weight = InstanceData ? InstanceData->Weight.Eval(Time) : 1.f;
+	const FFrameTime Time = Context.GetTime();
+	float Weight = 1.f;
+	if (InstanceData)
+	{
+		InstanceData->Weight.Evaluate(Time, Weight);
+	}
+
+	bool bSpawned = true;
+	Curve.Evaluate(Time, bSpawned);
 
 	if (InstanceData && InstanceData->Operand.ObjectBindingID.IsValid())
 	{
-		ExecutionTokens.Add(FBindControlRigObjectToken(Weight, Curve.Evaluate(Time) != 0));
+		ExecutionTokens.Add(FBindControlRigObjectToken(Weight, bSpawned));
 	}
 #if WITH_EDITORONLY_DATA
 	else if (ObjectBinding.IsValid())
 	{
-		ExecutionTokens.Add(FBindControlRigObjectToken(Weight, Curve.Evaluate(Time) != 0, ObjectBinding));
+		ExecutionTokens.Add(FBindControlRigObjectToken(Weight, bSpawned, ObjectBinding));
 	}
 #endif
 }

@@ -11,7 +11,7 @@ public class Engine : ModuleRules
 
 		SharedPCHHeaderFile = "Public/EngineSharedPCH.h";
 
-		PublicIncludePathModuleNames.AddRange(new string[] { "Renderer", "PacketHandler", "NetworkReplayStreaming", "AudioMixer" });
+		PublicIncludePathModuleNames.AddRange(new string[] { "Renderer", "PacketHandler", "NetworkReplayStreaming", "AudioMixer", "AnimationCore" });
 
 		PrivateIncludePaths.AddRange(
 			new string[] {
@@ -26,6 +26,7 @@ public class Engine : ModuleRules
 				"TargetPlatform",
 				"ImageWrapper",
 				"HeadMountedDisplay",
+				"EyeTracker",
 				"MRMesh",
 				"Advertising",
 				"NetworkReplayStreaming",
@@ -76,10 +77,10 @@ public class Engine : ModuleRules
 				"EngineSettings",
 				"SynthBenchmark",
 				"GameplayTags",
-				"AIModule",
 				"DatabaseSupport",
 				"PacketHandler",
-				"HardwareSurvey",
+                "AudioPlatformConfiguration",
+				"MeshDescription",
 			}
 		);
 
@@ -94,9 +95,11 @@ public class Engine : ModuleRules
 				"MaterialShaderQualitySettings",
 				"CinematicCamera",
 				"Analytics",
-				"AnalyticsET"
+				"AnalyticsET",
 			}
 		);
+
+		DynamicallyLoadedModuleNames.Add("EyeTracker");
 
 		if (Target.bUseXGEController &&
 			Target.Type == TargetType.Editor &&
@@ -116,7 +119,8 @@ public class Engine : ModuleRules
 		{
 			// for now we depend on this
 			PrivateDependencyModuleNames.Add("RawMesh");
-		}
+            PrivateDependencyModuleNames.Add("MeshDescriptionOperations");
+        }
 
 		bool bVariadicTemplatesSupported = true;
 		if (Target.Platform == UnrealTargetPlatform.XboxOne)
@@ -161,7 +165,6 @@ public class Engine : ModuleRules
 		}
 
 		CircularlyReferencedDependentModules.Add("GameplayTags");
-		CircularlyReferencedDependentModules.Add("AIModule");
 		CircularlyReferencedDependentModules.Add("Landscape");
 		CircularlyReferencedDependentModules.Add("UMG");
 		CircularlyReferencedDependentModules.Add("MaterialShaderQualitySettings");
@@ -170,9 +173,7 @@ public class Engine : ModuleRules
 		// The AnimGraphRuntime module is not needed by Engine proper, but it is loaded in LaunchEngineLoop.cpp,
 		// and needs to be listed in an always-included module in order to be compiled into standalone games
 		DynamicallyLoadedModuleNames.Add("AnimGraphRuntime");
-		// So does Geometry Cache
-		DynamicallyLoadedModuleNames.Add("GeometryCache");
-
+        
 		DynamicallyLoadedModuleNames.AddRange(
 			new string[]
 			{
@@ -189,6 +190,7 @@ public class Engine : ModuleRules
 		{
 			PrivateIncludePathModuleNames.AddRange(
 				new string[] {
+					"Media",
 					"SlateNullRenderer",
 					"SlateRHIRenderer"
 				}
@@ -196,6 +198,7 @@ public class Engine : ModuleRules
 
 			DynamicallyLoadedModuleNames.AddRange(
 				new string[] {
+					"Media",
 					"SlateNullRenderer",
 					"SlateRHIRenderer"
 				}
@@ -261,7 +264,7 @@ public class Engine : ModuleRules
 					}
 				);
 			}
-			else if (Target.Platform == UnrealTargetPlatform.Linux)
+			else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
 			{
 				DynamicallyLoadedModuleNames.AddRange(
 					new string[] {
@@ -343,15 +346,15 @@ public class Engine : ModuleRules
 			DynamicallyLoadedModuleNames.Add("PhysXCooking");
 		}
 
-		// Engine public headers need to know about some types (enums etc.)
-		PublicIncludePathModuleNames.Add("ClothingSystemRuntimeInterface");
-		PublicDependencyModuleNames.Add("ClothingSystemRuntimeInterface");
+			// Engine public headers need to know about some types (enums etc.)
+			PublicIncludePathModuleNames.Add("ClothingSystemRuntimeInterface");
+			PublicDependencyModuleNames.Add("ClothingSystemRuntimeInterface");
 
-		if (Target.bBuildEditor)
-		{
-			PrivateDependencyModuleNames.Add("ClothingSystemEditorInterface");
-			PrivateIncludePathModuleNames.Add("ClothingSystemEditorInterface");
-		}
+			if (Target.bBuildEditor)
+			{
+				PrivateDependencyModuleNames.Add("ClothingSystemEditorInterface");
+				PrivateIncludePathModuleNames.Add("ClothingSystemEditorInterface");
+			}
 
 		if ((Target.Platform == UnrealTargetPlatform.Win64) ||
 			(Target.Platform == UnrealTargetPlatform.Win32))
@@ -389,16 +392,28 @@ public class Engine : ModuleRules
 			PublicFrameworks.AddRange(new string[] { "AVFoundation", "CoreVideo", "CoreMedia" });
 		}
 
-		if (Target.Platform == UnrealTargetPlatform.Android)
+		if (Target.IsInPlatformGroup(UnrealPlatformGroup.Android))
 		{
 			AddEngineThirdPartyPrivateStaticDependencies(Target,
 				"UEOgg",
 				"Vorbis",
 				"VorbisFile"
 				);
-		}
 
-		if (Target.Platform == UnrealTargetPlatform.Linux)
+            PrivateDependencyModuleNames.Add("AndroidRuntimeSettings");
+        }
+
+        if (Target.Platform == UnrealTargetPlatform.IOS || Target.Platform == UnrealTargetPlatform.TVOS)
+        {
+            PrivateDependencyModuleNames.Add("IOSRuntimeSettings");
+        }
+
+        if (Target.Platform == UnrealTargetPlatform.Switch)
+        {
+            PrivateDependencyModuleNames.Add("SwitchRuntimeSettings");
+        }
+
+        if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
 		{
 			AddEngineThirdPartyPrivateStaticDependencies(Target,
 				"UEOgg",
@@ -408,36 +423,10 @@ public class Engine : ModuleRules
 				);
 		}
 
-		if (Target.bCompileRecast)
-		{
-			PrivateDependencyModuleNames.Add("Navmesh");
-			PublicDefinitions.Add("WITH_RECAST=1");
-		}
-		else
-		{
-			// Because we test WITH_RECAST in public Engine header files, we need to make sure that modules
-			// that import this also have this definition set appropriately.  Recast is a private dependency
-			// module, so it's definitions won't propagate to modules that import Engine.
-			PublicDefinitions.Add("WITH_RECAST=0");
-		}
-/*
-		ConfigHierarchy Ini = ConfigCache.ReadHierarchy(ConfigHierarchyType.Engine, System.IO.DirectoryReference.FromFile(Target.ProjectFile), Target.Platform);
-		bool bLocalVectorFieldOnly = false;
-		Ini.GetBool("/Script/Engine.RendererSettings", "bGPUParticlesLocalVFOnly", out bLocalVectorFieldOnly);
-		if (bLocalVectorFieldOnly)
-		{
-			PublicDefinitions.Add("GPUPARTICLE_LOCAL_VF_ONLY=1");
-		}
-		else
-		{
-			PublicDefinitions.Add("GPUPARTICLE_LOCAL_VF_ONLY=0");
-		}
-*/
-
 		PublicDefinitions.Add("GPUPARTICLE_LOCAL_VF_ONLY=0");
 
-		// Add a reference to the stats HTML files referenced by UEngine::DumpFPSChartToHTML. Previously staged by CopyBuildToStagingDirectory.
-    if (Target.bBuildEditor || Target.Configuration != UnrealTargetConfiguration.Shipping)
+        // Add a reference to the stats HTML files referenced by UEngine::DumpFPSChartToHTML. Previously staged by CopyBuildToStagingDirectory.
+        if (Target.bBuildEditor || Target.Configuration != UnrealTargetConfiguration.Shipping)
 		{
 			RuntimeDependencies.Add("$(EngineDir)/Content/Stats/...", StagedFileType.UFS);
 		}

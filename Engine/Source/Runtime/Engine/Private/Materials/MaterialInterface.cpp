@@ -11,6 +11,8 @@
 #include "Materials/Material.h"
 #include "UObject/UObjectHash.h"
 #include "UObject/UObjectIterator.h"
+#include "EditorFramework/AssetImportData.h"
+#include "Engine/AssetUserData.h"
 #include "Engine/Texture2D.h"
 #include "Engine/SubsurfaceProfile.h"
 #include "Engine/TextureStreamingTypes.h"
@@ -57,6 +59,7 @@ UMaterialInterface::UMaterialInterface(const FObjectInitializer& ObjectInitializ
 {
 	if (!HasAnyFlags(RF_ClassDefaultObject))
 	{
+		MaterialDomainString(MD_Surface); // find the enum for this now before we start saving
 #if USE_EVENT_DRIVEN_ASYNC_LOAD_AT_BOOT_TIME
 		if (!GIsInitialLoad || !GEventDrivenLoaderEnabled)
 #endif
@@ -103,7 +106,19 @@ FMaterialRelevance UMaterialInterface::GetRelevance_Internal(const UMaterial* Ma
 {
 	if(Material)
 	{
-		const FMaterialResource* MaterialResource = Material->GetMaterialResource(InFeatureLevel);
+		const FMaterialResource* MaterialResource = GetMaterialResource(InFeatureLevel);
+
+		// If material is invalid e.g. unparented instance, fallback to the passed in material
+		if (!MaterialResource && Material)
+		{
+			MaterialResource = Material->GetMaterialResource(InFeatureLevel);	
+		}
+
+		if (!MaterialResource)
+		{
+			return FMaterialRelevance();
+		}
+
 		const EBlendMode BlendMode = (EBlendMode)GetBlendMode();
 		const bool bIsTranslucent = IsTranslucentBlendMode(BlendMode);
 
@@ -236,6 +251,16 @@ void UMaterialInterface::PostEditChangeProperty(FPropertyChangedEvent& PropertyC
 
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 }
+
+void UMaterialInterface::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
+{
+	if (AssetImportData)
+	{
+		OutTags.Add( FAssetRegistryTag(SourceFileTagName(), AssetImportData->GetSourceData().ToJson(), FAssetRegistryTag::TT_Hidden) );
+	}
+
+	Super::GetAssetRegistryTags(OutTags);
+}
 #endif // WITH_EDITOR
 
 void UMaterialInterface::GetLightingGuidChain(bool bIncludeTextures, TArray<FGuid>& OutGuids) const
@@ -264,6 +289,11 @@ bool UMaterialInterface::GetScalarParameterSliderMinMax(const FMaterialParameter
 bool UMaterialInterface::GetScalarParameterValue(const FMaterialParameterInfo& ParameterInfo, float& OutValue, bool bOveriddenOnly) const
 {
 	// is never called but because our system wants a UMaterialInterface instance we cannot use "virtual =0"
+	return false;
+}
+
+bool UMaterialInterface::IsScalarParameterUsedAsAtlasPosition(const FMaterialParameterInfo& ParameterInfo, bool& OutValue, TSoftObjectPtr<class UCurveLinearColor>& Curve, TSoftObjectPtr<class UCurveLinearColorAtlas>& Atlas) const
+{
 	return false;
 }
 
@@ -302,10 +332,12 @@ bool UMaterialInterface::GetRefractionSettings(float& OutBiasValue) const
 	return false;
 }
 
+#if WITH_EDITOR
 bool UMaterialInterface::GetParameterDesc(const FMaterialParameterInfo& ParameterInfo, FString& OutDesc, const TArray<struct FStaticMaterialLayersParameter>* MaterialLayersParameters) const
 {
 	return false;
 }
+#endif // WITH_EDITOR
 bool UMaterialInterface::GetGroupName(const FMaterialParameterInfo& ParameterInfo, FName& OutDesc) const
 {
 	return false;
@@ -428,7 +460,7 @@ void UMaterialInterface::UpdateMaterialRenderProxy(FMaterialRenderProxy& Proxy)
 	EMaterialShadingModel MaterialShadingModel = GetShadingModel();
 
 	// for better performance we only update SubsurfaceProfileRT if the feature is used
-	if (MaterialShadingModel == MSM_SubsurfaceProfile)
+	if (UseSubsurfaceProfile(MaterialShadingModel))
 	{
 		FSubsurfaceProfileStruct Settings;
 
@@ -591,3 +623,41 @@ void UMaterialInterface::PreSave(const class ITargetPlatform* TargetPlatform)
 	}
 }
 
+void UMaterialInterface::AddAssetUserData(UAssetUserData* InUserData)
+{
+	if (InUserData != nullptr)
+	{
+		UAssetUserData* ExistingData = GetAssetUserDataOfClass(InUserData->GetClass());
+		if (ExistingData != nullptr)
+		{
+			AssetUserData.Remove(ExistingData);
+		}
+		AssetUserData.Add(InUserData);
+	}
+}
+
+UAssetUserData* UMaterialInterface::GetAssetUserDataOfClass(TSubclassOf<UAssetUserData> InUserDataClass)
+{
+	for (int32 DataIdx = 0; DataIdx < AssetUserData.Num(); DataIdx++)
+	{
+		UAssetUserData* Datum = AssetUserData[DataIdx];
+		if (Datum != nullptr && Datum->IsA(InUserDataClass))
+		{
+			return Datum;
+		}
+	}
+	return nullptr;
+}
+
+void UMaterialInterface::RemoveUserDataOfClass(TSubclassOf<UAssetUserData> InUserDataClass)
+{
+	for (int32 DataIdx = 0; DataIdx < AssetUserData.Num(); DataIdx++)
+	{
+		UAssetUserData* Datum = AssetUserData[DataIdx];
+		if (Datum != nullptr && Datum->IsA(InUserDataClass))
+		{
+			AssetUserData.RemoveAt(DataIdx);
+			return;
+		}
+	}
+}

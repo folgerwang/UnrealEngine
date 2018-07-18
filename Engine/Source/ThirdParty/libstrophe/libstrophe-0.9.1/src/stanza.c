@@ -196,6 +196,11 @@ int xmpp_stanza_release(xmpp_stanza_t * const stanza)
     return released;
 }
 
+xmpp_ctx_t *xmpp_stanza_get_context(const xmpp_stanza_t * const stanza)
+{
+	return stanza->ctx;
+}
+
 /** Determine if a stanza is a text node.
  *  
  *  @param stanza a Strophe stanza object
@@ -222,15 +227,16 @@ int xmpp_stanza_is_tag(xmpp_stanza_t * const stanza)
     return (stanza && stanza->type == XMPP_STANZA_TAG);
 }
 
-/* Escape a string with for use in a XML text node or attribute. Assumes that
+/* Escape and quote a string for use in a XML attribute. Assumes that
  * the input string is encoded in UTF-8. On success, returns a pointer to a
  * buffer with the resulting data which must be xmpp_free()'d by the caller.
  * On failure, returns NULL.
  */
 
-static char *_escape_xml(xmpp_ctx_t * const ctx, char *text)
+static char *_escape_xml_attribute(xmpp_ctx_t * const ctx, char *text)
 {
-    size_t len = 0;
+    size_t len_quot = 0;
+    size_t len_apos = 0;
     char *src;
     char *dst;
     char *buf;
@@ -238,23 +244,34 @@ static char *_escape_xml(xmpp_ctx_t * const ctx, char *text)
         switch (*src) {
             case '<':   /* "&lt;" */
             case '>':   /* "&gt;" */
-                len += 4;
+                len_quot += 4;
+                len_apos += 4;
                 break;
             case '&':   /* "&amp;" */
-                len += 5;
+                len_quot += 5;
+                len_apos += 5;
                 break;
             case '"':
-                len += 6; /*"&quot;" */
+                len_quot += 6; /*"&quot;" */
+                break;
+            case '\'':
+                len_apos += 6; /*"&apos;" */
                 break;
             default:
-                len++;
+                len_quot++;
+                len_apos++;
         }
     }
-    if ((buf = xmpp_alloc(ctx, (len+1) * sizeof(char))) == NULL)
+    size_t len = len_quot <= len_apos ? len_quot : len_apos;
+    if ((buf = xmpp_alloc(ctx, (len+1+2) * sizeof(char))) == NULL)// length + \0 + quotes
         return NULL;    /* Error */
     dst = buf;
-    for (src = text; *src != '\0'; src++) {
-        switch (*src) {
+    if (len_quot <= len_apos)
+    {
+        *dst = '"';
+        dst++;
+        for (src = text; *src != '\0'; src++) {
+            switch (*src) {
             case '<':
                 strcpy(dst, "&lt;");
                 dst += 4;
@@ -274,6 +291,91 @@ static char *_escape_xml(xmpp_ctx_t * const ctx, char *text)
             default:
                 *dst = *src;
                 dst++;
+            }
+        }
+        *dst = '"';
+        dst++;
+    }
+    else
+    {
+        *dst = '\'';
+        dst++;
+        for (src = text; *src != '\0'; src++) {
+            switch (*src) {
+            case '<':
+                strcpy(dst, "&lt;");
+                dst += 4;
+                break;
+            case '>':
+                strcpy(dst, "&gt;");
+                dst += 4;
+                break;
+            case '&':
+                strcpy(dst, "&amp;");
+                dst += 5;
+                break;
+            case '\'':
+                strcpy(dst, "&apos;");
+                dst += 6;
+                break;
+            default:
+                *dst = *src;
+                dst++;
+            }
+        }
+        *dst = '\'';
+        dst++;
+    }
+    *dst = '\0';
+    return buf;
+}
+
+
+/* Escape a string with for use in a XML text node. Assumes that
+* the input string is encoded in UTF-8. On success, returns a pointer to a
+* buffer with the resulting data which must be xmpp_free()'d by the caller.
+* On failure, returns NULL.
+*/
+
+static char *_escape_xml_text(xmpp_ctx_t * const ctx, char *text)
+{
+    size_t len = 0;
+    char *src;
+    char *dst;
+    char *buf;
+    for (src = text; *src != '\0'; src++) {
+        switch (*src) {
+        case '<':   /* "&lt;" */
+        case '>':   /* "&gt;" */
+            len += 4;
+            break;
+        case '&':   /* "&amp;" */
+            len += 5;
+            break;
+        default:
+            len++;
+        }
+    }
+    if ((buf = xmpp_alloc(ctx, (len + 1) * sizeof(char))) == NULL)
+        return NULL;    /* Error */
+    dst = buf;
+    for (src = text; *src != '\0'; src++) {
+        switch (*src) {
+        case '<':
+            strcpy(dst, "&lt;");
+            dst += 4;
+            break;
+        case '>':
+            strcpy(dst, "&gt;");
+            dst += 4;
+            break;
+        case '&':
+            strcpy(dst, "&amp;");
+            dst += 5;
+            break;
+        default:
+            *dst = *src;
+            dst++;
         }
     }
     *dst = '\0';
@@ -281,7 +383,7 @@ static char *_escape_xml(xmpp_ctx_t * const ctx, char *text)
 }
 
 /* small helper function */
-static void _render_update(int *written, const int length,
+static void _render_update(int *written, const size_t length,
 			   const int lastwrite,
 			   size_t *left, char **ptr)
 {
@@ -319,7 +421,7 @@ static int _render_stanza_recursive(xmpp_stanza_t *stanza,
     if (stanza->type == XMPP_STANZA_TEXT) {
 	if (!stanza->data) return XMPP_EINVOP;
 
-	tmp = _escape_xml(stanza->ctx, stanza->data);
+    tmp = _escape_xml_text(stanza->ctx, stanza->data);
 	if (tmp == NULL) return XMPP_EMEM;
 	ret = xmpp_snprintf(ptr, left, "%s", tmp);
 	xmpp_free(stanza->ctx, tmp);
@@ -350,10 +452,10 @@ static int _render_stanza_recursive(xmpp_stanza_t *stanza,
 			    XMPP_NS_CLIENT))
 			continue;
 		}
-		tmp = _escape_xml(stanza->ctx,
+		tmp = _escape_xml_attribute(stanza->ctx,
 		    (char *)hash_get(stanza->attributes, key));
 		if (tmp == NULL) return XMPP_EMEM;
-		ret = xmpp_snprintf(ptr, left, " %s=\"%s\"", key, tmp);
+		ret = xmpp_snprintf(ptr, left, " %s=%s", key, tmp);
 		xmpp_free(stanza->ctx, tmp);
 		if (ret < 0) return XMPP_EMEM;
 		_render_update(&written, buflen, ret, &left, &ptr);

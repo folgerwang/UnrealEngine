@@ -2,9 +2,9 @@
 
 #pragma once
 
-#include "Object.h"
-#include "OnlineBlueprintCallProxyBase.h"
-#include "OnlineSessionInterface.h"
+#include "UObject/Object.h"
+#include "Net/OnlineBlueprintCallProxyBase.h"
+#include "Interfaces/OnlineSessionInterface.h"
 #include "OculusUpdateSessionCallbackProxy.generated.h"
 
 /**

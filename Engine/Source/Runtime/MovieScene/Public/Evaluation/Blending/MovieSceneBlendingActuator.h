@@ -4,10 +4,10 @@
 
 #include "CoreMinimal.h"
 #include "MovieSceneFwd.h"
-#include "ObjectKey.h"
+#include "UObject/ObjectKey.h"
 #include "IMovieScenePlayer.h"
-#include "BlendableTokenStack.h"
-#include "MovieSceneInitialValueStore.h"
+#include "Evaluation/Blending/BlendableTokenStack.h"
+#include "Evaluation/Blending/MovieSceneInitialValueStore.h"
 
 class UObject;
 

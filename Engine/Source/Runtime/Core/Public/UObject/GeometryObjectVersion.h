@@ -15,6 +15,8 @@ struct CORE_API FGeometryObjectVersion
 		CompressGeometryCache,
 		// Fix for serializing in Mesh vertices for new DynamicMeshVertex layout
 		DynamicMeshVertexLayoutChange,
+		//Added support for explicit motion vectors
+		ExplicitMotionVectors,
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,
 		LatestVersion = VersionPlusOne - 1

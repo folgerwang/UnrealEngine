@@ -193,15 +193,20 @@ namespace IncludeTool
 			{
 				return true;
 			}
-			if(NormalizedPath.EndsWith("/guidgenerator.cpp"))
-			{
-				return true;
-			}
-			if(NormalizedPath.EndsWith("/recastmesh.cpp") || NormalizedPath.EndsWith("/recastfilter.cpp") || NormalizedPath.EndsWith("/recastcontour.cpp"))
+			if(NormalizedPath.EndsWith("/recastmesh.cpp") || NormalizedPath.EndsWith("/recastfilter.cpp") || NormalizedPath.EndsWith("/recastcontour.cpp") || NormalizedPath.EndsWith("/framepro.h") || NormalizedPath.EndsWith("/framepro.cpp"))
 			{
 				return true;
 			}
 			return false;
+		}
+
+		/// <summary>
+		/// Determines whether to ignore parsing exported symbols from a file
+		/// </summary>
+		/// <returns>True to ignore exported symbols</returns>
+		public static bool ShouldIgnoreExports(string NormalizedPath)
+		{
+			return NormalizedPath.StartsWith("/engine/plugins/notforlicensees/uephysics/");
 		}
 
 		/// <summary>
@@ -260,6 +265,7 @@ namespace IncludeTool
 			"/Engine/Plugins/Online/OnlineSubsystem/Source/Public/OnlineSubsystemPackage.h",
 			"/Engine/Plugins/Online/OnlineSubsystemNull/Source/Public/OnlineSubsystemNullPackage.h",
 			"/Engine/Plugins/Online/NotForLicensees/OnlineSubsystemMcp/Source/Public/OnlineSubsystemMcpPackage.h",
+			"/Engine/Plugins/OnlineGameplayFramework/Source/McpProfileSys/Public/McpProfileSysPackage.h",
 			"/Engine/Plugins/Online/NotForLicensees/OnlineSubsystemTencent/Source/Public/OnlineSubsystemTencentPackage.h",
 			"/Engine/Plugins/Online/OnlineSubsystemSteam/Source/Public/OnlineSubsystemSteamPackage.h",
 			"/Engine/Plugins/Online/OnlineSubsystemAmazon/Source/Public/OnlineSubsystemAmazonPackage.h",
@@ -287,7 +293,8 @@ namespace IncludeTool
             "/FortniteGame/Plugins/Online/OnlineSubsystem/Source/Public/OnlineSubsystemPackage.h",
             "/FortniteGame/Plugins/Online/NotForLicensees/OnlineSubsystemMcp/Source/Public/OnlineSubsystemMcpPackage.h",
 			"/FortniteGame/Plugins/Online/OnlineSubsystemNull/Source/Public/OnlineSubsystemNullPackage.h",
-			"/FortniteGame/Plugins/Online/OnlineSubsystemUtils/Source/OnlineSubsystemUtils/Public/OnlineSubsystemUtilsPackage.h"
+			"/FortniteGame/Plugins/Online/OnlineSubsystemUtils/Source/OnlineSubsystemUtils/Public/OnlineSubsystemUtilsPackage.h",
+			"/FortniteGame/Plugins/OnlineGameplayFramework/Source/McpProfileSys/Public/McpProfileSysPackage.h"
         };
 
 		/// <summary>
@@ -505,6 +512,10 @@ namespace IncludeTool
 			{
 				Flags |= SourceFileFlags.AllowMultipleFragments;
 			}
+			if(ShouldIgnoreExports(NormalizedPath))
+			{
+				Flags |= SourceFileFlags.IgnoreExportedSymbols;
+			}
 			return Flags;
 		}
 
@@ -548,6 +559,10 @@ namespace IncludeTool
 		{
 			PreprocessorMarkup Markup = File.Markup[MarkupIdx];
 			if(Markup.Type == PreprocessorMarkupType.Text && Markup.EndLocation.LineIdx == Markup.Location.LineIdx + 1 && File.Text.Lines[Markup.Location.LineIdx].Contains("friend") && File.Text.Lines[Markup.Location.LineIdx].Contains("Z_Construct_"))
+			{
+				return true;
+			}
+			if(Markup.Type == PreprocessorMarkupType.Define && Markup.Tokens[0].Text == "DEPRECATED_FORGAME")
 			{
 				return true;
 			}

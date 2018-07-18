@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "SlateFwd.h"
 #include "UObject/ObjectMacros.h"
+#include "Containers/SortedMap.h"
 #include "Misc/Guid.h"
 #include "InputCoreTypes.h"
 #include "Templates/SubclassOf.h"
@@ -48,6 +49,7 @@ DECLARE_DELEGATE_RetVal(bool, FCanUnpause);
 DECLARE_DELEGATE_ThreeParams(FGetAudioListenerPos, FVector& /*Location*/, FVector& /*ProjFront*/, FVector& /*ProjRight*/);
 
 DECLARE_LOG_CATEGORY_EXTERN(LogPlayerController, Log, All);
+DECLARE_STATS_GROUP(TEXT("PlayerController"), STATGROUP_PlayerController, STATCAT_Advanced);
 
 UENUM()
 namespace EDynamicForceFeedbackAction
@@ -59,6 +61,8 @@ namespace EDynamicForceFeedbackAction
 		Stop,
 	};
 }
+
+typedef uint64 FDynamicForceFeedbackHandle;
 
 struct FDynamicForceFeedbackDetails
 {
@@ -337,8 +341,39 @@ public:
 	TArray<FForceFeedbackEffectHistoryEntry> ForceFeedbackEffectHistoryEntries;
 #endif
 
-	/** Map of active force feedback effects */
-	TMap<int32, FDynamicForceFeedbackDetails> DynamicForceFeedbacks;
+private:
+
+	struct FDynamicForceFeedbackAction
+	{
+		/** Time over which interpolation should happen */
+		float TotalTime;
+		/** Time so far elapsed for the interpolation */
+		float TimeElapsed;
+		/** Current feedback intensity values */
+		FDynamicForceFeedbackDetails ForceFeedbackDetails;
+		/** Unique ID for the action */
+		FDynamicForceFeedbackHandle Handle;
+		/** Unique ID generation static */
+		static FDynamicForceFeedbackHandle HandleAllocator;
+
+		/** 
+		 * Updates Values with this action's details.
+		 * @param DeltaTime	Time since last update
+		 * @param Values	Values structure to update
+		 * @return Returns false if the elapsed time has exceeded the total time.
+		 */
+		bool Update(const float DeltaTime, FForceFeedbackValues& Values);
+	};
+
+	/** Map of dynamic force feedback effects invoked from native */
+	TSortedMap<FDynamicForceFeedbackHandle, FDynamicForceFeedbackAction> DynamicForceFeedbacks;
+
+	/** Map of dynamic force feedback effects invoked from blueprints */
+	TSortedMap<int32, FDynamicForceFeedbackDetails*> LatentDynamicForceFeedbacks;
+
+	friend class FLatentDynamicForceFeedbackAction;
+
+public:
 
 	/** Currently playing haptic effects for both the left and right hand */
 	TSharedPtr<struct FActiveHapticFeedbackEffect> ActiveHapticEffect_Left;
@@ -1015,6 +1050,7 @@ public:
 	UFUNCTION(reliable, client, BlueprintCallable, Category="Game|Feedback")
 	void ClientStopForceFeedback(class UForceFeedbackEffect* ForceFeedbackEffect, FName Tag);
 
+private:
 	/** 
 	 * Latent action that controls the playing of force feedback 
 	 * Begins playing when Start is called.  Calling Update or Stop if the feedback is not active will have no effect.
@@ -1029,6 +1065,24 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, meta=(Latent, LatentInfo="LatentInfo", ExpandEnumAsExecs="Action", Duration="-1", bAffectsLeftLarge="true", bAffectsLeftSmall="true", bAffectsRightLarge="true", bAffectsRightSmall="true", AdvancedDisplay="bAffectsLeftLarge,bAffectsLeftSmall,bAffectsRightLarge,bAffectsRightSmall"), Category="Game|Feedback")
 	void PlayDynamicForceFeedback(float Intensity, float Duration, bool bAffectsLeftLarge, bool bAffectsLeftSmall, bool bAffectsRightLarge, bool bAffectsRightSmall, TEnumAsByte<EDynamicForceFeedbackAction::Type> Action, FLatentActionInfo LatentInfo);
+
+public:
+	/** 
+	 * Allows playing of a dynamic force feedback event from native code
+	 * Begins playing when Start is called.  Calling with Action set to Update or Stop if the feedback is not active will have no effect.
+	 * When Update is called the Intensity, Duration, and affect values will be updated
+	 * @param	Intensity				How strong the feedback should be.  Valid values are between 0.0 and 1.0
+	 * @param	Duration				How long the feedback should play for.  If the value is negative it will play until stopped
+	 * @param   bAffectsLeftLarge		Whether the intensity should be applied to the large left servo
+	 * @param   bAffectsLeftSmall		Whether the intensity should be applied to the small left servo
+	 * @param   bAffectsRightLarge		Whether the intensity should be applied to the large right servo
+	 * @param   bAffectsRightSmall		Whether the intensity should be applied to the small right servo
+	 * @param   Action					Whether to (re)start, update, or stop the action
+	 * @param	UniqueID				The ID returned by the start action when wanting to restart, update, or stop the action
+	 * @return  The index to pass in to the function to update the latent action in the future if needed. Returns 0 if the feedback was stopped
+	 *          or the specified UniqueID did not map to an action that can be started/updated.
+	 */
+	FDynamicForceFeedbackHandle PlayDynamicForceFeedback(float Intensity, float Duration, bool bAffectsLeftLarge, bool bAffectsLeftSmall, bool bAffectsRightLarge, bool bAffectsRightSmall, EDynamicForceFeedbackAction::Type Action = EDynamicForceFeedbackAction::Start, FDynamicForceFeedbackHandle ActionHandle = 0);
 
 	/**
 	 * Play a haptic feedback curve on the player's controller
@@ -1058,6 +1112,14 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Game|Feedback")
 	void SetHapticsByValue(const float Frequency, const float Amplitude, EControllerHand Hand);
 	
+	/**
+	 * Allows the player controller to disable all haptic requests from being fired, e.g. in the case of a level loading
+	 *
+	 * @param	bNewDisabled	If TRUE, the haptics will stop and prevented from being enabled again until set to FALSE
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Game|Feedback")
+	virtual void SetDisableHaptics(bool bNewDisabled);
+
 	/**
 	 * Sets the light color of the player's controller
 	 * @param	Color					The color for the light to be
@@ -1388,7 +1450,13 @@ public:
 	virtual bool InputKey(FKey Key, EInputEvent EventType, float AmountDepressed, bool bGamepad);
 
 	/** Handles a touch screen action */
-	virtual bool InputTouch(uint32 Handle, ETouchType::Type Type, const FVector2D& TouchLocation, FDateTime DeviceTimestamp, uint32 TouchpadIndex);
+	virtual bool InputTouch(uint32 Handle, ETouchType::Type Type, const FVector2D& TouchLocation, float Force, FDateTime DeviceTimestamp, uint32 TouchpadIndex);
+
+	DEPRECATED(4.20, "InputTouch now takes a Force")
+	bool InputTouch(uint32 Handle, ETouchType::Type Type, const FVector2D& TouchLocation, FDateTime DeviceTimestamp, uint32 TouchpadIndex)
+	{
+		return InputTouch(Handle, Type, TouchLocation, 1.0f, DeviceTimestamp, TouchpadIndex);
+	}
 
 	/** Handles a controller axis input */
 	virtual bool InputAxis(FKey Key, float Delta, float DeltaTime, int32 NumSamples, bool bGamepad);
@@ -1510,6 +1578,9 @@ public:
 	/** get audio listener position and orientation */
 	virtual void GetAudioListenerPosition(FVector& OutLocation, FVector& OutFrontDir, FVector& OutRightDir);
 
+	/** Gets the attenuation position override. */
+	virtual bool GetAudioListenerAttenuationOverridePosition(FVector& OutLocation);
+
 	/**
 	 * Used to override the default positioning of the audio listener
 	 * 
@@ -1526,15 +1597,28 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Game|Audio")
 	void ClearAudioListenerOverride();
 
+	UFUNCTION(BlueprintCallable, Category = "Game|Audio")
+	void SetAudioListenerAttenuationOverride(USceneComponent* AttachToComponent, FVector AttenuationLocationOVerride);
+
+	UFUNCTION(BlueprintCallable, Category = "Game|Audio")
+	void ClearAudioListenerAttenuationOverride();
+
+
 protected:
 	/** Whether to override the normal audio listener positioning method */
 	uint32 bOverrideAudioListener:1;
+	/** Whether to override the attenuation listener position. */
+	uint32 bOverrideAudioAttenuationListener:1;
 	/** Component that is currently driving the audio listener position/orientation */
 	TWeakObjectPtr<USceneComponent> AudioListenerComponent;
+	/** Component that is used to only override where attenuation calculations are computed from. */
+	TWeakObjectPtr<USceneComponent> AudioListenerAttenuationComponent;
 	/** Currently overridden location of audio listener */
 	FVector AudioListenerLocationOverride;
 	/** Currently overridden rotation of audio listener */
 	FRotator AudioListenerRotationOverride;
+	/** Currently overridden vector used to do attenuation calculations for listener. */
+	FVector AudioListenerAttenuationOverride;
 
 	/** Internal. */
 	void TickPlayerInput(const float DeltaSeconds, const bool bGamePaused);
@@ -1607,6 +1691,7 @@ public:
 	virtual void ViewAPlayer(int32 dir);
 
 	/** @return true if this controller thinks it's able to restart. Called from GameModeBase::PlayerCanRestart */
+	UFUNCTION(BlueprintCallable, Category = "Game")
 	virtual bool CanRestartPlayer();
 
 	/**
@@ -1807,4 +1892,9 @@ public:
 	 * Designate this player controller as local (public for GameModeBase to use, not expected to be called anywhere else)
 	 */
 	void SetAsLocalPlayerController() { bIsLocalPlayerController = true; }
+
+private:
+	/** If true, prevent any haptic effects from playing */
+	bool bDisableHaptics : 1;
+
 };

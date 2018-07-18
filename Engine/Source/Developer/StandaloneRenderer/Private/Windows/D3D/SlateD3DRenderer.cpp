@@ -3,9 +3,9 @@
 #include "Windows/D3D/SlateD3DRenderer.h"
 #include "Windows/D3D/SlateD3DTextureManager.h"
 #include "Windows/D3D/SlateD3DRenderingPolicy.h"
-#include "ElementBatcher.h"
-#include "FontCache.h"
-#include "SlateStats.h"
+#include "Rendering/ElementBatcher.h"
+#include "Fonts/FontCache.h"
+#include "Stats/SlateStats.h"
 #include "Widgets/SWindow.h"
 #include "Misc/CommandLine.h"
 #include "StandaloneRendererLog.h"
@@ -234,6 +234,11 @@ ISlateAtlasProvider* FSlateD3DRenderer::GetTextureAtlasProvider()
 	}
 
 	return nullptr;
+}
+
+FCriticalSection* FSlateD3DRenderer::GetResourceCriticalSection()
+{
+	return &ResourceCriticalSection;
 }
 
 int32 FSlateD3DRenderer::RegisterCurrentScene(FSceneInterface* Scene) 
@@ -511,7 +516,7 @@ void FSlateD3DRenderer::DrawWindows( FSlateDrawBuffer& InWindowDrawBuffer )
 	const TSharedRef<FSlateFontCache> FontCache = SlateFontServices->GetFontCache();
 
 	// Iterate through each element list and set up an RHI window for it if needed
-	TArray< TSharedPtr<FSlateWindowElementList> >& WindowElementLists = InWindowDrawBuffer.GetWindowElementLists();
+	const TArray< TSharedRef<FSlateWindowElementList> >& WindowElementLists = InWindowDrawBuffer.GetWindowElementLists();
 	for( int32 ListIndex = 0; ListIndex < WindowElementLists.Num(); ++ListIndex )
 	{
 		FSlateWindowElementList& ElementList = *WindowElementLists[ListIndex];
@@ -555,7 +560,7 @@ void FSlateD3DRenderer::DrawWindows( FSlateDrawBuffer& InWindowDrawBuffer )
 
 			{
 				SLATE_CYCLE_COUNTER_SCOPE(GRendererDrawElements);
-				RenderingPolicy->DrawElements(ViewMatrix * Viewport->ProjectionMatrix, BatchData.GetRenderBatches(), BatchData.GetRenderClipStates());
+				RenderingPolicy->DrawElements(ViewMatrix * Viewport->ProjectionMatrix, BatchData.GetRenderBatches());
 			}
 
 			GD3DDeviceContext->OMSetRenderTargets(0, NULL, NULL);

@@ -25,7 +25,7 @@ void FLobbyPlayerStateActorInfo::PostReplicatedAdd(const FLobbyPlayerStateInfoAr
 	}
 	else
 	{
-		UE_LOG(LogBeacon, Verbose, TEXT("PostReplicatedAdd with a null LobbyPlayerState actor, expect a future PostReplicatedChange"));
+		UE_LOG(LogLobbyBeacon, Verbose, TEXT("PostReplicatedAdd with a null LobbyPlayerState actor, expect a future PostReplicatedChange"));
 	}
 }
 
@@ -38,7 +38,7 @@ void FLobbyPlayerStateActorInfo::PostReplicatedChange(const FLobbyPlayerStateInf
 	}
 	else
 	{
-		UE_LOG(LogBeacon, Verbose, TEXT("PostReplicatedChange to a null LobbyPlayerState actor"));
+		UE_LOG(LogLobbyBeacon, Verbose, TEXT("PostReplicatedChange to a null LobbyPlayerState actor"));
 	}
 }
 
@@ -122,7 +122,7 @@ void FLobbyPlayerStateInfoArray::DumpState() const
 		const ALobbyBeaconPlayerState* Player = PlayerState.LobbyPlayerState;
 		if (Player)
 		{
-			UE_LOG(LogBeacon, Display, TEXT("[%d] %s %s %s"), ++Count, *Player->DisplayName.ToString(), *Player->UniqueId.ToString(), Player->bInLobby ? TEXT("In Lobby") : TEXT("In Game"));
+			UE_LOG(LogLobbyBeacon, Display, TEXT("[%d] %s %s %s"), ++Count, *Player->DisplayName.ToString(), *Player->UniqueId.ToString(), Player->bInLobby ? TEXT("In Lobby") : TEXT("In Game"));
 		}
 	}
 }
@@ -382,7 +382,7 @@ ALobbyBeaconPlayerState* ALobbyBeaconState::GetPlayer(const FString& UniqueId)
 
 void ALobbyBeaconState::DumpState() const
 {
-	UE_LOG(LogBeacon, Display, TEXT("Players:"));
+	UE_LOG(LogLobbyBeacon, Display, TEXT("Players:"));
 	Players.DumpState();
 }
 

@@ -90,6 +90,15 @@ public:
 	}
 
 	/**
+	 * Set the object template to the specified object directly.
+	 * Used for Copy/Paste, typically you should use CopyObjectTemplate.
+	 */
+	void SetObjectTemplate(UObject* InObjectTemplate)
+	{
+		ObjectTemplate = InObjectTemplate;
+	}
+
+	/**
 	 * Copy the specified object into this spawnable's template
 	 *
 	 * @param InSourceObject The source object to use. This object will be duplicated into the spawnable.
@@ -188,6 +197,30 @@ public:
 	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = Actor)
 	FTransform SpawnTransform;
 
+	/**
+	 * Get the name of the level to spawn into.
+	 *
+	 * @return Level name.
+	 */
+	FName GetLevelName() const
+	{
+		return LevelName;
+	}
+
+	/**
+	 * Set the name of the level to spawn into.
+	 *
+	 * @InLevelName The desired spawnable level name.
+	 */
+	void SetLevelName(FName InLevelName)
+	{
+		LevelName = InLevelName;
+	}
+
+	/** Array of tags that can be used for grouping and categorizing. */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=Actor)
+	TArray<FName> Tags;
+
 private:
 
 	/** Unique identifier of the spawnable object. */
@@ -219,4 +252,8 @@ public:
 	UPROPERTY()
 	UClass* GeneratedClass_DEPRECATED;
 #endif
+
+	/** Name of level to spawn into */
+	UPROPERTY()
+	FName LevelName;
 };

@@ -21,7 +21,22 @@ PostProcessVisualizeComplexity.cpp: Contains definitions for complexity viewmode
  */
 float GetMaxShaderComplexityCount(ERHIFeatureLevel::Type InFeatureType)
 {
-	return InFeatureType == ERHIFeatureLevel::ES2 ? GEngine->MaxES2PixelShaderAdditiveComplexityCount : GEngine->MaxPixelShaderAdditiveComplexityCount;
+	switch (InFeatureType)
+	{
+		case ERHIFeatureLevel::ES2:
+			return GEngine->MaxES2PixelShaderAdditiveComplexityCount;
+		break;
+
+		case ERHIFeatureLevel::ES3_1:
+			return GEngine->MaxES3PixelShaderAdditiveComplexityCount;
+		break;
+		
+		default:
+			return GEngine->MaxPixelShaderAdditiveComplexityCount;
+		break;
+	}
+
+	return GEngine->MaxPixelShaderAdditiveComplexityCount;
 }
 
 
@@ -193,7 +208,7 @@ void FRCPassPostProcessVisualizeComplexity::Process(FRenderingCompositePassConte
 		Canvas.Flush_RenderThread(Context.RHICmdList);
 	}
 	
-	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, false, FResolveParams());
+	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 }
 
 FPooledRenderTargetDesc FRCPassPostProcessVisualizeComplexity::ComputeOutputDesc(EPassOutputId InPassOutputId) const

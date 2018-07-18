@@ -21,7 +21,6 @@ public class SlateCore : ModuleRules
 				"Runtime/SlateCore/Private/Animation",
 				"Runtime/SlateCore/Private/Application",
 				"Runtime/SlateCore/Private/Brushes",
-				"Runtime/SlateCore/Private/Commands",
 				"Runtime/SlateCore/Private/Fonts",
 				"Runtime/SlateCore/Private/Input",
 				"Runtime/SlateCore/Private/Layout",
@@ -34,9 +33,9 @@ public class SlateCore : ModuleRules
 				"Runtime/SlateCore/Private/Widgets",
 			});
 
-		PublicDefinitions.Add("SLATE_DEFERRED_DESIRED_SIZE=0");
+        PublicDefinitions.Add("SLATE_PARENT_POINTERS=1");
 
-		if (Target.Type != TargetType.Server)
+        if (Target.Type != TargetType.Server)
 		{
 			if (Target.bCompileFreeType)
 			{

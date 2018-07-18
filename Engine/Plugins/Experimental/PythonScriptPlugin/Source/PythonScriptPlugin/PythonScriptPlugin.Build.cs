@@ -9,7 +9,6 @@ namespace UnrealBuildTool.Rules
 		{
 			PublicDependencyModuleNames.AddRange(
 				new string[] {
-					"Analytics",
 					"Core",
 					"CoreUObject",
 					"Engine",
@@ -18,7 +17,12 @@ namespace UnrealBuildTool.Rules
 
 			PrivateDependencyModuleNames.AddRange(
 				new string[] {
+					"Analytics",
+					"Projects",
 					"Python",
+					"Slate",
+					"SlateCore",
+					"InputCore",
 				}
 			);
 
@@ -29,8 +33,6 @@ namespace UnrealBuildTool.Rules
 						"DesktopPlatform",
 						"EditorStyle",
 						"LevelEditor",
-						"Slate",
-						"SlateCore",
 						"UnrealEd",
 					}
 				);

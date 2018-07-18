@@ -35,12 +35,13 @@ ActorFactory.cpp:
 #include "ActorFactories/ActorFactoryPlaneReflectionCapture.h"
 #include "ActorFactories/ActorFactoryPlayerStart.h"
 #include "ActorFactories/ActorFactoryPointLight.h"
+#include "ActorFactories/ActorFactorySpotLight.h"
+#include "ActorFactories/ActorFactoryRectLight.h"
+#include "ActorFactories/ActorFactorySkyLight.h"
 #include "ActorFactories/ActorFactorySkeletalMesh.h"
 #include "ActorFactories/ActorFactoryAnimationAsset.h"
-#include "ActorFactories/ActorFactorySkyLight.h"
 #include "ActorFactories/ActorFactorySphereReflectionCapture.h"
 #include "ActorFactories/ActorFactorySphereVolume.h"
-#include "ActorFactories/ActorFactorySpotLight.h"
 #include "ActorFactories/ActorFactoryStaticMesh.h"
 #include "ActorFactories/ActorFactoryBasicShape.h"
 #include "ActorFactories/ActorFactoryInteractiveFoliage.h"
@@ -80,6 +81,7 @@ ActorFactory.cpp:
 #include "Engine/DirectionalLight.h"
 #include "Engine/PointLight.h"
 #include "Engine/SpotLight.h"
+#include "Engine/RectLight.h"
 #include "Engine/Note.h"
 #include "Engine/BoxReflectionCapture.h"
 #include "Engine/PlaneReflectionCapture.h"
@@ -359,7 +361,10 @@ void UActorFactoryStaticMesh::PostSpawnActor( UObject* Asset, AActor* NewActor)
 	StaticMeshComponent->UnregisterComponent();
 
 	StaticMeshComponent->SetStaticMesh(StaticMesh);
-	StaticMeshComponent->StaticMeshDerivedDataKey = StaticMesh->RenderData->DerivedDataKey;
+	if (StaticMesh->RenderData)
+	{
+		StaticMeshComponent->StaticMeshDerivedDataKey = StaticMesh->RenderData->DerivedDataKey;
+	}
 
 	// Init Component
 	StaticMeshComponent->RegisterComponent();
@@ -1347,7 +1352,7 @@ bool UActorFactoryBlueprint::CanCreateActorFrom( const FAssetData& AssetData, FT
 		return false;
 	}
 
-	const FString ParentClassPath = AssetData.GetTagValueRef<FString>( "ParentClass" );
+	const FString ParentClassPath = AssetData.GetTagValueRef<FString>(FBlueprintTags::ParentClassPath);
 	if ( ParentClassPath.IsEmpty() )
 	{
 		OutErrorMsg = NSLOCTEXT("CanCreateActor", "NoBlueprint", "No Blueprint was specified, or the specified Blueprint needs to be compiled.");
@@ -1393,7 +1398,7 @@ AActor* UActorFactoryBlueprint::GetDefaultActor( const FAssetData& AssetData )
 		return NULL;
 	}
 
-	const FString GeneratedClassPath = AssetData.GetTagValueRef<FString>("GeneratedClass");
+	const FString GeneratedClassPath = AssetData.GetTagValueRef<FString>(FBlueprintTags::GeneratedClassPath);
 	if ( GeneratedClassPath.IsEmpty() )
 	{
 		return NULL;
@@ -1517,6 +1522,18 @@ UActorFactoryPointLight::UActorFactoryPointLight(const FObjectInitializer& Objec
 {
 	DisplayName = LOCTEXT("PointLightDisplayName", "Point Light");
 	NewActorClass = APointLight::StaticClass();
+	SpawnPositionOffset = FVector(50, 0, 0);
+	bUseSurfaceOrientation = true;
+}
+
+/*-----------------------------------------------------------------------------
+UActorFactoryRectLight
+-----------------------------------------------------------------------------*/
+UActorFactoryRectLight::UActorFactoryRectLight(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+	DisplayName = LOCTEXT("RectLightDisplayName", "Rect Light");
+	NewActorClass = ARectLight::StaticClass();
 	SpawnPositionOffset = FVector(50, 0, 0);
 	bUseSurfaceOrientation = true;
 }

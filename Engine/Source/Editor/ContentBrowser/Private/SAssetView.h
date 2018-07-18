@@ -35,6 +35,9 @@ struct FPropertyChangedEvent;
 /** Delegate called when selection changed. Provides more context than FOnAssetSelected */
 DECLARE_DELEGATE_TwoParams(FOnAssetSelectionChanged, const FAssetData& /*InAssetData*/, ESelectInfo::Type /*InSelectInfo*/);
 
+/** Fires whenever one of the "Search" options changes, useful for modifying search criteria to match */
+DECLARE_DELEGATE(FOnSearchOptionChanged);
+
 /**
  * A widget to display a list of filtered assets
  */
@@ -200,9 +203,12 @@ public:
 
 		/** Columns to hide by default */
 		SLATE_ARGUMENT( TArray<FString>, HiddenColumnNames )
-
+			
 		/** Custom columns that can be use specific */
 		SLATE_ARGUMENT( TArray<FAssetViewCustomColumn>, CustomColumns )
+
+		/** Custom columns that can be use specific */
+		SLATE_EVENT( FOnSearchOptionChanged, OnSearchOptionsChanged)
 
 	SLATE_END_ARGS()
 
@@ -326,6 +332,15 @@ public:
 	 * @param bEnginePlugin		If true, also forces the engine folder to be shown.
 	 */
 	void ForceShowPluginFolder( bool bEnginePlugin );
+
+	/** @return true when we are including class names in search criteria */
+	bool IsIncludingClassNames() const;
+
+	/** @return true when we are including the entire asset path in search criteria */
+	bool IsIncludingAssetPaths() const;
+
+	/** @return true when we are including collection names in search criteria */
+	bool IsIncludingCollectionNames() const;
 
 private:
 
@@ -517,6 +532,24 @@ private:
 
 	/** @return true when we are showing C++ content */
 	bool IsShowingCppContent() const;
+
+	/** Toggle whether class names should be included in search criteria */
+	void ToggleIncludeClassNames();
+
+	/** Whether or not it's possible to include class names in search criteria */
+	bool IsToggleIncludeClassNamesAllowed() const;
+
+	/** Toggle whether the entire asset path should be included in search criteria */
+	void ToggleIncludeAssetPaths();
+
+	/** Whether or not it's possible to include the entire asset path in search criteria */
+	bool IsToggleIncludeAssetPathsAllowed() const;
+
+	/** Toggle whether collection names should be included in search criteria */
+	void ToggleIncludeCollectionNames();
+
+	/** Whether or not it's possible to include collection names in search criteria */
+	bool IsToggleIncludeCollectionNamesAllowed() const;
 
 	/** Sets the view type and updates lists accordingly */
 	void SetCurrentViewType(EAssetViewType::Type NewType);
@@ -843,6 +876,9 @@ private:
 
 	/** Called to add extra asset data to the asset view, to display virtual assets. These get treated similar to Class assets */
 	FOnGetCustomSourceAssets OnGetCustomSourceAssets;
+
+	/** Called when a search option changes to notify that results should be rebuilt */
+	FOnSearchOptionChanged OnSearchOptionsChanged;
 
 	/** When true, filtered list items will be sorted next tick. Provided another sort hasn't happened recently or we are renaming an asset */
 	bool bPendingSortFilteredItems;

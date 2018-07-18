@@ -6,8 +6,9 @@
 #include "UObject/ObjectMacros.h"
 #include "Curves/RichCurve.h"
 #include "Evaluation/MovieSceneEvalTemplate.h"
-#include "MovieScene3DTransformSection.h"
-#include "Blending/BlendableToken.h"
+#include "Sections/MovieScene3DTransformSection.h"
+#include "Evaluation/Blending/BlendableToken.h"
+#include "Channels/MovieSceneFloatChannel.h"
 #include "Evaluation/Blending/MovieSceneMultiChannelBlending.h"
 #include "MovieScene3DTransformTemplate.generated.h"
 
@@ -18,28 +19,34 @@ struct FMovieScene3DTransformTemplateData
 {
 	GENERATED_BODY()
 
-	FMovieScene3DTransformTemplateData(){}
+	FMovieScene3DTransformTemplateData()
+		: BlendType((EMovieSceneBlendType)0)
+		, bUseQuaternionInterpolation(false) 
+	{}
 	FMovieScene3DTransformTemplateData(const UMovieScene3DTransformSection& Section);
 
-	MovieScene::TMultiChannelValue<float, 9> Evaluate(float InTime) const;
+	MovieScene::TMultiChannelValue<float, 9> Evaluate(FFrameTime InTime) const;
 
 	UPROPERTY()
-	FRichCurve TranslationCurve[3];
+	FMovieSceneFloatChannel TranslationCurve[3];
 
 	UPROPERTY()
-	FRichCurve RotationCurve[3];
+	FMovieSceneFloatChannel RotationCurve[3];
 
 	UPROPERTY()
-	FRichCurve ScaleCurve[3];
+	FMovieSceneFloatChannel ScaleCurve[3];
 
 	UPROPERTY()
-	FRichCurve ManualWeight;
+	FMovieSceneFloatChannel ManualWeight;
 
 	UPROPERTY() 
 	EMovieSceneBlendType BlendType;
 
 	UPROPERTY()
 	FMovieSceneTransformMask Mask;
+
+	UPROPERTY()
+	bool bUseQuaternionInterpolation;
 };
 
 USTRUCT()

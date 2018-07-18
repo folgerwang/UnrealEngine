@@ -7,21 +7,6 @@
 /* FMovieSceneBinding interface
  *****************************************************************************/
 
-TRange<float> FMovieSceneBinding::GetTimeRange() const
-{
-	TArray<TRange<float>> Bounds;
-
-	for (int32 TypeIndex = 0; TypeIndex < Tracks.Num(); ++TypeIndex)
-	{
-		if (Tracks[TypeIndex] != nullptr)
-		{
-			Bounds.Add(Tracks[TypeIndex]->GetSectionBoundaries());
-		}
-	}
-
-	return TRange<float>::Hull(Bounds);
-}
-
 void FMovieSceneBinding::AddTrack(UMovieSceneTrack& NewTrack)
 {
 	Tracks.Add(&NewTrack);

@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "ActorComponent.h"
+#include "Components/ActorComponent.h"
 #include "OculusFunctionLibrary.h"
 #include "IOculusHMDModule.h"
 #include "OculusBoundaryComponent.generated.h"

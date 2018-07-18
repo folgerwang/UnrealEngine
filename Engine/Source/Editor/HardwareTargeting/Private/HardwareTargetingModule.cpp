@@ -246,12 +246,6 @@ void FHardwareTargetingModule::GatherSettings(FMetaSettingGatherer& Builder)
 	}
 
 	{
-		// Mobile uses touch
-		UE_META_SETTING_ENTRY(Builder, UInputSettings, bUseMouseForTouch, bAnyMobile);
-		//@TODO: Use bAlwaysShowTouchInterface (sorta implied by bUseMouseForTouch)?
-	}
-
-	{
 		// Tablets or phones are usually shared-screen multiplayer instead of split-screen
 		UE_META_SETTING_ENTRY(Builder, UGameMapsSettings, bUseSplitscreen, bAnyPC);
 	}

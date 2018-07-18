@@ -1,36 +1,34 @@
-﻿INTSourceChangelist:3622867
+﻿INTSourceChangelist:3782314
 Availability:Public
 Crumbs: %ROOT%, Platforms
 Title:SteamVR Chaperone システムとのインタラクション 
 Description:SteamVR Chaperone システムの各種コンポーネントとのインタラクト方法
 Type: how-to
-Skilllevel:Intermidate
+Skilllevel:Intermediate
 Version:4.17
 Parent:Platforms/SteamVR
 Order:2
 tags:VR
 topic-image:Platforms\SteamVR\SteamVRDevelopment_topic.png
+prereq:Platforms\SteamVR\HowTo\StandingCamera
+prereq:Platforms\VR\MotionController
+prereq:Platforms\SteamVR\HowTo\Chaperone
+
+![](SVRChapInteraction_Hero_Image.png)
 
 SteamVR Chaperone システムは、VR インタラクション エリアの境界をユーザーに表示します。トラックされたデバイスが境界に近づくと、SteamVR Runtime が自動的に視覚的なヒントを出してユーザーに知らせます。以下の操作ガイドでは、VR インタラクションをユーザーに表示する 2 種類の方法を説明します。 
 
-[REGION:note]
-Motion Controller と Chaperone を Standing VR Pawn で使用する方法を説明します。設定方法が分からない場合は、以下を参考にしてください。
-* [SteamVR 用スタンディング式カメラの設定方法](Platforms\SteamVR\HowTo\StandingCamera)
-* [SteamVR 用 Motion Contolloers の設定方法](Platforms\VR\MotionController)
-* [Chaperone システムの設定方法](Platforms\SteamVR\HowTo\Chaperone)
-[/REGION]
-
 [REGION:tip]
-Chaperone システムを使うためには、SteamVR ツールを使って Room Scale VR が正しく設定されていなければなりません。設定方法の詳細は、[HTC Vive](https://www.vive.com/us/support/category_howto/setting-up-room-scale-play-area.html) をご覧ください。
+Chaperone システムを使うためには、SteamVR ツールを使って **Room Scale VR** が正しく設定されていなければなりません。設定方法の詳細は、[HTC Vive](https://www.vive.com/us/support/category_howto/setting-up-room-scale-play-area.html) をご覧ください。
 [/REGION]
 
 [REGION:warning]
 UE4 から Chaperone システムを無効にすることは **できません**し、推奨もしません。ただし、ユーザーの境界への接近に対する UE4 の反応はいろいろ変えることができます。  
 [/REGION]
 
-## SteamVR インタラクション エリアの角を表示する
+## ステップ
 
-以下の操作ガイドでは、VR インタラクション エリアの四隅でスタティックメッシュをスポーンする方法を説明します。
+以下のガイドでは、VR インタラクション エリアの四隅でスタティックメッシュをスポーンする方法、および VR インタラクションのサイズと形状を正確なラインで描画する方法を説明します。
 
 [region:note]
 [Lighthouse Basestation Static Mesh & Texture](https://epicgames.box.com/s/3n6yilg2is2f7nq8ju27z0wbxhkvyms1) から Lighthouse Basestation スタティックメッシュとテクスチャをダウンロードすることができます。
@@ -50,6 +48,7 @@ UE4 から Chaperone システムを無効にすることは **できません**
     クリックしてフルサイズで表示
     [/REGION]
 
+    [REGION:simpletable]
     |ノード名| 値 |
     |--------|------------|
     |**Motion Controller (R) Trigger**|N/A|
@@ -61,6 +60,7 @@ UE4 から Chaperone システムを無効にすることは **できません**
     |**Destroy Component**|N/A|
     |**Array Add **|N/A|
     |**IsValid**|N/A|
+    [/REGION]
 
 1. 次に、ユーザーが設定する SteamVR インタラクション エリアの情報の取得方法を設定する必要があります。SteamVR Chaperone 範囲を作るポイントとインタラクトできるように、Pawn ブループリント内の **SteamVRChaperone** 変数出力を **Get Bounds** ノードの入力に接続します。
 
@@ -80,12 +80,6 @@ UE4 から Chaperone システムを無効にすることは **できません**
 
     [INCLUDE:Platforms\SteamVR\HowTo\ChaperoneInteraction\#SteamVRC2]
 
-スタティックメッシュを使って VR インタラクション エリアの四隅でスタティックメッシュを表示する機能を使って、次のセクションでは **Minimum Area Rectangle** ノードを使って VR インタラクションの正確なサイズと形状になるラインの描き方を説明します。
-
-## SteamVR インタラクション エリア全体を表示する
-
-このセクションでは、VR インタラクション エリアの正確なサイズと形状になるボックスの描き方を説明します。
-
 1. まず、**[Variables]** セクションで **SampleSurface** という名前の **Vector** 変数を新規作成します。これを使って VR インタラクション エリアのサーフェス法線を格納します。 
 
     ![](SVRChapInteraction_05.png)
@@ -100,6 +94,7 @@ UE4 から Chaperone システムを無効にすることは **できません**
     クリックしてフルサイズで表示
     [/REGION]
 
+    [REGION:simpletable]
     |ノード名| 値 |
     |--------|------------|
     |**Motion Controller (R) Trigger**|N/A|
@@ -109,12 +104,13 @@ UE4 から Chaperone システムを無効にすることは **できません**
     |**SampleSurface**|N/A|
     |**MinimumAreaRectangle**|N/A|
     |**DrawDebugBox**|N/A|
+    [/REGION]
 
 1. 必要なノードをイベントグラフに追加したので、次はそれらを接続して、Motion Controller(R) Trigger が押されると VR インタラクション エリアを構成し、その周りにボックスを描く頂点の位置をサンプリングすることができます。下図と同じになるようにノードを設定すると、ブループリントでこの操作を実行することができます。
 
     [INCLUDE:Platforms\SteamVR\HowTo\ChaperoneInteraction\#SteamVRC3]
 
-## 結果
+## 最終結果
 
 すべて接続したら、[VR Preview] ボタンでレベルを起動し、HTC Vive HMD を装着してモーション コントローラーを持ちます。右手のモーション コントローラーでトリガーを握ると、Steam VR インタラクション エリアの範囲が以下の動画のように表示されます。 
 
@@ -140,7 +136,8 @@ UE4 から Chaperone システムを無効にすることは **できません**
 
 以下のリンクから、このサンプルの作成に使われた UE4 プロジェクトをダウンロードすることができます。
 
-* [**SteamVR Chaperon Interaction Example Project**](https://epicgames.box.com/s/q0j0i9agz94z0fh8jjz3tspipdbrs2ud)
+* [**SteamVR Chaperone Interaction Example Project**](https://epicgames.box.com/s/q0j0i9agz94z0fh8jjz3tspipdbrs2ud)
+
 
 
 [COMMENT:none]

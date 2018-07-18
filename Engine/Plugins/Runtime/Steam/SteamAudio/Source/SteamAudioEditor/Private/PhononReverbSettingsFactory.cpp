@@ -11,7 +11,7 @@ namespace SteamAudio
 {
 	FText FAssetTypeActions_PhononReverbSettings::GetName() const
 	{
-		return NSLOCTEXT("AssetTypeActions", "AssetTypeActions_PhononReverbSettings", "Phonon Source Reverb Settings");
+		return NSLOCTEXT("SteamAudio", "AssetTypeActions_PhononReverbSettings", "Phonon Source Reverb Settings");
 	}
 
 	FColor FAssetTypeActions_PhononReverbSettings::GetTypeColor() const

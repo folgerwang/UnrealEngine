@@ -1,8 +1,8 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "OpenGLDrvPrivate.h"
-#include "IOSAppDelegate.h"
-#include "IOSView.h"
+#include "IOS/IOSAppDelegate.h"
+#include "IOS/IOSView.h"
 #include "IOS/IOSApplication.h"
 #include "IOS/IOSPlatformFramePacer.h"
 #include "GenericPlatform/GenericApplication.h"
@@ -131,6 +131,11 @@ void PlatformDestroyOpenGLDevice(FPlatformOpenGLDevice* Device)
 {
 }
 
+FPlatformOpenGLContext* PlatformGetOpenGLRenderingContext(FPlatformOpenGLDevice* Device)
+{
+	return &Device->RenderingContext;
+}
+
 FPlatformOpenGLContext* PlatformCreateOpenGLContext(FPlatformOpenGLDevice* Device, void* InWindowHandle)
 {
 	// @todo-mobile
@@ -230,6 +235,11 @@ EOpenGLCurrentContext PlatformOpenGLCurrentContext(FPlatformOpenGLDevice* Device
 	}
 
 	return CONTEXT_Invalid;
+}
+
+void* PlatformOpenGLCurrentContextHandle(FPlatformOpenGLDevice* Device)
+{
+	return [EAGLContext currentContext];
 }
 
 FRHITexture* PlatformCreateBuiltinBackBuffer(FOpenGLDynamicRHI* OpenGLRHI, uint32 SizeX, uint32 SizeY)

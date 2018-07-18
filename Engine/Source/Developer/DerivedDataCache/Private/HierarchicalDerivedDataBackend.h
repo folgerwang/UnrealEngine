@@ -8,7 +8,7 @@
 #include "DerivedDataCacheUsageStats.h"
 #include "Templates/ScopedPointer.h"
 #include "DerivedDataBackendAsyncPutWrapper.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 
 /** 

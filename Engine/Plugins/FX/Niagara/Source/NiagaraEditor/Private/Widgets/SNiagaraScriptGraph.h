@@ -2,8 +2,8 @@
 
 #pragma once
 
-#include "SCompoundWidget.h"
-#include "DeclarativeSyntaxSupport.h"
+#include "Widgets/SCompoundWidget.h"
+#include "Widgets/DeclarativeSyntaxSupport.h"
 #include "GraphEditor.h"
 #include "EdGraph/EdGraphNode.h"
 

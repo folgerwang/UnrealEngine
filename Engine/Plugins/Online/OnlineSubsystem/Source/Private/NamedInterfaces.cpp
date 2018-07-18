@@ -33,14 +33,14 @@ void UNamedInterfaces::Initialize()
 			// Set the object and interface names
 			Interface.InterfaceName = Def.InterfaceName;
 			Interface.InterfaceObject = NewObject<UObject>(GetTransientPackage(), Class);
-			UE_LOG(LogOnline, Display,
+			UE_LOG_ONLINE(Display,
 				TEXT("Created named interface (%s) of type (%s)"),
 				*Def.InterfaceName.ToString(),
 				*Def.InterfaceClassName);
 		}
 		else
 		{
-			UE_LOG(LogOnline, Warning,
+			UE_LOG_ONLINE(Warning,
 				TEXT("Failed to load class (%s) for named interface (%s)"),
 				*Def.InterfaceClassName,
 				*Def.InterfaceName.ToString());

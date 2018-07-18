@@ -4,7 +4,7 @@ Crumbs: %ROOT%, Engine, Engine/UI
 Description:A look at how to customize the look and feel of the user interface by rearranging and docking various panels and tabs.
 Navigation:topic
 Version: 4.9
-topic-image:(Engine/UI/CustomizingUI.png
+topic-image:Engine/UI/CustomizingUI.png
 
 
 [REGION:banner]

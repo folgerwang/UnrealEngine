@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3259022
+﻿INTSourceChangelist:3782314
 availability:Public
 title:3.ブループリントの設定
 description:Fluid Surface ブループリントの設定方法
@@ -52,7 +52,7 @@ checkpoint:FSB
 必ずブループリントをコンパイルおよび保存して使えるようにしてください。
 [/region]
 
-* **GetHeightRT** は、後で使用できるように、レンダー ターゲットの高さを取得および格納する関数です。この関数を作成する前に、次のデータを使って関数の入力と出力を設定してください。
+* **GetHeightRT** 関数は、後で使用できるように、レンダー ターゲットの高さを取得および格納します。この関数を作成する前に、次のデータを使って関数の入力と出力を設定してください。
 	* **入力**:
 		* 名前:インデックス 
 		* 型:整数
@@ -95,17 +95,17 @@ checkpoint:FSB
 必ずブループリントをコンパイルおよび保存して使えるようにしてください。
 [/region]
 
-* コンストラクション グラフを使って、流体サーフェスに必要なスタティックメッシュを作成し、動的マテリアル インスタンスを作成して水面をシミュレーションするスタティックメッシュに適用します。
+* コンストラクション グラフを使って、流体サーフェスに必要なスタティックメッシュを作成し、その後で動的マテリアル インスタンスを作成して水面をシミュレーションするスタティックメッシュに適用します。
 
 	[REGION:fullwidth]
 	[INCLUDE:Engine\Rendering\RenderTargets\BlueprintRenderTargets\HowTo\FluidSurface\3\#ConScript]
 	[/REGION]
 
 ## ブループリントのイベント グラフの設定
-このエフェクトを正しく機能させるために必要なすべてが入っている場所であるイベント グラフを追加して接続します。次のセクションでは、イベント グラフの各セクションの機能と、ワールドに配置された最終的なブループリントの影響について説明します。
+イベントグラフは、このエフェクトを正しく追加および機能させるために必要なすべてが入っている場所です。次のセクションでは、イベント グラフの各セクションの機能、および最終的なブループリントをワールドに配置した場合の影響について説明します。
 
 [region:note]
-必ずブループリントをコンパイルおよび保存して使えるようにしてください。
+ブループリントは必ずコンパイルおよび保存して、使える状態にしておきましょう。
 [/region]
 
 * **Clear all render targets of data** は、ブループリントの初回実行時にアーティファクトの発生を確実に防ぐために、含まれている可能性のある以前のデータのレンダー ターゲットをすべてクリアします。  
@@ -115,22 +115,22 @@ checkpoint:FSB
 	[/REGION]
 
 	[region:note]
-	3 のレンダー ターゲットのいずれかを Return ノードの *Height RT** 入力に必ず追加してください。
+	この 3 つのレンダー ターゲットのそれぞれを Return ノードの *Height RT** 入力に必ず追加してください。
 	[/region]
 
-* **Check to see if Left Mouse Button is held down** は、ユーザーがマウスの左ボタンを押しているかどうかを確認します。ユーザーがマウスの左ボタンを押していれば **MouseDown** が true に設定され、そうでなければ false に設定されます。
+* **Check to see if Left Mouse Button is held down** は、ユーザーがマウスの左ボタンを押しているかどうかを確認します。ユーザーがマウスの左ボタンを押していれば **MouseDown** が true、そうでなければ false に設定されます。
 
 	[REGION:fullwidth]
 	[INCLUDE:Engine\Rendering\RenderTargets\BlueprintRenderTargets\HowTo\FluidSurface\3\#MouseDown]
 	[/REGION]
 
-* **Take Damage Force** セクションは、衝撃イベントをシミュレーション中のサーフェスをオフセットできるように、ヒットして **ForceSplat** マテリアルをそのセクションに適用する場所をスタティックメッシュ状に見つけます。
+* **Take Damage Force** セクションは、衝撃イベントをシミュレートしているサーフェスをオフセットできるように、ヒットされたスタティックメッシュの位置を見つけて **ForceSplat** マテリアルをそのセクションに適用します。
 
 	[REGION:fullwidth]
 	[INCLUDE:Engine\Rendering\RenderTargets\BlueprintRenderTargets\HowTo\FluidSurface\3\#TakeDamage]
 	[/REGION]
 
-* **Begin & End Overlap** セクションは、プレイヤーがワールドに配置された流体サーフェス アクタに今触れているかどうかを確認するセクションです。 
+* **Begin & End Overlap** セクションは、プレイヤーがワールドに配置された流体サーフェス アクタに触れているかどうかを確認するセクションです。 
 
 	[REGION:fullwidth]
 	[INCLUDE:Engine\Rendering\RenderTargets\BlueprintRenderTargets\HowTo\FluidSurface\3\#Overlap]
@@ -142,31 +142,31 @@ checkpoint:FSB
 	[INCLUDE:Engine\Rendering\RenderTargets\BlueprintRenderTargets\HowTo\FluidSurface\3\#ShootWhenMouseDown]
 	[/REGION]
 
-* **Touching Character Force** は、プレイヤーが流体サーフェスに触れた時に、流体サーフェスに適用しているフォースの適用と更新を行います。  
+* **Touching Character Force** は、プレイヤーが流体サーフェスに触れた時に、流体サーフェス アクタに適用しているフォースの適用と更新を行います。  
 
 	[REGION:fullwidth]
 	[INCLUDE:Engine\Rendering\RenderTargets\BlueprintRenderTargets\HowTo\FluidSurface\3\#TouchingCarForce]
 	[/REGION]
 
-* **Fixed timestep, so fluid speed is framerate independent** は、流体サーフェスを伝わる波動伝搬がプロジェクトのフレームレートに結びついていない独自のフレームレートをもっていることを確認します。基本的に、流体サーフェスの波はレベル内で起きていることに速度を左右されることがなくなります。
+* **Fixed timestep, so fluid speed is framerate independent** は、流体サーフェスを伝わる波動伝搬がプロジェクトのフレームレートに結びついていない独自のフレームレートをもっていることを確認します。基本的に、流体サーフェスの波の速度は、レベル内で起きていることの影響を受けなくなります。
 
 	[REGION:fullwidth]
 	[INCLUDE:Engine\Rendering\RenderTargets\BlueprintRenderTargets\HowTo\FluidSurface\3\#FixedFrameRate]
 	[/REGION]
 
-* **Cycle Active heightfield** は、流体サー流体サーフェスに発射物が当たったり触られた時に、外見をより動的にするためにフェス用の各種レンダー ターゲットを周期的に繰り返します。
+* **Cycle Active heightfield** は、流体サーフェスに発射物が当たる、または接触した時に、サーフェスがより動的に見えるようにするために、サーフェスに対してさまざまなレンダー ターゲットを周期的に繰り返します。
 
 	[REGION:fullwidth]
 	[INCLUDE:Engine\Rendering\RenderTargets\BlueprintRenderTargets\HowTo\FluidSurface\3\#CycleActiveHeightfield]
 	[/REGION]
 
-* **Apply fluid surface simulation kernel, which propagates waves** は、流体サーフェス上で波動伝搬処理をすることで、時間経過と共に波が消えていくように見せます。
+* **Apply fluid surface simulation kernel, which propagates waves** は、流体サーフェス アクタ上で波動伝搬処理をすることで、時間経過と共に波が消えていくように見せます。
 
 	[REGION:fullwidth]
 	[INCLUDE:Engine\Rendering\RenderTargets\BlueprintRenderTargets\HowTo\FluidSurface\3\#ApplySim]
 	[/REGION]
 
-* **Compute Surface Normal** は、表面に作るさざ波がもっとはっきり見えるように揺らすための法線をサーフェスに適用します。 
+* **Compute Surface Normal** は、さざ波をもっと見やすくするための法線を流体のサーフェスに適用します。 
 
 	[REGION:fullwidth]
 	[INCLUDE:Engine\Rendering\RenderTargets\BlueprintRenderTargets\HowTo\FluidSurface\3\#CompSurfNorm]

@@ -55,7 +55,7 @@
 #include "ObjectTools.h"
 #include "PackageTools.h"
 #include "AssetRegistryModule.h"
-#include "Private/GeomFitUtils.h"
+#include "UnrealEd/Private/GeomFitUtils.h"
 #include "SpeedTreeWind.h"
 #include "RawMesh.h"
 #include "ComponentReregisterContext.h"
@@ -1382,7 +1382,7 @@ void ProcessTriangleCorner( SpeedTree::CCore& SpeedTree, const int32 TriangleInd
 	int32 BaseTexcoordIndex = RawMesh.WedgeTexCoords[ 0 ].Num();
 	for( int32 PadIndex = 0; PadIndex < NumUVs; ++PadIndex )
 	{
-		RawMesh.WedgeTexCoords[ PadIndex ].AddUninitialized( 1 );
+		RawMesh.WedgeTexCoords[ PadIndex ].AddZeroed( 1 );
 	}
 
 	// All texcoords are packed into 4 float4 vertex attributes
@@ -1555,13 +1555,13 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary7(UClass* InClass, UObject*
 				// Copy the speed tree import asset from the option windows
 				if (StaticMesh->AssetImportData == nullptr || !StaticMesh->AssetImportData->IsA(USpeedTreeImportData::StaticClass()))
 				{
-					StaticMesh->AssetImportData = NewObject<USpeedTreeImportData>(Package, NAME_None);
+					StaticMesh->AssetImportData = NewObject<USpeedTreeImportData>(StaticMesh, NAME_None);
 				}
 				StaticMesh->AssetImportData->Update(UFactory::GetCurrentFilename());
 				Cast<USpeedTreeImportData>(StaticMesh->AssetImportData)->CopyFrom(Options->SpeedTreeImportData);
 				
 				// clear out any old data
-				StaticMesh->SourceModels.Empty();
+				StaticMesh->SetNumSourceModels(0);
 				StaticMesh->SectionInfoMap.Clear();
 				StaticMesh->OriginalSectionInfoMap.Clear();
 				StaticMesh->StaticMaterials.Empty();
@@ -1705,7 +1705,7 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary7(UClass* InClass, UObject*
 								
 								RenderStateIndexToStaticMeshIndex.Add(DrawCall->m_nRenderStateIndex, StaticMesh->StaticMaterials.Num());
 								MaterialIndex = StaticMesh->StaticMaterials.Num();
-								StaticMesh->StaticMaterials.Add(FStaticMaterial(Material));
+								StaticMesh->StaticMaterials.Add(FStaticMaterial(Material, FName(*MaterialName), FName(*MaterialName)));
 							}
 							else
 							{
@@ -1783,15 +1783,15 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary7(UClass* InClass, UObject*
 							}							
 						}
 
-						FStaticMeshSourceModel* LODModel = new (StaticMesh->SourceModels) FStaticMeshSourceModel();
-						LODModel->BuildSettings.bRecomputeNormals = false;
-						LODModel->BuildSettings.bRecomputeTangents = false;
-						LODModel->BuildSettings.bRemoveDegenerates = true;
-						LODModel->BuildSettings.bUseHighPrecisionTangentBasis = false;
-						LODModel->BuildSettings.bUseFullPrecisionUVs = false;
-						LODModel->BuildSettings.bGenerateLightmapUVs = false;
-						LODModel->ScreenSize = 0.1f / FMath::Pow(2.0f, StaticMesh->SourceModels.Num() - 1);
-						LODModel->RawMeshBulkData->SaveRawMesh(RawMesh);
+						FStaticMeshSourceModel& LODModel = StaticMesh->AddSourceModel();
+						LODModel.BuildSettings.bRecomputeNormals = false;
+						LODModel.BuildSettings.bRecomputeTangents = false;
+						LODModel.BuildSettings.bRemoveDegenerates = true;
+						LODModel.BuildSettings.bUseHighPrecisionTangentBasis = false;
+						LODModel.BuildSettings.bUseFullPrecisionUVs = false;
+						LODModel.BuildSettings.bGenerateLightmapUVs = false;
+						LODModel.ScreenSize.Default = 0.1f / FMath::Pow(2.0f, StaticMesh->SourceModels.Num() - 1);
+						LODModel.SaveRawMesh(RawMesh);
 
 						for (int32 MaterialIndex = 0; MaterialIndex < StaticMesh->StaticMaterials.Num(); ++MaterialIndex)
 						{
@@ -1806,9 +1806,10 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary7(UClass* InClass, UObject*
 				// make billboard LOD
 				if (Options->SpeedTreeImportData->ImportGeometryType != EImportGeometryType::IGT_3D && SpeedTreeGeometry->m_sVertBBs.m_nNumBillboards > 0)
 				{
-					UMaterialInterface* Material = CreateSpeedTreeMaterial7(InParent, MeshName + "_Billboard", &SpeedTreeGeometry->m_aBillboardRenderStates[SpeedTree::RENDER_PASS_MAIN], Options, WindType, SpeedTreeGeometry->m_sVertBBs.m_nNumBillboards, LoadedPackages);
+					FString MaterialName = MeshName + "_Billboard";
+					UMaterialInterface* Material = CreateSpeedTreeMaterial7(InParent, MaterialName, &SpeedTreeGeometry->m_aBillboardRenderStates[SpeedTree::RENDER_PASS_MAIN], Options, WindType, SpeedTreeGeometry->m_sVertBBs.m_nNumBillboards, LoadedPackages);
 					int32 MaterialIndex = StaticMesh->StaticMaterials.Num();
-					StaticMesh->StaticMaterials.Add(FStaticMaterial(Material));
+					StaticMesh->StaticMaterials.Add(FStaticMaterial(Material, FName(*MaterialName), FName(*MaterialName)));
 
 					FRawMesh RawMesh;
 					
@@ -1897,15 +1898,15 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary7(UClass* InClass, UObject*
 						}
 					}
 
-					FStaticMeshSourceModel* LODModel = new (StaticMesh->SourceModels) FStaticMeshSourceModel();
-					LODModel->BuildSettings.bRecomputeNormals = false;
-					LODModel->BuildSettings.bRecomputeTangents = false;
-					LODModel->BuildSettings.bRemoveDegenerates = true;
-					LODModel->BuildSettings.bUseHighPrecisionTangentBasis = false;
-					LODModel->BuildSettings.bUseFullPrecisionUVs = false;
-					LODModel->BuildSettings.bGenerateLightmapUVs = false;
-					LODModel->ScreenSize = 0.1f / FMath::Pow(2.0f, StaticMesh->SourceModels.Num() - 1);
-					LODModel->RawMeshBulkData->SaveRawMesh(RawMesh);
+					FStaticMeshSourceModel& LODModel = StaticMesh->AddSourceModel();
+					LODModel.BuildSettings.bRecomputeNormals = false;
+					LODModel.BuildSettings.bRecomputeTangents = false;
+					LODModel.BuildSettings.bRemoveDegenerates = true;
+					LODModel.BuildSettings.bUseHighPrecisionTangentBasis = false;
+					LODModel.BuildSettings.bUseFullPrecisionUVs = false;
+					LODModel.BuildSettings.bGenerateLightmapUVs = false;
+					LODModel.ScreenSize.Default = 0.1f / FMath::Pow(2.0f, StaticMesh->SourceModels.Num() - 1);
+					LODModel.SaveRawMesh(RawMesh);
 					// Add mesh section info entry for billboard LOD (only one section/material index)
 					const int32 LODIndex = StaticMesh->SourceModels.Num() - 1;
 					FMeshSectionInfo Info = StaticMesh->SectionInfoMap.Get(LODIndex, 0);
@@ -2034,7 +2035,7 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary8(UClass* InClass, UObject*
 		// Copy the speed tree import asset from the option windows
 		if (StaticMesh->AssetImportData == nullptr || !StaticMesh->AssetImportData->IsA(USpeedTreeImportData::StaticClass()))
 		{
-			StaticMesh->AssetImportData = NewObject<USpeedTreeImportData>(Package, NAME_None);
+			StaticMesh->AssetImportData = NewObject<USpeedTreeImportData>(StaticMesh, NAME_None);
 		}
 		StaticMesh->AssetImportData->Update(UFactory::GetCurrentFilename());
 		Cast<USpeedTreeImportData>(StaticMesh->AssetImportData)->CopyFrom(Options->SpeedTreeImportData);
@@ -2044,28 +2045,28 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary8(UClass* InClass, UObject*
 		StaticMesh->StaticMaterials.Empty();
 		if (StaticMesh->SourceModels.Num() != SpeedTree.Lods().Count())
 		{
-			StaticMesh->SourceModels.Empty();
+			StaticMesh->SetNumSourceModels(0);
 			float Denominator = 1.0f / FMath::Max(1.0f, SpeedTree.Lods().Count() - 1.0f);
 
 			for (uint32 LODIndex = 0; LODIndex < SpeedTree.Lods().Count(); ++LODIndex)
 			{
-				FStaticMeshSourceModel* LODModel = new (StaticMesh->SourceModels) FStaticMeshSourceModel();
-				LODModel->BuildSettings.SrcLightmapIndex = 1;
-				LODModel->BuildSettings.DstLightmapIndex = 1;
-				LODModel->BuildSettings.bRecomputeNormals = false;
-				LODModel->BuildSettings.bRecomputeTangents = false;
-				LODModel->BuildSettings.bRemoveDegenerates = true;
-				LODModel->BuildSettings.bUseHighPrecisionTangentBasis = false;
-				LODModel->BuildSettings.bUseFullPrecisionUVs = false;
-				LODModel->BuildSettings.bGenerateLightmapUVs = false;
+				FStaticMeshSourceModel& LODModel = StaticMesh->AddSourceModel();
+				LODModel.BuildSettings.SrcLightmapIndex = 1;
+				LODModel.BuildSettings.DstLightmapIndex = 1;
+				LODModel.BuildSettings.bRecomputeNormals = false;
+				LODModel.BuildSettings.bRecomputeTangents = false;
+				LODModel.BuildSettings.bRemoveDegenerates = true;
+				LODModel.BuildSettings.bUseHighPrecisionTangentBasis = false;
+				LODModel.BuildSettings.bUseFullPrecisionUVs = false;
+				LODModel.BuildSettings.bGenerateLightmapUVs = false;
 
 				if (Options->SpeedTreeImportData->LODType == ILT_IndividualActors)
 				{
-					LODModel->ScreenSize = FMath::Lerp(1.0f, 0.1f, FMath::Square(LODIndex * Denominator));
+					LODModel.ScreenSize = FMath::Lerp(1.0f, 0.1f, FMath::Square(LODIndex * Denominator));
 				}
 				else
 				{
-					LODModel->ScreenSize = FMath::Lerp(1.0f, 0.25f, LODIndex * Denominator);
+					LODModel.ScreenSize = FMath::Lerp(1.0f, 0.25f, LODIndex * Denominator);
 				}
 			}
 		}
@@ -2109,14 +2110,14 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary8(UClass* InClass, UObject*
 
 			for (uint32 VertexIndex = 0; VertexIndex < LOD.Vertices().Count(); ++VertexIndex)
 			{
-				const SpeedTree8::SVertex& Vertex = LOD.Vertices()[VertexIndex];
+				const SpeedTree8::SVertex& Vertex = LOD.Vertices()[VertexIndex]; //-V758
 				FVector vPosition = FVector(Vertex.m_vAnchor.x, Vertex.m_vAnchor.y, Vertex.m_vAnchor.z) + FVector(Vertex.m_vOffset.x, Vertex.m_vOffset.y, Vertex.m_vOffset.z);
 				RawMesh.VertexPositions.Add(vPosition);
 			}
 
 			for (uint32 DrawCallIndex = 0; DrawCallIndex < LOD.DrawCalls().Count(); ++DrawCallIndex)
 			{
-				const SpeedTree8::SDrawCall& DrawCall = LOD.DrawCalls()[DrawCallIndex];
+				const SpeedTree8::SDrawCall& DrawCall = LOD.DrawCalls()[DrawCallIndex]; //-V758
 
 				// find correct material/geometry combo
 				FIntPoint MaterialKey(DrawCall.m_uiMaterialIndex, DrawCall.m_eWindGeometryType);
@@ -2140,7 +2141,7 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary8(UClass* InClass, UObject*
 					MaterialName.InsertAt(MaterialName.Len() - 4, GeomString);
 					UMaterialInterface* Material = CreateSpeedTreeMaterial8(InParent, MaterialName, SpeedTreeMaterial, Options, WindType, GeomType, LoadedPackages, bCrossfadeLOD);
 					MaterialMap.Add(MaterialKey, StaticMesh->StaticMaterials.Num());
-					StaticMesh->StaticMaterials.Add(FStaticMaterial(Material));
+					StaticMesh->StaticMaterials.Add(FStaticMaterial(Material, FName(*MaterialName), FName(*MaterialName)));
 				}
 				uint32 MaterialIndex = MaterialMap[MaterialKey];
 
@@ -2159,7 +2160,7 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary8(UClass* InClass, UObject*
 						int32 VertexIndex = LOD.Indices()[DrawCall.m_uiIndexStart + TriangleIndex * 3 + (2 - Corner)];
 						RawMesh.WedgeIndices.Add(VertexIndex);
 
-						const SpeedTree8::SVertex& Vertex = LOD.Vertices()[VertexIndex];
+						const SpeedTree8::SVertex& Vertex = LOD.Vertices()[VertexIndex]; //-V758
 
 						// tangents
 						RawMesh.WedgeTangentX.Add(FVector(Vertex.m_vTangent.x, Vertex.m_vTangent.y, Vertex.m_vTangent.z));
@@ -2249,10 +2250,10 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary8(UClass* InClass, UObject*
 			if (!StaticMesh->SourceModels[LODIndex].RawMeshBulkData->IsEmpty( ))
 			{
 				FRawMesh EmptyRawMesh;
-				StaticMesh->SourceModels[LODIndex].RawMeshBulkData->SaveRawMesh(EmptyRawMesh);
+				StaticMesh->SourceModels[LODIndex].SaveRawMesh(EmptyRawMesh);
 			}
 
-			StaticMesh->SourceModels[LODIndex].RawMeshBulkData->SaveRawMesh(RawMesh);
+			StaticMesh->SourceModels[LODIndex].SaveRawMesh(RawMesh);
 		}
 
 		// replace materials if they've been switched out

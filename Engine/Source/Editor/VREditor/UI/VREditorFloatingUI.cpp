@@ -30,6 +30,11 @@ AVREditorFloatingUI::AVREditorFloatingUI()
 	UISystemID(NAME_None),
 	bClearWidgetOnHide(false)
 {
+	if (HasAnyFlags(RF_ClassDefaultObject))
+	{
+		return;
+	}
+
 	const bool bTransient = true;
 	USceneComponent* SceneComponent = CreateDefaultSubobject<USceneComponent>(TEXT("SceneComponent"), bTransient);
 	check(SceneComponent != nullptr);
@@ -46,7 +51,7 @@ AVREditorFloatingUI::AVREditorFloatingUI()
 		WindowMeshComponent->SetMobility(EComponentMobility::Movable);
 		WindowMeshComponent->SetupAttachment(RootComponent);
 
-		WindowMeshComponent->bGenerateOverlapEvents = false;
+		WindowMeshComponent->SetGenerateOverlapEvents(false);
 		WindowMeshComponent->SetCanEverAffectNavigation(false);
 		WindowMeshComponent->bCastDynamicShadow = false;
 		WindowMeshComponent->bCastStaticShadow = false;

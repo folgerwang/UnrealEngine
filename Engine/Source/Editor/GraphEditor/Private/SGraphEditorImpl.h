@@ -146,8 +146,9 @@ public:
 	virtual bool GetBoundsForNode( const UEdGraphNode* InNode, class FSlateRect& Rect, float Padding) const override;
 	virtual void NotifyGraphChanged() override;
 	virtual TSharedPtr<SWidget> GetTitleBar() const override;
-	virtual void SetViewLocation(const FVector2D& Location, float ZoomAmount) override;
+	virtual void SetViewLocation(const FVector2D& Location, float ZoomAmount, const FGuid& BookmarkId = FGuid()) override;
 	virtual void GetViewLocation(FVector2D& Location, float& ZoomAmount) override;
+	virtual void GetViewBookmark(FGuid& BookmarkId) override;
 	virtual void LockToGraphEditor(TWeakPtr<SGraphEditor> Other) override;
 	virtual void UnlockFromGraphEditor(TWeakPtr<SGraphEditor> Other) override;
 	virtual void AddNotification ( FNotificationInfo& Info, bool bSuccess ) override;
@@ -155,7 +156,9 @@ public:
 	virtual TSharedRef<FActiveTimerHandle> RegisterActiveTimer(float TickPeriod, FWidgetActiveTimerDelegate TickFunction) override;
 	virtual void StraightenConnections() override;
 	virtual void StraightenConnections(UEdGraphPin* SourcePin, UEdGraphPin* PinToAlign) override;
+	virtual void RefreshNode(UEdGraphNode& Node) override;
 	virtual void CaptureKeyboard() override;
+	virtual void SetNodeFactory(const TSharedRef<class FGraphNodeFactory>& NewNodeFactory) override;
 	// End of SGraphEditor interface
 protected:
 	//

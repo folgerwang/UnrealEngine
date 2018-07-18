@@ -57,15 +57,21 @@ void FDynamicTextureInstanceManager::IncrementalUpdate(FRemovedTextureArray& Rem
 	// Because PendingComponents could have duplicates, we first do a pass to remove everything.
 	for (const UPrimitiveComponent* Component : PendingComponents)
 	{
+		check(Component);
+
 		State->RemoveComponent(Component, &RemovedTextures);
 		Component->bAttachedToStreamingManagerAsDynamic = false;
+		// Re-enable updates now that the component is out of the pending list.
+		Component->bIgnoreStreamingManagerUpdate = false;
 	}
 
 	// Now insert everything, checking for duplicates through bAttachedToStreamingManagerAsDynamic
 	for (const UPrimitiveComponent* Component : PendingComponents)
 	{
-		if (!Component->bAttachedToStreamingManagerAsDynamic && CanManage(Component) && 
-			Component->IsRegistered() && (!Component->IsRenderStateCreated() || Component->SceneProxy))
+		check(Component);
+
+		// Check bAttachedToStreamingManagerAsDynamic here to prevent handling the component twice.
+		if (!Component->bAttachedToStreamingManagerAsDynamic && CanManage(Component) && Component->IsRegistered() && (!Component->IsRenderStateCreated() || Component->SceneProxy))
 		{
 			FStreamingTextureLevelContext LevelContext(EMaterialQualityLevel::Num, Component);
 			if (State->AddComponentIgnoreBounds(Component, LevelContext) == EAddComponentResult::Success)
@@ -117,6 +123,32 @@ void FDynamicTextureInstanceManager::OnRefreshVisibilityDone(int32 BeginIndex, i
 	}
 }
 
+void FDynamicTextureInstanceManager::OnPreGarbageCollect(FRemovedTextureArray& RemovedTextures)
+{
+	for (int32 Index = 0; Index < PendingComponents.Num(); ++Index)
+	{
+		const UPrimitiveComponent* Primitive = PendingComponents[Index];
+		check(Primitive);
+
+		// If the component is not registered anymore, remove it. If it gets registered again it will be reinserted in the pending list.
+		// This allows to remove all unregistered components at once without having to handle each of them in FDynamicTextureInstanceManager::Remove().
+		// The goal here is to bypass the possibly slow search in PendingComponents.
+		if (!Primitive->IsRegistered() || Primitive->IsPendingKill() || Primitive->HasAnyFlags(RF_BeginDestroyed|RF_FinishDestroyed))
+		{
+			PendingComponents.RemoveAtSwap(Index);
+			Primitive->bIgnoreStreamingManagerUpdate = false;
+			--Index;
+
+			if (StateSync.GetState()->HasComponentReferences(Primitive))
+			{
+				StateSync.SyncAndGetState()->RemoveComponent(Primitive, &RemovedTextures);
+			}
+			Primitive->bAttachedToStreamingManagerAsDynamic = false;
+		}
+	}
+}
+
+
 /*-----------------------------------
 ------ ITextureInstanceManager ------
 -----------------------------------*/
@@ -151,13 +183,22 @@ EAddComponentResult FDynamicTextureInstanceManager::Add(const UPrimitiveComponen
 		// To is to allow the update (on render state changes) to work, which handles only dynamic primitives
 		Component->bHandledByStreamingManagerAsDynamic = true;
 
-		// Postpone so that we don't have to sync the state.
-		PendingComponents.Add(Component);
-		// Notify attached since it is now refered in PendingComponents
-		Component->bAttachedToStreamingManagerAsDynamic = true;
+		// If the update is disabled, it's either already in the pending list or this component has no streaming data.
+		if (!Component->bIgnoreStreamingManagerUpdate)
+		{
+			// Ignore any further updates while the component is in the pending list.
+			Component->bIgnoreStreamingManagerUpdate = true;
+
+			// Postpone so that we don't have to sync the state.
+			PendingComponents.Add(Component);
+
+			// Notify attached since it is now refered in PendingComponents
+			Component->bAttachedToStreamingManagerAsDynamic = true;
+		}
 
 		return EAddComponentResult::Success;
 	}
+
 	return EAddComponentResult::Fail;
 }
 
@@ -167,6 +208,7 @@ void FDynamicTextureInstanceManager::Remove(const UPrimitiveComponent* Component
 	if (Component && Component->bAttachedToStreamingManagerAsDynamic)
 	{
 		PendingComponents.RemoveSwap(Component);
+		Component->bIgnoreStreamingManagerUpdate = false;
 
 		// If the component is used, stop any task possibly indirecting it, and clear references.
 		if (StateSync.GetState()->HasComponentReferences(Component))

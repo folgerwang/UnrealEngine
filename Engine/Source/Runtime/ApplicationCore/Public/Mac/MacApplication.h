@@ -3,10 +3,10 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GenericApplication.h"
-#include "MacWindow.h"
-#include "MacTextInputMethodSystem.h"
-#include "IInputInterface.h"
+#include "GenericPlatform/GenericApplication.h"
+#include "Mac/MacWindow.h"
+#include "Mac/MacTextInputMethodSystem.h"
+#include "GenericPlatform/IInputInterface.h"
 
 struct FDeferredMacEvent
 {
@@ -26,9 +26,10 @@ struct FDeferredMacEvent
 	,	Phase(NSEventPhaseNone)
 	,	MomentumPhase(NSEventPhaseNone)
 	,	IsDirectionInvertedFromDevice(false)
-	,	Characters(nullptr)
-	,	CharactersIgnoringModifiers(nullptr)
+	,	Character(0)
+	,	CharCode(0)
 	,	IsRepeat(false)
+	,	IsPrintable(false)
 	,	KeyCode(0)
 	,	NotificationName(nullptr)
 	,	DraggingPasteboard(nullptr)
@@ -51,9 +52,10 @@ struct FDeferredMacEvent
 	,	Phase(Other.Phase)
 	,	MomentumPhase(Other.MomentumPhase)
 	,	IsDirectionInvertedFromDevice(Other.IsDirectionInvertedFromDevice)
-	,	Characters(Other.Characters ? [Other.Characters retain] : nullptr)
-	,	CharactersIgnoringModifiers(Other.CharactersIgnoringModifiers ? [Other.CharactersIgnoringModifiers retain] : nullptr)
+	,	Character(Other.Character)
+	,	CharCode(Other.CharCode)
 	,	IsRepeat(Other.IsRepeat)
+	,	IsPrintable(Other.IsPrintable)
 	,	KeyCode(Other.KeyCode)
 	,	NotificationName(Other.NotificationName ? [Other.NotificationName retain] : nullptr)
 	,	DraggingPasteboard(Other.DraggingPasteboard ? [Other.DraggingPasteboard retain] : nullptr)
@@ -70,14 +72,6 @@ struct FDeferredMacEvent
 		if (Context)
 		{
 			[Context release];
-		}
-		if (Characters)
-		{
-			[Characters release];
-		}
-		if (CharactersIgnoringModifiers)
-		{
-			[CharactersIgnoringModifiers release];
 		}
 		if (NotificationName)
 		{
@@ -108,9 +102,10 @@ struct FDeferredMacEvent
 	NSEventPhase Phase;
 	NSEventPhase MomentumPhase;
 	bool IsDirectionInvertedFromDevice;
-	NSString* Characters;
-	NSString* CharactersIgnoringModifiers;
+	TCHAR Character;
+	TCHAR CharCode;
 	bool IsRepeat;
+	bool IsPrintable;
 	uint32 KeyCode;
 
 	NSString* NotificationName;
@@ -260,6 +255,8 @@ public:
 
 	typedef void (*MenuBarShutdownFuncPtr)();
 	static MenuBarShutdownFuncPtr MenuBarShutdownFunc;
+	
+	static unichar TranslateKeyCodeToUniCode(uint32 KeyCode, uint32 Modifier);
 
 private:
 
@@ -289,6 +286,8 @@ private:
 	void OnApplicationWillResignActive();
 	void OnWindowsReordered();
 	void OnActiveSpaceDidChange();
+	
+	void CacheKeyboardInputSource();
 
 	void ConditionallyUpdateModifierKeys(const FDeferredMacEvent& Event);
 	void HandleModifierChange(NSUInteger NewModifierFlags, NSUInteger FlagsShift, NSUInteger UE4Shift, EMacModifierKeys TranslatedCode);
@@ -385,6 +384,8 @@ private:
 	/** Stores the number of times a gesture has been used for analytics */
 	int32 GestureUsage[(int32)EGestureEvent::Count];
 #endif
+
+	NSData* KeyBoardLayoutData;
 
 	friend class FMacWindow;
 };

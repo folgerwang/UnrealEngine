@@ -31,9 +31,9 @@
 #include "Engine/World.h"
 #include "Settings/ContentBrowserSettings.h"
 #include "Settings/EditorExperimentalSettings.h"
-#include "ISourceControlOperation.h"
 #include "SourceControlOperations.h"
 #include "ISourceControlModule.h"
+#include "SourceControlHelpers.h"
 #include "FileHelpers.h"
 #include "ARFilter.h"
 #include "AssetRegistryModule.h"
@@ -581,8 +581,10 @@ bool ContentBrowserUtils::DeleteFolders(const TArray<FString>& PathsToDelete)
 			// Make sure we loaded all of them
 			if ( LoadedAssets.Num() == NumAssetsInPaths )
 			{
-				const int32 NumAssetsDeleted = ContentBrowserUtils::DeleteAssets(LoadedAssets);
-				if ( NumAssetsDeleted == NumAssetsInPaths )
+				TArray<UObject*> ToDelete = LoadedAssets;
+				ObjectTools::AddExtraObjectsToDelete(ToDelete);
+				const int32 NumAssetsDeleted = ContentBrowserUtils::DeleteAssets(ToDelete);
+				if ( NumAssetsDeleted == ToDelete.Num() )
 				{
 					// Successfully deleted all assets in the specified path. Allow the folder to be removed.
 					bAllowFolderDelete = true;
@@ -796,7 +798,8 @@ bool ContentBrowserUtils::CopyFolders(const TArray<FString>& InSourcePathNames, 
 	for ( auto PathIt = SourcePathToLoadedAssets.CreateConstIterator(); PathIt; ++PathIt )
 	{
 		// Put dragged folders in a sub-folder under the destination path
-		FString SubFolderName = FPackageName::GetLongPackageAssetName(PathIt.Key());
+		const FString SourcePath = PathIt.Key();
+		FString SubFolderName = FPackageName::GetLongPackageAssetName(SourcePath);
 		FString Destination = DestPath + TEXT("/") + SubFolderName;
 
 		// Add the new path to notify sources views
@@ -810,7 +813,18 @@ bool ContentBrowserUtils::CopyFolders(const TArray<FString>& InSourcePathNames, 
 		if ( PathIt.Value().Num() > 0 )
 		{
 			// Copy assets and supply a source path to indicate it is relative
-			ObjectTools::DuplicateObjects( PathIt.Value(), PathIt.Key(), Destination, /*bOpenDialog=*/false );
+			ObjectTools::DuplicateObjects( PathIt.Value(), SourcePath, Destination, /*bOpenDialog=*/false );
+		}
+
+		// Attempt to copy the folder color to the new path location
+		if (FPaths::FileExists(GEditorPerProjectIni))
+		{
+			FString ColorStr;
+			if (GConfig->GetString(TEXT("PathColor"), *SourcePath, ColorStr, GEditorPerProjectIni))
+			{
+				// Add the new path
+				GConfig->SetString(TEXT("PathColor"), *Destination, *ColorStr, GEditorPerProjectIni);
+			}
 		}
 	}
 
@@ -872,6 +886,20 @@ bool ContentBrowserUtils::MoveFolders(const TArray<FString>& InSourcePathNames, 
 		if (DeleteEmptyFolderFromDisk(SourcePath))
 		{
 			AssetRegistryModule.Get().RemovePath(SourcePath);
+		}
+
+		// Attempt to move the folder color to the new path location
+		if (FPaths::FileExists(GEditorPerProjectIni))
+		{
+			FString ColorStr;
+			if (GConfig->GetString(TEXT("PathColor"), *SourcePath, ColorStr, GEditorPerProjectIni))
+			{
+				// Remove the old path
+				GConfig->RemoveKey(TEXT("PathColor"), *SourcePath, GEditorPerProjectIni);
+
+				// Add the new path
+				GConfig->SetString(TEXT("PathColor"), *Destination, *ColorStr, GEditorPerProjectIni);
+			}
 		}
 	}
 
@@ -1969,7 +1997,10 @@ void ShowSyncDependenciesDialog(const TArray<FString>& InDependencies, TArray<FS
 
 			for (UPackage* SelectedPackage : SelectedPackages)
 			{
-				OutExtraPackagesToSync.Emplace(SelectedPackage->GetName());
+				if (SelectedPackage)
+				{
+					OutExtraPackagesToSync.Emplace(SelectedPackage->GetName());
+				}
 			}
 		}
 	}
@@ -2144,6 +2175,12 @@ void ContentBrowserUtils::SyncPathsFromSourceControl(const TArray<FString>& Cont
 			}
 			return false; // keep package
 		});
+
+		UE_LOG(LogContentBrowser, Log, TEXT("Syncing %d path(s):"), ContentPaths.Num());
+		for (const UPackage* Package : LoadedPackages)
+		{
+			UE_LOG(LogContentBrowser, Log, TEXT("\t - %s"), *Package->GetName());
+		}
 
 		// Hot-reload the new packages...
 		PackageTools::ReloadPackages(LoadedPackages);

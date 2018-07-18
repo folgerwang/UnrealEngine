@@ -142,7 +142,7 @@ namespace IncludeTool
 		/// <param name="File">The source fragment to parse</param>
 		public void AddExports(SourceFile File)
 		{
-			if((File.Flags & SourceFileFlags.External) == 0)
+			if((File.Flags & SourceFileFlags.External) == 0 && (File.Flags & SourceFileFlags.IgnoreExportedSymbols) == 0)
 			{
 				TextBuffer Text = File.Text;
 				if(Text != null)

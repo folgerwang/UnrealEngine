@@ -6,7 +6,7 @@
 #include "UObject/ObjectMacros.h"
 #include "MovieSceneTrack.h"
 #include "MovieSceneSection.h"
-#include "MovieSceneEvalTemplate.h"
+#include "Evaluation/MovieSceneEvalTemplate.h"
 #include "MovieSceneSegmentCompilerTests.generated.h"
 
 USTRUCT()

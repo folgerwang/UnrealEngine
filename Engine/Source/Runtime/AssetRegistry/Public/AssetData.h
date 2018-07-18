@@ -12,7 +12,7 @@
 #include "Misc/PackageName.h"
 #include "UObject/LinkerLoad.h"
 #include "AssetDataTagMap.h"
-#include "PrimaryAssetId.h"
+#include "UObject/PrimaryAssetId.h"
 
 #include "AssetData.generated.h"
 
@@ -166,7 +166,7 @@ public:
 		return ObjectPath != NAME_None;
 	}
 
-	/** Returns true if this asset was found in a UAsset file */
+	/** Returns true if this is the primary asset in a package, true for maps and assets but false for secondary objects like class redirectors */
 	bool IsUAsset() const
 	{
 		return FPackageName::GetLongPackageAssetName(PackageName.ToString()) == AssetName.ToString();
@@ -465,7 +465,7 @@ inline bool FAssetData::GetTagValue(const FName InTagName, ValueType& OutTagValu
 	if (const FString* FoundValue = TagsAndValues.Find(InTagName))
 	{
 		FMemory::Memzero(&OutTagValue, sizeof(ValueType));
-		Lex::FromString(OutTagValue, **FoundValue);
+		LexFromString(OutTagValue, **FoundValue);
 		return true;
 	}
 	return false;
@@ -496,7 +496,7 @@ inline ValueType FAssetData::GetTagValueRef(const FName InTagName) const
 	FMemory::Memzero(&TmpValue, sizeof(ValueType));
 	if (const FString* FoundValue = TagsAndValues.Find(InTagName))
 	{
-		Lex::FromString(TmpValue, **FoundValue);
+		LexFromString(TmpValue, **FoundValue);
 	}
 	return TmpValue;
 }

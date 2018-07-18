@@ -52,7 +52,10 @@ public:
 
 	/** return raw data from provider's property */
 	template<typename T>
-	T* GetRawValuePtr() const;
+	T* GetRawValuePtr() const
+	{
+		return CachedProperty ? CachedProperty->ContainerPtrToValuePtr<T>(DataBinding) : nullptr;
+	}
 
 	/** bind data in provider and cache property for faster access */
 	void BindData(const UObject* Owner, int32 RequestId) const;

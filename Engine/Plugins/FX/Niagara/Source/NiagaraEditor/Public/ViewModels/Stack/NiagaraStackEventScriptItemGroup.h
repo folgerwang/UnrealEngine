@@ -4,21 +4,22 @@
 
 #include "NiagaraCommon.h"
 #include "NiagaraEmitter.h"
-#include "NiagaraStackItem.h"
-#include "NiagaraStackScriptItemGroup.h"
-#include "NiagaraStackItemExpander.h"
-#include "NiagaraStackAddEventScriptItem.h"
+#include "ViewModels/Stack/NiagaraStackItem.h"
+#include "ViewModels/Stack/NiagaraStackScriptItemGroup.h"
 #include "NiagaraStackEventScriptItemGroup.generated.h"
 
 class FNiagaraScriptViewModel;
+class UNiagaraStackObject;
+struct FNiagaraEventScriptProperties;
+class IDetailTreeNode;
 
 UCLASS()
 class NIAGARAEDITOR_API UNiagaraStackEventHandlerPropertiesItem : public UNiagaraStackItem
 {
 	GENERATED_BODY()
-
+		 
 public:
-	void Initialize(TSharedRef<FNiagaraSystemViewModel> InSystemViewModel, TSharedRef<FNiagaraEmitterViewModel> InEmitterViewModel, FGuid InEventScriptUsageId, UNiagaraStackEditorData& InStackEditorData);
+	void Initialize(FRequiredEntryData InRequiredEntryData, FGuid InEventScriptUsageId);
 
 	virtual FText GetDisplayName() const override;
 
@@ -27,28 +28,28 @@ public:
 	void ResetToBase();
 
 protected:
-	virtual void BeginDestroy() override;
+	virtual void FinalizeInternal() override;
 
-	virtual void RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren) override;
+	virtual void RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren, TArray<FStackIssue>& NewIssues) override;
 
 private:
-	void EventHandlerExpandedChanged();
-
 	void EventHandlerPropertiesChanged();
 
+	void SelectEmitterStackObjectRootTreeNodes(TArray<TSharedRef<IDetailTreeNode>> Source, TArray<TSharedRef<IDetailTreeNode>>* Selected);
+
 private:
+	FGuid EventScriptUsageId;
+
 	bool bHasBaseEventHandler;
 
 	mutable TOptional<bool> bCanResetToBase;
 
-	bool bForceRebuildChildStruct;
-
 	TWeakObjectPtr<UNiagaraEmitter> Emitter;
 
-	FGuid EventScriptUsageId;
+	FNiagaraEventScriptProperties* LastUsedEventScriptProperties;
 
 	UPROPERTY()
-	UNiagaraStackItemExpander* EventHandlerExpander;
+	UNiagaraStackObject* EmitterObject;
 };
 
 UCLASS()
@@ -60,26 +61,26 @@ class NIAGARAEDITOR_API UNiagaraStackEventScriptItemGroup : public UNiagaraStack
 public:
 	DECLARE_DELEGATE(FOnModifiedEventHandlers);
 
+public:
+	void Initialize(
+		FRequiredEntryData InRequiredEntryData,
+		TSharedRef<FNiagaraScriptViewModel> InScriptViewModel,
+		ENiagaraScriptUsage InScriptUsage,
+		FGuid InScriptUsageId);
+
+	void SetOnModifiedEventHandlers(FOnModifiedEventHandlers OnModifiedEventHandlers);
+
 protected:
 	FOnModifiedEventHandlers OnModifiedEventHandlersDelegate;
 
-	virtual void RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren) override;
+	virtual void RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren, TArray<FStackIssue>& NewIssues) override;
 
 	virtual bool CanDelete() const override;
 	virtual bool Delete() override;
 	
-public:
-	virtual FText GetDisplayName() const override;
-	void SetOnModifiedEventHandlers(FOnModifiedEventHandlers OnModifiedEventHandlers);
-
 private:
-	FText DisplayName;
-
 	bool bHasBaseEventHandler;
 
 	UPROPERTY()
 	UNiagaraStackEventHandlerPropertiesItem* EventHandlerProperties;
-
-	UPROPERTY()
-	UNiagaraStackSpacer* EventHandlerPropertiesSpacer;
 };

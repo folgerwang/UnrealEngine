@@ -5,6 +5,9 @@
 #include "KismetCompilerModule.h"
 #include "KismetCompiler.h"
 
+struct FControlRigBlueprintPropertyLink;
+class UControlRigBlueprintGeneratedClass;
+
 class FControlRigBlueprintCompiler : public IBlueprintCompiler
 {
 public:
@@ -18,14 +21,27 @@ class FControlRigBlueprintCompilerContext : public FKismetCompilerContext
 public:
 	FControlRigBlueprintCompilerContext(UBlueprint* SourceSketch, FCompilerResultsLog& InMessageLog, const FKismetCompilerOptions& InCompilerOptions, TArray<UObject*>* InObjLoaded)
 		: FKismetCompilerContext(SourceSketch, InMessageLog, InCompilerOptions, InObjLoaded)
-		, CurrentControlRigAllocationIndex(0)
+		, NewControlRigBlueprintGeneratedClass(nullptr)
 	{
 	}
 
-	/** Get a unique allocation index for this ControlRig's current compilation */
-	int32 GetNewControlRigAllocationIndex();
+	// FKismetCompilerContext interface
+	virtual void MergeUbergraphPagesIn(UEdGraph* Ubergraph) override;
+	virtual void PostCompile() override;
+	virtual void CopyTermDefaultsToDefaultObject(UObject* DefaultObject) override;
+	virtual void EnsureProperGeneratedClass(UClass*& TargetUClass) override;
+	virtual void SpawnNewClass(const FString& NewClassName) override;
+	virtual void OnNewClassSet(UBlueprintGeneratedClass* ClassToUse) override;
+	virtual void CleanAndSanitizeClass(UBlueprintGeneratedClass* ClassToClean, UObject*& InOldCDO) override;
 
 private:
-	/** Current ControlRig allocation index used to preallocate sub-ControlRigs */
-	int32 CurrentControlRigAllocationIndex;
+	// utility function to add root property to links 
+	void AddRootPropertyLinks(TArray<FControlRigBlueprintPropertyLink>& InLinks, TArray<FName>& OutSourceArray, TArray<FName>& OutDestArray) const;
+
+	// utility funciton to build property links from the ubergraphs
+	void BuildPropertyLinks();
+
+private:
+	/** the new class we are generating */
+	UControlRigBlueprintGeneratedClass* NewControlRigBlueprintGeneratedClass;
 };

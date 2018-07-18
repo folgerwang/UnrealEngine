@@ -7,19 +7,19 @@
 
 // FNullHttpRequest
 
-FString FNullHttpRequest::GetURL()
+FString FNullHttpRequest::GetURL() const
 {
 	return Url;
 }
 
-FString FNullHttpRequest::GetURLParameter(const FString& ParameterName)
+FString FNullHttpRequest::GetURLParameter(const FString& ParameterName) const
 {
 	return FString();
 }
 
-FString FNullHttpRequest::GetHeader(const FString& HeaderName)
+FString FNullHttpRequest::GetHeader(const FString& HeaderName) const
 {
-	FString* Header = Headers.Find(HeaderName);
+	const FString* Header = Headers.Find(HeaderName);
 	if (Header != NULL)
 	{
 		return *Header;
@@ -27,7 +27,7 @@ FString FNullHttpRequest::GetHeader(const FString& HeaderName)
 	return FString();
 }
 
-TArray<FString> FNullHttpRequest::GetAllHeaders()
+TArray<FString> FNullHttpRequest::GetAllHeaders() const
 {
 	TArray<FString> Result;
 	for (TMap<FString, FString>::TConstIterator It(Headers); It; ++It)
@@ -37,22 +37,22 @@ TArray<FString> FNullHttpRequest::GetAllHeaders()
 	return Result;
 }
 
-FString FNullHttpRequest::GetContentType()
+FString FNullHttpRequest::GetContentType() const
 {
 	return GetHeader(TEXT("Content-Type"));
 }
 
-int32 FNullHttpRequest::GetContentLength()
+int32 FNullHttpRequest::GetContentLength() const
 {
 	return Payload.Num();
 }
 
-const TArray<uint8>& FNullHttpRequest::GetContent()
+const TArray<uint8>& FNullHttpRequest::GetContent() const
 {
 	return Payload;
 }
 
-FString FNullHttpRequest::GetVerb()
+FString FNullHttpRequest::GetVerb() const
 {
 	return Verb;
 }
@@ -111,22 +111,12 @@ bool FNullHttpRequest::ProcessRequest()
 	return true;
 }
 
-FHttpRequestCompleteDelegate& FNullHttpRequest::OnProcessRequestComplete()
-{
-	return RequestCompleteDelegate;
-}
-
-FHttpRequestProgressDelegate& FNullHttpRequest::OnRequestProgress()
-{
-	return ReuestProgressDelegate;
-}
-
 void FNullHttpRequest::CancelRequest()
 {
 	FinishedRequest();
 }
 
-EHttpRequestStatus::Type FNullHttpRequest::GetStatus()
+EHttpRequestStatus::Type FNullHttpRequest::GetStatus() const
 {
 	return CompletionStatus;
 }
@@ -152,7 +142,7 @@ void FNullHttpRequest::Tick(float DeltaSeconds)
 	}
 }
 
-float FNullHttpRequest::GetElapsedTime()
+float FNullHttpRequest::GetElapsedTime() const
 {
 	return ElapsedTime;
 }
@@ -171,47 +161,47 @@ void FNullHttpRequest::FinishedRequest()
 
 // FNullHttpResponse
 
-FString FNullHttpResponse::GetURL()
+FString FNullHttpResponse::GetURL() const
 {
 	return FString();
 }
 
-FString FNullHttpResponse::GetURLParameter(const FString& ParameterName)
+FString FNullHttpResponse::GetURLParameter(const FString& ParameterName) const
 {
 	return FString();
 }
 
-FString FNullHttpResponse::GetHeader(const FString& HeaderName)
+FString FNullHttpResponse::GetHeader(const FString& HeaderName) const
 {
 	return FString();
 }
 
-TArray<FString> FNullHttpResponse::GetAllHeaders()
+TArray<FString> FNullHttpResponse::GetAllHeaders() const
 {
 	return TArray<FString>();
 }
 
-FString FNullHttpResponse::GetContentType()
+FString FNullHttpResponse::GetContentType() const
 {
 	return FString();
 }
 
-int32 FNullHttpResponse::GetContentLength()
+int32 FNullHttpResponse::GetContentLength() const
 {
 	return 0;
 }
 
-const TArray<uint8>& FNullHttpResponse::GetContent()
+const TArray<uint8>& FNullHttpResponse::GetContent() const
 {
 	return Payload;
 }
 
-int32 FNullHttpResponse::GetResponseCode()
+int32 FNullHttpResponse::GetResponseCode() const
 {
 	return 0;
 }
 
-FString FNullHttpResponse::GetContentAsString()
+FString FNullHttpResponse::GetContentAsString() const
 {
 	return FString();
 }

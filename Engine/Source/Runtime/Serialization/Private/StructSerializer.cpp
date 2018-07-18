@@ -205,21 +205,24 @@ void FStructSerializer::Serialize( const void* Struct, UStruct& TypeInfo, IStruc
 				UProperty* ValueProperty = MapProperty->ValueProp;
 				
 				// push key-value pairs on stack (in reverse order)
-				for (int Index = MapHelper.Num() - 1; Index >= 0; --Index)
+				for (int Index = MapHelper.GetMaxIndex() - 1; Index >= 0; --Index)
 				{
-					uint8* PairPtr = MapHelper.GetPairPtr(Index);
-
-					FStructSerializerState NewState;
+					if (MapHelper.IsValidIndex(Index))
 					{
-						NewState.HasBeenProcessed = false;
-						NewState.KeyData = PairPtr + MapProperty->MapLayout.KeyOffset;
-						NewState.KeyProperty = MapProperty->KeyProp;
-						NewState.ValueData = PairPtr;
-						NewState.ValueProperty = ValueProperty;
-						NewState.ValueType = ValueProperty->GetClass();
-					}
+						uint8* PairPtr = MapHelper.GetPairPtr(Index);
 
-					StateStack.Push(NewState);
+						FStructSerializerState NewState;
+						{
+							NewState.HasBeenProcessed = false;
+							NewState.KeyData = PairPtr + MapProperty->MapLayout.KeyOffset;
+							NewState.KeyProperty = MapProperty->KeyProp;
+							NewState.ValueData = PairPtr;
+							NewState.ValueProperty = ValueProperty;
+							NewState.ValueType = ValueProperty->GetClass();
+						}
+
+						StateStack.Push(NewState);
+					}
 				}
 			}
 			else
@@ -243,19 +246,22 @@ void FStructSerializer::Serialize( const void* Struct, UStruct& TypeInfo, IStruc
 				UProperty* ValueProperty = SetProperty->ElementProp;
 
 				// push elements on stack
-				for (int Index = SetHelper.Num() - 1; Index >= 0; --Index)
+				for (int Index = SetHelper.GetMaxIndex() - 1; Index >= 0; --Index)
 				{
-					FStructSerializerState NewState;
+					if (SetHelper.IsValidIndex(Index))
 					{
-						NewState.HasBeenProcessed = false;
-						NewState.KeyData = nullptr;
-						NewState.KeyProperty = nullptr;
-						NewState.ValueData = SetHelper.GetElementPtr(Index);
-						NewState.ValueProperty = ValueProperty;
-						NewState.ValueType = ValueProperty->GetClass();
-					}
+						FStructSerializerState NewState;
+						{
+							NewState.HasBeenProcessed = false;
+							NewState.KeyData = nullptr;
+							NewState.KeyProperty = nullptr;
+							NewState.ValueData = SetHelper.GetElementPtr(Index);
+							NewState.ValueProperty = ValueProperty;
+							NewState.ValueType = ValueProperty->GetClass();
+						}
 
-					StateStack.Push(NewState);
+						StateStack.Push(NewState);
+					}
 				}
 			}
 			else

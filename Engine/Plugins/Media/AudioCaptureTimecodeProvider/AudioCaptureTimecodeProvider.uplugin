@@ -1,0 +1,39 @@
+{
+	"FileVersion" : 3,
+	"Version" : 1,
+	"VersionName" : "1.0",
+	"FriendlyName" : "Audio Capture Timecode Provider",
+	"Description" : "Read LTC from the audio capture device.",
+	"Category" : "Media Players",
+	"CreatedBy" : "Epic Games, Inc.",
+	"CreatedByURL" : "http://epicgames.com",
+	"DocsURL" : "",
+	"MarketplaceURL" : "",
+	"SupportURL" : "",
+	"EnabledByDefault" : false,
+	"CanContainContent" : false,
+	"IsBetaVersion" : true,
+	"Installed" : false,
+	"Modules" :
+	[
+		{
+			"Name": "AudioCaptureTimecodeProvider",
+			"Type": "Runtime",
+			"LoadingPhase": "Default",
+			"WhitelistPlatforms": [ "Win64" ]
+		}
+	],
+	"Plugins":
+	[
+		{
+			"Name": "AudioCapture",
+			"Enabled": true,
+			"WhitelistPlatforms": [ "Win64" ]
+		},
+		{
+			"Name": "LinearTimecode",
+			"Enabled": true,
+			"WhitelistPlatforms": [ "Win64" ]
+		}
+	]
+}

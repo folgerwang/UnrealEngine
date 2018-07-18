@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3618359
+﻿INTSourceChangelist:3801260
 Availability:Public
 Crumbs: %ROOT%
 Title:スレートのクリップ処理システム
@@ -12,11 +12,6 @@ Order:1
 Tags:Programming
 Tags:Slate
 Tags:UMG UI Designer
-
-[VAR:spacer]![](%ROOT%/spacer.png)(w:150 convert:false)[/VAR]
-[VAR:spacer2]![](%ROOT%/spacer.png)(w:40 convert:false)[/VAR]
-
-
 
 [TOC(start:2 end:3)]
 
@@ -39,8 +34,8 @@ Tags:UMG UI Designer
 下図のように、エッジ周りのレンダリング トランスフォーム全般が非常に難しい作業でした。
 
 [REGION:imagetable]
-| --- | --- | --- | --- | --- | --- |
-| ![](OldClippingIssue1.png)(w:350) | | | | | ![](OldClippingIssue2.png)(w:350) |
+| --- | --- |
+| ![](OldClippingIssue1.png)(w:350) | ![](OldClippingIssue2.png)(w:350) |
 [/REGION]
 
 この例では、ウィジェットが回転しているのにクリップする領域 (白い点) は回転していないため、キャンバス パネル境界内にあるにもかかわらずグラフィックによるレンダリングが行われていないことが分かります。 
@@ -57,10 +52,10 @@ Tags:UMG UI Designer
 (左図のような) クリップ処理の問題に対する心配がなくなり、ウィジェットの最外部にクリップするようになりました。ウィジェットの内側でトランスフォームを適用すると、端 (右) にぴったりクリップされます。
 
 [REGION:imagetable]
-| ![](ClippingOld.png)(w:350) | | | | | ![](ClippingNew.png)(w:350) |
-| --- | --- | --- | --- | --- | --- |
-| 4.16 以前のクリッピングとトランスフォーム ||||| 4.17 以降で子のトランスフォームに合わせて |
-|  ||||| 端でクリップ処理を適用した場合 |
+| ![](ClippingOld.png)(w:350) | ![](ClippingNew.png)(w:350) |
+| --- | --- |
+| 4.16 以前のクリッピングとトランスフォーム  | 4.17 以降で子のトランスフォームに合わせて |
+|  | 端でクリップ処理を適用した場合 |
 [/REGION]
 
 ほとんどの場合、ウィジェットのクリップ ステートの変更を心配する必要はありません。例えばゲーム UI であれば、UMG ではウィジェット調節の必要はなく、スクロール パネル、またはエディタのようにテキストの長さを調節できないので、ウィンドウのサイズ変更のためップする必要のある場合にウィジェットを変更します。

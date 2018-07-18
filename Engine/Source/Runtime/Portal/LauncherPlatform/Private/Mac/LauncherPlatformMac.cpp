@@ -1,8 +1,8 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "LauncherPlatformMac.h"
-#include "MacPlatformProcess.h"
-#include "Paths.h"
+#include "Mac/MacPlatformProcess.h"
+#include "Misc/Paths.h"
 
 bool FLauncherPlatformMac::CanOpenLauncher(bool Install)
 {

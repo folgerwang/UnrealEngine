@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -385,13 +385,13 @@ namespace UnrealBuildTool
 				foreach (UnrealTargetConfiguration Configuration in InConfigurations)
 				{
 					//@todo.Rocket: Put this in a commonly accessible place?
-					if (UnrealBuildTool.IsValidConfiguration(Configuration) == false)
+					if (InstalledPlatformInfo.IsValidConfiguration(Configuration, EProjectType.Code) == false)
 					{
 						continue;
 					}
 					foreach (UnrealTargetPlatform Platform in InPlatforms)
 					{
-						if (UnrealBuildTool.IsValidPlatform(Platform) == false)
+						if (InstalledPlatformInfo.IsValidPlatform(Platform, EProjectType.Code) == false)
 						{
 							continue;
 						}
@@ -491,11 +491,11 @@ namespace UnrealBuildTool
 				}
 				if (InPlatforms.Contains(UnrealTargetPlatform.Win64))
 				{
-					VCIncludeSearchPaths.Append(VCToolChain.GetVCIncludePaths(CppPlatform.Win64, GetCompilerForIntellisense()) + ";");
+					VCIncludeSearchPaths.Append(VCToolChain.GetVCIncludePaths(CppPlatform.Win64, GetCompilerForIntellisense(), null) + ";");
 				}
 				else if (InPlatforms.Contains(UnrealTargetPlatform.Win32))
 				{
-					VCIncludeSearchPaths.Append(VCToolChain.GetVCIncludePaths(CppPlatform.Win32, GetCompilerForIntellisense()) + ";");
+					VCIncludeSearchPaths.Append(VCToolChain.GetVCIncludePaths(CppPlatform.Win32, GetCompilerForIntellisense(), null) + ";");
 				}
 			}
 
@@ -622,6 +622,18 @@ namespace UnrealBuildTool
 						VCProjectFileContent.Append(ProjGenerator.GetVisualStudioGlobalProperties(Platform));
 					}
 				}
+			}
+
+			//  Lumin debugger is only supported on game projects for now.
+			if (OnlyGameProject != null)
+			{
+				// TODO: Restrict this to only the Lumin platform targets.
+				string LuminDebuggerItemGroup =
+						"	<ItemGroup>" + ProjectFileGenerator.NewLine +
+						"		<ProjectCapability Include=\"MLProject\" />" + ProjectFileGenerator.NewLine +
+						"		<PropertyPageSchema Include=\"$(LOCALAPPDATA)\\Microsoft\\VisualStudio\\MagicLeap\\debugger.xaml\" />" + ProjectFileGenerator.NewLine +
+						"	</ItemGroup>" + ProjectFileGenerator.NewLine;
+				VCProjectFileContent.Append(LuminDebuggerItemGroup);
 			}
 
 			// Write each project configuration PreDefaultProps section
@@ -1147,7 +1159,10 @@ namespace UnrealBuildTool
 
 					// Figure out if this is a monolithic build
 					bool bShouldCompileMonolithic = BuildPlatform.ShouldCompileMonolithicBinary(Platform);
-					bShouldCompileMonolithic |= (Combination.ProjectTarget.CreateRulesDelegate(Platform, Configuration).LinkType == TargetLinkType.Monolithic);
+					if(!bShouldCompileMonolithic)
+					{
+						bShouldCompileMonolithic = (Combination.ProjectTarget.CreateRulesDelegate(Platform, Configuration).LinkType == TargetLinkType.Monolithic);
+					}
 
 					// Get the output directory
 					DirectoryReference RootDirectory = UnrealBuildTool.EngineDirectory;
@@ -1210,12 +1225,6 @@ namespace UnrealBuildTool
 						VCProjectFileContent.Append(PathStrings);
 					}
 
-					if (TargetRulesObject.Type == TargetType.Game || TargetRulesObject.Type == TargetType.Client || TargetRulesObject.Type == TargetType.Server)
-					{
-						// Allow platforms to add any special properties they require... like aumid override for Xbox One
-						UEPlatformProjectGenerator.GenerateGamePlatformSpecificProperties(Platform, Configuration, TargetRulesObject.Type, VCProjectFileContent, RootDirectory, TargetFilePath);
-					}
-
 					// This is the standard UE4 based project NMake build line:
 					//	..\..\Build\BatchFiles\Build.bat <TARGETNAME> <PLATFORM> <CONFIGURATION>
 					//	ie ..\..\Build\BatchFiles\Build.bat BlankProgram Win64 Debug
@@ -1267,6 +1276,13 @@ namespace UnrealBuildTool
 					VCProjectFileContent.Append("		<NMakeOutput>");
 					VCProjectFileContent.Append(NormalizeProjectPath(NMakePath.FullName));
 					VCProjectFileContent.Append("</NMakeOutput>" + ProjectFileGenerator.NewLine);
+
+					if (TargetRulesObject.Type == TargetType.Game || TargetRulesObject.Type == TargetType.Client || TargetRulesObject.Type == TargetType.Server)
+					{
+						// Allow platforms to add any special properties they require... like aumid override for Xbox One
+						UEPlatformProjectGenerator.GenerateGamePlatformSpecificProperties(Platform, Configuration, TargetRulesObject.Type, VCProjectFileContent, RootDirectory, TargetFilePath);
+					}
+
 					VCProjectFileContent.Append("	</PropertyGroup>" + ProjectFileGenerator.NewLine);
 
 					string LayoutDirString = (ProjGenerator != null) ? ProjGenerator.GetVisualStudioLayoutDirSection(Platform, Configuration, ConditionString, Combination.ProjectTarget.TargetRules.Type, Combination.ProjectTarget.TargetFilePath, ProjectFilePath, NMakePath, ProjectFileFormat) : "";

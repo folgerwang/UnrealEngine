@@ -5,18 +5,26 @@
 #include "AssetData.h"
 #include "ARFilter.h"
 #include "Materials/MaterialInterface.h"
-#include "Paths.h"
+#include "Misc/Paths.h"
 
 UMaterialInterface* UMaterialImportHelpers::FindExistingMaterialFromSearchLocation(const FString& MaterialFullName, const FString& BasePackagePath, EMaterialSearchLocation SearchLocation, FText& OutError)
 {
+	//Search in memory
 	UMaterialInterface* FoundMaterial = LoadObject<UMaterialInterface>(nullptr, *MaterialFullName, nullptr, LOAD_Quiet | LOAD_NoWarn);
-
-	if (FoundMaterial == nullptr && SearchLocation != EMaterialSearchLocation::Local)
+	
+	if (FoundMaterial == nullptr)
 	{
-		// Search recursively in asset's folder
 		FString SearchPath = FPaths::GetPath(BasePackagePath);
 		
-		FoundMaterial = FindExistingMaterial(SearchPath, MaterialFullName, OutError);
+		// Search in asset's local folder
+		FoundMaterial = FindExistingMaterial(SearchPath, MaterialFullName, false, OutError);
+		
+		// Search recursively in asset's folder
+		if (FoundMaterial == nullptr &&
+			(SearchLocation != EMaterialSearchLocation::Local))
+		{
+			FoundMaterial = FindExistingMaterial(SearchPath, MaterialFullName, true, OutError);
+		}
 
 		if (FoundMaterial == nullptr &&
 			(	SearchLocation == EMaterialSearchLocation::UnderParent ||
@@ -26,7 +34,7 @@ UMaterialInterface* UMaterialImportHelpers::FindExistingMaterialFromSearchLocati
 			// Search recursively in parent's folder
 			SearchPath = FPaths::GetPath(SearchPath);
 
-			FoundMaterial = FindExistingMaterial(SearchPath, MaterialFullName, OutError);
+			FoundMaterial = FindExistingMaterial(SearchPath, MaterialFullName, true, OutError);
 		}
 		if (FoundMaterial == nullptr &&
 			(	SearchLocation == EMaterialSearchLocation::UnderRoot ||
@@ -36,20 +44,20 @@ UMaterialInterface* UMaterialImportHelpers::FindExistingMaterialFromSearchLocati
 			FString OutPackageRoot, OutPackagePath, OutPackageName;
 			FPackageName::SplitLongPackageName(SearchPath, OutPackageRoot, OutPackagePath, OutPackageName);
 
-			FoundMaterial = FindExistingMaterial(OutPackageRoot, MaterialFullName, OutError);
+			FoundMaterial = FindExistingMaterial(OutPackageRoot, MaterialFullName, true, OutError);
 		}
 		if (FoundMaterial == nullptr &&
 			SearchLocation == EMaterialSearchLocation::AllAssets)
 		{
 			// Search everywhere
-			FoundMaterial = FindExistingMaterial(TEXT("/"), MaterialFullName, OutError);
+			FoundMaterial = FindExistingMaterial(TEXT("/"), MaterialFullName, true, OutError);
 		}
 	}
 
 	return FoundMaterial;
 }
 
-UMaterialInterface* UMaterialImportHelpers::FindExistingMaterial(const FString& BasePath, const FString& MaterialFullName, FText& OutError)
+UMaterialInterface* UMaterialImportHelpers::FindExistingMaterial(const FString& BasePath, const FString& MaterialFullName, const bool bRecursivePaths, FText& OutError)
 {
 	UMaterialInterface* Material = nullptr;
 
@@ -61,7 +69,7 @@ UMaterialInterface* UMaterialImportHelpers::FindExistingMaterial(const FString& 
 	AssetRegistry.SearchAllAssets(true);
 
 	Filter.bRecursiveClasses = true;
-	Filter.bRecursivePaths = true;
+	Filter.bRecursivePaths = bRecursivePaths;
 	Filter.ClassNames.Add(UMaterialInterface::StaticClass()->GetFName());
 	Filter.PackagePaths.Add(FName(*BasePath));
 

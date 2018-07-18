@@ -17,6 +17,8 @@ import android.media.MediaPlayer.TrackInfo;
 import java.util.ArrayList;
 import java.util.Random;
 import android.util.Log;
+import java.net.URL;
+import java.net.HttpURLConnection;
 
 /*
 	Custom media player that renders video to a frame buffer. This
@@ -29,6 +31,7 @@ public class MediaPlayer14
 	private boolean VulkanRenderer = false;
 	private boolean Looping = false;
 	private boolean AudioEnabled = true;
+	private float AudioVolume = 1.0f;
 	private volatile boolean WaitOnBitmapRender = false;
 	private volatile boolean Prepared = false;
 	private volatile boolean Completed = false;
@@ -84,6 +87,7 @@ public class MediaPlayer14
 		VulkanRenderer = vulkanRenderer;
 		WaitOnBitmapRender = false;
 		AudioEnabled = true;
+		AudioVolume = 1.0f;
 
 		setOnErrorListener(new MediaPlayer.OnErrorListener() {
 			@Override
@@ -221,6 +225,19 @@ public class MediaPlayer14
 		return null;
 	}
 
+	 public static boolean RemoteFileExists(String URLName){
+        try {
+            HttpURLConnection.setFollowRedirects(false);
+            HttpURLConnection con =  (HttpURLConnection) new URL(URLName).openConnection();
+            con.setRequestMethod("HEAD");
+            return (con.getResponseCode() == HttpURLConnection.HTTP_OK);
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
 	public boolean setDataSourceURL(
 		String UrlPath)
 		throws IOException,
@@ -236,6 +253,11 @@ public class MediaPlayer14
 		AudioEnabled = true;
 		audioTracks.clear();
 		videoTracks.clear();
+
+		if(!RemoteFileExists(UrlPath))
+		{
+			return false;
+		}
 
 		try
 		{
@@ -384,12 +406,18 @@ public class MediaPlayer14
 		AudioEnabled = enabled;
 		if (enabled)
 		{
-			setVolume(1,1);
+			setVolume(AudioVolume,AudioVolume);
 		}
 		else
 		{
 			setVolume(0,0);
 		}
+	}
+
+	public void setAudioVolume(float volume)
+	{
+		AudioVolume = volume;
+		setAudioEnabled(AudioEnabled);
 	}
 	
 	public boolean didResolutionChange()
@@ -535,6 +563,11 @@ public class MediaPlayer14
 
 	public void reset()
 	{
+		synchronized(this)
+		{
+			Prepared = false;
+			Completed = false;
+		}
 		if (null != mOESTextureRenderer)
 		{
 			while (WaitOnBitmapRender) ;

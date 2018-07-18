@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "PrimaryAssetId.h"
+#include "UObject/PrimaryAssetId.h"
 #include "AssetData.h"
 #include "AssetBundleData.h"
 #include "EngineTypes.h"
@@ -19,8 +19,11 @@ enum class EPrimaryAssetCookRule : uint8
 	/** Asset should never be cooked/shipped in any situation. An error will be generated if something depends on it. */
 	NeverCook,
 
-	/** Asset can be cooked for development and testing, but should never be shipped in a production build. */
+	/** Asset will be cooked in development if something else depends on it, but will never be cooked in a production build. */
 	DevelopmentCook,
+
+	/** Asset will always be cooked in development, but should never be cooked in a production build. */
+	DevelopmentAlwaysCook,
 
 	/** Asset will always be cooked, in both production and development. */
 	AlwaysCook,

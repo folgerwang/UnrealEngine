@@ -3,9 +3,9 @@
 #pragma once
 
 #include "AudioMixer.h"
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 #include <xaudio2.h>
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 // Any platform defines
 namespace Audio
@@ -64,6 +64,7 @@ namespace Audio
 		virtual FName GetRuntimeFormat(USoundWave* InSoundWave) override;
 		virtual bool HasCompressedAudioInfoClass(USoundWave* InSoundWave) override;
 		virtual bool SupportsRealtimeDecompression() const override { return true; }
+		virtual bool DisablePCMAudioCaching() const override;
 		virtual ICompressedAudioInfo* CreateCompressedAudioInfo(USoundWave* InSoundWave) override;
 		virtual FString GetDefaultDeviceName() override;
 		virtual FAudioPlatformSettings GetPlatformSettings() const override;

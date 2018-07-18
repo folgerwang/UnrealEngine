@@ -285,9 +285,9 @@ void GetOrientedHalfSphereMesh(const FVector& Center, const FRotator& Orientatio
 				Verts[VIx].Position = ArcRot.TransformPosition(ArcVerts[v].Position);
 
 				Verts[VIx].SetTangents(
-					ArcRot.TransformVector(ArcVerts[v].TangentX),
+					ArcRot.TransformVector(ArcVerts[v].TangentX.ToFVector()),
 					ArcRot.TransformVector(ArcVerts[v].GetTangentY()),
-					ArcRot.TransformVector(ArcVerts[v].TangentZ)
+					ArcRot.TransformVector(ArcVerts[v].TangentZ.ToFVector())
 					);
 
 				Verts[VIx].TextureCoordinate[0].X = XTexCoord;
@@ -386,9 +386,9 @@ void DrawSphere(FPrimitiveDrawInterface* PDI,const FVector& Center,const FRotato
 				Verts[VIx].Position = ArcRot.TransformPosition( ArcVerts[v].Position );
 				
 				Verts[VIx].SetTangents(
-					ArcRot.TransformVector( ArcVerts[v].TangentX ),
+					ArcRot.TransformVector( ArcVerts[v].TangentX.ToFVector()),
 					ArcRot.TransformVector( ArcVerts[v].GetTangentY() ),
-					ArcRot.TransformVector( ArcVerts[v].TangentZ )
+					ArcRot.TransformVector( ArcVerts[v].TangentZ.ToFVector())
 					);
 
 				Verts[VIx].TextureCoordinate[0].X = XTexCoord;
@@ -1669,7 +1669,7 @@ void DrawUVsInternal(FViewport* InViewport, FCanvas* InCanvas, int32 InTextYPos,
 		const uint32 MinX = BorderWidth;
 		const FVector2D UVBoxOrigin(MinX, MinY);
 		const FVector2D BoxOrigin( MinX - 1, MinY - 1 );
-		const uint32 UVBoxScale = FMath::Min(InViewport->GetSizeXY().X - MinX, InViewport->GetSizeXY().Y - MinY) - BorderWidth;
+		const uint32 UVBoxScale = FMath::Min(InViewport->GetSizeXY().X / InCanvas->GetDPIScale() - MinX, InViewport->GetSizeXY().Y / InCanvas->GetDPIScale() - MinY) - BorderWidth;
 		const uint32 BoxSize = UVBoxScale + 2;
 		FCanvasTileItem BoxBackgroundTileItem(BoxOrigin, GWhiteTexture, FVector2D(BoxSize, BoxSize), FLinearColor(0, 0, 0, 0.4f));
 		BoxBackgroundTileItem.BlendMode = SE_BLEND_AlphaComposite;

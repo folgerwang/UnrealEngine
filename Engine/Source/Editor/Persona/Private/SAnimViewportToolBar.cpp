@@ -37,14 +37,14 @@
 #include "ClothingSimulationFactoryInterface.h"
 #include "ClothingSystemEditorInterfaceModule.h"
 #include "Widgets/SWidget.h"
-#include "ISlateMetaData.h"
+#include "Types/ISlateMetaData.h"
 #include "Textures/SlateIcon.h"
 #include "ShowFlagMenuCommands.h"
 #include "BufferVisualizationMenuCommands.h"
 #include "IPinnedCommandList.h"
 #include "UICommandList_Pinnable.h"
 #include "BoneSelectionWidget.h"
-#include "SRichTextBlock.h"
+#include "Widgets/Text/SRichTextBlock.h"
 
 #define LOCTEXT_NAMESPACE "AnimViewportToolBar"
 
@@ -329,6 +329,8 @@ void SAnimViewportToolBar::Construct(const FArguments& InArgs, TSharedPtr<class 
 	// Register all the custom widgets we can use here
 	PinnedCommands->RegisterCustomWidget(IPinnedCommandList::FOnGenerateCustomWidget::CreateSP(this, &SAnimViewportToolBar::MakeFloorOffsetWidget), TEXT("FloorOffsetWidget"), LOCTEXT("FloorHeightOffset", "Floor Height Offset"));
 	PinnedCommands->RegisterCustomWidget(IPinnedCommandList::FOnGenerateCustomWidget::CreateSP(this, &SAnimViewportToolBar::MakeFOVWidget), TEXT("FOVWidget"), LOCTEXT("Viewport_FOVLabel", "Field Of View"));
+	PinnedCommands->RegisterCustomWidget(IPinnedCommandList::FOnGenerateCustomWidget::CreateSP(this, &SAnimViewportToolBar::MakeFollowBoneComboWidget), TEXT("FollowBoneWidget"), LOCTEXT("FollowBoneMenuTitle", "Follow Bone"), FMargin(2.0f, 1.0f, 2.0f, 0.0f), false);
+
 	PinnedCommands->BindCommandList(InViewport->GetCommandList().ToSharedRef());
 
 	// We assign the viewport pointer her rather that initially, as SViewportToolbar::Construct 
@@ -388,6 +390,80 @@ TSharedRef<SWidget> SAnimViewportToolBar::MakeFOVWidget() const
 				.OnValueCommitted(this, &SAnimViewportToolBar::OnFOVValueCommitted)
 			]
 		];
+}
+
+TSharedRef<SWidget> SAnimViewportToolBar::MakeFollowBoneComboWidget() const
+{
+	TSharedRef<SComboButton> ComboButton = SNew(SComboButton)
+		.ComboButtonStyle(FEditorStyle::Get(), "ViewportPinnedCommandList.ComboButton")
+		.ContentPadding(0.0f)
+		.ButtonContent()
+		[
+			SNew(STextBlock)
+			.TextStyle(FEditorStyle::Get(), "ViewportPinnedCommandList.Label")
+			.Text_Lambda([this]()
+			{ 
+				const FName BoneName = Viewport.Pin()->GetCameraFollowBoneName();
+				if(BoneName != NAME_None)
+				{
+					return FText::Format(LOCTEXT("FollowingBoneMenuTitleFormat", "Following Bone: {0}"), FText::FromName(BoneName));
+				}
+				else
+				{
+					return LOCTEXT("FollowBoneMenuTitle", "Follow Bone");
+				}
+			})
+		];
+
+	TWeakPtr<SComboButton> WeakComboButton = ComboButton;
+	ComboButton->SetOnGetMenuContent(FOnGetContent::CreateSP(this, &SAnimViewportToolBar::MakeFollowBoneWidget, WeakComboButton));
+
+	return ComboButton;
+}
+
+TSharedRef<SWidget> SAnimViewportToolBar::MakeFollowBoneWidget() const
+{
+	return MakeFollowBoneWidget(nullptr);
+}
+
+TSharedRef<SWidget> SAnimViewportToolBar::MakeFollowBoneWidget(TWeakPtr<SComboButton> InWeakComboButton) const
+{
+	TSharedPtr<SBoneTreeMenu> BoneTreeMenu;
+
+	TSharedRef<SWidget> MenuWidget =
+		SNew(SBox)
+		.MaxDesiredHeight(400.0f)
+		[
+			SAssignNew(BoneTreeMenu, SBoneTreeMenu)
+			.Title(FAnimViewportMenuCommands::Get().CameraFollowBone->GetLabel())
+			.bShowVirtualBones(true)
+			.OnBoneSelectionChanged_Lambda([this](FName InBoneName)
+			{
+				Viewport.Pin()->SetCameraFollowMode(EAnimationViewportCameraFollowMode::Bone, InBoneName);
+				FSlateApplication::Get().DismissAllMenus();
+
+				PinnedCommands->AddCustomWidget(TEXT("FollowBoneWidget"));
+			})
+			.SelectedBone(Viewport.Pin()->GetCameraFollowBoneName())
+			.OnGetReferenceSkeleton_Lambda([this]() -> const FReferenceSkeleton&
+			{
+				USkeletalMesh* PreviewMesh = Viewport.Pin()->GetPreviewScene()->GetPreviewMesh();
+				if (PreviewMesh)
+				{
+					return PreviewMesh->RefSkeleton;
+				}
+
+				static FReferenceSkeleton EmptySkeleton;
+				return EmptySkeleton;
+			})
+		];
+
+	if(InWeakComboButton.IsValid())
+	{
+		InWeakComboButton.Pin()->SetMenuContentWidgetToFocus(BoneTreeMenu->GetFilterTextWidget());
+	}
+
+	return MenuWidget;
 }
 
 TSharedRef<SWidget> SAnimViewportToolBar::GenerateViewMenu() const
@@ -452,26 +528,7 @@ TSharedRef<SWidget> SAnimViewportToolBar::GenerateViewMenu() const
 		
 				InSubMenuBuilder.BeginSection("AnimViewportCameraFollowBone", FText());
 				{
-					InSubMenuBuilder.AddWidget(
-						SNew(SBox)
-						.MaxDesiredHeight(400.0f)
-						[
-							SNew(SBoneTreeMenu)
-							.Title(FAnimViewportMenuCommands::Get().CameraFollowBone->GetLabel())
-							.bShowVirtualBones(true)
-							.OnBoneSelectionChanged_Lambda([this](FName InBoneName)
-							{
-								Viewport.Pin()->SetCameraFollowMode(EAnimationViewportCameraFollowMode::Bone, InBoneName);
-								FSlateApplication::Get().DismissAllMenus();
-							})
-							.SelectedBone(Viewport.Pin()->GetCameraFollowBoneName())
-							.OnGetReferenceSkeleton_Lambda([this]() -> const FReferenceSkeleton&
-							{
-								return Viewport.Pin()->GetPreviewScene()->GetPersonaToolkit()->GetEditableSkeleton()->GetSkeleton().GetReferenceSkeleton();
-							})
-						],
-						FText(), 
-						true);
+					InSubMenuBuilder.AddWidget(MakeFollowBoneWidget(), FText(), true);
 				}
 				InSubMenuBuilder.EndSection();
 			}),
@@ -543,7 +600,8 @@ TSharedRef<SWidget> SAnimViewportToolBar::GenerateCharacterMenu() const
 					{
 						SubMenuBuilder.AddMenuEntry(FAnimViewportShowCommands::Get().ShowRetargetBasePose );
 						SubMenuBuilder.AddMenuEntry(FAnimViewportShowCommands::Get().ShowBound );
-						SubMenuBuilder.AddMenuEntry(FAnimViewportShowCommands::Get().UseInGameBound );
+						SubMenuBuilder.AddMenuEntry(FAnimViewportShowCommands::Get().UseInGameBound);
+						SubMenuBuilder.AddMenuEntry(FAnimViewportShowCommands::Get().UseFixedBounds);
 						SubMenuBuilder.AddMenuEntry(FAnimViewportShowCommands::Get().ShowPreviewMesh );
 						SubMenuBuilder.AddMenuEntry(FAnimViewportShowCommands::Get().ShowMorphTargets );
 						SubMenuBuilder.AddMenuEntry(FAnimViewportShowCommands::Get().ShowVertexColors );

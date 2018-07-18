@@ -7,7 +7,7 @@
 #include "UObject/Object.h"
 #include "EdGraph/EdGraphNode.h"
 #include "EdGraph/EdGraphPin.h"
-#include "ObjectKey.h"
+#include "UObject/ObjectKey.h"
 #if WITH_EDITOR
 #include "Logging/TokenizedMessage.h"
 #include "Misc/CompilationResult.h"

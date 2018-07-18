@@ -1,10 +1,9 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-
-#include "NiagaraStackEntry.h"
+#include "ViewModels/Stack/NiagaraStackItem.h"
 #include "NiagaraTypes.h"
-#include "NiagaraParameterHandle.h"
+#include "ViewModels/Stack/NiagaraParameterHandle.h"
 #include "NiagaraParameterStore.h"
 #include "NiagaraStackParameterStoreEntry.generated.h"
 
@@ -12,22 +11,23 @@ class UNiagaraNodeFunctionCall;
 class UNiagaraNodeAssignment;
 class UNiagaraNodeParameterMapSet;
 class FStructOnScope;
-class UNiagaraStackEditorData;
 class UNiagaraStackObject;
+class FNiagaraSystemViewModel;
+class UEdGraphPin;
 
 /** Represents a single module input in the module stack view model. */
 UCLASS()
-class NIAGARAEDITOR_API UNiagaraStackParameterStoreEntry : public UNiagaraStackEntry
+class NIAGARAEDITOR_API UNiagaraStackParameterStoreEntry : public UNiagaraStackItemContent
 {
 	GENERATED_BODY()
 
 public:
 	DECLARE_MULTICAST_DELEGATE(FOnValueChanged);
+	DECLARE_MULTICAST_DELEGATE(FOnParameterDeleted);
 
 public:
 	UNiagaraStackParameterStoreEntry();
 
-	virtual void BeginDestroy() override;
 	/** 
 	 * Sets the input data for this entry.
 	 * @param InSystemViewModel The view model for the system which owns the stack containing this entry.
@@ -35,27 +35,21 @@ public:
 	 * @param InStackEditorData The stack editor data for this input.
 	 * @param InInputParameterHandle The input parameter handle for the function call.
 	 * @param InInputType The type of this input.
+	 * @param InOwnerStackItemEditorDataKey The editor data key for the item that owns this entry.
 	 */
 	void Initialize(
-		TSharedRef<FNiagaraSystemViewModel> InSystemViewModel,
-		TSharedRef<FNiagaraEmitterViewModel> InEmitterViewModel,
-		UNiagaraStackEditorData& InStackEditorData,
+		FRequiredEntryData InRequiredEntryData,
 		UObject* InOwner,
 		FNiagaraParameterStore* InParameterStore,
 		FString InInputParameterHandle,
-		FNiagaraTypeDefinition InInputType);
+		FNiagaraTypeDefinition InInputType,
+		FString InOwnerStackItemEditorDataKey);
 
 	/** Gets the type of this input. */
 	const FNiagaraTypeDefinition& GetInputType() const;
 
 	//~ UNiagaraStackEntry interface
 	virtual FText GetDisplayName() const override;
-	virtual FName GetTextStyleName() const override;
-	virtual bool GetCanExpand() const override;
-	virtual int32 GetItemIndentLevel() const override;
-
-	/** Sets the item indent level for this stack entry. */
-	void SetItemIndentLevel(int32 InItemIndentLevel);
 
 	/** Gets the current struct value of this input is there is one. */
 	TSharedPtr<FStructOnScope> GetValueStruct();
@@ -68,7 +62,7 @@ public:
 
 	/** Called to notify the input that an ongoing change to it's value has ended. */
 	void NotifyEndValueChange();
-
+	
 	/** Called to notify the input that it's value has been changed. */
 	void NotifyValueChanged();
 
@@ -90,20 +84,31 @@ public:
 	/** Renames this input to the name specified. */
 	void RenameInput(FString NewName);
 
+	/** Checks if the chosen name is unique (not duplicate) */
+	bool IsUniqueName(FString NewName);
+
 	/** Gets a multicast delegate which is called whenever the value on this input changes. */
 	FOnValueChanged& OnValueChanged();
 
+	/** Gets a multicast delegate which is called when this parameter is deleted. */
+	FOnParameterDeleted& OnParameterDeleted();
+
+	/** Delete the parameter from the ParameterStore and notify that the store changed. */
+	void Delete();
+
 protected:
 	//~ UNiagaraStackEntry interface
-	virtual void RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren) override;
+	virtual void RefreshChildrenInternal(const TArray<UNiagaraStackEntry*>& CurrentChildren, TArray<UNiagaraStackEntry*>& NewChildren, TArray<FStackIssue>& NewIssues) override;
 
 	void RefreshValueAndHandle();
 	TSharedPtr<FNiagaraVariable> GetCurrentValueVariable();
 	UNiagaraDataInterface* GetCurrentValueObject();
-private:
-	/** The stack editor data for this function input. */
-	UNiagaraStackEditorData* StackEditorData;
 
+private:
+	void RemovePins(TArray<UEdGraphPin*> PinsToRemove);
+	TArray<UEdGraphPin*> GetOwningPins(); 
+
+private:
 	/** */
 	FName ParameterName;
 
@@ -116,15 +121,15 @@ private:
 	/** A local copy of the value of this input if one is available. */
 	TSharedPtr<FStructOnScope> LocalValueStruct;
 
-	/** A pointer to the data interface object for this input if one is available. */
-	UPROPERTY()
-	UNiagaraDataInterface* ValueObject;
-
 	/** A multicast delegate which is called when the value of this input is changed. */
 	FOnValueChanged ValueChangedDelegate;
 
-	/** The item indent level for this stack entry. */
-	int32 ItemIndentLevel;
+	/** A multicast delegate which is called when this parameter is deleted. */
+	FOnParameterDeleted ParameterDeletedDelegate;
+
+	/** A pointer to the data interface object for this input if one is available. */
+	UPROPERTY()
+	UNiagaraDataInterface* ValueObject;
 
 	UPROPERTY()
 	UObject* Owner;

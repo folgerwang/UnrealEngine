@@ -1,21 +1,21 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "IOSPlatformApplicationMisc.h"
+#include "IOS/IOSPlatformApplicationMisc.h"
 
 #include "HAL/PlatformProcess.h"
 #include "Modules/ModuleManager.h"
 
-#include "IOSApplication.h"
-#include "IOSAppDelegate.h"
-#include "IOSView.h"
-#include "IOSInputInterface.h"
-#include "IOSErrorOutputDevice.h"
+#include "IOS/IOSApplication.h"
+#include "IOS/IOSAppDelegate.h"
+#include "IOS/IOSView.h"
+#include "IOS/IOSInputInterface.h"
+#include "IOS/IOSErrorOutputDevice.h"
 
 FIOSApplication* FIOSPlatformApplicationMisc::CachedApplication = nullptr;
 
 EAppReturnType::Type MessageBoxExtImpl( EAppMsgType::Type MsgType, const TCHAR* Text, const TCHAR* Caption )
 {
-#if UE_BUILD_SHIPPING || PLATFORM_TVOS
+#if PLATFORM_TVOS
 	return FGenericPlatformMisc::MessageBoxExt(MsgType, Text, Caption);
 #else
 	NSString* CocoaText = (NSString*)FPlatformString::TCHARToCFString(Text);

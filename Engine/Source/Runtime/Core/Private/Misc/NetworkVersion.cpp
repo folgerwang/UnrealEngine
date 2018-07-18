@@ -5,42 +5,81 @@
 #include "Misc/EngineVersion.h"
 #include "Runtime/Launch/Resources/Version.h"
 #include "Misc/NetworkGuid.h"
+#include "HAL/IConsoleManager.h"
+#include "BuildSettings.h"
 
 DEFINE_LOG_CATEGORY( LogNetVersion );
 
 FNetworkVersion::FGetLocalNetworkVersionOverride FNetworkVersion::GetLocalNetworkVersionOverride;
 FNetworkVersion::FIsNetworkCompatibleOverride FNetworkVersion::IsNetworkCompatibleOverride;
 
-FString FNetworkVersion::ProjectVersion;
-
-enum EEngineNetworkVersionHistory
-{
-	HISTORY_INITIAL					= 1,
-	HISTORY_REPLAY_BACKWARDS_COMPAT	= 2,		// Bump version to get rid of older replays before backwards compat was turned on officially
-};
+FString FNetworkVersion::ProjectVersion = TEXT("1.0.0");
 
 bool FNetworkVersion::bHasCachedNetworkChecksum			= false;
 uint32 FNetworkVersion::CachedNetworkChecksum			= 0;
 
-uint32 FNetworkVersion::EngineNetworkProtocolVersion	= HISTORY_REPLAY_BACKWARDS_COMPAT;
+uint32 FNetworkVersion::EngineNetworkProtocolVersion	= HISTORY_NEW_ACTOR_OVERRIDE_LEVEL;
 uint32 FNetworkVersion::GameNetworkProtocolVersion		= 0;
 
 uint32 FNetworkVersion::EngineCompatibleNetworkProtocolVersion		= HISTORY_REPLAY_BACKWARDS_COMPAT;
 uint32 FNetworkVersion::GameCompatibleNetworkProtocolVersion		= 0;
 
+void FNetworkVersion::SetProjectVersion(const TCHAR* InVersion)
+{
+	if (ensureMsgf(InVersion != nullptr && FCString::Strlen(InVersion), TEXT("ProjectVersion used for network version must be a valid string!")))
+	{
+		ProjectVersion = InVersion;
+		bHasCachedNetworkChecksum = false;
+
+		UE_LOG(LogNetVersion, Log, TEXT("Set ProjectVersion to %s. Version Checksum will be recalculated on next use."), *ProjectVersion);
+	}	
+}
+
+void FNetworkVersion::SetGameNetworkProtocolVersion(const uint32 InGameNetworkProtocolVersion)
+{
+	GameNetworkProtocolVersion = InGameNetworkProtocolVersion;
+	bHasCachedNetworkChecksum = false;
+
+	UE_LOG(LogNetVersion, Log, TEXT("Set GameNetworkProtocolVersion to %ud. Version Checksum will be recalculated on next use."), GameNetworkProtocolVersion);
+}
+
+void FNetworkVersion::SetGameCompatibleNetworkProtocolVersion(const uint32 InGameCompatibleNetworkProtocolVersion)
+{
+	GameCompatibleNetworkProtocolVersion = InGameCompatibleNetworkProtocolVersion;
+	bHasCachedNetworkChecksum = false;
+
+	UE_LOG(LogNetVersion, Log, TEXT("Set GameCompatibleNetworkProtocolVersion to %ud. Version Checksum will be recalculated on next use."), GameCompatibleNetworkProtocolVersion);
+}
+
 uint32 FNetworkVersion::GetNetworkCompatibleChangelist()
 {
+	static int32 ReturnedVersion = ENGINE_NET_VERSION;
+	static bool bStaticCheck = false;
+
+	// add a cvar so it can be modified at runtime
+	static FAutoConsoleVariableRef CVarNetworkVersionOverride(
+		TEXT("networkversionoverride"), ReturnedVersion,
+		TEXT("Sets network version used for multiplayer "),
+		ECVF_Default);
+
+	if (!bStaticCheck)
+	{
+		bStaticCheck = true;
+		FParse::Value(FCommandLine::Get(), TEXT("networkversionoverride="), ReturnedVersion);
+	}
+
 	// If we have a version set explicitly, use that. Otherwise fall back to the regular engine version changelist, since it might be set at runtime (via Build.version).
-#if ENGINE_NET_VERSION
-	return ENGINE_NET_VERSION;
-#else
-	return FEngineVersion::CompatibleWith().GetChangelist();
-#endif
+	if (ReturnedVersion == 0)
+	{
+		return ENGINE_NET_VERSION ? ENGINE_NET_VERSION : BuildSettings::GetCompatibleChangelist();
+	}
+
+	return (uint32)ReturnedVersion;
 }
 
 uint32 FNetworkVersion::GetReplayCompatibleChangelist()
 {
-	return BUILT_FROM_CHANGELIST;
+	return FEngineVersion::CompatibleWith().GetChangelist();
 }
 
 uint32 FNetworkVersion::GetEngineNetworkProtocolVersion()
@@ -83,7 +122,7 @@ uint32 FNetworkVersion::GetLocalNetworkVersion( bool AllowOverrideDelegate /*=tr
 
 	FString VersionString = FString::Printf(TEXT("%s %s, NetCL: %d, EngineNetVer: %d, GameNetVer: %d"),
 		FApp::GetProjectName(),
-		*ProjectVersion,
+		*FNetworkVersion::GetProjectVersion(),
 		GetNetworkCompatibleChangelist(),
 		FNetworkVersion::GetEngineNetworkProtocolVersion(),
 		FNetworkVersion::GetGameNetworkProtocolVersion());

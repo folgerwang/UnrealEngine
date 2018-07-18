@@ -1,9 +1,9 @@
-﻿INTSourceChangelist:3477690
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:2.Android デバイスの設定
 Crumbs:%ROOT%, Platforms, Platforms/Android, Platforms/Android/GettingStarted
 Description:Android デバイスを開発用に設定する
-Version:4.16
+Version:4.17
 Skilllevel:Intermediate
 tags:Android
 tags:Mobile
@@ -117,7 +117,7 @@ Android Works をインストールしたら、Android デバイスを開発用�
 
 	![](PC_RSA_Fingerprint.png)(w:350)
 
-	1.	デバイスの設定が適切か確認するために **Windows + R** キーでコマンド プロンプトを開き、**[Run (実行)]** ウィンドウに **「cmd」** とタイプします。
+1.	デバイスの設定が適切か確認するために **Windows + R** キーでコマンド プロンプトを開き、**[Run (実行)]** ウィンドウに **「cmd」** とタイプします。
 
 	![](Windows_Run_Command.png)
 
@@ -186,8 +186,8 @@ Android Works をインストールしたら、Android デバイスを開発用�
 1. Android デバイスを USB から一旦取り外して、すぐに再度接続してください。PC がデバイスを認識したら、 
 この Mac にデバイスとの通信許可に関する次のメッセージが Android デバイス上に表示されます。	メッセージ ボックスは USB 接続をどのようにするか尋ねるので、**[Always allow this computer (常に許可)]** を押して、 
 **[OK]** ボタンをクリックします。
-	![](PC_RSA_Fingerprint.png)(w:350)
 
+	![](PC_RSA_Fingerprint.png)(w:350)
 1. デバイスの設定が適切か確認するために、/Applications/Utilties から **Terminal app** を開きます。
 
 	![](MAC_Terminal_Activate.png)

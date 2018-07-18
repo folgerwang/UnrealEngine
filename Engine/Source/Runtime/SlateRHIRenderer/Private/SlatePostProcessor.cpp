@@ -10,6 +10,7 @@
 #include "PipelineStateCache.h"
 
 DECLARE_CYCLE_STAT(TEXT("Slate PostProcessing RT"), STAT_SlatePostProcessingRTTime, STATGROUP_Slate);
+DECLARE_CYCLE_STAT(TEXT("Slate ColorDeficiency RT"), STAT_SlateColorDeficiencyRTTime, STATGROUP_Slate);
 
 FSlatePostProcessor::FSlatePostProcessor()
 {
@@ -22,7 +23,6 @@ FSlatePostProcessor::~FSlatePostProcessor()
 {
 	// Note this is deleted automatically because it implements FDeferredCleanupInterface.
 	IntermediateTargets->CleanUp();
-
 }
 
 void FSlatePostProcessor::BlurRect(FRHICommandListImmediate& RHICmdList, IRendererModule& RendererModule, const FBlurRectParams& Params, const FPostProcessRectParams& RectParams)
@@ -56,9 +56,9 @@ void FSlatePostProcessor::BlurRect(FRHICommandListImmediate& RHICmdList, IRender
 		DownsampleRect(RHICmdList, RendererModule, RectParams, DownsampleSize);
 	}
 
-#if 1
 	FSamplerStateRHIRef BilinearClamp = TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI();
 
+#if 1
 	TShaderMap<FGlobalShaderType>* ShaderMap = GetGlobalShaderMap(GMaxRHIFeatureLevel);
 	check(ShaderMap);
 
@@ -190,7 +190,85 @@ void FSlatePostProcessor::BlurRect(FRHICommandListImmediate& RHICmdList, IRender
 	}
 
 #endif
-	UpsampleRect(RHICmdList, RendererModule, RectParams, DownsampleSize);
+
+	UpsampleRect(RHICmdList, RendererModule, RectParams, DownsampleSize, BilinearClamp);
+}
+
+void FSlatePostProcessor::ColorDeficiency(FRHICommandListImmediate& RHICmdList, IRendererModule& RendererModule, const FPostProcessRectParams& RectParams)
+{
+	SCOPE_CYCLE_COUNTER(STAT_SlateColorDeficiencyRTTime);
+
+	FIntPoint DestRectSize = RectParams.DestRect.GetSize().IntPoint();
+	FIntPoint RequiredSize = DestRectSize;
+
+	IntermediateTargets->Update(RequiredSize);
+
+#if 1
+	FSamplerStateRHIRef PointClamp = TStaticSamplerState<SF_Point, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI();
+
+	TShaderMap<FGlobalShaderType>* ShaderMap = GetGlobalShaderMap(GMaxRHIFeatureLevel);
+	check(ShaderMap);
+
+	TShaderMapRef<FScreenVS> VertexShader(ShaderMap);
+	TShaderMapRef<FSlatePostProcessColorDeficiencyPS> PixelShader(ShaderMap);
+
+	const int32 SrcTextureWidth = RectParams.SourceTextureSize.X;
+	const int32 SrcTextureHeight = RectParams.SourceTextureSize.Y;
+
+	const int32 DestTextureWidth = IntermediateTargets->GetWidth();
+	const int32 DestTextureHeight = IntermediateTargets->GetHeight();
+
+	const FSlateRect& SourceRect = RectParams.SourceRect;
+	const FSlateRect& DestRect = RectParams.DestRect;
+
+	FVertexDeclarationRHIRef VertexDecl = RendererModule.GetFilterVertexDeclaration().VertexDeclarationRHI;
+	check(IsValidRef(VertexDecl));
+
+	FGraphicsPipelineStateInitializer GraphicsPSOInit;
+	GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
+	GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
+	GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
+
+	RHICmdList.SetScissorRect(false, 0, 0, 0, 0);
+	RHICmdList.SetViewport(0, 0, 0, DestTextureWidth, DestTextureHeight, 0.0f);
+
+	// 
+	{
+		FTexture2DRHIRef SourceTexture = RectParams.SourceTexture;
+		FTexture2DRHIRef DestTexture = IntermediateTargets->GetRenderTarget(0);
+
+		RHICmdList.TransitionResource(EResourceTransitionAccess::EReadable, SourceTexture);
+		RHICmdList.TransitionResource(EResourceTransitionAccess::EWritable, DestTexture);
+
+		SetRenderTarget(RHICmdList, DestTexture, FTextureRHIRef());
+		RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
+
+		GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = VertexDecl;
+		GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
+		GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+		GraphicsPSOInit.PrimitiveType = PT_TriangleList;
+		SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
+
+		PixelShader->SetColorRules(RHICmdList, GSlateColorDeficiencyCorrection, GSlateColorDeficiencyType, GSlateColorDeficiencySeverity);
+		PixelShader->SetShowCorrectionWithDeficiency(RHICmdList, GSlateShowColorDeficiencyCorrectionWithDeficiency);
+		PixelShader->SetTexture(RHICmdList, SourceTexture, PointClamp);
+
+		RendererModule.DrawRectangle(
+			RHICmdList,
+			0, 0,
+			RequiredSize.X, RequiredSize.Y,
+			0, 0,
+			1, 1,
+			FIntPoint(DestTextureWidth, DestTextureHeight),
+			FIntPoint(1, 1),
+			*VertexShader,
+			EDRF_Default);
+	}
+
+	const FIntPoint DownsampleSize = RequiredSize;
+	UpsampleRect(RHICmdList, RendererModule, RectParams, DownsampleSize, PointClamp);
+
+#endif
 }
 
 void FSlatePostProcessor::ReleaseRenderTargets()
@@ -277,7 +355,7 @@ void FSlatePostProcessor::DownsampleRect(FRHICommandListImmediate& RHICmdList, I
 #endif
 }
 
-void FSlatePostProcessor::UpsampleRect(FRHICommandListImmediate& RHICmdList, IRendererModule& RendererModule, const FPostProcessRectParams& Params, const FIntPoint& DownsampleSize)
+void FSlatePostProcessor::UpsampleRect(FRHICommandListImmediate& RHICmdList, IRendererModule& RendererModule, const FPostProcessRectParams& Params, const FIntPoint& DownsampleSize, FSamplerStateRHIRef& Sampler)
 {
 	SCOPED_DRAW_EVENT(RHICmdList, SlatePostProcessUpsample);
 
@@ -305,8 +383,6 @@ void FSlatePostProcessor::UpsampleRect(FRHICommandListImmediate& RHICmdList, IRe
 	TShaderMap<FGlobalShaderType>* ShaderMap = GetGlobalShaderMap(GMaxRHIFeatureLevel);
 	TShaderMapRef<FScreenVS> VertexShader(ShaderMap);
 
-	FSamplerStateRHIRef BilinearClamp = TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI();
-
 	RHICmdList.SetViewport(0, 0, 0, DestTextureWidth, DestTextureHeight, 0.0f);
 
 	// Perform Writable transitions first
@@ -316,7 +392,10 @@ void FSlatePostProcessor::UpsampleRect(FRHICommandListImmediate& RHICmdList, IRe
 	SetRenderTarget(RHICmdList, DestTexture, FTextureRHIRef());
 	RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
 
-	Params.RestoreStateFunc(RHICmdList, GraphicsPSOInit);
+	if (Params.RestoreStateFunc)
+	{
+		Params.RestoreStateFunc(RHICmdList, GraphicsPSOInit);
+	}
 
 	TShaderMapRef<FScreenPS> PixelShader(ShaderMap);
 
@@ -324,20 +403,23 @@ void FSlatePostProcessor::UpsampleRect(FRHICommandListImmediate& RHICmdList, IRe
 	GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
 	GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
 	GraphicsPSOInit.PrimitiveType = PT_TriangleList;
-	//SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
+	SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
 
-	FLocalGraphicsPipelineState BaseGraphicsPSO = RHICmdList.BuildLocalGraphicsPipelineState(GraphicsPSOInit);
-	RHICmdList.SetLocalGraphicsPipelineState(BaseGraphicsPSO);
+	if (Params.RestoreStateFuncPostPipelineState)
+	{
+		Params.RestoreStateFuncPostPipelineState();
+	}
 
-	Params.RestoreStateFuncPostPipelineState();
+	PixelShader->SetParameters(RHICmdList, Sampler, SrcTexture);
 
-	PixelShader->SetParameters(RHICmdList, BilinearClamp, SrcTexture);
+	const float SizeU = (DownsampledWidth == SrcTextureWidth) ? 1.0f : (DownsampledWidth / (float)SrcTextureWidth) - (1.0f / (float)SrcTextureWidth);
+	const float SizeV = (DownsampledHeight == SrcTextureHeight) ? 1.0f : (DownsampledHeight / (float)SrcTextureHeight) - (1.0f / (float)SrcTextureHeight);
 
 	RendererModule.DrawRectangle(RHICmdList,
 		DestRect.Left, DestRect.Top,
 		DestRect.Right - DestRect.Left, DestRect.Bottom - DestRect.Top,
 		0, 0,
-		(float)DownsampledWidth/SrcTextureWidth-1.0/ SrcTextureWidth, (float)DownsampledHeight/SrcTextureHeight-1.0 / SrcTextureHeight,
+		SizeU, SizeV,
 		Params.SourceTextureSize,
 		FIntPoint(1, 1),
 		*VertexShader,

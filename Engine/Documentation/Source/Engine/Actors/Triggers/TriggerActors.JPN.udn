@@ -3,7 +3,7 @@ Availability:Public
 Title:Trigger アクタ
 Crumbs: %ROOT%, Engine, Engine/Actors
 Description:レベル内でアクティベートされイベントを発生させることができるアクタ
-version:4.9
+version: 4.9
 Parent:Engine/Actors/Types
 order:7
 type:overview
@@ -42,8 +42,8 @@ type:overview
 
 	![](trigger_event_context.png)
 
-	上記のいずれかの方法でイベントを選択すると、 [イベントノード](Engine/Blueprints/UserGuide/Events) が 
 
+	上記のいずれかの方法でイベントを選択すると、 [イベントノード](Engine/Blueprints/UserGuide/Events) が 
 現在のレベルに対する Level ブループリントに追加されます。
 
 ![](trigger_event.png)

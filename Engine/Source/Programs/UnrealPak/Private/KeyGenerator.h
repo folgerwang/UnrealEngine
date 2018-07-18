@@ -2,7 +2,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "BigInt.h"
+#include "Math/BigInt.h"
 
 /**
  * Encryption keys: public and private

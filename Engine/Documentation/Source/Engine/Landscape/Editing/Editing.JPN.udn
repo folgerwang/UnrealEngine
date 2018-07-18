@@ -1,50 +1,11 @@
-﻿INTSourceChangelist:3260884
-Availability:Public
+﻿Availability:Public
 Title:ランドスケープの編集
 Crumbs: %ROOT%, Engine, Engine/Landscape
 Description:ランドスケープ テレイン編集用ツールの操作ガイド
 Version:4.9
 parent:Engine/Landscape
 order:3
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Landscape/Editing:title%](Engine/Landscape/Editing/landscape_editing_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/landscape_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Landscape/Editing:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Landscape/Editing:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Landscape/Editing]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Landscape/Editing:title%](Engine/Landscape/Editing/landscape_editing_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/landscape_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Landscape/Editing:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Landscape/Editing:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Landscape/Editing]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:Engine/Landscape/Editing/landscape_editing_topic.png
 
 
 ランドスケープを作成すると、以下の操作が可能になります。

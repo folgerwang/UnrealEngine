@@ -30,7 +30,7 @@
 #include "LandscapeSplineSegment.h"
 #include "LandscapeSplineControlPoint.h"
 #include "ControlPointMeshComponent.h"
-#include "Containers/Algo/Copy.h"
+#include "Algo/Copy.h"
 #include "HAL/PlatformApplicationMisc.h"
 #include "UnrealExporter.h"
 
@@ -312,7 +312,7 @@ public:
 			NewSegment->bRaiseTerrain     = CopyFromSegment->bRaiseTerrain;
 			NewSegment->bLowerTerrain     = CopyFromSegment->bLowerTerrain;
 			NewSegment->bPlaceSplineMeshesInStreamingLevels = CopyFromSegment->bPlaceSplineMeshesInStreamingLevels;
-			NewSegment->bEnableCollision  = CopyFromSegment->bEnableCollision;
+			NewSegment->BodyInstance  = CopyFromSegment->BodyInstance;
 			NewSegment->bCastShadow       = CopyFromSegment->bCastShadow;
 		}
 
@@ -375,7 +375,7 @@ public:
 				NewControlPoint->Mesh             = FirstPoint->Mesh;
 				NewControlPoint->MeshScale        = FirstPoint->MeshScale;
 				NewControlPoint->bPlaceSplineMeshesInStreamingLevels = FirstPoint->bPlaceSplineMeshesInStreamingLevels;
-				NewControlPoint->bEnableCollision = FirstPoint->bEnableCollision;
+				NewControlPoint->BodyInstance = FirstPoint->BodyInstance;
 				NewControlPoint->bCastShadow      = FirstPoint->bCastShadow;
 			}
 
@@ -566,7 +566,7 @@ public:
 		NewSegment->LDMaxDrawDistance = Segment->LDMaxDrawDistance;
 		NewSegment->bRaiseTerrain = Segment->bRaiseTerrain;
 		NewSegment->bLowerTerrain = Segment->bLowerTerrain;
-		NewSegment->bEnableCollision = Segment->bEnableCollision;
+		NewSegment->BodyInstance = Segment->BodyInstance;
 		NewSegment->bCastShadow = Segment->bCastShadow;
 
 		Segment->Connections[0].TangentLen *= t;

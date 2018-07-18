@@ -21,6 +21,7 @@ class APartyBeaconClient;
 class ULocalPlayer;
 class UParty;
 class UPartyMemberState;
+class UNetDriver;
 
 typedef FUniqueNetIdRepl FOnlinePartyIdRepl;
 class FOnlineSessionSearchResult;
@@ -63,7 +64,11 @@ enum class EJoinPartyDenialReason : uint8
 	/** Player is still in tutorials and no able to do invites */
 	NeedsTutorial,
 	/** Player is in a game mode that restricts joining */
-	GameModeRestricted
+	GameModeRestricted,
+	/** Player has crossplay restriction that would be violated */
+	JoinerCrossplayRestricted,
+	/** Party member has crossplay restriction that would be violated */
+	MemberCrossplayRestricted
 };
 
 enum class EApprovalAction : uint8
@@ -76,6 +81,17 @@ enum class EApprovalAction : uint8
 	EnqueueAndStartBeacon,
 	/** Deny the request */
 	Deny
+};
+
+UENUM()
+enum class ECrossplayPreference: uint8
+{
+	/** User has not made a selection */
+	NoSelection = 0,
+	/** User has opted in to crossplay */
+	OptedIn,
+	/** User has opted out of crossplay */
+	OptedOut
 };
 
 /**
@@ -217,7 +233,7 @@ public:
 	virtual void OnShutdown();
 
 	/** @return true if local player is party leader, false otherwise */
-	bool IsLocalPartyLeader();
+	bool IsLocalPartyLeader() const;
 
 	/** @return the party id of this party */
 	FOnlinePartyTypeId GetPartyTypeId() const;
@@ -338,6 +354,13 @@ public:
 	 */
 	virtual FChatRoomId GetChatRoomID() const;
 
+	/**
+	 * Get all party members in this party casted to the specified type
+	 * Note if a member cannot be cast to the specified type, a null entry will be placed in the list
+	 * 
+	 * @param <TPartyMemberState> type to cast the party members to
+	 * @param PartyMembers [out] array of all party members in this party of the specified type
+	 */
 	template< typename TPartyMemberState >
 	void GetTypedPartyMembers(TArray< TPartyMemberState* >& PartyMembers) const
 	{
@@ -366,7 +389,14 @@ public:
 	FOnInvitesDisabledChanged& OnInvitesDisabledChanged() { return InvitesDisabledChanged; }
 	/** @return delegate fired when the party configuration has changed */
 	FOnPartyConfigurationChanged& OnPartyConfigurationChanged() { return PartyConfigurationChanged; }
-	
+
+	/**
+	 * Is the specified net driver for our reservation beacon?
+	 * @param InNetDriver the net driver to test
+	 * @return true if the net driver is our reservation beacon's net driver
+	 */
+	bool IsNetDriverFromReservationBeacon(const UNetDriver* const InNetDriver) const;
+
 protected:
 
 	template<typename T>
@@ -402,7 +432,7 @@ protected:
 	const UScriptStruct* PartyStateRefDef;
 
 	/**
-	 * Pointer to child USTRUCT that holds the current state of party member (set via InitPartyMemberState)
+	 * Pointer to child USTRUCT that holds the current state of the party (set via InitPartyState)
 	 *
 	 * Cached data for the party, only modifiable by the party leader
 	 * Reference to the data structure defined in a child class
@@ -448,6 +478,12 @@ protected:
 	/** Reservation beacon client instance while getting approval for new party members*/
 	UPROPERTY(Transient)
 	APartyBeaconClient* ReservationBeaconClient;
+	/**
+	 * Last known reservation beacon client net driver name
+	 * Intended to be used to detect network errors related to our current or last reservation beacon client's net driver.
+	 * Some network error handlers may be called after we cleanup our beacon connection.
+	 */
+	FName LastReservationBeaconClientNetDriverName;
 
 	/**
 	 * Holds information about party members needing approval with the game server
@@ -456,6 +492,8 @@ protected:
 	{
 		FUniqueNetIdRepl RecipientId;
 		FUniqueNetIdRepl SenderId;
+		FString Platform;
+		TSharedPtr<const FOnlinePartyData> JoinData;
 	};
 
 	/** All currently pending approvals for new members */
@@ -479,7 +517,7 @@ protected:
 	/**
 	 * Common initialization for a newly instantiated party
 	 */
-	void Init(const FUniqueNetId& LocalUserId, TSharedPtr<const FOnlineParty>& InParty);
+	virtual void Init(const FUniqueNetId& LocalUserId, TSharedPtr<const FOnlineParty>& InParty);
 
 	/** Register for game related delegates that affect the party */
 	virtual void RegisterFrontendDelegates();
@@ -520,7 +558,7 @@ protected:
 	void SendLocalPlayerPartyData();
 
 	/** @return Is this player in a joinable game or no game at all (meant for local use only, remote perspective is elsewhere) */
-	virtual bool IsInJoinableGameState() const;
+	virtual bool IsGameSessionJoinable() const;
 
 	/**
 	 * Compare old party data to new party data, triggering appropriate delegates
@@ -615,27 +653,30 @@ protected:
 	 *
 	 * @param RecipientId whom this request is for (party leader)
 	 * @param SendingId whom this request is from
+	 * @param JoinData data the sender sent to help us make a decision about the sender's status
 	 */
-	void HandlePartyJoinRequestReceived(const FUniqueNetId& RecipientId, const FUniqueNetId& SenderId);
+	void HandlePartyJoinRequestReceived(const FUniqueNetId& RecipientId, const FUniqueNetId& SenderId, const FString& Platform, const FOnlinePartyData& JoinData);
 
 	/**
 	 * Called on the party leader to do a quick determination of whether the party is joinable
 	 *
 	 * @param RecipientId whom this request is for (party leader)
 	 * @param SendingId whom this request is from
+	 * @param JoinData data the sender sent to help us make a decision about the sender's status
 	 */
-	void HandlePartyQueryJoinabilityRequestReceived(const FUniqueNetId& RecipientId, const FUniqueNetId& SenderId);
+	void HandlePartyQueryJoinabilityRequestReceived(const FUniqueNetId& RecipientId, const FUniqueNetId& SenderId, const FString& Platform, const FOnlinePartyData& JoinData);
 
 	/**
 	 * Game specific decision making about party approvals
 	 *
 	 * @param RecipientId whom this request is for (party leader)
 	 * @param SendingId whom this request is from
+	 * @param JoinData data the sender sent to help us make a decision about the sender's status
 	 * @param [out] Reason for rejection, if applicable
 	 *
 	 * @return approval action for this join party request
 	 */
-	virtual EApprovalAction ProcessJoinRequest(const FUniqueNetId& RecipientId, const FUniqueNetId& SenderId, EJoinPartyDenialReason& DenialReason) const;
+	virtual EApprovalAction ProcessJoinRequest(const FUniqueNetId& RecipientId, const FUniqueNetId& SenderId, const FString& Platform, const FOnlinePartyData& JoinData, EJoinPartyDenialReason& DenialReason) const;
 
 	/**
 	 * Unilaterally reject all pending join requests 
@@ -647,6 +688,11 @@ protected:
 	 * Only relevant while in an active game, not required while pre lobby / game
 	 */
 	void ConnectToReservationBeacon();
+
+	/**
+	 * Process any additional pending invitations
+	 */
+	void PumpApprovalQueue();
 	
 	/** Delegate fired when there is a failure to connect to the server reservation beacon */
 	void OnReservationBeaconUpdateConnectionFailure();
@@ -656,7 +702,7 @@ protected:
 	 *
 	 * @param ReservationResponse response from the server regarding a new party member's approval
 	 */
-	void OnReservationBeaconUpdateResponseReceived(EPartyReservationResult::Type ReservationResponse);
+	virtual void OnReservationBeaconUpdateResponseReceived(EPartyReservationResult::Type ReservationResponse);
 
 	/**
 	 * Delegate fired when there are reservation updates on the server (not used by party)
@@ -703,6 +749,8 @@ private:
 	friend UParty;
 	friend UPartyMemberState;
 };
+
+PARTY_API bool GetCrossplayPreferenceFromJoinData(const FOnlinePartyData& JoinData, ECrossplayPreference& OutPreference);
 
 inline const TCHAR* ToString(EPartyType Type)
 {
@@ -791,4 +839,15 @@ inline const TCHAR* ToString(EApprovalAction Type)
 		return TEXT("Unknown");
 	}
 	}
+}
+
+inline const TCHAR* LexToString(ECrossplayPreference Preference)
+{
+	switch (Preference)
+	{
+	case ECrossplayPreference::NoSelection: return TEXT("NoSelection");
+	case ECrossplayPreference::OptedIn: return TEXT("OptedIn");
+	case ECrossplayPreference::OptedOut: return TEXT("OptedOut");
+	}
+	return TEXT("Unknown");
 }

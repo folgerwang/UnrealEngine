@@ -28,9 +28,9 @@ UMaterialExpressionLandscapeLayerBlend::UMaterialExpressionLandscapeLayerBlend(c
 	};
 	static FConstructorStatics ConstructorStatics;
 
+#if WITH_EDITORONLY_DATA
 	bIsParameterExpression = true;
 
-#if WITH_EDITORONLY_DATA
 	MenuCategories.Add(ConstructorStatics.NAME_Landscape);
 #endif
 }
@@ -59,6 +59,7 @@ void UMaterialExpressionLandscapeLayerBlend::Serialize(FArchive& Ar)
 	}
 }
 
+#if WITH_EDITOR
 
 const TArray<FExpressionInput*> UMaterialExpressionLandscapeLayerBlend::GetInputs()
 {
@@ -116,7 +117,6 @@ FName UMaterialExpressionLandscapeLayerBlend::GetInputName(int32 InputIndex) con
 	return NAME_None;
 }
 
-#if WITH_EDITOR
 uint32 UMaterialExpressionLandscapeLayerBlend::GetInputType(int32 InputIndex)
 {
 	int32 Idx = 0;

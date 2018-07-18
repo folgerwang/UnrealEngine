@@ -14,7 +14,52 @@ void UNiagaraRibbonRendererProperties::GetUsedMaterials(TArray<UMaterialInterfac
 	OutMaterials.Add(Material);
 }
 
+void UNiagaraRibbonRendererProperties::PostInitProperties()
+{
+	Super::PostInitProperties();
+	SyncId = 0;
+	if (HasAnyFlags(RF_ClassDefaultObject) == false)
+	{
+		InitBindings();
+	}
+}
+
+/** The bindings depend on variables that are created during the NiagaraModule startup. However, the CDO's are build prior to this being initialized, so we defer setting these values until later.*/
+void UNiagaraRibbonRendererProperties::InitCDOPropertiesAfterModuleStartup()
+{
+	UNiagaraRibbonRendererProperties* CDO = CastChecked<UNiagaraRibbonRendererProperties>(UNiagaraRibbonRendererProperties::StaticClass()->GetDefaultObject());
+	CDO->InitBindings();
+}
+
+void UNiagaraRibbonRendererProperties::InitBindings()
+{
+	if (PositionBinding.BoundVariable.GetName() == NAME_None)
+	{
+		PositionBinding = FNiagaraConstants::GetAttributeDefaultBinding(SYS_PARAM_PARTICLES_POSITION);
+		ColorBinding = FNiagaraConstants::GetAttributeDefaultBinding(SYS_PARAM_PARTICLES_COLOR);
+		VelocityBinding = FNiagaraConstants::GetAttributeDefaultBinding(SYS_PARAM_PARTICLES_VELOCITY);
+		DynamicMaterialBinding = FNiagaraConstants::GetAttributeDefaultBinding(SYS_PARAM_PARTICLES_DYNAMIC_MATERIAL_PARAM);
+		DynamicMaterial1Binding = FNiagaraConstants::GetAttributeDefaultBinding(SYS_PARAM_PARTICLES_DYNAMIC_MATERIAL_PARAM_1);
+		DynamicMaterial2Binding = FNiagaraConstants::GetAttributeDefaultBinding(SYS_PARAM_PARTICLES_DYNAMIC_MATERIAL_PARAM_2);
+		DynamicMaterial3Binding = FNiagaraConstants::GetAttributeDefaultBinding(SYS_PARAM_PARTICLES_DYNAMIC_MATERIAL_PARAM_3);
+		NormalizedAgeBinding = FNiagaraConstants::GetAttributeDefaultBinding(SYS_PARAM_PARTICLES_NORMALIZED_AGE);
+		RibbonTwistBinding = FNiagaraConstants::GetAttributeDefaultBinding(SYS_PARAM_PARTICLES_RIBBONTWIST);
+		RibbonWidthBinding = FNiagaraConstants::GetAttributeDefaultBinding(SYS_PARAM_PARTICLES_RIBBONWIDTH);
+		RibbonFacingBinding = FNiagaraConstants::GetAttributeDefaultBinding(SYS_PARAM_PARTICLES_RIBBONFACING);
+		RibbonIdBinding = FNiagaraConstants::GetAttributeDefaultBinding(SYS_PARAM_PARTICLES_RIBBONID);
+		RibbonLinkOrderBinding = FNiagaraConstants::GetAttributeDefaultBinding(SYS_PARAM_PARTICLES_RIBBONLINKORDER);
+	}
+}
+
 #if WITH_EDITORONLY_DATA
+void UNiagaraRibbonRendererProperties::PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent)
+{
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+	if (PropertyChangedEvent.GetPropertyName() != TEXT("SyncId"))
+	{
+		SyncId++;
+	}
+}
 
 const TArray<FNiagaraVariable>& UNiagaraRibbonRendererProperties::GetRequiredAttributes()
 {
@@ -22,9 +67,6 @@ const TArray<FNiagaraVariable>& UNiagaraRibbonRendererProperties::GetRequiredAtt
 
 	if (Attrs.Num() == 0)
 	{
-		Attrs.Add(SYS_PARAM_PARTICLES_POSITION);
-		Attrs.Add(SYS_PARAM_PARTICLES_NORMALIZED_AGE);
-		Attrs.Add(SYS_PARAM_PARTICLES_COLOR);
 	}
 
 	return Attrs;
@@ -37,10 +79,14 @@ const TArray<FNiagaraVariable>& UNiagaraRibbonRendererProperties::GetOptionalAtt
 
 	if (Attrs.Num() == 0)
 	{
+		Attrs.Add(SYS_PARAM_PARTICLES_POSITION);
+		Attrs.Add(SYS_PARAM_PARTICLES_NORMALIZED_AGE);
+		Attrs.Add(SYS_PARAM_PARTICLES_COLOR);
 		Attrs.Add(SYS_PARAM_PARTICLES_RIBBONID);
 		Attrs.Add(SYS_PARAM_PARTICLES_RIBBONTWIST);
 		Attrs.Add(SYS_PARAM_PARTICLES_RIBBONWIDTH);
 		Attrs.Add(SYS_PARAM_PARTICLES_RIBBONFACING);
+		Attrs.Add(SYS_PARAM_PARTICLES_RIBBONLINKORDER);
 	}
 
 	return Attrs;

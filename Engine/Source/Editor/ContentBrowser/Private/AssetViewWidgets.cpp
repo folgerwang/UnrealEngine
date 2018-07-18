@@ -11,6 +11,7 @@
 #include "Materials/Material.h"
 #include "ISourceControlProvider.h"
 #include "ISourceControlModule.h"
+#include "SourceControlHelpers.h"
 #include "EditorFramework/AssetImportData.h"
 #include "Engine/Texture2D.h"
 #include "ARFilter.h"
@@ -362,14 +363,18 @@ void SAssetColumnView::Tick(const FGeometry& AllottedGeometry, const double InCu
 
 SAssetViewItem::~SAssetViewItem()
 {
-	if ( AssetItem.IsValid() )
+	if (AssetItem.IsValid())
 	{
-		AssetItem->OnAssetDataChanged.RemoveAll( this );
+		AssetItem->OnAssetDataChanged.RemoveAll(this);
 	}
 
-	OnItemDestroyed.ExecuteIfBound( AssetItem );
+	OnItemDestroyed.ExecuteIfBound(AssetItem);
 
-	SetForceMipLevelsToBeResident(false);
+	if (!GExitPurge)
+	{
+		// This hack is here to make abnormal shutdowns less frequent.  Crashes here are the result UI's being shut down as a result of GC at edtior shutdown.  This code attemps to call FindObject which is not allowed during GC.
+		SetForceMipLevelsToBeResident(false);
+	}
 }
 
 void SAssetViewItem::Construct( const FArguments& InArgs )
@@ -895,13 +900,10 @@ FText SAssetViewItem::GetCheckedOutByOtherText() const
 		const FAssetData& AssetData = StaticCastSharedPtr<FAssetViewAsset>(AssetItem)->Data;
 		ISourceControlProvider& SourceControlProvider = ISourceControlModule::Get().GetProvider();
 		FSourceControlStatePtr SourceControlState = SourceControlProvider.GetState(SourceControlHelpers::PackageFilename(AssetData.PackageName.ToString()), EStateCacheUsage::Use);
-		FString UserWhichHasPackageCheckedOut;
-		if (SourceControlState.IsValid() && SourceControlState->IsCheckedOutOther(&UserWhichHasPackageCheckedOut) )
+		FString UserWhichHasPackageCheckedOut;		
+		if (SourceControlState.IsValid() && ( SourceControlState->IsCheckedOutOther(&UserWhichHasPackageCheckedOut) || SourceControlState->IsCheckedOutOrModifiedInOtherBranch()))
 		{
-			if ( !UserWhichHasPackageCheckedOut.IsEmpty() )
-			{
-				return SourceControlState->GetDisplayTooltip();
-			}
+			return SourceControlState->GetDisplayTooltip();
 		}
 	}
 
@@ -1124,7 +1126,7 @@ void SAssetViewItem::CacheDisplayTags()
 				{
 					// Convert the number as a double
 					double Num = 0.0;
-					Lex::FromString(Num, *InNumberString);
+					LexFromString(Num, *InNumberString);
 
 					const FNumberFormattingOptions NumFormatOpts = FNumberFormattingOptions()
 						.SetMinimumFractionalDigits(NumDecimalPlaces)
@@ -1140,7 +1142,7 @@ void SAssetViewItem::CacheDisplayTags()
 					{
 						// Convert the number as a signed int
 						int64 Num = 0;
-						Lex::FromString(Num, *InNumberString);
+						LexFromString(Num, *InNumberString);
 
 						return FText::AsNumber(Num);
 					}
@@ -1148,7 +1150,7 @@ void SAssetViewItem::CacheDisplayTags()
 					{
 						// Convert the number as an unsigned int
 						uint64 Num = 0;
-						Lex::FromString(Num, *InNumberString);
+						LexFromString(Num, *InNumberString);
 
 						return FText::AsNumber(Num);
 					}
@@ -1170,7 +1172,7 @@ void SAssetViewItem::CacheDisplayTags()
 				{
 					// Memory should be a 64-bit unsigned number of bytes
 					uint64 NumBytes = 0;
-					Lex::FromString(NumBytes, *TagAndValuePair.Value);
+					LexFromString(NumBytes, *TagAndValuePair.Value);
 
 					DisplayValue = FText::AsMemory(NumBytes);
 				}

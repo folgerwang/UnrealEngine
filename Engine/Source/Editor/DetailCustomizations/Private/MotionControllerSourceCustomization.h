@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Widgets/DeclarativeSyntaxSupport.h"
-#include "SCompoundWidget.h"
+#include "Widgets/SCompoundWidget.h"
 
 class SWidget;
 class IPropertyHandle;

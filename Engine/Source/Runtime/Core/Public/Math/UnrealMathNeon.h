@@ -89,7 +89,7 @@ FORCEINLINE VectorRegister VectorLoadNPlusOneUnalignedBytes(const void* Ptr, int
  *	Constants:
  *============================================================================*/
 
-#include "UnrealMathVectorConstants.h"
+#include "Math/UnrealMathVectorConstants.h"
 
 
 /*=============================================================================
@@ -194,6 +194,23 @@ FORCEINLINE VectorRegister VectorSetFloat3( float X, float Y, float Z )
 	Tmp.F[2] = Z;
 	return Tmp.V;
 }
+
+/**
+* Creates a vector out of three floats and leaves W undefined.
+*
+* @param X		float component
+* @return		VectorRegister(X, X, X, X)
+*/
+FORCEINLINE VectorRegister VectorSetFloat1(float X)
+{
+	union { VectorRegister V; float F[4]; } Tmp;
+	Tmp.F[0] = X;
+	Tmp.F[1] = X;
+	Tmp.F[2] = X;
+	Tmp.F[3] = X;
+	return Tmp.V;
+}
+
 
 /**
  * Creates a vector out of four floats.
@@ -533,6 +550,31 @@ FORCEINLINE VectorRegister VectorBitwiseXor(const VectorRegister& Vec1, const Ve
 * @return			The swizzled vector
 */
 #define VectorShuffle( Vec1, Vec2, X, Y, Z, W )	__builtin_shufflevector(Vec1, Vec2, X, Y, Z, W)
+
+
+/**
+* Creates a vector by combining two high components from each vector
+*
+* @param Vec1		Source vector1
+* @param Vec2		Source vector2
+* @return			The combined vector
+*/
+FORCEINLINE VectorRegister VectorCombineHigh(const VectorRegister& Vec1, const VectorRegister& Vec2 )
+{
+	return vcombine_f32(vget_high_f32(Vec1), vget_high_f32(Vec2));
+}
+
+/**
+* Creates a vector by combining two low components from each vector
+*
+* @param Vec1		Source vector1
+* @param Vec2		Source vector2
+* @return			The combined vector
+*/
+FORCEINLINE VectorRegister VectorCombineLow(const VectorRegister& Vec1, const VectorRegister& Vec2 )
+{
+	return vcombine_f32(vget_low_f32(Vec1), vget_low_f32(Vec2));
+}
 
 /**
  * Calculates the cross product of two vectors (XYZ components). W is set to 0.
@@ -905,6 +947,20 @@ FORCEINLINE VectorRegister VectorLoadByte4( const void* Ptr )
 }
 
 /**
+* Loads 4 int8s from unaligned memory and converts them into 4 floats.
+* IMPORTANT: You need to call VectorResetFloatRegisters() before using scalar floats after you've used this intrinsic!
+*
+* @param Ptr			Unaligned memory pointer to the 4 uint8s.
+* @return				VectorRegister( float(Ptr[0]), float(Ptr[1]), float(Ptr[2]), float(Ptr[3]) )
+*/
+FORCEINLINE VectorRegister VectorLoadSignedByte4(const void* Ptr)
+{
+	// OPTIMIZE ME!
+	const int8 *P = (const int8 *)Ptr;
+	return MakeVectorRegister((float)P[0], (float)P[1], (float)P[2], (float)P[3]);
+}
+
+/**
  * Loads 4 uint8s from unaligned memory and converts them into 4 floats in reversed order.
  * IMPORTANT: You need to call VectorResetFloatRegisters() before using scalar floats after you've used this intrinsic!
  *
@@ -933,6 +989,23 @@ FORCEINLINE void VectorStoreByte4( VectorRegister Vec, void* Ptr )
 	uint32_t buf[2];
 	vst1_u8( (uint8_t *)buf, u8x8 );
 	*(uint32_t *)Ptr = buf[0]; 
+}
+
+/**
+* Converts the 4 floats in the vector to 4 int8s, clamped to [-127, 127], and stores to unaligned memory.
+* IMPORTANT: You need to call VectorResetFloatRegisters() before using scalar floats after you've used this intrinsic!
+*
+* @param Vec			Vector containing 4 floats
+* @param Ptr			Unaligned memory pointer to store the 4 uint8s.
+*/
+FORCEINLINE void VectorStoreSignedByte4(VectorRegister Vec, void* Ptr)
+{
+	int16x8_t s16x8 = (int16x8_t)vcvtq_s32_f32(VectorMax(VectorMin(Vec, GlobalVectorConstants::Float127), GlobalVectorConstants::FloatNeg127));
+	int8x8_t s8x8 = (int8x8_t)vget_low_s16(vuzpq_s16(s16x8, s16x8).val[0]);
+	s8x8 = vuzp_s8(s8x8, s8x8).val[0];
+	int32_t buf[2];
+	vst1_s8((int8_t *)buf, s8x8);
+	*(int32_t *)Ptr = buf[0];
 }
 
 /**
@@ -1250,6 +1323,26 @@ FORCEINLINE VectorRegister VectorLoadURGBA16N(void* Ptr)
 }
 
 /**
+* Loads packed signed RGBA16(4 bytes) from unaligned memory and converts them into 4 FLOATs.
+* IMPORTANT: You need to call VectorResetFloatRegisters() before using scalar FLOATs after you've used this intrinsic!
+*
+* @param Ptr			Unaligned memory pointer to the RGBA16(8 bytes).
+* @return				VectorRegister with 4 FLOATs loaded from Ptr.
+*/
+FORCEINLINE VectorRegister VectorLoadSRGBA16N(void* Ptr)
+{
+	float V[4];
+	int16* E = (int16*)Ptr;
+
+	V[0] = float(E[0]) / 32767.0;
+	V[1] = float(E[1]) / 32767.0;
+	V[2] = float(E[2]) / 32767.0;
+	V[3] = float(E[3]) / 32767.0;
+
+	return MakeVectorRegister(V[0], V[1], V[2], V[3]);
+}
+
+/**
 * Converts the 4 FLOATs in the vector RGBA16, clamped to [0, 65535], and stores to unaligned memory.
 * IMPORTANT: You need to call VectorResetFloatRegisters() before using scalar FLOATs after you've used this intrinsic!
 *
@@ -1338,7 +1431,7 @@ FORCEINLINE VectorRegisterInt VectorIntSelect(const VectorRegisterInt& Mask, con
 * @param Vec	Vector to store
 * @param Ptr	Aligned Memory pointer
 */
-#define VectorIntStoreAligned( Vec, Ptr )			vst1q_s32( (VectorRegisterInt*)(Ptr), Vec )
+#define VectorIntStoreAligned( Vec, Ptr )			vst1q_s32( (int32*)(Ptr), Vec )
 
 /**
 * Loads 4 int32s from aligned memory.

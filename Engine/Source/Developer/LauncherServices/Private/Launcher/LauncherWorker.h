@@ -9,7 +9,7 @@
 
 class FLauncherTask;
 class ITargetDeviceProxyManager;
-
+class ITargetDeviceProxy;
 
 struct FCommandDesc
 {
@@ -38,6 +38,7 @@ public:
 	~FLauncherWorker()
 	{
 		TaskChain.Reset();
+		DisableDeviceDiscoveryListener();
 	}
 
 public:
@@ -93,6 +94,17 @@ public:
 		return Profile;
 	}
 
+	/** Callback for when a device proxy has been removed from the device proxy manager. */
+	void HandleDeviceProxyManagerProxyRemoved(const TSharedRef<ITargetDeviceProxy>& RemovedProxy);
+
+	/**
+	 * Set the app id running on the device
+	 */
+	virtual void AddDevicePackagePair(const FString& Device, const FString& Package) override
+	{
+		CachedDevicePackagePair.Add(Device, Package);
+	}
+
 protected:
 
 	/**
@@ -106,6 +118,15 @@ protected:
 	void OnTaskCompleted(const FString& TaskName);
 
 	FString CreateUATCommand( const ILauncherProfileRef& InProfile, const TArray<FString>& InPlatforms, TArray<FCommandDesc>& OutCommands, FString& CommandStart );
+
+	//start listening to the device discovery routine
+	void EnableDeviceDiscoveryListener();
+
+	//stop listening to the device discovery routine
+	void DisableDeviceDiscoveryListener();
+
+	//Cancel the currently running application on all devices
+	bool TerminateLaunchedProcess();
 
 private:
 
@@ -138,4 +159,10 @@ private:
 	FOnStageCompletedDelegate StageCompleted;
 	FOnLaunchCompletedDelegate LaunchCompleted;
 	FOnLaunchCanceledDelegate LaunchCanceled;
+
+	// delegate for device discovery (device removed)
+	FDelegateHandle OnProxyRemovedDelegateHandle;
+
+	// Dictionary holding the appid@device pairs from the last launch
+	TMap<FString, FString> CachedDevicePackagePair;
 };

@@ -51,8 +51,7 @@ static TAutoConsoleVariable<int32> GCVarDumpHitchesAllThreads(
 	ECVF_RenderThreadSafe
 );
 
-
-void FromString( EStatCompareBy::Type& OutValue, const TCHAR* Buffer )
+void LexFromString( EStatCompareBy::Type& OutValue, const TCHAR* Buffer )
 {
 	OutValue = EStatCompareBy::Sum;
 
@@ -800,11 +799,12 @@ FStatGroupGameThreadNotifier& FStatGroupGameThreadNotifier::Get()
 struct FInternalGroup
 {
 	/** Initialization constructor. */
-	FInternalGroup(const FName InGroupName, const FName InGroupCategory, const EStatDisplayMode::Type InDisplayMode, TSet<FName>& InEnabledItems, const FString& InGroupDescription, TMap<FName, float>* InThreadBudgetMap = nullptr, TSet<FName>* InBudgetIgnore = nullptr)
+	FInternalGroup(const FName InGroupName, const FName InGroupCategory, const EStatDisplayMode::Type InDisplayMode, bool InCompareByName, TSet<FName>& InEnabledItems, const FString& InGroupDescription, TMap<FName, float>* InThreadBudgetMap = nullptr, TSet<FName>* InBudgetIgnore = nullptr)
 		: GroupName( InGroupName )
 		, GroupCategory(InGroupCategory)
 		, GroupDescription( InGroupDescription )
-		, DisplayMode( InDisplayMode )	
+		, DisplayMode( InDisplayMode )
+		, bCompareByName( InCompareByName )
 	{
 		// To avoid copy.
 		Exchange( EnabledItems, InEnabledItems );
@@ -840,6 +840,9 @@ struct FInternalGroup
 
 	/** Display mode for this group. */
 	EStatDisplayMode::Type DisplayMode;
+
+	/** Sorting mode for this group. */
+	bool bCompareByName;
 };
 
 /** Stats for the particular frame. */
@@ -983,8 +986,9 @@ struct FHUDGroupManager
 					const FStatMessage& Group = Stats.ShortNameToLongName.FindChecked(MaybeGroupFName);
 					const FName GroupCategory = Group.NameAndInfo.GetGroupCategory();
 					const FString GroupDescription = Group.NameAndInfo.GetDescription();
+					const bool bSortByName = Group.NameAndInfo.GetSortByName();
 
-					EnabledGroups.Add(MaybeGroupFName, FInternalGroup(MaybeGroupFName, GroupCategory, bHierarchy ? EStatDisplayMode::Hierarchical : EStatDisplayMode::Flat, EnabledItems, GroupDescription));
+					EnabledGroups.Add(MaybeGroupFName, FInternalGroup(MaybeGroupFName, GroupCategory, bHierarchy ? EStatDisplayMode::Hierarchical : EStatDisplayMode::Flat, bSortByName, EnabledItems, GroupDescription));
 				}
 			}
 			else if (Params.bSlowMode)
@@ -998,7 +1002,7 @@ struct FHUDGroupManager
 				else
 				{
 					TSet<FName> EmptySet = TSet<FName>();
-					EnabledGroups.Add( MaybeGroupFName, FInternalGroup( MaybeGroupFName, NAME_None, EStatDisplayMode::Hierarchical, EmptySet, TEXT( "Hierarchy for game and render" ) ) );
+					EnabledGroups.Add( MaybeGroupFName, FInternalGroup( MaybeGroupFName, NAME_None, EStatDisplayMode::Hierarchical, false, EmptySet, TEXT( "Hierarchy for game and render" ) ) );
 				}			
 			}
 			else if(!Params.BudgetSection.IsEmpty())
@@ -1037,7 +1041,7 @@ struct FHUDGroupManager
 						TSet<FName> StatSet;
 						GetStatsForNames(StatSet, StatShortNames);
 						FName BudgetGroupName(*Params.BudgetSection);
-						EnabledGroups.Add(BudgetGroupName, FInternalGroup(*Params.BudgetSection, NAME_None, EStatDisplayMode::Flat, StatSet, TEXT("Budget"), &ThreadBudgetMap, &NonAccumulatingStats));
+						EnabledGroups.Add(BudgetGroupName, FInternalGroup(*Params.BudgetSection, NAME_None, EStatDisplayMode::Flat, false, StatSet, TEXT("Budget"), &ThreadBudgetMap, &NonAccumulatingStats));
 						HandleToggleCommandBroadcast( BudgetGroupName, bCurrentEnabled, bOthersEnabled );
 					}
 				}
@@ -1246,12 +1250,33 @@ struct FHUDGroupManager
 				return ValueA == ValueB ? FStatNameComparer<FStatMessage>()(A,B) : ValueA > ValueB;
 			}
 		};
-		
+		struct FStatNameAndValueComparer
+		{
+			FStatNameComparer<FStatMessage> NameComparer;
+			FStatValueComparer ValueComparer;
+
+			FORCEINLINE_STATS bool operator()( const FStatMessage& A, const FStatMessage& B ) const
+			{
+				const bool bSortAByName = A.NameAndInfo.GetSortByName();
+				const bool bSortBByName = B.NameAndInfo.GetSortByName();
+				// If both use the same sort method, use the appropriate comparer, otherwise sort by name goes first.
+				if (bSortAByName)
+				{
+					return bSortBByName ? NameComparer(A, B) : true;
+				}
+				else
+				{
+					return bSortBByName ? false : ValueComparer(A, B);
+				}
+			}
+		};
+
 		if(!bUseBudgetMode)	//In budget mode we do not sort since we want to maintain hierarchy
 		{
 			// Sort total history stats by the specified item.
 			EStatCompareBy::Type StatCompare = Params.SortBy.Get();
-			if (StatCompare == EStatCompareBy::Sum)
+
+ 			if (StatCompare == EStatCompareBy::Sum)
 			{
 				TotalHierarchyInclusive.Sort(FStatDurationComparer<FRawStatStackNode>());
 				TotalAggregateInclusive.Sort(FStatDurationComparer<FStatMessage>());
@@ -1259,8 +1284,6 @@ struct FHUDGroupManager
 				{
 					It.Value().Sort(FStatDurationComparer<FStatMessage>());
 				}
-				
-				TotalNonStackStats.Sort(FStatValueComparer());
 			}
 			else if (StatCompare == EStatCompareBy::CallCount)
 			{
@@ -1270,7 +1293,6 @@ struct FHUDGroupManager
 				{
 					It.Value().Sort(FStatCallCountComparer<FStatMessage>());
 				}
-				TotalNonStackStats.Sort(FStatValueComparer());
 			}
 			else if (StatCompare == EStatCompareBy::Name)
 			{
@@ -1280,10 +1302,34 @@ struct FHUDGroupManager
 				{
 					It.Value().Sort(FStatNameComparer<FStatMessage>());
 				}
+			}
+
+			// For the non stack stats, their can be any mix of sort by name or by value.
+			int32 NumGroupsUsingCompareByName = 0;
+			for (auto It = EnabledGroups.CreateIterator(); It; ++It)
+			{
+				if (It.Value().bCompareByName)
+				{
+					++NumGroupsUsingCompareByName;
+				}
+			}
+
+			// If all groups enforce sort by name, or that the current settings is sort by name.
+			if (NumGroupsUsingCompareByName == EnabledGroups.Num() || StatCompare == EStatCompareBy::Name)
+			{
 				TotalNonStackStats.Sort(FStatNameComparer<FStatMessage>());
 			}
+			// If all groups must use a sort by value.
+			else if (NumGroupsUsingCompareByName == 0)
+			{
+				TotalNonStackStats.Sort(FStatValueComparer());
+			}
+			// Otherwise do a mixed sort, more expensive because it processes each stat strings to figure out if it requires sort by name.
+			else
+			{
+				TotalNonStackStats.Sort(FStatNameAndValueComparer());
+			}
 		}
-			
 
 		// We want contiguous frames only.
 		if( TargetFrame - LatestFrame > 1 ) 

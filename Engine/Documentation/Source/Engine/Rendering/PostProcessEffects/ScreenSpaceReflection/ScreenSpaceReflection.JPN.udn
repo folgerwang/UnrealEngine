@@ -1,9 +1,16 @@
-﻿INTSourceChangelist:3108692
+﻿INTSourceChangelist:3474032
 Availability:Public
-Title:Screen Space Reflection (スクリーン空間の反射)
-Crumbs: %ROOT%, Engine, Engine/Rendering/PostProcessEffects
+Crumbs: %ROOT%
+Title:スクリーン スペース反射
 Description:マテリアルのサーフェス上に現れる反射を変更するエフェクト
-Version:4.9
+Type:Overview
+SkillLevel:Beginner
+Version:4.16
+Parent:Engine/Rendering/PostProcessEffects
+Order:10
+Tags:Post Process
+Topic-image:SSR_topic.png
+
 
 [REGION:fullwidth]
 ![](GlossyScreenSpaceReflection.png)

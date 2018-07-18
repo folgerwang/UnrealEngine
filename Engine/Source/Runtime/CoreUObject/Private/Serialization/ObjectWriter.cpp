@@ -32,7 +32,6 @@ FArchive& FObjectWriter::operator<<(FLazyObjectPtr& Value)
 
 FArchive& FObjectWriter::operator<<(FSoftObjectPtr& Value)
 {
-	Value.ResetWeakPtr();
 	return *this << Value.GetUniqueID();
 }
 

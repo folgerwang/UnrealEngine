@@ -8,6 +8,8 @@
 
 #include "LobbyBeaconHost.generated.h"
 
+LOBBY_API DECLARE_LOG_CATEGORY_EXTERN(LogLobbyBeacon, Log, All);
+
 class ALobbyBeaconClient;
 class ALobbyBeaconPlayerState;
 class ALobbyBeaconState;
@@ -153,7 +155,7 @@ protected:
 	 *
 	 * @return new player state object for the logged in player, null if there was any failure
 	 */
-	ALobbyBeaconPlayerState* HandlePlayerLogin(ALobbyBeaconClient* ClientActor, const FUniqueNetIdRepl& InUniqueId, const FString& Options);
+	virtual ALobbyBeaconPlayerState* HandlePlayerLogin(ALobbyBeaconClient* ClientActor, const FUniqueNetIdRepl& InUniqueId, const FString& Options);
 
 	friend ALobbyBeaconClient;
 };

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3740976
+﻿INTSourceChangelist:3810467
 Availability:Public
 Crumbs: %ROOT%
 Title:삼성 기어 VR 디버깅
@@ -224,7 +224,7 @@ PC 에서 콘솔에 **DumpConsoleCommands** 를 입력하면 사용가능한 콘
 	로그 출력을 실시간으로 확인하려는 경우, **>logoutput.txt** 부분을 빼고 입력하면 명령줄 창에 모든 로그 업데이트가 이루어집니다.
 	[/region]
 
-1. 로그 캡처를 완료하려면 키보드의 **CTRL + C** 를 누르고, 완료되면 윈도우의 **Users** 폴더에 ** logoutput.txt** 라는 이름으로 저장된 로그 파일이 생겨있을 것입니다.
+1. 로그 캡처를 완료하려면 키보드의 **CTRL + C** 를 누르고, 완료되면 윈도우의 **Users** 폴더에 **logoutput.txt** 라는 이름으로 저장된 로그 파일이 생겨있을 것입니다.
 
     [REGION:lightbox]
     [![](T_ADB_Log_Location.png)(w:500)](T_ADB_Log_Location.png)

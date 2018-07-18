@@ -11,14 +11,16 @@
 #include "MRUList.h"
 
 /** Simple class to represent a combined MRU and favorite map list */
-class FMainMRUFavoritesList : public FMRUList
+class UNREALED_API FMainMRUFavoritesList : public FMRUList
 {
 public:
 	/** Constructor */
-	UNREALED_API FMainMRUFavoritesList();
+	FMainMRUFavoritesList();
+
+	FMainMRUFavoritesList(const FString& IniSectionOverride, const int32 InitMaxItems = 12);
 	
 	/** Destructor */
-	UNREALED_API ~FMainMRUFavoritesList();
+	~FMainMRUFavoritesList();
 	
 	/** Populate MRU/Favorites list by reading saved values from the relevant INI file */
 	virtual void ReadFromINI();
@@ -41,14 +43,14 @@ public:
 	 *
 	 * @param	Item	Filename of the item to add to the favorites list
 	 */
-	UNREALED_API void AddFavoritesItem( const FString& Item );
+	void AddFavoritesItem( const FString& Item );
 	
 	/**
 	 * Remove a file from the favorites list
 	 *
 	 * @param	Item	Filename of the item to remove from the favorites list
 	 */
-	UNREALED_API void RemoveFavoritesItem( const FString& Item );
+	void RemoveFavoritesItem( const FString& Item );
 
 	/**
 	 * Returns whether a filename is favorited or not
@@ -57,7 +59,7 @@ public:
 	 *
 	 * @return	true if the provided item is in the favorite's list; false if it is not
 	 */
-	UNREALED_API bool ContainsFavoritesItem( const FString& Item );
+	bool ContainsFavoritesItem( const FString& Item );
 
 	/**
 	 * Return the favorites item specified by the provided index
@@ -66,7 +68,7 @@ public:
 	 *
 	 * @return	The favorites item specified by the provided index
 	 */
-	UNREALED_API FString GetFavoritesItem( int32 ItemIndex ) const;
+	FString GetFavoritesItem( int32 ItemIndex ) const;
 
 	/**
 	 * Verifies that the favorites item specified by the provided index still exists. If it does not, the item
@@ -76,14 +78,14 @@ public:
 	 *
 	 * @return	true if the item specified by the index was verified and still exists; false if it does not
 	 */
-	UNREALED_API bool VerifyFavoritesFile( int32 ItemIndex );
+	bool VerifyFavoritesFile( int32 ItemIndex );
 
 	/**
 	 * Moves the specified favorites item to the head of the list
 	 *
 	 * @param	Item	Filename of the item to move
 	 */
-	UNREALED_API void MoveFavoritesItemToHead( const FString& Item );
+	void MoveFavoritesItemToHead( const FString& Item );
 
 private:
 

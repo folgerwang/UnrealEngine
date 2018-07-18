@@ -17,6 +17,9 @@ uint4 HistogramParams;
 // the prior frame's eye adaptation settings
 Texture2D EyeAdaptationTexture;
 
+// UV coordinate of the center of the viewport.
+float2 ViewportCenterUV;
+
 // only needed for nice visualization
 float ComputeHistogramMax(Texture2D HistogramTexture)
 {
@@ -147,7 +150,7 @@ void MainPS(noperspective float4 UVAndScreenPos : TEXCOORD0, float4 SvPosition :
 
 	// value under crosshair
 	{
-		float3 CenterViewportHDRColor = Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, ViewportCenter * PostprocessInput0Size.zw).rgb;
+		float3 CenterViewportHDRColor = Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, ViewportCenterUV).rgb;
 		float Value = Luminance(CenterViewportHDRColor);
 
 		int2 Cursor;
@@ -216,7 +219,7 @@ void MainPS(noperspective float4 UVAndScreenPos : TEXCOORD0, float4 SvPosition :
 //	HighlightAdvice(OutColor.rgb, UV, PixelPos);
 
 	// left top of the border
-	const int2 HistogramLeftTop = int2(64, ViewportRect.w - 128 - 32);
+	const int2 HistogramLeftTop = int2(ViewportRect.x + 64, ViewportRect.w - 128 - 32);
 	const int2 HistogramSize = int2(ViewportRect.z - ViewportRect.x - 64 * 2, 128);
 	const int HistogramOuterBorder = 4;
 

@@ -17,9 +17,10 @@
 #define DX_MAX_MSAA_COUNT	8
 
 // This is a value that should be tweaked to fit the app, lower numbers will have better performance
+// Titles using many terrain layers may want to set MAX_SRVS to 64 to avoid shader compilation errors. This will have a small performance hit of around 0.1%
 #define MAX_SRVS		32
 #define MAX_SAMPLERS	16
-#define MAX_UAVS		8
+#define MAX_UAVS		16
 #define MAX_CBS			16
 
 // This value controls how many root constant buffers can be used per shader stage in a root signature.
@@ -39,7 +40,6 @@
 #if PLATFORM_XBOXONE
 	#define ENABLE_RESIDENCY_MANAGEMENT				0
 	#define ASYNC_DEFERRED_DELETION					0
-	#define PLATFORM_SUPPORTS_MGPU					0
 	#define ASYNC_DEFERRED_DELETION					0
 	#define PIPELINE_STATE_FILE_LOCATION			FPaths::ProjectContentDir()
 	#define USE_PIX									XBOXONE_PROFILING_ENABLED
@@ -54,7 +54,6 @@
 #elif PLATFORM_WINDOWS
 	#define ENABLE_RESIDENCY_MANAGEMENT				1
 	#define ASYNC_DEFERRED_DELETION					1
-	#define PLATFORM_SUPPORTS_MGPU					1
 	#define PIPELINE_STATE_FILE_LOCATION			FPaths::ProjectSavedDir()
 	#define USE_PIX									D3D12_PROFILING_ENABLED
 #else
@@ -72,11 +71,15 @@ static_assert((8 * sizeof(CBVSlotMask)) >= MAX_ROOT_CBVS, "CBVSlotMask isn't lar
 static const CBVSlotMask GRootCBVSlotMask = (1 << MAX_ROOT_CBVS) - 1; // Mask for all slots that are used by root descriptors.
 static const CBVSlotMask GDescriptorTableCBVSlotMask = static_cast<CBVSlotMask>(-1) & ~(GRootCBVSlotMask); // Mask for all slots that are used by a root descriptor table.
 
+#if MAX_SRVS > 32
+typedef uint64 SRVSlotMask;
+#else
 typedef uint32 SRVSlotMask;
+#endif
 static_assert((8 * sizeof(SRVSlotMask)) >= MAX_SRVS, "SRVSlotMask isn't large enough to cover all SRVs. Please increase the size.");
 
 typedef uint16 SamplerSlotMask;
 static_assert((8 * sizeof(SamplerSlotMask)) >= MAX_SAMPLERS, "SamplerSlotMask isn't large enough to cover all Samplers. Please increase the size.");
 
-typedef uint8 UAVSlotMask;
+typedef uint16 UAVSlotMask;
 static_assert((8 * sizeof(UAVSlotMask)) >= MAX_UAVS, "UAVSlotMask isn't large enough to cover all UAVs. Please increase the size.");

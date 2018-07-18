@@ -1,20 +1,23 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AndroidWebBrowserWidget.h"
+
+#if USE_ANDROID_JNI
+
 #include "AndroidWebBrowserWindow.h"
 #include "AndroidWebBrowserDialog.h"
 #include "AndroidJSScripting.h"
-#include "AndroidApplication.h"
-#include "AndroidWindow.h"
-#include "AndroidJava.h"
-#include "Async.h"
-#include "ScopeLock.h"
+#include "Android/AndroidApplication.h"
+#include "Android/AndroidWindow.h"
+#include "Android/AndroidJava.h"
+#include "Async/Async.h"
+#include "Misc/ScopeLock.h"
 #include "RHICommandList.h"
 #include "RenderingThread.h"
 #include "ExternalTexture.h"
-#include "SlateTextures.h"
+#include "Slate/SlateTextures.h"
 #include "SlateMaterialBrush.h"
-#include "SharedPointer.h"
+#include "Templates/SharedPointer.h"
 #include "Materials/MaterialExpressionTextureSample.h"
 #include "WebBrowserTextureSample.h"
 
@@ -24,7 +27,7 @@
 #include <jni.h>
 
 FCriticalSection SAndroidWebBrowserWidget::WebControlsCS;
-TMap<jlong, TWeakPtr<SAndroidWebBrowserWidget>> SAndroidWebBrowserWidget::AllWebControls;
+TMap<int64, TWeakPtr<SAndroidWebBrowserWidget>> SAndroidWebBrowserWidget::AllWebControls;
 
 TSharedPtr<SAndroidWebBrowserWidget> SAndroidWebBrowserWidget::GetWidgetPtr(JNIEnv* JEnv, jobject Jobj)
 {
@@ -93,14 +96,14 @@ SAndroidWebBrowserWidget::~SAndroidWebBrowserWidget()
 	}
 
 	FScopeLock L(&WebControlsCS);
-	AllWebControls.Remove(reinterpret_cast<jlong>(this));
+	AllWebControls.Remove(reinterpret_cast<int64>(this));
 }
 
 void SAndroidWebBrowserWidget::Construct(const FArguments& Args)
 {
 	{
 		FScopeLock L(&WebControlsCS);
-		AllWebControls.Add(reinterpret_cast<jlong>(this), StaticCastSharedRef<SAndroidWebBrowserWidget>(AsShared()));
+		AllWebControls.Add(reinterpret_cast<int64>(this), StaticCastSharedRef<SAndroidWebBrowserWidget>(AsShared()));
 	}
 
 	IsAndroid3DBrowser = true;
@@ -736,3 +739,5 @@ JNI_METHOD void Java_com_epicgames_ue4_WebViewControl_00024ChromeClient_onReceiv
 		Widget->HandleReceivedTitle(Title);
 	}
 }
+
+#endif // USE_ANDROID_JNI

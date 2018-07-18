@@ -1,11 +1,11 @@
-﻿INTSourceChangelist:2695091
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:パフォーマンス ツール
 Crumbs: %ROOT%, Engine, Engine/UI, Engine/UI/LevelEditor
 Description:共通で使用するツールと操作へ素早くアクセスできるコマンドのコレクション
 Version:4.9
 
-[レベル エディタ] ウィンドウの上部の Tab Bar の右側に、一連のパフォーマンスとデバッグ ツールがあります。 
+[レベル エディタ] ウィンドウの上部の Tab Bar の右側に、一連のパフォーマンスとデバッグのツールがあります。 
 
 左側から以下のように並んでいます。
 
@@ -17,10 +17,8 @@ Version:4.9
 | --- | --- |---||
 | **1** | **Console Command Bar** | このテキストフィールドは、エディタ内のコンソール コマンドを入力するために使用します。 |
 | **2** | **Source Control Status** | 統合された Perforce サーバーの現状を表示します。 |
-[PUBLISH:Licensee]
 | **3** | **Performance Data** | この領域には以下の情報が表示されます。 [INCLUDE:#Data]|
 | **4** | **20 Second Playback** | 最後の 20 秒間の作業を 20 秒間のビデオに保存します。ビデオへのパスを表示するバーがレベル エディタの下部に表示されます。 ![](VideoCaptureSaved.png) |
-[/PUBLISH:Licensee]
 
 
 

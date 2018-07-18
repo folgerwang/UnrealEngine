@@ -116,7 +116,7 @@ public:
 
 	/** Sets the list of objects that this system will be responsible for transforming when interacting using the
 	    gizmo or directly on the objects */
-	void SetTransformables( TArray< TUniquePtr< FViewportTransformable > >&& NewTransformables );
+	void SetTransformables( TArray< TUniquePtr< FViewportTransformable > >&& NewTransformables, const bool bNewObjectsSelected );
 
 	/** When using VR, this sets the viewport client that's been "possessed" by the head mounted display.  Only valid when VR is enabled. */
 	void SetDefaultOptionalViewportClient( const TSharedPtr<class FEditorViewportClient>& InEditorViewportClient );

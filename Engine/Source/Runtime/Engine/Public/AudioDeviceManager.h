@@ -177,6 +177,7 @@ public:
 
 	/** Enables debug logging and soloing of sounds that substring match the given sound name. Only works if built with AUDIO_MIXER_ENABLE_DEBUG_MODE is turned on. */
 	void SetAudioMixerDebugSound(const TCHAR* SoundName);
+	void SetAudioDebugSound(const TCHAR* SoundName);
 
 	/** Gets the solo sound class used for debugging sounds */
 	const FString& GetDebugSoloSoundClass() const;
@@ -189,6 +190,9 @@ public:
 
 	/** Gets the audio mixer debug sound name. Returns emptry string if AUDIO_MIXER_ENABLE_DEBUG_MODE is not enabled. */
 	const FString& GetAudioMixerDebugSoundName() const;
+
+	/** Gets the debug sound string, returns true if one has been set. */
+	bool GetAudioDebugSound(FString& OutDebugSound);
 
 public:
 
@@ -210,6 +214,12 @@ private:
 		FString DebugSoloSoundWave;
 		FString DebugSoloSoundCue;
 		FString DebugAudioMixerSoundName;
+		FString DebugSoundName;
+		bool bDebugSoundName;
+
+		FDebugNames()
+			: bDebugSoundName(false)
+		{}
 	};
 
 	/** Call back for garbage collector, ensures no processing is happening on the thread before collecting resources */

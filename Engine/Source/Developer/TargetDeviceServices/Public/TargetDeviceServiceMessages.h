@@ -112,7 +112,7 @@ struct FTargetDeviceServiceDeployFinished
 
 
 	/** Default constructor. */
-	FTargetDeviceServiceDeployFinished() { }
+	FTargetDeviceServiceDeployFinished() : Succeeded(false) { }
 
 	/** Creates and initializes a new instance. */
 	FTargetDeviceServiceDeployFinished(FName InVariant, const FString& InAppId, bool InSucceeded, FGuid InTransactionId)
@@ -122,7 +122,6 @@ struct FTargetDeviceServiceDeployFinished
 		, TransactionId(InTransactionId)
 	{ }
 };
-
 
 /* Application launch messages
 *****************************************************************************/
@@ -164,7 +163,7 @@ struct FTargetDeviceServiceLaunchApp
 
 
 	/** Default constructor. */
-	FTargetDeviceServiceLaunchApp() { }
+	FTargetDeviceServiceLaunchApp() : BuildConfiguration(0) { }
 
 	/** Creates and initializes a new instance. */
 	FTargetDeviceServiceLaunchApp(FName InVariant, const FString& InAppId, uint8 InBuildConfiguration, const FString& InParams)
@@ -207,13 +206,52 @@ struct FTargetDeviceServiceLaunchFinished
 
 
 	/** Default constructor. */
-	FTargetDeviceServiceLaunchFinished() { }
+	FTargetDeviceServiceLaunchFinished() : ProcessId(0), Succeeded(false) { }
 
 	/** Creates and initializes a new instance. */
 	FTargetDeviceServiceLaunchFinished(const FString& InAppId, int32 InProcessId, bool InSucceeded)
 		: AppID(InAppId)
 		, ProcessId(InProcessId)
 		, Succeeded(InSucceeded)
+	{ }
+};
+
+
+/* Application terminate process messages
+*****************************************************************************/
+
+/**
+* Implements a message for terminating an application running on the device.
+*
+* @see FTargetDeviceServiceTerminateLaunchedProcess
+*/
+USTRUCT()
+struct FTargetDeviceServiceTerminateLaunchedProcess
+{
+	GENERATED_USTRUCT_BODY()
+
+		/** Holds the variant identifier of the target device to use. */
+		UPROPERTY(EditAnywhere, Category = "Message")
+		FName Variant;
+
+	/**
+	* Holds the identifier of the application to launch.
+	*
+	* The semantics of this identifier are target platform specific. In some cases it may be
+	* a GUID, in other cases it may be the path to the application or some other means of
+	* identifying the application. Application identifiers are returned from target device
+	* services as result of successful deployment transactions.
+	*/
+	UPROPERTY(EditAnywhere, Category = "Message")
+		FString AppID;
+
+	/** Default constructor. */
+	FTargetDeviceServiceTerminateLaunchedProcess() { }
+
+	/** Creates and initializes a new instance. */
+	FTargetDeviceServiceTerminateLaunchedProcess(FName InVariant, const FString& InAppId)
+		: Variant(InVariant)
+		, AppID(InAppId)
 	{ }
 };
 
@@ -457,6 +495,18 @@ struct FTargetDeviceServicePong
 	/** List of the Flavors this service supports */
 	UPROPERTY(EditAnywhere, Category="Message")
 	TArray<FTargetDeviceVariant> Variants;
+
+	/** Flag for the "All devices" proxy. */
+	UPROPERTY(EditAnywhere, Category = "Message")
+	bool Aggregated;
+
+	/** Holds the name of "All devices" proxy. */
+	UPROPERTY(EditAnywhere, Category = "Message")
+	FString AllDevicesName;
+
+	/** Holds the default variant name of "All devices" proxy. */
+	UPROPERTY(EditAnywhere, Category = "Message")
+	FName AllDevicesDefaultVariant;
 };
 
 
@@ -485,7 +535,7 @@ struct FTargetDeviceServicePowerOff
 
 
 	/** Default constructor. */
-	FTargetDeviceServicePowerOff() { }
+	FTargetDeviceServicePowerOff() : Force(false) { }
 
 	/** Creates and initializes a new instance. */
 	FTargetDeviceServicePowerOff(const FString& InOperator, bool InForce)
@@ -606,7 +656,10 @@ struct FTargetDeviceServiceRunFinished
 
 
 	/** Default constructor. */
-	FTargetDeviceServiceRunFinished() { }
+	FTargetDeviceServiceRunFinished()
+		: ProcessId(0)
+		, Succeeded(false)
+	{ }
 
 	/** Creates and initializes a new instance. */
 	FTargetDeviceServiceRunFinished(FName InVariant, const FString& InExecutablePath, int32 InProcessId, bool InSucceeded)

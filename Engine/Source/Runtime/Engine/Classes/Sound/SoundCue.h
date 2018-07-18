@@ -82,6 +82,10 @@ class USoundCue : public USoundBase
 	UPROPERTY(EditAnywhere, Category=Attenuation)
 	uint32 bOverrideAttenuation:1;
 
+	/* Makes this sound cue ignore per-platform random node culling for memory purposes */
+	UPROPERTY(EditAnywhere, Category=Culling)
+	uint32 bExcludeFromRandomNodeBranchCulling:1;
+
 	UPROPERTY()
 	class USoundNode* FirstNode;
 
@@ -139,9 +143,7 @@ public:
 	virtual void Parse( class FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanceHash, FActiveSound& ActiveSound, const FSoundParseParameters& ParseParams, TArray<FWaveInstance*>& WaveInstances ) override;
 	virtual float GetVolumeMultiplier() override;
 	virtual float GetPitchMultiplier() override;
-	virtual float GetMaxAudibleDistance() override;
-	virtual bool IsAllowedVirtual() const override;
-	virtual bool HasAttenuationNode() const override;
+	virtual float GetMaxDistance() const override;
 	virtual float GetDuration() override;
 	virtual const FSoundAttenuationSettings* GetAttenuationSettingsToApply() const override;
 	virtual float GetSubtitlePriority() const override;
@@ -202,6 +204,9 @@ public:
 
 	FORCEINLINE static int32 GetCachedQualityLevel() { return CachedQualityLevel; }
 
+	/** Call to cache any values which need to be computed from the sound cue graph. e.g. MaxDistance, Duration, etc. */
+	ENGINE_API void CacheAggregateValues();
+
 protected:
 	bool RecursiveFindPathToNode(USoundNode* CurrentNode, const UPTRINT CurrentHash, const UPTRINT NodeHashToFind, TArray<USoundNode*>& OutPath) const;
 
@@ -210,7 +215,6 @@ private:
 	void OnPostEngineInit();
 	void EvaluateNodes(bool bAddToRoot);
 
-	void CacheNodeState();
 
 	FDelegateHandle OnPostEngineInitHandle;
 	static int32 CachedQualityLevel;
@@ -249,9 +253,11 @@ public:
 
 private:
 
+	/** Recursively sets the branch culling exclusion on random nodes in this sound cue. */
+	void RecursivelySetExcludeBranchCulling(USoundNode* CurrentNode);
+
 	/** Ptr to interface to sound cue editor operations. */
 	static ENGINE_API TSharedPtr<ISoundCueAudioEditor> SoundCueAudioEditor;
-
 #endif
 };
 

@@ -6,9 +6,14 @@
 #include "NiagaraSystemInstance.h"
 #include "NiagaraParameterCollection.h"
 #include "NiagaraComponent.h"
-#include "Linker.h"
-#include "Class.h"
-#include "Package.h"
+#include "NiagaraScriptSourceBase.h"
+#include "NiagaraStats.h"
+#include "UObject/Linker.h"
+#include "UObject/Class.h"
+#include "UObject/Package.h"
+#include "Modules/ModuleManager.h"
+
+DECLARE_CYCLE_STAT(TEXT("Niagara - Utilities - PrepareRapidIterationParameters"), STAT_Niagara_Utilities_PrepareRapidIterationParameters, STATGROUP_Niagara);
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -177,6 +182,9 @@ void FNiagaraSystemUpdateContext::AddInternal(UNiagaraComponent* Comp, bool bReI
 	}
 }
 
+
+//////////////////////////////////////////////////////////////////////////
+
 FName NIAGARA_API FNiagaraUtilities::GetUniqueName(FName CandidateName, const TSet<FName>& ExistingNames)
 {
 	if (ExistingNames.Contains(CandidateName) == false)
@@ -201,3 +209,177 @@ FName NIAGARA_API FNiagaraUtilities::GetUniqueName(FName CandidateName, const TS
 
 	return UniqueName;
 }
+
+FNiagaraVariable FNiagaraUtilities::ConvertVariableToRapidIterationConstantName(FNiagaraVariable InVar, const TCHAR* InEmitterName, ENiagaraScriptUsage InUsage)
+{
+	FNiagaraVariable Var = InVar;
+
+	TArray<FString> SplitName;
+	Var.GetName().ToString().ParseIntoArray(SplitName, TEXT("."));
+	int32 NumSlots = SplitName.Num();
+	if (InEmitterName != nullptr)
+	{
+		for (int32 i = 0; i < NumSlots; i++)
+		{
+			if (SplitName[i] == TEXT("Emitter"))
+			{
+				SplitName[i] = InEmitterName;
+			}
+		}
+
+		if (NumSlots >= 3 && SplitName[0] == InEmitterName)
+		{
+			// Do nothing
+			UE_LOG(LogNiagara, Log, TEXT("ConvertVariableToRapidIterationConstantName Got here!"));
+		}
+		else
+		{
+			SplitName.Insert(InEmitterName, 0);
+		}
+		SplitName.Insert(TEXT("Constants"), 0);
+	}
+	else
+	{
+		SplitName.Insert(TEXT("Constants"), 0);
+	}
+
+	FString OutVarStrName = FString::Join<FString>(SplitName, TEXT("."));
+	Var.SetName(*OutVarStrName);
+	return Var;
+}
+
+void FNiagaraUtilities::CollectScriptDataInterfaceParameters(const UObject& Owner, const TArray<UNiagaraScript*>& Scripts, FNiagaraParameterStore& OutDataInterfaceParameters)
+{
+	for (UNiagaraScript* Script : Scripts)
+	{
+		for (FNiagaraScriptDataInterfaceInfo& DataInterfaceInfo : Script->GetCachedDefaultDataInterfaces())
+		{
+			if (DataInterfaceInfo.RegisteredParameterMapWrite != NAME_None)
+			{
+				FNiagaraVariable DataInterfaceParameter(DataInterfaceInfo.Type, DataInterfaceInfo.RegisteredParameterMapWrite);
+				if (OutDataInterfaceParameters.AddParameter(DataInterfaceParameter, false, false))
+				{
+					OutDataInterfaceParameters.SetDataInterface(DataInterfaceInfo.DataInterface, DataInterfaceParameter);
+				}
+				else
+				{
+					UE_LOG(LogNiagara, Error, TEXT("Duplicate data interface parameter writes found, simulation will be incorrect.  Owner: %s Parameter: %s"),
+						*Owner.GetPathName(), *DataInterfaceInfo.RegisteredParameterMapWrite.ToString());
+				}
+			}
+		}
+	}
+}
+
+bool FNiagaraScriptDataInterfaceCompileInfo::CanExecuteOnTarget(ENiagaraSimTarget SimTarget) const
+{
+	check(IsInGameThread());
+	UNiagaraDataInterface* Obj = GetDefaultDataInterface();
+	if (Obj)
+	{
+		return Obj->CanExecuteOnTarget(SimTarget);
+	}
+	check(false);
+	return false;
+}
+
+bool FNiagaraScriptDataInterfaceCompileInfo::IsSystemSolo() const
+{
+	check(IsInGameThread());
+	if (Name.ToString().StartsWith("User."))
+	{
+		return true;
+	}
+
+	UNiagaraDataInterface* Obj = GetDefaultDataInterface();
+	if (Obj && Obj->PerInstanceDataSize() > 0)
+	{
+		return true;
+	}
+	return false;
+}
+
+UNiagaraDataInterface* FNiagaraScriptDataInterfaceCompileInfo::GetDefaultDataInterface() const
+{
+	check(IsInGameThread());
+	UNiagaraDataInterface* Obj = CastChecked<UNiagaraDataInterface>(const_cast<UClass*>(Type.GetClass())->GetDefaultObject(true));
+	return Obj;
+}
+#if WITH_EDITORONLY_DATA
+void FNiagaraUtilities::PrepareRapidIterationParameters(const TArray<UNiagaraScript*>& Scripts, const TMap<UNiagaraScript*, UNiagaraScript*>& ScriptDependencyMap, const TMap<UNiagaraScript*, FString>& ScriptToEmitterNameMap)
+{
+	SCOPE_CYCLE_COUNTER(STAT_Niagara_Utilities_PrepareRapidIterationParameters);
+
+	TMap<UNiagaraScript*, FNiagaraParameterStore> ScriptToPreparedParameterStoreMap;
+
+	// Remove old and initialize new parameters.
+	for (UNiagaraScript* Script : Scripts)
+	{
+		FNiagaraParameterStore& ParameterStoreToPrepare = ScriptToPreparedParameterStoreMap.FindOrAdd(Script);
+		Script->RapidIterationParameters.CopyParametersTo(ParameterStoreToPrepare, false, FNiagaraParameterStore::EDataInterfaceCopyMethod::None);
+		const FString* EmitterName = ScriptToEmitterNameMap.Find(Script);
+		checkf(EmitterName != nullptr, TEXT("Script to emitter name map must have an entry for each script to be processed."));
+		Script->GetSource()->CleanUpOldAndInitializeNewRapidIterationParameters(*EmitterName, Script->GetUsage(), Script->GetUsageId(), ParameterStoreToPrepare);
+	}
+
+	// Copy parameters for dependencies.
+	for (auto It = ScriptToPreparedParameterStoreMap.CreateIterator(); It; ++It)
+	{
+		UNiagaraScript* Script = It.Key();
+		FNiagaraParameterStore& PreparedParameterStore = It.Value();
+		UNiagaraScript*const* DependentScriptPtr = ScriptDependencyMap.Find(Script);
+		if (DependentScriptPtr != nullptr)
+		{
+			UNiagaraScript* DependentScript = *DependentScriptPtr;
+			FNiagaraParameterStore* DependentPreparedParameterStore = ScriptToPreparedParameterStoreMap.Find(DependentScript);
+			checkf(DependentPreparedParameterStore != nullptr, TEXT("Dependent scripts must be one of the scripts being processed."));
+			PreparedParameterStore.CopyParametersTo(*DependentPreparedParameterStore, false, FNiagaraParameterStore::EDataInterfaceCopyMethod::None);
+		}
+	}
+
+	// Resolve prepared parameters with the source parameters.
+	for (auto It = ScriptToPreparedParameterStoreMap.CreateIterator(); It; ++It)
+	{
+		UNiagaraScript* Script = It.Key();
+		FNiagaraParameterStore& PreparedParameterStore = It.Value();
+
+		bool bOverwriteParameters = false;
+		if (Script->RapidIterationParameters.GetNumParameters() != PreparedParameterStore.GetNumParameters())
+		{
+			bOverwriteParameters = true;
+		}
+		else
+		{
+			const TMap<FNiagaraVariable, int32>& SourceParameterOffsets = Script->RapidIterationParameters.GetParameterOffests();
+			for (auto ParameterOffsetIt = SourceParameterOffsets.CreateConstIterator(); ParameterOffsetIt; ++ParameterOffsetIt)
+			{
+				const FNiagaraVariable& SourceParameter = ParameterOffsetIt.Key();
+				int32 SourceOffset = ParameterOffsetIt.Value();
+
+				int32 PreparedOffset = PreparedParameterStore.IndexOf(SourceParameter);
+				if (PreparedOffset == INDEX_NONE)
+				{
+					bOverwriteParameters = true;
+					break;
+				}
+				else
+				{
+					if (FMemory::Memcmp(
+						Script->RapidIterationParameters.GetParameterData(SourceOffset),
+						PreparedParameterStore.GetParameterData(PreparedOffset),
+						SourceParameter.GetSizeInBytes()) != 0)
+					{
+						bOverwriteParameters = true;
+						break;
+					}
+				}
+			}
+		}
+
+		if (bOverwriteParameters)
+		{
+			Script->RapidIterationParameters = PreparedParameterStore;
+		}
+	}
+}
+#endif

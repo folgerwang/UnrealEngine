@@ -146,16 +146,16 @@ This is an extremely powerful way to manipulate Material Collection Parameter as
 	![](MPC_Open_Level_Blueprint.png)
 
 1. Once the Level Blueprint has been opened, it is now time to begin laying down some nodes. For this example we will be needing the following nodes and variables.
-	* ** Left Mouse Button Pressed**
-	* ** Timeline**
-	* ** Set Scalar Parameter Value**
-	* ** Float Variable Named: Des**
+	* **Left Mouse Button Pressed**
+	* **Timeline**
+	* **Set Scalar Parameter Value**
+	* **Float Variable Named: Des**
 
 	When completed, your Blueprint Graph should look something like this. 
 	![](SetUpBlueprintMP.jpg)
 
 1. With the correct nodes added to the Blueprint Graph, it is now time to set them up. 
-	The first thing that we are going to set up is the  ** Set Scalar Parameter Value**. 
+	The first thing that we are going to set up is the  **Set Scalar Parameter Value**. 
 	To set this up we have to first define what Material Parameter Collection we are going to use. 
 	To do this, use your **Left Mouse Button** to click on the **Collection** input and then select which Material Parameter Collection you would wish to use.
 	Next, select the **Parameter Name** you wish to manipulate, in this case it will be **Global_Desaturation**. When completed, your **Set Scalar Parameter Value** node should look like this. 

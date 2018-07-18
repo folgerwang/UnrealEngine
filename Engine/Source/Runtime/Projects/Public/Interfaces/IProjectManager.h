@@ -105,12 +105,14 @@ public:
 	 */
 	virtual bool LoadModulesForProject( const ELoadingPhase::Type LoadingPhase ) = 0;
 
+#if !IS_MONOLITHIC
 	/**
 	 * Checks if the modules for a project are up to date
 	 *
 	 * @return	false if UBT needs to be run to recompile modules for a project.
 	 */
 	virtual bool CheckModuleCompatibility(TArray<FString>& OutIncompatibleModules) = 0;
+#endif
 
 	/**
 	 * Gets the name of the text file that contains the most recently loaded filename.
@@ -228,7 +230,7 @@ public:
 	 *
 	 * @return	True if the project is an Enterprise project
 	 */
-	virtual bool IsEnterpriseProject() = 0;
+	PROJECTS_API virtual bool IsEnterpriseProject() = 0;
 
 	/**
 	 * Sets the enterprise flag value on the current project
@@ -236,4 +238,9 @@ public:
 	 * @param	bValue	The value to set the enterprise flag to
 	 */
 	virtual void SetIsEnterpriseProject(bool bValue) = 0;
+	
+	/**
+	 * Access array used to cache current project's list of module context infos
+	 */
+	virtual TArray<FModuleContextInfo>& GetCurrentProjectModuleContextInfos() = 0;
 };

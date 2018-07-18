@@ -56,10 +56,13 @@ FActiveSound::FActiveSound()
 	, bUpdatePlayPercentage(false)
 	, bUpdateSingleEnvelopeValue(false)
 	, bUpdateMultiEnvelopeValue(false)
+	, bIsPlayingAudio(false)
+	, bIsStopping(false)
 	, UserIndex(0)
 	, bIsOccluded(false)
 	, bAsyncOcclusionPending(false)
 	, PlaybackTime(0.f)
+	, MinCurrentPitch(1.0f)
 	, RequestedStartTime(0.f)
 	, CurrentAdjustVolumeMultiplier(1.f)
 	, TargetAdjustVolumeMultiplier(1.f)
@@ -356,6 +359,12 @@ void FActiveSound::UpdateWaveInstances( TArray<FWaveInstance*> &InWaveInstances,
 {
 	check(AudioDevice);
 
+	// Reset whether or not the active sound is playing audio.
+	bIsPlayingAudio = false;
+
+	// Reset the active sound's min current pitch value. This is updated as sounds try to play and determine their pitch values.
+	MinCurrentPitch = 1.0f;
+
 	// Early outs.
 	if (Sound == nullptr || !Sound->IsPlayable())
 	{
@@ -403,7 +412,9 @@ void FActiveSound::UpdateWaveInstances( TArray<FWaveInstance*> &InWaveInstances,
 	{
 		// The apparent max distance factors the actual max distance of the sound scaled with the distance scale due to focus effects
 		float ApparentMaxDistance = MaxDistance * FocusDistanceScale;
-		if (!FAudioDevice::LocationIsAudible(Transform.GetLocation(), ClosestListenerPtr->Transform, ApparentMaxDistance))
+
+		// Check if we're out of range of being audible, and early return if there's no chance of making sounds
+		if (!Sound->IsVirtualizeWhenSilent() && !AudioDevice->LocationIsAudible(ClosestListenerPtr->Transform.GetLocation(), ApparentMaxDistance))
 		{
 			return;
 		}
@@ -465,7 +476,8 @@ void FActiveSound::UpdateWaveInstances( TArray<FWaveInstance*> &InWaveInstances,
 		LastLocation = ParseParams.Transform.GetTranslation();
 	}
 
-	TArray<FWaveInstance*> ThisSoundsWaveInstances;
+	static TArray<FWaveInstance*> ThisSoundsWaveInstances;
+	ThisSoundsWaveInstances.Reset();
 
 	// Recurse nodes, have SoundWave's create new wave instances and update bFinished unless we finished fading out.
 	bFinished = true;
@@ -490,6 +502,12 @@ void FActiveSound::UpdateWaveInstances( TArray<FWaveInstance*> &InWaveInstances,
 		}
 
 		Sound->Parse(AudioDevice, 0, *this, ParseParams, ThisSoundsWaveInstances);
+
+		// Track this active sound's min pitch value. This is used to scale it's possible duration value.
+		if (ParseParams.Pitch < MinCurrentPitch)
+		{
+			MinCurrentPitch = ParseParams.Pitch;
+		}
 	}
 
 	if (bFinished)
@@ -498,6 +516,15 @@ void FActiveSound::UpdateWaveInstances( TArray<FWaveInstance*> &InWaveInstances,
 	}
 	else if (ThisSoundsWaveInstances.Num() > 0)
 	{
+		// Let the wave instance know that this active sound is stopping. This will result in the wave instance getting a lower sort for voice prioritization
+		if (IsStopping())
+		{
+			for (FWaveInstance* WaveInstance : ThisSoundsWaveInstances)
+			{
+				WaveInstance->SetStopping(true);
+			}
+		}
+
 		// If this active sound is told to limit concurrency by the quietest sound
 		const FSoundConcurrencySettings* ConcurrencySettingsToApply = GetSoundConcurrencySettingsToApply();
 		if (ConcurrencySettingsToApply && ConcurrencySettingsToApply->ResolutionRule == EMaxConcurrentResolutionRule::StopQuietest)
@@ -554,11 +581,13 @@ void FActiveSound::UpdateWaveInstances( TArray<FWaveInstance*> &InWaveInstances,
 	InWaveInstances.Append(ThisSoundsWaveInstances);
 }
 
-void FActiveSound::Stop()
+void FActiveSound::Stop(bool bStopNow)
 {
 	check(AudioDevice);
 
-	if (Sound)
+	bool bWasStopping = bIsStopping;
+
+	if (Sound && !bIsStopping)
 	{
 		Sound->CurrentPlayCount = FMath::Max( Sound->CurrentPlayCount - 1, 0 );
 	}
@@ -569,27 +598,136 @@ void FActiveSound::Stop()
 
 		// Stop the owning sound source
 		FSoundSource* Source = AudioDevice->GetSoundSource(WaveInstance);
-		if( Source )
+		if (Source)
 		{
-			Source->Stop();
+			bool bStopped = false;
+			if (AudioDevice->IsAudioMixerEnabled() && AudioDevice->IsStoppingVoicesEnabled())
+			{
+				if (bStopNow || !AudioDevice->GetNumFreeSources())
+				{
+					Source->StopNow();
+					bStopped = true;
+				}
+			}
+
+			if (!bStopped)
+			{
+				Source->Stop();
+			}
 		}
 
-		// Dequeue subtitles for this sounds on the game thread
-		DECLARE_CYCLE_STAT(TEXT("FGameThreadAudioTask.KillSubtitles"), STAT_AudioKillSubtitles, STATGROUP_TaskGraphTasks);
-		const PTRINT WaveInstanceID = (PTRINT)WaveInstance;
-		FAudioThread::RunCommandOnGameThread([WaveInstanceID]()
+		if (!bIsStopping)
 		{
-			FSubtitleManager::GetSubtitleManager()->KillSubtitles(WaveInstanceID);
-		}, GET_STATID(STAT_AudioKillSubtitles));
+			// Dequeue subtitles for this sounds on the game thread
+			DECLARE_CYCLE_STAT(TEXT("FGameThreadAudioTask.KillSubtitles"), STAT_AudioKillSubtitles, STATGROUP_TaskGraphTasks);
+			const PTRINT WaveInstanceID = (PTRINT)WaveInstance;
+			FAudioThread::RunCommandOnGameThread([WaveInstanceID]()
+			{
+				FSubtitleManager::GetSubtitleManager()->KillSubtitles(WaveInstanceID);
+			}, GET_STATID(STAT_AudioKillSubtitles));
+		}
 
-		delete WaveInstance;
+		if (Source)
+		{
+			if (!Source->IsStopping())
+			{		
+				Source->StopNow();
 
-		// Null the entry out temporarily as later Stop calls could try to access this structure
-		WaveInstance = nullptr;
+				delete WaveInstance;
+				WaveInstance = nullptr;
+			}
+			else
+			{
+				// This source is doing a fade out, so stopping. Can't remove the wave instance yet.
+				bIsStopping = true;
+			}
+		}
+		else
+		{
+			// Have a wave instance but no source.
+			delete WaveInstance;
+			WaveInstance = nullptr;
+		}
 	}
-	WaveInstances.Empty();
 
-	AudioDevice->RemoveActiveSound(this);
+	if (bStopNow)
+	{
+		bIsStopping = false;
+	}
+
+	if (!bIsStopping)
+	{
+		WaveInstances.Empty();
+	}
+
+	if (!bWasStopping)
+	{
+		AudioDevice->RemoveActiveSound(this);
+	}
+}
+
+bool FActiveSound::UpdateStoppingSources(uint64 CurrentTick, bool bEnsureStopped)
+{
+	// If we're not stopping, then just return true (we can be cleaned up)
+	if (!bIsStopping)
+	{
+		return true;
+	}
+
+	bIsStopping = false;
+
+	for (auto WaveInstanceIt(WaveInstances.CreateIterator()); WaveInstanceIt; ++WaveInstanceIt)
+	{
+		FWaveInstance*& WaveInstance = WaveInstanceIt.Value();
+
+		// Some wave instances in the list here may be nullptr if some sounds have already stopped or didn't need to do a stop
+		if (WaveInstance)
+		{
+			// Stop the owning sound source
+			FSoundSource* Source = AudioDevice->GetSoundSource(WaveInstance);
+			if (Source)
+			{
+				// We should have a stopping source here
+				check(Source->IsStopping());
+
+				// The source has finished (totally faded out)
+				if (Source->IsFinished() || bEnsureStopped)
+				{
+					Source->StopNow();
+
+					// Delete the wave instance
+					delete WaveInstance;
+					WaveInstance = nullptr;
+				}
+				else
+				{
+					// We are not finished yet so touch it
+					Source->LastUpdate = CurrentTick;
+					Source->LastHeardUpdate = CurrentTick;
+
+					// flag that we're still stopping (return value)
+					bIsStopping = true;
+				}
+			}
+			else
+			{
+				// We have a wave instance but no source for it, so just delete it. 
+				delete WaveInstance;
+				WaveInstance = nullptr;
+			}
+		}
+	}
+
+	// Return true to indicate this active sound can be cleaned up
+	// If we've reached this point, all sound waves have stopped so we can clear this wave instance out.
+	if (!bIsStopping)
+	{
+		WaveInstances.Reset();
+		return true;
+	}
+
+	// still stopping!
+	return false;
 }
 
 FWaveInstance* FActiveSound::FindWaveInstance( const UPTRINT WaveInstanceHash )
@@ -652,6 +790,8 @@ void FActiveSound::OcclusionTraceDone(const FTraceHandle& TraceHandle, FTraceDat
 			{
 				FActiveSound* ActiveSound = TraceDetails.ActiveSound;
 
+				DECLARE_CYCLE_STAT(TEXT("FAudioThreadTask.OcclusionTraceDone"), STAT_OcclusionTraceDone, STATGROUP_AudioThreadCommands);
+
 				FAudioThread::RunCommandOnAudioThread([AudioDevice, ActiveSound, bFoundBlockingHit]()
 				{
 					if (AudioDevice->GetActiveSounds().Contains(ActiveSound))
@@ -659,7 +799,7 @@ void FActiveSound::OcclusionTraceDone(const FTraceHandle& TraceHandle, FTraceDat
 						ActiveSound->bIsOccluded = bFoundBlockingHit;
 						ActiveSound->bAsyncOcclusionPending = false;
 					}
-				});
+				}, GET_STATID(STAT_OcclusionTraceDone));
 			}
 		}
 	}
@@ -1028,7 +1168,7 @@ void FActiveSound::CollectAttenuationShapesForVisualization(TMultiMap<EAttenuati
 		SoundCue->RecursiveFindAttenuation( SoundCue->FirstNode, AttenuationNodes );
 		for (int32 NodeIndex = 0; NodeIndex < AttenuationNodes.Num(); ++NodeIndex)
 		{
-			FSoundAttenuationSettings* AttenuationSettingsToApply = AttenuationNodes[NodeIndex]->GetAttenuationSettingsToApply();
+			const FSoundAttenuationSettings* AttenuationSettingsToApply = AttenuationNodes[NodeIndex]->GetAttenuationSettingsToApply();
 			if (AttenuationSettingsToApply)
 			{
 				AttenuationSettingsToApply->CollectAttenuationShapesForVisualization(ShapeDetailsMap);

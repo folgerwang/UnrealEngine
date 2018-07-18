@@ -51,7 +51,7 @@ While input mappings can be defined directly in code, the usual method is to def
 
 	[![](ConfigureInput.png)](ConfigureInput.png)
 
-1. Now that our input is configured, let's set up a MyPawn in our level. The** MyPawn** class will appear in our **Content Browser**, and is ready to be dragged into the **Level Editor**.
+1. Now that our input is configured, let's set up a MyPawn in our level. The **MyPawn** class will appear in our **Content Browser**, and is ready to be dragged into the **Level Editor**.
 
 	[![](ClassInContentBrowser.png)](ClassInContentBrowser.png)
 

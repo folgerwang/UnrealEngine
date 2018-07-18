@@ -1,14 +1,17 @@
-﻿INTSourceChangelist:2693532
+﻿INTSourceChangelist:3750353
 Availability:Public
 Title:メッシュ ペイントのユーザー ガイド
 Crumbs:%ROOT%, Engine, Engine/UI/LevelEditor/Modes/MeshPaintMode/VertexColor
 Description:メッシュ ペイント モードを使い始めるためのクイックガイド
 Version:4.9
+parent:Engine/UI/LevelEditor/Modes/MeshPaintMode/VertexColor
+type:overview
+order:1
+skilllevel:Beginner
+topic-image:MeshPaintMode_Active.png
 
-[REGION:headerimage]
 [REGION:fullwidth]
 	![](MeshPaintMode_Active.png)
-[/REGION]
 [/REGION]
 
 [EXCERPT:Intro]

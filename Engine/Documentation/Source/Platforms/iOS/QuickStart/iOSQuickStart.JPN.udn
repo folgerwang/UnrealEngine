@@ -1,65 +1,35 @@
-﻿INTSourceChangelist:2940199
+﻿INTSourceChangelist:3782314
 Title:iOS クイックスタート
 Crumbs:%ROOT%, Platforms, Platforms/iOS
 Description:iOS デバイス上でのゲーム設定と起動に関するインストラクション
 Availability:Public
-Version:4.9
+Version:4.18
 tags:iOS
 tags:mobile
 parent:Platforms/iOS
+Skilllevel:Intermediate
+type:quick start
+Checkpoint:iOSQS
 order:1
-type:quickstart
+topic-image:iOSQuickStart_topic.png
 
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![](iOSQuickStart_topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Platforms/iOS/QuickStart:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Platforms/iOS/QuickStart]
-	[/PARAM]
-	[PARAM:description]
-	%Platforms/iOS/QuickStart:description%
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+![](iOSQuickStart_topic.png)
 
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![](iOSQuickStart_topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Platforms/iOS/QuickStart:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Platforms/iOS/QuickStart]
-	[/PARAM]
-	[PARAM:description]
-	%Platforms/iOS/QuickStart:description%
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+## 目標
 
-Apple iOS クイックスタートでは、コンピュータと Apple iOS デバイスをデプロイ用に設定し、起動機能およびパッケージ機能の両方を使ってデバイスにテンプレート ゲームを取り込む方法を説明します。
+Apple iOS クイックスタートでは、アンリアル エンジン 4 (UE4) で Android を開発するための PC もしくは iOS の基本的な設定を一通り説明します。
+さらに、アンリアル エディタの起動およびパッケージ化機能を使って、iOS デバイスにテンプレート ゲームを取り込む方法も説明します。
 
-%Globals:OSSelect%
+## 目的
 
-## ステップ
+* 必要な Apple 要件をインストールおよび設定する
+* 必要な Apple development certificates (開発証明書) を生成および設定する
+* iOS モバイル開発をターゲットにしたプロジェクトを作成する
+* Apple デバイスにレベルをデプロイする
+* プロジェクトをリリース用にパッケージする
 
-[REGION:buttonlist]
+[DIR(output:"checkpoint" parent:"Platforms/iOS/QuickStart")]
 
-	* [](Platforms/iOS/QuickStart/1 "%Platforms/iOS/QuickStart/1:description%")
-	* [](Platforms/iOS/QuickStart/2 "%Platforms/iOS/QuickStart/2:description%")
-	* [](Platforms/iOS/QuickStart/3 "%Platforms/iOS/QuickStart/3:description%")
-	* [](Platforms/iOS/QuickStart/4 "%Platforms/iOS/QuickStart/4:description%")
-	* [](Platforms/iOS/QuickStart/5 "%Platforms/iOS/QuickStart/5:description%")
-	* [](Platforms/iOS/QuickStart/6 "%Platforms/iOS/QuickStart/6:description%")
-	* [](Platforms/iOS/QuickStart/7 "%Platforms/iOS/QuickStart/7:description%")
-	* [](Platforms/iOS/QuickStart/8 "%Platforms/iOS/QuickStart/8:description%")
-	* [](Platforms/iOS/QuickStart/9 "%Platforms/iOS/QuickStart/9:description%")
-	
+[REGION:call_to_action]
+ [クリックして開始](Platforms/iOS/QuickStart/1 "%Platforms/iOS/QuickStart/1:title%")
 [/REGION]

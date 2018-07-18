@@ -726,11 +726,7 @@ protected:
 	static const int32 DaysToMonth[];
 
 private:
-#ifdef COREUOBJECT_API
-	friend COREUOBJECT_API class UScriptStruct* Z_Construct_UScriptStruct_FDateTime();
-#else
-	friend class UScriptStruct* Z_Construct_UScriptStruct_FDateTime();
-#endif
+	friend struct Z_Construct_UScriptStruct_FDateTime_Statics;
 
 private:
 

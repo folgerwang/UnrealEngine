@@ -7,6 +7,8 @@
 #include "Tracks/MovieScenePropertyTrack.h"
 #include "MovieSceneByteTrack.generated.h"
 
+class UEnum;
+
 /**
  * Handles manipulation of byte properties in a movie scene
  */
@@ -17,6 +19,7 @@ class MOVIESCENETRACKS_API UMovieSceneByteTrack : public UMovieScenePropertyTrac
 
 public:
 	/** UMovieSceneTrack interface */
+	virtual void PostLoad() override;
 	virtual UMovieSceneSection* CreateNewSection() override;
 	virtual FMovieSceneEvalTemplatePtr CreateTemplateForSection(const UMovieSceneSection& InSection) const override;
 

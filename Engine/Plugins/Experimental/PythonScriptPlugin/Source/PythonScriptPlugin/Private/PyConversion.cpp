@@ -6,6 +6,7 @@
 
 #include "PyWrapperObject.h"
 #include "PyWrapperStruct.h"
+#include "PyWrapperEnum.h"
 #include "PyWrapperDelegate.h"
 #include "PyWrapperName.h"
 #include "PyWrapperText.h"
@@ -23,14 +24,21 @@
 
 #if WITH_PYTHON
 
-#define PYCONVERSION_RETURN(RESULT, ERROR_CTX, ERROR_MSG)									\
-	{																						\
-		const bool bPyConversionReturnResult_Internal = (RESULT);							\
-		if (!bPyConversionReturnResult_Internal && SetErrorState == ESetErrorState::Yes)	\
-		{																					\
-			PyUtil::SetPythonError(PyExc_TypeError, (ERROR_CTX), (ERROR_MSG));				\
-		}																					\
-		return bPyConversionReturnResult_Internal;											\
+#define PYCONVERSION_RETURN(RESULT, ERROR_CTX, ERROR_MSG)							\
+	{																				\
+		const FPyConversionResult PyConversionReturnResult_Internal = (RESULT);		\
+		if (!PyConversionReturnResult_Internal)										\
+		{																			\
+			if (SetErrorState == ESetErrorState::Yes)								\
+			{																		\
+				PyUtil::SetPythonError(PyExc_TypeError, (ERROR_CTX), (ERROR_MSG));	\
+			}																		\
+			else																	\
+			{																		\
+				PyErr_Clear();														\
+			}																		\
+		}																			\
+		return PyConversionReturnResult_Internal;									\
 	}
 
 namespace PyConversion
@@ -39,79 +47,118 @@ namespace PyConversion
 namespace Internal
 {
 
-bool NativizeStruct(PyObject* PyObj, UScriptStruct* StructType, void* StructInstance, const ESetErrorState SetErrorState)
+FPyConversionResult NativizeStructInstance(PyObject* PyObj, UScriptStruct* StructType, void* StructInstance, const ESetErrorState SetErrorState)
 {
+	FPyConversionResult Result = FPyConversionResult::Failure();
+
 	PyTypeObject* PyStructType = FPyWrapperTypeRegistry::Get().GetWrappedStructType(StructType);
-	FPyWrapperStructPtr PyStruct = FPyWrapperStructPtr::StealReference(FPyWrapperStruct::CastPyObject(PyObj, PyStructType));
-	if (PyStruct)
+	FPyWrapperStructPtr PyStruct = FPyWrapperStructPtr::StealReference(FPyWrapperStruct::CastPyObject(PyObj, PyStructType, &Result));
+	if (PyStruct && ensureAlways(PyStruct->ScriptStruct->IsChildOf(StructType)))
 	{
 		StructType->CopyScriptStruct(StructInstance, PyStruct->StructInstance);
-		return true;
 	}
 
-	PYCONVERSION_RETURN(false, TEXT("Nativize"), *FString::Printf(TEXT("Cannot nativize '%s' as '%s'"), *PyUtil::GetFriendlyTypename(PyObj), *StructType->GetName()));
+	PYCONVERSION_RETURN(Result, TEXT("Nativize"), *FString::Printf(TEXT("Cannot nativize '%s' as '%s'"), *PyUtil::GetFriendlyTypename(PyObj), *PyUtil::GetFriendlyTypename(PyStructType)));
 }
 
-bool PythonizeStruct(UScriptStruct* StructType, const void* StructInstance, PyObject*& OutPyObj, const ESetErrorState SetErrorState)
+FPyConversionResult PythonizeStructInstance(UScriptStruct* StructType, const void* StructInstance, PyObject*& OutPyObj, const ESetErrorState SetErrorState)
 {
 	OutPyObj = (PyObject*)FPyWrapperStructFactory::Get().CreateInstance(StructType, (void*)StructInstance, FPyWrapperOwnerContext(), EPyConversionMethod::Copy);
-	return true;
+	return FPyConversionResult::Success();
 }
 
 template <typename T>
-bool NativizeSigned(PyObject* PyObj, T& OutVal, const ESetErrorState SetErrorState, const TCHAR* InErrorType)
+FPyConversionResult NativizeSigned(PyObject* PyObj, T& OutVal, const ESetErrorState SetErrorState, const TCHAR* InErrorType)
 {
-#if PY_MAJOR_VERSION < 3
-	if (PyInt_Check(PyObj))
+	// Booleans subclass integer, so exclude those explicitly
+	if (!PyBool_Check(PyObj))
 	{
-		OutVal = PyInt_AsLong(PyObj);
-		return true;
-	}
+#if PY_MAJOR_VERSION < 3
+		if (PyInt_Check(PyObj))
+		{
+			OutVal = PyInt_AsLong(PyObj);
+			return FPyConversionResult::Success();
+		}
 #endif	// PY_MAJOR_VERSION < 3
 
-	if (PyLong_Check(PyObj))
-	{
-		OutVal = PyLong_AsLongLong(PyObj);
-		return true;
+		if (PyLong_Check(PyObj))
+		{
+			OutVal = PyLong_AsLongLong(PyObj);
+			return FPyConversionResult::Success();
+		}
+
+		if (PyFloat_Check(PyObj))
+		{
+			OutVal = PyFloat_AsDouble(PyObj);
+			return FPyConversionResult::SuccessWithCoercion();
+		}
 	}
 
-	if (PyFloat_Check(PyObj))
-	{
-		OutVal = PyFloat_AsDouble(PyObj);
-		return true;
-	}
-
-	PYCONVERSION_RETURN(false, TEXT("Nativize"), *FString::Printf(TEXT("Cannot nativize '%s' as '%s'"), *PyUtil::GetFriendlyTypename(PyObj), InErrorType));
+	PYCONVERSION_RETURN(FPyConversionResult::Failure(), TEXT("Nativize"), *FString::Printf(TEXT("Cannot nativize '%s' as '%s'"), *PyUtil::GetFriendlyTypename(PyObj), InErrorType));
 }
 
 template <typename T>
-bool NativizeUnsigned(PyObject* PyObj, T& OutVal, const ESetErrorState SetErrorState, const TCHAR* InErrorType)
+FPyConversionResult NativizeUnsigned(PyObject* PyObj, T& OutVal, const ESetErrorState SetErrorState, const TCHAR* InErrorType)
 {
-#if PY_MAJOR_VERSION < 3
-	if (PyInt_Check(PyObj))
+	// Booleans subclass integer, so exclude those explicitly
+	if (!PyBool_Check(PyObj))
 	{
-		OutVal = PyInt_AsSsize_t(PyObj);
-		return true;
-	}
+#if PY_MAJOR_VERSION < 3
+		if (PyInt_Check(PyObj))
+		{
+			OutVal = PyInt_AsSsize_t(PyObj);
+			return FPyConversionResult::Success();
+		}
 #endif	// PY_MAJOR_VERSION < 3
 
-	if (PyLong_Check(PyObj))
-	{
-		OutVal = PyLong_AsUnsignedLongLong(PyObj);
-		return true;
+		if (PyLong_Check(PyObj))
+		{
+			OutVal = PyLong_AsUnsignedLongLong(PyObj);
+			return FPyConversionResult::Success();
+		}
+
+		if (PyFloat_Check(PyObj))
+		{
+			OutVal = PyFloat_AsDouble(PyObj);
+			return FPyConversionResult::SuccessWithCoercion();
+		}
 	}
 
-	if (PyFloat_Check(PyObj))
-	{
-		OutVal = PyFloat_AsDouble(PyObj);
-		return true;
-	}
-
-	PYCONVERSION_RETURN(false, TEXT("Nativize"), *FString::Printf(TEXT("Cannot nativize '%s' as '%s'"), *PyUtil::GetFriendlyTypename(PyObj), InErrorType));
+	PYCONVERSION_RETURN(FPyConversionResult::Failure(), TEXT("Nativize"), *FString::Printf(TEXT("Cannot nativize '%s' as '%s'"), *PyUtil::GetFriendlyTypename(PyObj), InErrorType));
 }
 
 template <typename T>
-bool PythonizeSigned(const T Val, PyObject*& OutPyObj, const ESetErrorState SetErrorState, const TCHAR* InErrorType)
+FPyConversionResult NativizeReal(PyObject* PyObj, T& OutVal, const ESetErrorState SetErrorState, const TCHAR* InErrorType)
+{
+	// Booleans subclass integer, so exclude those explicitly
+	if (!PyBool_Check(PyObj))
+	{
+#if PY_MAJOR_VERSION < 3
+		if (PyInt_Check(PyObj))
+		{
+			OutVal = PyInt_AsSsize_t(PyObj);
+			return FPyConversionResult::SuccessWithCoercion();
+		}
+#endif	// PY_MAJOR_VERSION < 3
+
+		if (PyLong_Check(PyObj))
+		{
+			OutVal = PyLong_AsUnsignedLongLong(PyObj);
+			return FPyConversionResult::SuccessWithCoercion();
+		}
+
+		if (PyFloat_Check(PyObj))
+		{
+			OutVal = PyFloat_AsDouble(PyObj);
+			return FPyConversionResult::Success();
+		}
+	}
+
+	PYCONVERSION_RETURN(FPyConversionResult::Failure(), TEXT("Nativize"), *FString::Printf(TEXT("Cannot nativize '%s' as '%s'"), *PyUtil::GetFriendlyTypename(PyObj), InErrorType));
+}
+
+template <typename T>
+FPyConversionResult PythonizeSigned(const T Val, PyObject*& OutPyObj, const ESetErrorState SetErrorState, const TCHAR* InErrorType)
 {
 #if PY_MAJOR_VERSION < 3
 	if (Val >= LONG_MIN && Val <= LONG_MAX)
@@ -124,11 +171,11 @@ bool PythonizeSigned(const T Val, PyObject*& OutPyObj, const ESetErrorState SetE
 		OutPyObj = PyLong_FromLongLong(Val);
 	}
 
-	return true;
+	return FPyConversionResult::Success();
 }
 
 template <typename T>
-bool PythonizeUnsigned(const T Val, PyObject*& OutPyObj, const ESetErrorState SetErrorState, const TCHAR* InErrorType)
+FPyConversionResult PythonizeUnsigned(const T Val, PyObject*& OutPyObj, const ESetErrorState SetErrorState, const TCHAR* InErrorType)
 {
 #if PY_MAJOR_VERSION < 3
 	if (Val <= LONG_MAX)
@@ -141,56 +188,56 @@ bool PythonizeUnsigned(const T Val, PyObject*& OutPyObj, const ESetErrorState Se
 		OutPyObj = PyLong_FromUnsignedLongLong(Val);
 	}
 
-	return true;
+	return FPyConversionResult::Success();
 }
 
 template <typename T>
-bool PythonizeReal(const T Val, PyObject*& OutPyObj, const ESetErrorState SetErrorState, const TCHAR* InErrorType)
+FPyConversionResult PythonizeReal(const T Val, PyObject*& OutPyObj, const ESetErrorState SetErrorState, const TCHAR* InErrorType)
 {
 	OutPyObj = PyFloat_FromDouble(Val);
-	return true;
+	return FPyConversionResult::Success();
 }
 
 } // namespace Internal
 
-bool Nativize(PyObject* PyObj, bool& OutVal, const ESetErrorState SetErrorState)
+FPyConversionResult Nativize(PyObject* PyObj, bool& OutVal, const ESetErrorState SetErrorState)
 {
 	if (PyObj == Py_True)
 	{
 		OutVal = true;
-		return true;
+		return FPyConversionResult::Success();
 	}
 
 	if (PyObj == Py_False)
 	{
 		OutVal = false;
-		return true;
+		return FPyConversionResult::Success();
 	}
 
 	if (PyObj == Py_None)
 	{
 		OutVal = false;
-		return true;
+		return FPyConversionResult::Success();
 	}
 	
 #if PY_MAJOR_VERSION < 3
 	if (PyInt_Check(PyObj))
 	{
 		OutVal = PyInt_AsLong(PyObj) != 0;
-		return true;
+		return FPyConversionResult::SuccessWithCoercion();
 	}
 #endif	// PY_MAJOR_VERSION < 3
 
 	if (PyLong_Check(PyObj))
 	{
 		OutVal = PyLong_AsLongLong(PyObj) != 0;
-		return true;
+		return FPyConversionResult::SuccessWithCoercion();
 	}
 
-	PYCONVERSION_RETURN(false, TEXT("Nativize"), *FString::Printf(TEXT("Cannot nativize '%s' as 'bool'"), *PyUtil::GetFriendlyTypename(PyObj)));
+	PYCONVERSION_RETURN(FPyConversionResult::Failure(), TEXT("Nativize"), *FString::Printf(TEXT("Cannot nativize '%s' as 'bool'"), *PyUtil::GetFriendlyTypename(PyObj)));
 }
 
-bool Pythonize(const bool Val, PyObject*& OutPyObj, const ESetErrorState SetErrorState)
+FPyConversionResult Pythonize(const bool Val, PyObject*& OutPyObj, const ESetErrorState SetErrorState)
 {
 	if (Val)
 	{
@@ -203,110 +250,110 @@ bool Pythonize(const bool Val, PyObject*& OutPyObj, const ESetErrorState SetErro
 		OutPyObj = Py_False;
 	}
 
-	return true;
+	return FPyConversionResult::Success();
 }
 
-bool Nativize(PyObject* PyObj, int8& OutVal, const ESetErrorState SetErrorState)
+FPyConversionResult Nativize(PyObject* PyObj, int8& OutVal, const ESetErrorState SetErrorState)
 {
 	return Internal::NativizeSigned(PyObj, OutVal, SetErrorState, TEXT("int8"));
 }
 
-bool Pythonize(const int8 Val, PyObject*& OutPyObj, const ESetErrorState SetErrorState)
+FPyConversionResult Pythonize(const int8 Val, PyObject*& OutPyObj, const ESetErrorState SetErrorState)
 {
 	return Internal::PythonizeSigned(Val, OutPyObj, SetErrorState, TEXT("int8"));
 }
 
-bool Nativize(PyObject* PyObj, uint8& OutVal, const ESetErrorState SetErrorState)
+FPyConversionResult Nativize(PyObject* PyObj, uint8& OutVal, const ESetErrorState SetErrorState)
 {
 	return Internal::NativizeUnsigned(PyObj, OutVal, SetErrorState, TEXT("uint8"));
 }
 
-bool Pythonize(const uint8 Val, PyObject*& OutPyObj, const ESetErrorState SetErrorState)
+FPyConversionResult Pythonize(const uint8 Val, PyObject*& OutPyObj, const ESetErrorState SetErrorState)
 {
 	return Internal::PythonizeUnsigned(Val, OutPyObj, SetErrorState, TEXT("uint8"));
 }
 
-bool Nativize(PyObject* PyObj, int16& OutVal, const ESetErrorState SetErrorState)
+FPyConversionResult Nativize(PyObject* PyObj, int16& OutVal, const ESetErrorState SetErrorState)
 {
 	return Internal::NativizeSigned(PyObj, OutVal, SetErrorState, TEXT("int16"));
 }
 
-bool Pythonize(const int16 Val, PyObject*& OutPyObj, const ESetErrorState SetErrorState)
+FPyConversionResult Pythonize(const int16 Val, PyObject*& OutPyObj, const ESetErrorState SetErrorState)
 {
 	return Internal::PythonizeSigned(Val, OutPyObj, SetErrorState, TEXT("int16"));
 }
 
-bool Nativize(PyObject* PyObj, uint16& OutVal, const ESetErrorState SetErrorState)
+FPyConversionResult Nativize(PyObject* PyObj, uint16& OutVal, const ESetErrorState SetErrorState)
 {
 	return Internal::NativizeUnsigned(PyObj, OutVal, SetErrorState, TEXT("uint16"));
 }
 
-bool Pythonize(const uint16 Val, PyObject*& OutPyObj, const ESetErrorState SetErrorState)
+FPyConversionResult Pythonize(const uint16 Val, PyObject*& OutPyObj, const ESetErrorState SetErrorState)
 {
 	return Internal::PythonizeUnsigned(Val, OutPyObj, SetErrorState, TEXT("uint16"));
 }
 
-bool Nativize(PyObject* PyObj, int32& OutVal, const ESetErrorState SetErrorState)
+FPyConversionResult Nativize(PyObject* PyObj, int32& OutVal, const ESetErrorState SetErrorState)
 {
 	return Internal::NativizeSigned(PyObj, OutVal, SetErrorState, TEXT("int32"));
 }
 
-bool Pythonize(const int32 Val, PyObject*& OutPyObj, const ESetErrorState SetErrorState)
+FPyConversionResult Pythonize(const int32 Val, PyObject*& OutPyObj, const ESetErrorState SetErrorState)
 {
 	return Internal::PythonizeSigned(Val, OutPyObj, SetErrorState, TEXT("int32"));
 }
 
-bool Nativize(PyObject* PyObj, uint32& OutVal, const ESetErrorState SetErrorState)
+FPyConversionResult Nativize(PyObject* PyObj, uint32& OutVal, const ESetErrorState SetErrorState)
 {
 	return Internal::NativizeUnsigned(PyObj, OutVal, SetErrorState, TEXT("uint32"));
 }
 
-bool Pythonize(const uint32 Val, PyObject*& OutPyObj, const ESetErrorState SetErrorState)
+FPyConversionResult Pythonize(const uint32 Val, PyObject*& OutPyObj, const ESetErrorState SetErrorState)
 {
 	return Internal::PythonizeUnsigned(Val, OutPyObj, SetErrorState, TEXT("uint32"));
 }
 
-bool Nativize(PyObject* PyObj, int64& OutVal, const ESetErrorState SetErrorState)
+FPyConversionResult Nativize(PyObject* PyObj, int64& OutVal, const ESetErrorState SetErrorState)
 {
 	return Internal::NativizeSigned(PyObj, OutVal, SetErrorState, TEXT("int64"));
 }
 
-bool Pythonize(const int64 Val, PyObject*& OutPyObj, const ESetErrorState SetErrorState)
+FPyConversionResult Pythonize(const int64 Val, PyObject*& OutPyObj, const ESetErrorState SetErrorState)
 {
 	return Internal::PythonizeSigned(Val, OutPyObj, SetErrorState, TEXT("int64"));
 }
 
-bool Nativize(PyObject* PyObj, uint64& OutVal, const ESetErrorState SetErrorState)
+FPyConversionResult Nativize(PyObject* PyObj, uint64& OutVal, const ESetErrorState SetErrorState)
 {
 	return Internal::NativizeUnsigned(PyObj, OutVal, SetErrorState, TEXT("uint64"));
 }
 
-bool Pythonize(const uint64 Val, PyObject*& OutPyObj, const ESetErrorState SetErrorState)
+FPyConversionResult Pythonize(const uint64 Val, PyObject*& OutPyObj, const ESetErrorState SetErrorState)
 {
 	return Internal::PythonizeUnsigned(Val, OutPyObj, SetErrorState, TEXT("uint64"));
 }
 
-bool Nativize(PyObject* PyObj, float& OutVal, const ESetErrorState SetErrorState)
+FPyConversionResult Nativize(PyObject* PyObj, float& OutVal, const ESetErrorState SetErrorState)
 {
-	return Internal::NativizeSigned(PyObj, OutVal, SetErrorState, TEXT("float"));
+	return Internal::NativizeReal(PyObj, OutVal, SetErrorState, TEXT("float"));
 }
 
-bool Pythonize(const float Val, PyObject*& OutPyObj, const ESetErrorState SetErrorState)
+FPyConversionResult Pythonize(const float Val, PyObject*& OutPyObj, const ESetErrorState SetErrorState)
 {
 	return Internal::PythonizeReal(Val, OutPyObj, SetErrorState, TEXT("float"));
 }
 
-bool Nativize(PyObject* PyObj, double& OutVal, const ESetErrorState SetErrorState)
+FPyConversionResult Nativize(PyObject* PyObj, double& OutVal, const ESetErrorState SetErrorState)
 {
-	return Internal::NativizeSigned(PyObj, OutVal, SetErrorState, TEXT("double"));
+	return Internal::NativizeReal(PyObj, OutVal, SetErrorState, TEXT("double"));
 }
 
-bool Pythonize(const double Val, PyObject*& OutPyObj, const ESetErrorState SetErrorState)
+FPyConversionResult Pythonize(const double Val, PyObject*& OutPyObj, const ESetErrorState SetErrorState)
 {
 	return Internal::PythonizeReal(Val, OutPyObj, SetErrorState, TEXT("double"));
 }
 
-bool Nativize(PyObject* PyObj, FString& OutVal, const ESetErrorState SetErrorState)
+FPyConversionResult Nativize(PyObject* PyObj, FString& OutVal, const ESetErrorState SetErrorState)
 {
 	if (PyUnicode_Check(PyObj))
 	{
@@ -315,7 +362,7 @@ bool Nativize(PyObject* PyObj, FString& OutVal, const ESetErrorState SetErrorSta
 		{
 			const char* PyUtf8Buffer = PyBytes_AsString(PyBytesObj);
 			OutVal = UTF8_TO_TCHAR(PyUtf8Buffer);
-			return true;
+			return FPyConversionResult::Success();
 		}
 	}
 
@@ -324,21 +371,21 @@ bool Nativize(PyObject* PyObj, FString& OutVal, const ESetErrorState SetErrorSta
 	{
 		const char* PyUtf8Buffer = PyString_AsString(PyObj);
 		OutVal = UTF8_TO_TCHAR(PyUtf8Buffer);
-		return true;
+		return FPyConversionResult::Success();
 	}
 #endif	// PY_MAJOR_VERSION < 3
 
 	if (PyObject_IsInstance(PyObj, (PyObject*)&PyWrapperNameType) == 1)
 	{
 		FPyWrapperName* PyWrappedName = (FPyWrapperName*)PyObj;
-		OutVal = PyWrappedName->Name.ToString();
-		return true;
+		OutVal = PyWrappedName->Value.ToString();
+		return FPyConversionResult::SuccessWithCoercion();
 	}
 
-	PYCONVERSION_RETURN(false, TEXT("Nativize"), *FString::Printf(TEXT("Cannot nativize '%s' as 'String'"), *PyUtil::GetFriendlyTypename(PyObj)));
+	PYCONVERSION_RETURN(FPyConversionResult::Failure(), TEXT("Nativize"), *FString::Printf(TEXT("Cannot nativize '%s' as 'String'"), *PyUtil::GetFriendlyTypename(PyObj)));
 }
 
-bool Pythonize(const FString& Val, PyObject*& OutPyObj, const ESetErrorState SetErrorState)
+FPyConversionResult Pythonize(const FString& Val, PyObject*& OutPyObj, const ESetErrorState SetErrorState)
 {
 #if PY_MAJOR_VERSION < 3
 	if (FCString::IsPureAnsi(*Val))
@@ -351,70 +398,128 @@ bool Pythonize(const FString& Val, PyObject*& OutPyObj, const ESetErrorState Set
 		OutPyObj = PyUnicode_FromString(TCHAR_TO_UTF8(*Val));
 	}
 
-	return true;
+	return FPyConversionResult::Success();
 }
 
-bool Nativize(PyObject* PyObj, FName& OutVal, const ESetErrorState SetErrorState)
+FPyConversionResult Nativize(PyObject* PyObj, FName& OutVal, const ESetErrorState SetErrorState)
 {
 	if (PyObject_IsInstance(PyObj, (PyObject*)&PyWrapperNameType) == 1)
 	{
 		FPyWrapperName* PyWrappedName = (FPyWrapperName*)PyObj;
-		OutVal = PyWrappedName->Name;
-		return true;
+		OutVal = PyWrappedName->Value;
+		return FPyConversionResult::Success();
 	}
 
 	FString NameStr;
 	if (Nativize(PyObj, NameStr, ESetErrorState::No))
 	{
 		OutVal = *NameStr;
-		return true;
+		return FPyConversionResult::SuccessWithCoercion();
 	}
 
-	PYCONVERSION_RETURN(false, TEXT("Nativize"), *FString::Printf(TEXT("Cannot nativize '%s' as 'Name'"), *PyUtil::GetFriendlyTypename(PyObj)));
+	PYCONVERSION_RETURN(FPyConversionResult::Failure(), TEXT("Nativize"), *FString::Printf(TEXT("Cannot nativize '%s' as 'Name'"), *PyUtil::GetFriendlyTypename(PyObj)));
 }
 
-bool Pythonize(const FName& Val, PyObject*& OutPyObj, const ESetErrorState SetErrorState)
+FPyConversionResult Pythonize(const FName& Val, PyObject*& OutPyObj, const ESetErrorState SetErrorState)
 {
 	OutPyObj = (PyObject*)FPyWrapperNameFactory::Get().CreateInstance(Val);
-	return true;
+	return FPyConversionResult::Success();
 }
 
-bool Nativize(PyObject* PyObj, FText& OutVal, const ESetErrorState SetErrorState)
+FPyConversionResult Nativize(PyObject* PyObj, FText& OutVal, const ESetErrorState SetErrorState)
 {
 	if (PyObject_IsInstance(PyObj, (PyObject*)&PyWrapperTextType) == 1)
 	{
 		FPyWrapperText* PyWrappedName = (FPyWrapperText*)PyObj;
-		OutVal = PyWrappedName->Text;
-		return true;
+		OutVal = PyWrappedName->Value;
+		return FPyConversionResult::Success();
 	}
 
 	FString TextStr;
 	if (Nativize(PyObj, TextStr, ESetErrorState::No))
 	{
 		OutVal = FText::AsCultureInvariant(TextStr);
-		return true;
+		return FPyConversionResult::SuccessWithCoercion();
 	}
 
-	PYCONVERSION_RETURN(false, TEXT("Nativize"), *FString::Printf(TEXT("Cannot nativize '%s' as 'Text'"), *PyUtil::GetFriendlyTypename(PyObj)));
+	PYCONVERSION_RETURN(FPyConversionResult::Failure(), TEXT("Nativize"), *FString::Printf(TEXT("Cannot nativize '%s' as 'Text'"), *PyUtil::GetFriendlyTypename(PyObj)));
 }
 
-bool Pythonize(const FText& Val, PyObject*& OutPyObj, const ESetErrorState SetErrorState)
+FPyConversionResult Pythonize(const FText& Val, PyObject*& OutPyObj, const ESetErrorState SetErrorState)
 {
 	OutPyObj = (PyObject*)FPyWrapperTextFactory::Get().CreateInstance(Val);
-	return true;
+	return FPyConversionResult::Success();
 }
 
-bool Nativize(PyObject* PyObj, UObject*& OutVal, const ESetErrorState SetErrorState)
+FPyConversionResult Nativize(PyObject* PyObj, void*& OutVal, const ESetErrorState SetErrorState)
+{
+	// CObject was removed in Python 3.2
+#if !(PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION >= 2)
+	if (PyCObject_Check(PyObj))
+	{
+		OutVal = PyCObject_AsVoidPtr(PyObj);
+		return FPyConversionResult::Success();
+	}
+#endif	// !(PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION >= 2)
+
+	// Capsule was added in Python 2.7 and 3.1
+#if (PY_MAJOR_VERSION >= 2 && PY_MINOR_VERSION >= 7) || (PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION >= 1)
+	if (PyCapsule_CheckExact(PyObj))
+	{
+		OutVal = PyCapsule_GetPointer(PyObj, PyCapsule_GetName(PyObj));
+		return FPyConversionResult::Success();
+	}
+#endif	// (PY_MAJOR_VERSION >= 2 && PY_MINOR_VERSION >= 7) || (PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION >= 1)
+
+	if (PyObj == Py_None)
+	{
+		OutVal = nullptr;
+		return FPyConversionResult::Success();
+	}
+
+	{
+		uint64 PtrValue = 0;
+		if (PyConversion::Nativize(PyObj, PtrValue, ESetErrorState::No))
+		{
+			OutVal = (void*)PtrValue;
+			return FPyConversionResult::SuccessWithCoercion();
+		}
+	}
+
+	PYCONVERSION_RETURN(FPyConversionResult::Failure(), TEXT("Nativize"), *FString::Printf(TEXT("Cannot nativize '%s' as 'void*'"), *PyUtil::GetFriendlyTypename(PyObj)));
+}
+
+FPyConversionResult Pythonize(void* Val, PyObject*& OutPyObj, const ESetErrorState SetErrorState)
+{
+	if (Val)
+	{
+		// Use Capsule for Python 3.1+, and CObject for older versions
+#if PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION >= 1
+		OutPyObj = PyCapsule_New(Val, nullptr, nullptr);
+#else	// PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION >= 1
+		OutPyObj = PyCObject_FromVoidPtr(Val, nullptr);
+#endif	// PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION >= 1
+	}
+	else
+	{
+		Py_INCREF(Py_None);
+		OutPyObj = Py_None;
+	}
+
+	return FPyConversionResult::Success();
+}
+
+FPyConversionResult Nativize(PyObject* PyObj, UObject*& OutVal, const ESetErrorState SetErrorState)
 {
 	return NativizeObject(PyObj, OutVal, UObject::StaticClass(), SetErrorState);
 }
 
-bool Pythonize(UObject* Val, PyObject*& OutPyObj, const ESetErrorState SetErrorState)
+FPyConversionResult Pythonize(UObject* Val, PyObject*& OutPyObj, const ESetErrorState SetErrorState)
 {
 	return PythonizeObject(Val, OutPyObj, SetErrorState);
 }
 
-bool NativizeObject(PyObject* PyObj, UObject*& OutVal, UClass* ExpectedType, const ESetErrorState SetErrorState)
+FPyConversionResult NativizeObject(PyObject* PyObj, UObject*& OutVal, UClass* ExpectedType, const ESetErrorState SetErrorState)
 {
 	if (PyObject_IsInstance(PyObj, (PyObject*)&PyWrapperObjectType) == 1)
 	{
@@ -422,20 +527,20 @@ bool NativizeObject(PyObject* PyObj, UObject*& OutVal, UClass* ExpectedType, con
 		if (!ExpectedType || PyWrappedObj->ObjectInstance->IsA(ExpectedType))
 		{
 			OutVal = PyWrappedObj->ObjectInstance;
-			return true;
+			return FPyConversionResult::Success();
 		}
 	}
 
 	if (PyObj == Py_None)
 	{
 		OutVal = nullptr;
-		return true;
+		return FPyConversionResult::Success();
 	}
 
-	PYCONVERSION_RETURN(false, TEXT("NativizeObject"), *FString::Printf(TEXT("Cannot nativize '%s' as 'Object*' (allowed Class type: '%s')"), *PyUtil::GetFriendlyTypename(PyObj), ExpectedType ? *ExpectedType->GetName() : TEXT("<any>")));
+	PYCONVERSION_RETURN(FPyConversionResult::Failure(), TEXT("NativizeObject"), *FString::Printf(TEXT("Cannot nativize '%s' as 'Object' (allowed Class type: '%s')"), *PyUtil::GetFriendlyTypename(PyObj), ExpectedType ? *ExpectedType->GetName() : TEXT("<any>")));
 }
 
-bool PythonizeObject(UObject* Val, PyObject*& OutPyObj, const ESetErrorState SetErrorState)
+FPyConversionResult PythonizeObject(UObject* Val, PyObject*& OutPyObj, const ESetErrorState SetErrorState)
 {
 	if (Val)
 	{
@@ -447,7 +552,7 @@ bool PythonizeObject(UObject* Val, PyObject*& OutPyObj, const ESetErrorState Set
 		OutPyObj = Py_None;
 	}
 
-	return true;
+	return FPyConversionResult::Success();
 }
 
 PyObject* PythonizeObject(UObject* Val, const ESetErrorState SetErrorState)
@@ -457,7 +562,7 @@ PyObject* PythonizeObject(UObject* Val, const ESetErrorState SetErrorState)
 	return Obj;
 }
 
-bool NativizeClass(PyObject* PyObj, UClass*& OutVal, UClass* ExpectedType, const ESetErrorState SetErrorState)
+FPyConversionResult NativizeClass(PyObject* PyObj, UClass*& OutVal, UClass* ExpectedType, const ESetErrorState SetErrorState)
 {
 	UClass* Class = nullptr;
 
@@ -471,14 +576,14 @@ bool NativizeClass(PyObject* PyObj, UClass*& OutVal, UClass* ExpectedType, const
 		if (!Class || !ExpectedType || Class->IsChildOf(ExpectedType))
 		{
 			OutVal = Class;
-			return true;
+			return FPyConversionResult::Success();
 		}
 	}
 
-	PYCONVERSION_RETURN(false, TEXT("NativizeClass"), *FString::Printf(TEXT("Cannot nativize '%s' as 'Class*' (allowed Class type: '%s')"), *PyUtil::GetFriendlyTypename(PyObj), ExpectedType ? *ExpectedType->GetName() : TEXT("<any>")));
+	PYCONVERSION_RETURN(FPyConversionResult::Failure(), TEXT("NativizeClass"), *FString::Printf(TEXT("Cannot nativize '%s' as 'Class' (allowed Class type: '%s')"), *PyUtil::GetFriendlyTypename(PyObj), ExpectedType ? *ExpectedType->GetName() : TEXT("<any>")));
 }
 
-bool PythonizeClass(UClass* Val, PyObject*& OutPyObj, const ESetErrorState SetErrorState)
+FPyConversionResult PythonizeClass(UClass* Val, PyObject*& OutPyObj, const ESetErrorState SetErrorState)
 {
 	return PythonizeObject(Val, OutPyObj, SetErrorState);
 }
@@ -490,7 +595,82 @@ PyObject* PythonizeClass(UClass* Val, const ESetErrorState SetErrorState)
 	return Obj;
 }
 
-bool NativizeProperty(PyObject* PyObj, const UProperty* Prop, void* ValueAddr, const FPyWrapperOwnerContext& InChangeOwner, const ESetErrorState SetErrorState)
+FPyConversionResult NativizeStruct(PyObject* PyObj, UScriptStruct*& OutVal, UScriptStruct* ExpectedType, const ESetErrorState SetErrorState)
+{
+	UScriptStruct* Struct = nullptr;
+
+	if (PyType_Check(PyObj) && PyType_IsSubtype((PyTypeObject*)PyObj, &PyWrapperStructType))
+	{
+		Struct = FPyWrapperStructMetaData::GetStruct((PyTypeObject*)PyObj);
+	}
+
+	if (Struct || NativizeObject(PyObj, (UObject*&)Struct, UScriptStruct::StaticClass(), SetErrorState))
+	{
+		if (!Struct || !ExpectedType || Struct->IsChildOf(ExpectedType))
+		{
+			OutVal = Struct;
+			return FPyConversionResult::Success();
+		}
+	}
+
+	PYCONVERSION_RETURN(FPyConversionResult::Failure(), TEXT("NativizeStruct"), *FString::Printf(TEXT("Cannot nativize '%s' as 'Struct' (allowed Struct type: '%s')"), *PyUtil::GetFriendlyTypename(PyObj), ExpectedType ? *ExpectedType->GetName() : TEXT("<any>")));
+}
+
+FPyConversionResult PythonizeStruct(UScriptStruct* Val, PyObject*& OutPyObj, const ESetErrorState SetErrorState)
+{
+	return PythonizeObject(Val, OutPyObj, SetErrorState);
+}
+
+PyObject* PythonizeStruct(UScriptStruct* Val, const ESetErrorState SetErrorState)
+{
+	PyObject* Obj = nullptr;
+	PythonizeStruct(Val, Obj, SetErrorState);
+	return Obj;
+}
+
+FPyConversionResult NativizeEnumEntry(PyObject* PyObj, const UEnum* EnumType, int64& OutVal, const ESetErrorState SetErrorState)
+{
+	FPyConversionResult Result = FPyConversionResult::Failure();
+
+	PyTypeObject* PyEnumType = FPyWrapperTypeRegistry::Get().GetWrappedEnumType(EnumType);
+	FPyWrapperEnumPtr PyEnum = FPyWrapperEnumPtr::StealReference(FPyWrapperEnum::CastPyObject(PyObj, PyEnumType, &Result));
+	if (PyEnum)
+	{
+		OutVal = FPyWrapperEnum::GetEnumEntryValue(PyEnum);
+	}
+
+	PYCONVERSION_RETURN(Result, TEXT("Nativize"), *FString::Printf(TEXT("Cannot nativize '%s' as '%s'"), *PyUtil::GetFriendlyTypename(PyObj), *PyUtil::GetFriendlyTypename(PyEnumType)));
+}
+
+FPyConversionResult PythonizeEnumEntry(const int64 Val, const UEnum* EnumType, PyObject*& OutPyObj, const ESetErrorState SetErrorState)
+{
+	PyTypeObject* PyEnumType = FPyWrapperTypeRegistry::Get().GetWrappedEnumType(EnumType);
+	if (const FPyWrapperEnumMetaData* PyEnumMetaData = FPyWrapperEnumMetaData::GetMetaData(PyEnumType))
+	{
+		// Find an enum entry using this value
+		for (FPyWrapperEnum* PyEnumEntry : PyEnumMetaData->EnumEntries)
+		{
+			const int64 EnumEntryVal = FPyWrapperEnum::GetEnumEntryValue(PyEnumEntry);
+			if (EnumEntryVal == Val)
+			{
+				Py_INCREF(PyEnumEntry);
+				OutPyObj = (PyObject*)PyEnumEntry;
+				return FPyConversionResult::Success();
+			}
+		}
+	}
+
+	PYCONVERSION_RETURN(FPyConversionResult::Failure(), TEXT("Nativize"), *FString::Printf(TEXT("Cannot pythonize '%d' (int64) as '%s'"), Val, *PyUtil::GetFriendlyTypename(PyEnumType)));
+}
+
+PyObject* PythonizeEnumEntry(const int64 Val, const UEnum* EnumType, const ESetErrorState SetErrorState)
+{
+	PyObject* Obj = nullptr;
+	PythonizeEnumEntry(Val, EnumType, Obj, SetErrorState);
+	return Obj;
+}
+
+FPyConversionResult NativizeProperty(PyObject* PyObj, const UProperty* Prop, void* ValueAddr, const FPyWrapperOwnerContext& InChangeOwner, const ESetErrorState SetErrorState)
 {
 #define PYCONVERSION_PROPERTY_RETURN(RESULT) \
 	PYCONVERSION_RETURN(RESULT, TEXT("NativizeProperty"), *FString::Printf(TEXT("Cannot nativize '%s' as '%s' (%s)"), *PyUtil::GetFriendlyTypename(PyObj), *Prop->GetName(), *Prop->GetClass()->GetName()))
@@ -505,10 +685,10 @@ bool NativizeProperty(PyObject* PyObj, const UProperty* Prop, void* ValueAddr, c
 			{
 				Prop->CopySingleValue(static_cast<uint8*>(ValueAddr) + (Prop->ElementSize * ArrIndex), FPyWrapperFixedArray::GetItemPtr(PyFixedArray, ArrIndex));
 			}
-			return true;
+			return FPyConversionResult::Success();
 		}
 
-		PYCONVERSION_PROPERTY_RETURN(false);
+		PYCONVERSION_PROPERTY_RETURN(FPyConversionResult::Failure());
 	}
 
 	return NativizeProperty_Direct(PyObj, Prop, ValueAddr, InChangeOwner, SetErrorState);
@@ -516,18 +696,18 @@ bool NativizeProperty(PyObject* PyObj, const UProperty* Prop, void* ValueAddr, c
 #undef PYCONVERSION_PROPERTY_RETURN
 }
 
-bool PythonizeProperty(const UProperty* Prop, const void* ValueAddr, PyObject*& OutPyObj, const EPyConversionMethod ConversionMethod, PyObject* OwnerPyObj, const ESetErrorState SetErrorState)
+FPyConversionResult PythonizeProperty(const UProperty* Prop, const void* ValueAddr, PyObject*& OutPyObj, const EPyConversionMethod ConversionMethod, PyObject* OwnerPyObj, const ESetErrorState SetErrorState)
 {
 	if (Prop->ArrayDim > 1)
 	{
-		OutPyObj = (PyObject*)FPyWrapperFixedArrayFactory::Get().CreateInstance((void*)ValueAddr, Prop, FPyWrapperOwnerContext(OwnerPyObj, OwnerPyObj ? Prop->GetFName() : NAME_None), ConversionMethod);
-		return true;
+		OutPyObj = (PyObject*)FPyWrapperFixedArrayFactory::Get().CreateInstance((void*)ValueAddr, Prop, FPyWrapperOwnerContext(OwnerPyObj, OwnerPyObj ? Prop : nullptr), ConversionMethod);
+		return FPyConversionResult::Success();
 	}
 
 	return PythonizeProperty_Direct(Prop, ValueAddr, OutPyObj, ConversionMethod, OwnerPyObj, SetErrorState);
 }
 
-bool NativizeProperty_Direct(PyObject* PyObj, const UProperty* Prop, void* ValueAddr, const FPyWrapperOwnerContext& InChangeOwner, const ESetErrorState SetErrorState)
+FPyConversionResult NativizeProperty_Direct(PyObject* PyObj, const UProperty* Prop, void* ValueAddr, const FPyWrapperOwnerContext& InChangeOwner, const ESetErrorState SetErrorState)
 {
 #define PYCONVERSION_PROPERTY_RETURN(RESULT) \
 	PYCONVERSION_RETURN(RESULT, TEXT("NativizeProperty"), *FString::Printf(TEXT("Cannot nativize '%s' as '%s' (%s)"), *PyUtil::GetFriendlyTypename(PyObj), *Prop->GetName(), *Prop->GetClass()->GetName()))
@@ -536,8 +716,8 @@ bool NativizeProperty_Direct(PyObject* PyObj, const UProperty* Prop, void* Value
 	if (auto* CastProp = Cast<PROPTYPE>(Prop))										\
 	{																				\
 		PROPTYPE::TCppType NewValue;												\
-		const bool bResult = Nativize(PyObj, NewValue, SetErrorState);				\
-		if (bResult)																\
+		const FPyConversionResult Result = Nativize(PyObj, NewValue, SetErrorState);\
+		if (Result)																	\
 		{																			\
 			auto OldValue = CastProp->GetPropertyValue(ValueAddr);					\
 			if (OldValue != NewValue)												\
@@ -548,15 +728,15 @@ bool NativizeProperty_Direct(PyObject* PyObj, const UProperty* Prop, void* Value
 				});																	\
 			}																		\
 		}																			\
-		PYCONVERSION_PROPERTY_RETURN(bResult);										\
+		PYCONVERSION_PROPERTY_RETURN(Result);										\
 	}
 
 #define NATIVIZE_INLINE_PROPERTY(PROPTYPE)											\
 	if (auto* CastProp = Cast<PROPTYPE>(Prop))										\
 	{																				\
 		PROPTYPE::TCppType NewValue;												\
-		const bool bResult = Nativize(PyObj, NewValue, SetErrorState);				\
-		if (bResult)																\
+		const FPyConversionResult Result = Nativize(PyObj, NewValue, SetErrorState);\
+		if (Result)																	\
 		{																			\
 			auto* ValuePtr = static_cast<PROPTYPE::TCppType*>(ValueAddr);			\
 			if (!CastProp->Identical(ValuePtr, &NewValue, PPF_None))				\
@@ -567,12 +747,11 @@ bool NativizeProperty_Direct(PyObject* PyObj, const UProperty* Prop, void* Value
 				});																	\
 			}																		\
 		}																			\
-		PYCONVERSION_PROPERTY_RETURN(bResult);										\
+		PYCONVERSION_PROPERTY_RETURN(Result);										\
 	}
 
 	NATIVIZE_SETTER_PROPERTY(UBoolProperty);
 	NATIVIZE_INLINE_PROPERTY(UInt8Property);
-	NATIVIZE_INLINE_PROPERTY(UByteProperty);
 	NATIVIZE_INLINE_PROPERTY(UInt16Property);
 	NATIVIZE_INLINE_PROPERTY(UUInt16Property);
 	NATIVIZE_INLINE_PROPERTY(UIntProperty);
@@ -585,17 +764,81 @@ bool NativizeProperty_Direct(PyObject* PyObj, const UProperty* Prop, void* Value
 	NATIVIZE_INLINE_PROPERTY(UNameProperty);
 	NATIVIZE_INLINE_PROPERTY(UTextProperty);
 
+	if (auto* CastProp = Cast<UByteProperty>(Prop))
+	{
+		uint8 NewValue = 0;
+		FPyConversionResult Result = FPyConversionResult::Failure();
+
+		if (CastProp->Enum)
+		{
+			int64 EnumVal = 0;
+			Result = NativizeEnumEntry(PyObj, CastProp->Enum, EnumVal, SetErrorState);
+			if (Result.GetState() == EPyConversionResultState::SuccessWithCoercion)
+			{
+				// Don't allow implicit conversion on enum properties
+				Result.SetState(EPyConversionResultState::Failure);
+			}
+			if (Result)
+			{
+				NewValue = (uint8)EnumVal;
+			}
+		}
+		else
+		{
+			Result = Nativize(PyObj, NewValue, SetErrorState);
+		}
+
+		if (Result)
+		{
+			auto* ValuePtr = static_cast<uint8*>(ValueAddr);
+			if (*ValuePtr != NewValue)
+			{
+				EmitPropertyChangeNotifications(InChangeOwner, [&]()
+				{
+					*ValuePtr = NewValue;
+				});
+			}
+		}
+		PYCONVERSION_PROPERTY_RETURN(Result);
+	}
+
 	if (auto* CastProp = Cast<UEnumProperty>(Prop))
 	{
+		FPyConversionResult Result = FPyConversionResult::Failure();
+
 		UNumericProperty* EnumInternalProp = CastProp->GetUnderlyingProperty();
-		PYCONVERSION_PROPERTY_RETURN(EnumInternalProp && NativizeProperty_Direct(PyObj, EnumInternalProp, ValueAddr, InChangeOwner, SetErrorState));
+		if (EnumInternalProp)
+		{
+			int64 NewValue = 0;
+
+			Result = NativizeEnumEntry(PyObj, CastProp->GetEnum(), NewValue, SetErrorState);
+			if (Result.GetState() == EPyConversionResultState::SuccessWithCoercion)
+			{
+				// Don't allow implicit conversion on enum properties
+				Result.SetState(EPyConversionResultState::Failure);
+			}
+
+			if (Result)
+			{
+				const int64 OldValue = EnumInternalProp->GetSignedIntPropertyValue(ValueAddr);
+				if (OldValue != NewValue)
+				{
+					EmitPropertyChangeNotifications(InChangeOwner, [&]()
+					{
+						EnumInternalProp->SetIntPropertyValue(ValueAddr, NewValue);
+					});
+				}
+			}
+		}
+
+		PYCONVERSION_PROPERTY_RETURN(Result);
 	}
 
 	if (auto* CastProp = Cast<UClassProperty>(Prop))
 	{
 		UClass* NewValue = nullptr;
-		const bool bResult = NativizeClass(PyObj, NewValue, CastProp->MetaClass, SetErrorState);
-		if (bResult)
+		const FPyConversionResult Result = NativizeClass(PyObj, NewValue, CastProp->MetaClass, SetErrorState);
+		if (Result)
 		{
 			UObject* OldValue = CastProp->GetObjectPropertyValue(ValueAddr);
 			if (OldValue != NewValue)
@@ -606,14 +849,14 @@ bool NativizeProperty_Direct(PyObject* PyObj, const UProperty* Prop, void* Value
 				});
 			}
 		}
-		PYCONVERSION_PROPERTY_RETURN(bResult);
+		PYCONVERSION_PROPERTY_RETURN(Result);
 	}
 
 	if (auto* CastProp = Cast<UObjectPropertyBase>(Prop))
 	{
 		UObject* NewValue = nullptr;
-		const bool bResult = NativizeObject(PyObj, NewValue, CastProp->PropertyClass, SetErrorState);
-		if (bResult)
+		const FPyConversionResult Result = NativizeObject(PyObj, NewValue, CastProp->PropertyClass, SetErrorState);
+		if (Result)
 		{
 			UObject* OldValue = CastProp->GetObjectPropertyValue(ValueAddr);
 			if (OldValue != NewValue)
@@ -624,14 +867,14 @@ bool NativizeProperty_Direct(PyObject* PyObj, const UProperty* Prop, void* Value
 				});
 			}
 		}
-		PYCONVERSION_PROPERTY_RETURN(bResult);
+		PYCONVERSION_PROPERTY_RETURN(Result);
 	}
 
 	if (auto* CastProp = Cast<UInterfaceProperty>(Prop))
 	{
 		UObject* NewValue = nullptr;
-		const bool bResult = NativizeObject(PyObj, NewValue, CastProp->InterfaceClass, SetErrorState);
-		if (bResult)
+		const FPyConversionResult Result = NativizeObject(PyObj, NewValue, CastProp->InterfaceClass, SetErrorState);
+		if (Result)
 		{
 			UObject* OldValue = CastProp->GetPropertyValue(ValueAddr).GetObject();
 			if (OldValue != NewValue)
@@ -642,14 +885,15 @@ bool NativizeProperty_Direct(PyObject* PyObj, const UProperty* Prop, void* Value
 				});
 			}
 		}
-		PYCONVERSION_PROPERTY_RETURN(bResult);
+		PYCONVERSION_PROPERTY_RETURN(Result);
 	}
 
 	if (auto* CastProp = Cast<UStructProperty>(Prop))
 	{
+		FPyConversionResult Result = FPyConversionResult::Failure();
 		PyTypeObject* PyStructType = FPyWrapperTypeRegistry::Get().GetWrappedStructType(CastProp->Struct);
-		FPyWrapperStructPtr PyStruct = FPyWrapperStructPtr::StealReference(FPyWrapperStruct::CastPyObject(PyObj, PyStructType));
-		if (PyStruct)
+		FPyWrapperStructPtr PyStruct = FPyWrapperStructPtr::StealReference(FPyWrapperStruct::CastPyObject(PyObj, PyStructType, &Result));
+		if (PyStruct && ensureAlways(PyStruct->ScriptStruct->IsChildOf(CastProp->Struct)))
 		{
 			if (!CastProp->Identical(ValueAddr, PyStruct->StructInstance, PPF_None))
 			{
@@ -658,15 +902,15 @@ bool NativizeProperty_Direct(PyObject* PyObj, const UProperty* Prop, void* Value
 					CastProp->Struct->CopyScriptStruct(ValueAddr, PyStruct->StructInstance);
 				});
 			}
-			return true;
 		}
-		PYCONVERSION_PROPERTY_RETURN(false);
+		PYCONVERSION_PROPERTY_RETURN(Result);
 	}
 
 	if (auto* CastProp = Cast<UDelegateProperty>(Prop))
 	{
+		FPyConversionResult Result = FPyConversionResult::Failure();
 		PyTypeObject* PyDelegateType = FPyWrapperTypeRegistry::Get().GetWrappedDelegateType(CastProp->SignatureFunction);
-		FPyWrapperDelegatePtr PyDelegate = FPyWrapperDelegatePtr::StealReference(FPyWrapperDelegate::CastPyObject(PyObj, PyDelegateType));
+		FPyWrapperDelegatePtr PyDelegate = FPyWrapperDelegatePtr::StealReference(FPyWrapperDelegate::CastPyObject(PyObj, PyDelegateType, &Result));
 		if (PyDelegate)
 		{
 			if (!CastProp->Identical(ValueAddr, PyDelegate->DelegateInstance, PPF_None))
@@ -676,15 +920,15 @@ bool NativizeProperty_Direct(PyObject* PyObj, const UProperty* Prop, void* Value
 					CastProp->SetPropertyValue(ValueAddr, *PyDelegate->DelegateInstance);
 				});
 			}
-			return true;
 		}
-		PYCONVERSION_PROPERTY_RETURN(false);
+		PYCONVERSION_PROPERTY_RETURN(Result);
 	}
 
 	if (auto* CastProp = Cast<UMulticastDelegateProperty>(Prop))
 	{
+		FPyConversionResult Result = FPyConversionResult::Failure();
 		PyTypeObject* PyDelegateType = FPyWrapperTypeRegistry::Get().GetWrappedDelegateType(CastProp->SignatureFunction);
-		FPyWrapperMulticastDelegatePtr PyDelegate = FPyWrapperMulticastDelegatePtr::StealReference(FPyWrapperMulticastDelegate::CastPyObject(PyObj, PyDelegateType));
+		FPyWrapperMulticastDelegatePtr PyDelegate = FPyWrapperMulticastDelegatePtr::StealReference(FPyWrapperMulticastDelegate::CastPyObject(PyObj, PyDelegateType, &Result));
 		if (PyDelegate)
 		{
 			if (!CastProp->Identical(ValueAddr, PyDelegate->DelegateInstance, PPF_None))
@@ -694,14 +938,14 @@ bool NativizeProperty_Direct(PyObject* PyObj, const UProperty* Prop, void* Value
 					CastProp->SetPropertyValue(ValueAddr, *PyDelegate->DelegateInstance);
 				});
 			}
-			return true;
 		}
-		PYCONVERSION_PROPERTY_RETURN(false);
+		PYCONVERSION_PROPERTY_RETURN(Result);
 	}
 
 	if (auto* CastProp = Cast<UArrayProperty>(Prop))
 	{
-		FPyWrapperArrayPtr PyArray = FPyWrapperArrayPtr::StealReference(FPyWrapperArray::CastPyObject(PyObj, &PyWrapperArrayType, CastProp->Inner));
+		FPyConversionResult Result = FPyConversionResult::Failure();
+		FPyWrapperArrayPtr PyArray = FPyWrapperArrayPtr::StealReference(FPyWrapperArray::CastPyObject(PyObj, &PyWrapperArrayType, CastProp->Inner, &Result));
 		if (PyArray)
 		{
 			if (!CastProp->Identical(ValueAddr, PyArray->ArrayInstance, PPF_None))
@@ -711,14 +955,14 @@ bool NativizeProperty_Direct(PyObject* PyObj, const UProperty* Prop, void* Value
 					CastProp->CopyCompleteValue(ValueAddr, PyArray->ArrayInstance);
 				});
 			}
-			return true;
 		}
-		PYCONVERSION_PROPERTY_RETURN(false);
+		PYCONVERSION_PROPERTY_RETURN(Result);
 	}
 
 	if (auto* CastProp = Cast<USetProperty>(Prop))
 	{
-		FPyWrapperSetPtr PySet = FPyWrapperSetPtr::StealReference(FPyWrapperSet::CastPyObject(PyObj, &PyWrapperSetType, CastProp->ElementProp));
+		FPyConversionResult Result = FPyConversionResult::Failure();
+		FPyWrapperSetPtr PySet = FPyWrapperSetPtr::StealReference(FPyWrapperSet::CastPyObject(PyObj, &PyWrapperSetType, CastProp->ElementProp, &Result));
 		if (PySet)
 		{
 			if (!CastProp->Identical(ValueAddr, PySet->SetInstance, PPF_None))
@@ -728,14 +972,14 @@ bool NativizeProperty_Direct(PyObject* PyObj, const UProperty* Prop, void* Value
 					CastProp->CopyCompleteValue(ValueAddr, PySet->SetInstance);
 				});
 			}
-			return true;
 		}
-		PYCONVERSION_PROPERTY_RETURN(false);
+		PYCONVERSION_PROPERTY_RETURN(Result);
 	}
 
 	if (auto* CastProp = Cast<UMapProperty>(Prop))
 	{
-		FPyWrapperMapPtr PyMap = FPyWrapperMapPtr::StealReference(FPyWrapperMap::CastPyObject(PyObj, &PyWrapperMapType, CastProp->KeyProp, CastProp->ValueProp));
+		FPyConversionResult Result = FPyConversionResult::Failure();
+		FPyWrapperMapPtr PyMap = FPyWrapperMapPtr::StealReference(FPyWrapperMap::CastPyObject(PyObj, &PyWrapperMapType, CastProp->KeyProp, CastProp->ValueProp, &Result));
 		if (PyMap)
 		{
 			if (!CastProp->Identical(ValueAddr, PyMap->MapInstance, PPF_None))
@@ -745,25 +989,24 @@ bool NativizeProperty_Direct(PyObject* PyObj, const UProperty* Prop, void* Value
 					CastProp->CopyCompleteValue(ValueAddr, PyMap->MapInstance);
 				});
 			}
-			return true;
 		}
-		PYCONVERSION_PROPERTY_RETURN(false);
+		PYCONVERSION_PROPERTY_RETURN(Result);
 	}
 
 #undef NATIVIZE_SETTER_PROPERTY
 #undef NATIVIZE_INLINE_PROPERTY
 
-	PYCONVERSION_RETURN(false, TEXT("NativizeProperty"), *FString::Printf(TEXT("Cannot nativize '%s' as '%s' (%s). %s conversion not implemented!"), *PyUtil::GetFriendlyTypename(PyObj), *Prop->GetName(), *Prop->GetClass()->GetName(), *Prop->GetClass()->GetName()));
+	PYCONVERSION_RETURN(FPyConversionResult::Failure(), TEXT("NativizeProperty"), *FString::Printf(TEXT("Cannot nativize '%s' as '%s' (%s). %s conversion not implemented!"), *PyUtil::GetFriendlyTypename(PyObj), *Prop->GetName(), *Prop->GetClass()->GetName(), *Prop->GetClass()->GetName()));
 
 #undef PYCONVERSION_PROPERTY_RETURN
 }
 
-bool PythonizeProperty_Direct(const UProperty* Prop, const void* ValueAddr, PyObject*& OutPyObj, const EPyConversionMethod ConversionMethod, PyObject* OwnerPyObj, const ESetErrorState SetErrorState)
+FPyConversionResult PythonizeProperty_Direct(const UProperty* Prop, const void* ValueAddr, PyObject*& OutPyObj, const EPyConversionMethod ConversionMethod, PyObject* OwnerPyObj, const ESetErrorState SetErrorState)
 {
 #define PYCONVERSION_PROPERTY_RETURN(RESULT) \
 	PYCONVERSION_RETURN(RESULT, TEXT("PythonizeProperty"), *FString::Printf(TEXT("Cannot pythonize '%s' (%s)"), *Prop->GetName(), *Prop->GetClass()->GetName()))
 
-	const FPyWrapperOwnerContext OwnerContext(OwnerPyObj, OwnerPyObj ? Prop->GetFName() : NAME_None);
+	const FPyWrapperOwnerContext OwnerContext(OwnerPyObj, OwnerPyObj ? Prop : nullptr);
 	OwnerContext.AssertValidConversionMethod(ConversionMethod);
 
 #define PYTHONIZE_GETTER_PROPERTY(PROPTYPE)											\
@@ -775,7 +1018,6 @@ bool PythonizeProperty_Direct(const UProperty* Prop, const void* ValueAddr, PyOb
 
 	PYTHONIZE_GETTER_PROPERTY(UBoolProperty);
 	PYTHONIZE_GETTER_PROPERTY(UInt8Property);
-	PYTHONIZE_GETTER_PROPERTY(UByteProperty);
 	PYTHONIZE_GETTER_PROPERTY(UInt16Property);
 	PYTHONIZE_GETTER_PROPERTY(UUInt16Property);
 	PYTHONIZE_GETTER_PROPERTY(UIntProperty);
@@ -788,10 +1030,23 @@ bool PythonizeProperty_Direct(const UProperty* Prop, const void* ValueAddr, PyOb
 	PYTHONIZE_GETTER_PROPERTY(UNameProperty);
 	PYTHONIZE_GETTER_PROPERTY(UTextProperty);
 
+	if (auto* CastProp = Cast<UByteProperty>(Prop))
+	{
+		const uint8 Value = CastProp->GetPropertyValue(ValueAddr);
+		if (CastProp->Enum)
+		{
+			PYCONVERSION_PROPERTY_RETURN(PythonizeEnumEntry((int64)Value, CastProp->Enum, OutPyObj, SetErrorState));
+		}
+		else
+		{
+			PYCONVERSION_PROPERTY_RETURN(Pythonize(Value, OutPyObj, SetErrorState));
+		}
+	}
+
 	if (auto* CastProp = Cast<UEnumProperty>(Prop))
 	{
 		UNumericProperty* EnumInternalProp = CastProp->GetUnderlyingProperty();
-		PYCONVERSION_PROPERTY_RETURN(EnumInternalProp && PythonizeProperty_Direct(EnumInternalProp, ValueAddr, OutPyObj, ConversionMethod, OwnerPyObj, SetErrorState));
+		PYCONVERSION_PROPERTY_RETURN(PythonizeEnumEntry(EnumInternalProp ? EnumInternalProp->GetSignedIntPropertyValue(ValueAddr) : 0, CastProp->GetEnum(), OutPyObj, SetErrorState));
 	}
 
 	if (auto* CastProp = Cast<UClassProperty>(Prop))
@@ -818,61 +1073,61 @@ bool PythonizeProperty_Direct(const UProperty* Prop, const void* ValueAddr, PyOb
 			Py_INCREF(Py_None);
 			OutPyObj = Py_None;
 		}
-		return true;
+		return FPyConversionResult::Success();
 	}
 
 	if (auto* CastProp = Cast<UStructProperty>(Prop))
 	{
 		OutPyObj = (PyObject*)FPyWrapperStructFactory::Get().CreateInstance(CastProp->Struct, (void*)ValueAddr, OwnerContext, ConversionMethod);
-		return true;
+		return FPyConversionResult::Success();
 	}
 
 	if (auto* CastProp = Cast<UDelegateProperty>(Prop))
 	{
 		const FScriptDelegate* Value = CastProp->GetPropertyValuePtr(ValueAddr);
 		OutPyObj = (PyObject*)FPyWrapperDelegateFactory::Get().CreateInstance(CastProp->SignatureFunction, (FScriptDelegate*)Value, OwnerContext, ConversionMethod);
-		return true;
+		return FPyConversionResult::Success();
 	}
 
 	if (auto* CastProp = Cast<UMulticastDelegateProperty>(Prop))
 	{
 		const FMulticastScriptDelegate* Value = CastProp->GetPropertyValuePtr(ValueAddr);
 		OutPyObj = (PyObject*)FPyWrapperMulticastDelegateFactory::Get().CreateInstance(CastProp->SignatureFunction, (FMulticastScriptDelegate*)Value, OwnerContext, ConversionMethod);
-		return true;
+		return FPyConversionResult::Success();
 	}
 
 	if (auto* CastProp = Cast<UArrayProperty>(Prop))
 	{
 		OutPyObj = (PyObject*)FPyWrapperArrayFactory::Get().CreateInstance((void*)ValueAddr, CastProp, OwnerContext, ConversionMethod);
-		return true;
+		return FPyConversionResult::Success();
 	}
 
 	if (auto* CastProp = Cast<USetProperty>(Prop))
 	{
 		OutPyObj = (PyObject*)FPyWrapperSetFactory::Get().CreateInstance((void*)ValueAddr, CastProp, OwnerContext, ConversionMethod);
-		return true;
+		return FPyConversionResult::Success();
 	}
 
 	if (auto* CastProp = Cast<UMapProperty>(Prop))
 	{
 		OutPyObj = (PyObject*)FPyWrapperMapFactory::Get().CreateInstance((void*)ValueAddr, CastProp, OwnerContext, ConversionMethod);
-		return true;
+		return FPyConversionResult::Success();
 	}
 
 #undef PYTHONIZE_GETTER_PROPERTY
 
-	PYCONVERSION_RETURN(false, TEXT("PythonizeProperty"), *FString::Printf(TEXT("Cannot pythonize '%s' (%s). %s conversion not implemented!"), *Prop->GetName(), *Prop->GetClass()->GetName(), *Prop->GetClass()->GetName()));
+	PYCONVERSION_RETURN(FPyConversionResult::Failure(), TEXT("PythonizeProperty"), *FString::Printf(TEXT("Cannot pythonize '%s' (%s). %s conversion not implemented!"), *Prop->GetName(), *Prop->GetClass()->GetName(), *Prop->GetClass()->GetName()));
 
 #undef PYCONVERSION_PROPERTY_RETURN
 }
 
-bool NativizeProperty_InContainer(PyObject* PyObj, const UProperty* Prop, void* BaseAddr, const int32 ArrayIndex, const FPyWrapperOwnerContext& InChangeOwner, const ESetErrorState SetErrorState)
+FPyConversionResult NativizeProperty_InContainer(PyObject* PyObj, const UProperty* Prop, void* BaseAddr, const int32 ArrayIndex, const FPyWrapperOwnerContext& InChangeOwner, const ESetErrorState SetErrorState)
 {
 	check(ArrayIndex < Prop->ArrayDim);
 	return NativizeProperty(PyObj, Prop, Prop->ContainerPtrToValuePtr<void>(BaseAddr, ArrayIndex), InChangeOwner, SetErrorState);
 }
 
-bool PythonizeProperty_InContainer(const UProperty* Prop, const void* BaseAddr, const int32 ArrayIndex, PyObject*& OutPyObj, const EPyConversionMethod ConversionMethod, PyObject* OwnerPyObj, const ESetErrorState SetErrorState)
+FPyConversionResult PythonizeProperty_InContainer(const UProperty* Prop, const void* BaseAddr, const int32 ArrayIndex, PyObject*& OutPyObj, const EPyConversionMethod ConversionMethod, PyObject* OwnerPyObj, const ESetErrorState SetErrorState)
 {
 	check(ArrayIndex < Prop->ArrayDim);
 	return PythonizeProperty(Prop, Prop->ContainerPtrToValuePtr<void>(BaseAddr, ArrayIndex), OutPyObj, ConversionMethod, OwnerPyObj, SetErrorState);
@@ -885,24 +1140,16 @@ void EmitPropertyChangeNotifications(const FPyWrapperOwnerContext& InChangeOwner
 	{
 		auto AppendOwnerPropertyToChain = [&OutPropertyChain](const FPyWrapperOwnerContext& InOwnerContext) -> bool
 		{
-			const UStruct* LeafStruct = nullptr;
-			if (PyObject_IsInstance(InOwnerContext.GetOwnerObject(), (PyObject*)&PyWrapperObjectType) == 1)
+			const UProperty* LeafProp = nullptr;
+			if (PyObject_IsInstance(InOwnerContext.GetOwnerObject(), (PyObject*)&PyWrapperObjectType) == 1 || PyObject_IsInstance(InOwnerContext.GetOwnerObject(), (PyObject*)&PyWrapperStructType) == 1)
 			{
-				LeafStruct = FPyWrapperObjectMetaData::GetClass((FPyWrapperObject*)InOwnerContext.GetOwnerObject());
-			}
-			else if (PyObject_IsInstance(InOwnerContext.GetOwnerObject(), (PyObject*)&PyWrapperStructType) == 1)
-			{
-				LeafStruct = FPyWrapperStructMetaData::GetStruct((FPyWrapperStruct*)InOwnerContext.GetOwnerObject());
+				LeafProp = InOwnerContext.GetOwnerProperty();
 			}
 
-			if (LeafStruct)
+			if (LeafProp)
 			{
-				UProperty* LeafProp = LeafStruct->FindPropertyByName(InOwnerContext.GetOwnerPropertyName());
-				if (LeafProp)
-				{
-					OutPropertyChain.AddHead(LeafProp);
-					return true;
-				}
+				OutPropertyChain.AddHead((UProperty*)LeafProp);
+				return true;
 			}
 
 			return false;

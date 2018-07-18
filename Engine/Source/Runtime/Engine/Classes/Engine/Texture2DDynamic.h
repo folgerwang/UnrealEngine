@@ -10,6 +10,24 @@
 
 class FTextureResource;
 
+// Helper to set properties on the UTexture2DDynamic so it doesn't need to be reinitialized.
+struct FTexture2DDynamicCreateInfo
+{
+	FTexture2DDynamicCreateInfo(EPixelFormat InFormat = PF_B8G8R8A8, bool InIsResolveTarget = false, bool InSRGB = true, TextureFilter InFilter = TF_Default, ESamplerAddressMode InSamplerAddressMode = AM_Wrap)
+	:	Format(InFormat)
+	,	bIsResolveTarget(InIsResolveTarget)
+	,	bSRGB(InSRGB)
+	,	Filter(InFilter)
+	,	SamplerAddressMode(InSamplerAddressMode)
+	{}
+
+	EPixelFormat Format;
+	bool bIsResolveTarget;
+	bool bSRGB;
+	TextureFilter Filter;
+	ESamplerAddressMode SamplerAddressMode;
+};
+
 UCLASS(hidecategories=Object, MinimalAPI)
 class UTexture2DDynamic : public UTexture
 {
@@ -31,8 +49,9 @@ class UTexture2DDynamic : public UTexture
 	/** The number of mip-maps in the texture. */
 	int32 NumMips;
 
-
-
+	/** The sampler default address mode for this texture. */
+	ESamplerAddressMode SamplerAddressMode;
+	
 public:
 	//~ Begin UTexture Interface.
 	ENGINE_API virtual FTextureResource* CreateResource() override;
@@ -50,7 +69,13 @@ public:
 	 * @param InIsResolveTarget	- Whether the texture can be used as a resolve target
 	 */
 	ENGINE_API void Init(int32 InSizeX, int32 InSizeY, EPixelFormat InFormat = PF_B8G8R8A8, bool InIsResolveTarget = false);
-	
+
+	DEPRECATED(4.20, "Please use UTexture2DDynamic::Create() with FTexture2DDynamicCreateInfo initialization")
+	ENGINE_API static UTexture2DDynamic* Create(int32 InSizeX, int32 InSizeY, EPixelFormat InFormat);
+
+	DEPRECATED(4.20, "Please use UTexture2DDynamic::Create() with FTexture2DDynamicCreateInfo initialization")
+	ENGINE_API static UTexture2DDynamic* Create(int32 InSizeX, int32 InSizeY, EPixelFormat InFormat, bool InIsResolveTarget);
+
 	/** Creates and initializes a new Texture2DDynamic with the requested settings */
-	ENGINE_API static UTexture2DDynamic* Create(int32 InSizeX, int32 InSizeY, EPixelFormat InFormat = PF_B8G8R8A8, bool InIsResolveTarget = false);
+	ENGINE_API static UTexture2DDynamic* Create(int32 InSizeX, int32 InSizeY, const FTexture2DDynamicCreateInfo& InCreateInfo = FTexture2DDynamicCreateInfo());
 };

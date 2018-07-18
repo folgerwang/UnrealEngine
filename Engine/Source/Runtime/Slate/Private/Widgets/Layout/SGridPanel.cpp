@@ -7,13 +7,14 @@
 #include "Layout/LayoutUtils.h"
 
 SGridPanel::SGridPanel()
-: Slots()
-{}
+: Slots(this)
+{
+}
+
 SGridPanel::FSlot& SGridPanel::AddSlot( int32 Column, int32 Row, SGridPanel::Layer InLayer )
 {
 	return InsertSlot( new FSlot( Column, Row, InLayer.TheLayer ) );
 }
-
 
 bool SGridPanel::RemoveSlot(const TSharedRef<SWidget>& SlotWidget)
 {
@@ -54,6 +55,12 @@ void SGridPanel::Construct( const FArguments& InArgs )
 
 int32 SGridPanel::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyCullingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const
 {
+	if(GSlateLayoutCaching)
+	{
+		// HACK
+		GetDesiredSize();
+	}
+
 	FArrangedChildren ArrangedChildren(EVisibility::All);
 	this->ArrangeChildren(AllottedGeometry, ArrangedChildren);
 
@@ -239,7 +246,7 @@ FChildren* SGridPanel::GetChildren()
 }
 
 
-FVector2D SGridPanel::GetDesiredSize( const FIntPoint& StartCell, int32 Width, int32 Height ) const
+FVector2D SGridPanel::GetDesiredRegionSize( const FIntPoint& StartCell, int32 Width, int32 Height ) const
 {
 	if (Columns.Num() > 0 && Rows.Num() > 0)
 	{

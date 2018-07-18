@@ -268,7 +268,7 @@ template<EVisualisePSType TextureType> void VisualizeTextureForTextureType(FRHIC
 
 void RenderVisualizeTexture(FRHICommandListImmediate& RHICmdList, ERHIFeatureLevel::Type FeatureLevel, const FVisualizeTextureData& Data)
 {
-	RHICmdList.CopyToResolveTarget(Data.RenderTargetItem.ShaderResourceTexture, Data.RenderTargetItem.ShaderResourceTexture, true, FResolveParams());
+	RHICmdList.CopyToResolveTarget(Data.RenderTargetItem.ShaderResourceTexture, Data.RenderTargetItem.ShaderResourceTexture, FResolveParams());
 	if(Data.Desc.Is2DTexture())
 	{
 		// 2D		
@@ -493,7 +493,7 @@ void FVisualizeTexture::GenerateContent(FRHICommandListImmediate& RHICmdList, co
 
 	{
 		SCOPED_DRAW_EVENT(RHICmdList, VisCopy);
-		RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, false, FResolveParams());
+		RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, FResolveParams());
 	}
 
 	VisualizeTextureDesc = Desc;

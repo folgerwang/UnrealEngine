@@ -170,7 +170,7 @@ static TAutoConsoleVariable<int32> CVarDefaultAntiAliasing(
 	TEXT(" 1: FXAA (faster than TemporalAA but much more shimmering for non static cases)\n")
 	TEXT(" 2: TemporalAA (default)\n")
 	TEXT(" 3: MSAA (Forward shading only)"),
-    ECVF_RenderThreadSafe);
+	ECVF_RenderThreadSafe);
 
 // see ELightUnits
 static TAutoConsoleVariable<int32> CVarDefaultPointLightUnits(
@@ -274,7 +274,7 @@ static TAutoConsoleVariable<int32> CVarAllowTranslucencyAfterDOF(
 	TEXT("after DOF, if not specified otherwise in the material).\n")
 	TEXT(" 0: off (translucency is affected by depth of field)\n")
 	TEXT(" 1: on costs GPU performance and memory but keeps translucency unaffected by Depth of Field. (default)"),
-	ECVF_RenderThreadSafe);
+	ECVF_Scalability | ECVF_RenderThreadSafe);
 
 static TAutoConsoleVariable<int32> CVarEnableTemporalUpsample(
 	TEXT("r.TemporalAA.Upsampling"),
@@ -361,8 +361,8 @@ FVector4 CreateInvDeviceZToWorldZTransform(const FMatrix& ProjMatrix)
 	//
 	// So to get Z from Z' is just:
 	// Z = B / (Z' - A)
-	// 
-	// Note a reversed Z projection matrix will have A=0. 
+	//
+	// Note a reversed Z projection matrix will have A=0.
 	//
 	// Done in shader as:
 	// Z = 1 / (Z' * C1 - C2)   --- Where C1 = 1/B, C2 = A/B
@@ -409,9 +409,9 @@ FVector4 CreateInvDeviceZToWorldZTransform(const FMatrix& ProjMatrix)
 		SubtractValue -= 0.00000001f;
 
 		return FVector4(
-			0.0f,			
-			0.0f,			
-			1.0f / DepthAdd,	
+			0.0f,
+			0.0f,
+			1.0f / DepthAdd,
 			SubtractValue
 			);
 	}
@@ -491,7 +491,7 @@ FViewMatrices::FViewMatrices(const FSceneViewInitOptions& InitOptions) : FViewMa
 		{
 			// console variable override
 			static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.PreViewTranslation"));
-			int32 Value = CVar->GetValueOnGameThread();
+			int32 Value = CVar->GetValueOnAnyThread();
 
 			static FVector PreViewTranslationBackup;
 
@@ -527,7 +527,7 @@ FViewMatrices::FViewMatrices(const FSceneViewInitOptions& InitOptions) : FViewMa
 
 	OverriddenTranslatedViewMatrix = FTranslationMatrix(-GetPreViewTranslation()) * GetViewMatrix();
 	OverriddenInvTranslatedViewMatrix = GetInvViewMatrix() * FTranslationMatrix(GetPreViewTranslation());
-	
+
 	TranslatedViewProjectionMatrix = LocalTranslatedViewMatrix * ProjectionMatrix;
 	InvTranslatedViewProjectionMatrix = InvProjectionMatrix * LocalInvTranslatedViewMatrix;
 
@@ -566,6 +566,7 @@ FSceneView::FSceneView(const FSceneViewInitOptions& InitOptions)
 	, OverlayColor(InitOptions.OverlayColor)
 	, ColorScale(InitOptions.ColorScale)
 	, StereoPass(InitOptions.StereoPass)
+	, StereoIPD(InitOptions.StereoIPD)
 	, bRenderFirstInstanceOnly(false)
 	, DiffuseOverrideParameter(FVector4(0,0,0,1))
 	, SpecularOverrideParameter(FVector4(0,0,0,1))
@@ -601,13 +602,15 @@ FSceneView::FSceneView(const FSceneViewInitOptions& InitOptions)
 	, PrimaryScreenPercentageMethod(EPrimaryScreenPercentageMethod::SpatialUpscale)
 	, ForwardLightingResources(nullptr)
 	, FeatureLevel(InitOptions.ViewFamily ? InitOptions.ViewFamily->GetFeatureLevel() : GMaxRHIFeatureLevel)
-{	
+{
 	check(UnscaledViewRect.Min.X >= 0);
 	check(UnscaledViewRect.Min.Y >= 0);
 	check(UnscaledViewRect.Width() > 0);
 	check(UnscaledViewRect.Height() > 0);
 
 	ShadowViewMatrices = ViewMatrices;
+
+	SceneViewInitOptions = FSceneViewInitOptions(InitOptions);
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	{
@@ -682,6 +685,9 @@ FSceneView::FSceneView(const FSceneViewInitOptions& InitOptions)
 	}
 
 	bUseFieldOfViewForLOD = InitOptions.bUseFieldOfViewForLOD;
+	FOV = InitOptions.FOV;
+	DesiredFOV = InitOptions.DesiredFOV;
+
 	DrawDynamicFlags = EDrawDynamicFlags::None;
 	bAllowTemporalJitter = true;
 
@@ -711,7 +717,7 @@ FSceneView::FSceneView(const FSceneViewInitOptions& InitOptions)
 
 	bShouldBindInstancedViewUB = bIsInstancedStereoEnabled || bIsMobileMultiViewEnabled;
 
-	// If the device doesn't support mobile multi-view, disable it. 
+	// If the device doesn't support mobile multi-view, disable it.
 	bIsMobileMultiViewEnabled = bIsMobileMultiViewEnabled && GSupportsMobileMultiView;
 
 	SetupAntiAliasingMethod();
@@ -809,20 +815,6 @@ float FSceneView::GetLODDistanceFactor() const
 	return Fac;
 }
 
-float FSceneView::GetTemporalLODDistanceFactor(int32 Index, bool bUseLaggedLODTransition) const
-{
-	if (bUseLaggedLODTransition && State)
-	{
-		const FTemporalLODState& LODState = State->GetTemporalLODState();
-		if (LODState.TemporalLODLag != 0.0f)
-		{
-			return LODState.TemporalDistanceFactor[Index];
-		}
-	}
-	return GetLODDistanceFactor();
-}
-
-
 FVector FSceneView::GetTemporalLODOrigin(int32 Index, bool bUseLaggedLODTransition) const
 {
 	if (bUseLaggedLODTransition && State)
@@ -863,6 +855,19 @@ uint32 FSceneView::GetOcclusionFrameCounter() const
 	return MAX_uint32;
 }
 
+void FSceneView::UpdateProjectionMatrix(const FMatrix& NewProjectionMatrix)
+{
+	ProjectionMatrixUnadjustedForRHI = NewProjectionMatrix;
+	InvDeviceZToWorldZTransform = CreateInvDeviceZToWorldZTransform(ProjectionMatrixUnadjustedForRHI);
+
+	// Update init options before creating new view matrices
+	SceneViewInitOptions.ProjectionMatrix = NewProjectionMatrix;
+
+	// Create new matrices
+	FViewMatrices NewViewMatrices = FViewMatrices(SceneViewInitOptions);
+	ViewMatrices = NewViewMatrices;
+}
+
 void FViewMatrices::UpdateViewMatrix(const FVector& ViewLocation, const FRotator& ViewRotation)
 {
 	ViewOrigin = ViewLocation;
@@ -873,28 +878,30 @@ void FViewMatrices::UpdateViewMatrix(const FVector& ViewLocation, const FRotator
 		FPlane(0, 1, 0, 0),
 		FPlane(0, 0, 0, 1));
 
-	ViewMatrix = FTranslationMatrix(-ViewLocation);
-	ViewMatrix = ViewMatrix * FInverseRotationMatrix(ViewRotation);
-	ViewMatrix = ViewMatrix * ViewPlanesMatrix;
+	const FMatrix ViewRotationMatrix = FInverseRotationMatrix(ViewRotation) * ViewPlanesMatrix;
 
-	InvViewMatrix = FTranslationMatrix(-ViewMatrix.GetOrigin()) * ViewMatrix.RemoveTranslation().GetTransposed();
+	ViewMatrix = FTranslationMatrix(-ViewLocation) * ViewRotationMatrix;
 
 	// Duplicate HMD rotation matrix with roll removed
 	FRotator HMDViewRotation = ViewRotation;
 	HMDViewRotation.Roll = 0.f;
 	HMDViewMatrixNoRoll = FInverseRotationMatrix(HMDViewRotation) * ViewPlanesMatrix;
 
+	ViewProjectionMatrix = GetViewMatrix() * GetProjectionMatrix();
+
+	InvViewMatrix = ViewRotationMatrix.GetTransposed() * FTranslationMatrix(ViewLocation);
+	InvViewProjectionMatrix = GetInvProjectionMatrix() * GetInvViewMatrix();
+
 	PreViewTranslation = -ViewOrigin;
-	//using mathematical equality rule for matrix inverse: (A*B)^-1 == B^-1 * A^-1
-	OverriddenTranslatedViewMatrix = TranslatedViewMatrix = FTranslationMatrix(-PreViewTranslation) * ViewMatrix;
-	OverriddenInvTranslatedViewMatrix = InvTranslatedViewMatrix = InvViewMatrix * FTranslationMatrix(PreViewTranslation);
+
+	TranslatedViewMatrix = ViewRotationMatrix;
+	InvTranslatedViewMatrix = TranslatedViewMatrix.GetTransposed();
+	OverriddenTranslatedViewMatrix = FTranslationMatrix(-PreViewTranslation) * ViewMatrix;
+	OverriddenInvTranslatedViewMatrix = InvViewMatrix * FTranslationMatrix(PreViewTranslation);
 
 	// Compute a transform from view origin centered world-space to clip space.
 	TranslatedViewProjectionMatrix = GetTranslatedViewMatrix() * GetProjectionMatrix();
 	InvTranslatedViewProjectionMatrix = GetInvProjectionMatrix() * GetInvTranslatedViewMatrix();
-
-	ViewProjectionMatrix = GetViewMatrix() * GetProjectionMatrix();
-	InvViewProjectionMatrix = GetInvProjectionMatrix() * GetInvViewMatrix();
 }
 
 void FSceneView::UpdateViewMatrix()
@@ -1032,9 +1039,9 @@ FVector4 FSceneView::PixelToWorld(float X,float Y,float Z) const
 	return ScreenToWorld(ScreenPoint);
 }
 
-/**  
- * Transforms a point from the view's world-space into the view's screen-space.  
- * Divides the resulting X, Y, Z by W before returning. 
+/**
+ * Transforms a point from the view's world-space into the view's screen-space.
+ * Divides the resulting X, Y, Z by W before returning.
  */
 FPlane FSceneView::Project(const FVector& WorldPoint) const
 {
@@ -1050,9 +1057,9 @@ FPlane FSceneView::Project(const FVector& WorldPoint) const
 	return FPlane(Result.X * RHW,Result.Y * RHW,Result.Z * RHW,Result.W);
 }
 
-/** 
+/**
  * Transforms a point from the view's screen-space into world coordinates
- * multiplies X, Y, Z by W before transforming. 
+ * multiplies X, Y, Z by W before transforming.
  */
 FVector FSceneView::Deproject(const FPlane& ScreenPoint) const
 {
@@ -1092,7 +1099,7 @@ void FSceneView::DeprojectScreenToWorld(const FVector2D& ScreenPos, const FIntRe
 	const FVector4 HGRayEndViewSpace = InvProjectionMatrix.TransformFVector4(RayEndProjectionSpace);
 	FVector RayStartViewSpace(HGRayStartViewSpace.X, HGRayStartViewSpace.Y, HGRayStartViewSpace.Z);
 	FVector RayEndViewSpace(HGRayEndViewSpace.X,   HGRayEndViewSpace.Y,   HGRayEndViewSpace.Z);
-	// divide vectors by W to undo any projection and get the 3-space coordinate 
+	// divide vectors by W to undo any projection and get the 3-space coordinate
 	if (HGRayStartViewSpace.W != 0.0f)
 	{
 		RayStartViewSpace /= HGRayStartViewSpace.W;
@@ -1142,7 +1149,7 @@ void FSceneView::DeprojectScreenToWorld(const FVector2D& ScreenPos, const FIntRe
 	const FVector4 HGRayEndWorldSpace = InvViewProjMatrix.TransformFVector4(RayEndProjectionSpace);
 	FVector RayStartWorldSpace(HGRayStartWorldSpace.X, HGRayStartWorldSpace.Y, HGRayStartWorldSpace.Z);
 	FVector RayEndWorldSpace(HGRayEndWorldSpace.X, HGRayEndWorldSpace.Y, HGRayEndWorldSpace.Z);
-	// divide vectors by W to undo any projection and get the 3-space coordinate 
+	// divide vectors by W to undo any projection and get the 3-space coordinate
 	if (HGRayStartWorldSpace.W != 0.0f)
 	{
 		RayStartWorldSpace /= HGRayStartWorldSpace.W;
@@ -1180,7 +1187,7 @@ bool FSceneView::ProjectWorldToScreen(const FVector& WorldPosition, const FIntRe
 
 		return true;
 	}
-	
+
 	return false;
 }
 
@@ -1323,6 +1330,7 @@ void FSceneView::OverridePostProcessSettings(const FPostProcessSettings& Src, fl
 		LERP_PP(IndirectLightingIntensity);
 		LERP_PP(DepthOfFieldFocalDistance);
 		LERP_PP(DepthOfFieldFstop);
+		LERP_PP(DepthOfFieldMinFstop);
 		LERP_PP(DepthOfFieldSensorWidth);
 		LERP_PP(DepthOfFieldDepthBlurRadius);
 		LERP_PP(DepthOfFieldDepthBlurAmount);
@@ -1345,6 +1353,11 @@ void FSceneView::OverridePostProcessSettings(const FPostProcessSettings& Src, fl
 		LERP_PP(ScreenSpaceReflectionQuality);
 		LERP_PP(ScreenSpaceReflectionIntensity);
 		LERP_PP(ScreenSpaceReflectionMaxRoughness);
+
+		if (Src.bOverride_DepthOfFieldBladeCount)
+		{
+			Dest.DepthOfFieldBladeCount = Src.DepthOfFieldBladeCount;
+		}
 
 		// cubemaps are getting blended additively - in contrast to other properties, maybe we should make that consistent
 		if (Src.AmbientCubemap && Src.bOverride_AmbientCubemapIntensity)
@@ -1384,7 +1397,7 @@ void FSceneView::OverridePostProcessSettings(const FPostProcessSettings& Src, fl
 		{
 			Dest.BloomConvolutionTexture = Src.BloomConvolutionTexture;
 		}
-		
+
 		// A continuous blending of this value would result trashing the pre-convolved bloom kernel cache.
 		IF_PP(BloomConvolutionBufferScale)
 		{
@@ -1419,7 +1432,7 @@ void FSceneView::OverridePostProcessSettings(const FPostProcessSettings& Src, fl
 		if (Src.bOverride_MobileHQGaussian)
 		{
 			Dest.bMobileHQGaussian = Src.bMobileHQGaussian;
-		}	
+		}
 
 		if (Src.bOverride_AutoExposureMethod)
 		{
@@ -1431,7 +1444,7 @@ void FSceneView::OverridePostProcessSettings(const FPostProcessSettings& Src, fl
 			Dest.AmbientOcclusionRadiusInWS = Src.AmbientOcclusionRadiusInWS;
 		}
 	}
-	
+
 	// will be deprecated soon, use the new asset LightPropagationVolumeBlendable instead
 	{
 		FLightPropagationVolumeSettings& Dest = FinalPostProcessSettings.BlendableManager.GetSingleFinalData<FLightPropagationVolumeSettings>();
@@ -1471,7 +1484,7 @@ void FSceneView::OverridePostProcessSettings(const FPostProcessSettings& Src, fl
 			}
 
 			IBlendableInterface* BlendableInterface = Cast<IBlendableInterface>(Object);
-			
+
 			if(!BlendableInterface)
 			{
 				continue;
@@ -1488,7 +1501,7 @@ void FSceneView::OverridePostProcessSettings(const FPostProcessSettings& Src, fl
 }
 
 /** Dummy class needed to support Cast<IBlendableInterface>(Object) */
-UBlendableInterface::UBlendableInterface(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer) 
+UBlendableInterface::UBlendableInterface(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 }
 
@@ -1565,7 +1578,7 @@ void FSceneView::StartFinalPostprocessSettings(FVector InViewLocation)
 			FinalPostProcessSettings.AutoExposureMinBrightness = 1;
 			FinalPostProcessSettings.AutoExposureMaxBrightness = 1;
 		}
-		else 
+		else
 		{
 			int32 Value = CVarDefaultAutoExposureMethod.GetValueOnGameThread();
 			if (Value >= 0 && Value < AEM_MAX)
@@ -1764,7 +1777,7 @@ void FSceneView::EndFinalPostprocessSettings(const FSceneViewInitOptions& ViewIn
 		float& DepthBlurRadius = FinalPostProcessSettings.DepthOfFieldDepthBlurRadius;
 		{
 			float CVarResScale = FMath::Max(1.0f, CVarDepthOfFieldDepthBlurResolutionScale.GetValueOnGameThread());
-			
+
 			float Factor = FMath::Max(UnscaledViewRect.Width() / 1920.0f - 1.0f, 0.0f);
 
 			DepthBlurRadius *= 1.0f + Factor * (CVarResScale - 1.0f);
@@ -1822,7 +1835,7 @@ void FSceneView::EndFinalPostprocessSettings(const FSceneViewInitOptions& ViewIn
 		static const auto AmbientOcclusionRadiusScaleCVar = IConsoleManager::Get().FindTConsoleVariableDataFloat(TEXT("r.AmbientOcclusionRadiusScale"));
 
 		float Scale = FMath::Clamp(AmbientOcclusionRadiusScaleCVar->GetValueOnGameThread(), 0.1f, 15.0f);
-		
+
 		FinalPostProcessSettings.AmbientOcclusionRadius *= Scale;
 	}
 
@@ -1936,7 +1949,7 @@ void FSceneView::ConfigureBufferVisualizationSettings()
 {
 	bool bBufferDumpingRequired = (FScreenshotRequest::IsScreenshotRequested() || GIsHighResScreenshot || GIsDumpingMovie);
 	bool bVisualizationRequired = Family->EngineShowFlags.VisualizeBuffer;
-	
+
 	if (bVisualizationRequired || bBufferDumpingRequired)
 	{
 		FinalPostProcessSettings.bBufferVisualizationDumpRequired = bBufferDumpingRequired;
@@ -1983,7 +1996,7 @@ void FSceneView::ConfigureBufferVisualizationSettings()
 				// Add this material into the material list in the post processing settings so that the render thread
 				// can pick them up and draw them into the on-screen tiles
 				BufferVisualizationData.GetOverviewMaterials().Add(Material);
-				
+
 				SelectedMaterialNames = Right;
 			}
 		}
@@ -2236,7 +2249,7 @@ FSceneViewFamily::FSceneViewFamily(const ConstructionValues& CVS)
 	if(Value)
 	{
 		CurrentWorldTime = 0;
-		CurrentRealTime = 0; 
+		CurrentRealTime = 0;
 	}
 
 	DebugViewShaderMode = ChooseDebugViewShaderMode();
@@ -2254,7 +2267,7 @@ FSceneViewFamily::FSceneViewFamily(const ConstructionValues& CVS)
 	check(!EngineShowFlags.StationaryLightOverlap);
 #else
 
-	// instead of checking IsGameWorld on rendering thread to see if we allow this flag to be disabled 
+	// instead of checking IsGameWorld on rendering thread to see if we allow this flag to be disabled
 	// we force it on in the game thread.
 	if(IsInGameThread() && Scene)
 	{
@@ -2312,7 +2325,7 @@ FSceneViewFamily::~FSceneViewFamily()
 }
 
 ERHIFeatureLevel::Type FSceneViewFamily::GetFeatureLevel() const
-{ 
+{
 	if (Scene)
 	{
 		return Scene->GetFeatureLevel();
@@ -2353,7 +2366,7 @@ bool FSceneViewFamily::SupportsScreenPercentage() const
 	}
 
 	// Mobile renderer does not support screen percentage with LDR.
-	if ((GetFeatureLevel() <= ERHIFeatureLevel::ES3_1 && !IsMobileHDR()) || PLATFORM_HTML5)
+	if ((GetFeatureLevel() <= ERHIFeatureLevel::ES3_1 && !IsMobileHDR()) || IsHTML5Platform())
 	{
 		return false;
 	}
@@ -2368,7 +2381,7 @@ bool FSceneViewFamily::AllowTranslucencyAfterDOF() const
 
 	static IConsoleVariable* CVarMobileMSAA = IConsoleManager::Get().FindConsoleVariable(TEXT("r.MobileMSAA"));
 	const bool bMobileMSAA = CVarMobileMSAA ? (CVarMobileMSAA->GetInt() > 1) : false;
-	
+
 	return CVarAllowTranslucencyAfterDOF.GetValueOnRenderThread() != 0
 		&& (GetFeatureLevel() > ERHIFeatureLevel::ES3_1 || (IsMobileHDR() && !bMobileMSAA)) // on <= ES3_1 separate translucency requires HDR on and MSAA off
 	&& EngineShowFlags.PostProcessing // Used for reflection captures.

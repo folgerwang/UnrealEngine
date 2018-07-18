@@ -1,8 +1,8 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "CocoaTextView.h"
-#include "CocoaWindow.h"
-#include "CocoaThread.h"
+#include "Mac/CocoaTextView.h"
+#include "Mac/CocoaWindow.h"
+#include "Mac/CocoaThread.h"
 
 @implementation FCocoaTextView
 

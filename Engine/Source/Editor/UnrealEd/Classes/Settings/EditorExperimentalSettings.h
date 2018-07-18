@@ -43,7 +43,7 @@ public:
 	bool bEnableFavoriteSystem;
 
 
-	/** Device output log window (currently implemented for Android only)*/
+	/** Device output log window (currently implemented for Android & Switch only)*/
 	UPROPERTY(EditAnywhere, config, Category = Tools, meta = (DisplayName = "Device Output Log"))
 	bool bDeviceOutputLog;
 
@@ -122,13 +122,13 @@ public:
 	bool bMobilePIEPreviewDeviceLaunch;
 
 	/** Enables in-editor support for text asset formats */
-	//UPROPERTY(EditAnywhere, config, Category = Core)
+	UPROPERTY(EditAnywhere, config, Category = Core)
 	bool bTextAssetFormatSupport;
 
 	/** When creating new Material Layers and Material Layer Blends, set up example graphs. */
 	UPROPERTY(EditAnywhere, config, Category = Materials)
 	bool bExampleLayersAndBlends;
-	
+
 	/**
 	 * Returns an event delegate that is executed when a setting has changed.
 	 *

@@ -1,6 +1,6 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "CurveTableCustomization.h"
+#include "Customizations/CurveTableCustomization.h"
 
 #include "Widgets/Input/SSearchBox.h"
 

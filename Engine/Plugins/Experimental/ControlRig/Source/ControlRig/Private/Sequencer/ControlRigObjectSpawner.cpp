@@ -1,10 +1,11 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "ControlRigObjectSpawner.h"
+#include "Sequencer/ControlRigObjectSpawner.h"
 #include "ControlRig.h"
 #include "MovieSceneSpawnable.h"
 #include "IMovieScenePlayer.h"
-#include "Package.h"
+#include "UObject/Package.h"
+#include "ControlRigSkeletalMeshBinding.h"
 
 TSharedRef<IMovieSceneObjectSpawner> FControlRigObjectSpawner::CreateObjectSpawner()
 {
@@ -38,6 +39,7 @@ UObject* FControlRigObjectSpawner::SpawnObject(FMovieSceneSpawnable& Spawnable, 
 	{
 		FName ObjectName = *(ControlRig->GetClass()->GetName() + Spawnable.GetGuid().ToString() + FString::FromInt(TemplateID.GetInternalValue()));
 		UControlRig* SpawnedObject = NewObject<UControlRig>(ObjectHolderPtr.Get(), ControlRig->GetClass(), ObjectName, RF_Transient);
+		SpawnedObject->SetObjectBinding(MakeShared<FControlRigSkeletalMeshBinding>());
 		ObjectHolderPtr->Objects.Add(SpawnedObject);
 		SpawnedObject->Initialize();
 

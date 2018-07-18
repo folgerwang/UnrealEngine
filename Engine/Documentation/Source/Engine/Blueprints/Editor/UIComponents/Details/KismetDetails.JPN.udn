@@ -1,9 +1,10 @@
-﻿INTSourceChangelist:2683229
+﻿INTSourceChangelist:3244370
 Availability:Public
 Title:詳細パネル
 Crumbs:%ROOT%, Engine/Blueprints, Engine/Blueprints/Editor, Engine/Blueprints/Editor/UIBreakdowns/LevelBPUI
 Description:ブループリントエディタ内の詳細パネルの概要
 version:4.9
+tags:Blueprints
 
 
 

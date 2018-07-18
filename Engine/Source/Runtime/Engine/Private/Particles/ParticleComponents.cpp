@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	UnParticleComponent.cpp: Particle component implementation.
@@ -46,6 +46,9 @@
 #include "Misc/UObjectToken.h"
 #include "Misc/MapErrors.h"
 #include "Engine/StaticMesh.h"
+#include "Interfaces/ITargetPlatform.h"
+#include "DeviceProfiles/DeviceProfile.h"
+#include "DeviceProfiles/DeviceProfileManager.h"
 #if WITH_EDITOR
 #include "Engine/InterpCurveEdSetup.h"
 #include "ObjectEditorUtils.h"
@@ -112,6 +115,11 @@ DECLARE_CYCLE_STAT(TEXT("ParticleComponent CreateRenderState Concurrent GT"), ST
 
 DEFINE_LOG_CATEGORY(LogParticles);
 
+const FGuid FParticleSystemCustomVersion::GUID(0x4A56EB40, 0x10F511DC, 0x92D3347E, 0xB2C96AE7);
+// Register the custom version with core
+FCustomVersionRegistration GRegisterParticleSystemCustomVersion(FParticleSystemCustomVersion::GUID, FParticleSystemCustomVersion::LatestVersion, TEXT("ParticleSystemVer"));
+
+
 int32 GParticleLODBias = 0;
 FAutoConsoleVariableRef CVarParticleLODBias(
 	TEXT("r.ParticleLODBias"),
@@ -129,6 +137,18 @@ static TAutoConsoleVariable<float> CVarQLSpawnRateReferenceLevel(
 	TEXT("\n")
 	TEXT("Default = 2. Value should range from 0 to the maximum FX quality level."),
 	ECVF_Scalability);
+
+
+int32 OldDetailModeToBitmask(int32 OldMode)
+{
+	// low = L+M+H, Medium = M+H, High = H
+	uint32 AllDetailModes = /*(1<<EParticleDetailMode::PDM_VeryLow) |*/ (1 << EParticleDetailMode::PDM_Low) | (1 << EParticleDetailMode::PDM_Medium) | (1 << EParticleDetailMode::PDM_High);
+	uint32 DetailModeBitmask = OldMode == EDetailMode::DM_Low ? AllDetailModes
+		: OldMode == EDetailMode::DM_Medium ? ((1 << EParticleDetailMode::PDM_Medium) | (1 << EParticleDetailMode::PDM_High))
+		: OldMode == EDetailMode::DM_High ? (1 << EParticleDetailMode::PDM_High) : AllDetailModes;
+
+	return DetailModeBitmask;
+}
 
 
 /** Whether to allow particle systems to perform work. */
@@ -303,6 +323,11 @@ void UParticleLODLevel::CompileModules( FParticleEmitterBuildInfo& EmitterBuildI
 	EmitterBuildInfo.EstimatedMaxActiveParticleCount = CalculateMaxActiveParticleCount();
 }
 
+bool UParticleLODLevel::IsPostLoadThreadSafe() const
+{
+	return false;
+}
+
 void UParticleLODLevel::PostLoad()
 {
 	Super::PostLoad();
@@ -417,7 +442,7 @@ void UParticleLODLevel::UpdateModuleLists()
 		UParticleModuleTypeDataMesh* MeshTD = Cast<UParticleModuleTypeDataMesh>(TypeDataModule);
 		if (MeshTD
 			&& MeshTD->Mesh
-			&& MeshTD->Mesh->HasValidRenderData())
+			&& MeshTD->Mesh->HasValidRenderData(false))
 		{
 			UParticleSpriteEmitter* SpriteEmitter = Cast<UParticleSpriteEmitter>(GetOuter());
 			if (SpriteEmitter && (MeshTD->bOverrideMaterial == false))
@@ -760,9 +785,11 @@ bool UParticleLODLevel::IsModuleEditable(UParticleModule* InModule)
 UParticleEmitter::UParticleEmitter(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 	, QualityLevelSpawnRateScale(1.0f)
+	, DetailModeBitmask(PDM_DefaultValue)
 	, bDisabledLODsKeepEmitterAlive(false)
 	, bDisableWhenInsignficant(0)
 	, SignificanceLevel(EParticleSignificanceLevel::Critical)
+	, bUseLegacySpawningBehavior(false)
 {
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
@@ -918,9 +945,27 @@ int32 ParticleEmitterHelper_FixupModuleLODErrors( int32 LODIndex, int32 ModuleIn
 	return Result;
 }
 
+bool UParticleEmitter::IsPostLoadThreadSafe() const
+{
+	return false;
+}
+
+void UParticleEmitter::Serialize(FArchive& Ar)
+{
+	Super::Serialize(Ar);
+
+	Ar.UsingCustomVersion(FParticleSystemCustomVersion::GUID);
+}
+
 void UParticleEmitter::PostLoad()
 {
 	Super::PostLoad();
+
+	const int32 PSysVer = GetLinkerCustomVersion(FParticleSystemCustomVersion::GUID);
+	if (PSysVer < FParticleSystemCustomVersion::FixLegacySpawningBugs)
+	{
+		bUseLegacySpawningBehavior = true;
+	}	
 
 	for (int32 LODIndex = 0; LODIndex < LODLevels.Num(); LODIndex++)
 	{
@@ -946,6 +991,16 @@ void UParticleEmitter::PostLoad()
 
 		}
 	}
+
+	// set up DetailModeFlags from deprecated DetailMode if needed
+	if (DetailModeBitmask == PDM_DefaultValue)
+	{
+		DetailModeBitmask = OldDetailModeToBitmask(DetailMode_DEPRECATED);
+	}
+
+#if	WITH_EDITORONLY_DATA
+	UpdateDetailModeDisplayString();
+#endif
 
 #if WITH_EDITOR
 	if ((GIsEditor == true) && 1)//(IsRunningCommandlet() == false))
@@ -1110,6 +1165,10 @@ void UParticleEmitter::PostEditChangeProperty(FPropertyChangedEvent& PropertyCha
 
 	// Clamp the detail spawn rate scale...
 	QualityLevelSpawnRateScale = FMath::Clamp<float>(QualityLevelSpawnRateScale, 0.0f, 1.0f);
+
+#if	WITH_EDITORONLY_DATA
+	UpdateDetailModeDisplayString();
+#endif
 }
 #endif // WITH_EDITOR
 
@@ -2007,6 +2066,7 @@ UParticleSystem::UParticleSystem(const FObjectInitializer& ObjectInitializer)
 	InsignificantReaction = EParticleSystemInsignificanceReaction::Auto;
 	InsignificanceDelay = 0.0f;
 	MaxSignificanceLevel = EParticleSignificanceLevel::Critical;
+	MaxPoolSize = 32;
 	bShouldManageSignificance = false;
 }
 
@@ -2057,15 +2117,18 @@ bool UParticleSystem::DoesAnyEmitterHaveMotionBlur(int32 LODLevelIndex) const
 {
 	for (auto& EmitterIter : Emitters)
 	{
-		auto* EmitterLOD = EmitterIter->GetLODLevel(LODLevelIndex);
-		if (!EmitterLOD)
+		if (EmitterIter)
 		{
-			continue;
-		}
+			auto* EmitterLOD = EmitterIter->GetLODLevel(LODLevelIndex);
+			if (!EmitterLOD)
+			{
+				continue;
+			}
 
-		if (EmitterLOD->TypeDataModule && EmitterLOD->TypeDataModule->IsMotionBlurEnabled())
-		{
-			return true;
+			if (EmitterLOD->TypeDataModule && EmitterLOD->TypeDataModule->IsMotionBlurEnabled())
+			{
+				return true;
+			}
 		}
 	}
 
@@ -2183,19 +2246,27 @@ void UParticleSystem::PreSave(const class ITargetPlatform* TargetPlatform)
 	for (int32 EmitterIdx = 0; EmitterIdx < NumEmitters; EmitterIdx++)
 	{
 		UParticleEmitter* Emitter = Emitters[EmitterIdx];
-		Emitter->bIsSoloing = false;
-		FLODSoloTrack& SoloTrack = SoloTracking[EmitterIdx];
-		int32 NumLODs = FMath::Min(Emitter->LODLevels.Num(),SoloTrack.SoloEnableSetting.Num());
-		for (int32 LODIdx = 0; LODIdx < NumLODs; LODIdx++)
+		if (Emitter != nullptr)
 		{
-			UParticleLODLevel* LODLevel = Emitter->LODLevels[LODIdx];
+			Emitter->bIsSoloing = false;
+			FLODSoloTrack& SoloTrack = SoloTracking[EmitterIdx];
+			int32 NumLODs = FMath::Min(Emitter->LODLevels.Num(), SoloTrack.SoloEnableSetting.Num());
+			for (int32 LODIdx = 0; LODIdx < NumLODs; LODIdx++)
 			{
-				// Restore the enabled settings - ie turn off soloing...
-				LODLevel->bEnabled = SoloTrack.SoloEnableSetting[LODIdx];
+				UParticleLODLevel* LODLevel = Emitter->LODLevels[LODIdx];
+				{
+					// Restore the enabled settings - ie turn off soloing...
+					LODLevel->bEnabled = SoloTrack.SoloEnableSetting[LODIdx];
+				}
 			}
 		}
 	}
 #endif // WITH_EDITORONLY_DATA
+}
+
+bool UParticleSystem::IsPostLoadThreadSafe() const
+{
+	return false;
 }
 
 void UParticleSystem::PostLoad()
@@ -2231,6 +2302,12 @@ void UParticleSystem::PostLoad()
 
 		if (!bCookedOut)
 		{
+			if (Emitter->LODLevels.Num() == 0)
+			{
+				UE_LOG(LogParticles, Warning, TEXT("ParticleSystem contains emitter with no lod levels - %s - %s"), *GetFullName(), *Emitter->GetFullName());
+				continue;
+			}
+
 			UParticleLODLevel* LODLevel = Emitter->LODLevels[0];
 			check(LODLevel);
 
@@ -2428,6 +2505,50 @@ void UParticleSystem::PostLoad()
 	SetupSoloing();
 }
 
+void UParticleSystem::Serialize(FArchive& Ar)
+{
+	Ar.UsingCustomVersion(FParticleSystemCustomVersion::GUID);
+
+	int32 CookTargetPlatformDetailModeMask = 0xFFFFFFFF;
+#if WITH_EDITOR
+	if (Ar.IsCooking())
+	{
+		// If we're cooking, check the device profile for whether we want to eliminate all emitters that don't match the detail mode. 
+		// This will only work if scalability settings affecting detail mode can not be changed at runtime (depends on platform)!
+		//
+		if (UDeviceProfile* DeviceProfile = UDeviceProfileManager::Get().FindProfile(Ar.CookingTarget()->IniPlatformName()))
+		{
+			// if we don't prune, we assume all detail modes
+			int32 CVarDoPrune = 0;
+			if (DeviceProfile->GetConsolidatedCVarValue(TEXT("fx.PruneEmittersOnCookByDetailMode"), CVarDoPrune) && CVarDoPrune == 1)
+			{
+				// get the detail mode from the device platform ini; if it's not there, we assume all detail modes
+				int32 CVarDetailMode = 3;
+				if (DeviceProfile->GetConsolidatedCVarValue(TEXT("r.DetailMode"), CVarDetailMode))
+				{
+					CookTargetPlatformDetailModeMask = (1 << CVarDetailMode);
+				}
+			}
+		}
+
+		// if we're cooking, save only emitters with matching detail modes
+		for (int32 EmitterIdx = 0; EmitterIdx<Emitters.Num(); EmitterIdx++)
+		{
+			// null out if detail mode doesn't match
+			if (Emitters[EmitterIdx] && !(Emitters[EmitterIdx]->DetailModeBitmask & CookTargetPlatformDetailModeMask))
+			{
+				UE_LOG(LogParticles, Display, TEXT("Pruning emitter, detail mode mismatch (PDM %i) (only works if platform can't change detail mode at runtime!): %s - set fx.PruneEmittersOnCookByDetailMode to 0 in DeviceProfile.ini for the target profile to avoid"), Emitters[EmitterIdx]->DetailModeBitmask, *Emitters[EmitterIdx]->EmitterName.ToString());
+				Emitters[EmitterIdx] = nullptr;
+			}
+		}
+	}
+#endif
+
+	Super::Serialize(Ar);
+
+}
+
+
 void UParticleSystem::UpdateColorModuleClampAlpha(UParticleModuleColorBase* ColorModule)
 {
 	if (ColorModule)
@@ -2445,11 +2566,11 @@ void UParticleSystem::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) c
 	const float BoundsSize = FixedRelativeBoundingBox.GetSize().GetMax();
 	OutTags.Add(FAssetRegistryTag("FixedBoundsSize", bUseFixedRelativeBoundingBox ? FString::Printf(TEXT("%.2f"), BoundsSize) : FString(TEXT("None")), FAssetRegistryTag::TT_Numerical));
 
-	OutTags.Add(FAssetRegistryTag("NumEmitters", Lex::ToString(Emitters.Num()), FAssetRegistryTag::TT_Numerical));
+	OutTags.Add(FAssetRegistryTag("NumEmitters", LexToString(Emitters.Num()), FAssetRegistryTag::TT_Numerical));
 
-	OutTags.Add(FAssetRegistryTag("NumLODs", Lex::ToString(LODDistances.Num()), FAssetRegistryTag::TT_Numerical));
+	OutTags.Add(FAssetRegistryTag("NumLODs", LexToString(LODDistances.Num()), FAssetRegistryTag::TT_Numerical));
 
-	OutTags.Add(FAssetRegistryTag("WarmupTime", Lex::ToString(WarmupTime), FAssetRegistryTag::TT_Numerical));
+	OutTags.Add(FAssetRegistryTag("WarmupTime", LexToString(WarmupTime), FAssetRegistryTag::TT_Numerical));
 
 	// Done here instead of as an AssetRegistrySearchable string to avoid the long prefix on the enum value string
 	FString LODMethodString = TEXT("Unknown");
@@ -2484,10 +2605,10 @@ void UParticleSystem::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) c
 			++NumEmittersAtEachSig[(int32)Emitter->SignificanceLevel];			
 		}
 	}
-	OutTags.Add(FAssetRegistryTag("Critical Emitters", Lex::ToString(NumEmittersAtEachSig[(int32)EParticleSignificanceLevel::Critical]), FAssetRegistryTag::TT_Numerical));
-	OutTags.Add(FAssetRegistryTag("High Emitters", Lex::ToString(NumEmittersAtEachSig[(int32)EParticleSignificanceLevel::High]), FAssetRegistryTag::TT_Numerical));
-	OutTags.Add(FAssetRegistryTag("Medium Emitters", Lex::ToString(NumEmittersAtEachSig[(int32)EParticleSignificanceLevel::Medium]), FAssetRegistryTag::TT_Numerical));
-	OutTags.Add(FAssetRegistryTag("Low Emitters", Lex::ToString(NumEmittersAtEachSig[(int32)EParticleSignificanceLevel::Low]), FAssetRegistryTag::TT_Numerical));
+	OutTags.Add(FAssetRegistryTag("Critical Emitters", LexToString(NumEmittersAtEachSig[(int32)EParticleSignificanceLevel::Critical]), FAssetRegistryTag::TT_Numerical));
+	OutTags.Add(FAssetRegistryTag("High Emitters", LexToString(NumEmittersAtEachSig[(int32)EParticleSignificanceLevel::High]), FAssetRegistryTag::TT_Numerical));
+	OutTags.Add(FAssetRegistryTag("Medium Emitters", LexToString(NumEmittersAtEachSig[(int32)EParticleSignificanceLevel::Medium]), FAssetRegistryTag::TT_Numerical));
+	OutTags.Add(FAssetRegistryTag("Low Emitters", LexToString(NumEmittersAtEachSig[(int32)EParticleSignificanceLevel::Low]), FAssetRegistryTag::TT_Numerical));
 
 	Super::GetAssetRegistryTags(OutTags);
 }
@@ -2522,6 +2643,16 @@ bool UParticleSystem::UsesCPUCollision() const
 
 bool UParticleSystem::CanBeClusterRoot() const
 {
+	return true;
+}
+
+bool UParticleSystem::CanBePooled()const
+{
+	if (MaxPoolSize == 0)
+	{
+		return false;
+	}
+
 	return true;
 }
 
@@ -3163,13 +3294,14 @@ UParticleSystemComponent::UParticleSystemComponent(const FObjectInitializer& Obj
 	CustomTimeDilation = 1.0f;
 	bAllowConcurrentTick = true;
 	bAsyncWorkOutstanding = false;
+	PoolingMethod = EPSCPoolMethod::None;
 	bWasActive = false;
 #if WITH_EDITORONLY_DATA
 	EditorDetailMode = -1;
 #endif // WITH_EDITORONLY_DATA
 	LastCheckedDetailMode = -1;
 	SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
-	bGenerateOverlapEvents = false;
+	SetGenerateOverlapEvents(false);
 
 	bCastVolumetricTranslucentShadow = true;
 
@@ -3253,7 +3385,7 @@ void UParticleSystemComponent::OnSignificanceChanged(bool bSignificant, bool bAp
 		}
 	}
 	else
-	{
+	{	
 		if (bAsync)
 		{
 			SetComponentTickEnabledAsync(false);
@@ -3578,9 +3710,9 @@ void UParticleSystemComponent::OnUnregister()
 		TEXT("OnUnregister %s Component=0x%p Scene=0x%p FXSystem=0x%p"),
 		Template != NULL ? *Template->GetName() : TEXT("NULL"), this, GetWorld()->Scene, FXSystem);
 
-	bWasActive = bIsActive;
+	bWasActive = bIsActive && !bWasDeactivated;
 
-	ResetParticles(true);
+	ResetParticles(!bAllowRecycling);
 	FXSystem = NULL;
 	Super::OnUnregister();
 
@@ -3755,6 +3887,8 @@ FDynamicEmitterDataBase* UParticleSystemComponent::CreateDynamicDataFromReplay( 
 						bSelected,
 						MeshEmitterInstance,
 						MeshEmitterInstance->MeshTypeData->Mesh,
+						MeshEmitterInstance->MeshTypeData->bUseStaticMeshLODs,
+						MeshEmitterInstance->MeshTypeData->LODSizeScale,
 						InFeatureLevel);
 					EmitterData = NewEmitterData;
 				}
@@ -3958,9 +4092,16 @@ FParticleDynamicData* UParticleSystemComponent::CreateDynamicData(ERHIFeatureLev
 			ParticleDynamicData->DynamicEmitterDataArray.Reset();
 			ParticleDynamicData->DynamicEmitterDataArray.Reserve(EmitterInstances.Num());
 
+			int32 NumMeshEmitterLODIndices = 0;
+
 			//QUICK_SCOPE_CYCLE_COUNTER(STAT_ParticleSystemComponent_GetDynamicData);
 			for (int32 EmitterIndex = 0; EmitterIndex < EmitterInstances.Num(); EmitterIndex++)
 			{
+				if (SceneProxy)
+				{
+					++NumMeshEmitterLODIndices;
+				}
+
 				FDynamicEmitterDataBase* NewDynamicEmitterData = NULL;
 				FParticleEmitterInstance* EmitterInst = EmitterInstances[EmitterIndex];
 				if (EmitterInst)
@@ -3991,6 +4132,8 @@ FParticleDynamicData* UParticleSystemComponent::CreateDynamicData(ERHIFeatureLev
 						ParticleDynamicData->DynamicEmitterDataArray.Add( NewDynamicEmitterData );
 						NewDynamicEmitterData->EmitterIndex = EmitterIndex;
 
+						NewDynamicEmitterData->EmitterIndex = EmitterIndex;
+						
 						// Are we current capturing particle state?
 						if( ReplayState == PRS_Capturing )
 						{
@@ -4022,6 +4165,20 @@ FParticleDynamicData* UParticleSystemComponent::CreateDynamicData(ERHIFeatureLev
 					EmitterInst->LastTickDurationMs += FPlatformTime::ToMilliseconds(EndTime - StartTime);
 #endif
 				}
+			}
+
+			if (SceneProxy && static_cast<FParticleSystemSceneProxy*>(SceneProxy)->MeshEmitterLODIndices.Num() != NumMeshEmitterLODIndices)
+			{
+				ENQUEUE_RENDER_COMMAND(UpdateMeshEmitterLODIndicesCmd)(
+					[Proxy = SceneProxy, NumMeshEmitterLODIndices](FRHICommandList&)
+				{
+					if (Proxy)
+					{
+						FParticleSystemSceneProxy *ParticleProxy = static_cast<FParticleSystemSceneProxy*>(Proxy);
+						ParticleProxy->MeshEmitterLODIndices.Reset();
+						ParticleProxy->MeshEmitterLODIndices.AddZeroed(NumMeshEmitterLODIndices);
+					}
+				});
 			}
 		}
 	}
@@ -4557,7 +4714,6 @@ bool UParticleSystemComponent::IsReadyForOwnerToAutoDestroy() const
 void UParticleSystemComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
 {
 	LLM_SCOPE(ELLMTag::Particles);
-
 	FInGameScopedCycleCounter InGameCycleCounter(GetWorld(), EInGamePerfTrackers::VFXSignificance, EInGamePerfTrackerThreads::GameThread, bIsManagingSignificance);
 
 	if (Template == nullptr || Template->Emitters.Num() == 0)
@@ -4632,25 +4788,26 @@ void UParticleSystemComponent::TickComponent(float DeltaTime, enum ELevelTick Ti
 	// See if DetailMode has changed since the last time we checked
 	else if (bWarmingUp == false && LastCheckedDetailMode != DetailModeCVar)
 	{
-		// Save the detail mode we've checked
-		LastCheckedDetailMode = DetailModeCVar;
-
-		if (!bRequiresReset)
+		if (!bRequiresReset && LastCheckedDetailMode!=-1)	// only reset if the component isn't new and detail mode has really changed
 		{
+			check(DetailModeCVar < NUM_DETAILMODE_FLAGS);
 			SCOPE_CYCLE_COUNTER(STAT_UParticleSystemComponent_CheckForReset);
 			for (int32 EmitterIndex = 0; EmitterIndex < EmitterInstances.Num(); ++EmitterIndex)
 			{
-				FParticleEmitterInstance* Instance = EmitterInstances[EmitterIndex];
-				if (Instance && Instance->SpriteTemplate)
+				UParticleEmitter *Emitter = Template->Emitters[EmitterIndex];
+				// [op] this should exist if the emitter hasn't been cooked out; need to reset always in this case,
+				//   not only when the detail mode doesn't match, since we need to turn emitters back on as well
+				//   and can't check for instance, because it may not have been created if detail mode is mismatched
+				if(Emitter)
 				{
-					if (Instance->SpriteTemplate->DetailMode > DetailModeCVar)
-					{
-						bRequiresReset = true;
-						break;
-					}
+					bRequiresReset = true;
+					break;
 				}
 			}
 		}
+
+		// Save the detail mode we've checked
+		LastCheckedDetailMode = DetailModeCVar;
 	}
 	
 	if (bRequiresReset)
@@ -4749,7 +4906,7 @@ void UParticleSystemComponent::TickComponent(float DeltaTime, enum ELevelTick Ti
 		for (FConstPlayerControllerIterator Iterator = World->GetPlayerControllerIterator(); Iterator; ++Iterator)
 		{
 			APlayerController* PlayerController = Iterator->Get();
-			if (PlayerController->IsLocalPlayerController())
+			if (PlayerController && PlayerController->IsLocalPlayerController())
 			{
 				FVector POVLoc;
 				FRotator POVRotation;
@@ -4782,7 +4939,7 @@ void UParticleSystemComponent::TickComponent(float DeltaTime, enum ELevelTick Ti
 		BurstEvents.Reset();
 		TotalActiveParticles = 0;
 		bNeedsFinalize = true;
-		if (!ThisTickFunction || !ThisTickFunction->IsCompletionHandleValid() || !CanTickInAnyThread() || FXConsoleVariables::bFreezeParticleSimulation || !FXConsoleVariables::bAllowAsyncTick ||
+		if (!ThisTickFunction || !ThisTickFunction->IsCompletionHandleValid() || !CanTickInAnyThread() || FXConsoleVariables::bFreezeParticleSimulation || !FXConsoleVariables::bAllowAsyncTick || !FApp::ShouldUseThreadingForPerformance() ||
 			GDistributionType == 0) // this may not be absolutely required, however if you are using distributions it will be glacial anyway. If you want to get rid of this, note that some modules use this indirectly as their criteria for CanTickInAnyThread
 		{
 			bDisallowAsync = true;
@@ -5089,6 +5246,11 @@ void UParticleSystemComponent::WaitForAsyncAndFinalize(EForceAsyncWorkCompletion
 {
 	if (AsyncWork.GetReference() && !AsyncWork->IsComplete())
 	{
+		bool bIsInGameThread = bDefinitelyGameThread || IsInGameThread();
+		if (bIsInGameThread)
+		{
+			FXAsyncBatcher.Flush();
+		}
 		double StartTime = FPlatformTime::Seconds();
 		if (bDefinitelyGameThread)
 		{
@@ -5118,7 +5280,7 @@ void UParticleSystemComponent::WaitForAsyncAndFinalize(EForceAsyncWorkCompletion
 		float ThisTime = float(FPlatformTime::Seconds() - StartTime) * 1000.0f;
 		if (Behavior != SILENT && ThisTime >= KINDA_SMALL_NUMBER)
 		{
-			if (bDefinitelyGameThread || IsInGameThread())
+			if (bIsInGameThread)
 			{
 				UE_LOG(LogParticles, Warning, TEXT("Stalled gamethread waiting for particles %5.6fms '%s' '%s'"), ThisTime, *GetFullNameSafe(this), *GetFullNameSafe(Template));
 			}
@@ -5171,27 +5333,29 @@ void UParticleSystemComponent::InitParticles()
 		for (int32 Idx = 0; Idx < NumEmitters; Idx++)
 		{
 			UParticleEmitter* Emitter = Template->Emitters[Idx];
-			FParticleEmitterInstance* Instance = NumInstances == 0 ? NULL : EmitterInstances[Idx];
-			
-			const bool bDetailModeAllowsRendering = DetailMode <= GlobalDetailMode && Emitter->DetailMode <= GlobalDetailMode;
-			const bool bShouldCreateAndOrInit = bDetailModeAllowsRendering && Emitter->HasAnyEnabledLODs() && bCanEverRender;
-
-			if (bShouldCreateAndOrInit)
+			if (Emitter)
 			{
-				if (Instance)
-				{
-					Instance->SetHaltSpawning(false);
-					Instance->SetHaltSpawningExternal(false);
-				}
-				else
-				{
-					Instance = Emitter->CreateInstance(this);
-					EmitterInstances[Idx] = Instance;
-				}
+				FParticleEmitterInstance* Instance = NumInstances == 0 ? NULL : EmitterInstances[Idx];
+				check(GlobalDetailMode < NUM_DETAILMODE_FLAGS);
+				const bool bDetailModeAllowsRendering = DetailMode <= GlobalDetailMode && (Emitter->DetailModeBitmask & (1 << GlobalDetailMode));
+				const bool bShouldCreateAndOrInit = bDetailModeAllowsRendering && Emitter->HasAnyEnabledLODs() && bCanEverRender;
 
-				if (Instance)
+				if (bShouldCreateAndOrInit)
 				{
-					Instance->bEnabled = true;
+					if (Instance)
+					{
+						Instance->SetHaltSpawning(false);
+						Instance->SetHaltSpawningExternal(false);
+					}
+					else
+					{
+						Instance = Emitter->CreateInstance(this);
+						EmitterInstances[Idx] = Instance;
+					}
+
+					if (Instance)
+					{
+						Instance->bEnabled = true;
 						Instance->InitParameters(Emitter, this);
 						Instance->Init();
 
@@ -5199,10 +5363,10 @@ void UParticleSystemComponent::InitParticles()
 						bSetLodLevels |= !bIsFirstCreate;//Only set lod levels if we init any instances and it's not the first creation time.
 					}
 				}
-			else
-			{
-				if (Instance)
+				else
 				{
+					if (Instance)
+					{
 #if STATS
 						Instance->PreDestructorCall();
 #endif
@@ -5210,6 +5374,7 @@ void UParticleSystemComponent::InitParticles()
 						EmitterInstances[Idx] = NULL;
 						bClearDynamicData = true;
 					}
+				}
 			}
 		}
 
@@ -5336,6 +5501,12 @@ void UParticleSystemComponent::SetTemplate(class UParticleSystem* NewTemplate)
 {
 	SCOPE_CYCLE_COUNTER(STAT_ParticleSetTemplateTime);
 	ForceAsyncWorkCompletion(STALL);
+
+	if (PoolingMethod != EPSCPoolMethod::None)
+	{
+		UE_LOG(LogParticles, Warning, TEXT("Changing template on pooled PSC! This will cause a reinit of the system, eliminating the benefits of pooling! Please avoid doing this.\nPSC: %s\nOld Template: %s\nNew Template")
+		, *GetFullName(), *Template->GetFullName(), *NewTemplate->GetFullName());
+	}
 
 	if( GIsAllowingParticles || GIsEditor ) 
 	{
@@ -5625,6 +5796,9 @@ void UParticleSystemComponent::ActivateSystem(bool bFlagAsJustAttached)
 
 void UParticleSystemComponent::Complete()
 {
+	UWorld* World = GetWorld();
+	check(World);
+
 	UE_LOG(LogParticles, Verbose,
 		TEXT("HasCompleted()==true @ %fs %s"), GetWorld()->TimeSeconds,
 		Template != NULL ? *Template->GetName() : TEXT("NULL"));
@@ -5636,7 +5810,16 @@ void UParticleSystemComponent::Complete()
 	bIsActive = false;
 	SetComponentTickEnabled(false);
 
-	if (bAutoDestroy)
+	if (PoolingMethod == EPSCPoolMethod::AutoRelease)
+	{
+		World->GetPSCPool().ReclaimWorldParticleSystem(this);
+	}
+	else if (PoolingMethod == EPSCPoolMethod::ManualRelease_OnComplete)
+	{
+		PoolingMethod = EPSCPoolMethod::ManualRelease;
+		World->GetPSCPool().ReclaimWorldParticleSystem(this);
+	}
+	else if (bAutoDestroy)
 	{
 		DestroyComponent();
 	}
@@ -5915,6 +6098,32 @@ void UParticleSystemComponent::SetTrailSourceData(FName InFirstSocketName, FName
 		{
 			Inst->SetTrailSourceData(InFirstSocketName, InSecondSocketName, InWidthMode, InWidth);
 		}
+	}
+}
+
+void UParticleSystemComponent::ReleaseToPool()
+{
+	if (PoolingMethod != EPSCPoolMethod::ManualRelease)
+	{
+		UE_LOG(LogParticles, Warning, TEXT("Manually releasing a PSC to the pool that was not spawned with EPSCPoolMethod::ManualRelease. Template=%s Component=%s"),
+			Template ? *Template->GetPathName() : TEXT("NULL"),
+			*GetPathName()
+		);
+		return;
+	}
+	
+	if (bWasCompleted)
+	{
+		//If we're already complete then release to the pool straight away.
+		UWorld* World = GetWorld();
+		check(World);
+		World->GetPSCPool().ReclaimWorldParticleSystem(this);
+	}
+	else
+	{
+		//If we haven't completed, deactivate and defer release to pool.
+		PoolingMethod = EPSCPoolMethod::ManualRelease_OnComplete;
+		Deactivate();
 	}
 }
 
@@ -6431,7 +6640,7 @@ int32 UParticleSystemComponent::DetermineLODLevelForLocation(const FVector& Effe
 			for( FConstPlayerControllerIterator Iterator = World->GetPlayerControllerIterator(); Iterator; ++Iterator )
 			{
 				APlayerController* PlayerController = Iterator->Get();
-				if(PlayerController->IsLocalPlayerController())
+				if(PlayerController && PlayerController->IsLocalPlayerController())
 				{
 					FVector* POVLoc = new(PlayerViewLocations) FVector;
 					FRotator POVRotation;
@@ -7247,7 +7456,7 @@ bool UParticleSystemComponent::ShouldComputeLODFromGameThread()
 		for (FConstPlayerControllerIterator Iterator = World->GetPlayerControllerIterator(); Iterator; ++Iterator)
 		{
 			APlayerController* PlayerController = Iterator->Get();
-			if (PlayerController->IsLocalPlayerController())
+			if (PlayerController && PlayerController->IsLocalPlayerController())
 			{
 				bUseGameThread = true;
 				break;
@@ -7345,6 +7554,65 @@ int32 UParticleSystemComponent::GetNamedMaterialIndex(FName Name) const
 	return INDEX_NONE;
 }
 
+/**
+* Archive for counting struct memory
+*/
+class FArchiveCountStructMem : public FArchive
+{
+public:
+	FArchiveCountStructMem()
+		: Num(0), Max(0)
+	{
+		ArIsCountingMemory = 1;
+	}
+	void CountBytes(SIZE_T InNum, SIZE_T InMax)
+	{
+		Num += InNum;
+		Max += InMax;
+	}
+	SIZE_T Num, Max;
+};
+
+uint32 UParticleSystemComponent::GetApproxMemoryUsage()const
+{
+	uint32 MemUsage = sizeof(UParticleSystemComponent);
+
+	for (FParticleEmitterInstance* EmitterInst : EmitterInstances)
+	{
+		if (EmitterInst)
+		{
+			int32 Num;
+			int32 Max;
+			EmitterInst->GetAllocatedSize(Num, Max);
+			MemUsage += Max;
+		}
+	}
+
+	FParticleSystemSceneProxy* PSysSceneProxy = (FParticleSystemSceneProxy*)SceneProxy;
+	if (PSysSceneProxy != NULL)
+	{
+		MemUsage += PSysSceneProxy->GetAllocatedSize();
+		if (FParticleDynamicData* DynamicData = PSysSceneProxy->GetDynamicData())
+		{
+			MemUsage += DynamicData->GetMemoryFootprint();
+			for (FDynamicEmitterDataBase* DynEmitterData : DynamicData->DynamicEmitterDataArray)
+			{
+				if (DynEmitterData)
+				{
+					//TODO: This is gonna be relatively small but maybe work adding
+					//MemUsage += DynEmitterData->GetMemoryFootprint();
+
+					FArchiveCountStructMem MemCounter;
+					const_cast<FDynamicEmitterReplayDataBase&>(DynEmitterData->GetSource()).Serialize(MemCounter);
+
+					MemUsage += MemCounter.Max;
+				}
+			}
+		}
+	}
+
+	return MemUsage;
+}
 
 UParticleSystemReplay::UParticleSystemReplay(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

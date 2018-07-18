@@ -68,7 +68,7 @@ Below, you will find instructions on project and camera setup requirements for a
     [REGION:simpletable]
 	|Component Name| Value |
     |--------|------------|
-    |** Scene**|VRCameraRoot|
+    |**Scene**|VRCameraRoot|
     |**Camera**|VRCamera|
 	[/region]
 

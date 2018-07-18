@@ -44,11 +44,11 @@ void FGameplayAbilityActorInfo::InitFromActor(AActor *InOwnerActor, AActor *InAv
 		InAbilitySystemComponent->OnPlayerControllerSet();
 	}
 
-	if (AvatarActor.Get())
+	if (AActor* const AvatarActorPtr = AvatarActor.Get())
 	{
 		// Grab Components that we care about
-		SkeletalMeshComponent = AvatarActor->FindComponentByClass<USkeletalMeshComponent>();
-		MovementComponent = AvatarActor->FindComponentByClass<UMovementComponent>();
+		SkeletalMeshComponent = AvatarActorPtr->FindComponentByClass<USkeletalMeshComponent>();
+		MovementComponent = AvatarActorPtr->FindComponentByClass<UMovementComponent>();
 	}
 	else
 	{
@@ -73,9 +73,9 @@ void FGameplayAbilityActorInfo::ClearActorInfo()
 
 bool FGameplayAbilityActorInfo::IsLocallyControlled() const
 {
-	if (PlayerController.IsValid())
+	if (const APlayerController* PC = PlayerController.Get())
 	{
-		return PlayerController->IsLocalController();
+		return PC->IsLocalController();
 	}
 	else if (IsNetAuthority())
 	{
@@ -88,9 +88,9 @@ bool FGameplayAbilityActorInfo::IsLocallyControlled() const
 
 bool FGameplayAbilityActorInfo::IsLocallyControlledPlayer() const
 {
-	if (PlayerController.IsValid())
+	if (const APlayerController* PC = PlayerController.Get())
 	{
-		return PlayerController->IsLocalController();
+		return PC->IsLocalController();
 	}
 
 	return false;
@@ -99,9 +99,10 @@ bool FGameplayAbilityActorInfo::IsLocallyControlledPlayer() const
 bool FGameplayAbilityActorInfo::IsNetAuthority() const
 {
 	// Make sure this works on pending kill actors
-	if (OwnerActor.IsValid(true))
+	AActor* const OwnerActorPtr = OwnerActor.Get(/*bEvenIfPendingKill=*/ true);
+	if (OwnerActorPtr)
 	{
-		return (OwnerActor.Get(true)->Role == ROLE_Authority);
+		return (OwnerActorPtr->Role == ROLE_Authority);
 	}
 
 	// This rarely happens during shutdown cases for reasons that aren't quite clear
@@ -158,9 +159,9 @@ UGameplayAbility* FGameplayAbilitySpec::GetPrimaryInstance() const
 	return nullptr;
 }
 
-bool FGameplayAbilitySpec::ShouldReplicatedAbilitySpec() const
+bool FGameplayAbilitySpec::ShouldReplicateAbilitySpec() const
 {
-	if (Ability && Ability->ShouldReplicatedAbilitySpec(*this))
+	if (Ability && Ability->ShouldReplicateAbilitySpec(*this))
 	{
 		return true;
 	}
@@ -195,6 +196,32 @@ void FGameplayAbilitySpecContainer::RegisterWithOwner(UAbilitySystemComponent* I
 }
 
 // ----------------------------------------------------
+
+FGameplayAbilitySpec::FGameplayAbilitySpec(UGameplayAbility* InAbility, int32 InLevel, int32 InInputID, UObject* InSourceObject)
+	: Ability(InAbility)
+	, Level(InLevel)
+	, InputID(InInputID)
+	, SourceObject(InSourceObject)
+	, ActiveCount(0)
+	, InputPressed(false)
+	, RemoveAfterActivation(false)
+	, PendingRemove(false)
+{
+	Handle.GenerateNewHandle();
+}
+
+FGameplayAbilitySpec::FGameplayAbilitySpec(TSubclassOf<UGameplayAbility> InAbilityClass, int32 InLevel, int32 InInputID, UObject* InSourceObject)
+	: Ability(InAbilityClass ? InAbilityClass.GetDefaultObject() : nullptr)
+	, Level(InLevel)
+	, InputID(InInputID)
+	, SourceObject(InSourceObject)
+	, ActiveCount(0)
+	, InputPressed(false)
+	, RemoveAfterActivation(false)
+	, PendingRemove(false)
+{
+	Handle.GenerateNewHandle();
+}
 
 FGameplayAbilitySpec::FGameplayAbilitySpec(FGameplayAbilitySpecDef& InDef, int32 InGameplayEffectLevel, FActiveGameplayEffectHandle InGameplayEffectHandle)
 	: Ability(InDef.Ability ? InDef.Ability->GetDefaultObject<UGameplayAbility>() : nullptr)

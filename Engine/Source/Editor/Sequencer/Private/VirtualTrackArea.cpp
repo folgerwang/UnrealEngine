@@ -2,11 +2,10 @@
 
 #include "VirtualTrackArea.h"
 #include "SSequencerTreeView.h"
-#include "GroupedKeyArea.h"
 #include "SequencerTrackNode.h"
 
 FVirtualTrackArea::FVirtualTrackArea(const FSequencer& InSequencer, SSequencerTreeView& InTreeView, const FGeometry& InTrackAreaGeometry)
-	: FTimeToPixel(InTrackAreaGeometry, InSequencer.GetViewRange())
+	: FTimeToPixel(InTrackAreaGeometry, InSequencer.GetViewRange(), InSequencer.GetFocusedTickResolution())
 	, TreeView(InTreeView)
 	, TrackAreaGeometry(InTrackAreaGeometry)
 {
@@ -25,7 +24,7 @@ float FVirtualTrackArea::VerticalOffsetToPixel(float InOffset) const
 FVector2D FVirtualTrackArea::PhysicalToVirtual(FVector2D InPosition) const
 {
 	InPosition.Y = PixelToVerticalOffset(InPosition.Y);
-	InPosition.X = PixelToTime(InPosition.X);
+	InPosition.X = PixelToSeconds(InPosition.X);
 
 	return InPosition;
 }
@@ -33,7 +32,7 @@ FVector2D FVirtualTrackArea::PhysicalToVirtual(FVector2D InPosition) const
 FVector2D FVirtualTrackArea::VirtualToPhysical(FVector2D InPosition) const
 {
 	InPosition.Y = VerticalOffsetToPixel(InPosition.Y);
-	InPosition.X = TimeToPixel(InPosition.X);
+	InPosition.X = SecondsToPixel(InPosition.X);
 
 	return InPosition;
 }
@@ -73,7 +72,7 @@ TOptional<FSectionHandle> FVirtualTrackArea::HitTestSection(FVector2D InPhysical
 
 		if (TrackNode.IsValid())
 		{
-			float Time = PixelToTime(InPhysicalPosition.X);
+			FFrameNumber Time = PixelToFrame(InPhysicalPosition.X).FloorToFrame();
 
 			const auto& Sections = TrackNode->GetSections();
 
@@ -120,8 +119,9 @@ FSequencerSelectedKey FVirtualTrackArea::HitTestKey(FVector2D InPhysicalPosition
 		return FSequencerSelectedKey();
 	}
 
-	const float KeyLeft  = PixelToTime(InPhysicalPosition.X - SequencerSectionConstants::KeySize.X/2);
-	const float KeyRight = PixelToTime(InPhysicalPosition.X + SequencerSectionConstants::KeySize.X/2);
+	const double   KeyLeft  = PixelToSeconds(InPhysicalPosition.X - SequencerSectionConstants::KeySize.X/2);
+	const double   KeyRight = PixelToSeconds(InPhysicalPosition.X + SequencerSectionConstants::KeySize.X/2);
+	TRange<FFrameNumber> KeyRange((KeyLeft * GetTickResolution()).FloorToFrame(), (KeyRight * GetTickResolution()).CeilToFrame());
 
 	TArray<TSharedRef<IKeyArea>> KeyAreas;
 
@@ -138,40 +138,49 @@ FSequencerSelectedKey FVirtualTrackArea::HitTestKey(FVector2D InPhysicalPosition
 		for (auto& KeyArea : KeyAreaNode->GetAllKeyAreas())
 		{
 			UMovieSceneSection* Section = KeyArea->GetOwningSection();
-			if (Section->GetStartTime() <= KeyRight && Section->GetEndTime() >= KeyLeft)
+			if (Section->GetRange().Overlaps(KeyRange))
 			{
 				KeyAreas.Add(KeyArea);
 			}
 		}
 	}
-	// Failing that, and the node is collapsed, we check for key groupings
+	// Failing that, and the node is collapsed, we check for collapsed key areas that are underneath this node
 	else if (!Node->IsExpanded())
 	{
 		TSharedPtr<FSequencerTrackNode> TrackNode = GetParentTrackNode(*Node);
 		if (TrackNode.IsValid())
 		{
+			TArray<TSharedRef<FSequencerSectionKeyAreaNode>> KeyAreaNodes;
+			TrackNode->GetChildKeyAreaNodesRecursively(KeyAreaNodes);
+
 			for (TSharedRef<ISequencerSection> SectionInterface : TrackNode->GetSections())
 			{
 				UMovieSceneSection* Section = SectionInterface->GetSectionObject();
-				if (Section->GetStartTime() <= KeyRight && Section->GetEndTime() >= KeyLeft)
+				if (Section->GetRange().Overlaps(KeyRange))
 				{
-					KeyAreas.Add(Node->GetKeyGrouping(Section));
+					for (TSharedRef<FSequencerSectionKeyAreaNode> ChildKeyAreaNode : KeyAreaNodes)
+					{
+						TSharedPtr<IKeyArea> KeyArea = ChildKeyAreaNode->IsHidden() ? nullptr : ChildKeyAreaNode->GetKeyArea(Section);
+						if (KeyArea.IsValid())
+						{
+							KeyAreas.Add(KeyArea.ToSharedRef());
+						}
+					}
 				}
 			}
 		}
 	}
 
 	// Search for any key that matches the position
-	// todo: investigate if this would be faster as a sort + binary search, rather than linear search
-	for (auto& KeyArea : KeyAreas)
+	TArray<FKeyHandle> Handles;
+	for (TSharedRef<IKeyArea> KeyArea : KeyAreas)
 	{
-		for (FKeyHandle Key : KeyArea->GetUnsortedKeyHandles())
+		Handles.Reset();
+		KeyArea->GetKeyHandles(Handles, KeyRange);
+
+		if (Handles.Num())
 		{
-			const float Time = KeyArea->GetKeyTime(Key);
-			if (Time >= KeyLeft && Time <= KeyRight)
-			{
-				return FSequencerSelectedKey(*KeyArea->GetOwningSection(), KeyArea, Key);
-			}
+			return FSequencerSelectedKey(*KeyArea->GetOwningSection(), KeyArea, Handles[0]);
 		}
 	}
 

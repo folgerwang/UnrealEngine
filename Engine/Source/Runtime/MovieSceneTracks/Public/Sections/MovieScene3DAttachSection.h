@@ -23,14 +23,12 @@ class UMovieScene3DAttachSection
 public:
 
 	/** 
-	 * Adds an attach to the section
+	 * Sets the object to attach to
 	 *
-	 * @param Time	The location in time where the attach should be added
-	 * @param SequenceEndTime   The time at the end of the sequence, by default the attach is set to end at this time
 	 * @param InAttachBindingId The object binding id to the path
 	 */
-	void AddAttach(float Time, float SequenceEndTime, const FMovieSceneObjectBindingID& InAttachBindingID);
-	
+	void SetAttachTargetID(const FMovieSceneObjectBindingID& InAttachBindingID);
+
 public:
 
 	UPROPERTY(EditAnywhere, Category="Attach")

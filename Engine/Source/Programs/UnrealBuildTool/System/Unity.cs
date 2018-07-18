@@ -164,13 +164,15 @@ namespace UnrealBuildTool
 		/// <param name="CompileEnvironment">The environment that is used to compile the C++ files.</param>
 		/// <param name="WorkingSet">Interface to query files which belong to the working set</param>
 		/// <param name="BaseName">Base name to use for the Unity files</param>
+		/// <param name="IntermediateDirectory">Intermediate directory for unity cpp files</param>
 		/// <returns>The "unity" C++ files.</returns>
 		public static List<FileItem> GenerateUnityCPPs(
 			ReadOnlyTargetRules Target,
 			List<FileItem> CPPFiles,
 			CppCompileEnvironment CompileEnvironment,
 			ISourceFileWorkingSet WorkingSet,
-			string BaseName
+			string BaseName,
+			DirectoryReference IntermediateDirectory
 			)
 		{
 			List<FileItem> NewCPPFiles = new List<FileItem>();
@@ -218,7 +220,7 @@ namespace UnrealBuildTool
 						++CandidateWorkingSetSourceFileCount;
 
 						// Don't include writable source files into unity blobs
-						if (WorkingSet.Contains(CPPFile.Reference))
+						if (WorkingSet.Contains(CPPFile.Location))
 						{
 							++WorkingSetSourceFileCount;
 
@@ -345,7 +347,7 @@ namespace UnrealBuildTool
 				{
 					UnityCPPFileName = string.Format("{0}{1}.cpp", ModulePrefix, BaseName);
 				}
-				FileReference UnityCPPFilePath = FileReference.Combine(CompileEnvironment.OutputDirectory, UnityCPPFileName);
+				FileReference UnityCPPFilePath = FileReference.Combine(IntermediateDirectory, UnityCPPFileName);
 
 				// Write the unity file to the intermediate folder.
 				FileItem UnityCPPFile = FileItem.CreateIntermediateTextFile(UnityCPPFilePath, OutputUnityCPPWriter.ToString());
@@ -355,7 +357,10 @@ namespace UnrealBuildTool
 
 				// Cache information about the unity .cpp dependencies
 				// @todo ubtmake urgent: Fails when building remotely for Mac because unity .cpp has an include for a PCH on the REMOTE machine
-				UEBuildModuleCPP.CachePCHUsageForModuleSourceFile(CompileEnvironment, UnityCPPFile);
+				FileItem FirstCppFile = UnityFile.Files.First();
+				UEBuildModuleCPP.CachePCHUsageForModuleSourceFile(CompileEnvironment, FirstCppFile);
+				UnityCPPFile.CachedIncludePaths = FirstCppFile.CachedIncludePaths;
+				UnityCPPFile.PrecompiledHeaderIncludeFilename = FirstCppFile.PrecompiledHeaderIncludeFilename;
 			}
 
 			return NewCPPFiles;

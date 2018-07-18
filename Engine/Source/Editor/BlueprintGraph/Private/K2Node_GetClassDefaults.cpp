@@ -562,7 +562,7 @@ void UK2Node_GetClassDefaults::OnClassPinChanged()
 
 	// Restore the split pins and reconnect output pins to previously linked inputs
 	RestoreSplitPins(OldOutputPins);
-	RewireOldPinsToNewPins(OldOutputPins, Pins);
+	RewireOldPinsToNewPins(OldOutputPins, Pins, nullptr);
 
 	// Notify the graph that the node has been changed
 	if(UEdGraph* Graph = GetGraph())

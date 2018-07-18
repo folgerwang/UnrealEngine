@@ -52,8 +52,8 @@ public:
 	virtual FMargin GetContentPadding() const override;
 	virtual float GetSectionHeight() const override;
 	virtual FText GetSectionTitle() const override;
+	virtual void SetSingleTime(double GlobalTime) override;
 	virtual int32 OnPaintSection(FSequencerSectionPainter& InPainter) const override;
-	virtual void SetSingleTime(float GlobalTime) override;
 	virtual void Tick(const FGeometry& AllottedGeometry, const FGeometry& ClippedGeometry, const double InCurrentTime, const float InDeltaTime) override;
 
 public:

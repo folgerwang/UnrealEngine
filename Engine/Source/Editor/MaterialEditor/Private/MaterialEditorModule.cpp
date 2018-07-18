@@ -12,16 +12,26 @@
 #include "ContentBrowserModule.h"
 #include "EditorStyleSet.h"
 #include "ContentBrowserDelegates.h"
-#include "IPluginManager.h"
+#include "Interfaces/IPluginManager.h"
 #include "IIntroTutorials.h"
-#include "SDockTab.h"
+#include "Widgets/Docking/SDockTab.h"
 #include "EditorTutorial.h"
-#include "SlateApplication.h"
-#include "SImage.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Images/SImage.h"
 #include "Misc/EngineBuildSettings.h"
+#include "MaterialEditorSettings.h"
+
+#include "ISettingsModule.h"
 
 const FName MaterialEditorAppIdentifier = FName(TEXT("MaterialEditorApp"));
 const FName MaterialInstanceEditorAppIdentifier = FName(TEXT("MaterialInstanceEditorApp"));
+
+namespace MaterialEditorModuleConstants
+{
+	const static FName SettingsContainerName("Editor");
+	const static FName SettingsCategoryName("ContentEditors");
+	const static FName SettingsSectionName("Material Editor");
+}
 
 class SNewSubstanceMenuEntry : public SCompoundWidget
 {
@@ -116,6 +126,18 @@ public:
 		MenuExtensibilityManager = MakeShareable(new FExtensibilityManager);
 		ToolBarExtensibilityManager = MakeShareable(new FExtensibilityManager);
 
+		ISettingsModule* SettingsModule = FModuleManager::LoadModulePtr<ISettingsModule>("Settings");
+		if (SettingsModule)
+		{
+			SettingsModule->RegisterSettings(
+				MaterialEditorModuleConstants::SettingsContainerName,
+				MaterialEditorModuleConstants::SettingsCategoryName,
+				MaterialEditorModuleConstants::SettingsSectionName,
+				NSLOCTEXT("MaterialEditorModule", "SettingsName", "Material Editor"),
+				NSLOCTEXT("MaterialEditorModule", "SettingsDesc", "Settings related to the material editor."),
+				GetMutableDefault<UMaterialEditorSettings>());
+		}
+
 		if(!FEngineBuildSettings::IsInternalBuild() && !FEngineBuildSettings::IsSourceDistribution())
 		{
 			TSharedPtr<IPlugin> SubstancePlugin = IPluginManager::Get().FindPlugin(TEXT("Substance"));
@@ -140,7 +162,7 @@ public:
 							FUIAction(FExecuteAction::CreateRaw(this, &FMaterialEditorModule::OpenSubstancePluginGetter)),
 							NAME_None,
 							NSLOCTEXT("MaterialEditor", "GetContentText_SubstanceToolbar", "Substance"),
-							NSLOCTEXT("MaterialEditor", "GetContentText_Substance", "Add Substance textures to the project"),
+							NSLOCTEXT("MaterialEditor", "GetContentText_SubstanceTooltip", "Add Substance textures to the project"),
 							FSlateIcon(FEditorStyle::GetStyleSetName(), "MaterialEditor.AddSubstanceSpecialToolbar")
 						);
 						ToolbarBuilder.EndSection();

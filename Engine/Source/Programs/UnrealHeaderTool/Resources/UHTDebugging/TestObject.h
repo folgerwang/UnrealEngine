@@ -32,6 +32,12 @@ public:
 	int32 Cpp11Init = 123;
 
 	UPROPERTY()
+	TArray<int> Cpp11BracedInit { 1, 2, 3 };
+
+	UPROPERTY()
+	TArray<FVector4> Cpp11NestedBracedInit { { 1, 2, 3, 4 }, { 5, 6, 7, 8 } };
+
+	UPROPERTY()
 	int RawInt;
 
 	UPROPERTY()
@@ -97,6 +103,8 @@ public:
 
 	UFUNCTION(BlueprintNativeEvent, Category="Game")
 	UClass* BrokenReturnTypeForFunction();
+
+	UEnum* SomeFunc() const;
 };
 
 PRAGMA_ENABLE_DEPRECATION_WARNINGS

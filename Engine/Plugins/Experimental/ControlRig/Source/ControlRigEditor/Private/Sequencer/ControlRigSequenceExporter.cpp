@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "ControlRigSequenceExporter.h"
-#include "ControlRigSequence.h"
+#include "Sequencer/ControlRigSequence.h"
 #include "Animation/AnimSequence.h"
 #include "Engine/SkeletalMesh.h"
 #include "Animation/SkeletalMeshActor.h"
@@ -9,21 +9,22 @@
 #include "ScopedTransaction.h"
 #include "PropertyEditorModule.h"
 #include "IDetailsView.h"
-#include "ModuleManager.h"
-#include "SBox.h"
-#include "SUniformGridPanel.h"
-#include "SButton.h"
-#include "SlateApplication.h"
+#include "Modules/ModuleManager.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Layout/SUniformGridPanel.h"
+#include "Widgets/Input/SButton.h"
+#include "Framework/Application/SlateApplication.h"
 #include "ControlRigSequenceExporterSettings.h"
 #include "Components/SkeletalMeshComponent.h"
-#include "ControlRigBindingTemplate.h"
+#include "Sequencer/ControlRigBindingTemplate.h"
 #include "Editor.h"
-#include "SNotificationList.h"
-#include "AssetEditorManager.h"
+#include "Widgets/Notifications/SNotificationList.h"
+#include "Toolkits/AssetEditorManager.h"
 #include "AssetRegistryModule.h"
 #include "Framework/Notifications/NotificationManager.h"
 #include "Widgets/Notifications/SNotificationList.h"
-#include "STextBlock.h"
+#include "Widgets/Text/STextBlock.h"
+#include "MovieSceneTimeHelpers.h"
 
 #define LOCTEXT_NAMESPACE "ControlRigSequenceExporter"
 
@@ -235,18 +236,26 @@ void Convert(UControlRigSequence* Sequence, UAnimSequence* AnimSequence, USkelet
 			AnimSequence->InitializeNotifyTrack();
 
 			// Now run our sequence
-			double StartTime = Sequence->GetMovieScene()->GetPlaybackRange().GetLowerBoundValue();
-			double SequenceLength = AnimSequence->SequenceLength = Sequence->GetMovieScene()->GetPlaybackRange().Size<float>();
-			int32 FrameCount = AnimSequence->NumFrames = FMath::CeilToInt(SequenceLength * Settings->FrameRate);
+			FFrameRate   TickResolution    = Sequence->GetMovieScene()->GetTickResolution();
+			FFrameNumber StartFrame        = MovieScene::DiscreteInclusiveLower(Sequence->GetMovieScene()->GetPlaybackRange());
+			FFrameNumber SourceFrameCount  = MovieScene::DiscreteSize(Sequence->GetMovieScene()->GetPlaybackRange());
+
+			double       StartTime         = StartFrame / TickResolution;
+			double       DurationSeconds   = SourceFrameCount / TickResolution;
+			int32        FrameCount        = FMath::CeilToInt(DurationSeconds * Settings->FrameRate);
+
+			AnimSequence->SequenceLength = DurationSeconds;
+			AnimSequence->NumFrames      = FrameCount;
+
 			double FrameCountDouble = (double)FrameCount;
 			double FrameLength = 1.0 / (double)Settings->FrameRate;
 
 			for (int32 Frame = 0; Frame < FrameCount; ++Frame)
 			{
-				float CurrentTime = (float)(StartTime + FMath::Clamp(((double)Frame / FrameCountDouble) * SequenceLength, 0.0, SequenceLength));
+				float CurrentTime = (float)(StartTime + FMath::Clamp(((double)Frame / FrameCountDouble) * DurationSeconds, 0.0, DurationSeconds));
 
 				// Tick Sequence
-				LevelSequenceActor->SequencePlayer->SetPlaybackPosition(CurrentTime);
+				LevelSequenceActor->SequencePlayer->JumpToSeconds(CurrentTime);
 
 				// Tick skeletal mesh component
 				SkeletalMeshComponent->TickAnimation(FrameLength, false);

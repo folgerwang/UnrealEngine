@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3242329
+﻿INTSourceChangelist:3810467
 Availability: Public
 Title:머티리얼 인스턴스 생성 및 사용법
 Crumbs: %ROOT%, Engine, Engine/Rendering/Materials, Engine/Rendering/Materials/HowTo
@@ -252,7 +252,7 @@ tags:Materials
 	[![](Materails_Instances_Add_New_Param.png)(w:920 convert:false)](Materails_Instances_Add_New_Param.png)
 	[/REGION]
 
-1. 머티리얼 zjavkdlfdl dhksfyehlaus, **Master Material** 을 닫은 다음 빨강 머티리얼 인스턴스를 엽니다.
+1. 머티리얼 컴파일이 완료되면, **Master Material** 을 닫은 다음 빨강 머티리얼 인스턴스를 엽니다.
    열리면 **스페큘러** 에 새 입력이 어떻게 되어 있는지 보세요.
    이제 **파랑** 과 **초록** 머티리얼 인스턴스 둘 다 확인합니다. **스페큘러** 새 입력이 어떻게 되어있는지 보세요.
    머티리얼 인스턴스의 진정한 위력은 이렇습니다. 부모 머티리얼에 가하는 변경사항은 항상 그 자손에게 전파되는 것입니다.

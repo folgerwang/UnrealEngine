@@ -8,10 +8,18 @@ UMovieSceneByteTrack::UMovieSceneByteTrack( const FObjectInitializer& ObjectInit
 	: Super( ObjectInitializer )
 { }
 
+void UMovieSceneByteTrack::PostLoad()
+{
+	Super::PostLoad();
+
+	SetEnum(Enum);
+}
 
 UMovieSceneSection* UMovieSceneByteTrack::CreateNewSection()
 {
-	return NewObject<UMovieSceneSection>(this, UMovieSceneByteSection::StaticClass(), NAME_None, RF_Transactional);
+	UMovieSceneByteSection* NewByteSection = NewObject<UMovieSceneByteSection>(this, UMovieSceneByteSection::StaticClass(), NAME_None, RF_Transactional);
+	NewByteSection->ByteCurve.SetEnum(Enum);
+	return NewByteSection;
 }
 
 FMovieSceneEvalTemplatePtr UMovieSceneByteTrack::CreateTemplateForSection(const UMovieSceneSection& InSection) const
@@ -22,10 +30,17 @@ FMovieSceneEvalTemplatePtr UMovieSceneByteTrack::CreateTemplateForSection(const 
 void UMovieSceneByteTrack::SetEnum(UEnum* InEnum)
 {
 	Enum = InEnum;
+	for (UMovieSceneSection* Section : Sections)
+	{
+		if (UMovieSceneByteSection* ByteSection = Cast<UMovieSceneByteSection>(Section))
+		{
+			ByteSection->ByteCurve.SetEnum(Enum);
+		}
+	}
 }
 
 
-class UEnum* UMovieSceneByteTrack::GetEnum() const
+UEnum* UMovieSceneByteTrack::GetEnum() const
 {
 	return Enum;
 }

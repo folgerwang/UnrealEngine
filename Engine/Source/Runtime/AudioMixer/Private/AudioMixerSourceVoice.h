@@ -32,12 +32,6 @@ namespace Audio
 		// Releases the source voice back to the source buffer pool
 		void Release();
 
-		// Queues the given buffer data to the internal queue of audio buffers.
-		void SubmitBuffer(FMixerSourceBufferPtr InSourceVoiceBuffer, const bool bOnRenderThread);
-
-		// Returns the number of buffers that are currently queued to be played.
-		int32 GetNumBuffersQueued() const;
-
 		// Sets the source voice pitch value.
 		void SetPitch(const float InPitch);
 
@@ -54,7 +48,7 @@ namespace Audio
 		void SetHPFFrequency(const float InFrequency);
 
 		// Sets the source voice's channel map (2d or 3d).
-		void SetChannelMap(ESubmixChannelFormat InChannelType, TArray<float>& InChannelMap, const bool bInIs3D, const bool bInIsCenterChannelOnly);
+		void SetChannelMap(ESubmixChannelFormat InChannelType, const Audio::AlignedFloatBuffer& InChannelMap, const bool bInIs3D, const bool bInIsCenterChannelOnly);
 
 		// Sets params used by HRTF spatializer
 		void SetSpatializationParams(const FSpatializationParams& InParams);
@@ -65,8 +59,11 @@ namespace Audio
 		// Pauses the source voice (i.e. stops generating output but keeps its state as "active and playing". Can be restarted.)
 		void Pause();
 
-		// Stops the source voice (no longer playing or active, can't be restarted.)
+		// Immediately stops the source voice (no longer playing or active, can't be restarted.)
 		void Stop();
+
+		// Does a faded stop (to avoid discontinuity)
+		void StopFade(int32 NumFrames);
 
 		// Queries if the voice is playing
 		bool IsPlaying() const;
@@ -77,11 +74,8 @@ namespace Audio
 		// Queries if the source voice is active.
 		bool IsActive() const;
 
-		// Queries if the source voice has finished playing all its audio.
-		bool IsDone() const;
-
-		// Queries if the source ffect tails have finished
-		bool IsSourceEffectTailsDone() const;
+		// Queries if the source has finished its fade out.
+		bool IsStopFadedOut() const { return bStopFadedOut; }
 
 		// Whether or not the device changed and needs another speaker map sent
 		bool NeedsSpeakerMap() const;
@@ -99,7 +93,7 @@ namespace Audio
 		void SetSubmixSendInfo(FMixerSubmixPtr Submix, const float SendLevel);
 
 		// Called when the source is a bus and needs to mix other sources together to generate output
-		void OnMixBus(FMixerSourceBufferPtr OutMixerSourceBuffer);
+		void OnMixBus(FMixerSourceVoiceBuffer* OutMixerSourceBuffer);
 
 	private:
 
@@ -109,7 +103,7 @@ namespace Audio
 		TMap<uint32, FMixerSourceSubmixSend> SubmixSends;
 		FMixerDevice* MixerDevice;
 		TMap<ESubmixChannelFormat, TArray<float>> ChannelMaps;
-		FThreadSafeCounter NumBuffersQueued;
+		FThreadSafeBool bStopFadedOut;
 		float Pitch;
 		float Volume;
 		float DistanceAttenuation;

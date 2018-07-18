@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "Components/SynthComponent.h"
 #include "AudioMixerTypes.h"
-#include "VoiceDataCommon.h"
+#include "Net/VoiceDataCommon.h"
 
 enum class EVoipStreamDataFormat : uint8
 {

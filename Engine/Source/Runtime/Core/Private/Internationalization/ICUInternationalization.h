@@ -107,9 +107,11 @@ private:
 	struct FICUCachedFileData
 	{
 		FICUCachedFileData(const int64 FileSize);
-		FICUCachedFileData(const FICUCachedFileData& Source);
 		FICUCachedFileData(FICUCachedFileData&& Source);
 		~FICUCachedFileData();
+
+		FICUCachedFileData(const FICUCachedFileData&) = delete;
+		FICUCachedFileData& operator=(const FICUCachedFileData&) = delete;
 
 		uint32 ReferenceCount;
 		void* Buffer;

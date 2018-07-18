@@ -357,34 +357,42 @@ private:
 	/**
 	 * Function to output the C++ code necessary to set up the given array of properties
 	 * 
-	 * @param	Meta			Returned string of meta data generator code
-	 * @param	OutputDevice	String output device to send the generated code to
+	 * @param	DeclOut			String output device to send the generated declarations to
+	 * @param	Out				String output device to send the generated code to
+	 * @param	Scope			The scope to prefix on all variable definitions
 	 * @param	Properties		Array of properties to export
+	 * @param	Spaces			String of spaces to use as an indent for the declaration
 	 * @param	Spaces			String of spaces to use as an indent
+	 *
+	 * @return	The string which represents a range of the emitted properties.
 	 */
-	void OutputProperties(FOutputDevice& OutputDevice, FString& OutPropertyRange, const TArray<UProperty*>& Properties, const TCHAR* Spaces);
+	FString OutputProperties(FOutputDevice& DeclOut, FOutputDevice& Out, const TCHAR* Scope, const TArray<UProperty*>& Properties, const TCHAR* DeclSpaces, const TCHAR* Spaces);
 
 	/**
 	 * Function to output the C++ code necessary to set up a property
 	 * 
-	 * @param	Meta			Returned string of meta data generator code
-	 * @param	OutputDevice	String output device to send the generated code to
+	 * @param	DeclOut			String output device to send the generated declarations to
+	 * @param	Out				String output device to send the generated code to
+	 * @param	Scope			The scope to prefix on all variable definitions
 	 * @param	Prop			Property to export
+	 * @param	DeclSpaces		String of spaces to use as an indent for the declaration
 	 * @param	Spaces			String of spaces to use as an indent
 	**/
-	void OutputProperty(FOutputDevice& OutputDevice, TArray<FPropertyNamePointerPair>& PropertyNamesAndPointers, UProperty* Prop, const TCHAR* Spaces);
+	void OutputProperty(FOutputDevice& DeclOut, FOutputDevice& Out, const TCHAR* Scope, TArray<FPropertyNamePointerPair>& PropertyNamesAndPointers, UProperty* Prop, const TCHAR* DeclSpaces, const TCHAR* Spaces);
 
 	/**
 	 * Function to output the C++ code necessary to set up a property, including an array property and its inner, array dimensions, etc.
 	 *
+	 * @param	DeclOut			The destination to write declarations to.
 	 * @param	Out				The destination to write to.
 	 * @param	Prop			Property to export
 	 * @param	OffsetStr		String specifying the property offset
 	 * @param	Name			Name for the generated variable
+	 * @param	DeclSpaces		String of spaces to use as an indent for the declaration
 	 * @param	Spaces			String of spaces to use as an indent
 	 * @param	SourceStruct	Structure that the property offset is relative to
 	**/
-	void PropertyNew(FOutputDevice& Out, UProperty* Prop, const TCHAR* OffsetStr, const TCHAR* Name, const TCHAR* Spaces, const TCHAR* SourceStruct = NULL);
+	void PropertyNew(FOutputDevice& DeclOut, FOutputDevice& Out, UProperty* Prop, const TCHAR* OffsetStr, const TCHAR* Name, const TCHAR* DeclSpaces, const TCHAR* Spaces, const TCHAR* SourceStruct = NULL);
 
 	/**
 	 * Exports the proxy definitions for the list of enums specified

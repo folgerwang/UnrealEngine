@@ -13,6 +13,7 @@ namespace UnrealBuildTool.Rules
 					"Engine",
 					"MovieScene",
 					"MovieSceneTracks",
+					"TimeManagement",
 				});
 
 			PrivateDependencyModuleNames.AddRange(
@@ -30,8 +31,6 @@ namespace UnrealBuildTool.Rules
 			PrivateIncludePaths.AddRange(
 				new string[] {
 					"MediaCompositing/Private",
-					"MediaCompositing/Private/Actors",
-					"MediaCompositing/Private/Components",
 					"MediaCompositing/Private/MovieScene",
 				});
 		}

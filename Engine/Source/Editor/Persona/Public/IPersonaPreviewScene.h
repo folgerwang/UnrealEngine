@@ -4,6 +4,8 @@
 
 #include "CoreMinimal.h"
 #include "AdvancedPreviewScene.h"
+#include "Containers/ArrayView.h"
+#include "Types/SlateEnums.h"
 
 class UAnimationAsset;
 class UDebugSkelMeshComponent;
@@ -12,7 +14,7 @@ struct FSelectedSocketInfo;
 struct HActor;
 struct FViewportClick;
 class FEditorCameraController;
-
+class ISkeletonTreeItem;
 
 // called when animation asset has been changed
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnAnimChangedMulticaster, UAnimationAsset*);
@@ -34,6 +36,14 @@ typedef FOnMeshClickMulticaster::FDelegate FOnMeshClick;
 DECLARE_MULTICAST_DELEGATE(FOnSelectedLODChangedMulticaster);
 typedef FOnSelectedLODChangedMulticaster::FDelegate FOnSelectedLODChanged;
 
+//The selected bone changed
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnSelectedBoneChangedMulticaster, const FName& /*InBoneName*/);
+typedef FOnSelectedBoneChangedMulticaster::FDelegate FOnSelectedBoneChanged;
+
+//The selected socket changed
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnSelectedSocketChangedMulticaster, const FSelectedSocketInfo& /*InSocketInfo*/);
+typedef FOnSelectedSocketChangedMulticaster::FDelegate FOnSelectedSocketChanged;
+
 /** Modes that the preview scene defaults to (usually depending on asset editor context) */
 enum class EPreviewSceneDefaultAnimationMode : int32
 {
@@ -42,6 +52,9 @@ enum class EPreviewSceneDefaultAnimationMode : int32
 	Animation,
 
 	AnimationBlueprint,
+
+	// each mesh component defines their custom pose 
+	Custom, 
 };
 
 class IPersonaPreviewScene : public FAdvancedPreviewScene
@@ -86,7 +99,7 @@ public:
 	virtual USkeletalMesh* GetPreviewMesh() const = 0;
 
 	/** Show the reference pose of the displayed skeletal mesh. Otherwise display the default. Optionally reset bone transforms, if any. */
-	virtual void ShowReferencePose(bool bResetBoneTransforms = false) = 0;
+	virtual void ShowReferencePose(bool bShowRefPose, bool bResetBoneTransforms = false) = 0;
 
 	/* Are we currently displaying the ref pose */
 	virtual bool IsShowReferencePoseEnabled() const = 0;
@@ -153,6 +166,24 @@ public:
 
 	/** Unregisters a delegate to be called when the preview mesh is clicked */
 	virtual void UnregisterOnMeshClick(void* Thing) = 0;
+
+	/** Registers a delegate to be called when the currently selected bone has changed */
+	virtual FDelegateHandle RegisterOnSelectedBoneChanged(const FOnSelectedBoneChanged& Delegate) = 0;
+
+	/** Unregisters a delegate called when the currently selected bone has changed */
+	virtual void UnregisterOnSelectedBoneChanged(FDelegateHandle InHandle) = 0;
+
+	/** Registers a delegate to be called when the currently selected socket has changed */
+	virtual FDelegateHandle RegisterOnSelectedSocketChanged(const FOnSelectedSocketChanged& Delegate) = 0;
+
+	/** Unregisters a delegate called when the currently selected socket has changed */
+	virtual void UnregisterOnSelectedSocketChanged(FDelegateHandle InHandle) = 0;
+
+	/** Registers a delegate to be called when all sockets/bones are deselected */
+	virtual FDelegateHandle RegisterOnDeselectAll(const FSimpleDelegate& Delegate) = 0;
+
+	/** unregisters a delegate called when all sockets/bones are deselected */
+	virtual void UnregisterOnDeselectAll(FDelegateHandle InHandle) = 0;
 
 	/** Broadcasts that the preview mesh was clicked */
 	virtual bool BroadcastMeshClick(HActor* HitProxy, const FViewportClick& Click) = 0;
@@ -238,4 +269,6 @@ public:
 
 	/** Let the preview scene know that it should tick (because it is visible) */
 	virtual void FlagTickable() = 0;
+	/** Handle syncing selection with the skeleton tree */
+	virtual void HandleSkeletonTreeSelectionChanged(const TArrayView<TSharedPtr<ISkeletonTreeItem>>& InSelectedItems, ESelectInfo::Type InSelectInfo) = 0;
 };

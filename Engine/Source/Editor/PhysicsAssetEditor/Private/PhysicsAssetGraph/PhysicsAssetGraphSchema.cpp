@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "PhysicsAssetGraphSchema.h"
-#include "GlobalEditorCommonCommands.h"
+#include "Toolkits/GlobalEditorCommonCommands.h"
 #include "PhysicsAssetGraph.h"
 #include "PhysicsAssetGraphNode_Bone.h"
 #include "PhysicsEngine/PhysicsAsset.h"

@@ -17,7 +17,7 @@
 #include "EditorWorldExtension.h"
 #include "ViewportWorldInteraction.h"
 #include "VRModeSettings.h"
-#include "Dialogs.h"
+#include "Dialogs/Dialogs.h"
 #include "ProjectDescriptor.h"
 #include "Interfaces/IProjectManager.h"
 #include "UnrealEdMisc.h"

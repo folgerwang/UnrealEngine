@@ -14,16 +14,150 @@
 #include "MovieSceneTrackEditor.h"
 #include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "MovieSceneCommonHelpers.h"
+#include "Channels/MovieSceneChannelTraits.h"
+#include "Channels/MovieSceneChannel.h"
+#include "Channels/MovieSceneChannelProxy.h"
 
-template<typename KeyDataType> class IKeyframeSection;
+
+struct FMovieSceneChannelValueSetter
+{
+	FMovieSceneChannelValueSetter(const FMovieSceneChannelValueSetter&) = delete;
+	FMovieSceneChannelValueSetter& operator=(const FMovieSceneChannelValueSetter&) = delete;
+
+	FMovieSceneChannelValueSetter(FMovieSceneChannelValueSetter&&) = default;
+	FMovieSceneChannelValueSetter& operator=(FMovieSceneChannelValueSetter&&) = default;
+
+	/** Templated construction function that can add a key (and potentially also set a default) for the specified channel and value */
+	template<typename ChannelType, typename ValueType>
+	static FMovieSceneChannelValueSetter Create(int32 ChannelIndex, const ValueType& InNewValue, bool bAddKey)
+	{
+		FMovieSceneChannelValueSetter NewValue;
+		if (bAddKey)
+		{
+			NewValue.Impl = TAddKeyImpl<ChannelType, ValueType>(ChannelIndex, InNewValue);
+		}
+		else
+		{
+			NewValue.Impl = TSetDefaultImpl<ChannelType, ValueType>(ChannelIndex, InNewValue);
+		}
+		return MoveTemp(NewValue);
+	}
+
+	struct IImpl
+	{
+		virtual ~IImpl(){}
+
+		/* Returns whether a key was created */
+		virtual bool Apply(UMovieSceneSection* Section, FMovieSceneChannelProxy& Proxy, FFrameNumber InTime, EMovieSceneKeyInterpolation InterpolationMode, bool bKeyEvenIfUnchanged, bool bKeyEvenIfEmpty) const { return false; }
+
+		virtual void ApplyDefault(UMovieSceneSection* Section, FMovieSceneChannelProxy& Proxy) const { }
+	};
+
+	IImpl* operator->()
+	{
+		return &Impl.GetValue();
+	}
+
+	const IImpl* operator->() const
+	{
+		return &Impl.GetValue();
+	}
+
+private:
+
+	FMovieSceneChannelValueSetter()
+	{}
+
+	template<typename ChannelType, typename ValueType>
+	struct TSetDefaultImpl : IImpl
+	{
+		int32 ChannelIndex;
+		ValueType ValueToSet;
+
+		TSetDefaultImpl(int32 InChannelIndex, const ValueType& InValue)
+			: ChannelIndex(InChannelIndex), ValueToSet(InValue)
+		{}
+
+		virtual void ApplyDefault(UMovieSceneSection* Section, FMovieSceneChannelProxy& Proxy) const override
+		{
+			ChannelType* Channel = Proxy.GetChannel<ChannelType>(ChannelIndex);
+			if (Channel && Channel->GetData().GetTimes().Num() == 0)
+			{
+				if (Section->TryModify())
+				{
+					using namespace MovieScene;
+					SetChannelDefault(Channel, ValueToSet);
+				}
+			}
+		}
+	};
+
+	template<typename ChannelType, typename ValueType>
+	struct TAddKeyImpl : IImpl
+	{
+		int32 ChannelIndex;
+		ValueType ValueToSet;
+
+		TAddKeyImpl(int32 InChannelIndex, const ValueType& InValue)
+			: ChannelIndex(InChannelIndex), ValueToSet(InValue)
+		{}
+
+		virtual bool Apply(UMovieSceneSection* Section, FMovieSceneChannelProxy& Proxy, FFrameNumber InTime, EMovieSceneKeyInterpolation InterpolationMode, bool bKeyEvenIfUnchanged, bool bKeyEvenIfEmpty) const override
+		{
+			bool bKeyCreated = false;
+			using namespace MovieScene;
+
+			ChannelType* Channel = Proxy.GetChannel<ChannelType>(ChannelIndex);
+			if (Channel)
+			{
+				bool bShouldKeyChannel = bKeyEvenIfUnchanged;
+				if (!bShouldKeyChannel)
+				{
+					bShouldKeyChannel = !ValueExistsAtTime(Channel, InTime, ValueToSet);
+				}
+
+				if (bShouldKeyChannel)
+				{
+					if (Channel->GetNumKeys() != 0 || bKeyEvenIfEmpty)
+					{
+						if (Section->TryModify())
+						{
+							AddKeyToChannel(Channel, InTime, ValueToSet, InterpolationMode);
+							bKeyCreated = true;
+						}
+					}
+				}
+			}
+
+			return bKeyCreated;
+		}
+
+		virtual void ApplyDefault(UMovieSceneSection* Section, FMovieSceneChannelProxy& Proxy) const override
+		{
+			using namespace MovieScene;
+
+			ChannelType* Channel = Proxy.GetChannel<ChannelType>(ChannelIndex);
+			if (Channel && Channel->GetData().GetTimes().Num() == 0)
+			{
+				if (Section->TryModify())
+				{
+					using namespace MovieScene;
+					SetChannelDefault(Channel, ValueToSet);
+				}
+			}
+		}
+	};
+	TInlineValue<IImpl> Impl;
+};
+
+typedef TArray<FMovieSceneChannelValueSetter, TInlineAllocator<1>> FGeneratedTrackKeys;
 
 /**
- * A base class for track editors that edit tracks which contain sections implementing IKeyframeSection.
+ * A base class for track editors that edit tracks which contain sections implementing GetKeyDataInterface.
   */
-template<typename TrackType, typename SectionType, typename KeyDataType>
+template<typename TrackType>
 class FKeyframeTrackEditor : public FMovieSceneTrackEditor
 {
-
 public:
 	/**
 	* Constructor
@@ -62,9 +196,8 @@ protected:
 	 *
 	 * @param ObjectsToKey An array of objects to add keyframes to.
 	 * @param KeyTime The time to add keys.
-	 * @param NewKeys The new keys to add.
-	 * @param DefaultKeys Extra keys with default values which shouldn't be added directly, but are needed to set correct
-	 *        default values when adding single channel keys for multi-channel tracks like vectors.
+	 * @param KeyedChannels Aggregate of optionally enabled channel values for which to create new keys
+	 * @param ChannelDefaults Aggregate of optionally enabled channel default values that should be applied to the section
 	 * @param KeyParams The parameters to control keyframing behavior.
 	 * @param TrackClass The class of track which should be created if specified in the parameters.
 	 * @param PropertyName The name of the property to add keys for.
@@ -73,8 +206,7 @@ protected:
 	 * @return Whether or not a handle guid or track was created. Note this does not return true if keys were added or modified.
 	 */
 	FKeyPropertyResult AddKeysToObjects(
-		TArray<UObject*> ObjectsToKey, float KeyTime,
-		const TArray<KeyDataType>& NewKeys, const TArray<KeyDataType>& DefaultKeys,
+		TArrayView<UObject* const> ObjectsToKey, FFrameNumber KeyTime, const FGeneratedTrackKeys& GeneratedKeys,
 		ESequencerKeyMode KeyMode, TSubclassOf<UMovieSceneTrack> TrackClass, FName PropertyName,
 		TFunction<void(TrackType*)> OnInitializeNewTrack)
 	{
@@ -97,7 +229,7 @@ protected:
 
 			if ( ObjectHandle.IsValid() )
 			{
-				KeyPropertyResult |= AddKeysToHandle( ObjectHandle, KeyTime, NewKeys, DefaultKeys, KeyMode, TrackClass, PropertyName, OnInitializeNewTrack );
+				KeyPropertyResult |= AddKeysToHandle( ObjectHandle, KeyTime, GeneratedKeys, KeyMode, TrackClass, PropertyName, OnInitializeNewTrack );
 			}
 		}
 		return KeyPropertyResult;
@@ -106,14 +238,21 @@ protected:
 
 private:
 
-	virtual void ClearDefaults( UMovieSceneTrack* Track )
+	void ClearDefaults( UMovieSceneTrack* Track )
 	{
 		const FScopedTransaction Transaction(NSLOCTEXT("KeyframeTrackEditor", "ClearTrackDefaultsTransaction", "Clear track defaults"));
 		for (UMovieSceneSection* Section : Track->GetAllSections())
 		{
 			Section->Modify();
-			IKeyframeSection<KeyDataType>* KeyframeSection = CastChecked<SectionType>(Section);
-			KeyframeSection->ClearDefaults();
+
+			// Clear all defaults on the section
+			for (const FMovieSceneChannelEntry& Entry : Section->GetChannelProxy().GetAllEntries())
+			{
+				for (FMovieSceneChannel* Channel : Entry.GetChannels())
+				{
+					Channel->ClearDefault();
+				}
+			}
 		}
 		GetSequencer()->NotifyMovieSceneDataChanged(EMovieSceneDataChangeType::TrackValueChanged);
 	}
@@ -134,9 +273,7 @@ private:
 	 *
 	 * @param ObjectsToKey An array of objects to add keyframes to.
 	 * @param KeyTime The time to add keys.
-	 * @param NewKeys The new keys to add.
-	 * @param DefaultKeys Extra keys with default values which shouldn't be added directly, but are needed to set correct
-	 *        default values when adding single channel keys for multi-channel tracks like vectors.
+	 * @param GeneratedKeys Array of keys to set
 	 * @param KeyParams The parameters to control keyframing behavior.
 	 * @param TrackClass The class of track which should be created if specified in the parameters.
 	 * @param PropertyName The name of the property to add keys for.
@@ -145,13 +282,11 @@ private:
 	 * @return Whether or not a track was created. Note this does not return true if keys were added or modified.
 	*/
 	FKeyPropertyResult AddKeysToHandle(
-		FGuid ObjectHandle, float KeyTime,
-		const TArray<KeyDataType>& NewKeys, const TArray<KeyDataType>& DefaultKeys,
+		FGuid ObjectHandle, FFrameNumber KeyTime, const FGeneratedTrackKeys& GeneratedKeys,
 		ESequencerKeyMode KeyMode, TSubclassOf<UMovieSceneTrack> TrackClass, FName PropertyName,
 		TFunction<void(TrackType*)> OnInitializeNewTrack)
 	{
 		bool bTrackCreated = false;
-		bool bSectionCreated = false;
 
 		EAutoChangeMode AutoChangeMode = GetSequencer()->GetAutoChangeMode();
 		EAllowEditsMode AllowEditsMode = GetSequencer()->GetAllowEditsMode();
@@ -175,10 +310,31 @@ private:
 			}
 		}
 
+		bool bSectionCreated = false;
+
 		FKeyPropertyResult KeyPropertyResult;
+
 		if ( Track )
 		{
-			KeyPropertyResult |= AddKeysToTrack( Track, KeyTime, NewKeys, DefaultKeys, KeyMode, bTrackCreated );
+			UMovieSceneSection* SectionToKey = Track->FindOrExtendSection(KeyTime);
+
+			// If there's no overlapping section to key, create one only if a track was newly created. Otherwise, skip keying altogether
+			// so that the user is forced to create a section to key on.
+			if (bTrackCreated && !SectionToKey)
+			{
+				Track->Modify();
+
+				SectionToKey = Track->FindOrAddSection(KeyTime, bSectionCreated);
+				if (bSectionCreated && GetSequencer()->GetInfiniteKeyAreas())
+				{
+					SectionToKey->SetRange(TRange<FFrameNumber>::All());
+				}
+			}
+
+			if (SectionToKey && CanAutoKeySection(SectionToKey, KeyTime))
+			{
+				KeyPropertyResult |= AddKeysToSection( SectionToKey, KeyTime, GeneratedKeys, KeyMode );
+			}
 		}
 
 		KeyPropertyResult.bTrackCreated |= bTrackCreated || bSectionCreated;
@@ -186,158 +342,53 @@ private:
 		return KeyPropertyResult;
 	}
 
-	FKeyPropertyResult AddKeysToTrack(
-		TrackType* Track, float KeyTime,
-		const TArray<KeyDataType>& NewKeys, const TArray<KeyDataType>& DefaultKeys,
-		ESequencerKeyMode KeyMode, bool bNewTrack)
+	/* Returns whether a section was added */
+	FKeyPropertyResult AddKeysToSection(UMovieSceneSection* Section, FFrameNumber KeyTime, const FGeneratedTrackKeys& Keys, ESequencerKeyMode KeyMode)
 	{
-		bool bSectionCreated = false;
-		bool bKeyCreated = false;
-		bool bInfiniteKeyAreas = GetSequencer()->GetInfiniteKeyAreas();
+		FKeyPropertyResult KeyPropertyResult;
 
 		EAutoChangeMode AutoChangeMode = GetSequencer()->GetAutoChangeMode();
 
-		if ( KeyMode != ESequencerKeyMode::AutoKey || AutoChangeMode == EAutoChangeMode::AutoKey || AutoChangeMode == EAutoChangeMode::All )
+		FMovieSceneChannelProxy& Proxy = Section->GetChannelProxy();
+			
+		const bool bSetDefaults = GetSequencer()->GetAutoSetTrackDefaults();
+		
+		if ( KeyMode != ESequencerKeyMode::AutoKey || AutoChangeMode == EAutoChangeMode::AutoKey || AutoChangeMode == EAutoChangeMode::All)
 		{
 			EMovieSceneKeyInterpolation InterpolationMode = GetSequencer()->GetKeyInterpolation();
 
-			bool bKeyEvenIfUnchanged =
+			const bool bKeyEvenIfUnchanged =
 				KeyMode == ESequencerKeyMode::ManualKeyForced ||
-				GetSequencer()->GetKeyAllEnabled();
+				GetSequencer()->GetKeyGroupMode() == EKeyGroupMode::KeyAll ||
+				GetSequencer()->GetKeyGroupMode() == EKeyGroupMode::KeyGroup;
 
-			bool bKeyEvenIfEmpty =
+			const bool bKeyEvenIfEmpty =
 				(KeyMode == ESequencerKeyMode::AutoKey && AutoChangeMode == EAutoChangeMode::All) ||
 				KeyMode == ESequencerKeyMode::ManualKeyForced;
 
-			for (const KeyDataType& NewKey : NewKeys)
+			for (const FMovieSceneChannelValueSetter& GeneratedKey : Keys)
 			{
-				if ( NewKeyIsNewData( Track, KeyTime, NewKey ) || bKeyEvenIfUnchanged )
-				{
-					if ( HasKeys( Track, NewKey ) || bKeyEvenIfEmpty )
-					{
-						bSectionCreated |= AddKey( Track, KeyTime, NewKey, InterpolationMode, bInfiniteKeyAreas );
-						bKeyCreated = true;
-					}
-				}
+				KeyPropertyResult.bKeyCreated |= GeneratedKey->Apply(Section, Proxy, KeyTime, InterpolationMode, bKeyEvenIfUnchanged, bKeyEvenIfEmpty);
 			}
 		}
-
-		if (GetSequencer()->GetAutoSetTrackDefaults())
+			
+		if (bSetDefaults)
 		{
-			for (const KeyDataType& NewKey : NewKeys)
+			for (const FMovieSceneChannelValueSetter& GeneratedKey : Keys)
 			{
-				bSectionCreated |= SetDefault(Track, KeyTime, NewKey, bInfiniteKeyAreas);
-			}
-
-			for (const KeyDataType& DefaultKey : DefaultKeys)
-			{
-				bSectionCreated |= SetDefault(Track, KeyTime, DefaultKey, bInfiniteKeyAreas);
+				GeneratedKey->ApplyDefault(Section, Proxy);
 			}
 		}
-
-		// If a new track was created but no keys or defaults were set, make sure a new section is created too to allow the user to edit it.
-		if ( bNewTrack && bSectionCreated == false)
-		{
-			Track->Modify();
-			UMovieSceneSection* NewSection = Track->FindOrAddSection(KeyTime, bSectionCreated);
-			NewSection->SetIsInfinite(bInfiniteKeyAreas);
-		}
-
-		FKeyPropertyResult KeyPropertyResult;
-		KeyPropertyResult.bTrackCreated |= bSectionCreated;
-		KeyPropertyResult.bKeyCreated = bKeyCreated;
 
 		return KeyPropertyResult;
 	}
 
-	bool NewKeyIsNewData( TrackType* Track, float Time, const KeyDataType& KeyData ) const
-	{
-		IKeyframeSection<KeyDataType>* NearestKeyframeSection = CastChecked<SectionType>( MovieSceneHelpers::FindNearestSectionAtTime( Track->GetAllSections(), Time ), ECastCheckedType::NullAllowed );
-		return NearestKeyframeSection == nullptr || NearestKeyframeSection->NewKeyIsNewData( Time, KeyData );
-	}
-
-	bool HasKeys( TrackType* Track, const KeyDataType& KeyData ) const
-	{
-		for ( UMovieSceneSection* Section : Track->GetAllSections() )
-		{
-			IKeyframeSection<KeyDataType>* KeyframeSection = CastChecked<SectionType>( Section );
-			if ( KeyframeSection->HasKeys( KeyData ) )
-			{
-				return true;
-			}
-		}
-		return false;
-	}
-
-	using FMovieSceneTrackEditor::AddKey;
-
-	/* Return whether a section was added */
-	bool AddKey( TrackType* Track, float Time, const KeyDataType& KeyData, EMovieSceneKeyInterpolation KeyInterpolation, bool bInfiniteKeyAreas )
-	{
-		bool bSectionAdded = false;
-		Track->Modify();
-		UMovieSceneSection* NewSection = Track->FindOrAddSection( Time, bSectionAdded );
-		if (!bSectionAdded && !CanAutoKeySection(NewSection, Time))
-		{
-			return false;
-		}
-
-		IKeyframeSection<KeyDataType>* KeyframeSection = CastChecked<SectionType>( NewSection );
-		KeyframeSection->AddKey( Time, KeyData, KeyInterpolation );
-
-		if (bSectionAdded)
-		{
-			NewSection->SetIsInfinite(bInfiniteKeyAreas);
-		}
-		return bSectionAdded;
-	}
-
 	/** Check whether we can autokey the specified section at the specified time */
-	static bool CanAutoKeySection(UMovieSceneSection* Section, float Time)
+	static bool CanAutoKeySection(UMovieSceneSection* Section, FFrameNumber Time)
 	{
 		FOptionalMovieSceneBlendType BlendType = Section->GetBlendType();
 		// Sections are only eligible for autokey if they are not blendable (or absolute), and overlap the current time
-		return ( !BlendType.IsValid() || BlendType.Get() == EMovieSceneBlendType::Absolute ) &&
-			   ( Section->IsInfinite() || Section->GetRange().Contains(Time) );
-	}
-
-	/* Return whether a section was added */
-	bool SetDefault( TrackType* Track, float Time, const KeyDataType& KeyData, bool bInfiniteKeyAreas )
-	{
-		bool bSectionAdded = false;
-		const TArray<UMovieSceneSection*>& Sections = Track->GetAllSections();
-		if ( Sections.Num() > 0)
-		{
-			for ( UMovieSceneSection* Section : Sections )
-			{
-				if ( !CanAutoKeySection(Section, Time) )
-				{
-					continue;
-				}
-
-				IKeyframeSection<KeyDataType>* KeyframeSection = CastChecked<SectionType>( Section );
-				if (!KeyframeSection->HasKeys(KeyData))
-				{
-					KeyframeSection->SetDefault( KeyData );
-				}
-			}
-		}
-		else
-		{
-			UMovieSceneSection* NewSection = Track->FindOrAddSection( Time, bSectionAdded );
-			IKeyframeSection<KeyDataType>* KeyframeSection = CastChecked<SectionType>( NewSection );
-			if (!KeyframeSection->HasKeys(KeyData))
-			{
-				KeyframeSection->SetDefault( KeyData );
-			}
-
-			if (bSectionAdded)
-			{
-				NewSection->SetIsInfinite(bInfiniteKeyAreas);
-			}
-		}
-		return bSectionAdded;
+		return ( !BlendType.IsValid() || BlendType.Get() == EMovieSceneBlendType::Absolute ) && Section->GetRange().Contains(Time);
 	}
 };
-
 

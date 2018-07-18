@@ -2,7 +2,7 @@
 #pragma once
 
 #include "VREditorUISystem.h"
-#include "SlateTypes.h"
+#include "Styling/SlateTypes.h"
 #include "InputCoreTypes.h"
 #include "Editor.h"
 #include "UnrealWidget.h"

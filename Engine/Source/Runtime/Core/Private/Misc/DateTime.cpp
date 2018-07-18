@@ -1,9 +1,10 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
-
 #include "Misc/DateTime.h"
+#include "CoreGlobals.h"
 #include "HAL/PlatformTime.h"
 #include "Templates/TypeHash.h"
 #include "UObject/PropertyPortFlags.h"
+
 
 
 /* FDateTime constants
@@ -18,7 +19,11 @@ const int32 FDateTime::DaysToMonth[] = { 0, 31, 59, 90, 120, 151, 181, 212, 243,
 
 FDateTime::FDateTime(int32 Year, int32 Month, int32 Day, int32 Hour, int32 Minute, int32 Second, int32 Millisecond)
 {
-	check(Validate(Year, Month, Day, Hour, Minute, Second, Millisecond));
+	if (!Validate(Year, Month, Day, Hour, Minute, Second, Millisecond))
+	{
+		UE_LOG(LogCore, Fatal, TEXT("Invalid Date values. Y:%d, M:%d, D:%d, H:%d, M:%d, S:%d, Ms:%d"),
+			Year, Month, Day, Hour, Minute, Second, Millisecond);
+	}
 
 	int32 TotalDays = 0;
 

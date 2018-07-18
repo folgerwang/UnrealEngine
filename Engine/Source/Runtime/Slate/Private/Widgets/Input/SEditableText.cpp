@@ -32,6 +32,7 @@ void SEditableText::Construct( const FArguments& InArgs )
 	MinDesiredWidth = InArgs._MinDesiredWidth;
 	bSelectAllTextOnCommit = InArgs._SelectAllTextOnCommit;
 	VirtualKeyboardType = InArgs._VirtualKeyboardType;
+	VirtualKeyboardOptions = InArgs._VirtualKeyboardOptions;
 	VirtualKeyboardTrigger = InArgs._VirtualKeyboardTrigger;
 	VirtualKeyboardDismissAction = InArgs._VirtualKeyboardDismissAction;
 	OnKeyCharHandler = InArgs._OnKeyCharHandler;
@@ -528,6 +529,11 @@ void SEditableText::EnsureActiveTick()
 EKeyboardType SEditableText::GetVirtualKeyboardType() const
 {
 	return VirtualKeyboardType.Get();
+}
+
+FVirtualKeyboardOptions SEditableText::GetVirtualKeyboardOptions() const
+{
+	return VirtualKeyboardOptions;
 }
 
 EVirtualKeyboardTrigger SEditableText::GetVirtualKeyboardTrigger() const

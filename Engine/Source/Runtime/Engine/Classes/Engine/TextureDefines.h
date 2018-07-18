@@ -55,6 +55,10 @@ enum TextureGroup
 	TEXTUREGROUP_Pixels2D UMETA(DisplayName="2D Pixels (unfiltered)"),
 	/** Hierarchical LOD generated textures*/
 	TEXTUREGROUP_HierarchicalLOD UMETA(DisplayName = "Hierarchical LOD"),
+	/** Impostor Color Textures*/
+	TEXTUREGROUP_Impostor UMETA(DisplayName = "Impostor Color"),
+	/** Impostor Normal and Depth, use default compression*/
+	TEXTUREGROUP_ImpostorNormalDepth UMETA(DisplayName = "Impostor Normal and Depth"),
 	TEXTUREGROUP_MAX,
 };
 

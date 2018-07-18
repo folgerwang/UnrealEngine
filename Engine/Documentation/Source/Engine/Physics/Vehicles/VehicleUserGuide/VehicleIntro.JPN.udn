@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3453053
+﻿INTSourceChangelist:3782314
 Availability:Public
 crumbs:%ROOT%
 Title:ビークルのユーザーガイド
@@ -32,7 +32,7 @@ topic-image:Vechicle_Topic.png
 
 ## ゴール
 
-このガイドでは、新規ブランク プロジェクトで **Wheeled Vehicle** Blueprint クラスを使用したビークル作成について説明します。このガイドでは、ビークルを機能させるために必要なすべてのインエディタのアイテムを作成する方法を説明しますが、
+このガイドでは、新規ブランク プロジェクトで **Wheeled Vehicle** Blueprint クラスを使用したビークル作成について説明します。このガイドでは、ビークルを機能させるために必要なすべてのエディタ内のアイテムを作成する方法を説明しますが、
 ご自身で **スケルタルメッシュ** と **Physics アセット** を用意してあることを前提とします。このガイドを終えると、 Vehicle Game や Vehicle Template にあるもののように
 十分機能するビークルが出来上がります。
 
@@ -69,19 +69,9 @@ topic-image:Vechicle_Topic.png
 * 軸マッピングとバインディングを設定してビークルを制御する方法
 * 新しい Game Mode を作成し割り当ててビークルをスポーンする方法
 
-[OBJECT:TopicList]
-	[PARAM:icon]
-		![](%ROOT%/build_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		ステップ
-	[/PARAM]
-	[PARAM:description]
-	[/PARAM]
-	[PARAM:links]
-	[DIR(output:"checkpoint" parent:"Engine/Physics/Vehicles/VehicleUserGuide" org:"hierarchy")]
-	[/PARAM]
-[/OBJECT]
+## ステップ
+
+[DIR(output:"checkpoint" parent:"Engine/Physics/Vehicles/VehicleUserGuide" org:"hierarchy")]
 
 [REGION:call_to_action]
 	[クリックして開始](Engine/Physics/Vehicles/VehicleUserGuide/1 "%Engine/Physics/Vehicles/VehicleUserGuide/1:title%")

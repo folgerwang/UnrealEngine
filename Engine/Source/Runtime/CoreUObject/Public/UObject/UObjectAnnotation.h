@@ -516,16 +516,22 @@ public:
 	 * @param Index			Index of object to annotate.
 	 * @param Annotation	Annotation to associate with Object.
 	 */
-	void AddAnnotation(int32 Index,TAnnotation Annotation)
+	void AddAnnotation(int32 Index, TAnnotation Annotation)
+	{
+		FRWScopeLock AnnotationArrayLock(AnnotationArrayCritical, SLT_Write);
+		AddAnnotationInternal(Index, Annotation);
+	}
+
+private:
+	void AddAnnotationInternal(int32 Index,TAnnotation Annotation)
 	{
 		check(Index >= 0);
 		if (Annotation.IsDefault())
 		{
-			RemoveAnnotation(Index); // adding the default annotation is the same as removing an annotation
+			RemoveAnnotationInternal(Index); // adding the default annotation is the same as removing an annotation
 		}
 		else
 		{
-			FRWScopeLock AnnotationArrayLock(AnnotationArrayCritical, SLT_Write);
 			if (AnnotationArray.Num() == 0)
 			{
 				// we are adding the first one, so if we are auto removing or verifying removal, register now
@@ -548,6 +554,8 @@ public:
 			AnnotationArray[Index] = Annotation;
 		}
 	}
+
+public:
 	/**
 	 * Removes an annotation from the annotation list. 
 	 *
@@ -565,13 +573,21 @@ public:
 	 */
 	void RemoveAnnotation(int32 Index)
 	{
-		check(Index >= 0);
 		FRWScopeLock AnnotationArrayLock(AnnotationArrayCritical, SLT_Write);
+		RemoveAnnotationInternal(Index);
+	}
+
+private:
+	void RemoveAnnotationInternal(int32 Index)
+	{
+		check(Index >= 0);
 		if (Index <  AnnotationArray.Num())
 		{
 			AnnotationArray[Index] = TAnnotation();
 		}
 	}
+
+public:
 	/**
 	 * Removes all annotation from the annotation list. 
 	 *
@@ -644,7 +660,7 @@ public:
 		FRWScopeLock AnnotationArrayLock(AnnotationArrayCritical, SLT_Write);
 		if (Index >= AnnotationArray.Num())
 		{
-			AddAnnotation(Index, TAnnotation());
+			AddAnnotationInternal(Index, TAnnotation());
 		}
 		return AnnotationArray[Index];
 	}

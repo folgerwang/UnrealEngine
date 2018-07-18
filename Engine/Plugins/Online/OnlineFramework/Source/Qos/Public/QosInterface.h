@@ -34,9 +34,16 @@ public:
 	 *
 	 * Clients pull this value from the settings (or command line) and do a ping test to determine if the setting is viable.
 	 *
-	 * @return the default region identifier
+	 * @return the current region identifier
 	 */
 	FString GetRegionId() const;
+
+	/**
+	 * Get the region ID with the current best ping time, checking ini and commandline overrides.
+	 * 
+	 * @return the default region identifier
+	 */
+	FString GetBestRegion() const;
 
 	/** @return true if a reasonable enough number of results were returned from all known regions, false otherwise */
 	bool AllRegionsFound() const;
@@ -58,6 +65,9 @@ public:
 	 */
 	bool SetSelectedRegion(const FString& RegionId);
 
+	/** Clear the region to nothing, used for logging out */
+	void ClearSelectedRegion();
+
 	/**
 	 * Force the selected region creating a fake RegionOption if necessary
 	 */
@@ -76,6 +86,11 @@ public:
 	 * Debug output for current region / datacenter information
 	 */
 	void DumpRegionStats();
+
+	/**
+	* Register a delegate to be called when QoS settings have changed.
+	*/
+	void RegisterQoSSettingsChangedDelegate(const FSimpleDelegate& OnQoSSettingsChanged);
 
 protected:
 

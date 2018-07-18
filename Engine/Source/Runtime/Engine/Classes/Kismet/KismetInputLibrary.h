@@ -85,6 +85,12 @@ class ENGINE_API UKismetInputLibrary : public UBlueprintFunctionLibrary
 	static bool Key_IsVectorAxis(const FKey& Key);
 	
 	/**
+	 * @returns True if this is a valid key.
+	 */
+	UFUNCTION(BlueprintPure, meta = (DisplayName = "Is Valid"), Category = "Utilities|Key")
+	static bool Key_IsValid(const FKey& Key);
+
+	/**
 	 * @returns The display name of the key.
 	 */
 	UFUNCTION(BlueprintPure, meta = (DisplayName = "Get Key Display Name"), Category="Utilities|Key")

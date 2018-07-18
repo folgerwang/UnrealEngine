@@ -89,8 +89,10 @@ static FAutoConsoleVariableRef CVarRK4SpringInterpolatorMaxIter(TEXT("p.RK4Sprin
 
 UAnimInstance::UAnimInstance(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
-	, bUpdatingAnimation(false)
+#if DO_CHECK
 	, bPostUpdatingAnimation(false)
+	, bUpdatingAnimation(false)
+#endif
 {
 	RootMotionMode = ERootMotionMode::RootMotionFromMontagesOnly;
 	bNeedsUpdate = false;
@@ -1052,9 +1054,23 @@ void UAnimInstance::DisplayDebug(class UCanvas* Canvas, const FDebugDisplayInfo&
 #endif // ENABLE_DRAW_DEBUG
 }
 
+void UAnimInstance::ResetDynamics(ETeleportType InTeleportType)
+{
+	GetProxyOnGameThread<FAnimInstanceProxy>().ResetDynamics(InTeleportType);
+}
+
 void UAnimInstance::ResetDynamics()
 {
-	GetProxyOnGameThread<FAnimInstanceProxy>().ResetDynamics();
+	ResetDynamics(ETeleportType::ResetPhysics);
+}
+
+
+int32 UAnimInstance::GetLODLevel() const
+{
+	USkeletalMeshComponent* SkelMeshComp = GetSkelMeshComponent();
+	check(SkelMeshComp)
+
+	return SkelMeshComp->PredictedLODLevel;
 }
 
 void UAnimInstance::RecalcRequiredBones()
@@ -1236,6 +1252,14 @@ void UAnimInstance::ResetAnimationCurves()
 	}
 }
 
+void UAnimInstance::CopyCurveValues(const UAnimInstance& InSourceInstance)
+{
+	for (uint8 i = 0; i < (uint8)EAnimCurveType::MaxAnimCurveType; i++)
+	{
+		AnimationCurves[i] = InSourceInstance.AnimationCurves[i];
+	}
+}
+
 void UAnimInstance::UpdateCurves(const FBlendedHeapCurve& InCurve)
 {
 	SCOPE_CYCLE_COUNTER(STAT_UpdateCurves);
@@ -1257,16 +1281,17 @@ void UAnimInstance::UpdateCurves(const FBlendedHeapCurve& InCurve)
 
 	ResetAnimationCurves();
 
-	if (InCurve.UIDList != nullptr)
+	if (InCurve.UIDToArrayIndexLUT != nullptr)
 	{
-		const TArray<SmartName::UID_Type>& UIDList = *InCurve.UIDList;
-		for (int32 CurveId = 0; CurveId < InCurve.UIDList->Num(); ++CurveId)
+		for (int32 CurveUID = 0; CurveUID < InCurve.UIDToArrayIndexLUT->Num(); ++CurveUID)
 		{
-			if (ensureAlwaysMsgf(InCurve.Elements.IsValidIndex(CurveId), TEXT("%s Animation Instance contains out of bound UIDList."), *GetClass()->GetName())
-				&& InCurve.Elements[CurveId].IsValid())
+			int32 ArrayIndex = InCurve.GetArrayIndexByUID(CurveUID);
+
+			if (ArrayIndex != INDEX_NONE && ensureAlwaysMsgf(InCurve.Elements.IsValidIndex(ArrayIndex), TEXT("%s Animation Instance contains out of bound UIDList."), *GetClass()->GetName())
+				&& InCurve.Elements[ArrayIndex].IsValid())
 			{
 				// had to add to another data type
-				AddCurveValue(UIDList[CurveId], InCurve.Elements[CurveId].Value);
+				AddCurveValue(CurveUID, InCurve.Elements[ArrayIndex].Value);
 			}
 		}
 	}	
@@ -1290,6 +1315,18 @@ void UAnimInstance::UpdateCurves(const FBlendedHeapCurve& InCurve)
 bool UAnimInstance::HasMorphTargetCurves() const
 {
 	return AnimationCurves[(uint8)EAnimCurveType::MorphTargetCurve].Num() > 0;
+}
+
+bool UAnimInstance::HasActiveCurves() const
+{
+	for(const TMap<FName, float>& AnimationCurveMap : AnimationCurves)
+	{
+		if(AnimationCurveMap.Num() > 0)
+		{
+			return true;
+		}
+	}
+	return false;
 }
 
 void UAnimInstance::TriggerAnimNotifies(float DeltaSeconds)
@@ -1430,16 +1467,16 @@ float UAnimInstance::CalcSlotMontageLocalWeight(const FName& SlotNodeName) const
 	return GetProxyOnAnyThread<FAnimInstanceProxy>().CalcSlotMontageLocalWeight(SlotNodeName);
 }
 
-float UAnimInstance::GetCurveValue(FName CurveName)
+float UAnimInstance::GetCurveValue(FName CurveName) const
 {
 	float Value = 0.f;
 	GetCurveValue(CurveName, Value);
 	return Value;
 }
 
-bool UAnimInstance::GetCurveValue(FName CurveName, float& OutValue)
+bool UAnimInstance::GetCurveValue(FName CurveName, float& OutValue) const
 {
-	float* Value = AnimationCurves[(uint8)EAnimCurveType::AttributeCurve].Find(CurveName);
+	const float* Value = AnimationCurves[(uint8)EAnimCurveType::AttributeCurve].Find(CurveName);
 	if (Value)
 	{
 		OutValue = *Value;
@@ -1447,6 +1484,29 @@ bool UAnimInstance::GetCurveValue(FName CurveName, float& OutValue)
 	}
 
 	return false;
+}
+
+void UAnimInstance::GetActiveCurveNames(EAnimCurveType CurveType, TArray<FName>& OutNames) const
+{
+	TMap<FName, float> ActiveCurves;
+
+	AppendAnimationCurveList(CurveType, ActiveCurves);
+	ActiveCurves.GetKeys(OutNames);
+}
+
+void UAnimInstance::GetAllCurveNames(TArray<FName>& OutNames) const
+{
+	USkeletalMeshComponent* SkelMeshComp = GetOwningComponent();
+	if (SkelMeshComp && SkelMeshComp->SkeletalMesh && SkelMeshComp->SkeletalMesh->Skeleton)
+	{
+		const USkeleton* CurSkeleton = SkelMeshComp->SkeletalMesh->Skeleton;
+
+		const FSmartNameMapping* Mapping = CurSkeleton->GetSmartNameContainer(USkeleton::AnimCurveMappingName);
+		if (Mapping)
+		{
+			Mapping->FillNameArray(OutNames);
+		}
+	}
 }
 
 void UAnimInstance::SetRootMotionMode(TEnumAsByte<ERootMotionMode::Type> Value)
@@ -1644,7 +1704,7 @@ float UAnimInstance::PlaySlotAnimation(UAnimSequenceBase* Asset, FName SlotNodeN
 		return 0.f;
 	}
 
-	if (!Asset->CanBeUsedInMontage())
+	if (!Asset->CanBeUsedInComposition())
 	{
 		UE_LOG(LogAnimMontage, Warning, TEXT("This animation isn't supported to play as montage"));
 		return 0.f;
@@ -2734,6 +2794,11 @@ FBoneContainer& UAnimInstance::GetRequiredBones()
 const FBoneContainer& UAnimInstance::GetRequiredBones() const
 {
 	return GetProxyOnGameThread<FAnimInstanceProxy>().GetRequiredBones();
+}
+
+const FBoneContainer& UAnimInstance::GetRequiredBonesOnAnyThread() const
+{
+	return GetProxyOnAnyThread<FAnimInstanceProxy>().GetRequiredBones();
 }
 
 void UAnimInstance::QueueRootMotionBlend(const FTransform& RootTransform, const FName& SlotName, float Weight)

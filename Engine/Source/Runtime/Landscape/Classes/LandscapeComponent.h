@@ -176,7 +176,8 @@ struct FWeightmapLayerAllocationInfo
 	uint8 WeightmapTextureChannel;
 
 	FWeightmapLayerAllocationInfo()
-		: WeightmapTextureIndex(0)
+		: LayerInfo(nullptr)
+		, WeightmapTextureIndex(0)
 		, WeightmapTextureChannel(0)
 	{
 	}
@@ -229,10 +230,13 @@ struct FLandscapeComponentGrassData
 
 	SIZE_T GetAllocatedSize() const;
 
+	// Check whether we can discard any data not needed with current scalability settings
+	void ConditionalDiscardDataOnLoad();
+
 	friend FArchive& operator<<(FArchive& Ar, FLandscapeComponentGrassData& Data);
 };
 
-UCLASS(hidecategories=(Display, Attachment, Physics, Debug, Collision, Movement, Rendering, PrimitiveComponent, Object, Transform), showcategories=("Rendering|Material"), MinimalAPI, Within=LandscapeProxy)
+UCLASS(hidecategories=(Display, Attachment, Physics, Debug, Collision, Movement, Rendering, PrimitiveComponent, Object, Transform, Mobility), showcategories=("Rendering|Material"), MinimalAPI, Within=LandscapeProxy)
 class ULandscapeComponent : public UPrimitiveComponent
 {
 	GENERATED_UCLASS_BODY()
@@ -381,9 +385,8 @@ public:
 	UPROPERTY(Transient, DuplicateTransient, NonTransactional)
 	FLandscapeEditToolRenderData EditToolRenderData;
 
-	/** Hash of source for ES2 generated data. Used for mobile preview and cook-in-editor
-	 * to determine if we need to re-generate ES2 pixel data. */
-	UPROPERTY(Transient, DuplicateTransient)
+	/** Hash of source for ES2 generated data. Used determine if we need to re-generate ES2 pixel data. */
+	UPROPERTY(DuplicateTransient)
 	FGuid MobileDataSourceHash;
 #endif
 
@@ -395,9 +398,20 @@ public:
 	UPROPERTY(NonPIEDuplicateTransient)
 	UMaterialInterface* MobileMaterialInterface;
 
-	/** Generated weight/normal map texture used for ES2. Serialized only when cooking or loading cooked builds. */
+	/** Generated weightmap textures used for ES2. The first entry is also used for the normal map. 
+	  * Serialized only when cooking or loading cooked builds. */
 	UPROPERTY(NonPIEDuplicateTransient)
-	UTexture2D* MobileWeightNormalmapTexture;
+	TArray<UTexture2D*> MobileWeightmapTextures;
+
+#if WITH_EDITORONLY_DATA
+	/** Layer allocations used by mobile. Cached value here used only in the editor for usage visualization. */
+	TArray<FWeightmapLayerAllocationInfo> MobileWeightmapLayerAllocations;
+
+	/** The editor needs to save out the combination MIC we'll use for mobile, 
+	  because we cannot generate it at runtime for standalone PIE games */
+	UPROPERTY(NonPIEDuplicateTransient)
+	UMaterialInstanceConstant* MobileCombinationMaterialInstance;
+#endif
 
 public:
 	/** Platform Data where don't support texture sampling in vertex buffer */
@@ -504,11 +518,12 @@ public:
 	void SerializeStateHashes(FArchive& Ar);
 
 	// Generates mobile platform data for this component
-	void GeneratePlatformVertexData();
+	void GenerateMobileWeightmapLayerAllocations();
+	void GeneratePlatformVertexData(const ITargetPlatform* TargetPlatform);
 	void GeneratePlatformPixelData();
 
 	/** Generate mobile data if it's missing or outdated */
-	void CheckGenerateLandscapePlatformData(bool bIsCooking);
+	void CheckGenerateLandscapePlatformData(bool bIsCooking, const ITargetPlatform* TargetPlatform);
 #endif
 
 	LANDSCAPE_API class UMaterialInstance* GetMaterialInstance(int32 InIndex, bool InDynamic = true) const;
@@ -582,7 +597,7 @@ public:
 	void UpdateMaterialInstances_Internal(FMaterialUpdateContext& Context);
 
 	/** Helper function for UpdateMaterialInstance to get Material without set parameters */
-	UMaterialInstanceConstant* GetCombinationMaterial(bool bMobile = false);
+	UMaterialInstanceConstant* GetCombinationMaterial(const TArray<FWeightmapLayerAllocationInfo>& Allocations, bool bMobile = false) const;
 	/**
 	 * Generate mipmaps for height and tangent data.
 	 * @param HeightmapTextureMipData - array of pointers to the locked mip data.
@@ -669,9 +684,9 @@ public:
 	LANDSCAPE_API bool ComponentHasVisibilityPainted() const;
 
 	/**
-	 * Generate a key for this component's layer allocations to use with MaterialInstanceConstantMap.
+	 * Generate a key for a component's layer allocations to use with MaterialInstanceConstantMap.
 	 */
-	FString GetLayerAllocationKey(UMaterialInterface* LandscapeMaterial, bool bMobile = false) const;
+	static FString GetLayerAllocationKey(const TArray<FWeightmapLayerAllocationInfo>& Allocations, UMaterialInterface* LandscapeMaterial, bool bMobile = false);
 
 	/** @todo document */
 	void GetLayerDebugColorKey(int32& R, int32& G, int32& B) const;

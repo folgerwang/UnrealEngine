@@ -31,7 +31,7 @@ void ALobbyBeaconClient::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > 
 
 void ALobbyBeaconClient::OnConnected()
 {
-	UE_LOG(LogBeacon, Verbose, TEXT("Lobby beacon connection established."));
+	UE_LOG(LogLobbyBeacon, Verbose, TEXT("Lobby beacon connection established."));
 
 	OnLobbyConnectionEstablished().ExecuteIfBound();
 	LoginLocalPlayers();
@@ -58,7 +58,7 @@ void ALobbyBeaconClient::ConnectToLobby(const FOnlineSessionSearchResult& Desire
 				}
 				else
 				{
-					UE_LOG(LogBeacon, Warning, TEXT("ConnectToLobby: Failure to init client beacon with %s."), *ConnectURL.ToString());
+					UE_LOG(LogLobbyBeacon, Warning, TEXT("ConnectToLobby: Failure to init client beacon with %s."), *ConnectURL.ToString());
 				}
 			}
 		}
@@ -72,7 +72,7 @@ void ALobbyBeaconClient::ConnectToLobby(const FOnlineSessionSearchResult& Desire
 
 void ALobbyBeaconClient::ClientJoinGame_Implementation()
 {
-	UE_LOG(LogBeacon, Log, TEXT("ClientJoinGame signal %d"), bLoggedIn);
+	UE_LOG(LogLobbyBeacon, Log, TEXT("ClientJoinGame signal %d"), bLoggedIn);
 	if (bLoggedIn)
 	{
 		OnJoiningGame().ExecuteIfBound();
@@ -103,7 +103,7 @@ void ALobbyBeaconClient::SetPartyOwnerId(const FUniqueNetIdRepl& InUniqueId, con
 	}
 	else
 	{
-		UE_LOG(LogBeacon, Warning, TEXT("Not logged in when calling SetPartyOwnerId"));
+		UE_LOG(LogLobbyBeacon, Warning, TEXT("Not logged in when calling SetPartyOwnerId"));
 	}
 }
 
@@ -111,13 +111,13 @@ void ALobbyBeaconClient::DisconnectFromLobby()
 {
 	if (bLoggedIn)
 	{
-		UE_LOG(LogBeacon, Log, TEXT("DisconnectFromLobby %s Id: %s"), *GetName(), PlayerState ? *PlayerState->UniqueId->ToString() : TEXT("Unknown"));
+		UE_LOG(LogLobbyBeacon, Log, TEXT("DisconnectFromLobby %s Id: %s"), *GetName(), PlayerState ? *PlayerState->UniqueId->ToString() : TEXT("Unknown"));
 		ServerDisconnectFromLobby();
 		bLoggedIn = false;
 	}
 	else
 	{
-		UE_LOG(LogBeacon, Verbose, TEXT("Not logged in when calling DisconnectFromLobby"));
+		UE_LOG(LogLobbyBeacon, Verbose, TEXT("Not logged in when calling DisconnectFromLobby"));
 	}
 }
 
@@ -127,18 +127,18 @@ void ALobbyBeaconClient::JoiningServer()
 	{
 		if (LobbyJoinServerState == ELobbyBeaconJoinState::None)
 		{
-			UE_LOG(LogBeacon, Log, TEXT("JoiningServer %s Id: %s"), *GetName(), PlayerState ? *PlayerState->UniqueId->ToString() : TEXT("Unknown"));
+			UE_LOG(LogLobbyBeacon, Log, TEXT("JoiningServer %s Id: %s"), *GetName(), PlayerState ? *PlayerState->UniqueId->ToString() : TEXT("Unknown"));
 			LobbyJoinServerState = ELobbyBeaconJoinState::SentJoinRequest;
 			ServerNotifyJoiningServer();
 		}
 		else
 		{
-			UE_LOG(LogBeacon, Warning, TEXT("Already joining server, skipping %d"), static_cast<int32>(LobbyJoinServerState));
+			UE_LOG(LogLobbyBeacon, Warning, TEXT("Already joining server, skipping %d"), static_cast<int32>(LobbyJoinServerState));
 		}
 	}
 	else
 	{
-		UE_LOG(LogBeacon, Warning, TEXT("Not logged in when calling JoiningServer"));
+		UE_LOG(LogLobbyBeacon, Warning, TEXT("Not logged in when calling JoiningServer"));
 	}
 }
 
@@ -150,7 +150,7 @@ void ALobbyBeaconClient::KickPlayer(const FUniqueNetIdRepl& PlayerToKick, const 
 	}
 	else
 	{
-		UE_LOG(LogBeacon, Warning, TEXT("Not logged in when calling KickPlayer"));
+		UE_LOG(LogLobbyBeacon, Warning, TEXT("Not logged in when calling KickPlayer"));
 	}
 }
 
@@ -211,7 +211,7 @@ bool ALobbyBeaconClient::ServerLoginPlayer_Validate(const FString& InSessionId, 
 
 void ALobbyBeaconClient::ServerLoginPlayer_Implementation(const FString& InSessionId, const FUniqueNetIdRepl& InUniqueId, const FString& UrlString)
 {
-	UE_LOG(LogBeacon, Log, TEXT("ServerLoginPlayer %s %s."), *InUniqueId.ToString(), *UrlString);
+	UE_LOG(LogLobbyBeacon, Log, TEXT("ServerLoginPlayer %s %s."), *InUniqueId.ToString(), *UrlString);
 	ALobbyBeaconHost* BeaconHost = Cast<ALobbyBeaconHost>(GetBeaconOwner());
 	if (BeaconHost)
 	{
@@ -221,7 +221,7 @@ void ALobbyBeaconClient::ServerLoginPlayer_Implementation(const FString& InSessi
 
 void ALobbyBeaconClient::ClientLoginComplete_Implementation(const FUniqueNetIdRepl& InUniqueId, bool bWasSuccessful)
 {
-	UE_LOG(LogBeacon, Log, TEXT("ClientLoginComplete %s %s."), *InUniqueId.ToString(), bWasSuccessful ? TEXT("Success") : TEXT("Failure"));
+	UE_LOG(LogLobbyBeacon, Log, TEXT("ClientLoginComplete %s %s."), *InUniqueId.ToString(), bWasSuccessful ? TEXT("Success") : TEXT("Failure"));
 
 	bLoggedIn = bWasSuccessful;
 	OnLoginComplete().ExecuteIfBound(bLoggedIn);
@@ -238,7 +238,7 @@ bool ALobbyBeaconClient::ServerDisconnectFromLobby_Validate()
 
 void ALobbyBeaconClient::ServerDisconnectFromLobby_Implementation()
 {
-	UE_LOG(LogBeacon, Log, TEXT("ServerDisconnectFromLobby %s Id: %s"), *GetName(), PlayerState ? *PlayerState->UniqueId->ToString() : TEXT("Unknown"));
+	UE_LOG(LogLobbyBeacon, Log, TEXT("ServerDisconnectFromLobby %s Id: %s"), *GetName(), PlayerState ? *PlayerState->UniqueId->ToString() : TEXT("Unknown"));
 
 	ALobbyBeaconHost* BeaconHost = Cast<ALobbyBeaconHost>(GetBeaconOwner());
 	if (BeaconHost)
@@ -254,7 +254,7 @@ bool ALobbyBeaconClient::ServerNotifyJoiningServer_Validate()
 
 void ALobbyBeaconClient::ServerNotifyJoiningServer_Implementation()
 {
-	UE_LOG(LogBeacon, Log, TEXT("ServerNotifyJoiningGame %s Id: %s"), *GetName(), PlayerState ? *PlayerState->UniqueId->ToString() : TEXT("Unknown"));
+	UE_LOG(LogLobbyBeacon, Log, TEXT("ServerNotifyJoiningGame %s Id: %s"), *GetName(), PlayerState ? *PlayerState->UniqueId->ToString() : TEXT("Unknown"));
 	ALobbyBeaconHost* BeaconHost = Cast<ALobbyBeaconHost>(GetBeaconOwner());
 	if (BeaconHost)
 	{
@@ -266,7 +266,7 @@ void ALobbyBeaconClient::AckJoiningServer()
 {
 	if (GetNetMode() < NM_Client)
 	{
-		UE_LOG(LogBeacon, Log, TEXT("AckJoiningServer %s Id: %s"), *GetName(), PlayerState ? *PlayerState->UniqueId->ToString() : TEXT("Unknown"));
+		UE_LOG(LogLobbyBeacon, Log, TEXT("AckJoiningServer %s Id: %s"), *GetName(), PlayerState ? *PlayerState->UniqueId->ToString() : TEXT("Unknown"));
 		LobbyJoinServerState = ELobbyBeaconJoinState::JoinRequestAcknowledged;
 		ClientAckJoiningServer();
 	}
@@ -274,7 +274,7 @@ void ALobbyBeaconClient::AckJoiningServer()
 
 void ALobbyBeaconClient::ClientAckJoiningServer_Implementation()
 {
-	UE_LOG(LogBeacon, Log, TEXT("ClientAckJoiningServer %s Id: %s LoggedIn: %d"), *GetName(), PlayerState ? *PlayerState->UniqueId->ToString() : TEXT("Unknown"), bLoggedIn);
+	UE_LOG(LogLobbyBeacon, Log, TEXT("ClientAckJoiningServer %s Id: %s LoggedIn: %d"), *GetName(), PlayerState ? *PlayerState->UniqueId->ToString() : TEXT("Unknown"), bLoggedIn);
 	LobbyJoinServerState = ELobbyBeaconJoinState::JoinRequestAcknowledged;
 	OnJoiningGameAck().ExecuteIfBound();
 }
@@ -286,7 +286,7 @@ bool ALobbyBeaconClient::ServerKickPlayer_Validate(const FUniqueNetIdRepl& Playe
 
 void ALobbyBeaconClient::ServerKickPlayer_Implementation(const FUniqueNetIdRepl& PlayerToKick, const FText& Reason)
 {
-	UE_LOG(LogBeacon, Log, TEXT("ServerKickPlayer %s -> %s"), (PlayerState != nullptr ? *PlayerState->UniqueId.ToString() : TEXT("")),
+	UE_LOG(LogLobbyBeacon, Log, TEXT("ServerKickPlayer %s -> %s"), (PlayerState != nullptr ? *PlayerState->UniqueId.ToString() : TEXT("")),
 			*PlayerToKick.ToString());
 
 	ALobbyBeaconHost* BeaconHost = Cast<ALobbyBeaconHost>(GetBeaconOwner());
@@ -307,7 +307,7 @@ void ALobbyBeaconClient::ServerSetPartyOwner_Implementation(const FUniqueNetIdRe
 
 void ALobbyBeaconClient::ClientPlayerJoined_Implementation(const FText& NewPlayerName, const FUniqueNetIdRepl& InUniqueId)
 {
-	UE_LOG(LogBeacon, Log, TEXT("ClientPlayerJoined %s %s."), *NewPlayerName.ToString(), *InUniqueId.ToString());
+	UE_LOG(LogLobbyBeacon, Log, TEXT("ClientPlayerJoined %s %s."), *NewPlayerName.ToString(), *InUniqueId.ToString());
 
 	if (GetNetMode() != NM_Standalone)
 	{
@@ -324,7 +324,7 @@ void ALobbyBeaconClient::ClientPlayerJoined_Implementation(const FText& NewPlaye
 
 void ALobbyBeaconClient::ClientPlayerLeft_Implementation(const FUniqueNetIdRepl& InUniqueId)
 {
-	UE_LOG(LogBeacon, Log, TEXT("ClientPlayerLeft %s"), *InUniqueId.ToString());
+	UE_LOG(LogLobbyBeacon, Log, TEXT("ClientPlayerLeft %s"), *InUniqueId.ToString());
 
 	if (GetNetMode() != NM_Standalone)
 	{

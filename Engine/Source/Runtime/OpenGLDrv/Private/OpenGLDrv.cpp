@@ -61,6 +61,11 @@ void FOpenGLGPUProfiler::PopEvent()
 
 void FOpenGLGPUProfiler::BeginFrame(FOpenGLDynamicRHI* InRHI)
 {
+	if (!bIntialized)
+	{
+		bIntialized = true;
+		InitResources();
+	}
 	if (NestedFrameCount++>0)
 	{
 		// guard against nested Begin/EndFrame calls.
@@ -110,7 +115,7 @@ void FOpenGLGPUProfiler::BeginFrame(FOpenGLDynamicRHI* InRHI)
 	bPreviousLatchedGProfilingGPUHitches = bLatchedGProfilingGPUHitches;
 
 	// Skip timing events when using SLI, they will not be accurate anyway
-	if (GNumActiveGPUsForRendering == 1)
+	if (GNumAlternateFrameRenderingGroups == 1)
 	{
 		if (FrameTiming.IsSupported())
 		{
@@ -143,7 +148,7 @@ void FOpenGLGPUProfiler::EndFrame()
 	}
 
 	// Skip timing events when using SLI, they will not be accurate anyway
-	if (GNumActiveGPUsForRendering == 1)
+	if (GNumAlternateFrameRenderingGroups == 1)
 	{
 		if (FrameTiming.IsSupported())
 		{
@@ -157,13 +162,13 @@ void FOpenGLGPUProfiler::EndFrame()
 
 	// Skip timing events when using SLI, as they will block the GPU and we want maximum throughput
 	// Stat unit GPU time is not accurate anyway with SLI
-	if (FrameTiming.IsSupported() && GNumActiveGPUsForRendering == 1)
+	if (FrameTiming.IsSupported() && GNumAlternateFrameRenderingGroups == 1)
 	{
 		uint64 GPUTiming = FrameTiming.GetTiming();
 		uint64 GPUFreq = FrameTiming.GetTimingFrequency();
 		GGPUFrameTime = FMath::TruncToInt( double(GPUTiming) / double(GPUFreq) / FPlatformTime::GetSecondsPerCycle() );
 	}
-	else if (FOpenGLDisjointTimeStampQuery::IsSupported() && GNumActiveGPUsForRendering == 1)
+	else if (FOpenGLDisjointTimeStampQuery::IsSupported() && GNumAlternateFrameRenderingGroups == 1)
 	{
 		static uint32 GLastGPUFrameTime = 0;
 		uint64 GPUTiming = 0;
@@ -306,13 +311,17 @@ void FOpenGLGPUProfiler::EndFrame()
 
 void FOpenGLGPUProfiler::Cleanup()
 {
-	for (int32 Index = 0; Index < MAX_GPUFRAMEQUERIES; ++Index)
+	if (bIntialized)
 	{
-		DisjointGPUFrameTimeQuery[Index].ReleaseResource();
-	}
+		for (int32 Index = 0; Index < MAX_GPUFRAMEQUERIES; ++Index)
+		{
+			DisjointGPUFrameTimeQuery[Index].ReleaseResources();
+		}
 
-	FrameTiming.ReleaseResource();
-	NestedFrameCount = 0;
+		FrameTiming.ReleaseResources();
+		NestedFrameCount = 0;
+		bIntialized = false;
+	}
 }
 
 /** Start this frame of per tracking */
@@ -379,6 +388,7 @@ float FOpenGLEventNode::GetTiming()
 
 void FOpenGLDynamicRHI::InitializeStateResources()
 {
+	VERIFY_GL_SCOPE();
 	SharedContextState.InitializeResources(FOpenGL::GetMaxCombinedTextureImageUnits(), OGL_MAX_COMPUTE_STAGE_UAV_UNITS);
 	RenderingContextState.InitializeResources(FOpenGL::GetMaxCombinedTextureImageUnits(), OGL_MAX_COMPUTE_STAGE_UAV_UNITS);
 	PendingState.InitializeResources(FOpenGL::GetMaxCombinedTextureImageUnits(), OGL_MAX_COMPUTE_STAGE_UAV_UNITS);
@@ -623,7 +633,7 @@ void InitDefaultGLContextState(void)
 		glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
 	}
 
-#if PLATFORM_WINDOWS || PLATFORM_LINUX
+#if PLATFORM_WINDOWS || PLATFORM_LINUX || PLATFORM_LUMINGL4
 	if (OpenGLConsoleVariables::bUseGlClipControlIfAvailable && ExtensionsString.Contains(TEXT("GL_ARB_clip_control")) && !FOpenGL::IsAndroidGLESCompatibilityModeEnabled())
 	{
 		FOpenGL::EnableSupportsClipControl();

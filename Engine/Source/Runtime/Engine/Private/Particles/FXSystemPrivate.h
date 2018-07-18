@@ -9,6 +9,7 @@
 #include "CoreMinimal.h"
 #include "FXSystem.h"
 #include "VectorField.h"
+#include "ParticleSortingGPU.h"
 
 class FCanvas;
 class FGlobalDistanceFieldParameterData;
@@ -147,7 +148,11 @@ public:
 	virtual void PreInitViews() override;
 	virtual bool UsesGlobalDistanceField() const override;
 	virtual void PreRender(FRHICommandListImmediate& RHICmdList, const FGlobalDistanceFieldParameterData* GlobalDistanceFieldParameterData) override;
-	virtual void PostRenderOpaque(FRHICommandListImmediate& RHICmdList, const FUniformBufferRHIParamRef ViewUniformBuffer, FTexture2DRHIParamRef SceneDepthTexture, FTexture2DRHIParamRef GBufferATexture) override;
+	virtual void PostRenderOpaque(
+		FRHICommandListImmediate& RHICmdList, 
+		const FUniformBufferRHIParamRef ViewUniformBuffer, 
+		const FUniformBufferStruct* SceneTexturesUniformBufferStruct,
+		FUniformBufferRHIParamRef SceneTexturesUniformBuffer) override;
 	// End FFXSystemInterface.
 
 	/*--------------------------------------------------------------------------
@@ -191,8 +196,8 @@ public:
 	 */
 	int32 AddSortedGPUSimulation(FParticleSimulationGPU* Simulation, const FVector& ViewOrigin);
 
-	void PrepareGPUSimulation(FRHICommandListImmediate& RHICmdList, FTexture2DRHIParamRef SceneDepthTexture = nullptr);
-	void FinalizeGPUSimulation(FRHICommandListImmediate& RHICmdList, FTexture2DRHIParamRef SceneDepthTexture = nullptr);
+	void PrepareGPUSimulation(FRHICommandListImmediate& RHICmdList);
+	void FinalizeGPUSimulation(FRHICommandListImmediate& RHICmdList);
 
 private:
 
@@ -242,16 +247,14 @@ private:
 	 * Update particles simulated on the GPU.
 	 * @param Phase				Which emitters are being simulated.
 	 * @param CollisionView		View to be used for collision checks.
-	 * @param SceneDepthTexture Depth texture to use for collision checks.
-	 * @param GBufferATexture	GBuffer texture containing the world normal.
 	 */
 	void SimulateGPUParticles(
 		FRHICommandListImmediate& RHICmdList,
 		EParticleSimulatePhase::Type Phase,
 		const FUniformBufferRHIParamRef ViewUniformBuffer,
 		const FGlobalDistanceFieldParameterData* GlobalDistanceFieldParameterData,
-		FTexture2DRHIParamRef SceneDepthTexture,
-		FTexture2DRHIParamRef GBufferATexture
+		const FUniformBufferStruct* SceneTexturesUniformBufferStruct,
+		FUniformBufferRHIParamRef SceneTexturesUniformBuffer
 		);
 
 	/**
@@ -261,6 +264,16 @@ private:
 	void VisualizeGPUParticles(FCanvas* Canvas);
 
 private:
+
+	template<typename TVectorFieldUniformParametersType>
+	void SimulateGPUParticles_Internal(
+		FRHICommandListImmediate& RHICmdList,
+		EParticleSimulatePhase::Type Phase,
+		const FUniformBufferRHIParamRef ViewUniformBuffer,
+		const FGlobalDistanceFieldParameterData* GlobalDistanceFieldParameterData,
+		FTexture2DRHIParamRef SceneDepthTexture,
+		FTexture2DRHIParamRef GBufferATexture
+	);
 
 	/*-------------------------------------------------------------------------
 		GPU simulation state.
@@ -279,7 +292,6 @@ private:
 
 	/** Previous frame new particles for multi-gpu simulation*/
 	TArray<FNewParticle> LastFrameNewParticles;
-
 #if WITH_EDITOR
 	/** true if the system has been suspended. */
 	bool bSuspended;

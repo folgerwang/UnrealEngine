@@ -6,8 +6,6 @@ public class GameProjectGeneration : ModuleRules
 {
     public GameProjectGeneration(ReadOnlyTargetRules Target) : base(Target)
 	{
-        PrivateIncludePaths.AddRange(new string[] { "GameProjectGeneration/Private", "GameProjectGeneration/Public", "GameProjectGeneration/Classes" });
-
 		PublicDependencyModuleNames.AddRange(
 			new string[] {
 				"HardwareTargeting",

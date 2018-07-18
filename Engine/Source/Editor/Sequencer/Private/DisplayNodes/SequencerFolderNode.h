@@ -30,7 +30,13 @@ public:
 	virtual bool CanDrag() const override;
 	virtual TOptional<EItemDropZone> CanDrop( FSequencerDisplayNodeDragDropOp& DragDropOp, EItemDropZone ItemDropZone ) const override;
 	virtual void Drop( const TArray<TSharedRef<FSequencerDisplayNode>>& DraggedNodes, EItemDropZone ItemDropZone ) override;
-	virtual void BuildContextMenu(FMenuBuilder& MenuBuilder);
+	virtual void BuildContextMenu(FMenuBuilder& MenuBuilder) override;
+	virtual int32 GetSortingOrder() const override;
+	virtual void SetSortingOrder(const int32 InSortingOrder) override;
+	virtual void ModifyAndSetSortingOrder(const int32 InSortingOrder) override;
+
+	/** Removes a node from it's old parent and makes it a child of this node. */
+	void MoveDisplayNodeToFolder(TSharedRef<FSequencerDisplayNode>& Node);
 
 	/** Adds a child node to this folder node. */
 	void AddChildNode( TSharedRef<FSequencerDisplayNode> ChildNode );
@@ -47,7 +53,7 @@ public:
 	/** Callback for the color picker being closed */
 	void OnColorPickerClosed(const TSharedRef<SWindow>& Window);
 
-	/** Callback for the color picker being cancelled */
+	/** Callback for the color picker being canceled */
 	void OnColorPickerCancelled(FLinearColor NewFolderColor);
 
 private:

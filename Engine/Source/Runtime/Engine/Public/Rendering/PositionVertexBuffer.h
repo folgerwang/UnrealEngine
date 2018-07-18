@@ -49,10 +49,12 @@ public:
 	ENGINE_API void Init(const TArray<FVector>& InPositions);
 
 	/**
-	* Removes the cloned vertices used for extruding shadow volumes.
-	* @param NumVertices - The real number of static mesh vertices which should remain in the buffer upon return.
-	*/
-	void RemoveLegacyShadowVolumeVertices(uint32 InNumVertices);
+	 * Appends the specified vertices to the end of the buffer
+	 *
+	 * @param	Vertices	The vertex data to be appended.  Must not be nullptr.
+	 * @param	NumVerticesToAppend		How many vertices should be added
+	 */
+	ENGINE_API void AppendVertices( const FStaticMeshBuildVertex* Vertices, const uint32 NumVerticesToAppend );
 
 	/**
 	* Serializer

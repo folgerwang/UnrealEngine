@@ -13,6 +13,7 @@
 #include "Engine/DeveloperSettings.h"
 #include "PhysicsEngine/PhysicsSettingsEnums.h"
 #include "PhysicsEngine/BodySetupEnums.h"
+#include "GameFramework/WorldSettings.h"
 #include "PhysicsSettings.generated.h"
 
 /**
@@ -72,7 +73,6 @@ namespace ESettingsLockedAxis
 	};
 }
 
-
 /**
  * Default physics settings.
  */
@@ -128,6 +128,10 @@ class ENGINE_API UPhysicsSettings : public UDeveloperSettings
 	/** Can 2D physics be used (Box2D)? */
 	UPROPERTY(config, EditAnywhere, Category = Simulation)
 	bool bEnable2DPhysics;
+
+	/** Error correction data for replicating simulated physics (rigid bodies) */
+	UPROPERTY(config, EditAnywhere, Category = Replication)
+	FRigidBodyErrorCorrection PhysicErrorCorrection;
 
 	UPROPERTY(config)
 	TEnumAsByte<ESettingsLockedAxis::Type> LockedAxis_DEPRECATED;
@@ -199,6 +203,14 @@ class ENGINE_API UPhysicsSettings : public UDeveloperSettings
 	UPROPERTY(config, EditAnywhere, Category = Optimization)
 	bool bDisableActiveActors;
 
+	/** Whether to disable generating KS pairs, enabling this makes switching between dynamic and static slower for actors - but speeds up contact generation by early rejecting these pairs*/
+	UPROPERTY(config, EditAnywhere, Category = Optimization)
+	bool bDisableKinematicStaticPairs;
+
+	/** Whether to disable generating KK pairs, enabling this speeds up contact generation, however it is required when using APEX destruction. */
+	UPROPERTY(config, EditAnywhere, Category = Optimization)
+	bool bDisableKinematicKinematicPairs;
+
 	/**
 	*  If true CCD will be ignored. This is an optimization when CCD is never used which removes the need for physx to check it internally. */
 	UPROPERTY(config, EditAnywhere, Category = Simulation)
@@ -247,6 +259,10 @@ class ENGINE_API UPhysicsSettings : public UDeveloperSettings
 	// PhysicalMaterial Surface Types
 	UPROPERTY(config, EditAnywhere, Category=PhysicalSurfaces)
 	TArray<FPhysicalSurfaceName> PhysicalSurfaces;
+
+	/** If we want to Enable MPB or not globally. This is then overridden by project settings if not enabled. **/
+	UPROPERTY(config, EditAnywhere, Category = Broadphase)
+	FBroadphaseSettings DefaultBroadphaseSettings;
 
 public:
 

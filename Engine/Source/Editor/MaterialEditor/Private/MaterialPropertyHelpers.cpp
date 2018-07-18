@@ -39,7 +39,7 @@
 #include "Materials/MaterialFunctionInstance.h"
 #include "Materials/MaterialFunction.h"
 #include "Materials/MaterialFunctionInterface.h"
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "AssetToolsModule.h"
 #include "Factories/MaterialInstanceConstantFactoryNew.h"
 #include "StaticParameterSet.h"
@@ -50,12 +50,50 @@
 #include "Materials/MaterialFunctionMaterialLayerBlend.h"
 #include "Factories/MaterialFunctionMaterialLayerFactory.h"
 #include "Factories/MaterialFunctionMaterialLayerBlendFactory.h"
+#include "Curves/CurveLinearColorAtlas.h"
+#include "Curves/CurveLinearColor.h"
 
 #define LOCTEXT_NAMESPACE "MaterialPropertyHelper"
 
 FText FMaterialPropertyHelpers::LayerID = LOCTEXT("LayerID", "Layer Asset");
 FText FMaterialPropertyHelpers::BlendID = LOCTEXT("BlendID", "Blend Asset");
 FName FMaterialPropertyHelpers::LayerParamName = FName("Global Material Layers Parameter Values");
+
+
+void SLayerHandle::Construct(const FArguments& InArgs)
+{
+	OwningStack = InArgs._OwningStack;
+
+	ChildSlot
+		[
+			InArgs._Content.Widget
+		];
+}
+
+FReply SLayerHandle::OnDragDetected(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
+{
+	if (MouseEvent.IsMouseButtonDown(EKeys::LeftMouseButton))
+	{
+		{
+			TSharedPtr<FDragDropOperation> DragDropOp = CreateDragDropOperation(OwningStack.Pin());
+			if (DragDropOp.IsValid())
+			{
+				OwningStack.Pin()->OnLayerDragDetected();
+				return FReply::Handled().BeginDragDrop(DragDropOp.ToSharedRef());
+			}
+		}
+	}
+
+	return FReply::Unhandled();
+
+}
+
+TSharedPtr<FLayerDragDropOp> SLayerHandle::CreateDragDropOperation(TSharedPtr<SMaterialLayersFunctionsInstanceTreeItem> InOwningStack)
+{
+	TSharedPtr<FLayerDragDropOp> Operation = MakeShareable(new FLayerDragDropOp(InOwningStack));
+
+	return Operation;
+}
 
 EVisibility FMaterialPropertyHelpers::ShouldShowExpression(UDEditorParameterValue* Parameter, UMaterialEditorInstanceConstant* MaterialEditorInstance, FGetShowHiddenParameters ShowHiddenDelegate)
 {
@@ -346,7 +384,7 @@ void FMaterialPropertyHelpers::CopyMaterialToInstance(UMaterialInstanceConstant*
 }
 
 
-void FMaterialPropertyHelpers::TransitionAndCopyParameters(UMaterialInstanceConstant* ChildInstance, TArray<FEditorParameterGroup> &ParameterGroups)
+void FMaterialPropertyHelpers::TransitionAndCopyParameters(UMaterialInstanceConstant* ChildInstance, TArray<FEditorParameterGroup> &ParameterGroups, bool bForceCopy)
 {
 	if (ChildInstance)
 	{
@@ -368,7 +406,7 @@ void FMaterialPropertyHelpers::TransitionAndCopyParameters(UMaterialInstanceCons
 					UDEditorScalarParameterValue* ScalarParameterValue = Cast<UDEditorScalarParameterValue>(Group.Parameters[ParameterIdx]);
 					if (ScalarParameterValue)
 					{
-						if (ScalarParameterValue->bOverride)
+						if (ScalarParameterValue->bOverride || bForceCopy)
 						{
 							FMaterialParameterInfo TransitionedScalarInfo = FMaterialParameterInfo();
 							TransitionedScalarInfo.Name = ScalarParameterValue->ParameterInfo.Name;
@@ -379,7 +417,7 @@ void FMaterialPropertyHelpers::TransitionAndCopyParameters(UMaterialInstanceCons
 					UDEditorFontParameterValue* FontParameterValue = Cast<UDEditorFontParameterValue>(Group.Parameters[ParameterIdx]);
 					if (FontParameterValue)
 					{
-						if (FontParameterValue->bOverride)
+						if (FontParameterValue->bOverride || bForceCopy)
 						{
 							FMaterialParameterInfo TransitionedFontInfo = FMaterialParameterInfo();
 							TransitionedFontInfo.Name = FontParameterValue->ParameterInfo.Name;
@@ -391,7 +429,7 @@ void FMaterialPropertyHelpers::TransitionAndCopyParameters(UMaterialInstanceCons
 					UDEditorTextureParameterValue* TextureParameterValue = Cast<UDEditorTextureParameterValue>(Group.Parameters[ParameterIdx]);
 					if (TextureParameterValue)
 					{
-						if (TextureParameterValue->bOverride)
+						if (TextureParameterValue->bOverride || bForceCopy)
 						{
 							FMaterialParameterInfo TransitionedTextureInfo = FMaterialParameterInfo();
 							TransitionedTextureInfo.Name = TextureParameterValue->ParameterInfo.Name;
@@ -402,7 +440,7 @@ void FMaterialPropertyHelpers::TransitionAndCopyParameters(UMaterialInstanceCons
 					UDEditorVectorParameterValue* VectorParameterValue = Cast<UDEditorVectorParameterValue>(Group.Parameters[ParameterIdx]);
 					if (VectorParameterValue)
 					{
-						if (VectorParameterValue->bOverride)
+						if (VectorParameterValue->bOverride || bForceCopy)
 						{
 							FMaterialParameterInfo TransitionedVectorInfo = FMaterialParameterInfo();
 							TransitionedVectorInfo.Name = VectorParameterValue->ParameterInfo.Name;
@@ -417,7 +455,7 @@ void FMaterialPropertyHelpers::TransitionAndCopyParameters(UMaterialInstanceCons
 						bool SwitchValue = StaticSwitchParameterValue->ParameterValue;
 						FGuid ExpressionIdValue = StaticSwitchParameterValue->ExpressionId;
 
-						if (StaticSwitchParameterValue->bOverride)
+						if (StaticSwitchParameterValue->bOverride || bForceCopy)
 						{
 							FMaterialParameterInfo TransitionedSwitchInfo = FMaterialParameterInfo();
 							TransitionedSwitchInfo.Name = StaticSwitchParameterValue->ParameterInfo.Name;
@@ -437,7 +475,7 @@ void FMaterialPropertyHelpers::TransitionAndCopyParameters(UMaterialInstanceCons
 						bool MaskA = StaticComponentMaskParameterValue->ParameterValue.A;
 						FGuid ExpressionIdValue = StaticComponentMaskParameterValue->ExpressionId;
 
-						if (StaticComponentMaskParameterValue->bOverride)
+						if (StaticComponentMaskParameterValue->bOverride || bForceCopy)
 						{
 							FMaterialParameterInfo TransitionedMaskInfo = FMaterialParameterInfo();
 							TransitionedMaskInfo.Name = StaticComponentMaskParameterValue->ParameterInfo.Name;
@@ -568,7 +606,7 @@ FReply FMaterialPropertyHelpers::OnClickedSaveNewLayerInstance(class UMaterialFu
 
 	if (Object)
 	{
-		UMaterialInterface* EditedMaterial = Cast<UMaterialInterface>(FunctionPreviewMaterial);
+		UMaterialInterface* EditedMaterial = FunctionPreviewMaterial;
 		if (EditedMaterial)
 		{
 			UMaterialInstanceConstant* ProxyMaterial = NewObject<UMaterialInstanceConstant>(GetTransientPackage(), NAME_None, RF_Transactional);
@@ -1098,6 +1136,94 @@ TArray<UFactory*> FMaterialPropertyHelpers::GetAssetFactories(EMaterialParameter
 	
 	return NewAssetFactories;
 }
+
+
+TSharedRef<SWidget> FMaterialPropertyHelpers::MakeStackReorderHandle(TSharedPtr<SMaterialLayersFunctionsInstanceTreeItem> InOwningStack)
+{
+	TSharedRef<SLayerHandle> Handle = SNew(SLayerHandle)
+		.Content()
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+		.Padding(5.0f, 0.0f)
+		[
+			SNew(SImage)
+			.Image(FCoreStyle::Get().GetBrush("VerticalBoxDragIndicatorShort"))
+		]
+		]
+	.OwningStack(InOwningStack);
+	return Handle;
+}
+
+bool FMaterialPropertyHelpers::OnShouldSetCurveAsset(const FAssetData& AssetData, TSoftObjectPtr<class UCurveLinearColorAtlas> InAtlas)
+{
+	UCurveLinearColorAtlas* Atlas = Cast<UCurveLinearColorAtlas>(InAtlas.Get());
+	UCurveLinearColor* Curve = Cast<UCurveLinearColor>(AssetData.GetAsset());
+	if (!Atlas || !Curve)
+	{
+		return false;
+	}
+	int32 Index = Atlas->GradientCurves.Find(Curve);
+	return Index != INDEX_NONE;
+}
+
+void FMaterialPropertyHelpers::SetPositionFromCurveAsset(const FAssetData& AssetData, TSoftObjectPtr<class UCurveLinearColorAtlas> InAtlas, UDEditorScalarParameterValue* InParameter, TSharedPtr<IPropertyHandle> PropertyHandle, UObject* MaterialEditorInstance)
+{
+	UCurveLinearColorAtlas* Atlas = Cast<UCurveLinearColorAtlas>(InAtlas.Get());
+	UCurveLinearColor* Curve = Cast<UCurveLinearColor>(AssetData.GetAsset());
+	if (!Atlas || !Curve)
+	{
+		return;
+	}
+	int32 Index = Atlas->GradientCurves.Find(Curve);
+	if (Index == INDEX_NONE)
+	{
+		return;
+	}
+
+	float NewValue = ((float)Index * Atlas->GradientPixelSize) / Atlas->TextureSize + (0.5f * Atlas->GradientPixelSize) / Atlas->TextureSize;
+
+	// If changed, propagate the update
+	if (InParameter->ParameterValue != NewValue)
+	{
+		const FScopedTransaction Transaction(LOCTEXT("SetScalarAtlasPositionValue", "Set Scalar Atlas Position Value"));
+		InParameter->Modify();
+
+		PropertyHandle->NotifyPreChange();
+		
+		InParameter->AtlasData.Curve = TSoftObjectPtr<UCurveLinearColor>(FSoftObjectPath(Curve->GetPathName()));
+		InParameter->ParameterValue = NewValue;
+		UMaterialEditorInstanceConstant* MaterialInstanceEditor = Cast<UMaterialEditorInstanceConstant>(MaterialEditorInstance);
+		if (MaterialInstanceEditor)
+		{
+			MaterialInstanceEditor->CopyToSourceInstance();
+		}
+
+		PropertyHandle->NotifyPostChange();
+	}
+}
+
+void FMaterialPropertyHelpers::ResetCurveToDefault(TSharedPtr<IPropertyHandle> PropertyHandle, class UDEditorParameterValue* Parameter, UMaterialEditorInstanceConstant* MaterialEditorInstance)
+{
+	const FScopedTransaction Transaction(LOCTEXT("ResetToDefault", "Reset To Default"));
+	Parameter->Modify();
+	bool TempBool;
+	const FMaterialParameterInfo& ParameterInfo = Parameter->ParameterInfo;
+
+	UDEditorScalarParameterValue* ScalarParam = Cast<UDEditorScalarParameterValue>(Parameter);
+
+	if (ScalarParam)
+	{
+		float OutValue;
+		if (MaterialEditorInstance->SourceInstance->GetScalarParameterDefaultValue(ParameterInfo, OutValue))
+		{
+			ScalarParam->ParameterValue = OutValue;
+			MaterialEditorInstance->SourceInstance->IsScalarParameterUsedAsAtlasPosition(ParameterInfo, TempBool, ScalarParam->AtlasData.Curve, ScalarParam->AtlasData.Atlas);
+			MaterialEditorInstance->CopyToSourceInstance();
+		}
+	}
+}
+
 
 #undef LOCTEXT_NAMESPACE
 

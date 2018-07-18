@@ -90,24 +90,24 @@ public:
 
 	//~ ISessionServicesModule interface
 
-	virtual TSharedRef<ISessionManager> GetSessionManager() override
+	virtual TSharedPtr<ISessionManager> GetSessionManager() override
 	{
-		if (!SessionManager.IsValid())
+		if (!SessionManager.IsValid() && MessageBusPtr.IsValid())
 		{
 			SessionManager = MakeShareable(new FSessionManager(MessageBusPtr.Pin().ToSharedRef()));
 		}
 
-		return SessionManager.ToSharedRef();
+		return SessionManager;
 	}
 
-	virtual TSharedRef<ISessionService> GetSessionService() override
+	virtual TSharedPtr<ISessionService> GetSessionService() override
 	{
-		if (!SessionService.IsValid())
+		if (!SessionService.IsValid() && MessageBusPtr.IsValid())
 		{
 			SessionService = MakeShareable(new FSessionService(MessageBusPtr.Pin().ToSharedRef()));
 		}
 
-		return SessionService.ToSharedRef();
+		return SessionService;
 	}
 
 public:
@@ -117,7 +117,6 @@ public:
 	virtual void StartupModule() override
 	{
 		MessageBusPtr = IMessagingModule::Get().GetDefaultBus();
-		check(MessageBusPtr.IsValid());
 	}
 
 	virtual void ShutdownModule() override

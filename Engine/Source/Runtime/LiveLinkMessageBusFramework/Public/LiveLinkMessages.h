@@ -1,7 +1,7 @@
 ﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "Object.h"
+#include "UObject/Object.h"
 #include "LiveLinkRefSkeleton.h"
 #include "LiveLinkTypes.h"
 #include "LiveLinkMessages.generated.h"

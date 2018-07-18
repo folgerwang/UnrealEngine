@@ -18,9 +18,9 @@ Blackboard, 블랙보드 노드는 주어진 블랙보드 키에 값이 설정�
 
 | 프로퍼티 | 설명 |
 | -------- | ----------- |
-| **Notify Observer** | 관찰자 알림 - [INCLUDE:#subprop2] |
-| **Observer Aborts** | 관찰자 중단 - [INCLUDE:#subprop3] |
-| **Key Query** | 키 쿼리 - [INCLUDE:#subprop4] |
+| **Notify Observer** | [INCLUDE:#subprop2] |
+| **Observer Aborts** | [INCLUDE:#subprop3] |
+| **Key Query** | [INCLUDE:#subprop4] |
 | **Blackboard Key**| 블랙보드 키 - 검사할 키 입니다. Object 처럼 `None` 반환이 가능한 데이터 유형에 가장 유용한데, 다른 유형은 (0, false, {0,0,0}, 등등) 초기화된 값을 반환할 수가 있기 때문입니다. |
 | **Node Name** | 노드 이름 - 비헤이비어 트리 그래프에 표시할 노드 이름입니다. |
 
@@ -56,10 +56,10 @@ Compare Blackboard Entries, 블랙보드 항목 비교 노드는 두 블랙보�
 
 | 프로퍼티 | 설명 |
 | -------- | ----------- |
-| **Operator** | 연산자 - [INCLUDE:#subprop5] |
+| **Operator** | [INCLUDE:#subprop5] |
 | **Blackboard Key A**| 블랙보드 키 A - 이 비교에 사용할 첫 번째 키 입니다. |
 | **Blackboard Key B**| 블랙보드 키 B - 이 비교에 사용할 두 번째 키 입니다. |
-| **Observer Aborts** | 관찰자 중단 - [INCLUDE:#subprop3] |
+| **Observer Aborts** | [INCLUDE:#subprop3] |
 | **Node Name** | 노드 이름 - 비헤이비어 트리 그래프에 표시할 노드 이름입니다. |
 
 [COMMENT:none]
@@ -94,7 +94,7 @@ Composite Decorator Node, 컴포짓 데코레이터 노드는 전체 블루프�
 | 프로퍼티 | 설명 |
 | -------- | ----------- |
 | **Node Name** | 노드 이름 - 비헤이비어 트리 그래프에 노드가 표시할 이름입니다. |
-| **Key Query** | 키 쿼리 - [INCLUDE:#subprop4] |
+| **Key Query** | [INCLUDE:#subprop4] |
 | **Blackboard Key** | 블랙보드 키 - 검사할 키입니다. Object 처럼 `None` 을 반환할 수 있는 데이터 유형에 가장 좋은데, 다른 유형은 초기화된 값(0, false, {0,0,0}, 등)을 반환할 수 있기 때문입니다. |
 
 
@@ -107,7 +107,7 @@ Cone Check, 원뿔 검사 데코레이터는 3 벡터 키를 받습니다. 첫 �
 | 프로퍼티 | 설명 |
 | -------- | ----------- |
 | **Cone Half Angle** | 원뿔 반각 - 원뿔의 절반 각도입니다. 즉 90 도 원뿔의 경우, 이 값을 45 도로 설정해야 합니다. |
-| **Observer Aborts** | 관찰자 중단 - [INCLUDE:#subprop3] |
+| **Observer Aborts** | [INCLUDE:#subprop3] |
 | **Cone Origin** | 원뿔 원점 - 원뿔의 시작(뾰족 부분) 위치입니다. |
 | **Cone Direction** | 원뿔 방향 - 원뿔의 입 부분이 향하는 방향입니다. |
 | **Observed** | 피관찰자 - 원뿔 안에 있는지 검사할 액터의 위치입니다. |
@@ -123,7 +123,7 @@ Cooldown, 쿨다운 노드는 쿨다운 시간이 다될 때까지 노드 또는
 | 프로퍼티 | 설명 |
 | -------- | ----------- |
 | **Cool Down time** | 쿨 다운 시간 - 쿨다운 데코레이터가 이 노드 실행을 막을 기간으로, 초 단위입니다. |
-| **Observer Aborts** | 관찰자 중단 - [INCLUDE:#subprop3] |
+| **Observer Aborts** | [INCLUDE:#subprop3] |
 | **Node Name** | 노드 이름 - 비헤이비어 트리 그래프에 표시할 노드 이름입니다. |
 
 ## Does Path Exist
@@ -136,9 +136,9 @@ Does Path Exist, 경로 존재 여부 노드는 블랙보드 키 A 와 블랙보
 | -------- | ----------- |
 | **Blackboard Key A**| 블랙보드 키 A - 경로의 첫 번째 위치입니다. |
 | **Blackboard Key B**| 블랙보드 키 B - 경로의 두 번째 위치입니다. |
-| **Path Query Type** | 경로 쿼리 유형 - [INCLUDE:#subprop6] |
+| **Path Query Type** | [INCLUDE:#subprop6] |
 | **Inverse Condition** | 조건 반전 - 결과를 (_true_ 를 _false_ 로, _false_ 를 _true_ 로) 반전시킬지 입니다. |
-| **Observer Aborts** | 관찰자 중단 - [INCLUDE:#subprop3] |
+| **Observer Aborts** | [INCLUDE:#subprop3] |
 | **Filter Class** | 필터 클래스 - 어느 내비게이션 데이터를 사용할지 입니다. None 으로 설정되면 기본 내비게이션 데이터가 사용됩니다. |
 | **Node Name** | 노드 이름 - 비헤이비어 트리 그래프에 표시할 노드 이름입니다. |
 
@@ -183,7 +183,7 @@ Force Success, 강제 성공 데코레이터는 노드 결과를 성공으로 �
 | -------- | ----------- |
 | **Test Class** | 테스트 클래스 - 블랙보드 키 프로퍼티의 오브젝트 클래스에 대해 테스트할 클래스 유형입니다. |
 | **Blackboard Key** | 블랙보드 키 - 테스트 대상 블랙보드 키 입니다. |
-| **Observer Aborts** | 관찰자 중단 - [INCLUDE:#subprop3] |
+| **Observer Aborts** | [INCLUDE:#subprop3] |
 | **Node Name** | 노드 이름 - 비헤이비어 트리 그래프에 노드가 표시할 이름입니다. |
 
 ## Keep in Cone
@@ -193,7 +193,7 @@ Force Success, 강제 성공 데코레이터는 노드 결과를 성공으로 �
 | 프로퍼티 | 설명 |
 | -------- | ----------- |
 | **Cone Half Angle** | 원뿔 반각 - 원뿔의 절반 각도입니다. 즉 90 도 원뿔의 경우, 이 값을 45 도로 설정해야 합니다. |
-| **Observer Aborts** | 관찰자 중단 - [INCLUDE:#subprop3] |
+| **Observer Aborts** | [INCLUDE:#subprop3] |
 | **Cone Origin** | 원뿔 원점 - 원뿔의 시작(뾰족 부분) 위치입니다. |
 | **Observed** | 피관찰자 - 원뿔 안에 있는지 검사할 액터의 위치입니다. |
 | **Node Name** | 노드 이름 - 비헤이비어 트리 그래프에 표시할 노드 이름입니다. |
@@ -242,7 +242,7 @@ Reached Move Goal, 이동 목표 도달됨은 (캐릭터 무브먼트 컴포넌�
 | **Cooldown Duration** | 쿨다운 기간 - 쿨다운의 초 단위 기간입니다. |
 | **Add to Existing Duration** | 기존 기간에 추가 - 주어진 게임플레이 태그에 기존 쿨다운이 있을 경우, 거기에 추가시킬지 입니다. |
 | **Adds/Sets Cooldown on Deactivation** | 비활성화시 쿨다운 추가/설정 - 데코레이터 비활성화시 쿨다운 태그의 값을 추가/설정 할 것인지 말 것인지 입니다. |
-| **Observer Aborts** | 관찰자 중단 - [INCLUDE:#subprop3] |
+| **Observer Aborts** | [INCLUDE:#subprop3] |
 | **Node Name** | 노드 이름 - 비헤이비어 트리 그래프에 표시할 노드 이름입니다. |
 
 ## Time Limit
@@ -254,8 +254,9 @@ Time Limit, 시간 제한 데코레이터는 분기나 노드 완료시까지 �
 | 프로퍼티 | 설명 |
 | -------- | ----------- |
 | **Time Limit** | 시간 제한 - 이 기간 이후 노드를 빠져나갑니다. 초 단위입니다. |
-| **Observer Aborts** | 관찰자 중단 - [INCLUDE:#subprop3] |
+| **Observer Aborts** | [INCLUDE:#subprop3] |
 | **Node Name** | 노드 이름 - 비헤이비어 트리 그래프에 표시할 노드 이름입니다. |
+
 
 
 

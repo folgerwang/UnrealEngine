@@ -5,7 +5,7 @@
 #include "Rendering/DrawElements.h"
 #include "Fonts/FontMeasure.h"
 #include "Framework/Application/SlateApplication.h"
-#include "EditorStyleSettings.h"
+#include "Classes/EditorStyleSettings.h"
 #include "Settings/LevelEditorViewportSettings.h"
 #include "ScopedTransaction.h"
 #include "GraphEditorSettings.h"
@@ -200,8 +200,8 @@ namespace NodePanelDefs
 };
 
 SNodePanel::SNodePanel()
-: Children()
-, VisibleChildren()
+: Children(this)
+, VisibleChildren(this)
 {
 }
 
@@ -499,7 +499,14 @@ void SNodePanel::Tick( const FGeometry& AllottedGeometry, const double InCurrent
 
 	PopulateVisibleChildren(AllottedGeometry);
 
-	OldZoomAmount = GetZoomAmount();
+	// Reset the current bookmark if the location and/or zoom level has been changed.
+	const float CurZoomAmount = GetZoomAmount();
+	if (CurrentBookmarkGuid.IsValid() && (OldViewOffset != ViewOffset || OldZoomAmount != CurZoomAmount))
+	{
+		CurrentBookmarkGuid.Invalidate();
+	}
+
+	OldZoomAmount = CurZoomAmount;
 	OldViewOffset = ViewOffset;
 
 	SPanel::Tick( AllottedGeometry, InCurrentTime, InDeltaTime );
@@ -1182,7 +1189,7 @@ bool SNodePanel::Contains(UObject* Node) const
 	return NodeToWidgetLookup.Find(Node) != nullptr;
 }
 
-void SNodePanel::RestoreViewSettings(const FVector2D& InViewOffset, float InZoomAmount)
+void SNodePanel::RestoreViewSettings(const FVector2D& InViewOffset, float InZoomAmount, const FGuid& InBookmarkGuid)
 {
 	ViewOffset = InViewOffset;
 
@@ -1206,6 +1213,9 @@ void SNodePanel::RestoreViewSettings(const FVector2D& InViewOffset, float InZoom
 	// This is so our locked window isn't forced to update according to this movement.
 	OldViewOffset = ViewOffset;
 	OldZoomAmount = GetZoomAmount();
+
+	// Update the current bookmark ID.
+	CurrentBookmarkGuid = InBookmarkGuid;
 }
 
 float SNodePanel::GetSnapGridSize()
@@ -1678,6 +1688,9 @@ bool SNodePanel::HasDeferredObjectFocus() const
 void SNodePanel::PostChangedZoom()
 {
 	CurrentLOD = ZoomLevels->GetLOD(ZoomLevel);
+
+	// Invalidate the current bookmark.
+	CurrentBookmarkGuid.Invalidate();
 }
 
 void SNodePanel::RequestZoomToFit()

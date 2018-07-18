@@ -45,6 +45,7 @@ public:
 		, LastFrameRealTime(-1.0f)
 		, ParticleFactoryType(Type)
 		, bInUse(false)
+		, bIsDirty(false)
 	{
 	}
 
@@ -92,6 +93,9 @@ public:
 		return true;
 	}
 
+	bool IsDirty() { return bIsDirty; }
+	void SetDirty() { bIsDirty = true; }
+
 private:
 
 	/** Last state where we set this. We only need to setup these once per frame, so detemine same frame by number, time, and view family. */
@@ -105,6 +109,7 @@ private:
 
 	/** Whether the vertex factory is in use. */
 	bool bInUse;
+	bool bIsDirty;	// needs to be recreated before use next frame
 
 };
 
@@ -112,20 +117,20 @@ private:
  * Uniform buffer for particle sprite vertex factories.
  */
 BEGIN_UNIFORM_BUFFER_STRUCT( FParticleSpriteUniformParameters, ENGINE_API)
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EX( FVector4, AxisLockRight, EShaderPrecisionModifier::Half )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EX( FVector4, AxisLockUp, EShaderPrecisionModifier::Half )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EX( FVector4, TangentSelector, EShaderPrecisionModifier::Half )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EX( FVector4, NormalsSphereCenter, EShaderPrecisionModifier::Half )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EX( FVector4, NormalsCylinderUnitDirection, EShaderPrecisionModifier::Half )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EX( FVector4, SubImageSize, EShaderPrecisionModifier::Half )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EX( FVector, CameraFacingBlend, EShaderPrecisionModifier::Half )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EX( float, RemoveHMDRoll, EShaderPrecisionModifier::Half )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( FVector4, MacroUVParameters )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EX( float, RotationScale, EShaderPrecisionModifier::Half )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EX( float, RotationBias, EShaderPrecisionModifier::Half )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EX( float, NormalsType, EShaderPrecisionModifier::Half )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EX( float, InvDeltaSeconds, EShaderPrecisionModifier::Half )
-	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_EX( FVector2D, PivotOffset, EShaderPrecisionModifier::Half )
+	UNIFORM_MEMBER_EX( FVector4, AxisLockRight, EShaderPrecisionModifier::Half )
+	UNIFORM_MEMBER_EX( FVector4, AxisLockUp, EShaderPrecisionModifier::Half )
+	UNIFORM_MEMBER_EX( FVector4, TangentSelector, EShaderPrecisionModifier::Half )
+	UNIFORM_MEMBER_EX( FVector4, NormalsSphereCenter, EShaderPrecisionModifier::Half )
+	UNIFORM_MEMBER_EX( FVector4, NormalsCylinderUnitDirection, EShaderPrecisionModifier::Half )
+	UNIFORM_MEMBER_EX( FVector4, SubImageSize, EShaderPrecisionModifier::Half )
+	UNIFORM_MEMBER_EX( FVector, CameraFacingBlend, EShaderPrecisionModifier::Half )
+	UNIFORM_MEMBER_EX( float, RemoveHMDRoll, EShaderPrecisionModifier::Half )
+	UNIFORM_MEMBER( FVector4, MacroUVParameters )
+	UNIFORM_MEMBER_EX( float, RotationScale, EShaderPrecisionModifier::Half )
+	UNIFORM_MEMBER_EX( float, RotationBias, EShaderPrecisionModifier::Half )
+	UNIFORM_MEMBER_EX( float, NormalsType, EShaderPrecisionModifier::Half )
+	UNIFORM_MEMBER_EX( float, InvDeltaSeconds, EShaderPrecisionModifier::Half )
+	UNIFORM_MEMBER_EX( FVector2D, PivotOffset, EShaderPrecisionModifier::Half )
 END_UNIFORM_BUFFER_STRUCT( FParticleSpriteUniformParameters )
 typedef TUniformBufferRef<FParticleSpriteUniformParameters> FParticleSpriteUniformBufferRef;
 

@@ -146,4 +146,12 @@ public:
 	* objects.
 	*/
 	void TearDown() override;
+
+	/**
+	* Determine if backlog is enabled
+	*/
+	bool IsBacklogEnabled() const
+	{
+		return bEnableBacklog;
+	}
 };

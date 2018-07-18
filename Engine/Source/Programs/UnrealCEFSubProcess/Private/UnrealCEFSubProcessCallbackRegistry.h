@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Guid.h"
+#include "Misc/Guid.h"
 #include "UnrealCEFSubProcess.h"
 
 #if WITH_CEF3

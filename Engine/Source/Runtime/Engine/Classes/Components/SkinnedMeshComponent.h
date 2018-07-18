@@ -249,12 +249,19 @@ protected:
 	/** Incremented every time the master bone map changes. Used to keep in sync with any duplicate data needed by other threads */
 	int32 MasterBoneMapCacheCount;
 
+	/**
+	*	Mapping for socket overrides, key is the Source socket name and the value is the override socket name
+	*/
+	TMap<FName, FName> SocketOverrideLookup;
+
 public:
+#if WITH_EDITORONLY_DATA
 	/**
 	 * Wireframe color
 	 */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=SkeletalMesh)
-	FColor WireframeColor;
+	UPROPERTY()
+	FColor WireframeColor_DEPRECATED;
+#endif
 
 protected:
 	/** Information for current ref pose override, if present */
@@ -311,6 +318,10 @@ public:
 	/** If 0, auto-select LOD level. if >0, force to (ForcedLodModel-1). */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=LOD)
 	int32 ForcedLodModel;
+
+	/** Whether we should use the min lod specified in MinLodModel for this component instead of the min lod in the mesh */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category = LOD)
+	bool bOverrideMinLod;
 
 	/**
 	 * This is the min LOD that this component will use.  (e.g. if set to 2 then only 2+ LOD Models will be used.) This is useful to set on
@@ -442,6 +453,12 @@ public:
 	 * @todo: turn this into a console command. */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category=Optimization)
 	uint8 bDisplayDebugUpdateRateOptimizations:1;
+
+	/**
+	 *	If true, render as static in reference pose.
+	 */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=Optimization)
+	uint8 bRenderStatic:1;
 
 protected:
 	/** Are we using double buffered ComponentSpaceTransforms */
@@ -583,7 +600,6 @@ public:
 	virtual void GetResourceSizeEx(FResourceSizeEx& CumulativeResourceSize) override;
 	virtual FString GetDetailedInfoInternal() const override;
 #if WITH_EDITOR
-	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 	virtual bool CanEditChange(const UProperty* InProperty) const override;
 #endif // WITH_EDITOR
 	//~ End UObject Interface
@@ -610,7 +626,7 @@ public:
 	virtual bool DoesSocketExist(FName InSocketName) const override;
 	virtual bool HasAnySockets() const override;
 	virtual void QuerySupportedSockets(TArray<FComponentSocketDescription>& OutSockets) const override;
-	virtual void UpdateOverlaps(TArray<FOverlapInfo> const* PendingOverlaps=NULL, bool bDoNotifies=true, const TArray<FOverlapInfo>* OverlapsAtEndLocation=NULL) override;
+	virtual bool UpdateOverlapsImpl(TArray<FOverlapInfo> const* PendingOverlaps=NULL, bool bDoNotifies=true, const TArray<FOverlapInfo>* OverlapsAtEndLocation=NULL) override;
 	//~ End USceneComponent Interface
 
 	//~ Begin UPrimitiveComponent Interface
@@ -797,6 +813,7 @@ public:
 	 * @return true if LOD has been changed. false otherwise.
 	 */
 	virtual bool UpdateLODStatus();
+	virtual void UpdateVisualizeLODString(FString& DebugString) {}
 
 	/**
 	 * Finalize bone transform of this current tick
@@ -915,7 +932,7 @@ public:
 	 * @param NewMasterBoneComponent New MasterPoseComponent
 	 */
 	UFUNCTION(BlueprintCallable, Category="Components|SkinnedMesh")
-	void SetMasterPoseComponent(USkinnedMeshComponent* NewMasterBoneComponent);
+	void SetMasterPoseComponent(USkinnedMeshComponent* NewMasterBoneComponent, bool bForceUpdate = false);
 
 protected:
 	/** Add a slave component to the SlavePoseComponents array */
@@ -941,6 +958,9 @@ public:
 	 */
 	class USkeletalMeshSocket const* GetSocketByName( FName InSocketName ) const;
 
+	void AddSocketOverride(FName SourceSocketName, FName OverrideSocketName, bool bWarnHasOverrided = true);
+	void RemoveSocketOverrides(FName SourceSocketName);
+	void RemoveAllSocketOverrides();
 
 	/** 
 	 * Get Bone Matrix from index
@@ -1151,6 +1171,14 @@ public:
 	/** Returns whether a specific material section is currently hidden on this component (by using ShowMaterialSection) */
 	UFUNCTION(BlueprintCallable, Category = "Components|SkinnedMesh")
 	bool IsMaterialSectionShown(int32 MaterialID, int32 LODIndex);
+
+	/**
+	 * Set whether this skinned mesh should be rendered as static mesh in a reference pose
+	 *
+	 * @param	whether this skinned mesh should be rendered as static
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Components|SkinnedMesh")
+	void SetRenderStatic(bool bNewValue);
 
 	/** 
 	 * Return PhysicsAsset for this SkeletalMeshComponent

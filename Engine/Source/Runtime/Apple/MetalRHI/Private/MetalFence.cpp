@@ -100,7 +100,7 @@ void FMetalFence::Validate(void) const
 {
 	if (GetMetalDeviceContext().GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation && Object)
 	{
-		[(FMetalDebugFence*)Object validate];
+		[(FMetalDebugFence*)Object.GetPtr() validate];
 	}
 }
 #endif

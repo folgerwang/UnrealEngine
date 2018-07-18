@@ -51,6 +51,13 @@
 #include "common.h"
 #include "parser.h"
 
+#if defined(USE_SOCKETAPI_DISPATCH)
+#include <sys/socket.h>
+#include <netdb.h>
+#include <poll.h>
+#include "unreal_socketapi.h"
+#endif
+
 #ifndef DEFAULT_TIMEOUT
 /** @def DEFAULT_TIMEOUT
  *  The default timeout in milliseconds for the event loop.
@@ -81,7 +88,7 @@ void xmpp_run_once(xmpp_ctx_t *ctx, const unsigned long timeout)
     xmpp_conn_t *conn;
     fd_set rfds, wfds;
     sock_t max = 0;
-    int ret;
+    int ret = 0;
     struct timeval tv;
     xmpp_send_queue_t *sq, *tsq;
     int towrite;
@@ -96,7 +103,7 @@ void xmpp_run_once(xmpp_ctx_t *ctx, const unsigned long timeout)
     connitem = ctx->connlist;
     while (connitem) {
         conn = connitem->conn;
-        if (conn->state != XMPP_STATE_CONNECTED) {
+        if (conn->state != XMPP_STATE_CONNECTED || conn->extsock) {
             connitem = connitem->next;
             continue;
         }
@@ -202,8 +209,12 @@ void xmpp_run_once(xmpp_ctx_t *ctx, const unsigned long timeout)
 
             /* make sure the timeout hasn't expired */
             if (time_elapsed(conn->timeout_stamp, time_stamp()) <=
-                conn->connect_timeout)
-                FD_SET(conn->sock, &wfds);
+                conn->connect_timeout) {
+                if (!conn->extsock)
+                {
+                    FD_SET(conn->sock, &wfds);
+                }
+            }
             else {
                 conn->error = ETIMEDOUT;
                 xmpp_info(ctx, "xmpp", "Connection attempt timed out.");
@@ -211,7 +222,10 @@ void xmpp_run_once(xmpp_ctx_t *ctx, const unsigned long timeout)
             }
             break;
         case XMPP_STATE_CONNECTED:
-            FD_SET(conn->sock, &rfds);
+            if (!conn->extsock)
+            {
+                FD_SET(conn->sock, &rfds);
+            }
             break;
         case XMPP_STATE_DISCONNECTED:
             /* do nothing */
@@ -224,18 +238,18 @@ void xmpp_run_once(xmpp_ctx_t *ctx, const unsigned long timeout)
             tls_read_bytes += tls_pending(conn->tls);
         }
 
-        if (conn->state != XMPP_STATE_DISCONNECTED && conn->sock > max)
+        if (conn->state != XMPP_STATE_DISCONNECTED && conn->sock > max && !conn->extsock)
             max = conn->sock;
 
         connitem = connitem->next;
     }
 
     /* check for events */
-	if (max > 0)
+    if (max > 0)
 #if defined(USE_WEBSOCKETS)
-		ret = sockets_ready(&rfds, &wfds);
+        ret = sockets_ready(&rfds, &wfds);
 #else
-		ret = select(max + 1, &rfds,  &wfds, NULL, &tv);
+        ret = select(max + 1, &rfds,  &wfds, NULL, &tv);
 #endif
     else {
         if (timeout > 0)
@@ -289,23 +303,23 @@ void xmpp_run_once(xmpp_ctx_t *ctx, const unsigned long timeout)
 
                 if (ret > 0) {
 #ifdef USE_WEBSOCKETS
-					// Translate WebSocket open/close tags into <stream:stream> and </stream:stream> tags. All other stanzas remain unchanged, but the open
-					// and close tags make a connection as a whole not parse as XML (each stanza would have to be independently interpreted).
-					static const char SocketOpenTag[] = "<open";
-					static const int SocketOpenTagSize = sizeof(SocketOpenTag) - sizeof(char); // Subtract null char
-					static const char SocketCloseTag[] = "<close";
-					static const int SocketCloseTagSize = sizeof(SocketCloseTag) - sizeof(char); // Subtract null char
+                    // Translate WebSocket open/close tags into <stream:stream> and </stream:stream> tags. All other stanzas remain unchanged, but the open
+                    // and close tags make a connection as a whole not parse as XML (each stanza would have to be independently interpreted).
+                    static const char SocketOpenTag[] = "<open";
+                    static const int SocketOpenTagSize = sizeof(SocketOpenTag) - sizeof(char); // Subtract null char
+                    static const char SocketCloseTag[] = "<close";
+                    static const int SocketCloseTagSize = sizeof(SocketCloseTag) - sizeof(char); // Subtract null char
 
-					if (memcmp(buf, SocketOpenTag, SocketOpenTagSize) == 0)
-					{
-						sprintf_s(buf, STROPE_MESSAGE_BUFFER_SIZE, "<?xml version=\"1.0\" encoding=\"utf-8\"?><stream:stream from=\"%s\" xmlns=\"jabber:client\" xmlns:stream=\"http://etherx.jabber.org/streams\" version=\"1.0\">", conn->domain);
-						ret = strlen(buf);
-					}
-					if (memcmp(buf, SocketCloseTag, SocketCloseTagSize) == 0)
-					{
-						sprintf_s(buf, STROPE_MESSAGE_BUFFER_SIZE, "</stream:stream>");
-						ret = strlen(buf);
-					}
+                    if (memcmp(buf, SocketOpenTag, SocketOpenTagSize) == 0)
+                    {
+                        sprintf_s(buf, STROPE_MESSAGE_BUFFER_SIZE, "<?xml version=\"1.0\" encoding=\"utf-8\"?><stream:stream from=\"%s\" xmlns=\"jabber:client\" xmlns:stream=\"http://etherx.jabber.org/streams\" version=\"1.0\">", conn->domain);
+                        ret = strlen(buf);
+                    }
+                    if (memcmp(buf, SocketCloseTag, SocketCloseTagSize) == 0)
+                    {
+                        sprintf_s(buf, STROPE_MESSAGE_BUFFER_SIZE, "</stream:stream>");
+                        ret = strlen(buf);
+                    }
 #endif
                     ret = parser_feed(conn->parser, buf, ret);
                     if (!ret) {

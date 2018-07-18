@@ -1,5 +1,4 @@
-﻿INTSourceChangelist:3244370
-Availability:Public
+﻿Availability:Public
 Title:ブループリント変数
 Crumbs: %ROOT%, Engine, Engine/Blueprints, Engine/Blueprints/Scripting
 Description:ワールド内のオブジェクトやアクタの値またはリファレンスをもつプロパティ
@@ -8,44 +7,7 @@ skilllevel:Intermediate
 Parent:Engine/Blueprints/Scripting
 tags:Data Types
 tags:Blueprints
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine\Blueprints\UserGuide\Variables:title%](Engine\Blueprints\UserGuide\variables_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Blueprints\UserGuide\Variables:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Blueprints\UserGuide\Variables:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine\Blueprints\UserGuide\Variables]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine\Blueprints\UserGuide\Variables:title%](Engine\Blueprints\UserGuide\variables_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-	[/PARAM]
-	[PARAM:title]
-		%Engine\Blueprints\UserGuide\Variables:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine\Blueprints\UserGuide\Variables:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine\Blueprints\UserGuide\Variables]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:Engine/Blueprints/UserGuide/variables_topic.png
 
 
 [TOC (start:2)]
@@ -63,14 +25,14 @@ tags:Blueprints
 
 
 [REGION:tip]
-マチネを使用した特別型の変数値の修正方法については、[](Engine/Matinee\UserGuide\BlueprintComponents) をご覧ください。
+マチネを使用した特別型の変数値の修正方法については、[](Engine/Matinee/UserGuide/BlueprintComponents) をご覧ください。
 [/REGION]
 
 
 ## 変数の型
 
 変数は、Boolean、integer、float などのデータ型や、オブジェクト、アクタ、特定クラスなどを保持するリファレンス型など、様々な型での作成が可能です。 
-それぞれの変数型の [配列](Engine/Blueprints\UserGuide\Arrays) の作成も可能です。それぞれの型は見やすいように色分けされています。
+それぞれの変数型の [配列](Engine/Blueprints/UserGuide/Arrays) の作成も可能です。それぞれの型は見やすいように色分けされています。
 
 [EXCERPT:VarColor]
 
@@ -108,7 +70,7 @@ tags:Blueprints
 
 1. [ブループリントを作成](Engine/Blueprints/UserGuide/Types/ClassBlueprint/Creation) し、**[Graph]** タブで開きます。 
 
-1. **[MyBlueprint]** ウィンドウからブループリントの変数を作成するには、変数リスト ヘッダー ![](Engine\Blueprints\Editor\UIComponents\MyBlueprint\myblueprint_variable.png) 上にある **Add Button** ![](Engine\Blueprints\Editor\UIComponents\MyBlueprint\plus_Button.png) ボタンをクリックします。
+1. **[MyBlueprint]** ウィンドウからブループリントの変数を作成するには、変数リスト ヘッダー ![](Engine/Blueprints/Editor/UIComponents/MyBlueprint/plus_Button.png) 上にある **Add Button** ![](Engine/Blueprints/Editor/UIComponents/MyBlueprint/myblueprint_variable.png) ボタンをクリックします。
 
 	![](MyBlueprintPane_createVar.png)
 

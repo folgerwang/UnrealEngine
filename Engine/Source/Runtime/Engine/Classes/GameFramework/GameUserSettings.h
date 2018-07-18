@@ -41,6 +41,9 @@ class ENGINE_API UGameUserSettings : public UObject
 
 public:
 
+	/** @return the location where GGameUserSettingsIni will be found */
+	static FString GetConfigDir();
+
 	/** Applies all current user settings to the game and saves to permanent storage (e.g. file), optionally checking for command line overrides. */
 	UFUNCTION(BlueprintCallable, Category=Settings, meta=(bCheckForCommandLineOverrides=true))
 	virtual void ApplySettings(bool bCheckForCommandLineOverrides);
@@ -150,7 +153,7 @@ public:
 
 	// Returns the overall scalability level (can return -1 if the settings are custom)
 	UFUNCTION(BlueprintCallable, Category=Settings)
-	int32 GetOverallScalabilityLevel() const;
+	virtual int32 GetOverallScalabilityLevel() const;
 
 	// Returns the current resolution scale and the range
 	DEPRECATED(4.12, "Please call GetResolutionScaleInformationEx")
@@ -391,6 +394,14 @@ protected:
 	/** Desired screen height used to calculate the resolution scale when user changes display mode */
 	UPROPERTY(config)
 	int32 DesiredScreenHeight;
+
+	/** Desired screen width used to calculate the resolution scale when user changes display mode */
+	UPROPERTY(config)
+	int32 LastUserConfirmedDesiredScreenWidth;
+
+	/** Desired screen height used to calculate the resolution scale when user changes display mode */
+	UPROPERTY(config)
+	int32 LastUserConfirmedDesiredScreenHeight;
 
 	/** Result of the last benchmark; calculated resolution to use. */
 	UPROPERTY(config)

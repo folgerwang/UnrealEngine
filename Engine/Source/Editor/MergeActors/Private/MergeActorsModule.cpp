@@ -16,6 +16,7 @@
 #include "MeshProxyTool/MeshProxyTool.h"
 #include "Widgets/Docking/SDockTab.h"
 #include "IMeshReductionManagerModule.h"
+#include "MeshInstancingTool/MeshInstancingTool.h"
 
 
 #define LOCTEXT_NAMESPACE "MergeActorsModule"
@@ -124,6 +125,8 @@ void FMergeActorsModule::StartupModule()
 			ensure(RegisterMergeActorsTool(MakeUnique<FThirdPartyMeshProxyTool>()));
 		}
 	}
+
+	ensure(RegisterMergeActorsTool(MakeUnique<FMeshInstancingTool>()));
 }
 
 

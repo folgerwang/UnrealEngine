@@ -13,8 +13,19 @@
 #include "resource.hpp"
 #include "buffer.hpp"
 #include "types.hpp"
+#include "validation.hpp"
 
 MTLPP_BEGIN
+
+namespace ue4
+{
+	template<>
+	inline ITable<MTLTextureDescriptor*, void>* CreateIMPTable(MTLTextureDescriptor* handle)
+	{
+		static ITable<MTLTextureDescriptor*, void> Table(object_getClass(handle));
+		return &Table;
+	}
+}
 
 namespace mtlpp
 {
@@ -26,12 +37,12 @@ namespace mtlpp
         Texture2DArray                                  = 3,
         Texture2DMultisample                            = 4,
         TextureCube                                     = 5,
-        TextureCubeArray     MTLPP_AVAILABLE_MAC(10_11) = 6,
+        TextureCubeArray     MTLPP_AVAILABLE(10_11, 11_0) = 6,
         Texture3D                                       = 7,
     }
     MTLPP_AVAILABLE(10_11, 8_0);
 
-    enum class TextureUsage
+	enum TextureUsage : NSUInteger
     {
         Unknown         = 0x0000,
         ShaderRead      = 0x0001,
@@ -46,10 +57,11 @@ namespace mtlpp
     {
     public:
         TextureDescriptor();
-        TextureDescriptor(MTLTextureDescriptor* handle) : ns::Object<MTLTextureDescriptor*>(handle) { }
+		TextureDescriptor(ns::Ownership const retain);
+        TextureDescriptor(MTLTextureDescriptor* handle, ns::Ownership const retain = ns::Ownership::Retain) : ns::Object<MTLTextureDescriptor*>(handle, retain) { }
 
-        static TextureDescriptor Texture2DDescriptor(PixelFormat pixelFormat, NSUInteger width, NSUInteger height, bool mipmapped);
-        static TextureDescriptor TextureCubeDescriptor(PixelFormat pixelFormat, NSUInteger size, bool mipmapped);
+        static ns::AutoReleased<TextureDescriptor> Texture2DDescriptor(PixelFormat pixelFormat, NSUInteger width, NSUInteger height, bool mipmapped);
+        static ns::AutoReleased<TextureDescriptor> TextureCubeDescriptor(PixelFormat pixelFormat, NSUInteger size, bool mipmapped);
 
         TextureType     GetTextureType() const;
         PixelFormat     GetPixelFormat() const;
@@ -82,21 +94,44 @@ namespace mtlpp
     class Texture : public Resource
     {
     public:
-        Texture() { }
-		Texture(ns::Protocol<id<MTLTexture>>::type handle);
+		Texture(ns::Ownership const retain = ns::Ownership::Retain) : Resource(retain) { }
+		Texture(ns::Protocol<id<MTLTexture>>::type handle, ue4::ITableCache* cache = nullptr, ns::Ownership const retain = ns::Ownership::Retain);
+		
+		Texture(const Texture& rhs);
+#if MTLPP_CONFIG_RVALUE_REFERENCES
+		Texture(Texture&& rhs);
+#endif
+		
+		Texture& operator=(const Texture& rhs);
+#if MTLPP_CONFIG_RVALUE_REFERENCES
+		Texture& operator=(Texture&& rhs);
+#endif
 		
 		inline const ns::Protocol<id<MTLTexture>>::type GetPtr() const { return (ns::Protocol<id<MTLTexture>>::type)m_ptr; }
-		inline ns::Protocol<id<MTLTexture>>::type* GetInnerPtr() { return (ns::Protocol<id<MTLTexture>>::type*)&m_ptr; }
 		operator ns::Protocol<id<MTLTexture>>::type() const { return (ns::Protocol<id<MTLTexture>>::type)m_ptr; }
 
-        Resource     GetRootResource() const MTLPP_DEPRECATED(10_11, 10_12, 8_0, 10_0);
-        Texture      GetParentTexture() const MTLPP_AVAILABLE(10_11, 9_0);
+		inline bool operator !=(const Texture &other) const
+		{
+#if MTLPP_CONFIG_IMP_CACHE
+			return (GetPtr() != other.GetPtr() || m_table != other.m_table);
+#else
+			return (GetPtr() != other.GetPtr());
+#endif
+		}
+		
+		inline bool operator ==(const Texture &other) const
+		{
+			return !(operator !=(other));
+		}
+		
+        ns::AutoReleased<Resource>     GetRootResource() const MTLPP_DEPRECATED(10_11, 10_12, 8_0, 10_0);
+        ns::AutoReleased<Texture>      GetParentTexture() const MTLPP_AVAILABLE(10_11, 9_0);
         NSUInteger     GetParentRelativeLevel() const MTLPP_AVAILABLE(10_11, 9_0);
         NSUInteger     GetParentRelativeSlice() const MTLPP_AVAILABLE(10_11, 9_0);
-        Buffer       GetBuffer() const MTLPP_AVAILABLE(10_12, 9_0);
+        ns::AutoReleased<Buffer>       GetBuffer() const MTLPP_AVAILABLE(10_12, 9_0);
         NSUInteger     GetBufferOffset() const MTLPP_AVAILABLE(10_12, 9_0);
         NSUInteger     GetBufferBytesPerRow() const MTLPP_AVAILABLE(10_12, 9_0);
-		ns::IOSurface GetIOSurface() const MTLPP_AVAILABLE(10_11, NA);
+		ns::AutoReleased<ns::IOSurface> GetIOSurface() const MTLPP_AVAILABLE(10_11, NA);
         NSUInteger     GetIOSurfacePlane() const MTLPP_AVAILABLE(10_11, NA);
         TextureType  GetTextureType() const;
         PixelFormat  GetPixelFormat() const;
@@ -109,14 +144,72 @@ namespace mtlpp
         TextureUsage GetUsage() const;
         bool         IsFrameBufferOnly() const;
 
-        void GetBytes(void* pixelBytes, NSUInteger bytesPerRow, NSUInteger bytesPerImage, const Region& fromRegion, NSUInteger mipmapLevel, NSUInteger slice);
-        void Replace(const Region& region, NSUInteger mipmapLevel, NSUInteger slice, void* pixelBytes, NSUInteger bytesPerRow, NSUInteger bytesPerImage);
-        void GetBytes(void* pixelBytes, NSUInteger bytesPerRow, const Region& fromRegion, NSUInteger mipmapLevel);
-        void Replace(const Region& region, NSUInteger mipmapLevel, void* pixelBytes, NSUInteger bytesPerRow);
+        MTLPP_VALIDATED void GetBytes(void* pixelBytes, NSUInteger bytesPerRow, NSUInteger bytesPerImage, const Region& fromRegion, NSUInteger mipmapLevel, NSUInteger slice);
+        MTLPP_VALIDATED void Replace(const Region& region, NSUInteger mipmapLevel, NSUInteger slice, void const* pixelBytes, NSUInteger bytesPerRow, NSUInteger bytesPerImage);
+        MTLPP_VALIDATED void GetBytes(void* pixelBytes, NSUInteger bytesPerRow, const Region& fromRegion, NSUInteger mipmapLevel);
+        MTLPP_VALIDATED void Replace(const Region& region, NSUInteger mipmapLevel, void const* pixelBytes, NSUInteger bytesPerRow);
         Texture NewTextureView(PixelFormat pixelFormat);
         Texture NewTextureView(PixelFormat pixelFormat, TextureType textureType, const ns::Range& mipmapLevelRange, const ns::Range& sliceRange) MTLPP_AVAILABLE(10_11, 9_0);
     }
     MTLPP_AVAILABLE(10_11, 8_0);
+	
+#if MTLPP_CONFIG_VALIDATE
+	class ValidatedTexture : public ns::AutoReleased<Texture>
+	{
+		ResourceValidationTable Validator;
+		
+	public:
+		static void Register(Texture& Wrapped)
+		{
+			ResourceValidationTable Register(Wrapped);
+		}
+		
+		ValidatedTexture()
+		: Validator(nullptr)
+		{
+		}
+		
+		ValidatedTexture(Texture& Wrapped)
+		: ns::AutoReleased<Texture>(Wrapped)
+		, Validator(Wrapped.GetAssociatedObject<ResourceValidationTable>(ResourceValidationTable::kTableAssociationKey).GetPtr())
+		{
+		}
+		
+		MTLPP_VALIDATED void GetBytes(void* pixelBytes, NSUInteger bytesPerRow, NSUInteger bytesPerImage, const Region& fromRegion, NSUInteger mipmapLevel, NSUInteger slice);
+		MTLPP_VALIDATED void Replace(const Region& region, NSUInteger mipmapLevel, NSUInteger slice, void const* pixelBytes, NSUInteger bytesPerRow, NSUInteger bytesPerImage);
+		MTLPP_VALIDATED void GetBytes(void* pixelBytes, NSUInteger bytesPerRow, const Region& fromRegion, NSUInteger mipmapLevel);
+		MTLPP_VALIDATED void Replace(const Region& region, NSUInteger mipmapLevel, void const* pixelBytes, NSUInteger bytesPerRow);
+	};
+	
+	template <>
+	class Validator<Texture>
+	{
+		public:
+		Validator(Texture& Val, bool bEnable)
+		: Resource(Val)
+		{
+			if (bEnable)
+			{
+				Validation = ValidatedTexture(Val);
+			}
+		}
+		
+		ValidatedTexture& operator*()
+		{
+			assert(Validation.GetPtr() != nullptr);
+			return Validation;
+		}
+		
+		Texture* operator->()
+		{
+			return Validation.GetPtr() == nullptr ? &Resource : &Validation;
+		}
+		
+		private:
+		Texture& Resource;
+		ValidatedTexture Validation;
+	};
+#endif
 }
 
 MTLPP_END

@@ -5,6 +5,7 @@ TextureStreamingHelpers.cpp: Definitions of classes used for texture streaming.
 =============================================================================*/
 
 #include "Streaming/TextureStreamingHelpers.h"
+#include "UnrealEngine.h"
 #include "Engine/Texture2D.h"
 #include "GenericPlatform/GenericPlatformMemoryPoolStats.h"
 
@@ -59,6 +60,13 @@ TAutoConsoleVariable<float> CVarStreamingBoost(
 	TEXT("<1.0: decrease wanted mip levels\n")
 	TEXT(">1.0: increase wanted mip levels"),
 	ECVF_Scalability
+	);
+
+TAutoConsoleVariable<float> CVarStreamingMinBoost(
+	TEXT("r.Streaming.MinBoost"),
+	0.0f,
+	TEXT("Minimum clamp for r.Streaming.Boost"),
+	ECVF_Default
 	);
 
 TAutoConsoleVariable<float> CVarStreamingScreenSizeEffectiveMax(
@@ -119,7 +127,16 @@ TAutoConsoleVariable<int32> CVarStreamingHLODStrategy(
 TAutoConsoleVariable<float> CVarStreamingPerTextureBiasViewBoostThreshold(
 	TEXT("r.Streaming.PerTextureBiasViewBoostThreshold"),
 	1.5,
-	TEXT("Maximum view boost at which per texture bias will be increased"),
+	TEXT("Maximum view boost at which per texture bias will be increased.\n")
+	TEXT("This prevents temporary small FOV from downgrading permanentely texture quality."),
+	ECVF_Default
+	);
+
+TAutoConsoleVariable<float> CVarStreamingMaxHiddenPrimitiveViewBoost(
+	TEXT("r.Streaming.MaxHiddenPrimitiveViewBoost"),
+	1.5,
+	TEXT("Maximum view boost that can affect hidden primitive.\n")
+	TEXT("This prevents temporary small FOV from streaming all textures to their highest mips."),
 	ECVF_Default
 	);
 
@@ -229,11 +246,14 @@ void FTextureStreamingSettings::Update()
 	bUseAllMips = CVarStreamingUseAllMips.GetValueOnAnyThread() != 0;
 	MinMipForSplitRequest = CVarStreamingMinMipForSplitRequest.GetValueOnAnyThread();
 	PerTextureBiasViewBoostThreshold = CVarStreamingPerTextureBiasViewBoostThreshold.GetValueOnAnyThread();
+	MaxHiddenPrimitiveViewBoost = FMath::Max<float>(1.f, CVarStreamingMaxHiddenPrimitiveViewBoost.GetValueOnAnyThread());
 	MinLevelTextureScreenSize = CVarStreamingMinLevelTextureScreenSize.GetValueOnAnyThread();
 	MaxTextureUVDensity = CVarStreamingMaxTextureUVDensity.GetValueOnAnyThread();
 
 	bUseMaterialData = bUseNewMetrics && CVarStreamingUseMaterialData.GetValueOnAnyThread() != 0;
 	HiddenPrimitiveScale = bUseNewMetrics ? CVarStreamingHiddenPrimitiveScale.GetValueOnAnyThread() : 1.f;
+
+	MaterialQualityLevel = (int32)GetCachedScalabilityCVars().MaterialQualityLevel;
 
 	if (MinMipForSplitRequest <= 0)
 	{

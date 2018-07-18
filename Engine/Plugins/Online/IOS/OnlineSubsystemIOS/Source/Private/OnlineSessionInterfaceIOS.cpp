@@ -327,6 +327,13 @@ FNamedOnlineSession* FOnlineSessionIOS::AddNamedSession(FName SessionName, const
 }
 
 
+TSharedPtr<const FUniqueNetId> FOnlineSessionIOS::CreateSessionIdFromString(const FString& SessionIdStr)
+{
+	ensureMsgf(false, TEXT("NYI"));
+	TSharedPtr<const FUniqueNetId> SessionId;
+	return SessionId;
+}
+
 FNamedOnlineSession* FOnlineSessionIOS::GetNamedSession(FName SessionName)
 {
 	FScopeLock ScopeLock(&SessionLock);
@@ -727,7 +734,7 @@ bool FOnlineSessionIOS::RegisterPlayer(FName SessionName, const FUniqueNetId& Pl
 	UE_LOG(LogOnline, Display, TEXT("FOnlineSessionIOS::RegisterPlayer - not implemented"));	
 	
 	TArray< TSharedRef<const FUniqueNetId> > Players;
-	Players.Add(MakeShareable(new FUniqueNetIdString(PlayerId)));
+	Players.Add(MakeShareable(new FUniqueNetIdIOS(PlayerId)));
 	
 	bSuccessfullyRegisteredPlayer = RegisterPlayers(SessionName, Players, bWasInvited);
 
@@ -757,7 +764,7 @@ bool FOnlineSessionIOS::UnregisterPlayer(FName SessionName, const FUniqueNetId& 
 	UE_LOG(LogOnline, Display, TEXT("FOnlineSessionIOS::UnregisterPlayer - not implemented"));
 	
 	TArray< TSharedRef<const FUniqueNetId> > Players;
-	Players.Add(MakeShareable(new FUniqueNetIdString(PlayerId)));
+	Players.Add(MakeShareable(new FUniqueNetIdIOS(PlayerId)));
 	bSuccessfullyUnregisteredPlayer = UnregisterPlayers(SessionName, Players);
 	
 	return bSuccessfullyUnregisteredPlayer;

@@ -4,7 +4,9 @@
 #include "MovieScene.h"
 #include "MovieSceneTrack.h"
 #include "MovieSceneSequence.h"
+#include "MovieSceneTimeHelpers.h"
 #include "Evaluation/MovieSceneEvaluationTemplate.h"
+#include "Misc/FrameRate.h"
 
 TWeakObjectPtr<UMovieSceneSubSection> UMovieSceneSubSection::TheRecordingSection;
 
@@ -18,6 +20,39 @@ UMovieSceneSubSection::UMovieSceneSubSection()
 	, TimeScale_DEPRECATED(DeprecatedMagicNumber)
 	, PrerollTime_DEPRECATED(DeprecatedMagicNumber)
 {
+}
+
+FMovieSceneSequenceTransform UMovieSceneSubSection::OuterToInnerTransform() const
+{
+	UMovieSceneSequence* SequencePtr   = GetSequence();
+	if (!SequencePtr)
+	{
+		return FMovieSceneSequenceTransform();
+	}
+
+	UMovieScene*         MovieScenePtr = SequencePtr->GetMovieScene();
+
+	TRange<FFrameNumber> SubRange = GetRange();
+	if (!MovieScenePtr || SubRange.GetLowerBound().IsOpen())
+	{
+		return FMovieSceneSequenceTransform();
+	}
+
+	const FFrameNumber InnerStartTime = MovieScene::DiscreteInclusiveLower(MovieScenePtr->GetPlaybackRange()) + Parameters.GetStartFrameOffset();
+	const FFrameNumber OuterStartTime = MovieScene::DiscreteInclusiveLower(SubRange);
+
+	const FFrameRate   InnerFrameRate = MovieScenePtr->GetTickResolution();
+	const FFrameRate   OuterFrameRate = GetTypedOuter<UMovieScene>()->GetTickResolution();
+
+	const float        FrameRateScale = (OuterFrameRate == InnerFrameRate) ? 1.f : (InnerFrameRate / OuterFrameRate).AsDecimal();
+
+	return
+		// Inner play offset
+		FMovieSceneSequenceTransform(InnerStartTime)
+		// Inner play rate
+		* FMovieSceneSequenceTransform(0, Parameters.TimeScale * FrameRateScale)
+		// Outer section start time
+		* FMovieSceneSequenceTransform(-OuterStartTime);
 }
 
 FString UMovieSceneSubSection::GetPathNameInMovieScene() const
@@ -41,9 +76,22 @@ FMovieSceneSequenceID UMovieSceneSubSection::GetSequenceID() const
 
 void UMovieSceneSubSection::PostLoad()
 {
+	FFrameRate LegacyFrameRate = GetLegacyConversionFrameRate();
+
+	TOptional<double> StartOffsetToUpgrade;
 	if (StartOffset_DEPRECATED != DeprecatedMagicNumber)
 	{
-		Parameters.StartOffset = StartOffset_DEPRECATED;
+		StartOffsetToUpgrade = StartOffset_DEPRECATED;
+	}
+	else if (Parameters.StartOffset_DEPRECATED != 0.f)
+	{
+		StartOffsetToUpgrade = Parameters.StartOffset_DEPRECATED;
+	}
+
+	if (StartOffsetToUpgrade.IsSet())
+	{
+		FFrameNumber StartFrame = UpgradeLegacyMovieSceneTime(this, LegacyFrameRate, StartOffsetToUpgrade.GetValue());
+		Parameters.SetStartFrameOffset(StartFrame.Value);
 	}
 
 	if (TimeScale_DEPRECATED != DeprecatedMagicNumber)
@@ -59,12 +107,14 @@ void UMovieSceneSubSection::PostLoad()
 	// Pre and post roll is now supported generically
 	if (Parameters.PrerollTime_DEPRECATED > 0.f)
 	{
-		SetPreRollTime(Parameters.PrerollTime_DEPRECATED);
+		FFrameNumber ClampedPreRollFrames = UpgradeLegacyMovieSceneTime(this, LegacyFrameRate, Parameters.PrerollTime_DEPRECATED);
+		SetPreRollFrames(ClampedPreRollFrames.Value);
 	}
 
 	if (Parameters.PostrollTime_DEPRECATED > 0.f)
 	{
-		SetPostRollTime(Parameters.PostrollTime_DEPRECATED);
+		FFrameNumber ClampedPostRollFrames = UpgradeLegacyMovieSceneTime(this, LegacyFrameRate, Parameters.PostrollTime_DEPRECATED);
+		SetPreRollFrames(ClampedPostRollFrames.Value);
 	}
 
 	Super::PostLoad();
@@ -152,51 +202,87 @@ void UMovieSceneSubSection::PostEditChangeProperty(FPropertyChangedEvent& Proper
 }
 #endif
 
-UMovieSceneSection* UMovieSceneSubSection::SplitSection( float SplitTime )
+UMovieSceneSection* UMovieSceneSubSection::SplitSection( FQualifiedFrameTime SplitTime )
 {
-	if ( !IsTimeWithinSection( SplitTime ) )
+	// GetRange is in owning sequence resolution so we check against the incoming SplitTime without converting it.
+	TRange<FFrameNumber> InitialRange = GetRange();
+	if ( !InitialRange.Contains(SplitTime.Time.FrameNumber) )
 	{
 		return nullptr;
 	}
 
-	float InitialStartTime = GetStartTime();
-	float InitialStartOffset = Parameters.StartOffset;
-	float NewStartOffset = ( SplitTime - InitialStartTime ) / Parameters.TimeScale;
-	NewStartOffset += InitialStartOffset;
-
-	// Ensure start offset is not less than 0
-	NewStartOffset = FMath::Max( NewStartOffset, 0.f );
+	FFrameNumber InitialStartOffset = Parameters.GetStartFrameOffset();
 
 	UMovieSceneSubSection* NewSection = Cast<UMovieSceneSubSection>( UMovieSceneSection::SplitSection( SplitTime ) );
 	if ( NewSection )
 	{
-		NewSection->Parameters.StartOffset = NewStartOffset;
+		if (InitialRange.GetLowerBound().IsClosed())
+		{
+			// Sections need their offsets calculated in their local resolution. Different sequences can have different tick resolutions 
+			// so we need to transform from the parent resolution to the local one before splitting them.
+			FFrameRate LocalTickResolution = GetSequence()->GetMovieScene()->GetTickResolution();
+			FFrameNumber LocalResolutionStartOffset = FFrameRate::TransformTime(SplitTime.Time.GetFrame() - MovieScene::DiscreteInclusiveLower(InitialRange), SplitTime.Rate, LocalTickResolution).FrameNumber;
+
+			FFrameNumber NewStartOffset = LocalResolutionStartOffset / Parameters.TimeScale;
+			NewStartOffset += InitialStartOffset;
+
+			if (NewStartOffset >= 0)
+			{
+				NewSection->Parameters.SetStartFrameOffset(NewStartOffset.Value);
+			}
+		}
+
 		return NewSection;
 	}
 
 	return nullptr;
 }
 
-void UMovieSceneSubSection::TrimSection( float TrimTime, bool bTrimLeft )
+TOptional<TRange<FFrameNumber> > UMovieSceneSubSection::GetAutoSizeRange() const
 {
-	if ( !IsTimeWithinSection( TrimTime ) )
+	if (SubSequence && SubSequence->GetMovieScene())
+	{
+		FMovieSceneSequenceTransform InnerToOuter = OuterToInnerTransform().Inverse();
+		UMovieScene* InnerMovieScene = SubSequence->GetMovieScene();
+
+		FFrameTime IncAutoStartTime = FFrameTime(MovieScene::DiscreteInclusiveLower(InnerMovieScene->GetPlaybackRange())) * InnerToOuter;
+		FFrameTime ExcAutoEndTime   = FFrameTime(MovieScene::DiscreteExclusiveUpper(InnerMovieScene->GetPlaybackRange())) * InnerToOuter;
+
+		return TRange<FFrameNumber>(GetInclusiveStartFrame(), GetInclusiveStartFrame() + (ExcAutoEndTime.RoundToFrame() - IncAutoStartTime.RoundToFrame()));
+	}
+
+	return Super::GetAutoSizeRange();
+}
+
+void UMovieSceneSubSection::TrimSection( FQualifiedFrameTime TrimTime, bool bTrimLeft )
+{
+	TRange<FFrameNumber> InitialRange = GetRange();
+	if ( !InitialRange.Contains( TrimTime.Time.GetFrame() ) )
 	{
 		return;
 	}
 
-	float InitialStartTime = GetStartTime();
-	float InitialStartOffset = Parameters.StartOffset;
+	FFrameNumber InitialStartOffset = Parameters.GetStartFrameOffset();
 
 	UMovieSceneSection::TrimSection( TrimTime, bTrimLeft );
 
 	// If trimming off the left, set the offset of the shot
-	if ( bTrimLeft )
+	if ( bTrimLeft && InitialRange.GetLowerBound().IsClosed() )
 	{
-		float NewStartOffset = ( TrimTime - InitialStartTime ) / Parameters.TimeScale;
+		// Sections need their offsets calculated in their local resolution. Different sequences can have different tick resolutions 
+		// so we need to transform from the parent resolution to the local one before splitting them.
+		FFrameRate LocalTickResolution = GetSequence()->GetMovieScene()->GetTickResolution();
+		FFrameNumber LocalResolutionStartOffset = FFrameRate::TransformTime(TrimTime.Time.GetFrame() - MovieScene::DiscreteInclusiveLower(InitialRange), TrimTime.Rate, LocalTickResolution).FrameNumber;
+
+
+		FFrameNumber NewStartOffset = LocalResolutionStartOffset / Parameters.TimeScale;
 		NewStartOffset += InitialStartOffset;
 
 		// Ensure start offset is not less than 0
-		Parameters.StartOffset = FMath::Max( NewStartOffset, 0.f );
+		if (NewStartOffset >= 0)
+		{
+			Parameters.SetStartFrameOffset(NewStartOffset.Value);
+		}
 	}
 }
 

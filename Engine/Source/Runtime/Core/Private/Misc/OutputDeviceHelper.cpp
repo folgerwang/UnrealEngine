@@ -61,21 +61,18 @@ FString FOutputDeviceHelper::FormatLogLine( ELogVerbosity::Type Verbosity, const
 		Format += Category.ToString();
 		Format += TEXT(": ");
 
-		if (Verbosity != ELogVerbosity::Log)
+		if (GPrintLogVerbosity && Verbosity != ELogVerbosity::Log)
 		{
 			Format += VerbosityToString(Verbosity);
 			Format += TEXT(": ");
 		}
 	}
-	else
+	else if (GPrintLogVerbosity && Verbosity != ELogVerbosity::Log)
 	{
-		if (Verbosity != ELogVerbosity::Log)
-		{
 #if !HACK_HEADER_GENERATOR
-			Format += VerbosityToString(Verbosity);
-			Format += TEXT(": ");
+		Format += VerbosityToString(Verbosity);
+		Format += TEXT(": ");
 #endif
-		}
 	}
 
 	if (Message)
@@ -89,12 +86,12 @@ void FOutputDeviceHelper::FormatCastAndSerializeLine(FArchive& Output, const TCH
 {
 	// First gather all strings to serialize (prefix, data, terminator) including their size before and after conversion
 	// then allocate the conversion buffer only once and serialize only once
-#if PLATFORM_LINUX
+#if PLATFORM_UNIX
 	// on Linux, we still want to have logs with Windows line endings so they can be opened with Windows tools like infamous notepad.exe
 	static const TCHAR* Terminator = TEXT("\r\n");
 #else
 	static const TCHAR* Terminator = LINE_TERMINATOR;
-#endif // PLATFORM_LINUX
+#endif // PLATFORM_UNIX
 	// Line Terminator won't change so we can keep everything as statics
 	static const int32 TerminatorLength = FCString::Strlen(Terminator);
 	static const int32 ConvertedTerminatorLength = FTCHARToUTF8_Convert::ConvertedLength(Terminator, TerminatorLength);

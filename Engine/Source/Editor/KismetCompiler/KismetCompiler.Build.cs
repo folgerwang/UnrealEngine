@@ -15,7 +15,6 @@ public class KismetCompiler : ModuleRules
 				"UnrealEd",
 				"MovieScene",
 				"MovieSceneTools",
-				"FunctionalTesting",
 				"BlueprintGraph",
 				"AnimGraph",
                 "MessageLog",

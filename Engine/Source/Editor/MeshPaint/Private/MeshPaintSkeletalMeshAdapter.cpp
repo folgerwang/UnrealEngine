@@ -321,6 +321,7 @@ void FMeshPaintGeometryAdapterForSkeletalMeshes::PreEdit()
 	ReferencedSkeletalMesh->Modify();
 
 	ReferencedSkeletalMesh->bHasVertexColors = true;
+	ReferencedSkeletalMesh->VertexColorGuid = FGuid::NewGuid();
 
 	// Release the static mesh's resources.
 	ReferencedSkeletalMesh->ReleaseResources();
@@ -334,6 +335,7 @@ void FMeshPaintGeometryAdapterForSkeletalMeshes::PreEdit()
 		// Mesh doesn't have a color vertex buffer yet!  We'll create one now.
 		LODData->StaticVertexBuffers.ColorVertexBuffer.InitFromSingleColor(FColor(255, 255, 255, 255), LODData->GetNumVertices());
 		ReferencedSkeletalMesh->bHasVertexColors = true;
+		ReferencedSkeletalMesh->VertexColorGuid = FGuid::NewGuid();
 		BeginInitResource(&LODData->StaticVertexBuffers.ColorVertexBuffer);
 	}
 }
@@ -364,9 +366,9 @@ void FMeshPaintGeometryAdapterForSkeletalMeshes::SetVertexColor(int32 VertexInde
 		LODModel->GetSectionFromVertexIndex(VertexIndex, SectionIndex, SectionVertexIndex);
 		LODModel->Sections[SectionIndex].SoftVertices[SectionVertexIndex].Color = Color;
 
-		if (!ReferencedSkeletalMesh->LODInfo[MeshLODIndex].bHasPerLODVertexColors)
+		if (!ReferencedSkeletalMesh->GetLODInfo(MeshLODIndex)->bHasPerLODVertexColors)
 		{
-			ReferencedSkeletalMesh->LODInfo[MeshLODIndex].bHasPerLODVertexColors = true;
+			ReferencedSkeletalMesh->GetLODInfo(MeshLODIndex)->bHasPerLODVertexColors = true;
 		}
 	}
 }

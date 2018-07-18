@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "Framework/Docking/WorkspaceItem.h"
 #include "Framework/Docking/TabManager.h"
-#include "LayoutExtender.h"
+#include "Framework/Docking/LayoutExtender.h"
 
 DECLARE_DELEGATE_RetVal_OneParam(TSharedPtr<class FWorkflowTabFactory>, FCreateWorkflowTabFactory, TSharedPtr<class FAssetEditorToolkit>)
 

@@ -13,7 +13,7 @@
 
 #include "IDetailCustomization.h"
 #include "Types/SlateEnums.h"
-#include "SListView.h"
+#include "Widgets/Views/SListView.h"
 
 #include "LiveLinkVirtualSubject.h"
 #include "LiveLinkClient.h"

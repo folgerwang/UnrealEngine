@@ -3,7 +3,7 @@ Availability:Public
 Title:C++ Only
 Crumbs: %ROOT%, Gameplay, Gameplay/ClassCreation
 Description:ゲームプレイ プログラマ向けのアンリアル エンジン入門書
-Version:4.9
+Version: 4.9
 
 [](Programming\Development\ManagingGameCode\CppClassWizard ) を使用して、新規 C++ クラスをプロジェクトへ簡単に追加できます。新規クラスを派生させるクラスを選択した後に、
 ウィザードが必要なヘッダファイルとソースファイルを設定します。これがプロジェクトに初めて追加したコードの場合、プロジェクトはコード プロジェクトに変換されます。コード プロジェクトは、 
@@ -21,8 +21,8 @@ C++ コードのみを使用した LightSwitch クラスは LightSwitchCodeOnly 
 	class [PROJECTNAME]_API ALightSwitchCodeOnly : public AActor
 	{
 	GENERATED_BODY()
+	
 	};
-
 
 **C++ Class Wizard** で作成されたクラス宣言は、自動的に `UCLASS()` マクロが前にきます。
 `UCLASS()` マクロはエンジンにクラスの存在を知らせます。また、エンジン内のクラスの動作を設定するために、キーワード指定子と併用することも出来ます。
@@ -58,7 +58,7 @@ C++ コードのみを使用した LightSwitch クラスは LightSwitchCodeOnly 
 
 * `ToggleLight`は PointLightComponent の可視性を切り替える関数です。
 
-		/** Toggles the light component's visibility (light コンポーネントの可視性を切り替えます)*/
+		/** Toggles the light component's visibility*/
 		UFUNCTION()
 		void ToggleLight();
 
@@ -102,23 +102,26 @@ LightSwitchCodeOnly.h
 
 			ALightSwitchCodeOnly();
 
-			/** called when something enters the sphere component (何かが sphere コンポーネントに入ると呼び出されます。)*/
+			/** called when something enters the sphere component */
 			UFUNCTION()
 			void OnOverlapBegin(class UPrimitiveComponent* OverlappedComp, class AActor* OtherActor, class UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
-	/** called when something leaves the sphere component (何かが sphere コンポーネントを離れると呼び出されます。) */
-
+	
+			/** called when something leaves the sphere component */
 			UFUNCTION()
 			void OnOverlapEnd(class UPrimitiveComponent* OverlappedComp, class AActor* OtherActor, class UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
 
 			/** Toggles the light component's visibility (light コンポーネントの可視性を切り替えます)*/
 			UFUNCTION()
 			void ToggleLight();
-	/** the desired intensity for the light (ライトの望ましい明るさ) */
-
+			/** Toggles the light component's visibility*/
+			UFUNCTION()
+			void ToggleLight();
+	
+			/** the desired intensity for the light */
 			UPROPERTY(VisibleAnywhere, Category = "Switch Variables")
 			float DesiredIntensity;
-	};
-
+	
+		};
 
 
 **[C++ Class Wizard]** はクラスのソース ファイルも作成します。この場合は、`LightSwitchCodeOnly.cpp` ファイルを作成します。デフォルトで、ソース ファイルには基本的なインクルード ファイルを設定します。
@@ -132,8 +135,8 @@ LightSwitchCodeOnly.h
 
 `LightSwitchCodeOnly` コンストラクタでは、C++ を以下のように利用します。 
 * `DesiredIntensity` 変数の値を 3000 に設定します。
-	DesiredIntensity = 3000.0f;
 
+	DesiredIntensity = 3000.0f;
 * PointLight コンポーネントを作成し、その変数を設定し (その明るさを `DesiredIntensity` の値に設定することも含む)、それをルートコンポーネントにします。
 
 		PointLight1 = CreateDefaultSubobject<UPointLightComponent>(TEXT("PointLight1"));
@@ -149,8 +152,8 @@ LightSwitchCodeOnly.h
 
 * `OnOverlap` 関数をアクタが Sphere コンポーネントにオーバーラップした時、または Sphere コンポーネントから離れた時に呼ばれるデリゲートとして指定します。
 
-		Sphere1->OnComponentBeginOverlap.AddDynamic(this, &ALightSwitchCodeOnly::OnOverlapBegin);		// set up a notification for when this component overlaps something (このコンポーネントが何かとオーバーラップした時の通知を設定します) 
-		Sphere1->OnComponentEndOverlap.AddDynamic(this, &ALightSwitchCodeOnly::OnOverlapEnd);		// set up a notification for when this component overlaps something (このコンポーネントが何かとオーバーラップした時の通知を設定します) 
+		Sphere1->OnComponentBeginOverlap.AddDynamic(this, &ALightSwitchCodeOnly::OnOverlapBegin);		// set up a notification for when this component overlaps something
+		Sphere1->OnComponentEndOverlap.AddDynamic(this, &ALightSwitchCodeOnly::OnOverlapEnd);		// set up a notification for when this component overlaps something
 
 ソース ファイルにも、クラスのために宣言する関数を定義することができます。例えば、`LightSwitchCodeOnly.cpp` には、`ToggleLight` を呼び出すことでPointLight コンポーネントの可視性を切り替える `OnOverlapBegin` と `OnOverlapEnd`  
 が実装されています。クラス コンストラクタと組み合わせるとソースファイルは以下のようになります。
@@ -176,8 +179,8 @@ LightSwitchCodeOnly.cpp
 		Sphere1->InitSphereRadius(250.0f);
 		Sphere1->SetupAttachment(RootComponent);
 
-		Sphere1->OnComponentBeginOverlap.AddDynamic(this, &ALightSwitchCodeOnly::OnOverlapBegin);		// set up a notification for when this component overlaps something (このコンポーネントが何かとオーバーラップした時の通知を設定します) 
-		Sphere1->OnComponentEndOverlap.AddDynamic(this, &ALightSwitchCodeOnly::OnOverlapEnd);		// set up a notification for when this component overlaps something (このコンポーネントが何かとオーバーラップした時の通知を設定します) 
+		Sphere1->OnComponentBeginOverlap.AddDynamic(this, &ALightSwitchCodeOnly::OnOverlapBegin);		// set up a notification for when this component overlaps something
+		Sphere1->OnComponentEndOverlap.AddDynamic(this, &ALightSwitchCodeOnly::OnOverlapEnd);		// set up a notification for when this component overlaps something
 
 	}
 

@@ -17,8 +17,8 @@
 #include "Android/AndroidSurvey.h"
 #elif PLATFORM_HTML5
 #include "HTML5/HTML5PlatformSurvey.h"
-#elif PLATFORM_LINUX
-#include "Linux/LinuxPlatformSurvey.h"
+#elif PLATFORM_UNIX
+#include "Unix/UnixPlatformSurvey.h"
 #elif PLATFORM_SWITCH
 #include "Switch/SwitchPlatformSurvey.h"
 #endif

@@ -21,11 +21,26 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Links)
 	FPoseLink B;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings)
+	EAnimAlphaInputType AlphaInputType;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Settings, meta=(PinShownByDefault))
 	mutable float Alpha;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Settings)
 	FInputScaleBias AlphaScaleBias;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings, meta = (PinShownByDefault, DisplayName = "bEnabled"))
+	mutable bool bAlphaBoolEnabled;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings, meta = (DisplayName = "Blend Settings"))
+	FInputAlphaBoolBlend AlphaBoolBlend;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings, meta = (PinShownByDefault))
+	mutable FName AlphaCurveName;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings)
+	FInputScaleBiasClamp AlphaScaleBiasClamp;
 
 protected:
 	UPROPERTY(Transient)
@@ -43,7 +58,13 @@ protected:
 
 public:
 	FAnimNode_TwoWayBlend()
-		: Alpha(0.0f)
+		: AlphaInputType(EAnimAlphaInputType::Float)
+		, Alpha(0.0f)
+		, bAlphaBoolEnabled(true)
+		, AlphaCurveName(NAME_None)
+		, InternalBlendAlpha(0.0f)
+		, bAIsRelevant(false)
+		, bBIsRelevant(false)
 		, bResetChildOnActivation(false)
 	{
 	}

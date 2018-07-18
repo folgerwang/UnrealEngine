@@ -20,9 +20,9 @@ UMovieSceneCinematicShotTrack::UMovieSceneCinematicShotTrack(const FObjectInitia
 #endif
 }
 
-UMovieSceneSubSection* UMovieSceneCinematicShotTrack::AddSequence(UMovieSceneSequence* Sequence, float StartTime, float Duration, const bool& bInsertSequence)
+UMovieSceneSubSection* UMovieSceneCinematicShotTrack::AddSequenceOnRow(UMovieSceneSequence* Sequence, FFrameNumber StartTime, int32 Duration, int32 RowIndex)
 {
-	UMovieSceneSubSection* NewSection = UMovieSceneSubTrack::AddSequence(Sequence, StartTime, Duration, bInsertSequence);
+	UMovieSceneSubSection* NewSection = UMovieSceneSubTrack::AddSequenceOnRow(Sequence, StartTime, Duration, RowIndex);
 
 	UMovieSceneCinematicShotSection* NewShotSection = Cast<UMovieSceneCinematicShotSection>(NewSection);
 
@@ -135,10 +135,8 @@ FMovieSceneTrackRowSegmentBlenderPtr UMovieSceneCinematicShotTrack::GetRowSegmen
 			}
 			else if (A.Section->GetOverlapPriority() == B.Section->GetOverlapPriority())
 			{
-				TRangeBound<float> StartBoundA = A.Section->IsInfinite() ? TRangeBound<float>::Open() : TRangeBound<float>::Inclusive(A.Section->GetStartTime());
-				TRangeBound<float> StartBoundB = B.Section->IsInfinite() ? TRangeBound<float>::Open() : TRangeBound<float>::Inclusive(B.Section->GetStartTime());
-
-				return TRangeBound<float>::MaxLower(StartBoundA, StartBoundB) == StartBoundA;
+				TRangeBound<FFrameNumber> StartBoundA = A.Section->GetRange().GetLowerBound();
+				return TRangeBound<FFrameNumber>::MaxLower(StartBoundA, B.Section->GetRange().GetLowerBound()) == StartBoundA;
 			}
 			return A.Section->GetOverlapPriority() > B.Section->GetOverlapPriority();
 		}

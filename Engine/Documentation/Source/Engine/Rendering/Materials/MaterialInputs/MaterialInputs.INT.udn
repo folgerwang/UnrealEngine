@@ -51,13 +51,11 @@ Fortunately, Unreal Engine 4 removes the guess work for which inputs you need fo
 
 [INCLUDE:Engine/Rendering/Materials\PhysicallyBased#RoughnessMap]
 
-[EXCERPT:lightbox]
 **Click for full size**
 
 [REGION:lightbox]
 [![](Engine/Rendering/Materials\PhysicallyBased/RoughBias_12.png)(w:935)](Engine/Rendering/Materials\PhysicallyBased/RoughBias_12.png)
 [/REGION]
-[/EXCERPT:lightbox]
 
 ## Emissive Color
 
@@ -66,13 +64,11 @@ The **Emissive Color** input controls which parts of your Material will appear t
 
 Values greater than 1 are allowed as HDR lighting is supported.
 
-[EXCERPT:lightbox]
 **Click for full size**
 
 [REGION:lightbox]
 [![](Emissive_21.png)(w:935)](Emissive_21.png)
 [/REGION]
-[/EXCERPT:lightbox]
 [/EXCERPT:Emissive]
 
 ## Opacity
@@ -85,13 +81,11 @@ The **Opacity** input is used when using the [Translucent Blend Mode](Engine/Ren
 
 Opaque and masked blend modes also use Opacity when using one of the subsurface shading models.
 
-[EXCERPT:lightbox]
 **Click for full size**
 
 [REGION:lightbox]
 [![](TranslucencyImage.png)(w:935)](TranslucencyImage.png)
 [/REGION]
-[/EXCERPT:lightbox]
 
 Opacity is mostly used for _Translucent_, _Additive_, and _Modulated Materials_.
 [/EXCERPT:Opacity]
@@ -104,13 +98,11 @@ Opacity is mostly used for _Translucent_, _Additive_, and _Modulated Materials_.
 
 You can use the **Opacity Mask Clip Value** property on the base Material node to control the point where clipping takes place. See the [Masked Blend Mode documentation](Engine/Rendering/Materials\MaterialProperties\BlendModes#Masked) for more details.
 
-[EXCERPT:lightbox]
 **Click for full size**
 
 [REGION:lightbox]
 [![](MaskedChainlink.png)(w:935)](Engine/Rendering/Materials\MaterialInputs/MaskedChainlink.png)
 [/REGION]
-[/EXCERPT:lightbox]
 
 [/EXCERPT:OpacityMask]
 

@@ -68,8 +68,15 @@ class ENGINE_API ULightComponent : public ULightComponentBase
 	int32 PreviewShadowMapChannel;
 	
 	/** Min roughness effective for this light. Used for softening specular highlights. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Light, AdvancedDisplay, meta=(UIMin = "0.08", UIMax = "1.0"))
-	float MinRoughness;
+	UPROPERTY()
+	float MinRoughness_DEPRECATED;
+
+	/** 
+	 * Multiplier on specular highlights. Use only with great care! Any value besides 1 is not physical!
+	 * Can be used to artistically remove highlights mimicking polarizing filters or photo touch up.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Light, AdvancedDisplay, meta=(UIMin = "0", UIMax = "1"))
+	float SpecularScale;
 
 	/** 
 	 * Scales the resolution of shadowmaps used to shadow this light.  By default shadowmap resolution is chosen based on screen size of the caster. 
@@ -92,8 +99,12 @@ class ENGINE_API ULightComponent : public ULightComponentBase
 	float ShadowSharpen;
 	
 	/** Length of screen space ray trace for sharp contact shadows. Zero is disabled. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Light, AdvancedDisplay, meta = (UIMin = "0.0", UIMax = "0.1"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Light, AdvancedDisplay, meta = (UIMin = "0.0", UIMax = "0.1"))
 	float ContactShadowLength;
+
+	/** Where Length of screen space ray trace for sharp contact shadows is in world space units or in screen space units. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Light, AdvancedDisplay, meta = (DisplayName = "Contact Shadow Length In World Space Units"))
+	uint32 ContactShadowLengthInWS : 1;
 
 	UPROPERTY()
 	uint32 InverseSquaredFalloff_DEPRECATED:1;
@@ -238,6 +249,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Rendering|Components|Light")
 	void SetAffectTranslucentLighting(bool bNewValue);
 
+	UFUNCTION(BlueprintCallable, Category = "Rendering|Components|Light")
+	void SetTransmission(bool bNewValue);
+
 	UFUNCTION(BlueprintCallable, Category="Rendering|Components|Light")
 	void SetEnableLightShaftBloom(bool bNewValue);
 
@@ -293,7 +307,8 @@ public:
 
 	virtual FSphere GetBoundingSphere() const
 	{
-		return FSphere(FVector::ZeroVector, HALF_WORLD_MAX);
+		// Directional lights will have a radius of WORLD_MAX
+		return FSphere(FVector::ZeroVector, WORLD_MAX);
 	}
 
 	/**

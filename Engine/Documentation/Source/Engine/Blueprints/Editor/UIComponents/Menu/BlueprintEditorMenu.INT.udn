@@ -13,27 +13,9 @@ The **Menu** is displayed at the top of the Blueprint Editor by default.
 
 [EXCERPT:Main]
 
-
-
-
 ### File
 
-[EXCERPT:FileMenu]
-| Command | Description |
-| --- | --- |
-| [REGION:tablesection]**Load and Save**[/REGION] ||
-| **Save** | Saves the Blueprint. |
-| **Open Asset...** | Summons the asset picker window. |
-| **Save All** | Saves all unsaved levels and assets. |
-| **Choose Files to Save...** | Opens a dialog with save options for content and levels. |
-| **Connect to Source Control...** | If Source Control is enabled, opens a dialogue with check-in options for content and levels. |
-| [REGION:tablesection]**Blueprint**[/REGION] ||
-| **Compile** | Compiles the Blueprint.  |
-| **Refresh All Nodes** | Refreshes all nodes in the graph to account for external changes. |
-| **Reparent Blueprint** | Change the parent of the open Blueprint. |
-| **Diff** | Diff against previous revisions. Requires source control to be active. |
-| **Developer** | Open the Developer Menu, where you can change compiler settings and recompile modules like the Graph Editor. |
-[/EXCERPT:FileMenu]
+[INCLUDE:#FileMenu]
 
 ### Edit
 
@@ -43,61 +25,20 @@ The **Menu** is displayed at the top of the Blueprint Editor by default.
 | **Delete Unused Variables** | Deletes any variables that are never used. |
 [/VAR]
 
-[EXCERPT:EditMenu]
-| Command | Description |
-| --- | --- |
-| [REGION:tablesection]**History**[/REGION] ||
-| **Undo** | Undo the last action. |
-| **Redo** | Redo the last undone action. |
-| **Undo History** | Displays the entire Undo History. |
-| [REGION:tablesection]**Search**[/REGION] ||
-%BlueprintSearch%
-| [REGION:tablesection]**Configuration**[/REGION] ||
-| **Editor Preferences** | Opens the settings for the Editor. |
-| **Project Settings** | Opens the settings for the current project. |
-| **Plugins** | Opens the Plugin Browser tab. |
-[/EXCERPT:EditMenu]
+[INCLUDE:#EditMenu]
 
 
 ### Asset
-[EXCERPT:AssetMenu]
-[VAR:AssetMenu]
-| Command | Description |
-| --- | --- |
-| **Find in Content Browser...** | Summons the **Content Browser** and navigates to this asset. |
-| **Reference Viewer...** | Launches the reference viewer to show what the current asset references and what references the current asset.|
-| **Size Map...** | Displays an interactive map showing the approximate size of this asset and everything it references.|
-[/VAR]
 
-%assetmenu%
-[/EXCERPT:AssetMenu]
+[INCLUDE:#AssetMenu]
 
 ### View
 
-[EXCERPT:ViewMenu]
-| Command | Description |
-| --- | --- |
-| [REGION:tablesection]**Pin Visibility**[/REGION] ||
-| **Show All Pins** | Shows all pins on all nodes. |
-| **Hide Unused Pins** | Hides all pins with no connections and no default values. |
-| **Hide Unconnected Pins** | Hides all pins with no connections.  This option will hide input pins for inputs that have been set directly on the node. |
-| [REGION:tablesection]**Zoom**[/REGION] ||
-| **Zoom to Graph Extents ** | Fits the current view to the entire graph. |
-| **Zoom to Selection** | Fits the current view to the selection.  |
-[/EXCERPT:ViewMenu]
+[INCLUDE:ViewMenu]
 
 ### Debug
 
-[EXCERPT:DebugMenu]
-| Command | Description |
-| --- | --- |
-| [REGION:tablesection]**Breakpoints**[/REGION] ||
-| **Disable All Breakpoints** | Disables all breakpoints in all graphs of the current Blueprint or Level Blueprint. |
-| **Enable All Breakpoints** | Enables all breakpoints in all graphs of the current Blueprint or Level Blueprint. |
-| **Delete All Breakpoints** | Removes all breakpoints in all graphs of the current Blueprint or Level Blueprint. |
-| [REGION:tablesection]**Watches**[/REGION] ||
-| **Delete All Watches** | Removes all watch values in all graphs of the current Blueprint or Level Blueprint. |
-[/EXCERPT:DebugMenu]
+[INCLUDE:#DebugMenu]
 
 ### Window 
 
@@ -127,7 +68,68 @@ The **Window** menu in the **Blueprint Editor** has a specific subsection for di
 [/EXCERPT:Main]
 
 [COMMENT:none]
+[EXCERPT:FileMenu]
+| Command | Description |
+| --- | --- |
+| [REGION:tablesection]**Load and Save**[/REGION] ||
+| **Save** | Saves the Blueprint. |
+| **Open Asset...** | Summons the asset picker window. |
+| **Save All** | Saves all unsaved levels and assets. |
+| **Choose Files to Save...** | Opens a dialog with save options for content and levels. |
+| **Connect to Source Control...** | If Source Control is enabled, opens a dialogue with check-in options for content and levels. |
+| [REGION:tablesection]**Blueprint**[/REGION] ||
+| **Compile** | Compiles the Blueprint.  |
+| **Refresh All Nodes** | Refreshes all nodes in the graph to account for external changes. |
+| **Reparent Blueprint** | Change the parent of the open Blueprint. |
+| **Diff** | Diff against previous revisions. Requires source control to be active. |
+| **Developer** | Open the Developer Menu, where you can change compiler settings and recompile modules like the Graph Editor. |
+[/EXCERPT:FileMenu]
+[EXCERPT:EditMenu]
+| Command | Description |
+| --- | --- |
+| [REGION:tablesection]**History**[/REGION] ||
+| **Undo** | Undo the last action. |
+| **Redo** | Redo the last undone action. |
+| **Undo History** | Displays the entire Undo History. |
+| [REGION:tablesection]**Search**[/REGION] ||
+%BlueprintSearch%
+| [REGION:tablesection]**Configuration**[/REGION] ||
+| **Editor Preferences** | Opens the settings for the Editor. |
+| **Project Settings** | Opens the settings for the current project. |
+| **Plugins** | Opens the Plugin Browser tab. |
+[/EXCERPT:EditMenu]
+[EXCERPT:AssetMenu]
+[VAR:AssetMenu]
+| Command | Description |
+| --- | --- |
+| **Find in Content Browser...** | Summons the **Content Browser** and navigates to this asset. |
+| **Reference Viewer...** | Launches the reference viewer to show what the current asset references and what references the current asset.|
+| **Size Map...** | Displays an interactive map showing the approximate size of this asset and everything it references.|
+[/VAR]
 
+%assetmenu%
+[/EXCERPT:AssetMenu]
+[EXCERPT:ViewMenu]
+| Command | Description |
+| --- | --- |
+| [REGION:tablesection]**Pin Visibility**[/REGION] ||
+| **Show All Pins** | Shows all pins on all nodes. |
+| **Hide Unused Pins** | Hides all pins with no connections and no default values. |
+| **Hide Unconnected Pins** | Hides all pins with no connections.  This option will hide input pins for inputs that have been set directly on the node. |
+| [REGION:tablesection]**Zoom**[/REGION] ||
+| **Zoom to Graph Extents** | Fits the current view to the entire graph. |
+| **Zoom to Selection** | Fits the current view to the selection.  |
+[/EXCERPT:ViewMenu]
+[EXCERPT:DebugMenu]
+| Command | Description |
+| --- | --- |
+| [REGION:tablesection]**Breakpoints**[/REGION] ||
+| **Disable All Breakpoints** | Disables all breakpoints in all graphs of the current Blueprint or Level Blueprint. |
+| **Enable All Breakpoints** | Enables all breakpoints in all graphs of the current Blueprint or Level Blueprint. |
+| **Delete All Breakpoints** | Removes all breakpoints in all graphs of the current Blueprint or Level Blueprint. |
+| [REGION:tablesection]**Watches**[/REGION] ||
+| **Delete All Watches** | Removes all watch values in all graphs of the current Blueprint or Level Blueprint. |
+[/EXCERPT:DebugMenu]
 [EXCERPT:devtools]
 [REGION:simpletable]
 | Sub-Menu Item | Description |

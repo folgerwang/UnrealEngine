@@ -1100,8 +1100,7 @@ struct FUpdateCollisionResponseHelper
 		if(CollisionResponsesHandle.IsValid())
 		{
 			const SIZE_T PropertyOffset = (SIZE_T)&((UPrimitiveComponent*)0)->BodyInstance.CollisionResponses;
-			check(PropertyOffset < (int32)(-1));
-			const int32 ProeprtyOffset32 = (int32) PropertyOffset;
+			check(PropertyOffset <= MAX_int32);
 
 			TSet<USceneComponent*> UpdatedInstances;
 			FComponentEditorUtils::PropagateDefaultValueChange(PrimComp, CollisionResponsesHandle->GetProperty(), OldCollision, PrimComp->BodyInstance.GetCollisionResponse(), UpdatedInstances, PropertyOffset);

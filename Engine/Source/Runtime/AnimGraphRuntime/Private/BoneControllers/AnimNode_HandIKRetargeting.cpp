@@ -32,16 +32,44 @@ void FAnimNode_HandIKRetargeting::EvaluateSkeletalControl_AnyThread(FComponentSp
 	checkSlow(OutBoneTransforms.Num() == 0);
 
 	const FBoneContainer& BoneContainer = Output.Pose.GetPose().GetBoneContainer();
-	// Get component space transforms for all of our IK and FK bones.
-	const FTransform& RightHandFKTM = Output.Pose.GetComponentSpaceTransform(RightHandFK.GetCompactPoseIndex(BoneContainer));
-	const FTransform& LeftHandFKTM = Output.Pose.GetComponentSpaceTransform(LeftHandFK.GetCompactPoseIndex(BoneContainer));
-	const FTransform& RightHandIKTM = Output.Pose.GetComponentSpaceTransform(RightHandIK.GetCompactPoseIndex(BoneContainer));
-	const FTransform& LeftHandIKTM = Output.Pose.GetComponentSpaceTransform(LeftHandIK.GetCompactPoseIndex(BoneContainer));
+
+	FVector FKLocation = FVector::ZeroVector;
+	FVector IKLocation = FVector::ZeroVector;
+
+	if (FAnimWeight::IsFullWeight(HandFKWeight))
+	{
+		const FCompactPoseBoneIndex RightHandFKBoneIndex = RightHandFK.GetCompactPoseIndex(BoneContainer);
+		const FCompactPoseBoneIndex RightHandIKBoneIndex = RightHandIK.GetCompactPoseIndex(BoneContainer);
+
+		FKLocation = Output.Pose.GetComponentSpaceTransform(RightHandFKBoneIndex).GetTranslation();
+		IKLocation = Output.Pose.GetComponentSpaceTransform(RightHandIKBoneIndex).GetTranslation();
+	}
+	else if (!FAnimWeight::IsRelevant(HandFKWeight))
+	{
+		const FCompactPoseBoneIndex LeftHandFKBoneIndex = LeftHandFK.GetCompactPoseIndex(BoneContainer);
+		const FCompactPoseBoneIndex LeftHandIKBoneIndex = LeftHandIK.GetCompactPoseIndex(BoneContainer);
+
+		FKLocation = Output.Pose.GetComponentSpaceTransform(LeftHandFKBoneIndex).GetTranslation();
+		IKLocation = Output.Pose.GetComponentSpaceTransform(LeftHandIKBoneIndex).GetTranslation();
+	}
+	else
+	{
+		const FCompactPoseBoneIndex RightHandFKBoneIndex = RightHandFK.GetCompactPoseIndex(BoneContainer);
+		const FCompactPoseBoneIndex RightHandIKBoneIndex = RightHandIK.GetCompactPoseIndex(BoneContainer);
+		const FCompactPoseBoneIndex LeftHandFKBoneIndex = LeftHandFK.GetCompactPoseIndex(BoneContainer);
+		const FCompactPoseBoneIndex LeftHandIKBoneIndex = LeftHandIK.GetCompactPoseIndex(BoneContainer);
+
+		const FVector RightHandFKLocation = Output.Pose.GetComponentSpaceTransform(RightHandFKBoneIndex).GetTranslation();
+		const FVector RightHandIKLocation = Output.Pose.GetComponentSpaceTransform(RightHandIKBoneIndex).GetTranslation();
+		const FVector LeftHandFKLocation = Output.Pose.GetComponentSpaceTransform(LeftHandFKBoneIndex).GetTranslation();
+		const FVector LeftHandIKLocation = Output.Pose.GetComponentSpaceTransform(LeftHandIKBoneIndex).GetTranslation();
+
+		// Compute weight FK and IK hand location. And translation from IK to FK.
+		FKLocation = FMath::Lerp<FVector>(LeftHandFKLocation, RightHandFKLocation, HandFKWeight);
+		IKLocation = FMath::Lerp<FVector>(LeftHandIKLocation, RightHandIKLocation, HandFKWeight);
+	}
 	
-	// Compute weight FK and IK hand location. And translation from IK to FK.
-	FVector const FKLocation = FMath::Lerp<FVector>(LeftHandFKTM.GetTranslation(), RightHandFKTM.GetTranslation(), HandFKWeight);
-	FVector const IKLocation = FMath::Lerp<FVector>(LeftHandIKTM.GetTranslation(), RightHandIKTM.GetTranslation(), HandFKWeight);
-	FVector const IK_To_FK_Translation = FKLocation - IKLocation;
+	const FVector IK_To_FK_Translation = FKLocation - IKLocation;
 
 	// If we're not translating, don't send any bones to update.
 	if (!IK_To_FK_Translation.IsNearlyZero())
@@ -51,18 +79,18 @@ void FAnimNode_HandIKRetargeting::EvaluateSkeletalControl_AnyThread(FComponentSp
 		{
 			if (BoneReference.IsValidToEvaluate(BoneContainer))
 			{
-				FCompactPoseBoneIndex BoneIndex = BoneReference.GetCompactPoseIndex(BoneContainer);
+				const FCompactPoseBoneIndex BoneIndex = BoneReference.GetCompactPoseIndex(BoneContainer);
 				FTransform BoneTransform = Output.Pose.GetComponentSpaceTransform(BoneIndex);
 				BoneTransform.AddToTranslation(IK_To_FK_Translation);
 
 				OutBoneTransforms.Add(FBoneTransform(BoneIndex, BoneTransform));
 			}
 		}
-	}
 
-	if (OutBoneTransforms.Num() > 0)
-	{
-		OutBoneTransforms.Sort(FCompareBoneTransformIndex());
+		if (OutBoneTransforms.Num() > 0)
+		{
+			OutBoneTransforms.Sort(FCompareBoneTransformIndex());
+		}
 	}
 }
 

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3482475
+﻿INTSourceChangelist:3801260
 Availability:Public
 Crumbs:
 Title:ブルーム
@@ -9,9 +9,6 @@ Parent:Engine/Rendering/PostProcessEffects
 Order:1
 Tags:Post Process
 Topic-image:bloom_Topic.png
-
-[VAR:spacer]![](%ROOT%/spacer.png)(w:150 convert:false)[/VAR]
-[VAR:spacer2]![](%ROOT%/spacer.png)(w:40 convert:false)[/VAR]
 
 [TOC(start:2 end:2)]
 
@@ -35,12 +32,12 @@ Topic-image:bloom_Topic.png
 広範囲のブラーには通常低解像度のブラー (値が大きい) を利用してください。
 
 [REGION:raw]
-| プロパティ　| %spacer2% | 説明 |
-| -------| --------- | ---- |
-| **Intensity** || ブルームエフェクト全体の色をスケーリングします (直線)。潜在的用途：時間の経過とともにフェードインまたはアウトして暗くします [INCLUDE:#Intensity] |
-| **Threshold** || ブルームに影響を与えるために必要な、カラーの輝度単位を定義します。閾値に加えて、カラーが部分的にブルームに影響を与える直線部分 (1 幅単位) があります。全てのシーンのカラーをブルームと関係付けるには、 -1 のボリュームを使用します。潜在的用途：実際に HDR コンテンツではない、ドリームシーケンスを微調整します。 [INCLUDE:#Threshold] |
-| **#1/#2/#3/#4/#5 Tint** || 輝度と各ブルームの色を変更します。黒色を使用しても渡す速度は変わりませんが、変更できます。|
-| **#1/#2/#3/#4/#5 Size** || スクリーン幅をパーセンテージで表したサイズです。ある数字でクランプされます。より大きな数値が必要な場合、代わりに次の低解像度のブラーを使用します。 [INCLUDE:#Size] |
+| プロパティ | 説明 |
+| -------- | ----------- |
+| **Intensity** | ブルームエフェクト全体の色をスケーリングします (直線)。潜在的用途：時間の経過とともにフェードインまたはアウトして暗くします [INCLUDE:#Intensity] |
+| **Threshold** | ブルームに影響を与えるために必要な、カラーの輝度単位を定義します。閾値に加えて、カラーが部分的にブルームに影響を与える直線部分 (1 幅単位) があります。全てのシーンのカラーをブルームと関係付けるには、 -1 のボリュームを使用します。潜在的用途：実際に HDR コンテンツではない、ドリームシーケンスを微調整します。 [INCLUDE:#Threshold] |
+| **#1/#2/#3/#4/#5 Tint** | 輝度と各ブルームの色を変更します。黒色を使用しても渡す速度は変わりませんが、変更できます。|
+| **#1/#2/#3/#4/#5 Size** | スクリーン幅をパーセンテージで表したサイズです。ある数字でクランプされます。より大きな数値が必要な場合、代わりに次の低解像度のブラーを使用します。 [INCLUDE:#Size] |
 [/REGION]
 
 [COMMENT:none]
@@ -98,7 +95,7 @@ Topic-image:bloom_Topic.png
 Fast Fourier Transform (FFT) の使用により加速します。
 
 [REGION:warning]
-ブルームの畳み込み機能は、シネマティックスやハイエンド ハードウェアでの使用を想定して作られていますが、 ** _既存の (標準)_ ブルームは、ほとんどのゲーム アプリケーションでご利用いただけます**。 
+ブルームの畳み込み機能は、シネマティックスやハイエンド ハードウェアでの使用を想定して作られていますが、_**既存の (標準) ブルームは、ほとんどのゲーム アプリケーションでご利用いただけます**_ 。 
 _既存の_ ブルームはパフォーマンスでは圧倒的に有利ですが、 
 保守的ではない (イメージが全体的に明るくなる結果になる) ですし、ブルームの畳み込み機能の視覚的な複雑さに欠ける点がトレードオフです。
 [/REGION]
@@ -108,14 +105,14 @@ _既存の_ ブルームはパフォーマンスでは圧倒的に有利です�
 ![](ConvolutionBloomSettings.png)(w:450)
 
 [REGION:raw]
-| プロパティ | %spacer2% | 説明 |
-| ------- | -------- | ---- |
-| **Convolution Kernel** || カーネルを定義するテクスチャの選択に使用します。  |
-| [REGION:tablesection] 詳細なプロパティ [/REGION] |||
-| **Convolution Scale**  || ビューポートの単位で Convolution Kernel イメージの相対サイズを表します。デフォルトは 1 です。主に、ブルームのサイズを小さくするために使用します。 |
-| **Convolution Center** || UV 座標では、デフォルトは (1/2, 1/2) です。理想的には、Convolution Kernel イメージは、明るいソースに対してきっちり真ん中に反応しますが、通常は微調整が必要になります。ここでオフセットすると、ブルーム イメージは完全にオフセットされます。 |
-| **Convolution Boost** || 畳み込みブルーム フィルターを適用する前に、選択ピクセルの強度をあげます。最低値、最高値、乗算値で構成されています。輝度デルタが最低値より乗数値で増幅します。デフォルトではこの増加は無効になっているので、使用には注意してください。 |
-| **Convolution Buffer** || 画面サイズの一部を使った黙示的なバッファ領域で、ブルームがイメージの周りを絶対にラップしないようにします。この値が増えると、パフォーマンスは悪くなります。 |
+| プロパティ | 説明 |
+| -------- | ----------- |
+| **Convolution Kernel** | カーネルを定義するテクスチャの選択に使用します。  |
+| [REGION:tablesection] 詳細プロパティ [/REGION] ||
+| **Convolution Scale**  | ビューポートの単位で Convolution Kernel イメージの相対サイズを表します。デフォルトは 1 です。主に、ブルームのサイズを小さくするために使用します。 |
+| **Convolution Center** | UV 座標では、デフォルトは (1/2, 1/2) です。理想的には、Convolution Kernel イメージは、明るいソースに対してきっちり真ん中に反応しますが、通常は微調整が必要になります。ここでオフセットすると、ブルーム イメージは完全にオフセットされます。 |
+| **Convolution Boost** | 畳み込みブルーム フィルターを適用する前に、選択ピクセルの強度をあげます。最低値、最高値、乗算値で構成されています。輝度デルタが最低値より乗数値で増幅します。デフォルトではこの増加は無効になっているので、使用には注意してください。 |
+| **Convolution Buffer** | 画面サイズの一部を使った黙示的なバッファ領域で、ブルームがイメージの周りを絶対にラップしないようにします。この値が増えると、パフォーマンスは悪くなります。 |
 [/REGION]
 
 ### カーネル イメージのベスト プラクティス
@@ -146,7 +143,7 @@ _既存の_ ブルームはパフォーマンスでは圧倒的に有利です�
 
 [EXCERPT:cbtextureproperties]
 [REGION:simpletable]
-|||
+||
 |---|---|
 |  [INCLUDE:#cbtexturepropertiesimage] | [INCLUDE:#cbtexturepropertieslist] |
 [/REGION]
@@ -157,8 +154,8 @@ _既存の_ ブルームはパフォーマンスでは圧倒的に有利です�
 [/EXCERPT:cbtexturepropertiesimage]
 
 [EXCERPT:cbtexturepropertieslist]
-* [Mips Gen Setting]:**No Mipmaps**
-* [Never Stream]:**Enabled**
+* Mips Gen Setting:**No Mipmaps**
+* Never Stream:**Enabled**
 [/EXCERPT:cbtexturepropertieslist]
 
 ---
@@ -183,11 +180,11 @@ _既存の_ ブルームはパフォーマンスでは圧倒的に有利です�
 ![](DirtMaskProperties.png)(w:450)
 
 [REGION:raw]
-| プロパティ | %spacer2% | 説明 |
-| ------- | -------- | ---- |
-| **Dirt Mask Texture** || 選択ボックスを使用して、汚れマスクに使用する Texture2D を割り当てます。このプロパティは他の Post Process Volumes とブレンドすることはできません。ご注意ください。 |
-| **Dirt Mask Intensity** || ブルームの汚れマスク エフェクトの色をスケーリングします (直線) 。このプロパティは汚れマスクの輝度の微調整に使用します。 |
-| **Dirt Mask Tint Color** || 汚れマスクテクスチャをより暗くする、または淡彩にするために使用します。汚れマスクの輝度や色の微調整に使用します。|
+| プロパティ | 説明 |
+| -------- | ----------- |
+| **Dirt Mask Texture** | 選択ボックスを使用して、汚れマスクに使用する Texture2D を割り当てます。このプロパティは他の Post Process Volumes とブレンドすることはできません。ご注意ください。 |
+| **Dirt Mask Intensity** | ブルームの汚れマスクエフェクトの色をスケーリングします (直線) 。このプロパティは汚れマスクの輝度の微調整に使用します。 |
+| **Dirt Mask Tint Color** | 汚れマスクテクスチャをより暗くする、または淡彩にするために使用します。汚れマスクの輝度や色の微調整に使用します。|
 [/REGION]
 
 ### 汚れマスク イメージのベスト プラクティス
@@ -210,7 +207,7 @@ _既存の_ ブルームはパフォーマンスでは圧倒的に有利です�
 
 [EXCERPT:dirtmasktextureproperty]
 [REGION:simpletable]
-|||
+||
 |---|---|
 |  [INCLUDE:#dirtmasktexturepropertyimage] | [INCLUDE:#dirtmasktexturepropertylist] |
 [/REGION]
@@ -221,8 +218,8 @@ _既存の_ ブルームはパフォーマンスでは圧倒的に有利です�
 [/EXCERPT:dirtmasktexturepropertyimage]
 
 [EXCERPT:dirtmasktexturepropertylist]
-* [Mips Gen Setting]:**No Mipmaps**
-* [Never Stream]:**Enabled**
+* Mips Gen Setting: **No Mipmaps**
+* Never Stream:  **Enabled**
 [/EXCERPT:dirtmasktexturepropertylist]
 
 [EXCERPT:dirtmaskexample]

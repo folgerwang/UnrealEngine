@@ -22,7 +22,7 @@ void UOculusEntitlementCallbackProxy::Activate()
 
 	if (OculusIdentityInterface.IsValid())
 	{
-		auto Unused = new FUniqueNetIdString("UNUSED");
+		auto Unused = new FUniqueNetIdString("UNUSED", OCULUS_SUBSYSTEM);
 		OculusIdentityInterface->GetUserPrivilege(
 			*Unused,
 			EUserPrivileges::CanPlay,

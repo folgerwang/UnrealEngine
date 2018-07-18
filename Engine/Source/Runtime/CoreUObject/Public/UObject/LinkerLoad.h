@@ -131,8 +131,45 @@ public:
 		return bLoaderIsFArchiveAsync2 ? (FArchiveAsync2*)Loader : nullptr;
 	}
 
+private:
+
+	/** Structured archive interface. Wraps underlying loader to provide contextual metadata to the values being written
+	 *  which ultimately allows text based serialization of the data
+	 */
+	FStructuredArchive* StructuredArchive;
+	FArchiveFormatterType* StructuredArchiveFormatter;
+	TOptional<FStructuredArchive::FRecord> StructuredArchiveRootRecord;
+
+	/** A map of full object path name to package index. Used with text assets to resolve incoming string names to an export */
+	TMap<FName, FPackageIndex> ObjectNameToPackageIndex;
+
+protected:
+
 	/** The archive that actually reads the raw data from disk.																*/
 	FArchive*				Loader;
+
+public:
+
+	/** Access the underlying archive. Note that if this is a text archive, the loader will point to a generic text file, and not a binary archive as
+	  * in the past. General access to the underlying file format is discouraged and should only be done after checking that the linker package is what
+	  * you expect it to be (i.e. !IsTextFormat())
+	  */
+	FArchive * GetLoader_Unsafe() const
+	{
+		return Loader;
+	}
+
+	bool HasLoader() const
+	{
+		return Loader != nullptr;
+	}
+
+	void DestroyLoader()
+	{
+		delete Loader;
+		Loader = nullptr;
+	}
+
 	/** The async package associated with this linker */
 	struct FAsyncPackage* AsyncRoot;
 #if WITH_EDITOR
@@ -399,10 +436,11 @@ public:
 	 * @param	Parent		Parent object to load into, can be NULL (most likely case)
 	 * @param	Filename	Name of file on disk to load
 	 * @param	LoadFlags	Load flags determining behavior
+	 * @param InLoader	Loader archive override
 	 *
 	 * @return	new FLinkerLoad object for Parent/ Filename
 	 */
-	COREUOBJECT_API static FLinkerLoad* CreateLinker( UPackage* Parent, const TCHAR* Filename, uint32 LoadFlags);
+	COREUOBJECT_API static FLinkerLoad* CreateLinker(UPackage* Parent, const TCHAR* Filename, uint32 LoadFlags, FArchive* InLoader = nullptr);
 
 	void Verify();
 
@@ -735,6 +773,9 @@ private:
 	FORCEINLINE virtual void Serialize(void* V, int64 Length) override
 	{
 		checkSlow(FPlatformTLS::GetCurrentThreadId() == OwnerThread);
+#if WITH_EDITOR
+		Loader->SetSerializedProperty(GetSerializedProperty());
+#endif
 		Loader->Serialize(V, Length);
 	}
 	using FArchiveUObject::operator<<; // For visibility of the overloads we don't override
@@ -882,6 +923,9 @@ private:
 	ELinkerStatus SerializeDependsMap();
 
 	ELinkerStatus SerializePreloadDependencies();
+
+	/** Sets the basic linker archive info */
+	void ResetStatusInfo();
 
 public:
 	/**
@@ -1098,7 +1142,7 @@ private:
 	 * to make sure this placeholder is completely resolved before continuing on 
 	 * to the next.
 	 */
-	class FLinkerPlaceholderBase* ResolvingDeferredPlaceholder;
+	TArray<class FLinkerPlaceholderBase*> ResolvingPlaceholderStack;
 
 	/** 
 	 * Internal list to track imports that were deferred, but don't belong to 

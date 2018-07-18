@@ -12,6 +12,55 @@ using Tools.DotNETCommon;
 namespace UnrealBuildTool
 {
 	/// <summary>
+	/// IOS-specific target settings
+	/// </summary>
+	public class IOSTargetRules
+	{
+		/// <summary>
+		/// Don't generate crashlytics data
+		/// </summary>
+		[CommandLine("-skipcrashlytics")]
+		public bool bSkipCrashlytics = false;
+	}
+
+	/// <summary>
+	/// Read-only wrapper for IOS-specific target settings
+	/// </summary>
+	public class ReadOnlyIOSTargetRules
+	{
+		/// <summary>
+		/// The private mutable settings object
+		/// </summary>
+		private IOSTargetRules Inner;
+
+		/// <summary>
+		/// Constructor
+		/// </summary>
+		/// <param name="Inner">The settings object to wrap</param>
+		public ReadOnlyIOSTargetRules(IOSTargetRules Inner)
+		{
+			this.Inner = Inner;
+		}
+
+		/// <summary>
+		/// Accessors for fields on the inner TargetRules instance
+		/// </summary>
+		#region Read-only accessor properties 
+#if !__MonoCS__
+#pragma warning disable CS1591
+#endif
+		public bool bSkipCrashlytics
+		{
+			get { return Inner.bSkipCrashlytics; }
+		}
+
+#if !__MonoCS__
+#pragma warning restore CS1591
+#endif
+		#endregion
+	}
+
+	/// <summary>
 	/// Stores project-specific IOS settings. Instances of this object are cached by IOSPlatform.
 	/// </summary>
 	class IOSProjectSettings
@@ -25,12 +74,14 @@ namespace UnrealBuildTool
 		/// Whether to generate a dSYM file or not.
 		/// </summary>
 		[ConfigFile(ConfigHierarchyType.Engine, "/Script/IOSRuntimeSettings.IOSRuntimeSettings", "bGeneratedSYMFile")]
+		[CommandLine("-skipgeneratedsymfile", Value="false")]
 		public readonly bool bGeneratedSYMFile = true;
 
 		/// <summary>
 		/// Whether to generate a dSYM bundle or not.
 		/// </summary>
 		[ConfigFile(ConfigHierarchyType.Engine, "/Script/IOSRuntimeSettings.IOSRuntimeSettings", "bGeneratedSYMBundle")]
+		[CommandLine("-skipgeneratedsymbundle", Value = "false")]
 		public readonly bool bGeneratedSYMBundle = false;
 
         /// <summary>
@@ -496,12 +547,13 @@ namespace UnrealBuildTool
             Target.bCompileSimplygon = false;
             Target.bCompileSimplygonSSF = false;
 			Target.bBuildDeveloperTools = false;
+
+			Target.bDeployAfterCompile = true;
 		}
 
 		public override void ValidateTarget(TargetRules Target)
 		{
 			Target.bUsePCHFiles = false;
-			Target.bDeployAfterCompile = true;
 
 			// we assume now we are building with IOS8 or later
 			if (Target.bCompileAgainstEngine)
@@ -596,20 +648,20 @@ namespace UnrealBuildTool
 			return new IOSProvisioningData(ProjectSettings, bForDistribution);
 		}
 
-		public override string GetDebugInfoExtension(ReadOnlyTargetRules InTarget, UEBuildBinaryType InBinaryType)
+		public override string[] GetDebugInfoExtensions(ReadOnlyTargetRules InTarget, UEBuildBinaryType InBinaryType)
 		{
 			IOSProjectSettings ProjectSettings = ReadProjectSettings(InTarget.ProjectFile);
 
 			if(ProjectSettings.bGeneratedSYMBundle)
 			{
-				return ".dSYM.zip";
+				return new string[] {".dSYM.zip"};
 			}
 			else if (ProjectSettings.bGeneratedSYMFile)
             {
-                return ".dSYM";
+                return new string[] {".dSYM"};
             }
 
-            return "";
+            return new string [] {};
 		}
 
 		public override bool CanUseXGE()
@@ -636,7 +688,23 @@ namespace UnrealBuildTool
 		{
 			IOSToolChain.PostCodeGeneration(Manifest);
 		}
-		
+
+		public bool HasCustomIcons(DirectoryReference ProjectDirectoryName)
+		{
+			string IconDir = Path.Combine(ProjectDirectoryName.FullName, "Build", "IOS", "Resources", "Graphics");
+			if(Directory.Exists(IconDir))
+			{
+				foreach (string f in Directory.EnumerateFiles(IconDir))
+				{
+					if (f.Contains("Icon") && Path.GetExtension(f).Contains(".png"))
+					{
+						return true;
+					}
+				}
+			}
+			return false;
+		}
+
 		/// <summary>
 		/// Check for the default configuration
 		/// return true if the project uses the default build config
@@ -655,6 +723,12 @@ namespace UnrealBuildTool
 				"AdditionalShippingLinkerFlags"
 			};
 
+			// check for custom icons
+			if (HasCustomIcons(ProjectDirectoryName))
+			{
+				return false;
+			}
+
 			// look up iOS specific settings
 			if (!DoProjectSettingsMatchDefault(Platform, ProjectDirectoryName, "/Script/IOSRuntimeSettings.IOSRuntimeSettings",
 					BoolKeys, null, StringKeys))
@@ -664,6 +738,16 @@ namespace UnrealBuildTool
 
 			// check the base settings
 			return base.HasDefaultBuildConfig(Platform, ProjectDirectoryName);
+		}
+
+		/// <summary>
+		/// Check for the build requirement due to platform requirements
+		/// return true if the project requires a build
+		/// </summary>
+		public override bool RequiresBuild(UnrealTargetPlatform Platform, DirectoryReference ProjectDirectoryName)
+		{
+			// check for custom icons
+			return HasCustomIcons(ProjectDirectoryName);
 		}
 
 		/// <summary>
@@ -711,8 +795,8 @@ namespace UnrealBuildTool
 					{
 						if (Target.bBuildDeveloperTools)
 						{
-							Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("IOSTargetPlatform");
-							Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("TVOSTargetPlatform");
+							Rules.DynamicallyLoadedModuleNames.Add("IOSTargetPlatform");
+							Rules.DynamicallyLoadedModuleNames.Add("TVOSTargetPlatform");
 						}
 					}
 					else if (ModuleName == "TargetPlatform")
@@ -722,7 +806,7 @@ namespace UnrealBuildTool
 						Rules.DynamicallyLoadedModuleNames.Add("TextureFormatASTC");
 						if (Target.bBuildDeveloperTools && Target.bCompileAgainstEngine)
 						{
-							Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("AudioFormatADPCM");
+							Rules.DynamicallyLoadedModuleNames.Add("AudioFormatADPCM");
 						}
 					}
 				}
@@ -732,13 +816,13 @@ namespace UnrealBuildTool
 				{
 					if (Target.bForceBuildTargetPlatforms)
 					{
-						Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("IOSTargetPlatform");
-						Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("TVOSTargetPlatform");
+						Rules.DynamicallyLoadedModuleNames.Add("IOSTargetPlatform");
+						Rules.DynamicallyLoadedModuleNames.Add("TVOSTargetPlatform");
 					}
 
 					if (bBuildShaderFormats)
 					{
-						Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("MetalShaderFormat");
+						Rules.DynamicallyLoadedModuleNames.Add("MetalShaderFormat");
 					}
 				}
 			}
@@ -805,6 +889,7 @@ namespace UnrealBuildTool
 
 			LinkEnvironment.AdditionalFrameworks.Add(new UEBuildFramework("GameKit"));
 			LinkEnvironment.AdditionalFrameworks.Add(new UEBuildFramework("StoreKit"));
+			LinkEnvironment.AdditionalFrameworks.Add(new UEBuildFramework("DeviceCheck"));
 		}
 
 		/// <summary>
@@ -879,18 +964,8 @@ namespace UnrealBuildTool
 			// Register this build platform for IOS
 			Log.TraceVerbose("        Registering for {0}", UnrealTargetPlatform.IOS.ToString());
 			UEBuildPlatform.RegisterBuildPlatform(new IOSPlatform(SDK));
-			UEBuildPlatform.RegisterPlatformWithGroup(UnrealTargetPlatform.IOS, UnrealPlatformGroup.Unix);
 			UEBuildPlatform.RegisterPlatformWithGroup(UnrealTargetPlatform.IOS, UnrealPlatformGroup.Apple);
 			UEBuildPlatform.RegisterPlatformWithGroup(UnrealTargetPlatform.IOS, UnrealPlatformGroup.IOS);
-
-			if (IOSPlatform.IOSArchitecture == "-simulator")
-			{
-				UEBuildPlatform.RegisterPlatformWithGroup(UnrealTargetPlatform.IOS, UnrealPlatformGroup.Simulator);
-			}
-			else
-			{
-				UEBuildPlatform.RegisterPlatformWithGroup(UnrealTargetPlatform.IOS, UnrealPlatformGroup.Device);
-			}
 		}
 	}
 }

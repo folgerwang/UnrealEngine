@@ -191,7 +191,7 @@ public:
 	 * @param	InFrustum	The selection box to use, in worldspace coordinates.
 	 * @return	true if something was selected/deselected, false otherwise.
 	 */
-	virtual bool FrustumSelect( const FConvexVolume& InFrustum, bool InSelect = true );
+	virtual bool FrustumSelect( const FConvexVolume& InFrustum, FEditorViewportClient* InViewportClient, bool InSelect = true );
 
 	virtual void SelectNone();
 	virtual void SelectionChanged() {}

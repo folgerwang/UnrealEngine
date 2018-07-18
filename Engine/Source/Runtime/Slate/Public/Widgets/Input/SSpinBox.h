@@ -101,6 +101,8 @@ public:
 		SLATE_ATTRIBUTE( NumericType, Delta )
 		/** How many pixel the mouse must move to change the value of the delta step */
 		SLATE_ATTRIBUTE( int32, ShiftMouseMovePixelPerDelta )
+		/** If we're an unbounded spinbox, what value do we divide mouse movement by before multiplying by Delta. Requires Delta to be set. */
+		SLATE_ATTRIBUTE( int32, LinearDeltaSensitivity)
 		/** Tell us if we want to support dynamically changing of the max value using ctrl */
 		SLATE_ATTRIBUTE(bool, SupportDynamicSliderMaxValue)
 		/** Tell us if we want to support dynamically changing of the min value using ctrl */
@@ -197,6 +199,7 @@ public:
 
 		Delta = InArgs._Delta;
 		ShiftMouseMovePixelPerDelta = InArgs._ShiftMouseMovePixelPerDelta;
+		LinearDeltaSensitivity = InArgs._LinearDeltaSensitivity;
 	
 		BackgroundHoveredBrush = &InArgs._Style->HoveredBackgroundBrush;
 		BackgroundBrush = &InArgs._Style->BackgroundBrush;
@@ -567,11 +570,19 @@ public:
 				}
 				else
 				{
-					//we have no range specified, so increment scaled by our current value		
-					const double CurrentValue = FMath::Clamp<double>(FMath::Abs(InternalValue),1.0,TNumericLimits<NumericType>::Max());
-					const float MouseDelta = FMath::Abs(MouseEvent.GetCursorDelta().X / SliderWidthInSlateUnits);
+					// If this control has a specified delta and sensitivity then we use that instead of the current value for determining how much to change.
 					const float Sign = (MouseEvent.GetCursorDelta().X > 0) ? 1.f : -1.f;
-					NewValue = InternalValue + (Sign * MouseDelta * FMath::Pow(CurrentValue, SliderExponent.Get()));
+					if (LinearDeltaSensitivity.IsSet() && Delta.IsSet() && Delta.Get() > 0)
+					{
+						const float MouseDelta = FMath::Abs(MouseEvent.GetCursorDelta().X / LinearDeltaSensitivity.Get());
+						NewValue = InternalValue + (Sign * MouseDelta * FMath::Pow(Delta.Get(), SliderExponent.Get()));
+					}
+					else
+					{
+						const float MouseDelta = FMath::Abs(MouseEvent.GetCursorDelta().X / SliderWidthInSlateUnits);
+						const double CurrentValue = FMath::Clamp<double>(FMath::Abs(InternalValue),1.0,TNumericLimits<NumericType>::Max());
+						NewValue = InternalValue + (Sign * MouseDelta * FMath::Pow(CurrentValue, SliderExponent.Get()));
+					}
 				}
 			
 				CommitValue( NewValue, CommittedViaSpin, ETextCommit::OnEnter );
@@ -936,6 +947,7 @@ private:
 	float DistanceDragged;
 	TAttribute<NumericType> Delta;
 	TAttribute<int32> ShiftMouseMovePixelPerDelta;
+	TAttribute<int32> LinearDeltaSensitivity;
 	TAttribute<float> SliderExponent;
 	TAttribute<NumericType> SliderExponentNeutralValue;
 	TAttribute< TOptional<NumericType> > MinValue;

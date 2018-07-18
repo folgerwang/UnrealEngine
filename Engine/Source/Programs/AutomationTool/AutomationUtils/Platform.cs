@@ -182,6 +182,15 @@ namespace AutomationTool
 			LogWarning("{0} does not implement GetConnectedDevices", PlatformType);
 		}
 
+        /// <summary>
+        /// Allow platform specific work prior to touching the staging directory
+        /// </summary>
+        /// <param name="Params"></param>
+        /// <param name="SC"></param>
+        public virtual void PreStage(ProjectParams Params, DeploymentContext SC)
+        {
+            // do nothing on most platforms
+        }
 
 
 		/// <summary>
@@ -208,6 +217,17 @@ namespace AutomationTool
 			PopDir();
 
 			return ClientProcess;
+		}
+
+		/// <summary>
+		/// Downloads file from target device to local pc
+		/// </summary>
+		/// <param name="RemoteFilePath"></param>
+		/// <param name="LocalFile"></param>
+		/// <param name="Params"></param>
+		public virtual void GetTargetFile(string RemoteFilePath, string LocalFile, ProjectParams Params)
+		{
+			throw new NotImplementedException();
 		}
 
 		/// <summary>
@@ -368,16 +388,6 @@ namespace AutomationTool
         }
 
 		/// <summary>
-		/// Remaps movie directory for platforms that need a remap
-		/// If true, CopyBuildToStagingDirectory.Automation.cs will do this. 
-		/// If false, each platform can still do this individually.
-		/// </summary>
-		public virtual bool StageMovies
-		{
-			get { return true; }
-		}
-
-		/// <summary>
 		/// UnrealTargetPlatform type for this platform.
 		/// </summary>
 		public UnrealTargetPlatform PlatformType
@@ -422,7 +432,7 @@ namespace AutomationTool
 		/// </summary>
 		public virtual bool UseAbsLog
 		{
-			get { return true; }
+			get { return BuildHostPlatform.Current.Platform == PlatformType; }
 		}
 
 		/// <summary>
@@ -447,7 +457,7 @@ namespace AutomationTool
 		/// <summary>
 		/// Returns platform specific command line options for UnrealPak
 		/// </summary>
-		public virtual string GetPlatformPakCommandLine()
+		public virtual string GetPlatformPakCommandLine(ProjectParams Params, DeploymentContext SC)
 		{
 			return "";
 		}
@@ -515,6 +525,16 @@ namespace AutomationTool
 		public virtual string[] SymbolServerDirectoryStructure
 		{
 			get { return null; }
+		}
+
+		/// <summary>
+		/// If true, indicates the platform's symbol server directory must be locked for
+		/// exclusive access before any operation is performed on it. Platforms may override
+		/// this to disable if their tools support concurrent access to the symbol server directory.
+		/// </summary>
+		public virtual bool SymbolServerRequiresLock
+		{
+			get { return true; }
 		}
 
 		#region Hooks
@@ -614,6 +634,8 @@ namespace AutomationTool
 					return "";
 				case UnrealTargetPlatform.HTML5:
 					return ".js";
+				case UnrealTargetPlatform.Mac:
+					return ".app";
 			}
 
 			return String.Empty;

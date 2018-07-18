@@ -1009,7 +1009,7 @@ void UBehaviorTreeComponent::ApplySearchUpdates(const TArray<FBehaviorTreeSearch
 		{
 			// special case: service node at root of top most subtree - don't remove/re-add them when tree is in looping mode
 			// don't bother with decorators parent == root means that they are on child branches
-			if (bLoopExecution && UpdateInfo.AuxNode->GetParentNode() == InstanceStack[0].RootNode &&
+			if (bLoopExecution && UpdateInfo.AuxNode->GetMyNode() == InstanceStack[0].RootNode &&
 				UpdateInfo.AuxNode->IsA(UBTService::StaticClass()))
 			{
 				if (UpdateInfo.Mode == EBTNodeUpdateMode::Remove ||
@@ -1079,6 +1079,17 @@ void UBehaviorTreeComponent::ApplySearchData(UBTNode* NewActiveNode)
 	// search is finalized, can't rollback anymore at this point
 	SearchData.RollbackInstanceIdx = INDEX_NONE;
 
+	// send all deactivation notifies for bookkeeping
+	for (int32 Idx = 0; Idx < SearchData.PendingNotifies.Num(); Idx++)
+	{
+		const FBehaviorTreeSearchUpdateNotify& NotifyInfo = SearchData.PendingNotifies[Idx];
+		if (InstanceStack.IsValidIndex(NotifyInfo.InstanceIndex))
+		{
+			InstanceStack[NotifyInfo.InstanceIndex].DeactivationNotify.ExecuteIfBound(*this, NotifyInfo.NodeResult);
+		}	
+	}
+
+	// apply changes to aux nodes and parallel tasks
 	const int32 NewNodeExecutionIndex = NewActiveNode ? NewActiveNode->GetExecutionIndex() : 0;
 
 	ApplySearchUpdates(SearchData.PendingUpdates, NewNodeExecutionIndex);
@@ -1103,6 +1114,7 @@ void UBehaviorTreeComponent::ApplySearchData(UBTNode* NewActiveNode)
 	// clear update list
 	// nothing should be added during application or tick - all changes are supposed to go to ExecutionRequest accumulator first
 	SearchData.PendingUpdates.Reset();
+	SearchData.PendingNotifies.Reset();
 }
 
 void UBehaviorTreeComponent::ApplyDiscardedSearch()
@@ -1128,6 +1140,9 @@ void UBehaviorTreeComponent::ApplyDiscardedSearch()
 
 	// remove everything else
 	SearchData.PendingUpdates.Reset();
+
+	// don't send deactivation notifies
+	SearchData.PendingNotifies.Reset();
 }
 
 void UBehaviorTreeComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
@@ -1254,6 +1269,10 @@ void UBehaviorTreeComponent::ProcessExecutionRequest()
 			const bool bDeactivated = DeactivateUpTo(ExecutionRequest.ExecuteNode, ExecutionRequest.ExecuteInstanceIdx, NodeResult);
 			if (!bDeactivated)
 			{
+				// error occurred and tree will restart, all pending deactivation notifies will be lost
+				// this is should happen
+				SearchData.PendingUpdates.Reset();
+
 				return;
 			}
 		}
@@ -1331,6 +1350,9 @@ void UBehaviorTreeComponent::ProcessExecutionRequest()
 						StoreDebuggerSearchStep(InstanceStack[ActiveInstanceIdx].ActiveNode, ActiveInstanceIdx, NodeResult);
 						StoreDebuggerRemovedInstance(ActiveInstanceIdx);
 						InstanceStack[ActiveInstanceIdx].DeactivateNodes(SearchData, ActiveInstanceIdx);
+
+						// store notify for later use if search is not reverted
+						SearchData.PendingNotifies.Add(FBehaviorTreeSearchUpdateNotify(ActiveInstanceIdx, NodeResult));
 
 						// and leave subtree
 						ActiveInstanceIdx--;
@@ -1551,6 +1573,9 @@ bool UBehaviorTreeComponent::DeactivateUpTo(UBTCompositeNode* Node, uint16 NodeI
 				RestartTree();
 				return false;
 			}
+
+			// store notify for later use if search is not reverted
+			SearchData.PendingNotifies.Add(FBehaviorTreeSearchUpdateNotify(ActiveInstanceIdx, NodeResult));
 
 			ActiveInstanceIdx--;
 			DeactivatedChild = InstanceStack[ActiveInstanceIdx].ActiveNode;
@@ -1906,6 +1931,9 @@ bool UBehaviorTreeComponent::PushInstance(UBehaviorTree& TreeAsset)
 		{
 			UBTService* ServiceNode = RootNode->Services[ServiceIndex];
 			uint8* NodeMemory = (uint8*)ServiceNode->GetNodeMemory<uint8>(InstanceStack[ActiveInstanceIdx]);
+
+			// send initial on search start events in case someone is using them for init logic
+			ServiceNode->NotifyParentActivation(SearchData);
 
 			InstanceStack[ActiveInstanceIdx].ActiveAuxNodes.Add(ServiceNode);
 			ServiceNode->WrappedOnBecomeRelevant(*this, NodeMemory);

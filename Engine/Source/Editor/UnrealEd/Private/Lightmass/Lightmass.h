@@ -15,12 +15,12 @@
 #include "Lightmass/LightmassImportanceVolume.h"
 #include "Components/LightmassPortalComponent.h"
 #if PLATFORM_WINDOWS
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 #endif
 	#include "SwarmInterface.h"
 	#include "Lightmass/LightmassRender.h"
 #if PLATFORM_WINDOWS
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 #endif
 
 class FBSPSurfaceStaticLighting;
@@ -229,6 +229,7 @@ private:
 	TArray<const class UDirectionalLightComponent*> DirectionalLights;
 	TArray<const class UPointLightComponent*> PointLights;
 	TArray<const class USpotLightComponent*> SpotLights;
+	TArray<const class URectLightComponent*> RectLights;
 	TArray<const class USkyLightComponent*> SkyLights;
 
 	// BSP mappings

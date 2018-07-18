@@ -3,7 +3,7 @@ Availability:Public
 Title:Cine Camera アクタを使用する
 Crumbs: %ROOT%, Engine, Engine/Sequencer, Engine/Sequencer/HowTo
 Description:Cine Camera アクタを使ってシネマティックスのようなショットを作成する方法を説明します。 
-Version:4.12
+Version: 4.12
 SkillLevel:Intermediate
 parent:Engine/Sequencer/HowTo
 order:1
@@ -104,8 +104,7 @@ type:how-to
 
 1.	**[Preview Play]** ボタンをクリックします。 
 
-	## 最終結果
-
+## 最終結果
 
 以下の動画に類似した結果になります。カメラがキャラクターを撮影するためにパンアップし、周囲を回ります。以下では、デバッグ トラッキングをオフにして、**Game View** (ビューポートの **G** キー) を有効にして、カメラを **Camera Cuts Track** にロックしました。 
 

@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 #include "Evaluation/MovieSceneEvaluationTemplate.h"
 
 class UMovieSceneSequence;

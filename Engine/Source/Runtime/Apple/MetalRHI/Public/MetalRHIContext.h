@@ -14,14 +14,14 @@ class FMetalContext;
 class FMetalRHICommandContext : public IRHICommandContext
 {
 public:
-	FMetalRHICommandContext(struct FMetalGPUProfiler* InProfiler, FMetalContext* WrapContext);
+	FMetalRHICommandContext(class FMetalProfiler* InProfiler, FMetalContext* WrapContext);
 	virtual ~FMetalRHICommandContext();
 
 	/** Get the internal context */
 	FORCEINLINE FMetalContext& GetInternalContext() const { return *Context; }
 	
 	/** Get the profiler pointer */
-	FORCEINLINE struct FMetalGPUProfiler* GetProfiler() const { return Profiler; }
+	FORCEINLINE class FMetalProfiler* GetProfiler() const { return Profiler; }
 	
 	/**
 	 *Sets the current compute shader.  Mostly for compliance with platforms
@@ -51,20 +51,21 @@ public:
 	 * Resolves from one texture to another.
 	 * @param SourceTexture - texture to resolve from, 0 is silenty ignored
 	 * @param DestTexture - texture to resolve to, 0 is silenty ignored
-	 * @param bKeepOriginalSurface - true if the original surface will still be used after this function so must remain valid
 	 * @param ResolveParams - optional resolve params
 	 */
-	virtual void RHICopyToResolveTarget(FTextureRHIParamRef SourceTexture, FTextureRHIParamRef DestTexture, bool bKeepOriginalSurface, const FResolveParams& ResolveParams) final override;
+	virtual void RHICopyToResolveTarget(FTextureRHIParamRef SourceTexture, FTextureRHIParamRef DestTexture, const FResolveParams& ResolveParams) final override;
 	
 	virtual void RHIBeginRenderQuery(FRenderQueryRHIParamRef RenderQuery) final override;
 	
 	virtual void RHIEndRenderQuery(FRenderQueryRHIParamRef RenderQuery) final override;
 	
-	virtual void RHIBeginOcclusionQueryBatch() final override;
+	void RHIBeginOcclusionQueryBatch(uint32 NumQueriesInBatch);
 	
-	virtual void RHIEndOcclusionQueryBatch() final override;
+	void RHIEndOcclusionQueryBatch();
 	
 	virtual void RHISubmitCommandsHint() override;
+
+	virtual void RHIDiscardRenderTargets(bool Depth, bool Stencil, uint32 ColorBitMask) final override;
 	
 	// This method is queued with an RHIThread, otherwise it will flush after it is queued; without an RHI thread there is no benefit to queuing this frame advance commands
 	virtual void RHIBeginDrawingViewport(FViewportRHIParamRef Viewport, FTextureRHIParamRef RenderTargetRHI) override;
@@ -285,14 +286,19 @@ public:
 	virtual void RHIEndDrawIndexedPrimitiveUP() final override;
 	
 	/**
-	 * Enabled/Disables Depth Bounds Testing with the given min/max depth.
+	 * Enabled/Disables Depth Bounds Testing.
 	 * @param bEnable	Enable(non-zero)/disable(zero) the depth bounds test
-	 * @param MinDepth	The minimum depth for depth bounds test
-	 * @param MaxDepth	The maximum depth for depth bounds test.
-	 *					The valid values for fMinDepth and fMaxDepth are such that 0 <= fMinDepth <= fMaxDepth <= 1
 	 */
-	virtual void RHIEnableDepthBoundsTest(bool bEnable, float MinDepth, float MaxDepth) final override;
-	
+	virtual void RHIEnableDepthBoundsTest(bool bEnable) final override;
+
+	/**
+	* Sets Depth Bounds Testing with the given min/max depth.
+	* @param MinDepth	The minimum depth for depth bounds test
+	* @param MaxDepth	The maximum depth for depth bounds test.
+	*					The valid values for fMinDepth and fMaxDepth are such that 0 <= fMinDepth <= fMaxDepth <= 1
+	*/
+	virtual void RHISetDepthBounds(float MinDepth, float MaxDepth) final override;
+
 	virtual void RHIPushEvent(const TCHAR* Name, FColor Color) final override;
 	
 	virtual void RHIPopEvent() final override;
@@ -317,7 +323,14 @@ public:
 	 */
 	virtual void RHIWaitComputeFence(FComputeFenceRHIParamRef InFence) final override;
 
+	virtual void RHIBeginRenderPass(const FRHIRenderPassInfo& InInfo, const TCHAR* InName) final override;
+
+	virtual void RHIEndRenderPass() final override;
 	
+	virtual void RHIBeginComputePass(const TCHAR* InName) final override;
+	
+	virtual void RHIEndComputePass() final override;
+
 protected:
 	static TGlobalResource<TBoundShaderStateHistory<10000>> BoundShaderStateHistory;
 	
@@ -328,13 +341,13 @@ protected:
 	TSharedPtr<FMetalCommandBufferFence, ESPMode::ThreadSafe> CommandBufferFence;
 	
 	/** Profiling implementation details. */
-	struct FMetalGPUProfiler* Profiler;
+	class FMetalProfiler* Profiler;
 	
 	/** Some local variables to track the pending primitive information used in RHIEnd*UP functions */
-	uint32 PendingVertexBufferOffset;
+	FMetalBuffer PendingVertexBuffer;
 	uint32 PendingVertexDataStride;
 	
-	uint32 PendingIndexBufferOffset;
+	FMetalBuffer PendingIndexBuffer;
 	uint32 PendingIndexDataStride;
 	
 	uint32 PendingPrimitiveType;
@@ -347,7 +360,7 @@ private:
 class FMetalRHIComputeContext : public FMetalRHICommandContext
 {
 public:
-	FMetalRHIComputeContext(struct FMetalGPUProfiler* InProfiler, FMetalContext* WrapContext);
+	FMetalRHIComputeContext(class FMetalProfiler* InProfiler, FMetalContext* WrapContext);
 	virtual ~FMetalRHIComputeContext();
 	
 	virtual void RHISetAsyncComputeBudget(EAsyncComputeBudget Budget) final override;
@@ -359,7 +372,7 @@ public:
 class FMetalRHIImmediateCommandContext : public FMetalRHICommandContext
 {
 public:
-	FMetalRHIImmediateCommandContext(struct FMetalGPUProfiler* InProfiler, FMetalContext* WrapContext);
+	FMetalRHIImmediateCommandContext(class FMetalProfiler* InProfiler, FMetalContext* WrapContext);
 
 	// FRHICommandContext API accessible only on the immediate device context
 	virtual void RHIBeginDrawingViewport(FViewportRHIParamRef Viewport, FTextureRHIParamRef RenderTargetRHI) final override;

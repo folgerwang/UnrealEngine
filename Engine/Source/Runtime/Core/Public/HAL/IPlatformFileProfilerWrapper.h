@@ -15,7 +15,7 @@
 #include "HAL/PlatformTime.h"
 #include "Templates/ScopedPointer.h"
 #include "Misc/ScopeLock.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 class IAsyncReadFileHandle;
 
@@ -490,6 +490,10 @@ public:
 	virtual IAsyncReadFileHandle* OpenAsyncRead(const TCHAR* Filename) override
 	{
 		return LowerLevel->OpenAsyncRead(Filename);
+	}
+	virtual void ThrottleAsyncPrecaches(bool bEnablePrecacheRequests) override
+	{
+		LowerLevel->ThrottleAsyncPrecaches(bEnablePrecacheRequests);
 	}
 
 	//static void CreateProfileVisualizer

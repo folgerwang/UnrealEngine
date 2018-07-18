@@ -1,13 +1,15 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "Private/Lws/LwsWebSocket.h"
+#include "LwsWebSocket.h"
 
 #if WITH_WEBSOCKETS && WITH_LIBWEBSOCKETS
 
-#include "Private/Lws/LwsWebSocketsManager.h"
+#include "LwsWebSocketsManager.h"
 #include "WebSocketsModule.h"
 #include "WebSocketsLog.h"
+#if WITH_SSL
 #include "Ssl.h"
+#endif
 #include "Misc/ScopeLock.h"
 
 // FLwsSendBuffer 
@@ -117,9 +119,11 @@ void FLwsWebSocket::Close(int32 Code, const FString& Reason)
 		return;
 	}
 
+	// We are doing this conversion here so we don't have to do it on the ws thread
 	FTCHARToUTF8 Convert(*Reason);
 	ANSICHAR* ANSIReason = static_cast<ANSICHAR*>(FMemory::Malloc(Convert.Length() + 1));
 	FCStringAnsi::Strcpy(ANSIReason, Convert.Length(), Convert.Get());
+	ANSIReason[Convert.Length()] = 0;
 
 	UE_LOG(LogWebSockets, Verbose, TEXT("FLwsWebSocket[%d]::Close: Close queued with code=%d reason=%s"), Identifier, Code, *Reason);
 
@@ -282,8 +286,12 @@ int FLwsWebSocket::LwsCallback(lws* Instance, lws_callback_reasons Reason, void*
 		// The status is the first two bytes of the message in network byte order
 		CloseStatus = BYTESWAP_ORDER16(CloseStatus);
 #endif
-		FUTF8ToTCHAR Convert((const ANSICHAR*)Data + sizeof(uint16), Length - sizeof(uint16));
-		FString CloseReasonString(Convert.Get());
+		FString CloseReasonString;
+		if (Length > sizeof(uint16))
+		{
+			auto Convert = StringCast<TCHAR>((const ANSICHAR*)Data + sizeof(uint16), Length - sizeof(uint16));
+			CloseReasonString.AppendChars(Convert.Get(), Convert.Length());
+		}
 
 		// We only modify our state if we are Connected or ClosingByRequest (effectively connected)
 		if (State == EState::Connected ||
@@ -439,12 +447,13 @@ void FLwsWebSocket::GameThreadTick()
 	}
 	if (CurrentState != LastGameThreadState)
 	{
+		LastGameThreadState = CurrentState;
+
 		// State changed, broadcast events
 		if (CurrentState == EState::Connected)
 		{
 			OnConnected().Broadcast();
 		}
-		LastGameThreadState = CurrentState;
 	}
 
 	// If we requested a close then we don't care about any messages we receive

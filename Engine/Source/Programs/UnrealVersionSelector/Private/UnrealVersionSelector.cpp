@@ -8,6 +8,7 @@
 IMPLEMENT_APPLICATION(UnrealVersionSelector, "UnrealVersionSelector")
 
 bool GenerateProjectFiles(const FString& ProjectFileName);
+bool UpdateFileAssociations();
 
 bool RegisterCurrentEngineDirectory(bool bPromptForFileAssociations)
 {
@@ -33,6 +34,10 @@ bool RegisterCurrentEngineDirectory(bool bPromptForFileAssociations)
 		// Prompt for whether to update the file associations
 		if(!bPromptForFileAssociations || FPlatformMisc::MessageBoxExt(EAppMsgType::YesNo, TEXT("Register Unreal Engine file types?"), TEXT("File Types")) == EAppReturnType::Yes)
 		{
+#if PLATFORM_LINUX
+			// Associations are set per user only so no need to elevate.
+			return UpdateFileAssociations();
+#else
 			// Relaunch as administrator
 			FString ExecutableFileName = FString(FPlatformProcess::BaseDir()) / FString(FPlatformProcess::ExecutableName(false));
 
@@ -41,6 +46,7 @@ bool RegisterCurrentEngineDirectory(bool bPromptForFileAssociations)
 			{
 				return false;
 			}
+#endif
 		}
 	}
 
@@ -163,6 +169,29 @@ bool GetValidatedEngineRootDir(const FString& ProjectFileName, FString& OutRootD
 	return true;
 }
 
+bool LaunchEditor()
+{
+	FString Identifier;
+
+	// Select which editor to launch
+	if(!FPlatformInstallation::SelectEngineInstallation(Identifier))
+	{
+		return false;
+	}
+
+	FString RootDir;
+	FDesktopPlatformModule::Get()->GetEngineRootDirFromIdentifier(Identifier, RootDir);
+
+	// Launch the editor
+	if (!FPlatformInstallation::LaunchEditor(RootDir, FString()))
+	{
+		FPlatformMisc::MessageBoxExt(EAppMsgType::Ok, TEXT("Failed to launch editor"), TEXT("Error"));
+		return false;
+	}
+
+	return true;
+}
+
 bool LaunchEditor(const FString& ProjectFileName, const FString& Arguments)
 {
 	// Get the engine root directory
@@ -208,7 +237,7 @@ bool GenerateProjectFiles(const FString& ProjectFileName)
 
 	// Generate project files
 	FFeedbackContext* Warn = DesktopPlatform->GetNativeFeedbackContext();
-	bool bResult = DesktopPlatform->GenerateProjectFiles(RootDir, ProjectFileName, Warn, FPaths::ProjectLogDir() / FString::Printf(TEXT("%s-%s.log"), FPlatformProcess::ExecutableName(), *FDateTime::Now().ToString()));
+	bool bResult = DesktopPlatform->GenerateProjectFiles(RootDir, ProjectFileName, Warn, FString::Printf(TEXT("%s/Saved/Logs/%s-%s.log"), *FPaths::GetPath(ProjectFileName), FPlatformProcess::ExecutableName(), *FDateTime::Now().ToString()));
 	GLog->RemoveOutputDevice(&LogCapture);
 
 	// Display an error dialog if we failed
@@ -254,6 +283,11 @@ int Main(const TArray<FString>& Arguments)
 		// Open a project with the editor
 		bRes = LaunchEditor(Arguments[1], L"");
 	}
+	else if (Arguments[0] == TEXT("-projectlist"))
+	{
+		// Open the editor
+		bRes = LaunchEditor();
+	}
 	else if (Arguments.Num() == 2 && Arguments[0] == TEXT("-game"))
 	{
 		// Play a game using the editor executable
@@ -274,7 +308,7 @@ int Main(const TArray<FString>& Arguments)
 
 #if PLATFORM_WINDOWS
 
-	#include "AllowWindowsPlatformTypes.h"
+	#include "Windows/AllowWindowsPlatformTypes.h"
 	#include <Shellapi.h>
 
 	int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int ShowCmd)
@@ -298,7 +332,34 @@ int Main(const TArray<FString>& Arguments)
 		return Main(Arguments);
 	}
 
-	#include "HideWindowsPlatformTypes.h"
+	#include "Windows/HideWindowsPlatformTypes.h"
+
+#elif PLATFORM_LINUX
+
+	extern TArray<FString> GArguments;
+
+	int32 UnrealVersionSelectorMain( const TCHAR* CommandLine )
+	{
+		FCommandLine::Set(CommandLine);
+
+		GEngineLoop.PreInit(CommandLine);
+
+		ProcessNewlyLoadedUObjects();
+
+		FModuleManager::Get().StartProcessingNewlyLoadedObjects();
+
+		int32 Result = Main(GArguments);
+
+		FEngineLoop::AppPreExit();
+		FModuleManager::Get().UnloadModulesAtShutdown();
+
+	#if STATS
+		FThreadStats::StopThread();
+	#endif
+
+		FTaskGraphInterface::Shutdown();
+		return Result;
+	}
 
 #else
 

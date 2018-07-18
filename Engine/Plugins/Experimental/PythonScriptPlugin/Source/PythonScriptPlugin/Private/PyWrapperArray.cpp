@@ -103,15 +103,13 @@ struct FPyWrapperArrayIterator
 	}
 };
 
-void InitializePyWrapperArray(PyObject* PyModule)
+void InitializePyWrapperArray(PyGenUtil::FNativePythonModule& ModuleInfo)
 {
 	if (PyType_Ready(&PyWrapperArrayType) == 0)
 	{
 		static FPyWrapperArrayMetaData MetaData;
 		FPyWrapperArrayMetaData::SetMetaData(&PyWrapperArrayType, &MetaData);
-
-		Py_INCREF(&PyWrapperArrayType);
-		PyModule_AddObject(PyModule, PyWrapperArrayType.tp_name, (PyObject*)&PyWrapperArrayType);
+		ModuleInfo.AddType(&PyWrapperArrayType);
 	}
 
 	PyType_Ready(&PyWrapperArrayIteratorType);
@@ -279,7 +277,7 @@ bool FPyWrapperArray::ValidateInternalState(FPyWrapperArray* InSelf)
 	return true;
 }
 
-FPyWrapperArray* FPyWrapperArray::CastPyObject(PyObject* InPyObject)
+FPyWrapperArray* FPyWrapperArray::CastPyObject(PyObject* InPyObject, FPyConversionResult* OutCastResult)
 {
 	if (PyObject_IsInstance(InPyObject, (PyObject*)&PyWrapperArrayType) == 1)
 	{
@@ -290,8 +288,10 @@ FPyWrapperArray* FPyWrapperArray::CastPyObject(PyObject* InPyObject)
 	return nullptr;
 }
 
-FPyWrapperArray* FPyWrapperArray::CastPyObject(PyObject* InPyObject, PyTypeObject* InType, const PyUtil::FPropertyDef& InElementDef)
+FPyWrapperArray* FPyWrapperArray::CastPyObject(PyObject* InPyObject, PyTypeObject* InType, const PyUtil::FPropertyDef& InElementDef, FPyConversionResult* OutCastResult)
 {
+	SetOptionalPyConversionResult(FPyConversionResult::Failure(), OutCastResult);
+
 	if (PyObject_IsInstance(InPyObject, (PyObject*)InType) == 1 && (InType == &PyWrapperArrayType || PyObject_IsInstance(InPyObject, (PyObject*)&PyWrapperArrayType) == 1))
 	{
 		FPyWrapperArray* Self = (FPyWrapperArray*)InPyObject;
@@ -304,6 +304,8 @@ FPyWrapperArray* FPyWrapperArray::CastPyObject(PyObject* InPyObject, PyTypeObjec
 		const PyUtil::FPropertyDef SelfElementPropDef = Self->ArrayProp->Inner;
 		if (SelfElementPropDef == InElementDef)
 		{
+			SetOptionalPyConversionResult(FPyConversionResult::Success(), OutCastResult);
+
 			Py_INCREF(Self);
 			return Self;
 		}
@@ -340,6 +342,7 @@ FPyWrapperArray* FPyWrapperArray::CastPyObject(PyObject* InPyObject, PyTypeObjec
 			}
 		}
 
+		SetOptionalPyConversionResult(FPyConversionResult::SuccessWithCoercion(), OutCastResult);
 		return NewArray.Release();
 	}
 
@@ -375,6 +378,7 @@ FPyWrapperArray* FPyWrapperArray::CastPyObject(PyObject* InPyObject, PyTypeObjec
 					}
 				}
 
+				SetOptionalPyConversionResult(FPyConversionResult::SuccessWithCoercion(), OutCastResult);
 				return NewArray.Release();
 			}
 		}
@@ -403,16 +407,17 @@ PyObject* FPyWrapperArray::GetItem(FPyWrapperArray* InSelf, Py_ssize_t InIndex)
 
 	FScriptArrayHelper SelfScriptArrayHelper(InSelf->ArrayProp, InSelf->ArrayInstance);
 	const int32 ElementCount = SelfScriptArrayHelper.Num();
+	const Py_ssize_t ResolvedIndex = PyUtil::ResolveContainerIndexParam(InIndex, ElementCount);
 
-	if (PyUtil::ValidateContainerIndexParam(InIndex, ElementCount, InSelf->ArrayProp, *PyUtil::GetErrorContext(InSelf)) != 0)
+	if (PyUtil::ValidateContainerIndexParam(ResolvedIndex, ElementCount, InSelf->ArrayProp, *PyUtil::GetErrorContext(InSelf)) != 0)
 	{
 		return nullptr;
 	}
 
 	PyObject* PyItemObj = nullptr;
-	if (!PyConversion::PythonizeProperty(InSelf->ArrayProp->Inner, SelfScriptArrayHelper.GetRawPtr(InIndex), PyItemObj))
+	if (!PyConversion::PythonizeProperty(InSelf->ArrayProp->Inner, SelfScriptArrayHelper.GetRawPtr(ResolvedIndex), PyItemObj))
 	{
-		PyUtil::SetPythonError(PyExc_TypeError, InSelf, *FString::Printf(TEXT("Failed to convert element property '%s' (%s) at index %d"), *InSelf->ArrayProp->Inner->GetName(), *InSelf->ArrayProp->Inner->GetClass()->GetName(), InIndex));
+		PyUtil::SetPythonError(PyExc_TypeError, InSelf, *FString::Printf(TEXT("Failed to convert element property '%s' (%s) at index %d"), *InSelf->ArrayProp->Inner->GetName(), *InSelf->ArrayProp->Inner->GetClass()->GetName(), ResolvedIndex));
 		return nullptr;
 	}
 	return PyItemObj;
@@ -427,16 +432,17 @@ int FPyWrapperArray::SetItem(FPyWrapperArray* InSelf, Py_ssize_t InIndex, PyObje
 
 	FScriptArrayHelper SelfScriptArrayHelper(InSelf->ArrayProp, InSelf->ArrayInstance);
 	const int32 ElementCount = SelfScriptArrayHelper.Num();
+	const Py_ssize_t ResolvedIndex = PyUtil::ResolveContainerIndexParam(InIndex, ElementCount);
 
-	const int ValidateIndexResult = PyUtil::ValidateContainerIndexParam(InIndex, ElementCount, InSelf->ArrayProp, *PyUtil::GetErrorContext(InSelf));
+	const int ValidateIndexResult = PyUtil::ValidateContainerIndexParam(ResolvedIndex, ElementCount, InSelf->ArrayProp, *PyUtil::GetErrorContext(InSelf));
 	if (ValidateIndexResult != 0)
 	{
 		return ValidateIndexResult;
 	}
 
-	if (!PyConversion::NativizeProperty(InValue, InSelf->ArrayProp->Inner, SelfScriptArrayHelper.GetRawPtr(InIndex)))
+	if (!PyConversion::NativizeProperty(InValue, InSelf->ArrayProp->Inner, SelfScriptArrayHelper.GetRawPtr(ResolvedIndex)))
 	{
-		PyUtil::SetPythonError(PyExc_TypeError, InSelf, *FString::Printf(TEXT("Failed to convert element property '%s' (%s) at index %d"), *InSelf->ArrayProp->Inner->GetName(), *InSelf->ArrayProp->Inner->GetClass()->GetName(), InIndex));
+		PyUtil::SetPythonError(PyExc_TypeError, InSelf, *FString::Printf(TEXT("Failed to convert element property '%s' (%s) at index %d"), *InSelf->ArrayProp->Inner->GetName(), *InSelf->ArrayProp->Inner->GetClass()->GetName(), ResolvedIndex));
 		return -1;
 	}
 
@@ -636,9 +642,11 @@ Py_ssize_t FPyWrapperArray::Index(FPyWrapperArray* InSelf, PyObject* InValue, Py
 
 	FScriptArrayHelper SelfScriptArrayHelper(InSelf->ArrayProp, InSelf->ArrayInstance);
 	const int32 ElementCount = SelfScriptArrayHelper.Num();
+	const Py_ssize_t ResolvedStartIndex = PyUtil::ResolveContainerIndexParam(InStartIndex, ElementCount);
+	const Py_ssize_t ResolvedStopIndex = PyUtil::ResolveContainerIndexParam(InStopIndex, ElementCount);
 
-	const int32 StartIndex = FMath::Min((int32)InStartIndex, ElementCount);
-	const int32 StopIndex = FMath::Max((int32)InStopIndex, ElementCount);
+	const int32 StartIndex = FMath::Min((int32)ResolvedStartIndex, ElementCount);
+	const int32 StopIndex = FMath::Max((int32)ResolvedStopIndex, ElementCount);
 
 	int32 ReturnIndex = INDEX_NONE;
 	for (int32 ElementIndex = StartIndex; ElementIndex < StopIndex; ++ElementIndex)
@@ -668,8 +676,9 @@ int FPyWrapperArray::Insert(FPyWrapperArray* InSelf, Py_ssize_t InIndex, PyObjec
 
 	FScriptArrayHelper SelfScriptArrayHelper(InSelf->ArrayProp, InSelf->ArrayInstance);
 	const int32 ElementCount = SelfScriptArrayHelper.Num();
+	const Py_ssize_t ResolvedIndex = PyUtil::ResolveContainerIndexParam(InIndex, ElementCount);
 
-	const int32 InsertIndex = FMath::Min((int32)InIndex, ElementCount);
+	const int32 InsertIndex = FMath::Min((int32)ResolvedIndex, ElementCount);
 	SelfScriptArrayHelper.InsertValues(InsertIndex);
 
 	if (!PyConversion::NativizeProperty(InValue, InSelf->ArrayProp->Inner, SelfScriptArrayHelper.GetRawPtr(InsertIndex)))
@@ -691,21 +700,21 @@ PyObject* FPyWrapperArray::Pop(FPyWrapperArray* InSelf, Py_ssize_t InIndex)
 
 	FScriptArrayHelper SelfScriptArrayHelper(InSelf->ArrayProp, InSelf->ArrayInstance);
 	const int32 ElementCount = SelfScriptArrayHelper.Num();
+	const Py_ssize_t ResolvedIndex = PyUtil::ResolveContainerIndexParam(InIndex, ElementCount);
 
-	int32 ValueIndex = InIndex == -1 ? ElementCount - 1 : (int32)InIndex;
-	if (PyUtil::ValidateContainerIndexParam(ValueIndex, ElementCount, InSelf->ArrayProp, *PyUtil::GetErrorContext(InSelf)) != 0)
+	if (PyUtil::ValidateContainerIndexParam(ResolvedIndex, ElementCount, InSelf->ArrayProp, *PyUtil::GetErrorContext(InSelf)) != 0)
 	{
 		return nullptr;
 	}
 
 	PyObject* PyReturnValue = nullptr;
-	if (!PyConversion::PythonizeProperty(InSelf->ArrayProp->Inner, SelfScriptArrayHelper.GetRawPtr(ValueIndex), PyReturnValue))
+	if (!PyConversion::PythonizeProperty(InSelf->ArrayProp->Inner, SelfScriptArrayHelper.GetRawPtr(ResolvedIndex), PyReturnValue))
 	{
-		PyUtil::SetPythonError(PyExc_TypeError, InSelf, *FString::Printf(TEXT("Failed to convert element property '%s' (%s) at index %d"), *InSelf->ArrayProp->Inner->GetName(), *InSelf->ArrayProp->Inner->GetClass()->GetName(), ValueIndex));
+		PyUtil::SetPythonError(PyExc_TypeError, InSelf, *FString::Printf(TEXT("Failed to convert element property '%s' (%s) at index %d"), *InSelf->ArrayProp->Inner->GetName(), *InSelf->ArrayProp->Inner->GetClass()->GetName(), ResolvedIndex));
 		return nullptr;
 	}
 
-	SelfScriptArrayHelper.RemoveValues(ValueIndex);
+	SelfScriptArrayHelper.RemoveValues(ResolvedIndex);
 
 	return PyReturnValue;
 }
@@ -987,7 +996,12 @@ PyTypeObject InitializePyWrapperArrayType()
 				return nullptr;
 			}
 
-			const Py_ssize_t SliceLen = FMath::Max(InSliceStop - InSliceStart, (Py_ssize_t)0);
+			FScriptArrayHelper SelfScriptArrayHelper(InSelf->ArrayProp, InSelf->ArrayInstance);
+			const int32 SelfElementCount = SelfScriptArrayHelper.Num();
+			const Py_ssize_t ResolvedSliceStart = PyUtil::ResolveContainerIndexParam(InSliceStart, SelfElementCount);
+			const Py_ssize_t ResolvedSliceStop = PyUtil::ResolveContainerIndexParam(InSliceStop, SelfElementCount);
+
+			const Py_ssize_t SliceLen = FMath::Max(ResolvedSliceStop - ResolvedSliceStart, (Py_ssize_t)0);
 
 			const PyUtil::FPropertyDef SelfElementDef = InSelf->ArrayProp->Inner;
 			FPyWrapperArrayPtr NewArray = FPyWrapperArrayPtr::StealReference(FPyWrapperArray::New(Py_TYPE(InSelf)));
@@ -996,13 +1010,12 @@ PyTypeObject InitializePyWrapperArrayType()
 				return nullptr;
 			}
 
-			FScriptArrayHelper SelfScriptArrayHelper(InSelf->ArrayProp, InSelf->ArrayInstance);
 			FScriptArrayHelper NewScriptArrayHelper(NewArray->ArrayProp, NewArray->ArrayInstance);
 			NewScriptArrayHelper.Resize(SliceLen);
 
-			for (Py_ssize_t ElementIndex = InSliceStart; ElementIndex < InSliceStop; ++ElementIndex)
+			for (Py_ssize_t ElementIndex = ResolvedSliceStart; ElementIndex < ResolvedSliceStop; ++ElementIndex)
 			{
-				InSelf->ArrayProp->Inner->CopyCompleteValue(NewScriptArrayHelper.GetRawPtr((int32)(ElementIndex - InSliceStart)), SelfScriptArrayHelper.GetRawPtr((int32)ElementIndex));
+				InSelf->ArrayProp->Inner->CopyCompleteValue(NewScriptArrayHelper.GetRawPtr((int32)(ElementIndex - ResolvedSliceStart)), SelfScriptArrayHelper.GetRawPtr((int32)ElementIndex));
 			}
 			return (PyObject*)NewArray.Release();
 		}
@@ -1014,7 +1027,12 @@ PyTypeObject InitializePyWrapperArrayType()
 				return -1;
 			}
 
-			const Py_ssize_t SliceLen = FMath::Max(InSliceStop - InSliceStart, (Py_ssize_t)0);
+			FScriptArrayHelper SelfScriptArrayHelper(InSelf->ArrayProp, InSelf->ArrayInstance);
+			const int32 SelfElementCount = SelfScriptArrayHelper.Num();
+			const Py_ssize_t ResolvedSliceStart = PyUtil::ResolveContainerIndexParam(InSliceStart, SelfElementCount);
+			const Py_ssize_t ResolvedSliceStop = PyUtil::ResolveContainerIndexParam(InSliceStop, SelfElementCount);
+
+			const Py_ssize_t SliceLen = FMath::Max(ResolvedSliceStop - ResolvedSliceStart, (Py_ssize_t)0);
 
 			// Value will be null when performing a slice delete
 			FPyWrapperArrayPtr Value;
@@ -1029,18 +1047,17 @@ PyTypeObject InitializePyWrapperArrayType()
 				}
 			}
 
-			FScriptArrayHelper SelfScriptArrayHelper(InSelf->ArrayProp, InSelf->ArrayInstance);
-			SelfScriptArrayHelper.RemoveValues((int32)InSliceStart, (int32)SliceLen);
+			SelfScriptArrayHelper.RemoveValues((int32)ResolvedSliceStart, (int32)SliceLen);
 
 			if (Value)
 			{
 				FScriptArrayHelper ValueScriptArrayHelper(Value->ArrayProp, Value->ArrayInstance);
 				const int32 ValueElementCount = ValueScriptArrayHelper.Num();
 
-				SelfScriptArrayHelper.InsertValues((int32)InSliceStart, ValueElementCount);
+				SelfScriptArrayHelper.InsertValues((int32)ResolvedSliceStart, ValueElementCount);
 				for (int32 ElementIndex = 0; ElementIndex < ValueElementCount; ++ElementIndex)
 				{
-					InSelf->ArrayProp->Inner->CopyCompleteValue(SelfScriptArrayHelper.GetRawPtr(InSliceStart + ElementIndex), ValueScriptArrayHelper.GetRawPtr(ElementIndex));
+					InSelf->ArrayProp->Inner->CopyCompleteValue(SelfScriptArrayHelper.GetRawPtr(ResolvedSliceStart + ElementIndex), ValueScriptArrayHelper.GetRawPtr(ElementIndex));
 				}
 			}
 
@@ -1382,23 +1399,23 @@ PyTypeObject InitializePyWrapperArrayType()
 	};
 
 	static PyMethodDef PyMethods[] = {
-		{ "cast", PyCFunctionCast(&FMethods::Cast), METH_VARARGS | METH_KEYWORDS | METH_CLASS, "X.cast(type, obj) -> TArray -- cast the given object to this Unreal array type" },
-		{ "__copy__", PyCFunctionCast(&FMethods::Copy), METH_NOARGS, "x.__copy__() -> TArray -- copy this Unreal array" },
-		{ "copy", PyCFunctionCast(&FMethods::Copy), METH_NOARGS, "x.copy() -> TArray -- copy this Unreal array" },
-		{ "append", PyCFunctionCast(&FMethods::Append), METH_VARARGS, "x.append(value) -- append the given value to the end of this Unreal array (equivalent to TArray::Add in C++)" },
+		{ "cast", PyCFunctionCast(&FMethods::Cast), METH_VARARGS | METH_KEYWORDS | METH_CLASS, "X.cast(type, obj) -> Array -- cast the given object to this Unreal array type" },
+		{ "__copy__", PyCFunctionCast(&FMethods::Copy), METH_NOARGS, "x.__copy__() -> Array -- copy this Unreal array" },
+		{ "copy", PyCFunctionCast(&FMethods::Copy), METH_NOARGS, "x.copy() -> Array -- copy this Unreal array" },
+		{ "append", PyCFunctionCast(&FMethods::Append), METH_VARARGS, "x.append(value) -> None -- append the given value to the end of this Unreal array (equivalent to TArray::Add in C++)" },
 		{ "count", PyCFunctionCast(&FMethods::Count), METH_VARARGS, "x.count(value) -> integer -- return the number of times that value appears in this this Unreal array" },
-		{ "extend", PyCFunctionCast(&FMethods::Extend), METH_VARARGS, "x.extend(iterable) -- extend this Unreal array by appending elements from the given iterable (equivalent to TArray::Append in C++)" },
+		{ "extend", PyCFunctionCast(&FMethods::Extend), METH_VARARGS, "x.extend(iterable) -> None -- extend this Unreal array by appending elements from the given iterable (equivalent to TArray::Append in C++)" },
 		{ "index", PyCFunctionCast(&FMethods::Index), METH_VARARGS | METH_KEYWORDS, "x.index(value, start=0, stop=len) -> integer -- get the index of the first matching value in this Unreal array, or raise ValueError if missing (equivalent to TArray::IndexOfByKey in C++)" },
-		{ "insert", PyCFunctionCast(&FMethods::Insert), METH_VARARGS | METH_KEYWORDS, "x.insert(index, value) -- insert the given value at the given index in this Unreal array" },
+		{ "insert", PyCFunctionCast(&FMethods::Insert), METH_VARARGS | METH_KEYWORDS, "x.insert(index, value) -> None -- insert the given value at the given index in this Unreal array" },
 		{ "pop", PyCFunctionCast(&FMethods::Pop), METH_VARARGS, "x.pop(index=len-1) -> value -- remove and return the value at the given index in this Unreal array, or raise IndexError if the index is out-of-bounds" },
-		{ "remove", PyCFunctionCast(&FMethods::Remove), METH_VARARGS, "x.remove(value) -- remove the first matching value in this Unreal array, or raise ValueError if missing" },
-		{ "reverse", PyCFunctionCast(&FMethods::Reverse), METH_NOARGS, "x.reverse() -- reverse this Unreal array in-place" },
+		{ "remove", PyCFunctionCast(&FMethods::Remove), METH_VARARGS, "x.remove(value) -> None -- remove the first matching value in this Unreal array, or raise ValueError if missing" },
+		{ "reverse", PyCFunctionCast(&FMethods::Reverse), METH_NOARGS, "x.reverse() -> None -- reverse this Unreal array in-place" },
 #if PY_MAJOR_VERSION < 3
-		{ "sort", PyCFunctionCast(&FMethods::Sort), METH_VARARGS | METH_KEYWORDS, "x.sort(cmp=None, key=None, reverse=False) -- stable sort this Unreal array in-place" },
+		{ "sort", PyCFunctionCast(&FMethods::Sort), METH_VARARGS | METH_KEYWORDS, "x.sort(cmp=None, key=None, reverse=False) -> None -- stable sort this Unreal array in-place" },
 #else	// PY_MAJOR_VERSION < 3
-		{ "sort", PyCFunctionCast(&FMethods::Sort), METH_VARARGS | METH_KEYWORDS, "x.sort(key=None, reverse=False) -- stable sort this Unreal array in-place" },
+		{ "sort", PyCFunctionCast(&FMethods::Sort), METH_VARARGS | METH_KEYWORDS, "x.sort(key=None, reverse=False) -> None -- stable sort this Unreal array in-place" },
 #endif	// PY_MAJOR_VERSION < 3
-		{ "resize", PyCFunctionCast(&FMethods::Resize), METH_VARARGS, "x.resize(len) -- resize this Unreal array to hold the given number of elements" },
+		{ "resize", PyCFunctionCast(&FMethods::Resize), METH_VARARGS, "x.resize(len) -> None -- resize this Unreal array to hold the given number of elements" },
 		{ nullptr, nullptr, 0, nullptr }
 	};
 
@@ -1505,17 +1522,14 @@ PyTypeObject InitializePyWrapperArrayIteratorType()
 PyTypeObject PyWrapperArrayType = InitializePyWrapperArrayType();
 PyTypeObject PyWrapperArrayIteratorType = InitializePyWrapperArrayIteratorType();
 
-FPyWrapperArrayMetaData::FPyWrapperArrayMetaData()
+void FPyWrapperArrayMetaData::AddReferencedObjects(FPyWrapperBase* Instance, FReferenceCollector& Collector)
 {
-	AddReferencedObjects = [](FPyWrapperBase* Self, FReferenceCollector& Collector)
+	FPyWrapperArray* Self = static_cast<FPyWrapperArray*>(Instance);
+	if (Self->ArrayProp && Self->ArrayInstance && !Self->OwnerContext.HasOwner())
 	{
-		FPyWrapperArray* ArraySelf = static_cast<FPyWrapperArray*>(Self);
-		if (ArraySelf->ArrayProp && ArraySelf->ArrayInstance && !ArraySelf->OwnerContext.HasOwner())
-		{
-			Collector.AddReferencedObject(ArraySelf->ArrayProp);
-			FPyReferenceCollector::AddReferencedObjectsFromProperty(Collector, ArraySelf->ArrayProp, ArraySelf->ArrayInstance);
-		}
-	};
+		Collector.AddReferencedObject(Self->ArrayProp);
+		FPyReferenceCollector::AddReferencedObjectsFromProperty(Collector, Self->ArrayProp, Self->ArrayInstance);
+	}
 }
 
 #endif	// WITH_PYTHON

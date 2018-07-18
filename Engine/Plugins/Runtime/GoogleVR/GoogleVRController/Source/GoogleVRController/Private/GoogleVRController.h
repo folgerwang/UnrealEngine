@@ -8,8 +8,8 @@
 #if GOOGLEVRCONTROLLER_SUPPORTED_PLATFORMS
 #include "gvr_arm_model.h"
 #endif
-#include "Classes/GoogleVRControllerEventManager.h"
-#include "Classes/GoogleVRControllerFunctionLibrary.h"
+#include "GoogleVRControllerEventManager.h"
+#include "GoogleVRControllerFunctionLibrary.h"
 
 #if GOOGLEVRCONTROLLER_SUPPORTED_INSTANT_PREVIEW_PLATFORMS
 #include "instant_preview_server.h"

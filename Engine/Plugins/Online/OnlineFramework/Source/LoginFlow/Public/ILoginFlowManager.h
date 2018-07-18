@@ -1,7 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "SharedPointer.h"
+#include "Templates/SharedPointer.h"
 
 class IOnlineSubsystem;
 class SWidget;
@@ -36,13 +36,23 @@ public:
 	 * 
 	 * @param OnlineIdentifier online subsystem identifier requiring a login flow UI
 	 * @param InPopupDelegate external delegate to receive widgets from the login flow
+	 * @param InCreationFlowPopupDelegate external delegate to receive widgets from the account creation flow
 	 * @param bPersistCookies let the global web context manage cookies, or keep them in memory only
 	 * @return whether or not the login flow was successfully added
 	 */
-	virtual bool AddLoginFlow(FName OnlineIdentifier, const FOnDisplayPopup& InPopupDelegate, bool bPersistCookies = true) = 0;
+	virtual bool AddLoginFlow(FName OnlineIdentifier, const FOnDisplayPopup& InPopupDelegate, const FOnDisplayPopup& InCreationFlowPopupDelegate, bool bPersistCookies = true) = 0;
+
+	/**
+	 * Has a given login flow been setup
+	 *
+	 * @return true if login flow added, false otherwise
+	 */
+	virtual bool HasLoginFlow(FName OnlineIdentifier) = 0;
 
 	/** Cancel an active login flow */
 	virtual void CancelLoginFlow() = 0;
+	/** Cancel an active account creation flow */
+	virtual void CancelAccountCreationFlow() = 0;
 
 	/** Cleanup and remove all registered login flows, detaching from online subsystems */
 	virtual void Reset() = 0;

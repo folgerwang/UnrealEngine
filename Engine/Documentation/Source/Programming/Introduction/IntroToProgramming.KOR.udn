@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3599948
+﻿INTSourceChangelist:3810467
 Title:UE4 C++ 프로그래밍 입문
 Crumbs:
 Description:언리얼 엔진이 처음이신 C++ 프로그래머를 위한 입문 안내서입니다.
@@ -601,7 +601,7 @@ FChar 유형은 `TChar<TCHAR>` 로 정의됩니다 (API 에 나열된 대로입�
 
 ### 컨테이너
 
-Container (컨테이너)는 그 주요 함수가 데이터 모음을 저장하는 데 쓰이는 클래스입니다. 이 클래스 중 가장 일반적인 것은 **TArray**,** TMap**, **TSet** 입니다. 이들 각각은 크기가 동적으로 변하며, 원하는 만큼 확장됩니다.
+Container (컨테이너)는 그 주요 함수가 데이터 모음을 저장하는 데 쓰이는 클래스입니다. 이 클래스 중 가장 일반적인 것은 **TArray**, **TMap**, **TSet** 입니다. 이들 각각은 크기가 동적으로 변하며, 원하는 만큼 확장됩니다.
 
 [Full Topic: Containers API](https://docs.unrealengine.com/latest/INT/API/Runtime/Core/Containers/index.html)
 

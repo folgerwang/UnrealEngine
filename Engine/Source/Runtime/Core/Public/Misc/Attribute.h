@@ -310,7 +310,7 @@ public:
 			}
 			else
 			{
-				return Value == InOther.Value;
+				return IsSet() == InOther.IsSet() && Value == InOther.Value;
 			}
 		}
 
@@ -340,3 +340,51 @@ private:
 	/** Our attribute's 'getter' delegate */
 	FGetter Getter;
 };
+
+/**
+ * Helper function for creating TAttributes from a non-const member function pointer, accessed through a raw pointer
+ */
+template<typename T, typename SourceType, typename SourceTypeOrBase, typename... PayloadTypes>
+FORCEINLINE TAttribute<T> MakeAttributeRaw(SourceType* InObject, T (SourceTypeOrBase::*InMethod)(PayloadTypes...), typename TDecay<PayloadTypes>::Type... InputPayload)
+{
+	return TAttribute<T>::Create(TAttribute<T>::FGetter::CreateRaw(InObject, InMethod, MoveTemp(InputPayload)...));
+}
+
+/**
+ * Helper function for creating TAttributes from a const member function pointer, accessed through a raw pointer
+ */
+template<typename T, typename SourceType, typename SourceTypeOrBase, typename... PayloadTypes>
+FORCEINLINE TAttribute<T> MakeAttributeRaw(const SourceType* InObject, T (SourceTypeOrBase::*InMethod)(PayloadTypes...) const, typename TDecay<PayloadTypes>::Type...  InputPayload)
+{
+	return TAttribute<T>::Create(TAttribute<T>::FGetter::CreateRaw(InObject, InMethod, MoveTemp(InputPayload)...));
+}
+
+/**
+ * Helper function for creating TAttributes from a non-const member function pointer, accessed through a weak pointer to the shared object
+ */
+template<typename T, typename SourceType, typename SourceTypeOrBase, typename... PayloadTypes>
+FORCEINLINE TAttribute<T> MakeAttributeSP(SourceType* InObject, T (SourceTypeOrBase::*InMethod)(PayloadTypes...), typename TDecay<PayloadTypes>::Type...  InputPayload)
+{
+	return TAttribute<T>::Create(TAttribute<T>::FGetter::CreateSP(InObject, InMethod, MoveTemp(InputPayload)...));
+}
+
+/**
+ * Helper function for creating TAttributes from a const member function pointer, accessed through a weak pointer to the shared object
+ */
+template<typename T, typename SourceType, typename SourceTypeOrBase, typename... PayloadTypes>
+FORCEINLINE TAttribute<T> MakeAttributeSP(const SourceType* InObject, T (SourceTypeOrBase::*InMethod)(PayloadTypes...) const, typename TDecay<PayloadTypes>::Type...  InputPayload)
+{
+	return TAttribute<T>::Create(TAttribute<T>::FGetter::CreateSP(InObject, InMethod, MoveTemp(InputPayload)...));
+}
+
+/**
+ * Helper function for creating TAttributes from a lambda
+ * TAttribute<float> FloatAttribute = MakeAttributeLambda([]{ return 10.f; });
+ */
+template<typename LambdaType, typename... PayloadTypes>
+decltype(auto) MakeAttributeLambda(LambdaType&& InCallable, PayloadTypes&&... InputPayload)
+{
+	typedef decltype(InCallable(DeclVal<PayloadTypes>()...)) T;
+
+	return TAttribute<T>::Create(TAttribute<T>::FGetter::CreateLambda(InCallable, Forward<PayloadTypes>(InputPayload)...));
+}

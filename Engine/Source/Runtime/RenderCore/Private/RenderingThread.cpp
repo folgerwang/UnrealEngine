@@ -21,7 +21,7 @@
 #include "Stats/StatsData.h"
 #include "HAL/ThreadHeartBeat.h"
 #include "RenderResource.h"
-#include "ScopeLock.h"
+#include "Misc/ScopeLock.h"
 #include "HAL/LowLevelMemTracker.h"
 
 //
@@ -255,6 +255,8 @@ uint32 GRenderThreadIdle[ERenderThreadIdleTypes::Num] = {0};
 uint32 GRenderThreadNumIdle[ERenderThreadIdleTypes::Num] = {0};
 /** How many cycles the renderthread used (excluding idle time). It's set once per frame in FViewport::Draw. */
 uint32 GRenderThreadTime = 0;
+/** How many cycles the rhithread used (excluding idle time). */
+uint32 GRHIThreadTime = 0;
 
 
 
@@ -660,6 +662,11 @@ void StartRenderingThread()
 
 	check(!GRHIThread_InternalUseOnly && !GIsRunningRHIInSeparateThread_InternalUseOnly && !GIsRunningRHIInDedicatedThread_InternalUseOnly && !GIsRunningRHIInTaskThread_InternalUseOnly);
 
+	// Flush GT since render commands issued by threads other than GT are sent to
+	// the main queue of GT when RT is disabled. Without this flush, those commands
+	// will run on GT after RT is enabled
+	FlushRenderingCommands();
+
 	if (GUseRHIThread_InternalUseOnly)
 	{
 		FRHICommandListExecutor::GetImmediateCommandList().ImmediateFlush(EImmediateFlushType::DispatchToRHIThread);		
@@ -1011,7 +1018,7 @@ static FAutoConsoleVariableRef CVarTimeToBlockOnRenderFence(
 	);
 
 
-static int32 GTimeoutForBlockOnRenderFence = 30000;
+static int32 GTimeoutForBlockOnRenderFence = 120000;
 static FAutoConsoleVariableRef CVarTimeoutForBlockOnRenderFence(
 	TEXT("g.TimeoutForBlockOnRenderFence"),
 	GTimeoutForBlockOnRenderFence,
@@ -1103,7 +1110,7 @@ static void GameThreadWaitForTask(const FGraphEventRef& Task, bool bEmptyGameThr
 				if (!bDone && !bRenderThreadEnsured && !FPlatformMisc::IsDebuggerPresent())
 				{
 					if (bOverdue && !bDisabled)
-						{
+					{
 						UE_LOG(LogRendererCore, Fatal, TEXT("GameThread timed out waiting for RenderThread after %.02f secs"), FPlatformTime::Seconds() - StartTime);
 					}
 				}
@@ -1174,19 +1181,31 @@ void AdvanceFrameRenderPrerequisite()
 /**
  * Waits for the rendering thread to finish executing all pending rendering commands.  Should only be used from the game thread.
  */
-void FlushRenderingCommands()
+void FlushRenderingCommands(bool bFlushDeferredDeletes)
 {
 	if (!GIsRHIInitialized)
 	{
 		return;
 	}
 
-	ENQUEUE_UNIQUE_RENDER_COMMAND(
-		FlushPendingDeleteRHIResources,
+	// Need to flush GT because render commands from threads other than GT are sent to
+	// the main queue of GT when RT is disabled
+	if (!GIsThreadedRendering
+		&& !FTaskGraphInterface::Get().IsThreadProcessingTasks(ENamedThreads::GameThread)
+		&& !FTaskGraphInterface::Get().IsThreadProcessingTasks(ENamedThreads::GameThread_Local))
 	{
-		GRHICommandList.GetImmediateCommandList().ImmediateFlush(EImmediateFlushType::FlushRHIThreadFlushResources);
+		FTaskGraphInterface::Get().ProcessThreadUntilIdle(ENamedThreads::GameThread);
+		FTaskGraphInterface::Get().ProcessThreadUntilIdle(ENamedThreads::GameThread_Local);
 	}
-	);
+
+	ENQUEUE_RENDER_COMMAND(FlushPendingDeleteRHIResourcesCmd)(
+		[bFlushDeferredDeletes](FRHICommandList&)
+	{
+		GRHICommandList.GetImmediateCommandList().ImmediateFlush(
+			bFlushDeferredDeletes ?
+			EImmediateFlushType::FlushRHIThreadFlushResourcesFlushDeferredDeletes :
+			EImmediateFlushType::FlushRHIThreadFlushResources);
+	});
 
 	AdvanceFrameRenderPrerequisite();
 
@@ -1251,7 +1270,7 @@ FPendingCleanupObjects::~FPendingCleanupObjects()
 
 	for (int32 ObjectIndex = 0; ObjectIndex < CleanupArray.Num(); ObjectIndex++)
 	{
-		CleanupArray[ObjectIndex]->FinishCleanup();
+		delete CleanupArray[ObjectIndex];
 	}
 }
 
@@ -1280,7 +1299,7 @@ FPendingCleanupObjects::~FPendingCleanupObjects()
 
 	for (int32 ObjectIndex = 0; ObjectIndex < CleanupArray.Num(); ObjectIndex++)
 	{
-		CleanupArray[ObjectIndex]->FinishCleanup();
+		delete CleanupArray[ObjectIndex];
 	}
 }
 

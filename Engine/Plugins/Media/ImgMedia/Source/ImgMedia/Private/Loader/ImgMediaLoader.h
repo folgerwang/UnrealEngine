@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "Containers/LruCache.h"
 #include "Containers/Queue.h"
+#include "Misc/FrameRate.h"
 #include "Templates/SharedPointer.h"
 
 class FImgMediaLoaderWork;
@@ -128,18 +129,18 @@ public:
 	}
 
 	/**
-	 * Get the sequence's frames per second.
+	 * Get the sequence's frame rate.
 	 *
 	 * The frame rate of the image sequence is determined by reading the attributes
 	 * of the first image. Individual image frames may specify a different frame rate,
 	 * but it will be ignored during playback.
 	 *
-	 * @return Frames per second.
+	 * @return The frame rate.
 	 * @see GetSequenceDuration, GetSequenceDim
 	 */
-	float GetSequenceFps() const
+	FFrameRate GetSequenceFrameRate() const
 	{
-		return SequenceFps;
+		return SequenceFrameRate;
 	}
 
 	/**
@@ -155,11 +156,11 @@ public:
 	 * Initialize the image sequence loader.
 	 *
 	 * @param SequencePath Path to the image sequence.
-	 * @param FpsOverride The frames per second to use (0.0 = do not override).
+	 * @param FrameRateOverride The frame rate to use (0/0 = do not override).
 	 * @param Loop Whether the cache should loop around.
 	 * @see IsInitialized
 	 */
-	void Initialize(const FString& SequencePath, const float FpsOverride, bool Loop);
+	void Initialize(const FString& SequencePath, const FFrameRate& FrameRateOverride, bool Loop);
 
 	/**
 	 * Whether this loader has been initialized yet.
@@ -202,21 +203,31 @@ protected:
 	void FrameNumbersToTimeRanges(const TArray<int32>& FrameNumbers, TRangeSet<FTimespan>& OutRangeSet) const;
 
 	/**
+	 * Get the play head time corresponding to the specified frame number.
+	 *
+	 * @param FrameNumber The frame number.
+	 * @return The corresponding time.
+	 * @see TimeToFrameNumber
+	 */
+	FTimespan FrameNumberToTime(uint32 FrameNumber) const;
+
+	/**
 	 * Initialize the image sequence loader.
 	 *
 	 * @param SequencePath Path to the image sequence.
-	 * @param FpsOverride The frames per second to use (0.0 = do not override).
+	 * @param FrameRateOverride The frame rate to use (0/0 = do not override).
 	 * @param Loop Whether the cache should loop around.
 	 */
-	void LoadSequence(const FString& SequencePath, const float FpsOverride, bool Loop);
+	void LoadSequence(const FString& SequencePath, const FFrameRate& FrameRateOverride, bool Loop);
 
 	/**
 	 * Get the frame number corresponding to the specified play head time.
 	 *
 	 * @param Time The play head time.
 	 * @return The corresponding frame number, or INDEX_NONE.
+	 * @see FrameNumberToTime
 	 */
-	uint32 TimeToFrame(FTimespan Time) const;
+	uint32 TimeToFrameNumber(FTimespan Time) const;
 
 	/**
 	 * Update the loader based on the current play position.
@@ -265,8 +276,8 @@ private:
 	/** Total length of the image sequence. */
 	FTimespan SequenceDuration;
 
-	/** Number of frames per second. */
-	float SequenceFps;
+	/** Frame rate of the currently loaded sequence. */
+	FFrameRate SequenceFrameRate;
 
 private:
 

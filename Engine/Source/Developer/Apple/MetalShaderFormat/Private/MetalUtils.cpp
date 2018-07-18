@@ -2302,6 +2302,12 @@ void FMetalCodeBackend::PackInputsAndOutputs(exec_list* Instructions, _mesa_glsl
 										InnerVariable->name = ralloc_asprintf(ParseState, "OUT_ATTRIBUTE%d_%s", InnerAttribute, InnerVariable->name);
 										Member.name = ralloc_strdup(ParseState, InnerVariable->name);
 										Member.semantic = ralloc_asprintf(ParseState, "[[ attribute(%d) ]]", InnerAttribute);
+
+										if (OutputVertex == 0)
+										{
+											PatchControlPointStructHash = HashCombine(HashCombine(GetTypeHash(InnerVariable->name), GetTypeHash(InnerVariable->type)), PatchControlPointStructHash);
+										}
+
 										InnerAttribute++;
 										DSInMembers.Add(Member);
 										DSInVariables.insert(InnerVariable);
@@ -2317,7 +2323,7 @@ void FMetalCodeBackend::PackInputsAndOutputs(exec_list* Instructions, _mesa_glsl
 						{
 							if(OutputVertex == 0)
 							{
-								Type = glsl_type::get_record_instance(&DSInMembers[0], (unsigned int)DSInMembers.Num(), "PatchControlPointOut");
+								Type = glsl_type::get_record_instance(&DSInMembers[0], (unsigned int)DSInMembers.Num(), ralloc_asprintf(ParseState, "PatchControlPointOut_%u", PatchControlPointStructHash));
 								ParseState->AddUserStruct(Type);
 								InType = glsl_type::get_array_instance(Type, 1000); // the size is meaningless
 							}
@@ -3071,5 +3077,134 @@ void FMetalCodeBackend::RemovePackedVarReferences(exec_list* ir, _mesa_glsl_pars
 		auto* NewAssignment = new(State)ir_assignment(new(State)ir_dereference_variable(NewVar), DeRefRecord);
 		Main->body.push_head(NewAssignment);
 		Main->body.push_head(NewVar);
+	}
+}
+
+
+namespace MetalUtils
+{
+	struct FBaseIDSystemValueTable
+	{
+		const char* TargetMetalName;
+		const char* BaseMetalName;
+		const char* BaseMetalSemantic;
+		const char* MappedMetalName;
+		TArray<ir_rvalue**> FoundItems;
+	};
+
+	struct FVertexStreamIDVisitor final : public ir_rvalue_visitor
+	{
+		FBaseIDSystemValueTable* ReplaceLookupTable;
+
+		FVertexStreamIDVisitor(FBaseIDSystemValueTable* LookUpTable)
+		: ReplaceLookupTable(LookUpTable)
+		{}
+
+		virtual ~FVertexStreamIDVisitor()
+		{}
+		
+		virtual void handle_rvalue(ir_rvalue** RValuePtr) override
+		{
+			if (!RValuePtr || !*RValuePtr)
+			{
+				return;
+			}
+
+			ir_variable* Variable = (*RValuePtr)->variable_referenced();
+			
+			// Needs to be correct mode and and name
+			if(Variable && Variable->mode == ir_var_in)
+			{
+				for(FBaseIDSystemValueTable* BaseIDRow = ReplaceLookupTable; BaseIDRow->TargetMetalName != NULL; ++BaseIDRow)
+				{
+					if(FCStringAnsi::Stricmp(BaseIDRow->TargetMetalName, Variable->name) == 0)
+					{
+						BaseIDRow->FoundItems.Push(RValuePtr);
+						break;
+					}
+				}
+			}
+		}
+	};
+}
+
+void FMetalCodeBackend::FixupMetalBaseOffsets(exec_list* ir, _mesa_glsl_parse_state* ParseState, EHlslShaderFrequency Frequency)
+{
+	using namespace MetalUtils;
+	
+	if(bIsTessellationVSHS || Frequency != HSF_VertexShader)
+	{
+		return; // do nothing
+	}
+	
+	FBaseIDSystemValueTable BaseIDLUT[] =
+	{
+		{"IN_VertexID", "IN_BaseVertex", "[[ base_vertex ]]", "Mapped_VertexID"},
+		{"IN_InstanceID", "IN_BaseInstance", "[[ base_instance ]]", "Mapped_InstanceID"},
+		{NULL, NULL, NULL, NULL}
+	};
+	
+	ir_function_signature* EntryPointSig = GetMainFunction(ir);
+	check(EntryPointSig);
+	
+	// Find existing references - only remap these
+	FVertexStreamIDVisitor Visitor(BaseIDLUT);
+	Visitor.run(&EntryPointSig->body);
+
+	// Update references if any new variables added
+	for(FBaseIDSystemValueTable* BaseIDRow = BaseIDLUT; BaseIDRow->TargetMetalName != NULL; ++BaseIDRow)
+	{
+		for(int32 i = 0;i < BaseIDRow->FoundItems.Num();++i)
+		{
+			ir_rvalue** RValue = BaseIDRow->FoundItems[i];
+			
+			check(RValue);
+			check(*RValue);
+			ir_variable* Variable = (*RValue)->variable_referenced();
+			check(Variable);
+			
+			// double check this is correct - should be though since it's in array
+			if(FCStringAnsi::Stricmp(BaseIDRow->TargetMetalName, Variable->name) == 0)
+			{
+				// Add new recomputed ID variable - should only add first time for this row
+				ir_variable* MappedIDVariable = ParseState->symbols->get_variable(BaseIDRow->MappedMetalName);
+				if(!MappedIDVariable)
+				{
+					// No mapped name make ensure we have added the base ID type
+					ir_variable* NewInputVariable = ParseState->symbols->get_variable(BaseIDRow->BaseMetalName);
+					if(!NewInputVariable)
+					{
+						NewInputVariable = new(ParseState) ir_variable(Variable->type, BaseIDRow->BaseMetalName, Variable->mode);
+						NewInputVariable->semantic = BaseIDRow->BaseMetalSemantic;
+						NewInputVariable->read_only = Variable->read_only;
+						ParseState->symbols->add_variable(NewInputVariable);
+						EntryPointSig->parameters.push_tail(NewInputVariable);
+					}
+					
+					MappedIDVariable = new(ParseState) ir_variable(Variable->type, BaseIDRow->MappedMetalName, ir_var_auto);
+					MappedIDVariable->semantic = NULL;
+					MappedIDVariable->read_only = false;
+					ParseState->symbols->add_variable(MappedIDVariable);
+
+					// Update ID to take account of base ID
+					EntryPointSig->body.push_head(
+												  new(ParseState)ir_assignment(
+																			   new(ParseState) ir_dereference_variable(MappedIDVariable),
+																			   new(ParseState) ir_expression(
+																											 ir_binop_sub,
+																											 new(ParseState) ir_dereference_variable(Variable),
+																											 new(ParseState) ir_dereference_variable(NewInputVariable)
+																											 )
+																			   )
+												);
+					
+					// Add decl above computation
+					EntryPointSig->body.push_head(MappedIDVariable);
+				}
+				
+				// Remap use of this variable to the new mapped variable
+				*RValue = new(ParseState)ir_dereference_variable(MappedIDVariable);
+			}
+		}
 	}
 }

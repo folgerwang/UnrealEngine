@@ -13,7 +13,7 @@
 #include "TrackEditorThumbnail/TrackEditorThumbnailPool.h"
 #include "EditorStyleSet.h"
 #include "Sections/ThumbnailSection.h"
-#include "GCObject.h"
+#include "UObject/GCObject.h"
 #include "ImagePlate.h"
 #include "ImagePlateComponent.h"
 #include "ContentBrowserModule.h"
@@ -52,12 +52,14 @@ public:
 		return ImagePlateSection->FileSequence ? FText::FromString(ImagePlateSection->FileSequence->SequencePath.Path) : LOCTEXT("NoSequence", "Empty");
 	}
 
-	virtual void SetSingleTime(float GlobalTime) override
+	virtual void SetSingleTime(double GlobalTime) override
 	{
 		UMovieSceneImagePlateSection* ImagePlateSection = CastChecked<UMovieSceneImagePlateSection>(Section);
 		if (ImagePlateSection)
 		{
-			ImagePlateSection->SetThumbnailReferenceOffset(GlobalTime - ImagePlateSection->GetStartTime());
+			double StartTime = ImagePlateSection->GetInclusiveStartFrame() / ImagePlateSection->GetTypedOuter<UMovieScene>()->GetTickResolution();
+	
+			ImagePlateSection->SetThumbnailReferenceOffset(GlobalTime - StartTime);
 		}
 	}
 
@@ -101,7 +103,7 @@ public:
 			}
 			else
 			{
-				ThumbnailCache.SetSingleReferenceFrame(TOptional<float>());
+////				ThumbnailCache.SetSingleReferenceFrame(TOptional<float>());
 			}
 		}
 
@@ -155,7 +157,7 @@ public:
 
 	virtual void Draw(FTrackEditorThumbnail& TrackEditorThumbnail) override
 	{
-		float SequenceTime = FMath::Max(0.f, TrackEditorThumbnail.GetEvalPosition());
+		float SequenceTime = FMath::Max(0.0, TrackEditorThumbnail.GetEvalPosition());
 
 		UMovieSceneImagePlateSection* ImagePlateSection = CastChecked<UMovieSceneImagePlateSection>(Section);
 		if (ImagePlateSection->FileSequence)
@@ -320,7 +322,7 @@ void FImagePlateTrackEditor::BuildObjectBindingTrackMenu(FMenuBuilder& MenuBuild
 	{
 		check(ImagePlateComponent);
 
-		FPropertyChangedParams ChangedParams(TArray<UObject*>({ ImagePlateComponent }), *PropertyPath, NAME_None, ESequencerKeyMode::ManualKeyForced);
+		FPropertyChangedParams ChangedParams(TArray<UObject*>({ ImagePlateComponent }), *PropertyPath, FPropertyPath(), ESequencerKeyMode::ManualKeyForced);
 		this->OnAnimatedPropertyChanged(ChangedParams);
 	};
 
@@ -408,10 +410,10 @@ void FImagePlateTrackEditor::AddNewSection(const FAssetData& AssetData, UMovieSc
 
 	check(Track);
 
-	const float TimeToStart = GetSequencer()->GetLocalTime();
-	const float Length = FileSequence->Framerate <= 0.f ? 1.f : FMath::Max(0.f, FileSequence->GetAsyncCache().Length() / FileSequence->Framerate);
-
-	TRange<float> SectionRange(TimeToStart, TimeToStart + Length);
+	FFrameTime TimeToStart = GetSequencer()->GetLocalTime().Time;
+	const float Length = FileSequence->Framerate <= 0.f ? 1.f : FMath::Max(0.f, (float)FileSequence->GetAsyncCache().Length() / (float)FileSequence->Framerate);
+	FFrameTime Duration = Length * GetSequencer()->GetFocusedTickResolution();
+	TRange<FFrameNumber> SectionRange(TimeToStart.FrameNumber, TimeToStart.FrameNumber + Duration.FrameNumber);
 
 	// Find a row to put this image sequence on
 	TArray<int32> InvalidRows;

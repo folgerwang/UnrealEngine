@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "AnimInstanceProxy.h"
+#include "Animation/AnimInstanceProxy.h"
 #include "AnimNodes/AnimNode_SequenceEvaluator.h"
 #include "AnimNodes/AnimNode_ApplyAdditive.h"
 #include "AnimNodes/AnimNode_MultiWayBlend.h"

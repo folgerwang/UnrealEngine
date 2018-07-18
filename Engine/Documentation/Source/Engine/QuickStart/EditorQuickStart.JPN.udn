@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3367473
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:レベル デザイナー向けクイックスタート
 Crumbs: %ROOT%, GettingStarted
@@ -11,40 +11,7 @@ parent:Engine/Editor
 order:1
 checkpoint: editorqs
 type:quick start
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![](engine_qs_topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/QuickStart:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/QuickStart]
-	[/PARAM]
-	[PARAM:description]
-	%Engine/QuickStart:description%
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![](engine_qs_topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/QuickStart:title%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/QuickStart]
-	[/PARAM]
-	[PARAM:description]
-	%Engine/QuickStart:description%
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:engine_qs_topic.png
 
 ![](Finished.png)
 
@@ -63,19 +30,9 @@ _このガイドを完了すると、上図のような部屋が作成されま�
 *	レベル内のアクタの配置および編集方法
 * 	レベルのビルドおよび実行方法
 
-[OBJECT:TopicList]
-	[PARAM:icon]
-		![](%ROOT%/build_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		ステップ
-	[/PARAM]
-	[PARAM:description]
-	[/PARAM]
-	[PARAM:links]
-	[DIR(output:"checkpoint" parent:"Engine/QuickStart" org:"hierarchy")]
-	[/PARAM]
-[/OBJECT]
+## ステップ
+
+[DIR(output:"checkpoint" parent:"Engine/QuickStart" org:"hierarchy")]
 
 [REGION:call_to_action]
 	[クリックしてスタート](Engine/QuickStart/1 "%Engine/QuickStart/1:title%")

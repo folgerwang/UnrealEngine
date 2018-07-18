@@ -22,19 +22,23 @@ FOnlineSubsystemGoogle::~FOnlineSubsystemGoogle()
 
 bool FOnlineSubsystemGoogle::Init()
 {
-	UE_LOG(LogOnline, Display, TEXT("FOnlineSubsystemGoogle::Init()"));
+	UE_LOG(LogOnline, VeryVerbose, TEXT("FOnlineSubsystemGoogle::Init()"));
 	if (FOnlineSubsystemGoogleCommon::Init())
 	{
-		GoogleIdentity = MakeShareable(new FOnlineIdentityGoogle(this));
+		FOnlineIdentityGooglePtr TempPtr = MakeShareable(new FOnlineIdentityGoogle(this));
+		if (TempPtr->Init())
+		{
+			GoogleIdentity = TempPtr;
+		}
+
 		GoogleExternalUI = MakeShareable(new FOnlineExternalUIGoogle(this));
-		return true;
 	}
 
-	return false;
+	return GoogleIdentity.IsValid() && GoogleExternalUI.IsValid();
 }
 
 bool FOnlineSubsystemGoogle::Shutdown()
 {
-	UE_LOG(LogOnline, Display, TEXT("FOnlineSubsystemGoogle::Shutdown()"));
+	UE_LOG(LogOnline, VeryVerbose, TEXT("FOnlineSubsystemGoogle::Shutdown()"));
 	return FOnlineSubsystemGoogleCommon::Shutdown();
 }

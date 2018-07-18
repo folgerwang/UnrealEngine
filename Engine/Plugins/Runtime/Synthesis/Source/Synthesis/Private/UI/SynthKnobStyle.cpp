@@ -1,9 +1,9 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "SynthKnobStyle.h"
-#include "IPluginManager.h"
+#include "UI/SynthKnobStyle.h"
+#include "Interfaces/IPluginManager.h"
 #include "SynthesisModule.h"
-#include "Regex.h"
+#include "Internationalization/Regex.h"
 #include "CoreMinimal.h"
 #include "HAL/FileManager.h"
 #include "Brushes/SlateDynamicImageBrush.h"

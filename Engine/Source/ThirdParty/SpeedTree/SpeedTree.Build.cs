@@ -10,7 +10,7 @@ public class SpeedTree : ModuleRules
 
 		var bPlatformAllowed = ((Target.Platform == UnrealTargetPlatform.Win32) ||
 								(Target.Platform == UnrealTargetPlatform.Win64) ||
-								(Target.Platform == UnrealTargetPlatform.Mac) || (Target.Platform == UnrealTargetPlatform.Linux));
+								(Target.Platform == UnrealTargetPlatform.Mac) || Target.IsInPlatformGroup(UnrealPlatformGroup.Unix));
 
 		if (bPlatformAllowed &&
 			Target.bCompileSpeedTree)
@@ -68,7 +68,7 @@ public class SpeedTree : ModuleRules
 					PublicAdditionalLibraries.Add(SpeedTreePath + "Lib/MacOSX/Release/libSpeedTreeCore.a");
 				}
 			}
-			else if (Target.Platform == UnrealTargetPlatform.Linux)
+			else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
 			{
 				if (Target.LinkType == TargetLinkType.Monolithic)
 				{

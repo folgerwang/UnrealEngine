@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2697672
+﻿INTSourceChangelist:3810557
 Availability:Public
 Title:ランドスケープ スプライン
 Crumbs: %ROOT%, Engine, Engine/Landscape, Engine/Landscape/Editing
@@ -27,17 +27,21 @@ version:4.9
 
 [TOC(start:2)]
 
-スプライン ツールとは、山脈のテレインに平らな道路を作成するなど、テレイン メッシュを一緒に変形させるスプライン アクタを作成するツールです。
+**Spline** ツールとは、山脈のテレインに平らな道路を作成するなど、テレイン メッシュを一緒に変形させるスプライン アクタを作成するツールです。
 
 [EXCERPT:Splines001]
 
-[EXCERPT:LandscapeSplines]
-**ランドスケープ スプライン** は、ランドスケープに同調させる必要のある線上の地物を作成し、テレインを操作してこれらの地物を構築しやすく出来る順応性のあるシステムです。作成にはランドスケープ エディタのスプライン ツールを使用します。
-[/EXCERPT:LandscapeSplines]
+[INCLUDE:#LandscapeSplines]
 
 このツールは、環境に道路や小道を作成するために使われます。一般的に、敷石道や長くまっすぐなトウモロコシの列など、テレインに同調させる必要のあるメッシュに対して使用することも可能です。 
 
 [/EXCERPT:Splines001]
+
+[COMMENT:none]
+[EXCERPT:LandscapeSplines]
+**ランドスケープ スプライン** は、ランドスケープに同調させる必要のある線形の地物を作成し、テレインを操作してこれらの地物を構築しやすく出来る順応性のあるシステムです。作成にはランドスケープ エディタのスプライン ツールを使用します。
+[/EXCERPT:LandscapeSplines]
+[/COMMENT]
 
 ## スプラインの作成
 
@@ -49,11 +53,11 @@ version:4.9
 
 1. 選択中のランドスケープ上で **Ctrl + 左クリック** でスプラインの最初の制御点を設定します。制御点のスプライトは、でこぼこした茶色と白の大きな岩のように見えます。
 
-	![A Spline control point](control_point.jpg)(w:785 h:516 type:jpg)
+	![A Spline control point](control_point.jpg)(w:785 type:jpg)
 
 1. 再度 **Ctrl + 左クリック** で、別の制御点が作成され、スプライン セグメントで最初の点と結合します。選択すれば新規の制御点を変更することができます。この操作を繰り返して制御点を追加することができます。
 
-	![A second spline control point](short_spline.jpg)(w:785 h:516 type:jpg)
+	![A second spline control point](short_spline.jpg)(w:785 type:jpg)
 
 
 **2 つのスプラインを結合する方法**
@@ -93,9 +97,9 @@ Static Mesh アクタをスプラインのセグメントに沿うように割�
 ## スプラインを編集する
 
 
-スプラインの制御点は、動作や回転ツールとして期待通りの反応をしますが、スケーリング ツールは別の UI を開きます。
+スプラインの制御点は、動作や回転ツールとして期待通りの反応をしますが、スケール ツールは別の UI を開きます。
 
-![Segment tangent scale tool](segment_scale.jpg)(w:785 h:516 type:jpg)
+![Segment tangent scale tool](segment_scale.jpg)(w:785 type:jpg)
 
 これらはスプライン タンジェントです。セグメントが選択されると、セグメントの両端にタンジェントが表示されます。制御点が選択されると、接続しているセグメント全てのタンジェントが表示されます。
 タンジェントの端をドラッグしてタンジェントのスケーリングを調整出来ます。この作業でスプラインのセグメントの曲線を修正します。
@@ -173,7 +177,7 @@ Static Mesh アクタをスプラインのセグメントに沿うように割�
 
 ## 制御基準
 
-| 制御 | 操作 |
+| 操作 | 処理内容 |
 | --------------------------- | ------------  |
 | **Left Mouse Button**         | 制御点またはセグメントを選択します。
 | **Shift + Left Mouse Button** | 複数の制御点またはセグメントを選択します。

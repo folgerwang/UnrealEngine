@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /**
 *
@@ -15,6 +15,12 @@
   #define CSV_PROFILER (WITH_ENGINE && 1)
 #else
   #define CSV_PROFILER (WITH_ENGINE && !UE_BUILD_SHIPPING)
+
+  #if CSV_PROFILER && !ALLOW_DEBUG_FILES
+	#undef CSV_PROFILER
+	#define CSV_PROFILER 0
+  #endif
+
 #endif
 
 #if CSV_PROFILER
@@ -45,8 +51,8 @@
 #define CSV_DECLARE_CATEGORY_MODULE_EXTERN(Module_API,CategoryName)			extern Module_API FCsvCategory _GCsvCategory_##CategoryName
 
 // Events
-#define CSV_EVENT(Category, Format, ...) 						FCsvProfiler::Get()->RecordEventf( CSV_CATEGORY_INDEX(Category), Format, __VA_ARGS__ )
-#define CSV_EVENT_GLOBAL(Format, ...) 							FCsvProfiler::Get()->RecordEventf( CSV_CATEGORY_INDEX_GLOBAL, Format, __VA_ARGS__ )
+#define CSV_EVENT(Category, Format, ...) 						FCsvProfiler::Get()->RecordEventf( CSV_CATEGORY_INDEX(Category), Format, ##__VA_ARGS__ )
+#define CSV_EVENT_GLOBAL(Format, ...) 							FCsvProfiler::Get()->RecordEventf( CSV_CATEGORY_INDEX_GLOBAL, Format, ##__VA_ARGS__ )
 
 #else
   #define CSV_CATEGORY_INDEX(CategoryName)						
@@ -108,17 +114,21 @@ struct FCsvCaptureCommand
 		, Value(-1)
 	{}
 
-	FCsvCaptureCommand(ECsvCommandType InCommandType, uint32 InFrameRequested, uint32 InValue = -1, FString InFilenameOverride = FString())
+	FCsvCaptureCommand(ECsvCommandType InCommandType, uint32 InFrameRequested, uint32 InValue = -1, const FString& InDestinationFolder = FString(), const FString& InFilename = FString(), bool InbWriteCompletionFile = false)
 		: CommandType(InCommandType)
 		, FrameRequested(InFrameRequested)
 		, Value(InValue)
-		, FilenameOverride(InFilenameOverride)
+		, DestinationFolder(InDestinationFolder)
+		, Filename(InFilename)
+		, bWriteCompletionFile(InbWriteCompletionFile)
 	{}
 
 	ECsvCommandType CommandType;
 	uint32 FrameRequested;
 	uint32 Value;
-	FString FilenameOverride;
+	FString DestinationFolder;
+	FString Filename;
+	bool bWriteCompletionFile;
 };
 
 /**
@@ -130,9 +140,10 @@ class FCsvProfiler
 	friend class FCsvProfilerThreadData;
 	friend struct FCsvCategory;
 private:
-	static FCsvProfiler* Instance;
-	FCsvProfiler();
+	static TUniquePtr<FCsvProfiler> Instance;		
 public:
+	FCsvProfiler();
+	~FCsvProfiler();
 	static CORE_API FCsvProfiler* Get();
 
 	CORE_API void Init();
@@ -153,7 +164,6 @@ public:
 	{
 		static_assert(TIsArrayOrRefOfType<FmtType, TCHAR>::Value, "Formatting string must be a TCHAR array.");
 		static_assert(TAnd<TIsValidVariadicFunctionArg<Types>...>::Value, "Invalid argument(s) passed to FCsvProfiler::RecordEventf");
-
 		if (!bCapturing)
 		{
 			return;
@@ -166,12 +176,17 @@ public:
 
 	CORE_API int32 GetCaptureFrameNumber();
 
+	CORE_API bool EnableCategoryByString(const FString& CategoryName) const;
+
 	/** Per-frame update */
 	CORE_API void BeginFrame();
 	CORE_API void EndFrame();
 
 	/** Begin/End Capture */
-	CORE_API void BeginCapture(int InNumFramesToCapture = -1, const FString& InDestinationFilenameOverride = FString());
+	CORE_API void BeginCapture( int InNumFramesToCapture = -1,
+		const FString& InDestinationFolder = FString(),
+		const FString& InFilename = FString(),
+		bool bInWriteCompletionFile = false);
 
 	CORE_API void EndCapture();
 
@@ -181,6 +196,8 @@ public:
 	/** Renderthread begin/end frame */
 	CORE_API void BeginFrameRT();
 	CORE_API void EndFrameRT();
+
+	CORE_API void SetDeviceProfileName(FString InDeviceProfileName);
 
 private:
 	CORE_API void VARARGS RecordEventfInternal(int32 CategoryIndex, const TCHAR* Fmt, ...);
@@ -198,10 +215,11 @@ private:
 
 	int32 NumFramesToCapture;
 	int32 CaptureFrameNumber;
+
 	volatile bool bCapturing;
 	volatile bool bCapturingRT; // Renderthread version of the above
-
 	bool bInsertEndFrameAtFrameStart;
+	bool bWriteCompletionFile;
 
 	uint64 LastEndFrameTimestamp;
 	uint32 CaptureEndFrameCount;
@@ -210,9 +228,13 @@ private:
 	TArray<FCsvProfilerThreadData*> ProfilerThreadDataArray;
 	FCriticalSection ProfilerThreadDataArrayLock;
 
-	FString DestinationFilenameOverride;
+	FString OutputFilename;
 	TQueue<FCsvCaptureCommand> CommandQueue;
 	FCsvProfilerProcessingThread* ProcessingThread;
+
+	FString DeviceProfileName;
+
+	FThreadSafeCounter IsShuttingDown;
 };
 
 class FScopedCsvStat

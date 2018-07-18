@@ -42,10 +42,11 @@ public:
 		IsFilteringCultures = InIsFilteringCultures;
 
 		// Identify if this culture has localization data.
-		TArray< FCultureRef > LocalizedCultures;
-		TArray<FString> LocalizationPaths = FPaths::GetGameLocalizationPaths();
-		FInternationalization::Get().GetCulturesWithAvailableLocalization(LocalizationPaths, LocalizedCultures, true);
-		HasLocalizationData = LocalizedCultures.Contains(Culture.ToSharedRef());
+		{
+			const TArray<FString> LocalizedCultureNames = FTextLocalizationManager::Get().GetLocalizedCultureNames(ELocalizationLoadFlags::Game);
+			const TArray<FCultureRef> LocalizedCultures = FInternationalization::Get().GetAvailableCultures(LocalizedCultureNames, true);
+			HasLocalizationData = LocalizedCultures.Contains(Culture.ToSharedRef());
+		}
 
 		ChildSlot
 			[
@@ -293,9 +294,8 @@ protected:
 
 		case EFilterCulturesChoices::OnlyLocalizedCultures:
 			{
-				TArray<FCultureRef> LocalizedCultureList;
-				TArray<FString> LocalizationPaths = FPaths::GetGameLocalizationPaths();
-				FInternationalization::Get().GetCulturesWithAvailableLocalization(LocalizationPaths, LocalizedCultureList, true);
+				const TArray<FString> LocalizedCultureNames = FTextLocalizationManager::Get().GetLocalizedCultureNames(ELocalizationLoadFlags::Game);
+				const TArray<FCultureRef> LocalizedCultureList = FInternationalization::Get().GetAvailableCultures(LocalizedCultureNames, true);
 
 				CultureList.Reset();
 				CultureList.Append(LocalizedCultureList);

@@ -18,7 +18,7 @@
 #include "Modules/ModuleManager.h"
 #include "ProjectManager.h"
 #include "PluginManifest.h"
-#include "PlatformTime.h"
+#include "HAL/PlatformTime.h"
 
 DEFINE_LOG_CATEGORY_STATIC( LogPluginManager, Log, All );
 
@@ -66,14 +66,6 @@ namespace PluginSystemDefs
 			}
 		} while (SearchStr != nullptr);
 
-#if IS_PROGRAM
-		// For programs that have the project dir set, look for plugins under the project directory
-		const FProjectDescriptor *Project = IProjectManager::Get().GetCurrentProject();
-		if (Project != nullptr)
-		{
-			PluginPathsOut.Add(FPaths::GetPath(FPaths::GetProjectFilePath()) / TEXT("Plugins"));
-		}
-#endif
 		return PluginCount;
 	}
 }
@@ -236,7 +228,11 @@ void FPluginManager::ReadAllPlugins(TMap<FString, TSharedRef<FPlugin>>& Plugins,
 		// assume that the game plugin version is preferred.
 		if (Project != nullptr)
 		{
+#if IS_PROGRAM
+			ReadPluginsInDirectory(FPaths::GetPath(FPaths::GetProjectFilePath()) / TEXT("Plugins"), EPluginType::Project, Plugins);
+#else
 			ReadPluginsInDirectory(FPaths::ProjectPluginsDir(), EPluginType::Project, Plugins);
+#endif
 		}
 	}
 	else
@@ -432,6 +428,29 @@ bool FPluginManager::ConfigureEnabledPlugins()
 		// Keep a set of all the plugin names that have been configured. We read configuration data from different places, but only configure a plugin from the first place that it's referenced.
 		TSet<FString> ConfiguredPluginNames;
 
+		// Check if we want to enable all plugins
+		if (FParse::Param(FCommandLine::Get(), TEXT("EnableAllPlugins")))
+		{
+			TArray<FString> ExceptPlugins;
+			{
+				FString ExceptPluginsStr;
+				FParse::Value(FCommandLine::Get(), TEXT("ExceptPlugins="), ExceptPluginsStr, false);
+				ExceptPluginsStr.ParseIntoArray(ExceptPlugins, TEXT(","));
+			}
+
+			for (const TPair<FString, TSharedRef<FPlugin>>& PluginPair : AllPlugins)
+			{
+				if (!ConfiguredPluginNames.Contains(PluginPair.Key) && !ExceptPlugins.Contains(PluginPair.Key))
+				{
+					if (!ConfigureEnabledPlugin(FPluginReferenceDescriptor(PluginPair.Key, true), EnabledPluginNames))
+					{
+						return false;
+					}
+					ConfiguredPluginNames.Add(PluginPair.Key);
+				}
+			}
+		}
+
 #if !IS_PROGRAM || HACK_HEADER_GENERATOR
 		if (!FParse::Param(FCommandLine::Get(), TEXT("NoEnginePlugins")))
 		{
@@ -558,6 +577,7 @@ bool FPluginManager::ConfigureEnabledPlugins()
 				}
 
 				FString PluginConfigFilename = FString::Printf(TEXT("%s%s/%s.ini"), *FPaths::GeneratedConfigDir(), ANSI_TO_TCHAR(FPlatformProperties::PlatformName()), *Plugin.Name);
+				FPaths::MakeStandardFilename(PluginConfigFilename); // This needs to match what we do in ConfigCacheIni.cpp's GetDestIniFilename method. Otherwise, the hash results will differ and the plugin's version will be overwritten later.
 				FConfigFile& PluginConfig = GConfig->Add(PluginConfigFilename, FConfigFile());
 
 				// This will write out an ini to PluginConfigFilename
@@ -579,6 +599,8 @@ bool FPluginManager::ConfigureEnabledPlugins()
 						FConfigFile* FoundConfig = GConfig->Find(PluginConfigFilename, false);
 						if (FoundConfig != nullptr)
 						{
+							UE_LOG(LogPluginManager, Log, TEXT("Found config from plugin[%s] %s"), *Plugin.GetName(), *PluginConfigFilename);
+
 							FString PluginConfigContent;
 							if (FFileHelper::LoadFileToString(PluginConfigContent, *FPaths::Combine(PluginConfigDir, ConfigFile)))
 							{
@@ -598,6 +620,11 @@ bool FPluginManager::ConfigureEnabledPlugins()
 		IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
 		for (TSharedRef<IPlugin> Plugin: GetEnabledPluginsWithContent())
 		{
+			if (NewPluginMountedEvent.IsBound())
+			{
+				NewPluginMountedEvent.Broadcast(*Plugin);
+			}
+
 			if (ensure(RegisterMountPointDelegate.IsBound()))
 			{
 				FString ContentDir = Plugin->GetContentDir();
@@ -647,7 +674,7 @@ bool FPluginManager::ConfigureEnabledPlugin(const FPluginReferenceDescriptor& Fi
 			const FPluginReferenceDescriptor& Reference = *NewPluginReferences[Idx];
 
 			// Check if the plugin is required for this platform
-			if(!Reference.IsEnabledForPlatform(FPlatformMisc::GetUBTPlatform()) || !Reference.IsEnabledForTarget(FPlatformMisc::GetUBTTarget()))
+			if(!Reference.IsEnabledForPlatform(FPlatformMisc::GetUBTPlatform()) || !Reference.IsEnabledForTargetConfiguration(EBuildConfigurations::ToString(FApp::GetBuildConfiguration())) || !Reference.IsEnabledForTarget(FPlatformMisc::GetUBTTarget()))
 			{
 				UE_LOG(LogPluginManager, Verbose, TEXT("Ignoring plugin '%s' for platform/configuration"), *Reference.Name);
 				continue;
@@ -733,22 +760,6 @@ bool FPluginManager::ConfigureEnabledPlugin(const FPluginReferenceDescriptor& Fi
 				// Mount the binaries directory
 				const FString PluginBinariesPath = FPaths::Combine(*FPaths::GetPath(Plugin.FileName), TEXT("Binaries"), FPlatformProcess::GetBinariesSubdirectory());
 				FModuleManager::Get().AddBinariesDirectory(*PluginBinariesPath, Plugin.GetLoadedFrom() == EPluginLoadedFrom::Project);
-
-				// If this is a content-only project, make sure the modules are compatible with the engine (or allow the user to disable it). If it's a code project,
-				// we'll run a separate check in LaunchEngineLoop.cpp to do the compile-on-startup stuff.
-				const FProjectDescriptor* Project = IProjectManager::Get().GetCurrentProject();
-				if (Project != nullptr && Project->Modules.Num() == 0)
-				{
-					TArray<FString> IncompatibleFiles;
-					if (!FModuleDescriptor::CheckModuleCompatibility(Plugin.Descriptor.Modules, Plugin.GetLoadedFrom() == EPluginLoadedFrom::Project, IncompatibleFiles))
-					{
-						if (PromptToDisableIncompatiblePlugin(FirstReference.Name, Reference.Name))
-						{
-							UE_LOG(LogPluginManager, Display, TEXT("Disabled plugin '%s', continuing."), *FirstReference.Name);
-							return true;
-						}
-					}
-				}
 			}
 
 			// Check the declared engine version. This is a soft requirement, so allow the user to skip over it.
@@ -1019,6 +1030,7 @@ bool FPluginManager::AreRequiredPluginsAvailable()
 	return ConfigureEnabledPlugins();
 }
 
+#if !IS_MONOLITHIC
 bool FPluginManager::CheckModuleCompatibility(TArray<FString>& OutIncompatibleModules)
 {
 	if(!ConfigureEnabledPlugins())
@@ -1030,13 +1042,14 @@ bool FPluginManager::CheckModuleCompatibility(TArray<FString>& OutIncompatibleMo
 	for(const TPair<FString, TSharedRef<FPlugin>>& PluginPair : AllPlugins)
 	{
 		const TSharedRef< FPlugin > &Plugin = PluginPair.Value;
-		if (Plugin->bEnabled && !FModuleDescriptor::CheckModuleCompatibility(Plugin->Descriptor.Modules, Plugin->GetLoadedFrom() == EPluginLoadedFrom::Project, OutIncompatibleModules))
+		if (Plugin->bEnabled && !FModuleDescriptor::CheckModuleCompatibility(Plugin->Descriptor.Modules, OutIncompatibleModules))
 		{
 			bResult = false;
 		}
 	}
 	return bResult;
 }
+#endif
 
 IPluginManager& IPluginManager::Get()
 {
@@ -1133,6 +1146,11 @@ TArray<TSharedRef<IPlugin>> FPluginManager::GetPluginsWithPakFile() const
 	return PluginsWithPakFile;
 }
 
+IPluginManager::FNewPluginMountedEvent& FPluginManager::OnNewPluginCreated()
+{
+	return NewPluginCreatedEvent;
+}
+
 IPluginManager::FNewPluginMountedEvent& FPluginManager::OnNewPluginMounted()
 {
 	return NewPluginMountedEvent;
@@ -1182,9 +1200,9 @@ void FPluginManager::MountNewlyCreatedPlugin(const FString& PluginName)
 			}
 
 			// Notify any listeners that a new plugin has been mounted
-			if (NewPluginMountedEvent.IsBound())
+			if (NewPluginCreatedEvent.IsBound())
 			{
-				NewPluginMountedEvent.Broadcast(*Plugin);
+				NewPluginCreatedEvent.Broadcast(*Plugin);
 			}
 			break;
 		}

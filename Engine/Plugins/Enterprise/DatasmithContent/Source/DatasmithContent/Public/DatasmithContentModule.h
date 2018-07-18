@@ -2,10 +2,12 @@
 
 #pragma once
 
-#include "ModuleInterface.h"
-#include "ModuleManager.h"		// For inline LoadModuleChecked()
+#include "Modules/ModuleInterface.h"
+#include "Modules/ModuleManager.h"		// For inline LoadModuleChecked()
 
 #define DATASMITHCONTENT_MODULE_NAME TEXT("DatasmithContent")
+
+DECLARE_DELEGATE_OneParam( FOnSpawnDatasmithSceneActors, class ADatasmithSceneActor* );
 
 /**
  * The public interface of the DatasmithContent module
@@ -34,5 +36,10 @@ public:
 	{
 		return FModuleManager::Get().IsModuleLoaded(DATASMITHCONTENT_MODULE_NAME);
 	}
+
+	/**
+	 * @returns temporary directory created for this process
+	 */
+	virtual const FString& GetTempDir() const = 0;
 };
 

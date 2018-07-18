@@ -45,4 +45,5 @@ private:
 	void AddVectorParameter(UMovieSceneMaterialParameterCollectionTrack* Track, FCollectionVectorParameter Parameter);
 
 	void AddTrackToSequence(const FAssetData& InAssetData);
+	void AddTrackToSequenceEnterPressed(const TArray<FAssetData>& InAssetData);
 };

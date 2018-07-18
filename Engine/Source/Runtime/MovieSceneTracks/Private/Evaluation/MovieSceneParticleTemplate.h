@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
-#include "Curves/IntegralCurve.h"
+#include "Sections/MovieSceneParticleSection.h"
 #include "Evaluation/MovieSceneEvalTemplate.h"
 
 #include "MovieSceneParticleTemplate.generated.h"
@@ -20,7 +20,7 @@ struct FMovieSceneParticleSectionTemplate : public FMovieSceneEvalTemplate
 	FMovieSceneParticleSectionTemplate(const UMovieSceneParticleSection& Section);
 
 	UPROPERTY()
-	FIntegralCurve ParticleKeys;
+	FMovieSceneParticleChannel ParticleKeys;
 
 private:
 

@@ -100,8 +100,8 @@ Android OPENGLES 3.1、Android Vulkan、iOS Metal 向けハイエンド デバ�
 	[/REGION]
 	[REGION:caption] 画像をクリックしてフルサイズで表示 [/REGION]
 
-
 	**Android OPENGLES 3.1** および **VULKAN** をプレビューする場合は、**[Android]** セクションの **[Build]** で **[Support OpenGLES 3.1]** または **[Support Vulkan]** のサポート オプションを設定します。 
+
 	![](AndroidTarget.png)(w:650)
 
 	**iOS Metal** をプレビューする場合は、**[iOS]** セクションの **[Rendering]** で **[Support Forward Rendering with Metal (A7 以降のデバイス)]** オプションを設定します。 

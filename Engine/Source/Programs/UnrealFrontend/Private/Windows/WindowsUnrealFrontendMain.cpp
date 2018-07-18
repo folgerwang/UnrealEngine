@@ -2,9 +2,9 @@
 
 #include "CoreMinimal.h"
 #include "UnrealFrontendMain.h"
-#include "ExceptionHandling.h"
+#include "HAL/ExceptionHandling.h"
 #include "LaunchEngineLoop.h"
-#include "WindowsHWrapper.h"
+#include "Windows/WindowsHWrapper.h"
 #include "Misc/CommandLine.h"
 #include "Misc/OutputDeviceError.h"
 

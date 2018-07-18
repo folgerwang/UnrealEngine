@@ -120,13 +120,13 @@ version:4.9
 	#include "CameraDirector.h"
 	#include "Kismet/GameplayStatics.h"
 
-	// Sets default values (デフォルト値を設定) 	ACameraDirector::ACameraDirector()
+	// Sets default values
+	ACameraDirector::ACameraDirector()
 	{
  		// Set this actor to call Tick() every frame. (フレーム毎に Tick() を呼び出すようにこのアクタを設定) You can turn this off to improve performance if you don't need it. (必要がなければパフォーマンスを向上させるためにオフにすることができます) 
 		PrimaryActorTick.bCanEverTick = true;
 
 	}
-
 
 	//  ゲーム開始時またはスポーン時に呼び出されます。
 	void ACameraDirector::BeginPlay()
@@ -147,7 +147,7 @@ version:4.9
 		{
 			TimeToNextCameraChange += TimeBetweenCameraChanges;
 
-		//ローカル プレイヤーをコントロールするアクタを探します。
+			//ローカル プレイヤーをコントロールするアクタを探します。
 			APlayerController* OurPlayerController = UGameplayStatics::GetPlayerController(this, 0);
 			if (OurPlayerController)
 			{

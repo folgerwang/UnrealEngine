@@ -163,13 +163,26 @@ void MainVertexShader(
 	{
 		float4 ScreenPos;
 		// compute the old screen pos with the old world position and the old camera matrix
+	#if ODS_CAPTURE
+		float3 PrevTranslatedWorldCameraOrigin = ResolvedView.PrevWorldCameraOrigin + ResolvedView.PrevPreViewTranslation;
+		float3 PrevODS = OffsetODS(PrevTranslatedWorldPosition.xyz, PrevTranslatedWorldCameraOrigin, ResolvedView.StereoIPD);
+		float4 PrevScreenPosObj = mul(float4(PrevTranslatedWorldPosition.xyz + PrevODS, 1.0), ResolvedView.PrevTranslatedWorldToClip);
+	#else
 		float4 PrevScreenPosObj = mul(float4(PrevTranslatedWorldPosition.xyz, 1), ResolvedView.PrevTranslatedWorldToClip);
+	#endif
 
 #if !USING_TESSELLATION
 		ISOLATE
 		{
 #endif
-			ScreenPos  = mul(float4(TranslatedWorldPosition.xyz, 1), ResolvedView.TranslatedWorldToClip);
+
+		#if ODS_CAPTURE
+			float3 ODS = OffsetODS(TranslatedWorldPosition.xyz, ResolvedView.TranslatedWorldCameraOrigin.xyz, ResolvedView.StereoIPD);
+			ScreenPos = mul(float4(TranslatedWorldPosition.xyz + ODS, 1.0), ResolvedView.TranslatedWorldToClip);
+		#else
+			ScreenPos = mul(float4(TranslatedWorldPosition.xyz, 1), ResolvedView.TranslatedWorldToClip);
+		#endif
+			
 #if !USING_TESSELLATION
 			Output.Position = ScreenPos;
 		}

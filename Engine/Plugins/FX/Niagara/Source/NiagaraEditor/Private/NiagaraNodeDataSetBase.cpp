@@ -9,6 +9,8 @@
 #define LOCTEXT_NAMESPACE "UNiagaraNodeDataSetBase"
 
 const FName UNiagaraNodeDataSetBase::ConditionVarName(TEXT("__Condition"));
+const FName UNiagaraNodeDataSetBase::ParamMapInVarName(TEXT("__ParamMapIn"));
+const FName UNiagaraNodeDataSetBase::ParamMapOutVarName(TEXT("__ParamMapOut"));
 
 UNiagaraNodeDataSetBase::UNiagaraNodeDataSetBase(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer), ExternalStructAsset(nullptr)
@@ -54,6 +56,17 @@ FLinearColor UNiagaraNodeDataSetBase::GetNodeTitleColor() const
 	return CastChecked<UEdGraphSchema_Niagara>(GetSchema())->NodeTitleColor_Event;
 }
 
+void UNiagaraNodeDataSetBase::AddParameterMapPins()
+{
+	const UEdGraphSchema_Niagara* Schema = GetDefault<UEdGraphSchema_Niagara>();
+	UEdGraphPin* ParamMapInPin = CreatePin(EGPD_Input, Schema->TypeDefinitionToPinType(FNiagaraTypeDefinition::GetParameterMapDef()), ParamMapInVarName, 0);
+	ParamMapInPin->bDefaultValueIsIgnored = true;
+	ParamMapInPin->PinFriendlyName = LOCTEXT("UNiagaraNodeWriteDataSetParamMapInPin", "ParamMap");
+	UEdGraphPin* ParamMapOutPin = CreatePin(EGPD_Output, Schema->TypeDefinitionToPinType(FNiagaraTypeDefinition::GetParameterMapDef()), ParamMapOutVarName, 1);
+	ParamMapOutPin->bDefaultValueIsIgnored = true;
+	ParamMapOutPin->PinFriendlyName = LOCTEXT("UNiagaraNodeWriteDataSetParamMapOutPin", "ParamMap");
+}
+
 void UNiagaraNodeDataSetBase::PostLoad()
 {
 	Super::PostLoad();
@@ -73,6 +86,13 @@ void UNiagaraNodeDataSetBase::PostLoad()
 	}*/
 	
 	IsSynchronizedWithStruct(true, nullptr, true);
+
+	const int32 NiagaraVer = GetLinkerCustomVersion(FNiagaraCustomVersion::GUID);
+
+	if (NiagaraVer < FNiagaraCustomVersion::AddingParamMapToDataSetBaseNode)
+	{
+		ReallocatePins();
+	}
 }
 
 bool UNiagaraNodeDataSetBase::IsSynchronizedWithStruct(bool bIgnoreConditionVariable, FString* Issues, bool bLogIssues)
@@ -233,6 +253,16 @@ bool UNiagaraNodeDataSetBase::GetSupportedNiagaraTypeDef(const UProperty* Proper
 	{
 		TypeDef = FNiagaraTypeDefinition::GetColorDef();
 		return true;
+	}
+	else if (StructProp && StructProp->Struct == FNiagaraTypeDefinition::GetQuatStruct())
+	{
+		TypeDef = FNiagaraTypeDefinition::GetQuatDef();
+		return true;
+	}
+	else if (StructProp && StructProp->Struct)
+	{
+		TypeDef = FNiagaraTypeDefinition(StructProp->Struct);
+		return FNiagaraTypeRegistry::GetRegisteredPayloadTypes().Contains(TypeDef);
 	}
 	return false;
 }

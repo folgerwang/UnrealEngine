@@ -36,7 +36,7 @@ struct FD3D11VertexDeclarationKey
 			case VET_Float2:		D3DElement.Format = DXGI_FORMAT_R32G32_FLOAT; break;
 			case VET_Float3:		D3DElement.Format = DXGI_FORMAT_R32G32B32_FLOAT; break;
 			case VET_Float4:		D3DElement.Format = DXGI_FORMAT_R32G32B32A32_FLOAT; break;
-			case VET_PackedNormal:	D3DElement.Format = DXGI_FORMAT_R8G8B8A8_UNORM; break; //TODO: uint32 doesn't work because D3D11 squishes it to 0 in the IA-VS conversion
+			case VET_PackedNormal:	D3DElement.Format = DXGI_FORMAT_R8G8B8A8_SNORM; break; //TODO: uint32 doesn't work because D3D11 squishes it to 0 in the IA-VS conversion
 			case VET_UByte4:		D3DElement.Format = DXGI_FORMAT_R8G8B8A8_UINT; break; //TODO: SINT, blendindices
 			case VET_UByte4N:		D3DElement.Format = DXGI_FORMAT_R8G8B8A8_UNORM; break;
 			case VET_Color:			D3DElement.Format = DXGI_FORMAT_B8G8R8A8_UNORM; break;
@@ -98,7 +98,8 @@ uint32 GetTypeHash(const FD3D11VertexDeclarationKey& Key)
 /** Compare two vertex declaration keys. */
 bool operator==(const FD3D11VertexDeclarationKey& A, const FD3D11VertexDeclarationKey& B)
 {
-	return A.VertexElements == B.VertexElements;
+	return A.VertexElements == B.VertexElements
+		&& !FMemory::Memcmp(A.StreamStrides, B.StreamStrides, sizeof(A.StreamStrides));
 }
 
 /** Global cache of vertex declarations. */

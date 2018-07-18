@@ -15,6 +15,7 @@
 class UNiagaraEmitter;
 class UNiagaraScript;
 class UNiagaraNodeOutput;
+class UNiagaraNodeInput;
 class UNiagaraNodeFunctionCall;
 class UNiagaraNodeParameterMapSet;
 class UEdGraphNode;
@@ -46,6 +47,8 @@ public:
 	FString GetInputName() const;
 	UNiagaraNodeParameterMapSet* GetOverrideNode() const;
 	UEdGraphPin* GetOverridePin() const;
+	const FGuid& GetOverrideNodeId() const;
+	const FNiagaraTypeDefinition& GetType() const;
 
 	TOptional<FString> GetLocalValueString() const;
 	TOptional<FNiagaraVariable> GetLocalValueRapidIterationParameter() const;
@@ -58,6 +61,7 @@ private:
 	TWeakObjectPtr<UNiagaraScript> OwningScript;
 	TWeakObjectPtr<UNiagaraNodeFunctionCall> OwningFunctionCallNode;
 	FString InputName;
+	FNiagaraTypeDefinition Type;
 
 	TWeakObjectPtr<UNiagaraNodeParameterMapSet> OverrideNode;
 	UEdGraphPin* OverridePin;
@@ -67,6 +71,8 @@ private:
 	TOptional<FNiagaraParameterHandle> LinkedValueHandle;
 	UNiagaraDataInterface* DataValueObject;
 	TSharedPtr<FNiagaraStackFunctionMergeAdapter> DynamicValueFunction;
+
+	FGuid OverrideValueNodePersistentId;
 };
 
 class FNiagaraStackFunctionMergeAdapter
@@ -97,6 +103,7 @@ public:
 	FNiagaraScriptStackMergeAdapter(UNiagaraNodeOutput& InOutputNode, UNiagaraScript& InScript, FString InUniqueEmitterName);
 
 	UNiagaraNodeOutput* GetOutputNode() const;
+	UNiagaraNodeInput* GetInputNode() const;
 
 	UNiagaraScript* GetScript() const;
 
@@ -107,6 +114,7 @@ public:
 	TSharedPtr<FNiagaraStackFunctionMergeAdapter> GetModuleFunctionById(FGuid FunctionCallNodeId) const;
 
 private:
+	TWeakObjectPtr<UNiagaraNodeInput> InputNode;
 	TWeakObjectPtr<UNiagaraNodeOutput> OutputNode;
 	TWeakObjectPtr<UNiagaraScript> Script;
 	FString UniqueEmitterName;
@@ -125,6 +133,7 @@ public:
 	const FNiagaraEventScriptProperties* GetEventScriptProperties() const;
 	FNiagaraEventScriptProperties* GetEditableEventScriptProperties() const;
 	UNiagaraNodeOutput* GetOutputNode() const;
+	UNiagaraNodeInput* GetInputNode() const;
 	TSharedPtr<FNiagaraScriptStackMergeAdapter> GetEventStack() const;
 
 private:
@@ -135,6 +144,7 @@ private:
 	const FNiagaraEventScriptProperties* EventScriptProperties;
 	FNiagaraEventScriptProperties* EditableEventScriptProperties;
 	TWeakObjectPtr<UNiagaraNodeOutput> OutputNode;
+	TWeakObjectPtr<UNiagaraNodeInput> InputNode;
 
 	TSharedPtr<FNiagaraScriptStackMergeAdapter> EventStack;
 };
@@ -210,6 +220,9 @@ struct FNiagaraScriptStackDiffResults
 	TArray<TSharedRef<FNiagaraStackFunctionInputOverrideMergeAdapter>> AddedOtherInputOverrides;
 	TArray<TSharedRef<FNiagaraStackFunctionInputOverrideMergeAdapter>> ModifiedBaseInputOverrides;
 	TArray<TSharedRef<FNiagaraStackFunctionInputOverrideMergeAdapter>> ModifiedOtherInputOverrides;
+
+	TOptional<ENiagaraScriptUsage> ChangedBaseUsage;
+	TOptional<ENiagaraScriptUsage> ChangedOtherUsage;
 
 private:
 	bool bIsValid;
@@ -337,6 +350,10 @@ private:
 	TSharedRef<FNiagaraEmitterMergeAdapter> GetEmitterMergeAdapterUsingCache(const UNiagaraEmitter& Emitter);
 
 	TSharedRef<FNiagaraEmitterMergeAdapter> GetEmitterMergeAdapterUsingCache(UNiagaraEmitter& Emitter);
+
+	void DiffChangeIds(const TMap<FGuid, FGuid>& InSourceChangeIds, const TMap<FGuid, FGuid>& InLastMergedChangeIds, const TMap<FGuid, FGuid>& InInstanceChangeIds, TMap<FGuid, FGuid>& OutChangeIdsToKeepOnInstance);
+	FApplyDiffResults ResolveChangeIds(TSharedRef<FNiagaraEmitterMergeAdapter> MergedInstanceAdapter, UNiagaraEmitter& OriginalEmitterInstance, const TMap<FGuid, FGuid>& ChangeIdsThatNeedToBeReset);
+
 
 private:
 	struct FCachedMergeAdapter

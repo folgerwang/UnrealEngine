@@ -4,6 +4,7 @@
 #include "Engine/Engine.h"
 #include "RHIDefinitions.h"
 #include "GameFramework/PlayerController.h"
+#include "GameFramework/WorldSettings.h"
 #include "GoogleARCoreDevice.h"
 #include "GoogleARCoreXRCamera.h"
 #include "ARSessionConfig.h"
@@ -109,9 +110,7 @@ bool FGoogleARCoreXRTrackingSystem::OnStartGameFrame(FWorldContext& WorldContext
 		FGoogleARCoreLightEstimate ARCoreLightEstimate = FGoogleARCoreDevice::GetInstance()->GetLatestLightEstimate();
 		if (ARCoreLightEstimate.bIsValid)
 		{
-			// Try to convert ARCore average pixel intensity to lumen and set the color tempature to pure white.
-			float LightLumen = ARCoreLightEstimate.PixelIntensity / 0.18f * 1000;
-			LightEstimate->SetLightEstimate(LightLumen, 6500);
+			LightEstimate->SetLightEstimate(ARCoreLightEstimate.RGBScaleFactor, ARCoreLightEstimate.PixelIntensity);
 		}
 		else
 		{
@@ -152,6 +151,24 @@ float FGoogleARCoreXRTrackingSystem::GetWorldToMetersScale() const
 
 	// Default value, assume Unreal units are in centimeters
 	return 100.0f;
+}
+
+void* FGoogleARCoreXRTrackingSystem::GetARSessionRawPointer()
+{
+#if PLATFORM_ANDROID
+	return static_cast<void*>(FGoogleARCoreDevice::GetInstance()->GetARSessionRawPointer());
+#endif
+	ensureAlwaysMsgf(false, TEXT("FGoogleARCoreXRTrackingSystem::GetARSessionRawPointer is unimplemented on current platform."));
+	return nullptr;
+}
+
+void* FGoogleARCoreXRTrackingSystem::GetGameThreadARFrameRawPointer()
+{
+#if PLATFORM_ANDROID
+	return static_cast<void*>(FGoogleARCoreDevice::GetInstance()->GetGameThreadARFrameRawPointer());
+#endif
+	ensureAlwaysMsgf(false, TEXT("FGoogleARCoreXRTrackingSystem::GetARSessionRawPointer is unimplemented on current platform."));
+	return nullptr;
 }
 
 void FGoogleARCoreXRTrackingSystem::OnARSystemInitialized()

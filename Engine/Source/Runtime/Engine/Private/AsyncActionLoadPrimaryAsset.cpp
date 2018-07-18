@@ -40,12 +40,13 @@ void UAsyncActionLoadPrimaryAssetBase::HandleLoadCompleted()
 	SetReadyToDestroy();
 }
 
-UAsyncActionLoadPrimaryAsset* UAsyncActionLoadPrimaryAsset::AsyncLoadPrimaryAsset(FPrimaryAssetId PrimaryAsset, const TArray<FName>& LoadBundles)
+UAsyncActionLoadPrimaryAsset* UAsyncActionLoadPrimaryAsset::AsyncLoadPrimaryAsset(UObject* WorldContextObject, FPrimaryAssetId PrimaryAsset, const TArray<FName>& LoadBundles)
 {
 	UAsyncActionLoadPrimaryAsset* Action = NewObject<UAsyncActionLoadPrimaryAsset>();
 	Action->AssetsToLoad.Add(PrimaryAsset);
 	Action->LoadBundles = LoadBundles;
 	Action->Operation = EAssetManagerOperation::Load;
+	Action->RegisterWithGameInstance(WorldContextObject);
 
 	return Action;
 }
@@ -62,12 +63,13 @@ void UAsyncActionLoadPrimaryAsset::HandleLoadCompleted()
 	Completed.Broadcast(AssetLoaded);
 }
 
-UAsyncActionLoadPrimaryAssetClass* UAsyncActionLoadPrimaryAssetClass::AsyncLoadPrimaryAssetClass(FPrimaryAssetId PrimaryAsset, const TArray<FName>& LoadBundles)
+UAsyncActionLoadPrimaryAssetClass* UAsyncActionLoadPrimaryAssetClass::AsyncLoadPrimaryAssetClass(UObject* WorldContextObject, FPrimaryAssetId PrimaryAsset, const TArray<FName>& LoadBundles)
 {
 	UAsyncActionLoadPrimaryAssetClass* Action = NewObject<UAsyncActionLoadPrimaryAssetClass>();
 	Action->AssetsToLoad.Add(PrimaryAsset);
 	Action->LoadBundles = LoadBundles;
 	Action->Operation = EAssetManagerOperation::Load;
+	Action->RegisterWithGameInstance(WorldContextObject);
 
 	return Action;
 }
@@ -84,12 +86,13 @@ void UAsyncActionLoadPrimaryAssetClass::HandleLoadCompleted()
 	Completed.Broadcast(AssetLoaded);
 }
 
-UAsyncActionLoadPrimaryAssetList* UAsyncActionLoadPrimaryAssetList::AsyncLoadPrimaryAssetList(const TArray<FPrimaryAssetId>& PrimaryAssetList, const TArray<FName>& LoadBundles)
+UAsyncActionLoadPrimaryAssetList* UAsyncActionLoadPrimaryAssetList::AsyncLoadPrimaryAssetList(UObject* WorldContextObject, const TArray<FPrimaryAssetId>& PrimaryAssetList, const TArray<FName>& LoadBundles)
 {
 	UAsyncActionLoadPrimaryAssetList* Action = NewObject<UAsyncActionLoadPrimaryAssetList>();
 	Action->AssetsToLoad = PrimaryAssetList;
 	Action->LoadBundles = LoadBundles;
 	Action->Operation = EAssetManagerOperation::Load;
+	Action->RegisterWithGameInstance(WorldContextObject);
 
 	return Action;
 }
@@ -107,12 +110,13 @@ void UAsyncActionLoadPrimaryAssetList::HandleLoadCompleted()
 	Completed.Broadcast(AssetList);
 }
 
-UAsyncActionLoadPrimaryAssetClassList* UAsyncActionLoadPrimaryAssetClassList::AsyncLoadPrimaryAssetClassList(const TArray<FPrimaryAssetId>& PrimaryAssetList, const TArray<FName>& LoadBundles)
+UAsyncActionLoadPrimaryAssetClassList* UAsyncActionLoadPrimaryAssetClassList::AsyncLoadPrimaryAssetClassList(UObject* WorldContextObject, const TArray<FPrimaryAssetId>& PrimaryAssetList, const TArray<FName>& LoadBundles)
 {
 	UAsyncActionLoadPrimaryAssetClassList* Action = NewObject<UAsyncActionLoadPrimaryAssetClassList>();
 	Action->AssetsToLoad = PrimaryAssetList;
 	Action->LoadBundles = LoadBundles;
 	Action->Operation = EAssetManagerOperation::Load;
+	Action->RegisterWithGameInstance(WorldContextObject);
 
 	return Action;
 }
@@ -141,23 +145,25 @@ void UAsyncActionLoadPrimaryAssetClassList::HandleLoadCompleted()
 	Completed.Broadcast(AssetClassList);
 }
 
-UAsyncActionChangePrimaryAssetBundles* UAsyncActionChangePrimaryAssetBundles::AsyncChangeBundleStateForMatchingPrimaryAssets(const TArray<FName>& NewBundles, const TArray<FName>& OldBundles)
+UAsyncActionChangePrimaryAssetBundles* UAsyncActionChangePrimaryAssetBundles::AsyncChangeBundleStateForMatchingPrimaryAssets(UObject* WorldContextObject, const TArray<FName>& NewBundles, const TArray<FName>& OldBundles)
 {
 	UAsyncActionChangePrimaryAssetBundles* Action = NewObject<UAsyncActionChangePrimaryAssetBundles>();
 	Action->LoadBundles = NewBundles;
 	Action->OldBundles = OldBundles;
 	Action->Operation = EAssetManagerOperation::ChangeBundleStateMatching;
+	Action->RegisterWithGameInstance(WorldContextObject);
 	
 	return Action;
 }
 
-UAsyncActionChangePrimaryAssetBundles* UAsyncActionChangePrimaryAssetBundles::AsyncChangeBundleStateForPrimaryAssetList(const TArray<FPrimaryAssetId>& PrimaryAssetList, const TArray<FName>& AddBundles, const TArray<FName>& RemoveBundles)
+UAsyncActionChangePrimaryAssetBundles* UAsyncActionChangePrimaryAssetBundles::AsyncChangeBundleStateForPrimaryAssetList(UObject* WorldContextObject, const TArray<FPrimaryAssetId>& PrimaryAssetList, const TArray<FName>& AddBundles, const TArray<FName>& RemoveBundles)
 {
 	UAsyncActionChangePrimaryAssetBundles* Action = NewObject<UAsyncActionChangePrimaryAssetBundles>();
 	Action->LoadBundles = AddBundles;
 	Action->OldBundles = RemoveBundles;
 	Action->AssetsToLoad = PrimaryAssetList;
 	Action->Operation = EAssetManagerOperation::ChangeBundleStateList;
+	Action->RegisterWithGameInstance(WorldContextObject);
 
 	return Action;
 }

@@ -7,16 +7,83 @@
 #include "Common.ush"
 #include "/Engine/Generated/Material.ush"
 
+struct FPostProcessMaterialVSToPS
+{
+	float4 Position : SV_POSITION;
+
+#if NUM_TEX_COORD_INTERPOLATORS
+	float4 TexCoords[(NUM_TEX_COORD_INTERPOLATORS+1)/2] : TEXCOORD0;
+#endif
+};
+
+#if NUM_TEX_COORD_INTERPOLATORS
+float2 GetUV(FPostProcessMaterialVSToPS Interpolants, int UVIndex)
+{
+	float4 UVVector = Interpolants.TexCoords[UVIndex / 2];
+	return Mod(UVIndex, 2) == 1 ? UVVector.zw : UVVector.xy;
+}
+
+void SetUV(inout FPostProcessMaterialVSToPS Interpolants, int UVIndex, float2 InValue)
+{
+	FLATTEN
+	if (Mod(UVIndex, 2) == 1)
+	{
+		Interpolants.TexCoords[UVIndex / 2].zw = InValue;
+	}
+	else
+	{
+		Interpolants.TexCoords[UVIndex / 2].xy = InValue;
+	}
+}
+#endif
+
+FMaterialVertexParameters GetPostProcessMaterialVSParameters(float2 UV)
+{
+	// Most params irrelevant so not a lot to fill out here
+	FMaterialVertexParameters Result = (FMaterialVertexParameters)0;
+	Result.VertexColor = 1.f.xxxx;
+	
+#if NUM_MATERIAL_TEXCOORDS_VERTEX
+	UNROLL
+	for (int CoordinateIndex = 0; CoordinateIndex < NUM_MATERIAL_TEXCOORDS_VERTEX; CoordinateIndex++)
+	{
+		Result.TexCoords[CoordinateIndex] = UV;
+	}
+#endif
+
+	return Result;
+}
+
 #if (FEATURE_LEVEL > FEATURE_LEVEL_ES3_1)
 
 #if VERTEXSHADER
 
 void MainVS(
 	in float4 InPosition : ATTRIBUTE0,
-	out float4 OutPosition : SV_POSITION
+	out FPostProcessMaterialVSToPS Output
 	)
 {
-	DrawRectangle(InPosition, OutPosition);
+	Output = (FPostProcessMaterialVSToPS)0;
+	DrawRectangle(InPosition, Output.Position);
+
+#if NUM_TEX_COORD_INTERPOLATORS
+	FMaterialVertexParameters VertexParameters = GetPostProcessMaterialVSParameters(InPosition.xy);
+	 
+	float2 CustomizedUVs[NUM_TEX_COORD_INTERPOLATORS];
+	GetMaterialCustomizedUVs(VertexParameters, CustomizedUVs);
+	GetCustomInterpolators(VertexParameters, CustomizedUVs);
+	
+	UNROLL
+	for (int CoordinateIndex = 0; CoordinateIndex < NUM_MATERIAL_TEXCOORDS; CoordinateIndex++)
+	{
+		SetUV(Output, CoordinateIndex, InPosition.xy);
+	}
+	UNROLL
+	for (int CoordinateIndex = NUM_MATERIAL_TEXCOORDS; CoordinateIndex < NUM_TEX_COORD_INTERPOLATORS; CoordinateIndex++)
+	{
+		SetUV(Output, CoordinateIndex, CustomizedUVs[CoordinateIndex]);
+	}
+#endif
 }
 
 void MainVS_VideoOverlay(
@@ -32,7 +99,7 @@ void MainVS_VideoOverlay(
 #elif PIXELSHADER
 
 void MainPS(
-	in float4 SvPosition : SV_Position,		// after all interpolators
+	in FPostProcessMaterialVSToPS Input,
 	out float4 OutColor : SV_Target0
 	)
 {
@@ -41,12 +108,19 @@ void MainPS(
 	FPixelMaterialInputs PixelMaterialInputs;
 
 	// can be optimized
+	float4 SvPosition = Input.Position;
 	float2 ViewportUV = (SvPosition - ViewportRect.xy) * ViewportSize.zw;
 
-#if NUM_MATERIAL_TEXCOORDS
-	for(int CoordinateIndex = 0;CoordinateIndex < NUM_MATERIAL_TEXCOORDS;CoordinateIndex++)
+#if NUM_TEX_COORD_INTERPOLATORS
+	UNROLL
+	for (int CoordinateIndex = 0; CoordinateIndex < NUM_MATERIAL_TEXCOORDS; CoordinateIndex++)
 	{
 		Parameters.TexCoords[CoordinateIndex] = ViewportUV;
+	}
+	UNROLL
+	for (int CoordinateIndex = NUM_MATERIAL_TEXCOORDS; CoordinateIndex < NUM_TEX_COORD_INTERPOLATORS; CoordinateIndex++)
+	{
+		Parameters.TexCoords[CoordinateIndex] = GetUV(Input, CoordinateIndex);
 	}
 #endif
 
@@ -115,16 +189,35 @@ void MainPS_VideoOverlay(
 void MainVS_ES2(
 	in float4 InPosition : ATTRIBUTE0,
 	in float2 InTexCoord : ATTRIBUTE1,
-	out float2 OutUV : TEXCOORD0,
-	out float4 OutPosition : SV_POSITION
+	out FPostProcessMaterialVSToPS Output
 	)
 {
-	DrawRectangle(InPosition, InTexCoord, OutPosition, OutUV);
+	Output = (FPostProcessMaterialVSToPS)0;
+	float2 OutUV;
+	DrawRectangle(InPosition, InTexCoord, Output.Position, OutUV);
+	
+#if NUM_TEX_COORD_INTERPOLATORS
+	FMaterialVertexParameters VertexParameters = GetPostProcessMaterialVSParameters(OutUV);
+
+	float2 CustomizedUVs[NUM_TEX_COORD_INTERPOLATORS];
+	GetMaterialCustomizedUVs(VertexParameters, CustomizedUVs);
+	GetCustomInterpolators(VertexParameters, CustomizedUVs);
+
+	UNROLL
+	for (int CoordinateIndex = 0; CoordinateIndex < NUM_MATERIAL_TEXCOORDS; CoordinateIndex++)
+	{
+		SetUV(Output, CoordinateIndex, OutUV);
+	}
+	UNROLL
+	for (int CoordinateIndex = NUM_MATERIAL_TEXCOORDS; CoordinateIndex < NUM_TEX_COORD_INTERPOLATORS; CoordinateIndex++)
+	{
+		SetUV(Output, CoordinateIndex, CustomizedUVs[CoordinateIndex]);
+	}
+#endif
 }
 
 void MainPS_ES2(
-	in float2 InUV : TEXCOORD0,
-	in float4 SvPosition : SV_Position,		// after all interpolators
+	in FPostProcessMaterialVSToPS Input,
 	out half4 OutColor : SV_Target0
 	)
 {
@@ -132,12 +225,13 @@ void MainPS_ES2(
 	FMaterialPixelParameters Parameters = MakeInitializedMaterialPixelParameters();
 	FPixelMaterialInputs PixelMaterialInputs;
 
-	float2 ScreenUV = InUV;
+	float4 SvPosition = Input.Position;
 
-#if NUM_MATERIAL_TEXCOORDS
-	for(int CoordinateIndex = 0;CoordinateIndex < NUM_MATERIAL_TEXCOORDS;CoordinateIndex++)
+#if NUM_TEX_COORD_INTERPOLATORS
+	UNROLL
+	for (int CoordinateIndex = 0; CoordinateIndex < NUM_TEX_COORD_INTERPOLATORS; CoordinateIndex++)
 	{
-		Parameters.TexCoords[CoordinateIndex] = ScreenUV;
+		Parameters.TexCoords[CoordinateIndex] = GetUV(Input, CoordinateIndex);
 	}
 #endif
 

@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 using System;
 using System.IO;
 using System.Net.Http;
@@ -150,13 +150,17 @@ public class HTML5Platform : Platform
 				 (Params.ShortProjectName + "-HTML5-" + Params.ClientConfigsToBuild[0].ToString()) :
 				 Params.ShortProjectName)) + ".html";
 
+		string CanvasScaleMode;
+		ConfigCache.GetString("/Script/HTML5PlatformEditor.HTML5TargetSettings", "CanvasScalingMode", out CanvasScaleMode);
 		GenerateFileFromTemplate(TemplateFile,
 				OutputFile,
 				Params.ShortProjectName,
 				Params.ClientConfigsToBuild[0].ToString(),
-				Params.StageCommandline,
+//				Params.StageCommandline,
 				!Params.IsCodeBasedProject,
-				HTML5SDKInfo.HeapSize(ConfigCache, Params.ClientConfigsToBuild[0].ToString()));
+				HTML5SDKInfo.HeapSize(ConfigCache, Params.ClientConfigsToBuild[0].ToString()),
+				CanvasScaleMode
+			);
 
 		string MacBashTemplateFile = CombinePaths(CmdEnv.LocalRoot, "Engine/Build/HTML5/RunMacHTML5LaunchHelper.command.template");
 		string MacBashOutputFile = Path.Combine(PackagePath, "RunMacHTML5LaunchHelper.command");
@@ -275,7 +279,7 @@ public class HTML5Platform : Platform
 	}
 
 
-	protected void GenerateFileFromTemplate(string InTemplateFile, string InOutputFile, string InGameName, string InGameConfiguration, string InArguments, bool IsContentOnly, int HeapSize)
+	protected void GenerateFileFromTemplate(string InTemplateFile, string InOutputFile, string InGameName, string InGameConfiguration, /*string InArguments,*/ bool IsContentOnly, int HeapSize, string CanvasScaleMode)
 	{
 		StringBuilder outputContents = new StringBuilder();
 		using (StreamReader reader = new StreamReader(InTemplateFile))
@@ -321,18 +325,36 @@ public class HTML5Platform : Platform
 
 				if (LineStr.Contains("%UE4CMDLINE%"))
 				{
-					InArguments = InArguments.Replace ("\"", "");
-					string[] Arguments = InArguments.Split(' ');
-					string ArgumentString = "'../../../" + InGameName + "/" + InGameName + ".uproject ',";
-					for (int i = 0; i < Arguments.Length - 1; ++i)
-					{
-						ArgumentString += "'" + Arguments[i] + "'" + ",' ',";
-					}
-					if (Arguments.Length > 0)
-					{
-						ArgumentString += "'" + Arguments[Arguments.Length - 1] + "'";
-					}
+					string ArgumentString = "'../../../" + InGameName + "/" + InGameName + ".uproject',";
+					ArgumentString += "'-stdout',"; // suppress double printing to console.log
+
+// this for() and if() combo looks suspect -- but, seems like Params.StageCommandline is not really used anymore...
+//					InArguments = InArguments.Replace ("\"", "");
+//					string[] Arguments = InArguments.Split(' ');
+//					for (int i = 0; i < Arguments.Length - 1; ++i)
+//					{
+//						ArgumentString += "'" + Arguments[i] + "'" + ",' ',";
+//					}
+//					if (Arguments.Length > 0)
+//					{
+//						ArgumentString += "'" + Arguments[Arguments.Length - 1] + "'";
+//					}
+
 					LineStr = LineStr.Replace("%UE4CMDLINE%", ArgumentString);
+				}
+
+				if (LineStr.Contains("%CANVASSCALEMODE%"))
+				{
+					string mode = "2 /*ASPECT*/"; // default
+					if ( CanvasScaleMode.Equals("stretch", StringComparison.InvariantCultureIgnoreCase))
+					{
+						mode = "1 /*STRETCH*/";
+					}
+					else if ( CanvasScaleMode.Equals("fixed", StringComparison.InvariantCultureIgnoreCase))
+					{
+						mode = "3 /*FIXED*/";
+					}
+					LineStr = LineStr.Replace("%CANVASSCALEMODE%", mode);
 				}
 
 				if (!targetWebGL2 && LineStr.Contains("const explicitlyUseWebGL1"))
@@ -570,7 +592,7 @@ public class HTML5Platform : Platform
 		return HTMLPakAutomation.CanCreateMapPaks(Params) ? PakType.Never : PakType.Always;
 	}
 
-	public override string GetPlatformPakCommandLine()
+	public override string GetPlatformPakCommandLine(ProjectParams Params, DeploymentContext SC)
 	{
 		return Compressed ? " -compress" : "";
 	}
@@ -676,12 +698,12 @@ public class HTML5Platform : Platform
 
 			{ ".wasm", "application/wasm" },
 			{ ".wasmgz", "application/wasm" },
-            { ".htaccess", "text/plain"},
+			{ ".htaccess", "text/plain"},
 			{ ".html", "text/html"},
 			{ ".js", "application/x-javascript" },
 			{ ".jsgz", "application/x-javascript" },
-            { ".symbols", "text/plain"},
-            { ".symbolsgz", "text/plain"},
+			{ ".symbols", "text/plain"},
+			{ ".symbolsgz", "text/plain"},
 			{ ".txt", "text/plain"}
 		};
 
@@ -704,18 +726,18 @@ public class HTML5Platform : Platform
 		string MimePath = MimeType.Split('/')[0];
 		string AWSCredential = KeyId + "/" + AWSDate + "/" + Region + "/s3/aws4_request";
 
-        // --------------------------------------------------
-        string policy = "{ \"expiration\": \"" + DateExpire + "T12:00:00.000Z\"," +
-                        " \"conditions\": [" +
-                        " { \"bucket\": \"" + BucketName + "\" }," +
-                        " [ \"starts-with\", \"$key\", \"" + FolderName + "/\" ]," +
-                        " { \"acl\": \"public-read\" }," +
-                        " [ \"starts-with\", \"$content-type\", \"" + MimePath + "/\" ],";
-        if (Info.Extension.EndsWith("gz"))
-        {
-            policy += " [ \"starts-with\", \"$content-encoding\", \"gzip\" ],";
-        }
-        policy +=       " { \"x-amz-credential\": \"" + AWSCredential + "\" }," +
+		// --------------------------------------------------
+		string policy = "{ \"expiration\": \"" + DateExpire + "T12:00:00.000Z\"," +
+						" \"conditions\": [" +
+						" { \"bucket\": \"" + BucketName + "\" }," +
+						" [ \"starts-with\", \"$key\", \"" + FolderName + "/\" ]," +
+						" { \"acl\": \"public-read\" }," +
+						" [ \"starts-with\", \"$content-type\", \"" + MimePath + "/\" ],";
+		if (Info.Extension.EndsWith("gz"))
+		{
+			policy += " [ \"starts-with\", \"$content-encoding\", \"gzip\" ],";
+		}
+		policy +=		" { \"x-amz-credential\": \"" + AWSCredential + "\" }," +
 						" { \"x-amz-algorithm\": \"AWS4-HMAC-SHA256\" }," +
 						" { \"x-amz-date\": \"" + TimeStamp + "\" }" +
 						" ]" +
@@ -757,18 +779,18 @@ public class HTML5Platform : Platform
 		formData.Add(new StringContent(TimeStamp), "X-Amz-Date");
 		formData.Add(new StringContent(policyBase64), "Policy");
 		formData.Add(new StringContent(MimeType), "Content-Type");
-        if ( Info.Extension.EndsWith("gz") )
-        {
-            formData.Add(new StringContent("gzip"), "Content-Encoding");
-        }
-        // debugging...
-        //Console.WriteLine("key: [" + FolderName + "/" + Info.Name + "]");
-        //Console.WriteLine("AWSCredential: [" + AWSCredential + "]");
-        //Console.WriteLine("TimeStamp: [" + TimeStamp + "]");
-        //Console.WriteLine("MimeType: [" + MimeType + "]");
+		if ( Info.Extension.EndsWith("gz") )
+		{
+			formData.Add(new StringContent("gzip"), "Content-Encoding");
+		}
+		// debugging...
+		//Console.WriteLine("key: [" + FolderName + "/" + Info.Name + "]");
+		//Console.WriteLine("AWSCredential: [" + AWSCredential + "]");
+		//Console.WriteLine("TimeStamp: [" + TimeStamp + "]");
+		//Console.WriteLine("MimeType: [" + MimeType + "]");
 
-        // the file ----------------------------------------
-        var fileContent = new ByteArrayContent(System.IO.File.ReadAllBytes(Info.FullName));
+		// the file ----------------------------------------
+		var fileContent = new ByteArrayContent(System.IO.File.ReadAllBytes(Info.FullName));
 		fileContent.Headers.ContentType = System.Net.Http.Headers.MediaTypeHeaderValue.Parse(MimeType);
 		formData.Add(fileContent, "file", Info.Name);
 		int adjustTimeout = (int)(Info.Length / (100*1000)); // [seconds] give 10 secs for each ~MB ( (10s * 1000ms) / ( 1024KB * 1024MB * 1000ms ) )

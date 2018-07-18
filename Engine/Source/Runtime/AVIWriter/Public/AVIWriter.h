@@ -20,7 +20,8 @@ struct FAVIWriterOptions
 {
 	FAVIWriterOptions()
 		: OutputFilename(FPaths::VideoCaptureDir() / TEXT("Capture.avi"))
-		, CaptureFPS(30)
+		, CaptureFramerateNumerator(30)
+		, CaptureFramerateDenominator(1)
 		, bSynchronizeFrames(false)
 		, Width(0)
 		, Height(0)
@@ -29,8 +30,11 @@ struct FAVIWriterOptions
 	/** Output filename */
 	FString OutputFilename;
 
-	/** Constant framerate of the captured video */
-	int32 CaptureFPS;
+	/** The numerator of the captured video, ie (30/1) will capture at 30 frames per second.*/
+	int32 CaptureFramerateNumerator;
+
+	/** The denominator of the captured video, ie (30/1) will capture at 30 frames per second.*/
+	int32 CaptureFramerateDenominator;
 
 	/** Optional compression quality, as a value between 0 and 1 */
 	TOptional<float> CompressionQuality;

@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "SlateDelegates.h"
+#include "Framework/SlateDelegates.h"
 #include "Widgets/DeclarativeSyntaxSupport.h"
 #include "Widgets/SWidget.h"
 #include "Layout/Margin.h"

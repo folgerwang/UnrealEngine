@@ -10,7 +10,7 @@
 #include "AnimationModifierDetailCustomization.h"
 #include "AnimationModifiersTabSummoner.h"
 
-#include "ModuleManager.h"
+#include "Modules/ModuleManager.h"
 #include "PropertyEditorModule.h" 
 
 #define LOCTEXT_NAMESPACE "AnimationModifiersModule"
@@ -43,8 +43,11 @@ TSharedRef<FApplicationMode> FAnimationModifiersModule::ExtendApplicationMode(co
 void FAnimationModifiersModule::ShutdownModule()
 {
 	// Make sure we unregister the class layout 
-	FPropertyEditorModule& PropertyEditorModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
-	PropertyEditorModule.UnregisterCustomClassLayout("AnimationModifier");
+	FPropertyEditorModule* PropertyEditorModule = FModuleManager::GetModulePtr<FPropertyEditorModule>("PropertyEditor");
+	if (PropertyEditorModule)
+	{
+		PropertyEditorModule->UnregisterCustomClassLayout("AnimationModifier");
+	}
 
 	// Remove extender delegate
 	FWorkflowCentricApplication::GetModeExtenderList().RemoveAll([this](FWorkflowApplicationModeExtender& StoredExtender) { return StoredExtender.GetHandle() == Extender.GetHandle(); });

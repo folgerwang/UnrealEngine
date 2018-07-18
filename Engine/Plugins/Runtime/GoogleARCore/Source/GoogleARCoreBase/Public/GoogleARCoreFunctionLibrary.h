@@ -36,15 +36,15 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "GoogleARCore|Availability", meta = (Latent, LatentInfo = "LatentInfo", WorldContext = "WorldContextObject", Keywords = "googlear arcore availability"))
 	static void InstallARCoreService(UObject* WorldContextObject, struct FLatentActionInfo LatentInfo, EGoogleARCoreInstallRequestResult& OutInstallResult);
-	
+
 	/**
 	 * A polling function to check the ARCore availability in C++.
-	 * This may initiate a query with a remote service to determine if the device is supported by ARCore, so this function will EGoogleARCoreAvailability::UnkownChecking.
+	 * This may initiate a query with a remote service to determine if the device is supported by ARCore, so this function will EGoogleARCoreAvailability::UnknownChecking.
 	 *
 	 * @return	The availability result as a EGoogleARCoreAvailability.
 	 */
 	static EGoogleARCoreAvailability CheckARCoreAvailableStatus();
-	
+
 	/**
 	 * Initiates installation of ARCore if required.
 	 * This function will return immediately and may pause your application if installing ARCore is required.
@@ -52,7 +52,7 @@ public:
 	 * @return EGoogleARCoreInstallStatus::Requrested if it started a install request.
 	 */
 	static EGoogleARCoreInstallStatus RequestInstallARCoreAPK();
-	
+
 	/**
 	 * A polling function to check the ARCore install request result in C++.
 	 * After you call RequestInstallARCoreAPK() and it returns EGoogleARCoreInstallStatus::Requrested. You can call this function to check the install requst result.
@@ -100,14 +100,14 @@ public:
 	//-------------------Trackables-------------------------
 	/**
 	 * Gets a list of all valid UARPlaneGeometry objects that ARCore is currently tracking.
-	 * Planes that have entered the EARTrackingState::StoppedTracking state or for which 
+	 * Planes that have entered the EARTrackingState::StoppedTracking state or for which
 	 * UARPlaneGeometry::GetSubsumedBy returns non-null will not be included.
 	 *
 	 * @param OutAnchorList		An array that contains all the valid planes detected by ARCore.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "GoogleARCore|TrackablePlane", meta = (Keywords = "googlear arcore all plane"))
 	static void GetAllPlanes(TArray<UARPlaneGeometry*>& OutPlaneList);
-	
+
 	/**
 	 * Gets a list of all valid UARTrackedPoint objects that ARCore is currently tracking.
 	 * TrackablePoint that have entered the EARTrackingState::StoppedTracking state will not be included.
@@ -119,6 +119,7 @@ public:
 
 	/** Template function to get all trackables from a given type. */
 	template< class T > static void GetAllTrackable(TArray<T*>& OutTrackableList);
+
 };
 
 /** A function library that provides static/Blueprint functions associated with most recent GoogleARCore tracking frame.*/
@@ -137,7 +138,7 @@ public:
 	static EGoogleARCoreTrackingState GetTrackingState();
 
 	/**
-	 * Gets the latest tracking pose in Unreal world space of the ARCore device.
+	 * Gets the latest tracking pose of the ARCore device in Unreal AR Tracking Space
 	 *
 	 * Note that ARCore motion tracking has already integrated with HMD and the motion controller interface.
 	 * Use this function only if you need to implement your own tracking component.
@@ -199,9 +200,9 @@ public:
 
 	/**
 	 * Gets the latest point cloud that will be only available for this frame.
-	 * If you want to keep the point cloud data, you can either copy it to your own struct 
+	 * If you want to keep the point cloud data, you can either copy it to your own struct
 	 * or call AcquireLatestPointCloud() to avoid the copy.
-	 * 
+	 *
 	 * @param OutLatestPointCloud		A pointer point to the latest point cloud.
 	 * @return  An EGoogleARCoreFunctionStatus. Possible value: Success, SessionPaused, ResourceExhausted.
 	 */
@@ -228,4 +229,13 @@ public:
 	 */
 	static EGoogleARCoreFunctionStatus GetCameraMetadata(const ACameraMetadata*& OutCameraMetadata);
 #endif
+
+	/**
+	 * Acquire a CPU-accessible camera image.
+	 *
+	 * @param OutLatestCameraImage    A place to store the pointer to a new UGoogleARCoreCameraImage instance.
+	 * @return An EGoogleARCoreFunctionStatus. Possible value: Success, ResourceExhausted, NotAvailable.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "GoogleARCore|PassthroughCamera", meta = (Keywords = "googlear arcore passthroughcamera"))
+	static EGoogleARCoreFunctionStatus AcquireCameraImage(UGoogleARCoreCameraImage *&OutLatestCameraImage);
 };

@@ -28,6 +28,7 @@ FAnimNode_TwoBoneIK::FAnimNode_TwoBoneIK()
 	, JointTargetLocationSpace(BCS_ComponentSpace)
 	, JointTargetLocation(FVector::ZeroVector)
 	, bAllowTwist(true)
+	, bNoTwist_DEPRECATED(false)
 	, CachedUpperLimbIndex(INDEX_NONE)
 	, CachedLowerLimbIndex(INDEX_NONE)
 {

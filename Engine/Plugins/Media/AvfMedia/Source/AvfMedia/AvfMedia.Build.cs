@@ -38,7 +38,6 @@ namespace UnrealBuildTool.Rules
 					"AvfMedia/Private",
 					"AvfMedia/Private/Player",
 					"AvfMedia/Private/Shared",
-					"AvfMedia/Private/Tracks",
 				});
 
 			PublicFrameworks.AddRange(

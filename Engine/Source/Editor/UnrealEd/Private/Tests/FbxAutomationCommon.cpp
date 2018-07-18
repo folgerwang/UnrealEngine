@@ -11,7 +11,7 @@
 #include "Factories/FbxStaticMeshImportData.h"
 #include "Factories/FbxTextureImportData.h"
 #include "Factories/FbxImportUI.h"
-
+#include "Settings/EditorExperimentalSettings.h"
 #include "JsonObjectConverter.h"
 
 

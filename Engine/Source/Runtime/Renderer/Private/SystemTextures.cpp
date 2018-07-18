@@ -8,6 +8,7 @@
 #include "Math/RandomStream.h"
 #include "PostProcess/RenderTargetPool.h"
 #include "ClearQuad.h"
+#include "LTC.h"
 
 /*-----------------------------------------------------------------------------
 SystemTextures
@@ -29,7 +30,7 @@ void FSystemTextures::InternalInitializeTextures(FRHICommandListImmediate& RHICm
 			GRenderTargetPool.FindFreeElement(RHICmdList, Desc, WhiteDummy, TEXT("WhiteDummy"), true, ERenderTargetTransience::NonTransient);
 
 			SetRenderTarget(RHICmdList, WhiteDummy->GetRenderTargetItem().TargetableTexture, FTextureRHIRef(), ESimpleRenderTargetMode::EClearColorExistingDepth);
-			RHICmdList.CopyToResolveTarget(WhiteDummy->GetRenderTargetItem().TargetableTexture, WhiteDummy->GetRenderTargetItem().ShaderResourceTexture, true, FResolveParams());
+			RHICmdList.CopyToResolveTarget(WhiteDummy->GetRenderTargetItem().TargetableTexture, WhiteDummy->GetRenderTargetItem().ShaderResourceTexture, FResolveParams());
 		}
 
 		// Create a BlackDummy texture
@@ -39,7 +40,7 @@ void FSystemTextures::InternalInitializeTextures(FRHICommandListImmediate& RHICm
 			GRenderTargetPool.FindFreeElement(RHICmdList, Desc, BlackDummy, TEXT("BlackDummy"), true, ERenderTargetTransience::NonTransient);
 
 			SetRenderTarget(RHICmdList, BlackDummy->GetRenderTargetItem().TargetableTexture, FTextureRHIRef(), ESimpleRenderTargetMode::EClearColorExistingDepth);
-			RHICmdList.CopyToResolveTarget(BlackDummy->GetRenderTargetItem().TargetableTexture, BlackDummy->GetRenderTargetItem().ShaderResourceTexture, true, FResolveParams());
+			RHICmdList.CopyToResolveTarget(BlackDummy->GetRenderTargetItem().TargetableTexture, BlackDummy->GetRenderTargetItem().ShaderResourceTexture, FResolveParams());
 		}
 
 		// Create a BlackAlphaOneDummy texture
@@ -49,7 +50,7 @@ void FSystemTextures::InternalInitializeTextures(FRHICommandListImmediate& RHICm
 			GRenderTargetPool.FindFreeElement(RHICmdList, Desc, BlackAlphaOneDummy, TEXT("BlackAlphaOneDummy"), true, ERenderTargetTransience::NonTransient);
 
 			SetRenderTarget(RHICmdList, BlackAlphaOneDummy->GetRenderTargetItem().TargetableTexture, FTextureRHIRef(), ESimpleRenderTargetMode::EClearColorExistingDepth);
-			RHICmdList.CopyToResolveTarget(BlackAlphaOneDummy->GetRenderTargetItem().TargetableTexture, BlackAlphaOneDummy->GetRenderTargetItem().ShaderResourceTexture, true, FResolveParams());
+			RHICmdList.CopyToResolveTarget(BlackAlphaOneDummy->GetRenderTargetItem().TargetableTexture, BlackAlphaOneDummy->GetRenderTargetItem().ShaderResourceTexture, FResolveParams());
 		}
 
 		// Create a GreenDummy texture
@@ -59,7 +60,7 @@ void FSystemTextures::InternalInitializeTextures(FRHICommandListImmediate& RHICm
 			GRenderTargetPool.FindFreeElement(RHICmdList, Desc, GreenDummy, TEXT("GreenDummy"), true, ERenderTargetTransience::NonTransient);
 
 			SetRenderTarget(RHICmdList, GreenDummy->GetRenderTargetItem().TargetableTexture, FTextureRHIRef(), ESimpleRenderTargetMode::EClearColorExistingDepth);
-			RHICmdList.CopyToResolveTarget(GreenDummy->GetRenderTargetItem().TargetableTexture, GreenDummy->GetRenderTargetItem().ShaderResourceTexture, true, FResolveParams());
+			RHICmdList.CopyToResolveTarget(GreenDummy->GetRenderTargetItem().TargetableTexture, GreenDummy->GetRenderTargetItem().ShaderResourceTexture, FResolveParams());
 		}
 
 		// Create a DefaultNormal8Bit texture
@@ -69,7 +70,7 @@ void FSystemTextures::InternalInitializeTextures(FRHICommandListImmediate& RHICm
 			GRenderTargetPool.FindFreeElement(RHICmdList, Desc, DefaultNormal8Bit, TEXT("DefaultNormal8Bit"), true, ERenderTargetTransience::NonTransient);
 
 			SetRenderTarget(RHICmdList, DefaultNormal8Bit->GetRenderTargetItem().TargetableTexture, FTextureRHIRef(), ESimpleRenderTargetMode::EClearColorExistingDepth);
-			RHICmdList.CopyToResolveTarget(DefaultNormal8Bit->GetRenderTargetItem().TargetableTexture, DefaultNormal8Bit->GetRenderTargetItem().ShaderResourceTexture, true, FResolveParams());
+			RHICmdList.CopyToResolveTarget(DefaultNormal8Bit->GetRenderTargetItem().TargetableTexture, DefaultNormal8Bit->GetRenderTargetItem().ShaderResourceTexture, FResolveParams());
 		}
 
 		// Create the PerlinNoiseGradient texture
@@ -159,7 +160,7 @@ void FSystemTextures::InternalInitializeTextures(FRHICommandListImmediate& RHICm
 			FRHIRenderTargetView RtView = FRHIRenderTargetView(MaxFP16Depth->GetRenderTargetItem().TargetableTexture, ERenderTargetLoadAction::EClear);
 			FRHISetRenderTargetsInfo Info(1, &RtView, FRHIDepthRenderTargetView());
 			RHICmdList.SetRenderTargetsAndClear(Info);
-			RHICmdList.CopyToResolveTarget(MaxFP16Depth->GetRenderTargetItem().TargetableTexture, MaxFP16Depth->GetRenderTargetItem().ShaderResourceTexture, true, FResolveParams());
+			RHICmdList.CopyToResolveTarget(MaxFP16Depth->GetRenderTargetItem().TargetableTexture, MaxFP16Depth->GetRenderTargetItem().ShaderResourceTexture, FResolveParams());
 		}
 
 		// Create dummy 1x1 depth texture		
@@ -170,7 +171,7 @@ void FSystemTextures::InternalInitializeTextures(FRHICommandListImmediate& RHICm
 
 			FRHISetRenderTargetsInfo Info(0, nullptr, FRHIDepthRenderTargetView(DepthDummy->GetRenderTargetItem().TargetableTexture, ERenderTargetLoadAction::EClear, ERenderTargetStoreAction::EStore));
 			RHICmdList.SetRenderTargetsAndClear(Info);
-			RHICmdList.CopyToResolveTarget(DepthDummy->GetRenderTargetItem().TargetableTexture, DepthDummy->GetRenderTargetItem().ShaderResourceTexture, true, FResolveParams());
+			RHICmdList.CopyToResolveTarget(DepthDummy->GetRenderTargetItem().TargetableTexture, DepthDummy->GetRenderTargetItem().ShaderResourceTexture, FResolveParams());
 		}
 	}
 
@@ -464,6 +465,50 @@ void FSystemTextures::InternalInitializeTextures(FRHICommandListImmediate& RHICm
 			}
 			RHICmdList.UnlockTexture2D((FTexture2DRHIRef&)PreintegratedGF->GetRenderTargetItem().ShaderResourceTexture, 0, false);
 		}
+
+		{
+			FPooledRenderTargetDesc Desc(FPooledRenderTargetDesc::Create2DDesc(FIntPoint( LTC_Size, LTC_Size ), PF_FloatRGBA, FClearValueBinding::None, TexCreate_FastVRAM, TexCreate_None, false));
+			Desc.AutoWritable = false;
+
+			GRenderTargetPool.FindFreeElement(RHICmdList, Desc, LTCMat, TEXT("LTCMat"));
+			// Write the contents of the texture.
+			uint32 DestStride;
+			uint8* DestBuffer = (uint8*)RHICmdList.LockTexture2D((FTexture2DRHIRef&)LTCMat->GetRenderTargetItem().ShaderResourceTexture, 0, RLM_WriteOnly, DestStride, false);
+
+			for(int32 y = 0; y < Desc.Extent.Y; ++y)
+			{
+				for(int32 x = 0; x < Desc.Extent.X; ++x)
+				{
+					uint16* Dest = (uint16*)(DestBuffer + x * 4 * sizeof(uint16) + y * DestStride);
+
+					for( int k = 0; k < 4; k++ )
+						Dest[k] = FFloat16( LTC_Mat[ 4 * (x + y * LTC_Size) + k ] ).Encoded;
+				}
+			}
+			RHICmdList.UnlockTexture2D((FTexture2DRHIRef&)LTCMat->GetRenderTargetItem().ShaderResourceTexture, 0, false);
+		}
+
+		{
+			FPooledRenderTargetDesc Desc(FPooledRenderTargetDesc::Create2DDesc(FIntPoint( LTC_Size, LTC_Size ), PF_G16R16F, FClearValueBinding::None, TexCreate_FastVRAM, TexCreate_None, false));
+			Desc.AutoWritable = false;
+
+			GRenderTargetPool.FindFreeElement(RHICmdList, Desc, LTCAmp, TEXT("LTCAmp"));
+			// Write the contents of the texture.
+			uint32 DestStride;
+			uint8* DestBuffer = (uint8*)RHICmdList.LockTexture2D((FTexture2DRHIRef&)LTCAmp->GetRenderTargetItem().ShaderResourceTexture, 0, RLM_WriteOnly, DestStride, false);
+
+			for(int32 y = 0; y < Desc.Extent.Y; ++y)
+			{
+				for(int32 x = 0; x < Desc.Extent.X; ++x)
+				{
+					uint16* Dest = (uint16*)(DestBuffer + x * 2 * sizeof(uint16) + y * DestStride);
+
+					for( int k = 0; k < 2; k++ )
+						Dest[k] = FFloat16( LTC_Amp[ 4 * (x + y * LTC_Size) + k ] ).Encoded;
+				}
+			}
+			RHICmdList.UnlockTexture2D((FTexture2DRHIRef&)LTCAmp->GetRenderTargetItem().ShaderResourceTexture, 0, false);
+		}
 	}
 
 	// Initialize textures only once.
@@ -481,6 +526,8 @@ void FSystemTextures::ReleaseDynamicRHI()
 	SobolSampling.SafeRelease();
 	SSAORandomization.SafeRelease();
 	PreintegratedGF.SafeRelease();
+	LTCMat.SafeRelease();
+	LTCAmp.SafeRelease();
 	MaxFP16Depth.SafeRelease();
 	DepthDummy.SafeRelease();
 	GreenDummy.SafeRelease();

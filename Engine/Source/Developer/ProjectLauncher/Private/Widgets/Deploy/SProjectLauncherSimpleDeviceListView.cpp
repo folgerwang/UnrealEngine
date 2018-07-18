@@ -97,7 +97,9 @@ void SProjectLauncherSimpleDeviceListView::Construct(const FArguments& InArgs, c
 
 	DeviceProxyManager->OnProxyAdded().AddSP(this, &SProjectLauncherSimpleDeviceListView::HandleDeviceProxyManagerProxyAdded);
 	DeviceProxyManager->OnProxyRemoved().AddSP(this, &SProjectLauncherSimpleDeviceListView::HandleDeviceProxyManagerProxyRemoved);
-	DeviceProxyManager->GetProxies(NAME_None, false, DeviceProxyList);
+
+	// the list should also contain the aggregate (All_<platform>_devices_on_<host>) proxy
+	DeviceProxyManager->GetAllProxies(NAME_None, DeviceProxyList);
 
 }
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION
@@ -108,7 +110,8 @@ END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
 void SProjectLauncherSimpleDeviceListView::RefreshDeviceProxyList()
 {
-	Model->GetDeviceProxyManager()->GetProxies(NAME_None, false, DeviceProxyList);
+	// the list should also contain the aggregate (All_<platform>_devices_on_<host>) proxy
+	Model->GetDeviceProxyManager()->GetAllProxies(NAME_None, DeviceProxyList);
 	DeviceProxyListView->RequestListRefresh();
 }
 
@@ -131,9 +134,30 @@ void SProjectLauncherSimpleDeviceListView::HandleDeviceManagerHyperlinkNavigate(
 FText SProjectLauncherSimpleDeviceListView::HandleDeviceListRowToolTipText(TSharedPtr<ITargetDeviceProxy> DeviceProxy) const
 {
 	FTextBuilder Builder;
-	Builder.AppendLineFormat(LOCTEXT("DeviceListRowToolTipName", "Name: {0}"), FText::FromString(DeviceProxy->GetName()));
-//	Builder.AppendLineFormat(LOCTEXT("DeviceListRowToolTipPlatform", "Platform: {0}"), FText::FromString(DeviceProxy->GetTargetPlatformName(SimpleProfile->GetDeviceVariant())));
-//	Builder.AppendLineFormat(LOCTEXT("DeviceListRowToolTipDeviceId", "Device ID: {0}"), FText::FromString(DeviceProxy->GetTargetDeviceId(SimpleProfile->GetDeviceVariant())));
+	// aggregate (All_<platform>_devices_on_<host>) proxy - create the tool tip with the device list
+	if (DeviceProxy->IsAggregated())
+	{
+		FString DeviceListStr;
+		ILauncherSimpleProfilePtr SimpleProfile = Model->GetProfileManager()->FindSimpleProfile(DeviceProxy->GetName());
+		FName ProfileName = SimpleProfile.IsValid()? SimpleProfile->GetDeviceVariant(): NAME_None;
+
+		const TSet<FString>& TargetDeviceIds = DeviceProxy->GetTargetDeviceIds(ProfileName);
+		for (TSet<FString>::TConstIterator ItDeviceId(TargetDeviceIds); ItDeviceId; ++ItDeviceId)
+		{
+			TSharedPtr<ITargetDeviceProxy> PhysicalDeviceProxy = Model->GetDeviceProxyManager()->FindProxyDeviceForTargetDevice(*ItDeviceId);
+
+			if (PhysicalDeviceProxy.IsValid())
+			{
+				DeviceListStr.AppendChar('\n');
+				DeviceListStr.Append(*PhysicalDeviceProxy->GetName());
+			}
+		}
+		Builder.AppendLineFormat(LOCTEXT("DeviceListRowToolTipName", "Name: {0}\nDevices: {1}"), FText::FromString(DeviceProxy->GetName()), FText::FromString(DeviceListStr));
+	}
+	else
+	{
+		Builder.AppendLineFormat(LOCTEXT("DeviceListRowToolTipName", "Name: {0}"), FText::FromString(DeviceProxy->GetName()));
+	}
 
 	return Builder.ToText();
 }

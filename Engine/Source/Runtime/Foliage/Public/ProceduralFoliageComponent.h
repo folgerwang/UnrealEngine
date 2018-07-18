@@ -87,7 +87,7 @@ class FOLIAGE_API UProceduralFoliageComponent : public UActorComponent
 	bool GenerateProceduralContent(TArray<FDesiredFoliageInstance>& OutFoliageInstances);
 	
 	/** Removes all spawned foliage instances in the level that were spawned by this component */
-	void RemoveProceduralContent();
+	void RemoveProceduralContent(bool InRebuildTree = true);
 
 	/** @return True if any foliage instances in the level were spawned by this component */
 	bool HasSpawnedAnyInstances();

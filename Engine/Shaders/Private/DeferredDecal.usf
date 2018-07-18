@@ -16,6 +16,8 @@ float4x4 SvPositionToDecal;
 float4x4 DecalToWorld;
 // to transform position from world space to decal space, for normals use transpose of inverse
 float4x4 WorldToDecal;
+// decal orientation in world space, X axis. Used for ObjectOrientation material expression
+float3 DecalOrientation;
 
 // DECAL_PRIMITIVE informs material templates which functions to expose when rendering decals.
 #define DECAL_PRIMITIVE 1
@@ -240,6 +242,16 @@ void FPixelShaderInOut_MainPS(inout FPixelShaderIn In, inout FPixelShaderOut Out
 		MaterialParameters.WorldPosition_NoOffsets_CamRelative = WSPosition;
 	FPixelMaterialInputs PixelMaterialInputs;
 	CalcPixelMaterialInputs(MaterialParameters, PixelMaterialInputs);
+	
+	float DecalFading = saturate(4 - 4 * abs(SwizzlePos.z * 2 - 1)) * DecalParams.x * DecalParams.y;
+
+	#if DECAL_BLEND_MODE == DECALBLENDMODEID_AO
+	{
+		float AmbientOcclusion = lerp(1, GetMaterialAmbientOcclusion(PixelMaterialInputs), DecalFading);
+		Out.MRT[0] = float4(AmbientOcclusion, AmbientOcclusion, AmbientOcclusion, AmbientOcclusion);
+		return;
+	}
+	#endif
 
 	if(bVolumetric)
 	{
@@ -281,15 +293,8 @@ void FPixelShaderInOut_MainPS(inout FPixelShaderIn In, inout FPixelShaderOut Out
 			Color+= BaseColor;
 		#endif
 	#endif
-
-	float Opacity = GetMaterialOpacity(PixelMaterialInputs);
-
-	// Z fade
-	Opacity *= saturate( 4 - 4 * abs( SwizzlePos.z * 2 - 1 ) );
-
-	// decal fade
-	Opacity *= DecalParams.x;
-	Opacity *= DecalParams.y;
+	
+	float Opacity = GetMaterialOpacity(PixelMaterialInputs) * DecalFading;
 
 	FGBufferData GBufferData;
 
@@ -304,7 +309,7 @@ void FPixelShaderInOut_MainPS(inout FPixelShaderIn In, inout FPixelShaderOut Out
 	GBufferData.GBufferAO = 1;
 	GBufferData.ShadingModelID = SHADINGMODELID_DEFAULT_LIT;
 	GBufferData.SelectiveOutputMask = 0;
-	GBufferData.PerObjectGBufferData = 1;
+	GBufferData.PerObjectGBufferData = 1; 
 
 	DecalCommonOutput(In, Out, Color, Opacity, GBufferData);
 }

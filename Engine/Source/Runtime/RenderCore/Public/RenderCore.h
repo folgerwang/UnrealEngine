@@ -49,6 +49,7 @@ DECLARE_CYCLE_STAT_EXTERN(TEXT("Decompress Occlusion"),STAT_DecompressPrecompute
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Frustum Cull"),STAT_FrustumCull,STATGROUP_InitViews, RENDERCORE_API);
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Update Fading"),STAT_UpdatePrimitiveFading,STATGROUP_InitViews, RENDERCORE_API);
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Occlusion Cull"),STAT_OcclusionCull,STATGROUP_InitViews, RENDERCORE_API);
+DECLARE_CYCLE_STAT_EXTERN(TEXT("Software Occlusion Cull"),STAT_SoftwareOcclusionCull,STATGROUP_InitViews, RENDERCORE_API);
 DECLARE_CYCLE_STAT_EXTERN(TEXT("View Relevance"),STAT_ViewRelevance,STATGROUP_InitViews, RENDERCORE_API);
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Compute View Relevance"),STAT_ComputeViewRelevance,STATGROUP_InitViews, RENDERCORE_API);
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Static Mesh Relevance"),STAT_StaticRelevance,STATGROUP_InitViews, RENDERCORE_API);
@@ -275,6 +276,8 @@ extern RENDERCORE_API uint32 GRenderThreadNumIdle[ERenderThreadIdleTypes::Num];
 extern RENDERCORE_API FInputLatencyTimer GInputLatencyTimer;
 /** How many cycles the renderthread used (excluding idle time). It's set once per frame in FViewport::Draw. */
 extern RENDERCORE_API uint32 GRenderThreadTime;
+/** How many cycles the rhithread used (excluding idle time). */
+extern RENDERCORE_API uint32 GRHIThreadTime;
 /** How many cycles the gamethread used (excluding idle time). It's set once per frame in FViewport::Draw. */
 extern RENDERCORE_API uint32 GGameThreadTime;
 /** How many cycles it took to swap buffers to present the frame. */

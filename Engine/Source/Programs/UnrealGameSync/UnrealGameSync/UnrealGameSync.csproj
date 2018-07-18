@@ -97,6 +97,7 @@
       <HintPath>ThirdParty\Ionic.Zip.Reduced.dll</HintPath>
     </Reference>
     <Reference Include="System" />
+    <Reference Include="System.Activities" />
     <Reference Include="System.Core" />
     <Reference Include="System.Web.Extensions" />
     <Reference Include="System.Xml.Linq" />
@@ -121,6 +122,9 @@
     </Compile>
     <Compile Include="Controls\SyncFilterControl.Designer.cs">
       <DependentUpon>SyncFilterControl.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Controls\TextBoxWithCueBanner.cs">
+      <SubType>Component</SubType>
     </Compile>
     <Compile Include="Controls\WorkspaceControl.cs">
       <SubType>UserControl</SubType>
@@ -163,17 +167,71 @@
     <Compile Include="Forms\ClobberWindow.Designer.cs">
       <DependentUpon>ClobberWindow.cs</DependentUpon>
     </Compile>
+    <Compile Include="Forms\ConnectWindow.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\ConnectWindow.Designer.cs">
+      <DependentUpon>ConnectWindow.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Forms\NewWorkspaceWindow.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\NewWorkspaceWindow.Designer.cs">
+      <DependentUpon>NewWorkspaceWindow.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Forms\DeleteWindow.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\DeleteWindow.Designer.cs">
+      <DependentUpon>DeleteWindow.cs</DependentUpon>
+    </Compile>
     <Compile Include="Forms\NotificationWindow.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="Forms\NotificationWindow.Designer.cs">
       <DependentUpon>NotificationWindow.cs</DependentUpon>
     </Compile>
+    <Compile Include="Forms\OpenProjectWindow.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\OpenProjectWindow.Designer.cs">
+      <DependentUpon>OpenProjectWindow.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Forms\PasswordWindow.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\PasswordWindow.Designer.cs">
+      <DependentUpon>PasswordWindow.cs</DependentUpon>
+    </Compile>
     <Compile Include="Forms\PerforceSettingsWindow.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="Forms\PerforceSettingsWindow.Designer.cs">
       <DependentUpon>PerforceSettingsWindow.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Forms\ProgramsRunningWindow.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\ProgramsRunningWindow.Designer.cs">
+      <DependentUpon>ProgramsRunningWindow.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Forms\SelectProjectFromWorkspaceWindow.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\SelectProjectFromWorkspaceWindow.Designer.cs">
+      <DependentUpon>SelectProjectFromWorkspaceWindow.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Forms\SelectStreamWindow.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\SelectStreamWindow.Designer.cs">
+      <DependentUpon>SelectStreamWindow.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Forms\SelectWorkspaceWindow.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\SelectWorkspaceWindow.Designer.cs">
+      <DependentUpon>SelectWorkspaceWindow.cs</DependentUpon>
     </Compile>
     <Compile Include="Forms\SyncFilterSyntax.cs">
       <SubType>Form</SubType>
@@ -249,7 +307,10 @@
     <Compile Include="Forms\SyncFilter.Designer.cs">
       <DependentUpon>SyncFilter.cs</DependentUpon>
     </Compile>
+    <Compile Include="ModalTask.cs" />
+    <Compile Include="PerforceModalTask.cs" />
     <Compile Include="PerforceMonitor.cs" />
+    <Compile Include="ProgramApplicationContext.cs" />
     <Compile Include="Properties\Resources.Designer.cs">
       <AutoGen>True</AutoGen>
       <DesignTime>True</DesignTime>
@@ -259,6 +320,7 @@
     <Compile Include="Telemetry.cs" />
     <Compile Include="UpdateMonitor.cs" />
     <Compile Include="UserSettings.cs" />
+    <Compile Include="RESTApi.cs" />
     <Compile Include="Workspace.cs" />
     <Compile Include="OutputAdapters.cs" />
     <Compile Include="Perforce.cs" />
@@ -280,11 +342,38 @@
     <EmbeddedResource Include="Forms\ClobberWindow.resx">
       <DependentUpon>ClobberWindow.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="Forms\ConnectWindow.resx">
+      <DependentUpon>ConnectWindow.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Forms\NewWorkspaceWindow.resx">
+      <DependentUpon>NewWorkspaceWindow.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Forms\DeleteWindow.resx">
+      <DependentUpon>DeleteWindow.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Forms\NotificationWindow.resx">
       <DependentUpon>NotificationWindow.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="Forms\OpenProjectWindow.resx">
+      <DependentUpon>OpenProjectWindow.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Forms\PasswordWindow.resx">
+      <DependentUpon>PasswordWindow.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Forms\PerforceSettingsWindow.resx">
       <DependentUpon>PerforceSettingsWindow.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Forms\ProgramsRunningWindow.resx">
+      <DependentUpon>ProgramsRunningWindow.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Forms\SelectProjectFromWorkspaceWindow.resx">
+      <DependentUpon>SelectProjectFromWorkspaceWindow.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Forms\SelectStreamWindow.resx">
+      <DependentUpon>SelectStreamWindow.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Forms\SelectWorkspaceWindow.resx">
+      <DependentUpon>SelectWorkspaceWindow.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\SyncFilterSyntax.resx">
       <DependentUpon>SyncFilterSyntax.cs</DependentUpon>
@@ -376,6 +465,7 @@
     </BootstrapperPackage>
   </ItemGroup>
   <ItemGroup>
+    <Content Include="Resources\Perforce.png" />
     <None Include="Resources\DefaultErrorLogo.png" />
     <Content Include="Resources\DefaultProjectLogo.png" />
     <Content Include="Resources\DefaultNotificationLogo.png" />

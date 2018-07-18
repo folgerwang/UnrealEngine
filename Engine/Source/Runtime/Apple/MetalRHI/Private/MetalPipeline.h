@@ -47,39 +47,46 @@ enum EMetalPipelineHashOffsets
 	Offset_End = Offset_SampleCount + NumBits_SampleCount
 };
 
-
-@interface FMetalTessellationPipelineDesc : FApplePlatformObject
-@property (nonatomic, retain) MTLVertexDescriptor* DomainVertexDescriptor;
-@property (nonatomic) NSUInteger TessellationInputControlPointBufferIndex;
-@property (nonatomic) NSUInteger TessellationOutputControlPointBufferIndex;
-@property (nonatomic) NSUInteger TessellationPatchControlPointOutSize;
-@property (nonatomic) NSUInteger TessellationPatchConstBufferIndex;
-@property (nonatomic) NSUInteger TessellationInputPatchConstBufferIndex;
-@property (nonatomic) NSUInteger TessellationPatchConstOutSize;
-@property (nonatomic) NSUInteger TessellationTessFactorOutSize;
-@property (nonatomic) NSUInteger TessellationFactorBufferIndex;
-@property (nonatomic) NSUInteger TessellationPatchCountBufferIndex;
-@property (nonatomic) NSUInteger TessellationControlPointIndexBufferIndex;
-@property (nonatomic) NSUInteger TessellationIndexBufferIndex;
-@property (nonatomic) NSUInteger DSNumUniformBuffers; // DEBUG ONLY
-@end
+struct FMetalTessellationPipelineDesc
+{
+	FMetalTessellationPipelineDesc()
+	: DomainVertexDescriptor(nil)
+	{
+	}
+	mtlpp::VertexDescriptor DomainVertexDescriptor;
+	NSUInteger TessellationInputControlPointBufferIndex;
+	NSUInteger TessellationOutputControlPointBufferIndex;
+	NSUInteger TessellationPatchControlPointOutSize;
+	NSUInteger TessellationPatchConstBufferIndex;
+	NSUInteger TessellationInputPatchConstBufferIndex;
+	NSUInteger TessellationPatchConstOutSize;
+	NSUInteger TessellationTessFactorOutSize;
+	NSUInteger TessellationFactorBufferIndex;
+	NSUInteger TessellationPatchCountBufferIndex;
+	NSUInteger TessellationControlPointIndexBufferIndex;
+	NSUInteger TessellationIndexBufferIndex;
+	NSUInteger DSNumUniformBuffers; // DEBUG ONLY
+};
 
 @interface FMetalShaderPipeline : FApplePlatformObject
 {
-#if METAL_DEBUG_OPTIONS
 @public
+	mtlpp::RenderPipelineState RenderPipelineState;
+	mtlpp::ComputePipelineState ComputePipelineState;
+	FMetalTessellationPipelineDesc TessellationPipelineDesc;
+#if METAL_DEBUG_OPTIONS
 	FMetalDebugShaderResourceMask ResourceMask[EMetalShaderStagesNum];
+	mtlpp::RenderPipelineReflection RenderPipelineReflection;
+	mtlpp::ComputePipelineReflection ComputePipelineReflection;
+	ns::String VertexSource;
+	ns::String FragmentSource;
+	ns::String ComputeSource;
+	mtlpp::RenderPipelineDescriptor RenderDesc;
+	mtlpp::ComputePipelineDescriptor ComputeDesc;
 #endif
 }
-@property (nonatomic, retain) id<MTLRenderPipelineState> RenderPipelineState;
-@property (nonatomic, retain) id<MTLComputePipelineState> ComputePipelineState;
-@property (nonatomic, retain) FMetalTessellationPipelineDesc* TessellationPipelineDesc;
 #if METAL_DEBUG_OPTIONS
-@property (nonatomic, retain) MTLRenderPipelineReflection* RenderPipelineReflection;
-@property (nonatomic, retain) MTLComputePipelineReflection* ComputePipelineReflection;
-@property (nonatomic, retain) NSString* VertexSource;
-@property (nonatomic, retain) NSString* FragmentSource;
-@property (nonatomic, retain) NSString* ComputeSource;
+- (instancetype)init;
 - (void)initResourceMask;
 - (void)initResourceMask:(EMetalShaderFrequency)Frequency;
 #endif

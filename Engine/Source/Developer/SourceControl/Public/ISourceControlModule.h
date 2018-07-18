@@ -85,7 +85,7 @@ public:
 	virtual void QueueStatusUpdate(const FString& InFilename) = 0;
 
 	/**
-	 * Check whether source control is enabled.
+	 * Check whether source control is enabled.	Specifically, it returns true if a source control provider is set (regardless of whether the provider is available) and false if no provider is set.
 	 */
 	virtual bool IsEnabled() const = 0;
 

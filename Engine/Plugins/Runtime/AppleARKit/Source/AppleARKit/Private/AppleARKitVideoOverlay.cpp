@@ -20,11 +20,11 @@
 #include "Containers/DynamicRHIResourceArray.h"
 #include "PostProcess/SceneFilterRendering.h"
 #include "PostProcessParameters.h"
-#if ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
-#include "IOSAppDelegate.h"
+#if SUPPORTS_ARKIT_1_0
+	#include "IOSAppDelegate.h"
 #endif
 
-#if ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
+#if SUPPORTS_ARKIT_1_0
 /**
 * Passes a CVMetalTextureRef through to the RHI to wrap in an RHI texture without traversing system memory.
 * @see FAvfTexture2DResourceWrapper & FMetalSurface::FMetalSurface
@@ -79,7 +79,7 @@ public:
 
 	CFTypeRef ImageBuffer;
 };
-#endif // ARKIT_SUPPORT
+#endif
 
 FAppleARKitVideoOverlay::FAppleARKitVideoOverlay()
 	: RenderingOverlayMaterial(nullptr)
@@ -212,8 +212,8 @@ void FAppleARKitVideoOverlay::UpdateVideoTexture_RenderThread(FRHICommandListImm
 		}
 	}
 
-#if ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
-	if ([IOSAppDelegate GetDelegate].OSVersion >= 11.0f)
+#if SUPPORTS_ARKIT_1_0
+	if (FAppleARKitAvailability::SupportsARKit10())
 	{
 		check(IsMetalPlatform(GMaxRHIShaderPlatform));
 
@@ -248,7 +248,7 @@ void FAppleARKitVideoOverlay::UpdateVideoTexture_RenderThread(FRHICommandListImm
 			LastUpdateTimestamp = Frame.Timestamp;
 		}
 	}
-#endif // ARKIT_SUPPORT
+#endif
 }
 
 // We use something similar to the PostProcessMaterial to render the color camera overlay.
@@ -339,7 +339,7 @@ public:
 	void SetParameters(FRHICommandList& RHICmdList, const FSceneView View, const FMaterialRenderProxy* Material)
 	{
 		const FPixelShaderRHIParamRef ShaderRHI = GetPixelShader();
-		FMaterialShader::SetParameters(RHICmdList, ShaderRHI, Material, *Material->GetMaterial(View.GetFeatureLevel()), View, View.ViewUniformBuffer, true, ESceneRenderTargetsMode::DontSet);
+		FMaterialShader::SetParameters(RHICmdList, ShaderRHI, Material, *Material->GetMaterial(View.GetFeatureLevel()), View, View.ViewUniformBuffer, ESceneTextureSetupMode::None);
 
 		for (uint32 InputIter = 0; InputIter < ePId_Input_MAX; ++InputIter)
 		{
@@ -372,9 +372,9 @@ IMPLEMENT_MATERIAL_SHADER_TYPE(template<>, FARKitCameraOverlayPS<false>, TEXT("/
 
 void FAppleARKitVideoOverlay::RenderVideoOverlay_RenderThread(FRHICommandListImmediate& RHICmdList, const FSceneView& InView, const EScreenOrientation::Type DeviceOrientation)
 {
-#if ARKIT_SUPPORT && __IPHONE_OS_VERSION_MAX_ALLOWED >= 110000
+#if SUPPORTS_ARKIT_1_0
 
-	if ([IOSAppDelegate GetDelegate].OSVersion >= 11.0f)
+	if (FAppleARKitAvailability::SupportsARKit10())
 	{
 		if (RenderingOverlayMaterial == nullptr || !RenderingOverlayMaterial->IsValidLowLevel())
 		{
@@ -478,5 +478,5 @@ void FAppleARKitVideoOverlay::RenderVideoOverlay_RenderThread(FRHICommandListImm
 			);
 		}
 	}
-#endif // ARKIT_SUPPORT
+#endif
 }

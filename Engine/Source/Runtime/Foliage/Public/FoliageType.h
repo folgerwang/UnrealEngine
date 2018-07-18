@@ -121,15 +121,15 @@ public:
 	// PAINTING
 
 	/** Foliage instances will be placed at this density, specified in instances per 1000x1000 unit area */
-	UPROPERTY(EditAnywhere, Category=Painting, meta=(DisplayName="Density / 1Kuu", UIMin=0, ClampMin=0))
+	UPROPERTY(EditAnywhere, Category=Painting, meta=(DisplayName="Density / 1Kuu", UIMin = 0, ClampMin = 0, UIMax = 10000, ClampMax = 10000))
 	float Density;
 
 	/** The factor by which to adjust the density of instances. Values >1 will increase density while values <1 will decrease it. */
-	UPROPERTY(EditAnywhere, Category=Painting, meta=(UIMin=0, ClampMin=0, ReapplyCondition="ReapplyDensity"))
+	UPROPERTY(EditAnywhere, Category=Painting, meta=(UIMin=0, ClampMin=0, UIMax = 1000, ClampMax = 1000, ReapplyCondition="ReapplyDensity"))
 	float DensityAdjustmentFactor;
 
 	/** The minimum distance between foliage instances */
-	UPROPERTY(EditAnywhere, Category=Painting, meta=(UIMin=0, ClampMin=0, ReapplyCondition="ReapplyRadius"))
+	UPROPERTY(EditAnywhere, Category=Painting, meta=(UIMin=0, ClampMin=0, UIMax = 1000, ClampMax = 1000, ReapplyCondition="ReapplyRadius"))
 	float Radius;
 
 	/** Specifies foliage instance scaling behavior when painting. */
@@ -182,7 +182,7 @@ public:
 	uint32 AlignToNormal:1;
 
 	/** The maximum angle in degrees that foliage instances will be adjusted away from the vertical */
-	UPROPERTY(EditAnywhere, Category=Placement, meta=(HideBehind="AlignToNormal"))
+	UPROPERTY(EditAnywhere, Category=Placement, meta=(UIMin = 0, ClampMin = 0, UIMax = 359, ClampMax = 359, HideBehind="AlignToNormal"))
 	float AlignMaxAngle;
 
 	/** If selected, foliage instances will have a random yaw rotation around their vertical axis applied */
@@ -190,11 +190,11 @@ public:
 	uint32 RandomYaw:1;
 
 	/** A random pitch adjustment can be applied to each instance, up to the specified angle in degrees, from the original vertical */
-	UPROPERTY(EditAnywhere, Category=Placement, meta=(ReapplyCondition="ReapplyRandomPitchAngle"))
+	UPROPERTY(EditAnywhere, Category=Placement, meta=(UIMin = 0, ClampMin = 0, UIMax = 359, ClampMax = 359, ReapplyCondition="ReapplyRandomPitchAngle"))
 	float RandomPitchAngle;
 
 	/* Foliage instances will only be placed on surfaces sloping in the specified angle range from the horizontal */
-	UPROPERTY(EditAnywhere, Category=Placement, meta=(UIMin=0, ReapplyCondition="ReapplyGroundSlope"))
+	UPROPERTY(EditAnywhere, Category=Placement, meta=(UIMin=0, ClampMin = 0, UIMax = 359, ClampMax = 359, ReapplyCondition="ReapplyGroundSlope"))
 	FFloatInterval GroundSlopeAngle;
 
 	/* The valid altitude range where foliage instances will be placed, specified using minimum and maximum world coordinate Z values */

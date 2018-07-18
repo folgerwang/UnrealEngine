@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 
 #if PLATFORM_WINDOWS
-#include "WindowsHWrapper.h"
+#include "Windows/WindowsHWrapper.h"
 #endif
 
 THIRD_PARTY_INCLUDES_START
@@ -17,6 +17,7 @@ THIRD_PARTY_INCLUDES_END
 #include "GeometryCache.h"
 #include "GeometryCacheTrackFlipbookAnimation.h"
 #include "GeometryCacheTrackTransformAnimation.h"
+#include "GeometryCacheTrackStreamable.h"
 #include "GeometryCacheMeshData.h"
 #include "GeometryCacheComponent.h"
 
@@ -28,8 +29,19 @@ THIRD_PARTY_INCLUDES_END
 #include "AbcImportSettings.h"
 
 struct FAbcMeshSample;
-struct FAbcPolyMeshObject;
 struct FCompressedAbcData;
+
+enum class ESampleReadFlags : uint8
+{
+	Default = 0,
+	Positions = 1 << 1,
+	Indices = 1 << 2,
+	UVs = 1 << 3,
+	Normals = 1 << 4,
+	Colors = 1 << 5,
+	MaterialIndices = 1 << 6
+};
+ENUM_CLASS_FLAGS(ESampleReadFlags);
 
 namespace AbcImporterUtilities
 {
@@ -130,6 +142,20 @@ namespace AbcImporterUtilities
 		// Set new data
 		InOutData = NewData;
 	}
+
+	template<typename T> void ProcessVertexAttributeArray(const TArray<uint32>& InIndices, const TArray<uint32>& InFaceCounts, const bool bTriangulation, const uint32 NumVertices, TArray<T>& InOutArray)
+	{
+		// Expand using the vertex indices (if num entries == num vertices)
+		if (InOutArray.Num() != InIndices.Num() && InOutArray.Num() == NumVertices)
+		{
+			ExpandVertexAttributeArray(InIndices, InOutArray);
+		}
+		// Otherwise the attributes are stored per face, so triangulate if the faces contain quads
+		else if (bTriangulation)
+		{
+			TriangulateVertexAttributeBuffer(InFaceCounts, InOutArray);
+		}
+	}
 	
 	/** Triangulates material indices according to the face counts (quads will have to be split up into two faces / material indices)*/
 	void TriangulateMaterialIndices(const TArray<uint32>& InFaceCounts, TArray<int32>& InOutData);
@@ -142,24 +168,32 @@ namespace AbcImporterUtilities
 	}
 
 	/** Generates the data for an FAbcMeshSample instance given an Alembic PolyMesh schema and frame index */
-	FAbcMeshSample* GenerateAbcMeshSampleForFrame(Alembic::AbcGeom::IPolyMeshSchema& Schema, const Alembic::Abc::ISampleSelector FrameSelector, const bool bFirstFrame = false);
+	FAbcMeshSample* GenerateAbcMeshSampleForFrame(const Alembic::AbcGeom::IPolyMeshSchema& Schema, const Alembic::Abc::ISampleSelector FrameSelector, const ESampleReadFlags ReadFlags, const bool bFirstFrame = false);
+
+	/** Generates a sample read bit mask to reduce unnecessary reads / memory allocations */
+	ESampleReadFlags GenerateAbcMeshSampleReadFlags(const Alembic::AbcGeom::IPolyMeshSchema& Schema);
 
 	/** Generated smoothing groups based on the given face normals, will compare angle between adjacent normals to determine whether or not an edge is hard/soft
 		and calculates the smoothing group information with the edge data */
 	void GenerateSmoothingGroups(TMultiMap<uint32, uint32> &TouchingFaces, const TArray<FVector>& FaceNormals,
 		TArray<uint32>& FaceSmoothingGroups, uint32& HighestSmoothingGroup, const float HardAngleDotThreshold);
-	/** Read out texture coordinate data from Alembic GeometryParameter */
-	void ReadUVSetData(Alembic::AbcGeom::IV2fGeomParam &UVCoordinateParameter, const Alembic::Abc::ISampleSelector FrameSelector, TArray<FVector2D>& OutUVs, const TArray<uint32>& MeshIndices, const bool bNeedsTriangulation, const TArray<uint32>& FaceCounts);
+	
+	/** Generates AbcMeshSample with given parameters and schema */
+	bool GenerateAbcMeshSampleDataForFrame(const Alembic::AbcGeom::IPolyMeshSchema &Schema, const Alembic::Abc::ISampleSelector FrameSelector, FAbcMeshSample* &Sample, const ESampleReadFlags ReadFlags, const bool bFirstFrame );
 
-	void GenerateSmoothingGroupsIndices(FAbcMeshSample* MeshSample, const UAbcImportSettings* ImportSettings);
+	/** Read out texture coordinate data from Alembic GeometryParameter */
+	void ReadUVSetData(Alembic::AbcGeom::IV2fGeomParam &UVCoordinateParameter, const Alembic::Abc::ISampleSelector FrameSelector, TArray<FVector2D>& OutUVs, const TArray<uint32>& MeshIndices, const bool bNeedsTriangulation, const TArray<uint32>& FaceCounts, const int32 NumVertices);
+
+	void GenerateSmoothingGroupsIndices(FAbcMeshSample* MeshSample, float HardEdgeAngleThreshold);
 
 	void CalculateNormals(FAbcMeshSample* Sample);
 
 	void CalculateSmoothNormals(FAbcMeshSample* Sample);
 
 	void CalculateNormalsWithSmoothingGroups(FAbcMeshSample* Sample, const TArray<uint32>& SmoothingMasks, const uint32 NumSmoothingGroups);
+	void CalculateNormalsWithSampleData(FAbcMeshSample* Sample, const FAbcMeshSample* SourceSample);
 
-	void ComputeTangents(FAbcMeshSample* Sample, UAbcImportSettings* ImportSettings, IMeshUtilities& MeshUtilities);
+	void ComputeTangents(FAbcMeshSample* Sample, bool bIgnoreDegenerateTriangles, IMeshUtilities& MeshUtilities);
 
 	template<typename T> float RetrieveTimeForFrame(T& Schema, const uint32 FrameIndex)
 	{
@@ -188,24 +222,28 @@ namespace AbcImporterUtilities
 		// Ensure that the start frame is never lower that 0
 		StartFrame = FMath::Max<int32>( FMath::CeilToInt(StartTime / (float)SamplingType.getTimePerCycle()), 0 );
 	}
+
+	template<typename T> void GetStartTimeAndFrame(T& Schema, float& StartTime, int32& StartFrame)
+	{
+		checkf(Schema.valid(), TEXT("Invalid Schema"));
+		Alembic::AbcCoreAbstract::TimeSamplingPtr TimeSampler = Schema.getTimeSampling();
+
+		StartTime = (float)TimeSampler->getSampleTime(0);
+		Alembic::AbcCoreAbstract::TimeSamplingType SamplingType = TimeSampler->getTimeSamplingType();
+		// We know the seconds per frame, so if we take the time for the first stored sample we can work out how many 'empty' frames come before it
+		// Ensure that the start frame is never lower that 0
+		StartFrame = FMath::CeilToInt(StartTime / (float)SamplingType.getTimePerCycle());
+	}
 	
-	FAbcMeshSample* MergeMeshSamples(const TArray<FAbcMeshSample*>& Samples);
+	FAbcMeshSample* MergeMeshSamples(const TArray<const FAbcMeshSample*>& Samples);
 
 	FAbcMeshSample* MergeMeshSamples(FAbcMeshSample* MeshSampleOne, FAbcMeshSample* MeshSampleTwo);
 			
-	void AppendMeshSample(FAbcMeshSample* MeshSampleOne, FAbcMeshSample* MeshSampleTwo);
+	void AppendMeshSample(FAbcMeshSample* MeshSampleOne, const FAbcMeshSample* MeshSampleTwo);
 			
 	void GetHierarchyForObject(const Alembic::Abc::IObject& Object, TDoubleLinkedList<Alembic::AbcGeom::IXform>& Hierarchy);
 
 	void PropogateMatrixTransformationToSample(FAbcMeshSample* Sample, const FMatrix& Matrix);
-
-	FMatrix GetTransformationForFrame(const FAbcPolyMeshObject& Object, const Alembic::Abc::ISampleSelector FrameSelector);
-
-	/** Calculates the average frame data for the object (both vertex and normals) */
-	void CalculateAverageFrameData(const TSharedPtr<FAbcPolyMeshObject>& MeshObject, TArray<FVector>& AverageVertexData, TArray<FVector>& AverageNormalData, float& OutMinSampleTime, float& OutMaxSampleTime);
-
-	/** Generates the delta frame data for the given average and frame vertex data */
-	void GenerateDeltaFrameDataMatrix(const TSharedPtr<FAbcPolyMeshObject>& MeshObject, TArray<FVector>& AverageVertexData, TArray<float>& OutGeneratedMatrix);
 
 	/** Generates the delta frame data for the given average and frame vertex data */
 	void GenerateDeltaFrameDataMatrix(const TArray<FVector>& FrameVertexData, TArray<FVector>& AverageVertexData, const int32 SampleOffset, const int32 AverageVertexOffset, TArray<float>& OutGeneratedMatrix);
@@ -213,10 +251,7 @@ namespace AbcImporterUtilities
 	/** Populates compressed data structure from the result PCA compression bases and weights */
 	void GenerateCompressedMeshData(FCompressedAbcData& CompressedData, const uint32 NumUsedSingularValues, const uint32 NumSamples, const TArray<float>& BasesMatrix, const TArray<float>& BasesWeights, const float SampleTimeStep, const float StartTime);
 
-	/** Appends material names retrieve from the face sets to the compressed data */
-	void AppendMaterialNames(const TSharedPtr<FAbcPolyMeshObject>& MeshObject, FCompressedAbcData& CompressedData);
-	
-	void CalculateNewStartAndEndFrameIndices(const float FrameStepRatio, uint32& InOutStartFrameIndex, uint32& InOutEndFrameIndex );
+	void CalculateNewStartAndEndFrameIndices(const float FrameStepRatio, int32& InOutStartFrameIndex, int32& InOutEndFrameIndex );
 
 	bool AreVerticesEqual(const FSoftSkinVertex& V1, const FSoftSkinVertex& V2);
 
@@ -226,9 +261,16 @@ namespace AbcImporterUtilities
 	/** Applies user/preset conversion to the given matrices */
 	void ApplyConversion(TArray<FMatrix>& InOutMatrices, const FAbcConversionSettings& InConversionSettings);
 
+	/** Applies user/preset conversion to the given matrices */
+	void ApplyConversion(FMatrix& InOutMatrix, const FAbcConversionSettings& InConversionSettings);
+
         /** Extracts the bounding box from the given alembic property (initialised to zero if the property is invalid) */
 	FBoxSphereBounds ExtractBounds(Alembic::Abc::IBox3dProperty InBoxBoundsProperty);
 	
 	/** Applies user/preset conversion to the given BoxSphereBounds */
-	void ApplyConversion(FBoxSphereBounds& InOutBounds, const FAbcConversionSettings& InConversionSettings);
+	void ApplyConversion(FBoxSphereBounds& InOutBounds, const FAbcConversionSettings& InConversionSettings);	
+	/** Returns whether or not the given Object is visible according at the retrieved frame using SampleSelector (this includes parent Objects) */
+	bool IsObjectVisible(const Alembic::Abc::IObject& Object, const Alembic::Abc::ISampleSelector FrameSelector);
+	/** Returns whether or not the Objects visibility property is constant across the entire sequence (this includes parent Objects) */
+	bool IsObjectVisibilityConstant(const Alembic::Abc::IObject& Object);
 }

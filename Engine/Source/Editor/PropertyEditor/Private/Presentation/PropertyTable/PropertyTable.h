@@ -116,9 +116,10 @@ public:
 	virtual ESelectionMode::Type GetSelectionMode() const override { return SelectionMode; }
 	virtual void SetSelectionMode( const ESelectionMode::Type Mode ) override;
 
+	virtual EColumnSortPriority::Type GetColumnSortPriority(const TSharedRef< class IPropertyTableColumn > Column) const override;
 	virtual EColumnSortMode::Type GetColumnSortMode( const TSharedRef< class IPropertyTableColumn > Column ) const override;
-	virtual void SortByColumnWithId( const EColumnSortPriority::Type SortPriority, const FName& ColumnId, const EColumnSortMode::Type SortMode ) override;
-	virtual void SortByColumn( const TSharedRef< class IPropertyTableColumn >& Column, EColumnSortMode::Type SortMode ) override;
+	virtual void SortByColumnWithId( const EColumnSortPriority::Type SortPriority, const FName& ColumnId, const EColumnSortMode::Type SortMode) override;
+	virtual void SortByColumn( const TSharedRef< class IPropertyTableColumn >& Column, EColumnSortMode::Type SortMode, const EColumnSortPriority::Type SortPriority ) override;
 
 	virtual void PasteTextAtCell( const FString& Text, const TSharedRef< class IPropertyTableCell >& Cell ) override;
 
@@ -204,8 +205,12 @@ private:
 	FRowsChanged RowsChanged;
 	FRootPathChanged RootPathChanged;
 
-	TWeakPtr< class IPropertyTableColumn > SortedByColumn;
-	EColumnSortMode::Type SortedColumnMode;
+	TWeakPtr< class IPropertyTableColumn > PrimarySortedByColumn;
+	TWeakPtr< class IPropertyTableColumn > SecondarySortedByColumn;
+
+	EColumnSortMode::Type PrimarySortMode;
+	EColumnSortMode::Type SecondarySortMode;
+
 	bool AllowUserToChangeRoot;
 
 	/** Refresh the table contents? */

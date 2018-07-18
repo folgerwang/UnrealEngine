@@ -24,11 +24,11 @@ public:
 	FDateTime DateAndTime;
 
 	/** Source at time of this change */
-	UPROPERTY(Category=Translation, VisibleAnywhere)
+	UPROPERTY(Category=Translation, VisibleAnywhere, meta=(MultiLine=true))
 	FString Source;
 
 	/** Translation at time of this change */
-	UPROPERTY(Category=Translation, VisibleAnywhere)
+	UPROPERTY(Category=Translation, VisibleAnywhere, meta=(MultiLine=true))
 	FString Translation;
 };
 
@@ -68,11 +68,11 @@ public:
 	FString Key;
 
 	/** Original text from the source language */
-	UPROPERTY(Category=Translation, VisibleAnywhere)
+	UPROPERTY(Category=Translation, VisibleAnywhere, meta=(MultiLine=true))
 	FString Source;
 
 	/** Translations */
-	UPROPERTY(Category=Translation, EditAnywhere)
+	UPROPERTY(Category=Translation, EditAnywhere, meta=(MultiLine=true))
 	FString Translation;
 
 	/** Contexts the source was found in */
@@ -84,7 +84,7 @@ public:
 	bool HasBeenReviewed;
 
 	/** If this Translation Unit had a different translation before import, it will be stored here */
-	UPROPERTY(Category=Translation, EditAnywhere)
+	UPROPERTY(Category=Translation, EditAnywhere, meta=(MultiLine=true))
 	FString TranslationBeforeImport;
 
 	/** Optional: Which Locres File this translation is in */

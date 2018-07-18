@@ -1,17 +1,17 @@
-﻿INTSourceChangelist:0
+﻿INTSourceChangelist:3532405
 Availability: Docs
 Crumbs: %ROOT%
-Title: Brand Glossary
-Description: A glossary of key terms, which are used to describe the systems, features, and tools that belong to Unreal Engine 4 (UE4).
+Title: 브랜드 용어집
+Description: 언리얼 엔진 4 에 속하는 시스템, 피처, 툴을 설명하는 데 사용되는 핵심 용어 해설집입니다.
 Type: Reference
 Version: 4.16
 Parent:BrandGlossary
 Order:17
 Tags:Brand Glossary
 
-Welcome to the Unreal Engine 4 (UE4) **Brand Glossary**. If you want to create user-facing resources for the UE4 community, this guide 
-helps you gain a better understanding of the terms being used to describe systems, features, and tools belonging to UE4. After reading 
-through this glossary, you'll also know how to properly spell and capitalize the terms we use to describe Unreal Engine.  
+언리얼 엔진 4 (UE4) **브랜드 용어집** 에 오신 것을 환영합니다. UE4 커뮤니티의 사용자를 위한 자료를 만들고자 하는 경우, 
+UE4 에 속하는 시스템, 피처, 툴을 설명하는 데 사용되고 있는 용어의 이해를 돕기 위한 문서입니다.
+이 용어집을 통독하고나면, 언리얼 엔진 설명에 사용하는 용어의 스펠링과 대소문자 구분을 확실히 하실 수 있을 것입니다.
 
 <hr>
   
@@ -44,12 +44,12 @@ through this glossary, you'll also know how to properly spell and capitalize the
 
 ##Viewport
 
-Viewports are your window into the worlds you create in Unreal. They can be navigated just as you would in a game, or can be used in a more schematic design sense as you would for an architectural blueprint
+뷰포트 - 언리얼에서 만드는 세상을 보는 창입니다. 게임에서와 똑같이 돌아다닐 수도 있고, 건축 도면과 같은 좀 더 도식적인 디자인으로 사용할 수도 있습니다.
 
 ##VR Editor
 
-The VR Editor enables you to design and build worlds in a virtual reality environment using the full capabilities of the editor toolset combined with interaction models designed specifically for VR world building.
+VR 에디터 - 가상 현실 환경에서 월드를 디자인하고 제작할 수 있습니다. VR 월드 제작용으로 디자인된 상호작용 모델을 통해 에디터 툴셋 전체 기능을 활용할 수 있습니다.
 
 ##Volume
 
-Volumes are 3-dimensional areas within your levels, each of which serve a specific purpose.
+볼륨 - 레벨 내 저마다 별도의 목적이 있는 3 차원 영역을 지칭합니다.

@@ -8,7 +8,7 @@
 
 #if MFMEDIA_SUPPORTED_PLATFORM
 	#if PLATFORM_WINDOWS
-		#include "WindowsHWrapper.h"
+		#include "Windows/WindowsHWrapper.h"
 	#endif
 
 	#include "Windows/AllowWindowsPlatformTypes.h"

@@ -9,8 +9,8 @@
 #include "PhononScene.h"
 #include "PhononCommon.h"
 
-#include "SScrollBox.h"
-#include "SBox.h"
+#include "Widgets/Layout/SScrollBox.h"
+#include "Widgets/Layout/SBox.h"
 #include "Widgets/Input/SButton.h"
 #include "Widgets/Text/STextBlock.h"
 #include "DetailLayoutBuilder.h"
@@ -68,12 +68,11 @@ namespace SteamAudio
 				.VAlign(VAlign_Center)
 				.HAlign(HAlign_Left)
 				.IsEnabled(this, &FSteamAudioEdModeToolkit::IsAddAllEnabled)
-				.ToolTipText(NSLOCTEXT("SteamAudio", "AddAllTooltip",
-					"Adds Phonon Geometry components (with default settings) to all Static Mesh actors that do not already have one."))
+				.ToolTipText(NSLOCTEXT("SteamAudio", "AddAllTooltip", "Adds Phonon Geometry components (with default settings) to all Static Mesh actors that do not already have one."))
 				.OnClicked(this, &FSteamAudioEdModeToolkit::OnAddAll)
 				[
 					SNew(STextBlock)
-					.Text(NSLOCTEXT("SteamAudio", "Add All", "Add All"))
+					.Text(NSLOCTEXT("SteamAudio", "AddAll", "Add All"))
 					.Font(IDetailLayoutBuilder::GetDetailFont())
 				]
 			]
@@ -84,12 +83,11 @@ namespace SteamAudio
 				.VAlign(VAlign_Center)
 				.HAlign(HAlign_Left)
 				.IsEnabled(this, &FSteamAudioEdModeToolkit::IsRemoveAllEnabled)
-				.ToolTipText(NSLOCTEXT("SteamAudio", "RemoveAllTooltip",
-					"Removes all Phonon Geometry components from Static Mesh actors."))
+				.ToolTipText(NSLOCTEXT("SteamAudio", "RemoveAllTooltip", "Removes all Phonon Geometry components from Static Mesh actors."))
 				.OnClicked(this, &FSteamAudioEdModeToolkit::OnRemoveAll)
 				[
 					SNew(STextBlock)
-					.Text(NSLOCTEXT("SteamAudio", "Remove All", "Remove All"))
+					.Text(NSLOCTEXT("SteamAudio", "RemoveAll", "Remove All"))
 					.Font(IDetailLayoutBuilder::GetDetailFont())
 				]
 			]
@@ -100,12 +98,11 @@ namespace SteamAudio
 				.VAlign(VAlign_Center)
 				.HAlign(HAlign_Left)
 				.IsEnabled(this, &FSteamAudioEdModeToolkit::IsExportObjEnabled)
-				.ToolTipText(NSLOCTEXT("SteamAudio", "ExportObjTooltip",
-					"Exports all Phonon Geometry to an OBJ file in /Content. Used to debug scene export."))
+				.ToolTipText(NSLOCTEXT("SteamAudio", "ExportObjTooltip", "Exports all Phonon Geometry to an OBJ file in /Content. Used to debug scene export."))
 				.OnClicked(this, &FSteamAudioEdModeToolkit::OnExportObj)
 				[
 					SNew(STextBlock)
-					.Text(NSLOCTEXT("SteamAudio", "Export OBJ", "Export OBJ"))
+					.Text(NSLOCTEXT("SteamAudio", "ExportOBJ", "Export OBJ"))
 					.Font(IDetailLayoutBuilder::GetDetailFont())
 				]
 			]
@@ -116,12 +113,11 @@ namespace SteamAudio
 				.VAlign(VAlign_Center)
 				.HAlign(HAlign_Left)
 				.IsEnabled(this, &FSteamAudioEdModeToolkit::IsExportSceneEnabled)
-				.ToolTipText(NSLOCTEXT("SteamAudio", "ExportSceneTooltip",
-					"Exports all Phonon Geometry for use by the Steam Audio system."))
+				.ToolTipText(NSLOCTEXT("SteamAudio", "ExportSceneTooltip", "Exports all Phonon Geometry for use by the Steam Audio system."))
 				.OnClicked(this, &FSteamAudioEdModeToolkit::OnExportScene)
 				[
 					SNew(STextBlock)
-					.Text(NSLOCTEXT("SteamAudio", "Export Scene", "Export Scene"))
+					.Text(NSLOCTEXT("SteamAudio", "ExportScene", "Export Scene"))
 					.Font(IDetailLayoutBuilder::GetDetailFont())
 				]
 			]
@@ -133,7 +129,7 @@ namespace SteamAudio
 				.Padding(4)
 				[
 					SNew(STextBlock)
-					.Text(NSLOCTEXT("SteamAudio", "Scene Triangles", "Scene Triangles"))
+					.Text(NSLOCTEXT("SteamAudio", "SceneTriangles", "Scene Triangles"))
 					.Font(IDetailLayoutBuilder::GetDetailFont())
 				]
 				+ SHorizontalBox::Slot()
@@ -153,7 +149,7 @@ namespace SteamAudio
 				.Padding(4)
 				[
 					SNew(STextBlock)
-					.Text(NSLOCTEXT("SteamAudio", "Scene Data Size", "Scene Data Size"))
+					.Text(NSLOCTEXT("SteamAudio", "SceneDataSize", "Scene Data Size"))
 					.Font(IDetailLayoutBuilder::GetDetailFont())
 				]
 				+ SHorizontalBox::Slot()
@@ -177,7 +173,7 @@ namespace SteamAudio
 
 	FText FSteamAudioEdModeToolkit::GetBaseToolkitName() const
 	{
-		return NSLOCTEXT("SteamAudioEdModeToolkit", "DisplayName", "Steam Audio Editor Mode Tool");
+		return NSLOCTEXT("SteamAudio", "ToolkitDisplayName", "Steam Audio Editor Mode Tool");
 	}
 
 	FEdMode* FSteamAudioEdModeToolkit::GetEditorMode() const
@@ -188,8 +184,7 @@ namespace SteamAudio
 	FReply FSteamAudioEdModeToolkit::OnAddAll()
 	{
 		// Display editor notification
-		GEdModeTickable->SetDisplayText(NSLOCTEXT("SteamAudio", "Adding Phonon Geometry to all Static Mesh actors...",
-			"Adding Phonon Geometry to all Static Mesh actors..."));
+		GEdModeTickable->SetDisplayText(NSLOCTEXT("SteamAudio", "AddingPhononGeometryToAllStaticMeshActors", "Adding Phonon Geometry to all Static Mesh actors..."));
 		GEdModeTickable->CreateNotification();
 
 		AsyncTask(ENamedThreads::GameThread, [=]()
@@ -199,7 +194,7 @@ namespace SteamAudio
 
 			// Notify UI that we're done
 			GEdModeTickable->QueueWorkItem(FWorkItem([](FText& DisplayText) {
-				DisplayText = NSLOCTEXT("SteamAudio", "Components added.", "Components added.");
+				DisplayText = NSLOCTEXT("SteamAudio", "ComponentsAdded", "Components added.");
 			}, SNotificationItem::CS_Success, true));
 		});
 
@@ -214,8 +209,7 @@ namespace SteamAudio
 	FReply FSteamAudioEdModeToolkit::OnRemoveAll()
 	{
 		// Display editor notification
-		GEdModeTickable->SetDisplayText(NSLOCTEXT("SteamAudio", "Removing Phonon Geometry from all Static Mesh actors...",
-			"Removing Phonon Geometry from all Static Mesh actors..."));
+		GEdModeTickable->SetDisplayText(NSLOCTEXT("SteamAudio", "RemovingPhononGeometryFromAllStaticMeshActors", "Removing Phonon Geometry from all Static Mesh actors..."));
 		GEdModeTickable->CreateNotification();
 
 		AsyncTask(ENamedThreads::GameThread, [=]()
@@ -225,7 +219,7 @@ namespace SteamAudio
 
 			// Notify UI that we're done
 			GEdModeTickable->QueueWorkItem(FWorkItem([](FText& DisplayText) {
-				DisplayText = NSLOCTEXT("SteamAudio", "Components removed.", "Components removed.");
+				DisplayText = NSLOCTEXT("SteamAudio", "ComponentsRemoved", "Components removed.");
 			}, SNotificationItem::CS_Success, true));
 		});
 
@@ -241,14 +235,13 @@ namespace SteamAudio
 	{
 		FFormatNamedArguments Arguments;
 		Arguments.Add(TEXT("FinalizeSceneProgress"), FText::AsPercent(Progress));
-		GEdModeTickable->SetDisplayText(FText::Format(NSLOCTEXT("SteamAudio", "FinalizeSceneProgressText",
-			"Finalizing scene ({FinalizeSceneProgress} complete)"), Arguments));
+		GEdModeTickable->SetDisplayText(FText::Format(NSLOCTEXT("SteamAudio", "FinalizeSceneProgressFmt", "Finalizing scene ({FinalizeSceneProgress} complete)"), Arguments));
 	}
 
 	FReply FSteamAudioEdModeToolkit::OnExportObj()
 	{
 		// Display editor notification
-		GEdModeTickable->SetDisplayText(NSLOCTEXT("SteamAudio", "Exporting scene OBJ...", "Exporting scene OBJ..."));
+		GEdModeTickable->SetDisplayText(NSLOCTEXT("SteamAudio", "ExportingSceneOBJ", "Exporting scene OBJ..."));
 		GEdModeTickable->CreateNotification();
 
 		Async<void>(EAsyncExecution::Thread, [&]()
@@ -262,7 +255,7 @@ namespace SteamAudio
 			if (!CreateScene(World, &PhononScene, &PhononStaticMeshes, PhononSceneInfo.NumTriangles))
 			{
 				GEdModeTickable->QueueWorkItem(FWorkItem([](FText& DisplayText) {
-					DisplayText = NSLOCTEXT("SteamAudio", "Error exporting OBJ.", "Error exporting OBJ.");
+					DisplayText = NSLOCTEXT("SteamAudio", "ErrorExportingOBJ", "Error exporting OBJ.");
 				}, SNotificationItem::CS_Fail, true));
 				return;
 			}
@@ -279,7 +272,7 @@ namespace SteamAudio
 
 			// Notify UI that we're done
 			GEdModeTickable->QueueWorkItem(FWorkItem([](FText& DisplayText) {
-				DisplayText = NSLOCTEXT("SteamAudio", "Export scene OBJ complete.", "Export scene OBJ complete.");
+				DisplayText = NSLOCTEXT("SteamAudio", "ExportSceneOBJComplete", "Export scene OBJ complete.");
 			}, SNotificationItem::CS_Success, true));
 		});
 
@@ -294,7 +287,7 @@ namespace SteamAudio
 	FReply FSteamAudioEdModeToolkit::OnExportScene()
 	{
 		// Display editor notification
-		GEdModeTickable->SetDisplayText(NSLOCTEXT("SteamAudio", "Exporting scene...", "Exporting scene..."));
+		GEdModeTickable->SetDisplayText(NSLOCTEXT("SteamAudio", "ExportingScene", "Exporting scene..."));
 		GEdModeTickable->CreateNotification();
 
 		Async<void>(EAsyncExecution::Thread, [&]()
@@ -308,7 +301,7 @@ namespace SteamAudio
 			if (!CreateScene(World, &PhononScene, &PhononStaticMeshes, PhononSceneInfo.NumTriangles))
 			{
 				GEdModeTickable->QueueWorkItem(FWorkItem([](FText& DisplayText) {
-					DisplayText = NSLOCTEXT("SteamAudio", "Error exporting scene.", "Error exporting scene.");
+					DisplayText = NSLOCTEXT("SteamAudio", "ErrorExportingScene", "Error exporting scene.");
 				}, SNotificationItem::CS_Fail, true));
 				return;
 			}
@@ -334,13 +327,13 @@ namespace SteamAudio
 				}
 
 				GEdModeTickable->QueueWorkItem(FWorkItem([](FText& DisplayText) {
-					DisplayText = NSLOCTEXT("SteamAudio", "Export scene complete.", "Export scene complete.");
+					DisplayText = NSLOCTEXT("SteamAudio", "ExportSceneComplete", "Export scene complete.");
 				}, SNotificationItem::CS_Success, true));
 			}
 			else
 			{
 				GEdModeTickable->QueueWorkItem(FWorkItem([](FText& DisplayText) {
-					DisplayText = NSLOCTEXT("SteamAudio", "Export scene failed.", "Export scene failed.");
+					DisplayText = NSLOCTEXT("SteamAudio", "ExportSceneFailed", "Export scene failed.");
 				}, SNotificationItem::CS_Fail, true));
 			}
 		});
@@ -371,7 +364,7 @@ namespace SteamAudio
 		if (Module != nullptr)
 		{
 			auto PhononSceneInfo = Module->GetCurrentPhononSceneInfo();
-			return PrettyPrintedByte(PhononSceneInfo.DataSize);
+			return FText::AsMemory(PhononSceneInfo.DataSize);
 		}
 
 		return FText::FromString("No .phononscene found");

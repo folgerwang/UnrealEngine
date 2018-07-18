@@ -10,11 +10,13 @@
 #include "HAL/PlatformApplicationMisc.h"
 #include "HAL/FileManager.h"
 #include "Misc/ScopedSlowTask.h"
+#include "UObject/MetaData.h"
 #include "UObject/UObjectIterator.h"
 #include "Widgets/SBoxPanel.h"
 #include "Widgets/SWindow.h"
 #include "Framework/Application/SlateApplication.h"
 #include "Widgets/Text/STextBlock.h"
+#include "Widgets/Input/SMultiLineEditableTextBox.h"
 #include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "Widgets/Input/SButton.h"
 #include "EditorStyleSet.h"
@@ -24,9 +26,9 @@
 #include "UnrealClient.h"
 #include "Materials/MaterialFunctionInstance.h"
 #include "Materials/Material.h"
-#include "ISourceControlOperation.h"
 #include "SourceControlOperations.h"
 #include "ISourceControlModule.h"
+#include "SourceControlHelpers.h"
 #include "Settings/EditorExperimentalSettings.h"
 #include "Materials/MaterialInstanceConstant.h"
 #include "FileHelpers.h"
@@ -36,6 +38,8 @@
 #include "ContentBrowserUtils.h"
 #include "SAssetView.h"
 #include "ContentBrowserModule.h"
+#include "Dialogs/Dialogs.h"
+#include "SMetaDataView.h"
 
 #include "ObjectTools.h"
 #include "PackageTools.h"
@@ -46,6 +50,7 @@
 #include "ConsolidateWindow.h"
 #include "ReferencedAssetsUtils.h"
 #include "Internationalization/PackageLocalizationUtil.h"
+#include "Internationalization/TextLocalizationResource.h"
 
 #include "SourceControlWindows.h"
 #include "Kismet2/KismetEditorUtilities.h"
@@ -67,6 +72,7 @@
 #include "ContentBrowserCommands.h"
 
 #include "PackageHelperFunctions.h"
+#include "EngineUtils.h"
 
 #define LOCTEXT_NAMESPACE "ContentBrowser"
 
@@ -353,10 +359,10 @@ void FAssetContextMenu::MakeAssetActionsSubMenu(FMenuBuilder& MenuBuilder)
 		LOCTEXT("CreateBlueprintUsingTooltip", "Create a new Blueprint and add this asset to it"),
 		FSlateIcon(FEditorStyle::GetStyleSetName(), "LevelEditor.CreateClassBlueprint"),
 		FUIAction(
-		FExecuteAction::CreateSP(this, &FAssetContextMenu::ExecuteCreateBlueprintUsing),
-		FCanExecuteAction::CreateSP(this, &FAssetContextMenu::CanExecuteCreateBlueprintUsing)
-			)
-		);
+			FExecuteAction::CreateSP(this, &FAssetContextMenu::ExecuteCreateBlueprintUsing),
+			FCanExecuteAction::CreateSP(this, &FAssetContextMenu::CanExecuteCreateBlueprintUsing)
+		)
+	);
 
 	// Capture Thumbnail
 	FAssetToolsModule& AssetToolsModule = FModuleManager::LoadModuleChecked<FAssetToolsModule>("AssetTools");
@@ -367,10 +373,10 @@ void FAssetContextMenu::MakeAssetActionsSubMenu(FMenuBuilder& MenuBuilder)
 			LOCTEXT("CaptureThumbnailTooltip", "Captures a thumbnail from the active viewport."),
 			FSlateIcon(FEditorStyle::GetStyleSetName(), "ContentBrowser.AssetActions.CreateThumbnail"),
 			FUIAction(
-			FExecuteAction::CreateSP(this, &FAssetContextMenu::ExecuteCaptureThumbnail),
-			FCanExecuteAction::CreateSP(this, &FAssetContextMenu::CanExecuteCaptureThumbnail)
-				)
-			);
+				FExecuteAction::CreateSP(this, &FAssetContextMenu::ExecuteCaptureThumbnail),
+				FCanExecuteAction::CreateSP(this, &FAssetContextMenu::CanExecuteCaptureThumbnail)
+			)
+		);
 	}
 
 	// Clear Thumbnail
@@ -506,6 +512,17 @@ void FAssetContextMenu::MakeAssetActionsSubMenu(FMenuBuilder& MenuBuilder)
 				);
 		}
 
+		// Create Metadata menu
+		MenuBuilder.AddMenuEntry(
+			LOCTEXT("ShowAssetMetaData", "Show Metadata"),
+			LOCTEXT("ShowAssetMetaDataTooltip", "Show the asset metadata dialog."),
+			FSlateIcon(),
+			FUIAction(
+				FExecuteAction::CreateSP(this, &FAssetContextMenu::ExecuteShowAssetMetaData),
+				FCanExecuteAction::CreateSP(this, &FAssetContextMenu::CanExecuteShowAssetMetaData)
+			)
+		);
+
 		// Chunk actions
 		if (GetDefault<UEditorExperimentalSettings>()->bContextMenuChunkAssignments)
 		{
@@ -591,7 +608,7 @@ void FAssetContextMenu::MakeAssetLocalizationSubMenu(FMenuBuilder& MenuBuilder)
 
 	// Build up the list of cultures already used
 	{
-		TSet<FString> CulturePaths;
+		TSet<FString> CultureNames;
 
 		bool bIncludeEngineCultures = false;
 		bool bIncludeProjectCultures = false;
@@ -616,24 +633,26 @@ void FAssetContextMenu::MakeAssetLocalizationSubMenu(FMenuBuilder& MenuBuilder)
 					FString AssetLocalizationFileRoot;
 					if (FPackageName::TryConvertLongPackageNameToFilename(AssetLocalizationRoot, AssetLocalizationFileRoot))
 					{
+						TArray<FString> CulturePaths;
 						CulturePaths.Add(MoveTemp(AssetLocalizationFileRoot));
+						CultureNames.Append(TextLocalizationResourceUtil::GetLocalizedCultureNames(CulturePaths));
 					}
 				}
 			}
 		}
 
+		ELocalizationLoadFlags LocLoadFlags = ELocalizationLoadFlags::None;
 		if (bIncludeEngineCultures)
 		{
-			CulturePaths.Append(FPaths::GetEngineLocalizationPaths());
+			LocLoadFlags |= ELocalizationLoadFlags::Engine;
 		}
-
 		if (bIncludeProjectCultures)
 		{
-			CulturePaths.Append(FPaths::GetGameLocalizationPaths());
+			LocLoadFlags |= ELocalizationLoadFlags::Game;
 		}
+		CultureNames.Append(FTextLocalizationManager::Get().GetLocalizedCultureNames(LocLoadFlags));
 
-		FInternationalization::Get().GetCulturesWithAvailableLocalization(CulturePaths.Array(), CurrentCultures, false);
-
+		CurrentCultures = FInternationalization::Get().GetAvailableCultures(CultureNames.Array(), false);
 		if (CurrentCultures.Num() == 0)
 		{
 			CurrentCultures.Add(FInternationalization::Get().GetCurrentCulture());
@@ -738,6 +757,26 @@ void FAssetContextMenu::MakeAssetLocalizationSubMenu(FMenuBuilder& MenuBuilder)
 		MenuBuilder.EndSection();
 	}
 #endif // USE_STABLE_LOCALIZATION_KEYS
+
+	// Add the localization cache options
+	if (SelectedAssets.Num() == 1)
+	{
+		FString PackageFilename;
+		if (FPackageName::DoesPackageExist(SelectedAssets[0].PackageName.ToString(), nullptr, &PackageFilename))
+		{
+			MenuBuilder.BeginSection(NAME_None, LOCTEXT("LocalizationCacheHeading", "Localization Cache"));
+			{
+				// Always show the reset localization ID option
+				MenuBuilder.AddMenuEntry(
+					LOCTEXT("ShowLocalizationCache", "Show Localization Cache"),
+					LOCTEXT("ShowLocalizationCacheTooltip", "Show the cached list of localized texts stored in the package header."),
+					FSlateIcon(),
+					FUIAction(FExecuteAction::CreateSP(this, &FAssetContextMenu::ExecuteShowLocalizationCache, PackageFilename))
+					);
+			}
+			MenuBuilder.EndSection();
+		}
+	}
 
 	// If we found source assets for localized assets, then we can show the Source Asset options
 	if (SourceAssetsState.CurrentAssets.Num() > 0)
@@ -1608,18 +1647,29 @@ struct WorldReferenceGenerator : public FFindReferencedAssets
 		FFindAssetsArchive(World, WorldReferencer->AssetList, &ReferenceGraph, MaxRecursionDepth, bIncludeClasses, bIncludeDefaults, bReverseReferenceGraph);
 
 		// Also include all the streaming levels in the results
-		for (int32 LevelIndex = 0; LevelIndex < World->StreamingLevels.Num(); ++LevelIndex)
+		for (ULevelStreaming* StreamingLevel : World->GetStreamingLevels())
 		{
-			ULevelStreaming* StreamingLevel = World->StreamingLevels[LevelIndex];
-			if( StreamingLevel != NULL )
+			if (StreamingLevel)
 			{
-				ULevel* Level = StreamingLevel->GetLoadedLevel();
-				if( Level != NULL )
+				if (ULevel* Level = StreamingLevel->GetLoadedLevel())
 				{
 					// Generate the reference graph for each streamed in level
 					FReferencedAssets* LevelReferencer = new(Referencers) FReferencedAssets(Level);			
 					FFindAssetsArchive(Level, LevelReferencer->AssetList, &ReferenceGraph, MaxRecursionDepth, bIncludeClasses, bIncludeDefaults, bReverseReferenceGraph);
 				}
+			}
+		}
+
+		TArray<UObject*> ReferencedObjects;
+		// Special case for blueprints
+		for (AActor* Actor : FActorRange(World))
+		{
+			ReferencedObjects.Reset();
+			Actor->GetReferencedContentObjects(ReferencedObjects);
+			for(UObject* Reference : ReferencedObjects)
+			{
+				TSet<UObject*>& Objects = ReferenceGraph.FindOrAdd(Reference);
+				Objects.Add(Actor);
 			}
 		}
 	}
@@ -1633,7 +1683,7 @@ struct WorldReferenceGenerator : public FFindReferencedAssets
 		}
 	}
 
-	void Generate( const UObject* AssetToFind, TArray< TWeakObjectPtr<const UObject> >& OutObjects )
+	void Generate( const UObject* AssetToFind, TSet<const UObject*>& OutObjects )
 	{
 		// Don't examine visited objects
 		if (!AssetToFind->HasAnyMarks(OBJECTMARK_TagExp))
@@ -1650,7 +1700,7 @@ struct WorldReferenceGenerator : public FFindReferencedAssets
 			return;
 		}
 
-		// Transverse the reference graph looking for actor objects
+		// Traverse the reference graph looking for actor objects
 		TSet<UObject*>* ReferencingObjects = ReferenceGraph.Find(AssetToFind);
 		if (ReferencingObjects)
 		{
@@ -1680,17 +1730,17 @@ void FAssetContextMenu::ExecuteFindAssetInWorld()
 
 		CollectGarbage(GARBAGE_COLLECTION_KEEPFLAGS);
 
-		TArray< TWeakObjectPtr<const UObject> > OutObjects;
+		TSet<const UObject*> OutObjects;
 		WorldReferenceGenerator ObjRefGenerator;
 
 		SlowTask.EnterProgressFrame();
 		ObjRefGenerator.BuildReferencingData();
 
-		for (int32 AssetIdx = 0; AssetIdx < AssetsToFind.Num(); ++AssetIdx)
+		for (UObject* AssetToFind : AssetsToFind)
 		{
 			SlowTask.EnterProgressFrame();
 			ObjRefGenerator.MarkAllObjects();
-			ObjRefGenerator.Generate(AssetsToFind[AssetIdx], OutObjects);
+			ObjRefGenerator.Generate(AssetToFind, OutObjects);
 		}
 
 		SlowTask.EnterProgressFrame();
@@ -1701,9 +1751,9 @@ void FAssetContextMenu::ExecuteFindAssetInWorld()
 			const bool Notify = false;
 
 			// Select referencing actors
-			for (int32 ActorIdx = 0; ActorIdx < OutObjects.Num(); ++ActorIdx)
+			for (const UObject* Object : OutObjects)
 			{
-				GEditor->SelectActor(const_cast<AActor*>(CastChecked<AActor>(OutObjects[ActorIdx].Get())), InSelected, Notify);
+				GEditor->SelectActor(const_cast<AActor*>(CastChecked<AActor>(Object)), InSelected, Notify);
 			}
 
 			GEditor->NoteSelectionChange();
@@ -1727,6 +1777,40 @@ void FAssetContextMenu::ExecutePropertyMatrix()
 	{
 		FPropertyEditorModule& PropertyEditorModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>( "PropertyEditor" );
 		PropertyEditorModule.CreatePropertyEditorToolkit( EToolkitMode::Standalone, TSharedPtr<IToolkitHost>(), ObjectsForPropertiesMenu );
+	}
+}
+
+void FAssetContextMenu::ExecuteShowAssetMetaData()
+{
+	for (const FAssetData& AssetData : SelectedAssets)
+	{
+		UObject* Asset = AssetData.GetAsset();
+		if (Asset)
+		{
+			TMap<FName, FString>* TagValues = UMetaData::GetMapForObject(Asset);
+			if (TagValues)
+			{
+				// Create and display a resizable window to display the MetaDataView for each asset with metadata
+				FString Title = FString::Printf(TEXT("Metadata: %s"), *AssetData.AssetName.ToString());
+
+				TSharedPtr< SWindow > Window = SNew(SWindow)
+					.Title(FText::FromString(Title))
+					.SupportsMaximize(false)
+					.SupportsMinimize(false)
+					.MinWidth(500.0f)
+					.MinHeight(250.0f)
+					[
+						SNew(SBorder)
+						.Padding(4.f)
+						.BorderImage(FEditorStyle::GetBrush("ToolPanel.GroupBorder"))
+						[
+							SNew(SMetaDataView, *TagValues)
+						]
+					];
+
+				FSlateApplication::Get().AddWindow(Window.ToSharedRef());
+			}
+		}
 	}
 }
 
@@ -2091,6 +2175,84 @@ void FAssetContextMenu::ExecuteResetLocalizationId()
 #endif // USE_STABLE_LOCALIZATION_KEYS
 }
 
+void FAssetContextMenu::ExecuteShowLocalizationCache(const FString InPackageFilename)
+{
+	FString CachedLocalizationId;
+	TArray<FGatherableTextData> GatherableTextDataArray;
+
+	// Read the localization data from the cache in the package header
+	{
+		TUniquePtr<FArchive> FileReader(IFileManager::Get().CreateFileReader(*InPackageFilename));
+		if (FileReader)
+		{
+			// Read package file summary from the file
+			FPackageFileSummary PackageFileSummary;
+			*FileReader << PackageFileSummary;
+
+			CachedLocalizationId = PackageFileSummary.LocalizationId;
+
+			if (PackageFileSummary.GatherableTextDataOffset > 0)
+			{
+				FileReader->Seek(PackageFileSummary.GatherableTextDataOffset);
+
+				GatherableTextDataArray.SetNum(PackageFileSummary.GatherableTextDataCount);
+				for (int32 GatherableTextDataIndex = 0; GatherableTextDataIndex < PackageFileSummary.GatherableTextDataCount; ++GatherableTextDataIndex)
+				{
+					*FileReader << GatherableTextDataArray[GatherableTextDataIndex];
+				}
+			}
+		}
+	}
+
+	// Convert the gathered text array into a readable format
+	FString LocalizationCacheStr = FString::Printf(TEXT("Package: %s"), *CachedLocalizationId);
+	for (const FGatherableTextData& GatherableTextData : GatherableTextDataArray)
+	{
+		if (LocalizationCacheStr.Len() > 0)
+		{
+			LocalizationCacheStr += TEXT("\n\n");
+		}
+
+		FString KeysStr;
+		FString EditorOnlyKeysStr;
+		for (const FTextSourceSiteContext& TextSourceSiteContext : GatherableTextData.SourceSiteContexts)
+		{
+			FString* KeysStrPtr = TextSourceSiteContext.IsEditorOnly ? &EditorOnlyKeysStr : &KeysStr;
+			if (KeysStrPtr->Len() > 0)
+			{
+				*KeysStrPtr += TEXT(", ");
+			}
+			*KeysStrPtr += TextSourceSiteContext.KeyName;
+		}
+
+		LocalizationCacheStr += FString::Printf(TEXT("Namespace: %s\n"), *GatherableTextData.NamespaceName);
+		if (KeysStr.Len() > 0)
+		{
+			LocalizationCacheStr += FString::Printf(TEXT("Keys: %s\n"), *KeysStr);
+		}
+		if (EditorOnlyKeysStr.Len() > 0)
+		{
+			LocalizationCacheStr += FString::Printf(TEXT("Keys (Editor-Only): %s\n"), *EditorOnlyKeysStr);
+		}
+		LocalizationCacheStr += FString::Printf(TEXT("Source: %s"), *GatherableTextData.SourceData.SourceString);
+	}
+
+	// Generate a message box for the result
+	SGenericDialogWidget::OpenDialog(LOCTEXT("LocalizationCache", "Localization Cache"), 
+		SNew(SBox)
+		.MaxDesiredWidth(800.0f)
+		.MaxDesiredHeight(400.0f)
+		[
+			SNew(SMultiLineEditableTextBox)
+			.IsReadOnly(true)
+			.AutoWrapText(true)
+			.Text(FText::AsCultureInvariant(LocalizationCacheStr))
+		],
+		SGenericDialogWidget::FArguments()
+		.UseScrollBox(false)
+	);
+}
+
 void FAssetContextMenu::ExecuteExport()
 {
 	TArray<UObject*> ObjectsToExport;
@@ -2399,6 +2561,24 @@ FText FAssetContextMenu::GetExecutePropertyMatrixTooltip() const
 		ResultTooltip = LOCTEXT("PropertyMatrixTooltip", "Opens the property matrix editor for the selected assets.");
 	}
 	return ResultTooltip;
+}
+
+bool FAssetContextMenu::CanExecuteShowAssetMetaData() const
+{
+	TArray<UObject*> ObjectsForPropertiesMenu;
+	const bool SkipRedirectors = true;
+	GetSelectedAssets(ObjectsForPropertiesMenu, SkipRedirectors);
+
+	bool bResult = false;
+	for (const UObject* Asset : ObjectsForPropertiesMenu)
+	{
+		if (Asset && UMetaData::GetMapForObject(Asset))
+		{
+			bResult = true;
+			break;
+		}
+	}
+	return bResult;
 }
 
 bool FAssetContextMenu::CanExecuteDuplicate() const

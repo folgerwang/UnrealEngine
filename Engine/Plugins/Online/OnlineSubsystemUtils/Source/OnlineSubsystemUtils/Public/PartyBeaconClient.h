@@ -252,7 +252,7 @@ protected:
 	FTimerHandle PendingReservationFullTimerHandle;
 
 	/** Clear out all the timer handles listed above */
-	void ClearTimers();
+	void ClearTimers(bool bCallFailSafeIfNeeded);
 	/** Delegate triggered if the client doesn't hear from the server in time */
 	void OnCancelledFailsafe();
 	/** Delegate triggered when a cancel reservation request is complete */

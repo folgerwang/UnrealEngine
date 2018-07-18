@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
 #include "Animation/AnimNodeBase.h"
+#include "Animation/InputScaleBias.h"
 #include "AnimNode_RotateRootBone.generated.h"
 
 //@TODO: Comment
@@ -22,8 +23,20 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_RotateRootBone : public FAnimNode_Base
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Settings, meta=(PinShownByDefault))
 	mutable float Yaw;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings)
+	FInputScaleBiasClamp PitchScaleBiasClamp;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Settings)
+	FInputScaleBiasClamp YawScaleBiasClamp;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Settings, meta=(PinShownByDefault))
 	mutable FRotator MeshToComponent;
+
+	UPROPERTY(Transient)
+	float ActualPitch;
+
+	UPROPERTY(Transient)
+	float ActualYaw;
 
 public:	
 	FAnimNode_RotateRootBone();

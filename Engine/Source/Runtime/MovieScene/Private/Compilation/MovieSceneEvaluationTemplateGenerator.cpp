@@ -6,9 +6,9 @@
 #include "Algo/Sort.h"
 #include "UObject/ObjectKey.h"
 #include "IMovieSceneModule.h"
-#include "MovieSceneSubTrack.h"
-#include "MovieSceneSubSection.h"
-#include "MovieSceneSegmentCompiler.h"
+#include "Tracks/MovieSceneSubTrack.h"
+#include "Sections/MovieSceneSubSection.h"
+#include "Compilation/MovieSceneSegmentCompiler.h"
 
 FMovieSceneEvaluationTemplateGenerator::FMovieSceneEvaluationTemplateGenerator(UMovieSceneSequence& InSequence, FMovieSceneEvaluationTemplate& OutTemplate)
 	: SourceSequence(InSequence), Template(OutTemplate)
@@ -53,6 +53,7 @@ void FMovieSceneEvaluationTemplateGenerator::Generate()
 	Template.RemoveStaleData(CompiledSignatures);
 
 	Template.SequenceSignature = SourceSequence.GetSignature();
+	Template.TemplateSerialNumber.Increment();
 }
 
 void FMovieSceneEvaluationTemplateGenerator::ProcessTrack(const UMovieSceneTrack& Track, const FGuid& ObjectBindingId)
@@ -102,7 +103,7 @@ void FMovieSceneEvaluationTemplateGenerator::ProcessSubTrack(const UMovieSceneSu
 	for (int32 SectionIndex = 0; SectionIndex < AllSections.Num(); ++SectionIndex)
 	{
 		UMovieSceneSubSection* SubSection = CastChecked<UMovieSceneSubSection>(AllSections[SectionIndex]);
-		if (!SubSection || !SubSection->IsActive())
+		if (!SubSection || !SubSection->IsActive() || SubSection->GetRange().IsEmpty())
 		{
 			continue;
 		}
@@ -111,7 +112,7 @@ void FMovieSceneEvaluationTemplateGenerator::ProcessSubTrack(const UMovieSceneSu
 
 		if (bRequiresSegmentBlending)
 		{
-			const TRange<float> SectionRange = SubSection->GetRange();
+			const TRange<FFrameNumber> SectionRange = SubSection->GetRange();
 
 			// Process the actual section range
 			if (bRequiresSegmentBlending)
@@ -124,9 +125,9 @@ void FMovieSceneEvaluationTemplateGenerator::ProcessSubTrack(const UMovieSceneSu
 			}
 
 			// Process the section preroll range
-			if (!SectionRange.GetLowerBound().IsOpen() && SubSection->GetPreRollTime() > 0)
+			if (!SectionRange.GetLowerBound().IsOpen() && SubSection->GetPreRollFrames() > 0)
 			{
-				TRange<float> PreRollRange(SectionRange.GetLowerBoundValue() - SubSection->GetPreRollTime(), TRangeBound<float>::FlipInclusion(SectionRange.GetLowerBoundValue()));
+				TRange<FFrameNumber> PreRollRange(SectionRange.GetLowerBoundValue() - SubSection->GetPreRollFrames(), TRangeBound<FFrameNumber>::FlipInclusion(SectionRange.GetLowerBoundValue()));
 
 				if (bRequiresSegmentBlending)
 				{
@@ -139,9 +140,9 @@ void FMovieSceneEvaluationTemplateGenerator::ProcessSubTrack(const UMovieSceneSu
 			}
 
 			// Process the section postroll range
-			if (!SectionRange.GetUpperBound().IsOpen() && SubSection->GetPostRollTime() > 0)
+			if (!SectionRange.GetUpperBound().IsOpen() && SubSection->GetPostRollFrames() > 0)
 			{
-				TRange<float> PostRollRange(TRangeBound<float>::FlipInclusion(SectionRange.GetUpperBoundValue()), SectionRange.GetUpperBoundValue() + SubSection->GetPostRollTime());
+				TRange<FFrameNumber> PostRollRange(TRangeBound<FFrameNumber>::FlipInclusion(SectionRange.GetUpperBoundValue()), SectionRange.GetUpperBoundValue() + SubSection->GetPostRollFrames());
 
 				if (bRequiresSegmentBlending)
 				{

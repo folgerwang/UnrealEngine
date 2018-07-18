@@ -141,7 +141,15 @@ public:
 	 * @param InVariant name of the variant to return the device identifier for, If InVariant == NAME_None you'll get back the default target device identifier.
 	 * @return The target device identifier.
 	 */
-	virtual const FString& GetTargetDeviceId(FName InVariant) const = 0;
+	virtual const FString GetTargetDeviceId(FName InVariant) const = 0;
+
+	/**
+	* Gets a list of device identifiers for an aggregate (All_<platform>_devices_on_<host>) proxy
+	*
+	* @param InVariant name of the variant to return the device identifier for, If InVariant == NAME_None you'll get back the default target device identifiers.
+	* @param OutDeviceIds The list of device identifiers.
+	*/
+	virtual const TSet<FString>& GetTargetDeviceIds(FName InVariant) const = 0;
 
 	/**
 	* Checks whether this device proxy contains a variant for the provided platform.
@@ -252,6 +260,21 @@ public:
 	 * @return true if the device is being shared, false otherwise.
 	 */
 	virtual bool IsShared() const = 0;
+
+	/**
+	* Cancel the application running on the device
+	 * @param InVariant Variant of the device
+	 * @param ProcessIdentifier The bundle id
+   	 * @return true if the launch has been successfully terminated, false otherwise.
+	*/
+	virtual bool TerminateLaunchedProcess(FName InVariant, const FString& ProcessIdentifier) = 0;
+
+	/**
+	* Checks if this is an aggregate (All_<platform>_devices_on_<host>) proxy.
+	*
+	* @return true if the device is aggregated, false otherwise.
+	*/
+	virtual bool IsAggregated() const { return false;  }
 
 public:
 

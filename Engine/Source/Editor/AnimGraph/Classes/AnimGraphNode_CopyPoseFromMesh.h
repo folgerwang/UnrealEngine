@@ -21,4 +21,8 @@ public:
 	virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const override;
 	virtual FText GetTooltipText() const override;
 	// End of UEdGraphNode interface
+
+	// UAnimGraphNode_Base interface
+	virtual bool UsingCopyPoseFromMesh() { return true; }
+	// End of UAnimGraphNode_Base interface
 };

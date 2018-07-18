@@ -24,6 +24,7 @@ public:
 	virtual bool IsPinNameEditableUponCreation(const UEdGraphPin* GraphPinObj) const override;
 	virtual bool VerifyEditablePinName(const FText& InName, FText& OutErrorMessage, const UEdGraphPin* InGraphPinObj) const override;
 	virtual bool CommitEditablePinName(const FText& InName, UEdGraphPin* InGraphPinObj)  override;
+	virtual bool CancelEditablePinName(const FText& InName, UEdGraphPin* InGraphPinObj) override;
 
 	virtual void BuildParameterMapHistory(FNiagaraParameterMapHistoryBuilder& OutHistory, bool bRecursive = true) override;
 
@@ -32,10 +33,11 @@ public:
 	virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const;
 
 	virtual void GetContextMenuActions(const FGraphNodeContextMenuBuilder& Context) const override;
+	virtual void PostLoad() override;
+
+	void SetPinName(UEdGraphPin* InPin, const FName& InName);
 
 protected:
 	virtual void OnNewTypedPinAdded(UEdGraphPin* NewPin); 
 	virtual void OnPinRenamed(UEdGraphPin* RenamedPin, const FString& OldName) override;
-	UEdGraphPin* PinPendingRename;
-
 };

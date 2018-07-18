@@ -3,12 +3,12 @@ Availability:Public
 Title:3.コンテキストの設定
 Crumbs: %ROOT%, Engine, Engine/Audio
 Description:それぞれ独自のスピーカーとリスナーを持つコンテキストのセットを作成します。
-version:4.13
+version: 4.13
 parent:Engine/Audio/Dialogue
 order:3
 type:how-to
 checkpoint:dialogueqs
-prereq:Engine/Blueprints/QuickStart
+prereq: Engine/Blueprints/QuickStart
 related:Engine/Audio
 related:Engine/Audio/Overview
 related:Engine/Audio/SoundCues/Editor
@@ -21,8 +21,8 @@ skilllevel:Intermediate
 **Dialogue Context** には、少なくとも 2 つの **Dialogue Voice**、 ひとりの **Speaker** およびダイアログが **Directed At** される少なくとも 1 つの **Dialogue Voice** があります。
 
 1. **Box** コンポーネントを **Mixamo_SWAT** ブループリントに追加します。
-	![](AddBoxComponent.png)
 
+	![](AddBoxComponent.png)
 1. **ビューポート** で **Box** コンポーネントを調整し、キャラクターの高さぐらいになるようにし、彼女の前の距離を延ばします。彼女にオーバーラップしないようにするか、彼女の Capsule コンポーネントをoverlap event を生成しないように設定します。そうしないと、 
 彼女自身が会話ロジックをトリガーします。
 

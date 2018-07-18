@@ -36,7 +36,7 @@ public:
 	*
 	* @param	InSrcBufferData		Source compressed data
 	* @param	InSrcBufferDataSize	Size of compressed data
-	* @param	QualityInfo			Quality Info (to be filled out)
+	* @param	QualityInfo			Quality Info (to be filled out). This can be null in the case of most implementations of FSoundBuffer::ReadCompressedInfo
 	*/
 	ENGINE_API virtual bool ReadCompressedInfo(const uint8* InSrcBufferData, uint32 InSrcBufferDataSize, struct FSoundQualityInfo* QualityInfo) = 0;
 

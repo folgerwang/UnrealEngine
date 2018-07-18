@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3735117
+﻿INTSourceChangelist:3810467
 Availability: Public
 Crumbs: %ROOT%, Engine, Engine/Animation, Engine/Animation/Persona
 Title:애니메이션 툴바
@@ -127,7 +127,7 @@ topic-image:SkeletonToolbar.png
 
 ![](animationdropdownmenu.png)
 
-아이콘 좌하단의 ** * ** (별표) 심볼은 애셋에 저장되지 않은 변경사항이 있음을 나타냅니다.
+아이콘 좌하단의 *** (별표)** 심볼은 애셋에 저장되지 않은 변경사항이 있음을 나타냅니다.
 
 ![](unsavedasset.png)
 

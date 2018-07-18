@@ -17,7 +17,14 @@ struct FMovieScene3DAttachSectionTemplate : public FMovieSceneEvalTemplate
 {
 	GENERATED_BODY()
 	
-	FMovieScene3DAttachSectionTemplate() {}
+	FMovieScene3DAttachSectionTemplate() 
+		: AttachmentLocationRule(EAttachmentRule::KeepRelative)
+		, AttachmentRotationRule(EAttachmentRule::KeepRelative)
+		, AttachmentScaleRule(EAttachmentRule::KeepRelative)
+		, DetachmentLocationRule(EDetachmentRule::KeepRelative)
+		, DetachmentRotationRule(EDetachmentRule::KeepRelative)
+		, DetachmentScaleRule(EDetachmentRule::KeepRelative)
+	{}
 	FMovieScene3DAttachSectionTemplate(const UMovieScene3DAttachSection& Section);
 
 	/** The object binding ID we should attach to */

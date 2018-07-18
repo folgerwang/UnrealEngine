@@ -19,7 +19,7 @@ class SLATECORE_API FArrangedChildren
 	
 	public:
 
-	typedef TArray<FArrangedWidget, TInlineAllocator<16>> FArrangedWidgetArray;
+	typedef TArray<FArrangedWidget, TInlineAllocator<4>> FArrangedWidgetArray;
 
 	/**
 	 * Construct a new container for arranged children that only accepts children that match the VisibilityFilter.
@@ -70,12 +70,27 @@ class SLATECORE_API FArrangedChildren
 			Array.Add(InWidgetGeometry);
 		}
 	}
+
+	FORCEINLINE_DEBUGGABLE void InsertWidget(EVisibility VisibilityOverride, const FArrangedWidget& InWidgetGeometry, int32 Index)
+	{
+		if (Accepts(VisibilityOverride))
+		{
+			Array.Insert(InWidgetGeometry, Index);
+		}
+	}
 	
 	/**
 	 * Add an arranged widget (i.e. widget and its resulting geometry) to the list of Arranged children
 	 * based on the the visibility filter and the arranged widget's visibility
 	 */
 	void AddWidget(const FArrangedWidget& InWidgetGeometry);
+
+	void InsertWidget(const FArrangedWidget& InWidgetGeometry, int32 Index);
+
+	FORCEINLINE_DEBUGGABLE void SetFilter(EVisibility InVisibility)
+	{
+		VisibilityFilter = InVisibility;
+	}
 
 	FORCEINLINE_DEBUGGABLE EVisibility GetFilter() const
 	{
@@ -84,7 +99,7 @@ class SLATECORE_API FArrangedChildren
 
 	FORCEINLINE_DEBUGGABLE bool Accepts(EVisibility InVisibility) const
 	{
-		return 0 != (InVisibility.Value & VisibilityFilter.Value);
+		return EVisibility::DoesVisibilityPassFilter(InVisibility, VisibilityFilter);
 	}
 
 	FORCEINLINE_DEBUGGABLE bool Allows3DWidgets() const

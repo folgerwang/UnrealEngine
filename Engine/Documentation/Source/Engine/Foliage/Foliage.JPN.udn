@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3481084
+﻿INTSourceChangelist:3807090
 Availability:Public
 Title:フォリッジ インスタンス化メッシュ
 Crumbs:%ROOT%, Engine
@@ -7,46 +7,8 @@ Version:4.12
 SkillLevel:Intermediate
 parent:Engine
 order:11
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Engine/Foliage:title%](Engine/Foliage/foliage_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/foliage_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Foliage:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Foliage:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Foliage]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Engine/Foliage:title%](Engine/Foliage/foliage_topic.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%/foliage_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Engine/Foliage:title%
-	[/PARAM]
-	[PARAM:description]
-		%Engine/Foliage:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Engine/Foliage]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:Engine/Foliage/foliage_topic.png
+topic-icon:%ROOT%/foliage_icon.png
 
 [REGION:header_img]
 ![Foliage Tool](Foliage_Banner.png)(w:900)
@@ -82,45 +44,45 @@ Foliage ツールを使用するには、アンリアル エディタの左上�
 スタティックメッシュをメッシュ リストに追加するには、**コンテンツ ブラウザ** からスタティックメッシュを **Drop Foliage Here (フォリッジをここへドラッグ)** と表示されている領域にドラッグします。
 
 [REGION:lightbox]
-[![](Foliage_TextBar.png)(w:400 h:250)](Foliage_TextBar.png)
+[![](Foliage_TextBar.png)(w:400)](Foliage_TextBar.png)
 [/REGION]
 
 [REGION:tip]
 正しいアクタ タイプを追加しようとする場合のみ、フォリッジ タイプが黄色く表示されます。黄色く表示されない場合は、追加することはできません。
 [/REGION]
 
-フォリッジとして使用しているスタティックメッシュのプロパティを調整するには、メッシュ リストからスタティックメッシュを選びます。次に、フォリッジ右下角にある小さな **虫眼鏡** のアイコンをクリックします。選択したスタティックメッシュの詳細が表示されます。 
+フォリッジとして使用しているスタティックメッシュのプロパティを調整するには、まずメッシュ リストからスタティックメッシュを選び、次にフォリッジ右下角にある小さな **虫眼鏡** のアイコンをクリックします。すると、選択したスタティックメッシュの詳細が表示されます。 
 
 [REGION:lightbox]
-[![](Expose_Instanc_Options.png)(w:190 h:350)](Expose_Instanc_Options.png)
+[![](Expose_Instanc_Options.png)(w:190)](Expose_Instanc_Options.png)
 [/REGION]
 
 アイコンを押すと、以下のような画面が表示されます。
 
 [REGION:lightbox]
-[![](Foliage_Mesh_Options.png)(w:190 h:350)](Foliage_Mesh_Options.png)
+[![](Foliage_Mesh_Options.png)(w:190)](Foliage_Mesh_Options.png)
 [/REGION]
 
 
 ###メッシュ リストでフォリッジ メッシュを選択する
 
-メッシュ リストにあるフォリッジ メッシュは、リストのメッシュにマウスを当てて左上のチェックマーク ボックスのチェックによって、有効と無効の切り替えができます。 
+メッシュ リストに表示されるフォリッジ メッシュの有効 / 無効の切り替えは、リストのメッシュにマウスを当てて表示される左上のチェックマーク ボックスのチェックで行います。 
 
 ![](Foliage_Selecting_Meshes.png)
 
-メッシュ リストでクリックしても、フォリッジ メッシュを選択することができます。 
-選択するとボックスがオレンジで囲まれて、以下のオプション パネルで各種プロパティの調整が可能になります。 
+あるいは、メッシュ リストでお目当てのメッシュをクリックして選択することも可能です。 
+選択されたメッシュはボックス枠がオレンジ表示に変わり、以下のオプション パネルで各種プロパティの調整ができるようになります。 
 
 [REGION:lightbox]
-[![](Foliage_Selected_Meshes.png)(w:190 h:350)](Foliage_Selected_Meshes.png)
+[![](Foliage_Selected_Meshes.png)(w:190)](Foliage_Selected_Meshes.png)
 [/REGION]
 
-##ブラシの設定
+## ブラシの設定
 
 ![](Foliage_Brush_Settings.png)
 
-(上図の) メッシュ リストでは、Mesh Edit ツールが現在選択中の Foliage ツールに関連するプロパティを表示します。 
-(全ての設定に Foliage ツールが付いているわけではありません。)
+(上図の) メッシュ リストには、Mesh Edit ツールで選択されている Foliage ツールのプロパティが表示されます。 
+(つまり、全ての設定で Foliage ツールが表示されるわけではありません。)
 
 | アイテム | 説明 |
 | ---- | ----------- |
@@ -128,7 +90,7 @@ Foliage ツールを使用するには、アンリアル エディタの左上�
 | **Paint Density** |  [INCLUDE:Engine/Foliage#PaintDensity] |
 | **Erase Density** |  [INCLUDE:Engine/Foliage#EraseDensity] |
 
-**[Landscape (ランドスケープ)]**、**[Static Meshes (スタティックメッシュ)]**、**[BSP (バイナリ空間分割)]**、**[Translucent (透過)]** のチェックボックスは、ツール使用時に設置するフォリッジ メッシュのアクタ タイプを決定するためのものです。 
+**[Landscape (ランドスケープ)]**、**[Static Meshes (スタティックメッシュ)]**、**[BSP (バイナリ空間分割)]**、**[Translucent (透過)]** のチェックボックスで、ツール使用時に配置するフォリッジ メッシュのアクタ タイプを決定します。 
 ここにチェックを入れると、アクタ タイプ上でツールを使用した時にフォリッジ メッシュが追加されることを表します。
 チェックが外れていると、そのアクタ タイプ上にはフォリッジ メッシュが追加されないことを表します。
 
@@ -136,8 +98,8 @@ Foliage ツールを使用するには、アンリアル エディタの左上�
 -
 [EXCERPT:PaintDensity]
 **マウスの左ボタン** を使ってインスタンス追加する際の目標密度です。
-* この範囲は、 0 から 1 までです。値が 1 の場合は、各メッシュの Mesh プロパティ (下記参照) にある最大密度でメッシュ インスタンスをペイントします。
-* ブラシ内にあるメッシュの密度がすでにこの値を超えている場合は、メッシュがまったく追加されません。
+* 0 から 1 までの値で、1 の場合は、各メッシュの Mesh プロパティ (下記参照) にある最大密度でメッシュ インスタンスをペイントします。
+* ブラシ内のメッシュの密度がすでにこの値を超えている場合は、メッシュがまったく追加されません。
 [/EXCERPT:PaintDensity]
 -
 [/COMMENT]
@@ -145,9 +107,9 @@ Foliage ツールを使用するには、アンリアル エディタの左上�
 [COMMENT:none]
 -
 [EXCERPT:EraseDensity]
-**Ctrl+Shift+ クリック** でインスタンスを消去する場合に狙うターゲット密度です。
-* この範囲は、0 から 1 までで、0 はメッシュなし、1 は各メッシュの Mesh プロパティ (下記参照) にある最大密度でのメッシュ インスタンスを表します。この目標となる消去密度よりもメッシュが少ない場合は、メッシュがそれ以上消去されることはありません。 
-* この設定項目によって、すべてのインスタンスを完全に除去することなく、すでにペイントされているメッシュを間引くことができます。
+**Ctrl+Shift+ クリック** でインスタンスを消去する際の目標密度です。
+* 0 から 1 までの値で、0 はメッシュなし、1 は各メッシュの Mesh プロパティ (下記参照) にある最大密度でのメッシュ インスタンスを表します。目標とする消去密度よりもメッシュが少ない場合、メッシュはそれ以上消去されません。 
+* この設定項目によって、インスタンスを完全に除去せずに、すでにペイントされているメッシュを間引くことができます。
 [/EXCERPT:EraseDensity]
 -
 [/COMMENT]
@@ -155,42 +117,42 @@ Foliage ツールを使用するには、アンリアル エディタの左上�
 [COMMENT:none]
 -
 [EXCERPT:Filter]
-どのような種類のオブジェクト上にインスタンスを配置するか制御できます。 
-* フィルタ タイプに適合しないオブジェクト上では、フォリッジ球体ブラシが消えるため、ご注意ください。 
-* また、アクティブなストリーミング レベルのオブジェクト上でしかペイントできませんので、ご注意ください。
+インスタンスの配置先になるオブジェクトの種類を調節することができます。 
+* フィルタ タイプに適合しないオブジェクト上では、フォリッジ球体ブラシは消えてしまいます。ご注意ください。 
+* また、ペイントはアクティブなストリーミング レベルのオブジェクト上でのみ可能となります。ご注意ください。
 [/EXCERPT:Filter]
 -
 [/COMMENT]
 
 [REGION:note]
-また、タブレットの圧力感受性がサポートされています。ペンの圧力によって、追加 / 削除されるフォリッジ メッシュ インスタンスの数を制御することができます (これは、他のパラメータがすべて考慮された上で実行されます)。
+さらに、タブレットの圧力感受性がサポートされています。ペンの圧力によって、追加 / 削除するフォリッジ メッシュ インスタンスの数の制御が可能です (これは、他のパラメータがすべて考慮された上で実行されます)。
 [/REGION]
 
 ## Foliage ツール
-[Foliage] ウインドウの上部にあるツールバーから適切なボタンを選択すると、5 つのツールを使用することができます。  
+5 つのツールを [Foliage] ウインドウ上部のツールバーからボタンで選択することができます。 
 
 | アイテム | 説明 |
 | --- | --- |
-| ![Paint Tool](ToolPaint.png) | **Paint ツール** は、フォリッジ インスタンスをワールドに追加したり、ワールドから削除するために使います。 |
-| ![Reapply Tool](ToolReapply.png) | **Reapply ツール** は、既にワールドにペイントされたインスタンスのパラメータの変更に使用します。 |
-| ![Select Tool](ToolSelect.png) | **Selection ツール** は、移動、削除などのために個々のインスタンスを選択するために使用します。 |
-| ![Paint Select Tool](ToolPaintSelect.png) | **Lasso ツール** は、ペイントブラシを使って多数のインスタンスを選択するためのツールです。 |
-| ![Fill Tool](ToolFill.png) | **Fill ツール** は、Paint ツールを使って配置するメッシュ数を決定するためのツールです。 |
+| ![Paint Tool](ToolPaint.png) | **Paint ツール** は、フォリッジ インスタンスをワールドへ追加、またはワールドから削除します。 |
+| ![Reapply Tool](ToolReapply.png) | **Reapply ツール** は、既にワールドにペイントされたインスタンスのパラメータを変更します。 |
+| ![Select Tool](ToolSelect.png) | **Selection ツール** は、移動、削除などのために個々のインスタンスを選択します。 |
+| ![Paint Select Tool](ToolPaintSelect.png) | **Lasso ツール** は、ペイントブラシを使って多数のインスタンスを選択します。 |
+| ![Fill Tool](ToolFill.png) | **Fill ツール** は、Paint ツールを使って配置するメッシュ数を決定します。 |
 
 ### Paint ツール
 ![Paint Tool](ToolPaint.png)
 
-Paint ツールは フォリッジ編集モードのデフォルトのツールです。レベル内のメッシュ リストのスタティック メッシュのインスタンスをペイントするためのツールです。フォリッジ編集モードがアクティブな場合、透明な球体ブラシがレベル内で描画され、フォリッジ ブラシが機能する場所を示します。以下の画像は、フォリッジのペイント ブラシのサンプルです。
+Paint ツールは フォリッジ編集モードのデフォルトのツールです。メッシュ リストに表示されているレベル内のスタティック メッシュのインスタンスをペイントするためのツールです。フォリッジ編集モードをアクティブにすると、透明な球体ブラシがレベル内に表示され、フォリッジ ブラシが使える場所を示します。フォリッジのペイント ブラシはこのような感じです。
 
 ![](Foliage_Paint_Tool_Gimzo.png)
 
 [REGION:tip]
-フォリッジのペイントは、 VR エディタでも機能します。VR でのフォリッジのペイントの制御については、[](Engine/Editor/VR/Controls) をご覧ください。
+フォリッジのペイントは、 VR エディタでも使用できます。VR でのフォリッジのペイントの制御については、[](Engine/Editor/VR/Controls) をご覧ください。
 [/REGION]
 
 **フォリッジをブラシの領域に追加する方法**  
 * **マウスの左ボタン** を押しながら、フォリッジを追加したい場所を **クリック** します。
-メッシュ リストで現在選択されている全てのメッシュが、それぞれの現在のパラメータと設定に合わせて追加されます。
+メッシュ リストで現在選択されているすべてのメッシュが、それぞれの現在のパラメータと設定に合わせて追加されます。
 
 メッシュをペイントする場合、エンジンは、視線に平行に多数のライントレースを球体内部で実行します。つまり、球体内部に見えるサーフェスはどこもフォリッジ インスタンスの潜在的なターゲットになり得るということになります。
 
@@ -203,7 +165,7 @@ Paint ツールは フォリッジ編集モードのデフォルトのツール�
 これらのプロパティは、メッシュ リストに欲しいスタティックメッシュを 1 つ以上選択してアクセスし、以下のプロパティを調整します。
 
 [REGION:lightbox]
-[![](Foliage_PaintSettings.png)(w:190 h:350)](Foliage_PaintSettings.png)
+[![](Foliage_PaintSettings.png)(w:190)](Foliage_PaintSettings.png)
 [/REGION]
 
 各セクションの使用目的の概要です。
@@ -223,12 +185,12 @@ Paint ツールは フォリッジ編集モードのデフォルトのツール�
 Reapply ツールを有効にしてフォリッジ メッシュ上をペイントすると、メッシュ リストで選択されたフォリッジ メッシュが更新されて、Reapply ツールで作成された変更が反映されます。
 
 [REGION:lightbox]
-[![](Foliage_Reapply.png)(w:190 h:350)](Foliage_Reapply.png)
+[![](Foliage_Reapply.png)(w:190)](Foliage_Reapply.png)
 [/REGION]
 
 
 チェックボックスにチェックを入れると、既存のインスタンスの上をブラシでペイントしながら、そのチェックボックスに対応するパラメータを再適用することができます。 
-ほとんどの設定項目は、Paint ツールの場合と同様に使用できますが、相違点もいくつかあります。
+ほとんどの設定項目は、Paint ツールと同じ要領で使用できますが、異なる点もあります。
 
 | アイテム | 説明 |
 | --- | --- |
@@ -239,11 +201,11 @@ Reapply ツールを有効にしてフォリッジ メッシュ上をペイン�
 ### Select (選択) ツール
 ![Select Tool](ToolSelect.png)
 
-Select ツールが有効になっている場合は、個々のインスタンスをクリックすることによって選択が可能になります。 
+Select ツールを有効にすると、クリックによって個々のインスタンスを選択できるようになります。 
 レベル内でフォリッジ メッシュをクリックしながら **[Ctrl]** ボタンを押すと、一度に複数のフォリッジ メッシュを選択することができます。
 
 [REGION:lightbox]
-[![](Foliage_SelectInstance.png)(w:600 h:400)](Foliage_SelectInstance.png)
+[![](Foliage_SelectInstance.png)(w:600)](Foliage_SelectInstance.png)
 [/REGION]
 
 インスタンスを選択したら、それらに対して以下のアクションを実行することができます。
@@ -282,17 +244,17 @@ Fill ツールを使うには、フォリッジでカバーしたいスタティ
 フォリッジを削除するには、**Shift** キーを押しながら **マウスの左ボタン** で削除したいフォリッジのあるスタティックメッシュをクリックします。
 
 [REGION:lightbox]
-[![](Foliage_Fill.png)(w:600 h:400)](Foliage_Fill.png)
+[![](Foliage_Fill.png)(w:600)](Foliage_Fill.png)
 [/REGION]
 
 [region:tip]
-Fill ツールで消去したフォリッジ メッシュを選択できない場合は、追加したフォリッジ メッシュではなく配置したアクタ上をクリックしていることを確認してください。
+Fill ツールで消去したフォリッジ メッシュを選択できない場合は、クリックしているアクタが追加したフォリッジ メッシュではなく配置したアクタであることを確認してください。
 [/region]
 
 
 ## カリング
 
-フォリッジ インスタンスがクラスターとして単一のドローコールでレンダリングされるため、各クラスターは、オクルージョンに基づいてレンダリングの可否が決定されます。**End Cull Distance** パラメータに値が設定されていると、この距離を超えてもクラスターがカリングされます。ただし、クラスター全体が範囲外になると、メッシュのグループが突然消滅してしまうことになります。
+フォリッジ インスタンスがクラスターとして単一のドローコールでレンダリングされるため、各クラスターは、オクルージョンに基づいてレンダリングの可否が決定されます。**End Cull Distance** パラメータに値を設定すると、この距離を超えてもクラスターがカリングされます。ただし、クラスター全体が範囲外になると、メッシュのグループが突然消滅してしまうことになります。
 
 **Start Cull Distance** パラメータを追加し、マテリアルを正しく設定すればこの現象を緩和することができます。
  頂点シェーダーにおいて、インスタンス毎の係数が計算されます。係数は、距離の始点で 1.0 から始まり、終点で 0.0 となります。 
@@ -307,13 +269,13 @@ Fill ツールで消去したフォリッジ メッシュを選択できない�
 
 スタティック メッシュの LOD はフォリッジでサポートされています。以下は注意事項です。
 
-* スタティック メッシュは Elements 配列への入力は 1 つだけであることを確認してください (LOD0 で表示可能)。
+* スタティック メッシュの Elements 配列への入力が 1 つであることを確認してください (LOD0 で表示可能)。
 * すべての LOD レベルで光源とシャドウマップが共有されているため、すべての LOD で同一のアンラッピングを使用する必要があります。
 * 現在のところ、インスタンスのすべてのクラスタが LOD を同時に変更します。将来、インスタンスごとに距離ベースのフェーディングをサポートする可能性があります。
 
 ## ライティング
 
-各メッシュインスタンスでは、Lightmass によってそれぞれのシャドウまたはライトマップ (またはその両方) が生成されます。これらは、事前計算されたバッチごとにまとめてタイル処理されます。事前計算された光源処理をインスタンス化したフォリッジで正しく機能させるために、スタティックメッシュの設定項目をいくつか確認します。インスタンス化されたメッシュ用にシャドウマップを生成する場合、Lightmass はより厳格です。不適切な設定を行うと、光源処理を再ビルドした後にメッシュが黒くなる場合があります。
+各メッシュインスタンスでは、ライトマスによってそれぞれのシャドウまたはライトマップ (またはその両方) が生成されます。これらは、事前計算されたバッチごとにまとめてタイル処理されます。事前計算された光源処理をインスタンス化したフォリッジで正しく機能させるために、スタティックメッシュの設定項目をいくつか確認します。インスタンス化されたメッシュ用にシャドウマップを生成する場合、Lightmass はより厳格です。不適切な設定を行うと、光源処理を再ビルドした後にメッシュが黒くなる場合があります。
 
 
 * **Light Map Coordinate Index (ライトマップ座標インデックス)** - ユニークな UV ラッピングを有する有効な UV チャンネルに設定されなければなりません。スタティックメッシュ エディタの **Generate Unique UVs (一意のUV を生成)** は、**[Window]** メニューから使用することができ、ユニークなラッピングをすばやく作成することができる機能です。
@@ -323,22 +285,22 @@ Fill ツールで消去したフォリッジ メッシュを選択できない�
 
 ## フォリッジの拡張
 
-フォリッジ スタティック メッシュは [拡張システム](Engine/Performance/Scalability/ScalabilityReference/) を使って、画面でレンダリング中のフォリッジ インスタンス数を増減できます。この機能を追加するには、以下の手順に従います。
+フォリッジ スタティック メッシュは [拡張システム](Engine/Performance/Scalability/ScalabilityReference/) を使って、画面でレンダリング中のフォリッジ インスタンス数を増減できます。この機能の追加方法を説明します。
 
 [region:note]
-Foliage Painting モードを使用するには、レベルにコリジョンが有効にされたランドスケープ テレインまたはスタティック メッシュが含まれていなければなりません。 
+Foliage Painting モードを使用するためには、レベルにコリジョンが有効にされたランドスケープ テレインまたはスタティック メッシュが含まれていなければなりません。 
 [/region]
 
 1. コンテンツ ブラウザの中を右クリックします。**[Create Advanced Asset (詳細アセットを作成)]** セクションの **[Miscellaneous (その他)]** セクションを展開して、**[Foliage Type]** オプションを選択します。
 
 	[REGION:lightbox]
-	[![](Foliage_Scalability_00.png)(w:300 h:350)](Foliage_Scalability_00.png)
+	[![](Foliage_Scalability_00.png)(w:300)](Foliage_Scalability_00.png)
 	[/REGION]
 
-1. Foliage Type の名前 (このサンプルでは **FT_Box** を使います) を入力して FT_Box Foliage Type をダブル クリックして開きます。  
+1. [Foliage Type] の名前 (このサンプルでは **FT_Box** を使います) を入力して FT_Box Foliage Type をダブル クリックして開きます。  
 
 	[REGION:lightbox]
-	[![](Foliage_Scalability_01.png)(w:405 h:223)](Foliage_Scalability_01.png)
+	[![](Foliage_Scalability_01.png)(w:405)](Foliage_Scalability_01.png)
 	[/REGION]
 
 1. FT_Box が開いたら、**[Mesh]** セクションと **[Scalability]** セクションを展開します。
@@ -450,13 +412,13 @@ Foliage Painting モードを使用するには、レベルにコリジョンが
 1. **[Modes]** パネルの **[Foliage Tool]** を選択します。[FT_Box Foliage Type] を選んでコンテンツ ブラウザから **[Drop Foliage Here (フォリッジをここへドロップ)]** と表示されたエリアへドラッグします。
 
 	[REGION:lightbox]
-	[![](Foliage_Scalability_05.png)(w:250 h:350)](Foliage_Scalability_05.png)
+	[![](Foliage_Scalability_05.png)(w:250)](Foliage_Scalability_05.png)
 	[/REGION]
 
 1. Foliage Type リストに追加された [FT_Box] フォリッジ タイプを選択しします。ビューポートで FT_Bo Foliage Type メッシュのペイントを開始する位置で **マウスの左ボタン** を長押しします。 
 
 	[REGION:lightbox]
-	[![](Foliage_Scalability_06.png)(w:592 h:398)](Foliage_Scalability_06.png)
+	[![](Foliage_Scalability_06.png)(w:592)](Foliage_Scalability_06.png)
 	[/REGION]
 
 1. **ツールバー** の **[Play (プレイ)]** ボタンをクリックしてレベルを起動します。フォリッジの追加位置へ遷移します。

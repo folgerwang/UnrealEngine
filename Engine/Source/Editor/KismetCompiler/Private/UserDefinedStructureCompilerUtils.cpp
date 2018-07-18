@@ -202,7 +202,15 @@ struct FUserDefinedStructureCompilerInner
 			FString ErrorMsg;
 			if(!FStructureEditorUtils::CanHaveAMemberVariableOfType(Struct, VarType, &ErrorMsg))
 			{
-				LogError(Struct, MessageLog, FString::Printf(*LOCTEXT("StructureGeneric_Error", "Structure: %s Error: %s").ToString(), *Struct->GetFullName(), *ErrorMsg));
+				LogError(
+					Struct,
+					MessageLog,
+					FText::Format(
+						LOCTEXT("StructureGeneric_ErrorFmt", "Structure: {0} Error: {1}"),
+						FText::FromString(Struct->GetFullName()),
+						FText::FromString(ErrorMsg)
+					).ToString()
+				);
 				continue;
 			}
 
@@ -214,26 +222,34 @@ struct FUserDefinedStructureCompilerInner
 				VarProperty = FindField<UProperty>(Struct, VarDesc.VarName);
 				if (!ensureMsgf(VarProperty, TEXT("Could not find the expected property (%s); was the struct (%s) unexpectedly sanitized?"), *VarDesc.VarName.ToString(), *Struct->GetName()))
 				{
-					VarProperty = FKismetCompilerUtilities::CreatePropertyOnScope(Struct, VarDesc.VarName, VarType, NULL, 0, Schema, MessageLog);
+					VarProperty = FKismetCompilerUtilities::CreatePropertyOnScope(Struct, VarDesc.VarName, VarType, NULL, CPF_None, Schema, MessageLog);
 					bIsNewVariable = true;
 				}
 			}
 			else
 			{
-				VarProperty = FKismetCompilerUtilities::CreatePropertyOnScope(Struct, VarDesc.VarName, VarType, NULL, 0, Schema, MessageLog);
+				VarProperty = FKismetCompilerUtilities::CreatePropertyOnScope(Struct, VarDesc.VarName, VarType, NULL, CPF_None, Schema, MessageLog);
 				bIsNewVariable = true;
 			}
 
 			if (VarProperty == nullptr)
 			{
-				LogError(Struct, MessageLog, FString::Printf(*LOCTEXT("VariableInvalidType_Error", "The variable %s declared in %s has an invalid type %s").ToString(),
-					*VarDesc.VarName.ToString(), *Struct->GetName(), *UEdGraphSchema_K2::TypeToText(VarType).ToString()));
+				LogError(
+					Struct,
+					MessageLog,
+					FText::Format(
+						LOCTEXT("VariableInvalidType_ErrorFmt", "The variable {0} declared in {1} has an invalid type {2}"),
+						FText::FromName(VarDesc.VarName),
+						FText::FromString(Struct->GetName()),
+						UEdGraphSchema_K2::TypeToText(VarType)
+					).ToString()
+				);
 				continue;
 			}
 			else if (bIsNewVariable)
 			{
 				VarProperty->SetFlags(RF_LoadCompleted);
-				FKismetCompilerUtilities::LinkAddedProperty(Struct, VarProperty);				
+				FKismetCompilerUtilities::LinkAddedProperty(Struct, VarProperty);
 			}
 			
 			VarProperty->SetPropertyFlags(CPF_Edit | CPF_BlueprintVisible);
@@ -301,7 +317,14 @@ struct FUserDefinedStructureCompilerInner
 
 		if (Struct->GetStructureSize() <= 0)
 		{
-			LogError(Struct, MessageLog, FString::Printf(*LOCTEXT("StructurEmpty_Error", "Structure '%s' is empty ").ToString(), *Struct->GetFullName()));
+			LogError(
+				Struct,
+				MessageLog,
+				FText::Format(
+					LOCTEXT("StructurEmpty_ErrorFmt", "Structure '{0}' is empty "),
+					FText::FromString(Struct->GetFullName())
+				).ToString()
+			);
 		}
 
 		FString DefaultInstanceError;

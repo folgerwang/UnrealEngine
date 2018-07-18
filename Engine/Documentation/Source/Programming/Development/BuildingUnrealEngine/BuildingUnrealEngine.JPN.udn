@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3810557
 Availability:Public
 Title:ソースからアンリアル エンジンをビルドする
 Crumbs: %ROOT%, Programming, Programming/Development
@@ -106,6 +106,22 @@ tags:Unreal Build System
 	[/PARAM]
 [/OBJECT]
 
+## アンリアル エンジンの使用を開始する
+
+[](GettingStarted) のドキュメントを参照してアンリアル エンジンの使用方法を学習しましょう！
+
+UE4 の使用について取り急ぎ学習したい場合は、以下のチュートリアルをご覧ください。
+*	[](Engine/Content/QuickStart)
+*	[](Programming/QuickStart)
+*	[](Engine/QuickStart)
+
+
+[REGION:note]
+UE4 のエディタ内ヘルプ機能は、疑問点を解消するのに役立ちます。
+[/REGION]
+
+[/EXCERPT:Main]
+
 [COMMENT:none]
 
 [EXCERPT:windowscompile]
@@ -174,10 +190,6 @@ XCode の最新版がインストール済であることを確認してから�
 
 [/EXCERPT:linuxcompile]
 
-[/COMMENT]
-
-[COMMENT:none]
-
 [EXCERPT:windowsrun]
 
 1.	スタートアップ プロジェクトを **UE4** に設定します。
@@ -227,19 +239,3 @@ XCode の最新版がインストール済であることを確認してから�
 [/EXCERPT:linuxrun]
 
 [/COMMENT]
-
-## アンリアル エンジンの使用を開始する
-
-[](GettingStarted) のドキュメントを参照してアンリアル エンジンの使用方法を学習しましょう！
-
-UE4 の使用について取り急ぎ学習したい場合は、以下のチュートリアルをご覧ください。
-*	[](Engine/Content/QuickStart)
-*	[](Programming/QuickStart)
-*	[](Engine/QuickStart)
-
-
-[REGION:note]
-UE4 のエディタ内ヘルプ機能は、疑問点を解消するのに役立ちます。
-[/REGION]
-
-[/EXCERPT:Main]

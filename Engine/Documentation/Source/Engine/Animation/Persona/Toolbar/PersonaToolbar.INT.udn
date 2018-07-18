@@ -126,7 +126,7 @@ The currently open editor will be highlighted:
 
 ![](animationdropdownmenu.png)
 
-A ** * (Asterisk)** symbol in the lower left corner of the icon indicates that the asset has changes that have not been saved. 
+A *** (Asterisk)** symbol in the lower left corner of the icon indicates that the asset has changes that have not been saved. 
 
 ![](unsavedasset.png)
 

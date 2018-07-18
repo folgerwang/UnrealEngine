@@ -7,12 +7,12 @@
 #include "ActorSequenceComponentCustomization.h"
 #include "ActorSequenceEditorStyle.h"
 #include "ActorSequenceEditorTabSummoner.h"
-#include "LayoutExtender.h"
+#include "Framework/Docking/LayoutExtender.h"
 #include "LevelEditor.h"
 #include "MovieSceneToolsProjectSettings.h"
 #include "PropertyEditorModule.h"
 #include "Styling/SlateStyle.h"
-#include "WorkflowTabManager.h"
+#include "WorkflowOrientedApp/WorkflowTabManager.h"
 #include "Modules/ModuleManager.h"
 #include "Widgets/Docking/SDockTab.h"
 #include "ISettingsModule.h"
@@ -133,7 +133,12 @@ public:
 	static void OnInitializeSequence(UActorSequence* Sequence)
 	{
 		auto* ProjectSettings = GetDefault<UMovieSceneToolsProjectSettings>();
-		Sequence->GetMovieScene()->SetPlaybackRange(ProjectSettings->DefaultStartTime, ProjectSettings->DefaultStartTime + ProjectSettings->DefaultDuration);
+		UMovieScene* MovieScene = Sequence->GetMovieScene();
+		
+		FFrameNumber StartFrame = (ProjectSettings->DefaultStartTime * MovieScene->GetTickResolution()).RoundToFrame();
+		int32        Duration   = (ProjectSettings->DefaultDuration * MovieScene->GetTickResolution()).RoundToFrame().Value;
+
+		MovieScene->SetPlaybackRange(StartFrame, Duration);
 	}
 
 	/** Register details view customizations. */

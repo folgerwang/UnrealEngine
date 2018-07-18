@@ -9,6 +9,7 @@
 #include "Misc/Parse.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Paths.h"
+#include "Misc/ScopeExit.h"
 #include "Modules/ModuleManager.h"
 #include "Misc/CompilationResult.h"
 #include "UnrealHeaderToolGlobals.h"
@@ -76,14 +77,11 @@ INT32_MAIN_INT32_ARGC_TCHAR_ARGV()
 	}
 
 	// Make sure the engine is properly cleaned up whenever we exit this function
-	struct FExitCleanup
+	ON_SCOPE_EXIT
 	{
-		~FExitCleanup()
-		{
-			FEngineLoop::AppPreExit();
-			FEngineLoop::AppExit();
-		}
-	} OnExitEngineCleanup;
+		FEngineLoop::AppPreExit();
+		FEngineLoop::AppExit();
+	};
 
 	GIsUCCMakeStandaloneHeaderGenerator = true;
 	if (GEngineLoop.PreInit(*ShortCmdLine) != 0)

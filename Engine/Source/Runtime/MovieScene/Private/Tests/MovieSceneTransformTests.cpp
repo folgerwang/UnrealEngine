@@ -9,7 +9,7 @@
 
 #define LOCTEXT_NAMESPACE "MovieSceneTransformTests"
 
-bool IsNearly(TRangeBound<float> A, TRangeBound<float> B)
+bool IsEqual(TRangeBound<FFrameNumber> A, TRangeBound<FFrameNumber> B)
 {
 	if (A.IsOpen() || B.IsOpen())
 	{
@@ -20,56 +20,52 @@ bool IsNearly(TRangeBound<float> A, TRangeBound<float> B)
 		return false;
 	}
 	
-	return FMath::IsNearlyEqual(A.GetValue(), B.GetValue());
+	return A.GetValue() == B.GetValue();
 }
 
-bool IsNearly(TRange<float> A, TRange<float> B)
+bool IsEqual(TRange<FFrameNumber> A, TRange<FFrameNumber> B)
 {
-	return IsNearly(A.GetLowerBound(), B.GetLowerBound()) && IsNearly(A.GetUpperBound(), B.GetUpperBound());
+	return IsEqual(A.GetLowerBound(), B.GetLowerBound()) && IsEqual(A.GetUpperBound(), B.GetUpperBound());
 }
 
-namespace Lex
+FString LexToString(const TRange<FFrameNumber>& InRange)
 {
-	FString ToString(const TRange<float>& InRange)
-	{
-		TRangeBound<float> SourceLower = InRange.GetLowerBound();
-		TRangeBound<float> SourceUpper = InRange.GetUpperBound();
+	TRangeBound<FFrameNumber> SourceLower = InRange.GetLowerBound();
+	TRangeBound<FFrameNumber> SourceUpper = InRange.GetUpperBound();
 
-		return *FString::Printf(TEXT("%s-%s"),
-			SourceLower.IsOpen() ? 
-				TEXT("[...") : 
-				SourceLower.IsInclusive() ?
-					*FString::Printf(TEXT("[%.5f"), SourceLower.GetValue()) :
-					*FString::Printf(TEXT("(%.5f"), SourceLower.GetValue()),
+	return *FString::Printf(TEXT("%s-%s"),
+		SourceLower.IsOpen() ? 
+			TEXT("[...") : 
+			SourceLower.IsInclusive() ?
+				*FString::Printf(TEXT("[%i"), SourceLower.GetValue().Value) :
+				*FString::Printf(TEXT("(%i"), SourceLower.GetValue().Value),
 
-			SourceUpper.IsOpen() ? 
-				TEXT("...]") : 
-				SourceUpper.IsInclusive() ?
-					*FString::Printf(TEXT("%.5f]"), SourceUpper.GetValue()) :
-					*FString::Printf(TEXT("%.5f)"), SourceUpper.GetValue())
-			);
-	}
+		SourceUpper.IsOpen() ? 
+			TEXT("...]") : 
+			SourceUpper.IsInclusive() ?
+				*FString::Printf(TEXT("%i]"), SourceUpper.GetValue().Value) :
+				*FString::Printf(TEXT("%i)"), SourceUpper.GetValue().Value)
+		);
 }
 
-bool TestTransform(FAutomationTestBase& Test, FMovieSceneSequenceTransform Transform, TArrayView<TRange<float>> InSource, TArrayView<TRange<float>> InExpected, const TCHAR* TestName)
+bool TestTransform(FAutomationTestBase& Test, FMovieSceneSequenceTransform Transform, TArrayView<TRange<FFrameNumber>> InSource, TArrayView<TRange<FFrameNumber>> InExpected, const TCHAR* TestName)
 {
-	using namespace Lex;
-
 	check(InSource.Num() == InExpected.Num());
 
 	bool bSuccess = true;
 	for (int32 Index = 0; Index < InSource.Num(); ++Index)
 	{
-		TRange<float> Result = InSource[Index] * Transform;
-		if (!IsNearly(Result, InExpected[Index]))
+		TRange<FFrameNumber> Result = InSource[Index] * Transform;
+		if (!IsEqual(Result, InExpected[Index]))
 		{
-			Test.AddError(FString::Printf(TEXT("Test '%s' failed (Index %d). Transform (Scale %.3f, Offset %.3f) did not apply correctly (%s != %s)"),
+			Test.AddError(FString::Printf(TEXT("Test '%s' failed (Index %d). Transform (Scale %.3f, Offset %i+%.3f) did not apply correctly (%s != %s)"),
 				TestName,
 				Index,
 				Transform.TimeScale,
-				Transform.Offset,
-				*ToString(Result),
-				*ToString(InExpected[Index])));
+				Transform.Offset.FrameNumber.Value,
+				Transform.Offset.GetSubFrame(),
+				*LexToString(Result),
+				*LexToString(InExpected[Index])));
 
 			bSuccess = false;
 		}
@@ -79,23 +75,24 @@ bool TestTransform(FAutomationTestBase& Test, FMovieSceneSequenceTransform Trans
 }
 
 // Calculate the transform that transforms from range A to range B
-FMovieSceneSequenceTransform TransformRange(float StartA, float EndA, float StartB, float EndB)
+FMovieSceneSequenceTransform TransformRange(FFrameNumber StartA, FFrameNumber EndA, FFrameNumber StartB, FFrameNumber EndB)
 {
-	return FMovieSceneSequenceTransform(StartB, (EndB - StartB) / (EndA - StartA)) * FMovieSceneSequenceTransform(-StartA);
+	float Scale = double( (EndB - StartB).Value ) / (EndA - StartA).Value;
+	return FMovieSceneSequenceTransform(StartB, Scale) * FMovieSceneSequenceTransform(-StartA);
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMovieSceneSubSectionCoreTransformsTest, "System.Engine.Sequencer.Core.Transforms", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 bool FMovieSceneSubSectionCoreTransformsTest::RunTest(const FString& Parameters)
 {
-	// We test using ranges since that implicitly tests float transformation
-	static const TRangeBound<float> OpenBound;
+	// We test using ranges since that implicitly tests frame number transformation as well
+	static const TRangeBound<FFrameNumber> OpenBound;
 
-	TRange<float> InfiniteRange(OpenBound, OpenBound);
-	TRange<float> OpenLowerRange(OpenBound, 200.f);
-	TRange<float> OpenUpperRange(100.f, OpenBound);
-	TRange<float> ClosedRange(100.f, 200.f);
+	TRange<FFrameNumber> InfiniteRange(OpenBound, OpenBound);
+	TRange<FFrameNumber> OpenLowerRange(OpenBound, FFrameNumber(200));
+	TRange<FFrameNumber> OpenUpperRange(FFrameNumber(100), OpenBound);
+	TRange<FFrameNumber> ClosedRange(FFrameNumber(100), FFrameNumber(200));
 
-	TRange<float> SourceRanges[] = {
+	TRange<FFrameNumber> SourceRanges[] = {
 		InfiniteRange, OpenLowerRange, OpenUpperRange, ClosedRange
 	};
 
@@ -105,7 +102,7 @@ bool FMovieSceneSubSectionCoreTransformsTest::RunTest(const FString& Parameters)
 		// Test Multiplication with an identity transform
 		FMovieSceneSequenceTransform IdentityTransform;
 
-		TRange<float> Expected[] = {
+		TRange<FFrameNumber> Expected[] = {
 			InfiniteRange, OpenLowerRange, OpenUpperRange, ClosedRange
 		};
 		
@@ -114,10 +111,10 @@ bool FMovieSceneSubSectionCoreTransformsTest::RunTest(const FString& Parameters)
 
 	{
 		// Test a simple translation
-		FMovieSceneSequenceTransform Transform(100.f, 1);
+		FMovieSceneSequenceTransform Transform(100, 1);
 
-		TRange<float> Expected[] = {
-			InfiniteRange, TRange<float>(OpenBound, 300.f), TRange<float>(200.f, OpenBound), TRange<float>(200.f, 300.f)
+		TRange<FFrameNumber> Expected[] = {
+			InfiniteRange, TRange<FFrameNumber>(OpenBound, FFrameNumber(300)), TRange<FFrameNumber>(FFrameNumber(200), OpenBound), TRange<FFrameNumber>(200, 300)
 		};
 
 		bSuccess = TestTransform(*this, Transform, SourceRanges, Expected, TEXT("Simple Translation")) && bSuccess;
@@ -129,21 +126,21 @@ bool FMovieSceneSubSectionCoreTransformsTest::RunTest(const FString& Parameters)
 		// Transform 100 - 200 to -200 - 1000
 		FMovieSceneSequenceTransform Transform = TransformRange(100, 200, -200, 1000);
 
-		TRange<float> Expected[] = {
-			InfiniteRange, TRange<float>(OpenBound, 1000.f), TRange<float>(-200.f, OpenBound), TRange<float>(-200.f, 1000.f)
+		TRange<FFrameNumber> Expected[] = {
+			InfiniteRange, TRange<FFrameNumber>(OpenBound, FFrameNumber(1000)), TRange<FFrameNumber>(FFrameNumber(-200), OpenBound), TRange<FFrameNumber>(-200, 1000)
 		};
 
 		bSuccess = TestTransform(*this, Transform, SourceRanges, Expected, TEXT("Simple Translation + half speed")) && bSuccess;
 	}
 
 	{
-		// Test that transforming a float by the same transform multiple times, does the same as the equivalent accumulated transform
+		// Test that transforming a frame number by the same transform multiple times, does the same as the equivalent accumulated transform
 
 		// scales by 2, then offsets by 100
-		FMovieSceneSequenceTransform SeedTransform = FMovieSceneSequenceTransform(100.f, 0.5f);
+		FMovieSceneSequenceTransform SeedTransform = FMovieSceneSequenceTransform(100, 0.5f);
 		FMovieSceneSequenceTransform AccumulatedTransform;
 
-		float SeedValue = 10.f;
+		FFrameTime SeedValue = 10;
 		for (int32 i = 0; i < 5; ++i)
 		{
 			AccumulatedTransform = SeedTransform * AccumulatedTransform;
@@ -151,18 +148,18 @@ bool FMovieSceneSubSectionCoreTransformsTest::RunTest(const FString& Parameters)
 			SeedValue = SeedValue * SeedTransform;
 		}
 
-		float AccumValue = 10.f * AccumulatedTransform;
-		if (!FMath::IsNearlyEqual(AccumValue, SeedValue))
+		FFrameTime AccumValue = FFrameTime(10) * AccumulatedTransform;
+		if (AccumValue != SeedValue)
 		{
-			AddError(FString::Printf(TEXT("Accumulated transform does not have the same effect as separate transformations (%.7f != %.7f)"), AccumValue, SeedValue));
+			AddError(FString::Printf(TEXT("Accumulated transform does not have the same effect as separate transformations (%i+%.5f != %i+%.5f)"), AccumValue.FrameNumber.Value, AccumValue.GetSubFrame(), SeedValue.FrameNumber.Value, SeedValue.GetSubFrame()));
 		}
 
 		FMovieSceneSequenceTransform InverseTransform = AccumulatedTransform.Inverse();
 
-		float InverseValue = AccumValue * InverseTransform;
-		if (!FMath::IsNearlyEqual(InverseValue, 10.f))
+		FFrameTime InverseValue = AccumValue * InverseTransform;
+		if (InverseValue != 10)
 		{
-			AddError(FString::Printf(TEXT("Inverse accumulated transform does not return value back to its original value (%.7f != 10.f)"), InverseValue));
+			AddError(FString::Printf(TEXT("Inverse accumulated transform does not return value back to its original value (%i+%.5f != 10)"), InverseValue.FrameNumber.Value, InverseValue.GetSubFrame()));
 		}
 	}
 

@@ -9,12 +9,28 @@
 #include "Math/UnrealMathUtility.h"
 
 /**
+ * Type traits for Arithmetic interval.
+ */
+template <typename ElementType> struct TIntervalTraits
+{
+	static_assert(TIsArithmetic<ElementType>::Value, "Incompatible TInterval element type.");
+
+	static ElementType Max()
+	{
+		return TNumericLimits<ElementType>::Max();
+	}
+
+	static ElementType Lowest()
+	{
+		return TNumericLimits<ElementType>::Lowest();
+	}
+};
+
+/**
  * Template for numeric interval
  */
 template<typename ElementType> struct TInterval
 {
-	static_assert(TIsArithmetic<ElementType>::Value, "Interval can be used only with numeric types");
-	
 	/** Holds the lower bound of the interval. */
 	ElementType Min;
 	
@@ -29,8 +45,8 @@ public:
 	 * The interval is invalid
 	 */
 	TInterval()
-		: Min(TNumericLimits<ElementType>::Max())
-		, Max(TNumericLimits<ElementType>::Lowest())
+		: Min(TIntervalTraits<ElementType>::Max())
+		, Max(TIntervalTraits<ElementType>::Lowest())
 	{ }
 
     /**
@@ -91,7 +107,7 @@ public:
 	 *
 	 * @return false when interval is invalid, true otherwise
 	 */
-	ElementType IsValid() const
+	bool IsValid() const
 	{
 		return (Min <= Max);
 	}

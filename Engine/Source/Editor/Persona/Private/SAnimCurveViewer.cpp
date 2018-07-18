@@ -1046,7 +1046,7 @@ void SAnimCurveViewer::OnNameCommitted(const FText& InNewName, ETextCommit::Type
 		{
 			// Do nothing if trying to rename to existing name...
 		}
-		else if (!Mapping->Exists(NewName))
+		else if (NewName != NAME_None && !Mapping->Exists(NewName))
 		{
 			EditableSkeletonPtr.Pin()->RenameSmartname(ContainerName, Item->SmartName.UID, NewName);
 			// remove it, so that it can readd it. 
@@ -1056,7 +1056,7 @@ void SAnimCurveViewer::OnNameCommitted(const FText& InNewName, ETextCommit::Type
 		{
 			FFormatNamedArguments Args;
 			Args.Add(TEXT("InvalidName"), FText::FromName(NewName) );
-			FNotificationInfo Info(FText::Format(LOCTEXT("AnimCurveRenamed", "The name \"{InvalidName}\" is already used."), Args));
+			FNotificationInfo Info(FText::Format(LOCTEXT("AnimCurveRenamed", "The name \"{InvalidName}\" is invalid or already used."), Args));
 
 			Info.bUseLargeFont = false;
 			Info.ExpireDuration = 5.0f;

@@ -199,7 +199,7 @@ struct FBitmap : public FAlphaBitmap
 									break;
 								}
 							}
-						} while (bHasOverlap);
+						} while (bHasOverlap); //-V654
 
 						// Mark in the mask, avoid checking for any more sprites within this rect
 						MaskBitmap.FillRect(NewRect.Min.X, NewRect.Min.Y, NewRect.Width(), NewRect.Height());

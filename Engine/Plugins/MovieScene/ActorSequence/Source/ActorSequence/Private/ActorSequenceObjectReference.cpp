@@ -1,8 +1,8 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "ActorSequenceObjectReference.h"
-#include "Classes/Engine/SCS_Node.h"
-#include "Classes/Engine/SimpleConstructionScript.h"
+#include "Engine/SCS_Node.h"
+#include "Engine/SimpleConstructionScript.h"
 #include "Engine/Blueprint.h"
 #include "UObject/Package.h"
 

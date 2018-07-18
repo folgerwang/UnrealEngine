@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3804170
 Availability: Public
 Title:액터 그룹
 Crumbs:%ROOT%, Engine, Engine/Actors
@@ -53,9 +53,9 @@ topic-image:actorgrouping_topic.png
 
 | **단축키** | **명령** |
 | --- | --- |
-| **Ctrl + G** | [그룹](#그룹) / [리그룹](#리그룹) |
-| **Shift + G** | [언그룹](#언그룹) |
-| **Ctrl + Shift + G** | 그룹 모드 토글 |
+| **Ctrl+G** | [그룹](#그룹)/[리그룹](#리그룹) |
+| **Shift+G** | [언그룹](#언그룹) |
+| **Ctrl+Shift+G** | 그룹 모드 토글 |
 
 
 ### 그룹
@@ -103,19 +103,6 @@ topic-image:actorgrouping_topic.png
 * 그룹의 상태는 그룹을 둘러싸고 있는 각괄호의 색으로 판단할 수 있습니다. 녹색은 고정된 그룹, 빨강은 고정해제된 그룹을 나타냅니다.
 
 	![Unlocked Group](LE_GroupBracketsUnlocked.png)
-
-[COMMENT:none]
-----
-
-* 중첩된 그룹의 경우, 그룹 고정/고정해제 작업은 레이어 별로 수행됩니다.   
-	![NestedGroupLock_1.png](NestedGroupLock_1.png) <br/>   
-예를 들어 전부 고정된 3 단계 그룹(즉 그룹 속에 그룹 안에 그룹) 중 최상위 그룹을 선택하고 **그룹 고정해제** (Unlock Groups)를 하면, 최상위 부모를 풀어 레이어를 한 꺼풀 벗기며 다음 서브 그룹에 직접 접근할 수 있게 됩니다. 그 그룹에 고정해제를 해도 똑같은 효과가 납니다.   
-	![NestedGroupLock_2.png](NestedGroupLock_2.png)
-
-그룹 고정은 역순으로 일어납니다. 현재 해제되어 있는 서브그룹에서 **그룹 고정** 을 선택하면, 일단 그 그룹이 고정됩니다. 그 상태로 **그룹 고정** 을 다시 선택하면 부모가 고정됩니다.
-
----
-[/COMMENT]
 
 
 ### 그룹에서 제거

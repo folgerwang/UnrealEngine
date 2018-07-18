@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "OnlineDelegateMacros.h"
 
-#include "OnlineExternalUIInterface.h"
+#include "Interfaces/OnlineExternalUIInterface.h"
 #include "OnlineSubsystemGameCirclePackage.h"
 
 #include "OnlineAGSGameCircleClientCallbacks.h"
@@ -23,6 +23,7 @@ public:
 	FOnlineExternalUIGameCircle(FOnlineSubsystemGameCircle* InSubsystem);
 
 	virtual bool ShowLoginUI(const int ControllerIndex, bool bShowOnlineOnly, bool bShowSkipButton, const FOnLoginUIClosedDelegate& Delegate = FOnLoginUIClosedDelegate()) override;
+	virtual bool ShowAccountCreationUI(const int ControllerIndex, const FOnAccountCreationUIClosedDelegate& Delegate = FOnAccountCreationUIClosedDelegate()) override { /** NYI */ return false; }
 	virtual bool ShowFriendsUI(int32 LocalUserNum) override;
 	virtual bool ShowInviteUI(int32 LocalUserNum, FName SessionMame) override;
 	virtual bool ShowAchievementsUI(int32 LocalUserNum) override;

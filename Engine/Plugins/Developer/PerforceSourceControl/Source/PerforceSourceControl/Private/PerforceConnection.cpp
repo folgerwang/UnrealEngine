@@ -341,7 +341,7 @@ bool FPerforceConnection::EnsureValidConnection(FString& InOutServerName, FStrin
 		//Connection FAILED
 		StrBuf ErrorMessage;
 		P4Error.Fmt(&ErrorMessage);
-		SourceControlLog.Error(LOCTEXT("P4ErrorConnection", "P4ERROR: Failed to connect to source control provider."));
+		SourceControlLog.Error(LOCTEXT("P4ErrorConnection_FailedToConnect", "P4ERROR: Failed to connect to source control provider."));
 		SourceControlLog.Error(FText::FromString(ANSI_TO_TCHAR(ErrorMessage.Text())));
 		FFormatNamedArguments Arguments;
 		Arguments.Add( TEXT("PortName"), FText::FromString(NewServerName) );
@@ -359,8 +359,8 @@ bool FPerforceConnection::EnsureValidConnection(FString& InOutServerName, FStrin
 		bConnectionOK = CheckUnicodeStatus(TestP4, bIsUnicodeServer, ErrorMessages);
 		if(!bConnectionOK)
 		{
-			SourceControlLog.Error(LOCTEXT("P4ErrorConnection", "P4ERROR: Could not determine server unicode status."));
-			SourceControlLog.Error(ErrorMessages.Num() > 0 ? ErrorMessages[0] : LOCTEXT("P4ErrorConnection_Unknown error", "Unknown error"));
+			SourceControlLog.Error(LOCTEXT("P4ErrorConnection_CouldNotDetermineUnicodeStatus", "P4ERROR: Could not determine server unicode status."));
+			SourceControlLog.Error(ErrorMessages.Num() > 0 ? ErrorMessages[0] : LOCTEXT("P4ErrorConnection_UnknownError", "Unknown error"));
 			FFormatNamedArguments Arguments;
 			Arguments.Add( TEXT("PortName"), FText::FromString(NewServerName) );
 			Arguments.Add( TEXT("UserName"), FText::FromString(NewUserName) );
@@ -409,7 +409,7 @@ bool FPerforceConnection::EnsureValidConnection(FString& InOutServerName, FStrin
 		if (!bConnectionOK)
 		{
 			//Login FAILED
-			SourceControlLog.Error(LOCTEXT("P4ErrorConnection", "P4ERROR: Failed to connect to source control provider."));
+			SourceControlLog.Error(LOCTEXT("P4ErrorConnection_FailedToConnect", "P4ERROR: Failed to connect to source control provider."));
 			SourceControlLog.Error(ErrorMessages.Num() > 0 ? ErrorMessages[0] : LOCTEXT("P4ErrorConnection_InvalidWorkspace", "Invalid workspace"));
 			FFormatNamedArguments Arguments;
 			Arguments.Add( TEXT("PortName"), FText::FromString(NewServerName) );
@@ -532,7 +532,7 @@ bool FPerforceConnection::GetWorkspaceList(const FPerforceConnectionInfo& InConn
 					}
 					else
 					{
-						UE_LOG(LogSourceControl, Error, TEXT(" %s client specs rejected due to root directory mismatch (%s)"), *ClientName, *ClientRootPath);
+						UE_LOG(LogSourceControl, Display, TEXT(" %s client specs rejected due to root directory mismatch (%s)"), *ClientName, *ClientRootPath);
 					}
 
 					//Other useful fields: Description, Owner, Host
@@ -540,7 +540,7 @@ bool FPerforceConnection::GetWorkspaceList(const FPerforceConnectionInfo& InConn
 				}
 				else
 				{
-					UE_LOG(LogSourceControl, Error, TEXT(" %s client specs rejected due to host name mismatch (%s)"), *ClientName, *HostName);
+					UE_LOG(LogSourceControl, Display, TEXT(" %s client specs rejected due to host name mismatch (%s)"), *ClientName, *HostName);
 				}
 			}
 		}

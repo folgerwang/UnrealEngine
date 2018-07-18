@@ -15,7 +15,7 @@ FPaperSpriteSceneProxy::FPaperSpriteSceneProxy(UPaperSpriteComponent* InComponen
 	: FPaperRenderSceneProxy(InComponent)
 	, BodySetup(InComponent->GetBodySetup())
 {
-	WireframeColor = InComponent->GetWireframeColor();
+	SetWireframeColor(InComponent->GetWireframeColor());
 
 	Material = InComponent->GetMaterial(0);
 	if (Material == nullptr)
@@ -64,7 +64,7 @@ void FPaperSpriteSceneProxy::GetDynamicMeshElements(const TArray<const FSceneVie
 
 						auto CollisionMaterialInstance = new FColoredMaterialRenderProxy(
 							LevelColorationMaterial->GetRenderProxy(IsSelected(), IsHovered()),
-							WireframeColor
+							GetWireframeColor()
 							);
 
 						Collector.RegisterOneFrameMaterialProxy(CollisionMaterialInstance);

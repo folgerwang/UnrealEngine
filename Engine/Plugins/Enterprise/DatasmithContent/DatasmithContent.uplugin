@@ -1,13 +1,13 @@
 {
 	"FileVersion": 3,
-	"Version": 181,
-	"VersionName": "0.181",
-	"FriendlyName": "DatasmithContent",
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "Datasmith Content",
 	"Description": "Content for Datasmith Importer.",
 	"Category": "Unreal Studio",
 	"CreatedBy": "Epic Games, Inc.",
 	"CreatedByURL": "http://epicgames.com",
-	"DocsURL": "",
+	"DocsURL": "https://docs.unrealengine.com/en-US/Studio/Datasmith",
 	"MarketplaceURL": "",
 	"SupportURL": "",
 	"EnabledByDefault" : true,
@@ -19,6 +19,11 @@
 		{
 			"Name" : "DatasmithContent",
 			"Type" : "Runtime",
+			"LoadingPhase" : "Default"
+		},
+		{
+			"Name" : "DatasmithContentEditor",
+			"Type" : "Editor",
 			"LoadingPhase" : "Default"
 		}
 	]

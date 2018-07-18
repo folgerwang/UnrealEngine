@@ -5,6 +5,7 @@
 =============================================================================*/
 
 #include "Common.ush"
+#include "SceneTexturesCommon.ush"
 
 float2 ProjectionScaleBias;
 float4 SourceTexelOffsets01;
@@ -37,7 +38,9 @@ void Main(
 #ifndef STENCIL_LIGHTING_CHANNELS_SHIFT 
 #define STENCIL_LIGHTING_CHANNELS_SHIFT 0
 #endif
-   
+
+Texture2D<uint2> SceneStencilTexture;
+
 void CopyStencilToLightingChannelsPS(  
 	noperspective float2 InUV : TEXCOORD0,
 	out uint4 OutValue : SV_Target0

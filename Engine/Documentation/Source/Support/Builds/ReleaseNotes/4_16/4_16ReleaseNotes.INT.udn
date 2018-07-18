@@ -297,7 +297,7 @@ In every release, we update the engine to support the latest SDK releases from p
 ![image alt text](image_15.jpg)(w:929 convert:false)
 [/REGION]
 
-* **Visual Studio: ** Important:  Visual Studio 2013 is no longer supported on Windows with this release.  Please upgrade to either Visual Studio 2015 or Visual Studio 2017.
+* **Visual Studio:** Important:  Visual Studio 2013 is no longer supported on Windows with this release.  Please upgrade to either Visual Studio 2015 or Visual Studio 2017.
 
 * **Nintendo Switch:** supports Nintendo SDK 1.3.1
 

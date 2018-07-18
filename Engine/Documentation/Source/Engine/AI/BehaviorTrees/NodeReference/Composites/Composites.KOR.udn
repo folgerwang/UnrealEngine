@@ -36,7 +36,7 @@ Simple Parallel, 단순 병렬 노드는 전체 트리와 나란히 단일 메�
 
 | 프로퍼티 | 설명 |
 | -------- | ----------- |
-| **Finish Mode** | 완료 모드 - [INCLUDE:#subprop1] |
+| **Finish Mode** | [INCLUDE:#subprop1] |
 | **Node Name** | 노드 이름 - 비헤이비어 트리 그래프에 표시할 노드 이름입니다. |
 
 [COMMENT:none]

@@ -522,7 +522,11 @@ struct FMakeReferenceTo<void>
 {
 	typedef void Type;
 };
-
+template<>
+struct FMakeReferenceTo<const void>
+{
+	typedef void Type;
+};
 
 /**
  * TSharedPtr is a non-intrusive reference-counted authoritative object pointer.  This shared pointer
@@ -802,6 +806,16 @@ public:
 	FORCEINLINE ObjectType* Get() const
 	{
 		return Object;
+	}
+
+	/**
+	 * Checks to see if this shared pointer is actually pointing to an object
+	 *
+	 * @return  True if the shared pointer is valid and can be dereferenced
+	 */
+	FORCEINLINE explicit operator bool() const
+	{
+		return Object != nullptr;
 	}
 
 	/**

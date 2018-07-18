@@ -10,6 +10,7 @@
 #include "Containers/UnrealString.h"
 #include "Templates/SharedPointer.h"
 #include "CoreMinimal.h"
+#include "HAL/PlatformProcess.h"
 
 class FAndroidTargetDevice;
 class FTargetDeviceId;
@@ -180,9 +181,27 @@ public:
 		return true;
 	}
 
+	// Return true if the devices can be grouped in an aggregate (All_<platform>_devices_on_<host>) proxy
+	virtual bool IsPlatformAggregated() const override
+	{
+		return true;
+	}
+
+	// the name of the aggregate (All_<platform>_devices_on_<host>) proxy
+	virtual FString GetAllDevicesName() const override;
+
+	// the default variant (texture compression) of the aggregate (All_<platform>_devices_on_<host>) proxy
+	virtual FName GetAllDevicesDefaultVariant() const override
+	{
+		// The Android platform has an aggregate (All_<platform>_devices_on_<host>) entry in the Project Launcher
+		// Multi is the default texture format
+		return "Android_Multi";
+	}
+
 	virtual bool Launch(const FString& AppId, EBuildConfigurations::Type BuildConfiguration, EBuildTargets::Type BuildTarget, const FString& Params, uint32* OutProcessId);
 	virtual bool Reboot(bool bReconnect = false) override;
 	virtual bool Run(const FString& ExecutablePath, const FString& Params, uint32* OutProcessId) override;
+	virtual bool TerminateLaunchedProcess(const FString& ProcessIdentifier) override;
 	virtual bool SupportsFeature(ETargetDeviceFeatures Feature) const override;
 	virtual bool SupportsSdkVersion(const FString& VersionString) const override;
 	virtual bool TerminateProcess(const int64 ProcessId) override;

@@ -49,7 +49,7 @@
 #include "Framework/Application/SlateApplication.h"
 #include "ILauncherPlatform.h"
 #include "LauncherPlatformModule.h"
-#include "IMainFrameModule.h"
+#include "Interfaces/IMainFrameModule.h"
 
 #define LOCTEXT_NAMESPACE "ProjectBrowser"
 

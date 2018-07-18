@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3661537
+﻿INTSourceChangelist:3782314
 Availability:Public
 Crumbs: %ROOT%
 Title:Gear VR タッチパッド ボタンの使用方法
@@ -6,7 +6,7 @@ Description:Gear VR モーション コントローラーのタッチパッド�
 Type: how-to
 SkillLevel:Intermediate
 Version:4.17
-Parent:Platforms/GearVR/HowTo
+Parent:Platforms/GearVR
 Order:2
 Tags:GearVR
 topic-image:Platforms\GearVR\HowTo\GearVR_How_To_Header.png

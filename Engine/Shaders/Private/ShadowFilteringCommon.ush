@@ -40,22 +40,21 @@ struct FPCFSamplerSettings
 // @param Values0 in row 0 from left to right: x,y,z,w
 // @param Values1 in row 1 from left to right: x,y,z,w
 // @param Values2 in row 2 from left to right: x,y,z,w
-// can be optimized
 float PCF2x2(float2 Fraction, float3 Values0, float3 Values1, float3 Values2)
 {
-	float2 VerticalLerp00 = lerp(float2(Values0.x, Values1.x), float2(Values0.y, Values1.y), Fraction.xx);
-	float PCFResult00 = lerp(VerticalLerp00.x, VerticalLerp00.y, Fraction.y);
+	float3 Results;
 
-	float2 VerticalLerp10 = lerp(float2(Values0.y, Values1.y), float2(Values0.z, Values1.z), Fraction.xx);
-	float PCFResult10 = lerp(VerticalLerp10.x, VerticalLerp10.y, Fraction.y);
+	Results.x = Values0.x * (1.0f - Fraction.x);
+	Results.y = Values1.x * (1.0f - Fraction.x);
+	Results.z = Values2.x * (1.0f - Fraction.x);
+	Results.x += Values0.y;
+	Results.y += Values1.y;
+	Results.z += Values2.y;
+	Results.x += Values0.z * Fraction.x;
+	Results.y += Values1.z * Fraction.x;
+	Results.z += Values2.z * Fraction.x;
 
-	float2 VerticalLerp01 = lerp(float2(Values1.x, Values2.x), float2(Values1.y, Values2.y), Fraction.xx);
-	float PCFResult01 = lerp(VerticalLerp01.x, VerticalLerp01.y, Fraction.y);
-
-	float2 VerticalLerp11 = lerp(float2(Values1.y, Values2.y), float2(Values1.z, Values2.z), Fraction.xx);
-	float PCFResult11 = lerp(VerticalLerp11.x, VerticalLerp11.y, Fraction.y);	
-
-	return saturate((PCFResult00 + PCFResult10 + PCFResult01 + PCFResult11) * 0.25f);
+	return saturate(0.25f * dot(Results, half3(1.0f - Fraction.y, 1.0f, Fraction.y)));
 }
 
 // linear PCF, input 4x4
@@ -63,37 +62,28 @@ float PCF2x2(float2 Fraction, float3 Values0, float3 Values1, float3 Values2)
 // @param Values1 in row 1 from left to right: x,y,z,w
 // @param Values2 in row 2 from left to right: x,y,z,w
 // @param Values3 in row 3 from left to right: x,y,z,w
-// can be optimized
 float PCF3x3(float2 Fraction, float4 Values0, float4 Values1, float4 Values2, float4 Values3)
 {
-	float2 VerticalLerp00 = lerp(float2(Values0.x, Values1.x), float2(Values0.y, Values1.y), Fraction.xx);
-	float PCFResult00 = lerp(VerticalLerp00.x, VerticalLerp00.y, Fraction.y);
+	float4 Results;
 
-	float2 VerticalLerp10 = lerp(float2(Values0.y, Values1.y), float2(Values0.z, Values1.z), Fraction.xx);
-	float PCFResult10 = lerp(VerticalLerp10.x, VerticalLerp10.y, Fraction.y);
+	Results.x = Values0.x * (1.0f - Fraction.x);
+	Results.y = Values1.x * (1.0f - Fraction.x);
+	Results.z = Values2.x * (1.0f - Fraction.x);
+	Results.w = Values3.x * (1.0f - Fraction.x);
+	Results.x += Values0.y;
+	Results.y += Values1.y;
+	Results.z += Values2.y;
+	Results.w += Values3.y;
+	Results.x += Values0.z;
+	Results.y += Values1.z;
+	Results.z += Values2.z;
+	Results.w += Values3.z;
+	Results.x += Values0.w * Fraction.x;
+	Results.y += Values1.w * Fraction.x;
+	Results.z += Values2.w * Fraction.x;
+	Results.w += Values3.w * Fraction.x;
 
-	float2 VerticalLerp20 = lerp(float2(Values0.z, Values1.z), float2(Values0.w, Values1.w), Fraction.xx);
-	float PCFResult20 = lerp(VerticalLerp20.x, VerticalLerp20.y, Fraction.y);
-
-	float2 VerticalLerp01 = lerp(float2(Values1.x, Values2.x), float2(Values1.y, Values2.y), Fraction.xx);
-	float PCFResult01 = lerp(VerticalLerp01.x, VerticalLerp01.y, Fraction.y);
-
-	float2 VerticalLerp11 = lerp(float2(Values1.y, Values2.y), float2(Values1.z, Values2.z), Fraction.xx);
-	float PCFResult11 = lerp(VerticalLerp11.x, VerticalLerp11.y, Fraction.y);
-
-	float2 VerticalLerp21 = lerp(float2(Values1.z, Values2.z), float2(Values1.w, Values2.w), Fraction.xx);
-	float PCFResult21 = lerp(VerticalLerp21.x, VerticalLerp21.y, Fraction.y);
-
-	float2 VerticalLerp02 = lerp(float2(Values2.x, Values3.x), float2(Values2.y, Values3.y), Fraction.xx);
-	float PCFResult02 = lerp(VerticalLerp02.x, VerticalLerp02.y, Fraction.y);
-
-	float2 VerticalLerp12 = lerp(float2(Values2.y, Values3.y), float2(Values2.z, Values3.z), Fraction.xx);
-	float PCFResult12 = lerp(VerticalLerp12.x, VerticalLerp12.y, Fraction.y);
-
-	float2 VerticalLerp22 = lerp(float2(Values2.z, Values3.z), float2(Values2.w, Values3.w), Fraction.xx);
-	float PCFResult22 = lerp(VerticalLerp22.x, VerticalLerp22.y, Fraction.y);
-
-	return saturate((PCFResult00 + PCFResult10 + PCFResult20 + PCFResult01 + PCFResult11 + PCFResult21 + PCFResult02 + PCFResult12 + PCFResult22) * .11111f);
+	return saturate(dot(Results, float4(1.0f - Fraction.y, 1.0f, 1.0f, Fraction.y)) * (1.0f / 9.0f));
 }
 
 
@@ -245,15 +235,17 @@ void FetchRowOfThreeAfterFour(float2 Sample00TexelCenter, float VerticalOffset, 
 // break this out for forward rendering as it's not part of ManualPCF's set of shadowquality settings.
 float Manual2x2PCF(float2 ShadowPosition, FPCFSamplerSettings Settings)
 {
-	float2 TexelPos = ShadowPosition * Settings.ShadowBufferSize.xy - 0.5f;	// bias to be consistent with texture filtering hardware
+	float2 TexelPos = ShadowPosition * Settings.ShadowBufferSize.xy;
 	float2 Fraction = frac(TexelPos);
 	float2 TexelCenter = floor(TexelPos) + 0.5f;	// bias to get reliable texel center content
 	
+	float2 Sample00TexelCenter = TexelCenter - float2(1, 1);
+
 	float3 SamplesValues0, SamplesValues1, SamplesValues2;
 
-	FetchRowOfThree(TexelCenter, 0, SamplesValues0, Settings);
-	FetchRowOfThree(TexelCenter, 1, SamplesValues1, Settings);
-	FetchRowOfThree(TexelCenter, 2, SamplesValues2, Settings);
+	FetchRowOfThree(Sample00TexelCenter, 0, SamplesValues0, Settings);
+	FetchRowOfThree(Sample00TexelCenter, 1, SamplesValues1, Settings);
+	FetchRowOfThree(Sample00TexelCenter, 2, SamplesValues2, Settings);
 	
 	return PCF2x2(Fraction, SamplesValues0, SamplesValues1, SamplesValues2);
 }

@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "Classes/LocationServicesImpl.h"
+#include "LocationServicesImpl.h"
 #include "LocationServicesAndroidImpl.generated.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogLocationServicesAndroid, Log, All);

@@ -15,10 +15,14 @@ public class OVRPlugin : ModuleRules
         if (Target.Platform == UnrealTargetPlatform.Android)
 		{
 			PublicLibraryPaths.Add(SourceDirectory + "Lib/armeabi-v7a/");
-            PublicAdditionalLibraries.Add("OVRPlugin");
+            PublicLibraryPaths.Add(SourceDirectory + "ExtLibs/armeabi-v7a/");
+            
+            PublicLibraryPaths.Add(SourceDirectory + "Lib/arm64-v8a/");
+            PublicLibraryPaths.Add(SourceDirectory + "ExtLibs/arm64-v8a/");
 
-            PublicLibraryPaths.Add(SourceDirectory + "ExtLibs/");
+            PublicAdditionalLibraries.Add("OVRPlugin");
             PublicAdditionalLibraries.Add("vrapi");
+            PublicAdditionalLibraries.Add("vrintegrationloader");
         }
         if (Target.Platform == UnrealTargetPlatform.Win64)
 		{

@@ -35,6 +35,8 @@ bool FPlatformFileReadStatsHandle::Read( uint8* Destination, int64 BytesToRead )
 
 bool FPlatformFileReadStats::Tick( float Delta )
 {
+    QUICK_SCOPE_CYCLE_COUNTER(STAT_FPlatformFileReadStats_Tick);
+
 	float RealDelta = (float)(FPlatformTime::Seconds()-Timer);
 	uint32 BytesPerSec = FPlatformAtomics::InterlockedExchange(&BytePerSecThisTick, 0);
 	uint32 BytesReadTick = FPlatformAtomics::InterlockedExchange(&BytesReadThisTick, 0);

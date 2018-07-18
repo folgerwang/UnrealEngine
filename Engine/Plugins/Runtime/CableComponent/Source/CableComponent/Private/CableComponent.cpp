@@ -208,7 +208,7 @@ public:
 			const FDynamicMeshVertex& Vertex = Vertices[i];
 
 			VertexBuffers.PositionVertexBuffer.VertexPosition(i) = Vertex.Position;
-			VertexBuffers.StaticMeshVertexBuffer.SetVertexTangents(i, Vertex.TangentX, Vertex.GetTangentY(), Vertex.TangentZ);
+			VertexBuffers.StaticMeshVertexBuffer.SetVertexTangents(i, Vertex.TangentX.ToFVector(), Vertex.GetTangentY(), Vertex.TangentZ.ToFVector());
 			VertexBuffers.StaticMeshVertexBuffer.SetVertexUV(i, 0, Vertex.TextureCoordinate[0]);
 			VertexBuffers.ColorVertexBuffer.VertexColor(i) = Vertex.Color;
 		}
@@ -661,6 +661,17 @@ void UCableComponent::CreateRenderState_Concurrent()
 	Super::CreateRenderState_Concurrent();
 
 	SendRenderDynamicData_Concurrent();
+}
+
+void UCableComponent::ApplyWorldOffset(const FVector & InOffset, bool bWorldShift)
+{
+	Super::ApplyWorldOffset(InOffset, bWorldShift);
+
+	for (FCableParticle& Particle : Particles)
+	{
+		Particle.Position += InOffset;
+		Particle.OldPosition += InOffset;
+	}
 }
 
 void UCableComponent::SendRenderDynamicData_Concurrent()

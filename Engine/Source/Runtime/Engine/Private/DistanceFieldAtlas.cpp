@@ -13,9 +13,9 @@
 #include "Modules/ModuleManager.h"
 #include "StaticMeshResources.h"
 #include "ProfilingDebugging/CookStats.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 #include "Engine/StaticMesh.h"
-#include "AutomationTest.h"
+#include "Misc/AutomationTest.h"
 
 #if WITH_EDITOR
 #include "DerivedDataCacheInterface.h"
@@ -789,7 +789,7 @@ void FDistanceFieldAsyncQueue::BlockUntilBuildComplete(UStaticMesh* StaticMesh, 
 #endif
 		)
 	{
-		UE_LOG(LogStaticMesh, Warning, TEXT("Main thread blocked for %.3fs for async distance field build of %s to complete!  This can happen if the mesh is rebuilt excessively."),
+		UE_LOG(LogStaticMesh, Display, TEXT("Main thread blocked for %.3fs for async distance field build of %s to complete!  This can happen if the mesh is rebuilt excessively."),
 			(float)(FPlatformTime::Seconds() - StartTime), 
 			*StaticMesh->GetName());
 	}

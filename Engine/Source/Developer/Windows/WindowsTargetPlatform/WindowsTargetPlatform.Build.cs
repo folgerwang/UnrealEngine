@@ -6,7 +6,7 @@ public class WindowsTargetPlatform : ModuleRules
 {
 	public WindowsTargetPlatform(ReadOnlyTargetRules Target) : base(Target)
 	{
-		PrivateDependencyModuleNames.AddRange(
+        PrivateDependencyModuleNames.AddRange(
 			new string[] {
 				"Core",
 				"CoreUObject",
@@ -23,15 +23,17 @@ public class WindowsTargetPlatform : ModuleRules
 
 		PrivateIncludePaths.AddRange(
 			new string[] {
-				"Developer/WindowsTargetPlatform/Classes"
 			}
 		);
 
 		// compile with Engine
 		if (Target.bCompileAgainstEngine)
 		{
-			PrivateDependencyModuleNames.Add("Engine");
-			PrivateIncludePathModuleNames.Add("TextureCompressor");
-		}
-	}
+			PrivateDependencyModuleNames.AddRange( new string[] {
+				"Engine", "RHI"
+				}
+			);
+            PrivateIncludePathModuleNames.Add("TextureCompressor");
+        }
+    }
 }

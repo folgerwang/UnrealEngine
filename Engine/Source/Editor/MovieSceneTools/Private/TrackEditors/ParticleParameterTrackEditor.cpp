@@ -31,7 +31,7 @@ TSharedRef<ISequencerSection> FParticleParameterTrackEditor::MakeSectionInterfac
 	UMovieSceneParameterSection* ParameterSection = Cast<UMovieSceneParameterSection>(&SectionObject);
 	checkf( ParameterSection != nullptr, TEXT("Unsupported section type.") );
 
-	return MakeShareable(new FParameterSection( *ParameterSection, FText::FromName(ParameterSection->GetFName())));
+	return MakeShareable(new FParameterSection( *ParameterSection ));
 }
 
 
@@ -142,7 +142,7 @@ void FParticleParameterTrackEditor::AddScalarParameter( FGuid ObjectBinding, UMo
 	{
 		const FScopedTransaction Transaction(LOCTEXT("AddScalarParameter", "Add scalar parameter"));
 
-		float KeyTime = GetTimeForKey();
+		FFrameNumber KeyTime = GetTimeForKey();
 		float Value;
 		ParticleSystemComponent->GetFloatParameter(ParameterName, Value);
 
@@ -161,7 +161,7 @@ void FParticleParameterTrackEditor::AddVectorParameter( FGuid ObjectBinding, UMo
 	{
 		const FScopedTransaction Transaction(LOCTEXT("AddVectorParameter", "Add vector parameter"));
 
-		float KeyTime = GetTimeForKey();
+		FFrameNumber KeyTime = GetTimeForKey();
 		FVector Value;
 		ParticleSystemComponent->GetVectorParameter(ParameterName, Value);
 
@@ -180,7 +180,7 @@ void FParticleParameterTrackEditor::AddColorParameter( FGuid ObjectBinding, UMov
 	{
 		const FScopedTransaction Transaction(LOCTEXT("AddColorParameter", "Add color parameter"));
 
-		float KeyTime = GetTimeForKey();
+		FFrameNumber KeyTime = GetTimeForKey();
 		FLinearColor Value;
 		ParticleSystemComponent->GetColorParameter(ParameterName, Value);
 

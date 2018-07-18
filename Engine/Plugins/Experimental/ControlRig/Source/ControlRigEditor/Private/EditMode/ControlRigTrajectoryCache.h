@@ -9,7 +9,7 @@
 
 class FControlRigTrajectoryFrame;
 class ISequencer;
-class UHierarchicalRig;
+class UControlRig;
 class UMaterialInstanceDynamic;
 
 /**
@@ -30,7 +30,7 @@ public:
 public:
 
 	/** Calculates the frame for the current position. */
-	void CalculateFrame(UHierarchicalRig* HierarchicalRig);
+	void CalculateFrame(UControlRig* ControlRig);
 
 	/** Get the time this frame is a snapshot of */
 	float GetTime() const { return Time; }
@@ -53,7 +53,7 @@ private:
 /** Cache data */
 struct FTrajectoryCacheData
 {
-	FTrajectoryCacheData() : TimeRange(0.f), FrameSnap(0.0f) {}
+	FTrajectoryCacheData() : TimeRange(0.0), FrameSnap(0.0f) {}
 
 	bool operator==(const FTrajectoryCacheData& RHS) const
 	{
@@ -70,10 +70,10 @@ struct FTrajectoryCacheData
 	}
 
 	/** The total range to generate frames for */
-	TRange<float> TimeRange;
+	TRange<double> TimeRange;
 
 	/** The current frame snap we are using */
-	float FrameSnap;
+	double FrameSnap;
 };
 
 class FControlRigTrajectoryCache
@@ -85,7 +85,7 @@ public:
 	void ForceRecalc() { bForceRecalc = true; }
 
 	/** Per-frame update */
-	void Update(TSharedRef<ISequencer> Sequencer, const FGuid& InObjectBinding, const TRange<float>& NewRange, float FrameSnap, float DeltaTime, double InCurrentTime);
+	void Update(TSharedRef<ISequencer> Sequencer, const FGuid& InObjectBinding, const TRange<double>& NewRange, float FrameSnap, float DeltaTime, double InCurrentTime);
 
 	/** Render our trajectories */
 	void RenderTrajectories(const FTransform& ComponentTransform, FPrimitiveDrawInterface* PDI);

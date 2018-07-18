@@ -36,8 +36,6 @@ namespace UnrealBuildTool.Rules
 			PrivateIncludePaths.AddRange(
 				new string[] {
 					"Developer/LauncherServices/Private",
-					"Developer/LauncherServices/Private/Devices",
-					"Developer/LauncherServices/Private/Games",
 					"Developer/LauncherServices/Private/Launcher",
 					"Developer/LauncherServices/Private/Profiles",
 				});

@@ -6,6 +6,20 @@
 #include "OnlineSubsystemTypes.h"
 #include "OnlineDelegateMacros.h"
 
+struct FOnlineError;
+
+ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlineFriend, Display, All);
+
+#define UE_LOG_ONLINE_FRIEND(Verbosity, Format, ...) \
+{ \
+	UE_LOG(LogOnlineFriend, Verbosity, TEXT("%s%s"), ONLINE_LOG_PREFIX, *FString::Printf(Format, ##__VA_ARGS__)); \
+}
+
+#define UE_CLOG_ONLINE_FRIEND(Conditional, Verbosity, Format, ...) \
+{ \
+	UE_CLOG(Conditional, LogOnlineFriend, Verbosity, TEXT("%s%s"), ONLINE_LOG_PREFIX, *FString::Printf(Format, ##__VA_ARGS__)); \
+}
+
 /** List of known friends list types */
 namespace EFriendsLists
 {
@@ -156,6 +170,14 @@ DECLARE_MULTICAST_DELEGATE_FourParams(FOnQueryRecentPlayersComplete, const FUniq
 typedef FOnQueryRecentPlayersComplete::FDelegate FOnQueryRecentPlayersCompleteDelegate;
 
 /**
+ * Delegate used when adding a group of recent players has completed
+ *
+ * @param UserId the id of the user that made the request
+ * @param Error error information on failure
+ */
+DECLARE_DELEGATE_TwoParams(FOnAddRecentPlayersComplete, const FUniqueNetId& /*UserId*/, const FOnlineError& /*Error*/);
+
+/**
  * Delegate used when the query for blocked players has completed
  *
  * @param UserId the id of the user that made the request
@@ -191,6 +213,15 @@ typedef FOnInviteAccepted::FDelegate FOnInviteAcceptedDelegate;
  */
 DECLARE_MULTICAST_DELEGATE_TwoParams(FOnInviteRejected, const FUniqueNetId& /*UserId*/, const FUniqueNetId& /*FriendId*/);
 typedef FOnInviteRejected::FDelegate FOnInviteRejectedDelegate;
+
+/**
+* Delegate called when a remote friend cancels/aborts an invite
+*
+* @param UserId id of the local user that had received the invite
+* @param FriendId friend id that canceled that invite
+*/
+DECLARE_MULTICAST_DELEGATE_TwoParams(FOnInviteAborted, const FUniqueNetId& /*UserId*/, const FUniqueNetId& /*FriendId*/);
+typedef FOnInviteAborted::FDelegate FOnInviteAbortedDelegate;
 
 /**
  * Delegate called when a remote friend removes user from friends list
@@ -241,6 +272,14 @@ public:
 	 * @param FriendId friend id that rejected the invite
 	 */
 	DEFINE_ONLINE_DELEGATE_TWO_PARAM(OnInviteRejected, const FUniqueNetId& /*UserId*/, const FUniqueNetId& /*FriendId*/);
+
+	/**
+	* Delegate called when a remote friend cancels/aborts an sent invite
+	*
+	* @param UserId id of the local user that had received the invite
+	* @param FriendId friend id that canceled that invite
+	*/
+	DEFINE_ONLINE_DELEGATE_TWO_PARAM(OnInviteAborted, const FUniqueNetId& /*UserId*/, const FUniqueNetId& /*FriendId*/);
 
 	/**
 	 * Delegate called when a remote friend removes user from friends list

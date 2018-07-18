@@ -9,7 +9,10 @@ public class WebBrowserTexture : ModuleRules
 	{
         // WebBrowserTexture objects are needed only on Android, but we also need to be able to
         // cook the asset so we must include it in editor builds
-        if (Target.Platform == UnrealTargetPlatform.Android || Target.bBuildEditor == true)
+        if (Target.Platform == UnrealTargetPlatform.Android ||
+            Target.Platform == UnrealTargetPlatform.IOS ||
+            Target.Platform == UnrealTargetPlatform.TVOS ||
+            Target.bBuildEditor == true)
 		{
 			PublicIncludePaths.Add("Runtime/WebBrowserTexture/Public");
 			PrivateIncludePaths.Add("Runtime/WebBrowserTexture/Private");

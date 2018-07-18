@@ -14,7 +14,6 @@
 
 struct FAssetData;
 class FAudioThumbnail;
-class FFloatCurveKeyArea;
 class FMenuBuilder;
 class FSequencerSectionPainter;
 class USoundWave;
@@ -59,14 +58,16 @@ public:
 	virtual const FSlateBrush* GetIconBrush() const override;
 	virtual bool IsResizable(UMovieSceneTrack* InTrack) const override;
 	virtual void Resize(float NewSize, UMovieSceneTrack* InTrack) override;
+	virtual bool OnAllowDrop(const FDragDropEvent& DragDropEvent, UMovieSceneTrack* Track, int32 RowIndex, const FGuid& TargetObjectGuid) override;
+	virtual FReply OnDrop(const FDragDropEvent& DragDropEvent, UMovieSceneTrack* Track, int32 RowIndex, const FGuid& TargetObjectGuid) override;
 	
 protected:
 
 	/** Delegate for AnimatablePropertyChanged in HandleAssetAdded for master sounds */
-	FKeyPropertyResult AddNewMasterSound(float KeyTime, class USoundBase* Sound);
+	FKeyPropertyResult AddNewMasterSound(FFrameNumber KeyTime, class USoundBase* Sound, int32 RowIndex);
 
 	/** Delegate for AnimatablePropertyChanged in HandleAssetAdded for attached sounds */
-	FKeyPropertyResult AddNewAttachedSound(float KeyTime, class USoundBase* Sound, TArray<TWeakObjectPtr<UObject>> ObjectsToAttachTo);
+	FKeyPropertyResult AddNewAttachedSound(FFrameNumber KeyTime, class USoundBase* Sound, TArray<TWeakObjectPtr<UObject>> ObjectsToAttachTo);
 
 private:
 
@@ -78,6 +79,9 @@ private:
 
 	/** Audio asset selected */
 	void OnAudioAssetSelected(const FAssetData& AssetData, UMovieSceneTrack* Track);
+
+	/** Audio asset enter pressed */
+	void OnAudioAssetEnterPressed(const TArray<FAssetData>& AssetData, UMovieSceneTrack* Track);
 };
 
 
@@ -103,11 +107,10 @@ public:
 	virtual UMovieSceneSection* GetSectionObject() override;
 	virtual FText GetSectionTitle() const override;
 	virtual float GetSectionHeight() const override;
-	virtual void GenerateSectionLayout( class ISectionLayoutBuilder& LayoutBuilder) const override;
 	virtual int32 OnPaintSection(FSequencerSectionPainter& Painter) const override;
 	virtual void Tick(const FGeometry& AllottedGeometry, const FGeometry& ParentGeometry, const double InCurrentTime, const float InDeltaTime) override;
 	virtual void BeginSlipSection() override;
-	virtual void SlipSection(float SlipTime) override;
+	virtual void SlipSection(double SlipTime) override;
 	
 private:
 
@@ -121,10 +124,6 @@ private:
 
 	/** The waveform thumbnail render object. */
 	TSharedPtr<class FAudioThumbnail> WaveformThumbnail;
-
-	/** Sound volume/pitch key areas. */
-	mutable TSharedPtr<FFloatCurveKeyArea> SoundVolumeArea;
-	mutable TSharedPtr<FFloatCurveKeyArea> PitchMultiplierArea;
 
 	/** Stored data about the waveform to determine when it is invalidated. */
 	TRange<float> StoredDrawRange;
@@ -143,5 +142,5 @@ private:
 	float InitialStartOffsetDuringResize;
 	
 	/** Cached start time valid only during resize */
-	float InitialStartTimeDuringResize;
+	double InitialStartTimeDuringResize;
 };

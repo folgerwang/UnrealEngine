@@ -142,6 +142,9 @@ protected:
 		CloseDocumentAndMajorTabs,
 		CloseAllTabs
 	};
+
+	void CloseTabsToRightOfForegroundTab(ETabsToClose TabsToClose);
+
 	/**
 	 * Close all the background tabs.
 	 *
@@ -202,6 +205,9 @@ private:
 
 	/** Only allow closing the tab well when the tab allows it. */
 	bool CanCloseForegroundTab() const;
+
+	/** Only allow closing tabs to the right when there is more than one tab open, the tab is of type Document or Major, and the tab is not furthest to the right. */
+	bool CanCloseTabsToRightOfForegroundTab() const;
 
 	/** Only allow closing all other tabs when there are more then one tab open and the tab is of type Document or Major. */
 	bool CanCloseAllButForegroundTab() const;

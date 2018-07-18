@@ -14,7 +14,7 @@
 #include "Materials/MaterialExpressionMaterialAttributeLayers.h"
 #include "Materials/MaterialFunction.h"
 #include "Materials/MaterialLayersFunctions.h"
-#include "UniquePtr.h"
+#include "Templates/UniquePtr.h"
 
 #include "Material.generated.h"
 
@@ -69,7 +69,6 @@ enum EDecalBlendMode
 	DBM_Normal UMETA(DisplayName="Normal"),
 	/** Additive emissive only. */
 	DBM_Emissive UMETA(DisplayName="Emissive"),
-
 	/** Non metal, put into DBuffer to work for baked lighting as well (becomes DBM_TranslucentNormal if normal is not hooked up). */
 	DBM_DBuffer_ColorNormalRoughness UMETA(DisplayName="DBuffer Translucent Color,Normal,Roughness"),
 	/** Non metal, put into DBuffer to work for baked lighting as well. */
@@ -87,6 +86,12 @@ enum EDecalBlendMode
 
 	/** Output signed distance in Opacity depending on LightVector. Note: Can be costly, no shadow casting but receiving, no per pixel normal yet, no quality settings yet */
 	DBM_Volumetric_DistanceFunction UMETA(DisplayName="Volumetric Distance Function (experimental)"),
+	
+	/** Blend with existing scene color. Decal color is already pre-multiplied by alpha. */
+	DBM_AlphaComposite UMETA(DisplayName ="AlphaComposite (Premultiplied Alpha)"),
+
+	/** Ambient occlusion. */
+	DBM_AmbientOcclusion UMETA(DisplayName = "Ambient Occlusion"),
 
 	DBM_MAX,
 };
@@ -457,6 +462,10 @@ public:
 	UPROPERTY(EditAnywhere, Category=Translucency, meta=(DisplayName = "Screen Space Reflections"))
 	uint32 bScreenSpaceReflections:1;
 
+	/** Contact shadows on translucency */
+	UPROPERTY(EditAnywhere, Category = Translucency, meta = (DisplayName = "Contact Shadows"))
+	uint32 bContactShadows : 1;
+
 	/** Indicates that the material should be rendered without backface culling and the normal should be flipped for backfaces. */
 	UPROPERTY(EditAnywhere, Category=Material)
 	uint32 TwoSided:1;
@@ -478,7 +487,7 @@ public:
 	int32 NumCustomizedUVs;
 
 	/** Sets the lighting mode that will be used on this material if it is translucent. */
-	UPROPERTY(EditAnywhere, Category=Translucency, meta=(DisplayName = "Lighting Mode"))
+	UPROPERTY(EditAnywhere, AssetRegistrySearchable, Category=Translucency, meta=(DisplayName = "Lighting Mode"))
 	TEnumAsByte<enum ETranslucencyLightingMode> TranslucencyLightingMode;
 
 	/** 
@@ -533,6 +542,10 @@ public:
 	/** Whether to draw on top of opaque pixels even if behind them. This only has meaning for translucency. */
 	UPROPERTY(EditAnywhere, Category=Translucency, AdvancedDisplay)
 	uint32 bDisableDepthTest:1;
+
+	/** Whether the transluency pass should write its alpha, and only the alpha, into the framebuffer */
+	UPROPERTY(EditAnywhere, Category = Translucency, AdvancedDisplay)
+	uint32 bWriteOnlyAlpha : 1;
 
 	/** Whether to generate spherical normals for particles that use this material. */
 	UPROPERTY(EditAnywhere, Category=Material, AdvancedDisplay)
@@ -615,7 +628,8 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Usage)
 	uint32 bUsedWithNiagaraMeshParticles : 1;
 
-
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Usage)
+	uint32 bUsedWithGeometryCache : 1;
 
 	/** 
 	 * Indicates that the material and its instances can be use with static lighting
@@ -836,15 +850,18 @@ public:
 	 */
 	class FDefaultMaterialInstance* DefaultMaterialInstances[3];
 
+#if WITH_EDITORONLY_DATA
 	/** Used to detect duplicate parameters.  Does not contain parameters in referenced functions! */
 	TMap<FName, TArray<UMaterialExpression*> > EditorParameters;
 
-#if WITH_EDITORONLY_DATA
 	/** EdGraph based representation of the Material */
 	class UMaterialGraph*	MaterialGraph;
 #endif //WITH_EDITORONLY_DATA
 
 private:
+	/** Caches the used quality levels of the material to save runtime graph traversal. */
+	UPROPERTY()
+	TArray<bool> CachedQualityLevelsUsed;
 
 	/** Inline material resources serialized from disk. To be processed on game thread in PostLoad. */
 	TArray<FMaterialResource> LoadedMaterialResources;
@@ -881,8 +898,8 @@ public:
 	ENGINE_API virtual UMaterial* GetMaterial() override;
 	ENGINE_API virtual const UMaterial* GetMaterial() const override;
 	ENGINE_API virtual const UMaterial* GetMaterial_Concurrent(TMicRecursionGuard& RecursionGuard) const override;
-	ENGINE_API virtual bool GetParameterDesc(const FMaterialParameterInfo& ParameterInfo, FString& OutDesc, const TArray<struct FStaticMaterialLayersParameter>* MaterialLayersParameters = nullptr) const override;
 	ENGINE_API virtual bool GetScalarParameterValue(const FMaterialParameterInfo& ParameterInfo,float& OutValue, bool bOveriddenOnly = false) const override;
+	ENGINE_API virtual bool IsScalarParameterUsedAsAtlasPosition(const FMaterialParameterInfo& ParameterInfo, bool& OutValue, TSoftObjectPtr<class UCurveLinearColor>& Curve, TSoftObjectPtr<class UCurveLinearColorAtlas>& Atlas) const override;
 	ENGINE_API virtual bool GetScalarParameterSliderMinMax(const FMaterialParameterInfo& ParameterInfo, float& OutMinSlider, float& OutMaxSlider) const override;
 	ENGINE_API virtual bool GetVectorParameterValue(const FMaterialParameterInfo& ParameterInfo,FLinearColor& OutValue, bool bOveriddenOnly = false) const override;
 	ENGINE_API virtual bool IsVectorParameterUsedAsChannelMask(const FMaterialParameterInfo& ParameterInfo, bool& OutValue) const override;
@@ -908,10 +925,12 @@ public:
 	ENGINE_API virtual bool GetMaterialLayersParameterValue(const FMaterialParameterInfo& ParameterInfo, FMaterialLayersFunctions& OutLayers, FGuid& OutExpressionGuid) const override;
 	ENGINE_API virtual bool UpdateLightmassTextureTracking() override;
 #if WITH_EDITOR
+	ENGINE_API virtual bool GetParameterDesc(const FMaterialParameterInfo& ParameterInfo, FString& OutDesc, const TArray<struct FStaticMaterialLayersParameter>* MaterialLayersParameters = nullptr) const override;
 	ENGINE_API virtual bool GetParameterSortPriority(const FMaterialParameterInfo& ParameterInfo, int32& OutSortPriority, const TArray<struct FStaticMaterialLayersParameter>* MaterialLayersParameters = nullptr) const override;
 	ENGINE_API virtual bool GetGroupSortPriority(const FString& InGroupName, int32& OutSortPriority) const override;
 	ENGINE_API virtual bool GetTexturesInPropertyChain(EMaterialProperty InProperty, TArray<UTexture*>& OutTextures, 
-		TArray<FName>* OutTextureParamNames, struct FStaticParameterSet* InStaticParameterSet) override;
+		TArray<FName>* OutTextureParamNames, struct FStaticParameterSet* InStaticParameterSet,
+		ERHIFeatureLevel::Type InFeatureLevel, EMaterialQualityLevel::Type InQuality) override;
 #endif
 	ENGINE_API virtual void RecacheUniformExpressions() const override;
 
@@ -1342,7 +1361,7 @@ public:
 	void CacheExpressionTextureReferences();
 
 	/** Rebuild ExpressionTextureReferences with all textures referenced by expressions in this material. */
-	void RebuildExpressionTextureReferences();
+	ENGINE_API void RebuildExpressionTextureReferences();
 
 	/** Attempts to add a new group name to the Group Data struct. True if new name was added. */
 	ENGINE_API bool AttemptInsertNewGroupName(const FString& InNewName);
@@ -1353,11 +1372,13 @@ private:
 	 */
 	ENGINE_API virtual void FlushResourceShaderMaps();
 
-	/** 
+#if WITH_EDITOR
+	/**
 	 * Rebuild the MaterialFunctionInfos array with the current state of the material's function dependencies,
 	 * And updates any function call nodes in this material so their inputs and outputs stay valid.
 	 */
 	void RebuildMaterialFunctionInfo();
+#endif // WITH_EDITOR
 
 	/** 
 	 * Rebuild the MaterialParameterCollectionInfos array with the current state of the material's parameter collection dependencies.
@@ -1423,6 +1444,7 @@ public:
 		EShaderPlatform ShaderPlatform, 
 		TMap<FString, TArray<TRefCountPtr<class FMaterialShaderMap> > >& OutShaderMaps);
 
+#if WITH_EDITOR
 	/**
 	 * Add an expression node that represents a parameter to the list of material parameters.
 	 * @param	Expression	Pointer to the node that is going to be inserted if it's a parameter type.
@@ -1464,6 +1486,7 @@ public:
 	 * @param	Expression	The expression dynamic parameter to check for duplicates.
 	 */
 	ENGINE_API virtual bool HasDuplicateDynamicParameters(const UMaterialExpression* Expression);
+#endif // WITH_EDITOR
 
 	/**
 	 * Iterate through all of the expression nodes and fix up changed properties on
@@ -1538,10 +1561,14 @@ public:
 	 *
 	 *	@param	OutExpressions			The array to fill in all of the expressions.
 	 *	@param	InStaticParameterSet	Optional static parameter set - if supplied only walk the StaticSwitch branches according to it.
+	 *	@Param	InFeatureLevel			Optional feature level - if supplied, only walk FeatureLevelSwitch branches according to it.
+	 *	@Param	InQuality				Optional quality switch - if supplied, only walk QualitySwitch branches according to it.
 	 *
 	 *	@return	bool					true if successful, false if not.
 	 */
-	ENGINE_API virtual bool GetAllReferencedExpressions(TArray<UMaterialExpression*>& OutExpressions, struct FStaticParameterSet* InStaticParameterSet);
+	ENGINE_API virtual bool GetAllReferencedExpressions(TArray<UMaterialExpression*>& OutExpressions, struct FStaticParameterSet* InStaticParameterSet,
+		ERHIFeatureLevel::Type InFeatureLevel = ERHIFeatureLevel::Num, EMaterialQualityLevel::Type InQuality = EMaterialQualityLevel::Num);
+
 
 	/**
 	 *	Get the expression chain for the given property (ie fill in the given array with all expressions in the chain).
@@ -1549,11 +1576,14 @@ public:
 	 *	@param	InProperty				The material property chain to inspect, such as MP_BaseColor.
 	 *	@param	OutExpressions			The array to fill in all of the expressions.
 	 *	@param	InStaticParameterSet	Optional static parameter set - if supplied only walk the StaticSwitch branches according to it.
+	 *	@Param	InFeatureLevel			Optional feature level - if supplied, only walk FeatureLevelSwitch branches according to it.
+	 *	@Param	InQuality				Optional quality switch - if supplied, only walk QualitySwitch branches according to it.
 	 *
 	 *	@return	bool					true if successful, false if not.
 	 */
 	ENGINE_API virtual bool GetExpressionsInPropertyChain(EMaterialProperty InProperty, 
-		TArray<UMaterialExpression*>& OutExpressions, struct FStaticParameterSet* InStaticParameterSet);
+		TArray<UMaterialExpression*>& OutExpressions, struct FStaticParameterSet* InStaticParameterSet,
+		ERHIFeatureLevel::Type InFeatureLevel = ERHIFeatureLevel::Num, EMaterialQualityLevel::Type InQuality = EMaterialQualityLevel::Num);
 #endif
 
 	/** Appends textures referenced by expressions, including nested functions. */
@@ -1569,11 +1599,14 @@ protected:
 	 *	@param	InOutProcessedInputs	An array of processed expression inputs. (To avoid circular loops causing infinite recursion)
 	 *	@param	OutExpressions			The array to fill in all of the expressions.
 	 *	@param	InStaticParameterSet	Optional static parameter set - if supplied only walk the StaticSwitch branches according to it.
+	 *	@Param	InFeatureLevel			Optional feature level - if supplied, only walk FeatureLevelSwitch branches according to it.
+	 *	@Param	InQuality				Optional quality switch - if supplied, only walk QualitySwitch branches according to it.
 	 *
 	 *	@return	bool					true if successful, false if not.
 	 */
 	ENGINE_API virtual bool RecursiveGetExpressionChain(UMaterialExpression* InExpression, TArray<FExpressionInput*>& InOutProcessedInputs, 
-		TArray<UMaterialExpression*>& OutExpressions, struct FStaticParameterSet* InStaticParameterSet);
+		TArray<UMaterialExpression*>& OutExpressions, struct FStaticParameterSet* InStaticParameterSet,
+		ERHIFeatureLevel::Type InFeatureLevel = ERHIFeatureLevel::Num, EMaterialQualityLevel::Type InQuality = EMaterialQualityLevel::Num);
 
 	/**
 	*	Recursively update the bRealtimePreview for each expression based on whether it is connected to something that is time-varying.
@@ -1587,6 +1620,10 @@ protected:
 #endif
 
 public:
+	void DumpDebugInfo();
+	void SaveShaderStableKeys(const class ITargetPlatform* TP);
+	ENGINE_API virtual void SaveShaderStableKeysInner(const class ITargetPlatform* TP, const struct FStableShaderKeyAndValue& SaveKeyVal) override;
+
 	bool HasNormalConnected() const { return Normal.IsConnected(); }
 
 	static void NotifyCompilationFinished(UMaterialInterface* Material);

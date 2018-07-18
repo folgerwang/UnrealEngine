@@ -1,5 +1,4 @@
-﻿INTSourceChangelist:3150518
-Title:インゲーム広告の使用方法
+﻿Title:インゲーム広告の使用方法
 Description: ゲームを収益化するためにインゲーム広告を使用する
 Crumbs:
 Availability:Public
@@ -7,40 +6,7 @@ parent:Platforms/Mobile
 order:3
 type:how-to
 tags:mobile
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Platforms/Mobile/Ads:title%](Platforms/Mobile/Ads/ads_topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Platforms/Mobile/Ads:title%
-	[/PARAM]
-	[PARAM:description]
-		%Platforms/Mobile/Ads:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Platforms/Mobile/Ads]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Platforms/Mobile/Ads:title%](Platforms/Mobile/Ads/ads_topic.png)
-	[/PARAM]
-	[PARAM:title]
-		%Platforms/Mobile/Ads:title%
-	[/PARAM]
-	[PARAM:description]
-		%Platforms/Mobile/Ads:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Platforms/Mobile/Ads]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
+topic-image:ads_topic.png
 
 インゲーム広告は、モバイル プラットフォームでゲームのプレイヤーに対して広告を表示できる機能です。プレイヤーへの課金を一切せずに、ゲームを収益化する手段です。
 
@@ -91,10 +57,4 @@ Unreal Match 3 のサンプル ゲームを例に取りましょう。Widget ブ
 ノードに関する詳細は、[バナーを非表示にする](https://docs.unrealengine.com/latest/INT/BlueprintAPI/Utilities/Platform/HideAdBanner/index.html) を参照してください。
 
 [/EXCERPT:Usage]
-[COMMENT:none]
 
-
-![image alt text](image_1.png)
-
-
-[/COMMENT]

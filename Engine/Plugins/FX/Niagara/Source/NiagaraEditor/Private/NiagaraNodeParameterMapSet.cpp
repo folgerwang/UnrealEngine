@@ -5,19 +5,19 @@
 #include "NiagaraEditorUtilities.h"
 #include "SNiagaraGraphNodeConvert.h"
 #include "NiagaraHlslTranslator.h"
-#include "SharedPointer.h"
+#include "Templates/SharedPointer.h"
 #include "NiagaraGraph.h"
 #include "NiagaraConstants.h"
-#include "MultiBoxBuilder.h"
-#include "SBox.h"
-#include "SEditableTextBox.h"
+#include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Layout/SBox.h"
+#include "Widgets/Input/SEditableTextBox.h"
 #include "EdGraph/EdGraphNode.h"
 
 #include "ScopedTransaction.h"
 
 #define LOCTEXT_NAMESPACE "NiagaraNodeParameterMapSet"
 
-UNiagaraNodeParameterMapSet::UNiagaraNodeParameterMapSet() : UNiagaraNodeParameterMapBase(), PinPendingRename(nullptr)
+UNiagaraNodeParameterMapSet::UNiagaraNodeParameterMapSet() : UNiagaraNodeParameterMapBase()
 {
 
 }
@@ -26,8 +26,8 @@ void UNiagaraNodeParameterMapSet::AllocateDefaultPins()
 {
 	PinPendingRename = nullptr;
 	const UEdGraphSchema_Niagara* Schema = GetDefault<UEdGraphSchema_Niagara>();
-	CreatePin(EGPD_Input, Schema->TypeDefinitionToPinType(FNiagaraTypeDefinition::GetParameterMapDef()), TEXT("Source"));
-	CreatePin(EGPD_Output, Schema->TypeDefinitionToPinType(FNiagaraTypeDefinition::GetParameterMapDef()), TEXT("Dest"));
+	CreatePin(EGPD_Input, Schema->TypeDefinitionToPinType(FNiagaraTypeDefinition::GetParameterMapDef()), *UNiagaraNodeParameterMapBase::SourcePinName.ToString());
+	CreatePin(EGPD_Output, Schema->TypeDefinitionToPinType(FNiagaraTypeDefinition::GetParameterMapDef()), *UNiagaraNodeParameterMapBase::DestPinName.ToString());
 	CreateAddPin(EGPD_Input);
 }
 
@@ -75,48 +75,52 @@ void UNiagaraNodeParameterMapSet::OnNewTypedPinAdded(UEdGraphPin* NewPin)
 		return;
 	}
 
+	if (NewPin->Direction == EEdGraphPinDirection::EGPD_Input)
+	{
+		TArray<UEdGraphPin*> InputPins;
+		GetInputPins(InputPins);
+
+		TSet<FName> Names;
+		for (const UEdGraphPin* Pin : InputPins)
+		{
+			if (Pin != NewPin)
+			{
+				Names.Add(Pin->GetFName());
+			}
+		}
+		const FName NewUniqueName = FNiagaraUtilities::GetUniqueName(*NewPin->GetName(), Names);
+		NewPin->PinName = NewUniqueName;
+		NewPin->PinType.PinSubCategory = UNiagaraNodeParameterMapBase::ParameterPinSubCategory;
+	}
+
+	if (!NewPin->PersistentGuid.IsValid())
+	{
+		NewPin->PersistentGuid = FGuid::NewGuid();
+	}
+
 	PinPendingRename = NewPin;
 }
 
 void UNiagaraNodeParameterMapSet::OnPinRenamed(UEdGraphPin* RenamedPin, const FString& OldName)
 {
-	RenamedPin->PinFriendlyName = FText::FromName(RenamedPin->PinName);
+	UNiagaraNodeParameterMapBase::OnPinRenamed(RenamedPin, OldName);
+	MarkNodeRequiresSynchronization(__FUNCTION__, true);
+}
 
-	FNiagaraTypeDefinition VarType = CastChecked<UEdGraphSchema_Niagara>(GetSchema())->PinToTypeDefinition(RenamedPin);
-	FNiagaraVariable Var(VarType, *OldName);
+void UNiagaraNodeParameterMapSet::SetPinName(UEdGraphPin* InPin, const FName& InName)
+{
+	FName OldName = InPin->PinName;
+	InPin->PinName = InName;
+	OnPinRenamed(InPin, OldName.ToString());
+}
 
-	UNiagaraGraph* Graph = GetNiagaraGraph();
-	FNiagaraVariableMetaData* OldMetaData = Graph->GetMetaData(Var);
-
-	if (OldMetaData)
-	{
-		Graph->Modify();
-		OldMetaData->ReferencerNodes.Remove(TWeakObjectPtr<UObject>(this));
-	}
-
-	FNiagaraVariable NewVar(VarType, *RenamedPin->GetName());
-	FNiagaraVariableMetaData* NewMetaData = Graph->GetMetaData(NewVar);
-
-	// If no variable has already defined the meta-data for this entry and it isn't being redefined to one of our constants, copy over the old values that make sense (not display name).
-	if (NewMetaData == nullptr && OldMetaData != nullptr && !FNiagaraConstants::IsNiagaraConstant(NewVar))
-	{
-		FNiagaraVariableMetaData& NewVarMetaData = Graph->FindOrAddMetaData(NewVar);
-		NewVarMetaData.PropertyMetaData = OldMetaData->PropertyMetaData;
-		NewVarMetaData.PropertyMetaData.Remove(TEXT("DisplayName")); // DisplayName is probably incorrect, so drop it.
-		NewVarMetaData.ReferencerNodes.Add(TWeakObjectPtr<UObject>(this));
-	}
-
-	if (OldMetaData)
-	{
-		Graph->PurgeUnreferencedMetaData();
-	}
-
-	if (RenamedPin == PinPendingRename)
+bool UNiagaraNodeParameterMapSet::CancelEditablePinName(const FText& InName, UEdGraphPin* InGraphPinObj)
+{
+	if (InGraphPinObj == PinPendingRename)
 	{
 		PinPendingRename = nullptr;
 	}
-	
-	Graph->NotifyGraphNeedsRecompile();
+	return true;
 }
 
 bool UNiagaraNodeParameterMapSet::CommitEditablePinName(const FText& InName, UEdGraphPin* InGraphPinObj) 
@@ -170,7 +174,7 @@ void UNiagaraNodeParameterMapSet::Compile(class FHlslNiagaraTranslator* Translat
 		int32 CompiledInput = Translator->CompilePin(InputPin);
 		if (CompiledInput == INDEX_NONE)
 		{
-			Translator->Error(LOCTEXT("InputError", "Error compiling input for get node."), this, InputPin);
+			Translator->Error(LOCTEXT("InputError", "Error compiling input for set node."), this, InputPin);
 		}
 		CompileInputs.Add(CompiledInput);
 	}
@@ -194,6 +198,8 @@ void UNiagaraNodeParameterMapSet::BuildParameterMapHistory(FNiagaraParameterMapH
 	GetInputPins(InputPins);
 	
 	int32 ParamMapIdx = INDEX_NONE;
+	uint32 NodeIdx = INDEX_NONE;
+
 	for (int32 i = 0; i < InputPins.Num(); i++)
 	{
 		if (IsAddPin(InputPins[i]))
@@ -222,6 +228,7 @@ void UNiagaraNodeParameterMapSet::BuildParameterMapHistory(FNiagaraParameterMapH
 			if (PriorParamPin)
 			{
 				ParamMapIdx = OutHistory.TraceParameterMapOutputPin(PriorParamPin);
+				NodeIdx = OutHistory.BeginNodeVisitation(ParamMapIdx, this);
 			}
 		}
 		else if (i > 0 && InputPins[i] != nullptr && ParamMapIdx != INDEX_NONE)
@@ -234,6 +241,11 @@ void UNiagaraNodeParameterMapSet::BuildParameterMapHistory(FNiagaraParameterMapH
 	{
 		RouteParameterMapAroundMe(OutHistory, bRecursive);
 		return;
+	}
+
+	if (ParamMapIdx != INDEX_NONE)
+	{
+		OutHistory.EndNodeVisitation(ParamMapIdx, NodeIdx);
 	}
 
 	OutHistory.RegisterParameterMapPin(ParamMapIdx, GetOutputPin(0));
@@ -266,6 +278,23 @@ void UNiagaraNodeParameterMapSet::GetContextMenuActions(const FGraphNodeContextM
 			Context.MenuBuilder->EndSection();
 		}
 	}
+}
+
+void UNiagaraNodeParameterMapSet::PostLoad()
+{
+	for (UEdGraphPin* Pin : Pins)
+	{
+		if (!Pin->PersistentGuid.IsValid())
+		{
+			Pin->PersistentGuid = FGuid::NewGuid();
+		}
+
+		if (Pin->Direction == EEdGraphPinDirection::EGPD_Input && Pin->GetFName() != UNiagaraNodeParameterMapBase::SourcePinName && !IsAddPin(Pin))
+		{
+			Pin->PinType.PinSubCategory = UNiagaraNodeParameterMapBase::ParameterPinSubCategory;
+		}
+	}
+	Super::PostLoad();
 }
 
 #undef LOCTEXT_NAMESPACE

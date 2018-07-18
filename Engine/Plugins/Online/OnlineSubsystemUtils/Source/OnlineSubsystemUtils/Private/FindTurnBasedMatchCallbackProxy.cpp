@@ -95,7 +95,7 @@ void FFindTurnBasedMatchCallbackProxyMatchmakerDelegate::OnMatchmakerFailed()
 
 void FFindTurnBasedMatchCallbackProxyMatchmakerDelegate::OnMatchFound(FTurnBasedMatchRef Match)
 {
-    UE_LOG(LogOnline, Verbose, TEXT("Turn-based match found: %s"), *Match->GetMatchID());
+    UE_LOG_ONLINE(Verbose, TEXT("Turn-based match found: %s"), *Match->GetMatchID());
 	TArray<uint8> MatchData;
 	
 	if (Match->GetMatchData(MatchData) && FindTurnBasedMatchCallbackProxy)

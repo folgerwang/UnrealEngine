@@ -6,9 +6,9 @@
 
 #if PLATFORM_WINDOWS
 
-#include "WindowsHWrapper.h"
+#include "Windows/WindowsHWrapper.h"
 
-#include "AllowWindowsPlatformTypes.h"
+#include "Windows/AllowWindowsPlatformTypes.h"
 
 THIRD_PARTY_INCLUDES_START
 #include <Audiopolicy.h>
@@ -18,11 +18,11 @@ THIRD_PARTY_INCLUDES_START
 #include <dsound.h>
 THIRD_PARTY_INCLUDES_END
 
-#include "HideWindowsPlatformTypes.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 
 #endif // PLATFORM_WINDOWS
 
-#define ANDROIDVOICE_SUPPORTED_PLATFORMS (PLATFORM_ANDROID && (PLATFORM_ANDROID_ARM || PLATFORM_ANDROID_ARM64 || PLATFORM_ANDROID_X64))
+#define ANDROIDVOICE_SUPPORTED_PLATFORMS (PLATFORM_ANDROID && (PLATFORM_ANDROID_ARM || PLATFORM_ANDROID_ARM64 || PLATFORM_ANDROID_X64) && !PLATFORM_LUMIN)
 #define PLATFORM_SUPPORTS_VOICE_CAPTURE (PLATFORM_WINDOWS || PLATFORM_MAC || ANDROIDVOICE_SUPPORTED_PLATFORMS || (PLATFORM_LINUX && VOICE_MODULE_WITH_CAPTURE))
 
 // Module includes

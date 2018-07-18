@@ -1,11 +1,11 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3920986
 Availability:Public
 Title: 차량 머티리얼 팩
 Description:Automotive Material 팩에 들어있는 애셋에 대한 분석 및 사용법입니다.
 Crumbs:%ROOT%,
 version:4.13
-Parent:Enterprise/Automotive
-tags:Enterprise
+Parent:Enterprise
+tags:Studio
 tags:Automotive
 tags:Materials
 type:overview
@@ -136,7 +136,7 @@ Car Paint 머티리얼은 29 가지 고유 파라미터로 조정할 수 있는 
 다음 이미지 시퀀스는 위의 파라미터만 조정해서 얻을 수 있는 다양한 차량 도색 및 표면 느낌을 보여주고 있습니다.
 
 [REGION:fullwidth]
-[INCLUDE:Enterprise\Automotive\AutomotiveMaterialPack\#CP]
+[INCLUDE:#CP]
 [/REGION]
 
 ### Orange Peel 머티리얼 파라미터
@@ -144,7 +144,7 @@ Car Paint 머티리얼은 29 가지 고유 파라미터로 조정할 수 있는 
 차량 도색 위에 뿌려진 Clearcoat (투명 코팅) 래커의 표면은 보통 오렌지 껍질과 비슷하게 약간 오돌도돌한 느낌이 있습니다. 이러한 유사성 때문에 투명 코팅의 고르지 않은 보조개같은 부분을 Orange Peel (오렌지 껍질)이라 합니다. 오렌지 껍질의 강도는 **Orange Peel Strength** (오렌지 껍질 세기)와 **Orange Peel Scale** (오렌지 껍질 스케일) 파라미터로 조정할 수 있습니다. 오렌지 껍질 효과를 끄려면, **Orange Peel Strength** 를 **0** 으로 설정하면 됩니다.
 
 [REGION:fullwidth]
-[INCLUDE:Enterprise\Automotive\AutomotiveMaterialPack\#OP]
+[INCLUDE:#OP]
 [/REGION]
 
 ### 카본 파이버
@@ -197,7 +197,7 @@ UE4 의 버텍스 페인트 사용법에 익숙치 않다면, [](Engine/UI/Level
 [/region]
 
 [REGION:fullwidth]
-[INCLUDE:Enterprise\Automotive\AutomotiveMaterialPack\#RM]
+[INCLUDE:#RM]
 [/REGION]
 
 ### 브레이크 로터
@@ -333,7 +333,7 @@ UE4 에서 큐브맵을 캡처하고 사용하는 방법에 익숙치 않은 경
 * **Triangle** 삼각형
 
 	[REGION:fullwidth]
-	[INCLUDE:Enterprise\Automotive\AutomotiveMaterialPack\#RF]
+	[INCLUDE:#RF]
 	[/REGION]
 
 사용되는 리플렉터 패턴을 변경하려면, **Reflector** 머티리얼 인스턴스를 열고 **Reflector(Bottom Layer) Normal** (리플렉터 (하층) 노멀)을 사용하고자 하는 리플렉터 패턴으로 변경하면 됩니다.

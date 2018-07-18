@@ -9,7 +9,7 @@ namespace mtlpp
 {
 	PipelineBufferDescriptor::PipelineBufferDescriptor()
 #if MTLPP_IS_AVAILABLE(10_13, 11_0)
-	: ns::Object<MTLPipelineBufferDescriptor*>([MTLPipelineBufferDescriptor new])
+	: ns::Object<MTLPipelineBufferDescriptor*>([MTLPipelineBufferDescriptor new], ns::Ownership::Assign)
 #endif
 	{
 	}

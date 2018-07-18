@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "WorkflowUObjectDocuments.h"
+#include "WorkflowOrientedApp/WorkflowUObjectDocuments.h"
 
 
 class FBlueprintEditor;

@@ -2,7 +2,7 @@
 
 #pragma once
 #include "CoreMinimal.h"
-#include "IDetailCustomization.h"
+#include "IPropertyTypeCustomization.h"
 #include "PropertyHandle.h"
 #include "EdGraph/EdGraphSchema.h"
 #include "EditorUndoClient.h"
@@ -44,11 +44,11 @@ struct FNiagaraStackAssetAction_EventSource : public FEdGraphSchemaAction
 
 };
 
-class FNiagaraEventScriptPropertiesCustomization : public IDetailCustomization, public FEditorUndoClient
+class FNiagaraEventScriptPropertiesCustomization : public IPropertyTypeCustomization, public FEditorUndoClient
 {
 public:
 	/** Makes a new instance of this detail layout class for a specific detail view requesting it */
-	static TSharedRef<class IDetailCustomization> MakeInstance(TWeakObjectPtr<UNiagaraSystem> InSystem,
+	static TSharedRef<class IPropertyTypeCustomization> MakeInstance(TWeakObjectPtr<UNiagaraSystem> InSystem,
 		TWeakObjectPtr<UNiagaraEmitter> InEmitter);
 
 	FNiagaraEventScriptPropertiesCustomization(TWeakObjectPtr<UNiagaraSystem> InSystem,
@@ -56,8 +56,9 @@ public:
 
 	~FNiagaraEventScriptPropertiesCustomization();
 
-	/** IDetailCustomization interface */
-	virtual void CustomizeDetails(IDetailLayoutBuilder& DetailBuilder) override;
+	/** IPropertyTypeCustomization interface */
+	virtual void CustomizeHeader(TSharedRef<IPropertyHandle> StructPropertyHandle, class FDetailWidgetRow& HeaderRow, IPropertyTypeCustomizationUtils& StructCustomizationUtils) override;
+	virtual void CustomizeChildren(TSharedRef<IPropertyHandle> StructPropertyHandle, class IDetailChildrenBuilder& ChildBuilder, IPropertyTypeCustomizationUtils& StructCustomizationUtils) override;
 
 	//~ FEditorUndoClient interface
 	virtual void PostUndo(bool bSuccess) override;
@@ -71,6 +72,8 @@ protected:
 	TSharedRef<SWidget> OnCreateWidgetForAction(struct FCreateWidgetForActionData* const InCreateData);
 	void OnActionSelected(const TArray< TSharedPtr<FEdGraphSchemaAction> >& SelectedActions, ESelectInfo::Type InSelectionType);
 	bool GetSpawnNumberEnabled() const;
+	bool GetUseRandomSpawnNumber() const;
+	EVisibility GetMinSpawnNumberVisible() const;
 	void ResolveEmitterName();
 	void ComputeErrorVisibility();
 	EVisibility GetErrorVisibility() const;
@@ -84,6 +87,8 @@ private:
 	TSharedPtr<IPropertyHandle> HandleSpawnNumber;
 	TSharedPtr<IPropertyHandle> HandleExecutionMode;
 	TSharedPtr<IPropertyHandle> HandleMaxEvents;
+	TSharedPtr<IPropertyHandle> HandleUseRandomSpawnNumber;
+	TSharedPtr<IPropertyHandle> HandleMinSpawnNumber;
 
 	TWeakObjectPtr<UNiagaraSystem> System;
 	TWeakObjectPtr<UNiagaraEmitter> Emitter;

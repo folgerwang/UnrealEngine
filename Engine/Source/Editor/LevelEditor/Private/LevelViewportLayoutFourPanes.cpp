@@ -70,24 +70,24 @@ TSharedRef<SWidget> FLevelViewportLayoutFourPanes::MakeViewportLayout(const FStr
 	Args.IsEnabled = FSlateApplication::Get().GetNormalExecutionAttribute();
 
 	Args.bRealtime = !FPlatformMisc::IsRemoteSession();
-	Args.ConfigKey = ViewportKey0;
+	Args.ConfigKey = *ViewportKey0;
 	Args.ViewportType = LVT_Perspective;
 	TSharedRef<IViewportLayoutEntity> Viewport0 = LevelEditor.FactoryViewport(*ViewportType0, Args);
 
 	Args.bRealtime = false;
-	Args.ConfigKey = ViewportKey1;
+	Args.ConfigKey = *ViewportKey1;
 	Args.ViewportType = LVT_OrthoXY;
 	TSharedRef<IViewportLayoutEntity> Viewport1 = LevelEditor.FactoryViewport(*ViewportType1, Args);
 
 	// Front viewport
 	Args.bRealtime = false;
-	Args.ConfigKey = ViewportKey2;
+	Args.ConfigKey = *ViewportKey2;
 	Args.ViewportType = LVT_OrthoXZ;
 	TSharedRef<IViewportLayoutEntity> Viewport2 = LevelEditor.FactoryViewport(*ViewportType2, Args);
 
 	// Top Viewport
 	Args.bRealtime = false;
-	Args.ConfigKey = ViewportKey3;
+	Args.ConfigKey = *ViewportKey3;
 	Args.ViewportType = LVT_OrthoYZ;
 	TSharedRef<IViewportLayoutEntity> Viewport3 = LevelEditor.FactoryViewport(*ViewportType2, Args);
 

@@ -11,7 +11,7 @@
 #include "Misc/PackageName.h"
 #include "Settings/ProjectPackagingSettings.h"
 #include "FileHelpers.h"
-#include "RedirectCollector.h"
+#include "Misc/RedirectCollector.h"
 #include "Editor.h"
 #include "Engine/AssetManager.h"
 
@@ -282,7 +282,19 @@ int32 UGenerateDistillFileSetsCommandlet::Main( const FString& InParams )
 	const FString AbsoluteGameContentDir = FPaths::ConvertRelativePathToFull(FPaths::ProjectContentDir());
 	for (const auto& DirToCook : PackagingSettings->DirectoriesToAlwaysCook)
 	{
-		FString DirectoryPath = AbsoluteGameContentDir / DirToCook.Path;
+		FString DirectoryPath;
+		if (DirToCook.Path.StartsWith(TEXT("/"), ESearchCase::CaseSensitive))
+		{
+			// If this starts with /, this includes a root like /engine
+			FString RelativePath = FPackageName::LongPackageNameToFilename(DirToCook.Path / TEXT(""));
+			DirectoryPath = FPaths::ConvertRelativePathToFull(RelativePath);
+		}
+		else
+		{
+			// This is relative to /game
+			DirectoryPath = AbsoluteGameContentDir / DirToCook.Path;
+		}
+
 		UE_LOG(LogGenerateDistillFileSetsCommandlet, Log, TEXT( "Examining directory to always cook: %s..." ), *DirToCook.Path );
 
 		TArray<FString> Files;

@@ -634,6 +634,8 @@ bool FProfilerClientManager::HandleTicker(float DeltaTime)
 
 bool FProfilerClientManager::HandleMessagesTicker(float DeltaTime)
 {
+    QUICK_SCOPE_CYCLE_COUNTER(STAT_FProfilerClientManager_HandleMessagesTicker);
+
 #if STATS
 	for (auto It = Connections.CreateIterator(); It; ++It)
 	{

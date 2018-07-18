@@ -1,8 +1,8 @@
-﻿INTSourceChangelist:3452211
+﻿INTSourceChangelist:3810467
 Availability:NoPublish
 Title: アンリアル・エンジンを GitHub から ZIP ファイルでダウンロードする
 Crumbs:%ROOT%, GettingStarted, GettingStarted/DownloadingUnrealEngine
-Description:アンリアル エンジンのソースコードを ZIP ファイルでダウンロードしてみましょう。
+Description:アンリアル エンジンのソースコードを ZIP ファイルでダウンロードしてみましょう
 Prereq:GettingStarted/DownloadingUnrealEngine
 Related:Programming/Development/BuildingUnrealEngine
 Parent:GettingStarted
@@ -109,7 +109,7 @@ GitHub から Zip ファイルでソースコードをダウンロードする�
 
 		[REGION:note]
 		*	セットアップ用シェル スクリプトが、エンジン用バイナリ コンテンツのダウンロード、前提条件のインストールを行います。現在エンジン バイナリには 3GB から 4GB 程度のディスク容量が必要なので、ダウンロードには若干時間がかかる場合があります。次回、チェックアウトする場合、ダウンロード時間は短くなります。  
-		*	このステップを実行しても ** \*\*SUCCESS\*\* ** メッセージが表示されない場合は、**BuildThirdParty.log** ファイルで詳細を確認してください。**BuildThirdParty.log** は `[UE4Root]/Engine/Build/BatchFiles/Linux` ディレクトリにあります。
+		*	このステップを実行しても **\*\*SUCCESS\*\*** メッセージが表示されない場合は、**BuildThirdParty.log** ファイルで詳細を確認してください。**BuildThirdParty.log** は `[UE4Root]/Engine/Build/BatchFiles/Linux` ディレクトリにあります。
 		[/REGION]
 	[/PARAM]
 [/OBJECT]

@@ -21,6 +21,9 @@ public:
 	// reimport current mesh
 	TSharedPtr<FUICommandInfo> ReimportMesh;
 
+	// reimport current mesh
+	TSharedPtr<FUICommandInfo> ReimportAllMesh;
+
 	// selecting mesh section using hit proxies
 	TSharedPtr<FUICommandInfo> MeshSectionSelection;
 };

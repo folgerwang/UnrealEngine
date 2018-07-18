@@ -16,10 +16,10 @@
 #include "IHeadMountedDisplay.h"
 #include "IXRTrackingSystem.h"
 #include "IStereoLayers.h"
-#include "ConfigCacheIni.h"
-#include "FileManager.h"
-#include "SVirtualWindow.h"
-#include "SlateDrawBuffer.h"
+#include "Misc/ConfigCacheIni.h"
+#include "HAL/FileManager.h"
+#include "Widgets/SVirtualWindow.h"
+#include "Rendering/SlateDrawBuffer.h"
 #include "HAL/PlatformApplicationMisc.h"
 #include "Widgets/Layout/SDPIScaler.h"
 #include "Engine/UserInterfaceSettings.h"
@@ -106,6 +106,7 @@ FDefaultGameMoviePlayer::FDefaultGameMoviePlayer()
 	, SyncMechanism(NULL)
 	, MovieStreamingIsDone(1)
 	, LoadingIsDone(1)
+	, IsMoviePlaying(false)
 	, bUserCalledFinish(false)
 	, LoadingScreenAttributes()
 	, LastPlayTime(0.0)
@@ -139,6 +140,13 @@ void FDefaultGameMoviePlayer::RegisterMovieStreamer(TSharedPtr<IMovieStreamer> I
 {
 	MovieStreamer = InMovieStreamer;
 	MovieStreamer->OnCurrentMovieClipFinished().AddRaw(this, &FDefaultGameMoviePlayer::BroadcastMovieClipFinished);
+
+	// Always set the viewport interface when the movie streamer is registered.  This fixes cases movies not appearing due to module load order where the movie player is initialized after a movie streamer is registered.
+	// It also fixes cases of a different movie streamer being registered after initialization for any reason
+	if (MovieStreamer.IsValid() && MovieViewportWeakPtr.IsValid())
+	{
+		MovieViewportWeakPtr.Pin()->SetViewportInterface(MovieStreamer->GetViewportInterface().ToSharedRef());
+	}
 }
 
 void FDefaultGameMoviePlayer::Initialize(FSlateRenderer& InSlateRenderer)
@@ -211,6 +219,8 @@ void FDefaultGameMoviePlayer::Initialize(FSlateRenderer& InSlateRenderer)
 			]
 			]
 		];
+
+	MovieViewportWeakPtr = MovieViewport;
 
 	if (MovieStreamer.IsValid())
 	{
@@ -336,6 +346,7 @@ bool FDefaultGameMoviePlayer::PlayMovie()
 		{
 			MovieStreamingIsDone.Set(MovieStreamingIsPrepared() ? 0 : 1);
 			LoadingIsDone.Set(0);
+			IsMoviePlaying = true;
 
 			UserWidgetDPIScaler->SetDPIScale(GetViewportDPIScale());
 			
@@ -350,6 +361,12 @@ bool FDefaultGameMoviePlayer::PlayMovie()
 			}
 
 			bBeganPlaying = true;
+		}
+
+		//Allow anything that set up this LoadingScreenAttribute to know the loading screen is now displaying
+		if (bBeganPlaying)
+		{
+			OnMoviePlaybackStarted().Broadcast();
 		}
 	}
 
@@ -371,13 +388,9 @@ void FDefaultGameMoviePlayer::StopMovie()
 {
 	LastPlayTime = 0;
 	bUserCalledFinish = true;
-	if (UserWidgetHolder.IsValid())
-	{
-		UserWidgetHolder->SetContent( SNullWidget::NullWidget );
-	}
 }
 
-void FDefaultGameMoviePlayer::WaitForMovieToFinish()
+void FDefaultGameMoviePlayer::WaitForMovieToFinish(bool bAllowEngineTick)
 {
 	const bool bEnforceMinimumTime = LoadingScreenAttributes.MinimumLoadingScreenDisplayTime >= 0.0f;
 
@@ -443,6 +456,11 @@ void FDefaultGameMoviePlayer::WaitForMovieToFinish()
 
 				float DeltaTime = SlateApp.GetDeltaTime();				
 
+				if (GEngine && bAllowEngineTick && LoadingScreenAttributes.bAllowEngineTick)
+				{
+					GEngine->Tick(DeltaTime, false);
+				}
+
 				ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
 					BeginLoadingMovieFrameAndTickMovieStreamer,
 					FDefaultGameMoviePlayer*, MoviePlayer, this,
@@ -471,9 +489,8 @@ void FDefaultGameMoviePlayer::WaitForMovieToFinish()
 			}
 		}
 
-		UserWidgetHolder->SetContent( SNullWidget::NullWidget );
-
 		LoadingIsDone.Set(1);
+		IsMoviePlaying = false;
 
 		IStereoLayers* StereoLayers;
 		if (GEngine && GEngine->StereoRenderingDevice.IsValid() && (StereoLayers = GEngine->StereoRenderingDevice->GetStereoLayers()) != nullptr && SyncMechanism == nullptr)
@@ -736,7 +753,11 @@ void FDefaultGameMoviePlayer::OnPreLoadMap(const FString& LevelName)
 
 void FDefaultGameMoviePlayer::OnPostLoadMap(UWorld* LoadedWorld)
 {
-	WaitForMovieToFinish();
+	if (!LoadingScreenAttributes.bAllowEngineTick)
+	{
+		// If engine tick is enabled, we don't want to tick here and instead want to run from the WaitForMovieToFinish call in LaunchEngineLoop
+		WaitForMovieToFinish();
+	}
 }
 
 void FDefaultGameMoviePlayer::SetSlateOverlayWidget(TSharedPtr<SWidget> NewOverlayWidget)
@@ -772,6 +793,13 @@ FMoviePlayerWidgetRenderer::FMoviePlayerWidgetRenderer(TSharedPtr<SWindow> InMai
 
 void FMoviePlayerWidgetRenderer::DrawWindow(float DeltaTime)
 {
+	if (GDynamicRHI && GDynamicRHI->RHIIsRenderingSuspended())
+	{
+		// This avoids crashes if we Suspend rendering whilst the loading screen is up
+		// as we don't want Slate to submit any more draw calls until we Resume.
+		return;
+	}
+
 	FVector2D DrawSize = VirtualRenderWindow->GetClientSizeInScreen();
 
 	FSlateApplication::Get().Tick(ESlateTickType::TimeOnly);
@@ -813,4 +841,14 @@ void FMoviePlayerWidgetRenderer::DrawWindow(float DeltaTime)
 float FDefaultGameMoviePlayer::GetViewportDPIScale() const
 {
 	return 1.f;
+}
+void FDefaultGameMoviePlayer::ForceCompletion()
+{
+	bUserCalledFinish = true;
+	MovieStreamingIsDone.Set(1);
+
+	if (MovieStreamer.IsValid())
+	{
+		MovieStreamer->ForceCompletion();
+	}
 }

@@ -178,7 +178,7 @@ public:
 	    bAllowP2PPacketRelay(false),
 		P2PConnectionTimeout(45.0f),
 		P2PDumpCounter(0.0),
-		P2PDumpInterval(3.0),
+		P2PDumpInterval(10.0),
 		LastSocketError(0)
 	{
 	}

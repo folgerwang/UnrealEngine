@@ -18,9 +18,9 @@
 #include "OSVRInputPrivate.h"
 #include "Containers/Queue.h"
 
-#include "GenericPlatformMath.h"
+#include "GenericPlatform/GenericPlatformMath.h"
 #include "OSVREntryPoint.h"
-#include "GenericApplicationMessageHandler.h"
+#include "GenericPlatform/GenericApplicationMessageHandler.h"
 #include "OSVRTypes.h"
 #include "IOSVR.h"
 #include "OSVRHMD.h"

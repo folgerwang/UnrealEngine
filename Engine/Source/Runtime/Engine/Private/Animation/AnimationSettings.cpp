@@ -21,6 +21,7 @@ UAnimationSettings::UAnimationSettings(const FObjectInitializer& ObjectInitializ
 	, bTryLinearKeyRemovalCompression(true)
 	, bTryIntervalKeyRemoval(true)
 	, bEnablePerformanceLog(false)
+	, bTickAnimationOnSkeletalMeshInit(true)
 {
 	SectionName = TEXT("Animation");
 

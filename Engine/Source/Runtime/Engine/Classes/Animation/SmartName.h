@@ -7,7 +7,7 @@
 #include "Misc/Guid.h"
 #include "UObject/Class.h"
 #include "BoneContainer.h"
-#include "AnimPhysObjectVersion.h"
+#include "UObject/AnimPhysObjectVersion.h"
 #include "SmartName.generated.h"
 
 struct FSmartName;
@@ -156,6 +156,10 @@ struct ENGINE_API FSmartNameMapping
 
 	/* initialize curve meta data for the container */
 	void InitializeCurveMetaData(class USkeleton* Skeleton);
+
+	/** Get the maximum in use UID */
+	SmartName::UID_Type GetMaxUID() const { return CurveNameList.Num() - 1; }
+
 private:
 	
 	TArray<FName> CurveNameList; // List of curve names, order gives UID

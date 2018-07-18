@@ -5,7 +5,7 @@
 #include "Widgets/Colors/SColorBlock.h"
 #include "Widgets/Input/SHyperlink.h"
 #include "HAL/PlatformApplicationMisc.h"
-#include "SCheckBox.h"
+#include "Widgets/Input/SCheckBox.h"
 
 
 /* SMultiColumnTableRow overrides
@@ -28,9 +28,10 @@ TSharedRef<SWidget> SReflectorTreeWidgetItem::GenerateWidgetForColumn(const FNam
 
 		+ SHorizontalBox::Slot()
 		.AutoWidth()
-		.VAlign(VAlign_Center)
 		[
 			SNew(SExpanderArrow, SharedThis(this))
+			.IndentAmount(16)
+			.ShouldDrawWires(true)
 		]
 
 		+ SHorizontalBox::Slot()

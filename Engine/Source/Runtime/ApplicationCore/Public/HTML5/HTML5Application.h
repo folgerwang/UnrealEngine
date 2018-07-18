@@ -2,8 +2,8 @@
 
 #pragma once
 
-#include "GenericApplication.h"
-#include "HTML5Window.h"
+#include "GenericPlatform/GenericApplication.h"
+#include "HTML5/HTML5Window.h"
 
 /**
  * HTML5-specific application implementation.

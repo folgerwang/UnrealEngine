@@ -20,19 +20,21 @@ FTargetDeviceProxy::FTargetDeviceProxy(const FString& InName)
 	, SupportsPowerOff(false)
 	, SupportsPowerOn(false)
 	, SupportsReboot(false)
+	, Aggregated(false)
 {
 
 	InitializeMessaging();
 }
 
 
-FTargetDeviceProxy::FTargetDeviceProxy(const FString& InName, const FTargetDeviceServicePong& Message, const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context)
+FTargetDeviceProxy::FTargetDeviceProxy(const FString& InName, const FTargetDeviceServicePong& Message, const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context, bool InIsAggregated)
 	: Connected(false)
 	, Name(InName)
 	, SupportsMultiLaunch(false)
 	, SupportsPowerOff(false)
 	, SupportsPowerOn(false)
 	, SupportsReboot(false)
+	, Aggregated(InIsAggregated)
 {
 	UpdateFromMessage(Message, Context);
 	InitializeMessaging();
@@ -44,7 +46,7 @@ FTargetDeviceProxy::FTargetDeviceProxy(const FString& InName, const FTargetDevic
 
 void FTargetDeviceProxy::UpdateFromMessage( const FTargetDeviceServicePong& Message, const TSharedRef<IMessageContext, ESPMode::ThreadSafe>& Context )
 {
-	if (Message.Name != Name)
+	if (Name != (!Aggregated? Message.Name: Message.AllDevicesName))
 	{
 		return;
 	}
@@ -56,7 +58,7 @@ void FTargetDeviceProxy::UpdateFromMessage( const FTargetDeviceServicePong& Mess
 	HostUser = Message.HostUser;
 	Make = Message.Make;
 	Model = Message.Model;
-	Name = Message.Name;
+	Name = Aggregated? Message.AllDevicesName: Message.Name;
 	DeviceUser = Message.DeviceUser;
 	DeviceUserPassword = Message.DeviceUserPassword;
 	Shared = Message.Shared;
@@ -72,13 +74,20 @@ void FTargetDeviceProxy::UpdateFromMessage( const FTargetDeviceServicePong& Mess
 	{
 		const FTargetDeviceVariant& MsgVariant = Message.Variants[Index];
 
-		FTargetDeviceProxyVariant & Variant = TargetDeviceVariants.Add(MsgVariant.VariantName);
-		Variant.DeviceID = MsgVariant.DeviceID;
+		// create an new entry or add to the existing (an aggregate (All_<platform>_devices_on_<host>) proxy)
+		FTargetDeviceProxyVariant & Variant = TargetDeviceVariants.FindOrAdd(MsgVariant.VariantName);
+		Variant.DeviceIDs.Add(MsgVariant.DeviceID);
 		Variant.VariantName = MsgVariant.VariantName;
 		Variant.TargetPlatformName = MsgVariant.TargetPlatformName;
 		Variant.TargetPlatformId = MsgVariant.TargetPlatformId;
 		Variant.VanillaPlatformId = MsgVariant.VanillaPlatformId;
 		Variant.PlatformDisplayName = FText::FromString(MsgVariant.PlatformDisplayName);
+
+		if (Aggregated && MsgVariant.TargetPlatformId.IsEqual(Message.AllDevicesDefaultVariant))
+		{
+			// for aggregated platforms,check if the declared AllDevicesDefaultVariant is supported by at least one device
+			DefaultVariant = Message.AllDevicesDefaultVariant;
+		}
 	}
 
 	LastUpdateTime = FDateTime::UtcNow();
@@ -106,9 +115,16 @@ FName FTargetDeviceProxy::GetTargetDeviceVariant(const FString& InDeviceId) cons
 	{
 		const FTargetDeviceProxyVariant& Variant = ItVariant.Value();
 
-		if (Variant.DeviceID == InDeviceId)
+		// for an aggregate (All_<platform>_devices_on_<host>) proxy we have a list of associated devices
+		for (TSet<FString>::TConstIterator ItDeviceID(Variant.DeviceIDs); ItDeviceID; ++ItDeviceID)
 		{
-			return ItVariant.Key();
+			// should return the first device
+			// this method is designed for physical devices, not aggregate proxies
+			if (*ItDeviceID == InDeviceId)
+			{
+				return ItVariant.Key();
+			}
+			break;
 		}
 	}
 
@@ -116,16 +132,31 @@ FName FTargetDeviceProxy::GetTargetDeviceVariant(const FString& InDeviceId) cons
 }
 
 
-const FString& FTargetDeviceProxy::GetTargetDeviceId(FName InVariant) const
+// for an aggregate (All_<platform>_devices_on_<host>) proxy we have a list of associated devices
+const TSet<FString>& FTargetDeviceProxy::GetTargetDeviceIds(FName InVariant) const
 {
 	if (InVariant == NAME_None)
 	{
-		return TargetDeviceVariants[DefaultVariant].DeviceID;
+		return TargetDeviceVariants[DefaultVariant].DeviceIDs;
 	}
 
-	return TargetDeviceVariants[InVariant].DeviceID;
+	return TargetDeviceVariants[InVariant].DeviceIDs;
 }
 
+// get the device id for the variant
+const FString FTargetDeviceProxy::GetTargetDeviceId(FName InVariant) const
+{
+	FString Variant;
+	// for an aggregate (All_<platform>_devices_on_<host>) proxy we have a list of associated devices
+	for (TSet<FString>::TConstIterator ItVariant(TargetDeviceVariants[InVariant == NAME_None? DefaultVariant: InVariant].DeviceIDs); ItVariant; ++ItVariant)
+	{
+		// should return the first device
+		// this method is designed for physical devices, not aggregate proxies
+		Variant = *ItVariant;
+		break;
+	}
+	return Variant;
+}
 
 FString FTargetDeviceProxy::GetTargetPlatformName(FName InVariant) const
 {
@@ -173,16 +204,27 @@ FText FTargetDeviceProxy::GetPlatformDisplayName(FName InVariant) const
 
 bool FTargetDeviceProxy::HasDeviceId(const FString& InDeviceId) const
 {
+	// this method is designed for physical devices, not aggregate proxies
+	if (Aggregated)
+	{
+		return false;
+	}
+	
 	for (TMap<FName, FTargetDeviceProxyVariant>::TConstIterator ItVariant(TargetDeviceVariants); ItVariant; ++ItVariant)
 	{
 		const FTargetDeviceProxyVariant& Variant = ItVariant.Value();
 
-		if (Variant.DeviceID == InDeviceId)
+		for (TSet<FString>::TConstIterator ItDeviceID(Variant.DeviceIDs); ItDeviceID; ++ItDeviceID)
 		{
-			return true;
+			// should return the first device
+			// this method is designed for physical devices, not aggregate proxies
+			if (*ItDeviceID == InDeviceId)
+			{
+				return true;
+			}
+			break;
 		}
 	}
-
 	return false;
 }
 
@@ -233,6 +275,14 @@ bool FTargetDeviceProxy::DeployApp(FName InVariant, const TMap<FString, FString>
 bool FTargetDeviceProxy::LaunchApp(FName InVariant, const FString& AppId, EBuildConfigurations::Type BuildConfiguration, const FString& Params)
 {
 	MessageEndpoint->Send(new FTargetDeviceServiceLaunchApp(InVariant, AppId, BuildConfiguration, Params), MessageAddress);
+
+	return true;
+}
+
+
+bool FTargetDeviceProxy::TerminateLaunchedProcess(FName InVariant, const FString& ProcessIdentifier)
+{
+	MessageEndpoint->Send(new FTargetDeviceServiceTerminateLaunchedProcess(InVariant, ProcessIdentifier), MessageAddress);
 
 	return true;
 }

@@ -5,13 +5,14 @@
 =============================================================================*/
 
 #include "BuildPatchServicesModule.h"
+#include "Containers/Ticker.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Paths.h"
-#include "Containers/Ticker.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Misc/FeedbackContext.h"
 #include "Misc/CoreDelegates.h"
 #include "Misc/App.h"
+#include "Misc/OutputDeviceRedirector.h"
 #include "Modules/ModuleManager.h"
 #include "HttpModule.h"
 #include "HttpManager.h"
@@ -202,6 +203,8 @@ IBuildInstallerRef FBuildPatchServicesModule::StartBuildInstall(BuildPatchServic
 
 bool FBuildPatchServicesModule::Tick( float Delta )
 {
+    QUICK_SCOPE_CYCLE_COUNTER(STAT_FBuildPatchServicesModule_Tick);
+
 	// Using a local bool for this check will improve the assert message that gets displayed.
 	// This one is unlikely to assert unless the FTicker's core tick is not ticked on the main thread for some reason.
 	const bool bIsCalledFromMainThread = IsInGameThread();

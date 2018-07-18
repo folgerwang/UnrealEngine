@@ -110,11 +110,6 @@ Before continuing, please note that Android Vulkan on Linux is not supported at 
 
 	[REGION:tip]
 	If you don't want to use Ubuntu's GUI, you can restart your computer by entering `sudo reboot` into the terminal. 
-	[COMMENT:none]
- 
-	![](LinuxAndroid_Step16.png)(w:900)
-	
-[/COMMENT]
 	[/REGION]
 [/EXCERPT:AndroidLinux_1]
 

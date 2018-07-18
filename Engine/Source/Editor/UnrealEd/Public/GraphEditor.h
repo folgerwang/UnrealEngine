@@ -174,12 +174,12 @@ public:
 		}
 	}
 
-	/* Set new viewer location */
-	virtual void SetViewLocation(const FVector2D& Location, float ZoomAmount)
+	/* Set new viewer location and optionally set the current bookmark */
+	virtual void SetViewLocation(const FVector2D& Location, float ZoomAmount, const FGuid& BookmarkId = FGuid())
 	{
 		if (Implementation.IsValid())
 		{
-			Implementation->SetViewLocation(Location, ZoomAmount);
+			Implementation->SetViewLocation(Location, ZoomAmount, BookmarkId);
 		}
 	}
 
@@ -194,6 +194,19 @@ public:
 		if (Implementation.IsValid())
 		{
 			Implementation->GetViewLocation(OutLocation, OutZoomAmount);
+		}
+	}
+
+	/**
+	 * Gets the current graph view bookmark
+	 *
+	 * @param OutBookmarkId		Will have the current bookmark ID
+	 */
+	virtual void GetViewBookmark(FGuid& OutBookmarkId)
+	{
+		if (Implementation.IsValid())
+		{
+			Implementation->GetViewBookmark(OutBookmarkId);
 		}
 	}
 
@@ -382,6 +395,14 @@ public:
 		}
 	}
 
+	virtual void RefreshNode(UEdGraphNode& Node)
+	{
+		if (Implementation.IsValid())
+		{
+			return Implementation->RefreshNode(Node);
+		}
+	}
+
 	// Invoked to let this widget know that the GraphEditor module has been reloaded
 	UNREALED_API void OnModuleReloaded();
 
@@ -425,6 +446,15 @@ public:
 		if (Implementation.IsValid())
 		{
 			Implementation->CaptureKeyboard();
+		}
+	}
+
+	/** Sets the current node, pin and connection factory. */
+	virtual void SetNodeFactory(const TSharedRef<class FGraphNodeFactory>& NewNodeFactory)
+	{
+		if (Implementation.IsValid())
+		{
+			Implementation->SetNodeFactory(NewNodeFactory);
 		}
 	}
 

@@ -9,8 +9,8 @@
 // UAnimNotify_PlayMontageNotify
 //////////////////////////////////////////////////////////////////////////
 
-UCLASS(editinlinenew, const, hidecategories = Object, collapsecategories, MinimalAPI, meta = (DisplayName = "Montage Notify"))
-class UAnimNotify_PlayMontageNotify : public UAnimNotify
+UCLASS(editinlinenew, const, hidecategories = Object, collapsecategories, meta = (DisplayName = "Montage Notify"))
+class ANIMGRAPHRUNTIME_API UAnimNotify_PlayMontageNotify : public UAnimNotify
 {
 	GENERATED_UCLASS_BODY()
 
@@ -33,8 +33,8 @@ protected:
 // UAnimNotify_PlayMontageNotifyWindow
 //////////////////////////////////////////////////////////////////////////
 
-UCLASS(editinlinenew, const, hidecategories = Object, collapsecategories, MinimalAPI, meta = (DisplayName = "Montage Notify Window"))
-class UAnimNotify_PlayMontageNotifyWindow : public UAnimNotifyState
+UCLASS(editinlinenew, const, hidecategories = Object, collapsecategories, meta = (DisplayName = "Montage Notify Window"))
+class ANIMGRAPHRUNTIME_API UAnimNotify_PlayMontageNotifyWindow : public UAnimNotifyState
 {
 	GENERATED_UCLASS_BODY()
 

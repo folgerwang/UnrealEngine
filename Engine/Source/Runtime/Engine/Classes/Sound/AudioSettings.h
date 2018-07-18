@@ -46,6 +46,30 @@ enum class EVoiceSampleRate : int32
 	/* High48000Hz = 48000 //TODO: 48k VOIP requires serious performance optimizations on encoding and decoding. */
 };
 
+// Enumeration defines what method of panning to use (for non-binaural audio) with the audio-mixer.
+UENUM()
+enum class EPanningMethod : int8
+{
+	// Linear panning maintains linear amplitude when panning between speakers.
+	Linear,
+
+	// Equal power panning maintains equal power when panning between speakers.
+	EqualPower
+};
+
+// Enumeration defines how to treat mono 2D playback. Mono sounds need to upmixed to stereo when played back in 2D.
+UENUM()
+enum class EMonoChannelUpmixMethod : int8
+{
+	// The mono channel is split 0.5 left/right
+	Linear,
+	
+	// The mono channel is split 0.707 left/right
+	EqualPower,
+
+	// The mono channel is split 1.0 left/right
+	FullVolume
+};
 
 USTRUCT()
 struct ENGINE_API FAudioQualitySettings
@@ -83,16 +107,20 @@ class ENGINE_API UAudioSettings : public UDeveloperSettings
 	UPROPERTY(config, EditAnywhere, Category="Audio", meta=(AllowedClasses="SoundClass", DisplayName="Default Sound Class"))
 	FSoftObjectPath DefaultSoundClassName;
 
+	/** The SoundClass assigned to media player assets */
+	UPROPERTY(config, EditAnywhere, Category = "Audio", meta = (AllowedClasses = "SoundClass", DisplayName = "Default Media Sound Class"))
+	FSoftObjectPath DefaultMediaSoundClassName;
+
 	/** The SoundConcurrency assigned to newly created sounds */
 	UPROPERTY(config, EditAnywhere, Category = "Audio", meta = (AllowedClasses = "SoundConcurrency", DisplayName = "Default Sound Concurrency"))
 	FSoftObjectPath DefaultSoundConcurrencyName;
 
-	/** The SoundMix to use as base when no other system has specified a Base SoundMix */
+	/** The SoundMix to use as base when no other system has speciicefied a Base SoundMix */
 	UPROPERTY(config, EditAnywhere, Category="Audio", meta=(AllowedClasses="SoundMix"))
 	FSoftObjectPath DefaultBaseSoundMix;
 	
 	/** Sound class to be used for the VOIP audio component */
-	UPROPERTY(config, EditAnywhere, Category="Audio", meta=(AllowedClasses="SoundClass"))
+	UPROPERTY(config, EditAnywhere, Category="Audio", meta=(AllowedClasses="SoundClass", DisplayName = "VOIP Sound Class"))
 	FSoftObjectPath VoiPSoundClass;
 
 	/** Sample rate used for voice over IP. VOIP audio is resampled to the application's sample rate on the receiver side. */
@@ -104,11 +132,8 @@ class ENGINE_API UAudioSettings : public UDeveloperSettings
 	float VoipBufferingDelay;
 
 	/** The amount of audio to send to reverb submixes if no reverb send is setup for the source through attenuation settings. Only used in audio mixer. */
-	UPROPERTY(config, EditAnywhere, Category = "Audio", AdvancedDisplay, meta = (ClampMin = 0.0, ClampMax = 1.0))
+	UPROPERTY(config, EditAnywhere, Category = "Audio", AdvancedDisplay)
 	float DefaultReverbSendLevel;
-
-	UPROPERTY(config, EditAnywhere, Category="Audio", AdvancedDisplay, meta=(ClampMin=0.1,ClampMax=1.5))
-	float LowPassFilterResonance;
 
 	/** How many streaming sounds can be played at the same time (if more are played they will be sorted by priority) */
 	UPROPERTY(config, EditAnywhere, Category="Audio", meta=(ClampMin=0))
@@ -118,20 +143,39 @@ class ENGINE_API UAudioSettings : public UDeveloperSettings
 	TArray<FAudioQualitySettings> QualityLevels;
 
 	/** Allows sounds to play at 0 volume. */
-	UPROPERTY(config, EditAnywhere, Category = "Quality")
+	UPROPERTY(config, EditAnywhere, Category = "Quality", AdvancedDisplay)
 	uint32 bAllowVirtualizedSounds:1;
 
 	/** Disables master EQ effect in the audio DSP graph. */
-	UPROPERTY(config, EditAnywhere, Category = "Quality")
+	UPROPERTY(config, EditAnywhere, Category = "Quality", AdvancedDisplay)
 	uint32 bDisableMasterEQ : 1;
 
-	/** Disables master reverb effect in the audio DSP graph. */
-	UPROPERTY(config, EditAnywhere, Category = "Quality")
-	uint32 bDisableMasterReverb : 1;
-
 	/** Enables the surround sound spatialization calculations to include the center channel. */
-	UPROPERTY(config, EditAnywhere, Category = "Quality")
+	UPROPERTY(config, EditAnywhere, Category = "Quality", AdvancedDisplay)
 	uint32 bAllowCenterChannel3DPanning : 1;
+
+	/** The max number of active sounds allowed. Used to cull numbers of active sounds, which reduces CPU cost of audio thread. */
+	UPROPERTY(config, EditAnywhere, Category = "Quality", AdvancedDisplay)
+	uint32 MaxWaveInstances;
+
+	/** 
+	 * The max number of sources to reserve for "stopping" sounds. A "stopping" sound applies a fast fade in the DSP
+	 * render to prevent discontinuities when stopping sources.  
+	 */
+	UPROPERTY(config, EditAnywhere, Category = "Quality", AdvancedDisplay)
+	uint32 NumStoppingSources;
+
+	/**
+	* The method to use when doing non-binaural or object-based panning.
+	*/
+	UPROPERTY(config, EditAnywhere, Category = "Quality", AdvancedDisplay)
+	EPanningMethod PanningMethod;
+
+	/**
+	* The upmixing method for mono sound sources. Defines up mono channels are up-mixed to stereo channels.
+	*/
+	UPROPERTY(config, EditAnywhere, Category = "Quality", AdvancedDisplay)
+	EMonoChannelUpmixMethod MonoChannelUpmixMethod;
 
 	/**
 	 * The format string to use when generating the filename for contexts within dialogue waves. This must generate unique names for your project.

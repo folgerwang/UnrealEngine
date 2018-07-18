@@ -5,8 +5,8 @@
 #include "ResonanceAudioCommon.h"
 #include "Misc/Paths.h"
 #include "EngineUtils.h"
-#include "FileManager.h"
-#include "IPluginManager.h"
+#include "HAL/FileManager.h"
+#include "Interfaces/IPluginManager.h"
 #include "HAL/PlatformProcess.h"
 #include "Misc/Paths.h"
 
@@ -29,13 +29,13 @@ namespace ResonanceAudio
 	#endif	// PLATFORM_64BITS
 #elif PLATFORM_MAC
 		DynamicLibraryToLoad = LibraryPath / TEXT("darwin/libvraudio.dylib");
-#elif PLATFORM_ANDROID || PLATFORM_IOS
+#elif PLATFORM_ANDROID || PLATFORM_IOS || PLATFORM_LUMIN || PLATFORM_LUMINGL4
 		 // Not necessary on this platform.
 		return nullptr;
 #elif PLATFORM_LINUX
 		DynamicLibraryToLoad = LibraryPath / TEXT("linux/libvraudio.so");
 #else
-		UE_LOG(LogResonanceAudio, Error, TEXT("Unsupported Platform. Supported platforms are ANDROID, IOS, LINUX, MAC and WINDOWS"));
+		UE_LOG(LogResonanceAudio, Error, TEXT("Unsupported Platform. Supported platforms are ANDROID, LUMIN, IOS, LINUX, MAC and WINDOWS"));
 		return nullptr;
 #endif  // PLATFORM_WINDOWS
 

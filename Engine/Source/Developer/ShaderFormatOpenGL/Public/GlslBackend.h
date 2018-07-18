@@ -10,9 +10,10 @@ class SHADERFORMATOPENGL_API FGlslLanguageSpec : public ILanguageSpec
 {
 protected:
 	bool bIsES2;
+	bool bIsWebGL;
 
 public:
-	FGlslLanguageSpec(bool bInIsES2) : bIsES2(bInIsES2) {}
+	FGlslLanguageSpec(bool bInIsES2, bool bInIsWebGL) : bIsES2(bInIsES2), bIsWebGL(bInIsWebGL) {}
 
 	virtual bool SupportsDeterminantIntrinsic() const override
 	{
@@ -26,15 +27,7 @@ public:
 
 	virtual bool SupportsIntegerModulo() const override
 	{
-#if PLATFORM_HTML5
-		// For backwards compatibility when targeting WebGL 2 shaders,
-		// generate GLES2/WebGL 1 style shaders but with GLES3/WebGL 2
-		// constructs available.
-		// (TODO: Figure out how to make this cleanly upstreamable)
-		return true;
-#else
-		return !bIsES2;
-#endif
+		return !bIsES2 || bIsWebGL;
 	}
 
 	virtual bool SupportsMatrixConversions() const override { return true; }
@@ -55,8 +48,9 @@ class ir_variable;
 #endif // __GNUC__
 struct SHADERFORMATOPENGL_API FGlslCodeBackend : public FCodeBackend
 {
-	FGlslCodeBackend(unsigned int InHlslCompileFlags, EHlslCompileTarget InTarget) :
-		FCodeBackend(InHlslCompileFlags, InTarget)
+	FGlslCodeBackend(unsigned int InHlslCompileFlags, EHlslCompileTarget InTarget, bool bInIsWebGL) :
+		FCodeBackend(InHlslCompileFlags, InTarget),
+		bIsWebGL(bInIsWebGL)
 	{
 	}
 
@@ -97,6 +91,8 @@ struct SHADERFORMATOPENGL_API FGlslCodeBackend : public FCodeBackend
 	{
 		return Target == HCT_FeatureLevelES2 || Target == HCT_FeatureLevelES3_1 || Target == HCT_FeatureLevelES3_1Ext;
 	}
+
+	bool bIsWebGL;
 };
 
 

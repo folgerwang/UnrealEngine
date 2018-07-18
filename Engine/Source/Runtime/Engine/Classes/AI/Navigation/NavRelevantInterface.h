@@ -6,10 +6,113 @@
 #include "UObject/ObjectMacros.h"
 #include "UObject/Interface.h"
 #include "AI/Navigation/NavigationTypes.h"
+#include "AI/NavigationModifier.h"
 #include "NavRelevantInterface.generated.h"
 
 struct FNavigableGeometryExport;
-struct FNavigationRelevantData;
+
+struct FNavigationRelevantDataFilter 
+{
+	/** pass when actor has geometry */
+	uint32 bIncludeGeometry : 1;
+	/** pass when actor has any offmesh link modifier */
+	uint32 bIncludeOffmeshLinks : 1;
+	/** pass when actor has any area modifier */
+	uint32 bIncludeAreas : 1;
+	/** pass when actor has any modifier with meta area */
+	uint32 bIncludeMetaAreas : 1;
+
+	FNavigationRelevantDataFilter() 
+		: bIncludeGeometry(false)
+		, bIncludeOffmeshLinks(false)
+		, bIncludeAreas(false)
+		, bIncludeMetaAreas(false)
+	{}
+};
+
+// @todo consider optional structures that can contain a delegate instead of 
+// actual copy of collision data
+struct ENGINE_API FNavigationRelevantData : public TSharedFromThis<FNavigationRelevantData, ESPMode::ThreadSafe>
+{
+	DECLARE_DELEGATE_RetVal_OneParam(bool, FFilterNavDataDelegate, const struct FNavDataConfig*);
+
+	/** CollisionData should always start with this struct for validation purposes */
+	struct FCollisionDataHeader
+	{
+		int32 DataSize;
+
+		static bool IsValid(const uint8* RawData, int32 RawDataSize);
+	};
+
+	/** exported geometry (used by recast navmesh as FRecastGeometryCache) */
+	TNavStatArray<uint8> CollisionData;
+
+	/** cached voxels (used by recast navmesh as FRecastVoxelCache) */
+	TNavStatArray<uint8> VoxelData;
+
+	/** bounds of geometry (unreal coords) */
+	FBox Bounds;
+
+	/** Gathers per instance data for navigation geometry in a specified area box */
+	FNavDataPerInstanceTransformDelegate NavDataPerInstanceTransformDelegate;
+
+	/** called to check if hosted geometry should be used for given FNavDataConfig. If not set then "true" is assumed. */
+	FFilterNavDataDelegate ShouldUseGeometryDelegate;
+
+	/** additional modifiers: areas and external links */
+	FCompositeNavModifier Modifiers;
+
+	/** UObject these data represents */
+	const TWeakObjectPtr<UObject> SourceObject;
+
+	/** get set to true when lazy navigation exporting is enabled and this navigation data has "potential" of
+	*	containing geometry data. First access will result in gathering the data and setting this flag back to false.
+	*	Mind that this flag can go back to 'true' if related data gets cleared out. */
+	uint32 bPendingLazyGeometryGathering : 1;
+	uint32 bPendingLazyModifiersGathering : 1;
+
+	uint32 bSupportsGatheringGeometrySlices : 1;
+
+	FNavigationRelevantData(UObject& Source)
+		: SourceObject(&Source)
+		, bPendingLazyGeometryGathering(false)
+		, bPendingLazyModifiersGathering(false)
+	{}
+
+	FORCEINLINE bool HasGeometry() const { return VoxelData.Num() || CollisionData.Num(); }
+	FORCEINLINE bool HasModifiers() const { return !Modifiers.IsEmpty(); }
+	FORCEINLINE bool IsPendingLazyGeometryGathering() const { return bPendingLazyGeometryGathering; }
+	FORCEINLINE bool IsPendingLazyModifiersGathering() const { return bPendingLazyModifiersGathering; }
+	FORCEINLINE bool SupportsGatheringGeometrySlices() const { return bSupportsGatheringGeometrySlices; }
+	FORCEINLINE bool IsEmpty() const { return !HasGeometry() && !HasModifiers(); }
+	FORCEINLINE uint32 GetAllocatedSize() const { return CollisionData.GetAllocatedSize() + VoxelData.GetAllocatedSize() + Modifiers.GetAllocatedSize(); }
+	FORCEINLINE uint32 GetGeometryAllocatedSize() const { return CollisionData.GetAllocatedSize() + VoxelData.GetAllocatedSize(); }
+	FORCEINLINE int32 GetDirtyFlag() const
+	{
+		return ((HasGeometry() || IsPendingLazyGeometryGathering()) ? ENavigationDirtyFlag::Geometry : 0) |
+			((HasModifiers() || IsPendingLazyModifiersGathering()) ? ENavigationDirtyFlag::DynamicModifier : 0) |
+			(Modifiers.HasAgentHeightAdjust() ? ENavigationDirtyFlag::UseAgentHeight : 0);
+	}
+
+	bool HasPerInstanceTransforms() const;
+	bool IsMatchingFilter(const FNavigationRelevantDataFilter& Filter) const;
+	void Shrink();
+	bool IsCollisionDataValid() const;
+
+	void ValidateAndShrink()
+	{
+		if (IsCollisionDataValid())
+		{
+			Shrink();
+		}
+		else
+		{
+			CollisionData.Empty();
+		}
+	}
+
+	FORCEINLINE UObject* GetOwner() const { return SourceObject.Get(); }
+};
 
 UINTERFACE(MinimalAPI, meta=(CannotImplementInterfaceInBlueprint))
 class UNavRelevantInterface : public UInterface

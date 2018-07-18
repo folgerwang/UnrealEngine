@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3677751
+﻿INTSourceChangelist:3810467
 Availability:Docs
 Crumbs: %ROOT%
 Title:Android 仮想キーボード
@@ -84,7 +84,7 @@ Tags:Android
     * **Create Widget**
     * **Add to Viewport ** 
 
-1. **Event Begin Play** を **Create Widget ** に接続し Create Widget を **Add Viewport** ノードに接続します。Level ブループリントは下の画像のような状態になります。
+1. **Event Begin Play** を **Create Widget ** に接続し Create Widget を **Add Viewport** ノードに接続します。**Level ブループリント** は下の画像のような状態になります。
 
     [REGION:lightbox]
     [![](AVK_07.png)(w:546)](AVK_07.png)
@@ -94,7 +94,7 @@ Tags:Android
     クリックしてフルサイズで表示
     [/REGION]
 
-1. 次に Create Widget Blueprint ノードの **Class** 入力に先ほど作成した **InputText** ウィジェット ブリントをつなぎます。
+1. 次に Create Widget Blueprint ノードの **Class** 入力に先ほど作成した **InputText** ウィジェット ブリントを追加します。
 
     ![](AVK_08.png)
 
@@ -135,7 +135,7 @@ Tags:Android
 [/OBJECT]
 
 
-Android.new keyboard コンソール変数の後に次のいずれかの数字を入れれば、仮想キーボードを無効にすることができます。ユーザーが IME を必要とする言語を使っている場合、仮想キーボードを Android.NewKeyboard コンソール変数を使って無効にすることができます。
+**Android.NewKeyboard** コンソール変数の後に次のいずれかの数字を入れれば、仮想キーボードを無効にすることができます。こうすることにより、ユーザーが異なる IME (Input Method Editor) を必要とする言語を使う場合に便利です。
 
 |コマンド名|入力 |説明 |
 |---------------------|----------|------------|

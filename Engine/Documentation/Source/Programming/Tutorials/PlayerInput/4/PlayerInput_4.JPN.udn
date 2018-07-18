@@ -1,19 +1,19 @@
-﻿INTSourceChangelist:2620078
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:4.応用編
 Crumbs:%ROOT%, Programming, Programming/Tutorials, Programming/Tutorials/PlayerInput
-Description:詳細を追求するためのアイデア
-バージョン:4.9
+Description:実践してみましょう。
+version:4.9
 
 [VAR:Steps]
 [OBJECT:Navigation]
 	[PARAM:previous]
-		[前の手順](Programming\Tutorials\PlayerInput\3 "%Programming\Tutorials\PlayerInput\3:title%")
+		[前のステップ](Programming\Tutorials\PlayerInput\3 "%Programming\Tutorials\PlayerInput\3:title%")
 	[/PARAM]
 	[PARAM:current]
 	[/PARAM]
 	[PARAM:home]
-		[プレイヤー入力と Pawn クラス](Programming\Tutorials\PlayerInput)
+		[](Programming\Tutorials\PlayerInput)
 	[/PARAM]
 	[PARAM:next]
 	[/PARAM]
@@ -22,15 +22,15 @@ Description:詳細を追求するためのアイデア
 
 
 
-ここまでで学んだ知識を活かして、以下の操作をしてみましょう。
+ここまでで学んだ知識を活かして、以下を行ってみましょう。
 
-* 一定期間保持した後に高速化する指向性コントロールを実装します。
-* **Axis Mapping** をクリックしだした直後にユーザーが **Action Mapping** を押すと、オブジェクトを即時にフルスケールへ展開する特別な入力シーケンスを作成します。
+* 一定の時間、押すと速度が増す方向の制御を実装します。
+* **Axis Mapping** をクリックし始めた直後に **Action Mapping** を押すと、オブジェクトを即時にフルスケールへ拡大する特別な入力シーケンスを作成します。
 
-以下はこのチュートリアルで取り扱った内容です。
+以下はこのチュートリアルの内容の詳しい情報のリンク先です。
 
 * **入力** に関する詳細は [%Gameplay/Input:title%](Gameplay/Input) ページも参照してください。
-* さらに詳しいチュートリアルは [%Programming/Tutorials:title%](Programming/Tutorials) ページを参照してください。
+* 詳しいチュートリアルは [%Programming/Tutorials:title%](Programming/Tutorials) ページをご覧ください。
 
 
 

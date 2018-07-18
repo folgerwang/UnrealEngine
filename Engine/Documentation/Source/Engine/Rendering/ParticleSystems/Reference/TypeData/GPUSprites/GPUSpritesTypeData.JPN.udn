@@ -1,9 +1,13 @@
-﻿INTSourceChangelist:3007410
+﻿INTSourceChangelist:3736250
 Availability:Public
 Title: GPU スプライト タイプデータ
 Crumbs: %ROOT%, Engine, Engine/Rendering/ParticleSystems, Engine/Rendering/ParticleSystems/Reference
-Description: GPU スプライト タイプデータモジュールの参考文書
+Description: GPU スプライト タイプデータモジュールの参考文書 
 Version:4.9
+tags:Particles
+tags:TypeData
+order:2
+topic-image:GPUSprites.png
 
 [TOC(start:2 end:3)]
 

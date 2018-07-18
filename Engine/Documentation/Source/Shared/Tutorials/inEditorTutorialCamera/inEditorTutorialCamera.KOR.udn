@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3108692
+﻿INTSourceChangelist:3810557
 Availability:NoPublish
 Title:2D & 3D 뷰포트
 Description:
@@ -10,15 +10,17 @@ Crumbs:
 뷰포트 소개
 [/VAR]
 
-[EXCERPT:ViewportIntro]
-뷰포트란 언리얼에 생성되는 월드를 보는 창입니다. 게임에서와 마찬가지 방식으로 돌아다닐 수 있는 원근법으로 사용할 수도 있고, 건축 설계도와 같은 도면 작업이 가능한 직교법으로 사용할 수도 있습니다. 언리얼 에디터 뷰포트에는 여러가지 툴과 비주얼라이저가 있어 원하는 데이터를 정확하 파악할 수 있습니다.
-[/EXCERPT:ViewportIntro]
+[INCLUDE:#ViewportIntro]
 
 ![](viewports.png)
 
 [/EXCERPT:Stage3]
 
-
+[COMMENT:none]
+[EXCERPT:ViewportIntro]
+뷰포트란 언리얼에 생성되는 월드를 보는 창입니다. 게임에서와 마찬가지 방식으로 돌아다닐 수 있는 원근법으로 사용할 수도 있고, 건축 설계도와 같은 도면 작업이 가능한 직교법으로 사용할 수도 있습니다. 언리얼 에디터 뷰포트에는 여러가지 툴과 비주얼라이저가 있어 원하는 데이터를 정확히 파악할 수 있습니다.
+[/EXCERPT:ViewportIntro]
+[/COMMENT]
 
 
 [EXCERPT:Stage3.1]

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:3782314
+﻿INTSourceChangelist:3801260
 Availability:Docs
 Crumbs: %ROOT%
 Title:プロジェクト ランチャーのリファレンス
@@ -11,9 +11,6 @@ related:Engine/Deployment/BuildOperations
 Order:1
 Tags:Packaging
 Topic-image:ProjectLauncher_Topic.png
-
-[VAR:spacer]![](%ROOT%/spacer.png)(w:150 convert:false)[/VAR]
-[VAR:spacer2]![](%ROOT%/spacer.png)(w:40 convert:false)[/VAR]
 
 [TOC(start:2 end:3)]
 
@@ -83,10 +80,10 @@ Topic-image:ProjectLauncher_Topic.png
 
 
 [REGION:raw]
-| 設定 | %spacer% | 説明 |
-| --- | --- | --- |
-| **Build Configuration** || プロジェクトのビルトとテストを行いたいコンフィギュレーションを選択します。 [INCLUDE:#buildconfig] |
-| **Build UAT** || 有効にすると [Unreal Automation Tool](Programming/Automation) がビルドの一部としてビルドされます。 |
+| 設定 | 説明 |
+| --- | --- |
+| **Build Configuration** | プロジェクトのビルトとテストを行いたいコンフィギュレーションを選択します。 [INCLUDE:#buildconfig] |
+| **Build UAT** | 有効にすると [Unreal Automation Tool](Programming/Automation) がビルドの一部としてビルドされます。 |
 [/REGION]
 
 [COMMENT:none]
@@ -121,33 +118,33 @@ Cook **by the book** オプションを使うと、どのコンテンツをク�
 ![](bythebook.png)
 
 [REGION:raw]
-| 設定 | %spacer% | 説明 |
-| --- | --- | --- |
-| **Cooked Platform** ||このカスタム ローンチ プロファイルがコンテンツをクックする ターゲット プラットフォームをリストから選択します。 |
-| **Cooked Cultures** || このコンテンツをクックするローカリゼーション カルチャーから選択します。 |
-| **Cooked Maps** || クックするタイトルで利用できるマップから選択します。 |
-| [REGION:tablesection] リリース / DLC / パッチ処理の設定 [/REGION] |||
-| **Create a release version of the game for distribution** || 配布に使われるタイトルのリリース バージョンの作成ができるようになります。 |
-| **Name of the new release to create** || クック中に使用する新しい名前をリリースに付けることができます。 |
-| **Release version this is based on** || 次回のリリース / DLC / パッチ処理の元になるリリース バージョンです。 |
-| **Generate patch** || 有効にすると、ソース コンテンツに対する差分を取り、変更のあったファイルのみが新しい pak ファイルにインクルードされます。 |
-| **Build DLC** || 有効にすると、オリジナル ゲームでリリースされたコンテンツなしの DLC がビルドされます。 |
-| **Name of the DLC to build** || ビルドされる DLC 名を付けます。 |
-| **Include Engine Content** || 有効にすると、オリジナル リリースには含まれなかった Engine の中のコンテンツが DLC に含まれます。チェックが入っていない場合、Engine ディレクトリからコンテンツにアクセスする時にエラーが発生します。 |
-| [REGION:tablesection] 詳細設定 [/REGION] |||
-| **Iterative Cooking:Only cook content modified from previous cook** || 有効にすると、変更されたコンテンツのみがクックされるので、クック処理が速くなります。可能な限りこのオプションを使用することを推奨します。 |
-| **Stage base release pak files** || 有効にすると、基本のリリース バージョンに存在する変更のない pak ファイルをステージングします。 |
-| **Compress Content** || 有効にすると、生成されたコンテンツが圧縮されます。圧縮すると小さくなりますが、解凍が必要なためロード時間は長くなる可能性があります。 |
-| **Add a new patch tier** || 有効にすると、パッチ コンテンツで pak ファイルが生成され新しい番号が付けられます。 |
-| **Save Packages Without Versions** || 有効にすると、最新のバージョンと見なしてロードされます。リスクがありますが、パッチサイズは小さくなります。 |
-| **Number of cookers to spawn** || Cook by the book を使う場合にスポーンするクッカ数です。 |
-| **Store all content in a single file (UnrealPak)** || 有効にすると、コンテンツは個々の多数のファイルではなく、1 つの UnrealPak ファイルとしてデプロイされます。 |
-| **Encrypt INI files (Use Pak File を有効にした場合のみ)** || 有効にすると、UnrealPak ファイル内に格納されている ini ファイルが暗号化されます。 |
-| **Generate Chunks** || 有効にすると、コンテンツは1 つの UnrealPak ファイルではなく、個々の多数のファイルとしてデプロイされます。  |
-| **Don't Include Editor Content in the Build** || 有効にすると、クッカは Editor 内のコンテンツをスキップしてビルド内には含みません。 |
-| **HTTP Chunk Install Data Path** || [INCLUDE:#httpchunks] |
-| **Cooker Build Configuration** || クック コマンドレットに使用するビルド コンフィギュレーションを設定します。 |
-| **Additional Cooker Options** || 追加のクッカ コマンドライン パラメータを指定することができます。 |
+| 設定 | 説明 |
+| --- | --- |
+| **Cooked Platform** | このカスタム ローンチ プロファイルがコンテンツをクックする ターゲット プラットフォームをリストから選択します。  |
+| **Cooked Cultures** | このコンテンツをクックするローカリゼーション カルチャーから選択します。 |
+| **Cooked Maps** | クックするタイトルで利用できるマップから選択します。 |
+| [REGION:tablesection] リリース / DLC / パッチ処理の設定 [/REGION] ||
+| **Create a release version of the game for distribution** | 配布に使われるタイトルのリリース バージョンの作成ができるようになります。 |
+| **Name of the new release to create** | クック中に使用する新しい名前をリリースに付けることができます。 |
+| **Release version this is based on** | 次回のリリース / DLC / パッチ処理の元になるリリース バージョンです。 |
+| **Generate Patch** | 有効にすると、ソース コンテンツに対する差分を取り、変更のあったファイルのみが新しい pak ファイルにインクルードされます。  |
+| **Build DLC** | 有効にすると、オリジナル ゲームでリリースされたコンテンツなしの DLC がビルドされます。 |
+| **Name of the DLC to build** | ビルドされる DLC 名を付けます。 |
+| **Include Engine Content** | 有効にすると、オリジナル リリースには含まれなかった Engine の中のコンテンツが DLC に含まれます。チェックが入っていない場合、Engine ディレクトリからコンテンツにアクセスする時にエラーが発生します。 |
+| [REGION:tablesection] 詳細設定 [/REGION] ||
+| **Iterative Cooking:Only cook content modified from previous cook** | 有効にすると、変更されたコンテンツのみがクックされるので、クック処理が速くなります。可能な限りこのオプションを使用することを推奨します。 |
+| **Stage base release pak files** | 有効にすると、基本のリリース バージョンに存在する変更のない pak ファイルをステージングします。 |
+| **Compress Content** | 有効にすると、生成されたコンテンツが圧縮されます。圧縮すると小さくなりますが、解凍が必要なためロード時間は長くなる可能性があります。 |
+| **Add a new patch tier** | 有効にすると、パッチ コンテンツで pak ファイルが生成され新しい番号が付けられます。 |
+| **Save Packages Without Versions** | 有効にすると、最新のバージョンと見なしてロードされます。リスクがありますが、パッチサイズは小さくなります。 |
+| **Number of cookers to spawn** | Cook by the book を使う場合にスポーンするクッカ数です。  |
+| **Store all content in a single file (UnrealPak)** | 有効にすると、コンテンツは個々の多数のファイルではなく、1 つの UnrealPak ファイルとしてデプロイされます。 |
+| **Encrypt INI files (only with Use Pak File enabled)** |  有効にすると、UnrealPak ファイル内に格納されている ini ファイルが暗号化されます。 |
+| **Generate Chunks** | 有効にすると、コンテンツは1 つの UnrealPak ファイルではなく、個々の多数のファイルとしてデプロイされます。  |
+| **Don't include Editor content in the build** |  有効にすると、クッカは Editor 内のコンテンツをスキップしてビルド内には含みません。  |
+| **HTTP Chunk Install Data Path** | [INCLUDE:#httpchunks] |
+| **Cooker Build Configuration** | クック コマンドレットに使用するビルド コンフィギュレーションを設定します。 |
+| **Additional Cooker Options** | 追加のクッカ コマンドライン パラメータを指定することができます。 |
 [/REGION]
 
 
@@ -156,10 +153,10 @@ Cook **by the book** オプションを使うと、どのコンテンツをク�
 
 [INCLUDE:#httpchunks]
 [EXCERPT:httpchunks]
-| --- | --- | --- |
-| **Create HTTP Chunk Install Data** || 有効にすると、コンテンツは複数の Pak ファイルに分割されて、ダウンロード可能なデータとして格納されます。  |
-| **HTTP Chunk Install Data Path** || Chunk Install Data 用のファイル パスを指定します。 |
-| **HTTP Chunk Install Release Name** || このバージョンの HTTP Chunk Install Data の名前です。  |
+| --- | --- |
+| **Create HTTP Chunk Install Data** | 有効にすると、コンテンツは複数の Pak ファイルに分割されて、ダウンロード可能なデータとして格納されます。 |
+| **HTTP Chunk Install Data Path** | Chunk Install Data 用のファイル パスを指定します。 |
+| **HTTP Chunk Install Release Name** | このバージョンの HTTP Chunk Install Data の名前です。  |
 [/EXCERPT:httpchunks]
 
 -
@@ -175,10 +172,10 @@ Cook **on the fly** オプションは、必要に応じて、デバイスに送
 ![](onthefly.png)
 
 [REGION:raw]
-| 設定 | %spacer% | 説明 |
-| --- | --- | --- |
-| **Only Cook Modified Content** || 有効にすると、変更されたコンテンツのみがクックされるので、クック処理が速くなります。可能な限りこのオプションを有効にすることを推奨します。 |
-| **Additional Cooker Options** || 追加のクッカ コマンドライン パラメータを指定することができます。 |
+| 設定 | 説明 |
+| --- | --- |
+| **Only Cook Modified Content** | 有効にすると、変更されたコンテンツのみがクックされるので、クック処理が速くなります。可能な限りこのオプションを有効にすることを推奨します。 |
+| **Additional Cooker Options** | 追加のクッカ コマンドライン パラメータを指定することができます。 |
 [/REGION]
 
 
@@ -195,9 +192,9 @@ Cook **on the fly** オプションは、必要に応じて、デバイスに送
 ![](Package.png)
 
 [REGION:raw]
-| 設定 | %spacer% | 説明 |
-| --- | --- | --- |
-| **Package Method** || [INCLUDE:#packagepath] |
+| 設定 | 説明 |
+| --- | --- |
+| **Package Method** | [INCLUDE:#packagepath] |
 [/REGION]
 
 
@@ -206,12 +203,12 @@ Cook **on the fly** オプションは、必要に応じて、デバイスに送
 
 [INCLUDE:#packagepath]
 [EXCERPT:packagepath]
-| --- | --- | --- |
-| [REGION:tablesection] パッケージしてロカールに格納する場合 [/REGION] |||
-| **ローカル ディレクトリ パス** ||  |
-| **このビルドは公開用配布なのか** ||  |
-| [REGION:tablesection] パッケージ化してレポジトリに格納する場合 [/REGION] |||
-| **レポジトリ パス** ||  |
+| --- | --- |
+| [REGION:tablesection]  パッケージしてロカールに格納する場合  [/REGION] ||
+| **ローカル ディレクトリ パス** |  |
+| **このビルドは公開用配布なのか** |  |
+| [REGION:tablesection]パッケージ化してレポジトリに格納する場合[/REGION] ||
+| **レポジトリ パス** |  |
 [/EXCERPT:packagepath]
 
 -
@@ -246,12 +243,12 @@ Cook **on the fly** オプションは、必要に応じて、デバイスに送
 ![](FileServer.png)
 
 [REGION:raw]
-| 設定 | %spacer% | 説明 |
-| --- | --- | --- |
-| **Default Deploy Platform** || コンテンツをデプロイするデフォルトのターゲット プラットフォームを設定します。|
-| [REGION:tablesection] 詳細設定 [/REGION] |||
-| **Hide the file server's console window** || 有効にすると、ファイル サーバーのコンソール ウィンドウがデスクトップで非表示になります。 |
-| **Streaming Server** || 有効にすると、ファイル サーバーは、複数のファイルに同時に機能する実験的な実装を使用します。 |
+| 設定 | 説明 |
+| --- | --- |
+| **Default Deploy Platform** | コンテンツをデプロイするデフォルトのターゲット プラットフォームを設定します。|
+| [REGION:tablesection] 詳細設定 [/REGION] ||
+| **Hide the file server's console window** | 有効にすると、ファイル サーバーのコンソール ウィンドウがデスクトップで非表示になります。  |
+| **Streaming Server** | 有効にすると、ファイル サーバーは、複数のファイルに同時に機能する実験的な実装を使用します  |
 [/REGION]
 
 
@@ -263,11 +260,11 @@ Cook **on the fly** オプションは、必要に応じて、デバイスに送
 
 
 [REGION:raw]
-| 設定 | %spacer% | 説明 |
-| --- | --- | --- |
-| **Default Deploy Platform** || コンテンツをデプロイするデフォルトのターゲット プラットフォームを設定します。|
-| [REGION:tablesection] 詳細設定 [/REGION] |||
-| **Only Cook Modified Content** || 有効にすると、変更されたコンテンツのみがクックされるので、クック処理が速くなります。可能な限りこのオプションを有効にすることを推奨します。 |
+| 設定 | 説明 |
+| --- | --- |
+| **Default Deploy Platform** | コンテンツをデプロイするデフォルトのターゲット プラットフォームを設定します。|
+| [REGION:tablesection] 詳細設定 [/REGION] ||
+| **Only Cook Modified Content** | 有効にすると、変更されたコンテンツのみがクックされるので、クック処理が速くなります。可能な限りこのオプションを有効にすることを推奨します。 |
 [/REGION]
 
 
@@ -278,10 +275,10 @@ Cook **on the fly** オプションは、必要に応じて、デバイスに送
 ![](CopyToRepository.png)
 
 [REGION:raw]
-| 設定 | %spacer% | 説明 |
-| --- | --- | --- |
-| **Repository Path** || コンテンツをデプロイするレポジトリへのファイル パスを設定します。 |
-| **Default Deploy Platform** || コンテンツをデプロイするデフォルトのターゲット プラットフォームを設定します。|
+| 設定 | 説明 |
+| --- | --- |
+| **Repository Path** | コンテンツをデプロイするレポジトリへのファイル パスを設定します。 |
+| **Default Deploy Platform** | コンテンツをデプロイするデフォルトのターゲット プラットフォームを設定します。|
 [/REGION]
 
 ### Launch
@@ -289,13 +286,13 @@ Cook **on the fly** オプションは、必要に応じて、デバイスに送
 ![](Launch.png)
 
 [REGION:raw]
-| 設定 | %spacer% | 説明 |
-| --- | --- | --- |
-| **Launch As** || ビルドのこのインスタンスの起動方法を選択します。 [INCLUDE:#launchas] |
-| **Initial Culture** || ビルドを起動する時に、最初に使用しようとするカルチャーを選択します。  |
-| **Initial Map** || ビルドを起動する時に、最初に使用しようとするマップを選択します。 |
-| **Additional Command Line Parameters** || ビルドを起動する時に、使用する必要なコマンドライン パラメータを入力します。 |
-| **Synchronize Screen Refresh Rate (VSync)** || ビルドがプロジェクトをモニターと同じ更新レートで実行するために有効にします。  |
+| 設定 | 説明 |
+| --- | --- |
+| **Launch As** | ビルドのこのインスタンスの起動方法を選択します。 [INCLUDE:#launchas] |
+| **Initial Culture** | ビルドを起動する時に、最初に使用しようとするカルチャーを選択します。  |
+| **Initial Map** | ビルドを起動する時に、最初に使用しようとするマップを選択します。 |
+| **Additional Command Line Parameters** | ビルドを起動する時に、使用する必要なコマンドライン パラメータを入力します。 |
+| **Synchronize Screen Refresh Rate (VSync)** | ビルドがプロジェクトをモニターと同じ更新レートで実行するために有効にします。 |
 
 [/REGION]
 
@@ -308,11 +305,11 @@ Cook **on the fly** オプションは、必要に応じて、デバイスに送
 
 ![](launchas.png)
 
-| --- | --- | --- |
-| **Standalone Client** || スタンドアローン ゲーム クライアントとしてこのインスタンスを起動します。 |
-| **Listen Server** || 他のクライアントからの接続を許可することができるゲーム クライアントにこのインスタンスを起動します。 |
-| **Dedicated Server** || このインスタンスを Dedicated ゲームサーバーとして起動します。 |
-| **Unreal Editor** || このインスタンスをアンリアル エディタとして起動します。 |
+| --- | --- |
+| **スタンドアローンClient** | スタンドアローン ゲーム クライアントとしてこのインスタンスを起動します。|
+| **Listen Server** | 他のクライアントからの接続を許可することができるゲーム クライアントにこのインスタンスを起動します。 |
+| **Dedicated Server** | このインスタンスを Dedicated ゲームサーバーとして起動します。 |
+| **Unreal Editor** | このインスタンスをアンリアル エディタとして起動します。 |
 [/EXCERPT:launchas]
 
 -

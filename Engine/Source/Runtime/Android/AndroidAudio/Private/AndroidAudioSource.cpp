@@ -291,7 +291,7 @@ bool FSLESSoundSource::Init( FWaveInstance* InWaveInstance )
 	SLESBuffer = FSLESSoundBuffer::Init( (FSLESAudioDevice *)AudioDevice, InWaveInstance->WaveData );
 	Buffer = SLESBuffer;
 
-	if( SLESBuffer && InWaveInstance->WaveData->NumChannels <= 2 && InWaveInstance->WaveData->SampleRate <= 48000 )
+	if( SLESBuffer && InWaveInstance->WaveData->NumChannels <= 2 && InWaveInstance->WaveData->GetSampleRateForCurrentPlatform() <= 48000 )
 	{
 		SCOPE_CYCLE_COUNTER( STAT_AudioSourceInitTime );
 		
@@ -342,7 +342,7 @@ bool FSLESSoundSource::Init( FWaveInstance* InWaveInstance )
 		// Failed to initialize source.
 		// These occurences appear to potentially lead to leaks
 		UE_LOG( LogAndroidAudio, Warning, TEXT("Init SoundSource failed on %s"), *InWaveInstance->WaveData->GetName());
-		UE_LOG( LogAndroidAudio, Warning, TEXT("  SampleRate %d"), InWaveInstance->WaveData->SampleRate);
+		UE_LOG( LogAndroidAudio, Warning, TEXT("  SampleRate %d"), InWaveInstance->WaveData->GetSampleRateForCurrentPlatform());
 		UE_LOG( LogAndroidAudio, Warning, TEXT("  Channels %d"), InWaveInstance->WaveData->NumChannels);
 
 		if (SLESBuffer && SLESBuffer->ResourceID == 0)

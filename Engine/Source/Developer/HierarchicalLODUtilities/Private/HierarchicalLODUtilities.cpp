@@ -33,11 +33,15 @@
 #include "Toolkits/AssetEditorManager.h"
 #include "ScopedTransaction.h"
 #include "PackageTools.h"
+#include "Settings/EditorExperimentalSettings.h"
 #endif // WITH_EDITOR
 
 #include "HierarchicalLODProxyProcessor.h"
 #include "IMeshReductionManagerModule.h"
 #include "MeshMergeModule.h"
+#include "Algo/Transform.h"
+#include "Engine/HLODProxy.h"
+#include "HierarchicalLOD.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogHierarchicalLODUtilities, Verbose, All);
 
@@ -45,27 +49,13 @@ DEFINE_LOG_CATEGORY_STATIC(LogHierarchicalLODUtilities, Verbose, All);
 
 void FHierarchicalLODUtilities::ExtractStaticMeshComponentsFromLODActor(AActor* Actor, TArray<UStaticMeshComponent*>& InOutComponents)
 {
-	ALODActor* LODActor = CastChecked<ALODActor>(Actor);
-	for (auto& ChildActor : LODActor->SubActors)
-	{
-		TArray<UStaticMeshComponent*> ChildComponents;
-		if (ChildActor->IsA<ALODActor>())
-		{
-			ExtractStaticMeshComponentsFromLODActor(ChildActor, ChildComponents);
-		}
-		else
-		{
-			ChildActor->GetComponents<UStaticMeshComponent>(ChildComponents);
-		}
-
-		InOutComponents.Append(ChildComponents);
-	}
+	UHLODProxy::ExtractStaticMeshComponentsFromLODActor(Cast<ALODActor>(Actor), InOutComponents);
 }
 
 void FHierarchicalLODUtilities::ExtractSubActorsFromLODActor(AActor* Actor, TArray<AActor*>& InOutActors)
 {
 	ALODActor* LODActor = CastChecked<ALODActor>(Actor);
-	for (auto& ChildActor : LODActor->SubActors)
+	for (AActor* ChildActor : LODActor->SubActors)
 	{
 		TArray<AActor*> ChildActors;
 		if (ChildActor->IsA<ALODActor>())
@@ -91,6 +81,107 @@ float FHierarchicalLODUtilities::CalculateDrawDistanceFromScreenSize(const float
 	return ComputeBoundsDrawDistance(ScreenSize, SphereRadius, ProjectionMatrix);
 }
 
+static FString GetHLODProxyName(const ULevel* InLevel, const uint32 InHLODLevelIndex)
+{
+	UPackage* LevelOuterMost = InLevel->GetOutermost();
+
+	const FString BaseName = FPackageName::GetShortName(LevelOuterMost->GetPathName());	
+	return FString::Printf(TEXT("%s_%i_HLOD"), *BaseName, InHLODLevelIndex);
+}
+
+static FString GetHLODPackageName(const ULevel* InLevel, const uint32 InHLODLevelIndex, FString& InOutHLODProxyName)
+{
+	UPackage* LevelOuterMost = InLevel->GetOutermost();
+
+	const FString PathName = FPackageName::GetLongPackagePath(LevelOuterMost->GetPathName());
+	const FString BaseName = FPackageName::GetShortName(LevelOuterMost->GetPathName());	
+	InOutHLODProxyName = GetHLODProxyName(InLevel, InHLODLevelIndex);
+	return FString::Printf(TEXT("%s/HLOD/%s"), *PathName, *InOutHLODProxyName);
+}
+
+void FHierarchicalLODUtilities::CleanStandaloneAssetsInPackage(UPackage* InPackage)
+{
+	TArray<UObject*> Objects;
+	GetObjectsWithOuter(InPackage, Objects);
+	for(UObject* PackageObject : Objects)
+	{
+		if(PackageObject->HasAnyFlags(RF_Standalone))
+		{
+			if( PackageObject->IsA<UStaticMesh>() ||
+				PackageObject->IsA<UTexture>() ||
+				PackageObject->IsA<UMaterialInterface>())
+			{
+				PackageObject->ClearFlags(RF_Standalone);
+			}
+		}
+	}
+}
+
+UHLODProxy* FHierarchicalLODUtilities::CreateOrRetrieveLevelHLODProxy(const ULevel* InLevel, const uint32 HLODLevelIndex)
+{
+	UPackage* HLODPackage = CreateOrRetrieveLevelHLODPackage(InLevel, HLODLevelIndex);
+
+	// check if our asset exists
+	const FString HLODProxyName = GetHLODProxyName(InLevel, HLODLevelIndex);
+	UHLODProxy* Proxy = FindObject<UHLODProxy>(HLODPackage, *HLODProxyName);
+	if(Proxy == nullptr)
+	{
+		// make sure that the package doesnt have any standalone meshes etc. (i.e. this is an old style package)
+		CleanStandaloneAssetsInPackage(HLODPackage);
+
+		// create the new asset
+		Proxy = NewObject<UHLODProxy>(HLODPackage, *HLODProxyName, RF_Public | RF_Standalone);
+		Proxy->SetMap(UWorld::FindWorldInPackage(InLevel->GetOutermost()));
+	}
+
+	return Proxy;	
+}
+
+UPackage* FHierarchicalLODUtilities::CreateOrRetrieveLevelHLODPackage(const ULevel* InLevel, const uint32 HLODLevelIndex)
+{
+	checkf(InLevel != nullptr, TEXT("Invalid Level supplied"));
+
+	FString HLODProxyName;
+	const FString HLODLevelPackageName = GetHLODPackageName(InLevel, HLODLevelIndex, HLODProxyName);
+
+	// Find existing package
+	bool bCreatedNewPackage = false;
+	UPackage* HLODPackage = CreatePackage(nullptr, *HLODLevelPackageName);
+	HLODPackage->FullyLoad();
+
+	// Target level filename
+	const FString HLODLevelFileName = FPackageName::LongPackageNameToFilename(HLODLevelPackageName);
+	// This is a hack to avoid save file dialog when we will be saving HLOD map package
+	HLODPackage->FileName = FName(*HLODLevelFileName);
+
+	return HLODPackage;
+}
+
+UHLODProxy* FHierarchicalLODUtilities::RetrieveLevelHLODProxy(const ULevel* InLevel, const uint32 HLODLevelIndex)
+{
+	checkf(InLevel != nullptr, TEXT("Invalid Level supplied"));
+	FString HLODProxyName;
+	const FString HLODLevelPackageName = GetHLODPackageName(InLevel, HLODLevelIndex, HLODProxyName);
+	UPackage* HLODPackage = FindPackage(nullptr, *HLODLevelPackageName);
+	if(HLODPackage)
+	{
+		HLODPackage->FullyLoad();
+		return FindObject<UHLODProxy>(HLODPackage, *HLODProxyName);
+	}
+
+	return nullptr;
+}
+
+UPackage* FHierarchicalLODUtilities::RetrieveLevelHLODPackage(const ULevel* InLevel, const uint32 HLODLevelIndex)
+{
+	UHLODProxy* Proxy = RetrieveLevelHLODProxy(InLevel, HLODLevelIndex);
+	if(Proxy)
+	{
+		return Proxy->GetOutermost();
+	}
+	return nullptr;
+}
+
 UPackage* FHierarchicalLODUtilities::CreateOrRetrieveLevelHLODPackage(const ULevel* InLevel)
 {
 	checkf(InLevel != nullptr, TEXT("Invalid Level supplied"));
@@ -105,57 +196,44 @@ UPackage* FHierarchicalLODUtilities::CreateOrRetrieveLevelHLODPackage(const ULev
 	HLODPackage = CreatePackage(NULL, *HLODLevelPackageName);
 	HLODPackage->FullyLoad();
 	HLODPackage->Modify();
-	
+
 	// Target level filename
 	const FString HLODLevelFileName = FPackageName::LongPackageNameToFilename(HLODLevelPackageName);
 	// This is a hack to avoid save file dialog when we will be saving HLOD map package
 	HLODPackage->FileName = FName(*HLODLevelFileName);
 
-	return HLODPackage;	
+	return HLODPackage;
 }
 
-bool FHierarchicalLODUtilities::BuildStaticMeshForLODActor(ALODActor* LODActor, UPackage* AssetsOuter, const FHierarchicalSimplification& LODSetup)
+
+bool FHierarchicalLODUtilities::BuildStaticMeshForLODActor(ALODActor* LODActor, UPackage* AssetsOuter, const FHierarchicalSimplification& LODSetup, UMaterialInterface* InBaseMaterial)
 {
-	if (AssetsOuter && LODActor)
+	UHLODProxy* Proxy = FindObject<UHLODProxy>(AssetsOuter, *GetHLODProxyName(CastChecked<ULevel>(LODActor->GetOuter()), LODActor->LODLevel - 1));
+	return BuildStaticMeshForLODActor(LODActor, Proxy, LODSetup, InBaseMaterial);
+}
+
+bool FHierarchicalLODUtilities::BuildStaticMeshForLODActor(ALODActor* LODActor, UHLODProxy* Proxy, const FHierarchicalSimplification& LODSetup, UMaterialInterface* InBaseMaterial)
+{
+	if (Proxy && LODActor)
 	{
 		UE_LOG(LogHierarchicalLODUtilities, Log, TEXT("Building Proxy Mesh for Cluster %s"), *LODActor->GetName());
 		const FScopedTransaction Transaction(LOCTEXT("UndoAction_BuildProxyMesh", "Building Proxy Mesh for Cluster"));
-		LODActor->Modify();		
 
-		// Delete actor assets before generating new ones
-		FHierarchicalLODUtilities::DestroyClusterData(LODActor);	
-		
+		// Pass false here and dirty package later if values have changed
+		LODActor->Modify(false);
+		Proxy->Modify();
+
+		// Clean out the proxy as we are rebuilding meshes
+		Proxy->Clean();
+		UPackage* AssetsOuter = Proxy->GetOutermost();
+
 		TArray<UPrimitiveComponent*> AllComponents;
-		{
-			for (auto& Actor : LODActor->SubActors)
-			{
-				TArray<UStaticMeshComponent*> Components;
-
-				if (Actor->IsA<ALODActor>())
-				{
-					ExtractStaticMeshComponentsFromLODActor(Actor, Components);
-				}
-				else
-				{
-					Actor->GetComponents<UStaticMeshComponent>(Components);
-				}
-
-				// TODO: support instanced static meshes
-				Components.RemoveAll([](UStaticMeshComponent* Val)
-				{ 
-					return Val->IsA(UInstancedStaticMeshComponent::StaticClass()) || !Val->ShouldGenerateAutoLOD();
-				});
-
-				AllComponents.Append(Components);
-			}
-		}
+		UHLODProxy::ExtractComponents(LODActor, AllComponents);
 
 		// it shouldn't even have come here if it didn't have any staticmesh
 		if (ensure(AllComponents.Num() > 0))
 		{
-			// In case we don't have outer generated assets should have same path as LOD level
-			const FString AssetsPath = AssetsOuter->GetName() + TEXT("/");
-			AActor* FirstActor = LODActor->SubActors[0];
+			const AActor* FirstActor = UHLODProxy::FindFirstActor(LODActor);
 
 			TArray<UObject*> OutAssets;
 			FVector OutProxyLocation = FVector::ZeroVector;
@@ -167,12 +245,10 @@ bool FHierarchicalLODUtilities::BuildStaticMeshForLODActor(ALODActor* LODActor, 
 
 			const IMeshMergeUtilities& MeshMergeUtilities = FModuleManager::Get().LoadModuleChecked<IMeshMergeModule>("MeshMergeUtilities").GetUtilities();
 			// should give unique name, so use level + actor name
-			const FString PackageName = FString::Printf(TEXT("LOD_%s"), *FirstActor->GetName());
+			
+			const FString PackageName = FString::Printf(TEXT("LOD_%s_%i_%s"), *FirstActor->GetOutermost()->GetName(), LODActor->LODLevel - 1, *FirstActor->GetName());
 			if (bHasMeshReductionCapableModule && LODSetup.bSimplifyMesh)
 			{
-				TArray<AActor*> Actors;
-				ExtractSubActorsFromLODActor(LODActor, Actors);
-
 				FHierarchicalLODUtilitiesModule& Module = FModuleManager::LoadModuleChecked<FHierarchicalLODUtilitiesModule>("HierarchicalLODUtilities");
 				FHierarchicalLODProxyProcessor* Processor = Module.GetProxyProcessor();
 
@@ -194,8 +270,12 @@ bool FHierarchicalLODUtilities::BuildStaticMeshForLODActor(ALODActor* LODActor, 
 					OverrideLODSetup.TransitionScreenSize = LODActor->TransitionScreenSize;
 				}
 
-				FGuid JobID = Processor->AddProxyJob(LODActor, OverrideLODSetup);
-				MeshMergeUtilities.CreateProxyMesh(Actors, ProxySettings, AssetsOuter, PackageName, JobID, Processor->GetCallbackDelegate(), true, OverrideLODSetup.TransitionScreenSize);
+				FGuid JobID = Processor->AddProxyJob(LODActor, Proxy, OverrideLODSetup);
+
+				TArray<UStaticMeshComponent*> StaticMeshComponents;
+				Algo::Transform(AllComponents, StaticMeshComponents, [](UPrimitiveComponent* InPrimitiveComponent) { return Cast<UStaticMeshComponent>(InPrimitiveComponent); });
+
+				MeshMergeUtilities.CreateProxyMesh(StaticMeshComponents, ProxySettings, InBaseMaterial, AssetsOuter, PackageName, JobID, Processor->GetCallbackDelegate(), true, OverrideLODSetup.TransitionScreenSize);
 				return true;
 			}
 			else
@@ -206,10 +286,13 @@ bool FHierarchicalLODUtilities::BuildStaticMeshForLODActor(ALODActor* LODActor, 
 					MergeSettings.MaterialSettings = LODActor->MaterialSettings;
 				}
 
-				MeshMergeUtilities.MergeComponentsToStaticMesh(AllComponents, FirstActor->GetWorld(), MergeSettings, AssetsOuter, PackageName, OutAssets, OutProxyLocation, LODSetup.TransitionScreenSize, true);
-				
+				// update LOD parents before rebuild to ensure they are valid when mesh merge extensions are called.
+				LODActor->UpdateSubActorLODParents();
+
+				MeshMergeUtilities.MergeComponentsToStaticMesh(AllComponents, FirstActor->GetWorld(), MergeSettings, InBaseMaterial, AssetsOuter, PackageName, OutAssets, OutProxyLocation, LODSetup.TransitionScreenSize, true);
+
 				// set staticmesh
-				for (auto& Asset : OutAssets)
+				for (UObject* Asset : OutAssets)
 				{
 					UStaticMesh* StaticMesh = Cast<UStaticMesh>(Asset);
 
@@ -227,9 +310,12 @@ bool FHierarchicalLODUtilities::BuildStaticMeshForLODActor(ALODActor* LODActor, 
 				// make sure the mesh won't affect navmesh generation
 				MainMesh->MarkAsNotHavingNavigationData();
 
+				bool bDirtyPackage = false;
+				UStaticMesh* PreviousStaticMesh = LODActor->GetStaticMeshComponent()->GetStaticMesh();
+				bDirtyPackage |= (MainMesh != PreviousStaticMesh);
 				LODActor->SetStaticMesh(MainMesh);
+				bDirtyPackage |= (LODActor->GetActorLocation() != OutProxyLocation);
 				LODActor->SetActorLocation(OutProxyLocation);
-				LODActor->SubObjects = OutAssets;
 
 				// Check resulting mesh and give a warning if it exceeds the vertex / triangle cap for certain platforms
 				FProjectStatus ProjectStatus;
@@ -237,7 +323,7 @@ bool FHierarchicalLODUtilities::BuildStaticMeshForLODActor(ALODActor* LODActor, 
 				{
 					if (MainMesh->RenderData.IsValid() && MainMesh->RenderData->LODResources.Num() && MainMesh->RenderData->LODResources[0].IndexBuffer.Is32Bit())
 					{
-						FMessageLog("HLODResults").Warning()							
+						FMessageLog("HLODResults").Warning()
 							->AddToken(FUObjectToken::Create(LODActor))
 							->AddToken(FTextToken::Create(LOCTEXT("HLODError_MeshNotBuildTwo", " Mesh has more that 65535 vertices, incompatible with mobile; forcing 16-bit (will probably cause rendering issues).")));
 					}
@@ -247,12 +333,38 @@ bool FHierarchicalLODUtilities::BuildStaticMeshForLODActor(ALODActor* LODActor, 
 				static const float FOVRad = 90.0f * (float)PI / 360.0f;
 				static const FMatrix ProjectionMatrix = FPerspectiveMatrix(FOVRad, 1920, 1080, 0.01f);
 				FBoxSphereBounds Bounds = LODActor->GetStaticMeshComponent()->CalcBounds(FTransform());
-				LODActor->LODDrawDistance = CalculateDrawDistanceFromScreenSize(Bounds.SphereRadius, LODSetup.TransitionScreenSize, ProjectionMatrix);
-				LODActor->GetStaticMeshComponent()->MinDrawDistance = LODActor->LODDrawDistance;
-				LODActor->UpdateSubActorLODParents();
 
-				// Freshly build so mark not dirty
-				LODActor->SetIsDirty(false);
+				float DrawDistance;
+				if (LODSetup.bUseOverrideDrawDistance)
+				{
+					DrawDistance = LODSetup.OverrideDrawDistance;
+				}
+				else
+				{
+					DrawDistance = CalculateDrawDistanceFromScreenSize(Bounds.SphereRadius, LODSetup.TransitionScreenSize, ProjectionMatrix);
+				}
+
+				bDirtyPackage |= (LODActor->GetDrawDistance() != DrawDistance);
+				LODActor->SetDrawDistance(DrawDistance);
+			
+				LODActor->DetermineShadowingFlags();
+
+				// Link proxy to actor
+				UHLODProxy* PreviousProxy = LODActor->GetProxy();
+				Proxy->AddMesh(LODActor, MainMesh, UHLODProxy::GenerateKeyForActor(LODActor));
+				bDirtyPackage |= (LODActor->GetProxy() != PreviousProxy);
+
+				if(bDirtyPackage)
+				{
+					LODActor->MarkPackageDirty();
+				}
+
+				// Clean out standalone meshes from the proxy package as we are about to GC, and mesh merging creates assets that are 
+				// supposed to be standalone
+				CleanStandaloneAssetsInPackage(AssetsOuter);
+
+				// Collect garbage to clean up old unreferenced data in the HLOD package
+				CollectGarbage(GARBAGE_COLLECTION_KEEPFLAGS);
 
 				return true;
 			}
@@ -261,7 +373,16 @@ bool FHierarchicalLODUtilities::BuildStaticMeshForLODActor(ALODActor* LODActor, 
 	return false;
 }
 
-EClusterGenerationError FHierarchicalLODUtilities::ShouldGenerateCluster(AActor* Actor)
+bool FHierarchicalLODUtilities::BuildStaticMeshForLODActor(ALODActor* LODActor, UPackage* AssetsOuter, const FHierarchicalSimplification& LODSetup)
+{
+	UMaterialInterface* BaseMaterial = LoadObject<UMaterialInterface>(NULL, TEXT("/Engine/EngineMaterials/BaseFlattenMaterial.BaseFlattenMaterial"), NULL, LOAD_None, NULL);
+	check(BaseMaterial);
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
+	return BuildStaticMeshForLODActor(LODActor, AssetsOuter, LODSetup, BaseMaterial);
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
+}
+
+EClusterGenerationError FHierarchicalLODUtilities::ShouldGenerateCluster(AActor* Actor, const int32 HLODLevelIndex)
 {
 	if (!Actor)
 	{
@@ -294,8 +415,6 @@ EClusterGenerationError FHierarchicalLODUtilities::ShouldGenerateCluster(AActor*
 	// for now only consider staticmesh - I don't think skel mesh would work with simplygon merge right now @fixme
 	TArray<UStaticMeshComponent*> Components;
 	Actor->GetComponents<UStaticMeshComponent>(Components);
-	// TODO: support instanced static meshes
-	Components.RemoveAll([](UStaticMeshComponent* Val){ return Val->IsA(UInstancedStaticMeshComponent::StaticClass()); });
 
 	int32 ValidComponentCount = 0;
 	// now make sure you check parent primitive, so that we don't build for the actor that already has built. 
@@ -304,7 +423,7 @@ EClusterGenerationError FHierarchicalLODUtilities::ShouldGenerateCluster(AActor*
 
 	if (Components.Num() > 0)
 	{
-		for (auto& ComponentIter : Components)
+		for (UStaticMeshComponent* ComponentIter : Components)
 		{
 			if (ComponentIter->GetLODParentPrimitive())
 			{
@@ -317,7 +436,7 @@ EClusterGenerationError FHierarchicalLODUtilities::ShouldGenerateCluster(AActor*
 			}
 
 			// see if we should generate it
-			if (ComponentIter->ShouldGenerateAutoLOD())
+			if (ComponentIter->ShouldGenerateAutoLOD(HLODLevelIndex))
 			{
 				++ValidComponentCount;
 				ErrorType |= EClusterGenerationError::ValidActor;
@@ -377,9 +496,6 @@ void FHierarchicalLODUtilities::DestroyCluster(ALODActor* InActor)
 		InActor->RemoveSubActor(SubActor);
 	}
 
-	// Also destroy the cluster's data
-	DestroyClusterData(InActor);
-
 	World->DestroyActor(InActor);
 
 	if (ParentLOD != nullptr && !ParentLOD->HasAnySubActors())
@@ -390,24 +506,7 @@ void FHierarchicalLODUtilities::DestroyCluster(ALODActor* InActor)
 
 void FHierarchicalLODUtilities::DestroyClusterData(ALODActor* InActor)
 {
-	TArray<UObject*> AssetsToDelete;
-	AssetsToDelete.Append(InActor->SubObjects);
-	InActor->SubObjects.Empty();
 
-	for (UObject* AssetObject : AssetsToDelete)
-	{
-		if (AssetObject)
-		{
-#if WITH_EDITOR
-			// Close possible open editors using this asset	
-			FAssetEditorManager::Get().CloseAllEditorsForAsset(AssetObject);
-			InActor->PreviousSubObjects.Add(AssetObject);
-#endif // WITH_EDITOR
-		}
-	}
-
-	// Set Static Mesh to null since there isn't a mesh anymore
-	InActor->GetStaticMeshComponent()->SetStaticMesh(nullptr);
 }
 
 ALODActor* FHierarchicalLODUtilities::CreateNewClusterActor(UWorld* InWorld, const int32 InLODLevel, AWorldSettings* WorldSettings)
@@ -423,7 +522,8 @@ ALODActor* FHierarchicalLODUtilities::CreateNewClusterActor(UWorld* InWorld, con
 	// Spawn and setup actor
 	ALODActor* NewActor = InWorld->SpawnActor<ALODActor>(ALODActor::StaticClass(), FTransform());
 	NewActor->LODLevel = InLODLevel + 1;
-	NewActor->LODDrawDistance = 0.0f;
+	NewActor->CachedNumHLODLevels = WorldSettings->GetNumHierarchicalLODLevels();
+	NewActor->SetDrawDistance(0.0f);
 	NewActor->SetStaticMesh(nullptr);
 	NewActor->PostEditChange();
 
@@ -707,7 +807,7 @@ int32 FHierarchicalLODUtilities::ComputeStaticMeshLODLevel(const TArray<FStaticM
 	// Walk backwards and return the first matching LOD
 	for (int32 LODIndex = NumLODs - 1; LODIndex >= 0; --LODIndex)
 	{
-		if (SourceModels[LODIndex].ScreenSize > ScreenSize || ((SourceModels[LODIndex].ScreenSize == 0.0f) && (RenderData->ScreenSize[LODIndex] != SourceModels[LODIndex].ScreenSize) && (RenderData->ScreenSize[LODIndex] > ScreenSize)))
+		if (SourceModels[LODIndex].ScreenSize.Default > ScreenSize || ((SourceModels[LODIndex].ScreenSize.Default == 0.0f) && (RenderData->ScreenSize[LODIndex].Default != SourceModels[LODIndex].ScreenSize.Default) && (RenderData->ScreenSize[LODIndex].Default > ScreenSize)))
 		{
 			return FMath::Max(LODIndex, 0);
 		}
@@ -718,7 +818,8 @@ int32 FHierarchicalLODUtilities::ComputeStaticMeshLODLevel(const TArray<FStaticM
 
 int32 FHierarchicalLODUtilities::GetLODLevelForScreenSize(const UStaticMeshComponent* StaticMeshComponent, const float ScreenSize)
 {
-	check(StaticMeshComponent != nullptr);
+	check(StaticMeshComponent != nullptr && StaticMeshComponent->GetStaticMesh() != nullptr);
+
 	const FStaticMeshRenderData* RenderData = StaticMeshComponent->GetStaticMesh()->RenderData.Get();
 	checkf(RenderData != nullptr, TEXT("StaticMesh in StaticMeshComponent %s contains invalid render data"), *StaticMeshComponent->GetName());
 	checkf(StaticMeshComponent->GetStaticMesh()->SourceModels.Num() > 0, TEXT("StaticMesh in StaticMeshComponent %s contains no SourceModels"), *StaticMeshComponent->GetName());
@@ -776,12 +877,15 @@ void FHierarchicalLODUtilities::HandleActorModified(AActor* InActor)
 	{
 		// So something in the actor changed that require use to flag the cluster as dirty
 		ParentActor->Modify();
-		ParentActor->SetIsDirty(true);
 	}
 }
 
 bool FHierarchicalLODUtilities::IsWorldUsedForStreaming(const UWorld* InWorld)
 {
+	// @todo: This function is preventing users from editing HLOD settings in maps that happen to be used by both streaming and non-streaming maps.
+	// @todo: This function is very expensive and can be called every single frame from the HLOD Outliner delegates.  It's usage needs to be optimized before we can re-enable it.
+
+#if 0
 	// Find references to the given world's outer package
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
 	TArray<FAssetIdentifier> ReferenceNames;
@@ -814,7 +918,7 @@ bool FHierarchicalLODUtilities::IsWorldUsedForStreaming(const UWorld* InWorld)
 					if (UWorld* World = Cast<UWorld>(Object))
 					{
 						// Check the world contains InWorld as a streaming level
-						if (World->StreamingLevels.FindByPredicate([InWorld](const ULevelStreaming* StreamingLevel)
+						if (World->GetStreamingLevels().FindByPredicate([InWorld](const ULevelStreaming* StreamingLevel)
 						{
 							return StreamingLevel->GetWorldAsset() == InWorld;
 						}))
@@ -826,6 +930,7 @@ bool FHierarchicalLODUtilities::IsWorldUsedForStreaming(const UWorld* InWorld)
 			}
 		}
 	}
+#endif
 
 	return false;
 }

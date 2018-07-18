@@ -2,8 +2,8 @@
 
 #pragma once
 
-#include "NiagaraStackEntry.h"
-#include "NiagaraParameterHandle.h"
+#include "ViewModels/Stack/NiagaraStackEntry.h"
+#include "ViewModels/Stack/NiagaraParameterHandle.h"
 #include "NiagaraTypes.h"
 #include "NiagaraStackModuleItemOutput.generated.h"
 
@@ -23,15 +23,13 @@ public:
 	 * @param InFunctionCallNode The function call node representing the module in the stack graph which owns this Output.
 	 * @param InOutputParameterHandle The Namespace.Name handle for the Output to the owning module.
 	 */
-	void Initialize(TSharedRef<FNiagaraSystemViewModel> InSystemViewModel, TSharedRef<FNiagaraEmitterViewModel> InEmitterViewModel, UNiagaraNodeFunctionCall& InFunctionCallNode, FName InOutputParameterHandle,
-		FNiagaraTypeDefinition InOutputType);
+	void Initialize(FRequiredEntryData InRequiredEntryData, UNiagaraNodeFunctionCall& InFunctionCallNode, FName InOutputParameterHandle, FNiagaraTypeDefinition InOutputType);
 
 	//~ UNiagaraStackEntry interface
 	virtual FText GetDisplayName() const override;
-	virtual FName GetTextStyleName() const override;
-	virtual bool GetCanExpand() const override;
-	virtual int32 GetItemIndentLevel() const override;
 	virtual FText GetTooltipText() const override;
+	virtual bool GetIsEnabled() const override;
+	virtual EStackRowStyle GetStackRowStyle() const override;
 
 	/** Gets the parameter handle which defined this Output in the module. */
 	const FNiagaraParameterHandle& GetOutputParameterHandle() const;

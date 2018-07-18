@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
-#include "MovieSceneMaterialTrack.h"
+#include "Tracks/MovieSceneMaterialTrack.h"
 #include "MovieSceneMaterialParameterCollectionTrack.generated.h"
 
 class UMaterialParameterCollection;

@@ -190,6 +190,54 @@ void FRawStaticIndexBuffer::SetIndices(const TArray<uint32>& InIndices, EIndexBu
 	}
 }
 
+void FRawStaticIndexBuffer::InsertIndices( const uint32 At, const uint32* IndicesToAppend, const uint32 NumIndicesToAppend )
+{
+	if( NumIndicesToAppend > 0 )
+	{
+		const uint32 IndexStride = b32Bit ? sizeof( uint32 ) : sizeof( uint16 );
+
+		IndexStorage.InsertUninitialized( At * IndexStride, NumIndicesToAppend * IndexStride );
+		uint8* const DestIndices = &IndexStorage[ At * IndexStride ];
+
+		if( IndicesToAppend )
+		{
+			if( b32Bit )
+			{
+				// If the indices are 32 bit we can just do a memcpy.
+				FMemory::Memcpy( DestIndices, IndicesToAppend, NumIndicesToAppend * IndexStride );
+			}
+			else
+			{
+				// Copy element by element demoting 32-bit integers to 16-bit.
+				uint16* DestIndices16Bit = (uint16*)DestIndices;
+				for( uint32 Index = 0; Index < NumIndicesToAppend; ++Index )
+				{
+					DestIndices16Bit[ Index ] = IndicesToAppend[ Index ];
+				}
+			}
+		}
+		else
+		{
+			// If no indices to insert were supplied, just clear the buffer
+			FMemory::Memset( DestIndices, 0, NumIndicesToAppend * IndexStride );
+		}
+	}
+}
+
+void FRawStaticIndexBuffer::AppendIndices( const uint32* IndicesToAppend, const uint32 NumIndicesToAppend )
+{
+	InsertIndices( b32Bit ? IndexStorage.Num() / 4 : IndexStorage.Num() / 2, IndicesToAppend, NumIndicesToAppend );
+}
+
+void FRawStaticIndexBuffer::RemoveIndicesAt( const uint32 At, const uint32 NumIndicesToRemove )
+{
+	if( NumIndicesToRemove > 0 )
+	{
+		const int32 IndexStride = b32Bit ? sizeof( uint32 ) : sizeof( uint16 );
+		IndexStorage.RemoveAt( At * IndexStride, NumIndicesToRemove * IndexStride );
+	}
+}
+
 void FRawStaticIndexBuffer::GetCopy(TArray<uint32>& OutIndices) const
 {
 	int32 NumIndices = b32Bit ? (IndexStorage.Num() / 4) : (IndexStorage.Num() / 2);
@@ -212,6 +260,15 @@ void FRawStaticIndexBuffer::GetCopy(TArray<uint32>& OutIndices) const
 			OutIndices[i] = SrcIndices16Bit[i];
 		}
 	}
+}
+
+const uint16* FRawStaticIndexBuffer::AccessStream16() const
+{
+	if (!b32Bit)
+	{
+		return reinterpret_cast<const uint16*>(IndexStorage.GetData());
+	}
+	return nullptr;
 }
 
 FIndexArrayView FRawStaticIndexBuffer::GetArrayView() const
@@ -254,6 +311,12 @@ void FRawStaticIndexBuffer::Serialize(FArchive& Ar, bool bNeedsCPUAccess)
 		Ar << b32Bit;
 		IndexStorage.BulkSerialize(Ar);
 	}
+}
+
+void FRawStaticIndexBuffer::Discard()
+{
+    IndexStorage.SetAllowCPUAccess(false);
+    IndexStorage.Discard();
 }
 
 /*-----------------------------------------------------------------------------

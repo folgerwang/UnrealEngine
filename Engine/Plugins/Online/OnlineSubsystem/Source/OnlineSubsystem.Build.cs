@@ -14,9 +14,7 @@ public class OnlineSubsystem : ModuleRules
 			}
 		);
 
-		PublicIncludePaths.Add("OnlineSubsystem/Public/Interfaces");
-
-        PrivateIncludePaths.Add("OnlineSubsystem/Private");
+		PublicIncludePaths.Add(ModuleDirectory);
 
         PublicDefinitions.Add("ONLINESUBSYSTEM_PACKAGE=1");
 		PublicDefinitions.Add("DEBUG_LAN_BEACON=0");
@@ -30,9 +28,5 @@ public class OnlineSubsystem : ModuleRules
 				"JsonUtilities"
 			}
 		);
-
-
 	}
-
-  
 }

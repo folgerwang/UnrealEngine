@@ -54,7 +54,12 @@ struct FAITestSpawnInfo
 	/** Gets filled owning spawn set upon game start */
 	FName SpawnSetName;
 
-	FAITestSpawnInfo() : NumberToSpawn(1)
+	FAITestSpawnInfo()
+		: BehaviorTree(nullptr)
+		, SpawnLocation(nullptr)
+		, NumberToSpawn(1)
+		, SpawnDelay(0.0f)
+		, PreSpawnDelay(0.0f)
 	{}
 
 	FORCEINLINE bool IsValid() const { return PawnClass != NULL && SpawnLocation != NULL; }
@@ -99,7 +104,9 @@ struct FAITestSpawnSet
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AISpawn)
 	AActor* FallbackSpawnLocation;
 
-	FAITestSpawnSet() : bEnabled(true)
+	FAITestSpawnSet()
+		: bEnabled(true)
+		, FallbackSpawnLocation(nullptr)
 	{}
 };
 
@@ -121,7 +128,10 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category = AITest)
 	TArray<FPendingDelayedSpawn> PendingDelayedSpawns;
 	
+	UPROPERTY(BlueprintReadOnly, Category = AITest)
 	int32 CurrentSpawnSetIndex;
+
+	UPROPERTY(BlueprintReadOnly, Category = AITest)
 	FString CurrentSpawnSetName;
 
 	/** Called when a single AI finished spawning */

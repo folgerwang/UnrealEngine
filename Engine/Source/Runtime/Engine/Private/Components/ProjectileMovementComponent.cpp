@@ -31,7 +31,8 @@ UProjectileMovementComponent::UProjectileMovementComponent(const FObjectInitiali
 	bWantsInitializeComponent = true;
 
 	MaxSimulationTimeStep = 0.05f;
-	MaxSimulationIterations = 8;
+	MaxSimulationIterations = 4;
+	BounceAdditionalIterations = 1;
 
 	bBounceAngleAffectsFriction = false;
 	bIsSliding = false;
@@ -120,22 +121,31 @@ void UProjectileMovementComponent::TickComponent(float DeltaTime, enum ELevelTic
 	}
 
 	float RemainingTime	= DeltaTime;
-	uint32 NumBounces = 0;
+	int32 NumImpacts = 0;
+	int32 NumBounces = 0;
+	int32 LoopCount = 0;
 	int32 Iterations = 0;
 	FHitResult Hit(1.f);
 	
 	while( RemainingTime >= MIN_TICK_TIME && (Iterations < MaxSimulationIterations) && !ActorOwner->IsPendingKill() && !HasStoppedSimulation() )
 	{
+		LoopCount++;
 		Iterations++;
 
 		// subdivide long ticks to more closely follow parabolic trajectory
+		const float InitialTimeRemaining = RemainingTime;
 		const float TimeTick = ShouldUseSubStepping() ? GetSimulationTimeStep(RemainingTime, Iterations) : RemainingTime;
 		RemainingTime -= TimeTick;
+		
+		// Logging
+		UE_LOG(LogProjectileMovement, Verbose, TEXT("Projectile %s: (Role: %d, Iteration %d, step %.3f, [%.3f / %.3f] cur/total) sim (Pos %s, Vel %s)"),
+			*GetNameSafe(ActorOwner), (int32)ActorOwner->Role, LoopCount, TimeTick, FMath::Max(0.f, DeltaTime - InitialTimeRemaining), DeltaTime,
+			*UpdatedComponent->GetComponentLocation().ToString(), *Velocity.ToString());
 
+		// Initial move state
 		Hit.Time = 1.f;
 		const FVector OldVelocity = Velocity;
 		const FVector MoveDelta = ComputeMoveDelta(OldVelocity, TimeTick);
-
 		const FQuat NewRotation = (bRotationFollowsVelocity && !OldVelocity.IsNearlyZero(0.01f)) ? OldVelocity.ToOrientationQuat() : UpdatedComponent->GetComponentQuat();
 
 		// Move the component
@@ -168,6 +178,10 @@ void UProjectileMovementComponent::TickComponent(float DeltaTime, enum ELevelTic
 			{
 				Velocity = ComputeVelocity(Velocity, TimeTick);				
 			}
+
+			// Logging
+			UE_LOG(LogProjectileMovement, VeryVerbose, TEXT("Projectile %s: (Role: %d, Iteration %d, step %.3f) no hit (Pos %s, Vel %s)"),
+				*GetNameSafe(ActorOwner), (int32)ActorOwner->Role, LoopCount, TimeTick, *UpdatedComponent->GetComponentLocation().ToString(), *Velocity.ToString());
 		}
 		else
 		{
@@ -178,7 +192,12 @@ void UProjectileMovementComponent::TickComponent(float DeltaTime, enum ELevelTic
 				Velocity = (Hit.Time > KINDA_SMALL_NUMBER) ? ComputeVelocity(OldVelocity, TimeTick * Hit.Time) : OldVelocity;
 			}
 
+			// Logging
+			UE_CLOG(UpdatedComponent != nullptr, LogProjectileMovement, VeryVerbose, TEXT("Projectile %s: (Role: %d, Iteration %d, step %.3f) new hit at t=%.3f: (Pos %s, Vel %s)"),
+				*GetNameSafe(ActorOwner), (int32)ActorOwner->Role, LoopCount, TimeTick, Hit.Time, *UpdatedComponent->GetComponentLocation().ToString(), *Velocity.ToString());
+
 			// Handle blocking hit
+			NumImpacts++;
 			float SubTickTimeRemaining = TimeTick * (1.f - Hit.Time);
 			const EHandleBlockingHitResult HandleBlockingResult = HandleBlockingHit(Hit, TimeTick, MoveDelta, SubTickTimeRemaining);
 			if (HandleBlockingResult == EHandleBlockingHitResult::Abort || HasStoppedSimulation())
@@ -203,12 +222,24 @@ void UProjectileMovementComponent::TickComponent(float DeltaTime, enum ELevelTic
 				checkNoEntry();
 			}
 			
+			// Logging
+			UE_CLOG(UpdatedComponent != nullptr, LogProjectileMovement, VeryVerbose, TEXT("Projectile %s: (Role: %d, Iteration %d, step %.3f) deflect at t=%.3f: (Pos %s, Vel %s)"),
+				*GetNameSafe(ActorOwner), (int32)ActorOwner->Role, Iterations, TimeTick, Hit.Time, *UpdatedComponent->GetComponentLocation().ToString(), *Velocity.ToString());
 			
-			// A few initial bounces should add more time and iterations to complete most of the simulation.
-			if (NumBounces <= 2 && SubTickTimeRemaining >= MIN_TICK_TIME)
+			// Add unprocessed time after impact
+			if (SubTickTimeRemaining >= MIN_TICK_TIME)
 			{
 				RemainingTime += SubTickTimeRemaining;
-				Iterations--;
+
+				// A few initial impacts should possibly allow more iterations to complete more of the simulation.
+				if (NumImpacts <= BounceAdditionalIterations)
+				{
+					Iterations--;
+
+					// Logging
+					UE_LOG(LogProjectileMovement, Verbose, TEXT("Projectile %s: (Role: %d, Iteration %d, step %.3f) allowing extra iteration after bounce %u (t=%.3f, adding %.3f secs)"),
+						*GetNameSafe(ActorOwner), (int32)ActorOwner->Role, LoopCount, TimeTick, NumBounces, Hit.Time, SubTickTimeRemaining);
+				}
 			}
 		}
 	}
@@ -428,6 +459,12 @@ UProjectileMovementComponent::EHandleBlockingHitResult UProjectileMovementCompon
 		return EHandleBlockingHitResult::Abort;
 	}
 
+	if (Hit.bStartPenetrating)
+	{
+		UE_LOG(LogProjectileMovement, Verbose, TEXT("Projectile %s is stuck inside %s.%s!"), *GetNameSafe(ActorOwner), *GetNameSafe(Hit.GetActor()), *GetNameSafe(Hit.GetComponent()));
+		return EHandleBlockingHitResult::Abort;
+	}
+
 	SubTickTimeRemaining = TimeTick * (1.f - Hit.Time);
 	return EHandleBlockingHitResult::Deflect;
 }
@@ -560,13 +597,20 @@ float UProjectileMovementComponent::GetSimulationTimeStep(float RemainingTime, i
 		}
 		else
 		{
-			// If this is the last iteration, just use all the remaining time. This is usually better than cutting things short, as the simulation won't move far enough otherwise.
+			// If this is the last iteration, just use all the remaining time. This is better than cutting things short, as the simulation won't move far enough otherwise.
 			// Print a throttled warning.
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-			static uint32 s_WarningCount = 0;
-			if ((s_WarningCount++ < 100) || (GFrameCounter & 15) == 0)
+			if (const UWorld* const World = GetWorld())
 			{
-				UE_LOG(LogProjectileMovement, Warning, TEXT("GetSimulationTimeStep() - Max iterations %d hit while remaining time %.6f > MaxSimulationTimeStep (%.3f) for '%s'"), MaxSimulationIterations, RemainingTime, MaxSimulationTimeStep, *GetPathNameSafe(UpdatedComponent));
+				// Don't report during long hitches, we're more concerned about normal behavior just to make sure we have reasonable simulation settings.
+				if (World->DeltaTimeSeconds < 0.20f)
+				{
+					static uint32 s_WarningCount = 0;
+					if ((s_WarningCount++ < 100) || (GFrameCounter & 15) == 0)
+					{
+						UE_LOG(LogProjectileMovement, Warning, TEXT("GetSimulationTimeStep() - Max iterations %d hit while remaining time %.6f > MaxSimulationTimeStep (%.3f) for '%s'"), MaxSimulationIterations, RemainingTime, MaxSimulationTimeStep, *GetPathNameSafe(UpdatedComponent));
+					}
+				}
 			}
 #endif
 		}

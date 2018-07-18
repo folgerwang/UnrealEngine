@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "CoreDelegates.h"
+#include "Misc/CoreDelegates.h"
 #include "Engine/EngineBaseTypes.h"
 #include "HAL/ThreadSafeBool.h"
 #include "Containers/Queue.h"
@@ -24,11 +24,11 @@ public:
 	EGoogleARCoreAPIStatus RequestInstall(bool bUserRequestedInstall, EGoogleARCoreInstallStatus& OutInstallStatus);
 
 	bool GetIsTrackingTypeSupported(EARSessionType SessionType);
-	
+
 	bool GetIsARCoreSessionRunning();
 
 	EARSessionStatus GetSessionStatus();
-	
+
 	// Get Unreal Units per meter, based off of the current map's VR World to Meters setting.
 	float GetWorldToMetersScale();
 
@@ -36,11 +36,11 @@ public:
 	void StartARCoreSessionRequest(UARSessionConfig* SessionConfig);
 
 	bool GetStartSessionRequestFinished();
-	
+
 	void PauseARCoreSession();
 
 	void ResetARCoreSession();
-	
+
 	void AllocatePassthroughCameraTexture_RenderThread();
 	FTextureRHIRef GetPassthroughCameraTexture();
 
@@ -57,6 +57,8 @@ public:
 #if PLATFORM_ANDROID
 	EGoogleARCoreFunctionStatus GetLatestCameraMetadata(const ACameraMetadata*& OutCameraMetadata) const;
 #endif
+	EGoogleARCoreFunctionStatus AcquireCameraImage(UGoogleARCoreCameraImage *&OutLatestCameraImage);
+
 	// Hit test
 	void ARLineTrace(const FVector2D& ScreenPosition, EGoogleARCoreLineTraceChannel TraceChannels, TArray<FARTraceResult>& OutHitResults);
 
@@ -105,6 +107,9 @@ public:
 
 	TSharedPtr<FARSystemBase, ESPMode::ThreadSafe> GetARSystem();
 	void SetARSystem(TSharedPtr<FARSystemBase, ESPMode::ThreadSafe> InARSystem);
+
+	void* GetARSessionRawPointer();
+	void* GetGameThreadARFrameRawPointer();
 
 private:
 	// Android lifecycle events.

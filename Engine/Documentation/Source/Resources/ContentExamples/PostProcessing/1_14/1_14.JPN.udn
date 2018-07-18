@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2847663
+﻿INTSourceChangelist:3782314
 Availability:Public
 Title:1.14 - AA メソッド
 Crumbs:%ROOT%, Resources, Resources/ContentExamples, Resources/ContentExamples/PostProcessing
@@ -7,63 +7,8 @@ Related:Engine/Rendering/Overview
 Related:Engine/Rendering/PostProcessEffects
 Related:Engine/Rendering/PostProcessEffects/PostProcessMaterials
 Version:4.9
+topic-image:(Resources/ContentExamples/PostProcessing/PP_14.png
 
-[VAR:Steps]
-[OBJECT:Navigation]
-	[PARAM:previous]
-		[前のサンプル](Resources/ContentExamples/PostProcessing/1_13 "%Resources/ContentExamples/PostProcessing/1_13:title%")
-	[/PARAM]
-	[PARAM:current]
-	[/PARAM]
-	[PARAM:home]
-		[ポストプロセスのホーム](Resources/ContentExamples/PostProcessing)
-	[/PARAM]
-	[PARAM:next]
-		[次のサンプル](Resources/ContentExamples/PostProcessing/1_15 "%Resources/ContentExamples/PostProcessing/1_15:title%")
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-
-
-
-[VAR:Topic]
-[OBJECT:Topic]
-	[PARAM:image]
-		![%Resources/ContentExamples/PostProcessing/1_14:title%](Resources/ContentExamples/PostProcessing/PP_14.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%\rendering_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/PostProcessing/1_14:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/ContentExamples/PostProcessing/1_14:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/ContentExamples/PostProcessing/1_14]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
-[VAR:TopicCompact]
-[OBJECT:TopicCompact]
-	[PARAM:image]
-		![%Resources/ContentExamples/PostProcessing/1_14:title%](Resources/ContentExamples/PostProcessing/PP_14.png)
-	[/PARAM]
-	[PARAM:icon]
-		![](%ROOT%\rendering_icon.png)(convert:false)
-	[/PARAM]
-	[PARAM:title]
-		%Resources/ContentExamples/PostProcessing/1_14:title%
-	[/PARAM]
-	[PARAM:description]
-		%Resources/ContentExamples/PostProcessing/1_14:description%
-	[/PARAM]
-	[PARAM:path]
-		[RELATIVE:Resources/ContentExamples/PostProcessing/1_14]
-	[/PARAM]
-[/OBJECT]
-[/VAR]
 
 
 [OBJECT:ComparisonSlider]
@@ -80,7 +25,7 @@ Version:4.9
 [Region:imagetable]
 | [![](1_14_01.png)(w:302)](1_14_01.png) | [![](1_14_02.png)(w:302)](1_14_02.png) | [![](1_14_03.png)(w:302)](1_14_03.png) |
 | ------ | ------ | ------ |
-| なし | FXAA | テンポラル アンチエイリアシング |
+| None | FXAA | Temporal AA |
 [/Region]
 [/Region]
 

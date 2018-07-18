@@ -17,7 +17,7 @@
 #include "CollisionQueryParams.h"
 #include "WorldCollision.h"
 #include "Engine/World.h"
-#include "AI/Navigation/NavigationSystem.h"
+#include "AI/NavigationSystemBase.h"
 #include "UObject/Package.h"
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/Volume.h"
@@ -29,7 +29,6 @@
 #include "EngineUtils.h"
 #include "Net/OnlineEngineInterface.h"
 #include "VisualLogger/VisualLogger.h"
-#include "AI/Navigation/RecastNavMesh.h"
 #include "GameFramework/Character.h"
 #include "Engine/Console.h"
 #include "Engine/DebugCameraController.h"
@@ -37,6 +36,8 @@
 #include "Components/BrushComponent.h"
 #include "GameFramework/PlayerState.h"
 #include "GameFramework/InputSettings.h"
+#include "Misc/CoreDelegates.h"
+#include "Engine/NetConnection.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogCheatManager, Log, All);
 
@@ -505,28 +506,35 @@ void UCheatManager::ViewClass( TSubclassOf<AActor> DesiredClass )
 
 void UCheatManager::SetLevelStreamingStatus(FName PackageName, bool bShouldBeLoaded, bool bShouldBeVisible)
 {
+	UWorld* World = GetWorld();
 	if (PackageName != NAME_All)
 	{
-		for( FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator )
+		for( FConstPlayerControllerIterator Iterator = World->GetPlayerControllerIterator(); Iterator; ++Iterator )
 		{
-			(*Iterator)->ClientUpdateLevelStreamingStatus((*Iterator)->NetworkRemapPath(PackageName, false), bShouldBeLoaded, bShouldBeVisible, false, INDEX_NONE );
+			if (APlayerController* PC = Iterator->Get())
+			{
+				PC->ClientUpdateLevelStreamingStatus(PC->NetworkRemapPath(PackageName, false), bShouldBeLoaded, bShouldBeVisible, false, INDEX_NONE);
+			}
 		}
 	}
 	else
 	{
-		for( FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator )
+		for( FConstPlayerControllerIterator Iterator = World->GetPlayerControllerIterator(); Iterator; ++Iterator )
 		{
-			TArray<FUpdateLevelStreamingLevelStatus> LevelStatuses;
-			for (int32 i = 0; i < GetWorld()->StreamingLevels.Num(); i++)
+			if (APlayerController* PC = Iterator->Get())
 			{
-				FUpdateLevelStreamingLevelStatus& LevelStatus = *new( LevelStatuses ) FUpdateLevelStreamingLevelStatus();
-				LevelStatus.PackageName = (*Iterator)->NetworkRemapPath(GetWorld()->StreamingLevels[ i ]->GetWorldAssetPackageFName(), false);
-				LevelStatus.bNewShouldBeLoaded = bShouldBeLoaded;
-				LevelStatus.bNewShouldBeVisible = bShouldBeVisible;
-				LevelStatus.bNewShouldBlockOnLoad = false;
-				LevelStatus.LODIndex = INDEX_NONE;
+				TArray<FUpdateLevelStreamingLevelStatus> LevelStatuses;
+				for (ULevelStreaming* StreamingLevel : World->GetStreamingLevels())
+				{
+					FUpdateLevelStreamingLevelStatus& LevelStatus = *new(LevelStatuses) FUpdateLevelStreamingLevelStatus();
+					LevelStatus.PackageName = PC->NetworkRemapPath(StreamingLevel->GetWorldAssetPackageFName(), false);
+					LevelStatus.bNewShouldBeLoaded = bShouldBeLoaded;
+					LevelStatus.bNewShouldBeVisible = bShouldBeVisible;
+					LevelStatus.bNewShouldBlockOnLoad = false;
+					LevelStatus.LODIndex = INDEX_NONE;
+				}
+				PC->ClientUpdateMultipleLevelsStreamingStatus(LevelStatuses);
 			}
-			( *Iterator )->ClientUpdateMultipleLevelsStreamingStatus( LevelStatuses );
 		}
 	}
 }
@@ -912,28 +920,6 @@ void UCheatManager::TestCollisionDistance()
 #endif
 }
 
-void UCheatManager::RebuildNavigation()
-{
-	UNavigationSystem* NavSys = UNavigationSystem::GetCurrent(GetWorld());
-	if (NavSys)
-	{
-		NavSys->Build();
-	}
-}
-
-void UCheatManager::SetNavDrawDistance(float DrawDistance)
-{
-	if (GIsEditor)
-	{
-		APlayerController* PC = GetOuterAPlayerController();
-		if (PC != NULL)
-		{
-			PC->ClientMessage(TEXT("Setting Nav Rendering Draw Distance is not supported while in Edior"));
-		}
-	}
-	ARecastNavMesh::SetDrawDistance(DrawDistance);
-}
-
 void UCheatManager::DumpOnlineSessionState()
 {
 	UOnlineEngineInterface::Get()->DumpSessionState(GetWorld());
@@ -964,6 +950,11 @@ void UCheatManager::DumpVoiceMutingState()
 
 UWorld* UCheatManager::GetWorld() const
 {
+	if (IsTemplate())
+	{
+		return nullptr;
+	}
+
 	return GetOuterAPlayerController()->GetWorld();
 }
 
@@ -1281,6 +1272,11 @@ void UCheatManager::ToggleServerStatReplicatorUpdateStatNet()
 	{
 		ServerStatReplicator->bUpdateStatNet = !ServerStatReplicator->bUpdateStatNet;
 	}
+}
+
+void UCheatManager::UpdateSafeArea()
+{
+	FCoreDelegates::OnSafeFrameChangedEvent.Broadcast();
 }
 
 #undef LOCTEXT_NAMESPACE

@@ -38,12 +38,12 @@ public:
 	virtual float GetSectionHeight() const override;
 	virtual FMargin GetContentPadding() const override;
 	virtual void BeginResizeSection() override;
-	virtual void ResizeSection(ESequencerSectionResizeMode ResizeMode, float ResizeTime) override;
+	virtual void ResizeSection(ESequencerSectionResizeMode ResizeMode, FFrameNumber ResizeTime) override;
 	virtual void BeginSlipSection() override;
-	virtual void SlipSection(float SlipTime) override;
+	virtual void SlipSection(double SlipTime) override;
 
 	// FThumbnail interface
-	virtual void SetSingleTime(float GlobalTime) override;
+	virtual void SetSingleTime(double GlobalTime) override;
 	virtual FText HandleThumbnailTextBlockText() const override;
 	virtual void HandleThumbnailTextBlockTextCommitted(const FText& NewThumbnailName, ETextCommit::Type CommitType) override;
 
@@ -64,10 +64,10 @@ private:
 	TWeakPtr<FCinematicShotTrackEditor> CinematicShotTrackEditor;
 
 	/** Cached start offset value valid only during resize */
-	float InitialStartOffsetDuringResize;
-	
+	int32 InitialStartOffsetDuringResize;
+
 	/** Cached start time valid only during resize */
-	float InitialStartTimeDuringResize;
+	FFrameNumber InitialStartTimeDuringResize;
 
 	struct FCinematicSectionCache
 	{
@@ -75,11 +75,13 @@ private:
 
 		bool operator!=(const FCinematicSectionCache& RHS) const
 		{
-			return !FMath::IsNearlyEqual(ActualStartTime, RHS.ActualStartTime, 0.001f) || TimeScale != RHS.TimeScale;
+			return InnerFrameRate != RHS.InnerFrameRate || InnerFrameOffset != RHS.InnerFrameOffset || SectionStartFrame != RHS.SectionStartFrame || TimeScale != RHS.TimeScale;
 		}
 
-		float ActualStartTime;
-		float TimeScale;
+		FFrameRate   InnerFrameRate;
+		int32        InnerFrameOffset;
+		FFrameNumber SectionStartFrame;
+		float        TimeScale;
 	};
 
 	/** Cached section thumbnail data */
