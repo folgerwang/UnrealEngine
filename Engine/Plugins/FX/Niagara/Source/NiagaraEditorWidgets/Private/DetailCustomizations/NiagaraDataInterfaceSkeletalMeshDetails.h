@@ -31,6 +31,6 @@ private:
 private:
 	TSharedPtr<FNiagaraDetailSourcedArrayBuilder> RegionsBuilder;
 	IDetailLayoutBuilder* LayoutBuilder;
-	UNiagaraDataInterfaceSkeletalMesh*  MeshInterface;
-	USkeletalMesh* MeshObject;
+	TWeakObjectPtr<UNiagaraDataInterfaceSkeletalMesh>  MeshInterface;
+	TWeakObjectPtr<USkeletalMesh> MeshObject;
 };
