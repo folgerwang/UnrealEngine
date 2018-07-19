@@ -773,6 +773,13 @@ void FRCPassDiaphragmDOFSetup::Process(FRenderingCompositePassContext& Context)
 FPooledRenderTargetDesc FRCPassDiaphragmDOFSetup::ComputeOutputDesc(EPassOutputId InPassOutputId) const
 {
 	FPooledRenderTargetDesc Ret = GetInput(ePId_Input0)->GetOutput()->RenderTargetDesc;
+
+	// Reset so that the number of samples of decsriptor becomes 1, which is totally legal still with MSAA because
+	// the scene color will already be resolved to ShaderResource texture that is always 1. This is to work around
+	// hack that MSAA will have targetable texture with MSAA != shader resource, and still have descriptor indicating
+	// the number of samples of the targetable resource.
+	Ret.Reset();
+
 	Ret.Extent /= InPassOutputId == ePId_Output0 ? 1 : 2;
 	Ret.DebugName = InPassOutputId == ePId_Output0 ? TEXT("DOFFullResSetup") : TEXT("DOFHalfResSetup");
 	Ret.Format = PF_FloatRGBA;
@@ -1834,6 +1841,13 @@ void FRCPassDiaphragmDOFRecombine::Process(FRenderingCompositePassContext& Conte
 FPooledRenderTargetDesc FRCPassDiaphragmDOFRecombine::ComputeOutputDesc(EPassOutputId InPassOutputId) const
 {
 	FPooledRenderTargetDesc Ret = GetInput(ePId_Input0)->GetOutput()->RenderTargetDesc;
+
+	// Reset so that the number of samples of descriptor becomes 1, which is totally legal still with MSAA because
+	// the scene color will already be resolved to ShaderResource texture that is always 1. This is to work around
+	// hack that MSAA will have targetable texture with MSAA != shader resource, and still have descriptor indicating
+	// the number of samples of the targetable resource.
+	Ret.Reset();
+
 	Ret.DebugName = TEXT("DOFRecombine");
 	Ret.TargetableFlags |= TexCreate_UAV;
 	return Ret;
