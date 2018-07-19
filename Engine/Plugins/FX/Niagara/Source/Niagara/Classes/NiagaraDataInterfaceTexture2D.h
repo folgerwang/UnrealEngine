@@ -16,7 +16,7 @@ class NIAGARA_API UNiagaraDataInterfaceTexture2D : public UNiagaraDataInterface
 public:
 
 	UPROPERTY(EditAnywhere, Category = "Texture")
-	UTexture2D *Texture;
+	UTexture2D* Texture;
 
 	//UObject Interface
 	virtual void PostInitProperties()override;
@@ -46,7 +46,15 @@ public:
 	static const FString TextureName;
 	static const FString SamplerName;
 protected:
+#if WITH_EDITOR
+	bool CopyTextureToCPUBackup(UTexture* SourceTexture, TArray<uint8>& TargetBuffer);
+	void CopyTextureData(const uint8* Source, uint8* Dest, uint32 SizeX, uint32 SizeY, uint32 BytesPerPixel, uint32 SourceStride, uint32 DestStride);
+
+#endif
 	virtual bool CopyToInternal(UNiagaraDataInterface* Destination) const override;
+
+	UPROPERTY()
+	TArray<uint8> CPUTextureData;
 
 	static const FName SampleTextureName;
 };
