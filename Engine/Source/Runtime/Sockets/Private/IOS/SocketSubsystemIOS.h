@@ -3,13 +3,13 @@
 #pragma once
 
 #include "SocketSubsystem.h"
-#include "BSDIPv6Sockets/SocketSubsystemBSDIPv6.h"
+#include "BSDSockets/SocketSubsystemBSD.h"
 #include "SocketSubsystemPackage.h"
 
 /**
- * Windows specific socket subsystem implementation
+ * iOS specific socket subsystem implementation
  */
-class FSocketSubsystemIOS : public FSocketSubsystemBSDIPv6
+class FSocketSubsystemIOS : public FSocketSubsystemBSD
 {
 protected:
 	virtual TSharedRef<FInternetAddr> CreateInternetAddr(uint32 Address = 0, uint32 Port = 0) override;
@@ -30,9 +30,15 @@ public:
 	static FSocketSubsystemIOS* Create();
 
 	/**
-	 * Performs Windows specific socket clean up
+	 * Performs iOS specific socket clean up
 	 */
 	static void Destroy();
+
+
+	virtual ESocketProtocolFamily GetDefaultSocketProtocolFamily() const override
+	{
+		return ESocketProtocolFamily::IPv6;
+	}
 
 public:
 
@@ -51,5 +57,5 @@ public:
 	virtual FSocket* CreateSocket(const FName& SocketType, const FString& SocketDescription, bool bForceUDP) override;
 
 	virtual TSharedRef<FInternetAddr> GetLocalHostAddr(FOutputDevice& Out, bool& bCanBindAll) override;
-	virtual class FSocketBSDIPv6* InternalBSDSocketFactory(SOCKET Socket, ESocketType SocketType, const FString& SocketDescription) override;
+	virtual class FSocketBSD* InternalBSDSocketFactory(SOCKET Socket, ESocketType SocketType, const FString& SocketDescription) override;
 };

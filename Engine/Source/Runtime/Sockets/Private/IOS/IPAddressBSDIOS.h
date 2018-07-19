@@ -4,11 +4,11 @@
 
 #include "CoreMinimal.h"
 #include "BSDSockets/SocketSubsystemBSDPrivate.h"
-#include "BSDIPv6Sockets/IPAddressBSDIPv6.h"
+#include "BSDSockets/IPAddressBSD.h"
 
 #if PLATFORM_HAS_BSD_IPV6_SOCKETS
 
-class FInternetAddrBSDIPv6IOS : public FInternetAddrBSDIPv6
+class FInternetAddrBSDIOS : public FInternetAddrBSD
 {
 
 public:
@@ -16,10 +16,12 @@ public:
 	/** Sets the address to broadcast */
 	virtual void SetBroadcastAddress() override
 	{
-		UE_LOG(LogSockets, Verbose, TEXT("SetBroadcastAddress() FInternetAddrBSDIPv6IOS"));
+		UE_LOG(LogSockets, Verbose, TEXT("SetBroadcastAddress() FInternetAddrBSDIOS"));
 		SetIp(INADDR_BROADCAST);
 		SetPort(0);
 	}
+
+	// TODO: Determine if we need to override the others.
 };
 
 #endif
