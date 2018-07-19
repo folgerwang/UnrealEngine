@@ -847,6 +847,17 @@ const TCHAR* FMacPlatformProcess::UserLogsDir()
 	return Result;
 }
 
+const TCHAR* FMacPlatformProcess::UserHomeDir()
+{
+	static TCHAR Result[MAX_PATH] = TEXT("");
+	if (!Result[0])
+	{
+		SCOPED_AUTORELEASE_POOL;
+		FPlatformString::CFStringToTCHAR((CFStringRef)NSHomeDirectory(), Result);
+	}
+	return Result;
+}
+
 const TCHAR* FMacPlatformProcess::ApplicationSettingsDir()
 {
 	static TCHAR Result[MAX_PATH] = TEXT("");
