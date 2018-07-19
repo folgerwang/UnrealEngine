@@ -773,7 +773,7 @@ namespace UnrealBuildTool
 
 			bool bAdaptiveUnityDisablesPCH = (Target.bAdaptiveUnityDisablesPCH && Rules.PCHUsage == ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs);
 
-			if ((Target.bAdaptiveUnityDisablesOptimizations || bAdaptiveUnityDisablesPCH) && !Target.bStressTestUnity)
+			if ((Target.bAdaptiveUnityDisablesOptimizations || bAdaptiveUnityDisablesPCH || Target.bAdaptiveUnityCreatesDedicatedPCH) && !Target.bStressTestUnity)
 			{
 				foreach (FileItem File in SourceFiles)
 				{
@@ -808,13 +808,21 @@ namespace UnrealBuildTool
 				{
 					AdaptiveUnityEnvironment.bOptimizeCode = false;
 				}
-				AdaptiveUnityEnvironment.PrecompiledHeaderAction = PrecompiledHeaderAction.None;
 
-				// Write all the definitions out to a separate file
-				CreateHeaderForDefinitions(AdaptiveUnityEnvironment, IntermediateDirectory, "Adaptive");
-
-				// Compile the files
-				CPPOutput AdaptiveOutput = ToolChain.CompileCPPFiles(AdaptiveUnityEnvironment, AdaptiveFiles, IntermediateDirectory, Name, ActionGraph);
+				// Create a per-file PCH
+				CPPOutput AdaptiveOutput;
+				if(Target.bAdaptiveUnityCreatesDedicatedPCH)
+				{
+					AdaptiveOutput = CompileAdaptiveNonUnityFilesWithDedicatedPCH(ToolChain, AdaptiveUnityEnvironment, AdaptiveFiles, IntermediateDirectory, Name, ActionGraph);
+				}
+				else if(bAdaptiveUnityDisablesPCH)
+				{
+					AdaptiveOutput = CompileAdaptiveNonUnityFilesWithoutPCH(ToolChain, AdaptiveUnityEnvironment, AdaptiveFiles, IntermediateDirectory, Name, ActionGraph);
+				}
+				else
+				{
+					AdaptiveOutput = CompileAdaptiveNonUnityFilesWithPCH(ToolChain, AdaptiveUnityEnvironment, AdaptiveFiles, IntermediateDirectory, Name, ActionGraph);
+				}
 
 				// Merge output
 				OutputFiles.ObjectFiles.AddRange(AdaptiveOutput.ObjectFiles);
@@ -822,6 +830,73 @@ namespace UnrealBuildTool
 			}
 
 			return OutputFiles;
+		}
+
+		static CPPOutput CompileAdaptiveNonUnityFilesWithPCH(UEToolChain ToolChain, CppCompileEnvironment CompileEnvironment, List<FileItem> Files, DirectoryReference IntermediateDirectory, string ModuleName, ActionGraph ActionGraph)
+		{
+			// Compile the files
+			return ToolChain.CompileCPPFiles(CompileEnvironment, Files, IntermediateDirectory, ModuleName, ActionGraph);
+		}
+
+		static CPPOutput CompileAdaptiveNonUnityFilesWithoutPCH(UEToolChain ToolChain, CppCompileEnvironment CompileEnvironment, List<FileItem> Files, DirectoryReference IntermediateDirectory, string ModuleName, ActionGraph ActionGraph)
+		{
+			// Disable precompiled headers
+			CompileEnvironment.PrecompiledHeaderAction = PrecompiledHeaderAction.None;
+
+			// Write all the definitions out to a separate file
+			CreateHeaderForDefinitions(CompileEnvironment, IntermediateDirectory, "Adaptive");
+
+			// Compile the files
+			return ToolChain.CompileCPPFiles(CompileEnvironment, Files, IntermediateDirectory, ModuleName, ActionGraph);
+		}
+
+		static CPPOutput CompileAdaptiveNonUnityFilesWithDedicatedPCH(UEToolChain ToolChain, CppCompileEnvironment CompileEnvironment, List<FileItem> Files, DirectoryReference IntermediateDirectory, string ModuleName, ActionGraph ActionGraph)
+		{
+			CPPOutput Output = new CPPOutput();
+			foreach(FileItem File in Files)
+			{
+				// Build the contents of the wrapper file
+				StringBuilder WrapperContents = new StringBuilder();
+				using (StringWriter Writer = new StringWriter(WrapperContents))
+				{
+					Writer.WriteLine("// Dedicated PCH for {0}", File.AbsolutePath);
+					Writer.WriteLine();
+					WriteDefinitions(CompileEnvironment.Definitions, Writer);
+					Writer.WriteLine();
+					using(StreamReader Reader = new StreamReader(File.Location.FullName))
+					{
+						CppIncludeParser.CopyIncludeDirectives(Reader, Writer);
+					}
+				}
+
+				// Write the PCH header
+				FileReference DedicatedPchLocation = FileReference.Combine(IntermediateDirectory, String.Format("PCH.Dedicated.{0}.h", File.Location.GetFileNameWithoutExtension()));
+				FileItem DedicatedPchFile = FileItem.CreateIntermediateTextFile(DedicatedPchLocation, WrapperContents.ToString());
+				DedicatedPchFile.CachedIncludePaths = File.CachedIncludePaths;
+
+				// Create a new C++ environment to compile the PCH
+				CppCompileEnvironment PchEnvironment = new CppCompileEnvironment(CompileEnvironment);
+				PchEnvironment.Definitions.Clear();
+				PchEnvironment.IncludePaths.UserIncludePaths.Add(File.Location.Directory); // Need to be able to include headers in the same directory as the source file
+				PchEnvironment.PrecompiledHeaderAction = PrecompiledHeaderAction.Create;
+				PchEnvironment.PrecompiledHeaderIncludeFilename = DedicatedPchFile.Location;
+
+				// Create the action to compile the PCH file.
+				CPPOutput PchOutput = ToolChain.CompileCPPFiles(PchEnvironment, new List<FileItem>() { DedicatedPchFile }, IntermediateDirectory, ModuleName, ActionGraph);
+				Output.ObjectFiles.AddRange(PchOutput.ObjectFiles);
+
+				// Create a new C++ environment to compile the original file
+				CppCompileEnvironment FileEnvironment = new CppCompileEnvironment(CompileEnvironment);
+				FileEnvironment.Definitions.Clear();
+				FileEnvironment.PrecompiledHeaderAction = PrecompiledHeaderAction.Include;
+				FileEnvironment.PrecompiledHeaderIncludeFilename = DedicatedPchFile.Location;
+				FileEnvironment.PrecompiledHeaderFile = PchOutput.PrecompiledHeaderFile;
+
+				// Create the action to compile the PCH file.
+				CPPOutput FileOutput = ToolChain.CompileCPPFiles(FileEnvironment, new List<FileItem>() { File }, IntermediateDirectory, ModuleName, ActionGraph);
+				Output.ObjectFiles.AddRange(FileOutput.ObjectFiles);
+			}
+			return Output;
 		}
 
 		/// <summary>

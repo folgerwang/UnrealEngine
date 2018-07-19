@@ -727,6 +727,12 @@ namespace UnrealBuildTool
 		public bool bAdaptiveUnityDisablesPCH = true;
 
 		/// <summary>
+		/// Creates a dedicated PCH for each source file in the working set, allowing faster iteration on cpp-only changes.
+		/// </summary>
+		[XmlConfigFile(Category = "BuildConfiguration")]
+		public bool bAdaptiveUnityCreatesDedicatedPCH = false;
+
+		/// <summary>
 		/// The number of source files in a game module before unity build will be activated for that module.  This
 		/// allows small game modules to have faster iterative compile times for single files, at the expense of slower full
 		/// rebuild times.  This setting can be overridden by the bFasterWithoutUnity option in a module's Build.cs file.
@@ -1844,6 +1850,11 @@ namespace UnrealBuildTool
 		public bool bAdaptiveUnityDisablesPCH
 		{
 			get { return Inner.bAdaptiveUnityDisablesPCH; }
+		}
+
+		public bool bAdaptiveUnityCreatesDedicatedPCH
+		{
+			get { return Inner.bAdaptiveUnityCreatesDedicatedPCH; }
 		}
 
 		public int MinGameModuleSourceFilesForUnityBuild
