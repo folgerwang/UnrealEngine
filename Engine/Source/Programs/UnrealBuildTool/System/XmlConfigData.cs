@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -95,7 +95,7 @@ namespace UnrealBuildTool
 						string FieldName = Reader.ReadString();
 
 						// Find the matching field on the output type
-						FieldInfo Field = Type.GetField(FieldName);
+						FieldInfo Field = Type.GetField(FieldName, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static);
 						if(Field == null || Field.GetCustomAttribute<XmlConfigFileAttribute>() == null)
 						{
 							Data = null;
