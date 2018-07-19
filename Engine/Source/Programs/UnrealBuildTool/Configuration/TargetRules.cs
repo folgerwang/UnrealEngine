@@ -1399,6 +1399,14 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Expose the bGenerateProjectFiles flag to targets, so we can modify behavior as appropriate for better intellisense
+		/// </summary>
+		public bool bGenerateProjectFiles
+		{
+			get { return ProjectFileGenerator.bGenerateProjectFiles; }
+		}
+
+		/// <summary>
 		/// Setup the global environment for building this target
 		/// IMPORTANT: Game targets will *not* have this function called if they use the shared build environment.
 		/// See ShouldUseSharedBuildEnvironment().
@@ -2174,9 +2182,14 @@ namespace UnrealBuildTool
 			get { return Inner.bShouldCompileAsDLL; }
 		}
 
-		#if !__MonoCS__
-		#pragma warning restore C1591
-		#endif
+		public bool bGenerateProjectFiles
+		{
+			get { return Inner.bGenerateProjectFiles; }
+		}
+
+#if !__MonoCS__
+#pragma warning restore C1591
+#endif
 		#endregion
 
 		/// <summary>
