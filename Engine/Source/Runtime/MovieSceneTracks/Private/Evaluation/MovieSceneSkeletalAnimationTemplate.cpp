@@ -228,6 +228,21 @@ namespace MovieScene
 				}
 			}
 
+			// If the skeletal component has already ticked this frame because tick prerequisites weren't set up yet, forcibly tick this component to update.
+			// This resolves first frame issues where the skeletal component ticks first, then the sequencer binding is resolved which sets up tick prerequisites
+			// for the next frame.
+			if (SkeletalMeshComponent->PoseTickedThisFrame())
+			{
+				SkeletalMeshComponent->TickAnimation(0.f, false);
+
+				SkeletalMeshComponent->RefreshBoneTransforms();
+				SkeletalMeshComponent->RefreshSlaveComponents();
+				SkeletalMeshComponent->UpdateComponentToWorld();
+				SkeletalMeshComponent->FinalizeBoneTransform();
+				SkeletalMeshComponent->MarkRenderTransformDirty();
+				SkeletalMeshComponent->MarkRenderDynamicDataDirty();
+			}
+
 			Player.PreAnimatedState.SetCaptureEntity(FMovieSceneEvaluationKey(), EMovieSceneCompletionMode::KeepState);
 		}
 
