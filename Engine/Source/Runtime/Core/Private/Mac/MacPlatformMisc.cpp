@@ -641,12 +641,23 @@ int32 FMacPlatformMisc::NumberOfCoresIncludingHyperthreads()
 	return FApplePlatformMisc::NumberOfCores();
 }
 
+static const TCHAR* GetUserHomeDir()
+{
+	static TCHAR Result[MAX_PATH] = TEXT("");
+	if (!Result[0])
+	{
+		SCOPED_AUTORELEASE_POOL;
+		FPlatformString::CFStringToTCHAR((CFStringRef)NSHomeDirectory(), Result);
+	}
+	return Result;
+}
+
 void FMacPlatformMisc::NormalizePath(FString& InPath)
 {
 	// only expand if path starts with ~, e.g. ~/ should be expanded, /~ should not
 	if (InPath.StartsWith(TEXT("~"), ESearchCase::CaseSensitive))	// case sensitive is quicker, and our substring doesn't care
 	{
-		InPath = InPath.Replace(TEXT("~"), FPlatformProcess::UserHomeDir(), ESearchCase::CaseSensitive);
+		InPath = InPath.Replace(TEXT("~"), GetUserHomeDir(), ESearchCase::CaseSensitive);
 	}
 }
 
@@ -1548,8 +1559,8 @@ void FMacPlatformMisc::SetCrashHandler(void (* CrashHandler)(const FGenericCrash
 
 	if (!FMacApplicationInfo::CrashReporter && !GCrashMalloc)
 	{
-		FPlatformProcess::UserHomeDir(); // This may be called from the crash handler, so we call it here to initialize it early.
-										 // This way the crash handler will use a cached string and we will limit allocations and avoid creating an autorelease pool.
+		GetUserHomeDir(); // This may be called from the crash handler, so we call it here to initialize it early.
+						  // This way the crash handler will use a cached string and we will limit allocations and avoid creating an autorelease pool.
 
 		// Configure the crash handler malloc zone to reserve some VM space for itself
 		GCrashMalloc = new FMacMallocCrashHandler( 128 * 1024 * 1024 );
