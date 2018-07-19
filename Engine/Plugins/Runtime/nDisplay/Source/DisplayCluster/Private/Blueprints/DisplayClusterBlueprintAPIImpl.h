@@ -19,6 +19,18 @@ class DISPLAYCLUSTER_API UDisplayClusterBlueprintAPIImpl
 
 public:
 	//////////////////////////////////////////////////////////////////////////////////////////////
+	// DisplayCluster module API
+	//////////////////////////////////////////////////////////////////////////////////////////////
+	/** Return if the module has been initialized. */
+	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Is module initialized"), Category = "DisplayCluster")
+	virtual bool IsModuleInitialized() override;
+
+	/** Return current operation mode. */
+	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Get operation mode"), Category = "DisplayCluster")
+	virtual EDisplayClusterOperationMode GetOperationMode() override;
+
+public:
+	//////////////////////////////////////////////////////////////////////////////////////////////
 	// Cluster API
 	//////////////////////////////////////////////////////////////////////////////////////////////
 	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Is master node"), Category = "DisplayCluster|Cluster")
