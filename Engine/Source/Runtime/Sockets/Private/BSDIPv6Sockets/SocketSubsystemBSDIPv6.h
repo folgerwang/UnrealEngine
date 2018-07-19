@@ -11,13 +11,11 @@
 
 #if PLATFORM_HAS_BSD_IPV6_SOCKETS
 
-
-
 /**
  * Standard BSD specific IPv6 socket subsystem implementation
  */
-class FSocketSubsystemBSDIPv6
-	: public FSocketSubsystemBSDCommon
+class DEPRECATED(4.21, "Move to FSocketSubsystemBSD") FSocketSubsystemBSDIPv6
+	: public ISocketSubsystem
 {
 public:
 
@@ -70,10 +68,14 @@ protected:
 	 */
 	virtual class FSocketBSDIPv6* InternalBSDSocketFactory( SOCKET Socket, ESocketType SocketType, const FString& SocketDescription );
 
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	// allow BSD sockets to use this when creating new sockets from accept() etc
 	friend FSocketBSDIPv6;
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 	// Used to prevent multiple threads accessing the shared data.
 	FCriticalSection HostByNameSynch;
+
+	ESocketErrors TranslateGAIErrorCode(int32 Code) const;
 };
 #endif

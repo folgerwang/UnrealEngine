@@ -7,11 +7,43 @@
 
 #include "BSDIPv6Sockets/IPAddressBSDIPv6.h"
 
-
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 class FSocketBSDIPv6* FSocketSubsystemBSDIPv6::InternalBSDSocketFactory(SOCKET Socket, ESocketType SocketType, const FString& SocketDescription)
 {
 	// return a new socket object
 	return new FSocketBSDIPv6(Socket, SocketType, SocketDescription, this);
+}
+
+ESocketErrors FSocketSubsystemBSDIPv6::TranslateGAIErrorCode(int32 Code) const
+{
+#if PLATFORM_HAS_BSD_SOCKET_FEATURE_GETADDRINFO
+	switch (Code)
+	{
+		// getaddrinfo() has its own error codes
+	case EAI_AGAIN:			return SE_TRY_AGAIN;
+	case EAI_BADFLAGS:		return SE_EINVAL;
+	case EAI_FAIL:			return SE_NO_RECOVERY;
+	case EAI_FAMILY:		return SE_EAFNOSUPPORT;
+	case EAI_MEMORY:		return SE_ENOBUFS;
+	case EAI_NONAME:		return SE_HOST_NOT_FOUND;
+	case EAI_SERVICE:		return SE_EPFNOSUPPORT;
+	case EAI_SOCKTYPE:		return SE_ESOCKTNOSUPPORT;
+#if PLATFORM_HAS_BSD_SOCKET_FEATURE_WINSOCKETS
+	case WSANO_DATA:		return SE_NO_DATA;
+	case WSANOTINITIALISED: return SE_NOTINITIALISED;
+#else			
+	case EAI_NODATA:		return SE_NO_DATA;
+	case EAI_ADDRFAMILY:	return SE_ADDRFAMILY;
+	case EAI_SYSTEM:		return SE_SYSTEM;
+#endif
+	case 0:					break; // 0 means success
+	default:
+		UE_LOG(LogSockets, Warning, TEXT("Unhandled getaddrinfo() socket error! Code: %d"), Code);
+		return SE_EINVAL;
+	}
+#endif // PLATFORM_HAS_BSD_SOCKET_FEATURE_GETADDRINFO
+
+	return SE_NO_ERROR;
 }
 
 FSocket* FSocketSubsystemBSDIPv6::CreateSocket(const FName& SocketType, const FString& SocketDescription, bool bForceUDP)
@@ -200,5 +232,5 @@ ESocketErrors FSocketSubsystemBSDIPv6::TranslateErrorCode(int32 Code)
 	ensure(0);
 	return SE_EINVAL;
 }
-
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 #endif

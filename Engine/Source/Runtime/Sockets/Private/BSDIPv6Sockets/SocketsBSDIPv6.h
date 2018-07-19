@@ -26,11 +26,26 @@ namespace EIPv6SocketInternalState
 	};
 };
 
+class FSocketBSDIPv6_Base_DEPRECATED
+{
+protected:
+
+	FSocketBSDIPv6_Base_DEPRECATED(SOCKET InSocket, ISocketSubsystem* InSubsystem) :
+		Socket(InSocket), SocketSubsystem(InSubsystem) { }
+
+	// Holds the BSD socket object.
+	SOCKET Socket;
+
+	// Pointer to the subsystem that created it
+	ISocketSubsystem * SocketSubsystem;
+};
+
+
 /**
  * Implements a BSD network socket.
  */
-class FSocketBSDIPv6
-	: public FSocket
+class DEPRECATED(4.21, "FSocketBSDIPv6 is deprecated. Move to FSocketBSD.") FSocketBSDIPv6
+	: public FSocket, FSocketBSDIPv6_Base_DEPRECATED
 {
 public:
 
@@ -44,8 +59,7 @@ public:
 	 */
 	FSocketBSDIPv6(SOCKET InSocket, ESocketType InSocketType, const FString& InSocketDescription, ISocketSubsystem* InSubsystem) 
 		: FSocket(InSocketType, InSocketDescription)
-		, Socket(InSocket)
-		, SocketSubsystem(InSubsystem)
+		, FSocketBSDIPv6_Base_DEPRECATED(InSocket, InSubsystem)
 	{ }
 
 	/**
@@ -53,20 +67,14 @@ public:
 	 *
 	 * Closes the socket if it is still open
 	 */
-	virtual ~FSocketBSDIPv6()
-	{
-		FSocketBSDIPv6::Close();
-	}
+	virtual ~FSocketBSDIPv6();
 
 	/**
 	* Gets the Socket for anyone who knows they have an FSocketBSD.
 	*
 	* @return The native socket.
 	*/
-	SOCKET GetNativeSocket()
-	{
-		return Socket;
-	}
+	SOCKET GetNativeSocket();
 
 
 public:
@@ -83,9 +91,9 @@ public:
 
 	virtual bool HasPendingData(uint32& PendingDataSize) override;
 
-	virtual class FSocket* Accept(const FString& SocketDescription) override;
+	virtual class FSocket* Accept(const FString& InSocketDescription) override;
 
-	virtual class FSocket* Accept(FInternetAddr& OutAddr, const FString& SocketDescription) override;
+	virtual class FSocket* Accept(FInternetAddr& OutAddr, const FString& InSocketDescription) override;
 
 	virtual bool SendTo(const uint8* Data, int32 Count, int32& BytesSent, const FInternetAddr& Destination) override;
 
@@ -135,11 +143,6 @@ protected:
 	// This is generally select(), but makes it easier for platforms without select to replace it
 	virtual EIPv6SocketInternalState::Return HasState(EIPv6SocketInternalState::Param State, FTimespan WaitTime = FTimespan::Zero());
 
-	// Holds the BSD socket object.
-	SOCKET Socket;
-
-	// Pointer to the subsystem that created it
-	ISocketSubsystem * SocketSubsystem;
 };
 
 #endif

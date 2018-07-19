@@ -86,12 +86,12 @@ public:
 	virtual class FSocket* CreateSocket(const FName& SocketType, const FString& SocketDescription, bool bForceUDP = false) = 0;
 
 	/**
-	* Creates a resolve info cached struct to hold the resolved address
-	*
-	* @Param Addr address to resolve for the socket subsystem
-	*
-	* @return the new resolved address or NULL if failed
-	*/
+	 * Creates a resolve info cached struct to hold the resolved address
+	 *
+	 * @Param Addr address to resolve for the socket subsystem
+	 *
+	 * @return the new resolved address or NULL if failed
+	 */
 	virtual class FResolveInfoCached* CreateResolveInfoCached(TSharedPtr<FInternetAddr> Addr) const;
 
 	/**
@@ -141,7 +141,7 @@ public:
 	virtual bool GetHostName(FString& HostName) = 0;
 
 	/**
-	 *	Create a proper FInternetAddr representation
+	 * Create a proper FInternetAddr representation
 	 * @param Address host address
 	 * @param Port host port
 	 */
@@ -213,6 +213,16 @@ public:
 	 * @return The local host address
 	 */
 	virtual TSharedRef<FInternetAddr> GetLocalHostAddr(FOutputDevice& Out, bool& bCanBindAll);
+
+	/**
+	 * Returns the multihome address if the flag is present and valid. For ease of use, 
+	 * this function will check validity of the address for the caller.
+	 * 
+	 * @param Addr the address structure which will have the Multihome address in it if set.
+	 *
+	 * @return If the multihome address is valid or not.
+	 */
+	virtual bool GetMultihomeAddress(TSharedRef<class FInternetAddr>& Addr);
 
 	/**
 	 * Checks the host name cache for an existing entry (faster than resolving again)

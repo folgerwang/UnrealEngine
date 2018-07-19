@@ -56,7 +56,10 @@ public:
 	 *
 	 * @param OutPort the host byte order int that receives the port
 	 */
-	virtual void GetPort(int32& OutPort) const = 0;
+	virtual void GetPort(int32& OutPort) const
+	{
+		OutPort = GetPort();
+	}
 
 	/**
 	 * Returns the port number from this address in host byte order
@@ -79,11 +82,28 @@ public:
 		return GetPort();
 	}
 
+	/**
+	 * Sets the ip address from a raw network byte order array.
+	 *
+	 * @param RawAddr the new address to use (must be converted to network byte order)
+	 */
+	virtual void SetRawIp(const TArray<uint8>& RawAddr) = 0;
+
+	/**
+	 * Gets the ip address in a raw array stored in network byte order.
+	 *
+	 * @return The raw address stored in an array
+	 */
+	virtual TArray<uint8> GetRawIp() const = 0;
+
 	/** Sets the address to be any address */
 	virtual void SetAnyAddress() = 0;
 
 	/** Sets the address to broadcast */
 	virtual void SetBroadcastAddress() = 0;
+
+	/** Sets the address to loopback */
+	virtual void SetLoopbackAddress() = 0;
 
 	/**
 	 * Converts this internet ip address to string form
@@ -99,9 +119,8 @@ public:
 	 */
 	virtual bool operator==(const FInternetAddr& Other) const
 	{
-		uint32 ThisIP, OtherIP;
-		GetIp(ThisIP);
-		Other.GetIp(OtherIP);
+		TArray<uint8> ThisIP = GetRawIp();
+		TArray<uint8> OtherIP = Other.GetRawIp();
 		return ThisIP == OtherIP && GetPort() == Other.GetPort();
 	}
 
@@ -119,25 +138,12 @@ public:
 	 */
 	virtual bool IsValid() const = 0;
 	
-#if PLATFORM_IOS
-	virtual void Copy(const FInternetAddr& Other) { check(false); }
-#endif
-
 	/**
-	 * Determines if the string is in IP address form or needs host resolution
+	 * Creates a new structure with the same data as this structure
 	 *
-	 * @param IpAddr the string to check for being a well formed ip
-	 *
-	 * @return true if the ip address was parseable, false otherwise
+	 * @return The new structure
 	 */
-// 	static bool IsValidIp(const TCHAR* IpAddr) override
-// 	{
-// 		FInternetAddr LocalAddr;
-// 		bool bIsValid = false;
-// 		LocalAddr.SetIp(IpAddr,bIsValid);
-// 		return bIsValid;
-// 	}
-
+	virtual TSharedRef<FInternetAddr> Clone() const = 0;
 };
 
 /**

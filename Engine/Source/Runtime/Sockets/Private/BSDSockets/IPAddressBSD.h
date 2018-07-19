@@ -6,27 +6,65 @@
 #include "BSDSockets/SocketSubsystemBSDPrivate.h"
 #include "IPAddress.h"
 
-#if PLATFORM_HAS_BSD_SOCKETS
-
+#if PLATFORM_HAS_BSD_SOCKETS || PLATFORM_HAS_BSD_IPV6_SOCKETS
 
 /**
- * Represents an internet ip address, using the relatively standard SOCKADDR_IN structure. All data is in network byte order
+ * Represents an internet ip address with support for ipv4/v6. 
+ * All data is in network byte order
  */
 class FInternetAddrBSD : public FInternetAddr
 {
-protected:
 	/** The internet ip address structure */
-	sockaddr_in Addr;
+	sockaddr_storage Addr;
+
+protected:
+	/**
+	 * Sets the ip address using a network byte order ipv4 address
+	 *
+	 * @param IPv4Addr the new ip address to use
+	 */
+	void SetIp(const in_addr& IPv4Addr)
+	{
+		((sockaddr_in*)&Addr)->sin_addr = IPv4Addr;
+		Addr.ss_family = AF_INET;
+	}
+
+#if PLATFORM_HAS_BSD_IPV6_SOCKETS
+	/**
+	 * Sets the ip address using a network byte order ipv6 address
+	 *
+	 * @param IpAddr the new ip address to use
+	 */
+	void SetIp(const in6_addr& IpAddr)
+	{
+		((sockaddr_in6*)&Addr)->sin6_addr = IpAddr;
+		Addr.ss_family = AF_INET6;
+	}
+#endif
+
+	void Clear();
+	void ResetScopeId();
 
 public:
 	/**
 	 * Constructor. Sets address to default state
 	 */
-	FInternetAddrBSD()
-	{
-		FMemory::Memzero(&Addr,sizeof(sockaddr_in));
-		Addr.sin_family = AF_INET;
-	}
+	FInternetAddrBSD();
+
+	/**
+	 * Sets the ip address from a raw network byte order array.
+	 *
+	 * @param RawAddr the new address to use (must be converted to network byte order)
+	 */
+	virtual void SetRawIp(const TArray<uint8>& RawAddr) override;
+
+	/**
+	 * Gets the ip address in a raw array stored in network byte order.
+	 *
+	 * @return The raw address stored in an array
+	 */
+	virtual TArray<uint8> GetRawIp() const override;
+
 	/**
 	 * Sets the ip address from a host byte order uint32
 	 *
@@ -34,189 +72,186 @@ public:
 	 */
 	virtual void SetIp(uint32 InAddr) override
 	{
-		Addr.sin_addr.s_addr = htonl(InAddr);
+		((sockaddr_in*)&Addr)->sin_addr.s_addr = htonl(InAddr);
+		Addr.ss_family = AF_INET;
 	}
 
 	/**
-	 * Sets the ip address from a string ("A.B.C.D")
+	 * Sets the ip address from a string IPv6 or IPv4 address.
+	 * Ports may be included using the form Address:Port, or excluded and set manually.
+	 *
+	 * IPv6 - [1111:2222:3333:4444:5555:6666:7777:8888]:PORT || [1111:2222:3333::]:PORT || [::ffff:IPv4]:PORT
+	 * IPv4 - aaa.bbb.ccc.ddd:PORT || 127.0.0.1:PORT
 	 *
 	 * @param InAddr the string containing the new ip address to use
+	 * @param bIsValid will be set to true if InAddr was a valid IPv6 or IPv4 address, false if not.
 	 */
-	virtual void SetIp(const TCHAR* InAddr, bool& bIsValid) override
+	virtual void SetIp(const TCHAR* InAddr, bool& bIsValid) override;
+
+	/**
+	 * Sets the ip address using a generic sockaddr_storage
+	 *
+	 * @param IpAddr the new ip address to use (assumes already in the correct byte order).
+	 */
+	void SetIp(const sockaddr_storage& IpAddr);
+
+	/**
+	 * Sets the address data via a sockaddr_storage
+	 *
+	 * @param AddrData the new data to use
+	 */
+	virtual void Set(const sockaddr_storage& AddrData)
 	{
-		int32 Port = 0;
-
-		FString AddressString = InAddr;
-		if (AddressString.IsEmpty())
-		{
-			bIsValid = false;
-			return;
-		}
-
-		TArray<FString> PortTokens;
-		AddressString.ParseIntoArray(PortTokens, TEXT(":"), true);
-		
-		// look for a port number
-		if (PortTokens.Num() > 1)
-		{
-			Port = FCString::Atoi(*PortTokens[1]);
-		}
-
-		// Check if it's a valid IPv4 address, and if it is convert
-		in_addr IPv4Addr;
-		const auto InAddrAnsi = StringCast<ANSICHAR>(*(PortTokens[0]));
-		if (inet_pton(AF_INET, InAddrAnsi.Get(), &IPv4Addr))
-		{
-			if (Port != 0)
-			{
-				SetPort(Port);
-			}
-
-			bIsValid = true;
-
-			SetIp(IPv4Addr);
-		}
-		else
-		{
-			//debugf(TEXT("Invalid IP address string (%s) passed to SetIp"),InAddr);
-			bIsValid = false;
-		}
+		Addr = AddrData;
 	}
 
+#if PLATFORM_HAS_BSD_IPV6_SOCKETS
 	/**
-	 * Sets the ip address using a network byte order ip address
-	 *
-	 * @param IpAddr the new ip address to use
-	 */
-	void SetIp(const in_addr& IpAddr)
- 	{
- 		Addr.sin_addr = IpAddr;
- 	}
-
-
-	/**
-	 * Copies the network byte order ip address to a host byte order dword
+	 * Copies the network byte order ip address
 	 *
 	 * @param OutAddr the out param receiving the ip address
 	 */
-	virtual void GetIp(uint32& OutAddr) const override
-	{ 
-		OutAddr = ntohl(Addr.sin_addr.s_addr);
+	void GetIp(in6_addr& OutAddr) const
+	{
+		if (GetProtocolFamily() != ESocketProtocolFamily::IPv6)
+		{
+			return;
+		}
+
+		OutAddr = ((sockaddr_in6*)&Addr)->sin6_addr;
 	}
+#endif
 
 	/**
-	 * Copies the network byte order ip address 
+	 * Copies the network byte order ip address
 	 *
 	 * @param OutAddr the out param receiving the ip address
 	 */
 	void GetIp(in_addr& OutAddr) const
- 	{
- 		OutAddr = Addr.sin_addr;
- 	}
+	{
+		if (GetProtocolFamily() != ESocketProtocolFamily::IPv4)
+		{
+			return;
+		}
+
+		OutAddr = ((sockaddr_in*)&Addr)->sin_addr;
+	}
+
+	/**
+	 * Copies the network byte order ip address to a host byte order dword.
+	 * Does nothing if we are currently not storing an ipv4 addr
+	 *
+	 * @param OutAddr the out param receiving the ip address
+	 */
+	virtual void GetIp(uint32& OutAddr) const override
+	{
+		if (GetProtocolFamily() != ESocketProtocolFamily::IPv4)
+		{
+			OutAddr = 0;
+			return;
+		}
+
+		OutAddr = ntohl(((sockaddr_in*)&Addr)->sin_addr.s_addr);
+	}
 
 	/**
 	 * Sets the port number from a host byte order int
 	 *
 	 * @param InPort the new port to use (must convert to network byte order)
 	 */
-	virtual void SetPort(int32 InPort) override
-	{
-		Addr.sin_port = htons(InPort);
-	}
+	virtual void SetPort(int32 InPort) override;
+
+	/** Returns the port number from this address in host byte order */
+	virtual int32 GetPort() const override;
 
 	/**
-	 * Copies the port number from this address and places it into a host byte order int
+	 * Sets the address structure to be bindable to any IP address.
+	 * IPv6 will take precedence.
 	 *
-	 * @param OutPort the host byte order int that receives the port
+	 * To skip assumptions, you can call the designated version explicitly below.
 	 */
-	virtual void GetPort(int32& OutPort) const override
-	{
-		OutPort = ntohs(Addr.sin_port);
-	}
+	virtual void SetAnyAddress() override;
+
+	/** Explicit set to any IPv4 address */
+	void SetAnyIPv4Address();
+
+	/** Explicit set to any IPv6 address */
+	void SetAnyIPv6Address();
 
 	/**
-	 * Returns the port number from this address in host byte order
+	 * Sets the address structure to be bound to the multicast ip address.
+	 * IPv6 will take precedence.
+	 *
+	 * To skip assumptions, you can call the designated version explicitly below.
 	 */
-	virtual int32 GetPort(void) const override
-	{
-		return ntohs(Addr.sin_port);
-	}
+	virtual void SetBroadcastAddress() override;
 
-	/** Sets the address to be any address */
-	virtual void SetAnyAddress(void) override
-	{
-		SetIp(INADDR_ANY);
-		SetPort(0);
-	}
+	/** Explicit set to multicast IPv4 address */
+	void SetIPv4BroadcastAddress();
 
-	/** Sets the address to broadcast */
-	virtual void SetBroadcastAddress() override
-	{
-		SetIp(INADDR_BROADCAST);
-		SetPort(0);
-	}
+	/** Explicit set to multicast IPv6 address */
+	void SetIPv6BroadcastAddress();
 
 	/**
-	 * Converts this internet ip address to string form
+	 * Sets the address structure to be bound to the loopback ip address.
+	 * IPv6 will take precedence.
+	 *
+	 * To skip assumptions, you can call the designated version explicitly below.
+	 */
+	virtual void SetLoopbackAddress() override;
+
+	/** Explicit set to loopback IPv4 address */
+	void SetIPv4LoopbackAddress();
+
+	/** Explicit set to loopback IPv6 address */
+	void SetIPv6LoopbackAddress();
+
+	/**
+	 * Converts this internet ip address to string form. String will be enclosed in square braces.
 	 *
 	 * @param bAppendPort whether to append the port information or not
 	 */
-	virtual FString ToString(bool bAppendPort) const override
-	{
-		uint32 LocalAddr = ntohl(Addr.sin_addr.s_addr);
-
-		// Get the individual bytes
-		const int32 A = (LocalAddr >> 24) & 0xFF;
-		const int32 B = (LocalAddr >> 16) & 0xFF;
-		const int32 C = (LocalAddr >>  8) & 0xFF;
-		const int32 D = (LocalAddr >>  0) & 0xFF;
-		if (bAppendPort)
-		{
-			return FString::Printf(TEXT("%i.%i.%i.%i:%i"),A,B,C,D,GetPort());
-		}
-		else
-		{
-			return FString::Printf(TEXT("%i.%i.%i.%i"),A,B,C,D);
-		}
-	}
+	virtual FString ToString(bool bAppendPort) const override;
 
 	/**
 	 * Compares two internet ip addresses for equality
 	 *
 	 * @param Other the address to compare against
 	 */
-	virtual bool operator==(const FInternetAddr& Other) const override
-	{
-		FInternetAddrBSD& OtherBSD = (FInternetAddrBSD&)Other;
-		return Addr.sin_addr.s_addr == OtherBSD.Addr.sin_addr.s_addr &&
-			Addr.sin_port == OtherBSD.Addr.sin_port &&
-			Addr.sin_family == OtherBSD.Addr.sin_family;
-	}
-
-	virtual uint32 GetTypeHash() override
-	{
-		return Addr.sin_addr.s_addr + (Addr.sin_port * 23);
-	}
+	virtual bool operator==(const FInternetAddr& Other) const override;
 
 	/**
-	 * Is this a well formed internet address
+	 * Is this a well formed internet address, the only criteria being non-zero
 	 *
 	 * @return true if a valid IP, false otherwise
 	 */
-	virtual bool IsValid() const override
-	{
-		return Addr.sin_addr.s_addr != 0;
-	}
+	virtual bool IsValid() const override;
 
- 	operator sockaddr*(void)
- 	{
- 		return (sockaddr*)&Addr;
- 	}
+	/**
+	 * Creates a new structure with the same data as this structure
+	 *
+	 * @return The new structure
+	 */
+	virtual TSharedRef<FInternetAddr> Clone() const override;
 
- 	operator const sockaddr*(void) const
- 	{
- 		return (const sockaddr*)&Addr;
- 	}
+	/**
+	 * Returns the protocol family of the address data currently stored in this struct
+	 *
+	 * @return They type of the address
+	 */
+	virtual ESocketProtocolFamily GetProtocolFamily() const;
+
+	/**
+	 * Returns the size of the amount of data that is being used
+	 * to hold the address information. Useful for functions like bind/connect
+	 *
+	 * @return size of addr
+	 */
+	virtual SOCKLEN GetStorageSize() const;
+	
+	virtual uint32 GetTypeHash() override;
+
+	friend class FSocketBSD;
 };
 
-#endif	//PLATFORM_HAS_BSD_SOCKETS
+#endif

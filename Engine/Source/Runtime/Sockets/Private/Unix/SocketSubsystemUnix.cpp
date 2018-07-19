@@ -4,6 +4,7 @@
 #include "Misc/CommandLine.h"
 #include "SocketSubsystemModule.h"
 #include "IPAddress.h"
+#include "BSDSockets/IPAddressBSD.h"
 
 #include <net/if.h>
 
@@ -102,55 +103,63 @@ TSharedRef<FInternetAddr> FSocketSubsystemUnix::GetLocalHostAddr(FOutputDevice& 
 		return Addr;
 	}
 
-	// If superclass got the address from command line, honor that override
-	TCHAR Home[256]=TEXT("");
-	if (FParse::Value(FCommandLine::Get(),TEXT("MULTIHOME="),Home,ARRAY_COUNT(Home)))
+	// Grab multihome if it exists.
+	if (GetMultihomeAddress(Addr))
 	{
-		TSharedRef<FInternetAddr> TempAddr = CreateInternetAddr();
-		bool bIsValid = false;
-		TempAddr->SetIp(Home, bIsValid);
-		if (bIsValid)
-		{
-			return TempAddr;
-		}
+		return Addr;
 	}
 
-	// we need to go deeper...  (see http://unixhelp.ed.ac.uk/CGI/man-cgi?netdevice+7)
-	int TempSocket = socket(PF_INET, SOCK_STREAM, 0);
-	if (TempSocket)
+	TArray<TSharedPtr<FInternetAddr> > ResultArray;
+	if (GetLocalAdapterAddresses(ResultArray))
 	{
-		ifreq IfReqs[8];
-		
-		ifconf IfConfig;
-		FMemory::Memzero(IfConfig);
-		IfConfig.ifc_req = IfReqs;
-		IfConfig.ifc_len = sizeof(IfReqs);
-		
-		int Result = ioctl(TempSocket, SIOCGIFCONF, &IfConfig);
-		if (Result == 0)
+		return ResultArray[0]->Clone();
+	}
+
+	// Fall back to this.
+	Addr->SetAnyAddress();
+	return Addr;
+}
+
+bool FSocketSubsystemUnix::GetLocalAdapterAddresses(TArray<TSharedPtr<FInternetAddr> >& OutAddresses)
+{
+	TSharedRef<FInternetAddr> MultihomeAddress = FSocketSubsystemBSD::CreateInternetAddr();
+	if (GetMultihomeAddress(MultihomeAddress))
+	{
+		OutAddresses.Add(MultihomeAddress);
+	}
+
+	ifaddrs* Interfaces = NULL;
+	int InterfaceQueryRet = getifaddrs(&Interfaces);
+	if (InterfaceQueryRet == 0)
+	{
+		// Loop through linked list of interfaces
+		for (ifaddrs* Travel = Interfaces; Travel != NULL; Travel = Travel->ifa_next)
 		{
-			for (int32 IdxReq = 0; IdxReq < ARRAY_COUNT(IfReqs); ++IdxReq)
+			// Skip over empty data sets.
+			if (Travel->ifa_addr == NULL)
 			{
-				// grab the first non-loobpack one which is up
-				int ResultFlags = ioctl(TempSocket, SIOCGIFFLAGS, &IfReqs[IdxReq]);
-				if (ResultFlags == 0 && 
-					(IfReqs[IdxReq].ifr_flags & IFF_UP) && 
-					(IfReqs[IdxReq].ifr_flags & IFF_LOOPBACK) == 0)
-				{
-					int32 NetworkAddr = reinterpret_cast<sockaddr_in *>(&IfReqs[IdxReq].ifr_addr)->sin_addr.s_addr;
-					Addr->SetIp(ntohl(NetworkAddr));
-					break;
-				}
+				continue;
+			}
+
+			int& family = Travel->ifa_addr->sa_family;
+			// Find any up and non-loopback addresses
+			if ((Travel->ifa_flags & IFF_UP) && 
+				(Travel->ifa_flags & IFF_LOOPBACK) == 0 && 
+				(family == AF_INET || family == AF_INET6))
+			{
+				TSharedRef<FInternetAddrBSD> NewAddress = MakeShareable(new FInternetAddrBSD);
+				NewAddress->SetIp(*((sockaddr_storage*)Travel->ifa_addr));
+				OutAddresses.Add(NewAddress);
 			}
 		}
-		else
-		{
-			int ErrNo = errno;
-			UE_LOG(LogSockets, Warning, TEXT("ioctl( ,SIOGCIFCONF, ) failed, errno=%d (%s)"), ErrNo, ANSI_TO_TCHAR(strerror(ErrNo)));
-		}
-		
-		close(TempSocket);
+
+		freeifaddrs(Interfaces);
+	}
+	else
+	{
+		UE_LOG(Log_Sockets, Warning, TEXT("getifaddrs returned result %d"), InterfaceQueryRet);
+		return (OutAddresses.Num() == 0); // if getifaddrs somehow doesn't work but we have multihome, then it's fine.
 	}
 
-	return Addr;
+	return true;
 }

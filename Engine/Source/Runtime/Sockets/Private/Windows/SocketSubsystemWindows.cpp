@@ -3,6 +3,7 @@
 #include "SocketSubsystemWindows.h"
 #include "SocketSubsystemModule.h"
 #include "Modules/ModuleManager.h"
+#include "BSDSockets/IPAddressBSD.h"
 
 #include "Windows/AllowWindowsPlatformTypes.h"
 #include "Iphlpapi.h"
@@ -70,26 +71,7 @@ void FSocketSubsystemWindows::Destroy()
 
 FSocket* FSocketSubsystemWindows::CreateSocket(const FName& SocketType, const FString& SocketDescription, bool bForceUDP)
 {
-	SOCKET Socket = INVALID_SOCKET;
-	FSocketBSD* NewSocket = nullptr;
-
-	switch (SocketType.GetComparisonIndex())
-	{
-	case NAME_DGram:
-		// Creates a data gram (UDP) socket
-		Socket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-		NewSocket = (Socket != INVALID_SOCKET) ? InternalBSDSocketFactory(Socket, SOCKTYPE_Datagram, SocketDescription) : nullptr;
-		break;
-
-	case NAME_Stream:
-		// Creates a stream (TCP) socket
-		Socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-		NewSocket = (Socket != INVALID_SOCKET) ? InternalBSDSocketFactory(Socket, SOCKTYPE_Streaming, SocketDescription) : nullptr;
-		break;
-
-	default:
-		break;
-	}
+	FSocketBSD* NewSocket = (FSocketBSD*)FSocketSubsystemBSD::CreateSocket(SocketType, SocketDescription, bForceUDP);
 
 	if (NewSocket != nullptr)
 	{
@@ -183,9 +165,10 @@ bool FSocketSubsystemWindows::GetLocalAdapterAddresses( TArray<TSharedPtr<FInter
 			{
 				if ((UnicastAddress->Flags & IP_ADAPTER_ADDRESS_DNS_ELIGIBLE) != 0)
 				{
-					uint32 RawAddress = ntohl(*((uint32*)(&UnicastAddress->Address.lpSockaddr->sa_data[2])));
-
-					OutAdresses.Add(CreateInternetAddr(RawAddress));
+					const sockaddr_storage* RawAddress = (const sockaddr_storage*)(UnicastAddress->Address.lpSockaddr);
+					TSharedRef<FInternetAddr> NewAddress = MakeShareable(new FInternetAddrBSD);
+					static_cast<FInternetAddrBSD&>(NewAddress.Get()).SetIp(*RawAddress);
+					OutAdresses.Add(NewAddress);
 				}
 			}
 		}

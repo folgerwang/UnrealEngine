@@ -1,9 +1,8 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "BSDSockets/SocketSubsystemBSD.h"
-#include "Misc/ScopeLock.h"
 
-#if PLATFORM_HAS_BSD_SOCKETS
+#if PLATFORM_HAS_BSD_SOCKETS || PLATFORM_HAS_BSD_IPV6_SOCKETS
 
 #include "IPAddress.h"
 #include "BSDSockets/IPAddressBSD.h"
@@ -16,34 +15,32 @@ FSocketBSD* FSocketSubsystemBSD::InternalBSDSocketFactory(SOCKET Socket, ESocket
 	return new FSocketBSD(Socket, SocketType, SocketDescription, this);
 }
 
-
 FSocket* FSocketSubsystemBSD::CreateSocket(const FName& SocketType, const FString& SocketDescription, bool bForceUDP)
+{
+	return CreateSocket(SocketType, SocketDescription, GetDefaultSocketProtocolFamily(), bForceUDP);
+}
+
+class FSocket* FSocketSubsystemBSD::CreateSocket(const FName& SocketType, const FString& SocketDescription, ESocketProtocolFamily ProtocolType, bool bForceUDP)
 {
 	SOCKET Socket = INVALID_SOCKET;
 	FSocket* NewSocket = nullptr;
 	int PlatformSpecificTypeFlags = 0;
 
+	// Don't support any other protocol families.
+	if (ProtocolType != ESocketProtocolFamily::IPv4 && ProtocolType != ESocketProtocolFamily::IPv6)
+	{
+		return nullptr;
+	}
+
 #if PLATFORM_HAS_BSD_SOCKET_FEATURE_CLOSE_ON_EXEC
 	PlatformSpecificTypeFlags = SOCK_CLOEXEC;
 #endif // PLATFORM_HAS_BSD_SOCKET_FEATURE_CLOSE_ON_EXEC
 
-	switch (SocketType.GetComparisonIndex())
-	{
-	case NAME_DGram:
-		// Creates a data gram (UDP) socket
-		Socket = socket(AF_INET, SOCK_DGRAM | PlatformSpecificTypeFlags, IPPROTO_UDP);
-		NewSocket = (Socket != INVALID_SOCKET) ? InternalBSDSocketFactory(Socket, SOCKTYPE_Datagram, SocketDescription) : nullptr;
-		break;
+	bool bIsUDP = (bForceUDP || SocketType.GetComparisonIndex() == NAME_DGram);
+	int32 SocketTypeFlag = (bIsUDP) ? SOCK_DGRAM : SOCK_STREAM;
 
-	case NAME_Stream:
-		// Creates a stream (TCP) socket
-		Socket = socket(AF_INET, SOCK_STREAM | PlatformSpecificTypeFlags, IPPROTO_TCP);
-		NewSocket = (Socket != INVALID_SOCKET) ? InternalBSDSocketFactory(Socket, SOCKTYPE_Streaming, SocketDescription) : nullptr;
-		break;
-
-	default:
-		break;
-	}
+	Socket = socket(GetProtocolFamilyValue(ProtocolType), SocketTypeFlag | PlatformSpecificTypeFlags, ((bIsUDP) ? IPPROTO_UDP : IPPROTO_TCP));
+	NewSocket = (Socket != INVALID_SOCKET) ? InternalBSDSocketFactory(Socket, ((bIsUDP) ? SOCKTYPE_Datagram : SOCKTYPE_Streaming), SocketDescription) : nullptr;
 
 	if (!NewSocket)
 	{
@@ -53,23 +50,55 @@ FSocket* FSocketSubsystemBSD::CreateSocket(const FName& SocketType, const FStrin
 	return NewSocket;
 }
 
+ESocketErrors FSocketSubsystemBSD::CreateAddressFromIP(const ANSICHAR* IPAddress, FInternetAddr& OutAddr)
+{
+	TArray<TSharedRef<FInternetAddr> > Results = GetAddrInfo(IPAddress, false);
+	if (Results.Num() > 0)
+	{
+		OutAddr.SetRawIp(Results[0]->GetRawIp());
+		return SE_NO_ERROR;
+	}
+	
+	return SE_HOST_NOT_FOUND;
+}
+
+ESocketErrors FSocketSubsystemBSD::GetHostByName(const ANSICHAR* HostName, FInternetAddr& OutAddr)
+{
+	TArray<TSharedRef<FInternetAddr> > Results = GetAddrInfo(HostName, true);
+	if (Results.Num() > 0)
+	{
+		OutAddr.SetRawIp(Results[0]->GetRawIp());
+		return SE_NO_ERROR;
+	}
+
+	return SE_HOST_NOT_FOUND;
+}
 
 void FSocketSubsystemBSD::DestroySocket(FSocket* Socket)
 {
 	delete Socket;
 }
 
-
-ESocketErrors FSocketSubsystemBSD::GetHostByName(const ANSICHAR* HostName, FInternetAddr& OutAddr)
+TArray<TSharedRef<FInternetAddr> > FSocketSubsystemBSD::GetAddrInfo(const ANSICHAR* HostName, bool bResolveAddress, ESocketProtocolFamily ProtocolType)
 {
+	TArray<TSharedRef<FInternetAddr> > GetAddrArray;
+
 #if PLATFORM_HAS_BSD_SOCKET_FEATURE_GETADDRINFO
-	FScopeLock ScopeLock(&HostByNameSynch);
 	addrinfo* AddrInfo = nullptr;
 
-	// Limit the IP Addresses we get back to just IPv4
+	// Make sure we filter out IPv6 if the platform is not officially supported
+	// (if it isn't supported but we explicitly ask for it, allow it).
+	bool bCanUseIPv6 = (PLATFORM_HAS_BSD_IPV6_SOCKETS || ProtocolType == ESocketProtocolFamily::IPv6) ? true : false;
+
 	addrinfo HintAddrInfo;
 	FMemory::Memzero(&HintAddrInfo, sizeof(HintAddrInfo));
-	HintAddrInfo.ai_family = AF_INET;
+	HintAddrInfo.ai_family = GetProtocolFamilyValue(ProtocolType);
+	HintAddrInfo.ai_flags = AI_ADDRCONFIG;
+
+	if (!bResolveAddress)
+	{
+		HintAddrInfo.ai_flags |= AI_NUMERICHOST;
+	}
 
 	int32 ErrorCode = getaddrinfo(HostName, nullptr, &HintAddrInfo, &AddrInfo);
 	ESocketErrors SocketError = TranslateGAIErrorCode(ErrorCode);
@@ -77,28 +106,28 @@ ESocketErrors FSocketSubsystemBSD::GetHostByName(const ANSICHAR* HostName, FInte
 	{
 		for (; AddrInfo != nullptr; AddrInfo = AddrInfo->ai_next)
 		{
-			if (AddrInfo->ai_family == AF_INET)
+			if (AddrInfo->ai_family == AF_INET || (AddrInfo->ai_family == AF_INET6 && bCanUseIPv6))
 			{
-				sockaddr_in* IPv4SockAddr = reinterpret_cast<sockaddr_in*>(AddrInfo->ai_addr);
-				if (IPv4SockAddr != nullptr)
+				sockaddr_storage* AddrData = reinterpret_cast<sockaddr_storage*>(AddrInfo->ai_addr);
+				if (AddrData != nullptr)
 				{
-					uint32 HostIP = ntohl(IPv4SockAddr->sin_addr.s_addr);
-					static_cast<FInternetAddrBSD&>(OutAddr).SetIp(HostIP);
-					freeaddrinfo(AddrInfo);
-					return SE_NO_ERROR;
+					// This might not be good as it locks GetAddrInfo into one class.
+					// TODO: Fix this when GetAddrInfo moves to the base class.
+					// Just convert the sockaddr_storage into the raw ip array format (do we want to make a new helper in this class?)
+					// and push it to SetRawIp
+					TSharedRef<FInternetAddrBSD> NewAddress = MakeShareable(new FInternetAddrBSD);
+					NewAddress->SetIp(*AddrData);
+					GetAddrArray.Add(NewAddress);
 				}
 			}
 		}
 		freeaddrinfo(AddrInfo);
-		return SE_HOST_NOT_FOUND;
 	}
-	return SocketError;
 #else
 	UE_LOG(LogSockets, Error, TEXT("Platform has no getaddrinfo(), but did not override FSocketSubsystem::GetHostByName()"));
-	return SE_NO_RECOVERY;
 #endif
+	return GetAddrArray;
 }
-
 
 bool FSocketSubsystemBSD::GetHostName(FString& HostName)
 {
@@ -119,18 +148,16 @@ bool FSocketSubsystemBSD::GetHostName(FString& HostName)
 
 const TCHAR* FSocketSubsystemBSD::GetSocketAPIName() const
 {
-	return TEXT("BSD");
+	return TEXT("BSD IPv4/6");
 }
-
 
 TSharedRef<FInternetAddr> FSocketSubsystemBSD::CreateInternetAddr(uint32 Address, uint32 Port)
 {
-	TSharedRef<FInternetAddr> Result = MakeShareable(new FInternetAddrBSD);
-	Result->SetIp(Address);
-	Result->SetPort(Port);
-	return Result;
+	TSharedRef<FInternetAddr> ReturnAddr = MakeShareable(new FInternetAddrBSD);
+	ReturnAddr->SetIp(Address);
+	ReturnAddr->SetPort(Port);
+	return ReturnAddr;
 }
-
 
 ESocketErrors FSocketSubsystemBSD::GetLastErrorCode()
 {
@@ -219,5 +246,47 @@ ESocketErrors FSocketSubsystemBSD::TranslateErrorCode(int32 Code)
 	return SE_EINVAL;
 }
 
+ESocketErrors FSocketSubsystemBSD::TranslateGAIErrorCode(int32 Code) const
+{
+#if PLATFORM_HAS_BSD_SOCKET_FEATURE_GETADDRINFO
+	switch (Code)
+	{
+	// getaddrinfo() has its own error codes
+	case EAI_AGAIN:			return SE_TRY_AGAIN;
+	case EAI_BADFLAGS:		return SE_EINVAL;
+	case EAI_FAIL:			return SE_NO_RECOVERY;
+	case EAI_FAMILY:		return SE_EAFNOSUPPORT;
+	case EAI_MEMORY:		return SE_ENOBUFS;
+	case EAI_NONAME:		return SE_HOST_NOT_FOUND;
+	case EAI_SERVICE:		return SE_EPFNOSUPPORT;
+	case EAI_SOCKTYPE:		return SE_ESOCKTNOSUPPORT;
+#if PLATFORM_HAS_BSD_SOCKET_FEATURE_WINSOCKETS
+	case WSANO_DATA:		return SE_NO_DATA;
+	case WSANOTINITIALISED: return SE_NOTINITIALISED;
+#else			
+	case EAI_NODATA:		return SE_NO_DATA;
+	case EAI_ADDRFAMILY:	return SE_ADDRFAMILY;
+	case EAI_SYSTEM:		return SE_SYSTEM;
+#endif
+	case 0:					break; // 0 means success
+	default:
+		UE_LOG(LogSockets, Warning, TEXT("Unhandled getaddrinfo() socket error! Code: %d"), Code);
+		return SE_EINVAL;
+	}
+#endif // PLATFORM_HAS_BSD_SOCKET_FEATURE_GETADDRINFO
+
+	return SE_NO_ERROR;
+}
+
+int32 FSocketSubsystemBSD::GetProtocolFamilyValue(ESocketProtocolFamily InProtocol) const
+{
+	switch (InProtocol)
+	{
+		default:
+		case ESocketProtocolFamily::None: return AF_UNSPEC;
+		case ESocketProtocolFamily::IPv4: return AF_INET;
+		case ESocketProtocolFamily::IPv6: return AF_INET6;
+	}
+}
 
 #endif	//PLATFORM_HAS_BSD_SOCKETS

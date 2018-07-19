@@ -51,4 +51,5 @@ public:
 	virtual void Shutdown() override;
 	virtual bool HasNetworkDevice() override;
 	virtual TSharedRef<FInternetAddr> GetLocalHostAddr(FOutputDevice& Out, bool& bCanBindAll) override;
+	virtual bool GetLocalAdapterAddresses(TArray<TSharedPtr<FInternetAddr> >& OutAddresses) override;
 };

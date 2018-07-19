@@ -128,13 +128,7 @@ void UIpConnection::LowLevelSend(void* Data, int32 CountBytes, int32 CountBits)
 		else
 		{
 			// Host name resolution just now succeeded.
-#if PLATFORM_IOS
-			RemoteAddr->Copy(ResolveInfo->GetResolvedAddress());
-#else
-			uint32 Addr;
-			ResolveInfo->GetResolvedAddress().GetIp(Addr);
-			RemoteAddr->SetIp(Addr);
-#endif
+			RemoteAddr = ResolveInfo->GetResolvedAddress().Clone();
 			UE_LOG(LogNet, Log, TEXT("Host name resolution completed"));
 			delete ResolveInfo;
 			ResolveInfo = NULL;
@@ -246,10 +240,7 @@ int32 UIpConnection::GetAddrAsInt(void)
 
 int32 UIpConnection::GetAddrPort(void)
 {
-	int32 OutPort = 0;
-	// Get the host byte order ip port
-	RemoteAddr->GetPort(OutPort);
-	return OutPort;
+	return RemoteAddr->GetPort();
 }
 
 TSharedPtr<FInternetAddr> UIpConnection::GetInternetAddr()
