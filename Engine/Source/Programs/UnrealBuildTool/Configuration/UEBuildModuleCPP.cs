@@ -435,7 +435,7 @@ namespace UnrealBuildTool
 			// the module rules file.  By default, game modules only use unity of they have enough source files for that
 			// to be worthwhile.  If you have a lot of small game modules, consider specifying MinSourceFilesForUnityBuildOverride=0
 			// in the modules that you don't typically iterate on source files in very frequently.
-			int MinSourceFilesForUnityBuild = 0;
+			int MinSourceFilesForUnityBuild = 2;
 			if (Rules.MinSourceFilesForUnityBuildOverride != 0)
 			{
 				MinSourceFilesForUnityBuild = Rules.MinSourceFilesForUnityBuildOverride;
@@ -807,6 +807,10 @@ namespace UnrealBuildTool
 				if(Target.bAdaptiveUnityDisablesOptimizations)
 				{
 					AdaptiveUnityEnvironment.bOptimizeCode = false;
+				}
+				if (Target.bAdaptiveUnityEnablesEditAndContinue)
+				{
+					AdaptiveUnityEnvironment.bSupportEditAndContinue = true;
 				}
 
 				// Create a per-file PCH

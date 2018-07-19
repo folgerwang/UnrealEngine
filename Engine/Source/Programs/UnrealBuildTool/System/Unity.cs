@@ -270,7 +270,6 @@ namespace UnrealBuildTool
 							AdaptiveUnityBuildInfoString.Append(", " + CPPFileName);
 						}
 					}
-
 					else
 					{
 						// If adaptive unity build is enabled for this module, add this source file to the set that will invalidate the makefile
@@ -294,13 +293,22 @@ namespace UnrealBuildTool
 				{
 					if (PrintedSettingsForTargets.Add(Target.Name))
 					{
-						if (Target.bAdaptiveUnityDisablesPCH)
+						if (Target.bAdaptiveUnityCreatesDedicatedPCH)
+						{
+							Log.TraceInformation("[Adaptive unity build] Creating dedicated PCH for each excluded file. Set bAdaptiveUnityCreatesDedicatedPCH to false in BuildConfiguration.xml to change this behavior.");
+						}
+						else if (Target.bAdaptiveUnityDisablesPCH)
 						{
 							Log.TraceInformation("[Adaptive unity build] Disabling PCH for excluded files. Set bAdaptiveUnityDisablesPCH to false in BuildConfiguration.xml to change this behavior.");
 						}
+
 						if (Target.bAdaptiveUnityDisablesOptimizations)
 						{
 							Log.TraceInformation("[Adaptive unity build] Disabling optimizations for excluded files. Set bAdaptiveUnityDisablesOptimizations to false in BuildConfiguration.xml to change this behavior.");
+						}
+						if (Target.bAdaptiveUnityEnablesEditAndContinue)
+						{
+							Log.TraceInformation("[Adaptive unity build] Enabling Edit & Continue for excluded files. Set bAdaptiveUnityEnablesEditAndContinue to false in BuildConfiguration.xml to change this behavior.");
 						}
 					}
 					Log.TraceInformation(AdaptiveUnityBuildInfoString.ToString());

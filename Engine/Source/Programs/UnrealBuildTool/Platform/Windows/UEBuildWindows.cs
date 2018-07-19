@@ -452,14 +452,17 @@ namespace UnrealBuildTool
 			}
 
 			// E&C support.
-			if (Target.bSupportEditAndContinue)
+			if (Target.bSupportEditAndContinue || Target.bAdaptiveUnityEnablesEditAndContinue)
 			{
 				Target.bUseIncrementalLinking = true;
-				Target.bUsePDBFiles = true;
+			}
+			if (Target.bAdaptiveUnityEnablesEditAndContinue && !Target.bAdaptiveUnityDisablesPCH && !Target.bAdaptiveUnityCreatesDedicatedPCH)
+			{
+				throw new BuildException("bAdaptiveUnityEnablesEditAndContinue requires bAdaptiveUnityDisablesPCH or bAdaptiveUnityCreatesDedicatedPCH");
 			}
 
 			// If we're using PDB files and PCHs, the generated code needs to be compiled with the same options as the PCH.
-			if(Target.bUsePDBFiles && Target.bUsePCHFiles)
+			if ((Target.bUsePDBFiles || Target.bSupportEditAndContinue) && Target.bUsePCHFiles)
 			{
 				Target.bDisableDebugInfoForGeneratedCode = false;
 			}

@@ -366,7 +366,7 @@ namespace UnrealBuildTool
 				// Store debug info in .pdb files.
 				// @todo clang: PDB files are emited from Clang but do not fully work with Visual Studio yet (breakpoints won't hit due to "symbol read error")
 				// @todo clang (update): as of clang 3.9 breakpoints work with PDBs, and the callstack is correct, so could be used for crash dumps. However debugging is still impossible due to the large amount of unreadable variables and unpredictable breakpoint stepping behaviour
-				if (CompileEnvironment.bUsePDBFiles)
+				if (CompileEnvironment.bUsePDBFiles || CompileEnvironment.bSupportEditAndContinue)
 				{
 					// Create debug info suitable for E&C if wanted.
 					if (CompileEnvironment.bSupportEditAndContinue)
@@ -996,7 +996,7 @@ namespace UnrealBuildTool
 					;
 
 				// Create PDB files if we were configured to do that.
-				if (CompileEnvironment.bUsePDBFiles)
+				if (CompileEnvironment.bUsePDBFiles || CompileEnvironment.bSupportEditAndContinue)
 				{
 					FileReference PDBLocation;
 					if (CompileEnvironment.PrecompiledHeaderAction == PrecompiledHeaderAction.Include)
