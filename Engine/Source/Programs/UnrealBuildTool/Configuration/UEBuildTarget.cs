@@ -3733,6 +3733,16 @@ namespace UnrealBuildTool
 				GlobalCompileEnvironment.Definitions.Add("WITH_UNREAL_DEVELOPER_TOOLS=0");
 			}
 
+			// Set a macro to control whether to initialize ApplicationCore. Command line utilities should not generally need this.
+			if (Rules.bCompileAgainstApplicationCore)
+			{
+				GlobalCompileEnvironment.Definitions.Add("WITH_APPLICATION_CORE=1");
+			}
+			else
+			{
+				GlobalCompileEnvironment.Definitions.Add("WITH_APPLICATION_CORE=0");
+			}
+
 			if (Rules.bCompileAgainstCoreUObject)
 			{
 				GlobalCompileEnvironment.Definitions.Add("WITH_COREUOBJECT=1");

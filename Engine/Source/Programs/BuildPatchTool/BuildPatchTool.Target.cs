@@ -18,6 +18,7 @@ public class BuildPatchToolTarget : TargetRules
 		bBuildEditor = false;
 		bCompileAgainstEngine = false;
 		bCompileAgainstCoreUObject = false;
+		bCompileAgainstApplicationCore = false;
 		bCompileLeanAndMeanUE = true;
 		bUseLoggingInShipping = true;
 		bUseChecksInShipping = true;

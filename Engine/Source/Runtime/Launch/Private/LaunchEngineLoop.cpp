@@ -28,8 +28,12 @@
 #include "HAL/FileManagerGeneric.h"
 #include "HAL/ExceptionHandling.h"
 #include "Stats/StatsMallocProfilerProxy.h"
+#if WITH_ENGINE
 #include "HAL/PlatformSplash.h"
+#endif
+#if WITH_APPLICATION_CORE
 #include "HAL/PlatformApplicationMisc.h"
+#endif
 #include "HAL/ThreadManager.h"
 #include "ProfilingDebugging/ExternalProfiler.h"
 #include "Containers/Ticker.h"
@@ -401,7 +405,9 @@ public:
 };
 
 
+#if WITH_APPLICATION_CORE
 static TUniquePtr<FOutputDeviceConsole>	GScopedLogConsole;
+#endif
 static TUniquePtr<FOutputDeviceStdOutput> GScopedStdOut;
 static TUniquePtr<FOutputDeviceTestExit> GScopedTestExit;
 
@@ -1054,8 +1060,10 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 		return 1;
 	}
 
+#if WITH_APPLICATION_CORE
 	// Initialize log console here to avoid statics initialization issues when launched from the command line.
 	GScopedLogConsole = TUniquePtr<FOutputDeviceConsole>(FPlatformApplicationMisc::CreateConsoleOutputDevice());
+#endif
 
 	// Always enable the backlog so we get all messages, we will disable and clear it in the game
 	// as soon as we determine whether GIsEditor == false
@@ -1125,8 +1133,13 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 	}
 
 	// Output devices.
+#if WITH_APPLICATION_CORE
 	GError = FPlatformApplicationMisc::GetErrorOutputDevice();
 	GWarn = FPlatformApplicationMisc::GetFeedbackContext();
+#else
+	GError = FPlatformOutputDevices::GetError();
+	GWarn = FPlatformOutputDevices::GetFeedbackContext();
+#endif
 
 	// allow the command line to override the platform file singleton
 	bool bFileOverrideFound = false;
@@ -1545,8 +1558,10 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 #endif
 	}
 
+#if WITH_APPLICATION_CORE
 	// Get a pointer to the log output device
 	GLogConsole = GScopedLogConsole.Get();
+#endif
 
 	LoadPreInitModules();
 
@@ -1632,7 +1647,9 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 
 		// platform specific initialization now that the SystemSettings are loaded
 		FPlatformMisc::PlatformInit();
+#if WITH_APPLICATION_CORE
 		FPlatformApplicationMisc::Init();
+#endif
 		FPlatformMemory::Init();
 	}
 
@@ -2544,7 +2561,9 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 #if USE_LOCALIZED_PACKAGE_CACHE
 	FPackageLocalizationManager::Get().InitializeFromDefaultCache();
 #endif	// USE_LOCALIZED_PACKAGE_CACHE
+#if WITH_APPLICATION_CORE
 	FPlatformApplicationMisc::PostInit();
+#endif
 #endif // WITH_ENGINE
 
 	//run automation smoke tests now that everything is setup to run
@@ -3926,7 +3945,9 @@ bool FEngineLoop::AppInit( )
 
 	// Platform specific pre-init.
 	FPlatformMisc::PlatformPreInit();
+#if WITH_APPLICATION_CORE
 	FPlatformApplicationMisc::PreInit();
+#endif
 
 	// Keep track of start time.
 	GSystemStartTime = FDateTime::Now().ToString();
@@ -4308,7 +4329,9 @@ void FEngineLoop::AppExit( )
 
 	UE_LOG(LogExit, Log, TEXT("Exiting."));
 
+#if WITH_APPLICATION_CORE
 	FPlatformApplicationMisc::TearDown();
+#endif
 	FPlatformMisc::PlatformTearDown();
 
 	if (GConfig)

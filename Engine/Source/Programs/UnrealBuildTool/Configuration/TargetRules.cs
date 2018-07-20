@@ -506,6 +506,12 @@ namespace UnrealBuildTool
 		public bool bCompileAgainstCoreUObject = true;
 
 		/// <summary>
+		/// Enabled for builds that need to initialize the ApplicationCore module. Command line utilities do not normally need this.
+		/// </summary>
+		[RequiresUniqueBuildEnvironment]
+		public bool bCompileAgainstApplicationCore = true;
+
+		/// <summary>
 		/// If true, include ADO database support in core.
 		/// </summary>
 		[RequiresUniqueBuildEnvironment]
@@ -1681,6 +1687,11 @@ namespace UnrealBuildTool
 		public bool bCompileAgainstCoreUObject
 		{
 			get { return Inner.bCompileAgainstCoreUObject; }
+		}
+
+		public bool bCompileAgainstApplicationCore
+		{
+			get { return Inner.bCompileAgainstApplicationCore; }
 		}
 
 		public bool bIncludeADO
