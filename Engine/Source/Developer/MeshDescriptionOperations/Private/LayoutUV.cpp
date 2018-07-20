@@ -42,7 +42,7 @@ namespace MeshDescriptionOp
 		int32 WedgeIndex = 0;
 		RemapVerts.SetNumUninitialized(NumIndexes);
 
-		const TVertexInstanceAttributeArray<FVector2D>& VertexUVs = MeshDescription.VertexInstanceAttributes().GetAttributes<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate, SrcChannel);
+		const TVertexInstanceAttributesRef<FVector2D> VertexUVs = MeshDescription.VertexInstanceAttributes().GetAttributesRef<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
 
 		for (const FPolygonID PolygonID : MeshDescription.Polygons().GetElementIDs())
 		{
@@ -54,7 +54,7 @@ namespace MeshDescriptionOp
 					const FVertexInstanceID VertexInstanceID = MeshTriangle.GetVertexInstanceID(Corner);
 
 					TranslatedMatches[WedgeIndex] = -1;
-					TexCoords[WedgeIndex] = VertexUVs[VertexInstanceID];
+					TexCoords[WedgeIndex] = VertexUVs.Get(VertexInstanceID, SrcChannel);
 					RemapVerts[WedgeIndex] = VertexInstanceID.GetValue();
 					++WedgeIndex;
 				}
@@ -177,7 +177,7 @@ namespace MeshDescriptionOp
 
 		TMap< uint32, int32 > DisjointSetToChartMap;
 
-		const TVertexAttributeArray<FVector>& VertexPositions = MeshDescription.VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position);
+		const TVertexAttributesRef<FVector> VertexPositions = MeshDescription.VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position);
 
 		// Build Charts
 		for (uint32 Tri = 0; Tri < NumTris; )
@@ -1076,7 +1076,7 @@ namespace MeshDescriptionOp
 			ensure(false);	// not expecting it to get here
 		}
 
-		TVertexInstanceAttributeArray<FVector2D>& VertexUVs = MeshDescription.VertexInstanceAttributes().GetAttributes<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate, DstChannel);
+		TVertexInstanceAttributesRef<FVector2D> VertexUVs = MeshDescription.VertexInstanceAttributes().GetAttributesRef<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
 
 		// Commit chart UVs
 		for (int32 i = 0; i < Charts.Num(); i++)
@@ -1094,7 +1094,7 @@ namespace MeshDescriptionOp
 					uint32 Index = 3 * SortedTris[Tri] + k;
 					const FVector2D& UV = TexCoords[Index];
 					const FVertexInstanceID VertexInstanceID(RemapVerts[Index]);
-					VertexUVs[VertexInstanceID] = UV.X * Chart.PackingScaleU + UV.Y * Chart.PackingScaleV + Chart.PackingBias;
+					VertexUVs.Set(VertexInstanceID, DstChannel, UV.X * Chart.PackingScaleU + UV.Y * Chart.PackingScaleV + Chart.PackingBias);
 				}
 			}
 		}

@@ -2614,6 +2614,27 @@ void UStaticMesh::RegisterMeshAttributes( FMeshDescription& MeshDescription )
 	MeshDescription.PolygonGroupAttributes().RegisterAttribute<FName>( MeshAttribute::PolygonGroup::ImportedMaterialSlotName ); //The unique key to match the mesh material slot
 	MeshDescription.PolygonGroupAttributes().RegisterAttribute<bool>( MeshAttribute::PolygonGroup::EnableCollision ); //Deprecated
 	MeshDescription.PolygonGroupAttributes().RegisterAttribute<bool>( MeshAttribute::PolygonGroup::CastShadow ); //Deprecated
+
+	{
+	TVertexAttributesView<FVector4> View = MeshDescription.VertexAttributes().GetAttributesView<FVector4>( MeshAttribute::Vertex::Position );
+	FVector4 Blah = View.Get(FVertexID(0));
+	(void)View.GetNumElements();
+	FVector Def = View.GetDefaultValue();
+	View.SetNumIndices(2);
+	View.Set(FVertexID(0), FVector4(1,1,1,1));
+	View.IsValid();
+	}
+
+	const FMeshDescription& MD2 = MeshDescription;
+	{
+	TVertexAttributesConstView<FVector4> View = MD2.VertexAttributes().GetAttributesView<FVector4>( MeshAttribute::Vertex::Position );
+	FVector4 Blah = View.Get(FVertexID(0));
+	(void)View.GetNumElements();
+	FVector Def = View.GetDefaultValue();
+//	View.SetNumIndices(2);
+//	View.Set(FVertexID(0), FVector4(1,1,1,1));
+	View.IsValid();
+	}
 }
 
 
@@ -2956,7 +2977,7 @@ void UStaticMesh::FixupMaterialSlotName()
 // differences, etc.) replace the version GUID below with a new one.
 // In case of merge conflicts with DDC versions, you MUST generate a new GUID
 // and set this new GUID as the version.                                       
-#define MESHDATAKEY_STATICMESH_DERIVEDDATA_VER TEXT("A3E9E442F5784050BCAF878E4E80EE44")
+#define MESHDATAKEY_STATICMESH_DERIVEDDATA_VER TEXT("B6081AC5FA9949A7B87DC14E39BC25E6")
 
 static const FString& GetMeshDataKeyStaticMeshDerivedDataVersion()
 {

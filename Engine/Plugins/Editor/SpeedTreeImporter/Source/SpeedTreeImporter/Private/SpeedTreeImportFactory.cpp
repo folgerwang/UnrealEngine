@@ -1367,11 +1367,11 @@ FVertexInstanceID ProcessTriangleCorner(
 	const int32 IndexOffset,
 	const int32 NumUVs,
 	const SpeedTree::SRenderState* RenderState,
-	TVertexInstanceAttributeArray<FVector>& VertexInstanceNormals,
-	TVertexInstanceAttributeArray<FVector>& VertexInstanceTangents,
-	TVertexInstanceAttributeArray<float>& VertexInstanceBinormalSigns,
-	TVertexInstanceAttributeArray<FVector4>& VertexInstanceColors,
-	TVertexInstanceAttributeIndicesArray<FVector2D>& VertexInstanceUVs)
+	TVertexInstanceAttributesRef<FVector> VertexInstanceNormals,
+	TVertexInstanceAttributesRef<FVector> VertexInstanceTangents,
+	TVertexInstanceAttributesRef<float> VertexInstanceBinormalSigns,
+	TVertexInstanceAttributesRef<FVector4> VertexInstanceColors,
+	TVertexInstanceAttributesRef<FVector2D> VertexInstanceUVs)
 {
 	//Speedtree use 8 UVs to store is data
 	check(VertexInstanceUVs.GetNumIndices() == 8);
@@ -1402,7 +1402,7 @@ FVertexInstanceID ProcessTriangleCorner(
 	// keep texcoords padded to align indices
 	for( int32 PadIndex = 0; PadIndex < NumUVs; ++PadIndex )
 	{
-		VertexInstanceUVs.GetArrayForIndex(PadIndex)[VertexInstanceID] = FVector2D(0.0f, 0.0f);
+		VertexInstanceUVs.Set(VertexInstanceID, PadIndex, FVector2D(0.0f, 0.0f));
 	}
 
 	// All texcoords are packed into 4 float4 vertex attributes
@@ -1422,28 +1422,28 @@ FVertexInstanceID ProcessTriangleCorner(
 
 	// diffuse
 	DrawCall->GetProperty( SpeedTree::VERTEX_PROPERTY_DIFFUSE_TEXCOORDS, VertexIndex, Data );
-	VertexInstanceUVs.GetArrayForIndex(0)[VertexInstanceID] = FVector2D( Data[ 0 ], Data[ 1 ] );
+	VertexInstanceUVs.Set( VertexInstanceID, 0, FVector2D( Data[ 0 ], Data[ 1 ] ) );
 
 	// lightmap
 	DrawCall->GetProperty( SpeedTree::VERTEX_PROPERTY_LIGHTMAP_TEXCOORDS, VertexIndex, Data );
-	VertexInstanceUVs.GetArrayForIndex(1)[VertexInstanceID] = FVector2D( Data[ 0 ], Data[ 1 ] );
+	VertexInstanceUVs.Set( VertexInstanceID, 1, FVector2D( Data[ 0 ], Data[ 1 ] ) );
 
 	// branch wind
 	DrawCall->GetProperty( SpeedTree::VERTEX_PROPERTY_WIND_BRANCH_DATA, VertexIndex, Data );
-	VertexInstanceUVs.GetArrayForIndex(2)[VertexInstanceID] = FVector2D( Data[ 0 ], Data[ 1 ] );
+	VertexInstanceUVs.Set( VertexInstanceID, 2, FVector2D( Data[ 0 ], Data[ 1 ] ) );
 
 	// lod
 	if( RenderState->m_bFacingLeavesPresent )
 	{
 		DrawCall->GetProperty( SpeedTree::VERTEX_PROPERTY_LEAF_CARD_LOD_SCALAR, VertexIndex, Data );
-		VertexInstanceUVs.GetArrayForIndex(3)[VertexInstanceID] = FVector2D( Data[ 0 ], 0.0f );
-		VertexInstanceUVs.GetArrayForIndex(4)[VertexInstanceID] = FVector2D( 0.0f, 0.0f );
+		VertexInstanceUVs.Set( VertexInstanceID, 3, FVector2D( Data[ 0 ], 0.0f ) );
+		VertexInstanceUVs.Set( VertexInstanceID, 4, FVector2D( 0.0f, 0.0f ) );
 	}
 	else
 	{
 		DrawCall->GetProperty( SpeedTree::VERTEX_PROPERTY_LOD_POSITION, VertexIndex, Data );
-		VertexInstanceUVs.GetArrayForIndex(3)[VertexInstanceID] = FVector2D( -Data[ 0 ], Data[ 1 ] );
-		VertexInstanceUVs.GetArrayForIndex(4)[VertexInstanceID] = FVector2D( Data[ 2 ], 0.0f );
+		VertexInstanceUVs.Set( VertexInstanceID, 3, FVector2D( -Data[ 0 ], Data[ 1 ] ) );
+		VertexInstanceUVs.Set( VertexInstanceID, 4, FVector2D( Data[ 2 ], 0.0f ) );
 	}
 
 	// other
@@ -1451,19 +1451,19 @@ FVertexInstanceID ProcessTriangleCorner(
 	{
 		// detail
 		DrawCall->GetProperty( SpeedTree::VERTEX_PROPERTY_DETAIL_TEXCOORDS, VertexIndex, Data );
-		VertexInstanceUVs.GetArrayForIndex(5)[VertexInstanceID] = FVector2D( Data[ 0 ], Data[ 1 ] );
+		VertexInstanceUVs.Set( VertexInstanceID, 5, FVector2D( Data[ 0 ], Data[ 1 ] ) );
 
 		// branch seam
 		DrawCall->GetProperty( SpeedTree::VERTEX_PROPERTY_BRANCH_SEAM_DIFFUSE, VertexIndex, Data );
-		VertexInstanceUVs.GetArrayForIndex(6)[VertexInstanceID] = FVector2D( Data[ 0 ], Data[ 1 ] );
-		VertexInstanceUVs.GetArrayForIndex(4)[VertexInstanceID].Y = Data[ 2 ];
+		VertexInstanceUVs.Set( VertexInstanceID, 6, FVector2D( Data[ 0 ], Data[ 1 ] ) );
+		VertexInstanceUVs.Set( VertexInstanceID, 4, FVector2D( VertexInstanceUVs.Get( VertexInstanceID, 4 ).X, Data[ 2 ] ) );
 	}
 	else if( RenderState->m_bFrondsPresent )
 	{
 		// frond wind
 		DrawCall->GetProperty( SpeedTree::VERTEX_PROPERTY_WIND_EXTRA_DATA, VertexIndex, Data );
-		VertexInstanceUVs.GetArrayForIndex(5)[VertexInstanceID] = FVector2D( Data[ 0 ], Data[ 1 ] );
-		VertexInstanceUVs.GetArrayForIndex(6)[VertexInstanceID] = FVector2D( Data[ 2 ], 0.0f );
+		VertexInstanceUVs.Set( VertexInstanceID, 5, FVector2D( Data[ 0 ], Data[ 1 ] ) );
+		VertexInstanceUVs.Set( VertexInstanceID, 6, FVector2D( Data[ 2 ], 0.0f ) );
 	}
 	else if( RenderState->m_bLeavesPresent || RenderState->m_bFacingLeavesPresent )
 	{
@@ -1476,15 +1476,15 @@ FVertexInstanceID ProcessTriangleCorner(
 		{
 			DrawCall->GetProperty( SpeedTree::VERTEX_PROPERTY_LEAF_ANCHOR_POINT, VertexIndex, Data );
 		}
-		VertexInstanceUVs.GetArrayForIndex(4)[VertexInstanceID].Y = -Data[ 0 ];
-		VertexInstanceUVs.GetArrayForIndex(5)[VertexInstanceID] = FVector2D( Data[ 1 ], Data[ 2 ] );
+		VertexInstanceUVs.Set( VertexInstanceID, 4, FVector2D( VertexInstanceUVs.Get( VertexInstanceID, 4 ).X, -Data[ 0 ] ) );
+		VertexInstanceUVs.Set( VertexInstanceID, 5, FVector2D( Data[ 1 ], Data[ 2 ] ) );
 
 		// leaf wind
 		DrawCall->GetProperty( SpeedTree::VERTEX_PROPERTY_WIND_EXTRA_DATA, VertexIndex, Data );
-		VertexInstanceUVs.GetArrayForIndex(6)[VertexInstanceID] = FVector2D( Data[ 0 ], Data[ 1 ] );
-		VertexInstanceUVs.GetArrayForIndex(7)[VertexInstanceID].X = Data[ 2 ];
+		VertexInstanceUVs.Set( VertexInstanceID, 6, FVector2D( Data[ 0 ], Data[ 1 ] ) );
+		VertexInstanceUVs.Set( VertexInstanceID, 7, FVector2D( Data[ 2 ], 0 ) );
 		DrawCall->GetProperty( SpeedTree::VERTEX_PROPERTY_WIND_FLAGS, VertexIndex, Data );
-		VertexInstanceUVs.GetArrayForIndex(7)[VertexInstanceID].Y = Data[ 0 ];
+		VertexInstanceUVs.Set( VertexInstanceID, 7, FVector2D( VertexInstanceUVs.Get( VertexInstanceID, 7 ).X, Data[ 0 ] ) );
 	}
 	return VertexInstanceID;
 }
@@ -1657,15 +1657,15 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary7(UClass* InClass, UObject*
 						FMeshDescription* MeshDescription = StaticMesh->CreateOriginalMeshDescription(LODIndex);
 						StaticMesh->RegisterMeshAttributes(*MeshDescription);
 						
-						TVertexAttributeArray<FVector>& VertexPositions = MeshDescription->VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position);
-						TEdgeAttributeArray<bool>& EdgeHardnesses = MeshDescription->EdgeAttributes().GetAttributes<bool>(MeshAttribute::Edge::IsHard);
-						TEdgeAttributeArray<float>& EdgeCreaseSharpnesses = MeshDescription->EdgeAttributes().GetAttributes<float>(MeshAttribute::Edge::CreaseSharpness);
-						TPolygonGroupAttributeArray<FName>& PolygonGroupImportedMaterialSlotNames = MeshDescription->PolygonGroupAttributes().GetAttributes<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
-						TVertexInstanceAttributeArray<FVector>& VertexInstanceNormals = MeshDescription->VertexInstanceAttributes().GetAttributes<FVector>(MeshAttribute::VertexInstance::Normal);
-						TVertexInstanceAttributeArray<FVector>& VertexInstanceTangents = MeshDescription->VertexInstanceAttributes().GetAttributes<FVector>(MeshAttribute::VertexInstance::Tangent);
-						TVertexInstanceAttributeArray<float>& VertexInstanceBinormalSigns = MeshDescription->VertexInstanceAttributes().GetAttributes<float>(MeshAttribute::VertexInstance::BinormalSign);
-						TVertexInstanceAttributeArray<FVector4>& VertexInstanceColors = MeshDescription->VertexInstanceAttributes().GetAttributes<FVector4>(MeshAttribute::VertexInstance::Color);
-						TVertexInstanceAttributeIndicesArray<FVector2D>& VertexInstanceUVs = MeshDescription->VertexInstanceAttributes().GetAttributesSet<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
+						TVertexAttributesRef<FVector> VertexPositions = MeshDescription->VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position);
+						TEdgeAttributesRef<bool> EdgeHardnesses = MeshDescription->EdgeAttributes().GetAttributesRef<bool>(MeshAttribute::Edge::IsHard);
+						TEdgeAttributesRef<float> EdgeCreaseSharpnesses = MeshDescription->EdgeAttributes().GetAttributesRef<float>(MeshAttribute::Edge::CreaseSharpness);
+						TPolygonGroupAttributesRef<FName> PolygonGroupImportedMaterialSlotNames = MeshDescription->PolygonGroupAttributes().GetAttributesRef<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
+						TVertexInstanceAttributesRef<FVector> VertexInstanceNormals = MeshDescription->VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Normal);
+						TVertexInstanceAttributesRef<FVector> VertexInstanceTangents = MeshDescription->VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Tangent);
+						TVertexInstanceAttributesRef<float> VertexInstanceBinormalSigns = MeshDescription->VertexInstanceAttributes().GetAttributesRef<float>(MeshAttribute::VertexInstance::BinormalSign);
+						TVertexInstanceAttributesRef<FVector4> VertexInstanceColors = MeshDescription->VertexInstanceAttributes().GetAttributesRef<FVector4>(MeshAttribute::VertexInstance::Color);
+						TVertexInstanceAttributesRef<FVector2D> VertexInstanceUVs = MeshDescription->VertexInstanceAttributes().GetAttributesRef<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
 
 						TMap<int32, FPolygonGroupID> MaterialToPolygonGroup;
 						for (int32 MatIndex = 0; MatIndex < StaticMesh->StaticMaterials.Num(); ++MatIndex)
@@ -1760,7 +1760,7 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary7(UClass* InClass, UObject*
 
 							FPolygonGroupID CurrentPolygonGroupID = MaterialToPolygonGroup[MaterialIndex];
 
-							int32 IndexOffset = VertexPositions.Num();
+							int32 IndexOffset = VertexPositions.GetNumElements();
 
 							for (int32 VertexIndex = 0; VertexIndex < DrawCall->m_nNumVertices; ++VertexIndex)
 							{
@@ -1859,15 +1859,15 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary7(UClass* InClass, UObject*
 					FMeshDescription* MeshDescription = StaticMesh->CreateOriginalMeshDescription(LODIndex);
 					StaticMesh->RegisterMeshAttributes(*MeshDescription);
 
-					TVertexAttributeArray<FVector>& VertexPositions = MeshDescription->VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position);
-					TEdgeAttributeArray<bool>& EdgeHardnesses = MeshDescription->EdgeAttributes().GetAttributes<bool>(MeshAttribute::Edge::IsHard);
-					TEdgeAttributeArray<float>& EdgeCreaseSharpnesses = MeshDescription->EdgeAttributes().GetAttributes<float>(MeshAttribute::Edge::CreaseSharpness);
-					TPolygonGroupAttributeArray<FName>& PolygonGroupImportedMaterialSlotNames = MeshDescription->PolygonGroupAttributes().GetAttributes<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
-					TVertexInstanceAttributeArray<FVector>& VertexInstanceNormals = MeshDescription->VertexInstanceAttributes().GetAttributes<FVector>(MeshAttribute::VertexInstance::Normal);
-					TVertexInstanceAttributeArray<FVector>& VertexInstanceTangents = MeshDescription->VertexInstanceAttributes().GetAttributes<FVector>(MeshAttribute::VertexInstance::Tangent);
-					TVertexInstanceAttributeArray<float>& VertexInstanceBinormalSigns = MeshDescription->VertexInstanceAttributes().GetAttributes<float>(MeshAttribute::VertexInstance::BinormalSign);
-					TVertexInstanceAttributeArray<FVector4>& VertexInstanceColors = MeshDescription->VertexInstanceAttributes().GetAttributes<FVector4>(MeshAttribute::VertexInstance::Color);
-					TVertexInstanceAttributeIndicesArray<FVector2D>& VertexInstanceUVs = MeshDescription->VertexInstanceAttributes().GetAttributesSet<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
+					TVertexAttributesRef<FVector> VertexPositions = MeshDescription->VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position);
+					TEdgeAttributesRef<bool> EdgeHardnesses = MeshDescription->EdgeAttributes().GetAttributesRef<bool>(MeshAttribute::Edge::IsHard);
+					TEdgeAttributesRef<float> EdgeCreaseSharpnesses = MeshDescription->EdgeAttributes().GetAttributesRef<float>(MeshAttribute::Edge::CreaseSharpness);
+					TPolygonGroupAttributesRef<FName> PolygonGroupImportedMaterialSlotNames = MeshDescription->PolygonGroupAttributes().GetAttributesRef<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
+					TVertexInstanceAttributesRef<FVector> VertexInstanceNormals = MeshDescription->VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Normal);
+					TVertexInstanceAttributesRef<FVector> VertexInstanceTangents = MeshDescription->VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Tangent);
+					TVertexInstanceAttributesRef<float> VertexInstanceBinormalSigns = MeshDescription->VertexInstanceAttributes().GetAttributesRef<float>(MeshAttribute::VertexInstance::BinormalSign);
+					TVertexInstanceAttributesRef<FVector4> VertexInstanceColors = MeshDescription->VertexInstanceAttributes().GetAttributesRef<FVector4>(MeshAttribute::VertexInstance::Color);
+					TVertexInstanceAttributesRef<FVector2D> VertexInstanceUVs = MeshDescription->VertexInstanceAttributes().GetAttributesRef<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
 
 					//Speedtree use UVs to store is data
 					VertexInstanceUVs.SetNumIndices(2);
@@ -1927,7 +1927,7 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary7(UClass* InClass, UObject*
 						const float* TexCoords = &SpeedTreeGeometry->m_sVertBBs.m_pTexCoords[BillboardIndex * 4];
 						bool bRotated = (SpeedTreeGeometry->m_sVertBBs.m_pRotated[BillboardIndex] == 1);
 
-						int32 IndexOffset = VertexPositions.Num();
+						int32 IndexOffset = VertexPositions.GetNumElements();
 					
 						// position
 						for (int32 VertexIndex = 0; VertexIndex < NumVertices; ++VertexIndex)
@@ -1958,15 +1958,15 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary7(UClass* InClass, UObject*
 								VertexInstanceBinormalSigns[VertexInstanceID] = GetBasisDeterminantSign(TangentX.GetSafeNormal(), TangentY.GetSafeNormal(), TangentZ.GetSafeNormal());
 								if (bRotated)
 								{
-									VertexInstanceUVs.GetArrayForIndex(0)[VertexInstanceID] = FVector2D(TexCoords[0] + Vertex[1] * TexCoords[2], TexCoords[1] + Vertex[0] * TexCoords[3]);
+									VertexInstanceUVs.Set(VertexInstanceID, 0, FVector2D(TexCoords[0] + Vertex[1] * TexCoords[2], TexCoords[1] + Vertex[0] * TexCoords[3]));
 								}
 								else
 								{
-									VertexInstanceUVs.GetArrayForIndex(0)[VertexInstanceID] = FVector2D(TexCoords[0] + Vertex[0] * TexCoords[2], TexCoords[1] + Vertex[1] * TexCoords[3]);
+									VertexInstanceUVs.Set(VertexInstanceID, 0, FVector2D(TexCoords[0] + Vertex[0] * TexCoords[2], TexCoords[1] + Vertex[1] * TexCoords[3]));
 								}
 
 								// lightmap coord
-								VertexInstanceUVs.GetArrayForIndex(1)[VertexInstanceID] = VertexInstanceUVs.GetArrayForIndex(0)[VertexInstanceID];
+								VertexInstanceUVs.Set(VertexInstanceID, 1, VertexInstanceUVs.Get(VertexInstanceID, 0));
 
 								CornerVertexInstanceIDs[Corner] = VertexInstanceID;
 								CornerVertexIDs[Corner] = VertexID;
@@ -2215,15 +2215,15 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary8(UClass* InClass, UObject*
 			FMeshDescription* MeshDescription = StaticMesh->CreateOriginalMeshDescription(LODIndex);
 			StaticMesh->RegisterMeshAttributes(*MeshDescription);
 
-			TVertexAttributeArray<FVector>& VertexPositions = MeshDescription->VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position);
-			TEdgeAttributeArray<bool>& EdgeHardnesses = MeshDescription->EdgeAttributes().GetAttributes<bool>(MeshAttribute::Edge::IsHard);
-			TEdgeAttributeArray<float>& EdgeCreaseSharpnesses = MeshDescription->EdgeAttributes().GetAttributes<float>(MeshAttribute::Edge::CreaseSharpness);
-			TPolygonGroupAttributeArray<FName>& PolygonGroupImportedMaterialSlotNames = MeshDescription->PolygonGroupAttributes().GetAttributes<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
-			TVertexInstanceAttributeArray<FVector>& VertexInstanceNormals = MeshDescription->VertexInstanceAttributes().GetAttributes<FVector>(MeshAttribute::VertexInstance::Normal);
-			TVertexInstanceAttributeArray<FVector>& VertexInstanceTangents = MeshDescription->VertexInstanceAttributes().GetAttributes<FVector>(MeshAttribute::VertexInstance::Tangent);
-			TVertexInstanceAttributeArray<float>& VertexInstanceBinormalSigns = MeshDescription->VertexInstanceAttributes().GetAttributes<float>(MeshAttribute::VertexInstance::BinormalSign);
-			TVertexInstanceAttributeArray<FVector4>& VertexInstanceColors = MeshDescription->VertexInstanceAttributes().GetAttributes<FVector4>(MeshAttribute::VertexInstance::Color);
-			TVertexInstanceAttributeIndicesArray<FVector2D>& VertexInstanceUVs = MeshDescription->VertexInstanceAttributes().GetAttributesSet<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
+			TVertexAttributesRef<FVector> VertexPositions = MeshDescription->VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position);
+			TEdgeAttributesRef<bool> EdgeHardnesses = MeshDescription->EdgeAttributes().GetAttributesRef<bool>(MeshAttribute::Edge::IsHard);
+			TEdgeAttributesRef<float> EdgeCreaseSharpnesses = MeshDescription->EdgeAttributes().GetAttributesRef<float>(MeshAttribute::Edge::CreaseSharpness);
+			TPolygonGroupAttributesRef<FName> PolygonGroupImportedMaterialSlotNames = MeshDescription->PolygonGroupAttributes().GetAttributesRef<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
+			TVertexInstanceAttributesRef<FVector> VertexInstanceNormals = MeshDescription->VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Normal);
+			TVertexInstanceAttributesRef<FVector> VertexInstanceTangents = MeshDescription->VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Tangent);
+			TVertexInstanceAttributesRef<float> VertexInstanceBinormalSigns = MeshDescription->VertexInstanceAttributes().GetAttributesRef<float>(MeshAttribute::VertexInstance::BinormalSign);
+			TVertexInstanceAttributesRef<FVector4> VertexInstanceColors = MeshDescription->VertexInstanceAttributes().GetAttributesRef<FVector4>(MeshAttribute::VertexInstance::Color);
+			TVertexInstanceAttributesRef<FVector2D> VertexInstanceUVs = MeshDescription->VertexInstanceAttributes().GetAttributesRef<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
 
 			//Speedtree use 8 UVs to store is data
 			VertexInstanceUVs.SetNumIndices(8);
@@ -2323,57 +2323,57 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary8(UClass* InClass, UObject*
 						// 7	0					0					Leaf Wind Z, Leaf Group
 
 						// diffuse
-						VertexInstanceUVs.GetArrayForIndex(0)[VertexInstanceID] = FVector2D(Vertex.m_vTexCoord.x, Vertex.m_vTexCoord.y);
+						VertexInstanceUVs.Set(VertexInstanceID, 0, FVector2D(Vertex.m_vTexCoord.x, Vertex.m_vTexCoord.y));
 
 						// lightmap
-						VertexInstanceUVs.GetArrayForIndex(1)[VertexInstanceID] = FVector2D(Vertex.m_vLightmapTexCoord.x, Vertex.m_vLightmapTexCoord.y);
+						VertexInstanceUVs.Set(VertexInstanceID, 1, FVector2D(Vertex.m_vLightmapTexCoord.x, Vertex.m_vLightmapTexCoord.y));
 
 						if (DrawCall.m_eWindGeometryType == SpeedTree8::Billboard)
 						{
-							VertexInstanceUVs.GetArrayForIndex(2)[VertexInstanceID] = FVector2D((Vertex.m_vNormal.z > 0.5f) ? 1.0f : 0.0f, 0.0f);
+							VertexInstanceUVs.Set(VertexInstanceID, 2, FVector2D((Vertex.m_vNormal.z > 0.5f) ? 1.0f : 0.0f, 0.0f));
 						}
 						else
 						{
 							// branch wind
-							VertexInstanceUVs.GetArrayForIndex(2)[VertexInstanceID] = FVector2D(Vertex.m_vWindBranch.x, Vertex.m_vWindBranch.y);
+							VertexInstanceUVs.Set(VertexInstanceID, 2, FVector2D(Vertex.m_vWindBranch.x, Vertex.m_vWindBranch.y));
 
 							// lod
 							FVector vLodPosition = FVector(Vertex.m_vAnchor.x, Vertex.m_vAnchor.y, Vertex.m_vAnchor.z) +
 								FVector(Vertex.m_vLodOffset.x, Vertex.m_vLodOffset.y, Vertex.m_vLodOffset.z);
-							VertexInstanceUVs.GetArrayForIndex(3)[VertexInstanceID] = FVector2D(vLodPosition[0], vLodPosition[1]);
-							VertexInstanceUVs.GetArrayForIndex(4)[VertexInstanceID] = FVector2D(vLodPosition[2], 0.0f);
+							VertexInstanceUVs.Set(VertexInstanceID, 3, FVector2D(vLodPosition[0], vLodPosition[1]));
+							VertexInstanceUVs.Set(VertexInstanceID, 4, FVector2D(vLodPosition[2], 0.0f));
 
 							// other
 							if (DrawCall.m_eWindGeometryType == SpeedTree8::Branch)
 							{
 								// detail (not used in v8)
-								VertexInstanceUVs.GetArrayForIndex(5)[VertexInstanceID] = FVector2D(0.0f, 0.0f);
+								VertexInstanceUVs.Set(VertexInstanceID, 5, FVector2D(0.0f, 0.0f));
 
 								// branch seam
-								VertexInstanceUVs.GetArrayForIndex(6)[VertexInstanceID] = FVector2D(0.0f, 0.0f);
-								VertexInstanceUVs.GetArrayForIndex(4)[VertexInstanceID].Y = Vertex.m_fBlendWeight;
+								VertexInstanceUVs.Set(VertexInstanceID, 6, FVector2D(0.0f, 0.0f));
+								VertexInstanceUVs.Set(VertexInstanceID, 4, FVector2D(VertexInstanceUVs.Get(VertexInstanceID, 4).X, Vertex.m_fBlendWeight));
 
 								// keep alignment
-								VertexInstanceUVs.GetArrayForIndex(7)[VertexInstanceID] = FVector2D(0.0f, 0.0f);
+								VertexInstanceUVs.Set(VertexInstanceID, 7, FVector2D(0.0f, 0.0f));
 							}
 							else if (DrawCall.m_eWindGeometryType == SpeedTree8::Frond)
 							{
 								// frond wind
-								VertexInstanceUVs.GetArrayForIndex(5)[VertexInstanceID] = FVector2D(Vertex.m_vWindNonBranch.x, Vertex.m_vWindNonBranch.y);
-								VertexInstanceUVs.GetArrayForIndex(6)[VertexInstanceID] = FVector2D(Vertex.m_vWindNonBranch.z, 0.0f);
+								VertexInstanceUVs.Set(VertexInstanceID, 5, FVector2D(Vertex.m_vWindNonBranch.x, Vertex.m_vWindNonBranch.y));
+								VertexInstanceUVs.Set(VertexInstanceID, 6, FVector2D(Vertex.m_vWindNonBranch.z, 0.0f));
 
 								// keep alignment
-								VertexInstanceUVs.GetArrayForIndex(7)[VertexInstanceID] = FVector2D(0.0f, 0.0f);
+								VertexInstanceUVs.Set(VertexInstanceID, 7, FVector2D(0.0f, 0.0f));
 							}
 							else if (DrawCall.m_eWindGeometryType == SpeedTree8::Leaf || DrawCall.m_eWindGeometryType == SpeedTree8::FacingLeaf)
 							{
 								// anchor
-								VertexInstanceUVs.GetArrayForIndex(4)[VertexInstanceID].Y = Vertex.m_vAnchor.x;
-								VertexInstanceUVs.GetArrayForIndex(5)[VertexInstanceID] = FVector2D(Vertex.m_vAnchor.y, Vertex.m_vAnchor.z);
+								VertexInstanceUVs.Set(VertexInstanceID, 4, FVector2D(VertexInstanceUVs.Get(VertexInstanceID, 4).X, Vertex.m_vAnchor.x));
+								VertexInstanceUVs.Set(VertexInstanceID, 5, FVector2D(Vertex.m_vAnchor.y, Vertex.m_vAnchor.z));
 
 								// leaf wind
-								VertexInstanceUVs.GetArrayForIndex(6)[VertexInstanceID] = FVector2D(Vertex.m_vWindNonBranch.x, Vertex.m_vWindNonBranch.y);
-								VertexInstanceUVs.GetArrayForIndex(7)[VertexInstanceID] = FVector2D(Vertex.m_vWindNonBranch.z, (Vertex.m_bWindLeaf2Flag ? 1.0f : 0.0f));
+								VertexInstanceUVs.Set(VertexInstanceID, 6, FVector2D(Vertex.m_vWindNonBranch.x, Vertex.m_vWindNonBranch.y));
+								VertexInstanceUVs.Set(VertexInstanceID, 7, FVector2D(Vertex.m_vWindNonBranch.z, (Vertex.m_bWindLeaf2Flag ? 1.0f : 0.0f)));
 							}
 						}
 						CornerVertexInstanceIDs[Corner] = VertexInstanceID;

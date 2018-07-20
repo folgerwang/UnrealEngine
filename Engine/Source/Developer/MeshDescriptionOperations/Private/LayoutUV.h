@@ -99,7 +99,7 @@ namespace MeshDescriptionOp
 		const FVertexID VertexIDA = MeshDescription.GetVertexInstanceVertex(VertexInstanceIDA);
 		const FVertexID VertexIDB = MeshDescription.GetVertexInstanceVertex(VertexInstanceIDB);
 
-		const TVertexAttributeArray<FVector>& VertexPositions = MeshDescription.VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position);
+		const TVertexAttributesRef<FVector> VertexPositions = MeshDescription.VertexAttributes().GetAttributesRef<FVector>(MeshAttribute::Vertex::Position);
 		return VertexPositions[VertexIDA].Equals(VertexPositions[VertexIDB], THRESH_POINTS_ARE_SAME);
 	}
 
@@ -117,7 +117,7 @@ namespace MeshDescriptionOp
 		const FVertexInstanceID VertexInstanceIDA(RemapVerts[a]);
 		const FVertexInstanceID VertexInstanceIDB(RemapVerts[b]);
 
-		const TVertexInstanceAttributeArray<FVector>& VertexNormals = MeshDescription.VertexInstanceAttributes().GetAttributes<FVector>(MeshAttribute::VertexInstance::Normal);
+		const TVertexInstanceAttributesRef<FVector> VertexNormals = MeshDescription.VertexInstanceAttributes().GetAttributesRef<FVector>(MeshAttribute::VertexInstance::Normal);
 		return VertexNormals[VertexInstanceIDA].Equals(VertexNormals[VertexInstanceIDB], THRESH_NORMALS_ARE_SAME);
 	}
 
@@ -134,8 +134,8 @@ namespace MeshDescriptionOp
 		const FVertexInstanceID VertexInstanceIDA(RemapVerts[a]);
 		const FVertexInstanceID VertexInstanceIDB(RemapVerts[b]);
 
-		const TVertexInstanceAttributeArray<FVector2D>& VertexUVs = MeshDescription.VertexInstanceAttributes().GetAttributes<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate, SrcChannel);
-		return VertexUVs[VertexInstanceIDA].Equals(VertexUVs[VertexInstanceIDB], GetUVEqualityThreshold());
+		const TVertexInstanceAttributesRef<FVector2D> VertexUVs = MeshDescription.VertexInstanceAttributes().GetAttributesRef<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
+		return VertexUVs[VertexInstanceIDA].Equals(VertexUVs.Get(VertexInstanceIDB, SrcChannel), GetUVEqualityThreshold());
 	}
 
 	inline bool FLayoutUV::VertsMatch(uint32 a, uint32 b) const
@@ -146,12 +146,12 @@ namespace MeshDescriptionOp
 	// Signed UV area
 	inline float FLayoutUV::TriangleUVArea(uint32 Tri) const
 	{
-		const TVertexInstanceAttributeArray<FVector2D>& VertexUVs = MeshDescription.VertexInstanceAttributes().GetAttributes<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate, SrcChannel);
+		const TVertexInstanceAttributesRef<FVector2D> VertexUVs = MeshDescription.VertexInstanceAttributes().GetAttributesRef<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
 
 		FVector2D UVs[3];
 		for (int k = 0; k < 3; k++)
 		{
-			UVs[k] = VertexUVs[FVertexInstanceID(RemapVerts[(3 * Tri) + k])];
+			UVs[k] = VertexUVs.Get(FVertexInstanceID(RemapVerts[(3 * Tri) + k]), SrcChannel);
 		}
 
 		FVector2D EdgeUV1 = UVs[1] - UVs[0];
