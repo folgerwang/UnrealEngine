@@ -677,13 +677,13 @@ bool UEditorStaticMeshLibrary::HasVertexColors(UStaticMesh* StaticMesh)
 
 	for (int32 LodIndex = 0; LodIndex < StaticMesh->SourceModels.Num(); ++LodIndex)
 	{
-		FMeshDescription* MeshDescription = StaticMesh->GetOriginalMeshDescription(LodIndex);
-		if (!MeshDescription->VertexInstanceAttributes().HasAttribute<FVector4>(MeshAttribute::VertexInstance::Color))
+		const FMeshDescription* MeshDescription = StaticMesh->GetOriginalMeshDescription(LodIndex);
+		if (!MeshDescription->VertexInstanceAttributes().HasAttribute(MeshAttribute::VertexInstance::Color))
 		{
 			continue;
 		}
-		const TVertexInstanceAttributeArray<FVector4>& VertexInstanceColors = MeshDescription->VertexInstanceAttributes().GetAttributes<FVector4>(MeshAttribute::VertexInstance::Color);
-		for (const FVertexInstanceID& VertexInstanceID : MeshDescription->VertexInstances().GetElementIDs())
+		TVertexInstanceAttributesConstRef<FVector4>& VertexInstanceColors = MeshDescription->VertexInstanceAttributes().GetAttributesRef<FVector4>(MeshAttribute::VertexInstance::Color);
+		for (const FVertexInstanceID VertexInstanceID : MeshDescription->VertexInstances().GetElementIDs())
 		{
 			FLinearColor VertexInstanceColor(VertexInstanceColors[VertexInstanceID]);
 			if (VertexInstanceColor != FLinearColor::White)

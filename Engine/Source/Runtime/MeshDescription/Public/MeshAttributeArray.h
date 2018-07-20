@@ -762,7 +762,7 @@ public:
 
 	template <typename AttributeType>
 	DEPRECATED( 4.20, "Please use untemplated HasAttribute() instead" )
-	void HasAttribute( const FName AttributeName )
+	bool HasAttribute( const FName AttributeName )
 	{
 		return HasAttribute( AttributeName );
 	}
