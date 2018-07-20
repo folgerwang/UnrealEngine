@@ -1174,7 +1174,6 @@ namespace UnrealBuildTool
 		{
 			switch(ExpectedName)
 			{
-//				case "Stats2":
 				case "DynamicRHI":
 				case "RHICommandList":
 				case "RHIUtilities":
