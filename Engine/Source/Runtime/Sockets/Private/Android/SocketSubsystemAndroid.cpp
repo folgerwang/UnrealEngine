@@ -163,18 +163,18 @@ TSharedRef<FInternetAddr> FSocketSubsystemAndroid::GetLocalHostAddr(FOutputDevic
 					if (strcmp(IfReqs[IdxReq].ifr_name, "wlan0") == 0)
 					{
 						// 'Usually' wifi, Prefer wifi
-						FMemory::Memcpy((void*)&WifiAddress, (void*)IfReqs[IdxReq].ifr_addr, sizeof(sockaddr_in));
+						FMemory::Memcpy((void*)&WifiAddress, (void*)(&IfReqs[IdxReq].ifr_addr), sizeof(sockaddr_in));
 						break;
 					}
 					else if (strcmp(IfReqs[IdxReq].ifr_name, "rmnet0") == 0)
 					{
 						// 'Usually' cellular
-						FMemory::Memcpy((void*)&CellularAddress, (void*)IfReqs[IdxReq].ifr_addr, sizeof(sockaddr_in));
+						FMemory::Memcpy((void*)&CellularAddress, (void*)(&IfReqs[IdxReq].ifr_addr), sizeof(sockaddr_in));
 					}
 					else if (OtherAddress.ss_family == AF_UNSPEC)
 					{
 						// First alternate found
-						FMemory::Memcpy((void*)&OtherAddress, (void*)IfReqs[IdxReq].ifr_addr, sizeof(sockaddr_in));
+						FMemory::Memcpy((void*)&OtherAddress, (void*)(&IfReqs[IdxReq].ifr_addr), sizeof(sockaddr_in));
 					}
 				}
 			}

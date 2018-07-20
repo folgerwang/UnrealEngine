@@ -6,8 +6,9 @@
 #include "BSDSockets/SocketsBSD.h"
 #include "IPAddress.h"
 #include <ifaddrs.h>
-#include "SocketsBSDIPv6IOS.h"
-#include "IPAddressBSDIPv6IOS.h"
+#include "SocketsBSDIOS.h"
+#include "IPAddressBSDIOS.h"
+
 FSocketSubsystemIOS* FSocketSubsystemIOS::SocketSingleton = NULL;
 
 class FSocketBSD* FSocketSubsystemIOS::InternalBSDSocketFactory(SOCKET Socket, ESocketType SocketType, const FString& SocketDescription)

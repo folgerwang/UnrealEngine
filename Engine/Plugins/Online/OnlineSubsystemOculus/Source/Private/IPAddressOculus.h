@@ -80,7 +80,7 @@ public:
 
 	virtual void SetRawIp(const TArray<uint8>& RawAddr) override
 	{
-		ovrID NewId;
+		ovrID NewId = 0;
 
 		// Make a quick copy of the array
 		TArray<uint8> WorkingArray = RawAddr;
