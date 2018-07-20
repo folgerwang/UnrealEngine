@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "CoreMinimal.h"
+#include "CoreTypes.h"
 
 static FORCEINLINE uint32 Murmur32( std::initializer_list< uint32 > InitList )
 {

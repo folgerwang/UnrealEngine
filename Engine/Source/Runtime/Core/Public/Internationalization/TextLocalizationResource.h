@@ -2,7 +2,7 @@
 
 #pragma once 
 
-#include "CoreMinimal.h"
+#include "CoreTypes.h"
 #include "Containers/SortedMap.h"
 #include "Internationalization/LocKeyFuncs.h"
 #include "Internationalization/LocalizedTextSourceTypes.h"

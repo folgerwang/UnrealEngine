@@ -8,7 +8,6 @@
 #pragma once
 
 #include "CoreTypes.h"
-#include "CoreMinimal.h"
 #include "Containers/Queue.h"
 
 #if WITH_SERVER_CODE

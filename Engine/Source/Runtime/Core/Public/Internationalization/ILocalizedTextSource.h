@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "CoreMinimal.h"
+#include "CoreTypes.h"
 #include "Containers/ArrayView.h"
 #include "Internationalization/LocalizedTextSourceTypes.h"
 
