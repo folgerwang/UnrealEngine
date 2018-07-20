@@ -3308,7 +3308,7 @@ namespace UnrealBuildTool
 			}
 
 			// Also synthesize references for plugins which are enabled by default
-			if (Rules.bCompileAgainstEngine)
+			if (Rules.bCompileAgainstEngine || Rules.bCompileWithPluginSupport)
 			{
 				foreach(PluginInfo Plugin in NameToInfo.Values)
 				{
@@ -3429,6 +3429,13 @@ namespace UnrealBuildTool
 				if(Info.Descriptor.bRequiresBuildPlatform && ShouldExcludePlugin(Info, ExcludeFolders))
 				{
 					Log.TraceLog("Ignoring plugin '{0}' (referenced via {1}) due to missing build platform", Reference.Name, ReferenceChain);
+					return null;
+				}
+
+				// Disable any plugins that aren't compatible with this program
+				if (Rules.Type == TargetType.Program && (Info.Descriptor.SupportedPrograms == null || !Info.Descriptor.SupportedPrograms.Contains(AppName)))
+				{
+					Log.TraceLog("Ignoring plugin '{0}' (referenced via {1}) due to absence from supported programs list.", Reference.Name, ReferenceChain);
 					return null;
 				}
 

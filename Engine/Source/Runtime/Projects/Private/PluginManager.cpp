@@ -500,7 +500,6 @@ bool FPluginManager::ConfigureEnabledPlugins()
 				}
 			}
 
-#if !IS_PROGRAM || HACK_HEADER_GENERATOR
 			// Add the plugins which are enabled by default
 			for (const TPair<FString, TSharedRef<FPlugin>>& PluginPair : AllPlugins)
 			{
@@ -513,7 +512,6 @@ bool FPluginManager::ConfigureEnabledPlugins()
 					ConfiguredPluginNames.Add(PluginPair.Key);
 				}
 			}
-#endif
 		}
 #if IS_PROGRAM
 		// Programs can also define the list of enabled plugins in ini
@@ -771,6 +769,14 @@ bool FPluginManager::ConfigureEnabledPlugin(const FPluginReferenceDescriptor& Fi
 			if(!Plugin.Descriptor.SupportsTargetPlatform(FPlatformMisc::GetUBTPlatform()))
 			{
 				UE_LOG(LogPluginManager, Verbose, TEXT("Ignoring plugin '%s' due to unsupported platform in plugin descriptor"), *Reference.Name);
+				continue;
+			}
+#endif
+			// Check that this plugin supports the current program
+#if IS_PROGRAM
+			if (!Plugin.Descriptor.SupportedPrograms.Contains(UE_APP_NAME))
+			{
+				UE_LOG(LogPluginManager, Verbose, TEXT("Ignoring plugin '%s' due to absence from the supported programs list"), *Reference.Name);
 				continue;
 			}
 #endif
