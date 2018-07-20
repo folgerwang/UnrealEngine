@@ -4,6 +4,9 @@
 
 #include "CoreTypes.h"
 #include "Internationalization/LocalizedTextSourceTypes.h"
+#include "Containers/UnrealString.h"
+#include "Containers/Map.h"
+#include "Internationalization/Text.h"
 
 /**
  * Polyglot data that may be registered to the text localization manager at runtime.
