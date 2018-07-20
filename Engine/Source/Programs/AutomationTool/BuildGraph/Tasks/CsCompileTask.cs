@@ -35,6 +35,12 @@ namespace AutomationTool.Tasks
 		public string Platform;
 
 		/// <summary>
+		/// The target to build
+		/// </summary>
+		[TaskParameter(Optional = true)]
+		public string Target;
+
+		/// <summary>
 		/// Additional options to pass to the compiler
 		/// </summary>
 		[TaskParameter(Optional = true)]
@@ -124,6 +130,10 @@ namespace AutomationTool.Tasks
 				if(!String.IsNullOrEmpty(Parameters.Arguments))
 				{
 					Arguments.Add(Parameters.Arguments);
+				}
+				if(!String.IsNullOrEmpty(Parameters.Target))
+				{
+					Arguments.Add(String.Format("/target:{0}", CommandUtils.MakePathSafeToUseWithCommandLine(Parameters.Target)));
 				}
 				Arguments.Add("/verbosity:minimal");
 				Arguments.Add("/nologo");
