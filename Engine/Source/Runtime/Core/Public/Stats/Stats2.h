@@ -15,6 +15,8 @@
 #include "Containers/ChunkedArray.h"
 #include "Delegates/Delegate.h"
 #include "Templates/Atomic.h"
+#include "Math/Color.h"
+#include "StatsCommon.h"
 
 class FScopeCycleCounter;
 class FThreadStats;
