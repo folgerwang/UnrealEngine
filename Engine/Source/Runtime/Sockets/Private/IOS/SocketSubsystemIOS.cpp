@@ -164,7 +164,7 @@ TSharedRef<FInternetAddr> FSocketSubsystemIOS::GetLocalHostAddr(FOutputDevice& O
 }
 
 TSharedRef<FInternetAddr> FSocketSubsystemIOS::CreateInternetAddr(uint32 Address, uint32 Port)
-	{
+{
 	TSharedRef<FInternetAddr> Result = MakeShareable(new FInternetAddrBSDIOS);
 	Result->SetIp(Address);
 	Result->SetPort(Port);
