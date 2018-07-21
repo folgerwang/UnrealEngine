@@ -197,10 +197,7 @@ class TMeshAttributeArray final : public TMeshAttributeArrayBase<AttributeType>
 public:
 
 	/** Element accessors */
-	DEPRECATED( 4.20, "Please access attributes via GetAttributesRef() or GetAttributesView() instead." )
 	FORCEINLINE const AttributeType& operator[]( const ElementIDType ElementID ) const { return this->Container[ ElementID.GetValue() ]; }
-
-	DEPRECATED( 4.20, "Please access attributes via GetAttributesRef() or GetAttributesView() instead." )
 	FORCEINLINE AttributeType& operator[]( const ElementIDType ElementID ) { return this->Container[ ElementID.GetValue() ]; }
 };
 
