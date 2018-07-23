@@ -52,11 +52,12 @@ void UInputComponent::ConditionalBuildKeyMap(UPlayerInput* PlayerInput)
 		CachedInfoToPopulate->PlayerInput = PlayerInput;
 	}
 
-	// Reset the map
+	// Reset the map and AnyKey array
 	for (TPair<FKey, TArray<TSharedPtr<FInputActionBinding>>>& KeyBindingPair : CachedInfoToPopulate->KeyToActionMap)
 	{
 		KeyBindingPair.Value.Reset();
 	}
+	CachedInfoToPopulate->AnyKeyToActionMap.Reset();
 
 	for (const TSharedPtr<FInputActionBinding>& ActionBinding : ActionBindings)
 	{
@@ -64,7 +65,14 @@ void UInputComponent::ConditionalBuildKeyMap(UPlayerInput* PlayerInput)
 
 		for (const FInputActionKeyMapping& KeyMapping : KeysForAction)
 		{
-			CachedInfoToPopulate->KeyToActionMap.FindOrAdd(KeyMapping.Key).Add(ActionBinding);
+			if (KeyMapping.Key != EKeys::AnyKey)
+			{
+				CachedInfoToPopulate->KeyToActionMap.FindOrAdd(KeyMapping.Key).Add(ActionBinding);
+			}
+			else
+			{
+				CachedInfoToPopulate->AnyKeyToActionMap.Add(ActionBinding);
+			}
 		}
 	}
 
@@ -83,6 +91,10 @@ void UInputComponent::GetActionsBoundToKey(UPlayerInput* PlayerInput, const FKey
 				{
 					Actions.AddUnique(ActionForKey);
 				}
+			}
+			for (const TSharedPtr<FInputActionBinding>& ActionForKey : CachedInfo.AnyKeyToActionMap)
+			{
+				Actions.AddUnique(ActionForKey);
 			}
 			return;
 		}

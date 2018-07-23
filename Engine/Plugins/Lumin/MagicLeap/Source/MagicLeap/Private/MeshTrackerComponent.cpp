@@ -367,7 +367,7 @@ UMeshTrackerComponent::UMeshTrackerComponent(const FObjectInitializer& ObjectIni
 	BoundingVolume->SetCanEverAffectNavigation(false);
 	BoundingVolume->CanCharacterStepUpOn = ECanBeCharacterBase::ECB_No;
 	BoundingVolume->SetCollisionObjectType(ECollisionChannel::ECC_WorldDynamic);
-	BoundingVolume->bGenerateOverlapEvents = false;
+	BoundingVolume->SetGenerateOverlapEvents(false);
 	// Recommended default box extents for meshing - 10m (5m radius)
 	BoundingVolume->SetBoxExtent(FVector(1000, 1000, 1000), false);
 

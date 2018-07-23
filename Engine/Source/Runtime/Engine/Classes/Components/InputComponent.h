@@ -608,6 +608,9 @@ struct FCachedKeyToActionInfo
 	/** Reverse lookup map to speed up evaluation of action bindings. Will be rebuilt via ConditionalBuildKeyMap when action bindings or key mappings are changed. */
 	TMap<FKey, TArray<TSharedPtr<FInputActionBinding>>> KeyToActionMap;
 
+	/** Keep the AnyKey to action map separately as we don't want to have query the map to find it every time. */
+	TArray<TSharedPtr<FInputActionBinding>> AnyKeyToActionMap;
+
 	FCachedKeyToActionInfo()
 		: PlayerInput(nullptr)
 		, KeyMapBuiltForIndex(0)

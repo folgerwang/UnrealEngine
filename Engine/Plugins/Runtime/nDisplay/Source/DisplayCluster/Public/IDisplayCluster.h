@@ -5,6 +5,9 @@
 #include "Modules/ModuleManager.h"
 #include "Modules/ModuleInterface.h"
 
+#include "DisplayClusterOperationMode.h"
+
+
 struct IDisplayClusterRenderManager;
 struct IDisplayClusterClusterManager;
 struct IDisplayClusterInputManager;
@@ -43,6 +46,21 @@ struct IDisplayCluster
 	{
 		return FModuleManager::Get().IsModuleLoaded(IDisplayCluster::ModuleName);
 	}
+
+
+	/**
+	* Checks if the module has been initialized.
+	*
+	* @return Is initialized
+	*/
+	virtual bool IsModuleInitialized() const = 0;
+
+	/**
+	* Returns current operation mode.
+	*
+	* @return Display Cluster operation mode
+	*/
+	virtual EDisplayClusterOperationMode GetOperationMode() const = 0;
 
 	/**
 	* Access to the device manager.

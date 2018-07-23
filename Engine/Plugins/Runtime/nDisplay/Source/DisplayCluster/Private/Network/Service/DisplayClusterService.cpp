@@ -18,6 +18,11 @@ FDisplayClusterService::FDisplayClusterService(const FString& name, const FStrin
 
 bool FDisplayClusterService::IsClusterIP(const FIPv4Endpoint& ep)
 {
+	if (GDisplayCluster->GetOperationMode() == EDisplayClusterOperationMode::Disabled)
+	{
+		return false;
+	}
+
 	TArray<FDisplayClusterConfigClusterNode> nodes = GDisplayCluster->GetPrivateConfigMgr()->GetClusterNodes();
 	const FString addr = ep.Address.ToString();
 	

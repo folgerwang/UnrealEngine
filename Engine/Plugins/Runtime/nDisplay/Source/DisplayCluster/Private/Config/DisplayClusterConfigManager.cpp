@@ -107,6 +107,11 @@ bool FDisplayClusterConfigManager::GetMasterClusterNode(FDisplayClusterConfigClu
 
 bool FDisplayClusterConfigManager::GetLocalClusterNode(FDisplayClusterConfigClusterNode& node) const
 {
+	if (GDisplayCluster->GetOperationMode() == EDisplayClusterOperationMode::Disabled)
+	{
+		return false;
+	}
+
 	const FString nodeId = GDisplayCluster->GetPrivateClusterMgr()->GetNodeId();
 	return GetItem(CfgClusterNodes, nodeId, node, FString("GetLocalNode"));
 }
