@@ -452,8 +452,14 @@ bool FSoftObjectPath::FixupCoreRedirects()
 
 	if (OldName != NewName)
 	{
-		SetPath(NewName.ToString());
-		return true;
+		// Only do the fixup if the old object isn't in memory, this avoids false positives
+		UObject* FoundOldObject = FindObject<UObject>(nullptr, *OldString);
+
+		if (!FoundOldObject)
+		{
+			SetPath(NewName.ToString());
+			return true;
+		}
 	}
 
 	return false;

@@ -504,7 +504,7 @@ bool FCoreRedirects::GetMatchingRedirects(ECoreRedirectFlags Type, const FCoreRe
 		ECoreRedirectFlags PairType = Pair.Key;
 
 		// For type, check it includes the matching type
-		const bool bTypeMatches = !!((PairType | Type) & ECoreRedirectFlags::Type_AllMask);
+		const bool bTypeMatches = !!((PairType & Type) & ECoreRedirectFlags::Type_AllMask);
 		// For options, instance/remove must match exactly, but allow both substring and non substring
 		const bool bOptionsMatch = (PairType & ECoreRedirectFlags::Option_ExactMatchMask) == (Type & ECoreRedirectFlags::Option_ExactMatchMask);
 
@@ -545,7 +545,7 @@ bool FCoreRedirects::FindPreviousNames(ECoreRedirectFlags Type, const FCoreRedir
 		ECoreRedirectFlags PairType = Pair.Key;
 
 		// For type, check it includes the matching type
-		const bool bTypeMatches = !!((PairType | Type) & ECoreRedirectFlags::Type_AllMask);
+		const bool bTypeMatches = !!((PairType & Type) & ECoreRedirectFlags::Type_AllMask);
 		// For options, instance/remove must match exactly, but allow both substring and non substring
 		const bool bOptionsMatch = (PairType & ECoreRedirectFlags::Option_ExactMatchMask) == (Type & ECoreRedirectFlags::Option_ExactMatchMask);
 
