@@ -40,14 +40,6 @@
 
 const FName UMGEditorAppIdentifier = FName(TEXT("UMGEditorApp"));
 
-PRAGMA_DISABLE_DEPRECATION_WARNINGS
-const FSlateBrush* GetEditorIcon_Deprecated(UWidget* Widget)
-{
-	const FSlateBrush* Brush = Widget->GetEditorIcon();
-	return Brush ? Brush : FClassIconFinder::FindIconForClass(Widget->GetClass());
-}
-PRAGMA_ENABLE_DEPRECATION_WARNINGS
-
 class FUMGEditorModule : public IUMGEditorModule, public IBlueprintCompiler, public FGCObject
 {
 public:

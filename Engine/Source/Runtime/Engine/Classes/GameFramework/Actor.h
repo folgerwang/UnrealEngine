@@ -1809,6 +1809,8 @@ public:
 	/** Returns NumUncachedStaticLightingInteractions for this actor */
 	const int32 GetNumUncachedStaticLightingInteractions() const;
 
+	/** Returns a custom brush icon name to use in place of the automatic class icon where actors are represented via 2d icons in the editor (e.g scene outliner and menus) */
+	virtual FName GetCustomIconName() const { return NAME_None; }
 #endif		// WITH_EDITOR
 
 	/**

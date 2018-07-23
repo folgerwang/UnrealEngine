@@ -125,10 +125,10 @@ namespace SceneOutliner
 		virtual void SetKeyboardFocus() override;
 
 		/** Gets the cached icon for this class name */
-		virtual FSlateBrush* GetCachedIconForClass(FName InClassName) const override;
+		virtual const FSlateBrush* GetCachedIconForClass(FName InClassName) const override;
 		
 		/** Sets the cached icon for this class name */
-		virtual void CacheIconForClass(FName InClassName, FSlateBrush* InSlateBrush) override;
+		virtual void CacheIconForClass(FName InClassName, const FSlateBrush* InSlateBrush) override;
 		
 	private:
 		/** Methods that implement structural modification logic for the tree */
@@ -511,7 +511,7 @@ namespace SceneOutliner
 		/** The tree item that is currently pending a rename */
 		TWeakPtr<ITreeItem> PendingRenameItem;
 
-		TMap<FName, FSlateBrush*> CachedIcons;
+		TMap<FName, const FSlateBrush*> CachedIcons;
 
 	private:
 		/** Functions relating to sorting */
