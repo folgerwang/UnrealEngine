@@ -171,14 +171,23 @@ class AUGMENTEDREALITY_API UARCandidateImage :
 
 public:
 	/** @see CandidateTexture */
+	UFUNCTION(BlueprintPure, Category = "AR AugmentedReality|Image Detection")
 	UTexture2D* GetCandidateTexture() const { return CandidateTexture; }
+
 	/** @see FriendlyName */
+	UFUNCTION(BlueprintPure, Category = "AR AugmentedReality|Image Detection")
 	const FString& GetFriendlyName() const { return FriendlyName; }
+
 	/** @see Width */
+	UFUNCTION(BlueprintPure, Category = "AR AugmentedReality|Image Detection")
 	float GetPhysicalWidth() const { return Width; }
+
 	/** @see Height */
+	UFUNCTION(BlueprintPure, Category = "AR AugmentedReality|Image Detection")
 	float GetPhysicalHeight() const { return Height; }
+
 	/** @see Orientation */
+	UFUNCTION(BlueprintPure, Category = "AR AugmentedReality|Image Detection")
 	EARCandidateImageOrientation GetOrientation() const { return Orientation; }
 
 private:
@@ -214,24 +223,33 @@ class AUGMENTEDREALITY_API UARCandidateObject :
 	
 public:
 	/** @see CandidateObjectData */
+	UFUNCTION(BlueprintPure, Category = "AR AugmentedReality|Object Detection")
 	const TArray<uint8>& GetCandidateObjectData() const { return CandidateObjectData; }
+
+	UFUNCTION(BlueprintCallable, Category = "AR AugmentedReality|Object Detection")
 	void SetCandidateObjectData(const TArray<uint8>& InCandidateObject) { CandidateObjectData = InCandidateObject; }
+
 	/** @see FriendlyName */
+	UFUNCTION(BlueprintPure, Category = "AR AugmentedReality|Object Detection")
 	const FString& GetFriendlyName() const { return FriendlyName; }
+
 	/** @see BoundingBox */
+	UFUNCTION(BlueprintPure, Category = "AR AugmentedReality|Object Detection")
 	const FBox& GetBoundingBox() const { return BoundingBox; }
-	void SetBoundingBox(FBox& InBoundingBox) { BoundingBox = InBoundingBox; }
+
+	UFUNCTION(BlueprintCallable, Category = "AR AugmentedReality|Object Detection")
+	void SetBoundingBox(const FBox& InBoundingBox) { BoundingBox = InBoundingBox; }
 
 private:
 	/** The object to detect in scenes */
 	UPROPERTY(EditAnywhere, Category = "AR Candidate Object")
 	TArray<uint8> CandidateObjectData;
 	
-	/** The friendly name to report back when the image is detected in scenes */
+	/** The friendly name to report back when the object is detected in scenes */
 	UPROPERTY(EditAnywhere, Category = "AR Candidate Object")
 	FString FriendlyName;
 	
-	/** The physical width in centimeters of the object that this candidate image represents */
+	/** The physical bounds in centimeters of the object that this candidate object represents */
 	UPROPERTY(EditAnywhere, Category = "AR Candidate Image")
 	FBox BoundingBox;
 };

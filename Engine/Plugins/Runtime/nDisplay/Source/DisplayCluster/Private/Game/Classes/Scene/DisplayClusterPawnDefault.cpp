@@ -69,6 +69,11 @@ void ADisplayClusterPawnDefault::BeginPlay()
 
 	Super::BeginPlay();
 
+	if (!GDisplayCluster->IsModuleInitialized())
+	{
+		return;
+	}
+
 	GameMgr = GDisplayCluster->GetPrivateGameMgr();
 	bIsCluster = (GDisplayCluster->GetOperationMode() == EDisplayClusterOperationMode::Cluster);
 
@@ -77,7 +82,7 @@ void ADisplayClusterPawnDefault::BeginPlay()
 	bUseControllerRotationRoll  = !bIsCluster;
 
 	// Enable collision if needed
-	if (GameMgr->IsDisplayClusterActive())
+	if (GameMgr && GameMgr->IsDisplayClusterActive())
 	{
 		const ADisplayClusterSettings* const pDisplayClusterSettings = GameMgr->GetDisplayClusterSceneSettings();
 		if (pDisplayClusterSettings)
@@ -223,6 +228,7 @@ void ADisplayClusterPawnDefault::LookUpAtRate(float Rate)
 
 	if (bIsCluster)
 	{
+		//@note: usually CAVE-like systems don't use roll and pitch rotation since it can cause dizziness.
 #if 0
 		//@todo: rotate around active camera
 		IPDisplayClusterGameManager* const pMgr = GDisplayCluster->GetPrivateGameMgr();

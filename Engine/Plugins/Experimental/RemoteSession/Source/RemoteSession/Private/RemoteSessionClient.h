@@ -25,7 +25,7 @@ protected:
 	void 			StartConnection();
 	void 			CheckConnection();
 	
-	void OnChannelSelection(FBackChannelOSCMessage& Message, FBackChannelOSCDispatch& Dispatch);
+	void OnChannelSelection(FBackChannelOSCMessage& Message, FBackChannelOSCDispatch& Dispatch) override;
 
 	FString				HostAddress;
 	

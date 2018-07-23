@@ -369,6 +369,7 @@ public:
 	virtual const FShaderResourceViewRHIRef GetTangentsSRV() const = 0;
 	virtual const FShaderResourceViewRHIRef GetTextureCoordinatesSRV() const = 0;
 	virtual const FShaderResourceViewRHIRef GetColorComponentsSRV() const = 0;
+	virtual uint32 GetNumTexCoords() const = 0;
 	virtual const uint32 GetColorIndexMask() const = 0;
 
 	inline const FVertexStreamComponent& GetTangentStreamComponent(int Index)
@@ -469,6 +470,11 @@ public:
 	const FShaderResourceViewRHIRef GetTextureCoordinatesSRV() const override
 	{
 		return Data.TextureCoordinatesSRV;
+	}
+
+	uint32 GetNumTexCoords() const override
+	{
+		return Data.NumTexCoords;
 	}
 
 	const FShaderResourceViewRHIRef GetColorComponentsSRV() const override
@@ -621,6 +627,11 @@ public:
 	const FShaderResourceViewRHIRef GetTextureCoordinatesSRV() const override
 	{
 		return MorphData.TextureCoordinatesSRV;
+	}
+
+	uint32 GetNumTexCoords() const override
+	{
+		return MorphData.NumTexCoords;
 	}
 
 	const FShaderResourceViewRHIRef GetColorComponentsSRV() const override
@@ -928,6 +939,36 @@ public:
 	virtual const FGPUBaseSkinVertexFactory* GetVertexFactory() const override
 	{
 		return this;
+	}
+
+	const FShaderResourceViewRHIRef GetPositionsSRV() const override
+	{
+		return MeshMappingData.PositionComponentSRV;
+	}
+
+	const FShaderResourceViewRHIRef GetTangentsSRV() const override
+	{
+		return MeshMappingData.TangentsSRV;
+	}
+
+	const FShaderResourceViewRHIRef GetTextureCoordinatesSRV() const override
+	{
+		return MeshMappingData.TextureCoordinatesSRV;
+	}
+
+	uint32 GetNumTexCoords() const override
+	{
+		return MeshMappingData.NumTexCoords;
+	}
+
+	const FShaderResourceViewRHIRef GetColorComponentsSRV() const override
+	{
+		return MeshMappingData.ColorComponentsSRV;
+	}
+
+	const uint32 GetColorIndexMask() const override
+	{
+		return MeshMappingData.ColorIndexMask;
 	}
 
 	// FRenderResource interface.

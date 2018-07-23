@@ -818,10 +818,15 @@ FReply SGameplayTagWidget::OnAddSubtagClicked(TSharedPtr<FGameplayTagNode> InTag
 
 		Manager.GetTagEditorData(InTagNode->GetCompleteTagName(), TagComment, TagSource, bTagIsExplicit, bTagIsRestricted, bTagAllowsNonRestrictedChildren);
 
-		if (AddNewTagWidget.IsValid())
+		if (!bRestrictedTags && AddNewTagWidget.IsValid())
 		{
 			bAddTagSectionExpanded = true; 
 			AddNewTagWidget->AddSubtagFromParent(TagName, TagSource);
+		}
+		else if (bRestrictedTags && AddNewRestrictedTagWidget.IsValid())
+		{
+			bAddTagSectionExpanded = true;
+			AddNewRestrictedTagWidget->AddSubtagFromParent(TagName, TagSource, bTagAllowsNonRestrictedChildren);
 		}
 	}
 	return FReply::Handled();
@@ -1129,6 +1134,18 @@ void SGameplayTagWidget::RefreshTags()
 {
 	UGameplayTagsManager& Manager = UGameplayTagsManager::Get();
 	Manager.GetFilteredGameplayRootTags(RootFilterString, TagItems);
+
+	if (bRestrictedTags)
+	{
+		// We only want to show the restricted gameplay tags
+		for (int32 Idx = TagItems.Num() - 1; Idx >= 0; --Idx)
+		{
+			if (!TagItems[Idx]->IsRestrictedGameplayTag())
+			{
+				TagItems.RemoveAtSwap(Idx);
+			}
+		}
+	}
 
 	TagTreeWidget->SetTreeItemsSource(&TagItems);
 }

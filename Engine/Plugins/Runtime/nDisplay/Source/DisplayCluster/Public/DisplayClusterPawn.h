@@ -43,7 +43,7 @@ public:
 	UPROPERTY(EditAnywhere, Category = "DisplayCluster")
 	USceneComponent* RotationAround;
 
-protected:
+public:
 	//////////////////////////////////////////////////////////////////////////////////////////////
 	// APawn
 	//////////////////////////////////////////////////////////////////////////////////////////////
@@ -65,7 +65,10 @@ protected:
 	UDisplayClusterSceneComponent* CollisionOffsetComponent;
 
 private:
+	UPROPERTY()
 	UDisplayClusterSceneComponentSyncParent* DisplayClusterSyncRoot;
+	
+	UPROPERTY()
 	UDisplayClusterSceneComponentSyncParent* DisplayClusterSyncCollisionOffset;
 
 	IPDisplayClusterGameManager* GameMgr = nullptr;

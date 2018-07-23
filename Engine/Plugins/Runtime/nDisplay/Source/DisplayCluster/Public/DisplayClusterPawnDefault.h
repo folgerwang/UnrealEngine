@@ -33,16 +33,15 @@ public:
 	virtual UPawnMovementComponent* GetMovementComponent() const override
 	{ return MovementComponent; }
 
-protected:
+public:
 	//////////////////////////////////////////////////////////////////////////////////////////////
 	// APawn
 	//////////////////////////////////////////////////////////////////////////////////////////////
-	virtual void SetupPlayerInputComponent(UInputComponent* InInputComponent) override;
 	virtual void BeginPlay() override;
 	virtual void BeginDestroy() override;
 	virtual void Tick(float DeltaSeconds) override;
 
-protected:
+public:
 	/**
 	* Input callback to move forward in local space (or backward if Val is negative).
 	* @param Val Amount of movement in the forward direction (or backward if negative).
@@ -85,6 +84,9 @@ protected:
 	void LookUpAtRate(float Rate);
 
 protected:
+	virtual void SetupPlayerInputComponent(UInputComponent* InInputComponent) override;
+
+protected:
 	/** Movement component */
 	UPROPERTY(Category = Pawn, VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 	UFloatingPawnMovement* MovementComponent;
@@ -99,5 +101,5 @@ protected:
 private:
 	IPDisplayClusterGameManager* GameMgr = nullptr;
 
-	bool bIsCluster;
+	bool bIsCluster = false;
 };

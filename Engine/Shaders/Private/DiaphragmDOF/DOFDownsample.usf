@@ -57,11 +57,16 @@ void DownsampleCS(uint2 DispatchThreadId : SV_DispatchThreadID)
 		}
 		#endif
 	}
+	
+	FCocDownsampleParams DownsampleParams;
+	DownsampleParams.CocRadiusMultiplier = 1.0;
+	DownsampleParams.FrameExposureScale = 1.0;
+	DownsampleParams.bDoColorBasedWeighting = false;
 
 	// Downsample.
 	float4 OutColor;
 	float OutCocRadius;
-	DownsampleSceneColorWithCoc(SceneColors, CocRadii, OutColor, OutCocRadius);
+	DownsampleSceneColorWithCoc(DownsampleParams, SceneColors, CocRadii, OutColor, OutCocRadius);
 	
 	if (all(DispatchThreadId < ViewportRect.zw))
 	{

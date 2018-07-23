@@ -54,6 +54,8 @@ public:
 	//#todo-rco: Detect Mali?
 	static bool RequiresPresentLayoutFix() { return true; }
 
+	static bool HasUnifiedMemory() { return true; }
+
 	static bool RegisterGPUWork() { return false; }
 
 protected:

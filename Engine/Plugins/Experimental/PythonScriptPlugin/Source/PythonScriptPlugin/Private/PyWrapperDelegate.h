@@ -111,6 +111,12 @@ struct TPyWrapperDelegateMetaData : public FPyWrapperBaseMetaData
 		Collector.AddReferencedObject(PythonCallableForDelegateClass);
 	}
 
+	/** Get the reflection meta data type object associated with this wrapper type if there is one or nullptr if not. */
+	virtual const UField* GetMetaType() const override
+	{
+		return DelegateSignature.Func;
+	}
+
 	/** Unreal function representing the signature for the delegate */
 	PyGenUtil::FGeneratedWrappedFunction DelegateSignature;
 

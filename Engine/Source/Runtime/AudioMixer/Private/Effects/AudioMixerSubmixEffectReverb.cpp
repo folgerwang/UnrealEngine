@@ -8,15 +8,6 @@
 
 class UReverbEffect;
 
-static int32 DisableSubmixReverbCVar = 0;
-FAutoConsoleVariableRef CVarDisableSubmixReverb(
-	TEXT("au.DisableReverbSubmix"),
-	DisableSubmixReverbCVar,
-	TEXT("Disables the reverb submix.\n")
-	TEXT("0: Not Disabled, 1: Disabled"),
-	ECVF_Default);
-
-
 FSubmixEffectReverb::FSubmixEffectReverb()
 	: bIsEnabled(false)
 {
@@ -75,7 +66,7 @@ void FSubmixEffectReverb::OnPresetChanged()
 void FSubmixEffectReverb::OnProcessAudio(const FSoundEffectSubmixInputData& InData, FSoundEffectSubmixOutputData& OutData)
 {
 	check(InData.NumChannels == 2);
-	if (OutData.NumChannels < 2 || !bIsEnabled || (DisableSubmixReverbCVar != 0)) 
+	if (OutData.NumChannels < 2 || !bIsEnabled) 
 	{
 		// Not supported
 		return;

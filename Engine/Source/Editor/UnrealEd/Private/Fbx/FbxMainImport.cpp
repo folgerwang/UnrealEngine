@@ -968,6 +968,27 @@ void FFbxImporter::EnsureNodeNameAreValid()
 					FFbxErrors::Generic_LoadingSceneFailed);
 			}
 		}
+		if (NodeName.Contains(TEXT(":")))
+		{
+			NodeName = NodeName.Replace(TEXT(":"), TEXT("_"));
+			Node->SetName(TCHAR_TO_UTF8(*NodeName));
+		}
+		if (AllNodeName.Contains(NodeName))
+		{
+			FString UniqueNodeName;
+			do
+			{
+				UniqueNodeName = NodeName + FString::FromInt(CurrentNameIndex++);
+			} while (AllNodeName.Contains(UniqueNodeName));
+			Node->SetName(TCHAR_TO_UTF8(*UniqueNodeName));
+			if (!GIsAutomationTesting)
+			{
+				AddTokenizedErrorMessage(
+					FTokenizedMessage::Create(EMessageSeverity::Warning,
+						FText::Format(LOCTEXT("FbxImport_NodeNameClash", "FBX File Loading: Found name clash, node '{0}' was rename '{1}'"), FText::FromString(NodeName), FText::FromString(UniqueNodeName))),
+					FFbxErrors::Generic_LoadingSceneFailed);
+			}
+		}
 		AllNodeName.Add(NodeName);
 	}
 }

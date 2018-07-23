@@ -25,6 +25,12 @@ public:
 	//////////////////////////////////////////////////////////////////////////////////////////////
 	// IDisplayCluster
 	//////////////////////////////////////////////////////////////////////////////////////////////
+	virtual bool IsModuleInitialized() const override
+	{ return bIsModuleInitialized; }
+	
+	virtual EDisplayClusterOperationMode GetOperationMode() const override
+	{ return CurrentOperationMode; }
+
 	virtual IDisplayClusterRenderManager*    GetRenderMgr()    const override { return MgrRender; }
 	virtual IDisplayClusterClusterManager*   GetClusterMgr()   const override { return MgrCluster; }
 	virtual IDisplayClusterInputManager*     GetInputMgr()     const override { return MgrInput; }
@@ -40,9 +46,6 @@ public:
 	virtual IPDisplayClusterInputManager*     GetPrivateInputMgr()     const override { return MgrInput; }
 	virtual IPDisplayClusterConfigManager*    GetPrivateConfigMgr()    const override { return MgrConfig; }
 	virtual IPDisplayClusterGameManager*      GetPrivateGameMgr()      const override { return MgrGame; }
-
-	virtual EDisplayClusterOperationMode       GetOperationMode() const override
-	{ return CurrentOperationMode; }
 
 public:
 	//////////////////////////////////////////////////////////////////////////////////////////////
@@ -71,6 +74,10 @@ private:
 #endif
 
 private:
+	// Is module initialized.
+	// This flag is not the same as EDisplayClusterOperationMode::Disabled which is used when we turn off the DC functionality in a game mode.
+	bool bIsModuleInitialized = false;
+
 	// DisplayCluster subsystems
 	IPDisplayClusterClusterManager*   MgrCluster   = nullptr;
 	IPDisplayClusterRenderManager*    MgrRender    = nullptr;

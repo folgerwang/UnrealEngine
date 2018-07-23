@@ -735,8 +735,11 @@ void FMacApplication::ProcessMouseMovedEvent(const FDeferredMacEvent& Event, TSh
 		const EWindowZone::Type Zone = GetCurrentWindowZone(EventWindow.ToSharedRef());
 		bool IsMouseOverTitleBar = (Zone == EWindowZone::TitleBar);
 		const bool IsMovable = IsMouseOverTitleBar || IsEdgeZone(Zone);
-		[EventWindow->GetWindowHandle() setMovable:IsMovable];
-		[EventWindow->GetWindowHandle() setMovableByWindowBackground:IsMouseOverTitleBar];
+		FCocoaWindow* WindowHandle = EventWindow->GetWindowHandle();
+		MainThreadCall(^{
+			[WindowHandle setMovable:IsMovable];
+			[WindowHandle setMovableByWindowBackground:IsMouseOverTitleBar];
+		}, NSDefaultRunLoopMode, false);
 	}
 
 	FMacCursor* MacCursor = (FMacCursor*)Cursor.Get();

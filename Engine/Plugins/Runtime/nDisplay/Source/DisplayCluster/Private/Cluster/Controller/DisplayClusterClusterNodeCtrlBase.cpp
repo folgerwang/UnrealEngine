@@ -34,6 +34,11 @@ FDisplayClusterClusterNodeCtrlBase::~FDisplayClusterClusterNodeCtrlBase()
 //////////////////////////////////////////////////////////////////////////////////////////////
 bool FDisplayClusterClusterNodeCtrlBase::InitializeStereo()
 {
+	if (GDisplayCluster->GetOperationMode() == EDisplayClusterOperationMode::Disabled)
+	{
+		return false;
+	}
+
 	FDisplayClusterConfigViewport ViewportCfg;
 	if (!GDisplayCluster->GetPrivateConfigMgr()->GetLocalViewport(ViewportCfg))
 	{
@@ -41,6 +46,7 @@ bool FDisplayClusterClusterNodeCtrlBase::InitializeStereo()
 		return false;
 	}
 
+	//@todo: Move this logic to the render manager
 	IDisplayClusterStereoDevice* const StereoDevice = GDisplayCluster->GetPrivateRenderMgr()->GetStereoDevice();
 	if (StereoDevice)
 	{

@@ -218,7 +218,7 @@ void FStaticMeshInstanceBuffer::InitRHI()
 		QUICK_SCOPE_CYCLE_COUNTER(STAT_FStaticMeshInstanceBuffer_InitRHI);
 		auto AccessFlags = BUF_Static;
 		CreateVertexBuffer(InstanceData->GetOriginResourceArray(), AccessFlags | BUF_ShaderResource, 16, PF_A32B32G32R32F, InstanceOriginBuffer.VertexBufferRHI, InstanceOriginSRV);
-		CreateVertexBuffer(InstanceData->GetTransformResourceArray(), AccessFlags | BUF_ShaderResource, InstanceData->GetTranslationUsesHalfs() && GVertexElementTypeSupport.IsSupported(VET_Half2) ? 8 : 16, InstanceData->GetTranslationUsesHalfs() && GVertexElementTypeSupport.IsSupported(VET_Half2) ? PF_FloatRGBA : PF_A32B32G32R32F, InstanceTransformBuffer.VertexBufferRHI, InstanceTransformSRV);
+		CreateVertexBuffer(InstanceData->GetTransformResourceArray(), AccessFlags | BUF_ShaderResource, InstanceData->GetTranslationUsesHalfs() ? 8 : 16, InstanceData->GetTranslationUsesHalfs() ? PF_FloatRGBA : PF_A32B32G32R32F, InstanceTransformBuffer.VertexBufferRHI, InstanceTransformSRV);
 		CreateVertexBuffer(InstanceData->GetLightMapResourceArray(), AccessFlags | BUF_ShaderResource, 8, PF_R16G16B16A16_SNORM, InstanceLightmapBuffer.VertexBufferRHI, InstanceLightmapSRV);
 	}
 }
@@ -287,8 +287,8 @@ void FStaticMeshInstanceBuffer::BindInstanceVertexBuffer(const class FVertexFact
 			EVertexStreamUsage::ManualFetch | EVertexStreamUsage::Instancing
 		);
 
-		EVertexElementType TransformType = InstanceData->GetTranslationUsesHalfs() && GVertexElementTypeSupport.IsSupported(VET_Half2) ? VET_Half4 : VET_Float4;
-		uint32 TransformStride = InstanceData->GetTranslationUsesHalfs() && GVertexElementTypeSupport.IsSupported(VET_Half2) ? 8 : 16;
+		EVertexElementType TransformType = InstanceData->GetTranslationUsesHalfs() ? VET_Half4 : VET_Float4;
+		uint32 TransformStride = InstanceData->GetTranslationUsesHalfs() ? 8 : 16;
 
 		InstancedStaticMeshData.InstanceTransformComponent[0] = FVertexStreamComponent(
 			&InstanceTransformBuffer,
@@ -319,6 +319,72 @@ void FStaticMeshInstanceBuffer::BindInstanceVertexBuffer(const class FVertexFact
 			VET_Short4N,
 			EVertexStreamUsage::ManualFetch | EVertexStreamUsage::Instancing
 		);
+	}
+}
+
+
+void FStaticMeshInstanceData::Serialize(FArchive& Ar)
+{
+	// HTML5 doesn't support half float so we need to convert at cook time.
+	const bool bCookConvertTransformsToFullFloat = Ar.IsCooking() && bUseHalfFloat && !Ar.CookingTarget()->SupportsFeature(ETargetPlatformFeatures::HalfFloatVertexFormat);
+
+	if (bCookConvertTransformsToFullFloat)
+	{
+		bool bSaveUseHalfFloat = false;
+		Ar << bSaveUseHalfFloat;
+	}
+	else
+	{
+		Ar << bUseHalfFloat;
+	}
+
+	Ar << NumInstances;
+
+	if (Ar.IsLoading())
+	{
+		AllocateBuffers(NumInstances);
+	}
+
+	InstanceOriginData->Serialize(Ar);
+	InstanceLightmapData->Serialize(Ar);
+
+	if (bCookConvertTransformsToFullFloat)
+	{
+		TStaticMeshVertexData<FInstanceTransformMatrix<float>> FullInstanceTransformData;
+		FullInstanceTransformData.ResizeBuffer(NumInstances);
+
+		FInstanceTransformMatrix<FFloat16>* Src = (FInstanceTransformMatrix<FFloat16>*)InstanceTransformData->GetDataPointer();
+		FInstanceTransformMatrix<float>* Dest = (FInstanceTransformMatrix<float>*)FullInstanceTransformData.GetDataPointer();
+		for (int32 Idx = 0; Idx < NumInstances; Idx++)
+		{
+			Dest->InstanceTransform1[0] = Src->InstanceTransform1[0];
+			Dest->InstanceTransform1[1] = Src->InstanceTransform1[1];
+			Dest->InstanceTransform1[2] = Src->InstanceTransform1[2];
+			Dest->InstanceTransform1[3] = Src->InstanceTransform1[3];
+			Dest->InstanceTransform2[0] = Src->InstanceTransform2[0];
+			Dest->InstanceTransform2[1] = Src->InstanceTransform2[1];
+			Dest->InstanceTransform2[2] = Src->InstanceTransform2[2];
+			Dest->InstanceTransform2[3] = Src->InstanceTransform2[3];
+			Dest->InstanceTransform3[0] = Src->InstanceTransform3[0];
+			Dest->InstanceTransform3[1] = Src->InstanceTransform3[1];
+			Dest->InstanceTransform3[2] = Src->InstanceTransform3[2];
+			Dest->InstanceTransform3[3] = Src->InstanceTransform3[3];
+			Src++;
+			Dest++;
+		}
+
+		FullInstanceTransformData.Serialize(Ar);
+	}
+	else
+	{
+		InstanceTransformData->Serialize(Ar);
+	}
+
+	if (Ar.IsLoading())
+	{
+		InstanceOriginDataPtr = InstanceOriginData->GetDataPointer();
+		InstanceLightmapDataPtr = InstanceLightmapData->GetDataPointer();
+		InstanceTransformDataPtr = InstanceTransformData->GetDataPointer();
 	}
 }
 

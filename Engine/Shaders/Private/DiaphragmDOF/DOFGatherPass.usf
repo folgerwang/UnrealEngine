@@ -73,7 +73,12 @@ void StoreAccumulatorOutput(in uint2 OutputPixelPosition, in FAccumulatorOutput 
 		#if 1
 			float OcclusionStepness = rcp(max(CocRadiusStdDeviation * (0.5 * CocRadiusAvg), 1));
 			float OcclusionOffset = AccumulatorOutput.BackgroundCocAvgAndSquareAvg.x * OcclusionStepness + 1;
-		
+
+			// Multiply OcclusionStepness, to be equivalent as multiplying AbsCocRadius. This will result in a
+			// pull of the background bokeh closer to the camera when doing occlusion, reducing the amount of tiling
+			// artifacts between fast and slow gathered tiles that can generate noticeably different occlusion buffer.
+			OcclusionStepness *= 1 - FAST_GATHERING_COC_ERROR;
+
 			OutScatterOcclusion.x = OcclusionStepness;
 			OutScatterOcclusion.y = OcclusionOffset;
 		#else
@@ -173,13 +178,12 @@ void GatherMainCS(
 		GatherParameters.MaxRingCount = DIM_GATHER_RING_COUNT;
 		GatherParameters.bFastGathering = false;
 
+		GatherParameters.KernelSamplingDensityMode = KERNEL_DENSITY_CONSTANT;
+		GatherParameters.DensityChangeRingCount = GatherParameters.MaxRingCount / 2;
+		GatherParameters.MaxDensityChangeCount = CONFIG_MAX_SAMPLING_DENSITY_CHANGES;
+
 		// TODO: variable number of ring.
 		GatherParameters.RingCount = GatherParameters.MaxRingCount;
-		
-		GatherParameters.KernelSamplingDensityMode = KERNEL_DENSITY_CONSTANT;
-		UNROLL
-		for (uint i = 0; i < CONFIG_MAX_SAMPLING_DENSITY_CHANGES; i++)
-			GatherParameters.bDoHighDensityGatheringAtCenter[i] = false;
 		
 		GatherParameters.ConsiderCocRadiusAffineTransformation0 = kContantlyPassingAffineTransformation;
 		GatherParameters.ConsiderCocRadiusAffineTransformation1 = kContantlyPassingAffineTransformation;
@@ -243,6 +247,7 @@ void GatherMainCS(
 		// Kernel radius is simply set to the maximum absolute Coc size.
 		GatherParameters.ClosestCocRadius = TileSuggestion.ClosestCocRadius;
 		GatherParameters.KernelRadius = TileSuggestion.MaxCocRadiusAbs;
+		GatherParameters.MinIntersectableCocRadiusAbs = TileSuggestion.MinIntersectableCocRadiusAbs;
 
 		#if DIM_LAYER_PROCESSING == LAYER_PROCESSING_SLIGHT_OUT_OF_FOCUS
 		{
@@ -367,27 +372,17 @@ void GatherMainCS(
 			#endif
 
 			GatherParameters.KernelSamplingDensityMode = KERNEL_DENSITY_HIGHER_IN_CENTER_DISK;
-
-			UNROLL
-			for (uint i = 0; i < CONFIG_MAX_SAMPLING_DENSITY_CHANGES; i++)
-			{
-				const float MinConvolutionRadius = float(8 << i);
-				const float SmallestConvolutionRadius = rcp(float(2 << i)) * TileSuggestion.MaxCocRadiusAbs;
-
-				GatherParameters.bDoHighDensityGatheringAtCenter[i] = (
-					TileSuggestion.MaxCocRadiusAbs > MinConvolutionRadius &&
-					TileSuggestion.MinIntersectableCocRadiusAbs < SmallestConvolutionRadius);
-			}
 		}
 		#endif
 
 		// Create, use and resolve gather accumulator.
 		FAccumulatorOutput AccumulatorOutput = CreateAccumulatorOutput();
+		uint DebugGatherDensityChanges;
 		{
 			FFastAccumulatorOutput UnusedFastAccumulatorOutput;
 
 			FGatherAccumulator FirstAccumulator = CreateGatherAccumulator(GatherParameters, LargerConvolution);
-			GatherSamplesAndResolve(GatherParameters, FirstAccumulator, AccumulatorOutput, UnusedFastAccumulatorOutput);
+			DebugGatherDensityChanges = GatherSamplesAndResolve(GatherParameters, FirstAccumulator, AccumulatorOutput, UnusedFastAccumulatorOutput);
 		}
 
 		#if DEBUG_FAST_ACCUMULATOR
@@ -396,7 +391,7 @@ void GatherMainCS(
 			UNROLL
 			for (uint i = 0; i < CONFIG_MAX_SAMPLING_DENSITY_CHANGES; i++)
 			{
-				if (GatherParameters.bDoHighDensityGatheringAtCenter[i])
+				if (i < DebugGatherDensityChanges)
 				{
 					AccumulatorOutput.ForegroundColor.rgb *= float3(1, 0.5, 0.5);
 					AccumulatorOutput.BackgroundColor.rgb *= float3(1, 0.5, 0.5);

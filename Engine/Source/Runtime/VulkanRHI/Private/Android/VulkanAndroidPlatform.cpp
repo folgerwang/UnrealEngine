@@ -1,5 +1,13 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
+#ifndef PLATFORM_LUMIN
+	#define	PLATFORM_LUMIN	0
+#endif
+
+#ifndef PLATFORM_LUMINGL4
+	#define	PLATFORM_LUMINGL4	0
+#endif
+
 //#todo-Lumin: Remove this define when it becomes untangled from Android
 #if !PLATFORM_LUMIN && !PLATFORM_LUMINGL4
 #include "VulkanAndroidPlatform.h"
@@ -102,8 +110,7 @@ void FVulkanAndroidPlatform::FreeVulkanLibrary()
 void FVulkanAndroidPlatform::CreateSurface(void* WindowHandle, VkInstance Instance, VkSurfaceKHR* OutSurface)
 {
 	VkAndroidSurfaceCreateInfoKHR SurfaceCreateInfo;
-	FMemory::Memzero(SurfaceCreateInfo);
-	SurfaceCreateInfo.sType = VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR;
+	ZeroVulkanStruct(SurfaceCreateInfo, VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR);
 	SurfaceCreateInfo.window = (ANativeWindow*)WindowHandle;
 
 	VERIFYVULKANRESULT(vkCreateAndroidSurfaceKHR(Instance, &SurfaceCreateInfo, nullptr, OutSurface));

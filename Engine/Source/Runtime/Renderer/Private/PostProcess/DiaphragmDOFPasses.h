@@ -143,11 +143,15 @@ public:
 		/** Convert pre-processing coc radius to processing coc radius */
 		float PreProcessingToProcessingCocRadiusFactor;
 
+		// Error introduced by the random offset of the gathering kernel.
+		float BluringRadiusErrorMultiplier;
+
 		FParameters()
 			: Mode(EMode::StandAlone)
 			, SampleRadiusCount(0)
 			, SampleDistanceMultiplier(1)
 			, PreProcessingToProcessingCocRadiusFactor(1.0f)
+			, BluringRadiusErrorMultiplier(1.0f)
 		{ }
 	};
 

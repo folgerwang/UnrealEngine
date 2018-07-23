@@ -94,6 +94,7 @@ private:
 	void OrientationChanged(const int32 NewOrientation);
 	void UpdatePoses();
 	void UpdateFrame();
+	void CalcTrackingToWorldRotation();
 
 public:
 	// Session delegate callbacks
