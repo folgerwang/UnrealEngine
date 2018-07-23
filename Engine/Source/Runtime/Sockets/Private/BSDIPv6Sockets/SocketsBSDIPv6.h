@@ -26,27 +26,18 @@ namespace EIPv6SocketInternalState
 	};
 };
 
-class FSocketBSDIPv6_Base_DEPRECATED
+/**
+ * Implements a BSD network socket.
+ */
+class FSocketBSDIPv6: public FSocket
 {
 protected:
-
-	FSocketBSDIPv6_Base_DEPRECATED(SOCKET InSocket, ISocketSubsystem* InSubsystem) :
-		Socket(InSocket), SocketSubsystem(InSubsystem) { }
-
 	// Holds the BSD socket object.
 	SOCKET Socket;
 
 	// Pointer to the subsystem that created it
 	ISocketSubsystem * SocketSubsystem;
-};
 
-
-/**
- * Implements a BSD network socket.
- */
-class DEPRECATED(4.21, "FSocketBSDIPv6 is deprecated. Move to FSocketBSD.") FSocketBSDIPv6
-	: public FSocket, FSocketBSDIPv6_Base_DEPRECATED
-{
 public:
 
 	/**
@@ -59,7 +50,8 @@ public:
 	 */
 	FSocketBSDIPv6(SOCKET InSocket, ESocketType InSocketType, const FString& InSocketDescription, ISocketSubsystem* InSubsystem) 
 		: FSocket(InSocketType, InSocketDescription)
-		, FSocketBSDIPv6_Base_DEPRECATED(InSocket, InSubsystem)
+		, Socket(InSocket)
+		, SocketSubsystem(InSubsystem)
 	{ }
 
 	/**

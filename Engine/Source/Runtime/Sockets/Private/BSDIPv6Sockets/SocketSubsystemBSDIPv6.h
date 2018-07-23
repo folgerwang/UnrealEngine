@@ -29,6 +29,8 @@ public:
 
 	virtual void DestroySocket( class FSocket* Socket ) override;
 
+	virtual TArray<TSharedRef<FInternetAddr> > GetAddressInfo(const ANSICHAR* HostName, bool bResolveAddress, ESocketProtocolFamily ProtocolType = ESocketProtocolFamily::None);
+
 	virtual ESocketErrors GetHostByName( const ANSICHAR* HostName, FInternetAddr& OutAddr ) override;
 
 	virtual bool GetHostName( FString& HostName ) override;
@@ -68,10 +70,8 @@ protected:
 	 */
 	virtual class FSocketBSDIPv6* InternalBSDSocketFactory( SOCKET Socket, ESocketType SocketType, const FString& SocketDescription );
 
-	PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	// allow BSD sockets to use this when creating new sockets from accept() etc
-	friend FSocketBSDIPv6;
-	PRAGMA_ENABLE_DEPRECATION_WARNINGS
+	friend class FSocketBSDIPv6;
 
 	// Used to prevent multiple threads accessing the shared data.
 	FCriticalSection HostByNameSynch;

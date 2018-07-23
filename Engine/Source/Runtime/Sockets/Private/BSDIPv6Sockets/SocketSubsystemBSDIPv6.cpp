@@ -82,51 +82,73 @@ void FSocketSubsystemBSDIPv6::DestroySocket(FSocket* Socket)
 	delete Socket;
 }
 
-ESocketErrors FSocketSubsystemBSDIPv6::GetHostByName(const ANSICHAR* HostName, FInternetAddr& OutAddr)
+TArray<TSharedRef<FInternetAddr> > FSocketSubsystemBSDIPv6::GetAddressInfo(const ANSICHAR* HostName, bool bResolveAddress, ESocketProtocolFamily ProtocolType)
 {
-	FScopeLock ScopeLock(&HostByNameSynch);
-	addrinfo* AddrInfo = NULL;
+	TArray<TSharedRef<FInternetAddr> > GetAddrArray;
 
-	// We are only interested in IPv6 addresses.
+#if PLATFORM_HAS_BSD_SOCKET_FEATURE_GETADDRINFO
+	addrinfo* AddrInfo = nullptr;
+
 	addrinfo HintAddrInfo;
 	FMemory::Memzero(&HintAddrInfo, sizeof(HintAddrInfo));
 	HintAddrInfo.ai_family = AF_UNSPEC;
+	HintAddrInfo.ai_flags = AI_ADDRCONFIG | AI_PASSIVE;
 
-	int32 ErrorCode = getaddrinfo(HostName, NULL, &HintAddrInfo, &AddrInfo);
+	if (!bResolveAddress)
+	{
+		HintAddrInfo.ai_flags |= AI_NUMERICHOST;
+	}
+
+	int32 ErrorCode = getaddrinfo(HostName, nullptr, &HintAddrInfo, &AddrInfo);
 	ESocketErrors SocketError = TranslateGAIErrorCode(ErrorCode);
 	if (SocketError == SE_NO_ERROR)
 	{
 		for (; AddrInfo != nullptr; AddrInfo = AddrInfo->ai_next)
 		{
-			if (AddrInfo->ai_family == AF_INET6)
+			if (AddrInfo->ai_family == AF_INET6 || AddrInfo->ai_family == AF_INET)
 			{
-				sockaddr_in6* IPv6SockAddr = reinterpret_cast<sockaddr_in6*>(AddrInfo->ai_addr);
-				if (IPv6SockAddr != nullptr)
+				TSharedRef<FInternetAddrBSDIPv6> NewAddr = MakeShareable(new FInternetAddrBSDIPv6);
+				if (AddrInfo->ai_family == AF_INET6)
 				{
+					sockaddr_in6* IPv6SockAddr = reinterpret_cast<sockaddr_in6*>(AddrInfo->ai_addr);
+					if (IPv6SockAddr != nullptr)
+					{
 #if PLATFORM_IOS
-					static_cast<FInternetAddrBSDIPv6&>(OutAddr).SetIp(*IPv6SockAddr);
+						NewAddr->SetIp(*IPv6SockAddr);
 #else
-					static_cast<FInternetAddrBSDIPv6&>(OutAddr).SetIp(IPv6SockAddr->sin6_addr);
+						NewAddr->SetIp(IPv6SockAddr->sin6_addr);
 #endif
-					freeaddrinfo(AddrInfo);
-					return SE_NO_ERROR;
+					}
 				}
-			}
-			else if (AddrInfo->ai_family == AF_INET)
-			{
-				sockaddr_in* IPv4SockAddr = reinterpret_cast<sockaddr_in*>(AddrInfo->ai_addr);
-				if (IPv4SockAddr != nullptr)
+				else if (AddrInfo->ai_family == AF_INET)
 				{
-					static_cast<FInternetAddrBSDIPv6&>(OutAddr).SetIp(IPv4SockAddr->sin_addr);
-					freeaddrinfo(AddrInfo);
-					return SE_NO_ERROR;
+					sockaddr_in* IPv4SockAddr = reinterpret_cast<sockaddr_in*>(AddrInfo->ai_addr);
+					if (IPv4SockAddr != nullptr)
+					{
+						NewAddr->SetIp(IPv4SockAddr->sin_addr);
+					}
 				}
+				GetAddrArray.Add(NewAddr);
 			}
 		}
 		freeaddrinfo(AddrInfo);
-		return SE_HOST_NOT_FOUND;
 	}
-	return SocketError;
+#else
+	UE_LOG(LogSockets, Error, TEXT("Platform has no getaddrinfo(), but did not override FSocketSubsystem::GetAddressInfo()"));
+#endif
+	return GetAddrArray;
+}
+
+ESocketErrors FSocketSubsystemBSDIPv6::GetHostByName(const ANSICHAR* HostName, FInternetAddr& OutAddr)
+{
+	TArray<TSharedRef<FInternetAddr> > Results = GetAddressInfo(HostName, true);
+	if (Results.Num() > 0)
+	{
+		OutAddr.SetRawIp(Results[0]->GetRawIp());
+		return SE_NO_ERROR;
+	}
+
+	return SE_HOST_NOT_FOUND;
 }
 
 bool FSocketSubsystemBSDIPv6::GetHostName(FString& HostName)

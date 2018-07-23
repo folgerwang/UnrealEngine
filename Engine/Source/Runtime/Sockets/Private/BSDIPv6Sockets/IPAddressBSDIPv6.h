@@ -9,21 +9,17 @@
 
 #if PLATFORM_HAS_BSD_IPV6_SOCKETS
 
-class FInternetAddrBSDIPv6_Base_DEPRECATED
+/**
+* Represents an internet ip address, using the relatively standard sockaddr_in6 structure. All data is in network byte order
+*/
+class FInternetAddrBSDIPv6 : public FInternetAddr
 {
-protected:
+private:
 	/** The internet ip address structure */
 	sockaddr_in6 Addr;
 
 	/** Horrible hack to catch hard coded multicasting on IPv4 **/
 	static const uint32 IPv4MulitcastAddr = ((230 << 24) | (0 << 16) | (0 << 8) | (1 << 0));
-};
-
-/**
-* Represents an internet ip address, using the relatively standard sockaddr_in6 structure. All data is in network byte order
-*/
-class DEPRECATED(4.21, "FInternetAddrBSDIPv6 is deprecated. Move to FInternetAddrBSD.") FInternetAddrBSDIPv6 : public FInternetAddr, FInternetAddrBSDIPv6_Base_DEPRECATED
-{
 
 public:
 	/**
