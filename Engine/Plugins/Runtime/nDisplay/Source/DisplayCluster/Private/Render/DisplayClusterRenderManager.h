@@ -6,7 +6,6 @@
 #include "IPDisplayClusterRenderManager.h"
 
 class FDisplayClusterDeviceBase;
-enum class EDisplayClusterOperationMode;
 
 
 /**

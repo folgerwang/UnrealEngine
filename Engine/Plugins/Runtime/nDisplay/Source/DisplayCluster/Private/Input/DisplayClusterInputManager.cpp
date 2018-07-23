@@ -233,6 +233,11 @@ void FDisplayClusterInputManager::Update()
 {
 	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterInput);
 
+	if (GDisplayCluster->GetOperationMode() == EDisplayClusterOperationMode::Disabled)
+	{
+		return;
+	}
+
 	// Perform input update on master only. Slaves' state will be replicated later.
 	if (GDisplayCluster->GetPrivateClusterMgr()->IsMaster())
 	{
@@ -375,6 +380,11 @@ bool FDisplayClusterInputManager::GetChannelData_impl(const FString& devId, cons
 bool FDisplayClusterInputManager::InitDevices()
 {
 	DISPLAY_CLUSTER_FUNC_TRACE(LogDisplayClusterInput);
+
+	if (GDisplayCluster->GetOperationMode() == EDisplayClusterOperationMode::Disabled)
+	{
+		return false;
+	}
 
 	FScopeLock ScopeLock(&InternalsSyncScope);
 

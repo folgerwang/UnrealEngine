@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "UObject/Interface.h"
+#include "DisplayClusterOperationMode.h"
 #include "IDisplayClusterBlueprintAPI.generated.h"
 
 
@@ -20,6 +21,18 @@ class DISPLAYCLUSTER_API UDisplayClusterBlueprintAPI : public UInterface
 class DISPLAYCLUSTER_API IDisplayClusterBlueprintAPI
 {
 	GENERATED_BODY()
+
+public:
+	//////////////////////////////////////////////////////////////////////////////////////////////
+	// DisplayCluster module API
+	//////////////////////////////////////////////////////////////////////////////////////////////
+	/** Return if the module has been initialized. */
+	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Is module initialized"), Category = "DisplayCluster")
+	virtual bool IsModuleInitialized() = 0;
+
+	/** Return current operation mode. */
+	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Get operation mode"), Category = "DisplayCluster")
+	virtual EDisplayClusterOperationMode GetOperationMode() = 0;
 
 public:
 	//////////////////////////////////////////////////////////////////////////////////////////////

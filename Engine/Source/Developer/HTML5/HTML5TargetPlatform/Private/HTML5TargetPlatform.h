@@ -63,6 +63,8 @@ public:
 			return true;
 		case ETargetPlatformFeatures::DeferredRendering:
 			return false;
+		case ETargetPlatformFeatures::HalfFloatVertexFormat:
+			return false;
 		}
 
 		return TTargetPlatformBase<FHTML5PlatformProperties>::SupportsFeature(Feature);

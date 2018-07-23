@@ -34,6 +34,11 @@ FDisplayClusterClusterNodeCtrlBase::~FDisplayClusterClusterNodeCtrlBase()
 //////////////////////////////////////////////////////////////////////////////////////////////
 bool FDisplayClusterClusterNodeCtrlBase::InitializeStereo()
 {
+	if (GDisplayCluster->GetOperationMode() == EDisplayClusterOperationMode::Disabled)
+	{
+		return false;
+	}
+
 	FDisplayClusterConfigViewport ViewportCfg;
 	if (!GDisplayCluster->GetPrivateConfigMgr()->GetLocalViewport(ViewportCfg))
 	{

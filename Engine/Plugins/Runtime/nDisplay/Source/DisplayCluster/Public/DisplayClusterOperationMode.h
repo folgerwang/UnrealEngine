@@ -2,11 +2,14 @@
 
 #pragma once
 
+#include "CoreMinimal.h"
+#include "DisplayClusterOperationMode.generated.h"
 
 /**
  * Display cluster operation mode
  */
-enum class EDisplayClusterOperationMode
+UENUM(BlueprintType)
+enum class EDisplayClusterOperationMode : uint8
 {
 	Cluster,
 	Standalone,

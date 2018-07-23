@@ -19,12 +19,16 @@ void UDisplayClusterSceneComponentSync::BeginPlay()
 {
 	Super::BeginPlay();
 
-	GameMgr = GDisplayCluster->GetPrivateGameMgr();
+	if (!GDisplayCluster->IsModuleInitialized())
+	{
+		return;
+	}
 
 	// Generate unique sync id
 	SyncId = GetSyncId();
 
-	if (GameMgr->IsDisplayClusterActive())
+	GameMgr = GDisplayCluster->GetPrivateGameMgr();
+	if (GameMgr && GameMgr->IsDisplayClusterActive())
 	{
 		// Register sync object
 		ClusterMgr = GDisplayCluster->GetPrivateClusterMgr();
@@ -50,10 +54,16 @@ void UDisplayClusterSceneComponentSync::TickComponent( float DeltaTime, ELevelTi
 
 void UDisplayClusterSceneComponentSync::DestroyComponent(bool bPromoteChildren)
 {
-	if (ClusterMgr)
+	if (GDisplayCluster->IsModuleInitialized())
 	{
-		UE_LOG(LogDisplayClusterGame, Log, TEXT("Unregistering sync object %s..."), *SyncId);
-		ClusterMgr->UnregisterSyncObject(this);
+		if (GameMgr && GameMgr->IsDisplayClusterActive())
+		{
+			if (ClusterMgr)
+			{
+				UE_LOG(LogDisplayClusterGame, Log, TEXT("Unregistering sync object %s..."), *SyncId);
+				ClusterMgr->UnregisterSyncObject(this);
+			}
+		}
 	}
 
 	Super::DestroyComponent(bPromoteChildren);
