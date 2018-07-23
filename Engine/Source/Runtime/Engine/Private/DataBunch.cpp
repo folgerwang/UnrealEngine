@@ -60,6 +60,7 @@ FInBunch::FInBunch( FInBunch &InBunch, bool CopyBuffer )
 	ChType = InBunch.ChType;
 	ChSequence = InBunch.ChSequence;
 	bOpen =	InBunch.bOpen;
+	bClose = InBunch.bClose;
 	bDormant = InBunch.bDormant;
 	bIsReplicationPaused = InBunch.bIsReplicationPaused;
 	bReliable =	InBunch.bReliable;
