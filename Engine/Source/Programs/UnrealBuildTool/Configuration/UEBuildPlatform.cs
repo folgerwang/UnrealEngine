@@ -616,17 +616,6 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// Whether the editor should be built for this platform or not
-		/// </summary>
-		/// <param name="InPlatform"> The UnrealTargetPlatform being built</param>
-		/// <param name="InConfiguration">The UnrealTargetConfiguration being built</param>
-		/// <returns>bool   true if the editor should be built, false if not</returns>
-		public virtual bool ShouldNotBuildEditor(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration)
-		{
-			return false;
-		}
-
-		/// <summary>
 		/// Whether this build should support ONLY cooked data or not
 		/// </summary>
 		/// <param name="InPlatform"> The UnrealTargetPlatform being built</param>

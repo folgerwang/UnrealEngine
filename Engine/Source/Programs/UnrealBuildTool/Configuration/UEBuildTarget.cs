@@ -478,14 +478,8 @@ namespace UnrealBuildTool
 				RulesObject.bDisableLinking = true;
 			}
 
-			// Disable editor when its not needed
-			UEBuildPlatform BuildPlatform = UEBuildPlatform.GetBuildPlatform(RulesObject.Platform);
-			if (BuildPlatform.ShouldNotBuildEditor(Desc.Platform, Desc.Configuration) == true)
-			{
-				RulesObject.bBuildEditor = false;
-			}
-
 			// Disable the DDC and a few other things related to preparing assets
+			UEBuildPlatform BuildPlatform = UEBuildPlatform.GetBuildPlatform(RulesObject.Platform);
 			if (BuildPlatform.BuildRequiresCookedData(Desc.Platform, Desc.Configuration) == true)
 			{
 				RulesObject.bBuildRequiresCookedData = true;
