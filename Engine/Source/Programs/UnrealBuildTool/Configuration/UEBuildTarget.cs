@@ -412,7 +412,7 @@ namespace UnrealBuildTool
 			}
 
 			FileReference TargetFileName;
-			TargetRules RulesObject = RulesAssembly.CreateTargetRules(Desc.Name, Desc.Platform, Desc.Configuration, Desc.Architecture, Desc.ProjectFile, Version, out TargetFileName);
+			TargetRules RulesObject = RulesAssembly.CreateTargetRules(Desc.Name, Desc.Platform, Desc.Configuration, Desc.Architecture, Desc.ProjectFile, Version, Arguments, out TargetFileName);
 			if ((ProjectFileGenerator.bGenerateProjectFiles == false) && !GetSupportedPlatforms(RulesObject).Contains(Desc.Platform))
 			{
 				throw new BuildException("{0} does not support the {1} platform.", Desc.Name, Desc.Platform.ToString());
@@ -420,35 +420,6 @@ namespace UnrealBuildTool
 
 			// Now that we found the actual Editor target, make sure we're no longer using the old TargetName (which is the Game target)
 			Desc.Name = RulesObject.Name;
-
-			// Parse any additional command-line arguments. These override default settings specified in config files or the .target.cs files.
-			foreach(object ConfigurableObject in RulesObject.GetConfigurableObjects())
-			{
-				CommandLine.ParseArguments(Arguments, ConfigurableObject);
-			}
-
-			// Set the final value for the link type in the target rules
-			if(RulesObject.LinkType == TargetLinkType.Default)
-			{
-				throw new BuildException("TargetRules.LinkType should be inferred from TargetType");
-			}
-
-			// Set the default value for whether to use the shared build environment
-			if(RulesObject.BuildEnvironment == TargetBuildEnvironment.Default)
-			{
-				if(RulesObject.Type == TargetType.Program && Desc.ProjectFile != null && TargetFileName.IsUnderDirectory(Desc.ProjectFile.Directory))
-				{
-					RulesObject.BuildEnvironment = TargetBuildEnvironment.Unique;
-				}
-				else if(UnrealBuildTool.IsEngineInstalled() || RulesObject.LinkType != TargetLinkType.Monolithic)
-				{
-					RulesObject.BuildEnvironment = TargetBuildEnvironment.Shared;
-				}
-				else
-				{
-					RulesObject.BuildEnvironment = TargetBuildEnvironment.Unique;
-				}
-			}
 
 			// If we're using the shared build environment, make sure all the settings are valid
 			if(RulesObject.BuildEnvironment == TargetBuildEnvironment.Shared)
@@ -470,31 +441,6 @@ namespace UnrealBuildTool
 			{
 				RulesObject.bOmitFramePointers = false;
 				RulesObject.GlobalDefinitions.Add("USE_MALLOC_PROFILER=1");
-			}
-
-			// handle some special case defines (so build system can pass -DEFINE as normal instead of needing
-			// to know about special parameters)
-			foreach (string Define in RulesObject.GlobalDefinitions)
-			{
-				switch (Define)
-				{
-					case "WITH_EDITOR=0":
-						RulesObject.bBuildEditor = false;
-						break;
-
-					case "WITH_EDITORONLY_DATA=0":
-						RulesObject.bBuildWithEditorOnlyData = false;
-						break;
-
-					// Memory profiler doesn't work if frame pointers are omitted
-					case "USE_MALLOC_PROFILER=1":
-						RulesObject.bOmitFramePointers = false;
-						break;
-
-					case "WITH_LEAN_AND_MEAN_UE=1":
-						RulesObject.bCompileLeanAndMeanUE = true;
-						break;
-				}
 			}
 
 			// If we're precompiling, generate a list of all the files that we depend on
@@ -532,22 +478,6 @@ namespace UnrealBuildTool
 				RulesObject.bDisableLinking = true;
 			}
 
-			// Lean and mean means no Editor and other frills.
-			if (RulesObject.bCompileLeanAndMeanUE)
-			{
-				RulesObject.bBuildEditor = false;
-				RulesObject.bBuildDeveloperTools = false;
-				RulesObject.bCompileSimplygon = false;
-				RulesObject.bCompileSimplygonSSF = false;
-				RulesObject.bCompileSpeedTree = false;
-			}
-
-			// Automatically include CoreUObject
-			if (RulesObject.bCompileAgainstEngine)
-			{
-				RulesObject.bCompileAgainstCoreUObject = true;
-			}
-
 			// Disable editor when its not needed
 			UEBuildPlatform BuildPlatform = UEBuildPlatform.GetBuildPlatform(RulesObject.Platform);
 			if (BuildPlatform.ShouldNotBuildEditor(Desc.Platform, Desc.Configuration) == true)
@@ -559,24 +489,6 @@ namespace UnrealBuildTool
 			if (BuildPlatform.BuildRequiresCookedData(Desc.Platform, Desc.Configuration) == true)
 			{
 				RulesObject.bBuildRequiresCookedData = true;
-			}
-
-			// Must have editor only data if building the editor.
-			if (RulesObject.bBuildEditor)
-			{
-				RulesObject.bBuildWithEditorOnlyData = true;
-			}
-
-			// Apply the override to force debug info to be enabled
-			if (RulesObject.bForceDebugInfo)
-			{
-				RulesObject.bDisableDebugInfo = false;
-				RulesObject.bOmitPCDebugInfoInDevelopment = false;
-			}
-
-			if (!RulesObject.bAllowGeneratedIniWhenCooked)
-			{
-				RulesObject.GlobalDefinitions.Add("DISABLE_GENERATED_INI_WHEN_COOKED=1");
 			}
 
 			// Allow the platform to finalize the settings
@@ -664,7 +576,7 @@ namespace UnrealBuildTool
 			}
 
 			// Create the target rules for it
-			TargetRules BaseRules = RulesAssembly.CreateTargetRules(BaseTargetName, ThisRules.Platform, ThisRules.Configuration, ThisRules.Architecture, null, ThisRules.Version);
+			TargetRules BaseRules = RulesAssembly.CreateTargetRules(BaseTargetName, ThisRules.Platform, ThisRules.Configuration, ThisRules.Architecture, null, ThisRules.Version, null);
 
 			// Get all the configurable objects
 			object[] BaseObjects = BaseRules.GetConfigurableObjects().ToArray();

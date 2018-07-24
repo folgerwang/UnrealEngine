@@ -1189,14 +1189,9 @@ namespace UnrealBuildTool
 
 					// Get the executable name (minus any platform or config suffixes)
 					string BaseExeName = TargetName;
-					if (!bShouldCompileMonolithic && TargetRulesObject.Type != TargetType.Program)
+					if (!bShouldCompileMonolithic && TargetRulesObject.Type != TargetType.Program && TargetRulesObject.BuildEnvironment != TargetBuildEnvironment.Unique)
 					{
-						// Figure out what the compiled binary will be called so that we can point the IDE to the correct file
-						string TargetConfigurationName = TargetRulesObject.Type.ToString();
-						if (TargetConfigurationName != TargetType.Game.ToString() && TargetConfigurationName != TargetType.Program.ToString())
-						{
-							BaseExeName = "UE4" + TargetConfigurationName;
-						}
+						BaseExeName = "UE4" + TargetRulesObject.Type.ToString();
 					}
 
 					// Make the output file path
