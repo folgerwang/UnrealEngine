@@ -450,14 +450,8 @@ namespace UnrealBuildTool
 				}
 			}
 
-			// Invoke the legacy callback for configuring the global environment
-			if(RulesObject.BuildEnvironment == TargetBuildEnvironment.Unique)
-			{
-				TargetRules.CPPEnvironmentConfiguration CppEnvironment = new TargetRules.CPPEnvironmentConfiguration(RulesObject);
-				TargetRules.LinkEnvironmentConfiguration LinkEnvironment = new TargetRules.LinkEnvironmentConfiguration(RulesObject);
-				RulesObject.SetupGlobalEnvironment(new TargetInfo(new ReadOnlyTargetRules(RulesObject)), ref LinkEnvironment, ref CppEnvironment);
-			}
-			else
+			// If we're using the shared build environment, make sure all the settings are valid
+			if(RulesObject.BuildEnvironment == TargetBuildEnvironment.Shared)
 			{
 				ValidateSharedEnvironment(RulesAssembly, Desc.Name, RulesObject);
 			}
