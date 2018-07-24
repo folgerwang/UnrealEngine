@@ -3,6 +3,7 @@
 #include "NiagaraDataInterfaceTexture2D.h"
 #include "NiagaraShader.h"
 #include "ShaderParameterUtils.h"
+#include "NiagaraCustomVersion.h"
 
 
 #define LOCTEXT_NAMESPACE "UNiagaraDataInterfaceTexture2D"
@@ -31,6 +32,14 @@ void UNiagaraDataInterfaceTexture2D::PostInitProperties()
 void UNiagaraDataInterfaceTexture2D::PostLoad()
 {
 	Super::PostLoad();
+	const int32 NiagaraVer = GetLinkerCustomVersion(FNiagaraCustomVersion::GUID);
+	if (NiagaraVer < FNiagaraCustomVersion::TextureDataInterfaceUsesCustomSerialize)
+	{
+		if (Texture != nullptr)
+		{
+			CopyTextureToCPUBackup(Texture, CPUTextureData);
+		}
+	}
 }
 
 #if WITH_EDITOR
@@ -94,6 +103,16 @@ void UNiagaraDataInterfaceTexture2D::CopyTextureData(const uint8* Source, uint8*
 }
 
 #endif
+
+void UNiagaraDataInterfaceTexture2D::Serialize(FArchive& Ar)
+{
+	Super::Serialize(Ar);
+	if (Ar.IsLoading() == false || Ar.CustomVer(FNiagaraCustomVersion::GUID) >= FNiagaraCustomVersion::TextureDataInterfaceUsesCustomSerialize)
+	{
+		Ar << CPUTextureData;
+	}
+	Ar.UsingCustomVersion(FNiagaraCustomVersion::GUID);
+}
 
 bool UNiagaraDataInterfaceTexture2D::CopyToInternal(UNiagaraDataInterface* Destination) const
 {

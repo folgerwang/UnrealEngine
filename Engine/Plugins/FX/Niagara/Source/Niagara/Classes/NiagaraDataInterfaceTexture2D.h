@@ -24,6 +24,7 @@ public:
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif
+	virtual void Serialize(FArchive& Ar) override;
 	//UObject Interface End
 
 	//UNiagaraDataInterface Interface
@@ -53,7 +54,6 @@ protected:
 #endif
 	virtual bool CopyToInternal(UNiagaraDataInterface* Destination) const override;
 
-	UPROPERTY()
 	TArray<uint8> CPUTextureData;
 
 	static const FName SampleTextureName;
