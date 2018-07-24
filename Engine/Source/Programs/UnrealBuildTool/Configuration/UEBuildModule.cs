@@ -23,11 +23,6 @@ namespace UnrealBuildTool
 		public readonly string Name;
 
 		/// <summary>
-		/// The type of module being built. Used to switch between debug/development and precompiled/source configurations.
-		/// </summary>
-		public UHTModuleType Type;
-
-		/// <summary>
 		/// The rules for this module
 		/// </summary>
 		public ModuleRules Rules;
@@ -161,15 +156,13 @@ namespace UnrealBuildTool
 		/// Constructor
 		/// </summary>
 		/// <param name="InName">Name of the module</param>
-		/// <param name="InType">Type of the module, for UHT</param>
 		/// <param name="InModuleDirectory">Base directory for the module</param>
 		/// <param name="InRules">Rules for this module</param>
 		/// <param name="InRulesFile">Path to the rules file</param>
 		/// <param name="InRuntimeDependencies">List of runtime dependencies</param>
-		public UEBuildModule(string InName, UHTModuleType InType, DirectoryReference InModuleDirectory, ModuleRules InRules, FileReference InRulesFile, List<RuntimeDependency> InRuntimeDependencies)
+		public UEBuildModule(string InName, DirectoryReference InModuleDirectory, ModuleRules InRules, FileReference InRulesFile, List<RuntimeDependency> InRuntimeDependencies)
 		{
 			Name = InName;
-			Type = InType;
 			ModuleDirectory = InModuleDirectory;
 			Rules = InRules;
 			RulesFile = InRulesFile;
@@ -767,7 +760,6 @@ namespace UnrealBuildTool
 		public virtual void ExportJson(JsonWriter Writer)
 		{
 			Writer.WriteValue("Name", Name);
-			Writer.WriteValue("Type", Type.ToString());
 			Writer.WriteValue("Directory", ModuleDirectory.FullName);
 			Writer.WriteValue("Rules", RulesFile.FullName);
 			Writer.WriteValue("PCHUsage", Rules.PCHUsage.ToString());

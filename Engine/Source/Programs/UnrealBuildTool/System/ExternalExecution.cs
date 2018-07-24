@@ -378,7 +378,7 @@ namespace UnrealBuildTool
 		{
 		}
 
-		public static UHTModuleType GetEngineModuleTypeFromDescriptor(ModuleDescriptor Module)
+		static UHTModuleType GetEngineModuleTypeFromDescriptor(ModuleDescriptor Module)
 		{
             UHTModuleType? Type = UHTModuleTypeExtensions.EngineModuleTypeFromHostType(Module.Type);
             if (Type == null)
@@ -388,7 +388,7 @@ namespace UnrealBuildTool
             return Type.GetValueOrDefault();
         }
 
-		public static UHTModuleType GetGameModuleTypeFromDescriptor(ModuleDescriptor Module)
+		static UHTModuleType GetGameModuleTypeFromDescriptor(ModuleDescriptor Module)
 		{
             UHTModuleType? Type = UHTModuleTypeExtensions.GameModuleTypeFromHostType(Module.Type);
             if (Type == null)
@@ -398,7 +398,7 @@ namespace UnrealBuildTool
             return Type.GetValueOrDefault();
         }
 
-		public static UHTModuleType? GetEngineModuleTypeBasedOnLocation(DirectoryReference SourceDirectory, FileReference ModuleFileName)
+		static UHTModuleType? GetEngineModuleTypeBasedOnLocation(DirectoryReference SourceDirectory, FileReference ModuleFileName)
 		{
 			if (ModuleFileName.IsUnderDirectory(DirectoryReference.Combine(SourceDirectory, "Runtime")))
 			{
@@ -433,7 +433,7 @@ namespace UnrealBuildTool
 		/// remain in their same relative order within the original Nodes sequence.
 		/// </summary>
 		/// <param name="NodeList">The list of nodes to sort.</param>
-		public static void StableTopologicalSort(List<UEBuildModuleCPP> NodeList)
+		static void StableTopologicalSort(List<UEBuildModuleCPP> NodeList)
 		{
 			int            NodeCount = NodeList.Count;
 
@@ -484,22 +484,142 @@ namespace UnrealBuildTool
 			return Dependencies.Contains(ToModule);
 		}
 
-		public static void SetupUObjectModules(IEnumerable<UEBuildModuleCPP> ModulesToGenerateHeadersFor, ReadOnlyTargetRules Target, CppCompileEnvironment GlobalCompileEnvironment, List<UHTModuleInfo> UObjectModules, Dictionary<string, FlatModuleCsDataType> FlatModuleCsData, EGeneratedCodeVersion GeneratedCodeVersion, bool bIsAssemblingBuild)
+		/// <summary>
+		/// Gets the module type for a given rules object
+		/// </summary>
+		/// <param name="RulesObject">The rules object</param>
+		/// <param name="ProjectDescriptor">Descriptor for the project being built</param>
+		/// <returns>The module type</returns>
+		static UHTModuleType GetModuleType(ModuleRules RulesObject, ProjectDescriptor ProjectDescriptor)
+		{
+			// Get the type of module we're creating
+			UHTModuleType? ModuleType = null;
+
+			// Get the module descriptor for this module if it's a plugin
+			ModuleDescriptor PluginModuleDesc = null;
+			if (RulesObject.Plugin != null)
+			{
+				PluginModuleDesc = RulesObject.Plugin.Descriptor.Modules.FirstOrDefault(x => x.Name == RulesObject.Name);
+				if (PluginModuleDesc != null && PluginModuleDesc.Type == ModuleHostType.Program)
+				{
+					ModuleType = UHTModuleType.Program;
+				}
+			}
+
+			if (UnrealBuildTool.IsUnderAnEngineDirectory(RulesObject.File.Directory))
+			{
+				if (RulesObject.Type == ModuleRules.ModuleType.External)
+				{
+					ModuleType = UHTModuleType.EngineThirdParty;
+				}
+				else
+				{
+					if (!ModuleType.HasValue && PluginModuleDesc != null)
+					{
+						ModuleType = ExternalExecution.GetEngineModuleTypeFromDescriptor(PluginModuleDesc);
+					}
+
+					if (!ModuleType.HasValue)
+					{
+						if (RulesObject.File.IsUnderDirectory(UnrealBuildTool.EngineDirectory))
+						{
+							ModuleType = ExternalExecution.GetEngineModuleTypeBasedOnLocation(UnrealBuildTool.EngineSourceDirectory, RulesObject.File);
+						}
+						else if (RulesObject.File.IsUnderDirectory(UnrealBuildTool.EnterpriseSourceDirectory))
+						{
+							ModuleType = ExternalExecution.GetEngineModuleTypeBasedOnLocation(UnrealBuildTool.EnterpriseSourceDirectory, RulesObject.File);
+						}
+					}
+				}
+			}
+			else
+			{
+				if (RulesObject.Type == ModuleRules.ModuleType.External)
+				{
+					ModuleType = UHTModuleType.GameThirdParty;
+				}
+				else
+				{
+					if (!ModuleType.HasValue && PluginModuleDesc != null)
+					{
+						ModuleType = ExternalExecution.GetGameModuleTypeFromDescriptor(PluginModuleDesc);
+					}
+
+					if (!ModuleType.HasValue)
+					{
+						if (ProjectDescriptor != null)
+						{
+							ModuleDescriptor ProjectModule = (ProjectDescriptor.Modules == null)? null : ProjectDescriptor.Modules.FirstOrDefault(x => x.Name == RulesObject.Name);
+							if (ProjectModule != null)
+							{
+								ModuleType = UHTModuleTypeExtensions.GameModuleTypeFromHostType(ProjectModule.Type) ?? UHTModuleType.GameRuntime;
+							}
+							else
+							{
+								// No descriptor file or module was not on the list
+								ModuleType = UHTModuleType.GameRuntime;
+							}
+						}
+					}
+				}
+			}
+
+			if (!ModuleType.HasValue)
+			{
+				throw new BuildException("Unable to determine UHT module type for {0}", RulesObject.File);
+			}
+
+			return ModuleType.Value;
+		}
+
+		/// <summary>
+		/// Find all the headers under the given base directory, excluding any other platform folders.
+		/// </summary>
+		/// <param name="BaseDir">Base directory to search</param>
+		/// <param name="ExcludeFolders">Array of folders to exclude</param>
+		/// <param name="Headers">Receives the list of headers that was found</param>
+		static void FindHeaders(DirectoryInfo BaseDir, FileSystemName[] ExcludeFolders, List<FileReference> Headers)
+		{
+			if (!ExcludeFolders.Any(x => x.DisplayName.Equals(BaseDir.Name, StringComparison.InvariantCultureIgnoreCase)))
+			{
+				foreach (DirectoryInfo SubDir in BaseDir.EnumerateDirectories())
+				{
+					FindHeaders(SubDir, ExcludeFolders, Headers);
+				}
+				foreach (FileInfo File in BaseDir.EnumerateFiles("*.h"))
+				{
+					Headers.Add(new FileReference(File));
+				}
+			}
+		}
+
+		public static void SetupUObjectModules(IEnumerable<UEBuildModuleCPP> ModulesToGenerateHeadersFor, ReadOnlyTargetRules Target, ProjectDescriptor ProjectDescriptor, CppCompileEnvironment GlobalCompileEnvironment, List<UHTModuleInfo> UObjectModules, Dictionary<string, FlatModuleCsDataType> FlatModuleCsData, EGeneratedCodeVersion GeneratedCodeVersion, bool bIsAssemblingBuild)
 		{
 			DateTime UObjectDiscoveryStartTime = DateTime.UtcNow;
 
+			// Find the type of each module
+			Dictionary<UEBuildModuleCPP, UHTModuleType> ModuleToType = new Dictionary<UEBuildModuleCPP, UHTModuleType>();
+			foreach(UEBuildModuleCPP Module in ModulesToGenerateHeadersFor)
+			{
+				ModuleToType[Module] = GetModuleType(Module.Rules, ProjectDescriptor);
+			}
+
 			// Sort modules by type, then by dependency
-			List<UEBuildModuleCPP> ModulesSortedByType = ModulesToGenerateHeadersFor.OrderBy(c => c.Type).ToList();
+			List<UEBuildModuleCPP> ModulesSortedByType = ModulesToGenerateHeadersFor.OrderBy(c => ModuleToType[c]).ToList();
 			StableTopologicalSort(ModulesSortedByType);
 
+			FileSystemName[] ExcludedFolders = UEBuildPlatform.GetBuildPlatform(Target.Platform, true).GetExcludedFolderNames();
 			foreach (UEBuildModuleCPP Module in ModulesSortedByType)
 			{
-				UEBuildModuleCPP.UHTModuleInfoCacheType UHTModuleInfo = Module.GetCachedUHTModuleInfo(GeneratedCodeVersion);
-				if (UHTModuleInfo.Info.PublicUObjectClassesHeaders.Count > 0 || UHTModuleInfo.Info.PrivateUObjectHeaders.Count > 0 || UHTModuleInfo.Info.PublicUObjectHeaders.Count > 0)
+				List<FileReference> HeaderFiles = new List<FileReference>();
+				FindHeaders(new DirectoryInfo(Module.ModuleDirectory.FullName), ExcludedFolders, HeaderFiles);
+
+				UHTModuleInfo Info = ExternalExecution.CreateUHTModuleInfo(HeaderFiles, Module.Name, Module.RulesFile, Module.ModuleDirectory, ModuleToType[Module], GeneratedCodeVersion);
+				if (Info.PublicUObjectClassesHeaders.Count > 0 || Info.PrivateUObjectHeaders.Count > 0 || Info.PublicUObjectHeaders.Count > 0)
 				{
 					// If we've got this far and there are no source files then it's likely we're installed and ignoring
 					// engine files, so we don't need a .gen.cpp either
-					UHTModuleInfo.Info.GeneratedCPPFilenameBase = Path.Combine(Module.GeneratedCodeDirectory.FullName, UHTModuleInfo.Info.ModuleName) + ".gen";
+					Info.GeneratedCPPFilenameBase = Path.Combine(Module.GeneratedCodeDirectory.FullName, Info.ModuleName) + ".gen";
 					if (Module.SourceFilesToBuild.Count != 0)
 					{
 						Module.GeneratedCodeWildcard = Path.Combine(Module.GeneratedCodeDirectory.FullName, "*.gen.cpp");
@@ -508,7 +628,7 @@ namespace UnrealBuildTool
 					// If we're running in "gather" mode only, we'll go ahead and cache PCH information for each module right now, so that we don't
 					// have to do it in the assembling phase.  It's OK for gathering to take a bit longer, even if UObject headers are not out of
 					// date in order to save a lot of time in the assembling runs.
-					UHTModuleInfo.Info.PCH = "";
+					Info.PCH = "";
 					if (!bIsAssemblingBuild)
 					{
 						// We need to figure out which PCH header this module is including, so that UHT can inject an include statement for it into any .cpp files it is synthesizing
@@ -516,14 +636,14 @@ namespace UnrealBuildTool
 						Module.CachePCHUsageForModuleSourceFiles(Target, ModuleCompileEnvironment);
 						if (Module.ProcessedDependencies.UniquePCHHeaderFile != null)
 						{
-							UHTModuleInfo.Info.PCH = Module.ProcessedDependencies.UniquePCHHeaderFile.AbsolutePath;
+							Info.PCH = Module.ProcessedDependencies.UniquePCHHeaderFile.AbsolutePath;
 						}
 					}
 
-					UObjectModules.Add(UHTModuleInfo.Info);
+					UObjectModules.Add(Info);
 					FlatModuleCsData[Module.Name].ModuleSourceFolder = Module.ModuleDirectory;
-					FlatModuleCsData[Module.Name].UHTHeaderNames = UHTModuleInfo.HeaderFilenames.ToList();
-					Log.TraceVerbose("Detected UObject module: " + UHTModuleInfo.Info.ModuleName);
+					FlatModuleCsData[Module.Name].UHTHeaderNames = Info.PublicUObjectHeaders.Concat(Info.PublicUObjectClassesHeaders).Concat(Info.PrivateUObjectHeaders).Select(x => x.AbsolutePath).ToList();
+					Log.TraceVerbose("Detected UObject module: " + Info.ModuleName);
 				}
 				else
 				{

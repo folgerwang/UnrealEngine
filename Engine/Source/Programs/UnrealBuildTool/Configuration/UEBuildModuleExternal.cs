@@ -15,7 +15,6 @@ namespace UnrealBuildTool
 	class UEBuildModuleExternal : UEBuildModule
 	{
 		public UEBuildModuleExternal(
-			UHTModuleType InType,
 			string InName,
 			DirectoryReference InModuleDirectory,
 			ModuleRules InRules,
@@ -23,7 +22,6 @@ namespace UnrealBuildTool
 			List<RuntimeDependency> InRuntimeDependencies
 			)
 			: base(
-				InType: InType,
 				InName: InName,
 				InModuleDirectory: InModuleDirectory,
 				InRules: InRules,

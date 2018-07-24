@@ -233,7 +233,6 @@ namespace UnrealBuildTool
 
 		public UEBuildModuleCPP(
 			string InName,
-			UHTModuleType InType,
 			DirectoryReference InModuleDirectory,
 			DirectoryReference InIntermediateDirectory,
 			DirectoryReference InGeneratedCodeDirectory,
@@ -245,7 +244,6 @@ namespace UnrealBuildTool
 			)
 			: base(
 					InName,
-					InType,
 					InModuleDirectory,
 					InRules,
 					InRulesFile,
@@ -1334,65 +1332,12 @@ namespace UnrealBuildTool
 			return CompileEnvironment;
 		}
 
-		public class UHTModuleInfoCacheType
-		{
-			public UHTModuleInfoCacheType(IEnumerable<string> InHeaderFilenames, UHTModuleInfo InInfo)
-			{
-				HeaderFilenames = InHeaderFilenames;
-				Info = InInfo;
-			}
-
-			public IEnumerable<string> HeaderFilenames = null;
-			public UHTModuleInfo Info = null;
-		}
-
-		private UHTModuleInfoCacheType UHTModuleInfoCache = null;
-
 		/// Total time spent generating PCHs for modules (not actually compiling, but generating the PCH's input data)
 		public static double TotalPCHGenTime = 0.0;
 
 		/// Time spent caching which PCH header is included by each module and source file
 		public static double TotalPCHCacheTime = 0.0;
 
-
-		/// <summary>
-		/// If any of this module's source files contain UObject definitions, this will return those header files back to the caller
-		/// </summary>
-		/// <returns></returns>
-		public UHTModuleInfoCacheType GetCachedUHTModuleInfo(EGeneratedCodeVersion GeneratedCodeVersion)
-		{
-			if (UHTModuleInfoCache == null)
-			{
-				List<FileReference> HeaderFiles = new List<FileReference>();
-				FileSystemName[] ExcludedFolders = UEBuildPlatform.GetBuildPlatform(Rules.Target.Platform, true).GetExcludedFolderNames();
-				FindHeaders(new DirectoryInfo(ModuleDirectory.FullName), ExcludedFolders, HeaderFiles);
-				UHTModuleInfo Info = ExternalExecution.CreateUHTModuleInfo(HeaderFiles, Name, RulesFile, ModuleDirectory, Type, GeneratedCodeVersion);
-				UHTModuleInfoCache = new UHTModuleInfoCacheType(Info.PublicUObjectHeaders.Concat(Info.PublicUObjectClassesHeaders).Concat(Info.PrivateUObjectHeaders).Select(x => x.AbsolutePath).ToList(), Info);
-			}
-
-			return UHTModuleInfoCache;
-		}
-
-		/// <summary>
-		/// Find all the headers under the given base directory, excluding any other platform folders.
-		/// </summary>
-		/// <param name="BaseDir">Base directory to search</param>
-		/// <param name="ExcludeFolders">Array of folders to exclude</param>
-		/// <param name="Headers">Receives the list of headers that was found</param>
-		static void FindHeaders(DirectoryInfo BaseDir, FileSystemName[] ExcludeFolders, List<FileReference> Headers)
-		{
-			if (!ExcludeFolders.Any(x => x.DisplayName.Equals(BaseDir.Name, StringComparison.InvariantCultureIgnoreCase)))
-			{
-				foreach (DirectoryInfo SubDir in BaseDir.EnumerateDirectories())
-				{
-					FindHeaders(SubDir, ExcludeFolders, Headers);
-				}
-				foreach (FileInfo File in BaseDir.EnumerateFiles("*.h"))
-				{
-					Headers.Add(new FileReference(File));
-				}
-			}
-		}
 
 		public override void GetAllDependencyModules(List<UEBuildModule> ReferencedModules, HashSet<UEBuildModule> IgnoreReferencedModules, bool bIncludeDynamicallyLoaded, bool bForceCircular, bool bOnlyDirectDependencies)
 		{

@@ -2083,7 +2083,7 @@ namespace UnrealBuildTool
 					NameToFlatModuleData[FlatModuleData.ModuleName] = FlatModuleData;
 				}
 
-				ExternalExecution.SetupUObjectModules(ModulesToGenerateHeadersFor, Rules, GlobalCompileEnvironment, UObjectModules, NameToFlatModuleData, Rules.GeneratedCodeVersion, bIsAssemblingBuild);
+				ExternalExecution.SetupUObjectModules(ModulesToGenerateHeadersFor, Rules, ProjectDescriptor, GlobalCompileEnvironment, UObjectModules, NameToFlatModuleData, Rules.GeneratedCodeVersion, bIsAssemblingBuild);
 
 				// NOTE: Even in Gather mode, we need to run UHT to make sure the files exist for the static action graph to be setup correctly.  This is because UHT generates .cpp
 				// files that are injected as top level prerequisites.  If UHT only emitted included header files, we wouldn't need to run it during the Gather phase at all.
@@ -3879,87 +3879,10 @@ namespace UnrealBuildTool
 				ModuleRules RulesObject = CreateModuleRulesAndSetDefaults(ModuleName, ReferenceChain);
 				DirectoryReference ModuleDirectory = RulesObject.File.Directory;
 
-				// Get the type of module we're creating
-				UHTModuleType? ModuleType = null;
-
 				// Clear the bUsePrecompiled flag if we're compiling a foreign plugin; since it's treated like an engine module, it will default to true in an installed build.
 				if(RulesObject.Plugin != null && RulesObject.Plugin.File == ForeignPlugin)
 				{
 					RulesObject.bUsePrecompiled = false;
-				}
-
-				// Get the module descriptor for this module if it's a plugin
-				ModuleDescriptor PluginModuleDesc = null;
-				if (RulesObject.Plugin != null)
-				{
-					PluginModuleDesc = RulesObject.Plugin.Descriptor.Modules.FirstOrDefault(x => x.Name == ModuleName);
-					if (PluginModuleDesc != null && PluginModuleDesc.Type == ModuleHostType.Program)
-					{
-						ModuleType = UHTModuleType.Program;
-					}
-				}
-
-				if (UnrealBuildTool.IsUnderAnEngineDirectory(RulesObject.File.Directory))
-				{
-					if (RulesObject.Type == ModuleRules.ModuleType.External)
-					{
-						ModuleType = UHTModuleType.EngineThirdParty;
-					}
-					else
-					{
-						if (!ModuleType.HasValue && PluginModuleDesc != null)
-						{
-							ModuleType = ExternalExecution.GetEngineModuleTypeFromDescriptor(PluginModuleDesc);
-						}
-
-						if (!ModuleType.HasValue)
-						{
-							if (RulesObject.File.IsUnderDirectory(UnrealBuildTool.EngineDirectory))
-							{
-								ModuleType = ExternalExecution.GetEngineModuleTypeBasedOnLocation(UnrealBuildTool.EngineSourceDirectory, RulesObject.File);
-							}
-							else if (RulesObject.File.IsUnderDirectory(UnrealBuildTool.EnterpriseSourceDirectory))
-							{
-								ModuleType = ExternalExecution.GetEngineModuleTypeBasedOnLocation(UnrealBuildTool.EnterpriseSourceDirectory, RulesObject.File);
-							}
-						}
-					}
-				}
-				else
-				{
-					if (RulesObject.Type == ModuleRules.ModuleType.External)
-					{
-						ModuleType = UHTModuleType.GameThirdParty;
-					}
-					else
-					{
-						if (!ModuleType.HasValue && PluginModuleDesc != null)
-						{
-							ModuleType = ExternalExecution.GetGameModuleTypeFromDescriptor(PluginModuleDesc);
-						}
-
-						if (!ModuleType.HasValue)
-						{
-							if (ProjectDescriptor != null)
-							{
-								ModuleDescriptor ProjectModule = (ProjectDescriptor.Modules == null)? null : ProjectDescriptor.Modules.FirstOrDefault(x => x.Name == ModuleName);
-								if (ProjectModule != null)
-								{
-									ModuleType = UHTModuleTypeExtensions.GameModuleTypeFromHostType(ProjectModule.Type) ?? UHTModuleType.GameRuntime;
-								}
-								else
-								{
-									// No descriptor file or module was not on the list
-									ModuleType = UHTModuleType.GameRuntime;
-								}
-							}
-						}
-					}
-				}
-
-				if (!ModuleType.HasValue)
-				{
-					throw new BuildException("Unable to determine module type for {0}\n(referenced via {1})", RulesObject.File, ReferenceChain);
 				}
 
 				// Get the base directory for paths referenced by the module. If the module's under the UProject source directory use that, otherwise leave it relative to the Engine source directory.
@@ -4018,8 +3941,8 @@ namespace UnrealBuildTool
 					{
 						if(DirectoryReference.Exists(BaseSourceDirectory))
 						{
-						RulesObject.PublicIncludePaths.Add(NormalizeIncludePath(BaseSourceDirectory));
-					}
+							RulesObject.PublicIncludePaths.Add(NormalizeIncludePath(BaseSourceDirectory));
+						}
 					}
 
 					// Resolve private include paths against the project source root
@@ -4110,7 +4033,7 @@ namespace UnrealBuildTool
 				}
 
 				// Now, go ahead and create the module builder instance
-				Module = InstantiateModule(RulesObject, ModuleType.Value, GeneratedCodeDirectory, FoundSourceFiles, bBuildFiles, RuntimeDependencies);
+				Module = InstantiateModule(RulesObject, GeneratedCodeDirectory, FoundSourceFiles, bBuildFiles, RuntimeDependencies);
 				Modules.Add(Module.Name, Module);
 				FlatModuleCsData.Add(new FlatModuleCsDataType(Module.Name, (Module.RulesFile == null) ? null : Module.RulesFile.FullName, RulesObject.ExternalDependencies));
 			}
@@ -4135,7 +4058,6 @@ namespace UnrealBuildTool
 
 		protected UEBuildModule InstantiateModule(
 			ModuleRules RulesObject,
-			UHTModuleType ModuleType,
 			DirectoryReference GeneratedCodeDirectory,
 			List<FileItem> ModuleSourceFiles,
 			bool bBuildSourceFiles,
@@ -4146,7 +4068,6 @@ namespace UnrealBuildTool
 				case ModuleRules.ModuleType.CPlusPlus:
 					return new UEBuildModuleCPP(
 							InName: RulesObject.Name,
-							InType: ModuleType,
 							InModuleDirectory: RulesObject.Directory,
 							InIntermediateDirectory: GetModuleIntermediateDirectory(RulesObject),
 							InGeneratedCodeDirectory: GeneratedCodeDirectory,
@@ -4160,7 +4081,6 @@ namespace UnrealBuildTool
 				case ModuleRules.ModuleType.External:
 					return new UEBuildModuleExternal(
 							InName: RulesObject.Name,
-							InType: ModuleType,
 							InModuleDirectory: RulesObject.Directory,
 							InRules: RulesObject,
 							InRulesFile: RulesObject.File,
