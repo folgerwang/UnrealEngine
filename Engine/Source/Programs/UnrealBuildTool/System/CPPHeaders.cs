@@ -293,8 +293,7 @@ namespace UnrealBuildTool
 					{
 						Dependencies.Add(IncludedFile.Location);
 					}
-					FileReference PCHName = SourceFile.PrecompiledHeaderIncludeFilename;
-					FlatCPPIncludeDependencyCache.SetDependenciesForFile(SourceFile.Location, PCHName, Dependencies);
+					FlatCPPIncludeDependencyCache.SetDependenciesForFile(SourceFile.Location, Dependencies);
 				}
 			}
 
@@ -419,57 +418,6 @@ namespace UnrealBuildTool
 			TotalDirectIncludeResolves += DirectIncludes.Count;
 
 			return DirectlyIncludedFiles;
-		}
-
-		public FileItem CachePCHUsageForCPPFile(FileItem CPPFile, CppIncludePaths IncludePaths, CppPlatform Platform)
-		{
-			// @todo ubtmake: We don't really need to scan every file looking for PCH headers, just need one.  The rest is just for error checking.
-			// @todo ubtmake: We don't need all of the direct includes either.  We just need the first, unless we want to check for errors.
-			List<DependencyInclude> DirectIncludeFilenames = GetDirectIncludeDependencies(CPPFile, bOnlyCachedDependencies: false);
-			if (UnrealBuildTool.bPrintDebugInfo)
-			{
-				Log.TraceVerbose("Found direct includes for {0}: {1}", Path.GetFileName(CPPFile.AbsolutePath), string.Join(", ", DirectIncludeFilenames.Select(F => F.IncludeName)));
-			}
-
-			if (DirectIncludeFilenames.Count == 0)
-			{
-				return null;
-			}
-
-			DependencyInclude FirstInclude = DirectIncludeFilenames[0];
-
-			// Resolve the PCH header to an absolute path.
-			// Check NullOrEmpty here because if the file could not be resolved we need to throw an exception
-			if (FirstInclude.IncludeResolvedNameIfSuccessful != null &&
-				// ignore any preexisting resolve cache if we are not configured to use it.
-				bUseIncludeDependencyResolveCache &&
-				// if we are testing the resolve cache, we force UBT to resolve every time to look for conflicts
-				!bTestIncludeDependencyResolveCache)
-			{
-				CPPFile.PrecompiledHeaderIncludeFilename = FirstInclude.IncludeResolvedNameIfSuccessful;
-				return FileItem.GetItemByFileReference(CPPFile.PrecompiledHeaderIncludeFilename);
-			}
-
-			// search the include paths to resolve the file.
-			string FirstIncludeName = FirstInclude.IncludeName;
-			UEBuildPlatform BuildPlatform = UEBuildPlatform.GetBuildPlatformForCPPTargetPlatform(Platform);
-			// convert back from relative to host path if needed
-			if (!BuildPlatform.UseAbsolutePathsInUnityFiles())
-			{
-				FirstIncludeName = RemoteExports.UnconvertPath(FirstIncludeName);
-			}
-
-			FileItem PrecompiledHeaderIncludeFile = CPPHeaders.FindIncludedFile(CPPFile.Location, FirstIncludeName, IncludePaths);
-			if (PrecompiledHeaderIncludeFile == null)
-			{
-				FirstIncludeName = RemoteExports.UnconvertPath(FirstInclude.IncludeName);
-				throw new BuildException("The first include statement in source file '{0}' is trying to include the file '{1}' as the precompiled header, but that file could not be located in any of the module's include search paths.", CPPFile.AbsolutePath, FirstIncludeName);
-			}
-
-			IncludeDependencyCache.CacheResolvedIncludeFullPath(CPPFile, 0, PrecompiledHeaderIncludeFile.Location, bUseIncludeDependencyResolveCache, bTestIncludeDependencyResolveCache);
-			CPPFile.PrecompiledHeaderIncludeFilename = PrecompiledHeaderIncludeFile.Location;
-
-			return PrecompiledHeaderIncludeFile;
 		}
 
 		public static double TotalTimeSpentGettingIncludes = 0.0;

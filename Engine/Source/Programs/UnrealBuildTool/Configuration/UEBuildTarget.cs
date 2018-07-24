@@ -3848,6 +3848,13 @@ namespace UnrealBuildTool
 						RulesObject.PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
 					}
 				}
+
+				// If we can't use a shared PCH, check there's a private PCH set
+				if(RulesObject.PCHUsage == ModuleRules.PCHUsageMode.NoSharedPCHs && RulesObject.PrivatePCHHeaderFile == null)
+				{
+					Log.TraceWarning("Modules must specify which file to use as a precompiled header in their build.cs file (eg. PrivatePCHHeaderFile = \"Private/{0}PrivatePCH.h\") or enable shared PCHs (eg. PCHUsage = PCHUsage.UseSharedPCHs) from UE 4.21 or later. '{0}' will be compiled using a shared PCH instead.", ModuleName);
+					RulesObject.PCHUsage = ModuleRules.PCHUsageMode.UseSharedPCHs;
+				}
 			}
 			return RulesObject;
 		}

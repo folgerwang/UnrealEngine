@@ -182,11 +182,6 @@ namespace UnrealBuildTool
 		public List<FileItem> PrivateUObjectHeaders;
 
 		/// <summary>
-		/// Module PCH absolute path
-		/// </summary>
-		public string PCH;
-
-		/// <summary>
 		/// Base (i.e. extensionless) path+filename of the .gen files
 		/// </summary>
 		public string GeneratedCPPFilenameBase;
@@ -209,7 +204,6 @@ namespace UnrealBuildTool
 			PublicUObjectClassesHeaders = (List<FileItem>)Info.GetValue("cl", typeof(List<FileItem>));
 			PublicUObjectHeaders = (List<FileItem>)Info.GetValue("pu", typeof(List<FileItem>));
 			PrivateUObjectHeaders = (List<FileItem>)Info.GetValue("pr", typeof(List<FileItem>));
-			PCH = Info.GetString("pc");
 			GeneratedCPPFilenameBase = Info.GetString("ge");
 			GeneratedCodeVersion = (EGeneratedCodeVersion)Info.GetInt32("gv");
 		}
@@ -223,7 +217,6 @@ namespace UnrealBuildTool
 			Info.AddValue("cl", PublicUObjectClassesHeaders);
 			Info.AddValue("pu", PublicUObjectHeaders);
 			Info.AddValue("pr", PrivateUObjectHeaders);
-			Info.AddValue("pc", PCH);
 			Info.AddValue("ge", GeneratedCPPFilenameBase);
 			Info.AddValue("gv", (int)GeneratedCodeVersion);
 		}
@@ -273,7 +266,6 @@ namespace UnrealBuildTool
 			public List<string> ClassesHeaders;
 			public List<string> PublicHeaders;
 			public List<string> PrivateHeaders;
-			public string PCH;
 			public string GeneratedCPPFilenameBase;
 			public bool SaveExportedHeaders;
 			public EGeneratedCodeVersion UHTGeneratedCodeVersion;
@@ -302,7 +294,6 @@ namespace UnrealBuildTool
 				ClassesHeaders = Info.PublicUObjectClassesHeaders.Select((Header) => Header.AbsolutePath).ToList(),
 				PublicHeaders = Info.PublicUObjectHeaders.Select((Header) => Header.AbsolutePath).ToList(),
 				PrivateHeaders = Info.PrivateUObjectHeaders.Select((Header) => Header.AbsolutePath).ToList(),
-				PCH = Info.PCH,
 				GeneratedCPPFilenameBase = Info.GeneratedCPPFilenameBase,
 				SaveExportedHeaders = !bUsePrecompiled || !Info.ModuleDirectory.IsUnderDirectory(UnrealBuildTool.EngineDirectory),
 				UHTGeneratedCodeVersion = Info.GeneratedCodeVersion,
@@ -623,21 +614,6 @@ namespace UnrealBuildTool
 					if (Module.SourceFilesToBuild.Count != 0)
 					{
 						Module.GeneratedCodeWildcard = Path.Combine(Module.GeneratedCodeDirectory.FullName, "*.gen.cpp");
-					}
-
-					// If we're running in "gather" mode only, we'll go ahead and cache PCH information for each module right now, so that we don't
-					// have to do it in the assembling phase.  It's OK for gathering to take a bit longer, even if UObject headers are not out of
-					// date in order to save a lot of time in the assembling runs.
-					Info.PCH = "";
-					if (!bIsAssemblingBuild)
-					{
-						// We need to figure out which PCH header this module is including, so that UHT can inject an include statement for it into any .cpp files it is synthesizing
-						CppCompileEnvironment ModuleCompileEnvironment = Module.CreateModuleCompileEnvironment(Target, GlobalCompileEnvironment);
-						Module.CachePCHUsageForModuleSourceFiles(Target, ModuleCompileEnvironment);
-						if (Module.ProcessedDependencies.UniquePCHHeaderFile != null)
-						{
-							Info.PCH = Module.ProcessedDependencies.UniquePCHHeaderFile.AbsolutePath;
-						}
 					}
 
 					UObjectModules.Add(Info);
@@ -1142,31 +1118,6 @@ namespace UnrealBuildTool
 
 				// ensure the headers are up to date
 				bool bUHTNeedsToRun = (BuildConfiguration.bForceHeaderGeneration || !bHaveHeaderTool || AreGeneratedCodeFilesOutOfDate(BuildConfiguration, UObjectModules, HeaderToolTimestamp, Target.bUsePrecompiled, HotReload, bIsGatheringBuild, bIsAssemblingBuild));
-				if (bUHTNeedsToRun || bIsGatheringBuild)
-				{
-					// Since code files are definitely out of date, we'll now finish computing information about the UObject modules for UHT.  We
-					// want to save this work until we know that UHT actually needs to be run to speed up best-case iteration times.
-					if (bIsGatheringBuild)		// In assembler-only mode, PCH info is loaded from our UBTMakefile!
-					{
-						foreach (UHTModuleInfo UHTModuleInfo in UObjectModules)
-						{
-							// Only cache the PCH name if we don't already have one.  When running in 'gather only' mode, this will have already been cached
-							if (string.IsNullOrEmpty(UHTModuleInfo.PCH))
-							{
-								UHTModuleInfo.PCH = "";
-
-								// We need to figure out which PCH header this module is including, so that UHT can inject an include statement for it into any .cpp files it is synthesizing
-								UEBuildModuleCPP DependencyModuleCPP = (UEBuildModuleCPP)Target.GetModuleByName(UHTModuleInfo.ModuleName);
-								CppCompileEnvironment ModuleCompileEnvironment = DependencyModuleCPP.CreateModuleCompileEnvironment(Target.Rules, GlobalCompileEnvironment);
-								DependencyModuleCPP.CachePCHUsageForModuleSourceFiles(Target.Rules, ModuleCompileEnvironment);
-								if (DependencyModuleCPP.ProcessedDependencies != null && DependencyModuleCPP.ProcessedDependencies.UniquePCHHeaderFile != null)
-								{
-									UHTModuleInfo.PCH = DependencyModuleCPP.ProcessedDependencies.UniquePCHHeaderFile.AbsolutePath;
-								}
-							}
-						}
-					}
-				}
 
 				// Get the file containing dependencies for the generated code
 				FileReference ExternalDependenciesFile = ModuleInfoFileName.ChangeExtension(".deps");

@@ -74,16 +74,6 @@ namespace UnrealBuildTool
 
 
 		///
-		/// Preparation only (not serialized)
-		/// 
-
-		/// <summary>
-		/// The PCH file that this file will use
-		/// </summary>
-		public FileReference PrecompiledHeaderIncludeFilename;
-
-
-		///
 		/// Transients (not serialized)
 		///
 

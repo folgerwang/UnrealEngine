@@ -366,9 +366,7 @@ namespace UnrealBuildTool
 				// Cache information about the unity .cpp dependencies
 				// @todo ubtmake urgent: Fails when building remotely for Mac because unity .cpp has an include for a PCH on the REMOTE machine
 				FileItem FirstCppFile = UnityFile.Files.First();
-				UEBuildModuleCPP.CachePCHUsageForModuleSourceFile(CompileEnvironment, FirstCppFile);
 				UnityCPPFile.CachedIncludePaths = FirstCppFile.CachedIncludePaths;
-				UnityCPPFile.PrecompiledHeaderIncludeFilename = FirstCppFile.PrecompiledHeaderIncludeFilename;
 			}
 
 			return NewCPPFiles;
