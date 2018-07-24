@@ -305,29 +305,16 @@ namespace UnrealBuildTool
 		/// Creates an instance of a module rules descriptor object for the specified module name
 		/// </summary>
 		/// <param name="ModuleName">Name of the module</param>
-		/// <param name="ReferenceChain">Chain of references leading to this module</param>
 		/// <param name="Target">Information about the target associated with this module</param>
+		/// <param name="ReferenceChain">Chain of references leading to this module</param>
 		/// <returns>Compiled module rule info</returns>
 		public ModuleRules CreateModuleRules(string ModuleName, ReadOnlyTargetRules Target, string ReferenceChain)
-		{
-			FileReference ModuleFileName;
-			return CreateModuleRules(ModuleName, Target, ReferenceChain, out ModuleFileName);
-		}
-
-		/// <summary>
-		/// Creates an instance of a module rules descriptor object for the specified module name
-		/// </summary>
-		/// <param name="ModuleName">Name of the module</param>
-		/// <param name="Target">Information about the target associated with this module</param>
-		/// <param name="ReferenceChain">Chain of references leading to this module</param>
-		/// <param name="ModuleFileName">The original source file name for the Module.cs file for this module</param>
-		/// <returns>Compiled module rule info</returns>
-		public ModuleRules CreateModuleRules(string ModuleName, ReadOnlyTargetRules Target, string ReferenceChain, out FileReference ModuleFileName)
 		{
 			// Currently, we expect the user's rules object type name to be the same as the module name
 			string ModuleTypeName = ModuleName;
 
 			// Make sure the module file is known to us
+			FileReference ModuleFileName;
 			if (!ModuleNameToModuleFile.TryGetValue(ModuleName, out ModuleFileName))
 			{
 				if (Parent == null)
@@ -336,7 +323,7 @@ namespace UnrealBuildTool
 				}
 				else
 				{
-					return Parent.CreateModuleRules(ModuleName, Target, ReferenceChain, out ModuleFileName);
+					return Parent.CreateModuleRules(ModuleName, Target, ReferenceChain);
 				}
 			}
 
@@ -352,6 +339,10 @@ namespace UnrealBuildTool
 			{
 				// Create an uninitialized ModuleRules object and set some defaults.
 				ModuleRules RulesObject = (ModuleRules)FormatterServices.GetUninitializedObject(RulesObjectType);
+				RulesObject.Name = ModuleName;
+				RulesObject.File = ModuleFileName;
+				RulesObject.Directory = ModuleFileName.Directory;
+				ModuleFileToPluginInfo.TryGetValue(RulesObject.File, out RulesObject.Plugin);
 				RulesObject.bTreatAsEngineModule = bContainsEngineModules;
 				RulesObject.bUseBackwardsCompatibleDefaults = bUseBackwardsCompatibleDefaults && Target.bUseBackwardsCompatibleDefaults;
 				RulesObject.bPrecompile = RulesObject.bTreatAsEngineModule && Target.bPrecompile;

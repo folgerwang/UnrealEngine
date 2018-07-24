@@ -235,6 +235,30 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Name of this module
+		/// </summary>
+		public string Name
+		{
+			get;
+			internal set;
+		}
+
+		/// <summary>
+		/// File containing this module
+		/// </summary>
+		internal FileReference File;
+
+		/// <summary>
+		/// Directory containing this module
+		/// </summary>
+		internal DirectoryReference Directory;
+
+		/// <summary>
+		/// Plugin containing this module
+		/// </summary>
+		internal PluginInfo Plugin;
+
+		/// <summary>
 		/// Rules for the target that this module belongs to
 		/// </summary>
 		public readonly ReadOnlyTargetRules Target;
@@ -537,13 +561,31 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Property for the directory containing this plugin. Useful for adding paths to third party dependencies.
+		/// </summary>
+		public string PluginDirectory
+		{
+			get
+			{
+				if(Plugin == null)
+				{
+					throw new BuildException("Module '{0}' does not belong to a plugin; PluginDirectory property is invalid.", Name);
+				}
+				else
+				{
+					return Plugin.Directory.FullName;
+				}
+			}
+		}
+
+		/// <summary>
 		/// Property for the directory containing this module. Useful for adding paths to third party dependencies.
 		/// </summary>
 		public string ModuleDirectory
 		{
 			get
 			{
-				return Path.GetDirectoryName(RulesCompiler.GetFileNameFromType(GetType()));
+				return Directory.FullName;
 			}
 		}
 
