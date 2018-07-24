@@ -484,6 +484,14 @@ namespace UnrealBuildTool
 				Rules.bOmitPCDebugInfoInDevelopment = false;
 			}
 
+			// Setup the malloc profiler
+			if (Rules.bUseMallocProfiler)
+			{
+				Rules.bOmitFramePointers = false;
+				Rules.GlobalDefinitions.Add("USE_MALLOC_PROFILER=1");
+			}
+
+			// Set a macro if we allow using generated inis
 			if (!Rules.bAllowGeneratedIniWhenCooked)
 			{
 				Rules.GlobalDefinitions.Add("DISABLE_GENERATED_INI_WHEN_COOKED=1");

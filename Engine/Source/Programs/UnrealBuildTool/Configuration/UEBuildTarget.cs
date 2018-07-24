@@ -436,13 +436,6 @@ namespace UnrealBuildTool
 				}
 			}
 
-			// Setup the malloc profiler
-			if (RulesObject.bUseMallocProfiler)
-			{
-				RulesObject.bOmitFramePointers = false;
-				RulesObject.GlobalDefinitions.Add("USE_MALLOC_PROFILER=1");
-			}
-
 			// If we're precompiling, generate a list of all the files that we depend on
 			if (RulesObject.bPrecompile)
 			{
