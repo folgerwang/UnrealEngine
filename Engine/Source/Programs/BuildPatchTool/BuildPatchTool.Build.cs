@@ -32,6 +32,7 @@ public class BuildPatchTool : ModuleRules
 		{
 			PrivateDependencyModuleNames.AddRange(
 				new string[] {
+					"ApplicationCore", // Required by AutomationController
 					"Messaging",
 					"AutomationWorker",
 					"AutomationController"
