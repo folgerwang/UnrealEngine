@@ -1186,7 +1186,7 @@ namespace UnrealBuildTool
 					}
 					catch (Exception Ex)
 					{
-						throw new BuildException(Ex, "Unable to delete {0} ({1})", DirectoryToDelete, Ex.Message);
+						throw new BuildException(Ex, "Unable to delete {0} ({1})", DirectoryToDelete, Ex.Message.TrimEnd());
 					}
 				}
 			}
@@ -1202,7 +1202,7 @@ namespace UnrealBuildTool
 					}
 					catch (Exception Ex)
 					{
-						throw new BuildException(Ex, "Unable to delete {0} ({1})", FileToDelete, Ex.Message);
+						throw new BuildException(Ex, "Unable to delete {0} ({1})", FileToDelete, Ex.Message.TrimEnd());
 					}
 				}
 			}
@@ -2260,7 +2260,7 @@ namespace UnrealBuildTool
 							}
 							catch (Exception Ex)
 							{
-								Log.TraceError("Unable to delete {0} ({1})", ExistingFile, Ex.Message);
+								Log.TraceError("Unable to delete {0} ({1})", ExistingFile, Ex.Message.TrimEnd());
 							}
 						}
 					}

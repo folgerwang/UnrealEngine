@@ -629,7 +629,7 @@ namespace UnrealBuildTool
 										catch (Exception Ex)
 										{
 											// Ignore all exceptions
-											Log.TraceInformation("Unable to delete old hot reload file: \"{0}\". Error: {1}", JunkFile, Ex.Message);
+											Log.TraceInformation("Unable to delete old hot reload file: \"{0}\". Error: {1}", JunkFile, Ex.Message.TrimEnd());
 										}
 
 										// Delete the PDB file.
@@ -644,7 +644,7 @@ namespace UnrealBuildTool
 											catch (Exception Ex)
 											{
 												// Ignore all exceptions
-												Log.TraceInformation("Unable to delete old hot reload file: \"{0}\". Error: {1}", JunkPDBFile, Ex.Message);
+												Log.TraceInformation("Unable to delete old hot reload file: \"{0}\". Error: {1}", JunkPDBFile, Ex.Message.TrimEnd());
 											}
 										}
 									}
