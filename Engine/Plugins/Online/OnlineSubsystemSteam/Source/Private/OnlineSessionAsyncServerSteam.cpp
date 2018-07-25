@@ -953,7 +953,7 @@ void FOnlineAsyncTaskSteamFindServerBase::ParseSearchResult(class gameserveritem
 			ServerBuildId = FCString::Atoi(*TagArray[0].Mid(ARRAY_COUNT(STEAMKEY_BUILDUNIQUEID)));
 		}
 
-		if (ServerBuildId != 0 && ServerBuildId == BuildUniqueId)
+		if (ServerBuildId == BuildUniqueId)
 		{
 			// Create a new pending search result 
 			FPendingSearchResultSteam* NewPendingSearch = new (PendingSearchResults) FPendingSearchResultSteam(this);
