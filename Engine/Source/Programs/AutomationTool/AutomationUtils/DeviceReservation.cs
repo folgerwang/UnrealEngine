@@ -131,7 +131,9 @@ namespace AutomationTool.DeviceReservation
 			using (var Response = (HttpWebResponse)Request.GetResponse())
 			using (var ResponseStream = Response.GetResponseStream())
 			{
-				string JsonString = Encoding.UTF8.GetString(ResponseStream.ReadIntoMemoryStream().ToArray());
+				MemoryStream MemoryStream = new MemoryStream();
+				ResponseStream.CopyTo(MemoryStream);
+				string JsonString = Encoding.UTF8.GetString(MemoryStream.ToArray());
 				return fastJSON.JSON.Instance.ToObject<T>(JsonString);
 			}
 		}
