@@ -831,7 +831,7 @@ public partial class Project : CommandUtils
 
 		// Make sure there are no restricted folders in the output
 		HashSet<StagedFileReference> RestrictedFiles = new HashSet<StagedFileReference>();
-		foreach (FileSystemName RestrictedName in SC.RestrictedFolderNames)
+		foreach (string RestrictedName in SC.RestrictedFolderNames)
 		{
 			RestrictedFiles.UnionWith(SC.FilesToStage.UFSFiles.Keys.Where(x => x.ContainsName(RestrictedName)));
 			RestrictedFiles.UnionWith(SC.FilesToStage.NonUFSFiles.Keys.Where(x => x.ContainsName(RestrictedName)));
@@ -843,7 +843,7 @@ public partial class Project : CommandUtils
 		if (RestrictedFiles.Count > 0)
 		{
 			List<string> RestrictedNames = new List<string>();
-			foreach(FileSystemName RestrictedFolderName in SC.RestrictedFolderNames)
+			foreach(string RestrictedFolderName in SC.RestrictedFolderNames)
 			{
 				if(RestrictedFiles.Any(x => x.ContainsName(RestrictedFolderName)))
 				{
@@ -858,7 +858,7 @@ public partial class Project : CommandUtils
 				Message.AppendFormat("\n{0}", RestrictedFile);
 			}
 			Message.Append("\n[Restrictions]");
-			foreach (FileSystemName RestrictedName in SC.RestrictedFolderNames)
+			foreach (string RestrictedName in SC.RestrictedFolderNames)
 			{
 				Message.AppendFormat("\n{0}", RestrictedName);
 			}

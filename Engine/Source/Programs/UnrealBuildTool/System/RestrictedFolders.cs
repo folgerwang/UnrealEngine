@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -59,7 +59,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Keeps a cache of folder substrings and flags
 		/// </summary>
-		static readonly Tuple<FileSystemName, RestrictedFolder>[] RestrictedFolderNames;
+		static readonly Tuple<string, RestrictedFolder>[] RestrictedFolderNames;
 		
 		/// <summary>
 		/// Static constructor
@@ -69,10 +69,10 @@ namespace UnrealBuildTool
 			string[] Names = Enum.GetNames(typeof(RestrictedFolder));
 			RestrictedFolder[] Values = (RestrictedFolder[])Enum.GetValues(typeof(RestrictedFolder));
 
-			RestrictedFolderNames = new Tuple<FileSystemName, RestrictedFolder>[Names.Length];
+			RestrictedFolderNames = new Tuple<string, RestrictedFolder>[Names.Length];
 			for(int Idx = 0; Idx < Names.Length; Idx++)
 			{
-				RestrictedFolderNames[Idx] = Tuple.Create(new FileSystemName(Names[Idx]), Values[Idx]);
+				RestrictedFolderNames[Idx] = Tuple.Create(Names[Idx], Values[Idx]);
 			}
 		}
 
@@ -87,7 +87,7 @@ namespace UnrealBuildTool
 			List<RestrictedFolder> Folders = new List<RestrictedFolder>();
 			if(OtherDir.IsUnderDirectory(BaseDir))
 			{
-				foreach(Tuple<FileSystemName, RestrictedFolder> Pair in RestrictedFolderNames)
+				foreach(Tuple<string, RestrictedFolder> Pair in RestrictedFolderNames)
 				{
 					if(OtherDir.ContainsName(Pair.Item1, BaseDir.FullName.Length))
 					{

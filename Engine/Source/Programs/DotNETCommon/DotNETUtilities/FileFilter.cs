@@ -37,16 +37,16 @@ namespace Tools.DotNETCommon
 		/// <summary>
 		/// List of all confidential folder names
 		/// </summary>
-		public static readonly FileSystemName[] RestrictedFolderNames =
+		public static readonly string[] RestrictedFolderNames =
 		{
-			new FileSystemName("EpicInternal"),
-			new FileSystemName("CarefullyRedist"),
-			new FileSystemName("NotForLicensees"),
-			new FileSystemName("NoRedist"),
-			new FileSystemName("PS4"),
-			new FileSystemName("XboxOne"),
-			new FileSystemName("Switch"),
-			new FileSystemName("Quail")
+			"EpicInternal",
+			"CarefullyRedist",
+			"NotForLicensees",
+			"NoRedist",
+			"PS4",
+			"XboxOne",
+			"Switch",
+			"Quail"
 		};
 
 		/// <summary>
@@ -363,7 +363,7 @@ namespace Tools.DotNETCommon
 		/// </summary>
 		public void ExcludeRestrictedFolders()
 		{
-			foreach(FileSystemName RestrictedFolderName in RestrictedFolderNames)
+			foreach(string RestrictedFolderName in RestrictedFolderNames)
 			{
 				AddRule(String.Format(".../{0}/...", RestrictedFolderName), FileFilterType.Exclude);
 			}

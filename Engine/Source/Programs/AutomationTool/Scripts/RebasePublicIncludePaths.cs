@@ -106,10 +106,10 @@ namespace AutomationTool
 			}
 
 			// List of folders to exclude from updates
-			FileSystemName[] ExcludeFoldersFromUpdate =
+			string[] ExcludeFoldersFromUpdate =
 			{
-				new FileSystemName("Intermediate"),
-				new FileSystemName("ThirdParty")
+				"Intermediate",
+				"ThirdParty"
 			};
 			
 			// Enumerate all the files to update

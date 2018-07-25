@@ -569,9 +569,9 @@ namespace UnrealBuildTool
 		/// <param name="BaseDir">Base directory to search</param>
 		/// <param name="ExcludeFolders">Array of folders to exclude</param>
 		/// <param name="Headers">Receives the list of headers that was found</param>
-		static void FindHeaders(DirectoryInfo BaseDir, FileSystemName[] ExcludeFolders, List<FileReference> Headers)
+		static void FindHeaders(DirectoryInfo BaseDir, string[] ExcludeFolders, List<FileReference> Headers)
 		{
-			if (!ExcludeFolders.Any(x => x.DisplayName.Equals(BaseDir.Name, StringComparison.InvariantCultureIgnoreCase)))
+			if (!ExcludeFolders.Any(x => x.Equals(BaseDir.Name, StringComparison.InvariantCultureIgnoreCase)))
 			{
 				foreach (DirectoryInfo SubDir in BaseDir.EnumerateDirectories())
 				{
@@ -599,7 +599,7 @@ namespace UnrealBuildTool
 			List<UEBuildModuleCPP> ModulesSortedByType = ModulesToGenerateHeadersFor.OrderBy(c => ModuleToType[c]).ToList();
 			StableTopologicalSort(ModulesSortedByType);
 
-			FileSystemName[] ExcludedFolders = UEBuildPlatform.GetBuildPlatform(Target.Platform, true).GetExcludedFolderNames();
+			string[] ExcludedFolders = UEBuildPlatform.GetBuildPlatform(Target.Platform, true).GetExcludedFolderNames();
 			foreach (UEBuildModuleCPP Module in ModulesSortedByType)
 			{
 				List<FileReference> HeaderFiles = new List<FileReference>();

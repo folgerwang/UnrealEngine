@@ -2781,12 +2781,12 @@ namespace UnrealBuildTool
 				RulesAssembly.GetAllModuleNames(ModuleNames);
 
 				// Find all the platform folders to exclude from the list of valid modules
-				List<FileSystemName> ExcludeFolders = new List<FileSystemName>();
+				List<string> ExcludeFolders = new List<string>();
 				foreach (UnrealTargetPlatform TargetPlatform in Enum.GetValues(typeof(UnrealTargetPlatform)))
 				{
 					if (TargetPlatform != Platform)
 					{
-						ExcludeFolders.Add(new FileSystemName(TargetPlatform.ToString()));
+						ExcludeFolders.Add(TargetPlatform.ToString());
 					}
 				}
 
@@ -2796,12 +2796,12 @@ namespace UnrealBuildTool
 				{
 					if (!IncludePlatformGroups.Contains(PlatformGroup))
 					{
-						ExcludeFolders.Add(new FileSystemName(PlatformGroup.ToString()));
+						ExcludeFolders.Add(PlatformGroup.ToString());
 					}
 				}
 
 				// Create an array of folders to exclude
-				FileSystemName[] ExcludeFoldersArray = ExcludeFolders.ToArray();
+				string[] ExcludeFoldersArray = ExcludeFolders.ToArray();
 
 				// Find all the directories containing engine modules that may be compatible with this target
 				List<DirectoryReference> Directories = new List<DirectoryReference>();
@@ -3137,7 +3137,7 @@ namespace UnrealBuildTool
 			}
 
 			// Get an array of folders to filter out
-			FileSystemName[] ExcludeFolders = MissingPlatforms.Select(x => new FileSystemName(x.ToString())).ToArray();
+			string[] ExcludeFolders = MissingPlatforms.Select(x => x.ToString()).ToArray();
 
 			// Set of all the plugins that have been referenced
 			HashSet<string> ReferencedNames = new HashSet<string>(StringComparer.InvariantCultureIgnoreCase);
@@ -3241,7 +3241,7 @@ namespace UnrealBuildTool
 		/// <param name="NameToInstance">Map from plugin name to instance of it</param>
 		/// <param name="NameToInfo">Map from plugin name to information</param>
 		/// <returns>Instance of the plugin, or null if it should not be used</returns>
-		private UEBuildPlugin AddPlugin(PluginReferenceDescriptor Reference, string ReferenceChain, FileSystemName[] ExcludeFolders, Dictionary<string, UEBuildPlugin> NameToInstance, Dictionary<string, PluginInfo> NameToInfo)
+		private UEBuildPlugin AddPlugin(PluginReferenceDescriptor Reference, string ReferenceChain, string[] ExcludeFolders, Dictionary<string, UEBuildPlugin> NameToInstance, Dictionary<string, PluginInfo> NameToInfo)
 		{
 			// Ignore disabled references
 			if(!Reference.bEnabled)
@@ -3381,7 +3381,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Checks whether a plugin path contains a platform directory fragment
 		/// </summary>
-		private bool ShouldExcludePlugin(PluginInfo Plugin, FileSystemName[] ExcludeFolders)
+		private bool ShouldExcludePlugin(PluginInfo Plugin, string[] ExcludeFolders)
 		{
 			if (Plugin.LoadedFrom == PluginLoadedFrom.Engine)
 			{

@@ -54,19 +54,19 @@ public class StagedFileReference : StagedFileSystemReference, IEquatable<StagedF
 	/// </summary>
 	/// <param name="OtherName"></param>
 	/// <returns></returns>
-	public bool ContainsName(FileSystemName OtherName)
+	public bool ContainsName(string OtherName)
 	{
 		int StartIdx = 0;
 		for(;;)
 		{
-			int Idx = Name.IndexOf(OtherName.DisplayName, StartIdx, FileSystemReference.Comparison);
+			int Idx = Name.IndexOf(OtherName, StartIdx, FileSystemReference.Comparison);
 			if(Idx == -1)
 			{
 				return false;
 			}
 			if (Idx == 0 || Name[Idx - 1] == '/')
 			{
-				int EndIdx = Idx + OtherName.DisplayName.Length;
+				int EndIdx = Idx + OtherName.Length;
 				if(EndIdx < Name.Length && Name[EndIdx] == '/')
 				{
 					return true;

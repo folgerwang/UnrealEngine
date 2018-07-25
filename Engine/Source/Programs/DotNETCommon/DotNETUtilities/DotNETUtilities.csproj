@@ -71,7 +71,6 @@
     <Compile Include="FileFilterNode.cs" />
     <Compile Include="FilePattern.cs" />
     <Compile Include="FileReference.cs" />
-    <Compile Include="FileSystemName.cs" />
     <Compile Include="FileSystemReference.cs" />
     <Compile Include="JsonObject.cs" />
     <Compile Include="Log.cs" />

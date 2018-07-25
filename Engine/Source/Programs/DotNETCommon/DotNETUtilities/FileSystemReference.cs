@@ -157,7 +157,7 @@ namespace Tools.DotNETCommon
 		/// <param name="Name">Name to check for</param>
 		/// <param name="Offset">Offset within the string to start the search</param>
 		/// <returns>True if the given name is found within the path</returns>
-		public bool ContainsName(FileSystemName Name, int Offset)
+		public bool ContainsName(string Name, int Offset)
 		{
 			return ContainsName(Name, Offset, FullName.Length - Offset);
 		}
@@ -169,10 +169,10 @@ namespace Tools.DotNETCommon
 		/// <param name="Offset">Offset within the string to start the search</param>
 		/// <param name="Length">Length of the substring to search</param>
 		/// <returns>True if the given name is found within the path</returns>
-		public bool ContainsName(FileSystemName Name, int Offset, int Length)
+		public bool ContainsName(string Name, int Offset, int Length)
 		{
 			// Check the substring to search is at least long enough to contain a match
-			if(Length < Name.DisplayName.Length)
+			if(Length < Name.Length)
 			{
 				return false;
 			}
@@ -182,21 +182,21 @@ namespace Tools.DotNETCommon
 			for(;;)
 			{
 				// Find the next occurrence
-				MatchIdx = FullName.IndexOf(Name.DisplayName, MatchIdx, Offset + Length - MatchIdx, Comparison);
+				MatchIdx = FullName.IndexOf(Name, MatchIdx, Offset + Length - MatchIdx, Comparison);
 				if(MatchIdx == -1)
 				{
 					return false;
 				}
 
 				// Check if the substring is a directory
-				int MatchEndIdx = MatchIdx + Name.DisplayName.Length;
+				int MatchEndIdx = MatchIdx + Name.Length;
 				if(FullName[MatchIdx - 1] == Path.DirectorySeparatorChar && (MatchEndIdx == FullName.Length || FullName[MatchEndIdx] == Path.DirectorySeparatorChar))
 				{
 					return true;
 				}
 
 				// Move past the string that didn't match
-				MatchIdx += Name.DisplayName.Length;
+				MatchIdx += Name.Length;
 			}
 		}
 
@@ -206,7 +206,7 @@ namespace Tools.DotNETCommon
 		/// <param name="Name">Name of a subfolder to also check for</param>
 		/// <param name="BaseDir">Base directory to check against</param>
 		/// <returns>True if the path is under the given directory</returns>
-		public bool ContainsName(FileSystemName Name, DirectoryReference BaseDir)
+		public bool ContainsName(string Name, DirectoryReference BaseDir)
 		{
 			// Check that this is under the base directory
 			if(!IsUnderDirectory(BaseDir))
@@ -225,7 +225,7 @@ namespace Tools.DotNETCommon
 		/// <param name="Names">Names of subfolders to also check for</param>
 		/// <param name="BaseDir">Base directory to check against</param>
 		/// <returns>True if the path is under the given directory</returns>
-		public bool ContainsAnyNames(FileSystemName[] Names, DirectoryReference BaseDir)
+		public bool ContainsAnyNames(IEnumerable<string> Names, DirectoryReference BaseDir)
 		{
 			// Check that this is under the base directory
 			if(!IsUnderDirectory(BaseDir))

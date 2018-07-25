@@ -1383,7 +1383,7 @@ namespace UnrealBuildTool
 
 			foreach (FileReference RuntimeDependency in LinkEnvironment.RuntimeDependencies)
 			{
-				if (RuntimeDependency.ContainsName(new FileSystemName("Binaries"), 0) && RuntimeDependency.GetExtension() == ".so" && Path.GetDirectoryName(RuntimeDependency.FullName) != Path.GetDirectoryName(OutputFile.AbsolutePath))
+				if (RuntimeDependency.ContainsName("Binaries", 0) && RuntimeDependency.GetExtension() == ".so" && Path.GetDirectoryName(RuntimeDependency.FullName) != Path.GetDirectoryName(OutputFile.AbsolutePath))
 				{
 					string RelativeRootPath = RuntimeDependency.Directory.MakeRelativeTo(UnrealBuildTool.RootDirectory);
 					// We're assuming that the binary will be placed according to our ProjectName/Binaries/Platform scheme
