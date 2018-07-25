@@ -200,7 +200,6 @@
     <Compile Include="System\ObsoleteOverrideAttribute.cs" />
     <Compile Include="System\ProgressWriter.cs" />
     <Compile Include="System\RemoteExecutor.cs" />
-    <Compile Include="System\RestrictedFolders.cs" />
     <Compile Include="System\RulesAssembly.cs" />
     <Compile Include="System\ScopedTimer.cs" />
     <Compile Include="System\SourceFileWorkingSet.cs" />

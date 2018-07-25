@@ -125,8 +125,8 @@ namespace AutomationTool
 			DefaultProperties["RootDir"] = CommandUtils.RootDirectory.FullName;
 			DefaultProperties["IsBuildMachine"] = IsBuildMachine ? "true" : "false";
 			DefaultProperties["HostPlatform"] = HostPlatform.Current.HostEditorPlatform.ToString();
-			DefaultProperties["RestrictedFolderNames"] = String.Join(";", FileFilter.RestrictedFolderNames);
-			DefaultProperties["RestrictedFolderFilter"] = String.Join(";", FileFilter.RestrictedFolderNames.Select(x => String.Format(".../{0}/...", x)));
+			DefaultProperties["RestrictedFolderNames"] = String.Join(";", RestrictedFolders.Names);
+			DefaultProperties["RestrictedFolderFilter"] = String.Join(";", RestrictedFolders.Names.Select(x => String.Format(".../{0}/...", x)));
 
 			// Attempt to read existing Build Version information
 			BuildVersion Version;

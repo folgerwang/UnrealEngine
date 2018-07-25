@@ -140,6 +140,7 @@
     <Compile Include="Perforce\Records\UserRecord.cs" />
     <Compile Include="Perforce\Records\WhereRecord.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="RestrictedFolders.cs" />
     <Compile Include="ResXResource\UEResXReader.cs" />
     <Compile Include="ResXResource\UEResXWriter.cs" />
     <Compile Include="RPCCommandHelper.cs" />
