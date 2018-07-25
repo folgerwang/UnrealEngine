@@ -1381,19 +1381,19 @@ namespace UnrealBuildTool
 				}
 			}
 
-			foreach (FileReference RuntimeDependency in LinkEnvironment.RuntimeDependencies)
+			foreach(string RuntimeLibaryPath in LinkEnvironment.RuntimeLibraryPaths)
 			{
-				if (RuntimeDependency.ContainsName("Binaries", 0) && RuntimeDependency.GetExtension() == ".so" && Path.GetDirectoryName(RuntimeDependency.FullName) != Path.GetDirectoryName(OutputFile.AbsolutePath))
+				string RelativePath = RuntimeLibaryPath;
+				if(!RelativePath.StartsWith("$"))
 				{
-					string RelativeRootPath = RuntimeDependency.Directory.MakeRelativeTo(UnrealBuildTool.RootDirectory);
+					string RelativeRootPath = new DirectoryReference(RuntimeLibaryPath).MakeRelativeTo(UnrealBuildTool.RootDirectory);
 					// We're assuming that the binary will be placed according to our ProjectName/Binaries/Platform scheme
-					string RelativePath = Path.Combine("..", "..", "..", RelativeRootPath);
-
-					if (!RPaths.Contains(RelativePath))
-					{
-						RPaths.Add(RelativePath);
-						ResponseLines.Add(string.Format(" -rpath=\"${{ORIGIN}}/{0}\"", RelativePath.Replace('\\', '/')));
-					}
+					RelativePath = Path.Combine("..", "..", "..", RelativeRootPath);
+				}
+				if (!RPaths.Contains(RelativePath))
+				{
+					RPaths.Add(RelativePath);
+					ResponseLines.Add(string.Format(" -rpath=\"${{ORIGIN}}/{0}\"", RelativePath.Replace('\\', '/')));
 				}
 			}
 

@@ -54,7 +54,10 @@ public class OpenVR : ModuleRules
 			PublicLibraryPaths.Add(LibraryPath + "linux64");
 			PublicAdditionalLibraries.Add("openvr_api");
 
-			string DylibPath = Target.UEThirdPartyBinariesDirectory + "OpenVR/OpenVR" + OpenVRVersion + "/linux64/libopenvr_api.so";
+			string DylibDir = Target.UEThirdPartyBinariesDirectory + "OpenVR/OpenVR" + OpenVRVersion + "/linux64";
+			PrivateRuntimeLibraryPaths.Add(DylibDir);
+
+			string DylibPath = DylibDir + "/libopenvr_api.so";
 			PublicDelayLoadDLLs.Add(DylibPath);
 			RuntimeDependencies.Add(DylibPath);
 		}

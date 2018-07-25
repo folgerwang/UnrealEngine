@@ -454,6 +454,16 @@ namespace UnrealBuildTool
 		public List<string> PublicLibraryPaths = new List<string>();
 
 		/// <summary>
+		/// List of search paths for libraries at runtime (eg. .so files)
+		/// </summary>
+		public List<string> PrivateRuntimeLibraryPaths = new List<string>();
+
+		/// <summary>
+		/// List of search paths for libraries at runtime (eg. .so files)
+		/// </summary>
+		public List<string> PublicRuntimeLibraryPaths = new List<string>();
+
+		/// <summary>
 		/// List of additional libraries (names of the .lib files including extension) - typically used for External (third party) modules
 		/// </summary>
 		public List<string> PublicAdditionalLibraries = new List<string>();
