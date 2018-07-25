@@ -36,7 +36,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// The version number for binary serialization
 		/// </summary>
-		const int FileVersion = 2;
+		const int FileVersion = 3;
 
 		/// <summary>
 		/// The file signature for binary serialization
