@@ -3793,6 +3793,9 @@ void FSequencer::OnScrubPositionChanged( FFrameTime NewScrubPosition, bool bScru
 
 void FSequencer::OnBeginScrubbing()
 {
+	// Pause first since there's no explicit evaluation in the stopped state when OnEndScrubbing() is called
+	Pause();
+
 	SetPlaybackStatus(EMovieScenePlayerStatus::Scrubbing);
 	SequencerWidget->RegisterActiveTimerForPlayback();
 
