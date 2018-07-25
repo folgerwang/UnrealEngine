@@ -32,14 +32,17 @@ void UNiagaraDataInterfaceTexture2D::PostInitProperties()
 void UNiagaraDataInterfaceTexture2D::PostLoad()
 {
 	Super::PostLoad();
+#if WITH_EDITOR
 	const int32 NiagaraVer = GetLinkerCustomVersion(FNiagaraCustomVersion::GUID);
 	if (NiagaraVer < FNiagaraCustomVersion::TextureDataInterfaceUsesCustomSerialize)
 	{
 		if (Texture != nullptr)
 		{
+			Texture->ConditionalPostLoad();
 			CopyTextureToCPUBackup(Texture, CPUTextureData);
 		}
 	}
+#endif
 }
 
 #if WITH_EDITOR
