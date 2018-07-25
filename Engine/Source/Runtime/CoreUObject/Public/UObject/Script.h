@@ -496,35 +496,17 @@ private:
 
 		struct FPausableScopeTimer
 		{
-			FPausableScopeTimer() 
-			{ 
-				FPausableScopeTimer*& ActiveTimer = FThreadedTimerManager::Get().ActiveTimer;
-
-				double CurrentTime = FPlatformTime::Seconds();
-				if (ActiveTimer)
-				{
-					ActiveTimer->Pause(CurrentTime);
-				}
-
-				PreviouslyActiveTimer = ActiveTimer;
-				StartTime = CurrentTime;
-				TotalTime = 0.0;
-
-				ActiveTimer = this;
-			}
-
-			~FPausableScopeTimer()
+			FPausableScopeTimer()
+				: PreviouslyActiveTimer(nullptr)
+				, TotalTime(0.0)
+				, StartTime(0.0)
 			{
-				if (PreviouslyActiveTimer)
-				{
-					PreviouslyActiveTimer->Resume();
-				}
-				FThreadedTimerManager::Get().ActiveTimer = PreviouslyActiveTimer;
 			}
 
+			void Start();
 			void Pause(double CurrentTime) { TotalTime += CurrentTime - StartTime; }
 			void Resume() { StartTime = FPlatformTime::Seconds();  }
-			double Stop() { return TotalTime + (FPlatformTime::Seconds() - StartTime); }
+			double Stop();
 
 		private:
 			FPausableScopeTimer* PreviouslyActiveTimer;
@@ -534,40 +516,17 @@ private:
 
 		struct FScopedVMTimer
 		{
-			FScopedVMTimer()
-				: Timer()
-				, VMParent(nullptr)
-			{
-				FScopedVMTimer*& ActiveVMTimer = FThreadedTimerManager::Get().ActiveVMScope;
-				VMParent = ActiveVMTimer;
+			COREUOBJECT_API FScopedVMTimer();
+			COREUOBJECT_API ~FScopedVMTimer();
 
-				ActiveVMTimer = this;
-			}
-
-			~FScopedVMTimer()
-			{
-				INC_FLOAT_STAT_BY(STAT_ScriptVmTime_Total, Timer.Stop() * 1000.0);
-				FThreadedTimerManager::Get().ActiveVMScope = VMParent;
-			}
 			FPausableScopeTimer Timer;
 			FScopedVMTimer* VMParent;
 		};
 
 		struct FScopedNativeTimer
 		{
-			FScopedNativeTimer()
-				: Timer()
-			{}
-
-			~FScopedNativeTimer()
-			{
-				// only track native time when in a VM scope, RPC time
-				// can be tracked by the online system or whatever is making RPCs:
-				if (FThreadedTimerManager::Get().ActiveVMScope)
-				{
-					INC_FLOAT_STAT_BY(STAT_ScriptNativeTime_Total, Timer.Stop()* 1000.0);
-				}
-			}
+			COREUOBJECT_API FScopedNativeTimer();
+			COREUOBJECT_API ~FScopedNativeTimer();
 
 			FPausableScopeTimer Timer;
 		};
