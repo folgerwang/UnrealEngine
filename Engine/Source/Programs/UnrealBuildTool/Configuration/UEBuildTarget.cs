@@ -4068,30 +4068,24 @@ namespace UnrealBuildTool
 			DirectoryReference GeneratedCodeDirectory,
 			List<FileItem> ModuleSourceFiles,
 			bool bBuildSourceFiles,
-			List<RuntimeDependency> InRuntimeDependencies)
+			List<RuntimeDependency> RuntimeDependencies)
 		{
 			switch (RulesObject.Type)
 			{
 				case ModuleRules.ModuleType.CPlusPlus:
 					return new UEBuildModuleCPP(
-							InName: RulesObject.Name,
-							InModuleDirectory: RulesObject.Directory,
-							InIntermediateDirectory: GetModuleIntermediateDirectory(RulesObject),
-							InGeneratedCodeDirectory: GeneratedCodeDirectory,
-							InSourceFiles: ModuleSourceFiles,
-							InRules: RulesObject,
-							bInBuildSourceFiles: bBuildSourceFiles,
-							InRulesFile: RulesObject.File,
-							InRuntimeDependencies: InRuntimeDependencies
+							Rules: RulesObject,
+							IntermediateDirectory: GetModuleIntermediateDirectory(RulesObject),
+							GeneratedCodeDirectory: GeneratedCodeDirectory,
+							SourceFiles: ModuleSourceFiles,
+							bBuildSourceFiles: bBuildSourceFiles,
+							RuntimeDependencies: RuntimeDependencies
 						);
 
 				case ModuleRules.ModuleType.External:
 					return new UEBuildModuleExternal(
-							InName: RulesObject.Name,
-							InModuleDirectory: RulesObject.Directory,
-							InRules: RulesObject,
-							InRulesFile: RulesObject.File,
-							InRuntimeDependencies: InRuntimeDependencies
+							Rules: RulesObject,
+							RuntimeDependencies: RuntimeDependencies
 						);
 
 				default:

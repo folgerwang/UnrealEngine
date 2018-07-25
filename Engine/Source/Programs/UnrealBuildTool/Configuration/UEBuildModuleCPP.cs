@@ -198,31 +198,22 @@ namespace UnrealBuildTool
 
 
 		public UEBuildModuleCPP(
-			string InName,
-			DirectoryReference InModuleDirectory,
-			DirectoryReference InIntermediateDirectory,
-			DirectoryReference InGeneratedCodeDirectory,
-			IEnumerable<FileItem> InSourceFiles,
-			ModuleRules InRules,
-			bool bInBuildSourceFiles,
-			FileReference InRulesFile,
-			List<RuntimeDependency> InRuntimeDependencies
+			ModuleRules Rules,
+			DirectoryReference IntermediateDirectory,
+			DirectoryReference GeneratedCodeDirectory,
+			IEnumerable<FileItem> SourceFiles,
+			bool bBuildSourceFiles,
+			List<RuntimeDependency> RuntimeDependencies
 			)
-			: base(
-					InName,
-					InModuleDirectory,
-					InRules,
-					InRulesFile,
-					InRuntimeDependencies
-				)
+			: base(Rules, RuntimeDependencies)
 		{
-			IntermediateDirectory = InIntermediateDirectory;
-			GeneratedCodeDirectory = InGeneratedCodeDirectory;
+			this.IntermediateDirectory = IntermediateDirectory;
+			this.GeneratedCodeDirectory = GeneratedCodeDirectory;
 
-			SourceFiles = InSourceFiles.ToList();
+			this.SourceFiles = SourceFiles.ToList();
 
-			CategorizeSourceFiles(InSourceFiles, SourceFilesFound);
-			if (bInBuildSourceFiles)
+			CategorizeSourceFiles(SourceFiles, SourceFilesFound);
+			if (bBuildSourceFiles)
 			{
 				SourceFilesToBuild.CopyFrom(SourceFilesFound);
 			}

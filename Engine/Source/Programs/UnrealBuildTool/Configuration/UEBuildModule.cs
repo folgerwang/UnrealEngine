@@ -18,29 +18,38 @@ namespace UnrealBuildTool
 	abstract class UEBuildModule
 	{
 		/// <summary>
-		/// The name that uniquely identifies the module.
-		/// </summary>
-		public readonly string Name;
-
-		/// <summary>
 		/// The rules for this module
 		/// </summary>
-		public ModuleRules Rules;
+		public readonly ModuleRules Rules;
+
+		/// <summary>
+		/// The name that uniquely identifies the module.
+		/// </summary>
+		public string Name
+		{
+			get { return Rules.Name; }
+		}
 
 		/// <summary>
 		/// Path to the module directory
 		/// </summary>
-		public readonly DirectoryReference ModuleDirectory;
+		public DirectoryReference ModuleDirectory
+		{
+			get { return Rules.Directory; }
+		}
+
+		/// <summary>
+		/// The name of the .Build.cs file this module was created from, if any
+		/// </summary>
+		public FileReference RulesFile
+		{
+			get { return Rules.File; }
+		}
 
 		/// <summary>
 		/// Is this module allowed to be redistributed.
 		/// </summary>
 		private readonly bool? IsRedistributableOverride;
-
-		/// <summary>
-		/// The name of the .Build.cs file this module was created from, if any
-		/// </summary>
-		public FileReference RulesFile;
 
 		/// <summary>
 		/// The binary the module will be linked into for the current target.  Only set after UEBuildBinary.BindModules is called.
@@ -155,43 +164,37 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Constructor
 		/// </summary>
-		/// <param name="InName">Name of the module</param>
-		/// <param name="InModuleDirectory">Base directory for the module</param>
-		/// <param name="InRules">Rules for this module</param>
-		/// <param name="InRulesFile">Path to the rules file</param>
-		/// <param name="InRuntimeDependencies">List of runtime dependencies</param>
-		public UEBuildModule(string InName, DirectoryReference InModuleDirectory, ModuleRules InRules, FileReference InRulesFile, List<RuntimeDependency> InRuntimeDependencies)
+		/// <param name="Rules">Rules for this module</param>
+		/// <param name="RuntimeDependencies">List of runtime dependencies</param>
+		public UEBuildModule(ModuleRules Rules, List<RuntimeDependency> RuntimeDependencies)
 		{
-			Name = InName;
-			ModuleDirectory = InModuleDirectory;
-			Rules = InRules;
-			RulesFile = InRulesFile;
+			this.Rules = Rules;
 
 			ModuleApiDefine = Name.ToUpperInvariant() + "_API";
 
-			PublicDefinitions = HashSetFromOptionalEnumerableStringParameter(InRules.PublicDefinitions);
-			PublicIncludePaths = CreateDirectoryHashSet(InRules.PublicIncludePaths);
-			PublicSystemIncludePaths = CreateDirectoryHashSet(InRules.PublicSystemIncludePaths);
-			PublicLibraryPaths = CreateDirectoryHashSet(InRules.PublicLibraryPaths);
-			PublicAdditionalLibraries = HashSetFromOptionalEnumerableStringParameter(InRules.PublicAdditionalLibraries);
-			PublicFrameworks = HashSetFromOptionalEnumerableStringParameter(InRules.PublicFrameworks);
-			PublicWeakFrameworks = HashSetFromOptionalEnumerableStringParameter(InRules.PublicWeakFrameworks);
-			PublicAdditionalFrameworks = InRules.PublicAdditionalFrameworks == null ? new HashSet<UEBuildFramework>() : new HashSet<UEBuildFramework>(InRules.PublicAdditionalFrameworks);
-			PublicAdditionalShadowFiles = HashSetFromOptionalEnumerableStringParameter(InRules.PublicAdditionalShadowFiles);
-			PublicAdditionalBundleResources = InRules.AdditionalBundleResources == null ? new HashSet<UEBuildBundleResource>() : new HashSet<UEBuildBundleResource>(InRules.AdditionalBundleResources);
-			PublicDelayLoadDLLs = HashSetFromOptionalEnumerableStringParameter(InRules.PublicDelayLoadDLLs);
+			PublicDefinitions = HashSetFromOptionalEnumerableStringParameter(Rules.PublicDefinitions);
+			PublicIncludePaths = CreateDirectoryHashSet(Rules.PublicIncludePaths);
+			PublicSystemIncludePaths = CreateDirectoryHashSet(Rules.PublicSystemIncludePaths);
+			PublicLibraryPaths = CreateDirectoryHashSet(Rules.PublicLibraryPaths);
+			PublicAdditionalLibraries = HashSetFromOptionalEnumerableStringParameter(Rules.PublicAdditionalLibraries);
+			PublicFrameworks = HashSetFromOptionalEnumerableStringParameter(Rules.PublicFrameworks);
+			PublicWeakFrameworks = HashSetFromOptionalEnumerableStringParameter(Rules.PublicWeakFrameworks);
+			PublicAdditionalFrameworks = Rules.PublicAdditionalFrameworks == null ? new HashSet<UEBuildFramework>() : new HashSet<UEBuildFramework>(Rules.PublicAdditionalFrameworks);
+			PublicAdditionalShadowFiles = HashSetFromOptionalEnumerableStringParameter(Rules.PublicAdditionalShadowFiles);
+			PublicAdditionalBundleResources = Rules.AdditionalBundleResources == null ? new HashSet<UEBuildBundleResource>() : new HashSet<UEBuildBundleResource>(Rules.AdditionalBundleResources);
+			PublicDelayLoadDLLs = HashSetFromOptionalEnumerableStringParameter(Rules.PublicDelayLoadDLLs);
 			if(Rules.bUsePrecompiled)
 			{
 				PrivateIncludePaths = new HashSet<DirectoryReference>();
 			}
 			else
 			{
-				PrivateIncludePaths = CreateDirectoryHashSet(InRules.PrivateIncludePaths);
+				PrivateIncludePaths = CreateDirectoryHashSet(Rules.PrivateIncludePaths);
 			}
-			RuntimeDependencies = InRuntimeDependencies;
-			IsRedistributableOverride = InRules.IsRedistributableOverride;
+			this.RuntimeDependencies = RuntimeDependencies;
+			IsRedistributableOverride = Rules.IsRedistributableOverride;
 
-			WhitelistRestrictedFolders = new HashSet<DirectoryReference>(InRules.WhitelistRestrictedFolders.Select(x => DirectoryReference.Combine(ModuleDirectory, x)));
+			WhitelistRestrictedFolders = new HashSet<DirectoryReference>(Rules.WhitelistRestrictedFolders.Select(x => DirectoryReference.Combine(ModuleDirectory, x)));
 		}
 
 		/// <summary>
