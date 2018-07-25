@@ -797,7 +797,13 @@ bool UActorRecording::StopRecording(ULevelSequence* OriginalSequence, float Curr
 
 		FFrameNumber RecordStartTime = OriginalSequence->GetMovieScene()->GetPlaybackRange().GetLowerBoundValue();
 		UMovieSceneSubSection* SubSection = SubTrack->AddSequence(CurrentSequence, RecordStartTime,  MovieScene::DiscreteSize(CurrentSequence->GetMovieScene()->GetPlaybackRange()));
-		SubSection->SetRowIndex(RowIndex.GetValue());		
+
+		if (SubSection->GetAutoSizeRange().IsSet())
+		{
+			SubSection->SetRange(SubSection->GetAutoSizeRange().GetValue());
+		}
+
+		SubSection->SetRowIndex(RowIndex.GetValue());
 
 		SubTrack->FixRowIndices();
 
