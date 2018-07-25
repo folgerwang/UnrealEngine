@@ -24,6 +24,11 @@ UVirtualCameraMovementComponent::UVirtualCameraMovementComponent(const FObjectIn
 
 void UVirtualCameraMovementComponent::AddInputVector(FVector WorldVector, bool bForce /*=false*/)
 {
+	if (WorldVector.IsZero())
+	{
+		return;
+	}
+
 	ApplyLocationScaling(WorldVector);
 	ApplyLocationLocks(WorldVector);
 
@@ -220,11 +225,20 @@ FVector UVirtualCameraMovementComponent::GetStabilizedDeltaLocation() const
 
 void UVirtualCameraMovementComponent::ApplyLocationScaling(FVector& VectorToAdjust)
 {
+	// Get the axes to scale along
 	FVector ForwardVector;
 	FVector RightVector;
 	FVector UpVector;
 
 	GetDirectionVectorsForCamera(ForwardVector, RightVector, UpVector);
+
+	// Orient to global Z up, but maintain yaw
+	ForwardVector = FVector::VectorPlaneProject(ForwardVector, FVector::UpVector);
+	RightVector = FVector::VectorPlaneProject(RightVector, FVector::UpVector);
+	UpVector = FVector::UpVector;
+
+	ForwardVector.Normalize();
+	RightVector.Normalize();
 
 	FVector XComponent = VectorToAdjust.ProjectOnTo(ForwardVector);
 	FVector YComponent = VectorToAdjust.ProjectOnTo(RightVector);
