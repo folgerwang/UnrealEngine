@@ -553,8 +553,6 @@ namespace UnrealBuildTool
 
 		public override void ValidateTarget(TargetRules Target)
 		{
-			Target.bUsePCHFiles = false;
-
 			// we assume now we are building with IOS8 or later
 			if (Target.bCompileAgainstEngine)
 			{
