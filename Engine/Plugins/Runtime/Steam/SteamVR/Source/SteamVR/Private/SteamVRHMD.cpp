@@ -156,12 +156,11 @@ public:
 #if PLATFORM_WINDOWS
 #if PLATFORM_64BITS
 		FString RootOpenVRPath;
-		TCHAR VROverridePath[MAX_PATH];
-		FPlatformMisc::GetEnvironmentVariable(TEXT("VR_OVERRIDE"), VROverridePath, MAX_PATH);
+		FString VROverridePath = FPlatformMisc::GetEnvironmentVariable(TEXT("VR_OVERRIDE"));
 		
-		if (FCString::Strlen(VROverridePath) > 0)
+		if (VROverridePath.Len() > 0)
 		{
-			RootOpenVRPath = FString::Printf(TEXT("%s\\bin\\win64\\"), VROverridePath);
+			RootOpenVRPath = FString::Printf(TEXT("%s\\bin\\win64\\"), *VROverridePath);
 		}
 		else
 		{

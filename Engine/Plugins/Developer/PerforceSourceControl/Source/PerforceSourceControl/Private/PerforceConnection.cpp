@@ -484,9 +484,7 @@ bool FPerforceConnection::GetWorkspaceList(const FPerforceConnectionInfo& InConn
 			if(LocalHostName.Len() == 0)
 			{
 				// No host override, check environment variable
-				TCHAR P4HostEnv[256];
-				FPlatformMisc::GetEnvironmentVariable(TEXT("P4HOST"), P4HostEnv, ARRAY_COUNT(P4HostEnv));
-				LocalHostName = P4HostEnv;
+				LocalHostName = FPlatformMisc::GetEnvironmentVariable(TEXT("P4HOST"));
 			}
 
 			if (LocalHostName.Len() == 0)

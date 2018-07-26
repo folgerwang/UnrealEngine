@@ -200,9 +200,7 @@ bool FXGEControllerModule::IsSupported()
 		// Try to find xgConsole.exe from the PATH environment variable
 		FString PathString;
 		{
-			TCHAR EnvVariable[32 * 1024];
-			FPlatformMisc::GetEnvironmentVariable(TEXT("Path"), EnvVariable, ARRAY_COUNT(EnvVariable));
-			FString EnvString(EnvVariable);
+			FString EnvString = FPlatformMisc::GetEnvironmentVariable(TEXT("Path"));
 			int32 PathStart = EnvString.Find(TEXT("Xoreax\\IncrediBuild"), ESearchCase::IgnoreCase, ESearchDir::FromStart);
 			if (PathStart != INDEX_NONE)
 			{

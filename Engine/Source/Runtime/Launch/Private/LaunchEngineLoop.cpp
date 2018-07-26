@@ -3919,24 +3919,15 @@ bool FEngineLoop::AppInit( )
 	}
 
 
-	// 8192 is the maximum length of the command line on Windows XP.
-	TCHAR CmdLineEnv[8192];
-
 	// Retrieve additional command line arguments from environment variable.
-	FPlatformMisc::GetEnvironmentVariable(TEXT("UE-CmdLineArgs"), CmdLineEnv,ARRAY_COUNT(CmdLineEnv));
-
-	// Manually nullptr terminate just in case. The nullptr string is returned above in the error case so
-	// we don't have to worry about that.
-	CmdLineEnv[ARRAY_COUNT(CmdLineEnv)-1] = 0;
-	FString Env = FString(CmdLineEnv).TrimStart();
-
+	FString Env = FPlatformMisc::GetEnvironmentVariable(TEXT("UE-CmdLineArgs")).TrimStart();
 	if (Env.Len())
 	{
 		// Append the command line environment after inserting a space as we can't set it in the
 		// environment. Note that any code accessing GCmdLine before appInit obviously won't
 		// respect the command line environment additions.
 		FCommandLine::Append(TEXT(" -EnvAfterHere "));
-		FCommandLine::Append(CmdLineEnv);
+		FCommandLine::Append(*Env);
 	}
 #endif
 

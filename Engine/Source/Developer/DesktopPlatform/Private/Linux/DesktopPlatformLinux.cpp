@@ -243,13 +243,10 @@ static bool CompareAndCheckDesktopFile(const TCHAR* DesktopFileName, const TCHAR
 	}
 
 	// There currently appears to be no way to locate the desktop file with xdg-utils so access the file via the expected location.
-	TCHAR DataDir[PLATFORM_MAX_FILEPATH_LENGTH];
-	FPlatformMisc::GetEnvironmentVariable(TEXT("XDG_DATA_HOME"), DataDir, PLATFORM_MAX_FILEPATH_LENGTH);
-	if (FCString::Strlen(DataDir) == 0)
+	FString DataDir = FPlatformMisc::GetEnvironmentVariable(TEXT("XDG_DATA_HOME"));
+	if (DataDir.Len() == 0)
 	{	
-		FPlatformMisc::GetEnvironmentVariable(TEXT("HOME"), DataDir, PLATFORM_MAX_FILEPATH_LENGTH);
-
-		FCString::Strcat(DataDir, TEXT("/.local/share"));
+		DataDir = FPlatformMisc::GetEnvironmentVariable(TEXT("HOME")) + TEXT("/.local/share");
 	}
 
 	// Get the contents of the desktop file.

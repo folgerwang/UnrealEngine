@@ -57,7 +57,11 @@ private:
 struct CORE_API FApplePlatformMisc : public FGenericPlatformMisc
 {
 	static void PlatformInit();
+
+	DEPRECATED(4.21, "void FPlatformMisc::GetEnvironmentVariable(Name, Result, Length) is deprecated. Use FString FPlatformMisc::GetEnvironmentVariable(Name) instead.")
 	static void GetEnvironmentVariable(const TCHAR* VariableName, TCHAR* Result, int32 ResultLength);
+
+	static FString GetEnvironmentVariable(const TCHAR* VariableName);
 
 #if !UE_BUILD_SHIPPING
 	static bool IsDebuggerPresent()

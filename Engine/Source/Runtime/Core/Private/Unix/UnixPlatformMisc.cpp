@@ -196,6 +196,21 @@ void FUnixPlatformMisc::GetEnvironmentVariable(const TCHAR* InVariableName, TCHA
 	}
 }
 
+FString FUnixPlatformMisc::GetEnvironmentVariable(const TCHAR* InVariableName)
+{
+	FString VariableName = InVariableName;
+	VariableName.ReplaceInline(TEXT("-"), TEXT("_"));
+	ANSICHAR *AnsiResult = secure_getenv(TCHAR_TO_ANSI(*VariableName));
+	if (AnsiResult)
+	{
+		return UTF8_TO_TCHAR(AnsiResult);
+	}
+	else
+	{
+		return FString();
+	}
+}
+
 void FUnixPlatformMisc::SetEnvironmentVar(const TCHAR* InVariableName, const TCHAR* Value)
 {
 	FString VariableName = InVariableName;

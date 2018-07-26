@@ -90,14 +90,13 @@ bool FHTML5TargetPlatform::IsSdkInstalled(bool bProjectHasCode, FString& OutDocu
 {
 	// When the EMSDK environment variable is used, locate Emscripten SDK from the directory
 	// pointed to by that variable, instead of using a prepackaged SDK.
-	TCHAR EmsdkDirectory[1024] = { 0 };
-	FPlatformMisc::GetEnvironmentVariable(TEXT("EMSDK"), EmsdkDirectory, 1024);
-	if (EmsdkDirectory[0] != 0)
+	FString EmsdkDirectory = FPlatformMisc::GetEnvironmentVariable(TEXT("EMSDK"));
+	if (EmsdkDirectory.Len() > 0)
 	{
-		bool Exists = IFileManager::Get().DirectoryExists(EmsdkDirectory);
+		bool Exists = IFileManager::Get().DirectoryExists(*EmsdkDirectory);
 		if (!Exists)
 		{
-			UE_LOG(LogTemp, Display, TEXT("Environment variable EMSDK is set to \"%s\", but that directory does not exist!"), EmsdkDirectory);
+			UE_LOG(LogTemp, Display, TEXT("Environment variable EMSDK is set to \"%s\", but that directory does not exist!"), *EmsdkDirectory);
 		}
 		return Exists;
 	}

@@ -166,9 +166,8 @@ bool FMetalShaderBytecodeCooker::Build(TArray<uint8>& OutData)
 
 #if PLATFORM_MAC
 	// Unset the SDKROOT to avoid problems with the incorrect path being used when compiling with the shared PCH.
-	TCHAR SdkRoot[4096];
-	FPlatformMisc::GetEnvironmentVariable(TEXT("SDKROOT"), SdkRoot, ARRAY_COUNT(SdkRoot));
-	if (FCStringWide::Strlen(SdkRoot))
+	FString SdkRoot = FPlatformMisc::GetEnvironmentVariable(TEXT("SDKROOT"));
+	if (SdkRoot.Len() > 0)
 	{
 		unsetenv("SDKROOT");
 	}
@@ -283,9 +282,9 @@ bool FMetalShaderBytecodeCooker::Build(TArray<uint8>& OutData)
 
 #if PLATFORM_MAC
 	// Reset the SDKROOT environment we unset earlier.
-	if (FCStringWide::Strlen(SdkRoot))
+	if (SdkRoot.Len() > 0)
 	{
-		setenv("SDKROOT", TCHAR_TO_UTF8(SdkRoot), 1);
+		setenv("SDKROOT", TCHAR_TO_UTF8(*SdkRoot), 1);
 	}
 #endif
 
