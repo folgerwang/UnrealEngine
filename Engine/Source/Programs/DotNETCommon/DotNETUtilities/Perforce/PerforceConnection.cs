@@ -391,8 +391,8 @@ namespace Tools.DotNETCommon.Perforce
 						}
 
 						// Parse the subobject and add it to the list
-						object SubObject = ParseResponse(KeyValuePairs, ref Idx, RequiredChildSuffix, RecordInfo.SubElementRecordInfo);
-						List.Add(SubObject);
+						PerforceResponse Response = ParseResponse(KeyValuePairs, ref Idx, RequiredChildSuffix, RecordInfo.SubElementRecordInfo);
+						List.Add(Response.Data);
 					}
 				}
 				else
@@ -1049,6 +1049,42 @@ namespace Tools.DotNETCommon.Perforce
 				Arguments.Append(" -U");
 			}
 			return Command<ClientsRecord>(Arguments.ToString(), null);
+		}
+
+		#endregion
+
+		#region p4 delete
+
+		/// <summary>
+		/// Execute the 'delete' command
+		/// </summary>
+		/// <param name="Options">Options for the command</param>
+		/// <param name="FileSpecs">List of file specifications to query</param>
+		/// <returns>List of responses from the server</returns>
+		public PerforceResponseList<DeleteRecord> Delete(int ChangeNumber, DeleteOptions Options, params string[] FileSpecs)
+		{
+			StringBuilder Arguments = new StringBuilder("delete");
+			if(ChangeNumber != -1)
+			{
+				Arguments.AppendFormat(" -c {0}", ChangeNumber);
+			}
+			if((Options & DeleteOptions.PreviewOnly) != 0)
+			{
+				Arguments.Append(" -n");
+			}
+			if((Options & DeleteOptions.KeepWorkspaceFiles) != 0)
+			{
+				Arguments.Append(" -k");
+			}
+			if((Options & DeleteOptions.WithoutSyncing) != 0)
+			{
+				Arguments.Append(" -v");
+			}
+			foreach(string FileSpec in FileSpecs)
+			{
+				Arguments.AppendFormat(" \"{0}\"", FileSpec);
+			}
+			return Command<DeleteRecord>(Arguments.ToString(), null);
 		}
 
 		#endregion

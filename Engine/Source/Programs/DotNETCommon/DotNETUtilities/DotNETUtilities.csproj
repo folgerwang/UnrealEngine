@@ -101,6 +101,8 @@
     <Compile Include="Perforce\Records\ClientSubmitOptions.cs" />
     <Compile Include="Perforce\Records\DeleteChangeOptions.cs" />
     <Compile Include="Perforce\Records\DeleteClientOptions.cs" />
+    <Compile Include="Perforce\Records\DeleteOptions.cs" />
+    <Compile Include="Perforce\Records\DeleteRecord.cs" />
     <Compile Include="Perforce\Records\DescribeFileRecord.cs" />
     <Compile Include="Perforce\Records\DescribeRecord.cs" />
     <Compile Include="Perforce\Records\EditOptions.cs" />

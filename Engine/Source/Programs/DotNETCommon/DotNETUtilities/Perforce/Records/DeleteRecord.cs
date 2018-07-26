@@ -7,16 +7,10 @@ using System.Threading.Tasks;
 namespace Tools.DotNETCommon.Perforce
 {
 	/// <summary>
-	/// Contains information about a shelved file
+	/// Information about a file opened for delete
 	/// </summary>
-	public class ShelveRecord
+	public class DeleteRecord
 	{
-		/// <summary>
-		/// The changelist containing the shelved file
-		/// </summary>
-		[PerforceTag("change", Optional = true)]
-		public int Change;
-
 		/// <summary>
 		/// Path to the file in the depot
 		/// </summary>
@@ -24,16 +18,28 @@ namespace Tools.DotNETCommon.Perforce
 		public string DepotFile;
 
 		/// <summary>
-		/// The revision number of the file that was shelved
+		/// Path to the file in the workspace
 		/// </summary>
-		[PerforceTag("rev")]
-		public int Revision;
+		[PerforceTag("clientFile")]
+		public string ClientFile;
 
 		/// <summary>
-		/// The action to be applied to the file
+		/// The working revision number of the file that was synced
+		/// </summary>
+		[PerforceTag("workRev")]
+		public int WorkingRevision;
+
+		/// <summary>
+		/// Action taken when syncing the file
 		/// </summary>
 		[PerforceTag("action")]
 		public string Action;
+
+		/// <summary>
+		/// Type of the file
+		/// </summary>
+		[PerforceTag("type")]
+		public string Type;
 
 		/// <summary>
 		/// Format this record for display in the debugger
