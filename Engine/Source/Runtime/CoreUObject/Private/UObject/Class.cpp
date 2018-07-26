@@ -4718,7 +4718,7 @@ void UFunction::Invoke(UObject* Obj, FFrame& Stack, RESULT_DECL)
 {
 	checkSlow(Func);
 
-	UClass* OuterClass = GetOuterUClass();
+	UClass* OuterClass = (UClass*)GetOuter();
 	if (OuterClass->IsChildOf(UInterface::StaticClass()))
 	{
 		Obj = (UObject*)Obj->GetInterfaceAddress(OuterClass);

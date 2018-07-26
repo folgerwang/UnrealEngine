@@ -694,7 +694,7 @@ DEFINE_FUNCTION(UObject::execCallMathFunction)
 	UFunction* Function = (UFunction*)Stack.ReadObject();
 	checkSlow(Function);
 	checkSlow(Function->FunctionFlags & FUNC_Native);
-	UObject* NewContext = Function->GetOuterUClass()->GetDefaultObject(false);
+	UObject* NewContext = ((UClass*)Function->GetOuter())->ClassDefaultObject;
 	checkSlow(NewContext);
 	{
 #if PER_FUNCTION_SCRIPT_STATS
