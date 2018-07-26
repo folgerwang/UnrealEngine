@@ -3,8 +3,6 @@ Microsoft Visual Studio Solution File, Format Version 11.00
 # Visual Studio 2010
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Agent", "Agent\Agent_Mono.csproj", "{F5352283-246B-42B4-9A35-92121BDE8652}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SwarmCoordinator", "SwarmCoordinator\SwarmCoordinator_Mono.csproj", "{FA3182A3-4755-4E12-863E-EF51D637342E}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SwarmCoordinatorInterface", "SwarmCoordinatorInterface\SwarmCoordinatorInterface_Mono.csproj", "{4C299DD0-B968-49F2-894A-9F115C369E72}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AgentInterface", "AgentInterface\AgentInterface_Mono.csproj", "{6F18ADAC-2619-4C81-B80F-22927E56CA47}"
@@ -113,7 +111,7 @@ Global
 		StartupItem = Agent\Agent.csproj
 	EndGlobalSection
 	GlobalSection(SourceCodeControl) = preSolution
-		SccNumberOfProjects = 6
+		SccNumberOfProjects = 5
 		SccProjectName0 = Perforce\u0020Project
 		SccLocalPath0 = ..\\..
 		SccProvider0 = MSSCCI:Perforce\u0020SCM
@@ -121,16 +119,13 @@ Global
 		SccProjectUniqueName1 = SwarmCoordinator\\SwarmCoordinator.csproj
 		SccLocalPath1 = ..\\..
 		SccProjectFilePathRelativizedFromConnection1 = Programs\\UnrealSwarm\\SwarmCoordinator\\
-		SccProjectUniqueName2 = SwarmCoordinatorInterface\\SwarmCoordinatorInterface.csproj
+		SccProjectUniqueName2 = Agent\\Agent.csproj
 		SccLocalPath2 = ..\\..
-		SccProjectFilePathRelativizedFromConnection2 = Programs\\UnrealSwarm\\SwarmCoordinatorInterface\\
-		SccProjectUniqueName3 = Agent\\Agent.csproj
-		SccLocalPath3 = ..\\..
-		SccProjectFilePathRelativizedFromConnection3 = Programs\\UnrealSwarm\\Agent\\
-		SccProjectUniqueName4 = AgentInterface\\AgentInterface.csproj
-		SccLocalPath4 = AgentInterface
-		SccProjectUniqueName5 = ..\\UnrealControls\\UnrealControls_Mono.csproj
-		SccLocalPath5 = ..\\UnrealControls
+		SccProjectFilePathRelativizedFromConnection2 = Programs\\UnrealSwarm\\Agent\\
+		SccProjectUniqueName3 = AgentInterface\\AgentInterface.csproj
+		SccLocalPath3 = AgentInterface
+		SccProjectUniqueName4 = ..\\UnrealControls\\UnrealControls_Mono.csproj
+		SccLocalPath4 = ..\\UnrealControls
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

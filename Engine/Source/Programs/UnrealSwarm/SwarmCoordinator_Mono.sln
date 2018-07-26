@@ -1,17 +1,11 @@
 ﻿
-Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 2013
-VisualStudioVersion = 12.0.30501.0
-MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Agent", "Agent\Agent.csproj", "{F5352283-246B-42B4-9A35-92121BDE8652}"
+Microsoft Visual Studio Solution File, Format Version 11.00
+# Visual Studio 2010
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SwarmCoordinator", "SwarmCoordinator\SwarmCoordinator_Mono.csproj", "{FA3182A3-4755-4E12-863E-EF51D637342E}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SwarmCoordinator", "SwarmCoordinator\SwarmCoordinator.csproj", "{FA3182A3-4755-4E12-863E-EF51D637342E}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SwarmCoordinatorInterface", "SwarmCoordinatorInterface\SwarmCoordinatorInterface_Mono.csproj", "{4C299DD0-B968-49F2-894A-9F115C369E72}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SwarmCoordinatorInterface", "SwarmCoordinatorInterface\SwarmCoordinatorInterface.csproj", "{4C299DD0-B968-49F2-894A-9F115C369E72}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AgentInterface", "AgentInterface\AgentInterface.csproj", "{6F18ADAC-2619-4C81-B80F-22927E56CA47}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UnrealControls", "..\UnrealControls\UnrealControls.csproj", "{8F079097-3724-4B31-AD3B-0A5B76C26376}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UnrealControls", "..\UnrealControls\UnrealControls_Mono.csproj", "{8F079097-3724-4B31-AD3B-0A5B76C26376}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SwarmCommonUtils", "SwarmCommonUtils\SwarmCommonUtils.csproj", "{65521250-B022-442F-B961-3AF5ADA02083}"
 EndProject
@@ -111,10 +105,25 @@ Global
 		{65521250-B022-442F-B961-3AF5ADA02083}.Development|Win32.ActiveCfg = Debug|Any CPU
 		{65521250-B022-442F-B961-3AF5ADA02083}.Development|x64.ActiveCfg = Debug|Any CPU
 	EndGlobalSection
-	GlobalSection(SolutionProperties) = preSolution
-		HideSolutionNode = FALSE
-	EndGlobalSection
 	GlobalSection(MonoDevelopProperties) = preSolution
 		StartupItem = Agent\Agent.csproj
+	EndGlobalSection
+	GlobalSection(SourceCodeControl) = preSolution
+		SccNumberOfProjects = 4
+		SccProjectName0 = Perforce\u0020Project
+		SccLocalPath0 = ..\\..
+		SccProvider0 = MSSCCI:Perforce\u0020SCM
+		SccProjectFilePathRelativizedFromConnection0 = Programs\\UnrealSwarm\\
+		SccProjectUniqueName1 = SwarmCoordinator\\SwarmCoordinator.csproj
+		SccLocalPath1 = ..\\..
+		SccProjectFilePathRelativizedFromConnection1 = Programs\\UnrealSwarm\\SwarmCoordinator\\
+		SccProjectUniqueName2 = SwarmCoordinatorInterface\\SwarmCoordinatorInterface.csproj
+		SccLocalPath2 = ..\\..
+		SccProjectFilePathRelativizedFromConnection2 = Programs\\UnrealSwarm\\SwarmCoordinatorInterface\\
+		SccProjectUniqueName3 = ..\\UnrealControls\\UnrealControls_Mono.csproj
+		SccLocalPath3 = ..\\UnrealControls
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
 	EndGlobalSection
 EndGlobal
