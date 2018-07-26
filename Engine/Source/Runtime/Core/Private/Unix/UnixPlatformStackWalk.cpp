@@ -1110,14 +1110,14 @@ namespace
 				static bool bReported = false;
 				if (!bReported)
 				{
+					// This will likely happen multiple times, so only write out once
+					bReported = true;
+
 					// Will not be part of UE_LOG as it would potentially allocate memory
 					const ANSICHAR* Message = "Failed to find symbol file, expected location:\n\"";
 					write(STDOUT_FILENO, Message, FCStringAnsi::Strlen(Message));
 					write(STDOUT_FILENO, ModuleSymbolPath, FCStringAnsi::Strlen(ModuleSymbolPath));
 					write(STDOUT_FILENO, "\"\n", 2);
-
-					// This will likely happen multiple times, so only write out once
-					bReported = true;
 				}
 			}
 		}
