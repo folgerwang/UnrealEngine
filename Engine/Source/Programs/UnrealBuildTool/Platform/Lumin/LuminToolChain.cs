@@ -109,7 +109,7 @@ namespace UnrealBuildTool
 						throw new BuildException("Unexpected output from mabu in --print-tools: '{0}'", Line);
 					}
 
-					ToolsDict.Add(Split[0].Trim(), Split[1].Trim());
+					ToolsDict.Add(Split[0].Trim(), "\"" + Split[1].Trim() + "\"");
 				}
 			}
 
