@@ -18,6 +18,7 @@
 #include <dlfcn.h>
 #include <cxxabi.h>
 #include <stdio.h>
+#include <unistd.h>
 
 // FIXME Remove this define once we remove the old way symbolicate
 #define _ELFDEFINITIONS_H_
@@ -1027,7 +1028,7 @@ namespace
 				FCStringAnsi::Strcpy(out_SymbolInfo.FunctionName, info.dli_sname);
 			}
 
-			char ModuleSymbolPath[MAX_PATH + 1];
+			ANSICHAR ModuleSymbolPath[MAX_PATH + 1];
 
 			// We cant assume if we are relative we have not chdir to a different working dir.
 			if (FPaths::IsRelative(info.dli_fname))
@@ -1101,6 +1102,22 @@ namespace
 					{
 						End = Middle;
 					}
+				}
+			}
+			// We only care if we fail to find our own *.sym file
+			else if (!FCStringAnsi::Strcmp(SOName, TCHAR_TO_ANSI(FPlatformProcess::ExecutableName())))
+			{
+				static bool bReported = false;
+				if (!bReported)
+				{
+					// Will not be part of UE_LOG as it would potentially allocate memory
+					const ANSICHAR* Message = "Failed to find symbol file, expected location:\n\"";
+					write(STDOUT_FILENO, Message, FCStringAnsi::Strlen(Message));
+					write(STDOUT_FILENO, ModuleSymbolPath, FCStringAnsi::Strlen(ModuleSymbolPath));
+					write(STDOUT_FILENO, "\"\n", 2);
+
+					// This will likely happen multiple times, so only write out once
+					bReported = true;
 				}
 			}
 		}
