@@ -490,7 +490,7 @@ namespace UnrealBuildTool
 			DateTime TimerStartTime = DateTime.UtcNow;
 			++CPPHeaders.TotalDirectIncludeCacheMisses;
 
-			Result = GetUncachedDirectIncludeDependencies(CPPFile, ProjectFile);
+			Result = GetUncachedDirectIncludeDependencies(CPPFile.Location, ProjectFile);
 
 			// Populate cache with results.
 			IncludeDependencyCache.SetDependencyInfo(CPPFile, Result);
@@ -500,12 +500,12 @@ namespace UnrealBuildTool
 			return Result;
 		}
 
-		public static List<DependencyInclude> GetUncachedDirectIncludeDependencies(FileItem CPPFile, FileReference ProjectFile)
+		public static List<DependencyInclude> GetUncachedDirectIncludeDependencies(FileReference SourceFile, FileReference ProjectFile)
 		{
 			List<DependencyInclude> Result = new List<DependencyInclude>();
 
 			// Get the adjusted filename
-			string FileToRead = CPPFile.AbsolutePath;
+			string FileToRead = SourceFile.FullName;
 
 			// Read lines from the C++ file.
 			string FileContents = GetFileContents(FileToRead);
@@ -536,30 +536,30 @@ namespace UnrealBuildTool
 						EndIndex = FileContents.Length;
 					}
 
-					Result.AddRange(CollectHeaders(ProjectFile, CPPFile, FileToRead, FileContents, InstalledFolder, StartIndex, EndIndex));
+					Result.AddRange(CollectHeaders(ProjectFile, SourceFile, FileToRead, FileContents, InstalledFolder, StartIndex, EndIndex));
 
 					StartIndex = EndIndex + 1;
 				}
 			}
 			else
 			{
-				Result = CollectHeaders(ProjectFile, CPPFile, FileToRead, FileContents, InstalledFolder, 0, FileContents.Length);
+				Result = CollectHeaders(ProjectFile, SourceFile, FileToRead, FileContents, InstalledFolder, 0, FileContents.Length);
 			}
 
 			return Result;
 		}
 
 		/// <summary>
-		/// Collects all header files included in a CPPFile
+		/// Collects all header files included in a source file
 		/// </summary>
 		/// <param name="ProjectFile"></param>
-		/// <param name="CPPFile"></param>
+		/// <param name="SourceFile"></param>
 		/// <param name="FileToRead"></param>
 		/// <param name="FileContents"></param>
 		/// <param name="InstalledFolder"></param>
 		/// <param name="StartIndex"></param>
 		/// <param name="EndIndex"></param>
-		private static List<DependencyInclude> CollectHeaders(FileReference ProjectFile, FileItem CPPFile, string FileToRead, string FileContents, string InstalledFolder, int StartIndex, int EndIndex)
+		private static List<DependencyInclude> CollectHeaders(FileReference ProjectFile, FileReference SourceFile, string FileToRead, string FileContents, string InstalledFolder, int StartIndex, int EndIndex)
 		{
 			List<DependencyInclude> Result = new List<DependencyInclude>();
 
@@ -586,8 +586,7 @@ namespace UnrealBuildTool
 			}
 
 			// also look for #import in objective C files
-			string Ext = Path.GetExtension(CPPFile.AbsolutePath).ToUpperInvariant();
-			if (Ext == ".MM" || Ext == ".M")
+			if (SourceFile.HasExtension(".MM") || SourceFile.HasExtension(".M"))
 			{
 				M = MMHeaderRegex.Match(FileContents, StartIndex, EndIndex - StartIndex);
 				Captures = M.Groups["HeaderFile"].Captures;

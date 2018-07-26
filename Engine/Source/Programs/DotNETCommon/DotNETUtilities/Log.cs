@@ -731,6 +731,31 @@ namespace Tools.DotNETCommon
 		}
 
 		/// <summary>
+		/// Writes a warning message to the console.
+		/// </summary>
+		/// <param name="File">The file containing the error</param>
+		/// <param name="Format">Message format string</param>
+		/// <param name="Args">Optional arguments</param>
+		[MethodImplAttribute(MethodImplOptions.NoInlining)]
+		public static void TraceWarningOnce(FileReference File, string Format, params object[] Args)
+		{
+			WriteLinePrivate(1, true, LogEventType.Warning, LogFormatOptions.NoSeverityPrefix, "{0}: warning: {1}", File, String.Format(Format, Args));
+		}
+
+		/// <summary>
+		/// Writes a warning message to the console.
+		/// </summary>
+		/// <param name="File">The file containing the error</param>
+		/// <param name="Line">Line number of the error</param>
+		/// <param name="Format">Message format string</param>
+		/// <param name="Args">Optional arguments</param>
+		[MethodImplAttribute(MethodImplOptions.NoInlining)]
+		public static void TraceWarningOnce(FileReference File, int Line, string Format, params object[] Args)
+		{
+			WriteLinePrivate(1, true, LogEventType.Warning, LogFormatOptions.NoSeverityPrefix, "{0}({1}): warning: {2}", File, Line, String.Format(Format, Args));
+		}
+
+		/// <summary>
 		/// Writes a very verbose message to the console.
 		/// </summary>
 		/// <param name="Format">Message format string</param>
