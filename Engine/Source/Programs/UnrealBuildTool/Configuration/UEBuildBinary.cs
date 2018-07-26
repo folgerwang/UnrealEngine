@@ -236,6 +236,94 @@ namespace UnrealBuildTool
 			return OutputFiles;
 		}
 
+		/// <summary>
+		/// Gets all the runtime dependencies Copies all the runtime dependencies from any modules in 
+		/// </summary>
+		/// <param name="RuntimeDependencies">The output list of runtime dependencies, mapping target file to type</param>
+		/// <param name="SourceFiles">Receives the list of source files that were copied</param>
+		/// <param name="ActionGraph">Actions to be executed</param>
+		public IEnumerable<FileItem> PrepareRuntimeDependencies(List<RuntimeDependency> RuntimeDependencies, List<FileReference> SourceFiles, ActionGraph ActionGraph)
+		{
+			List<FileItem> CopiedFiles = new List<FileItem>();
+			foreach(UEBuildModule Module in Modules)
+			{
+				foreach (ModuleRules.RuntimeDependency Dependency in Module.Rules.RuntimeDependencies.Inner)
+				{
+					if(Dependency.SourcePath == null)
+					{
+						// Expand the target path
+						string ExpandedPath = Module.ExpandPathVariables(Dependency.Path, this);
+						if (FileFilter.FindWildcardIndex(ExpandedPath) == -1)
+						{
+							RuntimeDependencies.Add(new RuntimeDependency(new FileReference(ExpandedPath), Dependency.Type));
+						}
+						else
+						{
+							RuntimeDependencies.AddRange(FileFilter.ResolveWildcard(ExpandedPath).Select(x => new RuntimeDependency(x, Dependency.Type)));
+						}
+					}
+					else
+					{
+						// Parse the source and target patterns
+						FilePattern SourcePattern = new FilePattern(UnrealBuildTool.EngineSourceDirectory, Module.ExpandPathVariables(Dependency.SourcePath, this));
+						FilePattern TargetPattern = new FilePattern(UnrealBuildTool.EngineSourceDirectory, Module.ExpandPathVariables(Dependency.Path, this));
+
+						// Resolve all the wildcards between the source and target paths
+						Dictionary<FileReference, FileReference> Mapping;
+						try
+						{
+							Mapping = FilePattern.CreateMapping(null, ref SourcePattern, ref TargetPattern);
+						}
+						catch(FilePatternException Ex)
+						{
+							throw new BuildException(Ex, "While creating runtime dependencies for module {0}", Module.Name);
+						}
+
+						// Add actions to copy everything
+						foreach(KeyValuePair<FileReference, FileReference> Pair in Mapping)
+						{
+							CopiedFiles.Add(CreateCopyAction(Pair.Value, Pair.Key, ActionGraph));
+							SourceFiles.Add(Pair.Value);
+							RuntimeDependencies.Add(new RuntimeDependency(Pair.Key, Dependency.Type));
+						}
+					}
+				}
+			}
+			return CopiedFiles;
+		}
+
+		/// <summary>
+		/// Creates an action which copies a file from one location to another
+		/// </summary>
+		/// <param name="SourceFile">The source file location</param>
+		/// <param name="TargetFile">The target file location</param>
+		/// <param name="ActionGraph">The action graph</param>
+		/// <returns>File item for the output file</returns>
+		static FileItem CreateCopyAction(FileReference SourceFile, FileReference TargetFile, ActionGraph ActionGraph)
+		{
+			FileItem SourceFileItem = FileItem.GetItemByFileReference(SourceFile);
+			FileItem TargetFileItem = FileItem.GetItemByFileReference(TargetFile);
+
+			Action CopyAction = ActionGraph.Add(ActionType.BuildProject);
+			CopyAction.CommandDescription = "Copy";
+			if(BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64)
+			{
+				CopyAction.CommandPath = "cmd.exe";
+				CopyAction.CommandArguments = String.Format("/C \"copy /Y \"{0}\" \"{1}\" 1>nul\"", SourceFile, TargetFile);
+			}
+			else
+			{
+				CopyAction.CommandPath = "/bin/sh";
+				CopyAction.CommandArguments = String.Format("cp -f {0} {1}", Utils.EscapeShellArgument(SourceFile.FullName), Utils.EscapeShellArgument(TargetFile.FullName));
+			}
+			CopyAction.PrerequisiteItems.Add(SourceFileItem);
+			CopyAction.ProducedItems.Add(TargetFileItem);
+			CopyAction.DeleteItems.Add(TargetFileItem);
+			CopyAction.StatusDescription = TargetFileItem.Location.GetFileName();
+			CopyAction.bCanExecuteRemotely = false;
+
+			return TargetFileItem;
+		}
 
 		/// <summary>
 		/// Called to allow the binary to modify the link environment of a different binary containing 

@@ -152,11 +152,6 @@ namespace UnrealBuildTool
 		protected List<UEBuildModule> DynamicallyLoadedModules;
 
 		/// <summary>
-		/// Files which this module depends on at runtime.
-		/// </summary>
-		public List<RuntimeDependency> RuntimeDependencies;
-
-		/// <summary>
 		/// Set of all whitelisted restricted folder references
 		/// </summary>
 		private readonly HashSet<DirectoryReference> WhitelistRestrictedFolders;
@@ -165,8 +160,7 @@ namespace UnrealBuildTool
 		/// Constructor
 		/// </summary>
 		/// <param name="Rules">Rules for this module</param>
-		/// <param name="RuntimeDependencies">List of runtime dependencies</param>
-		public UEBuildModule(ModuleRules Rules, List<RuntimeDependency> RuntimeDependencies)
+		public UEBuildModule(ModuleRules Rules)
 		{
 			this.Rules = Rules;
 
@@ -191,7 +185,6 @@ namespace UnrealBuildTool
 			{
 				PrivateIncludePaths = CreateDirectoryHashSet(Rules.PrivateIncludePaths);
 			}
-			this.RuntimeDependencies = RuntimeDependencies;
 			IsRedistributableOverride = Rules.IsRedistributableOverride;
 
 			WhitelistRestrictedFolders = new HashSet<DirectoryReference>(Rules.WhitelistRestrictedFolders.Select(x => DirectoryReference.Combine(ModuleDirectory, x)));
@@ -548,7 +541,7 @@ namespace UnrealBuildTool
 		/// <param name="Path">Path to expand variables within</param>
 		/// <param name="Binary">The source binary containing the module. May be null.</param>
 		/// <returns>The path with variables expanded</returns>
-		private string ExpandPathVariables(string Path, UEBuildBinary Binary)
+		public string ExpandPathVariables(string Path, UEBuildBinary Binary)
 		{
 			if(Path.StartsWith("$(", StringComparison.Ordinal))
 			{
@@ -580,7 +573,7 @@ namespace UnrealBuildTool
 						{
 							Path = Rules.PluginDirectory + Path.Substring(EndIdx + 1);
 						}
-						else if(Binary != null && MatchVariableName(Path, StartIdx, EndIdx, "BinaryDir"))
+						else if(Binary != null && MatchVariableName(Path, StartIdx, EndIdx, "OutputDir"))
 						{
 							Path = Binary.OutputFilePaths[0].Directory.FullName + Path.Substring(EndIdx + 1);
 						}
@@ -875,16 +868,6 @@ namespace UnrealBuildTool
 			foreach(string ModuleName in Rules.CircularlyReferencedDependentModules)
 			{
 				Writer.WriteValue(ModuleName);
-			}
-			Writer.WriteArrayEnd();
-
-			Writer.WriteArrayStart("RuntimeDependencies");
-			foreach(RuntimeDependency RuntimeDependency in RuntimeDependencies)
-			{
-				Writer.WriteObjectStart();
-				Writer.WriteValue("Path", RuntimeDependency.Path.FullName);
-				Writer.WriteValue("Type", RuntimeDependency.Type.ToString());
-				Writer.WriteObjectEnd();
 			}
 			Writer.WriteArrayEnd();
 		}

@@ -197,15 +197,8 @@ namespace UnrealBuildTool
         };
 
 
-		public UEBuildModuleCPP(
-			ModuleRules Rules,
-			DirectoryReference IntermediateDirectory,
-			DirectoryReference GeneratedCodeDirectory,
-			IEnumerable<FileItem> SourceFiles,
-			bool bBuildSourceFiles,
-			List<RuntimeDependency> RuntimeDependencies
-			)
-			: base(Rules, RuntimeDependencies)
+		public UEBuildModuleCPP(ModuleRules Rules, DirectoryReference IntermediateDirectory, DirectoryReference GeneratedCodeDirectory, IEnumerable<FileItem> SourceFiles, bool bBuildSourceFiles)
+			: base(Rules)
 		{
 			this.IntermediateDirectory = IntermediateDirectory;
 			this.GeneratedCodeDirectory = GeneratedCodeDirectory;

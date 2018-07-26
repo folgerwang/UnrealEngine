@@ -131,6 +131,11 @@ namespace UnrealBuildTool
 			public string Path;
 
 			/// <summary>
+			/// The initial location for this file. It will be copied to Path at build time, ready for staging.
+			/// </summary>
+			public string SourcePath;
+
+			/// <summary>
 			/// How to stage this file.
 			/// </summary>
 			public StagedFileType Type;
@@ -143,6 +148,19 @@ namespace UnrealBuildTool
 			public RuntimeDependency(string InPath, StagedFileType InType = StagedFileType.NonUFS)
 			{
 				Path = InPath;
+				Type = InType;
+			}
+
+			/// <summary>
+			/// Constructor
+			/// </summary>
+			/// <param name="InPath">Path to the runtime dependency</param>
+			/// <param name="InSourcePath">Source path for the file in the working tree</param>
+			/// <param name="InType">How to stage the given path</param>
+			public RuntimeDependency(string InPath, string InSourcePath, StagedFileType InType = StagedFileType.NonUFS)
+			{
+				Path = InPath;
+				SourcePath = InSourcePath;
 				Type = InType;
 			}
 		}
@@ -182,6 +200,17 @@ namespace UnrealBuildTool
 			public void Add(string InPath, StagedFileType InType)
 			{
 				Inner.Add(new RuntimeDependency(InPath, InType));
+			}
+
+			/// <summary>
+			/// Add a runtime dependency to the list
+			/// </summary>
+			/// <param name="InPath">Path to the runtime dependency. May include wildcards.</param>
+			/// <param name="InSourcePath">Source path for the file to be added as a dependency. May include wildcards.</param>
+			/// <param name="InType">How to stage this file</param>
+			public void Add(string InPath, string InSourcePath, StagedFileType InType = StagedFileType.NonUFS)
+			{
+				Inner.Add(new RuntimeDependency(InPath, InSourcePath, InType));
 			}
 
 			/// <summary>

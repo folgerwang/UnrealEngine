@@ -14,8 +14,8 @@ namespace UnrealBuildTool
 	/// </summary>
 	class UEBuildModuleExternal : UEBuildModule
 	{
-		public UEBuildModuleExternal(ModuleRules Rules, List<RuntimeDependency> RuntimeDependencies)
-			: base(Rules, RuntimeDependencies)
+		public UEBuildModuleExternal(ModuleRules Rules)
+			: base(Rules)
 		{
 		}
 

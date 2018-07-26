@@ -1197,9 +1197,10 @@ namespace UnrealBuildTool
 		/// Writes a list of all the externally referenced files required to use the precompiled data for this target
 		/// </summary>
 		/// <param name="Location">Path to the dependency list</param>
-		void WriteDependencyList(FileReference Location)
+		/// <param name="RuntimeDependencySourceFiles">All the source files for runtime dependencies. This is only evaluated at build time.</param>
+		void WriteDependencyList(FileReference Location, IEnumerable<FileReference> RuntimeDependencySourceFiles)
 		{
-			HashSet<FileReference> Files = new HashSet<FileReference>();
+			HashSet<FileReference> Files = new HashSet<FileReference>(RuntimeDependencySourceFiles);
 
 			// Get the platform we're building for
 			UEBuildPlatform BuildPlatform = UEBuildPlatform.GetBuildPlatform(Platform);
@@ -1304,12 +1305,6 @@ namespace UnrealBuildTool
 						}
 					}
 				}
-
-				// Add all of the runtime dependencies
-				foreach(RuntimeDependency RuntimeDependency in Module.RuntimeDependencies)
-				{
-					Files.Add(RuntimeDependency.Path);
-				}
 			}
 
 			// Write the file
@@ -1396,7 +1391,11 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Prepare all the receipts this target (all the .target and .modules files). See the VersionManifest class for an explanation of what these files are.
 		/// </summary>
-		void PrepareReceipts(UEToolChain ToolChain, List<KeyValuePair<FileReference, BuildProductType>> BuildProducts, EHotReload HotReload)
+		/// <param name="ToolChain">The toolchain used to build the target</param>
+		/// <param name="BuildProducts">Artifacts from the build</param>
+		/// <param name="RuntimeDependencies">Output runtime dependencies</param>
+		/// <param name="HotReload">The hot-reload mode</param>
+		void PrepareReceipts(UEToolChain ToolChain, List<KeyValuePair<FileReference, BuildProductType>> BuildProducts, List<RuntimeDependency> RuntimeDependencies, EHotReload HotReload)
 		{
 			// If linking is disabled, don't generate any receipt
 			if(Rules.bDisableLinking)
@@ -1466,6 +1465,16 @@ namespace UnrealBuildTool
 				}
 			}
 
+			// Add all the other runtime dependencies
+			HashSet<FileReference> UniqueRuntimeDependencyFiles = new HashSet<FileReference>();
+			foreach(RuntimeDependency RuntimeDependency in RuntimeDependencies)
+			{
+				if(UniqueRuntimeDependencyFiles.Add(RuntimeDependency.Path))
+				{
+					Receipt.RuntimeDependencies.Add(RuntimeDependency);
+				}
+			}
+
 			// Find all the modules which are part of this target
 			HashSet<UEBuildModule> UniqueLinkedModules = new HashSet<UEBuildModule>();
 			foreach (UEBuildBinary Binary in Binaries)
@@ -1474,10 +1483,6 @@ namespace UnrealBuildTool
 				{
 					if (UniqueLinkedModules.Add(Module))
 					{
-						foreach (RuntimeDependency RuntimeDependency in Module.RuntimeDependencies)
-						{
-							Receipt.RuntimeDependencies.Add(RuntimeDependency.Path, RuntimeDependency.Type);
-						}
 						Receipt.AdditionalProperties.AddRange(Module.Rules.AdditionalPropertiesForReceipt.Inner);
 					}
 				}
@@ -2102,6 +2107,14 @@ namespace UnrealBuildTool
 				OutputItems.AddRange(Binary.Build(Rules, TargetToolChain, GlobalCompileEnvironment, GlobalLinkEnvironment, SharedPCHs, WorkingSet, ActionGraph));
 			}
 
+			// Prepare all the runtime dependencies, copying them from their source folders if necessary
+			List<FileReference> RuntimeDependencySourceFiles = new List<FileReference>();
+			List<RuntimeDependency> RuntimeDependencies = new List<RuntimeDependency>();
+			foreach(UEBuildBinary Binary in Binaries)
+			{
+				OutputItems.AddRange(Binary.PrepareRuntimeDependencies(RuntimeDependencies, RuntimeDependencySourceFiles, ActionGraph));
+			}
+
 			// If we're just precompiling a plugin, only include output items which are under that directory
 			if(ForeignPlugin != null)
 			{
@@ -2123,7 +2136,7 @@ namespace UnrealBuildTool
 			// Create a receipt for the target
 			if (!ProjectFileGenerator.bGenerateProjectFiles)
 			{
-				PrepareReceipts(TargetToolChain, BuildProducts, HotReload);
+				PrepareReceipts(TargetToolChain, BuildProducts, RuntimeDependencies, HotReload);
 			}
 
 			// Make sure all the checked headers were valid
@@ -2141,7 +2154,7 @@ namespace UnrealBuildTool
 			// Build a list of all the externally files
 			foreach(FileReference DependencyListFileName in Rules.DependencyListFileNames)
 			{
-				WriteDependencyList(DependencyListFileName);
+				WriteDependencyList(DependencyListFileName, RuntimeDependencySourceFiles);
 			}
 
 			// If we're only generating the manifest, return now
@@ -3984,44 +3997,8 @@ namespace UnrealBuildTool
 				// locations.
 				UEBuildPlatform.PlatformModifyHostModuleRules(ModuleName, RulesObject, Rules);
 
-				// Expand the list of runtime dependencies, and update the run-time dependencies path to remove $(PluginDir) and replace with a full path. When the 
-				// receipt is saved it'll be converted to a $(ProjectDir) or $(EngineDir) equivalent.
-				List<RuntimeDependency> RuntimeDependencies = new List<RuntimeDependency>();
-				if(RulesObject.RuntimeDependencies.Inner.Count > 0)
-				{
-					// Get all the valid variables which can be expanded for this module
-					Dictionary<string, string> Variables = new Dictionary<string, string>();
-					Variables["EngineDir"] = UnrealBuildTool.EngineDirectory.FullName;
-					if (ProjectFile != null)
-					{
-						Variables["ProjectDir"] = ProjectDirectory.FullName;
-					}
-					if (RulesObject.Plugin != null)
-					{
-						Variables["PluginDir"] = RulesObject.Plugin.Directory.FullName;
-					}
-
-					// Convert them into concrete file lists. Ignore anything that still hasn't been resolved.
-					foreach (ModuleRules.RuntimeDependency Dependency in RulesObject.RuntimeDependencies.Inner)
-					{
-						string ExpandedPath = Utils.ExpandVariables(Dependency.Path, Variables);
-						if (!ExpandedPath.StartsWith("$("))
-						{
-							int WildcardIdx = FileFilter.FindWildcardIndex(ExpandedPath);
-							if (WildcardIdx == -1)
-							{
-								RuntimeDependencies.Add(new RuntimeDependency(new FileReference(ExpandedPath), Dependency.Type));
-							}
-							else
-							{
-								RuntimeDependencies.AddRange(FileFilter.ResolveWildcard(ExpandedPath).Select(x => new RuntimeDependency(x, Dependency.Type)));
-							}
-						}
-					}
-				}
-
 				// Now, go ahead and create the module builder instance
-				Module = InstantiateModule(RulesObject, GeneratedCodeDirectory, FoundSourceFiles, bBuildFiles, RuntimeDependencies);
+				Module = InstantiateModule(RulesObject, GeneratedCodeDirectory, FoundSourceFiles, bBuildFiles);
 				Modules.Add(Module.Name, Module);
 				FlatModuleCsData.Add(new FlatModuleCsDataType(Module.Name, (Module.RulesFile == null) ? null : Module.RulesFile.FullName, RulesObject.ExternalDependencies));
 			}
@@ -4048,8 +4025,7 @@ namespace UnrealBuildTool
 			ModuleRules RulesObject,
 			DirectoryReference GeneratedCodeDirectory,
 			List<FileItem> ModuleSourceFiles,
-			bool bBuildSourceFiles,
-			List<RuntimeDependency> RuntimeDependencies)
+			bool bBuildSourceFiles)
 		{
 			switch (RulesObject.Type)
 			{
@@ -4059,15 +4035,11 @@ namespace UnrealBuildTool
 							IntermediateDirectory: GetModuleIntermediateDirectory(RulesObject),
 							GeneratedCodeDirectory: GeneratedCodeDirectory,
 							SourceFiles: ModuleSourceFiles,
-							bBuildSourceFiles: bBuildSourceFiles,
-							RuntimeDependencies: RuntimeDependencies
+							bBuildSourceFiles: bBuildSourceFiles
 						);
 
 				case ModuleRules.ModuleType.External:
-					return new UEBuildModuleExternal(
-							Rules: RulesObject,
-							RuntimeDependencies: RuntimeDependencies
-						);
+					return new UEBuildModuleExternal(RulesObject);
 
 				default:
 					throw new BuildException("Unrecognized module type specified by 'Rules' object {0}", RulesObject.ToString());
