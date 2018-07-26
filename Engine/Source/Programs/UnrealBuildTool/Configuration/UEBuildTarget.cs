@@ -380,25 +380,26 @@ namespace UnrealBuildTool
 		/// <param name="Desc">Information about the target</param>
 		/// <param name="Arguments">Command line arguments</param>
 		/// <param name="bCompilingSingleFile">Whether we're compiling a single file</param>
+		/// <param name="bUsePrecompiled">Whether to use a precompiled engine/enterprise build</param>
 		/// <param name="Version">The current build version</param>
 		/// <returns>The build target object for the specified build rules source file</returns>
-		public static UEBuildTarget CreateTarget(TargetDescriptor Desc, string[] Arguments, bool bCompilingSingleFile, ReadOnlyBuildVersion Version)
+		public static UEBuildTarget CreateTarget(TargetDescriptor Desc, string[] Arguments, bool bCompilingSingleFile, bool bUsePrecompiled, ReadOnlyBuildVersion Version)
 		{
 			DateTime CreateTargetStartTime = DateTime.UtcNow;
 
 			RulesAssembly RulesAssembly;
 			if (Desc.ProjectFile != null)
 			{
-				RulesAssembly = RulesCompiler.CreateProjectRulesAssembly(Desc.ProjectFile);
+				RulesAssembly = RulesCompiler.CreateProjectRulesAssembly(Desc.ProjectFile, bUsePrecompiled);
 			}
 			else
 			{
-				RulesAssembly = RulesCompiler.CreateEngineRulesAssembly();
+				RulesAssembly = RulesCompiler.CreateEngineRulesAssembly(bUsePrecompiled);
 
 				if (RulesAssembly.GetTargetFileName(Desc.Name) == null)
 				{
 					// Target isn't part of the engine assembly, try the enterprise assembly
-					RulesAssembly EnterpriseRulesAssembly = RulesCompiler.CreateEnterpriseRulesAssembly();
+					RulesAssembly EnterpriseRulesAssembly = RulesCompiler.CreateEnterpriseRulesAssembly(bUsePrecompiled);
 
 					if (EnterpriseRulesAssembly != null)
 					{
@@ -719,11 +720,6 @@ namespace UnrealBuildTool
 		public bool bPrecompile;
 
 		/// <summary>
-		/// Whether to use precompiled engine modules
-		/// </summary>
-		public bool bUsePrecompiled;
-
-		/// <summary>
 		/// Identifies whether the project contains a script plugin. This will cause UHT to be rebuilt, even in installed builds.
 		/// </summary>
 		public bool bHasProjectScriptPlugin;
@@ -871,7 +867,6 @@ namespace UnrealBuildTool
 			OutputPaths = (List<FileReference>)Info.GetValue("op", typeof(List<FileReference>));
 			VersionFile = (FileReference)Info.GetValue("vf", typeof(FileReference));
 			bPrecompile = Info.GetBoolean("pc");
-			bUsePrecompiled = Info.GetBoolean("up");
 			OnlyModules = (List<OnlyModule>)Info.GetValue("om", typeof(List<OnlyModule>));
 			bCompileMonolithic = Info.GetBoolean("cm");
 			FlatModuleCsData = (List<FlatModuleCsDataType>)Info.GetValue("fm", typeof(List<FlatModuleCsDataType>));
@@ -902,7 +897,6 @@ namespace UnrealBuildTool
 			Info.AddValue("op", OutputPaths);
 			Info.AddValue("vf", VersionFile);
 			Info.AddValue("pc", bPrecompile);
-			Info.AddValue("up", bUsePrecompiled);
 			Info.AddValue("om", OnlyModules);
 			Info.AddValue("cm", bCompileMonolithic);
 			Info.AddValue("fm", FlatModuleCsData);
@@ -935,7 +929,6 @@ namespace UnrealBuildTool
 			RulesAssembly = InRulesAssembly;
 			TargetType = Rules.Type;
 			bPrecompile = InRules.bPrecompile;
-			bUsePrecompiled = InRules.bUsePrecompiled;
 			ForeignPlugin = InDesc.ForeignPlugin;
 			ForceReceiptFileName = InDesc.ForceReceiptFileName;
 
@@ -1089,23 +1082,7 @@ namespace UnrealBuildTool
 			}
 
 			// If we're running a precompiled build, remove anything under the engine folder
-			if (bUsePrecompiled)
-			{
-				BaseDirs.RemoveAll(x => x.IsUnderDirectory(UnrealBuildTool.EngineDirectory));
-			}
-
-			// If we're in an installed enterprise build, remove anything under the enterprise folder
-			if (UnrealBuildTool.IsEnterpriseInstalled())
-			{
-				BaseDirs.RemoveAll(x => x.IsUnderDirectory(UnrealBuildTool.EnterpriseDirectory));
-			}
-
-			// If we're in an installed project build, only allow cleaning stuff that's under the mod directories
-			if (UnrealBuildTool.IsProjectInstalled())
-			{
-				List<DirectoryReference> ModDirs = EnabledPlugins.Where(x => x.Type == PluginType.Mod).Select(x => x.Directory).ToList();
-				BaseDirs.RemoveAll(x => !ModDirs.Any(y => x.IsUnderDirectory(y)));
-			}
+			BaseDirs.RemoveAll(x => RulesAssembly.IsReadOnly(x));
 
 			// Get all the names which can prefix build products
 			List<string> NamePrefixes = new List<string>();
@@ -1208,7 +1185,7 @@ namespace UnrealBuildTool
 			}
 
 			// Finally clean UnrealHeaderTool if this target uses CoreUObject modules and we're not cleaning UHT already and we want UHT to be cleaned.
-			if (bIncludeUnrealHeaderTool && !bUsePrecompiled && TargetName != "UnrealHeaderTool")
+			if (bIncludeUnrealHeaderTool && !RulesAssembly.IsReadOnly(ExternalExecution.GetHeaderToolReceiptFile(UnrealTargetConfiguration.Development)) && TargetName != "UnrealHeaderTool")
 			{
 				ExternalExecution.RunExternalDotNETExecutable(UnrealBuildTool.GetUBTPath(), String.Format("UnrealHeaderTool {0} {1} -NoMutex -Clean -IgnoreJunk -NoLog", BuildHostPlatform.Current.Platform, UnrealTargetConfiguration.Development));
 			}
@@ -1709,7 +1686,7 @@ namespace UnrealBuildTool
 				UEBuildPlatform BuildPlatform = UEBuildPlatform.GetBuildPlatform(Platform);
 				if (OnlyModules == null || OnlyModules.Count == 0)
 				{
-					if(!IsFileInstalled(ReceiptFileName))
+					if(!RulesAssembly.IsReadOnly(ReceiptFileName))
 					{
 						DirectoryReference.CreateDirectory(ReceiptFileName.Directory);
 						Receipt.Write(ReceiptFileName, UnrealBuildTool.EngineDirectory, ProjectDirectory);
@@ -1718,7 +1695,7 @@ namespace UnrealBuildTool
 				if (ForceReceiptFileName != null)
 				{
 					FileReference ForceReceiptFile = new FileReference(ForceReceiptFileName);
-					if(!IsFileInstalled(ForceReceiptFile))
+					if(!RulesAssembly.IsReadOnly(ForceReceiptFile))
 					{
 						DirectoryReference.CreateDirectory(ForceReceiptFile.Directory);
 						Receipt.Write(ForceReceiptFile, UnrealBuildTool.EngineDirectory, ProjectDirectory);
@@ -1726,7 +1703,7 @@ namespace UnrealBuildTool
 				}
 				if(VersionFile != null)
 				{
-					if(!IsFileInstalled(VersionFile))
+					if(!RulesAssembly.IsReadOnly(VersionFile))
 					{
 						DirectoryReference.CreateDirectory(VersionFile.Directory);
 
@@ -1745,7 +1722,7 @@ namespace UnrealBuildTool
 			{
 				foreach (KeyValuePair<FileReference, ModuleManifest> FileNameToVersionManifest in FileReferenceToModuleManifestPairs)
 				{
-					if(!IsFileInstalled(FileNameToVersionManifest.Key))
+					if(!RulesAssembly.IsReadOnly(FileNameToVersionManifest.Key))
 					{
 						// Write the manifest out to a string buffer, then only write it to disk if it's changed.
 						string OutputText;
@@ -1762,24 +1739,6 @@ namespace UnrealBuildTool
 					}
 				}
 			}
-		}
-
-		/// <summary>
-		/// Checks whether the given file is under an installed directory, and should not be overridden
-		/// </summary>
-		/// <param name="File">File to test</param>
-		/// <returns>True if the file is part of the installed distribution, false otherwise</returns>
-		bool IsFileInstalled(FileReference File)
-		{
-			if(UnrealBuildTool.IsEngineInstalled() && File.IsUnderDirectory(UnrealBuildTool.EngineDirectory))
-			{
-				return true;
-			}
-			if(UnrealBuildTool.IsProjectInstalled() && ProjectFile != null && File.IsUnderDirectory(ProjectFile.Directory))
-			{
-				return true;
-			}
-			return false;
 		}
 
 		/// <summary>
@@ -2083,7 +2042,7 @@ namespace UnrealBuildTool
 					NameToFlatModuleData[FlatModuleData.ModuleName] = FlatModuleData;
 				}
 
-				ExternalExecution.SetupUObjectModules(ModulesToGenerateHeadersFor, Rules, ProjectDescriptor, GlobalCompileEnvironment, UObjectModules, NameToFlatModuleData, Rules.GeneratedCodeVersion, bIsAssemblingBuild);
+				ExternalExecution.SetupUObjectModules(ModulesToGenerateHeadersFor, Rules.Platform, ProjectDescriptor, UObjectModules, NameToFlatModuleData, Rules.GeneratedCodeVersion, bIsAssemblingBuild);
 
 				// NOTE: Even in Gather mode, we need to run UHT to make sure the files exist for the static action graph to be setup correctly.  This is because UHT generates .cpp
 				// files that are injected as top level prerequisites.  If UHT only emitted included header files, we wouldn't need to run it during the Gather phase at all.
@@ -4008,7 +3967,7 @@ namespace UnrealBuildTool
 				if (RulesObject.Type == ModuleRules.ModuleType.CPlusPlus)
 				{
 					// So all we care about are the game module and/or plugins.
-					if (bDiscoverFiles && !UnrealBuildTool.IsUnderAnInstalledDirectory(RulesObject.File.Directory))
+					if (bDiscoverFiles && !RulesObject.bUsePrecompiled)
 					{
 						List<FileReference> SourceFilePaths = new List<FileReference>();
 						SourceFilePaths = SourceFileSearch.FindModuleSourceFiles(ModuleRulesFile: RulesObject.File);

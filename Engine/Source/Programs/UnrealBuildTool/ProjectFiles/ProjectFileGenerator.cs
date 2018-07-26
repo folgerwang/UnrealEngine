@@ -2093,16 +2093,16 @@ namespace UnrealBuildTool
 					{
 						if(TargetFilePath.IsUnderDirectory(UnrealBuildTool.EnterpriseDirectory))
 						{
-							RulesAssembly = RulesCompiler.CreateEnterpriseRulesAssembly();
+							RulesAssembly = RulesCompiler.CreateEnterpriseRulesAssembly(false);
 						}
 						else
 						{
-							RulesAssembly = RulesCompiler.CreateEngineRulesAssembly();
+							RulesAssembly = RulesCompiler.CreateEngineRulesAssembly(false);
 						}
 					}
 					else
 					{
-						RulesAssembly = RulesCompiler.CreateProjectRulesAssembly(CheckProjectFile);
+						RulesAssembly = RulesCompiler.CreateProjectRulesAssembly(CheckProjectFile, false);
 					}
 
 					// Create target rules for all of the platforms and configuration combinations that we want to enable support for.

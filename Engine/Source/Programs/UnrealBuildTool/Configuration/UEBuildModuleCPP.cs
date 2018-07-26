@@ -602,7 +602,7 @@ namespace UnrealBuildTool
 			HeaderFile.CachedIncludePaths = CompileEnvironment.IncludePaths;
 
 			DirectoryReference PrecompiledHeaderDir;
-			if(Target.Rules.bUsePrecompiled)
+			if(Rules.bUsePrecompiled)
 			{
 				PrecompiledHeaderDir = DirectoryReference.Combine(Target.ProjectIntermediateDirectory, Name);
 			}

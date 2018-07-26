@@ -28,6 +28,12 @@ namespace UnrealBuildTool
 		public bool bUseActionHistory = true;
 
 		/// <summary>
+		/// Use existing static libraries for all engine modules in this target.
+		/// </summary>
+		[CommandLine("-UsePrecompiled")]
+		public bool bUsePrecompiled = false;
+
+		/// <summary>
 		/// Whether debug info should be written to the console.
 		/// </summary>
 		[XmlConfigFile]

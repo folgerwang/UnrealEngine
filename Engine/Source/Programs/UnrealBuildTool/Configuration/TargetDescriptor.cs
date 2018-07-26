@@ -44,9 +44,10 @@ namespace UnrealBuildTool
 		/// Parse a list of target descriptors from the command line
 		/// </summary>
 		/// <param name="Arguments">Command-line arguments</param>
+		/// <param name="bUsePrecompiled">Whether to use a precompiled engine distribution</param>
 		/// <param name="ProjectFile">The project file, if already set. May be updated if not.</param>
 		/// <returns>List of target descriptors</returns>
-		public static List<TargetDescriptor> ParseCommandLine(string[] Arguments, ref FileReference ProjectFile)
+		public static List<TargetDescriptor> ParseCommandLine(string[] Arguments, bool bUsePrecompiled, ref FileReference ProjectFile)
 		{
 			UnrealTargetPlatform Platform = UnrealTargetPlatform.Unknown;
 			UnrealTargetConfiguration Configuration = UnrealTargetConfiguration.Unknown;
@@ -168,7 +169,7 @@ namespace UnrealBuildTool
 				}
 				else
 				{
-					TargetNames.Add(RulesCompiler.CreateProjectRulesAssembly(ProjectFile).GetTargetNameByType(Type, Platform, Configuration, Architecture, ProjectFile, new ReadOnlyBuildVersion(BuildVersion.ReadDefault())));
+					TargetNames.Add(RulesCompiler.CreateProjectRulesAssembly(ProjectFile, bUsePrecompiled).GetTargetNameByType(Type, Platform, Configuration, Architecture, ProjectFile, new ReadOnlyBuildVersion(BuildVersion.ReadDefault())));
 				}
 			}
 

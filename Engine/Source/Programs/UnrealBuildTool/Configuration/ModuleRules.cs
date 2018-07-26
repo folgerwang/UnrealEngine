@@ -619,7 +619,7 @@ namespace UnrealBuildTool
 		/// <param name="ModuleNames">The names of the modules to add</param>
 		public void AddEngineThirdPartyPrivateStaticDependencies(ReadOnlyTargetRules Target, params string[] ModuleNames)
 		{
-			if (!UnrealBuildTool.IsEngineInstalled() || Target.LinkType == TargetLinkType.Monolithic)
+			if (!bUsePrecompiled || Target.LinkType == TargetLinkType.Monolithic)
 			{
 				PrivateDependencyModuleNames.AddRange(ModuleNames);
 			}
@@ -635,7 +635,7 @@ namespace UnrealBuildTool
 		/// <param name="ModuleNames">The names of the modules to add</param>
 		public void AddEngineThirdPartyPrivateDynamicDependencies(ReadOnlyTargetRules Target, params string[] ModuleNames)
 		{
-			if (!UnrealBuildTool.IsEngineInstalled() || Target.LinkType == TargetLinkType.Monolithic)
+			if (!bUsePrecompiled || Target.LinkType == TargetLinkType.Monolithic)
 			{
 				PrivateIncludePathModuleNames.AddRange(ModuleNames);
 				DynamicallyLoadedModuleNames.AddRange(ModuleNames);

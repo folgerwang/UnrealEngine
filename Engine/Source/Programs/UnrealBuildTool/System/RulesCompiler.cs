@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.IO;
@@ -258,13 +258,14 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Creates the engine rules assembly
 		/// </summary>
+		/// <param name="bUsePrecompiled">Whether to use a precompiled engine</param>
 		/// <returns>New rules assembly</returns>
-		public static RulesAssembly CreateEngineRulesAssembly()
+		public static RulesAssembly CreateEngineRulesAssembly(bool bUsePrecompiled)
 		{
 			if (EngineRulesAssembly == null)
 			{
 				IReadOnlyList<PluginInfo> IncludedPlugins = Plugins.ReadEnginePlugins(UnrealBuildTool.EngineDirectory);
-				EngineRulesAssembly = CreateEngineOrEnterpriseRulesAssembly(UnrealBuildTool.EngineDirectory, ProjectFileGenerator.EngineProjectFileNameBase, IncludedPlugins, UnrealBuildTool.IsEngineInstalled(), null);
+				EngineRulesAssembly = CreateEngineOrEnterpriseRulesAssembly(UnrealBuildTool.EngineDirectory, ProjectFileGenerator.EngineProjectFileNameBase, IncludedPlugins, UnrealBuildTool.IsEngineInstalled() || bUsePrecompiled, null);
 			}
 			return EngineRulesAssembly;
 		}
@@ -272,13 +273,14 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Creates the enterprise rules assembly
 		/// </summary>
+		/// <param name="bUsePrecompiled">Whether to use a precompiled enterprise and engine folder</param>
 		/// <returns>New rules assembly. Returns null if the enterprise directory is unavailable.</returns>
-		public static RulesAssembly CreateEnterpriseRulesAssembly()
+		public static RulesAssembly CreateEnterpriseRulesAssembly(bool bUsePrecompiled)
 		{
 			if (EnterpriseRulesAssembly == null && DirectoryReference.Exists(UnrealBuildTool.EnterpriseDirectory))
 			{
 				IReadOnlyList<PluginInfo> IncludedPlugins = Plugins.ReadEnterprisePlugins(UnrealBuildTool.EnterpriseDirectory);
-				EnterpriseRulesAssembly = CreateEngineOrEnterpriseRulesAssembly(UnrealBuildTool.EnterpriseDirectory, ProjectFileGenerator.EnterpriseProjectFileNameBase, IncludedPlugins, false, CreateEngineRulesAssembly());
+				EnterpriseRulesAssembly = CreateEngineOrEnterpriseRulesAssembly(UnrealBuildTool.EnterpriseDirectory, ProjectFileGenerator.EnterpriseProjectFileNameBase, IncludedPlugins, UnrealBuildTool.IsEnterpriseInstalled() || bUsePrecompiled, CreateEngineRulesAssembly(bUsePrecompiled));
 			}
 			return EnterpriseRulesAssembly;
 		}
@@ -289,10 +291,10 @@ namespace UnrealBuildTool
 		/// <param name="RootDirectory">The root directory to create rules for</param>
 		/// <param name="AssemblyPrefix">A prefix for the assembly file name</param>
 		/// <param name="Plugins">List of plugins to include in this assembly</param>
-		/// <param name="bInstalled">Whether the assembly should be marked as installed</param>
+		/// <param name="bReadOnly">Whether the assembly should be marked as installed</param>
 		/// <param name="Parent">The parent rules assembly</param>
 		/// <returns>New rules assembly</returns>
-		private static RulesAssembly CreateEngineOrEnterpriseRulesAssembly(DirectoryReference RootDirectory, string AssemblyPrefix, IReadOnlyList<PluginInfo> Plugins, bool bInstalled, RulesAssembly Parent)
+		private static RulesAssembly CreateEngineOrEnterpriseRulesAssembly(DirectoryReference RootDirectory, string AssemblyPrefix, IReadOnlyList<PluginInfo> Plugins, bool bReadOnly, RulesAssembly Parent)
 		{
 			DirectoryReference SourceDirectory = DirectoryReference.Combine(RootDirectory, "Source");
 			DirectoryReference ProgramsDirectory = DirectoryReference.Combine(SourceDirectory, "Programs");
@@ -313,7 +315,7 @@ namespace UnrealBuildTool
 
 			// Create the assembly
 			FileReference EngineAssemblyFileName = FileReference.Combine(RootDirectory, "Intermediate", "Build", "BuildRules", AssemblyPrefix + "Rules" + FrameworkAssemblyExtension);
-			RulesAssembly EngineAssembly = new RulesAssembly(Plugins, EngineModuleFiles, new List<FileReference>(), ModuleFileToPluginInfo, EngineAssemblyFileName, bContainsEngineModules: true, bUseBackwardsCompatibleDefaults: false, bInstalled: bInstalled, Parent: Parent);
+			RulesAssembly EngineAssembly = new RulesAssembly(RootDirectory, Plugins, EngineModuleFiles, new List<FileReference>(), ModuleFileToPluginInfo, EngineAssemblyFileName, bContainsEngineModules: true, bUseBackwardsCompatibleDefaults: false, bReadOnly: bReadOnly, Parent: Parent);
 
 			// Find all the rules files
 			List<FileReference> ProgramModuleFiles = new List<FileReference>(FindAllRulesFiles(ProgramsDirectory, RulesFileType.Module));
@@ -321,7 +323,7 @@ namespace UnrealBuildTool
 
 			// Create a path to the assembly that we'll either load or compile
 			FileReference ProgramAssemblyFileName = FileReference.Combine(RootDirectory, "Intermediate", "Build", "BuildRules", AssemblyPrefix + "ProgramRules" + FrameworkAssemblyExtension);
-			RulesAssembly ProgramAssembly = new RulesAssembly(new List<PluginInfo>().AsReadOnly(), ProgramModuleFiles, ProgramTargetFiles, new Dictionary<FileReference, PluginInfo>(), ProgramAssemblyFileName, bContainsEngineModules: false, bUseBackwardsCompatibleDefaults: false, bInstalled: bInstalled, Parent: EngineAssembly);
+			RulesAssembly ProgramAssembly = new RulesAssembly(RootDirectory, new List<PluginInfo>().AsReadOnly(), ProgramModuleFiles, ProgramTargetFiles, new Dictionary<FileReference, PluginInfo>(), ProgramAssemblyFileName, bContainsEngineModules: false, bUseBackwardsCompatibleDefaults: false, bReadOnly: bReadOnly, Parent: EngineAssembly);
 
 			// Return the combined assembly
 			return ProgramAssembly;
@@ -331,8 +333,9 @@ namespace UnrealBuildTool
 		/// Creates a rules assembly with the given parameters.
 		/// </summary>
 		/// <param name="ProjectFileName">The project file to create rules for. Null for the engine.</param>
+		/// <param name="bUsePrecompiled">Whether to use a precompiled engine</param>
 		/// <returns>New rules assembly</returns>
-		public static RulesAssembly CreateProjectRulesAssembly(FileReference ProjectFileName)
+		public static RulesAssembly CreateProjectRulesAssembly(FileReference ProjectFileName, bool bUsePrecompiled)
 		{
 			// Check if there's an existing assembly for this project
 			RulesAssembly ProjectRulesAssembly;
@@ -344,11 +347,11 @@ namespace UnrealBuildTool
 				RulesAssembly Parent;
 				if (Project.IsEnterpriseProject)
 				{
-					Parent = CreateEnterpriseRulesAssembly();
+					Parent = CreateEnterpriseRulesAssembly(bUsePrecompiled);
 				}
 				else
 				{
-					Parent = CreateEngineRulesAssembly();
+					Parent = CreateEngineRulesAssembly(bUsePrecompiled);
 				}
 
 				// Find all the rules under the project source directory
@@ -383,7 +386,7 @@ namespace UnrealBuildTool
 
 				// Compile the assembly
 				FileReference AssemblyFileName = FileReference.Combine(ProjectDirectory, "Intermediate", "Build", "BuildRules", ProjectFileName.GetFileNameWithoutExtension() + "ModuleRules" + FrameworkAssemblyExtension);
-				ProjectRulesAssembly = new RulesAssembly(ProjectPlugins, ModuleFiles, TargetFiles, ModuleFileToPluginInfo, AssemblyFileName, bContainsEngineModules: false, bUseBackwardsCompatibleDefaults: true, bInstalled: UnrealBuildTool.IsProjectInstalled(), Parent: Parent);
+				ProjectRulesAssembly = new RulesAssembly(ProjectDirectory, ProjectPlugins, ModuleFiles, TargetFiles, ModuleFileToPluginInfo, AssemblyFileName, bContainsEngineModules: false, bUseBackwardsCompatibleDefaults: true, bReadOnly: UnrealBuildTool.IsProjectInstalled(), Parent: Parent);
 				LoadedAssemblyMap.Add(ProjectFileName, ProjectRulesAssembly);
 			}
 			return ProjectRulesAssembly;
@@ -419,7 +422,7 @@ namespace UnrealBuildTool
 
 				// Compile the assembly
 				FileReference AssemblyFileName = FileReference.Combine(PluginFileName.Directory, "Intermediate", "Build", "BuildRules", Path.GetFileNameWithoutExtension(PluginFileName.FullName) + "ModuleRules" + FrameworkAssemblyExtension);
-				PluginRulesAssembly = new RulesAssembly(ForeignPlugins, ModuleFiles, TargetFiles, ModuleFileToPluginInfo, AssemblyFileName, bContainsEngineModules, bUseBackwardsCompatibleDefaults: false, bInstalled: false, Parent: Parent);
+				PluginRulesAssembly = new RulesAssembly(PluginFileName.Directory, ForeignPlugins, ModuleFiles, TargetFiles, ModuleFileToPluginInfo, AssemblyFileName, bContainsEngineModules, bUseBackwardsCompatibleDefaults: false, bReadOnly: false, Parent: Parent);
 				LoadedAssemblyMap.Add(PluginFileName, PluginRulesAssembly);
 			}
 			return PluginRulesAssembly;

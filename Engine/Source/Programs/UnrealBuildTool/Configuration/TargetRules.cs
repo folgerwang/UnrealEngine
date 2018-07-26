@@ -571,12 +571,6 @@ namespace UnrealBuildTool
 		public bool bPrecompile = false;
 
 		/// <summary>
-		/// Use existing static libraries for all engine modules in this target.
-		/// </summary>
-		[CommandLine("-UsePrecompiled")]
-		public bool bUsePrecompiled = false;
-
-		/// <summary>
 		/// Whether we should compile with support for OS X 10.9 Mavericks. Used for some tools that we need to be compatible with this version of OS X.
 		/// </summary>
 		public bool bEnableOSX109Support = false;
@@ -1110,9 +1104,6 @@ namespace UnrealBuildTool
 			{
 				UEBuildPlatform.GetBuildPlatform(Platform).ResetTarget(this);
 			}
-
-			// If the engine is installed, always use precompiled libraries
-			bUsePrecompiled = UnrealBuildTool.IsEngineInstalled();
 
 			// Check that the appropriate headers exist to enable Simplygon
 			if(bCompileSimplygon)
@@ -1688,11 +1679,6 @@ namespace UnrealBuildTool
 		public bool bPrecompile
 		{
 			get { return Inner.bPrecompile; }
-		}
-
-		public bool bUsePrecompiled
-		{
-			get { return Inner.bUsePrecompiled; }
 		}
 
 		public bool bEnableOSX109Support

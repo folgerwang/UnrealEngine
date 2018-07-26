@@ -181,11 +181,11 @@ namespace UnrealBuildTool
 			List<TargetDescriptor> TargetDescs = new List<TargetDescriptor>();
 			foreach (string[] TargetSetting in TargetSettings)
 			{
-				TargetDescs.AddRange(TargetDescriptor.ParseCommandLine(TargetSetting, ref ProjectFile));
+				TargetDescs.AddRange(TargetDescriptor.ParseCommandLine(TargetSetting, false, ref ProjectFile));
 			}
 			foreach (TargetDescriptor TargetDesc in TargetDescs)
 			{
-				UEBuildTarget Target = UEBuildTarget.CreateTarget(TargetDesc, Arguments, false, Version);
+				UEBuildTarget Target = UEBuildTarget.CreateTarget(TargetDesc, Arguments, false, false, Version);
 				if (Target == null)
 				{
 					continue;

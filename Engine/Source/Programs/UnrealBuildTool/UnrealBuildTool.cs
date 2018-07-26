@@ -220,22 +220,6 @@ namespace UnrealBuildTool
 				InDirectory.IsUnderDirectory(UnrealBuildTool.EnterprisePluginsDirectory) || InDirectory.IsUnderDirectory(UnrealBuildTool.EnterpriseIntermediateDirectory);
 		}
 
-		/// <summary>
-		/// Determines whether a directory is part of an installed directory
-		/// </summary>
-		/// <param name="InDirectory"></param>
-		/// <returns>true if the directory is under an installed directory, false if not</returns>
-		static public bool IsUnderAnInstalledDirectory(DirectoryReference InDirectory)
-		{
-			// Enterprise modules are considered as engine modules
-			bool bIsUnderEngine = InDirectory.IsUnderDirectory(UnrealBuildTool.EngineDirectory);
-
-			bool bIsUnderEnterprise = InDirectory.IsUnderDirectory(UnrealBuildTool.EnterpriseSourceDirectory) ||
-				InDirectory.IsUnderDirectory(UnrealBuildTool.EnterprisePluginsDirectory) || InDirectory.IsUnderDirectory(UnrealBuildTool.EnterpriseIntermediateDirectory);
-
-			return (IsEngineInstalled() && bIsUnderEngine) || (IsEnterpriseInstalled() && bIsUnderEnterprise);
-		}
-
 		public static void RegisterAllUBTClasses(SDKOutputLevel OutputLevel, bool bValidatingPlatforms)
 		{
 			// Find and register all tool chains and build platforms that are present
@@ -1132,7 +1116,7 @@ namespace UnrealBuildTool
 
 					foreach (string[] TargetSetting in TargetSettings)
 					{
-						TargetDescs.AddRange(TargetDescriptor.ParseCommandLine(TargetSetting, ref ProjectFile));
+						TargetDescs.AddRange(TargetDescriptor.ParseCommandLine(TargetSetting, BuildConfiguration.bUsePrecompiled, ref ProjectFile));
 					}
 
 					if (UnrealBuildTool.bPrintPerformanceInfo)
@@ -1393,7 +1377,7 @@ namespace UnrealBuildTool
 						Targets = new List<UEBuildTarget>();
 						foreach (TargetDescriptor TargetDesc in TargetDescs)
 						{
-							UEBuildTarget Target = UEBuildTarget.CreateTarget(TargetDesc, Arguments, BuildConfiguration.SingleFileToCompile != null, Version);
+							UEBuildTarget Target = UEBuildTarget.CreateTarget(TargetDesc, Arguments, BuildConfiguration.SingleFileToCompile != null, BuildConfiguration.bUsePrecompiled, Version);
 							if ((Target == null) && (BuildConfiguration.bCleanProject))
 							{
 								continue;

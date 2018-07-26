@@ -23,6 +23,11 @@ namespace UnrealBuildTool
 		private Assembly CompiledAssembly;
 
 		/// <summary>
+		/// The base directory for this assembly
+		/// </summary>
+		private DirectoryReference BaseDir;
+
+		/// <summary>
 		/// All the plugins included in this assembly
 		/// </summary>
 		private IReadOnlyList<PluginInfo> Plugins;
@@ -59,9 +64,9 @@ namespace UnrealBuildTool
 		private bool bUseBackwardsCompatibleDefaults;
 
 		/// <summary>
-		/// Whether the modules and targets in this assembly are installed.
+		/// Whether the modules and targets in this assembly are read-only
 		/// </summary>
-		private bool bInstalled;
+		private bool bReadOnly;
 
 		/// <summary>
 		/// The parent rules assembly that this assembly inherits. Game assemblies inherit the engine assembly, and the engine assembly inherits nothing.
@@ -71,6 +76,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Constructor. Compiles a rules assembly from the given source files.
 		/// </summary>
+		/// <param name="BaseDir">The base directory for this assembly</param>
 		/// <param name="Plugins">All the plugins included in this assembly</param>
 		/// <param name="ModuleFiles">List of module files to compile</param>
 		/// <param name="TargetFiles">List of target files to compile</param>
@@ -78,15 +84,16 @@ namespace UnrealBuildTool
 		/// <param name="AssemblyFileName">The output path for the compiled assembly</param>
 		/// <param name="bContainsEngineModules">Whether this assembly contains engine modules. Used to initialize the default value for ModuleRules.bTreatAsEngineModule.</param>
 		/// <param name="bUseBackwardsCompatibleDefaults">Whether modules in this assembly should use backwards-compatible defaults.</param>
-		/// <param name="bInstalled">Whether the modules and targets in this assembly are installed, and should be created with the bUsePrecompiled flag set</param> 
+		/// <param name="bReadOnly">Whether the modules and targets in this assembly are installed, and should be created with the bUsePrecompiled flag set</param> 
 		/// <param name="Parent">The parent rules assembly</param>
-		public RulesAssembly(IReadOnlyList<PluginInfo> Plugins, List<FileReference> ModuleFiles, List<FileReference> TargetFiles, Dictionary<FileReference, PluginInfo> ModuleFileToPluginInfo, FileReference AssemblyFileName, bool bContainsEngineModules, bool bUseBackwardsCompatibleDefaults, bool bInstalled, RulesAssembly Parent)
+		public RulesAssembly(DirectoryReference BaseDir, IReadOnlyList<PluginInfo> Plugins, List<FileReference> ModuleFiles, List<FileReference> TargetFiles, Dictionary<FileReference, PluginInfo> ModuleFileToPluginInfo, FileReference AssemblyFileName, bool bContainsEngineModules, bool bUseBackwardsCompatibleDefaults, bool bReadOnly, RulesAssembly Parent)
 		{
+			this.BaseDir = BaseDir;
 			this.Plugins = Plugins;
 			this.ModuleFileToPluginInfo = ModuleFileToPluginInfo;
 			this.bContainsEngineModules = bContainsEngineModules;
 			this.bUseBackwardsCompatibleDefaults = bUseBackwardsCompatibleDefaults;
-			this.bInstalled = bInstalled;
+			this.bReadOnly = bReadOnly;
 			this.Parent = Parent;
 
 			// Find all the source files
@@ -154,6 +161,27 @@ namespace UnrealBuildTool
 						}
 					}
 				}
+			}
+		}
+
+		/// <summary>
+		/// Determines if the given path is read-only
+		/// </summary>
+		/// <param name="Location">The location to check</param>
+		/// <returns>True if the path is read-only, false otherwise</returns>
+		public bool IsReadOnly(FileSystemReference Location)
+		{
+			if(Location.IsUnderDirectory(BaseDir))
+			{
+				return bReadOnly;
+			}
+			else if(Parent != null)
+			{
+				return Parent.IsReadOnly(Location);
+			}
+			else
+			{
+				return false;
 			}
 		}
 
@@ -346,7 +374,7 @@ namespace UnrealBuildTool
 				RulesObject.bTreatAsEngineModule = bContainsEngineModules;
 				RulesObject.bUseBackwardsCompatibleDefaults = bUseBackwardsCompatibleDefaults && Target.bUseBackwardsCompatibleDefaults;
 				RulesObject.bPrecompile = RulesObject.bTreatAsEngineModule && Target.bPrecompile;
-				RulesObject.bUsePrecompiled = (RulesObject.bTreatAsEngineModule && Target.bUsePrecompiled) || bInstalled;
+				RulesObject.bUsePrecompiled = bReadOnly;
 
 				// Call the constructor
 				ConstructorInfo Constructor = RulesObjectType.GetConstructor(new Type[] { typeof(ReadOnlyTargetRules) });
