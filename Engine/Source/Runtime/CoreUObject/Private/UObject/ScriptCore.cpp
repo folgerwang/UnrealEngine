@@ -928,6 +928,7 @@ void ClearReturnValue(UProperty* ReturnProp, RESULT_DECL)
 
 DEFINE_FUNCTION(UObject::ProcessInternal)
 {
+#if DO_BLUEPRINT_GUARD
 	// remove later when stable
 	if (P_THIS->GetClass()->HasAnyClassFlags(CLASS_NewerVersionExists))
 	{
@@ -937,6 +938,7 @@ DEFINE_FUNCTION(UObject::ProcessInternal)
 		}
 		return;
 	}
+#endif
 
 	UFunction* Function = (UFunction*)Stack.Node;
 
@@ -1261,10 +1263,34 @@ FBlueprintEventTimer::FScopedNativeTimer::~FScopedNativeTimer()
 
 #endif
 
+// Switch for a lightweight process event counter, useful when disabling the blueprint guard
+// which can taint profiling results:
+#define LIGHTWEIGHT_PROCESS_EVENT_COUNTER 0 && !DO_BLUEPRINT_GUARD
+
+#if LIGHTWEIGHT_PROCESS_EVENT_COUNTER
+thread_local int32 ProcessEventCounter = 0;
+#endif
+
 void UObject::ProcessEvent( UFunction* Function, void* Parms )
 {
 	checkf(!IsUnreachable(),TEXT("%s  Function: '%s'"), *GetFullName(), *Function->GetPathName());
 	checkf(!FUObjectThreadContext::Get().IsRoutingPostLoad, TEXT("Cannot call UnrealScript (%s - %s) while PostLoading objects"), *GetFullName(), *Function->GetFullName());
+
+#if LIGHTWEIGHT_PROCESS_EVENT_COUNTER
+	CONDITIONAL_SCOPE_CYCLE_COUNTER(STAT_BlueprintTime, IsInGameThread() && ProcessEventCounter == 0);
+	TGuardValue<int32> PECounter(ProcessEventCounter, ProcessEventCounter+1);
+#endif
+
+#if DO_BLUEPRINT_GUARD
+	FBlueprintExceptionTracker& BlueprintExceptionTracker = FBlueprintExceptionTracker::Get();
+	BlueprintExceptionTracker.ScriptEntryTag++;
+
+	CONDITIONAL_SCOPE_CYCLE_COUNTER(STAT_BlueprintTime, IsInGameThread() && BlueprintExceptionTracker.ScriptEntryTag == 1);
+#endif
+
+#if TOTAL_OVERHEAD_SCRIPT_STATS
+	FBlueprintEventTimer::FScopedVMTimer VMTime;
+#endif // TOTAL_OVERHEAD_SCRIPT_STATS
 
 	// Reject.
 	if (IsPendingKill())
@@ -1304,10 +1330,6 @@ void UObject::ProcessEvent( UFunction* Function, void* Parms )
 	}
 	checkSlow((Function->ParmsSize == 0) || (Parms != NULL));
 
-#if TOTAL_OVERHEAD_SCRIPT_STATS
-	FBlueprintEventTimer::FScopedVMTimer VMTime;
-#endif // TOTAL_OVERHEAD_SCRIPT_STATS
-
 #if PER_FUNCTION_SCRIPT_STATS
 	const bool bShouldTrackFunction = Stats::IsThreadCollectingData();
 	FScopeCycleCounterUObject FunctionScope(bShouldTrackFunction ? Function : nullptr);
@@ -1316,13 +1338,6 @@ void UObject::ProcessEvent( UFunction* Function, void* Parms )
 #if STATS || ENABLE_STATNAMEDEVENTS
 	const bool bShouldTrackObject = GVerboseScriptStats && Stats::IsThreadCollectingData();
 	FScopeCycleCounterUObject ContextScope(bShouldTrackObject ? this : nullptr);
-#endif
-
-#if DO_BLUEPRINT_GUARD
-	FBlueprintExceptionTracker& BlueprintExceptionTracker = FBlueprintExceptionTracker::Get();
-	BlueprintExceptionTracker.ScriptEntryTag++;
-
-	CONDITIONAL_SCOPE_CYCLE_COUNTER(STAT_BlueprintTime, IsInGameThread() && BlueprintExceptionTracker.ScriptEntryTag == 1);
 #endif
 
 #if UE_BLUEPRINT_EVENTGRAPH_FASTCALLS
