@@ -1387,7 +1387,7 @@ FReply FIOSTargetSettingsCustomization::OnGenerateSSHKey()
 		*DeltaCopyPath,
 		*(Settings.RSyncUsername),
 		*RemoteServerAddress,
-		Path,
+		*Path,
 		*CygwinPath,
 		*EnginePath);
 
