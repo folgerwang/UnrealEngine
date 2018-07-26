@@ -31,8 +31,7 @@ DEFINE_LOG_CATEGORY(LogAudioMixerMagicLeap);
 		check(false);										\
 	}
 
-#define MLAUDIO_LOG_ON_FAIL(Result)							\
-	if (Result != MLResult_Ok)						\
+#define MLAUDIO_LOG_FAILURE(Result)							\
 	{														\
 		const TCHAR* ErrorString = FMixerPlatformMagicLeap::GetErrorString(Result);	\
 		UE_LOG(LogAudioMixerMagicLeap, Error, TEXT("Error in %s, line %s: %s"), __FILE__, __LINE__,ErrorString); \
@@ -244,7 +243,7 @@ namespace Audio
 
 		if (Result != MLResult_Ok)
 		{
-			MLAUDIO_LOG_ON_FAIL(Result);
+			MLAUDIO_LOG_FAILURE(Result);
 			return false;
 		}
 
@@ -268,7 +267,7 @@ namespace Audio
 
 		if (Result != MLResult_Ok)
 		{
-			MLAUDIO_LOG_ON_FAIL(Result);
+			MLAUDIO_LOG_FAILURE(Result);
 			return false;
 		}
 
@@ -296,7 +295,7 @@ namespace Audio
 			Result = MLAudioGetOutputStreamBuffer(StreamHandle, &PrecacheBuffer);
 			if (Result != MLResult_Ok)
 			{
-				MLAUDIO_LOG_ON_FAIL(Result);
+				MLAUDIO_LOG_FAILURE(Result);
 				break;
 			}
 
@@ -304,7 +303,7 @@ namespace Audio
 			Result = MLAudioReleaseOutputStreamBuffer(StreamHandle);
 			if (Result != MLResult_Ok)
 			{
-				MLAUDIO_LOG_ON_FAIL(Result);
+				MLAUDIO_LOG_FAILURE(Result);
 				break;
 			}
 		}
@@ -312,7 +311,7 @@ namespace Audio
 		Result = MLAudioStartSound(StreamHandle);
 		if (Result != MLResult_Ok)
 		{
-			MLAUDIO_LOG_ON_FAIL(Result);
+			MLAUDIO_LOG_FAILURE(Result);
 			return false;
 		}
 #endif //WITH_MLSDK
@@ -331,7 +330,7 @@ namespace Audio
 		MLResult Result = MLAudioStopSound(StreamHandle);
 		if (Result != MLResult_Ok)
 		{
-			MLAUDIO_LOG_ON_FAIL(Result);
+			MLAUDIO_LOG_FAILURE(Result);
 			return false;
 		}
 
@@ -426,7 +425,7 @@ namespace Audio
 				MLResult Result = MLAudioStartSound(StreamHandle);
 				if (Result != MLResult_Ok)
 				{
-					MLAUDIO_LOG_ON_FAIL(Result);
+					MLAUDIO_LOG_FAILURE(Result);
 					return;
 				}
 			}
@@ -460,7 +459,7 @@ namespace Audio
 				MLResult Result = MLAudioStopSound(StreamHandle);
 				if (Result != MLResult_Ok)
 				{
-					MLAUDIO_LOG_ON_FAIL(Result);
+					MLAUDIO_LOG_FAILURE(Result);
 					return;
 				}
 			}
@@ -487,7 +486,7 @@ namespace Audio
 		MLResult Result = MLAudioGetOutputStreamBuffer(InPlatform->StreamHandle, &CallbackBuffer);
 		if (Result != MLResult_Ok)
 		{
-			MLAUDIO_LOG_ON_FAIL(Result);
+			MLAUDIO_LOG_FAILURE(Result);
 			return;
 		}
 
@@ -507,7 +506,7 @@ namespace Audio
 		Result = MLAudioReleaseOutputStreamBuffer(InPlatform->StreamHandle);
 		if (Result != MLResult_Ok)
 		{
-			MLAUDIO_LOG_ON_FAIL(Result);
+			MLAUDIO_LOG_FAILURE(Result);
 			return;
 		}
 

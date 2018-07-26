@@ -58,8 +58,7 @@ struct FTrackerMessage
 		None,
 		Pause,
 		Resume,
-		SetEnabled,
-		SetMaxTargets,
+		UpdateSettings,
 		TryCreateTarget,
 		TargetCreateFailed,
 		TargetCreateSucceeded,
@@ -96,24 +95,25 @@ class FImageTrackerRunnable : public FRunnable, public MagicLeap::IAppEventHandl
 public:
 	FImageTrackerRunnable();
 	virtual ~FImageTrackerRunnable();
+	virtual uint32 Run() override;
 
 #if WITH_MLSDK
 	MLHandle GetHandle() const;
 #endif //WITH_MLSDK
-	virtual uint32 Run() override;
+	void SetEnabled(bool bEnabled);
+	bool GetEnabled();
+	void SetMaxSimultaneousTargets(int32 MaxTargets);
+	int32 GetMaxSimultaneousTargets();
 
 	TQueue<FTrackerMessage, EQueueMode::Spsc> IncomingMessages;
 	TQueue<FTrackerMessage, EQueueMode::Spsc> OutgoingMessages;
 
 private:
-
 	void OnAppPause() override;
 	void OnAppResume() override;
 	void TryPause();
 	void TryResume();
-	void OnAppShutDown() override;
-	void SetEnabled();
-	void SetMaxTargets();
+	void OnAppShutDown() override;	
 	void SetTarget();
 	void UpdateTrackerSettings();
 
@@ -123,6 +123,7 @@ private:
 #endif //WITH_MLSDK
 	FRunnableThread* Thread;
 	FThreadSafeCounter StopTaskCounter;
+	FCriticalSection SettingsMutex;
 	FTrackerMessage CurrentMessage;
 	const float RetryCreateTrackerWaitTime;
 };

@@ -900,6 +900,27 @@ bool FLuminPlatformFile::DeleteDirectory(const TCHAR* Directory)
 	return rmdir(TCHAR_TO_UTF8(*CaseSensitiveFilename)) == 0;
 }
 
+void FLuminPlatformFile::SetSandboxEnabled(bool bInEnabled)
+{
+	bIsSandboxEnabled = bInEnabled;
+	UE_LOG(LogLuminPlatformFile, Warning, TEXT("Application sandbox jail has been %s."), bIsSandboxEnabled ? TEXT("enabled") : TEXT("disabled"));
+}
+
+bool FLuminPlatformFile::IsSandboxEnabled() const
+{
+	return bIsSandboxEnabled;
+}
+
+FString FLuminPlatformFile::ConvertToAbsolutePathForExternalAppForWrite(const TCHAR* AbsolutePath)
+{
+	return ConvertToLuminPath(FString(AbsolutePath), true);
+}
+
+FString FLuminPlatformFile::ConvertToAbsolutePathForExternalAppForRead(const TCHAR* AbsolutePath)
+{
+	return ConvertToLuminPath(FString(AbsolutePath), false);
+}
+
 FFileStatData FLuminPlatformFile::GetStatData(const TCHAR* FilenameOrDirectory)
 {
 	FString NormalizedFilename = NormalizeFilename(FilenameOrDirectory);
@@ -1046,6 +1067,10 @@ bool FLuminPlatformFile::CreateDirectoriesFromPath(const TCHAR* Path)
 
 FString FLuminPlatformFile::ConvertToLuminPath(const FString& Filename, bool bForWrite) const
 {
+	if (!IsSandboxEnabled())
+	{
+		return Filename;
+	}
 	FString Result = Filename;
 	Result.ReplaceInline(TEXT("../"), TEXT(""));
 	Result.ReplaceInline(TEXT(".."), TEXT(""));

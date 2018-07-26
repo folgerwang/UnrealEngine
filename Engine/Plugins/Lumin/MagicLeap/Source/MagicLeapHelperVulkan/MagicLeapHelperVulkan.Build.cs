@@ -44,13 +44,6 @@ namespace UnrealBuildTool.Rules
 					});
 
                 AddEngineThirdPartyPrivateStaticDependencies(Target, "Vulkan");
-
-                // HACK This is to get access to vulkan headers on Lumin.
-                // The way Lumininterprets dependency headers is broken.
-                if (Target.Platform == UnrealTargetPlatform.Lumin)
-				{
-                    PrivateDependencyModuleNames.Add("MLSDK");
-				}
 			}
 
 		}

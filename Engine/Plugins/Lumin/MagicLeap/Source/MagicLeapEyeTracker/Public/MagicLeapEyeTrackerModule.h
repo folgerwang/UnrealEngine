@@ -109,6 +109,8 @@ public:
 	bool GetEyeBlinkState(FMagicLeapEyeBlinkState& BlinkState) const;
 	bool GetFixationComfort(FMagicLeapFixationComfort& FixationComfort) const;
 
+	EMagicLeapEyeTrackingCalibrationStatus GetCalibrationStatus() const;
+
 private:
 	friend class FMagicLeapEyeTrackerModule;
 
@@ -151,10 +153,10 @@ class MAGICLEAPEYETRACKER_API UMagicLeapEyeTrackerFunctionLibrary : public UBlue
 
 public:
 	/** 
-	  True if the calibration step was completed for this user.
+	  False if the calibration status is none, otherwise returns true, even with a bad calibration.
 	  If not, user should be advised to run the Eye Calibrator app on the device.
 	*/
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Eye Tracking|MagicLeap")
+	UFUNCTION(BlueprintCallable, BlueprintPure, meta = (DeprecatedFunction, DeprecationMessage = "Please use GetCalibrationStatus instead"), Category = "Eye Tracking|MagicLeap")
 	static bool IsEyeTrackerCalibrated();
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Eye Tracking|MagicLeap")
@@ -162,4 +164,7 @@ public:
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Eye Tracking|MagicLeap")
 	static bool GetFixationComfort(FMagicLeapFixationComfort& FixationComfort);
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "EyeTracking|MagicLeap")
+	static EMagicLeapEyeTrackingCalibrationStatus GetCalibrationStatus();
 };

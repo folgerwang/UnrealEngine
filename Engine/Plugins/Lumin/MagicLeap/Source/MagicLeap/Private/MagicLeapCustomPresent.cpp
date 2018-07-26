@@ -16,11 +16,13 @@ ML_INCLUDES_END
 #include "MagicLeapHelperOpenGL.h"
 #endif // PLATFORM_WINDOWS || PLATFORM_LINUX || PLATFORM_LUMIN
 
-#if PLATFORM_LUMIN
+#include "MagicLeapGraphics.h"
+
+#if PLATFORM_WINDOWS || PLATFORM_LUMIN
 #include "VulkanRHIPrivate.h"
 #include "XRThreadUtils.h"
 #include "MagicLeapHelperVulkan.h"
-#endif // PLATFORM_LUMIN
+#endif // PLATFORM_WINDOWS || PLATFORM_LUMIN
 
 bool FMagicLeapCustomPresent::NeedsNativePresent()
 {
@@ -445,7 +447,7 @@ bool FMagicLeapCustomPresentOpenGL::Present(int& SyncInterval)
 
 #endif  // PLATFORM_WINDOWS || PLATFORM_LINUX || PLATFORM_LUMIN
 
-#if PLATFORM_LUMIN
+#if PLATFORM_WINDOWS || PLATFORM_LUMIN
 
 FMagicLeapCustomPresentVulkan::FMagicLeapCustomPresentVulkan(FMagicLeapHMD* plugin)
 	: FMagicLeapCustomPresent(plugin)
@@ -459,8 +461,8 @@ FMagicLeapCustomPresentVulkan::FMagicLeapCustomPresentVulkan(FMagicLeapHMD* plug
 
 void FMagicLeapCustomPresentVulkan::BeginRendering()
 {
+#if WITH_MLSDK
 	check(IsInRenderingThread());
-
 	FTrackingFrame& frame = Plugin->GetCurrentFrameMutable();
 	if (bCustomPresentIsSet)
 	{
@@ -540,30 +542,16 @@ void FMagicLeapCustomPresentVulkan::BeginRendering()
 		  }
 	  });
   }
+#endif // WITH_MLSDK
 }
 
 void FMagicLeapCustomPresentVulkan::FinishRendering()
 {
+#if WITH_MLSDK
 	check(IsInRenderingThread() || IsInRHIThread());
 
 	if (Plugin->IsDeviceInitialized() && Plugin->GetCurrentFrame().bBeginFrameSucceeded)
 	{
-#if !PLATFORM_LUMIN
-		// Set up the viewport
-		if (Plugin->WindowMirrorMode == 1)
-		{
-			// TODO Implement this similar to OpenGL.
-		}
-		else if (Plugin->WindowMirrorMode == 2)
-		{
-			// TODO Implement this similar to OpenGL.
-		}
-		else if (Plugin->WindowMirrorMode == 0)
-		{
-			// TODO Implement this similar to OpenGL.
-		}
-#endif
-
 		// TODO [Blake] : Hack since we cannot yet specify a handle per view in the view family
 		const MLGraphicsVirtualCameraInfoArray& vp_array = Plugin->GetCurrentFrame().RenderInfoArray;
 		const uint32 vp_width = static_cast<uint32>(vp_array.viewport.w);
@@ -586,7 +574,7 @@ void FMagicLeapCustomPresentVulkan::FinishRendering()
 				UE_LOG(LogMagicLeap, Log, TEXT("Aliased render target for correct sRGB ouput."));
 			}
 
-			const VkImage FinalTarget = (RenderTargetTextureSRGB != VK_NULL_HANDLE) ? RenderTargetTextureSRGB : RenderTargetTexture;
+			const VkImage FinalTarget = (RenderTargetTextureSRGB != VK_NULL_HANDLE) ? reinterpret_cast<const VkImage>(RenderTargetTextureSRGB) : reinterpret_cast<const VkImage>(RenderTargetTexture);
 			FMagicLeapHelperVulkan::BlitImage((uint64)FinalTarget, 0, 0, 0, 0, vp_width, vp_height, 1, (uint64)vp_array.color_id, 0, 0, 0, 0, vp_width, vp_height, 1);
 			FMagicLeapHelperVulkan::BlitImage((uint64)FinalTarget, 0, vp_width, 0, 0, vp_width, vp_height, 1, (uint64)vp_array.color_id, 1, 0, 0, 0, vp_width, vp_height, 1);
 		}
@@ -605,6 +593,7 @@ void FMagicLeapCustomPresentVulkan::FinishRendering()
 	}
   
 	Plugin->InitializeOldFrameFromRenderFrame();
+#endif // WITH_MLSDK
 }
 
 void FMagicLeapCustomPresentVulkan::Reset()
@@ -629,9 +618,9 @@ void FMagicLeapCustomPresentVulkan::UpdateViewport(const FViewport& Viewport, FR
 	const FTexture2DRHIRef& RT = Viewport.GetRenderTargetTexture();
 	check(IsValidRef(RT));
 
-	RenderTargetTexture = (VkImage)RT->GetNativeResource();
-	RenderTargetTextureAllocation = reinterpret_cast<FVulkanTexture2D*>(RT->GetTexture2D())->Surface.GetAllocationHandle();
-	RenderTargetTextureAllocationOffset = reinterpret_cast<FVulkanTexture2D*>(RT->GetTexture2D())->Surface.GetAllocationOffset();
+	RenderTargetTexture = RT->GetNativeResource();
+	RenderTargetTextureAllocation = static_cast<FVulkanTexture2D*>(RT->GetTexture2D())->Surface.GetAllocationHandle();
+	RenderTargetTextureAllocationOffset = static_cast<FVulkanTexture2D*>(RT->GetTexture2D())->Surface.GetAllocationOffset();
 
 	InViewportRHI->SetCustomPresent(this);
 	
@@ -659,6 +648,7 @@ void FMagicLeapCustomPresentVulkan::OnBackBufferResize()
 
 bool FMagicLeapCustomPresentVulkan::Present(int& SyncInterval)
 {
+#if WITH_MLSDK
 	check(IsInRenderingThread() || IsInRHIThread());
 
 	if (bNotifyLifecycleOfFirstPresent)
@@ -690,6 +680,9 @@ bool FMagicLeapCustomPresentVulkan::Present(int& SyncInterval)
 	bCustomPresentIsSet = false;
 
 	return bHostPresent;
+#else
+	return false;
+#endif // WITH_MLSDK
 }
 
-#endif // PLATFORM_LUMIN
+#endif // PLATFORM_WINDOWS || PLATFORM_LUMIN

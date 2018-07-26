@@ -25,11 +25,26 @@ ML_INCLUDES_START
 ML_INCLUDES_END
 #endif //WITH_MLSDK
 
+#if WITH_MLSDK
+EMagicLeapEyeTrackingCalibrationStatus MLToUnrealEyeCalibrationStatus(MLEyeTrackingCalibrationStatus InStatus)
+{
+	switch (InStatus)
+	{
+	case MLEyeTrackingCalibrationStatus_None:
+		return EMagicLeapEyeTrackingCalibrationStatus::None;
+	case MLEyeTrackingCalibrationStatus_Bad:
+		return EMagicLeapEyeTrackingCalibrationStatus::Bad;
+	case MLEyeTrackingCalibrationStatus_Good:
+		return EMagicLeapEyeTrackingCalibrationStatus::Good;
+	}
+	return EMagicLeapEyeTrackingCalibrationStatus::None;
+}
+#endif // WITH_MLSDK
+
 FMagicLeapVREyeTracker::FMagicLeapVREyeTracker()
 : EyeTrackingStatus(EMagicLeapEyeTrackingStatus::NotConnected)
 , bReadyToInit(false)
 , bInitialized(false)
-, bIsCalibrated(false)
 #if WITH_MLSDK
 , EyeTrackingHandle(ML_INVALID_HANDLE)
 #endif //WITH_MLSDK
@@ -91,9 +106,7 @@ bool FMagicLeapVREyeTracker::Tick(float DeltaTime)
 			&& (TempTrackingState.right_center_confidence > 0.0f))
 		{
 			EyeTrackingStatus = EMagicLeapEyeTrackingStatus::UserPresentAndWatchingWindow;
-
-			// TODO: expose as enum instead of simple enum.
-			bIsCalibrated = TempTrackingState.calibration_status == MLEyeTrackingCalibrationStatus_Good;
+			EyeCalibrationStatus = MLToUnrealEyeCalibrationStatus(TempTrackingState.calibration_status);
 
 			UnfilteredEyeTrackingData.bIsStable = true;
 			FDateTime Now = FDateTime::UtcNow();
@@ -213,6 +226,10 @@ EMagicLeapEyeTrackingStatus FMagicLeapVREyeTracker::GetEyeTrackingStatus()
 
 bool FMagicLeapVREyeTracker::IsEyeTrackerCalibrated() const
 {
-	return bIsCalibrated;
+	return GetCalibrationStatus() == EMagicLeapEyeTrackingCalibrationStatus::None ? false : true;
 }
 
+EMagicLeapEyeTrackingCalibrationStatus FMagicLeapVREyeTracker::GetCalibrationStatus() const
+{
+	return EyeCalibrationStatus;
+}

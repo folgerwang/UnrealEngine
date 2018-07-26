@@ -41,6 +41,7 @@ public:
 
 	virtual ~FCameraCaptureImpl()
 	{
+#if PLATFORM_LUMIN
 		// Calling this explicitly to make the chain of destruction more obvious,
 		// ie a potential call to FCameraCaptureRunnable's destructor right here.
 		// On the lumin platform this call will take place inside the destruction
@@ -51,11 +52,12 @@ public:
 		{
 			static_cast<FMagicLeapHMD*>(GEngine->XRSystem->GetHMDDevice())->GetAppFramework().RefreshCameraCaptureRunnableReferences();
 		}
+#endif //PLATFORM_LUMIN
 	}
 
 	bool TryCaptureImageToFile()
 	{
-#if WITH_MLSDK
+#if PLATFORM_LUMIN
 		if (!bCapturing)
 		{
 			bCapturing = true;
@@ -66,13 +68,13 @@ public:
 			CameraCaptureRunnable->ProcessCaptureMessage(Msg);
 			return true;
 		}
-#endif //WITH_MLSDK
+#endif //PLATFORM_LUMIN
 		return false;
 	}
 
 	bool TryCaptureImageToTexture()
 	{
-#if WITH_MLSDK
+#if PLATFORM_LUMIN
 		if (!bCapturing)
 		{
 			bCapturing = true;
@@ -83,13 +85,13 @@ public:
 			CameraCaptureRunnable->ProcessCaptureMessage(Msg);
 			return true;
 		}
-#endif //WITH_MLSDK
+#endif //PLATFORM_LUMIN
 		return false;
 	}
 
 	bool TryCaptureVideoToFile(float InDuration)
 	{
-#if WITH_MLSDK
+#if PLATFORM_LUMIN
 		if (!bCapturing)
 		{
 			bCapturing = true;
@@ -101,12 +103,13 @@ public:
 			CameraCaptureRunnable->ProcessCaptureMessage(Msg);
 			return true;
 		}
-#endif //WITH_MLSDK
+#endif //PLATFORM_LUMIN
 		return false;
 	}
 
 	bool TryGetResult(FCaptureMessage& OutMsg)
 	{
+#if PLATFORM_LUMIN
 		if (bCapturing && CameraCaptureRunnable->OutgoingMessages.Peek(OutMsg))
 		{
 			if (OutMsg.Requester == this)
@@ -115,7 +118,7 @@ public:
 				return true;
 			}
 		}
-		
+#endif //PLATFORM_LUMIN
 		return false;
 	}
 
@@ -288,11 +291,11 @@ bool UCameraCaptureComponent::CaptureVideoToFileAsync(float InDuration)
 
 int64 UCameraCaptureComponent::GetPreviewHandle()
 {
-#if WITH_MLSDK
+#if PLATFORM_LUMIN
 	return FCameraCaptureRunnable::PreviewHandle.GetValue();
 #else
 	return -1;
-#endif //WITH_MLSDK
+#endif //PLATFORM_LUMIN
 }
 
 void UCameraCaptureComponent::Log(const FString& LogMessage)

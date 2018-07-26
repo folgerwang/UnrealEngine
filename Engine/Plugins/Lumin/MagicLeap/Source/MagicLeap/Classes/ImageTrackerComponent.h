@@ -147,6 +147,13 @@ public:
 	static void SetMaxSimultaneousTargets(int32 MaxSimultaneousTargets);
 
 	/**
+		Gets the maximum number of Image Targets that can be tracked at any given time.
+		@return The maximum number of Image Targets that can be tracked at any given time.
+	*/
+	UFUNCTION(BlueprintCallable, Category = "ImageTracking|MagicLeap")
+	static int32 GetMaxSimultaneousTargets();
+
+	/**
 	  If true, image tracker will detect and track targets.
 
 	  When enabled Image Tracker will gain access to the camera and start
@@ -161,4 +168,11 @@ public:
 	*/
 	UFUNCTION(BlueprintCallable, Category = "ImageTracking|MagicLeap")
 	static void EnableImageTracking(bool bEnable);
+
+	/**
+		Gets the active state of the image tracking system.
+		@return True if image tracking is enabled, false otherwise.
+	*/
+	UFUNCTION(BlueprintCallable, Category = "ImageTracking|MagicLeap")
+	static bool IsImageTrackingEnabled();
 };

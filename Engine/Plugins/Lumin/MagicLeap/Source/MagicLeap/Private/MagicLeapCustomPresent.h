@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "RendererInterface.h"
 
+#include "MagicLeapGraphics.h"
 #include "MagicLeapMath.h"
 #include "MagicLeapUtils.h"
 #include "MagicLeapPluginUtil.h" // for ML_INCLUDES_START/END
@@ -12,14 +13,6 @@
 #if WITH_MLSDK
 ML_INCLUDES_START
 #include <ml_api.h>
-
-#if PLATFORM_LUMIN
-#include <vulkan.h>
-#include <ml_graphics.h>
-#else
-#include <ml_graphics.h>
-#endif // PLATFORM_LUMIN
-
 #include <ml_snapshot.h>
 ML_INCLUDES_END
 #endif //WITH_MLSDK
@@ -184,7 +177,7 @@ protected:
 };
 #endif // PLATFORM_WINDOWS || PLATFORM_LINUX || PLATFORM_LUMIN
 
-#if PLATFORM_LUMIN
+#if PLATFORM_WINDOWS || PLATFORM_LUMIN
 class FMagicLeapCustomPresentVulkan : public FMagicLeapCustomPresent
 {
 public:
@@ -201,11 +194,11 @@ public:
 	virtual void Shutdown() override;
 
 protected:
-	VkImage RenderTargetTexture = VK_NULL_HANDLE;
-	VkDeviceMemory RenderTargetTextureAllocation = VK_NULL_HANDLE;
+	void* RenderTargetTexture;
+	void* RenderTargetTextureAllocation;
 	uint64 RenderTargetTextureAllocationOffset = 0;
-	VkImage RenderTargetTextureSRGB = VK_NULL_HANDLE;
-	VkImage LastAliasedRenderTarget = VK_NULL_HANDLE;
+	void* RenderTargetTextureSRGB;
+	void* LastAliasedRenderTarget;
 };
 #endif // PLATFORM_LUMIN
 

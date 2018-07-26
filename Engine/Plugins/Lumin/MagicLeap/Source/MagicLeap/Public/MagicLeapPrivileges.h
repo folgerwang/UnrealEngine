@@ -35,43 +35,8 @@
 #pragma once
 
 #include "Components/ActorComponent.h"
+#include "PrivilegeUtils.h"
 #include "MagicLeapPrivileges.generated.h"
-
-/** Priviliges an app can request for from the system. */
-UENUM(BlueprintType)
-enum class EMagicLeapPrivilege : uint8
-{
-	Invalid,
-	AudioRecognizer,
-	BatteryInfo,
-	CameraCapture,
-	WorldReconstruction,
-	InAppPurchase,
-	AudioCaptureMic,
-	DrmCertificates,
-	Occlusion,
-	LowLatencyLightwear,
-	Internet,
-	IdentityRead,
-	BackgroundDownload,
-	BackgroundUpload,
-	MediaDrm,
-	Media,
-	MediaMetadata,
-	PowerInfo,
-	LocalAreaNetwork,
-	VoiceInput,
-	Documents,
-	ConnectBackgroundMusicService,
-	RegisterBackgroundMusicService,
-	PwFoundObjRead,
-	NormalNotificationsUsage,
-	MusicService,
-	ControllerPose,
-	ScreensProvider,
-	GesturesSubscribe,
-	GesturesConfig,
-};
 
 /**
  *  Class which provides functions to check and request the priviliges the app has at runtime.

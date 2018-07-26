@@ -53,12 +53,14 @@ enum class EPassableWorldError : uint8
 	UnableToLocalize,
 	/** AR Pin is not available at this time. */
 	Unavailable,
-	/** Privileges not met. Add 'PwFoundObjRead' privilege to app manifest. */
+	/** Privileges not met. Add 'PwFoundObjRead' privilege to app manifest and request it at runtime. */
 	PrivilegeDenied,
 	/** Invalid function parameter. */
 	InvalidParam,
 	/** Unspecified error. */
-	UnspecifiedFailure
+	UnspecifiedFailure,
+	/** Privilege has been requested but not yet granted by the user. */
+	PrivilegeRequestPending
 };
 
 /** Modes for automatically pinning content to real-world. */
@@ -114,26 +116,11 @@ public:
 	* @param PinID ID of the Pin to get the position and orientation for.
 	* @param Position Output param for the world position of the Pin. Valid only if return value is true.
 	* @param Orientation Output param for the world orientation of the Pin. Valid only if return value is true.
+	* @param PinFoundInEnvironment Output param for indicating ig the requested Pin was found user's current environment or not.
 	* @return true if the PinID was valid and the position & orientation were successfully retrieved.
 	*/
 	UFUNCTION(BlueprintCallable, Category = "ContentPersistence|MagicLeap")
-	static bool GetARPinPositionAndOrientation(const FGuid& PinID, FVector& Position, FRotator& Orientation);
-
-	/**
-	* [TEMPORARY] Query and cache all available Pins at this time interval.
-	* Function will be removed once the native api adds support for querying if a Pin is available in the current environment.
-	* @return Time interval in seconds to query and cache all available Pins.
-	*/
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "ContentPersistence|MagicLeap")
-	static float GetARPinQueryInterval();
-
-	/**
-	* [TEMPORARY] Set the time interval to query and cache all available Pins.
-	* Function will be removed once the native api adds support for querying if a Pin is available in the current environment.
-	* @param QueryInterval Time interval in seconds to query and cache all available Pins.
-	*/
-	UFUNCTION(BlueprintCallable, Category = "ContentPersistence|MagicLeap")
-	static void SetARPinQueryInterval(float QueryInterval);
+	static bool GetARPinPositionAndOrientation(const FGuid& PinID, FVector& Position, FRotator& Orientation, bool& PinFoundInEnvironment);
 };
 
 /** Component to make content persist at locations in the real world. */
@@ -147,6 +134,7 @@ public:
 
 	virtual void BeginPlay() override;
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
+	virtual void FinishDestroy() override;
 
 	/**
 	 * Pin given SceneComponent to the closest AR Pin in real-world.
@@ -236,7 +224,11 @@ private:
 	UPROPERTY()
 	USceneComponent* PinnedSceneComponent;
 
-	FTransform ComponentRelativeToCFUID;
+	FTransform OldComponentWorldTransform;
+	FTransform OldCFUIDTransform;
+	FTransform NewComponentWorldTransform;
+	FTransform NewCFUIDTransform;
+
 	bool bPinned;
 	bool bDataRestored;
 

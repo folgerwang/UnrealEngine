@@ -9,14 +9,6 @@
 ML_INCLUDES_START
 
 #include <ml_api.h>
-
-#if PLATFORM_LUMIN
-#include <vulkan.h>
-#include <ml_graphics.h>
-#else
-#include <ml_graphics.h>
-#endif // PLATFORM_LUMIN
-
 #include <ml_coordinate_frame_uid.h>
 
 ML_INCLUDES_END
@@ -36,7 +28,8 @@ enum class EFailReason : uint8
 	None,
 	InvalidTrackingFrame,
 	NaNsInTransform,
-	CallFailed
+	CallFailed,
+	PoseNotFound
 };
 
 class MAGICLEAP_API FAppFramework

@@ -84,4 +84,19 @@ public:
 	*/
 	UFUNCTION(BlueprintCallable, Category = "MotionController|MagicLeap")
 	static bool PlayControllerHapticFeedback(EControllerHand Hand, EMLControllerHapticPattern HapticPattern, EMLControllerHapticIntensity Intensity);
+
+	/**
+	Set controller tracking mode.
+	@param TrackingMode Controller tracking mode.
+	@return True if the command to set the tracking mode was successfully sent to the controller, false otherwise.
+	*/
+	UFUNCTION(BlueprintCallable, Category = "MotionController|MagicLeap")
+		static bool SetControllerTrackingMode(EMLControllerTrackingMode TrackingMode);
+
+	/**
+	Get controller tracking mode.
+	@return Controller tracking mode.
+	*/
+	UFUNCTION(BlueprintCallable, Category = "MotionController|MagicLeap")
+		static EMLControllerTrackingMode GetControllerTrackingMode();
 };

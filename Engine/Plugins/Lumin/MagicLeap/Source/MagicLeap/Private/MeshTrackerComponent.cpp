@@ -169,7 +169,8 @@ public:
 		FMeshTrackerImpl* Owner = nullptr;
 		
 		IMRMesh::FBrickId BrickId = 0;
-		TArray<FVector> Vertices;
+		TArray<FVector> OffsetVertices;
+		TArray<FVector> WorldVertices;
 		TArray<uint32> Triangles;
 		TArray<FVector> Normals;
 		TArray<FVector2D> UV0;
@@ -184,7 +185,8 @@ public:
 			Owner = nullptr;
 	
 			BrickId = 0;
-			Vertices.Reset();
+			OffsetVertices.Reset();
+			WorldVertices.Reset();
 			Triangles.Reset();
 			Normals.Reset();
 			UV0.Reset();
@@ -341,7 +343,13 @@ UMeshTrackerComponent::~UMeshTrackerComponent()
 
 void UMeshTrackerComponent::ConnectMRMesh(UMRMeshComponent* InMRMeshPtr)
 {
-	if (MRMesh)
+	if (!InMRMeshPtr)
+	{
+		UE_LOG(LogMagicLeap, Warning,
+			TEXT("MRMesh given is not valid. Ignoring this connect."));
+		return;
+	}
+	else if (MRMesh)
 	{
 		UE_LOG(LogMagicLeap, Warning, 
 			TEXT("MeshTrackerComponent already has a MRMesh connected.  Ignoring this connect."));
@@ -600,6 +608,7 @@ void UMeshTrackerComponent::TickComponent(float DeltaTime, enum ELevelTick TickT
 				//UE_LOG(LogMagicLeap, Log, TEXT("Mesh tracker received %d blocks for mesh request %d"), 
 					//Mesh.data_count, static_cast<int>(Impl->CurrentMeshRequest));
 
+				FVector VertexOffset = UHeadMountedDisplayFunctionLibrary::GetTrackingToWorldTransform(this).Inverse().GetLocation();
 				for (uint32_t MeshIndex = 0; MeshIndex < Mesh.data_count; ++ MeshIndex)
 				{
 					const auto &MeshData = Mesh.data[MeshIndex];
@@ -617,10 +626,12 @@ void UMeshTrackerComponent::TickComponent(float DeltaTime, enum ELevelTick TickT
 					CurrentMeshDataCache->BrickId = BrickId;
 
 					// Pull vertices
-					CurrentMeshDataCache->Vertices.Reserve(MeshData.vertex_count);
+					CurrentMeshDataCache->OffsetVertices.Reserve(MeshData.vertex_count);
+					CurrentMeshDataCache->WorldVertices.Reserve(MeshData.vertex_count);
 					for (uint32_t v = 0; v < MeshData.vertex_count; ++ v)
 					{
-						CurrentMeshDataCache->Vertices.Add(MagicLeap::ToFVector(MeshData.vertex[v], WorldToMetersScale));
+							CurrentMeshDataCache->OffsetVertices.Add(MagicLeap::ToFVector(MeshData.vertex[v], WorldToMetersScale) - VertexOffset);
+							CurrentMeshDataCache->WorldVertices.Add(MagicLeap::ToFVector(MeshData.vertex[v], WorldToMetersScale));
 					}
 
 					// Pull indices
@@ -645,7 +656,7 @@ void UMeshTrackerComponent::TickComponent(float DeltaTime, enum ELevelTick TickT
 					{
 						for (uint32_t n = 0; n < MeshData.vertex_count; ++ n)
 						{
-							FVector FakeNormal = CurrentMeshDataCache->Vertices[n];
+							FVector FakeNormal = CurrentMeshDataCache->OffsetVertices[n];
 							FakeNormal.Normalize();
 							CurrentMeshDataCache->Normals.Add(FakeNormal);
 						}
@@ -747,7 +758,7 @@ void UMeshTrackerComponent::TickComponent(float DeltaTime, enum ELevelTick TickT
 								TSharedPtr<IMRMesh::FBrickDataReceipt, ESPMode::ThreadSafe>
 									(new FMeshTrackerImpl::FMeshTrackerComponentBrickDataReceipt(CurrentMeshDataCache)),
 								CurrentMeshDataCache->BrickId,
-								CurrentMeshDataCache->Vertices,
+								CurrentMeshDataCache->WorldVertices,
 								CurrentMeshDataCache->UV0,
 								CurrentMeshDataCache->Tangents,
 								CurrentMeshDataCache->VertexColors,
@@ -762,7 +773,7 @@ void UMeshTrackerComponent::TickComponent(float DeltaTime, enum ELevelTick TickT
 						// Hack because blueprints don't support uint32.
 						TArray<int32> Triangles(reinterpret_cast<const int32*>(CurrentMeshDataCache->
 							Triangles.GetData()), CurrentMeshDataCache->Triangles.Num());
-						OnMeshTrackerUpdated.Broadcast(CurrentMeshDataCache->BrickId, CurrentMeshDataCache->Vertices, 
+						OnMeshTrackerUpdated.Broadcast(CurrentMeshDataCache->BrickId, CurrentMeshDataCache->OffsetVertices, 
 							Triangles, CurrentMeshDataCache->Normals, CurrentMeshDataCache->Confidence);
 					}
 				}

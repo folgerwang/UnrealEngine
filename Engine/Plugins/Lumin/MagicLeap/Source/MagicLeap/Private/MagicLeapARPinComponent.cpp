@@ -65,21 +65,24 @@ struct FPersistentData
 #if WITH_MLSDK
 	MLCoordinateFrameUID PinnedCFUID;
 #endif //WITH_MLSDK
-	FTransform ComponentRelativeToCFUID;
+	FTransform ComponentWorldTransform;
+	FTransform CFUIDTransform;
 
 	FPersistentData()
 	{}
 
 #if WITH_MLSDK
-	FPersistentData(const MLCoordinateFrameUID& InPinnedCFUID, const FTransform& InComponentRelativeToCFUID)
-	: ComponentRelativeToCFUID(InComponentRelativeToCFUID)
+	FPersistentData(const MLCoordinateFrameUID& InPinnedCFUID, const FTransform& InComponentWorldTransform, const FTransform& InCFUIDTransform)
+	: ComponentWorldTransform(InComponentWorldTransform)
+	, CFUIDTransform(InCFUIDTransform)
 	{
 		FMemory::Memcpy(PinnedCFUID, InPinnedCFUID);
 	}
 #endif //WITH_MLSDK
 
-	FPersistentData(const FGuid& InPinnedCFUID, const FTransform& InComponentRelativeToCFUID)
-	: ComponentRelativeToCFUID(InComponentRelativeToCFUID)
+	FPersistentData(const FGuid& InPinnedCFUID, const FTransform& InComponentWorldTransform, const FTransform& InCFUIDTransform)
+	: ComponentWorldTransform(InComponentWorldTransform)
+	, CFUIDTransform(InCFUIDTransform)
 	{
 #if WITH_MLSDK
 		FMemory::Memcpy(&PinnedCFUID, &InPinnedCFUID, sizeof(MLCoordinateFrameUID));
@@ -104,7 +107,7 @@ EPassableWorldError MLToUnrealPassableWorldError(MLResult result)
 }
 #endif //WITH_MLSDK
 
-class FMagicLeapARPinInterface : public FRunnable, public MagicLeap::IAppEventHandler
+class FMagicLeapARPinInterface : public MagicLeap::IAppEventHandler
 {
 public:
 	static TWeakPtr<FMagicLeapARPinInterface, ESPMode::ThreadSafe> Get()
@@ -114,19 +117,15 @@ public:
 			Instance = MakeShareable(new FMagicLeapARPinInterface());
 		}
 
+		// Keeping it separate from the constructor, so that async privs can be handled easily.
+		// Every time a Get() request is made, the tracker creation is attempted, if not already created.
+		Instance->CreateTracker();
+
 		return Instance;
 	}
 
 	virtual ~FMagicLeapARPinInterface()
 	{
-		StopTaskCounter.Increment();
-
-		if (nullptr != Thread)
-		{
-			Thread->WaitForCompletion();
-			delete Thread;
-			Thread = nullptr;
-		}
 	}
 
 #if WITH_MLSDK
@@ -137,18 +136,11 @@ public:
 #endif //WITH_MLSDK
 
 #if WITH_MLSDK
-	bool IsCoordinateFrameValid(const MLCoordinateFrameUID& InCoordinateFrame) const
-	{
-		FScopeLock Lock(&Mutex);
-		return (AllCoordinateFrames.FindByPredicate([&](const MLCoordinateFrameUID& ArrayElem) {
-			return (ArrayElem.data[0] == InCoordinateFrame.data[0] && ArrayElem.data[1] == InCoordinateFrame.data[1]);
-		}) != nullptr);
-	}
-
 	EPassableWorldError GetClosestARPin(const FVector& SearchPoint, FGuid& PinID)
 	{
 		EPassableWorldError ErrorReturn = EPassableWorldError::Unavailable;
-		if (GetPrivilegeStatus(MLPrivilegeID_PwFoundObjRead) == MagicLeap::EPrivilegeState::Granted)
+		MagicLeap::EPrivilegeState PrivilegeState = GetPrivilegeStatus(MLPrivilegeID_PwFoundObjRead, false);
+		if (PrivilegeState == MagicLeap::EPrivilegeState::Granted)
 		{
 			if (IMagicLeapPlugin::Get().IsMagicLeapHMDValid())
 			{
@@ -156,38 +148,62 @@ public:
 				const float WorldToMetersScale = AppFramework.GetWorldToMetersScale();
 				FTransform PoseInverse = UHeadMountedDisplayFunctionLibrary::GetTrackingToWorldTransform(GWorld).Inverse();
 				MLVec3f Target = MagicLeap::ToMLVector(PoseInverse.TransformPosition(SearchPoint), WorldToMetersScale);
-				FScopeLock Lock(&Mutex);
 				MLResult Result = MLPersistentCoordinateFrameGetClosest(GetHandle(), &Target, reinterpret_cast<MLCoordinateFrameUID*>(&PinID));
 				UE_CLOG(MLResult_Ok != Result, LogMagicLeap, Error, TEXT("MLPersistentCoordinateFrameGetClosest failed with error %s"), UTF8_TO_TCHAR(MLPersistentCoordinateFrameGetResultString(Result)));
 				ErrorReturn = MLToUnrealPassableWorldError(Result);
 			}
 		}
+		else if (PrivilegeState == MagicLeap::EPrivilegeState::Pending)
+		{
+			ErrorReturn = EPassableWorldError::PrivilegeRequestPending;
+		}
 		else
 		{
-			UE_LOG(LogMagicLeap, Error, TEXT("GetClosestARPin failed due to lack of privilege!"));
+			ErrorReturn = EPassableWorldError::PrivilegeDenied;
 		}
 
 		return ErrorReturn;
 	}
 
-	MLResult GetAvailableARPins(int32 NumRequested, TArray<FGuid>& CoordinateFrames) const
+	EPassableWorldError GetAvailableARPins(int32 NumRequested, TArray<FGuid>& CoordinateFrames)
 	{
-		FScopeLock Lock(&Mutex);
-		NumRequested = (NumRequested <= AllCoordinateFrames.Num()) ? NumRequested : AllCoordinateFrames.Num();
-		CoordinateFrames.Reset();
-		CoordinateFrames.AddUninitialized(NumRequested);
-		FMemory::Memcpy(CoordinateFrames.GetData(), AllCoordinateFrames.GetData(), sizeof(MLCoordinateFrameUID) * NumRequested);
-		return LastQueryResult;
+		EPassableWorldError ErrorReturn = EPassableWorldError::Unavailable;
+		MagicLeap::EPrivilegeState PrivilegeState = GetPrivilegeStatus(MLPrivilegeID_PwFoundObjRead, false);
+		if (PrivilegeState == MagicLeap::EPrivilegeState::Granted)
+		{
+			if (NumRequested > 0)
+			{
+				CoordinateFrames.Reset();
+				CoordinateFrames.AddZeroed(NumRequested);
+				MLCoordinateFrameUID* ArrayDataPointer = reinterpret_cast<MLCoordinateFrameUID*>(CoordinateFrames.GetData());
+				MLResult QueryResult = MLPersistentCoordinateFrameGetAll(GetHandle(), sizeof(MLCoordinateFrameUID) * NumRequested, &ArrayDataPointer);
+				if (MLResult_Ok != QueryResult)
+				{
+					UE_LOG(LogMagicLeap, Error, TEXT("MLPersistentCoordinateFrameGetAll failed with error %s"), UTF8_TO_TCHAR(MLPersistentCoordinateFrameGetResultString(QueryResult)));
+				}
+				ErrorReturn = MLToUnrealPassableWorldError(QueryResult);
+			}
+		}
+		else if (PrivilegeState == MagicLeap::EPrivilegeState::Pending)
+		{
+			ErrorReturn = EPassableWorldError::PrivilegeRequestPending;
+		}
+		else
+		{
+			ErrorReturn = EPassableWorldError::PrivilegeDenied;
+		}
+
+		return ErrorReturn;
 	}
 
 	EPassableWorldError GetNumAvailableARPins(int32& Count)
 	{
-		MLResult Result = MLResult_PrivilegeDenied;
-		if (GetPrivilegeStatus(MLPrivilegeID_PwFoundObjRead) == MagicLeap::EPrivilegeState::Granted)
+		EPassableWorldError ErrorReturn = EPassableWorldError::Unavailable;
+		MagicLeap::EPrivilegeState PrivilegeState = GetPrivilegeStatus(MLPrivilegeID_PwFoundObjRead, false);
+		if (PrivilegeState == MagicLeap::EPrivilegeState::Granted)
 		{
 			uint32 NumPersistentFrames = 0;
-			FScopeLock Lock(&Mutex);
-			Result = MLPersistentCoordinateFrameGetCount(GetHandle(), &NumPersistentFrames);
+			MLResult Result = MLPersistentCoordinateFrameGetCount(GetHandle(), &NumPersistentFrames);
 			if (MLResult_Ok == Result)
 			{
 				Count = static_cast<int32>(NumPersistentFrames);
@@ -197,84 +213,36 @@ public:
 				UE_LOG(LogMagicLeap, Error, TEXT("MLPersistentCoordinateFrameGetCount failed with error %s"), UTF8_TO_TCHAR(MLPersistentCoordinateFrameGetResultString(Result)));
 				Count = 0;
 			}
+			ErrorReturn = MLToUnrealPassableWorldError(Result);
+		}
+		else if (PrivilegeState == MagicLeap::EPrivilegeState::Pending)
+		{
+			ErrorReturn = EPassableWorldError::PrivilegeRequestPending;
 		}
 		else
 		{
-			UE_LOG(LogMagicLeap, Error, TEXT("GetNumAvailableARPins failed due to lack of privilege!"));
+			ErrorReturn = EPassableWorldError::PrivilegeDenied;
 		}
 
-		return MLToUnrealPassableWorldError(Result);
+		return ErrorReturn;
 	}
 #endif //WITH_MLSDK
-
-	float GetThreadSleepTime() const
-	{
-		FScopeLock Lock(&Mutex);
-		return ThreadSleepTime;
-	}
-
-	void SetThreadSleepTime(float QueryInterval)
-	{
-		FScopeLock Lock(&Mutex);
-		ThreadSleepTime = QueryInterval;
-	}
-
-	virtual uint32 Run() override
-	{
-		// TODO: All this is temporary, until we get a proper return value from MLSnapshotGetTransform() indicating that the CFUID was invalid or not found in current map.
-		while (StopTaskCounter.GetValue() == 0)
-		{
-#if WITH_MLSDK
-			if (!MLHandleIsValid(Tracker))
-			{
-				if (GetPrivilegeStatus(MLPrivilegeID_PwFoundObjRead) == MagicLeap::EPrivilegeState::Granted)
-				{
-					// TODO: add retires like in Image tracker if error is LowMapQuality, UnableToLocalize, ServerUnavailable or PrivilegeDenied.
-					// Retrying for PrivilegeDenied would only make sense when MLPrivilege runtime api is functional.
-					MLResult Result = MLPersistentCoordinateFrameTrackerCreate(&Tracker);
-					UE_CLOG(Result != MLResult_Ok, LogMagicLeap, Error, TEXT("Failed to create persistent coordinate frame tracker with error %s."), UTF8_TO_TCHAR(MLPersistentCoordinateFrameGetResultString(Result)));
-				}
-				else
-				{
-					UE_LOG(LogMagicLeap, Error, TEXT("Failed to initialize persistent coordinate frame tracker due to lack of privilege!"));
-				}
-			}
-			else
-			{
-				FScopeLock GetCoordinateFramesLock(&Mutex);
-				uint32 NumPersistentFrames = 0;
-				MLResult Result = MLPersistentCoordinateFrameGetCount(FMagicLeapARPinInterface::Get().Pin()->GetHandle(), &NumPersistentFrames);
-				if (MLResult_Ok == Result && NumPersistentFrames > 0)
-				{
-					AllCoordinateFrames.Reset();
-					AllCoordinateFrames.AddZeroed(NumPersistentFrames);
-					MLCoordinateFrameUID* ArrayDataPointer = AllCoordinateFrames.GetData();
-					LastQueryResult = MLPersistentCoordinateFrameGetAll(FMagicLeapARPinInterface::Get().Pin()->GetHandle(), sizeof(MLCoordinateFrameUID) * NumPersistentFrames, &ArrayDataPointer);
-					if (MLResult_Ok != LastQueryResult)
-					{
-						UE_LOG(LogMagicLeap, Error, TEXT("MLPersistentCoordinateFrameGetAll failed with error %s"), UTF8_TO_TCHAR(MLPersistentCoordinateFrameGetResultString(LastQueryResult)));
-					}
-				}
-			}
-#endif //WITH_MLSDK
-
-			float SleepDuration;
-			{
-				FScopeLock ThreadSleepLock(&Mutex);
-				SleepDuration = ThreadSleepTime;
-			}
-			FPlatformProcess::Sleep(SleepDuration);
-		}
-
-		DestroyTracker();
-
-		return 0;
-	}
 
 	virtual void OnAppPause() override
 	{
+#if WITH_MLSDK
+		bWasTrackerValidOnPause = MLHandleIsValid(Tracker);
 		// need to destroy the tracker here in case privileges are removed while the app is dormant.
 		DestroyTracker();
+#endif //WITH_MLSDK
+	}
+
+	virtual void OnAppResume() override
+	{
+		if (bWasTrackerValidOnPause)
+		{
+			CreateTracker();
+		}
 	}
 
 	virtual void OnAppShutDown() override
@@ -286,18 +254,30 @@ private:
 	FMagicLeapARPinInterface()
 #if WITH_MLSDK
 	: MagicLeap::IAppEventHandler({ MLPrivilegeID_PwFoundObjRead })
-	, ThreadSleepTime(5.0f)
-	, Thread(nullptr)
-	, StopTaskCounter(0)
 	, Tracker(ML_INVALID_HANDLE)
+	, bWasTrackerValidOnPause(false)
 #endif //WITH_MLSDK
+	{}
+
+	void CreateTracker()
 	{
-		// TODO: Default affinity for this runnable thread on Lumin should be FLuminAffinity::GetPoolThreadMask(). Confirm and remove #if block.
-#if PLATFORM_LUMIN
-		Thread = FRunnableThread::Create(this, TEXT("PersistentCFWorker"), 0, TPri_BelowNormal, FLuminAffinity::GetPoolThreadMask());
-#else
-		Thread = FRunnableThread::Create(this, TEXT("PersistentCFWorker"), 0, TPri_BelowNormal);
-#endif // PLATFORM_LUMIN
+#if WITH_MLSDK
+		if (!MLHandleIsValid(Tracker))
+		{
+			MagicLeap::EPrivilegeState PrivilegeState = GetPrivilegeStatus(MLPrivilegeID_PwFoundObjRead, false);
+			if (PrivilegeState == MagicLeap::EPrivilegeState::Granted)
+			{
+				// TODO: add retires like in Image tracker if error is LowMapQuality, UnableToLocalize, ServerUnavailable or PrivilegeDenied.
+				// Retrying for PrivilegeDenied would only make sense when MLPrivilege runtime api is functional.
+				MLResult Result = MLPersistentCoordinateFrameTrackerCreate(&Tracker);
+				UE_CLOG(Result != MLResult_Ok, LogMagicLeap, Error, TEXT("Failed to create persistent coordinate frame tracker with error %s."), UTF8_TO_TCHAR(MLPersistentCoordinateFrameGetResultString(Result)));
+			}
+			else if (PrivilegeState == MagicLeap::EPrivilegeState::Denied)
+			{
+				UE_LOG(LogMagicLeap, Error, TEXT("Failed to initialize persistent coordinate frame tracker due to lack of privilege!"));
+			}
+		}
+#endif //WITH_MLSDK
 	}
 
 	void DestroyTracker()
@@ -312,15 +292,10 @@ private:
 #endif //WITH_MLSDK
 	}
 
-	float ThreadSleepTime;
-	FRunnableThread* Thread;
-	FThreadSafeCounter StopTaskCounter;
-	mutable FCriticalSection Mutex;
 #if WITH_MLSDK
 	MLHandle Tracker;
-	TArray<MLCoordinateFrameUID> AllCoordinateFrames;
-	MLResult LastQueryResult;
 #endif //WITH_MLSDK
+	bool bWasTrackerValidOnPause;
 
 	static TSharedPtr<FMagicLeapARPinInterface, ESPMode::ThreadSafe> Instance;
 };
@@ -352,9 +327,7 @@ EPassableWorldError UMagicLeapARPinFunctionLibrary::GetAvailableARPins(int32 Num
 		return EPassableWorldError::None;
 	}
 
-	MLResult Result = FMagicLeapARPinInterface::Get().Pin()->GetAvailableARPins(NumRequested, Pins);
-
-	return MLToUnrealPassableWorldError(Result);
+	return FMagicLeapARPinInterface::Get().Pin()->GetAvailableARPins(NumRequested, Pins);
 #else
 	return EPassableWorldError::Unavailable;
 #endif //WITH_MLSDK
@@ -369,12 +342,15 @@ EPassableWorldError UMagicLeapARPinFunctionLibrary::GetClosestARPin(const FVecto
 #endif //WITH_MLSDK
 }
 
-bool UMagicLeapARPinFunctionLibrary::GetARPinPositionAndOrientation(const FGuid& PinID, FVector& Position, FRotator& Orientation)
+bool UMagicLeapARPinFunctionLibrary::GetARPinPositionAndOrientation(const FGuid& PinID, FVector& Position, FRotator& Orientation, bool& PinFoundInEnvironment)
 {
 	if (!IMagicLeapPlugin::Get().IsMagicLeapHMDValid())
 	{
 		return false;
 	}
+
+	// Make sure we create the pcf tracker, request privilege etc so that the list of pins is populated by the time we call GetTransform on it.
+	FMagicLeapARPinInterface::Get();
 
 #if WITH_MLSDK
 	const MLCoordinateFrameUID* MLCFUID = reinterpret_cast<const MLCoordinateFrameUID*>(&PinID);
@@ -388,28 +364,23 @@ bool UMagicLeapARPinFunctionLibrary::GetARPinPositionAndOrientation(const FGuid&
 		Pose.ConcatenateRotation(TrackingToWorld.Rotator().Quaternion());
 		Position = Pose.GetLocation();
 		Orientation = Pose.Rotator();
+		PinFoundInEnvironment = true;
 		return true;
 	}
+	PinFoundInEnvironment = (FailReason != EFailReason::PoseNotFound);
 #endif //WITH_MLSDK
 
 	return false;
-}
-
-float UMagicLeapARPinFunctionLibrary::GetARPinQueryInterval()
-{
-	return FMagicLeapARPinInterface::Get().Pin()->GetThreadSleepTime();
-}
-
-void UMagicLeapARPinFunctionLibrary::SetARPinQueryInterval(float QueryInterval)
-{
-	FMagicLeapARPinInterface::Get().Pin()->SetThreadSleepTime(QueryInterval);
 }
 
 UMagicLeapARPinComponent::UMagicLeapARPinComponent()
 : AutoPinType(EAutoPinType::OnlyOnDataRestoration)
 , bPinActor(false)
 , PinnedSceneComponent(nullptr)
-, ComponentRelativeToCFUID(FTransform::Identity)
+, OldComponentWorldTransform(FTransform::Identity)
+, OldCFUIDTransform(FTransform::Identity)
+, NewComponentWorldTransform(FTransform::Identity)
+, NewCFUIDTransform(FTransform::Identity)
 , bPinned(false)
 , bDataRestored(false)
 {
@@ -442,7 +413,8 @@ void UMagicLeapARPinComponent::BeginPlay()
 #if WITH_MLSDK
 			FMemory::Memcpy(&PinnedCFUID, &Data.PinnedCFUID, sizeof(MLCoordinateFrameUID));
 #endif //WITH_MLSDK
-			ComponentRelativeToCFUID = Data.ComponentRelativeToCFUID;
+			OldComponentWorldTransform = Data.ComponentWorldTransform;
+			OldCFUIDTransform = Data.CFUIDTransform;
 			bDataRestored = true;
 		}
 	}
@@ -480,7 +452,10 @@ void UMagicLeapARPinComponent::TickComponent(float DeltaTime, enum ELevelTick Ti
 			if (bDataRestored)
 			{
 #if WITH_MLSDK
-				bPinned = FMagicLeapARPinInterface::Get().Pin()->IsCoordinateFrameValid(*reinterpret_cast<MLCoordinateFrameUID*>(&PinnedCFUID));
+				FVector DummyPosition = FVector::ZeroVector;
+				FRotator DummyOrientation = FRotator::ZeroRotator;
+				// use MLSnapshotGetTransform's return value of PoseNotFound to determine of the given PinnedCFUID is available in the current environment.
+				UMagicLeapARPinFunctionLibrary::GetARPinPositionAndOrientation(PinnedCFUID, DummyPosition, DummyOrientation, bPinned);
 #endif //WITH_MLSDK
 			}
 			else
@@ -490,20 +465,20 @@ void UMagicLeapARPinComponent::TickComponent(float DeltaTime, enum ELevelTick Ti
 				{
 					FVector PinWorldPosition = FVector::ZeroVector;
 					FRotator PinWorldOrientation = FRotator::ZeroRotator;
-					bool bCFUIDTransform = UMagicLeapARPinFunctionLibrary::GetARPinPositionAndOrientation(PinnedCFUID, PinWorldPosition, PinWorldOrientation);
+					bool PinFoundInEnvironment = false;
+					bool bCFUIDTransform = UMagicLeapARPinFunctionLibrary::GetARPinPositionAndOrientation(PinnedCFUID, PinWorldPosition, PinWorldOrientation, PinFoundInEnvironment);
 					if (bCFUIDTransform)
 					{
 						bPinned = true;
-						const FTransform& ComponentWorldTransform = PinnedSceneComponent->GetComponentToWorld();
-						const FVector ComponentRelativePosition = ComponentWorldTransform.GetLocation() - PinWorldPosition;
-						const FQuat ComponentRelativeOrientation = PinWorldOrientation.Quaternion().Inverse() * ComponentWorldTransform.GetRotation();
-						ComponentRelativeToCFUID = FTransform(ComponentRelativeOrientation, ComponentRelativePosition);
+						OldComponentWorldTransform = PinnedSceneComponent->GetComponentToWorld();
+						OldCFUIDTransform = FTransform(PinWorldOrientation, PinWorldPosition);
 
 						if (ObjectUID.Len() != 0)
 						{
-							FPersistentData PinData(PinnedCFUID, ComponentRelativeToCFUID);
+							FPersistentData PinData(PinnedCFUID, OldComponentWorldTransform, OldCFUIDTransform);
 							UMagicLeapSecureStorage::PutSecureBlob<FPersistentData>(ObjectUID, &PinData);
 						}
+
 					}
 				}
 			}
@@ -518,15 +493,29 @@ void UMagicLeapARPinComponent::TickComponent(float DeltaTime, enum ELevelTick Ti
 		{
 			FVector PinWorldPosition = FVector::ZeroVector;
 			FRotator PinWorldOrientation = FRotator::ZeroRotator;
-			bool bCFUIDTransform = UMagicLeapARPinFunctionLibrary::GetARPinPositionAndOrientation(PinnedCFUID, PinWorldPosition, PinWorldOrientation);
+			bool PinFoundInEnvironment = false;
+			bool bCFUIDTransform = UMagicLeapARPinFunctionLibrary::GetARPinPositionAndOrientation(PinnedCFUID, PinWorldPosition, PinWorldOrientation, PinFoundInEnvironment);
 			if (bCFUIDTransform)
 			{
-				FTransform ComponentPinnedTransform = FTransform(PinWorldOrientation.Quaternion(), PinWorldPosition);
-				ComponentPinnedTransform = ComponentRelativeToCFUID * ComponentPinnedTransform;
-				PinnedSceneComponent->SetWorldLocationAndRotation(ComponentPinnedTransform.GetTranslation(), ComponentPinnedTransform.Rotator());
+				NewCFUIDTransform = FTransform(PinWorldOrientation.Quaternion(), PinWorldPosition);
+
+				const FMatrix NewComponentWorldTransformMatrix = OldComponentWorldTransform.ToMatrixNoScale() * (OldCFUIDTransform.ToMatrixNoScale().Inverse() * NewCFUIDTransform.ToMatrixNoScale());
+				NewComponentWorldTransform = FTransform(NewComponentWorldTransformMatrix);
+
+				PinnedSceneComponent->SetWorldLocationAndRotation(NewComponentWorldTransform.GetLocation(), NewComponentWorldTransform.Rotator());
 			}
 		}
 	}
+}
+
+void UMagicLeapARPinComponent::FinishDestroy()
+{
+	if (ObjectUID.Len() != 0 && bPinned)
+	{
+		FPersistentData PinData(PinnedCFUID, NewComponentWorldTransform, NewCFUIDTransform);
+		UMagicLeapSecureStorage::PutSecureBlob<FPersistentData>(ObjectUID, &PinData);
+	}
+	Super::FinishDestroy();
 }
 
 bool UMagicLeapARPinComponent::PinSceneComponent(USceneComponent* ComponentToPin)

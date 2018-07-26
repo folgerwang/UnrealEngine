@@ -1,13 +1,17 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "ImageTrackerComponent.h"
-#include "ImageTrackerRunnable.h"
 #include "MagicLeapHMD.h"
 #include "AppFramework.h"
 #include "MagicLeapMath.h"
 #include "Runtime/Core/Public/HAL/PlatformFilemanager.h"
 #include "Misc/Paths.h"
 #include "AppEventHandler.h"
+#include "HAL/Runnable.h"
+#include "HAL/RunnableThread.h"
+#if PLATFORM_LUMIN
+#include "Lumin/LuminAffinity.h"
+#endif // PLATFORM_LUMIN
 #if WITH_EDITOR
 #include "Editor.h"
 #endif
@@ -16,22 +20,245 @@
 #if WITH_MLSDK
 ML_INCLUDES_START
 #include <ml_image_tracking.h>
+#include <ml_perception.h>
+#include <ml_snapshot.h>
+#include <ml_head_tracking.h>
+#include <ml_coordinate_frame_uid.h>
 ML_INCLUDES_END
 #endif //WITH_MLSDK
 
-class FImageTrackerImpl : public MagicLeap::IAppEventHandler
+class FImageTrackerEngineInterface : public MagicLeap::IAppEventHandler
 {
 public:
-	FImageTrackerImpl(UImageTrackerComponent* InOwner)
-	: Owner(InOwner)
-	, State(EState::WaitingForAppInit)
+	static TWeakPtr<FImageTrackerEngineInterface, ESPMode::ThreadSafe> Get(bool bCreateTracker = true)
+	{
+		if (!Instance.IsValid())
+		{
+			Instance = MakeShareable(new FImageTrackerEngineInterface());
+		}
+
+		if (bCreateTracker)
+		{
+			// needs to be a separate call instead of being embedded in the runnable constructor so it works in consequetive VRPreview calls.
+			Instance->CreateTracker();
+		}
+
+		return Instance;
+	}
+
 #if WITH_MLSDK
-	, Target(ML_INVALID_HANDLE)
+	MLHandle GetHandle() const
+	{
+		FScopeLock Lock(&TrackerMutex);
+		return ImageTracker;
+	}
+
+	uint32 GetMaxSimultaneousTargets() const
+	{
+		FScopeLock Lock(&TrackerMutex);
+		return Settings.max_simultaneous_targets;
+	}
+
+	void SetMaxSimultaneousTargets(uint32 NewNumTargets)
+	{
+		FScopeLock Lock(&TrackerMutex);
+		Settings.max_simultaneous_targets = NewNumTargets;
+		UpdateImageTrackerSettings();
+	}
+
+	bool GetImageTrackerEnabled() const
+	{
+		FScopeLock Lock(&TrackerMutex);
+		return Settings.enable_image_tracking && MLHandleIsValid(ImageTracker);
+	}
+
+	void SetImageTrackerEnabled(bool bEnabled)
+	{
+		FScopeLock Lock(&TrackerMutex);
+		Settings.enable_image_tracking = bEnabled;
+		// TODO: this should be async.
+		UpdateImageTrackerSettings();
+	}
 #endif //WITH_MLSDK
+
+private:
+	FImageTrackerEngineInterface()
+#if WITH_MLSDK
+	: MagicLeap::IAppEventHandler({ MLPrivilegeID_CameraCapture })
+	, ImageTracker(ML_INVALID_HANDLE)
+#endif //WITH_MLSDK
+	{
+#if WITH_MLSDK
+		FMemory::Memset(&Settings, 0, sizeof(Settings));
+		MLResult Result = MLImageTrackerInitSettings(&Settings);
+		if (Result != MLResult_Ok)
+		{
+			UE_LOG(LogMagicLeap, Error, TEXT("[FImageTrackerEngineInterface] Could not initialize image tracker settings mofo"));
+		}
+#endif //WITH_MLSDK
+	}
+
+	void CreateTracker()
+	{
+#if WITH_MLSDK
+		FScopeLock Lock(&TrackerMutex);
+		if (!MLHandleIsValid(ImageTracker))
+		{
+			UE_LOG(LogMagicLeap, Display, TEXT("[FImageTrackerEngineInterface] Creating Image Tracker"));
+
+			if (MagicLeap::EPrivilegeState::Granted == GetPrivilegeStatus(MLPrivilegeID_CameraCapture))
+			{
+				MLImageTrackerCreate(&Settings, &ImageTracker);
+
+				if (!MLHandleIsValid(ImageTracker))
+				{
+					UE_LOG(LogMagicLeap, Error, TEXT("[FImageTrackerEngineInterface] Could not create Image tracker."));
+				}
+			}
+		}
+#endif //WITH_MLSDK
+	}	
+
+	void OnAppPause() override
+	{
+#if WITH_MLSDK
+		{
+			FScopeLock Lock(&TrackerMutex);
+			bWasSystemEnabledOnPause = Settings.enable_image_tracking;
+		}
+
+		if (!bWasSystemEnabledOnPause)
+		{
+			UE_LOG(LogMagicLeap, Log, TEXT("[FImageTrackerEngineInterface] Image tracking was not enabled at time of application pause."));
+		}
+		else
+		{
+			if (!MLHandleIsValid(ImageTracker))
+			{
+				UE_LOG(LogMagicLeap, Error, TEXT("[FImageTrackerEngineInterface] Image tracker was invalid on application pause."));
+			}
+			else
+			{
+				FScopeLock Lock(&TrackerMutex);
+				Settings.enable_image_tracking = false;
+				MLResult Result = MLImageTrackerUpdateSettings(ImageTracker, &Settings);
+				if (Result != MLResult_Ok)
+				{
+					UE_LOG(LogMagicLeap, Error, TEXT("[FImageTrackerEngineInterface] Failed to disable image tracker on application pause due to error %s."), UTF8_TO_TCHAR(MLGetResultString(Result)));
+				}
+				else
+				{
+					UE_LOG(LogMagicLeap, Log, TEXT("[FImageTrackerEngineInterface] Image tracker paused until app resumes."));
+				}
+			}
+		}
+#endif //WITH_MLSDK
+	}
+
+	void OnAppResume() override
+	{
+#if WITH_MLSDK
+		if (!bWasSystemEnabledOnPause)
+		{
+			UE_LOG(LogMagicLeap, Log, TEXT("[FImageTrackerEngineInterface] Not resuming image tracker as it was not enabled at time of application pause."));
+		}
+		else
+		{
+			if (!MLHandleIsValid(ImageTracker))
+			{
+				UE_LOG(LogMagicLeap, Error, TEXT("[FImageTrackerEngineInterface] Image tracker was invalid on application resume."));
+			}
+			else
+			{
+				if (GetPrivilegeStatus(MLPrivilegeID_CameraCapture) == MagicLeap::EPrivilegeState::Granted)
+				{
+					FScopeLock Lock(&TrackerMutex);
+					Settings.enable_image_tracking = true;
+					// TODO: this should be async
+					MLResult Result = MLImageTrackerUpdateSettings(ImageTracker, &Settings);
+					if (Result != MLResult_Ok)
+					{
+						UE_LOG(LogMagicLeap, Error, TEXT("[FImageTrackerRunnable] Failed to re-enable image tracker on application resume due to error %s."), UTF8_TO_TCHAR(MLGetResultString(Result)));
+					}
+					else
+					{
+						UE_LOG(LogMagicLeap, Log, TEXT("[FImageTrackerRunnable] Image tracker re-enabled on application resume."));
+					}
+				}
+				else
+				{
+					UE_LOG(LogMagicLeap, Log, TEXT("[FImageTrackerRunnable] Image tracking failed to resume due to lack of privilege!"));
+				}
+			}
+		}
+#endif //WITH_MLSDK
+	}
+
+	void OnAppShutDown() override
+	{
+#if WITH_MLSDK
+		if (MLHandleIsValid(ImageTracker))
+		{
+			MLResult Result = MLImageTrackerDestroy(ImageTracker);
+
+			if (Result != MLResult_Ok)
+			{
+				UE_LOG(LogMagicLeap, Error, TEXT("[FImageTrackerEngineInterface] Error destroying image tracker."));
+			}
+
+			ImageTracker = ML_INVALID_HANDLE;
+		}
+#endif //WITH_MLSDK
+	}
+
+	void UpdateImageTrackerSettings()
+	{
+#if WITH_MLSDK
+		if (MLHandleIsValid(ImageTracker))
+		{
+			if (GetPrivilegeStatus(MLPrivilegeID_CameraCapture) == MagicLeap::EPrivilegeState::Granted)
+			{
+				FScopeLock Lock(&TrackerMutex);
+				MLResult Result = MLImageTrackerUpdateSettings(ImageTracker, &Settings);
+				if (Result != MLResult_Ok)
+				{
+					UE_LOG(LogMagicLeap, Error, TEXT("[FImageTrackerRunnable] Failed to update image tracker settings due to error %s."), UTF8_TO_TCHAR(MLGetResultString(Result)));
+				}
+			}
+			else
+			{
+				UE_LOG(LogMagicLeap, Log, TEXT("[FImageTrackerRunnable] Image tracking settings failed to updatee due to lack of privilege!"));
+			}
+		}
+#endif //WITH_MLSDK
+	}
+
+	mutable FCriticalSection TrackerMutex;
+	static TSharedPtr<FImageTrackerEngineInterface, ESPMode::ThreadSafe> Instance;
+
+#if WITH_MLSDK
+	MLImageTrackerSettings Settings;
+private:
+	MLHandle ImageTracker;
+#endif //WITH_MLSDK
+};
+
+TSharedPtr<FImageTrackerEngineInterface, ESPMode::ThreadSafe> FImageTrackerEngineInterface::Instance;
+
+class FImageTrackerImpl : public FRunnable, public MagicLeap::IAppEventHandler
+{
+public:
+	FImageTrackerImpl()
+		: bHasTarget(false)
 #if WITH_EDITOR
-	, TextureBeforeEdit(nullptr)
+		, TextureBeforeEdit(nullptr)
 #endif
-	, PrevTextureTarget(nullptr)
+#if WITH_MLSDK
+		, Target(ML_INVALID_HANDLE)
+#endif //WITH_MLSDK
+		, Thread(nullptr)
+		, StopTaskCounter(0)
+		, bIsTracking(false)
 	{
 #if WITH_MLSDK
 		OldTrackingStatus.status = MLImageTrackerTargetStatus_Ensure32Bits;
@@ -40,227 +267,165 @@ public:
 
 	virtual ~FImageTrackerImpl()
 	{
+		StopTaskCounter.Increment();
+
+		if (nullptr != Thread)
+		{
+			Thread->WaitForCompletion();
+			delete Thread;
+			Thread = nullptr;
+		}
+
 #if WITH_MLSDK
 		if (MLHandleIsValid(Target))
 		{
-			checkf(ImageTrackerRunnable.IsValid(), TEXT("[FImageTrackerImpl] ImageTracker weak pointer is invalid!"));
-			MLResult Result = MLImageTrackerRemoveTarget(ImageTrackerRunnable->GetHandle(), Target);
-			UE_CLOG(Result != MLResult_Ok, LogMagicLeap, Error, TEXT("MLImageTrackerRemoveTarget failed with error %d."), Result);
+			checkf(ImageTracker.Pin().IsValid(), TEXT("[FImageTrackerImpl] ImageTracker weak pointer is invalid!"));
+			MLImageTrackerRemoveTarget(ImageTracker.Pin()->GetHandle(), Target);
 			Target = ML_INVALID_HANDLE;
 		}
 #endif //WITH_MLSDK
-		// Calling this explicitly to make the chain of destruction more obvious,
-		// ie a potential call to FImageTrackerRunnable's destructor right here.
-		// On the lumin platform this call will take place inside the destruction
-		// worker thread.
-		ImageTrackerRunnable.Reset();
 
-		// need this call to prevent the runnable form persisting with a ref count of 1 (due to Appframework's shared pointer instance).
-		if (GEngine && GEngine->XRSystem.IsValid() && GEngine->XRSystem->GetHMDDevice())
+		ImageTracker.Reset();
+	}
+
+	virtual uint32 Run() override
+	{
+#if WITH_MLSDK
+		while (StopTaskCounter.GetValue() == 0)
 		{
-			static_cast<FMagicLeapHMD*>(GEngine->XRSystem->GetHMDDevice())->GetAppFramework().RefreshImageTrackerRunnableReferences();
+			if (!ImageTracker.IsValid())
+			{
+				ImageTracker = FImageTrackerEngineInterface::Get();
+			}
+			if (MLHandleIsValid(ImageTracker.Pin()->GetHandle()))
+			{
+				if (IncomingMessages.Dequeue(CurrentMessage))
+				{
+					DoTasks();
+				}
+			}
+
+			FPlatformProcess::Sleep(0.5f);
 		}
 
+#endif //WITH_MLSDK
+		return 0;
 	}
 
 	void SetTargetAsync(const FString& InName, bool bInIsStationary, float InLongerDimension, UTexture2D* InTargetTexture)
 	{
 #if WITH_MLSDK
-		checkf(ImageTrackerRunnable.IsValid(), TEXT("Invalid image tracker!"));
-		FTrackerMessage CreateTargetMsg;
-		CreateTargetMsg.TaskType = FTrackerMessage::TaskType::TryCreateTarget;
-		CreateTargetMsg.Requester = this;
-		CreateTargetMsg.PrevTarget = Target;
-		CreateTargetMsg.TargetName = InName;
+		if (!ImageTracker.IsValid())
+		{
+			ImageTracker = FImageTrackerEngineInterface::Get();
+		}
+
+		bHasTarget = true;
 		MLImageTrackerTargetSettings TargetSettings;
 		TargetSettings.longer_dimension = InLongerDimension;
 		TargetSettings.is_stationary = bInIsStationary;
+		FTrackerMessage CreateTargetMsg;
+		CreateTargetMsg.TaskType = FTrackerMessage::TaskType::TryCreateTarget;
+		CreateTargetMsg.TargetName = InName;
 		CreateTargetMsg.TargetSettings = TargetSettings;
 		CreateTargetMsg.TargetImageTexture = InTargetTexture;
-		ImageTrackerRunnable->IncomingMessages.Enqueue(CreateTargetMsg);
+
+		if (Thread == nullptr)
+		{
+			StopTaskCounter.Reset();
+#if PLATFORM_LUMIN
+			Thread = FRunnableThread::Create(this, TEXT("ImageTrackerWorker"), 0, TPri_BelowNormal, FLuminAffinity::GetPoolThreadMask());
+#else
+			Thread = FRunnableThread::Create(this, TEXT("ImageTrackerWorker"), 0, TPri_BelowNormal);
+#endif // PLATFORM_LUMIN
+		}
+
+		IncomingMessages.Enqueue(CreateTargetMsg);
 #endif //WITH_MLSDK
 	}
-
-	void Tick()
-	{
-#if WITH_MLSDK
-		if (!IMagicLeapPlugin::Get().IsMagicLeapHMDValid())
-		{
-			return;
-		}
-
-		switch (State)
-		{
-		case WaitingForAppInit:
-		{
-			checkf(GEngine, TEXT("[FCameraCaptureRunnable::Get()] GEngine is null!"));
-			FAppFramework& AppFramework = StaticCastSharedPtr<FMagicLeapHMD>(GEngine->XRSystem)->GetAppFramework();
-
-			if (!AppFramework.IsInitialized())
-			{
-				UE_LOG(LogMagicLeap, Warning, TEXT("[UImageTrackerComponent] AppFramework not initialized."));
-			}
-			else
-			{
-				State = NoTarget;
-				ImageTrackerRunnable = AppFramework.GetImageTrackerRunnable();
-			}
-
-			break;
-		}
-		case NoTarget:
-		{
-			if (Owner->TargetImageTexture == nullptr)
-			{
-				UE_LOG(LogMagicLeap, Warning, TEXT("[UImageTrackerComponent] ImageTracker: No image selected to track."));
-			}
-			else if (Owner->TargetImageTexture->GetPixelFormat() != EPixelFormat::PF_R8G8B8A8 && Owner->TargetImageTexture->GetPixelFormat() != EPixelFormat::PF_B8G8R8A8)
-			{
-				State = TargetCreationError;
-				UE_LOG(LogMagicLeap, Error, TEXT("[UImageTrackerComponent] ImageTracker: Unsupported pixel format encountered!"));
-			}
-			else
-			{
-				State = CreatingTarget;
-				if (Owner->Name.Len() == 0) Owner->Name = Owner->GetName();
-				const FAppFramework& AppFramework = StaticCastSharedPtr<FMagicLeapHMD>(GEngine->XRSystem)->GetAppFrameworkConst();
-				SetTargetAsync(Owner->Name, Owner->bIsStationary, Owner->LongerDimension / AppFramework.GetWorldToMetersScale(), Owner->TargetImageTexture);
-			}
-
-			break;
-		}
-		case CreatingTarget:
-		{
-			FTrackerMessage OutMsg;
-			if (ImageTrackerRunnable->OutgoingMessages.Peek(OutMsg))
-			{
-				if (OutMsg.Requester == this)
-				{
-					ImageTrackerRunnable->OutgoingMessages.Pop();
-					if (OutMsg.TaskType == FTrackerMessage::TargetCreateSucceeded)
-					{
-						State = Tracking;
-						Data = OutMsg.Data;
-						Target = OutMsg.Target;
-						PrevTextureTarget = Owner->TargetImageTexture;
-						Owner->OnSetImageTargetSucceeded.Broadcast();
-					}
-					else
-					{
-						State = TargetCreationError;
-						Owner->OnSetImageTargetFailed.Broadcast();
-					}
-				}
-			}
-
-			break;
-		}
-		case TargetCreationError:
-		{
-			CheckForNewTarget();
-			break;
-		}
-		case Tracking:
-		{
-			checkf(ImageTrackerRunnable.IsValid(), TEXT("[FImageTrackerImpl] ImageTracker weak pointer is invalid!"));
-			MLImageTrackerTargetResult TrackingStatus;
-			MLResult Result = MLImageTrackerGetTargetResult(ImageTrackerRunnable->GetHandle(), Target, &TrackingStatus);
-			if (Result != MLResult_Ok)
-			{
-				TrackingStatus.status = MLImageTrackerTargetStatus_NotTracked;
-			}
-
-			if (TrackingStatus.status == MLImageTrackerTargetStatus_NotTracked)
-			{
-				if (OldTrackingStatus.status != MLImageTrackerTargetStatus_NotTracked)
-				{
-					Owner->OnImageTargetLost.Broadcast();
-				}
-			}
-			else
-			{
-				EFailReason FailReason = EFailReason::None;
-				FTransform Pose = FTransform::Identity;
-				const FAppFramework& AppFramework = StaticCastSharedPtr<FMagicLeapHMD>(GEngine->XRSystem)->GetAppFrameworkConst();
-				if (AppFramework.GetTransform(Data.coord_frame_target, Pose, FailReason))
-				{
-					Pose.SetRotation(MagicLeap::ToUERotator(Pose.GetRotation()));
-					if (TrackingStatus.status == MLImageTrackerTargetStatus_Unreliable)
-					{
-						FVector LastTrackedLocation = Owner->GetComponentLocation();
-						FRotator LastTrackedRotation = Owner->GetComponentRotation();
-						if (Owner->bUseUnreliablePose)
-						{
-							Owner->SetRelativeLocationAndRotation(Pose.GetTranslation(), Pose.Rotator());
-						}
-						// Developer can choose whether to use this unreliable pose or not.
-						Owner->OnImageTargetUnreliableTracking.Broadcast(LastTrackedLocation, LastTrackedRotation, Pose.GetTranslation(), Pose.Rotator());
-					}
-					else
-					{
-						Owner->SetRelativeLocationAndRotation(Pose.GetTranslation(), Pose.Rotator());
-						if (OldTrackingStatus.status != MLImageTrackerTargetStatus_Tracked)
-						{
-							Owner->OnImageTargetFound.Broadcast();
-						}
-					}
-				}
-				else
-				{
-					if (FailReason == EFailReason::NaNsInTransform)
-					{
-						UE_LOG(LogMagicLeap, Error, TEXT("[UImageTrackerComponent] NaNs in image tracker target transform."));
-					}
-					TrackingStatus.status = MLImageTrackerTargetStatus_NotTracked;
-					if (OldTrackingStatus.status != MLImageTrackerTargetStatus_NotTracked)
-					{
-						Owner->OnImageTargetLost.Broadcast();
-					}
-				}
-			}
-
-			OldTrackingStatus = TrackingStatus;
-			CheckForNewTarget();
-			break;
-		}
-		}
-#endif //WITH_MLSDK
-	}
-
-	void CheckForNewTarget()
-	{
-		if (Owner->TargetImageTexture != PrevTextureTarget)
-		{
-			State = NoTarget;
-		}
-	}
-
+	
 public:
-	enum EState
-	{
-		WaitingForAppInit,
-		NoTarget,
-		CreatingTarget,
-		TargetCreationError,
-		Tracking,
-	};
-
-	UImageTrackerComponent* Owner;
-	EState State;
-	TSharedPtr<FImageTrackerRunnable, ESPMode::ThreadSafe> ImageTrackerRunnable;
+	TQueue<FTrackerMessage, EQueueMode::Spsc> OutgoingMessages;
+	bool bHasTarget;
+#if WITH_EDITOR
+	UTexture2D* TextureBeforeEdit;
+#endif
 #if WITH_MLSDK
 	MLHandle Target;
 	MLImageTrackerTargetStaticData Data;
 	MLImageTrackerTargetResult OldTrackingStatus;
 #endif //WITH_MLSDK
-#if WITH_EDITOR
-	UTexture2D* TextureBeforeEdit;
-#endif
-	UTexture2D* PrevTextureTarget;
+
+public:
+	TWeakPtr<FImageTrackerEngineInterface, ESPMode::ThreadSafe> ImageTracker;
+	FRunnableThread* Thread;
+	FThreadSafeCounter StopTaskCounter;
+	TQueue<FTrackerMessage, EQueueMode::Spsc> IncomingMessages;
+	FTrackerMessage CurrentMessage;
+	bool bIsTracking;
+
+	void DoTasks()
+	{
+		switch (CurrentMessage.TaskType)
+		{
+		case FTrackerMessage::TaskType::None: break;
+		case FTrackerMessage::TaskType::TryCreateTarget: SetTarget(); break;
+		//case FTrackerMessage::TaskType::ReportStatus: break;
+		}
+	}
+
+	void SetTarget()
+	{
+#if WITH_MLSDK
+		if (!MLHandleIsValid(Target))
+		{
+			UE_LOG(LogMagicLeap, Warning, TEXT("SetTarget for %s"), *CurrentMessage.TargetName);
+			CurrentMessage.TargetSettings.name = TCHAR_TO_UTF8(*CurrentMessage.TargetName);
+			FTexture2DMipMap& Mip = CurrentMessage.TargetImageTexture->PlatformData->Mips[0];
+			const unsigned char* PixelData = static_cast<const unsigned char*>(Mip.BulkData.Lock(LOCK_READ_ONLY));
+			checkf(ImageTracker.Pin().IsValid(), TEXT("[FImageTrackerImpl] ImageTracker weak pointer is invalid!"));
+			MLImageTrackerAddTargetFromArray(ImageTracker.Pin()->GetHandle(), &CurrentMessage.TargetSettings, PixelData, CurrentMessage.TargetImageTexture->GetSurfaceWidth(), CurrentMessage.TargetImageTexture->GetSurfaceHeight(), MLImageTrackerImageFormat_RGBA, &Target);
+			Mip.BulkData.Unlock();
+
+			if (!MLHandleIsValid(Target))
+			{
+				UE_LOG(LogMagicLeap, Error, TEXT("[FImageTrackerImpl] Could not create Image Target."));
+				return;
+			}
+
+			// [3] Cache all the static data for this target.
+			checkf(ImageTracker.Pin().IsValid(), TEXT("[FImageTrackerImpl] ImageTracker weak pointer is invalid!"));
+			MLResult Result = MLImageTrackerGetTargetStaticData(ImageTracker.Pin()->GetHandle(), Target, &Data);
+			if (Result != MLResult_Ok)
+			{
+				UE_LOG(LogMagicLeap, Error, TEXT("[FImageTrackerImpl] Could not get the static data for the Image Target."));
+				return;
+			}
+
+			UE_LOG(LogMagicLeap, Warning, TEXT("SetTarget successfully set for %s"), *CurrentMessage.TargetName);			
+
+			bIsTracking = true;
+		}
+#endif //WITH_MLSDK
+	}
+
+public:
+#if WITH_MLSDK
+	inline MLHandle Tracker()
+	{
+		if (!ImageTracker.IsValid())
+		{
+			return ML_INVALID_HANDLE;
+		}
+		checkf(ImageTracker.Pin().IsValid(), TEXT("[FImageTrackerImpl] ImageTracker weak pointer is invalid!"));
+		return ImageTracker.Pin()->GetHandle();
+	}
+#endif //WITH_MLSDK
 };
 
 UImageTrackerComponent::UImageTrackerComponent()
-: Impl(new FImageTrackerImpl(this))
+	: Impl(new FImageTrackerImpl())
+	, bTick(true)
 {
 	// Make sure this component ticks
 	PrimaryComponentTick.bCanEverTick = true;
@@ -286,21 +451,103 @@ UImageTrackerComponent::~UImageTrackerComponent()
 
 void UImageTrackerComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
 {
+#if WITH_MLSDK
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-	Impl->Tick();
+
+	const FAppFramework& AppFramework = StaticCastSharedPtr<FMagicLeapHMD>(GEngine->XRSystem)->GetAppFrameworkConst();
+
+	if (!AppFramework.IsInitialized())
+	{
+		UE_LOG(LogMagicLeap, Warning, TEXT("[UImageTrackerComponent] AppFramework not initialized."));
+		return;
+	}
+
+	if (TargetImageTexture == nullptr)
+	{
+		UE_LOG(LogMagicLeap, Warning, TEXT("ImageTracker: No image selected to track."));
+		return;
+	}
+
+	if (TargetImageTexture->GetPixelFormat() != EPixelFormat::PF_R8G8B8A8 && TargetImageTexture->GetPixelFormat() != EPixelFormat::PF_B8G8R8A8)
+	{
+		UE_LOG(LogMagicLeap, Error, TEXT("[UImageTrackerComponent] ImageTracker: Unsupported pixel format encountered!"));
+		bTick = false;
+	}
+
+	if (!bTick) return;
+
+	if (!Impl->bHasTarget)
+	{
+		if (Name.Len() == 0) Name = GetName();
+		Impl->SetTargetAsync(Name, bIsStationary, LongerDimension / AppFramework.GetWorldToMetersScale(), TargetImageTexture);
+	}
+
+	if (Impl->bIsTracking)
+	{
+		checkf(Impl->ImageTracker.Pin().IsValid(), TEXT("[FImageTrackerImpl] ImageTracker weak pointer is invalid!"));
+
+		MLImageTrackerTargetResult TrackingStatus;
+		if (MLImageTrackerGetTargetResult(Impl->ImageTracker.Pin()->GetHandle(), Impl->Target, &TrackingStatus) != MLResult_Ok)
+		{
+			TrackingStatus.status = MLImageTrackerTargetStatus_NotTracked;
+		}
+
+		if (TrackingStatus.status == MLImageTrackerTargetStatus_NotTracked)
+			{
+				if (Impl->OldTrackingStatus.status != MLImageTrackerTargetStatus_NotTracked)
+				{
+					OnImageTargetLost.Broadcast();
+				}
+			}
+			else
+			{
+				EFailReason FailReason = EFailReason::None;
+				FTransform Pose = FTransform::Identity;
+				if (AppFramework.GetTransform(Impl->Data.coord_frame_target, Pose, FailReason))
+				{
+				Pose.SetRotation(MagicLeap::ToUERotator(Pose.GetRotation()));
+				if (TrackingStatus.status == MLImageTrackerTargetStatus_Unreliable)
+					{
+						FVector LastTrackedLocation = GetComponentLocation();
+						FRotator LastTrackedRotation = GetComponentRotation();
+						if (bUseUnreliablePose)
+						{
+							this->SetRelativeLocationAndRotation(Pose.GetTranslation(), Pose.Rotator());
+						}
+						// Developer can choose whether to use this unreliable pose or not.
+						OnImageTargetUnreliableTracking.Broadcast(LastTrackedLocation, LastTrackedRotation, Pose.GetTranslation(), Pose.Rotator());
+					}
+					else
+					{
+						this->SetRelativeLocationAndRotation(Pose.GetTranslation(), Pose.Rotator());
+						if (Impl->OldTrackingStatus.status != MLImageTrackerTargetStatus_Tracked)
+						{
+							OnImageTargetFound.Broadcast();
+						}
+					}
+				}
+				else
+				{
+					if (FailReason == EFailReason::NaNsInTransform)
+					{
+						UE_LOG(LogMagicLeap, Error, TEXT("[UImageTrackerComponent] NaNs in image tracker target transform."));
+					}
+				TrackingStatus.status = MLImageTrackerTargetStatus_NotTracked;
+					if (Impl->OldTrackingStatus.status != MLImageTrackerTargetStatus_NotTracked)
+					{
+						OnImageTargetLost.Broadcast();
+					}
+				}
+			}
+
+		Impl->OldTrackingStatus = TrackingStatus;
+	}
+#endif //WITH_MLSDK
 }
 
-void UImageTrackerComponent::SetTargetAsync(UTexture2D* NewTextureTarget)
+void UImageTrackerComponent::SetTargetAsync(UTexture2D* ImageTarget)
 {
-	if (!NewTextureTarget || (NewTextureTarget->GetPixelFormat() == EPixelFormat::PF_R8G8B8A8 || NewTextureTarget->GetPixelFormat() == EPixelFormat::PF_B8G8R8A8))
-	{
-		Impl->PrevTextureTarget = TargetImageTexture;
-		TargetImageTexture = NewTextureTarget;
-	}
-	else
-	{
-		UE_LOG(LogMagicLeap, Error, TEXT("[UImageTrackerComponent::SetTarget()] ImageTracker: Unsupported pixel format encountered!"));
-	}
+
 }
 
 #if WITH_EDITOR
@@ -322,7 +569,6 @@ void UImageTrackerComponent::PostEditChangeProperty(FPropertyChangedEvent& Prope
 	{
 		if (TargetImageTexture && !(TargetImageTexture->GetPixelFormat() == EPixelFormat::PF_R8G8B8A8 || TargetImageTexture->GetPixelFormat() == EPixelFormat::PF_B8G8R8A8))
 		{
-			Impl->PrevTextureTarget = TargetImageTexture;
 			TargetImageTexture = Impl->TextureBeforeEdit;
 			UE_LOG(LogMagicLeap, Error, TEXT("[UImageTrackerComponent] Cannot set texture %s as it uses an invalid pixel format!  Valid formats are R8B8G8A8 or B8G8R8A8"), *TargetImageTexture->GetName());
 		}
@@ -330,26 +576,36 @@ void UImageTrackerComponent::PostEditChangeProperty(FPropertyChangedEvent& Prope
 
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 }
-#endif //WITH_EDITOR
+#endif
 
 void UImageTrackerFunctionLibrary::SetMaxSimultaneousTargets(int32 MaxSimultaneousTargets)
 {
-	FTrackerMessage SetMaxTargetsMsg;
-	SetMaxTargetsMsg.TaskType = FTrackerMessage::TaskType::SetMaxTargets;
-	SetMaxTargetsMsg.MaxTargets = MaxSimultaneousTargets < 1 ? 1 : static_cast<uint32>(MaxSimultaneousTargets);
-	checkf(GEngine, TEXT("[UImageTrackerFunctionLibrary::SetMaxSimultaneousTargets()] GEngine is null!"));
-	FAppFramework& AppFramework = StaticCastSharedPtr<FMagicLeapHMD>(GEngine->XRSystem)->GetAppFramework();
-	checkf(AppFramework.IsInitialized(), TEXT("[UImageTrackerFunctionLibrary::SetMaxSimultaneousTargets()] AppFramework not yet initialized!"));
-	AppFramework.GetImageTrackerRunnable()->IncomingMessages.Enqueue(SetMaxTargetsMsg);
+#if WITH_MLSDK
+	FImageTrackerEngineInterface::Get(false).Pin()->SetMaxSimultaneousTargets(MaxSimultaneousTargets);
+#endif //WITH_MLSDK
+}
+
+int32 UImageTrackerFunctionLibrary::GetMaxSimultaneousTargets()
+{
+#if WITH_MLSDK
+	return FImageTrackerEngineInterface::Get(false).Pin()->GetMaxSimultaneousTargets();
+#else
+	return 0;
+#endif //WITH_MLSDK
 }
 
 void UImageTrackerFunctionLibrary::EnableImageTracking(bool bEnable)
 {
-	FTrackerMessage EnableMsg;
-	EnableMsg.TaskType = FTrackerMessage::TaskType::SetEnabled;
-	EnableMsg.bEnable = bEnable;
-	checkf(GEngine, TEXT("[UImageTrackerFunctionLibrary::EnableImageTracking()] GEngine is null!"));
-	FAppFramework& AppFramework = StaticCastSharedPtr<FMagicLeapHMD>(GEngine->XRSystem)->GetAppFramework();
-	checkf(AppFramework.IsInitialized(), TEXT("[UImageTrackerFunctionLibrary::EnableImageTracking()] AppFramework not yet initialized!"));
-	AppFramework.GetImageTrackerRunnable()->IncomingMessages.Enqueue(EnableMsg);
+#if WITH_MLSDK
+	FImageTrackerEngineInterface::Get(false).Pin()->SetImageTrackerEnabled(bEnable);
+#endif //WITH_MLSDK
+}
+
+bool UImageTrackerFunctionLibrary::IsImageTrackingEnabled()
+{
+#if WITH_MLSDK
+	return FImageTrackerEngineInterface::Get(false).Pin()->GetImageTrackerEnabled();
+#else
+	return false;
+#endif //WITH_MLSDK
 }

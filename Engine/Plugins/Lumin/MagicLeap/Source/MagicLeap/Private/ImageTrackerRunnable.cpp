@@ -65,8 +65,11 @@ FImageTrackerRunnable::FImageTrackerRunnable()
 , RetryCreateTrackerWaitTime(0.5f)
 {
 #if WITH_MLSDK
-	MLResult Result = MLImageTrackerInitSettings(&Settings);
-	UE_CLOG(Result != MLResult_Ok, LogMagicLeap, Error, TEXT("MLImageTrackerInitSettings failed with error %d."), Result);
+	{
+		FScopeLock Lock(&SettingsMutex);
+		MLResult Result = MLImageTrackerInitSettings(&Settings);
+		UE_CLOG(Result != MLResult_Ok, LogMagicLeap, Error, TEXT("MLImageTrackerInitSettings failed with error %d."), Result);
+	}
 #endif //WITH_MLSDK
 #if PLATFORM_LUMIN
 	Thread = FRunnableThread::Create(this, TEXT("ImageTrackerWorker"), 0, TPri_BelowNormal, FLuminAffinity::GetPoolThreadMask());
@@ -94,10 +97,57 @@ MLHandle FImageTrackerRunnable::GetHandle() const
 }
 #endif //WITH_MLSDK
 
+void FImageTrackerRunnable::SetEnabled(bool bEnable)
+{
+#if WITH_MLSDK
+	FScopeLock Lock(&SettingsMutex);
+	if (bEnable != Settings.enable_image_tracking)
+	{
+		Settings.enable_image_tracking = bEnable;
+		FTrackerMessage UpdateSettingsMsg;
+		UpdateSettingsMsg.TaskType = FTrackerMessage::TaskType::UpdateSettings;
+		IncomingMessages.Enqueue(UpdateSettingsMsg);
+	}
+#endif //WITH_MLSDK
+}
+
+bool FImageTrackerRunnable::GetEnabled()
+{
+#if WITH_MLSDK
+	FScopeLock Lock(&SettingsMutex);
+	return Settings.enable_image_tracking;
+#else
+	return false;
+#endif // WITH_MLSDK
+}
+
+void FImageTrackerRunnable::SetMaxSimultaneousTargets(int32 MaxTargets)
+{
+#if WITH_MLSDK
+	FScopeLock Lock(&SettingsMutex);
+	int32 ValidMaxTargets = MaxTargets < 1 ? 1 : MaxTargets;
+	if (ValidMaxTargets != Settings.max_simultaneous_targets)
+	{
+		Settings.max_simultaneous_targets = static_cast<uint32>(ValidMaxTargets);
+		FTrackerMessage UpdateSettingsMsg;
+		UpdateSettingsMsg.TaskType = FTrackerMessage::TaskType::UpdateSettings;
+		IncomingMessages.Enqueue(UpdateSettingsMsg);
+	}
+#endif //WITH_MLSDK
+}
+
+int32 FImageTrackerRunnable::GetMaxSimultaneousTargets()
+{
+#if WITH_MLSDK
+	FScopeLock Lock(&SettingsMutex);
+	return Settings.max_simultaneous_targets;
+#else
+	return 0;
+#endif // WITH_MLSDK
+}
+
 uint32 FImageTrackerRunnable::Run()
 {
-	// JMC: hack to prevent privilege requests before service is properly initialised.
-	FPlatformProcess::Sleep(5.0f);
 	while (StopTaskCounter.GetValue() == 0)
 	{
 #if WITH_MLSDK
@@ -106,7 +156,7 @@ uint32 FImageTrackerRunnable::Run()
 			if (GetPrivilegeStatus(MLPrivilegeID_CameraCapture) == MagicLeap::EPrivilegeState::Granted)
 			{
 				UE_LOG(LogMagicLeap, Display, TEXT("[FImageTrackerRunnable] Attempting to create image tracker."));
-
+				FScopeLock Lock(&SettingsMutex);
 				MLResult Result = MLImageTrackerCreate(&Settings, &ImageTracker);
 				if (Result != MLResult_Ok)
 				{
@@ -126,8 +176,7 @@ uint32 FImageTrackerRunnable::Run()
 			case FTrackerMessage::None: checkf(false, TEXT("Invalid incoming task 'FTrackerMessage::None'!"));	break;
 			case FTrackerMessage::Pause: TryPause(); break;
 			case FTrackerMessage::Resume: TryResume(); break;
-			case FTrackerMessage::SetEnabled: SetEnabled(); break;
-			case FTrackerMessage::SetMaxTargets: SetMaxTargets(); break;
+			case FTrackerMessage::UpdateSettings: UpdateTrackerSettings(); break;
 			case FTrackerMessage::TryCreateTarget: SetTarget(); break;
 			case FTrackerMessage::TargetCreateFailed: checkf(false, TEXT("Invalid incoming task 'FTrackerMessage::TargetCreateFailed'!"));	break;
 			case FTrackerMessage::TargetCreateSucceeded: checkf(false, TEXT("Invalid incoming task 'FTrackerMessage::TargetCreateSucceeded'!"));	break;
@@ -159,7 +208,10 @@ void FImageTrackerRunnable::OnAppResume()
 void FImageTrackerRunnable::TryPause()
 {
 #if WITH_MLSDK
-	bWasSystemEnabledOnPause = Settings.enable_image_tracking;
+	{
+		FScopeLock Lock(&SettingsMutex);
+		bWasSystemEnabledOnPause = Settings.enable_image_tracking;
+	}
 
 	if (!bWasSystemEnabledOnPause)
 	{
@@ -173,6 +225,7 @@ void FImageTrackerRunnable::TryPause()
 		}
 		else
 		{
+			FScopeLock Lock(&SettingsMutex);
 			Settings.enable_image_tracking = false;
 			MLResult Result = MLImageTrackerUpdateSettings(ImageTracker, &Settings);
 			if (Result != MLResult_Ok)
@@ -203,9 +256,14 @@ void FImageTrackerRunnable::TryResume()
 		}
 		else 
 		{
-			Settings.enable_image_tracking = true;
+			{
+				FScopeLock Lock(&SettingsMutex);
+				Settings.enable_image_tracking = true;
+			}
+
 			if (GetPrivilegeStatus(MLPrivilegeID_CameraCapture) == MagicLeap::EPrivilegeState::Granted)
 			{
+				FScopeLock Lock(&SettingsMutex);
 				MLResult Result = MLImageTrackerUpdateSettings(ImageTracker, &Settings);
 				if (Result != MLResult_Ok)
 				{
@@ -234,24 +292,6 @@ void FImageTrackerRunnable::OnAppShutDown()
 		UE_CLOG(Result != MLResult_Ok, LogMagicLeap, Error, TEXT("MLImageTrackerDestroy failed with error %s."), UTF8_TO_TCHAR(MLGetResultString(Result)));
 		ImageTracker = ML_INVALID_HANDLE;
 	}
-#endif //WITH_MLSDK
-}
-
-void FImageTrackerRunnable::SetEnabled()
-{
-#if WITH_MLSDK
-	Settings.enable_image_tracking = CurrentMessage.bEnable;
-
-	UpdateTrackerSettings();
-#endif //WITH_MLSDK
-}
-
-void FImageTrackerRunnable::SetMaxTargets()
-{
-#if WITH_MLSDK
-	Settings.max_simultaneous_targets = CurrentMessage.MaxTargets;
-
-	UpdateTrackerSettings();
 #endif //WITH_MLSDK
 }
 
@@ -323,44 +363,6 @@ void FImageTrackerRunnable::SetTarget()
 			MipPointers[i] = nullptr;
 		}
 	}
-
-	/*FTexture2DMipMap& Mip = CurrentMessage.TargetImageTexture->PlatformData->Mips[0];
-	const unsigned char* PixelData = static_cast<const unsigned char*>(Mip.BulkData.Lock(LOCK_READ_ONLY));
-	MLHandle Target = ML_INVALID_HANDLE;
-	MLResult Result = MLImageTrackerAddTargetFromArray(
-		ImageTracker,
-		&CurrentMessage.TargetSettings,
-		PixelData,
-		CurrentMessage.TargetImageTexture->GetSurfaceWidth(),
-		CurrentMessage.TargetImageTexture->GetSurfaceHeight(),
-		MLImageTrackerImageFormat_RGBA,
-		&Target);
-	Mip.BulkData.Unlock();
-
-	if (Result != MLResult_Ok)
-	{
-		UE_LOG(LogMagicLeap, Error, TEXT("MLImageTrackerAddTargetFromArray failed with error %d."), Result);
-		TargetCreateMsg.TaskType = FTrackerMessage::TaskType::TargetCreateFailed;
-		OutgoingMessages.Enqueue(TargetCreateMsg);
-		return;
-	}
-
-	// [3] Cache all the static data for this target.
-	MLImageTrackerTargetStaticData Data;
-	FMemory::Memset(&Data, 0, sizeof(MLImageTrackerTargetStaticData));
-	Result = MLImageTrackerGetTargetStaticData(ImageTracker, Target, &Data);
-	if (Result != MLResult_Ok)
-	{
-		UE_LOG(LogMagicLeap, Error, TEXT("MLImageTrackerGetTargetStaticData failed with error %d."), Result);
-		TargetCreateMsg.TaskType = FTrackerMessage::TaskType::TargetCreateFailed;
-		OutgoingMessages.Enqueue(TargetCreateMsg);
-		return;
-	}
-
-	TargetCreateMsg.TaskType = FTrackerMessage::TaskType::TargetCreateSucceeded;
-	TargetCreateMsg.Target = Target;
-	TargetCreateMsg.Data = Data;
-	OutgoingMessages.Enqueue(TargetCreateMsg);*/
 #endif //WITH_MLSDK
 }
 
@@ -371,6 +373,7 @@ void FImageTrackerRunnable::UpdateTrackerSettings()
 	// If the tracker has not been created, this cached Setting will be used whenever MLImageTrackerCreate() is called.
 	if (MLHandleIsValid(ImageTracker))
 	{
+		FScopeLock Lock(&SettingsMutex);
 		MLResult Result = MLImageTrackerUpdateSettings(ImageTracker, &Settings);
 		UE_CLOG(Result != MLResult_Ok, LogMagicLeap, Error, TEXT("MLImageTrackerUpdateSettings failed with error %s."), UTF8_TO_TCHAR(MLGetResultString(Result)));
 	}

@@ -3,9 +3,11 @@
 #include "AppFramework.h"
 #include "MagicLeapHMD.h"
 #include "GameFramework/WorldSettings.h"
+#include "GameFramework/PlayerController.h"
 #include "RenderingThread.h"
 #include "Engine/Engine.h"
 #include "Misc/CoreDelegates.h"
+#include "RenderingThread.h"
 #include "MagicLeapPluginUtil.h" // for ML_INCLUDES_START/END
 
 #if WITH_MLSDK
@@ -86,9 +88,7 @@ void FAppFramework::BeginUpdate()
 
 void FAppFramework::ApplicationPauseDelegate()
 {
-	FPlatformMisc::LowLevelOutputDebugString(TEXT("+++++++ AppFramework APP PAUSE ++++++"));
-
-	FlushRenderingCommands();
+	UE_LOG(LogMagicLeap, Log, TEXT("+++++++ ML AppFramework APP PAUSE ++++++"));
 
 	FMagicLeapHMD * hmd = GEngine ? static_cast<FMagicLeapHMD*>(GEngine->XRSystem->GetHMDDevice()) : nullptr;
 
@@ -100,7 +100,14 @@ void FAppFramework::ApplicationPauseDelegate()
 	if (GEngine)
 	{
 		saved_max_fps_ = GEngine->GetMaxFPS();
-		GEngine->SetMaxFPS(0.0f);
+		// MaxFPS = 0 means uncapped. So we set it to something trivial like 10 to keep network connections alive.
+		GEngine->SetMaxFPS(10.0f);
+
+		APlayerController* PlayerController = GEngine->GetFirstLocalPlayerController(GWorld);
+		if (PlayerController != nullptr)
+		{
+			PlayerController->SetPause(true);
+		}
 	}
 
 	FScopeLock Lock(&EventHandlersCriticalSection);
@@ -108,13 +115,46 @@ void FAppFramework::ApplicationPauseDelegate()
 	{
 		EventHandler->OnAppPause();
 	}
+
+	// Pause rendering
+	if (GUseThreadedRendering)
+	{
+		if (GIsThreadedRendering)
+		{
+			StopRenderingThread(); 
+		}
+	}
+	else
+	{
+		RHIReleaseThreadOwnership();
+	}
 }
 
 void FAppFramework::ApplicationResumeDelegate()
 {
-	FPlatformMisc::LowLevelOutputDebugString(TEXT("+++++++ MLContext APP RESUME ++++++"));
+	UE_LOG(LogMagicLeap, Log, TEXT("+++++++ ML AppFramework APP RESUME ++++++"));
+
+	// Resume rendering
+	if (GUseThreadedRendering)
+	{
+		if (!GIsThreadedRendering)
+		{
+			StartRenderingThread();
+		}
+	}
+	else
+	{
+		RHIAcquireThreadOwnership();
+	}
+
 	if (GEngine)
 	{
+		APlayerController* PlayerController = GEngine->GetFirstLocalPlayerController(GWorld);
+		if (PlayerController != nullptr)
+		{
+			PlayerController->SetPause(false);
+		}
+
 		GEngine->SetMaxFPS(saved_max_fps_);
 	}
 
@@ -259,11 +299,15 @@ bool FAppFramework::GetTransform(const MLCoordinateFrameUID& Id, FTransform& Out
 		OutReason = EFailReason::None;
 		return true;
 	}
+	else if (Result == MLSnapshotResult_PoseNotFound)
+	{
+		OutReason = EFailReason::PoseNotFound;
+	}
+	else
+	{
+		OutReason = EFailReason::CallFailed;
+	}
 
-#if PLATFORM_LUMIN
-	UE_LOG(LogMagicLeap, Error, TEXT("MLSnapshotGetTransform failed with error %d."), Result);
-#endif
-	OutReason = EFailReason::CallFailed;
 	return false;
 }
 #endif //WITH_MLSDK

@@ -362,7 +362,7 @@ namespace Audio
 			bIsDone = false;
 
 			// Not all wave data types have a non-zero duration
-			if (!InWaveInstance->WaveData->IsLooping())
+			if (InWaveInstance->WaveData->Duration > 0)
 			{
 				if (!InWaveInstance->WaveData->bIsBus)
 				{

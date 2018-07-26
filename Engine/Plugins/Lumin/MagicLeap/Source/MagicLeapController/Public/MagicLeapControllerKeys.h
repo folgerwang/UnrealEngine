@@ -68,8 +68,8 @@ enum class EMLControllerLEDEffect : uint8
 UENUM(BlueprintType)
 enum class EMLControllerLEDColor : uint8
 {
-	BrightRed,
-	PastelRed,
+	BrightMissionRed,
+	PastelMissionRed,
 	BrightFloridaOrange,
 	PastelFloridaOrange,
 	BrightLunaYellow,
@@ -118,4 +118,12 @@ enum class EMLControllerHapticIntensity : uint8
 	Low,
 	Medium,
 	High
+};
+
+/** Tracking modes provided by Magic Leap. */
+UENUM(BlueprintType)
+enum class EMLControllerTrackingMode : uint8
+{
+	InputService,
+	CoordinateFrameUID,
 };

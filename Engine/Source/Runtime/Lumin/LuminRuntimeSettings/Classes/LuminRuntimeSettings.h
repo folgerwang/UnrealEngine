@@ -21,6 +21,41 @@ enum class ELuminFrameTimingHint : uint8
 	FPS_120
 };
 
+UENUM(BlueprintType)
+enum class ELuminPrivilege : uint8
+{
+	Invalid,
+	AudioRecognizer,
+	BatteryInfo,
+	CameraCapture,
+	WorldReconstruction,
+	InAppPurchase,
+	AudioCaptureMic,
+	DrmCertificates,
+	Occlusion,
+	LowLatencyLightwear,
+	Internet,
+	IdentityRead,
+	BackgroundDownload,
+	BackgroundUpload,
+	MediaDrm,
+	Media,
+	MediaMetadata,
+	PowerInfo,
+	LocalAreaNetwork,
+	VoiceInput,
+	Documents,
+	ConnectBackgroundMusicService,
+	RegisterBackgroundMusicService,
+	PwFoundObjRead,
+	NormalNotificationsUsage,
+	MusicService,
+	ControllerPose,
+	ScreensProvider,
+	GesturesSubscribe,
+	GesturesConfig,
+};
+
 /**
  * IMPORTANT!! Add a default value for every new UPROPERTY in the ULuminRuntimeSettings class in <UnrealEngine>/Engine/Config/BaseEngine.ini
  */
@@ -61,7 +96,7 @@ public:
 	bool bProtectedContent;
 
 	/** If checked, use Mobile Rendering. Otherwise, use Desktop Rendering. */
-	UPROPERTY(GlobalConfig, EditAnywhere, Category = "Build", Meta = (DisplayName = "Use Mobile Rendering"))
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = "Build", Meta = (DisplayName = "Use Mobile Rendering (otherwise, Desktop Rendering)"))
 	bool bUseMobileRendering;
 
 	UPROPERTY(GlobalConfig, Meta = (DisplayName = "Use Vulkan (otherwise, OpenGL)"))
@@ -92,8 +127,8 @@ public:
 	FString MinimumOSVersion;
 
 	/** Any privileges your app needs. */
-	UPROPERTY(GlobalConfig, EditAnywhere, Category = "Advanced MPK Packaging", Meta = (DisplayName = "App Privileges (e.g. 'DenseMap')"))
-	TArray<FString> AppPrivileges;
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = "Advanced MPK Packaging", Meta = (DisplayName = "App Privileges"))
+	TArray<ELuminPrivilege> AppPrivileges;
 
 	/** Extra nodes under the <application> node. */
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = "Advanced MPK Packaging", Meta = (DisplayName = "Extra nodes under the <application> node"))

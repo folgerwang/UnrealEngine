@@ -90,13 +90,13 @@ namespace MagicLeap
 				case MLPrivilegesResult_Granted:
 				{
 					RequiredPrivilege.State = EPrivilegeState::Granted;
-					UE_LOG(LogMagicLeap, Error, TEXT("Privilege '%s' was granted."), MLPrivilegeToString(RequiredPrivilege.PrivilegeID));
+					UE_LOG(LogMagicLeap, Log, TEXT("Privilege '%s' was granted."), MLPrivilegeToString(RequiredPrivilege.PrivilegeID));
 				}
 				break;
 				case MLPrivilegesResult_Denied:
 				{
 					RequiredPrivilege.State = EPrivilegeState::Denied;
-					UE_LOG(LogMagicLeap, Error, TEXT("Privilege '%s' was denied."), MLPrivilegeToString(RequiredPrivilege.PrivilegeID));
+					UE_LOG(LogMagicLeap, Log, TEXT("Privilege '%s' was denied."), MLPrivilegeToString(RequiredPrivilege.PrivilegeID));
 				}
 				break;
 				default:
@@ -149,13 +149,13 @@ namespace MagicLeap
 				case MLPrivilegesResult_Granted:
 				{
 					RequiredPrivilege.State = EPrivilegeState::Granted;
-					UE_LOG(LogMagicLeap, Error, TEXT("Privilege '%s' was granted."), MLPrivilegeToString(RequiredPrivilege.PrivilegeID));
+					UE_LOG(LogMagicLeap, Log, TEXT("Privilege '%s' was granted."), MLPrivilegeToString(RequiredPrivilege.PrivilegeID));
 				}
 				break;
 				case MLPrivilegesResult_Denied:
 				{
 					RequiredPrivilege.State = EPrivilegeState::Denied;
-					UE_LOG(LogMagicLeap, Error, TEXT("Privilege '%s' was denied."), MLPrivilegeToString(RequiredPrivilege.PrivilegeID));
+					UE_LOG(LogMagicLeap, Log, TEXT("Privilege '%s' was denied."), MLPrivilegeToString(RequiredPrivilege.PrivilegeID));
 				}
 				break;
 				case MLResult_Pending:

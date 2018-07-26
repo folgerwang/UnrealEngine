@@ -11,11 +11,13 @@
 
 IStereoLayers* FMagicLeapHMD::GetStereoLayers()
 {
+#if PLATFORM_LUMIN
 	if (!DefaultStereoLayers.IsValid())
 	{
 		TSharedPtr<FMagicLeapStereoLayers, ESPMode::ThreadSafe> NewLayersPtr = FSceneViewExtensions::NewExtension<FMagicLeapStereoLayers>(this);
 		DefaultStereoLayers = StaticCastSharedPtr<FDefaultStereoLayers>(NewLayersPtr);
 	}
+#endif //PLATFORM_LUMIN
 	return DefaultStereoLayers.Get();
 }
 

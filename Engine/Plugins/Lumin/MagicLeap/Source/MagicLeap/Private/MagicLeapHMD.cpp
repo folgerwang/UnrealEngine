@@ -36,6 +36,8 @@
 
 #if !PLATFORM_MAC // @todo Lumin: I had to add this to get Mac to compile - trying to add GL to Mac build had massive compile issues
 #include "OpenGLDrv.h"
+#include "VulkanRHIPrivate.h"
+#include "VulkanRHIBridge.h"
 #endif
 
 #include "MagicLeapPluginUtil.h" // for ML_INCLUDES_START/END
@@ -49,16 +51,9 @@ ML_INCLUDES_START
 #include "Misc/MessageDialog.h"
 #endif
 
-#if PLATFORM_LUMIN
-#define VK_NO_PROTOTYPES
-#include <vulkan.h>
-#undef VK_NO_PROTOTYPES
+#include <ml_graphics.h>
 
-#include <ml_graphics.h>
-#include "VulkanRHIBridge.h"
-#else
-#include <ml_graphics.h>
-#endif // PLATFORM_LUMIN
+#include "ml_privileges.h"
 
 #include "ml_privileges.h"
 
@@ -73,6 +68,8 @@ ML_INCLUDES_END
 #include "ISettingsSection.h"
 #endif
 
+#include "MagicLeapVulkanExtensions.h"
+
 #define LOCTEXT_NAMESPACE "MagicLeap"
 
 //---------------------------------------------------
@@ -84,6 +81,7 @@ class FMagicLeapPlugin : public IMagicLeapPlugin
 public:
 	FMagicLeapPlugin()
 		: bIsVDZIEnabled(false)
+		, bUseVulkanForZI(false)
 	{
 	}
 
@@ -92,10 +90,10 @@ public:
 	{
 		FMagicLeapSDKDetection::DetectSDK();
 
-
 		// Ideally, we should be able to query GetDefault<UMagicLeapSettings>()->bEnableZI directly.
 		// Unfortunately, the UObject system hasn't finished initialization when this module has been loaded.
 		GConfig->GetBool(TEXT("/Script/MagicLeap.MagicLeapSettings"), TEXT("bEnableZI"), bIsVDZIEnabled, GEngineIni);
+		GConfig->GetBool(TEXT("/Script/MagicLeap.MagicLeapSettings"), TEXT("bUseVulkanForZI"), bUseVulkanForZI, GEngineIni);
 
 		APISetup.Startup(bIsVDZIEnabled);
 #if WITH_MLSDK
@@ -108,15 +106,39 @@ public:
 		if (bIsVDZIEnabled)
 		{
 #if PLATFORM_WINDOWS
-			UE_LOG(LogMagicLeap, Log, TEXT("ML VDZI mode enabled. Using OpenGL renderer."));
 
 			APISetup.LoadDLL(TEXT("ml_remote"));
+			FString CommandLine = FCommandLine::Get();
+			const FString GLFlag(" -opengl4 ");
+			const FString VKFlag(" -vulkan ");
 
-			// DirectX, which is currently not supported by MagicLeap, is default API on Windows.
-			// OpenGL is forced by loading module in PostConfigInit phase and passing in command line.
-			// -opengl will force editor to use OpenGL3/SM4 feature level. Fwd VR path requires SM5 feature level, thus passing -opengl here will break editor preview window with Fwd VR path
-			// The cmd arg for OpenGL4/SM5 feature level is -opengl4 in Windows.
-			FCommandLine::Append(TEXT(" -opengl4 "));
+			if (bUseVulkanForZI)
+			{
+				UE_LOG(LogMagicLeap, Log, TEXT("ML VDZI mode enabled. Using Vulkan renderer."));
+				int32 GLFlagOffset = CommandLine.Find(GLFlag);
+				if (GLFlagOffset != INDEX_NONE) CommandLine.RemoveAt(GLFlagOffset, GLFlag.Len());
+				if (CommandLine.Find(VKFlag) == INDEX_NONE) CommandLine.Append(VKFlag);
+
+				// r.Vulkan.RHIThread=0 is requried for Vulkan on Windows with MLRemote. Setting it in BeginPlay() doesnt help.
+				IConsoleVariable* CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.Vulkan.RHIThread"));
+				if (CVar)
+				{
+					CVar->Set(TEXT("0"));
+				}
+			}
+			else
+			{
+				// DirectX, which is currently not supported by MagicLeap, is default API on Windows.
+				// OpenGL is forced by loading module in PostConfigInit phase and passing in command line.
+				// -opengl will force editor to use OpenGL3/SM4 feature level. Fwd VR path requires SM5 feature level, thus passing -opengl here will break editor preview window with Fwd VR path
+				// The cmd arg for OpenGL4/SM5 feature level is -opengl4 in Windows.
+				UE_LOG(LogMagicLeap, Log, TEXT("ML VDZI mode enabled. Using OpenGL renderer."));
+				int32 VKFlagOffset = CommandLine.Find(VKFlag);
+				if (VKFlagOffset != INDEX_NONE) CommandLine.RemoveAt(VKFlagOffset, VKFlag.Len());
+				if (CommandLine.Find(GLFlag) == INDEX_NONE) CommandLine.Append(GLFlag);
+			}
+
+			FCommandLine::Set(*CommandLine);
 #endif // PLATFORM_WINDOWS
 		}
 
@@ -173,6 +195,18 @@ public:
 		return GetOrCreateHMD();
 	}
 
+	virtual TSharedPtr<IHeadMountedDisplayVulkanExtensions, ESPMode::ThreadSafe> GetVulkanExtensions() override
+	{
+#if PLATFORM_WINDOWS || PLATFORM_LUMIN
+		if (!VulkanExtensions.IsValid())
+		{
+			VulkanExtensions = MakeShareable(new FMagicLeapVulkanExtensions);
+		}
+		return VulkanExtensions;
+#endif
+		return nullptr;
+	}
+
 private:
 
 #if WITH_EDITOR
@@ -208,7 +242,7 @@ private:
 #if !PLATFORM_MAC
 		if (!HMD.IsValid())
 		{
-			HMD = MakeShared<FMagicLeapHMD, ESPMode::ThreadSafe>(this, bIsVDZIEnabled);
+			HMD = MakeShared<FMagicLeapHMD, ESPMode::ThreadSafe>(this, bIsVDZIEnabled, bUseVulkanForZI);
 		}
 #endif
 #if WITH_EDITOR
@@ -225,23 +259,11 @@ private:
 #endif
 	}
 
-	TSharedPtr< IHeadMountedDisplayVulkanExtensions, ESPMode::ThreadSafe > GetVulkanExtensions() override
-	{
-#if PLATFORM_LUMIN || PLATFORM_WINDOWS
-		if (!VulkanExt.IsValid())
-		{
-			VulkanExt = MakeShareable(new FMagicLeapHMD::FMagicLeapVulkanExtensions);
-		}
-
-		return VulkanExt;
-#endif
-		return nullptr;
-	}
-
 	bool bIsVDZIEnabled;
+	bool bUseVulkanForZI;
 	FMagicLeapAPISetup APISetup;
 	TSharedPtr<FMagicLeapHMD, ESPMode::ThreadSafe> HMD;
-	TSharedPtr<FMagicLeapHMD::FMagicLeapVulkanExtensions, ESPMode::ThreadSafe> VulkanExt;
+	TSharedPtr<FMagicLeapVulkanExtensions, ESPMode::ThreadSafe> VulkanExtensions;
 };
 
 IMPLEMENT_MODULE(FMagicLeapPlugin, MagicLeap)
@@ -867,12 +889,12 @@ FMagicLeapCustomPresent* FMagicLeapHMD::GetActiveCustomPresent(const bool bRequi
 	}
 #endif // PLATFORM_WINDOWS || PLATFORM_LINUX || PLATFORM_LUMIN
 
-#if PLATFORM_LUMIN
+#if PLATFORM_WINDOWS || PLATFORM_LUMIN
 	if (CustomPresentVulkan)
 	{
 		return CustomPresentVulkan;
 	}
-#endif // PLATFORM_LUMIN
+#endif //PLATFORM_WINDOWS ||  PLATFORM_LUMIN
 
 	return nullptr;
 }
@@ -938,7 +960,7 @@ bool FMagicLeapHMD::AllocateRenderTargetTexture(uint32 Index, uint32 SizeX, uint
 //	return GetActiveCustomPresent();
 //}
 
-FMagicLeapHMD::FMagicLeapHMD(IMagicLeapPlugin* InMagicLeapPlugin, bool bEnableVDZI) :
+FMagicLeapHMD::FMagicLeapHMD(IMagicLeapPlugin* InMagicLeapPlugin, bool bEnableVDZI, bool bUseVulkan) :
 	// We don't do any mirroring on Lumin as we render direct to the device only.
 #if PLATFORM_LUMIN
 	WindowMirrorMode(0),
@@ -973,7 +995,9 @@ FMagicLeapHMD::FMagicLeapHMD(IMagicLeapPlugin* InMagicLeapPlugin, bool bEnableVD
 	bIsPlaying(false),
 	bIsPerceptionEnabled(false),
 	bIsVDZIEnabled(bEnableVDZI),
+	bUseVulkanForZI(bUseVulkan),
 	bVDZIWarningDisplayed(false),
+	bPrivilegesEnabled(false),
 	CurrentFrameTimingHint(ELuminFrameTimingHint::Unspecified),
 	bHeadTrackingStateAvailable(false)
 {
@@ -1007,7 +1031,7 @@ void FMagicLeapHMD::Startup()
 	AppFramework.Startup();
 
 #if PLATFORM_WINDOWS
-	if (IsPCPlatform(GMaxRHIShaderPlatform) && !IsOpenGLPlatform(GMaxRHIShaderPlatform))
+	if (IsPCPlatform(GMaxRHIShaderPlatform) && !IsOpenGLPlatform(GMaxRHIShaderPlatform) && !IsVulkanPlatform(GMaxRHIShaderPlatform))
 	{
 		UE_LOG(LogMagicLeap, Display, TEXT("Creating FMagicLeapCustomPresentD3D11"));
 		CustomPresentD3D11 = new FMagicLeapCustomPresentD3D11(this);
@@ -1031,13 +1055,13 @@ void FMagicLeapHMD::Startup()
 	}
 #endif // PLATFORM_WINDOWS || PLATFORM_LINUX || PLATFORM_LUMIN
 
-#if PLATFORM_LUMIN
+#if PLATFORM_WINDOWS || PLATFORM_LUMIN
 	if (IsVulkanPlatform(GMaxRHIShaderPlatform))
 	{
 		UE_LOG(LogMagicLeap, Display, TEXT("Creating FMagicLeapCustomPresentVulkan"));
 		CustomPresentVulkan = new FMagicLeapCustomPresentVulkan(this);
 	}
-#endif // PLATFORM_LUMIN
+#endif // PLATFORM_WINDOWS || PLATFORM_LUMIN
 
 	UE_LOG(LogMagicLeap, Log, TEXT("MagicLeap initialized."));
 }
@@ -1177,6 +1201,12 @@ void FMagicLeapHMD::DisableDeviceFeatures()
 	bVDZIWarningDisplayed = false;
 }
 
+#if (PLATFORM_WINDOWS && WITH_MLSDK)
+ML_EXTERN_C_BEGIN
+ML_API MLResult ML_CALL MLGraphicsCreateClientVk(const MLGraphicsOptions *options, void *vulkan_instance, void *vulkan_physical_device, void *vulkan_logical_device, MLHandle *out_graphics_client);
+ML_EXTERN_C_END
+#endif // (PLATFORM_WINDOWS && WITH_MLSDK)
+
 void FMagicLeapHMD::InitDevice_RenderThread()
 {
 #if WITH_MLSDK
@@ -1233,26 +1263,13 @@ void FMagicLeapHMD::InitDevice_RenderThread()
 				UE_LOG(LogMagicLeap, Error, TEXT("MLGraphicsCreateClientGL failed with status %d"), Result);
 			}
 		}
-		// @todo Lumin vulkan: THis doesn't compile, even with some #includes - maybe need more, I dunno
 		if (IsVulkanPlatform(GMaxRHIShaderPlatform))
 		{
-#if PLATFORM_LUMIN
-			// TODO: Revise the condition after the fix is merged in the platform.
-#if (MLSDK_VERSION_MINOR <= 11)
+#if PLATFORM_WINDOWS || PLATFORM_LUMIN
 			static const auto* VulkanRHIThread = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Vulkan.RHIThread"));
-			check(VulkanRHIThread);
-			checkf(VulkanRHIThread->GetValueOnAnyThread() == 0, TEXT("Vulkan RHI Thread must be off! Current : r.Vulkan.RHIThread=%d"), VulkanRHIThread->GetValueOnAnyThread());
+			UE_LOG(LogMagicLeap, Warning, TEXT("r.Vulkan.RHIThread=%d"), VulkanRHIThread->GetValueOnAnyThread());
 
-			static const auto* VulkanDelayAcquireBackBuffer = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Vulkan.DelayAcquireBackBuffer"));
-			check(VulkanDelayAcquireBackBuffer);
-			checkf(VulkanDelayAcquireBackBuffer->GetValueOnAnyThread() == 1, TEXT("Vulkan Delay Acquire Back Buffer must be on! Current : r.Vulkan.DelayAcquireBackBuffer=%d"), VulkanDelayAcquireBackBuffer->GetValueOnAnyThread());
-#endif
-
-#if (MLSDK_VERSION_MINOR == 8)
-			gfx_opts.graphics_flags = MLGraphicsFlags_Default;
-#else
 			gfx_opts.graphics_flags = MLGraphicsFlags_OriginUpperLeft;
-#endif
 			ExecuteOnRHIThread_DoNotWait([this, gfx_opts]()
 			{
 				UE_LOG(LogMagicLeap, Display, TEXT("FMagicLeapCustomPresentVulkan is supported."));
@@ -1262,7 +1279,12 @@ void FMagicLeapHMD::InitDevice_RenderThread()
 				uint64 PhysicalDevice = VulkanRHIBridge::GetPhysicalDevice(VulkanDevice);
 				uint64 LogicalDevice = VulkanRHIBridge::GetLogicalDevice(VulkanDevice);
 				GraphicsClient = ML_INVALID_HANDLE;
-				MLResult Result = MLGraphicsCreateClientVk(&gfx_opts, (VkInstance)Instance, (VkPhysicalDevice)PhysicalDevice, (VkDevice)LogicalDevice, &GraphicsClient);
+				MLResult Result = MLResult_Ok;
+#if PLATFORM_LUMIN
+				Result = MLGraphicsCreateClientVk(&gfx_opts, (VkInstance)Instance, (VkPhysicalDevice)PhysicalDevice, (VkDevice)LogicalDevice, &GraphicsClient);
+#else
+				Result = MLGraphicsCreateClientVk(&gfx_opts, (void*)Instance, (void*)PhysicalDevice, (void*)LogicalDevice, &GraphicsClient);
+#endif
 				if (Result == MLResult_Ok)
 				{
 					InitializeClipExtents_RenderThread();
@@ -1276,7 +1298,7 @@ void FMagicLeapHMD::InitDevice_RenderThread()
 				FPlatformAtomics::InterlockedExchange(&bDeviceInitialized, Result == MLResult_Ok);
 				FPlatformAtomics::InterlockedExchange(&bDeviceWasJustInitialized, Result == MLResult_Ok);
 			});
-#endif // PLATFORM_LUMIN
+#endif // PLATFORM_WINDOWS || PLATFORM_LUMIN
 		}
 		else
 		{
@@ -1402,6 +1424,10 @@ void FMagicLeapHMD::ReleaseDevice_RenderThread()
 		if (CustomPresentOpenGL)
 		{
 			CustomPresentOpenGL->Reset();
+		}
+		if (CustomPresentVulkan)
+		{
+			CustomPresentVulkan->Reset();
 		}
 #elif PLATFORM_MAC
 		if (CustomPresentMetal)
@@ -1690,14 +1716,14 @@ void FMagicLeapHMD::ShutdownRendering()
 		CustomPresentOpenGL = nullptr;
 	}
 #endif // PLATFORM_WINDOWS || PLATFORM_LINUX || PLATFORM_LUMIN
-#if PLATFORM_LUMIN
+#if PLATFORM_WINDOWS || PLATFORM_LUMIN
 	if (CustomPresentVulkan.GetReference())
 	{
 		CustomPresentVulkan->Reset();
 		CustomPresentVulkan->Shutdown();
 		CustomPresentVulkan = nullptr;
 	}
-#endif // PLATFORM_LUMIN
+#endif // PLATFORM_WINDOWS || PLATFORM_LUMIN
 }
 
 FTrackingFrame& FMagicLeapHMD::GetCurrentFrameMutable()
@@ -1865,7 +1891,8 @@ void FMagicLeapHMD::EnablePrivileges()
 #if WITH_MLSDK
 	UE_LOG(LogMagicLeap, Warning, TEXT("FMagicLeapHMD::EnablePrivileges"));
 	MLResult Result = MLPrivilegesStartup();
-	UE_CLOG(Result != MLResult_Ok, LogMagicLeap, Error, TEXT("MLPrivilegesStartup() "
+	bPrivilegesEnabled = (Result == MLResult_Ok);
+	UE_CLOG(!bPrivilegesEnabled, LogMagicLeap, Error, TEXT("MLPrivilegesStartup() "
 		"failed with error %s"), UTF8_TO_TCHAR(MLPrivilegesGetResultString(Result)));
 #endif // WITH_MLSDK
 }
@@ -1873,10 +1900,13 @@ void FMagicLeapHMD::EnablePrivileges()
 void FMagicLeapHMD::DisablePrivileges()
 {
 #if WITH_MLSDK
-	UE_LOG(LogMagicLeap, Warning, TEXT("FMagicLeapHMD::DisablePrivileges"));
-	MLResult Result = MLPrivilegesShutdown();
-	UE_CLOG(Result != MLResult_Ok, LogMagicLeap, Error, TEXT("MLPrivilegesShutdown() "
-		"failed with error %s"), UTF8_TO_TCHAR(MLPrivilegesGetResultString(Result)));
+	if (bPrivilegesEnabled)
+	{
+		UE_LOG(LogMagicLeap, Warning, TEXT("FMagicLeapHMD::DisablePrivileges"));
+		MLResult Result = MLPrivilegesShutdown();
+		UE_CLOG(Result != MLResult_Ok, LogMagicLeap, Error, TEXT("MLPrivilegesShutdown() "
+			"failed with error %s"), UTF8_TO_TCHAR(MLPrivilegesGetResultString(Result)));
+	}
 #endif // WITH_MLSDK
 }
 

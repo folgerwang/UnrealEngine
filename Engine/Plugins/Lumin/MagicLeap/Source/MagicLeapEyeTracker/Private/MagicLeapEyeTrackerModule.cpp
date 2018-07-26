@@ -109,6 +109,16 @@ bool FMagicLeapEyeTracker::IsStereoGazeDataAvailable() const
 	return false;
 }
 
+EMagicLeapEyeTrackingCalibrationStatus FMagicLeapEyeTracker::GetCalibrationStatus() const
+{
+	if (VREyeTracker)
+	{
+		return VREyeTracker->GetCalibrationStatus();
+	}
+	
+	return EMagicLeapEyeTrackingCalibrationStatus::None;
+}
+
 void FMagicLeapEyeTracker::SetEyeTrackedPlayer(APlayerController* PlayerController)
 {
 	if (VREyeTracker)
@@ -246,4 +256,15 @@ bool UMagicLeapEyeTrackerFunctionLibrary::GetFixationComfort(FMagicLeapFixationC
 	}
 
 	return false;
+}
+
+EMagicLeapEyeTrackingCalibrationStatus UMagicLeapEyeTrackerFunctionLibrary::GetCalibrationStatus()
+{
+	FMagicLeapEyeTracker* ET = GEngine ? static_cast<FMagicLeapEyeTracker*>(GEngine->EyeTrackingDevice.Get()) : nullptr;
+	if (ET)
+	{
+		return ET->GetCalibrationStatus();
+	}
+
+	return EMagicLeapEyeTrackingCalibrationStatus::None;
 }

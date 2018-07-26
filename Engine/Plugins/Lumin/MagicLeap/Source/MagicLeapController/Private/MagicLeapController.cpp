@@ -14,6 +14,7 @@
 #include "AppFramework.h"
 #include "MagicLeapPluginUtil.h"
 #include "TouchpadGesturesComponent.h"
+#include "AssetData.h"
 
 #define LOCTEXT_NAMESPACE "MagicLeapController"
 
@@ -124,6 +125,7 @@ FMagicLeapController::FMagicLeapController(const TSharedRef<FGenericApplicationM
 	, DeviceIndex(0)  // Input Controller Index for Unreal is hardcoded to 0. Ideally it should be incremented for each registered InputDevice.
 #if WITH_MLSDK
 	, InputTracker(ML_INVALID_HANDLE)
+	, ControllerTracker(ML_INVALID_HANDLE)
 #endif //WITH_MLSDK
 	, bIsInputStateValid(false)
 	, bTriggerState(false)
@@ -558,6 +560,44 @@ bool FMagicLeapController::IsGamepadAttached() const
 void FMagicLeapController::Enable()
 {
 #if WITH_MLSDK
+	// Default to CFUID
+	TrackingMode = EMLControllerTrackingMode::CoordinateFrameUID;
+
+	// Pull preference from config file
+	const static UEnum* TrackingModeEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EMLControllerTrackingMode"));
+
+	FString EnumVal;
+	GConfig->GetString(TEXT("/Script/LuminRuntimeSettings.LuminRuntimeSettings"),
+		TEXT("ControllerTrackingMode"), EnumVal, GEngineIni);
+
+	if (EnumVal.Len() > 0)
+	{
+		TrackingMode = static_cast<EMLControllerTrackingMode>(TrackingModeEnum->GetValueByNameString(EnumVal));
+	}
+
+	// Attempt to create the Controller Tracker. We always do this b/c we do not want to create
+	// the tracker on the fly, and the mode can be changed on the fly.
+	if (!MLHandleIsValid(ControllerTracker))
+	{
+		MLControllerConfiguration ControllerConfig = { false };
+
+		ControllerConfig.enable_fused6dof = true;
+
+		MLResult Result = MLControllerCreate(ControllerConfig, &ControllerTracker);
+
+		if (Result != MLResult_Ok)
+		{
+			UE_LOG(LogMagicLeapController, Error, 
+				TEXT("MLControllerCreate failed with error %s."), 
+				UTF8_TO_TCHAR(MLGetResultString(Result)));
+			ControllerTracker = ML_INVALID_HANDLE;
+
+			// Revert to input
+			TrackingMode = EMLControllerTrackingMode::InputService;
+		}
+	}
+
+	// Attempt to create the Input Tracker
 	if (!MLHandleIsValid(InputTracker))
 	{
 		MLResult Result = MLInputCreate(nullptr, &InputTracker);
@@ -568,17 +608,15 @@ void FMagicLeapController::Enable()
 			if (Result == MLResult_Ok)
 			{
 				Result = MLInputSetKeyboardCallbacks(InputTracker, &InputKeyboardCallbacks, this);
-				if (Result == MLResult_Ok)
-				{
-					// Poll to get startup status
-					UpdateTrackerData();
-				}
-				else
+				if (Result != MLResult_Ok)
 				{
 					UE_LOG(LogMagicLeapController, Error, 
 						TEXT("MLInputSetKeyboardCallbacks failed with error %s."), 
 						UTF8_TO_TCHAR(MLGetResultString(Result)));
 				}
+
+				// Poll to get startup status
+				UpdateTrackerData();
 			}
 			else
 			{
@@ -616,6 +654,17 @@ void FMagicLeapController::Disable()
 		}
 		InputTracker = ML_INVALID_HANDLE;
 		bIsInputStateValid = false;
+	}
+	if (MLHandleIsValid(ControllerTracker))
+	{
+		MLResult Result = MLControllerDestroy(ControllerTracker);
+		if (Result != MLResult_Ok)
+		{
+			UE_LOG(LogMagicLeapController, Error, 
+				TEXT("MLControllerDestroy failed with error %s!"), 
+				UTF8_TO_TCHAR(MLGetResultString(Result)));
+		}
+		ControllerTracker = ML_INVALID_HANDLE;
 	}
 #endif //WITH_MLSDK
 }
@@ -783,76 +832,118 @@ FName FMagicLeapController::GetMotionControllerDeviceTypeName() const
 	return DefaultName;
 }
 
+void FMagicLeapController::UpdateControllerTransformFromInputTracker(const FAppFramework& AppFramework, FTransform& ControllerTransform, EControllerHand ControllerHand)
+{
+#if WITH_MLSDK
+	int32 ControllerID = *HandToControllerID.Find(ControllerHand);
+	ETrackingStatus ControllerTrackingStatus = GetControllerTrackingStatus(DeviceIndex, ControllerHand);
+	if (ControllerTrackingStatus == ETrackingStatus::Tracked)
+	{
+		ControllerTransform.SetLocation(MagicLeap::ToFVector(InputState[ControllerID].position, AppFramework.GetWorldToMetersScale()));
+		ControllerTransform.SetRotation(MagicLeap::ToFQuat(InputState[ControllerID].orientation));
+	}
+	else if (ControllerTrackingStatus == ETrackingStatus::InertialOnly)
+	{
+		ControllerTransform.SetRotation(MagicLeap::ToFQuat(InputState[ControllerID].orientation));
+	}
+
+	if (ControllerTransform.ContainsNaN())
+	{
+		UE_LOG(LogMagicLeapController, Error, TEXT("Transform for controller index %d has NaNs."), ControllerID);
+		InputState[ControllerID].dof = MLInputControllerDof_None;
+	}
+	else
+	{
+		if (!ControllerTransform.GetRotation().IsNormalized())
+		{
+			FQuat rotation = ControllerTransform.GetRotation();
+			rotation.Normalize();
+			ControllerTransform.SetRotation(rotation);
+		}
+	}
+#endif //WITH_MLSDK
+}
+
+#if WITH_MLSDK
+void FMagicLeapController::UpdateControllerTransformFromControllerTracker(const FAppFramework& AppFramework, const MLControllerSystemState& ControllerSystemState, FTransform& ControllerTransform, int32 InDeviceIndex)
+{
+	const auto& ControllerStream = ControllerSystemState.
+		controller_state[InDeviceIndex].stream[MLControllerMode_Fused6Dof];
+
+	if (ControllerStream.is_active)
+	{
+		EFailReason FailReason = EFailReason::None;
+		if (!AppFramework.GetTransform(ControllerStream.coord_frame_controller, ControllerTransform, FailReason))
+		{
+			UE_LOG(LogMagicLeapController, Error, 
+				TEXT("UpdateControllerTransformFromControllerTracker: AppFramework."
+				"GetTransform returned false, fail reason = %d."), 
+				static_cast<uint32>(FailReason));
+		}
+	}
+}
+#endif //WITH_MLSDK
+
 void FMagicLeapController::UpdateTrackerData()
 {
 #if WITH_MLSDK
-	if (MLHandleIsValid(InputTracker) && IMagicLeapPlugin::Get().IsMagicLeapHMDValid())
+	if (!IMagicLeapPlugin::Get().IsMagicLeapHMDValid())
 	{
-		// Memcopy instead of assignment operator since its an array type of a c-struct and we need a deep copy here.
+		return;
+	}
+
+	const FAppFramework& AppFramework = static_cast<FMagicLeapHMD*>
+		(GEngine->XRSystem->GetHMDDevice())->GetAppFrameworkConst();
+	if (!AppFramework.IsInitialized())
+	{
+		return;
+	}
+
+	// First pull data from input tracker. Note that this is not conditional based on the tracking
+	// type because we also need to get button, touchpad, etc.
+	if (MLHandleIsValid(InputTracker))
+	{
 		FMemory::Memcpy(&OldInputState, &InputState, sizeof(InputState));
+
 		bIsInputStateValid = MLInputGetControllerState(InputTracker, InputState) == MLResult_Ok;
 
 		if (bIsInputStateValid)
 		{
-			const FAppFramework& AppFramework = static_cast<FMagicLeapHMD*>(GEngine->XRSystem->GetHMDDevice())->GetAppFrameworkConst();
-			if (!AppFramework.IsInitialized())
+			UpdateControllerTransformFromInputTracker(AppFramework, 
+				LeftControllerTransform, EControllerHand::Left);
+			UpdateControllerTransformFromInputTracker(AppFramework, 
+				RightControllerTransform, EControllerHand::Right);
+		}
+	}
+
+	// If mode is set to CFUID tracking overwrite the input data
+	if (bIsInputStateValid && MLHandleIsValid(ControllerTracker) && (TrackingMode == EMLControllerTrackingMode::CoordinateFrameUID))
+	{
+		MLControllerSystemState ControllerSystemState;
+		MLResult Result = MLControllerGetState(ControllerTracker, &ControllerSystemState);
+		if (MLResult_Ok == Result)
+		{
+			int32 ControllerID;
+
+			ControllerID = HandToControllerID[EControllerHand::Left];
+			if (InputState[ControllerID].type == MLInputControllerType_Device)
 			{
-				return;
+				UpdateControllerTransformFromControllerTracker(AppFramework, ControllerSystemState,
+					LeftControllerTransform, InputState[ControllerID].hardware_index);
 			}
 
-			const int32* ControllerID = HandToControllerID.Find(EControllerHand::Left);
-			ETrackingStatus ControllerTrackingStatus = GetControllerTrackingStatus(DeviceIndex, EControllerHand::Left);
-			if (ControllerTrackingStatus == ETrackingStatus::Tracked)
+			ControllerID = HandToControllerID[EControllerHand::Right];
+			if (InputState[ControllerID].type == MLInputControllerType_Device)
 			{
-				LeftControllerTransform.SetLocation(MagicLeap::ToFVector(InputState[*ControllerID].position, AppFramework.GetWorldToMetersScale()));
-				LeftControllerTransform.SetRotation(MagicLeap::ToFQuat(InputState[*ControllerID].orientation));
+				UpdateControllerTransformFromControllerTracker(AppFramework, ControllerSystemState,
+					RightControllerTransform, InputState[ControllerID].hardware_index);
 			}
-			else if (ControllerTrackingStatus == ETrackingStatus::InertialOnly)
-			{
-				LeftControllerTransform.SetRotation(MagicLeap::ToFQuat(InputState[*ControllerID].orientation));
-			}
-
-			if (LeftControllerTransform.ContainsNaN())
-			{
-				UE_LOG(LogMagicLeapController, Error, TEXT("Left controller transform has NaNs."));
-				InputState[*ControllerID].dof = MLInputControllerDof_None;
-			}
-			else
-			{
-				if (!LeftControllerTransform.GetRotation().IsNormalized())
-				{
-					FQuat rotation = LeftControllerTransform.GetRotation();
-					rotation.Normalize();
-					LeftControllerTransform.SetRotation(rotation);
-				}
-			}
-
-			ControllerID = HandToControllerID.Find(EControllerHand::Right);
-			ControllerTrackingStatus = GetControllerTrackingStatus(DeviceIndex, EControllerHand::Right);
-			if (ControllerTrackingStatus == ETrackingStatus::Tracked)
-			{
-				RightControllerTransform.SetLocation(MagicLeap::ToFVector(InputState[*ControllerID].position, AppFramework.GetWorldToMetersScale()));
-				RightControllerTransform.SetRotation(MagicLeap::ToFQuat(InputState[*ControllerID].orientation));
-			}
-			else if (ControllerTrackingStatus == ETrackingStatus::InertialOnly)
-			{
-				RightControllerTransform.SetRotation(MagicLeap::ToFQuat(InputState[*ControllerID].orientation));
-			}
-
-			if (RightControllerTransform.ContainsNaN())
-			{
-				UE_LOG(LogMagicLeapController, Error, TEXT("Right controller transform has NaNs."));
-				InputState[*ControllerID].dof = MLInputControllerDof_None;
-			}
-			else
-			{
-				if (!RightControllerTransform.GetRotation().IsNormalized())
-				{
-					FQuat rotation = RightControllerTransform.GetRotation();
-					rotation.Normalize();
-					RightControllerTransform.SetRotation(rotation);
-				}
-			}
+		}
+		else
+		{
+			UE_LOG(LogMagicLeapController, Error, 
+				TEXT("MLControllerGetState failed with error %s."), 
+				UTF8_TO_TCHAR(MLGetResultString(Result)));
 		}
 	}
 #endif //WITH_MLSDK
@@ -962,6 +1053,38 @@ bool FMagicLeapController::PlayControllerHapticFeedback(EControllerHand Hand, EM
 #endif //WITH_MLSDK
 
 	return false;
+}
+
+bool FMagicLeapController::SetControllerTrackingMode(EMLControllerTrackingMode InTrackingMode)
+{
+#if WITH_MLSDK
+	if (IsGamepadAttached())
+	{
+		TrackingMode = InTrackingMode;
+	}
+	else
+	{
+		UE_LOG(LogMagicLeapController, Error, TEXT("Haptic controller not attached"));
+	}
+#endif //WITH_MLSDK
+
+	return false;
+}
+
+EMLControllerTrackingMode FMagicLeapController::GetControllerTrackingMode()
+{
+#if WITH_MLSDK
+	if (IsGamepadAttached())
+	{
+		return TrackingMode;
+	}
+	else
+	{
+		UE_LOG(LogMagicLeapController, Error, TEXT("Haptic controller not attached"));
+	}
+#endif //WITH_MLSDK
+
+	return EMLControllerTrackingMode::InputService;
 }
 
 void FMagicLeapController::RegisterTouchpadGestureReceiver(IMagicLeapTouchpadGestures* Receiver)
@@ -1208,8 +1331,13 @@ MLInputControllerFeedbackColorLED FMagicLeapController::UnrealToMLColorLED(EMLCo
 {
 	switch (LEDColor)
 	{
-		LED_COLOR_CASE(BrightRed)
-		LED_COLOR_CASE(PastelRed)
+#if MLSDK_VERSION_MINOR >= 16
+		LED_COLOR_CASE(BrightMissionRed)
+		LED_COLOR_CASE(PastelMissionRed)
+#else
+		case EMLControllerLEDColor::BrightMissionRed: { return MLInputControllerFeedbackColorLED_BrightRed; }
+		case EMLControllerLEDColor::PastelMissionRed: { return MLInputControllerFeedbackColorLED_PastelRed; }
+#endif // MLSDK_VERSION_MINOR >= 16
 		LED_COLOR_CASE(BrightFloridaOrange)
 		LED_COLOR_CASE(PastelFloridaOrange)
 		LED_COLOR_CASE(BrightLunaYellow)

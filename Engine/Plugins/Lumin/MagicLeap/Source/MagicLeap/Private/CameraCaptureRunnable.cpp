@@ -58,11 +58,11 @@ FCameraCaptureRunnable::FCameraCaptureRunnable()
 	, Thread(nullptr)
 	, StopTaskCounter(0)
 	, Semaphore(nullptr)
+	, bCameraConnected(false)
+	, RetryConnectWaitTime(0.5f)
 #if WITH_MLSDK
 	, CameraOutput(nullptr)
 #endif // WITH_MLSDK
-	, bCameraConnected(false)
-	, RetryConnectWaitTime(0.5f)
 	, ImgExtension(".jpeg")
 	, VidExtension(".mp4")
 	, bPaused(false)

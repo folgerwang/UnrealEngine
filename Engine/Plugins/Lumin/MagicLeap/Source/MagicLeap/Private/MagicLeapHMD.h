@@ -137,7 +137,7 @@ public:
 
 public:
 	/** Constructor */
-	FMagicLeapHMD(IMagicLeapPlugin* MagicLeapPlugin, bool bEnableVDZI = false);
+	FMagicLeapHMD(IMagicLeapPlugin* MagicLeapPlugin, bool bEnableVDZI = false, bool bUseVulkan = false);
 
 	/** Destructor */
 	virtual ~FMagicLeapHMD();
@@ -297,7 +297,9 @@ private:
 	bool bIsPlaying;
 	bool bIsPerceptionEnabled;
 	bool bIsVDZIEnabled;
+	bool bUseVulkanForZI;
 	bool bVDZIWarningDisplayed;
+	bool bPrivilegesEnabled;
 
 	/** Current hint to the Lumin system about what our target framerate should be */
 	ELuminFrameTimingHint CurrentFrameTimingHint;
@@ -311,7 +313,7 @@ private:
 #if PLATFORM_WINDOWS || PLATFORM_LINUX || PLATFORM_LUMIN
 	TRefCountPtr<FMagicLeapCustomPresentOpenGL> CustomPresentOpenGL;
 #endif // PLATFORM_WINDOWS || PLATFORM_LINUX || PLATFORM_LUMIN
-#if PLATFORM_LUMIN
+#if PLATFORM_WINDOWS || PLATFORM_LUMIN
 	TRefCountPtr<FMagicLeapCustomPresentVulkan> CustomPresentVulkan;
 #endif // PLATFORM_LUMIN
 

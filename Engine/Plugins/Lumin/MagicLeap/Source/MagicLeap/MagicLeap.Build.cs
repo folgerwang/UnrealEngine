@@ -80,6 +80,14 @@ namespace UnrealBuildTool.Rules
 						Path.Combine(EngineSourceDirectory, "Runtime/Windows/D3D11RHI/Private/Windows"),
 					}
 				);
+				// TODO: refactor MagicLeap.Build.cs!!! Too much duplicate code.
+				PrivateIncludePaths.AddRange(
+					new string[] {
+						Path.Combine(EngineSourceDirectory, "Runtime/VulkanRHI/Private"),
+						Path.Combine(EngineSourceDirectory, "Runtime/VulkanRHI/Private/Windows")
+					}
+				);
+				AddEngineThirdPartyPrivateStaticDependencies(Target, "Vulkan");
 			}
 			else if (Target.Platform == UnrealTargetPlatform.Linux)
 			{

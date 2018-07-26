@@ -74,16 +74,20 @@ namespace UnrealBuildTool
 
 		public override bool HasSpecificDefaultBuildConfig(UnrealTargetPlatform Platform, DirectoryReference ProjectPath)
 		{
-			string[] BoolKeys = new string[]
+			ConfigHierarchy Ini = ConfigCache.ReadHierarchy(ConfigHierarchyType.Engine, ProjectPath, UnrealTargetPlatform.Lumin);
+			bool bUseVulkan = true;
+			Ini.GetBool("/Script/LuminRuntimeSettings.LuminRuntimeSettings", "bUseVulkan", out bUseVulkan);
+
+			List<string> ConfigBoolKeys = new List<string>();
+			ConfigBoolKeys.Add("bBuildWithNvTegraGfxDebugger");
+			if (!bUseVulkan)
 			{
-				"bBuildWithNvTegraGfxDebugger",
-				// @todo Lumin: Once we switch to Vulkan only, this will no longer be needed, since Vulkan can do both without needing to recompile
-				"bUseMobileRendering",
-			};
+				ConfigBoolKeys.Add("bUseMobileRendering");
+			}
 
 			// look up Android specific settings
 			// @todo Lumin: When we subclass platform ini's, this would be Platform!!
-			if (!DoProjectSettingsMatchDefault(UnrealTargetPlatform.Lumin, ProjectPath, "/Script/LuminRuntimeSettings.LuminRuntimeSettings", BoolKeys, null, null))
+			if (!DoProjectSettingsMatchDefault(UnrealTargetPlatform.Lumin, ProjectPath, "/Script/LuminRuntimeSettings.LuminRuntimeSettings", ConfigBoolKeys.ToArray(), null, null))
 			{
 				return false;
 			}
@@ -270,7 +274,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// This is the SDK version we support
 		/// </summary>
-		static string ExpectedSDKVersion = "0.15";   // now unified for all the architectures
+		static string ExpectedSDKVersion = "0.16";   // now unified for all the architectures
 
 		public override string GetSDKTargetPlatformName()
 		{

@@ -72,3 +72,24 @@ bool UMagicLeapControllerFunctionLibrary::PlayControllerHapticFeedback(EControll
 	}
 	return false;
 }
+
+bool UMagicLeapControllerFunctionLibrary::SetControllerTrackingMode(EMLControllerTrackingMode TrackingMode)
+{
+	TSharedPtr<FMagicLeapController> Controller = StaticCastSharedPtr<FMagicLeapController>(IMagicLeapControllerPlugin::Get().GetInputDevice());
+	if (Controller.IsValid())
+	{
+		return Controller->SetControllerTrackingMode(TrackingMode);
+	}
+	return false;
+}
+
+EMLControllerTrackingMode UMagicLeapControllerFunctionLibrary::GetControllerTrackingMode()
+{
+	TSharedPtr<FMagicLeapController> Controller = StaticCastSharedPtr<FMagicLeapController>(IMagicLeapControllerPlugin::Get().GetInputDevice());
+	if (Controller.IsValid())
+	{
+		return Controller->GetControllerTrackingMode();
+	}
+	return EMLControllerTrackingMode::InputService;
+}
+

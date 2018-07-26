@@ -15,6 +15,7 @@
 #if WITH_MLSDK
 ML_INCLUDES_START
 #include <ml_input.h>
+#include <ml_controller.h>
 ML_INCLUDES_END
 #endif //WITH_MLSDK
 
@@ -87,12 +88,18 @@ public:
 	bool PlayControllerLED(EControllerHand Hand, EMLControllerLEDPattern LEDPattern, EMLControllerLEDColor LEDColor, float DurationInSec);
 	bool PlayControllerLEDEffect(EControllerHand Hand, EMLControllerLEDEffect LEDEffect, EMLControllerLEDSpeed LEDSpeed, EMLControllerLEDPattern LEDPattern, EMLControllerLEDColor LEDColor, float DurationInSec);
 	bool PlayControllerHapticFeedback(EControllerHand Hand, EMLControllerHapticPattern HapticPattern, EMLControllerHapticIntensity Intensity);
+	bool SetControllerTrackingMode(EMLControllerTrackingMode TrackingMode);
+	EMLControllerTrackingMode GetControllerTrackingMode();
 
 	void RegisterTouchpadGestureReceiver(IMagicLeapTouchpadGestures* Receiver);
 	void UnregisterTouchpadGestureReceiver(IMagicLeapTouchpadGestures* Receiver);
 
 private:
 	void UpdateTrackerData();
+	void UpdateControllerTransformFromInputTracker(const class FAppFramework& AppFramework, FTransform& ControllerTransform, EControllerHand ControllerHand);
+#if WITH_MLSDK
+	void UpdateControllerTransformFromControllerTracker(const class FAppFramework& AppFramework, const MLControllerSystemState& ControllerSystemState, FTransform& ControllerTransform, int32 DeviceIndex);
+#endif //WITH_MLSDK
 	void SendControllerEventsForHand(EControllerHand Hand);
 	void AddKeys();
 	void DebouncedButtonMessageHandler(bool NewButtonState, bool OldButtonState, const FName& ButtonName);
@@ -118,10 +125,12 @@ private:
 
 #if WITH_MLSDK
 	MLHandle InputTracker;
+	MLHandle ControllerTracker;
 	MLInputControllerState InputState[MLInput_MaxControllers];
 	MLInputControllerState OldInputState[MLInput_MaxControllers];
 	MLInputControllerCallbacks InputControllerCallbacks;
 	MLInputKeyboardCallbacks InputKeyboardCallbacks;
+	EMLControllerTrackingMode TrackingMode;
 #endif //WITH_MLSDK
 
 	bool bIsInputStateValid;
