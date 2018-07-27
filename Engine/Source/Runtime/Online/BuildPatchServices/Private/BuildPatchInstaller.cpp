@@ -685,7 +685,7 @@ namespace BuildPatchServices
 		// Make sure all the files won't exceed the maximum path length
 		for (const FString& FileToConstruct : FilesToConstruct)
 		{
-			if ((InstallStagingDir / FileToConstruct).Len() >= PLATFORM_MAX_FILEPATH_LENGTH)
+			if ((InstallStagingDir / FileToConstruct).Len() >= FPlatformMisc::GetMaxPathLength())
 			{
 				GWarn->Logf(TEXT("BuildPatchServices: ERROR: Could not create new file due to exceeding maximum path length %s"), *(InstallStagingDir / FileToConstruct));
 				InstallerError->SetError(EBuildPatchInstallError::PathLengthExceeded, PathLengthErrorCodes::StagingDirectory);

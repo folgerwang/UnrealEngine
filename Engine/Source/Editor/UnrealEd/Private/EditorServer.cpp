@@ -344,10 +344,10 @@ bool UEditorEngine::SafeExec( UWorld* InWorld, const TCHAR* InStr, FOutputDevice
 	else if( FParse::Command( &Str, TEXT( "EXECFILE" ) ) )
 	{
 		// Executes a file that contains a list of commands
-		TCHAR FilenameString[ MAX_EDCMD ];
-		if( FParse::Token( Str, FilenameString, ARRAY_COUNT( FilenameString ), 0 ) )
+		FString FilenameString;
+		if( FParse::Token( Str, FilenameString, false ) )
 		{
-			ExecFile( InWorld, FilenameString, Ar );
+			ExecFile( InWorld, *FilenameString, Ar );
 		}
 
 		return true;
@@ -546,8 +546,6 @@ bool UEditorEngine::SafeExec( UWorld* InWorld, const TCHAR* InStr, FOutputDevice
 
 //@hack: this needs to be cleaned up!
 static const TCHAR* GStream = NULL;
-static TCHAR TempStr[MAX_SPRINTF], TempFname[MAX_EDCMD], TempName[MAX_EDCMD];
-static uint16 Word2;
 
 bool UEditorEngine::Exec_StaticMesh( UWorld* InWorld, const TCHAR* Str, FOutputDevice& Ar )
 {
@@ -942,13 +940,14 @@ bool UEditorEngine::Exec_Brush( UWorld* InWorld, const TCHAR* Str, FOutputDevice
 	}
 	else if( FParse::Command (&Str,TEXT("LOAD")) ) // BRUSH LOAD
 	{
-		if( FParse::Value( Str, TEXT("FILE="), TempFname, 256 ) )
+		FString TempFname;
+		if( FParse::Value( Str, TEXT("FILE="), TempFname ) )
 		{
 			const FScopedBusyCursor BusyCursor;
 
 			ResetTransaction( NSLOCTEXT("UnrealEd", "LoadingBrush", "Loading Brush") );
 			const FVector TempVector = WorldBrush->GetActorLocation();
-			LoadPackage( InWorld->GetOutermost(), TempFname, 0 );
+			LoadPackage( InWorld->GetOutermost(), *TempFname, 0 );
 			WorldBrush->SetActorLocation(TempVector, false);
 			FBSPOps::bspValidateBrush( WorldBrush->Brush, 0, 1 );
 			Cleanse( false, 1, NSLOCTEXT("UnrealEd", "LoadingBrush", "Loading Brush") );
@@ -957,11 +956,12 @@ bool UEditorEngine::Exec_Brush( UWorld* InWorld, const TCHAR* Str, FOutputDevice
 	}
 	else if( FParse::Command( &Str, TEXT("SAVE") ) )
 	{
-		if( FParse::Value(Str,TEXT("FILE="),TempFname, 256) )
+		FString TempFname;
+		if( FParse::Value(Str,TEXT("FILE="),TempFname) )
 		{
-			Ar.Logf( TEXT("Saving %s"), TempFname );
+			Ar.Logf( TEXT("Saving %s"), *TempFname );
 			check(InWorld);
-			this->SavePackage( WorldBrush->Brush->GetOutermost(), WorldBrush->Brush, RF_NoFlags, TempFname, GWarn );
+			this->SavePackage( WorldBrush->Brush->GetOutermost(), WorldBrush->Brush, RF_NoFlags, *TempFname, GWarn );
 		}
 		else
 		{
@@ -971,7 +971,8 @@ bool UEditorEngine::Exec_Brush( UWorld* InWorld, const TCHAR* Str, FOutputDevice
 	}
 	else if( FParse::Command( &Str, TEXT("IMPORT")) )
 	{
-		if( FParse::Value(Str,TEXT("FILE="),TempFname, 256) )
+		FString TempFname;
+		if( FParse::Value(Str,TEXT("FILE="),TempFname) )
 		{
 			const FScopedBusyCursor BusyCursor;
 			const FScopedTransaction Transaction( NSLOCTEXT("UnrealEd", "BrushImport", "Brush Import") );
@@ -985,10 +986,10 @@ bool UEditorEngine::Exec_Brush( UWorld* InWorld, const TCHAR* Str, FOutputDevice
 			FParse::Bool( Str, TEXT("MERGE="), Merge );
 			FParse::Value( Str, TEXT("FLAGS="), Flags );
 			WorldBrush->Brush->Linked = 0;
-			ImportObject<UPolys>( WorldBrush->Brush->Polys->GetOuter(), *WorldBrush->Brush->Polys->GetName(), RF_NoFlags, TempFname );
+			ImportObject<UPolys>( WorldBrush->Brush->Polys->GetOuter(), *WorldBrush->Brush->Polys->GetName(), RF_NoFlags, *TempFname );
 			if( Flags )
 			{
-				for( Word2=0; Word2<TempModel->Polys->Element.Num(); Word2++ )
+				for( int16 Word2=0; Word2<TempModel->Polys->Element.Num(); Word2++ )
 				{
 					WorldBrush->Brush->Polys->Element[Word2].PolyFlags |= Flags;
 				}
@@ -1013,12 +1014,13 @@ bool UEditorEngine::Exec_Brush( UWorld* InWorld, const TCHAR* Str, FOutputDevice
 	}
 	else if (FParse::Command(&Str,TEXT("EXPORT")))
 	{
-		if( FParse::Value(Str,TEXT("FILE="),TempFname, 256) )
+		FString TempFname;
+		if( FParse::Value(Str,TEXT("FILE="),TempFname) )
 		{
 			const FScopedBusyCursor BusyCursor;
 
 			GWarn->BeginSlowTask( NSLOCTEXT("UnrealEd", "ExportingBrush", "Exporting brush"), true );
-			UExporter::ExportToFile( WorldBrush->Brush->Polys, NULL, TempFname, 0 );
+			UExporter::ExportToFile( WorldBrush->Brush->Polys, NULL, *TempFname, 0 );
 			GWarn->EndSlowTask();
 		}
 		else
@@ -1936,7 +1938,7 @@ void UEditorEngine::CheckForWorldGCLeaks( UWorld* NewWorld, UPackage* WorldPacka
 			TMap<UObject*, UProperty*>	Route		= FArchiveTraceRoute::FindShortestRootPath(RemainingWorld, true, GARBAGE_COLLECTION_KEEPFLAGS);
 			FString						ErrorString	= FArchiveTraceRoute::PrintRootPath(Route, RemainingWorld);
 
-			UE_LOG(LogEditorServer, Fatal, TEXT("%s still around trying to load %s") LINE_TERMINATOR TEXT("%s"), *RemainingWorld->GetPathName(), TempFname, *ErrorString);
+			UE_LOG(LogEditorServer, Fatal, TEXT("%s still around while trying to load new map") LINE_TERMINATOR TEXT("%s"), *RemainingWorld->GetPathName(), *ErrorString);
 		}
 	}
 
@@ -1955,7 +1957,7 @@ void UEditorEngine::CheckForWorldGCLeaks( UWorld* NewWorld, UPackage* WorldPacka
 				TMap<UObject*, UProperty*>	Route		= FArchiveTraceRoute::FindShortestRootPath(RemainingPackage, true, GARBAGE_COLLECTION_KEEPFLAGS);
 				FString						ErrorString	= FArchiveTraceRoute::PrintRootPath(Route, RemainingPackage);
 
-				UE_LOG(LogEditorServer, Fatal, TEXT("%s still around trying to load %s") LINE_TERMINATOR TEXT("%s"), *RemainingPackage->GetPathName(), TempFname, *ErrorString);
+				UE_LOG(LogEditorServer, Fatal, TEXT("%s still around while trying to load new map") LINE_TERMINATOR TEXT("%s"), *RemainingPackage->GetPathName(), *ErrorString);
 			}
 		}
 	}
@@ -2333,7 +2335,8 @@ bool UEditorEngine::Map_Load(const TCHAR* Str, FOutputDevice& Ar)
 	FWorldContext &Context = GetEditorWorldContext();
 	check(Context.World() == GWorld);
 
-	if( FParse::Value( Str, TEXT("FILE="), TempFname, 256 ) )
+	FString TempFname;
+	if( FParse::Value( Str, TEXT("FILE="), TempFname ) )
 	{
 		FString LongTempFname;
 		if ( FPackageName::TryConvertFilenameToLongPackageName(TempFname, LongTempFname) )
@@ -2350,7 +2353,7 @@ bool UEditorEngine::Map_Load(const TCHAR* Str, FOutputDevice& Ar)
 			if ( ExistingWorld || FPackageName::DoesPackageExist(LongTempFname, NULL, &UnusedAlteredPath) )
 			{
 				FText NotMapReason;
-				if( !ExistingWorld && !PackageIsAMapFile( TempFname, NotMapReason ) )
+				if( !ExistingWorld && !PackageIsAMapFile( *TempFname, NotMapReason ) )
 				{
 					// Map load failed
 					FFormatNamedArguments Arguments;
@@ -2370,7 +2373,7 @@ bool UEditorEngine::Map_Load(const TCHAR* Str, FOutputDevice& Ar)
 				int32 bShowProgress = 1;
 				FParse::Value(Str, TEXT("SHOWPROGRESS="), bShowProgress);
 
-				FString MapFileName = FPaths::GetCleanFilename(TempFname);
+				FString MapFileName = FPaths::GetCleanFilename(*TempFname);
 
 				// Detect whether the map we are loading is a template map and alter the undo
 				// readout accordingly.
@@ -2533,7 +2536,7 @@ bool UEditorEngine::Map_Load(const TCHAR* Str, FOutputDevice& Ar)
 					TMap<UObject*,UProperty*>	Route		= FArchiveTraceRoute::FindShortestRootPath( WorldPackage, true, GARBAGE_COLLECTION_KEEPFLAGS );
 					FString						ErrorString	= FArchiveTraceRoute::PrintRootPath( Route, WorldPackage );
 
-					UE_LOG(LogEditorServer, Fatal,TEXT("Failed to find the world in %s.") LINE_TERMINATOR TEXT("%s"),*WorldPackage->GetPathName(),TempFname,*ErrorString);
+					UE_LOG(LogEditorServer, Fatal,TEXT("Failed to find the world in %s.") LINE_TERMINATOR TEXT("%s"),*WorldPackage->GetPathName(),*TempFname,*ErrorString);
 				}
 				Context.SetCurrentWorld(World);
 				GWorld = World;
@@ -2728,7 +2731,7 @@ bool UEditorEngine::Map_Load(const TCHAR* Str, FOutputDevice& Ar)
 			}
 			else
 			{
-				UE_LOG(LogEditorServer, Warning, TEXT("%s"), *FString::Printf( TEXT("Can't find file '%s'"), TempFname) );
+				UE_LOG(LogEditorServer, Warning, TEXT("%s"), *FString::Printf( TEXT("Can't find file '%s'"), *TempFname) );
 			}
 		}
 		else
@@ -2749,19 +2752,20 @@ bool UEditorEngine::Map_Load(const TCHAR* Str, FOutputDevice& Ar)
 
 bool UEditorEngine::Map_Import( UWorld* InWorld, const TCHAR* Str, FOutputDevice& Ar )
 {
-	if( FParse::Value( Str, TEXT("FILE="), TempFname, 256) )
+	FString TempFname;
+	if( FParse::Value( Str, TEXT("FILE="), TempFname ) )
 	{
 		const FScopedBusyCursor BusyCursor;
 
 		FFormatNamedArguments Args;
-		Args.Add( TEXT("MapFilename"), FText::FromString( FPaths::GetCleanFilename(TempFname) ) );
+		Args.Add( TEXT("MapFilename"), FText::FromString( FPaths::GetCleanFilename(*TempFname) ) );
 		const FText LocalizedImportingMap = FText::Format( NSLOCTEXT("UnrealEd", "ImportingMap_F", "Importing map: {MapFilename}..." ), Args );
 		
 		ResetTransaction( LocalizedImportingMap );
 		GWarn->BeginSlowTask( LocalizedImportingMap, true );
 		InWorld->ClearWorldComponents();
 		InWorld->CleanupWorld();
-		ImportObject<UWorld>(InWorld->GetOuter(), InWorld->GetFName(), RF_Transactional, TempFname );
+		ImportObject<UWorld>(InWorld->GetOuter(), InWorld->GetFName(), RF_Transactional, *TempFname );
 		GWarn->EndSlowTask();
 
 		// Importing content into a map will likely cause the list of actors in the level to change,
@@ -3731,7 +3735,7 @@ bool UEditorEngine::Map_Check( UWorld* InWorld, const TCHAR* Str, FOutputDevice&
 
 	// Make sure all levels in the world have a filename length less than the max limit
 	// Filenames over the max limit interfere with cooking for consoles.
-	const int32 MaxFilenameLen = MAX_UNREAL_FILENAME_LENGTH;
+	const int32 MaxFilenameLen = FPlatformMisc::GetMaxPathLength();
 	for ( int32 LevelIndex = 0; LevelIndex < InWorld->GetNumLevels(); LevelIndex++ )
 	{
 		ULevel* Level = InWorld->GetLevel( LevelIndex );
@@ -4018,7 +4022,7 @@ bool UEditorEngine::Map_Setbrush( UWorld* InWorld, const TCHAR* Str, FOutputDevi
 
 namespace {
 	/** Implements texmult and texpan*/
-	static void ScaleTexCoords(UWorld* InWorld, const TCHAR* Str)
+	static void ScaleTexCoords(UWorld* InWorld, const TCHAR* Str, int16 Word2)
 	{
 		// Ensure each polygon has unique texture vector indices.
 		for ( TSelectedSurfaceIterator<> It(InWorld) ; It ; ++It )
@@ -4081,8 +4085,7 @@ void UEditorEngine::FlagModifyAllSelectedSurfacesInLevels( UWorld* InWorld )
 bool UEditorEngine::Exec_Poly( UWorld* InWorld, const TCHAR* Str, FOutputDevice& Ar )
 {
 	if( FParse::Command(&Str,TEXT("SELECT")) ) // POLY SELECT [ALL/NONE/INVERSE] FROM [LEVEL/SOLID/GROUP/ITEM/ADJACENT/MATCHING]
-	{		
-		FCString::Sprintf( TempStr, TEXT("POLY SELECT %s"), Str );
+	{
 		if( FParse::Command(&Str,TEXT("NONE")) )
 		{
 			return Exec( InWorld, TEXT("SELECT NONE") );
@@ -4303,12 +4306,12 @@ bool UEditorEngine::Exec_Poly( UWorld* InWorld, const TCHAR* Str, FOutputDevice&
 
 			FlagModifyAllSelectedSurfacesInLevels( InWorld );
 
-			Word2 = 1; // Scale absolute
+			int16 Word2 = 1; // Scale absolute
 			if( FParse::Command(&Str,TEXT("RELATIVE")) )
 			{
 				Word2=0;
 			}
-			ScaleTexCoords( InWorld, Str );
+			ScaleTexCoords( InWorld, Str, Word2 );
 		}
 		RedrawLevelEditingViewports();
 		ULevel::LevelDirtiedEvent.Broadcast();
@@ -4319,8 +4322,8 @@ bool UEditorEngine::Exec_Poly( UWorld* InWorld, const TCHAR* Str, FOutputDevice&
 		{
 			const FScopedTransaction Transaction( NSLOCTEXT("UnrealEd", "PolySetTexmult", "Set Texmult") );
 			FlagModifyAllSelectedSurfacesInLevels( InWorld );
-			Word2 = 0; // Scale relative;
-			ScaleTexCoords( InWorld, Str );
+			int16 Word2 = 0; // Scale relative;
+			ScaleTexCoords( InWorld, Str, Word2 );
 		}
 		RedrawLevelEditingViewports();
 		ULevel::LevelDirtiedEvent.Broadcast();
@@ -4378,9 +4381,11 @@ bool UEditorEngine::Exec_Obj( const TCHAR* Str, FOutputDevice& Ar )
 		UClass* Type;
 		UObject* Res;
 		FParse::Value( Str, TEXT("PACKAGE="), Package );
+
+		FString TempFname;
 		if
 		(	ParseObject<UClass>( Str, TEXT("TYPE="), Type, ANY_PACKAGE )
-		&&	FParse::Value( Str, TEXT("FILE="), TempFname, 256 )
+		&&	FParse::Value( Str, TEXT("FILE="), TempFname )
 		&&	ParseObject( Str, TEXT("NAME="), Type, Res, ANY_PACKAGE ) )
 		{
 			for( FObjectIterator It; It; ++It )
@@ -4389,7 +4394,7 @@ bool UEditorEngine::Exec_Obj( const TCHAR* Str, FOutputDevice& Ar )
 			if( Exporter )
 			{
 				Exporter->ParseParms( Str );
-				UExporter::ExportToFile( Res, Exporter, TempFname, 0 );
+				UExporter::ExportToFile( Res, Exporter, *TempFname, 0 );
 			}
 		}
 		else
@@ -4403,7 +4408,8 @@ bool UEditorEngine::Exec_Obj( const TCHAR* Str, FOutputDevice& Ar )
 		UPackage* Pkg;
 		bool bWasSuccessful = true;
 
-		if( FParse::Value( Str, TEXT( "FILE=" ), TempFname, 256 ) && ParseObject<UPackage>( Str, TEXT( "Package=" ), Pkg, NULL ) )
+		FString TempFname;
+		if( FParse::Value( Str, TEXT( "FILE=" ), TempFname ) && ParseObject<UPackage>( Str, TEXT( "Package=" ), Pkg, NULL ) )
 		{
 			// Allow commandlets proceed without testing if we need to check out on assumption that they know what they are doing.
 			if ( Pkg == nullptr || ( !IsRunningCommandlet() && ( GUnrealEd == nullptr || !GUnrealEd->CanSavePackage(Pkg ) ) ) )
@@ -4435,7 +4441,7 @@ bool UEditorEngine::Exec_Obj( const TCHAR* Str, FOutputDevice& Ar )
 			}
 
 			const bool bWarnOfLongFilename = !bAutosaving;
-			bWasSuccessful = this->SavePackage( Pkg, NULL, RF_Standalone, TempFname, &Ar, NULL, false, bWarnOfLongFilename, SaveFlags );
+			bWasSuccessful = this->SavePackage( Pkg, NULL, RF_Standalone, *TempFname, &Ar, NULL, false, bWarnOfLongFilename, SaveFlags );
 		}
 		else
 		{
@@ -4977,9 +4983,10 @@ bool UEditorEngine::Exec_Camera( const TCHAR* Str, FOutputDevice& Ar )
 	if( bAlign )
 	{
 		// Try to select the named actor if specified.
-		if( FParse::Value( Str, TEXT("NAME="), TempStr, NAME_SIZE ) )
+		FString TempStr;
+		if( FParse::Value( Str, TEXT("NAME="), TempStr ) )
 		{
-			TargetSelectedActor = SelectNamedActor( TempStr );
+			TargetSelectedActor = SelectNamedActor( *TempStr );
 			if ( TargetSelectedActor ) 
 			{
 				NoteSelectionChange();
@@ -5149,7 +5156,7 @@ void UEditorEngine::ExecFile( UWorld* InWorld, const TCHAR* InFilename, FOutputD
 	}
 	else
 	{
-		UE_SUPPRESS(LogExec, Warning, Ar.Logf(TEXT("Can't find file '%s'"), TempFname));
+		UE_SUPPRESS(LogExec, Warning, Ar.Logf(TEXT("Can't find file '%s'"), InFilename));
 	}
 }
 
@@ -5390,7 +5397,6 @@ void ListMapPackageDependencies(const TCHAR* InStr)
 
 bool UEditorEngine::Exec( UWorld* InWorld, const TCHAR* Stream, FOutputDevice& Ar )
 {
-	TCHAR CommandTemp[MAX_EDCMD];
 	TCHAR ErrorTemp[256]=TEXT("Setup: ");
 	bool bProcessed=false;
 
@@ -5404,8 +5410,8 @@ bool UEditorEngine::Exec( UWorld* InWorld, const TCHAR* Stream, FOutputDevice& A
 
 	GStream = Stream;
 
-	FCString::Strncpy( CommandTemp, Stream, ARRAY_COUNT(CommandTemp) );
-	const TCHAR* Str = &CommandTemp[0];
+	FString CommandTemp = Stream;
+	const TCHAR* Str = *CommandTemp;
 
 	FCString::Strncpy( ErrorTemp, Str, 79 );
 	ErrorTemp[79]=0;
@@ -5452,14 +5458,14 @@ bool UEditorEngine::Exec( UWorld* InWorld, const TCHAR* Stream, FOutputDevice& A
 	//
 	else if( FParse::Command( &Str, TEXT("BSP") ) )
 	{
-		return CommandIsDeprecated( CommandTemp, Ar );
+		return CommandIsDeprecated( *CommandTemp, Ar );
 	}
 	//------------------------------------------------------------------------------------
 	// LIGHT
 	//
 	else if( FParse::Command( &Str, TEXT("LIGHT") ) )
 	{
-		return CommandIsDeprecated( CommandTemp, Ar );
+		return CommandIsDeprecated( *CommandTemp, Ar );
 	}
 	//------------------------------------------------------------------------------------
 	// MAP
@@ -5507,7 +5513,7 @@ bool UEditorEngine::Exec( UWorld* InWorld, const TCHAR* Stream, FOutputDevice& A
 	//
 	else if( FParse::Command(&Str,TEXT("NEWANIM")) )
 	{
-		return CommandIsDeprecated( CommandTemp, Ar );
+		return CommandIsDeprecated( *CommandTemp, Ar );
 	}
 	//------------------------------------------------------------------------------------
 	// Transaction tracking and control
@@ -5544,7 +5550,7 @@ bool UEditorEngine::Exec( UWorld* InWorld, const TCHAR* Stream, FOutputDevice& A
 	//
 	if( FParse::Command(&Str,TEXT("LEVEL")) )
 	{
-		return CommandIsDeprecated( CommandTemp, Ar );
+		return CommandIsDeprecated( *CommandTemp, Ar );
 	}
 	//------------------------------------------------------------------------------------
 	// PARTICLE: Particle system-related commands

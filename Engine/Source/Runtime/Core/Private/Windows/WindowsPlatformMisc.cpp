@@ -605,6 +605,27 @@ void FWindowsPlatformMisc::SetGracefulTerminationHandler()
 	SetConsoleCtrlHandler(ConsoleCtrlHandler, true);
 }
 
+int32 FWindowsPlatformMisc::GetMaxPathLength()
+{
+	struct FLongPathsEnabled
+	{
+		bool bValue;
+
+		FLongPathsEnabled()
+		{
+			HMODULE Handle = GetModuleHandle(TEXT("ntdll.dll"));
+
+			typedef BOOLEAN(NTAPI *RtlAreLongPathsEnabledFunc)();
+			RtlAreLongPathsEnabledFunc RtlAreLongPathsEnabled = (RtlAreLongPathsEnabledFunc)(void*)GetProcAddress(Handle, "RtlAreLongPathsEnabled");
+
+			bValue = (RtlAreLongPathsEnabled != NULL && RtlAreLongPathsEnabled());
+		}
+	};
+
+	static FLongPathsEnabled LongPathsEnabled;
+	return LongPathsEnabled.bValue? 32767 : MAX_PATH;
+}
+
 void FWindowsPlatformMisc::GetEnvironmentVariable(const TCHAR* VariableName, TCHAR* Result, int32 ResultLength)
 {
 	uint32 Error = ::GetEnvironmentVariableW(VariableName, Result, ResultLength);

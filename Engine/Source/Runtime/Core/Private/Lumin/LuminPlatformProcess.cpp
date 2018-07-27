@@ -29,9 +29,9 @@ namespace LuminProcess
 			// The common Linux way of using lstat to dynamically discover the length
 			// of the symlink name doesn't work on Lumin. As it returns a zero size
 			// for the link. [RR]
-			char * SelfPath = (char*)FMemory::Malloc(MAX_PATH + 1);
-			FMemory::Memzero(SelfPath, MAX_PATH + 1);
-			if (readlink("/proc/self/exe", SelfPath, MAX_PATH) == -1)
+			char * SelfPath = (char*)FMemory::Malloc(ANDROID_MAX_PATH + 1);
+			FMemory::Memzero(SelfPath, ANDROID_MAX_PATH + 1);
+			if (readlink("/proc/self/exe", SelfPath, ANDROID_MAX_PATH) == -1)
 			{
 				int ErrNo = errno;
 				UE_LOG(LogHAL, Fatal, TEXT("readlink() failed with errno = %d (%s)"), ErrNo,
@@ -40,7 +40,7 @@ namespace LuminProcess
 				return CachedResult;
 			}
 			CachedResult = (TCHAR*)FMemory::Malloc((FCStringAnsi::Strlen(SelfPath) + 1)*sizeof(TCHAR));
-			FCString::Strcpy(CachedResult, MAX_PATH, ANSI_TO_TCHAR(SelfPath));
+			FCString::Strcpy(CachedResult, ANDROID_MAX_PATH, ANSI_TO_TCHAR(SelfPath));
 			FMemory::Free(SelfPath);
 		}
 		return CachedResult;

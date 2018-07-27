@@ -5875,7 +5875,7 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 						// Warn about long package names, which may be bad for consoles with limited filename lengths.
 						if( bWarnOfLongFilename == true )
 						{
-							int32 MaxFilenameLength = MAX_UNREAL_FILENAME_LENGTH;
+							int32 MaxFilenameLength = FPlatformMisc::GetMaxPathLength();
 
 							// If the name is of the form "_LOC_xxx.ext", remove the loc data before the length check
 							FString CleanBaseFilename = BaseFilename;

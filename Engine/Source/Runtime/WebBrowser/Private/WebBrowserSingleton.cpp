@@ -121,7 +121,7 @@ FString FWebBrowserSingleton::ApplicationCacheDir() const
 {
 #if PLATFORM_MAC
 	// OSX wants caches in a separate location from other app data
-	static TCHAR Result[MAX_PATH] = TEXT("");
+	static TCHAR Result[MAC_MAX_PATH] = TEXT("");
 	if (!Result[0])
 	{
 		SCOPED_AUTORELEASE_POOL;

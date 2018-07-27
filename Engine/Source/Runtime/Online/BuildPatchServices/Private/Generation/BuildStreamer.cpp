@@ -35,8 +35,8 @@ namespace BuildPatchServices
 	static FString GetSymlinkTarget(const TCHAR* Filename)
 	{
 #if PLATFORM_MAC
-		ANSICHAR SymlinkTarget[MAX_PATH] = { 0 };
-		if (readlink(TCHAR_TO_UTF8(Filename), SymlinkTarget, MAX_PATH) != -1)
+		ANSICHAR SymlinkTarget[MAC_MAX_PATH] = { 0 };
+		if (readlink(TCHAR_TO_UTF8(Filename), SymlinkTarget, MAC_MAX_PATH) != -1)
 		{
 			return UTF8_TO_TCHAR(SymlinkTarget);
 		}

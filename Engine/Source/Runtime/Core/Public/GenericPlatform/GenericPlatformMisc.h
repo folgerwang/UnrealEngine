@@ -310,6 +310,14 @@ struct CORE_API FGenericPlatformMisc
 	static void SetEnvironmentVar(const TCHAR* VariableName, const TCHAR* Value);
 
 	/**
+	 * Returns the maximum length of a path
+	 */
+	FORCEINLINE static int32 GetMaxPathLength()
+	{
+		return 128;
+	}
+
+	/**
 	 * return the delimiter between paths in the PATH environment variable.
 	 */
 	static const TCHAR* GetPathVarDelimiter();

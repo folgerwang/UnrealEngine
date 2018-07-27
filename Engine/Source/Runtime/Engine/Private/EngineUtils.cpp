@@ -170,9 +170,9 @@ bool FContentComparisonHelper::CompareClasses(const FString& InBaseClassName, co
 	FString EditedBaseClassName = InBaseClassName;
 	FString TimeString = *FDateTime::Now().ToString();
 	FString CheckLenName = FString::Printf(TEXT("%s-%s.csv"),*InBaseClassName,*TimeString);
-	if (CheckLenName.Len() > PLATFORM_MAX_FILEPATH_LENGTH)
+	if (CheckLenName.Len() > FPlatformMisc::GetMaxPathLength())
 	{
-		while (CheckLenName.Len() > PLATFORM_MAX_FILEPATH_LENGTH)
+		while (CheckLenName.Len() > FPlatformMisc::GetMaxPathLength())
 		{
 			EditedBaseClassName = EditedBaseClassName.Right(EditedBaseClassName.Len() - 1);
 			CheckLenName = FString::Printf(TEXT("%s-%s.csv"),*EditedBaseClassName,*TimeString);

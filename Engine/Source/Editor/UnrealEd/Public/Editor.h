@@ -24,9 +24,6 @@ class UFactory;
 /** The shorthand identifier used for editor modes */
 typedef FName FEditorModeID;
 
-/** Max Unrealed->Editor Exec command string length. */
-#define MAX_EDCMD 512
-
 /** The editor object. */
 extern UNREALED_API class UEditorEngine* GEditor;
 
