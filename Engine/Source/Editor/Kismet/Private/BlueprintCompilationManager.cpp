@@ -305,6 +305,7 @@ struct FCompilerData
 	bool IsSkeletonOnly() const { return JobType == ECompilationManagerJobType::SkeletonOnly; }
 	bool ShouldResetClassMembers() const { return JobType != ECompilationManagerJobType::RelinkOnly; }
 	bool ShouldSetTemporaryBlueprintFlags() const { return JobType != ECompilationManagerJobType::RelinkOnly; }
+	bool ShouldResetErrorState() const { return JobType == ECompilationManagerJobType::Normal && InternalOptions.CompileType != EKismetCompileType::BytecodeOnly; }
 	bool ShouldValidateVariableNames() const { return JobType == ECompilationManagerJobType::Normal; }
 	bool ShouldRegenerateSkeleton() const { return JobType != ECompilationManagerJobType::RelinkOnly; }
 	bool ShouldMarkUpToDateAfterSkeletonStage() const { return IsSkeletonOnly(); }
@@ -517,16 +518,31 @@ void FBlueprintCompilationManagerImpl::FlushCompilationQueueImpl(TArray<UObject*
 		// STAGE IV: Set UBlueprint flags (bBeingCompiled, bIsRegeneratingOnLoad)
 		for (FCompilerData& CompilerData : CurrentlyCompilingBPs)
 		{
-			if(CompilerData.ShouldSetTemporaryBlueprintFlags())
+			if (!CompilerData.ShouldSetTemporaryBlueprintFlags())
 			{
-				UBlueprint* BP = CompilerData.BP;
-				BP->bBeingCompiled = true;
-				BP->CurrentMessageLog = CompilerData.ActiveResultsLog;
-				BP->bIsRegeneratingOnLoad = !BP->bHasBeenRegenerated && BP->GetLinker();
-				if(BP->bIsRegeneratingOnLoad)
+				continue;
+			}
+
+			UBlueprint* BP = CompilerData.BP;
+			BP->bBeingCompiled = true;
+			BP->CurrentMessageLog = CompilerData.ActiveResultsLog;
+			BP->bIsRegeneratingOnLoad = !BP->bHasBeenRegenerated && BP->GetLinker();
+			if(BP->bIsRegeneratingOnLoad)
+			{
+				// we may have cached dependencies before being fully loaded:
+				BP->bCachedDependenciesUpToDate = false;
+			}
+
+			if(CompilerData.ShouldResetErrorState())
+			{
+				TArray<UEdGraph*> AllGraphs;
+				BP->GetAllGraphs(AllGraphs);
+				for (UEdGraph* Graph : AllGraphs )
 				{
-					// we may have cached dependencies before being fully loaded:
-					BP->bCachedDependenciesUpToDate = false;
+					for (UEdGraphNode* GraphNode : Graph->Nodes)
+					{
+						GraphNode->ClearCompilerMessage();
+					}
 				}
 			}
 		}

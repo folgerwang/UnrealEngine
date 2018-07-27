@@ -413,11 +413,11 @@ void ReduceCS(
 		#if SCATTER_ALLOC_METHOD == SCATTER_ALLOC_METHOD_WAVE
 		{
 			#if DIM_HYBRID_SCATTER_FGD
-				ForegroundScatterGroupMask = WaveAllBitOr((bScatterThisColor && bIsForeground) ? ScatteringGroupIndex : 0);
+				ForegroundScatterGroupMask = WaveAllBitOr((bScatterThisColor && bIsForeground) ? ScatteringGroupMask : 0);
 			#endif
 			
 			#if DIM_HYBRID_SCATTER_BGD
-				BackgroundScatterGroupMask = WaveAllBitOr((bScatterThisColor && !bIsForeground) ? ScatteringGroupIndex : 0);
+				BackgroundScatterGroupMask = WaveAllBitOr((bScatterThisColor && !bIsForeground) ? ScatteringGroupMask : 0);
 			#endif
 		}
 		#elif SCATTER_ALLOC_METHOD == SCATTER_ALLOC_METHOD_ATOMIC
@@ -450,12 +450,12 @@ void ReduceCS(
 		{
 			#if DIM_HYBRID_SCATTER_FGD
 				SharedForegroundScatterGroupMask[GroupThreadIndex] = (
-					(bScatterThisColor && bIsForeground) ? ScatteringGroupIndex : 0);
+					(bScatterThisColor && bIsForeground) ? ScatteringGroupMask : 0);
 			#endif
 
 			#if DIM_HYBRID_SCATTER_BGD
 				SharedBackgroundScatterGroupMask[GroupThreadIndex] = (
-					(bScatterThisColor && !bIsForeground) ? ScatteringGroupIndex : 0);
+					(bScatterThisColor && !bIsForeground) ? ScatteringGroupMask : 0);
 			#endif
 
 			GroupMemoryBarrierWithGroupSync();

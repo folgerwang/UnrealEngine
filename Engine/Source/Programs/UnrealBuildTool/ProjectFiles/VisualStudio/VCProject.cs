@@ -1193,7 +1193,7 @@ namespace UnrealBuildTool
 					{
 						// Figure out what the compiled binary will be called so that we can point the IDE to the correct file
 						string TargetConfigurationName = TargetRulesObject.Type.ToString();
-						if (TargetConfigurationName != TargetType.Game.ToString() && TargetConfigurationName != TargetType.Program.ToString())
+						if (TargetConfigurationName != TargetType.Game.ToString() && TargetConfigurationName != TargetType.Program.ToString() && TargetRulesObject.BuildEnvironment != TargetBuildEnvironment.Unique)
 						{
 							BaseExeName = "UE4" + TargetConfigurationName;
 						}

@@ -144,7 +144,7 @@
 		Engine/Build/Target.cs.template
 	</Property>
   <!-- Optional API docs -->
-  <Property Name="CopyEditorFilter" Value="$(CopyEditorFilter);Engine/Documentation/Builds/CodeAPI-HTML.tgz" If="Exists('Engine/Documentation/Builds/CodeAPI-HTML.tgz')"/>
+  <Property Name="CopyEditorFilter" Value="$(CopyEditorFilter);Engine/Documentation/Builds/CppAPI-HTML.tgz" If="Exists('Engine/Documentation/Builds/CppAPI-HTML.tgz')"/>
   <Property Name="CopyEditorFilter" Value="$(CopyEditorFilter);Engine/Documentation/Builds/BlueprintAPI-HTML.tgz" If="Exists('Engine/Documentation/Builds/BlueprintAPI-HTML.tgz')"/>
   <!-- Don't add VR template for Mac and Linux -->
 	<Property Name="CopyEditorFilter" Value="$(CopyEditorFilter);Templates/TP_VirtualRealityBP/..." If="'$(HostPlatform)' != 'Linux'"/>
@@ -201,10 +201,6 @@
 
 			<!-- Binaries which are explicitly staged by UAT rather than listing runtime dependencies -->
 			Engine/Binaries/ThirdParty/OpenSSL/...
-
-			<!-- Linux cross build Debug tools -->
-			Engine/Binaries/Linux/dump_syms.exe
-			Engine/Binaries/Linux/BreakpadSymbolEncoder.exe
 
 			<!-- Extra tools -->
 			Engine/Extras/3dsMaxScripts/...
@@ -402,6 +398,12 @@
 		Engine/Binaries/ThirdParty/ICU/icu4c-53_1/Linux/x86_64-unknown-linux-gnu/*.so
 		Engine/Source/ThirdParty/Linux/LibCxx/...
 		Engine/Source/ThirdParty/Linux/HaveLinuxDependencies
+	</Property>
+
+	<Property Name="CopyLinuxFilter" Value="$(CopyLinuxFilter)" If="'$(HostPlatform)' == 'Win64'">
+		<!-- Linux cross build Debug tools -->
+		Engine/Binaries/Linux/dump_syms.exe
+		Engine/Binaries/Linux/BreakpadSymbolEncoder.exe
 	</Property>
 
 	<Property Name="CopyLinuxExceptions">

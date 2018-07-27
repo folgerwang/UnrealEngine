@@ -84,7 +84,7 @@ struct FDatasmithObjectTemplateUtils
 
 			if ( !UserData )
 			{
-				UserData = NewObject< UDatasmithAssetUserData >( Outer, NAME_None );
+				UserData = NewObject< UDatasmithAssetUserData >( Outer, NAME_None, RF_Public | RF_Transactional );
 				AssetUserDataInterface->AddAssetUserData( UserData );
 			}
 		}
