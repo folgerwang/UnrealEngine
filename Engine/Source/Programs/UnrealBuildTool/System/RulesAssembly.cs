@@ -357,6 +357,11 @@ namespace UnrealBuildTool
 				RulesObject.bPrecompile = RulesObject.bTreatAsEngineModule && Target.bPrecompile;
 				RulesObject.bUsePrecompiled = (RulesObject.bTreatAsEngineModule && Target.bUsePrecompiled) || bInstalled;
 
+				if (ModuleFileName.IsUnderDirectory( UnrealBuildTool.EnterpriseDirectory ) && !UnrealBuildTool.IsEnterpriseInstalled())
+				{
+					RulesObject.bUsePrecompiled = false;
+				}
+
 				// Call the constructor
 				ConstructorInfo Constructor = RulesObjectType.GetConstructor(new Type[] { typeof(ReadOnlyTargetRules) });
 				if(Constructor == null)
