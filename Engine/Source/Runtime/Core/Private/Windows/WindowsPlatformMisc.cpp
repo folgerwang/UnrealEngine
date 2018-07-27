@@ -616,18 +616,9 @@ void FWindowsPlatformMisc::GetEnvironmentVariable(const TCHAR* VariableName, TCH
 
 FString FWindowsPlatformMisc::GetEnvironmentVariable(const TCHAR* VariableName)
 {
-	// Attempt to get the environment variable into a local buffer. If it succeeds, we can just copy the result into a string. If it fails, we have the length of the buffer we need to allocate.
-	TCHAR LocalBuffer[128];
-	uint32 Length = ::GetEnvironmentVariableW(VariableName, LocalBuffer, ARRAY_COUNT(LocalBuffer));
-	if (Length < ARRAY_COUNT(LocalBuffer))
-	{
-		LocalBuffer[Length] = 0;
-		return LocalBuffer;
-	}
-
-	// Allocate the data for the string. Loop in case the variable happens to change while running.
+	// Allocate the data for the string. Loop in case the variable happens to change while running, or the buffer isn't large enough.
 	FString Buffer;
-	for (;;)
+	for(uint32 Length = 128;;)
 	{
 		TArray<TCHAR>& CharArray = Buffer.GetCharArray();
 		CharArray.SetNumUninitialized(Length);
@@ -640,7 +631,6 @@ FString FWindowsPlatformMisc::GetEnvironmentVariable(const TCHAR* VariableName)
 		}
 		else if (Length < (uint32)CharArray.Num())
 		{
-			CharArray[Length] = 0;
 			CharArray.SetNum(Length + 1);
 			break;
 		}

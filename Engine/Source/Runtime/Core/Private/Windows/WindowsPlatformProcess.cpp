@@ -941,22 +941,19 @@ void FWindowsPlatformProcess::SetCurrentWorkingDirectoryToBaseDir()
 /** Get the current working directory (only really makes sense on desktop platforms) */
 FString FWindowsPlatformProcess::GetCurrentWorkingDirectory()
 {
-	// Attempt to get the environment variable into a local buffer. If it succeeds, we can just copy the result into a string. If it fails, we have the length of the buffer we need to allocate.
-	TCHAR LocalBuffer[260];
-	uint32 Length = ::GetCurrentDirectoryW(ARRAY_COUNT(LocalBuffer), LocalBuffer);
-	if (Length < ARRAY_COUNT(LocalBuffer))
-	{
-		return LocalBuffer;
-	}
-
-	// Allocate the data for the string. Loop in case the variable happens to change while running.
+	// Allocate the data for the string. Loop in case the variable happens to change while running, or the buffer isn't large enough.
 	FString Buffer;
-	for (;;)
+	for (uint32 Length = 128;;)
 	{
 		TArray<TCHAR>& CharArray = Buffer.GetCharArray();
 		CharArray.SetNumUninitialized(Length);
 
 		Length = ::GetCurrentDirectoryW(CharArray.Num(), CharArray.GetData());
+		if (Length == 0)
+		{
+			Buffer.Reset();
+			break;
+		}
 		if (Length < (uint32)CharArray.Num())
 		{
 			CharArray.SetNum(Length + 1);

@@ -688,30 +688,29 @@ public:
 		}
 		else
 		{
-			TCHAR NormalizedFileName[MAX_PATH + 1];
-			int Length = (int)GetFinalPathNameByHandle(hFile, NormalizedFileName, MAX_PATH, FILE_NAME_NORMALIZED);
-			NormalizedFileName[Length] = 0;
+			FString NormalizedFileName;
+			for(uint32 Length = FCString::Strlen(Filename) + 10;;)
+			{
+				TArray<TCHAR>& CharArray = NormalizedFileName.GetCharArray();
+				CharArray.SetNum(Length);
+
+				Length = GetFinalPathNameByHandle(hFile, CharArray.GetData(), CharArray.Num(), FILE_NAME_NORMALIZED);
+				if (Length == 0)
+				{
+					NormalizedFileName = Filename;
+					break;
+				}
+				if (Length < (uint32)CharArray.Num())
+				{
+					CharArray.SetNum(Length + 1);
+					break;
+				}
+			}
+
 			CloseHandle(hFile);
 
-			int SrcIdx = 0;
-			if(FCString::Strncmp(NormalizedFileName, TEXT("\\\\?\\"), 4) == 0)
-			{
-				SrcIdx = 4;
-			}
-
-			int DstIdx = 0;
-			for(; NormalizedFileName[SrcIdx] != 0; SrcIdx++, DstIdx++)
-			{
-				if(NormalizedFileName[SrcIdx] == '\\')
-				{
-					NormalizedFileName[DstIdx] = '/';
-				}
-				else
-				{
-					NormalizedFileName[DstIdx] = NormalizedFileName[SrcIdx];
-				}
-			}
-			NormalizedFileName[DstIdx] = 0;
+			NormalizedFileName.RemoveFromStart(TEXT("\\\\?\\"), ESearchCase::CaseSensitive);
+			NormalizedFileName.ReplaceInline(TEXT("\\"), TEXT("/"));
 
 			return NormalizedFileName;
 		}
