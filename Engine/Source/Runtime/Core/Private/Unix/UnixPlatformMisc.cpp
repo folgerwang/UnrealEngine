@@ -33,6 +33,7 @@
 #include <ifaddrs.h>
 #include <net/if.h>
 #include <net/if_arp.h>
+#include <linux/limits.h>
 
 #include "Modules/ModuleManager.h"
 #include "HAL/ThreadHeartBeat.h"
@@ -179,6 +180,11 @@ void FUnixPlatformMisc::PlatformTearDown()
 	}
 
 	FPlatformProcess::CeaseBeingFirstInstance();
+}
+
+int32 FUnixPlatformMisc::GetMaxPathLength()
+{
+	return PATH_MAX;
 }
 
 void FUnixPlatformMisc::GetEnvironmentVariable(const TCHAR* InVariableName, TCHAR* Result, int32 ResultLength)

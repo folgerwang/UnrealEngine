@@ -29,11 +29,7 @@ struct CORE_API FUnixPlatformMisc : public FGenericPlatformMisc
 	static void PlatformTearDown();
 	static void SetGracefulTerminationHandler();
 	static void SetCrashHandler(void (* CrashHandler)(const FGenericCrashContext& Context));
-
-	FORCEINLINE static int32 GetMaxPathLength()
-	{
-		return PATH_MAX;
-	}
+	static int32 GetMaxPathLength();
 
 	DEPRECATED(4.21, "void FPlatformMisc::GetEnvironmentVariable(Name, Result, Length) is deprecated. Use FString FPlatformMisc::GetEnvironmentVariable(Name) instead.")
 	static void GetEnvironmentVariable(const TCHAR* VariableName, TCHAR* Result, int32 ResultLength);
