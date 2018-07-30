@@ -183,18 +183,19 @@ namespace UnrealBuildTool
 										CompletedThread.Join();
 										ExecutingActions.Remove(CompletedAction);
 
-										// Write it to the log
-										if(CompletedAction.LogLines.Count > 0)
-										{
-											foreach(string LogLine in CompletedAction.LogLines)
-											{
-												Log.TraceInformation(LogLine);
-											}
-										}
-
 										// Update the progress
 										NumCompletedActions++;
 										ProgressWriter.Write(NumCompletedActions, InputActions.Count);
+
+										// Write it to the log
+										if(CompletedAction.LogLines.Count > 0)
+										{
+											Log.TraceInformation("[{0}/{1}] {2}", NumCompletedActions, InputActions.Count, CompletedAction.LogLines[0]);
+											for(int LineIdx = 1; LineIdx < CompletedAction.LogLines.Count; LineIdx++)
+											{
+												Log.TraceInformation("{0}", CompletedAction.LogLines[LineIdx]);
+											}
+										}
 
 										// Check the exit code
 										if(CompletedAction.ExitCode == 0)
