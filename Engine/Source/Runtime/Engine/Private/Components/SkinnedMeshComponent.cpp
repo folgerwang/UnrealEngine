@@ -1047,7 +1047,8 @@ FMatrix USkinnedMeshComponent::GetBoneMatrix(int32 BoneIdx) const
 	}
 	else
 	{
-		if(GetNumComponentSpaceTransforms() && BoneIdx < GetNumComponentSpaceTransforms() )
+		const int32 NumTransforms = GetNumComponentSpaceTransforms();
+		if(BoneIdx >= 0 && BoneIdx < NumTransforms)
 		{
 			return GetComponentSpaceTransforms()[BoneIdx].ToMatrixWithScale() * GetComponentTransform().ToMatrixWithScale();
 		}
@@ -1108,7 +1109,7 @@ FTransform USkinnedMeshComponent::GetBoneTransform(int32 BoneIdx, const FTransfo
 	else
 	{
 		const int32 NumTransforms = GetNumComponentSpaceTransforms();
-		if(NumTransforms > 0 && BoneIdx < NumTransforms)
+		if(BoneIdx >= 0 && BoneIdx < NumTransforms)
 		{
 			return GetComponentSpaceTransforms()[BoneIdx] * LocalToWorld;
 		}
