@@ -2460,6 +2460,7 @@ void FInternalPlayWorldCommandCallbacks::LaunchOnDevice( const FString& DeviceId
 
 		if (FModuleManager::LoadModuleChecked<IProjectTargetPlatformEditorModule>("ProjectTargetPlatformEditor").ShowUnsupportedTargetWarning(*TargetDeviceId.GetPlatformName()))
 		{
+			GUnrealEd->CancelPlayingViaLauncher();
 			GUnrealEd->RequestPlaySession(DeviceId, DeviceName);
 		}
 	}
