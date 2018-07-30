@@ -541,7 +541,10 @@ void FBlueprintCompilationManagerImpl::FlushCompilationQueueImpl(TArray<UObject*
 				{
 					for (UEdGraphNode* GraphNode : Graph->Nodes)
 					{
-						GraphNode->ClearCompilerMessage();
+						if (GraphNode)
+						{
+							GraphNode->ClearCompilerMessage();
+						}
 					}
 				}
 			}
