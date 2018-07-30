@@ -1189,6 +1189,7 @@ namespace UnrealBuildTool
 						SubdirectoryNamesToExclude.Add("Receipts");
 						SubdirectoryNamesToExclude.Add("Scripts");
 						SubdirectoryNamesToExclude.Add("FileOpenOrder");
+						SubdirectoryNamesToExclude.Add("PipelineCaches");
 
 						ProjectFile GameProjectFile = GameFolderAndProjectFile.Value;
 						GameProjectFile.AddFilesToProject( SourceFileSearch.FindFiles( GameBuildDirectory, SubdirectoryNamesToExclude ), GameProjectDirectory );
