@@ -88,15 +88,16 @@ void FNiagaraSystemViewModel::Cleanup()
 {
 	UE_LOG(LogNiagaraEditor, Warning, TEXT("Cleanup System view model %p"), this);
 
-	if (PreviewComponent)
-	{
-		PreviewComponent->OnSystemInstanceChanged().RemoveAll(this);
-	}
-
 	if (SystemInstance)
 	{
 		SystemInstance->OnInitialized().RemoveAll(this);
 		SystemInstance->OnReset().RemoveAll(this);
+	}
+
+	if (PreviewComponent)
+	{
+		PreviewComponent->OnSystemInstanceChanged().RemoveAll(this);
+		PreviewComponent->DeactivateImmediate();
 	}
 
 	CurveOwner.EmptyCurves();
