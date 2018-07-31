@@ -298,7 +298,7 @@ public class UnrealEd : ModuleRules
 			"FreeType2"
 		);
 
-		SetupModulePhysXAPEXSupport(Target);
+		SetupModulePhysicsSupport(Target);
 
 		if (Target.bCompileRecast)
 		{

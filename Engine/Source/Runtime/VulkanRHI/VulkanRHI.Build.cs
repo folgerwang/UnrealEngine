@@ -34,7 +34,7 @@ public class VulkanRHI : ModuleRules
 			}
 		);
 
-		if (Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Win64)
+		if (Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Win64 || Target.Platform == UnrealTargetPlatform.Android)
 		{
 			string VulkanSDKPath = Environment.GetEnvironmentVariable("VULKAN_SDK");
 			bool bSDKInstalled = !String.IsNullOrEmpty(VulkanSDKPath);
@@ -84,38 +84,12 @@ public class VulkanRHI : ModuleRules
 				AddEngineThirdPartyPrivateStaticDependencies(Target, "VkHeadersExternal");
 			}
 		}
-        else if (Target.Platform == UnrealTargetPlatform.Android || Target.Platform == UnrealTargetPlatform.Mac || Target.Platform == UnrealTargetPlatform.Lumin)
+        else if (Target.Platform == UnrealTargetPlatform.Mac || Target.Platform == UnrealTargetPlatform.Lumin)
         {
 			string VulkanSDKPath = Environment.GetEnvironmentVariable("VULKAN_SDK");
 
 			bool bHaveVulkan = false;
-			if (Target.Platform == UnrealTargetPlatform.Android)
-			{
-				// Note: header is the same for all architectures so just use arch-arm
-				string NDKPath = Environment.GetEnvironmentVariable("NDKROOT");
-				string NDKVulkanIncludePath = NDKPath + "/platforms/android-24/arch-arm/usr/include/vulkan";
-
-				// Use NDK Vulkan header if discovered, or VulkanSDK if available
-				if (File.Exists(NDKVulkanIncludePath + "/vulkan.h"))
-				{
-					bHaveVulkan = true;
-					PrivateIncludePaths.Add(NDKVulkanIncludePath);
-				}
-				else
-				if (!String.IsNullOrEmpty(VulkanSDKPath))
-				{
-					// If the user has an installed SDK, use that instead
-					bHaveVulkan = true;
-					PrivateIncludePaths.Add(VulkanSDKPath + "/Include/vulkan");
-				}
-				else
-				{
-					// Fall back to the Windows Vulkan SDK (the headers are the same)
-					bHaveVulkan = true;
-					PrivateIncludePaths.Add(Target.UEThirdPartySourceDirectory + "Vulkan/Windows/Include/vulkan");
-				}
-			}
-			else if (Target.Platform == UnrealTargetPlatform.Lumin)
+			if (Target.Platform == UnrealTargetPlatform.Lumin)
 			{
 				// Note: Lumin include path is public because plugin type requirements
 				// Note: header is the same for all architectures so just use default

@@ -56,10 +56,10 @@ public:
 	static void RetrieveCullingLandscapeAndVolumes(UWorld* InWorld, const FBoxSphereBounds& EstimatedMeshProxyBounds, const TEnumAsByte<ELandscapeCullingPrecision::Type> PrecisionType, TArray<FRawMesh*>& CullingRawMeshes);
 
 	/** Transforms physics geometry data using InTransform */
-	static void TransformPhysicsGeometry(const FTransform& InTransform, struct FKAggregateGeom& AggGeom);
+	static void TransformPhysicsGeometry(const FTransform& InTransform, const bool bBakeConvexTransform, struct FKAggregateGeom& AggGeom);
 	
 	/** Extract physics geometry data from a body setup */
-	static void ExtractPhysicsGeometry(UBodySetup* InBodySetup, const FTransform& ComponentToWorld, struct FKAggregateGeom& OutAggGeom);
+	static void ExtractPhysicsGeometry(UBodySetup* InBodySetup, const FTransform& ComponentToWorld, const bool bBakeConvexTransform, struct FKAggregateGeom& OutAggGeom);
 
 	/** Ensure that UV is in valid 0-1 UV ranges */
 	static FVector2D GetValidUV(const FVector2D& UV);

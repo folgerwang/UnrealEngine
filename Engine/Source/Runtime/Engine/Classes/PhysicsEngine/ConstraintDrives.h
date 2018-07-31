@@ -108,11 +108,6 @@ struct ENGINE_API FLinearDriveConstraint
 		return XDrive.bEnableVelocityDrive || YDrive.bEnableVelocityDrive || ZDrive.bEnableVelocityDrive;
 	}
 
-#if WITH_PHYSX
-	/** Updates physx drive with properties from unreal */
-	void UpdatePhysXLinearDrive_AssumesLocked(physx::PxD6Joint* Joint) const;
-#endif
-
 private:
 	friend struct FConstraintInstance;
 	//These functions may leave the struct in an invalid state unless calling UpdatePhysX* functions.

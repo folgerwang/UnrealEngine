@@ -672,14 +672,35 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
-		/// Setup this module for PhysX/APEX support (based on the settings in UEBuildConfiguration)
+		/// Setup this module for physics support (based on the settings in UEBuildConfiguration)
 		/// </summary>
-		public void SetupModulePhysXAPEXSupport(ReadOnlyTargetRules Target)
+		public void SetupModulePhysicsSupport(ReadOnlyTargetRules Target)
 		{
-			// definitions used outside of PhysX/APEX need to be set here, not in PhysX.Build.cs or APEX.Build.cs, 
-			// since we need to make sure we always set it, even to 0 (because these are Private dependencies, the
-			// defines inside their Build.cs files won't leak out)
-			if (Target.bCompilePhysX == true)
+            bool bUseNonPhysXInterface = Target.bUseApeiron == true || Target.bCompileImmediatePhysics == true;
+
+            // 
+            if (Target.bCompileApeiron == true || Target.bUseApeiron == true)
+            {
+                PublicDefinitions.Add("INCLUDE_APEIRON=1");
+                PublicIncludePathModuleNames.AddRange(
+                    new string[] {
+                        "Apeiron",
+                    }
+                );
+                PublicDependencyModuleNames.AddRange(
+                  new string[] {
+                        "Apeiron",
+                  }
+                );
+            }
+            else
+            {
+                PublicDefinitions.Add("INCLUDE_APEIRON=0");
+            }
+            // definitions used outside of PhysX/APEX need to be set here, not in PhysX.Build.cs or APEX.Build.cs, 
+            // since we need to make sure we always set it, even to 0 (because these are Private dependencies, the
+            // defines inside their Build.cs files won't leak out)
+            if (Target.bCompilePhysX == true)
 			{
 				PrivateDependencyModuleNames.Add("PhysX");
 				PublicDefinitions.Add("WITH_PHYSX=1");
@@ -689,43 +710,103 @@ namespace UnrealBuildTool
 				PublicDefinitions.Add("WITH_PHYSX=0");
 			}
 
-			if (Target.bCompileAPEX == true)
+			if(!bUseNonPhysXInterface)
 			{
-				if (!Target.bCompilePhysX)
+				// Disable non-physx interfaces
+				PublicDefinitions.Add("WITH_APEIRON=0");
+				PublicDefinitions.Add("PHYSICS_INTERFACE_LLIMMEDIATE=0");
+
+				if (Target.bCompilePhysX)
 				{
-					throw new BuildException("APEX is enabled, without PhysX. This is not supported!");
+					PublicDefinitions.Add("PHYSICS_INTERFACE_PHYSX=1");
+				}
+				else
+				{
+					PublicDefinitions.Add("PHYSICS_INTERFACE_PHYSX=0");
 				}
 
-				PrivateDependencyModuleNames.Add("APEX");
-				PublicDefinitions.Add("WITH_APEX=1");
-				PublicDefinitions.Add("WITH_APEX_CLOTHING=1");
-				PublicDefinitions.Add("WITH_CLOTH_COLLISION_DETECTION=1");
-				PublicDefinitions.Add("WITH_PHYSX_COOKING=1");  // APEX currently relies on cooking even at runtime
+				if (Target.bCompileAPEX == true)
+				{
+					if (!Target.bCompilePhysX)
+					{
+						throw new BuildException("APEX is enabled, without PhysX. This is not supported!");
+					}
+					PrivateDependencyModuleNames.Add("APEX");
+					PublicDefinitions.Add("WITH_APEX=1");
+					PublicDefinitions.Add("WITH_APEX_CLOTHING=1");
+					PublicDefinitions.Add("WITH_CLOTH_COLLISION_DETECTION=1");
+					PublicDefinitions.Add("WITH_PHYSX_COOKING=1");  // APEX currently relies on cooking even at runtime
 
+				}
+				else
+				{
+					PublicDefinitions.Add("WITH_APEX=0");
+					PublicDefinitions.Add("WITH_APEX_CLOTHING=0");
+					PublicDefinitions.Add("WITH_CLOTH_COLLISION_DETECTION=0");
+					PublicDefinitions.Add(string.Format("WITH_PHYSX_COOKING={0}", Target.bBuildEditor && Target.bCompilePhysX ? 1 : 0));  // without APEX, we only need cooking in editor builds
+				}
+
+				if (Target.bCompileNvCloth == true)
+				{
+					if (!Target.bCompilePhysX)
+					{
+						throw new BuildException("NvCloth is enabled, without PhysX. This is not supported!");
+					}
+
+					PrivateDependencyModuleNames.Add("NvCloth");
+					PublicDefinitions.Add("WITH_NVCLOTH=1");
+
+				}
+				else
+				{
+					PublicDefinitions.Add("WITH_NVCLOTH=0");
+				}
 			}
 			else
 			{
+				// Disable apex/cloth/physx interface
+				PublicDefinitions.Add("PHYSICS_INTERFACE_PHYSX=0");
 				PublicDefinitions.Add("WITH_APEX=0");
 				PublicDefinitions.Add("WITH_APEX_CLOTHING=0");
 				PublicDefinitions.Add("WITH_CLOTH_COLLISION_DETECTION=0");
 				PublicDefinitions.Add(string.Format("WITH_PHYSX_COOKING={0}", Target.bBuildEditor && Target.bCompilePhysX ? 1 : 0));  // without APEX, we only need cooking in editor builds
-			}
+				PublicDefinitions.Add("WITH_NVCLOTH=0");
 
-			if (Target.bCompileNvCloth == true)
-			{
-				if (!Target.bCompilePhysX)
+				if(Target.bUseApeiron)
 				{
-					throw new BuildException("NvCloth is enabled, without PhysX. This is not supported!");
+					PublicDefinitions.Add("WITH_APEIRON=1");
+					PublicDefinitions.Add("COMPILE_ID_TYPES_AS_INTS=0");
+					
+					PublicIncludePathModuleNames.AddRange(
+						new string[] {
+						"Apeiron",
+						}
+					);
+
+					PublicDependencyModuleNames.AddRange(
+						new string[] {
+						"Apeiron",
+						}
+					);
+				}
+				else
+				{
+					PublicDefinitions.Add("WITH_APEIRON=0");
 				}
 
-				PrivateDependencyModuleNames.Add("NvCloth");
-                PublicDefinitions.Add("WITH_NVCLOTH=1");
+				if(Target.bCompileImmediatePhysics)
+				{
+					PublicDefinitions.Add("PHYSICS_INTERFACE_LLIMMEDIATE=1");
+					PublicDependencyModuleNames.Add("PhysX");
+				}
+				else
+				{
+					PublicDefinitions.Add("PHYSICS_INTERFACE_LLIMMEDIATE=0");
+				}
+			}
 
-			}
-			else
-			{
-				PublicDefinitions.Add("WITH_NVCLOTH=0");
-			}
+			// Unused interface
+			PublicDefinitions.Add("WITH_IMMEDIATE_PHYSX=0");
 		}
 
 		/// <summary>

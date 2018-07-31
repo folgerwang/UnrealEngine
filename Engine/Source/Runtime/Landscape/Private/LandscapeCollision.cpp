@@ -42,9 +42,14 @@
 #include "EngineUtils.h"
 #include "Engine/Engine.h"
 #include "Materials/MaterialInstanceConstant.h"
+#include "Physics/PhysicsInterfaceCore.h"
+#include "Physics/PhysicsInterfaceUtils.h"
+
 #if WITH_EDITOR && WITH_PHYSX
 	#include "Physics/IPhysXCooking.h"
 #endif
+
+using namespace PhysicsInterfaceTypes;
 
 #if ENABLE_COOK_STATS
 namespace LandscapeCollisionCookStats
@@ -228,14 +233,14 @@ void ULandscapeHeightfieldCollisionComponent::OnCreatePhysicsState()
 				check(HeightFieldShapeSync);
 
 				// Setup filtering
-				PxFilterData PQueryFilterData, PSimFilterData;
-				CreateShapeFilterData(GetCollisionObjectType(), FMaskFilter(0), GetOwner()->GetUniqueID(), GetCollisionResponseToChannels(), GetUniqueID(), 0, PQueryFilterData, PSimFilterData, true, false, true);
+				FCollisionFilterData QueryFilterData, SimFilterData;
+				CreateShapeFilterData(GetCollisionObjectType(), FMaskFilter(0), GetOwner()->GetUniqueID(), GetCollisionResponseToChannels(), GetUniqueID(), 0, QueryFilterData, SimFilterData, true, false, true);
 
 				// Heightfield is used for simple and complex collision
-				PQueryFilterData.word3 |= bCreateSimpleCollision ? EPDF_ComplexCollision : (EPDF_SimpleCollision | EPDF_ComplexCollision);
-				PSimFilterData.word3 |= bCreateSimpleCollision ? EPDF_ComplexCollision : (EPDF_SimpleCollision | EPDF_ComplexCollision);
-				HeightFieldShapeSync->setQueryFilterData(PQueryFilterData);
-				HeightFieldShapeSync->setSimulationFilterData(PSimFilterData);
+				QueryFilterData.Word3 |= bCreateSimpleCollision ? EPDF_ComplexCollision : (EPDF_SimpleCollision | EPDF_ComplexCollision);
+				SimFilterData.Word3 |= bCreateSimpleCollision ? EPDF_ComplexCollision : (EPDF_SimpleCollision | EPDF_ComplexCollision);
+				HeightFieldShapeSync->setQueryFilterData(U2PFilterData(QueryFilterData));
+				HeightFieldShapeSync->setSimulationFilterData(U2PFilterData(SimFilterData));
 				HeightFieldShapeSync->setFlag(PxShapeFlag::eSCENE_QUERY_SHAPE, true);
 				HeightFieldShapeSync->setFlag(PxShapeFlag::eSIMULATION_SHAPE, true);
 				HeightFieldShapeSync->setFlag(PxShapeFlag::eVISUALIZATION, true);
@@ -253,12 +258,12 @@ void ULandscapeHeightfieldCollisionComponent::OnCreatePhysicsState()
 					check(HeightFieldShapeSimpleSync);
 
 					// Setup filtering
-					PxFilterData PQueryFilterDataSimple = PQueryFilterData;
-					PxFilterData PSimFilterDataSimple = PSimFilterData;
-					PQueryFilterDataSimple.word3 = (PQueryFilterDataSimple.word3 & ~EPDF_ComplexCollision) | EPDF_SimpleCollision;
-					PSimFilterDataSimple.word3 = (PSimFilterDataSimple.word3 & ~EPDF_ComplexCollision) | EPDF_SimpleCollision;
-					HeightFieldShapeSimpleSync->setQueryFilterData(PQueryFilterDataSimple);
-					HeightFieldShapeSimpleSync->setSimulationFilterData(PSimFilterDataSimple);
+					FCollisionFilterData QueryFilterDataSimple = QueryFilterData;
+					FCollisionFilterData SimFilterDataSimple = SimFilterData;
+					QueryFilterDataSimple.Word3 = (QueryFilterDataSimple.Word3 & ~EPDF_ComplexCollision) | EPDF_SimpleCollision;
+					SimFilterDataSimple.Word3 = (SimFilterDataSimple.Word3 & ~EPDF_ComplexCollision) | EPDF_SimpleCollision;
+					HeightFieldShapeSimpleSync->setQueryFilterData(U2PFilterData(QueryFilterDataSimple));
+					HeightFieldShapeSimpleSync->setSimulationFilterData(U2PFilterData(SimFilterDataSimple));
 					HeightFieldShapeSimpleSync->setFlag(PxShapeFlag::eSCENE_QUERY_SHAPE, true);
 					HeightFieldShapeSimpleSync->setFlag(PxShapeFlag::eSIMULATION_SHAPE, true);
 					HeightFieldShapeSimpleSync->setFlag(PxShapeFlag::eVISUALIZATION, true);
@@ -276,24 +281,29 @@ void ULandscapeHeightfieldCollisionComponent::OnCreatePhysicsState()
 					PxHeightFieldGeometry LandscapeComponentGeomEd(HeightfieldRef->RBHeightfieldEd, PxMeshGeometryFlags(), LandscapeScale.Z * LANDSCAPE_ZSCALE, LandscapeScale.Y * CollisionScale, LandscapeScale.X * CollisionScale);
 					if (LandscapeComponentGeomEd.isValid())
 					{
-						PxMaterial* PDefaultMat = GEngine->DefaultPhysMaterial->GetPhysXMaterial();
+#if WITH_APEIRON || WITH_IMMEDIATE_PHYSX || PHYSICS_INTERFACE_LLIMMEDIATE
+                        ensure(false);
+#else
+						FPhysicsMaterialHandle_PhysX MaterialHandle = GEngine->DefaultPhysMaterial->GetPhysicsMaterial();
+						PxMaterial* PDefaultMat = MaterialHandle.Material;
 						PxShape* HeightFieldEdShapeSync = GPhysXSDK->createShape(LandscapeComponentGeomEd, &PDefaultMat, 1, true);
 						check(HeightFieldEdShapeSync);
 
 						FCollisionResponseContainer CollisionResponse;
 						CollisionResponse.SetAllChannels(ECollisionResponse::ECR_Ignore);
 						CollisionResponse.SetResponse(ECollisionChannel::ECC_Visibility, ECR_Block);
-						PxFilterData PQueryFilterDataEd, PSimFilterDataEd;
-						CreateShapeFilterData(ECollisionChannel::ECC_Visibility, FMaskFilter(0), GetOwner()->GetUniqueID(), CollisionResponse, GetUniqueID(), 0, PQueryFilterDataEd, PSimFilterDataEd, true, false, true);
+						FCollisionFilterData QueryFilterDataEd, SimFilterDataEd;
+						CreateShapeFilterData(ECollisionChannel::ECC_Visibility, FMaskFilter(0), GetOwner()->GetUniqueID(), CollisionResponse, GetUniqueID(), 0, QueryFilterDataEd, SimFilterDataEd, true, false, true);
 
-						PQueryFilterDataEd.word3 |= (EPDF_SimpleCollision | EPDF_ComplexCollision);
-						HeightFieldEdShapeSync->setQueryFilterData(PQueryFilterDataEd);
+						QueryFilterDataEd.Word3 |= (EPDF_SimpleCollision | EPDF_ComplexCollision);
+						HeightFieldEdShapeSync->setQueryFilterData(U2PFilterData(QueryFilterDataEd));
 						HeightFieldEdShapeSync->setFlag(PxShapeFlag::eSCENE_QUERY_SHAPE, true);
 
 						HeightFieldActorSync->attachShape(*HeightFieldEdShapeSync);
 
 						// attachShape holds its own ref(), so release this here.
 						HeightFieldEdShapeSync->release();
+#endif
 					}
 				}
 #endif// WITH_EDITOR
@@ -308,8 +318,8 @@ void ULandscapeHeightfieldCollisionComponent::OnCreatePhysicsState()
 					HeightFieldActorAsync = GPhysXSDK->createRigidStatic(PhysXLandscapeComponentTransform);
 					PxShape* HeightFieldShapeAsync = GPhysXSDK->createShape(LandscapeComponentGeom, HeightfieldRef->UsedPhysicalMaterialArray.GetData(), HeightfieldRef->UsedPhysicalMaterialArray.Num(), true);
 
-					HeightFieldShapeAsync->setQueryFilterData(PQueryFilterData);
-					HeightFieldShapeAsync->setSimulationFilterData(PSimFilterData);
+					HeightFieldShapeAsync->setQueryFilterData(U2PFilterData(QueryFilterData));
+					HeightFieldShapeAsync->setSimulationFilterData(U2PFilterData(SimFilterData));
 					// Only perform scene queries in the synchronous scene for static shapes
 					HeightFieldShapeAsync->setFlag(PxShapeFlag::eSCENE_QUERY_SHAPE, false);
 					HeightFieldShapeAsync->setFlag(PxShapeFlag::eSIMULATION_SHAPE, true);
@@ -328,12 +338,12 @@ void ULandscapeHeightfieldCollisionComponent::OnCreatePhysicsState()
 						check(HeightFieldShapeSimpleAsync);
 
 						// Setup filtering
-						PxFilterData PQueryFilterDataSimple = PQueryFilterData;
-						PxFilterData PSimFilterDataSimple = PSimFilterData;
-						PQueryFilterDataSimple.word3 = (PQueryFilterDataSimple.word3 & ~EPDF_ComplexCollision) | EPDF_SimpleCollision;
-						PSimFilterDataSimple.word3 = (PSimFilterDataSimple.word3 & ~EPDF_ComplexCollision) | EPDF_SimpleCollision;
-						HeightFieldShapeSimpleAsync->setQueryFilterData(PQueryFilterDataSimple);
-						HeightFieldShapeSimpleAsync->setSimulationFilterData(PSimFilterDataSimple);
+						FCollisionFilterData QueryFilterDataSimple = QueryFilterData;
+						FCollisionFilterData SimFilterDataSimple = SimFilterData;
+						QueryFilterDataSimple.Word3 = (QueryFilterDataSimple.Word3 & ~EPDF_ComplexCollision) | EPDF_SimpleCollision;
+						SimFilterDataSimple.Word3 = (SimFilterDataSimple.Word3 & ~EPDF_ComplexCollision) | EPDF_SimpleCollision;
+						HeightFieldShapeSimpleAsync->setQueryFilterData(U2PFilterData(QueryFilterDataSimple));
+						HeightFieldShapeSimpleAsync->setSimulationFilterData(U2PFilterData(SimFilterDataSimple));
 						// Only perform scene queries in the synchronous scene for static shapes
 						HeightFieldShapeSimpleAsync->setFlag(PxShapeFlag::eSCENE_QUERY_SHAPE, false);
 						HeightFieldShapeSimpleAsync->setFlag(PxShapeFlag::eSIMULATION_SHAPE, true);
@@ -349,10 +359,12 @@ void ULandscapeHeightfieldCollisionComponent::OnCreatePhysicsState()
 				// Set body instance data
 				BodyInstance.PhysxUserData = FPhysxUserData(&BodyInstance);
 				BodyInstance.OwnerComponent = this;
-				BodyInstance.SceneIndexSync = PhysScene->PhysXSceneIndex[PST_Sync];
-				BodyInstance.SceneIndexAsync = bHasAsyncScene ? PhysScene->PhysXSceneIndex[PST_Async] : 0;
-				BodyInstance.RigidActorSync = HeightFieldActorSync;
-				BodyInstance.RigidActorAsync = HeightFieldActorAsync;
+
+#if WITH_APEIRON || WITH_IMMEDIATE_PHYSX || PHYSICS_INTERFACE_LLIMMEDIATE
+                ensure(false);
+#else
+				BodyInstance.ActorHandle.SyncActor = HeightFieldActorSync;
+				BodyInstance.ActorHandle.AsyncActor = HeightFieldActorAsync;
 				HeightFieldActorSync->userData = &BodyInstance.PhysxUserData;
 				if (bHasAsyncScene)
 				{
@@ -360,19 +372,19 @@ void ULandscapeHeightfieldCollisionComponent::OnCreatePhysicsState()
 				}
 
 				// Add to scenes
-				PxScene* SyncScene = PhysScene->GetPhysXScene(PST_Sync);
+				PxScene* SyncScene = PhysScene->GetPxScene(PST_Sync);
 				SCOPED_SCENE_WRITE_LOCK(SyncScene);
 				SyncScene->addActor(*HeightFieldActorSync);
 
 				if (bHasAsyncScene)
 				{
-					PxScene* AsyncScene = PhysScene->GetPhysXScene(PST_Async);
+					PxScene* AsyncScene = PhysScene->GetPxScene(PST_Async);
 
 					SCOPED_SCENE_WRITE_LOCK(AsyncScene);
 					AsyncScene->addActor(*HeightFieldActorAsync);
 				}
+#endif
 			}
-
 		}
 #endif// WITH_PHYSX
 	}
@@ -448,7 +460,12 @@ void ULandscapeHeightfieldCollisionComponent::CreateCollisionObject()
 
 				for (UPhysicalMaterial* PhysicalMaterial : CookedPhysicalMaterials)
 				{
-					HeightfieldRef->UsedPhysicalMaterialArray.Add(PhysicalMaterial->GetPhysXMaterial());
+#if WITH_APEIRON || WITH_IMMEDIATE_PHYSX || PHYSICS_INTERFACE_LLIMMEDIATE
+                    ensure(false);
+#else
+					const FPhysicsMaterialHandle_PhysX& MaterialHandle = PhysicalMaterial->GetPhysicsMaterial();
+					HeightfieldRef->UsedPhysicalMaterialArray.Add(MaterialHandle.Material);
+#endif
 				}
 
 				// Release cooked collison data
@@ -945,7 +962,11 @@ void ULandscapeMeshCollisionComponent::CreateCollisionObject()
 
 				for (UPhysicalMaterial* PhysicalMaterial : CookedPhysicalMaterials)
 				{
-					MeshRef->UsedPhysicalMaterialArray.Add(PhysicalMaterial->GetPhysXMaterial());
+#if WITH_APEIRON || WITH_IMMEDIATE_PHYSX || PHYSICS_INTERFACE_LLIMMEDIATE
+                    ensure(false);
+#else
+					MeshRef->UsedPhysicalMaterialArray.Add(PhysicalMaterial->GetPhysicsMaterial().Material);
+#endif
 				}
 
 				// Release cooked collison data
@@ -1016,14 +1037,14 @@ void ULandscapeMeshCollisionComponent::OnCreatePhysicsState()
 				check(MeshShapeSync);
 
 				// Setup filtering
-				PxFilterData PQueryFilterData, PSimFilterData;
-				CreateShapeFilterData(GetCollisionObjectType(), FMaskFilter(0), GetOwner()->GetUniqueID(), GetCollisionResponseToChannels(), GetUniqueID(), 0, PQueryFilterData, PSimFilterData, false, false, true);
+				FCollisionFilterData QueryFilterData, SimFilterData;
+				CreateShapeFilterData(GetCollisionObjectType(), FMaskFilter(0), GetOwner()->GetUniqueID(), GetCollisionResponseToChannels(), GetUniqueID(), 0, QueryFilterData, SimFilterData, false, false, true);
 
 				// Heightfield is used for simple and complex collision
-				PQueryFilterData.word3 |= (EPDF_SimpleCollision | EPDF_ComplexCollision);
-				PSimFilterData.word3 |= (EPDF_SimpleCollision | EPDF_ComplexCollision);
-				MeshShapeSync->setQueryFilterData(PQueryFilterData);
-				MeshShapeSync->setSimulationFilterData(PSimFilterData);
+				QueryFilterData.Word3 |= (EPDF_SimpleCollision | EPDF_ComplexCollision);
+				SimFilterData.Word3 |= (EPDF_SimpleCollision | EPDF_ComplexCollision);
+				MeshShapeSync->setQueryFilterData(U2PFilterData(QueryFilterData));
+				MeshShapeSync->setSimulationFilterData(U2PFilterData(SimFilterData));
 				MeshShapeSync->setFlag(PxShapeFlag::eSCENE_QUERY_SHAPE, true);
 				MeshShapeSync->setFlag(PxShapeFlag::eSIMULATION_SHAPE, true);
 				MeshShapeSync->setFlag(PxShapeFlag::eVISUALIZATION, true);
@@ -1042,8 +1063,8 @@ void ULandscapeMeshCollisionComponent::OnCreatePhysicsState()
 					PxShape* MeshShapeAsync = GPhysXSDK->createShape(PTriMeshGeom, MeshRef->UsedPhysicalMaterialArray.GetData(), MeshRef->UsedPhysicalMaterialArray.Num(), true);
 					check(MeshShapeAsync);
 
-					MeshShapeAsync->setQueryFilterData(PQueryFilterData);
-					MeshShapeAsync->setSimulationFilterData(PSimFilterData);
+					MeshShapeAsync->setQueryFilterData(U2PFilterData(QueryFilterData));
+					MeshShapeAsync->setSimulationFilterData(U2PFilterData(SimFilterData));
 					// Only perform scene queries in the synchronous scene for static shapes
 					MeshShapeAsync->setFlag(PxShapeFlag::eSCENE_QUERY_SHAPE, false);
 					MeshShapeAsync->setFlag(PxShapeFlag::eSIMULATION_SHAPE, true);
@@ -1064,22 +1085,26 @@ void ULandscapeMeshCollisionComponent::OnCreatePhysicsState()
 					PTriMeshGeomEd.scale.scale.z = LandscapeScale.Z;
 					if (PTriMeshGeomEd.isValid())
 					{
-						PxMaterial* PDefaultMat = GEngine->DefaultPhysMaterial->GetPhysXMaterial();
+#if WITH_APEIRON || WITH_IMMEDIATE_PHYSX || PHYSICS_INTERFACE_LLIMMEDIATE
+                        ensure(false);
+#else
+						PxMaterial* PDefaultMat = GEngine->DefaultPhysMaterial->GetPhysicsMaterial().Material;
 						PxShape* MeshShapeEdSync = GPhysXSDK->createShape(PTriMeshGeomEd, &PDefaultMat, 1, true);
 						check(MeshShapeEdSync);
 
 						FCollisionResponseContainer CollisionResponse;
 						CollisionResponse.SetAllChannels(ECollisionResponse::ECR_Ignore);
 						CollisionResponse.SetResponse(ECollisionChannel::ECC_Visibility, ECR_Block);
-						PxFilterData PQueryFilterDataEd, PSimFilterDataEd;
-						CreateShapeFilterData(ECollisionChannel::ECC_Visibility, FMaskFilter(0), GetOwner()->GetUniqueID(), CollisionResponse, GetUniqueID(), 0, PQueryFilterDataEd, PSimFilterDataEd, true, false, true);
+						FCollisionFilterData QueryFilterDataEd, SimFilterDataEd;
+						CreateShapeFilterData(ECollisionChannel::ECC_Visibility, FMaskFilter(0), GetOwner()->GetUniqueID(), CollisionResponse, GetUniqueID(), 0, QueryFilterDataEd, SimFilterDataEd, true, false, true);
 
-						PQueryFilterDataEd.word3 |= (EPDF_SimpleCollision | EPDF_ComplexCollision);
-						MeshShapeEdSync->setQueryFilterData(PQueryFilterDataEd);
+						QueryFilterDataEd.Word3 |= (EPDF_SimpleCollision | EPDF_ComplexCollision);
+						MeshShapeEdSync->setQueryFilterData(U2PFilterData(QueryFilterDataEd));
 						MeshShapeEdSync->setFlag(PxShapeFlag::eSCENE_QUERY_SHAPE, true);
 
 						MeshActorSync->attachShape(*MeshShapeEdSync);
 						MeshShapeEdSync->release();
+#endif
 					}
 				}
 #endif// WITH_EDITOR
@@ -1087,10 +1112,12 @@ void ULandscapeMeshCollisionComponent::OnCreatePhysicsState()
 				// Set body instance data
 				BodyInstance.PhysxUserData = FPhysxUserData(&BodyInstance);
 				BodyInstance.OwnerComponent = this;
-				BodyInstance.SceneIndexSync = PhysScene->PhysXSceneIndex[PST_Sync];
-				BodyInstance.SceneIndexAsync = bHasAsyncScene ? PhysScene->PhysXSceneIndex[PST_Async] : 0;
-				BodyInstance.RigidActorSync = MeshActorSync;
-				BodyInstance.RigidActorAsync = MeshActorAsync;
+
+#if WITH_APEIRON || WITH_IMMEDIATE_PHYSX || PHYSICS_INTERFACE_LLIMMEDIATE
+                ensure(false);
+#else
+				BodyInstance.ActorHandle.SyncActor = MeshActorSync;
+				BodyInstance.ActorHandle.AsyncActor = MeshActorAsync;
 				MeshActorSync->userData = &BodyInstance.PhysxUserData;
 				if (bHasAsyncScene)
 				{
@@ -1098,17 +1125,18 @@ void ULandscapeMeshCollisionComponent::OnCreatePhysicsState()
 				}
 
 				// Add to scenes
-				PxScene* SyncScene = PhysScene->GetPhysXScene(PST_Sync);
+				PxScene* SyncScene = PhysScene->GetPxScene(PST_Sync);
 				SCOPED_SCENE_WRITE_LOCK(SyncScene);
 				SyncScene->addActor(*MeshActorSync);
 
 				if (bHasAsyncScene)
 				{
-					PxScene* AsyncScene = PhysScene->GetPhysXScene(PST_Async);
+					PxScene* AsyncScene = PhysScene->GetPxScene(PST_Async);
 
 					SCOPED_SCENE_WRITE_LOCK(AsyncScene);
 					AsyncScene->addActor(*MeshActorAsync);
 				}
+#endif
 			}
 			else
 			{
@@ -1153,81 +1181,90 @@ void ULandscapeHeightfieldCollisionComponent::UpdateHeightfieldRegion(int32 Comp
 			return;
 		}
 
-		if (BodyInstance.RigidActorSync == NULL)
+#if WITH_APEIRON || WITH_IMMEDIATE_PHYSX || PHYSICS_INTERFACE_LLIMMEDIATE
+        ensure(false);
+#else
+		if (BodyInstance.ActorHandle.SyncActor == NULL)
 		{
 			return;
 		}
+#endif
 
 		// We don't lock the async scene as we only set the geometry in the sync scene's RigidActor.
 		// This function is used only during painting for line traces by the painting tools.
-		SCOPED_SCENE_WRITE_LOCK(GetPhysXSceneFromIndex(BodyInstance.SceneIndexSync));
+		FPhysicsActorHandle PhysActorHandle = BodyInstance.GetPhysicsActorHandle();
 
-		int32 CollisionSizeVerts = CollisionSizeQuads + 1;
-		int32 SimpleCollisionSizeVerts = SimpleCollisionSizeQuads > 0 ? SimpleCollisionSizeQuads + 1 : 0;
-
-		bool bIsMirrored = GetComponentToWorld().GetDeterminant() < 0.f;
-
-		uint16* Heights = (uint16*)CollisionHeightData.Lock(LOCK_READ_ONLY);
-		check(CollisionHeightData.GetElementCount() == (FMath::Square(CollisionSizeVerts) + FMath::Square(SimpleCollisionSizeVerts)));
-
-		// PhysX heightfield has the X and Y axis swapped, and the X component is also inverted
-		int32 HeightfieldX1 = ComponentY1;
-		int32 HeightfieldY1 = (bIsMirrored ? ComponentX1 : (CollisionSizeVerts - ComponentX2 - 1));
-		int32 DstVertsX = ComponentY2 - ComponentY1 + 1;
-		int32 DstVertsY = ComponentX2 - ComponentX1 + 1;
-
-		TArray<PxHeightFieldSample> Samples;
-		Samples.AddZeroed(DstVertsX*DstVertsY);
-
-		// Traverse the area in destination heigthfield coordinates
-		for (int32 RowIndex = 0; RowIndex < DstVertsY; RowIndex++)
+		FPhysicsCommand::ExecuteWrite(PhysActorHandle, [&](const FPhysicsActorHandle& Actor)
 		{
-			for (int32 ColIndex = 0; ColIndex < DstVertsX; ColIndex++)
+			int32 CollisionSizeVerts = CollisionSizeQuads + 1;
+			int32 SimpleCollisionSizeVerts = SimpleCollisionSizeQuads > 0 ? SimpleCollisionSizeQuads + 1 : 0;
+	
+			bool bIsMirrored = GetComponentToWorld().GetDeterminant() < 0.f;
+	
+			uint16* Heights = (uint16*)CollisionHeightData.Lock(LOCK_READ_ONLY);
+			check(CollisionHeightData.GetElementCount() == (FMath::Square(CollisionSizeVerts) + FMath::Square(SimpleCollisionSizeVerts)));
+	
+			// PhysX heightfield has the X and Y axis swapped, and the X component is also inverted
+			int32 HeightfieldX1 = ComponentY1;
+			int32 HeightfieldY1 = (bIsMirrored ? ComponentX1 : (CollisionSizeVerts - ComponentX2 - 1));
+			int32 DstVertsX = ComponentY2 - ComponentY1 + 1;
+			int32 DstVertsY = ComponentX2 - ComponentX1 + 1;
+	
+			TArray<PxHeightFieldSample> Samples;
+			Samples.AddZeroed(DstVertsX*DstVertsY);
+	
+			// Traverse the area in destination heigthfield coordinates
+			for (int32 RowIndex = 0; RowIndex < DstVertsY; RowIndex++)
 			{
-				int32 SrcX = bIsMirrored ? (RowIndex + ComponentX1) : (ComponentX2 - RowIndex);
-				int32 SrcY = ColIndex + ComponentY1;
-				int32 SrcSampleIndex = (SrcY * CollisionSizeVerts) + SrcX;
-				check(SrcSampleIndex < FMath::Square(CollisionSizeVerts));
-				int32 DstSampleIndex = (RowIndex * DstVertsX) + ColIndex;
-
-				PxHeightFieldSample& Sample = Samples[DstSampleIndex];
-				Sample.height = FMath::Clamp<int32>(((int32)Heights[SrcSampleIndex] - 32768), -32768, 32767);
-
-				Sample.materialIndex0 = 0;
-				Sample.materialIndex1 = 0;
+				for (int32 ColIndex = 0; ColIndex < DstVertsX; ColIndex++)
+				{
+					int32 SrcX = bIsMirrored ? (RowIndex + ComponentX1) : (ComponentX2 - RowIndex);
+					int32 SrcY = ColIndex + ComponentY1;
+					int32 SrcSampleIndex = (SrcY * CollisionSizeVerts) + SrcX;
+					check(SrcSampleIndex < FMath::Square(CollisionSizeVerts));
+					int32 DstSampleIndex = (RowIndex * DstVertsX) + ColIndex;
+	
+					PxHeightFieldSample& Sample = Samples[DstSampleIndex];
+					Sample.height = FMath::Clamp<int32>(((int32)Heights[SrcSampleIndex] - 32768), -32768, 32767);
+	
+					Sample.materialIndex0 = 0;
+					Sample.materialIndex1 = 0;
+				}
 			}
-		}
-
-		CollisionHeightData.Unlock();
-
-		PxHeightFieldDesc SubDesc;
-		SubDesc.format = PxHeightFieldFormat::eS16_TM;
-		SubDesc.nbColumns = DstVertsX;
-		SubDesc.nbRows = DstVertsY;
-		SubDesc.samples.data = Samples.GetData();
-		SubDesc.samples.stride = sizeof(PxU32);
-		SubDesc.flags = PxHeightFieldFlag::eNO_BOUNDARY_EDGES;
-
-
-		HeightfieldRef->RBHeightfieldEd->modifySamples(HeightfieldX1, HeightfieldY1, SubDesc, true);
-
-		//
-		// Reset geometry of heightfield shape. Required by the modifySamples
-		//
-		FVector LandscapeScale = GetComponentToWorld().GetScale3D().GetAbs();
-		// Create the geometry
-		PxHeightFieldGeometry LandscapeComponentGeom(HeightfieldRef->RBHeightfieldEd, PxMeshGeometryFlags(), LandscapeScale.Z * LANDSCAPE_ZSCALE, LandscapeScale.Y * CollisionScale, LandscapeScale.X * CollisionScale);
-
-		{
-			SCOPED_SCENE_WRITE_LOCK(BodyInstance.RigidActorSync->getScene());
-
-			FInlinePxShapeArray PShapes;
-			const int32 NumShapes = FillInlinePxShapeArray_AssumesLocked(PShapes, *(BodyInstance.RigidActorSync));
-			if (NumShapes > 1)
+	
+			CollisionHeightData.Unlock();
+	
+			PxHeightFieldDesc SubDesc;
+			SubDesc.format = PxHeightFieldFormat::eS16_TM;
+			SubDesc.nbColumns = DstVertsX;
+			SubDesc.nbRows = DstVertsY;
+			SubDesc.samples.data = Samples.GetData();
+			SubDesc.samples.stride = sizeof(PxU32);
+			SubDesc.flags = PxHeightFieldFlag::eNO_BOUNDARY_EDGES;
+	
+			HeightfieldRef->RBHeightfieldEd->modifySamples(HeightfieldX1, HeightfieldY1, SubDesc, true);
+	
+			//
+			// Reset geometry of heightfield shape. Required by the modifySamples
+			//
+			FVector LandscapeScale = GetComponentToWorld().GetScale3D().GetAbs();
+			// Create the geometry
+			PxHeightFieldGeometry LandscapeComponentGeom(HeightfieldRef->RBHeightfieldEd, PxMeshGeometryFlags(), LandscapeScale.Z * LANDSCAPE_ZSCALE, LandscapeScale.Y * CollisionScale, LandscapeScale.X * CollisionScale);
+	
 			{
-				PShapes[1]->setGeometry(LandscapeComponentGeom);
+				FInlineShapeArray PShapes;
+#if WITH_APEIRON
+				ensure(false);
+				const int32 NumShapes = 0;
+#else
+				const int32 NumShapes = FillInlineShapeArray_AssumesLocked(PShapes, Actor);
+#endif
+				if (NumShapes > 1)
+				{
+					FPhysicsInterface::SetGeometry(PShapes[1], LandscapeComponentGeom);
+				}
 			}
-		}
+		});
 	}
 
 #endif// WITH_PHYSX

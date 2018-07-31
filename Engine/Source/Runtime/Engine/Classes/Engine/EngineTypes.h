@@ -751,8 +751,6 @@ enum EPhysicsSceneType
 {
 	/** The synchronous scene, which must finish before Unreal simulation code is run. */
 	PST_Sync,
-	/** The cloth scene, which may run while Unreal simulation code runs. */
-	PST_Cloth,
 	/** The asynchronous scene, which may run while Unreal simulation code runs. */
 	PST_Async,
 	PST_MAX,
@@ -1184,6 +1182,11 @@ namespace ERigidBodyFlags
 	};
 }
 
+enum class ESleepEvent : uint8
+{
+	SET_Wakeup,
+	SET_Sleep
+};
 
 /** Rigid body error correction data */
 USTRUCT()

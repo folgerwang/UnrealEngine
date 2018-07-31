@@ -12,7 +12,7 @@
 #include "PhysicsEngine/BodySetup.h"
 #include "DrawDebugHelpers.h"
 #include "PhysicsReplication.h"
-#include "PhysicsPublic.h"
+#include "Physics/PhysicsInterfaceCore.h"
 #include "UObject/UObjectThreadContext.h"
 
 //////////////// PRIMITIVECOMPONENT ///////////////
@@ -922,7 +922,6 @@ void UPrimitiveComponent::SetCollisionProfileName(FName InCollisionProfileName)
 	{
 		ECollisionEnabled::Type OldCollisionEnabled = BodyInstance.GetCollisionEnabled();
 		BodyInstance.SetCollisionProfileName(InCollisionProfileName);
-		OnComponentCollisionSettingsChanged();
 
 		ECollisionEnabled::Type NewCollisionEnabled = BodyInstance.GetCollisionEnabled();
 
@@ -930,6 +929,7 @@ void UPrimitiveComponent::SetCollisionProfileName(FName InCollisionProfileName)
 		{
 			EnsurePhysicsStateCreated();
 		}
+		OnComponentCollisionSettingsChanged();
 	}
 }
 
@@ -968,7 +968,7 @@ void UPrimitiveComponent::OnComponentCollisionSettingsChanged()
 	}
 }
 
-bool UPrimitiveComponent::K2_LineTraceComponent(FVector TraceStart, FVector TraceEnd, bool bTraceComplex, bool bShowTrace, FVector& HitLocation, FVector& HitNormal, FName& BoneName, FHitResult& OutHit)
+bool UPrimitiveComponent::K2_LineTraceComponent(FVector TraceStart, FVector TraceEnd, bool bTraceComplex, bool bShowTrace, bool bPersistentShowTrace, FVector& HitLocation, FVector& HitNormal, FName& BoneName, FHitResult& OutHit)
 {
 	FCollisionQueryParams LineParams(SCENE_QUERY_STAT(KismetTraceComponent), bTraceComplex);
 	const bool bDidHit = LineTraceComponent(OutHit, TraceStart, TraceEnd, LineParams);
@@ -990,16 +990,81 @@ bool UPrimitiveComponent::K2_LineTraceComponent(FVector TraceStart, FVector Trac
 
 	if( bShowTrace )
 	{
-		GetWorld()->LineBatcher->DrawLine(TraceStart, bDidHit ? HitLocation : TraceEnd, FLinearColor(1.f,0.5f,0.f), SDPG_World, 2.f);
-		if( bDidHit )
+		DrawDebugLine(GetWorld(), TraceStart, bDidHit ? HitLocation : TraceEnd, FColor(255, 128, 0), bPersistentShowTrace, -1.0f, 0, 2.0f);
+		if(bDidHit)
 		{
-			GetWorld()->LineBatcher->DrawLine(HitLocation, TraceEnd, FLinearColor(0.f,0.5f,1.f), SDPG_World, 2.f);
+			DrawDebugLine(GetWorld(), HitLocation, TraceEnd, FColor(0, 128, 255), bPersistentShowTrace, -1.0f, 0, 2.0f);
 		}
 	}
 
 	return bDidHit;
 }
 
+bool UPrimitiveComponent::K2_SphereTraceComponent(FVector TraceStart, FVector TraceEnd, float SphereRadius, bool bTraceComplex, bool bShowTrace, bool bPersistentShowTrace, FVector& HitLocation, FVector& HitNormal, FName& BoneName, FHitResult& OutHit)
+{
+	FCollisionShape SphereShape;
+	SphereShape.SetSphere(SphereRadius);
+	bool bDidHit = SweepComponent(OutHit, TraceStart, TraceEnd, FQuat::Identity, SphereShape, bTraceComplex);
+
+	if(bDidHit)
+	{
+		// Fill in the results if we hit
+		HitLocation = OutHit.Location;
+		HitNormal = OutHit.Normal;
+		BoneName = OutHit.BoneName;
+	}
+	else
+	{
+		// Blank these out to avoid confusion!
+		HitLocation = FVector::ZeroVector;
+		HitNormal = FVector::ZeroVector;
+		BoneName = NAME_None;
+	}
+
+	if(bShowTrace)
+	{
+		DrawDebugLine(GetWorld(), TraceStart, bDidHit ? HitLocation : TraceEnd, FColor(255, 128, 0), bPersistentShowTrace, -1.0f, 0, 2.0f);
+		if(bDidHit)
+		{
+			DrawDebugLine(GetWorld(), HitLocation, TraceEnd, FColor(0, 128, 255), bPersistentShowTrace, -1.0f, 0, 2.0f);
+			DrawDebugSphere(GetWorld(), HitLocation, SphereRadius, 16, FColor(255, 0, 0), bPersistentShowTrace, -1.0f, 0, 0.25f);
+		}
+	}
+
+	return bDidHit;
+}
+
+bool UPrimitiveComponent::K2_BoxOverlapComponent(FVector InBoxCentre, const FBox InBox, bool bTraceComplex, bool bShowTrace, bool bPersistentShowTrace, FVector& HitLocation, FVector& HitNormal, FName& BoneName, FHitResult& OutHit)
+{
+	FCollisionShape QueryBox = FCollisionShape::MakeBox(InBox.GetExtent());
+
+	bool bHit = OverlapComponent(InBoxCentre, FQuat::Identity, QueryBox);
+
+	if(bShowTrace)
+	{
+		FColor BoxColor = bHit ? FColor::Red : FColor::Green;
+
+		DrawDebugBox(GetWorld(), InBoxCentre, QueryBox.GetExtent(), FQuat::Identity, BoxColor, bPersistentShowTrace, -1.0f, 0, 0.4f);
+	}
+
+	return bHit;
+}
+
+bool UPrimitiveComponent::K2_SphereOverlapComponent(FVector InSphereCentre, float InSphereRadius, bool bTraceComplex, bool bShowTrace, bool bPersistentShowTrace, FVector& HitLocation, FVector& HitNormal, FName& BoneName, FHitResult& OutHit)
+{
+	FCollisionShape QuerySphere = FCollisionShape::MakeSphere(InSphereRadius);
+
+	bool bHit = OverlapComponent(InSphereCentre, FQuat::Identity, QuerySphere);
+
+	if(bShowTrace)
+	{
+		FColor SphereColor = bHit ? FColor::Red : FColor::Green;
+
+		DrawDebugSphere(GetWorld(), InSphereCentre, QuerySphere.GetSphereRadius(), 16, SphereColor, bPersistentShowTrace, -1.0f, 0, 0.4f);
+	}
+
+	return bHit;
+}
 
 ECollisionEnabled::Type UPrimitiveComponent::GetCollisionEnabled() const
 {
@@ -1009,7 +1074,7 @@ ECollisionEnabled::Type UPrimitiveComponent::GetCollisionEnabled() const
 		return ECollisionEnabled::NoCollision;
 	}
 
-	return BodyInstance.GetCollisionEnabled();
+	return BodyInstance.GetCollisionEnabled(false);
 }
 
 ECollisionResponse UPrimitiveComponent::GetCollisionResponseToChannel(ECollisionChannel Channel) const

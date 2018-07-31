@@ -323,17 +323,16 @@ void UPhysicsConstraintComponent::OnUnregister()
 {
 	Super::OnUnregister();
 
-	// Slight hack - there isn't an EndPlayComponent, so we see if we are unregistered and we have an owner but its gone, and if so, we shut down constraint
-	if(GetOwner() && GetOwner()->IsPendingKillPending())
-	{
-		TermComponentConstraint();
-	}
+	// #PHYS2 This is broken because if you re-register again, constraint will not be created, as constraint is init'd ini InitializeComponent not RegisterComponent
+	TermComponentConstraint();
 }
 
 void UPhysicsConstraintComponent::BeginDestroy()
 {
 	Super::BeginDestroy();
-	TermComponentConstraint();
+
+	// Should not be destroying a constraint component with the constraint still created
+	ensure(ConstraintInstance.IsTerminated());
 }
 
 void UPhysicsConstraintComponent::PostLoad()

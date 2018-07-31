@@ -289,6 +289,24 @@ namespace UnrealBuildTool
 		public EGeneratedCodeVersion GeneratedCodeVersion = EGeneratedCodeVersion.None;
 
 		/// <summary>
+		/// Whether to compile the Apeiron physics plugin.
+		/// </summary>
+		[RequiresUniqueBuildEnvironment]
+		public bool bCompileApeiron = false;
+
+        /// <summary>
+        /// Whether to use the Apeiron physics interface. This overrides the physx flags to disable APEX and NvCloth
+        /// </summary>
+        [RequiresUniqueBuildEnvironment]
+        public bool bUseApeiron = false;
+
+        /// <summary>
+        /// Whether to include the immediate mode physics interface. This overrides the physx flags to disable APEX and NvCloth
+        /// </summary>
+        [RequiresUniqueBuildEnvironment]
+		public bool bCompileImmediatePhysics = false;
+
+		/// <summary>
 		/// Whether to include PhysX support.
 		/// </summary>
 		[RequiresUniqueBuildEnvironment]
@@ -1463,6 +1481,21 @@ namespace UnrealBuildTool
 		public EGeneratedCodeVersion GeneratedCodeVersion
 		{
 			get { return Inner.GeneratedCodeVersion; }
+		}
+
+		public bool bCompileApeiron
+		{
+			get { return Inner.bCompileApeiron; }
+		}
+
+        public bool bUseApeiron
+        {
+            get { return Inner.bUseApeiron; }
+        }
+
+        public bool bCompileImmediatePhysics
+		{
+			get { return Inner.bCompileImmediatePhysics; }
 		}
 
 		public bool bCompilePhysX

@@ -249,7 +249,7 @@ protected:
 	FVector GetPhysicsLocation();
 
 private:
-#if WITH_PHYSX
+#if WITH_PHYSX && PHYSICS_INTERFACE_PHYSX
 	FPhysXVehicleManager* GetVehicleManager() const;
 #endif // WITH_PHYSX
 
