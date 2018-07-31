@@ -1397,6 +1397,13 @@ public:
 	/** Returns the return value property if there is one, or null */
 	UProperty* GetReturnProperty() const;
 
+	/** Returns the owning UClass* without branching */
+	FORCEINLINE UClass* GetOuterUClassUnchecked() const
+	{
+		// declaration order mandates reinterpret_cast:
+		return reinterpret_cast<UClass*>(GetOuter());
+	}
+
 	/**
 	 * Used to safely check whether the passed in flag is set.
 	 *
