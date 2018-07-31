@@ -20,7 +20,7 @@ struct FMediaFrameworkCaptureCameraViewportCameraOutputInfo
 	GENERATED_BODY()
 
 	UPROPERTY(EditAnywhere, Category="MediaViewportCapture")
-	TArray<ACameraActor*> LockedCameraActors;
+	TArray<AActor*> LockedCameraActors;
 
 	UPROPERTY(EditAnywhere, Category="MediaViewportCapture")
 	UMediaOutput* MediaOutput;
