@@ -66,7 +66,7 @@
 #include "AudioDevice.h"
 #include "VisualLogger/VisualLogger.h"
 #include "LevelUtils.h"
-#include "PhysicsPublic.h"
+#include "Physics/PhysicsInterfaceCore.h"
 #include "AI/AISystemBase.h"
 #include "Camera/CameraActor.h"
 #include "Engine/NetworkObjectList.h"
@@ -934,6 +934,9 @@ void UWorld::PostLoad()
 	FLevelStreamingGCHelper::AddGarbageCollectorCallback();
 
 #if WITH_EDITOR
+	// Initially set up the parameter collection list. This may be run again in UWorld::InitWorld.
+	SetupParameterCollectionInstances();
+
 	if (GIsEditor)
 	{
 		if (!GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor))
@@ -3349,7 +3352,7 @@ bool UWorld::Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar )
 	{
 		return HandleDemoSpeedCommand(Cmd, Ar, InWorld);
 	}
-	else if( ExecPhysCommands( Cmd, &Ar, InWorld ) )
+	else if(FPhysicsInterface::ExecPhysCommands( Cmd, &Ar, InWorld ) )
 	{
 		return HandleLogActorCountsCommand( Cmd, Ar, InWorld );
 	}
@@ -4024,7 +4027,8 @@ float UWorld::GetMonoFarFieldCullingDistance() const
 
 void UWorld::CreatePhysicsScene(const AWorldSettings* Settings)
 {
-	SetPhysicsScene(new FPhysScene(Settings));
+	FPhysScene* NewScene = new FPhysScene(Settings);
+	SetPhysicsScene(NewScene);
 }
 
 void UWorld::SetPhysicsScene(FPhysScene* InScene)

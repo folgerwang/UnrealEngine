@@ -1,9 +1,11 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Collision/CollisionDebugDrawing.h"
-#include "Collision/PhysXCollision.h"
 #include "Components/PrimitiveComponent.h"
+#include "Physics/PhysicsInterfaceUtils.h"
 #include "DrawDebugHelpers.h"
+#include "PhysXPublic.h"
+
 
 #if ENABLE_DRAW_DEBUG
 

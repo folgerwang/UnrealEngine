@@ -29,7 +29,6 @@
 
 
 class Error;
-class FPhysScene;
 class FPrimitiveDrawInterface;
 class UAnimInstance;
 class UPhysicalMaterial;
@@ -53,7 +52,6 @@ namespace physx
 	class PxAggregate;
 }
 
-class FPhysScene;
 
 struct FAnimationEvaluationContext
 {
@@ -148,14 +146,6 @@ namespace EPhysicsTransformUpdateMode
 		ComponentTransformIsKinematic
 	};
 }
-
-
-/** Enum for indicating whether kinematic updates can be deferred */
-enum class EAllowKinematicDeferral
-{
-	AllowDeferral,
-	DisallowDeferral
-};
 
 /**
 * Tick function that does post physics work on skeletal mesh component. This executes in EndPhysics (after physics is done)
@@ -355,6 +345,10 @@ public:
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category = Physics)
 	EDynamicActorScene UseAsyncScene;
 
+	/** Controls whether blending in physics bones will refresh overlaps on this component, defaults to true but can be disabled in cases where we know anim->physics blending doesn't meaningfully change overlaps */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = Physics)
+	bool bUpdateOverlapsOnAnimationFinalize;
+
 	/** If we are running physics, should we update non-simulated bones based on the animation bone positions. */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category=SkeletalMesh)
 	TEnumAsByte<EKinematicBonesUpdateToPhysics::Type> KinematicBonesUpdateType;
@@ -456,10 +450,6 @@ public:
 	 * Optimization
 	 */
 	
-	 /** Whether animation and world transform updates are deferred. If this is on, the kinematic bodies (scene query data) will not update until the next time the physics simulation is run */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category = SkeletalMesh)
-	uint8 bDeferMovementFromSceneQueries : 1;
-
 	/** Skips Ticking and Bone Refresh. */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category=SkeletalMesh)
 	uint8 bNoSkeletonUpdate:1;
@@ -969,11 +959,8 @@ public:
 	/** Array of FConstraintInstance structs, storing per-instance state about each constraint. */
 	TArray<struct FConstraintInstance*> Constraints;
 
-#if WITH_PHYSX
-	/** Physics-engine representation of PxAggregate which contains a physics asset instance with more than numbers of bodies. */
-	physx::PxAggregate* Aggregate;
-
-#endif	//WITH_PHYSX
+	/** Physics-engine representation of aggregate which contains a physics asset instance with more than numbers of bodies. */
+	FPhysicsAggregateHandle Aggregate;
 
 	FSkeletalMeshComponentClothTickFunction ClothTickFunction;
 
@@ -1148,10 +1135,6 @@ protected:
 	* only ever read on the game thread
 	*/
 	TMap<int32, FClothSimulData> CurrentSimulationData_GameThread;
-
-public:
-
-	static uint32 GetPhysicsSceneType(const UPhysicsAsset& PhysAsset, const FPhysScene& PhysScene, EDynamicActorScene SimulationScene);
 
 private:
 
@@ -1537,10 +1520,10 @@ public:
 	void InitArticulated(FPhysScene* PhysScene);
 
 	/** Instantiates bodies given a physics asset. Typically you should call InitArticulated unless you are planning to do something special with the bodies. The Created bodies and constraints are owned by the calling code and must be freed when necessary.*/
-	void InstantiatePhysicsAsset(const UPhysicsAsset& PhysAsset, const FVector& Scale3D, TArray<FBodyInstance*>& OutBodies, TArray<FConstraintInstance*>& OutConstraints, FPhysScene* PhysScene = nullptr, USkeletalMeshComponent* OwningComponent = nullptr, int32 UseRootBodyIndex = INDEX_NONE, physx::PxAggregate* UseAggregate = nullptr) const;
+	void InstantiatePhysicsAsset(const UPhysicsAsset& PhysAsset, const FVector& Scale3D, TArray<FBodyInstance*>& OutBodies, TArray<FConstraintInstance*>& OutConstraints, FPhysScene* PhysScene = nullptr, USkeletalMeshComponent* OwningComponent = nullptr, int32 UseRootBodyIndex = INDEX_NONE, const FPhysicsAggregateHandle& UseAggregate = FPhysicsAggregateHandle()) const;
 
 	/** Instantiates bodies given a physics asset like InstantiatePhysicsAsset but instead of reading the current component state, this reads the ref-pose from the reference skeleton of the mesh. Useful if trying to create bodies to be used during any evaluation work */
-	void InstantiatePhysicsAssetRefPose(const UPhysicsAsset& PhysAsset, const FVector& Scale3D, TArray<FBodyInstance*>& OutBodies, TArray<FConstraintInstance*>& OutConstraints, FPhysScene* PhysScene = nullptr, USkeletalMeshComponent* OwningComponent = nullptr, int32 UseRootBodyIndex = INDEX_NONE, physx::PxAggregate* UseAggregate = nullptr) const;
+	void InstantiatePhysicsAssetRefPose(const UPhysicsAsset& PhysAsset, const FVector& Scale3D, TArray<FBodyInstance*>& OutBodies, TArray<FConstraintInstance*>& OutConstraints, FPhysScene* PhysScene = nullptr, USkeletalMeshComponent* OwningComponent = nullptr, int32 UseRootBodyIndex = INDEX_NONE, const FPhysicsAggregateHandle& UseAggregate = FPhysicsAggregateHandle()) const;
 
 	/** Turn off all physics and remove the instance. */
 	void TermArticulated();
@@ -1676,9 +1659,8 @@ public:
 	 *	@param	InComponentSpaceTransforms	Array of bone transforms in component space
 	 *	@param	Teleport					Whether movement is a 'teleport' (ie infers no physics velocity, but moves simulating bodies) or not
 	 *	@param	bNeedsSkinning				Whether we may need  to send new triangle data for per-poly skeletal mesh collision
-	 *	@perem	AllowDeferral				Whether we can defer actual update of bodies (if 'physics only' collision)
 	 */
-	void UpdateKinematicBonesToAnim(const TArray<FTransform>& InComponentSpaceTransforms, ETeleportType Teleport, bool bNeedsSkinning, EAllowKinematicDeferral DeferralAllowed = EAllowKinematicDeferral::AllowDeferral);
+	void UpdateKinematicBonesToAnim(const TArray<FTransform>& InComponentSpaceTransforms, ETeleportType Teleport, bool bNeedsSkinning);
 
 	/**
 	 * Look up all bodies for broken constraints.
@@ -1839,7 +1821,7 @@ private:
 
 	void GetWindForCloth_GameThread(FVector& WindVector, float& WindAdaption) const;
 
-	void InstantiatePhysicsAsset_Internal(const UPhysicsAsset& PhysAsset, const FVector& Scale3D, TArray<FBodyInstance*>& OutBodies, TArray<FConstraintInstance*>& OutConstraints, TFunctionRef<FTransform(int32)> BoneTransformGetter, FPhysScene* PhysScene = nullptr, USkeletalMeshComponent* OwningComponent = nullptr, int32 UseRootBodyIndex = INDEX_NONE, physx::PxAggregate* UseAggregate = nullptr) const;
+	void InstantiatePhysicsAsset_Internal(const UPhysicsAsset& PhysAsset, const FVector& Scale3D, TArray<FBodyInstance*>& OutBodies, TArray<FConstraintInstance*>& OutConstraints, TFunctionRef<FTransform(int32)> BoneTransformGetter, FPhysScene* PhysScene = nullptr, USkeletalMeshComponent* OwningComponent = nullptr, int32 UseRootBodyIndex = INDEX_NONE, const FPhysicsAggregateHandle& UseAggregate = FPhysicsAggregateHandle()) const;
 
 	// Reference to our current parallel animation evaluation task (if there is one)
 	FGraphEventRef				ParallelAnimationEvaluationTask;

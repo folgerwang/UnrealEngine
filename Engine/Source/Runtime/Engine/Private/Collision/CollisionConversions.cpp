@@ -3,15 +3,17 @@
 #include "Collision/CollisionConversions.h"
 #include "Engine/World.h"
 #include "Components/PrimitiveComponent.h"
-#include "CustomPhysXPayload.h"
 
 #if WITH_PHYSX
-#include "Collision/PhysXCollision.h"
 #include "Collision/CollisionDebugDrawing.h"
 #include "Components/LineBatchComponent.h"
 #include "PhysicalMaterials/PhysicalMaterial.h"
 #include "PhysicsEngine/PhysicsSettings.h"
 #include "PhysicsEngine/BodySetup.h"
+#include "PhysicsEngine/PxQueryFilterCallback.h"
+#include "Physics/PhysicsInterfaceUtils.h"
+#include "PhysXPublic.h"
+#include "CustomPhysXPayload.h"
 
 // Used to place overlaps into a TMap when deduplicating them
 struct FOverlapKey
@@ -360,7 +362,10 @@ static void SetHitResultFromShapeAndFaceIndex(const PxShape* PShape,  const PxRi
 	UPrimitiveComponent* OwningComponent = nullptr;
 	if(const FBodyInstance* BodyInst = FPhysxUserData::Get<FBodyInstance>(PActor->userData))
 	{
-		BodyInst = BodyInst->GetOriginalBodyInstance(PShape);
+#if WITH_APEIRON || WITH_IMMEDIATE_PHYSX || PHYSICS_INTERFACE_LLIMMEDIATE
+        ensure(false);
+#else
+		BodyInst = FPhysicsInterface_PhysX::ShapeToOriginalBodyInstance(BodyInst, PShape);
 
 		//Normal case where we hit a body
 		OutResult.Item = BodyInst->InstanceBodyIndex;
@@ -371,6 +376,7 @@ static void SetHitResultFromShapeAndFaceIndex(const PxShape* PShape,  const PxRi
 		}
 
 		OwningComponent = BodyInst->OwnerComponent.Get();
+#endif
 	}
 	else if(const FCustomPhysXPayload* CustomPayload = FPhysxUserData::Get<FCustomPhysXPayload>(PShape->userData))
 	{
@@ -439,8 +445,8 @@ EConvertQueryResult ConvertQueryImpactHit(const UWorld* World, const PxLocationH
 
 	// See if this is a 'blocking' hit
 	const PxFilterData PShapeFilter = PHit.shape->getQueryFilterData();
-	const PxQueryHitType::Enum HitType = FPxQueryFilterCallback::CalcQueryHitType(QueryFilter, PShapeFilter);
-	OutResult.bBlockingHit = (HitType == PxQueryHitType::eBLOCK); 
+	const ECollisionQueryHitType HitType = FCollisionQueryFilterCallback::CalcQueryHitType(P2UFilterData(QueryFilter), P2UFilterData(PShapeFilter));
+	OutResult.bBlockingHit = (HitType == ECollisionQueryHitType::Block);
 	OutResult.bStartPenetrating = bInitialOverlap;
 
 	// calculate the hit time
@@ -892,8 +898,8 @@ static bool ConvertOverlappedShapeToImpactHit(const UWorld* World, const PxLocat
 
 	// See if this is a 'blocking' hit
 	PxFilterData PShapeFilter = PShape->getQueryFilterData();
-	PxQueryHitType::Enum HitType = FPxQueryFilterCallback::CalcQueryHitType(QueryFilter, PShapeFilter);
-	const bool bBlockingHit = (HitType == PxQueryHitType::eBLOCK); 
+	const ECollisionQueryHitType HitType = FCollisionQueryFilterCallback::CalcQueryHitType(P2UFilterData(QueryFilter), P2UFilterData(PShapeFilter));
+	const bool bBlockingHit = (HitType == ECollisionQueryHitType::Block);
 	OutResult.bBlockingHit = bBlockingHit;
 
 	// Time of zero because initially overlapping
@@ -1009,13 +1015,17 @@ void ConvertQueryOverlap(const PxShape* PShape, const PxRigidActor* PActor, FOve
 	// Try body instance
 	if (const FBodyInstance* BodyInst = FPhysxUserData::Get<FBodyInstance>(PActor->userData))
 	{
-        BodyInst = BodyInst->GetOriginalBodyInstance(PShape);
+#if WITH_APEIRON || WITH_IMMEDIATE_PHYSX || PHYSICS_INTERFACE_LLIMMEDIATE
+        ensure(false);
+#else
+        BodyInst = FPhysicsInterface_PhysX::ShapeToOriginalBodyInstance(BodyInst, PShape);
 		if (const UPrimitiveComponent* OwnerComponent = BodyInst->OwnerComponent.Get())
 		{
 			OutOverlap.Actor = OwnerComponent->GetOwner();
 			OutOverlap.Component = BodyInst->OwnerComponent; // Copying weak pointer is faster than assigning raw pointer.
 			OutOverlap.ItemIndex = OwnerComponent->bMultiBodyOverlap ? BodyInst->InstanceBodyIndex : INDEX_NONE;
 		}
+#endif
 	}
 	else if(const FCustomPhysXPayload* CustomPayload = FPhysxUserData::Get<FCustomPhysXPayload>(PShape->userData))
 	{
@@ -1067,8 +1077,8 @@ bool IsBlocking(const PxShape* PShape, const PxFilterData& QueryFilter)
 {
 	// See if this is a 'blocking' hit
 	const PxFilterData PShapeFilter = PShape->getQueryFilterData();
-	const PxQueryHitType::Enum HitType = FPxQueryFilterCallback::CalcQueryHitType(QueryFilter, PShapeFilter);
-	const bool bBlock = (HitType == PxQueryHitType::eBLOCK);
+	const ECollisionQueryHitType HitType = FCollisionQueryFilterCallback::CalcQueryHitType(P2UFilterData(QueryFilter), P2UFilterData(PShapeFilter));
+	const bool bBlock = (HitType == ECollisionQueryHitType::Block);
 	return bBlock;
 }
 

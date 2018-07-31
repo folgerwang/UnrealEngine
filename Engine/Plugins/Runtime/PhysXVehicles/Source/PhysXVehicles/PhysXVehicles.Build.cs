@@ -12,6 +12,7 @@ namespace UnrealBuildTool.Rules
 					"Core",
 					"CoreUObject",
                     "Engine",
+                    "EngineSettings",
                     "RenderCore",
                     "ShaderCore",
                     "AnimGraphRuntime",
@@ -20,7 +21,7 @@ namespace UnrealBuildTool.Rules
 				}
 				);
 
-            SetupModulePhysXAPEXSupport(Target);
+            SetupModulePhysicsSupport(Target);
         }
     }
 }
