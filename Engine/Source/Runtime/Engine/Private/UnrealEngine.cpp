@@ -9576,14 +9576,13 @@ void DrawStatsHUD( UWorld* World, FViewport* Viewport, FCanvas* Canvas, UCanvas*
 		return;
 	}
 
-
 	float DPIScale = Canvas->GetDPIScale();
-
-	const FVector2D ScaledViewportSize = FVector2D(Viewport->GetSizeXY()) / DPIScale;
+	
+	FIntPoint TextureSize = Canvas->GetRenderTarget()->GetSizeXY();
 
 	//@todo joeg: Move this stuff to a function, make safe to use on consoles by
 	// respecting the various safe zones, and make it compile out.
-	const int32 FPSXOffset	= (GEngine->IsStereoscopic3D(Viewport)) ? ScaledViewportSize.X * 0.5f * 0.334f / DPIScale : (FPlatformProperties::SupportsWindowedMode() ? 110 : 250);
+	const int32 FPSXOffset	= (FPlatformProperties::SupportsWindowedMode() ? 110 : 250);
 	const int32 StatsXOffset = 100;// FPlatformProperties::SupportsWindowedMode() ? 4 : 100;
 
 	static const int32 MessageStartY = GIsEditor ? 35 : 100; // Account for safe frame
@@ -9594,7 +9593,7 @@ void DrawStatsHUD( UWorld* World, FViewport* Viewport, FCanvas* Canvas, UCanvas*
 #if !UE_BUILD_SHIPPING
 	if (!GIsHighResScreenshot && !GIsDumpingMovie && GAreScreenMessagesEnabled)
 	{
-		const int32 MessageX = (GEngine->IsStereoscopic3D(Viewport)) ? ScaledViewportSize.X * 0.5f * 0.3f : 40;
+		const int32 MessageX = 40;
 
 		FCanvasTextItem SmallTextItem(FVector2D(0, 0), FText::GetEmpty(), GEngine->GetSmallFont(), FLinearColor::White);
 		SmallTextItem.Scale = FontScale;
@@ -9614,7 +9613,7 @@ void DrawStatsHUD( UWorld* World, FViewport* Viewport, FCanvas* Canvas, UCanvas*
 			FText Text = LOCTEXT("VisLogRecordingActive", "VisLog recording active");
 			StringSize(GEngine->GetSmallFont(), XSize, YSize, *Text.ToString());
 
-			SmallTextItem.Position = FVector2D((int32)Viewport->GetSizeXY().X - XSize - 16, 36);
+			SmallTextItem.Position = FVector2D((int32)TextureSize.X - XSize - 16, 36);
 			SmallTextItem.Text = Text;
 			SmallTextItem.SetColor(FLinearColor::Red);
 			SmallTextItem.EnableShadow(FLinearColor::Black);
@@ -9725,8 +9724,8 @@ void DrawStatsHUD( UWorld* World, FViewport* Viewport, FCanvas* Canvas, UCanvas*
 #endif // UE_BUILD_SHIPPING 
 
 	{
-		int32 X = ((CanvasObject) ? CanvasObject->SizeX : Viewport->GetSizeXY().X) / Canvas->GetDPIScale() - FPSXOffset;
-		int32 Y = ((GEngine->IsStereoscopic3D(Viewport)) ? FMath::TruncToInt(Viewport->GetSizeXY().Y * 0.40f) : FMath::TruncToInt(Viewport->GetSizeXY().Y * 0.20f)) / Canvas->GetDPIScale();
+		int32 X = ((CanvasObject) ? CanvasObject->SizeX : TextureSize.X) / Canvas->GetDPIScale() - FPSXOffset;
+		int32 Y = FMath::TruncToInt(TextureSize.Y * 0.20f) / Canvas->GetDPIScale();
 
 		// give the viewport first shot at drawing stats
 		Y = Viewport->DrawStatsHUD(Canvas, X, Y);
@@ -9737,7 +9736,7 @@ void DrawStatsHUD( UWorld* World, FViewport* Viewport, FCanvas* Canvas, UCanvas*
 #if STATS
 		extern void RenderStats(FViewport* Viewport, class FCanvas* Canvas, int32 X, int32 Y, int32 SizeX);
 
-		int32 PixelSizeX = CanvasObject != nullptr ? CanvasObject->CachedDisplayWidth - CanvasObject->SafeZonePadX * 2 : Viewport->GetSizeXY().X;
+		int32 PixelSizeX = CanvasObject != nullptr ? CanvasObject->CachedDisplayWidth - CanvasObject->SafeZonePadX * 2 : TextureSize.X;
 
 		RenderStats( Viewport, Canvas, StatsXOffset, Y, FMath::FloorToInt(PixelSizeX / Canvas->GetDPIScale()));
 #endif
@@ -14173,7 +14172,7 @@ int32 UEngine::RenderStatLevels(UWorld* World, FViewport* Viewport, FCanvas* Can
 		const FSubLevelStatus& LevelStatus = SubLevelsStatusList[LevelIdx];
 
 		// Wrap around at the bottom.
-		if (Y > Viewport->GetSizeXY().Y - 30)
+		if (Y > Canvas->GetRenderTarget()->GetSizeXY().Y - 30)
 		{
 			MaxY = FMath::Max(MaxY, Y);
 			Y = BaseY;

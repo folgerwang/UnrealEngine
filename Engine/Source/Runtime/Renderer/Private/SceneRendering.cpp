@@ -142,14 +142,6 @@ static TAutoConsoleVariable<int32> CVarODSCapture(
 	TEXT("0 to disable Omni-directional stereo capture (default), 1 to enable."),
 	ECVF_ReadOnly | ECVF_RenderThreadSafe);
 
-static TAutoConsoleVariable<int32> CVarDebugCanvasInLayer(
-	TEXT("vr.DebugCanvasInLayer"),
-	(PLATFORM_LUMIN || PLATFORM_LUMINGL4),
-	TEXT("Experimental")
-	TEXT("0 to disable (default), 1 to enable."),
-	ECVF_Scalability | ECVF_RenderThreadSafe);
-
-
 static TAutoConsoleVariable<int32> CVarViewRectUseScreenBottom(
 	TEXT("r.ViewRectUseScreenBottom"),
 	0,

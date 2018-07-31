@@ -103,7 +103,6 @@ public:
 
 	virtual FMatrix GetStereoProjectionMatrix(const EStereoscopicPass StereoPassType) const override;
 
-	virtual void GetOrthoProjection(int32 RTWidth, int32 RTHeight, float OrthoDistance, FMatrix OrthoProjection[2]) const override;
 	virtual void SetClippingPlanes(float NCP, float FCP) override;
 	virtual void RenderTexture_RenderThread(class FRHICommandListImmediate& RHICmdList, class FRHITexture2D* BackBuffer, class FRHITexture2D* SrcTexture, FVector2D WindowSize) const override;
 

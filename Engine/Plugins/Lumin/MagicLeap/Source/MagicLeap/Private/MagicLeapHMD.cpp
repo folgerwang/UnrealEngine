@@ -1655,14 +1655,6 @@ void FMagicLeapHMD::RenderTexture_RenderThread(class FRHICommandListImmediate& R
 #endif //WITH_MLSDK
 }
 
-void FMagicLeapHMD::GetOrthoProjection(int32 RTWidth, int32 RTHeight, float OrthoDistance, FMatrix OrthoProjection[2]) const
-{
-	float ScalingFactor = 1.5;
-	OrthoProjection[0] = FScaleMatrix(ScalingFactor);
-	OrthoProjection[1] = FScaleMatrix(ScalingFactor);
-	OrthoProjection[1] = FTranslationMatrix(FVector(OrthoProjection[1].M[0][3] * RTWidth * 0.25f + RTWidth * 0.5f, 0, 0)) * OrthoProjection[1];
-}
-
 void FMagicLeapHMD::SetClippingPlanes(float NCP, float FCP)
 {
 	check(IsInGameThread());

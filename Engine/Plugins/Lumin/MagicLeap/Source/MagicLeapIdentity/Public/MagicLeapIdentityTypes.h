@@ -18,7 +18,6 @@ enum class EMagicLeapIdentityKey : uint8
 	Avatar2D,
 	Avatar3D,
 	Unknown,
-	NickName
 };
 
 /** List of possible errors when calling the Identity functions. */
