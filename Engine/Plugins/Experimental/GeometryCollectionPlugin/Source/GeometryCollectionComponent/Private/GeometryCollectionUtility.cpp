@@ -10,7 +10,7 @@ DEFINE_LOG_CATEGORY_STATIC(FGeometryCollectionUtilityLogging, Log, All);
 
 namespace GeometryCollection
 {
-	TSharedPtr<UGeometryCollection> MakeCubeElement(FTransform center, float Scale)
+	TSharedPtr<UGeometryCollection> MakeCubeElement(const FTransform& center, float Scale)
 	{
 		UGeometryCollection * RestCollection = NewObject<UGeometryCollection>();
 

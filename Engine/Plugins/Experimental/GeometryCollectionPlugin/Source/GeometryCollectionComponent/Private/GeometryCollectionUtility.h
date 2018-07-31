@@ -15,7 +15,7 @@ namespace GeometryCollection
 	* MakeCubeElement
 	*   Utility to create a triangulated unit cube using the UGeometryCollection format.
 	*/
-	TSharedPtr<UGeometryCollection> MakeCubeElement(FTransform center, float Scale);
+	TSharedPtr<UGeometryCollection> MakeCubeElement(const FTransform& center, float Scale);
 
 	/****
 	* SetupCubeGridExample
