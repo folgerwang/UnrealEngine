@@ -27,7 +27,7 @@ public class Vulkan : ModuleRules
             PublicSystemIncludePaths.Add(RootPath + "/Include");
             PublicSystemIncludePaths.Add(RootPath + "/Include/vulkan");
         }
-        else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix) || Target.Platform == UnrealTargetPlatform.Lumi)
+        else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix) || Target.Platform == UnrealTargetPlatform.Lumin)
 		{
 			// no need to add the library, should be loaded via SDL
 			string RootPath = Target.UEThirdPartySourceDirectory + "Vulkan";
