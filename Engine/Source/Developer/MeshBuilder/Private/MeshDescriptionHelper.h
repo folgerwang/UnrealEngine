@@ -4,6 +4,7 @@
 #include "CoreMinimal.h"
 #include "CoreTypes.h"
 #include "Logging/LogMacros.h"
+#include "OverlappingCorners.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogMeshBuilder, Log, All);
 
@@ -22,11 +23,11 @@ public:
 	//Build a render mesh description with the BuildSettings. This will update the InRenderMeshDescription ptr content
 	void GetRenderMeshDescription(UObject* Owner, const FMeshDescription& InOriginalMeshDescription, FMeshDescription& OutRenderMeshDescription);
 
-	void ReduceLOD(const FMeshDescription& BaseMesh, FMeshDescription& DestMesh, const struct FMeshReductionSettings& ReductionSettings, const TMultiMap<int32, int32>& InOverlappingCorners, float &OutMaxDeviation);
+	void ReduceLOD(const FMeshDescription& BaseMesh, FMeshDescription& DestMesh, const struct FMeshReductionSettings& ReductionSettings, const FOverlappingCorners& InOverlappingCorners, float &OutMaxDeviation);
 
 	void FindOverlappingCorners(const FMeshDescription& MeshDescription, float ComparisonThreshold);
 
-	const TMultiMap<int32, int32>& GetOverlappingCorners() const { return OverlappingCorners; }
+	const FOverlappingCorners& GetOverlappingCorners() const { return OverlappingCorners; }
 
 private:
 
@@ -37,7 +38,7 @@ private:
 	//PRIVATE class members
 
 	FMeshBuildSettings* BuildSettings;
-	TMultiMap<int32, int32> OverlappingCorners;
+	FOverlappingCorners OverlappingCorners;
 
 	
 	//////////////////////////////////////////////////////////////////////////

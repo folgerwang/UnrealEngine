@@ -27,7 +27,7 @@ void BuildVertexBuffer(
 	, TArray<int32>& OutWedgeMap
 	, TArray<TArray<uint32> >& OutPerSectionIndices
 	, TArray< FStaticMeshBuildVertex >& StaticMeshBuildVertices
-	, const TMultiMap<int32, int32>& OverlappingCorners
+	, const FOverlappingCorners& OverlappingCorners
 	, float VertexComparisonThreshold
 	, TArray<int32>& RemapVerts);
 void BuildAllBufferOptimizations(struct FStaticMeshLODResources& StaticMeshLOD, const struct FMeshBuildSettings& LODBuildSettings, TArray< uint32 >& IndexBuffer, bool bNeeds32BitIndices, TArray< FStaticMeshBuildVertex >& StaticMeshBuildVertices);
@@ -128,7 +128,7 @@ bool FStaticMeshBuilder::Build(FStaticMeshRenderData& StaticMeshRenderData, USta
 		{
 			const int32 BaseLodIndex = 0;
 			float OverlappingThreshold = LODBuildSettings.bRemoveDegenerates ? THRESH_POINTS_ARE_SAME : 0.0f;
-			TMultiMap<int32, int32> OverlappingCorners;
+			FOverlappingCorners OverlappingCorners;
 			FMeshDescriptionOperations::FindOverlappingCorners(OverlappingCorners, MeshDescriptions[BaseLodIndex], OverlappingThreshold);
 
 			//Create a reduced mesh from the base LOD
@@ -308,7 +308,7 @@ void BuildVertexBuffer(
 	, TArray<int32>& OutWedgeMap
 	, TArray<TArray<uint32> >& OutPerSectionIndices
 	, TArray< FStaticMeshBuildVertex >& StaticMeshBuildVertices
-	, const TMultiMap<int32, int32>& OverlappingCorners
+	, const FOverlappingCorners& OverlappingCorners
 	, float VertexComparisonThreshold
 	, TArray<int32>& RemapVerts)
 {
@@ -330,7 +330,6 @@ void BuildVertexBuffer(
 	{
 		RemapIndex = INDEX_NONE;
 	}
-	TArray<int32> DupVerts;
 
 	TPolygonGroupAttributesConstRef<FName> PolygonGroupImportedMaterialSlotNames = MeshDescription.PolygonGroupAttributes().GetAttributesRef<FName>(MeshAttribute::PolygonGroup::ImportedMaterialSlotName);
 	TVertexAttributesConstRef<FVector> VertexPositions = MeshDescription.VertexAttributes().GetAttributesRef<FVector>( MeshAttribute::Vertex::Position );
@@ -434,9 +433,8 @@ void BuildVertexBuffer(
 					
 
 				//Never add duplicated vertex instance
-				DupVerts.Reset();
-				OverlappingCorners.MultiFind(VertexInstanceValue, DupVerts);
-				DupVerts.Sort();
+				const TArray<int32>& DupVerts = OverlappingCorners.FindIfOverlapping(VertexInstanceValue);
+
 				int32 Index = INDEX_NONE;
 				for (int32 k = 0; k < DupVerts.Num(); k++)
 				{

@@ -41,6 +41,7 @@
 
 #include "ApexClothingUtils.h"
 #include "MeshUtilities.h"
+#include "OverlappingCorners.h"
 
 #include "IMessageLogListing.h"
 #include "MessageLogModule.h"

@@ -5,9 +5,10 @@
 #include "MeshDescription.h"
 #include "MeshAttributes.h"
 #include "RawMesh.h"
+#include "LayoutUV.h"
+#include "OverlappingCorners.h"
 #include "RenderUtils.h"
 #include "mikktspace.h"
-#include "LayoutUV.h"
 
 DEFINE_LOG_CATEGORY(LogMeshDescriptionOperations);
 
@@ -1003,15 +1004,17 @@ namespace MeshDescriptionMikktSpaceInterface
 	}
 }
 
-void FMeshDescriptionOperations::FindOverlappingCorners(TMultiMap<int32, int32>& OverlappingCorners, const FMeshDescription& MeshDescription, float ComparisonThreshold)
+void FMeshDescriptionOperations::FindOverlappingCorners(FOverlappingCorners& OutOverlappingCorners, const FMeshDescription& MeshDescription, float ComparisonThreshold)
 {
-	//Empty the old data
-	OverlappingCorners.Reset();
+	// @todo: this should be shared with FOverlappingCorners
 
 	const FVertexInstanceArray& VertexInstanceArray = MeshDescription.VertexInstances();
 	const FVertexArray& VertexArray = MeshDescription.Vertices();
 
 	const int32 NumWedges = VertexInstanceArray.Num();
+
+	// Empty the old data and reserve space for new
+	OutOverlappingCorners.Init(NumWedges);
 
 	// Create a list of vertex Z/index pairs
 	TArray<MeshDescriptionOperationNamespace::FIndexAndZ> VertIndexAndZ;
@@ -1041,21 +1044,118 @@ void FMeshDescriptionOperations::FindOverlappingCorners(TMultiMap<int32, int32>&
 
 			if (PositionA.Equals(PositionB, ComparisonThreshold))
 			{
-				OverlappingCorners.Add(VertIndexAndZ[i].Index, VertIndexAndZ[j].Index);
-				OverlappingCorners.Add(VertIndexAndZ[j].Index, VertIndexAndZ[i].Index);
+				OutOverlappingCorners.Add(VertIndexAndZ[i].Index, VertIndexAndZ[j].Index);
+				OutOverlappingCorners.Add(VertIndexAndZ[j].Index, VertIndexAndZ[i].Index);
 			}
 		}
 	}
+
+	OutOverlappingCorners.FinishAdding();
 }
+
+struct FLayoutUVMeshDescriptionView final : FLayoutUV::IMeshView
+{
+	FMeshDescription& MeshDescription;
+	const TVertexAttributeArray<FVector>& Positions;
+	const TVertexInstanceAttributeArray<FVector>& Normals;
+	const TVertexInstanceAttributeArray<FVector2D>& TexCoords;
+
+	const uint32 SrcChannel;
+	const uint32 DstChannel;
+
+	TVertexInstanceAttributeArray<FVector2D>* OutputTexCoords = nullptr;
+
+	uint32 NumIndices = 0;
+	TArray<int32> RemapVerts;
+	TArray<FVector2D> FlattenedTexCoords;
+
+	FLayoutUVMeshDescriptionView(FMeshDescription& InMeshDescription, uint32 InSrcChannel, uint32 InDstChannel) 
+		: MeshDescription(InMeshDescription)
+		, Positions(InMeshDescription.VertexAttributes().GetAttributes<FVector>(MeshAttribute::Vertex::Position))
+		, Normals(InMeshDescription.VertexInstanceAttributes().GetAttributes<FVector>(MeshAttribute::VertexInstance::Normal))
+		, TexCoords(MeshDescription.VertexInstanceAttributes().GetAttributes<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate, InSrcChannel))
+		, SrcChannel(InSrcChannel)
+		, DstChannel(InDstChannel)
+	{
+		uint32 NumTris = 0;
+		for (const FPolygonID PolygonID : MeshDescription.Polygons().GetElementIDs())
+		{
+			NumTris += MeshDescription.GetPolygonTriangles(PolygonID).Num();
+		}
+
+		NumIndices = NumTris * 3;
+
+		FlattenedTexCoords.SetNumUninitialized(NumIndices);
+		RemapVerts.SetNumUninitialized(NumIndices);
+
+		int32 WedgeIndex = 0;
+
+		for (const FPolygonID PolygonID : MeshDescription.Polygons().GetElementIDs())
+		{
+			const TArray<FMeshTriangle>& Triangles = MeshDescription.GetPolygonTriangles(PolygonID);
+			for (const FMeshTriangle MeshTriangle : Triangles)
+			{
+				for (int32 Corner = 0; Corner < 3; ++Corner)
+				{
+					const FVertexInstanceID VertexInstanceID = MeshTriangle.GetVertexInstanceID(Corner);
+
+					FlattenedTexCoords[WedgeIndex] = TexCoords[VertexInstanceID];
+					RemapVerts[WedgeIndex] = VertexInstanceID.GetValue();
+					++WedgeIndex;
+				}
+			}
+		}
+	}
+
+	uint32 GetNumIndices() const override { return NumIndices; }
+
+	FVector GetPosition(uint32 Index) const override
+	{ 
+		FVertexInstanceID VertexInstanceID(RemapVerts[Index]);
+		FVertexID VertexID = MeshDescription.GetVertexInstanceVertex(VertexInstanceID);
+		return Positions[VertexID];
+	}
+
+	FVector GetNormal(uint32 Index) const override
+	{ 
+		FVertexInstanceID VertexInstanceID(RemapVerts[Index]);
+		return Normals[VertexInstanceID];
+	}
+
+	FVector2D GetInputTexcoord(uint32 Index) const override
+	{
+		return FlattenedTexCoords[Index];
+	}
+
+	void InitOutputTexcoords(uint32 Num) override
+	{
+		// If current DstChannel is out of range of the number of UVs defined by the mesh description, change the index count accordingly
+		const uint32 NumUVs = MeshDescription.VertexInstanceAttributes().GetAttributeIndexCount<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
+		if (DstChannel >= NumUVs)
+		{
+			MeshDescription.VertexInstanceAttributes().SetAttributeIndexCount<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate, DstChannel + 1);
+			ensure(false);	// not expecting it to get here
+		}
+
+		OutputTexCoords = &MeshDescription.VertexInstanceAttributes().GetAttributes<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate, DstChannel);
+	}
+
+	void SetOutputTexcoord(uint32 Index, const FVector2D& Value) override
+	{
+		const FVertexInstanceID VertexInstanceID(RemapVerts[Index]);
+		(*OutputTexCoords)[VertexInstanceID] = Value;
+	}
+};
 
 void FMeshDescriptionOperations::CreateLightMapUVLayout(FMeshDescription& MeshDescription,
 	int32 SrcLightmapIndex,
 	int32 DstLightmapIndex,
 	int32 MinLightmapResolution,
 	ELightmapUVVersion LightmapUVVersion,
-	const TMultiMap<int32, int32>& OverlappingCorners)
+	const FOverlappingCorners& OverlappingCorners)
 {
-	MeshDescriptionOp::FLayoutUV Packer(MeshDescription, SrcLightmapIndex, DstLightmapIndex, MinLightmapResolution);
+	FLayoutUVMeshDescriptionView MeshDescriptionView(MeshDescription, SrcLightmapIndex, DstLightmapIndex);
+	FLayoutUV Packer(MeshDescriptionView, MinLightmapResolution);
 	Packer.SetVersion(LightmapUVVersion);
 
 	Packer.FindCharts(OverlappingCorners);
@@ -1072,11 +1172,12 @@ bool FMeshDescriptionOperations::GenerateUniqueUVsForStaticMesh(const FMeshDescr
 	FMeshDescription DuplicateMeshDescription(MeshDescription);
 	// Find overlapping corners for UV generator. Allow some threshold - this should not produce any error in a case if resulting
 	// mesh will not merge these vertices.
-	TMultiMap<int32, int32> OverlappingCorners;
+	FOverlappingCorners OverlappingCorners;
 	FindOverlappingCorners(OverlappingCorners, DuplicateMeshDescription, THRESH_POINTS_ARE_SAME);
 
 	// Generate new UVs
-	MeshDescriptionOp::FLayoutUV Packer(DuplicateMeshDescription, 0, 1, FMath::Clamp(TextureResolution / 4, 32, 512));
+	FLayoutUVMeshDescriptionView DuplicateMeshDescriptionView(DuplicateMeshDescription, 0, 1);
+	FLayoutUV Packer(DuplicateMeshDescriptionView, FMath::Clamp(TextureResolution / 4, 32, 512));
 	Packer.FindCharts(OverlappingCorners);
 
 	bool bPackSuccess = Packer.FindBestPacking();

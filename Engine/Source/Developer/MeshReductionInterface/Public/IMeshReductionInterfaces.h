@@ -45,7 +45,7 @@ public:
 		FMeshDescription& OutReducedMesh,
 		float& OutMaxDeviation,
 		const FMeshDescription& InMesh,
-		const TMultiMap<int32, int32>& InOverlappingCorners,
+		const FOverlappingCorners& InOverlappingCorners,
 		const struct FMeshReductionSettings& ReductionSettings
 	) = 0;
 

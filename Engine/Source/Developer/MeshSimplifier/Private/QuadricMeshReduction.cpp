@@ -7,6 +7,7 @@
 #include "MeshBuild.h"
 #include "RawMesh.h"
 #include "MeshSimplify.h"
+#include "OverlappingCorners.h"
 #include "Templates/UniquePtr.h"
 #include "Features/IModularFeatures.h"
 #include "IMeshReductionInterfaces.h"
@@ -511,7 +512,7 @@ public:
 		FMeshDescription& OutReducedMesh,
 		float& OutMaxDeviation,
 		const FMeshDescription& InMesh,
-		const TMultiMap<int32, int32>& InOverlappingCorners,
+		const FOverlappingCorners& InOverlappingCorners,
 		const struct FMeshReductionSettings& ReductionSettings
 	) override
 	{
@@ -524,7 +525,6 @@ public:
 		TArray< uint32 >					Indexes;
 
 		TMap< int32, int32 > VertsMap;
-		TArray<int32> DupVerts;
 
 		int32 NumFaces = 0;
 		for (const FPolygonID PolygonID : InMesh.Polygons().GetElementIDs())
@@ -618,9 +618,7 @@ public:
 					// Make sure this vertex is valid from the start
 					NewVert.Correct();
 
-					DupVerts.Reset();
-					InOverlappingCorners.MultiFind(WedgeIndex, DupVerts);
-					DupVerts.Sort();
+					const TArray<int32>& DupVerts = InOverlappingCorners.FindIfOverlapping(WedgeIndex);
 
 					int32 Index = INDEX_NONE;
 					for (int32 k = 0; k < DupVerts.Num(); k++)

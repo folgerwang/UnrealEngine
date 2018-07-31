@@ -20,6 +20,12 @@ public class GeometryCache : ModuleRules
 			}
 		);
 
+        PrivateDependencyModuleNames.AddRange(
+            new string[] {
+                "MeshUtilitiesCommon",
+            }
+        );
+
         PublicIncludePathModuleNames.Add("TargetPlatform");
 
         if (Target.bBuildEditor)

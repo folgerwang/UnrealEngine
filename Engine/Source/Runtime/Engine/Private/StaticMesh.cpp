@@ -46,6 +46,7 @@
 #include "Settings/EditorExperimentalSettings.h"
 #include "MeshBuilder.h"
 #include "MeshUtilities.h"
+#include "MeshUtilitiesCommon.h"
 #include "DerivedDataCacheInterface.h"
 #include "PlatformInfo.h"
 #include "ScopedTransaction.h"

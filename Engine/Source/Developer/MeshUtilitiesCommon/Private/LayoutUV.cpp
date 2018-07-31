@@ -2,17 +2,20 @@
 
 #include "LayoutUV.h"
 #include "DisjointSet.h"
-
+#include "OverlappingCorners.h"
 #include "Algo/IntroSort.h"
+#include "HAL/PlatformTime.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogLayoutUV, Warning, All);
 
 #define CHART_JOINING	1
 
-FLayoutUV::FLayoutUV( FRawMesh* InMesh, uint32 InSrcChannel, uint32 InDstChannel, uint32 InTextureResolution )
-	: RawMesh( InMesh )
-	, SrcChannel( InSrcChannel )
-	, DstChannel( InDstChannel )
+#define NEW_UVS_ARE_SAME THRESH_POINTS_ARE_SAME
+#define LEGACY_UVS_ARE_SAME (1.0f / 1024.0f)
+#define UVLAYOUT_THRESH_UVS_ARE_SAME (GetUVEqualityThreshold())
+
+FLayoutUV::FLayoutUV( IMeshView& InMeshView, uint32 InTextureResolution )
+	: MeshView( InMeshView )
 	, TextureResolution( InTextureResolution )
 	, TotalUVArea( 0.0f )
 	, LayoutRaster( TextureResolution, TextureResolution )
@@ -27,7 +30,7 @@ int32 FLayoutUV::FindCharts( const FOverlappingCorners& OverlappingCorners )
 {
 	double Begin = FPlatformTime::Seconds();
 
-	uint32 NumIndexes = RawMesh->WedgeIndices.Num();
+	uint32 NumIndexes = MeshView.GetNumIndices();
 	uint32 NumTris = NumIndexes / 3;
 
 	TArray< int32 > TranslatedMatches;
@@ -36,7 +39,7 @@ int32 FLayoutUV::FindCharts( const FOverlappingCorners& OverlappingCorners )
 	for( uint32 i = 0; i < NumIndexes; i++ )
 	{
 		TranslatedMatches[i] = -1;
-		TexCoords[i] = RawMesh->WedgeTexCoords[ SrcChannel ][i];
+		TexCoords[i] = MeshView.GetInputTexcoord(i);
 	}
 
 	// Build disjoint set
@@ -182,7 +185,7 @@ int32 FLayoutUV::FindCharts( const FOverlappingCorners& OverlappingCorners )
 			{
 				uint32 Index = 3 * SortedTris[ Tri ] + k;
 
-				Positions[k] = RawMesh->GetWedgePosition( Index );
+				Positions[k] = MeshView.GetPosition( Index );
 				UVs[k] = TexCoords[ Index ];
 
 				Chart.MinUV.X = FMath::Min( Chart.MinUV.X, UVs[k].X );
@@ -1061,7 +1064,7 @@ void FLayoutUV::RasterizeChart( const FMeshChart& Chart, uint32 RectW, uint32 Re
 void FLayoutUV::CommitPackedUVs()
 {
 	// Alloc new UV channel
-	RawMesh->WedgeTexCoords[ DstChannel ].SetNumUninitialized( TexCoords.Num() );
+	MeshView.InitOutputTexcoords(TexCoords.Num());
 
 	// Commit chart UVs
 	for( int32 i = 0; i < Charts.Num(); i++ )
@@ -1078,8 +1081,57 @@ void FLayoutUV::CommitPackedUVs()
 			{
 				uint32 Index = 3 * SortedTris[ Tri ] + k;
 				const FVector2D& UV = TexCoords[ Index ];
-				RawMesh->WedgeTexCoords[ DstChannel ][ Index ] = UV.X * Chart.PackingScaleU + UV.Y * Chart.PackingScaleV + Chart.PackingBias;
+				FVector2D TransformedUV = UV.X * Chart.PackingScaleU + UV.Y * Chart.PackingScaleV + Chart.PackingBias;
+				MeshView.SetOutputTexcoord(Index, TransformedUV);
 			}
 		}
 	}
+}
+
+inline bool FLayoutUV::PositionsMatch( uint32 a, uint32 b ) const
+{
+	return ( MeshView.GetPosition(a) - MeshView.GetPosition(b) ).IsNearlyZero( THRESH_POINTS_ARE_SAME );
+}
+
+inline bool FLayoutUV::NormalsMatch( uint32 a, uint32 b ) const
+{
+	return ( MeshView.GetNormal(a) - MeshView.GetNormal(b) ).IsNearlyZero( THRESH_NORMALS_ARE_SAME );
+}
+
+inline bool FLayoutUV::UVsMatch( uint32 a, uint32 b ) const
+{
+	return ( MeshView.GetInputTexcoord(a) - MeshView.GetInputTexcoord(b) ).IsNearlyZero(UVLAYOUT_THRESH_UVS_ARE_SAME);
+}
+
+inline bool FLayoutUV::VertsMatch( uint32 a, uint32 b ) const
+{
+	return PositionsMatch( a, b ) && UVsMatch( a, b );
+}
+
+// Signed UV area
+inline float FLayoutUV::TriangleUVArea( uint32 Tri ) const
+{
+	FVector2D UVs[3];
+	for( int k = 0; k < 3; k++ )
+	{
+		UVs[k] = MeshView.GetInputTexcoord(3 * Tri + k);
+	}
+
+	FVector2D EdgeUV1 = UVs[1] - UVs[0];
+	FVector2D EdgeUV2 = UVs[2] - UVs[0];
+	return 0.5f * ( EdgeUV1.X * EdgeUV2.Y - EdgeUV1.Y * EdgeUV2.X );
+}
+
+inline void FLayoutUV::DisconnectChart( FMeshChart& Chart, uint32 Side )
+{
+	if( Chart.Join[ Side ] != -1 )
+	{
+		Charts[ Chart.Join[ Side ] ].Join[ Side ^ 1 ] = -1;
+		Chart.Join[ Side ] = -1;
+	}
+}
+
+inline float FLayoutUV::GetUVEqualityThreshold() const
+{
+	return LayoutVersion >= ELightmapUVVersion::SmallChartPacking ? NEW_UVS_ARE_SAME : LEGACY_UVS_ARE_SAME;
 }

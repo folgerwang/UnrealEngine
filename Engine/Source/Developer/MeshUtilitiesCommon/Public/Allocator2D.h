@@ -7,7 +7,7 @@
 struct FRect;
 struct Rect;
 
-class MESHUTILITIES_API FAllocator2D
+class MESHUTILITIESCOMMON_API FAllocator2D
 {
 public:
 	struct FRect
@@ -80,6 +80,20 @@ private:
 
 	TArray< FRow > Rows;
 	int32		LastRowFail;
+};
+
+struct FAllocator2DShader
+{
+	FAllocator2D*	Allocator2D;
+
+	FAllocator2DShader( FAllocator2D* InAllocator2D )
+	: Allocator2D( InAllocator2D )
+	{}
+
+	FORCEINLINE void Process( uint32 x, uint32 y )
+	{
+		Allocator2D->SetBit( x, y );
+	}
 };
 
 // Returns non-zero if set
