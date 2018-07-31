@@ -923,7 +923,7 @@ void UStruct::SerializeTaggedProperties(FStructuredArchive::FSlot Slot, uint8* D
 
 		if (UnderlyingArchive.IsTextFormat())
 		{
-			PropertiesRecord.Emplace(Slot.EnterRecord(FieldNames));
+			PropertiesRecord.Emplace(Slot.EnterRecord_TextOnly(FieldNames));
 		}
 		else
 		{

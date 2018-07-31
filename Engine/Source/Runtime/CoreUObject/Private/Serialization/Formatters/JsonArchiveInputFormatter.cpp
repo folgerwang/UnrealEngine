@@ -46,19 +46,24 @@ FStructuredArchiveFormatter* FJsonArchiveInputFormatter::CreateSubtreeReader()
 	return Cloned;
 }
 
+bool FJsonArchiveInputFormatter::HasDocumentTree() const
+{
+	return true;
+}
+
 void FJsonArchiveInputFormatter::EnterRecord()
 {
 	TSharedPtr<FJsonValue>& Value = ValueStack.Top();
 	ObjectStack.Add(FObjectRecord(Value->AsObject(), ValueStack.Num()));
 }
 
-void FJsonArchiveInputFormatter::EnterRecord(TArray<FString>& OutFieldNamesWhenLoading)
+void FJsonArchiveInputFormatter::EnterRecord_TextOnly(TArray<FString>& OutFieldNames)
 {
 	EnterRecord();
-	ObjectStack.Top().JsonObject->Values.GetKeys(OutFieldNamesWhenLoading);
-	for(int32 Idx = 0; Idx < OutFieldNamesWhenLoading.Num(); Idx++)
+	ObjectStack.Top().JsonObject->Values.GetKeys(OutFieldNames);
+	for(int32 Idx = 0; Idx < OutFieldNames.Num(); Idx++)
 	{
-		OutFieldNamesWhenLoading[Idx] = UnescapeFieldName(*OutFieldNamesWhenLoading[Idx]);
+		OutFieldNames[Idx] = UnescapeFieldName(*OutFieldNames[Idx]);
 	}
 }
 
@@ -76,7 +81,7 @@ void FJsonArchiveInputFormatter::EnterField(FArchiveFieldName Name)
 	ValueStack.Add(Field);
 }
 
-void FJsonArchiveInputFormatter::EnterField(FArchiveFieldName Name, EArchiveValueType& OutType)
+void FJsonArchiveInputFormatter::EnterField_TextOnly(FArchiveFieldName Name, EArchiveValueType& OutType)
 {
 	EnterField(Name);
 	OutType = GetValueType(*ValueStack.Top());
@@ -120,7 +125,7 @@ void FJsonArchiveInputFormatter::EnterArrayElement()
 {
 }
 
-void FJsonArchiveInputFormatter::EnterArrayElement(EArchiveValueType& OutType)
+void FJsonArchiveInputFormatter::EnterArrayElement_TextOnly(EArchiveValueType& OutType)
 {
 	OutType = GetValueType(*ValueStack.Top());
 }
@@ -136,7 +141,7 @@ void FJsonArchiveInputFormatter::EnterStream()
 	EnterArray(NumElements);
 }
 
-void FJsonArchiveInputFormatter::EnterStream(int32& NumElements)
+void FJsonArchiveInputFormatter::EnterStream_TextOnly(int32& NumElements)
 {
 	EnterArray(NumElements);
 }
@@ -149,7 +154,7 @@ void FJsonArchiveInputFormatter::EnterStreamElement()
 {
 }
 
-void FJsonArchiveInputFormatter::EnterStreamElement(EArchiveValueType& OutType)
+void FJsonArchiveInputFormatter::EnterStreamElement_TextOnly(EArchiveValueType& OutType)
 {
 	OutType = GetValueType(*ValueStack.Top());
 }
@@ -178,7 +183,7 @@ void FJsonArchiveInputFormatter::EnterMapElement(FString& OutName)
 	ValueStack.Add(MapIteratorStack.Top()->Value);
 }
 
-void FJsonArchiveInputFormatter::EnterMapElement(FString& OutName, EArchiveValueType& OutType)
+void FJsonArchiveInputFormatter::EnterMapElement_TextOnly(FString& OutName, EArchiveValueType& OutType)
 {
 	EnterMapElement(OutName);
 	OutType = GetValueType(*ValueStack.Top());

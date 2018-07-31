@@ -31,6 +31,11 @@ FArchive& FJsonArchiveOutputFormatter::GetUnderlyingArchive()
 	return Inner;
 }
 
+bool FJsonArchiveOutputFormatter::HasDocumentTree() const
+{
+	return true;
+}
+
 void FJsonArchiveOutputFormatter::EnterRecord()
 {
 	WriteOptionalComma();
@@ -40,9 +45,10 @@ void FJsonArchiveOutputFormatter::EnterRecord()
 	bNeedsNewline = true;
 }
 
-void FJsonArchiveOutputFormatter::EnterRecord(TArray<FString>& OutFieldNamesWhenLoading)
+void FJsonArchiveOutputFormatter::EnterRecord_TextOnly(TArray<FString>& OutFieldNames)
 {
 	EnterRecord();
+	OutFieldNames.Reset();
 }
 
 void FJsonArchiveOutputFormatter::LeaveRecord()
@@ -59,6 +65,12 @@ void FJsonArchiveOutputFormatter::EnterField(FArchiveFieldName Name)
 	WriteOptionalComma();
 	WriteOptionalNewline();
 	WriteFieldName(Name.Name);
+}
+
+void FJsonArchiveOutputFormatter::EnterField_TextOnly(FArchiveFieldName Name, EArchiveValueType& OutType)
+{
+	EnterField(Name);
+	OutType = EArchiveValueType::None;
 }
 
 void FJsonArchiveOutputFormatter::LeaveField()
@@ -91,6 +103,12 @@ void FJsonArchiveOutputFormatter::EnterArrayElement()
 	EnterStreamElement();
 }
 
+void FJsonArchiveOutputFormatter::EnterArrayElement_TextOnly(EArchiveValueType& OutType)
+{
+	EnterArrayElement();
+	OutType = EArchiveValueType::None;
+}
+
 void FJsonArchiveOutputFormatter::LeaveArrayElement()
 {
 	LeaveStreamElement();
@@ -103,6 +121,12 @@ void FJsonArchiveOutputFormatter::EnterStream()
 	Write("[");
 	Newline.Add('\t');
 	bNeedsNewline = true;
+}
+
+void FJsonArchiveOutputFormatter::EnterStream_TextOnly(int32& OutNumElements)
+{
+	EnterStream();
+	OutNumElements = 0;
 }
 
 void FJsonArchiveOutputFormatter::LeaveStream()
@@ -118,6 +142,12 @@ void FJsonArchiveOutputFormatter::EnterStreamElement()
 {
 	WriteOptionalComma();
 	WriteOptionalNewline();
+}
+
+void FJsonArchiveOutputFormatter::EnterStreamElement_TextOnly(EArchiveValueType& OutType)
+{
+	EnterStreamElement();
+	OutType = EArchiveValueType::None;
 }
 
 void FJsonArchiveOutputFormatter::LeaveStreamElement()
@@ -139,6 +169,12 @@ void FJsonArchiveOutputFormatter::LeaveMap()
 void FJsonArchiveOutputFormatter::EnterMapElement(FString& Name)
 {
 	EnterField(FArchiveFieldName(*Name));
+}
+
+void FJsonArchiveOutputFormatter::EnterMapElement_TextOnly(FString& Name, EArchiveValueType& OutType)
+{
+	EnterMapElement(Name);
+	OutType = EArchiveValueType::None;
 }
 
 void FJsonArchiveOutputFormatter::LeaveMapElement()

@@ -58,6 +58,11 @@ FArchive& FTaggedBinaryArchiveOutputFormatter::GetUnderlyingArchive()
 	return Inner;
 }
 
+bool FTaggedBinaryArchiveOutputFormatter::HasDocumentTree() const
+{
+	return true;
+}
+
 void FTaggedBinaryArchiveOutputFormatter::EnterRecord()
 {
 	WriteType(EArchiveValueType::Record);
@@ -68,9 +73,10 @@ void FTaggedBinaryArchiveOutputFormatter::EnterRecord()
 	RecordStack.Push(NextRecordIdx++);
 }
 
-void FTaggedBinaryArchiveOutputFormatter::EnterRecord(TArray<FString>& OutFieldNames)
+void FTaggedBinaryArchiveOutputFormatter::EnterRecord_TextOnly(TArray<FString>& OutFieldNames)
 {
 	EnterRecord();
+	OutFieldNames.Reset();
 }
 
 void FTaggedBinaryArchiveOutputFormatter::LeaveRecord()
@@ -88,6 +94,12 @@ void FTaggedBinaryArchiveOutputFormatter::EnterField(FArchiveFieldName Name)
 	FField& Field = Record.Fields.Emplace_GetRef();
 	Field.NameIdx = FindOrAddName(Name.Name);
 	Field.Offset = Inner.Tell();
+}
+
+void FTaggedBinaryArchiveOutputFormatter::EnterField_TextOnly(FArchiveFieldName Name, EArchiveValueType& OutType)
+{
+	EnterField(Name);
+	OutType = EArchiveValueType::None;
 }
 
 void FTaggedBinaryArchiveOutputFormatter::LeaveField()
@@ -119,6 +131,11 @@ void FTaggedBinaryArchiveOutputFormatter::EnterArrayElement()
 {
 }
 
+void FTaggedBinaryArchiveOutputFormatter::EnterArrayElement_TextOnly(EArchiveValueType& OutType)
+{
+	OutType = EArchiveValueType::None;
+}
+
 void FTaggedBinaryArchiveOutputFormatter::LeaveArrayElement()
 {
 }
@@ -135,6 +152,11 @@ void FTaggedBinaryArchiveOutputFormatter::EnterStream()
 	Inner << Length;
 }
 
+void FTaggedBinaryArchiveOutputFormatter::EnterStream_TextOnly(int32& OutNumElements)
+{
+	OutNumElements = 0;
+}
+
 void FTaggedBinaryArchiveOutputFormatter::LeaveStream()
 {
 	FStream Stream = Streams.Pop();
@@ -149,6 +171,12 @@ void FTaggedBinaryArchiveOutputFormatter::LeaveStream()
 void FTaggedBinaryArchiveOutputFormatter::EnterStreamElement()
 {
 	Streams.Top().NumItems++;
+}
+
+void FTaggedBinaryArchiveOutputFormatter::EnterStreamElement_TextOnly(EArchiveValueType& OutType)
+{
+	EnterStreamElement();
+	OutType = EArchiveValueType::None;
 }
 
 void FTaggedBinaryArchiveOutputFormatter::LeaveStreamElement()
@@ -168,6 +196,12 @@ void FTaggedBinaryArchiveOutputFormatter::LeaveMap()
 void FTaggedBinaryArchiveOutputFormatter::EnterMapElement(FString& Name)
 {
 	Inner << Name;
+}
+
+void FTaggedBinaryArchiveOutputFormatter::EnterMapElement_TextOnly(FString& Name, EArchiveValueType& OutType)
+{
+	EnterMapElement(Name);
+	OutType = EArchiveValueType::None;
 }
 
 void FTaggedBinaryArchiveOutputFormatter::LeaveMapElement()

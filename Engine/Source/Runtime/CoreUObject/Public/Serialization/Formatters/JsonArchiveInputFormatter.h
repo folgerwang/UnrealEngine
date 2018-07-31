@@ -10,7 +10,7 @@ class FJsonValue;
 
 #if WITH_TEXT_ARCHIVE_SUPPORT
 
-class FJsonArchiveInputFormatter : public FAnnotatedStructuredArchiveFormatter
+class FJsonArchiveInputFormatter final : public FStructuredArchiveFormatter
 {
 public:
 	FJsonArchiveInputFormatter(FArchive& InInner, TFunction<UObject* (const FString&)> InResolveObjectName = nullptr);
@@ -19,31 +19,33 @@ public:
 	virtual FArchive& GetUnderlyingArchive() override;
 	virtual FStructuredArchiveFormatter* CreateSubtreeReader() override;
 
+	virtual bool HasDocumentTree() const override;
+
 	virtual void EnterRecord() override;
-	virtual void EnterRecord(TArray<FString>& OutFieldNamesWhenLoading) override;
+	virtual void EnterRecord_TextOnly(TArray<FString>& OutFieldNames) override;
 	virtual void LeaveRecord() override;
 	virtual void EnterField(FArchiveFieldName Name) override;
-	virtual void EnterField(FArchiveFieldName Name, EArchiveValueType& OutType) override;
+	virtual void EnterField_TextOnly(FArchiveFieldName Name, EArchiveValueType& OutType) override;
 	virtual void LeaveField() override;
 	virtual bool TryEnterField(FArchiveFieldName Name, bool bEnterWhenSaving) override;
 
 	virtual void EnterArray(int32& NumElements) override;
 	virtual void LeaveArray() override;
 	virtual void EnterArrayElement() override;
-	virtual void EnterArrayElement(EArchiveValueType& OutType) override;
+	virtual void EnterArrayElement_TextOnly(EArchiveValueType& OutType) override;
 	virtual void LeaveArrayElement() override;
 
 	virtual void EnterStream() override;
-	virtual void EnterStream(int32& NumElements) override;
+	virtual void EnterStream_TextOnly(int32& NumElements) override;
 	virtual void LeaveStream() override;
 	virtual void EnterStreamElement() override;
-	virtual void EnterStreamElement(EArchiveValueType& OutType) override;
+	virtual void EnterStreamElement_TextOnly(EArchiveValueType& OutType) override;
 	virtual void LeaveStreamElement() override;
 
 	virtual void EnterMap(int32& NumElements) override;
 	virtual void LeaveMap() override;
 	virtual void EnterMapElement(FString& Name) override;
-	virtual void EnterMapElement(FString& OutName, EArchiveValueType& OutType) override;
+	virtual void EnterMapElement_TextOnly(FString& OutName, EArchiveValueType& OutType) override;
 	virtual void LeaveMapElement() override;
 
 	virtual void Serialize(uint8& Value) override;

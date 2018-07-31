@@ -12,29 +12,34 @@ public:
 	FBinaryArchiveFormatter(FArchive& InInner);
 	virtual ~FBinaryArchiveFormatter();
 
-	virtual bool RequiresStructuralMetadata() const override;
+	virtual bool HasDocumentTree() const override;
 	virtual FArchive& GetUnderlyingArchive() override;
 
 	virtual void EnterRecord() override;
-	virtual void EnterRecord(TArray<FString>& OutFieldNamesWhenLoading) override;
+	virtual void EnterRecord_TextOnly(TArray<FString>& OutFieldNames) override;
 	virtual void LeaveRecord() override;
 	virtual void EnterField(FArchiveFieldName Name) override;
+	virtual void EnterField_TextOnly(FArchiveFieldName Name, EArchiveValueType& OutType) override;
 	virtual void LeaveField() override;
 	virtual bool TryEnterField(FArchiveFieldName Name, bool bEnterIfWriting);
 
 	virtual void EnterArray(int32& NumElements) override;
 	virtual void LeaveArray() override;
 	virtual void EnterArrayElement() override;
+	virtual void EnterArrayElement_TextOnly(EArchiveValueType& OutType) override;
 	virtual void LeaveArrayElement() override;
 
 	virtual void EnterStream() override;
+	virtual void EnterStream_TextOnly(int32& NumElements) override;
 	virtual void LeaveStream() override;
 	virtual void EnterStreamElement() override;
+	virtual void EnterStreamElement_TextOnly(EArchiveValueType& OutType) override;
 	virtual void LeaveStreamElement() override;
 
 	virtual void EnterMap(int32& NumElements) override;
 	virtual void LeaveMap() override;
 	virtual void EnterMapElement(FString& Name) override;
+	virtual void EnterMapElement_TextOnly(FString& Name, EArchiveValueType& OutType) override;
 	virtual void LeaveMapElement() override;
 
 	virtual void Serialize(uint8& Value) override;
@@ -70,10 +75,6 @@ inline FArchive& FBinaryArchiveFormatter::GetUnderlyingArchive()
 }
 
 inline void FBinaryArchiveFormatter::EnterRecord()
-{
-}
-
-inline void FBinaryArchiveFormatter::EnterRecord(TArray<FString>& OutFieldNamesWhenLoading)
 {
 }
 
