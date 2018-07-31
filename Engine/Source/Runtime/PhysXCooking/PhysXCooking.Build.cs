@@ -25,6 +25,6 @@ public class PhysXCooking : ModuleRules
         );
 
 
-        SetupModulePhysXAPEXSupport(Target);
+        SetupModulePhysicsSupport(Target);
     }
 }

@@ -23,6 +23,7 @@
 #include "Engine/PendingNetGame.h"
 #include "Engine/LatentActionManager.h"
 #include "Engine/GameInstance.h"
+#include "Physics/PhysicsInterfaceDeclares.h"
 #include "Particles/WorldPSCPool.h"
 
 #include "World.generated.h"
@@ -37,7 +38,6 @@ class APhysicsVolume;
 class APlayerController;
 class AWorldSettings;
 class Error;
-class FPhysScene;
 class FTimerManager;
 class FUniqueNetId;
 class FWorldInGamePerformanceTrackers;

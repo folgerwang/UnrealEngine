@@ -5,6 +5,7 @@
 #include "Components/SkeletalMeshComponent.h"
 #include "PhysicsEngine/PhysicsAsset.h"
 #include "PhysXPublic.h"
+#include "Physics/PhysicsInterfaceCore.h"
 
 
 const FConstraintProfileProperties UPhysicalAnimationComponent::PhysicalAnimationProfile = []()
@@ -41,7 +42,6 @@ UPhysicalAnimationComponent::UPhysicalAnimationComponent(const FObjectInitialize
 	PrimaryComponentTick.bTickEvenWhenPaused = true;
 	PrimaryComponentTick.TickGroup = TG_PrePhysics;
 
-	SceneIndex = INDEX_NONE;
 	StrengthMultiplyer = 1.f;
 }
 
@@ -266,9 +266,8 @@ void UPhysicalAnimationComponent::UpdateTargetActors(ETeleportType TeleportType)
 		const TArray<FTransform>& SpaceBases = SkeletalMeshComponent->GetEditableComponentSpaceTransforms();
 
 #if WITH_PHYSX
-		if (PxScene* Scene = GetPhysXSceneFromIndex(SceneIndex))
+		FPhysicsCommand::ExecuteWrite(SkeletalMeshComponent, [&]()
 		{
-			SCOPED_SCENE_WRITE_LOCK(Scene);
 			for (int32 DataIdx = 0; DataIdx < DriveData.Num(); ++DataIdx)
 			{
 				const FPhysicalAnimationData& PhysAnimData = DriveData[DataIdx];
@@ -289,7 +288,7 @@ void UPhysicalAnimationComponent::UpdateTargetActors(ETeleportType TeleportType)
 					}
 				}
 			}
-		}
+		});
 #endif
 	}
 }
@@ -302,19 +301,6 @@ void UPhysicalAnimationComponent::OnTeleport()
 void UPhysicalAnimationComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
 {
 	UpdateTargetActors(ETeleportType::None);
-}
-
-//NOTE: Technically skeletal mesh component could have bodies in multiple scenes. This doesn't seem like a legit setup though and we should probably enforce that it's not supported.
-int32 FindSceneIndexForSkeletalMeshComponent(const USkeletalMeshComponent* SkeletalMeshComp)
-{
-#if WITH_PHYSX
-	for(FBodyInstance* BI : SkeletalMeshComp->Bodies)
-	{
-		return BI->GetSceneIndex();
-	}
-#endif // WITH_PHYSX
-
-	return INDEX_NONE;
 }
 
 void SetMotorStrength(FConstraintInstance& ConstraintInstance, const FPhysicalAnimationData& PhysAnimData, float StrengthMultiplyer)
@@ -340,14 +326,13 @@ void UPhysicalAnimationComponent::UpdatePhysicsEngine()
 		const int32 NumInstances = RuntimeInstanceData.Num();
 		
 		RuntimeInstanceData.AddZeroed(NumData - NumInstances);
-		SceneIndex = FindSceneIndexForSkeletalMeshComponent(SkeletalMeshComponent);
 
 		const TArray<FTransform>& SpaceBases = SkeletalMeshComponent->GetEditableComponentSpaceTransforms();
 		const FReferenceSkeleton& RefSkeleton = SkeletalMeshComponent->SkeletalMesh->RefSkeleton;
+
 #if WITH_PHYSX
-		if(PxScene* Scene = GetPhysXSceneFromIndex(SceneIndex))
+		FPhysicsCommand::ExecuteWrite(SkeletalMeshComponent, [&]()
 		{
-			SCOPED_SCENE_WRITE_LOCK(Scene);
 			for (int32 DataIdx = 0; DataIdx < DriveData.Num(); ++DataIdx)
 			{
 				bool bNewConstraint = false;
@@ -370,7 +355,10 @@ void UPhysicalAnimationComponent::UpdatePhysicsEngine()
 					int32 ChildBodyIdx = PhysAsset->FindBodyIndex(PhysAnimData.BodyName);
 					if (FBodyInstance* ChildBody = (ChildBodyIdx == INDEX_NONE ? nullptr : SkeletalMeshComponent->Bodies[ChildBodyIdx]))
 					{
-						if (PxRigidActor* PRigidActor = ChildBody->GetPxRigidActor_AssumesLocked())
+#if WITH_APEIRON || WITH_IMMEDIATE_PHYSX || PHYSICS_INTERFACE_LLIMMEDIATE
+                        ensure(false);
+#else
+						if (PxRigidActor* PRigidActor = FPhysicsInterface_PhysX::GetPxRigidActor_AssumesLocked(ChildBody->ActorHandle))
 						{
 							ConstraintInstance->SetRefFrame(EConstraintFrame::Frame1, FTransform::Identity);
 							ConstraintInstance->SetRefFrame(EConstraintFrame::Frame2, FTransform::Identity);
@@ -378,7 +366,8 @@ void UPhysicalAnimationComponent::UpdatePhysicsEngine()
 							const FTransform TargetTM = ComputeTargetTM(PhysAnimData, *SkeletalMeshComponent, *PhysAsset, SpaceBases, ChildBody->InstanceBoneIndex);
 
 							// Create kinematic actor we are going to create joint with. This will be moved around with calls to SetLocation/SetRotation.
-							PxRigidDynamic* KineActor = Scene->getPhysics().createRigidDynamic(U2PTransform(TargetTM));
+							PxScene* PScene = PRigidActor->getScene();
+							PxRigidDynamic* KineActor = PScene->getPhysics().createRigidDynamic(U2PTransform(TargetTM));
 							KineActor->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC, true);
 							KineActor->setMass(1.0f);
 							KineActor->setMassSpaceInertiaTensor(PxVec3(1.0f, 1.0f, 1.0f));
@@ -387,17 +376,21 @@ void UPhysicalAnimationComponent::UpdatePhysicsEngine()
 							KineActor->userData = NULL;
 
 							// Add to Scene
-							Scene->addActor(*KineActor);
+							PScene->addActor(*KineActor);
 
 							// Save reference to the kinematic actor.
 							InstanceData.TargetActor = KineActor;
 
-							ConstraintInstance->InitConstraintPhysX_AssumesLocked(PRigidActor, InstanceData.TargetActor, Scene, 1.f);
+							FPhysicsActorHandle TargetRef;
+							TargetRef.SyncActor = InstanceData.TargetActor;
+							
+							ConstraintInstance->InitConstraint_AssumesLocked(ChildBody->ActorHandle, TargetRef, 1.f);
 						}
+#endif
 					}
 				}
 			}
-		}
+		});
 #endif
 	}
 }
@@ -409,9 +402,8 @@ void UPhysicalAnimationComponent::SetStrengthMultiplyer(float InStrengthMultiply
 		StrengthMultiplyer = InStrengthMultiplyer;
 
 #if WITH_PHYSX
-		if (PxScene* Scene = GetPhysXSceneFromIndex(SceneIndex))
+		FPhysicsCommand::ExecuteWrite(SkeletalMeshComponent, [&]()
 		{
-			SCOPED_SCENE_WRITE_LOCK(Scene);
 			for (int32 DataIdx = 0; DataIdx < DriveData.Num(); ++DataIdx)
 			{
 				bool bNewConstraint = false;
@@ -423,7 +415,7 @@ void UPhysicalAnimationComponent::SetStrengthMultiplyer(float InStrengthMultiply
 					SetMotorStrength(*ConstraintInstance, PhysAnimData, StrengthMultiplyer);
 				}
 			}
-		}
+		});
 #endif
 	}
 }
@@ -431,31 +423,34 @@ void UPhysicalAnimationComponent::SetStrengthMultiplyer(float InStrengthMultiply
 void UPhysicalAnimationComponent::ReleasePhysicsEngine()
 {
 #if WITH_PHYSX
-	PxScene* Scene = GetPhysXSceneFromIndex(SceneIndex);
-	SCOPED_SCENE_WRITE_LOCK(Scene);
-
-	for (FPhysicalAnimationInstanceData& Instance : RuntimeInstanceData)
-	{
-		if(Instance.ConstraintInstance)
+	// #PHYS2 On shutdown, SkelMeshComp is null, so we can't lock using that, need to lock based on scene from body
+	//FPhysicsCommand::ExecuteWrite(SkeletalMeshComponent, [&]()
+	//{
+		for(FPhysicalAnimationInstanceData& Instance : RuntimeInstanceData)
 		{
-			Instance.ConstraintInstance->TermConstraint();
-			delete Instance.ConstraintInstance;
-			Instance.ConstraintInstance = nullptr;
-		}
-		
-		if(Instance.TargetActor)
-		{
-			if (Scene)
+			if(Instance.ConstraintInstance)
 			{
-				Scene->removeActor(*Instance.TargetActor);
+				Instance.ConstraintInstance->TermConstraint();
+				delete Instance.ConstraintInstance;
+				Instance.ConstraintInstance = nullptr;
 			}
-			Instance.TargetActor->release();
 
-			Instance.TargetActor = nullptr;
+			if(Instance.TargetActor)
+			{
+				PxScene* PScene = Instance.TargetActor->getScene();
+				if(PScene)
+				{
+					SCOPED_SCENE_WRITE_LOCK(PScene);
+					PScene->removeActor(*Instance.TargetActor);
+				}
+				Instance.TargetActor->release();
+
+				Instance.TargetActor = nullptr;
+			}
 		}
-	}
 
-	RuntimeInstanceData.Reset();
+		RuntimeInstanceData.Reset();
+	//});
 #endif
 }
 

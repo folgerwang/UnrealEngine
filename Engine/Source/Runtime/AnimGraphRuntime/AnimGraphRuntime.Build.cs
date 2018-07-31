@@ -14,7 +14,9 @@ public class AnimGraphRuntime : ModuleRules
 				"Core", 
 				"CoreUObject", 
 				"Engine",
-                "AnimationCore"
+                "AnimationCore",
+                "PhysX",
+                "APEX"
 			}
 		);
 	}

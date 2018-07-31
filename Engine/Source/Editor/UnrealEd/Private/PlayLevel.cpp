@@ -82,7 +82,7 @@
 #include "ILauncherServicesModule.h"
 #include "GameProjectGenerationModule.h"
 #include "SourceCodeNavigation.h"
-#include "PhysicsPublic.h"
+#include "Physics/PhysicsInterfaceCore.h"
 #include "AnalyticsEventAttribute.h"
 #include "Interfaces/IAnalyticsProvider.h"
 #include "EngineAnalytics.h"

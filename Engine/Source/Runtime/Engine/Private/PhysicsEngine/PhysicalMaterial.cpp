@@ -40,7 +40,7 @@ UPhysicalMaterial::UPhysicalMaterial(const FObjectInitializer& ObjectInitializer
 void UPhysicalMaterial::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	// Update PhysX material last so we have a valid Parent
-	UpdatePhysXMaterial();
+	FPhysicsInterface::UpdateMaterial(MaterialHandle, this);
 
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 }
@@ -52,7 +52,7 @@ void UPhysicalMaterial::RebuildPhysicalMaterials()
 	{
 		if (UPhysicalMaterial * PhysicalMaterial = Cast<UPhysicalMaterial>(*Iter))
 		{
-			PhysicalMaterial->UpdatePhysXMaterial();
+			FPhysicsInterface::UpdateMaterial(PhysicalMaterial->MaterialHandle, PhysicalMaterial);
 		}
 	}
 }
@@ -75,59 +75,31 @@ void UPhysicalMaterial::PostLoad()
 
 void UPhysicalMaterial::FinishDestroy()
 {
-#if WITH_PHYSX
-	if(PMaterial != NULL)
-	{
-		GPhysXPendingKillMaterial.Add(PMaterial);
-		PMaterial->userData = NULL;
-		PMaterial = NULL;
-	}
-#endif // WITH_PHYSX
-
+	FPhysicsInterface::ReleaseMaterial(MaterialHandle);
 	Super::FinishDestroy();
 }
 
-
-void UPhysicalMaterial::UpdatePhysXMaterial()
+const FPhysicsMaterialHandle& UPhysicalMaterial::GetPhysicsMaterial()
 {
-#if WITH_PHYSX
-	if(PMaterial != NULL)
+#if WITH_APEIRON
+    check(false);
+    MaterialHandle = nullptr;
+    return MaterialHandle;
+#else
+	if(!MaterialHandle.IsValid())
 	{
-		PMaterial->setStaticFriction(Friction);
-		PMaterial->setDynamicFriction(Friction);
-		const uint32 UseFrictionCombineMode = (bOverrideFrictionCombineMode ? FrictionCombineMode.GetValue() : UPhysicsSettings::Get()->FrictionCombineMode.GetValue());
-		PMaterial->setFrictionCombineMode(static_cast<physx::PxCombineMode::Enum>(UseFrictionCombineMode));
-
-		PMaterial->setRestitution(Restitution);
-		const uint32 UseRestitutionCombineMode = (bOverrideRestitutionCombineMode ? RestitutionCombineMode.GetValue() : UPhysicsSettings::Get()->RestitutionCombineMode.GetValue());
-		PMaterial->setRestitutionCombineMode(static_cast<physx::PxCombineMode::Enum>(UseRestitutionCombineMode));
-
-		FPhysicsDelegates::OnUpdatePhysXMaterial.Broadcast(this);
-	}
-#endif	// WITH_PHYSX
-}
-
+		MaterialHandle = FPhysicsInterface::CreateMaterial(this);
+		check(MaterialHandle.IsValid());
 
 #if WITH_PHYSX
-PxMaterial* UPhysicalMaterial::GetPhysXMaterial()
-{
-	if((PMaterial == NULL) && GPhysXSDK)
-	{
-		PMaterial = GPhysXSDK->createMaterial(Friction, Friction, Restitution);
-		const uint32 UseFrictionCombineMode = (bOverrideFrictionCombineMode ? FrictionCombineMode.GetValue() : UPhysicsSettings::Get()->FrictionCombineMode.GetValue());
-		PMaterial->setFrictionCombineMode(static_cast<physx::PxCombineMode::Enum>(UseFrictionCombineMode));
-		
-		const uint32 UseRestitutionCombineMode = (bOverrideRestitutionCombineMode ? RestitutionCombineMode.GetValue() : UPhysicsSettings::Get()->RestitutionCombineMode.GetValue());
-		PMaterial->setRestitutionCombineMode(static_cast<physx::PxCombineMode::Enum>(UseRestitutionCombineMode));
-
-		PMaterial->userData = &PhysxUserData;
-
-		UpdatePhysXMaterial();
+		FPhysicsInterface::SetUserData(MaterialHandle, &PhysxUserData);
+#endif
+		FPhysicsInterface::UpdateMaterial(MaterialHandle, this);
 	}
 
-	return PMaterial;
+	return MaterialHandle;
+#endif
 }
-#endif // WITH_PHYSX
 
 EPhysicalSurface UPhysicalMaterial::DetermineSurfaceType(UPhysicalMaterial const* PhysicalMaterial)
 {

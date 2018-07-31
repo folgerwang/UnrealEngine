@@ -3,23 +3,18 @@
 
 #include "CoreMinimal.h"
 #include "EngineDefines.h"
+#include "Physics/PhysicsInterfaceDeclares.h"
 
-class FPhysScene;
 class UPhysicalMaterial;
 class UPrimitiveComponent;
 struct FBodyInstance;
 struct FConstraintInstance;
 struct FKShapeElem;
+class FPhysScene_PhysX;
 
 #if WITH_PHYSX
 
 /** Forward declarations */
-struct FBodyInstance;
-struct FConstraintInstance;
-
-class FPhysScene;
-class UPhysicalMaterial;
-class UPrimitiveComponent;
 struct FKShapeElem;
 struct FCustomPhysXPayload;
 
@@ -50,7 +45,7 @@ public:
 	FPhysxUserData()									:Type(EPhysxUserDataType::Invalid), Payload(nullptr) {}
 	FPhysxUserData(FBodyInstance* InPayload)			:Type(EPhysxUserDataType::BodyInstance), Payload(InPayload) {}
 	FPhysxUserData(UPhysicalMaterial* InPayload)		:Type(EPhysxUserDataType::PhysicalMaterial), Payload(InPayload) {}
-	FPhysxUserData(FPhysScene* InPayload)				:Type(EPhysxUserDataType::PhysScene), Payload(InPayload) {}
+	FPhysxUserData(FPhysScene* InPayload)			    :Type(EPhysxUserDataType::PhysScene), Payload(InPayload) {}
 	FPhysxUserData(FConstraintInstance* InPayload)		:Type(EPhysxUserDataType::ConstraintInstance), Payload(InPayload) {}
 	FPhysxUserData(UPrimitiveComponent* InPayload)		:Type(EPhysxUserDataType::PrimitiveComponent), Payload(InPayload) {}
 	FPhysxUserData(FKShapeElem* InPayload)				:Type(EPhysxUserDataType::AggShape), Payload(InPayload) {}

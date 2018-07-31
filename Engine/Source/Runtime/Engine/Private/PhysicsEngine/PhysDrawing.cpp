@@ -23,6 +23,7 @@
 #include "PhysicsEngine/SphylElem.h"
 #include "PhysicsEngine/AggregateGeom.h"
 #include "PhysicsEngine/PhysicsAsset.h"
+#include "StaticMeshResources.h"
 
 static const int32 DrawCollisionSides = 16;
 static const int32 DrawConeLimitSides = 40;
@@ -772,6 +773,27 @@ void FKConvexElem::AddCachedSolidConvexGeom(TArray<FDynamicMeshVertex>& VertexBu
 		UE_LOG(LogPhysics, Log, TEXT("FKConvexElem::AddCachedSolidConvexGeom : No ConvexMesh, so unable to draw."));
 	}
 #endif // WITH_PHYSX
+}
+
+/////////////////////////////////////////////////////////////////////////////////////
+// FKConvexGeomRenderInfo
+/////////////////////////////////////////////////////////////////////////////////////
+
+FKConvexGeomRenderInfo::FKConvexGeomRenderInfo()
+	: VertexBuffers(nullptr)
+	, IndexBuffer(nullptr)
+	, CollisionVertexFactory(nullptr)
+{
+
+}
+
+bool FKConvexGeomRenderInfo::HasValidGeometry()
+{
+	return
+		(VertexBuffers != NULL) &&
+		(VertexBuffers->PositionVertexBuffer.GetNumVertices() > 0) &&
+		(IndexBuffer != NULL) &&
+		(IndexBuffer->Indices.Num() > 0);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////

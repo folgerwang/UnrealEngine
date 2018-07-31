@@ -10,16 +10,24 @@
 
 void USimpleWheeledVehicleMovementComponent::SetBrakeTorque(float BrakeTorque, int32 WheelIndex)
 {
-#if WITH_PHYSX
+#if WITH_PHYSX_VEHICLES
 	if (PVehicle && UpdatedPrimitive)
 	{
 		PxVehicleWheels* PVehicleLocal = PVehicle;
 		if (WheelSetups.IsValidIndex(WheelIndex))
 		{
-			ExecuteOnPxRigidDynamicReadWrite(UpdatedPrimitive->GetBodyInstance(), [PVehicleLocal, WheelIndex, BrakeTorque](PxRigidDynamic* PRigidDynamic)
+			FBodyInstance* TargetInstance = UpdatedPrimitive->GetBodyInstance();
+			const FPhysicsActorHandle& ActorHandle = TargetInstance->GetPhysicsActorHandle();
+			if(ActorHandle.IsValid())
 			{
-				((PxVehicleNoDrive*)PVehicleLocal)->setBrakeTorque(WheelIndex, M2ToCm2(BrakeTorque));
-			});
+				FPhysicsCommand::ExecuteWrite(ActorHandle, [&](const FPhysicsActorHandle& Actor)
+				{
+					if(FPhysicsInterface::IsDynamic(Actor))
+					{
+						((PxVehicleNoDrive*)PVehicleLocal)->setBrakeTorque(WheelIndex, M2ToCm2(BrakeTorque));
+					}
+				});
+			}
 		}
 	}
 #endif // WITH_PHYSX
@@ -27,15 +35,21 @@ void USimpleWheeledVehicleMovementComponent::SetBrakeTorque(float BrakeTorque, i
 
 void USimpleWheeledVehicleMovementComponent::SetDriveTorque(float DriveTorque, int32 WheelIndex)
 {
-#if WITH_PHYSX
+#if WITH_PHYSX_VEHICLES
 	if (PVehicle && UpdatedPrimitive)
 	{
 		PxVehicleWheels* PVehicleLocal = PVehicle;
 		if (WheelSetups.IsValidIndex(WheelIndex))
 		{
-			ExecuteOnPxRigidDynamicReadWrite(UpdatedPrimitive->GetBodyInstance(), [PVehicleLocal, WheelIndex, DriveTorque](PxRigidDynamic* PRigidDynamic)
+			FBodyInstance* TargetInstance = UpdatedPrimitive->GetBodyInstance();
+			const FPhysicsActorHandle& ActorHandle = TargetInstance->GetPhysicsActorHandle();
+
+			FPhysicsCommand::ExecuteWrite(ActorHandle, [&](const FPhysicsActorHandle& Actor)
 			{
-				((PxVehicleNoDrive*)PVehicleLocal)->setDriveTorque(WheelIndex, M2ToCm2(DriveTorque));
+				if(FPhysicsInterface::IsDynamic(ActorHandle))
+				{
+					((PxVehicleNoDrive*)PVehicleLocal)->setDriveTorque(WheelIndex, M2ToCm2(DriveTorque));
+				}
 			});
 		}
 	}
@@ -44,24 +58,30 @@ void USimpleWheeledVehicleMovementComponent::SetDriveTorque(float DriveTorque, i
 
 void USimpleWheeledVehicleMovementComponent::SetSteerAngle(float SteerAngle, int32 WheelIndex)
 {
-#if WITH_PHYSX
+#if WITH_PHYSX_VEHICLES
 	if (PVehicle && UpdatedPrimitive)
 	{
 		PxVehicleWheels* PVehicleLocal = PVehicle;
 		if (WheelSetups.IsValidIndex(WheelIndex))
 		{
 			const float SteerRad = FMath::DegreesToRadians(SteerAngle);
-			ExecuteOnPxRigidDynamicReadWrite(UpdatedPrimitive->GetBodyInstance(), [PVehicleLocal, WheelIndex, SteerRad](PxRigidDynamic* PRigidDynamic)
+
+			FBodyInstance* TargetInstance = UpdatedPrimitive->GetBodyInstance();
+			const FPhysicsActorHandle& ActorHandle = TargetInstance->GetPhysicsActorHandle();
+
+			FPhysicsCommand::ExecuteWrite(ActorHandle, [&](const FPhysicsActorHandle& Actor)
 			{
-				((PxVehicleNoDrive*)PVehicleLocal)->setSteerAngle(WheelIndex, SteerRad);
+				if(FPhysicsInterface::IsDynamic(Actor))
+				{
+					((PxVehicleNoDrive*)PVehicleLocal)->setSteerAngle(WheelIndex, SteerRad);
+				}
 			});
 		}
 	}
 #endif // WITH_PHYSX
 }
 
-#if WITH_PHYSX
-
+#if WITH_PHYSX_VEHICLES
 void USimpleWheeledVehicleMovementComponent::SetupVehicleDrive(PxVehicleWheelsSimData* PWheelsSimData)
 {
 	//Use a simple PxNoDrive which will give us suspension but no engine forces which we leave to the user
@@ -70,17 +90,24 @@ void USimpleWheeledVehicleMovementComponent::SetupVehicleDrive(PxVehicleWheelsSi
 	PxVehicleNoDrive* PVehicleNoDrive = PxVehicleNoDrive::allocate(WheelSetups.Num());
 	check(PVehicleNoDrive);
 
-	ExecuteOnPxRigidDynamicReadWrite(UpdatedPrimitive->GetBodyInstance(), [&](PxRigidDynamic* PRigidDynamic)
-	{
-		PVehicleNoDrive->setup(GPhysXSDK, PRigidDynamic, *PWheelsSimData);
-		PVehicleNoDrive->setToRestState();
+	FBodyInstance* TargetInstance = UpdatedPrimitive->GetBodyInstance();
+	const FPhysicsActorHandle& ActorHandle = TargetInstance->GetPhysicsActorHandle();
 
-		// cleanup
-		PWheelsSimData->free();
+	FPhysicsCommand::ExecuteWrite(ActorHandle, [&](const FPhysicsActorHandle& Actor)
+	{
+		PxRigidActor* PActor = FPhysicsInterface::GetPxRigidActor_AssumesLocked(Actor);
+		if(PxRigidDynamic* PDynamic = PActor->is<PxRigidDynamic>())
+		{
+			PVehicleNoDrive->setup(GPhysXSDK, PDynamic, *PWheelsSimData);
+			PVehicleNoDrive->setToRestState();
+
+			// cleanup
+			PWheelsSimData->free();
+		}
 	});
 
 	// cache values
 	PVehicle = PVehicleNoDrive;
 }
 
-#endif // WITH_PHYSX
+#endif // WITH_PHYSX_VEHICLES

@@ -52,10 +52,14 @@ struct FTriMeshCollisionData
 	/** Prioritize cooking speed over runtime speed */
 	uint32 bFastCook : 1;
 
+	/** Turn off ActiveEdgePrecompute (This makes cooking faster, but will slow contact generation) */
+	uint32 bDisableActiveEdgePrecompute : 1;
+
 	FTriMeshCollisionData()
 	: bFlipNormals(false)
 	, bDeformableMesh(false)
 	, bFastCook(false)
+	, bDisableActiveEdgePrecompute(false)
 	{
 	}
 };
