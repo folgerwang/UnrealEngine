@@ -1259,18 +1259,15 @@ void FVulkanCommandListContext::TransitionResources(const FPendingTransition& Pe
 				FVulkanSurface& Surface = FVulkanTextureBase::Cast(PendingTransition.Textures[Index])->Surface;
 
 				const VkImageAspectFlags AspectMask = Surface.GetFullAspectMask();
-				VkImageSubresourceRange SubresourceRange = {AspectMask, 0, Surface.GetNumMips(), 0, Surface.GetNumberOfArrayLevels()};
 
 				VkImageLayout& SrcLayout = TransitionAndLayoutManager.FindOrAddLayoutRW(Surface.Image, VK_IMAGE_LAYOUT_UNDEFINED);
-
-				int32 BarrierIndex = Barrier.AddImageBarrier(Surface.Image, Surface.GetFullAspectMask(), Surface.GetNumMips(), Surface.GetNumberOfArrayLevels());
+				EImageLayoutBarrier DestLayout = VulkanRHI::EImageLayoutBarrier::Undefined;
 
 				if ((AspectMask & VK_IMAGE_ASPECT_COLOR_BIT) != 0)
 				{
 					if (SrcLayout != VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
 					{
-						Barrier.SetTransition(BarrierIndex, VulkanRHI::GetImageLayoutFromVulkanLayout(SrcLayout), VulkanRHI::EImageLayoutBarrier::ColorAttachment);
-						SrcLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+						DestLayout = VulkanRHI::EImageLayoutBarrier::ColorAttachment;
 					}
 				}
 				else
@@ -1278,9 +1275,14 @@ void FVulkanCommandListContext::TransitionResources(const FPendingTransition& Pe
 					if (SrcLayout != VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
 					{
 						check(Surface.IsDepthOrStencilAspect());
-						Barrier.SetTransition(BarrierIndex, VulkanRHI::GetImageLayoutFromVulkanLayout(SrcLayout), VulkanRHI::EImageLayoutBarrier::DepthStencilAttachment);
-						SrcLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+						DestLayout = VulkanRHI::EImageLayoutBarrier::DepthStencilAttachment;
 					}
+				}
+
+				if (DestLayout != VulkanRHI::EImageLayoutBarrier::Undefined)
+				{
+					int32 BarrierIndex = Barrier.AddImageBarrier(Surface.Image, AspectMask, Surface.GetNumMips(), Surface.GetNumberOfArrayLevels());
+					Barrier.SetTransition(BarrierIndex, VulkanRHI::GetImageLayoutFromVulkanLayout(SrcLayout), DestLayout);
 				}
 			}
 
