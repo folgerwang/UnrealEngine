@@ -56,7 +56,7 @@ public:
 
 	uint32 CalculateEventSpawnCount(const FNiagaraEventScriptProperties &EventHandlerProps, TArray<int32, TInlineAllocator<16>>& EventSpawnCounts, FNiagaraDataSet *EventSet);
 
-	NIAGARA_API FBox CalculateDynamicBounds();
+	NIAGARA_API TOptional<FBox> CalculateDynamicBounds();
 
 	FNiagaraDataSet &GetData()	{ return *ParticleDataSet; }
 

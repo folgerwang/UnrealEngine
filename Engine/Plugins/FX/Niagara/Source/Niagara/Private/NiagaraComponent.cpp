@@ -190,7 +190,13 @@ void FNiagaraSceneProxy::CreateRenderThreadResources()
 
 void FNiagaraSceneProxy::OnTransformChanged()
 {
-	//WorldSpacePrimitiveUniformBuffer.ReleaseResource();
+	for (NiagaraRenderer* Renderer : EmitterRenderers)
+	{
+		if (Renderer)
+		{
+			Renderer->TransformChanged();
+		}
+	}
 }
 
 FPrimitiveViewRelevance FNiagaraSceneProxy::GetViewRelevance(const FSceneView* View) const
@@ -760,8 +766,6 @@ void UNiagaraComponent::SendRenderDynamicData_Concurrent()
 	SCOPE_CYCLE_COUNTER(STAT_NiagaraComponentSendRenderData);
 	if (SystemInstance.IsValid() && SceneProxy)
 	{
-		SystemInstance->GetSystemBounds().Init();
-		
 		FNiagaraSceneProxy* NiagaraProxy = static_cast<FNiagaraSceneProxy*>(SceneProxy);
 
 		for (int32 i = 0; i < SystemInstance->GetEmitters().Num(); i++)
@@ -813,7 +817,7 @@ int32 UNiagaraComponent::GetNumMaterials() const
 
 FBoxSphereBounds UNiagaraComponent::CalcBounds(const FTransform& LocalToWorld) const
 {
-	FBox SimBounds(ForceInit);
+	FBoxSphereBounds SystemBounds;
 	if (SystemInstance.IsValid())
 	{
 		SystemInstance->GetSystemBounds().Init();
@@ -823,13 +827,16 @@ FBoxSphereBounds UNiagaraComponent::CalcBounds(const FTransform& LocalToWorld) c
 			SystemInstance->GetSystemBounds() += Sim.GetBounds();
 		}
 		FBox BoundingBox = SystemInstance->GetSystemBounds();
-		const FVector ExpandAmount = FVector(0.0f, 0.0f, 0.0f);// BoundingBox.GetExtent() * 0.1f;
-		BoundingBox = FBox(BoundingBox.Min - ExpandAmount, BoundingBox.Max + ExpandAmount);
 
-		FBoxSphereBounds BSBounds(BoundingBox);
-		return BSBounds;
+		SystemBounds = FBoxSphereBounds(BoundingBox);
 	}
-	return FBoxSphereBounds(SimBounds);
+	else
+	{
+		FBox SimBounds(ForceInit);
+		SystemBounds = FBoxSphereBounds(SimBounds);
+	}
+
+	return SystemBounds.TransformBy(LocalToWorld);
 }
 
 FPrimitiveSceneProxy* UNiagaraComponent::CreateSceneProxy()

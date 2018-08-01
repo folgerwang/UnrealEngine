@@ -31,6 +31,8 @@ public:
 
 	virtual bool SetMaterialUsage() override;
 
+	virtual void TransformChanged() override;
+
 	/** Update render data buffer from attributes */
 	FNiagaraDynamicDataBase *GenerateVertexData(const FNiagaraSceneProxy* Proxy, FNiagaraDataSet &Data, const ENiagaraSimTarget Target) override;
 

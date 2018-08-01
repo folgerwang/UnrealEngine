@@ -343,7 +343,10 @@ bool NiagaraRendererMeshes::SetMaterialUsage()
 	return Material && Material->CheckMaterialUsage_Concurrent(MATUSAGE_NiagaraMeshParticles);
 }
 
-
+void NiagaraRendererMeshes::TransformChanged()
+{
+	WorldSpacePrimitiveUniformBuffer.ReleaseResource();
+}
 
 /** Update render data buffer from attributes */
 FNiagaraDynamicDataBase *NiagaraRendererMeshes::GenerateVertexData(const FNiagaraSceneProxy* Proxy, FNiagaraDataSet &Data, const ENiagaraSimTarget Target)

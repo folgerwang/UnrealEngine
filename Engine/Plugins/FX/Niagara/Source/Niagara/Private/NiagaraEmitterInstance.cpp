@@ -99,13 +99,6 @@ void FNiagaraEmitterInstance::ClearRenderer()
 
 FBox FNiagaraEmitterInstance::GetBounds()
 {
-	checkSlow(CachedEmitter);
-	{
-		if (CachedEmitter->bFixedBounds || CachedEmitter->SimTarget == ENiagaraSimTarget::GPUComputeSim)//We must use fixed bounds on GPU sim.
-		{
-			return CachedEmitter->FixedBounds.TransformBy(ParentSystemInstance->GetComponent()->GetComponentToWorld());
-		}
-	}
 	return CachedBounds;
 }
 
@@ -595,19 +588,26 @@ int FNiagaraEmitterInstance::GetTotalBytesUsed()
 	return BytesUsed;
 }
 
-FBox FNiagaraEmitterInstance::CalculateDynamicBounds()
+TOptional<FBox> FNiagaraEmitterInstance::CalculateDynamicBounds()
 {
 	checkSlow(ParticleDataSet);
 	FNiagaraDataSet& Data = *ParticleDataSet;
 	int32 NumInstances = Data.GetNumInstances();
 	FBox Ret;
 	Ret.Init();
+
 	if (IsComplete() || NumInstances == 0 || CachedEmitter->SimTarget == ENiagaraSimTarget::GPUComputeSim)//TODO: Pull data back from gpu buffers to get bounds for GPU sims.
 	{
-		return Ret;
+		return TOptional<FBox>();
 	}
 
 	PositionAccessor.InitForAccess(true);
+
+	if (PositionAccessor.IsValid() == false)
+	{
+		return TOptional<FBox>();
+	}
+
 	SizeAccessor.InitForAccess(true);
 	MeshScaleAccessor.InitForAccess(true);
 
@@ -671,12 +671,6 @@ FBox FNiagaraEmitterInstance::CalculateDynamicBounds()
 
 	Ret = Ret.ExpandBy(MaxSize*MaxBaseSize);
 
-	if (CachedEmitter->bLocalSpace || PositionAccessor.IsValid() == false)
-	{
-		FMatrix SystemLocalToWorld = GetParentSystemInstance()->GetComponent()->GetComponentTransform().ToMatrixNoScale();
-		Ret = Ret.TransformBy(SystemLocalToWorld);
-	}
-
 	return Ret;
 }
 
@@ -688,16 +682,29 @@ void FNiagaraEmitterInstance::PostProcessParticles()
 	SCOPE_CYCLE_COUNTER(STAT_NiagaraKill);
 
 	checkSlow(CachedEmitter);
-	if (CachedEmitter->bFixedBounds)
+	CachedBounds.Init();
+	if (CachedEmitter->bFixedBounds || CachedEmitter->SimTarget == ENiagaraSimTarget::GPUComputeSim)
 	{
 		CachedBounds = CachedEmitter->FixedBounds;
 	}
 	else
 	{
-		checkSlow(ParticleDataSet);
-		FNiagaraDataSet& Data = *ParticleDataSet;
-		int32 NumParticles = Data.GetNumInstances();
-		CachedBounds = CalculateDynamicBounds();
+		TOptional<FBox> DynamicBounds = CalculateDynamicBounds();
+		if (DynamicBounds.IsSet())
+		{
+			if (CachedEmitter->bLocalSpace)
+			{
+				CachedBounds = DynamicBounds.GetValue();
+			}
+			else
+			{
+				CachedBounds = DynamicBounds.GetValue().TransformBy(ParentSystemInstance->GetComponent()->GetComponentToWorld().Inverse());
+			}
+		}
+		else
+		{
+			CachedBounds = CachedEmitter->FixedBounds;
+		}
 	}
 }
 

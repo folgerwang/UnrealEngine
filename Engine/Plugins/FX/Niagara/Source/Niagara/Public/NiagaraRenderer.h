@@ -93,6 +93,8 @@ public:
 
 	virtual bool SetMaterialUsage() = 0;
 
+	virtual void TransformChanged() = 0;
+
 #if WITH_EDITORONLY_DATA
 	virtual const TArray<FNiagaraVariable>& GetRequiredAttributes() = 0;
 	virtual const TArray<FNiagaraVariable>& GetOptionalAttributes() = 0;
@@ -196,6 +198,7 @@ public:
 
 	virtual void GetDynamicMeshElements(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap, FMeshElementCollector& Collector, const FNiagaraSceneProxy *SceneProxy) const override;
 	virtual bool SetMaterialUsage() override;
+	virtual void TransformChanged() override;
 	/** Update render data buffer from attributes */
 	FNiagaraDynamicDataBase *GenerateVertexData(const FNiagaraSceneProxy* Proxy, FNiagaraDataSet &Data, const ENiagaraSimTarget Target) override;
 
@@ -280,6 +283,7 @@ public:
 
 	virtual void GetDynamicMeshElements(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap, FMeshElementCollector& Collector, const FNiagaraSceneProxy *SceneProxy) const override;
 	virtual bool SetMaterialUsage() override;
+	virtual void TransformChanged() override;
 	/** Update render data buffer from attributes */
 	FNiagaraDynamicDataBase *GenerateVertexData(const FNiagaraSceneProxy* Proxy, FNiagaraDataSet &Data, const ENiagaraSimTarget Target) override;
 
