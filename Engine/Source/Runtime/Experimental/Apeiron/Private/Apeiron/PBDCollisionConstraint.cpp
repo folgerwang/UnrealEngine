@@ -550,7 +550,7 @@ bool NearestPoint(TArray<Pair<TVector<T, d>, TVector<T, d>>>& Points, TVector<T,
 }
 
 template<class T, int d>
-void UpdateLevelsetConstraintHelper(const TPBDRigidParticles<T, d>& InParticles, const int32 j, const TRigidTransform<T, d> LocalToWorld1, const TRigidTransform<T, d> LocalToWorld2, const T Thickness, TRigidBodyContactConstraint<T, d>& Constraint)
+void UpdateLevelsetConstraintHelper(const TPBDRigidParticles<T, d>& InParticles, const int32 j, const TRigidTransform<T, d>& LocalToWorld1, const TRigidTransform<T, d>& LocalToWorld2, const T Thickness, TRigidBodyContactConstraint<T, d>& Constraint)
 {
 	TVector<T, d> WorldSpacePoint = LocalToWorld1.TransformPosition(InParticles.CollisionParticles(Constraint.ParticleIndex).X(j));
 	TVector<T, d> Body2SpacePoint = LocalToWorld2.InverseTransformPosition(WorldSpacePoint);
