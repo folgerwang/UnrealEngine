@@ -100,6 +100,11 @@ namespace PyConversion
 	FPyConversionResult PythonizeStruct(UScriptStruct* Val, PyObject*& OutPyObj, const ESetErrorState SetErrorState = ESetErrorState::Yes);
 	PyObject* PythonizeStruct(UScriptStruct* Val, const ESetErrorState SetErrorState = ESetErrorState::Yes);
 
+	/** Conversion for enum entries */
+	FPyConversionResult NativizeEnumEntry(PyObject* PyObj, const UEnum* EnumType, int64& OutVal, const ESetErrorState SetErrorState = ESetErrorState::Yes);
+	FPyConversionResult PythonizeEnumEntry(const int64 Val, const UEnum* EnumType, PyObject*& OutPyObj, const ESetErrorState SetErrorState = ESetErrorState::Yes);
+	PyObject* PythonizeEnumEntry(const int64 Val, const UEnum* EnumType, const ESetErrorState SetErrorState = ESetErrorState::Yes);
+
 	namespace Internal
 	{
 		/** Internal version of NativizeStructInstance/PythonizeStructInstance that work on the type-erased data */
@@ -193,16 +198,23 @@ namespace PyConversion
 
 	/** Conversion for known enum types */
 	template <typename T>
-	FPyConversionResult NativizeEnum(PyObject* PyObj, T& OutVal, const ESetErrorState SetErrorState = ESetErrorState::Yes)
+	FPyConversionResult NativizeEnumEntry(PyObject* PyObj, const UEnum* EnumType, T& OutVal, const ESetErrorState SetErrorState = ESetErrorState::Yes)
 	{
-		return Nativize(PyObj, (__underlying_type(T)&)OutVal, SetErrorState);
+		int64 OutTmpVal = 0;
+		FPyConversionResult Result = NativizeEnumEntry(PyObj, EnumType, OutTmpVal, SetErrorState);
+		if (Result)
+		{
+			OutVal = (T)OutTmpVal;
+		}
+		return Result;
 	}
 
 	/** Conversion for known enum types */
 	template <typename T>
-	FPyConversionResult PythonizeEnum(const T& Val, PyObject*& OutPyObj, const ESetErrorState SetErrorState = ESetErrorState::Yes)
+	FPyConversionResult PythonizeEnumEntry(const T& Val, const UEnum* EnumType, PyObject*& OutPyObj, const ESetErrorState SetErrorState = ESetErrorState::Yes)
 	{
-		return Pythonize((__underlying_type(T))Val, OutPyObj, SetErrorState);
+		const int64 TmpVal = (int64)Val;
+		return PythonizeEnumEntry(TmpVal, EnumType, OutPyObj, SetErrorState);
 	}
 
 	/** Conversion for property instances (including fixed arrays) - ValueAddr should point to the property data */

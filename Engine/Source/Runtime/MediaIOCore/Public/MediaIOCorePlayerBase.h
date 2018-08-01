@@ -116,6 +116,9 @@ protected:
 protected:
 	virtual bool IsHardwareReady() const = 0;
 
+	/** Return true if the options combination are valid */
+	virtual bool ReadMediaOptions(const IMediaOptions* Options);
+
 protected:
 	/** Critical section for synchronizing access to receiver and sinks. */
 	FCriticalSection CriticalSection;

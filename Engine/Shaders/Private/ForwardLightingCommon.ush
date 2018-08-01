@@ -103,12 +103,10 @@ float3 GetForwardDirectLighting(uint GridIndex, float3 WorldPosition, float3 Cam
 
 	float3 DirectLighting = 0;
 
-	// Prevent 0 Roughness which causes NaNs in Vis_SmithJointApprox
-	float MinRoughness = .04f;
-
+	float SpecularScale = 1;
 #if TRANSLUCENCY_ANY_VOLUMETRIC
 	// No specular on volumetric translucency lighting modes
-	MinRoughness = 1.0f;
+	SpecularScale = 0;
 #endif
 
 	const FDirectionalLightData DirectionalLightData = GetDirectionalLightData(EyeIndex);
@@ -121,7 +119,7 @@ float3 GetForwardDirectLighting(uint GridIndex, float3 WorldPosition, float3 Cam
 		LightData.LightDirection = DirectionalLightData.DirectionalLightDirection;
 		LightData.DistanceFadeMAD = DirectionalLightData.DirectionalLightDistanceFadeMAD;
 		LightData.bRadialLight = false;
-		LightData.MinRoughness = MinRoughness;
+		LightData.SpecularScale = SpecularScale;
 
 		LightData.ShadowedBits = (DirectionalLightData.DirectionalLightShadowMapChannelMask & 0xFF) != 0 ? 1 : 0;
 		// Static shadowing uses ShadowMapChannel, dynamic shadows are packed into light attenuation using PreviewShadowMapChannel
@@ -177,7 +175,7 @@ float3 GetForwardDirectLighting(uint GridIndex, float3 WorldPosition, float3 Cam
 		LightData.bInverseSquared = LightData.LightColorAndFalloffExponent.w == 0;
 		LightData.bRadialLight = true;
 		LightData.bSpotLight = LightData.SpotAnglesAndSourceRadius.x > -2.0f;
-		LightData.MinRoughness = MinRoughness;
+		LightData.SpecularScale = SpecularScale;
 
 		uint PackedShadowMapChannelMask = asuint(LocalLight.LightDirectionAndShadowMask.w);
 		LightData.ShadowedBits = (PackedShadowMapChannelMask & 0xFF) != 0 ? 1 : 0;

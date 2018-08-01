@@ -1004,6 +1004,16 @@ TSharedRef<SGraphEditor> FBlueprintEditor::CreateGraphEditorWidget(TSharedRef<FT
 				FCanExecuteAction::CreateSP( this, &FBlueprintEditor::CanAddExecutionPin )
 				);
 
+			GraphEditorCommands->MapAction( FGraphEditorCommands::Get().InsertExecutionPinBefore,
+				FExecuteAction::CreateSP( this, &FBlueprintEditor::OnInsertExecutionPinBefore ),
+				FCanExecuteAction::CreateSP( this, &FBlueprintEditor::CanInsertExecutionPin )
+				);
+
+			GraphEditorCommands->MapAction(FGraphEditorCommands::Get().InsertExecutionPinAfter,
+				FExecuteAction::CreateSP(this, &FBlueprintEditor::OnInsertExecutionPinAfter),
+				FCanExecuteAction::CreateSP(this, &FBlueprintEditor::CanInsertExecutionPin)
+			);
+
 			GraphEditorCommands->MapAction( FGraphEditorCommands::Get().RemoveExecutionPin,
 				FExecuteAction::CreateSP( this, &FBlueprintEditor::OnRemoveExecutionPin ),
 				FCanExecuteAction::CreateSP( this, &FBlueprintEditor::CanRemoveExecutionPin )
@@ -2988,6 +2998,13 @@ void FBlueprintEditor::OnGraphEditorFocused(const TSharedRef<SGraphEditor>& InGr
 			}
 		}
 	}
+
+	// If the bookmarks view is active, check whether or not we're restricting the view to the current graph. If we are, update the tree to reflect the focused graph context.
+	if (BookmarksWidget.IsValid()
+		&& GetDefault<UBlueprintEditorSettings>()->bShowBookmarksForCurrentDocumentOnlyInTab)
+	{
+		BookmarksWidget->RefreshBookmarksTree();
+	}
 }
 
 void FBlueprintEditor::OnGraphEditorBackgrounded(const TSharedRef<SGraphEditor>& InGraphEditor)
@@ -3015,10 +3032,15 @@ void FBlueprintEditor::OnGraphEditorDropActor(const TArray< TWeakObjectPtr<AActo
 			AActor* DroppedActor = Actors[i].Get();
 			if (DroppedActor&& (DroppedActor->GetLevel() == BlueprintLevel) && !DroppedActor->IsChildActor())
 			{
-				UK2Node_Literal* LiteralNodeTemplate = NewObject<UK2Node_Literal>();
-				LiteralNodeTemplate->SetObjectRef(DroppedActor);
-
-				UK2Node_Literal* ActorRefNode = FEdGraphSchemaAction_K2NewNode::SpawnNodeFromTemplate<UK2Node_Literal>(Graph, LiteralNodeTemplate, NodeLocation);
+				UK2Node_Literal* ActorRefNode = FEdGraphSchemaAction_K2NewNode::SpawnNode<UK2Node_Literal>(
+					Graph,
+					NodeLocation,
+					EK2NewNodeFlags::SelectNewNode,
+					[DroppedActor](UK2Node_Literal* NewInstance)
+					{
+						NewInstance->SetObjectRef(DroppedActor);
+					}
+				);
 				NodeLocation.Y += UEdGraphSchema_K2::EstimateNodeHeight(ActorRefNode);
 			}
 		}
@@ -3036,11 +3058,15 @@ void FBlueprintEditor::OnGraphEditorDropStreamingLevel(const TArray< TWeakObject
 		if ((DroppedLevel != NULL) && 
 			(DroppedLevel->IsA(ULevelStreamingKismet::StaticClass()))) 
 		{
-			const FVector2D NodeLocation = DropLocation + (i * FVector2D(0,80));
-				
-			UK2Node_CallFunction* NodeTemplate = NewObject<UK2Node_CallFunction>(Graph);
-			NodeTemplate->SetFromFunction(TargetFunc);
-			UK2Node_CallFunction* Node = FEdGraphSchemaAction_K2NewNode::SpawnNodeFromTemplate<UK2Node_CallFunction>(Graph, NodeTemplate, NodeLocation);
+			UK2Node_CallFunction* Node = FEdGraphSchemaAction_K2NewNode::SpawnNode<UK2Node_CallFunction>(
+				Graph,
+				DropLocation + (i * FVector2D(0, 80)),
+				EK2NewNodeFlags::SelectNewNode,
+				[TargetFunc](UK2Node_CallFunction* NewInstance)
+				{
+					NewInstance->SetFromFunction(TargetFunc);
+				}
+			);
 						
 			// Set dropped level package name
 			UEdGraphPin* PackageNameInputPin = Node->FindPinChecked(TEXT("PackageName"));
@@ -3876,6 +3902,64 @@ void FBlueprintEditor::OnAddExecutionPin()
 bool FBlueprintEditor::CanAddExecutionPin() const
 {
 	return true;
+}
+
+void FBlueprintEditor::OnInsertExecutionPinBefore()
+{
+	OnInsertExecutionPin(EPinInsertPosition::Before);
+}
+
+void FBlueprintEditor::OnInsertExecutionPinAfter()
+{
+	OnInsertExecutionPin(EPinInsertPosition::After);
+}
+
+void FBlueprintEditor::OnInsertExecutionPin(EPinInsertPosition Position)
+{
+	TSharedPtr<SGraphEditor> FocusedGraphEd = FocusedGraphEdPtr.Pin();
+	if (FocusedGraphEd.IsValid())
+	{
+		const FScopedTransaction Transaction(LOCTEXT("InsertExecutionPinBefore", "Insert Execution Pin Before"));
+
+		UEdGraphPin* SelectedPin = FocusedGraphEd->GetGraphPinForMenu();
+		if (SelectedPin)
+		{
+			UEdGraphNode* OwningNode = SelectedPin->GetOwningNode();
+
+			if (OwningNode)
+			{
+				if (UK2Node_ExecutionSequence* SeqNode = Cast<UK2Node_ExecutionSequence>(OwningNode))
+				{
+					SeqNode->InsertPinIntoExecutionNode(SelectedPin, Position);
+					FocusedGraphEd->RefreshNode(*OwningNode);
+
+					if (UBlueprint* BP = SeqNode->GetBlueprint())
+					{
+						FBlueprintEditorUtils::MarkBlueprintAsModified(BP);
+					}
+				}
+			}
+		}
+	}
+}
+
+bool FBlueprintEditor::CanInsertExecutionPin() const
+{
+	// We likely don't need to validate here, as we validated on menu population,
+	// but better to grey out the option if it is somehow created but will
+	// not execute correctly
+	TSharedPtr<SGraphEditor> FocusedGraphEd = FocusedGraphEdPtr.Pin();
+	if (FocusedGraphEd.IsValid())
+	{
+		UEdGraphPin* SelectedPin = FocusedGraphEd->GetGraphPinForMenu();
+		if (SelectedPin)
+		{
+			UEdGraphNode* OwningNode = SelectedPin->GetOwningNode();
+			return Cast<UK2Node_ExecutionSequence>(OwningNode) != nullptr;
+		}
+	}
+
+	return false;
 }
 
 void  FBlueprintEditor::OnRemoveExecutionPin()
@@ -6699,8 +6783,7 @@ void FBlueprintEditor::CollapseNodes(TSet<UEdGraphNode*>& InCollapsableNodes)
 	// Create the composite node that will serve as the gateway into the subgraph
 	UK2Node_Composite* GatewayNode = NULL;
 	{
-		UK2Node_Composite* TemplateNode = NewObject<UK2Node_Composite>();
-		GatewayNode = FEdGraphSchemaAction_K2NewNode::SpawnNodeFromTemplate<UK2Node_Composite>(SourceGraph, TemplateNode, FVector2D(0,0));
+		GatewayNode = FEdGraphSchemaAction_K2NewNode::SpawnNode<UK2Node_Composite>(SourceGraph, FVector2D(0,0), EK2NewNodeFlags::SelectNewNode);
 		GatewayNode->bCanRenameNode = true;
 		check(GatewayNode);
 	}
@@ -6789,10 +6872,15 @@ UEdGraph* FBlueprintEditor::CollapseSelectionToMacro(TSharedPtr<SGraphEditor> In
 	DestinationGraph = FBlueprintEditorUtils::CreateNewGraph(GetBlueprintObj(), DocumentName, UEdGraph::StaticClass(), UEdGraphSchema_K2::StaticClass());
 	FBlueprintEditorUtils::AddMacroGraph(GetBlueprintObj(), DestinationGraph, /*bIsUserCreated=*/ true, NULL);
 
-	UK2Node_MacroInstance* MacroTemplate = NewObject<UK2Node_MacroInstance>();
-	MacroTemplate->SetMacroGraph(DestinationGraph);
-
-	UK2Node_MacroInstance* GatewayNode = FEdGraphSchemaAction_K2NewNode::SpawnNodeFromTemplate<UK2Node_MacroInstance>(SourceGraph, MacroTemplate, FVector2D(0.0f, 0.0f), false);
+	UK2Node_MacroInstance* GatewayNode = FEdGraphSchemaAction_K2NewNode::SpawnNode<UK2Node_MacroInstance>(
+		SourceGraph,
+		FVector2D(0.0f, 0.0f),
+		EK2NewNodeFlags::None,
+		[DestinationGraph](UK2Node_MacroInstance* NewInstance)
+		{
+			NewInstance->SetMacroGraph(DestinationGraph);
+		}
+	);
 
 	TArray<UK2Node_Tunnel*> TunnelNodes;
 	GatewayNode->GetMacroGraph()->GetNodesOfClass(TunnelNodes);
@@ -7005,6 +7093,8 @@ void FBlueprintEditor::SetViewLocation(const FVector2D& Location, float ZoomAmou
 
 void FBlueprintEditor::Tick(float DeltaTime)
 {
+	PreviewScene.UpdateCaptureContents();
+
 	// Create or update the Blueprint actor instance in the preview scene
 	if ( GetPreviewActor() == nullptr )
 	{

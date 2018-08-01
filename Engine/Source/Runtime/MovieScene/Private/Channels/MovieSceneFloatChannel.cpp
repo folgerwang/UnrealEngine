@@ -486,7 +486,7 @@ bool FMovieSceneFloatChannel::Evaluate(FFrameTime InTime,  float& OutValue) cons
 				float ArriveWeight;
 				if (Key2.Tangent.TangentWeightMode == RCTWM_WeightedNone || Key2.Tangent.TangentWeightMode == RCTWM_WeightedLeave)
 				{
-					const float ArriveTangentNormalized = Key1.Tangent.ArriveTangent / (TimeInterval);
+					const float ArriveTangentNormalized = Key2.Tangent.ArriveTangent / (TimeInterval);
 					const float Y = ArriveTangentNormalized * X;
 					ArriveWeight = FMath::Sqrt(X*X + Y * Y) * OneThird;
 				}

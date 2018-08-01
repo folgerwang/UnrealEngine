@@ -1601,7 +1601,7 @@ void SAnimNotifyNode::UpdateSizeAndPosition(const FGeometry& AllottedGeometry)
 	FTrackScaleInfo ScaleInfo(ViewInputMin.Get(), ViewInputMax.Get(), 0, 0, AllottedGeometry.Size);
 
 	// Cache the geometry information, the alloted geometry is the same size as the track.
-	CachedAllotedGeometrySize = AllottedGeometry.Size;
+	CachedAllotedGeometrySize = AllottedGeometry.Size * AllottedGeometry.Scale;
 
 	NotifyTimePositionX = ScaleInfo.InputToLocalX(NodeObjectInterface->GetTime());
 	NotifyDurationSizeX = ScaleInfo.PixelsPerInput * NodeObjectInterface->GetDuration();

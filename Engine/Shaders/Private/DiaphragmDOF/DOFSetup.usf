@@ -4,6 +4,8 @@
 	DiaphragmDOF/DOFSetup.usf: Diaphragm DOF's setup shader. 
 =============================================================================*/
 
+#define CONFIG_SETUP 1
+
 #include "DOFDownsample.ush"
 
 
@@ -19,6 +21,7 @@
 //------------------------------------------------------- PARAMETERS
 
 float4 CocModelParameters;
+float2 DepthBlurParameters;
 
 // x: full res basis; y: half res basis.
 float2 CocRadiusBasis;
@@ -75,7 +78,7 @@ void SetupCS(
 
 	float4 SceneColor = PostprocessInput0.SampleLevel(GlobalPointClampedSampler, SceneBufferUV, 0);
 	float DeviceZ = PostprocessInput1.SampleLevel(GlobalPointClampedSampler, SceneBufferUV, 0).r;
-	float CocRadius = DepthToHalfResCocRadius(CocModelParameters, ConvertFromDeviceZ(DeviceZ));
+	float CocRadius = DepthToHalfResCocRadius(CocModelParameters, DepthBlurParameters, ConvertFromDeviceZ(DeviceZ));
 	
 	// Convert from translucency to opacity.
 	SceneColor.a = 1 - SceneColor.a;
@@ -138,11 +141,16 @@ void SetupCS(
 			}
 			#endif
 		}
+		
+		FCocDownsampleParams DownsampleParams;
+		DownsampleParams.CocRadiusMultiplier = 1.0;
+		DownsampleParams.FrameExposureScale = 1.0;
+		DownsampleParams.bDoColorBasedWeighting = false;
 
 		// Downsample.
 		float4 OutColor;
 		float OutCocRadius;
-		DownsampleSceneColorWithCoc(SceneColors, CocRadii, OutColor, OutCocRadius);
+		DownsampleSceneColorWithCoc(DownsampleParams, SceneColors, CocRadii, OutColor, OutCocRadius);
 	
 		uint2 HalfResOutputPixelPosition = GroupId * (GROUP_BORDER_SIZE / 2) + SubGroupPos;
 
@@ -171,7 +179,7 @@ void SetupCS(uint2 DispatchThreadId : SV_DispatchThreadID)
 	float4 OutColor = PostprocessInput0.SampleLevel(GlobalPointClampedSampler, SceneBufferUV, 0);
 	
 	float DeviceZ = PostprocessInput1.SampleLevel(GlobalPointClampedSampler, SceneBufferUV, 0).r;
-	float OutCocRadius = CocRadiusBasis.x * DepthToHalfResCocRadius(CocModelParameters, ConvertFromDeviceZ(DeviceZ));
+	float OutCocRadius = CocRadiusBasis.x * DepthToHalfResCocRadius(CocModelParameters, DepthBlurParameters, ConvertFromDeviceZ(DeviceZ));
 
 	if (all(DispatchThreadId < ViewportRect.zw))
 	{
@@ -199,17 +207,22 @@ void SetupCS(
 	// because this pass is running at half resolution.
 	float2 SceneBufferUV = (float2(View.ViewRectMin.xy) + 2.0 * (DispatchThreadId + 0.5)) * View.BufferSizeAndInvSize.zw;
 	float2 SceneBufferUVOffset = View.BufferSizeAndInvSize.zw * 0.5;
-	
+			
+	FCocDownsampleParams DownsampleParams;
+	DownsampleParams.CocRadiusMultiplier = 1.0;
+	DownsampleParams.FrameExposureScale = 1.0;
+	DownsampleParams.bDoColorBasedWeighting = false;
+
 	BRANCH
 	if (all(GroupId * GROUP_BORDER_SIZE + (GROUP_BORDER_SIZE + 1) <= ViewportRect.zw))
 	{
 		// Fetch Coc
 		float4 SceneDepthGather = PostprocessInput1.Gather(GlobalPointClampedSampler, SceneBufferUV);
 		float CocRadii[4];
-		CocRadii[0] = DepthToHalfResCocRadius(CocModelParameters, ConvertFromDeviceZ(SceneDepthGather.w));
-		CocRadii[1] = DepthToHalfResCocRadius(CocModelParameters, ConvertFromDeviceZ(SceneDepthGather.z));
-		CocRadii[2] = DepthToHalfResCocRadius(CocModelParameters, ConvertFromDeviceZ(SceneDepthGather.x));
-		CocRadii[3] = DepthToHalfResCocRadius(CocModelParameters, ConvertFromDeviceZ(SceneDepthGather.y));
+		CocRadii[0] = DepthToHalfResCocRadius(CocModelParameters, DepthBlurParameters, ConvertFromDeviceZ(SceneDepthGather.w));
+		CocRadii[1] = DepthToHalfResCocRadius(CocModelParameters, DepthBlurParameters, ConvertFromDeviceZ(SceneDepthGather.z));
+		CocRadii[2] = DepthToHalfResCocRadius(CocModelParameters, DepthBlurParameters, ConvertFromDeviceZ(SceneDepthGather.x));
+		CocRadii[3] = DepthToHalfResCocRadius(CocModelParameters, DepthBlurParameters, ConvertFromDeviceZ(SceneDepthGather.y));
 
 		// Fetch color.
 		float4 SceneColors[4];
@@ -225,7 +238,7 @@ void SetupCS(
 		// Downsample.
 		float4 OutColor;
 		float OutCocRadius;
-		DownsampleSceneColorWithCoc(SceneColors, CocRadii, OutColor, OutCocRadius);
+		DownsampleSceneColorWithCoc(DownsampleParams, SceneColors, CocRadii, OutColor, OutCocRadius);
 	
 		#if CONFIG_DOF_ALPHA
 		{
@@ -258,13 +271,13 @@ void SetupCS(
 			SceneColors[i].a = 1 - SceneColors[i].a;
 
 			float SampleDeviceZ = PostprocessInput1.SampleLevel(GlobalPointClampedSampler, SampleUV, 0).r;
-			CocRadii[i] = DepthToHalfResCocRadius(CocModelParameters, ConvertFromDeviceZ(SampleDeviceZ));
+			CocRadii[i] = DepthToHalfResCocRadius(CocModelParameters, DepthBlurParameters, ConvertFromDeviceZ(SampleDeviceZ));
 		}
 
 		// Downsample.
 		float4 OutColor;
 		float OutCocRadius;
-		DownsampleSceneColorWithCoc(SceneColors, CocRadii, OutColor, OutCocRadius);
+		DownsampleSceneColorWithCoc(DownsampleParams, SceneColors, CocRadii, OutColor, OutCocRadius);
 	
 		#if 0 // Lower VGPR footprint.
 			uint2 OutputPixelPosition = 0.5 * SceneBufferUV * View.BufferSizeAndInvSize.xy;

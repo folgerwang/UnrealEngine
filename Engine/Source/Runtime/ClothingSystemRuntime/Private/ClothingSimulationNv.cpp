@@ -67,7 +67,7 @@ void FClothingSimulationNv::CreateActor(USkeletalMeshComponent* InOwnerComponent
 
 	// Need the current reftolocals so we can skin the ref pose for the sim mesh
 	TArray<FMatrix> RefToLocals;
-	InOwnerComponent->GetCurrentRefToLocalMatrices(RefToLocals, InOwnerComponent->PredictedLODLevel);
+	InOwnerComponent->GetCurrentRefToLocalMatrices(RefToLocals, FMath::Min(InOwnerComponent->PredictedLODLevel, Asset->LodData.Num() - 1));
 
 	Actors.AddDefaulted();
 	FClothingActorNv& NewActor = Actors.Last();
@@ -225,16 +225,13 @@ void FClothingSimulationNv::CreateActor(USkeletalMeshComponent* InOwnerComponent
 	// Pull collisions from the specified physics asset inside the clothing asset
 	ExtractActorCollisions(Asset, NewActor);
 
-	// Always start at zero, we'll pick up the right one before we simulate on the first tick
-	CurrentMeshLodIndex = 0;
-	NewActor.CurrentLodIndex = 0;
+	// Invalid indices so the call to UpdateLod runs all the correct logic as if our LOD just changed.
+	CurrentMeshLodIndex = INDEX_NONE;
+	NewActor.CurrentLodIndex = INDEX_NONE;
 
-	check(NewActor.LodData.IsValidIndex(0));
-
-	Solver->addCloth(NewActor.LodData[0].Cloth);
-
-	// Force update LODs so we're in the correct state now
-	UpdateLod(InOwnerComponent->PredictedLODLevel, InOwnerComponent->GetComponentTransform(), InOwnerComponent->GetComponentSpaceTransforms(), true);
+	// Force update LODs so we're in the correct state now, need to resolve MPC if one is present
+	USkinnedMeshComponent* TransformComponent = InOwnerComponent->MasterPoseComponent.IsValid() ? InOwnerComponent->MasterPoseComponent.Get() : InOwnerComponent;
+	UpdateLod(InOwnerComponent->PredictedLODLevel, InOwnerComponent->GetComponentTransform(), TransformComponent->GetComponentSpaceTransforms(), true);
 
 	// Compute normals for all active actors for first frame
 	for(FClothingActorNv& Actor : Actors)
@@ -805,7 +802,8 @@ void FClothingSimulationNv::GetSimulationData(TMap<int32, FClothSimulData>& OutD
 
 			if(!ReadTransformArray.IsValidIndex(Asset->ReferenceBoneIndex))
 			{
-				ensureMsgf(false, TEXT("Failed to write back clothing simulation data for component % as bone transforms are invalid."), *InOwnerComponent->GetName());
+				UE_LOG(LogSkeletalMesh, Warning, TEXT("Failed to write back clothing simulation data for component % as bone transforms are invalid."), *InOwnerComponent->GetName());
+				//ensureMsgf(false, TEXT("Failed to write back clothing simulation data for component % as bone transforms are invalid."), *InOwnerComponent->GetName());
 
 				ClothData.Reset();
 

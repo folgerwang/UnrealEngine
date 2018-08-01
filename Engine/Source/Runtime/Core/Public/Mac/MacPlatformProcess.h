@@ -16,12 +16,16 @@ public:
 	/** Default constructor. */
 	FORCEINLINE FProcHandle()
 		: TProcHandle()
+		, Activity(nil)
 	{}
 
 	/** Initialization constructor. */
 	FORCEINLINE explicit FProcHandle( HandleType Other )
 		: TProcHandle( Other )
+		, Activity(nil)
 	{}
+
+	id<NSObject> Activity;
 };
 
 /**

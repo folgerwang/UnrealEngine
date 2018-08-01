@@ -5,6 +5,9 @@
 #include "Features/IModularFeatures.h"
 #include "IXRTrackingSystem.h"
 #include "RemoteSession/RemoteSession.h"
+#include "RemoteSession/Channels/RemoteSessionInputChannel.h"
+#include "RemoteSession/Channels/RemoteSessionFrameBufferChannel.h"
+#include "RemoteSession/Channels/RemoteSessionXRTrackingChannel.h"
 #include "SteamVRFunctionLibrary.h"
 
 AVirtualCameraPlayerControllerBase::AVirtualCameraPlayerControllerBase(const FObjectInitializer& ObjectInitializer)
@@ -42,9 +45,15 @@ void AVirtualCameraPlayerControllerBase::BeginPlay()
 		LevelSequencePlaybackController->OnStop.Add(OnStop);
 	}
 
-	if (IRemoteSessionModule* Viewer = FModuleManager::LoadModulePtr<IRemoteSessionModule>("RemoteSession"))
+	if (IRemoteSessionModule* RemoteSession = FModuleManager::LoadModulePtr<IRemoteSessionModule>("RemoteSession"))
 	{
-		Viewer->InitHost();
+        TMap<FString, ERemoteSessionChannelMode> RequiredChannels;
+        RequiredChannels.Add(FRemoteSessionFrameBufferChannel::StaticType(),ERemoteSessionChannelMode::Write);
+        RequiredChannels.Add(FRemoteSessionInputChannel::StaticType(),ERemoteSessionChannelMode::Read);
+        RequiredChannels.Add(FRemoteSessionXRTrackingChannel::StaticType(),ERemoteSessionChannelMode::Read);
+        
+        RemoteSession->SetSupportedChannels(RequiredChannels);
+		RemoteSession->InitHost();
 	}
 	
 	if (UVirtualCameraCineCameraComponent* CineCamera = GetVirtualCameraCineCameraComponent())
@@ -76,7 +85,7 @@ void AVirtualCameraPlayerControllerBase::BeginPlay()
 void AVirtualCameraPlayerControllerBase::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
-
+	
 	if (AVirtualCameraPawnBase* VCPawn = GetVirtualCameraPawn())
 	{
 		UpdatePawnWithTrackerData();
@@ -86,23 +95,24 @@ void AVirtualCameraPlayerControllerBase::Tick(float DeltaSeconds)
 			// Auto focus is just setting screen focus through the Auto Focus position.
 			SetFocusDistanceThroughPoint(AutoFocusScreenPosition);
 		}
+	}
 
-		if (UVirtualCameraCineCameraComponent* VPCamera = GetVirtualCameraCineCameraComponent())
+	UVirtualCameraCineCameraComponent* VCCamera = GetVirtualCameraCineCameraComponent();
+	if (VCCamera)
+	{
+		if (VCCamera->GetCurrentFocusMethod() == EVirtualCameraFocusMethod::Auto)
 		{
-			if (VPCamera->GetCurrentFocusMethod() == EVirtualCameraFocusMethod::Auto)
-			{
-				SetFocusDistanceThroughPoint(AutoFocusScreenPosition);
-			}
-
-			VPCamera->UpdateCameraView();
+			SetFocusDistanceThroughPoint(AutoFocusScreenPosition);
 		}
+
+		VCCamera->UpdateCameraView();
 	}
 
 	if (LevelSequencePlaybackController)
 	{
 		if (LevelSequencePlaybackController->bIsRecording)
 		{
-			LevelSequencePlaybackController->PilotTargetedCamera();
+			LevelSequencePlaybackController->PilotTargetedCamera(VCCamera ? &VCCamera->DesiredFilmbackSettings : nullptr);
 		}
 
 		if (LevelSequencePlaybackController->GetSequence())

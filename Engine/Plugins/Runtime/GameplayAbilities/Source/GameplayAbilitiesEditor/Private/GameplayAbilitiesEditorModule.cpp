@@ -248,7 +248,10 @@ void FGameplayAbilitiesEditorModule::GameplayTagTreeChanged()
 	FString PerfMessage = FString::Printf(TEXT("FGameplayAbilitiesEditorModule::GameplayTagTreeChanged"));
 	SCOPE_LOG_TIME_IN_SECONDS(*PerfMessage, nullptr)
 #endif
-	FBlueprintActionDatabase::Get().RefreshClassActions(UK2Node_GameplayCueEvent::StaticClass());
+	if (FBlueprintActionDatabase* BAD = FBlueprintActionDatabase::TryGet())
+	{
+		BAD->RefreshClassActions(UK2Node_GameplayCueEvent::StaticClass());
+	}
 }
 
 void FGameplayAbilitiesEditorModule::ShutdownModule()

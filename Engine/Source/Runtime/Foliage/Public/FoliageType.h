@@ -121,15 +121,15 @@ public:
 	// PAINTING
 
 	/** Foliage instances will be placed at this density, specified in instances per 1000x1000 unit area */
-	UPROPERTY(EditAnywhere, Category=Painting, meta=(DisplayName="Density / 1Kuu", UIMin = 0, ClampMin = 0, UIMax = 100000, ClampMax = 100000))
+	UPROPERTY(EditAnywhere, Category=Painting, meta=(DisplayName="Density / 1Kuu", UIMin = 0, ClampMin = 0, UIMax = 10000, ClampMax = 10000))
 	float Density;
 
 	/** The factor by which to adjust the density of instances. Values >1 will increase density while values <1 will decrease it. */
-	UPROPERTY(EditAnywhere, Category=Painting, meta=(UIMin=0, ClampMin=0, UIMax = 10000, ClampMax = 10000, ReapplyCondition="ReapplyDensity"))
+	UPROPERTY(EditAnywhere, Category=Painting, meta=(UIMin=0, ClampMin=0, UIMax = 1000, ClampMax = 1000, ReapplyCondition="ReapplyDensity"))
 	float DensityAdjustmentFactor;
 
 	/** The minimum distance between foliage instances */
-	UPROPERTY(EditAnywhere, Category=Painting, meta=(UIMin=0, ClampMin=0, UIMax = 10000, ClampMax = 10000, ReapplyCondition="ReapplyRadius"))
+	UPROPERTY(EditAnywhere, Category=Painting, meta=(UIMin=0, ClampMin=0, UIMax = 1000, ClampMax = 1000, ReapplyCondition="ReapplyRadius"))
 	float Radius;
 
 	/** Specifies foliage instance scaling behavior when painting. */

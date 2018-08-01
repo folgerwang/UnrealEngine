@@ -306,12 +306,15 @@ namespace UnrealBuildTool
 						// Don't worry about platforms that we're missing SDKs for
 						if (BuildPlatform.HasRequiredSDKsInstalled() == SDKStatus.Valid)
 						{
-							VCProjectFileFormat ProposedFormat = ProjectFileFormat;
+							VCProjectFileFormat ProposedFormat = BuildPlatform.GetRequiredVisualStudioVersion();
 
-							// Reduce the Visual Studio version to the max supported by each platform we plan to include.
-							if (ProjectFileFormat == VCProjectFileFormat.Default || ProposedFormat < ProjectFileFormat)
+							if (ProposedFormat != VCProjectFileFormat.Default)
 							{
-								ProjectFileFormat = ProposedFormat;
+								// Reduce the Visual Studio version to the max supported by each platform we plan to include.
+								if (ProjectFileFormat == VCProjectFileFormat.Default || ProposedFormat < ProjectFileFormat)
+								{
+									ProjectFileFormat = ProposedFormat;
+								}
 							}
 						}
 					}

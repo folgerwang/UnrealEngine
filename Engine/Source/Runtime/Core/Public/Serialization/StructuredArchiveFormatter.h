@@ -61,6 +61,8 @@ class CORE_API FStructuredArchiveFormatter
 {
 public:
 	virtual ~FStructuredArchiveFormatter();
+
+	virtual bool RequiresStructuralMetadata() const;
 	
 	virtual FArchive& GetUnderlyingArchive() = 0;
 	virtual FStructuredArchiveFormatter* CreateSubtreeReader() { return this; }

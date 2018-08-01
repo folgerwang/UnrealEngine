@@ -15,6 +15,17 @@ UNavigationSystemConfig::UNavigationSystemConfig(const FObjectInitializer& Objec
 	}
 }
 
+TSubclassOf<UNavigationSystemConfig> UNavigationSystemConfig::GetDefaultConfigClass()
+{
+	TSubclassOf<UNavigationSystemConfig> NavSysConfigClass;
+	if (GEngine && GEngine->NavigationSystemConfigClassName.IsValid())
+	{
+		GEngine->NavigationSystemConfigClassName.TryLoad();
+		NavSysConfigClass = GEngine->NavigationSystemConfigClassName.ResolveClass();
+	}
+	return NavSysConfigClass;
+}
+
 UNavigationSystemBase* UNavigationSystemConfig::CreateAndConfigureNavigationSystem(UWorld& World) const
 {
 	UNavigationSystemBase* NavSys = nullptr;
@@ -22,7 +33,7 @@ UNavigationSystemBase* UNavigationSystemConfig::CreateAndConfigureNavigationSyst
 	NavigationSystemClass.TryLoad();
 	TSubclassOf<UNavigationSystemBase> NavSysClass = NavigationSystemClass.ResolveClass();
 	
-	if (NavSysClass && (bCreateOnClient == true || World.GetNetMode() != NM_Client))
+	if (NavSysClass)
 	{
 		NavSys = NewObject<UNavigationSystemBase>(&World, NavSysClass);
 		if (NavSys)
@@ -54,10 +65,6 @@ void UNavigationSystemConfig::PostEditChangeProperty(FPropertyChangedEvent& Prop
 			{
 				NavigationSystemClass.TryLoad();
 				TSubclassOf<UNavigationSystemBase> NavSysClass = NavigationSystemClass.ResolveClass();
-				if (NavSysClass)
-				{
-					//bCreateOnClient = NavSysClass->GetDefaultObject<UNavigationSystem>()->ShouldAllowClientSideNavigation();
-				}
 			}
 		}
 	}

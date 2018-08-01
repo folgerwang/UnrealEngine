@@ -92,8 +92,9 @@ public:
 
 	/**
 	 * Pilot the controlled camera during recording, copying over settings from the pawn.
+	 * @param FilmbackSettings - Optional override for filmback settings 
 	 */
-	void PilotTargetedCamera();
+	void PilotTargetedCamera(FCameraFilmbackSettings* FilmbackSettingsOverride = nullptr);
 
 	/**
 	 * Set the target camera component we need to be tracking during recording

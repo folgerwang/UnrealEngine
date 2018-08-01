@@ -32,8 +32,19 @@ void FTexture2DStreamIn_IO_Virtual::LoadMips(const FContext& Context)
 
 	SetIORequests(Context);
 
-	PushTask(Context, TT_Render, TEXTURE2D_UPDATE_CALLBACK(Finalize), TT_Async, TEXTURE2D_UPDATE_CALLBACK(CancelIO));
+	PushTask(Context, TT_Async, TEXTURE2D_UPDATE_CALLBACK(PostLoadMips), TT_Async, TEXTURE2D_UPDATE_CALLBACK(CancelIO));
 }
+
+void FTexture2DStreamIn_IO_Virtual::PostLoadMips(const FContext& Context)
+{
+	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("FTexture2DStreamIn_IO_Virtual::PostLoadMips"), STAT_Texture2DStreamInIOVirtual_LoadMips, STATGROUP_StreamingDetails);
+	check(Context.CurrentThread == TT_Async);
+
+	ClearIORequests(Context);
+
+	PushTask(Context, TT_Render, TEXTURE2D_UPDATE_CALLBACK(Finalize), TT_Render, TEXTURE2D_UPDATE_CALLBACK(Cancel));
+}
+
 
 void FTexture2DStreamIn_IO_Virtual::Finalize(const FContext& Context)
 {

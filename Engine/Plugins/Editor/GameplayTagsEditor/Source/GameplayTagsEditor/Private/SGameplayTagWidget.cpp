@@ -818,10 +818,15 @@ FReply SGameplayTagWidget::OnAddSubtagClicked(TSharedPtr<FGameplayTagNode> InTag
 
 		Manager.GetTagEditorData(InTagNode->GetCompleteTagName(), TagComment, TagSource, bTagIsExplicit, bTagIsRestricted, bTagAllowsNonRestrictedChildren);
 
-		if (AddNewTagWidget.IsValid())
+		if (!bRestrictedTags && AddNewTagWidget.IsValid())
 		{
 			bAddTagSectionExpanded = true; 
 			AddNewTagWidget->AddSubtagFromParent(TagName, TagSource);
+		}
+		else if (bRestrictedTags && AddNewRestrictedTagWidget.IsValid())
+		{
+			bAddTagSectionExpanded = true;
+			AddNewRestrictedTagWidget->AddSubtagFromParent(TagName, TagSource, bTagAllowsNonRestrictedChildren);
 		}
 	}
 	return FReply::Handled();
@@ -843,7 +848,13 @@ TSharedRef<SWidget> SGameplayTagWidget::MakeTagActionsMenu(TSharedPtr<FGameplayT
 		bShowManagement = false;
 	}
 
-	FMenuBuilder MenuBuilder(true, NULL);
+	// we can only rename or delete tags if they came from an ini file
+	if (!InTagNode->SourceName.ToString().EndsWith(TEXT(".ini")))
+	{
+		bShowManagement = false;
+	}
+
+	FMenuBuilder MenuBuilder(true, nullptr);
 
 	// Rename
 	if (bShowManagement)
@@ -1079,7 +1090,7 @@ void SGameplayTagWidget::SetContainer(FGameplayTagContainer* OriginalContainer, 
 		// Not sure if we should get here, means the property handle hasnt been setup which could be right or wrong.
 		if (OwnerObj)
 		{
-			OwnerObj->PreEditChange(PropertyHandle.IsValid() ? PropertyHandle->GetProperty() : NULL);
+			OwnerObj->PreEditChange(PropertyHandle.IsValid() ? PropertyHandle->GetProperty() : nullptr);
 		}
 
 		*OriginalContainer = *EditedContainer;
@@ -1123,6 +1134,18 @@ void SGameplayTagWidget::RefreshTags()
 {
 	UGameplayTagsManager& Manager = UGameplayTagsManager::Get();
 	Manager.GetFilteredGameplayRootTags(RootFilterString, TagItems);
+
+	if (bRestrictedTags)
+	{
+		// We only want to show the restricted gameplay tags
+		for (int32 Idx = TagItems.Num() - 1; Idx >= 0; --Idx)
+		{
+			if (!TagItems[Idx]->IsRestrictedGameplayTag())
+			{
+				TagItems.RemoveAtSwap(Idx);
+			}
+		}
+	}
 
 	TagTreeWidget->SetTreeItemsSource(&TagItems);
 }

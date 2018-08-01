@@ -10,6 +10,7 @@
 #include "HAL/FileManager.h"
 #include "HAL/ThreadManager.h"
 #include "Misc/App.h"
+#include "Misc/EngineVersion.h"
 #include "Misc/Paths.h"
 #include "Runtime/Launch/Resources/Version.h"
 

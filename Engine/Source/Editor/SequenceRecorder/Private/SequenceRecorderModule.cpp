@@ -638,18 +638,20 @@ class FSequenceRecorderModule : public ISequenceRecorder, private FSelfRegisteri
 		return AudioFactory ? AudioFactory() : TUniquePtr<ISequenceAudioRecorder>();
 	}
 
-	virtual void QueueActorToRecord(AActor* ActorToRecord) override 
+	virtual UActorRecording* QueueActorToRecord(AActor* ActorToRecord) override 
 	{
 		if (ActorToRecord && !FSequenceRecorder::Get().FindRecording(ActorToRecord))
 		{
-			FSequenceRecorder::Get().AddNewQueuedRecording(ActorToRecord);
+			return FSequenceRecorder::Get().AddNewQueuedRecording(ActorToRecord);
 		}
+
+		return nullptr;
 	}
 
 	virtual uint32 GetTakeNumberForActor(AActor* InActor) const override
 	{
 		// If not using a group, take numbers aren't in use, return 0
-		if (!FSequenceRecorder::Get().GetRecordingGroup().IsValid())
+		if (!FSequenceRecorder::Get().GetCurrentRecordingGroup().IsValid())
 		{
 			return 0;
 		}
@@ -665,6 +667,9 @@ class FSequenceRecorderModule : public ISequenceRecorder, private FSelfRegisteri
 	virtual FOnRecordingStarted& OnRecordingStarted() override { return FSequenceRecorder::Get().OnRecordingStartedDelegate; }
 
 	virtual FOnRecordingFinished& OnRecordingFinished() override { return FSequenceRecorder::Get().OnRecordingFinishedDelegate; }
+
+	virtual FOnRecordingGroupAdded& OnRecordingGroupAdded() override { return FSequenceRecorder::Get().OnRecordingGroupAddedDelegate; }
+
 
 	virtual FString GetSequenceRecordingName() const override
 	{
@@ -682,6 +687,42 @@ class FSequenceRecorderModule : public ISequenceRecorder, private FSelfRegisteri
 		{
 			FSequenceRecorder::Get().Tick(DeltaSeconds);
 		}
+	}
+
+	/** Returns the current recording group (if any), otherwise returns nullptr. */
+	virtual TWeakObjectPtr<USequenceRecorderActorGroup> GetCurrentRecordingGroup() const override
+	{
+		return FSequenceRecorder::Get().GetCurrentRecordingGroup();
+	}
+
+	/** Adds a new recording group and picks a default name. Returns the new recording group and sets as the current recording group. */
+	virtual TWeakObjectPtr<USequenceRecorderActorGroup> AddRecordingGroup() override
+	{
+		return FSequenceRecorder::Get().AddRecordingGroup();
+	}
+
+	/** Removes the current recording group if any. Will make GetRecordingGroup() return nullptr. */
+	virtual void RemoveCurrentRecordingGroup() override
+	{
+		return FSequenceRecorder::Get().RemoveCurrentRecordingGroup();
+	}
+
+	/** Duplicates the current recording group if any. Returns the new recording group and sets as the current recording group. */
+	virtual TWeakObjectPtr<USequenceRecorderActorGroup> DuplicateRecordingGroup() override
+	{
+		return FSequenceRecorder::Get().DuplicateRecordingGroup();
+	}
+
+	/** Attempts to load a recording group from the specified name. Returns a pointer to the group if successfully loaded, otherwise nullptr. */
+	virtual TWeakObjectPtr<USequenceRecorderActorGroup> LoadRecordingGroup(const FName Name) override
+	{
+		return FSequenceRecorder::Get().LoadRecordingGroup(Name);
+	}
+
+	/** Returns a list of names for the recording groups stored in this map. */
+	virtual TArray<FName> GetRecordingGroupNames() const override
+	{
+		return FSequenceRecorder::Get().GetRecordingGroupNames();
 	}
 
 #if WITH_EDITOR

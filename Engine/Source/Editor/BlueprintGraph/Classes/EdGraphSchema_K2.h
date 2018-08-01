@@ -1094,6 +1094,8 @@ public:
 	/** Create sub menu that shows all possible variables that can be used to replace the existing variable reference */
 	static void GetReplaceVariableMenu(class FMenuBuilder& MenuBuilder, class UK2Node_Variable* Variable, UBlueprint* OwnerBlueprint, bool bReplaceExistingVariable = false);
 
+	/** Function called when the owning module is shut down */ 
+	static void Shutdown();
 private:
 
 	/**

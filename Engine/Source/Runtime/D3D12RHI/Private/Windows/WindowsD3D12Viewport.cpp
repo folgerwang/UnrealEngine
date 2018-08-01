@@ -85,6 +85,7 @@ void FD3D12Viewport::Init()
 	const DXGI_MODE_DESC BufferDesc = SetupDXGI_MODE_DESC();
 
 	// Create the swapchain.
+	if(Adapter->GetOwningRHI()->IsQuadBufferStereoEnabled())
 	{
 		TRefCountPtr<IDXGIFactory2> Factory2;
 		Factory->QueryInterface(IID_PPV_ARGS(Factory2.GetInitReference()));

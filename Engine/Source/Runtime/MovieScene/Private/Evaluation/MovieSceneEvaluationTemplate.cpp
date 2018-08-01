@@ -64,16 +64,6 @@ void FMovieSceneEvaluationTemplate::AddSubSectionRange(UMovieSceneSubSection& In
 	// Don't need to do anything else if the section was already generated
 	if (!TemplateLedger.ContainsSubSection(InSubSection.GetSignature()))
 	{
-		if (InSubSection.GetSequence())
-		{
-			FMovieSceneSequenceID SubSequenceID = InSubSection.GetSequenceID();
-			FSubSequenceInstanceDataParams InstanceParams{ SubSequenceID, FMovieSceneEvaluationOperand(MovieSceneSequenceID::Root, InObjectBindingId) };
-
-			FMovieSceneSubSequenceData NewSubData = InSubSection.GenerateSubSequenceData(InstanceParams);
-
-			Hierarchy.Add(NewSubData, SubSequenceID, MovieSceneSequenceID::Root);
-		}
-
 		TRange<FFrameNumber> EntireSectionRange = InSubSection.GetRange();
 		EntireSectionRange.SetLowerBoundValue(EntireSectionRange.GetLowerBoundValue() - InSubSection.GetPreRollFrames());
 		EntireSectionRange.SetUpperBoundValue(EntireSectionRange.GetUpperBoundValue() + InSubSection.GetPostRollFrames());
@@ -83,6 +73,11 @@ void FMovieSceneEvaluationTemplate::AddSubSectionRange(UMovieSceneSubSection& In
 
 		// Invalidate the overlapping field
 		EvaluationField.Invalidate(EntireSectionRange);
+
+		// Invalidate the sequence hierarchy for the leaf starting at this sub section.
+		// The hierarchy will be populated by the compiler when this template is compiled
+		FMovieSceneSequenceID SubSequenceID = InSubSection.GetSequenceID();
+		Hierarchy.Remove(MakeArrayView(&SubSequenceID, 1));
 	}
 }
 

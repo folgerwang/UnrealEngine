@@ -43,90 +43,82 @@ DEFINE_LOG_CATEGORY(LogMixedRealityCapture);
 
 DECLARE_MULTICAST_DELEGATE(FOnCommandValueChanged);
 
-template<typename T>
-class FMulticastCVarCommand : private FAutoConsoleCommand, public FOnCommandValueChanged
+template<typename T, typename U=T>
+class TMulticastCVarCommand : private TAutoConsoleVariable<U>, public FOnCommandValueChanged
 {
 public:
-	FMulticastCVarCommand(const TCHAR* Name, const TCHAR* Help, T& InVarRef)
-		: FAutoConsoleCommand(Name, Help, FConsoleCommandWithWorldArgsAndOutputDeviceDelegate::CreateRaw(this, &FMulticastCVarCommand<T>::HandleCommand))
-		, VarRef(InVarRef)
-		, CmdName(Name)
-	{}
-
-	void HandleCommand(const TArray<FString>& Args, UWorld*, FOutputDevice& Ar) const
+	TMulticastCVarCommand(const TCHAR* Name, const T& DefaultVal, const TCHAR* Help)
+		: TAutoConsoleVariable<U>(Name, (U)DefaultVal, Help)
 	{
-		if (Args.Num())
-		{
-			T NewVal;
-			LexFromString(NewVal, *Args[0]);
-
-			if (NewVal != VarRef)
-			{
-				VarRef = NewVal;
-				Broadcast();
-			}
-		}
-		Ar.Logf(TEXT("%s = %s"), *CmdName, *LexToString(VarRef));
+		TAutoConsoleVariable<U>::AsVariable()->SetOnChangedCallback(FConsoleVariableDelegate::CreateRaw(this, &TMulticastCVarCommand<T,U>::OnChanged));
 	}
 
-private:
-	T& VarRef;
-	FString CmdName;
+	void OnChanged(IConsoleVariable* /*This*/)
+	{
+		Broadcast();
+	}
+
+	T GetValue() const
+	{
+		return (T)TAutoConsoleVariable<U>::GetValueOnGameThread();
+	}
+
+	operator T() const
+	{
+		return GetValue();
+	}
 };
 
-//------------------------------------------------------------------------------
+// specialization to avoid warning C4800 ('int32': forcing value to bool 'true' or 'false')
 template<>
-void FMulticastCVarCommand<bool>::HandleCommand(const TArray<FString>& Args, UWorld*, FOutputDevice& Ar) const
+bool TMulticastCVarCommand<bool, int32>::GetValue() const
 {
-	if (Args.Num())
-	{
-		bool NewVal;
-		LexFromString(NewVal, *Args[0]);
-
-		if (NewVal != VarRef)
-		{
-			VarRef = NewVal;
-			Broadcast();
-		}
-	}
-// 	else
-// 	{
-// 		VarRef = !VarRef;
-// 	}
-	Ar.Logf(TEXT("%s = %s"), *CmdName, VarRef ? TEXT("On") : TEXT("Off"));
+	return GetValueOnGameThread() != 0;
 }
+
+typedef TMulticastCVarCommand<bool, int32> FMulticastBoolCVar;
+typedef TMulticastCVarCommand<float> FMulticastFloatCVar;
+typedef TMulticastCVarCommand<int32> FMulticastIntCVar;
 
 /* MRCaptureComponent_Impl
  *****************************************************************************/
 
 namespace MRCaptureComponent_Impl
 {
-	static bool bUseUndistortion = true;
-	static FMulticastCVarCommand<bool> UseUndistortionCommand(
+	static FMulticastBoolCVar UseUndistortion(
 		TEXT("mrc.undistortion"),
-		TEXT("Enables/Disables the undistortion pass for MixedRealityCaptures. When disabled, the default (black) texture is used instead for the distortion displacement map."),
-		bUseUndistortion
+		true,
+		TEXT("Enables/Disables the undistortion pass for MixedRealityCaptures. When disabled, the default (black) texture is used instead for the distortion displacement map.")
 	);
 
-	static bool bUseDistortionFocalAspect = true;
-	static FMulticastCVarCommand<bool> UseFocalLenAspectCommand(
+	static FMulticastBoolCVar UseFocalLenAspect(
 		TEXT("mrc.undistortion.bUseFocalAspectRatio"),
-		TEXT("When enabled, to account for stretching from the OpenCV undistortion process, MixedRealityCaptures will scale their projected aspect ratio by the estimated focal length ratio (as reported by OpenCV)."),
-		bUseDistortionFocalAspect
+		true,
+		TEXT("When enabled, to account for stretching from the OpenCV undistortion process, MixedRealityCaptures will scale their projected aspect ratio by the estimated focal length ratio (as reported by OpenCV).")
 	);
 
-	static float DistortionCroppingAmount = 0.0f;
-	static FMulticastCVarCommand<float> DistortionCroppingAmountCommand(
+	static FMulticastFloatCVar DistortionCroppingAmount(
 		TEXT("mrc.undistortion.CroppingAmount"),
-		TEXT("A value meant to range from 0 to 1. At one, as part of the undistortion process, OpenCV will attempt to crop out all empty pixels resulting from the process (essentially zooming the image). Zero means no cropping will occur."),
-		DistortionCroppingAmount
+		0.0f,
+		TEXT("A value meant to range from 0 to 1. At one, as part of the undistortion process, OpenCV will attempt to crop out all empty pixels resulting from the process (essentially zooming the image). Zero means no cropping will occur.")
 	);
 
-	static bool bUseUndistortedFOV = true;
-	static FMulticastCVarCommand<bool> UseUndistortedFOVCommand(
+	static FMulticastBoolCVar UseUndistortedFOV(
 		TEXT("mrc.undistortion.bUseUndistortedFOV"),
-		TEXT("When enabled, MixedRealityCaptures (MRCs) will use the estimated FOV from the OpenCV undistortion process instead of the FOV the MRC was calibrated with. This accounts for any cropping, etc. done by OpenCV."),
-		bUseUndistortedFOV
+		true,
+		TEXT("When enabled, MixedRealityCaptures (MRCs) will use the estimated FOV from the OpenCV undistortion process instead of the FOV the MRC was calibrated with. This accounts for any cropping, etc. done by OpenCV.")
+	);
+
+	static FMulticastFloatCVar CaptureFOVOverride(
+		TEXT("mrc.FovOverride"),
+		0.0f,
+		TEXT("When set to be greater than zero, MixedRealityCaptures will use this for the FOV instead of what was previously set.")
+	);
+
+	static FMulticastIntCVar TrackingLatencyOverride(
+		TEXT("mrc.TrackingLatencyOverride"),
+		0,
+		TEXT("When set to be greater than zero, MixedRealityCaptures will use this for their TrackingLatency instead of what's set. The higher the value (in ms), the more delay there will be introduced to tracked components.")
 	);
 
 	static const FName DefaultDistortionMapParamName(TEXT("DistortionDisplacementMap"));
@@ -173,10 +165,11 @@ namespace MRCaptureComponent_Impl
 //------------------------------------------------------------------------------
 static void MRCaptureComponent_Impl::RemoveAllCVarBindings(const void* BoundObject)
 {
-	UseUndistortionCommand.RemoveAll(BoundObject);
-	UseFocalLenAspectCommand.RemoveAll(BoundObject);
-	DistortionCroppingAmountCommand.RemoveAll(BoundObject);
-	UseUndistortedFOVCommand.RemoveAll(BoundObject);
+	UseUndistortion.RemoveAll(BoundObject);
+	UseFocalLenAspect.RemoveAll(BoundObject);
+	DistortionCroppingAmount.RemoveAll(BoundObject);
+	UseUndistortedFOV.RemoveAll(BoundObject);
+	CaptureFOVOverride.RemoveAll(BoundObject);
 }
 
 //------------------------------------------------------------------------------
@@ -328,8 +321,6 @@ UMixedRealityCaptureComponent::UMixedRealityCaptureComponent(const FObjectInitia
 	// initialize to a "unknown" state - we don't know what this was calibrated at
 	, RelativeOriginType(MRCaptureComponent_Impl::InvalidOriginType)
 	, CalibratedFOV(0.f)
-	, LensFocalLenRatio(0.f)
-	, UndistortedFOV(0.f)
 {
 	const UMrcFrameworkSettings* MrcSettings = GetDefault<UMrcFrameworkSettings>();
 
@@ -443,10 +434,11 @@ void UMixedRealityCaptureComponent::Activate(bool bReset)
 
 		RefreshCameraFeed();
 
-		MRCaptureComponent_Impl::UseUndistortedFOVCommand.AddUObject(this, &UMixedRealityCaptureComponent::RefreshFOV);
-		MRCaptureComponent_Impl::DistortionCroppingAmountCommand.AddUObject(this, &UMixedRealityCaptureComponent::RefreshDistortionDisplacementMap);
-		MRCaptureComponent_Impl::UseFocalLenAspectCommand.AddUObject(this, &UMixedRealityCaptureComponent::RefreshProjectionDimensions);
-		MRCaptureComponent_Impl::UseUndistortionCommand.AddUObject(this, &UMixedRealityCaptureComponent::RefreshDistortionDisplacementMap);
+		MRCaptureComponent_Impl::CaptureFOVOverride.AddUObject(this, &UMixedRealityCaptureComponent::RefreshFOV);
+		MRCaptureComponent_Impl::UseUndistortedFOV.AddUObject(this, &UMixedRealityCaptureComponent::RefreshFOV);
+		MRCaptureComponent_Impl::DistortionCroppingAmount.AddUObject(this, &UMixedRealityCaptureComponent::RefreshDistortionDisplacementMap);
+		MRCaptureComponent_Impl::UseFocalLenAspect.AddUObject(this, &UMixedRealityCaptureComponent::RefreshProjectionDimensions);
+		MRCaptureComponent_Impl::UseUndistortion.AddUObject(this, &UMixedRealityCaptureComponent::RefreshDistortionDisplacementMap);
 
 		FXRTrackingSystemDelegates::OnXRTrackingOriginChanged.AddUObject(this, &UMixedRealityCaptureComponent::OnTrackingOriginChanged);
 	}	
@@ -829,13 +821,19 @@ void UMixedRealityCaptureComponent::SetCaptureDevice(const FMrcVideoCaptureFeedI
 }
 
 //------------------------------------------------------------------------------
-void UMixedRealityCaptureComponent::SetLensDistortionParameters(const FMrcLensDistortion & ModelRef)
+void UMixedRealityCaptureComponent::SetLensDistortionParameters(const FOpenCVLensDistortionParameters& ModelRef)
 {
 	if (ModelRef != LensDistortionParameters)
 	{
 		LensDistortionParameters = ModelRef;
 		RefreshDistortionDisplacementMap();
 	}
+}
+
+//------------------------------------------------------------------------------
+int32 UMixedRealityCaptureComponent::GetTrackingDelay() const
+{
+	return (MRCaptureComponent_Impl::TrackingLatencyOverride > 0) ? (int32)MRCaptureComponent_Impl::TrackingLatencyOverride : TrackingLatency;
 }
 
 //------------------------------------------------------------------------------
@@ -903,9 +901,9 @@ float UMixedRealityCaptureComponent::GetDesiredAspectRatio() const
 		}
 	}
 
-	if (MRCaptureComponent_Impl::bUseUndistortion && MRCaptureComponent_Impl::bUseDistortionFocalAspect && LensDistortionParameters.IsSet() && LensFocalLenRatio > 0)
+	if (MRCaptureComponent_Impl::UseUndistortion && MRCaptureComponent_Impl::UseFocalLenAspect && !LensDistortionParameters.IsIdentity() && UndistortedCameraInfo.FocalLengthRatio > 0)
 	{ 
-		DesiredAspectRatio *= LensFocalLenRatio;
+		DesiredAspectRatio *= UndistortedCameraInfo.FocalLengthRatio;
 	}
 
 	return DesiredAspectRatio;
@@ -914,13 +912,9 @@ float UMixedRealityCaptureComponent::GetDesiredAspectRatio() const
 //------------------------------------------------------------------------------
 void UMixedRealityCaptureComponent::RefreshDistortionDisplacementMap()
 {
-	if (MRCaptureComponent_Impl::bUseUndistortion && LensDistortionParameters.IsSet() && TextureTarget)
+	if (MRCaptureComponent_Impl::UseUndistortion && !LensDistortionParameters.IsIdentity() && TextureTarget)
 	{
-		// for OpenCv, 0.0 is cropped fully, whereas 1.0 is uncropped
-		float CroppingInterpoler = 1.f - MRCaptureComponent_Impl::DistortionCroppingAmount;
-
-		float OutVFOV_Unused;
-		DistortionDisplacementMap = LensDistortionParameters.CreateUndistortUVMap(FIntPoint(TextureTarget->SizeX, TextureTarget->SizeY), CroppingInterpoler, UndistortedFOV, OutVFOV_Unused, LensFocalLenRatio);
+		DistortionDisplacementMap = LensDistortionParameters.CreateUndistortUVDisplacementMap(FIntPoint(TextureTarget->SizeX, TextureTarget->SizeY), MRCaptureComponent_Impl::DistortionCroppingAmount, UndistortedCameraInfo);
 	}
 	else
 	{
@@ -929,11 +923,11 @@ void UMixedRealityCaptureComponent::RefreshDistortionDisplacementMap()
 	}
 	MRCaptureComponent_Impl::ApplyDistortionMapToMaterial(VideoProcessingMaterial, DistortionDisplacementMap);
 
-	if (MRCaptureComponent_Impl::bUseDistortionFocalAspect)
+	if (MRCaptureComponent_Impl::UseFocalLenAspect)
 	{
 		RefreshProjectionDimensions();
 	}
-	if (MRCaptureComponent_Impl::bUseUndistortedFOV)
+	if (MRCaptureComponent_Impl::UseUndistortedFOV)
 	{
 		RefreshFOV();
 	}
@@ -942,14 +936,13 @@ void UMixedRealityCaptureComponent::RefreshDistortionDisplacementMap()
 //------------------------------------------------------------------------------
 void UMixedRealityCaptureComponent::RefreshFOV()
 {
-	float FOVOverride = FOVAngle;
-	if (GConfig->GetFloat(TEXT("/Script/MixedRealityCaptureFramework.MixedRealityFrameworkSettings"), TEXT("CalibratedFOVOverride"), FOVOverride, GEngineIni))
+	if (MRCaptureComponent_Impl::CaptureFOVOverride > 0.0f)
 	{
-		FOVAngle = GetDefault<UMrcFrameworkSettings>()->CalibratedFOVOverride;
+		FOVAngle = MRCaptureComponent_Impl::CaptureFOVOverride;
 	}
-	else if (MRCaptureComponent_Impl::bUseUndistortion && MRCaptureComponent_Impl::bUseUndistortedFOV && LensDistortionParameters.IsSet() && UndistortedFOV > 0)
+	else if (MRCaptureComponent_Impl::UseUndistortion && MRCaptureComponent_Impl::UseUndistortedFOV && !LensDistortionParameters.IsIdentity() && UndistortedCameraInfo.HorizontalFOV > 0)
 	{
-		FOVAngle = UndistortedFOV;
+		FOVAngle = UndistortedCameraInfo.HorizontalFOV;
 	}
 	else if (CalibratedFOV > 0)
 	{
@@ -1090,7 +1083,7 @@ void UMixedRealityCaptureComponent::FillOutCalibrationData(UMrcCalibrationData* 
 		{
 			Dst->CompositingData.CaptureDeviceURL = CaptureFeedRef;
 			Dst->CompositingData.DepthOffset = ProjectionDepthOffset;
-			Dst->CompositingData.TrackingLatency = TrackingLatency;
+			Dst->CompositingData.TrackingLatency = GetTrackingDelay();
 			Dst->CompositingData.VideoProcessingParams = VideoProcessingParams;
 		}
 		// garbage matte

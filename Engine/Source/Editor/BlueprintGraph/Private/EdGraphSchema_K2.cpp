@@ -1490,9 +1490,15 @@ void UEdGraphSchema_K2::GetContextMenuActions(const UEdGraph* CurrentGraph, cons
 					MenuBuilder->AddMenuEntry( FGraphEditorCommands::Get().RecombineStructPin );
 				}
 	
-				// Conditionally add the execution path pin removal if this is an execution branching node
+				// Conditionally add the execution path pin options if this is an execution branching node
 				if( InGraphPin->Direction == EGPD_Output && InGraphPin->GetOwningNode())
 				{
+					if (CastChecked<UK2Node>(InGraphPin->GetOwningNode())->CanEverInsertExecutionPin())
+					{
+						MenuBuilder->AddMenuEntry(FGraphEditorCommands::Get().InsertExecutionPinBefore);
+						MenuBuilder->AddMenuEntry(FGraphEditorCommands::Get().InsertExecutionPinAfter);
+					}
+
 					if (CastChecked<UK2Node>(InGraphPin->GetOwningNode())->CanEverRemoveExecutionPin())
 					{
 						MenuBuilder->AddMenuEntry( FGraphEditorCommands::Get().RemoveExecutionPin );
@@ -2450,6 +2456,12 @@ public:
 		return *AutocastFunctionMap;
 	}
 
+	static void Shutdown()
+	{
+		delete AutocastFunctionMap;
+		AutocastFunctionMap = nullptr;
+	}
+
 	static void OnProjectHotReloaded(bool bWasTriggeredAutomatically)
 	{
 		if (AutocastFunctionMap)
@@ -2488,6 +2500,12 @@ public:
 };
 
 FAutocastFunctionMap* FAutocastFunctionMap::AutocastFunctionMap = nullptr;
+
+void UEdGraphSchema_K2::Shutdown()
+{
+	FAutocastFunctionMap::Shutdown();
+}
+
 
 bool UEdGraphSchema_K2::SearchForAutocastFunction(const UEdGraphPin* OutputPin, const UEdGraphPin* InputPin, /*out*/ FName& TargetFunction, /*out*/ UClass*& FunctionOwner) const
 {
@@ -4780,6 +4798,15 @@ bool UEdGraphSchema_K2::FindFunctionParameterDefaultValue(const UFunction* Funct
 		// Specified default value in the metadata
 		OutString = MetadataDefaultValue;
 		bHasAutomaticValue = true;
+
+		// If the parameter is a class then try and get the full name as the metadata might just be the short name
+		if (Param->IsA<UClassProperty>() && !FPackageName::IsValidObjectPath(OutString))
+		{
+			if (UClass* DefaultClass = FindObject<UClass>(ANY_PACKAGE, *OutString, true))
+			{
+				OutString = DefaultClass->GetPathName();
+			}
+		}
 	}
 	else
 	{
@@ -6924,7 +6951,7 @@ void UEdGraphSchema_K2::OnPinConnectionDoubleCicked(UEdGraphPin* PinA, UEdGraphP
 	UEdGraph* ParentGraph = PinA->GetOwningNode()->GetGraph();
 	if (!FBlueprintEditorUtils::IsGraphReadOnly(ParentGraph))
 	{
-		UK2Node_Knot* NewKnot = FEdGraphSchemaAction_K2NewNode::SpawnNodeFromTemplate<UK2Node_Knot>(ParentGraph, NewObject<UK2Node_Knot>(), KnotTopLeft);
+		UK2Node_Knot* NewKnot = FEdGraphSchemaAction_K2NewNode::SpawnNode<UK2Node_Knot>(ParentGraph, KnotTopLeft, EK2NewNodeFlags::SelectNewNode);
 
 		// Move the connections across (only notifying the knot, as the other two didn't really change)
 		PinA->BreakLinkTo(PinB);
@@ -6968,22 +6995,32 @@ void UEdGraphSchema_K2::ConfigureVarNode(UK2Node_Variable* InVarNode, FName InVa
 
 UK2Node_VariableGet* UEdGraphSchema_K2::SpawnVariableGetNode(const FVector2D GraphPosition, class UEdGraph* ParentGraph, FName VariableName, UStruct* Source) const
 {
-	UK2Node_VariableGet* NodeTemplate = NewObject<UK2Node_VariableGet>();
 	UBlueprint* Blueprint = FBlueprintEditorUtils::FindBlueprintForGraph(ParentGraph);
 
-	UEdGraphSchema_K2::ConfigureVarNode(NodeTemplate, VariableName, Source, Blueprint);
-
-	return FEdGraphSchemaAction_K2NewNode::SpawnNodeFromTemplate<UK2Node_VariableGet>(ParentGraph, NodeTemplate, GraphPosition);
+	return FEdGraphSchemaAction_K2NewNode::SpawnNode<UK2Node_VariableGet>(
+		ParentGraph,
+		GraphPosition,
+		EK2NewNodeFlags::SelectNewNode,
+		[VariableName, Source, Blueprint](UK2Node_VariableGet* NewInstance)
+		{
+			UEdGraphSchema_K2::ConfigureVarNode(NewInstance, VariableName, Source, Blueprint);
+		}
+	);
 }
 
 UK2Node_VariableSet* UEdGraphSchema_K2::SpawnVariableSetNode(const FVector2D GraphPosition, class UEdGraph* ParentGraph, FName VariableName, UStruct* Source) const
 {
-	UK2Node_VariableSet* NodeTemplate = NewObject<UK2Node_VariableSet>();
 	UBlueprint* Blueprint = FBlueprintEditorUtils::FindBlueprintForGraph(ParentGraph);
 
-	UEdGraphSchema_K2::ConfigureVarNode(NodeTemplate, VariableName, Source, Blueprint);
-
-	return FEdGraphSchemaAction_K2NewNode::SpawnNodeFromTemplate<UK2Node_VariableSet>(ParentGraph, NodeTemplate, GraphPosition);
+	return FEdGraphSchemaAction_K2NewNode::SpawnNode<UK2Node_VariableSet>(
+		ParentGraph,
+		GraphPosition,
+		EK2NewNodeFlags::SelectNewNode,
+		[VariableName, Source, Blueprint](UK2Node_VariableSet* NewInstance)
+		{
+			UEdGraphSchema_K2::ConfigureVarNode(NewInstance, VariableName, Source, Blueprint);
+		}
+	);
 }
 
 UEdGraphPin* UEdGraphSchema_K2::DropPinOnNode(UEdGraphNode* InTargetNode, const FName& InSourcePinName, const FEdGraphPinType& InSourcePinType, EEdGraphPinDirection InSourcePinDirection) const

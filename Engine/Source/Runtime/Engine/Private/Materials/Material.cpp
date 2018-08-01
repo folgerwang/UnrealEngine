@@ -939,6 +939,30 @@ void UMaterial::GetUsedTextures(TArray<UTexture*>& OutTextures, EMaterialQuality
 						}
 					}
 				}
+#if WITH_EDITOR
+				// Also look for any scalar parameters that are acting as lookups for an atlas texture, and store the atlas texture
+				const TArray<TRefCountPtr<FMaterialUniformExpression> >* AtlasExpressions[1] =
+				{
+					&CurrentResource->GetUniformScalarParameterExpressions()
+				};
+				for (int32 TypeIndex = 0; TypeIndex < ARRAY_COUNT(AtlasExpressions); TypeIndex++)
+				{
+					// Iterate over each of the material's texture expressions.
+					for (FMaterialUniformExpression* Expression : *AtlasExpressions[TypeIndex])
+					{
+						const FMaterialUniformExpressionScalarParameter* ScalarExpression = static_cast<const FMaterialUniformExpressionScalarParameter*>(Expression);
+						bool bIsUsedAsAtlasPosition;
+						TSoftObjectPtr<class UCurveLinearColor> Curve;
+						TSoftObjectPtr<class UCurveLinearColorAtlas> Atlas;
+						ScalarExpression->GetGameThreadUsedAsAtlas(this, bIsUsedAsAtlasPosition, Curve, Atlas);
+
+						if (Atlas)
+						{
+							OutTextures.AddUnique(Atlas.Get());
+						}
+					}
+				}
+#endif 
 			}
 		}
 	}
@@ -3300,7 +3324,7 @@ void UMaterial::Serialize(FArchive& Ar)
 	SCOPED_LOADTIMER(MaterialSerializeTime);
 
 	Ar.UsingCustomVersion(FRenderingObjectVersion::GUID);
-	Ar.UsingCustomVersion(FAthenaObjectVersion::GUID);
+	Ar.UsingCustomVersion(FFortniteMainBranchObjectVersion::GUID);
 
 	Super::Serialize(Ar);
 
@@ -3383,7 +3407,7 @@ void UMaterial::Serialize(FArchive& Ar)
 	}
 #endif
 
-	if (Ar.CustomVer(FAthenaObjectVersion::GUID) < FAthenaObjectVersion::CachedMaterialQualityNodeUsage)
+	if (Ar.CustomVer(FFortniteMainBranchObjectVersion::GUID) < FFortniteMainBranchObjectVersion::CachedMaterialQualityNodeUsage)
 	{
 		TArray<bool, TInlineAllocator<EMaterialQualityLevel::Num>> QualityLevelsUsed;
 		GetQualityLevelNodeUsage(QualityLevelsUsed);
@@ -4080,7 +4104,7 @@ bool UMaterial::CanEditChange(const UProperty* InProperty) const
 
 		if (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UMaterial, SubsurfaceProfile))
 		{
-			return MaterialDomain == MD_Surface && ShadingModel == MSM_SubsurfaceProfile && (BlendMode == BLEND_Opaque || BlendMode == BLEND_Masked);
+			return MaterialDomain == MD_Surface && UseSubsurfaceProfile(ShadingModel) && (BlendMode == BLEND_Opaque || BlendMode == BLEND_Masked);
 		}
 
 		if (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FLightmassMaterialInterfaceSettings, bCastShadowAsMasked))

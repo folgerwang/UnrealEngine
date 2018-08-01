@@ -708,12 +708,6 @@ namespace UnrealBuildTool
 					// Compile the file as C code.
 					FileArguments += GetCompileArguments_C();
 				}
-				else if (Extension == ".CC")
-				{
-					// Compile the file as C++ code.
-					FileArguments += GetCompileArguments_CPP();
-					FileArguments += GetRTTIFlag(CompileEnvironment);
-				}
 				else if (Extension == ".MM")
 				{
 					// Compile the file as Objective-C++ code.
@@ -954,7 +948,8 @@ namespace UnrealBuildTool
 			List<string> InputFileNames = new List<string>();
 			foreach (FileItem InputFile in LinkEnvironment.InputFiles)
 			{
-				InputFileNames.Add(string.Format("\"{0}\"", InputFile.AbsolutePath));
+				string FileNamePath = string.Format("\"{0}\"", ConvertPath(InputFile.AbsolutePath));
+				InputFileNames.Add(FileNamePath);
 				LinkAction.PrerequisiteItems.Add(InputFile);
 			}
 
@@ -1183,7 +1178,7 @@ namespace UnrealBuildTool
             }
 
             GenDebugAction.CommandPath = "sh";
-            GenDebugAction.CommandArguments = string.Format("-c 'rm -rf \"{1}\"; dwarfdump --uuid {3} | cut -d\" \" -f2; chmod 777 ./DsymExporter; ./DsymExporter -UUID=$(dwarfdump --uuid {3} | cut -d\" \" -f2) \"{0}\" \"{2}\"'",
+            GenDebugAction.CommandArguments = string.Format("-c 'rm -rf \"{1}\"; dwarfdump --uuid \"{3}\" | cut -d\" \" -f2; chmod 777 ./DsymExporter; ./DsymExporter -UUID=$(dwarfdump --uuid \"{3}\" | cut -d\" \" -f2) \"{0}\" \"{2}\"'",
                     DWARFOutFile.AbsolutePath,
                     DestFile.AbsolutePath,
                     Path.GetDirectoryName(DestFile.AbsolutePath),
@@ -1315,6 +1310,11 @@ namespace UnrealBuildTool
 			if (BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac)
 			{
 				BuiltBinaries = new List<FileReference>();
+				DirectoryReference BinaryIOS = DirectoryReference.MakeFromNormalizedFullPath(Path.GetFullPath(Path.Combine(BranchDirectory, "Engine/")) + "Binaries/IOS/");
+				if (DirectoryReference.Exists(BinaryIOS))
+				{
+					QueueDirectoryForBatchUpload(BinaryIOS);
+				}
 			}
 
 			RemoteToolChain.PreBuildSync();

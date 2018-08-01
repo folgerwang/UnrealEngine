@@ -95,7 +95,7 @@ FSteamAuthHandlerComponent::FSteamAuthHandlerComponent() :
 	if (OSS != nullptr)
 	{
 		AuthInterface = OSS->GetAuthInterface();
-		if (!AuthInterface.IsValid())
+		if (!AuthInterface.IsValid() || !AuthInterface->IsSessionAuthEnabled())
 		{
 			bIsEnabled = false;
 		}

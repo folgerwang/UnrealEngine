@@ -62,6 +62,8 @@ void FGoogleARCoreDeviceCameraBlitter::LateInit(FIntPoint ImageSize)
 			check(CameraCopy);
 			CameraCopy->AddToRoot();
 			FTextureResource *resource = CameraCopy->CreateResource();
+			CameraCopy->Filter = TextureFilter::TF_Nearest;
+			CameraCopy->SRGB = false;
 			CameraCopy->UpdateResource();
 			CameraCopies.Add(CameraCopy);
 

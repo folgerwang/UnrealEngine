@@ -8,6 +8,19 @@
 #include "DOFHybridScatterCompilation.ush"
 
 
+//------------------------------------------------------- ENUM VALUES
+
+/** Method used to allocate scatter group globally. */
+	// Uses bit or atomic
+	#define SCATTER_ALLOC_METHOD_ATOMIC 0
+
+	// Uses wave bit or instruction.
+	#define SCATTER_ALLOC_METHOD_WAVE 1
+	
+	// Uses LDS entry for each thread.
+	#define SCATTER_ALLOC_METHOD_LDS 2
+
+
 //------------------------------------------------------- COMPILE TIME CONSTANTS
 
 #define SHARED_REDUCE_COUNT 3
@@ -26,6 +39,22 @@
 #endif
 
 #define CONFIG_WAVE_BROADCAST_REDUCTION (PLATFORM_SUPPORTS_WAVE_BROADCAST)
+
+
+// Configures the neighborhood analysis method to use for slight out of focus early out.
+#if COMPILER_SUPPORTS_WAVE_BIT_ORAND && (PS4_PROFILE || XBOXONE_PROFILE)
+	// GCN only optimisation 
+	#define SCATTER_ALLOC_METHOD (SCATTER_ALLOC_METHOD_WAVE)
+	
+#elif COMPILER_HLSLCC
+	// Compiler does not like InterlockedOr().
+	#define SCATTER_ALLOC_METHOD (SCATTER_ALLOC_METHOD_LDS)
+
+#else
+	#define SCATTER_ALLOC_METHOD (SCATTER_ALLOC_METHOD_ATOMIC)
+
+#endif
+
 
 
 //------------------------------------------------------- PARAMETERS
@@ -66,8 +95,15 @@ RWTexture2D<float>	Output1Mip4;
 
 //------------------------------------------------------- LDS
 
-groupshared uint SharedForegroundScatterGroupMask;
-groupshared uint SharedBackgroundScatterGroupMask;
+#if SCATTER_ALLOC_METHOD == SCATTER_ALLOC_METHOD_ATOMIC
+	groupshared uint SharedForegroundScatterGroupMask;
+	groupshared uint SharedBackgroundScatterGroupMask;
+
+#elif SCATTER_ALLOC_METHOD == SCATTER_ALLOC_METHOD_LDS
+	groupshared uint SharedForegroundScatterGroupMask[THREADGROUP_TOTALSIZE];
+	groupshared uint SharedBackgroundScatterGroupMask[THREADGROUP_TOTALSIZE];
+
+#endif
 
 groupshared uint SharedForegroundAtomic;
 groupshared uint SharedBackgroundAtomic;
@@ -119,7 +155,7 @@ uint2 InitialTilePixelPositionForReduction2x2(const uint TileSizeLog2, uint Shar
 }
 
 // Reduce using GroupSharedArray
-void ReduceOperator(uint OutId, uint ReduceBankSize, float CocRadiusMultiplier)
+void ReduceOperator(FCocDownsampleParams DownsampleParams, uint OutId, uint ReduceBankSize)
 {
 	// Gather the 4 imput samples. Eaches samples are on banks of size <ReduceBankSize> for coherent LDS memory access.
 	float4 Colors[4];
@@ -145,7 +181,7 @@ void ReduceOperator(uint OutId, uint ReduceBankSize, float CocRadiusMultiplier)
 	// Downsample the 4 sample to one according to Coc.
 	float4 OutColor;
 	float OutCocRadius;
-	DownsampleSceneColorWithCoc(Colors, CocRadii, OutColor, OutCocRadius, CocRadiusMultiplier); 
+	DownsampleSceneColorWithCoc(DownsampleParams, Colors, CocRadii, OutColor, OutCocRadius); 
 	
 	// Technically need a barrier, but in practice with a warp size >= 32, no need.
 	// GroupMemoryBarrierWithGroupSync();
@@ -242,11 +278,11 @@ void ReduceCS(
 	uint GroupThreadIndex : SV_GroupIndex) 
 {
 	// Init LDS.
-	#if (DIM_HYBRID_SCATTER_FGD || DIM_HYBRID_SCATTER_BGD) && !COMPILER_SUPPORTS_WAVE_BIT_ORAND
+	#if (DIM_HYBRID_SCATTER_FGD || DIM_HYBRID_SCATTER_BGD) && SCATTER_ALLOC_METHOD == SCATTER_ALLOC_METHOD_ATOMIC
 	{
 		SharedForegroundScatterGroupMask = 0;
 		SharedBackgroundScatterGroupMask = 0;
-		
+
 		GroupMemoryBarrierWithGroupSync();
 	}
 	#endif
@@ -294,14 +330,17 @@ void ReduceCS(
 	}
 	#endif
 
-	// Convert Coc radius from preprocessing basis to processing basis.
-	CocRadius *= PreProcessingToProcessingCocRadiusFactor.x;
+	// Sample the frame exposure to SGPR.
+	float FrameExposureScale = ToScalarMemory(EyeAdaptationLookup());
 
 	// Indirect dispatch 
 	#if DIM_HYBRID_SCATTER_FGD || DIM_HYBRID_SCATTER_BGD
 	{
 		const uint IndirectParameterSize = SCATTERING_INDIRECT_PARAMETER_SIZE;
 		
+		// Convert Coc radius from preprocessing basis to processing basis.
+		float ScatterCocRadius = CocRadius * PreProcessingToProcessingCocRadiusFactor.x;
+
 		// Decides whether should hybrid scatter or not.
 		// It is fine to do it for sample outside viewport UV because they are discarded when the bokeh
 		// is getting close to viewport edge.
@@ -312,10 +351,10 @@ void ReduceCS(
 			Parameters.NeighborhoodComparisonBufferInvSize = PostprocessInput2Size.zw;
 			Parameters.NeighborhoodComparisonMaxBufferUV = MaxInputBufferUV;
 
-			Parameters.FrameExposureScale = EyeAdaptationLookup();
+			Parameters.FrameExposureScale = FrameExposureScale;
 
 			Parameters.Color = GatheredColor;
-			Parameters.CocRadius = CocRadius;
+			Parameters.CocRadius = ScatterCocRadius;
 			Parameters.BufferUV = BufferUV;
 
 			ScatterFactor = ComputeLuminanceOnlyBasedScatterFactor(Parameters);
@@ -324,13 +363,13 @@ void ReduceCS(
 			if (1)
 			{
 				#if DIM_HYBRID_SCATTER_FGD && !DIM_HYBRID_SCATTER_BGD
-					ScatterFactor *= saturate(-Parameters.CocRadius - MinScatteringCocRadius);
+					ScatterFactor *= saturate(-ScatterCocRadius - MinScatteringCocRadius);
 
 				#elif !DIM_HYBRID_SCATTER_FGD && DIM_HYBRID_SCATTER_BGD
-					ScatterFactor *= saturate(Parameters.CocRadius - MinScatteringCocRadius);
+					ScatterFactor *= saturate(ScatterCocRadius - MinScatteringCocRadius);
 
 				#else
-					ScatterFactor *= saturate(abs(Parameters.CocRadius) - MinScatteringCocRadius);
+					ScatterFactor *= saturate(abs(ScatterCocRadius) - MinScatteringCocRadius);
 
 				#endif
 			}
@@ -344,7 +383,7 @@ void ReduceCS(
 					min(SvPosition.x, SvPosition.y),
 					min(ViewportRect.z - SvPosition.x, ViewportRect.w - SvPosition.y)));
 	
-				ScatterFactor *= saturate(ClosestBorderDistance - abs(Parameters.CocRadius));
+				ScatterFactor *= saturate(ClosestBorderDistance - abs(ScatterCocRadius));
 			}
 
 			// Compare this sample with neighbor if worth it. 
@@ -365,37 +404,37 @@ void ReduceCS(
 		uint ScatteringGroupMask = 1 << ScatteringGroupIndex;
 		
 		const float ScatterFactorThreshold = 0.01;
-		uint bScatterThisColor = ScatterFactor > ScatterFactorThreshold;
-		uint bIsForeground = IsForeground(CocRadius);
+		bool bScatterThisColor = ScatterFactor > ScatterFactorThreshold;
+		bool bIsForeground = IsForeground(CocRadius);
 			
 		// Whether scattering group actually scatter or not.
 		uint ForegroundScatterGroupMask = 0;
 		uint BackgroundScatterGroupMask = 0;
-		#if COMPILER_SUPPORTS_WAVE_BIT_ORAND
+		#if SCATTER_ALLOC_METHOD == SCATTER_ALLOC_METHOD_WAVE
 		{
 			#if DIM_HYBRID_SCATTER_FGD
-				ForegroundScatterGroupMask = WaveAllBitOr((ScatteringGroupMask * bScatterThisColor) * bIsForeground);
+				ForegroundScatterGroupMask = WaveAllBitOr((bScatterThisColor && bIsForeground) ? ScatteringGroupIndex : 0);
 			#endif
 			
 			#if DIM_HYBRID_SCATTER_BGD
-				BackgroundScatterGroupMask = WaveAllBitOr((ScatteringGroupMask * bScatterThisColor) * !bIsForeground);
+				BackgroundScatterGroupMask = WaveAllBitOr((bScatterThisColor && !bIsForeground) ? ScatteringGroupIndex : 0);
 			#endif
 		}
-		#else // if !COMPILER_SUPPORTS_WAVE_BIT_ORAND
+		#elif SCATTER_ALLOC_METHOD == SCATTER_ALLOC_METHOD_ATOMIC
 		// Atomic or whether scattering group actually scatter or not.
 		{
 			BRANCH
-			if (DIM_HYBRID_SCATTER_FGD && bIsForeground)
+			if (DIM_HYBRID_SCATTER_FGD && bIsForeground && bScatterThisColor)
 			{
 				uint Unused;
-				InterlockedOr(SharedForegroundScatterGroupMask, (ScatteringGroupMask * bScatterThisColor), Unused);
+				InterlockedOr(SharedForegroundScatterGroupMask, ScatteringGroupMask, Unused);
 			}
 			
 			BRANCH
-			if (DIM_HYBRID_SCATTER_BGD && !bIsForeground)
+			if (DIM_HYBRID_SCATTER_BGD && !bIsForeground && bScatterThisColor)
 			{
 				uint Unused;
-				InterlockedOr(SharedBackgroundScatterGroupMask, (ScatteringGroupMask * bScatterThisColor), Unused);
+				InterlockedOr(SharedBackgroundScatterGroupMask, ScatteringGroupMask, Unused);
 			}
 			
 			GroupMemoryBarrierWithGroupSync();
@@ -407,6 +446,34 @@ void ReduceCS(
 				BackgroundScatterGroupMask = SharedBackgroundScatterGroupMask;
 			#endif
 		}
+		#elif SCATTER_ALLOC_METHOD == SCATTER_ALLOC_METHOD_LDS
+		{
+			#if DIM_HYBRID_SCATTER_FGD
+				SharedForegroundScatterGroupMask[GroupThreadIndex] = (
+					(bScatterThisColor && bIsForeground) ? ScatteringGroupIndex : 0);
+			#endif
+
+			#if DIM_HYBRID_SCATTER_BGD
+				SharedBackgroundScatterGroupMask[GroupThreadIndex] = (
+					(bScatterThisColor && !bIsForeground) ? ScatteringGroupIndex : 0);
+			#endif
+
+			GroupMemoryBarrierWithGroupSync();
+
+			UNROLL
+			for (uint i = 0; i < THREADGROUP_TOTALSIZE; i++)
+			{
+				#if DIM_HYBRID_SCATTER_FGD
+					ForegroundScatterGroupMask |= SharedForegroundScatterGroupMask[i];
+				#endif
+				
+				#if DIM_HYBRID_SCATTER_BGD
+					BackgroundScatterGroupMask |= SharedBackgroundScatterGroupMask[i];
+				#endif
+			}
+		}
+		#else
+			#error Unknown scatter group allocation method.
 		#endif // !COMPILER_SUPPORTS_WAVE_BIT_ORAND
 
 		// Allocate globally.
@@ -457,8 +524,8 @@ void ReduceCS(
 					OutForegroundScatterDrawList[5 * IndirectDrawIndex + 0] = float4(DispatchThreadId + 0.5, 0.0, 0.0);
 				}
 				
-				float4 ScatterColor = GatheredColor * (ScatterFactor * IntensityLossFactor * (IsForeground(CocRadius) ? 1 : 0));
-				OutForegroundScatterDrawList[5 * IndirectDrawIndex + ScatteringGroupThreadIndex + 1] = float4(ScatterColor.rgb, abs(CocRadius));
+				float4 ScatterColor = GatheredColor * (ScatterFactor * IntensityLossFactor * (IsForeground(ScatterCocRadius) ? 1 : 0));
+				OutForegroundScatterDrawList[5 * IndirectDrawIndex + ScatteringGroupThreadIndex + 1] = float4(ScatterColor.rgb, abs(ScatterCocRadius));
 			}
 			else
 			{
@@ -483,8 +550,8 @@ void ReduceCS(
 					OutBackgroundScatterDrawList[5 * IndirectDrawIndex + 0] = float4(DispatchThreadId + 0.5, 0.0, 0.0);
 				}
 				
-				float4 ScatterColor = GatheredColor * (ScatterFactor * IntensityLossFactor * (IsForeground(CocRadius) ? 0 : 1));
-				OutBackgroundScatterDrawList[5 * IndirectDrawIndex + ScatteringGroupThreadIndex + 1] = float4(ScatterColor.rgb, abs(CocRadius));
+				float4 ScatterColor = GatheredColor * (ScatterFactor * IntensityLossFactor * (IsForeground(ScatterCocRadius) ? 0 : 1));
+				OutBackgroundScatterDrawList[5 * IndirectDrawIndex + ScatteringGroupThreadIndex + 1] = float4(ScatterColor.rgb, abs(ScatterCocRadius));
 			}
 			else
 			{
@@ -497,23 +564,24 @@ void ReduceCS(
 		GatheredColor.rgb *= (1 - ScatterFactor);
 	}
 	#endif // DIM_HYBRID_SCATTER_FGD || DIM_HYBRID_SCATTER_BGD
-	
-	// Convert back.
-	// TODO: could clean that a little bit?
-	CocRadius *= PreProcessingToProcessingCocRadiusFactor.y;
 
 	// Unconditionaly output mip 0 in output buffer that is always a multiple of group size,
 	// for gathering pass to avoid having to clamp UV in gathering pass. 
 	uint2 OutputPixelId = DispatchThreadId;
 	OutputMipLevel(/* MipLevel = */ 0, OutputPixelId, GatheredColor, CocRadius);
 	
+	FCocDownsampleParams DownsampleParams;
+	DownsampleParams.CocRadiusMultiplier = 1.0;
+	DownsampleParams.FrameExposureScale = FrameExposureScale;
+	DownsampleParams.bDoColorBasedWeighting = false;
+
 	#if CONFIG_WAVE_BROADCAST_REDUCTION
 	{
 		UNROLL
 		for (uint i = 0; i < (DIM_REDUCE_MIP_COUNT - 1); i++)
 		{
 			// Multiplier that needs to be applied on Coc computation to be resolution independent.
-			const float CocRadiusMultiplier = 0.5 / float(1 << (i));
+			DownsampleParams.CocRadiusMultiplier = 0.5 / float(1 << (i));
 
 			// Scale of the reduction within the 8x8 tile.
 			const uint ReductionScale = 1 << i;
@@ -522,7 +590,7 @@ void ReduceCS(
 			float OutputCocRadius = DownsampleCoc_Wave8x8(CocRadius, ReductionScale);
 			
 			// Compute the sample's bilateral weight.
-			float SampleBilateralWeight = ComputeDownsamplingBilateralWeight(OutputCocRadius, CocRadius, CocRadiusMultiplier);
+			float SampleBilateralWeight = ComputeDownsamplingBilateralWeight(DownsampleParams, OutputCocRadius, CocRadius, GatheredColor.rgb);
 
 			// Weight sum the color across the lanes.
 			GatheredColor.r = Sum2x2WithinWave8x8(GatheredColor.r * SampleBilateralWeight, ReductionScale);
@@ -533,11 +601,8 @@ void ReduceCS(
 			// Compute normalising weight across lanes.
 			float InvTotalWeight = rcp(Sum2x2WithinWave8x8(SampleBilateralWeight, ReductionScale));
 			
-			// Compute output weight across lanes.
-			float OutputWeight = Sum2x2WithinWave8x8((OutputCocRadius * CocRadius) >= 0.0 ? 0.25 : 0.0, ReductionScale);
-			
 			// Normalize the color.
-			GatheredColor *= OutputWeight * InvTotalWeight;
+			GatheredColor *= InvTotalWeight;
 			CocRadius = OutputCocRadius;
 
 			// Output mip map.
@@ -577,10 +642,10 @@ void ReduceCS(
 		
 			if (GroupThreadIndex < ReduceBankSize)
 			{
-				const float CocRadiusMultiplier = 0.5 / float(1 << (i));
+				DownsampleParams.CocRadiusMultiplier = 0.5 / float(1 << (i));
 
 				// Reduce.
-				ReduceOperator(GroupThreadIndex, ReduceBankSize, CocRadiusMultiplier);
+				ReduceOperator(DownsampleParams, GroupThreadIndex, ReduceBankSize);
 
 				// Read LDS (compiler are generally smart here to actualy keep value on VGPR.
 				#if CONFIG_GATHER_INPUT_LAYOUT == GATHER_INPUT_LAYOUT_RGB_ALPHA_COC

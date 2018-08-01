@@ -188,18 +188,34 @@ void FControlRigEditorModule::StartupModule()
 			FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
 			
 			bool bCanReimport = false;
-			for(const FAssetData& AssetData : SelectedAssets)
+			if (SelectedAssets.Num() > 0)
 			{
-				TMultiMap<FName, FString> TagsAndValues;
-				TagsAndValues.Add(GET_MEMBER_NAME_CHECKED(UControlRigSequence, LastExportedToAnimationSequence), AssetData.ObjectPath.ToString());
-
+				// It's faster to find all assets with this tag and then query them against the selection then it is to 
+				// query the asset registry each time for a tag with a particular value
+				const FName LastExportedToAnimationSequenceTagName = GET_MEMBER_NAME_CHECKED(UControlRigSequence, LastExportedToAnimationSequence);
 				TArray<FAssetData> FoundAssets;
-				AssetRegistryModule.Get().GetAssetsByTagValues(TagsAndValues, FoundAssets);
+				{
+					TArray<FName> Tags;
+					Tags.Add(LastExportedToAnimationSequenceTagName);
+					AssetRegistryModule.Get().GetAssetsByTags(Tags, FoundAssets);
+				}
 
 				if (FoundAssets.Num() > 0)
 				{
-					bCanReimport = true;
-					break;
+					for(const FAssetData& AssetData : SelectedAssets)
+					{
+						const bool bFoundAsset = FoundAssets.ContainsByPredicate([&AssetData, LastExportedToAnimationSequenceTagName](const FAssetData& FoundAsset)
+						{
+							const FName TagValue = FoundAsset.GetTagValueRef<FName>(LastExportedToAnimationSequenceTagName);
+							return TagValue == AssetData.ObjectPath;
+						});
+
+						if (bFoundAsset)
+						{
+							bCanReimport = true;
+							break;
+						}
+					}
 				}
 			}
 

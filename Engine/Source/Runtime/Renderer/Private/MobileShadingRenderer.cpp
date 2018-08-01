@@ -250,29 +250,54 @@ void FMobileSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 	}
 	else
 	{
-		// Begin rendering to scene color
-		SceneContext.BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EClearColorAndDepth);
-		SceneColor = SceneContext.GetSceneColorSurface();
+		if (IsVulkanPlatform(ViewFamily.GetShaderPlatform()))
+		{	
+			SceneColor = SceneContext.GetSceneColorSurface();
+			// decals/translucency need to read/test depth
+			// TODO: add sub-passes! this is expensive, especially with MSAA
+			EDepthStencilTargetActions DepthStoreAction = EDepthStencilTargetActions::ClearDepthStencil_StoreDepthStencil;
+						
+			FRHIRenderPassInfo RPInfo(
+				SceneColor,
+				ERenderTargetActions::Clear_Store,
+				SceneContext.GetSceneDepthSurface(),
+				DepthStoreAction, 
+				FExclusiveDepthStencil::DepthWrite_StencilWrite
+			);
+			RPInfo.NumOcclusionQueries = ComputeNumOcclusionQueriesToBatch();
+			RPInfo.bOcclusionQueries = RPInfo.NumOcclusionQueries != 0;
+			RHICmdList.BeginRenderPass(RPInfo, TEXT("BasePass"));
+		}
+		else
+		{
+			// Begin rendering to scene color
+			SceneContext.BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EClearColorAndDepth);
+			SceneColor = SceneContext.GetSceneColorSurface();
+		}
 	}
 
 	if (GIsEditor && !View.bIsSceneCapture)
 	{
 		DrawClearQuad(RHICmdList, Views[0].BackgroundColor);
 	}
-
-
+	
 	RHICmdList.SetCurrentStat(GET_STATID(STAT_CLMM_BasePass));
 
 	RenderMobileBasePass(RHICmdList, ViewList);
-
-
+	
 	RHICmdList.SetCurrentStat(GET_STATID(STAT_CLMM_Occlusion));
 
 	// Issue occlusion queries
 	RenderOcclusion(RHICmdList);
-
-
+	
 	RHICmdList.SetCurrentStat(GET_STATID(STAT_CLMM_Post));
+
+	if (RHICmdList.IsInsideRenderPass())
+	{
+		// Vulkan only right now
+		// END BasePass
+		RHICmdList.EndRenderPass();
+	}
 
 	for (int32 ViewExt = 0; ViewExt < ViewFamily.ViewExtensions.Num(); ++ViewExt)
 	{
@@ -505,6 +530,24 @@ void FMobileSceneRenderer::RenderOcclusion(FRHICommandListImmediate& RHICmdList)
 	}
 }
 
+int32 FMobileSceneRenderer::ComputeNumOcclusionQueriesToBatch() const
+{
+	int32 NumQueriesForBatch = 0;
+	for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
+	{
+		const FViewInfo& View = Views[ViewIndex];
+		const FSceneViewState* ViewState = (FSceneViewState*)View.State;
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+		if (!ViewState || (!ViewState->HasViewParent() && !ViewState->bIsFrozen))
+#endif
+		{
+			NumQueriesForBatch += View.IndividualOcclusionQueries.GetNumBatchOcclusionQueries();
+			NumQueriesForBatch += View.GroupedOcclusionQueries.GetNumBatchOcclusionQueries();
+		}
+	}
+	
+	return NumQueriesForBatch;
+}
 
 void FMobileSceneRenderer::ConditionalResolveSceneDepth(FRHICommandListImmediate& RHICmdList, const FViewInfo& View)
 {
@@ -516,13 +559,13 @@ void FMobileSceneRenderer::ConditionalResolveSceneDepth(FRHICommandListImmediate
 
 	if ((IsMobileHDR() || IsHTML5Platform())
 		&& IsMobilePlatform(ShaderPlatform) 
+		&& !IsVulkanPlatform(ShaderPlatform)
+		&& !IsMetalPlatform(ShaderPlatform)
 		&& !IsPCPlatform(ShaderPlatform) // exclude mobile emulation on PC
 		&& !View.bIsPlanarReflection)	// exclude depth resolve from planar reflection captures, can't do it reliably more than once per frame
 	{
 		bool bSceneDepthInAlpha = (SceneContext.GetSceneColor()->GetDesc().Format == PF_FloatRGBA);
-		bool bOnChipDepthFetch = 
-			(GSupportsShaderDepthStencilFetch || 
-			(GSupportsShaderFramebufferFetch && (bSceneDepthInAlpha || IsMetalPlatform(ShaderPlatform))));
+		bool bOnChipDepthFetch = (GSupportsShaderDepthStencilFetch || (GSupportsShaderFramebufferFetch && bSceneDepthInAlpha));
 		
 		const bool bAlwaysResolveDepth = CVarMobileAlwaysResolveDepth.GetValueOnRenderThread() == 1;
 

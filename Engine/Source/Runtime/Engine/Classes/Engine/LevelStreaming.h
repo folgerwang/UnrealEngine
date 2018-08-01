@@ -20,13 +20,13 @@ class FStreamLevelAction : public FPendingLatentAction
 public:
 	bool			bLoading;
 	bool			bMakeVisibleAfterLoad;
-	bool			bShouldBlockOnLoad;
+	bool			bShouldBlock;
 	ULevelStreaming* Level;
 	FName			LevelName;
 
 	FLatentActionInfo LatentInfo;
 
-	FStreamLevelAction(bool bIsLoading, const FName& InLevelName, bool bIsMakeVisibleAfterLoad, bool bIsShouldBlockOnLoad, const FLatentActionInfo& InLatentInfo, UWorld* World);
+	FStreamLevelAction(bool bIsLoading, const FName& InLevelName, bool bIsMakeVisibleAfterLoad, bool bShouldBlock, const FLatentActionInfo& InLatentInfo, UWorld* World);
 
 	/**
 	 * Given a level name, returns level name that will work with Play on Editor or Play on Console
@@ -161,6 +161,11 @@ private:
 	UPROPERTY(Category=LevelStreaming, BlueprintSetter=SetShouldBeVisible)
 	uint8 bShouldBeVisible:1;
 
+protected:
+	/** Whether the level should be loaded																						*/
+	UPROPERTY(Category=LevelStreaming, BlueprintSetter=SetShouldBeLoaded, BlueprintGetter=ShouldBeLoaded)
+	uint8 bShouldBeLoaded:1;
+
 public:
 
 	/** Whether this level is locked; that is, its actors are read-only. */
@@ -177,6 +182,10 @@ public:
 	/** Whether we want to force a blocking load																				*/
 	UPROPERTY(Category=LevelStreaming, BlueprintReadWrite)
 	uint8 bShouldBlockOnLoad:1;
+
+	/** Whether we want to force a blocking unload																				*/
+	UPROPERTY(Category=LevelStreaming, BlueprintReadWrite)
+	uint8 bShouldBlockOnUnload:1;
 
 	/** 
 	 *  Whether this level streaming object should be ignored by world composition distance streaming, 
@@ -260,6 +269,7 @@ public:
 	 * Virtual that can be overriden to change whether a streaming level should be loaded.
 	 * Doesn't do anything at the base level as should be loaded defaults to true 
 	 */
+	UFUNCTION(BlueprintSetter)
 	virtual void SetShouldBeLoaded(bool bInShouldBeLoaded);
 
 	/** Returns the world composition level LOD index. */
@@ -321,7 +331,8 @@ public:
 	 *
 	 * @return true if level should be loaded/ streamed in, false otherwise
 	 */
-	virtual bool ShouldBeLoaded() const;
+	UFUNCTION(BlueprintGetter)
+	virtual bool ShouldBeLoaded() const { return true; }
 
 	/**
 	 * Return whether this level should be visible/ associated with the world if it is
@@ -441,6 +452,12 @@ public:
 		NeverBlock,
 	};
 
+#if WITH_EDITOR
+	// After a sub level is reloaded in the editor the cache state needs to be refreshed
+	void RemoveLevelFromCollectionForReload();
+	void AddLevelToCollectionAfterReload();
+#endif
+
 private:
 	/** @return Name of the LOD level package used for loading.																		*/
 	FName GetLODPackageName() const;
@@ -515,4 +532,3 @@ private:
 	friend class UEngine;
 	friend class UWorld;
 };
-

@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -46,7 +46,9 @@ public:
 	virtual CVPixelBufferRef GetPixelBuffer() const { return nullptr; }
 	/** @return the IOSurface held by the implementing object */
 	virtual IOSurfaceRef GetSurface() const { return nullptr; }
-	/** @return the CVMetalTexture held by the implementing object */
-	virtual CVMetalTextureRef GetMetalTexture() const { return nullptr; }
+
+//@joeg -- Added for environment capture support
+	/** @return the MTLTextureid<MTL held by the implementing object */
+	virtual id<MTLTexture> GetMetalTexture() const { return nullptr; }
 #endif
 };

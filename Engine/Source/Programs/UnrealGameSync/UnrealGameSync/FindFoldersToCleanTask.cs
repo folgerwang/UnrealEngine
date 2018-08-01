@@ -104,44 +104,56 @@ namespace UnrealGameSync
 
 		void MergeTrees(FolderToClean LocalFolder, PerforceHaveFolder PerforceFolder, HashSet<string> OpenClientPaths)
 		{
-			// Loop through all the local sub-folders
-			foreach(FolderToClean LocalSubFolder in LocalFolder.NameToSubFolder.Values)
+			if(PerforceFolder == null)
 			{
-				PerforceHaveFolder PerforceSubFolder;
-				if(PerforceFolder.NameToSubFolder.TryGetValue(LocalSubFolder.Name, out PerforceSubFolder))
+				// Loop through all the local sub-folders
+				foreach(FolderToClean LocalSubFolder in LocalFolder.NameToSubFolder.Values)
 				{
+					MergeTrees(LocalSubFolder, null, OpenClientPaths);
+				}
+
+				// Delete everything
+				LocalFolder.FilesToDelete.AddRange(LocalFolder.NameToFile.Values);
+			}
+			else
+			{
+				// Loop through all the local sub-folders
+				foreach(FolderToClean LocalSubFolder in LocalFolder.NameToSubFolder.Values)
+				{
+					PerforceHaveFolder PerforceSubFolder;
+					PerforceFolder.NameToSubFolder.TryGetValue(LocalSubFolder.Name, out PerforceSubFolder);
 					MergeTrees(LocalSubFolder, PerforceSubFolder, OpenClientPaths);
 				}
-			}
 
-			// Also merge all the Perforce folders that no longer exist
-			foreach(KeyValuePair<string, PerforceHaveFolder> PerforceSubFolderPair in PerforceFolder.NameToSubFolder)
-			{
-				FolderToClean LocalSubFolder;
-				if(!LocalFolder.NameToSubFolder.TryGetValue(PerforceSubFolderPair.Key, out LocalSubFolder))
+				// Also merge all the Perforce folders that no longer exist
+				foreach(KeyValuePair<string, PerforceHaveFolder> PerforceSubFolderPair in PerforceFolder.NameToSubFolder)
 				{
-					LocalSubFolder = new FolderToClean(new DirectoryInfo(Path.Combine(LocalFolder.Directory.FullName, PerforceSubFolderPair.Key)));
-					MergeTrees(LocalSubFolder, PerforceSubFolderPair.Value, OpenClientPaths);
-					LocalFolder.NameToSubFolder.Add(LocalSubFolder.Name, LocalSubFolder);
+					FolderToClean LocalSubFolder;
+					if(!LocalFolder.NameToSubFolder.TryGetValue(PerforceSubFolderPair.Key, out LocalSubFolder))
+					{
+						LocalSubFolder = new FolderToClean(new DirectoryInfo(Path.Combine(LocalFolder.Directory.FullName, PerforceSubFolderPair.Key)));
+						MergeTrees(LocalSubFolder, PerforceSubFolderPair.Value, OpenClientPaths);
+						LocalFolder.NameToSubFolder.Add(LocalSubFolder.Name, LocalSubFolder);
+					}
 				}
-			}
 
-			// Find all the files that need to be re-synced
-			foreach(KeyValuePair<string, PerforceFileRecord> FilePair in PerforceFolder.NameToFile)
-			{
-				FileInfo LocalFile;
-				if(!LocalFolder.NameToFile.TryGetValue(FilePair.Key, out LocalFile))
+				// Find all the files that need to be re-synced
+				foreach(KeyValuePair<string, PerforceFileRecord> FilePair in PerforceFolder.NameToFile)
 				{
-					LocalFolder.FilesToSync.Add(new FileInfo(Path.Combine(LocalFolder.Directory.FullName, FilePair.Key)));
+					FileInfo LocalFile;
+					if(!LocalFolder.NameToFile.TryGetValue(FilePair.Key, out LocalFile))
+					{
+						LocalFolder.FilesToSync.Add(new FileInfo(Path.Combine(LocalFolder.Directory.FullName, FilePair.Key)));
+					}
+					else if((FilePair.Value.Flags & PerforceFileFlags.AlwaysWritable) == 0 && (LocalFile.Attributes & FileAttributes.ReadOnly) == 0 && !OpenClientPaths.Contains(FilePair.Value.ClientPath))
+					{
+						LocalFolder.FilesToSync.Add(LocalFile);
+					}
 				}
-				else if((FilePair.Value.Flags & PerforceFileFlags.AlwaysWritable) == 0 && (LocalFile.Attributes & FileAttributes.ReadOnly) == 0 && !OpenClientPaths.Contains(FilePair.Value.ClientPath))
-				{
-					LocalFolder.FilesToSync.Add(LocalFile);
-				}
-			}
 
-			// Find all the files that should be deleted
-			LocalFolder.FilesToDelete.AddRange(LocalFolder.NameToFile.Values.Where(x => !PerforceFolder.NameToFile.ContainsKey(x.Name)));
+				// Find all the files that should be deleted
+				LocalFolder.FilesToDelete.AddRange(LocalFolder.NameToFile.Values.Where(x => !PerforceFolder.NameToFile.ContainsKey(x.Name)));
+			}
 
 			// Figure out if this folder is just an empty directory that needs to be removed
 			LocalFolder.bEmptyLeaf = LocalFolder.NameToFile.Count == 0 && LocalFolder.NameToSubFolder.Count == 0 && LocalFolder.FilesToSync.Count == 0;
@@ -249,7 +261,7 @@ namespace UnrealGameSync
 						}
 						FileFolder = NextFileFolder;
 					}
-					FileFolder.NameToFile.Add(Tokens[Tokens.Length - 1], FileRecord);
+					FileFolder.NameToFile[Tokens[Tokens.Length - 1]] = FileRecord;
 				}
 			}
 

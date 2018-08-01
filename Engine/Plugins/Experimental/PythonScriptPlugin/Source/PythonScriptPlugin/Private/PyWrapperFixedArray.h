@@ -50,7 +50,7 @@ struct FPyWrapperFixedArray : public FPyWrapperBase
 	/** Cast the given Python object to this wrapped type, or attempt to convert the type into a new wrapped instance (returns a new reference) */
 	static FPyWrapperFixedArray* CastPyObject(PyObject* InPyObject, PyTypeObject* InType, const PyUtil::FPropertyDef& InPropDef, FPyConversionResult* OutCastResult = nullptr);
 
-	/** Get the raw pointer to the element at index N */
+	/** Get the raw pointer to the element at index N (negative indexing not supported) */
 	static void* GetItemPtr(FPyWrapperFixedArray* InSelf, Py_ssize_t InIndex);
 
 	/** Get the length of this container (equivalent to 'len(x)' in Python) */

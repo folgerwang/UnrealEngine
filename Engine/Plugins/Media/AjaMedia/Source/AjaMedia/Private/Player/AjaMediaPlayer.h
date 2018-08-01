@@ -134,6 +134,7 @@ private:
 	bool bUseAncillaryField2;
 	bool bUseAudio;
 	bool bUseVideo;
+	bool bVerifyFrameDropCount;
 
 	/** The current video sample format. */
 	EMediaTextureSampleFormat VideoSampleFormat;
@@ -145,11 +146,7 @@ private:
 	AJA::AJAInputChannel* InputChannel;
 
 	/** Frame Description from capture device */
-	AJA::FFrameDesc LastFrameDesc;
-	AJA::FFrameDesc AjaThreadLastFrameDesc;
-
-	/** Information about the frame desc */
-	AJA::FFrameInfo LastFrameInfo;
+	AJA::FAJAVideoFormat LastVideoFormatIndex;
 
 	/** Previous frame timecode to calculate a timespan */
 	AJA::FTimecode AjaThreadPreviousFrameTimecode;

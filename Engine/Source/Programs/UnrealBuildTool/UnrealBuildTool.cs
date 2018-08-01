@@ -495,6 +495,24 @@ namespace UnrealBuildTool
 						Directory.SetCurrentDirectory(EngineSourceDirectory);
 					}
 
+					// Figure out if the engine is installed or not
+					foreach (string Argument in Arguments)
+					{
+						string LowercaseArg = Argument.ToLowerInvariant();
+						if (LowercaseArg == "-installed" || LowercaseArg == "-installedengine")
+						{
+							bIsEngineInstalled = true;
+						}
+						else if (LowercaseArg == "-notinstalledengine")
+						{
+							bIsEngineInstalled = false;
+						}
+					}
+					if (!bIsEngineInstalled.HasValue)
+					{
+						bIsEngineInstalled = FileReference.Exists(FileReference.Combine(RootDirectory, "Engine", "Build", "InstalledBuild.txt"));
+					}
+
 					// Read the XML configuration files
 					if (!XmlConfig.ReadConfigFiles())
 					{
@@ -538,14 +556,6 @@ namespace UnrealBuildTool
 							BuildConfiguration.bUseUBTMakefiles = false;
 							BuildConfiguration.SingleFileToCompile = LowercaseArg.Replace("-singlefile=", "");
 						}
-						else if (LowercaseArg == "-installed" || LowercaseArg == "-installedengine")
-						{
-							bIsEngineInstalled = true;
-						}
-						else if (LowercaseArg == "-notinstalledengine")
-						{
-							bIsEngineInstalled = false;
-						}
 						else if (LowercaseArg.StartsWith("-buildconfigurationdoc="))
 						{
 							XmlConfig.WriteDocumentation(new FileReference(Argument.Substring("-buildconfigurationdoc=".Length)));
@@ -561,12 +571,6 @@ namespace UnrealBuildTool
 							RulesDocumentation.WriteDocumentation(typeof(TargetRules), new FileReference(Argument.Substring("-targetrulesdoc=".Length)));
 							return 0;
 						}
-					}
-
-					// If it wasn't set explicitly by a command line option, check for the installed build marker file
-					if (!bIsEngineInstalled.HasValue)
-					{
-						bIsEngineInstalled = FileReference.Exists(FileReference.Combine(RootDirectory, "Engine", "Build", "InstalledBuild.txt"));
 					}
 
 					// Create the log file, and flush the startup listener to it
@@ -885,6 +889,9 @@ namespace UnrealBuildTool
 									break;
 								case ProjectFileFormat.VisualStudioCode:
 									Generator = new VSCodeProjectFileGenerator(ProjectFile);
+									break;
+﻿								case ProjectFileFormat.CLion:
+									Generator = new CLionGenerator(ProjectFile);
 									break;
 								default:
 									throw new BuildException("Unhandled project file type '{0}", ProjectFileFormat);
@@ -1544,7 +1551,7 @@ namespace UnrealBuildTool
 						UBTMakefile.SourceFileWorkingSet = Unity.SourceFileWorkingSet;
 						UBTMakefile.CandidateSourceFilesForWorkingSet = Unity.CandidateSourceFilesForWorkingSet;
 
-						if (BuildConfiguration.bUseUBTMakefiles && !UBTMakefile.PrerequisiteActions.Any(x => x.ActionHandler != null))
+						if (BuildConfiguration.bUseUBTMakefiles && UBTMakefile.AllActions.Count > 0 && !UBTMakefile.PrerequisiteActions.Any(x => x.ActionHandler != null))
 						{
 							// We've been told to prepare to build, so let's go ahead and save out our action graph so that we can use in a later invocation 
 							// to assemble the build.  Even if we are configured to assemble the build in this same invocation, we want to save out the
@@ -2061,6 +2068,10 @@ namespace UnrealBuildTool
 			// names for all of the output files and import libraries
 			List<string> ResponseFilePaths = new List<string>();
 
+			// Same as Response files but for all of the link.sh files for link actions.
+			// Only used on BuildHostPlatform Linux
+			List<string> LinkScriptFilePaths = new List<string>();
+
 			// Keep a map of the original file names and their new file names, so we can fix up response files after
 			List<Tuple<string, string>> OriginalFileNameAndNewFileNameList_NoExtensions = new List<Tuple<string, string>>();
 
@@ -2101,6 +2112,70 @@ namespace UnrealBuildTool
 					ResponseFilePaths.Add(NewResponseFilePath);
 				}
 
+				// Find the *.link.sh file in the command line.  We'll need to make a copy of it with our new file name.
+				// Only currently used on Linux
+				if (UEBuildPlatform.IsPlatformInGroup(BuildHostPlatform.Current.Platform, UnrealPlatformGroup.Unix))
+				{
+					string LinkScriptFileExtension = ".link.sh";
+					int LinkScriptExtensionIndex = Action.CommandArguments.IndexOf(LinkScriptFileExtension, StringComparison.InvariantCultureIgnoreCase);
+					if (LinkScriptExtensionIndex != -1)
+					{
+						// We expect the script invocation to be quoted
+						int LinkScriptFilePathIndex = Action.CommandArguments.LastIndexOf("\"", LinkScriptExtensionIndex);
+						if (LinkScriptFilePathIndex == -1)
+						{
+							throw new BuildException("Couldn't find link script file path in action's command arguments when hot reloading. Is the path quoted?");
+						}
+
+						string OriginalLinkScriptFilePathWithoutExtension = Action.CommandArguments.Substring(LinkScriptFilePathIndex + 1, (LinkScriptExtensionIndex - LinkScriptFilePathIndex) - 1);
+						string OriginalLinkScriptFilePath = OriginalLinkScriptFilePathWithoutExtension + LinkScriptFileExtension;
+
+						string NewLinkScriptFilePath = OriginalLinkScriptFilePath.Replace(OriginalFileNameWithoutExtension, NewFileNameWithoutExtension);
+
+						// Copy the old response file to the new path
+						File.Copy(OriginalLinkScriptFilePath, NewLinkScriptFilePath, overwrite: true);
+
+						// Keep track of the new response file name.  We'll have to do some edits afterwards.
+						LinkScriptFilePaths.Add(NewLinkScriptFilePath);
+					}
+
+					// Update this action's list of prerequisite items too
+					for (int ItemIndex = 0; ItemIndex < Action.PrerequisiteItems.Count; ++ItemIndex)
+					{
+						FileItem OriginalPrerequisiteItem = Action.PrerequisiteItems[ItemIndex];
+						string NewPrerequisiteItemFilePath = OriginalPrerequisiteItem.AbsolutePath.Replace(OriginalFileNameWithoutExtension, NewFileNameWithoutExtension);
+
+						if (OriginalPrerequisiteItem.AbsolutePath != NewPrerequisiteItemFilePath)
+						{
+							// OK, the prerequisite item's file name changed so we'll update it to point to our new file
+							FileItem NewPrerequisiteItem = FileItem.GetItemByPath(NewPrerequisiteItemFilePath);
+							Action.PrerequisiteItems[ItemIndex] = NewPrerequisiteItem;
+
+							// Copy the other important settings from the original file item
+							NewPrerequisiteItem.bNeedsHotReloadNumbersDLLCleanUp = OriginalPrerequisiteItem.bNeedsHotReloadNumbersDLLCleanUp;
+							NewPrerequisiteItem.ProducingAction = OriginalPrerequisiteItem.ProducingAction;
+							NewPrerequisiteItem.bIsRemoteFile = OriginalPrerequisiteItem.bIsRemoteFile;
+
+							// Keep track of it so we can fix up dependencies in a second pass afterwards
+							AffectedOriginalFileItemAndNewFileItemMap.Add(OriginalPrerequisiteItem, NewPrerequisiteItem);
+
+							ResponseExtensionIndex = OriginalPrerequisiteItem.AbsolutePath.IndexOf(ResponseFileExtension, StringComparison.InvariantCultureIgnoreCase);
+							if (ResponseExtensionIndex != -1)
+							{
+								string OriginalResponseFilePathWithoutExtension = OriginalPrerequisiteItem.AbsolutePath.Substring(0, ResponseExtensionIndex);
+								string OriginalResponseFilePath = OriginalResponseFilePathWithoutExtension + ResponseFileExtension;
+
+								string NewResponseFilePath = OriginalResponseFilePath.Replace(OriginalFileNameWithoutExtension, NewFileNameWithoutExtension);
+
+								// Copy the old response file to the new path
+								File.Copy(OriginalResponseFilePath, NewResponseFilePath, overwrite: true);
+
+								// Keep track of the new response file name.  We'll have to do some edits afterwards.
+								ResponseFilePaths.Add(NewResponseFilePath);
+							}
+						}
+					}
+				}
 
 				// Go ahead and replace all occurrences of our file name in the command-line (ignoring extensions)
 				Action.CommandArguments = Action.CommandArguments.Replace(OriginalFileNameWithoutExtension, NewFileNameWithoutExtension);
@@ -2173,6 +2248,28 @@ namespace UnrealBuildTool
 					// Overwrite the original file
 					string FileContentsString = FileContents.ToString();
 					File.WriteAllText(ResponseFilePath, FileContentsString, new System.Text.UTF8Encoding(false));
+				}
+
+				if (UEBuildPlatform.IsPlatformInGroup(BuildHostPlatform.Current.Platform, UnrealPlatformGroup.Unix))
+				{
+					foreach (string LinkScriptFilePath in LinkScriptFilePaths)
+					{
+						// Load the file up
+						StringBuilder FileContents = new StringBuilder(Utils.ReadAllText(LinkScriptFilePath));
+
+						// Replace all of the old file names with new ones
+						foreach (Tuple<string, string> FileNameTuple in OriginalFileNameAndNewFileNameList_NoExtensions)
+						{
+							string OriginalFileNameWithoutExtension = FileNameTuple.Item1;
+							string NewFileNameWithoutExtension = FileNameTuple.Item2;
+
+							FileContents.Replace(OriginalFileNameWithoutExtension, NewFileNameWithoutExtension);
+						}
+
+						// Overwrite the original file
+						string FileContentsString = FileContents.ToString();
+						File.WriteAllText(LinkScriptFilePath, FileContentsString, new System.Text.UTF8Encoding(false));
+					}
 				}
 			}
 

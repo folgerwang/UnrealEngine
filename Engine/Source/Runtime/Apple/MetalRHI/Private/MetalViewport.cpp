@@ -301,9 +301,10 @@ mtlpp::Drawable FMetalViewport::GetDrawable(EMetalViewportAccessFlag Accessor)
 
 	#else
 			CGSize Size;
+			IOSAppDelegate* AppDelegate = [IOSAppDelegate GetDelegate];
 			do
 			{
-				Drawable = [[IOSAppDelegate GetDelegate].IOSView MakeDrawable];
+				Drawable = [AppDelegate.IOSView MakeDrawable];
 				Size.width = ((id<CAMetalDrawable>)Drawable).texture.width;
 				Size.height = ((id<CAMetalDrawable>)Drawable).texture.height;
 			}
@@ -428,14 +429,24 @@ void FMetalViewport::Present(FMetalCommandQueue& CommandQueue, bool bLockToVsync
 							
 							mtlpp::BlitCommandEncoder Encoder = CurrentCommandBuffer.BlitCommandEncoder();
 							check(Encoder.GetPtr());
+#if MTLPP_CONFIG_VALIDATE && METAL_DEBUG_OPTIONS
+							FMetalBlitCommandEncoderDebugging Debugging;
+							if (SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelFastValidation)
+							{
+								FMetalCommandBufferDebugging CmdDebug = FMetalCommandBufferDebugging::Get(CurrentCommandBuffer);
+								Debugging = FMetalBlitCommandEncoderDebugging(Encoder, CmdDebug);
+							}
+#endif
 							
 							METAL_STATISTIC(Profiler->BeginEncoder(Stats, Encoder));
 							METAL_GPUPROFILE(Profiler->EncodeBlit(Stats, __FUNCTION__));
 
 							Encoder.Copy(Src, 0, 0, mtlpp::Origin(0, 0, 0), mtlpp::Size(Width, Height, 1), Dst, 0, 0, mtlpp::Origin(0, 0, 0));
+							METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, Debugging.Copy(Src, 0, 0, mtlpp::Origin(0, 0, 0), mtlpp::Size(Width, Height, 1), Dst, 0, 0, mtlpp::Origin(0, 0, 0)));
 							
 							METAL_STATISTIC(Profiler->EndEncoder(Stats, Encoder));
 							Encoder.EndEncoding();
+							METAL_DEBUG_LAYER(EMetalDebugLevelFastValidation, Debugging.EndEncoder());
 							
 							mtlpp::CommandBufferHandler H = [Src, Dst](const mtlpp::CommandBuffer &) {
 							};

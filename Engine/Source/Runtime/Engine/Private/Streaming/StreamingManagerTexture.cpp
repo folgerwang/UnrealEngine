@@ -352,16 +352,30 @@ void FStreamingManagerTexture::ConditionalUpdateStaticData()
 		for (FStreamingTexture& StreamingTexture : StreamingTextures)
 		{
 			StreamingTexture.UpdateStaticData(Settings);
+
+			// When the material quality changes, some textures could stop being used.
+			// Refreshing their removed timestamp ensures not texture ends up in the unkwown 
+			// ref heuristic (which would force load them).
+			if (PreviousSettings.MaterialQualityLevel != Settings.MaterialQualityLevel)
+			{
+				StreamingTexture.InstanceRemovedTimestamp = FApp::GetCurrentTime();
+			}
 		}
 		STAT(GatheredStats.SetupAsyncTaskCycles -= (int32)FPlatformTime::Cycles();)
 
 #if !UE_BUILD_SHIPPING
-		// Don't put anything here that could normally change in game.
-		// This is used to test regression / improvements, and insertion perfs.
-		if (PreviousSettings.bUseMaterialData != Settings.bUseMaterialData ||
+		// Those debug settings are config that are not expected to change in-game.
+		const bool bDebugSettingsChanged = 
+			PreviousSettings.bUseMaterialData != Settings.bUseMaterialData ||
 			PreviousSettings.bUseNewMetrics != Settings.bUseNewMetrics ||
 			PreviousSettings.bUsePerTextureBias != Settings.bUsePerTextureBias || 
-			PreviousSettings.MaxTextureUVDensity != Settings.MaxTextureUVDensity)
+			PreviousSettings.MaxTextureUVDensity != Settings.MaxTextureUVDensity;
+#else
+		const bool bDebugSettingsChanged = false;
+#endif
+
+		// If the material quality changes, everything needs to be updated.
+		if (bDebugSettingsChanged || PreviousSettings.MaterialQualityLevel != Settings.MaterialQualityLevel)
 		{
 			TArray<ULevel*, TInlineAllocator<32> > Levels;
 
@@ -386,7 +400,6 @@ void FStreamingManagerTexture::ConditionalUpdateStaticData()
 				NotifyPrimitiveUpdated_Concurrent(Primitive);
 			}
 		}
-#endif
 
 		// Update the cache variables.
 		PreviousLightmapStreamingFactor = GLightmapStreamingFactor;

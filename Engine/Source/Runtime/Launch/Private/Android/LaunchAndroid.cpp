@@ -285,7 +285,7 @@ extern void AndroidThunkCpp_DismissSplashScreen();
 //Main function called from the android entry point
 int32 AndroidMain(struct android_app* state)
 {
-	FPlatformMisc::LowLevelOutputDebugString(L"Entered AndroidMain()\n");
+	FPlatformMisc::LowLevelOutputDebugString(TEXT("Entered AndroidMain()\n"));
 
 	// Force the first call to GetJavaEnv() to happen on the game thread, allowing subsequent calls to occur on any thread
 	FAndroidApplication::GetJavaEnv();
@@ -360,7 +360,7 @@ int32 AndroidMain(struct android_app* state)
 	FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Final commandline: %s\n"), FCommandLine::Get());
 
 	EventHandlerEvent = FPlatformProcess::GetSynchEventFromPool(false);
-	FPlatformMisc::LowLevelOutputDebugString(L"Created sync event\n");
+	FPlatformMisc::LowLevelOutputDebugString(TEXT("Created sync event\n"));
 	FAppEventManager::GetInstance()->SetEventHandlerEvent(EventHandlerEvent);
 
 	// ready for onCreate to complete
@@ -370,6 +370,13 @@ int32 AndroidMain(struct android_app* state)
 	// We need to do this really early for Android so that files in the
 	// OBBs and APK are found.
 	IPlatformFile::GetPlatformPhysical().Initialize(nullptr, FCommandLine::Get());
+
+	//wait for re-creating the native window, if previously destroyed by onStop()
+	while (FAndroidWindow::GetHardwareWindow() == nullptr)
+	{
+		FPlatformProcess::Sleep(0.01f);
+		FPlatformMisc::MemoryBarrier();
+	}
 
 	// initialize the engine
 	int32 PreInitResult = GEngineLoop.PreInit(0, NULL, FCommandLine::Get());
@@ -545,21 +552,21 @@ static void* AndroidEventThreadWorker( void* param )
 
 	FPlatformProcess::SetThreadAffinityMask(FPlatformAffinity::GetMainGameMask());
 
-	FPlatformMisc::LowLevelOutputDebugString(L"Entering event processing thread engine entry point");
+	FPlatformMisc::LowLevelOutputDebugString(TEXT("Entering event processing thread engine entry point"));
 
 	ALooper* looper = ALooper_prepare(ALOOPER_PREPARE_ALLOW_NON_CALLBACKS);
 	ALooper_addFd(looper, state->msgread, LOOPER_ID_MAIN, ALOOPER_EVENT_INPUT, NULL,
 		&state->cmdPollSource);
 	state->looper = looper;
 
-	FPlatformMisc::LowLevelOutputDebugString(L"Prepared looper for event thread");
+	FPlatformMisc::LowLevelOutputDebugString(TEXT("Prepared looper for event thread"));
 
 	//Assign the callbacks
 	state->onAppCmd = OnAppCommandCB;
 	state->onInputEvent = HandleInputCB;
 
-	FPlatformMisc::LowLevelOutputDebugString(L"Passed callback initialization");
-	FPlatformMisc::LowLevelOutputDebugString(L"Passed sensor initialization");
+	FPlatformMisc::LowLevelOutputDebugString(TEXT("Passed callback initialization"));
+	FPlatformMisc::LowLevelOutputDebugString(TEXT("Passed sensor initialization"));
 
 #if WITH_Android_Choreographer
 	TheChoreographer.SetupChoreographer();
@@ -568,7 +575,7 @@ static void* AndroidEventThreadWorker( void* param )
 	//continue to process events until the engine is shutting down
 	while (!GIsRequestingExit)
 	{
-//		FPlatformMisc::LowLevelOutputDebugString(L"AndroidEventThreadWorker");
+//		FPlatformMisc::LowLevelOutputDebugString(TEXT("AndroidEventThreadWorker"));
 
 		AndroidProcessEvents(state);
 
@@ -604,7 +611,7 @@ struct android_app* GNativeAndroidApp = NULL;
 
 void android_main(struct android_app* state)
 {
-	FPlatformMisc::LowLevelOutputDebugString(L"Entering native app glue main function");
+	FPlatformMisc::LowLevelOutputDebugString(TEXT("Entering native app glue main function"));
 	
 	GNativeAndroidApp = state;
 	check(GNativeAndroidApp);
@@ -614,7 +621,7 @@ void android_main(struct android_app* state)
 	pthread_attr_setdetachstate(&otherAttr, PTHREAD_CREATE_DETACHED);
 	pthread_create(&G_AndroidEventThread, &otherAttr, AndroidEventThreadWorker, state);
 
-	FPlatformMisc::LowLevelOutputDebugString(L"Created event thread");
+	FPlatformMisc::LowLevelOutputDebugString(TEXT("Created event thread"));
 
 	// Make sure glue isn't stripped. (not needed in ndk-15)
 #if PLATFORM_ANDROID_NDK_VERSION < 150000
@@ -630,7 +637,7 @@ extern bool GAndroidGPUInfoReady;
 //Called from the event process thread
 static int32_t HandleInputCB(struct android_app* app, AInputEvent* event)
 {
-//	FPlatformMisc::LowLevelOutputDebugStringf(L"INPUT - type: %x, action: %x, source: %x, keycode: %x, buttons: %x", AInputEvent_getType(event), 
+//	FPlatformMisc::LowLevelOutputDebugStringf(TEXT("INPUT - type: %x, action: %x, source: %x, keycode: %x, buttons: %x"), AInputEvent_getType(event), 
 //		AMotionEvent_getAction(event), AInputEvent_getSource(event), AKeyEvent_getKeyCode(event), AMotionEvent_getButtonState(event));
 
 	int32 EventType = AInputEvent_getType(event);
@@ -884,7 +891,7 @@ static int32_t HandleInputCB(struct android_app* app, AInputEvent* event)
 		int keyFlags = AKeyEvent_getFlags(event);
 		bool bSoftKey = (keyFlags & AKEY_EVENT_FLAG_SOFT_KEYBOARD) != 0;
 
-		FPlatformMisc::LowLevelOutputDebugStringf(L"Received keycode: %d, softkey: %d", keyCode, bSoftKey ? 1 : 0);
+		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Received keycode: %d, softkey: %d"), keyCode, bSoftKey ? 1 : 0);
 
 		//Trap codes handled as possible gamepad events
 		if (ValidGamepadKeyCodes.Contains(keyCode))
@@ -899,11 +906,11 @@ static int32_t HandleInputCB(struct android_app* app, AInputEvent* event)
 			}
 			bool down = AKeyEvent_getAction(event) != AKEY_EVENT_ACTION_UP;
 			FAndroidInputInterface::JoystickButtonEvent(device, keyCode, down);
-			FPlatformMisc::LowLevelOutputDebugStringf(L"Received gamepad button: %d", keyCode);
+			FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Received gamepad button: %d"), keyCode);
 		}
 		else
 		{
-			FPlatformMisc::LowLevelOutputDebugStringf(L"Received key event: %d", keyCode);
+			FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Received key event: %d"), keyCode);
 
 			// only handle mapped key codes
 			if (!MappedKeyCodes.Contains(keyCode))
@@ -949,7 +956,7 @@ static bool IsStartupMoviePlaying()
 static void OnAppCommandCB(struct android_app* app, int32_t cmd)
 {
 	bool bNeedToSync = false;
-	//FPlatformMisc::LowLevelOutputDebugStringf(L"OnAppCommandCB cmd: %u, tid = %d", cmd, gettid());
+	//FPlatformMisc::LowLevelOutputDebugStringf(TEXT("OnAppCommandCB cmd: %u, tid = %d"), cmd, gettid());
 
 	switch (cmd)
 	{
@@ -1131,7 +1138,7 @@ static void OnAppCommandCB(struct android_app* app, int32_t cmd)
 	{
 		FAppEventManager::GetInstance()->WaitForEmptyQueue();
 	}
-	//FPlatformMisc::LowLevelOutputDebugStringf(L"#### END OF OnAppCommandCB cmd: %u, tid = %d", cmd, gettid());
+	//FPlatformMisc::LowLevelOutputDebugStringf(TEXT("#### END OF OnAppCommandCB cmd: %u, tid = %d"), cmd, gettid());
 }
 
 //Native-defined functions

@@ -992,6 +992,23 @@ FORCEINLINE void VectorStoreByte4( VectorRegister Vec, void* Ptr )
 }
 
 /**
+* Converts the 4 floats in the vector to 4 int8s, clamped to [-127, 127], and stores to unaligned memory.
+* IMPORTANT: You need to call VectorResetFloatRegisters() before using scalar floats after you've used this intrinsic!
+*
+* @param Vec			Vector containing 4 floats
+* @param Ptr			Unaligned memory pointer to store the 4 uint8s.
+*/
+FORCEINLINE void VectorStoreSignedByte4(VectorRegister Vec, void* Ptr)
+{
+	int16x8_t s16x8 = (int16x8_t)vcvtq_s32_f32(VectorMax(VectorMin(Vec, GlobalVectorConstants::Float127), GlobalVectorConstants::FloatNeg127));
+	int8x8_t s8x8 = (int8x8_t)vget_low_s16(vuzpq_s16(s16x8, s16x8).val[0]);
+	s8x8 = vuzp_s8(s8x8, s8x8).val[0];
+	int32_t buf[2];
+	vst1_s8((int8_t *)buf, s8x8);
+	*(int32_t *)Ptr = buf[0];
+}
+
+/**
  * Converts the 4 floats in the vector to 4 fp16 and stores based off bool to [un]aligned memory.
  *
  * @param Vec			Vector containing 4 floats

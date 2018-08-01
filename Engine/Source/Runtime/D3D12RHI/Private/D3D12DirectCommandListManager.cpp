@@ -276,8 +276,7 @@ void FD3D12CommandListManager::Destroy()
 	if (CommandListFence)
 	{
 		CommandListFence->Destroy();
-		delete CommandListFence;
-		CommandListFence = nullptr;
+		CommandListFence.SafeRelease();
 	}
 }
 

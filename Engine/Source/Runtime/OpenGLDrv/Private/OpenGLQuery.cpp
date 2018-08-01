@@ -658,7 +658,7 @@ void FOpenGLBufferedGPUTiming::PlatformStaticInitialize(void* UserData)
 	// Are the static variables initialized?
 	if ( !GAreGlobalsInitialized )
 	{
-		GIsSupported = FOpenGL::SupportsTimestampQueries() && FOpenGL::SupportsDisjointTimeQueries();
+		GIsSupported = FOpenGL::SupportsTimestampQueries();
 		GTimingFrequency = 1000 * 1000 * 1000;
 		GAreGlobalsInitialized = true;
 	}
@@ -688,7 +688,7 @@ void FOpenGLBufferedGPUTiming::InitResources()
 	CurrentTimestamp = 0;
 	NumIssuedTimestamps = 0;
 	bIsTiming = false;
-	GIsSupported = FOpenGL::SupportsTimestampQueries() && FOpenGL::SupportsDisjointTimeQueries();
+	GIsSupported = FOpenGL::SupportsTimestampQueries();
 
 	if ( GIsSupported )
 	{

@@ -200,6 +200,11 @@ void SGraphEditorImpl::StraightenConnections(UEdGraphPin* SourcePin, UEdGraphPin
 	GraphPanel->StraightenConnections(SourcePin, PinToAlign);
 }
 
+void SGraphEditorImpl::RefreshNode(UEdGraphNode& Node)
+{
+	GraphPanel->RefreshNode(Node);
+}
+
 void SGraphEditorImpl::Construct( const FArguments& InArgs )
 {
 	Commands = MakeShareable( new FUICommandList() );

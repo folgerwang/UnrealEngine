@@ -6,6 +6,7 @@
 #include "Containers/UnrealString.h"
 #include "UObject/NameTypes.h"
 #include "Serialization/MemoryArchive.h"
+#include "Serialization/LargeMemoryData.h"
 
 /**
 * Archive for storing a large amount of arbitrary data to memory
@@ -29,7 +30,10 @@ public:
 	/**
 	 * Gets the total size of the data written
 	 */
-	virtual int64 TotalSize() override;
+	virtual int64 TotalSize() override
+	{
+		return Data.GetSize();
+	}
 	
 	/**
 	 * Returns the written data. To release this archive's ownership of the data, call ReleaseOwnership()
@@ -39,32 +43,20 @@ public:
 	/** 
 	 * Releases ownership of the written data
 	 */
-	void ReleaseOwnership();
-	
-	/**
-	 * Destructor
-	 */
-	~FLargeMemoryWriter();
+	FORCEINLINE void ReleaseOwnership()
+	{
+		Data.ReleaseOwnership();
+	}
 
 private:
+
+	FLargeMemoryData Data;
 
 	/** Non-copyable */
 	FLargeMemoryWriter(const FLargeMemoryWriter&) = delete;
 	FLargeMemoryWriter& operator=(const FLargeMemoryWriter&) = delete;
 
-	/** Memory owned by this archive. Ownership can be released by calling ReleaseOwnership() */
-	uint8* Data;
-
-	/** Number of bytes currently written to our data buffer */
-	int64 NumBytes;
-
-	/** Number of bytes currently allocated for our data buffer */
-	int64 MaxBytes;
-
-	/** Resizes the data buffer to at least the desired new size with some slack */
-	void GrowBuffer(const int64 DesiredBytes);
 
 	/** Archive name, used for debugging, by default set to NAME_None. */
 	const FString ArchiveName;
 };
-

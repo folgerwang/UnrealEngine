@@ -1578,8 +1578,9 @@ void UUserWidget::UpdateCanTick()
 		bool bCanTick = false;
 		if (TickFrequency == EWidgetTickFrequency::Auto)
 		{
+			// Note: WidgetBPClass can be NULL in a cooked build, if the Blueprint has been nativized (in that case, it will be a UDynamicClass type).
 			UWidgetBlueprintGeneratedClass* WidgetBPClass = Cast<UWidgetBlueprintGeneratedClass>(GetClass());
-			bCanTick |= WidgetBPClass->ClassRequiresNativeTick();
+			bCanTick |= !WidgetBPClass || WidgetBPClass->ClassRequiresNativeTick();
 			bCanTick |= bHasScriptImplementedTick;
 			bCanTick |= World->GetLatentActionManager().GetNumActionsForObject(this) != 0;
 			bCanTick |= ActiveSequencePlayers.Num() > 0;

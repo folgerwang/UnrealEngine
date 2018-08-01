@@ -11,8 +11,13 @@
 #include "IDetailsView.h"
 #include "Modules/ModuleManager.h"
 #include "PropertyEditorModule.h"
+#include "Framework/Notifications/NotificationManager.h"
 #include "Framework/MultiBox/MultiBoxBuilder.h"
+#include "Widgets/Colors/SColorBlock.h"
 #include "Widgets/Docking/SDockTab.h"
+#include "Widgets/Notifications/SNotificationList.h"
+#include "Widgets/Notifications/SNotificationList.h"
+#include "Widgets/Notifications/SProgressBar.h"
  
 #define LOCTEXT_NAMESPACE "TimecodeSynchronizerEditor"
 
@@ -31,7 +36,7 @@ TSharedRef<FTimecodeSynchronizerEditorToolkit> FTimecodeSynchronizerEditorToolki
 	return NewEditor;
 }
 
-void FTimecodeSynchronizerEditorToolkit::InitTimecodeSynchronizerEditor(const EToolkitMode::Type Mode, const TSharedPtr< class IToolkitHost >& InitToolkitHost, UTimecodeSynchronizer* Table)
+void FTimecodeSynchronizerEditorToolkit::InitTimecodeSynchronizerEditor(const EToolkitMode::Type Mode, const TSharedPtr< class IToolkitHost >& InitToolkitHost, UTimecodeSynchronizer* InTimecodeSynchronizer)
 {
 	FEditorDelegates::OnAssetPostImport.AddRaw(this, &FTimecodeSynchronizerEditorToolkit::HandleAssetPostImport);
 
@@ -43,7 +48,8 @@ void FTimecodeSynchronizerEditorToolkit::InitTimecodeSynchronizerEditor(const ET
 	const TSharedRef<FTabManager::FLayout> StandaloneDefaultLayout = FTabManager::NewLayout(TimecodeSynchronizerEditorToolkit::Layout)
 		->AddArea
 		(
-			FTabManager::NewPrimaryArea()->SetOrientation(Orient_Vertical)
+			FTabManager::NewPrimaryArea()
+			->SetOrientation(Orient_Vertical)
 			->Split
 			(
 				FTabManager::NewStack()
@@ -54,38 +60,44 @@ void FTimecodeSynchronizerEditorToolkit::InitTimecodeSynchronizerEditor(const ET
 			->Split
 			(
 				FTabManager::NewSplitter()
-				->SetSizeCoefficient(0.5f)
+				->SetSizeCoefficient(0.9f)
+				->SetOrientation(Orient_Horizontal)
 				->Split
 				(
-					// Source display
-					FTabManager::NewStack()
-					->SetHideTabWell(true)
-					->AddTab(TimecodeSynchronizerEditorToolkit::SourceViewerTabId, ETabState::OpenedTab)
-				)
-			)
-			->Split
-			(
-				FTabManager::NewSplitter()
-				->SetSizeCoefficient(0.4f)
-				->Split
-				(
-					FTabManager::NewStack()
-					->AddTab(TimecodeSynchronizerEditorToolkit::PropertiesTabId, ETabState::OpenedTab)
+					FTabManager::NewSplitter()
+					->SetSizeCoefficient(0.5f)
+					->Split
+					(
+						// Source display
+						FTabManager::NewStack()
+						->SetHideTabWell(true)
+						->AddTab(TimecodeSynchronizerEditorToolkit::SourceViewerTabId, ETabState::OpenedTab)
+					)
+					->Split
+					(
+						FTabManager::NewSplitter()
+						->SetSizeCoefficient(0.4f)
+						->Split
+						(
+							FTabManager::NewStack()
+							->AddTab(TimecodeSynchronizerEditorToolkit::PropertiesTabId, ETabState::OpenedTab)
+						)
+					)
 				)
 			)
 		);
 
-	BindCommands();
+	InTimecodeSynchronizer->OnSynchronizationEvent().AddSP(this, &FTimecodeSynchronizerEditorToolkit::HandleSynchronizationEvent);
 
 	const bool bCreateDefaultStandaloneMenu = true;
 	const bool bCreateDefaultToolbar = true;
-	Super::InitAssetEditor(Mode, InitToolkitHost, TimecodeSynchronizerEditorToolkit::AppIdentifier, StandaloneDefaultLayout, bCreateDefaultStandaloneMenu, bCreateDefaultToolbar, Table);
+	Super::InitAssetEditor(Mode, InitToolkitHost, TimecodeSynchronizerEditorToolkit::AppIdentifier, StandaloneDefaultLayout, bCreateDefaultStandaloneMenu, bCreateDefaultToolbar, InTimecodeSynchronizer);
 
 	ExtendToolBar();
 
 	// Get the list of objects to edit the details of
 	TArray<UObject*> ObjectsToEditInDetailsView;
-	ObjectsToEditInDetailsView.Add(Table);
+	ObjectsToEditInDetailsView.Add(InTimecodeSynchronizer);
 
 	// Ensure all objects are transactable for undo/redo in the details panel
 	for (UObject* ObjectToEditInDetailsView : ObjectsToEditInDetailsView)
@@ -97,12 +109,28 @@ void FTimecodeSynchronizerEditorToolkit::InitTimecodeSynchronizerEditor(const ET
 	{
 		// Make sure details window is pointing to our object
 		DetailsView->SetObjects(ObjectsToEditInDetailsView);
+		DetailsView->SetIsPropertyEditingEnabledDelegate
+			(
+				FIsPropertyEditingEnabled::CreateLambda([&]
+				{
+					if (UTimecodeSynchronizer* Asset = GetTimecodeSynchronizer())
+					{
+						ETimecodeProviderSynchronizationState State = Asset->GetSynchronizationState();
+						return State == ETimecodeProviderSynchronizationState::Closed;
+					}
+					return false;
+				})
+			);
 	}
 }
 
 FTimecodeSynchronizerEditorToolkit::~FTimecodeSynchronizerEditorToolkit()
 {
 	FEditorDelegates::OnAssetPostImport.RemoveAll(this);
+	if (UTimecodeSynchronizer* Asset = GetTimecodeSynchronizer())
+	{
+		Asset->OnSynchronizationEvent().RemoveAll(this);
+	}
 }
 
 FName FTimecodeSynchronizerEditorToolkit::GetToolkitFName() const
@@ -177,7 +205,51 @@ TSharedRef<SDockTab> FTimecodeSynchronizerEditorToolkit::SpawnPropertiesTab(cons
 		.Label(LOCTEXT("GenericDetailsTitle", "Details"))
 		.TabColorScale(GetTabColorScale())
 		[
-			DetailsView.ToSharedRef()
+			SNew(SVerticalBox)
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			.Padding(0.0f, 0.0f)
+			.HAlign(HAlign_Fill)
+			[
+				SNew(SOverlay)
+				+ SOverlay::Slot()
+				[
+					SNew(SProgressBar)
+					.ToolTipText(LOCTEXT("BufferingTooltip", "Buffering..."))
+					.Visibility_Lambda([this]() -> EVisibility
+					{
+						if (UTimecodeSynchronizer* Asset = GetTimecodeSynchronizer())
+						{
+							ETimecodeProviderSynchronizationState State = Asset->GetSynchronizationState();
+							return State == ETimecodeProviderSynchronizationState::Synchronizing ? EVisibility::Visible : EVisibility::Hidden;
+						}
+						return EVisibility::Hidden;
+					})
+				]
+				+ SOverlay::Slot()
+				[
+					SNew(SColorBlock)
+					.Color(this, &FTimecodeSynchronizerEditorToolkit::GetProgressColor)
+					.IgnoreAlpha(true)
+					.Visibility_Lambda([this]() -> EVisibility
+					{
+						if (UTimecodeSynchronizer* Asset = GetTimecodeSynchronizer())
+						{
+							ETimecodeProviderSynchronizationState State = Asset->GetSynchronizationState();
+							return State == ETimecodeProviderSynchronizationState::Synchronizing ? EVisibility::Hidden : EVisibility::Visible;
+						}
+						return EVisibility::Hidden;
+					})
+				]
+			]
+			+ SVerticalBox::Slot()
+			.FillHeight(1.0f)
+			.Padding(0.0f, 0.0f)
+			.HAlign(HAlign_Fill)
+			.VAlign(VAlign_Fill)
+			[
+				DetailsView.ToSharedRef()
+			]
 		];
 }
 
@@ -207,29 +279,6 @@ void FTimecodeSynchronizerEditorToolkit::HandleAssetPostImport(UFactory* InFacto
 	}
 }
 
-void FTimecodeSynchronizerEditorToolkit::BindCommands()
-{
-	ToolkitCommands->MapAction(
-		FTimecodeSynchronizerEditorCommand::Get().PreRollCommand,
-		FExecuteAction::CreateLambda([&]()
-		{
-			if (UTimecodeSynchronizer* Asset = GetTimecodeSynchronizer())
-			{
-				Asset->StartPreRoll();
-			}
-		}),
-		FCanExecuteAction(),
-		FIsActionChecked::CreateLambda([&]()
-		{
-			if (UTimecodeSynchronizer* Asset = GetTimecodeSynchronizer())
-			{
-				ETimecodeProviderSynchronizationState State = Asset->GetSynchronizationState();
-				return State == ETimecodeProviderSynchronizationState::Synchronized || State == ETimecodeProviderSynchronizationState::Synchronizing;
-			}
-			return false;
-		}));
-}
-
 void FTimecodeSynchronizerEditorToolkit::ExtendToolBar()
 {
 	TSharedPtr<FExtender> ToolbarExtender = MakeShareable(new FExtender);
@@ -242,11 +291,55 @@ void FTimecodeSynchronizerEditorToolkit::ExtendToolBar()
 			ToolbarBuilder.BeginSection("TimecodeSynchronizer");
 			{
 				ToolbarBuilder.AddToolBarButton(
-					FTimecodeSynchronizerEditorCommand::Get().PreRollCommand,
+					FUIAction(
+						FExecuteAction::CreateLambda([&]()
+						{
+							if (UTimecodeSynchronizer* Asset = GetTimecodeSynchronizer())
+							{
+								Asset->StartPreRoll();
+							}
+						}),
+						FCanExecuteAction::CreateLambda([&]()
+						{
+							if (UTimecodeSynchronizer* Asset = GetTimecodeSynchronizer())
+							{
+								ETimecodeProviderSynchronizationState State = Asset->GetSynchronizationState();
+								return State == ETimecodeProviderSynchronizationState::Closed || State == ETimecodeProviderSynchronizationState::Error;
+							}
+							return false;
+						}),
+						FIsActionChecked()
+					),
 					NAME_None,
-					TAttribute<FText>(),
-					TAttribute<FText>(),
-					FSlateIcon(FTimecodeSynchronizerEditorStyle::GetStyleSetName(), TEXT("Play"))
+					LOCTEXT("PreRoll", "Start Synchronization"),
+					LOCTEXT("PreRoll_ToolTip", "Start all medias and synchronize them."),
+					FSlateIcon(FTimecodeSynchronizerEditorStyle::GetStyleSetName(), "Synchronized")
+					);
+
+				ToolbarBuilder.AddToolBarButton(
+					FUIAction(
+						FExecuteAction::CreateLambda([&]()
+						{
+							if (UTimecodeSynchronizer* Asset = GetTimecodeSynchronizer())
+							{
+								Asset->StopInputSources();
+							}
+						}),
+						FCanExecuteAction::CreateLambda([&]()
+						{
+							if (UTimecodeSynchronizer* Asset = GetTimecodeSynchronizer())
+							{
+								ETimecodeProviderSynchronizationState State = Asset->GetSynchronizationState();
+								return State == ETimecodeProviderSynchronizationState::Synchronizing || State == ETimecodeProviderSynchronizationState::Synchronized;
+							}
+							return false;
+						}),
+						FIsActionChecked()
+					),
+					NAME_None,
+					LOCTEXT("StopPreRoll", "Stop Synchronization"),
+					LOCTEXT("StopPreRoll_ToolTip", "Stop all medias and remove the genlock (if enabled)."),
+					FSlateIcon(FTimecodeSynchronizerEditorStyle::GetStyleSetName(), "Stop")
 					);
 			}
 			ToolbarBuilder.EndSection();
@@ -255,6 +348,52 @@ void FTimecodeSynchronizerEditorToolkit::ExtendToolBar()
 	AddToolbarExtender(ToolbarExtender);
 
 	RegenerateMenusAndToolbars();
+}
+
+FLinearColor FTimecodeSynchronizerEditorToolkit::GetProgressColor() const
+{
+	if (UTimecodeSynchronizer* Asset = GetTimecodeSynchronizer())
+	{
+		ETimecodeProviderSynchronizationState State = Asset->GetSynchronizationState();
+		switch(State)
+		{
+			case ETimecodeProviderSynchronizationState::Error:
+				return FColor::Red;
+			case ETimecodeProviderSynchronizationState::Closed:
+				return FColor::Black;
+			case ETimecodeProviderSynchronizationState::Synchronized:
+				return FColor::Green;
+			case ETimecodeProviderSynchronizationState::Synchronizing:
+				return FColor::Yellow;
+		}
+	}
+	return FColor::Black;
+}
+
+void FTimecodeSynchronizerEditorToolkit::HandleSynchronizationEvent(ETimecodeSynchronizationEvent Event)
+{
+	if (Event == ETimecodeSynchronizationEvent::SynchronizationFailed)
+	{
+		if (UTimecodeSynchronizer* Asset = GetTimecodeSynchronizer())
+		{
+			FNotificationInfo NotificationInfo(LOCTEXT("FailedError", "Failed to synchronize. Check Output Log for details!"));
+
+			NotificationInfo.ExpireDuration = 2.0f;
+			FSlateNotificationManager::Get().AddNotification(NotificationInfo)->SetCompletionState(SNotificationItem::CS_Fail);
+		}
+	}
+}
+
+void FTimecodeSynchronizerEditorToolkit::RemoveEditingObject(UObject* Object)
+{
+	if (UTimecodeSynchronizer* Asset = GetTimecodeSynchronizer())
+	{
+		if (Asset == Object)
+		{
+			Asset->OnSynchronizationEvent().RemoveAll(this);
+		}
+	}
+	Super::RemoveEditingObject(Object);
 }
 
 #undef LOCTEXT_NAMESPACE

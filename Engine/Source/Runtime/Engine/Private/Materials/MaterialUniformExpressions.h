@@ -202,6 +202,8 @@ public:
 	// faster than GetNumberValue(), good for run-time use
 	void GetGameThreadNumberValue(const UMaterialInterface* SourceMaterialToCopyFrom, float& OutValue) const;
 
+	void GetGameThreadUsedAsAtlas(const UMaterialInterface* SourceMaterialToCopyFrom, bool& OutValue, TSoftObjectPtr<class UCurveLinearColor>& Curve, TSoftObjectPtr<class UCurveLinearColorAtlas>& Atlas) const;
+	
 	virtual bool IsConstant() const
 	{
 		return false;

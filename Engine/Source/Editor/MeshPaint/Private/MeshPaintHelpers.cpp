@@ -838,6 +838,7 @@ void MeshPaintHelpers::FillVertexColors(UMeshComponent* MeshComponent, const FCo
 			Mesh->SetFlags(RF_Transactional);
 			Mesh->Modify();
 			Mesh->bHasVertexColors = true;
+			Mesh->VertexColorGuid = FGuid::NewGuid();
 
 			// Release the static mesh's resources.
 			Mesh->ReleaseResources();
@@ -1326,8 +1327,11 @@ bool MeshPaintHelpers::DoesMeshComponentContainPerLODColors(const UMeshComponent
 		if (SkeletalMesh)
 		{
 			const TArray<FSkeletalMeshLODInfo>& LODInfo = SkeletalMesh->GetLODInfoArray();
-			for ( const FSkeletalMeshLODInfo& Info : LODInfo )
+			// Only check LOD level 1 and above
+			const int32 NumLODs = SkeletalMesh->GetLODNum();
+			for (int32 LODIndex = 1; LODIndex < NumLODs; ++LODIndex)
 			{
+				const FSkeletalMeshLODInfo& Info = LODInfo[LODIndex];
 				if (Info.bHasPerLODVertexColors)
 				{
 					bPerLODColors = true;

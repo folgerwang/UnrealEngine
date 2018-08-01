@@ -1,36 +1,4 @@
-// %BANNER_BEGIN%
-// ---------------------------------------------------------------------
-// %COPYRIGHT_BEGIN%
-//
-// Copyright (c) 2017 Magic Leap, Inc. (COMPANY) All Rights Reserved.
-// Magic Leap, Inc. Confidential and Proprietary
-//
-// NOTICE: All information contained herein is, and remains the property
-// of COMPANY. The intellectual and technical concepts contained herein
-// are proprietary to COMPANY and may be covered by U.S. and Foreign
-// Patents, patents in process, and are protected by trade secret or
-// copyright law. Dissemination of this information or reproduction of
-// this material is strictly forbidden unless prior written permission is
-// obtained from COMPANY. Access to the source code contained herein is
-// hereby forbidden to anyone except current COMPANY employees, managers
-// or contractors who have executed Confidentiality and Non-disclosure
-// agreements explicitly covering such access.
-//
-// The copyright notice above does not evidence any actual or intended
-// publication or disclosure of this source code, which includes
-// information that is confidential and/or proprietary, and is a trade
-// secret, of COMPANY. ANY REPRODUCTION, MODIFICATION, DISTRIBUTION,
-// PUBLIC PERFORMANCE, OR PUBLIC DISPLAY OF OR THROUGH USE OF THIS
-// SOURCE CODE WITHOUT THE EXPRESS WRITTEN CONSENT OF COMPANY IS
-// STRICTLY PROHIBITED, AND IN VIOLATION OF APPLICABLE LAWS AND
-// INTERNATIONAL TREATIES. THE RECEIPT OR POSSESSION OF THIS SOURCE
-// CODE AND/OR RELATED INFORMATION DOES NOT CONVEY OR IMPLY ANY RIGHTS
-// TO REPRODUCE, DISCLOSE OR DISTRIBUTE ITS CONTENTS, OR TO MANUFACTURE,
-// USE, OR SELL ANYTHING THAT IT MAY DESCRIBE, IN WHOLE OR IN PART.
-//
-// %COPYRIGHT_END%
-// --------------------------------------------------------------------
-// %BANNER_END%
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "MagicLeapHelperVulkan.h"
 #include "IMagicLeapHelperVulkanPlugin.h"
@@ -147,7 +115,7 @@ void FMagicLeapHelperVulkan::SignalObjects(uint64 SignalObject0, uint64 SignalOb
 #endif
 }
 
-uint64 FMagicLeapHelperVulkan::AliasImageSRGB(const uint64 Allocation, const uint32 Width, const uint32 Height)
+uint64 FMagicLeapHelperVulkan::AliasImageSRGB(const uint64 Allocation, const uint64 AllocationOffset, const uint32 Width, const uint32 Height)
 {
 #if !PLATFORM_MAC
 	VkImageCreateInfo ImageCreateInfo;
@@ -175,15 +143,12 @@ uint64 FMagicLeapHelperVulkan::AliasImageSRGB(const uint64 Allocation, const uin
 	ImageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
 	ImageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
 
-	FVulkanDynamicRHI* const RHI = (FVulkanDynamicRHI*)GDynamicRHI;
-	
+	FVulkanDynamicRHI* RHI = (FVulkanDynamicRHI*)GDynamicRHI;
+	FVulkanDevice* Device = RHI->GetDevice();
 	VkImage Result = VK_NULL_HANDLE;
-	VERIFYVULKANRESULT(VulkanRHI::vkCreateImage(RHI->GetDevice()->GetInstanceHandle(), &ImageCreateInfo, nullptr, &Result));
+	VERIFYVULKANRESULT(VulkanRHI::vkCreateImage(Device->GetInstanceHandle(), &ImageCreateInfo, nullptr, &Result));
 
-	// Assuming the offset is 0, we're not currently querying the surface for this.
-	const VkDeviceSize Offset = 0;
-
-	VERIFYVULKANRESULT(VulkanRHI::vkBindImageMemory(RHI->GetDevice()->GetInstanceHandle(), Result, (VkDeviceMemory)Allocation, Offset));
+	VERIFYVULKANRESULT(VulkanRHI::vkBindImageMemory(Device->GetInstanceHandle(), Result, (VkDeviceMemory)Allocation, AllocationOffset));
 
 	return (uint64)Result;
 #else

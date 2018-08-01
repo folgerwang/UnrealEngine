@@ -1,9 +1,12 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "AjaMediaFinder.h"
+#include "AjaMediaPrivate.h"
 
 #include "Aja.h"
 #include "AJALib.h"
+
+#include "Templates/UniquePtr.h"
 
 /*
  * FAjaMediaSourceId interface
@@ -49,12 +52,20 @@ FAjaMediaPort::FAjaMediaPort(const FString& InDeviceName, int32 InDeviceIndex, i
 
 FString FAjaMediaPort::ToString() const
 {
-	return FString::Printf(TEXT("%s [%s]"), *DeviceName, *ToUrl());
+	if (IsValid())
+	{
+		return FString::Printf(TEXT("%s [%s]"), *DeviceName, *ToUrl());
+	}
+	return TEXT("<Invalid>");
 }
 
 FString FAjaMediaPort::ToUrl() const
 {
-	return FString::Printf(TEXT("aja://device%d/port%d"), DeviceIndex, (PortIndex));
+	if (IsValid())
+	{
+		return FString::Printf(TEXT("aja://device%d/port%d"), DeviceIndex, (PortIndex));
+	}
+	return TEXT("aja://");
 }
 
 bool FAjaMediaPort::IsValid() const
@@ -91,31 +102,22 @@ bool FAjaMediaPort::FromUrl(const FString& Url, bool bDiscoverDeviceName)
 	bool bResult = true;
 	if (bDiscoverDeviceName)
 	{
-		DeviceName.Reset();
-
 		bResult = FAja::IsInitialized();
 		if (bResult)
 		{
-			AJA::FDeviceScanner DeviceScanner = AJA::CreateDeviceScanner();
+			TUniquePtr<AJA::AJADeviceScanner> DeviceScanner = MakeUnique<AJA::AJADeviceScanner>();
 			if (DeviceScanner)
 			{
-				AJA::DeviceScannerScanHardware(DeviceScanner);
-				bResult = DeviceScanner != nullptr;
+				int32 NumDevices = DeviceScanner->GetNumDevices();
+				bResult = DeviceIndex < NumDevices;
 				if (bResult)
 				{
-					uint32 NumDevices = AJA::DeviceScannerGetNumDevices(DeviceScanner);
-					bResult = (uint32)DeviceIndex < NumDevices;
+					TCHAR DeviceNameBuffer[AJA::AJADeviceScanner::FormatedTextSize];
+					bResult = DeviceScanner->GetDeviceTextId(DeviceIndex, DeviceNameBuffer);
 					if (bResult)
 					{
-						AJA::FDeviceInfo DeviceInfo = AJA::DeviceScannerGetDeviceInfo(DeviceScanner, PortIndex);
-						TCHAR DeviceNameBuffer[AjaMediaSourceId::DeviceNameBufferSize];
-						AJA::DeviceInfoGetDeviceId(DeviceInfo, DeviceNameBuffer, AjaMediaSourceId::DeviceNameBufferSize);
-						AJA::ReleaseDeviceInfo(DeviceInfo);
-
 						DeviceName = DeviceNameBuffer;
 					}
-
-					AJA::ReleaseDeviceScanner(DeviceScanner);
 				}
 			}
 		}
@@ -129,86 +131,102 @@ bool FAjaMediaPort::FromUrl(const FString& Url, bool bDiscoverDeviceName)
  */
 
 FAjaMediaMode::FAjaMediaMode()
-	: Mode(INDEX_NONE)
-{
-}
-
-FAjaMediaMode::FAjaMediaMode(const FString& InModeName, int32 InMode)
-	: ModeName(InModeName)
-	, Mode(InMode)
+	: DeviceIndex(INDEX_NONE)
+	, VideoFormatIndex(INDEX_NONE)
 {
 }
 
 FString FAjaMediaMode::ToString() const
 {
-	return FString::Printf(TEXT("%s [%d]"), *ModeName, Mode);
-}
-
-FString FAjaMediaMode::ToUrl() const
-{
-	return ToString();
+	if (IsValid())
+	{
+		return FString::Printf(TEXT("%s"), *ModeName);
+	}
+	return TEXT("<Invalid>");
 }
 
 bool FAjaMediaMode::IsValid() const
 {
-	return Mode != INDEX_NONE;
+	return VideoFormatIndex != INDEX_NONE;
 }
 
 /*
  * UAjaMediaFinder interface
  */
 
-bool UAjaMediaFinder::GetSources(TArray<FAjaMediaPort>& OutSources)
+bool FAjaMediaFinder::GetSources(TArray<FAjaMediaPort>& OutSources)
 {
 	OutSources.Reset();
-	if (!FAja::IsInitialized())
+	if (!FAja::IsInitialized() || !FAja::CanUseAJACard())
 	{
 		return false;
 	}
 
-	AJA::FDeviceScanner DeviceScanner = AJA::CreateDeviceScanner();
+	TUniquePtr<AJA::AJADeviceScanner> DeviceScanner = MakeUnique<AJA::AJADeviceScanner>();
 	if (DeviceScanner)
 	{
-		AJA::DeviceScannerScanHardware(DeviceScanner);
-
-		uint32 NumDevices = AJA::DeviceScannerGetNumDevices(DeviceScanner);
-		for (uint32 SourceIndex = 0; SourceIndex < NumDevices; ++SourceIndex)
+		int32 NumDevices = DeviceScanner->GetNumDevices();
+		for (int32 SourceIndex = 0; SourceIndex < NumDevices; ++SourceIndex)
 		{
-			AJA::FDeviceInfo DeviceInfo = AJA::DeviceScannerGetDeviceInfo(DeviceScanner, SourceIndex);
-			TCHAR DeviceName[AjaMediaSourceId::DeviceNameBufferSize];
-			AJA::DeviceInfoGetDeviceId(DeviceInfo, DeviceName, AjaMediaSourceId::DeviceNameBufferSize);
-
-			uint32 InputCount = AJA::DeviceInfoGetVidInputs(DeviceInfo);
-			for (uint32 Inputs = 0; Inputs < InputCount; ++Inputs)
+			TCHAR DeviceNameBuffer[AJA::AJADeviceScanner::FormatedTextSize];
+			if (DeviceScanner->GetDeviceTextId(SourceIndex, DeviceNameBuffer))
 			{
-				OutSources.Add(FAjaMediaPort(DeviceName, SourceIndex, Inputs+1));
+				int32 OutputCount;
+				int32 InputCount;
+				if (DeviceScanner->GetNumberVideoChannels(SourceIndex, InputCount, OutputCount))
+				{
+					for (int32 Inputs = 0; Inputs < InputCount; ++Inputs)
+					{
+						OutSources.Add(FAjaMediaPort(DeviceNameBuffer, SourceIndex, Inputs + 1));
+					}
+				}
 			}
-			AJA::ReleaseDeviceInfo(DeviceInfo);
 		}
-
-		AJA::ReleaseDeviceScanner(DeviceScanner);
 	}
 
 	return true;
 }
 
 
-bool UAjaMediaFinder::GetModes(TArray<FAjaMediaMode>& OutModes, bool bInOutput)
+bool FAjaMediaFinder::GetModes(int32 DeviceIndex, bool bInOutput, TArray<FAjaMediaMode>& OutModes)
 {
 	OutModes.Reset();
-	if (!FAja::IsInitialized())
+	if (!FAja::IsInitialized() || !FAja::CanUseAJACard())
 	{
 		return false;
 	}
 
-	uint32_t NumModes = AJA::ModeCount();
-	TCHAR ModeName[AjaMediaSourceId::ModeNameBufferSize];
-	for (uint32_t Mode = 0; Mode < NumModes; ++Mode)
+	AJA::AJAVideoFormats FrameFormats(DeviceIndex, bInOutput);
+
+	const int32 NumSupportedFormat = FrameFormats.GetNumSupportedFormat();
+	OutModes.Reserve(NumSupportedFormat);
+	for(int32 Index = 0; Index < NumSupportedFormat; ++Index)
 	{
-		if (AJA::ModeNames(Mode, bInOutput ? AJA::EDirectionFilter::DF_OUTPUT : AJA::EDirectionFilter::DF_INPUT, ModeName, AjaMediaSourceId::ModeNameBufferSize))
-		{
-			OutModes.Add(FAjaMediaMode(ModeName, Mode));
-		}
+		AJA::AJAVideoFormats::VideoFormatDescriptor Descriptor = FrameFormats.GetSupportedFormat(Index);
+		OutModes.Emplace(AJAHelpers::FromVideoFormatDescriptor(DeviceIndex, Descriptor));
+	}
+
+	return true;
+}
+
+bool FAjaMediaFinder::IsValid(const FAjaMediaPort& InPort, const FAjaMediaMode& InMode, FString& OutFailureReason)
+{
+	if (!InPort.IsValid())
+	{
+		OutFailureReason = TEXT("The MediaPort is invalid.");
+		return false;
+	}
+
+	if (!InMode.IsValid())
+	{
+		OutFailureReason = TEXT("The MediaMode is invalid.");
+		return false;
+	}
+
+	if (InPort.DeviceIndex != InMode.DeviceIndex)
+	{
+		OutFailureReason = TEXT("The MediaPort & MediaMode are not on the same device.");
+		return false;
 	}
 
 	return true;

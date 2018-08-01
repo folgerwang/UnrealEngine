@@ -1206,12 +1206,13 @@ void UWorld::InitWorld(const InitializationValues IVS)
 
 	FWorldDelegates::OnPreWorldInitialization.Broadcast(this, IVS);
 
+	AWorldSettings* WorldSettings = GetWorldSettings();
 	if (IVS.bInitializeScenes)
 	{
 		if (IVS.bCreatePhysicsScene)
 		{
 			// Create the physics scene
-			CreatePhysicsScene();
+			CreatePhysicsScene(WorldSettings);
 		}
 
 		bShouldSimulatePhysics = IVS.bShouldSimulatePhysics;
@@ -1222,7 +1223,6 @@ void UWorld::InitWorld(const InitializationValues IVS)
 	}
 
 	// Prepare AI systems
-	AWorldSettings* WorldSettings = GetWorldSettings();
 	if (WorldSettings)
 	{
 		if (IVS.bCreateNavigation || IVS.bCreateAISystem)
@@ -2045,7 +2045,7 @@ private:
 
 #endif // PERF_TRACK_DETAILED_ASYNC_STATS
 
-void UWorld::AddToWorld( ULevel* Level, const FTransform& LevelTransform )
+void UWorld::AddToWorld( ULevel* Level, const FTransform& LevelTransform, bool bConsiderTimeLimit )
 {
 	SCOPE_CYCLE_COUNTER(STAT_AddToWorldTime);
 
@@ -2090,7 +2090,7 @@ void UWorld::AddToWorld( ULevel* Level, const FTransform& LevelTransform )
 	}
 
 	// Don't consider the time limit if the match hasn't started as we need to ensure that the levels are fully loaded
-	const bool bConsiderTimeLimit = bMatchStarted && IsGameWorld();
+	bConsiderTimeLimit &= bMatchStarted && IsGameWorld();
 	double TimeLimit = GLevelStreamingActorsUpdateTimeLimit;
 
 	if (bConsiderTimeLimit)
@@ -4022,9 +4022,9 @@ float UWorld::GetMonoFarFieldCullingDistance() const
 	return Result;
 }
 
-void UWorld::CreatePhysicsScene()
+void UWorld::CreatePhysicsScene(const AWorldSettings* Settings)
 {
-	SetPhysicsScene(new FPhysScene());
+	SetPhysicsScene(new FPhysScene(Settings));
 }
 
 void UWorld::SetPhysicsScene(FPhysScene* InScene)
@@ -4062,8 +4062,11 @@ APhysicsVolume* UWorld::GetDefaultPhysicsVolume() const
 		}
 
 		// Spawn volume
+		FActorSpawnParameters SpawnParams;
+		SpawnParams.bAllowDuringConstructionScript = true;
+
 		UWorld* MutableThis = const_cast<UWorld*>(this);
-		MutableThis->DefaultPhysicsVolume = MutableThis->SpawnActor<APhysicsVolume>(DefaultPhysicsVolumeClass);
+		MutableThis->DefaultPhysicsVolume = MutableThis->SpawnActor<APhysicsVolume>(DefaultPhysicsVolumeClass, SpawnParams);
 		MutableThis->DefaultPhysicsVolume->Priority = -1000000;
 	}
 	return DefaultPhysicsVolume;
@@ -4336,7 +4339,7 @@ bool UWorld::DestroySwappedPC(UNetConnection* Connection)
 	for( FConstPlayerControllerIterator Iterator = GetPlayerControllerIterator(); Iterator; ++Iterator )
 	{
 		APlayerController* PlayerController = Iterator->Get();
-		if (PlayerController->Player == NULL && PlayerController->PendingSwapConnection == Connection)
+		if (PlayerController && PlayerController->Player == NULL && PlayerController->PendingSwapConnection == Connection)
 		{
 			DestroyActor(PlayerController);
 			return true;
@@ -5124,9 +5127,21 @@ void FSeamlessTravelHandler::SetHandlerLoadedData(UObject* InLevelPackage, UWorl
 /** callback sent to async loading code to inform us when the level package is complete */
 void FSeamlessTravelHandler::SeamlessTravelLoadCallback(const FName& PackageName, UPackage* LevelPackage, EAsyncLoadingResult::Type Result)
 {
-	// make sure we remove the name, even if travel was cancelled.
+	// make sure we remove the name, even if travel was canceled.
 	const FName URLMapFName = FName(*PendingTravelURL.Map);
 	UWorld::WorldTypePreLoadMap.Remove(URLMapFName);
+
+#if WITH_EDITOR
+	if (GIsEditor)
+	{
+		FWorldContext &WorldContext = GEngine->GetWorldContextFromHandleChecked(WorldContextHandle);
+		if (WorldContext.WorldType == EWorldType::PIE)
+		{
+			FString URLMapPackageName = UWorld::ConvertToPIEPackageName(PendingTravelURL.Map, WorldContext.PIEInstance);
+			UWorld::WorldTypePreLoadMap.Remove(FName(*URLMapPackageName));
+		}
+	}
+#endif
 
 	// defer until tick when it's safe to perform the transition
 	if (IsInTransition())
@@ -5257,7 +5272,14 @@ bool FSeamlessTravelHandler::StartTravel(UWorld* InCurrentWorld, const FURL& InU
 			else if (TransitionMap.IsEmpty())
 			{
 				// If a default transition map doesn't exist, create a dummy World to use as the transition
-				SetHandlerLoadedData(NULL, UWorld::CreateWorld(EWorldType::None, false));
+				if (CurrentWorld->WorldType == EWorldType::PIE)
+				{
+					SetHandlerLoadedData(NULL, UWorld::CreateWorld(EWorldType::PIE, false));
+				}
+				else
+				{
+					SetHandlerLoadedData(NULL, UWorld::CreateWorld(EWorldType::None, false));
+				}
 			}
 			else
 			{
@@ -5370,9 +5392,8 @@ void FSeamlessTravelHandler::StartLoadingDestination()
 
 		CurrentWorld->GetGameInstance()->PreloadContentForURL(PendingTravelURL);
 
-		// Set the world type in the static map, so that UWorld::PostLoad can set the world type
 		const FName URLMapFName = FName(*PendingTravelURL.Map);
-		UWorld::WorldTypePreLoadMap.FindOrAdd(URLMapFName) = CurrentWorld->WorldType;
+
 		// In PIE we might want to mangle MapPackageName when traveling to a map loaded in the editor
 		FString URLMapPackageName = PendingTravelURL.Map;
 		FString URLMapPackageToLoadFrom = PendingTravelURL.Map;
@@ -5395,6 +5416,10 @@ void FSeamlessTravelHandler::StartLoadingDestination()
 			}
 		}
 #endif
+
+		// Set the world type in the static map, so that UWorld::PostLoad can set the world type
+		UWorld::WorldTypePreLoadMap.FindOrAdd(FName(*URLMapPackageName)) = CurrentWorld->WorldType;
+
 		LoadPackageAsync(
 			URLMapPackageName, 
 			PendingTravelGuid.IsValid() ? &PendingTravelGuid : NULL,
@@ -5540,6 +5565,9 @@ UWorld* FSeamlessTravelHandler::Tick()
 				CurrentWorld->GetGameState()->SeamlessTravelTransitionCheckpoint(!bSwitchedToDefaultMap);
 			}
 			
+
+			CurrentWorld->bIsTearingDown = true;
+
 			// If it's not still playing, destroy the demo net driver before we start renaming actors.
 			if ( CurrentWorld->DemoNetDriver && !CurrentWorld->DemoNetDriver->IsPlaying() && !CurrentWorld->DemoNetDriver->bRecordMapChanges)
 			{
@@ -5649,8 +5677,10 @@ UWorld* FSeamlessTravelHandler::Tick()
 
 			for (FConstPlayerControllerIterator Iterator = CurrentWorld->GetPlayerControllerIterator(); Iterator; ++Iterator)
 			{
-				APlayerController* Player = Iterator->Get();
-				ProcessActor(Player);
+				if (APlayerController* Player = Iterator->Get())
+				{
+					ProcessActor(Player);
+				}
 			}
 
 			bool bCreateNewGameMode = !bIsClient;
@@ -5825,6 +5855,8 @@ UWorld* FSeamlessTravelHandler::Tick()
 			// calling it after InitializeActorsForPlay has been called to have all potential bounding boxed initialized
 			FNavigationSystem::AddNavigationSystemToWorld(*LoadedWorld, FNavigationSystemRunMode::GameMode);
 
+			FName LoadedWorldName = FName(*UWorld::RemovePIEPrefix(LoadedWorld->GetOutermost()->GetName()));
+
 			// send loading complete notifications for all local players
 			for (FLocalPlayerIterator It(GEngine, LoadedWorld); It; ++It)
 			{
@@ -5836,8 +5868,8 @@ UWorld* FSeamlessTravelHandler::Tick()
 					LOG_SCOPE_VERBOSITY_OVERRIDE(LogNetTraffic, ELogVerbosity::VeryVerbose);
 					UE_LOG(LogNet, Verbose, TEXT("NotifyLoadedWorld Begin"));
 #endif
-					It->PlayerController->NotifyLoadedWorld(LoadedWorld->GetOutermost()->GetFName(), bSwitchedToDefaultMap);
-					It->PlayerController->ServerNotifyLoadedWorld(LoadedWorld->GetOutermost()->GetFName());
+					It->PlayerController->NotifyLoadedWorld(LoadedWorldName, bSwitchedToDefaultMap);
+					It->PlayerController->ServerNotifyLoadedWorld(LoadedWorldName);
 #if !UE_BUILD_SHIPPING
 					UE_LOG(LogNet, Verbose, TEXT("NotifyLoadedWorld End"));
 #endif

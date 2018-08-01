@@ -12,6 +12,9 @@ namespace Audio
 		, BufferNumFrames(0)
 		, BufferSampleRate(0)
 		, BufferNumChannels(0)
+		, FadeFrames(512)
+		, FadeValue(0.0f)
+		, FadeIncrement(1.0f / (float)FadeFrames)
 		, DeviceSampleRate(0.0f)
 		, BasePitch(1.0f)
 		, PitchScale(1.0f)
@@ -68,9 +71,12 @@ namespace Audio
 		PlaybackProgress = 0.0f;
 	}
 
-	void FSampleBufferReader::SetBuffer(const int16** InBufferPtr, const int32 InNumBufferSamples, const int32 InNumChannels, const int32 InBufferSampleRate)
-	{	
-		BufferPtr = *InBufferPtr;
+	void FSampleBufferReader::SetBuffer(const int16* InBufferPtr, const int32 InNumBufferSamples, const int32 InNumChannels, const int32 InBufferSampleRate)
+	{
+		// Re-init on setting a new buffer
+		Init(InBufferSampleRate);
+
+		BufferPtr = InBufferPtr;
 		BufferNumSamples = InNumBufferSamples;
 		BufferNumChannels = InNumChannels;
 		BufferSampleRate = InBufferSampleRate;
@@ -101,7 +107,7 @@ namespace Audio
 		if (BufferPtr)
 		{
 			check(BufferNumChannels > 0);
-			const float CurrentSeekFrame = ((float)BufferSampleRate * CurrentSeekTime) / BufferNumChannels;
+			const float CurrentSeekFrame = ((float)BufferSampleRate * CurrentSeekTime);
 
 			if (CurrentSeekType == ESeekType::FromBeginning)
 			{
@@ -118,7 +124,7 @@ namespace Audio
 
 			if (bWrap)
 			{
-				while (CurrentBufferFrameIndexInterpolated > (double)BufferNumFrames)
+				while (CurrentBufferFrameIndexInterpolated >= (double)BufferNumFrames)
 				{
 					CurrentBufferFrameIndexInterpolated -= (double)BufferNumFrames;
 				}
@@ -145,7 +151,15 @@ namespace Audio
 		CurrentSeekType = InSeekType;
 		bWrap = bInWrap;
 
-		UpdateSeekFrame();
+		if (bIsScrubMode)
+		{
+			UpdateSeekFrame();
+			UpdateScrubMinAndMax();
+		}
+		else
+		{
+			UpdateSeekFrame();
+		}
 	}
 
 	void FSampleBufferReader::SetScrubTimeWidth(const float InScrubTimeWidthSec)
@@ -167,6 +181,7 @@ namespace Audio
 		
 		// Anchor the current frame index as the scrub anchor
 		ScrubAnchorFrame = CurrentBufferFrameIndexInterpolated;
+		UpdateSeekFrame();
 		UpdateScrubMinAndMax();
 	}
 
@@ -178,6 +193,9 @@ namespace Audio
 		{
 			ScrubWidthFrames = (double)(DeviceSampleRate * FMath::Max(CurrentScrubWidthSec, 0.001f));
 			ScrubWidthFrames = FMath::Min((double)(BufferNumFrames - 1), ScrubWidthFrames);
+
+			// Don't allow the scrub width to be less than 2 times the scrubwidth frames
+			ScrubWidthFrames = FMath::Max(ScrubWidthFrames, (double)2*FadeFrames);
 
 			ScrubMinFrame = ScrubAnchorFrame - 0.5 * ScrubWidthFrames;
 			ScrubMaxFrame = ScrubAnchorFrame + 0.5 * ScrubWidthFrames;
@@ -237,7 +255,7 @@ namespace Audio
 				CurrentFrameIndex = FMath::FloorToInt(CurrentBufferFrameIndexInterpolated);
 				NextFrameIndex = CurrentFrameIndex + 1;
 				AlphaLerp = CurrentBufferFrameIndexInterpolated - (double)CurrentFrameIndex;
-				if (!bIsScrubMode)
+				if (!bIsScrubMode && !bWrap)
 				{
 					if (NextFrameIndex >= BufferNumFrames)
 					{
@@ -250,7 +268,7 @@ namespace Audio
 				CurrentFrameIndex = FMath::CeilToInt(CurrentBufferFrameIndexInterpolated);
 				NextFrameIndex = CurrentFrameIndex - 1;
 				AlphaLerp = (double)CurrentFrameIndex - CurrentBufferFrameIndexInterpolated;
-				if (!bIsScrubMode)
+				if (!bIsScrubMode && !bWrap)
 				{
 					if (NextFrameIndex < 0)
 					{
@@ -262,38 +280,65 @@ namespace Audio
 			if (!bIsFinished)
 			{
 				// Check for scrub boundaries and wrap. Note that we've already wrapped on the buffer boundary at this point.
-				if (bIsScrubMode)
+				if (bWrap || bIsScrubMode)
 				{
-					if (CurrentPitch > 0.0f && NextFrameIndex >= ScrubMaxFrame)
+					int32 MinWrapFrame = 0;
+					int32 MaxWrapFrame = BufferNumFrames;
+					if (bIsScrubMode)
 					{
-						NextFrameIndex = ScrubMinFrame;
-						CurrentFrameIndex = (int32)(ScrubMaxFrame - 1.0f);
+						MinWrapFrame = ScrubMinFrame;
+						MaxWrapFrame = ScrubMaxFrame;
+					}
+
+					if (CurrentPitch > 0.0f && NextFrameIndex >= MaxWrapFrame)
+					{
+						NextFrameIndex = MinWrapFrame;
+						CurrentFrameIndex = (int32)(MaxWrapFrame - 1.0f);
 						CurrentBufferFrameIndexInterpolated = FMath::Fmod(CurrentBufferFrameIndexInterpolated, 1.0) + (double)(NextFrameIndex);
 					}
-					else if (NextFrameIndex < ScrubMinFrame)
+					else if (NextFrameIndex < MinWrapFrame)
 					{
-						NextFrameIndex = (int32)(ScrubMaxFrame - 1);
-						CurrentFrameIndex = (int32)ScrubMinFrame;
+						NextFrameIndex = (int32)(MaxWrapFrame - 1);
+						CurrentFrameIndex = (int32)MinWrapFrame;
 						CurrentBufferFrameIndexInterpolated = FMath::Fmod(CurrentBufferFrameIndexInterpolated, 1.0) + (double)NextFrameIndex;
 					}
+
+					CurrentFrameIndex = FMath::CeilToInt(CurrentBufferFrameIndexInterpolated);
+					NextFrameIndex = CurrentFrameIndex - 1;
+					AlphaLerp = (double)CurrentFrameIndex - CurrentBufferFrameIndexInterpolated;
+
+					FadeValue = 1.0f;
+					int32 MaxFadeInFrame = MinWrapFrame + FadeFrames;
+					if (CurrentFrameIndex >= MinWrapFrame && CurrentFrameIndex < MaxFadeInFrame)
+					{
+						FadeValue = (float)(CurrentFrameIndex - MinWrapFrame) / FadeFrames;
+					}
+					else if (CurrentFrameIndex >= MaxWrapFrame - FadeFrames && CurrentFrameIndex < MaxWrapFrame)
+					{
+						FadeValue = 1.0f - (float)(CurrentFrameIndex - (MaxWrapFrame - FadeFrames)) / FadeFrames;
+					}
+				}
+				else
+				{
+					FadeValue = 1.0f;
 				}
 
 				if (OutChannels == BufferNumChannels)
 				{
 					for (int32 Channel = 0; Channel < BufferNumChannels; ++Channel)
 					{
-						OutAudioBuffer[OutSampleIndex++] = GetSampleValueForChannel(Channel);
+						OutAudioBuffer[OutSampleIndex++] = FadeValue * GetSampleValueForChannel(Channel);
 					}
 				}
 				else if (OutChannels == 1 && BufferNumChannels == 2)
 				{
-					float LeftChannel = GetSampleValueForChannel(0);
-					float RightChannel = GetSampleValueForChannel(1);
+					float LeftChannel = FadeValue * GetSampleValueForChannel(0);
+					float RightChannel = FadeValue * GetSampleValueForChannel(1);
 					OutAudioBuffer[OutSampleIndex++] = 0.5f * (LeftChannel + RightChannel);
 				}
 				else if (OutChannels == 2 && BufferNumChannels == 1)
 				{
-					float Sample = GetSampleValueForChannel(0);
+					float Sample = FadeValue * GetSampleValueForChannel(0);
 					OutAudioBuffer[OutSampleIndex++] = 0.5f * Sample;
 					OutAudioBuffer[OutSampleIndex++] = 0.5f * Sample;
 				}
@@ -305,37 +350,38 @@ namespace Audio
 		return bIsFinished;
 	}
 
+	static int32 WrapIndex(int32 Value, int32 Max)
+	{
+		if (Value < 0)
+		{
+			Value += Max;
+		}
+		else if (Value >= Max)
+		{
+			Value -= Max;
+		}
+		return Value;
+	}
+
 	float FSampleBufferReader::GetSampleValueForChannel(const int32 Channel)
 	{
-		int32 WrappedCurrentFrameIndex = CurrentFrameIndex;
-		if (CurrentFrameIndex < 0)
+		if (BufferPtr)
 		{
-			WrappedCurrentFrameIndex = CurrentFrameIndex + BufferNumFrames;
-		}
-		else if (CurrentFrameIndex >= BufferNumFrames)
-		{
-			WrappedCurrentFrameIndex = CurrentFrameIndex - BufferNumFrames;
-		}
+			// Wrap the current frame index
+			int32 WrappedCurrentFrameIndex = WrapIndex(CurrentFrameIndex, BufferNumFrames);
+			int32 WrappedNextFrameIndex = WrapIndex(NextFrameIndex, BufferNumFrames);
 
-		int32 WrappedNextFrameIndex = NextFrameIndex;
-		if (NextFrameIndex < 0)
-		{
-			WrappedNextFrameIndex = NextFrameIndex + BufferNumFrames;
+			// Update the current playback time
+			PlaybackProgress = (float)(WrappedCurrentFrameIndex / BufferSampleRate);
+
+			const int32 CurrentBufferSampleIndex = BufferNumChannels * WrappedCurrentFrameIndex + Channel;
+			const int32 NextBufferSampleIndex = BufferNumChannels * WrappedNextFrameIndex + Channel;
+
+			const float CurrentSampleValue = GetSampleValue(BufferPtr, CurrentBufferSampleIndex);
+			const float NextSampleValue = GetSampleValue(BufferPtr, NextBufferSampleIndex);
+			return FMath::Lerp(CurrentSampleValue, NextSampleValue, AlphaLerp);
 		}
-		else if (NextFrameIndex >= BufferNumFrames)
-		{
-			WrappedCurrentFrameIndex = NextFrameIndex - BufferNumFrames;
-		}
-
-		// Update the current playback time
-		PlaybackProgress = (float)(WrappedCurrentFrameIndex / BufferSampleRate);
-
-		const int32 CurrentBufferSampleIndex = BufferNumChannels * WrappedCurrentFrameIndex + Channel;
-		const int32 NextBufferSampleIndex = BufferNumChannels * WrappedNextFrameIndex + Channel;
-
-		const float CurrentSampleValue = GetSampleValue(BufferPtr, CurrentBufferSampleIndex);
-		const float NextSampleValue = GetSampleValue(BufferPtr, NextBufferSampleIndex);
-		return FMath::Lerp(CurrentSampleValue, NextSampleValue, AlphaLerp);
+		return 0.0f;
 	}
 
 }

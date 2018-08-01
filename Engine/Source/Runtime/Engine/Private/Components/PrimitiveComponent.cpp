@@ -32,7 +32,7 @@
 #include "PrimitiveSceneProxy.h"
 #include "Algo/Copy.h"
 #include "UObject/RenderingObjectVersion.h"
-#include "UObject/AthenaObjectVersion.h"
+#include "UObject/FortniteMainBranchObjectVersion.h"
 
 #if WITH_EDITOR
 #include "Engine/LODActor.h"
@@ -844,7 +844,7 @@ void UPrimitiveComponent::Serialize(FArchive& Ar)
 {
 	Super::Serialize(Ar);
 	Ar.UsingCustomVersion(FRenderingObjectVersion::GUID);
-	Ar.UsingCustomVersion(FAthenaObjectVersion::GUID);
+	Ar.UsingCustomVersion(FFortniteMainBranchObjectVersion::GUID);
 
 	// as temporary fix for the bug TTP 299926
 	// permanent fix is coming
@@ -861,7 +861,7 @@ void UPrimitiveComponent::Serialize(FArchive& Ar)
 		}
 	}
 	
-	if (Ar.CustomVer(FAthenaObjectVersion::GUID) < FAthenaObjectVersion::CullDistanceRefactor_RemovedDefaultDistance)
+	if (Ar.CustomVer(FFortniteMainBranchObjectVersion::GUID) < FFortniteMainBranchObjectVersion::CullDistanceRefactor_RemovedDefaultDistance)
 	{
 		LDMaxDrawDistance = 0.f;
 	}

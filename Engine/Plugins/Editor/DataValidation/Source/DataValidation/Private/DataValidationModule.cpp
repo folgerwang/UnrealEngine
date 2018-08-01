@@ -90,7 +90,7 @@ void FDataValidationModule::ShutdownModule()
 {
 	if (!IsRunningCommandlet() && !IsRunningGame())
 	{
-		FContentBrowserModule* ContentBrowserModule = (FContentBrowserModule*)(FModuleManager::Get().GetModule(TEXT("ContentBrowser")));
+		FContentBrowserModule* ContentBrowserModule = FModuleManager::GetModulePtr<FContentBrowserModule>(TEXT("ContentBrowser"));
 		if (ContentBrowserModule)
 		{
 			TArray<FContentBrowserMenuExtender_SelectedAssets>& CBMenuExtenderDelegates = ContentBrowserModule->GetAllAssetViewContextMenuExtenders();
@@ -99,8 +99,11 @@ void FDataValidationModule::ShutdownModule()
 		}
 
 		// remove menu extension
-		FLevelEditorModule& LevelEditorModule = FModuleManager::LoadModuleChecked<FLevelEditorModule>("LevelEditor");
-		LevelEditorModule.GetMenuExtensibilityManager()->RemoveExtender(MenuExtender);
+		FLevelEditorModule* LevelEditorModule = FModuleManager::GetModulePtr<FLevelEditorModule>("LevelEditor");
+		if (LevelEditorModule)
+		{
+			LevelEditorModule->GetMenuExtensibilityManager()->RemoveExtender(MenuExtender);
+		}
 		MenuExtender = nullptr;
 	}
 }

@@ -27,8 +27,60 @@ public:
 public:
 
 	/** SCompoundWidget functions */
-	void Construct( const FArguments& InArgs, const FText& GroupName, const TArray<TTuple<TSharedPtr<FUICommandInfo>, FUIAction>>& Actions )
+	void Construct( const FArguments& InArgs, const FText& GroupName, const TArray<TTuple<TSharedPtr<FUICommandInfo>, FUIAction>>& Actions, const TArray<TTuple<TSharedPtr<FUICommandInfo>, FUIAction>>& SelectionModifiers )
 	{
+		TSharedRef< SHorizontalBox > SelectionModifiersButtons = SNew( SHorizontalBox );
+
+		if ( SelectionModifiers.Num() > 1 ) // Only display the list of selection modifiers if there's more than 1.
+		{
+			SelectionModifiersButtons->AddSlot()
+			.HAlign( HAlign_Center )
+			.VAlign( VAlign_Center )
+			.Padding( 3.0f, 1.0f, 3.0f, 1.0f )
+			[
+				SNew( STextBlock )
+				.TextStyle( FMeshEditorStyle::Get(), "EditingMode.Entry.Text" )
+				.Text( LOCTEXT( "Selection", "Selection" ) )
+			];
+
+			for ( const TTuple<TSharedPtr<FUICommandInfo>, FUIAction>& Action : SelectionModifiers )
+			{
+				const FUICommandInfo& CommandInfo = *Action.Get<0>();
+				const FUIAction& UIAction = Action.Get<1>();
+
+				SelectionModifiersButtons->AddSlot()
+				.AutoWidth()
+				.Padding( 3.0f, 1.0f, 3.0f, 1.0f )
+				[
+					SNew( SCheckBox )
+					.Style( FMeshEditorStyle::Get(), "EditingMode.Entry" )
+					.ToolTip( SNew( SToolTip ).Text( CommandInfo.GetDescription() ) )
+					.IsChecked_Lambda( [UIAction] { return UIAction.GetCheckState(); } )
+					.OnCheckStateChanged_Lambda( [UIAction]( ECheckBoxState State ) { if( State == ECheckBoxState::Checked ) { UIAction.Execute(); } } )
+					[
+						SNew( SOverlay )
+						+SOverlay::Slot()
+						.VAlign( VAlign_Center )
+						[
+							SNew( SSpacer )
+							.Size( FVector2D( 1, 30 ) )
+						]
+						+SOverlay::Slot()
+						.Padding( FMargin( 8, 0, 8, 0 ) )
+						.HAlign( HAlign_Center )
+						.VAlign( VAlign_Center )
+						[
+							SNew( STextBlock )
+							.TextStyle( FMeshEditorStyle::Get(), "EditingMode.Entry.Text" )
+							.Text( CommandInfo.GetDefaultChord(EMultipleKeyBindingIndex::Primary).IsValidChord() ?
+							FText::Format( LOCTEXT( "RadioButtonLabelAndShortcutFormat", "{0}  ({1})" ), CommandInfo.GetLabel(), CommandInfo.GetDefaultChord(EMultipleKeyBindingIndex::Primary).GetInputText() ) :
+							CommandInfo.GetLabel() )
+						]
+					]
+				];
+			}
+		}
+
 		TSharedRef<SVerticalBox> Buttons = SNew( SVerticalBox );
 		TSharedRef<SVerticalBox> RadioButtons = SNew( SVerticalBox );
 
@@ -112,6 +164,12 @@ public:
 			.AutoHeight()
 			.HAlign( HAlign_Center )
 			[
+				SelectionModifiersButtons
+			]
+			+SVerticalBox::Slot()
+			.AutoHeight()
+			.HAlign( HAlign_Center )
+			[
 				RadioButtons
 			]
 			+SVerticalBox::Slot()
@@ -181,17 +239,17 @@ void SMeshEditorModeControls::Construct( const FArguments& InArgs, IMeshEditorMo
 
 	WidgetSwitcher->AddSlot( static_cast<int32>( EEditableMeshElementType::Vertex ) )
 	[
-		SNew( SMeshEditorModeControlWidget, LOCTEXT( "VertexGroupName", "Vertex" ), MeshEditorMode.GetVertexActions() )
+		SNew( SMeshEditorModeControlWidget, LOCTEXT( "VertexGroupName", "Vertex" ), MeshEditorMode.GetVertexActions(), MeshEditorMode.GetVertexSelectionModifiers() )
 	];
 
 	WidgetSwitcher->AddSlot( static_cast<int32>( EEditableMeshElementType::Edge ) )
 	[
-		SNew( SMeshEditorModeControlWidget, LOCTEXT( "EdgeGroupName", "Edge" ), MeshEditorMode.GetEdgeActions() )
+		SNew( SMeshEditorModeControlWidget, LOCTEXT( "EdgeGroupName", "Edge" ), MeshEditorMode.GetEdgeActions(), MeshEditorMode.GetEdgeSelectionModifiers() )
 	];
 
 	WidgetSwitcher->AddSlot( static_cast<int32>( EEditableMeshElementType::Polygon ) )
 	[
-		SNew( SMeshEditorModeControlWidget, LOCTEXT( "PolygonGroupName", "Polygon" ), MeshEditorMode.GetPolygonActions() )
+		SNew( SMeshEditorModeControlWidget, LOCTEXT( "PolygonGroupName", "Polygon" ), MeshEditorMode.GetPolygonActions(), MeshEditorMode.GetPolygonSelectionModifiers() )
 	];
 
 	WidgetSwitcher->AddSlot( static_cast<int32>( EEditableMeshElementType::Invalid ) )
@@ -331,7 +389,7 @@ void SMeshEditorModeControls::Construct( const FArguments& InArgs, IMeshEditorMo
 						SNew( SBox )
 						.Visibility_Lambda( [&MeshEditorMode]() { return MeshEditorMode.GetSelectedEditableMeshes().Num() > 0 ? EVisibility::Visible : EVisibility::Collapsed; } )
 						[
-							SNew( SMeshEditorModeControlWidget, LOCTEXT( "MeshGroupName", "Mesh" ), MeshEditorMode.GetCommonActions() )
+							SNew( SMeshEditorModeControlWidget, LOCTEXT( "MeshGroupName", "Mesh" ), MeshEditorMode.GetCommonActions(), TArray< TTuple< TSharedPtr<FUICommandInfo>, FUIAction > >() )
 						]
 					]
 				]

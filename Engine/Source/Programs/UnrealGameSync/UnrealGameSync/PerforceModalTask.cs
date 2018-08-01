@@ -1,3 +1,5 @@
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -43,7 +45,14 @@ namespace UnrealGameSync
 					PerforceConnection Perforce = new PerforceConnection(UserName, null, null);
 					if(ProjectFileName != null)
 					{
-						Directory.SetCurrentDirectory(Path.GetDirectoryName(ProjectFileName));
+						try
+						{
+							Directory.SetCurrentDirectory(Path.GetDirectoryName(ProjectFileName));
+						}
+						catch
+						{
+							// Just ignore
+						}
 					}
 
 					string NewServerAndPort;

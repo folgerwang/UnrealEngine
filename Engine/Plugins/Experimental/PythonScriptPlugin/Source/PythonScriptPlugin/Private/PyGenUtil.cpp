@@ -653,24 +653,34 @@ void FGeneratedWrappedEnumType::Finalize_PostReady()
 {
 	FGeneratedWrappedType::Finalize_PostReady();
 
+	check(MetaData.IsValid() && MetaData->GetTypeId() == FPyWrapperEnumMetaData::StaticTypeId());
+	TSharedRef<FPyWrapperEnumMetaData> EnumMetaData = StaticCastSharedRef<FPyWrapperEnumMetaData>(MetaData.ToSharedRef());
+
 	// Execute Python code within this block
 	{
 		FPyScopedGIL GIL;
 		for (const FGeneratedWrappedEnumEntry& EnumEntry : EnumEntries)
 		{
-			FPyWrapperEnum::SetEnumEntryValue(&PyType, EnumEntry.EntryValue, EnumEntry.EntryName.GetData(), EnumEntry.EntryDoc.GetData());
+			FPyWrapperEnum* PyEnumEntry = FPyWrapperEnum::AddEnumEntry(&PyType, EnumEntry.EntryValue, EnumEntry.EntryName.GetData(), EnumEntry.EntryDoc.GetData());
+			if (PyEnumEntry)
+			{
+				EnumMetaData->EnumEntries.Add(PyEnumEntry);
+			}
 		}
 	}
+
+	EnumMetaData->bFinalized = true;
 }
 
 void FGeneratedWrappedEnumType::ExtractEnumEntries(const UEnum* InEnum)
 {
 	for (int32 EnumEntryIndex = 0; EnumEntryIndex < InEnum->NumEnums() - 1; ++EnumEntryIndex)
 	{
+		// todo: deprecated enum entries?
 		if (ShouldExportEnumEntry(InEnum, EnumEntryIndex))
 		{
 			FGeneratedWrappedEnumEntry& EnumEntry = EnumEntries.AddDefaulted_GetRef();
-			EnumEntry.EntryName = TCHARToUTF8Buffer(*PythonizeName(InEnum->GetNameStringByIndex(EnumEntryIndex), EPythonizeNameCase::Upper));
+			EnumEntry.EntryName = TCHARToUTF8Buffer(*GetEnumEntryPythonName(InEnum, EnumEntryIndex));
 			EnumEntry.EntryDoc = TCHARToUTF8Buffer(*PythonizeTooltip(GetEnumEntryTooltip(InEnum, EnumEntryIndex)));
 			EnumEntry.EntryValue = InEnum->GetValueByIndex(EnumEntryIndex);
 		}
@@ -2324,6 +2334,34 @@ FString GetEnumPythonName(const UEnum* InEnum)
 TArray<FString> GetDeprecatedEnumPythonNames(const UEnum* InEnum)
 {
 	return GetDeprecatedFieldPythonNamesImpl(InEnum, ScriptNameMetaDataKey);
+}
+
+FString GetEnumEntryPythonName(const UEnum* InEnum, const int32 InEntryIndex)
+{
+	FString EnumEntryName;
+
+	// First see if we have a name override in the meta-data
+	{
+		EnumEntryName = InEnum->GetMetaData(TEXT("ScriptName"), InEntryIndex);
+
+		// This may be a semi-colon separated list - the first item is the one we want for the current name
+		if (!EnumEntryName.IsEmpty())
+		{
+			int32 SemiColonIndex = INDEX_NONE;
+			if (EnumEntryName.FindChar(TEXT(';'), SemiColonIndex))
+			{
+				EnumEntryName.RemoveAt(SemiColonIndex, EnumEntryName.Len() - SemiColonIndex, /*bAllowShrinking*/false);
+			}
+		}
+	}
+	
+	// Just use the entry name if we have no meta-data
+	if (EnumEntryName.IsEmpty())
+	{
+		EnumEntryName = InEnum->GetNameStringByIndex(InEntryIndex);
+	}
+
+	return PythonizeName(EnumEntryName, EPythonizeNameCase::Upper);
 }
 
 FString GetDelegatePythonName(const UFunction* InDelegateSignature)

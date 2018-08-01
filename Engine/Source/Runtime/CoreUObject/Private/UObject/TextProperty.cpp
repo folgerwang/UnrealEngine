@@ -7,6 +7,7 @@
 #include "Internationalization/TextNamespaceUtil.h"
 #include "Internationalization/TextPackageNamespaceUtil.h"
 #include "Internationalization/StringTableRegistry.h"
+#include "Internationalization/StringTableCore.h"
 
 EConvertFromTypeResult UTextProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct)
 {
@@ -55,6 +56,21 @@ bool UTextProperty::Identical_Implementation(const FText& ValueA, const FText& V
 	// If both texts share the same pointer, then they must be equal
 	if (ValueA.IdenticalTo(ValueB))
 	{
+		// Placeholder string table entries will have the same pointer, but should only be considered equal if they're using the same string table and key
+		if (ValueA.IsFromStringTable() && FTextInspector::GetSourceString(ValueA) == &FStringTableEntry::GetPlaceholderSourceString())
+		{
+			FName ValueAStringTableId;
+			FString ValueAStringTableEntryKey;
+			FTextInspector::GetTableIdAndKey(ValueA, ValueAStringTableId, ValueAStringTableEntryKey);
+
+			FName ValueBStringTableId;
+			FString ValueBStringTableEntryKey;
+			FTextInspector::GetTableIdAndKey(ValueB, ValueBStringTableId, ValueBStringTableEntryKey);
+
+			return ValueAStringTableId == ValueBStringTableId && ValueAStringTableEntryKey.Equals(ValueBStringTableEntryKey, ESearchCase::CaseSensitive);
+		}
+
+		// Otherwise they're equal
 		return true;
 	}
 

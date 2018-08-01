@@ -3,14 +3,11 @@
 #pragma once
 
 #include "CoreMinimal.h"
-
-enum class ERemoteSessionChannelMode
-{
-	Receive,
-	Send
-};
+#include "RemoteSession/RemoteSession.h"
 
 class FBackChannelOSCConnection;
+
+enum class ERemoteSessionChannelMode;
 
 class REMOTESESSION_API IRemoteSessionChannel
 {

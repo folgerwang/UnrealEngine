@@ -180,7 +180,7 @@ bool FBackChannelConnection::Listen(const int16 Port)
         
         if (NewSocket != nullptr)
         {
-            bool Error = false;//!NewSocket->SetReuseAddr(true);
+            bool Error = !NewSocket->SetReuseAddr(true);
             
             if (!Error)
             {
@@ -297,7 +297,7 @@ bool FBackChannelConnection::WaitForConnection(double InTimeout, TFunction<bool(
 			{
 				TSharedRef<FInternetAddr> RemoteAddress = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->CreateInternetAddr();
 
-				FSocket* ConnectionSocket = Socket->Accept(*RemoteAddress, TEXT("Incoming Connection"));
+				FSocket* ConnectionSocket = Socket->Accept(*RemoteAddress, TEXT("RemoteConnection"));
 
 				if (ConnectionSocket != nullptr)
 				{

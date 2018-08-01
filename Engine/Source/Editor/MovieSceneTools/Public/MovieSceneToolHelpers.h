@@ -13,6 +13,7 @@
 #include "ISequencer.h"
 #include "Logging/TokenizedMessage.h"
 #include "MovieSceneTranslator.h"
+#include "MovieSceneCaptureSettings.h"
 
 class ISequencer;
 class UMovieScene;
@@ -167,24 +168,34 @@ public:
 	* @param InHandleFrames The number of handle frames to include for each shot.
 	* @return Whether the export was successful
 	*/
-	static bool MovieSceneTranslatorExport(FMovieSceneExporter* InExporter, const UMovieScene* InMovieScene, FFrameRate InFrameRate, FString InSaveDirectory = TEXT(""), int32 InHandleFrames = 8);
+	static bool MovieSceneTranslatorExport(FMovieSceneExporter* InExporter, const UMovieScene* InMovieScene, const FMovieSceneCaptureSettings& Settings);
 
 	/** 
-	* Display error message window for MovieScene translators
+	* Log messages and display error message window for MovieScene translators
+	*
+	* @param InTranslator The movie scene importer or exporter.
+	* @param InContext The context used to gather error, warning or info messages during import or export.
+	* @param bDisplayMessages Whether to open the message log window after adding the message.
+	*/
+	static void MovieSceneTranslatorLogMessages(FMovieSceneTranslator* InTranslator, TSharedRef<FMovieSceneTranslatorContext> InContext, bool bDisplayMessages);
+
+	/**
+	* Log error output for MovieScene translators
 	*
 	* @param InTranslator The movie scene importer or exporter.
 	* @param InContext The context used to gather error, warning or info messages during import or export.
 	*/
-	static void MovieSceneTranslatorDisplayMessages(FMovieSceneTranslator* InTranslator,  TSharedRef<FMovieSceneTranslatorContext> InContext);
+	static void MovieSceneTranslatorLogOutput(FMovieSceneTranslator* InTranslator, TSharedRef<FMovieSceneTranslatorContext> InContext);
 
 	/**
 	 * Import FBX
 	 *
 	 * @param InMovieScene The movie scene to import the fbx into
 	 * @param InObjectBindingNameMap The object binding to name map to map import fbx animation onto
+	 * @param bCreateCameras Whether to allow creation of cameras if found in the fbx file.
 	 * @return Whether the import was successful
 	 */
-	static bool ImportFBX(UMovieScene* InMovieScene, ISequencer& InSequencer, const TMap<FGuid, FString>& InObjectBindingNameMap);
+	static bool ImportFBX(UMovieScene* InMovieScene, ISequencer& InSequencer, const TMap<FGuid, FString>& InObjectBindingNameMap, TOptional<bool> bCreateCameras);
 
 	/*
 	 * Rich curve interpolation to matinee interpolation

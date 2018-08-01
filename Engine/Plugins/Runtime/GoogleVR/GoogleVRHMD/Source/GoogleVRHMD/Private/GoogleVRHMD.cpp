@@ -1543,10 +1543,10 @@ FMatrix FGoogleVRHMD::GetStereoProjectionMatrix(const enum EStereoscopicPass Ste
 	if (bIsInstantPreviewActive) {
 		int index = (StereoPassType == eSSP_LEFT_EYE) ? 0 : 1;
 		// Have to flip left/right and top/bottom to match UE4 expectations
-		float Right = FPlatformMath::Tan(FMath::DegreesToRadians(EyeViews.eye_views[index].eye_fov.left));
-		float Left = -FPlatformMath::Tan(FMath::DegreesToRadians(EyeViews.eye_views[index].eye_fov.right));
-		float Bottom = -FPlatformMath::Tan(FMath::DegreesToRadians(EyeViews.eye_views[index].eye_fov.top));
-		float Top = FPlatformMath::Tan(FMath::DegreesToRadians(EyeViews.eye_views[index].eye_fov.bottom));
+		float Right = FPlatformMath::Tan(FMath::DegreesToRadians(FMath::Abs(EyeViews.eye_views[index].eye_fov.left)));
+		float Left = -FPlatformMath::Tan(FMath::DegreesToRadians(FMath::Abs(EyeViews.eye_views[index].eye_fov.right)));
+		float Bottom = -FPlatformMath::Tan(FMath::DegreesToRadians(FMath::Abs(EyeViews.eye_views[index].eye_fov.top)));
+		float Top = FPlatformMath::Tan(FMath::DegreesToRadians(FMath::Abs(EyeViews.eye_views[index].eye_fov.bottom)));
 		float ZNear = GNearClippingPlane;
 		float SumRL = (Right + Left);
 		float SumTB = (Top + Bottom);

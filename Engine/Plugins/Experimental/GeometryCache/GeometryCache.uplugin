@@ -26,7 +26,21 @@
 			]
 		},
 		{
+			"Name" : "GeometryCacheSequencer",
+			"Type" : "Editor",
+			"LoadingPhase" : "Default",
+			"WhitelistPlatforms" :
+			[
+				"Win64"
+			]
+		},
+		{
 			"Name" : "GeometryCache",
+			"Type" : "Runtime",
+			"LoadingPhase" : "Default"
+		},
+		{
+			"Name" : "GeometryCacheTracks",
 			"Type" : "Runtime",
 			"LoadingPhase" : "Default"
 		}

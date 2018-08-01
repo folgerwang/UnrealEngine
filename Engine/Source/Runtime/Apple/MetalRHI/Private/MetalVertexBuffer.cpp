@@ -120,18 +120,14 @@ FMetalRHIBuffer::FMetalRHIBuffer(uint32 InSize, uint32 InUsage, ERHIResourceType
 		
 		if (InUsage & EMetalBufferUsage_LinearTex)
 		{
-			if (FMetalCommandQueue::SupportsFeature(EMetalFeaturesLinearTextures) && (InUsage & (BUF_UnorderedAccess|BUF_ShaderResource)))
-			{
-				AllocSize = Align(InSize, 1024);
-			}
-			
 			if ((InUsage & BUF_UnorderedAccess) && ((InSize - AllocSize) < 512))
 			{
 				// Padding for write flushing when not using linear texture bindings for buffers
 				AllocSize = Align(AllocSize + 512, 1024);
 			}
 			
-			if (FMetalCommandQueue::SupportsFeature(EMetalFeaturesLinearTextures) && (InUsage & (BUF_UnorderedAccess)))
+			if ((FMetalCommandQueue::SupportsFeature(EMetalFeaturesLinearTextures) && (InUsage & (BUF_ShaderResource)))
+			|| (FMetalCommandQueue::SupportsFeature(EMetalFeaturesLinearTextureUAVs) && (InUsage & (BUF_UnorderedAccess))))
 			{
 				uint32 NumElements = AllocSize;
 				uint32 SizeX = NumElements;
@@ -155,6 +151,8 @@ FMetalRHIBuffer::FMetalRHIBuffer(uint32 InSize, uint32 InUsage, ERHIResourceType
 						SizeX = NumElements;
 					}
 				}
+				
+				AllocSize = Align(AllocSize, 1024);
 			}
 		}
 		
@@ -284,7 +282,7 @@ FMetalTexture FMetalRHIBuffer::AllocLinearTexture(EPixelFormat Format)
 	}
 }
 
-ns::AutoReleased<FMetalTexture> FMetalRHIBuffer::GetLinearTexture(EPixelFormat Format)
+ns::AutoReleased<FMetalTexture> FMetalRHIBuffer::CreateLinearTexture(EPixelFormat Format)
 {
 	ns::AutoReleased<FMetalTexture> Texture;
 	if (FMetalCommandQueue::SupportsFeature(EMetalFeaturesLinearTextures) && (Usage & (BUF_UnorderedAccess|BUF_ShaderResource)) && GMetalBufferFormats[Format].LinearTextureFormat != mtlpp::PixelFormat::Invalid)
@@ -301,6 +299,20 @@ ns::AutoReleased<FMetalTexture> FMetalRHIBuffer::GetLinearTexture(EPixelFormat F
             check(GMetalBufferFormats[Format].LinearTextureFormat == mtlpp::PixelFormat::RG11B10Float || GMetalBufferFormats[Format].LinearTextureFormat == (mtlpp::PixelFormat)NewTexture.GetPixelFormat());
 			LinearTextures.Add(Format, NewTexture);
 			Texture = NewTexture;
+		}
+	}
+	return Texture;
+}
+
+ns::AutoReleased<FMetalTexture> FMetalRHIBuffer::GetLinearTexture(EPixelFormat Format)
+{
+	ns::AutoReleased<FMetalTexture> Texture;
+	if (FMetalCommandQueue::SupportsFeature(EMetalFeaturesLinearTextures) && (Usage & (BUF_UnorderedAccess|BUF_ShaderResource)) && GMetalBufferFormats[Format].LinearTextureFormat != mtlpp::PixelFormat::Invalid)
+	{
+		FMetalTexture* ExistingTexture = LinearTextures.Find(Format);
+		if (ExistingTexture)
+		{
+			Texture = *ExistingTexture;
 		}
 	}
 	return Texture;

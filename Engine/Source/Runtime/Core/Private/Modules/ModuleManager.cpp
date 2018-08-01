@@ -464,9 +464,19 @@ IModuleInterface* FModuleManager::LoadModuleWithFailureReason(const FName InModu
 
 			UE_LOG(LogModuleManager, Verbose, TEXT("ModuleManager: Load Module '%s' DLL '%s'"), *InModuleName.ToString(), *ModuleInfo->Filename);
 
-			if (ModuleInfo->Filename.IsEmpty())
+			if (ModuleInfo->Filename.IsEmpty() || !FPaths::FileExists(ModuleInfo->Filename))
 			{
-				UE_LOG(LogModuleManager, Warning, TEXT("No filename provided for module %s"), *InModuleName.ToString());
+				TMap<FName, FString> ModulePathMap;
+				FindModulePaths(*InModuleName.ToString(), ModulePathMap);
+
+				if (ModulePathMap.Num() != 1)
+				{
+					UE_LOG(LogModuleManager, Warning, TEXT("ModuleManager: Unable to load module '%s'  - %d instances of that module name found."), *InModuleName.ToString(), ModulePathMap.Num());
+					OutFailureReason = EModuleLoadResult::FileNotFound;
+					return nullptr;
+				}
+
+				ModuleInfo->Filename = MoveTemp(TMap<FName, FString>::TIterator(ModulePathMap).Value());
 			}
 
 			// Determine which file to load for this module.
@@ -1070,7 +1080,7 @@ bool FModuleManager::LoadModuleWithCallback( const FName InModuleName, FOutputDe
 
 void FModuleManager::MakeUniqueModuleFilename( const FName InModuleName, FString& UniqueSuffix, FString& UniqueModuleFileName ) const
 {
-	auto Module = FindModuleChecked(InModuleName);
+	TSharedRef<const FModuleInfo, ESPMode::ThreadSafe> Module = FindModuleChecked(InModuleName);
 
 	IFileManager& FileManager = IFileManager::Get();
 
@@ -1082,7 +1092,7 @@ void FModuleManager::MakeUniqueModuleFilename( const FName InModuleName, FString
 		const FString ModuleName = InModuleName.ToString();
 		const int32 MatchPos = Module->OriginalFilename.Find(ModuleName, ESearchCase::IgnoreCase, ESearchDir::FromEnd);
 
-		if (ensure(MatchPos != INDEX_NONE))
+		if (MatchPos != INDEX_NONE)
 		{
 			const int32 SuffixPos = MatchPos + ModuleName.Len();
 			UniqueModuleFileName = FString::Printf( TEXT( "%s-%s%s" ),

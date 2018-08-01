@@ -191,6 +191,34 @@ void UK2Node_ExecutionSequence::AddInputPin()
 	CreatePin(EGPD_Output, UEdGraphSchema_K2::PC_Exec, GetUniquePinName());
 }
 
+void UK2Node_ExecutionSequence::InsertPinIntoExecutionNode(UEdGraphPin* PinToInsertBefore, EPinInsertPosition Position)
+{
+	Modify();
+
+	int32 DesiredPinIndex = Pins.Find(PinToInsertBefore);
+	if (DesiredPinIndex != INDEX_NONE)
+	{
+		if (Position == EPinInsertPosition::After)
+		{
+			DesiredPinIndex = DesiredPinIndex + 1;
+		}
+
+		FCreatePinParams Params;
+		Params.Index = DesiredPinIndex;
+		CreatePin(EGPD_Output, UEdGraphSchema_K2::PC_Exec, GetUniquePinName(), Params);
+
+		// refresh names on the pin list:
+		for (int32 Idx = 0; Idx < Pins.Num(); ++Idx)
+		{
+			UEdGraphPin* PotentialPin = Pins[Idx];
+			if (UEdGraphSchema_K2::IsExecPin(*PotentialPin) && (PotentialPin->Direction == EGPD_Output))
+			{
+				PotentialPin->PinName = GetPinNameGivenIndex(Idx);
+			}
+		}
+	}
+}
+
 void UK2Node_ExecutionSequence::RemovePinFromExecutionNode(UEdGraphPin* TargetPin) 
 {
 	UK2Node_ExecutionSequence* OwningSeq = Cast<UK2Node_ExecutionSequence>( TargetPin->GetOwningNode() );

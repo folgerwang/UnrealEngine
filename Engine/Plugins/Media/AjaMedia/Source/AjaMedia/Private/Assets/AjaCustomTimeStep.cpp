@@ -37,23 +37,52 @@ struct UAjaCustomTimeStep::FAJACallback : public AJA::IAJASyncChannelCallbackInt
 //--------------------------------------------------------------------
 UAjaCustomTimeStep::UAjaCustomTimeStep(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
+	, TimecodeFormat(EAjaMediaTimecodeFormat::LTC)
 	, bEnableOverrunDetection(false)
 	, SyncChannel(nullptr)
 	, SyncCallback(nullptr)
 	, State(ECustomTimeStepSynchronizationState::Closed)
+#if WITH_EDITORONLY_DATA
+	, InitializedEngine(nullptr)
+	, LastAutoSynchronizeInEditorAppTime(0.0)
+#endif
 	, bDidAValidUpdateTimeStep(false)
 {
 }
 
-bool UAjaCustomTimeStep::Initialize(class UEngine* InEngine)
+bool UAjaCustomTimeStep::Initialize(UEngine* InEngine)
 {
+#if WITH_EDITORONLY_DATA
+	InitializedEngine = nullptr;
+#endif
+
 	State = ECustomTimeStepSynchronizationState::Closed;
 	bDidAValidUpdateTimeStep = false;
 
-	if (!MediaPort.IsValid())
+	if (!FAja::IsInitialized())
 	{
-		UE_LOG(LogAjaMedia, Warning, TEXT("The Source of '%s' is not valid."), *GetName());
 		State = ECustomTimeStepSynchronizationState::Error;
+		UE_LOG(LogAjaMedia, Warning, TEXT("The CustomTimeStep '%s' can't be initialized. Aja is not initialized on your machine."), *GetName());
+		return false;
+	}
+
+	if (!FAja::CanUseAJACard())
+	{
+		State = ECustomTimeStepSynchronizationState::Error;
+		UE_LOG(LogAjaMedia, Warning, TEXT("The CustomTimeStep '%s' can't be initialized because Aja card cannot be used. Are you in a Commandlet? You may override this behavior by launching with -ForceAjaUsage"), *GetName());
+		return false;
+	}
+
+	const FAjaMediaMode CurrentMediaMode = GetMediaMode();
+
+	FString FailureReason;
+	if (!FAjaMediaFinder::IsValid(MediaPort, CurrentMediaMode, FailureReason))
+	{
+		State = ECustomTimeStepSynchronizationState::Error;
+
+		const bool bAddProjectSettingMessage = MediaPort.IsValid() && !bIsDefaultModeOverriden;
+		const FString OverrideString = bAddProjectSettingMessage ? TEXT("The project settings haven't been set for this port.") : TEXT("");
+		UE_LOG(LogAjaMedia, Warning, TEXT("The CustomTimeStep '%s' is invalid. %s %s"), *GetName(), *FailureReason, *OverrideString);
 		return false;
 	}
 
@@ -65,7 +94,23 @@ bool UAjaCustomTimeStep::Initialize(class UEngine* InEngine)
 	//Convert Port Index to match what AJA expects
 	AJA::AJASyncChannelOptions Options(*GetName(), MediaPort.PortIndex);
 	Options.CallbackInterface = SyncCallback;
-	Options.bUseTimecode = false;
+	Options.VideoFormatIndex = CurrentMediaMode.VideoFormatIndex;
+
+	Options.TimecodeFormat = AJA::ETimecodeFormat::TCF_None;
+	switch (TimecodeFormat)
+	{
+	case EAjaMediaTimecodeFormat::None:
+		Options.TimecodeFormat = AJA::ETimecodeFormat::TCF_None;
+		break;
+	case EAjaMediaTimecodeFormat::LTC:
+		Options.TimecodeFormat = AJA::ETimecodeFormat::TCF_LTC;
+		break;
+	case EAjaMediaTimecodeFormat::VITC:
+		Options.TimecodeFormat = AJA::ETimecodeFormat::TCF_VITC1;
+		break;
+	default:
+		break;
+	}
 
 	check(SyncChannel == nullptr);
 	SyncChannel = new AJA::AJASyncChannel();
@@ -79,17 +124,25 @@ bool UAjaCustomTimeStep::Initialize(class UEngine* InEngine)
 		return false;
 	}
 
+#if WITH_EDITORONLY_DATA
+	InitializedEngine = InEngine;
+#endif
+
 	State = ECustomTimeStepSynchronizationState::Synchronizing;
 	return true;
 }
 
-void UAjaCustomTimeStep::Shutdown(class UEngine* InEngine)
+void UAjaCustomTimeStep::Shutdown(UEngine* InEngine)
 {
+#if WITH_EDITORONLY_DATA
+	InitializedEngine = nullptr;
+#endif
+
 	State = ECustomTimeStepSynchronizationState::Closed;
 	ReleaseResources();
 }
 
-bool UAjaCustomTimeStep::UpdateTimeStep(class UEngine* InEngine)
+bool UAjaCustomTimeStep::UpdateTimeStep(UEngine* InEngine)
 {
 	bool bRunEngineTimeStep = true;
 	if (State == ECustomTimeStepSynchronizationState::Synchronized)
@@ -109,6 +162,19 @@ bool UAjaCustomTimeStep::UpdateTimeStep(class UEngine* InEngine)
 	else if (State == ECustomTimeStepSynchronizationState::Error)
 	{
 		ReleaseResources();
+
+		// In Editor only, when not in pie, reinitialized the device
+#if WITH_EDITORONLY_DATA && WITH_EDITOR
+		if (InitializedEngine && !GIsPlayInEditorWorld && GIsEditor)
+		{
+			const double TimeBetweenAttempt = 1.0;
+			if (FApp::GetCurrentTime() - LastAutoSynchronizeInEditorAppTime > TimeBetweenAttempt)
+			{
+				Initialize(InitializedEngine);
+				LastAutoSynchronizeInEditorAppTime = FApp::GetCurrentTime();
+			}
+		}
+#endif
 	}
 
 	return bRunEngineTimeStep;
@@ -129,6 +195,27 @@ void UAjaCustomTimeStep::BeginDestroy()
 {
 	ReleaseResources();
 	Super::BeginDestroy();
+}
+
+FAjaMediaMode UAjaCustomTimeStep::GetMediaMode() const
+{
+	FAjaMediaMode CurrentMode;
+	if (bIsDefaultModeOverriden == false)
+	{
+		CurrentMode = GetDefault<UAjaMediaSettings>()->GetInputMediaMode(MediaPort);
+	}
+	else
+	{
+		CurrentMode = MediaMode;
+	}
+
+	return CurrentMode;
+}
+
+void UAjaCustomTimeStep::OverrideMediaMode(const FAjaMediaMode& InMediaMode)
+{
+	bIsDefaultModeOverriden = true;
+	MediaMode = InMediaMode;
 }
 
 //~ UAjaCustomTimeStep implementation

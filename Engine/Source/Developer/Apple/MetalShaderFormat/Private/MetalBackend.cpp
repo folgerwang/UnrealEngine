@@ -1164,6 +1164,11 @@ protected:
 							buffer,
 							" [[ buffer(%d) ]]", BufferIndex
 							);
+						
+						if (!bNeedsPointer)
+						{
+							Backend.ConstantBuffers |= 1 << BufferIndex;
+						}
 					}
 				}
 				else if (IsMain && var->mode == ir_var_in)
@@ -5890,6 +5895,7 @@ FMetalCodeBackend::FMetalCodeBackend(FMetalTessellationOutputs& TessOutputAttrib
 	InvariantBuffers(0),
 	TypedBuffers(0),
     TypedUAVs(0),
+	ConstantBuffers(0),
 	bExplicitDepthWrites(false)
 {
     Version = InVersion;

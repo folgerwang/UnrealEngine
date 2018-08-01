@@ -5,7 +5,6 @@
 	"FriendlyName" : "Magic Leap Screens",
 	"CreatedBy" : "Magic Leap, Inc.",
 	"CreatedByURL" : "http://magicleap.com",
-	"EngineVersion" : "4.20.0",
 	"Description" : "Support for the Magic Leap Screens and Magic TV Apps.",
 	"Category" : "Movie Players",
 	"EnabledByDefault" : false,

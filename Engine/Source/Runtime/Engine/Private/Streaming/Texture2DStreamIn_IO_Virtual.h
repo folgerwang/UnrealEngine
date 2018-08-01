@@ -25,6 +25,8 @@ protected:
 	void LockMips(const FContext& Context);
 	// Create load requests into each locked mips. (AsyncThread)
 	void LoadMips(const FContext& Context);
+	// Clear the IO requests and call Finalize. (AsyncThread)
+	void PostLoadMips(const FContext& Context);
 	// Apply the intermediate texture and cleanup. (RenderThread)
 	void Finalize(const FContext& Context);
 

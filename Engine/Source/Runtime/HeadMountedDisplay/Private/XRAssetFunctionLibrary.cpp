@@ -13,7 +13,7 @@
 namespace XRAssetFunctionLibrary_Impl
 {
 	static UPrimitiveComponent* AddDeviceVisualizationComponent(AActor* Target, const FXRDeviceId& XRDeviceId, bool bManualAttachment, const FTransform& RelativeTransformbool, const bool bForceSynchronous = false, const FXRComponentLoadComplete& OnLoadComplete = FXRComponentLoadComplete());
-	static UPrimitiveComponent* AddNamedDeviceVisualizationComponent(AActor* Target, const FName SystemName, const FName DeviceName, bool bManualAttachment, const FTransform& RelativeTransform, const bool bForceSynchronous = false, const FXRComponentLoadComplete& OnLoadComplete = FXRComponentLoadComplete());
+	static UPrimitiveComponent* AddNamedDeviceVisualizationComponent(AActor* Target, const FName SystemName, const FName DeviceName, bool bManualAttachment, const FTransform& RelativeTransform, FXRDeviceId& XRDeviceIdOut, const bool bForceSynchronous = false, const FXRComponentLoadComplete& OnLoadComplete = FXRComponentLoadComplete());
 	static UPrimitiveComponent* SpawnDeviceComponent(AActor* Target, IXRSystemAssets* AssetSystem, int32 DeviceId, bool bManualAttachment, const FTransform& RelativeTransform, const bool bForceSynchronous, const FXRComponentLoadComplete& OnLoadComplete);
 }
 
@@ -62,7 +62,8 @@ static UPrimitiveComponent* XRAssetFunctionLibrary_Impl::AddNamedDeviceVisualiza
 	const FName						SystemName, 
 	const FName						DeviceName, 
 	bool							bManualAttachment, 
-	const FTransform&				RelativeTransform, 
+	const FTransform&				RelativeTransform,
+	FXRDeviceId&					XRDeviceIdOut,
 	const bool						bForceSynchronous, 
 	const FXRComponentLoadComplete& OnLoadComplete)
 {
@@ -81,6 +82,7 @@ static UPrimitiveComponent* XRAssetFunctionLibrary_Impl::AddNamedDeviceVisualiza
 				NewComponent = SpawnDeviceComponent(Target, AssetSys, DeviceId, bManualAttachment, RelativeTransform, bForceSynchronous, OnLoadComplete);
 				if (NewComponent)
 				{
+					XRDeviceIdOut = FXRDeviceId(AssetSys, DeviceId);
 					break;
 				}
 			}
@@ -89,7 +91,7 @@ static UPrimitiveComponent* XRAssetFunctionLibrary_Impl::AddNamedDeviceVisualiza
 
 	if (NewComponent == nullptr)
 	{
-		UE_LOG(LogHMD, Warning, TEXT("Failed to find an active XR system with a model for the requested device."));
+		UE_LOG(LogHMD, Warning, TEXT("Failed to find an active XR system with a model for the requested device: %s."), *DeviceName.ToString());
 	}
 	return NewComponent;
 }
@@ -145,9 +147,9 @@ UPrimitiveComponent* UXRAssetFunctionLibrary::AddDeviceVisualizationComponentBlo
 	return NewComponent;
 }
 
-UPrimitiveComponent* UXRAssetFunctionLibrary::AddNamedDeviceVisualizationComponentBlocking(AActor* Target, const FName SystemName, const FName DeviceName, bool bManualAttachment, const FTransform& RelativeTransform)
+UPrimitiveComponent* UXRAssetFunctionLibrary::AddNamedDeviceVisualizationComponentBlocking(AActor* Target, const FName SystemName, const FName DeviceName, bool bManualAttachment, const FTransform& RelativeTransform, FXRDeviceId& XRDeviceId)
 {
-	UPrimitiveComponent* NewComponent = XRAssetFunctionLibrary_Impl::AddNamedDeviceVisualizationComponent(Target, SystemName, DeviceName, bManualAttachment, RelativeTransform, /*bForceSynchronous =*/true);
+	UPrimitiveComponent* NewComponent = XRAssetFunctionLibrary_Impl::AddNamedDeviceVisualizationComponent(Target, SystemName, DeviceName, bManualAttachment, RelativeTransform, XRDeviceId, /*bForceSynchronous =*/true);
 	return NewComponent;
 }
 
@@ -175,7 +177,7 @@ UAsyncTask_LoadXRDeviceVisComponent* UAsyncTask_LoadXRDeviceVisComponent::AddDev
 	return NewTask;
 }
 
-UAsyncTask_LoadXRDeviceVisComponent* UAsyncTask_LoadXRDeviceVisComponent::AddNamedDeviceVisualizationComponentAsync(AActor* Target, const FName SystemName, const FName DeviceName, bool bManualAttachment, const FTransform& RelativeTransform, UPrimitiveComponent*& NewComponent)
+UAsyncTask_LoadXRDeviceVisComponent* UAsyncTask_LoadXRDeviceVisComponent::AddNamedDeviceVisualizationComponentAsync(AActor* Target, const FName SystemName, const FName DeviceName, bool bManualAttachment, const FTransform& RelativeTransform, FXRDeviceId& XRDeviceId, UPrimitiveComponent*& NewComponent)
 {
 	UAsyncTask_LoadXRDeviceVisComponent* NewTask = NewObject<UAsyncTask_LoadXRDeviceVisComponent>();
 
@@ -187,7 +189,7 @@ UAsyncTask_LoadXRDeviceVisComponent* UAsyncTask_LoadXRDeviceVisComponent::AddNam
 			NewTask->OnLoadComplete(Component != nullptr);
 		}
 	});
-	NewComponent = NewTask->SpawnedComponent = XRAssetFunctionLibrary_Impl::AddNamedDeviceVisualizationComponent(Target, SystemName, DeviceName, bManualAttachment, RelativeTransform, /*bForceSynchronous =*/false, LoadCompleteDelegate);
+	NewComponent = NewTask->SpawnedComponent = XRAssetFunctionLibrary_Impl::AddNamedDeviceVisualizationComponent(Target, SystemName, DeviceName, bManualAttachment, RelativeTransform, XRDeviceId, /*bForceSynchronous =*/false, LoadCompleteDelegate);
 
 	return NewTask;
 }

@@ -77,8 +77,8 @@
 
 //------------------------------------------------------- COMPILE TIME CONSTANTS.
 
-// A very large Coc radius that is assumed to be unreachable.
-#define EXTREMELY_LARGE_COC_RADIUS 100000
+// A very large Coc radius that is assumed to be unreachable, but still encodable in 16bits float.
+#define EXTREMELY_LARGE_COC_RADIUS 16384
 
 
 // Default border size for group.
@@ -105,6 +105,9 @@
 
 /** Whether alpha channel should be processed or not. */
 #define CONFIG_DOF_ALPHA (POST_PROCESS_ALPHA)
+
+/** Amount of error tolerated to quick fast gathering in. */
+#define FAST_GATHERING_COC_ERROR 0.05
 
 
 //------------------------------------------------------- COMPILE TIME CONSTANTS.
@@ -145,20 +148,39 @@ static const int2 kOffsetsSquare3x3[9] = {
 
 // is wrapping the DepthToCoc() function in this file for faster iteration
 // @return half res pixel radius
-float DepthToHalfResCocRadius(float4 CocModelParameters, float SceneDepth)
+float DepthToHalfResCocRadius(float4 CocModelParameters, float2 DepthBlurParameters, float SceneDepth)
 {
 	const float Focus = View.DepthOfFieldFocalDistance; // TODO: rename that guy to DepthOfFieldFocusDistance.
 	const float InfinityCocRadius = CocModelParameters.x;
 	const float MinCocRadius = CocModelParameters.y;
 	const float MaxCocRadius = CocModelParameters.z;
 	
-	return clamp(((SceneDepth - Focus) / SceneDepth) * InfinityCocRadius, MinCocRadius, MaxCocRadius);
+	// Radius from the circle of confusion.
+	float CocRadius = ((SceneDepth - Focus) / SceneDepth) * InfinityCocRadius;
+
+	// Depth blur's radius.
+	float DepthBlurAbsRadius = (1.0 - exp2(-SceneDepth * DepthBlurParameters.x)) * DepthBlurParameters.y;
+
+	float ReturnCoc = max(abs(CocRadius), DepthBlurAbsRadius);
+	if(CocRadius < 0.0) 
+	{
+		// Near CoC is using negative values.
+		ReturnCoc = -ReturnCoc;
+	}
+
+	return clamp(ReturnCoc, MinCocRadius, MaxCocRadius);
 }
 
 // Return whether this is front element from CocRadius.
 bool IsForeground(float CocRadius)
 {
 	return CocRadius < 0.0f;
+}
+
+// Faster but less accurate luma computation with a scaling by 4.
+float Luma4(float3 Color)
+{
+	return (Color.g * 2.0) + (Color.r + Color.b);
 }
 
 // Returns 1/x if x > 0, d otherwise.

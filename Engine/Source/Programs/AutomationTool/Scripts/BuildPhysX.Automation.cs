@@ -76,6 +76,9 @@ class BuildPhysX : BuildCommand
 	private static DirectoryReference RootOutputLibDirectory = DirectoryReference.Combine(PhysXSourceRootDirectory, "Lib");
 	private static DirectoryReference ThirdPartySourceDirectory = DirectoryReference.Combine(CommandUtils.RootDirectory, "Engine", "Source", "ThirdParty");
 
+	private static DirectoryReference DumpSymsPath = DirectoryReference.Combine(CommandUtils.RootDirectory, "Engine", "Binaries", "Linux", "dump_syms");
+	private static DirectoryReference BreakpadSymbolEncoderPath = DirectoryReference.Combine(CommandUtils.RootDirectory, "Engine", "Binaries", "Linux", "BreakpadSymbolEncoder");
+
 	//private static DirectoryReference PhysX34SourceLibRootDirectory = DirectoryReference.Combine(PhysX34SourceRootDirectory, "Lib");
 	//private static DirectoryReference APEX14SourceLibRootDirectory = DirectoryReference.Combine(APEX14SourceRootDirectory, "Lib");
 	//private static DirectoryReference SharedSourceLibRootDirectory = DirectoryReference.Combine(SharedSourceRootDirectory, "Lib");
@@ -557,6 +560,12 @@ class BuildPhysX : BuildCommand
 				// Start the process up and then wait for it to finish
 				LocalProcess.Start();
 				LocalProcess.BeginOutputReadLine();
+
+				if (LocalProcess.StartInfo.RedirectStandardError)
+				{
+					LocalProcess.BeginErrorReadLine();
+				}
+
 				LocalProcess.WaitForExit();
 				ExitCode = LocalProcess.ExitCode;
 			}
@@ -1074,7 +1083,7 @@ class BuildPhysX : BuildCommand
 
 		foreach (string BuildConfig in TargetConfigurations)
 		{
-			string CmdLine = String.Format("-project \"{0}\" -target=\"ALL_BUILD\" -configuration {1}", ProjectFile, BuildConfig);
+			string CmdLine = String.Format("-project \"{0}\" -target=\"ALL_BUILD\" -configuration {1} -quiet", ProjectFile, BuildConfig);
 			RunAndLog(BuildCommand.CmdEnv, "/usr/bin/xcodebuild", CmdLine);
 		}
 	}
@@ -1241,6 +1250,7 @@ class BuildPhysX : BuildCommand
 			case UnrealTargetPlatform.Win32:
 			case UnrealTargetPlatform.Win64:
 //			case UnrealTargetPlatform.Mac:
+			case UnrealTargetPlatform.Linux:
 			case UnrealTargetPlatform.XboxOne:
 				return true;
 		}
@@ -1256,6 +1266,8 @@ class BuildPhysX : BuildCommand
 				return "pdb";
 			case UnrealTargetPlatform.Mac:
 				return "dSYM";
+			case UnrealTargetPlatform.Linux:
+				return "sym";
 		}
 		throw new AutomationException(String.Format("No debug database extension for platform '{0}'", TargetData.Platform.ToString()));
 	}
@@ -1315,7 +1327,7 @@ class BuildPhysX : BuildCommand
 
     private static bool FileGeneratedByNvCloth(string FileNameUpper)
     {
-        if(FileNameUpper.StartsWith("NVCLOTH"))
+		if (FileNameUpper.Contains("NVCLOTH"))
         {
             return true;
         }
@@ -1325,7 +1337,7 @@ class BuildPhysX : BuildCommand
     
 	private static bool FileGeneratedByAPEX(string FileNameUpper)
 	{
-		if (FileNameUpper.StartsWith("APEX"))
+		if (FileNameUpper.Contains("APEX"))
 		{
 			return true;
 		}
@@ -1333,7 +1345,7 @@ class BuildPhysX : BuildCommand
 		{
 			foreach (string SpecialApexLib in APEXSpecialLibs)
 			{
-				if (FileNameUpper.StartsWith(SpecialApexLib.ToUpper()))	//There are some APEX libs that don't use the APEX prefix so make sure to test against it
+				if (FileNameUpper.Contains(SpecialApexLib.ToUpper()))	//There are some APEX libs that don't use the APEX prefix so make sure to test against it
 				{
 					return true;
 				}
@@ -1345,7 +1357,7 @@ class BuildPhysX : BuildCommand
 
 	private static void FindOutputFilesHelper(HashSet<FileReference> OutputFiles, DirectoryReference BaseDir, string SearchPrefix, PhysXTargetLib TargetLib)
 	{
-		if(!DirectoryReference.Exists(BaseDir))
+		if (!DirectoryReference.Exists(BaseDir))
 		{
 			return;
 		}
@@ -1357,6 +1369,56 @@ class BuildPhysX : BuildCommand
 			if(FileGeneratedByLib(FileNameUpper, TargetLib))
 			{
 				OutputFiles.Add(FoundFile);
+			}
+		}
+	}
+
+
+	private static void GenerateDebugFiles(HashSet<FileReference> OutFiles, PhysXTargetLib TargetLib, TargetPlatformData TargetData, string TargetConfiguration, WindowsCompiler TargetWindowsCompiler = WindowsCompiler.VisualStudio2015)
+	{
+		if (TargetData.Platform == UnrealTargetPlatform.Linux)
+		{
+			HashSet<FileReference> SoFiles = new HashSet<FileReference>();
+
+			string SearchSuffix = GetConfigurationSuffix(TargetConfiguration, TargetData).ToUpper();
+			string SearchPrefix = "*" + SearchSuffix + ".";
+
+			DirectoryReference BinaryDir = GetPlatformBinaryDirectory(TargetData, TargetWindowsCompiler);
+			FindOutputFilesHelper(SoFiles, BinaryDir, SearchPrefix + GetPlatformBinaryExtension(TargetData), TargetLib);
+
+			foreach (FileReference SOFile in SoFiles)
+			{
+				string ExeSuffix = "";
+				if (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win32 || BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64)
+				{
+					ExeSuffix += ".exe";
+				}
+
+				FileReference PSymbolFile = FileReference.Combine(SOFile.Directory, SOFile.GetFileNameWithoutExtension() + ".psym");
+				FileReference SymbolFile = FileReference.Combine(SOFile.Directory, SOFile.GetFileNameWithoutExtension() + ".sym");
+
+				// dump_syms
+				ProcessStartInfo StartInfo = new ProcessStartInfo();
+				StartInfo.FileName = DumpSymsPath.ToString() + ExeSuffix;
+				StartInfo.Arguments = SOFile.FullName + " " + PSymbolFile.ToString();
+				StartInfo.RedirectStandardError = true;
+
+				Log("Running: '{0} {1}'", StartInfo.FileName, StartInfo.Arguments);
+
+				RunLocalProcessAndLogOutput(StartInfo);
+
+				// BreakpadSymbolEncoder
+				StartInfo.FileName = BreakpadSymbolEncoderPath.ToString() + ExeSuffix;
+				StartInfo.Arguments = PSymbolFile.ToString() + " " + SymbolFile.ToString();
+
+				Log("Running: '{0} {1}'", StartInfo.FileName, StartInfo.Arguments);
+
+				RunLocalProcessAndLogOutput(StartInfo);
+
+				// Clean up the Temp *.psym file, as they are no longer needed
+				InternalUtils.SafeDeleteFile(PSymbolFile.ToString());
+
+				OutFiles.Add(SymbolFile);
 			}
 		}
 	}
@@ -1557,7 +1619,7 @@ class BuildPhysX : BuildCommand
 				// build target lib for all platforms
 				foreach (TargetPlatformData TargetData in TargetPlatforms)
 				{
-					if(!PlatformSupportsTargetLib(TargetLib, TargetData))
+					if (!PlatformSupportsTargetLib(TargetLib, TargetData))
 					{
 						continue;
 					}
@@ -1580,14 +1642,18 @@ class BuildPhysX : BuildCommand
 								break;
 						}
 					}
-					
-					foreach(FileReference FileToDelete in FilesToDelete)
+					foreach (FileReference FileToDelete in FilesToDelete)
 					{
 						FilesToReconcile.Add(FileToDelete);
 						InternalUtils.SafeDeleteFile(FileToDelete.ToString());
 					}
 
 					BuildTargetLibForPlatform(TargetLib, TargetData, TargetConfigurations, TargetWindowsCompilers);
+
+					foreach (string TargetConfiguration in TargetConfigurations)
+					{
+						GenerateDebugFiles(FilesToReconcile, TargetLib, TargetData, TargetConfiguration);
+					}
 				}
 			}
 		}
@@ -1640,20 +1706,20 @@ class BuildPhysX : BuildCommand
 						{
 							case UnrealTargetPlatform.Win32:
 							case UnrealTargetPlatform.Win64:
-										foreach (WindowsCompiler TargetCompiler in TargetWindowsCompilers)
+								foreach (WindowsCompiler TargetCompiler in TargetWindowsCompilers)
 								{
-											FindOutputFiles(FilesToReconcile, TargetLib, TargetData, TargetConfiguration, TargetCompiler);
+									FindOutputFiles(FilesToReconcile, TargetLib, TargetData, TargetConfiguration, TargetCompiler);
 								}
 								break;
 							default:
-										FindOutputFiles(FilesToReconcile, TargetLib, TargetData, TargetConfiguration);
+								FindOutputFiles(FilesToReconcile, TargetLib, TargetData, TargetConfiguration);
 								break;
 						}
 					}
 				}
 			}
-			
-			foreach(FileReference FileToReconcile in FilesToReconcile)
+
+			foreach (FileReference FileToReconcile in FilesToReconcile)
 			{
 				P4.Reconcile(P4ChangeList, FileToReconcile.ToString());
 			}

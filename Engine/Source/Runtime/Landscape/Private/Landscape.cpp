@@ -90,6 +90,9 @@ namespace LandscapeCookStats
 // Set this to 0 to disable landscape cooking and thus disable it on device.
 #define ENABLE_LANDSCAPE_COOKING 1
 
+// Increment this to regenerate mobile landscape data
+#define LANDSCAPE_MOBILE_COOK_VERSION 2
+
 #define LOCTEXT_NAMESPACE "Landscape"
 
 static void PrintNumLandscapeShadows()
@@ -215,14 +218,18 @@ void ULandscapeComponent::CheckGenerateLandscapePlatformData(bool bIsCooking, co
 
 	FBufferArchive ComponentStateAr;
 	SerializeStateHashes(ComponentStateAr);
+
+	// Serialize the version number as part of the hash so we can invalidate DDC data if needed
+	int32 Version = LANDSCAPE_MOBILE_COOK_VERSION;
+	ComponentStateAr << Version;
 	
 	uint32 Hash[5];
 	FSHA1::HashBuffer(ComponentStateAr.GetData(), ComponentStateAr.Num(), (uint8*)Hash);
 	FGuid NewSourceHash = FGuid(Hash[0] ^ Hash[4], Hash[1], Hash[2], Hash[3]);
 
-	bool bHashMismatch = MobileDataSourceHash.IsValid() && MobileDataSourceHash != NewSourceHash;
+	bool bHashMismatch = MobileDataSourceHash != NewSourceHash;
 	bool bMissingVertexData = !PlatformData.HasValidPlatformData();
-	bool bMissingPixelData = !MobileMaterialInterface || !MobileWeightNormalmapTexture;
+	bool bMissingPixelData = MobileMaterialInterface == nullptr || MobileWeightmapTextures.Num() == 0;
 	
 	bool bRegenerateVertexData = bMissingVertexData || bMissingPixelData || bHashMismatch;
 	
@@ -298,6 +305,21 @@ void ULandscapeComponent::Serialize(FArchive& Ar)
 		Exchange(BackupXYOffsetmapTexture, XYOffsetmapTexture);
 		Exchange(BackupMaterialInstances, MaterialInstances);
 		Exchange(BackupWeightmapTextures, WeightmapTextures);
+	}
+	else
+	if (Ar.IsCooking() && !HasAnyFlags(RF_ClassDefaultObject) && !Ar.CookingTarget()->SupportsFeature(ETargetPlatformFeatures::MobileRendering))
+	{
+		// These properties are only used for mobile so we back them up and clear them before serializing them.
+		UMaterialInterface* BackupMobileMaterialInterface = nullptr;
+		TArray<UTexture2D*> BackupMobileWeightmapTextures;
+
+		Exchange(MobileMaterialInterface, BackupMobileMaterialInterface);
+		Exchange(MobileWeightmapTextures, BackupMobileWeightmapTextures);
+
+		Super::Serialize(Ar);
+
+		Exchange(MobileMaterialInterface, BackupMobileMaterialInterface);
+		Exchange(MobileWeightmapTextures, BackupMobileWeightmapTextures);
 	}
 	else
 #endif
@@ -376,23 +398,6 @@ void ULandscapeComponent::Serialize(FArchive& Ar)
 				check(PlatformData.HasValidPlatformData());
 			}
 			Ar << PlatformData;
-			if (Ar.UE4Ver() >= VER_UE4_SERIALIZE_LANDSCAPE_ES2_TEXTURES)
-			{
-				Ar << MobileMaterialInterface;
-				Ar << MobileWeightNormalmapTexture;
-			}
-		}
-
-		if (Ar.UE4Ver() >= VER_UE4_LANDSCAPE_GRASS_COOKING && Ar.UE4Ver() < VER_UE4_SERIALIZE_LANDSCAPE_GRASS_DATA)
-		{
-			// deal with previous cooked FGrassMap data
-			int32 NumChannels = 0;
-			Ar << NumChannels;
-			if (NumChannels)
-			{
-				TArray<uint8> OldData;
-				OldData.BulkSerialize(Ar);
-			}
 		}
 	}
 #endif
@@ -414,7 +419,7 @@ void ULandscapeComponent::GetResourceSizeEx(FResourceSizeEx& CumulativeResourceS
 
 #if WITH_EDITOR
 UMaterialInterface* ULandscapeComponent::GetLandscapeMaterial() const
-{
+	{		
 	if (OverrideMaterial)
 	{
 		return OverrideMaterial;
@@ -803,10 +808,10 @@ ALandscapeProxy::ALandscapeProxy(const FObjectInitializer& ObjectInitializer)
 
 		VisibilityLayer = ConstructorStatics.DataLayer.Get();
 		check(VisibilityLayer);
-#if WITH_EDITORONLY_DATA
+	#if WITH_EDITORONLY_DATA
 		// This layer should be no weight blending
 		VisibilityLayer->bNoWeightBlend = true;
-#endif
+	#endif
 		VisibilityLayer->LayerUsageDebugColor = FLinearColor(0, 0, 0, 0);
 		VisibilityLayer->AddToRoot();
 	}
@@ -1900,7 +1905,7 @@ UMaterialInterface* ALandscapeProxy::GetLandscapeMaterial() const
 	if (LandscapeMaterial)
 	{
 		return LandscapeMaterial;
-	}
+					}
 	return UMaterial::GetDefaultMaterial(MD_Surface);
 }
 
@@ -1914,7 +1919,7 @@ UMaterialInterface* ALandscapeProxy::GetLandscapeHoleMaterial() const
 }
 
 UMaterialInterface* ALandscapeStreamingProxy::GetLandscapeMaterial() const
-{
+			{
 	if (LandscapeMaterial)
 	{
 		return LandscapeMaterial;
@@ -2050,7 +2055,7 @@ void ULandscapeInfo::RegisterActor(ALandscapeProxy* Proxy, bool bMapCheck)
 	// in case this Info object is not initialized yet
 	// initialized it with properties from passed actor
 	if (LandscapeGuid.IsValid() == false ||
-		(GetLandscapeProxy() == nullptr && ensure(LandscapeGuid == Proxy->GetLandscapeGuid())))
+		(GetLandscapeProxy() == nullptr && ensure(LandscapeGuid == Proxy->GetLandscapeGuid()) && Proxy->HasValidRootComponent()))
 	{
 		LandscapeGuid = Proxy->GetLandscapeGuid();
 		ComponentSizeQuads = Proxy->ComponentSizeQuads;
@@ -2065,7 +2070,7 @@ void ULandscapeInfo::RegisterActor(ALandscapeProxy* Proxy, bool bMapCheck)
 	check(ComponentNumSubsections == Proxy->NumSubsections);
 	check(SubsectionSizeQuads == Proxy->SubsectionSizeQuads);
 
-	if (!DrawScale.Equals(Proxy->GetRootComponent()->RelativeScale3D))
+	if (Proxy->HasValidRootComponent() && !DrawScale.Equals(Proxy->GetRootComponent()->RelativeScale3D))
 	{
 		UE_LOG(LogLandscape, Warning, TEXT("Landscape proxy (%s) scale (%s) does not match to main actor scale (%s)."),
 			*Proxy->GetName(), *Proxy->GetRootComponent()->RelativeScale3D.ToCompactString(), *DrawScale.ToCompactString());
@@ -2339,9 +2344,15 @@ void ULandscapeInfo::RecreateLandscapeInfo(UWorld* InWorld, bool bMapCheck)
 	// Remove empty entries from global LandscapeInfo map
 	for (auto It = LandscapeInfoMap.Map.CreateIterator(); It; ++It)
 	{
-		if (It.Value()->GetLandscapeProxy() == nullptr)
+		ULandscapeInfo* Info = It.Value();
+
+		if (Info != nullptr && Info->GetLandscapeProxy() == nullptr)
 		{
-			It.Value()->MarkPendingKill();
+			Info->MarkPendingKill();
+			It.RemoveCurrent();
+		}
+		else if (Info == nullptr) // remove invalid entry
+		{
 			It.RemoveCurrent();
 		}
 	}
@@ -2581,6 +2592,10 @@ void ULandscapeComponent::SerializeStateHashes(FArchive& Ar)
 
 	int32 OccluderGeometryLOD = GetLandscapeProxy()->OccluderGeometryLOD;
 	Ar << OccluderGeometryLOD;
+
+	// Take into account the Heightmap offset per component
+	Ar << HeightmapScaleBias.Z;
+	Ar << HeightmapScaleBias.W;
 }
 
 void ALandscapeProxy::UpdateBakedTextures()
@@ -2605,7 +2620,7 @@ void ALandscapeProxy::UpdateBakedTextures()
 		// Clear out any existing GI textures
 		for (ULandscapeComponent* Component : LandscapeComponents)
 		{
-			if (Component->GIBakedBaseColorTexture != nullptr)
+			if (Component != nullptr && Component->GIBakedBaseColorTexture != nullptr)
 			{
 				Component->BakedTextureMaterialGuid.Invalidate();
 				Component->GIBakedBaseColorTexture = nullptr;
@@ -2636,6 +2651,11 @@ void ALandscapeProxy::UpdateBakedTextures()
 	TMap<UTexture2D*, FBakedTextureSourceInfo> ComponentsByHeightmap;
 	for (ULandscapeComponent* Component : LandscapeComponents)
 	{
+		if (Component == nullptr)
+		{
+			continue;
+		}
+
 		FBakedTextureSourceInfo& Info = ComponentsByHeightmap.FindOrAdd(Component->HeightmapTexture);
 		Info.Components.Add(Component);
 		Component->SerializeStateHashes(*Info.ComponentStateAr);

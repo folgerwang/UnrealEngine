@@ -298,7 +298,7 @@ static const int32 MAX_NUM_LIGHTMAP_COEF = 2;
 
 /** Compile out low quality lightmaps to save memory */
 // @todo-mobile: Need to fix this!
-#define ALLOW_LQ_LIGHTMAPS (PLATFORM_DESKTOP || PLATFORM_IOS || PLATFORM_ANDROID || PLATFORM_HTML5 || PLATFORM_SWITCH )
+#define ALLOW_LQ_LIGHTMAPS (PLATFORM_DESKTOP || PLATFORM_IOS || PLATFORM_ANDROID || PLATFORM_HTML5 || PLATFORM_SWITCH || PLATFORM_LUMINGL4)
 
 /** Compile out high quality lightmaps to save memory */
 #define ALLOW_HQ_LIGHTMAPS 1
@@ -838,7 +838,10 @@ public:
 inline bool DoesPlatformSupportDistanceFieldShadowing(EShaderPlatform Platform)
 {
 	// Hasn't been tested elsewhere yet
-	return Platform == SP_PCD3D_SM5 || Platform == SP_PS4 || (IsMetalPlatform(Platform) && GetMaxSupportedFeatureLevel(Platform) >= ERHIFeatureLevel::SM5 && RHIGetShaderLanguageVersion(Platform) >= 2) || Platform == SP_XBOXONE_D3D12 || Platform == SP_VULKAN_SM5;
+	return Platform == SP_PCD3D_SM5 || Platform == SP_PS4
+		|| (IsMetalPlatform(Platform) && GetMaxSupportedFeatureLevel(Platform) >= ERHIFeatureLevel::SM5 && RHIGetShaderLanguageVersion(Platform) >= 2)
+		|| Platform == SP_XBOXONE_D3D12
+		|| IsVulkanSM5Platform(Platform);
 }
 
 /** Represents a USkyLightComponent to the rendering thread. */
@@ -885,10 +888,10 @@ struct FLightParameters
 	FVector		NormalizedLightDirection;
 	FVector		NormalizedLightTangent;
 	FVector2D	SpotAngles;
+	float		SpecularScale;
 	float		LightSourceRadius;
 	float		LightSoftSourceRadius;
 	float		LightSourceLength;
-	float		LightMinRoughness;
 	FTexture*	SourceTexture;
 };
 
@@ -1055,7 +1058,7 @@ public:
 	inline float GetShadowSharpen() const { return ShadowSharpen; }
 	inline float GetContactShadowLength() const { return ContactShadowLength; }
 	inline bool IsContactShadowLengthInWS() const { return bContactShadowLengthInWS; }
-	inline float GetMinRoughness() const { return MinRoughness; }
+	inline float GetSpecularScale() const { return SpecularScale; }
 	inline FVector GetLightFunctionScale() const { return LightFunctionScale; }
 	inline float GetLightFunctionFadeDistance() const { return LightFunctionFadeDistance; }
 	inline float GetLightFunctionDisabledBrightness() const { return LightFunctionDisabledBrightness; }
@@ -1149,8 +1152,8 @@ protected:
 	/** True: length of screen space ray trace for sharp contact shadows is in world space. False: in screen space. */
 	bool bContactShadowLengthInWS : 1;
 
-	/** Min roughness */
-	float MinRoughness;
+	/** Specular scale */
+	float SpecularScale;
 
 	/** The light's persistent shadowing GUID. */
 	FGuid LightGuid;

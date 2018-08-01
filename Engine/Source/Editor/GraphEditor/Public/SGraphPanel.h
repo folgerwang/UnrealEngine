@@ -173,6 +173,9 @@ public:
 	/** Straighten any connections attached to the specified pin, optionally limiting to the specified pin to align */
 	void StraightenConnections(UEdGraphPin* SourcePin, UEdGraphPin* PinToAlign = nullptr);
 
+	/** Refresh the visual state of a single node */
+	void RefreshNode(UEdGraphNode& Node);
+
 	/** When the graph panel needs to be dynamically refreshing for animations, this function is registered to tick and invalidate the UI. */
 	EActiveTimerReturnType InvalidatePerTick(double InCurrentTime, float InDeltaTime);
 

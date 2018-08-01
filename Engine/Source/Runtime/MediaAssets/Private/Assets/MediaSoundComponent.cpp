@@ -36,7 +36,7 @@ USoundClass* UMediaSoundComponent::DefaultMediaSoundClassObject = nullptr;
 UMediaSoundComponent::UMediaSoundComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 	, Channels(EMediaSoundChannels::Stereo)
-	, DynamicRateAdjustment(true)
+	, DynamicRateAdjustment(false)
 	, RateAdjustmentFactor(0.00000001f)
 	, RateAdjustmentRange(FFloatRange(0.995f, 1.005f))
 	, CachedRate(0.0f)
@@ -46,10 +46,6 @@ UMediaSoundComponent::UMediaSoundComponent(const FObjectInitializer& ObjectIniti
 {
 	PrimaryComponentTick.bCanEverTick = true;
 	bAutoActivate = true;
-
-#if PLATFORM_MAC
-	PreferredBufferLength = 2048; // increase buffer callback size on macOS to prevent underruns
-#endif
 
 #if WITH_EDITORONLY_DATA
 	bVisualizeComponent = true;
@@ -92,6 +88,16 @@ void UMediaSoundComponent::SetMediaPlayer(UMediaPlayer* NewMediaPlayer)
 {
 	CurrentPlayer = NewMediaPlayer;
 }
+
+#if WITH_EDITOR
+
+void UMediaSoundComponent::SetDefaultMediaPlayer(UMediaPlayer* NewMediaPlayer)
+{
+	MediaPlayer = NewMediaPlayer;
+	CurrentPlayer = MediaPlayer;
+}
+
+#endif
 
 
 void UMediaSoundComponent::UpdatePlayer()
@@ -277,6 +283,9 @@ bool UMediaSoundComponent::Init(int32& SampleRate)
 	{
 		NumChannels = 8;
 	}*/
+
+	// increase buffer callback size for media decoding. Media doesn't need fast response time so can decode more per callback.
+	PreferredBufferLength = NumChannels * 8196;
 
 	Resampler->Initialize(NumChannels, SampleRate);
 

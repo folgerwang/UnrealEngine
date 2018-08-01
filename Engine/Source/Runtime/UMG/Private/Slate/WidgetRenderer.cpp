@@ -195,8 +195,3 @@ void FWidgetRenderer::DrawWindow(
 	}
 #endif // !UE_SERVER
 }
-
-void FWidgetRenderer::FinishCleanup()
-{
-	delete this;
-}

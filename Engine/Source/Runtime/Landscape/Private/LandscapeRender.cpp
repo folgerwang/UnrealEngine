@@ -1486,12 +1486,16 @@ bool FLandscapeComponentSceneProxy::GetMeshElement(bool UseSeperateBatchForShado
 void FLandscapeComponentSceneProxy::ApplyWorldOffset(FVector InOffset)
 {
 	FPrimitiveSceneProxy::ApplyWorldOffset(InOffset);
-	for (int32 SubY = 0; SubY < NumSubsections; ++SubY)
+
+	if (NumSubsections > 1)
 	{
-		for (int32 SubX = 0; SubX < NumSubsections; ++SubX)
+		for (int32 SubY = 0; SubY < NumSubsections; ++SubY)
 		{
-			int32 SubSectionIndex = SubX + SubY * NumSubsections;
-			SubSectionScreenSizeTestingPosition[SubSectionIndex] += InOffset;
+			for (int32 SubX = 0; SubX < NumSubsections; ++SubX)
+			{
+				int32 SubSectionIndex = SubX + SubY * NumSubsections;
+				SubSectionScreenSizeTestingPosition[SubSectionIndex] += InOffset;
+			}
 		}
 	}
 }
@@ -1998,7 +2002,7 @@ float FLandscapeComponentSceneProxy::GetNeighborLOD(const FSceneView& InView, fl
 			if (Neighbor->GetLandscapeComponent() != nullptr)
 			{
 				LandscapeComponentOrigin = NeighborComponent->Bounds.Origin;
-				LandscapeComponentMaxExtends = NeighborComponent->Bounds.BoxExtent[0];
+				LandscapeComponentMaxExtends = NeighborComponent->SubsectionSizeQuads * FMath::Max(NeighborComponent->GetComponentTransform().GetScale3D().X, NeighborComponent->GetComponentTransform().GetScale3D().Y);
 			}
 		}
 

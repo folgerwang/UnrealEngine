@@ -26,6 +26,8 @@ public:
 
 	// Execution sequence specific commands
 	TSharedPtr< FUICommandInfo > AddExecutionPin;
+	TSharedPtr< FUICommandInfo > InsertExecutionPinBefore;
+	TSharedPtr< FUICommandInfo > InsertExecutionPinAfter;
 	TSharedPtr< FUICommandInfo > RemoveExecutionPin;
 
 	// SetFieldsInStruct specific commands

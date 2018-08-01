@@ -64,7 +64,7 @@ struct FMovieSceneSequencePlaybackSettings
 	bool bRandomStartTime;
 
 	/** Start playback at the specified offset from the start of the sequence's playback range */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Playback", DisplayName="Start Offset", meta=(EditCondition="!bRandomStartTime", Units=s))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Playback", DisplayName="Start Offset", meta=(Units=s))
 	float StartTime;
 
 	/** Flag used to specify whether actor states should be restored on stop */

@@ -3,10 +3,11 @@
 #pragma once
 
 #include "GameFramework/SaveGame.h"
+#include "HeadMountedDisplayTypes.h" // for EHMDTrackingOrigin
 #include "Math/Color.h" // for FLinearColor
 #include "MrcVideoCaptureDevice.h" // for FMrcVideoCaptureFeedIndex
-#include "MrcLensDistortion.h"
-#include "HeadMountedDisplayTypes.h" // for EHMDTrackingOrigin
+#include "OpenCVLensDistortionParameters.h" // for FOpenCVLensDistortionParameters 
+
 #include "MrcCalibrationData.generated.h"
 
 class UMaterialInstanceDynamic;
@@ -20,7 +21,7 @@ struct FMrcLensCalibrationData
 	float FOV = 90.f;
 
 	UPROPERTY(BlueprintReadWrite, Category = Data)
-	FMrcLensDistortion DistortionParameters;
+	FOpenCVLensDistortionParameters DistortionParameters;
 };
 
 USTRUCT(BlueprintType)

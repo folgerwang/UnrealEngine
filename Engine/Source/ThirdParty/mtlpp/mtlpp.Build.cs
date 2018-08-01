@@ -34,7 +34,7 @@ public class MTLPP : ModuleRules
 				PublicAdditionalLibraries.Add(MTLPPPath + "lib/" + PlatformName + "/libmtlppd.a");
 			}
 			// A development build that uses mtlpp compiled for release but with validation code enabled 
-			else if (Target.Configuration == UnrealTargetConfiguration.Development)
+			else if (Target.Configuration == UnrealTargetConfiguration.Development || Target.Configuration == UnrealTargetConfiguration.DebugGame)
 			{
 				PublicAdditionalLibraries.Add(MTLPPPath + "lib/" + PlatformName + "/libmtlpp.a");
 			}

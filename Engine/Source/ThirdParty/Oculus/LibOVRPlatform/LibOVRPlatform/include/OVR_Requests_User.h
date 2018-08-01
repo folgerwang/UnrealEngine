@@ -170,9 +170,9 @@ OVRP_PUBLIC_FUNCTION(ovrRequest) ovr_User_GetSdkAccounts();
 /// Extract the payload from the message handle with ::ovr_Message_GetUserProof().
 OVRP_PUBLIC_FUNCTION(ovrRequest) ovr_User_GetUserProof();
 
-/// Launch the profile of the given user on Gear VR. The profile surfaces
-/// information about the user and supports relevant actions that the viewer
-/// may take on that user, e.g. sending a friend request.
+/// Launch the profile of the given user. The profile surfaces information
+/// about the user and supports relevant actions that the viewer may take on
+/// that user, e.g. sending a friend request.
 /// \param userID User ID for profile being viewed
 ///
 /// A message with type ::ovrMessage_User_LaunchProfile will be generated in response.

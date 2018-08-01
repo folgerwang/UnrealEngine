@@ -155,7 +155,10 @@ void SSequencerSectionAreaView::OnArrangeChildren( const FGeometry& AllottedGeom
 
 			TSharedPtr<ISequencerSection> SectionInterface = Widget->GetSectionInterface();
 
-			MaxRowIndex = FMath::Max(MaxRowIndex, SectionInterface->GetSectionObject()->GetRowIndex());
+			if (SectionInterface->GetSectionObject())
+			{
+				MaxRowIndex = FMath::Max(MaxRowIndex, SectionInterface->GetSectionObject()->GetRowIndex());
+			}
 		}
 	}
 	int32 MaxTracks = MaxRowIndex + 1;
@@ -167,6 +170,11 @@ void SSequencerSectionAreaView::OnArrangeChildren( const FGeometry& AllottedGeom
 		const TSharedRef<SSequencerSection>& Widget = Children[WidgetIndex];
 
 		TSharedPtr<ISequencerSection> SectionInterface = Widget->GetSectionInterface();
+
+		if (!SectionInterface->GetSectionObject())
+		{
+			continue;
+		}
 
 		int32 RowIndex = SectionAreaNode->GetSubTrackMode() == FSequencerTrackNode::ESubTrackMode::None ? SectionInterface->GetSectionObject()->GetRowIndex() : 0;
 

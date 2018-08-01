@@ -1,7 +1,11 @@
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
 #include "OodleUtils.h"
 #include "Serialization/MemoryReader.h"
 #include "Serialization/MemoryWriter.h"
+#if HAS_OODLE_SDK
 #include "oodle2.h"
+#endif
 
 #if HAS_OODLE_SDK
 

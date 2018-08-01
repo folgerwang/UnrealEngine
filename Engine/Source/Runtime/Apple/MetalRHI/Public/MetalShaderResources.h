@@ -137,6 +137,7 @@ struct FMetalShaderBindings
     uint32  LinearBuffer;
 	uint32	TypedBuffers;
 	uint32 	InvariantBuffers;
+	uint32 	ConstantBuffers;
 	uint16	InOutMask;
 	uint8	NumSamplers;
 	uint8	NumUniformBuffers;
@@ -148,6 +149,7 @@ struct FMetalShaderBindings
 		LinearBuffer(0),
         TypedBuffers(0),
 		InvariantBuffers(0),
+		ConstantBuffers(0),
 		InOutMask(0),
 		NumSamplers(0),
 		NumUniformBuffers(0),
@@ -167,6 +169,7 @@ inline FArchive& operator<<(FArchive& Ar, FMetalShaderBindings& Bindings)
     Ar << Bindings.LinearBuffer;
     Ar << Bindings.TypedBuffers;
 	Ar << Bindings.InvariantBuffers;
+	Ar << Bindings.ConstantBuffers;
 	Ar << Bindings.InOutMask;
 	Ar << Bindings.NumSamplers;
 	Ar << Bindings.NumUniformBuffers;

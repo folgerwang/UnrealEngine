@@ -11,6 +11,7 @@
  //~ Static initialization
  //--------------------------------------------------------------------
 void* FAja::LibHandle = nullptr; 
+bool FAja::bCanForceAJAUsage = false; 
 
 //~ Initialization functions implementation
 //--------------------------------------------------------------------
@@ -26,15 +27,10 @@ bool FAja::Initialize()
 #endif //AJAMEDIA_DLL_DEBUG
 
 	// determine directory paths
-	FString AjaDllPath = *FPaths::Combine(FPaths::EngineDir(), TEXT("../Enterprise/Binaries/ThirdParty/AJA/Win64"), AjaDll);
-	if (!FPaths::FileExists(AjaDllPath))
-	{
-		AjaDllPath = *FPaths::Combine(FPaths::ProjectDir(), TEXT("Binaries/ThirdParty/AJA/Win64"), AjaDll);
-	}
-	if (!FPaths::FileExists(AjaDllPath))
-	{
-		AjaDllPath = *FPaths::Combine(FPaths::EngineDir(), TEXT("Binaries/ThirdParty/AJA/Win64"), AjaDll);
-	}
+	FString AjaDllPath = FPaths::Combine(IPluginManager::Get().FindPlugin(TEXT("AjaMedia"))->GetBaseDir(), TEXT("/Binaries/ThirdParty/Win64"));
+	FPlatformProcess::PushDllDirectory(*AjaDllPath);
+	AjaDllPath = FPaths::Combine(AjaDllPath, AjaDll);
+
 	if (!FPaths::FileExists(AjaDllPath))
 	{
 		UE_LOG(LogAjaMedia, Error, TEXT("Failed to find the binary folder for the AJA dll. Plug-in will not be functional."));
@@ -48,6 +44,9 @@ bool FAja::Initialize()
 		UE_LOG(LogAjaMedia, Error, TEXT("Failed to load required library %s. Plug-in will not be functional."), *AjaDllPath);
 		return false;
 	}
+
+	//Check if command line argument to force AJA card usage is there
+	bCanForceAJAUsage = FParse::Param(FCommandLine::Get(), TEXT("forceajausage"));
 
 #if !NO_LOGGING
 	AJA::SetLoggingCallbacks(&LogInfo, &LogWarning, &LogError);
@@ -104,59 +103,6 @@ FTimespan FAja::ConvertAJATimecode2Timespan(const AJA::FTimecode& InTimecode, co
 FTimecode FAja::ConvertAJATimecode2Timecode(const AJA::FTimecode& InTimecode, const FFrameRate& InFPS)
 {
 	return FTimecode(InTimecode.Hours, InTimecode.Minutes, InTimecode.Seconds, InTimecode.Frames, FTimecode::IsDropFormatTimecodeSupported(InFPS));
-}
-
-namespace AJATimecodeEncoder
-{
-	void Pattern(FColor* ColorBuffer, uint32 ColorBufferWidth, int32 HeightIndex, int32 Amount)
-	{
-		for (int32 Index = 0; Index < Amount; ++Index)
-		{
-			*(ColorBuffer + (ColorBufferWidth * HeightIndex) + Index) = (Index % 2) ? FColor::Red : FColor::Black;
-		}
-	}
-
-	void Time(FColor* ColorBuffer, uint32 ColorBufferWidth, int32 HeightIndex, int32 Time)
-	{
-		int32 Tenth = (Time / 10);
-		int32 Unit = (Time % 10);
-		if (Tenth > 0)
-		{
-			*(ColorBuffer + (ColorBufferWidth * HeightIndex) + Tenth - 1) = FColor::White;
-		}
-		*(ColorBuffer + (ColorBufferWidth * (1 + HeightIndex)) + Unit) = FColor::White;
-	}
-}
-
-void FAja::EncodeTimecode(const AJA::FTimecode& Timecode, FColor* ColorBuffer, uint32 ColorBufferWidth, uint32 ColorBufferHeight)
-{
-	const int32 FillWidth = 12;
-	const int32 FillHeight = 6 * 2;
-
-	if (ColorBufferWidth > FillWidth && ColorBufferHeight > FillHeight)
-	{
-		for (int32 IndexHeight = 0; IndexHeight < FillHeight; ++IndexHeight)
-		{
-			for (int32 IndexWidth = 0; IndexWidth < FillWidth; ++IndexWidth)
-			{
-				*(ColorBuffer + ColorBufferWidth * IndexHeight + IndexWidth) = FColor::Black;
-			}
-		}
-
-		AJATimecodeEncoder::Pattern(ColorBuffer, ColorBufferWidth, 0, 2);	//hh
-		AJATimecodeEncoder::Pattern(ColorBuffer, ColorBufferWidth, 1, 10);
-		AJATimecodeEncoder::Pattern(ColorBuffer, ColorBufferWidth, 3, 6);	//mm
-		AJATimecodeEncoder::Pattern(ColorBuffer, ColorBufferWidth, 4, 10);
-		AJATimecodeEncoder::Pattern(ColorBuffer, ColorBufferWidth, 6, 6);	//ss
-		AJATimecodeEncoder::Pattern(ColorBuffer, ColorBufferWidth, 7, 10);
-		AJATimecodeEncoder::Pattern(ColorBuffer, ColorBufferWidth, 9, 6);	//ff
-		AJATimecodeEncoder::Pattern(ColorBuffer, ColorBufferWidth, 10, 10);
-
-		AJATimecodeEncoder::Time(ColorBuffer, ColorBufferWidth, 0, Timecode.Hours);
-		AJATimecodeEncoder::Time(ColorBuffer, ColorBufferWidth, 3, Timecode.Minutes);
-		AJATimecodeEncoder::Time(ColorBuffer, ColorBufferWidth, 6, Timecode.Seconds);
-		AJATimecodeEncoder::Time(ColorBuffer, ColorBufferWidth, 9, Timecode.Frames);
-	}
 }
 
 //~ Log functions implementation

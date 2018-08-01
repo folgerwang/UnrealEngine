@@ -112,9 +112,16 @@ bool FVoiceCaptureWindows::Init(const FString& DeviceName, int32 SampleRate, int
    	// init the sample counter to 0 on init
 	SampleCounter = 0; 
 	CachedSampleStart = 0;
-	MicLevelDetector.Init(SampleRate, MicSilenceDetectionConfig::AttackTime, MicSilenceDetectionConfig::ReleaseTime, MicSilenceDetectionConfig::LevelDetectionMode, MicSilenceDetectionConfig::IsAnalog);
+
+	// set up level detector
+	static IConsoleVariable* SilenceDetectionAttackCVar = IConsoleManager::Get().FindConsoleVariable(TEXT("voice.SilenceDetectionAttackTime"));
+	check(SilenceDetectionAttackCVar);			
+	static IConsoleVariable* SilenceDetectionReleaseCVar = IConsoleManager::Get().FindConsoleVariable(TEXT("voice.SilenceDetectionReleaseTime"));
+	check(SilenceDetectionReleaseCVar);				
+
+	MicLevelDetector.Init(SampleRate, SilenceDetectionAttackCVar->GetFloat(), SilenceDetectionReleaseCVar->GetFloat(), MicSilenceDetectionConfig::LevelDetectionMode, MicSilenceDetectionConfig::IsAnalog);
 	
-	const int32 AttackInSamples = SampleRate * MicSilenceDetectionConfig::AttackTime * 0.001f;
+	const int32 AttackInSamples = SampleRate * SilenceDetectionAttackCVar->GetFloat() * 0.001f;
 	LookaheadBuffer.Init(AttackInSamples + 1);
 	LookaheadBuffer.SetDelay(AttackInSamples);
 
@@ -412,6 +419,11 @@ void FVoiceCaptureWindows::ProcessData()
 			//First, if we have any cached audio from an onset mid-buffer, copy it in:
 			int32 SamplesPushedToUncompressedAudioBuffer = ReleaseBuffer.PopBufferedAudio(AudioBuffer, ReleaseBuffer.GetBufferCount());
 			AudioBuffer += SamplesPushedToUncompressedAudioBuffer;
+
+			// get threshold
+			static IConsoleVariable* SilenceDetectionThresholdCVar = IConsoleManager::Get().FindConsoleVariable(TEXT("voice.SilenceDetectionThreshold"));
+			check(SilenceDetectionThresholdCVar);			
+			const float MicSilenceThreshold = SilenceDetectionThresholdCVar->GetFloat();
 			
 			bool bMicReleased = false;
 
@@ -431,7 +443,7 @@ void FVoiceCaptureWindows::ProcessData()
 				MicLevelDetector.ProcessAudio(Temp);
 				LookaheadBuffer.ProcessSample(Temp, Temp);
 
-				bIsMicActive = MicLevelDetector.GetCurrentValue() > MicSilenceDetectionConfig::Threshold;
+				bIsMicActive = MicLevelDetector.GetCurrentValue() > MicSilenceThreshold;
 
 				if (bIsMicActive)
 				{
@@ -459,7 +471,7 @@ void FVoiceCaptureWindows::ProcessData()
 			}
 
 			//Set up second buffer and loop through that:
-			AudioBuffer += CaptureLength;
+			AudioBuffer += TotalNumFrames;
 			InputBuffer = (int16*)CaptureData2;
 			const int32 TotalNumFrames2 = CaptureLength2 / sizeof(int16);
 			for (int32 FrameIndex = 0; FrameIndex < TotalNumFrames2; FrameIndex += NumInputChannels)
@@ -475,7 +487,7 @@ void FVoiceCaptureWindows::ProcessData()
 				MicLevelDetector.ProcessAudio(Temp);
 				LookaheadBuffer.ProcessSample(Temp, Temp);
 
-				bIsMicActive = MicLevelDetector.GetCurrentValue() > MicSilenceDetectionConfig::Threshold;
+				bIsMicActive = MicLevelDetector.GetCurrentValue() > MicSilenceThreshold;
 
 				if (bIsMicActive)
 				{

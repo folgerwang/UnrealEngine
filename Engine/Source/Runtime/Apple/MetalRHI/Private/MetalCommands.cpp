@@ -498,7 +498,7 @@ void FMetalRHICommandContext::RHISetShaderUniformBuffer(FVertexShaderRHIParamRef
 
 	auto& Bindings = VertexShader->Bindings;
 	check(BufferIndex < Bindings.NumUniformBuffers);
-	if (Bindings.bHasRegularUniformBuffers && !(Bindings.LinearBuffer & 1 << BufferIndex))
+	if (Bindings.bHasRegularUniformBuffers && (Bindings.ConstantBuffers & 1 << BufferIndex))
 	{
 		auto* UB = (FMetalUniformBuffer*)BufferRHI;
 		Context->GetCurrentState().SetShaderBuffer(SF_Vertex, UB->Buffer, UB->Data, 0, UB->GetSize(), BufferIndex);
@@ -514,7 +514,7 @@ void FMetalRHICommandContext::RHISetShaderUniformBuffer(FHullShaderRHIParamRef H
 
 	auto& Bindings = HullShader->Bindings;
 	check(BufferIndex < Bindings.NumUniformBuffers);
-	if (Bindings.bHasRegularUniformBuffers && !(Bindings.LinearBuffer & 1 << BufferIndex))
+	if (Bindings.bHasRegularUniformBuffers && (Bindings.ConstantBuffers & 1 << BufferIndex))
 	{
 		auto* UB = (FMetalUniformBuffer*)BufferRHI;
 		Context->GetCurrentState().SetShaderBuffer(SF_Hull, UB->Buffer, UB->Data, 0, UB->GetSize(), BufferIndex);
@@ -530,7 +530,7 @@ void FMetalRHICommandContext::RHISetShaderUniformBuffer(FDomainShaderRHIParamRef
 
 	auto& Bindings = DomainShader->Bindings;
 	check(BufferIndex < Bindings.NumUniformBuffers);
-	if (Bindings.bHasRegularUniformBuffers && !(Bindings.LinearBuffer & 1 << BufferIndex))
+	if (Bindings.bHasRegularUniformBuffers && (Bindings.ConstantBuffers & 1 << BufferIndex))
 	{
 		auto* UB = (FMetalUniformBuffer*)BufferRHI;
 		Context->GetCurrentState().SetShaderBuffer(SF_Domain, UB->Buffer, UB->Data, 0, UB->GetSize(), BufferIndex);
@@ -551,7 +551,7 @@ void FMetalRHICommandContext::RHISetShaderUniformBuffer(FPixelShaderRHIParamRef 
 
 	auto& Bindings = PixelShader->Bindings;
 	check(BufferIndex < Bindings.NumUniformBuffers);
-	if (Bindings.bHasRegularUniformBuffers && !(Bindings.LinearBuffer & 1 << BufferIndex))
+	if (Bindings.bHasRegularUniformBuffers && (Bindings.ConstantBuffers & 1 << BufferIndex))
 	{
 		auto* UB = (FMetalUniformBuffer*)BufferRHI;
 		Context->GetCurrentState().SetShaderBuffer(SF_Pixel, UB->Buffer, UB->Data, 0, UB->GetSize(), BufferIndex);
@@ -567,7 +567,7 @@ void FMetalRHICommandContext::RHISetShaderUniformBuffer(FComputeShaderRHIParamRe
 
 	auto& Bindings = ComputeShader->Bindings;
 	check(BufferIndex < Bindings.NumUniformBuffers);
-	if (Bindings.bHasRegularUniformBuffers && !(Bindings.LinearBuffer & 1 << BufferIndex))
+	if (Bindings.bHasRegularUniformBuffers && (Bindings.ConstantBuffers & 1 << BufferIndex))
 	{
 		auto* UB = (FMetalUniformBuffer*)BufferRHI;
 		Context->GetCurrentState().SetShaderBuffer(SF_Compute, UB->Buffer, UB->Data, 0, UB->GetSize(), BufferIndex);
@@ -790,6 +790,7 @@ void FMetalRHICommandContext::RHIBeginDrawPrimitiveUP( uint32 PrimitiveType_DEPR
 	
 	// allocate space
 	PendingVertexBuffer = Context->AllocateFromRingBuffer(VertexDataStride * NumVertices);
+	PendingVertexBuffer.MarkSingleUse();
 
 	// get the pointer to send back for writing
 	OutVertexData = (uint8*)PendingVertexBuffer.GetContents();
@@ -839,6 +840,8 @@ void FMetalRHICommandContext::RHIBeginDrawIndexedPrimitiveUP( uint32 PrimitiveTy
 	uint32 IndexSize = Align(IndexDataStride * NumIndices, BufferOffsetAlignment);
 	PendingVertexBuffer = Context->AllocateFromRingBuffer(VertexSize);
 	PendingIndexBuffer = Context->AllocateFromRingBuffer(IndexSize);
+	PendingVertexBuffer.MarkSingleUse();
+	PendingIndexBuffer.MarkSingleUse();
 	
 	// get the pointers to send back for writing
 	OutVertexData = (uint8*)PendingVertexBuffer.GetContents();

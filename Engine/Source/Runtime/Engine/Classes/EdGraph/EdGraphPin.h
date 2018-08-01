@@ -15,6 +15,12 @@
 class UEdGraphPin;
 enum class EPinResolveType : uint8;
 
+enum class EPinInsertPosition
+{
+	Before,
+	After,
+};
+
 USTRUCT()
 struct FSimpleMemberReference
 {

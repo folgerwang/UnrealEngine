@@ -109,6 +109,11 @@ float GetStartOffsetAtTrimTime(FQualifiedFrameTime TrimTime, float StartOffset, 
 	
 TOptional<TRange<FFrameNumber> > UMovieSceneAudioSection::GetAutoSizeRange() const
 {
+	if (!Sound)
+	{
+		return TRange<FFrameNumber>();
+	}
+
 	float SoundDuration = MovieSceneHelpers::GetSoundDuration(Sound);
 
 	FFrameRate FrameRate = GetTypedOuter<UMovieScene>()->GetTickResolution();

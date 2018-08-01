@@ -495,8 +495,8 @@ public:
 
 		const FGameplayTagSource* TagSource = Manager.FindTagSource(TagSourceName);
 
-		// Verify tag source
-		if (!TagSource)
+		// Check if the tag is implicitly defined
+		if (!bTagIsExplicit || !TagSource)
 		{
 			ShowNotification(FText::Format(LOCTEXT("RemoveTagFailureNoSource", "Cannot delete tag {0} as it is implicit, remove children manually"), FText::FromString(TagToDelete)), 10.0f);
 

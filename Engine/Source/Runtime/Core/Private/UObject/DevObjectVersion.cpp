@@ -5,6 +5,7 @@
 #include "UObject/BuildObjectVersion.h"
 #include "UObject/CoreObjectVersion.h"
 #include "UObject/EditorObjectVersion.h"
+#include "UObject/EnterpriseObjectVersion.h"
 #include "UObject/FrameworkObjectVersion.h"
 #include "UObject/MobileObjectVersion.h"
 #include "UObject/NetworkingObjectVersion.h"
@@ -16,7 +17,7 @@
 #include "UObject/VRObjectVersion.h"
 #include "UObject/GeometryObjectVersion.h"
 #include "UObject/AnimPhysObjectVersion.h"
-#include "UObject/AthenaObjectVersion.h"
+#include "UObject/FortniteMainBranchObjectVersion.h"
 #include "UObject/ReflectionCaptureObjectVersion.h"
 #include "UObject/LoadTimesObjectVersion.h"
 #include "UObject/AutomationObjectVersion.h"
@@ -135,7 +136,12 @@ const FGuid FAutomationObjectVersion::GUID(0x0DF73D61, 0xA23F47EA, 0xB72789E9, 0
 // Register Automation custom version with Core
 FDevVersionRegistration GRegisterAutomationObjectVersion(FAutomationObjectVersion::GUID, FAutomationObjectVersion::LatestVersion, TEXT("Dev-Automation"));
 
-// Unique Athena Object version id
-const FGuid FAthenaObjectVersion::GUID(0x601D1886, 0xAC644F84, 0xAA16D3DE, 0x0DEAC7D6);
-// Register Athena custom version with Core
-FDevVersionRegistration GRegisterAthenaObjectVersion(FAthenaObjectVersion::GUID, FAthenaObjectVersion::LatestVersion, TEXT("Dev-Athena"));
+// Unique Fortnite Main Object version id
+const FGuid FFortniteMainBranchObjectVersion::GUID(0x601D1886, 0xAC644F84, 0xAA16D3DE, 0x0DEAC7D6);
+// Register Fortnite Main custom version with Core
+FDevVersionRegistration GRegisterFortniteMainBranchObjectVersion(FFortniteMainBranchObjectVersion::GUID, FFortniteMainBranchObjectVersion::LatestVersion, TEXT("FortniteMain"));
+
+// Unique Enterprise Object version id
+const FGuid FEnterpriseObjectVersion::GUID(0x9DFFBCD6, 0x494F0158, 0xE2211282, 0x3C92A888);
+// Register Enterprise custom version with Core
+FDevVersionRegistration GRegisterEnterpriseObjectVersion(FEnterpriseObjectVersion::GUID, FEnterpriseObjectVersion::LatestVersion, TEXT("Dev-Enterprise"));

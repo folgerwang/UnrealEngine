@@ -44,22 +44,28 @@ FRemoteSessionFrameBufferChannel::FRemoteSessionFrameBufferChannel(ERemoteSessio
 	DecodedTextures[1] = nullptr;
 	DecodedTextureIndex = 0;
 	NumSentImages = 0;
-	KickedTaskCount = 0;
 	Role = InRole;
 	ViewportResized = false;
+	LastDecodedImageIndex = 0;
+	LastIncomingImageIndex = 0;
 
-	if (Role == ERemoteSessionChannelMode::Receive)
+	BackgroundThread = nullptr;
+	ScreenshotEvent = nullptr;
+	ExitRequested = false;
+	if (Role == ERemoteSessionChannelMode::Read)
 	{
 		auto Delegate = FBackChannelDispatchDelegate::FDelegate::CreateRaw(this, &FRemoteSessionFrameBufferChannel::ReceiveHostImage);
 		MessageCallbackHandle = InConnection->AddMessageHandler(TEXT("/Screen"), Delegate);
 
 		InConnection->SetMessageOptions(TEXT("/Screen"), 1);
+
+		StartBackgroundThread();
 	}
 }
 
 FRemoteSessionFrameBufferChannel::~FRemoteSessionFrameBufferChannel()
 {
-	if (Role == ERemoteSessionChannelMode::Receive)
+	if (Role == ERemoteSessionChannelMode::Read)
 	{
 		TSharedPtr<FBackChannelOSCConnection, ESPMode::ThreadSafe> LocalConnection = Connection.Pin();
 		if (LocalConnection.IsValid())
@@ -68,11 +74,22 @@ FRemoteSessionFrameBufferChannel::~FRemoteSessionFrameBufferChannel()
 			LocalConnection->RemoveMessageHandler(TEXT("/Screen"), MessageCallbackHandle);
 		}
 		MessageCallbackHandle.Reset();
-	}
 
-	while (NumDecodingTasks.GetValue() > 0)
-	{
-		FPlatformProcess::SleepNoStats(0);
+		ExitBackgroundThread();
+
+		if (ScreenshotEvent)
+		{
+			//Cleanup the FEvent
+			FGenericPlatformProcess::ReturnSynchEventToPool(ScreenshotEvent);
+			ScreenshotEvent = nullptr;
+		}
+
+		if (BackgroundThread)
+		{
+			//Cleanup the worker thread
+			delete BackgroundThread;
+			BackgroundThread = nullptr;
+		}
 	}
 
 	ReleaseFrameGrabber();
@@ -187,11 +204,11 @@ void FRemoteSessionFrameBufferChannel::Tick(const float InDeltaTime)
 		}
 	}
 	
-	if (Role == ERemoteSessionChannelMode::Receive)
+	if (Role == ERemoteSessionChannelMode::Read)
 	{
 		SCOPE_CYCLE_COUNTER(STAT_TextureUpdate);
 
-		TSharedPtr<FImageData> QueuedImage;
+		TSharedPtr<FImageData, ESPMode::ThreadSafe> QueuedImage;
 
 		{
 			// Check to see if there are any queued images. We just care about the last
@@ -200,6 +217,7 @@ void FRemoteSessionFrameBufferChannel::Tick(const float InDeltaTime)
 			{
 				INC_DWORD_STAT(STAT_RSNumFrames);
 				QueuedImage = IncomingDecodedImages.Last();
+				LastDecodedImageIndex = QueuedImage->ImageIndex;
 
 				UE_LOG(LogRemoteSession, Verbose, TEXT("GT: Image %d is ready, discarding %d earlier images"),
 					QueuedImage->ImageIndex, IncomingDecodedImages.Num()-1);
@@ -223,11 +241,17 @@ void FRemoteSessionFrameBufferChannel::Tick(const float InDeltaTime)
 			FUpdateTextureRegion2D* Region = new FUpdateTextureRegion2D(0, 0, 0, 0, QueuedImage->Width, QueuedImage->Height);
 			TArray<uint8>* TextureData = new TArray<uint8>(MoveTemp(QueuedImage->ImageData));
 
-			DecodedTextures[NextImage]->UpdateTextureRegions(0, 1, Region, 4 * QueuedImage->Width, 8, TextureData->GetData(), [this, NextImage, TextureData](auto InTextureData, auto InRegions) {
+			// cleanup functions, gets executed on the render thread after UpdateTextureRegions
+			TFunction<void(uint8*, const FUpdateTextureRegion2D*)> DataCleanupFunc = [this, NextImage, TextureData](uint8* InTextureData, const FUpdateTextureRegion2D* InRegions)
+			{
 				DecodedTextureIndex = NextImage;
-				delete TextureData; // delete array, not underlying data that UpdateTextureRegions passes us
-				delete InRegions;
-			});
+
+				//this is executed later on the render thread, meanwhile TextureData might have changed
+				delete InTextureData; 
+				delete InRegions; 
+			};
+
+			DecodedTextures[NextImage]->UpdateTextureRegions(0, 1, Region, 4 * QueuedImage->Width, 8, TextureData->GetData(), DataCleanupFunc);
 
 			UE_LOG(LogRemoteSession, Verbose, TEXT("GT: Uploaded image %d"),
 				QueuedImage->ImageIndex);
@@ -283,82 +307,78 @@ void FRemoteSessionFrameBufferChannel::ReceiveHostImage(FBackChannelOSCMessage& 
 	Message << ReceivedImage->ImageIndex;
 
 	FScopeLock Lock(&IncomingImageMutex);
+	if (LastIncomingImageIndex > 0 && IncomingEncodedImages.Num() > 1 && IncomingEncodedImages.Last()->ImageIndex > LastIncomingImageIndex)
+	{
+		IncomingEncodedImages.RemoveSingle(IncomingEncodedImages.Last());
+	}
 	IncomingEncodedImages.Add(ReceivedImage);
+
+	if (ScreenshotEvent)
+	{
+		// wake up the background thread.
+		ScreenshotEvent->Trigger();
+	}
 
 	UE_LOG(LogRemoteSession, Verbose, TEXT("Received Image %d, %d pending"), 
 		ReceivedImage->ImageIndex, IncomingEncodedImages.Num());
 
-	if (NumDecodingTasks.GetValue() == 0)
+}
+
+void FRemoteSessionFrameBufferChannel::ProcessIncomingTextures()
+{
+	TSharedPtr<FImageData, ESPMode::ThreadSafe> Image;
+	const double StartTime = FPlatformTime::Seconds();
 	{
-		NumDecodingTasks.Increment();
-		KickedTaskCount++;
+		// check if there's anything to do, if not pause the background thread
+		FScopeLock TaskLock(&IncomingImageMutex);
 
-		AsyncTask(ENamedThreads::AnyBackgroundThreadNormalTask, [this]()
+		if (IncomingEncodedImages.Num() == 0)
 		{
-			SCOPE_CYCLE_COUNTER(STAT_ImageDecompression);
+			return;
+		}
 
-			int ProcessedImageCount = 0;
+		// take the last image we don't care about the rest
+		Image = IncomingEncodedImages.Last();
+		LastIncomingImageIndex = Image->ImageIndex;
 
-			do
+		UE_LOG(LogRemoteSession, Verbose, TEXT("Processing Image %d, discarding %d other pending images"), 
+			Image->ImageIndex, IncomingEncodedImages.Num() - 1);
+
+		IncomingEncodedImages.Empty();
+	}
+
+	IImageWrapperModule* ImageWrapperModule = FModuleManager::GetModulePtr<IImageWrapperModule>(FName("ImageWrapper"));
+
+	if (ImageWrapperModule != nullptr)
+	{
+		TSharedPtr<IImageWrapper> ImageWrapper = ImageWrapperModule->CreateImageWrapper(EImageFormat::JPEG);
+
+		ImageWrapper->SetCompressed(Image->ImageData.GetData(), Image->ImageData.Num());
+
+		const TArray<uint8>* RawData = nullptr;
+
+		if (ImageWrapper->GetRaw(ERGBFormat::BGRA, 8, RawData))
+		{
+			TSharedPtr<FImageData, ESPMode::ThreadSafe> QueuedImage = MakeShareable(new FImageData);
+			QueuedImage->Width = Image->Width;
+			QueuedImage->Height = Image->Height;
+			QueuedImage->ImageData = MoveTemp(*((TArray<uint8>*)RawData));
+			QueuedImage->ImageIndex = Image->ImageIndex;
+
 			{
-				TSharedPtr<FImageData, ESPMode::ThreadSafe> Image;
-
-				const double StartTime = FPlatformTime::Seconds();
-
+				FScopeLock ImageLock(&DecodedImageMutex);
+				if (LastDecodedImageIndex > 0 && IncomingDecodedImages.Num() > 1 && IncomingDecodedImages.Last()->ImageIndex > LastDecodedImageIndex)
 				{
-					// check if there's anything to do, if not this task is done
-					FScopeLock TaskLock(&IncomingImageMutex);
-
-					if (IncomingEncodedImages.Num() == 0)
-					{
-						NumDecodingTasks.Decrement();
-						return;
-					}
-
-					// take the last image we don't care about the rest
-					Image = IncomingEncodedImages.Last();
-
-					UE_LOG(LogRemoteSession, Verbose, TEXT("Processing Image %d, discarding %d other pending images"),
-						Image->ImageIndex, IncomingEncodedImages.Num()-1);
-
-					IncomingEncodedImages.Empty();
+					IncomingDecodedImages.RemoveSingle(IncomingDecodedImages.Last());
 				}
+				IncomingDecodedImages.Add(QueuedImage);
 
-				IImageWrapperModule* ImageWrapperModule = FModuleManager::GetModulePtr<IImageWrapperModule>(FName("ImageWrapper"));
-
-				if (ImageWrapperModule != nullptr)
-				{
-					TSharedPtr<IImageWrapper> ImageWrapper = ImageWrapperModule->CreateImageWrapper(EImageFormat::JPEG);
-
-					ImageWrapper->SetCompressed(Image->ImageData.GetData(), Image->ImageData.Num());
-
-					const TArray<uint8>* RawData = nullptr;
-
-					if (ImageWrapper->GetRaw(ERGBFormat::BGRA, 8, RawData))
-					{
-						TSharedPtr<FImageData> QueuedImage = MakeShareable(new FImageData);
-						QueuedImage->Width = Image->Width;
-						QueuedImage->Height = Image->Height;
-						QueuedImage->ImageData = MoveTemp(*((TArray<uint8>*)RawData));
-						QueuedImage->ImageIndex = Image->ImageIndex;
-
-						{
-							FScopeLock ImageLock(&DecodedImageMutex);
-							IncomingDecodedImages.Add(QueuedImage);
-
-							UE_LOG(LogRemoteSession, Verbose, TEXT("finished decompressing image %d in %.02f ms (%d in queue)"),
-								Image->ImageIndex,
-								(FPlatformTime::Seconds() - StartTime) * 1000.0,
-								IncomingEncodedImages.Num());
-						}
-					}
-				}
-
-			} while (true);
-
-			UE_LOG(LogRemoteSession, Verbose, TEXT("No remaining images for task %d (%d processed). Exiting."),
-				KickedTaskCount, ProcessedImageCount);
-		});
+				UE_LOG(LogRemoteSession, Verbose, TEXT("finished decompressing image %d in %.02f ms (%d in queue)"),
+					Image->ImageIndex,
+					(FPlatformTime::Seconds() - StartTime) * 1000.0,
+					IncomingEncodedImages.Num());
+			}
+		}
 	}
 }
 
@@ -383,3 +403,42 @@ void FRemoteSessionFrameBufferChannel::OnViewportResized(FVector2D NewSize)
 	ViewportResized = true;
 }
 
+void FRemoteSessionFrameBufferChannel::StartBackgroundThread()
+{
+	check(BackgroundThread == nullptr);
+
+	ExitRequested	= false;
+	
+	ScreenshotEvent = FGenericPlatformProcess::GetSynchEventFromPool(false);;
+
+	BackgroundThread = FRunnableThread::Create(this, TEXT("RemoteSessionFrameBufferThread"), 1024 * 1024, TPri_AboveNormal);
+
+}
+
+void FRemoteSessionFrameBufferChannel::ExitBackgroundThread()
+{
+	ExitRequested = true;
+
+	if (ScreenshotEvent)
+	{
+		ScreenshotEvent->Trigger();
+	}
+
+	if (BackgroundThread)
+	{
+		BackgroundThread->WaitForCompletion();
+	}
+}
+
+uint32 FRemoteSessionFrameBufferChannel::Run()
+{
+	while(!ExitRequested)
+	{
+		// wait a maximum of 1 second or until triggered
+		ScreenshotEvent->Wait(1000);
+
+		ProcessIncomingTextures();
+	}
+
+	return 0;
+}

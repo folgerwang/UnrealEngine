@@ -237,6 +237,7 @@ struct FMetalOperationStats : public IMetalStatsScope
 	virtual void End(mtlpp::CommandBuffer const& Buffer) final override;
 	virtual void GetStats(FMetalPipelineStats& PipelineStats) final override;
 	
+	id<IMetalCommandBufferStats> CmdBufferStats;
 	uint32 StartPoint;
 	uint32 EndPoint;
 	IMetalDrawStats* DrawStats;
@@ -254,6 +255,7 @@ struct FMetalShaderPipelineStats : public IMetalStatsScope
 	virtual void End(mtlpp::CommandBuffer const& Buffer) final override;
 	virtual void GetStats(FMetalPipelineStats& PipelineStats) final override;
 	
+	id<IMetalCommandBufferStats> CmdBufferStats;
 	id<IMetalStatisticsSamples> StartSample;
 	FMetalShaderPipeline* Pipeline;
 };
@@ -274,6 +276,7 @@ struct FMetalEncoderStats : public IMetalStatsScope
 	void EncodeDispatch(char const* DrawCall);
 	void EncodePipeline(FMetalShaderPipeline* PipelineStat);
 	
+	id<IMetalCommandBufferStats> CmdBufferStats;
 	ns::AutoReleased<mtlpp::CommandBuffer> CmdBuffer;
 	uint32 StartPoint;
 	uint32 EndPoint;
@@ -304,6 +307,7 @@ struct FMetalCommandBufferStats : public IMetalStatsScope
 	void EndEncoder(mtlpp::BlitCommandEncoder const& Encoder);
 	void EndEncoder(mtlpp::ComputeCommandEncoder const& Encoder);
 
+	id<IMetalCommandBufferStats> CmdBufferStats;
 	FMetalEncoderStats* ActiveEncoderStats;
 #endif
 };
@@ -397,8 +401,18 @@ public:
 	void EndEncoder(FMetalCommandBufferStats* CmdBufStats, mtlpp::BlitCommandEncoder const& Encoder);
 	void EndEncoder(FMetalCommandBufferStats* CmdBufStats, mtlpp::ComputeCommandEncoder const& Encoder);
 	
-	void AddCounter(NSString* Counter);
+	enum EMTLCounterType
+	{
+		EMTLCounterTypeStartEnd,
+		EMTLCounterTypeLast,
+		EMTLCounterTypeDifference
+	};
+	
+	void AddCounter(NSString* Counter, EMTLCounterType Type);
 	void RemoveCounter(NSString* Counter);
+	TMap<FString, EMTLCounterType> const& GetCounterTypes() const { return CounterTypes; }
+	
+	void DumpPipeline(FMetalShaderPipeline* PipelineStat);
 #endif
 	
 	FMetalCPUStats* AddCPUStat(FString const& Name);
@@ -413,9 +427,11 @@ private:
 	FCriticalSection Mutex;
 #if METAL_STATISTICS
 	NSMutableArray* NewCounters;
+	TMap<FString, EMTLCounterType> CounterTypes;
 	IMetalStatistics* StatisticsAPI;
 	TArray<FMetalEventStats*> FrameEvents;
 	TArray<FMetalEventStats*> ActiveEvents;
+	TSet<FMetalShaderPipeline*> Pipelines;
 #endif
 	
 	TArray<FMetalCommandBufferStats*> TracedBuffers;

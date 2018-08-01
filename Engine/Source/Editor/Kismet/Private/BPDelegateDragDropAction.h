@@ -55,8 +55,15 @@ public:
 	{
 		check(Params.Graph && Params.Property);
 		TNode* Node = NewObject<TNode>();
-		Node->SetFromProperty(Params.Property, Params.bSelfContext);
-		FEdGraphSchemaAction_K2NewNode::SpawnNodeFromTemplate<TNode>(Params.Graph, Node, Params.GraphPosition);
+		FEdGraphSchemaAction_K2NewNode::SpawnNode<TNode>(
+			Params.Graph,
+			Params.GraphPosition,
+			EK2NewNodeFlags::SelectNewNode,
+			[&Params](TNode* NewInstance)
+			{
+				NewInstance->SetFromProperty(Params.Property, Params.bSelfContext);
+			}
+		);
 		Params.AnalyticCallback.ExecuteIfBound();
 	}
 

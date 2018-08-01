@@ -25,7 +25,7 @@ public:
 	static bool IsMixedRealityCaptureBroadcasting();
 
 	/**
-	 * Return true if the system is sending the capture texture to the spectator screen.
+	 * Toggle whether the capture system is sending the capture texture to the spectator screen or not.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "MixedRealityCapture|Utils")
 	static void SetMixedRealityCaptureBroadcasting(bool bEnable);

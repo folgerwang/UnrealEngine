@@ -9,6 +9,7 @@
 #include "RenderingThread.h"
 #include "GameFramework/PlayerController.h"
 #include "Engine/Canvas.h"
+#include "Engine/RendererSettings.h"
 #include "Application/SlateApplicationBase.h"
 #include "Layout/WidgetPath.h"
 #include "UnrealEngine.h"
@@ -21,8 +22,6 @@
 #include "StereoRenderTargetManager.h"
 
 extern EWindowMode::Type GetWindowModeType(EWindowMode::Type WindowMode);
-
-static EPixelFormat SceneTargetFormat = PF_A2B10G10R10;
 
 FSceneViewport::FSceneViewport( FViewportClient* InViewportClient, TSharedPtr<SViewport> InViewportWidget )
 	: FViewport( InViewportClient )
@@ -42,6 +41,7 @@ FSceneViewport::FSceneViewport( FViewportClient* InViewportClient, TSharedPtr<SV
 	, bUseSeparateRenderTarget( InViewportWidget.IsValid() ? !InViewportWidget->ShouldRenderDirectly() : true )
 	, bForceSeparateRenderTarget( false )
 	, bIsResizing( false )
+	, bForceViewportSize(false)
 	, bPlayInEditorIsSimulate( false )
 	, bCursorHiddenDueToCapture( false )
 	, MousePosBeforeHiddenDueToCapture( -1, -1 )
@@ -324,8 +324,8 @@ FVector2D FSceneViewport::VirtualDesktopPixelToViewport(FIntPoint VirtualDesktop
 	// Virtual Desktop Pixel to local slate unit
 	const FVector2D TransformedPoint = CachedGeometry.AbsoluteToLocal(FVector2D(VirtualDesktopPointPx.X, VirtualDesktopPointPx.Y));
 
-	// Pixels to normalized coordinates
-	return FVector2D( TransformedPoint.X / SizeX, TransformedPoint.Y / SizeY );
+	// Pixels to normalized coordinates and correct for DPI scale
+	return FVector2D( TransformedPoint.X / SizeX * CachedGeometry.Scale, TransformedPoint.Y / SizeY * CachedGeometry.Scale );
 }
 
 FIntPoint FSceneViewport::ViewportToVirtualDesktopPixel(FVector2D ViewportCoordinate) const
@@ -335,7 +335,8 @@ FIntPoint FSceneViewport::ViewportToVirtualDesktopPixel(FVector2D ViewportCoordi
 	// Local slate unit to virtual desktop pixel.
 	const FVector2D TransformedPoint = FVector2D( CachedGeometry.LocalToAbsolute( LocalCoordinateInSu ) );
 
-	return FIntPoint( FMath::TruncToInt(TransformedPoint.X), FMath::TruncToInt(TransformedPoint.Y) );
+	//Correct for DPI
+	return FIntPoint( FMath::TruncToInt(TransformedPoint.X / CachedGeometry.Scale), FMath::TruncToInt(TransformedPoint.Y / CachedGeometry.Scale) );
 }
 
 void FSceneViewport::OnDrawViewport( const FGeometry& AllottedGeometry, const FSlateRect& MyCullingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled )
@@ -357,23 +358,26 @@ void FSceneViewport::OnDrawViewport( const FGeometry& AllottedGeometry, const FS
 	}
 	
 	/** Check to see if the viewport should be resized */
-	FIntPoint DrawSize = FIntPoint( FMath::RoundToInt( AllottedGeometry.GetDrawSize().X ), FMath::RoundToInt( AllottedGeometry.GetDrawSize().Y ) );
-	if( GetSizeXY() != DrawSize )
+	if (!bForceViewportSize)
 	{
-		TSharedPtr<SWindow> Window = FSlateApplication::Get().FindWidgetWindow( ViewportWidget.Pin().ToSharedRef() );
-		if ( Window.IsValid() )
+		FIntPoint DrawSize = FIntPoint( FMath::RoundToInt( AllottedGeometry.GetDrawSize().X ), FMath::RoundToInt( AllottedGeometry.GetDrawSize().Y ) );
+		if( GetSizeXY() != DrawSize )
 		{
-			//@HACK VREDITOR
-			//check(Window.IsValid());
-			if ( Window->IsViewportSizeDrivenByWindow() )
+			TSharedPtr<SWindow> Window = FSlateApplication::Get().FindWidgetWindow( ViewportWidget.Pin().ToSharedRef() );
+			if ( Window.IsValid() )
 			{
-				if (ViewportWidget.Pin()->ShouldRenderDirectly())
+				//@HACK VREDITOR
+				//check(Window.IsValid());
+				if ( Window->IsViewportSizeDrivenByWindow() )
 				{
-					InitialPositionX = FMath::Max(0.0f, AllottedGeometry.AbsolutePosition.X);
-					InitialPositionY = FMath::Max(0.0f, AllottedGeometry.AbsolutePosition.Y);
-				}
+					if (ViewportWidget.Pin()->ShouldRenderDirectly())
+					{
+						InitialPositionX = FMath::Max(0.0f, AllottedGeometry.AbsolutePosition.X);
+						InitialPositionY = FMath::Max(0.0f, AllottedGeometry.AbsolutePosition.Y);
+					}
 
-				ResizeViewport(FMath::Max(0, DrawSize.X), FMath::Max(0, DrawSize.Y), Window->GetWindowMode());
+					ResizeViewport(FMath::Max(0, DrawSize.X), FMath::Max(0, DrawSize.Y), Window->GetWindowMode());
+				}
 			}
 		}
 	}
@@ -754,7 +758,7 @@ FReply FSceneViewport::OnTouchStarted( const FGeometry& MyGeometry, const FPoint
 		// Switch to the viewport clients world before processing input
 		FScopedConditionalWorldSwitcher WorldSwitcher( ViewportClient );
 
-		const FVector2D TouchPosition = MyGeometry.AbsoluteToLocal(TouchEvent.GetScreenSpacePosition());
+		const FVector2D TouchPosition = MyGeometry.AbsoluteToLocal(TouchEvent.GetScreenSpacePosition()) * MyGeometry.Scale;
 
 		if(ViewportClient->InputTouch( this, TouchEvent.GetUserIndex(), TouchEvent.GetPointerIndex(), ETouchType::Began, TouchPosition, TouchEvent.GetTouchForce(), FDateTime::Now(), TouchEvent.GetTouchpadIndex()) )
 		{
@@ -786,7 +790,7 @@ FReply FSceneViewport::OnTouchMoved( const FGeometry& MyGeometry, const FPointer
 		// Switch to the viewport clients world before processing input
 		FScopedConditionalWorldSwitcher WorldSwitcher( ViewportClient );
 
-		const FVector2D TouchPosition = MyGeometry.AbsoluteToLocal(TouchEvent.GetScreenSpacePosition());
+		const FVector2D TouchPosition = MyGeometry.AbsoluteToLocal(TouchEvent.GetScreenSpacePosition()) * MyGeometry.Scale;
 
 		if( !ViewportClient->InputTouch( this, TouchEvent.GetUserIndex(), TouchEvent.GetPointerIndex(), ETouchType::Moved, TouchPosition, TouchEvent.GetTouchForce(), FDateTime::Now(), TouchEvent.GetTouchpadIndex()) )
 		{
@@ -817,7 +821,7 @@ FReply FSceneViewport::OnTouchEnded( const FGeometry& MyGeometry, const FPointer
 		// Switch to the viewport clients world before processing input
 		FScopedConditionalWorldSwitcher WorldSwitcher( ViewportClient );
 
-		const FVector2D TouchPosition = MyGeometry.AbsoluteToLocal(TouchEvent.GetScreenSpacePosition());
+		const FVector2D TouchPosition = MyGeometry.AbsoluteToLocal(TouchEvent.GetScreenSpacePosition()) * MyGeometry.Scale;
 
 		if( !ViewportClient->InputTouch( this, TouchEvent.GetUserIndex(), TouchEvent.GetPointerIndex(), ETouchType::Ended, TouchPosition, 0.0f, FDateTime::Now(), TouchEvent.GetTouchpadIndex()) )
 		{
@@ -1332,6 +1336,16 @@ void FSceneViewport::ResizeFrame(uint32 NewWindowSizeX, uint32 NewWindowSizeY, E
 	}
 }
 
+void FSceneViewport::SetFixedViewportSize(uint32 NewViewportSizeX, uint32 NewViewportSizeY)
+{
+	bForceViewportSize = true;
+	TSharedPtr<SWindow> Window = FSlateApplication::Get().FindWidgetWindow(ViewportWidget.Pin().ToSharedRef());
+	if (Window.IsValid())
+	{
+		ResizeViewport(FMath::Max(0U, NewViewportSizeX), FMath::Max(0U, NewViewportSizeY), Window->GetWindowMode());
+	}
+}
+
 void FSceneViewport::SetViewportSize(uint32 NewViewportSizeX, uint32 NewViewportSizeY)
 {
 	TSharedPtr<SWindow> Window = FSlateApplication::Get().FindWidgetWindow(ViewportWidget.Pin().ToSharedRef());
@@ -1804,6 +1818,9 @@ void FSceneViewport::InitDynamicRHI()
 			BufferedShaderResourceTexturesRHI.SetNum(NumBufferedFrames);
 		}
 		check(BufferedSlateHandles.Num() == BufferedRenderTargetsRHI.Num() && BufferedSlateHandles.Num() == BufferedShaderResourceTexturesRHI.Num());
+
+		static const auto CVarDefaultBackBufferPixelFormat = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.DefaultBackBufferPixelFormat"));
+		EPixelFormat SceneTargetFormat = EDefaultBackBufferPixelFormat::Convert2PixelFormat(EDefaultBackBufferPixelFormat::FromInt(CVarDefaultBackBufferPixelFormat->GetValueOnRenderThread()));
 
 		FRHIResourceCreateInfo CreateInfo;
 		FTexture2DRHIRef BufferedRTRHI;

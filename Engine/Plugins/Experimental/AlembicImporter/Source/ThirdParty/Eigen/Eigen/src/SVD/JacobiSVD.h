@@ -828,12 +828,13 @@ JacobiSVD<MatrixType, QRPreconditioner>::compute(const MatrixType& matrix, unsig
   using std::abs;
   allocate(matrix.rows(), matrix.cols(), computationOptions);
 
-  // currently we stop when we reach precision 2*epsilon as the last bit of precision can require an unreasonable number of iterations,
+  // TEMP EPIC CHANGE 3 times epsilon rather than 2
+  // currently we stop when we reach precision 3*epsilon as the last bit of precision can require an unreasonable number of iterations,
   // only worsening the precision of U and V as we accumulate more rotations
-  const RealScalar precision = RealScalar(2) * NumTraits<Scalar>::epsilon();
+  const RealScalar precision = RealScalar(3) * NumTraits<Scalar>::epsilon();
 
   // limit for very small denormal numbers to be considered zero in order to avoid infinite loops (see bug 286)
-  const RealScalar considerAsZero = RealScalar(2) * std::numeric_limits<RealScalar>::denorm_min();
+  const RealScalar considerAsZero = RealScalar(3) * std::numeric_limits<RealScalar>::denorm_min();
 
   // Scaling factor to reduce over/under-flows
   RealScalar scale = matrix.cwiseAbs().maxCoeff();

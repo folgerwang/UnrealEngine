@@ -63,7 +63,7 @@ public:
 		{
 			if (Info->SettingsClassType)
 			{
-				return NewObject<UMovieSceneCaptureProtocolSettings>(Outer, Info->SettingsClassType, FName(TEXT("MovieSceneCaptureProtocol")));
+				return NewObject<UMovieSceneCaptureProtocolSettings>(Outer, Info->SettingsClassType);
 			}
 		}
 		return nullptr;

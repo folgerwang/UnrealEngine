@@ -240,7 +240,10 @@ public:
 			}
 			else if (UBlueprintGeneratedClass* GeneratedClass = LocalActorSequence->GetTypedOuter<UBlueprintGeneratedClass>())
 			{
-				return GeneratedClass->SimpleConstructionScript->GetComponentEditorActorInstance();
+				if (GeneratedClass->SimpleConstructionScript)
+				{
+					return GeneratedClass->SimpleConstructionScript->GetComponentEditorActorInstance();
+				}
 			}
 		}
 		

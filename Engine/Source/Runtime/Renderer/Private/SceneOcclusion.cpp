@@ -79,10 +79,11 @@ int32 FOcclusionQueryHelpers::GetNumBufferedFrames(ERHIFeatureLevel::Type Featur
 	if (FeatureLevel <= ERHIFeatureLevel::ES3_1)
 	{
 		NumExtraMobileFrames++; // the mobile renderer just doesn't do much after the basepass, and hence it will be asking for the query results almost immediately; the results can't possibly be ready in 1 frame.
-
-		if (IsOpenGLPlatform(GShaderPlatformForFeatureLevel[FeatureLevel]) && IsRunningRHIInSeparateThread())
+		
+		EShaderPlatform ShaderPlatform = GShaderPlatformForFeatureLevel[FeatureLevel];
+		if ((IsOpenGLPlatform(ShaderPlatform) || IsVulkanPlatform(ShaderPlatform)) && IsRunningRHIInSeparateThread())
 		{
-			// OpenGL, unfortunately, requires the RHIThread to mediate the readback of queries. Therefore we need an extra frame to avoid a stall in either thread. 
+			// Android, unfortunately, requires the RHIThread to mediate the readback of queries. Therefore we need an extra frame to avoid a stall in either thread. 
 			// The RHIT needs to do read back after the queries are ready and before the RT needs them to avoid stalls. The RHIT may be busy when the queries become ready, so this is all very complicated.
 			NumExtraMobileFrames++;
 		}
@@ -1318,7 +1319,8 @@ void FSceneRenderer::BeginOcclusionTests(FRHICommandListImmediate& RHICmdList, b
 					ViewState->OcclusionQueryPool.ReleaseQuery(QueryIt.Value());
 				}
 				ShadowOcclusionQueryMap.Reset();
-
+				
+				if (FeatureLevel > ERHIFeatureLevel::ES3_1)
 				{
 					SCOPED_DRAW_EVENT(RHICmdList, ShadowFrustumQueries);
 
@@ -1392,7 +1394,8 @@ void FSceneRenderer::BeginOcclusionTests(FRHICommandListImmediate& RHICmdList, b
 					}
 				}
 
-				if (!View.bIsPlanarReflection &&
+				if (FeatureLevel > ERHIFeatureLevel::ES3_1 &&
+					!View.bIsPlanarReflection &&
 					!View.bIsSceneCapture &&
 					!View.bIsReflectionCapture)
 				{
@@ -1447,15 +1450,19 @@ void FSceneRenderer::BeginOcclusionTests(FRHICommandListImmediate& RHICmdList, b
 				}
 			}
 
-			FRHIRenderPassInfo RPInfo(
-				bUseDownsampledDepth ? SceneContext.GetSmallDepthSurface() : SceneContext.GetSceneDepthSurface(),
-				NumQueriesForBatch,
-				EDepthStencilTargetActions::LoadDepthStencil_StoreStencilNotDepth,
-				nullptr,
-				FExclusiveDepthStencil::DepthRead_StencilWrite
-			);
+			// On mobile occlusion queries are done in base pass
+			if (FeatureLevel > ERHIFeatureLevel::ES3_1)
+			{
+				FRHIRenderPassInfo RPInfo(
+					bUseDownsampledDepth ? SceneContext.GetSmallDepthSurface() : SceneContext.GetSceneDepthSurface(),
+					NumQueriesForBatch,
+					EDepthStencilTargetActions::LoadDepthStencil_StoreStencilNotDepth,
+					nullptr,
+					FExclusiveDepthStencil::DepthRead_StencilWrite
+				);
 
-			RHICmdList.BeginRenderPass(RPInfo, TEXT("OcclusionQueries"));
+				RHICmdList.BeginRenderPass(RPInfo, TEXT("OcclusionQueries"));
+			}
 
 			FGraphicsPipelineStateInitializer GraphicsPSOInit;
 			RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
@@ -1500,6 +1507,7 @@ void FSceneRenderer::BeginOcclusionTests(FRHICommandListImmediate& RHICmdList, b
 				SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
 				VertexShader->SetParameters(RHICmdList, View);
 
+				if (FeatureLevel > ERHIFeatureLevel::ES3_1)
 				{
 					SCOPED_DRAW_EVENT(RHICmdList, ShadowFrustumQueries);
 					for (TPair<FProjectedShadowInfo const*, FRenderQueryRHIRef> const& Query : ViewQuery.PointLightQueries)
@@ -1518,6 +1526,7 @@ void FSceneRenderer::BeginOcclusionTests(FRHICommandListImmediate& RHICmdList, b
 					}
 				}
 
+				if (FeatureLevel > ERHIFeatureLevel::ES3_1)
 				{
 					SCOPED_DRAW_EVENT(RHICmdList, PlanarReflectionQueries);
 					for (TPair<FPlanarReflectionSceneProxy const*, FRenderQueryRHIRef> const& Query : ViewQuery.ReflectionQueries)
@@ -1544,7 +1553,11 @@ void FSceneRenderer::BeginOcclusionTests(FRHICommandListImmediate& RHICmdList, b
 				}
 			}
 			
-			RHICmdList.EndRenderPass();
+			// On mobile occlusion queries are done in base pass
+			if (FeatureLevel > ERHIFeatureLevel::ES3_1)
+			{
+				RHICmdList.EndRenderPass();
+			}
 			
 			if (bUseDownsampledDepth)
 			{

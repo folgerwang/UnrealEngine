@@ -32,7 +32,7 @@ struct FGrassVariety
 	UStaticMesh* GrassMesh;
 
 	/* Instances per 10 square meters. */
-	UPROPERTY(EditAnywhere, Category=Grass, meta = (UIMin = 0, ClampMin = 0, UIMax = 10000, ClampMax = 10000))
+	UPROPERTY(EditAnywhere, Category=Grass, meta = (UIMin = 0, ClampMin = 0, UIMax = 1000, ClampMax = 1000))
 	FPerPlatformFloat GrassDensity;
 
 	/* If true, use a jittered grid sequence for placement, otherwise use a halton sequence. */
@@ -103,6 +103,10 @@ struct FGrassVariety
 	UPROPERTY(EditAnywhere, Category = Grass)
 	bool bCastDynamicShadow;
 
+	/** Whether we should keep a cpu copy of the instance buffer. This should be set to true if you plan on using GetOverlappingXXXXCount functions of the component otherwise it won't return any data.**/
+	UPROPERTY(EditAnywhere, Category = Grass)
+	bool bKeepInstanceBufferCPUCopy;
+
 	FGrassVariety()
 		: GrassMesh(nullptr)
 		, GrassDensity(400)
@@ -120,6 +124,7 @@ struct FGrassVariety
 		, bUseLandscapeLightmap(false)
 		, bReceivesDecals(true)
 		, bCastDynamicShadow(true)
+		, bKeepInstanceBufferCPUCopy(false)
 	{
 	}
 };

@@ -573,31 +573,6 @@ bool FFCPXMLClipNode::DoAccept(FFCPXMLNodeVisitor& NodeVisitor)
 	return NodeVisitor.VisitNode(StaticCastSharedRef<FFCPXMLClipNode>(AsShared()));
 }
 
-/** Get metadata section name from sequencer shot name - format is "[UE4ShotSection=shotname]", whitespace ok. */
-FString FFCPXMLClipNode::GetMetadataSectionName(const FString& InSequencerSectionName)
-{
-	return (TEXT("[UE4ShotSection=") + InSequencerSectionName + TEXT("]"));
-}
-
-/** Get sequencer section name from metadata shot name - format is "[UE4ShotSection=shotname]", whitespace ok. */
-bool FFCPXMLClipNode::GetSequencerSectionName(const FString& InMetadataSectionName, FString& OutSequencerSectionName)
-{
-	FString A, B, C;
-	if (InMetadataSectionName.Split(TEXT("UE4ShotSection"), &A, &B))
-	{
-		if (B.Split(TEXT("="), &A, &C))
-		{
-			if (C.Split(TEXT("]"), &A, &B))
-			{
-				OutSequencerSectionName = A.TrimStartAndEnd();
-				return true;
-			}
-		}
-	}
-
-	return false;
-}
-
 FFCPXMLClipItemNode::FFCPXMLClipItemNode(TSharedPtr<FFCPXMLNode> InParent, TSharedPtr<FFCPXMLFile> InFile) : FFCPXMLNode(FString(TEXT("clipitem")), InParent, InFile) {}
 
 bool FFCPXMLClipItemNode::DoAccept(FFCPXMLNodeVisitor& NodeVisitor)

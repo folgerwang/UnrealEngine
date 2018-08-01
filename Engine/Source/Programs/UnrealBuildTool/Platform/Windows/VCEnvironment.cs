@@ -109,16 +109,35 @@ namespace UnrealBuildTool
 			LibraryManagerPath = GetLibraryLinkerToolPath(Platform, LinkerDir);
 			ResourceCompilerPath = GetResourceCompilerToolPath(Platform, WindowsSdkDir, WindowsSdkVersion);
 
-            // Make sure the base 32-bit VS tool path is in the PATH, regardless of which configuration we're using. The toolchain may need to reference support DLLs from this directory (eg. mspdb120.dll).
-            string PathEnvironmentVariable = Environment.GetEnvironmentVariable("PATH") ?? "";
-            if (!PathEnvironmentVariable.Split(';').Any(x => String.Compare(x, VCToolPath32.FullName, true) == 0))
-            {
-                PathEnvironmentVariable = VCToolPath32.FullName + ";" + PathEnvironmentVariable;
-                Environment.SetEnvironmentVariable("PATH", PathEnvironmentVariable);
-            }
+			// Add both toolchain paths to the PATH environment variable. There are some support DLLs which are only added to one of the paths, but which the toolchain in the other directory
+			// needs to run (eg. mspdbcore.dll).
+			if(Platform == CppPlatform.Win64)
+			{
+				AddDirectoryToPath(VCToolPath64);
+				AddDirectoryToPath(VCToolPath32);
+			}
+			if(Platform == CppPlatform.Win32)
+			{
+				AddDirectoryToPath(VCToolPath32);
+				AddDirectoryToPath(VCToolPath64);
+			}
 
 			// Get all the system include paths
 			SetupEnvironment();
+		}
+
+		/// <summary>
+		/// Add a directory to the PATH environment variable
+		/// </summary>
+		/// <param name="ToolPath">The path to add</param>
+		static void AddDirectoryToPath(DirectoryReference ToolPath)
+		{
+            string PathEnvironmentVariable = Environment.GetEnvironmentVariable("PATH") ?? "";
+            if (!PathEnvironmentVariable.Split(';').Any(x => String.Compare(x, ToolPath.FullName, true) == 0))
+            {
+                PathEnvironmentVariable = ToolPath.FullName + ";" + PathEnvironmentVariable;
+                Environment.SetEnvironmentVariable("PATH", PathEnvironmentVariable);
+            }
 		}
 
 		/// <summary>

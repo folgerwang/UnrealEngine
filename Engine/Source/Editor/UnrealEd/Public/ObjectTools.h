@@ -313,6 +313,14 @@ namespace ObjectTools
 	UNREALED_API int32 ForceDeleteObjects( const TArray< UObject* >& ObjectsToDelete, bool ShowConfirmation = true );
 
 	/**
+	 * Gathers additional objects to delete such as map built data
+	 *
+	 * @param	ObjectsToDelete		List of objects to delete that is appended by additional objects that should be deleted
+	 *
+	 */
+	UNREALED_API void AddExtraObjectsToDelete(TArray< UObject* >& ObjectsToDelete);
+
+	/**
 	 * Utility function to compose a string list of referencing objects
 	 *
 	 * @param References			Array of references to the relevant object

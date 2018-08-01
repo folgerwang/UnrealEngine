@@ -8,8 +8,8 @@
 #include "Misc/ScopeLock.h"
 
 
-typedef TMap<FBoundShaderStateKey,FCachedBoundShaderStateLink*> FBoundShaderStateCache;
-typedef TMap<FBoundShaderStateKey,FCachedBoundShaderStateLink_Threadsafe*> FBoundShaderStateCache_Threadsafe;
+typedef TMap<FBoundShaderStateLookupKey,FCachedBoundShaderStateLink*> FBoundShaderStateCache;
+typedef TMap<FBoundShaderStateLookupKey,FCachedBoundShaderStateLink_Threadsafe*> FBoundShaderStateCache_Threadsafe;
 
 static FBoundShaderStateCache GBoundShaderStateCache;
 static FBoundShaderStateCache_Threadsafe GBoundShaderStateCache_ThreadSafe;
@@ -86,7 +86,7 @@ FCachedBoundShaderStateLink* GetCachedBoundShaderState(
 {
 	// Find the existing bound shader state in the cache.
 	return GetBoundShaderStateCache().FindRef(
-		FBoundShaderStateKey(VertexDeclaration,VertexShader,PixelShader,HullShader,DomainShader,GeometryShader)
+		FBoundShaderStateLookupKey(VertexDeclaration,VertexShader,PixelShader,HullShader,DomainShader,GeometryShader)
 		);
 }
 
@@ -115,7 +115,7 @@ FBoundShaderStateRHIRef GetCachedBoundShaderState_Threadsafe(
 	FScopeLock Lock(&BoundShaderStateCacheLock);
 	// Find the existing bound shader state in the cache.
 	FCachedBoundShaderStateLink_Threadsafe* CachedBoundShaderStateLink = GetBoundShaderStateCache_Threadsafe().FindRef(
-		FBoundShaderStateKey(VertexDeclaration,VertexShader,PixelShader,HullShader,DomainShader,GeometryShader)
+		FBoundShaderStateLookupKey(VertexDeclaration,VertexShader,PixelShader,HullShader,DomainShader,GeometryShader)
 		);
 	if(CachedBoundShaderStateLink)
 	{

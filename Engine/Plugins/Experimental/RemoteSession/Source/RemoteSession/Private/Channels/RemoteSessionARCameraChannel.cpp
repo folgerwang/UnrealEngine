@@ -1,6 +1,7 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "Channels/RemoteSessionARCameraChannel.h"
+#include "RemoteSession.h"
 #include "Framework/Application/SlateApplication.h"
 #include "BackChannel/Protocol/OSC/BackChannelOSCConnection.h"
 #include "BackChannel/Protocol/OSC/BackChannelOSCMessage.h"
@@ -92,7 +93,7 @@ public:
 	{
 	}
 
-	void SetParameters(FRHICommandList& RHICmdList, const FSceneView View)
+	void SetParameters(FRHICommandList& RHICmdList, const FSceneView& View)
 	{
 		const FVertexShaderRHIParamRef ShaderRHI = GetVertexShader();
 		FMaterialShader::SetViewParameters(RHICmdList, ShaderRHI, View, View.ViewUniformBuffer);
@@ -139,7 +140,7 @@ public:
 		}
 	}
 
-	void SetParameters(FRHICommandList& RHICmdList, const FSceneView View, const FMaterialRenderProxy* Material)
+	void SetParameters(FRHICommandList& RHICmdList, const FSceneView& View, const FMaterialRenderProxy* Material)
 	{
 		const FPixelShaderRHIParamRef ShaderRHI = GetPixelShader();
 		FMaterialShader::SetParameters(RHICmdList, ShaderRHI, Material, *Material->GetMaterial(View.GetFeatureLevel()), View, View.ViewUniformBuffer, ESceneTextureSetupMode::None);
@@ -379,13 +380,10 @@ FRemoteSessionARCameraChannel::FRemoteSessionARCameraChannel(ERemoteSessionChann
 {
 	
 	static bool OnceTimeARInit = false;
-	
-	if (!OnceTimeARInit && InRole == ERemoteSessionChannelMode::Send)
+	if (!OnceTimeARInit && InRole == ERemoteSessionChannelMode::Write)
 	{
-		// Initialize AR if desired - todo, does this need to check device caps?
-		UARSessionConfig* Settings = NewObject<UARSessionConfig>();
-		UARBlueprintLibrary::StartARSession(Settings);
-		
+		UARSessionConfig* Config = NewObject<UARSessionConfig>();
+		UARBlueprintLibrary::StartARSession(Config);
 		OnceTimeARInit = true;
 	}
 	
@@ -400,7 +398,7 @@ FRemoteSessionARCameraChannel::FRemoteSessionARCameraChannel(ERemoteSessionChann
 		MaterialInstanceDynamic->SetTextureParameterValue(CameraImageParamName, DefaultTexture);
 	}
 
-	if (Role == ERemoteSessionChannelMode::Receive)
+	if (Role == ERemoteSessionChannelMode::Read)
 	{
 		// Create our image renderer
 		SceneViewExtension = FSceneViewExtensions::NewExtension<FARCameraSceneViewExtension>(*this);
@@ -413,7 +411,7 @@ FRemoteSessionARCameraChannel::FRemoteSessionARCameraChannel(ERemoteSessionChann
 
 FRemoteSessionARCameraChannel::~FRemoteSessionARCameraChannel()
 {
-	if (Role == ERemoteSessionChannelMode::Receive)
+	if (Role == ERemoteSessionChannelMode::Read)
 	{
 		// Remove the callback so it doesn't call back on an invalid this
 		Connection->RemoveMessageHandler(CAMERA_MESSAGE_ADDRESS, MessageCallbackHandle);
@@ -432,13 +430,13 @@ void FRemoteSessionARCameraChannel::Tick(const float InDeltaTime)
 {
 	// Camera capture only works on iOS right now
 #if PLATFORM_IOS
-	if (Role == ERemoteSessionChannelMode::Send)
+	if (Role == ERemoteSessionChannelMode::Write)
 	{
 		QueueARCameraImage();
 		SendARCameraImage();
 	}
 #endif
-	if (Role == ERemoteSessionChannelMode::Receive)
+	if (Role == ERemoteSessionChannelMode::Read)
 	{
 		UpdateRenderingTexture();
 		if (MaterialInstanceDynamic != nullptr)
@@ -462,18 +460,25 @@ void FRemoteSessionARCameraChannel::QueueARCameraImage()
 	}
 
 	UARTextureCameraImage* CameraImage = UARBlueprintLibrary::GetCameraImage();
-	if (CameraImage != nullptr && CameraImage->Timestamp > LastQueuedTimestamp)
-	{
-		TSharedPtr<FCompressionTask, ESPMode::ThreadSafe> CompressionTask = MakeShareable(new FCompressionTask());
-		CompressionTask->Width = CameraImage->Size.X;
-		CompressionTask->Height = CameraImage->Size.Y;
-		CompressionTask->AsyncTask = IAppleImageUtilsPlugin::Get().ConvertToJPEG(CameraImage, CVarJPEGQuality.GetValueOnGameThread(), !!CVarJPEGColor.GetValueOnGameThread(), !!CVarJPEGGpu.GetValueOnGameThread());
-		if (CompressionTask->AsyncTask.IsValid())
-		{
-			LastQueuedTimestamp = CameraImage->Timestamp;
-			CompressionQueue.Add(CompressionTask);
-		}
-	}
+	if (CameraImage != nullptr)
+    {
+        if (CameraImage->Timestamp > LastQueuedTimestamp)
+        {
+            TSharedPtr<FCompressionTask, ESPMode::ThreadSafe> CompressionTask = MakeShareable(new FCompressionTask());
+            CompressionTask->Width = CameraImage->Size.X;
+            CompressionTask->Height = CameraImage->Size.Y;
+            CompressionTask->AsyncTask = IAppleImageUtilsPlugin::Get().ConvertToJPEG(CameraImage, CVarJPEGQuality.GetValueOnGameThread(), !!CVarJPEGColor.GetValueOnGameThread(), !!CVarJPEGGpu.GetValueOnGameThread());
+            if (CompressionTask->AsyncTask.IsValid())
+            {
+                LastQueuedTimestamp = CameraImage->Timestamp;
+                CompressionQueue.Add(CompressionTask);
+            }
+        }
+    }
+    else
+    {
+        UE_LOG(LogRemoteSession, Warning, TEXT("No AR Camera Image to send!"));
+    }
 }
 
 void FRemoteSessionARCameraChannel::SendARCameraImage()

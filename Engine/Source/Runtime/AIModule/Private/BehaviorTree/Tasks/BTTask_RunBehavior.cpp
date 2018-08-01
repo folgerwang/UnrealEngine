@@ -14,7 +14,27 @@ EBTNodeResult::Type UBTTask_RunBehavior::ExecuteTask(UBehaviorTreeComponent& Own
 	UE_CVLOG(BehaviorAsset == nullptr, OwnerComp.GetAIOwner(), LogBehaviorTree, Error, TEXT("\'%s\' is missing BehaviorAsset!"), *GetNodeName());
 
 	const bool bPushed = BehaviorAsset != nullptr && OwnerComp.PushInstance(*BehaviorAsset);
-	return bPushed ? EBTNodeResult::InProgress : EBTNodeResult::Failed;
+	if (bPushed && OwnerComp.InstanceStack.Num() > 0)
+	{
+		FBehaviorTreeInstance& MyInstance = OwnerComp.InstanceStack[OwnerComp.InstanceStack.Num() - 1];
+		MyInstance.DeactivationNotify.BindUObject(this, &UBTTask_RunBehavior::OnSubtreeDeactivated);
+		// unbinding is not required, MyInstance will be destroyed after firing that delegate (usually by UBehaviorTreeComponent::ProcessPendingExecution) 
+
+		return EBTNodeResult::InProgress;
+	}
+
+	return EBTNodeResult::Failed;
+}
+
+void UBTTask_RunBehavior::OnSubtreeDeactivated(UBehaviorTreeComponent& OwnerComp, EBTNodeResult::Type NodeResult)
+{
+	const int32 MyInstanceIdx = OwnerComp.FindInstanceContainingNode(this);
+	uint8* NodeMemory = OwnerComp.GetNodeMemory(this, MyInstanceIdx);
+
+	UE_VLOG(OwnerComp.GetOwner(), LogBehaviorTree, Verbose, TEXT("OnSubtreeDeactivated: %s (result: %s)"),
+		*UBehaviorTreeTypes::DescribeNodeHelper(this), *UBehaviorTreeTypes::DescribeNodeResult(NodeResult));
+
+	OnTaskFinished(OwnerComp, NodeMemory, NodeResult);
 }
 
 FString UBTTask_RunBehavior::GetStaticDescription() const

@@ -4,9 +4,10 @@
 #include "TimecodeSynchronizer.h"
 
 #include "EditorStyleSet.h"
+#include "Engine/Texture.h"
 #include "Materials/Material.h"
 #include "Materials/MaterialExpressionTextureSample.h"
-#include "Engine/Texture.h"
+#include "Misc/App.h"
 #include "Widgets/SBoxPanel.h"
 #include "Widgets/Input/SEditableTextBox.h"
 #include "Widgets/SOverlay.h"
@@ -101,8 +102,14 @@ void STimecodeSynchronizerSourceViewport::Construct(const FArguments& InArgs, UT
 					.ClearKeyboardFocusOnCommit(true)
 					.HintText(LOCTEXT("SourceTextBoxHint", "Source Name"))
 					.IsReadOnly(true)
-					.Text_Lambda([Name = GetAttachedSource()->InputSource->GetDisplayName()]() -> FText {
-						return FText::FromString(Name);
+					.Text_Lambda([&]() -> FText
+					{
+						const FTimecodeSynchronizerActiveTimecodedInputSource* AttachedSource = GetAttachedSource();
+						if (AttachedSource && AttachedSource->bIsReady)
+						{
+							return FText::FromString(GetAttachedSource()->InputSource->GetDisplayName());
+						}
+						return FText();
 					})
 				]
 			]
@@ -204,7 +211,7 @@ FText STimecodeSynchronizerSourceViewport::HandleIntervalMinTimecodeText() const
 {
 	FTimecode Timecode;
 	const FTimecodeSynchronizerActiveTimecodedInputSource* AttachedSource = GetAttachedSource();
-	if (AttachedSource)
+	if (AttachedSource && AttachedSource->bIsReady)
 	{
 		const bool bIsDropFrame = FTimecode::IsDropFormatTimecodeSupported(AttachedSource->FrameRate);
 		Timecode = FTimecode::FromFrameNumber(AttachedSource->NextSampleTime.FrameNumber, AttachedSource->FrameRate, bIsDropFrame);
@@ -217,7 +224,7 @@ FText STimecodeSynchronizerSourceViewport::HandleIntervalMaxTimecodeText() const
 {
 	FTimecode Timecode;
 	const FTimecodeSynchronizerActiveTimecodedInputSource* AttachedSource = GetAttachedSource();
-	if (AttachedSource)
+	if (AttachedSource && AttachedSource->bIsReady)
 	{
 		const FFrameNumber NextFrame = AttachedSource->NextSampleTime.FrameNumber + AttachedSource->AvailableSampleCount;
 		const bool bIsDropFrame = FTimecode::IsDropFormatTimecodeSupported(AttachedSource->FrameRate);
@@ -229,19 +236,12 @@ FText STimecodeSynchronizerSourceViewport::HandleIntervalMaxTimecodeText() const
 
 FText STimecodeSynchronizerSourceViewport::HandleCurrentTimecodeText() const
 {
-	FTimecode Timecode;
-	if (TimecodeSynchronization)
-	{
-		Timecode = TimecodeSynchronization->GetTimecode();
-	}
-
-	return FText::FromString(Timecode.ToString());
+	return FText::FromString(FApp::GetTimecode().ToString());
 }
 
 FText STimecodeSynchronizerSourceViewport::HandleIsSourceMasterText() const
 {
 	FString Role;
-	const FTimecodeSynchronizerActiveTimecodedInputSource* AttachedSource = GetAttachedSource();
 	if (TimecodeSynchronization && AttachedSourceIndex != INDEX_NONE && bIsTimecodedSource && TimecodeSynchronization->GetActiveMasterSynchronizationTimecodedSourceIndex() == AttachedSourceIndex)
 	{
 		Role = "Master";

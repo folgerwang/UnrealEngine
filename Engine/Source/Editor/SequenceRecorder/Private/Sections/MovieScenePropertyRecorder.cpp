@@ -58,9 +58,9 @@ UMovieSceneSection* FMovieScenePropertyRecorder<bool>::AddSection(UObject* InObj
 
 		Section->TimecodeSource = SequenceRecorderUtils::GetTimecodeSource();
 
-		TArrayView<FMovieSceneFloatChannel*> FloatChannels = Section->GetChannelProxy().GetChannels<FMovieSceneFloatChannel>();
-		FloatChannels[0]->SetDefault(PreviousValue);
-		FloatChannels[0]->AddCubicKey(CurrentFrame, PreviousValue, RCTM_Break);
+		FMovieSceneBoolChannel* BoolChannel = Section->GetChannelProxy().GetChannels<FMovieSceneBoolChannel>()[0];
+		BoolChannel->SetDefault(PreviousValue);
+		BoolChannel->GetData().AddKey(CurrentFrame, PreviousValue);
 
 		Track->AddSection(*Section);
 

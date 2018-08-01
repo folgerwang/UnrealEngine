@@ -36,7 +36,9 @@ enum ETextureRenderTargetFormat
 	/** RG channels, 32 bit per channel floating point, range [-3.402823 x 10^38, 3.402823 x 10^38] */
 	RTF_RG32f,
 	/** RGBA channels, 32 bit per channel floating point, range [-3.402823 x 10^38, 3.402823 x 10^38] */
-	RTF_RGBA32f
+	RTF_RGBA32f,
+	/** RGBA channels, 10 bit per channel fixed point and 2 bit of alpha */
+	RTF_RGB10A2
 };
 
 inline EPixelFormat GetPixelFormatFromRenderTargetFormat(ETextureRenderTargetFormat RTFormat)
@@ -54,6 +56,7 @@ inline EPixelFormat GetPixelFormatFromRenderTargetFormat(ETextureRenderTargetFor
 	case RTF_R32f: return PF_R32_FLOAT; break;
 	case RTF_RG32f: return PF_G32R32F; break;
 	case RTF_RGBA32f: return PF_A32B32G32R32F; break;
+	case RTF_RGB10A2: return PF_A2B10G10R10; break;
 	}
 
 	ensureMsgf(false, TEXT("Unhandled ETextureRenderTargetFormat entry %u"), (uint32)RTFormat);

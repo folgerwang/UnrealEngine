@@ -1,4 +1,4 @@
-// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	VulkanSwapChain.h: Vulkan viewport RHI definitions.
@@ -8,6 +8,8 @@
 #include "VulkanSwapChain.h"
 #include "VulkanPlatform.h"
 #include "Engine/RendererSettings.h"
+#include "IHeadMountedDisplayModule.h"
+
 
 int32 GShouldCpuWaitForFence = 1;
 static FAutoConsoleVariableRef CVarCpuWaitForFence(
@@ -169,28 +171,44 @@ FVulkanSwapChain::FVulkanSwapChain(VkInstance InInstance, FVulkanDevice& InDevic
 		FoundPresentModes.AddZeroed(NumFoundPresentModes);
 		VERIFYVULKANRESULT(VulkanRHI::vkGetPhysicalDeviceSurfacePresentModesKHR(Device.GetPhysicalHandle(), Surface, &NumFoundPresentModes, FoundPresentModes.GetData()));
 
-		bool bFoundDesiredMode = false;
-		VkPresentModeKHR PotentialModes[] = {VK_PRESENT_MODE_MAILBOX_KHR, VK_PRESENT_MODE_FIFO_KHR};
-		for (VkPresentModeKHR PotentialMode : PotentialModes)
-		{
-			for (size_t i = 0; i < NumFoundPresentModes; i++)
-			{
-				if (FoundPresentModes[i] == PotentialMode)
-				{
-					bFoundDesiredMode = true;
-					PresentMode = PotentialMode;
-					break;
-				}
-			}
+		bool bFoundPresentModeMailbox = false;
+		bool bFoundPresentModeImmediate = false;
+		bool bFoundPresentModeFIFO = false;
 
-			if (bFoundDesiredMode)
+		for (size_t i = 0; i < NumFoundPresentModes; i++)
+		{
+			switch (FoundPresentModes[i])
 			{
+			case VK_PRESENT_MODE_MAILBOX_KHR:
+				bFoundPresentModeMailbox = true;
+				break;
+			case VK_PRESENT_MODE_IMMEDIATE_KHR:
+				bFoundPresentModeImmediate = true;
+				break;
+			case VK_PRESENT_MODE_FIFO_KHR:
+				bFoundPresentModeFIFO = true;
 				break;
 			}
 		}
-		if (!bFoundDesiredMode)
+
+		// Until FVulkanViewport::Present honors SyncInterval, we need to disable vsync for the spectator window if using an HMD.
+		const bool bDisableVsyncForHMD = (FVulkanDynamicRHI::HMDVulkanExtensions.IsValid()) ? FVulkanDynamicRHI::HMDVulkanExtensions->ShouldDisableVulkanVSync() : false;
+		
+		if (bFoundPresentModeMailbox)
 		{
-			UE_LOG(LogVulkanRHI, Warning, TEXT("Couldn't find desired VkPresentModeKHR %d! Using %d"), (int32)PresentMode, FoundPresentModes[0]);
+			PresentMode = VK_PRESENT_MODE_MAILBOX_KHR;
+		}
+		else if (bFoundPresentModeImmediate && bDisableVsyncForHMD)
+		{
+			PresentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
+		}
+		else if (bFoundPresentModeFIFO)
+		{
+			PresentMode = VK_PRESENT_MODE_FIFO_KHR;
+		}
+		else
+		{
+			UE_LOG(LogVulkanRHI, Warning, TEXT("Couldn't find desired PresentMode! Using %d"), static_cast<int32>(FoundPresentModes[0]));
 			PresentMode = FoundPresentModes[0];
 		}
 	}
@@ -226,8 +244,7 @@ FVulkanSwapChain::FVulkanSwapChain(VkInstance InInstance, FVulkanDevice& InDevic
 
 
 	VkSwapchainCreateInfoKHR SwapChainInfo;
-	FMemory::Memzero(SwapChainInfo);
-	SwapChainInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+	ZeroVulkanStruct(SwapChainInfo, VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR);
 	SwapChainInfo.surface = Surface;
 	SwapChainInfo.minImageCount = DesiredNumBuffers;
 	SwapChainInfo.imageFormat = CurrFormat.format;
@@ -401,8 +418,7 @@ FVulkanSwapChain::EStatus FVulkanSwapChain::Present(FVulkanQueue* GfxQueue, FVul
 	//ensure(GfxQueue == PresentQueue);
 
 	VkPresentInfoKHR Info;
-	FMemory::Memzero(Info);
-	Info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+	ZeroVulkanStruct(Info, VK_STRUCTURE_TYPE_PRESENT_INFO_KHR);
 	VkSemaphore Semaphore = VK_NULL_HANDLE;
 	if (BackBufferRenderingDoneSemaphore)
 	{

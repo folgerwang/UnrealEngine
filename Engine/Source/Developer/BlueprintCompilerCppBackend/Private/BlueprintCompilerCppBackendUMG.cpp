@@ -23,6 +23,15 @@ void FBackendHelperUMG::WidgetFunctionsInHeader(FEmitterLocalContext& Context)
 	}
 }
 
+void FBackendHelperUMG::AdditionalHeaderIncludeForWidget(FEmitterLocalContext& Context)
+{
+	if (!Context.NativizationOptions.bExcludeMonolithicHeaders
+		&& Cast<UWidgetBlueprintGeneratedClass>(Context.GetCurrentlyGeneratedClass()))
+	{
+		Context.Header.AddLine(TEXT("#include \"Runtime/UMG/Public/UMG.h\""));
+	}
+}
+
 void FBackendHelperUMG::CreateClassSubobjects(FEmitterLocalContext& Context, bool bCreate, bool bInitialize)
 {
 	if (auto WidgetClass = Cast<UWidgetBlueprintGeneratedClass>(Context.GetCurrentlyGeneratedClass()))
@@ -117,6 +126,22 @@ bool FBackendHelperUMG::SpecialStructureConstructorUMG(const UStruct* Struct, co
 {
 	check(ValuePtr || !OutResult);
 
+	auto FrameNumberRangeBoundConstructorLambda = [](const TRangeBound<FFrameNumber>& InRangeBound, const FFrameNumber& InRangeBoundValue) -> FString
+	{
+		if (InRangeBound.IsExclusive())
+		{
+			return FString::Printf(TEXT("TRangeBound<FFrameNumber>::Exclusive(%d)"), InRangeBoundValue.Value);
+		}
+		else if (InRangeBound.IsInclusive())
+		{
+			return FString::Printf(TEXT("TRangeBound<FFrameNumber>::Inclusive(%d)"), InRangeBoundValue.Value);
+		}
+		else
+		{
+			return FString::Printf(TEXT("TRangeBound<FFrameNumber>::Open()"));
+		}
+	};
+
 	if (FSectionEvaluationData::StaticStruct() == Struct)
 	{
 		if (OutResult)
@@ -142,22 +167,6 @@ bool FBackendHelperUMG::SpecialStructureConstructorUMG(const UStruct* Struct, co
 	{
 		if (OutResult)
 		{
-			auto MovieSceneSegmentRangeBoundConstructorLambda = [](const TRangeBound<FFrameNumber>& InRangeBound, const FFrameNumber& InRangeBoundValue) -> FString
-			{
-				if (InRangeBound.IsExclusive())
-				{
-					return FString::Printf(TEXT("TRangeBound<FFrameNumber>::Exclusive(%d)"), InRangeBoundValue.Value);
-				}
-				else if (InRangeBound.IsInclusive())
-				{
-					return FString::Printf(TEXT("TRangeBound<FFrameNumber>::Inclusive(%d)"), InRangeBoundValue.Value);
-				}
-				else
-				{
-					return FString::Printf(TEXT("TRangeBound<FFrameNumber>::Open()"));
-				}
-			};
-
 			const FMovieSceneSegment* MovieSceneSegment = reinterpret_cast<const FMovieSceneSegment*>(ValuePtr);
 			FString SegmentsInitializerList;
 			for (const FSectionEvaluationData& SectionEvaluationData : MovieSceneSegment->Impls)
@@ -172,14 +181,29 @@ bool FBackendHelperUMG::SpecialStructureConstructorUMG(const UStruct* Struct, co
 					, &SectionEvaluationDataStr);
 				SegmentsInitializerList += SectionEvaluationDataStr;
 			}
-			const FString LowerBoundStr = MovieSceneSegmentRangeBoundConstructorLambda(MovieSceneSegment->Range.GetLowerBound()
-				, MovieSceneSegment->Range.GetLowerBound().IsClosed() ? MovieSceneSegment->Range.GetLowerBoundValue() : FFrameNumber());
-			const FString UpperBoundStr = MovieSceneSegmentRangeBoundConstructorLambda(MovieSceneSegment->Range.GetUpperBound()
-				, MovieSceneSegment->Range.GetUpperBound().IsClosed() ? MovieSceneSegment->Range.GetUpperBoundValue() : FFrameNumber());
+			const FString LowerBoundStr = FrameNumberRangeBoundConstructorLambda(MovieSceneSegment->Range.GetLowerBound(),
+				MovieSceneSegment->Range.GetLowerBound().IsClosed() ? MovieSceneSegment->Range.GetLowerBoundValue() : FFrameNumber());
+			const FString UpperBoundStr = FrameNumberRangeBoundConstructorLambda(MovieSceneSegment->Range.GetUpperBound(),
+				MovieSceneSegment->Range.GetUpperBound().IsClosed() ? MovieSceneSegment->Range.GetUpperBoundValue() : FFrameNumber());
 			*OutResult = FString::Printf(TEXT("FMovieSceneSegment(TRange<FFrameNumber>(%s, %s), {%s})"), *LowerBoundStr, *UpperBoundStr, *SegmentsInitializerList);
 		}
 		return true;
 	}
+
+	if (FMovieSceneFrameRange::StaticStruct() == Struct)
+	{
+		if (OutResult)
+		{
+			const FMovieSceneFrameRange* MovieSceneFrameRange = reinterpret_cast<const FMovieSceneFrameRange*>(ValuePtr);
+			const FString LowerBoundStr = FrameNumberRangeBoundConstructorLambda(MovieSceneFrameRange->Value.GetLowerBound(),
+				MovieSceneFrameRange->Value.GetLowerBound().IsClosed() ? MovieSceneFrameRange->Value.GetLowerBoundValue() : FFrameNumber());
+			const FString UpperBoundStr = FrameNumberRangeBoundConstructorLambda(MovieSceneFrameRange->Value.GetUpperBound(),
+				MovieSceneFrameRange->Value.GetUpperBound().IsClosed() ? MovieSceneFrameRange->Value.GetUpperBoundValue() : FFrameNumber());
+			*OutResult = FString::Printf(TEXT("FMovieSceneFrameRange(TRange<FFrameNumber>(%s, %s))"), *LowerBoundStr, *UpperBoundStr);
+		}
+		return true;
+	}
+
 	return false;
 }
 

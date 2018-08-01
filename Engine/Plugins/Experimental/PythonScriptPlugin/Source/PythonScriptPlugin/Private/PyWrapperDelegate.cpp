@@ -24,6 +24,11 @@ void UPythonCallableForDelegate::BeginDestroy()
 		FPyScopedGIL GIL;
 		PyCallable.Reset();
 	}
+	else
+	{
+		// Release ownership if Python has been shut down to avoid attempting to delete the callable (which is already dead)
+		PyCallable.Release();
+	}
 #endif	// WITH_PYTHON
 
 	Super::BeginDestroy();

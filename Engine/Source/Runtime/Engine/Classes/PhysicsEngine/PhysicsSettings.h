@@ -13,6 +13,7 @@
 #include "Engine/DeveloperSettings.h"
 #include "PhysicsEngine/PhysicsSettingsEnums.h"
 #include "PhysicsEngine/BodySetupEnums.h"
+#include "GameFramework/WorldSettings.h"
 #include "PhysicsSettings.generated.h"
 
 /**
@@ -71,33 +72,6 @@ namespace ESettingsLockedAxis
 		Invalid
 	};
 }
-
-/** Settings pertaining to which PhysX broadphase to use, and settings for MBP if that is the chosen broadphase type */
-USTRUCT()
-struct FBroadphaseSettings
-{
-	GENERATED_BODY();
-
-	FBroadphaseSettings()
-		: bUseMBP(false)
-		, MBPBounds(EForceInit::ForceInitToZero)
-		, MBPNumSubdivs(2)
-	{
-
-	}
-
-	/** Whether to use MBP (Multi Broadphase Pruning */
-	UPROPERTY(EditAnywhere, Category = Broadphase)
-	bool bUseMBP;
-
-	/** Total bounds for MBP, must cover the game world or collisions are disabled for out of bounds actors */
-	UPROPERTY(EditAnywhere, Category = Broadphase, meta = (EditCondition = bUseMBP))
-	FBox MBPBounds;
-
-	/** Number of times to subdivide the MBP bounds, final number of regions is MBPNumSubdivs^2 */
-	UPROPERTY(EditAnywhere, Category = Broadphase, meta = (EditCondition = bUseMBP, ClampMin=1, ClampMax=16))
-	uint32 MBPNumSubdivs;
-};
 
 /**
  * Default physics settings.
@@ -286,11 +260,9 @@ class ENGINE_API UPhysicsSettings : public UDeveloperSettings
 	UPROPERTY(config, EditAnywhere, Category=PhysicalSurfaces)
 	TArray<FPhysicalSurfaceName> PhysicalSurfaces;
 
+	/** If we want to Enable MPB or not globally. This is then overridden by project settings if not enabled. **/
 	UPROPERTY(config, EditAnywhere, Category = Broadphase)
-	FBroadphaseSettings ClientBroadphaseSettings;
-
-	UPROPERTY(config, EditAnywhere, Category = Broadphase)
-	FBroadphaseSettings ServerBroadphaseSettings;
+	FBroadphaseSettings DefaultBroadphaseSettings;
 
 public:
 

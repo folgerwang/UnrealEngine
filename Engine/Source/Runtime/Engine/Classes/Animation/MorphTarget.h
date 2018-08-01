@@ -7,7 +7,7 @@
 #include "UObject/Object.h"
 #include "PackedNormal.h"
 #include "UObject/EditorObjectVersion.h"
-#include "UObject/AthenaObjectVersion.h"
+#include "UObject/FortniteMainBranchObjectVersion.h"
 
 #include "MorphTarget.generated.h"
 
@@ -74,14 +74,14 @@ struct FMorphTargetLODModel
 	friend FArchive& operator<<(FArchive& Ar, FMorphTargetLODModel& M)
 	{
 		Ar.UsingCustomVersion(FEditorObjectVersion::GUID);
-		Ar.UsingCustomVersion(FAthenaObjectVersion::GUID);
+		Ar.UsingCustomVersion(FFortniteMainBranchObjectVersion::GUID);
 
 		if (Ar.IsLoading() && Ar.CustomVer(FEditorObjectVersion::GUID) < FEditorObjectVersion::AddedMorphTargetSectionIndices)
 		{
 			Ar << M.Vertices << M.NumBaseMeshVerts;
 			M.bGeneratedByEngine = false;
 		}
-		else if (Ar.IsLoading() && Ar.CustomVer(FAthenaObjectVersion::GUID) < FAthenaObjectVersion::SaveGeneratedMorphTargetByEngine)
+		else if (Ar.IsLoading() && Ar.CustomVer(FFortniteMainBranchObjectVersion::GUID) < FFortniteMainBranchObjectVersion::SaveGeneratedMorphTargetByEngine)
 		{
 			Ar << M.Vertices << M.NumBaseMeshVerts << M.SectionIndices; 
 			M.bGeneratedByEngine = false;

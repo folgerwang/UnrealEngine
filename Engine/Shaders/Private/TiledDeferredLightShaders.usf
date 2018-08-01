@@ -256,10 +256,10 @@ void TiledDeferredLightingMain(
 			LightData.LightPositionAndInvRadius = TiledDeferred.LightPositionAndInvRadius[LightIndex];
 			LightData.LightColorAndFalloffExponent = TiledDeferred.LightColorAndFalloffExponent[LightIndex];
 			{
-				float4 Value = TiledDeferred2.LightDirectionAndSpotlightMaskAndMinRoughness[LightIndex];
+				float4 Value = TiledDeferred2.LightDirectionAndSpotlightMaskAndSpecularScale[LightIndex];
 				LightData.LightDirection = Value.xyz;
 				LightData.bSpotLight = Value.w > 0;
-				LightData.MinRoughness = abs(Value.w);
+				LightData.SpecularScale = abs(Value.w);
 			}
 			LightData.SpotAnglesAndSourceRadius = TiledDeferred2.SpotAnglesAndSourceRadiusAndSimpleLighting[LightIndex];
 			LightData.ShadowMapChannelMask = TiledDeferred2.ShadowMapChannelMask[LightIndex];

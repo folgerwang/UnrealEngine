@@ -142,6 +142,20 @@ namespace AbcImporterUtilities
 		// Set new data
 		InOutData = NewData;
 	}
+
+	template<typename T> void ProcessVertexAttributeArray(const TArray<uint32>& InIndices, const TArray<uint32>& InFaceCounts, const bool bTriangulation, const uint32 NumVertices, TArray<T>& InOutArray)
+	{
+		// Expand using the vertex indices (if num entries == num vertices)
+		if (InOutArray.Num() != InIndices.Num() && InOutArray.Num() == NumVertices)
+		{
+			ExpandVertexAttributeArray(InIndices, InOutArray);
+		}
+		// Otherwise the attributes are stored per face, so triangulate if the faces contain quads
+		else if (bTriangulation)
+		{
+			TriangulateVertexAttributeBuffer(InFaceCounts, InOutArray);
+		}
+	}
 	
 	/** Triangulates material indices according to the face counts (quads will have to be split up into two faces / material indices)*/
 	void TriangulateMaterialIndices(const TArray<uint32>& InFaceCounts, TArray<int32>& InOutData);
@@ -168,7 +182,7 @@ namespace AbcImporterUtilities
 	bool GenerateAbcMeshSampleDataForFrame(const Alembic::AbcGeom::IPolyMeshSchema &Schema, const Alembic::Abc::ISampleSelector FrameSelector, FAbcMeshSample* &Sample, const ESampleReadFlags ReadFlags, const bool bFirstFrame );
 
 	/** Read out texture coordinate data from Alembic GeometryParameter */
-	void ReadUVSetData(Alembic::AbcGeom::IV2fGeomParam &UVCoordinateParameter, const Alembic::Abc::ISampleSelector FrameSelector, TArray<FVector2D>& OutUVs, const TArray<uint32>& MeshIndices, const bool bNeedsTriangulation, const TArray<uint32>& FaceCounts);
+	void ReadUVSetData(Alembic::AbcGeom::IV2fGeomParam &UVCoordinateParameter, const Alembic::Abc::ISampleSelector FrameSelector, TArray<FVector2D>& OutUVs, const TArray<uint32>& MeshIndices, const bool bNeedsTriangulation, const TArray<uint32>& FaceCounts, const int32 NumVertices);
 
 	void GenerateSmoothingGroupsIndices(FAbcMeshSample* MeshSample, float HardEdgeAngleThreshold);
 

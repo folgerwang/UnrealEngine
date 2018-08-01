@@ -362,13 +362,20 @@ BuildMono()
   do
     P4Open $file
   done
+  P4Open $UE_MONO_DIR/lib/mono/4.5/mscorlib.dll
 
   if [ ! -d mono ]; then
 	git clone -b mono-4.0.0-branch https://github.com/mono/mono.git
   fi
   cd mono
   git reset --hard c99aa0c
- 
+  set +e
+  # To add support for terminfo2
+  git cherry-pick 2c1f45f3791f274855e0f5fd2fb0af71c9a756f7
+  set -e
+  # This part of the change that needs resolving is not needed
+  git checkout c99aa0c -- configure.ac 
+
   # This build is a lighter build intended to be shared with Engine/Binaries/ThirdParty/Mono/Mac
   ./autogen.sh --prefix=$UE_MONO_DIR --enable-minimal=aot --disable-libraries --with-mcs-docs=no
   make monolite_url=http://download.mono-project.com/monolite/monolite-117-latest.tar.gz get-monolite-latest
@@ -382,6 +389,7 @@ BuildMono()
   find support/.libs/ -name "*.so" -exec cp --remove-destination {} $UE_MONO_DIR/$TARGET_ARCH/lib/ \;
   find ikvm-native/.libs/ -name "*.so" -exec cp --remove-destination {} $UE_MONO_DIR/$TARGET_ARCH/lib/ \;
   find mcs/class/lib/net_4_5/ -name "*.so" -exec cp --remove-destination {} $UE_MONO_DIR/$TARGET_ARCH/lib/ \;
+  cp --remove-destination mcs/class/lib/net_4_5/mscorlib.dll $UE_MONO_DIR/lib/mono/4.5/
 
   cd ..
   rm -rf mono

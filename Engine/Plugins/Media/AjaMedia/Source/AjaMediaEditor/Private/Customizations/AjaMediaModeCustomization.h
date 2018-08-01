@@ -3,6 +3,8 @@
 #pragma once
 
 #include "CoreMinimal.h"
+
+#include "AjaMediaFinder.h"
 #include "IPropertyTypeCustomization.h"
 #include "Widgets/SWidget.h"
 
@@ -12,16 +14,9 @@
 class FAjaMediaModeCustomization : public IPropertyTypeCustomization
 {
 public:
-	FAjaMediaModeCustomization(bool InOutput = false);
-
-	static TSharedRef<IPropertyTypeCustomization> MakeInputInstance()
+	static TSharedRef<IPropertyTypeCustomization> MakeInstance()
 	{
 		return MakeShareable(new FAjaMediaModeCustomization());
-	}
-
-	static TSharedRef<IPropertyTypeCustomization> MakeOutputInstance()
-	{
-		return MakeShareable(new FAjaMediaModeCustomization(true));
 	}
 
 	/** IPropertyTypeCustomization interface */
@@ -30,10 +25,20 @@ public:
 
 private:
 	TSharedRef<SWidget> HandleSourceComboButtonMenuContent() const;
+	FAjaMediaMode GetMediaModeValue(const FAjaMediaMode& InMediaModeValue) const;
 
 	/** Direction filter */
 	bool bOutput;
 
-	/** Pointer to the MediaPort property handle. */
+	/** Pointer to the MediaMode property handle. */
 	TSharedPtr<IPropertyHandle> MediaModeProperty;
+
+	/** Pointer to the MediaPort property handle. */
+	TSharedPtr<IPropertyHandle> MediaPortProperty;
+
+	/** Pointer to the OverrideDefault property handle. */
+	TWeakObjectPtr<UBoolProperty> OverrideProperty;
+
+	/** Pointer to the parent Object. */
+	TWeakObjectPtr<UObject> ParentObject;
 };

@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "EditorStaticMeshLibrary.h"
 
@@ -153,7 +153,7 @@ int32 UEditorStaticMeshLibrary::SetLods(UStaticMesh* StaticMesh, const FEditorSc
 
 	// Resize array of LODs to only keep LOD 0
 	StaticMesh->Modify();
-	StaticMesh->SourceModels.SetNum(1);
+	StaticMesh->SetNumSourceModels(1);
 
 	// Set up LOD 0
 	StaticMesh->SourceModels[0].ReductionSettings.PercentTriangles = ReductionOptions.ReductionSettings[0].PercentTriangles;
@@ -163,7 +163,7 @@ int32 UEditorStaticMeshLibrary::SetLods(UStaticMesh* StaticMesh, const FEditorSc
 	for (; LODIndex < ReductionOptions.ReductionSettings.Num(); ++LODIndex)
 	{
 		// Create new SourceModel for new LOD
-		FStaticMeshSourceModel& SrcModel = StaticMesh->SourceModels.AddDefaulted_GetRef();
+		FStaticMeshSourceModel& SrcModel = StaticMesh->AddSourceModel();
 
 		// Copy settings from previous LOD
 		SrcModel.BuildSettings = StaticMesh->SourceModels[LODIndex-1].BuildSettings;
@@ -245,7 +245,7 @@ bool UEditorStaticMeshLibrary::RemoveLods(UStaticMesh* StaticMesh)
 
 	// Reduce array of source models to 1
 	StaticMesh->Modify();
-	StaticMesh->SourceModels.SetNum(1);
+	StaticMesh->SetNumSourceModels(1);
 
 	// Request re-building of mesh with new LODs
 	StaticMesh->PostEditChange();

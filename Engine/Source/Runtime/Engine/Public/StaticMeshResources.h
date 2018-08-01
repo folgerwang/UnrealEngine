@@ -799,11 +799,10 @@ public:
 
 	/**
 	 * Constructor
-	 * @param InNeedsCPUAccess - true if resource array data should be CPU accessible
-	 * @param bSupportsVertexHalfFloat - true if device has support for half float in vertex arrays
+	 * @param bInUseHalfFloat - true if device has support for half float in vertex arrays
 	 */
 	FStaticMeshInstanceData(bool bInUseHalfFloat)
-		: bUseHalfFloat(PLATFORM_BUILTIN_VERTEX_HALF_FLOAT || bInUseHalfFloat)
+	:	bUseHalfFloat(PLATFORM_BUILTIN_VERTEX_HALF_FLOAT || bInUseHalfFloat)
 	{
 		AllocateBuffers(0);
 	}
@@ -815,28 +814,8 @@ public:
 		delete InstanceTransformData;
 	}
 
-	void Serialize(FArchive& Ar)
-	{
-		Ar << bUseHalfFloat;
-		Ar << NumInstances;
-		
-		if (Ar.IsLoading())
-		{
-			AllocateBuffers(NumInstances);
-		}
-
-		InstanceOriginData->Serialize(Ar);
-		InstanceLightmapData->Serialize(Ar);
-		InstanceTransformData->Serialize(Ar);
-		
-		if (Ar.IsLoading())
-		{
-			InstanceOriginDataPtr = InstanceOriginData->GetDataPointer();
-			InstanceLightmapDataPtr = InstanceLightmapData->GetDataPointer();
-			InstanceTransformDataPtr = InstanceTransformData->GetDataPointer();
-		}
-	}
-
+	void Serialize(FArchive& Ar);
+	
 	void AllocateInstances(int32 InNumInstances, EResizeBufferFlags BufferFlags, bool DestroyExistingInstances)
 	{
 		NumInstances = InNumInstances;

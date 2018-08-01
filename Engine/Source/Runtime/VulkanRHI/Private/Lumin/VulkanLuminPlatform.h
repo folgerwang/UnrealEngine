@@ -32,6 +32,9 @@ public:
 	static bool LoadVulkanInstanceFunctions(VkInstance inInstance);
 	static void FreeVulkanLibrary();
 
+	static void NotifyFoundInstanceLayersAndExtensions(const TArray<FString>& Layers, const TArray<FString>& Extensions);
+	static void NotifyFoundDeviceLayersAndExtensions(VkPhysicalDevice PhysicalDevice, const TArray<FString>& Layers, const TArray<FString>& Extensions);
+
 	static void GetInstanceExtensions(TArray<const ANSICHAR*>& OutExtensions);
 	static void GetDeviceExtensions(TArray<const ANSICHAR*>& OutExtensions);
 
@@ -44,7 +47,9 @@ public:
 	static bool SupportsStandardSwapchain() { return false; }
 	static EPixelFormat GetPixelFormatForNonDefaultSwapchain() { return PF_R8G8B8A8; }
 
-	static bool SupportsMarkersWithoutExtension() { return true; }
+	static bool ForceEnableDebugMarkers();
+
+	static bool HasUnifiedMemory() { return true; }
 
 protected:
 	static void* VulkanLib;

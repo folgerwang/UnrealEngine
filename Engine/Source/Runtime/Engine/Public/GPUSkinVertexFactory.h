@@ -369,13 +369,22 @@ public:
 	virtual const FShaderResourceViewRHIRef GetTangentsSRV() const = 0;
 	virtual const FShaderResourceViewRHIRef GetTextureCoordinatesSRV() const = 0;
 	virtual const FShaderResourceViewRHIRef GetColorComponentsSRV() const = 0;
+	virtual uint32 GetNumTexCoords() const = 0;
 	virtual const uint32 GetColorIndexMask() const = 0;
+
+	inline const FVertexStreamComponent& GetTangentStreamComponent(int Index)
+	{
+		check(TangentStreamComponents[Index].VertexBuffer != nullptr);
+		return TangentStreamComponents[Index];
+	}
 
 protected:
 	/** dynamic data need for setting the shader */ 
 	FShaderDataType ShaderData;
 	/** Pool of buffers for bone matrices. */
 	static TGlobalResource<FBoneBufferPool> BoneBufferPool;
+
+	FVertexStreamComponent TangentStreamComponents[2];
 
 private:
 	uint32 NumVertices;
@@ -434,6 +443,8 @@ public:
 	void SetData(const FDataType& InData)
 	{
 		Data = InData;
+		this->TangentStreamComponents[0] = InData.TangentBasisComponents[0];
+		this->TangentStreamComponents[1] = InData.TangentBasisComponents[1];
 		FGPUBaseSkinVertexFactory::UpdateRHI();
 	}
 
@@ -459,6 +470,11 @@ public:
 	const FShaderResourceViewRHIRef GetTextureCoordinatesSRV() const override
 	{
 		return Data.TextureCoordinatesSRV;
+	}
+
+	uint32 GetNumTexCoords() const override
+	{
+		return Data.NumTexCoords;
 	}
 
 	const FShaderResourceViewRHIRef GetColorComponentsSRV() const override
@@ -530,6 +546,12 @@ public:
 	//TODO should be supported
 	bool SupportsPositionOnlyStream() const override { return false; }
 
+	inline void InvalidateStreams()
+	{
+		PositionStreamIndex = -1;
+		TangentStreamIndex = -1;
+	}
+
 protected:
 	// Vertex buffer required for creating the Vertex Declaration
 	FVertexBuffer PositionVBAlias;
@@ -577,6 +599,8 @@ public:
 	void SetData(const FDataType& InData)
 	{
 		MorphData = InData;
+		this->TangentStreamComponents[0] = InData.TangentBasisComponents[0];
+		this->TangentStreamComponents[1] = InData.TangentBasisComponents[1];
 		FGPUBaseSkinVertexFactory::UpdateRHI();
 	}
 
@@ -603,6 +627,11 @@ public:
 	const FShaderResourceViewRHIRef GetTextureCoordinatesSRV() const override
 	{
 		return MorphData.TextureCoordinatesSRV;
+	}
+
+	uint32 GetNumTexCoords() const override
+	{
+		return MorphData.NumTexCoords;
 	}
 
 	const FShaderResourceViewRHIRef GetColorComponentsSRV() const override
@@ -897,6 +926,8 @@ public:
 	{
         Super::SetData(InData);
 		MeshMappingData = InData;
+		this->TangentStreamComponents[0] = InData.TangentBasisComponents[0];
+		this->TangentStreamComponents[1] = InData.TangentBasisComponents[1];
 		FGPUBaseSkinVertexFactory::UpdateRHI();
 	}
 
@@ -908,6 +939,36 @@ public:
 	virtual const FGPUBaseSkinVertexFactory* GetVertexFactory() const override
 	{
 		return this;
+	}
+
+	const FShaderResourceViewRHIRef GetPositionsSRV() const override
+	{
+		return MeshMappingData.PositionComponentSRV;
+	}
+
+	const FShaderResourceViewRHIRef GetTangentsSRV() const override
+	{
+		return MeshMappingData.TangentsSRV;
+	}
+
+	const FShaderResourceViewRHIRef GetTextureCoordinatesSRV() const override
+	{
+		return MeshMappingData.TextureCoordinatesSRV;
+	}
+
+	uint32 GetNumTexCoords() const override
+	{
+		return MeshMappingData.NumTexCoords;
+	}
+
+	const FShaderResourceViewRHIRef GetColorComponentsSRV() const override
+	{
+		return MeshMappingData.ColorComponentsSRV;
+	}
+
+	const uint32 GetColorIndexMask() const override
+	{
+		return MeshMappingData.ColorIndexMask;
 	}
 
 	// FRenderResource interface.

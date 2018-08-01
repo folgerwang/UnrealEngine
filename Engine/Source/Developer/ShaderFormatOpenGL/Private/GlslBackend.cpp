@@ -3238,7 +3238,8 @@ bool compiler_internal_AdjustIsFrontFacing(bool isFrontFacing)
 				ralloc_asprintf_append(buffer, "	#define %sout\n", ES31FrameBufferFetchStorageQualifier);
 				ralloc_asprintf_append(buffer, "	vec4 FramebufferFetchES2() { return gl_LastFragColorARM; }\n");
 				ralloc_asprintf_append(buffer, "#else\n");
-				ralloc_asprintf_append(buffer, "	#error This shader requires framebuffer fetch support.\n");
+				ralloc_asprintf_append(buffer, "	#define %sout\n", ES31FrameBufferFetchStorageQualifier);
+				ralloc_asprintf_append(buffer, "	vec4 FramebufferFetchES2() { return vec4(65000.0, 65000.0, 65000.0, 65000.0); }\n");
 				ralloc_asprintf_append(buffer, "#endif\n\n");
 			}
 			else // ES3, ES2
@@ -3823,16 +3824,24 @@ static void ConfigureInOutVariableLayout(EHlslShaderFrequency Frequency,
 	}
 	else if (Semantic && FCStringAnsi::Strnicmp(Variable->name, "gl_", 3) != 0)
 	{
-		Variable->explicit_location = 1;
 		Variable->semantic = ralloc_strdup(Variable, Semantic);
+
 		if(Mode == ir_var_in)
 		{
 			Variable->location = ParseState->next_in_location_slot++;
 		}
 		else
 		{
-			Variable->location = ParseState->next_out_location_slot++;
+			// Location may be already assigned to a pixel shader outputs (SV_TargetX HLSL output semantics).
+			// We want to preserve explicitly assigned render target indices and auto-generate them otherwise.
+			const bool bIsRenderTargetOutput = Frequency == HSF_PixelShader && Mode == ir_var_out;
+			if (!bIsRenderTargetOutput || !Variable->explicit_location)
+			{
+				Variable->location = ParseState->next_out_location_slot++;
+			}
 		}
+
+		Variable->explicit_location = true;
 	}
 }
 

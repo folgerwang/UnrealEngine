@@ -342,7 +342,7 @@ protected:
 	TRefCountPtr<IDXGIFactory2> DxgiFactory2;
 
 	/** A Fence whos value increases every frame*/
-	FD3D12ManualFence* FrameFence;
+	TRefCountPtr<FD3D12ManualFence> FrameFence;
 
 	FD3D12DeferredDeletionQueue DeferredDeletionQueue;
 

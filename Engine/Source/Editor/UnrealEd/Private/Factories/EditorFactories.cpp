@@ -5851,6 +5851,8 @@ EReimportResult::Type UReimportFbxAnimSequenceFactory::Reimport( UObject* Obj )
 			Importer->ReleaseScene();
 			return EReimportResult::Succeeded;
 		}
+		//Set the selected skeleton in the anim sequence
+		AnimSequence->SetSkeleton(Skeleton);
 	}
 
 	if ( UEditorEngine::ReimportFbxAnimation(Skeleton, AnimSequence, ImportData, *Filename) )

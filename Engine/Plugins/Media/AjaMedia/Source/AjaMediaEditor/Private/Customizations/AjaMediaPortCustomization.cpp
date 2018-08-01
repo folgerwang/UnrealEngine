@@ -43,7 +43,7 @@ void FAjaMediaPortCustomization::CustomizeHeader(TSharedRef<IPropertyHandle> InP
 			.VAlign(VAlign_Center)
 			[
 				SNew(STextBlock)
-				.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateLambda([=] { return FText::FromString(MediaPortValue->ToUrl()); })))
+				.Text(MakeAttributeLambda([=] { return FText::FromString(MediaPortValue->ToUrl()); }))
 			]
 			+ SHorizontalBox::Slot()
 			.AutoWidth()
@@ -54,7 +54,7 @@ void FAjaMediaPortCustomization::CustomizeHeader(TSharedRef<IPropertyHandle> InP
 				.OnGetMenuContent(this, &FAjaMediaPortCustomization::HandleSourceComboButtonMenuContent)
 				.ContentPadding(FMargin(4.0, 2.0))
 			]
-		].IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateLambda([=] { return !InPropertyHandle->IsEditConst() && PropertyUtils->IsPropertyEditingEnabled(); })));
+		].IsEnabled(MakeAttributeLambda([=] { return !InPropertyHandle->IsEditConst() && PropertyUtils->IsPropertyEditingEnabled(); }));
 	}
 }
 
@@ -66,7 +66,7 @@ TSharedRef<SWidget> FAjaMediaPortCustomization::HandleSourceComboButtonMenuConte
 {
 	// fetch found Aja sources
 	TArray<FAjaMediaPort> OutSources;
-	if (!UAjaMediaFinder::GetSources(OutSources))
+	if (!FAjaMediaFinder::GetSources(OutSources))
 	{
 		return SNullWidget::NullWidget;
 	}
@@ -89,21 +89,23 @@ TSharedRef<SWidget> FAjaMediaPortCustomization::HandleSourceComboButtonMenuConte
 				FSlateIcon(),
 				FUIAction(
 					FExecuteAction::CreateLambda([=] {
+						if (UStructProperty* StructProperty = Cast<UStructProperty>(MediaPortProperty->GetProperty()))
+						{
+							TArray<void*> RawData;
+							MediaPortProperty->AccessRawData(RawData);
+							FAjaMediaPort* PreviousMediaPortValue = reinterpret_cast<FAjaMediaPort*>(RawData[0]);
 
-						TArray<void*> RawData;
-						MediaPortProperty->AccessRawData(RawData);
-
-						check(RawData.Num() == 1);
-						MediaPortProperty->NotifyPreChange();
-						FAjaMediaPort* MediaPortValue = reinterpret_cast<FAjaMediaPort*>(RawData[0]);
-						*MediaPortValue = Source;
-						MediaPortProperty->NotifyPostChange();
-						MediaPortProperty->NotifyFinishedChangingProperties();
+							FString TextValue;
+							StructProperty->Struct->ExportText(TextValue, &Source, PreviousMediaPortValue, nullptr, EPropertyPortFlags::PPF_None, nullptr);
+							ensure(MediaPortProperty->SetValueFromFormattedString(TextValue, EPropertyValueSetFlags::DefaultFlags) == FPropertyAccess::Result::Success);
+						}
 					}),
 					FCanExecuteAction(),
 					FIsActionChecked::CreateLambda([=] {
-						FString CurrentValue;
-						return ((ValueProperty->GetValue(CurrentValue) == FPropertyAccess::Success) && CurrentValue == Url);
+						TArray<void*> RawData;
+						MediaPortProperty->AccessRawData(RawData);
+						FAjaMediaPort* MediaPortValue = reinterpret_cast<FAjaMediaPort*>(RawData[0]);
+						return *MediaPortValue == Source;
 					})
 				),
 				NAME_None,

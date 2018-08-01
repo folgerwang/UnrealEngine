@@ -13,6 +13,9 @@
 #include "Engine/World.h"
 #include "Engine/Engine.h"
 
+// Determining if we need to be disabled or not
+#include "Misc/ConfigCacheIni.h"
+
 // Steam tells us this number in documentation, however there's no define within the SDK
 #define STEAM_AUTH_MAX_TICKET_LENGTH_IN_BYTES 1024
 
@@ -20,7 +23,7 @@ FOnlineAuthSteam::FOnlineAuthSteam(FOnlineSubsystemSteam* InSubsystem) :
 	SteamUserPtr(SteamUser()),
 	SteamServerPtr(SteamGameServer()),
 	SteamSubsystem(InSubsystem),
-	bEnabled(true),
+	bEnabled(false),
 	bBadKey(false),
 	bReuseKey(false),
 	bBadWrite(false),
@@ -29,6 +32,18 @@ FOnlineAuthSteam::FOnlineAuthSteam(FOnlineSubsystemSteam* InSubsystem) :
 	bNeverSendKey(false),
 	bSendBadId(false)
 {
+	TArray<FString> ComponentList;
+	GConfig->GetArray(TEXT("PacketHandlerComponents"), TEXT("Components"), ComponentList, GEngineIni);
+
+	for (FString CompStr : ComponentList)
+	{
+		if (CompStr.Contains(TEXT("SteamAuthComponentModuleInterface")))
+		{
+			UE_LOG_ONLINE(Log, TEXT("AUTH: Steam Auth Enabled"));
+			bEnabled = true;
+			return;
+		}
+	}
 }
 
 FOnlineAuthSteam::FOnlineAuthSteam() :
@@ -302,15 +317,14 @@ bool FOnlineAuthSteam::KickPlayer(const FUniqueNetId& InUserId)
 			return false;
 		}
 
-		FConstPlayerControllerIterator Itr = World->GetPlayerControllerIterator();
-		for (; Itr; ++Itr)
+		for (FConstPlayerControllerIterator Itr = World->GetPlayerControllerIterator(); Itr; ++Itr)
 		{
-			if (Itr->IsValid() && Itr->Get()->PlayerState != nullptr &&
-				Itr->Get()->PlayerState->UniqueId.IsValid() && 
-				*(Itr->Get()->PlayerState->UniqueId.GetUniqueNetId()) == InUserId)
+			APlayerController* PC = Itr->Get();
+			if (PC && PC->PlayerState != nullptr && PC->PlayerState->UniqueId.IsValid() &&
+				*(PC->PlayerState->UniqueId.GetUniqueNetId()) == InUserId)
 			{
 				const FText AuthKickReason = NSLOCTEXT("NetworkErrors", "HostClosedConnection", "Host closed the connection.");
-				bKickSuccess = GameMode->GameSession->KickPlayer(Itr->Get(), AuthKickReason);
+				bKickSuccess = GameMode->GameSession->KickPlayer(PC, AuthKickReason);
 				break;
 			}
 		}

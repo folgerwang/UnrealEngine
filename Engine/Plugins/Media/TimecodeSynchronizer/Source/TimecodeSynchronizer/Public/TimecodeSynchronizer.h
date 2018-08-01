@@ -11,6 +11,7 @@
 
 
 class UFixedFrameRateCustomTimeStep;
+class UTimeSynchronizationSource;
 
 
 USTRUCT()
@@ -62,6 +63,22 @@ struct FTimecodeSynchronizerActiveTimecodedInputSource
 
 
 /**
+ * Enumerates Timecode source type.
+ */
+UENUM()
+enum class ETimecodeSynchronizationTimecodeType
+{
+	/** Use an external Timecode Provider to provide the timecode to follow. */
+	TimecodeProvider,
+
+	/** Use one of the InputSource as the Timecode Provider. */
+	InputSource,
+
+	/** Use one of the SystemTime as the Timecode Provider. */
+	SystemTime,
+};
+
+/**
  * Enumerates Synchronization related events.
  */
 enum class ETimecodeSynchronizationEvent
@@ -88,6 +105,7 @@ public:
 	//~ Begin UObject Interface
 	virtual void BeginDestroy() override;
 #if WITH_EDITOR
+	virtual bool CanEditChange(const UProperty* InProperty) const override;
 	virtual void PostEditChangeChainProperty(FPropertyChangedChainEvent& PropertyChangedEvent) override;
 #endif
 	//~ End UObject Interface
@@ -134,7 +152,8 @@ private:
 	enum class ESynchronizationState : uint8
 	{
 		None,
-		PreRolling_WaitReadiness,	// wait for all source to be bReady
+		PreRolling_WaitGenlockTimecodeProvider,	// wait for the TimecodeProvider & CustomTimeStep to be Ready
+		PreRolling_WaitReadiness,	// wait for all source to be Ready
 		PreRolling_Synchronizing,	// wait and find a valid Timecode to start with
 		PreRolling_Buffering,		// make sure each source have a big enough buffer
 		Synchronized,				// all sources are running and synchronized
@@ -159,7 +178,14 @@ private:
 
 	/** Switches on current state and ticks it */
 	void Tick_Switch();
-	
+
+	/** Test if the genlock & timecode provider are properly setup */
+	bool Tick_TestGenlock();
+	bool Tick_TestTimecode();
+
+	/** Process PreRolling_WaitGenlockTimecodeProvider state */
+	void TickPreRolling_WaitGenlockTimecodeProvider();
+
 	/** Process PreRolling_WaitReadiness state */
 	void TickPreRolling_WaitReadiness();
 	
@@ -184,13 +210,14 @@ private:
 	/** Unregister TimecodeSynchronizer as the TimecodeProvider */
 	void Unregister();
 
-	/** Unregister TimecodeSynchronizer as the TimecodeProvider */
-	void SetCurrentFrameTime(const FFrameTime& InNewTime);
+	/** Convert Timecode to a FrameTime */
+	FFrameTime ConvertTimecodeToFrameTime(const FTimecode& InTimecode) const;
+	FTimecode ConvertFrameTimeToTimecode(const FFrameTime& InFFrameTime) const;
 
-	/* Verify if all sources are ready */
+	/** Verify if all sources are ready */
 	bool AreSourcesReady() const;
 	
-	/* Start all sources once we're ready to advance time */
+	/** Start all sources once we're ready to advance time */
 	void StartSources();
 
 
@@ -201,12 +228,29 @@ public:
 
 	/** Custom strategy to tick in a interval. */
 	UPROPERTY(EditAnywhere, Instanced, Category="Genlock", meta=(EditCondition="bUseCustomTimeStep", DisplayName="Genlock Source"))
-	class UFixedFrameRateCustomTimeStep* CustomTimeStep;
+	UFixedFrameRateCustomTimeStep* CustomTimeStep;
 
 	/** The fixed framerate to use. */
 	UPROPERTY(EditAnywhere, Category="Genlock", meta=(EditCondition="!bUseCustomTimeStep", ClampMin="15.0"))
 	FFrameRate FixedFrameRate;
 
+public:
+	/** Use a Timecode Provider. */
+	UPROPERTY(EditAnywhere, Category="Timecode Provider", meta=(DisplayName="Select"))
+	ETimecodeSynchronizationTimecodeType TimecodeProviderType;
+
+	/** Custom strategy to tick in a interval. */
+	UPROPERTY(EditAnywhere, Instanced, Category="Timecode Provider", meta=(EditCondition="IN_CPP", DisplayName="Timecode Source"))
+	UTimecodeProvider* TimecodeProvider;
+
+	/**
+	 * Index of the source that drives the synchronized Timecode.
+	 * The source need to be timecoded and flag as bUseForSynchronization
+	 */
+	UPROPERTY(EditAnywhere, Category="Timecode Provider", meta=(EditCondition="IN_CPP"))
+	int32 MasterSynchronizationSourceIndex;
+
+public:
 	/** Enable verification of margin between synchronized time and source time */
 	UPROPERTY()
 	bool bUsePreRollingTimecodeMarginOfErrors;
@@ -220,19 +264,10 @@ public:
 	bool bUsePreRollingTimeout;
 
 	/** How long to wait for all source to be ready */
-	UPROPERTY(EditAnywhere, Category=Synchronization, meta=(EditCondition="bUsePreRollingTimeout", ClampMin="0.0"))
+	UPROPERTY(EditAnywhere, Category="Synchronization", meta=(EditCondition="bUsePreRollingTimeout", ClampMin="0.0"))
 	float PreRollingTimeout; 
 
-	UPROPERTY()
-	bool bUseMasterSynchronizationSource;
-
-	/**
-	 * Index of the source that drives the synchronized Timecode.
-	 * The source need to be timecoded and flag as bUseForSynchronization
-	 */
-	UPROPERTY(EditAnywhere, Category="Input", meta=(EditCondition="bUseMasterSynchronizationSource"))
-	int32 MasterSynchronizationSourceIndex;
-
+public:
 	/** Array of all the sources that wants to be synchronized*/
 	UPROPERTY(EditAnywhere, Instanced, Category="Input")
 	TArray<UTimeSynchronizationSource*> TimeSynchronizationInputSources;
@@ -247,22 +282,28 @@ private:
 	UPROPERTY(VisibleAnywhere, Category=Debug)
 	TArray<FTimecodeSynchronizerActiveTimecodedInputSource> ActiveSynchronizedSources;
 
+	UPROPERTY(Transient)
+	UFixedFrameRateCustomTimeStep* RegisteredCustomTimeStep;
+
+	UPROPERTY(Transient)
+	UTimecodeProvider* RegisteredTimecodeProvider;
+
 private:
 
 	/** The actual synchronization state */
 	ESynchronizationState State;
+	bool bSourceStarted;
 	
 	/** Current FrameTime of the system */
 	FFrameTime CurrentFrameTime;
-	
-	/** Current Timecode of the system  */
-	FTimecode CurrentSynchronizedTimecode;
 	
 	/** Timestamp when PreRolling has started */
 	double StartPreRollingTime;
 	
 	/** Whether or not we are registered as the TimecodeProvider */
 	bool bRegistered;
+	float PreviousFixedFrameRate;
+	bool bPreviousUseFixedFrameRate;
 	
 	/** Index of the active source that drives the synchronized Timecode*/
 	int32 ActiveMasterSynchronizationTimecodedSourceIndex;

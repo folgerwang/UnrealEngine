@@ -451,7 +451,7 @@ namespace UnrealGameSync
 					}
 					SyncDepotPaths.RemoveAll(x => !Filter.Matches(x));
 
-					// Findd all the depot paths that will be synced
+					// Find all the depot paths that will be synced
 					HashSet<string> RemainingDepotPaths = new HashSet<string>(StringComparer.InvariantCultureIgnoreCase);
 					RemainingDepotPaths.UnionWith(RemoveDepotPaths);
 					RemainingDepotPaths.UnionWith(SyncDepotPaths);
@@ -463,7 +463,7 @@ namespace UnrealGameSync
 
 					// Sync them all
 					List<string> TamperedFiles = new List<string>();
-					if(!Perforce.Sync(SyncRevisions, Record => UpdateSyncProgress(Record, RemainingDepotPaths, SyncRevisions.Count), TamperedFiles, Context.PerforceSyncOptions, Log))
+					if(!Perforce.Sync(SyncRevisions, Record => UpdateSyncProgress(Record, RemainingDepotPaths, SyncRevisions.Count), TamperedFiles, false, Context.PerforceSyncOptions, Log))
 					{
 						StatusMessage = "Aborted sync due to errors.";
 						return WorkspaceUpdateResult.FailedToSync;
@@ -731,6 +731,7 @@ namespace UnrealGameSync
 							Log.WriteLine("Removing {0} binaries...", ArchiveTypeAndDepotPath.Key);
 							Progress.Set(String.Format("Removing {0} binaries...", ArchiveTypeAndDepotPath.Key), 0.0f);
 							ArchiveUtils.RemoveExtractedFiles(LocalRootPath, ManifestFileName, Progress, Log);
+							File.Delete(ManifestFileName);
 							Log.WriteLine();
 						}
 
@@ -984,6 +985,7 @@ namespace UnrealGameSync
 
 		public List<string> GetSyncPaths(bool bSyncAllProjects, string[] SyncFilter)
 		{
+			// Add the default project paths
 			List<string> SyncPaths = new List<string>();
 			if(bSyncAllProjects || !SelectedClientFileName.EndsWith(".uproject", StringComparison.InvariantCultureIgnoreCase))
 			{
@@ -999,6 +1001,8 @@ namespace UnrealGameSync
 				}
 				SyncPaths.Add(PerforceUtils.GetClientOrDepotDirectoryName(SelectedClientFileName) + "/...");
 			}
+
+			// Apply the sync filter to that list. We only want inclusive rules in the output list, but we can manually apply exclusions to previous entries.
 			if(SyncFilter != null)
 			{
 				foreach(string SyncPath in SyncFilter)
@@ -1008,8 +1012,31 @@ namespace UnrealGameSync
 					{
 						SyncPaths.Add(ClientRootPath + TrimSyncPath);
 					}
+					else if(TrimSyncPath.StartsWith("-/") && TrimSyncPath.EndsWith("..."))
+					{
+						SyncPaths.RemoveAll(x => x.StartsWith(ClientRootPath + TrimSyncPath.Substring(1, TrimSyncPath.Length - 4)));
+					}
 				}
 			}
+
+			// Sort the remaining paths by length, and remove any paths which are included twice
+			SyncPaths = SyncPaths.OrderBy(x => x.Length).ToList();
+			for(int Idx = 0; Idx < SyncPaths.Count; Idx++)
+			{
+				string SyncPath = SyncPaths[Idx];
+				if(SyncPath.EndsWith("..."))
+				{
+					string SyncPathPrefix = SyncPath.Substring(0, SyncPath.Length - 3);
+					for(int OtherIdx = SyncPaths.Count - 1; OtherIdx > Idx; OtherIdx--)
+					{
+						if(SyncPaths[OtherIdx].StartsWith(SyncPathPrefix))
+						{
+							SyncPaths.RemoveAt(OtherIdx);
+						}
+					}
+				}
+			}
+
 			return SyncPaths;
 		}
 		

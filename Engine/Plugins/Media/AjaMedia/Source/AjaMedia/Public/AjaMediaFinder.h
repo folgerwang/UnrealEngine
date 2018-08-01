@@ -4,8 +4,21 @@
 
 #include "CoreMinimal.h"
 
+#include "Misc/FrameRate.h"
+
 #include "AjaMediaFinder.generated.h"
 
+
+/**
+ * Available timecode formats for Aja sources.
+ */
+UENUM()
+enum class EAjaMediaTimecodeFormat : uint8
+{
+	None,
+	LTC,
+	VITC,
+};
 
 /**
  * Identifies an Aja media source.
@@ -39,6 +52,7 @@ public:
 	int32 PortIndex;
 
 public:
+	bool operator==(const FAjaMediaPort& Other) const { return Other.DeviceIndex == DeviceIndex && Other.PortIndex == PortIndex; }
 
 	/**
 	 * Get a string representation of this source.
@@ -76,74 +90,56 @@ public:
 	/** Default constructor. */
 	FAjaMediaMode();
 
-	/**
-	* Create and initialize a new instance.
-	*/
-	FAjaMediaMode(const FString& InModeName, int32 inMode);
+public:
+	/** The index of the Aja Device */
+	UPROPERTY()
+	int32 DeviceIndex;
 
-	/** The retail name of the Device, i.e. "IoExpress". */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AJA)
+	/** The name of the mode, i.e. "1080p 60". */
+	UPROPERTY()
 	FString ModeName;
 
-	/** The index of the Device */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AJA, meta = (ClampMin = "0"))
-	int32 Mode;
+	/** The frame rate of the mode  */
+	UPROPERTY()
+	FFrameRate FrameRate;
+
+	/** The target size of the mode  */
+	UPROPERTY()
+	FIntPoint TargetSize;
+
+	/** The video format index for AJA */
+	UPROPERTY()
+	int32 VideoFormatIndex;
 
 public:
+	bool operator==(const FAjaMediaMode& Other) const
+	{
+		return Other.DeviceIndex == DeviceIndex && Other.FrameRate == FrameRate && Other.VideoFormatIndex == VideoFormatIndex;
+	}
 
 	/**
 	 * Get a string representation of this mode.
-	 * @return String representation, i.e. "".
+	 * @return i.e. "1080p 60".
 	 */
 	FString ToString() const;
 
-	/**
-	 * Get a url used by the Media framework
-	 * @return Url representation, "aja://device0/port1"
-	 */
-	FString ToUrl() const;
-
-	/** Return true if the device & port index have been set properly */
+	/** Return true if the MediaMode has been set properly */
 	bool IsValid() const;
-};
-
-/** Used to manage input modes. */
-USTRUCT(BlueprintType)
-struct AJAMEDIA_API FAjaMediaModeInput : public FAjaMediaMode
-{
-	GENERATED_BODY()
-};
-
-/** Used to manage output modes. */
-USTRUCT(BlueprintType)
-struct AJAMEDIA_API FAjaMediaModeOutput : public FAjaMediaMode
-{
-	GENERATED_BODY()
 };
 
 /*
  * Find all of the AJA Inputs
  */
-UCLASS()
-class AJAMEDIA_API UAjaMediaFinder : public UObject
+class AJAMEDIA_API FAjaMediaFinder
 {
-	GENERATED_BODY()
-
 public:
 
-	/**
-	 * Get the list of AJA media sources installed in the machine.
-	 * @param OutSources Will contain the collection of found NDI source names and their URLs.
-	 * @return true on success, false if the finder wasn't initialized.
-	 */
-	UFUNCTION(BlueprintCallable, Category=AJA)
+	/** Get the list of AJA device installed in the machine. */
 	static bool GetSources(TArray<FAjaMediaPort>& OutSources);
 
-	/**
-	 * Get the list of Supported AJA video modes.
-	 * @param OutModes Will contain the collection of found modes.
-	 * @return true on success, false if the finder wasn't initialized.
-	 */
-	UFUNCTION(BlueprintCallable, Category = AJA)
-	static bool GetModes(TArray<FAjaMediaMode>& OutModes, bool bInOutput);
+	/** Get the list of Supported AJA video modes. */
+	static bool GetModes(int32 DeviceIndex, bool bInOutput, TArray<FAjaMediaMode>& OutModes);
+
+	/** Return true if the device & port index have been set properly */
+	static bool IsValid(const FAjaMediaPort& InPort, const FAjaMediaMode& InMode, FString& OutFailureReason);
 };

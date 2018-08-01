@@ -1561,7 +1561,7 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary7(UClass* InClass, UObject*
 				Cast<USpeedTreeImportData>(StaticMesh->AssetImportData)->CopyFrom(Options->SpeedTreeImportData);
 				
 				// clear out any old data
-				StaticMesh->SourceModels.Empty();
+				StaticMesh->SetNumSourceModels(0);
 				StaticMesh->SectionInfoMap.Clear();
 				StaticMesh->OriginalSectionInfoMap.Clear();
 				StaticMesh->StaticMaterials.Empty();
@@ -2045,7 +2045,7 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary8(UClass* InClass, UObject*
 		StaticMesh->StaticMaterials.Empty();
 		if (StaticMesh->SourceModels.Num() != SpeedTree.Lods().Count())
 		{
-			StaticMesh->SourceModels.Empty();
+			StaticMesh->SetNumSourceModels(0);
 			float Denominator = 1.0f / FMath::Max(1.0f, SpeedTree.Lods().Count() - 1.0f);
 
 			for (uint32 LODIndex = 0; LODIndex < SpeedTree.Lods().Count(); ++LODIndex)

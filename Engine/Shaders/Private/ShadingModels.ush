@@ -69,8 +69,9 @@ struct FShadowTerms
 
 float New_a2( float a2, float SinAlpha, float VoH )
 {
-	//return a2 + 0.25 * SinAlpha * (3.0 * sqrtFast(a2) + SinAlpha) / ( VoH + 0.001 );
-	return a2 + 0.25 * SinAlpha * ( saturate(12 * a2 + 0.125) + SinAlpha ) / ( VoH + 0.001 );
+	return a2 + 0.25 * SinAlpha * (3.0 * sqrtFast(a2) + SinAlpha) / ( VoH + 0.001 );
+	//return a2 + 0.25 * SinAlpha * ( saturate(12 * a2 + 0.125) + SinAlpha ) / ( VoH + 0.001 );
+	//return a2 + 0.25 * SinAlpha * ( a2 * 2 + 1 + SinAlpha ) / ( VoH + 0.001 );
 }
 
 float EnergyNormalization( inout float a2, float VoH, FAreaLight AreaLight )
@@ -78,7 +79,7 @@ float EnergyNormalization( inout float a2, float VoH, FAreaLight AreaLight )
 	if( AreaLight.SphereSinAlphaSoft > 0 )
 	{
 		// Modify Roughness
-		a2 = a2 + Pow2( AreaLight.SphereSinAlphaSoft ) / ( VoH * 3.6 + 0.4 );
+		a2 = saturate( a2 + Pow2( AreaLight.SphereSinAlphaSoft ) / ( VoH * 3.6 + 0.4 ) );
 	}
 
 	float Sphere_a2 = a2;
@@ -120,6 +121,22 @@ float3 SpecularGGX( float Roughness, float3 SpecularColor, BxDFContext Context, 
 	return (D * Vis) * F;
 }
 
+float3 DualSpecularGGX(float AverageRoughness, float Lobe0Roughness, float Lobe1Roughness, float LobeMix, float3 SpecularColor, BxDFContext Context, float NoL, FAreaLight AreaLight)
+{
+	float AverageAlpha2 = Pow4(AverageRoughness);
+	float Lobe0Alpha2 = Pow4(Lobe0Roughness);
+	float Lobe1Alpha2 = Pow4(Lobe1Roughness);
+
+	float Lobe0Energy = EnergyNormalization(Lobe0Alpha2, Context.VoH, AreaLight);
+	float Lobe1Energy = EnergyNormalization(Lobe1Alpha2, Context.VoH, AreaLight);
+
+	// Generalized microfacet specular
+	float D = lerp(D_GGX(Lobe0Alpha2, Context.NoH) * Lobe0Energy, D_GGX(Lobe1Alpha2, Context.NoH) * Lobe1Energy, LobeMix);
+	float Vis = Vis_SmithJointApprox(AverageAlpha2, Context.NoV, NoL); // Average visibility well approximates using two separate ones (one per lobe).
+	float3 F = F_Schlick(SpecularColor, Context.VoH);
+
+	return (D * Vis) * F;
+}
 
 struct FDirectLighting
 {
@@ -163,7 +180,7 @@ float3 SimpleShading( float3 DiffuseColor, float3 SpecularColor, float Roughness
 FDirectLighting ClearCoatBxDF( FGBufferData GBuffer, half3 N, half3 V, half3 L, float Falloff, float NoL, FAreaLight AreaLight, FShadowTerms Shadow )
 {
 	const float ClearCoat			= GBuffer.CustomData.x;
-	const float ClearCoatRoughness	= GBuffer.CustomData.y;
+	const float ClearCoatRoughness	= max(GBuffer.CustomData.y, 0.02f);
 	const float Film = 1 * ClearCoat;
 	const float MetalSpec = 0.9;
 
@@ -212,9 +229,13 @@ FDirectLighting ClearCoatBxDF( FGBufferData GBuffer, half3 N, half3 V, half3 L, 
 	Lighting.Diffuse = AreaLight.FalloffColor * (LayerAttenuation * Falloff * NoL) * Diffuse_Lambert( GBuffer.DiffuseColor );
 
 	if( AreaLight.bIsRect )
+	{
 		Lighting.Specular += LayerAttenuation * RectGGXApproxLTC( GBuffer.Roughness, GBuffer.SpecularColor, N, V, AreaLight.Rect, AreaLight.Texture );
+	}
 	else
+	{
 		Lighting.Specular += AreaLight.FalloffColor * (LayerAttenuation * Falloff * NoL) * SpecularGGX( GBuffer.Roughness, GBuffer.SpecularColor, Context, NoL, AreaLight );
+	}
 
 	Lighting.Transmission = 0;
 	return Lighting;
@@ -300,7 +321,18 @@ float ApproximateHG(float cosJ, float g)
 
 	const float ISO_PHASE_FUNC_Normalized = 0.5;
 
-	return (ISO_PHASE_FUNC_Normalized * (1.0f - g2) / gcos2);
+	return (ISO_PHASE_FUNC_Normalized * (1.0f - g2) / max( 1e-5, gcos2));
+}
+
+void GetProfileDualSpecular(FGBufferData GBuffer, out float AverageToRoughness0, out float AverageToRoughness1, out float LobeMix)
+{
+	// 0..255, which SubSurface profile to pick
+	uint SubsurfaceProfileInt = ExtractSubsurfaceProfileInt(GBuffer);
+
+	float4 Data = SSProfilesTexture.Load(int3(SSSS_DUAL_SPECULAR_OFFSET, SubsurfaceProfileInt, 0));
+	AverageToRoughness0 = Data.x * SSSS_MAX_DUAL_SPECULAR_ROUGHNESS;
+	AverageToRoughness1 = Data.y * SSSS_MAX_DUAL_SPECULAR_ROUGHNESS;
+	LobeMix = Data.z;
 }
 
 FDirectLighting SubsurfaceProfileBxDF( FGBufferData GBuffer, half3 N, half3 V, half3 L, float Falloff, float NoL, FAreaLight AreaLight, FShadowTerms Shadow )
@@ -310,13 +342,34 @@ FDirectLighting SubsurfaceProfileBxDF( FGBufferData GBuffer, half3 N, half3 V, h
 	SphereMaxNoH( Context, AreaLight.SphereSinAlpha, true );
 	Context.NoV = saturate( abs( Context.NoV ) + 1e-5 );
 
+	float AverageToRoughness0;
+	float AverageToRoughness1;
+	float LobeMix;
+	GetProfileDualSpecular(GBuffer, AverageToRoughness0, AverageToRoughness1, LobeMix);
+
+	float AverageRoughness = GBuffer.Roughness;
+	float Lobe0Roughness = max(saturate(AverageRoughness * AverageToRoughness0), 0.02f);
+	float Lobe1Roughness = saturate(AverageRoughness * AverageToRoughness1);
+
+	// Smoothly lerp to default single GGX lobe as Opacity approaches 0, before reverting to SHADINGMODELID_DEFAULT_LIT.
+	// See SUBSURFACE_PROFILE_OPACITY_THRESHOLD in ShadingModelsMaterial.ush.
+	float Opacity = GBuffer.CustomData.a;
+	Lobe0Roughness = lerp(1.0f, Lobe0Roughness, saturate(Opacity * 10.0f));
+	Lobe1Roughness = lerp(1.0f, Lobe1Roughness, saturate(Opacity * 10.0f));
+
 	FDirectLighting Lighting;
 	Lighting.Diffuse  = AreaLight.FalloffColor * (Falloff * NoL) * Diffuse_Burley( GBuffer.DiffuseColor, GBuffer.Roughness, Context.NoV, NoL, Context.VoH );
 
-	if( AreaLight.bIsRect )
-		Lighting.Specular = RectGGXApproxLTC( GBuffer.Roughness, GBuffer.SpecularColor, N, V, AreaLight.Rect, AreaLight.Texture );
+	if (AreaLight.bIsRect)
+	{
+		float3 Lobe0Specular = RectGGXApproxLTC(Lobe0Roughness, GBuffer.SpecularColor, N, V, AreaLight.Rect, AreaLight.Texture);
+		float3 Lobe1Specular = RectGGXApproxLTC(Lobe1Roughness, GBuffer.SpecularColor, N, V, AreaLight.Rect, AreaLight.Texture);
+		Lighting.Specular = lerp(Lobe0Specular, Lobe1Specular, LobeMix);
+	}
 	else
-		Lighting.Specular = AreaLight.FalloffColor * (Falloff * NoL) * SpecularGGX( GBuffer.Roughness, GBuffer.SpecularColor, Context, NoL, AreaLight );
+	{
+		Lighting.Specular = AreaLight.FalloffColor * (Falloff * NoL) * DualSpecularGGX(AverageRoughness, Lobe0Roughness, Lobe1Roughness, LobeMix, GBuffer.SpecularColor, Context, NoL, AreaLight);
+	}
 
 
 #if USE_TRANSMISSION
@@ -329,7 +382,7 @@ FDirectLighting SubsurfaceProfileBxDF( FGBufferData GBuffer, half3 N, half3 V, h
 	float3 Profile = GetTransmissionProfile(GBuffer, Thickness).rgb;
 
 	float3 RefracV = refract(V, -N, TransmissionParams.OneOverIOR);
-	float PhaseFunction = saturate( ApproximateHG( dot(-L, RefracV), TransmissionParams.ScatteringDistribution ) );
+	float PhaseFunction = ApproximateHG( dot(-L, RefracV), TransmissionParams.ScatteringDistribution );
 	Lighting.Transmission = AreaLight.FalloffColor * Profile * (Falloff * PhaseFunction); // TODO: This probably should also include cosine term (NoL)
 
 #else // USE_TRANSMISSION
@@ -707,6 +760,9 @@ float3 HairShading( FGBufferData GBuffer, float3 L, float3 V, half3 N, float Sha
 
 	if(1)
 	{
+		// Use soft Kajiya Kay diffuse attenuation
+		float KajiyaDiffuse = 1 - abs( dot(N,L) );
+
 		float3 FakeNormal = normalize( V - N * dot(V,N) );
 		//N = normalize( DiffuseN + FakeNormal * 2 );
 		N = FakeNormal;
@@ -714,7 +770,7 @@ float3 HairShading( FGBufferData GBuffer, float3 L, float3 V, half3 N, float Sha
 		// Hack approximation for multiple scattering.
 		float Wrap = 1;
 		float NoL = saturate( ( dot(N, L) + Wrap ) / Square( 1 + Wrap ) );
-		float DiffuseScatter = (1 / PI) * NoL * GBuffer.Metallic;
+		float DiffuseScatter = (1 / PI) * lerp( NoL, KajiyaDiffuse, 0.33 ) * GBuffer.Metallic;
 		float Luma = Luminance( GBuffer.BaseColor );
 		float3 ScatterTint = pow( GBuffer.BaseColor / Luma, 1 - Shadow );
 		S += sqrt( GBuffer.BaseColor ) * DiffuseScatter * ScatterTint;
@@ -730,7 +786,6 @@ FDirectLighting HairBxDF( FGBufferData GBuffer, half3 N, half3 V, half3 L, float
 	FDirectLighting Lighting;
 	Lighting.Diffuse = 0;
 	Lighting.Specular = 0;
-	// FIXME Not passing Shadow!!!!!!
 	Lighting.Transmission = AreaLight.FalloffColor * Falloff * HairShading( GBuffer, L, V, N, Shadow.TransmissionShadow, 1, 0, uint2(0,0) );
 	return Lighting;
 }
@@ -779,10 +834,26 @@ FDirectLighting TwoSidedBxDF( FGBufferData GBuffer, half3 N, half3 V, half3 L, f
 
 FDirectLighting EyeBxDF( FGBufferData GBuffer, half3 N, half3 V, half3 L, float Falloff, float NoL, FAreaLight AreaLight, FShadowTerms Shadow )
 {
-	const float3 IrisNormal		= OctahedronToUnitVector( GBuffer.CustomData.xy * 2 - 1 );
-	const float  IrisDistance	= GBuffer.CustomData.w;
-	const float  IrisMask		= GBuffer.CustomData.z;
-	
+#if IRIS_NORMAL
+	const float2 CausticNormalDelta	= float2( GBuffer.StoredMetallic, GBuffer.StoredSpecular )	* 2 - (256.0/255.0);
+	const float2 IrisNormalDelta	= float2( GBuffer.CustomData.y, GBuffer.CustomData.z )		* 2 - (256.0/255.0);
+	const float  IrisMask = 1.0f - GBuffer.CustomData.w;
+
+	const float2 WorldNormalOct	= UnitVectorToOctahedron( GBuffer.WorldNormal );
+	const float3 CausticNormal	= OctahedronToUnitVector( WorldNormalOct + CausticNormalDelta );
+	const float3 IrisNormal		= OctahedronToUnitVector( WorldNormalOct + IrisNormalDelta );
+#else
+	const float3 IrisNormal		= OctahedronToUnitVector( GBuffer.CustomData.yz * 2 - 1 );
+	const float  IrisDistance	= GBuffer.StoredMetallic;
+	const float  IrisMask		= 1.0f - GBuffer.CustomData.w;
+
+	// Blend in the negative intersection normal to create some concavity
+	// Not great as it ties the concavity to the convexity of the cornea surface
+	// No good justification for that. On the other hand, if we're just looking to
+	// introduce some concavity, this does the job.
+	const float3 CausticNormal = normalize(lerp(IrisNormal, -N, IrisMask*IrisDistance));
+#endif
+
 	BxDFContext Context;
 	Init( Context, N, V, L );
 	SphereMaxNoH( Context, AreaLight.SphereSinAlpha, false );
@@ -812,25 +883,14 @@ FDirectLighting EyeBxDF( FGBufferData GBuffer, half3 N, half3 V, half3 L, float 
 		Lighting.Specular = AreaLight.FalloffColor * (Falloff * NoL) * D * Vis * F;
 	}
 
-
-	// Blend in the negative intersection normal to create some concavity
-	// Not great as it ties the concavity to the convexity of the cornea surface
-	// No good justification for that. On the other hand, if we're just looking to
-	// introduce some concavity, this does the job.
-	float3 CausticNormal = normalize(lerp(IrisNormal, -N, IrisMask*IrisDistance));
-
 	float IrisNoL = saturate( dot( IrisNormal, L ) );
 	float Power = lerp( 12, 1, IrisNoL );
-	float Caustic = 0.6 + 0.2 * ( Power + 1 ) * pow( saturate( dot( CausticNormal, L ) ), Power );
+	float Caustic = 0.8 + 0.2 * ( Power + 1 ) * pow( saturate( dot( CausticNormal, L ) ), Power );
 	float Iris = IrisNoL * Caustic;
-
-	// http://blog.stevemcauley.com/2011/12/03/energy-conserving-wrapped-diffuse/
-	float Wrap = 0.15;
-	float Sclera = saturate( ( NoL + Wrap ) / Square( 1 + Wrap ) );
+	float Sclera = NoL;
 	
-	
-	Lighting.Diffuse  = AreaLight.FalloffColor * (Falloff * lerp( Sclera, Iris, IrisMask ) * (1 - F) ) * Diffuse_Lambert( GBuffer.DiffuseColor );
-	Lighting.Transmission = 0;
+	Lighting.Diffuse = 0;
+	Lighting.Transmission = AreaLight.FalloffColor * ( Falloff * lerp( Sclera, Iris, IrisMask ) * (1 - F) ) * Diffuse_Lambert( GBuffer.DiffuseColor );
 	return Lighting;
 }
 

@@ -112,15 +112,20 @@ FMetalCommandQueue::FMetalCommandQueue(mtlpp::Device InDevice, uint32 const MaxN
 		
 		Features |= EMetalFeaturesLinearTextures;
 		
-		// Using Private Memory & BlitEncoders for Vertex & Index data is slower on the Mac Pro's DXXX GPUs
-		// Everywhere else it should be *much* faster.
-		if (!FString(Device.GetName()).Contains(TEXT("FirePro")))
+		FString DeviceName(Device.GetName());
+		// On earlier OS versions Intel Broadwell couldn't suballocate properly
+		if (!(DeviceName.Contains(TEXT("Intel")) && (DeviceName.Contains(TEXT("5300")) || DeviceName.Contains(TEXT("6000")) || DeviceName.Contains(TEXT("6100")))) || FPlatformMisc::MacOSXVersionCompare(10,14,0) >= 0)
 		{
-			Features |= EMetalFeaturesEfficientBufferBlits;
-		}
-		if (!FString(Device.GetName()).Contains(TEXT("Vega")))
-		{
-			Features |= EMetalFeaturesPrivateBufferSubAllocation;
+			// Using Private Memory & BlitEncoders for Vertex & Index data should be *much* faster.
+        	Features |= EMetalFeaturesEfficientBufferBlits;
+        	
+			Features |= EMetalFeaturesBufferSubAllocation;
+					
+	        // On earlier OS versions Vega didn't like non-zero blit offsets
+	        if (!DeviceName.Contains(TEXT("Vega")) || FPlatformMisc::MacOSXVersionCompare(10,13,5) >= 0)
+	        {
+				Features |= EMetalFeaturesPrivateBufferSubAllocation;
+			}
 		}
     }
     else if ([Device.GetName().GetPtr() rangeOfString:@"Nvidia" options:NSCaseInsensitiveSearch].location != NSNotFound)
@@ -229,8 +234,8 @@ mtlpp::CommandBuffer FMetalCommandQueue::CreateCommandBuffer(void)
 		CmdBuffer = bUnretainedRefs ? MTLPP_VALIDATE(mtlpp::CommandQueue, CommandQueue, SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation, CommandBufferWithUnretainedReferences()) : MTLPP_VALIDATE(mtlpp::CommandQueue, CommandQueue, SafeGetRuntimeDebuggingLevel() >= EMetalDebugLevelValidation, CommandBuffer());
 		
 		if (RuntimeDebuggingLevel > EMetalDebugLevelLogDebugGroups)
-		{
-			CmdBuffer = [[[FMetalDebugCommandBuffer alloc] initWithCommandBuffer:CmdBuffer.GetPtr()] autorelease];
+		{			
+			METAL_DEBUG_ONLY(FMetalCommandBufferDebugging AddDebugging(CmdBuffer));
 			MTLPP_VALIDATION(mtlpp::CommandBufferValidationTable ValidatedCommandBuffer(CmdBuffer));
 		}
 		else if (RuntimeDebuggingLevel == EMetalDebugLevelLogDebugGroups)

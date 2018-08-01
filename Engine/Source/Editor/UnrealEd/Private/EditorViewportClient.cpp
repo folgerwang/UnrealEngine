@@ -1881,10 +1881,10 @@ void FEditorViewportClient::UpdateLightingShowFlags( FEngineShowFlags& InOutShow
 	}
 }
 
-bool FEditorViewportClient::CalculateEditorConstrainedViewRect(FSlateRect& OutSafeFrameRect, FViewport* InViewport)
+bool FEditorViewportClient::CalculateEditorConstrainedViewRect(FSlateRect& OutSafeFrameRect, FViewport* InViewport, float DPIScale)
 {
-	const int32 SizeX = InViewport->GetSizeXY().X;
-	const int32 SizeY = InViewport->GetSizeXY().Y;
+	const int32 SizeX = InViewport->GetSizeXY().X / DPIScale;
+	const int32 SizeY = InViewport->GetSizeXY().Y / DPIScale;
 
 	OutSafeFrameRect = FSlateRect(0, 0, SizeX, SizeY);
 	float FixedAspectRatio;
@@ -1928,7 +1928,7 @@ void FEditorViewportClient::DrawSafeFrames(FViewport& InViewport, FSceneView& Vi
 	if (EngineShowFlags.CameraAspectRatioBars || EngineShowFlags.CameraSafeFrames)
 	{
 		FSlateRect SafeRect;
-		if (CalculateEditorConstrainedViewRect(SafeRect, &InViewport))
+		if (CalculateEditorConstrainedViewRect(SafeRect, &InViewport, Canvas.GetDPIScale()))
 		{
 			if (EngineShowFlags.CameraSafeFrames)
 			{
@@ -3579,7 +3579,7 @@ void FEditorViewportClient::Draw(FViewport* InViewport, FCanvas* Canvas)
 
 	    FSlateRect SafeFrame;
 	    View->CameraConstrainedViewRect = View->UnscaledViewRect;
-	    if (CalculateEditorConstrainedViewRect(SafeFrame, Viewport))
+	    if (CalculateEditorConstrainedViewRect(SafeFrame, Viewport, Canvas->GetDPIScale()))
 	    {
 		    View->CameraConstrainedViewRect = FIntRect(SafeFrame.Left, SafeFrame.Top, SafeFrame.Right, SafeFrame.Bottom);
 	    }

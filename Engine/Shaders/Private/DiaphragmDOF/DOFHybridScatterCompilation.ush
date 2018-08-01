@@ -10,6 +10,8 @@
 
 //------------------------------------------------------- PARAMETERS
 
+float NeighborCompareMaxColor;
+
 // Parameters for ComputeScatterFactor.
 struct FHybridScatterInputs
 {
@@ -32,12 +34,6 @@ struct FHybridScatterInputs
 	float2 BufferUV;
 };
 
-// Faster but less accurate luma computation with a scaling by 4.
-float Luma4(float3 Color)
-{
-	return (Color.g * 2.0) + (Color.r + Color.b);
-}
-
 // Return the minimal luma for a pixel to be scattered.
 float ComputeLuminanceOnlyBasedScatterFactor(in const FHybridScatterInputs Parameters)
 {
@@ -59,7 +55,7 @@ float ComputeNeighborBasedScatterFactor(in const FHybridScatterInputs Parameters
 		const float Threshold = 0.7;
 
 		float LinearScale = rcp(Parameters.FrameExposureScale);
-		float LinearColorMaximum = 3 * LinearScale;
+		float LinearColorMaximum = NeighborCompareMaxColor * LinearScale;
 
 		float4 SaturatedColor = min(Parameters.Color, LinearColorMaximum);
 

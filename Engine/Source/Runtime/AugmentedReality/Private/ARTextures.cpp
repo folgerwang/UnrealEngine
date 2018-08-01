@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "ARTextures.h"
 
@@ -14,5 +14,12 @@ UARTextureCameraImage::UARTextureCameraImage(const FObjectInitializer& ObjectIni
 
 UARTextureCameraDepth::UARTextureCameraDepth(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
+{
+}
+
+//@joeg -- Added environmental texture probe support
+UAREnvironmentCaptureProbeTexture::UAREnvironmentCaptureProbeTexture(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+	, TextureType(EARTextureType::EnvironmentCapture)
 {
 }

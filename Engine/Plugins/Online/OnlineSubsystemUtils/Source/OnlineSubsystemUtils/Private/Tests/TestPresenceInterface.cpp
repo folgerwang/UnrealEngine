@@ -7,6 +7,7 @@
 #if WITH_DEV_AUTOMATION_TESTS
 
 #define PRESENCE_TEST_LOG_KEY 50
+#define PRESENCE_TEST_TIMEOUT 120
 
 FTestPresenceInterface::~FTestPresenceInterface()
 {
@@ -95,12 +96,23 @@ bool FTestPresenceInterface::Tick(float DeltaTime)
 
 	// If we don't get an update within 2min while this test runs, mark the delegate watch task as a failure
 	if (!EnumHasAnyFlags(CompletedTasks, EPresenceTestStatus::WorkingDelegate) &&
-		FPlatformTime::Seconds() - TestTimeStart > 120 &&
+		FPlatformTime::Seconds() - TestTimeStart > PRESENCE_TEST_TIMEOUT &&
 		TestTimeStart > 0)
 	{
 		bHasFailed = true;
 		TasksAttempted |= EPresenceTestStatus::WorkingDelegate;
 		TestTimeStart = 0; // Reset the time so we don't run the task again
+	}
+
+	// Handle failing out the arbitrary fetch test
+	if (!EnumHasAnyFlags(CompletedTasks, EPresenceTestStatus::FetchRandom) &&
+		EnumHasAnyFlags(RequiredFlags, EPresenceTestStatus::FetchRandom) &&
+		FPlatformTime::Seconds() - ArbitraryFetchTimeStart > PRESENCE_TEST_TIMEOUT &&
+		ArbitraryFetchTimeStart > 0)
+	{
+		bHasFailed = true;
+		TasksAttempted |= EPresenceTestStatus::FetchRandom;
+		ArbitraryFetchTimeStart = 0;
 	}
 
 	if (EnumHasAllFlags(CompletedTasks, RequiredFlags) || (bHasFailed && EnumHasAllFlags(TasksAttempted, RequiredFlags)))
@@ -196,7 +208,7 @@ void FTestPresenceInterface::Test(UWorld* InWorld, const FString& RandomUser)
 
 	World = InWorld;
 	// This test typically times out after two minutes. This timer is set for a bit longer than that, just in case.
-	GEngine->AddOnScreenDebugMessage(PRESENCE_TEST_LOG_KEY, 125.0f, FColor::Yellow, TEXT("Presence Test is running. Please wait until it completes."));
+	GEngine->AddOnScreenDebugMessage(PRESENCE_TEST_LOG_KEY, 145.0f, FColor::Yellow, TEXT("Presence Test is running. Please wait until it completes."));
 	GEngine->OnWorldDestroyed().AddRaw(this, &FTestPresenceInterface::OnWorldDestroyed);
 
 	// Grab the user's friends
@@ -213,6 +225,7 @@ void FTestPresenceInterface::Test(UWorld* InWorld, const FString& RandomUser)
 		if (ArbitraryId.IsValid())
 		{
 			PresenceInt->QueryPresence(*ArbitraryId, IOnlinePresence::FOnPresenceTaskCompleteDelegate::CreateRaw(this, &FTestPresenceInterface::OnRandomUserFetchComplete));
+			ArbitraryFetchTimeStart = FPlatformTime::Seconds();
 			RequiredFlags |= EPresenceTestStatus::FetchRandom;
 		}
 		else

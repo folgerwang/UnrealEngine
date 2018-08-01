@@ -122,6 +122,14 @@ namespace UnrealBuildTool
 		public abstract SDKStatus HasRequiredSDKsInstalled();
 
 		/// <summary>
+		/// Whether this platform requires specific Visual Studio version.
+		/// </summary>
+		public virtual VCProjectFileFormat GetRequiredVisualStudioVersion()
+		{
+			return VCProjectFileFormat.Default;
+		}
+
+		/// <summary>
 		/// Gets all the registered platforms
 		/// </summary>
 		/// <returns>Sequence of registered platforms</returns>
@@ -794,6 +802,15 @@ namespace UnrealBuildTool
 
 			return DoProjectSettingsMatchDefault(Platform, ProjectDirectoryName, "/Script/BuildSettings.BuildSettings",
 				BoolKeys, null, null);
+		}
+
+		/// <summary>
+		/// Check for whether we require a build for platform reasons
+		/// return true if the project requires a build
+		/// </summary>
+		public virtual bool RequiresBuild(UnrealTargetPlatform Platform, DirectoryReference ProjectDirectoryName)
+		{
+			return false;
 		}
 
 		/// <summary>

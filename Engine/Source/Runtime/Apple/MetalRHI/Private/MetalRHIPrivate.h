@@ -92,6 +92,14 @@ extern FMetalBufferFormat GMetalBufferFormats[PF_MAX];
 #define METAL_DEBUG_OPTION(Code)
 #endif
 
+#if MTLPP_CONFIG_VALIDATE && METAL_DEBUG_OPTIONS
+#define METAL_DEBUG_ONLY(Code) Code
+#define METAL_DEBUG_LAYER(Level, Code) if (SafeGetRuntimeDebuggingLevel() >= Level) Code
+#else
+#define METAL_DEBUG_ONLY(Code)
+#define METAL_DEBUG_LAYER(Level, Code)
+#endif
+
 extern bool GMetalSupportsTileShaders;
 
 /** Set to 1 to enable GPU events in Xcode frame debugger */

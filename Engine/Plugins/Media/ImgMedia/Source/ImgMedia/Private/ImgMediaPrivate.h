@@ -10,8 +10,8 @@
 class FQueuedThreadPool;
 
 
-/** The OpenEXR image reader is supported on macOS and Windows only. */
-#define IMGMEDIA_EXR_SUPPORTED_PLATFORM (PLATFORM_MAC || PLATFORM_WINDOWS)
+/** The OpenEXR image reader is supported on macOS, Windows, and Linux only. */
+#define IMGMEDIA_EXR_SUPPORTED_PLATFORM (PLATFORM_MAC || PLATFORM_WINDOWS || (PLATFORM_LINUX && PLATFORM_CPU_X86_FAMILY))
 
 /** Whether to use a separate thread pool for image frame deallocations. */
 #define USE_IMGMEDIA_DEALLOC_POOL UE_BUILD_DEBUG

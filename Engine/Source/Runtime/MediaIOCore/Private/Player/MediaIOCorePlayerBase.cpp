@@ -9,10 +9,12 @@
 #include "MediaIOCoreSamples.h"
 #include "Misc/App.h"
 #include "Misc/ScopeLock.h"
+#include "TimeSynchronizableMediaSource.h"
+
 
 #define LOCTEXT_NAMESPACE "MediaIOCorePlayerBase"
 
-/* FBlackmagicVideoPlayer structors
+/* FMediaIOCorePlayerBase structors
  *****************************************************************************/
 
 FMediaIOCorePlayerBase::FMediaIOCorePlayerBase(IMediaEventSink& InEventSink)
@@ -363,6 +365,12 @@ bool FMediaIOCorePlayerBase::SelectTrack(EMediaTrackType TrackType, int32 TrackI
 bool FMediaIOCorePlayerBase::SetTrackFormat(EMediaTrackType TrackType, int32 TrackIndex, int32 FormatIndex)
 {
 	return false;
+}
+
+bool FMediaIOCorePlayerBase::ReadMediaOptions(const IMediaOptions* Options)
+{
+	bUseTimeSynchronization = Options->GetMediaOption(TimeSynchronizableMedia::UseTimeSynchronizatioOption, false);
+	return true;
 }
 
 bool FMediaIOCorePlayerBase::Exec(class UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar)

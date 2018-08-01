@@ -76,10 +76,10 @@ static void NetDriverRenameStreamingLevelPackageForPIE(const UWorld* World, FNam
 	}
 }
 
-FStreamLevelAction::FStreamLevelAction(bool bIsLoading, const FName& InLevelName, bool bIsMakeVisibleAfterLoad, bool bIsShouldBlockOnLoad, const FLatentActionInfo& InLatentInfo, UWorld* World)
+FStreamLevelAction::FStreamLevelAction(bool bIsLoading, const FName& InLevelName, bool bIsMakeVisibleAfterLoad, bool bInShouldBlock, const FLatentActionInfo& InLatentInfo, UWorld* World)
 	: bLoading(bIsLoading)
 	, bMakeVisibleAfterLoad(bIsMakeVisibleAfterLoad)
-	, bShouldBlockOnLoad(bIsShouldBlockOnLoad)
+	, bShouldBlock(bInShouldBlock)
 	, LevelName(InLevelName)
 	, LatentInfo(InLatentInfo)
 {
@@ -171,12 +171,12 @@ void FStreamLevelAction::ActivateLevel( ULevelStreaming* LevelStreamingObject )
 	if (LevelStreamingObject)
 	{
 		// Loading.
-		if( bLoading )
+		if (bLoading)
 		{
 			UE_LOG(LogStreaming, Log, TEXT("Streaming in level %s (%s)..."),*LevelStreamingObject->GetName(),*LevelStreamingObject->GetWorldAssetPackageName());
 			LevelStreamingObject->SetShouldBeLoaded(true);
 			LevelStreamingObject->SetShouldBeVisible(LevelStreamingObject->GetShouldBeVisibleFlag()	|| bMakeVisibleAfterLoad);
-			LevelStreamingObject->bShouldBlockOnLoad	= bShouldBlockOnLoad;
+			LevelStreamingObject->bShouldBlockOnLoad = bShouldBlock;
 		}
 		// Unloading.
 		else 
@@ -184,34 +184,33 @@ void FStreamLevelAction::ActivateLevel( ULevelStreaming* LevelStreamingObject )
 			UE_LOG(LogStreaming, Log, TEXT("Streaming out level %s (%s)..."),*LevelStreamingObject->GetName(),*LevelStreamingObject->GetWorldAssetPackageName());
 			LevelStreamingObject->SetShouldBeLoaded(false);
 			LevelStreamingObject->SetShouldBeVisible(false);
+			LevelStreamingObject->bShouldBlockOnUnload = bShouldBlock;
 		}
 
 		// If we have a valid world
 		if (UWorld* LevelWorld = LevelStreamingObject->GetWorld())
 		{
+			const bool bShouldBeLoaded = LevelStreamingObject->ShouldBeLoaded();
+			const bool bShouldBeVisible = LevelStreamingObject->ShouldBeVisible();
+
+			UE_LOG(LogLevel, Log, TEXT("ActivateLevel %s %i %i %i"),
+				*LevelStreamingObject->GetWorldAssetPackageName(),
+				bShouldBeLoaded,
+				bShouldBeVisible,
+				bShouldBlock);
+
 			// Notify players of the change
-			for( FConstPlayerControllerIterator Iterator = LevelWorld->GetPlayerControllerIterator(); Iterator; ++Iterator )
+			for (FConstPlayerControllerIterator Iterator = LevelWorld->GetPlayerControllerIterator(); Iterator; ++Iterator)
 			{
-				APlayerController* PlayerController = Iterator->Get();
-
-				const bool bShouldBeLoaded = LevelStreamingObject->ShouldBeLoaded();
-				const bool bShouldBeVisible = LevelStreamingObject->ShouldBeVisible();
-
-				UE_LOG(LogLevel, Log, TEXT("ActivateLevel %s %i %i %i"), 
-					*LevelStreamingObject->GetWorldAssetPackageName(), 
-					bShouldBeLoaded, 
-					bShouldBeVisible, 
-					LevelStreamingObject->bShouldBlockOnLoad );
-
-
-
-				PlayerController->LevelStreamingStatusChanged( 
-					LevelStreamingObject, 
-					bShouldBeLoaded, 
-					bShouldBeVisible,
-					LevelStreamingObject->bShouldBlockOnLoad, 
-					INDEX_NONE);
-
+				if (APlayerController* PlayerController = Iterator->Get())
+				{
+					PlayerController->LevelStreamingStatusChanged(
+						LevelStreamingObject,
+						bShouldBeLoaded,
+						bShouldBeVisible,
+						bShouldBlock,
+						INDEX_NONE);
+				}
 			}
 		}
 	}
@@ -563,7 +562,7 @@ void ULevelStreaming::UpdateStreamingState(bool& bOutUpdateAgain, bool& bOutRede
 	case ECurrentState::MakingVisible:
 		if (ensure(LoadedLevel))
 		{
-			World->AddToWorld(LoadedLevel, LevelTransform);
+			World->AddToWorld(LoadedLevel, LevelTransform, !bShouldBlockOnLoad);
 
 			if (LoadedLevel->bIsVisible)
 			{
@@ -588,7 +587,7 @@ void ULevelStreaming::UpdateStreamingState(bool& bOutUpdateAgain, bool& bOutRede
 		if (ensure(LoadedLevel))
 		{
 			// Hide loaded level, incrementally if necessary
-			World->RemoveFromWorld(LoadedLevel, World->IsGameWorld());
+			World->RemoveFromWorld(LoadedLevel, !bShouldBlockOnUnload && World->IsGameWorld());
 
 			// Inform the scene once we have finished making the level invisible
 			if (!LoadedLevel->bIsVisible)
@@ -707,6 +706,36 @@ FName ULevelStreaming::GetLODPackageNameToLoad() const
 		return PackageNameToLoad;
 	}
 }
+
+#if WITH_EDITOR
+void ULevelStreaming::RemoveLevelFromCollectionForReload()
+{
+	if (LoadedLevel)
+	{
+		// Remove the loaded level from its current collection, if any.
+		if (LoadedLevel->GetCachedLevelCollection())
+		{
+			LoadedLevel->GetCachedLevelCollection()->RemoveLevel(LoadedLevel);
+		}
+	}
+}
+
+void ULevelStreaming::AddLevelToCollectionAfterReload()
+{
+	if (LoadedLevel)
+	{
+		// Remove the loaded level from its current collection, if any.
+		if (LoadedLevel->GetCachedLevelCollection())
+		{
+			LoadedLevel->GetCachedLevelCollection()->RemoveLevel(LoadedLevel);
+		}
+		// Add this level to the correct collection
+		const ELevelCollectionType CollectionType = bIsStatic ? ELevelCollectionType::StaticLevels : ELevelCollectionType::DynamicSourceLevels;
+		FLevelCollection& LC = GetWorld()->FindOrAddCollectionByType(CollectionType);
+		LC.AddLevel(LoadedLevel);
+	}
+}
+#endif
 
 void ULevelStreaming::SetLoadedLevel(ULevel* Level)
 { 
@@ -1390,12 +1419,6 @@ void ULevelStreaming::SetShouldBeVisible(const bool bInShouldBeVisible)
 
 void ULevelStreaming::SetShouldBeLoaded(const bool bInShouldBeLoaded)
 {
-	UE_LOG(LogStreaming, Log, TEXT("Calling SetShouldBeLoaded on an object (%s) for which it has no effect."), *GetFullName());
-}
-
-bool ULevelStreaming::ShouldBeLoaded() const
-{
-	return true;
 }
 
 bool ULevelStreaming::ShouldBeVisible() const

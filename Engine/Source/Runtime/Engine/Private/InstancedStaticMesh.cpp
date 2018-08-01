@@ -30,7 +30,7 @@
 #include "DeviceProfiles/DeviceProfile.h"
 #include "DeviceProfiles/DeviceProfileManager.h"
 #endif // WITH_EDITOR
-#include "UObject/AthenaObjectVersion.h"
+#include "UObject/FortniteMainBranchObjectVersion.h"
 #include "UObject/EditorObjectVersion.h"
 
 
@@ -137,27 +137,9 @@ void FStaticMeshInstanceBuffer::InitFromPreallocatedData(FStaticMeshInstanceData
 {
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_FStaticMeshInstanceBuffer_InitFromPreallocatedData);
 
-	InstanceData = MakeUnique<FStaticMeshInstanceData>();
+	InstanceData = MakeShared<FStaticMeshInstanceData, ESPMode::ThreadSafe>();
 	FMemory::Memswap(&Other, InstanceData.Get(), sizeof(FStaticMeshInstanceData));
 	InstanceData->SetAllowCPUAccess(RequireCPUAccess);
-}
-
-void FStaticMeshInstanceBuffer::UpdateFromPreallocatedData_Concurrent(FStaticMeshInstanceData& Other)
-{
-	QUICK_SCOPE_CYCLE_COUNTER(STAT_FStaticMeshInstanceBuffer_UpdateFromPreallocatedData_Concurrent);
-	
-	Other.SetAllowCPUAccess(RequireCPUAccess);
-
-	FStaticMeshInstanceBuffer* InstanceBuffer = this; 
-	FStaticMeshInstanceData* NewInstanceData = new FStaticMeshInstanceData();
-	FMemory::Memswap(&Other, NewInstanceData, sizeof(FStaticMeshInstanceData));
-		
-	ENQUEUE_RENDER_COMMAND(InstanceBuffer_UpdateFromPreallocatedData)(
-		[InstanceBuffer, NewInstanceData](FRHICommandListImmediate& RHICmdList)
-		{
-			InstanceBuffer->InstanceData.Reset(NewInstanceData);
-			InstanceBuffer->UpdateRHI();
-		});
 }
 
 void FStaticMeshInstanceBuffer::UpdateFromCommandBuffer_Concurrent(FInstanceUpdateCmdBuffer& CmdBuffer)
@@ -337,6 +319,72 @@ void FStaticMeshInstanceBuffer::BindInstanceVertexBuffer(const class FVertexFact
 			VET_Short4N,
 			EVertexStreamUsage::ManualFetch | EVertexStreamUsage::Instancing
 		);
+	}
+}
+
+
+void FStaticMeshInstanceData::Serialize(FArchive& Ar)
+{
+	// HTML5 doesn't support half float so we need to convert at cook time.
+	const bool bCookConvertTransformsToFullFloat = Ar.IsCooking() && bUseHalfFloat && !Ar.CookingTarget()->SupportsFeature(ETargetPlatformFeatures::HalfFloatVertexFormat);
+
+	if (bCookConvertTransformsToFullFloat)
+	{
+		bool bSaveUseHalfFloat = false;
+		Ar << bSaveUseHalfFloat;
+	}
+	else
+	{
+		Ar << bUseHalfFloat;
+	}
+
+	Ar << NumInstances;
+
+	if (Ar.IsLoading())
+	{
+		AllocateBuffers(NumInstances);
+	}
+
+	InstanceOriginData->Serialize(Ar);
+	InstanceLightmapData->Serialize(Ar);
+
+	if (bCookConvertTransformsToFullFloat)
+	{
+		TStaticMeshVertexData<FInstanceTransformMatrix<float>> FullInstanceTransformData;
+		FullInstanceTransformData.ResizeBuffer(NumInstances);
+
+		FInstanceTransformMatrix<FFloat16>* Src = (FInstanceTransformMatrix<FFloat16>*)InstanceTransformData->GetDataPointer();
+		FInstanceTransformMatrix<float>* Dest = (FInstanceTransformMatrix<float>*)FullInstanceTransformData.GetDataPointer();
+		for (int32 Idx = 0; Idx < NumInstances; Idx++)
+		{
+			Dest->InstanceTransform1[0] = Src->InstanceTransform1[0];
+			Dest->InstanceTransform1[1] = Src->InstanceTransform1[1];
+			Dest->InstanceTransform1[2] = Src->InstanceTransform1[2];
+			Dest->InstanceTransform1[3] = Src->InstanceTransform1[3];
+			Dest->InstanceTransform2[0] = Src->InstanceTransform2[0];
+			Dest->InstanceTransform2[1] = Src->InstanceTransform2[1];
+			Dest->InstanceTransform2[2] = Src->InstanceTransform2[2];
+			Dest->InstanceTransform2[3] = Src->InstanceTransform2[3];
+			Dest->InstanceTransform3[0] = Src->InstanceTransform3[0];
+			Dest->InstanceTransform3[1] = Src->InstanceTransform3[1];
+			Dest->InstanceTransform3[2] = Src->InstanceTransform3[2];
+			Dest->InstanceTransform3[3] = Src->InstanceTransform3[3];
+			Src++;
+			Dest++;
+		}
+
+		FullInstanceTransformData.Serialize(Ar);
+	}
+	else
+	{
+		InstanceTransformData->Serialize(Ar);
+	}
+
+	if (Ar.IsLoading())
+	{
+		InstanceOriginDataPtr = InstanceOriginData->GetDataPointer();
+		InstanceLightmapDataPtr = InstanceLightmapData->GetDataPointer();
+		InstanceTransformDataPtr = InstanceTransformData->GetDataPointer();
 	}
 }
 
@@ -532,23 +580,45 @@ void FInstancedStaticMeshRenderData::InitStaticMeshVertexFactories(
 }
 
 FPerInstanceRenderData::FPerInstanceRenderData(FStaticMeshInstanceData& Other, ERHIFeatureLevel::Type InFeaureLevel, bool InRequireCPUAccess)
-	: InstanceBuffer(InFeaureLevel, InRequireCPUAccess)
-	, ResourceSize(Other.GetResourceSize()) // 2x when with CPU access?
+	: ResourceSize(Other.GetResourceSize()) // 2x when with CPU access?
+	, InstanceBuffer(InFeaureLevel, InRequireCPUAccess)
 {
 	InstanceBuffer.InitFromPreallocatedData(Other);
+	InstanceBuffer_GameThread = InstanceBuffer.InstanceData;
+
 	BeginInitResource(&InstanceBuffer);
 }
 		
 FPerInstanceRenderData::~FPerInstanceRenderData()
 {
+	InstanceBuffer_GameThread.Reset();
 	// Should be always destructed on rendering thread
 	InstanceBuffer.ReleaseResource();
 }
 
 void FPerInstanceRenderData::UpdateFromPreallocatedData(FStaticMeshInstanceData& InOther)
 {
+	InstanceBuffer.RequireCPUAccess = (InOther.GetOriginResourceArray()->GetAllowCPUAccess() || InOther.GetTransformResourceArray()->GetAllowCPUAccess() || InOther.GetLightMapResourceArray()->GetAllowCPUAccess()) ? true : InstanceBuffer.RequireCPUAccess;
 	ResourceSize = InOther.GetResourceSize(); // 2x when with CPU access?
-	InstanceBuffer.UpdateFromPreallocatedData_Concurrent(InOther);
+
+	InOther.SetAllowCPUAccess(InstanceBuffer.RequireCPUAccess);
+
+	FStaticMeshInstanceData* NewInstanceData = new FStaticMeshInstanceData();
+	FMemory::Memswap(&InOther, NewInstanceData, sizeof(FStaticMeshInstanceData));
+
+	InstanceBuffer_GameThread = MakeShared<FStaticMeshInstanceData, ESPMode::ThreadSafe>(*NewInstanceData);
+
+	typedef TSharedPtr<FStaticMeshInstanceData, ESPMode::ThreadSafe> FStaticMeshInstanceDataPtr;
+
+	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
+		FInstanceBuffer_UpdateFromPreallocatedData,
+		FStaticMeshInstanceDataPtr, InInstanceBufferDataPtr, InstanceBuffer_GameThread,
+		FStaticMeshInstanceBuffer*, InInstanceBuffer, &InstanceBuffer,
+		{
+			InInstanceBuffer->InstanceData = InInstanceBufferDataPtr;
+			InInstanceBuffer->UpdateRHI();
+		}
+	);
 }
 
 void FPerInstanceRenderData::UpdateFromCommandBuffer(FInstanceUpdateCmdBuffer& CmdBuffer)
@@ -1537,11 +1607,9 @@ void UInstancedStaticMeshComponent::SerializeRenderData(FArchive& Ar)
 		
 			if (PerInstanceRenderData.IsValid())
 			{
-				FStaticMeshInstanceData* InstanceData = PerInstanceRenderData->InstanceBuffer.GetInstanceData();
-
-				if (InstanceData && InstanceData->GetNumInstances() > 0)
+				if (PerInstanceRenderData->InstanceBuffer_GameThread && PerInstanceRenderData->InstanceBuffer_GameThread->GetNumInstances() > 0)
 				{
-					int32 NumInstances = InstanceData->GetNumInstances();
+					int32 NumInstances = PerInstanceRenderData->InstanceBuffer_GameThread->GetNumInstances();
 
 					// Clear editor data for the cooked data
 					for (int32 Index = 0; Index < NumInstances; ++Index)
@@ -1553,10 +1621,10 @@ void UInstancedStaticMeshComponent::SerializeRenderData(FArchive& Ar)
 							continue;
 						}
 
-						InstanceData->ClearInstanceEditorData(RenderIndex);
+						PerInstanceRenderData->InstanceBuffer_GameThread->ClearInstanceEditorData(RenderIndex);
 					}
 
-					InstanceData->Serialize(Ar);
+					PerInstanceRenderData->InstanceBuffer_GameThread->Serialize(Ar);
 
 #if WITH_EDITOR
 					// Restore back the state we were in
@@ -1581,7 +1649,7 @@ void UInstancedStaticMeshComponent::SerializeRenderData(FArchive& Ar)
 							HitProxyColor = HitProxies[Index]->Id.GetColor();
 						}
 
-						InstanceData->SetInstanceEditorData(RenderIndex, HitProxyColor, bSelected);
+						PerInstanceRenderData->InstanceBuffer_GameThread->SetInstanceEditorData(RenderIndex, HitProxyColor, bSelected);
 					}
 #endif					
 				}
@@ -1602,11 +1670,11 @@ void UInstancedStaticMeshComponent::Serialize(FArchive& Ar)
 	Super::Serialize(Ar);
 
 	Ar.UsingCustomVersion(FMobileObjectVersion::GUID);
-	Ar.UsingCustomVersion(FAthenaObjectVersion::GUID);
+	Ar.UsingCustomVersion(FFortniteMainBranchObjectVersion::GUID);
 	Ar.UsingCustomVersion(FEditorObjectVersion::GUID);	
 	
 	bool bCooked = Ar.IsCooking();
-	if (Ar.CustomVer(FAthenaObjectVersion::GUID) >= FAthenaObjectVersion::SerializeInstancedStaticMeshRenderData || Ar.CustomVer(FEditorObjectVersion::GUID) >= FEditorObjectVersion::SerializeInstancedStaticMeshRenderData)
+	if (Ar.CustomVer(FFortniteMainBranchObjectVersion::GUID) >= FFortniteMainBranchObjectVersion::SerializeInstancedStaticMeshRenderData || Ar.CustomVer(FEditorObjectVersion::GUID) >= FEditorObjectVersion::SerializeInstancedStaticMeshRenderData)
 	{
 		Ar << bCooked;
 	}
@@ -1627,7 +1695,7 @@ void UInstancedStaticMeshComponent::Serialize(FArchive& Ar)
 		PerInstanceSMData.BulkSerialize(Ar);
 	}
 
-	if (bCooked && (Ar.CustomVer(FAthenaObjectVersion::GUID) >= FAthenaObjectVersion::SerializeInstancedStaticMeshRenderData || Ar.CustomVer(FEditorObjectVersion::GUID) >= FEditorObjectVersion::SerializeInstancedStaticMeshRenderData))
+	if (bCooked && (Ar.CustomVer(FFortniteMainBranchObjectVersion::GUID) >= FFortniteMainBranchObjectVersion::SerializeInstancedStaticMeshRenderData || Ar.CustomVer(FEditorObjectVersion::GUID) >= FEditorObjectVersion::SerializeInstancedStaticMeshRenderData))
 	{
 		SerializeRenderData(Ar);
 	}
@@ -2022,7 +2090,7 @@ static bool ComponentRequestsCPUAccess(UInstancedStaticMeshComponent* InComponen
 	return false;
 }
 
-void UInstancedStaticMeshComponent::InitPerInstanceRenderData(bool InitializeFromCurrentData, FStaticMeshInstanceData* InSharedInstanceBufferData)
+void UInstancedStaticMeshComponent::InitPerInstanceRenderData(bool InitializeFromCurrentData, FStaticMeshInstanceData* InSharedInstanceBufferData, bool InRequireCPUAccess)
 {
 	if (PerInstanceRenderData.IsValid())
 	{
@@ -2040,7 +2108,7 @@ void UInstancedStaticMeshComponent::InitPerInstanceRenderData(bool InitializeFro
 	UWorld* World = GetWorld();
 	ERHIFeatureLevel::Type FeatureLevel = World != nullptr ? World->FeatureLevel : GMaxRHIFeatureLevel;
 
-	bool KeepInstanceBufferCPUAccess = GIsEditor || ComponentRequestsCPUAccess(this, FeatureLevel);
+	bool KeepInstanceBufferCPUAccess = GIsEditor || InRequireCPUAccess || ComponentRequestsCPUAccess(this, FeatureLevel);
 
 	if (InSharedInstanceBufferData != nullptr)
 	{

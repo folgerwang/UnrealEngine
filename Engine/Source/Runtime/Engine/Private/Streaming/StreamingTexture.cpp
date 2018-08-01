@@ -20,7 +20,7 @@ FStreamingTexture::FStreamingTexture(UTexture2D* InTexture, const int32 NumStrea
 		UpdateOptionalMipsState_Async();
 	}
 
-	InstanceRemovedTimestamp = -FLT_MAX;
+	InstanceRemovedTimestamp = FApp::GetCurrentTime();
 	DynamicBoostFactor = 1.f;
 
 	bHasUpdatePending = InTexture && InTexture->bHasStreamingUpdatePending;

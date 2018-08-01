@@ -80,14 +80,19 @@ FReply FProceduralFoliageComponentDetails::OnResimulateClicked()
 			TArray <FDesiredFoliageInstance> DesiredFoliageInstances;
 			if (Component->GenerateProceduralContent(DesiredFoliageInstances))
 			{
-				FFoliagePaintingGeometryFilter OverrideGeometryFilter;
-				OverrideGeometryFilter.bAllowLandscape = Component->bAllowLandscape;
-				OverrideGeometryFilter.bAllowStaticMesh = Component->bAllowStaticMesh;
-				OverrideGeometryFilter.bAllowBSP = Component->bAllowBSP;
-				OverrideGeometryFilter.bAllowFoliage = Component->bAllowFoliage;
-				OverrideGeometryFilter.bAllowTranslucent = Component->bAllowTranslucent;
+				if (DesiredFoliageInstances.Num() > 0)
+				{
+					Component->RemoveProceduralContent(false);
 
-				FEdModeFoliage::AddInstances(Component->GetWorld(), DesiredFoliageInstances, OverrideGeometryFilter);
+					FFoliagePaintingGeometryFilter OverrideGeometryFilter;
+					OverrideGeometryFilter.bAllowLandscape = Component->bAllowLandscape;
+					OverrideGeometryFilter.bAllowStaticMesh = Component->bAllowStaticMesh;
+					OverrideGeometryFilter.bAllowBSP = Component->bAllowBSP;
+					OverrideGeometryFilter.bAllowFoliage = Component->bAllowFoliage;
+					OverrideGeometryFilter.bAllowTranslucent = Component->bAllowTranslucent;
+
+					FEdModeFoliage::AddInstances(Component->GetWorld(), DesiredFoliageInstances, OverrideGeometryFilter, true);					
+				}
 
 				// If no instances were spawned, inform the user
 				if (!Component->HasSpawnedAnyInstances())

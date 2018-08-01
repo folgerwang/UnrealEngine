@@ -3791,20 +3791,25 @@ void ALandscapeStreamingProxy::PostEditChangeProperty(FPropertyChangedEvent& Pro
 	else if (PropertyName == FName(TEXT("LandscapeMaterial")) || PropertyName == FName(TEXT("LandscapeHoleMaterial")))
 	{
 		{
-			FMaterialUpdateContext MaterialUpdateContext;
-			GetLandscapeInfo()->UpdateLayerInfoMap(/*this*/);
+			ULandscapeInfo* Info = GetLandscapeInfo();
 
-			// Clear the parents out of combination material instances
-			for (const auto& MICPair : MaterialInstanceConstantMap)
+			if (Info != nullptr)
 			{
-				UMaterialInstanceConstant* MaterialInstance = MICPair.Value;
-				MaterialInstance->BasePropertyOverrides.bOverride_BlendMode = false;
-				MaterialInstance->SetParentEditorOnly(nullptr);
-				MaterialUpdateContext.AddMaterialInstance(MaterialInstance);
-			}
+				FMaterialUpdateContext MaterialUpdateContext;
+				Info->UpdateLayerInfoMap(/*this*/);
 
-			// Remove our references to any material instances
-			MaterialInstanceConstantMap.Empty();
+				// Clear the parents out of combination material instances
+				for (const auto& MICPair : MaterialInstanceConstantMap)
+				{
+					UMaterialInstanceConstant* MaterialInstance = MICPair.Value;
+					MaterialInstance->BasePropertyOverrides.bOverride_BlendMode = false;
+					MaterialInstance->SetParentEditorOnly(nullptr);
+					MaterialUpdateContext.AddMaterialInstance(MaterialInstance);
+				}
+
+				// Remove our references to any material instances
+				MaterialInstanceConstantMap.Empty();
+			}
 		}
 
 		UpdateAllComponentMaterialInstances();
@@ -3890,7 +3895,7 @@ void ALandscape::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEv
 	}
 	else if (PropertyName == FName(TEXT("LOD0DistributionSetting")))
 	{
-		LOD0DistributionSetting = FMath::Clamp<float>(LOD0DistributionSetting, 1.0f, 5.0f);
+		LOD0DistributionSetting = FMath::Clamp<float>(LOD0DistributionSetting, 1.0f, 10.0f);
 		bPropagateToProxies = true;
 	}
 	else if (PropertyName == FName(TEXT("CollisionMipLevel")))
@@ -5013,9 +5018,10 @@ void ULandscapeComponent::GeneratePlatformPixelData()
 
 	int32 WeightmapSize = (SubsectionSizeQuads + 1) * NumSubsections;
 
-	MobileWeightNormalmapTexture = GetLandscapeProxy()->CreateLandscapeTexture(WeightmapSize, WeightmapSize, TEXTUREGROUP_Terrain_Weightmap, TSF_BGRA8);
+	MobileWeightmapTextures.Empty();
+
+	UTexture2D* MobileWeightNormalmapTexture = GetLandscapeProxy()->CreateLandscapeTexture(WeightmapSize, WeightmapSize, TEXTUREGROUP_Terrain_Weightmap, TSF_BGRA8);
 	CreateEmptyTextureMips(MobileWeightNormalmapTexture);
-	TArray<UTexture2D*> MobileWeightmapTextures;
 
 	{
 		FLandscapeTextureDataInterface LandscapeData;
@@ -5040,13 +5046,15 @@ void ULandscapeComponent::GeneratePlatformPixelData()
 				// If we can pack into 2 channels with the 3rd implied, track the mask for the weight blendable layers
 				if (bAtLeastOneWeightBasedBlend && MobileWeightmapLayerAllocations.Num() <= 3)
 				{
+					MobileBlendableLayerMask |= (!Allocation.LayerInfo->bNoWeightBlend ? (1 << CurrentChannel) : 0);
+
 					// we don't need to create a new texture for the 3rd layer
 					if (RemainingChannels == 0)
 					{
+						Allocation.WeightmapTextureIndex = 0;
+						Allocation.WeightmapTextureChannel = 2; // not a valid texture channel, but used for the mask.
 						break;
 					}
-
-					MobileBlendableLayerMask |= (!Allocation.LayerInfo->bNoWeightBlend ? (1 << CurrentChannel) : 0);
 				}
 
 				if (RemainingChannels == 0)

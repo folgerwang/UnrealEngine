@@ -6,6 +6,7 @@
 #include "IAssetRegistry.h"
 
 #include "GameFramework/Actor.h"
+#include "IPythonScriptPlugin.h"
 #include "Misc/CoreDelegates.h"
 #include "Misc/Paths.h"
 #include "Templates/Casts.h"
@@ -35,7 +36,7 @@ static void OnEditorExit()
 
 void UShotgunEngine::OnEngineInitialized() const
 {
-	FCoreDelegates::OnPreExit.AddStatic(OnEditorExit);
+	IPythonScriptPlugin::Get()->OnPythonShutdown().AddStatic(OnEditorExit);
 }
 
 void UShotgunEngine::SetSelection(const TArray<FAssetData>* InSelectedAssets, const TArray<AActor*>* InSelectedActors)

@@ -584,6 +584,14 @@ public:
 	*/
 	void ReplaceBinding(const FGuid& OldGuid, const FGuid& NewGuid, const FString& Name);
 
+	/*
+	* Replace an existing binding with another. Assumes ownership of any
+	* tracks listed in the binding. Does nothing if no binding can be found.
+	* @param BindingToReplaceGuid	Binding Guid that should be replaced
+	* @param NewBinding				Binding Data that should replace the original one specified by BindingToReplaceGuid.
+	*/
+	void ReplaceBinding(const FGuid& BindingToReplaceGuid, const FMovieSceneBinding& NewBinding);
+
 #if WITH_EDITORONLY_DATA
 	/**
 	 */

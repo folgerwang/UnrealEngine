@@ -3,12 +3,11 @@
 #pragma once
 
 #include "XRTrackingSystemBase.h"
-#include "AppleARKitConfiguration.h"
 #include "ARSystem.h"
 #include "AppleARKitHitTestResult.h"
-#include "AppleARKitLiveLinkSourceFactory.h"
 #include "AppleARKitTextures.h"
 #include "Kismet/BlueprintPlatformLibrary.h"
+#include "AppleARKitFaceSupport.h"
 
 // ARKit
 #if SUPPORTS_ARKIT_1_0
@@ -26,7 +25,8 @@ DECLARE_STATS_GROUP(TEXT("AppleARKit"), STATGROUP_APPLEARKIT, STATCAT_Advanced);
 struct FAppleARKitFrame;
 struct FAppleARKitAnchorData;
 
-class FAppleARKitSystem : public FARSystemBase
+class FAppleARKitSystem :
+	public FARSystemBase
 {
 	friend class FAppleARKitXRCamera;
 	
@@ -53,6 +53,10 @@ public:
 	
 	// @todo arkit : this is for the blueprint library only; try to get rid of this method
 	bool GetCurrentFrame(FAppleARKitFrame& OutCurrentFrame) const;
+
+	/** So the module can shut down the ar services cleanly */
+	void Shutdown();
+
 private:
 	//~ FGCObject
 	virtual void AddReferencedObjects( FReferenceCollector& Collector ) override;
@@ -75,6 +79,12 @@ protected:
 	virtual void OnRemovePin(UARPin* PinToRemove) override;
 	virtual UARTextureCameraImage* OnGetCameraImage() override;
 	virtual UARTextureCameraDepth* OnGetCameraDepth() override;
+//@joeg -- ARKit 2.0 additions
+	virtual bool OnAddManualEnvironmentCaptureProbe(FVector Location, FVector Extent) override;
+	virtual TSharedPtr<FARGetCandidateObjectAsyncTask, ESPMode::ThreadSafe> OnGetCandidateObject(FVector Location, FVector Extent) const override;
+	virtual TSharedPtr<FARSaveWorldAsyncTask, ESPMode::ThreadSafe> OnSaveWorld() const override;
+	virtual EARWorldMappingState OnGetWorldMappingStatus() const override;
+//@joeg -- End additions
 	//~IARSystemSupport
 
 private:
@@ -84,6 +94,7 @@ private:
 	void OrientationChanged(const int32 NewOrientation);
 	void UpdatePoses();
 	void UpdateFrame();
+	void CalcTrackingToWorldRotation();
 
 public:
 	// Session delegate callbacks
@@ -122,6 +133,9 @@ private:
 	bool bIsRunning = false;
 	
 	void SetDeviceOrientation( EScreenOrientation::Type InOrientation );
+
+	/** Creates or clears the face ar support object if face ar has been requested */
+	void CheckForFaceARSupport(UARSessionConfig* InSessionConfig);
 	
 	/** The orientation of the device; see EScreenOrientation */
 	EScreenOrientation::Type DeviceOrientation;
@@ -154,6 +168,8 @@ private:
 	UAppleARKitTextureCameraImage* CameraImage;
 	UAppleARKitTextureCameraDepth* CameraDepth;
 	TMap< FString, UARCandidateImage* > CandidateImages;
+//@joeg -- Object detection
+	TMap< FString, UARCandidateObject* > CandidateObjects;
 	// ...
 	// PROPERTIES REPORTED TO FGCObject
 	//
@@ -168,12 +184,6 @@ private:
 	/** The ar timestamp of when the LastReceivedFrame was last updated */
 	double GameThreadTimestamp;
 
-	/** If requested, publishes face ar updates to LiveLink for the animation system to use */
-	TSharedPtr<ILiveLinkSourceARKit> LiveLinkSource;
-	/** Copied from the UARSessionConfig project settings object */
-	FName FaceTrackingLiveLinkSubjectName;
-	
-	
 	// An int counter that provides a human-readable debug number for Tracked Geometries.
 	uint32 LastTrackedGeometry_DebugId;
 
@@ -185,6 +195,9 @@ private:
 	TSharedPtr< FAppleARKitFrame, ESPMode::ThreadSafe > GameThreadFrame;
 	TSharedPtr< FAppleARKitFrame, ESPMode::ThreadSafe > RenderThreadFrame;
 	TSharedPtr< FAppleARKitFrame, ESPMode::ThreadSafe > LastReceivedFrame;
+
+	// The object that is handling face support if present
+	IAppleARKitFaceSupport* FaceARSupport;
 };
 
 

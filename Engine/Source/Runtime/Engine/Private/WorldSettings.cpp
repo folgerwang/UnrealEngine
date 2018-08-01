@@ -105,7 +105,11 @@ void AWorldSettings::PostInitProperties()
 	Super::PostInitProperties();
 	if (HasAnyFlags(RF_NeedLoad|RF_WasLoaded|RF_ClassDefaultObject) == false)
 	{
-		NavigationSystemConfig = NewObject<UNavigationSystemConfig>(this);
+		TSubclassOf<UNavigationSystemConfig> NavSystemConfigClass = UNavigationSystemConfig::GetDefaultConfigClass();
+		if (*NavSystemConfigClass)
+		{
+			NavigationSystemConfig = NewObject<UNavigationSystemConfig>(this, NavSystemConfigClass);
+		}
 	}
 
 	if (MinGlobalTimeDilation < 0)
@@ -406,7 +410,6 @@ void AWorldSettings::PostLoad()
 		Entry.MergeSetting.LODSelectionType = EMeshLODSelectionType::CalculateLOD;
 	}
 
-	SetIsTemporarilyHiddenInEditor(true);
 #endif// WITH_EDITOR
 
 	if (bEnableNavigationSystem && NavigationSystemConfig == nullptr)
@@ -414,7 +417,11 @@ void AWorldSettings::PostLoad()
 		ULevel* Level = GetLevel();
 		if (Level && Level->IsPersistentLevel())
 		{
-			NavigationSystemConfig = NewObject<UNavigationSystemConfig>(this);
+			TSubclassOf<UNavigationSystemConfig> NavSystemConfigClass = UNavigationSystemConfig::GetDefaultConfigClass();
+			if (*NavSystemConfigClass)
+			{
+				NavigationSystemConfig = NewObject<UNavigationSystemConfig>(this, NavSystemConfigClass);
+			}
 			bEnableNavigationSystem = false;
 		}
 	}

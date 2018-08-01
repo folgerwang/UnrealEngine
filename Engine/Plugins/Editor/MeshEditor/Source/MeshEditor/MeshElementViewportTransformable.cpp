@@ -38,7 +38,7 @@ FBox FMeshElementViewportTransformable::BuildBoundingBox( const FTransform& Boun
 		UEditableMesh* EditableMesh = MeshEditorMode.FindOrCreateEditableMesh( *MeshElement.Component, MeshElement.ElementAddress.SubMeshAddress );
 		if( EditableMesh != nullptr )
 		{
-			if( FMeshEditorMode::IsElementIDValid( MeshElement, EditableMesh ) )
+			if( MeshElement.IsElementIDValid( EditableMesh ) )
 			{
 				const TVertexAttributeArray<FVector>& VertexPositions = EditableMesh->GetMeshDescription()->VertexAttributes().GetAttributes<FVector>( MeshAttribute::Vertex::Position );
 				BoundingBox.Init();

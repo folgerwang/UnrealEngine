@@ -1385,7 +1385,7 @@ void FSequencer::BakeTransform()
 			TArray<FFrameNumber> KeyTimes;
 
 			FFrameRate   Resolution  = FocusedMovieScene->GetTickResolution();
-			FFrameRate   SnapRate    = FocusedMovieScene->GetEvaluationType() == EMovieSceneEvaluationType::FrameLocked ? FocusedMovieScene->GetDisplayRate() : Resolution;
+			FFrameRate   SnapRate    = FocusedMovieScene->GetDisplayRate();
 
 			FFrameNumber InFrame     = MovieScene::DiscreteInclusiveLower(GetPlaybackRange());
 			FFrameNumber OutFrame    = MovieScene::DiscreteExclusiveUpper(GetPlaybackRange());
@@ -5569,9 +5569,20 @@ void ExportObjectsToText(const TArray<UMovieSceneCopyableBinding*>& ObjectsToExp
 		check((LastOuter == ThisOuter) || (LastOuter == nullptr));
 		LastOuter = ThisOuter;
 
+		// We can't use TextExportTransient on USTRUCTS (which our object contains) so we're going to manually null out some references before serializing them. These references are
+		// serialized manually into the archive, as the auto-serialization will only store a reference (to a privately owned object) which creates issues on deserialization. Attempting 
+		// to deserialize these private objects throws a superflous error in the console that makes it look like things went wrong when they're actually OK and expected.
+		TArray<UMovieSceneTrack*> OldTracks = ObjectToExport->Binding.StealTracks();
+		UObject* OldSpawnableTemplate = ObjectToExport->Spawnable.GetObjectTemplate();
+		ObjectToExport->Spawnable.SetObjectTemplate(nullptr);
+
 		UExporter::ExportToOutputDevice(&Context, ObjectToExport, nullptr, Archive, TEXT("copy"), 0, PPF_ExportsNotFullyQualified | PPF_Copy | PPF_Delimited, false, ThisOuter);
 
-		// cbb: Copy the object template separately for now. There's a bug in reimporting the object template from the CopyableBinding.
+		// Restore the references (as we don't want to modify the original in the event of a copy operation!)
+		ObjectToExport->Binding.SetTracks(OldTracks);
+		ObjectToExport->Spawnable.SetObjectTemplate(OldSpawnableTemplate);
+
+		// We manually export the object template for the same private-ownership reason as above. Templates need to be re-created anyways as each Spawnable contains its own copy of the template.
 		if (ObjectToExport->SpawnableObjectTemplate)
 		{
 			UExporter::ExportToOutputDevice(&Context, ObjectToExport->SpawnableObjectTemplate, nullptr, Archive, TEXT("copy"), 0, PPF_ExportsNotFullyQualified | PPF_Copy | PPF_Delimited, false, ThisOuter);
@@ -5626,22 +5637,25 @@ private:
 };
 
 
-void ImportObjectsFromText(FSequencer& InSequencer, const FString& TextToImport, /*out*/ TArray<UMovieSceneCopyableBinding*>& ImportedObjects)
+void FSequencer::ImportObjectsFromText(const FString& TextToImport, /*out*/ TArray<UMovieSceneCopyableBinding*>& ImportedObjects)
 {
 	UPackage* TempPackage = NewObject<UPackage>(nullptr, TEXT("/Engine/Sequencer/Editor/Transient"), RF_Transient);
 	TempPackage->AddToRoot();
 
 	// Turn the text buffer into objects
-	FObjectBindingTextFactory Factory(InSequencer);
+	FObjectBindingTextFactory Factory(*this);
 	Factory.ProcessBuffer(TempPackage, RF_Transactional, TextToImport);
 	ImportedObjects = Factory.NewCopyableBindings;
 
-	// cbb: Process the object templates separately for now. There's a bug in reimporting the object template from the CopyableBinding.
+	// We had to explicitly serialize object templates due to them being a reference to a privately owned object. We now deserialize these object template copies
+	// and match them up with their MovieSceneCopyableBinding again.
+	
 	int32 SpawnableObjectTemplateIndex = 0;
 	for (auto ImportedObject : ImportedObjects)
 	{
 		if (ImportedObject->Spawnable.GetGuid().IsValid() && SpawnableObjectTemplateIndex < Factory.NewSpawnableObjectTemplates.Num())
 		{
+			// This Spawnable Object Template is owned by our transient package, so you'll need to change the owner if you want to keep it later.
 			ImportedObject->SpawnableObjectTemplate = Factory.NewSpawnableObjectTemplates[SpawnableObjectTemplateIndex++];
 		}
 	}
@@ -5693,6 +5707,9 @@ void FSequencer::CopySelectedObjects(TArray<TSharedPtr<FSequencerObjectBindingNo
 			if (Spawnable)
 			{
 				CopyableBinding->Spawnable = *Spawnable;
+				
+				// We manually serialize the spawnable object template so that it's not a reference to a privately owned object. Spawnables all have unique copies of their template objects anyways.
+				// Object Templates are re-created on paste (based on these templates) with the correct ownership set up.
 				CopyableBinding->SpawnableObjectTemplate = Spawnable->GetObjectTemplate();
 			}
 		}
@@ -5703,6 +5720,8 @@ void FSequencer::CopySelectedObjects(TArray<TSharedPtr<FSequencerObjectBindingNo
 			CopyableBinding->Binding = *Binding;
 			for (auto Track : Binding->GetTracks())
 			{
+				// Tracks suffer from the same issues as Spawnable's Object Templates (reference to a privately owned object). We'll manually serialize the tracks to copy them,
+				// and then restore them on paste.
 				UMovieSceneTrack* DuplicatedTrack = Cast<UMovieSceneTrack>(StaticDuplicateObject(Track, CopyableBinding));
 
 				CopyableBinding->Tracks.Add(DuplicatedTrack);
@@ -5765,7 +5784,7 @@ void FSequencer::PasteCopiedTracks()
 	UObject* BindingContext = GetPlaybackContext();
 
 	TArray<UMovieSceneCopyableBinding*> ImportedBindings;
-	ImportObjectsFromText(*this, TextToImport, ImportedBindings);
+	ImportObjectsFromText(TextToImport, ImportedBindings);
 
 	if (ImportedBindings.Num() != 0)
 	{
@@ -5776,12 +5795,13 @@ void FSequencer::PasteCopiedTracks()
 		TArray<FMovieSceneBinding> BindingsPasted;
 		for (UMovieSceneCopyableBinding* CopyableBinding : ImportedBindings)
 		{
-			FGuid NewGuid = FGuid::NewGuid();
-
-			FMovieSceneBinding NewBinding(NewGuid, CopyableBinding->Binding.GetName(), CopyableBinding->Tracks);
 			
 			if (CopyableBinding->Possessable.GetGuid().IsValid())
 			{
+				FGuid NewGuid = FGuid::NewGuid();
+
+				FMovieSceneBinding NewBinding(NewGuid, CopyableBinding->Binding.GetName(), CopyableBinding->Tracks);
+
 				FMovieScenePossessable NewPossessable = CopyableBinding->Possessable;
 				NewPossessable.SetGuid(NewGuid);
 
@@ -5795,13 +5815,21 @@ void FSequencer::PasteCopiedTracks()
 			}
 			else if (CopyableBinding->Spawnable.GetGuid().IsValid())
 			{
-				FMovieSceneSpawnable NewSpawnable = CopyableBinding->Spawnable;
-				NewSpawnable.SetGuid(NewGuid);
-
-				MovieScene->AddSpawnable(NewSpawnable, NewBinding);
-
+				// We need to let the sequence create the spawnable so that it has everything set up properly internally.
+				// This is required to get spawnables with the correct references to object templates, object templates with
+				// correct owners, etc. However, making a new spawnable also creates the binding for us - this is a problem
+				// because we need to use our binding (which has tracks associated with it). To solve this, we let it create
+				// an object template based off of our (transient package owned) template, then find the newly created binding
+				// and update it.
+				FGuid NewGuid = MakeNewSpawnable(*CopyableBinding->SpawnableObjectTemplate);
+				FMovieSceneBinding NewBinding(NewGuid, CopyableBinding->Binding.GetName(), CopyableBinding->Tracks);
 				FMovieSceneSpawnable* Spawnable = MovieScene->FindSpawnable(NewGuid);
-				Spawnable->CopyObjectTemplate(*CopyableBinding->SpawnableObjectTemplate, *GetFocusedMovieSceneSequence());
+
+				// Copy the name of the original spawnable too.
+				Spawnable->SetName(CopyableBinding->Spawnable.GetName());
+
+				// Replace the auto-generated binding with our deserialized bindings (which has our tracks)
+				MovieScene->ReplaceBinding(NewGuid, NewBinding);
 
 				OldToNewGuidMap.Add(CopyableBinding->Spawnable.GetGuid(), NewGuid);
 
@@ -6444,6 +6472,8 @@ FMovieScenePossessable* FSequencer::ConvertToPossessableInternal(FGuid Spawnable
 	{
 		return nullptr;
 	}
+
+	PossessedActor->SetActorLabel(Spawnable->GetName());
 
 	const bool bIsDefaultTransform = true;
 	PossessedActor->FinishSpawning(SpawnTransform, bIsDefaultTransform);
@@ -7480,6 +7510,25 @@ void FSequencer::ImportFBX()
 {
 	UMovieScene* MovieScene = GetFocusedMovieSceneSequence()->GetMovieScene();
 
+	TMap<FGuid, FString> ObjectBindingNameMap;
+
+	TArray<TSharedRef<FSequencerObjectBindingNode>> RootObjectBindingNodes;
+	GetRootObjectBindingNodes( NodeTree->GetRootNodes(), RootObjectBindingNodes );
+
+	for (auto RootObjectBindingNode : RootObjectBindingNodes)
+	{
+		FGuid ObjectBinding = RootObjectBindingNode.Get().GetObjectBinding();
+
+		ObjectBindingNameMap.Add(ObjectBinding, RootObjectBindingNode.Get().GetDisplayName().ToString());
+	}
+
+	MovieSceneToolHelpers::ImportFBX(MovieScene, *this, ObjectBindingNameMap, TOptional<bool>());
+}
+
+void FSequencer::ImportFBXOntoSelectedNodes()
+{
+	UMovieScene* MovieScene = GetFocusedMovieSceneSequence()->GetMovieScene();
+
 	// The object binding and names to match when importing from fbx
 	TMap<FGuid, FString> ObjectBindingNameMap;
 
@@ -7495,21 +7544,7 @@ void FSequencer::ImportFBX()
 		}
 	}
 
-	// If nothing selected, try to map onto everything
-	if (ObjectBindingNameMap.Num() == 0)
-	{
-		TArray<TSharedRef<FSequencerObjectBindingNode>> RootObjectBindingNodes;
-		GetRootObjectBindingNodes( NodeTree->GetRootNodes(), RootObjectBindingNodes );
-
-		for (auto RootObjectBindingNode : RootObjectBindingNodes)
-		{
-			FGuid ObjectBinding = RootObjectBindingNode.Get().GetObjectBinding();
-
-			ObjectBindingNameMap.Add(ObjectBinding, RootObjectBindingNode.Get().GetDisplayName().ToString());
-		}
-	}
-	
-	MovieSceneToolHelpers::ImportFBX(MovieScene, *this, ObjectBindingNameMap);
+	MovieSceneToolHelpers::ImportFBX(MovieScene, *this, ObjectBindingNameMap, TOptional<bool>(false));
 }
 
 

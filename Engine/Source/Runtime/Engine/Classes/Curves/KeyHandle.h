@@ -116,8 +116,11 @@ struct TStructOpsTypeTraits<FKeyHandleMap>
  * Maintains a map of key handle to last known index,
  * and an array of optional key handles that's used to validate map entries.
  */
+USTRUCT()
 struct FKeyHandleLookupTable
 {
+	GENERATED_BODY()
+public:
 	/**
 	 * Get the index that corresponds to the specified key handle
 	 *
@@ -162,11 +165,29 @@ struct FKeyHandleLookupTable
 	 */
 	ENGINE_API void Reset();
 
-private:
+	/** ICPPStructOps implementation */
+	ENGINE_API bool Serialize(FArchive& Ar);
+	friend FArchive& operator<<(FArchive& Ar, FKeyHandleLookupTable& P)
+	{
+		P.Serialize(Ar);
+		return Ar;
+	}
 
+private:
 	/** Array of optional key handles that reside in corresponding indices for an externally owned serial data structure */
 	TArray<TOptional<FKeyHandle>> KeyHandles;
 
 	/** Map of which key handles go to which indices. Indices may point to incorrect indices. Check against entry in KeyHandles array to verify. */
 	TMap<FKeyHandle, int32> KeyHandlesToIndices;
+
+};
+
+template<>
+struct TStructOpsTypeTraits<FKeyHandleLookupTable>
+	: public TStructOpsTypeTraitsBase2<FKeyHandleLookupTable>
+{
+	enum
+	{
+		WithSerializer = true,
+	};
 };

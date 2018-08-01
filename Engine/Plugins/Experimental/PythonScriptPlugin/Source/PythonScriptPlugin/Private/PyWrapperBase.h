@@ -70,6 +70,12 @@ struct FPyWrapperBaseMetaData
 	/** Get the ID associated with this meta-data type */
 	virtual FGuid GetTypeId() const = 0;
 
+	/** Get the reflection meta data type object associated with this wrapper type if there is one or nullptr if not. */
+	virtual const UField* GetMetaType() const
+	{
+		return nullptr;
+	}
+
 	/** Add object references from the given Python object to the given collector */
 	virtual void AddReferencedObjects(FPyWrapperBase* Instance, FReferenceCollector& Collector)
 	{

@@ -193,6 +193,11 @@ public:
 	static FString ProjectModsDir();
 
 	/*
+	* Returns true if a writable directory for downloaded data that persists across play sessions is available
+	*/
+	static bool HasProjectPersistentDownloadDir();
+
+	/*
 	* Returns the writable directory for downloaded data that persists across play sessions.
 	*/
 	static FString ProjectPersistentDownloadDir();
@@ -312,7 +317,7 @@ public:
 	 */
 	static const TArray<FString>& GetPropertyNameLocalizationPaths();
 
-		/** 
+	/** 
 	 * Returns a list of tool tip localization paths
 	 */
 	static const TArray<FString>& GetToolTipLocalizationPaths();
@@ -321,6 +326,16 @@ public:
 	 * Returns a list of game-specific localization paths
 	 */
 	static const TArray<FString>& GetGameLocalizationPaths();
+
+	/** 
+	 * Returns a list of restricted/internal folder names (without any slashes) which may be tested against full paths to determine if a path is restricted or not.
+	 */
+	static const TArray<FString>& GetRestrictedFolderNames();
+
+	/** 
+	 * Determines if supplied path uses a restricted/internal subdirectory.	Note that slashes are normalized and character case is ignored for the comparison.
+	 */
+	static bool IsRestrictedPath(const FString& InPath);
 
 	/**
 	 * Returns the saved directory that is not game specific. This is usually the same as

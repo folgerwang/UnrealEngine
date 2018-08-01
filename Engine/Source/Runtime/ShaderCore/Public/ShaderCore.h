@@ -1022,7 +1022,7 @@ extern SHADERCORE_API void VerifyShaderSourceFiles();
 struct FCachedUniformBufferDeclaration
 {
 	// Using SharedPtr so we can hand off lifetime ownership to FShaderCompilerEnvironment::IncludeVirtualPathToExternalContentsMap when invalidating this cache
-	TSharedPtr<FString> Declaration[SP_NumPlatforms];
+	TSharedPtr<FString> Declaration;
 };
 
 /** Parses the given source file and its includes for references of uniform buffers, which are then stored in UniformBufferEntries. */

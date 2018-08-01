@@ -20,7 +20,8 @@ struct FAndroidTypes : public FGenericPlatformTypes
 	//typedef unsigned int				DWORD;
 	//typedef size_t					SIZE_T;
 	//typedef decltype(NULL)			TYPE_OF_NULL;
-	typedef char16_t					CHAR16;
+	typedef char16_t					WIDECHAR;
+	typedef WIDECHAR					TCHAR;
 };
 
 typedef FAndroidTypes FPlatformTypes;
@@ -41,7 +42,7 @@ typedef FAndroidTypes FPlatformTypes;
 #define PLATFORM_MAX_FILEPATH_LENGTH				MAX_PATH
 #define PLATFORM_SUPPORTS_TEXTURE_STREAMING			1
 #define PLATFORM_REQUIRES_FILESERVER				1
-#define PLATFORM_TCHAR_IS_4_BYTES					1
+#define PLATFORM_TCHAR_IS_CHAR16					1
 #define PLATFORM_HAS_NO_EPROCLIM					1
 #define PLATFORM_USES_ES2							1
 #define PLATFORM_BUILTIN_VERTEX_HALF_FLOAT			0
@@ -54,7 +55,7 @@ typedef FAndroidTypes FPlatformTypes;
 #define PLATFORM_UI_HAS_MOBILE_SCROLLBARS			1
 #define PLATFORM_UI_NEEDS_TOOLTIPS					0
 #define PLATFORM_UI_NEEDS_FOCUS_OUTLINES			0
-#define PLATFORM_SUPPORTS_EARLY_MOVIE_PLAYBACK		1 // movies will start before engine is initalized
+#define PLATFORM_SUPPORTS_EARLY_MOVIE_PLAYBACK		0 // movies will start before engine is initalized
 
 #if defined(EXPERIMENTAL_OPENGL_RHITHREAD) && EXPERIMENTAL_OPENGL_RHITHREAD
 	#define PLATFORM_RHITHREAD_DEFAULT_BYPASS			0

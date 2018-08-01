@@ -47,7 +47,7 @@ public:
 
 private:
 	/** Opens up the next movie in the movie path queue */
-	void OpenNextMovie();
+	bool OpenNextMovie();
 	/** Closes the currently running video */
 	void CloseMovie();
 	/** Cleans up rendering resources once movies are done playing */

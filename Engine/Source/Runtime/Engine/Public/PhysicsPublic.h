@@ -522,7 +522,7 @@ public:
 	/** Utility for looking up the ApexScene of the given EPhysicsSceneType associated with this FPhysScene.  SceneType must be in the range [0,PST_MAX). */
 	ENGINE_API nvidia::apex::Scene*				GetApexScene(uint32 SceneType) const;
 #endif
-	ENGINE_API FPhysScene();
+	ENGINE_API FPhysScene(const AWorldSettings* Settings = nullptr);
 	ENGINE_API ~FPhysScene();
 
 	/** Start simulation on the physics scene of the given type */
@@ -627,7 +627,7 @@ public:
 	
 private:
 	/** Initialize a scene of the given type.  Must only be called once for each scene type. */
-	void InitPhysScene(uint32 SceneType);
+	void InitPhysScene(uint32 SceneType, const AWorldSettings* Settings = nullptr);
 
 	/** Terminate a scene of the given type.  Must only be called once for each scene type. */
 	void TermPhysScene(uint32 SceneType);

@@ -249,6 +249,9 @@ class UK2Node : public UEdGraphNode
 	virtual bool ShouldShowNodeProperties() const { return false; }
 
 	/** Return whether the node's execution pins should support the remove execution pin action */
+	virtual bool CanEverInsertExecutionPin() const { return false; }
+
+	/** Return whether the node's execution pins should support the remove execution pin action */
 	virtual bool CanEverRemoveExecutionPin() const { return false; }
 
 	/** Called when the connection list of one of the pins of this node is changed in the editor, after the pin has had it's literal cleared */
@@ -406,7 +409,7 @@ protected:
 	BLUEPRINTGRAPH_API void ReconstructSinglePin(UEdGraphPin* NewPin, UEdGraphPin* OldPin, ERedirectType RedirectType);
 
 	// Helper function to rewire old pins to new pins during node reconstruction (or other regeneration of pins)
-	BLUEPRINTGRAPH_API void RewireOldPinsToNewPins(TArray<UEdGraphPin*>& InOldPins, TArray<UEdGraphPin*>& InNewPins);
+	BLUEPRINTGRAPH_API void RewireOldPinsToNewPins(TArray<UEdGraphPin*>& InOldPins, TArray<UEdGraphPin*>& InNewPins, TMap<UEdGraphPin*, UEdGraphPin*>* NewPinToOldPin);
 
 	// Helper function to properly destroy a set of pins
 	BLUEPRINTGRAPH_API void DestroyPinList(TArray<UEdGraphPin*>& InPins);

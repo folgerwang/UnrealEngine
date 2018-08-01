@@ -30,8 +30,8 @@ FEmptyFolderVisibilityManager::~FEmptyFolderVisibilityManager()
 {
 	if (FModuleManager::Get().IsModuleLoaded(TEXT("AssetRegistry")))
 	{
-		// Load the asset registry module to stop listening for updates
-		FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+		// Get the asset registry module to stop listening for updates
+		FAssetRegistryModule& AssetRegistryModule = FModuleManager::GetModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
 		AssetRegistryModule.Get().OnPathRemoved().RemoveAll(this);
 		AssetRegistryModule.Get().OnAssetAdded().RemoveAll(this);
 	}

@@ -637,6 +637,11 @@ int ValidateContainerIndexParam(const Py_ssize_t InIndex, const Py_ssize_t InLen
 	return 0;
 }
 
+Py_ssize_t ResolveContainerIndexParam(const Py_ssize_t InIndex, const Py_ssize_t InLen)
+{
+	return InIndex < 0 ? InIndex + InLen : InIndex;
+}
+
 UObject* GetOwnerObject(PyObject* InPyObj)
 {
 	FPyWrapperOwnerContext OwnerContext = FPyWrapperOwnerContext(InPyObj);

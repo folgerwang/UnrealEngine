@@ -286,6 +286,8 @@ private:
 	void OnApplicationWillResignActive();
 	void OnWindowsReordered();
 	void OnActiveSpaceDidChange();
+	
+	void CacheKeyboardInputSource();
 
 	void ConditionallyUpdateModifierKeys(const FDeferredMacEvent& Event);
 	void HandleModifierChange(NSUInteger NewModifierFlags, NSUInteger FlagsShift, NSUInteger UE4Shift, EMacModifierKeys TranslatedCode);
@@ -382,6 +384,8 @@ private:
 	/** Stores the number of times a gesture has been used for analytics */
 	int32 GestureUsage[(int32)EGestureEvent::Count];
 #endif
+
+	NSData* KeyBoardLayoutData;
 
 	friend class FMacWindow;
 };

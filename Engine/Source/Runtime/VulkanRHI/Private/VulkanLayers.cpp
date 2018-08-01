@@ -49,9 +49,6 @@ static const ANSICHAR* GValidationLayersDevice[] =
 // Instance Extensions to enable for all platforms
 static const ANSICHAR* GInstanceExtensions[] =
 {
-#if VULKAN_HAS_DEBUGGING_ENABLED
-	VK_EXT_DEBUG_REPORT_EXTENSION_NAME,
-#endif
 #if VULKAN_ENABLE_DESKTOP_HMD_SUPPORT
 	VK_KHR_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME,
 	VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME,
@@ -191,8 +188,34 @@ static inline bool FindLayerInList(const TArray<FLayerExtension>& List, const ch
 	return FindLayerIndexInList(List, LayerName) != INDEX_NONE;
 }
 
-void FVulkanDynamicRHI::GetInstanceLayersAndExtensions(TArray<const ANSICHAR*>& OutInstanceExtensions, TArray<const ANSICHAR*>& OutInstanceLayers)
+static inline bool FindLayerExtensionInList(const TArray<FLayerExtension>& List, const char* ExtensionName, const char*& FoundLayer)
 {
+	for (int32 Index = 0; Index < List.Num(); ++Index)
+	{
+		for (int32 ExtIndex = 0; ExtIndex < List[Index].ExtensionProps.Num(); ++ExtIndex)
+		{
+			if (!FCStringAnsi::Strcmp(List[Index].ExtensionProps[ExtIndex].extensionName, ExtensionName))
+			{
+				FoundLayer = List[Index].LayerProps.layerName;
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+static inline bool FindLayerExtensionInList(const TArray<FLayerExtension>& List, const char* ExtensionName)
+{
+	const char* Dummy = nullptr;
+	return FindLayerExtensionInList(List, ExtensionName, Dummy);
+}
+
+
+void FVulkanDynamicRHI::GetInstanceLayersAndExtensions(TArray<const ANSICHAR*>& OutInstanceExtensions, TArray<const ANSICHAR*>& OutInstanceLayers, bool& bOutDebugUtils)
+{
+	bOutDebugUtils = false;
+
 	TArray<FLayerExtension> GlobalLayerExtensions;
 	// 0 is reserved for NULL/instance
 	GlobalLayerExtensions.AddDefaulted();
@@ -248,17 +271,22 @@ void FVulkanDynamicRHI::GetInstanceLayersAndExtensions(TArray<const ANSICHAR*>& 
 		UE_LOG(LogVulkanRHI, Display, TEXT("- Found instance extension %s"), *Name);
 	}
 
+	FVulkanPlatform::NotifyFoundInstanceLayersAndExtensions(FoundUniqueLayers, FoundUniqueExtensions);
+
+	bool bVkTrace = false;
 	if (FParse::Param(FCommandLine::Get(), TEXT("vktrace")))
 	{
 		const char* VkTraceName = "VK_LAYER_LUNARG_vktrace";
 		if (FindLayerInList(GlobalLayerExtensions, VkTraceName))
 		{
 			OutInstanceLayers.Add(VkTraceName);
+			bVkTrace = true;
 		}
 	}
 
 #if VULKAN_HAS_DEBUGGING_ENABLED
 #if VULKAN_ENABLE_API_DUMP
+	if (!bVkTrace)
 	{
 		const char* VkApiDumpName = "VK_LAYER_LUNARG_api_dump";
 		bool bApiDumpFound = FindLayerInList(GlobalLayerExtensions, VkApiDumpName);
@@ -279,7 +307,7 @@ void FVulkanDynamicRHI::GetInstanceLayersAndExtensions(TArray<const ANSICHAR*>& 
 		GValidationCvar->Set(VulkanValidationOption, ECVF_SetByCommandline);
 	}
 
-	if (VulkanValidationOption > 0)
+	if (!bVkTrace && VulkanValidationOption > 0)
 	{
 		// Verify that all requested debugging device-layers are available
 		for (uint32 LayerIndex = 0; GValidationLayersInstance[LayerIndex] != nullptr; ++LayerIndex)
@@ -296,6 +324,18 @@ void FVulkanDynamicRHI::GetInstanceLayersAndExtensions(TArray<const ANSICHAR*>& 
 			}
 		}
 	}
+
+#if VULKAN_SUPPORTS_DEBUG_UTILS
+	if (!bVkTrace && GValidationCvar.GetValueOnAnyThread() > 0)
+	{
+		const char* FoundDebugUtilsLayer = nullptr;
+		bOutDebugUtils = FindLayerExtensionInList(GlobalLayerExtensions, VK_EXT_DEBUG_UTILS_EXTENSION_NAME, FoundDebugUtilsLayer);
+		if (bOutDebugUtils && *FoundDebugUtilsLayer)
+		{
+			OutInstanceLayers.Add(FoundDebugUtilsLayer);
+		}
+	}
+#endif
 #endif	// VULKAN_HAS_DEBUGGING_ENABLED
 
 	// Check to see if the HMD requires any specific Vulkan extensions to operate
@@ -315,26 +355,34 @@ void FVulkanDynamicRHI::GetInstanceLayersAndExtensions(TArray<const ANSICHAR*>& 
 	TArray<const ANSICHAR*> PlatformExtensions;
 	FVulkanPlatform::GetInstanceExtensions(PlatformExtensions);
 
-	for (int32 Index = 0; Index < GlobalLayerExtensions.Num(); ++Index)
+	for (const ANSICHAR* PlatformExtension : PlatformExtensions)
 	{
-		for (int32 i = 0; i < GlobalLayerExtensions[Index].ExtensionProps.Num(); i++)
+		if (FindLayerExtensionInList(GlobalLayerExtensions, PlatformExtension))
 		{
-			for (const ANSICHAR* PlatformExtension : PlatformExtensions)
-			{
-				if (!FCStringAnsi::Strcmp(GlobalLayerExtensions[Index].ExtensionProps[i].extensionName, PlatformExtension))
-				{
-					OutInstanceExtensions.Add(PlatformExtension);
-					break;
-				}
-			}
-			for (int32 j = 0; GInstanceExtensions[j] != nullptr; j++)
-			{
-				if (!FCStringAnsi::Strcmp(GlobalLayerExtensions[Index].ExtensionProps[i].extensionName, GInstanceExtensions[j]))
-				{
-					OutInstanceExtensions.Add(GInstanceExtensions[j]);
-					break;
-				}
-			}
+			OutInstanceExtensions.Add(PlatformExtension);
+		}
+	}
+
+	for (int32 j = 0; GInstanceExtensions[j] != nullptr; j++)
+	{
+		if (FindLayerExtensionInList(GlobalLayerExtensions, GInstanceExtensions[j]))
+		{
+			OutInstanceExtensions.Add(GInstanceExtensions[j]);
+		}
+	}
+
+#if VULKAN_SUPPORTS_DEBUG_UTILS
+	if (!bVkTrace && bOutDebugUtils && FindLayerExtensionInList(GlobalLayerExtensions, VK_EXT_DEBUG_UTILS_EXTENSION_NAME))
+	{
+		OutInstanceExtensions.Add(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+	}
+	//else if (!bOutDebugUtils)
+#endif
+	if (!bVkTrace && GValidationCvar.GetValueOnAnyThread() == 0)
+	{
+		if (FindLayerExtensionInList(GlobalLayerExtensions, VK_EXT_DEBUG_REPORT_EXTENSION_NAME))
+		{
+			OutInstanceExtensions.Add(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
 		}
 	}
 
@@ -416,6 +464,8 @@ void FVulkanDevice::GetDeviceExtensionsAndLayers(TArray<const ANSICHAR*>& OutDev
 	{
 		UE_LOG(LogVulkanRHI, Display, TEXT("- Found device extension %s"), *Name);
 	}
+
+	FVulkanPlatform::NotifyFoundDeviceLayersAndExtensions(Gpu, FoundUniqueLayers, FoundUniqueExtensions);
 
 	TArray<FString> UniqueUsedDeviceExtensions;
 	auto AddDeviceLayers = [&](const char* LayerName)
@@ -537,7 +587,8 @@ void FVulkanDevice::GetDeviceExtensionsAndLayers(TArray<const ANSICHAR*>& OutDev
 	}
 
 #if VULKAN_ENABLE_DRAW_MARKERS
-	if (!bOutDebugMarkers && ListContains(AvailableExtensions, VK_EXT_DEBUG_MARKER_EXTENSION_NAME) && (GRenderDocFound || FVulkanPlatform::SupportsMarkersWithoutExtension()))
+	if (!bOutDebugMarkers &&
+		((GValidationCvar.GetValueOnAnyThread() == 0 && ListContains(AvailableExtensions, VK_EXT_DEBUG_MARKER_EXTENSION_NAME)) || FVulkanPlatform::ForceEnableDebugMarkers()))
 	{
 		OutDeviceExtensions.Add(VK_EXT_DEBUG_MARKER_EXTENSION_NAME);
 		bOutDebugMarkers = true;

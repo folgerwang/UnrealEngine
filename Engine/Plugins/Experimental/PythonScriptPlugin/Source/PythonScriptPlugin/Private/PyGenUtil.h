@@ -1003,6 +1003,9 @@ namespace PyGenUtil
 	/** Get the deprecated Python names of the given enum */
 	TArray<FString> GetDeprecatedEnumPythonNames(const UEnum* InEnum);
 
+	/** Get the Python name of the given enum entry */
+	FString GetEnumEntryPythonName(const UEnum* InEnum, const int32 InEntryIndex);
+
 	/** Get the Python name of the given delegate signature */
 	FString GetDelegatePythonName(const UFunction* InDelegateSignature);
 

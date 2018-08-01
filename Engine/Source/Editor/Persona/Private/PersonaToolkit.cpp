@@ -13,6 +13,7 @@
 #include "PersonaModule.h"
 #include "PersonaAssetFamily.h"
 #include "Interfaces/Interface_PreviewMeshProvider.h"
+#include "AnimationEditorPreviewActor.h"
 
 FPersonaToolkit::FPersonaToolkit()
 	: Skeleton(nullptr)
@@ -113,7 +114,7 @@ void FPersonaToolkit::CreatePreviewScene(const FPersonaToolkitArgs& PersonaToolk
 		else
 		{
 			// setup default scene
-			AActor* Actor = PreviewScene->GetWorld()->SpawnActor<AActor>(AActor::StaticClass(), FTransform::Identity);
+			AAnimationEditorPreviewActor* Actor = PreviewScene->GetWorld()->SpawnActor<AAnimationEditorPreviewActor>(AAnimationEditorPreviewActor::StaticClass(), FTransform::Identity);
 			PreviewScene->SetActor(Actor);
 
 			// Create the preview component
@@ -136,27 +137,7 @@ void FPersonaToolkit::CreatePreviewScene(const FPersonaToolkitArgs& PersonaToolk
 		bool bSetMesh = false;
 
 		// Set the mesh
-		// first check assets first
-		// mesh exists with anim BP
-		if (AnimationAsset != nullptr)
-		{
-			USkeletalMesh* AssetMesh = AnimationAsset->GetPreviewMesh();
-			if (AssetMesh)
-			{
-				PreviewScene->SetPreviewMesh(AssetMesh);
-				bSetMesh = true;
-			}
-		}
-		else if (AnimBlueprint != nullptr)
-		{
-			USkeletalMesh* AssetMesh = AnimBlueprint->GetPreviewMesh();
-			if (AssetMesh)
-			{
-				PreviewScene->SetPreviewMesh(AssetMesh);
-				bSetMesh = true;
-			}
-		}
-		else if (Mesh != nullptr)
+		if (Mesh)
 		{
 			PreviewScene->SetPreviewMesh(Mesh);
 			bSetMesh = true;

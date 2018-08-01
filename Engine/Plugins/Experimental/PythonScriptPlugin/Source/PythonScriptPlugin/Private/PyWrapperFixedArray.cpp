@@ -386,15 +386,16 @@ PyObject* FPyWrapperFixedArray::GetItem(FPyWrapperFixedArray* InSelf, Py_ssize_t
 		return nullptr;
 	}
 
-	if (PyUtil::ValidateContainerIndexParam(InIndex, InSelf->ArrayProp->ArrayDim, InSelf->ArrayProp, *PyUtil::GetErrorContext(InSelf)) != 0)
+	const Py_ssize_t ResolvedIndex = PyUtil::ResolveContainerIndexParam(InIndex, InSelf->ArrayProp->ArrayDim);
+	if (PyUtil::ValidateContainerIndexParam(ResolvedIndex, InSelf->ArrayProp->ArrayDim, InSelf->ArrayProp, *PyUtil::GetErrorContext(InSelf)) != 0)
 	{
 		return nullptr;
 	}
 
 	PyObject* PyItemObj = nullptr;
-	if (!PyConversion::PythonizeProperty_Direct(InSelf->ArrayProp, GetItemPtr(InSelf, InIndex), PyItemObj))
+	if (!PyConversion::PythonizeProperty_Direct(InSelf->ArrayProp, GetItemPtr(InSelf, ResolvedIndex), PyItemObj))
 	{
-		PyUtil::SetPythonError(PyExc_TypeError, InSelf, *FString::Printf(TEXT("Failed to convert property '%s' (%s) at index %d"), *InSelf->ArrayProp->GetName(), *InSelf->ArrayProp->GetClass()->GetName(), InIndex));
+		PyUtil::SetPythonError(PyExc_TypeError, InSelf, *FString::Printf(TEXT("Failed to convert property '%s' (%s) at index %d"), *InSelf->ArrayProp->GetName(), *InSelf->ArrayProp->GetClass()->GetName(), ResolvedIndex));
 		return nullptr;
 	}
 	return PyItemObj;
@@ -407,15 +408,16 @@ int FPyWrapperFixedArray::SetItem(FPyWrapperFixedArray* InSelf, Py_ssize_t InInd
 		return -1;
 	}
 
-	const int ValidateIndexResult = PyUtil::ValidateContainerIndexParam(InIndex, InSelf->ArrayProp->ArrayDim, InSelf->ArrayProp, *PyUtil::GetErrorContext(InSelf));
+	const Py_ssize_t ResolvedIndex = PyUtil::ResolveContainerIndexParam(InIndex, InSelf->ArrayProp->ArrayDim);
+	const int ValidateIndexResult = PyUtil::ValidateContainerIndexParam(ResolvedIndex, InSelf->ArrayProp->ArrayDim, InSelf->ArrayProp, *PyUtil::GetErrorContext(InSelf));
 	if (ValidateIndexResult != 0)
 	{
 		return ValidateIndexResult;
 	}
 
-	if (!PyConversion::NativizeProperty_Direct(InValue, InSelf->ArrayProp, GetItemPtr(InSelf, InIndex)))
+	if (!PyConversion::NativizeProperty_Direct(InValue, InSelf->ArrayProp, GetItemPtr(InSelf, ResolvedIndex)))
 	{
-		PyUtil::SetPythonError(PyExc_TypeError, InSelf, *FString::Printf(TEXT("Failed to convert property '%s' (%s) at index %d"), *InSelf->ArrayProp->GetName(), *InSelf->ArrayProp->GetClass()->GetName(), InIndex));
+		PyUtil::SetPythonError(PyExc_TypeError, InSelf, *FString::Printf(TEXT("Failed to convert property '%s' (%s) at index %d"), *InSelf->ArrayProp->GetName(), *InSelf->ArrayProp->GetClass()->GetName(), ResolvedIndex));
 		return -1;
 	}
 
@@ -688,7 +690,9 @@ PyTypeObject InitializePyWrapperFixedArrayType()
 				return nullptr;
 			}
 
-			const Py_ssize_t SliceLen = InSliceStop - InSliceStart;
+			const Py_ssize_t ResolvedSliceStart = PyUtil::ResolveContainerIndexParam(InSliceStart, InSelf->ArrayProp->ArrayDim);
+			const Py_ssize_t ResolvedSliceStop = PyUtil::ResolveContainerIndexParam(InSliceStop, InSelf->ArrayProp->ArrayDim);
+			const Py_ssize_t SliceLen = ResolvedSliceStop - ResolvedSliceStart;
 			if (SliceLen <= 0)
 			{
 				PyUtil::SetPythonError(PyExc_Exception, InSelf, TEXT("Slice length must be greater than zero"));
@@ -702,9 +706,9 @@ PyTypeObject InitializePyWrapperFixedArrayType()
 				return nullptr;
 			}
 
-			for (Py_ssize_t ArrIndex = InSliceStart; ArrIndex < InSliceStop; ++ArrIndex)
+			for (Py_ssize_t ArrIndex = ResolvedSliceStart; ArrIndex < ResolvedSliceStop; ++ArrIndex)
 			{
-				InSelf->ArrayProp->CopySingleValue(FPyWrapperFixedArray::GetItemPtr(NewArray, ArrIndex - InSliceStart), FPyWrapperFixedArray::GetItemPtr(InSelf, ArrIndex));
+				InSelf->ArrayProp->CopySingleValue(FPyWrapperFixedArray::GetItemPtr(NewArray, ArrIndex - ResolvedSliceStart), FPyWrapperFixedArray::GetItemPtr(InSelf, ArrIndex));
 			}
 			return (PyObject*)NewArray.Release();
 		}

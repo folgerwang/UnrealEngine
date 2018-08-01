@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "RemoteSessionHost.h"
 #include "BackChannel/Transport/IBackChannelTransport.h"
@@ -7,8 +7,6 @@
 #include "BackChannel/Utils/BackChannelThreadedConnection.h"
 #include "BackChannel/Protocol/OSC/BackChannelOSCMessage.h"
 #include "Channels/RemoteSessionInputChannel.h"
-#include "Channels/RemoteSessionXRTrackingChannel.h"
-#include "Channels/RemoteSessionARCameraChannel.h"
 #include "Channels/RemoteSessionFrameBufferChannel.h"
 #include "Engine/GameEngine.h"
 #include "Framework/Application/SlateApplication.h"
@@ -27,11 +25,12 @@ namespace RemoteSessionEd
 };
 
 
-FRemoteSessionHost::FRemoteSessionHost(int32 InQuality, int32 InFramerate)
+FRemoteSessionHost::FRemoteSessionHost(int32 InQuality, int32 InFramerate, const TMap<FString, ERemoteSessionChannelMode>& InSupportedChannels)
 {
 	HostTCPPort = 0;
 	Quality = InQuality;
 	Framerate = InFramerate;
+    SupportedChannels = InSupportedChannels;
 	SavedEditorDragTriggerDistance = FSlateApplication::Get().GetDragTriggerDistance();
 	IsListenerConnected = false;
 }
@@ -103,34 +102,8 @@ void FRemoteSessionHost::OnCreateChannels()
 	
 	ClearChannels();
 	
-	// Query the list of channels from the hosts ini file.
-	TArray<FString> DesiredChannels;
-	GConfig->GetArray(TEXT("RemoteSession"), TEXT("Channels"), DesiredChannels, GEngineIni);
-	
-	if (DesiredChannels.Num() == 0)
-	{
-		// Default to Input receive and framebuffer send
-		DesiredChannels.Add(FString::Printf(TEXT("%s,receive"), *FRemoteSessionInputChannel::StaticType()));
-		DesiredChannels.Add(FString::Printf(TEXT("%s,send"), *FRemoteSessionFrameBufferChannel::StaticType()));
-	}
-	
-	TMap<FString, ERemoteSessionChannelMode> ChannelsWithModes;
-	
-	for (const FString& Channel : DesiredChannels)
-	{
-		FString ChannelName, Mode;
-		
-		if (Channel.Split(TEXT(","), &ChannelName, &Mode))
-		{
-			ChannelsWithModes.Add(ChannelName, Mode == TEXT("receive") ? ERemoteSessionChannelMode::Receive : ERemoteSessionChannelMode::Send);
-		}
-		else
-		{
-			UE_LOG(LogRemoteSession, Error, TEXT("Unrecognized channel syntax '%s'. Should be ChannelType,r or ChannelType,s"), *Channel);
-		}
-	}
-	
-	CreateChannels(ChannelsWithModes);
+	CreateChannels(SupportedChannels);
+    
 	IsListenerConnected = true;
 	
 	TWeakPtr<SWindow> InputWindow;
@@ -191,9 +164,9 @@ void FRemoteSessionHost::OnCreateChannels()
 	FBackChannelOSCMessage Msg(*GetChannelSelectionEndPoint());
 	
 	// send these across as a name/mode pair
-	for (const auto& KP : ChannelsWithModes)
+	for (const auto& KP : SupportedChannels)
 	{
-		ERemoteSessionChannelMode ClientMode = (KP.Value == ERemoteSessionChannelMode::Send) ? ERemoteSessionChannelMode::Receive : ERemoteSessionChannelMode::Send;
+		ERemoteSessionChannelMode ClientMode = (KP.Value == ERemoteSessionChannelMode::Write) ? ERemoteSessionChannelMode::Read : ERemoteSessionChannelMode::Write;
 		Msg.Write(KP.Key);
 		Msg.Write((int32)ClientMode);
 	}
@@ -216,11 +189,15 @@ void FRemoteSessionHost::Tick(float DeltaTime)
 			StartListening(HostTCPPort);
 			IsListenerConnected = false;
 		}
-		Listener->WaitForConnection(0, [this](TSharedRef<IBackChannelConnection> InConnection) {
-			Close();
-			CreateOSCConnection(InConnection);
-			return true;
-		});
+        
+        if (Listener.IsValid())
+        {
+            Listener->WaitForConnection(0, [this](TSharedRef<IBackChannelConnection> InConnection) {
+                Close();
+                CreateOSCConnection(InConnection);
+                return true;
+            });
+        }
 	}
 	
 	FRemoteSessionRole::Tick(DeltaTime);

@@ -5,7 +5,9 @@
 =============================================================================*/
 
 #include "Materials/MaterialInstanceConstant.h"
-
+#if WITH_EDITOR
+#include "MaterialEditor/DEditorScalarParameterValue.h"
+#endif
 
 UMaterialInstanceConstant::UMaterialInstanceConstant(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -63,6 +65,12 @@ void UMaterialInstanceConstant::SetScalarParameterValueEditorOnly(const FMateria
 {
 	check(GIsEditor);
 	SetScalarParameterValueInternal(ParameterInfo,Value);
+}
+
+void UMaterialInstanceConstant::SetScalarParameterAtlasEditorOnly(const FMaterialParameterInfo& ParameterInfo, FScalarParameterAtlasInstanceData AtlasData)
+{
+	check(GIsEditor);
+	SetScalarParameterAtlasInternal(ParameterInfo, AtlasData);
 }
 
 void UMaterialInstanceConstant::SetTextureParameterValueEditorOnly(const FMaterialParameterInfo& ParameterInfo, UTexture* Value)

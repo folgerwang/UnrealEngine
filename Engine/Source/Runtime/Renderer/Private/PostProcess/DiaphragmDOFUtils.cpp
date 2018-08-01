@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PostProcessDOF.cpp: Post process Depth of Field implementation.
@@ -34,6 +34,13 @@ void DiaphragmDOF::FPhysicalCocModel::Compile(const FViewInfo& View)
 		// -because foreground Coc are negative.
 		MinForegroundCocRadius = -CVarMaxForegroundRadius.GetValueOnRenderThread();
 		MaxBackgroundCocRadius = CVarMaxBackgroundRadius.GetValueOnRenderThread();
+
+		MaxDepthBlurRadius = View.FinalPostProcessSettings.DepthOfFieldDepthBlurRadius / 1920.0f;
+
+		// Circle DOF was actually computing in this depth blur radius in half res.
+		MaxDepthBlurRadius *= 2.0f;
+
+		DepthBlurExponent = 1.0f / (View.FinalPostProcessSettings.DepthOfFieldDepthBlurAmount * 100000.0f);
 	}
 
 	// Compile coc model equation.
@@ -64,7 +71,18 @@ void DiaphragmDOF::FPhysicalCocModel::Compile(const FViewInfo& View)
 
 float DiaphragmDOF::FPhysicalCocModel::DepthToResCocRadius(float SceneDepth, float HorizontalResolution) const
 {
-	return HorizontalResolution * FMath::Clamp(((SceneDepth - FocusDistance) / SceneDepth) * InfinityBackgroundCocRadius, MinForegroundCocRadius, MaxBackgroundCocRadius);
+	float CocRadius = ((SceneDepth - FocusDistance) / SceneDepth) * InfinityBackgroundCocRadius;
+
+	// Depth blur based.
+	float DepthBlurAbsRadius = (1.0 - FMath::Exp2(-SceneDepth * DepthBlurExponent)) * MaxDepthBlurRadius;
+
+	float ReturnCoc = FMath::Max(FMath::Abs(CocRadius), DepthBlurAbsRadius);
+	if (CocRadius < 0.0)
+	{
+		// near CoC is using negative values
+		ReturnCoc = -ReturnCoc;
+	}
+	return HorizontalResolution * FMath::Clamp(ReturnCoc, MinForegroundCocRadius, MaxBackgroundCocRadius);
 }
 
 void DiaphragmDOF::FBokehModel::Compile(const FViewInfo& View)

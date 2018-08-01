@@ -7,12 +7,18 @@
 #include "Misc/FrameNumber.h"
 #include "Misc/FrameTime.h"
 
+#include "MovieSceneChannelData.generated.h"
+
 struct FFrameRate;
 struct FKeyDataOptimizationParams;
 
 /** A map of key handles that is copyable, but does not copy data on copy */
-struct FMovieSceneKeyHandleMap : FKeyHandleLookupTable
+USTRUCT()
+struct FMovieSceneKeyHandleMap : public FKeyHandleLookupTable
 {
+	GENERATED_BODY()
+
+public:
 	FMovieSceneKeyHandleMap() = default;
 	FMovieSceneKeyHandleMap(const FMovieSceneKeyHandleMap& RHS){}
 	FMovieSceneKeyHandleMap& operator=(const FMovieSceneKeyHandleMap& RHS)
@@ -20,6 +26,16 @@ struct FMovieSceneKeyHandleMap : FKeyHandleLookupTable
 		Reset();
 		return *this;
 	}
+};
+
+template<>
+struct TStructOpsTypeTraits<FMovieSceneKeyHandleMap>
+	: public TStructOpsTypeTraitsBase2<FMovieSceneKeyHandleMap>
+{
+	enum
+	{
+		WithSerializer = true,
+	};
 };
 
 namespace MovieScene

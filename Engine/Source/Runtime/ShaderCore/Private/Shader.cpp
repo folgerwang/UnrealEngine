@@ -17,7 +17,7 @@
 #include "ShaderCore.h"
 #include "Misc/ConfigCacheIni.h"
 #include "UObject/RenderingObjectVersion.h"
-#include "UObject/AthenaObjectVersion.h"
+#include "UObject/FortniteMainBranchObjectVersion.h"
 
 
 DEFINE_LOG_CATEGORY(LogShaders);
@@ -153,10 +153,7 @@ FShaderType::FShaderType(
 	GetStreamOutElementsRef(InGetStreamOutElementsRef),
 	GlobalListLink(this)
 {
-	for (int32 Platform = 0; Platform < SP_NumPlatforms; Platform++)
-	{
-		bCachedUniformBufferStructDeclarations[Platform] = false;
-	}
+	bCachedUniformBufferStructDeclarations = false;
 
 	// This will trigger if an IMPLEMENT_SHADER_TYPE was in a module not loaded before InitializeShaderTypes
 	// Shader types need to be implemented in modules that are loaded before that
@@ -959,7 +956,7 @@ const FSHAHash& FShader::GetHash() const
 
 bool FShader::SerializeBase(FArchive& Ar, bool bShadersInline)
 {
-	Ar.UsingCustomVersion(FAthenaObjectVersion::GUID);
+	Ar.UsingCustomVersion(FFortniteMainBranchObjectVersion::GUID);
 
 	Serialize(Ar);
 
@@ -990,7 +987,7 @@ bool FShader::SerializeBase(FArchive& Ar, bool bShadersInline)
 		{
 			FUniformBufferStruct* Struct = nullptr;
 
-			if (Ar.CustomVer(FAthenaObjectVersion::GUID) < FAthenaObjectVersion::MaterialInstanceSerializeOptimization_ShaderFName)
+			if (Ar.CustomVer(FFortniteMainBranchObjectVersion::GUID) < FFortniteMainBranchObjectVersion::MaterialInstanceSerializeOptimization_ShaderFName)
 			{
 				FString StructName;
 				Ar << StructName;
@@ -1026,7 +1023,7 @@ bool FShader::SerializeBase(FArchive& Ar, bool bShadersInline)
 		{
 			FString StructName(UniformBufferParameterStructs[StructIndex]->GetStructTypeName());
 
-			if (Ar.CustomVer(FAthenaObjectVersion::GUID) < FAthenaObjectVersion::MaterialInstanceSerializeOptimization_ShaderFName)
+			if (Ar.CustomVer(FFortniteMainBranchObjectVersion::GUID) < FFortniteMainBranchObjectVersion::MaterialInstanceSerializeOptimization_ShaderFName)
 			{
 				Ar << StructName;
 			}
@@ -1815,6 +1812,11 @@ void ShaderMapAppendKeyString(EShaderPlatform Platform, FString& KeyString)
 	{
 		static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.ClearCoatNormal"));
 		KeyString += (CVar && CVar->GetValueOnAnyThread() != 0) ? TEXT("_CCBN") : TEXT("_NoCCBN");
+	}
+
+	{
+		static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.IrisNormal"));
+		KeyString += (CVar && CVar->GetValueOnAnyThread() != 0) ? TEXT("_Iris") : TEXT("_NoIris");
 	}
 
 	{

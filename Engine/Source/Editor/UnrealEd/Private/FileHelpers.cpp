@@ -10,6 +10,7 @@
 #include "Misc/ConfigCacheIni.h"
 #include "Misc/FeedbackContext.h"
 #include "Misc/ScopedSlowTask.h"
+#include "Misc/RedirectCollector.h"
 #include "Misc/App.h"
 #include "Misc/FileHelper.h"
 #include "Modules/ModuleManager.h"
@@ -392,7 +393,11 @@ FString FEditorFileUtils::GetFilterString(EFileInteraction Interaction)
 			{
 				if (Class->IsChildOf<USceneImportFactory>())
 				{
-					Factories.Add(Class->GetDefaultObject<UFactory>());
+					UFactory* Factory = Class->GetDefaultObject<UFactory>();
+					if (Factory->bEditorImport)
+					{
+						Factories.Add(Factory);
+					}
 				}
 
 			}
@@ -607,6 +612,9 @@ static bool SaveWorld(UWorld* World,
 
 		SlowTask.EnterProgressFrame(25);
 
+		FSoftObjectPath OldPath( World );
+		bool bAddedAssetPathRedirection = false;
+
 		// Rename the package and the object, as necessary
 		UWorld* DuplicatedWorld = nullptr;
 		if ( bRenamePackageToFile )
@@ -650,6 +658,11 @@ static bool SaveWorld(UWorld* World,
 						}
 
 						World->Rename(*NewWorldAssetName, NULL, REN_NonTransactional | REN_DontCreateRedirectors | REN_ForceNoResetLoaders);
+
+						// We're renaming the world, add a path redirector so that soft object paths get fixed on save
+						FSoftObjectPath NewPath( World );
+						GRedirectCollector.AddAssetPathRedirection( *OldPath.GetAssetPathString(), *NewPath.GetAssetPathString() );
+						bAddedAssetPathRedirection = true;
 					}
 				}
 			}
@@ -665,6 +678,11 @@ static bool SaveWorld(UWorld* World,
 
 			bSuccess = GEditor->Exec( NULL, *FString::Printf( TEXT("OBJ SAVEPACKAGE PACKAGE=\"%s\" FILE=\"%s\" SILENT=true AUTOSAVING=%s KEEPDIRTY=%s"), *Package->GetName(), *FinalFilename, *AutoSavingString, *KeepDirtyString ), SaveErrors );
 			SaveErrors.Flush();
+		}
+
+		if ( bAddedAssetPathRedirection )
+		{
+			GRedirectCollector.RemoveAssetPathRedirection( *OldPath.GetAssetPathString() );
 		}
 
 		// @todo Autosaving should save build data as well

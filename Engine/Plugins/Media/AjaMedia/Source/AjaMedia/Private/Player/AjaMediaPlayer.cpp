@@ -5,6 +5,8 @@
 
 #include "AJA.h"
 #include "MediaIOCoreSamples.h"
+#include "MediaIOCoreEncodeTime.h"
+
 
 #include "HAL/PlatformAtomics.h"
 #include "HAL/PlatformProcess.h"
@@ -53,6 +55,7 @@ FAjaMediaPlayer::FAjaMediaPlayer(IMediaEventSink& InEventSink)
 	, bUseAncillaryField2(false)
 	, bUseAudio(false)
 	, bUseVideo(false)
+	, bVerifyFrameDropCount(true)
 	, VideoSampleFormat(EMediaTextureSampleFormat::CharBGRA)
 	, InputChannel(nullptr)
 	, AjaThreadPreviousFrameTimecode()
@@ -79,6 +82,17 @@ bool FAjaMediaPlayer::Open(const FString& Url, const IMediaOptions* Options)
 		return false;
 	}
 
+	if (!ReadMediaOptions(Options))
+	{
+		return false;
+	}
+
+	if (!FAja::CanUseAJACard())
+	{
+		UE_LOG(LogAjaMedia, Warning, TEXT("The AjaMediaPlayer can't open URL '%s' because Aja card cannot be used. Are you in a Commandlet? You may override this behavior by launching with -ForceAjaUsage"), *DeviceSource.ToString());
+		return false;
+	}
+
 	AJA::AJADeviceOptions DeviceOptions(DeviceSource.DeviceIndex);
 
 	// Read options
@@ -94,30 +108,45 @@ bool FAjaMediaPlayer::Open(const FString& Url, const IMediaOptions* Options)
 	{
 		EAjaMediaTimecodeFormat Timecode = (EAjaMediaTimecodeFormat)(Options->GetMediaOption(AjaMediaOption::TimecodeFormat, (int64)EAjaMediaTimecodeFormat::None));
 		bUseFrameTimecode = Timecode != EAjaMediaTimecodeFormat::None;
-		AjaOptions.bUseTimecode = bUseFrameTimecode;
-		AjaOptions.bUseLTCTimecode = Timecode == EAjaMediaTimecodeFormat::LTC;
+		AjaOptions.TimecodeFormat = AJA::ETimecodeFormat::TCF_None;
+		switch (Timecode)
+		{
+		case EAjaMediaTimecodeFormat::None:
+			AjaOptions.TimecodeFormat = AJA::ETimecodeFormat::TCF_None;
+			break;
+		case EAjaMediaTimecodeFormat::LTC:
+			AjaOptions.TimecodeFormat = AJA::ETimecodeFormat::TCF_LTC;
+			break;
+		case EAjaMediaTimecodeFormat::VITC:
+			AjaOptions.TimecodeFormat = AJA::ETimecodeFormat::TCF_VITC1;
+			break;
+		default:
+			break;
+		}
 		bEncodeTimecodeInTexel = bUseFrameTimecode && Options->GetMediaOption(AjaMediaOption::EncodeTimecodeInTexel, false);
-		
 	}
 	{
 		EAjaMediaAudioChannel AudioChannelOption = (EAjaMediaAudioChannel)(Options->GetMediaOption(AjaMediaOption::AudioChannel, (int64)EAjaMediaAudioChannel::Channel8));
 		AjaOptions.NumberOfAudioChannel = (AudioChannelOption == EAjaMediaAudioChannel::Channel8) ? 8 : 6;
 	}
 	{
-		EAjaMediaColorFormat ColorFormat = (EAjaMediaColorFormat)(Options->GetMediaOption(AjaMediaOption::ColorFormat, (int64)EMediaTextureSampleFormat::CharBGRA));
-		VideoSampleFormat = (ColorFormat == EAjaMediaColorFormat::BGRA) ? EMediaTextureSampleFormat::CharBGRA : EMediaTextureSampleFormat::CharUYVY;
-		AjaOptions.FrameDesc.PixelFormat = (ColorFormat == EAjaMediaColorFormat::BGRA) ? AJA::EPixelFormat::PF_ARGB : AJA::EPixelFormat::PF_UYVY;
+		AjaOptions.VideoFormatIndex = Options->GetMediaOption(AjaMediaOption::AjaVideoFormat, (int64)0);
+		LastVideoFormatIndex = AjaOptions.VideoFormatIndex;
 	}
-
+	{
+		EAjaMediaSourceColorFormat ColorFormat = (EAjaMediaSourceColorFormat)(Options->GetMediaOption(AjaMediaOption::ColorFormat, (int64)EMediaTextureSampleFormat::CharBGRA));
+		VideoSampleFormat = (ColorFormat == EAjaMediaSourceColorFormat::BGRA) ? EMediaTextureSampleFormat::CharBGRA : EMediaTextureSampleFormat::CharUYVY;
+		AjaOptions.PixelFormat = (ColorFormat == EAjaMediaSourceColorFormat::BGRA) ? AJA::EPixelFormat::PF_8BIT_ARGB : AJA::EPixelFormat::PF_8BIT_YCBCR;
+	}
 	{
 		AjaOptions.bUseAncillary = bUseAncillary = Options->GetMediaOption(AjaMediaOption::CaptureAncillary1, false);
 		AjaOptions.bUseAncillaryField2 = bUseAncillaryField2 = Options->GetMediaOption(AjaMediaOption::CaptureAncillary2, false);
 		AjaOptions.bUseAudio = bUseAudio = Options->GetMediaOption(AjaMediaOption::CaptureAudio, false);
 		AjaOptions.bUseVideo = bUseVideo = Options->GetMediaOption(AjaMediaOption::CaptureVideo, true);
+		AjaOptions.bUseAutoCirculating = Options->GetMediaOption(AjaMediaOption::CaptureWithAutoCirculating, true);
 	}
 
-	AjaOptions.bUseAutoCirculating = Options->GetMediaOption(AjaMediaOption::CaptureWithAutoCirculating, true);
-	AjaOptions.bIsProgressivePicture = Options->GetMediaOption(AjaMediaOption::IsProgressivePicture, true);
+	bVerifyFrameDropCount = Options->GetMediaOption(AjaMediaOption::LogDropFrame, true);
 	MaxNumAudioFrameBuffer = Options->GetMediaOption(AjaMediaOption::MaxAudioFrameBuffer, (int64)8);
 	MaxNumMetadataFrameBuffer = Options->GetMediaOption(AjaMediaOption::MaxAncillaryFrameBuffer, (int64)8);
 	MaxNumVideoFrameBuffer = Options->GetMediaOption(AjaMediaOption::MaxVideoFrameBuffer, (int64)8);
@@ -139,14 +168,14 @@ bool FAjaMediaPlayer::Open(const FString& Url, const IMediaOptions* Options)
 	AudioTrackFormat.SampleRate = 48000;
 	AudioTrackFormat.TypeName = FString(TEXT("PCM"));
 
-	VideoFrameRate = FFrameRate(LastFrameInfo.TimeScale, LastFrameInfo.TimeValue);
-	VideoTrackFormat.Dim = FIntPoint(LastFrameInfo.Width, LastFrameInfo.Height);
+	AudioTrackFormat.NumChannels = LastAudioChannels;
+	AudioTrackFormat.SampleRate = LastAudioSampleRate;
+
+	AJA::AJAVideoFormats::VideoFormatDescriptor FrameDescriptor = AJA::AJAVideoFormats::GetVideoFormat(LastVideoFormatIndex);
+	VideoTrackFormat.Dim = FIntPoint(FrameDescriptor.Width, FrameDescriptor.Height);
 	VideoTrackFormat.FrameRate = VideoFrameRate.AsDecimal();
 	VideoTrackFormat.FrameRates = TRange<float>(VideoFrameRate.AsDecimal());
-
-	TCHAR ModeName[AjaMediaPlayerConst::ModeNameBufferSize];
-	AJA::FrameDesc2Name(LastFrameDesc, ModeName, AjaMediaPlayerConst::ModeNameBufferSize);
-	VideoTrackFormat.TypeName = FString(ModeName);
+	VideoTrackFormat.TypeName = FrameDescriptor.FormatedText;
 
 	// finalize
 	CurrentState = EMediaState::Preparing;
@@ -200,12 +229,7 @@ FString FAjaMediaPlayer::GetStats() const
 	Stats += TEXT("Aja settings\n");
 	Stats += FString::Printf(TEXT("		Input port: %s\n"), *DeviceSource.ToString());
 	Stats += FString::Printf(TEXT("		Frame rate: %s\n"), *VideoFrameRate.ToPrettyText().ToString());
-
-	TCHAR ModeName[AjaMediaPlayerConst::ModeNameBufferSize];
-	if (AJA::FrameDesc2Name(LastFrameDesc, ModeName, AjaMediaPlayerConst::ModeNameBufferSize) && bUseVideo)
-	{
-		Stats += FString::Printf(TEXT("		  Aja Mode: %s\n"), ModeName);
-	}
+	Stats += FString::Printf(TEXT("		  Aja Mode: %s\n"), *VideoTrackFormat.TypeName);
 
 	Stats += TEXT("\n\n");
 	Stats += TEXT("Status\n");
@@ -286,31 +310,6 @@ void FAjaMediaPlayer::TickInput(FTimespan DeltaTime, FTimespan Timecode)
 		return;
 	}
 
-	// Its a non atomic read, but its only used for information
-	// Incomplete read will result in double refresh.
-	AJA::FFrameDesc FrameDesc = AjaThreadLastFrameDesc;
-	LastVideoDim = AjaLastVideoDim;
-
-	if (!(LastFrameDesc == FrameDesc))
-	{
-		LastFrameDesc = FrameDesc;
-		// update the capture format
-		AJA::FrameDesc2Info(LastFrameDesc, LastFrameInfo);
-		VideoFrameRate = FFrameRate(LastFrameInfo.TimeScale, LastFrameInfo.TimeValue);
-
-		// From width/height of actual frame
-		VideoTrackFormat.Dim = LastVideoDim;
-		VideoTrackFormat.FrameRate = VideoFrameRate.AsDecimal();
-		VideoTrackFormat.FrameRates = TRange<float>(VideoFrameRate.AsDecimal());
-
-		TCHAR ModeName[AjaMediaPlayerConst::ModeNameBufferSize];
-		AJA::FrameDesc2Name(LastFrameDesc, ModeName, AjaMediaPlayerConst::ModeNameBufferSize);
-		VideoTrackFormat.TypeName = FString(ModeName);
-}
-
-	AudioTrackFormat.NumChannels = LastAudioChannels;
-	AudioTrackFormat.SampleRate = LastAudioSampleRate;
-
 	if (TickTimeManagement() && !bUseFrameTimecode)
 {
 		// As default, use the App time
@@ -345,10 +344,12 @@ void FAjaMediaPlayer::ProcessFrame()
 
 void FAjaMediaPlayer::VerifyFrameDropCount()
 {
+	if (bVerifyFrameDropCount)
+	{
 	uint32 FrameDropCount = AjaThreadFrameDropCount;
 	if (FrameDropCount > LastFrameDropCount)
 	{
-		UE_LOG(LogAjaMedia, Warning, TEXT("Lost %d frames on Aja input %s. Frame rate is either too slow for the capture card to send the information to UE4."), FrameDropCount - LastFrameDropCount, *DeviceSource.ToString());
+			UE_LOG(LogAjaMedia, Warning, TEXT("Lost %d frames on Aja input %s. UE4 frame rate is too slow and the capture card was not able to send the frame(s) to UE4."), FrameDropCount - LastFrameDropCount, *DeviceSource.ToString());
 	}
 	LastFrameDropCount = FrameDropCount;
 
@@ -369,6 +370,7 @@ void FAjaMediaPlayer::VerifyFrameDropCount()
 	{
 		UE_LOG(LogAjaMedia, Warning, TEXT("Lost %d video frames on Aja input %s. Frame rate is either too slow or buffering capacity is too small."), FrameDropCount, *DeviceSource.ToString());
 	}
+}
 }
 
 
@@ -461,8 +463,6 @@ bool FAjaMediaPlayer::OnInputFrameReceived(const AJA::AJAInputFrameData& InInput
 
 		if (bUseVideo && InVideoFrame.VideoBuffer)
 		{
-			AjaThreadLastFrameDesc = InVideoFrame.FrameDesc;			
-	
 			if (Samples->NumVideoSamples() >= MaxNumVideoFrameBuffer)
 			{
 				FPlatformAtomics::InterlockedIncrement(&AjaThreadAutoCirculateVideoFrameDropCount);
@@ -475,7 +475,9 @@ bool FAjaMediaPlayer::OnInputFrameReceived(const AJA::AJAInputFrameData& InInput
 			{
 				if (bEncodeTimecodeInTexel)
 				{
-					FAja::EncodeTimecode(AjaThreadPreviousFrameTimecode, reinterpret_cast<FColor*>(InVideoFrame.VideoBuffer), InVideoFrame.Width, InVideoFrame.Height);
+					EMediaIOCoreEncodePixelFormat EncodePixelFormat = (VideoSampleFormat == EMediaTextureSampleFormat::CharBGRA) ? EMediaIOCoreEncodePixelFormat::CharBGRA : EMediaIOCoreEncodePixelFormat::CharUYVY;
+					FMediaIOCoreEncodeTime EncodeTime(EncodePixelFormat, InVideoFrame.VideoBuffer, InVideoFrame.Width, InVideoFrame.Height);
+					EncodeTime.Render(0, 0, AjaThreadPreviousFrameTimecode.Hours, AjaThreadPreviousFrameTimecode.Minutes, AjaThreadPreviousFrameTimecode.Seconds, AjaThreadPreviousFrameTimecode.Frames);
 				}
 
 				if (TextureSample->InitializeProgressive(InVideoFrame, VideoSampleFormat, AjaThreadCurrentTime))

@@ -23,6 +23,7 @@
 
 #include <AudioToolbox/AudioToolbox.h>
 #include <AVFoundation/AVAudioSession.h>
+#include "HAL/IConsoleManager.h"
 
 // this is the size of the game thread stack, it must be a multiple of 4k
 #if (UE_BUILD_SHIPPING || UE_BUILD_TEST)
@@ -298,15 +299,11 @@ void EngineCrashHandler(const FGenericCrashContext& GenericContext)
 {
 	float TimerDuration = 0.0F;
 	GConfig->GetFloat(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("IdleTimerEnablePeriod"), TimerDuration, GEngineIni);
-    if (TimerDuration > 0.f)
-    {
-        IdleTimerEnablePeriod = TimerDuration;
-        self.IdleTimerEnableTimer = nil;
-    }
-    else
-    {
-        [self EnableIdleTimer: NO];
-    }
+    IdleTimerEnablePeriod = TimerDuration;
+	self.IdleTimerEnableTimer = nil;
+	bool bEnableTimer = YES;
+	GConfig->GetBool(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("bEnableIdleTimer"), bEnableTimer, GEngineIni);
+	[self EnableIdleTimer : bEnableTimer];
 }
 
 -(void)DeferredEnableIdleTimer
@@ -651,6 +648,13 @@ bool GIsSuspended = 0;
 	return YES;
 }
 
+static int32 GEnableThermalsReport = 0;
+static FAutoConsoleVariableRef CVarGEnableThermalsReport(
+	TEXT("ios.EnableThermalsReport"),
+	GEnableThermalsReport,
+	TEXT("When set to 1, will enable on-screen thermals debug display.")
+);
+
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary*)launchOptions
 {
 	// save launch options
@@ -854,24 +858,26 @@ bool GIsSuspended = 0;
 	if (@available(iOS 11, *))
 	{
 		FCoreDelegates::OnGetOnScreenMessages.AddLambda(
-			[](TMultiMap<FCoreDelegates::EOnScreenMessageSeverity, FText >& OutMessages)
+			[&EnableThermalsReport = GEnableThermalsReport](TMultiMap<FCoreDelegates::EOnScreenMessageSeverity, FText >& OutMessages)
 			{
-				switch ([[NSProcessInfo processInfo] thermalState])
+				if (EnableThermalsReport)
 				{
-					case NSProcessInfoThermalStateNominal:	OutMessages.Add(FCoreDelegates::EOnScreenMessageSeverity::Info, FText::FromString(TEXT("Thermals are Nominal"))); break;
-					case NSProcessInfoThermalStateFair:		OutMessages.Add(FCoreDelegates::EOnScreenMessageSeverity::Info, FText::FromString(TEXT("Thermals are Fair"))); break;
-					case NSProcessInfoThermalStateSerious:	OutMessages.Add(FCoreDelegates::EOnScreenMessageSeverity::Warning, FText::FromString(TEXT("Thermals are Serious"))); break;
-					case NSProcessInfoThermalStateCritical:	OutMessages.Add(FCoreDelegates::EOnScreenMessageSeverity::Error, FText::FromString(TEXT("Thermals are Critical"))); break;
+					switch ([[NSProcessInfo processInfo] thermalState])
+					{
+						case NSProcessInfoThermalStateNominal:	OutMessages.Add(FCoreDelegates::EOnScreenMessageSeverity::Info, FText::FromString(TEXT("Thermals are Nominal"))); break;
+						case NSProcessInfoThermalStateFair:		OutMessages.Add(FCoreDelegates::EOnScreenMessageSeverity::Info, FText::FromString(TEXT("Thermals are Fair"))); break;
+						case NSProcessInfoThermalStateSerious:	OutMessages.Add(FCoreDelegates::EOnScreenMessageSeverity::Warning, FText::FromString(TEXT("Thermals are Serious"))); break;
+						case NSProcessInfoThermalStateCritical:	OutMessages.Add(FCoreDelegates::EOnScreenMessageSeverity::Error, FText::FromString(TEXT("Thermals are Critical"))); break;
+					}
 				}
 
 				// Uncomment to view the state of the AVAudioSession category, mode, and options.
 //#define VIEW_AVAUDIOSESSION_INFO
 #if defined(VIEW_AVAUDIOSESSION_INFO)
 				FString Message = FString::Printf(TEXT("Session Category: %s, Mode: %s, Options: %x"), UTF8_TO_TCHAR([[AVAudioSession sharedInstance].category UTF8String]), UTF8_TO_TCHAR([[AVAudioSession sharedInstance].mode UTF8String]),
-												  [AVAudioSession sharedInstance].categoryOptions);
+												[AVAudioSession sharedInstance].categoryOptions);
 				OutMessages.Add(FCoreDelegates::EOnScreenMessageSeverity::Info, FText::FromString(Message));
 #endif // defined(VIEW_AVAUDIOSESSION_INFO)
-
 			});
 	}
 

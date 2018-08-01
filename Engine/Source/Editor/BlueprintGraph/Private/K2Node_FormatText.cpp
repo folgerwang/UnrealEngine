@@ -259,14 +259,16 @@ void UK2Node_FormatText::PostReconstructNode()
 				if (CurrentPin != FormatPin && CurrentPin->Direction == EGPD_Input && CurrentPin->LinkedTo.Num() == 0 && !CurrentPin->DefaultTextValue.IsEmpty())
 				{
 					// Create a new "Make Literal Text" function and add it to the graph
-					UK2Node_CallFunction* MakeLiteralText = nullptr;
-					{
-						UK2Node_CallFunction* MakeLiteralTextTemplate = NewObject<UK2Node_CallFunction>(GetGraph());
-						MakeLiteralTextTemplate->SetFromFunction(UKismetSystemLibrary::StaticClass()->FindFunctionByName(GET_MEMBER_NAME_CHECKED(UKismetSystemLibrary, MakeLiteralText)));
-
-						const FVector2D SpawnLocation = FVector2D(NodePosX - 300, NodePosY + (60 * (NumPinsFixedUp + 1)));
-						MakeLiteralText = FEdGraphSchemaAction_K2NewNode::SpawnNodeFromTemplate<UK2Node_CallFunction>(GetGraph(), MakeLiteralTextTemplate, SpawnLocation, /*bSelectNewNode*/false);
-					}
+					const FVector2D SpawnLocation = FVector2D(NodePosX - 300, NodePosY + (60 * (NumPinsFixedUp + 1)));
+					UK2Node_CallFunction* MakeLiteralText = FEdGraphSchemaAction_K2NewNode::SpawnNode<UK2Node_CallFunction>(
+						GetGraph(),
+						SpawnLocation,
+						EK2NewNodeFlags::None,
+						[](UK2Node_CallFunction* NewInstance)
+						{
+							NewInstance->SetFromFunction(UKismetSystemLibrary::StaticClass()->FindFunctionByName(GET_MEMBER_NAME_CHECKED(UKismetSystemLibrary, MakeLiteralText)));
+						}
+					);
 
 					// Set the new value and clear it on this pin to avoid it ever attempting this upgrade again (eg, if the "Make Literal Text" node was disconnected)
 					UEdGraphPin* LiteralValuePin = MakeLiteralText->FindPinChecked(TEXT("Value"));

@@ -780,6 +780,10 @@ namespace CrossCompiler
 
 		// +1 for EOL
 		const TCHAR* Ptr = &String[FoundBegin + 1 + Prolog.Len()];
+		while (*Ptr == '\r' || *Ptr == '\n')
+		{
+			++Ptr;
+		}
 		const TCHAR* PtrEnd = &String[FoundEnd];
 		while (Ptr < PtrEnd)
 		{
@@ -797,6 +801,8 @@ namespace CrossCompiler
 			{
 				return;
 			}
+			// Optional \r
+			CrossCompiler::Match(Ptr, '\r');
 			if (!CrossCompiler::Match(Ptr, '\n'))
 			{
 				return;
@@ -843,6 +849,8 @@ namespace CrossCompiler
 			{
 				return;
 			}
+			// Optional
+			CrossCompiler::Match(Ptr, '\r');
 			if (!CrossCompiler::Match(Ptr, '\n'))
 			{
 				return;

@@ -382,7 +382,7 @@ bool FAssetRegistryState::GetAssets(const FARFilter& Filter, const TSet<FName>& 
 		for (auto FilterTagIt = Filter.TagsAndValues.CreateConstIterator(); FilterTagIt; ++FilterTagIt)
 		{
 			const FName Tag = FilterTagIt.Key();
-			const FString& Value = FilterTagIt.Value();
+			const TOptional<FString>& Value = FilterTagIt.Value();
 
 			const TArray<FAssetData*>* TagAssets = CachedAssetsByTag.Find(Tag);
 
@@ -393,7 +393,7 @@ bool FAssetRegistryState::GetAssets(const FARFilter& Filter, const TSet<FName>& 
 					if (AssetData != nullptr)
 					{
 						const FString* TagValue = AssetData->TagsAndValues.Find(Tag);
-						if (TagValue != nullptr && *TagValue == Value)
+						if (TagValue != nullptr && (!Value.IsSet() || *TagValue == Value.GetValue()))
 						{
 							TagAndValuesFilter.Add(AssetData);
 						}

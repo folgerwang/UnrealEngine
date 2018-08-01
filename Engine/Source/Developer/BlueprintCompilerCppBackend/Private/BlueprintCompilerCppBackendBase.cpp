@@ -680,7 +680,10 @@ TArray<FString> FBlueprintCompilerCppBackendBase::ConstructFunctionDeclaration(F
 		UFunction* const OriginalFunction = FEmitHelper::GetOriginalFunction(Function);
 		TArray<FString> AdditionalMetaData;
 		TArray<FString> AdditionalTags;
+		bool bGenerateAsNonNativeOverride = false;
 		bool bGenerateAsNativeEventImplementation = false;
+		const bool bShouldHandleAsNativeEvent = FEmitHelper::ShouldHandleAsNativeEvent(Function);
+		const bool bShouldHandleAsNonNativeEvent = FEmitHelper::ShouldHandleAsImplementableEvent(Function);
 		const bool bNetImplementation = !bInInterface && Function->HasAllFunctionFlags(FUNC_Net) && !Function->HasAnyFunctionFlags(FUNC_NetResponse);
 
 		const UBlueprintGeneratedClass* const OriginalFuncOwnerAsBPGC = Cast<UBlueprintGeneratedClass>(OriginalFunction->GetOwnerClass());
@@ -694,21 +697,56 @@ TArray<FString> FBlueprintCompilerCppBackendBase::ConstructFunctionDeclaration(F
 		{
 			FunctionBodyName = FunctionHeaderName + TEXT("_Implementation");
 		}
-		else if (FEmitHelper::ShouldHandleAsNativeEvent(Function))
+		else if (bShouldHandleAsNativeEvent)
 		{
 			bGenerateAsNativeEventImplementation = true;
 			FunctionBodyName = FunctionHeaderName = FEmitHelper::GetCppName(OriginalFunction) + TEXT("_Implementation");
 			bAddConst = OriginalFunction->HasAllFunctionFlags(FUNC_Const);
 		}
-		else if (FEmitHelper::ShouldHandleAsImplementableEvent(Function) || bBPInterfaceImplementation)
+		else if (bShouldHandleAsNonNativeEvent || bBPInterfaceImplementation)
 		{
-			//The function "bpf__BIE__pf" should never be called directly. Only via function "BIE" with generated implementation.
-			bIsVirtual = false;
+			// The function "bpf__BIE__pf" should never be called directly. Only via function "BIE" with generated implementation.
 			AdditionalMetaData.Emplace(TEXT("CppFromBpEvent"));
+			
+			// Get the owner of the current function context.
+			const UClass* OwnerClass = Function->GetOwnerClass();
+			check(OwnerClass);
+
+			// Get the owner's parent class context.
+			const UClass* SuperClass = OwnerClass->GetSuperClass();
+			check(SuperClass);
+
+			// Only need to check for an override if the parent class is non-native, as it may also be convertible in that case.
+			if (!SuperClass->HasAllClassFlags(CLASS_Native))
+			{
+				// See if the same function is implemented there. Note: Cannot use 'OriginalFunction' here because that goes all the way back to the earliest antecedent, which is typically
+				// a native engine class. In here, we're only concerned with the closest non-native parent class that is both being converted and also implements the same function as a BPIE.
+				const FName FunctionName = Function->GetFName();
+				if (const UFunction* SuperFunction = SuperClass->FindFunctionByName(FunctionName))
+				{
+					// Ensure that we reference the inherited class that declares the function. This may be a bit farther up in the hierarchy than our immediate parent class, after the search.
+					SuperClass = SuperFunction->GetOwnerClass();
+
+					// We are overriding the BPIE in a converted child class if the parent class is also being converted and already implements it.
+					if (const UBlueprintGeneratedClass* ParentBPGC = Cast<UBlueprintGeneratedClass>(SuperClass))
+					{
+						// In that case, we need to skip the UFUNCTION() markup if the parent class is also being converted, to avoid a UHT complaint about a redefinition of UFUNCTION() meta.
+						bGenerateAsNonNativeOverride = EmitterContext.Dependencies.WillClassBeConverted(ParentBPGC);
+					}
+				}
+			}
+		}
+		else if(OriginalFuncOwnerAsBPGC && Function != OriginalFunction)
+		{
+			// We assume parent classes will always be converted along with the child class.
+			check(EmitterContext.Dependencies.WillClassBeConverted(OriginalFuncOwnerAsBPGC));
+
+			// Skip the UFUNCTION() markup when the original class is also being converted, to avoid a UHT complaint about a redefinition of UFUNCTION() meta.
+			bGenerateAsNonNativeOverride = true;
 		}
 
 		ensure(!bIsVirtual || Function->IsSignatureCompatibleWith(OriginalFunction));
-		bIsOverride = bGenerateAsNativeEventImplementation || (bIsVirtual && (Function != OriginalFunction));
+		bIsOverride = bGenerateAsNativeEventImplementation || bGenerateAsNonNativeOverride || (bIsVirtual && !bShouldHandleAsNonNativeEvent && !bBPInterfaceImplementation && (Function != OriginalFunction));
 
 		auto PreliminaryConditionsToSkipMacroUFUNC = [](UFunction* InFunction) -> bool 
 		{
@@ -756,7 +794,7 @@ TArray<FString> FBlueprintCompilerCppBackendBase::ConstructFunctionDeclaration(F
 		{
 			FunctionHeaderName = FunctionBodyName;
 		}
-		else if (!bGenerateAsNativeEventImplementation && !bSkipMacro)
+		else if (!bGenerateAsNonNativeOverride && !bGenerateAsNativeEventImplementation && !bSkipMacro)
 		{
 			MacroUFUNCTION = FEmitHelper::EmitUFuntion(Function, AdditionalTags, AdditionalMetaData);
 		}
@@ -1340,6 +1378,7 @@ void FBlueprintCompilerCppBackendBase::EmitFileBeginning(const FString& CleanNam
 	FIncludeHeaderHelper::EmitIncludeHeader(bIncludeCodeHelpersInHeader ? EmitterContext.Header : EmitterContext.Body, TEXT("GeneratedCodeHelpers"), true);
 	FIncludeHeaderHelper::EmitIncludeHeader(EmitterContext.Header, TEXT("Blueprint/BlueprintSupport"), true);
 
+	FBackendHelperUMG::AdditionalHeaderIncludeForWidget(EmitterContext);
 	FBackendHelperAnim::AddHeaders(EmitterContext);
 
 	TSet<FString> AlreadyIncluded;

@@ -38,6 +38,12 @@ public:
 	/** Get the display string of this string table entry */
 	FTextDisplayStringPtr GetDisplayString() const;
 
+	/** Get the placeholder source string to use for string table entries that are missing */
+	static const FString& GetPlaceholderSourceString();
+
+	/** Get the placeholder display string to use for string table entries that are missing */
+	static FTextDisplayStringRef GetPlaceholderDisplayString();
+
 private:
 	/** The string table that owns us (if any) */
 	FStringTableConstWeakPtr OwnerTable;
@@ -183,11 +189,18 @@ public:
 		}
 	}
 
+	/** Is this string table from an asset? */
+	static bool IsStringTableFromAsset(const FName InTableId)
+	{
+		return InstancePtr && InstancePtr->IsStringTableFromAssetImpl(InTableId);
+	}
+
 protected:
 	virtual ~IStringTableEngineBridge() {}
 
 	virtual void RedirectAndLoadStringTableAssetImpl(FName& InOutTableId, const EStringTableLoadingPolicy InLoadingPolicy) = 0;
 	virtual void CollectStringTableAssetReferencesImpl(const FName InTableId, FArchive& InAr) = 0;
+	virtual bool IsStringTableFromAssetImpl(const FName InTableId) = 0;
 
 	/** Singleton instance, populated by the derived type */
 	static IStringTableEngineBridge* InstancePtr;

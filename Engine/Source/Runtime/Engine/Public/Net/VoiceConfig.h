@@ -34,9 +34,6 @@ enum class EAudioEncodeHint : uint8
 
 namespace MicSilenceDetectionConfig
 {
-	static const float AttackTime = 2.0f;
-	static const float ReleaseTime = 1100.0f;
-	static float Threshold = 0.08f;
 	static const Audio::EPeakMode::Type LevelDetectionMode = Audio::EPeakMode::Type::Peak;
 	static const bool IsAnalog = false;
 
@@ -48,19 +45,12 @@ class USoundAttenuation;
 template <typename EnumType>
 static FORCEINLINE EnumType GetEnumValueFromString(const FString& EnumName, const FString& String)
 {
-	UEnum* const Enum = FindObject<UEnum>((UObject*) ANY_PACKAGE, *EnumName, true);
+	UEnum* Enum = FindObject<UEnum>((UObject*) ANY_PACKAGE, *EnumName, true);
 	if (!Enum)
 	{
 		return EnumType(0);
 	}
-
-	const int64 Result = Enum->GetValueByName(FName(*String));
-	if (Result == INDEX_NONE)
-	{
-		return EnumType(0);
-	}
-
-	return static_cast<EnumType>(Result);
+	return (EnumType)Enum->GetValueByName(FName(*String));
 }
 
 USTRUCT(BlueprintType)

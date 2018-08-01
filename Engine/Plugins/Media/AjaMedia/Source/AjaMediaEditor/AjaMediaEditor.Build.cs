@@ -13,6 +13,7 @@ namespace UnrealBuildTool.Rules
 					"Core",
 					"CoreUObject",
 					"MediaAssets",
+					"Projects",
 					"PropertyEditor",
 					"Settings",
 					"Slate",
@@ -22,6 +23,7 @@ namespace UnrealBuildTool.Rules
 
 			PrivateIncludePathModuleNames.AddRange(
 				new string[] {
+					"AJA",
 					"AssetTools",
 				});
 

@@ -24,6 +24,8 @@
 //	InfluenceBones		0,1							0,2	
 //	InfluenceWeights	1,1							2,2	
 
+#include "Common.ush"
+
 #define	GPUSKIN_VB_OFFSET_TANGENT_X			0
 #define	GPUSKIN_VB_OFFSET_TANGENT_Z			1
 
@@ -84,3 +86,11 @@ uint PackS8x3N(float3 Unpacked)
 		(uint((Unpacked.z + 1.0f) * 127.499f) << 16));
 	return Packed;
 }
+
+#if OPENGL_PROFILE
+#define TangentBias_SkinCache(X)	ConvertTangentUnormToSnorm8(X)
+#define TangentUnbias_SkinCache(X)	ConvertTangentSnormToUnorm16(X)
+#else
+#define TangentBias_SkinCache(X)	(X)
+#define TangentUnbias_SkinCache(X)	(X)
+#endif // OPENGL_PROFILE

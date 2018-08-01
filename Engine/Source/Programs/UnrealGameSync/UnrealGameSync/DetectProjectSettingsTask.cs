@@ -310,7 +310,7 @@ namespace UnrealGameSync
 
 			// Figure out if it's an enterprise project
 			List<string> ProjectLines;
-			if(Perforce.Print(NewSelectedClientFileName, out ProjectLines, Log))
+			if(NewSelectedClientFileName.EndsWith(".uproject", StringComparison.InvariantCultureIgnoreCase) && PerforceClient.Print(NewSelectedClientFileName, out ProjectLines, Log))
 			{
 				string Text = String.Join("\n", ProjectLines);
 				bIsEnterpriseProject = Utility.IsEnterpriseProjectFromText(Text);

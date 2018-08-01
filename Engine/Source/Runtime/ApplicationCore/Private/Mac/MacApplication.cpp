@@ -62,6 +62,7 @@ FMacApplication::FMacApplication()
 ,	bEmulatingRightClick(false)
 ,	bIgnoreMouseMoveDelta(0)
 ,	bIsWorkspaceSessionActive(true)
+, 	KeyBoardLayoutData(nil)
 {
 	TextInputMethodSystem = MakeShareable(new FMacTextInputMethodSystem);
 	if (!TextInputMethodSystem->Initialize())
@@ -99,6 +100,8 @@ FMacApplication::FMacApplication()
 		EventMonitor = [NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskAny handler:^(NSEvent* Event) { return HandleNSEvent(Event); }];
 
 		CGDisplayRegisterReconfigurationCallback(FMacApplication::OnDisplayReconfiguration, this);
+		
+		CacheKeyboardInputSource();
 	}, NSDefaultRunLoopMode, true);
 
 #if WITH_EDITOR
@@ -156,6 +159,12 @@ FMacApplication::~FMacApplication()
 		}
 
 		CGDisplayRemoveReconfigurationCallback(FMacApplication::OnDisplayReconfiguration, this);
+		
+		if(KeyBoardLayoutData != nil)
+		{
+			[KeyBoardLayoutData release];
+			KeyBoardLayoutData = nil;
+		}
 	}, NSDefaultRunLoopMode, true);
 
 	if (TextInputMethodSystem.IsValid())
@@ -726,8 +735,11 @@ void FMacApplication::ProcessMouseMovedEvent(const FDeferredMacEvent& Event, TSh
 		const EWindowZone::Type Zone = GetCurrentWindowZone(EventWindow.ToSharedRef());
 		bool IsMouseOverTitleBar = (Zone == EWindowZone::TitleBar);
 		const bool IsMovable = IsMouseOverTitleBar || IsEdgeZone(Zone);
-		[EventWindow->GetWindowHandle() setMovable:IsMovable];
-		[EventWindow->GetWindowHandle() setMovableByWindowBackground:IsMouseOverTitleBar];
+		FCocoaWindow* WindowHandle = EventWindow->GetWindowHandle();
+		MainThreadCall(^{
+			[WindowHandle setMovable:IsMovable];
+			[WindowHandle setMovableByWindowBackground:IsMouseOverTitleBar];
+		}, NSDefaultRunLoopMode, false);
 	}
 
 	FMacCursor* MacCursor = (FMacCursor*)Cursor.Get();
@@ -900,17 +912,20 @@ void FMacApplication::ProcessMouseUpEvent(const FDeferredMacEvent& Event, TShare
 	}
 
 	MessageHandler->OnMouseUp(Button);
-	
-	// 10.12.6 Fix for window position after dragging window to desktop selector in mission control
-	// 10.13.0 Doesn't need this as it always fires the window move event after desktop drag operation
-	if(DraggedWindow != nullptr && EventWindow->GetWindowHandle() == DraggedWindow)
-	{
-		OnWindowDidMove(EventWindow.ToSharedRef());
-	}
 
-	if (EventWindow.IsValid() && EventWindow->GetWindowHandle() && !DraggedWindow && !GetCapture())
+	if (EventWindow.IsValid())
 	{
-		MessageHandler->OnCursorSet();
+		// 10.12.6 Fix for window position after dragging window to desktop selector in mission control
+		// 10.13.0 Doesn't need this as it always fires the window move event after desktop drag operation
+		if (DraggedWindow != nullptr && EventWindow->GetWindowHandle() == DraggedWindow)
+		{
+			OnWindowDidMove(EventWindow.ToSharedRef());
+		}
+
+		if (EventWindow->GetWindowHandle() && !DraggedWindow && !GetCapture())
+		{
+			MessageHandler->OnCursorSet();
+		}
 	}
 
 	FPlatformApplicationMisc::bChachedMacMenuStateNeedsUpdate = true;
@@ -1753,8 +1768,40 @@ TCHAR FMacApplication::ConvertChar(TCHAR Character) const
 	}
 }
 
+void FMacApplication::CacheKeyboardInputSource()
+{
+	// Cocoa main thread only
+	check([NSThread isMainThread]);
+	
+	if(KeyBoardLayoutData != nil)
+	{
+		[KeyBoardLayoutData release];
+		KeyBoardLayoutData = nil;
+	}
+	
+	TISInputSourceRef CurrentKeyboard = TISCopyCurrentKeyboardLayoutInputSource();
+	if (CurrentKeyboard)
+	{
+		CFDataRef CurrentLayoutData = (CFDataRef)TISGetInputSourceProperty(CurrentKeyboard, kTISPropertyUnicodeKeyLayoutData);
+		if(CurrentLayoutData)
+		{
+			const void* Bytes = CFDataGetBytePtr(CurrentLayoutData);
+			size_t DataLength = CFDataGetLength(CurrentLayoutData);
+			
+			if(Bytes && DataLength > 0)
+			{
+				KeyBoardLayoutData = [[NSData alloc] initWithBytes:Bytes length:DataLength];
+			}
+		}
+		
+		CFRelease(CurrentKeyboard);
+	}
+}
+
 unichar FMacApplication::TranslateKeyCodeToUniCode(uint32 KeyCode, uint32 Modifier)
 {
+	// Any thread allowed
+	
 	// Some just don't work as expected
 	switch(KeyCode)
 	{
@@ -1776,27 +1823,19 @@ unichar FMacApplication::TranslateKeyCodeToUniCode(uint32 KeyCode, uint32 Modifi
 		case kVK_F12: 		return NSF12FunctionKey;
 		default:
 		{
-			// Everything else - use the system unicode function
-			TISInputSourceRef CurrentKeyboard = TISCopyCurrentKeyboardLayoutInputSource();
-			if (CurrentKeyboard)
+			if (MacApplication && MacApplication->KeyBoardLayoutData != nil)
 			{
-				CFDataRef CurrentLayoutData = (CFDataRef)TISGetInputSourceProperty(CurrentKeyboard, kTISPropertyUnicodeKeyLayoutData);
-				CFRelease(CurrentKeyboard);
-
-				if (CurrentLayoutData)
+				const UCKeyboardLayout *KeyboardLayout = (UCKeyboardLayout*)MacApplication->KeyBoardLayoutData.bytes;
+				if (KeyboardLayout)
 				{
-					const UCKeyboardLayout *KeyboardLayout = (UCKeyboardLayout*)CFDataGetBytePtr(CurrentLayoutData);
-					if (KeyboardLayout)
-					{
-						UniChar Buffer[256] = { 0 };
-						UniCharCount BufferLength = 256;
-						uint32 DeadKeyState = 0;
+					UniChar Buffer[256] = { 0 };
+					UniCharCount BufferLength = 256;
+					uint32 DeadKeyState = 0;
 
-						OSStatus Status = UCKeyTranslate(KeyboardLayout, KeyCode, kUCKeyActionDown, ((Modifier) >> 8) & 0xFF, LMGetKbdType(), kUCKeyTranslateNoDeadKeysMask, &DeadKeyState, BufferLength, &BufferLength, Buffer);
-						if (Status == noErr)
-						{
-							return Buffer[0];
-						}
+					OSStatus Status = UCKeyTranslate(KeyboardLayout, KeyCode, kUCKeyActionDown, ((Modifier) >> 8) & 0xFF, LMGetKbdType(), kUCKeyTranslateNoDeadKeysMask, &DeadKeyState, BufferLength, &BufferLength, Buffer);
+					if (Status == noErr)
+					{
+						return Buffer[0];
 					}
 				}
 			}

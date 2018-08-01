@@ -7,6 +7,10 @@
 #include "MetalCommandBuffer.h"
 #include "HAL/FileManager.h"
 
+// The Metal standard library extensions we need for UE4.
+extern unsigned int ue4_stdlib_metal_len;
+extern unsigned char ue4_stdlib_metal[];
+
 DEFINE_STAT(STAT_MetalUniformMemAlloc);
 DEFINE_STAT(STAT_MetalUniformMemFreed);
 DEFINE_STAT(STAT_MetalVertexMemAlloc);
@@ -461,12 +465,26 @@ FString IMetalStatsScope::GetJSONRepresentation(uint32 Pid)
 			else
 			{
 				FString CustomCounters;
+				TMap<FString, FMetalProfiler::EMTLCounterType> const& CounterTypes = FMetalProfiler::GetProfiler()->GetCounterTypes();
 				for(auto const& Pair : DrawStat.Counters)
 				{
 					NSString* CounterName = Pair.Key;
 					TPair<uint64, uint64> Vals = Pair.Value;
-					
-					CustomCounters += FString::Printf(TEXT(",\"%s\":\"%llu:%llu\""), *FString(CounterName), Vals.Key, Vals.Value);
+					const FMetalProfiler::EMTLCounterType* TypePtr = CounterTypes.Find(FString(CounterName));
+					FMetalProfiler::EMTLCounterType Type = TypePtr ? *TypePtr : FMetalProfiler::EMTLCounterTypeStartEnd;
+					switch(Type)
+					{
+						case FMetalProfiler::EMTLCounterTypeLast:
+							CustomCounters += FString::Printf(TEXT(",\"%s\":%llu"), *FString(CounterName), Vals.Value);
+							break;
+						case FMetalProfiler::EMTLCounterTypeDifference:
+							CustomCounters += FString::Printf(TEXT(",\"%s\":%llu"), *FString(CounterName), Vals.Value - Vals.Key);
+							break;
+						case FMetalProfiler::EMTLCounterTypeStartEnd:
+						default:
+							CustomCounters += FString::Printf(TEXT(",\"%s\":\"%llu:%llu\""), *FString(CounterName), Vals.Key, Vals.Value);
+							break;
+					}
 				}
 				
 				JSONOutput += FString::Printf(TEXT("{\"pid\":%d, \"tid\":%d, \"ph\": \"X\", \"name\": \"%s\", \"ts\": %llu, \"dur\": %llu, \"args\":{\"num_child\":%u,\"shade_cost\":%llu,\"rhi_prims\":%llu,\"ia_prims\":%llu,\"rhi_verts\":%llu,\"ia_verts\":%llu,\"vert_invoc\":%llu,\"vert_percent\":%llu,\"clip_invoc\":%llu,\"clip_prims\":%llu,\"frag_invoc\":%llu,\"frag_percent\":%llu,\"comp_invoc\":%llu,\"comp_percent\":%llu %s}},\n"),
@@ -589,17 +607,26 @@ FMetalShaderPipelineStats::FMetalShaderPipelineStats(FMetalShaderPipeline* Pipel
 	Pipeline = PipelineStat;
 	check(Pipeline);
 	
+	CmdBufferStats = nullptr;
+	
 	StartSample = nullptr;
 	
+#if METAL_DEBUG_OPTIONS
 	if (Pipeline->RenderPipelineState)
 	{
 		Name = Pipeline->RenderPipelineState.GetLabel().GetPtr();
+		
+		if (Pipeline->ComputePipelineState)
+		{
+			Name += TEXT("+") + FString(Pipeline->ComputePipelineState.GetLabel().GetPtr());
+		}
 	}
 	else if (Pipeline->ComputePipelineState)
 	{
 		Name = Pipeline->ComputePipelineState.GetLabel().GetPtr();
 	}
 	else
+#endif
 	{
 		Name = "Unknown Pipeline";
 	}
@@ -621,8 +648,9 @@ FMetalShaderPipelineStats::~FMetalShaderPipelineStats()
 
 void FMetalShaderPipelineStats::Start(mtlpp::CommandBuffer const& Buffer)
 {
+	check(CmdBufferStats);
 	IMetalStatistics* Stats = FMetalProfiler::GetStatistics();
-	StartSample = [Stats->RegisterEncoderStatistics(Buffer.GetPtr(), EMetalSamplePipelineChange) retain];
+	StartSample = [Stats->RegisterEncoderStatistics(CmdBufferStats, EMetalSamplePipelineChange) retain];
 }
 	
 void FMetalShaderPipelineStats::End(mtlpp::CommandBuffer const& Buffer)
@@ -632,8 +660,6 @@ void FMetalShaderPipelineStats::End(mtlpp::CommandBuffer const& Buffer)
 	
 void FMetalShaderPipelineStats::GetStats(FMetalPipelineStats& PipelineStats)
 {
-	
-	
 	IMetalStatistics* Stats = FMetalProfiler::GetStatistics();
 	if (!GPUStartTime && !GPUEndTime)
 	{
@@ -647,6 +673,7 @@ void FMetalShaderPipelineStats::GetStats(FMetalPipelineStats& PipelineStats)
 		PipelineStats.DrawCallTime = GPUEndTime - GPUStartTime;
 	}
 	
+#if METAL_DEBUG_OPTIONS
 	if (Pipeline->RenderPipelineReflection)
 	{
 		PipelineStats.PSOPerformanceStats = Stats->GetPipelinePerformanceStats(Pipeline->RenderPipelineReflection.GetPtr());
@@ -674,11 +701,15 @@ void FMetalShaderPipelineStats::GetStats(FMetalPipelineStats& PipelineStats)
 			PipelineStats.PSOPerformanceStats = [NSDictionary dictionaryWithObject:Dict forKey:@"Compute Shader"];
 		}
 	}
+#endif
+	
+	FMetalProfiler::GetProfiler()->DumpPipeline(Pipeline);
 }
 
 FMetalOperationStats::FMetalOperationStats(char const* DrawCall, uint64 InGPUThreadIndex, uint32 InStartPoint, uint32 InEndPoint, uint32 InRHIPrimitives, uint32 InRHIVertices, uint32 InRHIInstances)
 {
 	Name = DrawCall;
+	CmdBufferStats = nullptr;
 	
 	CPUThreadIndex = FPlatformTLS::GetCurrentThreadId();
 	GPUThreadIndex = InGPUThreadIndex;
@@ -700,6 +731,7 @@ FMetalOperationStats::FMetalOperationStats(char const* DrawCall, uint64 InGPUThr
 FMetalOperationStats::FMetalOperationStats(char const* DrawCall, uint64 InGPUThreadIndex, uint32 InStartPoint, uint32 InEndPoint)
 {
 	Name = DrawCall;
+	CmdBufferStats = nullptr;
 	
 	CPUThreadIndex = FPlatformTLS::GetCurrentThreadId();
 	GPUThreadIndex = InGPUThreadIndex;
@@ -726,8 +758,9 @@ FMetalOperationStats::~FMetalOperationStats()
 void FMetalOperationStats::Start(mtlpp::CommandBuffer const& Buffer)
 {
 	check(!DrawStats);
+	check(CmdBufferStats);
 	IMetalStatistics* Stats = FMetalProfiler::GetStatistics();
-	DrawStats = Stats->CreateDrawStats(Buffer.GetPtr(), (EMetalSamples)StartPoint, (EMetalSamples)EndPoint, RHIPrimitives, RHIVertices);
+	DrawStats = Stats->CreateDrawStats(CmdBufferStats, (EMetalSamples)StartPoint, (EMetalSamples)EndPoint, RHIPrimitives, RHIVertices);
 	check(DrawStats);
 }
 	
@@ -750,6 +783,7 @@ void FMetalOperationStats::GetStats(FMetalPipelineStats& PipelineStats)
 FMetalEncoderStats::FMetalEncoderStats(mtlpp::RenderCommandEncoder const& Encoder, uint64 InGPUThreadIndex)
 {
 	CmdBuffer = nullptr;
+	CmdBufferStats = nullptr;
 	
 	StartPoint = EMetalSampleRenderEncoderStart;
 	EndPoint = EMetalSampleRenderEncoderEnd;
@@ -771,6 +805,7 @@ FMetalEncoderStats::FMetalEncoderStats(mtlpp::RenderCommandEncoder const& Encode
 FMetalEncoderStats::FMetalEncoderStats(mtlpp::BlitCommandEncoder const& Encoder, uint64 InGPUThreadIndex)
 {
 	CmdBuffer = nullptr;
+	CmdBufferStats = nullptr;
 	
 	StartPoint = EMetalSampleBlitEncoderStart;
 	EndPoint = EMetalSampleBlitEncoderEnd;
@@ -792,6 +827,7 @@ FMetalEncoderStats::FMetalEncoderStats(mtlpp::BlitCommandEncoder const& Encoder,
 FMetalEncoderStats::FMetalEncoderStats(mtlpp::ComputeCommandEncoder const& Encoder, uint64 InGPUThreadIndex)
 {
 	CmdBuffer = nullptr;
+	CmdBufferStats = nullptr;
 	
 	StartPoint = EMetalSampleComputeEncoderStart;
 	EndPoint = EMetalSampleComputeEncoderEnd;
@@ -821,24 +857,27 @@ void FMetalEncoderStats::Start(mtlpp::CommandBuffer const& Buffer)
 	check(!StartSample);
 	check(!CmdBuffer);
 	check(Buffer);
+	check(CmdBufferStats);
 	CmdBuffer = Buffer;
 	IMetalStatistics* Stats = FMetalProfiler::GetStatistics();
-	StartSample = [Stats->RegisterEncoderStatistics(Buffer.GetPtr(), (EMetalSamples)StartPoint) retain];
+	StartSample = [Stats->RegisterEncoderStatistics(CmdBufferStats, (EMetalSamples)StartPoint) retain];
 }
 
 void FMetalEncoderStats::End(mtlpp::CommandBuffer const& Buffer)
 {
 	check(!EndSample);
 	check(Buffer.GetPtr() == CmdBuffer.GetPtr());
+	check(CmdBufferStats);
 	CPUEndTime = FPlatformTime::ToMilliseconds64(mach_absolute_time()) * 1000.0;
 	IMetalStatistics* Stats = FMetalProfiler::GetStatistics();
-	EndSample = [Stats->RegisterEncoderStatistics(Buffer.GetPtr(), (EMetalSamples)EndPoint) retain];
+	EndSample = [Stats->RegisterEncoderStatistics(CmdBufferStats, (EMetalSamples)EndPoint) retain];
 }
 
 void FMetalEncoderStats::EncodeDraw(char const* DrawCall, uint32 RHIPrimitives, uint32 RHIVertices, uint32 RHIInstances)
 {
 	check(CmdBuffer);
 	FMetalOperationStats* Draw = new FMetalOperationStats(DrawCall, GPUThreadIndex, EMetalSampleBeforeDraw, EMetalSampleAfterDraw, RHIPrimitives, RHIVertices, RHIInstances);
+	Draw->CmdBufferStats = CmdBufferStats;
 	Children.Add(Draw);
 	Draw->Start(CmdBuffer);
 	Draw->End(CmdBuffer);
@@ -848,6 +887,7 @@ void FMetalEncoderStats::EncodeBlit(char const* DrawCall)
 {
 	check(CmdBuffer);
 	FMetalOperationStats* Draw = new FMetalOperationStats(DrawCall, GPUThreadIndex, EMetalSampleBeforeBlit, EMetalSampleAfterBlit);
+	Draw->CmdBufferStats = CmdBufferStats;
 	Children.Add(Draw);
 	Draw->Start(CmdBuffer);
 	Draw->End(CmdBuffer);
@@ -858,6 +898,7 @@ void FMetalEncoderStats::EncodeDispatch(char const* DrawCall)
 {
 	check(CmdBuffer);
 	FMetalOperationStats* Draw = new FMetalOperationStats(DrawCall, GPUThreadIndex, EMetalSampleBeforeCompute, EMetalSampleAfterCompute);
+	Draw->CmdBufferStats = CmdBufferStats;
 	Children.Add(Draw);
 	Draw->Start(CmdBuffer);
 	Draw->End(CmdBuffer);
@@ -867,6 +908,7 @@ void FMetalEncoderStats::EncodePipeline(FMetalShaderPipeline* PipelineStat)
 {
 	check(CmdBuffer);
 	FMetalShaderPipelineStats* Draw = new FMetalShaderPipelineStats(PipelineStat, GPUThreadIndex);
+	Draw->CmdBufferStats = CmdBufferStats;
 	Children.Add(Draw);
 	Draw->Start(CmdBuffer);
 	Draw->End(CmdBuffer);
@@ -887,7 +929,13 @@ FMetalCommandBufferStats::FMetalCommandBufferStats(mtlpp::CommandBuffer const& B
 {
 	CmdBuffer = Buffer;
 #if METAL_STATISTICS
+	CmdBufferStats = nullptr;
 	ActiveEncoderStats = nullptr;
+	IMetalStatistics* Stats = FMetalProfiler::GetStatistics();
+	if (Stats)
+	{
+		CmdBufferStats = Stats->BeginCommandBufferStatistics(CmdBuffer.GetPtr());
+	}
 #endif
 	
 	Name = FString::Printf(TEXT("CommandBuffer: %s"), *FString(CmdBuffer.GetLabel().GetPtr()));
@@ -902,6 +950,8 @@ FMetalCommandBufferStats::~FMetalCommandBufferStats()
 {
 #if METAL_STATISTICS
 	check(!ActiveEncoderStats);
+	[CmdBufferStats release];
+	CmdBufferStats = nil;
 #endif
 }
 
@@ -961,6 +1011,7 @@ void FMetalCommandBufferStats::BeginEncoder(mtlpp::RenderCommandEncoder const& E
 	check(!ActiveEncoderStats);
 	
 	ActiveEncoderStats = new FMetalEncoderStats(Encoder, GPUThreadIndex);
+	ActiveEncoderStats->CmdBufferStats = CmdBufferStats;
 	Children.Add(ActiveEncoderStats);
 	ActiveEncoderStats->Start(CmdBuffer);
 }
@@ -970,6 +1021,7 @@ void FMetalCommandBufferStats::BeginEncoder(mtlpp::BlitCommandEncoder const& Enc
 	check(!ActiveEncoderStats);
 	
 	ActiveEncoderStats = new FMetalEncoderStats(Encoder, GPUThreadIndex);
+	ActiveEncoderStats->CmdBufferStats = CmdBufferStats;
 	Children.Add(ActiveEncoderStats);
 	ActiveEncoderStats->Start(CmdBuffer);
 }
@@ -979,6 +1031,7 @@ void FMetalCommandBufferStats::BeginEncoder(mtlpp::ComputeCommandEncoder const& 
 	check(!ActiveEncoderStats);
 	
 	ActiveEncoderStats = new FMetalEncoderStats(Encoder, GPUThreadIndex);
+	ActiveEncoderStats->CmdBufferStats = CmdBufferStats;
 	Children.Add(ActiveEncoderStats);
 	ActiveEncoderStats->Start(CmdBuffer);
 }
@@ -1329,12 +1382,13 @@ void FMetalProfiler::EndEncoder(FMetalCommandBufferStats* CmdBufStats, mtlpp::Co
 		CmdBufStats->EndEncoder(Encoder);
 }
 
-void FMetalProfiler::AddCounter(NSString* Counter)
+void FMetalProfiler::AddCounter(NSString* Counter, EMTLCounterType Type)
 {
 	check (StatisticsAPI);
 	if (![NewCounters containsObject:Counter])
 	{
 		[NewCounters addObject:Counter];
+		CounterTypes.Add(FString(Counter), Type);
 	}
 }
 
@@ -1342,6 +1396,12 @@ void FMetalProfiler::RemoveCounter(NSString* Counter)
 {
 	check (StatisticsAPI);
 	[NewCounters removeObject:Counter];
+	CounterTypes.Remove(FString(Counter));
+}
+
+void FMetalProfiler::DumpPipeline(FMetalShaderPipeline* PipelineStat)
+{
+	Pipelines.Add(PipelineStat);
 }
 
 #endif
@@ -1600,6 +1660,110 @@ void FMetalProfiler::SaveTrace()
 		WriteString(OutputFile, "{}]}");
 		
 		OutputFile->Close();
+		
+#if METAL_STATISTICS && METAL_DEBUG_OPTIONS
+		FString OutputDir = TracingRootPath + Filename + TEXT("/Pipelines/");
+		if (Pipelines.Num())
+		{
+			FString FileName = OutputDir + TEXT("ue4_stdlib.metal");
+			FArchive* PipelineFile = IFileManager::Get().CreateFileWriter(*FileName);
+			PipelineFile->Serialize((void*)ue4_stdlib_metal, sizeof(ANSICHAR)*ue4_stdlib_metal_len);
+			PipelineFile->Close();
+		}
+		for (auto Ptr : Pipelines)
+		{
+			FString PipelineName;
+			if (Ptr->RenderPipelineState)
+			{
+				PipelineName = Ptr->RenderPipelineState.GetLabel().GetPtr();
+				if (Ptr->ComputePipelineState)
+				{
+					PipelineName += TEXT("+") + FString(Ptr->ComputePipelineState.GetLabel().GetPtr());
+				}
+			}
+			else if (Ptr->ComputePipelineState)
+			{
+				PipelineName = FString(Ptr->ComputePipelineState.GetLabel().GetPtr());
+			}
+			
+			FString FileName = OutputDir + PipelineName + TEXT(".txt");
+			FArchive* PipelineFile = IFileManager::Get().CreateFileWriter(*FileName);
+			
+			WriteString(PipelineFile, TCHAR_TO_UTF8(*PipelineName));
+			WriteString(PipelineFile, "\n");
+			
+			if (Ptr->RenderDesc)
+			{
+				WriteString(PipelineFile, "\n\n******************* Render Pipeline Descriptor:\n");
+				WriteString(PipelineFile, [[Ptr->RenderDesc.GetPtr() description] UTF8String]);
+			}
+			if (Ptr->VertexSource)
+			{
+				FString Name;
+				if (Ptr->RenderDesc)
+				{
+					Name = Ptr->RenderDesc.GetVertexFunction().GetName().GetPtr();
+					Name += TEXT(".metal");
+				}
+				else
+				{
+					Name = Ptr->RenderPipelineState.GetLabel().GetPtr();
+					Name += TEXT(".vertex.metal");
+				}
+				
+				FString ShaderName = OutputDir + Name;
+				FArchive* ShaderFile = IFileManager::Get().CreateFileWriter(*ShaderName);
+				WriteString(ShaderFile, [Ptr->VertexSource.GetPtr() UTF8String]);
+				ShaderFile->Close();
+			}
+			if (Ptr->FragmentSource)
+			{
+				FString Name;
+				if (Ptr->RenderDesc)
+				{
+					Name = Ptr->RenderDesc.GetFragmentFunction().GetName().GetPtr();
+					Name += TEXT(".metal");
+				}
+				else
+				{
+					Name = Ptr->RenderPipelineState.GetLabel().GetPtr();
+					Name += TEXT(".fragment.metal");
+				}
+				
+				FString ShaderName = OutputDir + Name;
+				FArchive* ShaderFile = IFileManager::Get().CreateFileWriter(*ShaderName);
+				WriteString(ShaderFile, [Ptr->FragmentSource.GetPtr() UTF8String]);
+				ShaderFile->Close();
+			}
+			if (Ptr->ComputeDesc)
+			{
+				WriteString(PipelineFile, "\n\n******************* Compute Pipeline Descriptor:\n");
+				WriteString(PipelineFile, [[Ptr->ComputeDesc.GetPtr() description] UTF8String]);
+			}
+			if (Ptr->ComputeSource)
+			{
+				FString Name;
+				if (Ptr->ComputeDesc)
+				{
+					Name = Ptr->ComputeDesc.GetComputeFunction().GetName().GetPtr();
+					Name += TEXT(".metal");
+				}
+				else
+				{
+					Name = Ptr->ComputePipelineState.GetLabel().GetPtr();
+					Name += TEXT(".compute.metal");
+				}
+				
+				FString ShaderName = OutputDir + Name;
+				FArchive* ShaderFile = IFileManager::Get().CreateFileWriter(*ShaderName);
+				WriteString(ShaderFile, [Ptr->ComputeSource.GetPtr() UTF8String]);
+				ShaderFile->Close();
+			}
+			
+			PipelineFile->Close();
+		}
+		Pipelines.Empty();
+#endif
 	}
 }
 
@@ -1662,7 +1826,17 @@ static void HandleMetalProfileCommand(const TArray<FString>& Args, UWorld*, FOut
 			FString NewCounter = Args[1];
 			if (![Array containsObject:NewCounter.GetNSString()])
 			{
-				FMetalProfiler::GetProfiler()->AddCounter(NewCounter.GetNSString());
+				FString TypeName = Args.Num() > 2 ? Args[2] : TEXT("");
+				FMetalProfiler::EMTLCounterType Type = FMetalProfiler::EMTLCounterTypeStartEnd;
+				if (TypeName == TEXT("LAST"))
+				{
+					Type = FMetalProfiler::EMTLCounterTypeLast;
+				}
+				else if (TypeName == TEXT("DIFF"))
+				{
+					Type = FMetalProfiler::EMTLCounterTypeDifference;
+				}
+				FMetalProfiler::GetProfiler()->AddCounter(NewCounter.GetNSString(), Type);
 			}
 		}
 	}

@@ -17,9 +17,11 @@ void FDatasmithMeshBuildSettingsTemplate::Apply( FMeshBuildSettings* Destination
 {
 	DATASMITHOBJECTTEMPLATE_CONDITIONALSET( bUseMikkTSpace, Destination, PreviousTemplate );
 
-	DATASMITHOBJECTTEMPLATE_CONDITIONALSET( bRecomputeNormals, Destination, PreviousTemplate );
+	// The settings for RecomputeNormals and RecomputeTangents when True must be honored irrespective of the previous template settings
+	// because their values are determined by ShouldRecomputeNormals/ShouldRecomputeTangents which determine if they are needed by the renderer
+	Destination->bRecomputeNormals = PreviousTemplate ? Destination->bRecomputeNormals | bRecomputeNormals : bRecomputeNormals;
 
-	DATASMITHOBJECTTEMPLATE_CONDITIONALSET( bRecomputeTangents, Destination, PreviousTemplate );
+	Destination->bRecomputeTangents = PreviousTemplate ? Destination->bRecomputeTangents | bRecomputeTangents : bRecomputeTangents;
 
 	DATASMITHOBJECTTEMPLATE_CONDITIONALSET( bRemoveDegenerates, Destination, PreviousTemplate );
 
@@ -79,6 +81,8 @@ void FDatasmithStaticMaterialTemplate::Apply( FStaticMaterial* Destination, FDat
 {
 	DATASMITHOBJECTTEMPLATE_CONDITIONALSET( MaterialSlotName, Destination, PreviousTemplate );
 	DATASMITHOBJECTTEMPLATE_CONDITIONALSET( MaterialInterface, Destination, PreviousTemplate );
+
+	Destination->ImportedMaterialSlotName = MaterialSlotName; // Not editable by the user, so always set it
 }
 
 void FDatasmithStaticMaterialTemplate::Load( const FStaticMaterial& Source )

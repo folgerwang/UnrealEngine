@@ -55,6 +55,7 @@ BEGIN_UNIFORM_BUFFER_STRUCT(FSharedBasePassUniformParameters,)
 	UNIFORM_MEMBER_STRUCT(FForwardLightData, ForwardISR)
 	UNIFORM_MEMBER_STRUCT(FReflectionUniformParameters, Reflection)
 	UNIFORM_MEMBER_STRUCT(FFogUniformParameters, Fog)
+	UNIFORM_MEMBER_TEXTURE(Texture2D, SSProfilesTexture)
 END_UNIFORM_BUFFER_STRUCT(FSharedBasePassUniformParameters)
 
 BEGIN_UNIFORM_BUFFER_STRUCT(FOpaqueBasePassUniformParameters,)
@@ -102,6 +103,7 @@ END_UNIFORM_BUFFER_STRUCT(FTranslucentBasePassUniformParameters)
 extern FTextureRHIRef& GetEyeAdaptation(const FViewInfo& View);
 
 extern void SetupSharedBasePassParameters(
+	FRHICommandListImmediate& RHICmdList,
 	const FViewInfo& View,
 	FSceneRenderTargets& SceneRenderTargets,
 	FSharedBasePassUniformParameters& BasePassParameters);
@@ -456,6 +458,17 @@ public:
 		}
 
 		FForwardLightingParameters::ModifyCompilationEnvironment(Platform, OutEnvironment);
+	}
+
+	static bool ValidateCompiledResult(EShaderPlatform Platform, const TArray<FMaterial*>& Materials, const FVertexFactoryType* VertexFactoryType, const FShaderParameterMap& ParameterMap, TArray<FString>& OutError)
+	{
+		if (ParameterMap.ContainsParameterAllocation(FSceneTexturesUniformParameters::StaticStruct.GetShaderVariableName()))
+		{
+			OutError.Add(TEXT("Base pass shaders cannot read from the SceneTexturesStruct."));
+			return false;
+		}
+
+		return true;
 	}
 
 	/** Initialization constructor. */
@@ -1002,7 +1015,6 @@ public:
 	const bool bAllowFog;
 	ERHIFeatureLevel::Type FeatureLevel;
 	const bool bIsInstancedStereo;
-	const bool bUseMobileMultiViewMask;
 
 	/** Initialization constructor. */
 	FProcessBasePassMeshParameters(
@@ -1011,8 +1023,7 @@ public:
 		const FPrimitiveSceneProxy* InPrimitiveSceneProxy,
 		bool InbAllowFog,
 		ERHIFeatureLevel::Type InFeatureLevel,
-		const bool InbIsInstancedStereo = false,
-		const bool InbUseMobileMultiViewMask = false
+		const bool InbIsInstancedStereo = false
 		):
 		Mesh(InMesh),
 		BatchElementMask(Mesh.Elements.Num()==1 ? 1 : (1<<Mesh.Elements.Num())-1), // 1 bit set for each mesh element
@@ -1022,8 +1033,7 @@ public:
 		ShadingModel(InMaterial->GetShadingModel()),
 		bAllowFog(InbAllowFog),
 		FeatureLevel(InFeatureLevel), 
-		bIsInstancedStereo(InbIsInstancedStereo), 
-		bUseMobileMultiViewMask(InbUseMobileMultiViewMask)
+		bIsInstancedStereo(InbIsInstancedStereo)
 	{
 	}
 
@@ -1035,8 +1045,7 @@ public:
 		const FPrimitiveSceneProxy* InPrimitiveSceneProxy,
 		bool InbAllowFog,
 		ERHIFeatureLevel::Type InFeatureLevel, 
-		bool InbIsInstancedStereo = false, 
-		bool InbUseMobileMultiViewMask = false
+		bool InbIsInstancedStereo = false
 		) :
 		Mesh(InMesh),
 		BatchElementMask(InBatchElementMask),
@@ -1046,8 +1055,7 @@ public:
 		ShadingModel(InMaterial->GetShadingModel()),
 		bAllowFog(InbAllowFog),
 		FeatureLevel(InFeatureLevel),
-		bIsInstancedStereo(InbIsInstancedStereo), 
-		bUseMobileMultiViewMask(InbUseMobileMultiViewMask)
+		bIsInstancedStereo(InbIsInstancedStereo)
 	{
 	}
 };

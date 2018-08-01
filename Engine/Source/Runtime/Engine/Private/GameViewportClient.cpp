@@ -143,6 +143,9 @@ public:
 
 UGameViewportClient::UGameViewportClient(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
+#if WITH_EDITOR
+	, bShowTitleSafeZone(true)
+#endif
 	, EngineShowFlags(ESFIM_Game)
 	, CurrentBufferVisualizationMode(NAME_None)
 	, HighResScreenshotDialog(NULL)
@@ -209,6 +212,9 @@ UGameViewportClient::UGameViewportClient(const FObjectInitializer& ObjectInitial
 
 UGameViewportClient::UGameViewportClient(FVTableHelper& Helper)
 	: Super(Helper)
+#if WITH_EDITOR
+	, bShowTitleSafeZone(true)
+#endif
 	, EngineShowFlags(ESFIM_Game)
 	, CurrentBufferVisualizationMode(NAME_None)
 	, HighResScreenshotDialog(NULL)
@@ -1539,7 +1545,10 @@ void UGameViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 	{
 		for( FConstPlayerControllerIterator Iterator = MyWorld->GetPlayerControllerIterator(); Iterator; ++Iterator )
 		{
-			(*Iterator)->GetPlayerViewPoint( PlayerCameraLocation, PlayerCameraRotation );
+			if (APlayerController* PC = Iterator->Get())
+			{
+				PC->GetPlayerViewPoint(PlayerCameraLocation, PlayerCameraRotation);
+			}
 		}
 	}
 
@@ -1800,12 +1809,12 @@ bool UGameViewportClient::IsOrtho() const
 
 void UGameViewportClient::PostRender(UCanvas* Canvas)
 {
-#if !WITH_EDITOR
-	if( bShowTitleSafeZone)
-#endif
+#if WITH_EDITOR
+	if(bShowTitleSafeZone)
 	{
 		DrawTitleSafeArea(Canvas);
 	}
+#endif
 
 	// Draw the transition screen.
 	DrawTransition(Canvas);
@@ -2216,7 +2225,9 @@ void UGameViewportClient::DrawTitleSafeArea( UCanvas* Canvas )
 	const FLinearColor UnsafeZoneColor(1.0f, 0.0f, 0.0f, 0.25f);
 	FCanvasTileItem TileItem(FVector2D::ZeroVector, GWhiteTexture, UnsafeZoneColor);
 	TileItem.BlendMode = SE_BLEND_Translucent;
-	if (PlayInSettings->DeviceToEmulate.IsEmpty())
+	
+	// CalculateSafeZoneValues() can be slow, so we only want to run it if we have boundaries to draw
+	if (FDisplayMetrics::GetDebugTitleSafeZoneRatio() < 1.f)
 	{
 		CalculateSafeZoneValues(SafeZone, Canvas, 0, false);
 		const float HeightOfSides = Height - SafeZone.GetTotalSpaceAlong<Orient_Vertical>();
@@ -2240,7 +2251,7 @@ void UGameViewportClient::DrawTitleSafeArea( UCanvas* Canvas )
 		TileItem.Size = FVector2D(SafeZone.Right, HeightOfSides);
 		Canvas->DrawItem(TileItem);
 	}
-	else
+	else if (!FSlateApplication::Get().GetCustomSafeZone().GetDesiredSize().IsZero())
 	{
 		ULevelEditorPlaySettings* PlaySettings = GetMutableDefault<ULevelEditorPlaySettings>();
 		PlaySettings->CalculateCustomUnsafeZones(PlaySettings->CustomUnsafeZoneStarts, PlaySettings->CustomUnsafeZoneDimensions, PlaySettings->DeviceToEmulate, FVector2D(Width, Height));
@@ -3431,7 +3442,7 @@ bool UGameViewportClient::RequestBugScreenShot(const TCHAR* Cmd, bool bDisplayHU
 		{
 			for (FConstPlayerControllerIterator Iterator = ViewportWorld->GetPlayerControllerIterator(); Iterator; ++Iterator)
 			{
-						APlayerController* PlayerController = Iterator->Get();
+				APlayerController* PlayerController = Iterator->Get();
 				if (PlayerController && PlayerController->GetHUD())
 				{
 					PlayerController->GetHUD()->HandleBugScreenShot();

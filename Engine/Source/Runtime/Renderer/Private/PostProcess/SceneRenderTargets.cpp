@@ -304,7 +304,7 @@ FIntPoint FSceneRenderTargets::ComputeDesiredSize(const FSceneViewFamily& ViewFa
 		bIsVRScene |= View->StereoPass != EStereoscopicPass::eSSP_FULL;
 	}
 
-	if(!FPlatformProperties::SupportsWindowedMode() || bIsVRScene)
+	if(!FPlatformProperties::SupportsWindowedMode() || (bIsVRScene && !bIsSceneCapture))
 	{
 		// Force ScreenRes on non windowed platforms.
 		SceneTargetsSizingMethod = RequestedSize;
@@ -341,7 +341,9 @@ FIntPoint FSceneRenderTargets::ComputeDesiredSize(const FSceneViewFamily& ViewFa
 		default:
 			checkNoEntry();
 	}
-	
+
+	// This is specific to iOS and should not matter elsewhere.
+#if PLATFORM_IOS
 	// Don't consider the history buffer when the aspect ratio changes, the existing buffers won't make much sense at all.
 	// This prevents problems when orientation changes on mobile in particular.
 	float DesiredAspectRatio = (float)DesiredBufferSize.X / (float)DesiredBufferSize.Y;
@@ -355,11 +357,16 @@ FIntPoint FSceneRenderTargets::ComputeDesiredSize(const FSceneViewFamily& ViewFa
 			bAspectRatioChanged = !FMath::IsNearlyEqual(DesiredAspectRatio, LargestAspectRatio);
 		}
 	}
+#endif // PLATFORM_IOS
 
 	// we want to shrink the buffer but as we can have multiple scenecaptures per frame we have to delay that a frame to get all size requests
 	// Don't save buffer size in history while making high-res screenshot.
 	// We have to use the requested size when allocating an hmd depth target to ensure it matches the hmd allocated render target size.
-	if(!GIsHighResScreenshot && !bHMDAllocatedDepthTarget && !bAspectRatioChanged)
+	if(!GIsHighResScreenshot && !bHMDAllocatedDepthTarget 
+#if PLATFORM_IOS
+		&& !bAspectRatioChanged
+#endif // PLATFORM_IOS
+		)
 	{
 		// this allows The BufferSize to not grow below the SceneCapture requests (happen before scene rendering, in the same frame with a Grow request)
 		LargestDesiredSizes[CurrentDesiredSizeIndex] = LargestDesiredSizes[CurrentDesiredSizeIndex].ComponentMax(DesiredBufferSize);
@@ -1846,13 +1853,19 @@ void FSceneRenderTargets::AllocateCommonDepthTargets(FRHICommandList& RHICmdList
 		{
 			const uint32 OldElementSize = SceneDepthZ->ComputeMemorySize();
 			bHMDAllocatedDepthTarget = true;
+		
+			/*
+			@TODO: UE-61597 (4.20) - Right now there appears to be an issue with the shared depth buffer and the shader param caching system.
+			The guess is that since SceneDepthZ's resource is changed under the hood and needs to be reset as a param for certain shaders, but
+			the caching system isn't aware of that. For the time being, we've commented out this block, incurring added expense on the deferred
+			renderer (adding a depth copy that theoretically is unneeded)
 
 			// If SRT and texture are different (MSAA), only modify the resolve render target, to avoid creating a swapchain of MSAA textures
 			if (SceneDepthZ->GetRenderTargetItem().ShaderResourceTexture == SceneDepthZ->GetRenderTargetItem().TargetableTexture)
 			{
 				SceneDepthZ->GetRenderTargetItem().ShaderResourceTexture = SceneDepthZ->GetRenderTargetItem().TargetableTexture = SRTex;
 			}
-			else
+			else*/
 			{
 				SceneDepthZ->GetRenderTargetItem().ShaderResourceTexture = SRTex;
 			}

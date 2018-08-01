@@ -1544,6 +1544,17 @@ void UStaticMeshComponent::PreEditUndo()
 
 void UStaticMeshComponent::PostEditUndo()
 {
+	// If the StaticMesh was also involved in this transaction, it may need reinitialization first
+	// In this case, the StaticMesh will have PostEditUndo called later in this transaction, which is too late to register this component
+	if (GetStaticMesh() && !GetStaticMesh()->AreRenderingResourcesInitialized())
+	{
+		// We need to recreate the render state of any components using the static mesh before modifying its rendering resources
+		// However, we must not create the rendering state of any components in the transaction which have had PreEditUndo called and must not be referenced by the rendering thread until their PostEditUndo
+		// FStaticMeshComponentRecreateRenderStateContext handles this by only recreating rendering state if the component had rendering state created in the first place.
+		FStaticMeshComponentRecreateRenderStateContext RecreateContext(GetStaticMesh(), false, false);
+		GetStaticMesh()->InitResources();
+	}
+
 	// The component's light-maps are loaded from the transaction, so their resources need to be reinitialized.
 	InitResources();
 

@@ -16,11 +16,11 @@
 #include "PyGIL.h"
 #include "PyCore.h"
 #include "PyFileWriter.h"
-#include "PyOnlineDocsWriter.h"
 #include "PythonScriptPluginSettings.h"
 #include "ProfilingDebugging/ScopedTimers.h"
 #include "Misc/Paths.h"
 #include "Misc/FileHelper.h"
+#include "SourceCodeNavigation.h"
 #include "UObject/UnrealType.h"
 #include "UObject/UObjectHash.h"
 #include "UObject/Class.h"
@@ -1934,8 +1934,10 @@ void FPyWrapperTypeRegistry::GatherWrappedTypesForPropertyReferences(const UProp
 	}
 }
 
-void FPyWrapperTypeRegistry::GenerateStubCodeForWrappedTypes() const
+void FPyWrapperTypeRegistry::GenerateStubCodeForWrappedTypes(const EPyOnlineDocsFilterFlags InDocGenFlags) const
 {
+	UE_LOG(LogPython, Display, TEXT("Generating Python API stub file..."));
+
 	FPyFileWriter PythonScript;
 
 	TUniquePtr<FPyOnlineDocsWriter> OnlineDocsWriter;
@@ -1946,15 +1948,15 @@ void FPyWrapperTypeRegistry::GenerateStubCodeForWrappedTypes() const
 	TSharedPtr<FPyOnlineDocsSection> OnlineDocsStructTypesSection;
 	TSharedPtr<FPyOnlineDocsSection> OnlineDocsClassTypesSection;
 
-	if (GetDefault<UPythonScriptPluginSettings>()->bGenerateOnlineDocs)
+	if (EnumHasAnyFlags(InDocGenFlags, EPyOnlineDocsFilterFlags::IncludeAll))
 	{
 		OnlineDocsWriter = MakeUnique<FPyOnlineDocsWriter>();
 		OnlineDocsUnrealModule = OnlineDocsWriter->CreateModule(TEXT("unreal"));
 		OnlineDocsNativeTypesSection = OnlineDocsWriter->CreateSection(TEXT("Native Types"));
-		OnlineDocsEnumTypesSection = OnlineDocsWriter->CreateSection(TEXT("Enum Types"));
-		OnlineDocsDelegateTypesSection = OnlineDocsWriter->CreateSection(TEXT("Delegate Types"));
 		OnlineDocsStructTypesSection = OnlineDocsWriter->CreateSection(TEXT("Struct Types"));
 		OnlineDocsClassTypesSection = OnlineDocsWriter->CreateSection(TEXT("Class Types"));
+		OnlineDocsEnumTypesSection = OnlineDocsWriter->CreateSection(TEXT("Enum Types"));
+		OnlineDocsDelegateTypesSection = OnlineDocsWriter->CreateSection(TEXT("Delegate Types"));
 	}
 
 	// Process additional Python files
@@ -2047,6 +2049,10 @@ void FPyWrapperTypeRegistry::GenerateStubCodeForWrappedTypes() const
 	}
 
 	// Process native glue code
+	UE_LOG(LogPython, Display, TEXT("  ...generating Python API: glue code"));
+	PythonScript.WriteLine(TEXT("##### Glue Code #####"));
+	PythonScript.WriteNewLine();
+
 	for (const PyGenUtil::FNativePythonModule& NativePythonModule : NativePythonModules)
 	{
 		for (PyMethodDef* MethodDef = NativePythonModule.PyModuleMethods; MethodDef && MethodDef->ml_name; ++MethodDef)
@@ -2072,11 +2078,83 @@ void FPyWrapperTypeRegistry::GenerateStubCodeForWrappedTypes() const
 	}
 
 	// Process generated glue code
-	auto ProcessWrappedDataArray = [this, &PythonScript](const TMap<FName, PyTypeObject*>& WrappedData, const TSharedPtr<FPyOnlineDocsSection>& OnlineDocsSection)
+	// Also excludes types that don't pass the filters specified in InDocGenFlags using the information about
+	// which module it came from and where that module exists on disk.
+	auto ProcessWrappedDataArray = [this, &PythonScript, InDocGenFlags](const TMap<FName, PyTypeObject*>& WrappedData, const TSharedPtr<FPyOnlineDocsSection>& OnlineDocsSection)
 	{
+		if (InDocGenFlags == EPyOnlineDocsFilterFlags::IncludeNone)
+		{
+			return;
+		}
+
+		UE_LOG(LogPython, Display, TEXT("  ...generating Python API: %s"), *OnlineDocsSection->GetName());
+		PythonScript.WriteLine(FString::Printf(TEXT("##### %s #####"), *OnlineDocsSection->GetName()));
+		PythonScript.WriteNewLine();
+		
+		FString ProjectTopDir;
+		if (FPaths::IsProjectFilePathSet())
+		{
+			ProjectTopDir / FPaths::GetCleanFilename(FPaths::ProjectDir());
+		}
+
 		for (const auto& WrappedDataPair : WrappedData)
 		{
 			TSharedPtr<PyGenUtil::FGeneratedWrappedType> GeneratedWrappedType = GeneratedWrappedTypes.FindRef(WrappedDataPair.Key);
+
+			if ((InDocGenFlags != EPyOnlineDocsFilterFlags::IncludeAll) && GeneratedWrappedType.IsValid())
+			{
+				const UField* MetaType = GeneratedWrappedType->MetaData->GetMetaType();
+
+				FString ModulePath;
+
+				if (MetaType)
+				{
+					FSourceCodeNavigation::FindModulePath(MetaType->GetTypedOuter<UPackage>(), ModulePath);
+				}
+
+				if (!ModulePath.IsEmpty())
+				{
+					// Is Project class?
+					if (!ProjectTopDir.IsEmpty()
+						&& (ModulePath.Contains(ProjectTopDir)))
+					{
+						// Optionally exclude Project classes
+						if (!EnumHasAnyFlags(InDocGenFlags, EPyOnlineDocsFilterFlags::IncludeProject))
+						{
+							continue;
+						}
+					}
+					// Is Enterprise class
+					else if (ModulePath.Contains(TEXT("/Enterprise/")))
+					{
+						// Optionally exclude Enterprise classes
+						if (!EnumHasAnyFlags(InDocGenFlags, EPyOnlineDocsFilterFlags::IncludeEnterprise))
+						{
+							continue;
+						}
+					}
+					// is internal class
+					else if (FPaths::IsRestrictedPath(ModulePath))
+					{
+						// Optionally exclude internal classes
+						if (!EnumHasAnyFlags(InDocGenFlags, EPyOnlineDocsFilterFlags::IncludeInternal))
+						{
+							continue;
+						}
+					}
+					// Everything else is considered an "Engine" class
+					else
+					{
+						// Optionally exclude engine classes
+						if (!EnumHasAnyFlags(InDocGenFlags, EPyOnlineDocsFilterFlags::IncludeEngine))
+						{
+							continue;
+						}
+					}
+				}
+				// else if cannot determine origin then include
+			}
+
 			GenerateStubCodeForWrappedType(WrappedDataPair.Value, GeneratedWrappedType.Get(), PythonScript, OnlineDocsSection.Get());
 		}
 	};
@@ -2087,13 +2165,18 @@ void FPyWrapperTypeRegistry::GenerateStubCodeForWrappedTypes() const
 	ProcessWrappedDataArray(PythonWrappedClasses, OnlineDocsClassTypesSection);
 
 	// Append any additional Python code now that all the reflected API has been exported
+	UE_LOG(LogPython, Display, TEXT("  ...generating Python API: additional code"));
+	PythonScript.WriteLine(TEXT("##### Additional Code #####"));
+	PythonScript.WriteNewLine();
+
 	for (const FString& AdditionalPythonLine : AdditionalPythonCode)
 	{
 		PythonScript.WriteLine(AdditionalPythonLine);
 	}
 
-	const FString PythonSourceFilename = FPaths::ProjectIntermediateDir() / TEXT("PythonStub") / TEXT("unreal.py");
+	const FString PythonSourceFilename = FPaths::ConvertRelativePathToFull(FPaths::ProjectIntermediateDir()) / TEXT("PythonStub") / TEXT("unreal.py");
 	PythonScript.SaveFile(*PythonSourceFilename);
+	UE_LOG(LogPython, Display, TEXT("  ...generated: %s"), *PythonSourceFilename);
 
 	if (OnlineDocsWriter.IsValid())
 	{
@@ -2104,13 +2187,14 @@ void FPyWrapperTypeRegistry::GenerateStubCodeForWrappedTypes() const
 
 void FPyWrapperTypeRegistry::GenerateStubCodeForWrappedType(PyTypeObject* PyType, const PyGenUtil::FGeneratedWrappedType* GeneratedTypeData, FPyFileWriter& OutPythonScript, FPyOnlineDocsSection* OutOnlineDocsSection)
 {
-	OutPythonScript.WriteLine(FString::Printf(TEXT("class %s(%s):"), UTF8_TO_TCHAR(PyType->tp_name), UTF8_TO_TCHAR(PyType->tp_base->tp_name)));
+	const FString PyTypeName = UTF8_TO_TCHAR(PyType->tp_name);
+	OutPythonScript.WriteLine(FString::Printf(TEXT("class %s(%s):"), *PyTypeName, UTF8_TO_TCHAR(PyType->tp_base->tp_name)));
 	OutPythonScript.IncreaseIndent();
 	OutPythonScript.WriteDocString(UTF8_TO_TCHAR(PyType->tp_doc));
 
 	if (OutOnlineDocsSection)
 	{
-		OutOnlineDocsSection->AccumulateClass(UTF8_TO_TCHAR(PyType->tp_name));
+		OutOnlineDocsSection->AccumulateClass(*PyTypeName);
 	}
 
 	auto GetFunctionReturnValue = [](const void* InBaseParamsAddr, const TArray<PyGenUtil::FGeneratedWrappedMethodParameter>& InOutputParams) -> FString
@@ -2332,13 +2416,8 @@ void FPyWrapperTypeRegistry::GenerateStubCodeForWrappedType(PyTypeObject* PyType
 
 			if (MetaGuid == FPyWrapperObjectMetaData::StaticTypeId())
 			{
+				// Skip the __init__ function on derived object types as the base one is already correct
 				bWriteDefaultInit = false;
-				bHasExportedClassData = true;
-
-				OutPythonScript.WriteLine(TEXT("def __init__(self, outer=None, name=\"None\"):"));
-				OutPythonScript.IncreaseIndent();
-				OutPythonScript.WriteLine(TEXT("pass"));
-				OutPythonScript.DecreaseIndent();
 			}
 			else if (MetaGuid == FPyWrapperStructMetaData::StaticTypeId())
 			{
@@ -2394,10 +2473,54 @@ void FPyWrapperTypeRegistry::GenerateStubCodeForWrappedType(PyTypeObject* PyType
 			}
 			else if (MetaGuid == FPyWrapperEnumMetaData::StaticTypeId())
 			{
-				// Enums cannot be instanced, they don't have an __init__ function exposed
+				// Skip the __init__ function on derived enums
 				bWriteDefaultInit = false;
 			}
 			// todo: have correct __init__ signatures for the other intrinsic types?
+		}
+		else if (PyType == &PyWrapperObjectType)
+		{
+			bWriteDefaultInit = false;
+			bHasExportedClassData = true;
+
+			OutPythonScript.WriteLine(TEXT("def __init__(self, outer=None, name=\"None\"):"));
+			OutPythonScript.IncreaseIndent();
+			OutPythonScript.WriteLine(TEXT("pass"));
+			OutPythonScript.DecreaseIndent();
+		}
+		else if (PyType == &PyWrapperEnumType)
+		{
+			// Enums don't really have an __init__ function at runtime, so just give them a default one (with no arguments)
+			bWriteDefaultInit = false;
+
+			OutPythonScript.WriteLine(TEXT("def __init__(self):"));
+			OutPythonScript.IncreaseIndent();
+			OutPythonScript.WriteLine(TEXT("pass"));
+			OutPythonScript.DecreaseIndent();
+		}
+		else if (PyType == &PyWrapperEnumValueDescrType)
+		{
+			bWriteDefaultInit = false;
+			bHasExportedClassData = true;
+
+			// This is a special internal decorator type used to define enum entries, which is why it has __get__ as well as __init__
+			OutPythonScript.WriteLine(TEXT("def __init__(self, enum, name, value):"));
+			OutPythonScript.IncreaseIndent();
+			OutPythonScript.WriteLine(TEXT("self.enum = enum"));
+			OutPythonScript.WriteLine(TEXT("self.name = name"));
+			OutPythonScript.WriteLine(TEXT("self.value = value"));
+			OutPythonScript.DecreaseIndent();
+
+			OutPythonScript.WriteLine(TEXT("def __get__(self, obj, type=None):"));
+			OutPythonScript.IncreaseIndent();
+			OutPythonScript.WriteLine(TEXT("return self"));
+			OutPythonScript.DecreaseIndent();
+
+			// It also needs a __repr__ function for Sphinx to generate docs correctly
+			OutPythonScript.WriteLine(TEXT("def __repr__(self):"));
+			OutPythonScript.IncreaseIndent();
+			OutPythonScript.WriteLine(TEXT("return \"{0}.{1}\".format(self.enum, self.name)"));
+			OutPythonScript.DecreaseIndent();
 		}
 
 		if (bWriteDefaultInit)
@@ -2544,25 +2667,31 @@ void FPyWrapperTypeRegistry::GenerateStubCodeForWrappedType(PyTypeObject* PyType
 		}
 		else if (MetaGuid == FPyWrapperEnumMetaData::StaticTypeId())
 		{
-			// Export enum values
-			// Also see https://www.python.org/dev/peps/pep-0435/
-
+			// Export enum entries
 			const PyGenUtil::FGeneratedWrappedEnumType* EnumType = static_cast<const PyGenUtil::FGeneratedWrappedEnumType*>(GeneratedTypeData);
 
-			bool bFirstEnumMember = true;
-
-			for (const PyGenUtil::FGeneratedWrappedEnumEntry& EnumMember : EnumType->EnumEntries)
+			if (EnumType->EnumEntries.Num() > 0)
 			{
-				bHasExportedClassData = true;
+				// Add extra line break for first enum member
+				OutPythonScript.WriteNewLine();
 
-				if (bFirstEnumMember)
+				for (const PyGenUtil::FGeneratedWrappedEnumEntry& EnumMember : EnumType->EnumEntries)
 				{
-					// Add extra line break for first enum member
-					OutPythonScript.WriteNewLine();
-					bFirstEnumMember = false;
-				}
+					const FString EntryName = UTF8_TO_TCHAR(EnumMember.EntryName.GetData());
+					const FString EntryValue = LexToString(EnumMember.EntryValue);
 
-				ExportConstantValue(UTF8_TO_TCHAR(EnumMember.EntryName.GetData()), UTF8_TO_TCHAR(EnumMember.EntryDoc.GetData()), *LexToString(EnumMember.EntryValue));
+					FString EntryDoc = UTF8_TO_TCHAR(EnumMember.EntryDoc.GetData());
+					if (EntryDoc.IsEmpty())
+					{
+						EntryDoc = EntryValue;
+					}
+					else
+					{
+						EntryDoc.InsertAt(0, *FString::Printf(TEXT("%s: "), *EntryValue));
+					}
+
+					ExportConstantValue(*EntryName, *EntryDoc, *FString::Printf(TEXT("_EnumEntry(\"%s\", \"%s\", %s)"), *PyTypeName, *EntryName, *EntryValue));
+				}
 			}
 		}
 	}

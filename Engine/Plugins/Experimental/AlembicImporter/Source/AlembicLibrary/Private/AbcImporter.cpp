@@ -565,7 +565,9 @@ UGeometryCache* FAbcImporter::ImportAsGeometryCache(UObject* InParent, EObjectFl
 		{
 			Track->SetDuration(MaxDuration);
 		}
-
+		// Also store the number of frames in the cache
+		GeometryCache->SetFrameStartEnd(ImportSettings->SamplingSettings.FrameStart, ImportSettings->SamplingSettings.FrameEnd);
+		
 		// Update all geometry cache components, TODO move render-data from component to GeometryCache and allow for DDC population
 		for (TObjectIterator<UGeometryCacheComponent> CacheIt; CacheIt; ++CacheIt)
 		{
@@ -651,6 +653,7 @@ TArray<UObject*> FAbcImporter::ImportAsSkeletalMesh(UObject* InParent, EObjectFl
 		// Forced to 1
 		LODModel.NumTexCoords = MergedMeshSample->NumUVSets;
 		SkeletalMesh->bHasVertexColors = true;
+		SkeletalMesh->VertexColorGuid = FGuid::NewGuid();
 
 		/* Bounding box according to animation */
 		SkeletalMesh->SetImportedBounds(AbcFile->GetArchiveBounds().GetBox());

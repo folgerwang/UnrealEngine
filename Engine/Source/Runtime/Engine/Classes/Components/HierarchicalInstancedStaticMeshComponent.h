@@ -14,6 +14,51 @@
 class FClusterBuilder;
 class FStaticLightingTextureMapping_InstancedStaticMesh;
 
+// Due to BulkSerialize we can't edit the struct, so we must deprecated this one and create a new one
+USTRUCT()
+struct FClusterNode_DEPRECATED
+{
+	GENERATED_USTRUCT_BODY()
+
+		UPROPERTY()
+		FVector BoundMin;
+	UPROPERTY()
+		int32 FirstChild;
+	UPROPERTY()
+		FVector BoundMax;
+	UPROPERTY()
+		int32 LastChild;
+	UPROPERTY()
+		int32 FirstInstance;
+	UPROPERTY()
+		int32 LastInstance;
+
+	FClusterNode_DEPRECATED()
+		: BoundMin(MAX_flt, MAX_flt, MAX_flt)
+		, FirstChild(-1)
+		, BoundMax(MIN_flt, MIN_flt, MIN_flt)
+		, LastChild(-1)
+		, FirstInstance(-1)
+		, LastInstance(-1)
+	{
+	}
+
+	friend FArchive& operator<<(FArchive& Ar, FClusterNode_DEPRECATED& NodeData)
+	{
+		// @warning BulkSerialize: FClusterNode is serialized as memory dump
+		// See TArray::BulkSerialize for detailed description of implied limitations.
+		Ar << NodeData.BoundMin;
+		Ar << NodeData.FirstChild;
+		Ar << NodeData.BoundMax;
+		Ar << NodeData.LastChild;
+		Ar << NodeData.FirstInstance;
+		Ar << NodeData.LastInstance;
+
+		return Ar;
+	}
+};
+
+
 USTRUCT()
 struct FClusterNode
 {
@@ -32,6 +77,11 @@ struct FClusterNode
 	UPROPERTY()
 	int32 LastInstance;
 
+	UPROPERTY()
+	FVector MinInstanceScale;
+	UPROPERTY()
+	FVector MaxInstanceScale;
+
 	FClusterNode()
 		: BoundMin(MAX_flt, MAX_flt, MAX_flt)
 		, FirstChild(-1)
@@ -39,6 +89,20 @@ struct FClusterNode
 		, LastChild(-1)
 		, FirstInstance(-1)
 		, LastInstance(-1)
+		, MinInstanceScale(MAX_flt)
+		, MaxInstanceScale(-MAX_flt)
+	{
+	}
+
+	FClusterNode(const FClusterNode_DEPRECATED& OldNode)
+		: BoundMin(OldNode.BoundMin)
+		, FirstChild(OldNode.FirstChild)
+		, BoundMax(OldNode.BoundMax)
+		, LastChild(OldNode.LastChild)
+		, FirstInstance(OldNode.FirstChild)
+		, LastInstance(OldNode.LastInstance)
+		, MinInstanceScale(MAX_flt)
+		, MaxInstanceScale(-MAX_flt)
 	{
 	}
 
@@ -52,6 +116,9 @@ struct FClusterNode
 		Ar << NodeData.LastChild;
 		Ar << NodeData.FirstInstance;
 		Ar << NodeData.LastInstance;
+		Ar << NodeData.MinInstanceScale;
+		Ar << NodeData.MaxInstanceScale;
+		
 		return Ar;
 	}
 };

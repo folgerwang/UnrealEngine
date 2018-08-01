@@ -332,11 +332,6 @@ void FMacWindow::Show()
 
 		bIsFirstTimeVisible = false;
 
-		MainThreadCall(^{
-			SCOPED_AUTORELEASE_POOL;
-			[WindowHandle orderFrontAndMakeMain:bShouldActivate andKey:bShouldActivate];
-		}, UE4ShowEventMode, true);
-
 		if (bShouldActivate)
 		{
 			// Tell MacApplication to send window deactivate and activate messages to Slate without waiting for Cocoa events.
@@ -346,6 +341,12 @@ void FMacWindow::Show()
 		{
 			MacApplication->OnWindowOrderedFront(SharedThis(this));
 		}
+
+		FCocoaWindow* WindowHandleCopy = WindowHandle;
+		MainThreadCall(^{
+			SCOPED_AUTORELEASE_POOL;
+			[WindowHandleCopy orderFrontAndMakeMain:bShouldActivate andKey:bShouldActivate];
+		}, UE4ShowEventMode, true);
 
 		bIsVisible = true;
 	}
@@ -366,7 +367,10 @@ void FMacWindow::Hide()
 
 void FMacWindow::SetWindowMode(EWindowMode::Type NewWindowMode)
 {
-	ApplySizeAndModeChanges(PositionX, PositionY, WindowHandle.contentView.frame.size.width, WindowHandle.contentView.frame.size.height, NewWindowMode);
+	if(WindowHandle)
+	{
+		ApplySizeAndModeChanges(PositionX, PositionY, WindowHandle.contentView.frame.size.width, WindowHandle.contentView.frame.size.height, NewWindowMode);
+	}
 }
 
 EWindowMode::Type FMacWindow::GetWindowMode() const
@@ -545,6 +549,9 @@ void FMacWindow::OnWindowDidChangeScreen()
 
 void FMacWindow::ApplySizeAndModeChanges(int32 X, int32 Y, int32 Width, int32 Height, EWindowMode::Type WindowMode)
 {
+	// It's possible for Window handle to become nil in FMacWindow::Destroy() after a call to UpdateFullScreenState() in this function,
+	// in rare cases due to FPlatformApplicationMisc::PumpMessages
+	
 	SCOPED_AUTORELEASE_POOL;
 
 	bool bIsFullScreen = [WindowHandle windowMode] == EWindowMode::WindowedFullscreen || [WindowHandle windowMode] == EWindowMode::Fullscreen;
@@ -581,39 +588,36 @@ void FMacWindow::ApplySizeAndModeChanges(int32 X, int32 Y, int32 Width, int32 He
 			UpdateFullScreenState(true);
 			bIsFullScreen = false;
 		}
-
-		WindowHandle.TargetWindowMode = WindowMode;
-
-		const float DPIScaleFactor = FPlatformApplicationMisc::GetDPIScaleFactorAtPoint(X, Y);
-		Width /= DPIScaleFactor;
-		Height /= DPIScaleFactor;
-
-		const FVector2D CocoaPosition = FMacApplication::ConvertSlatePositionToCocoa(X, Y);
-		NSRect Rect = NSMakeRect(CocoaPosition.X, CocoaPosition.Y - Height + 1, FMath::Max(Width, 1), FMath::Max(Height, 1));
-		if (Definition->HasOSWindowBorder)
-		{
-			Rect = [WindowHandle frameRectForContentRect:Rect];
-		}
-
-		UpdateFullScreenState(bWantsFullScreen != bIsFullScreen);
 		
-		// It's possible for Window handle to be nil after a call to UpdateFullScreenState() in rare cases due to FPlatformApplicationMisc::PumpMessages
-		if(WindowHandle == nil)
+		if(WindowHandle)
 		{
-			return;
-		}
+			WindowHandle.TargetWindowMode = WindowMode;
 
-		if (WindowMode == EWindowMode::Windowed && !NSEqualRects([WindowHandle frame], Rect))
-		{
-			MainThreadCall(^{
-				SCOPED_AUTORELEASE_POOL;
-				[WindowHandle setFrame:Rect display:YES];
+			const float DPIScaleFactor = FPlatformApplicationMisc::GetDPIScaleFactorAtPoint(X, Y);
+			Width /= DPIScaleFactor;
+			Height /= DPIScaleFactor;
 
-				if (Definition->ShouldPreserveAspectRatio)
-				{
-					[WindowHandle setContentAspectRatio:NSMakeSize((float)Width / (float)Height, 1.0f)];
-				}
-			}, UE4ResizeEventMode, true);
+			const FVector2D CocoaPosition = FMacApplication::ConvertSlatePositionToCocoa(X, Y);
+			NSRect Rect = NSMakeRect(CocoaPosition.X, CocoaPosition.Y - Height + 1, FMath::Max(Width, 1), FMath::Max(Height, 1));
+			if (Definition->HasOSWindowBorder)
+			{
+				Rect = [WindowHandle frameRectForContentRect:Rect];
+			}
+
+			UpdateFullScreenState(bWantsFullScreen != bIsFullScreen);
+
+			if (WindowHandle && WindowMode == EWindowMode::Windowed && !NSEqualRects([WindowHandle frame], Rect))
+			{
+				MainThreadCall(^{
+					SCOPED_AUTORELEASE_POOL;
+					[WindowHandle setFrame:Rect display:YES];
+
+					if (Definition->ShouldPreserveAspectRatio)
+					{
+						[WindowHandle setContentAspectRatio:NSMakeSize((float)Width / (float)Height, 1.0f)];
+					}
+				}, UE4ResizeEventMode, true);
+			}
 		}
 	}
 	else
@@ -643,7 +647,10 @@ void FMacWindow::ApplySizeAndModeChanges(int32 X, int32 Y, int32 Width, int32 He
 		}
 	}
 
-	WindowHandle->bZoomed = WindowHandle.zoomed;
+	if(WindowHandle)
+	{
+		WindowHandle->bZoomed = WindowHandle.zoomed;
+	}
 
 	if (FadeReservationToken != 0)
 	{

@@ -3,6 +3,7 @@
 #include "Rendering/StaticMeshVertexBuffer.h"
 #include "EngineUtils.h"
 #include "Components.h"
+#include "GPUSkinCache.h"
 
 FStaticMeshVertexBuffer::FStaticMeshVertexBuffer() :
 	TangentsData(nullptr),
@@ -255,7 +256,7 @@ void FStaticMeshVertexBuffer::InitRHI()
 			// Create the vertex buffer.
 			FRHIResourceCreateInfo CreateInfo(ResourceArray);
 			TangentsVertexBuffer.VertexBufferRHI = RHICreateVertexBuffer(ResourceArray->GetResourceDataSize(), BUF_Static | BUF_ShaderResource, CreateInfo);
-			if (RHISupportsManualVertexFetch(GMaxRHIShaderPlatform))
+			if (RHISupportsManualVertexFetch(GMaxRHIShaderPlatform) || IsGPUSkinCacheAvailable())
 			{
 				TangentsSRV = RHICreateShaderResourceView(TangentsVertexBuffer.VertexBufferRHI, GetUseHighPrecisionTangentBasis() ? 8 : 4, GetUseHighPrecisionTangentBasis() ? PF_R16G16B16A16_SNORM : PF_R8G8B8A8_SNORM);
 			}

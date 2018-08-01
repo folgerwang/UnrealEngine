@@ -326,12 +326,28 @@ namespace UnrealBuildTool
 		/// <param name="Hook">Hook type</param>
 		protected virtual string GetHookExecutableName(SDKHookType Hook)
 		{
-			if (Hook == SDKHookType.Uninstall)
+			if(BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64)
 			{
-				return "unsetup.bat";
+				if (Hook == SDKHookType.Uninstall)
+				{
+					return "unsetup.bat";
+				}
+				else
+				{
+					return "setup.bat";
+				}
 			}
-
-			return "setup.bat";
+			else
+			{
+				if (Hook == SDKHookType.Uninstall)
+				{
+					return "unsetup.sh";
+				}
+				else
+				{
+					return "setup.sh";
+				}
+			}
 		}
 
 		/// <summary>
@@ -592,7 +608,7 @@ namespace UnrealBuildTool
 		/// Currently installed AutoSDK is written out to a text file in a known location.
 		/// This function just compares the file's contents with the current requirements.
 		/// </summary>
-		protected SDKStatus HasRequiredAutoSDKInstalled()
+		public SDKStatus HasRequiredAutoSDKInstalled()
 		{
 			if (PlatformSupportsAutoSDKs() && HasAutoSDKSystemEnabled())
 			{
@@ -645,7 +661,7 @@ namespace UnrealBuildTool
 			return bParentProcessSetupAutoSDK;
 		}
 
-		protected SDKStatus HasRequiredManualSDK()
+		public SDKStatus HasRequiredManualSDK()
 		{
 			if (HasSetupAutoSDK())
 			{

@@ -45,7 +45,7 @@ public:
 	static bool SupportsStandardSwapchain();
 	static EPixelFormat GetPixelFormatForNonDefaultSwapchain();
 
-	static bool SupportsDepthFetchDuringDepthTest() { return false; }
+	static bool SupportsDepthFetchDuringDepthTest() { return true; }
 	static bool SupportsTimestampRenderQueries() { return false; }
 
 	static bool RequiresMobileRenderer() { return true; }
@@ -53,6 +53,8 @@ public:
 
 	//#todo-rco: Detect Mali?
 	static bool RequiresPresentLayoutFix() { return true; }
+
+	static bool HasUnifiedMemory() { return true; }
 
 	static bool RegisterGPUWork() { return false; }
 

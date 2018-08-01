@@ -130,7 +130,8 @@ void FVectorFieldVisualizationVertexFactory::ReleaseRHI()
  */
 bool FVectorFieldVisualizationVertexFactory::ShouldCompilePermutation(EShaderPlatform Platform, const class FMaterial* Material, const class FShaderType* ShaderType)
 {
-	return Material->IsSpecialEngineMaterial() && SupportsGPUParticles(Platform) && IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4);
+	// We support vector fields on mobile, but not the visualization, so we limit this VF to Feature Level Preview shader platforms
+	return Material->IsSpecialEngineMaterial() && SupportsGPUParticles(Platform) && (IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4) || IsPCPlatform(Platform));
 }
 
 /**

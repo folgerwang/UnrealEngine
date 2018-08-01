@@ -92,6 +92,12 @@ namespace UnrealGameSync
 			}
 		}
 
+		public bool IsActive
+		{
+			get;
+			set;
+		}
+
 		public string LastStatusMessage
 		{
 			get;
@@ -177,7 +183,7 @@ namespace UnrealGameSync
 				}
 
 				// Wait for another request, or scan for new builds after a timeout
-				RefreshEvent.WaitOne(60 * 1000);
+				RefreshEvent.WaitOne((IsActive? 1 : 10) * 60 * 1000);
 			}
 		}
 

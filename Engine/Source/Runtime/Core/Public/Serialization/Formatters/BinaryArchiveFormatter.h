@@ -12,6 +12,7 @@ public:
 	FBinaryArchiveFormatter(FArchive& InInner);
 	virtual ~FBinaryArchiveFormatter();
 
+	virtual bool RequiresStructuralMetadata() const override;
 	virtual FArchive& GetUnderlyingArchive() override;
 
 	virtual void EnterRecord() override;

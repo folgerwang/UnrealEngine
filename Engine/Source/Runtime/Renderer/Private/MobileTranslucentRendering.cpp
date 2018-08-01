@@ -185,12 +185,6 @@ public:
 		CommitGraphicsPipelineState(RHICmdList, DrawingPolicy, DrawRenderState, DrawingPolicy.GetBoundShaderStateInput(View.GetFeatureLevel()));
 		DrawingPolicy.SetSharedState(RHICmdList, DrawRenderState, &View, typename TMobileBasePassDrawingPolicy<FUniformLightMapPolicy>::ContextDataType());
 
-		if (Parameters.bUseMobileMultiViewMask)
-		{
-			// Mask opposite view
-			DrawingPolicy.SetMobileMultiViewMask(RHICmdList, (View.StereoPass == EStereoscopicPass::eSSP_LEFT_EYE) ? 1 : 0);
-		}
-
 		for (int32 BatchElementIndex = 0; BatchElementIndex<Parameters.Mesh.Elements.Num(); BatchElementIndex++)
 		{
 			TDrawEvent<FRHICommandList> MeshEvent;
@@ -251,8 +245,7 @@ bool FMobileTranslucencyDrawingPolicyFactory::DrawDynamicMesh(
 				PrimitiveSceneProxy,
 				true,
 				FeatureLevel, 
-				false, // ISR disabled for mobile
-				View.bIsMobileMultiViewEnabled
+				false // ISR disabled for mobile
 				),
 			FDrawMobileTranslucentMeshAction(
 				RHICmdList,
@@ -334,6 +327,10 @@ void FMobileSceneRenderer::RenderTranslucency(FRHICommandListImmediate& RHICmdLi
 			SCOPED_CONDITIONAL_DRAW_EVENTF(RHICmdList, EventView, Views.Num() > 1, TEXT("View%d"), ViewIndex);
 			
 			const FViewInfo& View = *PassViews[ViewIndex];
+			if (!View.ShouldRenderView())
+			{
+				continue;
+			}
 
 			TUniformBufferRef<FMobileBasePassUniformParameters> BasePassUniformBuffer;
 			CreateMobileBasePassUniformBuffer(RHICmdList, View, true, BasePassUniformBuffer);

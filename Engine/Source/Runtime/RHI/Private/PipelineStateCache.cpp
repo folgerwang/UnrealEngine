@@ -483,6 +483,8 @@ public:
 
 	void DoTask(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
 	{
+		LLM_SCOPE(ELLMTag::PSO);
+
 		if (Pipeline->IsCompute())
 		{
 			FComputePipelineState* ComputePipeline = static_cast<FComputePipelineState*>(Pipeline);
@@ -713,7 +715,7 @@ FRHIComputePipelineState* ExecuteSetComputePipelineState(FComputePipelineState* 
 
 FGraphicsPipelineState* PipelineStateCache::GetAndOrCreateGraphicsPipelineState(FRHICommandList& RHICmdList, const FGraphicsPipelineStateInitializer& OriginalInitializer, EApplyRendertargetOption ApplyFlags)
 {
-
+	LLM_SCOPE(ELLMTag::PSO);
 	SCOPE_CYCLE_COUNTER(STAT_GetOrCreatePSO);
 
 	FGraphicsPipelineStateInitializer NewInitializer;

@@ -47,11 +47,10 @@ void FPointLightSceneProxy::GetParameters(FLightParameters& LightParameters) con
 	LightParameters.NormalizedLightDirection = -GetDirection();
 	LightParameters.NormalizedLightTangent = ZAxis;
 	LightParameters.SpotAngles = FVector2D( -2.0f, 1.0f );
+	LightParameters.SpecularScale = SpecularScale;
 	LightParameters.LightSourceRadius = SourceRadius;
 	LightParameters.LightSoftSourceRadius = SoftSourceRadius;
 	LightParameters.LightSourceLength = SourceLength;
-	// Prevent 0 Roughness which causes NaNs in Vis_SmithJointApprox
-	LightParameters.LightMinRoughness = FMath::Max(MinRoughness, .04f);
 	LightParameters.SourceTexture = GWhiteTexture;
 }
 

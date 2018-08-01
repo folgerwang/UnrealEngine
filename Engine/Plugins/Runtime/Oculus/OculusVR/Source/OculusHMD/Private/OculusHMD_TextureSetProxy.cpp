@@ -40,7 +40,7 @@ void FTextureSetProxy::GenerateMips_RenderThread(FRHICommandListImmediate& RHICm
 {
 	CheckInRenderThread();
 
-	if (RHITexture->GetNumMips() > 1)
+	if (RHITexture->GetNumMips() > 1 && RHITexture->GetTextureCube() == nullptr)
 	{
 #if PLATFORM_WINDOWS
 		RHICmdList.GenerateMips(RHITexture);

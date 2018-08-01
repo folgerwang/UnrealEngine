@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "EditableMesh.h"
 #include "EditableMeshTypes.h"
 #include "Components/PrimitiveComponent.h"
 
@@ -93,7 +94,7 @@ struct FEditableMeshElementAddress
 };
 
 
-struct FMeshElement
+struct MESHEDITOR_API FMeshElement
 {
 	/** The component that is referencing the mesh.  Does not necessarily own the mesh!  The mesh could be shared
 		between many components. */
@@ -165,6 +166,32 @@ struct FMeshElement
 			TEXT( "Component:%s, %s" ),
 			Component.IsValid() ? *Component->GetName() : TEXT( "<Invalid>" ),
 			*ElementAddress.ToString() );
+	}
+
+	/** Checks to see that the mesh element actually exists in the mesh */
+	bool IsElementIDValid( const UEditableMesh* EditableMesh ) const
+	{
+		bool bIsValid = false;
+
+		if( EditableMesh != nullptr && ElementAddress.ElementID != FElementID::Invalid )
+		{
+			switch( ElementAddress.ElementType )
+			{
+			case EEditableMeshElementType::Vertex:
+				bIsValid = EditableMesh->IsValidVertex( FVertexID( ElementAddress.ElementID ) );
+				break;
+
+			case EEditableMeshElementType::Edge:
+				bIsValid = EditableMesh->IsValidEdge( FEdgeID( ElementAddress.ElementID ) );
+				break;
+
+			case EEditableMeshElementType::Polygon:
+				bIsValid = EditableMesh->IsValidPolygon( FPolygonID( ElementAddress.ElementID ) );
+				break;
+			}
+		}
+
+		return bIsValid;
 	}
 };
 

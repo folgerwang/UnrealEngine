@@ -182,13 +182,57 @@ UFunction* FEdGraphSchemaAction_K2Graph::GetFunction() const
 /////////////////////////////////////////////////////
 // FEdGraphSchemaAction_K2ViewNode
 
-UEdGraphNode* FEdGraphSchemaAction_K2NewNode::CreateNode(class UEdGraph* ParentGraph, UEdGraphPin* FromPin, const FVector2D Location, class UK2Node* NodeTemplate, bool bSelectNewNode/* = true*/)
+UEdGraphNode* FEdGraphSchemaAction_K2NewNode::CreateNode(
+	UEdGraph* ParentGraph,
+	TArrayView<UEdGraphPin*> FromPins,
+	const FVector2D Location,
+	UK2Node* NodeTemplate,
+	EK2NewNodeFlags Options)
 {
+	if (NodeTemplate)
+	{
+		return CreateNode(
+			ParentGraph,
+			FromPins,
+			Location,
+			[NodeTemplate](UEdGraph* InParentGraph)->UK2Node*
+			{
+				return DuplicateObject<UK2Node>(NodeTemplate, InParentGraph);
+			},
+			[](UK2Node*) {},
+			Options
+			);
+	}
+	return nullptr;
+}
+
+UEdGraphNode* FEdGraphSchemaAction_K2NewNode::CreateNode(
+	UEdGraph* ParentGraph,
+	TArrayView<UEdGraphPin*> FromPins,
+	const FVector2D Location,
+	TFunctionRef<UK2Node*(UEdGraph*)> ConstructionFn,
+	TFunctionRef<void(UK2Node*)> InitializerFn,
+	EK2NewNodeFlags Options)
+{
+	const bool bSelectNewNode = (Options & EK2NewNodeFlags::SelectNewNode) != EK2NewNodeFlags::None;
+	const bool bGotoNode = (Options & EK2NewNodeFlags::GotoNewNode) != EK2NewNodeFlags::None;
+
+	const FScopedTransaction Transaction(NSLOCTEXT("UnrealEd", "K2_AddNode", "Add Node"));
+	ParentGraph->Modify();
+	for(UEdGraphPin* FromPin : FromPins)
+	{
+		if (FromPin != nullptr)
+		{
+			FromPin->Modify();
+		}
+	}
+
 	// Smart pointer that handles fixup after potential node reconstruction
-	FWeakGraphPinPtr FromPinPtr = FromPin;
+	FWeakGraphPinPtr FromPinPtr = FromPins.Num() > 0 ? FromPins[0] : nullptr;
 
 	// Duplicate template node to create new node
-	UEdGraphNode* ResultNode = DuplicateObject<UK2Node>(NodeTemplate, ParentGraph);
+	UK2Node* ResultNode = ConstructionFn(ParentGraph);
+	InitializerFn(ResultNode);
 	ResultNode->SetFlags(RF_Transactional);
 
 	ParentGraph->AddNode(ResultNode, true, bSelectNewNode);
@@ -218,79 +262,66 @@ UEdGraphNode* FEdGraphSchemaAction_K2NewNode::CreateNode(class UEdGraph* ParentG
 
 	// make sure to auto-wire after we position the new node (in case the 
 	// auto-wire creates a conversion node to put between them)
-	ResultNode->AutowireNewNode(FromPinPtr);
+	for (UEdGraphPin* FromPin : FromPins)
+	{
+		ResultNode->AutowireNewNode(FromPin);
+	}
 
 	// Update Analytics for the new nodes
-	FBlueprintEditorUtils::AnalyticsTrackNewNode( ResultNode );
+	FBlueprintEditorUtils::AnalyticsTrackNewNode(ResultNode);
 	// NOTE: At this point the node may have been reconstructed, depending on node type!
+
+	UBlueprint* Blueprint = FBlueprintEditorUtils::FindBlueprintForGraphChecked(ParentGraph);
+
+	// See if we need to recompile skeleton after adding this node, or just mark dirty
+	if (ResultNode->NodeCausesStructuralBlueprintChange())
+	{
+		FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
+	}
+	else
+	{
+		FBlueprintEditorUtils::MarkBlueprintAsModified(Blueprint);
+	}
+
+	// Clear any error messages resulting from placing a node.  They'll be flagged on the next compile
+	ResultNode->ErrorMsg.Empty();
+	ResultNode->bHasCompilerMessage = false;
+
+	if (bGotoNode)
+	{
+		// Select existing node
+		FKismetEditorUtilities::BringKismetToFocusAttentionOnObject(ResultNode);
+	}
 
 	return ResultNode;
 }
 
 UEdGraphNode* FEdGraphSchemaAction_K2NewNode::PerformAction(class UEdGraph* ParentGraph, UEdGraphPin* FromPin, const FVector2D Location, bool bSelectNewNode/* = true*/)
 {
-	UEdGraphNode* ResultNode = nullptr;
-
-	// If there is a template, we actually use it
-	if (NodeTemplate != nullptr)
+	EK2NewNodeFlags Options = EK2NewNodeFlags::None;
+	if (bSelectNewNode)
 	{
-		const FScopedTransaction Transaction( NSLOCTEXT("UnrealEd", "K2_AddNode", "Add Node") );
-		ParentGraph->Modify();
-		if (FromPin)
-		{
-			FromPin->Modify();
-		}
-
-		ResultNode = CreateNode(ParentGraph, FromPin, Location, NodeTemplate, bSelectNewNode);
-
-		UBlueprint* Blueprint = FBlueprintEditorUtils::FindBlueprintForGraphChecked(ParentGraph);
-
-		// See if we need to recompile skeleton after adding this node, or just mark dirty
-		UK2Node* K2Node = Cast<UK2Node>(ResultNode);
-		check(K2Node);
-		if(K2Node->NodeCausesStructuralBlueprintChange())
-		{
-			FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);
-		}
-		else
-		{
-			FBlueprintEditorUtils::MarkBlueprintAsModified(Blueprint);
-		}
-
-		// Clear any error messages resulting from placing a node.  They'll be flagged on the next compile
-		K2Node->ErrorMsg.Empty();
-		K2Node->bHasCompilerMessage = false;
-
-		if ( bGotoNode && ResultNode )
-		{
-			// Select existing node
-			FKismetEditorUtilities::BringKismetToFocusAttentionOnObject(ResultNode);
-		}
+		Options |= EK2NewNodeFlags::SelectNewNode;
 	}
-
-	return ResultNode;
+	if (bGotoNode)
+	{
+		Options |= EK2NewNodeFlags::GotoNewNode;
+	}
+	return CreateNode(ParentGraph, MakeArrayView(&FromPin, 1), Location, NodeTemplate, Options);
 }
 
 UEdGraphNode* FEdGraphSchemaAction_K2NewNode::PerformAction(class UEdGraph* ParentGraph, TArray<UEdGraphPin*>& FromPins, const FVector2D Location, bool bSelectNewNode/* = true*/) 
 {
-	UEdGraphNode* ResultNode = nullptr;
-
-	if (FromPins.Num() > 0)
+	EK2NewNodeFlags Options = EK2NewNodeFlags::None;
+	if (bSelectNewNode)
 	{
-		ResultNode = PerformAction(ParentGraph, FromPins[0], Location, bSelectNewNode);
-
-		// Try autowiring the rest of the pins
-		for (int32 Index = 1; Index < FromPins.Num(); ++Index)
-		{
-			ResultNode->AutowireNewNode(FromPins[Index]);
-		}
+		Options |= EK2NewNodeFlags::SelectNewNode;
 	}
-	else
+	if (bGotoNode)
 	{
-		ResultNode = PerformAction(ParentGraph, nullptr, Location, bSelectNewNode);
+		Options |= EK2NewNodeFlags::GotoNewNode;
 	}
-
-	return ResultNode;
+	return CreateNode(ParentGraph, FromPins, Location, NodeTemplate, Options);
 }
 
 void FEdGraphSchemaAction_K2NewNode::AddReferencedObjects( FReferenceCollector& Collector )
@@ -337,7 +368,7 @@ UEdGraphNode* FEdGraphSchemaAction_K2AssignDelegate::AssignDelegate(class UK2Nod
 			FromPin->Modify();
 		}
 
-		BindNode = Cast<UK2Node_AddDelegate>(CreateNode(ParentGraph, FromPin, Location, NodeTemplate, bSelectNewNode));
+		BindNode = Cast<UK2Node_AddDelegate>(CreateNode(ParentGraph, MakeArrayView(&FromPin, 1), Location, NodeTemplate, bSelectNewNode ? EK2NewNodeFlags::SelectNewNode : EK2NewNodeFlags::None));
 		UMulticastDelegateProperty* DelegateProperty = BindNode ? Cast<UMulticastDelegateProperty>(BindNode->GetProperty()) : nullptr;
 		if(DelegateProperty)
 		{

@@ -738,6 +738,9 @@ public:
 	/** The class for NavigationSystem **/
 	UPROPERTY()
 	TSubclassOf<class UNavigationSystemBase>  NavigationSystemClass;
+
+	UPROPERTY(globalconfig, noclear, meta = (MetaClass = "NavigationSystem", DisplayName = "Navigation System Config Class"))
+	FSoftClassPath NavigationSystemConfigClassName;
 	
 	/** Name of behavior tree manager class */
 	UPROPERTY(globalconfig, noclear, meta=(MetaClass="AvoidanceManager", DisplayName="Avoidance Manager Class"))
@@ -1267,11 +1270,11 @@ public:
 	uint32 bSmoothFrameRate:1;
 
 	/** Whether to use a fixed framerate. */
-	UPROPERTY(config, EditAnywhere, Category = Framerate)
+	UPROPERTY(config, EditAnywhere, Category=Framerate)
 	uint32 bUseFixedFrameRate : 1;
 	
 	/** The fixed framerate to use. */
-	UPROPERTY(config, EditAnywhere, Category = Framerate, meta=(EditCondition="bUseFixedFrameRate", ClampMin = "15.0"))
+	UPROPERTY(config, EditAnywhere, Category=Framerate, meta=(EditCondition="bUseFixedFrameRate", ClampMin = "15.0"))
 	float FixedFrameRate;
 
 	/** Range of framerates in which smoothing will kick in */
@@ -1283,11 +1286,25 @@ private:
 	UPROPERTY(transient)
 	UEngineCustomTimeStep* CustomTimeStep;
 
+public:
+	/**
+	 * Override how the Engine process the Framerate/Timestep.
+	 * This class will be responsible of updating the application Time and DeltaTime.
+	 * Can be used to synchronize the engine with another process (gen-lock).
+	 */
+	UPROPERTY(AdvancedDisplay, config, EditAnywhere, Category=Framerate, meta=(MetaClass="EngineCustomTimeStep", DisplayName="Custom TimeStep"))
+	FSoftClassPath CustomTimeStepClassName;
+
+private:
 	/** Provide a timecode to the Engine */
 	UPROPERTY(transient)
 	UTimecodeProvider* TimecodeProvider;
 
 public:
+	/** Provide a timecode to the Engine */
+	UPROPERTY(config, EditAnywhere, Category=Timecode, meta=(MetaClass="TimecodeProvider", DisplayName="TimecodeProvider"))
+	FSoftClassPath TimecodeFrameRateClassName;
+
 	/**
 	 * Frame rate used to generated the engine Timecode's frame number when no TimecodeProvider are specified.
 	 * It doesn't control the Engine frame rate. The Engine can run faster or slower that the specified TimecodeFrameRate.
@@ -1826,8 +1843,6 @@ public:
 	/** Called by internal engine systems after a level actor has been requested to be renamed */
 	void BroadcastLevelComponentRequestRename(const UActorComponent* InComponent) { LevelComponentRequestRenameEvent.Broadcast(InComponent); }
 
-	
-
 	/** Delegate broadcast after UEditorEngine::Tick has been called (or UGameEngine::Tick in standalone) */
 	DECLARE_EVENT_OneParam(UEditorEngine, FPostEditorTick, float /* DeltaTime */);
 	FPostEditorTick& OnPostEditorTick() { return PostEditorTickEvent; }
@@ -1872,6 +1887,9 @@ public:
 	virtual void FinishDestroy() override;
 	virtual void Serialize(FArchive& Ar) override;
 	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
+#if WITH_EDITOR
+	virtual bool CanEditChange(const UProperty* InProperty) const override;
+#endif // #if WITH_EDITOR
 	//~ End UObject Interface.
 
 	/** Initialize the game engine. */

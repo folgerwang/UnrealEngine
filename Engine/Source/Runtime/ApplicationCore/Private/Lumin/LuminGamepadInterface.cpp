@@ -1,3 +1,5 @@
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
 #include "LuminGamepadInterface.h"
 #include "Android/AndroidApplication.h"
 #include "GenericPlatform/GenericApplication.h"

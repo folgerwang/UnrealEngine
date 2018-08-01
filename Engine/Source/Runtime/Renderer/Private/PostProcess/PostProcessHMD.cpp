@@ -172,7 +172,7 @@ void FRCPassPostProcessHMD::Process(FRenderingCompositePassContext& Context)
 	const FSceneRenderTargetItem& DestRenderTarget = PassOutputs[0].RequestSurface(Context);
 
 	// Set the view family's render target/viewport
-	if (DestRenderTarget.TargetableTexture->GetClearColor() == FLinearColor::Black)
+	if (!ensure(DestRenderTarget.TargetableTexture.IsValid()) || DestRenderTarget.TargetableTexture->GetClearColor() == FLinearColor::Black)
 	{
 		FRHIRenderTargetView RtView = FRHIRenderTargetView(DestRenderTarget.TargetableTexture, ERenderTargetLoadAction::EClear);
 		FRHISetRenderTargetsInfo Info(1, &RtView, FRHIDepthRenderTargetView());
@@ -219,6 +219,14 @@ void FRCPassPostProcessHMD::Process(FRenderingCompositePassContext& Context)
 FPooledRenderTargetDesc FRCPassPostProcessHMD::ComputeOutputDesc(EPassOutputId InPassOutputId) const
 {
 	FPooledRenderTargetDesc Ret = PassOutputs[0].RenderTargetDesc;
+
+	if (const FRenderingCompositeOutputRef* InputPass0 = GetInput(ePId_Input0))
+	{
+		if (const FRenderingCompositeOutput* PassInput = InputPass0->GetOutput())
+		{
+			Ret = PassInput->RenderTargetDesc;
+		}
+	}
 
 	Ret.Reset();
 	Ret.DebugName = TEXT("HMD");

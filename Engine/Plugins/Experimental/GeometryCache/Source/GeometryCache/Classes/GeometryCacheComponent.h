@@ -17,6 +17,8 @@ struct FTrackRenderData
 {
 	GENERATED_USTRUCT_BODY()
 
+	FTrackRenderData() : Matrix(FMatrix::Identity), BoundingBox(EForceInit::ForceInitToZero), MatrixSampleIndex(INDEX_NONE), BoundsSampleIndex(INDEX_NONE) {}
+
 	/** Transform matrix used to render this specific track. 
 		This goes from track local space to component local space.
 	*/
@@ -79,6 +81,7 @@ class GEOMETRYCACHE_API UGeometryCacheComponent : public UMeshComponent
 	*/
 	void OnObjectReimported(UGeometryCache* ImportedGeometryCache);
 	
+public:
 	/** Start playback of GeometryCache */
 	UFUNCTION(BlueprintCallable, Category = "Components|GeometryCache")
 	void Play();
@@ -129,7 +132,7 @@ class GEOMETRYCACHE_API UGeometryCacheComponent : public UMeshComponent
 
 	/** Change the Geometry Cache used by this instance. */
 	UFUNCTION(BlueprintCallable, Category = "Components|GeometryCache")
-	virtual bool SetGeometryCache( UGeometryCache* NewGeomCache );
+	bool SetGeometryCache( UGeometryCache* NewGeomCache );
 	
 	/** Getter for Geometry cache instance referred by the component
 		Note: This getter is not exposed to blueprints as you can use the readonly Uproperty for that
@@ -146,16 +149,39 @@ class GEOMETRYCACHE_API UGeometryCacheComponent : public UMeshComponent
 
 	/** Set the current animation time for GeometryCache. Includes the influence of elapsed time and SetStartTimeOffset */
 	UFUNCTION(BlueprintCallable, Category = "Components|GeometryCache")
-	float GetAnimationTime();
+	float GetAnimationTime() const;
 
 	/** Set the current animation time for GeometryCache. Includes the influence of elapsed time and SetStartTimeOffset */
 	UFUNCTION(BlueprintCallable, Category = "Components|GeometryCache")
-	float GetPlaybackDirection();
+	float GetPlaybackDirection() const;
 
 	/** Geometry Cache instance referenced by the component */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = GeometryCache)
 	UGeometryCache* GeometryCache;
 		
+	/** Get the duration of the playback */
+	UFUNCTION(BlueprintCallable, Category = "Components|GeometryCache")
+	float GetDuration() const;
+
+	/** Get the number of frames */
+	UFUNCTION(BlueprintCallable, Category = "Components|GeometryCache")
+	int32 GetNumberOfFrames() const;
+
+public:
+	/** Helper to get the frame of the ABC asset at this time*/
+	int32 GetFrameAtTime(const float Time) const;
+
+	/** Helper to get the time at this frame */
+	float GetTimeAtFrame(const int32 Frame) const;
+
+public:
+	/** Functions to override the default TickComponent */
+	void SetManualTick(bool bInManualTick);
+	bool GetManualTick() const;
+
+	UFUNCTION(BlueprintCallable, Category = "Components|GeometryCache")
+	void TickAtThisTime(const float Time, bool bInIsRunning, bool bInBackwards, bool bInIsLooping);
+
 protected:
 	/**
 	* Invalidate both the Matrix and Mesh sample indices
@@ -223,4 +249,7 @@ protected:
 	/** Duration of the animation (maximum time) */
 	UPROPERTY(BlueprintReadOnly, Category = GeometryCache)
 	float Duration;
+
+	UPROPERTY(EditAnywhere, Category = GeometryCache)
+	bool bManualTick;
 };

@@ -36,9 +36,6 @@ private:
 	/** Refresh the widget. **/
 	void OnRefresh();
 
-	/** Returns true if we're not working on the level script */
-	EVisibility ShouldShowDebugObjectPicker() const;
-
 	/** Returns the name of the current debug actor */
 	TSharedPtr<FString> GetDebugObjectName() const;
 

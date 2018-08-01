@@ -50,6 +50,18 @@ FTextDisplayStringPtr FStringTableEntry::GetDisplayString() const
 	return DisplayString;
 }
 
+const FString& FStringTableEntry::GetPlaceholderSourceString()
+{
+	static const FString MissingSourceString = TEXT("<MISSING STRING TABLE ENTRY>");
+	return MissingSourceString;
+}
+
+FTextDisplayStringRef FStringTableEntry::GetPlaceholderDisplayString()
+{
+	static const FTextDisplayStringRef MissingDisplayString = MakeShared<FString, ESPMode::ThreadSafe>(TEXT("<MISSING STRING TABLE ENTRY>"));
+	return MissingDisplayString;
+}
+
 
 FStringTable::FStringTable()
 	: OwnerAsset(nullptr)

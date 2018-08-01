@@ -669,7 +669,7 @@ void SMaterialLayersFunctionsInstanceTreeItem::Construct(const FArguments& InArg
 				]
 			];
 		}
-		if (ScalarParam && ScalarParam->AtlasData.bIsUsedAsAtlasPosition)
+		else if (ScalarParam && ScalarParam->AtlasData.bIsUsedAsAtlasPosition)
 		{
 			const FText ParameterName = FText::FromName(StackParameterData->Parameter->ParameterInfo.Name);
 

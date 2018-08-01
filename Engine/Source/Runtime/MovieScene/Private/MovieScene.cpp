@@ -701,7 +701,7 @@ UMovieSceneTrack* UMovieScene::AddCameraCutTrack( TSubclassOf<UMovieSceneTrack> 
 	if( !CameraCutTrack )
 	{
 		Modify();
-		CameraCutTrack = NewObject<UMovieSceneTrack>(this, TrackClass, FName("Camera Cuts"), RF_Transactional);
+		CameraCutTrack = NewObject<UMovieSceneTrack>(this, TrackClass, NAME_None, RF_Transactional);
 	}
 
 	return CameraCutTrack;
@@ -951,6 +951,20 @@ void UMovieScene::ReplaceBinding(const FGuid& OldGuid, const FGuid& NewGuid, con
 	}
 }
 
+void UMovieScene::ReplaceBinding(const FGuid& BindingToReplaceGuid, const FMovieSceneBinding& NewBinding)
+{
+	FMovieSceneBinding* Binding = ObjectBindings.FindByPredicate([BindingToReplaceGuid](const FMovieSceneBinding& CheckedBinding) { return CheckedBinding.GetObjectGuid() == BindingToReplaceGuid; });
+	if (Binding)
+	{
+		*Binding = NewBinding;
+
+		// We also need to change the track's owners to be the MovieScene.
+		for (auto Track : Binding->GetTracks())
+		{
+			Track->Rename(nullptr, this);
+		}
+	}
+}
 
 void UMovieScene::MoveBindingContents(const FGuid& SourceBindingId, const FGuid& DestinationBindingId)
 {

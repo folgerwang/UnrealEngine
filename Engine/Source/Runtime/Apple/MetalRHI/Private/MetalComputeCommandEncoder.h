@@ -4,43 +4,39 @@
 
 #include "MetalDebugCommandEncoder.h"
 
+#if MTLPP_CONFIG_VALIDATE && METAL_DEBUG_OPTIONS
 NS_ASSUME_NONNULL_BEGIN
 
-@class FMetalDebugCommandBuffer;
+@class FMetalDebugComputeCommandEncoder;
 @class FMetalShaderPipeline;
 
-@interface FMetalDebugComputeCommandEncoder : FMetalDebugCommandEncoder<MTLComputeCommandEncoder>
+
+class FMetalComputeCommandEncoderDebugging : public FMetalCommandEncoderDebugging
 {
-@private
-#pragma mark - Private Member Variables -
-#if METAL_DEBUG_OPTIONS
-	FMetalDebugShaderResourceMask ResourceMask;
-    FMetalDebugBufferBindings ShaderBuffers;
-    FMetalDebugTextureBindings ShaderTextures;
-    FMetalDebugSamplerBindings ShaderSamplers;
-#endif
-}
+	void InsertDebugDispatch();
+	void Validate();
+public:
+	FMetalComputeCommandEncoderDebugging();
+	FMetalComputeCommandEncoderDebugging(mtlpp::ComputeCommandEncoder& Encoder, FMetalCommandBufferDebugging& Buffer);
+	FMetalComputeCommandEncoderDebugging(FMetalDebugCommandEncoder* handle);
+	
+	static FMetalComputeCommandEncoderDebugging Get(mtlpp::ComputeCommandEncoder& Buffer);
+	
+	void InsertDebugSignpost(ns::String const& Label);
+	void PushDebugGroup(ns::String const& Group);
+	void PopDebugGroup();
+	void EndEncoder();
+	void DispatchThreadgroups(mtlpp::Size const& threadgroupsPerGrid, mtlpp::Size const& threadsPerThreadgroup);
+	void SetPipeline(FMetalShaderPipeline* Pipeline);
+	void SetBytes(const void * bytes, NSUInteger length, NSUInteger index);
+	void SetBuffer( FMetalBuffer const& buffer, NSUInteger offset, NSUInteger index);
+	void SetBufferOffset(NSUInteger offset, NSUInteger index);
+	void SetTexture( FMetalTexture const& texture, NSUInteger index);
+	void SetSamplerState( mtlpp::SamplerState const& sampler, NSUInteger index);
+	void SetSamplerState( mtlpp::SamplerState const& sampler, float lodMinClamp, float lodMaxClamp, NSUInteger index);
+	
+	void DispatchThreadgroupsWithIndirectBuffer(FMetalBuffer const& indirectBuffer, NSUInteger indirectBufferOffset, mtlpp::Size const& threadsPerThreadgroup);
+};
 
-/** The wrapped native command-encoder for which we collect debug information. */
-@property (readonly, retain) id<MTLComputeCommandEncoder> Inner;
-@property (readonly, retain) FMetalDebugCommandBuffer* Buffer;
-@property (nonatomic, retain) FMetalShaderPipeline* Pipeline;
-
-/** Initialise the wrapper with the provided command-buffer. */
--(id)initWithEncoder:(id<MTLComputeCommandEncoder>)Encoder andCommandBuffer:(FMetalDebugCommandBuffer*)Buffer;
-
-/** Validates the pipeline/binding state */
--(void)validate;
-
-@end
 NS_ASSUME_NONNULL_END
-
-#if METAL_DEBUG_OPTIONS
-#define METAL_SET_COMPUTE_REFLECTION(Encoder, InPipeline)														\
-    if (GetMetalDeviceContext().GetCommandQueue().GetRuntimeDebuggingLevel() >= EMetalDebugLevelFastValidation) \
-    {																											\
-        ((FMetalDebugComputeCommandEncoder*)Encoder).Pipeline = InPipeline;										\
-    }
-#else
-#define METAL_SET_COMPUTE_REFLECTION(Encoder, InPipeline)
 #endif

@@ -31,6 +31,15 @@ public:
 
 private:
 	/**
+	 * Called to see if the value is enabled for editing
+	 *
+	 * @param WeakHandlePtr	Handle to the property that the new value is for
+	 *
+	 * @return	true if the property is enabled
+	 */
+	bool IsValueEnabled(TWeakPtr<IPropertyHandle> WeakHandlePtr) const;
+
+	/**
 	 * @return The current display value for the combo box as a string
 	 */
 	FText GetDisplayValueAsString() const;

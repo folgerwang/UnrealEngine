@@ -200,7 +200,6 @@ void MetalLLM::LogAllocTexture(mtlpp::Device& Device, mtlpp::TextureDescriptor c
 	INC_MEMORY_STAT_BY(STAT_MetalTextureMemory, Size);
 	INC_DWORD_STAT(STAT_MetalTextureCount);
 	
-	LLM(FLowLevelMemTracker::Get().OnLowLevelAlloc(ELLMTracker::Default, Ptr, Size, ELLMTag::Untagged, ELLMAllocType::System));
 	LLM(FLowLevelMemTracker::Get().OnLowLevelAlloc(ELLMTracker::Platform, Ptr, Size, ELLMTag::Untagged, ELLMAllocType::System));
 	// Assign a dealloc handler to untrack the memory - but don't track the dispatch block!
 	{
@@ -208,10 +207,8 @@ void MetalLLM::LogAllocTexture(mtlpp::Device& Device, mtlpp::TextureDescriptor c
 		
 		objc_setAssociatedObject(Texture.GetPtr(), (void*)&MetalLLM::LogAllocTexture,
 		[[[FMetalDeallocHandler alloc] initWithBlock:^{
-			LLM_SCOPE_METAL(ELLMTagMetal::Textures);
 			LLM_PLATFORM_SCOPE_METAL(ELLMTagMetal::Textures);
 			
-			LLM(FLowLevelMemTracker::Get().OnLowLevelFree(ELLMTracker::Default, Ptr, ELLMAllocType::System));
 			LLM(FLowLevelMemTracker::Get().OnLowLevelFree(ELLMTracker::Platform, Ptr, ELLMAllocType::System));
 			
 			DEC_MEMORY_STAT_BY(STAT_MetalTextureMemory, Size);
@@ -229,7 +226,6 @@ void MetalLLM::LogAllocBuffer(mtlpp::Device& Device, mtlpp::Buffer const& Buffer
 	INC_MEMORY_STAT_BY(STAT_MetalBufferMemory, Size);
 	INC_DWORD_STAT(STAT_MetalBufferCount);
 	
-	LLM(FLowLevelMemTracker::Get().OnLowLevelAlloc(ELLMTracker::Default, Ptr, Size, ELLMTag::Untagged, ELLMAllocType::System));
 	LLM(FLowLevelMemTracker::Get().OnLowLevelAlloc(ELLMTracker::Platform, Ptr, Size, ELLMTag::Untagged, ELLMAllocType::System));
 	// Assign a dealloc handler to untrack the memory - but don't track the dispatch block!
 	{
@@ -237,10 +233,8 @@ void MetalLLM::LogAllocBuffer(mtlpp::Device& Device, mtlpp::Buffer const& Buffer
 		
 		objc_setAssociatedObject(Buffer.GetPtr(), (void*)&MetalLLM::LogAllocBuffer,
 		[[[FMetalDeallocHandler alloc] initWithBlock:^{
-			LLM_SCOPE_METAL(ELLMTagMetal::Buffers);
 			LLM_PLATFORM_SCOPE_METAL(ELLMTagMetal::Buffers);
 			
-			LLM(FLowLevelMemTracker::Get().OnLowLevelFree(ELLMTracker::Default, Ptr, ELLMAllocType::System));
 			LLM(FLowLevelMemTracker::Get().OnLowLevelFree(ELLMTracker::Platform, Ptr, ELLMAllocType::System));
 			
 			DEC_MEMORY_STAT_BY(STAT_MetalBufferMemory, Size);

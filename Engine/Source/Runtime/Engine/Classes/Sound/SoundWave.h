@@ -163,6 +163,9 @@ class ENGINE_API USoundWave : public USoundBase
 	/** Set to true for programmatically-generated, streamed audio. */
 	uint8 bProcedural:1;
 
+	/** Whether this sound wave is beginning to be destroyed by GC. */
+	uint8 bIsBeginDestroy:1;
+
 	/** Set to true of this is a bus sound source. This will result in the sound wave not generating audio for itself, but generate audio through instances. Used only in audio mixer. */
 	uint8 bIsBus:1;
 
@@ -216,6 +219,9 @@ private:
 
 	/** What state the precache decompressor is in. */
 	FThreadSafeCounter PrecacheState;
+
+	/** Number of sounds actively using this sound wave by the audio renderer (in audio mixer). Prevents GC issues with rendering realtime audio. */
+	FThreadSafeCounter NumSoundsActive;
 
 #if !WITH_EDITOR
 	// This is the sample rate gotten from platform settings.
@@ -336,6 +342,10 @@ public:
 
 	FFormatContainer			CompressedFormatData;
 
+#if WITH_EDITORONLY_DATA
+	TMap<FName, uint32> AsyncLoadingDataFormats;
+#endif
+
 	/** Resource index to cross reference with buffers */
 	int32 ResourceID;
 
@@ -357,6 +367,7 @@ public:
 	virtual bool IsReadyForFinishDestroy() override;
 	virtual void FinishDestroy() override;
 	virtual void PostLoad() override;
+	virtual void BeginDestroy() override;
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;	
 #endif // WITH_EDITOR
@@ -373,6 +384,19 @@ public:
 	virtual float GetSubtitlePriority() const override;
 	virtual bool IsAllowedVirtual() const override;
 	//~ End USoundBase Interface.
+
+	// Called  when the procedural sound wave begins on the render thread. Only used in the audio mixer and when bProcedural is true.
+	virtual void OnBeginGenerate() {}
+
+	// Called when the procedural sound wave is done generating on the render thread. Only used in the audio mixer and when bProcedural is true..
+	virtual void OnEndGenerate() {};
+
+	// Returns number of sounds using this sound wave (audio mixer only)
+	int32 GetNumSoundsActive();
+
+	// Increment and decrement num sounds (used in audio mixer)
+	void IncrementNumSounds();
+	void DecrementNumSounds();
 
 	/**
 	* Overwrite sample rate. Used for procedural soundwaves, as well as sound waves that are resampled on compress/decompress.
@@ -462,6 +486,12 @@ public:
 
 	virtual bool HasCompressedData(FName Format, ITargetPlatform* TargetPlatform = GetRunningPlatform()) const;
 
+private:
+	FName GetPlatformSpecificFormat(FName Format, const FPlatformAudioCookOverrides* CompressionOverrides);
+
+public:
+	virtual void BeginGetCompressedData(FName Format, const FPlatformAudioCookOverrides* CompressionOverrides);
+
 	/** 
 	 * Gets the compressed data from derived data cache for the specified platform
 	 * Warning, the returned pointer isn't valid after we add new formats
@@ -470,7 +500,7 @@ public:
 	 * @param PlatformName optional name of platform we are getting compressed data for.
 	 * @param CompressionOverrides optional platform compression overrides
 	 * @return	compressed data, if it could be obtained
-	 */ 
+	 */
 	virtual FByteBulkData* GetCompressedData(FName Format, const FPlatformAudioCookOverrides* CompressionOverrides = GetPlatformCompressionOverridesForCurrentPlatform());
 
 	/** 

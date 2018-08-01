@@ -134,6 +134,9 @@ bool FSkeletalMeshMerge::FinalizeMesh()
 			if (SrcMesh->bHasVertexColors)
 			{
 				MergeMesh->bHasVertexColors = true;
+#if WITH_EDITORONLY_DATA
+				MergeMesh->VertexColorGuid = FGuid::NewGuid();
+#endif
 			}
 
 			FMergeMeshInfo& MeshInfo = SrcMeshInfo[MeshIdx];
@@ -188,6 +191,7 @@ bool FSkeletalMeshMerge::FinalizeMesh()
 		}
 
 		// process each LOD for the new merged mesh
+		MergeMesh->AllocateResourceForRendering();
 		for (int32 LODIdx = 0; LODIdx < MaxNumLODs; LODIdx++)
 		{
 			if (!MergeMesh->bUseFullPrecisionUVs)
@@ -426,7 +430,6 @@ template<typename VertexDataType, typename SkinWeightType>
 void FSkeletalMeshMerge::GenerateLODModel( int32 LODIdx )
 {
 	// add the new LOD model entry
-	MergeMesh->AllocateResourceForRendering();
 	FSkeletalMeshRenderData* MergeResource = MergeMesh->GetResourceForRendering();
 	check(MergeResource);
 

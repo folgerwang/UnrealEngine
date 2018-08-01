@@ -52,6 +52,18 @@ struct CORE_API FReleaseObjectVersion
 		// Removed objects that were serialized as part of this material feature
 		RemovedMaterialSharedInputCollection,
 
+		// HISMC Cluster Tree migration to add new data
+		HISMCClusterTreeMigration,
+
+		// Default values on pins in blueprints could be saved incoherently
+		PinDefaultValuesVerified,
+
+		// During copy and paste transition getters could end up with broken state machine references
+		FixBrokenStateMachineReferencesInTransitionGetters,
+
+		// Change to MeshDescription serialization
+		MeshDescriptionNewSerialization,
+
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,
 		LatestVersion = VersionPlusOne - 1

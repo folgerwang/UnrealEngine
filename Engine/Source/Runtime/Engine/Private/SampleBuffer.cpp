@@ -71,7 +71,9 @@ namespace Audio
 					check(!bIsLoaded);
 					delete SoundWave->AudioDecompressor;
 					SoundWave->AudioDecompressor = nullptr;
+					SoundWave->SetPrecacheState(ESoundWavePrecacheState::Done);
 				}
+
 				bIsLoading = false;
 				bIsLoaded = true;
 

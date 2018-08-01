@@ -47,6 +47,13 @@ FUIAction UMeshEditorInstantCommand::MakeUIAction( IMeshEditorModeUIContract& Me
 				FCanExecuteAction::CreateLambda( [&MeshEditorMode] { return MeshEditorMode.GetSelectedEditableMeshes().Num() > 0; } )
 			);
 		}
+		else if( ElementType == EEditableMeshElementType::Any )
+		{
+			UIAction = FUIAction(
+				ExecuteAction,
+				FCanExecuteAction::CreateLambda( [&MeshEditorMode] { return MeshEditorMode.GetSelectedMeshElementType() != EEditableMeshElementType::Invalid; } )
+			);
+		}
 		else
 		{
 			UIAction = FUIAction(
@@ -125,7 +132,13 @@ FMeshEditorAnyElementCommands::FMeshEditorAnyElementCommands()
 
 void FMeshEditorAnyElementCommands::RegisterCommands()
 {
-	UI_COMMAND(DeleteMeshElement, "Delete", "Delete selected mesh elements, including polygons partly defined by selected elements.", EUserInterfaceActionType::Button, FInputChord(EKeys::Delete));
+	for( UMeshEditorCommand* Command : MeshEditorCommands::Get() )
+	{
+		if( Command->GetElementType() == EEditableMeshElementType::Any )
+		{
+			Command->RegisterUICommand( this );
+		}
+	}
 }
 
 FMeshEditorVertexCommands::FMeshEditorVertexCommands() 
@@ -191,9 +204,7 @@ FMeshEditorPolygonCommands::FMeshEditorPolygonCommands()
 void FMeshEditorPolygonCommands::RegisterCommands()
 {
 	UI_COMMAND(MovePolygon, "Move", "Move selected polygons using a transform gizmo, or click and drag to move polygons directly.", EUserInterfaceActionType::RadioButton, FInputChord());
-	UI_COMMAND(FlipPolygon, "Flip", "Flip the currently selected polygons.", EUserInterfaceActionType::Button, FInputChord(EKeys::F, EModifierKey::Shift));
 	UI_COMMAND(TriangulatePolygon, "Triangulate", "Triangulate the currently selected polygons.", EUserInterfaceActionType::Button, FInputChord(EKeys::T));
-	UI_COMMAND(AssignMaterial, "Assign Material", "Assigns the highlighted material in the Content Browser to the currently selected polygons.", EUserInterfaceActionType::Button, FInputChord(EKeys::M));
 
 	for( UMeshEditorCommand* Command : MeshEditorCommands::Get() )
 	{

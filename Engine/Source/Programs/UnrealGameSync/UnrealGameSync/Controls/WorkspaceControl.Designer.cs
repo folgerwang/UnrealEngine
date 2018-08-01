@@ -444,7 +444,7 @@
             this.BuildListContextMenu_CustomTool_End,
             this.BuildListContextMenu_MoreInfo});
 			this.BuildListContextMenu.Name = "BuildListContextMenu";
-			this.BuildListContextMenu.Size = new System.Drawing.Size(200, 612);
+			this.BuildListContextMenu.Size = new System.Drawing.Size(200, 590);
 			// 
 			// BuildListContextMenu_LaunchEditor
 			// 
@@ -1045,6 +1045,7 @@
 			this.Name = "WorkspaceControl";
 			this.Size = new System.Drawing.Size(1363, 752);
 			this.Load += new System.EventHandler(this.MainWindow_Load);
+			this.VisibleChanged += new System.EventHandler(this.WorkspaceControl_VisibleChanged);
 			this.OptionsContextMenu.ResumeLayout(false);
 			this.BuildListContextMenu.ResumeLayout(false);
 			this.flowLayoutPanel1.ResumeLayout(false);

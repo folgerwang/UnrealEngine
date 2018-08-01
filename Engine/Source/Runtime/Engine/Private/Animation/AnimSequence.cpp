@@ -259,6 +259,12 @@ void UAnimSequence::Serialize(FArchive& Ar)
 				Ar << SourceRawAnimationData;
 			}
 		}
+
+		// If we have transform curves but no SourceRawAnimationData then we need to rebake
+		if (DoesContainTransformCurves() && RawAnimationData.Num() > 0 && SourceRawAnimationData.Num() == 0)
+		{
+			bNeedsRebake = true;
+		}
 #endif // WITH_EDITORONLY_DATA
 	}
 
@@ -884,6 +890,17 @@ void UAnimSequence::ExtractBoneTransform(const struct FRawAnimSequenceTrack& Raw
 	// 	UE_LOG(LogAnimation, Log, TEXT(" *  *  *  Position. PosKeyIndex1: %3d, PosKeyIndex2: %3d, Alpha: %f"), PosKeyIndex1, PosKeyIndex2, Alpha);
 	// 	UE_LOG(LogAnimation, Log, TEXT(" *  *  *  Rotation. RotKeyIndex1: %3d, RotKeyIndex2: %3d, Alpha: %f"), RotKeyIndex1, RotKeyIndex2, Alpha);
 
+	// Ensure rotations are normalized (Added for Jira UE-53971)
+	if (!ensureMsgf(KeyAtom1.IsRotationNormalized(), TEXT("Rotation isn't normalized (Anim:%s)"), *GetPathName()))
+	{
+		KeyAtom1.NormalizeRotation();
+	}
+
+	if (!ensureMsgf(KeyAtom2.IsRotationNormalized(), TEXT("Rotation isn't normalized (Anim:%s)"), *GetPathName()))
+	{
+		KeyAtom2.NormalizeRotation();
+	}
+
 	OutAtom.Blend(KeyAtom1, KeyAtom2, Alpha);
 	OutAtom.NormalizeRotation();
 }
@@ -1178,11 +1195,28 @@ void UAnimSequence::BuildPoseFromRawDataInternal(const TArray<FRawAnimSequenceTr
 
 				const FRawAnimSequenceTrack& TrackToExtract = InAnimationData[TrackIndex];
 
-				InOutPose[PoseBoneIndex] = ExtractTransformForKey(KeyIndex1, TrackToExtract);
-
-				if (bInterpolateT)
+				// Bail out (with rather wacky data) if data is empty for some reason.
+				if (TrackToExtract.PosKeys.Num() == 0 || TrackToExtract.RotKeys.Num() == 0)
 				{
-					Key2Pose[PoseBoneIndex] = ExtractTransformForKey(KeyIndex2, TrackToExtract);
+#if WITH_EDITORONLY_DATA
+					UE_LOG(LogAnimation, Warning, TEXT("UAnimSequence::GetBoneTransform : No anim data in AnimSequence '%s' Track '%s'"), *GetPathName(), *AnimationTrackNames[TrackIndex].ToString() );
+#endif
+
+					InOutPose[PoseBoneIndex].SetIdentity();
+
+					if (bInterpolateT)
+					{
+						Key2Pose[PoseBoneIndex].SetIdentity();
+					}
+				}
+				else
+				{
+					InOutPose[PoseBoneIndex] = ExtractTransformForKey(KeyIndex1, TrackToExtract);
+
+					if (bInterpolateT)
+					{
+						Key2Pose[PoseBoneIndex] = ExtractTransformForKey(KeyIndex2, TrackToExtract);
+					}
 				}
 
 				RetargetTracking.Add(FRetargetTracking(PoseBoneIndex, SkeletonBoneIndex));
@@ -1959,6 +1993,11 @@ bool UAnimSequence::CropRawAnimData( float CurrentTime, bool bFromStart )
 	{
 		// Update NewNumFrames below to reflect actual number of keys while we crop the anim data
 		CropRawTrack(RawAnimationData[i], StartKey, NumKeys, TotalNumOfFrames);
+	}
+
+	for (int32 i = 0; i < SourceRawAnimationData.Num(); ++i)
+	{
+		CropRawTrack(SourceRawAnimationData[i], StartKey, NumKeys, TotalNumOfFrames);
 	}
 
 	// Double check that everything is fine
@@ -3001,7 +3040,7 @@ int32 FindMeshBoneIndexFromBoneName(USkeleton * Skeleton, const FName &BoneName)
 
 	return BoneIndex;
 }
-void FillUpTransformBasedOnRig(USkeleton* Skeleton, TArray<FTransform>& NodeSpaceBases, TArray<FTransform> &Rotations, TArray<FTransform>& Translations, TArray<bool>& TranslationParentFlags)
+void FillUpTransformBasedOnRig(USkeleton* Skeleton, TArray<FTransform>& NodeSpaceBases, TArray<FTransform> &Rotations, TArray<FVector>& Translations, TArray<bool>& TranslationParentFlags)
 {
 	TArray<FTransform> SpaceBases;
 	FAnimationRuntime::FillUpComponentSpaceTransformsRetargetBasePose(Skeleton, SpaceBases);
@@ -3041,14 +3080,14 @@ void FillUpTransformBasedOnRig(USkeleton* Skeleton, TArray<FTransform>& NodeSpac
 					// add identity
 					NodeSpaceBases[Index].SetIdentity();
 					Rotations[Index].SetIdentity();
-					Translations[Index].SetIdentity();
+					Translations[Index] = FVector::ZeroVector;
 				}
 				else
 				{
 					// initialize with SpaceBases - assuming World Based
 					NodeSpaceBases[Index] = SpaceBases[BoneIndex];
 					Rotations[Index] = SpaceBases[BoneIndex];
-					Translations[Index] = SpaceBases[BoneIndex];
+					Translations[Index] = SpaceBases[BoneIndex].GetLocation();
 
 					const FTransformBase* TransformBase = Rig->GetTransformBaseByNodeName(NodeName);
 
@@ -3079,7 +3118,7 @@ void FillUpTransformBasedOnRig(USkeleton* Skeleton, TArray<FTransform>& NodeSpac
 							if (ParentBoneIndex != INDEX_NONE)
 							{
 								// I think translation has to include rotation, otherwise it won't work
-								Translations[Index] = SpaceBases[BoneIndex].GetRelativeTransform(SpaceBases[ParentBoneIndex]);
+								Translations[Index] = SpaceBases[BoneIndex].GetLocation() - SpaceBases[ParentBoneIndex].GetLocation();
 								TranslationParentFlags[Index] = true;
 							}
 						}
@@ -3131,7 +3170,7 @@ void UAnimSequence::RemapTracksToNewSkeleton( USkeleton* NewSkeleton, bool bConv
 				// first calculate component space ref pose to get the relative transform between
 				// two ref poses. It is very important update ref pose before getting here. 
 				TArray<FTransform> NewRotations, OldRotations, NewSpaceBases, OldSpaceBases;
-				TArray<FTransform> NewTranslations, OldTranslations;
+				TArray<FVector> NewTranslations, OldTranslations;
 				TArray<bool> NewTranslationParentFlags, OldTranslationParentFlags;
 				// get the spacebases transform
 				FillUpTransformBasedOnRig(NewSkeleton, NewSpaceBases, NewRotations, NewTranslations, NewTranslationParentFlags);
@@ -3160,8 +3199,8 @@ void UAnimSequence::RemapTracksToNewSkeleton( USkeleton* NewSkeleton, bool bConv
 					RelativeToNewSpaceBases[NodeIndex] = NewSpaceBases[NodeIndex].GetRelativeTransform(OldSpaceBases[NodeIndex]); 
 
 					// also savees the translation difference between old to new
-					FVector OldTranslation = OldTranslations[NodeIndex].GetTranslation();
-					FVector NewTranslation = NewTranslations[NodeIndex].GetTranslation();
+					FVector OldTranslation = OldTranslations[NodeIndex];
+					FVector NewTranslation = NewTranslations[NodeIndex];
 
 					// skip root because we don't really have clear relative point to test with it
 					if (NodeIndex != 0 && NewTranslationParentFlags[NodeIndex] == OldTranslationParentFlags[NodeIndex])
@@ -3245,7 +3284,8 @@ void UAnimSequence::RemapTracksToNewSkeleton( USkeleton* NewSkeleton, bool bConv
 					{
 						FVector ComponentSpaceTranslation = ComponentSpaceAnimations[TransParentTrackIndex][Key].TransformPosition(AnimatedLocalKey.GetTranslation());
 						ComponentSpaceAnimations[SrcTrackIndex][Key].SetTranslation(ComponentSpaceTranslation);
-						ComponentSpaceAnimations[SrcTrackIndex][Key].SetScale3D(AnimatedLocalKey.GetScale3D());
+						FVector ParentComponentSpaceScale3D = ComponentSpaceAnimations[TransParentTrackIndex][Key].GetScale3D();
+						ComponentSpaceAnimations[SrcTrackIndex][Key].SetScale3D(ParentComponentSpaceScale3D * AnimatedLocalKey.GetScale3D());
 					}
 					else
 					{
@@ -3284,9 +3324,9 @@ void UAnimSequence::RemapTracksToNewSkeleton( USkeleton* NewSkeleton, bool bConv
 
 					if(TransParentTrackIndex != INDEX_NONE)
 					{
-						FVector LocalTranslation = ConvertedSpaceAnimations[SrcTrackIndex][Key].GetRelativeTransform(ConvertedSpaceAnimations[TransParentTrackIndex][Key]).GetTranslation();
-						ConvertedLocalSpaceAnimations[SrcTrackIndex][Key].SetTranslation(LocalTranslation);
-						ConvertedLocalSpaceAnimations[SrcTrackIndex][Key].SetScale3D(ConvertedSpaceAnimations[SrcTrackIndex][Key].GetScale3D());
+						FTransform LocalTransform = ConvertedSpaceAnimations[SrcTrackIndex][Key].GetRelativeTransform(ConvertedSpaceAnimations[TransParentTrackIndex][Key]);
+						ConvertedLocalSpaceAnimations[SrcTrackIndex][Key].SetTranslation(LocalTransform.GetLocation());
+						ConvertedLocalSpaceAnimations[SrcTrackIndex][Key].SetScale3D(LocalTransform.GetScale3D());
 					}
 					else
 					{
@@ -5277,18 +5317,20 @@ void UAnimSequence::GetMarkerIndicesForPosition(const FMarkerSyncAnimPosition& S
 	// If we're not looping, assume we're playing a transition and we need to stay where we are.
 	if (!bLooping)
 	{
-		OutPrevMarker.MarkerIndex = -1;
-		OutNextMarker.MarkerIndex = -1;
+		OutPrevMarker.MarkerIndex = INDEX_NONE;
+		OutNextMarker.MarkerIndex = INDEX_NONE;
 
 		for (int32 Idx = 0; Idx<AuthoredSyncMarkers.Num(); Idx++)
 		{
-			const float MarkerTime = AuthoredSyncMarkers[Idx].Time;
-			if (OutCurrentTime > MarkerTime)
+			const FAnimSyncMarker& SyncMarker = AuthoredSyncMarkers[Idx];
+			const float MarkerTime = SyncMarker.Time;
+
+			if (OutCurrentTime > MarkerTime && SyncMarker.MarkerName == SyncPosition.PreviousMarkerName)
 			{
 				OutPrevMarker.MarkerIndex = Idx;
 				OutPrevMarker.TimeToMarker = MarkerTime - OutCurrentTime;
 			}
-			else if (OutCurrentTime < MarkerTime)
+			else if (OutCurrentTime < MarkerTime && SyncMarker.MarkerName == SyncPosition.NextMarkerName)
 			{
 				OutNextMarker.MarkerIndex = Idx;
 				OutNextMarker.TimeToMarker = MarkerTime - OutCurrentTime;
@@ -5296,6 +5338,7 @@ void UAnimSequence::GetMarkerIndicesForPosition(const FMarkerSyncAnimPosition& S
 			}
 		}
 
+		ensureMsgf(OutCurrentTime >= 0.f && OutCurrentTime <= SequenceLength, TEXT("Current time inside of GetMarkerIndicesForPosition is out of range %.3f of 0.0 to %.3f\n    Sequence: %s"), OutCurrentTime, SequenceLength, *GetFullName());
 		return;
 	}
 

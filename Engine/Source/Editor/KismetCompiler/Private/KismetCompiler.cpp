@@ -501,6 +501,12 @@ UProperty* FKismetCompilerContext::CreateVariable(const FName VarName, const FEd
 	UProperty* NewProperty = FKismetCompilerUtilities::CreatePropertyOnScope(NewClass, VarName, VarType, NewClass, CPF_None, Schema, MessageLog);
 	if (NewProperty != nullptr)
 	{
+		// This fixes a rare bug involving asynchronous loading of BPs in editor builds. The pattern was established
+		// in FKismetCompilerContext::CompileFunctions where we do this for the uber graph function. By setting
+		// the RF_LoadCompleted we prevent the linker from overwriting our regenerated property, although the
+		// circumstances under which this occurs are murky. More testing of BPs loading asynchronously in the editor
+		// needs to be added:
+		NewProperty->SetFlags(RF_LoadCompleted);
 		FKismetCompilerUtilities::LinkAddedProperty(NewClass, NewProperty);
 	}
 	else
@@ -2942,12 +2948,23 @@ void FKismetCompilerContext::ExpansionStep(UEdGraph* Graph, bool bAllowUbergraph
 	{
 		BP_SCOPED_COMPILER_EVENT_STAT(EKismetCompilerStats_Expansion);
 
+		// First we need to expand knot nodes, so it will remote disconnected knots
 		// Collapse any remaining tunnels or macros
 		ExpandTunnelsAndMacros(Graph);
 
 		// First pruning pass must be call after all collapsed nodes are expanded. Before the expansion we don't know which collapsed graph is really isolated. 
 		// If the pruning was called before expansion (and all collapsed graphs were saved), the isolated collapsed graphs would be unnecessarily validated.
 		PruneInner();
+
+		// First we need to expand knot nodes so any other expansions like AutoCreateRefTerm will have the correct pins hooked up
+		for (int32 NodeIndex = 0; NodeIndex < Graph->Nodes.Num(); ++NodeIndex)
+		{
+			UK2Node_Knot* KnotNode = Cast<UK2Node_Knot>(Graph->Nodes[NodeIndex]);
+			if (KnotNode)
+			{
+				KnotNode->ExpandNode(*this, Graph);
+			}
+		}
 
 		for (int32 NodeIndex = 0; NodeIndex < Graph->Nodes.Num(); ++NodeIndex)
 		{
@@ -3216,8 +3233,9 @@ void FKismetCompilerContext::CreateAndProcessUbergraph()
 				const UEdGraphNode* Node = ConsolidatedEventGraph->Nodes[ChildIndex];
 				const int32 SavedErrorCount = MessageLog.NumErrors;
 				UK2Node_Event* SrcEventNode = Cast<UK2Node_Event>(ConsolidatedEventGraph->Nodes[ChildIndex]);
-				if (bIsFullCompile || SrcEventNode)
+				if (bIsFullCompile)
 				{
+					// We only validate a full compile, we want to always make a function stub so we can display the errors for it later
 					ValidateNode(Node);
 				}
 
@@ -3797,7 +3815,7 @@ void FKismetCompilerContext::CompileClassLayout(EInternalCompilerFlags InternalF
 		}
 	}
 
-	if (CompileOptions.DoesRequireBytecodeGeneration())
+	if (CompileOptions.DoesRequireBytecodeGeneration() && !Blueprint->bIsRegeneratingOnLoad)
 	{
 		TArray<UEdGraph*> AllGraphs;
 		Blueprint->GetAllGraphs(AllGraphs);

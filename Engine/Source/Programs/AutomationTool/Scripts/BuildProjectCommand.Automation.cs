@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -61,6 +61,10 @@ public partial class Project : CommandUtils
 		{
 			return;
 		}
+		if (Automation.IsEngineInstalled() && !Params.IsCodeBasedProject)
+		{
+			return;
+		}
 
 		Log("********** BUILD COMMAND STARTED **********");
 
@@ -69,30 +73,43 @@ public partial class Project : CommandUtils
 		var CrashReportPlatforms = new HashSet<UnrealTargetPlatform>();
 
 		// Setup editor targets
-		if (Params.HasEditorTargets && (!Params.SkipBuildEditor) && !Automation.IsEngineInstalled() && (TargetMask & ProjectBuildTargets.Editor) == ProjectBuildTargets.Editor)
+		if (Params.HasEditorTargets && (!Params.SkipBuildEditor) && (TargetMask & ProjectBuildTargets.Editor) == ProjectBuildTargets.Editor)
 		{
 			// @todo Mac: proper platform detection
 			UnrealTargetPlatform EditorPlatform = HostPlatform.Current.HostEditorPlatform;
 			const UnrealTargetConfiguration EditorConfiguration = UnrealTargetConfiguration.Development;
 
-			CrashReportPlatforms.Add(EditorPlatform);
             Agenda.AddTargets(Params.EditorTargets.ToArray(), EditorPlatform, EditorConfiguration, Params.CodeBasedUprojectPath);
-			if (Params.EditorTargets.Contains("UnrealHeaderTool") == false)
+
+			if(!Automation.IsEngineInstalled())
 			{
-				Agenda.AddTargets(new string[] { "UnrealHeaderTool" }, EditorPlatform, EditorConfiguration);
+				CrashReportPlatforms.Add(EditorPlatform);
+				if (Params.EditorTargets.Contains("UnrealHeaderTool") == false)
+				{
+					Agenda.AddTargets(new string[] { "UnrealHeaderTool" }, EditorPlatform, EditorConfiguration);
+				}
+				if (Params.EditorTargets.Contains("ShaderCompileWorker") == false)
+				{
+					Agenda.AddTargets(new string[] { "ShaderCompileWorker" }, EditorPlatform, EditorConfiguration);
+				}
+				if (Params.Pak && Params.EditorTargets.Contains("UnrealPak") == false)
+				{
+					Agenda.AddTargets(new string[] { "UnrealPak" }, EditorPlatform, EditorConfiguration);
+				}
+				if (Params.FileServer && Params.EditorTargets.Contains("UnrealFileServer") == false)
+				{
+					Agenda.AddTargets(new string[] { "UnrealFileServer" }, EditorPlatform, EditorConfiguration);
+				}
 			}
-			if (Params.EditorTargets.Contains("ShaderCompileWorker") == false)
-			{
-				Agenda.AddTargets(new string[] { "ShaderCompileWorker" }, EditorPlatform, EditorConfiguration);
-			}
-			if (Params.Pak && Params.EditorTargets.Contains("UnrealPak") == false)
-			{
-				Agenda.AddTargets(new string[] { "UnrealPak" }, EditorPlatform, EditorConfiguration);
-			}
-			if (Params.FileServer && Params.EditorTargets.Contains("UnrealFileServer") == false)
-			{
-				Agenda.AddTargets(new string[] { "UnrealFileServer" }, EditorPlatform, EditorConfiguration);
-			}
+		}
+
+		// allow all involved platforms to hook into the agenda
+		HashSet<UnrealTargetPlatform> UniquePlatforms = new HashSet<UnrealTargetPlatform>();
+		UniquePlatforms.UnionWith(Params.ClientTargetPlatforms.Select(x => x.Type));
+		UniquePlatforms.UnionWith(Params.ServerTargetPlatforms.Select(x => x.Type));
+		foreach (UnrealTargetPlatform TargetPlatform in UniquePlatforms)
+		{
+			Platform.GetPlatform(TargetPlatform).PreBuildAgenda(UE4Build, Agenda);
 		}
 
 		// Additional compile arguments

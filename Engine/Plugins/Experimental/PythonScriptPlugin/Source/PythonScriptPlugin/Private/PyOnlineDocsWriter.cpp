@@ -1,10 +1,11 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "PyOnlineDocsWriter.h"
-#include "PyUtil.h"
+#include "PythonScriptPlugin.h"
 #include "PyGenUtil.h"
 #include "HAL/FileManager.h"
 #include "Logging/MessageLog.h"
+#include "Misc/CommandLine.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 #include "Runtime/Launch/Resources/Version.h"
@@ -72,6 +73,11 @@ FString FPyOnlineDocsWriter::GetSourcePath() const
 	return GetSphinxDocsPath() / TEXT("source");
 }
 
+FString FPyOnlineDocsWriter::GetBuildPath() const
+{
+	return GetSphinxDocsPath() / TEXT("build");
+}
+
 FString FPyOnlineDocsWriter::GetTemplatePath() const
 {
 	return GetSourcePath() / TEXT("_templates");
@@ -123,13 +129,16 @@ void FPyOnlineDocsWriter::GenerateIndexFile()
 		Section->TypeNames.StableSort();
 	}
 
+	FString SectionList;
 	FString TableOfContents;
 
 	// Accumulate all the modules into the table of contents
 	if (Modules.Num() > 0)
 	{
+		SectionList += TEXT("* :ref:`Modules`") LINE_TERMINATOR;
+
 		TableOfContents +=
-			LINE_TERMINATOR
+			TEXT(".. _Modules:") LINE_TERMINATOR
 			TEXT(".. toctree::") LINE_TERMINATOR
 			TEXT("    :maxdepth: 1") LINE_TERMINATOR
 			TEXT("    :caption: Modules") LINE_TERMINATOR LINE_TERMINATOR;
@@ -143,8 +152,19 @@ void FPyOnlineDocsWriter::GenerateIndexFile()
 	// Accumulate all the classes for each section into the table of contents
 	for (const TSharedRef<FPyOnlineDocsSection>& Section : Sections)
 	{
+		FString SectionRef(Section->Name);
+		SectionRef.ReplaceInline(TEXT(" "), TEXT("-"));
+
+		SectionList += TEXT("* :ref:`");
+		SectionList += SectionRef;
+		SectionList += TEXT("`") LINE_TERMINATOR;
+
 		TableOfContents +=
 			LINE_TERMINATOR
+			TEXT(".. _");
+		TableOfContents += SectionRef;
+		TableOfContents +=
+			TEXT(":") LINE_TERMINATOR
 			TEXT(".. toctree::") LINE_TERMINATOR
 			TEXT("    :maxdepth: 1") LINE_TERMINATOR
 			TEXT("    :caption: ");
@@ -157,8 +177,11 @@ void FPyOnlineDocsWriter::GenerateIndexFile()
 		}
 	}
 
-	// Replace {{TableOfContents}} with actual list
+	// Replace {{SectionList}} with actual list
 	FString IndexText = IndexTemplate;
+	IndexText.ReplaceInline(TEXT("{{SectionList}}"), *SectionList, ESearchCase::CaseSensitive);
+
+	// Replace {{TableOfContents}} with actual list
 	IndexText.ReplaceInline(TEXT("{{TableOfContents}}"), *TableOfContents, ESearchCase::CaseSensitive);
 
 	// Save out index file
@@ -258,7 +281,7 @@ void FPyOnlineDocsWriter::GenerateClassFiles()
 
 void FPyOnlineDocsWriter::GenerateFiles(const FString& InPythonStubPath)
 {
-	UE_LOG(LogPython, Log, TEXT("Generating Python API online docs used by Sphinx to generate static HTML..."));
+	UE_LOG(LogPython, Display, TEXT("Generating Python API online docs used by Sphinx to generate static HTML..."));
 
 	// Copy generated unreal module stub file to PythonScriptPlugin/SphinxDocs/modules
 	{
@@ -283,10 +306,112 @@ void FPyOnlineDocsWriter::GenerateFiles(const FString& InPythonStubPath)
 	GenerateModuleFiles();
 	GenerateClassFiles();
 
-	UE_LOG(LogPython, Log, TEXT(
-		"... Finished generating Python API online docs.\n"
-		"In the OS command prompt in PythonPlugin/SphinxDocs call `sphinx-build -b html source/ build/` to generate the HTML."
-	));
+	UE_LOG(LogPython, Display, TEXT(
+		"  ... finished generating Sphinx files."));
+
+	FString Commandline = FCommandLine::Get();
+	bool bUseSphinx = Commandline.Contains(TEXT("-NoHTML")) == false;
+
+	if (bUseSphinx)
+	{
+		// Call Sphinx to generate online Python API docs. (Default)
+
+		// Running as internal Python calls on the version embedded in UE4 rather than as an
+		// executed external process since other installs, paths and environment variables may act
+		// in unexpected ways. Could potentially use Python C++ API calls rather than Python scripts,
+		// though this keeps it clear and if the calls evolve over time the vast number of examples
+		// online are in Python rather than C++.
+
+		// Update pip and then install Sphinx if needed. If Sphinx and its dependencies are already
+		// installed then it will determine that quickly and move on to using it.
+		// More info on using pip within Python here:
+		//   https://pip.pypa.io/en/stable/user_guide/#using-pip-from-your-program
+
+		FString PyCommandStr;
+		FString PythonPath = FPaths::ConvertRelativePathToFull(FPaths::EngineSourceDir()) / TEXT("ThirdParty/Python/Win64/python.exe");
+
+		PyCommandStr += TEXT(
+			"import sys\n"
+			"import subprocess\n"
+			"subprocess.check_call(['");
+		PyCommandStr += PythonPath;
+		PyCommandStr += TEXT(
+			"', '-m', 'pip', 'install', '-q', '-U', 'pip'])\n"
+			"subprocess.check_call(['");
+		PyCommandStr += PythonPath;
+		PyCommandStr +=	TEXT(
+			"', '-m', 'pip', 'install', '-q', '--no-warn-script-location', 'sphinx'])\n"
+			"import sphinx\n");
+
+		// Alternate technique calling pip as a Python command though above is recommended by pip.
+		//
+		//FString PyCommandStr = TEXT(
+		//	"import pip\n"
+		//	"pip.main(['install', 'sphinx'])\n"
+		//	"import sphinx\n");
+
+		// Un-import full unreal module so Sphinx will use generated stub version of unreal module
+		PyCommandStr += TEXT(
+			"del unreal\n"
+			"del sys.modules['unreal']\n");
+
+		// Add on Sphinx build command
+		PyCommandStr += TEXT("sphinx.build_main(['sphinx-build', '-b', 'html', '");
+		PyCommandStr += GetSourcePath();
+		PyCommandStr += TEXT("', '");
+		PyCommandStr += GetBuildPath();
+		PyCommandStr += TEXT("'])");
+
+		UE_LOG(LogPython, Display, TEXT(
+			"Calling Sphinx in PythonPlugin/SphinxDocs to generate the HTML...\n\n"
+			"%s\n\n"
+			"This can take a long time - 16+ minutes for full build on test system...\n"),
+			*PyCommandStr);
+
+		bool bLogSphinx = Commandline.Contains(TEXT("-HTMLLog"));
+		ELogVerbosity::Type OldVerbosity = LogPython.GetVerbosity();
+
+		if (!bLogSphinx)
+		{
+			// Disable Python logging (default)
+			LogPython.SetVerbosity(ELogVerbosity::NoLogging);
+		}
+
+		// Run the Python commands
+		bool PyRunSuccess = FPythonScriptPlugin::Get()->RunString(*PyCommandStr);
+
+		if (!bLogSphinx)
+		{
+			// Re-enable Python logging
+			LogPython.SetVerbosity(OldVerbosity);
+		}
+
+		// The running of the Python commands seem to think there are errors no matter what so not much use to make this notification.
+		//if (PyRunSuccess)
+		//{
+		//	UE_LOG(LogPython, Display, TEXT(
+		//		"\n"
+		//		"  There was an internal Python error while generating the docs, though it may not be an issue.\n\n"
+		//		"  You could call the commandlet again with the '-HTMLLog' option to see more information.\n"));
+		//}
+
+		UE_LOG(LogPython, Display, TEXT(
+			"  ... finished generating Python API online docs!\n\n"
+			"Find them in the following directory:\n"
+			"  %s\n\n"
+			"See additional instructions and information in:\n"
+			"  PythonScriptPlugin/SphinxDocs/PythonAPI_docs_readme.txt\n"),
+			*GetBuildPath());
+	}
+	else
+	{
+		// Prompt to manually call Sphinx to generate online Python API docs.
+		UE_LOG(LogPython, Display, TEXT(
+			"To build the Python API online docs manually follow the instructions in:\n"
+			"  PythonScriptPlugin/SphinxDocs/PythonAPI_docs_readme.txt\n\n"
+			"And then call:"
+			"  PythonScriptPlugin/SphinxDocs/sphinx-build -b html source/ build/"));
+	}
 }
 
 #endif	// WITH_PYTHON

@@ -8,6 +8,7 @@
 #include "Toolkits/AssetEditorManager.h"
 
 #include "Kismet2/BlueprintEditorUtils.h"
+#include "Styling/SlateIconFinder.h"
 
 #define LOCTEXT_NAMESPACE "UMGEditor"
 
@@ -65,14 +66,10 @@ UWidget* FWidgetTemplateBlueprintClass::Create(UWidgetTree* Tree)
 	return FWidgetTemplateClass::CreateNamed(Tree, FName(*FBlueprintEditorUtils::GetClassNameWithoutSuffix(WidgetClass.Get())));
 }
 
-const FSlateBrush* GetEditorIcon_Deprecated(UWidget* Widget);
-
 const FSlateBrush* FWidgetTemplateBlueprintClass::GetIcon() const
 {
-	// @todo UMG: remove after 4.12
-	auto DefaultUserWidget = UUserWidget::StaticClass()->GetDefaultObject<UUserWidget>();
-	return GetEditorIcon_Deprecated(DefaultUserWidget);
-	// return FClassIconFinder::FindIconForClass(UUserWidget::StaticClass());
+	return FSlateIconFinder::FindIconBrushForClass(UUserWidget::StaticClass());
+	
 }
 
 TSharedRef<IToolTip> FWidgetTemplateBlueprintClass::GetToolTip() const

@@ -280,6 +280,18 @@ FText FMovieSceneSectionDetailsCustomization::GetRangeStartButtonIcon() const
 /** Called when the button is pressed to toggle the current state. */
 FReply FMovieSceneSectionDetailsCustomization::ToggleRangeStartBounded()
 {
+	FScopedTransaction Transaction(LOCTEXT("ToggleRangeStartBounded", "Toggle Range Start Bounded"));
+	TArray<UObject*> Objects;
+	MovieSceneSectionPropertyHandle->GetOuterObjects(Objects);
+
+	for (auto Outer : Objects)
+	{
+		for (UObject* Obj : Objects)
+		{
+			Obj->Modify();
+		}
+	}
+
 	if (IsRangeStartTextboxEnabled())
 	{
 		SetRangeStartBounded(false);
@@ -468,6 +480,18 @@ FText FMovieSceneSectionDetailsCustomization::GetRangeEndButtonIcon() const
 /** Called when the button is pressed to toggle the current state. */
 FReply FMovieSceneSectionDetailsCustomization::ToggleRangeEndBounded()
 {
+	FScopedTransaction Transaction(LOCTEXT("ToggleRangeEndBounded", "Toggle Range End Bounded"));
+	TArray<UObject*> Objects;
+	MovieSceneSectionPropertyHandle->GetOuterObjects(Objects);
+
+	for (auto Outer : Objects)
+	{
+		for (UObject* Obj : Objects)
+		{
+			Obj->Modify();
+		}
+	}
+
 	if (IsRangeEndTextboxEnabled())
 	{
 		SetRangeEndBounded(false);

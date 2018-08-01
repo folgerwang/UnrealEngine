@@ -342,7 +342,7 @@ void FDetailItemNode::GenerateChildren( bool bUpdateFilteredNodes )
 	Children.Empty();
 
 	TSharedPtr<FDetailCategoryImpl> ParentCategoryPinned = ParentCategory.Pin();
-	if (ParentCategoryPinned.IsValid() == false)
+	if (ParentCategoryPinned.IsValid() == false || !ParentCategoryPinned->IsParentLayoutValid())
 	{
 		return;
 	}

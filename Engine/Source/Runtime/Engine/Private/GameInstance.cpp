@@ -734,9 +734,10 @@ APlayerController* UGameInstance::GetFirstLocalPlayerController(UWorld* World) c
 		// Only return a local PlayerController from the given World.
 		for (FConstPlayerControllerIterator Iterator = World->GetPlayerControllerIterator(); Iterator; ++Iterator)
 		{
-			if (*Iterator != nullptr && (*Iterator)->IsLocalController())
+			APlayerController* PC = Iterator->Get();
+			if (PC && PC->IsLocalController())
 			{
-				return Iterator->Get();
+				return PC;
 			}
 		}
 	}

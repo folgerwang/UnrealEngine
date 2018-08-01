@@ -36,6 +36,8 @@
 #include <Metal/Metal.h>
 #endif
 
+DEFINE_LOG_CATEGORY(LogSteamVR);
+
 // Visibility mesh
 static TAutoConsoleVariable<int32> CUseSteamVRVisibleAreaMesh(TEXT("vr.SteamVR.UseVisibleAreaMesh"), 1, TEXT("If non-zero, SteamVR will use the visible area mesh in addition to the hidden area mesh optimization.  This may be problematic on beta versions of platforms."));
 
@@ -1260,17 +1262,6 @@ bool FSteamVRHMD::EnableStereo(bool bStereo)
 		TSharedPtr<SWindow> Window = SceneVP->FindWindow();
 		if (Window.IsValid() && SceneVP->GetViewportWidget().IsValid())
 		{
-			int32 ResX = 2160;
-			int32 ResY = 1200;
-
-			MonitorInfo MonitorDesc;
-			if (GetHMDMonitorInfo(MonitorDesc))
-			{
-				ResX = MonitorDesc.ResolutionX;
-				ResY = MonitorDesc.ResolutionY;
-			}
-			FSystemResolution::RequestResolutionChange(ResX, ResY, EWindowMode::WindowedFullscreen);
-
 			if( bStereo )
 			{
 				int32 PosX, PosY;

@@ -127,8 +127,8 @@ static float GetNextSmallerPositiveFloat(float x)
 #define SSSS_SUBSURFACE_COLOR_OFFSET			0
 #define SSSS_TRANSMISSION_OFFSET				(SSSS_SUBSURFACE_COLOR_OFFSET+1)
 #define SSSS_BOUNDARY_COLOR_BLEED_OFFSET		(SSSS_TRANSMISSION_OFFSET+1)
-#define SSSS_RESERVED_PARAM2_OFFSET				(SSSS_BOUNDARY_COLOR_BLEED_OFFSET+1)
-#define SSSS_KERNEL0_OFFSET						(SSSS_RESERVED_PARAM2_OFFSET+1)
+#define SSSS_DUAL_SPECULAR_OFFSET				(SSSS_BOUNDARY_COLOR_BLEED_OFFSET+1)
+#define SSSS_KERNEL0_OFFSET						(SSSS_DUAL_SPECULAR_OFFSET+1)
 #define SSSS_KERNEL0_SIZE						13
 #define SSSS_KERNEL1_OFFSET						(SSSS_KERNEL0_OFFSET + SSSS_KERNEL0_SIZE)
 #define SSSS_KERNEL1_SIZE						9
@@ -138,6 +138,17 @@ static float GetNextSmallerPositiveFloat(float x)
 #define SSSS_TRANSMISSION_PROFILE_OFFSET		(SSSS_KERNEL0_OFFSET + SSSS_KERNEL_TOTAL_SIZE)
 #define SSSS_TRANSMISSION_PROFILE_SIZE			32
 #define	SSSS_MAX_TRANSMISSION_PROFILE_DISTANCE	5.0f // See MaxTransmissionProfileDistance in ComputeTransmissionProfile(), SeparableSSS.cpp
+#define	SSSS_MAX_DUAL_SPECULAR_ROUGHNESS		2.0f
+
+float Sqrt2(float X)
+{
+	return sqrtf(sqrtf(X));
+}
+
+float Pow4(float X)
+{
+	return X * X * X * X;
+}
 
 void FSubsurfaceProfileTexture::CreateTexture(FRHICommandListImmediate& RHICmdList)
 {
@@ -187,6 +198,15 @@ void FSubsurfaceProfileTexture::CreateTexture(FRHICommandListImmediate& RHICmdLi
 		TextureRow[SSSS_SUBSURFACE_COLOR_OFFSET].A = 0; // unused
 
 		TextureRow[SSSS_BOUNDARY_COLOR_BLEED_OFFSET] = Data.BoundaryColorBleed;
+
+		float MaterialRoughnessToAverage = Data.Roughness0 * (1.0f - Data.LobeMix) + Data.Roughness1 * Data.LobeMix;
+		float AverageToRoughness0 = Data.Roughness0 / MaterialRoughnessToAverage;
+		float AverageToRoughness1 = Data.Roughness1 / MaterialRoughnessToAverage;
+
+		TextureRow[SSSS_DUAL_SPECULAR_OFFSET].R = FMath::Clamp(AverageToRoughness0 / SSSS_MAX_DUAL_SPECULAR_ROUGHNESS, 0.0f, 1.0f);
+		TextureRow[SSSS_DUAL_SPECULAR_OFFSET].G = FMath::Clamp(AverageToRoughness1 / SSSS_MAX_DUAL_SPECULAR_ROUGHNESS, 0.0f, 1.0f);
+		TextureRow[SSSS_DUAL_SPECULAR_OFFSET].B = Data.LobeMix;
+		TextureRow[SSSS_DUAL_SPECULAR_OFFSET].A = FMath::Clamp(MaterialRoughnessToAverage / SSSS_MAX_DUAL_SPECULAR_ROUGHNESS, 0.0f, 1.0f);
 
 		//X:ExtinctionScale, Y:Normal Scale, Z:ScatteringDistribution, W:OneOverIOR
 		TextureRow[SSSS_TRANSMISSION_OFFSET].R = Data.ExtinctionScale;

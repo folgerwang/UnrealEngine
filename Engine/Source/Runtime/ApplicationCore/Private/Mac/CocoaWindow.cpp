@@ -36,6 +36,8 @@ NSString* NSPerformDragOperation = @"NSPerformDragOperation";
 		bIsOnActiveSpace = [super isOnActiveSpace];
 		self.TargetWindowMode = EWindowMode::Windowed;
 		[super setAlphaValue:Opacity];
+		[super setRestorable:NO];
+		[super disableSnapshotRestoration];
 	}
 	return NewSelf;
 }

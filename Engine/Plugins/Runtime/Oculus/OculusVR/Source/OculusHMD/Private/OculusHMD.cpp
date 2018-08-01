@@ -477,10 +477,6 @@ namespace OculusHMD
 			ovrp_SetTrackingOriginType2(TrackingOrigin);
 			OCFlags.NeedSetTrackingOrigin = false;
 		}
-		else
-		{
-			OCFlags.NeedSetTrackingOrigin = true;
-		}
 
 		OnTrackingOriginChanged();
 	}
@@ -935,7 +931,17 @@ namespace OculusHMD
 
 		FGameFrame* const CurrentGameFrame = Frame.Get();
 
-		if (!InWorldContext.World() || (!(GEnableVREditorHacks && InWorldContext.WorldType == EWorldType::Editor) && !InWorldContext.World()->IsGameWorld()) || !CurrentGameFrame)
+		if (CurrentGameFrame)
+		{
+			// don't use the cached value, as it could be affected by the player's position, so we update it here at the latest point in the game frame
+			CurrentGameFrame->TrackingToWorld = ComputeTrackingToWorldTransform(InWorldContext);
+		}
+		else
+		{
+			return false;
+		}
+
+		if ( !InWorldContext.World() || (!(GEnableVREditorHacks && InWorldContext.WorldType == EWorldType::Editor) && !InWorldContext.World()->IsGameWorld()) )
 		{
 			// ignore all non-game worlds
 			return false;
@@ -1417,7 +1423,7 @@ namespace OculusHMD
 	}
 
 	FIntRect FOculusHMD::GetFullFlatEyeRect_RenderThread(FTexture2DRHIRef EyeTexture) const
-			{
+	{
 		check(IsInRenderingThread());
 		// Rift does this differently than other platforms, it already has an idea of what rectangle it wants to use stored.
 		FIntRect& EyeRect = Settings_RenderThread->EyeRenderViewport[0];
@@ -1488,7 +1494,8 @@ namespace OculusHMD
 	{
 		CheckInGameThread();
 
-		return Settings->IsStereoEnabled() && bNeedReAllocateViewportRenderTarget;
+		return ensureMsgf(Settings.IsValid(), TEXT("Unexpected issue with Oculus settings on the GameThread. This should be valid when this is called in EnqueueBeginRenderFrame() - has the callsite changed?")) &&
+			Settings->IsStereoEnabled() && bNeedReAllocateViewportRenderTarget;
 	}
 
 
@@ -1496,7 +1503,8 @@ namespace OculusHMD
 	{
 		CheckInRenderThread();
 
-		return Settings_RenderThread->IsStereoEnabled() && bNeedReAllocateDepthTexture_RenderThread;
+		return ensureMsgf(Settings_RenderThread.IsValid(), TEXT("Unexpected issue with Oculus settings on the RenderThread. This should be valid when this is called in AllocateCommonDepthTargets() - has the callsite changed?")) &&
+			Settings_RenderThread->IsStereoEnabled() && bNeedReAllocateDepthTexture_RenderThread;
 	}
 
 
@@ -1629,12 +1637,6 @@ namespace OculusHMD
 	uint32 FOculusHMD::CreateLayer(const IStereoLayers::FLayerDesc& InLayerDesc)
 	{
 		CheckInGameThread();
-#if !PLATFORM_ANDROID
-		if (InLayerDesc.ShapeType == IStereoLayers::CubemapLayer)
-		{
-			return 0;
-		}
-#endif
 
 		uint32 LayerId = NextLayerId++;
 		LayerMap.Add(LayerId, MakeShareable(new FLayer(LayerId, InLayerDesc)));
@@ -1966,8 +1968,6 @@ namespace OculusHMD
 	{
 		CheckInRenderThread();
 
-		RenderPokeAHole(RHICmdList, InViewFamily);
-
 		FinishRenderFrame_RenderThread(RHICmdList);
 	}
 
@@ -1986,124 +1986,6 @@ namespace OculusHMD
 	}
 
 
-void FOculusHMD::RenderPokeAHole(FRHICommandListImmediate& RHICmdList, FSceneViewFamily& InViewFamily)
-	{
-		bool needsPokeAHole = false;
-		for (int32 LayerIndex = 0; LayerIndex < Layers_RenderThread.Num(); LayerIndex++)
-		{
-			needsPokeAHole |= Layers_RenderThread[LayerIndex]->NeedsPokeAHole();
-		}
-
-		TArray<FLayerPtr> Layers = Layers_RenderThread;
-		Layers.Sort(FLayerPtr_CompareTotal());
-
-		if (!needsPokeAHole)
-			return;
-
-		FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
-
-		// Poke-A-Hole not supported yet for direct-multiview.
-		static const auto CVarMobileMultiViewDirect = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("vr.MobileMultiView.Direct"));
-		const bool bIsMobileMultiViewDirectEnabled = (CVarMobileMultiViewDirect && CVarMobileMultiViewDirect->GetValueOnAnyThread() != 0);
-
-		if (!bIsMobileMultiViewDirectEnabled)
-		{
-			SetRenderTarget(RHICmdList, InViewFamily.RenderTarget->GetRenderTargetTexture(), SceneContext.GetSceneDepthSurface());
-		}
-		else
-		{
-			return;
-		}
-
-		FGameFrame* CurrentFrame = Frame_RenderThread.Get();
-		if (!CurrentFrame)
-		{
-			return;
-		}
-
-		const FViewInfo* LeftView = (FViewInfo*)(InViewFamily.Views[0]);
-		const FViewInfo* RightView = (FViewInfo*)(InViewFamily.Views[1]);
-
-		TShaderMapRef<FOculusVertexShader> ScreenVertexShader(LeftView->ShaderMap);
-		TShaderMapRef<FOculusAlphaInverseShader> PixelShader(LeftView->ShaderMap);
-		TShaderMapRef<FOculusWhiteShader> WhitePixelShader(LeftView->ShaderMap);
-		TShaderMapRef<FOculusBlackShader> BlackPixelShader(LeftView->ShaderMap);
-
-		const auto FeatureLevel = GMaxRHIFeatureLevel;
-
-		for (int32 LayerIndex = 0; LayerIndex < Layers.Num(); LayerIndex++)
-		{
-			FLayerPtr Layer = Layers[LayerIndex];
-			if (Layer->NeedsPokeAHole())
-			{
-				FMatrix LeftMatrix, RightMatrix;
-				FMatrix LayerMatrix = Layer->GetDesc().Transform.ToMatrixNoScale();
-				bool bIsCubemap = Layer->GetDesc().ShapeType == IStereoLayers::ELayerShape::CubemapLayer;
-
-#if PLATFORM_ANDROID
-				bool invertCoords = true;
-#else
-				bool invertCoords = false;
-#endif
-
-				if (Layer->GetDesc().PositionType == IStereoLayers::WorldLocked)
-				{
-					FMatrix LeftViewMatrix = LeftView->ViewMatrices.GetViewMatrix();
-					FMatrix RightViewMatrix = RightView->ViewMatrices.GetViewMatrix();
-					LeftMatrix = LayerMatrix * LeftViewMatrix * LeftView->ViewMatrices.ComputeProjectionNoAAMatrix();
-					RightMatrix = LayerMatrix * RightViewMatrix  *  RightView->ViewMatrices.ComputeProjectionNoAAMatrix();
-				}
-				else if (Layer->GetDesc().PositionType == IStereoLayers::TrackerLocked)
-				{
-					FTransform torsoTransform(CurrentFrame->PlayerOrientation, CurrentFrame->PlayerLocation);
-					FMatrix torsoMatrix = torsoTransform.ToMatrixNoScale();
-					LeftMatrix = LayerMatrix * torsoMatrix * LeftView->ViewMatrices.GetViewMatrix() * LeftView->ViewMatrices.ComputeProjectionNoAAMatrix();
-					RightMatrix = LayerMatrix * torsoMatrix * RightView->ViewMatrices.GetViewMatrix() * RightView->ViewMatrices.ComputeProjectionNoAAMatrix();
-				}
-
-				FTextureRHIRef LayerTex = Layer->GetTexture();
-
-				FGraphicsPipelineStateInitializer GraphicsPSOInit;
-				RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
-				GraphicsPSOInit.PrimitiveType = PT_TriangleList;
-				GraphicsPSOInit.BlendState = TStaticBlendState<CW_RGBA, BO_Add, BF_InverseSourceAlpha, BF_SourceAlpha, BO_Add, BF_One, BF_Zero>::GetRHI();
-				GraphicsPSOInit.RasterizerState = TStaticRasterizerState<FM_Solid, CM_None>::GetRHI();
-				GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_DepthNearOrEqual>::GetRHI();
-				GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = RendererModule->GetFilterVertexDeclaration().VertexDeclarationRHI;
-				GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*ScreenVertexShader);
-
-				if (!bIsCubemap)
-				{
-					GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-					SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
-
-					PixelShader->SetParameters(RHICmdList, TStaticSamplerState<SF_Bilinear>::GetRHI(), LayerTex);
-
-					RHICmdList.SetViewport(LeftView->UnscaledViewRect.Min.X, LeftView->UnscaledViewRect.Min.Y, 0, LeftView->UnscaledViewRect.Max.X, LeftView->UnscaledViewRect.Max.Y, 1);
-					Layer->DrawPokeAHoleMesh(RHICmdList, LeftMatrix, 0.999, invertCoords);
-
-					RHICmdList.SetViewport(RightView->UnscaledViewRect.Min.X, RightView->UnscaledViewRect.Min.Y, 0, RightView->UnscaledViewRect.Max.X, RightView->UnscaledViewRect.Max.Y, 1);
-
-					Layer->DrawPokeAHoleMesh(RHICmdList, RightMatrix, 0.999, invertCoords);
-				}
-
-				GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*WhitePixelShader);
-				GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_DepthFarther>::GetRHI();
-				SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
-				int farViewport = bIsCubemap ? 0 : 1;
-
-				RHICmdList.SetViewport(LeftView->UnscaledViewRect.Min.X, LeftView->UnscaledViewRect.Min.Y, 0, LeftView->UnscaledViewRect.Max.X, LeftView->UnscaledViewRect.Max.Y, farViewport);
-
-				Layer->DrawPokeAHoleMesh(RHICmdList, LeftMatrix, 1.1, invertCoords);
-
-				RHICmdList.SetViewport(RightView->UnscaledViewRect.Min.X, RightView->UnscaledViewRect.Min.Y, 0, RightView->UnscaledViewRect.Max.X, RightView->UnscaledViewRect.Max.Y, farViewport);
-
-				Layer->DrawPokeAHoleMesh(RHICmdList, RightMatrix, 1.1, invertCoords);
-			}
-		}
-	}
-
-
 	FOculusHMD::FOculusHMD(const FAutoRegister& AutoRegister)
 		: FSceneViewExtensionBase(AutoRegister)
 		, ConsoleCommands(this)
@@ -2111,7 +1993,6 @@ void FOculusHMD::RenderPokeAHole(FRHICommandListImmediate& RHICmdList, FSceneVie
 		Flags.Raw = 0;
 		OCFlags.Raw = 0;
 		TrackingOrigin = ovrpTrackingOrigin_EyeLevel;
-		OCFlags.NeedSetTrackingOrigin = true;
 		DeltaControlRotation = FRotator::ZeroRotator;  // used from ApplyHmdRotation
 		LastPlayerOrientation = FQuat::Identity;
 		LastPlayerLocation = FVector::ZeroVector;
@@ -2338,6 +2219,7 @@ void FOculusHMD::RenderPokeAHole(FRHICommandListImmediate& RHICmdList, FSceneVie
 		ovrp_SetSystemGpuLevel2(3);
 		ovrp_SetAppCPUPriority2(ovrpBool_True);
 
+		OCFlags.NeedSetTrackingOrigin = true;
 		bNeedReAllocateViewportRenderTarget = true;
 		bNeedReAllocateDepthTexture_RenderThread = false;
 
@@ -2455,6 +2337,11 @@ void FOculusHMD::RenderPokeAHole(FRHICommandListImmediate& RHICmdList, FSceneVie
 					for (int32 LayerIndex = 0; LayerIndex < Layers_RHIThread.Num(); LayerIndex++)
 					{
 						Layers_RHIThread[LayerIndex]->ReleaseResources_RHIThread();
+					}
+
+					if (Splash.IsValid())
+					{
+						Splash->ReleaseResources_RHIThread();
 					}
 
 					if (CustomPresent)
@@ -3092,6 +2979,26 @@ void FOculusHMD::RenderPokeAHole(FRHICommandListImmediate& RHICmdList, FSceneVie
 		return TransformWithPlayer;
 	}
 
+	ovrpVector3f FOculusHMD::WorldLocationToOculusPoint(const FVector& InUnrealPosition)
+	{
+		CheckInGameThread();
+		FQuat AdjustedPlayerOrientation = GetBaseOrientation().Inverse() * LastPlayerOrientation;
+		AdjustedPlayerOrientation.Normalize();
+
+		FVector AdjustedPlayerLocation = LastPlayerLocation;
+		if (GetXRCamera(HMDDeviceId)->GetUseImplicitHMDPosition())
+		{
+			FQuat HeadOrientation = FQuat::Identity; // Unused
+			FVector HeadPosition;
+			GetCurrentPose(HMDDeviceId, HeadOrientation, HeadPosition);
+			AdjustedPlayerLocation -= LastPlayerOrientation.Inverse().RotateVector(HeadPosition);
+		}
+		const FTransform InvWorldTransform = FTransform(AdjustedPlayerOrientation, AdjustedPlayerLocation).Inverse();
+		const FVector ConvertedPosition = InvWorldTransform.TransformPosition(InUnrealPosition) / GetWorldToMetersScale();
+
+		return ToOvrpVector3f(ConvertedPosition);
+	}
+
 
 	float FOculusHMD::ConvertFloat_M2U(float OculusFloat) const
 	{
@@ -3330,13 +3237,22 @@ void FOculusHMD::RenderPokeAHole(FRHICommandListImmediate& RHICmdList, FSceneVie
 //			UE_LOG(LogHMD, Log, TEXT("StartRenderFrame %u"), NextFrameToRender->FrameNumber);
 
 			LastFrameToRender = NextFrameToRender;
-			NextFrameToRender->Flags.bSplashIsShown = Splash->IsShown();
+			NextFrameToRender->Flags.bSplashIsShown = Splash->IsShown() || NextFrameToRender->FrameNumber != NextFrameNumber;
 
 			if (NextFrameToRender->ShowFlags.Rendering && !NextFrameToRender->Flags.bSplashIsShown)
 			{
 //				UE_LOG(LogHMD, Log, TEXT("ovrp_WaitToBeginFrame %u"), NextFrameToRender->FrameNumber);
-				ovrp_WaitToBeginFrame(NextFrameToRender->FrameNumber);
-				NextFrameNumber++;
+
+				ovrpResult Result;
+				if (OVRP_FAILURE(Result = ovrp_WaitToBeginFrame(NextFrameToRender->FrameNumber)))
+				{
+					UE_LOG(LogHMD, Error, TEXT("ovrp_WaitToBeginFrame %u failed (%d)"), NextFrameToRender->FrameNumber, Result);
+					NextFrameToRender->ShowFlags.Rendering = false;
+				}
+				else
+				{
+					NextFrameNumber++;
+				}
 			}
 
 			FSettingsPtr XSettings = Settings->Clone();
@@ -3441,11 +3357,20 @@ void FOculusHMD::RenderPokeAHole(FRHICommandListImmediate& RHICmdList, FSceneVie
 
 					if (Frame_RHIThread->ShowFlags.Rendering && !Frame_RHIThread->Flags.bSplashIsShown)
 					{
-//						UE_LOG(LogHMD, Log, TEXT("ovrp_BeginFrame4 %u"), Frame_RHIThread->FrameNumber);
-						ovrp_BeginFrame4(Frame_RHIThread->FrameNumber, CustomPresent->GetOvrpCommandQueue());
+//						UE_LOG(LogHMD, Log, TEXT("ovrp_BeginFrame4 %u"), Frame_RHIThread->FrameNumber);						
+
+						ovrpResult Result;
+						if (OVRP_FAILURE(Result = ovrp_BeginFrame4(Frame_RHIThread->FrameNumber, CustomPresent->GetOvrpCommandQueue())))
+						{
+							UE_LOG(LogHMD, Error, TEXT("ovrp_BeginFrame4 %u failed (%d)"), Frame_RHIThread->FrameNumber, Result);
+							Frame_RHIThread->ShowFlags.Rendering = false;
+						}
+						else
+						{
 #if PLATFORM_ANDROID
-						ovrp_SetTiledMultiResLevel((ovrpTiledMultiResLevel)Frame_RHIThread->MultiResLevel);
+							ovrp_SetTiledMultiResLevel((ovrpTiledMultiResLevel)Frame_RHIThread->MultiResLevel);
 #endif
+						}
 					}
 				}
 			});
@@ -3468,26 +3393,27 @@ void FOculusHMD::RenderPokeAHole(FRHICommandListImmediate& RHICmdList, FSceneVie
 				TArray<const ovrpLayerSubmit*> LayerSubmitPtr;
 
 				int32 LayerNum = Layers.Num();
-#if PLATFORM_ANDROID
-				if (LayerNum > 4)
-				{
-					UE_LOG(LogHMD, Warning, TEXT("Oculus on Android only supports up to 4 stereo layers at the moment, and you're using %d. Reduce the number in use to resolve this issue."), LayerNum);
-					LayerNum = 4;
-				}
-#endif
+
 				LayerSubmitPtr.SetNum(LayerNum);
 
 				for (int32 LayerIndex = 0; LayerIndex < LayerNum; LayerIndex++)
 				{
-					LayerSubmitPtr[LayerIndex] = Layers[LayerIndex]->UpdateLayer_RHIThread(Settings_RHIThread.Get(), Frame_RHIThread.Get());
+					LayerSubmitPtr[LayerIndex] = Layers[LayerIndex]->UpdateLayer_RHIThread(Settings_RHIThread.Get(), Frame_RHIThread.Get(), LayerIndex);
 				}
 
 //				UE_LOG(LogHMD, Log, TEXT("ovrp_EndFrame4 %u"), Frame_RHIThread->FrameNumber);
-				ovrp_EndFrame4(Frame_RHIThread->FrameNumber, LayerSubmitPtr.GetData(), LayerSubmitPtr.Num(), CustomPresent->GetOvrpCommandQueue());
 
-				for (int32 LayerIndex = 0; LayerIndex < Layers.Num(); LayerIndex++)
+				ovrpResult Result;
+				if (OVRP_FAILURE(Result = ovrp_EndFrame4(Frame_RHIThread->FrameNumber, LayerSubmitPtr.GetData(), LayerSubmitPtr.Num(), CustomPresent->GetOvrpCommandQueue())))
 				{
-					Layers[LayerIndex]->IncrementSwapChainIndex_RHIThread(CustomPresent);
+					UE_LOG(LogHMD, Error, TEXT("ovrp_EndFrame4 %u failed (%d)"), Frame_RHIThread->FrameNumber, Result);
+				}
+				else
+				{
+					for (int32 LayerIndex = 0; LayerIndex < Layers.Num(); LayerIndex++)
+					{
+						Layers[LayerIndex]->IncrementSwapChainIndex_RHIThread(CustomPresent);
+					}
 				}
 			}
 		}

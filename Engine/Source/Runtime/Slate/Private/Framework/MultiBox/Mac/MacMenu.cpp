@@ -8,6 +8,7 @@
 #include "HAL/PlatformApplicationMisc.h"
 #include "Framework/Commands/Commands.h"
 #include "Misc/App.h"
+#include "Widgets/SViewport.h"
 
 struct FMacMenuItemState
 {
@@ -53,6 +54,7 @@ static FCriticalSection GCachedMenuStateCS;
 	if ( !CocoaMenu || ![CocoaMenu isHighlightingKeyEquivalent] )
 	{
 		FSlateMacMenu::ExecuteMenuItemAction(self.MenuEntryBlock.ToSharedRef());
+		FPlatformApplicationMisc::bChachedMacMenuStateNeedsUpdate = true;
 	}
 }
 
@@ -104,7 +106,7 @@ public:
 		TEXT("MacMenu"),
 		NSLOCTEXT("Contexts", "MacMenu", "MacMenu"),
 		NAME_None,
-		FCoreStyle::Get().GetStyleSetName()
+		"MacMenu"
 	)
 	{}
 	
@@ -263,6 +265,9 @@ namespace MacMenuHelper
 	{
 		return GIsEditor ? NSLOCTEXT("UnrealEditor", "ApplicationTitle", "Unreal Editor").ToString().GetNSString() : FString(FApp::GetProjectName()).GetNSString();
 	}
+	
+	bool GMacPostInitStartupRequested = false;
+	bool GMacPostInitStartUpComplete = false; 
 };
 
 // Bind all low-level Application hooks that require to access this high-level MacMenu system which includes NSApp Menu's and slate menus
@@ -290,14 +295,13 @@ void FSlateMacMenu::CleanupOnShutdown()
 
 void FSlateMacMenu::PostInitStartup()
 {
-	static bool bPostInitStartup = false;
-	check(!bPostInitStartup);
+	MacMenuHelper::GMacPostInitStartupRequested = true;
 	
 	// Setup the app menu in menu bar
 	const bool bIsBundledApp = [[[NSBundle mainBundle] bundlePath] hasSuffix:@".app"];
-	if (!bPostInitStartup && bIsBundledApp)
+	if (!MacMenuHelper::GMacPostInitStartUpComplete && bIsBundledApp && MacApplication)
 	{
-		bPostInitStartup = true;
+		MacMenuHelper::GMacPostInitStartUpComplete = true;
 		
 		// Setup our Mac Specific commands
 		FMacMenuCommands::Register();
@@ -406,12 +410,17 @@ void FSlateMacMenu::LanguageChanged()
 	
 	NSMenuItem* Services = [AppMenu itemWithTag:MacMenuHelper::CmdID_ServicesMenu];
 	[Services setTitle:NSLOCTEXT("MainMenu","ServicesMenu","Services").ToString().GetNSString()];
-	
-	//@todo: Look into updating the MainMenu tab so the top level menu item names "File, Edit, Window etc" update without the need for manual focus to reflect this change...
 }
 
 void FSlateMacMenu::UpdateApplicationMenu(bool bMacApplicationModalMode)
 {
+	// In case an obsecure app startup sequence has not managed to finish the menu startup correctly
+	// However only do this if the post init has been called
+	if(!MacMenuHelper::GMacPostInitStartUpComplete && MacMenuHelper::GMacPostInitStartupRequested)
+	{
+		PostInitStartup();
+	}
+
     NSMenu* MainMenu = [NSApp mainMenu];
     NSMenuItem* AppMenuItem = [MainMenu itemWithTitle:@"AppMenuItem"];
     NSMenu* AppMenu = [AppMenuItem submenu];
@@ -571,99 +580,102 @@ void FSlateMacMenu::UpdateMenu(FMacMenu* Menu)
 			}
 		}
 
-		TSharedPtr<TArray<FMacMenuItemState>> MenuState = GCachedMenuState[Menu];
-		int32 ItemIndexAdjust = 0;
-		for (int32 Index = 0; Index < MenuState->Num(); Index++)
+		TSharedPtr<TArray<FMacMenuItemState>> MenuState = GCachedMenuState.FindRef(Menu);
+		if(MenuState.IsValid())
 		{
-			FMacMenuItemState& MenuItemState = (*MenuState)[Index];
-			const int32 ItemIndex = (bIsWindowMenu ? Index + ItemIndexOffset : Index) - ItemIndexAdjust;
-			NSMenuItem* MenuItem = [Menu numberOfItems] > ItemIndex ? [Menu itemAtIndex:ItemIndex] : nil;
-
-			if (MenuItemState.Type == EMultiBlockType::MenuEntry)
+			int32 ItemIndexAdjust = 0;
+			for (int32 Index = 0; Index < MenuState->Num(); Index++)
 			{
-				if (MenuItem && (![MenuItem isKindOfClass:[FMacMenuItem class]] || (MenuItemState.IsSubMenu && [MenuItem submenu] == nil) || (!MenuItemState.IsSubMenu && [MenuItem submenu] != nil)))
-				{
-					[Menu removeItem:MenuItem];
-					MenuItem = nil;
-				}
-				if (!MenuItem)
-				{
-					MenuItem = [[[FMacMenuItem alloc] initWithMenuEntryBlock:MenuItemState.Block] autorelease];
+				FMacMenuItemState& MenuItemState = (*MenuState)[Index];
+				const int32 ItemIndex = (bIsWindowMenu ? Index + ItemIndexOffset : Index) - ItemIndexAdjust;
+				NSMenuItem* MenuItem = [Menu numberOfItems] > ItemIndex ? [Menu itemAtIndex:ItemIndex] : nil;
 
-					if (MenuItemState.IsSubMenu)
+				if (MenuItemState.Type == EMultiBlockType::MenuEntry)
+				{
+					if (MenuItem && (![MenuItem isKindOfClass:[FMacMenuItem class]] || (MenuItemState.IsSubMenu && [MenuItem submenu] == nil) || (!MenuItemState.IsSubMenu && [MenuItem submenu] != nil)))
 					{
-						FMacMenu* SubMenu = [[[FMacMenu alloc] initWithMenuEntryBlock:MenuItemState.Block] autorelease];
-						[MenuItem setSubmenu:SubMenu];
+						[Menu removeItem:MenuItem];
+						MenuItem = nil;
+					}
+					if (!MenuItem)
+					{
+						MenuItem = [[[FMacMenuItem alloc] initWithMenuEntryBlock:MenuItemState.Block] autorelease];
+
+						if (MenuItemState.IsSubMenu)
+						{
+							FMacMenu* SubMenu = [[[FMacMenu alloc] initWithMenuEntryBlock:MenuItemState.Block] autorelease];
+							[MenuItem setSubmenu:SubMenu];
+						}
+
+						if ([Menu numberOfItems] > ItemIndex)
+						{
+							[Menu insertItem:MenuItem atIndex:ItemIndex];
+						}
+						else
+						{
+							[Menu addItem:MenuItem];
+						}
 					}
 
-					if ([Menu numberOfItems] > ItemIndex)
+					[MenuItem setTitle:MenuItemState.Title];
+
+					[MenuItem setKeyEquivalent:MenuItemState.KeyEquivalent];
+					[MenuItem setKeyEquivalentModifierMask:MenuItemState.KeyModifiers];
+
+					if (bIsWindowMenu)
 					{
-						[Menu insertItem:MenuItem atIndex:ItemIndex];
+						NSImage* MenuImage = MenuItemState.Icon;
+						if(MenuImage)
+						{
+							[MenuItem setImage:MenuImage];
+						}
 					}
 					else
 					{
-						[Menu addItem:MenuItem];
+						[MenuItem setImage:nil];
+					}
+
+					[MenuItem setTarget:MenuItem];
+					if(!MenuItemState.IsSubMenu)
+					{
+					   if(MenuItemState.IsEnabled)
+						{
+							[MenuItem setAction:@selector(performAction)];
+						}
+						else
+						{
+							[MenuItem setAction:nil];
+						}
+					}
+					
+					if (!MenuItemState.IsSubMenu)
+					{
+						[MenuItem setState:MenuItemState.State];
 					}
 				}
-
-				[MenuItem setTitle:MenuItemState.Title];
-
-				[MenuItem setKeyEquivalent:MenuItemState.KeyEquivalent];
-				[MenuItem setKeyEquivalentModifierMask:MenuItemState.KeyModifiers];
-
-				if (bIsWindowMenu)
+				else if (MenuItemState.Type == EMultiBlockType::MenuSeparator)
 				{
-					NSImage* MenuImage = MenuItemState.Icon;
-					if(MenuImage)
+					if (MenuItem && ![MenuItem isSeparatorItem])
 					{
-						[MenuItem setImage:MenuImage];
+						[Menu removeItem:MenuItem];
+					}
+					else if (!MenuItem)
+					{
+						if ([Menu numberOfItems] > ItemIndex)
+						{
+							[Menu insertItem:[NSMenuItem separatorItem] atIndex:ItemIndex];
+						}
+						else
+						{
+							[Menu addItem:[NSMenuItem separatorItem]];
+						}
 					}
 				}
 				else
 				{
-					[MenuItem setImage:nil];
+					// If it's a type we skip, update ItemIndexAdjust so we can properly calculate item's index in NSMenu
+					ItemIndexAdjust++;
 				}
-
-                [MenuItem setTarget:MenuItem];
-                if(!MenuItemState.IsSubMenu)
-                {
-                   if(MenuItemState.IsEnabled)
-                    {
-                        [MenuItem setAction:@selector(performAction)];
-                    }
-                    else
-                    {
-                        [MenuItem setAction:nil];
-                    }
-                }
-				
-				if (!MenuItemState.IsSubMenu)
-				{
-					[MenuItem setState:MenuItemState.State];
-				}
-			}
-			else if (MenuItemState.Type == EMultiBlockType::MenuSeparator)
-			{
-				if (MenuItem && ![MenuItem isSeparatorItem])
-				{
-					[Menu removeItem:MenuItem];
-				}
-				else if (!MenuItem)
-				{
-					if ([Menu numberOfItems] > ItemIndex)
-					{
-						[Menu insertItem:[NSMenuItem separatorItem] atIndex:ItemIndex];
-					}
-					else
-					{
-						[Menu addItem:[NSMenuItem separatorItem]];
-					}
-				}
-			}
-			else
-			{
-				// If it's a type we skip, update ItemIndexAdjust so we can properly calculate item's index in NSMenu
-				ItemIndexAdjust++;
 			}
 		}
 	});
@@ -689,7 +701,19 @@ void FSlateMacMenu::UpdateCachedState()
 		}
 		MacApplication->GetWindowsArrayMutex().Unlock();
     }
-	
+    
+    // If PIE Viewport has focus don't update
+    if(GIsEditor && FSlateApplication::IsInitialized())
+    {
+    	TSharedPtr<SViewport> ViewPort = FSlateApplication::Get().GetGameViewport();
+		if(ViewPort.IsValid())
+		{
+			if(ViewPort->HasKeyboardFocus())
+			{
+				bShouldUpdate = false;
+			}
+		}
+	}
 
 	if (bShouldUpdate)
 	{

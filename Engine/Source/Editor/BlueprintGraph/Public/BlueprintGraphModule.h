@@ -25,6 +25,7 @@ public:
 	 */
 	BLUEPRINTGRAPH_API TArray<FActionMenuRejectionTest>& GetExtendedActionMenuFilters() { return ExtendedMenuFilters; }
 
+	virtual void ShutdownModule() override;
 private:
 	TArray<FActionMenuRejectionTest> ExtendedMenuFilters;
 };

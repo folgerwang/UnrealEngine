@@ -2,7 +2,7 @@
 
 // AppleARKit
 #include "AppleARKitHitTestResult.h"
-#include "AppleARKitTransform.h"
+#include "AppleARKitConversion.h"
 
 #if SUPPORTS_ARKIT_1_0
 
@@ -70,7 +70,7 @@ FAppleARKitHitTestResult::FAppleARKitHitTestResult( ARHitTestResult* InARHitTest
 	// Convert properties
 	Type = ToEAppleARKitHitTestResultType( InARHitTestResult.type );
     Distance = InARHitTestResult.distance * WorldToMetersScale;
-	Transform = FAppleARKitTransform::ToFTransform( InARHitTestResult.worldTransform, WorldToMetersScale );
+	Transform = FAppleARKitConversion::ToFTransform( InARHitTestResult.worldTransform );
 	Anchor = InAnchor;
 }
 

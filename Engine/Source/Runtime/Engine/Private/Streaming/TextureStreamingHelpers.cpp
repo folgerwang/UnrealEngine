@@ -5,6 +5,7 @@ TextureStreamingHelpers.cpp: Definitions of classes used for texture streaming.
 =============================================================================*/
 
 #include "Streaming/TextureStreamingHelpers.h"
+#include "UnrealEngine.h"
 #include "Engine/Texture2D.h"
 #include "GenericPlatform/GenericPlatformMemoryPoolStats.h"
 
@@ -251,6 +252,8 @@ void FTextureStreamingSettings::Update()
 
 	bUseMaterialData = bUseNewMetrics && CVarStreamingUseMaterialData.GetValueOnAnyThread() != 0;
 	HiddenPrimitiveScale = bUseNewMetrics ? CVarStreamingHiddenPrimitiveScale.GetValueOnAnyThread() : 1.f;
+
+	MaterialQualityLevel = (int32)GetCachedScalabilityCVars().MaterialQualityLevel;
 
 	if (MinMipForSplitRequest <= 0)
 	{

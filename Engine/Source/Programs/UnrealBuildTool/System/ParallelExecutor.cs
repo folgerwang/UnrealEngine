@@ -1,3 +1,5 @@
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -81,7 +83,7 @@ namespace UnrealBuildTool
 		{
 			// Figure out how many processors to use
 			int MaxProcesses = Math.Min((int)(Environment.ProcessorCount * ProcessorCountMultiplier), MaxProcessorCount);
-			Log.TraceInformation("Building with {0} {1}...", MaxProcesses, (MaxProcesses == 1)? "process" : "processes");
+			Log.TraceInformation("Building {0} {1} with {2} {3}...", InputActions.Count, (InputActions.Count == 1) ? "action" : "actions", MaxProcesses, (MaxProcesses == 1)? "process" : "processes");
 
 			// Create actions with all our internal metadata
 			List<BuildAction> Actions = new List<BuildAction>();

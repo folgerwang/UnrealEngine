@@ -33,7 +33,7 @@ namespace UnrealGameSync
 
 			foreach(UserSelectedProjectSettings Project in LocalFileToProject.Values.OrderBy(x => x.ToString()))
 			{
-				bool Enabled = ScheduledProjects.Contains(Project);
+				bool Enabled = ScheduledProjects.Any(x => x.LocalPath == Project.LocalPath);
 				ProjectListBox.Items.Add(Project, Enabled);
 			}
 

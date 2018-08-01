@@ -21,6 +21,7 @@ class BLUTILITY_API APlacedEditorUtilityBase : public AActor
 
 	// AActor interface
 	virtual void TickActor(float DeltaSeconds, ELevelTick TickType, FActorTickFunction& ThisTickFunction) override;
+	virtual bool ShouldTickIfViewportsOnly() const override { return true; }
 	// End of AActor interface
 
 	/**

@@ -21,10 +21,6 @@
 #include "/Engine/Generated/VertexFactory.ush"
 #include "HeightFogCommon.ush"
 
-#if MOBILE_MULTI_VIEW
-int MobileMultiViewMask;
-#endif
-
 struct FMobileShadingBasePassVSToPS
 {
 	FVertexFactoryInterpolantsVSToPS FactoryInterpolants;
@@ -46,17 +42,6 @@ void Main(
 {
 #if MOBILE_MULTI_VIEW
 	const int MultiViewId = int(ViewId);
-	// Early out with a degenerate vertex to be clipped if the view is masked
-	
-	#if MATERIALBLENDING_ANY_TRANSLUCENT
-		BRANCH
-		if (MultiViewId == MobileMultiViewMask)
-		{
-			Output.Position = vec4(0.0);
-			return;
-		}
-	#endif
-
 	ResolvedView = ResolveView(uint(MultiViewId));
 	Output.BasePassInterpolants.MultiViewId = float(MultiViewId);
 #else

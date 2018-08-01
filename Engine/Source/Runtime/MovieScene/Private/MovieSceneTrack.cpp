@@ -2,6 +2,8 @@
 
 #include "MovieSceneTrack.h"
 #include "MovieScene.h"
+#include "MovieSceneSequence.h"
+
 #include "MovieSceneTimeHelpers.h"
 #include "Evaluation/MovieSceneSegment.h"
 #include "Compilation/MovieSceneSegmentCompiler.h"
@@ -201,7 +203,13 @@ FMovieSceneEvaluationTrack UMovieSceneTrack::GenerateTrackTemplate() const
 		virtual void AddOwnedTrack(FMovieSceneEvaluationTrack&& InTrackTemplate, const UMovieSceneTrack& SourceTrack) override {}
 	} Generator;
 
-	Compile(TrackTemplate, FMovieSceneTrackCompilerArgs(Generator));
+	FMovieSceneTrackCompilerArgs Args(Generator);
+	if (GetTypedOuter<UMovieSceneSequence>())
+	{
+		Args.DefaultCompletionMode = GetTypedOuter<UMovieSceneSequence>()->DefaultCompletionMode;
+	}
+
+	Compile(TrackTemplate, Args);
 
 	return TrackTemplate;
 }

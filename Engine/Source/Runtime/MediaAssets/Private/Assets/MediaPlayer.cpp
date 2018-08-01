@@ -41,7 +41,8 @@ UMediaPlayer::UMediaPlayer(const FObjectInitializer& ObjectInitializer)
 	, ViewRotation(FRotator::ZeroRotator)
 	, PlayerGuid(FGuid::NewGuid())
 	, PlayOnNext(false)
-#if WITH_EDITOR
+#if WITH_EDITORONLY_DATA
+	, AffectedByPIEHandling(true)
 	, WasPlayingInPIE(false)
 #endif
 {
@@ -95,7 +96,10 @@ void UMediaPlayer::Close()
 
 	PlayerFacade->Close();
 
-	Playlist = NewObject<UMediaPlaylist>(GetTransientPackage(), NAME_None, RF_Transactional | RF_Transient);
+	if (!HasAnyFlags(RF_ClassDefaultObject) && !GExitPurge)
+	{
+		Playlist = NewObject<UMediaPlaylist>(GetTransientPackage(), NAME_None, RF_Transactional | RF_Transient);
+	}
 	PlaylistIndex = INDEX_NONE;
 	PlayOnNext = false;
 }

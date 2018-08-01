@@ -745,13 +745,19 @@ struct FRHICommandRHIThreadFence final : public FRHICommand<FRHICommandRHIThread
 
 FGraphEventRef FRHICommandListImmediate::RHIThreadFence(bool bSetLockFence)
 {
-	check(IsInRenderingThread() && IsRunningRHIInSeparateThread());
-	FRHICommandRHIThreadFence* Cmd = new (AllocCommand<FRHICommandRHIThreadFence>()) FRHICommandRHIThreadFence();
-	if (bSetLockFence)
+	check(IsInRenderingThread());
+
+	if (IsRunningRHIInSeparateThread())
 	{
-		RHIThreadBufferLockFence = Cmd->Fence;
+		FRHICommandRHIThreadFence* Cmd = new (AllocCommand<FRHICommandRHIThreadFence>()) FRHICommandRHIThreadFence();
+		if (bSetLockFence)
+		{
+			RHIThreadBufferLockFence = Cmd->Fence;
+		}
+		return Cmd->Fence;
 	}
-	return Cmd->Fence;
+
+	return nullptr;
 }		
 
 DECLARE_CYCLE_STAT(TEXT("Async Compute CmdList Execute"), STAT_AsyncComputeExecute, STATGROUP_RHICMDLIST);

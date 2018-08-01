@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 #include "EditorAssetLibrary.h"
 
@@ -1343,7 +1343,7 @@ TArray<FString> UEditorAssetLibrary::ListAssets(const FString& DirectoryPath, bo
 		AssetDatas.Reserve(AssetDatas.Num());
 		for (const FAssetData& AssetData : AssetDatas)
 		{
-			Result.Add(AssetData.PackageName.ToString());
+			Result.Add(AssetData.ObjectPath.ToString());
 		}
 	}
 

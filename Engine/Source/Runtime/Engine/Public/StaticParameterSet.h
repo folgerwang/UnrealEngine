@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 #include "UObject/NameTypes.h"
 #include "Misc/Guid.h"
-#include "UObject/AthenaObjectVersion.h"
+#include "UObject/FortniteMainBranchObjectVersion.h"
 #include "UObject/RenderingObjectVersion.h"
 #include "UObject/ReleaseObjectVersion.h"
 #include "Materials/MaterialLayersFunctions.h"
@@ -173,8 +173,8 @@ struct FStaticTerrainLayerWeightParameter
 		{
 			Ar << P.ParameterInfo;
 		}
-		Ar.UsingCustomVersion(FAthenaObjectVersion::GUID);
-		if (Ar.CustomVer(FAthenaObjectVersion::GUID) >= FAthenaObjectVersion::StaticParameterTerrainLayerWeightBlendType)
+		Ar.UsingCustomVersion(FFortniteMainBranchObjectVersion::GUID);
+		if (Ar.CustomVer(FFortniteMainBranchObjectVersion::GUID) >= FFortniteMainBranchObjectVersion::StaticParameterTerrainLayerWeightBlendType)
 		{
 			Ar << P.bWeightBasedBlend;
 		}

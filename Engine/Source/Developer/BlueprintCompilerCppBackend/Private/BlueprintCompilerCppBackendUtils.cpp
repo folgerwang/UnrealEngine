@@ -585,6 +585,10 @@ bool FEmitHelper::MetaDataCanBeNative(const FName MetaDataName, const UField* Fi
 	{
 		return false;
 	}
+	if (MetaDataName == TEXT("ExpandEnumAsExecs"))	// applicable to editor only
+	{
+		return false;
+	}
 	if (const UFunction* Function = Cast<const UFunction>(Field))
 	{
 		const UProperty* Param = Function->FindPropertyByName(MetaDataName);

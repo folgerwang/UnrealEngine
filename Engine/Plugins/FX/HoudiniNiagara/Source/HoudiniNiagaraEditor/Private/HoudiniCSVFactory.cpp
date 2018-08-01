@@ -119,9 +119,9 @@ UHoudiniCSVFactory::FactoryCanImport(const FString& Filename)
 bool 
 UHoudiniCSVFactory::CanReimport(UObject* Obj, TArray<FString>& OutFilenames)
 {
-	UHoudiniCSV* HoudiniCSV = Cast<UHoudiniCSV>(Obj);
-	if (HoudiniCSV)
-	{
+    UHoudiniCSV* HoudiniCSV = Cast<UHoudiniCSV>(Obj);
+    if (HoudiniCSV)
+    {
 		if (HoudiniCSV->AssetImportData)
 		{
 			HoudiniCSV->AssetImportData->ExtractFilenames(OutFilenames);
@@ -131,8 +131,8 @@ UHoudiniCSVFactory::CanReimport(UObject* Obj, TArray<FString>& OutFilenames)
 			OutFilenames.Add(TEXT(""));
 		}
 		return true;
-	}
-	return false;
+    }
+    return false;
 }
 
 void 
@@ -181,7 +181,6 @@ UHoudiniCSVFactory::Reimport(UObject* Obj)
 	{
 		UE_LOG(LogHoudiniNiagaraEditor, Warning, TEXT("-- import canceled"));
 	}
-	else
 	{
 		UE_LOG(LogHoudiniNiagaraEditor, Warning, TEXT("-- import failed"));
 	}

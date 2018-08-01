@@ -569,7 +569,7 @@ void FBlueprintCompilationManagerImpl::FlushCompilationQueueImpl(TArray<UObject*
 			// then we can avoid dependency recompilation:
 			TSet<UBlueprint*> BlueprintsWithSignatureChanges;
 			const UBlueprintEditorProjectSettings* EditorProjectSettings = GetDefault<UBlueprintEditorProjectSettings>();
-			bool bSkipUnneededDependencyCompilation = EditorProjectSettings->bSkipUnneededDependencyCompilation;
+			bool bSkipUnneededDependencyCompilation = !EditorProjectSettings->bForceAllDependenciesToRecompile;
 
 			for (FCompilerData& CompilerData : CurrentlyCompilingBPs)
 			{
@@ -1063,7 +1063,24 @@ void FBlueprintCompilationManagerImpl::FlushReinstancingQueueImpl()
 		TGuardValue<bool> ReinstancingGuard(GIsReinstancing, true);
 		FBlueprintCompileReinstancer::BatchReplaceInstancesOfClass(ClassesToReinstance, true);
 
-		ClassesToReinstance.Empty();
+		if (IsAsyncLoading())
+		{
+			// While async loading we only remove classes that have no instances being
+			// async loaded. Those instances will need to be reinstanced once they finish
+			// loading, there's no race here because if any instances are created after
+			// we check ClassHasInstancesAsyncLoading they will be created with the new class:
+			for( TMap<UClass*, UClass*>::TIterator It(ClassesToReinstance); It; ++It )
+			{
+				if (!ClassHasInstancesAsyncLoading(It->Key))
+				{
+					It.RemoveCurrent();
+				}
+			}
+		}
+		else
+		{
+			ClassesToReinstance.Empty();
+		}
 	}
 	
 #if VERIFY_NO_STALE_CLASS_REFERENCES

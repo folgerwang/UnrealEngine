@@ -445,7 +445,7 @@ bool AbcImporterUtilities::GenerateAbcMeshSampleDataForFrame(const Alembic::AbcG
 		Alembic::AbcGeom::IV2fGeomParam UVCoordinateParameter = Schema.getUVsParam();
 		if (UVCoordinateParameter.valid())
 		{
-			ReadUVSetData(UVCoordinateParameter, FrameSelector, Sample->UVs[0], Sample->Indices, bNeedsTriangulation, FaceCounts);
+			ReadUVSetData(UVCoordinateParameter, FrameSelector, Sample->UVs[0], Sample->Indices, bNeedsTriangulation, FaceCounts, Sample->Vertices.Num());
 		}
 		else
 		{
@@ -462,7 +462,7 @@ bool AbcImporterUtilities::GenerateAbcMeshSampleDataForFrame(const Alembic::AbcG
 				if (Alembic::AbcGeom::IV2fGeomParam::matches(PropertyHeader))
 				{
 					UVSetProperty = Alembic::AbcGeom::IV2fGeomParam(GeomParams, PropertyHeader.getName());
-					ReadUVSetData(UVSetProperty, FrameSelector, Sample->UVs[Sample->NumUVSets], Sample->Indices, bNeedsTriangulation, FaceCounts);
+					ReadUVSetData(UVSetProperty, FrameSelector, Sample->UVs[Sample->NumUVSets], Sample->Indices, bNeedsTriangulation, FaceCounts, Sample->Vertices.Num());
 					++Sample->NumUVSets;
 				}
 			}
@@ -500,16 +500,7 @@ bool AbcImporterUtilities::GenerateAbcMeshSampleDataForFrame(const Alembic::AbcG
 			}
 			else
 			{
-				if (bNeedsTriangulation)
-				{
-					TriangulateVertexAttributeBuffer(FaceCounts, Sample->Normals);
-				}
-
-				// For vertex only normals (and no normal indices available), expand using the regular indices
-				if (Sample->Normals.Num() != Sample->Indices.Num())
-				{
-					ExpandVertexAttributeArray<FVector>(Sample->Indices, Sample->Normals);
-				}
+				ProcessVertexAttributeArray(Sample->Indices, FaceCounts, bNeedsTriangulation, Sample->Vertices.Num(), Sample->Normals);
 			}
 		}
 	}
@@ -574,15 +565,7 @@ bool AbcImporterUtilities::GenerateAbcMeshSampleDataForFrame(const Alembic::AbcG
 			}
 			else
 			{
-				if (bNeedsTriangulation)
-				{
-					TriangulateVertexAttributeBuffer(FaceCounts, Sample->Colors);
-				}
-
-				if (Sample->Colors.Num() != Sample->Indices.Num())
-				{
-					ExpandVertexAttributeArray<FLinearColor>(Sample->Indices, Sample->Colors);
-				}
+				ProcessVertexAttributeArray(Sample->Indices, FaceCounts, bNeedsTriangulation, Sample->Vertices.Num(), Sample->Colors);
 			}
 		}
 		else if (Color4Property.valid())
@@ -609,15 +592,7 @@ bool AbcImporterUtilities::GenerateAbcMeshSampleDataForFrame(const Alembic::AbcG
 			}
 			else
 			{
-				if (bNeedsTriangulation)
-				{
-					TriangulateVertexAttributeBuffer(FaceCounts, Sample->Colors);
-				}
-
-				if (Sample->Colors.Num() != Sample->Indices.Num())
-				{
-					ExpandVertexAttributeArray<FLinearColor>(Sample->Indices, Sample->Colors);
-				}
+				ProcessVertexAttributeArray(Sample->Indices, FaceCounts, bNeedsTriangulation, Sample->Vertices.Num(), Sample->Colors);
 			}
 		}
 		else
@@ -656,7 +631,7 @@ bool AbcImporterUtilities::GenerateAbcMeshSampleDataForFrame(const Alembic::AbcG
 	return bRetrievalResult;
 }
 
-void AbcImporterUtilities::ReadUVSetData(Alembic::AbcGeom::IV2fGeomParam &UVCoordinateParameter, const Alembic::Abc::ISampleSelector FrameSelector, TArray<FVector2D>& OutUVs, const TArray<uint32>& MeshIndices, const bool bNeedsTriangulation, const TArray<uint32>& FaceCounts)
+void AbcImporterUtilities::ReadUVSetData(Alembic::AbcGeom::IV2fGeomParam &UVCoordinateParameter, const Alembic::Abc::ISampleSelector FrameSelector, TArray<FVector2D>& OutUVs, const TArray<uint32>& MeshIndices, const bool bNeedsTriangulation, const TArray<uint32>& FaceCounts, const int32 NumVertices)
 {
 	Alembic::Abc::V2fArraySamplePtr UVSample = UVCoordinateParameter.getValueProperty().getValue(FrameSelector);
 	RetrieveTypedAbcData<Alembic::Abc::V2fArraySamplePtr, FVector2D>(UVSample, OutUVs);
@@ -679,15 +654,7 @@ void AbcImporterUtilities::ReadUVSetData(Alembic::AbcGeom::IV2fGeomParam &UVCoor
 	}
 	else if (OutUVs.Num())
 	{
-		// For vertex only normals (and no normal indices available), expand using the regular indices
-		if (OutUVs.Num() != MeshIndices.Num())
-		{
-			ExpandVertexAttributeArray<FVector2D>(MeshIndices, OutUVs);
-		}
-		else if (bNeedsTriangulation)
-		{
-			TriangulateVertexAttributeBuffer(FaceCounts, OutUVs);
-		}
+		ProcessVertexAttributeArray(MeshIndices, FaceCounts, bNeedsTriangulation, NumVertices, OutUVs);
 	}
 }
 

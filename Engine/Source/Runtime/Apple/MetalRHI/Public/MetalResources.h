@@ -333,15 +333,17 @@ private:
 };
 
 class FMetalSubBufferHeap;
+class FMetalSubBufferLinear;
 class FMetalSubBufferMagazine;
 
 class FMetalBuffer : public mtlpp::Buffer
 {
 public:
-	FMetalBuffer(ns::Ownership retain = ns::Ownership::Retain) : mtlpp::Buffer(retain), Heap(nullptr), Magazine(nullptr), bPooled(false) { }
+	FMetalBuffer(ns::Ownership retain = ns::Ownership::Retain) : mtlpp::Buffer(retain), Heap(nullptr), Linear(nullptr), Magazine(nullptr), bPooled(false) { }
 	FMetalBuffer(ns::Protocol<id<MTLBuffer>>::type handle, ns::Ownership retain = ns::Ownership::Retain);
 	
 	FMetalBuffer(mtlpp::Buffer&& rhs, FMetalSubBufferHeap* heap);
+	FMetalBuffer(mtlpp::Buffer&& rhs, FMetalSubBufferLinear* heap);
 	FMetalBuffer(mtlpp::Buffer&& rhs, FMetalSubBufferMagazine* magazine);
 	FMetalBuffer(mtlpp::Buffer&& rhs, bool bInPooled);
 	
@@ -369,6 +371,7 @@ public:
 	
 private:
 	FMetalSubBufferHeap* Heap;
+	FMetalSubBufferLinear* Linear;
 	FMetalSubBufferMagazine* Magazine;
 	bool bPooled;
 	bool bSingleUse;
@@ -642,6 +645,11 @@ public:
 	{
 		return &Surface;
 	}
+
+	virtual void* GetNativeResource() const override final
+	{
+		return Surface.Texture;
+	}
 };
 
 struct FMetalCommandBufferFence
@@ -741,6 +749,11 @@ public:
 	 * Allocate a linear texture for given format.
 	 */
 	FMetalTexture AllocLinearTexture(EPixelFormat Format);
+	
+	/**
+	 * Get a linear texture for given format.
+	 */
+	ns::AutoReleased<FMetalTexture> CreateLinearTexture(EPixelFormat Format);
 	
 	/**
 	 * Get a linear texture for given format.

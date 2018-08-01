@@ -445,8 +445,6 @@ namespace UnrealBuildTool
 				//LinkEnvironment.AdditionalLibraries.Add("Nvidia_gfx_debugger_stub");
 			}
 
-			SetupGraphicsDebugger(Target, CompileEnvironment, LinkEnvironment);
-
 			if (!UseTegraGraphicsDebugger(Target))
 			{
 				LinkEnvironment.AdditionalLibraries.Add("GLESv2");
@@ -489,28 +487,6 @@ namespace UnrealBuildTool
 		private bool UseTegraGraphicsDebugger(ReadOnlyTargetRules Target)
 		{
 			// Disable for now
-			return false;
-		}
-
-		private bool SetupGraphicsDebugger(ReadOnlyTargetRules Target, CppCompileEnvironment CompileEnvironment, LinkEnvironment LinkEnvironment)
-		{
-			string AndroidGraphicsDebugger;
-			ConfigHierarchy Ini = ConfigCache.ReadHierarchy(ConfigHierarchyType.Engine, DirectoryReference.FromFile(Target.ProjectFile), UnrealTargetPlatform.Android);
-			Ini.GetString("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "AndroidGraphicsDebugger", out AndroidGraphicsDebugger);
-
-			if (AndroidGraphicsDebugger.ToLower() == "renderdoc")
-			{
-				string RenderDocPath;
-				AndroidPlatformSDK.GetPath(Ini, "/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "RenderDocPath", out RenderDocPath);
-				string RenderDocLibPath = Path.Combine(RenderDocPath, @"android\lib\armeabi-v7a");
-				if (Directory.Exists(RenderDocLibPath))
-				{
-					LinkEnvironment.LibraryPaths.Add(new DirectoryReference(RenderDocLibPath));
-					LinkEnvironment.AdditionalLibraries.Add("VkLayer_GLES_RenderDoc");
-					return true;
-				}
-			}
-
 			return false;
 		}
 
@@ -562,12 +538,12 @@ namespace UnrealBuildTool
 
 		protected override string GetRequiredSDKString()
 		{
-			return "-21";
+			return "-22";
 		}
 
 		protected override String GetRequiredScriptVersionString()
 		{
-			return "3.2";
+			return "3.3";
 		}
 
 		// prefer auto sdk on android as correct 'manual' sdk detection isn't great at the moment.

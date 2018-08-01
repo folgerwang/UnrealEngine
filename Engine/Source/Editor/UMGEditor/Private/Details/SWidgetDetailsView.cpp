@@ -30,6 +30,7 @@
 #include "Blueprint/WidgetTree.h"
 #include "WidgetBlueprintEditorUtils.h"
 #include "ScopedTransaction.h"
+#include "Styling/SlateIconFinder.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 
@@ -372,19 +373,16 @@ FText SWidgetDetailsView::GetCategoryText() const
 	return FText::GetEmpty();
 }
 
-const FSlateBrush* GetEditorIcon_Deprecated(UWidget* Widget);
-
 const FSlateBrush* SWidgetDetailsView::GetNameIcon() const
 {
-	if ( SelectedObjects.Num() == 1 )
+	if ( SelectedObjects.Num() == 1 && SelectedObjects[0].IsValid())
 	{
-		UWidget* Widget = Cast<UWidget>(SelectedObjects[0].Get());
-		if ( Widget )
+		UClass* WidgetClass = SelectedObjects[0].Get()->GetClass();
+		if (WidgetClass)
 		{
-			// @todo UMG: remove after 4.12
-			return GetEditorIcon_Deprecated(Widget);
-			// return FClassIconFinder::FindIconForClass(Widget->GetClass());
+			return FSlateIconFinder::FindIconBrushForClass(WidgetClass);
 		}
+		return nullptr;
 	}
 
 	return nullptr;

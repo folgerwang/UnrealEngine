@@ -1216,7 +1216,7 @@ void FFoliageMeshInfo::PreMoveInstances(AInstancedFoliageActor* InIFA, const TAr
 }
 
 
-void FFoliageMeshInfo::PostUpdateInstances(AInstancedFoliageActor* InIFA, const TArray<int32>& InInstancesUpdated, bool bReAddToHash)
+void FFoliageMeshInfo::PostUpdateInstances(AInstancedFoliageActor* InIFA, const TArray<int32>& InInstancesUpdated, bool bReAddToHash, bool InUpdateSelection)
 {
 	if (InInstancesUpdated.Num())
 	{
@@ -1236,6 +1236,12 @@ void FFoliageMeshInfo::PostUpdateInstances(AInstancedFoliageActor* InIFA, const 
 			{
 				InstanceHash->InsertInstance(Instance.Location, InstanceIndex);
 			}
+
+			// Reselect the instance to update the render update to include selection as by default it gets removed
+			if (InUpdateSelection)
+			{
+				Component->SelectInstance(true, InstanceIndex);
+			}
 		}
 
 		Component->InvalidateLightingCache();
@@ -1245,7 +1251,7 @@ void FFoliageMeshInfo::PostUpdateInstances(AInstancedFoliageActor* InIFA, const 
 
 void FFoliageMeshInfo::PostMoveInstances(AInstancedFoliageActor* InIFA, const TArray<int32>& InInstancesMoved)
 {
-	PostUpdateInstances(InIFA, InInstancesMoved, true);
+	PostUpdateInstances(InIFA, InInstancesMoved, true, true);
 }
 
 void FFoliageMeshInfo::DuplicateInstances(AInstancedFoliageActor* InIFA, UFoliageType* InSettings, const TArray<int32>& InInstancesToDuplicate)
@@ -1269,9 +1275,19 @@ void FFoliageMeshInfo::DuplicateInstances(AInstancedFoliageActor* InIFA, UFoliag
 }
 
 /* Get the number of placed instances */
-int32 FFoliageMeshInfo::GetInstanceCount() const
+int32 FFoliageMeshInfo::GetPlacedInstanceCount() const
 {
-	return Instances.Num();
+	int32 PlacedInstanceCount = 0;
+
+	for (int32 i = 0; i < Instances.Num(); ++i)
+	{
+		if (!Instances[i].ProceduralGuid.IsValid())
+		{
+			++PlacedInstanceCount;
+		}
+	}
+
+	return PlacedInstanceCount;
 }
 
 void FFoliageMeshInfo::AddToBaseHash(int32 InstanceIndex)
@@ -1794,7 +1810,7 @@ void AInstancedFoliageActor::DeleteInstancesForComponent(UWorld* InWorld, UActor
 	}
 }
 
-void AInstancedFoliageActor::DeleteInstancesForProceduralFoliageComponent(const UProceduralFoliageComponent* ProceduralFoliageComponent)
+void AInstancedFoliageActor::DeleteInstancesForProceduralFoliageComponent(const UProceduralFoliageComponent* ProceduralFoliageComponent, bool InRebuildTree)
 {
 	const FGuid& ProceduralGuid = ProceduralFoliageComponent->GetProceduralGuid();
 	for (auto& MeshPair : FoliageMeshes)
@@ -1811,7 +1827,7 @@ void AInstancedFoliageActor::DeleteInstancesForProceduralFoliageComponent(const 
 
 		if (InstancesToRemove.Num())
 		{
-			MeshInfo.RemoveInstances(this, InstancesToRemove, true);
+			MeshInfo.RemoveInstances(this, InstancesToRemove, InRebuildTree);
 		}
 	}
 }

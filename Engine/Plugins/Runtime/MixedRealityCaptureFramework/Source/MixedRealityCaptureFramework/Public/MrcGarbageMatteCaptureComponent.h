@@ -13,7 +13,7 @@ class UMrcCalibrationData;
 /**
  *	
  */
-UCLASS(ClassGroup = Rendering, editinlinenew, config = Engine)
+UCLASS(ClassGroup = Rendering, editinlinenew, config = Engine, meta=(BlueprintSpawnableComponent))
 class MIXEDREALITYCAPTUREFRAMEWORK_API UMrcGarbageMatteCaptureComponent : public USceneCaptureComponent2D
 {
 	GENERATED_UCLASS_BODY()
@@ -43,11 +43,17 @@ public:
 	AMrcGarbageMatteActor* SpawnNewGarbageMatteActor(USceneComponent* TrackingOrigin);
 
 private:
+	void CleanupSpawnedActors();
+
+private:
 	UPROPERTY(Transient, Config)
 	TSubclassOf<AMrcGarbageMatteActor> GarbageMatteActorClass;
 
 	UPROPERTY(Transient)
 	AMrcGarbageMatteActor* GarbageMatteActor;
+
+	UPROPERTY(Transient)
+	TArray<AMrcGarbageMatteActor*> SpawnedActors;
 
 	UPROPERTY(Transient)
 	TWeakObjectPtr<USceneComponent> TrackingOriginPtr;
@@ -59,7 +65,7 @@ private:
 class UMaterial;
 class UStaticMesh;
 
-UCLASS(notplaceable, Blueprintable)
+UCLASS(Blueprintable)
 class AMrcGarbageMatteActor : public AActor
 {
 	GENERATED_UCLASS_BODY()

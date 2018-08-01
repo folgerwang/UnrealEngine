@@ -22,6 +22,10 @@ class LIVELINK_API ULiveLinkBlueprintLibrary : public UBlueprintFunctionLibrary
 	UFUNCTION(BlueprintPure, Category = "LiveLink")
 	static int NumberOfTransforms(UPARAM(ref) FSubjectFrameHandle& SubjectFrameHandle);
 
+	// Returns an array of Transform Names stored in the Subject Frame
+	UFUNCTION(BlueprintPure, Category = "LiveLink")
+	static void TransformNames(UPARAM(ref) FSubjectFrameHandle& SubjectFrameHandle, TArray<FName>& TransformNames);
+
 	// Returns the Root Transform for the Subject Frame as a LiveLink Transform or the Identity if there are no transforms.
 	UFUNCTION(BlueprintPure, Category = "LiveLink")
 	static void GetRootTransform(UPARAM(ref) FSubjectFrameHandle& SubjectFrameHandle, FLiveLinkTransform& LiveLinkTransform);
@@ -29,6 +33,10 @@ class LIVELINK_API ULiveLinkBlueprintLibrary : public UBlueprintFunctionLibrary
 	// Returns the LiveLink Transform stored in a Subject Frame at a given index. Returns an Identity transform if Transform Index is invalid.
 	UFUNCTION(BlueprintPure, Category = "LiveLink")
 	static void GetTransformByIndex(UPARAM(ref) FSubjectFrameHandle& SubjectFrameHandle, int TransformIndex, FLiveLinkTransform& LiveLinkTransform);
+
+	// Returns the LiveLink Transform stored in a Subject Frame with a given name. Returns an Identity transform if Transform Name is invalid.
+	UFUNCTION(BlueprintPure, Category = "LiveLink")
+	static void GetTransformByName(UPARAM(ref) FSubjectFrameHandle& SubjectFrameHandle, FName TransformName, FLiveLinkTransform& LiveLinkTransform);
 
 	// Returns the Subject Metadata structure stored in the Subject Frame
 	UFUNCTION(BlueprintPure, Category = "LiveLink")

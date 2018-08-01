@@ -1476,7 +1476,7 @@ TArray<UObject*> UAssetToolsImpl::ImportAssetsInternal(const TArray<FString>& Fi
 			}
 			Name = ObjectTools::SanitizeObjectName(Name);
 
-			FString PackageName = FPaths::Combine(*DestinationPath, *Name);
+			FString PackageName = ObjectTools::SanitizeInvalidChars(FPaths::Combine(*DestinationPath, *Name), INVALID_LONGPACKAGE_CHARACTERS);
 
 			// We can not create assets that share the name of a map file in the same location
 			if(FEditorFileUtils::IsMapPackageAsset(PackageName))

@@ -1,4 +1,4 @@
-// Copyright 1998-2017 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 // Copyright 2017 Magic Leap, Inc. All Rights Reserved.
 
 #include "Lumin/LuminOutputDeviceDebug.h"

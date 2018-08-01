@@ -742,14 +742,14 @@ static FRenderingCompositeOutputRef AddBloom(FBloomDownSampleArray& BloomDownSam
 	// Extract the Context
 	FPostprocessContext& Context = BloomDownSampleArray.Context;
 
-	const bool bOldMetalNoFFT = (IsMetalPlatform(Context.View.GetShaderPlatform()) && RHIGetShaderLanguageVersion(Context.View.GetShaderPlatform()) < 2);
+	const bool bOldMetalNoFFT = IsMetalPlatform(Context.View.GetShaderPlatform());
 	const bool bUseFFTBloom = (Context.View.FinalPostProcessSettings.BloomMethod == EBloomMethod::BM_FFT
 		&& Context.View.FeatureLevel >= ERHIFeatureLevel::SM5);
 		
 	static bool bWarnAboutOldMetalFFTOnce = false;
 	if (bOldMetalNoFFT && bUseFFTBloom && !bWarnAboutOldMetalFFTOnce)
 	{
-		UE_LOG(LogRenderer, Error, TEXT("Metal v1.2 and above is required to enable FFT Bloom. Set Max. Shader Standard to target to Metal v1.2 in Project Settings > Mac/iOS and recook."));
+		UE_LOG(LogRenderer, Error, TEXT("FFT Bloom is unsupported in Metal."));
 		bWarnAboutOldMetalFFTOnce = true;
 	}
 
@@ -932,11 +932,11 @@ static void AddTemporalAA( FPostprocessContext& Context, FRenderingCompositeOutp
 
 	FSceneViewState* ViewState = Context.View.ViewState;
 
-	FRCPassPostProcessTemporalAA* TemporalAAPass = new(FMemStack::Get()) FRCPassPostProcessTemporalAA(
+	FRCPassPostProcessTemporalAA* TemporalAAPass = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessTemporalAA(
 		Context,
 		Parameters,
 		Context.View.PrevViewInfo.TemporalAAHistory,
-		&ViewState->PendingPrevFrameViewInfo.TemporalAAHistory);
+		&ViewState->PendingPrevFrameViewInfo.TemporalAAHistory));
 
 	TemporalAAPass->SetInput( ePId_Input0, Context.FinalOutput );
 	TemporalAAPass->SetInput( ePId_Input2, VelocityInput );
@@ -1300,14 +1300,22 @@ void OverrideRenderTarget(FRenderingCompositeOutputRef It, TRefCountPtr<IPooledR
 
 bool FPostProcessing::AllowFullPostProcessing(const FViewInfo& View, ERHIFeatureLevel::Type FeatureLevel)
 {
-	return View.Family->EngineShowFlags.PostProcessing 
-		&& FeatureLevel >= ERHIFeatureLevel::SM4 
-		&& !View.Family->EngineShowFlags.VisualizeDistanceFieldAO
-		&& !View.Family->EngineShowFlags.VisualizeDistanceFieldGI
-		&& !View.Family->EngineShowFlags.VisualizeShadingModels
-		&& !View.Family->EngineShowFlags.VisualizeMeshDistanceFields
-		&& !View.Family->EngineShowFlags.VisualizeGlobalDistanceField
-		&& !View.Family->EngineShowFlags.ShaderComplexity;
+	if(FeatureLevel >= ERHIFeatureLevel::SM4)
+	{
+		return View.Family->EngineShowFlags.PostProcessing
+			&& !View.Family->EngineShowFlags.VisualizeDistanceFieldAO
+			&& !View.Family->EngineShowFlags.VisualizeDistanceFieldGI
+			&& !View.Family->EngineShowFlags.VisualizeShadingModels
+			&& !View.Family->EngineShowFlags.VisualizeMeshDistanceFields
+			&& !View.Family->EngineShowFlags.VisualizeGlobalDistanceField
+			&& !View.Family->EngineShowFlags.ShaderComplexity;
+	}
+	else
+	{
+		// Mobile post processing
+		return View.Family->EngineShowFlags.PostProcessing
+			&& !View.Family->EngineShowFlags.ShaderComplexity;
+	}
 }
 
 void FPostProcessing::RegisterHMDPostprocessPass(FPostprocessContext& Context, const FEngineShowFlags& EngineShowFlags) const
@@ -1726,7 +1734,6 @@ void FPostProcessing::Process(FRHICommandListImmediate& RHICmdList, const FViewI
 			// some views don't have a state (thumbnail rendering)
 			if(!GIsHighResScreenshot && View.State && IStereoRendering::IsAPrimaryView(StereoPass))
 			{
-				
 				const bool bUseBasicEyeAdaptation = (AutoExposure.MethodId == EAutoExposureMethod::AEM_Basic);
 
 				if (bUseBasicEyeAdaptation) // log average ps reduction ( non histogram ) 

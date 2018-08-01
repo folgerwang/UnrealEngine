@@ -13,7 +13,11 @@ public:
 	static bool LoadVulkanInstanceFunctions(VkInstance inInstance) { return true; }
 	static void FreeVulkanLibrary() {}
 
-	// Array of extensions for the platform - required to implement!
+	// Called after querying all the available extensions and layers
+	static void NotifyFoundInstanceLayersAndExtensions(const TArray<FString>& Layers, const TArray<FString>& Extensions) {}
+	static void NotifyFoundDeviceLayersAndExtensions(VkPhysicalDevice PhysicalDevice, const TArray<FString>& Layers, const TArray<FString>& Extensions) {}
+
+	// Array of required extensions for the platform (Required!)
 	static void GetInstanceExtensions(TArray<const ANSICHAR*>& OutExtensions);
 	static void GetDeviceExtensions(TArray<const ANSICHAR*>& OutExtensions);
 
@@ -43,11 +47,34 @@ public:
 	// Some platforms have issues with the access flags for the Present layout
 	static bool RequiresPresentLayoutFix() { return false; }
 
-	static bool SupportsMarkersWithoutExtension() { return false; }
+	static bool ForceEnableDebugMarkers() { return false; }
 
 	static bool SupportsDeviceLocalHostVisibleWithNoPenalty() { return false; }
 
+	static bool HasUnifiedMemory() { return false; }
+
 	static bool RegisterGPUWork() { return true; }
 
+	// Does the platform only support Vertex & Pixel stages (not Geometry or Tessellation)?
+	static bool IsVSPSOnly() { return false; }
+
 	static void WriteBufferMarkerAMD(VkCommandBuffer CmdBuffer, VkBuffer DestBuffer, const TArrayView<uint32>& Entries, bool bAdding) {}
+
+	// allow the platform code to restrict the device features
+	static void RestrictEnabledPhysicalDeviceFeatures(const VkPhysicalDeviceFeatures& DeviceFeatures, VkPhysicalDeviceFeatures& FeaturesToEnable)
+	{ 
+		FeaturesToEnable = DeviceFeatures; 
+
+		// disable everything sparse-related
+		FeaturesToEnable.shaderResourceResidency	= VK_FALSE;
+		FeaturesToEnable.shaderResourceMinLod		= VK_FALSE;
+		FeaturesToEnable.sparseBinding				= VK_FALSE;
+		FeaturesToEnable.sparseResidencyBuffer		= VK_FALSE;
+		FeaturesToEnable.sparseResidencyImage2D		= VK_FALSE;
+		FeaturesToEnable.sparseResidencyImage3D		= VK_FALSE;
+		FeaturesToEnable.sparseResidency2Samples	= VK_FALSE;
+		FeaturesToEnable.sparseResidency4Samples	= VK_FALSE;
+		FeaturesToEnable.sparseResidency8Samples	= VK_FALSE;
+		FeaturesToEnable.sparseResidencyAliased		= VK_FALSE;
+	}
 };

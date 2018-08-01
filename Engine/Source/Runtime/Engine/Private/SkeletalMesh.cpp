@@ -286,6 +286,7 @@ USkeletalMesh::USkeletalMesh(const FObjectInitializer& ObjectInitializer)
 	SkelMirrorFlipAxis = EAxis::Z;
 #if WITH_EDITORONLY_DATA
 	ImportedModel = MakeShareable(new FSkeletalMeshModel());
+	VertexColorGuid = FGuid();
 #endif
 
 	MinLod.Default = 0;
@@ -937,7 +938,7 @@ void USkeletalMesh::Serialize( FArchive& Ar )
 	Ar.UsingCustomVersion(FEditorObjectVersion::GUID);
 	Ar.UsingCustomVersion(FSkeletalMeshCustomVersion::GUID);
 	Ar.UsingCustomVersion(FRenderingObjectVersion::GUID);
-	Ar.UsingCustomVersion(FAthenaObjectVersion::GUID);
+	Ar.UsingCustomVersion(FFortniteMainBranchObjectVersion::GUID);
 
 	FStripDataFlags StripFlags( Ar );
 
@@ -1112,7 +1113,7 @@ void USkeletalMesh::Serialize( FArchive& Ar )
 	bRequiresLODHysteresisConversion = Ar.CustomVer(FFrameworkObjectVersion::GUID) < FFrameworkObjectVersion::LODHysteresisUseResolutionIndependentScreenSize;
 #endif
 
-	if (Ar.CustomVer(FAthenaObjectVersion::GUID) < FAthenaObjectVersion::ConvertReductionSettingOptions)
+	if (Ar.CustomVer(FFortniteMainBranchObjectVersion::GUID) < FFortniteMainBranchObjectVersion::ConvertReductionSettingOptions)
 	{
 		const int32 TotalLODNum = LODInfo.Num();
 		for (int32 LodIndex = 1; LodIndex < TotalLODNum; LodIndex++)
@@ -1540,7 +1541,7 @@ void USkeletalMesh::PostLoad()
 
 	// make sure older versions contain active bone indices with parents present
 	// even if they're not skinned, missing matrix calculation will mess up skinned children
-	if (GetLinkerCustomVersion(FAthenaObjectVersion::GUID) < FAthenaObjectVersion::EnsureActiveBoneIndicesToContainParents)
+	if (GetLinkerCustomVersion(FFortniteMainBranchObjectVersion::GUID) < FFortniteMainBranchObjectVersion::EnsureActiveBoneIndicesToContainParents)
 	{
 		for (int32 LodIndex = 0; LodIndex < LODInfo.Num(); LodIndex++)
 		{

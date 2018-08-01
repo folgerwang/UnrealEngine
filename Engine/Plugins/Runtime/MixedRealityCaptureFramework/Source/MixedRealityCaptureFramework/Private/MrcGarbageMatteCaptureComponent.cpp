@@ -36,11 +36,8 @@ UMrcGarbageMatteCaptureComponent::UMrcGarbageMatteCaptureComponent(const FObject
 //------------------------------------------------------------------------------
 void UMrcGarbageMatteCaptureComponent::OnComponentDestroyed(bool bDestroyingHierarchy)
 {
-	if (GarbageMatteActor)
-	{
-		GarbageMatteActor->Destroy();
-		GarbageMatteActor = nullptr;
-	}
+	CleanupSpawnedActors();
+	GarbageMatteActor = nullptr;
 
 	Super::OnComponentDestroyed(bDestroyingHierarchy);
 }
@@ -99,6 +96,20 @@ void UMrcGarbageMatteCaptureComponent::GetGarbageMatteData(TArray<FMrcGarbageMat
 }
 
 //------------------------------------------------------------------------------
+void UMrcGarbageMatteCaptureComponent::CleanupSpawnedActors()
+{
+	while(SpawnedActors.Num() > 0)
+	{
+		AMrcGarbageMatteActor* Actor = SpawnedActors[0];
+		if (Actor)
+		{
+			Actor->Destroy();
+		}
+		SpawnedActors.RemoveAtSwap(0);
+	}
+}
+
+//------------------------------------------------------------------------------
 AMrcGarbageMatteActor* UMrcGarbageMatteCaptureComponent::SpawnNewGarbageMatteActor_Implementation(USceneComponent* InTrackingOrigin)
 {
 	AMrcGarbageMatteActor* NewGarbageMatteActor = nullptr;
@@ -123,7 +134,9 @@ AMrcGarbageMatteActor* UMrcGarbageMatteCaptureComponent::SpawnNewGarbageMatteAct
 			SpawnedActor->AttachToComponent(InTrackingOrigin, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
 		}
 		NewGarbageMatteActor = CastChecked<AMrcGarbageMatteActor>(SpawnedActor, ECastCheckedType::NullAllowed);
+		SpawnedActors.Add(NewGarbageMatteActor);
 	}
+	
 	return NewGarbageMatteActor;
 }
 
@@ -136,8 +149,15 @@ void UMrcGarbageMatteCaptureComponent::SetGarbageMatteActor(AMrcGarbageMatteActo
 		GarbageMatteActor->GetGarbageMatteData(GarbageMatteData);
 
 		ShowOnlyActors.Remove(GarbageMatteActor);
-		GarbageMatteActor->Destroy();
-		GarbageMatteActor = nullptr;
+
+		//Verify if the actual GarbageMatteActor has been spawned by us and destroy if its the case.
+		const int32 FoundIndex = SpawnedActors.Find(GarbageMatteActor);
+		if (FoundIndex != INDEX_NONE)
+		{
+			SpawnedActors.RemoveAtSwap(FoundIndex);
+			GarbageMatteActor->Destroy();
+			GarbageMatteActor = nullptr;
+		}
 	}
 
 	GarbageMatteActor = NewActor;

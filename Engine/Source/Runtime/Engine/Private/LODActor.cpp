@@ -16,7 +16,7 @@
 #include "StaticMeshResources.h"
 #include "EngineUtils.h"
 #include "UObject/FrameworkObjectVersion.h"
-#include "UObject/AthenaObjectVersion.h"
+#include "UObject/FortniteMainBranchObjectVersion.h"
 #include "Engine/HLODProxy.h"
 
 #if WITH_EDITOR
@@ -975,11 +975,11 @@ void ALODActor::Serialize(FArchive& Ar)
 	Super::Serialize(Ar);
 #if WITH_EDITOR
 	Ar.UsingCustomVersion(FFrameworkObjectVersion::GUID);
-	Ar.UsingCustomVersion(FAthenaObjectVersion::GUID);
+	Ar.UsingCustomVersion(FFortniteMainBranchObjectVersion::GUID);
 
 	bRequiresLODScreenSizeConversion = Ar.CustomVer(FFrameworkObjectVersion::GUID) < FFrameworkObjectVersion::LODsUseResolutionIndependentScreenSize;
 
-	if (Ar.CustomVer(FAthenaObjectVersion::GUID) < FAthenaObjectVersion::CullDistanceRefactor_NeverCullALODActorsByDefault)
+	if (Ar.CustomVer(FFortniteMainBranchObjectVersion::GUID) < FFortniteMainBranchObjectVersion::CullDistanceRefactor_NeverCullALODActorsByDefault)
 	{
 		if (UStaticMeshComponent* SMComponent = GetStaticMeshComponent())
 		{

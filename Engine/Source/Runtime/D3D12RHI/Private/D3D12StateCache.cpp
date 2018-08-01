@@ -353,8 +353,7 @@ void FD3D12StateCacheBase::ApplyState()
 #endif
 
 	FD3D12CommandListHandle& CommandList = CmdContext->CommandListHandle;
-	const FD3D12RootSignature* const pRootSignature = IsCompute ?
-		PipelineState.Compute.CurrentPipelineStateObject->ComputeShader->pRootSignature : PipelineState.Graphics.CurrentPipelineStateObject->BoundShaderState->pRootSignature;
+	const FD3D12RootSignature* const pRootSignature = IsCompute ? PipelineState.Compute.CurrentPipelineStateObject->ComputeShader->pRootSignature : GetGraphicsRootSignature();
 
 	// PSO
 	if (IsCompute)

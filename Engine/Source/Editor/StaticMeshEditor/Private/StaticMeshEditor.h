@@ -21,6 +21,7 @@ class IDecomposeMeshToHullsAsync;
 #endif
 
 class FStaticMeshDetails;
+class FEditorViewportClient;
 class IDetailsView;
 class SAdvancedPreviewDetailsTab;
 class SConvexDecomposition;
@@ -121,6 +122,8 @@ public:
 	virtual void DoDecomp(uint32 InHullCount, int32 InMaxHullVerts, uint32 InHullPrecision) override;
 
 	virtual TSet< int32 >& GetSelectedEdges() override;
+
+	virtual FEditorViewportClient& GetViewportClient() override;
 	// End of IStaticMeshEditor
 
 	/** Extends the toolbar menu to include static mesh editor options */
@@ -163,9 +166,6 @@ public:
 			OnSelectedLODChanged.Broadcast();
 		}
 	}
-
-	class FStaticMeshEditorViewportClient& GetViewportClient();
-	const class FStaticMeshEditorViewportClient& GetViewportClient() const;
 
 	/** For asynchronous convex decomposition support, this class is tickable in the editor to be able to confirm
 	that the process is completed */
@@ -368,7 +368,7 @@ private:
 	TArray<int32> NumUVChannels;
 
 	/** Delegates called after an undo operation for child widgets to refresh */
-	FOnPostUndoMulticaster OnPostUndo;	
+	FOnPostUndoMulticaster OnPostUndo;
 
 	/** Information on the selected collision primitives */
 	TArray<FPrimData> SelectedPrims;

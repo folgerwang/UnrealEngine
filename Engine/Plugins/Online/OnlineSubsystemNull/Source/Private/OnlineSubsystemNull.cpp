@@ -129,7 +129,12 @@ IOnlineChatPtr FOnlineSubsystemNull::GetChatInterface() const
 
 IOnlineTurnBasedPtr FOnlineSubsystemNull::GetTurnBasedInterface() const
 {
-    return nullptr;
+	return nullptr;
+}
+
+IOnlineTournamentPtr FOnlineSubsystemNull::GetTournamentInterface() const
+{
+	return nullptr;
 }
 
 bool FOnlineSubsystemNull::Tick(float DeltaTime)

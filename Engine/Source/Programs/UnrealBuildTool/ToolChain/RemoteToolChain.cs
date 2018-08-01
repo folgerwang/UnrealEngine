@@ -723,7 +723,12 @@ namespace UnrealBuildTool
 			return RemoteFileItem;
 		}
 
-        public FileItem RemoteToLocalFileItem(FileItem RemoteFileItem)
+		public override void DoLocalToRemoteFileItem(FileItem LocalFileItem)
+		{
+			LocalToRemoteFileItem(LocalFileItem, true);
+		}
+
+		public FileItem RemoteToLocalFileItem(FileItem RemoteFileItem)
         {
             // Look to see if we've already made a remote FileItem for this local FileItem
             foreach (KeyValuePair<FileItem, FileItem> Item in CachedRemoteFileItems)
@@ -954,10 +959,10 @@ namespace UnrealBuildTool
 					RsyncProcess.StartInfo.WorkingDirectory = ExeDir;
 				}
 
-				// --exclude='*'  ??? why???
+				// This will sync everything except .o files (because we want to keep old .o files on the target machine for iterative builds)
 				RsyncProcess.StartInfo.FileName = ResolvedRSyncExe;
                 RsyncProcess.StartInfo.Arguments = string.Format(
-                    "-vzrltgoDe \"{0}\" --rsync-path=\"mkdir -p {2} && rsync\" --chmod=ug=rwX,o=rxX --delete --files-from=\"{4}\" --include-from=\"{5}\" --include='*/' --exclude='*.o' --exclude='Timestamp' '{1}' \"{6}@{3}\":'{2}'",
+					"-vzrltgoDe \"{0}\" --rsync-path=\"mkdir -p {2} && rsync\" --chmod=ug=rwX,o=rxX --delete --files-from=\"{4}\" --include-from=\"{5}\" --include='*/' --exclude='*.o' --exclude='Timestamp' '{1}' \"{6}@{3}\":'{2}'",
 					ResolvedRsyncAuthentication,
 					CygRootPath,
 					RemotePath,
@@ -970,6 +975,26 @@ namespace UnrealBuildTool
 				RsyncProcess.OutputDataReceived += new DataReceivedEventHandler(OutputReceivedForRsync);
 				RsyncProcess.ErrorDataReceived += new DataReceivedEventHandler(OutputErrorForRsync);
 
+				// run rsync
+				Utils.RunLocalProcess(RsyncProcess);
+
+				RsyncProcess = new Process();
+				if (ExeDir != "")
+				{
+					RsyncProcess.StartInfo.WorkingDirectory = ExeDir;
+				}
+				// this rsync, following the above rsync call will just sync newer .o files (this will usually do something only first time compiling a project, on a binary build)
+				RsyncProcess.StartInfo.FileName = ResolvedRSyncExe;
+				RsyncProcess.StartInfo.Arguments = string.Format(
+				   "-vzrltgoDe \"{0}\" --rsync-path=\"mkdir -p {2} && rsync\" --chmod=ug=rwX,o=rxX --files-from=\"{4}\" --include-from=\"{5}\" --include='*/' --exclude='Timestamp' '{1}' \"{6}@{3}\":'{2}'",
+				   ResolvedRsyncAuthentication,
+				   CygRootPath,
+				   RemotePath,
+				   RemoteServerName,
+				   ConvertPathToCygwin(RSyncPathsFile),
+				   ConvertPathToCygwin(IncludeFromFile),
+				   RSyncUsername);
+				Log.TraceInformation("Command: " + RsyncProcess.StartInfo.Arguments);
 				// run rsync
 				Utils.RunLocalProcess(RsyncProcess);
 

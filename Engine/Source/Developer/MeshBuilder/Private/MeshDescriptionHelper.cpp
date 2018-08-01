@@ -26,39 +26,31 @@
 
 DEFINE_LOG_CATEGORY(LogMeshDescriptionBuildStatistic);
 
-FMeshDescriptionHelper::FMeshDescriptionHelper(FMeshBuildSettings* InBuildSettings, const UMeshDescription* InOriginalMeshDescription)
-	: OriginalMeshDescription(InOriginalMeshDescription)
-	, BuildSettings(InBuildSettings)
+FMeshDescriptionHelper::FMeshDescriptionHelper(FMeshBuildSettings* InBuildSettings)
+	: BuildSettings(InBuildSettings)
 {
 }
 
-UMeshDescription* FMeshDescriptionHelper::GetRenderMeshDescription(UObject* Owner)
+void FMeshDescriptionHelper::GetRenderMeshDescription(UObject* Owner, const FMeshDescription& InOriginalMeshDescription, FMeshDescription& OutRenderMeshDescription)
 {
 	UStaticMesh* StaticMesh = Cast<UStaticMesh>(Owner);
 	check(StaticMesh);
-	//Use the build settings to create the RenderMeshDescription
-	UMeshDescription *RenderMeshDescription = nullptr;
 
-	if (OriginalMeshDescription == nullptr)
-	{
-		//oups, we do not have a valid original mesh to create the render from
-		return RenderMeshDescription;
-	}
-	//Copy The Original Mesh Description in the render mesh description
-	RenderMeshDescription = Cast<UMeshDescription>(StaticDuplicateObject(OriginalMeshDescription, Owner, NAME_None));
+	//Copy the Original Mesh Description in the render mesh description
+	OutRenderMeshDescription = InOriginalMeshDescription;
 	float ComparisonThreshold = BuildSettings->bRemoveDegenerates ? THRESH_POINTS_ARE_SAME : 0.0f;
 	
 	//This function make sure the Polygon NTB are compute and also remove degenerated triangle from the render mesh description.
-	FMeshDescriptionOperations::CreatePolygonNTB(RenderMeshDescription, ComparisonThreshold);
-	//RenderMeshDescription->ComputePolygonTangentsAndNormals(BuildSettings->bRemoveDegenerates ? SMALL_NUMBER : 0.0f);
+	FMeshDescriptionOperations::CreatePolygonNTB(OutRenderMeshDescription, ComparisonThreshold);
+	//OutRenderMeshDescription->ComputePolygonTangentsAndNormals(BuildSettings->bRemoveDegenerates ? SMALL_NUMBER : 0.0f);
 
-	FVertexInstanceArray& VertexInstanceArray = RenderMeshDescription->VertexInstances();
-	TVertexInstanceAttributeArray<FVector>& Normals = RenderMeshDescription->VertexInstanceAttributes().GetAttributes<FVector>( MeshAttribute::VertexInstance::Normal );
-	TVertexInstanceAttributeArray<FVector>& Tangents = RenderMeshDescription->VertexInstanceAttributes().GetAttributes<FVector>( MeshAttribute::VertexInstance::Tangent );
-	TVertexInstanceAttributeArray<float>& BinormalSigns = RenderMeshDescription->VertexInstanceAttributes().GetAttributes<float>( MeshAttribute::VertexInstance::BinormalSign );
+	FVertexInstanceArray& VertexInstanceArray = OutRenderMeshDescription.VertexInstances();
+	TVertexInstanceAttributeArray<FVector>& Normals = OutRenderMeshDescription.VertexInstanceAttributes().GetAttributes<FVector>( MeshAttribute::VertexInstance::Normal );
+	TVertexInstanceAttributeArray<FVector>& Tangents = OutRenderMeshDescription.VertexInstanceAttributes().GetAttributes<FVector>( MeshAttribute::VertexInstance::Tangent );
+	TVertexInstanceAttributeArray<float>& BinormalSigns = OutRenderMeshDescription.VertexInstanceAttributes().GetAttributes<float>( MeshAttribute::VertexInstance::BinormalSign );
 
 	// Find overlapping corners to accelerate adjacency.
-	FMeshDescriptionOperations::FindOverlappingCorners(OverlappingCorners, RenderMeshDescription, ComparisonThreshold);
+	FMeshDescriptionOperations::FindOverlappingCorners(OverlappingCorners, OutRenderMeshDescription, ComparisonThreshold);
 
 	// Compute any missing normals or tangents.
 	{
@@ -99,24 +91,24 @@ UMeshDescription* FMeshDescriptionHelper::GetRenderMeshDescription(UObject* Owne
 		{
 			if (!bHasAllNormals)
 			{
-				FMeshDescriptionOperations::CreateNormals(RenderMeshDescription, (FMeshDescriptionOperations::ETangentOptions)TangentOptions, false);
+				FMeshDescriptionOperations::CreateNormals(OutRenderMeshDescription, (FMeshDescriptionOperations::ETangentOptions)TangentOptions, false);
 
 				//EComputeNTBsOptions ComputeNTBsOptions = EComputeNTBsOptions::Normals;
-				//RenderMeshDescription->ComputeTangentsAndNormals(ComputeNTBsOptions);
+				//OutRenderMeshDescription.ComputeTangentsAndNormals(ComputeNTBsOptions);
 			}
-			FMeshDescriptionOperations::CreateMikktTangents(RenderMeshDescription, (FMeshDescriptionOperations::ETangentOptions)TangentOptions);
+			FMeshDescriptionOperations::CreateMikktTangents(OutRenderMeshDescription, (FMeshDescriptionOperations::ETangentOptions)TangentOptions);
 		}
 		else
 		{
-			FMeshDescriptionOperations::CreateNormals(RenderMeshDescription, (FMeshDescriptionOperations::ETangentOptions)TangentOptions, true);
+			FMeshDescriptionOperations::CreateNormals(OutRenderMeshDescription, (FMeshDescriptionOperations::ETangentOptions)TangentOptions, true);
 			//EComputeNTBsOptions ComputeNTBsOptions = (bHasAllNormals ? EComputeNTBsOptions::None : EComputeNTBsOptions::Normals) | (bHasAllTangents ? EComputeNTBsOptions::None : EComputeNTBsOptions::Tangents);
-			//RenderMeshDescription->ComputeTangentsAndNormals(ComputeNTBsOptions);
+			//OutRenderMeshDescription.ComputeTangentsAndNormals(ComputeNTBsOptions);
 		}
 	}
 
 	if (BuildSettings->bGenerateLightmapUVs && VertexInstanceArray.Num() > 0)
 	{
-		TVertexInstanceAttributeIndicesArray<FVector2D>& VertexInstanceUVs = RenderMeshDescription->VertexInstanceAttributes().GetAttributesSet<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
+		TVertexInstanceAttributeIndicesArray<FVector2D>& VertexInstanceUVs = OutRenderMeshDescription.VertexInstanceAttributes().GetAttributesSet<FVector2D>(MeshAttribute::VertexInstance::TextureCoordinate);
 		int32 NumIndices = VertexInstanceUVs.GetNumIndices();
 		//Verify the src light map channel
 		if (BuildSettings->SrcLightmapIndex >= NumIndices)
@@ -136,25 +128,17 @@ UMeshDescription* FMeshDescriptionHelper::GetRenderMeshDescription(UObject* Owne
 			VertexInstanceUVs.SetNumIndices(BuildSettings->DstLightmapIndex + 1);
 			BuildSettings->DstLightmapIndex = NumIndices;
 		}
-		FMeshDescriptionOperations::CreateLightMapUVLayout(RenderMeshDescription,
+		FMeshDescriptionOperations::CreateLightMapUVLayout(OutRenderMeshDescription,
 			BuildSettings->SrcLightmapIndex,
 			BuildSettings->DstLightmapIndex,
 			BuildSettings->MinLightmapResolution,
 			(FMeshDescriptionOperations::ELightmapUVVersion)(StaticMesh->LightmapUVVersion),
 			OverlappingCorners);
 	}
-
-	return RenderMeshDescription;
 }
 
-void FMeshDescriptionHelper::ReduceLOD(const UMeshDescription* BaseMesh, UMeshDescription* DestMesh, const FMeshReductionSettings& ReductionSettings, const TMultiMap<int32, int32>& InOverlappingCorners)
+void FMeshDescriptionHelper::ReduceLOD(const FMeshDescription& BaseMesh, FMeshDescription& DestMesh, const FMeshReductionSettings& ReductionSettings, const TMultiMap<int32, int32>& InOverlappingCorners, float &OutMaxDeviation)
 {
-	if (BaseMesh == nullptr || DestMesh == nullptr)
-	{
-		//UE_LOG(LogMeshUtilities, Error, TEXT("Mesh contains zero source models."));
-		return;
-	}
-
 	IMeshReductionManagerModule& MeshReductionModule = FModuleManager::Get().LoadModuleChecked<IMeshReductionManagerModule>("MeshReductionInterface");
 	IMeshReduction* MeshReduction = MeshReductionModule.GetStaticMeshReductionInterface();
 	// Reduce this LOD mesh according to its reduction settings.
@@ -163,16 +147,11 @@ void FMeshDescriptionHelper::ReduceLOD(const UMeshDescription* BaseMesh, UMeshDe
 	{
 		return;
 	}
-	float MaxDeviation = ReductionSettings.MaxDeviation;
-	MeshReduction->ReduceMeshDescription(DestMesh, MaxDeviation, BaseMesh, InOverlappingCorners, ReductionSettings);
+	OutMaxDeviation = ReductionSettings.MaxDeviation;
+	MeshReduction->ReduceMeshDescription(DestMesh, OutMaxDeviation, BaseMesh, InOverlappingCorners, ReductionSettings);
 }
 
-bool FMeshDescriptionHelper::IsValidOriginalMeshDescription()
-{
-	return OriginalMeshDescription != nullptr;
-}
-
-void FMeshDescriptionHelper::FindOverlappingCorners(const UMeshDescription* MeshDescription, float ComparisonThreshold)
+void FMeshDescriptionHelper::FindOverlappingCorners(const FMeshDescription& MeshDescription, float ComparisonThreshold)
 {
 	FMeshDescriptionOperations::FindOverlappingCorners(OverlappingCorners, MeshDescription, ComparisonThreshold);
 }

@@ -31,8 +31,10 @@ void FTimecodeSynchronizerEditorStyle::Register()
 
 	TimecodeSynchronizerStyle::StyleInstance->Set("Console", new IMAGE_BRUSH("Icon_TimecodeSynchronizer_40x", TimecodeSynchronizerStyle::Icon40x40));
 	TimecodeSynchronizerStyle::StyleInstance->Set("Console.Small", new IMAGE_BRUSH("Icon_TimecodeSynchronizer_20x", TimecodeSynchronizerStyle::Icon20x20));
-	TimecodeSynchronizerStyle::StyleInstance->Set("Play", new IMAGE_BRUSH("Icon_Play_40x", TimecodeSynchronizerStyle::Icon40x40));
-	TimecodeSynchronizerStyle::StyleInstance->Set("Play.Small", new IMAGE_BRUSH("Icon_Play_40x", TimecodeSynchronizerStyle::Icon20x20));
+	TimecodeSynchronizerStyle::StyleInstance->Set("Synchronized", new IMAGE_BRUSH("Icon_Synchronized_40x", TimecodeSynchronizerStyle::Icon40x40));
+	TimecodeSynchronizerStyle::StyleInstance->Set("Synchronized.Small", new IMAGE_BRUSH("Icon_Synchronized_40x", TimecodeSynchronizerStyle::Icon20x20));
+	TimecodeSynchronizerStyle::StyleInstance->Set("Stop", new IMAGE_BRUSH("Icon_Stop_40x", TimecodeSynchronizerStyle::Icon40x40));
+	TimecodeSynchronizerStyle::StyleInstance->Set("Stop.Small", new IMAGE_BRUSH("Icon_Stop_40x", TimecodeSynchronizerStyle::Icon20x20));
 
 
 	FSlateStyleRegistry::RegisterSlateStyle(*TimecodeSynchronizerStyle::StyleInstance.Get());

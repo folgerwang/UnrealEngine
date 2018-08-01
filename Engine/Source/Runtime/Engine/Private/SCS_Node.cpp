@@ -164,7 +164,15 @@ UActorComponent* USCS_Node::ExecuteNodeOnActor(AActor* Actor, USceneComponent* P
 			UClass* ActorClass = Actor->GetClass();
 			if (UObjectPropertyBase* Prop = FindField<UObjectPropertyBase>(ActorClass, VarName))
 			{
-				Prop->SetObjectPropertyValue_InContainer(Actor, NewActorComp);
+				// If it is null we don't really know what's going on, but make it behave as it did before the bug fix
+				if (Prop->PropertyClass == nullptr || NewActorComp->IsA(Prop->PropertyClass))
+				{
+					Prop->SetObjectPropertyValue_InContainer(Actor, NewActorComp);
+				}
+				else
+				{
+					UE_LOG(LogBlueprint, Log, TEXT("ExecuteNodeOnActor: Property '%s' on '%s' is of type '%s'. Could not assign '%s' to it."), *VarName.ToString(), *Actor->GetName(), *Prop->PropertyClass->GetName(), *NewActorComp->GetName());
+				}
 			}
 			else
 			{

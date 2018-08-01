@@ -348,6 +348,18 @@ public:
 	 * in a multi-threaded environment.  This function does not return until the sync is complete
 	 */
 	virtual void Sync() const {};
+	
+	/**
+	 * Indicates the start of a new frame to the Renderer. This is usually handled by the engine loop
+	 * but certain situations (ie, when the main loop is paused) may require manual calls.
+	 */
+	virtual void BeginFrame() const {};
+	
+	/**
+	 * Indicates the end of the current frame to the Renderer. This is usually handled by the engine loop
+	 * but certain situations (ie, when the main loop is paused) may require manual calls.
+	 */
+	virtual void EndFrame() const {};
 
 	/**
 	 * Reloads all texture resources from disk

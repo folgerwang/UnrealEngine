@@ -3,7 +3,7 @@
 #include "Engine/SkeletalMeshLODSettings.h"
 #include "Engine/SkeletalMesh.h"
 #include "UObject/UObjectIterator.h"
-#include "UObject/AthenaObjectVersion.h"
+#include "UObject/FortniteMainBranchObjectVersion.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogSkeletalMeshLODSettings, Warning, All)
 
@@ -206,9 +206,9 @@ void USkeletalMeshLODSettings::Serialize(FArchive& Ar)
 {
 	Super::Serialize(Ar);
 
-	Ar.UsingCustomVersion(FAthenaObjectVersion::GUID);
+	Ar.UsingCustomVersion(FFortniteMainBranchObjectVersion::GUID);
 
-	if (Ar.CustomVer(FAthenaObjectVersion::GUID) < FAthenaObjectVersion::ConvertReductionSettingOptions)
+	if (Ar.CustomVer(FFortniteMainBranchObjectVersion::GUID) < FFortniteMainBranchObjectVersion::ConvertReductionSettingOptions)
 	{
 		for (int32 Index = 0; Index < LODGroups.Num(); ++Index)
 		{

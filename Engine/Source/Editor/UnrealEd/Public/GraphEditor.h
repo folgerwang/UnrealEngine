@@ -395,6 +395,14 @@ public:
 		}
 	}
 
+	virtual void RefreshNode(UEdGraphNode& Node)
+	{
+		if (Implementation.IsValid())
+		{
+			return Implementation->RefreshNode(Node);
+		}
+	}
+
 	// Invoked to let this widget know that the GraphEditor module has been reloaded
 	UNREALED_API void OnModuleReloaded();
 
