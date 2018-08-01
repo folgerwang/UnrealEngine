@@ -3,6 +3,7 @@
 #pragma once
 
 #include "Async/TaskGraphInterfaces.h"
+#include "HAL/ThreadSafeBool.h"
 #include "PhysicsEngine/BodySetup.h"
 
 namespace physx
@@ -34,6 +35,8 @@ struct ENGINE_API FPhysXCookHelper
 		return InCookInfo.bCookTriMesh || InCookInfo.bCookNonMirroredConvex || InCookInfo.bCookMirroredConvex;
 	}
 
+	void Abort() { bShouldAbort.AtomicSet(true); }
+
 	FCookBodySetupInfo CookInfo;	//Use this with UBodySetup::GetCookInfo (must be called on game thread). If you already have the info just override it manually
 
 	//output
@@ -41,10 +44,10 @@ struct ENGINE_API FPhysXCookHelper
 	TArray<physx::PxConvexMesh*> OutMirroredConvexMeshes;
 	TArray<physx::PxTriangleMesh*> OutTriangleMeshes;
 	FBodySetupUVInfo OutUVInfo;
-
 private:
 	void CreateConvexElements_Concurrent(const TArray<TArray<FVector>>& Elements, TArray<physx::PxConvexMesh*>& OutConvexMeshes, bool bFlipped);
 
 	IPhysXCookingModule* PhysXCookingModule;
+	FThreadSafeBool bShouldAbort;	
 };
 #endif //WITH_PHYSX

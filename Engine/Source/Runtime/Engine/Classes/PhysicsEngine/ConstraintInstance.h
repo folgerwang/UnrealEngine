@@ -5,9 +5,10 @@
 #include "UObject/ObjectMacros.h"
 #include "UObject/Class.h"
 #include "EngineDefines.h"
-#include "PhysxUserData.h"
 #include "PhysicsEngine/ConstraintTypes.h"
 #include "PhysicsEngine/ConstraintDrives.h"
+#include "Physics/PhysicsInterfaceCore.h"
+#include "PhysxUserData.h"
 #include "ConstraintInstance.generated.h"
 
 class FMaterialRenderProxy;
@@ -15,15 +16,6 @@ class FMeshElementCollector;
 class FPrimitiveDrawInterface;
 class UMaterialInterface;
 struct FBodyInstance;
-
-#if WITH_PHYSX
-namespace physx
-{
-	class PxD6Joint;
-	class PxRigidActor;
-	class PxScene;
-}
-#endif // WITH_PHYSX
 
 class FMaterialRenderProxy;
 class FPrimitiveDrawInterface;
@@ -94,16 +86,13 @@ struct ENGINE_API FConstraintProfileProperties
 #if WITH_PHYSX
 
 	/** Updates physx joint properties from unreal properties (limits, drives, flags, etc...) */
-	void UpdatePhysX_AssumesLocked(physx::PxD6Joint* Joint, float AverageMass, float UseScale) const;
-
-	/** Updates physx drive target */
-	void UpdatePhysXDriveTarget_AssumesLocked(physx::PxD6Joint* Joint) const;
+	void Update_AssumesLocked(const FPhysicsConstraintHandle& InConstraintRef, float AverageMass, float UseScale) const;
 
 	/** Updates physx joint breakable properties (threshold, etc...)*/
-	void UpdatePhysXBreakable_AssumesLocked(physx::PxD6Joint* Joint) const;
+	void UpdateBreakable_AssumesLocked(const FPhysicsConstraintHandle& InConstraintRef) const;
 
 	/** Updates physx joint flag based on profile properties */
-	void UpdatePhysXConstraintFlags_AssumesLocked(physx::PxD6Joint* Joint) const;
+	void UpdateConstraintFlags_AssumesLocked(const FPhysicsConstraintHandle& InConstraintRef) const;
 #endif
 
 #if WITH_EDITOR
@@ -121,13 +110,10 @@ struct ENGINE_API FConstraintInstance
 	/** Indicates position of this constraint within the array in SkeletalMeshComponent. */
 	int32 ConstraintIndex;
 
-#if WITH_PHYSX
-	/** Internal use. Physics-engine representation of this constraint. */
-	physx::PxD6Joint*		ConstraintData;
-#endif	//WITH_PHYSX
+	// Internal physics constraint representation
+	FPhysicsConstraintHandle ConstraintHandle;
 
-	/** Physics scene index. */
-	int32 SceneIndex;
+	FPhysScene*	PhysScene;
 
 	/** Name of bone that this joint is associated with. */
 	UPROPERTY(VisibleAnywhere, Category=Constraint)
@@ -195,6 +181,9 @@ struct ENGINE_API FConstraintInstance
 public:
 	/** Copies behavior properties from the given profile. Automatically updates the physx representation if it's been created */
 	void CopyProfilePropertiesFrom(const FConstraintProfileProperties& FromProperties);
+
+	/** Get underlying physics engine constraint */
+	const FPhysicsConstraintHandle& GetPhysicsConstraintRef() const;
 
 #if WITH_PHYSX
 	FPhysxUserData PhysxUserData;
@@ -498,10 +487,8 @@ public:
 	/** Create physics engine constraint. */
 	void InitConstraint(FBodyInstance* Body1, FBodyInstance* Body2, float Scale, UObject* DebugOwner, FOnConstraintBroken InConstraintBrokenDelegate = FOnConstraintBroken());
 
-#if WITH_PHYSX
 	/** Create physics engine constraint using physx actors. */
-	void InitConstraintPhysX_AssumesLocked(physx::PxRigidActor* PActor1, physx::PxRigidActor* PActor2, physx::PxScene* PScene, float InScale, FOnConstraintBroken InConstraintBrokenDelegate = FOnConstraintBroken());
-#endif
+	void InitConstraint_AssumesLocked(const FPhysicsActorHandle& ActorRef1, const FPhysicsActorHandle& ActorRef2, float InScale, FOnConstraintBroken InConstraintBrokenDelegate = FOnConstraintBroken());
 
 	/** Terminate physics engine constraint */
 	void TermConstraint();
@@ -574,15 +561,9 @@ public:
 	static FConstraintInstance * Alloc();
 
 private:
-#if WITH_PHYSX 
-	bool CreatePxJoint_AssumesLocked(physx::PxRigidActor* PActor1, physx::PxRigidActor* PActor2, physx::PxScene* PScene);
-	void UpdateConstraintFlags_AssumesLocked();
-	void UpdateAverageMass_AssumesLocked(const physx::PxRigidActor* PActor1, const physx::PxRigidActor* PActor2);
-	physx::PxD6Joint* GetUnbrokenJoint_AssumesLocked() const;
 
-	bool ExecuteOnUnbrokenJointReadOnly(TFunctionRef<void(const physx::PxD6Joint*)> Func) const;
-	bool ExecuteOnUnbrokenJointReadWrite(TFunctionRef<void(physx::PxD6Joint*)> Func) const;
-#endif
+	bool CreateJoint_AssumesLocked(const FPhysicsActorHandle& InActorRef1, const FPhysicsActorHandle& InActorRef2);
+	void UpdateAverageMass_AssumesLocked(const FPhysicsActorHandle& InActorRef1, const FPhysicsActorHandle& InActorRef2);
 
 	struct FPDIOrCollector
 	{

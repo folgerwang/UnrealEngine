@@ -4284,7 +4284,7 @@ void UEditorEngine::OnSourceControlDialogClosed(bool bEnabled)
 	}
 }
 
-bool UEditorEngine::InitializePhysicsSceneForSaveIfNecessary(UWorld* World)
+bool UEditorEngine::InitializePhysicsSceneForSaveIfNecessary(UWorld* World, bool &bOutForceInitialized)
 {
 	// We need a physics scene at save time in case code does traces during onsave events.
 	bool bHasPhysicsScene = false;
@@ -4312,11 +4312,15 @@ bool UEditorEngine::InitializePhysicsSceneForSaveIfNecessary(UWorld* World)
 		{
 			// If we don't have a physics scene and the world was initialized without one (i.e. an inactive world) then we should create one here. We will remove it down below after the save
 			World->CreatePhysicsScene();
+
+			// Keep track of the force initialization so we can use the proper cleanup
+			bOutForceInitialized = false;
 		}
 		else
 		{
 			// If we aren't already initialized, initialize now and create a physics scene. Don't create an FX system because it uses too much video memory for bulk operations
 			World->InitWorld(GetEditorWorldInitializationValues().CreateFXSystem(false).CreatePhysicsScene(true));
+			bOutForceInitialized = true;
 		}
 
 		// Update components now that a physics scene exists.
@@ -4329,11 +4333,18 @@ bool UEditorEngine::InitializePhysicsSceneForSaveIfNecessary(UWorld* World)
 	return false;
 }
 
-void UEditorEngine::CleanupPhysicsSceneThatWasInitializedForSave(UWorld* World)
+void UEditorEngine::CleanupPhysicsSceneThatWasInitializedForSave(UWorld* World, bool bForceInitialized)
 {
 	// Make sure we clean up the physics scene here. If we leave too many scenes in memory, undefined behavior occurs when locking a scene for read/write.
 	World->ClearWorldComponents();
+
+	if(bForceInitialized)
+	{
+		World->CleanupWorld(true, true, World);
+	}
+
 	World->SetPhysicsScene(nullptr);
+
 #if WITH_PHYSX
 	if (GPhysCommandHandler)
 	{
@@ -4364,6 +4375,7 @@ FSavePackageResultStruct UEditorEngine::Save( UPackage* InOuter, UObject* InBase
 
 	UWorld* World = Cast<UWorld>(Base);
 	bool bInitializedPhysicsSceneForSave = false;
+	bool bForceInitializedWorld = false;
 	const bool bSavingConcurrent = !!(SaveFlags & ESaveFlags::SAVE_Concurrent);
 	
 	UWorld *OriginalOwningWorld = nullptr;
@@ -4371,7 +4383,7 @@ FSavePackageResultStruct UEditorEngine::Save( UPackage* InOuter, UObject* InBase
 	{
 		if (!bSavingConcurrent)
 		{
-			bInitializedPhysicsSceneForSave = InitializePhysicsSceneForSaveIfNecessary(World);
+			bInitializedPhysicsSceneForSave = InitializePhysicsSceneForSaveIfNecessary(World, bForceInitializedWorld);
 
 			OnPreSaveWorld(SaveFlags, World);
 		}
@@ -4430,7 +4442,7 @@ FSavePackageResultStruct UEditorEngine::Save( UPackage* InOuter, UObject* InBase
 
 			if (bInitializedPhysicsSceneForSave)
 			{
-				CleanupPhysicsSceneThatWasInitializedForSave(World);
+				CleanupPhysicsSceneThatWasInitializedForSave(World, bForceInitializedWorld);
 			}
 
 			// Rerunning construction scripts may have made it dirty again

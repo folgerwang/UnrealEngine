@@ -20,7 +20,14 @@ public class Vulkan : ModuleRules
 			// Let's always delay load the vulkan dll as not everyone has it installed
 			PublicDelayLoadDLLs.Add("vulkan-1.dll");
 		}
-		else if(Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
+        else if (Target.Platform == UnrealTargetPlatform.Android)
+        {
+            string RootPath = Target.UEThirdPartySourceDirectory + "Vulkan";
+
+            PublicSystemIncludePaths.Add(RootPath + "/Include");
+            PublicSystemIncludePaths.Add(RootPath + "/Include/vulkan");
+        }
+        else if (Target.IsInPlatformGroup(UnrealPlatformGroup.Unix))
 		{
 			// no need to add the library, should be loaded via SDL
 			string RootPath = Target.UEThirdPartySourceDirectory + "Vulkan";

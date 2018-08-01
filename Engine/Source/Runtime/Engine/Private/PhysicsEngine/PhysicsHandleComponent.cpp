@@ -5,6 +5,8 @@
 #include "PhysxUserData.h"
 #include "Components/PrimitiveComponent.h"
 #include "PhysicsPublic.h"
+#include "Physics/PhysicsInterfaceCore.h"
+
 #if WITH_PHYSX
 	#include "PhysXPublic.h"
 #endif // WITH_PHYSX
@@ -38,10 +40,11 @@ void UPhysicsHandleComponent::OnUnregister()
 		check(KinActorData);
 
 		// use correct scene
-		PxScene* PScene = GetPhysXSceneFromIndex( SceneIndex );
-		SCOPED_SCENE_WRITE_LOCK(PScene);
+		PxScene* PScene = HandleData->getScene();
 		if(PScene)
 		{
+			PScene->lockWrite();
+
 			// destroy joint
 			HandleData->release();
 			HandleData = NULL;
@@ -49,6 +52,8 @@ void UPhysicsHandleComponent::OnUnregister()
 			// Destroy temporary actor.
 			KinActorData->release();
 			KinActorData = NULL;
+
+			PScene->unlockWrite();
 		}
 	}
 #endif // WITH_PHYSX
@@ -75,11 +80,13 @@ void UPhysicsHandleComponent::GrabComponent(class UPrimitiveComponent* InCompone
 	FRotator GrabbedRotation = FRotator::ZeroRotator;
 
 #if WITH_PHYSX
-	ExecuteOnPxRigidDynamicReadWrite(BodyInstance, [&GrabbedRotation](PxRigidDynamic* Actor)
+	if(BodyInstance->ActorHandle.IsValid())
 	{
-		PxScene* Scene = Actor->getScene();
-		GrabbedRotation = P2UQuat(Actor->getGlobalPose().q).Rotator();
-	});
+		FPhysicsCommand::ExecuteRead(BodyInstance->ActorHandle, [&](const FPhysicsActorHandle& Actor)
+		{
+			GrabbedRotation = FPhysicsInterface::GetGlobalPose_AssumesLocked(Actor).Rotator();
+		});
+	}
 #endif
 
 
@@ -109,7 +116,7 @@ void UPhysicsHandleComponent::GrabComponentImp(UPrimitiveComponent* InComponent,
 		return;
 	}
 
-#if WITH_PHYSX
+#if WITH_PHYSX && PHYSICS_INTERFACE_PHYSX
 	// Get the PxRigidDynamic that we want to grab.
 	FBodyInstance* BodyInstance = InComponent->GetBodyInstance(InBoneName);
 	if (!BodyInstance)
@@ -117,72 +124,74 @@ void UPhysicsHandleComponent::GrabComponentImp(UPrimitiveComponent* InComponent,
 		return;
 	}
 
-	ExecuteOnPxRigidDynamicReadWrite(BodyInstance, [&](PxRigidDynamic* Actor)
+	FPhysicsCommand::ExecuteWrite(BodyInstance->ActorHandle, [&](const FPhysicsActorHandle& Actor)
 	{
-		PxScene* Scene = Actor->getScene();
-		
-		// Get transform of actor we are grabbing
-		PxVec3 KinLocation = U2PVector(Location);
-		PxQuat KinOrientation = U2PQuat(Rotation.Quaternion());
-		PxTransform GrabbedActorPose = Actor->getGlobalPose();
-		PxTransform KinPose(KinLocation, KinOrientation);
-
-		// set target and current, so we don't need another "Tick" call to have it right
-		TargetTransform = CurrentTransform = P2UTransform(KinPose);
-
-		// If we don't already have a handle - make one now.
-		if (!HandleData)
+		if(PxRigidActor* PActor = FPhysicsInterface::GetPxRigidActor_AssumesLocked(Actor))
 		{
-			// Create kinematic actor we are going to create joint with. This will be moved around with calls to SetLocation/SetRotation.
-			PxRigidDynamic* KinActor = Scene->getPhysics().createRigidDynamic(KinPose);
-			KinActor->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC, true);
-			KinActor->setMass(1.0f);
-			KinActor->setMassSpaceInertiaTensor(PxVec3(1.0f, 1.0f, 1.0f));
+			PxScene* Scene = PActor->getScene();
 
-			// No bodyinstance
-			KinActor->userData = NULL;
+			// Get transform of actor we are grabbing
+			PxVec3 KinLocation = U2PVector(Location);
+			PxQuat KinOrientation = U2PQuat(Rotation.Quaternion());
+			PxTransform GrabbedActorPose = PActor->getGlobalPose();
+			PxTransform KinPose(KinLocation, KinOrientation);
 
-			// Add to Scene
-			Scene->addActor(*KinActor);
+			// set target and current, so we don't need another "Tick" call to have it right
+			TargetTransform = CurrentTransform = P2UTransform(KinPose);
 
-			// Save reference to the kinematic actor.
-			KinActorData = KinActor;
-
-			// Create the joint
-			PxD6Joint* NewJoint = PxD6JointCreate(Scene->getPhysics(), KinActor, PxTransform(PxIdentity), Actor, GrabbedActorPose.transformInv(KinPose));
-
-			if (!NewJoint)
+			// If we don't already have a handle - make one now.
+			if(!HandleData)
 			{
-				HandleData = 0;
-			}
-			else
-			{
-				// No constraint instance
-				NewJoint->userData = NULL;
-				HandleData = NewJoint;
+				// Create kinematic actor we are going to create joint with. This will be moved around with calls to SetLocation/SetRotation.
+				PxRigidDynamic* KinActor = Scene->getPhysics().createRigidDynamic(KinPose);
+				KinActor->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC, true);
+				KinActor->setMass(1.0f);
+				KinActor->setMassSpaceInertiaTensor(PxVec3(1.0f, 1.0f, 1.0f));
 
-				// Remember the scene index that the handle joint/actor are in.
-				FPhysScene* RBScene = FPhysxUserData::Get<FPhysScene>(Scene->userData);
-				const uint32 SceneType = InComponent->BodyInstance.UseAsyncScene(RBScene) ? PST_Async : PST_Sync;
-				SceneIndex = RBScene->PhysXSceneIndex[SceneType];
+				// No bodyinstance
+				KinActor->userData = NULL;
 
-				// Setting up the joint
-				
-				PxD6Motion::Enum const LocationMotionType = bSoftLinearConstraint ? PxD6Motion::eFREE : PxD6Motion::eLOCKED;
-				PxD6Motion::Enum const RotationMotionType = (bSoftAngularConstraint || !bConstrainRotation) ? PxD6Motion::eFREE : PxD6Motion::eLOCKED;
+				// Add to Scene
+				Scene->addActor(*KinActor);
 
-				NewJoint->setMotion(PxD6Axis::eX, LocationMotionType);
-				NewJoint->setMotion(PxD6Axis::eY, LocationMotionType);
-				NewJoint->setMotion(PxD6Axis::eZ, LocationMotionType);
-				NewJoint->setDrivePosition(PxTransform(PxVec3(0, 0, 0)));
+				// Save reference to the kinematic actor.
+				KinActorData = KinActor;
 
-				NewJoint->setMotion(PxD6Axis::eTWIST, RotationMotionType);
-				NewJoint->setMotion(PxD6Axis::eSWING1, RotationMotionType);
-				NewJoint->setMotion(PxD6Axis::eSWING2, RotationMotionType);
+				// Create the joint
+				PxD6Joint* NewJoint = PxD6JointCreate(Scene->getPhysics(), KinActor, PxTransform(PxIdentity), PActor, GrabbedActorPose.transformInv(KinPose));
 
-				bRotationConstrained = bConstrainRotation;
+				if(!NewJoint)
+				{
+					HandleData = 0;
+				}
+				else
+				{
+					// No constraint instance
+					NewJoint->userData = NULL;
+					HandleData = NewJoint;
 
-				UpdateDriveSettings();
+					// Remember the scene index that the handle joint/actor are in.
+					FPhysScene* RBScene = FPhysxUserData::Get<FPhysScene>(Scene->userData);
+					const uint32 SceneType = InComponent->BodyInstance.UseAsyncScene(RBScene) ? PST_Async : PST_Sync;
+
+					// Setting up the joint
+
+					PxD6Motion::Enum const LocationMotionType = bSoftLinearConstraint ? PxD6Motion::eFREE : PxD6Motion::eLOCKED;
+					PxD6Motion::Enum const RotationMotionType = (bSoftAngularConstraint || !bConstrainRotation) ? PxD6Motion::eFREE : PxD6Motion::eLOCKED;
+
+					NewJoint->setMotion(PxD6Axis::eX, LocationMotionType);
+					NewJoint->setMotion(PxD6Axis::eY, LocationMotionType);
+					NewJoint->setMotion(PxD6Axis::eZ, LocationMotionType);
+					NewJoint->setDrivePosition(PxTransform(PxVec3(0, 0, 0)));
+
+					NewJoint->setMotion(PxD6Axis::eTWIST, RotationMotionType);
+					NewJoint->setMotion(PxD6Axis::eSWING1, RotationMotionType);
+					NewJoint->setMotion(PxD6Axis::eSWING2, RotationMotionType);
+
+					bRotationConstrained = bConstrainRotation;
+
+					UpdateDriveSettings();
+				}
 			}
 		}
 	});
@@ -226,7 +235,7 @@ void UPhysicsHandleComponent::ReleaseComponent()
 			check(KinActorData);
 
 			// use correct scene
-			PxScene* PScene = GetPhysXSceneFromIndex( SceneIndex );
+			PxScene* PScene = HandleData->getScene();
 			if(PScene)
 			{
 				SCOPED_SCENE_WRITE_LOCK(PScene);
@@ -284,7 +293,7 @@ void UPhysicsHandleComponent::UpdateHandleTransform(const FTransform& NewTransfo
 	bool bChangedRotation = true;
 
 	PxRigidDynamic* KinActor = KinActorData;
-	PxScene* PScene = GetPhysXSceneFromIndex(SceneIndex);
+	PxScene* PScene = KinActor->getScene();
 	SCOPED_SCENE_WRITE_LOCK(PScene);
 
 	// Check if the new location is worthy of change

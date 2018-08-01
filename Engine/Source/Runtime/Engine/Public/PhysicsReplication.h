@@ -8,6 +8,9 @@
 #pragma once
 
 #include "Engine/EngineTypes.h"
+#include "Physics/PhysicsInterfaceDeclares.h"
+
+class FPhysScene_PhysX;
 
 struct FReplicatedPhysicsTarget
 {
@@ -40,7 +43,6 @@ struct FReplicatedPhysicsTarget
 struct FBodyInstance;
 struct FRigidBodyErrorCorrection;
 class UWorld;
-class FPhysScene;
 class UPrimitiveComponent;
 
 class ENGINE_API FPhysicsReplication
@@ -63,6 +65,9 @@ protected:
 	/** Update the physics body state given a set of replicated targets */
 	virtual void OnTick(float DeltaSeconds, TMap<TWeakObjectPtr<UPrimitiveComponent>, FReplicatedPhysicsTarget>& ComponentsToTargets);
 	bool ApplyRigidBodyState(float DeltaSeconds, FBodyInstance* BI, FReplicatedPhysicsTarget& PhysicsTarget, const FRigidBodyErrorCorrection& ErrorCorrection, const float PingSecondsOneWay);
+
+	UWorld* GetOwningWorld();
+	const UWorld* GetOwningWorld() const;
 
 private:
 

@@ -2391,7 +2391,7 @@ void FMeshMergeUtilities::MergeComponentsToStaticMesh(const TArray<UPrimitiveCom
 		FTransform PivotTM(-MergedAssetPivot);
 		for (FKAggregateGeom& Geometry : PhysicsGeometry)
 		{
-			FMeshMergeHelpers::TransformPhysicsGeometry(PivotTM, Geometry);
+			FMeshMergeHelpers::TransformPhysicsGeometry(PivotTM, false, Geometry);
 		}
 	}
 
@@ -3176,9 +3176,10 @@ void FMeshMergeUtilities::ExtractPhysicsDataFromComponents(const TArray<UPrimiti
 			BodySetup = ShapeComp->GetBodySetup();
 			ComponentToWorld = ShapeComp->GetComponentToWorld();
 		}
-		
-		FMeshMergeHelpers::ExtractPhysicsGeometry(BodySetup, ComponentToWorld, InOutPhysicsGeometry[ComponentIndex]);
-		if (USplineMeshComponent* SplineMeshComponent = Cast<USplineMeshComponent>(PrimComp))
+
+		USplineMeshComponent* SplineMeshComponent = Cast<USplineMeshComponent>(PrimComp);
+		FMeshMergeHelpers::ExtractPhysicsGeometry(BodySetup, ComponentToWorld, SplineMeshComponent != nullptr, InOutPhysicsGeometry[ComponentIndex]);
+		if (SplineMeshComponent)
 		{
 			FMeshMergeHelpers::PropagateSplineDeformationToPhysicsGeometry(SplineMeshComponent, InOutPhysicsGeometry[ComponentIndex]);
 		}

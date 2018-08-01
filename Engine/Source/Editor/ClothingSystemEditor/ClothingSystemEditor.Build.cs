@@ -33,6 +33,6 @@ public class ClothingSystemEditor : ModuleRules
             }
 		);
         
-        SetupModulePhysXAPEXSupport(Target);
+        SetupModulePhysicsSupport(Target);
 	}
 }

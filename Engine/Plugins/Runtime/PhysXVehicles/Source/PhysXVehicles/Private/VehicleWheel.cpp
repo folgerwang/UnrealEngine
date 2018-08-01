@@ -38,7 +38,7 @@ UVehicleWheel::UVehicleWheel(const FObjectInitializer& ObjectInitializer)
 	SweepType = EWheelSweepType::SimpleAndComplex;
 }
 
-#if WITH_PHYSX
+#if WITH_PHYSX_VEHICLES
 FPhysXVehicleManager* UVehicleWheel::GetVehicleManager() const
 {
 	UWorld* World = GEngine->GetWorldFromContextObject(VehicleSim, EGetWorldErrorMode::LogAndReturnNull);
@@ -48,7 +48,7 @@ FPhysXVehicleManager* UVehicleWheel::GetVehicleManager() const
 
 float UVehicleWheel::GetSteerAngle() const
 {
-#if WITH_PHYSX
+#if WITH_PHYSX_VEHICLES
 	if (FPhysXVehicleManager* VehicleManager = GetVehicleManager())
 	{
 		SCOPED_SCENE_READ_LOCK(VehicleManager->GetScene());
@@ -60,7 +60,7 @@ float UVehicleWheel::GetSteerAngle() const
 
 float UVehicleWheel::GetRotationAngle() const
 {
-#if WITH_PHYSX
+#if WITH_PHYSX_VEHICLES
 	if (FPhysXVehicleManager* VehicleManager = GetVehicleManager())
 	{
 		SCOPED_SCENE_READ_LOCK(VehicleManager->GetScene());
@@ -75,7 +75,7 @@ float UVehicleWheel::GetRotationAngle() const
 
 float UVehicleWheel::GetSuspensionOffset() const
 {
-#if WITH_PHYSX
+#if WITH_PHYSX_VEHICLES
 	if (FPhysXVehicleManager* VehicleManager = GetVehicleManager())
 	{
 		SCOPED_SCENE_READ_LOCK(VehicleManager->GetScene());
@@ -88,7 +88,7 @@ float UVehicleWheel::GetSuspensionOffset() const
 
 bool UVehicleWheel::IsInAir() const
 {
-#if WITH_PHYSX
+#if WITH_PHYSX_VEHICLES
 	if (FPhysXVehicleManager* VehicleManager = GetVehicleManager())
 	{
 		SCOPED_SCENE_READ_LOCK(VehicleManager->GetScene());
@@ -107,7 +107,7 @@ void UVehicleWheel::Init( UWheeledVehicleMovementComponent* InVehicleSim, int32 
 	VehicleSim = InVehicleSim;
 	WheelIndex = InWheelIndex;
 
-#if WITH_PHYSX
+#if WITH_PHYSX_VEHICLES
 	WheelShape = NULL;
 
 	FPhysXVehicleManager* VehicleManager = FPhysXVehicleManager::GetVehicleManagerFromScene(VehicleSim->GetWorld()->GetPhysicsScene());
@@ -126,7 +126,7 @@ void UVehicleWheel::Init( UWheeledVehicleMovementComponent* InVehicleSim, int32 
 
 void UVehicleWheel::Shutdown()
 {
-#if WITH_PHYSX
+#if WITH_PHYSX_VEHICLES
 	WheelShape = NULL;
 #endif // WITH_PHYSX
 }
@@ -145,7 +145,7 @@ void UVehicleWheel::Tick( float DeltaTime )
 
 FVector UVehicleWheel::GetPhysicsLocation()
 {
-#if WITH_PHYSX
+#if WITH_PHYSX_VEHICLES
 	if ( WheelShape )
 	{
 		if (FPhysXVehicleManager* VehicleManager = GetVehicleManager())
@@ -166,7 +166,7 @@ void UVehicleWheel::PostEditChangeProperty( FPropertyChangedEvent& PropertyChang
 {
 	Super::PostEditChangeProperty( PropertyChangedEvent );
 
-#if WITH_PHYSX
+#if WITH_PHYSX_VEHICLES
 	// Trigger a runtime rebuild of the PhysX vehicle
 	FPhysXVehicleManager::VehicleSetupTag++;
 #endif // WITH_PHYSX
@@ -179,7 +179,7 @@ UPhysicalMaterial* UVehicleWheel::GetContactSurfaceMaterial()
 {
 	UPhysicalMaterial* PhysMaterial = NULL;
 
-#if WITH_PHYSX
+#if WITH_PHYSX_VEHICLES
 	FPhysXVehicleManager* VehicleManager = FPhysXVehicleManager::GetVehicleManagerFromScene(VehicleSim->GetWorld()->GetPhysicsScene());
 	SCOPED_SCENE_READ_LOCK(VehicleManager->GetScene());
 

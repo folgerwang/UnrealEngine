@@ -12,6 +12,7 @@
 #include "PhysicsEngine/BodySetupEnums.h"
 #include "PhysicsEngine/AggregateGeom.h"
 #include "Interfaces/Interface_CollisionDataProvider.h"
+#include "HAL/ThreadSafeBool.h"
 #include "Async/TaskGraphInterfaces.h"
 #include "BodySetup.generated.h"
 
@@ -22,7 +23,7 @@ class UPrimitiveComponent;
 struct FShapeData;
 enum class EPhysXMeshCookFlags : uint8;
 
-DECLARE_DELEGATE(FOnAsyncPhysicsCookFinished);
+DECLARE_DELEGATE_OneParam(FOnAsyncPhysicsCookFinished, bool);
 
 namespace physx
 {
@@ -256,6 +257,12 @@ public:
 	UPROPERTY()
 	FVector BuildScale3D;
 
+#if WITH_PHYSX
+	/** References the current async cook helper. Used to be able to abort a cook task */
+	FPhysXCookHelper* CurrentCookHelper;
+#endif
+
+public:
 	//~ Begin UObject Interface.
 	virtual void Serialize(FArchive& Ar) override;
 	virtual void BeginDestroy() override;
@@ -286,6 +293,9 @@ public:
 	/** Release Physics meshes (ConvexMeshes, TriMesh & TriMeshNegX). Must be called before the BodySetup is destroyed */
 	/** NOTE: You cannot use the body setup until this operation is done. You must create the physics state (call CreatePhysicsState, or InitBody, etc..) , this does not automatically update the BodyInstance state for you */
 	ENGINE_API void CreatePhysicsMeshesAsync(FOnAsyncPhysicsCookFinished OnAsyncPhysicsCookFinished);
+
+	/** Aborts an async cook that hasn't begun. See CreatePhysicsMeshesAsync.  (Useful for cases where frequent updates at runtime would otherwise cause a backlog) */
+	ENGINE_API void AbortPhysicsMeshAsyncCreation();
 
 private:
 #if WITH_PHYSX
@@ -346,9 +356,9 @@ public:
 	ENGINE_API void CreateFromModel(class UModel* InModel, bool bRemoveExisting);
 
 	/**
-	 * Converts the skinned data of a skeletal mesh into a tri mesh collision. This is used for per poly scene queries and is quite expensive.
-	 * In 99% of cases you should be fine using a physics asset created for the skeletal mesh
-	 * @param	InSkeletalMeshComponent		The skeletal mesh component we'll be grabbing the skinning information from
+	 * Updates the tri mesh collision with new positions, and refits the BVH to match. 
+	 * This is not a full collision cook, and so you can only safely move positions and not change the structure
+	 * @param	NewPositions		The new mesh positions to use
 	 */
 	ENGINE_API void UpdateTriMeshVertices(const TArray<FVector> & NewPositions);
 
@@ -404,60 +414,20 @@ public:
 	/** 
 	 *   Add the shapes defined by this body setup to the supplied PxRigidBody. 
 	 */
-	ENGINE_API void AddShapesToRigidActor_AssumesLocked(FBodyInstance* OwningInstance, physx::PxRigidActor* PDestActor, EPhysicsSceneType SceneType, FVector& Scale3D, physx::PxMaterial* SimpleMaterial, TArray<UPhysicalMaterial*>& ComplexMaterials, FShapeData& ShapeData, const FTransform& RelativeTM = FTransform::Identity, TArray<physx::PxShape*>* NewShapes = NULL, bool bShapeSharing = false);
+	ENGINE_API void AddShapesToRigidActor_AssumesLocked(
+		FBodyInstance* OwningInstance, 
+		EPhysicsSceneType SceneType, 
+		FVector& Scale3D, 
+		UPhysicalMaterial* SimpleMaterial,
+		TArray<UPhysicalMaterial*>& ComplexMaterials, 
+		const FBodyCollisionData& BodyCollisionData,
+		const FTransform& RelativeTM = FTransform::Identity, 
+		TArray<FPhysicsShapeHandle>* NewShapes = NULL, 
+		bool bShapeSharing = false);
 #endif // WITH_PHYSX
 
 	friend struct FIterateBodySetupHelper;
 
 };
 
-/** Helper struct for iterating over shapes in a body setup.*/
-struct ENGINE_API FBodySetupShapeIterator
-{
-#if WITH_PHYSX
-	FBodySetupShapeIterator(const UBodySetup& InBodySetup, FVector& InScale3D, const FTransform& InRelativeTM);
 
-	/** Iterates over the elements array and creates the needed geometry and local pose. Note that this memory is on the stack so it's illegal to use it by reference outside the lambda */
-	template <typename ElemType, typename GeomType>
-	void ForEachShape(const TArray<ElemType>& Elements, TFunctionRef<void(const ElemType& Elem, const GeomType& Geom, const physx::PxTransform& LocalPose, float ContactOffset, float RestOffset)> VisitorFunc) const;
-
-	/** Helper function to determine contact offset params */
-	static void GetContactOffsetParams(float& InOutContactOffsetFactor, float& InOutMinContactOffset, float& InOutMaxContactOffset);
-
-private:
-
-	template <typename ElemType, typename GeomType> bool PopulatePhysXGeometryAndTransform(const ElemType& Elem, GeomType& Geom, physx::PxTransform& OutTM) const;
-	template <typename GeomType> float ComputeContactOffset(const GeomType& Geom) const;
-	template <typename ElemType> float ComputeRestOffset(const ElemType& Geom) const;
-	template <typename ElemType> FString GetDebugName() const;
-#endif //WITH_PHYSX
-
-private:
-	const UBodySetup& BodySetup;
-	FVector& Scale3D;
-	const FTransform& RelativeTM;
-
-	float MinScaleAbs;
-	float MinScale;
-	FVector ShapeScale3DAbs;
-	FVector ShapeScale3D;
-
-	float ContactOffsetFactor;
-	float MinContactOffset;
-	float MaxContactOffset;
-};
-
-#if WITH_PHYSX
-
-/// @cond DOXYGEN_WARNINGS
-
-//Explicit export of template instantiation 
-extern template ENGINE_API void FBodySetupShapeIterator::ForEachShape(const TArray<FKSphereElem>&, TFunctionRef<void(const FKSphereElem&, const physx::PxSphereGeometry&, const physx::PxTransform& , float, float )>) const;
-extern template ENGINE_API void FBodySetupShapeIterator::ForEachShape(const TArray<FKBoxElem>&, TFunctionRef<void(const FKBoxElem&, const physx::PxBoxGeometry&, const physx::PxTransform&, float, float)>) const;
-extern template ENGINE_API void FBodySetupShapeIterator::ForEachShape(const TArray<FKSphylElem>&, TFunctionRef<void(const FKSphylElem&, const physx::PxCapsuleGeometry&, const physx::PxTransform&, float, float)>) const;
-extern template ENGINE_API void FBodySetupShapeIterator::ForEachShape(const TArray<FKConvexElem>&, TFunctionRef<void(const FKConvexElem&, const physx::PxConvexMeshGeometry&, const physx::PxTransform&, float, float)>) const;
-extern template ENGINE_API void FBodySetupShapeIterator::ForEachShape(const TArray<physx::PxTriangleMesh*>&,TFunctionRef<void (physx::PxTriangleMesh* const &, const physx::PxTriangleMeshGeometry&, const physx::PxTransform&,float, float)>) const;
-
-/// @endcond
-
-#endif //WITH_PHYSX

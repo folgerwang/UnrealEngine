@@ -835,13 +835,10 @@ void FStaticMeshEditorViewportClient::DrawCanvas( FViewport& InViewport, FSceneV
  	int32 Y = 30;
 	// Make sure draws to the canvas are not rendered upside down.
 	Canvas.SetAllowSwitchVerticalAxis(false);
-	if (StaticMesh->BodySetup)
+	if (StaticMesh->BodySetup && (!(StaticMesh->BodySetup->bHasCookedCollisionData || StaticMesh->BodySetup->bNeverNeedsCookedCollisionData) || StaticMesh->BodySetup->bFailedToCreatePhysicsMeshes))
 	{
-		if (!(StaticMesh->BodySetup->bHasCookedCollisionData || StaticMesh->BodySetup->bNeverNeedsCookedCollisionData) || StaticMesh->BodySetup->bFailedToCreatePhysicsMeshes)
-		{
-			static const FText Message = NSLOCTEXT("Renderer", "NoCookedCollisionObject", "NO COOKED COLLISION OBJECT: TOO SMALL?");
-			Canvas.DrawShadowedText(X, Y, Message, GetStatsFont(), FLinearColor(1.0, 0.05, 0.05, 1.0));
-		}
+		static const FText Message = NSLOCTEXT("Renderer", "NoCookedCollisionObject", "NO COOKED COLLISION OBJECT: TOO SMALL?");
+		Canvas.DrawShadowedText(X, Y, Message, GetStatsFont(), FLinearColor(1.0, 0.05, 0.05, 1.0));
 	}
 
 	if(bDrawUVs && StaticMesh->RenderData->LODResources.Num() > 0)
