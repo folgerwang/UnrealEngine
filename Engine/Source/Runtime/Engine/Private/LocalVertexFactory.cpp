@@ -22,6 +22,9 @@ void FSpeedTreeWindNullUniformBuffer::InitDynamicRHI()
 {
 	FSpeedTreeUniformParameters Parameters;
 	FMemory::Memzero(Parameters);
+	// Set valid vectors otherwise nothing gets rendered.
+	Parameters.WindVector.X = 1.f;
+	Parameters.PrevWindVector.X = 1.f;
 	SetContentsNoUpdate(Parameters);
 	
 	Super::InitDynamicRHI();
