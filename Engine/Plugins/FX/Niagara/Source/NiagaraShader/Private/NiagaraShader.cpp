@@ -10,6 +10,7 @@
 #include "ShaderCompiler.h"
 #include "NiagaraShaderDerivedDataVersion.h"
 #include "NiagaraShaderCompilationManager.h"
+#include "UObject/CoreRedirects.h"
 #if WITH_EDITOR
 	#include "Interfaces/ITargetPlatformManagerModule.h"
 	#include "TickableEditorObject.h"
@@ -1329,6 +1330,17 @@ void FNiagaraDataInterfaceParamRef::ConstructParameters()
 void FNiagaraDataInterfaceParamRef::InitDIClass()
 {
 	DIClass = Cast<UClass>(StaticFindObject(UClass::StaticClass(), ANY_PACKAGE, *ParameterInfo.DIClassName, true));
+	if (DIClass == nullptr)
+	{
+		FCoreRedirectObjectName OldObjName;
+		OldObjName.ObjectName = *ParameterInfo.DIClassName;
+		FCoreRedirectObjectName NewObjName = FCoreRedirects::GetRedirectedName(ECoreRedirectFlags::Type_Class, OldObjName);
+		if (NewObjName.IsValid())
+		{
+			DIClass = Cast<UClass>(StaticFindObject(UClass::StaticClass(), ANY_PACKAGE, *NewObjName.ObjectName.ToString(), true));
+		}
+
+	}
 	ensureMsgf(DIClass, TEXT("Failed to load class for FNiagaraDataInterfaceParamRef. %s"), *ParameterInfo.DIClassName);
 }
 

@@ -5,18 +5,18 @@
 #include "NiagaraDataInterface.h"
 #include "NiagaraCommon.h"
 #include "VectorVM.h"
-#include "NiagaraDataInterfaceTexture2D.generated.h"
+#include "NiagaraDataInterfaceTexture.generated.h"
 
 /** Data Interface allowing sampling of a texture */
-UCLASS(EditInlineNew, Category = "Texture", meta = (DisplayName = "Texture Sample 2D"))
-class NIAGARA_API UNiagaraDataInterfaceTexture2D : public UNiagaraDataInterface
+UCLASS(EditInlineNew, Category = "Texture", meta = (DisplayName = "Texture Sample"))
+class NIAGARA_API UNiagaraDataInterfaceTexture : public UNiagaraDataInterface
 {
 	GENERATED_UCLASS_BODY()
 		bool bGPUBufferDirty;
 public:
 
 	UPROPERTY(EditAnywhere, Category = "Texture")
-	UTexture2D* Texture;
+	UTexture* Texture;
 
 	//UObject Interface
 	virtual void PostInitProperties()override;

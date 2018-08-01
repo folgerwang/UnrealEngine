@@ -1,25 +1,25 @@
 // Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
-#include "NiagaraDataInterfaceTexture2D.h"
+#include "NiagaraDataInterfaceTexture.h"
 #include "NiagaraShader.h"
 #include "ShaderParameterUtils.h"
 #include "NiagaraCustomVersion.h"
 
 
-#define LOCTEXT_NAMESPACE "UNiagaraDataInterfaceTexture2D"
+#define LOCTEXT_NAMESPACE "UNiagaraDataInterfaceTexture"
 
-const FName UNiagaraDataInterfaceTexture2D::SampleTextureName(TEXT("SampleTexture2D"));
-const FString UNiagaraDataInterfaceTexture2D::TextureName(TEXT("Texture_"));
-const FString UNiagaraDataInterfaceTexture2D::SamplerName(TEXT("Sampler_"));
+const FName UNiagaraDataInterfaceTexture::SampleTextureName(TEXT("SampleTexture2D"));
+const FString UNiagaraDataInterfaceTexture::TextureName(TEXT("Texture_"));
+const FString UNiagaraDataInterfaceTexture::SamplerName(TEXT("Sampler_"));
 
-UNiagaraDataInterfaceTexture2D::UNiagaraDataInterfaceTexture2D(FObjectInitializer const& ObjectInitializer)
+UNiagaraDataInterfaceTexture::UNiagaraDataInterfaceTexture(FObjectInitializer const& ObjectInitializer)
 	: Super(ObjectInitializer)
 	, Texture(nullptr)
 {
 
 }
 
-void UNiagaraDataInterfaceTexture2D::PostInitProperties()
+void UNiagaraDataInterfaceTexture::PostInitProperties()
 {
 	Super::PostInitProperties();
 
@@ -29,7 +29,7 @@ void UNiagaraDataInterfaceTexture2D::PostInitProperties()
 	}
 }
 
-void UNiagaraDataInterfaceTexture2D::PostLoad()
+void UNiagaraDataInterfaceTexture::PostLoad()
 {
 	Super::PostLoad();
 #if WITH_EDITOR
@@ -47,17 +47,17 @@ void UNiagaraDataInterfaceTexture2D::PostLoad()
 
 #if WITH_EDITOR
 
-void UNiagaraDataInterfaceTexture2D::PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent)
+void UNiagaraDataInterfaceTexture::PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent)
 {
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 
-	if (PropertyChangedEvent.Property && PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(UNiagaraDataInterfaceTexture2D, Texture))
+	if (PropertyChangedEvent.Property && PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(UNiagaraDataInterfaceTexture, Texture))
 	{
 		CopyTextureToCPUBackup(Texture, CPUTextureData);
 	}
 }
 
-bool UNiagaraDataInterfaceTexture2D::CopyTextureToCPUBackup(UTexture* SourceTexture, TArray<uint8>& TargetBuffer)
+bool UNiagaraDataInterfaceTexture::CopyTextureToCPUBackup(UTexture* SourceTexture, TArray<uint8>& TargetBuffer)
 {
 	if (SourceTexture == nullptr)
 	{
@@ -91,7 +91,7 @@ bool UNiagaraDataInterfaceTexture2D::CopyTextureToCPUBackup(UTexture* SourceText
 	return true;
 }
 
-void UNiagaraDataInterfaceTexture2D::CopyTextureData(const uint8* Source, uint8* Dest, uint32 SizeX, uint32 SizeY, uint32 BytesPerPixel, uint32 SourceStride, uint32 DestStride)
+void UNiagaraDataInterfaceTexture::CopyTextureData(const uint8* Source, uint8* Dest, uint32 SizeX, uint32 SizeY, uint32 BytesPerPixel, uint32 SourceStride, uint32 DestStride)
 {
 	const uint32 NumBytesPerRow = SizeX * BytesPerPixel;
 
@@ -107,7 +107,7 @@ void UNiagaraDataInterfaceTexture2D::CopyTextureData(const uint8* Source, uint8*
 
 #endif
 
-void UNiagaraDataInterfaceTexture2D::Serialize(FArchive& Ar)
+void UNiagaraDataInterfaceTexture::Serialize(FArchive& Ar)
 {
 	Super::Serialize(Ar);
 	if (Ar.IsLoading() == false || Ar.CustomVer(FNiagaraCustomVersion::GUID) >= FNiagaraCustomVersion::TextureDataInterfaceUsesCustomSerialize)
@@ -117,30 +117,30 @@ void UNiagaraDataInterfaceTexture2D::Serialize(FArchive& Ar)
 	Ar.UsingCustomVersion(FNiagaraCustomVersion::GUID);
 }
 
-bool UNiagaraDataInterfaceTexture2D::CopyToInternal(UNiagaraDataInterface* Destination) const
+bool UNiagaraDataInterfaceTexture::CopyToInternal(UNiagaraDataInterface* Destination) const
 {
 	if (!Super::CopyToInternal(Destination))
 	{
 		return false;
 	}
-	UNiagaraDataInterfaceTexture2D* DestinationTexture = CastChecked<UNiagaraDataInterfaceTexture2D>(Destination);
+	UNiagaraDataInterfaceTexture* DestinationTexture = CastChecked<UNiagaraDataInterfaceTexture>(Destination);
 	DestinationTexture->Texture = Texture;
 	DestinationTexture->CPUTextureData = CPUTextureData;
 
 	return true;
 }
 
-bool UNiagaraDataInterfaceTexture2D::Equals(const UNiagaraDataInterface* Other) const
+bool UNiagaraDataInterfaceTexture::Equals(const UNiagaraDataInterface* Other) const
 {
 	if (!Super::Equals(Other))
 	{
 		return false;
 	}
-	const UNiagaraDataInterfaceTexture2D* OtherTexture = CastChecked<const UNiagaraDataInterfaceTexture2D>(Other);
+	const UNiagaraDataInterfaceTexture* OtherTexture = CastChecked<const UNiagaraDataInterfaceTexture>(Other);
 	return OtherTexture->Texture == Texture;
 }
 
-void UNiagaraDataInterfaceTexture2D::GetFunctions(TArray<FNiagaraFunctionSignature>& OutFunctions)
+void UNiagaraDataInterfaceTexture::GetFunctions(TArray<FNiagaraFunctionSignature>& OutFunctions)
 {
 	FNiagaraFunctionSignature Sig;
 	Sig.Name = SampleTextureName;
@@ -155,16 +155,16 @@ void UNiagaraDataInterfaceTexture2D::GetFunctions(TArray<FNiagaraFunctionSignatu
 	OutFunctions.Add(Sig);
 }
 
-DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceTexture2D, SampleTexture);
-void UNiagaraDataInterfaceTexture2D::GetVMExternalFunction(const FVMExternalFunctionBindingInfo& BindingInfo, void* InstanceData, FVMExternalFunction &OutFunc)
+DEFINE_NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceTexture, SampleTexture);
+void UNiagaraDataInterfaceTexture::GetVMExternalFunction(const FVMExternalFunctionBindingInfo& BindingInfo, void* InstanceData, FVMExternalFunction &OutFunc)
 {
 	check(BindingInfo.Name == SampleTextureName);
 	check(BindingInfo.GetNumInputs() == 2 && BindingInfo.GetNumOutputs() == 4);
-	TNDIParamBinder<0, float, TNDIParamBinder<1, float, NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceTexture2D, SampleTexture)>>::Bind(this, BindingInfo, InstanceData, OutFunc);
+	TNDIParamBinder<0, float, TNDIParamBinder<1, float, NDI_RAW_FUNC_BINDER(UNiagaraDataInterfaceTexture, SampleTexture)>>::Bind(this, BindingInfo, InstanceData, OutFunc);
 }
 
 template<typename XType, typename YType>
-void UNiagaraDataInterfaceTexture2D::SampleTexture(FVectorVMContext& Context)
+void UNiagaraDataInterfaceTexture::SampleTexture(FVectorVMContext& Context)
 {
 	XType XParam(Context);
 	YType YParam(Context);
@@ -188,10 +188,10 @@ void UNiagaraDataInterfaceTexture2D::SampleTexture(FVectorVMContext& Context)
 	else
 	{
 		const int32 BytesPerPixel = 4;
-		int32 IntSizeX = Texture->GetSizeX();
-		int32 IntSizeY = Texture->GetSizeY();
-		float SizeX = (float)Texture->GetSizeX() - 1.0f;
-		float SizeY = (float)Texture->GetSizeY() - 1.0f;
+		int32 IntSizeX = Texture->GetSurfaceWidth();
+		int32 IntSizeY = Texture->GetSurfaceHeight();
+		float SizeX = (float)Texture->GetSurfaceWidth() - 1.0f;
+		float SizeY = (float)Texture->GetSurfaceHeight() - 1.0f;
 
 		for (int32 i = 0; i < Context.NumInstances; ++i)
 		{
@@ -221,7 +221,7 @@ void UNiagaraDataInterfaceTexture2D::SampleTexture(FVectorVMContext& Context)
 
 }
 
-bool UNiagaraDataInterfaceTexture2D::GetFunctionHLSL(const FName& DefinitionFunctionName, FString InstanceFunctionName, FNiagaraDataInterfaceGPUParamInfo& ParamInfo, FString& OutHLSL)
+bool UNiagaraDataInterfaceTexture::GetFunctionHLSL(const FName& DefinitionFunctionName, FString InstanceFunctionName, FNiagaraDataInterfaceGPUParamInfo& ParamInfo, FString& OutHLSL)
 {
 	FString HLSLTextureName = TextureName + ParamInfo.DataInterfaceHLSLSymbol;
 	FString HLSLSamplerName = SamplerName + ParamInfo.DataInterfaceHLSLSymbol;
@@ -231,7 +231,7 @@ bool UNiagaraDataInterfaceTexture2D::GetFunctionHLSL(const FName& DefinitionFunc
 	return true;
 }
 
-void UNiagaraDataInterfaceTexture2D::GetParameterDefinitionHLSL(FNiagaraDataInterfaceGPUParamInfo& ParamInfo, FString& OutHLSL)
+void UNiagaraDataInterfaceTexture::GetParameterDefinitionHLSL(FNiagaraDataInterfaceGPUParamInfo& ParamInfo, FString& OutHLSL)
 {
 	FString HLSLTextureName = TextureName + ParamInfo.DataInterfaceHLSLSymbol;
 	FString HLSLSamplerName = SamplerName + ParamInfo.DataInterfaceHLSLSymbol;
@@ -245,8 +245,8 @@ struct FNiagaraDataInterfaceParametersCS_Texture : public FNiagaraDataInterfaceP
 {
 	virtual void Bind(const FNiagaraDataInterfaceParamRef& ParamRef, const class FShaderParameterMap& ParameterMap) override
 	{
-		FString TexName = UNiagaraDataInterfaceTexture2D::TextureName + ParamRef.ParameterInfo.DataInterfaceHLSLSymbol;
-		FString SampleName = (UNiagaraDataInterfaceTexture2D::SamplerName + ParamRef.ParameterInfo.DataInterfaceHLSLSymbol);
+		FString TexName = UNiagaraDataInterfaceTexture::TextureName + ParamRef.ParameterInfo.DataInterfaceHLSLSymbol;
+		FString SampleName = (UNiagaraDataInterfaceTexture::SamplerName + ParamRef.ParameterInfo.DataInterfaceHLSLSymbol);
 		TextureParam.Bind(ParameterMap, *TexName);
 		SamplerParam.Bind(ParameterMap, *SampleName);
 		
@@ -272,13 +272,13 @@ struct FNiagaraDataInterfaceParametersCS_Texture : public FNiagaraDataInterfaceP
 		check(IsInRenderingThread());
 
 		FComputeShaderRHIParamRef ComputeShaderRHI = Shader->GetComputeShader();
-		UNiagaraDataInterfaceTexture2D* TextureDI = CastChecked<UNiagaraDataInterfaceTexture2D>(DataInterface);
+		UNiagaraDataInterfaceTexture* TextureDI = CastChecked<UNiagaraDataInterfaceTexture>(DataInterface);
 		UTexture *Texture = TextureDI->Texture;
 		if (!Texture)
 		{
 			return;
 		}
-		FTextureRHIParamRef TextureRHI = Texture->Resource->TextureRHI;
+		FTextureRHIParamRef TextureRHI = Texture->TextureReference.TextureReferenceRHI;
 		SetTextureParameter(
 			RHICmdList,
 			ComputeShaderRHI,
@@ -296,7 +296,7 @@ private:
 	FShaderResourceParameter SamplerParam;
 };
 
-FNiagaraDataInterfaceParametersCS* UNiagaraDataInterfaceTexture2D::ConstructComputeParameters()const
+FNiagaraDataInterfaceParametersCS* UNiagaraDataInterfaceTexture::ConstructComputeParameters()const
 {
 	return new FNiagaraDataInterfaceParametersCS_Texture();
 }
