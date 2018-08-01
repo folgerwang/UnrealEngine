@@ -6382,9 +6382,10 @@ EAsyncPackageState::Type FAsyncPackage::PostLoadObjects()
 	// GC can't run in here
 	FGCScopeGuard GCGuard;
 
-	TGuardValue<bool> GuardIsRoutingPostLoad(FUObjectThreadContext::Get().IsRoutingPostLoad, true);
+	FUObjectThreadContext& ThreadContext = FUObjectThreadContext::Get();
+	TGuardValue<bool> GuardIsRoutingPostLoad(ThreadContext.IsRoutingPostLoad, true);
 
-	TArray<UObject*>& ThreadObjLoaded = FUObjectThreadContext::Get().ObjLoaded;
+	TArray<UObject*>& ThreadObjLoaded = ThreadContext.ObjLoaded;
 	if (ThreadObjLoaded.Num())
 	{
 		// New objects have been loaded. They need to go through PreLoad first so exit now and come back after they've been preloaded.
@@ -6416,7 +6417,9 @@ EAsyncPackageState::Type FAsyncPackage::PostLoadObjects()
 				// We want this check only with EDL enabled
 				check(!GEventDrivenLoaderEnabled || !Object->HasAnyFlags(RF_NeedLoad));
 
+				ThreadContext.CurrentlyPostLoadedObjectByALT = Object;
 				Object->ConditionalPostLoad();
+				ThreadContext.CurrentlyPostLoadedObjectByALT = nullptr;
 
 				LastObjectWorkWasPerformedOn = Object;
 				LastTypeOfWorkPerformed = TEXT("postloading_async");
@@ -6478,7 +6481,9 @@ EAsyncPackageState::Type FAsyncPackage::PostLoadDeferredObjects(double InTickSta
 
 		FScopeCycleCounterUObject ConstructorScope(Object, GET_STATID(STAT_FAsyncPackage_PostLoadObjectsGameThread));
 
+		PackageScope.ThreadContext.CurrentlyPostLoadedObjectByALT = Object;
 		Object->ConditionalPostLoad();
+		PackageScope.ThreadContext.CurrentlyPostLoadedObjectByALT = nullptr;
 
 		if (ObjLoadedInPostLoad.Num())
 		{
