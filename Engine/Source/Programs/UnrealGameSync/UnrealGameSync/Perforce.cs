@@ -1241,7 +1241,15 @@ namespace UnrealGameSync
 		private bool RunCommand(string CommandLine, CommandOptions Options, TextWriter Log)
 		{
 			List<string> Lines;
-			return RunCommand(CommandLine, out Lines, Options, Log);
+			bool bResult = RunCommand(CommandLine, out Lines, Options, Log);
+			if(Lines != null)
+			{
+				foreach(string Line in Lines)
+				{
+					Log.WriteLine("p4>   {0}", Line);
+				}
+			}
+			return bResult;
 		}
 
 		private bool RunCommand(string CommandLine, out List<string> Lines, CommandOptions Options, TextWriter Log)
@@ -1258,6 +1266,10 @@ namespace UnrealGameSync
 			if(Utility.ExecuteProcess("p4.exe", null, FullCommandLine, null, out RawOutputLines) != 0 && !Options.HasFlag(CommandOptions.IgnoreExitCode))
 			{
 				Lines = null;
+				foreach(string RawOutputLine in RawOutputLines)
+				{
+					Log.WriteLine("p4>   {0}", RawOutputLine);
+				}
 				return false;
 			}
 
@@ -1271,11 +1283,25 @@ namespace UnrealGameSync
 				List<string> LocalLines = new List<string>();
 				foreach(string RawOutputLine in RawOutputLines)
 				{
-					bResult &= ParseCommandOutput(RawOutputLine, Line => { if(Line.Channel == Channel){ LocalLines.Add(Line.Text); return true; } else { Log.WriteLine(Line.Text); return Line.Channel != PerforceOutputChannel.Error; } }, Options);
+					bResult &= ParseCommandOutput(RawOutputLine, Line => FilterOutput(Line, Channel, LocalLines, Log), Options);
 				}
 				Lines = LocalLines;
 			}
 			return bResult;
+		}
+
+		private bool FilterOutput(PerforceOutputLine Line, PerforceOutputChannel FilterChannel, List<string> FilterLines, TextWriter Log)
+		{
+			if(Line.Channel == FilterChannel)
+			{
+				FilterLines.Add(Line.Text);
+				return true;
+			}
+			else
+			{
+				Log.WriteLine(Line.Text);
+				return Line.Channel != PerforceOutputChannel.Error;
+			}
 		}
 
 		private bool RunCommand(string CommandLine, string Input, HandleOutputDelegate HandleOutput, CommandOptions Options, TextWriter Log)

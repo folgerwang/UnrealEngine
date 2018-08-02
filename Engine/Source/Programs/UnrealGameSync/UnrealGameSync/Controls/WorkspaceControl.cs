@@ -607,6 +607,7 @@ namespace UnrealGameSync
 		{
 			if(!bIsDisposing)
 			{
+				Log.WriteLine("Login has expired. Requesting project to be closed.");
 				Owner.RequestProjectChange(this, SelectedProject, false);
 			}
 		}
