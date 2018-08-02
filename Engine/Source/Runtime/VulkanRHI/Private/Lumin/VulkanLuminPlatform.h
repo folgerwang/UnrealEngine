@@ -51,9 +51,12 @@ public:
 
 	static bool HasUnifiedMemory() { return true; }
 
+	static void EnablePhysicalDeviceFeatureExtensions(VkDeviceCreateInfo& DeviceInfo);
+
 protected:
 	static void* VulkanLib;
 	static bool bAttemptedLoad;
+	static VkPhysicalDeviceSamplerYcbcrConversionFeatures SamplerConversion;
 };
 
 typedef FVulkanLuminPlatform FVulkanPlatform;

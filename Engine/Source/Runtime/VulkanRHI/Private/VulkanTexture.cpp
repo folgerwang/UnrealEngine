@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	VulkanTexture.cpp: Vulkan texture RHI implementation.
@@ -1298,11 +1298,7 @@ void FVulkanDynamicRHI::InternalUpdateTexture3D(bool bFromRenderingThread, FText
 }
 
 
-VkImageView FVulkanTextureView::StaticCreate(FVulkanDevice& Device, VkImage Image, VkImageViewType ViewType, VkImageAspectFlags AspectFlags, EPixelFormat UEFormat, VkFormat Format, uint32 FirstMip, uint32 NumMips, uint32 ArraySliceIndex, uint32 NumArraySlices, bool bUseIdentitySwizzle
-#if WITH_VULKAN_COLOR_CONVERSIONS
-	, const FSamplerYcbcrConversionInitializer* ConversionInitializer
-#endif
-)
+VkImageView FVulkanTextureView::StaticCreate(FVulkanDevice& Device, VkImage Image, VkImageViewType ViewType, VkImageAspectFlags AspectFlags, EPixelFormat UEFormat, VkFormat Format, uint32 FirstMip, uint32 NumMips, uint32 ArraySliceIndex, uint32 NumArraySlices, bool bUseIdentitySwizzle, const FSamplerYcbcrConversionInitializer* ConversionInitializer)
 {
 	VkImageView View = VK_NULL_HANDLE;
 
@@ -1320,7 +1316,6 @@ VkImageView FVulkanTextureView::StaticCreate(FVulkanDevice& Device, VkImage Imag
 		ViewInfo.components = Device.GetFormatComponentMapping(UEFormat);
 	}
 
-#if WITH_VULKAN_COLOR_CONVERSIONS
 	if (ConversionInitializer != nullptr)
 	{
 		VkSamplerYcbcrConversionCreateInfo ConversionCreateInfo;
@@ -1342,14 +1337,12 @@ VkImageView FVulkanTextureView::StaticCreate(FVulkanDevice& Device, VkImage Imag
 
 		check(ConversionInitializer->Format != VK_FORMAT_UNDEFINED); // No support for VkExternalFormatANDROID yet.
 
-		// TODO: We are leaking the color conversion handle
 		VkSamplerYcbcrConversionInfo ConversionInfo;
 		FMemory::Memzero(&ConversionInfo, sizeof(VkSamplerYcbcrConversionInfo));
-		VERIFYVULKANRESULT(vkCreateSamplerYcbcrConversionKHR(Device.GetInstanceHandle(), &ConversionCreateInfo, nullptr, &ConversionInfo.conversion));
+		ConversionInfo.conversion = Device.CreateSamplerColorConversion(ConversionCreateInfo);
 		ConversionInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_YCBCR_CONVERSION_INFO;
 		ViewInfo.pNext = &ConversionInfo;
 	}
-#endif
 
 	ViewInfo.subresourceRange.aspectMask = AspectFlags;
 	ViewInfo.subresourceRange.baseMipLevel = FirstMip;
@@ -1416,13 +1409,11 @@ void FVulkanTextureView::Create(FVulkanDevice& Device, VkImage InImage, VkImageV
 */
 }
 
-#if WITH_VULKAN_COLOR_CONVERSIONS
 void FVulkanTextureView::Create(FVulkanDevice& Device, VkImage InImage, VkImageViewType ViewType, VkImageAspectFlags AspectFlags, EPixelFormat UEFormat, VkFormat Format, uint32 FirstMip, uint32 NumMips, uint32 ArraySliceIndex, uint32 NumArraySlices, FSamplerYcbcrConversionInitializer& ConversionInitializer)
 {
 	View = StaticCreate(Device, InImage, ViewType, AspectFlags, UEFormat, Format, FirstMip, NumMips, ArraySliceIndex, NumArraySlices, false, &ConversionInitializer);
 	Image = InImage;
 }
-#endif
 
 void FVulkanTextureView::Destroy(FVulkanDevice& Device)
 {
@@ -1568,7 +1559,6 @@ FVulkanTextureBase::FVulkanTextureBase(FVulkanDevice& Device, VkImageViewType Re
 	}
 }
 
-#if WITH_VULKAN_COLOR_CONVERSIONS
 FVulkanTextureBase::FVulkanTextureBase(FVulkanDevice& Device, VkImageViewType ResourceType, EPixelFormat Format, uint32 SizeX, uint32 SizeY, uint32 SizeZ, uint32 NumMips, uint32 NumSamples, VkImage InImage, VkDeviceMemory InMem, FSamplerYcbcrConversionInitializer& ConversionInitializer, uint32 UEFlags, const FRHIResourceCreateInfo& CreateInfo)
 	: Surface(Device, ResourceType, Format, SizeX, SizeY, SizeZ, NumMips, NumSamples, InImage, UEFlags, CreateInfo)
 	, PartialView(nullptr)
@@ -1601,7 +1591,6 @@ FVulkanTextureBase::FVulkanTextureBase(FVulkanDevice& Device, VkImageViewType Re
 		PartialView->Create(Device, Surface.Image, Surface.ViewType, Surface.PartialAspectMask, Surface.PixelFormat, Surface.ViewFormat, 0, FMath::Max(NumMips, 1u), 0, FMath::Max(1u, SizeZ), ConversionInitializer);
 	}
 }
-#endif
 
 FVulkanTextureBase::~FVulkanTextureBase()
 {
@@ -1684,13 +1673,11 @@ FVulkanTexture2D::FVulkanTexture2D(FVulkanDevice& Device, EPixelFormat Format, u
 {
 }
 
-#if WITH_VULKAN_COLOR_CONVERSIONS
 FVulkanTexture2D::FVulkanTexture2D(FVulkanDevice& Device, EPixelFormat Format, uint32 SizeX, uint32 SizeY, uint32 NumMips, uint32 NumSamples, VkImage Image, FSamplerYcbcrConversionInitializer& ConversionInitializer, uint32 UEFlags, const FRHIResourceCreateInfo& CreateInfo)
 	: FRHITexture2D(SizeX, SizeY, NumMips, NumSamples, Format, UEFlags, CreateInfo.ClearValueBinding)
 	, FVulkanTextureBase(Device, VK_IMAGE_VIEW_TYPE_2D, Format, SizeX, SizeY, 1, NumMips, NumSamples, Image, VK_NULL_HANDLE, ConversionInitializer, UEFlags)
 {
 }
-#endif
 
 FVulkanTexture2D::~FVulkanTexture2D()
 {

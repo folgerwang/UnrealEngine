@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	VulkanDevice.cpp: Vulkan device RHI implementation.
@@ -269,14 +269,7 @@ void FVulkanDevice::CreateDevice()
 	FVulkanPlatform::RestrictEnabledPhysicalDeviceFeatures(Features, EnabledFeatures);
 	DeviceInfo.pEnabledFeatures = &EnabledFeatures;
 
-	// TODO: Enable color conversion, this should be gated for a check if we're using the ext and moved to a Lumin specific call
-#if PLATFORM_LUMIN
-	VkPhysicalDeviceSamplerYcbcrConversionFeatures SamplerConversion;
-	SamplerConversion.pNext = nullptr;
-	SamplerConversion.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SAMPLER_YCBCR_CONVERSION_FEATURES;
-	SamplerConversion.samplerYcbcrConversion = VK_TRUE;
-	DeviceInfo.pNext = &SamplerConversion;
-#endif
+	FVulkanPlatform::EnablePhysicalDeviceFeatureExtensions(DeviceInfo);
 
 	// Create the device
 	VERIFYVULKANRESULT(VulkanRHI::vkCreateDevice(Gpu, &DeviceInfo, nullptr, &Device));
@@ -608,6 +601,23 @@ void FVulkanDevice::SetupFormats()
 	}
 }
 
+VkSamplerYcbcrConversion FVulkanDevice::CreateSamplerColorConversion(const VkSamplerYcbcrConversionCreateInfo& CreateInfo)
+{
+	const uint32 CreateInfoHash = FCrc::MemCrc32(&CreateInfo, sizeof(CreateInfo));
+	VkSamplerYcbcrConversion* const FindResult = SamplerColorConversionMap.Find(CreateInfoHash);
+	if (FindResult != nullptr)
+	{
+		return *FindResult;
+	}
+	else
+	{
+		VkSamplerYcbcrConversion NewConversion;
+		VERIFYVULKANRESULT(vkCreateSamplerYcbcrConversionKHR(GetInstanceHandle(), &CreateInfo, nullptr, &NewConversion));
+		SamplerColorConversionMap.Add(CreateInfoHash, NewConversion);
+		return NewConversion;
+	}
+}
+
 void FVulkanDevice::MapFormatSupport(EPixelFormat UEFormat, VkFormat VulkanFormat)
 {
 	FPixelFormatInfo& FormatInfo = GPixelFormats[UEFormat];
@@ -841,6 +851,12 @@ void FVulkanDevice::Destroy()
 
 	delete DefaultImage;
 	DefaultImage = nullptr;
+
+	for (const auto& Pair : SamplerColorConversionMap)
+	{
+		vkDestroySamplerYcbcrConversionKHR(GetInstanceHandle(), Pair.Value, nullptr);
+	}
+	SamplerColorConversionMap.Reset();
 
 	for (int32 Index = CommandContexts.Num() - 1; Index >= 0; --Index)
 	{

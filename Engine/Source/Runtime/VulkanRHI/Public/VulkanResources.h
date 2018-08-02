@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	VulkanResources.h: Vulkan resource RHI definitions.
@@ -38,7 +38,6 @@ enum
 	NUM_TIMESTAMP_QUERIES_PER_POOL = 1024,
 };
 
-#if WITH_VULKAN_COLOR_CONVERSIONS
 struct FSamplerYcbcrConversionInitializer
 {
 	VkFormat Format;
@@ -49,13 +48,6 @@ struct FSamplerYcbcrConversionInitializer
 	VkChromaLocation XOffset;
 	VkChromaLocation YOffset;
 };
-//#else
-//place holder to allow similar function signatures
-//struct FSamplerYcbcrConversionInitializer
-//{
-//	//uint32 StubParam;
-//};
-#endif
 
 /** This represents a vertex declaration that hasn't been combined with a specific shader to create a bound shader. */
 class FVulkanVertexDeclaration : public FRHIVertexDeclaration
@@ -380,16 +372,10 @@ struct FVulkanTextureView
 	{
 	}
 
-	static VkImageView StaticCreate(FVulkanDevice& Device, VkImage InImage, VkImageViewType ViewType, VkImageAspectFlags AspectFlags, EPixelFormat UEFormat, VkFormat Format, uint32 FirstMip, uint32 NumMips, uint32 ArraySliceIndex, uint32 NumArraySlices, bool bUseIdentitySwizzle = false
-#if WITH_VULKAN_COLOR_CONVERSIONS
-		, const FSamplerYcbcrConversionInitializer* ConversionInitializer = nullptr
-#endif
-	);
+	static VkImageView StaticCreate(FVulkanDevice& Device, VkImage InImage, VkImageViewType ViewType, VkImageAspectFlags AspectFlags, EPixelFormat UEFormat, VkFormat Format, uint32 FirstMip, uint32 NumMips, uint32 ArraySliceIndex, uint32 NumArraySlices, bool bUseIdentitySwizzle = false, const FSamplerYcbcrConversionInitializer* ConversionInitializer = nullptr);
 
 	void Create(FVulkanDevice& Device, VkImage InImage, VkImageViewType ViewType, VkImageAspectFlags AspectFlags, EPixelFormat UEFormat, VkFormat Format, uint32 FirstMip, uint32 NumMips, uint32 ArraySliceIndex, uint32 NumArraySlices);
-#if WITH_VULKAN_COLOR_CONVERSIONS
 	void Create(FVulkanDevice& Device, VkImage InImage, VkImageViewType ViewType, VkImageAspectFlags AspectFlags, EPixelFormat UEFormat, VkFormat Format, uint32 FirstMip, uint32 NumMips, uint32 ArraySliceIndex, uint32 NumArraySlices, FSamplerYcbcrConversionInitializer& ConversionInitializer);
-#endif
 	void Destroy(FVulkanDevice& Device);
 
 	VkImageView View;
@@ -411,12 +397,10 @@ struct FVulkanTextureBase : public FVulkanBaseShaderResource
 		return OutTexture;
 	}
 
-
 	FVulkanTextureBase(FVulkanDevice& Device, VkImageViewType ResourceType, EPixelFormat Format, uint32 SizeX, uint32 SizeY, uint32 SizeZ, bool bArray, uint32 ArraySize, uint32 NumMips, uint32 NumSamples, uint32 UEFlags, const FRHIResourceCreateInfo& CreateInfo);
 	FVulkanTextureBase(FVulkanDevice& Device, VkImageViewType ResourceType, EPixelFormat Format, uint32 SizeX, uint32 SizeY, uint32 SizeZ, uint32 NumMips, uint32 NumSamples, uint32 NumSamplesTileMem, VkImage InImage, VkDeviceMemory InMem, uint32 UEFlags, const FRHIResourceCreateInfo& CreateInfo = FRHIResourceCreateInfo());
-#if WITH_VULKAN_COLOR_CONVERSIONS
 	FVulkanTextureBase(FVulkanDevice& Device, VkImageViewType ResourceType, EPixelFormat Format, uint32 SizeX, uint32 SizeY, uint32 SizeZ, uint32 NumMips, uint32 NumSamples, VkImage InImage, VkDeviceMemory InMem, FSamplerYcbcrConversionInitializer& ConversionInitializer, uint32 UEFlags, const FRHIResourceCreateInfo& CreateInfo = FRHIResourceCreateInfo());
-#endif
+
 	virtual ~FVulkanTextureBase();
 
 	VkImageView CreateRenderTargetView(uint32 MipIndex, uint32 NumMips, uint32 ArraySliceIndex, uint32 NumArraySlices);
@@ -447,9 +431,8 @@ class FVulkanTexture2D : public FRHITexture2D, public FVulkanTextureBase
 public:
 	FVulkanTexture2D(FVulkanDevice& Device, EPixelFormat Format, uint32 SizeX, uint32 SizeY, uint32 NumMips, uint32 NumSamples, uint32 UEFlags, const FRHIResourceCreateInfo& CreateInfo);
 	FVulkanTexture2D(FVulkanDevice& Device, EPixelFormat Format, uint32 SizeX, uint32 SizeY, uint32 NumMips, uint32 NumSamples, uint32 NumSamplesTileMem, VkImage Image, uint32 UEFlags, const FRHIResourceCreateInfo& CreateInfo);
-#if WITH_VULKAN_COLOR_CONVERSIONS
 	FVulkanTexture2D(FVulkanDevice& Device, EPixelFormat Format, uint32 SizeX, uint32 SizeY, uint32 NumMips, uint32 NumSamples, VkImage Image, struct FSamplerYcbcrConversionInitializer& ConversionInitializer, uint32 UEFlags, const FRHIResourceCreateInfo& CreateInfo);
-#endif
+
 	virtual ~FVulkanTexture2D();
 
 	// IRefCountedObject interface.

@@ -300,6 +300,8 @@ public:
 
 	void SetupPresentQueue(VkSurfaceKHR Surface);
 
+	VkSamplerYcbcrConversion CreateSamplerColorConversion(const VkSamplerYcbcrConversionCreateInfo& CreateInfo);
+
 private:
 	void MapFormatSupport(EPixelFormat UEFormat, VkFormat VulkanFormat);
 	void MapFormatSupport(EPixelFormat UEFormat, VkFormat VulkanFormat, int32 BlockBytes);
@@ -370,6 +372,7 @@ private:
 	FVulkanCommandListContextImmediate* ImmediateContext;
 	FVulkanCommandListContext* ComputeContext;
 	TArray<FVulkanCommandListContext*> CommandContexts;
+	TMap<uint32, VkSamplerYcbcrConversion> SamplerColorConversionMap;
 
 	void GetDeviceExtensionsAndLayers(TArray<const ANSICHAR*>& OutDeviceExtensions, TArray<const ANSICHAR*>& OutDeviceLayers, bool& bOutDebugMarkers);
 

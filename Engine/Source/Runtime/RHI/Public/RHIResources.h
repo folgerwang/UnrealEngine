@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 
 #pragma once
@@ -1555,6 +1555,11 @@ struct FImmutableSamplerState
 		{
 			ImmutableSamplers[Index] = nullptr;
 		}
+	}
+
+	bool operator==(const FImmutableSamplerState& rhs) const
+	{
+		return ImmutableSamplers == rhs.ImmutableSamplers;
 	}
 
 	bool operator!=(const FImmutableSamplerState& rhs) const

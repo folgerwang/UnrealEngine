@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2018 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	VulkanState.cpp: Vulkan state implementation.
@@ -366,7 +366,6 @@ FSamplerStateRHIRef FVulkanDynamicRHI::RHICreateSamplerState(const FSamplerState
 	}
 }
 
-#if WITH_VULKAN_COLOR_CONVERSIONS
 FSamplerStateRHIRef FVulkanDynamicRHI::RHICreateSamplerState(
 	const FSamplerStateInitializerRHI& Initializer, 
 	const FSamplerYcbcrConversionInitializer& ConversionInitializer)
@@ -390,10 +389,9 @@ FSamplerStateRHIRef FVulkanDynamicRHI::RHICreateSamplerState(
 
 	check(ConversionInitializer.Format != VK_FORMAT_UNDEFINED); // No support for VkExternalFormatANDROID yet.
 
-	// TODO: We are leaking the color conversion handle
 	VkSamplerYcbcrConversionInfo ConversionInfo;
 	FMemory::Memzero(&ConversionInfo, sizeof(VkSamplerYcbcrConversionInfo));
-	VERIFYVULKANRESULT(vkCreateSamplerYcbcrConversionKHR(Device->GetInstanceHandle(), &ConversionCreateInfo, nullptr, &ConversionInfo.conversion));
+	ConversionInfo.conversion = Device->CreateSamplerColorConversion(ConversionCreateInfo);
 	ConversionInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_YCBCR_CONVERSION_INFO;
 
 	VkSamplerCreateInfo SamplerInfo;
@@ -402,7 +400,6 @@ FSamplerStateRHIRef FVulkanDynamicRHI::RHICreateSamplerState(
 
 	return new FVulkanSamplerState(SamplerInfo, *Device, true);
 }
-#endif
 
 
 FRasterizerStateRHIRef FVulkanDynamicRHI::RHICreateRasterizerState(const FRasterizerStateInitializerRHI& Initializer)
